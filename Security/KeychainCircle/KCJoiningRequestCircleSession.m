@@ -110,7 +110,7 @@ typedef enum {
     secnotice("joining", "joining: KCJoiningRequestCircleSession initialMessage called");
 
 #if OCTAGON
-    if(KCJoiningOctagonPiggybackingEnabled() && self.piggy_version == kPiggyV2){
+    if(self.piggy_version == kPiggyV2){
         __block NSData* next = nil;
         __block NSError* localError = nil;
 
@@ -206,7 +206,7 @@ typedef enum {
 
     BOOL shouldJoin = YES;
 
-    if (OctagonPlatformSupportsSOS() == NO) {
+    if (OctagonPlatformSupportsSOS() == false) {
         secnotice("joining", "platform does not support SOS");
         shouldJoin = NO;
     } else if (message.secondData == nil) {
@@ -227,7 +227,7 @@ typedef enum {
         return nil;
     }
 #if OCTAGON
-    if(self.piggy_version == kPiggyV2 && KCJoiningOctagonPiggybackingEnabled() && message.firstData != nil){
+    if(self.piggy_version == kPiggyV2 && message.firstData != nil){
         __block NSData* nextMessage = nil;
         __block NSError* localError = nil;
         dispatch_semaphore_t sema = dispatch_semaphore_create(0);
@@ -292,10 +292,8 @@ typedef enum {
     } else {
         secnotice("joining", "joined the SOS circle!");
 #if OCTAGON
-        if(OctagonIsEnabled()) {
-            secnotice("joining", "kicking off SOS Upgrade into Octagon!");
-            [self waitForOctagonUpgrade];
-        }
+        secnotice("joining", "kicking off SOS Upgrade into Octagon!");
+        [self waitForOctagonUpgrade];
 #endif
     }
     self->_state = kRequestCircleDone;

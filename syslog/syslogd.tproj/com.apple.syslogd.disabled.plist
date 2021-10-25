@@ -26,18 +26,6 @@
 		<key>com.apple.system.logger</key>
 		<true/>
 	</dict>
-	<key>Sockets</key>
-	<dict>
-		<key>BSDSystemLogger</key>
-		<dict>
-			<key>SockPathName</key>
-			<string>/var/run/syslog</string>
-			<key>SockType</key>
-			<string>dgram</string>
-			<key>SockPathMode</key>
-			<integer>438</integer>
-		</dict>
-	</dict>
 	<key>Disabled</key>
 	<true/>
 </dict>

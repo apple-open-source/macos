@@ -85,15 +85,67 @@ def ShowZPerCPU(cmd_args=None, cmd_options={}):
     if "-S" in cmd_options:
         print acc
 
-def ZoneName(zone):
+def ZoneName(zone, zone_security):
     """ Formats the name for a given zone
         params:
-            zone         - value : A pointer to a zone
+            zone             - value : A pointer to a zone
+            zone_security    - value : A pointer to zone security flags
         returns:
             the formated name for the zone
     """
     names = [ "", "default.", "data.", "kext."]
-    return "{:s}{:s}".format(names[int(zone.kalloc_heap)], zone.z_name)
+    return "{:s}{:s}".format(names[int(zone_security.z_kheap_id)], zone.z_name)
+
+def GetZoneByName(name):
+    """ Internal function to find a zone by name
+    """
+    for i in xrange(1, int(kern.GetGlobalVariable('num_zones'))):
+        z = addressof(kern.globals.zone_array[i])
+        zs = addressof(kern.globals.zone_security_array[i])
+        if ZoneName(z, zs) == name:
+            return z
+    return None
+
+def GetZoneCachedElements(zone):
+    """ Internal function to return cached element addresses in a zone
+    """
+    cached = set()
+    page_size = unsigned(kern.globals.page_size)
+
+    def decode_element(addr):
+        base = unsigned(addr) & -page_size
+        idx  = unsigned(addr) & (page_size - 1)
+        return base + unsigned(zone.z_elem_size) * idx
+
+    if zone.z_pcpu_cache:
+        for cache in IterateZPerCPU(zone.z_pcpu_cache):
+            for i in xrange(0, cache.zc_alloc_cur):
+                cached.add(decode_element(cache.zc_alloc_elems[i].ze_value))
+            for i in xrange(0, cache.zc_free_cur):
+                cached.add(decode_element(cache.zc_free_elems[i].ze_value))
+            for mag in IterateTAILQ_HEAD(cache.zc_depot, 'zm_link', 's'):
+                for i in xrange(0, mag.zm_cur):
+                    cached.add(decode_element(mag.zm_elems[i]))
+
+    return cached
+
+def IterateZoneElements(zone, minAddr=None, maxAddr=None):
+    """ Internal function to return allocated elements in a zone
+    """
+    cached = GetZoneCachedElements(zone)
+
+    for q in [zone.z_pageq_full, zone.z_pageq_partial]:
+        for meta in ZoneIteratePageQueue(q):
+            for e in meta.iterateElements():
+                if minAddr is not None and e < minAddr:
+                    continue
+                if maxAddr is not None and e > maxAddr:
+                    continue
+                if meta.isElementFree(e):
+                    continue
+                if e in cached:
+                    continue
+                yield e
 
 def PrettyPrintDictionary(d):
     """ Internal function to pretty print a dictionary with string or integer values
@@ -102,6 +154,8 @@ def PrettyPrintDictionary(d):
     for key, value in d.items():
         key += ":"
         if isinstance(value, int):
+            print "{:<30s} {: >10d}".format(key, value)
+        elif isinstance(value, long):
             print "{:<30s} {: >10d}".format(key, value)
         else:
             print "{:<30s} {: >10s}".format(key, value)
@@ -136,8 +190,11 @@ def Memstats(cmd_args=None, cmd_options={}):
     memstats["vm_page_free_target"] = int(kern.globals.vm_page_free_target)
     memstats["vm_page_free_reserved"] = int(kern.globals.vm_page_free_reserved)
 
+    # Serializing to json here ensure we always catch bugs preventing
+    # serialization
+    as_json = json.dumps(memstats)
     if print_json:
-        print json.dumps(memstats)
+        print as_json
     else:
         PrettyPrintDictionary(memstats)
 
@@ -167,11 +224,7 @@ def CalculateLedgerPeak(phys_footprint_entry):
         params: phys_footprint_entry - value representing struct ledger_entry *
         return: value - representing the ledger peak for the given phys footprint entry
     """
-    now = kern.globals.sched_tick / 20
-    ledger_peak = long(phys_footprint_entry.le_credit) - long(phys_footprint_entry.le_debit)
-    if hasattr(phys_footprint_entry._le._le_max, 'le_interval_max') and (long(phys_footprint_entry._le._le_max.le_interval_max) > ledger_peak):
-        ledger_peak = long(phys_footprint_entry._le._le_max.le_interval_max)
-    return ledger_peak
+    return max(phys_footprint_entry['balance'], phys_footprint_entry.get('interval_max', 0))
 
 @header("{: >8s} {: >12s} {: >12s} {: >10s} {: >10s} {: >12s} {: >14s} {: >10s} {: >12s} {: >10s} {: >10s} {: >10s}  {: <32s}\n".format(
 'pid', 'effective', 'requested', 'state', 'relaunch', 'user_data', 'physical', 'iokit', 'footprint',
@@ -184,19 +237,20 @@ def GetMemoryStatusNode(proc_val):
     out_str = ''
     task_val = Cast(proc_val.task, 'task *')
     task_ledgerp = task_val.ledger
+    ledger_template = kern.globals.task_ledger_template
 
-    task_physmem_footprint_ledger_entry = task_ledgerp.l_entries[kern.globals.task_ledgers.phys_mem]
-    task_iokit_footprint_ledger_entry = task_ledgerp.l_entries[kern.globals.task_ledgers.iokit_mapped]
-    task_phys_footprint_ledger_entry = task_ledgerp.l_entries[kern.globals.task_ledgers.phys_footprint]
+    task_physmem_footprint_ledger_entry = GetLedgerEntryWithName(ledger_template, task_ledgerp, 'phys_mem')
+    task_iokit_footprint_ledger_entry = GetLedgerEntryWithName(ledger_template, task_ledgerp, 'iokit_mapped')
+    task_phys_footprint_ledger_entry = GetLedgerEntryWithName(ledger_template, task_ledgerp, 'phys_footprint')
     page_size = kern.globals.page_size
 
-    phys_mem_footprint = (long(task_physmem_footprint_ledger_entry.le_credit) - long(task_physmem_footprint_ledger_entry.le_debit)) / page_size
-    iokit_footprint = (long(task_iokit_footprint_ledger_entry.le_credit) - long(task_iokit_footprint_ledger_entry.le_debit)) / page_size
-    phys_footprint = (long(task_phys_footprint_ledger_entry.le_credit) - long(task_phys_footprint_ledger_entry.le_debit)) / page_size
-    phys_footprint_limit = long(task_phys_footprint_ledger_entry.le_limit) / page_size
+    phys_mem_footprint = task_physmem_footprint_ledger_entry['balance'] / page_size
+    iokit_footprint = task_iokit_footprint_ledger_entry['balance'] / page_size
+    phys_footprint = task_phys_footprint_ledger_entry['balance'] / page_size
+    phys_footprint_limit = task_phys_footprint_ledger_entry['limit'] / page_size
     ledger_peak = CalculateLedgerPeak(task_phys_footprint_ledger_entry)
     phys_footprint_spike = ledger_peak / page_size
-    phys_footprint_lifetime_max = long(task_phys_footprint_ledger_entry._le._le_max.le_lifetime_max) / page_size
+    phys_footprint_lifetime_max = task_phys_footprint_ledger_entry['lifetime_max'] / page_size
 
     format_string = '{0: >8d} {1: >12d} {2: >12d} {3: #011x} {4: >10d} {5: #011x} {6: >12d} {7: >10d} {8: >13d}'
     out_str += format_string.format(proc_val.p_pid, proc_val.p_memstat_effectivepriority,
@@ -290,8 +344,10 @@ class ZoneMeta(object):
 
         if self.meta:
             self.zone = addressof(kern.globals.zone_array[self.meta.zm_index])
+            self.zone_security = addressof(kern.globals.zone_security_array[self.meta.zm_index])
         else:
             self.zone = None
+            self.zone_security = None
 
     def isSecondaryPage(self):
         return self.meta and self.meta.zm_chunk_len >= 0xe
@@ -423,7 +479,8 @@ def GetZoneMetadataSummary(meta):
         meta = meta.getReal()
     out_str += "{:<#20x} {:<10d} {:<10d} {:<#18x} @{:<4d} {:<#20x} {:s}".format(
             meta.meta_addr, meta.getPageCount(), meta.getAllocCount(),
-            meta.getBitmap(), meta.getBitmapSize(), meta.zone, ZoneName(meta.zone))
+            meta.getBitmap(), meta.getBitmapSize(), meta.zone,
+            ZoneName(meta.zone, meta.zone_security))
     return out_str
 
 @header("{:<20s} {:<10s} {:<10s} {:<20s} {:<10s}".format(
@@ -448,6 +505,8 @@ def WhatIs(addr):
                 status = "Unattributed"
             elif meta.isElementFree(estart):
                 status = "Free"
+            elif estart in GetZoneCachedElements(meta.zone):
+                status = "Cached"
             else:
                 status = "Allocated"
         else:
@@ -504,7 +563,7 @@ def WhatIsHelper(cmd_args=None):
 @lldb_type_summary(['zone','zone_t'])
 @header("{:18s}  {:32s}  {:>6s}  {:>6s}  {:>6s}  {:>6s}  {:>6s}  {:>6s}  {:<s}".format(
     'ZONE', 'NAME', 'WSS', 'CONT', 'USED', 'FREE', 'CACHED', 'RECIRC', 'CPU_CACHES'))
-def GetZoneCacheCPUSummary(zone, verbose, O):
+def GetZoneCacheCPUSummary(zone, zone_security, verbose, O):
     """ Summarize a zone's cache broken up per cpu
         params:
           zone: value - obj representing a zone in kernel
@@ -549,7 +608,8 @@ def GetZoneCacheCPUSummary(zone, verbose, O):
                     depot_cur, depot_max, float(depot_cur) / cpus, float(depot_max) / cpus)
 
 
-    print O.format(format_string, ZoneName(zone), cached=cache_elem_count,
+    print O.format(format_string, ZoneName(zone, zone_security),
+            cached=cache_elem_count,
             used=zone.z_elems_avail - cache_elem_count - zone.z_elems_free,
             cont=float(zone.z_contention_wma) / 256.,
             recirc=zone.z_recirc_cur * mag_capacity,
@@ -569,17 +629,20 @@ def ZcacheCPUPrint(cmd_args=None, cmd_options={}, O=None):
     with O.table(GetZoneCacheCPUSummary.header):
         if len(cmd_args) == 1:
             zone = kern.GetValueFromAddress(cmd_args[0], 'struct zone *')
-            GetZoneCacheCPUSummary(zone, verbose, O);
+            zone_array = [z[0] for z in kern.zones]
+            zid = zone_array.index(zone)
+            zone_security = kern.zones[zid][1]
+            GetZoneCacheCPUSummary(zone, zone_security, verbose, O);
         else:
-            for zval in kern.zones:
+            for zval, zsval in kern.zones:
                 if zval.z_self:
-                    GetZoneCacheCPUSummary(zval, verbose, O)
+                    GetZoneCacheCPUSummary(zval, zsval, verbose, O)
 
 # EndMacro: showzcache
 
 # Macro: zprint
 
-def GetZone(zone_val, marks):
+def GetZone(zone_val, zs_val, marks, security_marks):
     """ Internal function which gets a phython dictionary containing important zone information.
         params:
           zone_val: value - obj representing a zone in kernel
@@ -603,6 +666,7 @@ def GetZone(zone_val, marks):
             cache_elem_count += unsigned(cache.zc_depot_cur) * mag_capacity
 
     zone["size"] = zone["page_count"] * pagesize
+    zone["submap_idx"] = unsigned(zs_val.z_submap_idx)
 
     zone["free_size"] = zone_val.z_elems_free * zone_val.z_elem_size * pcpu_scale
     zone["cached_size"] = cache_elem_count * zone_val.z_elem_size * pcpu_scale
@@ -610,7 +674,7 @@ def GetZone(zone_val, marks):
 
     zone["element_count"] = zone_val.z_elems_avail - zone_val.z_elems_free - cache_elem_count
     zone["cache_element_count"] = cache_elem_count
-    zone["free_element_count"] = zone_val.z_elems_free
+    zone["free_element_count"] = unsigned(zone_val.z_elems_free)
 
     if zone_val.z_percpu:
         zone["allocation_size"] = unsigned(pagesize)
@@ -632,7 +696,13 @@ def GetZone(zone_val, marks):
         else:
             zone[mark[0]] = False
 
-    zone["name"] = ZoneName(zone_val)
+    for mark in security_marks:
+        if zs_val.__getattr__(mark[0]):
+            zone[mark[0]] = True
+        else:
+            zone[mark[0]] = False
+
+    zone["name"] = ZoneName(zone_val, zs_val)
     if zone_val.exhaustible:
         zone["exhaustible"] = True
     else:
@@ -642,15 +712,17 @@ def GetZone(zone_val, marks):
             unsigned(zone_val.z_wired_cur)) * pcpu_scale
     zone["page_count_max"] = unsigned(zone_val.z_wired_max) * pcpu_scale
 
+    # Ensure the zone is serializable
+    json.dumps(zone)
     return zone
 
 
 @lldb_type_summary(['zone','zone_t'])
 @header(("{:<18s}  {:_^47s}  {:_^24s}  {:_^13s}  {:_^28s}\n"+
-"{:<18s}  {:>11s} {:>11s} {:>11s} {:>11s}  {:>8s} {:>7s} {:>7s}  {:>6s} {:>6s}  {:>8s} {:>6s} {:>5s} {:>7s}   {:<18s} {:<20s}").format(
+"{:<18s}  {:>11s} {:>11s} {:>11s} {:>11s}  {:>8s} {:>7s} {:>7s}  {:>6s} {:>6s}  {:>8s} {:>6s} {:>5s} {:>7s}   {:<22s} {:<20s}").format(
 '', 'SIZE (bytes)', 'ELEMENTS (#)', 'PAGES', 'ALLOC CHUNK CONFIG',
 'ZONE', 'TOTAL', 'ALLOC', 'CACHE', 'FREE', 'ALLOC', 'CACHE', 'FREE', 'COUNT', 'FREE', 'SIZE (P)', 'ELTS', 'WASTE', 'ELT_SZ', 'FLAGS', 'NAME'))
-def GetZoneSummary(zone_val, marks, stats):
+def GetZoneSummary(zone_val, zs_val, marks, security_marks, stats):
     """ Summarize a zone with important information. See help zprint for description of each field
         params:
           zone_val: value - obj representing a zone in kernel
@@ -659,7 +731,7 @@ def GetZoneSummary(zone_val, marks, stats):
     """
     pagesize = kern.globals.page_size
     out_string = ""
-    zone = GetZone(zone_val, marks)
+    zone = GetZone(zone_val, zs_val, marks, security_marks)
 
     pcpu_scale = 1
     if zone_val.z_percpu:
@@ -670,17 +742,32 @@ def GetZoneSummary(zone_val, marks, stats):
     format_string += '{z_wired_cur:6,d} {z_wired_empty:6,d}  '
     format_string += '{alloc_size_kb:3,d}K ({zone.z_chunk_pages:d}) '
     format_string += '{zd[allocation_count]:6,d} {zd[allocation_waste]:5,d} {z_elem_size:7,d}   '
-    format_string += '{markings:<18s} {zone_name:<20s}'
+    format_string += '{markings:<22s} {zone_name:<20s}'
 
     markings=""
     if zone["destroyed"]:
         markings+="I"
+    else:
+        markings+=" "
 
     for mark in marks:
         if zone[mark[0]]:
             markings += mark[1]
         else:
             markings+=" "
+    for mark in security_marks:
+        if zone[mark[0]]:
+            markings += mark[1]
+        else:
+            markings+=" "
+
+
+    """ Z_SUBMAP_IDX_READ_ONLY == 1
+    """
+    if zone["submap_idx"] == 1:
+        markings += "%"
+    else:
+        markings+=" "
 
     alloc_size_kb = zone["allocation_size"] / 1024
     out_string += format_string.format(zone=zone_val, zd=zone,
@@ -714,6 +801,7 @@ def Zprint(cmd_args=None, cmd_options={}, O=None):
     Legend:
         ! - zone uses VA sequestering
         $ - not encrypted during hibernation
+        % - zone is a read-only zone
         A - currently trying to allocate more backing memory from kernel_memory_allocate without VM priv
         C - collectable
         D - destructible
@@ -728,9 +816,7 @@ def Zprint(cmd_args=None, cmd_options={}, O=None):
         O - does not allow refill callout to fill zone on noblock allocation
         R - will be refilled when below low water mark
         S - currently trying to allocate more backing memory from kernel_memory_allocate with VM priv
-        W - another thread is waiting for more memory
         X - expandable
-        Z - elements are zeroed on free
     """
     global kern
 
@@ -738,20 +824,20 @@ def Zprint(cmd_args=None, cmd_options={}, O=None):
             ["collectable",          "C"],
             ["z_destructible",       "D"],
             ["expandable",           "X"],
-            ["z_noencrypt",          "$"],
             ["exhaustible",          "H"],
-            ["z_allows_foreign",     "F"],
             ["z_elems_rsv",          "R"],
             ["no_callout",           "O"],
             ["zleak_on",             "L"],
             ["z_expander",           "A"],
             ["z_expander_vm_priv",   "S"],
-            ["z_replenish_wait",     "W"],
             ["z_pcpu_cache",         "E"],
             ["gzalloc_exempt",       "M"],
             ["alignment_required",   "N"],
+            ]
+    security_marks = [
+            ["z_allows_foreign",     "F"],
             ["z_va_sequester",       "!"],
-            ["z_free_zeroes",        "Z"]
+            ["z_noencrypt",          "$"],
             ]
 
     stats = {
@@ -765,16 +851,16 @@ def Zprint(cmd_args=None, cmd_options={}, O=None):
 
     if print_json:
         zones = []
-        for zval in kern.zones:
+        for zval, zsval in kern.zones:
             if zval.z_self:
-                zones.append(GetZone(zval, marks))
+                zones.append(GetZone(zval, zsval, marks, security_marks))
 
         print json.dumps(zones)
     else:
         with O.table(GetZoneSummary.header):
-            for zval in kern.zones:
+            for zval, zsval in kern.zones:
                 if zval.z_self:
-                    print GetZoneSummary(zval, marks, stats)
+                    print GetZoneSummary(zval, zsval, marks, security_marks, stats)
 
             format_string  = '{VT.Bold}{name:19s} {stats[cur_size]:11,d} {stats[used_size]:11,d} {stats[cached_size]:11,d} {stats[free_size]:11,d} '
             format_string += '                           '
@@ -803,6 +889,69 @@ def TestZprint(kernel_target, config, lldb_obj, isConnected ):
 
 
 # EndMacro: zprint
+# Macro: showtypes
+def PrintTypes(z):
+    kt_cur = cast(z.z_views, "struct kalloc_type_view *")
+    prev_types = {}
+    print '    {0: <24s} {1: <40s} {2: <10s}'.format(
+        "kalloc_type_view", "typename", "signature")
+    while kt_cur:
+        typename = str(kt_cur.kt_zv.zv_name)
+        if "site." in typename:
+            typename = typename.split("site.")[1]
+            sig = str(kt_cur.kt_signature)
+            if typename not in prev_types or prev_types[typename] != sig:
+                print '    {0: <#24x} {1: <40s} {2: <10s}'.format(
+                    kt_cur, typename, sig)
+                prev_types[typename] = sig
+        kt_cur = cast(kt_cur.kt_zv.zv_next, "struct kalloc_type_view *")
+
+def ShowTypesPerSize(size):
+    kalloc_type_zarray = kern.GetGlobalVariable('kalloc_type_zarray')
+    num_kt_sizeclass = kern.GetGlobalVariable('num_kt_sizeclass')
+    for i in range(num_kt_sizeclass):
+        zone = kalloc_type_zarray[i]
+        if zone and zone.z_elem_size == size:
+            while zone:
+                print "Zone: %s (0x%x)" % (zone.z_name, zone)
+                PrintTypes(zone)
+                zone = zone.z_kt_next
+            break
+
+def ShowAllTypes():
+    kalloc_type_zarray = kern.GetGlobalVariable('kalloc_type_zarray')
+    num_kt_sizeclass = kern.GetGlobalVariable('num_kt_sizeclass')
+    for i in range(num_kt_sizeclass):
+        zone = kalloc_type_zarray[i]
+        while zone:
+            print "Zone: %s (0x%x)" % (zone.z_name, zone)
+            PrintTypes(zone)
+            zone = zone.z_kt_next
+
+@lldb_command('showkalloctypes', 'Z:S:')
+def ShowKallocTypes(cmd_args=None, cmd_options={}):
+    """
+    prints kalloc types for a zone or sizeclass
+
+    Usage: showkalloctypes [-Z <zone>] [-S <sizeclass>]
+
+    If no options are provided kalloc types for all zones is printed
+    """
+    if '-Z' in cmd_options:
+        zone = kern.GetValueFromAddress(cmd_options['-Z'], 'struct zone *')
+        if not zone:
+            raise ArgumentError("Invalid zone {:s}".format(cmd_options['-Z']))
+        PrintTypes(zone)
+        return
+    if '-S' in cmd_options:
+        size = unsigned(cmd_options['-S'])
+        if size == 0:
+            raise ArgumentError("Invalid size {:s}".format(cmd_options['-S']))
+        ShowTypesPerSize(size)
+        return
+    ShowAllTypes()
+
+# EndMacro: showkalloctypes
 # Macro: showzchunks
 
 def ZoneIteratePageQueue(page):
@@ -844,6 +993,7 @@ def GetZoneChunk(meta, queue, O=None):
 
 def ShowZChunksImpl(zone, extra_addr=None, cmd_options={}, O=None):
     verbose = '-V' in cmd_options
+    cached = GetZoneCachedElements(zone)
 
     def do_content(meta, O, indent=False):
         with O.table("{:>5s}  {:<20s} {:<10s}".format("#", "Element", "State"), indent=indent):
@@ -852,6 +1002,8 @@ def ShowZChunksImpl(zone, extra_addr=None, cmd_options={}, O=None):
                 status = "Allocated"
                 if meta.isElementFree(e):
                     status = "Free"
+                elif e in cached:
+                    status = "Cached"
                 print O.format("{:5d}  {:<#20x} {:10s}", i, e, status)
                 i += 1
 
@@ -909,7 +1061,7 @@ def ShowAllZChunks(cmd_args=None, cmd_options={}, O=None):
     Usage: showallzchunks
     """
 
-    for z in kern.zones:
+    for z, zs in kern.zones:
         ShowZChunksImpl(z, O=O)
 
 # EndMacro: showzchunks
@@ -920,9 +1072,10 @@ def ZstackShowZonesBeingLogged(cmd_args=None):
     """ Show all zones which have BTLog enabled.
     """
     global kern
-    for zval in kern.zones:
+    for zval, zsval in kern.zones:
         if zval.zlog_btlog:
-          print "Zone: %s with its BTLog at: 0x%lx" % (ZoneName(zval), zval.zlog_btlog)
+          print "Zone: %s with its BTLog at: 0x%lx" % (ZoneName(zval, zsval),
+                zval.zlog_btlog)
 
 # EndMacro: zstack_showzonesbeinglogged
 
@@ -1436,9 +1589,7 @@ def ShowPCPU(cmd_args=None, cmd_options={}, O=None):
         r = range(cpu, cpu + 1)
 
     def PCPUSlot(pcpu_var, i):
-        if i == 0:
-            return pcpu_var
-        addr = unsigned(pcpu_var) + unsigned(pcpu_base.start) + (i - 1) * unsigned(pcpu_base.size)
+        addr = unsigned(pcpu_var) + kern.PERCPU_BASE(i)
         return kern.GetValueFromAddress(addr, pcpu_var)
 
     with O.table("{:<4s} {:<20s}".format("CPU", "address")):
@@ -1621,6 +1772,10 @@ def ShowTaskVM(cmd_args=None):
     print GetVMMapSummary(task.map)
     return True
 
+def GetLedgerEntryBalance(template, ledger, idx):
+    entry = GetLedgerEntryWithTemplate(template, ledger, idx)
+    return entry['balance']
+
 @lldb_command('showallvmstats')
 def ShowAllVMStats(cmd_args=None):
     """ Print a summary of vm statistics in a table format
@@ -1643,19 +1798,38 @@ def ShowAllVMStats(cmd_args=None):
     print hdr_format.format('', '(pages)', '(pages)', '(pages)', '(pages)', '(pages)', '(pages)', '(pages)', '(pages)', '(current)', '(peak)', '(lifetime)', '', '', '')
     entry_format = "{m.hdr.nentries: >6d} {s.wired_count: >10d} {vsize: >10d} {s.resident_count: >10d} {s.new_resident_count: >10d} {s.resident_max: >10d} {s.internal: >10d} {s.external: >10d} {s.reusable: >10d} {s.compressed: >10d} {s.compressed_peak: >10d} {s.compressed_lifetime: >10d} {p.p_pid: >10d} {0: <32s} {s.error}"
 
+    ledger_template = kern.globals.task_ledger_template
+    entry_indices = {}
+    entry_indices['wired_mem'] = GetLedgerEntryIndex(ledger_template, 'wired_mem')
+    assert(entry_indices['wired_mem'] != -1)
+    entry_indices['phys_mem'] = GetLedgerEntryIndex(ledger_template, 'phys_mem')
+    assert(entry_indices['phys_mem'] != -1)
+    entry_indices['internal'] = GetLedgerEntryIndex(ledger_template, 'internal')
+    assert(entry_indices['internal'] != -1)
+    entry_indices['external'] = GetLedgerEntryIndex(ledger_template, 'external')
+    assert(entry_indices['external'] != -1)
+    entry_indices['reusable'] = GetLedgerEntryIndex(ledger_template, 'reusable')
+    assert(entry_indices['reusable'] != -1)
+    entry_indices['internal_compressed'] = GetLedgerEntryIndex(ledger_template, 'internal_compressed')
+    assert(entry_indices['internal_compressed'] != -1)
+
     for task in kern.tasks:
         proc = Cast(task.bsd_info, 'proc *')
         vmmap = Cast(task.map, '_vm_map *')
+        page_size = 1 << int(vmmap.hdr.page_shift)
+        task_ledgerp = task.ledger
         vmstats.error = ''
-        vmstats.wired_count = vmmap.pmap.stats.wired_count;
-        vmstats.resident_count = unsigned(vmmap.pmap.stats.resident_count);
-        vmstats.resident_max = vmmap.pmap.stats.resident_max;
-        vmstats.internal = unsigned(vmmap.pmap.stats.internal);
-        vmstats.external = unsigned(vmmap.pmap.stats.external);
-        vmstats.reusable = unsigned(vmmap.pmap.stats.reusable);
-        vmstats.compressed = unsigned(vmmap.pmap.stats.compressed);
-        vmstats.compressed_peak = unsigned(vmmap.pmap.stats.compressed_peak);
-        vmstats.compressed_lifetime = unsigned(vmmap.pmap.stats.compressed_lifetime);
+        def GetLedgerEntryBalancePages(template, ledger, index):
+            return GetLedgerEntryBalance(template, ledger, index) / page_size
+        vmstats.wired_count = GetLedgerEntryBalancePages(ledger_template, task_ledgerp, entry_indices['wired_mem'])
+        vmstats.resident_count = GetLedgerEntryBalancePages(ledger_template, task_ledgerp, entry_indices['phys_mem'])
+        vmstats.resident_max = GetLedgerEntryWithTemplate(ledger_template, task_ledgerp, entry_indices['phys_mem'])['lifetime_max'] / page_size
+        vmstats.internal = GetLedgerEntryBalancePages(ledger_template, task_ledgerp, entry_indices['internal'])
+        vmstats.external = GetLedgerEntryBalancePages(ledger_template, task_ledgerp, entry_indices['external'])
+        vmstats.reusable = GetLedgerEntryBalancePages(ledger_template, task_ledgerp, entry_indices['reusable'])
+        vmstats.compressed = GetLedgerEntryBalancePages(ledger_template, task_ledgerp, entry_indices['internal_compressed'])
+        vmstats.compressed_peak = GetLedgerEntryWithTemplate(ledger_template, task_ledgerp, entry_indices['internal_compressed'])['lifetime_max'] / page_size
+        vmstats.compressed_lifetime = GetLedgerEntryWithTemplate(ledger_template, task_ledgerp, entry_indices['internal_compressed'])['credit'] / page_size
         vmstats.new_resident_count = vmstats.internal + vmstats.external
 
         if vmstats.internal < 0:
@@ -1728,6 +1902,15 @@ def ShowMapVME(cmd_args=None):
         print GetVMEntrySummary(vme)
     return None
 
+def GetResidentPageCount(vmmap):
+    resident_pages = 0
+    ledger_template = kern.globals.task_ledger_template
+    if vmmap.pmap != 0 and vmmap.pmap != kern.globals.kernel_pmap:
+        idx = GetLedgerEntryIndex(ledger_template, "phys_mem")
+        phys_mem = GetLedgerEntryBalance(ledger_template, vmmap.pmap.ledger, idx)
+        resident_pages = phys_mem / kern.globals.page_size
+    return resident_pages
+
 @lldb_type_summary(['_vm_map *', 'vm_map_t'])
 @header("{0: <20s} {1: <20s} {2: <20s} {3: >5s} {4: >5s} {5: <20s} {6: <20s} {7: <7s}".format("vm_map", "pmap", "vm_size", "#ents", "rpage", "hint", "first_free", "pgshift"))
 def GetVMMapSummary(vmmap):
@@ -1735,8 +1918,7 @@ def GetVMMapSummary(vmmap):
     out_string = ""
     format_string = "{0: <#020x} {1: <#020x} {2: <#020x} {3: >5d} {4: >5d} {5: <#020x} {6: <#020x} {7: >7d}"
     vm_size = uint64_t(vmmap.size).value
-    resident_pages = 0
-    if vmmap.pmap != 0: resident_pages = int(vmmap.pmap.stats.resident_count)
+    resident_pages = GetResidentPageCount(vmmap)
     first_free = 0
     if int(vmmap.holelistenabled) == 0: first_free = vmmap.f_s._first_free
     out_string += format_string.format(vmmap, vmmap.pmap, vm_size, vmmap.hdr.nentries, resident_pages, vmmap.hint, first_free, vmmap.hdr.page_shift)
@@ -2082,15 +2264,15 @@ def AddKextSyms(cmd_args=[], cmd_options={}):
         sections = None
         if cmd_args:
             slide_value = cmd_args[0]
-            debuglog("loading slide value from user input %s" % cmd_args[0])
+            debuglog("loading slide value from user input {:s}".format(cmd_args[0]))
 
         filespec = lldb.SBFileSpec(exec_full_path, False)
-        print "target modules add %s" % exec_full_path
-        print lldb_run_command("target modules add %s" % exec_full_path)
+        print "target modules add \"{:s}\"".format(exec_full_path)
+        print lldb_run_command("target modules add \"{:s}\"".format(exec_full_path))
         loaded_module = LazyTarget.GetTarget().FindModule(filespec)
         if loaded_module.IsValid():
             uuid_str = loaded_module.GetUUIDString()
-            debuglog("added module %s with uuid %s" % (exec_full_path, uuid_str))
+            debuglog("added module {:s} with uuid {:s}".format(exec_full_path, uuid_str))
             if slide_value is None:
                 all_kexts_info = GetKextLoadInformation()
                 for k in all_kexts_info:
@@ -2098,18 +2280,18 @@ def AddKextSyms(cmd_args=[], cmd_options={}):
                     if k[0].lower() == uuid_str.lower():
                         slide_value = k[1]
                         sections = k[4]
-                        debuglog("found the slide %s for uuid %s" % (k[1], k[0]))
+                        debuglog("found the slide {:s} for uuid {:s}".format(k[1], k[0]))
         if slide_value is None:
-            raise ArgumentError("Unable to find load address for module described at %s " % exec_full_path)
+            raise ArgumentError("Unable to find load address for module described at {:s} ".format(exec_full_path))
 
         if not sections:
-            cmd_str = "target modules load --file %s --slide %s" % ( exec_full_path, str(slide_value))
+            cmd_str = "target modules load --file \"{:s}\" --slide {:s}".format(exec_full_path, str(slide_value))
             debuglog(cmd_str)
         else:
-            cmd_str = "target modules load --file {}   ".format(exec_full_path)
+            cmd_str = "target modules load --file \"{:s}\"".format(exec_full_path)
             sections_str = ""
             for s in sections:
-                sections_str += " {} {:#0x} ".format(s.name, s.vmaddr)
+                sections_str += " {:s} {:#0x} ".format(s.name, s.vmaddr)
             cmd_str += sections_str
             debuglog(cmd_str)
 
@@ -2129,7 +2311,7 @@ def AddKextSyms(cmd_args=[], cmd_options={}):
             if len(kext_name_matches) > 0:
                 print  "Options are:\n\t" + "\n\t".join(kext_name_matches)
             return
-        debuglog("matched the kext to name %s and uuid %s" % (kext_name_matches[0], kext_name))
+        debuglog("matched the kext to name {:s} and uuid {:s}".format(kext_name_matches[0], kext_name))
         for cur_knm in kext_name_matches:
             for x in all_kexts_info:
                 if cur_knm == x[2]:
@@ -2165,14 +2347,14 @@ def AddKextSyms(cmd_args=[], cmd_options={}):
         cur_uuid = k_info[0].lower()
         if load_all_kexts or (uuid == cur_uuid):
             if (kernel_uuid != cur_uuid):
-                print "Fetching dSYM for %s" % cur_uuid
+                print "Fetching dSYM for {:s}".format(cur_uuid)
                 info = dsymForUUID(cur_uuid)
                 if info and 'DBGSymbolRichExecutable' in info:
-                    print "Adding dSYM (%s) for %s" % (cur_uuid, info['DBGSymbolRichExecutable'])
+                    print "Adding dSYM ({:s}) for {:s}".format(cur_uuid, info['DBGSymbolRichExecutable'])
                     addDSYM(cur_uuid, info)
                     loadDSYM(cur_uuid, int(k_info[1],16), k_info[4])
                 else:
-                    print "Failed to get symbol info for %s" % cur_uuid
+                    print "Failed to get symbol info for {:s}".format(cur_uuid)
         #end of for loop
     kern.symbolicator = None
     return True
@@ -2468,14 +2650,13 @@ def ShowProcLocks(cmd_args=None):
         print "unknown arguments:", str(cmd_args)
         return False
     out_str = ''
-    proc_filedesc = proc.p_fd
-    fd_lastfile = proc_filedesc.fd_lastfile
+    proc_filedesc = addressof(proc.p_fd)
     fd_ofiles = proc_filedesc.fd_ofiles
-    count = 0
     seen = 0
-    while count <= fd_lastfile:
-        if fd_ofiles[count]:
-            fglob = fd_ofiles[count].fp_glob
+
+    for fd in xrange(0, unsigned(proc_filedesc.fd_afterlast)):
+        if fd_ofiles[fd]:
+            fglob = fd_ofiles[fd].fp_glob
             fo_type = fglob.fg_ops.fo_type
             if fo_type == 1:
                 fg_data = fglob.fg_data
@@ -2486,14 +2667,13 @@ def ShowProcLocks(cmd_args=None):
                     if not seen:
                         print GetVnodeLocksSummary.header
                     seen = seen + 1
-                    out_str += ("\n( fd {:d}, name ").format(count)
+                    out_str += ("\n( fd {:d}, name ").format(fd)
                     if not name:
                         out_str += "(null) )\n"
                     else:
                         out_str += "{:s} )\n".format(name)
                     print out_str  
                     print GetVnodeLocksSummary(fg_vnode)
-        count = count + 1
     print "\n{0: d} total locks for {1: #018x}".format(seen, proc)
 
 # EndMacro: showproclocks
@@ -2642,7 +2822,7 @@ def ShowProcVnodes(cmd_args=None):
         print "Please provide valid proc argument. Type help showprocvnodes for help."
         return
     procptr = kern.GetValueFromAddress(cmd_args[0], 'proc *')
-    fdptr = Cast(procptr.p_fd, 'filedesc *')
+    fdptr = addressof(procptr.p_fd)
     if int(fdptr.fd_cdir) != 0:
         print '{0: <25s}\n{1: <s}\n{2: <s}'.format('Current Working Directory:', GetVnodeSummary.header, GetVnodeSummary(fdptr.fd_cdir))
     if int(fdptr.fd_rdir) != 0:
@@ -2658,8 +2838,8 @@ def ShowProcVnodes(cmd_args=None):
             fglob = dereference(fproc).fp_glob
             flags = ""
             if (int(fglob) != 0) and (int(fglob.fg_ops.fo_type) == 1):
-                if (fdptr.fd_ofileflags[count] & 1):    flags += 'E'
-                if (fdptr.fd_ofileflags[count] & 2):    flags += 'F'
+                if (fpp.fp_flags & GetEnumValue('fileproc_flags_t', 'FP_CLOEXEC')):    flags += 'E'
+                if (fpp.fp_flags & GetEnumValue('fileproc_flags_t', 'FP_CLOFORK')):    flags += 'F'
                 if (fdptr.fd_ofileflags[count] & 4):    flags += 'R'
                 if (fdptr.fd_ofileflags[count] & 8):    flags += 'C'
                 print '{0: <5d} {1: <7s} {2: <#020x} '.format(count, flags, fglob) + GetVnodeSummary(Cast(fglob.fg_data, 'vnode *'))
@@ -2796,7 +2976,11 @@ def GetMutexLockSummary(mtx):
             out_str += "Canary (INVALID)    : {mtx.lck_mtx_pad32:#x}\n".format(mtx=mtx)
         return out_str
 
+    LCK_MTX_TYPE = 0x22
     out_str = "Lock Type\t\t: MUTEX\n"
+    if mtx.lck_mtx_type != LCK_MTX_TYPE:
+        out_str += "Mutex Invalid"
+        return out_str
     out_str += "Owner Thread\t\t: {:#x}".format(mtx.lck_mtx_data & ~0x3)
     if (mtx.lck_mtx_data & ~0x3) == 0xfffffff0:
         out_str += " Held as spinlock"
@@ -2824,7 +3008,10 @@ def GetSpinLockSummary(spinlock):
     if kern.arch == "x86_64":
         out_str += "Interlock\t\t: {:#x}\n".format(spinlock.interlock)
         return out_str 
-
+    LCK_SPIN_TYPE = 0x11
+    if spinlock.type != LCK_SPIN_TYPE:
+        out_str += "Spinlock Invalid"
+        return out_str
     lock_data = spinlock.hwlock.lock_data
     if lock_data == 1:
         out_str += "Invalid state: interlock is locked but no owner\n"
@@ -2838,12 +3025,59 @@ def GetSpinLockSummary(spinlock):
             out_str += "Invalid state: owned but interlock bit is not set\n"
     return out_str
 
-@lldb_command('showlock', 'MS')
+@lldb_type_summary(['lck_rw_t *'])
+@header("===== RWLock Summary =====")
+def GetRWLockSummary(rwlock):
+    """ Summarize rwlock with important information.
+        params:
+        rwlock: value - obj representing a lck_rw_lock in kernel
+        returns:
+        out_str - summary of the rwlock
+    """
+    if not rwlock:
+        return "Invalid lock value: 0x0"
+
+    out_str = "Lock Type\t\t: RWLOCK\n"
+    lock_word = rwlock.word
+    out_str += "Blocking\t\t: "
+    if lock_word.can_sleep == 0:
+        out_str += "FALSE\n"
+    else:
+        out_str += "TRUE\n"
+    if lock_word.priv_excl == 0:
+        out_str += "Recusive\t\t: shared recursive\n"
+    out_str += "Interlock\t\t: {:#x}\n".format(lock_word.interlock)
+    out_str += "Writer bits\t\t: "
+    if lock_word.want_upgrade == 0 and lock_word.want_excl == 0:
+        out_str += "-\n"
+    else:
+        if lock_word.want_upgrade == 1:
+            out_str += "Read-to-write upgrade requested"
+            if lock_word.want_excl == 1:
+                out_str += ","
+            else:
+                out_str += "\n"
+        if lock_word.want_excl == 1:
+            out_str += "Write ownership requested\n"
+    out_str += "Write owner\t\t: {:#x}\n".format(rwlock.lck_rw_owner)
+    out_str += "Reader(s)    \t\t: "
+    if lock_word.shared_count > 0:
+        out_str += "{:#d}\n".format(lock_word.shared_count)
+    else:
+        out_str += "No readers\n"
+    if lock_word.r_waiting == 1:
+        out_str += "Reader(s) blocked\t: TRUE\n"
+    if lock_word.w_waiting == 1:
+        out_str += "Writer(s) blocked\t: TRUE\n"
+    return out_str
+
+@lldb_command('showlock', 'MSR')
 def ShowLock(cmd_args=None, cmd_options={}):
     """ Show info about a lock - its state and owner thread details
         Usage: showlock <address of a lock>
         -M : to consider <addr> as lck_mtx_t 
         -S : to consider <addr> as lck_spin_t 
+        -R : to consider <addr> as lck_rw_t
     """
     if not cmd_args:
         raise ArgumentError("Please specify the address of the lock whose info you want to view.")
@@ -2851,35 +3085,153 @@ def ShowLock(cmd_args=None, cmd_options={}):
 
     summary_str = ""
     addr = cmd_args[0]
-    # from osfmk/arm/locks.h
-    LCK_SPIN_TYPE = 0x11
-    LCK_MTX_TYPE = 0x22
-    if kern.arch == "x86_64":
-        if "-M" in cmd_options:
-            lock_mtx = kern.GetValueFromAddress(addr, 'lck_mtx_t *')
-            summary_str = GetMutexLockSummary(lock_mtx)
-        elif "-S" in cmd_options:
-            lock_spin = kern.GetValueFromAddress(addr, 'lck_spin_t *')
-            summary_str = GetSpinLockSummary(lock_spin)
-        else:
-            summary_str = "Please specify supported lock option(-M/-S)"
-
-        print summary_str
+    ## from osfmk/arm/locks.h
+    if "-M" in cmd_options:
+        lock_mtx = kern.GetValueFromAddress(addr, 'lck_mtx_t *')
+        summary_str = GetMutexLockSummary(lock_mtx)
+    elif "-S" in cmd_options:
+        lock_spin = kern.GetValueFromAddress(addr, 'lck_spin_t *')
+        summary_str = GetSpinLockSummary(lock_spin)
+    elif "-R" in cmd_options:
+        lock_rw = kern.GetValueFromAddress(addr, 'lck_rw_t *')
+        summary_str = GetRWLockSummary(lock_rw)
     else:
-        lock = kern.GetValueFromAddress(addr, 'uintptr_t *')
-        if lock:
-            lock_mtx = Cast(lock, 'lck_mtx_t*')
-            if lock_mtx.lck_mtx_type == LCK_MTX_TYPE:
-                summary_str = GetMutexLockSummary(lock_mtx)
+        summary_str = "Please specify supported lock option(-M/-S/-R)"
 
-            lock_spin = Cast(lock, 'lck_spin_t*')
-            if lock_spin.type == LCK_SPIN_TYPE:
-                summary_str = GetSpinLockSummary(lock_spin)
-        if summary_str == "":
-            summary_str = "Lock Type\t\t: INVALID LOCK"
-        print summary_str
+    print summary_str
 
 #EndMacro: showlock
+
+def getThreadRW(thread, debug, elem_find, force_print):
+    """ Helper routine for finding per thread rw lock:
+        returns:
+        String with info
+    """
+    out = ""
+    ## if we are not in debug mode do not access thread.rw_lock_held
+    if not debug:
+        if not force_print:
+            if thread.rwlock_count == 0:
+                return out
+        out = "{:<19s} {:>19s} \n".format("Thread", "rwlock_count")
+        out += "{:<#19x} ".format(thread)
+        out += "{:>19d} ".format(thread.rwlock_count)
+        return out
+
+    rw_locks_held = thread.rw_lock_held
+    if not force_print:
+        if thread.rwlock_count == 0 and rw_locks_held.rwld_locks_acquired == 0:
+            return out
+
+    out = "{:<19s} {:>19s} {:>19s} {:>29s}\n".format("Thread", "rwlock_count", "rwlock_acquired", "RW_Debug_info_missing")
+    out += "{:<#19x} ".format(thread)
+    out += "{:>19d} ".format(thread.rwlock_count)
+    out += "{:>19d} ".format(rw_locks_held.rwld_locks_acquired)
+
+    if rw_locks_held.rwld_overflow:
+        out += "{:>29s}\n".format("TRUE")
+    else:
+        out += "{:>29s}\n".format("FALSE")
+
+    found = set()
+    if rw_locks_held.rwld_locks_saved > 0:
+        lock_entry = rw_locks_held.rwld_locks
+        num_entry = sizeof(lock_entry) / sizeof(lock_entry[0])
+        out += "{:>10s} {:<19s} {:>10s} {:>10s} {:>10s} {:<19s}\n".format(" ", "Lock", "Write", "Read", " ", "Caller")
+        for i in range(num_entry):
+            entry = lock_entry[i]
+            if entry.rwlde_lock:
+                out += "{:>10s} ".format(" ")
+                found.add(hex(entry.rwlde_lock))
+                out += "{:<#19x} ".format(entry.rwlde_lock)
+                write = 0
+                read = 0
+                if entry.rwlde_mode_count < 0:
+                    write = 1
+                if entry.rwlde_mode_count > 0:
+                    read = entry.rwlde_mode_count
+                out += "{:>10d} ".format(write)
+                out += "{:>10d} ".format(read)
+                out += "{:>10s} ".format(" ")
+                caller = vm_unpack_pointer(entry.rwlde_caller_packed, kern.globals.rwlde_caller_packing_params, 'void *')
+                out += "{:<#19x}\n".format(caller)
+
+    if elem_find != 0:
+        if elem_find in found:
+            return out
+        else:
+            return ""
+    else:
+        return out
+
+def rwLockDebugDisabled():
+    ## disLkRWDebug 0x00000010 from locks.h
+    if (kern.globals.LcksOpts and 0x00000010) == 0x00000010:
+        return True
+    else:
+        return False
+
+@lldb_command('showthreadrwlck')
+def ShowThreadRWLck(cmd_args = None):
+    """ Routine to print a best effort summary of rwlocks held
+    """
+    if not cmd_args:
+        raise ArgumentError("Please specify the thread pointer")
+        return
+    thread = kern.GetValueFromAddress(cmd_args[0], 'thread_t')
+    if not thread:
+        raise ArgumentError("Invalid thread pointer")
+        return
+
+    debug = True
+    if rwLockDebugDisabled():
+        print "WARNING: Best effort per-thread rwlock tracking is OFF\n"
+        debug = False
+
+    string = getThreadRW(thread, debug, 0, True)
+    print string
+
+    return
+# EndMacro: showthreadrwlck
+
+@lldb_command('showallrwlckheld')
+def ShowAllRWLckHeld(cmd_args = None):
+    """ Routine to print a summary listing of all read/writer locks
+        tracked per thread
+    """
+    debug = True
+    if rwLockDebugDisabled():
+        print "WARNING: Best effort per-thread rwlock tracking is OFF\n"
+        debug = False
+
+    for t in kern.tasks:
+        for th in IterateQueue(t.threads, 'thread *', 'task_threads'):
+            print getThreadRW(th, debug, 0, False)
+
+    return
+# EndMacro: showallrwlckheld
+
+@lldb_command('tryfindrwlckholders')
+def tryFindRwlckHolders(cmd_args = None):
+    """ Best effort routing to find the current holders of
+        a rwlock
+    """
+    if not cmd_args:
+        raise ArgumentError("Please specify a rw_lock_t pointer")
+        return
+
+    if rwLockDebugDisabled():
+        print "WARNING: Best effort per-thread rwlock tracking is OFF\n"
+        return
+
+    print "This is a best effort mechanism, if threads have lock info missing we might not be able to find the lock.\n"
+    rw_to_find = cmd_args[0]
+    for t in kern.tasks:
+        for th in IterateQueue(t.threads, 'thread *', 'task_threads'):
+            print getThreadRW(th, True, rw_to_find, False)
+
+    return
+# EndMacro: tryfindrwlckholders
 
 @lldb_command('showallrwlck')
 def ShowAllRWLck(cmd_args=None):
@@ -3327,9 +3679,7 @@ def showvmobject(object, offset=0, size=0, show_pager_info=False, show_all_shado
         object = object.shadow
 
 def showmapvme(map, start_vaddr, end_vaddr, show_pager_info, show_all_shadows, reverse_order=False, show_rb_tree=False):
-    rsize = 0
-    if map.pmap != 0:
-        rsize = int(map.pmap.stats.resident_count)
+    rsize = GetResidentPageCount(map)
     print "{:<18s} {:<18s} {:<18s} {:>10s} {:>18s} {:>18s}:{:<18s} {:<7s}".format("vm_map","pmap","size","#ents","rsize","start","end","pgshift")
     print "{: <#018x} {: <#018x} {:#018x} {:>10d} {:>18d} {:#018x}:{:#018x} {:>7d}".format(map,map.pmap,unsigned(map.size),map.hdr.nentries,rsize,map.hdr.links.start,map.hdr.links.end,map.hdr.page_shift)
     showmaphdrvme(map.hdr, map.pmap, start_vaddr, end_vaddr, show_pager_info, show_all_shadows, reverse_order, show_rb_tree)
@@ -3381,8 +3731,12 @@ def showmaphdrvme(maphdr, pmap, start_vaddr, end_vaddr, show_pager_info, show_al
                 object_str = "IPC_KERNEL_MAP"
             elif object == kern.globals.ipc_kernel_copy_map:
                 object_str = "IPC_KERNEL_COPY_MAP"
-            elif object == kern.globals.kalloc_map:
-                object_str = "KALLOC_MAP"
+            elif object == kern.globals.kalloc_large_map:
+                object_str = "KALLOC_LARGE_MAP"
+            elif object == kern.globals.kalloc_large_data_map:
+                object_str = "KALLOC_LARGE_DATA_MAP"
+            elif object == kern.globals.kernel_data_map:
+                object_str = "KERNEL_DATA_MAP"
             elif hasattr(kern.globals, 'compressor_map') and object == kern.globals.compressor_map:
                 object_str = "COMPRESSOR_MAP"
             elif hasattr(kern.globals, 'gzalloc_map') and object == kern.globals.gzalloc_map:
@@ -3532,7 +3886,10 @@ FixedTags = {
     26: "VM_KERN_MEMORY_SKYWALK",
     27: "VM_KERN_MEMORY_LTABLE",
     28: "VM_KERN_MEMORY_HV",
-    29: "VM_KERN_MEMORY_RETIRED",
+    29: "VM_KERN_MEMORY_KALLOC_DATA",
+    30: "VM_KERN_MEMORY_RETIRED",
+    31: "VM_KERN_MEMORY_KALLOC_TYPE",
+    32: "VM_KERN_MEMORY_TRIAGE",
     255:"VM_KERN_MEMORY_ANY",
 }
 
@@ -3634,8 +3991,11 @@ def showvmtags(cmd_args=None, cmd_options={}):
     if "-O" in cmd_options:
         tags.sort(key = lambda tag: tag['size'])
 
+    # Serializing to json here ensure we always catch bugs preventing
+    # serialization
+    as_json = json.dumps(tags)
     if print_json:
-        print json.dumps(tags)
+        print as_json
     else:
         print " vm_allocation_tag_highest: {:<7d}  ".format(nsites - 1)
         print " {:<7s}  {:>7s}   {:>7s}  {:<50s}".format("tag.kmod", "size", "mapped", "name")
@@ -4013,17 +4373,10 @@ def ScanVMPages(cmd_args=None, cmd_options={}):
     found_in_zone = 0
     if scan_vmpages_zone:
         page_size = kern.GetGlobalVariable('page_size')
-        num_zones = kern.GetGlobalVariable('num_zones')
-        zone_array = kern.GetGlobalVariable('zone_array')
         print "Scanning vm.pages zone for {0:d} matching attribute(s)......".format(attribute_count)
-        i = 0
-        while i < num_zones:
-            zone = zone_array[i]
-            if str(zone.z_name) == "vm pages":
-                break;
-            i += 1
 
-        if i == num_zones:
+        zone = GetZoneByName("vm pages")
+        if zone is None:
             print "Cannot find vm_pages zone, skip the scan"
         else:
             print "Scanning page queues in the vm_pages zone..."
@@ -4978,10 +5331,13 @@ def ShowDeviceInfo(cmd_args=None, cmd_options={}):
     device_info["ncpu"] = int(kern.globals.ncpu)
     device_info["pagesize"] = int(kern.globals.page_size)
     device_info["mlockLimit"] = long(kern.globals.vm_global_user_wire_limit)
+    # Serializing to json here ensure we always catch bugs preventing
+    # serialization
+    as_json = json.dumps(device_info)
 
 
     if print_json:
-        print json.dumps(device_info)
+        print as_json
     else:
         PrettyPrintDictionary(device_info)
 

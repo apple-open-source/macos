@@ -149,16 +149,6 @@ T_DECL(realloc_perf_base, "realloc without nano",
 	realloc_tests("NoNano", false);
 }
 
-T_DECL(realloc_perf_nanov1, "realloc with nanoV1",
-	   T_META_TAG_PERF, T_META_ENVVAR("MallocNanoZone=V1"))
-{
-#if CONFIG_NANOZONE
-	realloc_tests("Nanov1", true);
-#else // CONFIG_NANOZONE
-	T_SKIP("Nano allocator not configured");
-#endif // CONFIG_NANOZONE
-}
-
 T_DECL(realloc_perf_nanov2, "realloc with nanoV2",
 	   T_META_TAG_PERF, T_META_ENVVAR("MallocNanoZone=V2"))
 {

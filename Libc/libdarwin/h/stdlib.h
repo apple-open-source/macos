@@ -256,7 +256,7 @@ _os_strdup_known(const char *str)
  * @result
  * The result of setting {@link _f} in {@link _bf}.
  */
-#define os_setflag(_bf, _f) (typeof(_bf))((_bf) & (_f))
+#define os_setflag(_bf, _f) (typeof(_bf))((_bf) | (_f))
 
 /*!
  * @function os_clrflag

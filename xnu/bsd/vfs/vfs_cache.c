@@ -118,7 +118,7 @@ long    numcache;                       /* number of cache entries allocated */
 int     desiredNodes;
 int     desiredNegNodes;
 int     ncs_negtotal;
-int     nc_disabled = 0;
+TUNABLE_WRITEABLE(int, nc_disabled, "-novfscache", 0);
 TAILQ_HEAD(, namecache) nchead;         /* chain of all name cache entries */
 TAILQ_HEAD(, namecache) neghead;        /* chain of only negative cache entries */
 
@@ -453,8 +453,8 @@ build_path_with_parent(vnode_t first_vp, vnode_t parent_vp, char *buff, int bufl
 	/*
 	 * Grab the process fd so we can evaluate fd_rdir.
 	 */
-	if (vfs_context_proc(ctx)->p_fd && !(flags & BUILDPATH_NO_PROCROOT)) {
-		proc_root_dir_vp = vfs_context_proc(ctx)->p_fd->fd_rdir;
+	if (!(flags & BUILDPATH_NO_PROCROOT)) {
+		proc_root_dir_vp = vfs_context_proc(ctx)->p_fd.fd_rdir;
 	} else {
 		proc_root_dir_vp = NULL;
 	}
@@ -1371,7 +1371,8 @@ vnode_uncache_authorized_action(vnode_t vp, kauth_action_t action)
 }
 
 
-extern int bootarg_vnode_cache_defeat;  /* default = 0, from bsd_init.c */
+/* disable vnode_cache_is_authorized() by setting vnode_cache_defeat */
+static TUNABLE(int, bootarg_vnode_cache_defeat, "-vnode_cache_defeat", 0);
 
 boolean_t
 vnode_cache_is_authorized(vnode_t vp, vfs_context_t ctx, kauth_action_t action)
@@ -2654,7 +2655,8 @@ static uint32_t filled_buckets = 0;
 
 typedef struct string_t {
 	LIST_ENTRY(string_t)  hash_chain;
-	const char *str;
+	char                  *str;
+	uint32_t              strbuflen;
 	uint32_t              refcount;
 } string_t;
 
@@ -2790,19 +2792,22 @@ add_name_internal(const char *name, uint32_t len, u_int hashval, boolean_t need_
 		}
 	}
 	if (entry == NULL) {
+		const uint32_t buflen = len + 1;
+
 		lck_mtx_convert_spin(&strcache_mtx_locks[lock_index]);
 		/*
 		 * it wasn't already there so add it.
 		 */
-		entry = kheap_alloc(KHEAP_DEFAULT, sizeof(string_t) + len + 1, Z_WAITOK);
+		entry = kalloc_type(string_t, Z_WAITOK);
 
 		if (head->lh_first == NULL) {
 			OSAddAtomic(1, &filled_buckets);
 		}
-		ptr = (char *)((char *)entry + sizeof(string_t));
+		ptr = kalloc_data(buflen, Z_WAITOK);
 		strncpy(ptr, name, len);
 		ptr[len] = '\0';
 		entry->str = ptr;
+		entry->strbuflen = buflen;
 		entry->refcount = 1;
 		LIST_INSERT_HEAD(head, entry, hash_chain);
 	}
@@ -2867,7 +2872,13 @@ vfs_removename(const char *nameref)
 	lck_mtx_unlock(&strcache_mtx_locks[lock_index]);
 	lck_rw_done(&strtable_rw_lock);
 
-	kheap_free_addr(KHEAP_DEFAULT, entry);
+	if (entry) {
+		assert(entry->refcount == 0);
+		kfree_data(entry->str, entry->strbuflen);
+		entry->str = NULL;
+		entry->strbuflen = 0;
+		kfree_type(string_t, entry);
+	}
 
 	return retval;
 }

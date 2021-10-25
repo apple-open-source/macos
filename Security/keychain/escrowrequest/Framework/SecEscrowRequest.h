@@ -1,3 +1,4 @@
+#ifdef __OBJC__
 
 #import <Foundation/Foundation.h>
 
@@ -7,13 +8,20 @@ extern NSString* const SecEscrowRequestHavePrecord;
 extern NSString* const SecEscrowRequestPendingPasscode;
 extern NSString* const SecEscrowRequestPendingCertificate;
 
+extern NSString* const SecEscrowRequestOptionFederationMove;
+
 @protocol SecEscrowRequestable <NSObject>
 + (id<SecEscrowRequestable> _Nullable)request:(NSError* _Nullable *)error;
 - (BOOL)triggerEscrowUpdate:(NSString*)reason
                       error:(NSError**)error;
+- (BOOL)triggerEscrowUpdate:(NSString*)reason
+                    options:(NSDictionary* _Nullable)options
+                      error:(NSError**)error;
 - (NSDictionary *_Nullable)fetchStatuses:(NSError **)error;
 
 - (bool)pendingEscrowUpload:(NSError**)error;
+
+- (BOOL)escrowCompletedWithinLastSeconds:(NSTimeInterval)timeInterval;
 
 @end
 
@@ -43,3 +51,5 @@ extern NSString* const SecEscrowRequestPendingCertificate;
 @end
 
 NS_ASSUME_NONNULL_END
+
+#endif /* __OBJC__ */

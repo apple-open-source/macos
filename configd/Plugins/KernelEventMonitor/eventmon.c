@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2020 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2021 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -447,7 +447,7 @@ processEvent_Apple_Network(struct kern_event_msg *ev_msg)
 				}
 #endif	// KEV_DL_IF_IDLE_ROUTE_REFCNT
 
-				case KEV_DL_IFDELEGATE_CHANGED: {
+				case KEV_DL_IFDELEGATE_CHANGED : {
 					/*
 					 * interface delegation changed
 					 */
@@ -520,7 +520,7 @@ processEvent_Apple_Network(struct kern_event_msg *ev_msg)
 				}
 #endif	// KEV_DL_ISSUES
 
-				default :
+			    default :
 					break;
 			}
 			break;
@@ -913,7 +913,7 @@ load_KernelEventMonitor(CFBundleRef bundle, Boolean bundleVerbose)
 #undef updateStore
 
 int
-main(int argc, char **argv)
+main(int argc, char * const argv[])
 {
 	_sc_log     = kSCLogDestinationFile;
 	_sc_verbose = (argc > 1) ? TRUE : FALSE;

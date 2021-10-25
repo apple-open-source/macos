@@ -27,7 +27,7 @@
 
 struct RootRecord
 {
-	size_t	_length;
+	CFIndex	_length;
 	UInt8*	_bytes;
 };
 

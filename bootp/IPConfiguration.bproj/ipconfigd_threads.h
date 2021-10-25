@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2020 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2021 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -74,6 +74,8 @@ typedef enum {
     IFEventID_ipv6_router_expired_e,	/* (ipv6_router_prefix_counts_t) */
     IFEventID_plat_discovery_complete_e,/* (boolean_t *) */
     IFEventID_forget_ssid_e,		/* forget SSID */
+    IFEventID_dhcp_waiting_changed_e,	/* DHCP waiting changed */
+    IFEventID_provide_summary_e,	/* (CFMutableDictionaryRef) */
 } IFEventID_t;
 
 typedef struct ServiceInfo * ServiceRef;
@@ -98,12 +100,13 @@ typedef struct {
 } arp_collision_data_t;
 
 typedef enum {
-    kLinkFlagsSSIDChanged	= 0x1,
-    kLinkFlagsBSSIDChanged	= 0x2,
-} LinkFlags;
+    kLinkInfoNone		= 0,
+    kLinkInfoNetworkChanged	= 1,
+    kLinkInfoBSSIDChanged	= 2,
+} LinkInfo;
 
 typedef struct {
-    LinkFlags			flags;
+    LinkInfo			info;
 } link_event_data, *link_event_data_t;
 
 /*
@@ -196,6 +199,9 @@ ServiceGetActiveSubnetMask(ServiceRef service_p);
 CFStringRef
 ServiceGetSSID(ServiceRef service_p);
 
+CFStringRef
+ServiceGetNetworkID(ServiceRef service_p);
+
 void
 ServiceSetActiveDuringSleepNeedsAttention(ServiceRef service_p);
 
@@ -209,7 +215,7 @@ boolean_t
 ServiceIsCGAEnabled(ServiceRef service_p);
 
 boolean_t
-ServiceShouldSupplyHostName(ServiceRef service_p);
+ServiceIsPrivacyRequired(ServiceRef service_p);
 
 void
 service_set_requested_ip_addr(ServiceRef service_p, struct in_addr ip);
@@ -222,6 +228,12 @@ service_set_requested_ip_mask(ServiceRef service_p, struct in_addr mask);
 
 struct in_addr
 service_requested_ip_mask(ServiceRef service_p);
+
+void
+service_set_requested_ip_dest(ServiceRef service_p, struct in_addr dest);
+
+struct in_addr
+service_requested_ip_dest(ServiceRef service_p);
 
 interface_t *
 service_interface(ServiceRef service_p);
@@ -247,6 +259,12 @@ service_set_address(ServiceRef service_p, struct in_addr ip,
 
 int
 service_remove_address(ServiceRef service_p);
+
+boolean_t
+service_interface_no_ipv4(ServiceRef service_p);
+
+boolean_t
+service_interface_ipv4_published(ServiceRef service_p);
 
 void
 ServicePublishSuccessIPv4(ServiceRef service_p, dhcp_info_t * dhcp_info_p);
@@ -291,6 +309,12 @@ ServiceGenerateFailureSymptom(ServiceRef service_p);
 
 void
 ServiceSetBusy(ServiceRef service_p, boolean_t busy);
+
+void
+ServiceSetDHCPWaiting(ServiceRef service_p, boolean_t waiting);
+
+boolean_t
+ServiceGetDHCPWaiting(ServiceRef service_p);
 
 void
 service_publish_failure(ServiceRef service_p, ipconfig_status_t status);
@@ -340,9 +364,11 @@ ServiceGetInterfaceName(ServiceRef service_p);
  ** 464XLAT routines
  **/
 boolean_t	service_clat46_is_enabled(ServiceRef service_p);
+boolean_t	service_clat46_is_active(ServiceRef service_p);
+void		service_clat46_set_active(ServiceRef service_p,
+					  boolean_t active);
 boolean_t	service_nat64_prefix_available(ServiceRef service_p);
 boolean_t	service_plat_discovery_failed(ServiceRef service_p);
-
 
 /**
  ** router_arp routines
@@ -366,7 +392,6 @@ void		service_router_set_iaddr(ServiceRef service_p,
 /* Router ARP verified */
 boolean_t	service_router_is_arp_verified(ServiceRef service_p);
 void		service_router_set_arp_verified(ServiceRef service_p);
-void		service_router_clear_arp_verified(ServiceRef service_p);
 
 /* Router all (IP, HWAddr, ARP verified) */
 void		service_router_clear(ServiceRef service_p);
@@ -386,6 +411,10 @@ boolean_t
 service_resolve_router(ServiceRef service_p, arp_client_t * arp,
 		       service_resolve_router_callback_t * callback_func,
 		       struct in_addr our_ip);
+
+void
+service_resolve_router_cancel(ServiceRef service_p, arp_client_t * arp);
+
 boolean_t
 service_update_router_address(ServiceRef service_p,
 			      dhcpol_t * options_p, struct in_addr our_ip);

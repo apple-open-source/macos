@@ -25,6 +25,8 @@
 #ifndef messsageProtection_SecMessageProtectionErrors_h
 #define messsageProtection_SecMessageProtectionErrors_h
 
+#include <CoreFoundation/CoreFoundation.h>
+
 static const CFIndex kSecOTRErrorFailedToEncrypt = -1;
 static const CFIndex kSecOTRErrorFailedToDecrypt = -2;
 static const CFIndex kSecOTRErrorFailedToVerify = -3;

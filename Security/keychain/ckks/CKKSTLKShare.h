@@ -36,6 +36,8 @@ NS_ASSUME_NONNULL_BEGIN
 typedef NS_ENUM(NSUInteger, SecCKKSTLKShareVersion) {
     SecCKKSTLKShareVersion0 = 0,  // Signature is over all fields except (signature) and (receiverPublicKey)
     // Unknown fields in the CKRecord will be appended to the end, in sorted order based on column ID
+
+    SecCKKSTLKShareVersion1 = 1,  // TLKShare is created for and by SE peers. We won't be able to process it.
 };
 
 #define SecCKKSTLKShareCurrentVersion SecCKKSTLKShareVersion0

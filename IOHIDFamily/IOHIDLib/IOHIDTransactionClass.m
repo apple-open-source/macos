@@ -24,7 +24,6 @@
 
 #import <IOKit/hid/IOHIDLib.h>
 #import "IOHIDTransactionClass.h"
-#import "IOHIDDebug.h"
 #import "HIDLibElement.h"
 #import <AssertMacros.h>
 #import "IOHIDLibUserClient.h"
@@ -312,7 +311,7 @@ static IOReturn _commit(void *iunknown,
                             context:nil
                             options:kHIDSetElementValuePendEvent];
 
-            require_noerr_action(ret, exit, HIDLogError("IOHIDDeviceClass(%#x):setValue ...:%#x", regID, ret));
+            require_noerr_action(ret, exit, HIDLogError("IOHIDDeviceClass(%#llx):setValue ...:%#x", regID, ret));
             
             elementSize = sizeof(IOHIDElementValueHeader) + IOHIDValueGetLength(element.valueRef);
             dataSize += elementSize;
@@ -370,7 +369,7 @@ static IOReturn _commit(void *iunknown,
                            callback:nil
                             context:nil
                             options:kHIDGetElementValuePendEvent];
-            require_noerr_action(ret, exit, HIDLogError("IOHIDDeviceClass(%#x):setValue ...:%#x", regID, ret));
+            require_noerr_action(ret, exit, HIDLogError("IOHIDDeviceClass(%#llx):setValue ...:%#x", regID, ret));
         }
         cookies = malloc(cookiesSize);
         require_action(cookies, exit, ret = kIOReturnNoMemory);

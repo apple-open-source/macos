@@ -27,30 +27,32 @@
 .\" OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 .\" SUCH DAMAGE.
 .\"
-.\"	from: @(#)pwd_mkdb.8	8.1 (Berkeley) 6/6/93
+.\"	@(#)pwd_mkdb.8	8.1 (Berkeley) 6/6/93
+.\" $FreeBSD$
 .\"
 .Dd June 6, 1993
 .Dt PWD_MKDB 8
 .Os
 .Sh NAME
 .Nm pwd_mkdb
-.Nd generate the password databases
+.Nd "generate the password databases"
 .Sh SYNOPSIS
-.Nm pwd_mkdb
+.Nm
 .Op Fl c
 .Op Fl p | Fl s
 .Op Fl d Ar directory
 .Op Fl u Ar username
 .Ar file
 .Sh DESCRIPTION
-.Nm pwd_mkdb
-creates
+The
+.Nm
+utility creates
 .Xr db 3
 style secure and insecure databases for the specified file.
 These databases are then installed into
 .Pa /etc/spwd.db
 and
-.Pa /etc/pwd.db ,
+.Pa /etc/pwd.db
 respectively.
 The file is installed into
 .Pa /etc/master.passwd .
@@ -61,11 +63,10 @@ different from the historic Version 7 style format.
 .Pp
 The options are as follows:
 .Bl -tag -width Ds
-.\" ==========
 .It Fl c
 Check if the password file is in the correct format.
-Do not change, add, or remove any files.
-.\" ==========
+Do not
+change, add, or remove any files.
 .It Fl d Ar directory
 Operate in a base directory other than the default of
 .Pa /etc .
@@ -82,11 +83,9 @@ other than
 for instance in a
 .Xr chroot 8
 jail.
-.\" ==========
 .It Fl p
 Create a Version 7 style password file and install it into
 .Pa /etc/passwd .
-.\" ==========
 .It Fl s
 Only update the secure version of the database.
 This is most commonly used in conjunction with the
@@ -97,15 +96,14 @@ is no reason to update it if the only change is in the password field.
 Cannot be used in conjunction with the
 .Fl p
 flag.
-.\" ==========
 .It Fl u Ar username
 Only update the record for the specified user.
-Utilities that operate on a single user can use this option to avoid the
+Utilities that
+operate on a single user can use this option to avoid the
 overhead of rebuilding the entire database.
 This option must never be used if the line number of the user's record in
 .Pa /etc/master.passwd
 has changed.
-.\" ==========
 .It Ar file
 The absolute path to a file in
 .Ar master.passwd
@@ -114,29 +112,39 @@ format, as described in
 .El
 .Pp
 The two databases differ in that the secure version contains the user's
-encrypted password and the insecure version has an asterisk
-.Pq Sq \&* .
+encrypted password and the insecure version has an asterisk (``*'')
 .Pp
 The databases are used by the C library password routines (see
 .Xr getpwent 3 ) .
 .Pp
-.Nm pwd_mkdb
-exits zero on success, non-zero on failure.
+The
+.Nm
+utility exits zero on success, non-zero on failure.
 .Sh FILES
-.Bl -tag -width /etc/master.passwd -compact
-.It Pa /etc/master.passwd
-current password file
-.It Pa /etc/passwd
-a Version 7 format password file
+.Bl -tag -width Pa -compact
 .It Pa /etc/pwd.db
-insecure password database file
+The insecure password database file.
 .It Pa /etc/pwd.db.tmp
-temporary file
+A temporary file.
 .It Pa /etc/spwd.db
-secure password database file
+The secure password database file.
 .It Pa /etc/spwd.db.tmp
-temporary file
+A temporary file.
+.It Pa /etc/master.passwd
+The current password file.
+.It Pa /etc/passwd
+A Version 7 format password file.
 .El
+.Sh COMPATIBILITY
+Previous versions of the system had a program similar to
+.Nm ,
+.Xr mkpasswd 8 ,
+which built
+.Xr dbm 3
+style databases for the password file but depended on the calling programs
+to install them.
+The program was renamed in order that previous users of the program
+not be surprised by the changes in functionality.
 .Sh SEE ALSO
 .Xr chpass 1 ,
 .Xr passwd 1 ,
@@ -144,19 +152,9 @@ temporary file
 .Xr getpwent 3 ,
 .Xr passwd 5 ,
 .Xr vipw 8
-.Sh STANDARDS
-Previous versions of the system had a program similar to
-.Nm pwd_mkdb ,
-.Xr mkpasswd ,
-which built
-.Xr dbm 3
-style databases for the password file but depended on the calling programs
-to install them.
-The program was renamed in order that previous users of the program
-not be surprised by the changes in functionality.
 .Sh BUGS
 Because of the necessity for atomic update of the password files,
-.Nm pwd_mkdb
+.Nm
 uses
 .Xr rename 2
 to install them.
@@ -166,12 +164,12 @@ on the same file system as the
 directory.
 .Pp
 There are the obvious races with multiple people running
-.Nm pwd_mkdb
+.Nm
 on different password files at the same time.
 The front-ends to
-.Nm pwd_mkdb ,
+.Nm ,
 .Xr chpass 1 ,
-.Xr passwd 1 ,
+.Xr passwd 1
 and
-.Xr vipw 8
+.Xr vipw 8 ,
 handle the locking necessary to avoid this problem.

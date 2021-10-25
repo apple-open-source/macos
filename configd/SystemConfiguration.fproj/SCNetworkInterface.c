@@ -36,6 +36,7 @@
 #include <TargetConditionals.h>
 #include <CoreFoundation/CoreFoundation.h>
 #include <CoreFoundation/CFRuntime.h>
+#include "SCD.h"
 #include "SCNetworkConfigurationInternal.h"
 #include "SCPreferencesInternal.h"
 #include "SCHelper_client.h"
@@ -63,8 +64,6 @@
 #if	!TARGET_OS_SIMULATOR
 #include <IOKit/usb/IOUSBLib.h>
 #endif	// !TARGET_OS_SIMULATOR
-
-#include "dy_framework.h"
 
 #ifndef	kPCIThunderboltString
 #define kPCIThunderboltString		"PCI-Thunderbolt"
@@ -110,9 +109,6 @@ static CFStringRef	__SCNetworkInterfaceCopyFormattingDescription	(CFTypeRef cf, 
 static void		__SCNetworkInterfaceDeallocate			(CFTypeRef cf);
 static Boolean		__SCNetworkInterfaceEqual			(CFTypeRef cf1, CFTypeRef cf2);
 static CFHashCode	__SCNetworkInterfaceHash			(CFTypeRef cf);
-static void 		__SCNetworkInterfaceCacheAdd			(CFStringRef bsdName, CFArrayRef matchingInterfaces);
-static Boolean		__SCNetworkInterfaceCacheIsOpen			(void);
-static CFArrayRef 	__SCNetworkInterfaceCacheCopy			(CFStringRef bsdName);
 
 
 enum {
@@ -120,8 +116,6 @@ enum {
 	kSortUSBModem,
 	kSortModem,
 	kSortBluetooth,
-	kSortIrDA,
-	kSortSerialPort,
 	kSortWWAN,
 	kSortEthernetPPP,
 	kSortAirportPPP,
@@ -134,7 +128,7 @@ enum {
 	kSortBluetoothPAN_GN,
 	kSortBluetoothPAN_NAP,
 	kSortBluetoothPAN_U,
-	kSortThunderbolt,
+	kSortThunderbolt,		// Thunderbolt IP
 	kSortCarPlay,
 	kSortBond,
 	kSortBridge,
@@ -148,8 +142,6 @@ static const char *sortOrderName[]	= {
 	"USBModem",
 	"Modem",
 	"Bluetooth",
-	"IrDA",
-	"SerialPort",
 	"WWAN",
 	"EthernetPPP",
 	"AirportPPP",
@@ -179,7 +171,9 @@ const CFStringRef kSCNetworkInterfaceTypeEthernet	= CFSTR("Ethernet");
 const CFStringRef kSCNetworkInterfaceTypeFireWire	= CFSTR("FireWire");
 const CFStringRef kSCNetworkInterfaceTypeIEEE80211	= CFSTR("IEEE80211");	// IEEE 802.11, AirPort
 const CFStringRef kSCNetworkInterfaceTypeIPSec		= CFSTR("IPSec");
+#if     TARGET_OS_OSX
 const CFStringRef kSCNetworkInterfaceTypeIrDA		= CFSTR("IrDA");
+#endif  // TARGET_OS_OSX
 const CFStringRef kSCNetworkInterfaceTypeL2TP		= CFSTR("L2TP");
 const CFStringRef kSCNetworkInterfaceTypeLoopback	= CFSTR("Loopback");
 const CFStringRef kSCNetworkInterfaceTypeModem		= CFSTR("Modem");
@@ -208,10 +202,6 @@ const SCNetworkInterfaceRef kSCNetworkInterfaceLoopback	= (SCNetworkInterfaceRef
 
 static CFMutableSetRef	vendor_interface_types	= NULL;
 
-// A thread-specific convenience cache of all interfaces matching a bsd name
-// Key: CFStringRef (BSD name)
-// Value: CFArrayRef (matching interfaces)
-static __thread CFMutableDictionaryRef S_interface_cache = NULL;
 
 #pragma mark -
 #pragma mark SCNetworkInterface configuration details
@@ -736,9 +726,9 @@ __SCNetworkInterfaceInitialize(void)
 	bundle = _SC_CFBundleGet();
 
 	// get mach port used to communication with IOKit
-	kr = IOMasterPort(MACH_PORT_NULL, &masterPort);
+	kr = IOMainPort(MACH_PORT_NULL, &masterPort);
 	if (kr != kIOReturnSuccess) {
-		SC_log(LOG_NOTICE, "could not get IOMasterPort, kr = 0x%x", kr);
+		SC_log(LOG_NOTICE, "could not get IOMainPort, kr = 0x%x", kr);
 	}
 
 	return;
@@ -1229,7 +1219,7 @@ IODictionaryCopyBSDName(CFDictionaryRef io_dict)
 	}
 
 	return if_bsdName;
-};
+}
 
 
 static CFStringRef
@@ -2300,20 +2290,6 @@ processSerialInterface(SCNetworkInterfacePrivateRef	interfacePrivate,
 		base = CFRetain(interfacePrivate->entity_device);
 	}
 
-	/*
-	 * From MoreSCF:
-	 *
-	 * Exclude ports named "irda" because otherwise the IrDA ports on the
-	 * original iMac (rev's A through D) show up as serial ports.  Given
-	 * that only the rev A actually had an IrDA port, and Mac OS X doesn't
-	 * even support it, these ports definitely shouldn't be listed.
-	 */
-	if (CFStringCompare(base,
-			    CFSTR("irda"),
-			    kCFCompareCaseInsensitive) == kCFCompareEqualTo) {
-		goto done;
-	}
-
 	if (IOStringValueHasPrefix(base, CFSTR("bluetooth"))) {
 		Boolean	haveController	= FALSE;
 
@@ -2325,10 +2301,6 @@ processSerialInterface(SCNetworkInterfacePrivateRef	interfacePrivate,
 			// if device with no controller present
 			goto done;
 		}
-	} else if (IOStringValueHasPrefix(base, CFSTR("irda-ircomm"))) {
-		// IrDA
-		interfacePrivate->interface_type	= kSCNetworkInterfaceTypeIrDA;
-		interfacePrivate->sort_order		= kSortIrDA;
 	} else if (isWWAN) {
 		// WWAN
 		interfacePrivate->interface_type	= kSCNetworkInterfaceTypeWWAN;
@@ -2348,7 +2320,7 @@ processSerialInterface(SCNetworkInterfacePrivateRef	interfacePrivate,
 		goto done;
 	}
 
-	if (CFEqual(ift, CFSTR(kIOSerialBSDModemType))) {
+	if (CFEqual(ift, CFSTR(kIOSerialBSDAllTypes))) {
 		// if modem
 		isModem = TRUE;
 
@@ -2358,9 +2330,6 @@ processSerialInterface(SCNetworkInterfacePrivateRef	interfacePrivate,
 		} else if (CFEqual(base, CFSTR("usbmodem"))) {
 			interfacePrivate->sort_order = kSortUSBModem;
 		}
-	} else if (CFEqual(ift, CFSTR(kIOSerialBSDRS232Type))) {
-		// if serial port
-		interfacePrivate->sort_order = kSortSerialPort;
 	} else {
 		goto done;
 	}
@@ -2411,9 +2380,7 @@ processSerialInterface(SCNetworkInterfacePrivateRef	interfacePrivate,
 	}
 
 	// localized name
-	if (CFEqual(interfacePrivate->interface_type, kSCNetworkInterfaceTypeIrDA)) {
-		interfacePrivate->localized_key = CFSTR("irda");
-	} else if (CFEqual(interfacePrivate->interface_type, kSCNetworkInterfaceTypeBluetooth)) {
+	if (CFEqual(interfacePrivate->interface_type, kSCNetworkInterfaceTypeBluetooth)) {
 		interfacePrivate->localized_key = CFSTR("bluetooth");
 	} else {
 		CFStringRef		localized	= NULL;
@@ -3091,11 +3058,12 @@ stringCreateArray(CFStringRef str)
 }
 
 static CFArrayRef
-copyPerInterfaceConfigurationPaths(SCNetworkInterfacePrivateRef	interfacePrivate,
+copyPerInterfaceConfigurationPaths(SCNetworkInterfaceRef	interface,
 				   CFStringRef			extendedType)
 {
-	CFMutableArrayRef		array = NULL;
+	CFMutableArrayRef		array			= NULL;
 	CFIndex				i;
+	SCNetworkInterfacePrivateRef	interfacePrivate	= (SCNetworkInterfacePrivateRef)interface;
 	CFIndex				n;
 	CFStringRef			path;
 	SCNetworkServiceRef		service;
@@ -3110,7 +3078,7 @@ copyPerInterfaceConfigurationPaths(SCNetworkInterfacePrivateRef	interfacePrivate
 	service = (SCNetworkServiceRef)__SCNetworkServiceCreatePrivate(NULL,
 								       interfacePrivate->prefs,
 								       interfacePrivate->serviceID,
-								       (SCNetworkInterfaceRef)interfacePrivate);
+								       interface);
 
 	sets = SCNetworkSetCopyAll(interfacePrivate->prefs);
 	n = (sets != NULL) ? CFArrayGetCount(sets) : 0;
@@ -3144,12 +3112,13 @@ copyPerInterfaceConfigurationPaths(SCNetworkInterfacePrivateRef	interfacePrivate
 }
 
 static CFArrayRef
-copyConfigurationPaths(SCNetworkInterfacePrivateRef	interfacePrivate,
-		       CFStringRef			extendedType)
+copyConfigurationPaths(SCNetworkInterfaceRef	interface,
+		       CFStringRef		extendedType)
 {
-	CFArrayRef	array		= NULL;
-	CFIndex		interfaceIndex;
-	CFStringRef	path;
+	CFArrayRef			array		= NULL;
+	CFIndex				interfaceIndex;
+	SCNetworkInterfacePrivateRef	interfacePrivate	= (SCNetworkInterfacePrivateRef)interface;
+	CFStringRef			path;
 
 	interfaceIndex = findConfiguration(interfacePrivate->interface_type);
 	if (interfaceIndex == kCFNotFound) {
@@ -3171,7 +3140,7 @@ copyConfigurationPaths(SCNetworkInterfacePrivateRef	interfacePrivate,
 	}
 
 	else if (interfacePrivate->serviceID != NULL) {
-		array = copyPerInterfaceConfigurationPaths(interfacePrivate, extendedType);
+		array = copyPerInterfaceConfigurationPaths(interface, extendedType);
 	}
 
 	return (array);
@@ -3795,12 +3764,34 @@ matchesName(CFBundleRef bundle, CFStringRef name, CFStringRef key, Boolean local
 	if (str != NULL) {
 		match = CFEqual(name, str);
 		if (!match && CFStringHasSuffix(str, CFSTR(" %@"))) {
-			CFMutableStringRef	str_multi;
+			CFRange		range;
+			CFStringRef	trim_name;
+			CFStringRef	trim_str;
 
-			str_multi = CFStringCreateMutableCopy(NULL, 0, str);
-			CFStringTrim(str_multi, CFSTR("%@"));
-			match = CFStringHasPrefix(name, str_multi);
-			CFRelease(str_multi);
+			// trim [#] suffix from name
+			range = CFRangeMake(0, CFStringGetLength(name));
+			while (range.length > 2) {
+				UniChar	ch;
+
+				ch = CFStringGetCharacterAtIndex(name, range.length - 1);
+				if ((ch < '0') || (ch > '9')) {
+					// if not trailing #
+					break;
+				}
+
+				// trim # suffix
+				range.length--;
+			}
+			trim_name = CFStringCreateWithSubstring(NULL, name, range);
+
+			// trim [%@] suffix from str
+			range = CFRangeMake(0, CFStringGetLength(str) - 2);
+			trim_str = CFStringCreateWithSubstring(NULL, str, range);
+
+			// check for match
+			match = CFEqual(trim_name, trim_str);
+			CFRelease(trim_name);
+			CFRelease(trim_str);
 		}
 
 		CFRelease(str);
@@ -4027,16 +4018,34 @@ __SCNetworkInterfaceCreateWithStorageEntity(CFDictionaryRef storage_entity)
 }
 
 
+static inline CFMutableDictionaryRef
+__SCNetworkInterfaceCache(void)
+{
+	__SCThreadSpecificDataRef	tsd;
+
+	tsd = __SCGetThreadSpecificData();
+	return tsd->_sc_interface_cache;
+}
+
+
 __private_extern__
 void
 _SCNetworkInterfaceCacheOpen(void)
 {
-	if (!__SCNetworkInterfaceCacheIsOpen()) {
-		S_interface_cache = CFDictionaryCreateMutable(NULL,
-							      0,
-							      &kCFTypeDictionaryKeyCallBacks,
-							      &kCFTypeDictionaryValueCallBacks);
-		SC_log(LOG_DEBUG, "SCNetworkInterface cache (%p): open", S_interface_cache);
+	__SCThreadSpecificDataRef	tsd;
+
+	tsd = __SCGetThreadSpecificData();
+	if (tsd->_sc_interface_cache == NULL) {
+		tsd->_sc_interface_cache = CFDictionaryCreateMutable(NULL,
+								     0,
+								     &kCFTypeDictionaryKeyCallBacks,
+								     &kCFTypeDictionaryValueCallBacks);
+		SC_log(LOG_DEBUG, "SCNetworkInterface cache (%p): open", tsd->_sc_interface_cache);
+	} else {
+		CFRetain(tsd->_sc_interface_cache);
+		SC_log(LOG_DEBUG, "SCNetworkInterface cache (%p): open %ld",
+		       tsd->_sc_interface_cache,
+		       CFGetRetainCount(tsd->_sc_interface_cache));
 	}
 }
 
@@ -4045,10 +4054,22 @@ __private_extern__
 void
 _SCNetworkInterfaceCacheClose(void)
 {
-	if (__SCNetworkInterfaceCacheIsOpen()) {
-		SC_log(LOG_DEBUG, "SCNetworkInterface cache (%p): close", S_interface_cache);
-		CFRelease(S_interface_cache);
-		S_interface_cache = NULL;
+	__SCThreadSpecificDataRef	tsd;
+
+	tsd = __SCGetThreadSpecificData();
+	if (tsd->_sc_interface_cache != NULL) {
+		CFIndex	n;
+
+		n = CFGetRetainCount(tsd->_sc_interface_cache);
+		CFRelease(tsd->_sc_interface_cache);
+		if (n > 1) {
+			SC_log(LOG_DEBUG, "SCNetworkInterface cache (%p): close %ld",
+			       tsd->_sc_interface_cache,
+			       n);
+		} else {
+			SC_log(LOG_DEBUG, "SCNetworkInterface cache (%p): close", tsd->_sc_interface_cache);
+			tsd->_sc_interface_cache = NULL;
+		}
 	}
 }
 
@@ -4056,39 +4077,68 @@ _SCNetworkInterfaceCacheClose(void)
 static void
 __SCNetworkInterfaceCacheAdd(CFStringRef bsdName, CFArrayRef matchingInterfaces)
 {
-	if (__SCNetworkInterfaceCacheIsOpen() &&
-	    bsdName != NULL &&
-	    matchingInterfaces != NULL) {
-		SC_log(LOG_DEBUG, "SCNetworkInterface cache (%p): add %@", S_interface_cache, bsdName);
-		CFDictionaryAddValue(S_interface_cache, bsdName, matchingInterfaces);
-	}
-}
+	CFMutableDictionaryRef	cache;
 
-
-static inline Boolean
-__SCNetworkInterfaceCacheIsOpen(void)
-{
-	return (S_interface_cache != NULL);
-}
-
-
-static CFArrayRef
-__SCNetworkInterfaceCacheCopy(CFStringRef bsdName)
-{
-	if (__SCNetworkInterfaceCacheIsOpen() &&
-	    bsdName != NULL) {
-		CFArrayRef matchingInterfaces = CFDictionaryGetValue(S_interface_cache, bsdName);
-		if (matchingInterfaces) {
-			CFRetain(matchingInterfaces);
-			SC_log(LOG_DEBUG, "SCNetworkInterface cache (%p): copy w/ match for %@", S_interface_cache, bsdName);
-		} else {
-			SC_log(LOG_DEBUG, "SCNetworkInterface cache (%p): copy w/ no match for %@", S_interface_cache, bsdName);
+	cache = __SCNetworkInterfaceCache();
+	if ((cache != NULL) && (bsdName != NULL)) {
+		if (matchingInterfaces == NULL) {
+			matchingInterfaces = (CFArrayRef)kCFNull;
 		}
+		SC_log(LOG_DEBUG, "SCNetworkInterface cache (%p): add %@", cache, bsdName);
+		CFDictionaryAddValue(cache, bsdName, matchingInterfaces);
+	}
+}
 
-		return matchingInterfaces;
+
+static void
+__SCNetworkInterfaceCacheAdd1(CFStringRef bsdName, SCNetworkInterfaceRef interface)
+{
+	CFMutableDictionaryRef	cache;
+
+	cache = __SCNetworkInterfaceCache();
+	if ((cache != NULL) && (bsdName != NULL)) {
+		if (interface != NULL) {
+			const void	*interfaces[1]	= { interface };
+			CFArrayRef	matchingInterfaces;
+
+			matchingInterfaces = CFArrayCreate(NULL,
+							   interfaces,
+							   sizeof(interfaces)/sizeof(interfaces[0]),
+							   &kCFTypeArrayCallBacks);
+			__SCNetworkInterfaceCacheAdd(bsdName, matchingInterfaces);
+			CFRelease(matchingInterfaces);
+		} else {
+			__SCNetworkInterfaceCacheAdd(bsdName, NULL);
+		}
+	}
+}
+
+
+static Boolean
+__SCNetworkInterfaceCacheCopy(CFStringRef bsdName, CFArrayRef *matchingInterfaces)
+{
+	CFMutableDictionaryRef	cache;
+
+	cache = __SCNetworkInterfaceCache();
+	if ((cache == NULL) || (bsdName == NULL)) {
+		return FALSE;	// if no cache or BSD interace name
 	}
 
-	return NULL;
+	*matchingInterfaces = CFDictionaryGetValue(cache, bsdName);
+	if (*matchingInterfaces == NULL) {
+		return FALSE;	// if no cached match
+	} else if (*matchingInterfaces != (CFArrayRef)kCFNull) {
+		CFRetain(*matchingInterfaces);
+	} else {
+		*matchingInterfaces = NULL;
+	}
+
+	SC_log(LOG_DEBUG, "SCNetworkInterface cache (%p): copy w/%smatch for %@",
+	       cache,
+	       *matchingInterfaces != NULL ? "" : "no ",
+	       bsdName);
+
+	return TRUE;
 }
 
 
@@ -4168,27 +4218,30 @@ _SCNetworkInterfaceCreateWithEntity(CFAllocatorRef	allocator,
 			interfacePrivate = __SCNetworkInterfaceCreateCopy(NULL, kSCNetworkInterfaceLoopback, NULL, NULL);
 			goto done;
 		}
-		if (useSystemInterfaces) {
-			// Check to see if we already have the info in the cache
-			matching_interfaces = __SCNetworkInterfaceCacheCopy(ifDevice);
+
+		if (__SCNetworkInterfaceCacheCopy(ifDevice, &matching_interfaces)) {
 			if (matching_interfaces == NULL) {
-				if (_SC_cfstring_to_cstring(ifDevice, bsdName, sizeof(bsdName), kCFStringEncodingASCII) == NULL) {
-					goto done;
-				}
-
-				matching = IOBSDNameMatching(masterPort, 0, bsdName);
-				if (matching == NULL) {
-					goto done;
-				}
-				matching_interfaces = findMatchingInterfaces(matching,
-									     processNetworkInterface,
-									     kSCNetworkInterfaceHiddenInterfaceKey,
-									     keepHidden,
-									     TRUE);
-
-				__SCNetworkInterfaceCacheAdd(ifDevice, matching_interfaces);
-				CFRelease(matching);
+				goto done;
 			}
+		} else if (useSystemInterfaces) {
+			if (_SC_cfstring_to_cstring(ifDevice, bsdName, sizeof(bsdName), kCFStringEncodingASCII) == NULL) {
+				goto done;
+			}
+
+			matching = IOBSDNameMatching(masterPort, 0, bsdName);
+			if (matching == NULL) {
+				__SCNetworkInterfaceCacheAdd(ifDevice, NULL);
+				goto done;
+			}
+
+			matching_interfaces = findMatchingInterfaces(matching,
+								     processNetworkInterface,
+								     kSCNetworkInterfaceHiddenInterfaceKey,
+								     keepHidden,
+								     TRUE);
+
+			__SCNetworkInterfaceCacheAdd(ifDevice, matching_interfaces);
+			CFRelease(matching);
 		}
 	} else if (CFEqual(ifType, kSCValNetInterfaceTypePPP)) {
 		if (CFEqual(ifSubType, kSCValNetInterfaceSubTypePPPSerial)) {
@@ -4480,10 +4533,12 @@ _SCNetworkInterfaceCreateWithEntity(CFAllocatorRef	allocator,
 					    __SCNetworkInterfaceMatchesName(userDefinedName, CFSTR("multiether"))) {
 						interfacePrivate->sort_order    = kSortEthernet;
 						interfacePrivate->builtin       = TRUE;
-					} else if (__SCNetworkInterfaceMatchesName(userDefinedName, CFSTR("iPhone"))) {
+					} else if (__SCNetworkInterfaceMatchesName(userDefinedName, CFSTR("iPhone")) ||
+						   __SCNetworkInterfaceMatchesName(userDefinedName, CFSTR("X-iPhone"))) {
 						interfacePrivate->localized_key = CFSTR("iPhone");
 						interfacePrivate->sort_order    = kSortTethered;
-					} else if (__SCNetworkInterfaceMatchesName(userDefinedName, CFSTR("iPad"))) {
+					} else if (__SCNetworkInterfaceMatchesName(userDefinedName, CFSTR("iPad")) ||
+						   __SCNetworkInterfaceMatchesName(userDefinedName, CFSTR("X-iPad"))) {
 						interfacePrivate->localized_key = CFSTR("iPad");
 						interfacePrivate->sort_order    = kSortTethered;
 					} else if (__SCNetworkInterfaceMatchesName(userDefinedName, CFSTR("thunderbolt")) ||
@@ -4501,16 +4556,18 @@ _SCNetworkInterfaceCreateWithEntity(CFAllocatorRef	allocator,
 						interfacePrivate->localized_key = CFSTR("bluetooth-pan-u");
 						interfacePrivate->sort_order    = kSortBluetoothPAN_U;
 					} else {
-						interfacePrivate->sort_order = kSortEthernet;
+						interfacePrivate->sort_order    = kSortEthernet;
 					}
 				}
 			}
+			__SCNetworkInterfaceCacheAdd1(ifDevice, (SCNetworkInterfaceRef)interfacePrivate);
 		} else if (CFEqual(ifType, kSCValNetInterfaceTypeFireWire)) {
 			interfacePrivate->interface_type = kSCNetworkInterfaceTypeFireWire;
 			interfacePrivate->sort_order     = kSortFireWire;
 			if (__SCNetworkInterfaceMatchesName(userDefinedName, CFSTR("firewire"))) {
 				interfacePrivate->builtin        = TRUE;
 			}
+			__SCNetworkInterfaceCacheAdd1(ifDevice, (SCNetworkInterfaceRef)interfacePrivate);
 		} else if (CFEqual(ifType, kSCValNetInterfaceTypePPP) && (ifSubType != NULL)) {
 			if (CFEqual(ifSubType, kSCValNetInterfaceSubTypePPPoE)) {
 				CFStringRef	entity_hardware;
@@ -4524,13 +4581,11 @@ _SCNetworkInterfaceCreateWithEntity(CFAllocatorRef	allocator,
 					interfacePrivate->interface_type = kSCNetworkInterfaceTypeEthernet;
 					interfacePrivate->sort_order     = kSortEthernet;
 				}
+				__SCNetworkInterfaceCacheAdd1(ifDevice, (SCNetworkInterfaceRef)interfacePrivate);
 			} else if (CFEqual(ifSubType, kSCValNetInterfaceSubTypePPPSerial)) {
 				if (CFStringHasPrefix(ifDevice, CFSTR("Bluetooth"))) {
 					interfacePrivate->interface_type = kSCNetworkInterfaceTypeBluetooth;
 					interfacePrivate->sort_order     = kSortBluetooth;
-				} else if (CFStringHasPrefix(ifDevice, CFSTR("irda"))) {
-					interfacePrivate->interface_type = kSCNetworkInterfaceTypeIrDA;
-					interfacePrivate->sort_order     = kSortIrDA;
 				} else if (CFStringHasPrefix(ifDevice, CFSTR("wwan"))) {
 					interfacePrivate->interface_type = kSCNetworkInterfaceTypeWWAN;
 					interfacePrivate->sort_order     = kSortWWAN;
@@ -4704,39 +4759,7 @@ __SCNetworkInterfaceCopyAll_Modem()
 	match_vals[0] = CFSTR(kIOSerialBSDServiceValue);
 
 	match_keys[1] = CFSTR(kIOSerialBSDTypeKey);
-	match_vals[1] = CFSTR(kIOSerialBSDModemType);
-
-	matching = CFDictionaryCreate(NULL,
-				      (const void **)match_keys,
-				      (const void **)match_vals,
-				      sizeof(match_keys)/sizeof(match_keys[0]),
-				      &kCFTypeDictionaryKeyCallBacks,
-				      &kCFTypeDictionaryValueCallBacks);
-	new_interfaces = findMatchingInterfaces(matching,
-						processSerialInterface,
-						kSCNetworkInterfaceHiddenPortKey,
-						FALSE,
-						FALSE);
-	CFRelease(matching);
-
-	return new_interfaces;
-}
-
-
-static
-CFArrayRef
-__SCNetworkInterfaceCopyAll_RS232()
-{
-	CFDictionaryRef		matching;
-	CFStringRef		match_keys[2];
-	CFStringRef		match_vals[2];
-	CFArrayRef		new_interfaces;
-
-	match_keys[0] = CFSTR(kIOProviderClassKey);
-	match_vals[0] = CFSTR(kIOSerialBSDServiceValue);
-
-	match_keys[1] = CFSTR(kIOSerialBSDTypeKey);
-	match_vals[1] = CFSTR(kIOSerialBSDRS232Type);
+	match_vals[1] = CFSTR(kIOSerialBSDAllTypes);
 
 	matching = CFDictionaryCreate(NULL,
 				      (const void **)match_keys,
@@ -4900,13 +4923,6 @@ _SCNetworkInterfaceCopyAllWithPreferences(SCPreferencesRef prefs)
 
 	// get Modem interfaces
 	new_interfaces = __SCNetworkInterfaceCopyAll_Modem();
-	if (new_interfaces != NULL) {
-		add_interfaces(all_interfaces, new_interfaces);
-		CFRelease(new_interfaces);
-	}
-
-	// get serial (RS232) interfaces
-	new_interfaces = __SCNetworkInterfaceCopyAll_RS232();
 	if (new_interfaces != NULL) {
 		add_interfaces(all_interfaces, new_interfaces);
 		CFRelease(new_interfaces);
@@ -5314,7 +5330,7 @@ __SCNetworkInterfaceGetConfiguration(SCNetworkInterfaceRef	interface,
 	/* initialize runtime (and kSCNetworkInterfaceIPv4) */
 	pthread_once(&initialized, __SCNetworkInterfaceInitialize);
 
-	paths = copyConfigurationPaths(interfacePrivate, extendedType);
+	paths = copyConfigurationPaths(interface, extendedType);
 	if (paths != NULL) {
 		CFStringRef			path;
 
@@ -5576,7 +5592,7 @@ done:
 
 
 static CFStringRef
-copy_display_name(SCNetworkInterfaceRef interface, Boolean localized, Boolean oldLocalization)
+copy_display_name(SCNetworkInterfaceRef interface, Boolean localized, CFStringRef key_prefix)
 {
 	CFMutableStringRef	local;
 	CFStringRef		name;
@@ -5596,13 +5612,18 @@ copy_display_name(SCNetworkInterfaceRef interface, Boolean localized, Boolean ol
 
 		if ((bundle != NULL) && (interfacePrivate->localized_key != NULL)) {
 			CFStringRef	fmt;
-			CFStringRef	key	= interfacePrivate->localized_key;
+			CFStringRef	key;
 
-			if (oldLocalization) {
-				key = CFStringCreateWithFormat(NULL, NULL, CFSTR("X-%@"),
+			if (key_prefix == NULL) {
+				key = interfacePrivate->localized_key;
+				CFRetain(key);
+			} else {
+				key = CFStringCreateWithFormat(NULL, NULL, CFSTR("%@-%@"),
+							       key_prefix,
 							       interfacePrivate->localized_key);
 			}
 			fmt = copy_interface_string(bundle, key, localized);
+			CFRelease(key);
 			if (fmt != NULL) {
 				CFStringAppendFormat(local,
 						     NULL,
@@ -5611,9 +5632,6 @@ copy_display_name(SCNetworkInterfaceRef interface, Boolean localized, Boolean ol
 						     interfacePrivate->localized_arg2);
 				CFRelease(fmt);
 				added = TRUE;
-			}
-			if (oldLocalization) {
-				CFRelease(key);
 			}
 		}
 
@@ -5667,10 +5685,9 @@ copy_display_name(SCNetworkInterfaceRef interface, Boolean localized, Boolean ol
 }
 
 
-#if	!TARGET_OS_IPHONE
 __private_extern__
 CFStringRef
-__SCNetworkInterfaceCopyXLocalizedDisplayName(SCNetworkInterfaceRef interface)
+__SCNetworkInterfaceCopyOldLocalizedDisplayName(SCNetworkInterfaceRef interface, CFStringRef key_prefix)
 {
 	CFStringRef			name;
 
@@ -5679,14 +5696,14 @@ __SCNetworkInterfaceCopyXLocalizedDisplayName(SCNetworkInterfaceRef interface)
 		return NULL;
 	}
 
-	name = copy_display_name(interface, TRUE, TRUE);
+	name = copy_display_name(interface, TRUE, key_prefix);
 	return name;
 }
 
 
 __private_extern__
 CFStringRef
-__SCNetworkInterfaceCopyXNonLocalizedDisplayName(SCNetworkInterfaceRef interface)
+__SCNetworkInterfaceCopyOldNonLocalizedDisplayName(SCNetworkInterfaceRef interface, CFStringRef key_prefix)
 {
 	CFStringRef			localized_name;
 
@@ -5695,10 +5712,9 @@ __SCNetworkInterfaceCopyXNonLocalizedDisplayName(SCNetworkInterfaceRef interface
 		return NULL;
 	}
 
-	localized_name = copy_display_name(interface, FALSE, TRUE);
+	localized_name = copy_display_name(interface, FALSE, key_prefix);
 	return localized_name;
 }
-#endif	// !TARGET_OS_IPHONE
 
 __private_extern__
 void
@@ -5752,7 +5768,7 @@ __SCNetworkInterfaceGetNonLocalizedDisplayName(SCNetworkInterfaceRef interface)
 	}
 
 	if (interfacePrivate->name == NULL) {
-		interfacePrivate->name = copy_display_name(interface, FALSE, FALSE);
+		interfacePrivate->name = copy_display_name(interface, FALSE, NULL);
 	}
 
 	return interfacePrivate->name;
@@ -5770,7 +5786,7 @@ SCNetworkInterfaceGetLocalizedDisplayName(SCNetworkInterfaceRef interface)
 	}
 
 	if (interfacePrivate->localized_name == NULL) {
-		interfacePrivate->localized_name = copy_display_name(interface, TRUE, FALSE);
+		interfacePrivate->localized_name = copy_display_name(interface, TRUE, NULL);
 	}
 
 	return interfacePrivate->localized_name;
@@ -5895,7 +5911,7 @@ __SCNetworkInterfaceSetConfiguration(SCNetworkInterfaceRef	interface,
 		config = NULL;
 	}
 
-	paths = copyConfigurationPaths(interfacePrivate, extendedType);
+	paths = copyConfigurationPaths(interface, extendedType);
 	if (paths != NULL) {
 		CFIndex				i;
 		CFIndex				n;
@@ -7212,6 +7228,15 @@ SCNetworkInterfaceAdvisoryIsSet(SCNetworkInterfaceRef interface)
 	return (FALSE);
 }
 
+Boolean
+SCNetworkInterfaceAdvisoryIsSpecificSet(SCNetworkInterfaceRef interface,
+					SCNetworkInterfaceAdvisory advisory)
+{
+#pragma unused(interface)
+#pragma unused(advisory)
+	return (FALSE);
+}
+
 CFStringRef
 SCNetworkInterfaceCopyAdvisoryNotificationKey(SCNetworkInterfaceRef interface)
 {
@@ -7219,30 +7244,83 @@ SCNetworkInterfaceCopyAdvisoryNotificationKey(SCNetworkInterfaceRef interface)
 	return (NULL);
 }
 
-#else /* TARGET_OS_SIMULATOR */
-Boolean
-SCNetworkInterfaceSetAdvisory(SCNetworkInterfaceRef interface,
-			      SCNetworkInterfaceAdvisory advisory,
-			      CFStringRef reason)
+CFArrayRef
+SCNetworkInterfaceCopyAdvisoryInfo(SCNetworkInterfaceRef interface)
 {
-	IPMonitorControlRef		control;
+#pragma unused(interface)
+	return (NULL);
+}
+
+SCNetworkInterfaceAdvisory
+SCNetworkInterfaceAdvisoryInfoGetAdvisory(SCNetworkInterfaceAdvisoryInfoRef info)
+{
+#pragma unused(info)
+	return (kSCNetworkInterfaceAdvisoryNone);
+}
+
+pid_t
+SCNetworkInterfaceAdvisoryInfoGetProcessID(SCNetworkInterfaceAdvisoryInfoRef info)
+{
+#pragma unused(info)
+	return (0);
+}
+
+CFStringRef
+SCNetworkInterfaceAdvisoryInfoGetProcessName(SCNetworkInterfaceAdvisoryInfoRef info)
+{
+#pragma unused(info)
+	return (NULL);
+}
+
+CFArrayRef
+SCNetworkInterfaceAdvisoryCopyInterfaceNames(void)
+{
+	return (NULL);
+}
+
+#else /* TARGET_OS_SIMULATOR */
+
+static IPMonitorControlRef
+_SCNetworkInterfaceGetIPMonitorControl(SCNetworkInterfaceRef interface,
+				       CFStringRef * ret_ifname)
+{
+	IPMonitorControlRef		control = NULL;
 	SCNetworkInterfacePrivateRef 	interfacePrivate =
 					(SCNetworkInterfacePrivateRef)interface;
-	CFStringRef			ifName;
+	CFStringRef			ifName = NULL;
 
 	ifName = SCNetworkInterfaceGetBSDName(interface);
 	if (ifName == NULL) {
 		_SCErrorSet(kSCStatusInvalidArgument);
-		return (FALSE);
+		goto done;
 	}
 	control = interfacePrivate->IPMonitorControl;
 	if (control == NULL) {
 		control = IPMonitorControlCreate();
 		if (control == NULL) {
 			_SCErrorSet(kSCStatusFailed);
-			return (FALSE);
+			goto done;
 		}
 		interfacePrivate->IPMonitorControl = control;
+	}
+
+ done:
+	*ret_ifname = ifName;
+	return (control);
+}
+
+Boolean
+SCNetworkInterfaceSetAdvisory(SCNetworkInterfaceRef interface,
+			      SCNetworkInterfaceAdvisory advisory,
+			      CFStringRef reason)
+{
+	IPMonitorControlRef		control;
+	CFStringRef			ifName;
+
+	control = _SCNetworkInterfaceGetIPMonitorControl(interface,
+							 &ifName);
+	if (control == NULL) {
+		return (FALSE);
 	}
 	return IPMonitorControlSetInterfaceAdvisory(control,
 						    ifName,
@@ -7251,28 +7329,26 @@ SCNetworkInterfaceSetAdvisory(SCNetworkInterfaceRef interface,
 }
 
 Boolean
-SCNetworkInterfaceAdvisoryIsSet(SCNetworkInterfaceRef interface)
+SCNetworkInterfaceAdvisoryIsSpecificSet(SCNetworkInterfaceRef interface,
+					SCNetworkInterfaceAdvisory advisory)
 {
 	IPMonitorControlRef		control;
-	SCNetworkInterfacePrivateRef 	interfacePrivate =
-					(SCNetworkInterfacePrivateRef)interface;
 	CFStringRef			ifName;
 
-	ifName = SCNetworkInterfaceGetBSDName(interface);
-	if (ifName == NULL) {
-		_SCErrorSet(kSCStatusInvalidArgument);
+	control = _SCNetworkInterfaceGetIPMonitorControl(interface,
+							 &ifName);
+	if (control == NULL) {
 		return (FALSE);
 	}
-	control = interfacePrivate->IPMonitorControl;
-	if (control == NULL) {
-		control = IPMonitorControlCreate();
-		if (control == NULL) {
-			_SCErrorSet(kSCStatusFailed);
-			return (FALSE);
-		}
-		interfacePrivate->IPMonitorControl = control;
-	}
-	return IPMonitorControlInterfaceAdvisoryIsSet(control, ifName);
+	return IPMonitorControlIsInterfaceAdvisorySet(control, ifName,
+						      advisory);
+}
+
+Boolean
+SCNetworkInterfaceAdvisoryIsSet(SCNetworkInterfaceRef interface)
+{
+	return SCNetworkInterfaceAdvisoryIsSpecificSet(interface,
+						       kSCNetworkInterfaceAdvisoryNone);
 }
 
 CFStringRef
@@ -7287,6 +7363,66 @@ SCNetworkInterfaceCopyAdvisoryNotificationKey(SCNetworkInterfaceRef interface)
 	}
 	return IPMonitorControlCopyInterfaceAdvisoryNotificationKey(ifName);
 }
+
+CFArrayRef
+SCNetworkInterfaceCopyAdvisoryInfo(SCNetworkInterfaceRef interface)
+{
+	IPMonitorControlRef		control;
+	CFStringRef			ifName;
+	CFArrayRef			info;
+
+	control = _SCNetworkInterfaceGetIPMonitorControl(interface,
+							 &ifName);
+	if (control == NULL) {
+		return (FALSE);
+	}
+	info = IPMonitorControlCopyInterfaceAdvisoryInfo(control, ifName);
+	if (info == NULL) {
+		_SCErrorSet(kSCStatusFailed);
+	}
+	return (info);
+}
+
+SCNetworkInterfaceAdvisory
+SCNetworkInterfaceAdvisoryInfoGetAdvisory(SCNetworkInterfaceAdvisoryInfoRef info)
+{
+	return InterfaceAdvisoryInfoGetAdvisory(info);
+
+}
+
+pid_t
+SCNetworkInterfaceAdvisoryInfoGetProcessID(SCNetworkInterfaceAdvisoryInfoRef info)
+{
+	return InterfaceAdvisoryInfoGetProcessID(info);
+}
+
+CFStringRef
+SCNetworkInterfaceAdvisoryInfoGetProcessName(SCNetworkInterfaceAdvisoryInfoRef info)
+{
+	return InterfaceAdvisoryInfoGetProcessName(info);
+}
+
+CFArrayRef
+SCNetworkInterfaceAdvisoryCopyInterfaceNames(void)
+{
+    IPMonitorControlRef	control;
+    CFArrayRef		list = NULL;
+
+    control = IPMonitorControlCreate();
+    if (control == NULL) {
+	_SCErrorSet(kSCStatusFailed);
+	goto done;
+    }
+    list = IPMonitorControlCopyInterfaceAdvisoryInterfaceNames(control);
+    if (list == NULL) {
+	_SCErrorSet(kSCStatusFailed);
+    }
+    CFRelease(control);
+done:
+    return (list);
+}
+
+
 #endif /* TARGET_OS_SIMULATOR */
 
 #pragma mark -
@@ -8194,7 +8330,7 @@ __SCNetworkInterfaceSetDeepConfiguration(SCNetworkSetRef	set,
 				config = NULL;
 			}
 			if (set == NULL) {
-				// if service is not associated with the set
+				// if interface is not associated with the set
 				ok = __SCNetworkInterfaceSetConfiguration(interface, defaultType, config, TRUE);
 			} else {
 				// apply default configuration to this set
@@ -8325,11 +8461,80 @@ SCNetworkInterfaceSetPrimaryRank(SCNetworkInterfaceRef interface,
 						       newRank);
 }
 
-Boolean
-SCNetworkInterfaceGetDisableUntilNeeded(SCNetworkInterfaceRef interface)
+CFStringRef
+SCNetworkInterfaceCopyRankAssertionNotificationKey(SCNetworkInterfaceRef interface)
 {
-	Boolean				disable_until_needed = FALSE;
-	CFNumberRef			disable_prop = NULL;
+	CFStringRef			ifName;
+
+	ifName = SCNetworkInterfaceGetBSDName(interface);
+	if (ifName == NULL) {
+		_SCErrorSet(kSCStatusInvalidArgument);
+		return (NULL);
+	}
+	return IPMonitorControlCopyInterfaceRankAssertionNotificationKey(ifName);
+}
+
+CFArrayRef
+SCNetworkInterfaceCopyRankAssertionInfo(SCNetworkInterfaceRef interface)
+{
+	IPMonitorControlRef		control;
+	CFStringRef			ifName;
+	CFArrayRef			info;
+
+	control = _SCNetworkInterfaceGetIPMonitorControl(interface,
+							 &ifName);
+	if (control == NULL) {
+		return (FALSE);
+	}
+	info = IPMonitorControlCopyInterfaceRankAssertionInfo(control, ifName);
+	if (info == NULL) {
+		_SCErrorSet(kSCStatusFailed);
+	}
+	return (info);
+}
+
+SCNetworkServicePrimaryRank
+SCNetworkInterfaceRankAssertionInfoGetPrimaryRank(SCNetworkInterfaceRankAssertionInfoRef info)
+{
+	return InterfaceRankAssertionInfoGetPrimaryRank(info);
+}
+
+pid_t
+SCNetworkInterfaceRankAssertionInfoGetProcessID(SCNetworkInterfaceRankAssertionInfoRef info)
+{
+	return InterfaceRankAssertionInfoGetProcessID(info);
+}
+
+CFStringRef
+SCNetworkInterfaceRankAssertionInfoGetProcessName(SCNetworkInterfaceRankAssertionInfoRef info)
+{
+	return InterfaceRankAssertionInfoGetProcessName(info);
+}
+
+CFArrayRef
+SCNetworkInterfaceRankAssertionCopyInterfaceNames(void)
+{
+	IPMonitorControlRef	control;
+	CFArrayRef		list = NULL;
+
+	control = IPMonitorControlCreate();
+	if (control == NULL) {
+		_SCErrorSet(kSCStatusFailed);
+		goto done;
+	}
+	list = IPMonitorControlCopyInterfaceRankAssertionInterfaceNames(control);
+	if (list == NULL) {
+		_SCErrorSet(kSCStatusFailed);
+	}
+	CFRelease(control);
+ done:
+	return (list);
+}
+
+static CFNumberRef
+get_number_value(SCNetworkInterfaceRef interface, CFStringRef key)
+{
+	CFNumberRef			value = NULL;
 	CFIndex				interfaceIndex;
 	SCNetworkInterfacePrivateRef 	interfacePrivate
 		= (SCNetworkInterfacePrivateRef)interface;
@@ -8337,14 +8542,14 @@ SCNetworkInterfaceGetDisableUntilNeeded(SCNetworkInterfaceRef interface)
 
 	if (interfacePrivate->prefs == NULL) {
 		_SCErrorSet(kSCStatusInvalidArgument);
-		return (FALSE);
+		return (NULL);
 	}
 	interfaceIndex = findPerInterfaceConfiguration(interface);
 	if (interfaceIndex == kCFNotFound) {
 		_SCErrorSet(kSCStatusInvalidArgument);
-		return (FALSE);
+		return (NULL);
 	}
-	path_list = copyPerInterfaceConfigurationPaths(interfacePrivate, NULL);
+	path_list = copyPerInterfaceConfigurationPaths(interface, NULL);
 	if (path_list != NULL) {
 		CFDictionaryRef	config;
 		CFStringRef	path = CFArrayGetValueAtIndex(path_list, 0);
@@ -8352,31 +8557,16 @@ SCNetworkInterfaceGetDisableUntilNeeded(SCNetworkInterfaceRef interface)
 		config = __SCNetworkConfigurationGetValue(interfacePrivate->prefs, path);
 		CFRelease(path_list);
 		if (config != NULL) {
-			int	disable = 0;
-
-			disable_prop = CFDictionaryGetValue(config, kSCPropDisableUntilNeeded);
-			disable_prop = isA_CFNumber(disable_prop);
-			if (disable_prop != NULL) {
-				if (CFNumberGetValue(disable_prop, kCFNumberIntType, &disable)) {
-					disable_until_needed = (disable != 0) ? TRUE : FALSE;
-				}
-				else {
-					/* invalid property, ignore it */
-					disable_prop = NULL;
-				}
-			}
+			value = CFDictionaryGetValue(config, key);
+			value = isA_CFNumber(value);
 		}
 	}
-	if (disable_prop == NULL) {
-		disable_until_needed
-			= _SCNetworkInterfaceIsTethered(interface);
-	}
 	_SCErrorSet(kSCStatusOK);
-	return (disable_until_needed);
+	return (value);
 }
 
-Boolean
-__SCNetworkInterfaceSetDisableUntilNeededValue(SCNetworkInterfaceRef interface, CFTypeRef disable)
+static Boolean
+set_number_value(SCNetworkInterfaceRef interface, CFStringRef key, CFTypeRef value)
 {
 	CFIndex				count;
 	CFIndex				i;
@@ -8390,7 +8580,7 @@ __SCNetworkInterfaceSetDisableUntilNeededValue(SCNetworkInterfaceRef interface, 
 		_SCErrorSet(kSCStatusInvalidArgument);
 		return (FALSE);
 	}
-	if ((disable != NULL) && !isA_CFNumber(disable)) {
+	if ((value != NULL) && !isA_CFNumber(value)) {
 		_SCErrorSet(kSCStatusInvalidArgument);
 		return (FALSE);
 	}
@@ -8399,7 +8589,7 @@ __SCNetworkInterfaceSetDisableUntilNeededValue(SCNetworkInterfaceRef interface, 
 		_SCErrorSet(kSCStatusInvalidArgument);
 		return (FALSE);
 	}
-	path_list = copyPerInterfaceConfigurationPaths(interfacePrivate, NULL);
+	path_list = copyPerInterfaceConfigurationPaths(interface, NULL);
 	if (path_list == NULL) {
 		_SCErrorSet(kSCStatusInvalidArgument);
 		return (FALSE);
@@ -8420,10 +8610,10 @@ __SCNetworkInterfaceSetDisableUntilNeededValue(SCNetworkInterfaceRef interface, 
 							    &kCFTypeDictionaryKeyCallBacks,
 							    &kCFTypeDictionaryValueCallBacks);
 		}
-		if (disable != NULL) {
-			CFDictionarySetValue(new_config, kSCPropDisableUntilNeeded, disable);
+		if (value != NULL) {
+			CFDictionarySetValue(new_config, key, value);
 		} else {
-			CFDictionaryRemoveValue(new_config, kSCPropDisableUntilNeeded);
+			CFDictionaryRemoveValue(new_config, key);
 		}
 		ok = __SCNetworkConfigurationSetValue(interfacePrivate->prefs,
 						      path,
@@ -8438,6 +8628,43 @@ __SCNetworkInterfaceSetDisableUntilNeededValue(SCNetworkInterfaceRef interface, 
 	return (ok);
 }
 
+CFTypeRef
+__SCNetworkInterfaceGetDisableUntilNeededValue(SCNetworkInterfaceRef interface)
+{
+	return get_number_value(interface, kSCPropDisableUntilNeeded);
+}
+
+Boolean
+SCNetworkInterfaceGetDisableUntilNeeded(SCNetworkInterfaceRef interface)
+{
+	Boolean		disable_until_needed = FALSE;
+	CFNumberRef	disable_prop = NULL;
+
+	disable_prop = __SCNetworkInterfaceGetDisableUntilNeededValue(interface);
+	if (disable_prop != NULL) {
+		int	disable = 0;
+		if (CFNumberGetValue(disable_prop, kCFNumberIntType, &disable)) {
+			disable_until_needed = (disable != 0) ? TRUE : FALSE;
+		}
+		else {
+			/* invalid property, ignore it */
+			disable_prop = NULL;
+		}
+	}
+
+	if (disable_prop == NULL) {
+		disable_until_needed
+			= _SCNetworkInterfaceIsTethered(interface);
+	}
+	return (disable_until_needed);
+}
+
+Boolean
+__SCNetworkInterfaceSetDisableUntilNeededValue(SCNetworkInterfaceRef interface, CFTypeRef disable)
+{
+	return set_number_value(interface, kSCPropDisableUntilNeeded, disable);
+}
+
 Boolean
 SCNetworkInterfaceSetDisableUntilNeeded(SCNetworkInterfaceRef interface, Boolean disable)
 {
@@ -8448,6 +8675,50 @@ SCNetworkInterfaceSetDisableUntilNeeded(SCNetworkInterfaceRef interface, Boolean
 
 	num = CFNumberCreate(NULL, kCFNumberIntType, disable ? &one : &zero);
 	ok = __SCNetworkInterfaceSetDisableUntilNeededValue(interface, num);
+	CFRelease(num);
+
+	return ok;
+}
+
+CFTypeRef
+__SCNetworkInterfaceGetDisablePrivateRelayValue(SCNetworkInterfaceRef interface)
+{
+	return get_number_value(interface, kSCPropDisablePrivateRelay);
+}
+
+Boolean
+SCNetworkInterfaceGetDisablePrivateRelay(SCNetworkInterfaceRef interface)
+{
+	Boolean		disable_private_relay = FALSE;
+	CFNumberRef	disable_prop = NULL;
+
+	disable_prop = __SCNetworkInterfaceGetDisablePrivateRelayValue(interface);
+	if (disable_prop != NULL) {
+		int	disable = 0;
+		if (CFNumberGetValue(disable_prop, kCFNumberIntType, &disable)) {
+			disable_private_relay = (disable != 0) ? TRUE : FALSE;
+		}
+	}
+
+	return (disable_private_relay);
+}
+
+Boolean
+__SCNetworkInterfaceSetDisablePrivateRelayValue(SCNetworkInterfaceRef interface, CFTypeRef disable)
+{
+	return set_number_value(interface, kSCPropDisablePrivateRelay, disable);
+}
+
+Boolean
+SCNetworkInterfaceSetDisablePrivateRelay(SCNetworkInterfaceRef interface, Boolean disable)
+{
+	Boolean		ok;
+	const int	one	= 1;
+	CFNumberRef     num;
+	const int	zero	= 0;
+
+	num = CFNumberCreate(NULL, kCFNumberIntType, disable ? &one : &zero);
+	ok = __SCNetworkInterfaceSetDisablePrivateRelayValue(interface, num);
 	CFRelease(num);
 
 	return ok;
@@ -8472,6 +8743,54 @@ SCNetworkInterfaceSetPrimaryRank(SCNetworkInterfaceRef interface,
 	return (FALSE);
 }
 
+CFStringRef
+SCNetworkInterfaceCopyRankAssertionNotificationKey(SCNetworkInterfaceRef interface)
+{
+#pragma unused(interface)
+	return (NULL);
+}
+
+CFArrayRef
+SCNetworkInterfaceCopyRankAssertionInfo(SCNetworkInterfaceRef interface)
+{
+#pragma unused(interface)
+	return (NULL);
+}
+
+SCNetworkServicePrimaryRank
+SCNetworkInterfaceRankAssertionInfoGetPrimaryRank(SCNetworkInterfaceRankAssertionInfoRef info)
+{
+#pragma unused(info)
+	return (kSCNetworkServicePrimaryRankDefault);
+}
+
+pid_t
+SCNetworkInterfaceRankAssertionInfoGetProcessID(SCNetworkInterfaceRankAssertionInfoRef info)
+{
+#pragma unused(info)
+	return (0);
+}
+
+CFStringRef
+SCNetworkInterfaceRankAssertionInfoGetProcessName(SCNetworkInterfaceRankAssertionInfoRef info)
+{
+#pragma unused(info)
+	return (NULL);
+}
+
+CFArrayRef
+SCNetworkInterfaceRankAssertionCopyInterfaceNames(void)
+{
+	return (NULL);
+}
+
+CFTypeRef
+__SCNetworkInterfaceGetDisableUntilNeededValue(SCNetworkInterfaceRef interface)
+{
+#pragma unused(interface)
+	return (NULL);
+}
+
 Boolean
 SCNetworkInterfaceGetDisableUntilNeeded(SCNetworkInterfaceRef interface)
 {
@@ -8489,6 +8808,37 @@ __SCNetworkInterfaceSetDisableUntilNeededValue(SCNetworkInterfaceRef interface, 
 
 Boolean
 SCNetworkInterfaceSetDisableUntilNeeded(SCNetworkInterfaceRef interface, Boolean disable)
+{
+#pragma unused(interface)
+#pragma unused(disable)
+	_SCErrorSet(kSCStatusInvalidArgument);
+	return (FALSE);
+}
+
+CFTypeRef
+__SCNetworkInterfaceGetDisablePrivateRelayValue(SCNetworkInterfaceRef interface)
+{
+#pragma unused(interface)
+	return (NULL);
+}
+
+Boolean
+SCNetworkInterfaceGetDisablePrivateRelay(SCNetworkInterfaceRef interface)
+{
+#pragma unused(interface)
+	return (FALSE);
+}
+
+Boolean
+__SCNetworkInterfaceSetDisablePrivateRelayValue(SCNetworkInterfaceRef interface, CFTypeRef disable)
+{
+#pragma unused(interface)
+#pragma unused(disable)
+	return (FALSE);
+}
+
+Boolean
+SCNetworkInterfaceSetDisablePrivateRelay(SCNetworkInterfaceRef interface, Boolean disable)
 {
 #pragma unused(interface)
 #pragma unused(disable)
@@ -8615,34 +8965,24 @@ __private_extern__
 CFDictionaryRef
 __SCNetworkInterfaceCreateMappingUsingBSDName(CFArrayRef interfaces)
 {
-	CFMutableDictionaryRef mappingBSDToInterface = NULL;
-	CFStringRef bsdName = NULL;
-	SCNetworkInterfaceRef interface = NULL;
-	CFIndex count;
+	CFMutableDictionaryRef	mappingBSDToInterface	= NULL;
 
-	count = CFArrayGetCount(interfaces);
-	if (count == 0) {
-		SC_log(LOG_INFO, "No interfaces");
-		return NULL;
-	}
+	for (CFIndex i = 0, n = CFArrayGetCount(interfaces); i < n; i++) {
+		SCNetworkInterfaceRef	interface;
+		CFStringRef		interfaceName;
 
-	mappingBSDToInterface = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
-
-	for (CFIndex idx = 0; idx < count; idx++) {
-		interface = (SCNetworkInterfaceRef) CFArrayGetValueAtIndex(interfaces, idx);
-
-		bsdName = SCNetworkInterfaceGetBSDName(interface);
-		if (!isA_CFString(bsdName)) {
-			SC_log(LOG_DEBUG, "No BSD name");
+		interface = CFArrayGetValueAtIndex(interfaces, i);
+		interfaceName = SCNetworkInterfaceGetBSDName(interface);
+		if (interfaceName == NULL) {
 			continue;
 		}
-		CFDictionaryAddValue(mappingBSDToInterface, bsdName, interface);
-	}
-
-	if (CFDictionaryGetCount(mappingBSDToInterface) == 0) {
-		CFRelease(mappingBSDToInterface);
-		mappingBSDToInterface = NULL;
-		SC_log(LOG_INFO, "No mappings");
+		if (mappingBSDToInterface == NULL) {
+			mappingBSDToInterface = CFDictionaryCreateMutable(NULL,
+									  0,
+									  &kCFTypeDictionaryKeyCallBacks,
+									  &kCFTypeDictionaryValueCallBacks);
+		}
+		CFDictionarySetValue(mappingBSDToInterface, interfaceName, interface);
 	}
 
 	return mappingBSDToInterface;

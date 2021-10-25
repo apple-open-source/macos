@@ -277,36 +277,38 @@ static void _repair_all_kofns(authdb_connection_t dbconn, auth_items_t config)
     CFRelease(plist);
 }
 
-static void _check_for_db_update(authdb_connection_t dbconn)
+static bool _check_for_db_update(authdb_connection_t dbconn)
 {
-    const char *rightName = "com.apple.installassistant.requestpassword";
-    rule_t right = rule_create_with_string(rightName, dbconn);
-    if (!right || rule_get_class(right) != RC_USER || rule_get_shared(right) != false || rule_get_type(right) != RT_RIGHT) {
-        os_log_fault(AUTHD_LOG, "Old and not updated database found");
-    } else {
+    // these are the most reliable indicators of a database corruption made during update/migration
+    // these rights are either completely missing or they are present but in a previous version
+    // if any of these rights is missing or the last one is old, it means that database needs
+    // to be reset
+    const char *rightNames[] = {
+            "com.apple.installassistant.requestpassword",
+            "com.apple.system-migration.launch-password",
+            "com.apple.trust-settings.admin",
+            NULL };
+    const char **rightName = rightNames;
+    bool fault = false;
+    while (!fault && *rightName) {
+        rule_t right = rule_create_with_string(*rightName, dbconn);
+        if (!right || !rule_sql_fetch(right, dbconn) ) {
+            os_log_fault(AUTHD_LOG, "Old and not updated database found: no %{public}s right is defined", *rightName);
+            fault = true;
+        } else if (strcmp(*rightName, "com.apple.trust-settings.admin") == 0) {
+            if (rule_get_class(right) != RC_RULE) {
+                os_log_fault(AUTHD_LOG, "Old and not updated database found: old %{public}s right is defined", *rightName);
+                fault = true;
+            }
+        }
+
+        CFReleaseNull(right);
+        ++rightName;
+    }
+    if (!fault) {
         os_log(AUTHD_LOG, "Database check OK");
     }
-    CFReleaseNull(right);
-}
-
-static void _db_load_data(authdb_connection_t dbconn, auth_items_t config)
-{
-    CFAbsoluteTime ts = 0;
-    CFDictionaryRef plist = _copy_plist(config, &ts);
-    
-    if (plist) {
-        if (authdb_import_plist(dbconn, plist, true, NULL)) {
-            os_log_debug(AUTHD_LOG, "authdb: updating data_ts");
-            auth_items_t update = auth_items_create();
-            auth_items_set_double(update, "data_ts", ts);
-            authdb_set_key_value(dbconn, "config", update);
-            CFReleaseSafe(update);
-            int32_t rc = sqlite3_db_cacheflush(dbconn->handle);
-            os_log_debug(AUTHD_LOG, "Flush result: %d", rc);
-            _check_for_db_update(dbconn);
-        }
-    }
-    CFReleaseSafe(plist);
+    return fault;
 }
 
 static bool _truncate_db(authdb_connection_t dbconn)
@@ -375,7 +377,7 @@ static int32_t _db_maintenance(authdb_connection_t dbconn)
         int64_t currentVersion = auth_items_get_int64(config, "version");
         os_log_debug(AUTHD_LOG, "authdb: current db ver=%lli", currentVersion);
         if (currentVersion < AUTHDB_VERSION) {
-            os_log_debug(AUTHD_LOG, "authdb: upgrading schema");
+            os_log(AUTHD_LOG, "authdb: upgrading schema from version %lld to version %d", currentVersion, AUTHDB_VERSION);
             s3e = _db_upgrade_from_version(dbconn, (int32_t)currentVersion);
             if (s3e != SQLITE_OK) {
                 os_log_error(AUTHD_LOG, "authdb: failed to upgrade DB schema %i", s3e);
@@ -391,6 +393,27 @@ static int32_t _db_maintenance(authdb_connection_t dbconn)
     
     CFReleaseSafe(config);
     return s3e;
+}
+
+static void _db_load_data(authdb_connection_t dbconn, auth_items_t config)
+{
+    CFAbsoluteTime ts = 0;
+    CFDictionaryRef plist = _copy_plist(config, &ts);
+    
+    if (plist) {
+        if (authdb_import_plist(dbconn, plist, true, NULL)) {
+            os_log_debug(AUTHD_LOG, "authdb: updating data_ts");
+            auth_items_t update = auth_items_create();
+            auth_items_set_double(update, "data_ts", ts);
+            authdb_set_key_value(dbconn, "config", update);
+            CFReleaseSafe(update);
+            int32_t rc = sqlite3_db_cacheflush(dbconn->handle);
+            os_log_debug(AUTHD_LOG, "Flush result: %d", rc);
+            _sqlite3_exec(dbconn->handle, "VACUUM");
+        }
+    }
+    
+    CFReleaseSafe(plist);
 }
 
 //static void unlock_notify_cb(void **apArg, int nArg AUTH_UNUSED){
@@ -578,11 +601,16 @@ static bool _db_check_corrupted(authdb_connection_t dbconn)
             isCorrupted = false;
         } else if (rc == SQLITE_ROW) {
             const char * result = (const char*)sqlite3_column_text(stmt, 0);
-            
+            os_log_debug(AUTHD_LOG, "authdb: integrity check result: %{public}s", result);
+
             if (result && strncasecmp(result, "ok", 3) == 0) {
                 isCorrupted = false;
+            } else {
+                os_log_error(AUTHD_LOG, "authdb: integrity check result %{public}s", result);
             }
         }
+    } else {
+        os_log_error(AUTHD_LOG, "authdb: integrity check failed %d", rc);
     }
     
     sqlite3_finalize(stmt);
@@ -614,13 +642,29 @@ bool authdb_maintenance(authdb_connection_t dbconn)
 	require_noerr_action(rc, done, os_log_debug(AUTHD_LOG, "authdb: maintenance failed %i", rc));
 
     _db_load_data(dbconn, config);
-
+    
     _repair_all_kofns(dbconn, config);
 done:
     CFReleaseSafe(config);
     os_log_debug(AUTHD_LOG, "authdb: finished maintenance");
     return rc == SQLITE_OK;
 }
+
+void authdb_check_for_mandatory_rights(authdb_connection_t dbconn)
+{
+    // check the database if it contains the up to date rights
+    if (_check_for_db_update(dbconn)) {
+        // update is needed
+        os_log_error(AUTHD_LOG, "Database is in a bad shape, recreating it");
+        _handle_corrupt_db(dbconn);
+        authdb_maintenance(dbconn);
+        
+        // do the final check again
+        bool recheck = _check_for_db_update(dbconn);
+        os_log(AUTHD_LOG, "Database recheck result: %d", recheck);
+    }
+}
+
 
 int32_t
 authdb_exec(authdb_connection_t dbconn, const char * query)

@@ -135,15 +135,13 @@ bool IOEthernetController::init(OSDictionary * properties)
         return false;
     }
 	
-	_reserved = (ExpansionData *)IOMalloc(sizeof(ExpansionData));
+	_reserved = IOMallocType(ExpansionData);
 	if(!_reserved)
 	{
 		DLOG("IOEthernetController: failed to allocate expansion struct\n");
 		return false;
 	}
-	
-	memset(_reserved, 0, sizeof(ExpansionData));
-	
+
 	_reserved->fStateLock = IOLockAlloc();
 	if(!_reserved->fStateLock)
 	{
@@ -239,13 +237,12 @@ void IOEthernetController::free()
 	{
 		if(_reserved->fTransmitQueuePacketLatency)
 		{
-			IOFree(_reserved->fTransmitQueuePacketLatency, sizeof(uint64_t) * _reserved->fNumberOfRealtimeTransmitQueues);
+            IODeleteData(_reserved->fTransmitQueuePacketLatency, uint64_t, _reserved->fNumberOfRealtimeTransmitQueues);
 		}
 		if(_reserved->fTransmitQueuePrefetchDelay)
 		{
-			IOFree(_reserved->fTransmitQueuePrefetchDelay, sizeof(uint64_t) * _reserved->fNumberOfRealtimeTransmitQueues);
+			IODeleteData(_reserved->fTransmitQueuePrefetchDelay, uint64_t, _reserved->fNumberOfRealtimeTransmitQueues);
 		}
-		
 		if(_reserved->fStateLock)
 		{
 			IOLockFree(_reserved->fStateLock);
@@ -312,7 +309,7 @@ void IOEthernetController::free()
 				
 				completeAVBPacket(thisEntry->packet);
 				
-				IOFree(thisEntry, sizeof(struct IOECTSCallbackEntry));
+				IOFreeType(thisEntry, IOECTSCallbackEntry);
 			}
 		}
 		
@@ -328,7 +325,7 @@ void IOEthernetController::free()
 				
 				completeAVBPacket(thisEntry->packet);
 				
-				IOFree(thisEntry, sizeof(struct IOECTSCallbackEntry));
+				IOFreeType(thisEntry, IOECTSCallbackEntry);
 			}
 		}
 		
@@ -337,7 +334,7 @@ void IOEthernetController::free()
 			_reserved->fAVBPacketMapper->release();
 		}
 
-		IOFree(_reserved, sizeof(ExpansionData));
+		IOFreeType(_reserved, ExpansionData);
 	}
 
     super::free();
@@ -1205,20 +1202,16 @@ void IOEthernetController::setNumberOfRealtimeTransmitQueues(uint32_t numberOfTr
 	if(_reserved)
 	{
 		if(_reserved->fTransmitQueuePacketLatency)
-		{
-			IOFree(_reserved->fTransmitQueuePacketLatency, sizeof(uint64_t) * _reserved->fNumberOfRealtimeTransmitQueues);
-			_reserved->fTransmitQueuePacketLatency = NULL;
-		}
+			IODeleteData(_reserved->fTransmitQueuePacketLatency, uint64_t, _reserved->fNumberOfRealtimeTransmitQueues);
+        
 		if(_reserved->fTransmitQueuePrefetchDelay)
-		{
-			IOFree(_reserved->fTransmitQueuePrefetchDelay, sizeof(uint64_t) * _reserved->fNumberOfRealtimeTransmitQueues);
-			_reserved->fTransmitQueuePrefetchDelay = NULL;
-		}
+			IODeleteData(_reserved->fTransmitQueuePrefetchDelay, uint64_t, _reserved->fNumberOfRealtimeTransmitQueues);
+        
 		_reserved->fNumberOfRealtimeTransmitQueues = numberOfTransmitQueues;
-        setProperty(kNumberOfRealtimeTransmitQueuesKey, numberOfTransmitQueues, 32);
+		setProperty(kNumberOfRealtimeTransmitQueuesKey, numberOfTransmitQueues, 32);
 		if(_reserved->fNumberOfRealtimeTransmitQueues)
 		{
-			_reserved->fTransmitQueuePacketLatency = (uint64_t *)IOMalloc(sizeof(uint64_t) * _reserved->fNumberOfRealtimeTransmitQueues);
+			_reserved->fTransmitQueuePacketLatency = IONewData(uint64_t, _reserved->fNumberOfRealtimeTransmitQueues);
 			
 			if(_reserved->fTransmitQueuePacketLatency)
 			{
@@ -1228,7 +1221,7 @@ void IOEthernetController::setNumberOfRealtimeTransmitQueues(uint32_t numberOfTr
 				}
 			}
 			
-			_reserved->fTransmitQueuePrefetchDelay = (uint64_t *)IOMalloc(sizeof(uint64_t) * _reserved->fNumberOfRealtimeTransmitQueues);
+			_reserved->fTransmitQueuePrefetchDelay = IONewData(uint64_t, _reserved->fNumberOfRealtimeTransmitQueues);
 			
 			if(_reserved->fTransmitQueuePrefetchDelay)
 			{
@@ -1628,7 +1621,7 @@ void IOEthernetController::receivedTimeSyncPacket(IOEthernetAVBPacket *packet)
 		//Only create the callback structure if we are going to put the packet in the queue because the thread is running.
 		if(_reserved->fTimeSyncCallbackThreadIsRunning)
 		{
-			callback = (IOECTSCallbackEntry *)IOMalloc(sizeof(IOECTSCallbackEntry));
+			callback = IOMallocType(IOECTSCallbackEntry);
 		}
 		
 		if(callback)
@@ -1674,7 +1667,7 @@ void IOEthernetController::transmittedTimeSyncPacket(IOEthernetAVBPacket *packet
 	
 	if(_reserved && packet)
 	{
-		IOECTSCallbackEntry *callback = (IOECTSCallbackEntry *)IOMalloc(sizeof(IOECTSCallbackEntry));
+		IOECTSCallbackEntry *callback = IOMallocType(IOECTSCallbackEntry);
 		
 		if(callback)
 		{
@@ -1762,11 +1755,9 @@ IOEthernetController::IOEthernetAVBPacket * IOEthernetController::allocateAVBPac
 			UInt32 segmentCount = 1;
 			UInt64 dmaOffset = 0;
 
-			result = (IOEthernetAVBPacket *)IOMalloc(sizeof(IOEthernetAVBPacket));
+			result = IOMallocType(IOEthernetAVBPacket);
 			require(result, FailedAllocate);
-			
-			memset(result, 0, sizeof(IOEthernetAVBPacket));
-			
+
 			result->completion_context = this;
 			result->completion_callback = &allocatedAVBPacketCompletion;
 			
@@ -1840,8 +1831,7 @@ IOEthernetController::IOEthernetAVBPacket * IOEthernetController::allocateAVBPac
 					((IOBufferMemoryDescriptor *)(result->desc_buffer))->release();
 				}
 				
-				IOFree(result, sizeof(IOEthernetAVBPacket));
-				result = NULL;
+				IOFreeType(result, IOEthernetAVBPacket);
 			}
 		}
 	}
@@ -1869,7 +1859,7 @@ void IOEthernetController::allocatedAVBPacketCompletion(void *context, IOEtherne
 			((IOBufferMemoryDescriptor *)(packet->desc_buffer))->release();
 		}
 		
-		IOFree(packet, sizeof(IOEthernetAVBPacket));
+		IOFreeType(packet, IOEthernetAVBPacket);
 	}
 }
 
@@ -1942,7 +1932,7 @@ void IOEthernetController::timeSyncCallbackThread()
 						
 						completeAVBPacket(packet);
 						
-						IOFree(callback, sizeof(struct IOECTSCallbackEntry));
+						IOFreeType(callback, IOECTSCallbackEntry);
 					}
 				}
 				
@@ -1981,7 +1971,7 @@ void IOEthernetController::timeSyncCallbackThread()
 						
 						completeAVBPacket(packet);
 						
-						IOFree(callback, sizeof(struct IOECTSCallbackEntry));
+						IOFreeType(callback, IOECTSCallbackEntry);
 					}
 				}
 			}

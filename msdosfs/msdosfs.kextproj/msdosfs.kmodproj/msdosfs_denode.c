@@ -81,7 +81,7 @@
 #include <sys/ubc.h>
 #include <sys/namei.h>
 #include <mach/boolean.h>
-#include <libkern/OSMalloc.h>
+#include <IOKit/IOLib.h>
 
 #include "bpb.h"
 #include "msdosfsmount.h"
@@ -94,7 +94,6 @@
 #define DEBUG 0
 #endif
 
-OSMallocTag  msdosfs_node_tag = NULL;
 static lck_mtx_t *msdosfs_hash_lock = NULL;
 
 static struct denode **dehashtbl = NULL;
@@ -124,8 +123,7 @@ void msdosfs_hash_remove(struct denode *dep);
 
 void msdosfs_hash_init(void)
 {
-	msdosfs_hash_lock = lck_mtx_alloc_init(msdosfs_lck_grp, msdosfs_lck_attr);
-    msdosfs_node_tag = OSMalloc_Tagalloc("msdosfs denode", OSMT_DEFAULT);
+    msdosfs_hash_lock = lck_mtx_alloc_init(msdosfs_lck_grp, msdosfs_lck_attr);
     dehashtbl = hashinit(desiredvnodes, M_TEMP, &dehash);
 }
 
@@ -133,8 +131,6 @@ void msdosfs_hash_uninit(void)
 {
 	if (dehashtbl)
 		FREE(dehashtbl, M_TEMP);
-	if (msdosfs_node_tag)
-		OSMalloc_Tagfree(msdosfs_node_tag);
 	if (msdosfs_hash_lock)
 		lck_mtx_free(msdosfs_hash_lock, msdosfs_lck_grp);
 }
@@ -325,7 +321,7 @@ int msdosfs_deget(
 	 * finished here, and either find the fully initialized
 	 * denode, or none at all.
 	 */
-	dep = OSMalloc(sizeof(struct denode), msdosfs_node_tag);
+	dep = IOMallocType(denode_t);
 	if (dep == NULL) {
 		*depp = NULL;
 		lck_mtx_unlock(msdosfs_hash_lock);
@@ -514,9 +510,11 @@ int msdosfs_deget(
 	 */
 	*depp = dep;
 
+	lck_mtx_lock(msdosfs_hash_lock);
 	CLR(dep->de_flag, DE_INIT);
 	if (ISSET(dep->de_flag, DE_WAITINIT))
 		wakeup(dep);
+	lck_mtx_unlock(msdosfs_hash_lock);
 	
 	return 0;
 
@@ -531,7 +529,7 @@ fail:
 	if (ISSET(dep->de_flag, DE_WAITINIT))
 		wakeup(dep);
 	
-	OSFree(dep, sizeof *dep, msdosfs_node_tag);
+	IOFreeType(dep, denode_t);
 	
 	return error;
 }
@@ -917,7 +915,7 @@ int msdosfs_vnop_reclaim(struct vnop_reclaim_args *ap)
 	
 	lck_mtx_free(dep->de_cluster_lock, msdosfs_lck_grp);
 	lck_mtx_free(dep->de_lock, msdosfs_lck_grp);
-	OSFree(dep, sizeof(struct denode), msdosfs_node_tag);
+	IOFreeType(dep, denode_t);
 	vnode_clearfsnode(vp);
 	vnode_removefsref(vp);
 	

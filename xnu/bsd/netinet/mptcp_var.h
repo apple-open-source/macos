@@ -95,6 +95,8 @@ struct mptses {
 
 	struct sockaddr_in      mpte_sub_dst_v4;
 	struct sockaddr_in6     mpte_sub_dst_v6;
+	uint8_t         sub_dst_addr_id_v4;
+	uint8_t         sub_dst_addr_id_v6;
 
 	uint16_t        mpte_alternate_port;    /* Alternate port for subflow establishment (network-byte-order) */
 
@@ -112,6 +114,8 @@ struct mptses {
 #define MPTE_WORKLOOP_RELAUNCH  0x40            /* Another event got queued, we should restart the workloop */
 #define MPTE_UNICAST_IP         0x80            /* New subflows are only being established towards the unicast IP in the ADD_ADDR */
 #define MPTE_CELL_PROHIBITED    0x100           /* Cell access has been prohibited based on signal quality */
+#define MPTE_FORCE_V0           0x200           /* Force MPTCP to use version 0 regradless of tcp cache */
+#define MPTE_FORCE_V1           0x400           /* Force MPTCP to use version 1 regradless of tcp cache */
 	uint8_t mpte_svctype;                   /* MPTCP Service type */
 	uint8_t mpte_lost_aid;                  /* storing lost address id */
 	uint8_t mpte_addrid_last;               /* storing address id parm */
@@ -129,7 +133,8 @@ struct mptses {
 	    mpte_used_wifi:1,
 	    mpte_initial_cell:1,
 	    mpte_triggered_cell,
-	    mpte_handshake_success:1;
+	    mpte_handshake_success:1,
+	    mpte_last_added_addr_is_v4:1;
 
 	struct mptcp_itf_stats  mpte_itfstats[MPTCP_ITFSTATS_SIZE];
 	uint64_t                mpte_init_txbytes __attribute__((aligned(8)));
@@ -474,7 +479,9 @@ extern struct pr_usrreqs mptcp_usrreqs;
 extern os_log_t mptcp_log_handle;
 
 /* Encryption algorithm related definitions */
-#define SHA1_TRUNCATED          8
+#define HMAC_TRUNCATED_SYNACK          8
+#define HMAC_TRUNCATED_ACK         20
+#define HMAC_TRUNCATED_ADD_ADDR         8
 
 /* MPTCP Debugging Levels */
 #define MPTCP_LOGLVL_NONE       0x0     /* No debug logging */
@@ -558,6 +565,7 @@ extern uint32_t mptcp_dbg_level;        /* Multipath TCP debugging level */
 extern uint32_t mptcp_dbg_area; /* Multipath TCP debugging area */
 extern int mptcp_developer_mode;        /* Allow aggregation mode */
 extern uint32_t mptcp_cellicon_refcount;
+extern uint32_t mptcp_enable_v1;
 
 #define MPTCP_CELLICON_TOGGLE_RATE      (5 * TCP_RETRANSHZ) /* Only toggle every 5 seconds */
 
@@ -612,7 +620,9 @@ extern void mptcp_close_fsm(struct mptcb *, uint32_t);
 
 extern void mptcp_hmac_sha1(mptcp_key_t, mptcp_key_t, u_int32_t, u_int32_t,
     u_char*);
-extern void mptcp_get_hmac(mptcp_addr_id, struct mptcb *, u_char *);
+extern void mptcp_hmac_sha256(mptcp_key_t, mptcp_key_t, u_char*, uint16_t,
+    u_char*);
+extern void mptcp_get_mpjoin_hmac(mptcp_addr_id, struct mptcb *, u_char *, uint8_t);
 extern void mptcp_get_rands(mptcp_addr_id, struct mptcb *, u_int32_t *,
     u_int32_t *);
 extern void mptcp_set_raddr_rand(mptcp_addr_id, struct mptcb *, mptcp_addr_id,
@@ -625,6 +635,8 @@ extern void mptcp_output_getm_dsnmap32(struct socket *so, int off,
     uint16_t *data_len, uint16_t *dss_csum);
 extern void mptcp_output_getm_dsnmap64(struct socket *so, int off,
     uint64_t *dsn, uint32_t *relseq,
+    uint16_t *data_len, uint16_t *dss_csum);
+extern void mptcp_output_getm_data_level_details(struct socket *so, int off,
     uint16_t *data_len, uint16_t *dss_csum);
 extern void mptcp_act_on_txfail(struct socket *);
 extern struct mptsub *mptcp_get_subflow(struct mptses *mpte, struct mptsub **preferred);

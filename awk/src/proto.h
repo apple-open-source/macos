@@ -43,14 +43,16 @@ extern	fa	*mkdfa(const char *, bool);
 extern	int	makeinit(fa *, bool);
 extern	void	penter(Node *);
 extern	void	freetr(Node *);
-extern	int	hexstr(const uschar **);
-extern	int	quoted(const uschar **);
-extern	char	*cclenter(const char *);
+extern	int 	hexstr(const uschar **);
+extern	int 	quoted(const uschar **);
+extern	wchar_t	wchexstr(const wchar_t **);
+extern	wchar_t	wcquoted(const wchar_t **);
+extern	wchar_t	*cclenter(const wchar_t *);
 extern	noreturn void	overflo(const char *);
 extern	void	cfoll(fa *, Node *);
 extern	int	first(Node *);
 extern	void	follow(Node *);
-extern	int	member(int, const char *);
+extern	int	member(wchar_t, const wchar_t *);
 extern	int	match(fa *, const char *);
 extern	int	pmatch(fa *, const char *);
 extern	int	nematch(fa *, const char *);
@@ -62,7 +64,7 @@ extern	Node	*concat(Node *);
 extern	Node	*alt(Node *);
 extern	Node	*unary(Node *);
 extern	int	relex(void);
-extern	int	cgoto(fa *, int, int);
+extern	int	cgoto(fa *, int, wchar_t, int);
 extern	void	freefa(fa *);
 
 extern	int	pgetc(void);
@@ -99,6 +101,7 @@ extern	void	arginit(int, char **);
 extern	void	envinit(char **);
 extern	Array	*makesymtab(int);
 extern	void	freesymtab(Cell *);
+extern	int	insymtab(Cell *ap, Cell *needle);
 extern	void	freeelem(Cell *, const char *);
 extern	Cell	*setsymtab(const char *, const char *, double, unsigned int, Array *);
 extern	int	hash(const char *, int);
@@ -112,6 +115,9 @@ extern	char	*getsval(Cell *);
 extern	char	*getpssval(Cell *);     /* for print */
 extern	char	*tostring(const char *);
 extern	char	*tostringN(const char *, size_t);
+extern  wchar_t towc(int *, const char *, int);
+
+
 extern	char	*qstring(const char *, int);
 extern	Cell	*catstr(Cell *, Cell *);
 
@@ -149,6 +155,8 @@ extern	int	isclvar(const char *);
 extern	int	is_number(const char *);
 
 extern	int	adjbuf(char **pb, int *sz, int min, int q, char **pbp, const char *what);
+extern	int	wcadjbuf(wchar_t **pb, int *sz, int min, int q, wchar_t **pbp, const char *what);
+
 extern	void	run(Node *);
 extern	Cell	*execute(Node *);
 extern	Cell	*program(Node **, int);

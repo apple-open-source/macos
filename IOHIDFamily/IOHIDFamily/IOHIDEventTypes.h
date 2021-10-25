@@ -599,6 +599,19 @@ enum {
 };
 typedef uint32_t IOHIDDigitizerEventUpdateMask;
 
+/*!
+    @typedef IOHIDEventOptionBits
+    @abstract Event mask detailing the options for events of any type.
+    @constant kIOHIDEventOptionNone No options set.
+    @constant kIOHIDEventOptionIsAbsolute Event is in absolute units, not relative units.
+    @constant kIOHIDEventOptionIsCollection Event is a collection of sub events.
+    @constant kIOHIDEventOptionIsPixelUnits Event units are pixels.
+    @constant kIOHIDEventOptionIsCenterOrigin Event unit coordinates are from the center of the space, not the top left corner.
+    @constant kIOHIDEventOptionIsBuiltIn Event is treated as if it came from a built-in device.
+    @constant kIOHIDEventOptionInterpolated Event is interpolated from hid reports.
+    @constant kIOHIDEventOptionInjected Event is injected by a tool or filter.
+    @constant kIOHIDEventOptionPixelUnits Alternate spelling of kIOHIDEventOptionIsPixelUnits, prefer using kIOHIDEventOptionIsPixelUnits instead.
+*/
 enum {
     kIOHIDEventOptionNone                                   = 0,
     kIOHIDEventOptionIsAbsolute                             = 1<<0,
@@ -606,6 +619,8 @@ enum {
     kIOHIDEventOptionIsPixelUnits                           = 1<<2,
     kIOHIDEventOptionIsCenterOrigin                         = 1<<3,
     kIOHIDEventOptionIsBuiltIn                              = 1<<4,
+    kIOHIDEventOptionInterpolated                           = 1<<5,
+    kIOHIDEventOptionInjected                               = 1<<6,
 
     // misspellings
     kIOHIDEventOptionPixelUnits                             = kIOHIDEventOptionIsPixelUnits,

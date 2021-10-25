@@ -165,7 +165,7 @@ private:
 // We do this by forking a helper tool (codesign_allocate) and asking
 // it to make a copy with suitable space "opened up" in the right spots.
 //
-class MachOEditor : public ArchEditor, private UnixPlusPlus::Child {
+class MachOEditor : public ArchEditor {
 public:
 	MachOEditor(DiskRep::Writer *w, Universal &code, CodeDirectory::HashAlgorithms hashTypes, std::string srcPath);
 	~MachOEditor();
@@ -182,19 +182,11 @@ public:
 	
 private:
 	CodeDirectory::HashAlgorithms mHashTypes;
-	
-	// fork operation
-	void childAction();
-	void parentAction();
-	
+
 	// controlling the temporary file copy
 	Universal *mNewCode;
 	UnixPlusPlus::AutoFileDesc mFd;
 	bool mTempMayExist;
-	
-	// finding and managing the helper tool
-	const char *mHelperPath;
-	bool mHelperOverridden;
 };
 
 

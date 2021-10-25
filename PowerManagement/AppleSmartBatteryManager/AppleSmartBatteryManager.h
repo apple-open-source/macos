@@ -117,11 +117,10 @@ public:
     bool exclusiveClientExists();
     bool isBatteryInaccessible();
 
-    IOReturn performTransaction(ASBMgrRequest *req, OSObject * target, void * reference);
-
     // transactionCompletion is the guts of the state machine
 #if TARGET_OS_OSX_X86
     bool    transactionCompletion(void *ref, IOSMBusTransaction *transaction);
+    IOReturn performTransaction(ASBMgrRequest *req, OSObject * target, void * reference);
 #endif
     IOReturn inhibitChargingGated(uint64_t level);
     IOReturn disableInflowGated(uint64_t level);
@@ -149,11 +148,9 @@ private:
     void    handleBatteryInserted(void);
     void    handleBatteryRemoved(void);
 
-    IOReturn performSmbusTransactionGated(ASBMgrRequest *req, OSObject *target, void *ref);
     IOReturn smbusCompletionHandler(void *ref, IOReturn status, size_t byteCount, uint8_t *data);
     IOReturn requestExclusiveSMBusAccessGated(bool request);
 
-private:
     bool                        _started;
 #if TARGET_OS_OSX_X86
     IOSMBusController           * fProvider;
@@ -161,6 +158,7 @@ private:
     ASBMgrTransactionCompletion fAsbmCompletion;
     OSObject                    *fAsbmTarget;
     void                        *fAsbmReference;
+    IOReturn                    performSmbusTransactionGated(ASBMgrRequest *req, OSObject *target, void *ref);
 #endif
 #if TARGET_OS_IPHONE || TARGET_OS_OSX_AS
     IOTimerEventSource          * fBatteryPollSMC;

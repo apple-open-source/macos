@@ -33,6 +33,9 @@
 #import "keychain/ckks/CKKSNotifier.h"
 #import "keychain/ckks/CKKSCondition.h"
 #import "keychain/ckks/CKKSListenerCollection.h"
+#import "keychain/ckks/CKKSExternalTLKClient.h"
+#import "keychain/ckks/CKKSActor+ExternalClientHandling.h"
+#import "keychain/ckks/CKKSSecDbAdapter.h"
 #import "keychain/ckks/CloudKitCategories.h"
 #import "keychain/ckks/OctagonAPSReceiver.h"
 #import "keychain/categories/NSError+UsefulConstructors.h"
@@ -43,6 +46,7 @@
 #import "keychain/ot/OTDefines.h"
 #import "keychain/ot/OTConstants.h"
 #import "keychain/ot/ObjCImprovements.h"
+#import "keychain/ot/OTPersonaAdapter.h"
 
 #import "keychain/trust/TrustedPeers/TPSyncingPolicy.h"
 
@@ -83,16 +87,11 @@
 @property CKKSCloudKitClassDependencies* cloudKitClassDependencies;
 
 @property NSMutableDictionary<NSString*, SecBoolNSErrorCallback>* pendingSyncCallbacks;
-@property CKKSNearFutureScheduler* savedTLKNotifier;;
+@property CKKSNearFutureScheduler* savedTLKNotifier;
 @property NSOperationQueue* operationQueue;
 
-@property CKKSListenerCollection<id<CKKSPeerUpdateListener>>* peerChangeListenerCollection;
-
-@property (nonatomic) BOOL overrideCKKSViewsFromPolicy;
-@property (nonatomic) BOOL valueCKKSViewsFromPolicy;
-@property (nonatomic) BOOL startCKOperationAtViewCreation;
-
-@property BOOL itemModificationsBeforePolicyLoaded;
+// Map of "context name" to CKKS sync object
+@property (readonly) NSMutableDictionary<NSString*, CKKSKeychainView*>* ckksActors;
 
 // Make writable
 @property (nullable) TPSyncingPolicy* policy;
@@ -114,6 +113,7 @@
               accountStateTracker:(CKKSAccountStateTracker*)accountTracker
                  lockStateTracker:(CKKSLockStateTracker*)lockStateTracker
               reachabilityTracker:(CKKSReachabilityTracker*)reachabilityTracker
+                   personaAdapter:(id<OTPersonaAdapter>)personaAdapter
         cloudKitClassDependencies:(CKKSCloudKitClassDependencies*)cloudKitClassDependencies
 {
     if(self = [super init]) {
@@ -126,7 +126,7 @@
         _lockStateTracker = lockStateTracker;
         [_lockStateTracker addLockStateObserver:self];
         _reachabilityTracker = reachabilityTracker;
-        _itemModificationsBeforePolicyLoaded = NO;
+        _personaAdapter = personaAdapter;
 
         _zoneChangeFetcher = [[CKKSZoneChangeFetcher alloc] initWithContainer:_container
                                                                    fetchClass:cloudKitClassDependencies.fetchRecordZoneChangesOperationClass
@@ -141,12 +141,9 @@
 
         _operationQueue = [[NSOperationQueue alloc] init];
 
-        _peerChangeListenerCollection = [[CKKSListenerCollection alloc] initWithName:@"sos-peer-set"];
+        _ckksActors = [[NSMutableDictionary alloc] init];
 
-        _views = [[NSMutableDictionary alloc] init];
         _pendingSyncCallbacks = [[NSMutableDictionary alloc] init];
-
-        _startCKOperationAtViewCreation = NO;
 
         _completedSecCKKSInitialize = [[CKKSCondition alloc] init];
 
@@ -185,6 +182,19 @@
         container = [[CKContainer alloc] initWithContainerID: container.containerID options:containerOptions];
     }
     return container;
+}
+
+- (BOOL)allowClientRPC:(NSError**)error
+{
+    if(![self.personaAdapter currentThreadIsForPrimaryiCloudAccount]) {
+        secnotice("ckks", "Rejecting client RPC for non-primary persona");
+        if(error) {
+            *error = [NSError errorWithDomain:CKKSErrorDomain code:CKKSErrorNotSupported description:@"CKKS APIs do not support non-primary users"];
+        }
+        return NO;
+    }
+
+    return YES;
 }
 
 - (BOOL)waitForTrustReady {
@@ -240,8 +250,16 @@
         return values;
     }];
 
-    for (NSString* viewName in [self viewList]) {
-        [[CKKSAnalytics logger] AddMultiSamplerForName:[NSString stringWithFormat:@"CKKS-%@-healthSummary", viewName] withTimeInterval:SFAnalyticsSamplerIntervalOncePerReport block:^NSDictionary<NSString *,NSNumber *> *{
+    CKKSKeychainView* ckks = [self ckksAccountSyncForContainer:SecCKKSContainerName
+                                                     contextID:OTDefaultContext];
+    if(!ckks) {
+        return;
+    }
+
+    for (NSString* viewName in [ckks viewList]) {
+        [[CKKSAnalytics logger] AddMultiSamplerForName:[NSString stringWithFormat:@"CKKS-%@-healthSummary", viewName]
+                                      withTimeInterval:SFAnalyticsSamplerIntervalOncePerReport
+                                                 block:^NSDictionary<NSString *,NSNumber *> *{
             STRONGIFY(self);
             if(!self) {
                 return nil;
@@ -254,7 +272,11 @@
             }
             BOOL inCircle = (sosStatus == kSOSCCInCircle);
             NSMutableDictionary* values = [NSMutableDictionary dictionary];
-            CKKSKeychainView* view = [self findOrCreateView:viewName];
+            CKKSKeychainViewState* view = [ckks viewStateForName:viewName];
+            if(!view) {
+                return values;
+            }
+
             NSDate* dateOfLastSyncClassA = [[CKKSAnalytics logger] dateOfLastSuccessForEvent:CKKSEventProcessIncomingQueueClassA zoneName:view.zoneName];
             NSDate* dateOfLastSyncClassC = [[CKKSAnalytics logger] dateOfLastSuccessForEvent:CKKSEventProcessIncomingQueueClassC zoneName:view.zoneName];
             NSDate* dateOfLastKSR = [[CKKSAnalytics logger] datePropertyForKey:CKKSAnalyticsLastKeystateReady zoneName:view.zoneName];
@@ -293,12 +315,11 @@
                 values[[NSString stringWithFormat:@"%@-%@", viewName, CKKSAnalyticsNumberOfSyncKeys]] = syncKeyCount;
             }
 
-            BOOL hasTLKs = [view.stateMachine.currentState isEqualToString:SecCKKSZoneKeyStateReady] || [view.stateMachine.currentState isEqualToString:SecCKKSZoneKeyStateReadyPendingUnlock];
-            /* only synced recently if between [0...7, ie within 7 days */
+            BOOL hasTLKs = [view.viewKeyHierarchyState isEqualToString:SecCKKSZoneKeyStateReady];
             BOOL syncedClassARecently = fuzzyDaysSinceClassASync >= 0 && fuzzyDaysSinceClassASync < 7;
             BOOL syncedClassCRecently = fuzzyDaysSinceClassCSync >= 0 && fuzzyDaysSinceClassCSync < 7;
-            BOOL incomingQueueIsErrorFree = view.lastIncomingQueueOperation.error == nil;
-            BOOL outgoingQueueIsErrorFree = view.lastOutgoingQueueOperation.error == nil;
+            BOOL incomingQueueIsErrorFree = ckks.lastIncomingQueueOperation.error == nil;
+            BOOL outgoingQueueIsErrorFree = ckks.lastOutgoingQueueOperation.error == nil;
 
             NSString* hasTLKsKey = [NSString stringWithFormat:@"%@-%@", viewName, CKKSAnalyticsHasTLKs];
             NSString* syncedClassARecentlyKey = [NSString stringWithFormat:@"%@-%@", viewName, CKKSAnalyticsSyncedClassARecently];
@@ -319,10 +340,6 @@
             return values;
         }];
     }
-}
-
--(void)dealloc {
-    [self clearAllViews];
 }
 
 dispatch_queue_t globalZoneStateQueue = NULL;
@@ -368,367 +385,70 @@ dispatch_once_t globalZoneStateQueueOnce;
     }
 }
 
-#pragma mark - View List handling
-
-- (NSSet<NSString*>*)defaultViewList {
-    NSSet<NSString*>* fullList = [OTSOSActualAdapter sosCKKSViewList];
-
-    // Not a great hack: if this platform is an aTV or a HomePod, then filter its list of views
-    bool filter = false;
-
-#if TARGET_OS_TV
-    filter = true;
-#elif TARGET_OS_WATCH
-    filter = false;
-#elif TARGET_OS_IOS
-    filter = !OctagonPlatformSupportsSOS();
-#elif TARGET_OS_OSX
-    filter = false;
-#endif
-
-    if(filter) {
-        // For now, use a hardcoded allow list for TV/HomePod
-        NSMutableSet<NSString*>* allowList = [NSMutableSet setWithArray:@[@"Home", @"LimitedPeersAllowed"]];
-        [allowList intersectSet:fullList];
-        return allowList;
-    }
-
-    return fullList;
-}
-
-- (NSSet<NSString*>*)viewList {
-    return [self.views.allKeys copy];
-}
-
-- (BOOL)setCurrentSyncingPolicy:(TPSyncingPolicy* _Nullable)syncingPolicy
+- (CKKSKeychainView* _Nullable)ckksAccountSyncForContainer:(NSString*)container
+                                                 contextID:(NSString*)contextID
 {
-    return [self setCurrentSyncingPolicy:syncingPolicy policyIsFresh:NO];
-}
+    // Right now, we only support a single CKKS per address space.
+    if([container isEqualToString:SecCKKSContainerName] && [contextID isEqualToString:OTDefaultContext]) {
 
-- (BOOL)setCurrentSyncingPolicy:(TPSyncingPolicy* _Nullable)syncingPolicy policyIsFresh:(BOOL)policyIsFresh
-{
-    if(syncingPolicy == nil) {
-        ckksnotice_global("ckks-policy", "Nil syncing policy presented; ignoring");
-        return NO;
-    }
-
-    NSSet<NSString*>* viewNames = syncingPolicy.viewList;
-    ckksnotice_global("ckks-policy", "New syncing policy: %@ views: %@", syncingPolicy, viewNames);
-
-    if(![self useCKKSViewsFromPolicy]) {
-        // Thanks, but no thanks.
-        viewNames = [self defaultViewList];
-        ckksnotice_global("ckks-policy", "Reverting to default view list: %@", viewNames);
-    }
-
-    if(self.viewAllowList) {
-        ckksnotice_global("ckks-policy", "Intersecting view list with allow list: %@", self.viewAllowList);
-        NSMutableSet<NSString*>* set = [viewNames mutableCopy];
-        [set intersectSet:self.viewAllowList];
-
-        viewNames = set;
-        ckksnotice_global("ckks-policy", "Final list: %@", viewNames);
-    }
-
-    // We need to not be synchronized on self.views before issuing commands to CKKS views.
-    // So, store the pointers for use after the critical section.
-    NSArray<CKKSKeychainView*>* activeViews = nil;
-    BOOL scanAll = NO;
-    BOOL viewsChanged = NO;
-
-    @synchronized(self.views) {
-        self.policy = syncingPolicy;
-
-        NSArray* previousViewNames = [self.views.allKeys copy];
-
-        // First, shut down any views that are no longer in the set
-        for(NSString* viewName in previousViewNames) {
-            if(![viewNames containsObject:viewName]) {
-                ckksnotice_global("ckks-policy", "Stopping old view %@", viewName);
-                [self clearView:viewName];
-                viewsChanged = YES;
+        @synchronized(self.ckksActors) {
+            CKKSKeychainView* ckks = self.ckksActors[contextID];
+            if(!ckks) {
+                ckks = [[CKKSKeychainView alloc] initWithContainer:self.container
+                                                    accountTracker:self.accountTracker
+                                                  lockStateTracker:self.lockStateTracker
+                                               reachabilityTracker:self.reachabilityTracker
+                                                     changeFetcher:self.zoneChangeFetcher
+                                                      zoneModifier:self.zoneModifier
+                                                  savedTLKNotifier:self.savedTLKNotifier
+                                         cloudKitClassDependencies:self.cloudKitClassDependencies];
+                self.ckksActors[contextID] = ckks;
             }
-        }
-
-        for(NSString* viewName in viewNames) {
-            CKKSKeychainView* view = nil;
-
-            if([previousViewNames containsObject:viewName]) {
-                view = [self findView:viewName];
-                ckksinfo_global("ckks-policy", "Already have view %@", view);
-
-            } else {
-                view = [self findOrCreateView:viewName];
-                ckksnotice_global("ckks-policy", "Created new view %@", view);
-                viewsChanged = YES;
-            }
-        }
-
-        activeViews = [self.views.allValues copy];
-
-        if(self.itemModificationsBeforePolicyLoaded) {
-            ckksnotice_global("ckks-policy", "Issuing scan suggestions to handle missed items");
-            scanAll = YES;
-            self.itemModificationsBeforePolicyLoaded = NO;
+            return ckks;
         }
     }
 
-    for(CKKSKeychainView* view in activeViews) {
-        [view setCurrentSyncingPolicy:self.policy policyIsFresh:policyIsFresh];
-
-        if(scanAll) {
-            [view scanLocalItems:@"item-added-before-policy"];
-        }
-    }
-
-    // Retrigger the analytics setup, so that our views will report status
-    [self setupAnalytics];
-
-    // The policy is considered loaded once the views have been created
-    [self.policyLoaded fulfill];
-    return viewsChanged;
+    return nil;
 }
 
-- (void)setSyncingViewsAllowList:(NSSet<NSString*>*)viewNames
+- (CKKSKeychainView*)restartCKKSAccountSync:(CKKSKeychainView*)view
 {
-    self.viewAllowList = viewNames;
+    TPSyncingPolicy* policy = view.syncingPolicy;
+
+    CKKSKeychainView* restartedView = [self restartCKKSAccountSyncWithoutSettingPolicy:view];
+    [restartedView setCurrentSyncingPolicy:policy policyIsFresh:NO];
+    return restartedView;
 }
 
-- (void)resetSyncingPolicy
+- (CKKSKeychainView*)restartCKKSAccountSyncWithoutSettingPolicy:(CKKSKeychainView*)view
 {
-    ckksnotice_global("ckks-policy", "Setting policy to nil");
-    self.policy = nil;
-    self.policyLoaded = [[CKKSCondition alloc] init];
+    // view had better be for OTDefaultContext, or this will misbehave.
 
-    self.startCKOperationAtViewCreation = NO;
-}
+    ckksnotice_global("ckkstests", "Restarting CKKS %@", view);
 
-#pragma mark - View Handling
+    [view halt];
 
-- (void)setView: (CKKSKeychainView*) obj {
-    CKKSKeychainView* kcv = nil;
+    NSSet<NSString*>* viewAllowList = view.viewAllowList;
 
-    @synchronized(self.views) {
-        kcv = self.views[obj.zoneName];
-        self.views[obj.zoneName] = obj;
+    CKKSKeychainView* restartedView = nil;
+
+    @synchronized (self.ckksActors) {
+        restartedView = [[CKKSKeychainView alloc] initWithContainer:self.container
+                                                     accountTracker:self.accountTracker
+                                                   lockStateTracker:self.lockStateTracker
+                                                reachabilityTracker:self.reachabilityTracker
+                                                      changeFetcher:self.zoneChangeFetcher
+                                                       zoneModifier:self.zoneModifier
+                                                   savedTLKNotifier:self.savedTLKNotifier
+                                          cloudKitClassDependencies:self.cloudKitClassDependencies];
+        self.ckksActors[OTDefaultContext] = restartedView;
     }
 
-    if(kcv) {
-        [kcv cancelAllOperations];
-    }
-}
-
-- (void)clearAllViews {
-    NSArray<CKKSKeychainView*>* tempviews = nil;
-    @synchronized(self.views) {
-        tempviews = [self.views.allValues copy];
-        [self.views removeAllObjects];
-
-        self.startCKOperationAtViewCreation = NO;
+    if(viewAllowList) {
+        [restartedView setSyncingViewsAllowList:viewAllowList];
     }
 
-    for(CKKSKeychainView* view in tempviews) {
-        [view cancelAllOperations];
-    }
-}
-
-- (void)clearView:(NSString*) viewName {
-    CKKSKeychainView* kcv = nil;
-    @synchronized(self.views) {
-        kcv = self.views[viewName];
-        self.views[viewName] = nil;
-    }
-
-    if(kcv) {
-        [kcv cancelAllOperations];
-    }
-}
-
-- (CKKSKeychainView*)findView:(NSString*)viewName {
-    if(!viewName) {
-        return nil;
-    }
-
-    @synchronized(self.views) {
-        return self.views[viewName];
-    }
-}
-
-- (CKKSKeychainView* _Nullable)findView:(NSString*)viewName error:(NSError**)error
-{
-    if([self.policyLoaded wait:5*NSEC_PER_SEC] != 0) {
-        ckkserror_global("ckks", "Haven't yet received a syncing policy; expect failure finding views");
-
-        if([self useCKKSViewsFromPolicy]) {
-            if(error) {
-                *error = [NSError errorWithDomain:CKKSErrorDomain
-                                             code:CKKSErrorPolicyNotLoaded
-                                         userInfo:@{NSLocalizedDescriptionKey: [NSString stringWithFormat: @"CKKS syncing policy not yet loaded; cannot find view '%@'", viewName]}];
-
-            }
-            return nil;
-        }
-    }
-
-    @synchronized(self.views) {
-        CKKSKeychainView* view = self.views[viewName];
-        if(!view) {
-            if(error) {
-                *error = [NSError errorWithDomain:CKKSErrorDomain
-                                             code:CKKSNoSuchView
-                                         userInfo:@{NSLocalizedDescriptionKey: [NSString stringWithFormat: @"No syncing view for '%@'", viewName]}];
-            }
-            return nil;
-        }
-
-        return view;
-    }
-}
-
-- (CKKSKeychainView*)findOrCreateView:(NSString*)viewName {
-    @synchronized(self.views) {
-        CKKSKeychainView* kcv = self.views[viewName];
-        if(kcv) {
-            return kcv;
-        }
-
-        self.views[viewName] = [[CKKSKeychainView alloc] initWithContainer: self.container
-                                                                  zoneName: viewName
-                                                            accountTracker: self.accountTracker
-                                                          lockStateTracker: self.lockStateTracker
-                                                       reachabilityTracker: self.reachabilityTracker
-                                                             changeFetcher:self.zoneChangeFetcher
-                                                              zoneModifier:self.zoneModifier
-                                                          savedTLKNotifier: self.savedTLKNotifier
-                                                 cloudKitClassDependencies:self.cloudKitClassDependencies];
-
-        if(self.startCKOperationAtViewCreation) {
-            [self.views[viewName] beginCloudKitOperation];
-        }
-        return self.views[viewName];
-    }
-}
-
-- (NSSet<CKKSKeychainView*>*)currentViews
-{
-    @synchronized (self.views) {
-        NSMutableSet<CKKSKeychainView*>* viewObjects = [NSMutableSet set];
-        for(NSString* viewName in self.views) {
-            [viewObjects addObject:self.views[viewName]];
-        }
-        return viewObjects;
-    }
-}
-
-- (void)createViews
-{
-    if(![self useCKKSViewsFromPolicy]) {
-        // In the future, the CKKSViewManager needs to persist its policy property through daemon restarts
-        // and load it here, before creating whatever views it was told to (in a previous daemon lifetime)
-        for (NSString* viewName in [self defaultViewList]) {
-            CKKSKeychainView* view = [self findOrCreateView:viewName];
-            (void)view;
-        }
-    } else {
-        ckksnotice_global("ckks-views", "Not loading default view list due to enabled CKKS4All");
-    }
-}
-
-- (void)beginCloudKitOperationOfAllViews
-{
-    self.startCKOperationAtViewCreation = YES;
-
-    for (CKKSKeychainView* view in self.views.allValues) {
-        [view beginCloudKitOperation];
-    }
-}
-
-- (void)haltZone:(NSString*)viewName
-{
-    @synchronized(self.views) {
-        CKKSKeychainView* view = self.views[viewName];
-        [view halt];
-        [view cancelAllOperations];
-        self.views[viewName] = nil;
-    }
-}
-
-- (CKKSKeychainView*)restartZone:(NSString*)viewName {
-    [self haltZone:viewName];
-    CKKSKeychainView* view = [self findOrCreateView: viewName];
-
-    [view setCurrentSyncingPolicy:self.policy policyIsFresh:NO];
-
-    return view;
-}
-
-- (NSString*)viewNameForViewHint: (NSString*) viewHint {
-    // For now, choose view based on viewhints.
-    if(viewHint && ![viewHint isEqual: [NSNull null]]) {
-        return viewHint;
-    }
-
-    //  If there isn't a provided view hint, use the "keychain" view if we're testing. Otherwise, nil.
-    if(SecCKKSTestsEnabled()) {
-        return @"keychain";
-    } else {
-        return nil;
-    }
-}
-
-- (void) setOverrideCKKSViewsFromPolicy:(BOOL)value {
-    _overrideCKKSViewsFromPolicy = YES;
-    _valueCKKSViewsFromPolicy = value;
-}
-
-- (BOOL)useCKKSViewsFromPolicy {
-    if (self.overrideCKKSViewsFromPolicy) {
-        return self.valueCKKSViewsFromPolicy;
-    } else {
-        BOOL viewsFromPolicy = os_feature_enabled(Security, CKKSViewsFromPolicy);
-
-        static dispatch_once_t onceToken;
-        dispatch_once(&onceToken, ^{
-            ckksnotice_global("ckks", "ViewsFromPolicy feature flag: %@", viewsFromPolicy ? @"on" : @"off");
-        });
-        return viewsFromPolicy;
-    }
-}
-
-- (NSString* _Nullable)viewNameForItem:(SecDbItemRef)item
-{
-    if ([self useCKKSViewsFromPolicy]) {
-        CFErrorRef cferror = NULL;
-        NSMutableDictionary *dict = (__bridge_transfer NSMutableDictionary*) SecDbItemCopyPListWithMask(item, kSecDbSyncFlag, &cferror);
-
-        if(cferror) {
-            ckkserror_global("ckks", "Couldn't fetch attributes from item: %@", cferror);
-            CFReleaseNull(cferror);
-            return nil;
-        }
-
-        // Ensure that we've added the class name, because SecDbItemCopyPListWithMask doesn't do that for some reason.
-        dict[(__bridge NSString*)kSecClass] = (__bridge NSString*)item->class->name;
-
-        NSString* view = [self.policy mapDictionaryToView:dict];
-        if (view == nil) {
-            ckkserror_global("ckks", "No view returned from policy (%@): %@", self.policy, item);
-            return nil;
-        }
-
-        return view;
-    } else {
-        CFErrorRef cferror = NULL;
-        NSString* viewHint = (__bridge NSString*) SecDbItemGetValue(item, &v7vwht, &cferror);
-
-        if(cferror) {
-            ckkserror_global("ckks", "Couldn't fetch the viewhint for some reason: %@", cferror);
-            CFReleaseNull(cferror);
-            viewHint = nil;
-        }
-
-        return [self viewNameForViewHint: viewHint];
-    }
+    return restartedView;
 }
 
 - (void)registerSyncStatusCallback: (NSString*) uuid callback: (SecBoolNSErrorCallback) callback {
@@ -793,76 +513,15 @@ dispatch_once_t globalZoneStateQueueOnce;
 
 - (void) handleKeychainEventDbConnection: (SecDbConnectionRef) dbconn source:(SecDbTransactionSource)txionSource added: (SecDbItemRef) added deleted: (SecDbItemRef) deleted {
 
-    SecDbItemRef modified = added ? added : deleted;
-
-    NSString* keyViewName = [CKKSKey isItemKeyForKeychainView: modified];
-
-    if(keyViewName) {
-        // This might be some key material for this view! Poke it.
-        CKKSKeychainView* view = [self findView: keyViewName];
-
-        if(!SecCKKSTestDisableKeyNotifications()) {
-            ckksnotice("ckks", view, "Potential new key material from %@ (source %lu)",
-                       keyViewName, (unsigned long)txionSource);
-            [view keyStateMachineRequestProcess];
-        } else {
-            ckksnotice("ckks", view, "Ignoring potential new key material from %@ (source %lu)",
-                       keyViewName, (unsigned long)txionSource);
-        }
-        return;
-    }
-
-    bool addedSync   = added   && SecDbItemIsSyncable(added);
-    bool deletedSync = deleted && SecDbItemIsSyncable(deleted);
-
-    if(!addedSync && !deletedSync) {
-        // Local-only change. Skip with prejudice.
-        ckksinfo_global("ckks", "skipping sync of non-sync item (%d, %d)", addedSync, deletedSync);
-        return;
-    }
-
-    NSString* viewName = nil;
-
-    @synchronized(self.views) {
-        if([self useCKKSViewsFromPolicy] && !self.policy) {
-            ckkserror_global("ckks", "No policy configured(%@). Skipping item: %@", self.policy, modified);
-            self.itemModificationsBeforePolicyLoaded = YES;
-
-            return;
-        }
-    }
-
-    viewName = [self viewNameForItem:modified];
-
-    if(!viewName) {
-        ckksnotice_global("ckks", "No intended CKKS view for item; skipping: %@", modified);
-        return;
-    }
-
-    // Looks like a normal item. Proceed!
-    CKKSKeychainView* view = [self findView:viewName];
-
-    if(!view) {
-        ckksnotice_global("ckks", "No CKKS view for %@, skipping: %@", viewName, modified);
-
-        NSString* uuid = (__bridge NSString*) SecDbItemGetValue(modified, &v10itemuuid, NULL);
-        SecBoolNSErrorCallback syncCallback = [self claimCallbackForUUID:uuid];
-
-        if(syncCallback) {
-            syncCallback(false, [NSError errorWithDomain:CKKSErrorDomain
-                                                    code:CKKSNoSuchView
-                                                userInfo:@{NSLocalizedDescriptionKey: [NSString stringWithFormat: @"No syncing view for '%@'", viewName]}]);
-        }
-        return;
-    }
-
-    ckksnotice("ckks", view, "Routing item to zone %@: %@", viewName, modified);
-    [view handleKeychainEventDbConnection:dbconn
+    CKKSKeychainView* ckks = [self ckksAccountSyncForContainer:SecCKKSContainerName
+                                                     contextID:OTDefaultContext];
+    [ckks handleKeychainEventDbConnection:dbconn
                                    source:txionSource
                                     added:added
                                   deleted:deleted
                               rateLimiter:self.globalRateLimiter];
 }
+
 
 -(void)setCurrentItemForAccessGroup:(NSData* _Nonnull)newItemPersistentRef
                                hash:(NSData*)newItemSHA1
@@ -873,12 +532,13 @@ dispatch_once_t globalZoneStateQueueOnce;
                                hash:(NSData*)oldItemSHA1
                            complete:(void (^) (NSError* operror)) complete
 {
-    NSError* viewError = nil;
-    CKKSKeychainView* view = [self findView:viewHint error:&viewError];
-
+    CKKSKeychainView* view = [self ckksAccountSyncForContainer:SecCKKSContainerName
+                                                     contextID:OTDefaultContext];
     if(!view) {
-        ckksnotice_global("ckks", "No CKKS view for %@, skipping setcurrent request: %@", viewHint, viewError);
-        complete(viewError);
+        ckksnotice_global("ckks", "No CKKS view for %@, %@", SecCKKSContainerName, OTDefaultContext);
+        complete([NSError errorWithDomain:CKKSErrorDomain
+                                     code:CKKSNoSuchView
+                                 userInfo:@{NSLocalizedDescriptionKey: [NSString stringWithFormat: @"No syncing view for %@, %@", SecCKKSContainerName, OTDefaultContext]}]);
         return;
     }
 
@@ -886,6 +546,7 @@ dispatch_once_t globalZoneStateQueueOnce;
                                   hash:newItemSHA1
                            accessGroup:accessGroup
                             identifier:identifier
+                              viewHint:viewHint
                              replacing:oldCurrentItemPersistentRef
                                   hash:oldItemSHA1
                               complete:complete];
@@ -897,16 +558,19 @@ dispatch_once_t globalZoneStateQueueOnce;
                     fetchCloudValue:(bool)fetchCloudValue
                            complete:(void (^) (NSString* uuid, NSError* operror)) complete
 {
-    NSError* viewError = nil;
-    CKKSKeychainView* view = [self findView:viewHint error:&viewError];
+    CKKSKeychainView* view = [self ckksAccountSyncForContainer:SecCKKSContainerName
+                                                     contextID:OTDefaultContext];
     if(!view) {
-        ckksnotice_global("ckks", "No CKKS view for %@, skipping current fetch request: %@", viewHint, viewError);
-        complete(NULL, viewError);
+        ckksnotice_global("ckks", "No CKKS view for %@, %@", SecCKKSContainerName, OTDefaultContext);
+        complete(nil, [NSError errorWithDomain:CKKSErrorDomain
+                                          code:CKKSNoSuchView
+                                      userInfo:@{NSLocalizedDescriptionKey: [NSString stringWithFormat: @"No syncing view for %@, %@", SecCKKSContainerName, OTDefaultContext]}]);
         return;
     }
 
     [view getCurrentItemForAccessGroup:accessGroup
                             identifier:identifier
+                              viewHint:viewHint
                        fetchCloudValue:fetchCloudValue
                               complete:complete];
 }
@@ -948,57 +612,51 @@ dispatch_once_t globalZoneStateQueueOnce;
     }];
 }
 
-
-
 - (NSArray<CKKSKeychainBackedKey*>* _Nullable)currentTLKsFilteredByPolicy:(BOOL)restrictToPolicy error:(NSError**)error
 {
-    NSError* localError = nil;
-    NSArray<CKKSKeychainView*>* actualViews = [self views:nil operation:@"current TLKs" error:&localError];
-    if(localError) {
-        ckkserror_global("ckks", "Error getting views: %@", localError);
+    CKKSKeychainView* ckks = self.ckksActors[OTDefaultContext];
+
+    CKKSResultOperation<CKKSKeySetProviderOperationProtocol>* keyFetchOperation = [ckks findKeySets:NO];
+    [keyFetchOperation timeout:10*NSEC_PER_SEC];
+    [keyFetchOperation waitUntilFinished];
+
+    if(keyFetchOperation.error) {
+        ckkserror_global("ckks", "Error getting keyset: %@", keyFetchOperation.error);
         if(error) {
-            *error = localError;
+            *error = keyFetchOperation.error;
         }
         return nil;
     }
 
-    NSMutableArray<CKKSResultOperation<CKKSKeySetProviderOperationProtocol>*>* keyFetchOperations = [NSMutableArray array];
-    for (CKKSKeychainView* view in actualViews) {
-        if(restrictToPolicy && [self useCKKSViewsFromPolicy] && ![self.policy.viewsToPiggybackTLKs containsObject:view.zoneName]) {
+    NSMutableArray<CKKSKeychainBackedKey*>* tlks = [NSMutableArray array];
+
+    for(CKRecordZoneID* zoneID in keyFetchOperation.intendedZoneIDs) {
+        if(restrictToPolicy && ![ckks.syncingPolicy.viewsToPiggybackTLKs containsObject:zoneID.zoneName]) {
             continue;
         }
 
-        CKKSResultOperation<CKKSKeySetProviderOperationProtocol>* op = [view findKeySet:NO];
-        [op timeout:10*NSEC_PER_SEC];
-        [keyFetchOperations addObject:op];
-    }
+        CKKSCurrentKeySet* keyset = keyFetchOperation.keysets[zoneID];
 
-    NSMutableArray<CKKSKeychainBackedKey*>* tlks = [NSMutableArray array];
+        if(!keyset) {
+            ckkserror_global("ckks", "Do not have keyset: %@", keyset);
+            continue;
+        }
 
-    for(CKKSResultOperation<CKKSKeySetProviderOperationProtocol>* op in keyFetchOperations) {
-        [op waitUntilFinished];
+        if(keyset.tlk) {
+            // Keys provided by this function must have the key material loaded
+            NSError* loadError = nil;
 
-        if(op.error) {
-            ckkserror_global("ckks", "Error getting keyset: %@", op.error);
-            if(error) {
-                *error = op.error;
-            }
-        } else {
-            if(op.keyset.tlk) {
-                // Keys provided by this function must have the key material loaded
-                NSError* loadError = nil;
-                [op.keyset.tlk ensureKeyLoaded:&loadError];
-                if(loadError) {
-                    ckkserror_global("ckks", "Error loading key: %@", loadError);
-                    if(error) {
-                        *error = loadError;
-                    }
-                } else {
-                    [tlks addObject:[op.keyset.tlk.keycore copy]];
+            CKKSKeychainBackedKey* keycore = [keyset.tlk ensureKeyLoaded:&loadError];
+            if(keycore == nil || loadError) {
+                ckkserror_global("ckks", "Error loading key: %@", loadError);
+                if(error) {
+                    *error = loadError;
                 }
             } else {
-                ckkserror_global("ckks", "Do not have TLK: %@", op.keyset);
+                [tlks addObject:[keycore copy]];
             }
+        } else {
+            ckkserror_global("ckks", "Do not have TLK: %@", keyset);
         }
     }
 
@@ -1011,126 +669,82 @@ dispatch_once_t globalZoneStateQueueOnce;
     reply(@{});
 }
 
-- (NSArray<CKKSKeychainView*>*)views:(NSString*)viewName operation:(NSString*)opName error:(NSError**)error
+- (void)rpcResetLocal:(NSString*)viewName
+                reply:(void(^)(NSError* result))reply
 {
-    return [self views:viewName operation:opName errorOnPolicyMissing:YES error:error];
-}
-
-- (NSArray<CKKSKeychainView*>*)views:(NSString*)viewName
-                           operation:(NSString*)opName
-                errorOnPolicyMissing:(BOOL)errorOnPolicyMissing
-                               error:(NSError**)error
-{
-    NSArray* actualViews = nil;
-
-    // Ensure we've actually set up, but don't wait too long. Clients get impatient.
-    if([self.completedSecCKKSInitialize wait:5*NSEC_PER_SEC]) {
-        ckkserror_global("ckks", "Haven't yet initialized zones; expect failure fetching views");
+    NSError* clientError = nil;
+    if(![self allowClientRPC:&clientError]) {
+        secnotice("ckks", "Rejecting a resetLocal RPC: %@", clientError);
+        reply(clientError);
+        return;
     }
 
-    // If the caller doesn't mind if the policy is missing, wait some, but not the full 5s
-    BOOL policyLoaded = [self.policyLoaded wait:(errorOnPolicyMissing ? 5 : 0.5)*NSEC_PER_SEC] == 0;
-    if(!policyLoaded) {
-        ckkserror_global("ckks", "Haven't yet received a policy; expect failure fetching views");
+    CKKSKeychainView* view = [self ckksAccountSyncForContainer:SecCKKSContainerName
+                                                     contextID:OTDefaultContext];
+    if(!view) {
+        ckksnotice_global("ckks", "No CKKS view for %@, %@", SecCKKSContainerName, OTDefaultContext);
+        reply([NSError errorWithDomain:CKKSErrorDomain
+                                  code:CKKSNoSuchView
+                              userInfo:@{NSLocalizedDescriptionKey: [NSString stringWithFormat: @"No syncing view for %@, %@", SecCKKSContainerName, OTDefaultContext]}]);
+        return;
     }
+
+    NSSet<NSString*>* viewNamesToReset = nil;
 
     if(viewName) {
-        CKKSKeychainView* view = errorOnPolicyMissing ? [self findView:viewName error:error] : [self findView:viewName];
-        ckksnotice_global("ckks", "Received a %@ request for zone %@ (%@)", opName, viewName, view);
-
-        if(!view) {
-            return nil;
-        }
-
-        actualViews = @[view];
-
-    } else {
-        if(!policyLoaded && [self useCKKSViewsFromPolicy] && errorOnPolicyMissing) {
-            if(error) {
-                if(error) {
-                    *error = [NSError errorWithDomain:CKKSErrorDomain
-                                                 code:CKKSErrorPolicyNotLoaded
-                                             userInfo:@{NSLocalizedDescriptionKey: @"CKKS syncing policy not yet loaded; cannot list all views"}];
-                }
-            }
-            return nil;
-        }
-
-        @synchronized(self.views) {
-            actualViews = [self.views.allValues copy];
-            ckksnotice_global("ckks", "Received a %@ request for all zones: %@", opName, actualViews);
-        }
+        viewNamesToReset = [NSSet setWithObject:viewName];
     }
-    actualViews = [actualViews sortedArrayUsingDescriptors:@[[NSSortDescriptor sortDescriptorWithKey:@"zoneName" ascending:YES]]];
-    return actualViews;
+
+    [view rpcResetLocal:viewNamesToReset reply:reply];
 }
 
-- (void)rpcResetLocal:(NSString*)viewName reply: (void(^)(NSError* result)) reply {
-    NSError* localError = nil;
-    NSArray* actualViews = [self views:viewName operation:@"local reset" error:&localError];
-    if(localError) {
-        ckkserror_global("ckks", "Error getting view %@: %@", viewName, localError);
-        reply(localError);
+- (void)rpcResetCloudKit:(NSString*)viewName
+                  reason:(NSString *)reason
+                   reply:(void(^)(NSError* result))reply
+{
+    NSError* clientError = nil;
+    if(![self allowClientRPC:&clientError]) {
+        secnotice("ckks", "Rejecting a resetCloudKit RPC: %@", clientError);
+        reply(clientError);
         return;
     }
 
-    CKKSResultOperation* op = [CKKSResultOperation named:@"local-reset-zones-waiter" withBlockTakingSelf:^(CKKSResultOperation * _Nonnull strongOp) {
-        if(!strongOp.error) {
-            ckksnotice_global("ckksreset", "Completed rpcResetLocal");
-        } else {
-            ckksnotice_global("ckks", "Completed rpcResetLocal with error: %@", strongOp.error);
-        }
-        reply(CKXPCSuitableError(strongOp.error));
-    }];
-
-    for(CKKSKeychainView* view in actualViews) {
-        ckksnotice("ckksreset", view, "Beginning local reset for %@", view);
-        [op addSuccessDependency:[view resetLocalData]];
-    }
-
-    [op timeout:120*NSEC_PER_SEC];
-    [self.operationQueue addOperation: op];
-}
-
-- (void)rpcResetCloudKit:(NSString*)viewName reason:(NSString *)reason reply:(void(^)(NSError* result)) reply {
-    NSError* localError = nil;
-    NSArray* actualViews = [self views:viewName operation:@"CloudKit reset" error:&localError];
-    if(localError) {
-        ckkserror_global("ckks", "Error getting view %@: %@", viewName, localError);
-        reply(localError);
+    CKKSKeychainView* view = [self ckksAccountSyncForContainer:SecCKKSContainerName
+                                                     contextID:OTDefaultContext];
+    if(!view) {
+        ckksnotice_global("ckks", "No CKKS view for %@, %@", SecCKKSContainerName, OTDefaultContext);
+        reply([NSError errorWithDomain:CKKSErrorDomain
+                                  code:CKKSNoSuchView
+                              userInfo:@{NSLocalizedDescriptionKey: [NSString stringWithFormat: @"No syncing view for %@, %@", SecCKKSContainerName, OTDefaultContext]}]);
         return;
     }
 
-    CKKSResultOperation* op = [CKKSResultOperation named:@"cloudkit-reset-zones-waiter" withBlock:^() {}];
+    NSSet<NSString*>* viewNamesToReset = nil;
 
-    // Use the completion block instead of the operation block, so that it runs even if the cancel fires
-    __weak __typeof(op) weakOp = op;
-    [op setCompletionBlock:^{
-        __strong __typeof(op) strongOp = weakOp;
-        if(!strongOp.error) {
-            ckksnotice_global("ckksreset", "Completed rpcResetCloudKit");
-        } else {
-            ckksnotice_global("ckksreset", "Completed rpcResetCloudKit with error: %@", strongOp.error);
-        }
-        reply(CKXPCSuitableError(strongOp.error));
-    }];
-
-    for(CKKSKeychainView* view in actualViews) {
-        NSString *operationGroupName = [NSString stringWithFormat:@"api-reset-%@", reason];
-        ckksnotice("ckksreset", view, "Beginning CloudKit reset for %@: %@", view, reason);
-        [op addSuccessDependency:[view resetCloudKitZone:[CKOperationGroup CKKSGroupWithName:operationGroupName]]];
+    if(viewName) {
+        viewNamesToReset = [NSSet setWithObject:viewName];
     }
 
-    [op timeout:120*NSEC_PER_SEC];
-    [self.operationQueue addOperation: op];
+    [view rpcResetCloudKit:viewNamesToReset reply:reply];
 }
 
-- (void)rpcResync:(NSString*)viewName reply: (void(^)(NSError* result)) reply {
-    NSError* localError = nil;
-    NSArray* actualViews = [self views:viewName operation:@"CloudKit resync" error:&localError];
-    if(localError) {
-        ckkserror_global("ckks", "Error getting view %@: %@", viewName, localError);
-        reply(localError);
+- (void)rpcResync:(NSString*)viewName
+            reply:(void(^)(NSError* result))reply
+{
+    NSError* clientError = nil;
+    if(![self allowClientRPC:&clientError]) {
+        secnotice("ckks", "Rejecting a resync RPC: %@", clientError);
+        reply(clientError);
+        return;
+    }
+
+    CKKSKeychainView* view = [self ckksAccountSyncForContainer:SecCKKSContainerName
+                                                     contextID:OTDefaultContext];
+    if(!view) {
+        ckksnotice_global("ckks", "No CKKS view for %@, %@", SecCKKSContainerName, OTDefaultContext);
+        reply([NSError errorWithDomain:CKKSErrorDomain
+                                  code:CKKSNoSuchView
+                              userInfo:@{NSLocalizedDescriptionKey: [NSString stringWithFormat: @"No syncing view for %@, %@", SecCKKSContainerName, OTDefaultContext]}]);
         return;
     }
 
@@ -1145,23 +759,33 @@ dispatch_once_t globalZoneStateQueueOnce;
         reply(CKXPCSuitableError(strongOp.error));
     }];
 
-    for(CKKSKeychainView* view in actualViews) {
-        ckksnotice("ckksresync", view, "Beginning resync (CloudKit) for %@", view);
+    ckksnotice("ckksresync", view, "Beginning resync (CloudKit) for %@", view);
 
-        CKKSSynchronizeOperation* resyncOp = [view resyncWithCloud];
-        [op addSuccessDependency:resyncOp];
-    }
+    // TODO: insert view name?
+    CKKSSynchronizeOperation* resyncOp = [view resyncWithCloud];
+    [op addSuccessDependency:resyncOp];
 
-    [op timeout:120*NSEC_PER_SEC];
+    [op timeout:240*NSEC_PER_SEC];
     [self.operationQueue addOperation:op];
 }
 
-- (void)rpcResyncLocal:(NSString*)viewName reply:(void(^)(NSError* result))reply {
-    NSError* localError = nil;
-    NSArray* actualViews = [self views:viewName operation:@"local resync" error:&localError];
-    if(localError) {
-        ckkserror_global("ckks", "Error getting view %@: %@", viewName, localError);
-        reply(localError);
+- (void)rpcResyncLocal:(NSString*)viewName
+                 reply:(void(^)(NSError* result))reply
+{
+    NSError* clientError = nil;
+    if(![self allowClientRPC:&clientError]) {
+        secnotice("ckks", "Rejecting a resync-local RPC: %@", clientError);
+        reply(clientError);
+        return;
+    }
+
+    CKKSKeychainView* view = [self ckksAccountSyncForContainer:SecCKKSContainerName
+                                                     contextID:OTDefaultContext];
+    if(!view) {
+        ckksnotice_global("ckks", "No CKKS view for %@, %@", SecCKKSContainerName, OTDefaultContext);
+        reply([NSError errorWithDomain:CKKSErrorDomain
+                                  code:CKKSNoSuchView
+                              userInfo:@{NSLocalizedDescriptionKey: [NSString stringWithFormat: @"No syncing view for %@, %@", SecCKKSContainerName, OTDefaultContext]}]);
         return;
     }
 
@@ -1175,95 +799,39 @@ dispatch_once_t globalZoneStateQueueOnce;
         reply(CKXPCSuitableError(strongOp.error));
     }];
 
-    for(CKKSKeychainView* view in actualViews) {
-        ckksnotice("ckksresync", view, "Beginning resync (local) for %@", view);
+    ckksnotice("ckksresync", view, "Beginning resync (local) for %@", view);
 
-        CKKSLocalSynchronizeOperation* resyncOp = [view resyncLocal];
-        [op addSuccessDependency:resyncOp];
-    }
+    // TODO: insert view name?
+    CKKSLocalSynchronizeOperation* resyncOp = [view resyncLocal];
+    [op addSuccessDependency:resyncOp];
 
-    [op timeout:120*NSEC_PER_SEC];
+    [op timeout:240*NSEC_PER_SEC];
 }
 
-- (void)rpcStatus: (NSString*)viewName
+- (void)rpcStatus:(NSString*)viewName
              fast:(bool)fast
-            reply:(void(^)(NSArray<NSDictionary*>* result, NSError* error)) reply
+            reply:(void(^)(NSArray<NSDictionary*>* result, NSError* error))reply
 {
-    NSMutableArray* a = [[NSMutableArray alloc] init];
-
-    // Now, query the views about their status. Don't wait for the policy to be loaded
-    NSError* error = nil;
-    NSArray* actualViews = [self views:viewName operation:@"status" errorOnPolicyMissing:NO error:&error];
-    if(!actualViews || error) {
-        reply(nil, error);
+    NSError* clientError = nil;
+    if(![self allowClientRPC:&clientError]) {
+        secnotice("ckks", "Rejecting a status RPC: %@", clientError);
+        reply(nil, clientError);
         return;
     }
 
-    WEAKIFY(self);
-    CKKSResultOperation* statusOp = [CKKSResultOperation named:@"status-rpc" withBlock:^{
-        STRONGIFY(self);
-
-        if (fast == false) {
-            // Get account state, even wait for it a little
-            [self.accountTracker.ckdeviceIDInitialized wait:1*NSEC_PER_SEC];
-            NSString *deviceID = self.accountTracker.ckdeviceID;
-            NSError *deviceIDError = self.accountTracker.ckdeviceIDError;
-            NSDate *lastCKKSPush = [[CKKSAnalytics logger] datePropertyForKey:CKKSAnalyticsLastCKKSPush];
-
-#define stringify(obj) CKKSNilToNSNull([obj description])
-            NSDictionary* global = @{
-                                     @"view":                @"global",
-                                     @"reachability":        self.reachabilityTracker.currentReachability ? @"network" : @"no-network",
-                                     @"ckdeviceID":          CKKSNilToNSNull(deviceID),
-                                     @"ckdeviceIDError":     CKKSNilToNSNull(deviceIDError),
-                                     @"lockstatetracker":    stringify(self.lockStateTracker),
-                                     @"cloudkitRetryAfter":  stringify(self.zoneModifier.cloudkitRetryAfter),
-                                     @"lastCKKSPush":        CKKSNilToNSNull(lastCKKSPush),
-                                     @"policy":              stringify(self.policy),
-                                     @"viewsFromPolicy":     [self useCKKSViewsFromPolicy] ? @"yes" : @"no",
-                                     };
-            [a addObject: global];
-        }
-
-        for(CKKSKeychainView* view in actualViews) {
-            NSDictionary* status = nil;
-            ckksnotice("ckks", view, "Fetching status for %@", view.zoneName);
-            if (fast) {
-                status = [view fastStatus];
-            } else {
-                status = [view status];
-            }
-            ckksinfo("ckks", view, "Status is %@", status);
-            if(status) {
-                [a addObject: status];
-            }
-        }
-        reply(a, nil);
-    }];
-
-    // If we're signed in, give the views a few seconds to enter what they consider to be a non-transient state (in case this daemon just launched)
-    if([self.accountTracker.ckAccountInfoInitialized wait:2*NSEC_PER_SEC]) {
-        ckkserror_global("account", "Haven't yet figured out cloudkit account state");
+    CKKSKeychainView* view = [self ckksAccountSyncForContainer:SecCKKSContainerName
+                                                     contextID:OTDefaultContext];
+    if(!view) {
+        ckksnotice_global("ckks", "No CKKS view for %@, %@", SecCKKSContainerName, OTDefaultContext);
+        reply(nil, [NSError errorWithDomain:CKKSErrorDomain
+                                       code:CKKSNoSuchView
+                                   userInfo:@{NSLocalizedDescriptionKey: [NSString stringWithFormat: @"No syncing view for %@, %@", SecCKKSContainerName, OTDefaultContext]}]);
+        return;
     }
 
-    if(self.accountTracker.currentCKAccountInfo.accountStatus == CKAccountStatusAvailable) {
-        if (![self waitForTrustReady]) {
-            ckkserror_global("trust", "Haven't yet figured out trust status");
-        }
-
-        for(CKKSKeychainView* view in actualViews) {
-            OctagonStateMultiStateArrivalWatcher* waitForTransient = [[OctagonStateMultiStateArrivalWatcher alloc] initNamed:@"rpc-watcher"
-                                                                                                                 serialQueue:view.queue
-                                                                                                                      states:CKKSKeyStateNonTransientStates()];
-            [waitForTransient timeout:2*NSEC_PER_SEC];
-            [view.stateMachine registerMultiStateArrivalWatcher:waitForTransient];
-
-            [statusOp addDependency:waitForTransient.result];
-        }
-    }
-    [self.operationQueue addOperation:statusOp];
-
-    return;
+    [view rpcStatus:viewName
+               fast:fast
+              reply:reply];
 }
 
 - (void)rpcStatus:(NSString*)viewName reply:(void (^)(NSArray<NSDictionary*>* result, NSError* error))reply
@@ -1276,24 +844,42 @@ dispatch_once_t globalZoneStateQueueOnce;
     [self rpcStatus:viewName fast:true reply:reply];
 }
 
-- (void)rpcFetchAndProcessChanges:(NSString*)viewName reply: (void(^)(NSError* result))reply {
-    [self rpcFetchAndProcessChanges:viewName classA:false reply: (void(^)(NSError* result))reply];
-}
-
-- (void)rpcFetchAndProcessClassAChanges:(NSString*)viewName reply: (void(^)(NSError* result))reply {
-    [self rpcFetchAndProcessChanges:viewName classA:true reply:(void(^)(NSError* result))reply];
-}
-
-- (void)rpcFetchAndProcessChanges:(NSString*)viewName classA:(bool)classAError reply: (void(^)(NSError* result)) reply {
-    NSError* error = nil;
-    NSArray* actualViews = [self views:viewName operation:@"fetch" error:&error];
-    if(!actualViews || error) {
-        reply(error);
+- (void)rpcFetchAndProcessChanges:(NSString* _Nullable __unused)viewName classA:(bool)classAError onlyIfNoRecentFetch:(bool)onlyIfNoRecentFetch reply:(void(^)(NSError* _Nullable result))reply
+{
+    if(!SecCKKSIsEnabled()) {
+        ckksinfo_global("ckks", "Skipping fetchAndProcessCKChanges due to disabled CKKS");
+        reply([NSError errorWithDomain:CKKSErrorDomain code:CKKSNotInitialized description:@"CKKS disabled"]);
         return;
     }
 
-    CKKSResultOperation* blockOp = [[CKKSResultOperation alloc] init];
-    blockOp.name = @"rpc-fetch-and-process-result";
+    NSError* clientError = nil;
+    if(![self allowClientRPC:&clientError]) {
+        secnotice("ckks", "Rejecting a fetch-and-process RPC: %@", clientError);
+        reply(clientError);
+        return;
+    }
+
+    CKKSKeychainView* view = [self ckksAccountSyncForContainer:SecCKKSContainerName
+                                                     contextID:OTDefaultContext];
+    if(!view) {
+        ckksnotice_global("ckks", "No CKKS view for %@, %@", SecCKKSContainerName, OTDefaultContext);
+        reply([NSError errorWithDomain:CKKSErrorDomain
+                                  code:CKKSNoSuchView
+                              userInfo:@{NSLocalizedDescriptionKey: [NSString stringWithFormat: @"No syncing view for %@, %@", SecCKKSContainerName, OTDefaultContext]}]);
+        return;
+    }
+
+    if(onlyIfNoRecentFetch) {
+        NSDate *earliestFetchTime = view.earliestFetchTime;
+        if(earliestFetchTime.timeIntervalSinceNow > -600) {
+            ckksnotice_global("ckks", "Skipping rpcFetchAndProcessChanges because a recent fetch was performed");
+            reply(nil);
+            return;
+        }
+    }
+
+    CKKSResultOperation* blockOp = [CKKSResultOperation named:@"rpc-fetch-and-process-result" withBlock:^{}];
+
     __weak __typeof(blockOp) weakBlockOp = blockOp;
     // Use the completion block instead of the operation block, so that it runs even if the cancel fires
     [blockOp setCompletionBlock:^{
@@ -1302,21 +888,33 @@ dispatch_once_t globalZoneStateQueueOnce;
         reply(CKXPCSuitableError(strongBlockOp.error));
     }];
 
-    for(CKKSKeychainView* view in actualViews) {
-        ckksnotice("ckks", view, "Beginning fetch for %@", view);
+    ckksnotice("ckks", view, "Beginning fetch for %@", view);
 
-        CKKSResultOperation* op = [view processIncomingQueue:classAError after:[view.zoneChangeFetcher requestSuccessfulFetch: CKKSFetchBecauseAPIFetchRequest]];
-        [blockOp addSuccessDependency:op];
-    }
+    CKKSResultOperation* op = [view rpcFetchAndProcessIncomingQueue:nil
+                                                            because:CKKSFetchBecauseAPIFetchRequest
+                                               errorOnClassAFailure:classAError];
+    [blockOp addSuccessDependency:op];
 
-    [self.operationQueue addOperation: [blockOp timeout:(SecCKKSTestsEnabled() ? NSEC_PER_SEC * 5 : NSEC_PER_SEC * 120)]];
+    [self.operationQueue addOperation: [blockOp timeout:(SecCKKSTestsEnabled() ? NSEC_PER_SEC * 5 : NSEC_PER_SEC * 300)]];
 }
 
-- (void)rpcPushOutgoingChanges:(NSString*)viewName reply: (void(^)(NSError* result))reply {
-    NSError* error = nil;
-    NSArray* actualViews = [self views:viewName operation:@"push" error:&error];
-    if(!actualViews || error) {
-        reply(error);
+- (void)rpcPushOutgoingChanges:(NSString* _Nullable __unused)viewName
+                         reply:(void(^)(NSError* _Nullable result))reply
+{
+    NSError* clientError = nil;
+    if(![self allowClientRPC:&clientError]) {
+        secnotice("ckks", "Rejecting a push RPC: %@", clientError);
+        reply(clientError);
+        return;
+    }
+
+    CKKSKeychainView* view = [self ckksAccountSyncForContainer:SecCKKSContainerName
+                                                     contextID:OTDefaultContext];
+    if(!view) {
+        ckksnotice_global("ckks", "No CKKS view for %@, %@", SecCKKSContainerName, OTDefaultContext);
+        reply([NSError errorWithDomain:CKKSErrorDomain
+                                  code:CKKSNoSuchView
+                              userInfo:@{NSLocalizedDescriptionKey: [NSString stringWithFormat: @"No syncing view for %@, %@", SecCKKSContainerName, OTDefaultContext]}]);
         return;
     }
 
@@ -1330,22 +928,35 @@ dispatch_once_t globalZoneStateQueueOnce;
         reply(CKXPCSuitableError(strongBlockOp.error));
     }];
 
-    for(CKKSKeychainView* view in actualViews) {
-        ckksnotice("ckks-rpc", view, "Beginning push for %@", view);
+    ckksnotice("ckks-rpc", view, "Beginning push for %@", view);
 
-        CKKSResultOperation* op = [view processOutgoingQueue: [CKOperationGroup CKKSGroupWithName:@"rpc-push"]];
-        [blockOp addSuccessDependency:op];
-    }
+    CKKSResultOperation* op = [view rpcProcessOutgoingQueue:viewName ? [NSSet setWithObject:viewName] : nil
+                                             operationGroup:[CKOperationGroup CKKSGroupWithName:@"rpc-push"]];
+    [blockOp addSuccessDependency:op];
 
-    [self.operationQueue addOperation: [blockOp timeout:(SecCKKSTestsEnabled() ? NSEC_PER_SEC * 2 : NSEC_PER_SEC * 120)]];
+    [self.operationQueue addOperation: [blockOp timeout:(SecCKKSTestsEnabled() ? NSEC_PER_SEC * 2 : NSEC_PER_SEC * 300)]];
 }
 
 - (void)rpcGetCKDeviceIDWithReply:(void (^)(NSString *))reply {
+    NSError* clientError = nil;
+    if(![self allowClientRPC:&clientError]) {
+        secnotice("ckks", "Rejecting a push RPC: %@", clientError);
+        reply(@"error");
+        return;
+    }
+
     reply(self.accountTracker.ckdeviceID);
 }
 
 - (void)rpcCKMetric:(NSString *)eventName attributes:(NSDictionary *)attributes reply:(void (^)(NSError *))reply
 {
+    NSError* clientError = nil;
+    if(![self allowClientRPC:&clientError]) {
+        secnotice("ckks", "Rejecting a ckmetric RPC: %@", clientError);
+        reply(clientError);
+        return;
+    }
+
     if (eventName == NULL) {
         reply([NSError errorWithDomain:CKKSErrorDomain
                                   code:CKKSNoMetric
@@ -1360,6 +971,170 @@ dispatch_once_t globalZoneStateQueueOnce;
     reply(NULL);
 }
 
+- (NSError* _Nullable)sanitizeErrorDomain:(NSError* _Nullable)error
+{
+    if(error == nil) {
+        return nil;
+    }
+
+    // CKKS commited this sin a long time ago. Let's not keep it going in new API.
+    // Also, ensure that these errors can transit XPC to processes that don't link CK
+    if([error.domain isEqualToString:@"securityd"]) {
+        return CKXPCSuitableError([NSError errorWithDomain:NSOSStatusErrorDomain
+                                                      code:error.code
+                                                  userInfo:error.userInfo]);
+    }
+
+    return CKXPCSuitableError(error);
+}
+
+- (void)proposeTLKForSEView:(NSString*)seViewName
+                proposedTLK:(CKKSExternalKey *)proposedTLK
+              wrappedOldTLK:(CKKSExternalKey * _Nullable)wrappedOldTLK
+                  tlkShares:(NSArray<CKKSExternalTLKShare*>*)shares
+                      reply:(void(^)(NSError* _Nullable error))reply
+{
+    NSError* clientError = nil;
+    if(![self allowClientRPC:&clientError]) {
+        secnotice("ckks", "Rejecting a proposeTLK RPC: %@", clientError);
+        reply(clientError);
+        return;
+    }
+
+    CKKSKeychainView* ckks = [self ckksAccountSyncForContainer:SecCKKSContainerName
+                                                     contextID:OTDefaultContext];
+    if(!ckks) {
+        ckksnotice_global("ckks", "No CKKS view for %@, %@", SecCKKSContainerName, OTDefaultContext);
+        reply([NSError errorWithDomain:CKKSErrorDomain
+                                  code:CKKSNoSuchView
+                              userInfo:@{NSLocalizedDescriptionKey: [NSString stringWithFormat: @"No CKKS for %@, %@", SecCKKSContainerName, OTDefaultContext]}]);
+        return;
+    }
+
+    [ckks proposeTLKForExternallyManagedView:seViewName
+                                 proposedTLK:proposedTLK
+                               wrappedOldTLK:wrappedOldTLK
+                                   tlkShares:shares
+                                       reply:^(NSError * _Nullable error) {
+        reply([self sanitizeErrorDomain:error]);
+    }];
+}
+
+- (void)fetchSEViewKeyHierarchy:(NSString*)seViewName
+                     forceFetch:(BOOL)forceFetch
+                          reply:(void (^)(CKKSExternalKey* _Nullable currentTLK,
+                                          NSArray<CKKSExternalKey*>* _Nullable pastTLKs,
+                                          NSArray<CKKSExternalTLKShare*>* _Nullable currentTLKShares,
+                                          NSError* _Nullable error))reply
+{
+    NSError* clientError = nil;
+    if(![self allowClientRPC:&clientError]) {
+        secnotice("ckks", "Rejecting a fetchSEViewHierarchy RPC: %@", clientError);
+        reply(nil, nil, nil, clientError);
+        return;
+    }
+
+    CKKSKeychainView* ckks = [self ckksAccountSyncForContainer:SecCKKSContainerName
+                                                     contextID:OTDefaultContext];
+    if(!ckks) {
+        ckksnotice_global("ckks", "No CKKS view for %@, %@", SecCKKSContainerName, OTDefaultContext);
+        reply(nil,
+              nil,
+              nil,
+              [NSError errorWithDomain:CKKSErrorDomain
+                                  code:CKKSNoSuchView
+                              userInfo:@{NSLocalizedDescriptionKey: [NSString stringWithFormat: @"No CKKS for %@, %@", SecCKKSContainerName, OTDefaultContext]}]);
+        return;
+    }
+
+    [ckks fetchExternallyManagedViewKeyHierarchy:seViewName
+                                      forceFetch:forceFetch
+                                           reply:^(CKKSExternalKey* _Nullable currentTLK,
+                                                   NSArray<CKKSExternalKey*>* _Nullable pastTLKs,
+                                                   NSArray<CKKSExternalTLKShare*>* _Nullable currentTLKShares,
+                                                   NSError* _Nullable error) {
+        reply(currentTLK, pastTLKs, currentTLKShares, [self sanitizeErrorDomain:error]);
+    }];
+}
+
+- (void)modifyTLKSharesForSEView:(NSString*)seViewName
+                          adding:(NSArray<CKKSExternalTLKShare*>*)sharesToAdd
+                        deleting:(NSArray<CKKSExternalTLKShare*>*)sharesToDelete
+                          reply:(void (^)(NSError* _Nullable error))reply
+{
+    NSError* clientError = nil;
+    if(![self allowClientRPC:&clientError]) {
+        secnotice("ckks", "Rejecting a modifyTLKShares RPC: %@", clientError);
+        reply(clientError);
+        return;
+    }
+
+    CKKSKeychainView* ckks = [self ckksAccountSyncForContainer:SecCKKSContainerName
+                                                     contextID:OTDefaultContext];
+    if(!ckks) {
+        ckksnotice_global("ckks", "No CKKS view for %@, %@", SecCKKSContainerName, OTDefaultContext);
+        reply([NSError errorWithDomain:CKKSErrorDomain
+                                  code:CKKSNoSuchView
+                              userInfo:@{NSLocalizedDescriptionKey: [NSString stringWithFormat: @"No CKKS for %@, %@", SecCKKSContainerName, OTDefaultContext]}]);
+        return;
+    }
+
+    [ckks modifyTLKSharesForExternallyManagedView:seViewName
+                                           adding:sharesToAdd
+                                         deleting:sharesToDelete
+                                            reply:^(NSError * _Nullable error) {
+        reply([self sanitizeErrorDomain:error]);
+    }];
+}
+
+- (void)deleteSEView:(NSString*)seViewName
+               reply:(void (^)(NSError* _Nullable error))reply
+{
+    NSError* clientError = nil;
+    if(![self allowClientRPC:&clientError]) {
+        secnotice("ckks", "Rejecting a deleteSEView RPC: %@", clientError);
+        reply(clientError);
+        return;
+    }
+
+    CKKSKeychainView* ckks = [self ckksAccountSyncForContainer:SecCKKSContainerName
+                                                     contextID:OTDefaultContext];
+    if(!ckks) {
+        ckksnotice_global("ckks", "No CKKS view for %@, %@", SecCKKSContainerName, OTDefaultContext);
+        reply([NSError errorWithDomain:CKKSErrorDomain
+                                  code:CKKSNoSuchView
+                              userInfo:@{NSLocalizedDescriptionKey: [NSString stringWithFormat: @"No CKKS for %@, %@", SecCKKSContainerName, OTDefaultContext]}]);
+        return;
+    }
+
+    [ckks resetExternallyManagedCloudKitView:seViewName
+                                       reply:^(NSError * _Nullable error) {
+        reply([self sanitizeErrorDomain:error]);
+    }];
+}
+
+- (void)toggleHavoc:(void (^)(BOOL havoc, NSError* _Nullable error))reply
+{
+    NSError* clientError = nil;
+    if(![self allowClientRPC:&clientError]) {
+        secnotice("ckks", "Rejecting a toggleHavoc RPC: %@", clientError);
+        reply(NO, clientError);
+        return;
+    }
+
+    CKKSKeychainView* view = [self ckksAccountSyncForContainer:SecCKKSContainerName
+                                                     contextID:OTDefaultContext];
+    if(!view) {
+        ckksnotice_global("ckks", "No CKKS view for %@, %@", SecCKKSContainerName, OTDefaultContext);
+        reply(NO, [NSError errorWithDomain:CKKSErrorDomain
+                                      code:CKKSNoSuchView
+                                  userInfo:@{NSLocalizedDescriptionKey: [NSString stringWithFormat: @"No syncing view for %@, %@", SecCKKSContainerName, OTDefaultContext]}]);
+        return;
+    }
+
+    [view toggleHavoc:reply];
+}
+
 -(void)xpc24HrNotification {
     // XPC has poked us and said we should do some cleanup!
     ckksnotice_global("ckks", "Received a 24hr notification from XPC");
@@ -1371,30 +1146,31 @@ dispatch_once_t globalZoneStateQueueOnce;
     [[CKKSAnalytics logger] dailyCoreAnalyticsMetrics:@"com.apple.security.CKKSHealthSummary"];
 
     // For now, poke the views and tell them to update their device states if they'd like
-    NSArray* actualViews = nil;
-    @synchronized(self.views) {
-        // Can't safely iterate a mutable collection, so copy it.
-        actualViews = self.views.allValues;
-    }
 
+    CKKSKeychainView* ckks = [self ckksAccountSyncForContainer:SecCKKSContainerName
+                                                     contextID:OTDefaultContext];
     CKOperationGroup* group = [CKOperationGroup CKKSGroupWithName:@"periodic-device-state-update"];
-    for(CKKSKeychainView* view in actualViews) {
-        ckksnotice("ckks", view, "Starting device state XPC update");
-        // Let the update know it should rate-limit itself
-        [view updateDeviceState:true waitForKeyHierarchyInitialization:30*NSEC_PER_SEC ckoperationGroup:group];
-        [view xpc24HrNotification];
-    }
+    [ckks updateDeviceState:true waitForKeyHierarchyInitialization:30*NSEC_PER_SEC ckoperationGroup:group];
+    [ckks xpc24HrNotification];
 }
 
 - (void)haltAll
 {
-    @synchronized(self.views) {
-        for(CKKSKeychainView* view in self.views.allValues) {
+    @synchronized(self.ckksActors) {
+        for(CKKSKeychainView* view in self.ckksActors.allValues) {
             [view halt];
         }
     }
 
     [self.zoneModifier halt];
+    [self.zoneChangeFetcher halt];
+}
+
+- (void)dropAllActors
+{
+    @synchronized (self.ckksActors) {
+        [self.ckksActors removeAllObjects];
+    }
 }
 
 #endif // OCTAGON

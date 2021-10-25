@@ -22,7 +22,7 @@ bool IOHIDDeviceElementContainer::init(void *descriptor,
     
     require(super::init(descriptor, length), exit);
     
-    _reserved = IONew(ExpansionData, 1);
+    _reserved = IOMallocType(ExpansionData);
     require(_reserved, exit);
     
     bzero(_reserved, sizeof(ExpansionData));
@@ -53,7 +53,7 @@ IOHIDDeviceElementContainer *IOHIDDeviceElementContainer::withDescriptor(
 void IOHIDDeviceElementContainer::free()
 {
     if (_reserved) {
-        IODelete(_reserved, ExpansionData, 1);
+        IOFreeType(_reserved, ExpansionData);
     }
     
     super::free();

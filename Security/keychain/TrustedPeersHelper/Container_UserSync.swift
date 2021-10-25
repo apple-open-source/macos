@@ -2,8 +2,8 @@ import Foundation
 
 // Apple TVs and watches have no UI to enable or disable this status.
 // So, help them out by ignoring all efforts.
-extension TPPBPeerStableInfo_UserControllableViewStatus {
-    func sanitizeForPlatform(permanentInfo: TPPeerPermanentInfo) -> TPPBPeerStableInfo_UserControllableViewStatus {
+extension TPPBPeerStableInfoUserControllableViewStatus {
+    func sanitizeForPlatform(permanentInfo: TPPeerPermanentInfo) -> TPPBPeerStableInfoUserControllableViewStatus {
         // Unknown is the unknown for any platform
         if self == .UNKNOWN {
             return .UNKNOWN
@@ -27,7 +27,7 @@ extension TPPBPeerStableInfo_UserControllableViewStatus {
 }
 
 extension StableChanges {
-    static func change(viewStatus: TPPBPeerStableInfo_UserControllableViewStatus?) -> StableChanges? {
+    static func change(viewStatus: TPPBPeerStableInfoUserControllableViewStatus?) -> StableChanges? {
         if viewStatus == nil {
             return nil
         }
@@ -36,6 +36,7 @@ extension StableChanges {
                              osVersion: nil,
                              policyVersion: nil,
                              policySecrets: nil,
-                             setSyncUserControllableViews: viewStatus)
+                             setSyncUserControllableViews: viewStatus,
+                             secureElementIdentity: nil)
     }
 }

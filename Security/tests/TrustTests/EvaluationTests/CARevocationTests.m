@@ -47,7 +47,7 @@
 + (id) CF_RETURNS_RETAINED SecCertificateCreateFromData:(uint8_t *)data length:(size_t)length
 {
     if (!data || !length) { return NULL; }
-    SecCertificateRef cert = SecCertificateCreateWithBytes(kCFAllocatorDefault, data, length);
+    SecCertificateRef cert = SecCertificateCreateWithBytes(kCFAllocatorDefault, data, (CFIndex)length);
     return (__bridge id)cert;
 }
 
@@ -89,15 +89,14 @@ static NSDate *s_date_20201020 = nil;
     return trust.resultDictionary;
 }
 
-#if !TARGET_OS_WATCH && !TARGET_OS_BRIDGE
-/* watchOS and bridgeOS don't support networking in trustd */
 - (void)testCARevocationAdditions
 {
+#if TARGET_OS_BRIDGE || TARGET_OS_WATCH
+    /* watchOS and bridgeOS don't support networking in trustd */
+    XCTSkip();
+#endif
     /* Verify that the revocation server is potentially reachable */
-    if (!ping_host("ocsp.apple.com")) {
-        XCTAssert(false, "Unable to contact required network resource");
-        return;
-    }
+    XCTSkipIf(!ping_host("ocsp2.apple.com", "443"), @"Unable to contact required network resource");
 
     const CFStringRef TrustTestsAppID = CFSTR("com.apple.trusttests");
     //%%% TBD: add namespace tests using AnotherAppID
@@ -187,12 +186,5 @@ static NSDate *s_date_20201020 = nil;
     CFReleaseNull(leaf);
     CFReleaseNull(ca);
 }
-
-#else // TARGET_OS_BRIDGE || TARGET_OS_WATCH
-- (void)testSkipTests
-{
-    XCTAssert(true);
-}
-#endif // TARGET_OS_BRIDGE || TARGET_OS_WATCH
 @end
 

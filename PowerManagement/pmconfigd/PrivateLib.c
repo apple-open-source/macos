@@ -282,7 +282,7 @@ exit:
     sleepCntSinceFailure = cnt;
 }
 
-__private_extern__ void incrementSleepCnt()
+__private_extern__ void incrementSleepCnt(void)
 {
     sleepCntSinceBoot++;
     if (sleepCntSinceFailure == -1) {
@@ -313,6 +313,10 @@ __private_extern__ bool auditTokenHasEntitlement(
         }
         if (val) {
             CFRelease(val);
+        }
+
+        if (errorp) {
+            CFRelease(errorp);
         }
     }
     return caller_is_allowed;
@@ -386,7 +390,7 @@ exit:
     return ret;
 }
 
-__private_extern__ CFStringRef _updateSleepReason( )
+__private_extern__ CFStringRef _updateSleepReason(void)
 {
     io_service_t    iopm_rootdomain_ref = getRootDomain();
 
@@ -445,7 +449,7 @@ _getSleepReasonLogStr(
     return ret;
 }
 
-__private_extern__ void _resetWakeReason( )
+__private_extern__ void _resetWakeReason(void)
 {
     if (reasons.platformWakeReason)         CFRelease(reasons.platformWakeReason);
     if (reasons.platformWakeType)           CFRelease(reasons.platformWakeType);
@@ -712,7 +716,7 @@ const char *sleepType2String(int sleepType)
 }
 
 
-__private_extern__ int getLastSleepType()
+__private_extern__ int getLastSleepType(void)
 {
 
     io_service_t    rootDomain = getRootDomain();
@@ -956,7 +960,7 @@ static void printCapabilitiesToBuf(char *buf, int buf_size, IOPMCapabilityBits i
                              (caps & kIOPMCapabilityBackgroundTask) ? "B":"");
 }
 
-__private_extern__ bool isA_installEnvironment()
+__private_extern__ bool isA_installEnvironment(void)
 {
     static int installEnv = -1;
 
@@ -1374,7 +1378,7 @@ __private_extern__ void logASLPMConnectionNotify(
     asl_release(m);
 }
 
-__private_extern__ void logASLDisplayStateChange()
+__private_extern__ void logASLDisplayStateChange(void)
 {
     bool displayOff = isDisplayAsleep();
 
@@ -2065,7 +2069,7 @@ static int mt2PublishDomainCapable(void)
 #define kMT2ValSettingsAC               "ac"
 #define kMT2ValSettingsBatt             "battery"
 #define kMT2ValSettingsACPlusBatt       "ac_and_battery"
-#define kMT2KeyWakeOnNetworkSetting     "com.apple.message.wake_on_network"
+#define kMT2KeyWakeOnNetworkSetting     "wake_on_network"
 
     if (!mt2) {
         return 0;
@@ -2906,14 +2910,14 @@ __private_extern__ uint64_t monotonicTS2Secs(uint64_t tsc)
 }
 #if !POWERD_IOS_XCTEST
 /* Returns monotonic continuous time in secs */
-__private_extern__ uint64_t getMonotonicContinuousTime( )
+__private_extern__ uint64_t getMonotonicContinuousTime(void)
 {
     return monotonicTS2Secs(mach_continuous_time());
 }
 #endif
 
 /* Returns monotonic time in secs */
-__private_extern__ uint64_t getMonotonicTime( )
+__private_extern__ uint64_t getMonotonicTime(void)
 {
     return monotonicTS2Secs(mach_absolute_time());
 }
@@ -2993,7 +2997,7 @@ CFTimeInterval _getHIDIdleTime(void)
     uint64_t        idle_nanos = 0;
 
     if (IO_OBJECT_NULL == hidsys) {
-        hidsys = IOServiceGetMatchingService(kIOMasterPortDefault, IOServiceMatching("IOHIDSystem"));
+        hidsys = IOServiceGetMatchingService(kIOMainPortDefault, IOServiceMatching("IOHIDSystem"));
     }
     if (!hidsys)
         goto exit;
@@ -3035,7 +3039,7 @@ __private_extern__ IOReturn getNvramArgInt(char *key, int *value)
     CFStringRef keyRef = NULL;
 
 
-    optionsRef = IORegistryEntryFromPath(kIOMasterPortDefault, "IODeviceTree:/options");
+    optionsRef = IORegistryEntryFromPath(kIOMainPortDefault, "IODeviceTree:/options");
     if (optionsRef == 0)
         return kIOReturnError;
 
@@ -3073,7 +3077,7 @@ __private_extern__ IOReturn getNvramArgStr(char *key, char *buf, size_t bufSize)
     CFStringRef keyRef = NULL;
 
 
-    optionsRef = IORegistryEntryFromPath(kIOMasterPortDefault, "IODeviceTree:/options");
+    optionsRef = IORegistryEntryFromPath(kIOMainPortDefault, "IODeviceTree:/options");
     if (optionsRef == 0)
         return kIOReturnError;
 

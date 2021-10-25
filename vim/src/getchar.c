@@ -2264,7 +2264,7 @@ at_ctrl_x_key(void)
 }
 
 /*
- * Check if typebuf.tb_buf[] contains a modifer plus key that can be changed
+ * Check if typebuf.tb_buf[] contains a modifier plus key that can be changed
  * into just a key, apply that.
  * Check from typebuf.tb_buf[typebuf.tb_off] to typebuf.tb_buf[typebuf.tb_off
  * + "max_offset"].
@@ -2580,11 +2580,10 @@ handle_mapping(
 						    typebuf.tb_off] == RM_YES))
 		&& !*timedout)
 	{
-	    keylen = check_termcode(max_mlen + 1,
-					       NULL, 0, NULL);
+	    keylen = check_termcode(max_mlen + 1, NULL, 0, NULL);
 
-	    // If no termcode matched but 'pastetoggle' matched partially it's
-	    // like an incomplete key sequence.
+	    // If no termcode matched but 'pastetoggle' matched partially
+	    // it's like an incomplete key sequence.
 	    if (keylen == 0 && save_keylen == KEYLEN_PART_KEY)
 		keylen = KEYLEN_PART_KEY;
 
@@ -3674,6 +3673,14 @@ getcmdkeycmd(
 		continue;
 	    }
 	    c1 = TO_SPECIAL(c1, c2);
+	}
+	if (c1 == Ctrl_V)
+	{
+	    // CTRL-V is followed by octal, hex or other characters, reverses
+	    // what AppendToRedobuffLit() does.
+	    no_reduce_keys = TRUE;  //  don't merge modifyOtherKeys
+	    c1 = get_literal(TRUE);
+	    no_reduce_keys = FALSE;
 	}
 
 	if (got_int)

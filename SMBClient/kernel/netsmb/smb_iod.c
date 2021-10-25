@@ -68,6 +68,7 @@
 #include <smbfs/smb2_mc_support.h>
 
 #include <IOKit/IOLib.h>
+#include <IOKit/IOPlatformExpert.h>
 #include <netsmb/smb_sleephandler.h>
 
 #define MAX_CHANNEL_LIST (12)
@@ -767,8 +768,30 @@ smb_iod_negotiate(struct smbiod *iod, vfs_context_t user_context)
         else {
             thread_deallocate(thread);
         }
+        /*
+         * <79580211> kernel_thread_start does not start smb_iod_read_thread immediately.
+         * It will push this thread into the thread queue and wait for kernel scheduling
+         * to start this thread. We must wait here until read thread will actually start
+         * and set the SMBIOD_READ_THREAD_RUNNING flag. o.w we will be exposed to a race
+         * where in error cases the iod thread will free resources that will be used after
+         * free by the read thread. We assume here that if kernel_thread_start returned
+         * KERN_SUCCESS, read thread must run at some point and set the flag to break this
+         * loop. Therefore we should not have a timeout and error out this loop as we will
+         * be exposed to the same race again.
+         */
+        for (;;) {
+            if (iod->iod_flags & SMBIOD_READ_THREAD_RUNNING) {
+                SMB_IOD_FLAGSUNLOCK(iod);
+                break;
+            }
+
+            msleep(iod, SMB_IOD_FLAGSLOCKPTR(iod), PWAIT,
+                       "iod-wait-read-start-running", 0);
+        }
     }
-    SMB_IOD_FLAGSUNLOCK(iod);
+    else {
+        SMB_IOD_FLAGSUNLOCK(iod);
+    }
 
 	/* We only bind when doing a NetBIOS connection */
 	if (iod->iod_saddr->sa_family == AF_NETBIOS) {
@@ -1266,8 +1289,30 @@ retry:
         } else {
             thread_deallocate(thread);
         }
+        /*
+         * <79580211> kernel_thread_start does not start smb_iod_read_thread immediately.
+         * It will push this thread into the thread queue and wait for kernel scheduling
+         * to start this thread. We must wait here until read thread will actually start
+         * and set the SMBIOD_READ_THREAD_RUNNING flag. o.w we will be exposed to a race
+         * where in error cases the iod thread will free resources that will be used after
+         * free by the read thread. We assume here that if kernel_thread_start returned
+         * KERN_SUCCESS, read thread must run at some point and set the flag to break this
+         * loop. Therefore we should not have a timeout and error out this loop as we will
+         * be exposed to the same race again.
+         */
+        for (;;) {
+            if (iod->iod_flags & SMBIOD_READ_THREAD_RUNNING) {
+                SMB_IOD_FLAGSUNLOCK(iod);
+                break;
+            }
+
+            msleep(iod, SMB_IOD_FLAGSLOCKPTR(iod), PWAIT,
+                       "alt-iod-wait-read-start-running", 0);
+        }
     }
-    SMB_IOD_FLAGSUNLOCK(iod);
+    else {
+        SMB_IOD_FLAGSUNLOCK(iod);
+    }
 
     // 1) *********** Connect ***********
     iod->iod_state = SMBIOD_ST_CONNECT;
@@ -1555,6 +1600,8 @@ smb_iod_recvall(struct smbiod *iod)
                     iod->iod_flags |= SMBIOD_READ_THREAD_ERROR;
                     SMB_IOD_FLAGSUNLOCK(iod);
 
+                    /* <73460521> Wake iod thread to detect the error */
+                    wakeup(&iod->iod_flags);
                     return error;
                 }
                 break;
@@ -2794,7 +2841,7 @@ smb_iod_sendall(struct smbiod *iod)
                  * <55757983> dont call smb_iod_nb_intr() to check for
                  * system shutdown as you could deadlock on the SMB_IOD_RQLOCK
                  */
-                if (get_system_inshutdown()) {
+                if (get_system_inshutdown() || IOPMRootDomainGetWillShutdown()) {
                     /* If forced unmount or shutdown, dont wait very long */
                     ts.tv_sec = SMB_FAST_SEND_WAIT_TIMO;
                 }
@@ -2970,7 +3017,7 @@ int smb_iod_nb_intr(struct smbiod *iod)
 {
     struct smb_session *sessionp = iod->iod_session;
     
-    if (get_system_inshutdown()) {
+    if (get_system_inshutdown() || IOPMRootDomainGetWillShutdown()) {
         /* If system is shutting down, then cancel reconnect */
         return EINTR;
     }
@@ -3100,6 +3147,9 @@ static void smb_iod_reconnect(struct smbiod *iod)
              */
         }
         
+        /* <74087531> do not limit the tcp connection time in reconnect */
+        iod->iod_connection_to.tv_sec = 0;
+
         error = SMB_TRAN_CONNECT(iod, iod->iod_saddr);
         if (error == EINTR)	{
             SMBWARNING("id %d Reconnect to %s was canceled\n",
@@ -3775,6 +3825,9 @@ smb_iod_read_thread(void *arg)
 
     /*
      * This thread does all the reading on the socket
+     * <79580211> the first thing the read thread MUST do is to set
+     * SMBIOD_READ_THREAD_RUNNING flag to release the iod thread that
+     * started it.
      */
 
     SMB_IOD_FLAGSLOCK(iod);
@@ -3855,7 +3908,8 @@ smb_iod_create(struct smb_session *sessionp, struct smbiod **iodpp)
 	iod->iod_sleeptimespec.tv_nsec = 0;
     iod->iod_conn_entry.client_if_idx = -1;
 	nanouptime(&iod->iod_lastrqsent);
-    
+    iod->iod_connection_to.tv_sec = 0;
+
     iod->iod_tdesc = &smb_tran_nbtcp_desc;
 
     // maintain a list of iod threads associated to a session
@@ -3882,7 +3936,7 @@ smb_iod_create(struct smb_session *sessionp, struct smbiod **iodpp)
     iod->iod_gss.gss_asid = AU_ASSIGN_ASID;
 
     lck_mtx_init(&iod->iod_credits_lock, iodev_lck_group, iodev_lck_attr);
-
+    lck_mtx_init(&iod->iod_tdata_lock, iodtdata_lck_group, iodtdata_lck_attr);
 	/*
 	 * The IOCreateThread routine has been depricated. Just copied
 	 * that code here
@@ -3970,9 +4024,17 @@ smb_iod_destroy(struct smbiod *iod, bool selfclean)
     iod->iod_mackey = NULL;
     iod->iod_mackeylen = 0;
 
+    if (iod->iod_full_mackey != NULL) {
+        SMB_FREE(iod->iod_full_mackey, M_SMBTEMP);
+    }
+    iod->iod_full_mackey = NULL;
+    iod->iod_full_mackeylen = 0;
+
     lck_mtx_destroy(&iod->iod_flagslock, iodflags_lck_group);
 	lck_mtx_destroy(&iod->iod_rqlock, iodrq_lck_group);
 	lck_mtx_destroy(&iod->iod_evlock, iodev_lck_group);
+    lck_mtx_destroy(&iod->iod_credits_lock, iodev_lck_group);
+    lck_mtx_destroy(&iod->iod_tdata_lock, iodtdata_lck_group);
 
     int id = iod->iod_id;
 

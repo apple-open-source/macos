@@ -544,6 +544,25 @@ plaintextPCSServiceIdentifier: (NSNumber*) pcsServiceIdentifier
         ckksinfo("ckks", record.recordID.zoneID, "CKKSMirrorEntry was created: %@", ckme);
     }
 
+    // A remote change has occurred for this UUID. Delete any pending IQEs, in any state.
+    NSError* iqeLoadError = nil;
+    CKKSIncomingQueueEntry* loadediqe = [CKKSIncomingQueueEntry tryFromDatabase:ckme.item.uuid
+                                                                         zoneID:ckme.item.zoneID
+                                                                          error:&iqeLoadError];
+    if(iqeLoadError) {
+        ckkserror("ckks", record.recordID.zoneID, "Couldn't load possible existing incoming queue entry: %@", iqeLoadError);
+    }
+    if(loadediqe) {
+        ckksnotice("ckks", record.recordID.zoneID, "Deleting existing CKKSIncomingQueueEntry: %@", loadediqe);
+
+        NSError* iqeDeleteError = nil;
+        [loadediqe deleteFromDatabase:&iqeDeleteError];
+
+        if(iqeDeleteError) {
+            ckkserror("ckks", record.recordID.zoneID, "Couldn't delete existing incoming queue entry: %@", iqeDeleteError);
+        }
+    }
+
     NSError* iqeerror = nil;
     CKKSIncomingQueueEntry* iqe = [[CKKSIncomingQueueEntry alloc] initWithCKKSItem:ckme.item
                                                                             action:(update ? SecCKKSActionModify : SecCKKSActionAdd)
@@ -653,6 +672,28 @@ plaintextPCSServiceIdentifier: (NSNumber*) pcsServiceIdentifier
 
 @implementation CKKSSQLDatabaseObject (CKKSZoneExtras)
 
++ (NSSet<NSString*>*)allUUIDsInZones:(NSSet<CKRecordZoneID*>*)zoneIDs error:(NSError * __autoreleasing *)error
+{
+    __block NSMutableSet<NSString*>* uuids = [NSMutableSet set];
+
+    NSMutableArray<NSString*>* zoneNames = [NSMutableArray array];
+    for(CKRecordZoneID* zoneID in zoneIDs) {
+        [zoneNames addObject:zoneID.zoneName];
+    }
+
+    [CKKSSQLDatabaseObject queryDatabaseTable:[self sqlTable]
+                                        where:@{@"ckzone": [[CKKSSQLWhereIn alloc] initWithValues:zoneNames]}
+                                      columns:@[@"UUID"]
+                                      groupBy:nil
+                                      orderBy:nil
+                                        limit:-1
+                                   processRow:^(NSDictionary<NSString*, CKKSSQLResult*>* row) {
+                                       [uuids addObject:row[@"UUID"].asString];
+                                   }
+                                        error: error];
+    return uuids;
+}
+
 + (NSArray<NSString*>*)allUUIDs:(CKRecordZoneID*)zoneID error:(NSError * __autoreleasing *)error {
     __block NSMutableArray<NSString*>* uuids = [[NSMutableArray alloc] init];
 
@@ -664,6 +705,23 @@ plaintextPCSServiceIdentifier: (NSNumber*) pcsServiceIdentifier
                                         limit: -1
                                    processRow:^(NSDictionary<NSString*, CKKSSQLResult*>* row) {
                                        [uuids addObject: row[@"UUID"].asString];
+                                   }
+                                        error: error];
+    return uuids;
+}
+
++ (NSSet<NSString*>*)allParentKeyUUIDs:(CKRecordZoneID*)zoneID error:(NSError * __autoreleasing *)error
+{
+    __block NSMutableSet<NSString*>* uuids = [NSMutableSet set];
+
+    [CKKSSQLDatabaseObject queryDatabaseTable:[self sqlTable]
+                                        where:@{@"ckzone": CKKSNilToNSNull(zoneID.zoneName)}
+                                      columns:@[@"parentKeyUUID"]
+                                      groupBy:nil
+                                      orderBy:nil
+                                        limit:-1
+                                   processRow:^(NSDictionary<NSString*, CKKSSQLResult*>* row) {
+                                       [uuids addObject:row[@"parentKeyUUID"].asString];
                                    }
                                         error: error];
     return uuids;

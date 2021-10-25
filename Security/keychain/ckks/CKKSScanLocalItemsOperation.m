@@ -36,7 +36,6 @@
 #import "keychain/ckks/CKKSGroupOperation.h"
 #import "keychain/ckks/CKKSKey.h"
 #import "keychain/ckks/CKKSMemoryKeyCache.h"
-#import "keychain/ckks/CKKSViewManager.h"
 #import "keychain/ckks/CKKSItemEncrypter.h"
 #import "keychain/ckks/CKKSStates.h"
 #import "keychain/ckks/CKKSZoneStateEntry.h"
@@ -54,7 +53,7 @@
 @interface CKKSScanLocalItemsOperation ()
 @property (assign) NSUInteger processedItems;
 
-@property BOOL newCKKSEntries;
+@property NSMutableSet<CKKSKeychainViewState*>* viewsWithNewCKKSEntries;
 @end
 
 @implementation CKKSScanLocalItemsOperation
@@ -65,18 +64,18 @@
     return nil;
 }
 - (instancetype)initWithDependencies:(CKKSOperationDependencies*)dependencies
-                                ckks:(CKKSKeychainView*)ckks
                            intending:(OctagonState*)intendedState
                           errorState:(OctagonState*)errorState
                     ckoperationGroup:(CKOperationGroup*)ckoperationGroup
 {
     if((self = [super init])) {
         _deps = dependencies;
-        _ckks = ckks;
         _ckoperationGroup = ckoperationGroup;
 
         _nextState = errorState;
         _intendedState = intendedState;
+
+        _viewsWithNewCKKSEntries = [NSMutableSet set];
 
         _recordsFound = 0;
         _recordsAdded = 0;
@@ -84,17 +83,25 @@
     return self;
 }
 
-- (NSDictionary*)queryPredicatesForViewMapping {
+- (NSDictionary*)queryPredicatesForViewMapping:(NSSet<CKKSKeychainViewState*>*)activeViews
+{
+    if(activeViews.count > 1 || activeViews.count == 0) {
+        ckksnotice_global("ckksscan", "Not acting on exactly one view; not limiting query: %@", activeViews);
+        return @{};
+    }
+
+    CKKSKeychainViewState* onlyState = [activeViews allObjects][0];
+
     TPPBPolicyKeyViewMapping* viewRule = nil;
 
-    // If there's more than one rule matching this view, then exit with an empty dictionary: the language doesn't support ORs.
-    for(TPPBPolicyKeyViewMapping* mapping in [CKKSViewManager manager].policy.keyViewMapping) {
-        if([mapping.view isEqualToString:self.deps.zoneID.zoneName]) {
+    // If there's more than one rule matching these views, then exit with an empty dictionary: the language doesn't support ORs.
+    for(TPPBPolicyKeyViewMapping* mapping in self.deps.syncingPolicy.keyViewMapping) {
+        if([mapping.view isEqualToString:onlyState.zoneID.zoneName]) {
             if(viewRule == nil) {
                 viewRule = mapping;
             } else {
                 // Too many rules for this view! Don't perform optimization.
-                ckksnotice("ckksscan", self.deps.zoneID, "Too many policy rules for view %@", self.deps.zoneID.zoneName);
+                ckksnotice("ckksscan", onlyState.zoneID, "Too many policy rules for view %@", onlyState.zoneID.zoneName);
                 return @{};
             }
         }
@@ -107,9 +114,9 @@
        !viewRule.matchingRule.hasExists &&
        viewRule.matchingRule.hasMatch) {
         if([((id)kSecAttrSyncViewHint) isEqualToString:viewRule.matchingRule.match.fieldName] &&
-           [viewRule.matchingRule.match.regex isEqualToString:[NSString stringWithFormat:@"^%@$", self.deps.zoneID.zoneName]]) {
+           [viewRule.matchingRule.match.regex isEqualToString:[NSString stringWithFormat:@"^%@$", onlyState.zoneID.zoneName]]) {
             return @{
-                (id)kSecAttrSyncViewHint: self.deps.zoneID.zoneName,
+                (id)kSecAttrSyncViewHint: onlyState.zoneName,
             };
         } else if([((id)kSecAttrAccessGroup) isEqualToString:viewRule.matchingRule.match.fieldName] &&
                   [viewRule.matchingRule.match.regex isEqualToString:@"^com\\.apple\\.cfnetwork$"]) {
@@ -126,10 +133,10 @@
             };
 
         } else {
-            ckksnotice("ckksscan", self.deps.zoneID, "Policy view rule is not a match against viewhint: %@", viewRule);
+            ckksnotice_global("ckksscan", "Policy view rule is not a match against viewhint: %@", viewRule);
         }
     } else {
-        ckksnotice("ckksscan", self.deps.zoneID, "Policy view rule is complex: %@", viewRule);
+        ckksnotice_global("ckksscan", "Policy view rule is complex: %@", viewRule);
     }
 
     return @{};
@@ -143,7 +150,7 @@
     Query *q = query_create_with_limit((__bridge CFDictionaryRef)queryPredicates, NULL, kSecMatchUnlimited, NULL, &cferror);
 
     if(cferror) {
-        ckkserror("ckksscan", self.deps.zoneID, "couldn't create query: %@", cferror);
+        ckkserror_global("ckksscan", "couldn't create query: %@", cferror);
         SecTranslateError(error, cferror);
         return NO;
     }
@@ -161,7 +168,7 @@
     }
 
     if(cferror || !ok) {
-        ckkserror("ckksscan", self.deps.zoneID, "couldn't execute query: %@", cferror);
+        ckkserror_global("ckksscan", "couldn't execute query: %@", cferror);
         SecTranslateError(error, cferror);
         return NO;
     }
@@ -170,6 +177,7 @@
 }
 
 - (BOOL)onboardItemToCKKS:(SecDbItemRef)item
+                viewState:(CKKSKeychainViewState*)viewState
                  keyCache:(CKKSMemoryKeyCache*)keyCache
                     error:(NSError**)error
 {
@@ -177,36 +185,39 @@
 
     CKKSOutgoingQueueEntry* oqe = [CKKSOutgoingQueueEntry withItem:item
                                                             action:SecCKKSActionAdd
-                                                            zoneID:self.deps.zoneID
+                                                            zoneID:viewState.zoneID
                                                           keyCache:keyCache
                                                              error:&itemSaveError];
 
     if(itemSaveError) {
-        ckkserror("ckksscan", self.deps.zoneID, "Need to upload %@, but can't create outgoing entry: %@", item, itemSaveError);
+        ckkserror("ckksscan", viewState.zoneID, "Need to upload %@, but can't create outgoing entry: %@", item, itemSaveError);
         if(error) {
             *error = itemSaveError;
         }
         return NO;
     }
 
-    ckksnotice("ckksscan", self.deps.zoneID, "Syncing new item: %@", oqe);
+    ckksnotice("ckksscan", viewState.zoneID, "Syncing new item: %@", oqe);
 
     [oqe saveToDatabase:&itemSaveError];
     if(itemSaveError) {
-        ckkserror("ckksscan", self.deps.zoneID, "Need to upload %@, but can't save to database: %@", oqe, itemSaveError);
+        ckkserror("ckksscan", viewState.zoneID, "Need to upload %@, but can't save to database: %@", oqe, itemSaveError);
         self.error = itemSaveError;
         return NO;
     }
 
-    self.newCKKSEntries = true;
+    [self.viewsWithNewCKKSEntries addObject:viewState];
     self.recordsAdded += 1;
 
     return YES;
 }
 
-- (void)onboardItemsWithUUIDs:(NSSet<NSString*>*)uuids itemClass:(NSString*)itemClass databaseProvider:(id<CKKSDatabaseProviderProtocol>)databaseProvider
+- (void)onboardItemsInView:(CKKSKeychainViewState*)viewState
+                     uuids:(NSSet<NSString*>*)uuids
+                 itemClass:(NSString*)itemClass
+          databaseProvider:(id<CKKSDatabaseProviderProtocol>)databaseProvider
 {
-    ckksnotice("ckksscan", self.deps.zoneID, "Found %d missing %@ items", (int)uuids.count, itemClass);
+    ckksnotice("ckksscan", viewState.zoneID, "Found %d missing %@ items", (int)uuids.count, itemClass);
     // Use one transaction for each item to allow for SecItem API calls to interleave
     for(NSString* itemUUID in uuids) {
         [databaseProvider dispatchSyncWithSQLTransaction:^CKKSDatabaseTransactionResult {
@@ -220,16 +231,19 @@
                 (id)kSecAttrUUID: itemUUID,
             };
 
-            ckksnotice("ckksscan", self.deps.zoneID, "Onboarding %@ %@", itemClass, itemUUID);
+            ckksnotice("ckksscan", viewState.zoneID, "Onboarding %@ %@", itemClass, itemUUID);
 
             __block NSError* itemSaveError = nil;
 
-            [self executeQuery:queryAttributes readWrite:false error:&itemSaveError block:^(SecDbItemRef itemToSave) {
-                [self onboardItemToCKKS:itemToSave keyCache:keyCache error:&itemSaveError];
+            [self executeQuery:queryAttributes readWrite:true error:&itemSaveError block:^(SecDbItemRef itemToSave) {
+                [self onboardItemToCKKS:itemToSave
+                              viewState:viewState
+                               keyCache:keyCache
+                                  error:&itemSaveError];
             }];
 
             if(itemSaveError) {
-                ckkserror("ckksscan", self.deps.zoneID, "Need to upload %@, but can't save to database: %@", itemUUID, itemSaveError);
+                ckkserror("ckksscan", viewState.zoneID, "Need to upload %@, but can't save to database: %@", itemUUID, itemSaveError);
                 self.error = itemSaveError;
                 return CKKSDatabaseTransactionRollback;
             }
@@ -239,9 +253,11 @@
     }
 }
 
-- (void)fixUUIDlessItemsWithPrimaryKeys:(NSMutableSet<NSDictionary*>*)primaryKeys databaseProvider:(id<CKKSDatabaseProviderProtocol>)databaseProvider
+- (void)fixUUIDlessItemsInZone:(CKKSKeychainViewState*)viewState
+                   primaryKeys:(NSMutableSet<NSDictionary*>*)primaryKeys
+              databaseProvider:(id<CKKSDatabaseProviderProtocol>)databaseProvider
 {
-    ckksnotice("ckksscan", self.deps.zoneID, "Found %d items missing UUIDs", (int)primaryKeys.count);
+    ckksnotice("ckksscan", viewState.zoneID, "Found %d items missing UUIDs", (int)primaryKeys.count);
 
     if([primaryKeys count] == 0) {
         return;
@@ -253,7 +269,7 @@
         __block CKKSMemoryKeyCache* keyCache = [[CKKSMemoryKeyCache alloc] init];
 
         for(NSDictionary* primaryKey in primaryKeys) {
-            ckksnotice("ckksscan", self.deps.zoneID, "Found item with no uuid: %@", primaryKey);
+            ckksnotice("ckksscan", viewState.zoneID, "Found item with no uuid: %@", primaryKey);
 
             __block CFErrorRef cferror = NULL;
 
@@ -261,7 +277,7 @@
                 Query *q = query_create_with_limit((__bridge CFDictionaryRef)primaryKey, NULL, kSecMatchUnlimited, NULL, &cferror);
 
                 if(!q || cferror) {
-                    ckkserror("ckksscan", self.deps.zoneID, "couldn't create query: %@", cferror);
+                    ckkserror("ckksscan", viewState.zoneID, "couldn't create query: %@", cferror);
                     return false;
                 }
 
@@ -271,14 +287,14 @@
                     NSString* uuid = [[NSUUID UUID] UUIDString];
                     NSDictionary* updates = @{(id)kSecAttrUUID: uuid};
 
-                    ckksnotice("ckksscan", self.deps.zoneID, "Assigning new UUID %@ for item %@", uuid, uuidlessItem);
+                    ckksnotice("ckksscan", viewState.zoneID, "Assigning new UUID %@ for item %@", uuid, uuidlessItem);
 
                     SecDbItemRef new_item = SecDbItemCopyWithUpdates(uuidlessItem, (__bridge CFDictionaryRef)updates, &cferror);
 
                     if(!new_item) {
                         SecTranslateError(&itemError, cferror);
                         self.error = itemError;
-                        ckksnotice("ckksscan", self.deps.zoneID, "Unable to copy item with new UUID: %@", cferror);
+                        ckksnotice("ckksscan", viewState.zoneID, "Unable to copy item with new UUID: %@", cferror);
                         return;
                     }
 
@@ -288,10 +304,11 @@
 
                     if(updateSuccess) {
                         [self onboardItemToCKKS:new_item
+                                      viewState:viewState
                                        keyCache:keyCache
                                           error:&itemError];
                     } else {
-                        ckksnotice("ckksscan", self.deps.zoneID, "Unable to update item with new UUID: %@", cferror);
+                        ckksnotice("ckksscan", viewState.zoneID, "Unable to update item with new UUID: %@", cferror);
                     }
 
                     ok &= updateSuccess;
@@ -303,7 +320,7 @@
             });
 
             if(!connectionSuccess) {
-                ckkserror("ckksscan", self.deps.zoneID, "couldn't execute query: %@", cferror);
+                ckkserror("ckksscan", viewState.zoneID, "couldn't execute query: %@", cferror);
                 SecTranslateError(&itemError, cferror);
                 self.error = itemError;
                 return CKKSDatabaseTransactionRollback;
@@ -314,26 +331,27 @@
     }];
 }
 
-- (void)retriggerMissingMirrorEntires:(NSSet<NSString*>*)mirrorUUIDs
-                                 ckks:(CKKSKeychainView*)ckks
+- (void)retriggerMissingMirrorEntries:(NSSet<NSString*>*)mirrorUUIDs
                      databaseProvider:(id<CKKSDatabaseProviderProtocol>)databaseProvider
 {
     if (mirrorUUIDs.count > 0) {
         [databaseProvider dispatchSyncWithSQLTransaction:^CKKSDatabaseTransactionResult{
             NSError* error = nil;
-            ckkserror("ckksscan", self.deps.zoneID, "BUG: keychain missing %lu items from mirror and/or queues: %@", (unsigned long)mirrorUUIDs.count, mirrorUUIDs);
+            ckkserror_global("ckksscan", "BUG: keychain missing %lu items from mirror and/or queues: %@", (unsigned long)mirrorUUIDs.count, mirrorUUIDs);
             self.missingLocalItemsFound = mirrorUUIDs.count;
 
             [[CKKSAnalytics logger] logMetric:[NSNumber numberWithUnsignedInteger:mirrorUUIDs.count] withName:CKKSEventMissingLocalItemsFound];
 
             for (NSString* uuid in mirrorUUIDs) {
-                CKKSMirrorEntry* ckme = [CKKSMirrorEntry tryFromDatabase:uuid zoneID:self.deps.zoneID error:&error];
+                NSArray<CKKSMirrorEntry*>* ckmes = [CKKSMirrorEntry allWithUUID:uuid error:&error];
 
-                if(!ckme || error) {
-                    ckkserror("ckksscan", self.deps.zoneID, "BUG: error fetching previously-extant CKME (uuid: %@) from database: %@", uuid, error);
+                if(!ckmes || error) {
+                    ckkserror_global("ckksscan", "BUG: error fetching previously-extant CKME (uuid: %@) from database: %@", uuid, error);
                     self.error = error;
                 } else {
-                    [ckks _onqueueCKRecordChanged:ckme.item.storedCKRecord resync:true];
+                    for(CKKSMirrorEntry* ckme in ckmes) {
+                        [self.deps intransactionCKRecordChanged:ckme.item.storedCKRecord resync:true];
+                    }
                 }
             }
 
@@ -345,39 +363,50 @@
             return CKKSDatabaseTransactionCommit;
         }];
     } else {
-        ckksnotice("ckksscan", self.deps.zoneID,"No missing local items found");
+        ckksnotice_global("ckksscan", "No missing local items found");
     }
 }
 
 - (void)main
 {
     if(SecCKKSTestsEnabled() && SecCKKSTestSkipScan()) {
-        ckksnotice("ckksscan", self.deps.zoneID, "Scan cancelled by test request");
+        ckksnotice_global("ckksscan", "Scan cancelled by test request");
+        self.nextState = self.intendedState;
         return;
     }
 
     // We need to not be jetsamed while running this
-    os_transaction_t transaction = os_transaction_create([[NSString stringWithFormat:@"com.apple.securityd.ckks.scan.%@", self.deps.zoneID] UTF8String]);
+    os_transaction_t transaction = os_transaction_create("com.apple.securityd.ckks.scan");
 
     id<CKKSDatabaseProviderProtocol> databaseProvider = self.deps.databaseProvider;
-    CKKSKeychainView* ckks = self.ckks;
 
-    [self.deps.launch addEvent:@"scan-local-items"];
+    // A map of CKKSViewState -> ItemClass -> Set of found UUIDs
+    NSMutableDictionary<CKKSKeychainViewState*, NSMutableDictionary<NSString*, NSMutableSet<NSString*>*>*>* itemUUIDsNotYetInCKKS = [NSMutableDictionary dictionary];
 
-    // A map of ItemClass -> Set of found UUIDs
-    NSMutableDictionary<NSString*, NSMutableSet<NSString*>*>* itemUUIDsNotYetInCKKS = [NSMutableDictionary dictionary];
-
-    // A list of primary keys of items that fit in this view, but have no UUIDs
-    NSMutableSet<NSDictionary*>* primaryKeysWithNoUUIDs = [NSMutableSet set];
+    // A map of CKKSViewState -> list of primary keys of items that fit in this view, but have no UUIDs
+    NSMutableDictionary<CKKSKeychainViewState*, NSMutableSet<NSDictionary*>*>* primaryKeysWithNoUUIDs = [NSMutableDictionary dictionary];
 
     // We want this set to be empty after scanning, or else the keychain (silently) dropped something on the floor
     NSMutableSet<NSString*>* mirrorUUIDs = [NSMutableSet set];
+
+    ckksnotice_global("ckksscan", "Scanning for views: %@", self.deps.activeManagedViews);
+
+    NSMutableSet<CKRecordZoneID*>* allZoneIDs = [NSMutableSet set];
+    for(CKKSKeychainViewState* viewState in self.deps.activeManagedViews) {
+        [allZoneIDs addObject:viewState.zoneID];
+    }
 
     [databaseProvider dispatchSyncWithReadOnlySQLTransaction:^{
         // First, query for all synchronizable items
         __block NSError* error = nil;
 
-        [mirrorUUIDs addObjectsFromArray:[CKKSMirrorEntry allUUIDs:self.deps.zoneID error:&error]];
+        NSError* ckmeError = nil;
+        [mirrorUUIDs unionSet:[CKKSMirrorEntry allUUIDsInZones:allZoneIDs error:&ckmeError]];
+
+        if(ckmeError) {
+            ckkserror_global("ckksscan", "Unable to load CKMirrorEntries: %@", ckmeError);
+        }
+
         __block CKKSMemoryKeyCache* keyCache = [[CKKSMemoryKeyCache alloc] init];
 
         // Must query per-class, so:
@@ -397,32 +426,57 @@
                                                       (__bridge NSString*)kSecAttrTombstone: @(NO),
                                                     } mutableCopy];
 
-            NSDictionary* extraQueryPredicates = [self queryPredicatesForViewMapping];
+            NSDictionary* extraQueryPredicates = [self queryPredicatesForViewMapping:self.deps.views];
             [queryAttributes addEntriesFromDictionary:extraQueryPredicates];
 
-            ckksnotice("ckksscan", self.deps.zoneID, "Scanning all synchronizable %@ items(%@) for: %@", itemClass, self.name, queryAttributes);
+            ckksnotice_global("ckksscan", "Scanning all synchronizable %@ items(%@) for: %@", itemClass, self.name, queryAttributes);
 
             [self executeQuery:queryAttributes readWrite:false error:&error block:^(SecDbItemRef item) {
-                ckksnotice("ckksscan", self.deps.zoneID, "scanning item: %@", item);
+                ckksnotice_global("ckksscan", "scanning item: %@", item);
 
                 self.processedItems += 1;
 
-                // First check: is this a tombstone? If so, skip with prejudice.
+                // First check: is this a tombstone, marked this-device-only, or for a non-primary user? If so, skip with prejudice.
                 if(SecDbItemIsTombstone(item)) {
-                    ckksinfo("ckksscan", self.deps.zoneID, "Skipping tombstone %@", item);
+                    ckksinfo_global("ckksscan", "Skipping tombstone %@", item);
+                    return;
+                }
+
+                NSString* protection = (__bridge NSString*)SecDbItemGetCachedValueWithName(item, kSecAttrAccessible);
+                if(!([protection isEqualToString:(__bridge NSString*)kSecAttrAccessibleWhenUnlocked] ||
+                     [protection isEqualToString:(__bridge NSString*)kSecAttrAccessibleAfterFirstUnlock] ||
+                     [protection isEqualToString:(__bridge NSString*)kSecAttrAccessibleAlwaysPrivate])) {
+                    ckksnotice_global("ckksscan", "skipping sync of device-bound(%@) item", protection);
+                    return;
+                }
+
+                // Note: I don't expect that this will ever fire, because the query as created will only find primary-user items. But, it's here as a seatbelt!
+                if(!SecDbItemIsPrimaryUserItem(item)) {
+                    ckksnotice_global("ckksscan", "Ignoring syncable keychain item for non-primary account: %@", item);
                     return;
                 }
 
                 // Second check: is this item a CKKS key for a view? If so, skip.
                 if([CKKSKey isItemKeyForKeychainView:item] != nil) {
-                    ckksinfo("ckksscan", self.deps.zoneID, "Scanned item is a CKKS internal key, skipping");
+                    ckksinfo_global("ckksscan", "Scanned item is a CKKS internal key, skipping");
                     return;
                 }
 
                 // Third check: What view is this for?
-                NSString* viewForItem = [[CKKSViewManager manager] viewNameForItem:item];
-                if(![viewForItem isEqualToString:self.deps.zoneID.zoneName]) {
-                    ckksinfo("ckksscan", self.deps.zoneID, "Scanned item is for view %@, skipping", viewForItem);
+                NSString* viewForItem = [self.deps viewNameForItem:item];
+                CKKSKeychainViewState* viewStateForItem = nil;
+                for(CKKSKeychainViewState* viewState in self.deps.activeManagedViews) {
+                    if([viewState.zoneID.zoneName isEqualToString:viewForItem]) {
+                        viewStateForItem = viewState;
+                        break;
+                    }
+                }
+
+                if(viewStateForItem == nil) {
+                    ckksinfo_global("ckksscan", "Scanned item is for view %@, skipping", viewForItem);
+
+                    // todo: if this is a view that's active but not ready, we should scan it later...
+
                     return;
                 }
 
@@ -431,7 +485,7 @@
 
                 NSString* uuid = (__bridge_transfer NSString*) CFRetain(SecDbItemGetValue(item, &v10itemuuid, &cferror));
                 if(!uuid || [uuid isEqual: [NSNull null]]) {
-                    ckksnotice("ckksscan", self.deps.zoneID, "making new UUID for item %@: %@", item, cferror);
+                    ckksnotice("ckksscan", viewStateForItem.zoneID, "making new UUID for item %@: %@", item, cferror);
 
                     NSMutableDictionary* primaryKey = [(NSDictionary*)CFBridgingRelease(SecDbItemCopyPListWithMask(item, kSecDbPrimaryKeyFlag, &cferror)) mutableCopy];
 
@@ -439,51 +493,65 @@
                     primaryKey[(id)kSecClass] = itemClass;
 
                     if(SecErrorGetOSStatus(cferror) != errSecSuccess) {
-                        ckkserror("ckksscan", self.deps.zoneID, "couldn't copy UUID-less item's primary key: %@", cferror);
+                        ckkserror("ckksscan", viewStateForItem.zoneID, "couldn't copy UUID-less item's primary key: %@", cferror);
                         SecTranslateError(&error, cferror);
                         self.error = error;
                         return;
                     }
 
-                    [primaryKeysWithNoUUIDs addObject:primaryKey];
+                    NSMutableSet* primaryKeysWithNoUUIDsForView = primaryKeysWithNoUUIDs[viewStateForItem];
+                    if(primaryKeysWithNoUUIDsForView == nil) {
+                        primaryKeysWithNoUUIDsForView = [NSMutableSet set];
+                        primaryKeysWithNoUUIDs[viewStateForItem] = primaryKeysWithNoUUIDsForView;
+                    }
+                    [primaryKeysWithNoUUIDsForView addObject:primaryKey];
                     return;
                 }
 
                 // Is there a known sync item with this UUID?
                 CKKSMirrorEntry* ckme = [CKKSMirrorEntry tryFromDatabase:uuid
-                                                                  zoneID:self.deps.zoneID
+                                                                  zoneID:viewStateForItem.zoneID
                                                                    error:&error];
                 if(ckme != nil) {
                     [mirrorUUIDs removeObject:uuid];
-                    ckksinfo("ckksscan", self.deps.zoneID, "Existing mirror entry with UUID %@", uuid);
+                    ckksinfo("ckksscan", viewStateForItem.zoneID, "Existing mirror entry with UUID %@", uuid);
 
                     if([self areEquivalent:item ckksItem:ckme.item keyCache:keyCache]) {
                         // Fair enough.
                         return;
                     } else {
-                        ckksnotice("ckksscan", self.deps.zoneID, "Existing mirror entry with UUID %@ does not match local item", uuid);
+                        ckksnotice("ckksscan", viewStateForItem.zoneID, "Existing mirror entry with UUID %@ does not match local item", uuid);
                     }
                 }
 
                 // We don't care about the oqe state here, just that one exists
                 CKKSOutgoingQueueEntry* oqe = [CKKSOutgoingQueueEntry tryFromDatabase:uuid
-                                                                               zoneID:self.deps.zoneID
+                                                                               zoneID:viewStateForItem.zoneID
                                                                                 error:&error];
                 if(oqe != nil) {
-                    ckksnotice("ckksscan", self.deps.zoneID, "Existing outgoing queue entry with UUID %@", uuid);
+                    ckksnotice("ckksscan", viewStateForItem.zoneID, "Existing outgoing queue entry with UUID %@", uuid);
                     // If its state is 'new', mark down that we've seen new entries that need processing
-                    self.newCKKSEntries |= !![oqe.state isEqualToString:SecCKKSStateNew];
+                    if([oqe.state isEqualToString:SecCKKSStateNew]) {
+                        [self.viewsWithNewCKKSEntries addObject:viewStateForItem];
+                    }
+
                     return;
                 }
 
                 // Hurray, we can help!
-                ckksnotice("ckksscan", self.deps.zoneID, "Item(%@) is new; will attempt to add to CKKS", uuid);
+                ckksnotice("ckksscan", viewStateForItem.zoneID, "Item(%@) is new; will attempt to add to CKKS", uuid);
                 self.recordsFound += 1;
 
-                NSMutableSet<NSString*>* classUUIDs = itemUUIDsNotYetInCKKS[itemClass];
+                NSMutableDictionary* itemClassMap = itemUUIDsNotYetInCKKS[viewStateForItem];
+                if(!itemClassMap) {
+                    itemClassMap = [NSMutableDictionary dictionary];
+                    itemUUIDsNotYetInCKKS[viewStateForItem] = itemClassMap;
+                }
+
+                NSMutableSet<NSString*>* classUUIDs = itemClassMap[itemClass];
                 if(!classUUIDs) {
                     classUUIDs = [NSMutableSet set];
-                    itemUUIDsNotYetInCKKS[itemClass] = classUUIDs;
+                    itemClassMap[itemClass] = classUUIDs;
                 }
                 [classUUIDs addObject:uuid];
             }];
@@ -491,17 +559,18 @@
 
         // We're done checking local keychain for extra items, now let's make sure the mirror doesn't have extra items that the keychain doesn't have, either
         if (mirrorUUIDs.count > 0) {
-            ckksnotice("ckksscan", self.deps.zoneID, "keychain missing %lu items from mirror, proceeding with queue scanning", (unsigned long)mirrorUUIDs.count);
-            [mirrorUUIDs minusSet:[NSSet setWithArray:[CKKSIncomingQueueEntry allUUIDs:self.deps.zoneID error:&error]]];
+            ckksnotice_global("ckksscan", "keychain missing %lu items from mirror, proceeding with queue scanning", (unsigned long)mirrorUUIDs.count);
+
+            [mirrorUUIDs minusSet:[CKKSIncomingQueueEntry allUUIDsInZones:allZoneIDs error:&error]];
             if (error) {
-                ckkserror("ckksscan",  self.deps.zoneID, "unable to inspect incoming queue: %@", error);
+                ckkserror_global("ckksscan", "unable to inspect incoming queue: %@", error);
                 self.error = error;
                 return;
             }
 
-            [mirrorUUIDs minusSet:[NSSet setWithArray:[CKKSOutgoingQueueEntry allUUIDs:self.deps.zoneID error:&error]]];
+            [mirrorUUIDs minusSet:[CKKSOutgoingQueueEntry allUUIDsInZones:allZoneIDs error:&error]];
             if (error) {
-                ckkserror("ckksscan", self.deps.zoneID, "unable to inspect outgoing queue: %@", error);
+                ckkserror_global("ckksscan", "unable to inspect outgoing queue: %@", error);
                 self.error = error;
                 return;
             }
@@ -511,59 +580,86 @@
     }];
 
     if(self.error) {
-        ckksnotice("ckksscan", self.deps.zoneID, "Exiting due to previous error: %@", self.error);
+        ckksnotice_global("ckksscan", "Exiting due to previous error: %@", self.error);
         return;
     }
 
-    ckksnotice("ckksscan", self.deps.zoneID, "Found %d item classes with missing items", (int)itemUUIDsNotYetInCKKS.count);
+    ckksnotice_global("ckksscan", "Found %d views with missing items for %@", (int)itemUUIDsNotYetInCKKS.count, self.deps.activeManagedViews);
+    for(CKKSKeychainViewState* viewState in [itemUUIDsNotYetInCKKS allKeys]) {
+        NSMutableDictionary* itemClassesForView = itemUUIDsNotYetInCKKS[viewState];
 
-    for(NSString* itemClass in [itemUUIDsNotYetInCKKS allKeys]) {
-        [self onboardItemsWithUUIDs:itemUUIDsNotYetInCKKS[itemClass] itemClass:itemClass databaseProvider:databaseProvider];
+        for(NSString* itemClass in [itemClassesForView allKeys]) {
+            NSMutableSet<NSString*>* missingUUIDs = itemClassesForView[itemClass];
+            ckksnotice("ckksscan", viewState, "Found %d missing %@ items for %@", (int)missingUUIDs.count, itemClass, viewState);
+            [self onboardItemsInView:viewState
+                               uuids:missingUUIDs
+                           itemClass:itemClass
+                    databaseProvider:databaseProvider];
+        }
     }
 
-    [self fixUUIDlessItemsWithPrimaryKeys:primaryKeysWithNoUUIDs databaseProvider:databaseProvider];
+    for(CKKSKeychainViewState* viewState in [primaryKeysWithNoUUIDs allKeys]) {
+        [self fixUUIDlessItemsInZone:viewState
+                         primaryKeys:primaryKeysWithNoUUIDs[viewState]
+                    databaseProvider:databaseProvider];
+    }
 
-    [self retriggerMissingMirrorEntires:mirrorUUIDs
-                                   ckks:ckks
+    [self retriggerMissingMirrorEntries:mirrorUUIDs
                        databaseProvider:databaseProvider];
 
-    [CKKSPowerCollection CKKSPowerEvent:kCKKSPowerEventScanLocalItems zone:self.deps.zoneID.zoneName count:self.processedItems];
+    for(CKKSKeychainViewState* viewState in self.deps.activeManagedViews) {
+        [CKKSPowerCollection CKKSPowerEvent:kCKKSPowerEventScanLocalItems zone:viewState.zoneID.zoneName count:self.processedItems];
+    }
 
     // Write down that a scan occurred
     [databaseProvider dispatchSyncWithSQLTransaction:^CKKSDatabaseTransactionResult{
-        CKKSZoneStateEntry* zoneState = [CKKSZoneStateEntry state:self.deps.zoneID.zoneName];
+        for(CKKSKeychainViewState* viewState in self.deps.activeManagedViews) {
+            if(![viewState.viewKeyHierarchyState isEqualToString:SecCKKSZoneKeyStateReady]) {
+                ckksnotice("ckksscan", viewState.zoneID, "View wasn't ready for scan");
+                continue;
+            }
 
-        zoneState.lastLocalKeychainScanTime = [NSDate now];
+            [viewState.launch addEvent:@"scan-local-items"];
 
-        NSError* saveError = nil;
-        [zoneState saveToDatabase:&saveError];
+            CKKSZoneStateEntry* zoneState = [CKKSZoneStateEntry state:viewState.zoneID.zoneName];
 
-        if(saveError) {
-            ckkserror("ckksscan", self.deps.zoneID, "Unable to save 'scanned' bit: %@", saveError);
-        } else {
-            ckksnotice("ckksscan", self.deps.zoneID, "Saved scanned status.");
+            zoneState.lastLocalKeychainScanTime = [NSDate now];
+
+            NSError* saveError = nil;
+            [zoneState saveToDatabase:&saveError];
+
+            if(saveError) {
+                ckkserror("ckksscan", viewState.zoneID, "Unable to save 'scanned' bit: %@", saveError);
+            } else {
+                ckksnotice("ckksscan", viewState.zoneID, "Saved scanned status.");
+            }
         }
 
         return CKKSDatabaseTransactionCommit;
     }];
 
-    if(self.newCKKSEntries) {
-        // Schedule a "view changed" notification
-        [self.deps.notifyViewChangedScheduler trigger];
+    if(self.viewsWithNewCKKSEntries.count > 0) {
+        for(CKKSKeychainViewState* viewState in self.viewsWithNewCKKSEntries) {
+            // Schedule a "view changed" notification
+            [viewState.notifyViewChangedScheduler trigger];
+        }
 
         // notify CKKS that it should process these new entries
-        [ckks processOutgoingQueue:self.ckoperationGroup];
-        // TODO: self.nextState = SecCKKSZoneKeyStateProcessOutgoingQueue;
-    } else {
-        self.nextState = self.intendedState;
+        if(self.ckoperationGroup) {
+            ckkserror_global("ckksscan", "Transferring ckoperation group %@", self.ckoperationGroup);
+            self.deps.currentOutgoingQueueOperationGroup = self.ckoperationGroup;
+        }
+        [self.deps.flagHandler handleFlag:CKKSFlagProcessOutgoingQueue];
+        // TODO self.nextState = CKKSStateProcessOutgoingQueue;
     }
+
+    self.nextState = self.intendedState;
 
     if(self.missingLocalItemsFound > 0) {
-        [ckks processIncomingQueue:false];
-        // TODO [self.deps.flagHandler _onqueueHandleFlag:CKKSFlagProcessIncomingQueue];
+        [self.deps.flagHandler handleFlag:CKKSFlagProcessIncomingQueue];
     }
 
-    ckksnotice("ckksscan", self.deps.zoneID, "Completed scan");
+    ckksnotice_global("ckksscan", "Completed scan");
     (void)transaction;
 }
 
@@ -577,7 +673,7 @@
                                                                               keyCache:keyCache
                                                                                  error:&localerror];
     if(!attributes || localerror) {
-        ckksnotice("ckksscan", self.deps.zoneID, "Could not decrypt item for comparison: %@", localerror);
+        ckksnotice("ckksscan", ckksItem.zoneID, "Could not decrypt item for comparison: %@", localerror);
         return YES;
     }
 
@@ -586,7 +682,7 @@
     localerror = (NSError*)CFBridgingRelease(cferror);
 
     if(!objdict || localerror) {
-        ckksnotice("ckksscan", self.deps.zoneID, "Could not get item contents for comparison: %@", localerror);
+        ckksnotice("ckksscan", ckksItem.zoneID, "Could not get item contents for comparison: %@", localerror);
 
         // Fail open: assert that this item doesn't match
         return NO;

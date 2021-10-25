@@ -1,0 +1,10 @@
+(pdp_ip0, svc BE, in) IP6 fe80::4b:d811:ea40 > ff02::1: ICMP6, router advertisement, length 48
+(pdp_ip0, svc CTL, out) IP6 fe80::4b:d811:ea01 > ff02::2: ICMP6, router solicitation, length 8
+(pdp_ip0, svc BE, in) IP6 fe80::4b:d811:ea40 > fe80::4b:d811:ea01: ICMP6, router advertisement, length 48
+(pdp_ip0, svc BE, out) IP6 2600:1010:b019:ed08:84c5:b4eb:3245:49a5.56304 > 2001:4888:68:ff00:608:d::.53: 31220+ Type65? play.itunes.apple.com. (39)
+(pdp_ip0, svc BE, out) IP6 2600:1010:b019:ed08:84c5:b4eb:3245:49a5.62040 > 2001:4888:68:ff00:608:d::.53: 4770+ AAAA? play.itunes.apple.com. (39)
+(pdp_ip0, svc BE, out) IP6 2600:1010:b019:ed08:84c5:b4eb:3245:49a5.64687 > 2001:4888:68:ff00:608:d::.53: 25871+ A? play.itunes.apple.com. (39)
+(pdp_ip0, svc BE, in) IP6 2001:4888:68:ff00:608:d::.53 > 2600:1010:b019:ed08:84c5:b4eb:3245:49a5.64687: 25871 5/0/0 CNAME play-cdn.itunes-apple.com.akadns.net., CNAME play.itunes.apple.com.edgesuite.net., CNAME a1806.dscb.akamai.net., A 104.114.76.147, A 104.114.76.139 (199)
+(pdp_ip0, svc BE, in) IP6 2001:4888:68:ff00:608:d::.53 > 2600:1010:b019:ed08:84c5:b4eb:3245:49a5.62040: 4770 5/0/0 CNAME play-cdn.itunes-apple.com.akadns.net., CNAME play.itunes.apple.com.edgesuite.net., CNAME a1806.dscb.akamai.net., AAAA 2600:1406:4400::ace8:1090, AAAA 2600:1406:4400::ace8:1093 (223)
+(pdp_ip0, svc BE, in) IP6 2001:4888:68:ff00:608:d::.53 > 2600:1010:b019:ed08:84c5:b4eb:3245:49a5.56304: 31220 3/1/0 CNAME play-cdn.itunes-apple.com.akadns.net., CNAME play.itunes.apple.com.edgesuite.net., CNAME a1806.dscb.akamai.net. (228)
+(pdp_ip0, svc BE, out) IP6 2600:1010:b019:ed08:84c5:b4eb:3245:49a5.59222 > 2001:4888:68:ff00:608:d::.53: 21531+ Type65? a1806.dscb.akamai.net. (39)

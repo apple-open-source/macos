@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2013-2021 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -43,6 +43,10 @@ typedef struct IPMonitorControl * IPMonitorControlRef;
 IPMonitorControlRef
 IPMonitorControlCreate(void);
 
+/**
+ ** Interface Rank Assertion
+ **/
+
 Boolean
 IPMonitorControlSetInterfacePrimaryRank(IPMonitorControlRef control,
 					CFStringRef ifname,
@@ -52,18 +56,62 @@ SCNetworkServicePrimaryRank
 IPMonitorControlGetInterfacePrimaryRank(IPMonitorControlRef control,
 					CFStringRef ifname);
 
+CFStringRef
+IPMonitorControlCopyInterfaceRankAssertionNotificationKey(CFStringRef ifname);
+
+typedef CFTypeRef InterfaceRankAssertionInfoRef;
+
+SCNetworkServicePrimaryRank
+InterfaceRankAssertionInfoGetPrimaryRank(InterfaceRankAssertionInfoRef info);
+
+pid_t
+InterfaceRankAssertionInfoGetProcessID(InterfaceRankAssertionInfoRef info);
+
+CFStringRef
+InterfaceRankAssertionInfoGetProcessName(InterfaceRankAssertionInfoRef info);
+
+CFArrayRef /* of InterfaceRankAssertionInfoRef */
+IPMonitorControlCopyInterfaceRankAssertionInfo(IPMonitorControlRef control,
+					       CFStringRef ifname);
+CFArrayRef /* of CFString */
+IPMonitorControlCopyInterfaceRankAssertionInterfaceNames(IPMonitorControlRef control);
+
+/**
+ ** Interface Advisory
+ **/
 Boolean
 IPMonitorControlSetInterfaceAdvisory(IPMonitorControlRef control,
 				     CFStringRef ifname,
 				     SCNetworkInterfaceAdvisory advisory,
 				     CFStringRef reason);
+
 Boolean
-IPMonitorControlInterfaceAdvisoryIsSet(IPMonitorControlRef control,
-				       CFStringRef ifname);
-Boolean
-IPMonitorControlAnyInterfaceAdvisoryIsSet(IPMonitorControlRef control);
+IPMonitorControlIsInterfaceAdvisorySet(IPMonitorControlRef control,
+				       CFStringRef ifname,
+				       SCNetworkInterfaceAdvisory advisory);
 
 CFStringRef
 IPMonitorControlCopyInterfaceAdvisoryNotificationKey(CFStringRef ifname);
+
+Boolean
+IPMonitorControlAnyInterfaceAdvisoryIsSet(IPMonitorControlRef control);
+
+typedef CFTypeRef InterfaceAdvisoryInfoRef;
+
+SCNetworkInterfaceAdvisory
+InterfaceAdvisoryInfoGetAdvisory(InterfaceAdvisoryInfoRef info);
+
+pid_t
+InterfaceAdvisoryInfoGetProcessID(InterfaceAdvisoryInfoRef info);
+
+CFStringRef
+InterfaceAdvisoryInfoGetProcessName(InterfaceAdvisoryInfoRef info);
+
+CFArrayRef /* of InterfaceAdvisoryInfoRef */
+IPMonitorControlCopyInterfaceAdvisoryInfo(IPMonitorControlRef control,
+					  CFStringRef ifname);
+
+CFArrayRef /* of CFString */
+IPMonitorControlCopyInterfaceAdvisoryInterfaceNames(IPMonitorControlRef control);
 
 #endif /* _IPMONITOR_CONTROL_H */

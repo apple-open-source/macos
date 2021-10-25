@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2013-2021 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -42,7 +42,7 @@
 #include <stdbool.h>
 
 void
-CGAInit(void);
+CGAInit(bool expire_ipv6ll_modifiers);
 
 bool
 CGAIsEnabled(void);

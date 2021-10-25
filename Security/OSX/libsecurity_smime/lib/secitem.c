@@ -36,15 +36,14 @@
  */
 
 #include "secitem.h"
+#include <Security/x509defs.h>
 #include <security_asn1/seccomon.h>
 #include <security_asn1/secerr.h>
-#include <Security/x509defs.h>
 
-SECItem *
-SECITEM_AllocItem(PRArenaPool *arena, SECItem *item, size_t len)
+SECItem* SECITEM_AllocItem(PRArenaPool* arena, SECItem* item, size_t len)
 {
-    SECItem *result = NULL;
-    void *mark = NULL;
+    SECItem* result = NULL;
+    void* mark = NULL;
 
     if (arena != NULL) {
         mark = PORT_ArenaMark(arena);
@@ -76,18 +75,16 @@ SECITEM_AllocItem(PRArenaPool *arena, SECItem *item, size_t len)
     if (mark) {
         PORT_ArenaUnmark(arena, mark);
     }
-    return(result);
+    return (result);
 
 loser:
     if (arena != NULL && mark) {
         PORT_ArenaRelease(arena, mark);
     }
-    return(NULL);
+    return (NULL);
 }
 
-SECStatus
-SECITEM_ReallocItem(PRArenaPool *arena, SECItem *item, unsigned int oldlen,
-                    unsigned int newlen)
+SECStatus SECITEM_ReallocItem(PRArenaPool* arena, SECItem* item, unsigned int oldlen, unsigned int newlen)
 {
     PORT_Assert(item != NULL);
     if (item == NULL) {
@@ -125,15 +122,14 @@ SECITEM_ReallocItem(PRArenaPool *arena, SECItem *item, unsigned int oldlen,
     return SECSuccess;
 }
 
-SECComparison
-SECITEM_CompareItem(const SECItem *a, const SECItem *b)
+SECComparison SECITEM_CompareItem(const SECItem* a, const SECItem* b)
 {
     CSSM_SIZE m;
     SECComparison rv;
 
-    m = ( ( a->Length < b->Length ) ? a->Length : b->Length );
+    m = ((a->Length < b->Length) ? a->Length : b->Length);
 
-    rv = (SECComparison) PORT_Memcmp(a->Data, b->Data, m);
+    rv = (SECComparison)PORT_Memcmp(a->Data, b->Data, m);
     if (rv) {
         return rv;
     }
@@ -146,8 +142,7 @@ SECITEM_CompareItem(const SECItem *a, const SECItem *b)
     return SECGreaterThan;
 }
 
-Boolean
-SECITEM_ItemsAreEqual(const SECItem *a, const SECItem *b)
+Boolean SECITEM_ItemsAreEqual(const SECItem* a, const SECItem* b)
 {
     if (a->Length != b->Length)
         return PR_FALSE;
@@ -160,58 +155,55 @@ SECITEM_ItemsAreEqual(const SECItem *a, const SECItem *b)
     return (Boolean)!PORT_Memcmp(a->Data, b->Data, a->Length);
 }
 
-SECItem *
-SECITEM_DupItem(const SECItem *from)
+SECItem* SECITEM_DupItem(const SECItem* from)
 {
     return SECITEM_ArenaDupItem(NULL, from);
 }
 
-SECItem *
-SECITEM_ArenaDupItem(PRArenaPool *arena, const SECItem *from)
+SECItem* SECITEM_ArenaDupItem(PRArenaPool* arena, const SECItem* from)
 {
-    SECItem *to;
+    SECItem* to;
 
-    if ( from == NULL ) {
-        return(NULL);
+    if (from == NULL) {
+        return (NULL);
     }
 
-    if ( arena != NULL ) {
-        to = (SECItem *)PORT_ArenaAlloc(arena, sizeof(SECItem));
+    if (arena != NULL) {
+        to = (SECItem*)PORT_ArenaAlloc(arena, sizeof(SECItem));
     } else {
-        to = (SECItem *)PORT_Alloc(sizeof(SECItem));
+        to = (SECItem*)PORT_Alloc(sizeof(SECItem));
     }
-    if ( to == NULL ) {
-        return(NULL);
+    if (to == NULL) {
+        return (NULL);
     }
 
-    if ( arena != NULL ) {
-        to->Data = (unsigned char *)PORT_ArenaAlloc(arena, from->Length);
+    if (arena != NULL) {
+        to->Data = (unsigned char*)PORT_ArenaAlloc(arena, from->Length);
     } else {
-        to->Data = (unsigned char *)PORT_Alloc(from->Length);
+        to->Data = (unsigned char*)PORT_Alloc(from->Length);
     }
-    if ( to->Data == NULL ) {
+    if (to->Data == NULL) {
         PORT_Free(to);
-        return(NULL);
+        return (NULL);
     }
 
     to->Length = from->Length;
     // to->type = from->type;
-    if ( to->Length ) {
+    if (to->Length) {
         PORT_Memcpy(to->Data, from->Data, to->Length);
     }
 
-    return(to);
+    return (to);
 }
 
-SECStatus
-SECITEM_CopyItem(PRArenaPool *arena, SECItem *to, const SECItem *from)
+SECStatus SECITEM_CopyItem(PRArenaPool* arena, SECItem* to, const SECItem* from)
 {
     // to->type = from->type;
     if (from->Data && from->Length) {
-        if ( arena ) {
-            to->Data = (unsigned char*) PORT_ArenaAlloc(arena, from->Length);
+        if (arena) {
+            to->Data = (unsigned char*)PORT_ArenaAlloc(arena, from->Length);
         } else {
-            to->Data = (unsigned char*) PORT_Alloc(from->Length);
+            to->Data = (unsigned char*)PORT_Alloc(from->Length);
         }
 
         if (!to->Data) {
@@ -226,8 +218,7 @@ SECITEM_CopyItem(PRArenaPool *arena, SECItem *to, const SECItem *from)
     return SECSuccess;
 }
 
-void
-SECITEM_FreeItem(SECItem *zap, Boolean freeit)
+void SECITEM_FreeItem(SECItem* zap, Boolean freeit)
 {
     if (zap) {
         PORT_Free(zap->Data);
@@ -239,8 +230,7 @@ SECITEM_FreeItem(SECItem *zap, Boolean freeit)
     }
 }
 
-void
-SECITEM_ZfreeItem(SECItem *zap, Boolean freeit)
+void SECITEM_ZfreeItem(SECItem* zap, Boolean freeit)
 {
     if (zap) {
         PORT_ZFree(zap->Data, zap->Length);
@@ -261,21 +251,20 @@ SECITEM_ZfreeItem(SECItem *zap, Boolean freeit)
  * routine is left as an excercise for the more mathematically
  * inclined student.
  */
-PLHashNumber PR_CALLBACK
-SECITEM_Hash ( const void *key)
+PLHashNumber PR_CALLBACK SECITEM_Hash(const void* key)
 {
-    const SECItem *item = (const SECItem *)key;
+    const SECItem* item = (const SECItem*)key;
     PLHashNumber rv = 0;
 
-    PRUint8 *data = (PRUint8 *)item->Data;
+    PRUint8* data = (PRUint8*)item->Data;
     PRUint32 i;
-    PRUint8 *rvc = (PRUint8 *)&rv;
-    
-    for( i = 0; i < item->Length; i++ ) {
-        rvc[ i % sizeof(rv) ] ^= *data;
+    PRUint8* rvc = (PRUint8*)&rv;
+
+    for (i = 0; i < item->Length; i++) {
+        rvc[i % sizeof(rv)] ^= *data;
         data++;
     }
-    
+
     return rv;
 }
 
@@ -285,11 +274,10 @@ SECITEM_Hash ( const void *key)
  * quite the same ordering as the "sequence of numbers" order,
  * but heck it's only used internally by the hash table anyway.
  */
-PRIntn PR_CALLBACK
-SECITEM_HashCompare ( const void *k1, const void *k2)
+PRIntn PR_CALLBACK SECITEM_HashCompare(const void* k1, const void* k2)
 {
-    const SECItem *i1 = (const SECItem *)k1;
-    const SECItem *i2 = (const SECItem *)k2;
-    
-    return SECITEM_ItemsAreEqual(i1,i2);
+    const SECItem* i1 = (const SECItem*)k1;
+    const SECItem* i2 = (const SECItem*)k2;
+
+    return SECITEM_ItemsAreEqual(i1, i2);
 }

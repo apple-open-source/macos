@@ -105,13 +105,51 @@
     /* bridgeOS has no system anchors, so trustd never finds the root */
     is(SecTrustGetCertificateCount(trust), 2, "cert count is 2");
 #endif
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     is(SecTrustGetCertificateAtIndex(trust, 0), cert0, "cert 0 is leaf");
+#pragma clang diagnostic pop
 
     CFReleaseNull(trust);
     CFReleaseNull(cert0);
     CFReleaseNull(cert1);
     CFReleaseNull(certs);
     CFReleaseNull(policy);
+}
+
+- (void)testCopyCertificateChain {
+    SecTrustRef trust = NULL;
+    CFArrayRef certs = NULL, chain = NULL;
+    SecCertificateRef cert0 = NULL, cert1 = NULL;
+    SecPolicyRef policy = NULL;
+
+    isnt(cert0 = SecCertificateCreateWithBytes(NULL, _c0, sizeof(_c0)),
+         NULL, "create cert0");
+    isnt(cert1 = SecCertificateCreateWithBytes(NULL, _c1, sizeof(_c1)),
+         NULL, "create cert1");
+    const void *v_certs[] = { cert0, cert1 };
+
+    certs = CFArrayCreate(NULL, v_certs, array_size(v_certs), &kCFTypeArrayCallBacks);
+    policy = SecPolicyCreateSSL(false, NULL);
+
+    ok_status(SecTrustCreateWithCertificates(certs, policy, &trust), "create trust");
+    isnt(NULL, chain = SecTrustCopyCertificateChain(trust));
+
+#if !TARGET_OS_BRIDGE
+    is(CFArrayGetCount(chain), 3, "cert count is 3");
+#else
+    /* bridgeOS has no system anchors, so trustd never finds the root */
+    is(CFArrayGetCount(chain), 2, "cert count is 2");
+#endif
+    XCTAssert(CFEqual(cert0, CFArrayGetValueAtIndex(chain, 0)));
+    XCTAssert(CFEqual(cert1, CFArrayGetValueAtIndex(chain, 1)));
+
+    CFReleaseNull(trust);
+    CFReleaseNull(cert0);
+    CFReleaseNull(cert1);
+    CFReleaseNull(certs);
+    CFReleaseNull(policy);
+    CFReleaseNull(chain);
 }
 
 - (void)testRestoreOS {
@@ -729,6 +767,10 @@ errOut:
 }
 
 - (void)testTLSAnalytics {
+#if TARGET_OS_BRIDGE || TARGET_OS_SIMULATOR
+    // BridgeOS & simulator don't support analytics
+    XCTSkip();
+#endif
     xpc_object_t metric = xpc_dictionary_create(NULL, NULL, 0);
     ok(metric != NULL);
 
@@ -884,6 +926,8 @@ errOut:
     CFReleaseNull(trust);
 }
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
 - (void)testCopyProperties_ios
 {
     /* Test null input */
@@ -920,11 +964,10 @@ errOut:
         TestTrustEvaluation *testObj = [[TestTrustEvaluation alloc] initWithTrustDictionary:testDict];
         XCTAssertNotNil(testObj, "failed to create test object for %lu", (unsigned long)idx);
 
+
 #if TARGET_OS_BRIDGE
         // Skip disabled bridgeOS tests on bridgeOS
-        if (testObj.bridgeOSDisabled) {
-            return;
-        }
+        XCTSkipIf(testObj.bridgeOSDisabled);
 #endif
 
 #if TARGET_OS_IPHONE
@@ -940,6 +983,7 @@ errOut:
         }
     }];
 }
+#pragma clang diagnostic pop
 
 - (void)testCopyKey
 {
@@ -1050,6 +1094,59 @@ errOut:
     CFReleaseNull(cert1);
     CFReleaseNull(policy);
     CFReleaseNull(trust);
+}
+
+- (void)testTrustResultValidityPeriod
+{
+    SecCertificateRef cert0 = NULL, cert1 = NULL;
+    SecPolicyRef policy = NULL;
+
+    cert0 = SecCertificateCreateWithBytes(NULL, _c0, sizeof(_c0));
+    cert1 = SecCertificateCreateWithBytes(NULL, _c1, sizeof(_c1));
+    policy = SecPolicyCreateSSL(true, CFSTR("example.com"));
+
+    NSArray *certs = @[ (__bridge id)cert0, (__bridge id)cert1];
+
+    TestTrustEvaluation *eval = [[TestTrustEvaluation alloc] initWithCertificates:certs policies:@[(__bridge id)policy]];
+
+    // Never evaluated
+    XCTAssertFalse(SecTrustIsTrustResultValid(eval.trust, CFAbsoluteTimeGetCurrent()));
+
+    // Evaluated but "divorced from reality"
+    (void)[eval evaluate:nil];
+    XCTAssert(SecTrustIsTrustResultValid(eval.trust, 0.0));
+
+    // These certs are expired, so we'd expect the validity window to be now  +/- TRUST_TIME_LEEWAY
+    XCTAssert(SecTrustIsTrustResultValid(eval.trust, CFAbsoluteTimeGetCurrent()));
+
+    CFReleaseNull(cert0);
+    CFReleaseNull(cert1);
+    CFReleaseNull(policy);
+}
+
+- (void)testSetClientAuditToken
+{
+    SecCertificateRef cert0 = NULL, cert1 = NULL;
+
+    cert0 = SecCertificateCreateWithBytes(NULL, _c0, sizeof(_c0));
+    cert1 = SecCertificateCreateWithBytes(NULL, _c1, sizeof(_c1));
+
+    NSArray *certs = @[ (__bridge id)cert0, (__bridge id)cert1 ];
+
+    TestTrustEvaluation *eval = [[TestTrustEvaluation alloc] initWithCertificates:certs policies:nil];
+
+    audit_token_t token;
+    kern_return_t kr;
+    mach_msg_type_number_t token_size = TASK_AUDIT_TOKEN_COUNT;
+    kr = task_info(mach_task_self(), TASK_AUDIT_TOKEN, (task_info_t)&token, &token_size);
+    XCTAssertEqual(kr, KERN_SUCCESS);
+    NSData *auditToken = [NSData dataWithBytes:(uint8_t *)&token length:sizeof(token)];
+
+    XCTAssertEqual(errSecSuccess, SecTrustSetClientAuditToken(eval.trust, (__bridge CFDataRef)auditToken));
+    (void)[eval evaluate:nil];
+
+    CFReleaseNull(cert0);
+    CFReleaseNull(cert1);
 }
 
 @end

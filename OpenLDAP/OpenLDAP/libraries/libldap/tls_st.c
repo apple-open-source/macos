@@ -1698,7 +1698,8 @@ tlsst_sb_close(Sockbuf_IO_Desc *sbiod)
 		tlsst_save_error(sess, ret, "SSLClose()", NULL);
 	else
 		tlsst_clear_error(sess);
-	return ret == 0 ? 0 : -1;
+	// <rdar://28231822> We uncondtionally return success because these errors are inactionable and interrupt connection teardown without reporting failure.
+	return 0;
 }
 
 static Sockbuf_IO tlsst_sbio = {

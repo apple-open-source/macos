@@ -319,7 +319,7 @@ void TestProperty()
     ucol_getUCAVersion(col, versionUCAArray);
     //if (0!=uprv_memcmp(versionUCAArray, versionUCDArray, 4)) {
     if (versionUCAArray[0]!=versionUCDArray[0] || versionUCAArray[1]!=versionUCDArray[1] ||
-        (versionUCAArray[3]<=versionUCDArray[3] && (versionUCAArray[3]!=versionUCDArray[3] || versionUCAArray[4]<versionUCDArray[4]))) {
+        (versionUCAArray[2]<=versionUCDArray[2] && (versionUCAArray[2]!=versionUCDArray[2] || versionUCAArray[3]<versionUCDArray[3]))) {
       log_err("Testing ucol_getUCAVersion() - unexpected result: %hu.%hu.%hu.%hu\n",
               versionUCAArray[0], versionUCAArray[1], versionUCAArray[2], versionUCAArray[3]);
     }

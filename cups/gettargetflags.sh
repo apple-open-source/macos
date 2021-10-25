@@ -41,7 +41,7 @@ done
 sdk="`basename \"$SDKROOT\" | tr '[A-Z]' '[a-z]'`"
 version=`/usr/libexec/PlistBuddy -c "print Version" $SDKROOT/SDKSettings.plist`
 
-_xos=	# what os (macos, ios, tvos, watchos)
+_xos=${RC_PROJECT_COMPILATION_PLATFORM:-""}	# what os (macos, ios, tvos, watchos)
 
 case "$sdk" in
 	# Current OS's...

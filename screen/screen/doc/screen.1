@@ -1747,10 +1747,10 @@ windows process.
 Refer to the postscript file `doc/fdpat.ps' for a confusing illustration
 of all 21 possible combinations. Each drawing shows the digits 2,1,0
 representing the three file descriptors of newcommand. The box marked
-`W' is the usual pty that has the application-process on its slave side.
+`W' is the usual pty that has the application-process on its replica side.
 The box marked `P' is the secondary pty that now has
 .I screen
-at its master side.
+at its primary side.
 .sp
 Abbreviations: 
 .br
@@ -4015,7 +4015,7 @@ Foreground Default
 Background Black
 .TP 27
 \h'\w'ESC [ Ps = 'u'\fB...\fP
-...
+\&...
 .TP 27
 \h'\w'ESC [ Ps = 'u'\fB49\fP	(A)
 Background Default

@@ -142,7 +142,6 @@
         (id)kSecAttrService : service,
         (id)kSecAttrAccessible : (id)kSecAttrAccessibleAfterFirstUnlock,
         (id)kSecUseDataProtectionKeychain : @(YES),
-        (id)kSecReturnAttributes : @(YES),
     };
     NSDictionary *newAttributes = @{
         (id)kSecAttrAccount : newAccount,

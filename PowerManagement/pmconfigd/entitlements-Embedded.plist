@@ -26,5 +26,11 @@
 		<string>AppleSmartBatteryManagerUserClient</string>
 		<string>IOReportUserClient</string>
 	</array>
+	<key>com.apple.PerfPowerTelemetry.data-donation</key>
+	<true/>
+	<key>com.apple.trial.client</key>
+	<array>
+		<string>253</string>
+	</array>
 </dict>
 </plist>

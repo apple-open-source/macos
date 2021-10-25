@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2018 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2021 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -1206,7 +1206,7 @@ GetDisksFromRegistry(io_iterator_t iter, int initialRun)
 	timeSpec.tv_sec = (initialRun ? 10 : 1);
 	timeSpec.tv_nsec = 0;
 
-	IOMasterPort(bootstrap_port, &masterPort);
+	IOMainPort(bootstrap_port, &masterPort);
 
 	//sleep(1);
 	IOKitWaitQuiet(masterPort, &timeSpec);
@@ -1493,7 +1493,7 @@ findDiskInit()
 	kern_return_t r;
         io_iterator_t ioIterator;  // first match
 
-	r = IOMasterPort(bootstrap_port, &ioMasterPort);
+	r = IOMainPort(bootstrap_port, &ioMasterPort);
 	if (r != KERN_SUCCESS)
 	{
 		pwarning(("(%s:%d) IOMasterPort failed: {0x%x}\n", __FILE__, __LINE__, r));

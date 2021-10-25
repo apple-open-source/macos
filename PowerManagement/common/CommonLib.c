@@ -174,11 +174,10 @@ __private_extern__ CFAbsoluteTime _CFAbsoluteTimeFromPMEventTimeStamp(uint64_t k
 __private_extern__ io_registry_entry_t getRootDomain(void)
 {
     static io_registry_entry_t gRoot = MACH_PORT_NULL;
-    
+
     if (MACH_PORT_NULL == gRoot)
-        gRoot = IORegistryEntryFromPath( kIOMasterPortDefault,
-                                        kIOPowerPlane ":/IOPowerConnection/IOPMrootDomain");
-    
+        gRoot = IORegistryEntryFromPath(kIOMainPortDefault, kIOPowerPlane ":/IOPowerConnection/IOPMrootDomain");
+
     return gRoot;
 }
 
@@ -187,7 +186,7 @@ __private_extern__ io_registry_entry_t getIOPMPowerSource(void)
     static io_registry_entry_t ps = MACH_PORT_NULL;
 
     if (ps == MACH_PORT_NULL) {
-        ps = IOServiceGetMatchingService(kIOMasterPortDefault, IOServiceMatching("IOPMPowerSource"));
+        ps = IOServiceGetMatchingService(kIOMainPortDefault, IOServiceMatching("IOPMPowerSource"));
     }
 
     return ps;
@@ -323,6 +322,9 @@ const char * descriptiveKernelAssertions(uint32_t val) {
     }
     if (val&kIOPMDriverAssertionMagicPacketWakeEnabledBit) {
         string = "MAGICWAKE";
+    }
+    if (val&kIOPMDriverAssertionNetworkKeepAliveActiveBit) {
+        string = "NETWORK";
     }
     return string;
 }

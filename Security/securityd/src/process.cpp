@@ -39,8 +39,8 @@
 //
 // Construct a Process object.
 //
-Process::Process(TaskPort taskPort,	const ClientSetupInfo *info, const CommonCriteria::AuditToken &audit)
- :  mTaskPort(taskPort), mByteFlipped(false), mPid(audit.pid()), mUid(audit.euid()), mGid(audit.egid()), mAudit(audit)
+Process::Process(TaskPort taskPort, Bootstrap bootstrapPort, const ClientSetupInfo *info, const CommonCriteria::AuditToken &audit)
+ :  mTaskPort(taskPort), mBootstrap(bootstrapPort), mByteFlipped(false), mPid(audit.pid()), mUid(audit.euid()), mGid(audit.egid()), mAudit(audit)
 {
 	StLock<Mutex> _(*this);
     xpc_transaction_begin();
@@ -71,6 +71,7 @@ Process::Process(TaskPort taskPort,	const ClientSetupInfo *info, const CommonCri
 	
 	// This is a "retain", matched by the deallocate call in ~Process
 	mTaskPort.modRefs(MACH_PORT_RIGHT_SEND, 1);
+	mBootstrap.modRefs(MACH_PORT_RIGHT_SEND, 1);
 
     // NB: ServerChild::find() should only be used to determine
     // *existence*.  Don't use the returned Child object for anything else, 
@@ -79,8 +80,8 @@ Process::Process(TaskPort taskPort,	const ClientSetupInfo *info, const CommonCri
         || ServerChild::find<ServerChild>(this->pid()))   // securityd's child; do not mark this txn dirty
         xpc_transaction_end();
 
-    secinfo("SecServer", "%p client new: pid:%d session:%d %s taskPort:%d uid:%d gid:%d", this, this->pid(), this->session().sessionId(),
-             (char *)codePath(this->processCode()).c_str(), taskPort.port(), mUid, mGid);
+    secinfo("SecServer", "%p client new: pid:%d session:%d %s taskPort:%d bootstrapPort:%d uid:%d gid:%d", this, this->pid(), this->session().sessionId(),
+             (char *)codePath(this->processCode()).c_str(), taskPort.port(), bootstrapPort.port(), mUid, mGid);
 }
 
 
@@ -143,6 +144,9 @@ Process::~Process()
     // release our name for the process's task port
     if (mTaskPort) {
         mTaskPort.deallocate();
+    }
+    if (mBootstrap) {
+        mBootstrap.deallocate();
     }
     xpc_transaction_end();
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2020 Apple Inc. All rights reserved.
+ * Copyright (c) 2011-2021 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -73,6 +73,11 @@ SYSCTL_UINT(_net_classq, OID_AUTO, flow_control_adv,
 uint16_t fq_codel_quantum = 0;
 #endif /* DEBUG || DEVELOPMENT */
 
+static struct zone *ifcq_zone;          /* zone for ifclassq */
+#define IFCQ_ZONE_NAME    "ifclassq"    /* zone name */
+LCK_ATTR_DECLARE(ifcq_lock_attr, 0, 0);
+static LCK_GRP_DECLARE(ifcq_lock_group, "ifclassq locks");
+
 void
 classq_init(void)
 {
@@ -87,14 +92,14 @@ classq_init(void)
 	PE_parse_boot_argn("ifclassq_update_interval",
 	    &ifclassq_update_interval, sizeof(ifclassq_update_interval));
 #endif /* DEBUG || DEVELOPMENT */
+	ifcq_zone = zone_create(IFCQ_ZONE_NAME, sizeof(struct ifclassq),
+	    ZC_ZFREE_CLEARMEM);
 	fq_codel_init();
 }
 
 int
-ifclassq_setup(struct ifnet *ifp, u_int32_t sflags, boolean_t reuse)
+ifclassq_setup(struct ifclassq *ifq, struct ifnet *ifp, uint32_t sflags)
 {
-#pragma unused(reuse)
-	struct ifclassq *ifq = &ifp->if_snd;
 	int err = 0;
 
 	IFCQ_LOCK(ifq);
@@ -138,22 +143,23 @@ ifclassq_setup(struct ifnet *ifp, u_int32_t sflags, boolean_t reuse)
 }
 
 void
-ifclassq_teardown(struct ifnet *ifp)
+ifclassq_teardown(struct ifclassq *ifq)
 {
-	struct ifclassq *ifq = &ifp->if_snd;
-
 	IFCQ_LOCK(ifq);
-
+	if (IFCQ_IS_DESTROYED(ifq)) {
+		ASSERT((ifq->ifcq_flags & ~IFCQF_DESTROYED) == 0);
+		goto done;
+	}
 	if (IFCQ_IS_READY(ifq)) {
 		if (IFCQ_TBR_IS_ENABLED(ifq)) {
-			struct tb_profile tb = { .rate = 0, .percent = 0, .depth = 0 };
+			struct tb_profile tb =
+			{ .rate = 0, .percent = 0, .depth = 0 };
 			(void) ifclassq_tbr_set(ifq, &tb, FALSE);
 		}
 		pktsched_teardown(ifq);
-		ifq->ifcq_flags = 0;
+		ifq->ifcq_flags &= ~IFCQF_READY;
 	}
 	ifq->ifcq_sflags = 0;
-
 	VERIFY(IFCQ_IS_EMPTY(ifq));
 	VERIFY(!IFCQ_TBR_IS_ENABLED(ifq));
 	VERIFY(ifq->ifcq_type == PKTSCHEDT_NONE);
@@ -165,7 +171,8 @@ ifclassq_teardown(struct ifnet *ifp)
 	IFCQ_MAXLEN(ifq) = 0;
 	bzero(&ifq->ifcq_xmitcnt, sizeof(ifq->ifcq_xmitcnt));
 	bzero(&ifq->ifcq_dropcnt, sizeof(ifq->ifcq_dropcnt));
-
+	ifq->ifcq_flags |= IFCQF_DESTROYED;
+done:
 	IFCQ_UNLOCK(ifq);
 }
 
@@ -412,12 +419,9 @@ int
 ifclassq_attach(struct ifclassq *ifq, u_int32_t type, void *discipline)
 {
 	IFCQ_LOCK_ASSERT_HELD(ifq);
-
 	VERIFY(ifq->ifcq_disc == NULL);
-
 	ifq->ifcq_type = type;
 	ifq->ifcq_disc = discipline;
-
 	return 0;
 }
 
@@ -425,9 +429,7 @@ void
 ifclassq_detach(struct ifclassq *ifq)
 {
 	IFCQ_LOCK_ASSERT_HELD(ifq);
-
 	VERIFY(ifq->ifcq_disc == NULL);
-
 	ifq->ifcq_type = PKTSCHEDT_NONE;
 }
 
@@ -442,15 +444,13 @@ ifclassq_getqstats(struct ifclassq *ifq, u_int32_t qid, void *ubuf,
 		return EINVAL;
 	}
 
-	ifqs = _MALLOC(sizeof(*ifqs), M_TEMP, M_WAITOK | M_ZERO);
-	if (ifqs == NULL) {
-		return ENOMEM;
-	}
+	ifqs = kalloc_type(struct if_ifclassq_stats,
+	    Z_WAITOK | Z_ZERO | Z_NOFAIL);
 
 	IFCQ_LOCK(ifq);
 	if (!IFCQ_IS_READY(ifq)) {
 		IFCQ_UNLOCK(ifq);
-		_FREE(ifqs, M_TEMP);
+		kfree_type(struct if_ifclassq_stats, ifqs);
 		return ENXIO;
 	}
 
@@ -468,7 +468,7 @@ ifclassq_getqstats(struct ifclassq *ifq, u_int32_t qid, void *ubuf,
 		*nbytes = sizeof(*ifqs);
 	}
 
-	_FREE(ifqs, M_TEMP);
+	kfree_type(struct if_ifclassq_stats, ifqs);
 
 	return err;
 }
@@ -732,7 +732,7 @@ void
 ifclassq_calc_target_qdelay(struct ifnet *ifp, u_int64_t *if_target_qdelay)
 {
 	u_int64_t qdelay = 0;
-	qdelay = IFCQ_TARGET_QDELAY(&ifp->if_snd);
+	qdelay = IFCQ_TARGET_QDELAY(ifp->if_snd);
 
 	if (ifclassq_target_qdelay != 0) {
 		qdelay = ifclassq_target_qdelay;
@@ -782,4 +782,34 @@ ifclassq_reap_caches(boolean_t purge)
 {
 	fq_codel_reap_caches(purge);
 	flowadv_reap_caches(purge);
+}
+
+struct ifclassq *
+ifclassq_alloc(void)
+{
+	struct ifclassq *ifcq;
+
+	ifcq = zalloc_flags(ifcq_zone, Z_WAITOK | Z_ZERO | Z_NOFAIL);
+	os_ref_init(&ifcq->ifcq_refcnt, NULL);
+	os_ref_retain(&ifcq->ifcq_refcnt);
+	lck_mtx_init(&ifcq->ifcq_lock, &ifcq_lock_group, &ifcq_lock_attr);
+	return ifcq;
+}
+
+void
+ifclassq_retain(struct ifclassq *ifcq)
+{
+	os_ref_retain(&ifcq->ifcq_refcnt);
+}
+
+void
+ifclassq_release(struct ifclassq **pifcq)
+{
+	struct ifclassq *ifcq = *pifcq;
+
+	*pifcq = NULL;
+	if (os_ref_release(&ifcq->ifcq_refcnt) == 0) {
+		ifclassq_teardown(ifcq);
+		zfree(ifcq_zone, ifcq);
+	}
 }

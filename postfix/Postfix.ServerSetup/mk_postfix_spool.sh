@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# Copyright (c) 2016 Apple Inc. All rights reserved.
+# Copyright (c) 2016, 2021 Apple Inc. All rights reserved.
 # 
 # IMPORTANT NOTE: This file is licensed only for use on Apple-branded
 # computers and is subject to the terms and conditions of the Apple Software
@@ -97,7 +97,7 @@ done
 for _socket in $_public_sockets ; do
 	_socket_path="$_full_path/public/$_socket"
 	if [ ! -e "$_socket_path" ] ; then
-		python -c "import socket as s; sock = s.socket(s.AF_UNIX); sock.bind('$_socket_path')"
+		/usr/libexec/postfix/bind_unix_socket $_socket_path
 		chmod 666 $_socket_path
 	fi
 done
@@ -114,7 +114,7 @@ done
 for _socket in $_private_sockets ; do
 	_socket_path="$_full_path/private/$_socket"
 	if [ ! -e "$_socket_path" ] ; then
-		python -c "import socket as s; sock = s.socket(s.AF_UNIX); sock.bind('$_socket_path')"
+		/usr/libexec/postfix/bind_unix_socket $_socket_path
 		chmod 666 $_socket_path
 	fi
 done

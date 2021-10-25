@@ -32,6 +32,7 @@
 
 #include "OTATrustUtilities.h"
 #include "trustdFileLocations.h"
+#include "trustdVariants.h"
 
 #if TARGET_OS_OSX
 #include <membership.h>
@@ -176,18 +177,14 @@ void WithPathInPrivateUserTrustdDirectory(CFStringRef fileName, void(^operation)
 
 static BOOL needToFixFilePermissions(void) {
     __block BOOL result = NO;
+#ifdef LIBTRUSTD
+    if (!TrustdVariantAllowsFileWrite()) {
+        return false;
+    }
+#endif // LIBTRUSTD
 #if TARGET_OS_SIMULATOR
     // Simulators don't upgrade, so no need to fix file permissions
 #elif TARGET_OS_IPHONE
-    /* Did trust store already migrate */
-    WithPathInPrivateTrustdDirectory(CFSTR("TrustStore.sqlite3"), ^(const char *utf8String) {
-        struct stat sb;
-        int ret = stat(utf8String, &sb);
-        if (ret != 0) {
-            secinfo("helper", "failed to stat TrustStore: %s", strerror(errno));
-            result = YES;
-        }
-    });
     /* Can we write to the analytics directory */
     WithPathInKeychainDirectory(CFSTR("Analytics"), ^(const char *utf8String) {
         struct stat sb;
@@ -206,7 +203,34 @@ static BOOL needToFixFilePermissions(void) {
             }
         }
     });
-#else
+    /* Did trust store already migrate */
+    WithPathInPrivateTrustdDirectory(CFSTR("TrustStore.sqlite3"), ^(const char *utf8String) {
+        struct stat sb;
+        int ret = stat(utf8String, &sb);
+        if (ret != 0) {
+            secinfo("helper", "failed to stat TrustStore: %s", strerror(errno));
+            result = YES;
+        }
+    });
+#else // !TARGET_OS_IPHONE
+    /* Can we write to the analytics directory */
+    WithPathInProtectedDirectory(CFSTR("sfanalytics"), ^(const char *utf8String) {
+        struct stat sb;
+        int ret = stat(utf8String, &sb);
+        if (ret != 0) {
+            // Check errno. Missing directory or file errors do not require any fixes
+            if (errno != ENOTDIR && errno != ENOENT) {
+                secinfo("helper", "failed to stat Analytics dir: %s", strerror(errno));
+                result = YES;
+            }
+        } else {
+            // Check that all users have rwx for Analytics dir
+            if ((sb.st_mode & (S_IRWXU | S_IRWXG | S_IRWXO)) != (S_IRWXU | S_IRWXG | S_IRWXO)) {
+                secinfo("helper", "wrong permissions on Analytics dir: %d", sb.st_mode);
+                result = YES;
+            }
+        }
+    });
     /* Can we read/write Valid file? */
     WithPathInRevocationInfoDirectory(CFSTR("valid.sqlite3"), ^(const char *utf8String) {
         struct stat sb;
@@ -225,7 +249,47 @@ static BOOL needToFixFilePermissions(void) {
             }
         }
     });
-#endif
+    /* Can we read/write the admin trust settings plist? */
+    WithPathInPrivateTrustdDirectory(CFSTR("Admin.plist"), ^(const char *utf8String) {
+        struct stat sb;
+        int ret = stat(utf8String, &sb);
+        if (ret != 0) {
+            // Need to create empty plist or possibly migrate legacy file.
+            secinfo("helper", "failed to stat Admin.plist: %s", strerror(errno));
+            result = YES;
+        } else {
+            // Successful call. Check file owner and permissions
+            if (sb.st_uid != TRUSTD_ROLE_ACCOUNT) {
+                secinfo("helper", "wrong owner for Admin.plist");
+                result = YES;
+            }
+            if (sb.st_mode != TRUST_SETTINGS_ADMIN_MODE) {
+                secinfo("helper", "wrong permissions for Admin.plist");
+                result = YES;
+            }
+        }
+    });
+    /* Can we read/write our user trust settings plist? */
+    WithPathInPrivateUserTrustdDirectory(CFSTR("TrustSettings.plist"), ^(const char *utf8String) {
+        struct stat sb;
+        int ret = stat(utf8String, &sb);
+        if (ret != 0) {
+            // Need to create empty plist or possibly migrate legacy file.
+            secinfo("helper", "failed to stat TrustSettings.plist: %s", strerror(errno));
+            result = YES;
+        } else {
+            // Successful call. Check file owner and permissions
+            if (sb.st_uid != geteuid()) {
+                secinfo("helper", "wrong owner for TrustSettings.plist");
+                result = YES;
+            }
+            if (sb.st_mode != TRUST_SETTINGS_USER_MODE) {
+                secinfo("helper", "wrong permissions for TrustSettings.plist");
+                result = YES;
+            }
+        }
+    });
+#endif // !TARGET_OS_IPHONE
     return result;
 }
 

@@ -30,6 +30,23 @@
 #include <platform/string.h>
 #include <platform/compat.h>
 
+// This file is built with -fno-builtin to prevent the compiler from turning
+// _simple_memcmp into a memcmp() call.
+
+int
+_simple_memcmp(const void *s1, const void *s2, size_t n)
+{
+	if (n != 0) {
+		const unsigned char *p1 = s1, *p2 = s2;
+
+		do {
+			if (*p1++ != *p2++)
+				return (*--p1 - *--p2);
+		} while (--n != 0);
+	}
+	return (0);
+}
+
 const char *
 _simple_getenv(const char *envp[], const char *var) {
     const char **p;
@@ -41,7 +58,7 @@ _simple_getenv(const char *envp[], const char *var) {
         size_t p_len = strlen(*p);
 
         if (p_len >= var_len &&
-            memcmp(*p, var, var_len) == 0 &&
+            _simple_memcmp(*p, var, var_len) == 0 &&
             (*p)[var_len] == '=') {
             return &(*p)[var_len + 1];
         }

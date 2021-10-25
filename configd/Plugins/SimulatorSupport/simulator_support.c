@@ -309,7 +309,7 @@ load_SimulatorSupport(CFBundleRef bundle, Boolean bundleVerbose)
 
 
 int
-main(int argc, char **argv)
+main(int argc, char * const argv[])
 {
 	_sc_log     = kSCLogDestinationFile;
 	_sc_verbose = (argc > 1) ? TRUE : FALSE;

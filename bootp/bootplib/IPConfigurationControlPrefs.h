@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2013-2021 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -79,5 +79,11 @@ IPConfigurationControlPrefsGetCellularCLAT46AutoEnable(void);
 
 Boolean
 IPConfigurationControlPrefsSetCellularCLAT46AutoEnable(Boolean enable);
+
+Boolean
+IPConfigurationControlPrefsGetIPv6LinkLocalModifierExpires(void);
+
+Boolean
+IPConfigurationControlPrefsSetIPv6LinkLocalModifierExpires(Boolean expires);
 
 #endif /* _S_IPCONFIGURATIONCONTROLPREFS_H */

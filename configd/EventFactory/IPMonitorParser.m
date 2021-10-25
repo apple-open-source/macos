@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2018, 2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -26,11 +26,8 @@
 
 #import "IPMonitorParser.h"
 
-#define TokenInterfaceNameV6 "interfaceNameV6"
 #define TokenAddressAction "addressAction"
-#define TokenAddressAction6 "addressAction6"
 #define TokenAddress "address"
-#define TokenAddress6 "address6"
 #define TokenServiceID "serviceID"
 #define TokenV4Changes "v4Changes"
 #define TokenV6Changes "v6Changes"
@@ -43,6 +40,11 @@
 
 - (instancetype)init
 {
+	self = [super init];
+	if (self == nil) {
+		return nil;
+	}
+
 	NSError *regexError = nil;
 	_netChangeRegex = [[NSRegularExpression alloc] initWithPattern:@"(?<"TokenInterfaceName">\\w+)(?<"TokenAddressAction">[\\+\\-\\!\\/\\\\]?)(:(?<"TokenAddress">[:.0-9a-f]+))?" options:0 error:&regexError];
 	if (_netChangeRegex == nil) {

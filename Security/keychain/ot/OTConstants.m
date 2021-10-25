@@ -35,7 +35,6 @@ NSErrorDomain const OctagonErrorDomain = @"com.apple.security.octagon";
 
 NSString* OTDefaultContext = @"defaultContext";
 NSString* OTDefaultsDomain = @"com.apple.security.octagon";
-NSString* OTDefaultsOctagonEnable = @"enable";
 
 NSString* OTProtocolPairing = @"OctagonPairing";
 NSString* OTProtocolPiggybacking = @"OctagonPiggybacking";
@@ -47,27 +46,8 @@ NSString* const CuttlefishErrorRetryAfterKey = @"retryafter";
 
 NSString* OTEscrowRecordPrefix = @"com.apple.icdp.record.";
 
-// I don't recommend using this command, but it does describe the plist that will enable this feature:
-//
-//  defaults write /System/Library/FeatureFlags/Domain/Security octagon -dict Enabled -bool YES
-//
-static bool OctagonEnabledOverrideSet = false;
-static bool OctagonEnabledOverride = false;
-
-static bool OctagonRecoveryKeyEnabledOverrideSet = false;
-static bool OctagonRecoveryKeyEnabledOverride = false;
-
-static bool OctagonAuthoritativeTrustEnabledOverrideSet = false;
-static bool OctagonAuthoritativeTrustEnabledOverride = false;
-
 static bool OctagonSOSFeatureIsEnabledOverrideSet = false;
 static bool OctagonSOSFeatureIsEnabledOverride = false;
-
-static bool OctagonOptimizationIsEnabledOverrideSet = false;
-static bool OctagonOptimizationIsEnabledOverride = false;
-
-static bool OctagonEscrowRecordFetchIsEnabledOverrideSet = false;
-static bool OctagonEscrowRecordFetchIsEnabledOverride = false;
 
 static bool SecKVSOnCloudKitIsEnabledOverrideSet = false;
 static bool SecKVSOnCloudKitIsEnabledOverride = false;
@@ -75,41 +55,20 @@ static bool SecKVSOnCloudKitIsEnabledOverride = false;
 static bool SecErrorNestedErrorCappingIsEnabledOverrideSet = false;
 static bool SecErrorNestedErrorCappingIsEnabledOverride = false;
 
-bool OctagonIsEnabled(void)
-{
-    if(OctagonEnabledOverrideSet) {
-        secnotice("octagon", "Octagon is %@ (overridden)", OctagonEnabledOverride ? @"enabled" : @"disabled");
-        return OctagonEnabledOverride;
-    }
-
-    static bool octagonEnabled = false;
-    static dispatch_once_t onceToken;
-    dispatch_once(&onceToken, ^{
-        octagonEnabled = os_feature_enabled(Security, octagon);
-        secnotice("octagon", "Octagon is %@ (via feature flags)", octagonEnabled ? @"enabled" : @"disabled");
-    });
-
-    return octagonEnabled;
-}
-
-void OctagonSetIsEnabled(BOOL value)
-{
-    OctagonEnabledOverrideSet = true;
-    OctagonEnabledOverride = value;
-}
+static bool SecKeychainStaticPersistentRefsEnabledOverrideSet = false;
+static bool SecKeychainStaticPersistentRefsEnabledOverride = false;
 
 static bool OctagonOverridePlatformSOS = false;
 static bool OctagonPlatformSOSOverrideValue = false;
-static bool OctagonPlatformSOSUpgrade = false;
 
-BOOL OctagonPlatformSupportsSOS(void)
+bool OctagonPlatformSupportsSOS(void)
 {
     if(OctagonOverridePlatformSOS) {
         return OctagonPlatformSOSOverrideValue ? YES : NO;
     }
     
 #if TARGET_OS_OSX
-    return YES;
+    return true;
 #elif TARGET_OS_IOS
     static bool isSOSCapable = false;
 
@@ -132,79 +91,20 @@ BOOL OctagonPlatformSupportsSOS(void)
         secnotice("octagon", "SOS is %@ on this platform" , isSOSCapable ? @"supported" : @"not supported");
     });
 
-    return isSOSCapable ? YES : NO;
+    return isSOSCapable;
 #else
-    return NO;
+    return false;
 #endif
 }
 
-void OctagonSetPlatformSupportsSOS(BOOL value)
+void OctagonSetPlatformSupportsSOS(bool value)
 {
     OctagonPlatformSOSOverrideValue = value;
     OctagonOverridePlatformSOS = YES;
 }
 
-void OctagonSetSOSUpgrade(BOOL value)
-{
-    OctagonPlatformSOSUpgrade = value;
-}
 
-BOOL OctagonPerformSOSUpgrade()
-{
-    if(OctagonPlatformSOSUpgrade){
-        return OctagonPlatformSOSUpgrade;
-    }
-    return os_feature_enabled(Security, octagonSOSupgrade);
-}
-
-BOOL OctagonRecoveryKeyIsEnabled(void)
-{
-    if(OctagonRecoveryKeyEnabledOverrideSet) {
-        secnotice("octagon", "Octagon RecoveryKey is %@ (overridden)", OctagonRecoveryKeyEnabledOverride ? @"enabled" : @"disabled");
-        return OctagonRecoveryKeyEnabledOverride;
-    }
-
-    static bool octagonRecoveryKeyEnabled = false;
-    static dispatch_once_t onceToken;
-    dispatch_once(&onceToken, ^{
-        octagonRecoveryKeyEnabled = os_feature_enabled(Security, recoverykey);
-        secnotice("octagon", "Octagon is %@ (via feature flags)", octagonRecoveryKeyEnabled ? @"enabled" : @"disabled");
-    });
-
-    return octagonRecoveryKeyEnabled;
-}
-
-void OctagonRecoveryKeySetIsEnabled(BOOL value)
-{
-    OctagonRecoveryKeyEnabledOverrideSet = true;
-    OctagonRecoveryKeyEnabledOverride = value;
-}
-
-
-BOOL OctagonAuthoritativeTrustIsEnabled(void)
-{
-    if(OctagonAuthoritativeTrustEnabledOverrideSet) {
-        secnotice("octagon", "Authoritative Octagon Trust is %@ (overridden)", OctagonAuthoritativeTrustEnabledOverride ? @"enabled" : @"disabled");
-        return OctagonAuthoritativeTrustEnabledOverride;
-    }
-
-    static bool octagonAuthoritativeTrustEnabled = false;
-    static dispatch_once_t onceToken;
-    dispatch_once(&onceToken, ^{
-        octagonAuthoritativeTrustEnabled = os_feature_enabled(Security, octagonTrust);
-        secnotice("octagon", "Authoritative Octagon Trust is %@ (via feature flags)", octagonAuthoritativeTrustEnabled ? @"enabled" : @"disabled");
-    });
-
-    return octagonAuthoritativeTrustEnabled;
-}
-
-void OctagonAuthoritativeTrustSetIsEnabled(BOOL value)
-{
-    OctagonAuthoritativeTrustEnabledOverrideSet = true;
-    OctagonAuthoritativeTrustEnabledOverride = value;
-}
-
-BOOL OctagonIsSOSFeatureEnabled(void)
+bool OctagonIsSOSFeatureEnabled(void)
 {
     if(OctagonSOSFeatureIsEnabledOverrideSet) {
         secnotice("octagon", "SOS Feature is %@ (overridden)", OctagonSOSFeatureIsEnabledOverride ? @"enabled" : @"disabled");
@@ -221,63 +121,14 @@ BOOL OctagonIsSOSFeatureEnabled(void)
     return sosEnabled;
 }
 
-void OctagonSetSOSFeatureEnabled(BOOL value)
+void OctagonSetSOSFeatureEnabled(bool value)
 {
     OctagonSOSFeatureIsEnabledOverrideSet = true;
     OctagonSOSFeatureIsEnabledOverride = value;
 }
 
-//feature flag for enabling/disabling performance enhancements
-BOOL OctagonIsOptimizationEnabled(void)
-{
-    if(OctagonOptimizationIsEnabledOverrideSet) {
-        secnotice("octagon", "Octagon Optimization is %@ (overridden)", OctagonOptimizationIsEnabledOverride ? @"enabled" : @"disabled");
-        return OctagonOptimizationIsEnabledOverride;
-    }
-
-    static bool optimizationEnabled = true;
-    static dispatch_once_t onceToken;
-    dispatch_once(&onceToken, ^{
-        optimizationEnabled = os_feature_enabled(Security, OctagonOptimization);
-        secnotice("octagon", "Octagon Optimization is %@ (via feature flags)", optimizationEnabled ? @"enabled" : @"disabled");
-    });
-
-    return optimizationEnabled;
-}
-
-void OctagonSetOptimizationEnabled(BOOL value)
-{
-    OctagonOptimizationIsEnabledOverrideSet = true;
-    OctagonOptimizationIsEnabledOverride = value;
-}
-
-
-//feature flag for checking if escrow record fetching is enabled
-BOOL OctagonIsEscrowRecordFetchEnabled(void)
-{
-    if(OctagonEscrowRecordFetchIsEnabledOverrideSet) {
-        secnotice("octagon", "Octagon Escrow Record Fetching is %@ (overridden)", OctagonEscrowRecordFetchIsEnabledOverride ? @"enabled" : @"disabled");
-        return OctagonEscrowRecordFetchIsEnabledOverride;
-    }
-
-    static bool escrowRecordFetchingEnabled = true;
-    static dispatch_once_t onceToken;
-    dispatch_once(&onceToken, ^{
-        escrowRecordFetchingEnabled = os_feature_enabled(Security, OctagonEscrowRecordFetch);
-        secnotice("octagon", "Octagon Escrow Record Fetching is %@ (via feature flags)", escrowRecordFetchingEnabled ? @"enabled" : @"disabled");
-    });
-
-    return escrowRecordFetchingEnabled;
-}
-
-void OctagonSetEscrowRecordFetchEnabled(BOOL value)
-{
-    OctagonEscrowRecordFetchIsEnabledOverrideSet = true;
-    OctagonEscrowRecordFetchIsEnabledOverride = value;
-}
-
 //feature flag for checking kvs on cloudkit enablement
-BOOL SecKVSOnCloudKitIsEnabled(void)
+bool SecKVSOnCloudKitIsEnabled(void)
 {
     if(SecKVSOnCloudKitIsEnabledOverrideSet) {
         secnotice("octagon", "KVS on CloudKit is %@ (overridden)", SecKVSOnCloudKitIsEnabledOverride ? @"enabled" : @"disabled");
@@ -294,7 +145,7 @@ BOOL SecKVSOnCloudKitIsEnabled(void)
     return kvsOnCloudKitEnabled;
 }
 
-void SecKVSOnCloudKitSetOverrideIsEnabled(BOOL value)
+void SecKVSOnCloudKitSetOverrideIsEnabled(bool value)
 {
     SecKVSOnCloudKitIsEnabledOverrideSet = true;
     SecKVSOnCloudKitIsEnabledOverride = value;
@@ -318,8 +169,33 @@ bool SecErrorIsNestedErrorCappingEnabled(void)
     return errorCappingEnabled;
 }
 
-void SecErrorSetOverrideNestedErrorCappingIsEnabled(BOOL value)
+void SecErrorSetOverrideNestedErrorCappingIsEnabled(bool value)
 {
     SecErrorNestedErrorCappingIsEnabledOverrideSet = true;
     SecErrorNestedErrorCappingIsEnabledOverride = value;
+}
+
+
+//feature flag for checking if static persistent refs are enabled
+bool SecKeychainIsStaticPersistentRefsEnabled(void)
+{
+    if(SecKeychainStaticPersistentRefsEnabledOverrideSet) {
+        secnotice("octagon", "Static Persistent Refs are %@ (overridden)", SecKeychainStaticPersistentRefsEnabledOverride ? @"enabled" : @"disabled");
+        return SecKeychainStaticPersistentRefsEnabledOverride;
+    }
+
+    static bool staticPersistentRefsEnabled = true;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        staticPersistentRefsEnabled = os_feature_enabled(Security, SecKeychainStaticPersistentRefs);
+        secnotice("octagon", "Static Persistent Refs are %@ (via feature flags)", staticPersistentRefsEnabled ? @"enabled" : @"disabled");
+    });
+
+    return staticPersistentRefsEnabled;
+}
+
+void SecKeychainSetOverrideStaticPersistentRefsIsEnabled(bool value)
+{
+    SecKeychainStaticPersistentRefsEnabledOverrideSet = true;
+    SecKeychainStaticPersistentRefsEnabledOverride = value;
 }

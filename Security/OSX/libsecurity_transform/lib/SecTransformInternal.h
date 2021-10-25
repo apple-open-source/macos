@@ -6,7 +6,7 @@
 extern "C" {
 #endif
 
-#include "SecTransform.h"
+#include <Security/SecTransform.h>
 
 CFErrorRef SecTransformConnectTransformsInternal(SecGroupTransformRef groupRef, SecTransformRef sourceTransformRef, CFStringRef sourceAttributeName,
 														 SecTransformRef destinationTransformRef, CFStringRef destinationAttributeName);

@@ -401,41 +401,6 @@ static bool SecDbCheckCorrupted(SecDbConnectionRef dbconn)
     return isCorrupted;
 }
 
-static bool SecDbDidCreateFirstConnection(SecDbConnectionRef dbconn, bool didCreate, CFErrorRef *error)
-{
-    secinfo("#SecDB", "#SecDB starting maintenance");
-    bool ok = true;
-
-    // Historical note: this used to check for integrity but that became too slow and caused panics at boot.
-    // Now, just react to SQLite errors when doing an operation. If file on disk is borked it'll tell us right away.
-
-    if (!dbconn->isCorrupted && dbconn->db->opened) {
-        CFErrorRef localError = NULL;
-
-        dbconn->db->callOpenedHandlerForNextConnection = false;
-        ok = dbconn->db->opened(dbconn->db, dbconn, didCreate, &dbconn->db->callOpenedHandlerForNextConnection, &localError);
-
-        if (!ok)
-            secerror("opened block failed: %@", localError);
-
-        if (!dbconn->isCorrupted && error && *error == NULL) {
-            *error = localError;
-            localError = NULL;
-        } else {
-            if (localError)
-                secerror("opened block failed: error (%@) is being released and lost", localError);
-            CFReleaseNull(localError);
-        }
-    }
-
-    if (dbconn->isCorrupted) {
-        ok = SecDbHandleCorrupt(dbconn, 0, error);
-    }
-
-    secinfo("#SecDB", "#SecDB starting maintenance");
-    return ok;
-}
-
 void SecDbCorrupt(SecDbConnectionRef dbconn, CFErrorRef error)
 {
     if (__security_simulatecrash_enabled()) {
@@ -684,27 +649,32 @@ static bool SecDbBeginTransaction(SecDbConnectionRef dbconn, SecDbTransactionTyp
     bool ok = true;
     CFStringRef query;
     switch (type) {
+            // Note: in WAL mode, EXCLUSIVE transactions are equivalent to IMMEDIATE transactions. They do not provide exlusive
+            // database access, or block other connections from reading the database.
+            //
+            //   https://www.sqlite.org/lang_transaction.html
+            //
+
         case kSecDbImmediateTransactionType:
-            secdebug("db", "SecDbBeginTransaction SecDbBeginTransaction %p", dbconn);
+            secdebug("db", "SecDbBeginTransaction %sSecDbBeginTransaction %p", dbconn->readOnly ? "Readonly " : "", dbconn);
             query = CFSTR("BEGIN IMMEDIATE");
             break;
         case kSecDbExclusiveRemoteSOSTransactionType:
-            secdebug("db", "SecDbBeginTransaction kSecDbExclusiveRemoteSOSTransactionType %p", dbconn);
+            secdebug("db", "SecDbBeginTransaction %skSecDbExclusiveRemoteSOSTransactionType %p", dbconn->readOnly ? "Readonly " : "", dbconn);
             dbconn->source = kSecDbSOSTransaction;
             query = CFSTR("BEGIN EXCLUSIVE");
             break;
         case kSecDbExclusiveRemoteCKKSTransactionType:
-            secdebug("db", "SecDbBeginTransaction kSecDbExclusiveRemoteCKKSTransactionType %p", dbconn);
+            secdebug("db", "SecDbBeginTransaction %skSecDbExclusiveRemoteCKKSTransactionType %p", dbconn->readOnly ? "Readonly " : "", dbconn);
             dbconn->source = kSecDbCKKSTransaction;
             query = CFSTR("BEGIN EXCLUSIVE");
             break;
         case kSecDbExclusiveTransactionType:
-            if (type==kSecDbExclusiveTransactionType)
-                secdebug("db", "SecDbBeginTransaction kSecDbExclusiveTransactionType %p", dbconn);
+            secdebug("db", "SecDbBeginTransaction %skSecDbExclusiveTransactionType %p", dbconn->readOnly ? "Readonly " : "", dbconn);
             query = CFSTR("BEGIN EXCLUSIVE");
             break;
         case kSecDbNormalTransactionType:
-            secdebug("db", "SecDbBeginTransaction kSecDbNormalTransactionType %p", dbconn);
+            secdebug("db", "SecDbBeginTransaction %skSecDbNormalTransactionType %p", dbconn->readOnly ? "Readonly " : "", dbconn);
             query = CFSTR("BEGIN");
             break;
         default:
@@ -729,9 +699,15 @@ static bool SecDbEndTransaction(SecDbConnectionRef dbconn, bool commit, CFErrorR
     __block bool commited = false;
 
     dispatch_block_t notifyAndExec = ^{
+
+        // Read-only transactions cannot have changed anything, and so they specifically do not need to Notify
+        // More precisely, if we sent the notifications, we might cause deadlocks, since this block won't be on the commit queue.
+
         if (commit) {
-            //secdebug("db", "SecDbEndTransaction kSecDbTransactionWillCommit %p", dbconn);
-            SecDbNotifyPhase(dbconn, kSecDbTransactionWillCommit);
+            //secdebug("db", "SecDbEndTransaction %skSecDbTransactionWillCommit %p", dbconn->readOnly ? "Readonly " : "", dbconn);
+            if(!dbconn->readOnly) {
+                SecDbNotifyPhase(dbconn, kSecDbTransactionWillCommit);
+            }
             commited = ok = SecDbExec(dbconn, CFSTR("END"), error);
             //secdebug("db", "SecDbEndTransaction kSecDbTransactionWillCommit %p (after notify)", dbconn);
         } else {
@@ -739,16 +715,28 @@ static bool SecDbEndTransaction(SecDbConnectionRef dbconn, bool commit, CFErrorR
             commited = false;
         }
         dbconn->inTransaction = false;
-        SecDbNotifyPhase(dbconn, commited ? kSecDbTransactionDidCommit : kSecDbTransactionDidRollback);
-        secdebug("db", "SecDbEndTransaction %s %p", commited ? "kSecDbTransactionDidCommit" : "kSecDbTransactionDidRollback", dbconn);
+
+        if(!dbconn->readOnly) {
+            SecDbNotifyPhase(dbconn, commited ? kSecDbTransactionDidCommit : kSecDbTransactionDidRollback);
+        }
+        secdebug("db", "SecDbEndTransaction %s %s %p", dbconn->readOnly ? "Readonly" : "", "commited" ? "kSecDbTransactionDidCommit" : "kSecDbTransactionDidRollback", dbconn);
         dbconn->source = kSecDbAPITransaction;
 
-        if (commit && dbconn->db->useRobotVacuum) {
+        if (commit && dbconn->db->useRobotVacuum && !dbconn->readOnly) {
             SecDBManagementTasks(dbconn);
         }
     };
 
-    SecDbPerformOnCommitQueue(dbconn, true, notifyAndExec);
+    // Read-only transactions do _not_ need to run on the commit queue
+    // This means that we can use read-only transactions while read-write transactions are ongoing
+    // Especially since SOS takes the Engine Queue in its notify block, which is run on the Commit queue
+    if(dbconn->readOnly) {
+        notifyAndExec();
+    } else {
+        dispatch_barrier_sync(dbconn->db->commitQueue, ^{
+            notifyAndExec();
+        });
+    }
 
     return ok;
 }
@@ -1041,20 +1029,16 @@ static bool SecDbOpenHandle(SecDbConnectionRef dbconn, bool *created, CFErrorRef
 {
     __block bool ok = true;
 
-    // This is pretty terrible because now what? We know we have a corrupt DB
-    // and now we can't get rid of it.
-    if (!SecDbProcessCorruptionMarker(dbconn->db->db_path)) {
-        SecCFCreateErrorWithFormat(errno, kSecErrnoDomain, NULL, error, NULL, CFSTR("Unable to process corruption marker: %{darwin.errno}d"), errno);
-        return false;
-    }
-
     CFStringPerformWithCString(dbconn->db->db_path, ^(const char *db_path) {
 #if TARGET_OS_IPHONE
         int flags = SQLITE_OPEN_FILEPROTECTION_NONE;
 #else
         int flags = 0;
 #endif
-        flags |= (dbconn->db->readWrite) ? SQLITE_OPEN_READWRITE : SQLITE_OPEN_READONLY;
+        // This connection should only be read/write if the db is read/write, and the requested connection is read/write
+        bool readWriteConnectionRequested = (dbconn->db->readWrite && !(dbconn->readOnly));
+
+        flags |= (readWriteConnectionRequested) ? SQLITE_OPEN_READWRITE : SQLITE_OPEN_READONLY;
         ok = created && SecDbOpenV2(dbconn, db_path, flags, NULL);
         if (!ok) {
             ok = true;
@@ -1128,10 +1112,6 @@ bool SecDbConnectionIsReadOnly(SecDbConnectionRef dbconn) {
     return dbconn->readOnly;
 }
 
-static void SecDbConectionSetReadOnly(SecDbConnectionRef dbconn, bool readOnly) {
-    dbconn->readOnly = readOnly;
-}
-
 SecDbConnectionRef SecDbConnectionAcquire(SecDbRef db, bool readOnly, CFErrorRef *error) {
     SecDbConnectionRef dbconn = NULL;
     SecDbConnectionAcquireRefMigrationSafe(db, readOnly, &dbconn, error);
@@ -1153,6 +1133,95 @@ static void SecDbConnectionMakeResourceAvailable(SecDbRef db, bool readOnly) {
         pthread_mutex_unlock(&(db->writeMutex));
     }
 }
+
+static bool SecDbPerformFirstOpen(SecDbRef db, SecDbConnectionRef* dbconnRef, CFErrorRef *error)
+{
+    if (!SecDbProcessCorruptionMarker(db->db_path)) {
+        // Well, cool. We know we have a corrupt DB and we can't get rid of it.
+        SecCFCreateErrorWithFormat(errno, kSecErrnoDomain, NULL, error, NULL, CFSTR("Unable to process corruption marker: %{darwin.errno}d"), errno);
+        return false;
+    }
+
+    bool ok = false;
+    bool didCreate = false;
+    SecDbConnectionRef firstOpenDbConn = SecDbConnectionCreate(db, false, error);
+
+    if(firstOpenDbConn == NULL) {
+        return false;
+    }
+
+    CFErrorRef localError = NULL;
+    if (!SecDbOpenHandle(firstOpenDbConn, &didCreate, &localError)) {
+        secerror("Unable to create database: %@", localError);
+        if (localError && CFEqual(CFErrorGetDomain(localError), kSecDbErrorDomain)) {
+            int code = (int)CFErrorGetCode(localError);
+            firstOpenDbConn->isCorrupted = (SQLITE_CORRUPT == code) || (SQLITE_NOTADB == code);
+        }
+        // If the open failure isn't due to corruption, propagate the error.
+        ok = firstOpenDbConn->isCorrupted;
+        if (!ok && error && *error == NULL) {
+            *error = localError;
+            localError = NULL;
+        }
+
+        return false;
+    }
+    CFReleaseNull(localError);
+
+    // We perform an upcall into client code as part of opened().
+    // kc_with_dbt uses a thread-local variable to store a dbconn, so that rentry is possible.
+    // It uses this thread re-entry as part of its SecDb open block.
+    // So, we must insert this dbconn to the dbconnRef, even if we do not intend to leave it there.
+    if(dbconnRef) {
+        *dbconnRef = firstOpenDbConn;
+    }
+
+    secinfo("#SecDB", "#SecDB starting maintenance");
+
+    // Historical note: this used to check for integrity but that became too slow and caused panics at boot.
+    // Now, just react to SQLite errors when doing an operation. If file on disk is borked it'll tell us right away.
+
+    if (!firstOpenDbConn->isCorrupted && firstOpenDbConn->db->opened) {
+        CFErrorRef localError = NULL;
+
+        firstOpenDbConn->db->callOpenedHandlerForNextConnection = false;
+        ok = firstOpenDbConn->db->opened(firstOpenDbConn->db, firstOpenDbConn, didCreate, &firstOpenDbConn->db->callOpenedHandlerForNextConnection, &localError);
+
+        db->didFirstOpen = ok;
+
+        if (!ok) {
+            secerror("opened block failed: %@", localError);
+        }
+
+        if (!firstOpenDbConn->isCorrupted && error && *error == NULL) {
+            *error = localError;
+            localError = NULL;
+        } else {
+            if (localError) {
+                secerror("opened block failed: error (%@) is being released and lost", localError);
+            }
+            CFReleaseNull(localError);
+        }
+    }
+
+    if (firstOpenDbConn->isCorrupted) {
+        ok = SecDbHandleCorrupt(firstOpenDbConn, 0, error);
+    }
+
+    secinfo("#SecDB", "#SecDB ending maintenance");
+
+    // first connection always created "rw", so add it to the pool
+    CFArrayAppendValue(db->idleWriteConnections, firstOpenDbConn);
+    CFReleaseNull(firstOpenDbConn);
+
+    // Clear the dbconnRef, as it no longer owns the connection anymore
+    if(dbconnRef) {
+        *dbconnRef = NULL;
+    }
+
+    return ok;
+}
+
 
 bool SecDbConnectionAcquireRefMigrationSafe(SecDbRef db, bool readOnly, SecDbConnectionRef* dbconnRef, CFErrorRef *error)
 {
@@ -1177,40 +1246,20 @@ bool SecDbConnectionAcquireRefMigrationSafe(SecDbRef db, bool readOnly, SecDbCon
 
     dispatch_sync(db->queue, ^{
         if (!db->didFirstOpen) {
-            bool didCreate = false;
-            ok = assignDbConn(SecDbConnectionCreate(db, false, error));
-            CFErrorRef localError = NULL;
-            if (ok && !SecDbOpenHandle(dbconn, &didCreate, &localError)) {
-                secerror("Unable to create database: %@", localError);
-                if (localError && CFEqual(CFErrorGetDomain(localError), kSecDbErrorDomain)) {
-                    int code = (int)CFErrorGetCode(localError);
-                    dbconn->isCorrupted = (SQLITE_CORRUPT == code) || (SQLITE_NOTADB == code);
-                }
-                // If the open failure isn't due to corruption, propagate the error.
-                ok = dbconn->isCorrupted;
-                if (!ok && error && *error == NULL) {
-                    *error = localError;
-                    localError = NULL;
-                }
-            }
-            CFReleaseNull(localError);
+            ok = ranOpenedHandler = SecDbPerformFirstOpen(db, dbconnRef, error);
 
-            if (ok) {
-                db->didFirstOpen = ok = SecDbDidCreateFirstConnection(dbconn, didCreate, error);
-                ranOpenedHandler = true;
-                SecDbConectionSetReadOnly(dbconn, readOnly);    // first connection always created "rw", so set to real value
-            } else {
-                CFReleaseNull(dbconn);
+            if(!ok) {
+                return;
             }
-        } else {
-            /* Try to get one from the cache */
-            CFMutableArrayRef cache = readOnly ? db->idleReadConnections : db->idleWriteConnections;
-            if (CFArrayGetCount(cache) && !dbconn) {
-                if (assignDbConn((SecDbConnectionRef)CFArrayGetValueAtIndex(cache, 0))) {
-                    CFRetainSafe(dbconn);
-                }
-                CFArrayRemoveValueAtIndex(cache, 0);
+        }
+
+        /* Try to get a connection from the cache */
+        CFMutableArrayRef cache = readOnly ? db->idleReadConnections : db->idleWriteConnections;
+        if (CFArrayGetCount(cache) && !dbconn) {
+            if (assignDbConn((SecDbConnectionRef)CFArrayGetValueAtIndex(cache, 0))) {
+                CFRetainSafe(dbconn);
             }
+            CFArrayRemoveValueAtIndex(cache, 0);
         }
     });
 
@@ -1222,7 +1271,7 @@ bool SecDbConnectionAcquireRefMigrationSafe(SecDbRef db, bool readOnly, SecDbCon
         }
     }
 
-    if (dbconn && !ranOpenedHandler && dbconn->db->opened) {
+    if (dbconn && !ranOpenedHandler && dbconn->db->opened && !dbconn->readOnly) {
         dispatch_sync(db->queue, ^{
             if (dbconn->db->callOpenedHandlerForNextConnection) {
                 dbconn->db->callOpenedHandlerForNextConnection = false;
@@ -1370,16 +1419,10 @@ SecDbConnectionDestroy(CFTypeRef value)
 
 }
 
-void SecDbPerformOnCommitQueue(SecDbConnectionRef dbconn, bool barrier, dispatch_block_t perform) {
-    if (barrier) {
-        dispatch_barrier_sync(dbconn->db->commitQueue, ^{
-            perform();
-        });
-    } else {
-        dispatch_sync(dbconn->db->commitQueue, ^{
-            perform();
-        });
-    }
+void SecDbPerformOnCommitQueue(SecDbConnectionRef dbconn, dispatch_block_t perform) {
+    dispatch_sync(dbconn->db->commitQueue, ^{
+        perform();
+    });
 }
 
 // MARK: -

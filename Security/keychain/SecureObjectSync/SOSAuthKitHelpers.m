@@ -14,37 +14,13 @@
 #import "keychain/SecureObjectSync/SOSPeerInfoPriv.h"
 
 #if !TARGET_OS_BRIDGE && !TARGET_OS_SIMULATOR && __OBJC2__
+
+/* Note that these will be weak-linked */
 #import <AppleAccount/AppleAccount_Private.h>
 #import <AuthKit/AuthKit.h>
 #import <AuthKit/AuthKit_Private.h>
-#import <SoftLinking/SoftLinking.h>
 
 #define SUPPORT_MID 1
-
-SOFT_LINK_FRAMEWORK(PrivateFrameworks, AuthKit);
-SOFT_LINK_FRAMEWORK(Frameworks, Accounts);
-
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wstrict-prototypes"
-SOFT_LINK_CLASS(AuthKit, AKAccountManager);
-SOFT_LINK_CLASS(AuthKit, AKAnisetteProvisioningController);
-SOFT_LINK_CLASS(AuthKit, AKAppleIDAuthenticationController);
-SOFT_LINK_CLASS(AuthKit, AKDeviceListRequestContext);
-SOFT_LINK_CLASS(Accounts, ACAccountStore);
-SOFT_LINK_CONSTANT(AuthKit, AKServiceNameiCloud, const NSString *);
-#pragma clang diagnostic pop
-
-static void *accountsFramework = NULL;
-static void *appleAccountFramework = NULL;
-
-static void
-initAccountsFramework(void) {
-    static dispatch_once_t onceToken;
-    dispatch_once(&onceToken, ^{
-        accountsFramework = dlopen("/System/Library/Frameworks/Accounts.framework/Accounts", RTLD_LAZY);
-        appleAccountFramework = dlopen("/System/Library/PrivateFrameworks/AppleAccount.framework/AppleAccount", RTLD_LAZY);
-    });
-}
 
 @implementation SOSAuthKitHelpers
 
@@ -55,7 +31,12 @@ initAccountsFramework(void) {
     NSString *retval = nil;
     secnotice("sosauthkit", "Entering machineID");
 
-    AKAnisetteProvisioningController *anisetteController = [getAKAnisetteProvisioningControllerClass() new];
+    if([AKAnisetteProvisioningController class] == nil || [AKAnisetteData class] == nil) {
+        secnotice("sosauthkit", "AKAnisette not available");
+        return nil;
+    }
+
+    AKAnisetteProvisioningController *anisetteController = [AKAnisetteProvisioningController new];
     if(anisetteController) {
         AKAnisetteData *anisetteData = [anisetteController anisetteDataWithError:&error];
         if (anisetteData) {
@@ -75,11 +56,14 @@ initAccountsFramework(void) {
 }
 
 static ACAccount *GetPrimaryAccount(void) {
+    if([ACAccount class] == nil || [ACAccountStore class] == nil) {
+        secnotice("sosauthkit", "ACAccount not available");
+        return nil;
+    }
+
     ACAccount *primaryAccount;
     
-    initAccountsFramework();
-
-    ACAccountStore *store = [getACAccountStoreClass() new];
+    ACAccountStore *store = [ACAccountStore new];
 
     if(!store) {
         secnotice("sosauthkit", "can't get store");
@@ -93,6 +77,12 @@ static ACAccount *GetPrimaryAccount(void) {
 
 
 + (void)activeMIDs:(void(^_Nonnull)(NSSet <SOSTrustedDeviceAttributes *> *activeMIDs, NSError *error))complete {
+    if([ACAccount class] == nil || [AKDeviceListRequestContext class] == nil || [AKAppleIDAuthenticationController class] == nil || AKServiceNameiCloud == nil) {
+        secnotice("sosauthkit", "ACAccount not available");
+        complete(NULL, [NSError errorWithDomain:(__bridge NSString *)kSecErrorDomain code:errSecParam userInfo:@{NSLocalizedDescriptionKey : @"AuthKit/AppleAccount not available"}]);
+        return;
+    }
+
     ACAccount *primaryAccount;
     AKDeviceListRequestContext *context;
     
@@ -104,16 +94,16 @@ static ACAccount *GetPrimaryAccount(void) {
         return;
     }
 
-    context = [getAKDeviceListRequestContextClass() new];
+    context = [AKDeviceListRequestContext new];
     if (context == NULL) {
         complete(NULL, [NSError errorWithDomain:(__bridge NSString *)kSecErrorDomain code:errSecParam userInfo:@{NSLocalizedDescriptionKey : @"can't get AKDeviceListRequestContextClass"}]);
         return;
     }
     context.altDSID = primaryAccount.aa_altDSID;
-    context.services = @[ getAKServiceNameiCloud() ];
+    context.services = @[ AKServiceNameiCloud ];
     
     // -[AKAppleIDAuthenticationController fetchDeviceListWithContext:error:] is not exposed, use a semaphore
-    AKAppleIDAuthenticationController *authController = [getAKAppleIDAuthenticationControllerClass() new];
+    AKAppleIDAuthenticationController *authController = [AKAppleIDAuthenticationController new];
     if(!authController) {
         complete(NULL, [NSError errorWithDomain:(__bridge NSString *)kSecErrorDomain code:errSecParam userInfo:@{NSLocalizedDescriptionKey : @"can't get authController"}]);
         return;
@@ -166,9 +156,14 @@ static ACAccount *GetPrimaryAccount(void) {
 
 + (bool) accountIsHSA2 {
     bool hsa2 = false;
+
+    if([ACAccount class] == nil || [AKAccountManager class] == nil) {
+        secnotice("sosauthkit", "ACAccount not available");
+        return false;
+    }
     
     ACAccount *primaryAccount = GetPrimaryAccount();
-    AKAccountManager *manager = [getAKAccountManagerClass() new];
+    AKAccountManager *manager = [AKAccountManager new];
 
     if(manager && primaryAccount) {
         ACAccount *account = [manager authKitAccountWithAltDSID:[manager altDSIDForAccount:primaryAccount]];

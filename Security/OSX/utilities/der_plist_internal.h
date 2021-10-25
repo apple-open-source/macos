@@ -26,7 +26,7 @@
 #define _DER_PLIST_INTERNAL_H_
 
 #include <CoreFoundation/CoreFoundation.h>
-#include <utilities/SecCFError.h>
+#include "utilities/SecCFError.h"
 
 // Always returns false, to satisfy static analysis
 #define SecCFDERCreateError(errorCode, descriptionString, previousError, newError) \
@@ -79,6 +79,12 @@ const uint8_t* der_decode_data(CFAllocatorRef allocator,
                                CFDataRef* data, CFErrorRef *error,
                                const uint8_t* der, const uint8_t *der_end);
 
+// CoreEntitlements -> CFData
+// This is an opaque type
+const uint8_t* der_decode_core_entitlements_data(CFAllocatorRef allocator,
+                                                 CFDataRef* data, CFErrorRef *error,
+                                                 const uint8_t* der, const uint8_t *der_end);
+
 // CFDate <-> DER
 size_t der_sizeof_date(CFDateRef date, CFErrorRef *error);
 
@@ -91,6 +97,10 @@ uint8_t* der_encode_date_repair(CFDateRef date, CFErrorRef *error,
 const uint8_t* der_decode_date(CFAllocatorRef allocator,
                                CFDateRef* date, CFErrorRef *error,
                                const uint8_t* der, const uint8_t *der_end);
+
+const uint8_t* der_decode_utc_time(CFAllocatorRef allocator,
+                                   CFDateRef* date, CFErrorRef *error,
+                                   const uint8_t* der, const uint8_t *der_end);
 
 
 // CFDictionary <-> DER
@@ -123,6 +133,10 @@ uint8_t* der_encode_string(CFStringRef string, CFErrorRef *error,
                            const uint8_t *der, uint8_t *der_end);
 
 const uint8_t* der_decode_string(CFAllocatorRef allocator,
+                                 CFStringRef* string, CFErrorRef *error,
+                                 const uint8_t* der, const uint8_t *der_end);
+
+const uint8_t* der_decode_numeric_string(CFAllocatorRef allocator,
                                  CFStringRef* string, CFErrorRef *error,
                                  const uint8_t* der, const uint8_t *der_end);
 

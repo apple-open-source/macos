@@ -406,12 +406,8 @@
     NSArray *items;
     worked = [GSSCredTestUtil queryAllKerberos:self.peer returningArray:&items];
     XCTAssertTrue(worked, "Credential should be fetched successfully as a managed app");
-#if TARGET_OS_IOS
     XCTAssertEqual(items.count, 1, "The managed app should find the credential");
-#else
-    XCTAssertEqual(items.count, 0, "All apps should be considered unmanaged when not iOS");
-#endif
-    
+
     [GSSCredTestUtil freePeer:self.peer];
     self.peer = [GSSCredTestUtil createPeer:@"com.apple.bar" identifier:0];
     worked = [GSSCredTestUtil queryAllKerberos:self.peer returningArray:&items];
@@ -443,11 +439,7 @@
     NSArray *items;
     worked = [GSSCredTestUtil queryAllKerberos:self.peer returningArray:&items];
     XCTAssertTrue(worked, "Credential should be fetched successfully as a managed app");
-#if TARGET_OS_IOS
     XCTAssertEqual(items.count, 1, "The managed app should find the credential");
-#else
-    XCTAssertEqual(items.count, 0, "All apps should be considered unmanaged when not iOS");
-#endif
     
     [GSSCredTestUtil freePeer:self.peer];
     self.peer = [GSSCredTestUtil createPeer:@"com.apple.bar" identifier:0];

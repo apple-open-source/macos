@@ -36,6 +36,7 @@
 #include "kcm_locl.h"
 
 #ifdef __APPLE__
+#include <bsm/audit_kevents.h>
 #include <bsm/audit_session.h>
 #endif
 

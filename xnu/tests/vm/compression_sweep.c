@@ -9,6 +9,11 @@
 #include <string.h>
 #include <sys/proc.h>
 
+T_GLOBAL_META(
+	T_META_NAMESPACE("xnu.vm"),
+	T_META_RADAR_COMPONENT_NAME("xnu"),
+	T_META_RADAR_COMPONENT_VERSION("VM"));
+
 static int orig_age = 0;
 static const char *ripe_target_age_sysctl = "vm.vm_ripe_target_age_in_secs";
 

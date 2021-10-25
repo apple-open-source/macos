@@ -475,11 +475,7 @@ IOHibernateSystemSleep(void)
 
 	HIBLOG("hibernate image path: %s\n", gIOHibernateFilename);
 
-	vars = IONew(IOHibernateVars, 1);
-	if (!vars) {
-		return kIOReturnNoMemory;
-	}
-	bzero(vars, sizeof(*vars));
+	vars = IOMallocType(IOHibernateVars);
 
 	IOLockLock(gFSLock);
 	if (!gIOHibernateTrimCalloutEntry) {
@@ -490,7 +486,7 @@ IOHibernateSystemSleep(void)
 	if (kFSIdle != gFSState) {
 		HIBLOG("hibernate file busy\n");
 		IOLockUnlock(gFSLock);
-		IODelete(vars, IOHibernateVars, 1);
+		IOFreeType(vars, IOHibernateVars);
 		return kIOReturnBusy;
 	}
 	gFSState = kFSOpening;
@@ -594,6 +590,7 @@ IOHibernateSystemSleep(void)
 
 		if (KERN_SUCCESS != err) {
 			HIBLOG("IOPolledFileOpen(%x)\n", err);
+			OSSafeReleaseNULL(nvramData);
 			break;
 		}
 
@@ -602,6 +599,7 @@ IOHibernateSystemSleep(void)
 
 		err = IOPolledFilePollersSetup(vars->fileVars, kIOPolledPreflightState);
 		if (KERN_SUCCESS != err) {
+			OSSafeReleaseNULL(nvramData);
 			break;
 		}
 
@@ -622,6 +620,7 @@ IOHibernateSystemSleep(void)
 		    err, nsec / 1000000ULL,
 		    haveSwapPin, hibFileSSD);
 		if (KERN_SUCCESS != err) {
+			OSSafeReleaseNULL(nvramData);
 			break;
 		}
 
@@ -672,7 +671,7 @@ IOHibernateSystemSleep(void)
 		// set nvram
 
 		IOSetBootImageNVRAM(nvramData);
-		nvramData->release();
+		OSSafeReleaseNULL(nvramData);
 
 #if defined(__i386__) || defined(__x86_64__)
 		{
@@ -842,9 +841,9 @@ IOHibernateSystemSleep(void)
 	IOLockUnlock(gFSLock);
 
 	if (vars->fileVars) {
-		IODelete(vars->fileVars, IOPolledFileIOVars, 1);
+		IOFreeType(vars->fileVars, IOPolledFileIOVars);
 	}
-	IODelete(vars, IOHibernateVars, 1);
+	IOFreeType(vars, IOHibernateVars);
 
 	return err;
 }
@@ -1187,6 +1186,7 @@ MergeDeviceTree(const DeviceTreeNode * entry, IORegistryEntry * regEntry, OSSet 
 		childRegEntry = regEntry ? regEntry->childFromPath(nameProp, gIODTPlane) : NULL;
 //	HIBPRINT("%s == %p\n", nameProp, childRegEntry);
 		child = MergeDeviceTree(child, childRegEntry, entriesToUpdate, region_start, region_size);
+		OSSafeReleaseNULL(childRegEntry);
 		if (!child) {
 			// the recursive call updated the last entry we cared about, so we can stop
 			break;
@@ -1502,7 +1502,7 @@ hibernate_set_preview SYSCTL_HANDLER_ARGS
 {
 #pragma unused(oidp, arg1, arg2)
 
-	if (!IOTaskHasEntitlement(current_task(), kIOHibernateSetPreviewEntitlementKey)) {
+	if (!IOCurrentTaskHasEntitlement(kIOHibernateSetPreviewEntitlementKey)) {
 		return EPERM;
 	}
 

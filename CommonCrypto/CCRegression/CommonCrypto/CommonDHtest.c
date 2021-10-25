@@ -9,7 +9,7 @@ entryPoint(CommonDH,"Diffie-Hellman Key Agreement")
 #else
 
 #include <CommonCrypto/CommonDH.h>
-static int kTestTestCount = 1+2*13*100;
+static int kTestTestCount = 1+13*100;
 
 static int testDHgroup(CCDHParameters gp) {
     CCDHRef dh1, dh2;
@@ -56,7 +56,6 @@ int CommonDH(int __unused argc, char *const * __unused argv) {
 
     plan_tests(kTestTestCount);
     for (int i = 0 ; i < 100 ; i++) {
-        testDHgroup(kCCDHRFC2409Group2);
         testDHgroup(kCCDHRFC3526Group5);
     }
     ok(1, "Didn't crash");

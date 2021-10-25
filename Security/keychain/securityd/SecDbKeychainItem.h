@@ -49,6 +49,7 @@ bool s3dl_item_from_data(CFDataRef edata, Query *q, CFArrayRef accessGroups,
                          CFMutableDictionaryRef _Nonnull *_Nonnull item, SecAccessControlRef _Nullable *_Nullable access_control, keyclass_t *_Nullable keyclass, CFErrorRef _Nullable *_Nullable error);
 SecDbItemRef _Nullable SecDbItemCreateWithBackupDictionary(const SecDbClass *dbclass, CFDictionaryRef dict, keybag_handle_t src_keybag, keybag_handle_t dst_keybag, CFErrorRef _Nullable *_Nullable error);
 bool SecDbItemExtractRowIdFromBackupDictionary(SecDbItemRef item, CFDictionaryRef dict, CFErrorRef _Nullable *_Nullable error);
+bool SecDbItemExtractUUIDPersistentRefFromBackupDictionary(SecDbItemRef item, CFDictionaryRef dict, CFErrorRef *error);
 bool SecDbItemInferSyncable(SecDbItemRef item, CFErrorRef _Nullable *_Nullable error);
 
 CFTypeRef _Nullable SecDbKeychainItemCopyPrimaryKey(SecDbItemRef item, const SecDbAttr *attr, CFErrorRef _Nullable *_Nullable error);

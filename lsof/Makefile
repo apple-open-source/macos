@@ -6,7 +6,7 @@
 
 ##
 # Usage:
-#   xcrun --sdk macosx.internal make
+#   xcrun --sdk macosx.internal make -- UNAME_RELEASE="20.0"
 ##
 
 # Project info
@@ -59,7 +59,7 @@ install-patched-source: shadow_source
 	$(_v) echo '        LSOF_RANLIB="`xcrun -sdk / -find ranlib`"'			>> /tmp/build.lsof.$(UNIQUE)-ed
 	$(_v) echo '      fi'								>> /tmp/build.lsof.$(UNIQUE)-ed
 	$(_v) echo '.'									>> /tmp/build.lsof.$(UNIQUE)-ed
-	$(_v) echo '/^[ 	]*1700|1800)/n'						>> /tmp/build.lsof.$(UNIQUE)-ed
+	$(_v) echo '/^[ 	]*1700|1800|1900|2000)/n'				>> /tmp/build.lsof.$(UNIQUE)-ed
 	$(_v) echo '/^[ 	]*;;/i'							>> /tmp/build.lsof.$(UNIQUE)-ed
 	$(_v) echo '      if [ -n "$${SDKROOT}" ]; then'				>> /tmp/build.lsof.$(UNIQUE)-ed
 	$(_v) echo '        LSOF_AR="`xcrun -sdk $${SDKROOT} -find ar` cr"'		>> /tmp/build.lsof.$(UNIQUE)-ed
@@ -73,7 +73,7 @@ install-patched-source: shadow_source
 	$(_v) echo '        LSOF_RANLIB="`xcrun -sdk / -find ranlib`"'			>> /tmp/build.lsof.$(UNIQUE)-ed
 	$(_v) echo '      fi'								>> /tmp/build.lsof.$(UNIQUE)-ed
 	$(_v) echo '.'									>> /tmp/build.lsof.$(UNIQUE)-ed
-	$(_v) echo '/^[ 	]*1900)/n'						>> /tmp/build.lsof.$(UNIQUE)-ed
+	$(_v) echo '/^[ 	]*2100)/n'						>> /tmp/build.lsof.$(UNIQUE)-ed
 	$(_v) echo '/^[ 	]*;;/i'							>> /tmp/build.lsof.$(UNIQUE)-ed
 	$(_v) echo '      LSOF_UNSUP=""'						>> /tmp/build.lsof.$(UNIQUE)-ed
 	$(_v) echo '      LSOF_TSTBIGF=" "'						>> /tmp/build.lsof.$(UNIQUE)-ed

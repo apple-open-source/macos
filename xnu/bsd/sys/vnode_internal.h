@@ -116,6 +116,21 @@ typedef struct vnode_resolve *vnode_resolve_t;
 
 #endif /* CONFIG_TRIGGERS */
 
+#if CONFIG_IOCOUNT_TRACE
+#define IOCOUNT_TRACE_VGET          0
+#define IOCOUNT_TRACE_VPUT          1
+#define IOCOUNT_TRACE_MAX_TYPES     2
+#define IOCOUNT_TRACE_MAX_IDX       16
+#define IOCOUNT_TRACE_MAX_FRAMES    10
+
+struct vnode_iocount_trace {
+	int idx;
+	int counts[IOCOUNT_TRACE_MAX_IDX];
+	void *stacks[IOCOUNT_TRACE_MAX_IDX][IOCOUNT_TRACE_MAX_FRAMES];
+};
+typedef struct vnode_iocount_trace *vnode_iocount_trace_t;
+#endif /* CONFIG_IOCOUNT_TRACE */
+
 /*
  * Reading or writing any of these items requires holding the appropriate lock.
  * v_freelist is locked by the global vnode_list_lock
@@ -187,6 +202,10 @@ struct vnode {
 #if CONFIG_IO_COMPRESSION_STATS
 	io_compression_stats_t io_compression_stats;            /* IO compression statistics */
 #endif /* CONFIG_IO_COMPRESSION_STATS */
+
+#if CONFIG_IOCOUNT_TRACE
+	vnode_iocount_trace_t v_iocount_trace;
+#endif /* CONFIG_IOCOUNT_TRACE */
 };
 
 #define v_mountedhere   v_un.vu_mountedhere
@@ -621,6 +640,8 @@ void    nspace_resolver_exited(struct proc *);
 int     vnode_materialize_dataless_file(vnode_t, uint64_t);
 
 int     vnode_isinuse_locked(vnode_t, int, int );
+
+int     fsgetpath_internal(vfs_context_t, int, uint64_t, vm_size_t, caddr_t, uint32_t options, int *);
 
 #endif /* BSD_KERNEL_PRIVATE */
 

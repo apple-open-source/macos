@@ -408,7 +408,10 @@ post_evaluate:
 		printExtendedResults(trustRef);
 	}
 	if (printDetails) {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
 		CFArrayRef properties = SecTrustCopyProperties(trustRef);
+#pragma clang diagnostic pop
 		if (verbose > 1) {
 			fprintf(stderr, "---\nCertificate chain properties\n");
 			CFShow(properties); // output goes to stderr

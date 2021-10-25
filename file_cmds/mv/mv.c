@@ -1,4 +1,6 @@
-/*
+/*-
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
  * Copyright (c) 1989, 1993, 1994
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -13,11 +15,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -34,20 +32,19 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/cdefs.h>
+#if 0
 #ifndef lint
-__used static char const copyright[] =
+static char const copyright[] =
 "@(#) Copyright (c) 1989, 1993, 1994\n\
 	The Regents of the University of California.  All rights reserved.\n";
 #endif /* not lint */
 
 #ifndef lint
-#if 0
 static char sccsid[] = "@(#)mv.c	8.2 (Berkeley) 4/2/94";
-#endif
 #endif /* not lint */
+#endif
 #include <sys/cdefs.h>
-__RCSID("$FreeBSD: src/bin/mv/mv.c,v 1.39 2002/07/09 17:45:13 johan Exp $");
+__FBSDID("$FreeBSD$");
 
 #include <sys/param.h>
 #include <sys/time.h>
@@ -69,6 +66,9 @@ __RCSID("$FreeBSD: src/bin/mv/mv.c,v 1.39 2002/07/09 17:45:13 johan Exp $");
 #include <unistd.h>
 #include <locale.h>
 
+/* Exit code for a failed exec. */
+#define EXEC_FAILED 127
+
 #ifdef __APPLE__
 #include <copyfile.h>
 #include <sys/mount.h>
@@ -82,12 +82,12 @@ __RCSID("$FreeBSD: src/bin/mv/mv.c,v 1.39 2002/07/09 17:45:13 johan Exp $");
 
 #include "pathnames.h"
 
-int fflg, iflg, nflg, vflg;
+static int	fflg, iflg, nflg, vflg;
 
-int	copy(char *, char *);
-int	do_move(char *, char *);
-int	fastcopy(char *, char *, struct stat *);
-void	usage(void);
+static int	copy(const char *, const char *);
+static int	do_move(const char *, const char *);
+static int	fastcopy(const char *, const char *, struct stat *);
+static void	usage(void);
 
 int
 main(int argc, char *argv[])
@@ -134,7 +134,7 @@ main(int argc, char *argv[])
 	 */
 	if (stat(argv[argc - 1], &sb) || !S_ISDIR(sb.st_mode)) {
 		if (argc > 2)
-			usage();
+			errx(1, "%s is not a directory", argv[argc - 1]);
 		exit(do_move(argv[0], argv[1]));
 	}
 	
@@ -235,8 +235,8 @@ main(int argc, char *argv[])
 	exit(rval);
 }
 
-int
-do_move(char *from, char *to)
+static int
+do_move(const char *from, const char *to)
 {
 	struct stat sb;
 	int ask, ch, first;
@@ -327,8 +327,8 @@ do_move(char *from, char *to)
 	    fastcopy(from, to, &sb) : copy(from, to));
 }
 
-int
-fastcopy(char *from, char *to, struct stat *sbp)
+static int
+fastcopy(const char *from, const char *to, struct stat *sbp)
 {
 	struct timeval tval[2];
 	static u_int blen;
@@ -338,7 +338,7 @@ fastcopy(char *from, char *to, struct stat *sbp)
 	int from_fd, to_fd;
 
 	if ((from_fd = open(from, O_RDONLY, 0)) < 0) {
-		warn("%s", from);
+		warn("fastcopy: open() failed (from): %s", from);
 		return (1);
 	}
 	if (blen < sbp->st_blksize) {
@@ -355,7 +355,7 @@ fastcopy(char *from, char *to, struct stat *sbp)
 	    open(to, O_CREAT | O_EXCL | O_TRUNC | O_WRONLY, 0)) < 0) {
 		if (errno == EEXIST && unlink(to) == 0)
 			continue;
-		warn("%s", to);
+		warn("fastcopy: open() failed (to): %s", to);
 		(void)close(from_fd);
 		return (1);
 	}
@@ -382,11 +382,11 @@ fastcopy(char *from, char *to, struct stat *sbp)
 #endif /* __APPLE__ */
 	while ((nread = read(from_fd, bp, (size_t)blen)) > 0)
 		if (write(to_fd, bp, (size_t)nread) != nread) {
-			warn("%s", to);
+			warn("fastcopy: write() failed: %s", to);
 			goto err;
 		}
 	if (nread < 0) {
-		warn("%s", from);
+		warn("fastcopy: read() failed: %s", from);
 err:		if (unlink(to))
 			warn("%s: remove", to);
 		(void)close(from_fd);
@@ -447,54 +447,68 @@ err:		if (unlink(to))
 	return (0);
 }
 
-int
-copy(char *from, char *to)
+static int
+copy(const char *from, const char *to)
 {
 	int pid, status;
 	
 	/* posix_spawn cp from to && rm from */
 
-	if ((pid = fork()) == 0) {
+	/* Copy source to destination. */
+	if (!(pid = vfork())) {
 		execl(_PATH_CP, "mv", vflg ? "-PRpv" : "-PRp", "--", from, to,
 		    (char *)NULL);
-		warn("%s", _PATH_CP);
-		_exit(1);
+		_exit(EXEC_FAILED);
 	}
 	if (waitpid(pid, &status, 0) == -1) {
-		warn("%s: waitpid", _PATH_CP);
+		warn("%s %s %s: waitpid", _PATH_CP, from, to);
 		return (1);
 	}
 	if (!WIFEXITED(status)) {
-		warnx("%s: did not terminate normally", _PATH_CP);
+		warnx("%s %s %s: did not terminate normally",
+		    _PATH_CP, from, to);
 		return (1);
 	}
-	if (WEXITSTATUS(status)) {
-		warnx("%s: terminated with %d (non-zero) status",
-		    _PATH_CP, WEXITSTATUS(status));
+	switch (WEXITSTATUS(status)) {
+	case 0:
+		break;
+	case EXEC_FAILED:
+		warnx("%s %s %s: exec failed", _PATH_CP, from, to);
+		return (1);
+	default:
+		warnx("%s %s %s: terminated with %d (non-zero) status",
+		    _PATH_CP, from, to, WEXITSTATUS(status));
 		return (1);
 	}
+
+	/* Delete the source. */
 	if (!(pid = vfork())) {
 		execl(_PATH_RM, "mv", "-rf", "--", from, (char *)NULL);
-		warn("%s", _PATH_RM);
-		_exit(1);
+		_exit(EXEC_FAILED);
 	}
 	if (waitpid(pid, &status, 0) == -1) {
-		warn("%s: waitpid", _PATH_RM);
+		warn("%s %s: waitpid", _PATH_RM, from);
 		return (1);
 	}
 	if (!WIFEXITED(status)) {
-		warnx("%s: did not terminate normally", _PATH_RM);
+		warnx("%s %s: did not terminate normally", _PATH_RM, from);
 		return (1);
 	}
-	if (WEXITSTATUS(status)) {
-		warnx("%s: terminated with %d (non-zero) status",
-		    _PATH_RM, WEXITSTATUS(status));
+	switch (WEXITSTATUS(status)) {
+	case 0:
+		break;
+	case EXEC_FAILED:
+		warnx("%s %s: exec failed", _PATH_RM, from);
+		return (1);
+	default:
+		warnx("%s %s: terminated with %d (non-zero) status",
+		    _PATH_RM, from, WEXITSTATUS(status));
 		return (1);
 	}
 	return (0);
 }
 
-void
+static void
 usage(void)
 {
 

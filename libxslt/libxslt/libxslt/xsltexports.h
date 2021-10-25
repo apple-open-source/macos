@@ -134,19 +134,19 @@
 
 /* Apple/Darwin platforms */
 #ifdef __APPLE__
-#undef XSLTPUBFUN
-#undef XSLTPUBVAR
-#if defined(IN_LIBXSLT) && !defined(LIBXSLT_STATIC)
-  #define XSLTPUBFUN extern __attribute__((visibility ("default")))
-  #define XSLTPUBVAR extern __attribute__((visibility ("default")))
-#else
-  #define XSLTPUBFUN
-  #if !defined(LIBXSLT_STATIC)
+  #undef XSLTPUBFUN
+  #undef XSLTPUBVAR
+  #if defined(IN_LIBXSLT) && !defined(LIBXSLT_STATIC)
+    #define XSLTPUBFUN extern __attribute__((visibility ("default")))
     #define XSLTPUBVAR extern __attribute__((visibility ("default")))
   #else
-    #define XSLTPUBVAR
+    #define XSLTPUBFUN
+    #if !defined(LIBXSLT_STATIC)
+      #define XSLTPUBVAR extern __attribute__((visibility ("default")))
+    #else
+      #define XSLTPUBVAR extern
+    #endif
   #endif
-#endif
 #endif /* __APPLE__ */
 
 /* Compatibility */

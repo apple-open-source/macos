@@ -49,6 +49,8 @@ typedef int32_t SecTrustSettingsAssetVersionNumber;
 
 SecTrustStoreRef SecTrustStoreForDomain(SecTrustStoreDomain domain);
 
+CFStringRef SecTrustStoreDomainName(SecTrustStoreRef ts);
+
 Boolean SecTrustStoreContains(SecTrustStoreRef source,
 	SecCertificateRef certificate);
 
@@ -59,6 +61,8 @@ OSStatus SecTrustStoreSetTrustSettings(SecTrustStoreRef ts,
 
 OSStatus SecTrustStoreRemoveCertificate(SecTrustStoreRef ts,
 	SecCertificateRef certificate);
+
+OSStatus SecTrustStoreRemoveAll(SecTrustStoreRef ts);
 
 OSStatus SecTrustStoreGetSettingsVersionNumber(SecTrustSettingsVersionNumber* p_settings_version_number);
 

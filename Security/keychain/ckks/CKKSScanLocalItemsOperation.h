@@ -37,7 +37,6 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nullable) CKOperationGroup* ckoperationGroup;
 
 @property CKKSOperationDependencies* deps;
-@property (weak) CKKSKeychainView* ckks;
 
 @property size_t recordsFound;
 @property size_t recordsAdded;
@@ -46,7 +45,6 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (instancetype)init NS_UNAVAILABLE;
 - (instancetype)initWithDependencies:(CKKSOperationDependencies*)dependencies
-                                ckks:(CKKSKeychainView*)ckks
                            intending:(OctagonState*)intendedState
                           errorState:(OctagonState*)errorState
                     ckoperationGroup:(CKOperationGroup* _Nullable)ckoperationGroup;

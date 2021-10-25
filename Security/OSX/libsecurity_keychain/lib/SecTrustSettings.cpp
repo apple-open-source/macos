@@ -929,7 +929,7 @@ OSStatus SecTrustSettingsCopyCertificates(
 	unique_ptr<TrustSettings>_(ts);
 
 	CFMutableArrayRef outArray = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
-    
+
 	/*
 	 * Keychains to search: user's search list, System.keychain, system root store
 	 */
@@ -939,12 +939,24 @@ OSStatus SecTrustSettingsCopyCertificates(
 	switch(domain) {
 		case kSecTrustSettingsDomainUser:
 			/* user search list */
-			globals().storageManager.getSearchList(keychains);
+			try {
+				globals().storageManager.getSearchList(keychains);
+			}
+			catch (const CommonError &err) {
+				/* if we fail to read user keychains, we still want to search the admin & system stores */
+				secnotice("trustsettings", "SecTrustSettingsCopyCertificates: handling error %ld for user domain", (long)err.osStatus());
+			}
 			/* drop thru to next case */
 		case kSecTrustSettingsDomainAdmin:
 			/* admin certs in system keychain */
-			adminKc = globals().storageManager.make(ADMIN_CERT_STORE_PATH, false);
-			keychains.push_back(adminKc);
+			try {
+				adminKc = globals().storageManager.make(ADMIN_CERT_STORE_PATH, false);
+				keychains.push_back(adminKc);
+			}
+			catch (const CommonError &err) {
+				/* if we fail to read the system keychain, we still want to get the system root store */
+				secnotice("trustsettings", "SecTrustSettingsCopyCertificates: handling error %ld for admin domain", (long)err.osStatus());
+			}
 			/* drop thru to next case */
 		case kSecTrustSettingsDomainSystem:
 			/* and, for all cases, immutable system root store */

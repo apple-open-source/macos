@@ -1,19 +1,43 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+#***************************************************************************
+#                                  _   _ ____  _
+#  Project                     ___| | | |  _ \| |
+#                             / __| | | | |_) | |
+#                            | (__| |_| |  _ <| |___
+#                             \___|\___/|_| \_\_____|
+#
+# Copyright (C) 2008 - 2020, Daniel Stenberg, <daniel@haxx.se>, et al.
+#
+# This software is licensed as described in the file COPYING, which
+# you should have received as part of this distribution. The terms
+# are also available at https://curl.se/docs/copyright.html.
+#
+# You may opt to use, copy, modify, merge, publish, distribute and/or sell
+# copies of the Software, and permit persons to whom the Software is
+# furnished to do so, under the terms of the COPYING file.
+#
+# This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
+# KIND, either express or implied.
+#
+###########################################################################
 #
 """ DICT server """
 
 from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
+
 import argparse
+import logging
 import os
 import sys
-import logging
+
+from util import ClosingFileHandler
+
 try:  # Python 2
     import SocketServer as socketserver
 except ImportError:  # Python 3
     import socketserver
-
 
 log = logging.getLogger(__name__)
 HOST = "localhost"
@@ -30,10 +54,13 @@ def dictserver(options):
     """
     if options.pidfile:
         pid = os.getpid()
+        # see tests/server/util.c function write_pidfile
+        if os.name == "nt":
+            pid += 65536
         with open(options.pidfile, "w") as f:
-            f.write("{0}".format(pid))
+            f.write(str(pid))
 
-    local_bind = (HOST, options.port)
+    local_bind = (options.host, options.port)
     log.info("[DICT] Listening on %s", local_bind)
 
     # Need to set the allow_reuse on the class, not on the instance.
@@ -64,7 +91,11 @@ class DictHandler(socketserver.BaseRequestHandler):
             if VERIFIED_REQ in data:
                 log.debug("[DICT] Received verification request from test "
                           "framework")
-                response_data = VERIFIED_RSP.format(pid=os.getpid())
+                pid = os.getpid()
+                # see tests/server/util.c function write_pidfile
+                if os.name == "nt":
+                    pid += 65536
+                response_data = VERIFIED_RSP.format(pid=pid)
             else:
                 log.debug("[DICT] Received normal request")
                 response_data = "No matches"
@@ -83,6 +114,8 @@ def get_options():
 
     parser.add_argument("--port", action="store", default=9016,
                         type=int, help="port to listen on")
+    parser.add_argument("--host", action="store", default=HOST,
+                        help="host to listen on")
     parser.add_argument("--verbose", action="store", type=int, default=0,
                         help="verbose output")
     parser.add_argument("--pidfile", action="store",
@@ -108,7 +141,7 @@ def setup_logging(options):
 
     # Write out to a logfile
     if options.logfile:
-        handler = logging.FileHandler(options.logfile, mode="w")
+        handler = ClosingFileHandler(options.logfile)
         handler.setFormatter(formatter)
         handler.setLevel(logging.DEBUG)
         root_logger.addHandler(handler)

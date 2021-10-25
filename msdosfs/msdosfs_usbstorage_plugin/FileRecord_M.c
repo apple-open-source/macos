@@ -15,8 +15,6 @@
 #include "Logger.h"
 #include "Naming_Hash.h"
 
-#define GET_ENTRY_END(entry, fsRecord) (entry->uFileOffset + (uint64_t) ((uint64_t)entry->uAmountOfClusters * CLUSTER_SIZE(fsRecord)))
-
 /* ------------------------------------------------------------------------------------------
  *                                  File Record operations
  * ------------------------------------------------------------------------------------------ */
@@ -805,8 +803,8 @@ FILERECORD_EvictAllFileChainCacheEntriesFromGivenOffset(NodeRecord_s* psNodeReco
         //Calculate entry end offset
         psClusterChainNext = TAILQ_NEXT(psClusterChainToEvict, psClusterChainCacheListEntry);
 
-        //Evict only if entry start offset is after given offset
-        if (uOffsetToEvictFrom <= psClusterChainToEvict->uFileOffset ) {
+        //Evict any entry that ends after given offset
+        if (uOffsetToEvictFrom <= GET_ENTRY_END(psClusterChainToEvict, psFSRecord)) {
             FILERECORD_RemoveChainCacheEntry(psClusterChainToEvict);
         }
 

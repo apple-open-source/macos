@@ -51,6 +51,7 @@ http_client="${TESTS_ENVIRONMENT} ${tt}/http_client${asan}"
 winmount="${TESTS_ENVIRONMENT} ${tt}/heimdal-win-mount.py"
 test_gsscf="${TESTS_ENVIRONMENT} ${tt}/test_gsscf${asan}"
 test_wait_cred="${TESTS_ENVIRONMENT} ${batsbase}/test_wait_cred${asan}"
+test_plugin="${TESTS_ENVIRONMENT} ${tt}/test_plugin${asan}"
 
 # misc apps
 have_db="${testbase}/db/have-db"

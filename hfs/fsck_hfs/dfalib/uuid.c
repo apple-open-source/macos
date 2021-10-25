@@ -39,7 +39,7 @@ OpenDeviceByUUID(void *uuidp, char **namep)
         matching = IOServiceMatching( kIOMediaClass );
         if ( matching ) {
             CFDictionarySetValue( matching, CFSTR( kIOMediaUUIDKey ), uuid_string );
-            media = IOServiceGetMatchingService( kIOMasterPortDefault, matching );
+            media = IOServiceGetMatchingService( kIOMainPortDefault, matching );
             if ( media ) {
                 devname_string = IORegistryEntryCreateCFProperty( media, CFSTR( kIOBSDNameKey ), kCFAllocatorDefault, 0 );
                 if ( devname_string ) {

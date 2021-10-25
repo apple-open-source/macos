@@ -7,11 +7,11 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2019, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2020, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
- * are also available at https://curl.haxx.se/docs/copyright.html.
+ * are also available at https://curl.se/docs/copyright.html.
  *
  * You may opt to use, copy, modify, merge, publish, distribute and/or sell
  * copies of the Software, and permit persons to whom the Software is
@@ -24,13 +24,13 @@
 
 #include "curl_setup.h"
 
-#if SIZEOF_TIME_T < 8
-typedef int timediff_t;
-#define CURL_FORMAT_TIMEDIFF_T "d"
-#else
+/* Use a larger type even for 32 bit time_t systems so that we can keep
+   microsecond accuracy in it */
 typedef curl_off_t timediff_t;
 #define CURL_FORMAT_TIMEDIFF_T CURL_FORMAT_CURL_OFF_T
-#endif
+
+#define TIMEDIFF_T_MAX CURL_OFF_T_MAX
+#define TIMEDIFF_T_MIN CURL_OFF_T_MIN
 
 struct curltime {
   time_t tv_sec; /* seconds */

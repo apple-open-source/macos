@@ -56,9 +56,13 @@
 #define PTHREAD_LAYOUT_SPI 1
 #endif
 
+#ifndef PTHREAD_WORKGROUP_SPI
+#define PTHREAD_WORKGROUP_SPI 1
+#endif
+
 #include <TargetConditionals.h>
 
-#if TARGET_IPHONE_SIMULATOR
+#if TARGET_OS_SIMULATOR
 #error Unsupported target
 #endif
 
@@ -94,6 +98,7 @@
 #include "pthread/tsd_private.h"
 #include "pthread/stack_np.h"
 #include "pthread/jit_private.h"
+#include "pthread/workgroup_private.h"
 
 #include "imports_internal.h"
 #include "prototypes_internal.h"

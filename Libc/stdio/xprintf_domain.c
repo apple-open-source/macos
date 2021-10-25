@@ -27,6 +27,7 @@
 #include <errno.h>
 #include "xprintf_domain.h"
 #include "xprintf_private.h"
+#include "libc_private.h" // for LIBC_ABORT
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wpointer-bool-conversion"

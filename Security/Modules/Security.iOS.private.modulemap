@@ -1,0 +1,23 @@
+framework module Security_Private [system] {
+  umbrella header "Security_Private.h"
+
+  explicit module SecureObjectSync {
+    umbrella "PrivateHeaders/SecureObjectSync"
+
+    explicit module * { export * }
+  }
+
+  // Includes nonmodular <libDER/libDER.h>, <libDER/DER_Keys.h>, <security_libDER/libDER/libDER.h>
+  exclude header "certextensions.h"
+  exclude header "oids.h"
+  exclude header "SecCertificateInternal.h"
+  exclude header "SecCertificatePriv.h"
+  
+  // Includes SecCertificatePriv.h
+  exclude header "SecProtocolPriv.h"
+
+  // Includes SecProtocolPriv.h
+  exclude header "SecProtocolTypesPriv.h"
+
+  explicit module * { export * }
+}

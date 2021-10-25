@@ -1,5 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
-// License & terms of use: http://www.unicode.org/copyright.html#License
+// License & terms of use: http://www.unicode.org/copyright.html
+// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
 es_GT{
     %%Parent{"es_419"}
     NumberElements{
@@ -46,7 +47,6 @@ es_GT{
             }
         }
     }
-    Version{"36.1"}
     calendar{
         generic{
             DateTimePatterns{
@@ -130,8 +130,8 @@ es_GT{
                 "d/MM/y",
                 "d/MM/yy",
                 "{1} {0}",
-                "{1} 'a' 'las' {0}",
-                "{1} 'a' 'las' {0}",
+                "{1}, {0}",
+                "{1}, {0}",
                 "{1} {0}",
                 "{1} {0}",
             }

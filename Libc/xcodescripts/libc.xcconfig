@@ -1,7 +1,7 @@
 #include "<DEVELOPER_DIR>/Makefiles/CoreOS/Xcode/BSD.xcconfig"
 
 // Standard settings
-SUPPORTED_PLATFORMS = macosx iphoneos iphonesimulator appletvos appletvsimulator watchos watchsimulator iphoneosnano iphonesimulatornano bridgeos
+SUPPORTED_PLATFORMS = macosx iphoneos iphonesimulator appletvos appletvsimulator watchos watchsimulator bridgeos driverkit
 
 SDK_INSTALL_VARIANT = $(SDK_INSTALL_VARIANT_$(DRIVERKIT))
 SDK_INSTALL_VARIANT_1 = driverkit
@@ -16,7 +16,7 @@ SRCROOT_SEARCH_PATHS = $(SRCROOT) $(SRCROOT)/include $(SRCROOT)/gen $(SRCROOT)/l
 SYSTEM_FRAMEWORK_HEADERS = $(SDKROOT)/$(SDK_INSTALL_HEADERS_ROOT)/System/Library/Frameworks/System.framework/PrivateHeaders
 SDK_SYSTEM_FRAMEWORK_HEADERS = $(SDKROOT)/$(SDK_INSTALL_HEADERS_ROOT)/System/Library/Frameworks/System.framework/Versions/B/PrivateHeaders
 HEADER_SEARCH_PATHS = $($(TARGET_NAME)_SEARCH_PATHS) $(DERIVED_FILES_DIR)/dtrace $(SRCROOT_SEARCH_PATHS) $(inherited)
-SYSTEM_HEADER_SEARCH_PATHS = $(SYSTEM_FRAMEWORK_HEADERS) $(SDKROOT)/$(SDK_INSTALL_HEADERS_ROOT)/usr/local/include $(SDKROOT)/$(SDK_INSTALL_HEADERS_ROOT)/usr/include
+SYSTEM_HEADER_SEARCH_PATHS = $(SYSTEM_FRAMEWORK_HEADERS) $(SDKROOT)/$(SDK_INSTALL_HEADERS_ROOT)/usr/local/include $(SDKROOT)/$(SDK_INSTALL_HEADERS_ROOT)/usr/include $(SDKROOT)/$(SDK_INSTALL_ROOT)/usr/local/include
 SYSTEM_FRAMEWORK_SEARCH_PATHS = $(SDKROOT)/$(SDK_INSTALL_HEADERS_ROOT)/System/Library/Frameworks
 ALWAYS_SEARCH_USER_PATHS = YES
 USE_HEADERMAP = NO
@@ -86,7 +86,7 @@ LIBPTHREAD_LDFLAGS = -lsystem$(SIM_SUFFIX)_pthread
 LIBSYSCALL_LDFLAGS = -lsystem$(SIM_SUFFIX)_kernel
 LIBM_LDFLAGS = -lsystem_m
 LIBDYLD_LDFLAGS = -ldyld
-LIBSYSTEM_C_LDFLAGS = -all_load -nostdlib -L$(SDK_INSTALL_ROOT)/usr/lib/system -umbrella System $(CR_LDFLAGS) $(LIBCOMPILER_RT_LDFLAGS) $(LIBDYLD_LDFLAGS) $(LIBSYSCALL_LDFLAGS) $(LIBM_LDFLAGS) $(LIBMALLOC_LDFLAGS) $(LIBPLATFORM_LDFLAGS) $(LIBPTHREAD_LDFLAGS) $(UPWARD_LDFLAGS) $(LIBSYSTEM_C_EXTRA_LDFLAGS_$(CURRENT_ARCH)) -Wl,-interposable_list,$(DERIVED_FILES_DIR)/interposable.list -Wl,-unexported_symbols_list,$(DERIVED_FILES_DIR)/unexport.list -Wl,-alias_list,$(SRCROOT)/xcodescripts/alias.list -Wl,-order_file,$(SRCROOT)/xcodescripts/Libc.order @$(BUILT_PRODUCTS_DIR)/$(CURRENT_VARIANT).linklist
+LIBSYSTEM_C_LDFLAGS = -all_load -nostdlib -L$(SDK_INSTALL_ROOT)/usr/lib/system -umbrella System $(CR_LDFLAGS) $(LIBCOMPILER_RT_LDFLAGS) $(LIBDYLD_LDFLAGS) $(LIBSYSCALL_LDFLAGS) $(LIBM_LDFLAGS) $(LIBMALLOC_LDFLAGS) $(LIBPLATFORM_LDFLAGS) $(LIBPTHREAD_LDFLAGS) $(UPWARD_LDFLAGS) $(LIBSYSTEM_C_EXTRA_LDFLAGS_$(CURRENT_ARCH)) -Wl,-interposable_list,$(DERIVED_FILES_DIR)/interposable.list -Wl,-unexported_symbols_list,$(DERIVED_FILES_DIR)/unexport.list -Wl,-alias_list,$(SRCROOT)/xcodescripts/alias.list @$(BUILT_PRODUCTS_DIR)/$(CURRENT_VARIANT).linklist
 LIBSYSTEM_C_EXTRA_LDFLAGS_i386 = -Wl,-alias_list,$(SRCROOT)/xcodescripts/legacy_alias.list
 
 
@@ -150,10 +150,6 @@ BASE_EXCLUDED_SOURCE_FILE_NAMES_watchsimulator = $(BASE_EXCLUDED_SOURCE_FILE_NAM
 BASE_EXCLUDED_SOURCE_FILE_NAMES_bridgeos = $(BASE_EXCLUDED_SOURCE_FILE_NAMES_iphoneos)
 BASE_EXCLUDED_SOURCE_FILE_NAMES_driverkit = $(BASE_EXCLUDED_SOURCE_FILE_NAMES_macosx) $(BASE_EXCLUDED_SOURCE_FILE_NAMES_iphoneos) getlogin.c setlogin.c logwtmp.c utmpx.c utmpx-darwin.c daemon.c authentication.c pty.c opendev.c fparseln.c psort*.c crypt.c glob.c readpassphrase.c atexit_receipt.c debug_private.c sourcefilter.c inet*.c nsap_addr.c ascii2addr.c addr2ascii.c acl*.c filesec.c chmodx_np.c openx_np.c umaskx_np.c statx_np.c
 
-// TODO: Remove these legacy platform names:
-BASE_EXCLUDED_SOURCE_FILE_NAMES_iphoneosnano = $(BASE_EXCLUDED_SOURCE_FILE_NAMES_watchos)
-BASE_EXCLUDED_SOURCE_FILE_NAMES_iphonesimulatornano = $(BASE_EXCLUDED_SOURCE_FILE_NAMES_watchsimulator)
-
 // Enable installapi
 SUPPORTS_TEXT_BASED_API = YES
 TAPI_VERIFY_MODE = Pedantic
@@ -166,9 +162,9 @@ TAPI_PRIVATE_HEADER_PATH_NO = $(BUILT_PRODUCTS_DIR)$(PRIVATE_HEADERS_FOLDER_PATH
 TAPI_PRIVATE_HEADER_PATH_YES = $(DSTROOT)$(PRIVATE_HEADERS_FOLDER_PATH)
 TAPI_HEADER_SEARCH_PATHS =
 
-// TODO: Remove this hack once Marzipan bringup is done
+// TODO: Remove this hack once Paloma bringup is done
 VARIANT_PLATFORM_NAME = $(VARIANT_PLATFORM_NAME_$(RC_MARZIPAN))
 VARIANT_PLATFORM_NAME_YES = macosx
 VARIANT_PLATFORM_NAME_ = $(VARIANT_PLATFORM_NAME_$(SDK_INSTALL_VARIANT))
-VARIANT_PLATFORM_NAME_default = $(PLATFORM_NAME)
+VARIANT_PLATFORM_NAME_default = $(FALLBACK_PLATFORM:default=$(PLATFORM_NAME))
 VARIANT_PLATFORM_NAME_driverkit = driverkit

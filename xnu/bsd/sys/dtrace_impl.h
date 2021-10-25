@@ -1409,6 +1409,8 @@ extern int dtrace_is_valid_ptrauth_key(uint64_t);
 extern uint64_t dtrace_physmem_read(uint64_t, size_t);
 extern void dtrace_physmem_write(uint64_t, uint64_t, size_t);
 
+extern void dtrace_livedump(char *, size_t);
+
 /*
  * DTrace state handling
  */

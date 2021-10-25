@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2005, 2008-2011, 2015-2017, 2019 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2005, 2008-2011, 2015-2017, 2019, 2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -41,7 +41,7 @@ SCDynamicStoreNotifyCancel(SCDynamicStoreRef store)
 	kern_return_t				status;
 	int					sc_status;
 
-	if (store == NULL) {
+	if (!isA_SCDynamicStore(store)) {
 		/* sorry, you must provide a session */
 		_SCErrorSet(kSCStatusNoStoreSession);
 		return FALSE;

@@ -33,6 +33,7 @@
 #if defined(__arm64__)
 #include <pexpert/arm64/board_config.h>
 #endif
+#include <vm/vm_map.h>
 
 extern ledger_template_t task_ledger_template;
 
@@ -42,6 +43,8 @@ extern kern_return_t arm_fast_fault(pmap_t, vm_map_address_t, vm_prot_t, bool, b
 kern_return_t test_pmap_enter_disconnect(unsigned int num_loops);
 kern_return_t test_pmap_iommu_disconnect(void);
 kern_return_t test_pmap_extended(void);
+void test_pmap_call_overhead(unsigned int num_loops);
+uint64_t test_pmap_page_protect_overhead(unsigned int num_loops, unsigned int num_aliases);
 
 #define PMAP_TEST_VA (0xDEAD << PAGE_SHIFT)
 
@@ -130,4 +133,65 @@ kern_return_t
 test_pmap_extended(void)
 {
 	return KERN_SUCCESS;
+}
+
+void
+test_pmap_call_overhead(unsigned int num_loops __unused)
+{
+#if defined(__arm__) || defined(__arm64__)
+	pmap_t pmap = current_thread()->map->pmap;
+	for (unsigned int i = 0; i < num_loops; ++i) {
+		pmap_nop(pmap);
+	}
+#endif
+}
+
+uint64_t
+test_pmap_page_protect_overhead(unsigned int num_loops __unused, unsigned int num_aliases __unused)
+{
+	uint64_t duration = 0;
+#if defined(__arm__) || defined(__arm64__)
+	pmap_t new_pmap = pmap_create_wrapper(0);
+	vm_page_t m = vm_page_grab();
+	kern_return_t kr = KERN_SUCCESS;
+
+	vm_page_lock_queues();
+	if (m != VM_PAGE_NULL) {
+		vm_page_wire(m, VM_KERN_MEMORY_PTE, TRUE);
+	}
+	vm_page_unlock_queues();
+
+	if ((new_pmap == NULL) || (m == VM_PAGE_NULL)) {
+		goto ppo_cleanup;
+	}
+
+	ppnum_t phys_page = VM_PAGE_GET_PHYS_PAGE(m);
+
+	for (unsigned int loop = 0; loop < num_loops; ++loop) {
+		for (unsigned int alias = 0; alias < num_aliases; ++alias) {
+			kr = pmap_enter(new_pmap, PMAP_TEST_VA + (PAGE_SIZE * alias), phys_page,
+			    VM_PROT_READ | VM_PROT_WRITE, VM_PROT_NONE, VM_WIMG_USE_DEFAULT, FALSE);
+			assert(kr == KERN_SUCCESS);
+		}
+
+		uint64_t start_time = mach_absolute_time();
+
+		pmap_page_protect_options(phys_page, VM_PROT_READ, 0, NULL);
+
+		duration += (mach_absolute_time() - start_time);
+
+		pmap_remove(new_pmap, PMAP_TEST_VA, PMAP_TEST_VA + (num_aliases * PAGE_SIZE));
+	}
+
+ppo_cleanup:
+	vm_page_lock_queues();
+	if (m != VM_PAGE_NULL) {
+		vm_page_free(m);
+	}
+	vm_page_unlock_queues();
+	if (new_pmap != NULL) {
+		pmap_destroy(new_pmap);
+	}
+#endif
+	return duration;
 }

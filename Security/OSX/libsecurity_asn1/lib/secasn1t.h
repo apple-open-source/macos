@@ -42,6 +42,8 @@
 #include <sys/types.h>
 #include <Security/SecAsn1Types.h>		/* public types */
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
 
 /* default size used for allocation of encoding/decoding stuff */
 #define SEC_ASN1_DEFAULT_ARENA_SIZE	(2048)
@@ -79,12 +81,12 @@ const SecAsn1Template * NSS_Get_##x(void * arg, Boolean enc) \
 /*
 ** Opaque object used by the decoder to store state.
 */
-typedef struct sec_DecoderContext_struct SEC_ASN1DecoderContext;
+typedef struct sec_DecoderContext_struct SEC_ASN1DecoderContext SEC_ASN1_API_DEPRECATED;
 
 /*
 ** Opaque object used by the encoder to store state.
 */
-typedef struct sec_EncoderContext_struct SEC_ASN1EncoderContext;
+typedef struct sec_EncoderContext_struct SEC_ASN1EncoderContext SEC_ASN1_API_DEPRECATED;
 
 /*
  * This is used to describe to a filter function the bytes that are
@@ -97,14 +99,14 @@ typedef enum {
     SEC_ASN1_Length = 1,
     SEC_ASN1_Contents = 2,
     SEC_ASN1_EndOfContents = 3
-} SEC_ASN1EncodingPart;
+} SEC_ASN1EncodingPart SEC_ASN1_API_DEPRECATED;
 
 /*
  * Type of the function pointer used either for decoding or encoding,
  * when doing anything "funny" (e.g. manipulating the data stream)
  */ 
 typedef void (* SEC_ASN1NotifyProc)(void *arg, Boolean before,
-				    void *dest, int real_depth);
+				    void *dest, int real_depth) SEC_ASN1_API_DEPRECATED;
 
 /*
  * Type of the function pointer used for grabbing encoded bytes.
@@ -138,6 +140,8 @@ typedef void (* SEC_ASN1NotifyProc)(void *arg, Boolean before,
  */ 
 typedef void (* SEC_ASN1WriteProc)(void *arg,
 				   const char *data, size_t len,
-				   int depth, SEC_ASN1EncodingPart data_kind);
+				   int depth, SEC_ASN1EncodingPart data_kind) SEC_ASN1_API_DEPRECATED;
+
+#pragma clang diagnostic pop
 
 #endif /* _SECASN1T_H_ */

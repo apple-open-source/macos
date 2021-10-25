@@ -1753,23 +1753,11 @@ static void tests(void)
     CFReleaseNull(message);
     CFDataSetLength(message_data, 0);
 	CFDataRef empty_data = CFDataCreate(kCFAllocatorDefault, NULL, 0);
-#if TARGET_OS_IPHONE
-    /* iOS supports empty data */
 	ok_status(SecCMSCreateSignedData(identity, empty_data, NULL, simple_attr, message_data), "Create signed data with no content");
-#else
-    /* macOS does not */
-    is_status(SecCMSCreateSignedData(identity, empty_data, NULL, simple_attr, message_data), errSecParam, "Create signed data with no content");
-#endif
 	CFRelease(empty_data);
 	//write_data("/var/tmp/empty_msg_with_attrs", message_data);
     CFDataSetLength(message_data, 0);
-#if TARGET_OS_IPHONE
-    /* iOS supports empty data */
     ok_status(SecCMSCreateSignedData(identity, NULL, NULL, simple_attr, message_data), "Create signed data with no content");
-#else
-    /* macOS does not */
-    is_status(SecCMSCreateSignedData(identity, NULL, NULL, simple_attr, message_data), errSecParam, "Create signed data with no content");
-#endif
     uint8_t hash_data[CC_SHA1_DIGEST_LENGTH];
     CCDigest(kCCDigestSHA1, test, sizeof(test), hash_data);
     CFDataRef hash_cfdata = CFDataCreateWithBytesNoCopy(NULL, hash_data, sizeof(hash_data), kCFAllocatorNull);

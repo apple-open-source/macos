@@ -57,8 +57,7 @@
                                                             withBlock:^{
                                                                 STRONGIFY(self);
                                                                 [self proceedWithKeys:fetchKeysOp.viewKeySets
-                                                                    incompleteKeySets:fetchKeysOp.incompleteKeySets
-                                                                     pendingTLKShares:fetchKeysOp.tlkShares];
+                                                                    incompleteKeySets:fetchKeysOp.incompleteKeySets];
                                                             }];
 
     [proceedWithKeys addDependency:fetchKeysOp];
@@ -67,20 +66,12 @@
 
 - (void)proceedWithKeys:(NSArray<CKKSKeychainBackedKeySet*>*)viewKeySets
       incompleteKeySets:(NSArray<CKKSCurrentKeySet*>*)incompleteKeySets
-       pendingTLKShares:(NSArray<CKKSTLKShare*>*)pendingTLKShares
 {
     // Now that CKKS has returned, what are we even doing
-    NSMutableSet<CKKSKeychainView*>* viewsToReset = [NSMutableSet set];
+    NSMutableSet<NSString*>* viewsToReset = [NSMutableSet set];
 
     for(CKKSCurrentKeySet* incompleteKeySet in incompleteKeySets) {
         if(incompleteKeySet.error == nil) {
-            CKKSViewManager* viewManager = self.deps.viewManager;
-            CKKSKeychainView* viewMatchingSet = [viewManager findView:incompleteKeySet.viewName];
-
-            if(!viewMatchingSet) {
-                secnotice("octagon-ckks", "No view matching viewset %@?", incompleteKeySet);
-                continue;
-            }
 
             if(incompleteKeySet.currentTLKPointer != nil &&
                incompleteKeySet.tlk == nil) {
@@ -88,7 +79,7 @@
                 // We used to not reset the TLKs if there was a recent device claiming to have them, but
                 // in our Octagon-primary world, an Octagon reset should take precedence over existing Cloud-based data
                 secnotice("octagon-ckks", "Key set %@ has no TLK; scheduling for reset", incompleteKeySet);
-                [viewsToReset addObject:viewMatchingSet];
+                [viewsToReset addObject:incompleteKeySet.zoneID.zoneName];
             }
         } else {
             secnotice("octagon-ckks", "Error loading key set %@; not attempting reset", incompleteKeySet);
@@ -106,23 +97,24 @@
     [self resetViews:viewsToReset];
 }
 
-- (void)resetViews:(NSSet<CKKSKeychainView*>*)viewsToReset {
-    CKOperationGroup* opGroup = [CKOperationGroup CKKSGroupWithName:@"octagon-reset-missing-tlks"];
-    for (CKKSKeychainView* view in viewsToReset) {
-        secnotice("octagon-ckks", "Resetting CKKS %@", view);
-        CKKSResultOperation* op = [view resetCloudKitZone:opGroup];
+- (void)resetViews:(NSSet<NSString*>*)viewsToReset {
+    secnotice("octagon-ckks", "Resetting CKKS view %@", viewsToReset);
 
-        // Use an intermediary operation, just to ensure we have a timeout
-        CKKSResultOperation* waitOp = [CKKSResultOperation named:[NSString stringWithFormat:@"wait-for-%@", view.zoneName]
-                                                       withBlock:^{
-            secnotice("octagon-ckks", "Successfully reset %@", view);
-        }];
-        [waitOp timeout:120*NSEC_PER_SEC];
-        [waitOp addDependency:op];
-        [self.operationQueue addOperation:waitOp];
+    CKKSResultOperation* op = [self.deps.ckks rpcResetCloudKit:viewsToReset
+                                                         reply:^(NSError * _Nullable result) {
+        secnotice("octagon-ckks", "CKKS view reset complete");
+    }];
 
-        [self.finishedOp addDependency:waitOp];
-    }
+    // Use an intermediary operation, just to ensure we have a timeout
+    CKKSResultOperation* waitOp = [CKKSResultOperation named:@"wait-for-ckks-reset"
+                                                   withBlock:^{
+        secnotice("octagon-ckks", "Successfully reset %@", viewsToReset);
+    }];
+    [waitOp timeout:120*NSEC_PER_SEC];
+    [waitOp addDependency:op];
+
+    [self.operationQueue addOperation:waitOp];
+    [self.finishedOp addDependency:waitOp];
 
     self.nextState = self.intendedState;
     [self.operationQueue addOperation:self.finishedOp];

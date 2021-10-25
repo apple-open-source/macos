@@ -22,8 +22,13 @@ __MergedGlobals
 __dispatch_bug.last_seen
 __dispatch_bug_deprecated.last_seen
 __dispatch_bug_kevent_client.last_seen
+#if defined(__x86_64__)
+__dispatch_bug_kevent_client.last_seen.44
+__dispatch_bug_kevent_client.last_seen.46
+#else
 __dispatch_bug_kevent_client.last_seen.38
 __dispatch_bug_kevent_client.last_seen.40
+#endif
 __dispatch_bug_kevent_vanished.last_seen
 __dispatch_bug_mach_client.last_seen
 

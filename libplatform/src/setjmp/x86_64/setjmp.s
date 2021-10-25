@@ -68,6 +68,7 @@ LEAF(_sigsetjmp, 0)
 	cmpl	$0, %esi		// if savemask != 0
 	jne	_setjmp			 // setjmp(jmpbuf);
 	jmp	L_do__setjmp		// else _setjmp(jmpbuf);
+	UNWIND_EPILOGUE
 
 LEAF(_setjmp, 0)
 	pushq	%rdi			// Preserve the jmp_buf across the call
@@ -93,12 +94,14 @@ LEAF(_setjmp, 0)
 
 L_do__setjmp:
 	BRANCH_EXTERN(__setjmp)
+	UNWIND_EPILOGUE
 
 LEAF(_siglongjmp, 0)
 	// %rdi is sigjmp_buf * jmpbuf;
 	cmpl	$0, JB_SAVEMASK(%rdi)      // if jmpbuf[_JBLEN] != 0
 	jne	_longjmp		//     longjmp(jmpbuf, var);
 	jmp	L_do__longjmp	       // else _longjmp(jmpbuf, var);
+	UNWIND_EPILOGUE
 
 LEAF(_longjmp, 0)
 	// %rdi is address of jmp_buf (saved context)

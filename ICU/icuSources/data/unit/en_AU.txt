@@ -1,8 +1,8 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
-// License & terms of use: http://www.unicode.org/copyright.html#License
+// License & terms of use: http://www.unicode.org/copyright.html
+// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
 en_AU{
     %%Parent{"en_001"}
-    Version{"36.1"}
     durationUnits{
         hm{"h:mm"}
         hms{"h:mm:ss"}
@@ -17,11 +17,6 @@ en_AU{
             }
         }
         energy{
-            kilocalorie{
-                dnam{"Calories"}
-                one{"{0} Calorie"}
-                other{"{0} Calories"}
-            }
             kilowatt-hour{
                 dnam{"kilowatt hours"}
                 one{"{0} kilowatt hour"}
@@ -31,28 +26,27 @@ en_AU{
         length{
             kilometer{
                 dnam{"kilometre"}
-                one{"{0} kilometre"}
-                other{"{0} kilometres"}
-                per{"{0} per kilometre"}
             }
             micrometer{
                 dnam{"micrometres"}
-                one{"{0} micrometre"}
-                other{"{0} micrometres"}
             }
         }
         mass{
             metric-ton{
-                dnam{"tonnes"}
                 one{"tonne"}
                 other{"{0} tonnes"}
+            }
+        }
+        pressure{
+            pound-force-per-square-inch{
+                dnam{"pounds per square inch"}
+                one{"{0} pound per square inch"}
+                other{"{0} pounds per square inch"}
             }
         }
         temperature{
             generic{
                 dnam{"degrees"}
-                one{"{0} degree"}
-                other{"{0} degrees"}
             }
         }
         volume{
@@ -60,6 +54,11 @@ en_AU{
                 dnam{"fluid ounces"}
                 one{"{0} fluid ounce"}
                 other{"{0} fluid ounces"}
+            }
+            quart{
+                dnam{"quarts"}
+                one{"{0} quart"}
+                other{"{0} quarts"}
             }
         }
     }
@@ -80,7 +79,7 @@ en_AU{
             }
         }
         consumption{
-            liter-per-100kilometers{
+            liter-per-100-kilometer{
                 dnam{"L/100km"}
                 one{"{0}L/100km"}
                 other{"{0}L/100km"}
@@ -94,8 +93,6 @@ en_AU{
         duration{
             millisecond{
                 dnam{"msec."}
-                one{"{0}ms"}
-                other{"{0}ms"}
             }
             minute{
                 dnam{"min."}
@@ -108,18 +105,9 @@ en_AU{
                 other{"{0}s."}
             }
         }
-        energy{
-            kilocalorie{
-                dnam{"Cal"}
-                one{"{0}Cal"}
-                other{"{0}Cal"}
-            }
-        }
         length{
             meter{
                 dnam{"metre"}
-                one{"{0}m"}
-                other{"{0}m"}
             }
         }
         speed{
@@ -142,7 +130,6 @@ en_AU{
         }
         volume{
             bushel{
-                dnam{"bushel"}
                 one{"{0} bus."}
                 other{"{0} bus."}
             }
@@ -162,7 +149,6 @@ en_AU{
                 other{"{0}hL"}
             }
             liter{
-                dnam{"litre"}
                 one{"{0}L"}
                 other{"{0}L"}
                 per{"{0}/L"}
@@ -192,17 +178,8 @@ en_AU{
                 other{"{0} arcsec."}
             }
             degree{
-                dnam{"degrees"}
                 one{"{0} deg."}
                 other{"{0} deg."}
-            }
-        }
-        area{
-            square-meter{
-                dnam{"metres²"}
-                one{"{0} m²"}
-                other{"{0} m²"}
-                per{"{0}/m²"}
             }
         }
         concentr{
@@ -212,7 +189,6 @@ en_AU{
                 other{"{0} mg/dL"}
             }
             millimole-per-liter{
-                dnam{"millimol/litre"}
                 one{"{0} mmol/L"}
                 other{"{0} mmol/L"}
             }
@@ -221,13 +197,12 @@ en_AU{
             }
         }
         consumption{
-            liter-per-100kilometers{
+            liter-per-100-kilometer{
                 dnam{"L/100 km"}
                 one{"{0} L/100 km"}
                 other{"{0} L/100 km"}
             }
             liter-per-kilometer{
-                dnam{"litres/km"}
                 one{"{0} L/km"}
                 other{"{0} L/km"}
             }
@@ -249,20 +224,13 @@ en_AU{
                 other{"{0} C."}
             }
             hour{
-                dnam{"hours"}
-                one{"{0} hr"}
-                other{"{0} hrs"}
                 per{"{0} phr"}
             }
             microsecond{
                 dnam{"μsec."}
-                one{"{0} μs"}
-                other{"{0} μs"}
             }
             millisecond{
                 dnam{"millisec."}
-                one{"{0} ms"}
-                other{"{0} ms"}
             }
             minute{
                 dnam{"min."}
@@ -271,15 +239,11 @@ en_AU{
                 per{"{0}/min."}
             }
             month{
-                dnam{"months"}
                 one{"{0} m."}
                 other{"{0} m."}
-                per{"{0}/m"}
             }
             nanosecond{
                 dnam{"nanosec."}
-                one{"{0} ns"}
-                other{"{0} ns"}
             }
             second{
                 dnam{"sec."}
@@ -290,14 +254,12 @@ en_AU{
         }
         energy{
             kilocalorie{
-                dnam{"Cal"}
-                one{"{0} Cal"}
-                other{"{0} Cal"}
+                dnam{"kcal"}
+                one{"{0} kcal"}
+                other{"{0} kcal"}
             }
             kilowatt-hour{
                 dnam{"kWh"}
-                one{"{0} kWh"}
-                other{"{0} kWh"}
             }
         }
         length{
@@ -307,20 +269,18 @@ en_AU{
                 other{"{0} AU"}
             }
             light-year{
-                dnam{"light yrs"}
                 one{"{0} l.y."}
                 other{"{0} l.y."}
             }
         }
         mass{
             carat{
-                dnam{"carats"}
                 one{"{0} CM"}
                 other{"{0} CM"}
             }
         }
         pressure{
-            inch-hg{
+            inch-ofhg{
                 dnam{"in Hg"}
             }
             millibar{
@@ -328,32 +288,20 @@ en_AU{
                 one{"{0} mb"}
                 other{"{0} mb"}
             }
-            millimeter-of-mercury{
-                dnam{"mm Hg"}
-                one{"{0} mm Hg"}
-                other{"{0} mm Hg"}
-            }
         }
         speed{
-            kilometer-per-hour{
-                dnam{"km/hour"}
-                one{"{0} km/h"}
-                other{"{0} km/h"}
-            }
             meter-per-second{
                 dnam{"metres/sec."}
                 one{"{0} m/s."}
                 other{"{0} m/s."}
             }
             mile-per-hour{
-                dnam{"miles/hour"}
                 one{"{0} m.p.h."}
                 other{"{0} m.p.h."}
             }
         }
         volume{
             bushel{
-                dnam{"bushels"}
                 one{"{0} bus."}
                 other{"{0} bus."}
             }
@@ -361,14 +309,6 @@ en_AU{
                 dnam{"cL"}
                 one{"{0} cL"}
                 other{"{0} cL"}
-            }
-            cubic-centimeter{
-                one{"{0} cm³"}
-                other{"{0} cm³"}
-            }
-            cubic-mile{
-                one{"{0} mi³"}
-                other{"{0} mi³"}
             }
             deciliter{
                 dnam{"dL"}
@@ -398,7 +338,6 @@ en_AU{
                 other{"{0} hL"}
             }
             liter{
-                dnam{"litres"}
                 one{"{0} L"}
                 other{"{0} L"}
                 per{"{0}/L"}
@@ -412,6 +351,11 @@ en_AU{
                 dnam{"mL"}
                 one{"{0} mL"}
                 other{"{0} mL"}
+            }
+            quart{
+                dnam{"qts"}
+                one{"{0} qt"}
+                other{"{0} qt"}
             }
         }
     }

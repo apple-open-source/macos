@@ -22,9 +22,9 @@
  */
 
 import CloudKitCode
-import CloudKitCodeProtobuf
 import CoreData
 import Foundation
+import InternalSwiftProtobuf
 import os
 import Security
 import SecurityFoundation
@@ -337,6 +337,24 @@ extension ContainerError: CustomNSError {
     }
 }
 
+extension NSError {
+    func evaluateErrorForCorruption() -> Bool {
+        if let underlyingInitError = self.userInfo[NSUnderlyingErrorKey] as? Error {
+            let underlyingInitNSError = underlyingInitError as NSError
+
+            if self.code == NSMigrationError && self.domain == NSCocoaErrorDomain && underlyingInitNSError.code == SQLITE_CORRUPT && underlyingInitNSError.domain == NSSQLiteErrorDomain {
+                return true
+            } else {
+                return false
+            }
+        } else if self.code == SQLITE_CORRUPT && self.domain == NSSQLiteErrorDomain {
+            return true
+        }
+
+        return false
+    }
+}
+
 internal func traceError(_ error: Error?) -> String {
     if let error = error {
         return "error: \(String(describing: error))"
@@ -480,7 +498,7 @@ func removeEgoKeysSync(peerID: String) throws -> Bool {
     var retresultForSigningDeletion: Bool = false
     var reterrorForSigningDeletion: Error?
 
-    //remove signing keys
+    // remove signing keys
     keychainManager.removeItem(withIdentifier: signingKeyIdentifier(peerID: peerID)) { result, error in
         retresultForSigningDeletion = result
         reterrorForSigningDeletion = error
@@ -549,12 +567,12 @@ func encryptionKeyIdentifier(peerID: String) -> String {
     return "encryption-key " + peerID
 }
 
-func makeTLKShares(ckksTLKs: [CKKSKeychainBackedKey]?, asPeer: CKKSSelfPeer, toPeer: CKKSPeer, epoch: Int) throws -> [TLKShare] {
+func makeCKKSTLKShares(ckksTLKs: [CKKSKeychainBackedKey]?, asPeer: CKKSSelfPeer, toPeer: CKKSPeer, epoch: Int) throws -> [CKKSTLKShare] {
     return try (ckksTLKs ?? []).map { tlk in
         os_log("Making TLKShare for %@ for key %@", log: tplogDebug, type: .default, toPeer.description, tlk)
         // Not being able to convert a TLK to a TLKShare is a failure, but not having a TLK is only half bad
         do {
-            return TLKShare.convert(ckksTLKShare: try CKKSTLKShare(tlk, as: asPeer, to: toPeer, epoch: epoch, poisoned: 0))
+            return try CKKSTLKShare(tlk, as: asPeer, to: toPeer, epoch: epoch, poisoned: 0)
         } catch {
             let nserror = error as NSError
             if nserror.domain == "securityd" && nserror.code == errSecItemNotFound {
@@ -568,17 +586,45 @@ func makeTLKShares(ckksTLKs: [CKKSKeychainBackedKey]?, asPeer: CKKSSelfPeer, toP
     .compactMap { $0 }
 }
 
+func makeTLKShares(ckksTLKs: [CKKSKeychainBackedKey]?, asPeer: CKKSSelfPeer, toPeer: CKKSPeer, epoch: Int) throws -> [TLKShare] {
+    return try makeCKKSTLKShares(ckksTLKs: ckksTLKs, asPeer: asPeer, toPeer: toPeer, epoch: epoch).compactMap { TLKShare.convert(ckksTLKShare: $0) }
+}
+
 @discardableResult
-func extract(tlkShares: [CKKSTLKShare], peer: OctagonSelfPeerKeys, model: TPModel) -> (Int64, Int64) {
+func extract(tlkShares: [CKKSTLKShare], peer: OctagonSelfPeerKeys, model: TPModel) -> ([CKKSKeychainBackedKey], TrustedPeersHelperTLKRecoveryResult) {
     os_log("Attempting to recover %d TLK shares for peer %{public}@", log: tplogDebug, type: .default, tlkShares.count, peer.peerID)
 
     return extract(tlkShares: tlkShares, peer: peer, sponsorPeerID: nil, model: model)
 }
 
 @discardableResult
-func extract(tlkShares: [CKKSTLKShare], peer: OctagonSelfPeerKeys, sponsorPeerID: String?, model: TPModel) -> (Int64, Int64) {
-    var tlksRecovered: Set<String> = Set()
+func extract(tlkShares: [CKKSTLKShare],
+             peer: OctagonSelfPeerKeys,
+             sponsorPeerID: String?,
+             model: TPModel) -> ([CKKSKeychainBackedKey], TrustedPeersHelperTLKRecoveryResult) {
+    var tlksRecovered: [String: CKKSKeychainBackedKey] = [:]
     var sharesRecovered: Int64 = 0
+
+    var trustedPeers: [AnyHashable] = [peer]
+
+    var recoveryErrors: [String: [Error]] = [:]
+
+    if let egoPeer = model.peer(withID: sponsorPeerID ?? peer.peerID) {
+        egoPeer.trustedPeerIDs.forEach { trustedPeerID in
+            if let peer = model.peer(withID: trustedPeerID) {
+                let peerObj = CKKSActualPeer(peerID: trustedPeerID,
+                                             encryptionPublicKey: (peer.permanentInfo.encryptionPubKey as! _SFECPublicKey),
+                                             signing: (peer.permanentInfo.signingPubKey as! _SFECPublicKey),
+                                             viewList: [])
+
+                trustedPeers.append(peerObj)
+            } else {
+                os_log("No peer for trusted ID %{public}@", log: tplogDebug, type: .default, trustedPeerID)
+            }
+        }
+    } else {
+        os_log("No ego peer in model; no trusted peers", log: tplogDebug, type: .default)
+    }
 
     for share in tlkShares {
         guard share.receiverPeerID == peer.peerID else {
@@ -587,47 +633,78 @@ func extract(tlkShares: [CKKSTLKShare], peer: OctagonSelfPeerKeys, sponsorPeerID
         }
 
         do {
-            var trustedPeers: [AnyHashable] = [peer]
-
-            if let egoPeer = model.peer(withID: sponsorPeerID ?? peer.peerID) {
-                egoPeer.trustedPeerIDs.forEach { trustedPeerID in
-                    if let peer = model.peer(withID: trustedPeerID) {
-                        let peerObj = CKKSActualPeer(peerID: trustedPeerID,
-                                                     encryptionPublicKey: (peer.permanentInfo.encryptionPubKey as! _SFECPublicKey),
-                                                     signing: (peer.permanentInfo.signingPubKey as! _SFECPublicKey),
-                                                     viewList: [])
-
-                        trustedPeers.append(peerObj)
-                    } else {
-                        os_log("No peer for trusted ID %{public}@", log: tplogDebug, type: .default, trustedPeerID)
-                    }
-                }
-            } else {
-                os_log("No ego peer in model; no trusted peers", log: tplogDebug, type: .default)
-            }
-
             let key = try share.recoverTLK(peer,
                                            trustedPeers: Set(trustedPeers),
                                            ckrecord: nil)
 
             try key.saveMaterialToKeychain()
-            tlksRecovered.insert(key.uuid)
+
+            tlksRecovered[key.uuid] = key
             sharesRecovered += 1
             os_log("Recovered %@ (from %@)", log: tplogDebug, type: .default, key, share)
         } catch {
             os_log("Failed to recover share %@: %{public}@", log: tplogDebug, type: .default, share, error as CVarArg)
+
+            if let list = recoveryErrors[share.tlkUUID] {
+                recoveryErrors[share.tlkUUID] = list + [error]
+            } else {
+                recoveryErrors[share.tlkUUID] = [error]
+            }
         }
     }
 
-    return (Int64(tlksRecovered.count), sharesRecovered)
+    os_log("Recovered TLKs: %@", log: tplogDebug, type: .default, tlksRecovered)
+
+    return (Array(tlksRecovered.values), TrustedPeersHelperTLKRecoveryResult(successfulKeyUUIDs: Set(tlksRecovered.keys),
+                                                                             totalTLKSharesRecovered: sharesRecovered,
+                                                                             tlkRecoveryErrors: recoveryErrors))
 }
 
 struct ContainerState {
+    struct Bottle: Hashable {
+        let bottleID: String?
+        let contents: Data?
+        let escrowedSigningSPKI: Data?
+        let peerID: String?
+        let signatureUsingEscrowKey: Data?
+        let signatureUsingPeerKey: Data?
+
+        init(bottleMO: BottleMO) {
+            self.bottleID = bottleMO.bottleID
+            self.contents = bottleMO.contents
+            self.escrowedSigningSPKI = bottleMO.escrowedSigningSPKI
+            self.peerID = bottleMO.peerID
+            self.signatureUsingEscrowKey = bottleMO.signatureUsingEscrowKey
+            self.signatureUsingPeerKey = bottleMO.signatureUsingPeerKey
+        }
+    }
+    struct EscrowRecord: Hashable {
+        let creationDate: Date?
+        let label: String?
+        let recordStatus: Int64
+        let remainingAttempts: Int64
+        let silentAttemptAllowed: Int64
+        let sosViability: Int64
+        let federationID: String?
+        let expectedFederationID: String?
+
+        init(escrowRecordMO: EscrowRecordMO) {
+            self.creationDate = escrowRecordMO.creationDate
+            self.label = escrowRecordMO.label
+            self.recordStatus = escrowRecordMO.recordStatus
+            self.remainingAttempts = escrowRecordMO.remainingAttempts
+            self.silentAttemptAllowed = escrowRecordMO.silentAttemptAllowed
+            self.sosViability = escrowRecordMO.sosViability
+            self.federationID = escrowRecordMO.federationID
+            self.expectedFederationID = escrowRecordMO.expectedFederationID
+        }
+    }
+
     var egoPeerID: String?
     var peers: [String: TPPeer] = [:]
     var vouchers: [TPVoucher] = []
-    var bottles = Set<BottleMO>()
-    var escrowRecords = Set<EscrowRecordMO>()
+    var bottles = Set<Bottle>()
+    var escrowRecords = Set<EscrowRecord>()
     var recoverySigningKey: Data?
     var recoveryEncryptionKey: Data?
 }
@@ -638,7 +715,8 @@ internal struct StableChanges {
     let osVersion: String?
     let policyVersion: UInt64?
     let policySecrets: [String: Data]?
-    let setSyncUserControllableViews: TPPBPeerStableInfo_UserControllableViewStatus?
+    let setSyncUserControllableViews: TPPBPeerStableInfoUserControllableViewStatus?
+    let secureElementIdentity: TrustedPeersHelperIntendedTPPBSecureElementIdentity?
 }
 
 // CoreData doesn't handle creating an identical model from an identical URL. Help it out.
@@ -720,6 +798,19 @@ class Container: NSObject {
 
     // Used in tests only. Set when an identity is prepared using a policy version override
     internal var policyVersionOverride: TPPolicyVersion?
+    internal var testIgnoreCustodianUpdates: Bool = false
+    internal var testDontSetAccountSetting: Bool? = false
+
+    internal let darwinNotifier: CKKSNotifier.Type
+
+    // If you add a new field to the Cuttlefish Changes protocol, such that
+    // old devices will ignore it silently, but still persist a change tag
+    // beyond the data they ignored, consider increasing this level to cause
+    // those devices to refetch all data once they upgrade to this software
+    // (which persist the data as its refetched).
+    //
+    // Refetch level 1: Custodian peers
+    internal static let currentRefetchLevel: Int64 = 1
 
     /**
      Construct a Container.
@@ -733,10 +824,15 @@ class Container: NSObject {
 
      - Parameter cuttlefish: Interface to cuttlefish.
      */
-    init(name: ContainerName, persistentStoreDescription: NSPersistentStoreDescription, cuttlefish: CuttlefishAPIAsync) throws {
+    init(name: ContainerName,
+         persistentStoreDescription: NSPersistentStoreDescription,
+         darwinNotifier: CKKSNotifier.Type,
+         cuttlefish: CuttlefishAPIAsync) throws {
         var initError: Error?
         var containerMO: ContainerMO?
         var model: TPModel?
+
+        self.darwinNotifier = darwinNotifier
 
         // Set up Core Data stack
         let url = Bundle(for: type(of: self)).url(forResource: "TrustedPeersHelper", withExtension: "momd")!
@@ -744,14 +840,48 @@ class Container: NSObject {
         self.persistentContainer = NSPersistentContainer(name: "TrustedPeersHelper", managedObjectModel: mom)
         self.persistentContainer.persistentStoreDescriptions = [persistentStoreDescription]
 
+        let moc = self.persistentContainer.newBackgroundContext()
+
         self.persistentContainer.loadPersistentStores { _, error in
             initError = error
         }
-        if let initError = initError {
-            throw initError
+        if let initErr = initError {
+            let initNSError = initErr as NSError
+
+            if initNSError.evaluateErrorForCorruption() {
+                var destroyError: Error?
+
+                moc.performAndWait {
+                    if let url = persistentStoreDescription.url {
+                        do {
+                            try moc.persistentStoreCoordinator?.destroyPersistentStore(at: url,
+                                                                                       ofType: persistentStoreDescription.type,
+                                                                                       options: [:])
+                            initError = nil
+                        } catch {
+                            destroyError = error
+                        }
+                    }
+                }
+
+                if let destroyError = destroyError {
+                    throw destroyError
+                }
+
+                // now try loading again
+                var initRetryError: Error?
+                self.persistentContainer.loadPersistentStores { _, retryError in
+                    initRetryError = retryError
+                }
+
+                if let initRetryError = initRetryError {
+                    throw initRetryError
+                }
+            } else {
+                throw initErr
+            }
         }
 
-        let moc = self.persistentContainer.newBackgroundContext()
         moc.mergePolicy = NSMergePolicy.mergeByPropertyStoreTrump
 
         moc.performAndWait {
@@ -771,7 +901,7 @@ class Container: NSObject {
                 Container.onqueueUpgradeMachineIDSetToModel(container: containerMO!, moc: moc)
                 Container.onqueueUpgradeMachineIDSetToUseStatus(container: containerMO!, moc: moc)
 
-                //remove duplicate vouchers on all the peers
+                // remove duplicate vouchers on all the peers
                 Container.onqueueRemoveDuplicateVouchersPerPeer(container: containerMO!, moc: moc)
 
                 model = Container.loadModel(from: containerMO!)
@@ -791,7 +921,7 @@ class Container: NSObject {
         self.containerMO = containerMO!
         self.cuttlefish = cuttlefish
         self.model = model!
-        self.escrowCacheTimeout = 60.0 * 15.0 //15 minutes
+        self.escrowCacheTimeout = 60.0 * 15.0 // 15 minutes
         super.init()
     }
 
@@ -858,7 +988,18 @@ class Container: NSObject {
             }
         }
 
+        let crks = containerMO.custodianRecoveryKeys as? Set<CustodianRecoveryKeyMO>
+        crks?.forEach { crk in
+            if let data = crk.crkInfo, let sig = crk.crkInfoSig {
+                if let tpcrk = TPCustodianRecoveryKey(data: data, sig: sig, keyFactory: keyFactory) {
+                    model.register(tpcrk)
+                }
+            }
+        }
+
+        os_log("loadModel: loaded %{public}d peers", log: tplogDebug, type: .default, model.allPeerIDs().count)
         os_log("loadModel: loaded %{public}d vouchers", log: tplogDebug, type: .default, model.allVouchers().count)
+        os_log("loadModel: loaded %{public}d CRKs", log: tplogDebug, type: .default, model.allCustodianRecoveryKeys().count)
 
         // Note: the containerMO objects are misnamed; they are key data, and not SPKI.
         if let recoveryKeySigningKeyData = containerMO.recoveryKeySigningSPKI,
@@ -868,10 +1009,12 @@ class Container: NSObject {
             // If the ego peer has an RK set, tell the model to use that one
             // This is a hack to work around TPH databases which don't have the RK set on the container due to previously running old software
             if let egoStableInfo = containerMO.egoStableInfo(),
-                egoStableInfo.recoverySigningPublicKey.count > 0,
-                egoStableInfo.recoveryEncryptionPublicKey.count > 0 {
+               let recoverySigningPublicKey = egoStableInfo.recoverySigningPublicKey,
+               let recoveryEncryptionPublicKey = egoStableInfo.recoveryEncryptionPublicKey,
+                !recoverySigningPublicKey.isEmpty,
+                !recoveryEncryptionPublicKey.isEmpty {
                 os_log("loadModel: recovery key not set in model, but is set on ego peer", log: tplogDebug, type: .default)
-                model.setRecoveryKeys(TPRecoveryKeyPair(signingKeyData: egoStableInfo.recoverySigningPublicKey, encryptionKeyData: egoStableInfo.recoveryEncryptionPublicKey))
+                model.setRecoveryKeys(TPRecoveryKeyPair(signingKeyData: recoverySigningPublicKey, encryptionKeyData: recoveryEncryptionPublicKey))
             }
         }
 
@@ -887,7 +1030,7 @@ class Container: NSObject {
         }
 
         // Register built-in policies
-        builtInPolicyDocuments().forEach { policyDoc in
+        builtInPolicyDocuments.forEach { policyDoc in
             model.register(policyDoc)
         }
 
@@ -945,18 +1088,20 @@ class Container: NSObject {
     }
 
     static func peerdictionaryRepresentation(peer: TPPeer) -> [String: Any] {
-        var peerDict: [String: Any] = [
-            "permanentInfo": peer.permanentInfo.dictionaryRepresentation(),
-            "peerID": peer.peerID,
+        autoreleasepool {
+            var peerDict: [String: Any] = [
+                "permanentInfo": peer.permanentInfo.dictionaryRepresentation(),
+                "peerID": peer.peerID,
             ]
-        if let stableInfo = peer.stableInfo {
-            peerDict["stableInfo"] = stableInfo.dictionaryRepresentation()
-        }
-        if let dynamicInfo = peer.dynamicInfo {
-            peerDict["dynamicInfo"] = dynamicInfo.dictionaryRepresentation()
-        }
+            if let stableInfo = peer.stableInfo {
+                peerDict["stableInfo"] = stableInfo.dictionaryRepresentation()
+            }
+            if let dynamicInfo = peer.dynamicInfo {
+                peerDict["dynamicInfo"] = dynamicInfo.dictionaryRepresentation()
+            }
 
-        return peerDict
+            return peerDict
+        }
     }
 
     func onQueueDetermineLocalTrustStatus(reply: @escaping (TrustedPeersHelperEgoPeerStatus, Error?) -> Void) {
@@ -997,7 +1142,7 @@ class Container: NSObject {
                     return
                 }
 
-                //ensure egoPeerKeys are populated
+                // ensure egoPeerKeys are populated
                 guard egoPeerKeys != nil else {
                     os_log("trust status: No error but Ego Peer Keys are nil", log: tplogDebug, type: .default)
                     let egoStatus = TrustedPeersHelperEgoPeerStatus(egoPeerID: egoPeerID,
@@ -1132,19 +1277,34 @@ class Container: NSObject {
                             tphPeers.append(TrustedPeersHelperPeer(peerID: trustedPeerID,
                                                                    signingSPKI: peer.permanentInfo.signingPubKey.spki(),
                                                                    encryptionSPKI: peer.permanentInfo.encryptionPubKey.spki(),
+                                                                   secureElementIdentity: peer.stableInfo?.secureElementIdentity,
                                                                    viewList: peerViews ?? Set()))
+                        } else if let crk = self.model.custodianPeer(withID: trustedPeerID) {
+                            do {
+                                let crkViews = try? self.model.getViewsForCRK(crk,
+                                                                              donorPermanentInfo: egoPeer.permanentInfo,
+                                                                              donorStableInfo: egoPeer.stableInfo)
+
+                                tphPeers.append(try crk.asCustodianPeer(viewList: crkViews ?? Set()))
+                            } catch {
+                                os_log("Unable to add CRK as a trusted peer: %{public}@", log: tplogDebug, type: .default, (error as CVarArg?) ?? "no error")
+                            }
                         } else {
                             os_log("No peer for trusted ID %{public}@", log: tplogDebug, type: .default, trustedPeerID)
                         }
                     }
 
-                    if let stableInfo = egoPeer.stableInfo, stableInfo.recoveryEncryptionPublicKey.count > 0, stableInfo.recoverySigningPublicKey.count > 0 {
+                    if let stableInfo = egoPeer.stableInfo,
+                       let recoveryEncryptionPublicKey = stableInfo.recoveryEncryptionPublicKey,
+                       let recoverySigningPublicKey = stableInfo.recoverySigningPublicKey,
+                        !recoveryEncryptionPublicKey.isEmpty,
+                        !recoverySigningPublicKey.isEmpty {
                         let recoveryKeyPair = TPRecoveryKeyPair(stableInfo: stableInfo)
 
                         do {
                             // The RK should have all views. So, claim that it should have all views that this peer has.
                             let rkViews = try self.model.getViewsForPeer(egoPeer.permanentInfo,
-                                                                          stableInfo: egoPeer.stableInfo)
+                                                                         stableInfo: egoPeer.stableInfo)
 
                             tphPeers.append(try RecoveryKey.asPeer(recoveryKeys: recoveryKeyPair,
                                                                    viewList: rkViews))
@@ -1185,16 +1345,20 @@ class Container: NSObject {
                 d["self"] = [:]
             }
 
-            d["peers"] = self.model.allPeers().filter { $0.peerID != self.containerMO.egoPeerID }.map { peer in
-                Container.peerdictionaryRepresentation(peer: peer)
-            }
+            autoreleasepool {
+                d["peers"] = self.model.allPeers().filter { $0.peerID != self.containerMO.egoPeerID }.map { peer in
+                    Container.peerdictionaryRepresentation(peer: peer)
+                }
 
-            d["vouchers"] = self.model.allVouchers().map { $0.dictionaryRepresentation() }
+                d["vouchers"] = self.model.allVouchers().map { $0.dictionaryRepresentation() }
 
-            if let bottles = self.containerMO.bottles as? Set<BottleMO> {
-                d["bottles"] = bottles.map { Container.dictionaryRepresentation(bottle: $0) }
-            } else {
-                d["bottles"] = []
+                d["custodian_recovery_keys"] = self.model.allCustodianRecoveryKeys().map { $0.dictionaryRepresentation() }
+
+                if let bottles = self.containerMO.bottles as? Set<BottleMO> {
+                    d["bottles"] = bottles.map { Container.dictionaryRepresentation(bottle: $0) }
+                } else {
+                    d["bottles"] = []
+                }
             }
 
             let midList = self.onqueueCurrentMIDList()
@@ -1236,18 +1400,19 @@ class Container: NSObject {
             reply($0, $1)
         }
 
-        self.cuttlefish.validatePeers(request) { response, error in
-            guard let response = response, error == nil else {
+        self.cuttlefish.validatePeers(request) { response in
+            switch response {
+            case .success(let response):
+                var info: [AnyHashable: Any] = [:]
+                info["health"] = response.validatorsHealth as AnyObject
+                info["results"] = try? JSONSerialization.jsonObject(with: response.jsonUTF8Data())
+
+                reply(info, nil)
+            case .failure(let error):
                 os_log("validatePeers failed: %{public}@", log: tplogDebug, type: .default, (error as CVarArg?) ?? "no error")
-                reply(nil, error ?? ContainerError.cloudkitResponseMissing)
+                reply(nil, error)
                 return
             }
-
-            var info: [AnyHashable: Any]  = [:]
-            info["health"] = response.validatorsHealth as AnyObject
-            info["results"] = try? JSONSerialization.jsonObject(with: response.jsonUTF8Data())
-
-            reply(info, nil)
         }
     }
 
@@ -1264,27 +1429,29 @@ class Container: NSObject {
             let request = ResetRequest.with {
                 $0.resetReason = resetReason
             }
-            self.cuttlefish.reset(request) { response, error in
-                guard let response = response, error == nil else {
-                    os_log("reset failed: %{public}@", log: tplogDebug, type: .default, (error as CVarArg?) ?? "no error")
-                    reply(error ?? ContainerError.cloudkitResponseMissing)
-                    return
-                }
-
-                // Erase container's persisted state
-                self.moc.performAndWait {
-                    self.moc.delete(self.containerMO)
-                    self.containerMO = ContainerMO(context: self.moc)
-                    self.containerMO.name = self.name.asSingleString()
-                    self.model = Container.loadModel(from: self.containerMO)
-                    do {
-                        try self.onQueuePersist(changes: response.changes)
-                        os_log("reset succeded", log: tplogDebug, type: .default)
-                        reply(nil)
-                    } catch {
-                        os_log("reset persist failed: %{public}@", log: tplogDebug, type: .default, (error as CVarArg))
-                        reply(error)
+            self.cuttlefish.reset(request) { response in
+                switch response {
+                case .success(let response):
+                    // Erase container's persisted state
+                    self.moc.performAndWait {
+                        self.moc.delete(self.containerMO)
+                        self.containerMO = ContainerMO(context: self.moc)
+                        self.containerMO.name = self.name.asSingleString()
+                        self.model = Container.loadModel(from: self.containerMO)
+                        self.darwinNotifier.post(OTCliqueChanged)
+                        do {
+                            try self.onQueuePersist(changes: response.changes)
+                            os_log("reset succeded", log: tplogDebug, type: .default)
+                            reply(nil)
+                        } catch {
+                            os_log("reset persist failed: %{public}@", log: tplogDebug, type: .default, (error as CVarArg))
+                            reply(error)
+                        }
                     }
+                case .failure(let error):
+                    os_log("reset failed: %{public}@", log: tplogDebug, type: .default, (error as CVarArg?) ?? "no error")
+                    reply(error)
+                    return
                 }
             }
         }
@@ -1337,7 +1504,8 @@ class Container: NSObject {
                  osVersion: String,
                  policyVersion: TPPolicyVersion?,
                  policySecrets: [String: Data]?,
-                 syncUserControllableViews: TPPBPeerStableInfo_UserControllableViewStatus,
+                 syncUserControllableViews: TPPBPeerStableInfoUserControllableViewStatus,
+                 secureElementIdentity: TPPBSecureElementIdentity?,
                  signingPrivateKeyPersistentRef: Data?,
                  encryptionPrivateKeyPersistentRef: Data?,
                  reply: @escaping (String?, Data?, Data?, Data?, Data?, TPSyncingPolicy?, Error?) -> Void) {
@@ -1425,12 +1593,14 @@ class Container: NSObject {
                                                                   flexiblePolicyVersion: useFrozenPolicyVersion ? policyDoc.version : nil,
                                                                   policySecrets: policySecrets,
                                                                   syncUserControllableViews: syncUserViews,
+                                                                  secureElementIdentity: secureElementIdentity,
                                                                   deviceName: deviceName,
                                                                   serialNumber: serialNumber,
                                                                   osVersion: osVersion,
                                                                   signing: signingKeyPair,
                                                                   recoverySigningPubKey: nil,
-                                                                  recoveryEncryptionPubKey: nil)
+                                                                  recoveryEncryptionPubKey: nil,
+                                                                  isInheritedAccount: false)
                             self.containerMO.egoPeerID = permanentInfo.peerID
                             self.containerMO.egoPeerPermanentInfo = permanentInfo.data
                             self.containerMO.egoPeerPermanentInfoSig = permanentInfo.sig
@@ -1461,6 +1631,219 @@ class Container: NSObject {
             }
         }
     }
+    // policyVersion should only be non-nil for testing, to override prevailingPolicyVersion.versionNumber
+    func prepareInheritancePeer(epoch: UInt64,
+                                machineID: String,
+                                bottleSalt: String,
+                                bottleID: String,
+                                modelID: String,
+                                deviceName: String?,
+                                serialNumber: String?,
+                                osVersion: String,
+                                policyVersion: TPPolicyVersion?,
+                                policySecrets: [String: Data]?,
+                                syncUserControllableViews: TPPBPeerStableInfoUserControllableViewStatus,
+                                secureElementIdentity: TPPBSecureElementIdentity?,
+                                signingPrivateKeyPersistentRef: Data?,
+                                encryptionPrivateKeyPersistentRef: Data?,
+                                crk: TrustedPeersHelperCustodianRecoveryKey,
+                                reply: @escaping (String?, Data?, Data?, Data?, Data?, TPSyncingPolicy?, String?, [CKRecord]?, Error?) -> Void) {
+        self.semaphore.wait()
+        let reply: (String?, Data?, Data?, Data?, Data?, TPSyncingPolicy?, String?, [CKRecord]?, Error?) -> Void = {
+            os_log("prepareInheritancePeer complete peerID: %{public}@ %{public}@",
+                   log: tplogTrace, type: .info, ($0 ?? "NULL") as CVarArg, traceError($8))
+            self.semaphore.signal()
+            reply($0, $1, $2, $3, $4, $5, $6, $7, $8)
+        }
+
+        self.fetchAndPersistChangesIfNeeded { error in
+            guard error == nil else {
+                os_log("prepareInheritancePeer unable to fetch changes: %{public}@", log: tplogDebug, type: .default, (error as CVarArg?) ?? "")
+                reply(nil, nil, nil, nil, nil, nil, nil, nil, error)
+                return
+            }
+
+            guard let uuid = UUID(uuidString: crk.uuid) else {
+                os_log("Unable to parse uuid: %{public}@", log: tplogDebug, type: .default, crk.uuid)
+                reply(nil, nil, nil, nil, nil, nil, nil, nil, ContainerError.recoveryKeysNotEnrolled)
+                return
+            }
+
+            guard let tpcrk = self.model.findCustodianRecoveryKey(with: uuid) else {
+                os_log("Unable to find custodian recovery key %{public}@ on model", log: tplogDebug, type: .default, crk.uuid)
+                reply(nil, nil, nil, nil, nil, nil, nil, nil, ContainerError.recoveryKeysNotEnrolled)
+                return
+            }
+
+            guard self.model.isCustodianRecoveryKeyEnrolled(tpcrk.peerID) else {
+                os_log("Custodian Recovery Key is not enrolled", log: tplogDebug, type: .default)
+                reply(nil, nil, nil, nil, nil, nil, nil, nil, ContainerError.recoveryKeysNotEnrolled)
+                return
+            }
+
+            // create inheritance recovery key set
+            let permanentInfo: TPPeerPermanentInfo
+            let signingKeyPair: _SFECKeyPair
+            let encryptionKeyPair: _SFECKeyPair
+            let recoveryCRK: CustodianRecoveryKey
+            do {
+                recoveryCRK = try CustodianRecoveryKey(tpCustodian: tpcrk, recoveryKeyString: crk.recoveryString, recoverySalt: crk.salt)
+
+                signingKeyPair = recoveryCRK.peerKeys.signingKey
+                encryptionKeyPair = recoveryCRK.peerKeys.encryptionKey
+            } catch {
+                os_log("failed to create custodian recovery keys: %{public}@", log: tplogDebug, type: .default, error as CVarArg)
+                reply(nil, nil, nil, nil, nil, nil, nil, nil, ContainerError.failedToCreateRecoveryKey)
+                return
+            }
+
+            os_log("prepareInheritancePeer signingPubKey: %@", log: tplogDebug, type: .default, recoveryCRK.peerKeys.signingKey.publicKey.keyData.base64EncodedString())
+            os_log("prepareInheritancePeer encryptionPubKey: %@", log: tplogDebug, type: .default, recoveryCRK.peerKeys.encryptionKey.publicKey.keyData.base64EncodedString())
+
+            do {
+                permanentInfo = try TPPeerPermanentInfo(machineID: machineID,
+                                                        modelID: modelID,
+                                                        epoch: 1,
+                                                        signing: signingKeyPair,
+                                                        encryptionKeyPair: encryptionKeyPair,
+                                                        peerIDHashAlgo: TPHashAlgo.SHA256)
+            } catch {
+                reply(nil, nil, nil, nil, nil, nil, nil, nil, error)
+                return
+            }
+
+            let peerID = permanentInfo.peerID
+
+            saveEgoKeyPair(signingKeyPair, identifier: signingKeyIdentifier(peerID: peerID)) { success, error in
+                guard success else {
+                    os_log("Unable to save signing key: %{public}@", log: tplogDebug, type: .default, (error as CVarArg?) ?? "error missing")
+                    reply(nil, nil, nil, nil, nil, nil, nil, nil, error ?? ContainerError.failedToStoreIdentity)
+                    return
+                }
+                saveEgoKeyPair(encryptionKeyPair, identifier: encryptionKeyIdentifier(peerID: peerID)) { success, error in
+                    guard success else {
+                        os_log("Unable to save encryption key: %{public}@", log: tplogDebug, type: .default, (error as CVarArg?) ?? "error missing")
+                        reply(nil, nil, nil, nil, nil, nil, nil, nil, error ?? ContainerError.failedToStoreIdentity)
+                        return
+                    }
+
+                    let actualPolicyVersion = policyVersion ?? prevailingPolicyVersion
+                    self.fetchPolicyDocumentWithSemaphore(version: actualPolicyVersion) { policyDoc, policyFetchError in
+                        guard let policyDoc = policyDoc, policyFetchError == nil else {
+                            os_log("Unable to fetch policy: %{public}@", log: tplogDebug, type: .default, (policyFetchError as CVarArg?) ?? "error missing")
+                            reply(nil, nil, nil, nil, nil, nil, nil, nil, error ?? ContainerError.unknownInternalError)
+                            return
+                        }
+
+                        if policyVersion != nil {
+                            self.policyVersionOverride = policyDoc.version
+                        }
+
+                        // Save the prepared identity as containerMO.egoPeer*
+                        self.moc.performAndWait {
+                            do {
+                                // Note: the client chooses for syncUserControllableViews here.
+                                // if they pass in UNKNOWN, we'll fix it later at join time, following the peers we trust.
+                                let syncUserViews = syncUserControllableViews.sanitizeForPlatform(permanentInfo: permanentInfo)
+
+                                let useFrozenPolicyVersion = policyDoc.version.versionNumber >= frozenPolicyVersion.versionNumber
+
+                                let stableInfo = try TPPeerStableInfo(clock: 1,
+                                                                      frozenPolicyVersion: useFrozenPolicyVersion ? frozenPolicyVersion : policyDoc.version,
+                                                                      flexiblePolicyVersion: useFrozenPolicyVersion ? policyDoc.version : nil,
+                                                                      policySecrets: policySecrets,
+                                                                      syncUserControllableViews: syncUserViews,
+                                                                      secureElementIdentity: secureElementIdentity,
+                                                                      deviceName: deviceName,
+                                                                      serialNumber: serialNumber,
+                                                                      osVersion: osVersion,
+                                                                      signing: signingKeyPair,
+                                                                      recoverySigningPubKey: nil,
+                                                                      recoveryEncryptionPubKey: nil,
+                                                                      isInheritedAccount: true)
+                                self.containerMO.egoPeerID = permanentInfo.peerID
+                                self.containerMO.egoPeerPermanentInfo = permanentInfo.data
+                                self.containerMO.egoPeerPermanentInfoSig = permanentInfo.sig
+                                self.containerMO.egoPeerStableInfo = stableInfo.data
+                                self.containerMO.egoPeerStableInfoSig = stableInfo.sig
+
+                                try self.moc.save()
+
+                                guard let egoPeerID = self.containerMO.egoPeerID else {
+                                    reply(nil, nil, nil, nil, nil, nil, nil, nil, ContainerError.noPreparedIdentity)
+                                    return
+                                }
+                                guard let permanentInfo = self.containerMO.egoPeerPermanentInfo else {
+                                    os_log("permanentInfo does not exist", log: tplogDebug, type: .default)
+                                    reply(nil, nil, nil, nil, nil, nil, nil, nil, ContainerError.nonMember)
+                                    return
+                                }
+                                guard let permanentInfoSig = self.containerMO.egoPeerPermanentInfoSig else {
+                                    os_log("permanentInfoSig does not exist", log: tplogDebug, type: .default)
+                                    reply(nil, nil, nil, nil, nil, nil, nil, nil, ContainerError.nonMember)
+                                    return
+                                }
+
+                                guard let stableInfo = self.containerMO.egoPeerStableInfo else {
+                                    os_log("stableInfo does not exist", log: tplogDebug, type: .default)
+                                    reply(nil, nil, nil, nil, nil, nil, nil, nil, ContainerError.nonMember)
+                                    return
+                                }
+                                guard let stableInfoSig = self.containerMO.egoPeerStableInfoSig else {
+                                    os_log("stableInfoSig does not exist", log: tplogDebug, type: .default)
+                                    reply(nil, nil, nil, nil, nil, nil, nil, nil, ContainerError.nonMember)
+                                    return
+                                }
+
+                                let keyFactory = TPECPublicKeyFactory()
+                                guard let selfPermanentInfo = TPPeerPermanentInfo(peerID: egoPeerID, data: permanentInfo, sig: permanentInfoSig, keyFactory: keyFactory) else {
+                                    reply(nil, nil, nil, nil, nil, nil, nil, nil, ContainerError.invalidPermanentInfoOrSig)
+                                    return
+                                }
+                                guard let selfStableInfo = TPPeerStableInfo(data: stableInfo, sig: stableInfoSig) else {
+                                    os_log("Invalid stableinfo or signature", log: tplogDebug, type: .default)
+                                    reply(nil, nil, nil, nil, nil, nil, nil, nil, ContainerError.invalidStableInfoOrSig)
+                                    return
+                                }
+
+                                do {
+                                    let syncingPolicy = try self.syncingPolicyFor(modelID: selfPermanentInfo.modelID, stableInfo: selfStableInfo)
+
+                                    let request = FetchRecoverableTLKSharesRequest.with {
+                                        $0.peerID = recoveryCRK.peerID
+                                    }
+
+                                    self.cuttlefish.fetchRecoverableTlkshares(request) { response in
+                                        switch response {
+                                        case .failure(let error):
+                                            os_log("fetchRecoverableTlkshares failed: %{public}@", log: tplogDebug, type: .default, (error as CVarArg?) ?? "no error")
+                                            reply(nil, nil, nil, nil, nil, nil, nil, nil, error)
+                                            return
+
+                                        case .success(let response):
+                                            let shareCount = response.views.map { $0.tlkShares.count }.reduce(0, +)
+                                            os_log("fetchRecoverableTlkshares succeeded: found %{public}d views and %{public}d total TLKShares", log: tplogDebug, type: .default, response.views.count, shareCount)
+                                            let records = response.views.flatMap { $0.ckrecords() }
+
+                                            reply(selfPermanentInfo.peerID, selfPermanentInfo.data, selfPermanentInfo.sig, selfStableInfo.data, selfStableInfo.sig, syncingPolicy, recoveryCRK.peerID, records, nil)
+                                            return
+                                        }
+                                    }
+                                } catch {
+                                    os_log("failed to create syncing policy: %{public}@", log: tplogDebug, type: .default, error as CVarArg)
+                                    reply(nil, nil, nil, nil, nil, nil, nil, nil, error)
+                                }
+                            } catch {
+                                os_log("Unable to save inheritance identity: %{public}@", log: tplogDebug, type: .default, error as CVarArg)
+                                reply(nil, nil, nil, nil, nil, nil, nil, nil, error)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     func getEgoEpoch(reply: @escaping (UInt64, Error?) -> Void) {
         let reply: (UInt64, Error?) -> Void = {
             os_log("getEgoEpoch complete: %d %{public}@", log: tplogTrace, type: .info, $0, traceError($1))
@@ -1680,9 +2063,49 @@ class Container: NSObject {
                     $0.viewKeys = viewKeys
                     $0.tlkShares = allTLKShares
                 }
-                self.cuttlefish.establish(request) { response, error in
+                self.cuttlefish.establish(request) { response in
                     os_log("Establish: viewKeys: %{public}@", String(describing: viewKeys))
-                    guard let response = response, error == nil else {
+
+                    switch response {
+                    case .success(let response):
+                        do {
+                            os_log("Establish returned changes: %{public}@", log: tplogDebug, type: .default, try response.changes.jsonString())
+                        } catch {
+                            os_log("Establish returned changes, but they can't be serialized", log: tplogDebug, type: .default)
+                        }
+
+                        let keyHierarchyRecords = response.zoneKeyHierarchyRecords.compactMap { CKRecord($0) }
+
+                        do {
+                            let syncingPolicy = try self.syncingPolicyFor(modelID: selfPermanentInfo.modelID,
+                                                                          stableInfo: newPeerStableInfo)
+
+                            try self.persist(changes: response.changes)
+
+                            guard response.changes.more == false else {
+                                os_log("establish succeeded, but more changes need fetching...", log: tplogDebug, type: .default)
+
+                                self.fetchAndPersistChanges { fetchError in
+                                    guard fetchError == nil else {
+                                        // This is an odd error condition: we might be able to fetch again and be in a good state...
+                                        os_log("fetch-after-establish failed: %{public}@", log: tplogDebug, type: .default, (fetchError as CVarArg?) ?? "no error")
+                                        reply(nil, keyHierarchyRecords, nil, fetchError)
+                                        return
+                                    }
+
+                                    os_log("fetch-after-establish succeeded", log: tplogDebug, type: .default)
+                                    reply(egoPeerID, keyHierarchyRecords, syncingPolicy, nil)
+                                }
+                                return
+                            }
+
+                            os_log("establish succeeded", log: tplogDebug, type: .default)
+                            reply(egoPeerID, keyHierarchyRecords, syncingPolicy, nil)
+                        } catch {
+                            os_log("establish handling failed: %{public}@", log: tplogDebug, type: .default, (error as CVarArg))
+                            reply(nil, keyHierarchyRecords, nil, error)
+                        }
+                    case .failure(let error):
                         switch error {
                         case CuttlefishErrorMatcher(code: CuttlefishErrorCode.establishFailed):
                             os_log("establish returned failed, trying fetch", log: tplogDebug, type: .default)
@@ -1690,47 +2113,9 @@ class Container: NSObject {
                             return
                         default:
                             os_log("establish failed: %{public}@", log: tplogDebug, type: .default, (error as CVarArg?) ?? "no error")
-                            reply(nil, [], nil, error ?? ContainerError.cloudkitResponseMissing)
+                            reply(nil, [], nil, error)
                             return
                         }
-                    }
-
-                    do {
-                        os_log("Establish returned changes: %{public}@", log: tplogDebug, type: .default, try response.changes.jsonString())
-                    } catch {
-                        os_log("Establish returned changes, but they can't be serialized", log: tplogDebug, type: .default)
-                    }
-
-                    let keyHierarchyRecords = response.zoneKeyHierarchyRecords.compactMap { CKRecord($0) }
-
-                    do {
-                        let syncingPolicy = try self.syncingPolicyFor(modelID: selfPermanentInfo.modelID,
-                                                                      stableInfo: newPeerStableInfo)
-
-                        try self.persist(changes: response.changes)
-
-                        guard response.changes.more == false else {
-                            os_log("establish succeeded, but more changes need fetching...", log: tplogDebug, type: .default)
-
-                            self.fetchAndPersistChanges { fetchError in
-                                guard fetchError == nil else {
-                                    // This is an odd error condition: we might be able to fetch again and be in a good state...
-                                    os_log("fetch-after-establish failed: %{public}@", log: tplogDebug, type: .default, (fetchError as CVarArg?) ?? "no error")
-                                    reply(nil, keyHierarchyRecords, nil, fetchError)
-                                    return
-                                }
-
-                                os_log("fetch-after-establish succeeded", log: tplogDebug, type: .default)
-                                reply(egoPeerID, keyHierarchyRecords, syncingPolicy, nil)
-                            }
-                            return
-                        }
-
-                        os_log("establish succeeded", log: tplogDebug, type: .default)
-                        reply(egoPeerID, keyHierarchyRecords, syncingPolicy, nil)
-                    } catch {
-                        os_log("establish handling failed: %{public}@", log: tplogDebug, type: .default, (error as CVarArg))
-                        reply(nil, keyHierarchyRecords, nil, error)
                     }
                 }
             }
@@ -1822,12 +2207,14 @@ class Container: NSObject {
                                                                      flexiblePolicyVersion: policyDoc.version,
                                                                      policySecrets: stableInfo.policySecrets,
                                                                      syncUserControllableViews: stableInfo.syncUserControllableViews,
+                                                                     secureElementIdentity: stableInfo.secureElementIdentity,
                                                                      deviceName: stableInfo.deviceName,
                                                                      serialNumber: stableInfo.serialNumber,
                                                                      osVersion: stableInfo.osVersion,
                                                                      signing: signingKeyPair,
                                                                      recoverySigningPubKey: signingPublicKey,
-                                                                     recoveryEncryptionPubKey: encryptionPublicKey)
+                                                                     recoveryEncryptionPubKey: encryptionPublicKey,
+                                                                     isInheritedAccount: stableInfo.isInheritedAccount)
                         let signedStableInfo = SignedPeerStableInfo(updatedStableInfo)
 
                         let request = SetRecoveryKeyRequest.with {
@@ -1839,27 +2226,28 @@ class Container: NSObject {
                             $0.changeToken = self.containerMO.changeToken ?? ""
                         }
 
-                        self.cuttlefish.setRecoveryKey(request) { response, error in
-                            guard let response = response, error == nil else {
-                                os_log("setRecoveryKey failed: %{public}@", log: tplogDebug, type: .default, (error as CVarArg?) ?? "no error")
-                                reply(nil, error ?? ContainerError.cloudkitResponseMissing)
-                                return
-                            }
+                        self.cuttlefish.setRecoveryKey(request) { response in
+                            switch response {
+                            case .success(let response):
+                                self.moc.performAndWait {
+                                    do {
+                                        self.containerMO.egoPeerStableInfo = updatedStableInfo.data
+                                        self.containerMO.egoPeerStableInfoSig = updatedStableInfo.sig
+                                        try self.onQueuePersist(changes: response.changes)
 
-                            self.moc.performAndWait {
-                                do {
-                                    self.containerMO.egoPeerStableInfo = updatedStableInfo.data
-                                    self.containerMO.egoPeerStableInfoSig = updatedStableInfo.sig
-                                    try self.onQueuePersist(changes: response.changes)
+                                        os_log("setRecoveryKey succeeded", log: tplogDebug, type: .default)
 
-                                    os_log("setRecoveryKey succeeded", log: tplogDebug, type: .default)
-
-                                    let keyHierarchyRecords = response.zoneKeyHierarchyRecords.compactMap { CKRecord($0) }
-                                    reply(keyHierarchyRecords, nil)
-                                } catch {
-                                    os_log("setRecoveryKey handling failed: %{public}@", log: tplogDebug, type: .default, (error as CVarArg))
-                                    reply(nil, error)
+                                        let keyHierarchyRecords = response.zoneKeyHierarchyRecords.compactMap { CKRecord($0) }
+                                        reply(keyHierarchyRecords, nil)
+                                    } catch {
+                                        os_log("setRecoveryKey handling failed: %{public}@", log: tplogDebug, type: .default, (error as CVarArg))
+                                        reply(nil, error)
+                                    }
                                 }
+                            case .failure(let error):
+                                os_log("setRecoveryKey failed: %{public}@", log: tplogDebug, type: .default, (error as CVarArg?) ?? "no error")
+                                reply(nil, error)
+                                return
                             }
                         }
                     } catch {
@@ -1870,13 +2258,191 @@ class Container: NSObject {
         }
     }
 
+    func createCustodianRecoveryKey(recoveryKey: String,
+                                    salt: String,
+                                    ckksKeys: [CKKSKeychainBackedKeySet],
+                                    uuid: UUID,
+                                    kind: TPPBCustodianRecoveryKey_Kind,
+                                    reply: @escaping ([CKRecord]?, TrustedPeersHelperCustodianRecoveryKey?, Error?) -> Void) {
+        self.semaphore.wait()
+        let reply: ([CKRecord]?, TrustedPeersHelperCustodianRecoveryKey?, Error?) -> Void = {
+            os_log("createCustodianRecoveryKey complete: %{public}@", log: tplogTrace, type: .info, traceError($2))
+            self.semaphore.signal()
+            reply($0, $1, $2)
+        }
+
+        os_log("beginning a createCustodianRecoveryKey", log: tplogDebug, type: .default)
+
+        self.moc.performAndWait {
+            guard let egoPeerID = self.containerMO.egoPeerID else {
+                os_log("no prepared identity, cannot create custodian recovery key", log: tplogDebug, type: .default)
+                reply(nil, nil, ContainerError.noPreparedIdentity)
+                return
+            }
+
+            let crk: CustodianRecoveryKey
+            do {
+                crk = try CustodianRecoveryKey(uuid: uuid, recoveryKeyString: recoveryKey, recoverySalt: salt, kind: kind)
+            } catch {
+                os_log("failed to create custodian recovery keys: %{public}@", log: tplogDebug, type: .default, error as CVarArg)
+                reply(nil, nil, ContainerError.failedToCreateRecoveryKey)
+                return
+            }
+
+            os_log("createCustodianRecoveryKey signingPubKey: %@", log: tplogDebug, type: .default, crk.tpCustodian.signingPublicKey.spki().base64EncodedString())
+            os_log("createCustodianRecoveryKey encryptionPubKey: %@", log: tplogDebug, type: .default, crk.tpCustodian.encryptionPublicKey.spki().base64EncodedString())
+
+            guard let permInfoData = self.containerMO.egoPeerPermanentInfo else {
+                os_log("permanentInfo does not exist", log: tplogDebug, type: .default)
+                reply(nil, nil, ContainerError.nonMember)
+                return
+            }
+            guard let permInfoSig = self.containerMO.egoPeerPermanentInfoSig else {
+                os_log("permInfoSig does not exist", log: tplogDebug, type: .default)
+                reply(nil, nil, ContainerError.nonMember)
+                return
+            }
+            let keyFactory = TPECPublicKeyFactory()
+            guard let permanentInfo = TPPeerPermanentInfo(peerID: egoPeerID, data: permInfoData, sig: permInfoSig, keyFactory: keyFactory) else {
+                os_log("cannot create TPPeerPermanentInfo", log: tplogDebug, type: .default)
+                reply(nil, nil, ContainerError.invalidPermanentInfoOrSig)
+                return
+            }
+            loadEgoKeyPair(identifier: signingKeyIdentifier(peerID: egoPeerID)) { signingKeyPair, error in
+                guard let signingKeyPair = signingKeyPair else {
+                    os_log("handle: no signing key pair: %{public}@", log: tplogDebug, type: .default, (error as CVarArg?) ?? "no error")
+                    reply(nil, nil, error)
+                    return
+                }
+                self.moc.performAndWait {
+                    do {
+                        let tlkShares = try makeTLKShares(ckksTLKs: ckksKeys.map { $0.tlk },
+                                                          asPeer: crk.peerKeys,
+                                                          toPeer: crk.peerKeys,
+                                                          epoch: Int(permanentInfo.epoch))
+
+                        let signedCrk = SignedCustodianRecoveryKey(crk)
+                        let crkPeerID = crk.tpCustodian.peerID
+
+                        let dynamicInfo: TPPeerDynamicInfo
+                        do {
+                            dynamicInfo = try self.model.calculateDynamicInfoForPeer(withID: egoPeerID,
+                                                                                     addingPeerIDs: [crkPeerID],
+                                                                                     removingPeerIDs: nil,
+                                                                                     preapprovedKeys: nil,
+                                                                                     signing: signingKeyPair,
+                                                                                     currentMachineIDs: self.onqueueCurrentMIDList())
+                        } catch {
+                            os_log("Error preparing dynamic info: %{public}@", log: tplogDebug, type: .default, (error as CVarArg?) ?? "nil")
+                            reply(nil, nil, error)
+                            return
+                        }
+
+                        let signedDynamicInfo = SignedPeerDynamicInfo(dynamicInfo)
+
+                        let request = AddCustodianRecoveryKeyRequest.with {
+                            $0.peerID = egoPeerID
+                            $0.peer = Peer.with {
+                                $0.peerID = crkPeerID
+                                $0.custodianRecoveryKeyAndSig = signedCrk
+                            }
+                            $0.tlkShares = tlkShares
+                            $0.dynamicInfoAndSig = signedDynamicInfo
+                            $0.changeToken = self.containerMO.changeToken ?? ""
+                        }
+
+                        self.cuttlefish.addCustodianRecoveryKey(request) { response in
+                            switch response {
+                            case .success(let response):
+                                self.moc.performAndWait {
+                                    do {
+                                        try self.onQueuePersist(changes: response.changes)
+
+                                        os_log("CreateCustodianRecoveryKey succeeded", log: tplogDebug, type: .default)
+
+                                        let keyHierarchyRecords = response.zoneKeyHierarchyRecords.compactMap { CKRecord($0) }
+                                        let replyCrk = TrustedPeersHelperCustodianRecoveryKey(uuid: uuid.uuidString,
+                                                                                              encryptionKey: crk.tpCustodian.encryptionPublicKey.spki(),
+                                                                                              signingKey: crk.tpCustodian.signingPublicKey.spki(),
+                                                                                              recoveryString: recoveryKey,
+                                                                                              salt: salt,
+                                                                                              kind: kind)
+                                        reply(keyHierarchyRecords, replyCrk, nil)
+                                        return
+                                    } catch {
+                                        os_log("CreateCustodianRecoveryKey handling failed: %{public}@", log: tplogDebug, type: .default, (error as CVarArg))
+                                        reply(nil, nil, error)
+                                        return
+                                    }
+                                }
+                            case .failure(let error):
+                                os_log("CreateCustodianRecoveryKey failed: %{public}@", log: tplogDebug, type: .default, (error as CVarArg?) ?? "no error")
+                                reply(nil, nil, error)
+                                return
+                            }
+                        }
+                    } catch {
+                        reply(nil, nil, error)
+                    }
+                }
+            }
+        }
+    }
+
+    func removeCustodianRecoveryKey(uuid: UUID,
+                                    reply: @escaping (Error?) -> Void) {
+        self.semaphore.wait()
+        let reply: (Error?) -> Void = {
+            os_log("removeCustodianRecoveryKey complete: %{public}@",
+                   log: tplogTrace, type: .info, traceError($0))
+            self.semaphore.signal()
+            reply($0)
+        }
+
+        self.moc.performAndWait {
+            guard let egoPeerID = self.containerMO.egoPeerID else {
+                os_log("No dynamic info for self?", log: tplogDebug, type: .default)
+                reply(ContainerError.noPreparedIdentity)
+                return
+            }
+
+            guard let tpcrk = self.model.findCustodianRecoveryKey(with: uuid) else {
+                os_log("Unable to find custodian recovery key %{public}@ on model", log: tplogDebug, type: .default, uuid as CVarArg)
+                reply(ContainerError.recoveryKeysNotEnrolled)
+                return
+            }
+
+            let crkPeerID = tpcrk.peerID
+
+            // This would be a strange case (where we confuse the ego peerID with the CRK peerID), but it's clearly an error.
+            guard crkPeerID != egoPeerID else {
+                os_log("Self-distrust via peerID not allowed", log: tplogDebug, type: .default)
+                reply(ContainerError.invalidPeerID)
+                return
+            }
+
+            self.onqueueDistrust(peerIDs: [crkPeerID]) { error in
+                if error == nil {
+                    self.moc.performAndWait {
+                        self.model.removeCustodianRecoveryKey(crkPeerID)
+                        let crkMO = CustodianRecoveryKeyMO(context: self.moc)
+                        crkMO.crkInfo = tpcrk.data
+                        crkMO.crkInfoSig = tpcrk.sig
+                        self.containerMO.removeFromCustodianRecoveryKeys([crkMO] as NSSet)
+                    }
+                }
+                reply(error)
+            }
+        }
+    }
+
     func vouchWithBottle(bottleID: String,
                          entropy: Data,
                          bottleSalt: String,
                          tlkShares: [CKKSTLKShare],
-                         reply: @escaping (Data?, Data?, Int64, Int64, Error?) -> Void) {
+                         reply: @escaping (Data?, Data?, [CKKSTLKShare]?, TrustedPeersHelperTLKRecoveryResult?, Error?) -> Void) {
         self.semaphore.wait()
-        let reply: (Data?, Data?, Int64, Int64, Error?) -> Void = {
+        let reply: (Data?, Data?, [CKKSTLKShare]?, TrustedPeersHelperTLKRecoveryResult?, Error?) -> Void = {
             os_log("vouchWithBottle complete: %{public}@",
                    log: tplogTrace, type: .info, traceError($4))
             self.semaphore.signal()
@@ -1892,49 +2458,49 @@ class Container: NSObject {
                 (bmo, _, _) = try self.onMOCQueuePerformPreflight(bottleID: bottleID)
             } catch {
                 os_log("vouchWithBottle failed preflight: %{public}@", log: tplogDebug, type: .default, (error as CVarArg?) ?? "")
-                reply(nil, nil, 0, 0, error)
+                reply(nil, nil, nil, nil, error)
                 return
             }
 
             guard let bottledContents = bmo.contents else {
-                reply(nil, nil, 0, 0, ContainerError.bottleDoesNotContainContents)
+                reply(nil, nil, nil, nil, ContainerError.bottleDoesNotContainContents)
                 return
             }
             guard let signatureUsingEscrowKey = bmo.signatureUsingEscrowKey else {
-                reply(nil, nil, 0, 0, ContainerError.bottleDoesNotContainEscrowKeySignature)
+                reply(nil, nil, nil, nil, ContainerError.bottleDoesNotContainEscrowKeySignature)
                 return
             }
 
             guard let signatureUsingPeerKey = bmo.signatureUsingPeerKey else {
-                reply(nil, nil, 0, 0, ContainerError.bottleDoesNotContainerPeerKeySignature)
+                reply(nil, nil, nil, nil, ContainerError.bottleDoesNotContainerPeerKeySignature)
                 return
             }
             guard let sponsorPeerID = bmo.peerID else {
-                reply(nil, nil, 0, 0, ContainerError.bottleDoesNotContainPeerID)
+                reply(nil, nil, nil, nil, ContainerError.bottleDoesNotContainPeerID)
                 return
             }
 
-            //verify bottle signature using peer
+            // verify bottle signature using peer
             do {
                 guard let sponsorPeer = self.model.peer(withID: sponsorPeerID) else {
                     os_log("vouchWithBottle: Unable to find peer that created the bottle", log: tplogDebug, type: .default)
-                    reply(nil, nil, 0, 0, ContainerError.bottleCreatingPeerNotFound)
+                    reply(nil, nil, nil, nil, ContainerError.bottleCreatingPeerNotFound)
                     return
                 }
                 guard let signingKey: _SFECPublicKey = sponsorPeer.permanentInfo.signingPubKey as? _SFECPublicKey else {
                     os_log("vouchWithBottle: Unable to create a sponsor public key", log: tplogDebug, type: .default)
-                    reply(nil, nil, 0, 0, ContainerError.signatureVerificationFailed)
+                    reply(nil, nil, nil, nil, ContainerError.signatureVerificationFailed)
                     return
                 }
 
                 _ = try BottledPeer.verifyBottleSignature(data: bottledContents, signature: signatureUsingPeerKey, pubKey: signingKey)
             } catch {
                 os_log("vouchWithBottle: Verification of bottled signature failed: %{public}@", log: tplogDebug, type: .default, error as CVarArg)
-                reply(nil, nil, 0, 0, ContainerError.failedToCreateBottledPeer)
+                reply(nil, nil, nil, nil, ContainerError.failedToCreateBottledPeer)
                 return
             }
 
-            //create bottled peer
+            // create bottled peer
             let bottledPeer: BottledPeer
             do {
                 bottledPeer = try BottledPeer(contents: bottledContents,
@@ -1953,7 +2519,7 @@ class Container: NSObject {
                                                   signatureUsingPeerKey: signatureUsingPeerKey)
                 } catch {
                     os_log("Creation of Bottled Peer failed: %{public}@", log: tplogDebug, type: .default, error as CVarArg)
-                    reply(nil, nil, 0, 0, ContainerError.failedToCreateBottledPeer)
+                    reply(nil, nil, nil, nil, ContainerError.failedToCreateBottledPeer)
                     return
                 }
             }
@@ -1961,59 +2527,69 @@ class Container: NSObject {
             os_log("Have a bottle for peer %{public}@", log: tplogDebug, type: .default, bottledPeer.peerID)
 
             // Extract any TLKs we have been given
-            let (uniqueTLKsRecovered, totalSharesRecovered) = extract(tlkShares: tlkShares, peer: bottledPeer.peerKeys, model: self.model)
+            let (recoveredTLKs, recoveryResult) = extract(tlkShares: tlkShares, peer: bottledPeer.peerKeys, model: self.model)
 
             self.moc.performAndWait {
                 // I must have an ego identity in order to vouch using bottle
                 guard let egoPeerID = self.containerMO.egoPeerID else {
                     os_log("As a nonmember, can't vouch for someone else", log: tplogDebug, type: .default)
-                    reply(nil, nil, 0, 0, ContainerError.nonMember)
+                    reply(nil, nil, nil, nil, ContainerError.nonMember)
                     return
                 }
                 guard let permanentInfo = self.containerMO.egoPeerPermanentInfo else {
                     os_log("permanentInfo does not exist", log: tplogDebug, type: .default)
-                    reply(nil, nil, 0, 0, ContainerError.nonMember)
+                    reply(nil, nil, nil, nil, ContainerError.nonMember)
                     return
                 }
                 guard let permanentInfoSig = self.containerMO.egoPeerPermanentInfoSig else {
                     os_log("permanentInfoSig does not exist", log: tplogDebug, type: .default)
-                    reply(nil, nil, 0, 0, ContainerError.nonMember)
+                    reply(nil, nil, nil, nil, ContainerError.nonMember)
                     return
                 }
                 guard let stableInfo = self.containerMO.egoPeerStableInfo else {
                     os_log("stableInfo does not exist", log: tplogDebug, type: .default)
-                    reply(nil, nil, 0, 0, ContainerError.nonMember)
+                    reply(nil, nil, nil, nil, ContainerError.nonMember)
                     return
                 }
                 guard let stableInfoSig = self.containerMO.egoPeerStableInfoSig else {
                     os_log("stableInfoSig does not exist", log: tplogDebug, type: .default)
-                    reply(nil, nil, 0, 0, ContainerError.nonMember)
+                    reply(nil, nil, nil, nil, ContainerError.nonMember)
                     return
                 }
                 let keyFactory = TPECPublicKeyFactory()
                 guard let beneficiaryPermanentInfo = TPPeerPermanentInfo(peerID: egoPeerID, data: permanentInfo, sig: permanentInfoSig, keyFactory: keyFactory) else {
                     os_log("Invalid permenent info or signature; can't vouch for them", log: tplogDebug, type: .default)
-                    reply(nil, nil, 0, 0, ContainerError.invalidPermanentInfoOrSig)
+                    reply(nil, nil, nil, nil, ContainerError.invalidPermanentInfoOrSig)
                     return
                 }
                 guard let beneficiaryStableInfo = TPPeerStableInfo(data: stableInfo, sig: stableInfoSig) else {
                     os_log("Invalid stableinfo or signature; van't vouch for them", log: tplogDebug, type: .default)
-                    reply(nil, nil, 0, 0, ContainerError.invalidStableInfoOrSig)
+                    reply(nil, nil, nil, nil, ContainerError.invalidStableInfoOrSig)
                     return
                 }
+                loadEgoKeys(peerID: egoPeerID) { egoPeerKeys, error in
+                    guard let egoPeerKeys = egoPeerKeys else {
+                        os_log("Error loading ego peer keys: %{public}@", log: tplogDebug, type: .default, (error as CVarArg?) ?? "no error")
+                        reply(nil, nil, nil, nil, error)
+                        return
+                    }
 
-                do {
-                    let voucher = try self.model.createVoucher(forCandidate: beneficiaryPermanentInfo,
-                                                               stableInfo: beneficiaryStableInfo,
-                                                               withSponsorID: sponsorPeerID,
-                                                               reason: TPVoucherReason.restore,
-                                                               signing: bottledPeer.peerKeys.signingKey)
-                    reply(voucher.data, voucher.sig, uniqueTLKsRecovered, totalSharesRecovered, nil)
-                    return
-                } catch {
-                    os_log("Error creating voucher with bottle: %{public}@", log: tplogDebug, type: .default, error as CVarArg)
-                    reply(nil, nil, 0, 0, error)
-                    return
+                    do {
+                        let voucher = try self.model.createVoucher(forCandidate: beneficiaryPermanentInfo,
+                                                                   stableInfo: beneficiaryStableInfo,
+                                                                   withSponsorID: sponsorPeerID,
+                                                                   reason: TPVoucherReason.restore,
+                                                                   signing: bottledPeer.peerKeys.signingKey)
+
+                        let newSelfTLKShares = try makeCKKSTLKShares(ckksTLKs: recoveredTLKs, asPeer: egoPeerKeys, toPeer: egoPeerKeys, epoch: Int(beneficiaryPermanentInfo.epoch))
+
+                        reply(voucher.data, voucher.sig, newSelfTLKShares, recoveryResult, nil)
+                        return
+                    } catch {
+                        os_log("Error creating voucher with bottle: %{public}@", log: tplogDebug, type: .default, error as CVarArg)
+                        reply(nil, nil, nil, nil, error)
+                        return
+                    }
                 }
             }
         }
@@ -2022,19 +2598,133 @@ class Container: NSObject {
     func vouchWithRecoveryKey(recoveryKey: String,
                               salt: String,
                               tlkShares: [CKKSTLKShare],
-                              reply: @escaping (Data?, Data?, Error?) -> Void) {
+                              reply: @escaping (Data?, Data?, [CKKSTLKShare]?, TrustedPeersHelperTLKRecoveryResult?, Error?) -> Void) {
         self.semaphore.wait()
-        let reply: (Data?, Data?, Error?) -> Void = {
+        let reply: (Data?, Data?, [CKKSTLKShare]?, TrustedPeersHelperTLKRecoveryResult?, Error?) -> Void = {
             os_log("vouchWithRecoveryKey complete: %{public}@",
-                   log: tplogTrace, type: .info, traceError($2))
+                   log: tplogTrace, type: .info, traceError($4))
             self.semaphore.signal()
-            reply($0, $1, $2)
+            reply($0, $1, $2, $3, $4)
         }
 
         self.moc.performAndWait {
             os_log("beginning a vouchWithRecoveryKey", log: tplogDebug, type: .default)
 
             // I must have an ego identity in order to vouch using bottle
+            guard let egoPeerID = self.containerMO.egoPeerID else {
+                os_log("As a nonmember, can't vouch for someone else", log: tplogDebug, type: .default)
+                reply(nil, nil, nil, nil, ContainerError.nonMember)
+                return
+            }
+            guard let permanentInfo = self.containerMO.egoPeerPermanentInfo else {
+                os_log("permanentInfo does not exist", log: tplogDebug, type: .default)
+                reply(nil, nil, nil, nil, ContainerError.nonMember)
+                return
+            }
+            guard let permanentInfoSig = self.containerMO.egoPeerPermanentInfoSig else {
+                os_log("permanentInfoSig does not exist", log: tplogDebug, type: .default)
+                reply(nil, nil, nil, nil, ContainerError.nonMember)
+                return
+            }
+            guard let stableInfo = self.containerMO.egoPeerStableInfo else {
+                os_log("stableInfo does not exist", log: tplogDebug, type: .default)
+                reply(nil, nil, nil, nil, ContainerError.nonMember)
+                return
+            }
+            guard let stableInfoSig = self.containerMO.egoPeerStableInfoSig else {
+                os_log("stableInfoSig does not exist", log: tplogDebug, type: .default)
+                reply(nil, nil, nil, nil, ContainerError.nonMember)
+                return
+            }
+            let keyFactory = TPECPublicKeyFactory()
+            guard let beneficiaryPermanentInfo = TPPeerPermanentInfo(peerID: egoPeerID, data: permanentInfo, sig: permanentInfoSig, keyFactory: keyFactory) else {
+                os_log("Invalid permenent info or signature; can't vouch for them", log: tplogDebug, type: .default)
+                reply(nil, nil, nil, nil, ContainerError.invalidPermanentInfoOrSig)
+                return
+            }
+            guard let beneficiaryStableInfo = TPPeerStableInfo(data: stableInfo, sig: stableInfoSig) else {
+                os_log("Invalid stableinfo or signature; van't vouch for them", log: tplogDebug, type: .default)
+                reply(nil, nil, nil, nil, ContainerError.invalidStableInfoOrSig)
+                return
+            }
+
+            loadEgoKeys(peerID: egoPeerID) { egoPeerKeys, error in
+                guard let egoPeerKeys = egoPeerKeys else {
+                    os_log("Don't have my own peer keys; can't establish: %{public}@", log: tplogDebug, type: .default, (error as CVarArg?) ?? "error missing")
+                    reply(nil, nil, nil, nil, error)
+                    return
+                }
+
+                // create recovery key set
+                var recoveryKeys: RecoveryKey
+                do {
+                    recoveryKeys = try RecoveryKey(recoveryKeyString: recoveryKey, recoverySalt: salt)
+                } catch {
+                    os_log("failed to create recovery keys: %{public}@", log: tplogDebug, type: .default, error as CVarArg)
+                    reply(nil, nil, nil, nil, ContainerError.failedToCreateRecoveryKey)
+                    return
+                }
+
+                let signingPublicKey: Data = recoveryKeys.peerKeys.signingKey.publicKey.keyData
+                let encryptionPublicKey: Data = recoveryKeys.peerKeys.encryptionKey.publicKey.keyData
+
+                os_log("vouchWithRecoveryKey signingPubKey: %@", log: tplogDebug, type: .default, signingPublicKey.base64EncodedString())
+                os_log("vouchWithRecoveryKey encryptionPubKey: %@", log: tplogDebug, type: .default, encryptionPublicKey.base64EncodedString())
+
+                guard self.model.isRecoveryKeyEnrolled() else {
+                    os_log("Recovery Key is not enrolled", log: tplogDebug, type: .default)
+                    reply(nil, nil, nil, nil, ContainerError.recoveryKeysNotEnrolled)
+                    return
+                }
+
+                // find matching peer containing recovery keys
+                guard let sponsorPeerID = self.model.peerIDThatTrustsRecoveryKeys(TPRecoveryKeyPair(signingKeyData: signingPublicKey,
+                                                                                                    encryptionKeyData: encryptionPublicKey),
+                                                                                  canIntroducePeer: beneficiaryPermanentInfo,
+                                                                                  stableInfo: beneficiaryStableInfo) else {
+                    os_log("Untrusted recovery key set", log: tplogDebug, type: .default)
+                    reply(nil, nil, nil, nil, ContainerError.untrustedRecoveryKeys)
+                    return
+                }
+
+                // We're going to end up trusting every peer that the sponsor peer trusts.
+                // We might as well trust all TLKShares from those peers at this point.
+                let (recoveredTLKs, tlkRecoverResult) = extract(tlkShares: tlkShares, peer: recoveryKeys.peerKeys, sponsorPeerID: sponsorPeerID, model: self.model)
+
+                do {
+                    let voucher = try self.model.createVoucher(forCandidate: beneficiaryPermanentInfo,
+                                                               stableInfo: beneficiaryStableInfo,
+                                                               withSponsorID: sponsorPeerID,
+                                                               reason: TPVoucherReason.recoveryKey,
+                                                               signing: recoveryKeys.peerKeys.signingKey)
+
+                    let newSelfTLKShares = try makeCKKSTLKShares(ckksTLKs: recoveredTLKs, asPeer: egoPeerKeys, toPeer: egoPeerKeys, epoch: Int(beneficiaryPermanentInfo.epoch))
+                    reply(voucher.data, voucher.sig, newSelfTLKShares, tlkRecoverResult, nil)
+                    return
+                } catch {
+                    os_log("Error creating voucher using recovery key set: %{public}@", log: tplogDebug, type: .default, error as CVarArg)
+                    reply(nil, nil, nil, nil, error)
+                    return
+                }
+            }
+        }
+    }
+
+    func recoverTLKSharesForInheritor(crk: TrustedPeersHelperCustodianRecoveryKey,
+                                      tlkShares: [CKKSTLKShare],
+                                      reply: @escaping ([CKKSTLKShare]?, TrustedPeersHelperTLKRecoveryResult?, Error?) -> Void) {
+        self.semaphore.wait()
+        let reply: ([CKKSTLKShare]?, TrustedPeersHelperTLKRecoveryResult?, Error?) -> Void = {
+            os_log("recoverTLKSharesForInheritor complete: %{public}@",
+                   log: tplogTrace, type: .info, traceError($2))
+            self.semaphore.signal()
+            reply($0, $1, $2)
+        }
+
+        self.moc.performAndWait {
+            os_log("beginning a recoverTLKSharesForInheritor", log: tplogDebug, type: .default)
+
+                // I must have an ego identity in order to vouch using bottle
             guard let egoPeerID = self.containerMO.egoPeerID else {
                 os_log("As a nonmember, can't vouch for someone else", log: tplogDebug, type: .default)
                 reply(nil, nil, ContainerError.nonMember)
@@ -2050,73 +2740,194 @@ class Container: NSObject {
                 reply(nil, nil, ContainerError.nonMember)
                 return
             }
-            guard let stableInfo = self.containerMO.egoPeerStableInfo else {
-                os_log("stableInfo does not exist", log: tplogDebug, type: .default)
-                reply(nil, nil, ContainerError.nonMember)
-                return
-            }
-            guard let stableInfoSig = self.containerMO.egoPeerStableInfoSig else {
-                os_log("stableInfoSig does not exist", log: tplogDebug, type: .default)
-                reply(nil, nil, ContainerError.nonMember)
-                return
-            }
+
             let keyFactory = TPECPublicKeyFactory()
             guard let beneficiaryPermanentInfo = TPPeerPermanentInfo(peerID: egoPeerID, data: permanentInfo, sig: permanentInfoSig, keyFactory: keyFactory) else {
                 os_log("Invalid permenent info or signature; can't vouch for them", log: tplogDebug, type: .default)
                 reply(nil, nil, ContainerError.invalidPermanentInfoOrSig)
                 return
             }
+
+            loadEgoKeys(peerID: egoPeerID) { egoPeerKeys, error in
+                guard let egoPeerKeys = egoPeerKeys else {
+                    os_log("Don't have my own peer keys; can't establish: %{public}@", log: tplogDebug, type: .default, (error as CVarArg?) ?? "error missing")
+                    reply(nil, nil, error)
+                    return
+                }
+
+                guard let uuid = UUID(uuidString: crk.uuid) else {
+                    os_log("Unable to parse uuid: %{public}@", log: tplogDebug, type: .default, crk.uuid)
+                    reply(nil, nil, ContainerError.recoveryKeysNotEnrolled)
+                    return
+                }
+
+                guard let tpcrk = self.model.findCustodianRecoveryKey(with: uuid) else {
+                    os_log("Unable to find custodian recovery key %{public}@ on model", log: tplogDebug, type: .default, crk.uuid)
+                    reply(nil, nil, ContainerError.recoveryKeysNotEnrolled)
+                    return
+                }
+
+                guard self.model.isCustodianRecoveryKeyEnrolled(tpcrk.peerID) else {
+                    os_log("Custodian Recovery Key is not enrolled", log: tplogDebug, type: .default)
+                    reply(nil, nil, ContainerError.recoveryKeysNotEnrolled)
+                    return
+                }
+
+                // create recovery key set
+                let recoveryCRK: CustodianRecoveryKey
+                do {
+                    recoveryCRK = try CustodianRecoveryKey(tpCustodian: tpcrk, recoveryKeyString: crk.recoveryString, recoverySalt: crk.salt)
+                } catch {
+                    os_log("failed to create custodian recovery keys: %{public}@", log: tplogDebug, type: .default, error as CVarArg)
+                    reply(nil, nil, ContainerError.failedToCreateRecoveryKey)
+                    return
+                }
+
+                os_log("recoverTLKSharesForInheritor signingPubKey: %@", log: tplogDebug, type: .default, recoveryCRK.peerKeys.signingKey.publicKey.keyData.base64EncodedString())
+                os_log("recoverTLKSharesForInheritor encryptionPubKey: %@", log: tplogDebug, type: .default, recoveryCRK.peerKeys.encryptionKey.publicKey.keyData.base64EncodedString())
+
+                // find matching peer trusting custodian recovery keys
+                guard let sponsorPeerID = self.model.peerIDThatTrustsCustodianRecoveryKeys(tpcrk,
+                                                                                           canIntroducePeer: beneficiaryPermanentInfo,
+                                                                                           stableInfo: nil) else {
+                    os_log("Untrusted custodian recovery key set", log: tplogDebug, type: .default)
+                    reply(nil, nil, ContainerError.untrustedRecoveryKeys)
+                    return
+                }
+
+                let (recoveredTLKs, tlkRecoveryResult) = extract(tlkShares: tlkShares, peer: recoveryCRK.peerKeys, sponsorPeerID: sponsorPeerID, model: self.model)
+
+                do {
+                    let newSelfTLKShares = try makeCKKSTLKShares(ckksTLKs: recoveredTLKs, asPeer: egoPeerKeys, toPeer: egoPeerKeys, epoch: Int(beneficiaryPermanentInfo.epoch))
+                    reply(newSelfTLKShares, tlkRecoveryResult, nil)
+                    return
+                } catch {
+                    os_log("Error making CKKSTLKShares for inheritor: %{public}@", log: tplogDebug, type: .default, error as CVarArg)
+                    reply(nil, nil, error)
+                    return
+                }
+            }
+        }
+    }
+
+    func vouchWithCustodianRecoveryKey(crk: TrustedPeersHelperCustodianRecoveryKey,
+                                       tlkShares: [CKKSTLKShare],
+                                       reply: @escaping (Data?, Data?, [CKKSTLKShare]?, TrustedPeersHelperTLKRecoveryResult?, Error?) -> Void) {
+        self.semaphore.wait()
+        let reply: (Data?, Data?, [CKKSTLKShare]?, TrustedPeersHelperTLKRecoveryResult?, Error?) -> Void = {
+            os_log("vouchWithCustodianRecoveryKey complete: %{public}@",
+                   log: tplogTrace, type: .info, traceError($4))
+            self.semaphore.signal()
+            reply($0, $1, $2, $3, $4)
+        }
+
+        self.moc.performAndWait {
+            os_log("beginning a vouchWithCustodianRecoveryKey", log: tplogDebug, type: .default)
+
+            // I must have an ego identity in order to vouch using bottle
+            guard let egoPeerID = self.containerMO.egoPeerID else {
+                os_log("As a nonmember, can't vouch for someone else", log: tplogDebug, type: .default)
+                reply(nil, nil, nil, nil, ContainerError.nonMember)
+                return
+            }
+            guard let permanentInfo = self.containerMO.egoPeerPermanentInfo else {
+                os_log("permanentInfo does not exist", log: tplogDebug, type: .default)
+                reply(nil, nil, nil, nil, ContainerError.nonMember)
+                return
+            }
+            guard let permanentInfoSig = self.containerMO.egoPeerPermanentInfoSig else {
+                os_log("permanentInfoSig does not exist", log: tplogDebug, type: .default)
+                reply(nil, nil, nil, nil, ContainerError.nonMember)
+                return
+            }
+            guard let stableInfo = self.containerMO.egoPeerStableInfo else {
+                os_log("stableInfo does not exist", log: tplogDebug, type: .default)
+                reply(nil, nil, nil, nil, ContainerError.nonMember)
+                return
+            }
+            guard let stableInfoSig = self.containerMO.egoPeerStableInfoSig else {
+                os_log("stableInfoSig does not exist", log: tplogDebug, type: .default)
+                reply(nil, nil, nil, nil, ContainerError.nonMember)
+                return
+            }
+            let keyFactory = TPECPublicKeyFactory()
+            guard let beneficiaryPermanentInfo = TPPeerPermanentInfo(peerID: egoPeerID, data: permanentInfo, sig: permanentInfoSig, keyFactory: keyFactory) else {
+                os_log("Invalid permenent info or signature; can't vouch for them", log: tplogDebug, type: .default)
+                reply(nil, nil, nil, nil, ContainerError.invalidPermanentInfoOrSig)
+                return
+            }
             guard let beneficiaryStableInfo = TPPeerStableInfo(data: stableInfo, sig: stableInfoSig) else {
                 os_log("Invalid stableinfo or signature; van't vouch for them", log: tplogDebug, type: .default)
-                reply(nil, nil, ContainerError.invalidStableInfoOrSig)
+                reply(nil, nil, nil, nil, ContainerError.invalidStableInfoOrSig)
                 return
             }
 
-            //create recovery key set
-            var recoveryKeys: RecoveryKey
-            do {
-                recoveryKeys = try RecoveryKey(recoveryKeyString: recoveryKey, recoverySalt: salt)
-            } catch {
-                os_log("failed to create recovery keys: %{public}@", log: tplogDebug, type: .default, error as CVarArg)
-                reply(nil, nil, ContainerError.failedToCreateRecoveryKey)
-                return
-            }
+            loadEgoKeys(peerID: egoPeerID) { egoPeerKeys, error in
+                guard let egoPeerKeys = egoPeerKeys else {
+                    os_log("Don't have my own peer keys; can't vouch: %{public}@", log: tplogDebug, type: .default, (error as CVarArg?) ?? "error missing")
+                    reply(nil, nil, nil, nil, error)
+                    return
+                }
 
-            let signingPublicKey: Data = recoveryKeys.peerKeys.signingKey.publicKey.keyData
-            let encryptionPublicKey: Data = recoveryKeys.peerKeys.encryptionKey.publicKey.keyData
+                guard let uuid = UUID(uuidString: crk.uuid) else {
+                    os_log("Unable to parse uuid", log: tplogDebug, type: .default, crk.uuid)
+                    reply(nil, nil, nil, nil, ContainerError.recoveryKeysNotEnrolled)
+                    return
+                }
 
-            os_log("vouchWithRecoveryKey signingPubKey: %@", log: tplogDebug, type: .default, signingPublicKey.base64EncodedString())
-            os_log("vouchWithRecoveryKey encryptionPubKey: %@", log: tplogDebug, type: .default, encryptionPublicKey.base64EncodedString())
+                guard let tpcrk = self.model.findCustodianRecoveryKey(with: uuid) else {
+                    os_log("Unable to find custodian recovery key %{public}@ on model", log: tplogDebug, type: .default, crk.uuid)
+                    reply(nil, nil, nil, nil, ContainerError.recoveryKeysNotEnrolled)
+                    return
+                }
 
-            guard self.model.isRecoveryKeyEnrolled() else {
-                os_log("Recovery Key is not enrolled", log: tplogDebug, type: .default)
-                reply(nil, nil, ContainerError.recoveryKeysNotEnrolled)
-                return
-            }
+                guard self.model.isCustodianRecoveryKeyEnrolled(tpcrk.peerID) else {
+                    os_log("Custodian Recovery Key is not enrolled", log: tplogDebug, type: .default)
+                    reply(nil, nil, nil, nil, ContainerError.recoveryKeysNotEnrolled)
+                    return
+                }
 
-            //find matching peer containing recovery keys
-            guard let sponsorPeerID = self.model.peerIDThatTrustsRecoveryKeys(TPRecoveryKeyPair(signingKeyData: signingPublicKey, encryptionKeyData: encryptionPublicKey)) else {
-                os_log("Untrusted recovery key set", log: tplogDebug, type: .default)
-                reply(nil, nil, ContainerError.untrustedRecoveryKeys)
-                return
-            }
+                // create recovery key set
+                let recoveryCRK: CustodianRecoveryKey
+                do {
+                    recoveryCRK = try CustodianRecoveryKey(tpCustodian: tpcrk, recoveryKeyString: crk.recoveryString, recoverySalt: crk.salt)
+                } catch {
+                    os_log("failed to create custodian recovery keys: %{public}@", log: tplogDebug, type: .default, error as CVarArg)
+                    reply(nil, nil, nil, nil, ContainerError.failedToCreateRecoveryKey)
+                    return
+                }
 
-            // We're going to end up trusting every peer that the sponsor peer trusts.
-            // We might as well trust all TLKShares from those peers at this point.
-            extract(tlkShares: tlkShares, peer: recoveryKeys.peerKeys, sponsorPeerID: sponsorPeerID, model: self.model)
+                os_log("vouchWithCustodianRecoveryKey signingPubKey: %@", log: tplogDebug, type: .default, recoveryCRK.peerKeys.signingKey.publicKey.keyData.base64EncodedString())
+                os_log("vouchWithCustodianRecoveryKey encryptionPubKey: %@", log: tplogDebug, type: .default, recoveryCRK.peerKeys.encryptionKey.publicKey.keyData.base64EncodedString())
 
-            do {
-                let voucher = try self.model.createVoucher(forCandidate: beneficiaryPermanentInfo,
-                                                           stableInfo: beneficiaryStableInfo,
-                                                           withSponsorID: sponsorPeerID,
-                                                           reason: TPVoucherReason.recoveryKey,
-                                                           signing: recoveryKeys.peerKeys.signingKey)
-                reply(voucher.data, voucher.sig, nil)
-                return
-            } catch {
-                os_log("Error creating voucher using recovery key set: %{public}@", log: tplogDebug, type: .default, error as CVarArg)
-                reply(nil, nil, error)
-                return
+                // find matching peer trusting custodian recovery keys
+                guard let sponsorPeerID = self.model.peerIDThatTrustsCustodianRecoveryKeys(tpcrk,
+                                                                                           canIntroducePeer: beneficiaryPermanentInfo,
+                                                                                           stableInfo: beneficiaryStableInfo) else {
+                    os_log("Untrusted custodian recovery key set", log: tplogDebug, type: .default)
+                    reply(nil, nil, nil, nil, ContainerError.untrustedRecoveryKeys)
+                    return
+                }
+
+                // We're going to end up trusting every peer that the sponsor peer trusts.
+                // We might as well trust all TLKShares from those peers at this point.
+                let (recoveredTLKs, tlkRecoveryResult) = extract(tlkShares: tlkShares, peer: recoveryCRK.peerKeys, sponsorPeerID: sponsorPeerID, model: self.model)
+
+                do {
+                    let voucher = try self.model.createVoucher(forCandidate: beneficiaryPermanentInfo,
+                                                               stableInfo: beneficiaryStableInfo,
+                                                               withSponsorID: sponsorPeerID,
+                                                               reason: TPVoucherReason.recoveryKey,
+                                                               signing: recoveryCRK.peerKeys.signingKey)
+
+                    let newSelfTLKShares = try makeCKKSTLKShares(ckksTLKs: recoveredTLKs, asPeer: egoPeerKeys, toPeer: egoPeerKeys, epoch: Int(beneficiaryPermanentInfo.epoch))
+                    reply(voucher.data, voucher.sig, newSelfTLKShares, tlkRecoveryResult, nil)
+                    return
+                } catch {
+                    os_log("Error creating voucher using custodian recovery key set: %{public}@", log: tplogDebug, type: .default, error as CVarArg)
+                    reply(nil, nil, nil, nil, error)
+                    return
+                }
             }
         }
     }
@@ -2226,18 +3037,19 @@ class Container: NSObject {
                                                     stableInfoAndSig: nil,
                                                     dynamicInfoAndSig: nil,
                                                     tlkShares: tlkShares,
-                                                    viewKeys: []) { response, error in
-                                                        guard let response = response, error == nil else {
-                                                            os_log("Unable to upload new tlkshares: %{public}@", log: tplogDebug, type: .default, error as CVarArg? ?? "no error")
-                                                            reply(voucher.data, voucher.sig, error ?? ContainerError.cloudkitResponseMissing)
-                                                            return
-                                                        }
+                                                    viewKeys: []) { response in
+                            switch response {
+                            case .success(let response):
+                                let newKeyRecords = response.zoneKeyHierarchyRecords.map(CKRecord.init)
+                                os_log("Uploaded new tlkshares: %@", log: tplogDebug, type: .default, newKeyRecords)
+                                // We don't need to save these; CKKS will refetch them as needed
 
-                                                        let newKeyRecords = response.zoneKeyHierarchyRecords.map(CKRecord.init)
-                                                        os_log("Uploaded new tlkshares: %@", log: tplogDebug, type: .default, newKeyRecords)
-                                                        // We don't need to save these; CKKS will refetch them as needed
-
-                                                        reply(voucher.data, voucher.sig, nil)
+                                reply(voucher.data, voucher.sig, nil)
+                            case .failure(let error):
+                                os_log("Unable to upload new tlkshares: %{public}@", log: tplogDebug, type: .default, error as CVarArg? ?? "no error")
+                                reply(voucher.data, voucher.sig, error)
+                                return
+                            }
                         }
                     }
                 }
@@ -2328,20 +3140,21 @@ class Container: NSObject {
                     $0.peerID = egoPeerID
                     $0.dynamicInfoAndSig = signedDynamicInfo
                 }
-                self.cuttlefish.updateTrust(request) { response, error in
-                    guard let response = response, error == nil else {
+                self.cuttlefish.updateTrust(request) { response in
+                    switch response {
+                    case .success(let response):
+                        do {
+                            try self.persist(changes: response.changes)
+                            os_log("distrust succeeded", log: tplogDebug, type: .default)
+                            reply(nil)
+                        } catch {
+                            os_log("distrust handling failed: %{public}@", log: tplogDebug, type: .default, (error as CVarArg))
+                            reply(error)
+                        }
+                    case .failure(let error):
                         os_log("updateTrust failed: %{public}@", log: tplogDebug, type: .default, (error as CVarArg?) ?? "no error")
-                        reply(error ?? ContainerError.cloudkitResponseMissing)
-                        return
-                    }
-
-                    do {
-                        try self.persist(changes: response.changes)
-                        os_log("distrust succeeded", log: tplogDebug, type: .default)
-                        reply(nil)
-                    } catch {
-                        os_log("distrust handling failed: %{public}@", log: tplogDebug, type: .default, (error as CVarArg))
                         reply(error)
+                        return
                     }
                 }
             }
@@ -2370,7 +3183,7 @@ class Container: NSObject {
                 return
             }
 
-            guard let bmo = bottles.filter({ $0.peerID == egoPeerID }).first else {
+            guard let bmo = (bottles.first { $0.peerID == egoPeerID }) else {
                 os_log("fetchEscrowContents no bottle matches peerID", log: tplogDebug, type: .default)
                 reply(nil, nil, nil, ContainerError.noBottleForPeer)
                 return
@@ -2542,24 +3355,20 @@ class Container: NSObject {
         self.moc.performAndWait {
             var cachedBottles = TPCachedViableBottles(viableBottles: [], partialBottles: [])
 
-            if OctagonIsOptimizationEnabled() {
-                if let lastDate = self.containerMO.escrowFetchDate {
-                    if Date() < lastDate.addingTimeInterval(escrowCacheTimeout) {
-                        os_log("escrow cache still valid", log: tplogDebug, type: .default)
-                        cachedBottles = onqueueCachedBottlesFromEscrowRecords()
-                    } else {
-                        os_log("escrow cache no longer valid", log: tplogDebug, type: .default)
-                        if let records = self.containerMO.fullyViableEscrowRecords {
-                            self.containerMO.removeFromFullyViableEscrowRecords(records)
-                        }
-                        if let records = self.containerMO.partiallyViableEscrowRecords {
-                            self.containerMO.removeFromPartiallyViableEscrowRecords(records)
-                        }
-                        self.containerMO.escrowFetchDate = nil
+            if let lastDate = self.containerMO.escrowFetchDate {
+                if Date() < lastDate.addingTimeInterval(escrowCacheTimeout) {
+                    os_log("escrow cache still valid", log: tplogDebug, type: .default)
+                    cachedBottles = onqueueCachedBottlesFromEscrowRecords()
+                } else {
+                    os_log("escrow cache no longer valid", log: tplogDebug, type: .default)
+                    if let records = self.containerMO.fullyViableEscrowRecords {
+                        self.containerMO.removeFromFullyViableEscrowRecords(records)
                     }
+                    if let records = self.containerMO.partiallyViableEscrowRecords {
+                        self.containerMO.removeFromPartiallyViableEscrowRecords(records)
+                   }
+                    self.containerMO.escrowFetchDate = nil
                 }
-            } else {
-                cachedBottles = self.model.currentCachedViableBottlesSet()
             }
 
             if !cachedBottles.viableBottles.isEmpty || !cachedBottles.partialBottles.isEmpty {
@@ -2567,54 +3376,43 @@ class Container: NSObject {
                 reply(cachedBottles.viableBottles, cachedBottles.partialBottles, nil)
                 return
             }
-            
+
             let request = FetchViableBottlesRequest.with {
                 $0.filterRequest = OctagonPlatformSupportsSOS() ? .unknown : .byOctagonOnly
             }
             if request.filterRequest == .byOctagonOnly {
                 os_log("Requesting Cuttlefish sort records by Octagon Only", log: tplogDebug, type: .default)
             }
-            
-            self.cuttlefish.fetchViableBottles(request) { response, error in
-                guard error == nil else {
+
+            self.cuttlefish.fetchViableBottles(request) { response in
+                switch response {
+                case .success(let response):
+                    self.moc.performAndWait {
+                        let escrowPairs = response.viableBottles
+                        let  partialPairs = response.partialBottles
+
+                        let viableBottleIDs = escrowPairs.compactMap { $0.bottle.bottleID }
+                        os_log("fetchViableBottles returned viable bottles: %{public}@", log: tplogDebug, type: .default, viableBottleIDs)
+
+                        let partialBottleIDs = partialPairs.compactMap { $0.bottle.bottleID }
+                        os_log("fetchViableBottles returned partial bottles: %{public}@", log: tplogDebug, type: .default, partialBottleIDs)
+
+                        self.handleFetchViableBottlesResponseWithSemaphore(response: response)
+
+                        do {
+                            try self.moc.save()
+                            os_log("fetchViableBottles saved bottles", log: tplogDebug, type: .default)
+                            self.containerMO.escrowFetchDate = Date()
+                            reply(viableBottleIDs, partialBottleIDs, nil)
+                        } catch {
+                            os_log("fetchViableBottles unable to save bottles: %{public}@", log: tplogDebug, type: .default, (error as CVarArg?) ?? "no error")
+                            reply(nil, nil, error)
+                        }
+                    }
+                case .failure(let error):
                     os_log("fetchViableBottles failed: %{public}@", log: tplogDebug, type: .default, (error as CVarArg?) ?? "no error")
                     reply(nil, nil, error)
                     return
-                }
-
-                self.moc.performAndWait {
-                    guard let escrowPairs = response?.viableBottles else {
-                        os_log("fetchViableBottles returned no viable bottles", log: tplogDebug, type: .default)
-                        reply([], [], nil)
-                        return
-                    }
-
-                    var partialPairs: [EscrowPair] = []
-                    if let partial = response?.partialBottles {
-                        partialPairs = partial
-                    } else {
-                        os_log("fetchViableBottles returned no partially viable bottles, but that's ok", log: tplogDebug, type: .default)
-                    }
-
-                    let viableBottleIDs = escrowPairs.compactMap { $0.bottle.bottleID }
-                    os_log("fetchViableBottles returned viable bottles: %{public}@", log: tplogDebug, type: .default, viableBottleIDs)
-
-                    let partialBottleIDs = partialPairs.compactMap { $0.bottle.bottleID }
-                    os_log("fetchViableBottles returned partial bottles: %{public}@", log: tplogDebug, type: .default, partialBottleIDs)
-
-                    self.handleFetchViableBottlesResponseWithSemaphore(response: response)
-
-                    do {
-                        try self.moc.save()
-                        os_log("fetchViableBottles saved bottles", log: tplogDebug, type: .default)
-                        let cached = TPCachedViableBottles(viableBottles: viableBottleIDs, partialBottles: partialBottleIDs)
-                        self.model.setViableBottles(cached)
-                        self.containerMO.escrowFetchDate = Date()
-                        reply(viableBottleIDs, partialBottleIDs, nil)
-                    } catch {
-                        os_log("fetchViableBottles unable to save bottles: %{public}@", log: tplogDebug, type: .default, (error as CVarArg?) ?? "no error")
-                        reply(nil, nil, error)
-                    }
                 }
             }
         }
@@ -2684,63 +3482,58 @@ class Container: NSObject {
             if request.filterRequest == .byOctagonOnly {
                 os_log("Requesting Cuttlefish sort records by Octagon Only", log: tplogDebug, type: .default)
             }
-            
-            self.cuttlefish.fetchViableBottles(request) { response, error in
-                guard error == nil else {
+
+            self.cuttlefish.fetchViableBottles(request) { response in
+                switch response {
+                case .success(let response):
+                    self.moc.performAndWait {
+                        do {
+                            self.handleFetchViableBottlesResponseWithSemaphore(response: response)
+
+                            try self.moc.save()
+                            os_log("fetchViableBottles saved bottles and records", log: tplogDebug, type: .default)
+                            self.containerMO.escrowFetchDate = Date()
+
+                            var allEscrowRecordData: [Data] = []
+                            if let fullyViableRecords = self.containerMO.fullyViableEscrowRecords as? Set<EscrowRecordMO> {
+                                for record in fullyViableRecords {
+                                    if let r = self.escrowRecordMOToEscrowRecords(record: record, viability: .full) {
+                                        allEscrowRecordData.append(r.data)
+                                    }
+                                }
+                            }
+                            if let partiallyViableRecords = self.containerMO.partiallyViableEscrowRecords as? Set<EscrowRecordMO> {
+                                for record in partiallyViableRecords {
+                                    if let r = self.escrowRecordMOToEscrowRecords(record: record, viability: .partial) {
+                                        allEscrowRecordData.append(r.data)
+                                    }
+                                }
+                            }
+                            if let legacyRecords = self.containerMO.legacyEscrowRecords as? Set<EscrowRecordMO> {
+                                for record in legacyRecords {
+                                    if let r = self.escrowRecordMOToEscrowRecords(record: record, viability: .none) {
+                                        allEscrowRecordData.append(r.data)
+                                    }
+                                }
+                            }
+                            reply(allEscrowRecordData, nil)
+                        } catch {
+                            os_log("fetchViableBottles unable to save bottles and records: %{public}@", log: tplogDebug, type: .default, (error as CVarArg?) ?? "no error")
+                            reply(nil, error)
+                        }
+                    }
+                case .failure(let error):
                     os_log("fetchViableBottles failed: %{public}@", log: tplogDebug, type: .default, (error as CVarArg?) ?? "no error")
                     reply(nil, error)
                     return
-                }
-
-                self.moc.performAndWait {
-                    guard response?.viableBottles != nil else {
-                        os_log("fetchViableBottles returned no viable bottles", log: tplogDebug, type: .default)
-                        reply([], nil)
-                        return
-                    }
-
-                    self.handleFetchViableBottlesResponseWithSemaphore(response: response)
-                }
-
-                do {
-                    try self.moc.save()
-                    os_log("fetchViableBottles saved bottles and records", log: tplogDebug, type: .default)
-                    self.containerMO.escrowFetchDate = Date()
-
-                    var allEscrowRecordData: [Data] = []
-                    if let fullyViableRecords = self.containerMO.fullyViableEscrowRecords as? Set<EscrowRecordMO> {
-                        for record in fullyViableRecords {
-                            if let r = self.escrowRecordMOToEscrowRecords(record: record, viability: .full) {
-                                allEscrowRecordData.append(r.data)
-                            }
-                        }
-                    }
-                    if let partiallyViableRecords = self.containerMO.partiallyViableEscrowRecords as? Set<EscrowRecordMO> {
-                        for record in partiallyViableRecords {
-                            if let r = self.escrowRecordMOToEscrowRecords(record: record, viability: .partial) {
-                                allEscrowRecordData.append(r.data)
-                            }
-                        }
-                    }
-                    if let legacyRecords = self.containerMO.legacyEscrowRecords as? Set<EscrowRecordMO> {
-                        for record in legacyRecords {
-                            if let r = self.escrowRecordMOToEscrowRecords(record: record, viability: .none) {
-                                allEscrowRecordData.append(r.data)
-                            }
-                        }
-                    }
-                    reply(allEscrowRecordData, nil)
-                } catch {
-                    os_log("fetchViableBottles unable to save bottles and records: %{public}@", log: tplogDebug, type: .default, (error as CVarArg?) ?? "no error")
-                    reply(nil, error)
                 }
             }
         }
     }
 
-    func fetchCurrentPolicy(modelIDOverride: String?, reply: @escaping (TPSyncingPolicy?, TPPBPeerStableInfo_UserControllableViewStatus, Error?) -> Void) {
+    func fetchCurrentPolicy(modelIDOverride: String?, isInheritedAccount: Bool, reply: @escaping (TPSyncingPolicy?, TPPBPeerStableInfoUserControllableViewStatus, Error?) -> Void) {
         self.semaphore.wait()
-        let reply: (TPSyncingPolicy?, TPPBPeerStableInfo_UserControllableViewStatus, Error?) -> Void = {
+        let reply: (TPSyncingPolicy?, TPPBPeerStableInfoUserControllableViewStatus, Error?) -> Void = {
             os_log("fetchCurrentPolicy complete: %{public}@", log: tplogTrace, type: .info, traceError($2))
             self.semaphore.signal()
             reply($0, $1, $2)
@@ -2769,7 +3562,7 @@ class Container: NSObject {
 
                 do {
                     let prevailingPolicy = try policyDocument.policy(withSecrets: [:], decrypter: Decrypter())
-                    let syncingPolicy = try prevailingPolicy.syncingPolicy(forModel: modelID, syncUserControllableViews: .UNKNOWN)
+                    let syncingPolicy = try prevailingPolicy.syncingPolicy(forModel: modelID, syncUserControllableViews: .UNKNOWN, isInheritedAccount: isInheritedAccount)
 
                     os_log("returning a policy for model ID %{public}@", log: tplogDebug, type: .default, modelID)
                     reply(syncingPolicy, .UNKNOWN, nil)
@@ -2800,7 +3593,6 @@ class Container: NSObject {
                     os_log("join: error fetching all requested policies (continuing anyway): %{public}@", log: tplogDebug, type: .default, error as CVarArg)
                 }
 
-
                 do {
                     let syncingPolicy = try self.syncingPolicyFor(modelID: modelIDOverride ?? permanentInfo.modelID, stableInfo: stableInfo)
 
@@ -2824,14 +3616,13 @@ class Container: NSObject {
     }
 
     func syncingPolicyFor(modelID: String, stableInfo: TPPeerStableInfo) throws -> TPSyncingPolicy {
-        let bestPolicyVersion : TPPolicyVersion
+        let bestPolicyVersion: TPPolicyVersion
 
         let peerPolicyVersion = stableInfo.bestPolicyVersion()
         if peerPolicyVersion.versionNumber < frozenPolicyVersion.versionNumber {
             // This peer was from before CKKS4All, and we shouldn't listen to them when it comes to Syncing Policies
             bestPolicyVersion = prevailingPolicyVersion
             os_log("Ignoring policy version from pre-CKKS4All peer", log: tplogDebug, type: .default)
-
         } else {
             bestPolicyVersion = peerPolicyVersion
         }
@@ -2841,8 +3632,8 @@ class Container: NSObject {
             throw ContainerError.unknownPolicyVersion(bestPolicyVersion.versionNumber)
         }
 
-        let policy = try policyDocument.policy(withSecrets: stableInfo.policySecrets, decrypter: Decrypter())
-        return try policy.syncingPolicy(forModel: modelID, syncUserControllableViews: stableInfo.syncUserControllableViews)
+        let policy = try policyDocument.policy(withSecrets: stableInfo.policySecrets ?? [:], decrypter: Decrypter())
+        return try policy.syncingPolicy(forModel: modelID, syncUserControllableViews: stableInfo.syncUserControllableViews, isInheritedAccount: stableInfo.isInheritedAccount)
     }
 
     // All-or-nothing: return an error in case full list cannot be returned.
@@ -2903,65 +3694,89 @@ class Container: NSObject {
                 PolicyDocumentKey.with { $0.version = version.versionNumber; $0.hash = version.policyHash }}
         }
 
-        self.cuttlefish.fetchPolicyDocuments(request) { response, error in
-            guard let response = response, error == nil else {
+        self.cuttlefish.fetchPolicyDocuments(request) { response in
+            switch response {
+            case .success(let response):
+                self.moc.performAndWait {
+                    for mapEntry in response.entries {
+                        // TODO: validate the policy's signature
+
+                        guard let doc = TPPolicyDocument.policyDoc(withHash: mapEntry.key.hash, data: mapEntry.value) else {
+                            os_log("Can't make policy document with hash %{public}@ and data %{public}@",
+                                   log: tplogDebug, type: .default, mapEntry.key.hash, mapEntry.value.base64EncodedString())
+                            reply(nil, ContainerError.policyDocumentDoesNotValidate)
+                            return
+                        }
+
+                        guard let expectedVersion = (remaining.first { $0.versionNumber == doc.version.versionNumber }) else {
+                            os_log("Received a policy version we didn't request: %d", log: tplogDebug, type: .default, doc.version.versionNumber)
+                            reply(nil, ContainerError.policyDocumentDoesNotValidate)
+                            return
+                        }
+
+                        guard expectedVersion.policyHash == doc.version.policyHash else {
+                            os_log("Requested hash %{public}@ does not match fetched hash %{public}@", log: tplogDebug, type: .default,
+                                   expectedVersion.policyHash, doc.version.policyHash)
+                            reply(nil, ContainerError.policyDocumentDoesNotValidate)
+                            return
+                        }
+
+                        remaining.remove(expectedVersion) // Server responses should be unique, let's enforce
+
+                        docs[doc.version] = doc
+                        self.model.register(doc)
+
+                        let policyMO = PolicyMO(context: self.moc)
+                        policyMO.version = Int64(doc.version.versionNumber)
+                        policyMO.policyHash = doc.version.policyHash
+                        policyMO.policyData = mapEntry.value
+
+                        self.containerMO.addToPolicies(policyMO)
+                    }
+
+                    do {
+                        try self.moc.save()     // if this fails callers might make bad data assumptions
+                    } catch {
+                        reply(nil, error)
+                        return
+                    }
+
+                    // Determine if there's anything left to fetch
+                    guard let unfetchedVersion = remaining.first else {
+                        // Nothing remaining? Success!
+                        reply(docs, nil)
+                        return
+                    }
+
+                    reply(nil, ContainerError.unknownPolicyVersion(unfetchedVersion.versionNumber))
+                }
+            case .failure(let error):
                 os_log("FetchPolicyDocuments failed: %{public}@", log: tplogDebug, type: .default, (error as CVarArg?) ?? "no error")
-                reply(nil, error ?? ContainerError.cloudkitResponseMissing)
+                reply(nil, error)
                 return
             }
+        }
+    }
 
-            self.moc.performAndWait {
-                for mapEntry in response.entries {
-                    // TODO: validate the policy's signature
+    func fetchRecoverableTLKShares(peerID: String?,
+                                   reply: @escaping ([CKRecord]?, Error?) -> Void) {
+        let request = FetchRecoverableTLKSharesRequest.with {
+            $0.peerID = peerID ?? ""
+        }
 
-                    guard let doc = TPPolicyDocument.policyDoc(withHash: mapEntry.key.hash, data: mapEntry.value) else {
-                        os_log("Can't make policy document with hash %{public}@ and data %{public}@",
-                               log: tplogDebug, type: .default, mapEntry.key.hash, mapEntry.value.base64EncodedString())
-                        reply(nil, ContainerError.policyDocumentDoesNotValidate)
-                        return
-                    }
+        self.cuttlefish.fetchRecoverableTlkshares(request) { response in
+            switch response {
+            case .failure(let error):
+                os_log("fetchRecoverableTlkshares failed: %{public}@", log: tplogDebug, type: .default, (error as CVarArg?) ?? "no error")
+                reply(nil, error)
+                return
 
-                    guard let expectedVersion = (remaining.first { $0.versionNumber == doc.version.versionNumber }) else {
-                        os_log("Received a policy version we didn't request: %d", log: tplogDebug, type: .default, doc.version.versionNumber)
-                        reply(nil, ContainerError.policyDocumentDoesNotValidate)
-                        return
-                    }
-
-                    guard expectedVersion.policyHash == doc.version.policyHash else {
-                        os_log("Requested hash %{public}@ does not match fetched hash %{public}@", log: tplogDebug, type: .default,
-                               expectedVersion.policyHash, doc.version.policyHash)
-                        reply(nil, ContainerError.policyDocumentDoesNotValidate)
-                        return
-                    }
-
-                    remaining.remove(expectedVersion) // Server responses should be unique, let's enforce
-
-                    docs[doc.version] = doc
-                    self.model.register(doc)
-
-                    let policyMO = PolicyMO(context: self.moc)
-                    policyMO.version = Int64(doc.version.versionNumber)
-                    policyMO.policyHash = doc.version.policyHash
-                    policyMO.policyData = mapEntry.value
-
-                    self.containerMO.addToPolicies(policyMO)
-                }
-
-                do {
-                    try self.moc.save()     // if this fails callers might make bad data assumptions
-                } catch {
-                    reply(nil, error)
-                    return
-                }
-
-                // Determine if there's anything left to fetch
-                guard let unfetchedVersion = remaining.first else {
-                    // Nothing remaining? Success!
-                    reply(docs, nil)
-                    return
-                }
-
-                reply(nil, ContainerError.unknownPolicyVersion(unfetchedVersion.versionNumber))
+            case .success(let response):
+                let shareCount = response.views.map { $0.tlkShares.count }.reduce(0, +)
+                os_log("fetchRecoverableTlkshares succeeded: found %{public}d views and %{public}d total TLKShares", log: tplogDebug, type: .default, response.views.count, shareCount)
+                let records = response.views.flatMap { $0.ckrecords() }
+                reply(records, nil)
+                return
             }
         }
     }
@@ -3063,12 +3878,12 @@ class Container: NSObject {
                                                      signing: egoPeerKeys.signingKey,
                                                      currentMachineIDs: self.onqueueCurrentMIDList())
 
-        let userViewSyncability: TPPBPeerStableInfo_UserControllableViewStatus?
+        let userViewSyncability: TPPBPeerStableInfoUserControllableViewStatus?
         if [.ENABLED, .DISABLED].contains(stableInfo.syncUserControllableViews) {
             // No change!
             userViewSyncability = nil
         } else {
-            let newUserViewSyncability: TPPBPeerStableInfo_UserControllableViewStatus
+            let newUserViewSyncability: TPPBPeerStableInfoUserControllableViewStatus
 
             if peerPermanentInfo.modelID.hasPrefix("AppleTV") ||
                 peerPermanentInfo.modelID.hasPrefix("AudioAccessory") ||
@@ -3081,7 +3896,7 @@ class Container: NSObject {
             }
 
             os_log("join: setting 'user view sync' control as: %{public}@", log: tplogDebug, type: .default,
-                   TPPBPeerStableInfo_UserControllableViewStatusAsString(newUserViewSyncability))
+                   TPPBPeerStableInfoUserControllableViewStatusAsString(newUserViewSyncability))
             userViewSyncability = newUserViewSyncability
         }
 
@@ -3256,30 +4071,31 @@ class Container: NSObject {
                                 $0.tlkShares = allTLKShares
                                 $0.viewKeys = viewKeys
                             }
-                            self.cuttlefish.joinWithVoucher(request) { response, error in
-                                guard let response = response, error == nil else {
-                                    os_log("joinWithVoucher failed: %{public}@", log: tplogDebug, type: .default, (error as CVarArg?) ?? "no error")
-                                    reply(nil, [], nil, error ?? ContainerError.cloudkitResponseMissing)
-                                    return
-                                }
+                            self.cuttlefish.joinWithVoucher(request) { response in
+                                switch response {
+                                case .success(let response):
+                                    self.moc.performAndWait {
+                                        do {
+                                            self.containerMO.egoPeerStableInfo = peer.stableInfoAndSig.peerStableInfo
+                                            self.containerMO.egoPeerStableInfoSig = peer.stableInfoAndSig.sig
 
-                                self.moc.performAndWait {
-                                    do {
-                                        self.containerMO.egoPeerStableInfo = peer.stableInfoAndSig.peerStableInfo
-                                        self.containerMO.egoPeerStableInfoSig = peer.stableInfoAndSig.sig
+                                            let syncingPolicy = try self.syncingPolicyFor(modelID: selfPermanentInfo.modelID,
+                                                                                          stableInfo: peerStableInfo)
 
-                                        let syncingPolicy = try self.syncingPolicyFor(modelID: selfPermanentInfo.modelID,
-                                                                                      stableInfo: peerStableInfo)
+                                            try self.onQueuePersist(changes: response.changes)
+                                            os_log("JoinWithVoucher succeeded", log: tplogDebug)
 
-                                        try self.onQueuePersist(changes: response.changes)
-                                        os_log("JoinWithVoucher succeeded", log: tplogDebug)
-
-                                        let keyHierarchyRecords = response.zoneKeyHierarchyRecords.compactMap { CKRecord($0) }
-                                        reply(egoPeerID, keyHierarchyRecords, syncingPolicy, nil)
-                                    } catch {
-                                        os_log("JoinWithVoucher failed: %{public}@", log: tplogDebug, String(describing: error))
-                                        reply(nil, [], nil, error)
+                                            let keyHierarchyRecords = response.zoneKeyHierarchyRecords.compactMap { CKRecord($0) }
+                                            reply(egoPeerID, keyHierarchyRecords, syncingPolicy, nil)
+                                        } catch {
+                                            os_log("JoinWithVoucher failed: %{public}@", log: tplogDebug, String(describing: error))
+                                            reply(nil, [], nil, error)
+                                        }
                                     }
+                                case .failure(let error):
+                                    os_log("joinWithVoucher failed: %{public}@", log: tplogDebug, type: .default, (error as CVarArg?) ?? "no error")
+                                    reply(nil, [], nil, error)
+                                    return
                                 }
                             }
                         }
@@ -3289,12 +4105,12 @@ class Container: NSObject {
         }
     }
 
-    func requestHealthCheck(requiresEscrowCheck: Bool, reply: @escaping (Bool, Bool, Bool, Bool, Error?) -> Void) {
+    func requestHealthCheck(requiresEscrowCheck: Bool, reply: @escaping (Bool, Bool, Bool, Bool, OTEscrowMoveRequestContext?, Error?) -> Void) {
         self.semaphore.wait()
-        let reply: (Bool, Bool, Bool, Bool, Error?) -> Void = {
-            os_log("health check complete: %{public}@", log: tplogTrace, type: .info, traceError($4))
+        let reply: (Bool, Bool, Bool, Bool, OTEscrowMoveRequestContext?, Error?) -> Void = {
+            os_log("health check complete: %{public}@", log: tplogTrace, type: .info, traceError($5))
             self.semaphore.signal()
-            reply($0, $1, $2, $3, $4)
+            reply($0, $1, $2, $3, $4, $5)
         }
 
         os_log("requestHealthCheck requiring escrow check: %d", log: tplogDebug, type: .default, requiresEscrowCheck)
@@ -3303,7 +4119,7 @@ class Container: NSObject {
             guard let egoPeerID = self.containerMO.egoPeerID else {
                 // No identity, nothing to do
                 os_log("requestHealthCheck: No identity.", log: tplogDebug, type: .default)
-                reply(false, false, false, false, ContainerError.noPreparedIdentity)
+                reply(false, false, false, false, nil, ContainerError.noPreparedIdentity)
                 return
             }
             let request = GetRepairActionRequest.with {
@@ -3311,36 +4127,46 @@ class Container: NSObject {
                 $0.requiresEscrowCheck = requiresEscrowCheck
             }
 
-            self.cuttlefish.getRepairAction(request) { response, error in
-                guard error == nil else {
-                    reply(false, false, false, false, error)
-                    return
-                }
-                guard let action = response?.repairAction else {
-                    os_log("repair response is empty, returning false", log: tplogDebug, type: .default)
-                    reply(false, false, false, false, nil)
-                    return
-                }
-                var postRepairAccount: Bool = false
-                var postRepairEscrow: Bool = false
-                var resetOctagon: Bool = false
-                var leaveTrust: Bool = false
+            self.cuttlefish.getRepairAction(request) { response in
+                switch response {
+                case .success(let response):
+                    let action = response.repairAction
 
-                switch action {
-                case .noAction:
-                    break
-                case .postRepairAccount:
-                    postRepairAccount = true
-                case .postRepairEscrow:
-                    postRepairEscrow = true
-                case .resetOctagon:
-                    resetOctagon = true
-                case .leaveTrust:
-                    leaveTrust = true
-                case .UNRECOGNIZED:
-                    break
+                    var postRepairAccount: Bool = false
+                    var postRepairEscrow: Bool = false
+                    var resetOctagon: Bool = false
+                    var leaveTrust: Bool = false
+
+                    switch action {
+                    case .noAction:
+                        break
+                    case .postRepairAccount:
+                        postRepairAccount = true
+                    case .postRepairEscrow:
+                        postRepairEscrow = true
+                    case .resetOctagon:
+                        resetOctagon = true
+                    case .leaveTrust:
+                        leaveTrust = true
+                    case .UNRECOGNIZED:
+                        break
+                    }
+
+                    var moveRequest: OTEscrowMoveRequestContext?
+                    if response.hasEscrowRecordMoveRequest {
+                        moveRequest = OTEscrowMoveRequestContext()
+                        if let m = moveRequest {
+                            m.escrowRecordLabel = response.escrowRecordMoveRequest.escrowRecordLabel
+                            m.currentFederation = response.escrowRecordMoveRequest.currentFederation
+                            m.intendedFederation = response.escrowRecordMoveRequest.intendedFederation
+                        }
+                    }
+
+                    reply(postRepairAccount, postRepairEscrow, resetOctagon, leaveTrust, moveRequest, nil)
+                case .failure(let error):
+                    reply(false, false, false, false, nil, error)
+                    return
                 }
-                reply(postRepairAccount, postRepairEscrow, resetOctagon, leaveTrust, nil)
             }
         }
     }
@@ -3353,19 +4179,20 @@ class Container: NSObject {
             reply($0, $1)
         }
 
-        self.cuttlefish.getSupportAppInfo { response, error in
-            guard let response = response, error == nil else {
+        self.cuttlefish.getSupportAppInfo { response in
+            switch response {
+            case .success(let response):
+                guard let data = try? response.serializedData() else {
+                    reply(nil, ContainerError.failedToSerializeData)
+                    return
+                }
+
+                reply(data, nil)
+            case .failure(let error):
                 os_log("getSupportAppInfo failed: %{public}@", log: tplogDebug, type: .default, (error as CVarArg?) ?? "no error")
-                reply(nil, error ?? ContainerError.cloudkitResponseMissing)
+                reply(nil, error)
                 return
             }
-
-            guard let data = try? response.serializedData() else {
-                reply(nil, ContainerError.failedToSerializeData)
-                return
-            }
-
-            reply(data, nil)
         }
     }
 
@@ -3380,18 +4207,21 @@ class Container: NSObject {
         let request = ResetAccountCDPContentsRequest.with {
             $0.resetReason = .testGenerated
         }
-        self.cuttlefish.resetAccountCdpcontents(request){ response, error in
-            guard let _ = response, error == nil else {
+        self.cuttlefish.resetAccountCdpcontents(request) { response in
+            switch response {
+            case .success:
+                self.moc.performAndWait {
+                    self.onQueueRemoveEscrowCache()
+                }
+                reply(nil)
+            case .failure(let error):
                 os_log("resetCDPAccountData failed: %{public}@", log: tplogDebug, type: .default, (error as CVarArg?) ?? "no error")
-                reply(error ?? ContainerError.cloudkitResponseMissing)
+                reply(error)
                 return
             }
-            self.moc.performAndWait {
-                self.onQueueRemoveEscrowCache()
-            }
-            reply(nil)
         }
     }
+
 
     func preflightPreapprovedJoin(preapprovedKeys: [Data]?,
                                   reply: @escaping (Bool, Error?) -> Void) {
@@ -3424,39 +4254,41 @@ class Container: NSObject {
                     return
                 }
 
-                guard let egoPeerID = self.containerMO.egoPeerID,
-                    let egoPermData = self.containerMO.egoPeerPermanentInfo,
-                    let egoPermSig = self.containerMO.egoPeerPermanentInfoSig
+                self.moc.performAndWait {
+                    guard let egoPeerID = self.containerMO.egoPeerID,
+                          let egoPermData = self.containerMO.egoPeerPermanentInfo,
+                          let egoPermSig = self.containerMO.egoPeerPermanentInfoSig
                     else {
                         os_log("preflightPreapprovedJoin: no prepared identity", log: tplogDebug, type: .debug)
                         reply(false, ContainerError.noPreparedIdentity)
                         return
-                }
+                    }
 
-                let keyFactory = TPECPublicKeyFactory()
-                guard let egoPermanentInfo = TPPeerPermanentInfo(peerID: egoPeerID, data: egoPermData, sig: egoPermSig, keyFactory: keyFactory) else {
-                    os_log("preflightPreapprovedJoin: invalid permanent info", log: tplogDebug, type: .debug)
-                    reply(false, ContainerError.invalidPermanentInfoOrSig)
-                    return
-                }
+                    let keyFactory = TPECPublicKeyFactory()
+                    guard let egoPermanentInfo = TPPeerPermanentInfo(peerID: egoPeerID, data: egoPermData, sig: egoPermSig, keyFactory: keyFactory) else {
+                        os_log("preflightPreapprovedJoin: invalid permanent info", log: tplogDebug, type: .debug)
+                        reply(false, ContainerError.invalidPermanentInfoOrSig)
+                        return
+                    }
 
-                guard self.model.hasPotentiallyTrustedPeerPreapprovingKey(egoPermanentInfo.signingPubKey.spki()) else {
-                    os_log("preflightPreapprovedJoin: no peers preapprove our key", log: tplogDebug, type: .debug)
-                    reply(false, ContainerError.noPeersPreapprovePreparedIdentity)
-                    return
-                }
+                    guard self.model.hasPotentiallyTrustedPeerPreapprovingKey(egoPermanentInfo.signingPubKey.spki()) else {
+                        os_log("preflightPreapprovedJoin: no peers preapprove our key", log: tplogDebug, type: .debug)
+                        reply(false, ContainerError.noPeersPreapprovePreparedIdentity)
+                        return
+                    }
 
-                let keysApprovingPeers = preapprovedKeys?.filter { key in
-                    self.model.hasPotentiallyTrustedPeer(withSigningKey: key)
-                }
+                    let keysApprovingPeers = preapprovedKeys?.filter { key in
+                        self.model.hasPotentiallyTrustedPeer(withSigningKey: key)
+                    }
 
-                guard (keysApprovingPeers?.count ?? 0) > 0 else {
-                    os_log("preflightPreapprovedJoin: no reciprocal trust for existing peers", log: tplogDebug, type: .debug)
-                    reply(false, ContainerError.noPeersPreapprovedBySelf)
-                    return
-                }
+                    guard (keysApprovingPeers?.count ?? 0) > 0 else {
+                        os_log("preflightPreapprovedJoin: no reciprocal trust for existing peers", log: tplogDebug, type: .debug)
+                        reply(false, ContainerError.noPeersPreapprovedBySelf)
+                        return
+                    }
 
-                reply(true, nil)
+                    reply(true, nil)
+                }
             }
         }
     }
@@ -3605,30 +4437,31 @@ class Container: NSObject {
                             $0.tlkShares = allTLKShares
                             $0.viewKeys = viewKeys
                         }
-                        self.cuttlefish.joinWithVoucher(request) { response, error in
-                            guard let response = response, error == nil else {
-                                os_log("preapprovedJoin failed: %{public}@", log: tplogDebug, type: .default, (error as CVarArg?) ?? "no error")
-                                reply(nil, [], nil, error ?? ContainerError.cloudkitResponseMissing)
-                                return
-                            }
+                        self.cuttlefish.joinWithVoucher(request) { response in
+                            switch response {
+                            case .success(let response):
+                                self.moc.performAndWait {
+                                    do {
+                                        self.containerMO.egoPeerStableInfo = peer.stableInfoAndSig.peerStableInfo
+                                        self.containerMO.egoPeerStableInfoSig = peer.stableInfoAndSig.sig
 
-                            self.moc.performAndWait {
-                                do {
-                                    self.containerMO.egoPeerStableInfo = peer.stableInfoAndSig.peerStableInfo
-                                    self.containerMO.egoPeerStableInfoSig = peer.stableInfoAndSig.sig
+                                        let syncingPolicy = try self.syncingPolicyFor(modelID: selfPermanentInfo.modelID,
+                                                                                      stableInfo: peerStableInfo)
 
-                                    let syncingPolicy = try self.syncingPolicyFor(modelID: selfPermanentInfo.modelID,
-                                                                                  stableInfo: peerStableInfo)
+                                        try self.onQueuePersist(changes: response.changes)
+                                        os_log("preapprovedJoin succeeded", log: tplogDebug)
 
-                                    try self.onQueuePersist(changes: response.changes)
-                                    os_log("preapprovedJoin succeeded", log: tplogDebug)
-
-                                    let keyHierarchyRecords = response.zoneKeyHierarchyRecords.compactMap { CKRecord($0) }
-                                    reply(egoPeerID, keyHierarchyRecords, syncingPolicy, nil)
-                                } catch {
-                                    os_log("preapprovedJoin failed: %{public}@", log: tplogDebug, String(describing: error))
-                                    reply(nil, [], nil, error)
+                                        let keyHierarchyRecords = response.zoneKeyHierarchyRecords.compactMap { CKRecord($0) }
+                                        reply(egoPeerID, keyHierarchyRecords, syncingPolicy, nil)
+                                    } catch {
+                                        os_log("preapprovedJoin failed: %{public}@", log: tplogDebug, String(describing: error))
+                                        reply(nil, [], nil, error)
+                                    }
                                 }
+                            case .failure(let error):
+                                os_log("preapprovedJoin failed: %{public}@", log: tplogDebug, type: .default, (error as CVarArg?) ?? "no error")
+                                reply(nil, [], nil, error)
+                                return
                             }
                         }
                     }
@@ -3637,12 +4470,14 @@ class Container: NSObject {
         }
     }
 
-    func update(deviceName: String?,
+    func update(forceRefetch: Bool,
+                deviceName: String?,
                 serialNumber: String?,
                 osVersion: String?,
                 policyVersion: UInt64?,
                 policySecrets: [String: Data]?,
-                syncUserControllableViews: TPPBPeerStableInfo_UserControllableViewStatus?,
+                syncUserControllableViews: TPPBPeerStableInfoUserControllableViewStatus?,
+                secureElementIdentity: TrustedPeersHelperIntendedTPPBSecureElementIdentity?,
                 reply: @escaping (TrustedPeersHelperPeerState?, TPSyncingPolicy?, Error?) -> Void) {
         self.semaphore.wait()
         let reply: (TrustedPeersHelperPeerState?, TPSyncingPolicy?, Error?) -> Void = {
@@ -3657,8 +4492,9 @@ class Container: NSObject {
                                           osVersion: osVersion,
                                           policyVersion: policyVersion,
                                           policySecrets: policySecrets,
-                                          setSyncUserControllableViews: syncUserControllableViews)
-        self.fetchChangesAndUpdateTrustIfNeeded(stableChanges: stableChanges, reply: reply)
+                                          setSyncUserControllableViews: syncUserControllableViews,
+                                          secureElementIdentity: secureElementIdentity)
+        self.fetchChangesAndUpdateTrustIfNeeded(forceRefetch: forceRefetch, stableChanges: stableChanges, reply: reply)
     }
 
     func set(preapprovedKeys: [Data],
@@ -3804,15 +4640,16 @@ class Container: NSObject {
                     $0.viewKeys = viewKeys
                 }
 
-                self.cuttlefish.updateTrust(request) { response, error in
-                    guard error == nil else {
+                self.cuttlefish.updateTrust(request) { response in
+                    switch response {
+                    case .success(let response):
+                        let keyHierarchyRecords = response.zoneKeyHierarchyRecords.compactMap { CKRecord($0) }
+                        os_log("Recevied %d CKRecords back", log: tplogDebug, type: .default, keyHierarchyRecords.count)
+                        reply(keyHierarchyRecords, nil)
+                    case .failure(let error):
                         reply(nil, error)
                         return
                     }
-
-                    let keyHierarchyRecords = response?.zoneKeyHierarchyRecords.compactMap { CKRecord($0) } ?? []
-                    os_log("Recevied %d CKRecords back", log: tplogDebug, type: .default, keyHierarchyRecords.count)
-                    reply(keyHierarchyRecords, nil)
                 }
             }
         }
@@ -3832,19 +4669,19 @@ class Container: NSObject {
 
             if self.containerMO.bottles != nil {
                 self.containerMO.bottles!.forEach { bottle in
-                    state.bottles.insert(bottle as! BottleMO)
+                    state.bottles.insert(ContainerState.Bottle(bottleMO: bottle as! BottleMO))
                 }
             }
 
             if self.containerMO.fullyViableEscrowRecords != nil {
                 self.containerMO.fullyViableEscrowRecords!.forEach { record in
-                    state.escrowRecords.insert(record as! EscrowRecordMO)
+                    state.escrowRecords.insert(ContainerState.EscrowRecord(escrowRecordMO: record as! EscrowRecordMO))
                 }
             }
 
             if self.containerMO.partiallyViableEscrowRecords != nil {
                 self.containerMO.partiallyViableEscrowRecords!.forEach { record in
-                    state.escrowRecords.insert(record as! EscrowRecordMO)
+                    state.escrowRecords.insert(ContainerState.EscrowRecord(escrowRecordMO: record as! EscrowRecordMO))
                 }
             }
 
@@ -3860,27 +4697,68 @@ class Container: NSObject {
     func fetchAndPersistChangesIfNeeded(reply: @escaping (Error?) -> Void) {
         self.moc.performAndWait {
             if self.containerMO.changeToken == nil {
-                self.onqueueFetchAndPersistChanges(reply: reply)
+                self.onqueueFetchAndPersistChanges(forceRefetch: false, reply: reply)
             } else {
                 reply(nil)
             }
         }
     }
 
-    func fetchAndPersistChanges(reply: @escaping (Error?) -> Void) {
+    func fetchAndPersistChanges(forceRefetch: Bool = false, reply: @escaping (Error?) -> Void) {
         self.moc.performAndWait {
-            self.onqueueFetchAndPersistChanges(reply: reply)
+
+            let causeRefetch: Bool
+            if forceRefetch {
+                os_log("Forcing a full refetch: by request", log: tplogDebug, type: .default)
+                causeRefetch = true
+            } else {
+                let modelRefetch = self.model.currentStatePossiblyMissingData()
+
+                if modelRefetch && (self.containerMO.refetchLevel < Container.currentRefetchLevel) {
+                    os_log("Forcing a full refetch due to model: last refetch level: %d", log: tplogDebug, type: .default,
+                           self.containerMO.refetchLevel)
+                    causeRefetch = true
+                } else if modelRefetch {
+                    os_log("Model would like a full refetch, but we've done one at this refetch level: %d", log: tplogDebug, type: .default,
+                           self.containerMO.refetchLevel)
+                    causeRefetch = false
+                } else {
+                    causeRefetch = false
+                }
+            }
+
+            self.onqueueFetchAndPersistChanges(forceRefetch: causeRefetch, reply: reply)
         }
     }
 
-    private func onqueueFetchAndPersistChanges(reply: @escaping (Error?) -> Void) {
+    private func onqueueFetchAndPersistChanges(forceRefetch: Bool = false, reply: @escaping (Error?) -> Void) {
         let request = FetchChangesRequest.with {
-            $0.changeToken = self.containerMO.changeToken ?? ""
+            if !forceRefetch {
+                $0.changeToken = self.containerMO.changeToken ?? ""
+            }
         }
         os_log("Fetching with change token: %{public}@", log: tplogDebug, type: .default, !request.changeToken.isEmpty ? request.changeToken : "empty")
 
-        self.cuttlefish.fetchChanges(request) { response, error in
-            guard let response = response, error == nil else {
+        self.cuttlefish.fetchChanges(request) { response in
+            switch response {
+            case .success(let response):
+                do {
+                    try self.persist(changes: response.changes, refetchForced: forceRefetch)
+                } catch {
+                    os_log("Could not persist changes: %{public}@", log: tplogDebug, type: .default, error as CVarArg)
+                    reply(error)
+                    return
+                }
+
+                if response.changes.more {
+                    os_log("persist: More changes indicated. Fetching...", log: tplogDebug, type: .default)
+                    self.fetchAndPersistChanges(reply: reply)
+                    return
+                } else {
+                    os_log("persist: no more changes!", log: tplogDebug, type: .default)
+                    reply(nil)
+                }
+            case .failure(let error):
                 switch error {
                 case CuttlefishErrorMatcher(code: CuttlefishErrorCode.changeTokenExpired):
                     os_log("change token is expired; resetting local CK storage", log: tplogDebug, type: .default)
@@ -3905,23 +4783,6 @@ class Container: NSObject {
                 os_log("Could not fetch changes: %{public}@", log: tplogDebug, type: .default, (error as CVarArg?) ?? "no error")
                 reply(error)
                 return
-            }
-
-            do {
-                try self.persist(changes: response.changes)
-            } catch {
-                os_log("Could not persist changes: %{public}@", log: tplogDebug, type: .default, error as CVarArg)
-                reply(error)
-                return
-            }
-
-            if response.changes.more {
-                os_log("persist: More changes indicated. Fetching...", log: tplogDebug, type: .default)
-                self.fetchAndPersistChanges(reply: reply)
-                return
-            } else {
-                os_log("persist: no more changes!", log: tplogDebug, type: .default)
-                reply(nil)
             }
         }
     }
@@ -3954,10 +4815,11 @@ class Container: NSObject {
     // Must be holding the semaphore to call this, and it remains
     // the caller's responsibility to release it after it completes
     // (i.e. after reply is invoked).
-    internal func fetchChangesAndUpdateTrustIfNeeded(stableChanges: StableChanges? = nil,
+    internal func fetchChangesAndUpdateTrustIfNeeded(forceRefetch: Bool = false,
+                                                     stableChanges: StableChanges? = nil,
                                                      peerChanges: Bool = false,
                                                      reply: @escaping (TrustedPeersHelperPeerState?, TPSyncingPolicy?, Error?) -> Void) {
-        self.fetchAndPersistChanges { error in
+        self.fetchAndPersistChanges(forceRefetch: forceRefetch) { error in
             if let error = error {
                 os_log("fetchChangesAndUpdateTrustIfNeeded: fetching failed: %{public}@", log: tplogDebug, type: .default, error as CVarArg)
                 reply(nil, nil, error)
@@ -4087,7 +4949,8 @@ class Container: NSObject {
                                   syncingPolicy,
                                   nil)
                             return
-                        }
+                            }
+
                         // Check if we change that should trigger a notification that should trigger TLKShare updates
                         let havePeerChanges = peerChanges || self.haveTrustMemberChanges(newDynamicInfo: dynamicInfo, oldDynamicInfo: peer?.dynamicInfo)
 
@@ -4113,34 +4976,35 @@ class Container: NSObject {
                          stableChanges: StableChanges? = nil,
                          peerChanges: Bool = false,
                          reply: @escaping (TrustedPeersHelperPeerState?, TPSyncingPolicy?, Error?) -> Void) {
-        self.cuttlefish.updateTrust(request) { response, error in
-            guard let response = response, error == nil else {
-                os_log("UpdateTrust failed: %{public}@", log: tplogDebug, type: .default, (error as CVarArg?) ?? "no error")
-                reply(nil, nil, error ?? ContainerError.cloudkitResponseMissing)
-                return
-            }
+        self.cuttlefish.updateTrust(request) { response in
+            switch response {
+            case .success(let response):
+                do {
+                    try self.persist(changes: response.changes)
+                } catch {
+                    os_log("UpdateTrust failed: %{public}@", log: tplogDebug, String(describing: error))
+                    reply(nil, nil, error)
+                    return
+                }
 
-            do {
-                try self.persist(changes: response.changes)
-            } catch {
-                os_log("UpdateTrust failed: %{public}@", log: tplogDebug, String(describing: error))
+                if response.changes.more {
+                    self.fetchChangesAndUpdateTrustIfNeeded(stableChanges: stableChanges,
+                                                            peerChanges: peerChanges,
+                                                            reply: reply)
+                } else {
+                    self.updateTrustIfNeeded(stableChanges: stableChanges,
+                                             peerChanges: peerChanges,
+                                             reply: reply)
+                }
+            case .failure(let error):
+                os_log("UpdateTrust failed: %{public}@", log: tplogDebug, type: .default, (error as CVarArg?) ?? "no error")
                 reply(nil, nil, error)
                 return
-            }
-
-            if response.changes.more {
-                self.fetchChangesAndUpdateTrustIfNeeded(stableChanges: stableChanges,
-                                                        peerChanges: peerChanges,
-                                                        reply: reply)
-            } else {
-                self.updateTrustIfNeeded(stableChanges: stableChanges,
-                                         peerChanges: peerChanges,
-                                         reply: reply)
             }
         }
     }
 
-    private func persist(changes: Changes) throws {
+    private func persist(changes: Changes, refetchForced: Bool = false) throws {
         // This is some nonsense: I can't figure out how to tell swift to throw an exception across performAndWait.
         // So, do it ourself
         var outsideBlockError: Error?
@@ -4152,7 +5016,7 @@ class Container: NSObject {
             os_log("persist: New change token: %{public}@", log: tplogDebug, type: .default, changes.changeToken)
 
             do {
-                try self.onQueuePersist(changes: changes)
+                try self.onQueuePersist(changes: changes, refetchForced: refetchForced)
             } catch {
                 outsideBlockError = error
             }
@@ -4165,14 +5029,19 @@ class Container: NSObject {
 
     // Must be on moc queue to call this.
     // Changes are registered in the model and stored in moc.
-    private func onQueuePersist(changes: Changes) throws {
+    private func onQueuePersist(changes: Changes, refetchForced: Bool = false) throws {
         self.containerMO.changeToken = changes.changeToken
         self.containerMO.moreChanges = changes.more
 
+        if refetchForced {
+            self.containerMO.refetchLevel = Container.currentRefetchLevel
+        }
+
         if !changes.differences.isEmpty {
-            self.model.clearViableBottles()
             os_log("escrow cache and viable bottles are no longer valid", log: tplogDebug, type: .default)
             self.onQueueRemoveEscrowCache()
+
+            self.darwinNotifier.post(OTCliqueChanged)
         }
 
         try changes.differences.forEach { peerDifference in
@@ -4204,6 +5073,12 @@ class Container: NSObject {
         if !signingKey.isEmpty && !encryptionKey.isEmpty {
             self.addOrUpdate(signingKey: signingKey, encryptionKey: encryptionKey)
         }
+
+        // Don't print this if there's more changes coming; the logs will be very confusing
+        if !changes.more {
+            os_log("Currently know about %{public}d peers", log: tplogDebug, type: .default, model.allPeerIDs().count)
+        }
+
         try self.moc.save()
     }
 
@@ -4259,10 +5134,31 @@ class Container: NSObject {
     }
 
     // Must be on moc queue to call this.
+    private func addOrUpdateCRK(peer: Peer) throws {
+        guard let crk = peer.custodianRecoveryKeyAndSig.toCustodianRecoveryKey() else {
+            os_log("failed to parse custodian recovery key")
+            return
+        }
+        os_log("Register CRK with peerID %{public}@", log: tplogDebug, type: .default, peer.peerID)
+        self.model.register(crk)
+        let crkMO = CustodianRecoveryKeyMO(context: self.moc)
+        crkMO.crkInfo = crk.data
+        crkMO.crkInfoSig = crk.sig
+        self.containerMO.addToCustodianRecoveryKeys(crkMO)
+    }
+
+    // Must be on moc queue to call this.
     private func addOrUpdate(peer: Peer) throws {
         if !self.model.hasPeer(withID: peer.peerID) {
             // Add:
             guard let permanentInfo = peer.permanentInfoAndSig.toPermanentInfo(peerID: peer.peerID) else {
+                if peer.hasCustodianRecoveryKeyAndSig {
+                    if self.testIgnoreCustodianUpdates {
+                        os_log("Ignoring Custodian update due to test request: %{public}@", log: tplogDebug, type: .default, String(describing: peer))
+                    } else {
+                        try self.addOrUpdateCRK(peer: peer)
+                    }
+                }
                 // Ignoring bad peer
                 return
             }
@@ -4361,16 +5257,29 @@ class Container: NSObject {
         // Determine which recovery key we'd like to be using, given our current idea of who to trust
         let optimalRecoveryKey = self.model.bestRecoveryKey(for: existingStableInfo, dynamicInfo: dynamicInfo)
 
+
         let intendedSyncUserControllableViews = stableChanges?.setSyncUserControllableViews?.sanitizeForPlatform(permanentInfo: permanentInfo)
 
-        if noChange(stableChanges?.deviceName, existingStableInfo?.deviceName) &&
+        let intendedSecureElementIdentity: TPPBSecureElementIdentity?
+        if let identitySet = stableChanges?.secureElementIdentity {
+            // note: this might be nil. If so, it represents an affirmative request to delete the secureElementIdentity.
+            intendedSecureElementIdentity = identitySet.secureElementIdentity
+        } else {
+            // the stable changes does not have an opinion; just use what's there
+            intendedSecureElementIdentity = existingStableInfo?.secureElementIdentity
+        }
+
+        var noChanges: Bool
+        noChanges = noChange(stableChanges?.deviceName, existingStableInfo?.deviceName) &&
             noChange(stableChanges?.serialNumber, existingStableInfo?.serialNumber) &&
             noChange(stableChanges?.osVersion, existingStableInfo?.osVersion) &&
             noChange(optimalPolicyVersionNumber, existingStableInfo?.bestPolicyVersion().versionNumber) &&
             noChange(stableChanges?.policySecrets, existingStableInfo?.policySecrets) &&
             noChange(optimalRecoveryKey?.signingKeyData, existingStableInfo?.recoverySigningPublicKey) &&
             noChange(optimalRecoveryKey?.encryptionKeyData, existingStableInfo?.recoveryEncryptionPublicKey) &&
-            noChange(intendedSyncUserControllableViews, existingStableInfo?.syncUserControllableViews) {
+            noChange(intendedSyncUserControllableViews, existingStableInfo?.syncUserControllableViews)
+        noChanges = noChanges && (intendedSecureElementIdentity == existingStableInfo?.secureElementIdentity)
+        if noChanges {
             return nil
         }
 
@@ -4379,19 +5288,21 @@ class Container: NSObject {
         let useFrozenPolicyVersion = optimalPolicyVersion.versionNumber >= frozenPolicyVersion.versionNumber
 
         if let intendedSyncUserControllableViews = intendedSyncUserControllableViews {
-            os_log("Intending to set user-controllable views to %{public}@", log: tplogTrace, type: .info, TPPBPeerStableInfo_UserControllableViewStatusAsString(intendedSyncUserControllableViews))
+            os_log("Intending to set user-controllable views to %{public}@", log: tplogTrace, type: .info, TPPBPeerStableInfoUserControllableViewStatusAsString(intendedSyncUserControllableViews))
         }
 
         return try self.model.createStableInfo(withFrozenPolicyVersion: useFrozenPolicyVersion ? frozenPolicyVersion : optimalPolicyVersion,
                                                flexiblePolicyVersion: useFrozenPolicyVersion ? optimalPolicyVersion : nil,
                                                policySecrets: stableChanges?.policySecrets ?? existingStableInfo?.policySecrets,
                                                syncUserControllableViews: intendedSyncUserControllableViews ?? existingStableInfo?.syncUserControllableViews ?? .UNKNOWN,
+                                               secureElementIdentity: intendedSecureElementIdentity,
                                                deviceName: stableChanges?.deviceName ?? existingStableInfo?.deviceName ?? "",
                                                serialNumber: stableChanges?.serialNumber ?? existingStableInfo?.serialNumber ?? "",
                                                osVersion: stableChanges?.osVersion ?? existingStableInfo?.osVersion ?? "",
                                                signing: signingKeyPair,
                                                recoverySigningPubKey: optimalRecoveryKey?.signingKeyData,
-                                               recoveryEncryptionPubKey: optimalRecoveryKey?.encryptionKeyData)
+                                               recoveryEncryptionPubKey: optimalRecoveryKey?.encryptionKeyData,
+                                               isInheritedAccount: existingStableInfo?.isInheritedAccount ?? false)
     }
 
     private func assembleBottle(egoPeerID: String) throws -> Bottle {
@@ -4469,12 +5380,14 @@ class Container: NSObject {
         }
 
         self.moc.performAndWait {
-            self.cuttlefish.reportHealth(updatedRequest) { _, error in
-                guard error == nil else {
+            self.cuttlefish.reportHealth(updatedRequest) { response in
+                switch response {
+                case .success:
+                    reply(nil)
+                case .failure(let error):
                     reply(error)
                     return
                 }
-                reply(nil)
             }
         }
     }
@@ -4488,12 +5401,14 @@ class Container: NSObject {
         }
 
         self.moc.performAndWait {
-            self.cuttlefish.pushHealthInquiry(PushHealthInquiryRequest()) { _, error in
-                guard error == nil else {
+            self.cuttlefish.pushHealthInquiry(PushHealthInquiryRequest()) { response in
+                switch response {
+                case .success:
+                    reply(nil)
+                case .failure(let error):
                     reply(error)
                     return
                 }
-                reply(nil)
             }
         }
     }

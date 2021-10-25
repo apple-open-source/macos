@@ -21,13 +21,6 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-/*
- * This is to fool os services to not provide the Keychain manager
- * interface that doesn't work since we don't have unified headers
- * between iOS and OS X. rdar://23405418/
- */
-#define __KEYCHAINCORE__ 1
-
 #import <Foundation/Foundation.h>
 #import <Foundation/NSXPCConnection_Private.h>
 #import <Security/Security.h>
@@ -187,6 +180,7 @@ command_sos_control(__unused int argc, __unused char * const * argv)
         bool triggerRingUpdate = false;
         bool iCloudIdentityStatus = false;
         bool removeV0Peers = false;
+        bool sosQueryEnabled = false;
 
         static struct option long_options[] =
         {
@@ -204,10 +198,11 @@ command_sos_control(__unused int argc, __unused char * const * argv)
             {"ghostbustTriggered",   optional_argument, NULL, 'T'},
             {"icloudIdentityStatus",   optional_argument, NULL, 'i'},
             {"removeV0Peers",   optional_argument, NULL, 'V'},
+            {"querySOSMode",   no_argument, NULL, 'Q'},
             {0, 0, 0, 0}
         };
 
-        while ((ch = getopt_long(argc, argv, "as:AB:GHIMRSTiV", long_options, &option_index)) != -1) {
+        while ((ch = getopt_long(argc, argv, "as:AB:GHIMQRSTiV", long_options, &option_index)) != -1) {
             switch  (ch) {
                 case 'a': {
                     assertStashAccountKey = true;
@@ -235,6 +230,10 @@ command_sos_control(__unused int argc, __unused char * const * argv)
                         }
                         [backupPeers addObject:[NSString stringWithUTF8String:optarg]];
                     }
+                    break;
+                }
+                case 'Q': {
+                    sosQueryEnabled = true;
                     break;
                 }
                 case 'G': {
@@ -383,6 +382,12 @@ command_sos_control(__unused int argc, __unused char * const * argv)
                 if (error) {
                     printf("%s", [[NSString stringWithFormat:@"failed to remove V0 Peers: %@\n", error] UTF8String]);
                 }
+            }];
+        } else if (sosQueryEnabled == true) {
+            [[control.connection synchronousRemoteObjectProxyWithErrorHandler:^(NSError *error) {
+                printControlFailureMessage(error);
+            }] sosIsEnabledCB:^(bool result) {
+                printf("SOS Is %s\n", result ? "Active": "Monitoring");
             }];
         } else {
             [[control.connection synchronousRemoteObjectProxyWithErrorHandler:^(NSError *error) {

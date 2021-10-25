@@ -65,6 +65,7 @@
 
 #include <sys/queue.h>
 #include <sys/cdefs.h>
+#include <sys/types.h>
 
 struct vnop_advlock_args;
 struct vnode;

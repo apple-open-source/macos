@@ -74,7 +74,7 @@
 }
 
 static inline SOSCCStatus reportAsSOSCCStatus(uint64_t x) {
-    return (SOSCCStatus) x & CC_MASK;
+    return (SOSCCStatus) (x & CC_MASK);
 }
 
 - (void) updateSOSCircleCachedStatus {
@@ -112,26 +112,21 @@ static inline SOSCCStatus reportAsSOSCCStatus(uint64_t x) {
         // notify if last cache status was invalid, or it have changed, clients don't get update on changes in
         // the metadata stored in the upper bits of above CC_MASK (at least not though this path)
         bool firstLaunch = (lastStatus & CC_STATISVALID) == 0;
-        bool circleChanged = ((lastStatus & CC_MASK) != (currentStatus & CC_MASK));
-
-        bool circleStatusChanged = firstLaunch || circleChanged;
 
         lastStatus = currentStatus;
 
-        secnotice("sosnotify", "new last circle status is: %d (notify: %s)",
-                  reportAsSOSCCStatus(lastStatus),
-                  circleStatusChanged ? "yes" : "no");
+        secnotice("sosnotify", "new last circle status is: %d",
+                  reportAsSOSCCStatus(lastStatus));
 
         SOSCachedNotificationOperation(kSOSCCCircleChangedNotification, ^bool(int token, bool gtg) {
             if(gtg) {
                 uint32_t status = notify_set_state(token, currentStatus);
+                
+                // CJR/KCN need to know about any circle/keyparm changes
                 if(status == NOTIFY_STATUS_OK) {
                     self->_account.notifyCircleChangeOnExit = false;
-
-                    if (circleStatusChanged) {
-                        secnotice("sosnotify", "posting kSOSCCCircleChangedNotification");
-                        notify_post(kSOSCCCircleChangedNotification);
-                    }
+                    secnotice("sosnotify", "posting kSOSCCCircleChangedNotification");
+                    notify_post(kSOSCCCircleChangedNotification);
                 }
                 return true;
             }
@@ -213,13 +208,13 @@ static void SOSViewsSetCachedStatus(SOSAccount *account) {
     
     SOSAccountEnsurePeerInfoHasCurrentBackupKey(self, NULL);
 
-    if(self.account.key_interests_need_updating) {
+    if(self.account.key_interests_need_updating && !self.account.consolidateKeyInterest) {
         SOSUpdateKeyInterest(self.account);
     }
 
     if(!self.quiet) {
         CFStringSetPerformWithDescription((__bridge CFSetRef) self.initialViews, ^(CFStringRef description) {
-            secnotice("acct-txn", "Starting as:%s v:%@", self.initialInCircle ? "member" : "non-member", description);
+            secnotice("acct-txn", "UID: %d - Starting as:%s %@ v:%@", getuid(), self.initialInCircle ? "member" : "non-member", [self.account sosIsEnabledString],  description);
         });
     }
 }
@@ -234,6 +229,7 @@ static void SOSViewsSetCachedStatus(SOSAccount *account) {
     static int do_account_state_at_zero = 0;
     bool doCircleChanged = self.account.notifyCircleChangeOnExit;
     bool doViewChanged = false;
+    bool sosIsEnabled = [self.account sosIsEnabled];
 
 
     CFErrorRef localError = NULL;
@@ -243,7 +239,7 @@ static void SOSViewsSetCachedStatus(SOSAccount *account) {
 
     bool isInCircle = [self.account isInCircle:NULL];
 
-    if (isInCircle && self.peersToRequestSync) {
+    if (isInCircle && self.peersToRequestSync && sosIsEnabled) {
         NSMutableSet<NSString*>* worklist = self.peersToRequestSync;
         self.peersToRequestSync = nil;
         SOSCCRequestSyncWithPeers((__bridge CFSetRef)(worklist));
@@ -251,19 +247,19 @@ static void SOSViewsSetCachedStatus(SOSAccount *account) {
     
     SOSAccountEnsurePeerInfoHasCurrentBackupKey(self, NULL);
 
-    if (isInCircle) {
+    if (isInCircle && sosIsEnabled) {
         SOSAccountEnsureSyncChecking(self.account);
     } else {
         SOSAccountCancelSyncChecking(self.account);
     }
 
     // If our identity changed our inital set should be everything.
-    if ([self.initialID isEqualToString: (__bridge NSString *)(SOSPeerInfoGetPeerID(mpi))]) {
+    if (sosIsEnabled && [self.initialID isEqualToString: (__bridge NSString *)(SOSPeerInfoGetPeerID(mpi))]) {
         self.initialUnsyncedViews = (__bridge_transfer NSSet<NSString*>*) SOSViewCopyViewSet(kViewSetAll);
     }
 
     NSSet<NSString*>* finalUnsyncedViews = (__bridge_transfer NSSet<NSString*>*) SOSAccountCopyOutstandingViews(self.account);
-    if (!NSIsEqualSafe(self.initialUnsyncedViews, finalUnsyncedViews)) {
+    if (sosIsEnabled && !NSIsEqualSafe(self.initialUnsyncedViews, finalUnsyncedViews)) {
         if (SOSAccountHandleOutOfSyncUpdate(self.account,
                                             (__bridge CFSetRef)(self.initialUnsyncedViews),
                                             (__bridge CFSetRef)(finalUnsyncedViews))) {
@@ -274,7 +270,7 @@ static void SOSViewsSetCachedStatus(SOSAccount *account) {
         secnotice("initial-sync", "Unsynced is: %@", [finalUnsyncedViews shortDescription]);
     }
 
-    if (self.account.engine_peer_state_needs_repair) {
+    if (sosIsEnabled && self.account.engine_peer_state_needs_repair) {
         // We currently only get here from a failed syncwithallpeers, so
         // that will retry. If this logic changes, force a syncwithallpeers
         if (!SOSAccountEnsurePeerRegistration(self.account, &localError)) {
@@ -293,7 +289,7 @@ static void SOSViewsSetCachedStatus(SOSAccount *account) {
         // Also, there might be some view set change. Ensure that the engine knows...
         notifyEngines = true;
     }
-    if(self.account.need_backup_peers_created_after_backup_key_set){
+    if(sosIsEnabled && self.account.need_backup_peers_created_after_backup_key_set) { // if we need to keep backup peers this needs to be re-enabled.
         self.account.need_backup_peers_created_after_backup_key_set = false;
         notifyEngines = true;
     }
@@ -304,7 +300,7 @@ static void SOSViewsSetCachedStatus(SOSAccount *account) {
     CFReleaseNull(currentViews);
     notifyEngines |= viewSetChanged;
 
-    if (notifyEngines) {
+    if (sosIsEnabled && notifyEngines) {
 #if OCTAGON
         if(!SecCKKSTestDisableSOS()) {
 #endif
@@ -314,7 +310,7 @@ static void SOSViewsSetCachedStatus(SOSAccount *account) {
 #endif
     }
 
-    if(self.account.key_interests_need_updating) {
+    if(sosIsEnabled && self.account.key_interests_need_updating && !self.account.consolidateKeyInterest) {
         SOSUpdateKeyInterest(self.account);
     }
 
@@ -330,7 +326,7 @@ static void SOSViewsSetCachedStatus(SOSAccount *account) {
         finalCirclePeerCount = SOSCircleCountPeers(self.account.trust.trustedCircle);
     }
 
-    if(isInCircle && (finalCirclePeerCount < self.initialCirclePeerCount)) {
+    if(sosIsEnabled && isInCircle && (finalCirclePeerCount < self.initialCirclePeerCount)) {
         (void) SOSAccountCleanupAllKVSKeys(_account, NULL);
     }
 
@@ -339,7 +335,7 @@ static void SOSViewsSetCachedStatus(SOSAccount *account) {
 
     if(!self.quiet) {
         CFStringSetPerformWithDescription(views, ^(CFStringRef description) {
-            secnotice("acct-txn", "Finished as:%s v:%@", isInCircle ? "member" : "non-member", description);
+            secnotice("acct-txn", "UID: %d - Finished as:%s %@ v:%@", getuid(), self.initialInCircle ? "member" : "non-member", [self.account sosIsEnabledString],  description);
         });
     }
 
@@ -392,15 +388,15 @@ static void SOSViewsSetCachedStatus(SOSAccount *account) {
     
     if(doCircleChanged) {
         [self updateSOSCircleCachedStatus];
+        [self.account sosEvaluateIfNeeded];
     }
     if(doViewChanged) {
         SOSViewsSetCachedStatus(_account);
     }
-    if(self.account.notifyBackupOnExit) {
+    if(sosIsEnabled && self.account.notifyBackupOnExit) {
         notify_post(kSecItemBackupNotification);
         self.account.notifyBackupOnExit = false;
     }
-
 
     if(do_account_state_at_zero <= 0) {
         SOSAccountLogState(self.account);
@@ -447,7 +443,7 @@ __thread bool __hasAccountQueue = false;
             action();
         }];
     } else {
-        secnotice("acct-txn", "No account; running block on local thread");
+        secnotice("acct-txn", "UID: %d - No account; running block on local thread", getuid());
         action();
     }
 }

@@ -10,44 +10,53 @@
 @interface CloudKitKeychainSyncingMultiZoneTestsBase : CloudKitKeychainSyncingMockXCTest
 
 @property CKRecordZoneID*      engramZoneID;
-@property CKKSKeychainView*    engramView;
+@property CKKSKeychainViewState* engramView;
 @property FakeCKZone*          engramZone;
 @property (readonly) ZoneKeys* engramZoneKeys;
 
 @property CKRecordZoneID*      manateeZoneID;
-@property CKKSKeychainView*    manateeView;
+@property CKKSKeychainViewState* manateeView;
 @property FakeCKZone*          manateeZone;
 @property (readonly) ZoneKeys* manateeZoneKeys;
 
 @property CKRecordZoneID*      autoUnlockZoneID;
-@property CKKSKeychainView*    autoUnlockView;
+@property CKKSKeychainViewState* autoUnlockView;
 @property FakeCKZone*          autoUnlockZone;
 @property (readonly) ZoneKeys* autoUnlockZoneKeys;
 
 @property CKRecordZoneID*      healthZoneID;
-@property CKKSKeychainView*    healthView;
+@property CKKSKeychainViewState* healthView;
 @property FakeCKZone*          healthZone;
 @property (readonly) ZoneKeys* healthZoneKeys;
 
 @property CKRecordZoneID*      applepayZoneID;
-@property CKKSKeychainView*    applepayView;
+@property CKKSKeychainViewState* applepayView;
 @property FakeCKZone*          applepayZone;
 @property (readonly) ZoneKeys* applepayZoneKeys;
 
 @property CKRecordZoneID*      homeZoneID;
-@property CKKSKeychainView*    homeView;
+@property CKKSKeychainViewState* homeView;
 @property FakeCKZone*          homeZone;
 @property (readonly) ZoneKeys* homeZoneKeys;
 
+@property CKRecordZoneID*      mfiZoneID;
+@property CKKSKeychainViewState* mfiView;
+@property FakeCKZone*          mfiZone;
+@property (readonly) ZoneKeys* mfiZoneKeys;
+
 @property CKRecordZoneID*      limitedZoneID;
-@property CKKSKeychainView*    limitedView;
+@property CKKSKeychainViewState* limitedView;
 @property FakeCKZone*          limitedZone;
 @property (readonly) ZoneKeys* limitedZoneKeys;
 
 @property CKRecordZoneID*      passwordsZoneID;
-@property CKKSKeychainView*    passwordsView;
+@property CKKSKeychainViewState* passwordsView;
 @property FakeCKZone*          passwordsZone;
 @property (readonly) ZoneKeys* passwordsZoneKeys;
+
+@property CKRecordZoneID*      ptaZoneID;
+@property CKKSKeychainViewState* ptaView;
+@property FakeCKZone*          ptaZone;
 
 - (void)saveFakeKeyHierarchiesToLocalDatabase;
 - (void)putFakeDeviceStatusesInCloudKit;

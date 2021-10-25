@@ -1143,6 +1143,8 @@ AC_ARG_ENABLE(fuzzer,
 	fuzzer=false)
 ICU_CONDITIONAL(FUZZER, test "$fuzzer" = true)
 
+ICU_CONDITIONAL(DATA, test "$tools" = true || test "$cross_compiling" = "yes")
+
 AC_ARG_WITH(data-packaging,
 	[  --with-data-packaging     specify how to package ICU data. Possible values:
         files    raw files (.res, etc)
@@ -1150,7 +1152,7 @@ AC_ARG_WITH(data-packaging,
         library  shared library (.dll/.so/etc.)
         static   static library (.a/.lib/etc.)
         auto     build shared if possible (default)
-           See http://userguide.icu-project.org/icudata for more info.],
+           See https://unicode-org.github.io/icu/userguide/icudata for more info.],
 	[case "${withval}" in
                 files|archive|library) datapackaging=$withval ;;
 		auto) datapackaging=$withval ;;

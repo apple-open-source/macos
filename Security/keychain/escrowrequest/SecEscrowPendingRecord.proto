@@ -31,4 +31,7 @@ message SecEscrowPendingRecord {
 
     // Request was generated at the time, ms since 1970
     optional uint64 triggerRequestTime = 9;
+
+    // A serialized SecureBackupEscrowReason; format is defined by CloudServices.
+    optional bytes serializedReason = 10;
 }

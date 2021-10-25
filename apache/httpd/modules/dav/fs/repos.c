@@ -948,15 +948,29 @@ static dav_error * dav_fs_open_stream(const dav_resource *resource,
         else if (APR_STATUS_IS_EEXIST(rv)) {
             rv = apr_file_open(&ds->f, ds->pathname, flags, APR_OS_DEFAULT,
                                ds->p);
+            if (rv != APR_SUCCESS) {
+                return dav_new_error(p, MAP_IO2HTTP(rv), 0, rv,
+                                    apr_psprintf(p, "Could not open an existing "
+                                                 "resource for writing: %s.",
+                                                 ds->pathname));
+            }
         }
     }
     else {
         rv = apr_file_open(&ds->f, ds->pathname, flags, APR_OS_DEFAULT, ds->p);
+        if (rv != APR_SUCCESS) {
+            return dav_new_error(p, MAP_IO2HTTP(rv), 0, rv,
+                                 apr_psprintf(p, "Could not open an existing "
+                                              "resource for reading: %s.",
+                                              ds->pathname));
+        }
     }
 
     if (rv != APR_SUCCESS) {
         return dav_new_error(p, MAP_IO2HTTP(rv), 0, rv,
-                             "An error occurred while opening a resource.");
+                             apr_psprintf(p, "An error occurred while opening "
+                                          "a resource for writing: %s.",
+                                          ds->pathname));
     }
 
     /* (APR registers cleanups for the fd with the pool) */
@@ -1853,27 +1867,26 @@ static dav_error * dav_fs_walk(const dav_walk_params *params, int depth,
     return dav_fs_internal_walk(params, depth, 0, NULL, response);
 }
 
-/* dav_fs_etag:  Stolen from ap_make_etag.  Creates a strong etag
- *    for file path.
- * ### do we need to return weak tags sometimes?
+/* dav_fs_etag: Creates an etag for the file path.
  */
 static const char *dav_fs_getetag(const dav_resource *resource)
 {
+    etag_rec er;
+
     dav_resource_private *ctx = resource->info;
-    /* XXX: This should really honor the FileETag setting */
 
-    if (!resource->exists)
-        return apr_pstrdup(ctx->pool, "");
-
-    if (ctx->finfo.filetype != APR_NOFILE) {
-        return apr_psprintf(ctx->pool, "\"%" APR_UINT64_T_HEX_FMT "-%"
-                            APR_UINT64_T_HEX_FMT "\"",
-                            (apr_uint64_t) ctx->finfo.size,
-                            (apr_uint64_t) ctx->finfo.mtime);
+    if (!resource->exists || !ctx->r) {
+        return "";
     }
 
-    return apr_psprintf(ctx->pool, "\"%" APR_UINT64_T_HEX_FMT "\"",
-                       (apr_uint64_t) ctx->finfo.mtime);
+    er.vlist_validator = NULL;
+    er.request_time = ctx->r->request_time;
+    er.finfo = &ctx->finfo;
+    er.pathname = ctx->pathname;
+    er.fd = NULL;
+    er.force_weak = 0;
+
+    return ap_make_etag_ex(ctx->r, &er);
 }
 
 static const dav_hooks_repository dav_hooks_repository_fs =

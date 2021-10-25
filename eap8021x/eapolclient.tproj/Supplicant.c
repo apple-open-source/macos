@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2020 Apple Inc. All rights reserved.
+ * Copyright (c) 2001-2021 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -81,6 +81,7 @@
 #include "mylog.h"
 #include "myCFUtil.h"
 #include "ClientControlInterface.h"
+#include "AppSSOProviderAccess.h"
 
 #define START_PERIOD_SECS		5
 #define START_ATTEMPTS_MAX		3
@@ -133,6 +134,9 @@ struct Supplicant_s {
     CFDictionaryRef		orig_config_dict;
     CFDictionaryRef		config_dict;
     CFMutableDictionaryRef	ui_config_dict;
+    CFMutableDictionaryRef	appsso_provider_creds;
+    CFStringRef			appsso_provider_url;
+    CFTypeRef 			appsso_provider;
     CFStringRef			config_id;
 
     int				previous_identifier;
@@ -185,6 +189,7 @@ struct Supplicant_s {
 
     bool			no_ui;
     bool			sent_identity;
+    bool 			appsso_auth_requested;
 };
 
 typedef enum {
@@ -431,6 +436,9 @@ EAPClientStatusGetString(EAPClientStatus status)
 	break;
     case kEAPClientStatusPluginSpecificError:
 	str = "PluginSpecificError";
+	break;
+    case kEAPClientStatusOtherInputRequired:
+	str = "OtherInputRequired";
 	break;
     default:
 	str = "<unknown>";
@@ -1614,6 +1622,10 @@ Supplicant_acquired(SupplicantRef supp, SupplicantEvent event,
 		supp->last_status = kEAPClientStatusUserInputNotPossible;
 		Supplicant_held(supp, kSupplicantEventStart, NULL);
 	    }
+	    else if (supp->appsso_auth_requested) {
+		supp->last_status = kEAPClientStatusOtherInputRequired;
+		Supplicant_report_status(supp);
+	    }
 	    else {
 		supp->last_status = kEAPClientStatusUserInputRequired;
 		Supplicant_report_status(supp);
@@ -1644,6 +1656,10 @@ Supplicant_acquired(SupplicantRef supp, SupplicantEvent event,
 			       (void *)kSupplicantEventTimeout,
 			       NULL);
 	    
+	}
+	else if (supp->appsso_auth_requested) {
+	    supp->last_status = kEAPClientStatusOtherInputRequired;
+	    Supplicant_report_status(supp);
 	}
 	else {
 	    supp->last_status = kEAPClientStatusUserInputRequired;
@@ -2011,6 +2027,7 @@ static void
 dictInsertClientStatus(CFMutableDictionaryRef dict,
 		       EAPClientStatus status, int error)
 {
+
     dictInsertNumber(dict, kEAPOLControlClientStatus, status);
     dictInsertNumber(dict, kEAPOLControlDomainSpecificError, error);
     return;
@@ -2119,6 +2136,178 @@ create_ui_config_dict(SupplicantRef supp)
 				    &kCFTypeDictionaryValueCallBacks);
     
     return;
+}
+
+#pragma mark - AppSSO Provider
+
+static void
+appsso_provider_supplied_credentials(SupplicantRef supp)
+{
+    EAPLOG_FL(LOG_INFO, "appsso_provider_supplied_credentials");
+    switch (supp->state) {
+	case kSupplicantStateAcquired:
+	    Supplicant_acquired(supp,
+				kSupplicantEventMoreDataAvailable,
+				NULL);
+	    break;
+	case kSupplicantStateAuthenticating:
+	    if (supp->last_rx_packet.eapol_p != NULL) {
+		process_packet(supp, &supp->last_rx_packet);
+	    }
+	    break;
+	default:
+	    break;
+    }
+}
+
+static void
+create_appsso_provider_creds_dict(SupplicantRef supp)
+{
+    if (supp->appsso_provider_creds != NULL) {
+	return;
+    }
+    supp->appsso_provider_creds
+	= CFDictionaryCreateMutable(NULL, 0,
+				    &kCFTypeDictionaryKeyCallBacks,
+				    &kCFTypeDictionaryValueCallBacks);
+
+    return;
+}
+
+void
+free_appsso_provider_response(CredentialsAppSSOProviderResponseRef *response_p)
+{
+    CredentialsAppSSOProviderResponseRef response;
+
+    if (response_p == NULL) {
+	return;
+    }
+    response = *response_p;
+    if (response != NULL) {
+	my_CFRelease(&response->identity_persistent_ref);
+	my_CFRelease(&response->username);
+	my_CFRelease(&response->password);
+	free(response);
+    }
+    *response_p = NULL;
+    return;
+}
+
+void
+remove_appsso_provider_url_from_config(CFMutableDictionaryRef config_dict)
+{
+    CFDictionaryRef 		eap_config = NULL;
+    CFMutableDictionaryRef 	mutable_eap_config = NULL;
+
+    eap_config = CFDictionaryGetValue(config_dict, kEAPOLControlEAPClientConfiguration);
+    if (isA_CFDictionary(eap_config) == NULL) {
+	return;
+    }
+    mutable_eap_config = CFDictionaryCreateMutableCopy(NULL, 0, eap_config);
+    CFDictionaryRemoveValue(mutable_eap_config, kEAPClientPropExtensibleSSOProvider);
+    CFDictionarySetValue(config_dict, kEAPOLControlEAPClientConfiguration, mutable_eap_config);
+    my_CFRelease(&mutable_eap_config);
+    return;
+}
+
+bool
+handle_appsso_provider_credentials(SupplicantRef supp, CredentialsAppSSOProviderResponseRef response)
+{
+    CFMutableDictionaryRef config_dict = NULL;
+
+    if (response == NULL || response->authorized == false) {
+	EAPLOG_FL(LOG_ERR, "invalid/unauthorized appsso provider response");
+	return false;
+    }
+    create_appsso_provider_creds_dict(supp);
+    if (response->username != NULL) {
+	CFDictionarySetValue(supp->appsso_provider_creds, kEAPClientPropUserName,
+			     response->username);
+	supp->ignore_username = FALSE;
+    }
+    if (response->password != NULL) {
+	CFDictionarySetValue(supp->appsso_provider_creds,
+			     kEAPClientPropUserPassword,
+			     response->password);
+	supp->ignore_password = FALSE;
+    }
+    if (isA_CFData(response->identity_persistent_ref) != NULL) {
+	CFDictionarySetValue(supp->appsso_provider_creds,
+			     kEAPClientPropTLSIdentityHandle,
+			     response->identity_persistent_ref);
+	supp->ignore_sec_identity = FALSE;
+    }
+    supp->remember_information = response->remember_information;
+    free_appsso_provider_response(&response);
+    config_dict = CFDictionaryCreateMutableCopy(NULL, 0, supp->orig_config_dict);
+    remove_appsso_provider_url_from_config(config_dict);
+    Supplicant_update_configuration(supp, config_dict, NULL);
+    my_CFRelease(&config_dict);
+    appsso_provider_supplied_credentials(supp);
+    return true;
+}
+
+void
+appsso_provider_callback(void *context, CFErrorRef error, CredentialsAppSSOProviderResponseRef response)
+{
+    bool 			success = true;
+    SupplicantRef 		supp = (SupplicantRef)context;
+
+    EAPLOG_FL(LOG_INFO, "appsso_provider_callback");
+    if (error) {
+	CFStringRef err_desc = CFErrorCopyDescription(error);
+	EAPLOG_FL(LOG_ERR, "failed to fetch credentials from AppSSO provider, error: %@", err_desc);
+	CFRelease(err_desc);
+	success = false;
+    }
+    if (supp->last_status != kEAPClientStatusOtherInputRequired) {
+	EAPLOG_FL(LOG_ERR, "supplicant's last status is not %s",
+		  EAPClientStatusGetString(kEAPClientStatusOtherInputRequired));
+	return;
+    }
+    if (success) {
+	EAPLOG_FL(LOG_INFO, "received credentials from AppSSO provider");
+	success = handle_appsso_provider_credentials(supp, response);
+    }
+    if (!success) {
+	CFMutableDictionaryRef config_dict = CFDictionaryCreateMutableCopy(NULL, 0, supp->orig_config_dict);
+	remove_appsso_provider_url_from_config(config_dict);
+	Supplicant_update_configuration(supp, config_dict, NULL);
+	my_CFRelease(&config_dict);
+    }
+    if (supp->appsso_provider) {
+#if TARGET_OS_IOS
+	AppSSOProviderAccessInvalidate(supp->appsso_provider);
+#endif /* TARGET_OS_IOS */
+	supp->appsso_provider = NULL;
+    }
+    return;
+}
+
+static void
+fetch_credentials_from_appsso_provider(SupplicantRef supp, CFStringRef provider_url, CFStringRef ssid)
+{
+#if TARGET_OS_IOS
+    EAPLOG_FL(LOG_INFO, "fetching credentials with provider url: [%@], ssid:[%@]", provider_url, ssid);
+    CFTypeRef appsso_provider = AppSSOProviderAccessFetchCredentials(provider_url, ssid, dispatch_get_main_queue(), appsso_provider_callback, supp);
+    if (appsso_provider != NULL) {
+	supp->appsso_provider = appsso_provider;
+    }
+#endif /* TARGET_OS_IOS */
+    return;
+}
+
+static bool
+is_appsso_provider_auth_requested(const CFDictionaryRef eap_config)
+{
+#if TARGET_OS_IOS
+    return (eap_config != NULL &&
+	    CFDictionaryContainsKey(eap_config, kEAPClientPropExtensibleSSOProvider) &&
+	    isA_CFString(CFDictionaryGetValue(eap_config, kEAPClientPropExtensibleSSOProvider)) != NULL);
+#else /* #if TARGET_OS_IOS */
+#pragma unused(eap_config)
+    return false;
+#endif /* TARGET_OS_IOS */
 }
 
 #if ! TARGET_OS_IPHONE
@@ -2343,12 +2532,11 @@ S_add_config_notification(SupplicantRef supp)
 	return;
     }
     context.info = supp;
-    notify_port_cf = CFMachPortCreateWithPort(NULL, notify_port,
-					      S_config_changed, 
-					      &context,
-					      NULL);
+    notify_port_cf = _SC_CFMachPortCreateWithPort("eapolclient", notify_port,
+						  S_config_changed,
+						  &context);
     if (notify_port_cf == NULL) {
-	EAPLOG_FL(LOG_ERR, "CFMachPortCreateWithPort() failed");
+	/* _SC_CFMachPortCreateWithPort already logged the failure */
 	(void)notify_cancel(notify_token);
 	return;
     }
@@ -2456,7 +2644,17 @@ Supplicant_report_status(SupplicantRef supp)
 			      supp->eap.last_type_name);
 	dictInsertClientStatus(dict, supp->last_status,
 			       supp->last_error);
-	if (supp->last_status == kEAPClientStatusUserInputRequired) {
+	if (supp->last_status == kEAPClientStatusOtherInputRequired) {
+	    /* This is a workaround as WiFiManager stops EAP auth when client status
+	     * is other than kEAPClientStatusOK and kEAPClientStatusUserInputRequired.
+	     * This won't be necessary after rdar://problem/74290419 is fixed.
+	     */
+	    dictInsertClientStatus(dict, kEAPClientStatusOK, supp->last_error);
+	    CFStringRef	ssid = EAPOLSocketGetSSID(supp->sock);
+	    ssid = (ssid != NULL) ? ssid : CFSTR("network");
+	    fetch_credentials_from_appsso_provider(supp, supp->appsso_provider_url, ssid);
+	}
+	else if (supp->last_status == kEAPClientStatusUserInputRequired) {
 	    if (supp->username == NULL) {
 		dictInsertRequiredProperties(dict, NULL);
 #if ! TARGET_OS_IPHONE
@@ -3436,6 +3634,13 @@ Supplicant_update_configuration(SupplicantRef supp, CFDictionaryRef config_dict,
     my_CFRelease(&supp->orig_config_dict);
     supp->orig_config_dict = CFDictionaryCreateCopy(NULL, config_dict);
 
+    supp->appsso_auth_requested = is_appsso_provider_auth_requested(eap_config);
+    if (supp->appsso_auth_requested) {
+	EAPLOG(LOG_INFO, "appsso provider auth is requested");
+	supp->appsso_provider_url = CFDictionaryGetValue(eap_config, kEAPClientPropExtensibleSSOProvider);
+	CFRetain(supp->appsso_provider_url);
+    }
+
     empty_user 
 	= cfstring_is_empty(CFDictionaryGetValue(eap_config,
 						 kEAPClientPropUserName));
@@ -3448,6 +3653,7 @@ Supplicant_update_configuration(SupplicantRef supp, CFDictionaryRef config_dict,
     /* clean up empty username/password, add UI properties */
     if (empty_user || empty_password
 	|| supp->ui_config_dict != NULL
+	|| supp->appsso_provider_creds != NULL
 #if ! TARGET_OS_IPHONE
 	|| password_info != NULL
 	|| profile != NULL
@@ -3478,6 +3684,10 @@ Supplicant_update_configuration(SupplicantRef supp, CFDictionaryRef config_dict,
 #endif /* TARGET_OS_IPHONE */
 	if (supp->ui_config_dict != NULL) {
 	    CFDictionaryApplyFunction(supp->ui_config_dict, dict_set_key_value,
+				      new_eap_config);
+	}
+	if (supp->appsso_provider_creds != NULL) {
+	    CFDictionaryApplyFunction(supp->appsso_provider_creds, dict_set_key_value,
 				      new_eap_config);
 	}
 	supp->config_dict = new_eap_config;
@@ -3762,6 +3972,8 @@ Supplicant_free(SupplicantRef * supp_p)
 	my_CFRelease(&supp->orig_config_dict);
 	my_CFRelease(&supp->config_dict);
 	my_CFRelease(&supp->ui_config_dict);
+	my_CFRelease(&supp->appsso_provider_creds);
+	my_CFRelease(&supp->appsso_provider_url);
 	my_CFRelease(&supp->config_id);
 	my_CFRelease(&supp->identity_attributes);
 #if ! TARGET_OS_IPHONE

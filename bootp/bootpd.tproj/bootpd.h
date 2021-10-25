@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2017 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2021 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -102,6 +102,9 @@ typedef struct subnet_match_args {
 
 boolean_t
 detect_other_dhcp_server(interface_t * if_p);
+
+boolean_t
+ipv6_only_preferred(interface_t * if_p);
 
 void
 disable_dhcp_on_interface(interface_t * if_p);

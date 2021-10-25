@@ -251,6 +251,7 @@ _thread_start:
 #elif defined(__arm64__)
 
 #include <mach/arm/syscall_sw.h>
+#include <os/tsd.h>
 
 #ifndef VARIANT_DYLD
 
@@ -284,7 +285,6 @@ ____chkstk_darwin: // %w9/x9 == alloca size
 
 	// validate that the frame pointer is on our stack (no alt stack)
 	mrs     x10, TPIDRRO_EL0
-	and     x10, x10, #0xfffffffffffffff8
 
 	// (%sp - pthread_self()->stackaddr) > 0 ?
 #if defined(__ARM64_ARCH_8_32__)

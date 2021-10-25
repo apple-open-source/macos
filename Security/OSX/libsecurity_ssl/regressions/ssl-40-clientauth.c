@@ -440,19 +440,9 @@ _EAPSecIdentityCreateCertificateTrustChain(SecIdentityRef identity,
     CFReleaseNull(certs);
     ok_status(status = SecTrustEvaluate(trust, &trust_result), "SecTrustEvaluate");
     {
-	CFMutableArrayRef	array;
-	CFIndex			count = SecTrustGetCertificateCount(trust);
-	CFIndex			i;
-
-	isnt(count, 0, "SecTrustGetCertificateCount is nonzero");
-	array = CFArrayCreateMutable(NULL, count, &kCFTypeArrayCallBacks);
-	for (i = 0; i < count; i++) {
-	    SecCertificateRef	s;
-
-	    s = SecTrustGetCertificateAtIndex(trust, i);
-	    CFArrayAppendValue(array, s);
-	}
-	*ret_chain = array;
+        CFArrayRef	array = SecTrustCopyCertificateChain(trust);
+        isnt(array, NULL, "SecTrustCopyCertificateChain is non-null");
+        *ret_chain = array;
     }
 
     CFReleaseNull(trust);

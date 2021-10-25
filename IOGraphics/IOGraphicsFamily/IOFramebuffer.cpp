@@ -69,6 +69,7 @@
 #include "IOGraphicsKTrace.h"
 #include "GMetric/GMetric.hpp"
 
+#ifdef TARGET_CPU_X86_64
 
 #if ENABLE_TELEMETRY
 #warning "**KTRACE TELEMETRY ENABLED**"
@@ -2667,10 +2668,11 @@ IOReturn IOFramebuffer::extGetCurrentDisplayMode(
     IOFramebuffer * inst = (IOFramebuffer *) target;
     IODisplayModeID displayMode = 0;
     IOIndex         depth = 0;
+    bool            vendor = false;
+    IOReturn        err;
     
-    IOReturn err;
-    
-    if ((err = inst->extEntry(false, kIOGReportAPIState_GetCurrentDisplayMode)))
+    err = inst->extEntry(false, kIOGReportAPIState_GetCurrentDisplayMode);
+    if (err)
     {
         IOFB_END(extGetCurrentDisplayMode,err,__LINE__,0);
         return (err);
@@ -2686,6 +2688,7 @@ IOReturn IOFramebuffer::extGetCurrentDisplayMode(
         FB_START(getCurrentDisplayMode,0,__LINE__,0);
         err = inst->getCurrentDisplayMode(&displayMode, &depth);
         FB_END(getCurrentDisplayMode,err,__LINE__,0);
+        vendor = true;
     }
 
 #if 0
@@ -2696,8 +2699,8 @@ IOReturn IOFramebuffer::extGetCurrentDisplayMode(
                0, GPACKUINT32T(1, depth) | GPACKUINT32T(0, displayMode),
                0, err);
 #endif
-    DEBG(inst->thisName, " displayMode 0x%08x, depth %d, aliasMode 0x%08x\n",
-        displayMode, depth, inst->__private->aliasMode);
+    DEBG(inst->thisName, " displayMode 0x%08x %s, depth %d, aliasMode 0x%08x\n",
+        displayMode, vendor ? "(vendor)" : "(IOG alias)", depth, inst->__private->aliasMode);
 
     inst->extExit(err, kIOGReportAPIState_GetCurrentDisplayMode);
     
@@ -6994,6 +6997,8 @@ void IOFramebuffer::systemWork(OSObject * owner,
 	}
 
 
+    const SInt32 totalDisplayCount = gIOFBDisplayCount;
+
 	if ((kIOFBEventReadClamshell & events) 
     && !gIOFBIsMuxSwitching && !(kIOFBWsWait & allState))
 	{
@@ -7016,7 +7021,7 @@ void IOFramebuffer::systemWork(OSObject * owner,
             if (kIOGDbgNoClamshellOffline & atomic_load(&gIOGDebugFlags))
             {
                 openTest = gIOFBLidOpenMode
-                    ? gIOFBDisplayCount > 0 : gIOFBBacklightDisplayCount <= 0;
+                    ? totalDisplayCount > 0 : gIOFBBacklightDisplayCount <= 0;
             }
             else
             {
@@ -7115,7 +7120,7 @@ void IOFramebuffer::systemWork(OSObject * owner,
         clearEvent(kIOFBEventEnableClamshell);
 
 		if (gIOFBLidOpenMode)
-			desktopMode = gIOFBDesktopModeAllowed && (gIOFBDisplayCount > 0);
+			desktopMode = gIOFBDesktopModeAllowed && (totalDisplayCount > 0);
 		else
 			desktopMode = gIOFBDesktopModeAllowed && (gIOFBBacklightDisplayCount <= 0);
 
@@ -9426,9 +9431,9 @@ IOReturn IOFramebuffer::selectTransform( UInt64 transform, bool generateChange )
 }
 
 
-/*! Number of displays currently connected, regardless of online/offline or
- *  power state. */
-uint32_t IOFramebuffer::globalConnectionCount()
+/*! Number of external displays currently connected, regardless of
+ *  online/offline or power state. */
+uint32_t IOFramebuffer::globalExtConnectionCount()
 {
     IOFramebuffer *fb = NULL;
     uint32_t count = 0;
@@ -9439,6 +9444,7 @@ uint32_t IOFramebuffer::globalConnectionCount()
 
     FORALL_FRAMEBUFFERS(fb, /* in */ gAllFramebuffers) {
         FBGATEGUARD(ctrlgated, fb);
+        if (fb->__private->fBuiltInPanel) continue;
 
         FB_START(getAttributeForConnection,kConnectionCheckEnable,__LINE__,0);
         err = fb->getAttributeForConnection(0, kConnectionCheckEnable, &connectEnabled);
@@ -9450,6 +9456,7 @@ uint32_t IOFramebuffer::globalConnectionCount()
         FB_END(getAttributeForConnection,err,__LINE__,connectEnabled);
         if (!err && connectEnabled) count++;
     }
+
 
     return count;
 }
@@ -9471,7 +9478,7 @@ uint32_t IOFramebuffer::globalConnectionCount()
  */
 bool IOFramebuffer::clamshellOfflineShouldChange(bool online)
 {
-    uint32_t connectCount = -1;
+    uint32_t extConnectCount = -1;
     int reject = 0;
 #if DEBG_CATEGORIES_BUILD
     const char *on = online ? "online" : "offline";
@@ -9502,12 +9509,12 @@ bool IOFramebuffer::clamshellOfflineShouldChange(bool online)
         // clamshell opened, offline, but in legacy mode (builtin stays off)
         REJECT("open + offline + LidOpenMode");
     } else {
-        connectCount = globalConnectionCount();
+        extConnectCount = globalExtConnectionCount();
 
-        if (gIOFBCurrentClamshellState && (connectCount > 1) && !online) {
+        if (gIOFBCurrentClamshellState && (extConnectCount > 0) && !online) {
             // clamshell closed, externals present, but already offline
             REJECT("closed + externals + offline");
-        } else if (gIOFBCurrentClamshellState && (1 >= connectCount) && online) {
+        } else if (gIOFBCurrentClamshellState && (extConnectCount < 1) && online) {
             // clamshell closed, externals not present, but already online
             REJECT("closed + no externals + online");
         }
@@ -9533,7 +9540,7 @@ bool IOFramebuffer::clamshellOfflineShouldChange(bool online)
         ((gIOFBCurrentClamshellState)                 ? (1ULL <<  4) : 0) |
         ((online)                                     ? (1ULL <<  5) : 0) |
         ((gIOFBLidOpenMode)                           ? (1ULL <<  6) : 0) |
-        static_cast<uint64_t>(connectCount) << 32;
+        static_cast<uint64_t>(extConnectCount) << 32;
     IOG_KTRACE(DBG_IOG_CLAMSHELL, DBG_FUNC_NONE,
                0, DBG_IOG_SOURCE_CLAMSHELL_OFFLINE_CHANGE,
                0, __private->regID, 0, reject, 0, state);
@@ -9645,6 +9652,7 @@ IOReturn IOFramebuffer::requestProbe( IOOptionBits options )
     IOFB_END(requestProbe,kIOReturnSuccess,0,0);
     return (kIOReturnSuccess);
 }
+
 
 void IOFramebuffer::initFB(void)
 {
@@ -15364,4 +15372,4 @@ OSMetaClassDefineReservedUnused(IOFramebuffer, 29);
 OSMetaClassDefineReservedUnused(IOFramebuffer, 30);
 OSMetaClassDefineReservedUnused(IOFramebuffer, 31);
 
-
+#endif // TARGET_CPU_X86_64

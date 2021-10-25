@@ -78,8 +78,10 @@ static void smb_session_lease_thread(void *arg);
 static int smb_co_lock(struct smb_connobj *cp)
 {
 	
-	if (cp->co_flags & SMBO_GONE)
+    if (cp->co_flags & SMBO_GONE) {
+        SMBERROR("failed to lock. connobj is gone (1)");
 		return EBUSY;
+    }
 	if (cp->co_lockowner == current_thread()) {
 		cp->co_lockcount++;
 	} else  {
@@ -87,6 +89,7 @@ static int smb_co_lock(struct smb_connobj *cp)
 		/* We got the lock, but  the session is going away, so unlock it return EBUSY */
 		if (cp->co_flags & SMBO_GONE) {
 			lck_mtx_unlock(cp->co_lock);
+            SMBERROR("failed to lock. connobj is gone (2)");
 			return EBUSY;
 		}
 		cp->co_lockowner = current_thread();
@@ -420,6 +423,10 @@ static void smb_session_free(struct smb_connobj *cp)
 		SMB_FREE(sessionp->session_mackey, M_SMBTEMP);
     }
     
+    if (sessionp->full_session_mackey) {
+        SMB_FREE(sessionp->full_session_mackey, M_SMBTEMP);
+    }
+
     if (sessionp->session_saddr) {
         SMB_FREE(sessionp->session_saddr, M_SONAME);
     }
@@ -554,8 +561,10 @@ static int smb_session_create(struct smbioc_negotiate *session_spec,
 	sessionp->session_timo = SMB_DEFRQTIMO;
 	sessionp->session_smbuid = SMB_UID_UNKNOWN;
 	sessionp->session_seqno = 0;
-	sessionp->session_mackey = NULL;
-	sessionp->session_mackeylen = 0;
+    sessionp->session_mackey = NULL;
+    sessionp->session_mackeylen = 0;
+    sessionp->full_session_mackey = NULL;
+    sessionp->full_session_mackeylen = 0;
     sessionp->session_smb3_signing_key_len = 0;
     sessionp->session_smb3_encrypt_key_len = 0;
     sessionp->session_smb3_decrypt_key_len = 0;
@@ -690,7 +699,33 @@ static int smb_session_create(struct smbioc_negotiate *session_spec,
 		}
 	}
 	
-	/* Save client Guid */
+    /* What SMB 3.1.1 encryption algoritms are enabled? */
+    if (session_spec->ioc_extra_flags & SMB_ENABLE_AES_128_CCM) {
+        sessionp->session_misc_flags |= SMBV_ENABLE_AES_128_CCM;
+    }
+    
+    if (session_spec->ioc_extra_flags & SMB_ENABLE_AES_128_GCM) {
+        sessionp->session_misc_flags |= SMBV_ENABLE_AES_128_GCM;
+    }
+    
+    if (session_spec->ioc_extra_flags & SMB_ENABLE_AES_256_CCM) {
+        sessionp->session_misc_flags |= SMBV_ENABLE_AES_256_CCM;
+    }
+    
+    if (session_spec->ioc_extra_flags & SMB_ENABLE_AES_256_GCM) {
+        sessionp->session_misc_flags |= SMBV_ENABLE_AES_256_GCM;
+    }
+    
+    /* Is encryption being forced? */
+    if (session_spec->ioc_extra_flags & SMB_FORCE_SESSION_ENCRYPT) {
+        sessionp->session_misc_flags |= SMBV_FORCE_SESSION_ENCRYPT;
+    }
+
+    if (session_spec->ioc_extra_flags & SMB_FORCE_SHARE_ENCRYPT) {
+        sessionp->session_misc_flags |= SMBV_FORCE_SHARE_ENCRYPT;
+    }
+
+    /* Save client Guid */
 	memcpy(sessionp->session_client_guid, session_spec->ioc_client_guid, sizeof(sessionp->session_client_guid));
     
     /* Set default max amount of time to wait for any response from server */
@@ -1543,7 +1578,8 @@ int smb_session_establish_alternate_connection(struct smbiod *parent_iod, struct
     struct smb_session *sessionp = parent_iod->iod_session;
     struct smbiod *iod = NULL;
     int    error       = 0;
-    
+    struct nbpcb *parent_nbp = parent_iod->iod_tdata;
+
     if (!(sessionp->session_flags & SMBV_MULTICHANNEL_ON)) {
         /* MultiChannel is not enabled on this session */
         SMBERROR("MultiChannel is not enabled on this session.\n");
@@ -1562,6 +1598,16 @@ int smb_session_establish_alternate_connection(struct smbiod *parent_iod, struct
 
     /* create a new iod thread */
     error = smb_iod_create(sessionp, &iod);
+    /*
+     * <74087531> alt connections tcp connect time should be bounded by the
+     * parent iod socket timeout - if the connection is reachable, connect time
+     * should not be longer. if parent_iod->iod_tdata is null, something wrong
+     * happened and we will just use the default connection timeout
+     */
+    if (parent_iod->iod_tdata) {
+        iod->iod_connection_to.tv_sec = parent_nbp->nbp_timo.tv_sec;
+    }
+
     if (error) {
         SMBERROR("Unable to create iod (%d).\n", error);
         goto exit;

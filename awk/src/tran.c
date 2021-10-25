@@ -24,6 +24,7 @@ THIS SOFTWARE.
 
 #define	DEBUG
 #include <stdio.h>
+#include <limits.h>
 #include <math.h>
 #include <ctype.h>
 #include <string.h>
@@ -174,6 +175,32 @@ Array *makesymtab(int n)	/* make a new symbol table */
 	ap->size = n;
 	ap->tab = tp;
 	return(ap);
+}
+
+int insymtab(Cell *ap, Cell *needle)	/* Determines if needle is in the symbol table */
+{
+	Cell *cp;
+	Array *tp;
+	int i;
+
+	DPRINTF("insymtab %p: n=%s s=\"%s\" f=%g t=%o\n",
+		(void*)ap, ap->nval, ap->sval, ap->fval, ap->tval);
+
+	if (!isarr(ap))
+		return 0;
+
+	tp = (Array *) ap->sval;
+	if (tp == NULL)
+		return 0;
+
+	for (i = 0; i < tp->size; i++) {
+		for (cp = tp->tab[i]; cp != NULL; cp = cp->cnext) {
+			if (cp == needle) {
+				return 1;
+			}
+		}
+	}
+	return 0;
 }
 
 void freesymtab(Cell *ap)	/* free a symbol table */
@@ -513,6 +540,23 @@ char *tostring(const char *s)	/* make a copy of string s */
 	if (p == NULL)
 		FATAL("out of space in tostring on %s", s);
 	return(p);
+}
+
+wchar_t towc(int* outlen, const char *s, int slen) {
+	wchar_t wc = L'\0';
+	if (*s) {
+		if ((*outlen = mbtowc(&wc, s, slen)) > 0) {
+			if (wc > UCHAR_MAX) {
+				DPRINTF("pmatch: converted wchar_t is out of uchar range: %s -> %d\n", s, wc);
+			}
+		} else {
+			FATAL("towc: multibyte conversion failure on: '%s'\n", s);
+		}
+	} else {
+		/* Technically wrong */
+		*outlen = 1;
+	}
+	return wc;
 }
 
 char *tostringN(const char *s, size_t n)	/* make a copy of string s */

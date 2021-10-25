@@ -2,3 +2,4 @@ disabled_rules:
     - force_cast
     - force_try
     - implicitly_unwrapped_optional
+    - redundant_type_annotation

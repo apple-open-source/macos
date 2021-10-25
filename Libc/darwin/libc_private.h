@@ -30,33 +30,19 @@
 
 __BEGIN_DECLS
 
-struct _libc_functions {
-	unsigned long version;
-	void (*atfork_prepare)(void); // version 1
-	void (*atfork_parent)(void); // version 1
-	void (*atfork_child)(void); // version 1
-	char *(*dirhelper)(int, char *, size_t); // version 1
-};
-
-struct ProgramVars; // forward reference
-
-__deprecated_msg("use _libc_initializer()")
-extern void
-__libc_init(const struct ProgramVars *vars,
-	void (*atfork_prepare)(void),
-	void (*atfork_parent)(void),
-	void (*atfork_child)(void),
-	const char *apple[]);
-
-__OSX_AVAILABLE_STARTING(__MAC_10_10, __IPHONE_8_0)
-extern void
-_libc_initializer(const struct _libc_functions *funcs,
-	const char *envp[],
-	const char *apple[],
-	const struct ProgramVars *vars);
-
-extern void
-_libc_fork_child(void);
+/* Hello and welcome to libc_private.h. This header file has four jobs to do:
+ * 1. Included by 54 C source files within the Libc project, for unclear
+ *    historical reasons. Most don't use anything from it at all.
+ * 2. Declares LIBC_ABORT macro, used by 18 C source files within the Libc
+ *    project. This declaration is present when the this file is included from
+ *    the Libc project source but is stripped out when the header is installed
+ *    to the SDK. (This is fragile and bad.)
+ * 3. Declares abort_report_np() used by a handful of projects, chiefly the
+ *    many copies of SoftLinking.h that abound. Because SoftLinking uses the
+ *    include path <libc_private.h>, we may never be able to move this to
+ *    another header that isn't also doing jobs 1 and 2.
+ * 4. Declares _atexit_receipt() used by Foundation.
+ */
 
 extern int
 _atexit_receipt(void);
@@ -64,6 +50,11 @@ _atexit_receipt(void);
 __IOS_AVAILABLE(9.0) __OSX_AVAILABLE(10.11)
 extern void
 abort_report_np(const char *, ...) __dead2 __cold __printflike(1, 2);
+
+//Begin-Libc
+/* f must be a literal string */
+#define LIBC_ABORT(f,...)	abort_report_np("%s:%s:%u: " f, __FILE_NAME__, __func__, __LINE__, ## __VA_ARGS__)
+//End-Libc
 
 __END_DECLS
 

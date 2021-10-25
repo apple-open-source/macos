@@ -21,13 +21,6 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-/*
- * This is to fool os services to not provide the Keychain manager
- * interface that doesn't work since we don't have unified headers
- * between iOS and OS X. rdar://23405418/
- */
-#define __KEYCHAINCORE__ 1
-
 #import <Foundation/Foundation.h>
 #import <Security/Security.h>
 #import <Security/SecItemPriv.h>

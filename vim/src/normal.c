@@ -630,7 +630,7 @@ getcount:
 	    }
 	    else
 		ca.count0 = ca.count0 * 10 + (c - '0');
-	    if (ca.count0 < 0)	    // got too large!
+	    if (ca.count0 < 0)	    // overflow
 		ca.count0 = 999999999L;
 #ifdef FEAT_EVAL
 	    // Set v:count here, when called from main() and not a stuffed
@@ -701,6 +701,8 @@ getcount:
 	    ca.count0 *= ca.opcount;
 	else
 	    ca.count0 = ca.opcount;
+	if (ca.count0 < 0)	    // overflow
+	    ca.count0 = 999999999L;
     }
 
     /*
@@ -993,7 +995,7 @@ getcount:
 		// something different from CTRL-N.  Can't be avoided.
 		while ((c = vpeekc()) <= 0 && towait > 0L)
 		{
-		    do_sleep(towait > 50L ? 50L : towait);
+		    do_sleep(towait > 50L ? 50L : towait, FALSE);
 		    towait -= 50L;
 		}
 		if (c > 0)
@@ -1325,6 +1327,26 @@ check_visual_highlight(void)
     }
 }
 
+#if defined(FEAT_CLIPBOARD) && defined(FEAT_EVAL)
+/*
+ * Call yank_do_autocmd() for "regname".
+ */
+    static void
+call_yank_do_autocmd(int regname)
+{
+    oparg_T	oa;
+    yankreg_T	*reg;
+
+    clear_oparg(&oa);
+    oa.regname = regname;
+    oa.op_type = OP_YANK;
+    oa.is_VIsual = TRUE;
+    reg = get_register(regname, TRUE);
+    yank_do_autocmd(&oa, reg);
+    free_register(reg);
+}
+#endif
+
 /*
  * End Visual mode.
  * This function should ALWAYS be called to end Visual mode, except from
@@ -1342,6 +1364,18 @@ end_visual_mode(void)
      */
     if (clip_star.available && clip_star.owned)
 	clip_auto_select();
+
+# if defined(FEAT_EVAL)
+    // Emit a TextYankPost for the automatic copy of the selection into the
+    // star and/or plus register.
+    if (has_textyankpost())
+    {
+	if (clip_isautosel_star())
+	    call_yank_do_autocmd('*');
+	if (clip_isautosel_plus())
+	    call_yank_do_autocmd('+');
+    }
+# endif
 #endif
 
     VIsual_active = FALSE;
@@ -2538,12 +2572,6 @@ nv_screengo(oparg_T *oap, int dir, long dist)
 	    else
 	    {
 		// to previous line
-		if (curwin->w_cursor.lnum == 1)
-		{
-		    retval = FAIL;
-		    break;
-		}
-		--curwin->w_cursor.lnum;
 #ifdef FEAT_FOLDING
 		// Move to the start of a closed fold.  Don't do that when
 		// 'foldopen' contains "all": it will open in a moment.
@@ -2551,6 +2579,13 @@ nv_screengo(oparg_T *oap, int dir, long dist)
 		    (void)hasFolding(curwin->w_cursor.lnum,
 						&curwin->w_cursor.lnum, NULL);
 #endif
+		if (curwin->w_cursor.lnum == 1)
+		{
+		    retval = FAIL;
+		    break;
+		}
+		--curwin->w_cursor.lnum;
+
 		linelen = linetabsize(ml_get_curline());
 		if (linelen > width1)
 		    curwin->w_curswant += (((linelen - width1 - 1) / width2)
@@ -3706,9 +3741,9 @@ nv_ident(cmdarg_T *cap)
     else
     {
 	if (cmdchar == '*')
-	    aux_ptr = (char_u *)(p_magic ? "/.*~[^$\\" : "/^$\\");
+	    aux_ptr = (char_u *)(magic_isset() ? "/.*~[^$\\" : "/^$\\");
 	else if (cmdchar == '#')
-	    aux_ptr = (char_u *)(p_magic ? "/?.*~[^$\\" : "/?^$\\");
+	    aux_ptr = (char_u *)(magic_isset() ? "/?.*~[^$\\" : "/?^$\\");
 	else if (tag_cmd)
 	{
 	    if (curbuf->b_help)
@@ -4739,14 +4774,18 @@ nv_percent(cmdarg_T *cap)
 	{
 	    cap->oap->motion_type = MLINE;
 	    setpcmark();
-	    // Round up, so CTRL-G will give same value.  Watch out for a
-	    // large line count, the line number must not go negative!
-	    if (curbuf->b_ml.ml_line_count > 1000000)
+	    // Round up, so 'normal 100%' always jumps at the line line.
+	    // Beyond 21474836 lines, (ml_line_count * 100 + 99) would
+	    // overflow on 32-bits, so use a formula with less accuracy
+	    // to avoid overflows.
+	    if (curbuf->b_ml.ml_line_count >= 21474836)
 		curwin->w_cursor.lnum = (curbuf->b_ml.ml_line_count + 99L)
 							 / 100L * cap->count0;
 	    else
 		curwin->w_cursor.lnum = (curbuf->b_ml.ml_line_count *
 						    cap->count0 + 99L) / 100L;
+	    if (curwin->w_cursor.lnum < 1)
+		curwin->w_cursor.lnum = 1;
 	    if (curwin->w_cursor.lnum > curbuf->b_ml.ml_line_count)
 		curwin->w_cursor.lnum = curbuf->b_ml.ml_line_count;
 	    beginline(BL_SOL | BL_FIX);
@@ -4905,7 +4944,7 @@ nv_replace(cmdarg_T *cap)
     if (cap->nchar == Ctrl_V)
     {
 	had_ctrl_v = Ctrl_V;
-	cap->nchar = get_literal();
+	cap->nchar = get_literal(FALSE);
 	// Don't redo a multibyte character with CTRL-V.
 	if (cap->nchar > DEL)
 	    had_ctrl_v = NUL;
@@ -5188,7 +5227,7 @@ nv_vreplace(cmdarg_T *cap)
 	else
 	{
 	    if (cap->extra_char == Ctrl_V)	// get another character
-		cap->extra_char = get_literal();
+		cap->extra_char = get_literal(FALSE);
 	    stuffcharReadbuff(cap->extra_char);
 	    stuffcharReadbuff(ESC);
 	    if (virtual_active())
@@ -5352,7 +5391,7 @@ v_visop(cmdarg_T *cap)
 nv_subst(cmdarg_T *cap)
 {
 #ifdef FEAT_TERMINAL
-    // When showing output of term_dumpdiff() swap the top and botom.
+    // When showing output of term_dumpdiff() swap the top and bottom.
     if (term_swap_diff() == OK)
 	return;
 #endif
@@ -5769,7 +5808,7 @@ nv_suspend(cmdarg_T *cap)
     clearop(cap->oap);
     if (VIsual_active)
 	end_visual_mode();		// stop Visual mode
-    do_cmdline_cmd((char_u *)"st");
+    do_cmdline_cmd((char_u *)"stop");
 }
 
 /*
@@ -5939,13 +5978,8 @@ nv_g_cmd(cmdarg_T *cap)
      */
     case 'j':
     case K_DOWN:
-	// with 'nowrap' it works just like the normal "j" command; also when
-	// in a closed fold
-	if (!curwin->w_p_wrap
-#ifdef FEAT_FOLDING
-		|| hasFolding(curwin->w_cursor.lnum, NULL, NULL)
-#endif
-		)
+	// with 'nowrap' it works just like the normal "j" command.
+	if (!curwin->w_p_wrap)
 	{
 	    oap->motion_type = MLINE;
 	    i = cursor_down(cap->count1, oap->op_type == OP_NOP);
@@ -5958,13 +5992,8 @@ nv_g_cmd(cmdarg_T *cap)
 
     case 'k':
     case K_UP:
-	// with 'nowrap' it works just like the normal "k" command; also when
-	// in a closed fold
-	if (!curwin->w_p_wrap
-#ifdef FEAT_FOLDING
-		|| hasFolding(curwin->w_cursor.lnum, NULL, NULL)
-#endif
-	   )
+	// with 'nowrap' it works just like the normal "k" command.
+	if (!curwin->w_p_wrap)
 	{
 	    oap->motion_type = MLINE;
 	    i = cursor_up(cap->count1, oap->op_type == OP_NOP);
@@ -6212,7 +6241,7 @@ nv_g_cmd(cmdarg_T *cap)
      * "gs": Goto sleep.
      */
     case 's':
-	do_sleep(cap->count1 * 1000L);
+	do_sleep(cap->count1 * 1000L, FALSE);
 	break;
 
     /*
@@ -6942,6 +6971,16 @@ nv_esc(cmdarg_T *cap)
 	}
 #endif
     }
+#ifdef FEAT_CMDWIN
+    else if (cmdwin_type != 0 && ex_normal_busy)
+    {
+	// When :normal runs out of characters while in the command line window
+	// vgetorpeek() will return ESC.  Exit the cmdline window to break the
+	// loop.
+	cmdwin_result = K_IGNORE;
+	return;
+    }
+#endif
 
     if (VIsual_active)
     {

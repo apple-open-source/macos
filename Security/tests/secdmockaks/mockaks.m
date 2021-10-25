@@ -40,8 +40,6 @@
 
 #include <os/variant_private.h>
 
-#import <ctkclient/ctkclient.h>
-#import <coreauthd_spi.h>
 #import <ACMLib.h>
 #import <LocalAuthentication/LAPublicDefines.h>
 #import <LocalAuthentication/LAPrivateDefines.h>
@@ -378,7 +376,9 @@ aks_unwrap_key(const void * wrapped_key, int wrapped_key_size, keyclass_t key_cl
     if ([SecMockAKS isLocked:key_class]) {
         return kAKSReturnNoPermission;
     }
-
+    if (!wrapped_key) {
+        return kAKSReturnBadArgument;
+    }
     if (wrapped_key_size < PADDINGSIZE) {
         abort();
     }
@@ -520,6 +520,57 @@ aks_ref_key_encrypt(aks_ref_key_t handle,
     memcpy(*out_der, cipherBytes.bytes, cipherBytes.length);
     *out_der_len = cipherBytes.length;
 
+    return kAKSReturnSuccess;
+}
+
+int
+aks_ref_key_create_and_encrypt(keybag_handle_t handle, keyclass_t key_class, aks_key_type_t type, const uint8_t *params, size_t params_len, const void *data, size_t data_len, aks_ref_key_t *ot, void **out_der, size_t *out_der_len)
+{
+    MockAKSRefKeyObject *key;
+    @autoreleasepool {
+        [SecMockAKS trapdoor];
+        NSError *error = NULL;
+
+        if ([SecMockAKS isLocked:key_class]) {
+            return kAKSReturnNoPermission;
+        }
+
+        NSData *keyData = [NSData dataWithBytes:"1234567890123456789012345678901" length:32];
+        NSData *parameters = NULL;
+        if (params && params_len != 0) {
+            parameters = [NSData dataWithBytes:params length:params_len];
+        }
+
+        key = [[MockAKSRefKeyObject alloc] initWithKeyData:keyData parameters:parameters error:&error];
+        if(key == NULL) {
+            if (error) {
+                return (int)error.code;
+            }
+            return kAKSReturnError;
+        }
+
+        NSData* nsdata = [NSData dataWithBytes:data length:data_len];
+
+        SFAuthenticatedEncryptionOperation* op = [[SFAuthenticatedEncryptionOperation alloc] initWithKeySpecifier:key.key.keySpecifier authenticationMode:SFAuthenticatedEncryptionModeGCM];
+
+
+        SFAuthenticatedCiphertext* ciphertext = [op encrypt:nsdata withKey:key.key error:&error];
+
+        if(error || !ciphertext || !out_der || !out_der_len) {
+            return kAKSReturnError;
+        }
+
+        NSData* cipherBytes = [NSKeyedArchiver archivedDataWithRootObject:ciphertext requiringSecureCoding:YES error:&error];
+        if(error || !cipherBytes) {
+            return kAKSReturnError;
+        }
+
+        *out_der = calloc(1, cipherBytes.length);
+
+        memcpy(*out_der, cipherBytes.bytes, cipherBytes.length);
+        *out_der_len = cipherBytes.length;
+    }
+    *ot = (__bridge_retained aks_ref_key_t)key;
     return kAKSReturnSuccess;
 }
 
@@ -839,24 +890,51 @@ aks_ref_key_get_type(aks_ref_key_t handle)
 
 aks_params_t aks_params_create(const uint8_t *der_params, size_t der_params_len)
 {
-    return NULL;
+    @autoreleasepool {
+        [SecMockAKS trapdoor];
+        MockAKSOptionalParameters* params = [[MockAKSOptionalParameters alloc] init];
+        return (aks_params_t) CFBridgingRetain(params);
+    }
 }
 
 int aks_params_free(aks_params_t *params)
 {
+    if (*params != NULL) {
+        MockAKSOptionalParameters *aks_params = (MockAKSOptionalParameters*) CFBridgingRelease(*params);
+        (void)aks_params;
+        *params = NULL;
+    }
     return kAKSReturnSuccess;
 }
 
 int
 aks_params_set_data(aks_params_t params, aks_params_key_t key, const void *value, size_t length)
 {
-    return kAKSReturnError;
+    MockAKSOptionalParameters *aks_params = (__bridge MockAKSOptionalParameters*)params;
+
+    if (key == aks_params_key_access_groups) {
+        aks_params.accessGroups = [NSData dataWithBytes:value length:length];
+    }
+    if (key == aks_params_key_external_data) {
+        aks_params.externalData = [NSData dataWithBytes:value length:length];
+    }
+    if (key == aks_params_key_acm_handle) {
+        aks_params.acmHandle = [NSData dataWithBytes:value length:length];
+    }
+
+    return kAKSReturnSuccess;
 }
 
 int
 aks_params_get_der(aks_params_t params, uint8_t **out_der, size_t *out_der_len)
 {
-    return kAKSReturnError;
+    MockAKSOptionalParameters *aks_params = (__bridge MockAKSOptionalParameters*)params;
+    NSData *result = aks_params.data;
+    *out_der = malloc(result.length);
+    memcpy(*out_der, result.bytes, result.length);
+    *out_der_len = result.length;
+
+    return kAKSReturnSuccess;
 }
 
 int

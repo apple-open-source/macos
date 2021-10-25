@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 #
 # gklist - report Gatekeeper MessageTracer data since last reset
 #
@@ -6,6 +6,7 @@
 #  ... exercise Gatekeeper ...
 # gklist
 #
+from __future__ import print_function
 import os
 import plistlib
 
@@ -15,4 +16,4 @@ for mt in plistlib.readPlistFromString(data.read()):
 	if mt["com.apple.message.domain"] == "com.apple.security.assessment.outcome":
 		outcome = mt["com.apple.message.signature"]
 		id = mt["com.apple.message.signature2"]
-		print outcome, "--", id
+		print(outcome, "--", id)

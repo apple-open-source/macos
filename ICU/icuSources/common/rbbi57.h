@@ -44,7 +44,7 @@ class  RBBIDataWrapper57;
 class  UStack;
 class  LanguageBreakEngine;
 class  UnhandledEngine;
-struct RBBIStateTable;
+struct RBBIStateTable57;
 
 /**
  *
@@ -697,7 +697,7 @@ private:
      * @param statetable state table used of moving backwards
      * @internal
      */
-    int32_t handlePrevious(const RBBIStateTable *statetable);
+    int32_t handlePrevious(const RBBIStateTable57 *statetable);
 
     /**
      * This method is the actual implementation of the next() method.  All iteration
@@ -708,7 +708,7 @@ private:
      * @param statetable state table used of moving forwards
      * @internal
      */
-    int32_t handleNext(const RBBIStateTable *statetable);
+    int32_t handleNext(const RBBIStateTable57 *statetable);
 
 protected:
 

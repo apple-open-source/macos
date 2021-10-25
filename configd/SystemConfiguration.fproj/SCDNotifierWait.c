@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, 2004, 2006, 2009-2011, 2015-2017, 2019 Apple Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2003, 2004, 2006, 2009-2011, 2015-2017, 2019, 2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -64,22 +64,13 @@ waitForMachMessage(mach_port_t port)
 Boolean
 SCDynamicStoreNotifyWait(SCDynamicStoreRef store)
 {
-	SCDynamicStorePrivateRef	storePrivate = (SCDynamicStorePrivateRef)store;
+	SCDynamicStorePrivateRef	storePrivate	= (SCDynamicStorePrivateRef)store;
 	kern_return_t			status;
 	mach_port_t			port;
-	mach_port_t			oldNotify;
 	int				sc_status;
 	mach_msg_id_t			msgid;
 
-	if (store == NULL) {
-		/* sorry, you must provide a session */
-		_SCErrorSet(kSCStatusNoStoreSession);
-		return FALSE;
-	}
-
-	if (storePrivate->server == MACH_PORT_NULL) {
-		/* sorry, you must have an open session to play */
-		_SCErrorSet(kSCStatusNoStoreServer);
+	if (!__SCDynamicStoreNormalize(&store, FALSE)) {
 		return FALSE;
 	}
 
@@ -89,78 +80,8 @@ SCDynamicStoreNotifyWait(SCDynamicStoreRef store)
 		return FALSE;
 	}
 
-	/* Allocating port (for server response) */
-	status = mach_port_allocate(mach_task_self(), MACH_PORT_RIGHT_RECEIVE, &port);
-	if (status != KERN_SUCCESS) {
-		SC_log(LOG_ERR, "mach_port_allocate() failed: %s", mach_error_string(status));
-		_SCErrorSet(status);
-		return FALSE;
-	}
-
-	status = mach_port_insert_right(mach_task_self(),
-					port,
-					port,
-					MACH_MSG_TYPE_MAKE_SEND);
-	if (status != KERN_SUCCESS) {
-		/*
-		 * We can't insert a send right into our own port!  This should
-		 * only happen if someone stomped on OUR port (so let's leave
-		 * the port alone).
-		 */
-		SC_log(LOG_NOTICE, "mach_port_insert_right() failed: %s", mach_error_string(status));
-		_SCErrorSet(status);
-		return FALSE;
-	}
-
-	/* Request a notification when/if the server dies */
-	status = mach_port_request_notification(mach_task_self(),
-						port,
-						MACH_NOTIFY_NO_SENDERS,
-						1,
-						port,
-						MACH_MSG_TYPE_MAKE_SEND_ONCE,
-						&oldNotify);
-	if (status != KERN_SUCCESS) {
-		/*
-		 * We can't request a notification for our own port!  This should
-		 * only happen if someone stomped on OUR port (so let's leave
-		 * the port alone).
-		 */
-		SC_log(LOG_NOTICE, "mach_port_request_notification() failed: %s", mach_error_string(status));
-		_SCErrorSet(status);
-		return FALSE;
-	}
-
-	if (oldNotify != MACH_PORT_NULL) {
-		SC_log(LOG_NOTICE, "oldNotify != MACH_PORT_NULL");
-	}
-
-    retry :
-
-	status = notifyviaport(storePrivate->server,
-			       port,
-			       0,
-			       (int *)&sc_status);
-
-	if (__SCDynamicStoreCheckRetryAndHandleError(store,
-						     status,
-						     &sc_status,
-						     "SCDynamicStoreNotifyWait notifyviaport()")) {
-		goto retry;
-	}
-
-	if (status != KERN_SUCCESS) {
-		if ((status == MACH_SEND_INVALID_DEST) || (status == MIG_SERVER_DIED)) {
-			/* remove the send right that we tried (but failed) to pass to the server */
-			(void) mach_port_deallocate(mach_task_self(), port);
-		}
-
-		/* remove our receive right  */
-		(void) mach_port_mod_refs(mach_task_self(), port, MACH_PORT_RIGHT_RECEIVE, -1);
-	}
-
-	if (sc_status != kSCStatusOK) {
-		_SCErrorSet(sc_status);
+	port = __SCDynamicStoreAddNotificationPort(store);
+	if (port == MACH_PORT_NULL) {
 		return FALSE;
 	}
 
@@ -192,8 +113,7 @@ SCDynamicStoreNotifyWait(SCDynamicStoreRef store)
 	}
 
 	// something changed, cancelling notification request
-	status = notifycancel(storePrivate->server,
-			      (int *)&sc_status);
+	status = notifycancel(storePrivate->server, (int *)&sc_status);
 
 	if (__SCDynamicStoreCheckRetryAndHandleError(store,
 						     status,
@@ -203,7 +123,7 @@ SCDynamicStoreNotifyWait(SCDynamicStoreRef store)
 	}
 
 	/* remove our receive right  */
-	(void) mach_port_mod_refs(mach_task_self(), port, MACH_PORT_RIGHT_RECEIVE , -1);
+	__SCDynamicStoreRemoveNotificationPort(store, port);
 
 	if (sc_status != kSCStatusOK) {
 		_SCErrorSet(sc_status);

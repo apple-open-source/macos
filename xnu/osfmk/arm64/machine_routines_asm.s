@@ -31,6 +31,7 @@
 #include <arm64/machine_machdep.h>
 #include <arm64/proc_reg.h>
 #include <arm/pmap.h>
+#include <kern/ticket_lock.h>
 #include <pexpert/arm64/board_config.h>
 #include <sys/errno.h>
 #include "assym.s"
@@ -110,9 +111,6 @@ LEXT(set_nex_pg)
 	and		x14, x14, #(MPIDR_PNE)
 	cbz		x14, Lnex_pg_done
 
-	// Set the SEG-recommended value of 12 additional reset cycles
-	HID_INSERT_BITS	HID13, ARM64_REG_HID13_RstCyc_mask, ARM64_REG_HID13_RstCyc_val, x13
-	HID_SET_BITS HID14, ARM64_REG_HID14_NexPwgEn, x13
 
 Lnex_pg_done:
 	ret
@@ -227,13 +225,6 @@ LEXT(set_mmu_ttb_alternate)
 	bl		EXT(pinst_set_ttbr1)
 	mov		lr, x1
 #else
-#if defined(HAS_VMSA_LOCK)
-#if DEBUG || DEVELOPMENT
-	mrs		x1, VMSA_LOCK_EL1
-	and		x1, x1, #(VMSA_LOCK_TTBR1_EL1)
-	cbnz		x1, L_set_locked_reg_panic
-#endif /* DEBUG || DEVELOPMENT */
-#endif /* defined(HAS_VMSA_LOCK) */
 	msr		TTBR1_EL1, x0
 #endif /* defined(KERNEL_INTEGRITY_KTRR) */
 	isb		sy
@@ -291,23 +282,6 @@ LEXT(set_vbar_el1)
 #endif
 #endif /* __ARM_KERNEL_PROTECT__ */
 
-#if defined(HAS_VMSA_LOCK)
-	.text
-	.align 2
-	.globl EXT(vmsa_lock)
-LEXT(vmsa_lock)
-	isb sy
-	mov x1, #(VMSA_LOCK_SCTLR_M_BIT)
-#if __ARM_MIXED_PAGE_SIZE__
-	mov x0, #(VMSA_LOCK_TTBR1_EL1 | VMSA_LOCK_VBAR_EL1)
-#else
-	mov x0, #(VMSA_LOCK_TTBR1_EL1 | VMSA_LOCK_TCR_EL1 | VMSA_LOCK_VBAR_EL1)
-#endif
-	orr x0, x0, x1
-	msr VMSA_LOCK_EL1, x0
-	isb sy
-	ret
-#endif /* defined(HAS_VMSA_LOCK) */
 
 /*
  *	set translation control register
@@ -329,14 +303,6 @@ LEXT(set_tcr)
 	bl		EXT(pinst_set_tcr)
 	mov		lr, x1
 #else
-#if defined(HAS_VMSA_LOCK)
-#if DEBUG || DEVELOPMENT
-	// assert TCR unlocked
-	mrs 		x1, VMSA_LOCK_EL1
-	and		x1, x1, #(VMSA_LOCK_TCR_EL1)
-	cbnz		x1, L_set_locked_reg_panic
-#endif /* DEBUG || DEVELOPMENT */
-#endif /* defined(HAS_VMSA_LOCK) */
 	msr		TCR_EL1, x0
 #endif /* defined(KERNEL_INTRITY_KTRR) */
 	isb		sy
@@ -735,6 +701,97 @@ Lcopyinframe_done:
 
 
 /*
+ * int hw_lock_trylock_mask_allow_invalid(uint32_t *lock, uint32_t mask)
+ */
+	.text
+	.align 2
+	.private_extern EXT(hw_lock_trylock_mask_allow_invalid)
+	.globl EXT(hw_lock_trylock_mask_allow_invalid)
+LEXT(hw_lock_trylock_mask_allow_invalid)
+	SET_RECOVERY_HANDLER 9f, label_in_adr_range=1
+
+1:
+#if defined(__ARM_ARCH_8_2__)
+	ldxr		w2, [x0]
+#else
+	ldaxr		w2, [x0]
+#endif
+	cbz		w2, 9f		// 0 value == invalid lock
+
+	tst		w1, w2		// is `mask` set ?
+	b.ne		8f		// if yes, wfe and return 0
+
+	orr		w4, w2, w1
+#if defined(__ARM_ARCH_8_2__)
+	mov		w3, w2
+	casa		w3, w4, [x0]
+	cmp		w3, w2
+	b.ne		1b
+#else
+	stxr		w3, w4, [x0]
+	cbnz		w3, 1b
+#endif
+
+	CLEAR_RECOVERY_HANDLER
+	mov		w0, #1
+	ret
+
+8: /* contention */
+	wfe
+	CLEAR_RECOVERY_HANDLER
+	mov		w0, #0
+	ret
+9: /* invalid */
+	clrex
+	CLEAR_RECOVERY_HANDLER
+	mov		w0, #-1
+	ret
+
+/*
+ * hw_lck_ticket_t
+ * hw_lck_ticket_reserve_orig_allow_invalid(hw_lck_ticket_t *lck)
+ */
+	.text
+	.align 2
+	.private_extern EXT(hw_lck_ticket_reserve_orig_allow_invalid)
+	.globl EXT(hw_lck_ticket_reserve_orig_allow_invalid)
+LEXT(hw_lck_ticket_reserve_orig_allow_invalid)
+	SET_RECOVERY_HANDLER 9f, label_in_adr_range=1
+
+	mov		x8, x0
+	mov		w9, #HW_LCK_TICKET_LOCK_INCREMENT
+1:
+#if defined(__ARM_ARCH_8_2__)
+	ldr 		w0, [x8]
+#else
+	ldaxr		w0, [x8]
+#endif
+2:
+	tbz		w0, #HW_LCK_TICKET_LOCK_VALID_BIT, 9f /* lock valid ? */
+
+	add		w11, w0, w9
+#if defined(__ARM_ARCH_8_2__)
+	mov		w12, w0
+	casa		w0, w11, [x8]
+	cmp		w12, w0
+	b.ne		2b
+#else
+	stxr		w12, w11, [x8]
+	cbnz		w12, 1b
+#endif
+
+	CLEAR_RECOVERY_HANDLER
+	ret
+
+9: /* invalid */
+#if !defined(__ARM_ARCH_8_2__)
+	clrex
+#endif
+	CLEAR_RECOVERY_HANDLER
+	mov		w0, #0
+	ret
+
+/*
  * uint32_t arm_debug_read_dscr(void)
  */
 	.text
@@ -767,15 +824,11 @@ LEXT(arm_debug_set_cp14)
 LEXT(arm64_prepare_for_sleep)
 	PUSH_FRAME
 
-#if defined(APPLETYPHOON)
-	// <rdar://problem/15827409>
-	HID_SET_BITS HID2, ARM64_REG_HID2_disMMUmtlbPrefetch, x9
-	dsb		sy
-	isb		sy
-#endif
 
 #if HAS_CLUSTER
 	cbnz		x0, 1f                                      // Skip if deep_sleep == true
+
+
 	// Mask FIQ and IRQ to avoid spurious wakeups
 	mrs		x9, CPU_OVRD
 	and		x9, x9, #(~(ARM64_REG_CYC_OVRD_irq_mask | ARM64_REG_CYC_OVRD_fiq_mask))
@@ -787,7 +840,7 @@ LEXT(arm64_prepare_for_sleep)
 #endif
 
 	cbz		x0, 1f                                          // Skip if deep_sleep == false
-#if __ARM_GLOBAL_SLEEP_BIT__
+#if   __ARM_GLOBAL_SLEEP_BIT__
 	// Enable deep sleep
 	mrs		x1, ACC_OVRD
 	orr		x1, x1, #(ARM64_REG_ACC_OVRD_enDeepSleep)
@@ -837,35 +890,6 @@ LEXT(arm64_prepare_for_sleep)
 #endif
 	msr		CPU_OVRD, x9
 
-#if defined(APPLEMONSOON) || defined(APPLEVORTEX)
-	ARM64_IS_PCORE x9
-	cbz		x9, Lwfi_inst // skip if not p-core
-
-	/* <rdar://problem/32512947>: Flush the GUPS prefetcher prior to
-	 * wfi.  A Skye HW bug can cause the GUPS prefetcher on p-cores
-	 * to be left with valid entries that fail to drain if a
-	 * subsequent wfi is issued.  This can prevent the core from
-	 * power-gating.  For the idle case that is recoverable, but
-	 * for the deep-sleep (S2R) case in which cores MUST power-gate,
-	 * it can lead to a hang.  This can be prevented by disabling
-	 * and re-enabling GUPS, which forces the prefetch queue to
-	 * drain.  This should be done as close to wfi as possible, i.e.
-	 * at the very end of arm64_prepare_for_sleep(). */
-#if defined(APPLEVORTEX)
-	/* <rdar://problem/32821461>: Cyprus A0/A1 parts have a similar
-	 * bug in the HSP prefetcher that can be worked around through
-	 * the same method mentioned above for Skye. */
-	mrs x9, MIDR_EL1
-	EXEC_COREALL_REVLO CPU_VERSION_B0, x9, x10
-#endif
-	mrs		x9, HID10
-	orr		x9, x9, #(ARM64_REG_HID10_DisHwpGups)
-	msr		HID10, x9
-	isb		sy
-	and		x9, x9, #(~(ARM64_REG_HID10_DisHwpGups))
-	msr		HID10, x9
-	isb		sy
-#endif
 	EXEC_END
 
 Lwfi_inst:
@@ -909,134 +933,7 @@ Lwfi_retention:
 	b		.			// cpu_idle_exit() should never return
 #endif
 
-#if defined(APPLETYPHOON)
 
-	.text
-	.align 2
-	.globl EXT(typhoon_prepare_for_wfi)
-
-LEXT(typhoon_prepare_for_wfi)
-	PUSH_FRAME
-
-	// <rdar://problem/15827409>
-	HID_SET_BITS HID2, ARM64_REG_HID2_disMMUmtlbPrefetch, x0
-	dsb		sy
-	isb		sy
-
-	POP_FRAME
-	ret
-
-
-	.text
-	.align 2
-	.globl EXT(typhoon_return_from_wfi)
-LEXT(typhoon_return_from_wfi)
-	PUSH_FRAME
-
-	// <rdar://problem/15827409>
-	HID_CLEAR_BITS HID2, ARM64_REG_HID2_disMMUmtlbPrefetch, x0
-	dsb		sy
-	isb		sy 
-
-	POP_FRAME
-	ret
-#endif
-
-#ifdef  APPLETYPHOON
-
-#define HID0_DEFEATURES_1 0x0000a0c000064010ULL
-#define HID1_DEFEATURES_1 0x000000004005bf20ULL
-#define HID2_DEFEATURES_1 0x0000000000102074ULL
-#define HID3_DEFEATURES_1 0x0000000000400003ULL
-#define HID4_DEFEATURES_1 0x83ff00e100000268ULL
-#define HID7_DEFEATURES_1 0x000000000000000eULL
-
-#define HID0_DEFEATURES_2 0x0000a1c000020010ULL
-#define HID1_DEFEATURES_2 0x000000000005d720ULL
-#define HID2_DEFEATURES_2 0x0000000000002074ULL
-#define HID3_DEFEATURES_2 0x0000000000400001ULL
-#define HID4_DEFEATURES_2 0x8390000200000208ULL
-#define HID7_DEFEATURES_2 0x0000000000000000ULL
-
-/*
-	arg0 = target register
-	arg1 = 64-bit constant
-*/
-.macro LOAD_UINT64 
-	movz	$0, #(($1 >> 48) & 0xffff), lsl #48
-	movk	$0, #(($1 >> 32) & 0xffff), lsl #32
-	movk	$0, #(($1 >> 16) & 0xffff), lsl #16
-	movk	$0, #(($1)       & 0xffff)
-.endmacro
-
-	.text
-	.align 2
-	.globl EXT(cpu_defeatures_set)
-LEXT(cpu_defeatures_set)
-	PUSH_FRAME
-	cmp		x0, #2
-	b.eq		cpu_defeatures_set_2
-	cmp		x0, #1
-	b.ne		cpu_defeatures_set_ret
-	LOAD_UINT64	x1, HID0_DEFEATURES_1
-	mrs		x0, HID0
-	orr		x0, x0, x1
-	msr		HID0, x0
-	LOAD_UINT64	x1, HID1_DEFEATURES_1
-	mrs		x0, HID1
-	orr		x0, x0, x1
-	msr		HID1, x0
-	LOAD_UINT64	x1, HID2_DEFEATURES_1
-	mrs		x0, HID2
-	orr		x0, x0, x1
-	msr		HID2, x0
-	LOAD_UINT64	x1, HID3_DEFEATURES_1
-	mrs		x0, HID3
-	orr		x0, x0, x1
-	msr		HID3, x0
-	LOAD_UINT64	x1, HID4_DEFEATURES_1
-	mrs		x0, HID4
-	orr		x0, x0, x1
-	msr		HID4, x0
-	LOAD_UINT64	x1, HID7_DEFEATURES_1
-	mrs		x0, HID7
-	orr		x0, x0, x1
-	msr		HID7, x0
-	dsb		sy
-	isb		sy 
-	b		cpu_defeatures_set_ret
-cpu_defeatures_set_2:
-	LOAD_UINT64	x1, HID0_DEFEATURES_2
-	mrs		x0, HID0
-	orr		x0, x0, x1
-	msr		HID0, x0
-	LOAD_UINT64	x1, HID1_DEFEATURES_2
-	mrs		x0, HID1
-	orr		x0, x0, x1
-	msr		HID1, x0
-	LOAD_UINT64	x1, HID2_DEFEATURES_2
-	mrs		x0, HID2
-	orr		x0, x0, x1
-	msr		HID2, x0
-	LOAD_UINT64	x1, HID3_DEFEATURES_2
-	mrs		x0, HID3
-	orr		x0, x0, x1
-	msr		HID3, x0
-	LOAD_UINT64	x1, HID4_DEFEATURES_2
-	mrs		x0, HID4
-	orr		x0, x0, x1
-	msr		HID4, x0
-	LOAD_UINT64	x1, HID7_DEFEATURES_2
-	mrs		x0, HID7
-	orr		x0, x0, x1
-	msr		HID7, x0
-	dsb		sy
-	isb		sy 
-	b		cpu_defeatures_set_ret
-cpu_defeatures_set_ret:
-	POP_FRAME
-	ret
-#endif
 
 #else /* !defined(APPLE_ARM64_ARCH_FAMILY) */
 	.text
@@ -1117,13 +1014,13 @@ LEXT(monitor_call)
 
 #ifdef HAS_APPLE_PAC
 /*
- * SIGN_THREAD_STATE
+ * COMPUTE_THREAD_STATE_HASH
  *
- * Macro that signs thread state.
- * $0 - Offset in arm_saved_state to store JOPHASH value.
+ * Computes the thread state hash by hashing critical state with gkey.  The hash is
+ * diversified by &arm_saved_state_t.
  */
-.macro SIGN_THREAD_STATE
-	pacga	x1, x1, x0		/* PC hash (gkey + &arm_saved_state) */
+.macro COMPUTE_THREAD_STATE_HASH
+	pacga	x1, x1, x0
 	/*
 	 * Mask off the carry flag so we don't need to re-sign when that flag is
 	 * touched by the system call return path.
@@ -1133,39 +1030,21 @@ LEXT(monitor_call)
 	pacga	x1, x3, x1		/* LR Hash (gkey + spsr hash) */
 	pacga	x1, x4, x1		/* X16 hash (gkey + lr hash) */
 	pacga	x1, x5, x1		/* X17 hash (gkey + x16 hash) */
-	str		x1, [x0, $0]
-#if DEBUG || DEVELOPMENT
-	mrs		x1, DAIF
-	tbz		x1, #DAIF_IRQF_SHIFT, Lintr_enabled_panic
-#endif /* DEBUG || DEVELOPMENT */
-.endmacro
+.endm
 
 /*
- * CHECK_SIGNED_STATE
+ * CHECK_THREAD_STATE_INTERRUPTS
  *
- * Macro that checks signed thread state.
- * $0 - Offset in arm_saved_state to to read the JOPHASH value from.
- * $1 - Label to jump to when check is unsuccessful.
+ * Branches to Lintr_enabled_panic if interrupts are in an unexpected state.
  */
-.macro CHECK_SIGNED_STATE
-	pacga	x1, x1, x0		/* PC hash (gkey + &arm_saved_state) */
-	/*
-	 * Mask off the carry flag so we don't need to re-sign when that flag is
-	 * touched by the system call return path.
-	 */
-	bic		x2, x2, PSR_CF
-	pacga	x1, x2, x1		/* SPSR hash (gkey + pc hash) */
-	pacga	x1, x3, x1		/* LR Hash (gkey + spsr hash) */
-	pacga	x1, x4, x1		/* X16 hash (gkey + lr hash) */
-	pacga	x1, x5, x1		/* X17 hash (gkey + x16 hash) */
-	ldr		x2, [x0, $0]
-	cmp		x1, x2
-	b.ne	$1
+.macro CHECK_THREAD_STATE_INTERRUPTS
 #if DEBUG || DEVELOPMENT
 	mrs		x1, DAIF
 	tbz		x1, #DAIF_IRQF_SHIFT, Lintr_enabled_panic
-#endif /* DEBUG || DEVELOPMENT */
-.endmacro
+	mrs		x1, SPSel
+	tbz		x1, #0, Lintr_enabled_panic
+#endif
+.endm
 
 /**
  * void ml_sign_thread_state(arm_saved_state_t *ss, uint64_t pc,
@@ -1176,19 +1055,9 @@ LEXT(monitor_call)
 	.align 2
 	.globl EXT(ml_sign_thread_state)
 LEXT(ml_sign_thread_state)
-	SIGN_THREAD_STATE SS64_JOPHASH
-	ret
-
-/**
- * void ml_sign_kernel_thread_state(arm_kernel_saved_state *ss, uint64_t pc,
- *							 uint32_t cpsr, uint64_t lr, uint64_t x16,
- *							 uint64_t x17)
- */
-	.text
-	.align 2
-	.globl EXT(ml_sign_kernel_thread_state)
-LEXT(ml_sign_kernel_thread_state)
-	SIGN_THREAD_STATE SS64_KERNEL_JOPHASH
+	COMPUTE_THREAD_STATE_HASH
+	str		x1, [x0, SS64_JOPHASH]
+	CHECK_THREAD_STATE_INTERRUPTS
 	ret
 
 /**
@@ -1200,7 +1069,11 @@ LEXT(ml_sign_kernel_thread_state)
 	.align 2
 	.globl EXT(ml_check_signed_state)
 LEXT(ml_check_signed_state)
-	CHECK_SIGNED_STATE SS64_JOPHASH, Lcheck_hash_panic
+	COMPUTE_THREAD_STATE_HASH
+	ldr		x2, [x0, SS64_JOPHASH]
+	cmp		x1, x2
+	b.ne	Lcheck_hash_panic
+	CHECK_THREAD_STATE_INTERRUPTS
 	ret
 Lcheck_hash_panic:
 	/*
@@ -1216,27 +1089,11 @@ Lcheck_hash_panic:
 	adr		x0, Lcheck_hash_str
 	CALL_EXTERN panic_with_thread_kernel_state
 
-/**
- * void ml_check_kernel_signed_state(arm_kernel_saved_state *ss, uint64_t pc,
- *							  uint32_t cpsr, uint64_t lr, uint64_t x16,
- *							  uint64_t x17)
- */
-	.text
-	.align 2
-	.globl EXT(ml_check_kernel_signed_state)
-LEXT(ml_check_kernel_signed_state)
-	CHECK_SIGNED_STATE SS64_KERNEL_JOPHASH, Lcheck_kernel_hash_panic
-	ret
-Lcheck_kernel_hash_panic:
-	ARM64_STACK_PROLOG
-	PUSH_FRAME
-	adr		x0, Lcheck_hash_str
-	CALL_EXTERN panic
-
 Lcheck_hash_str:
 	.asciz "JOP Hash Mismatch Detected (PC, CPSR, or LR corruption)"
 
 #if DEBUG || DEVELOPMENT
+	.align 2
 Lintr_enabled_panic:
 	ARM64_STACK_PROLOG
 	PUSH_FRAME
@@ -1267,6 +1124,49 @@ LEXT(ml_auth_thread_state_invalid_cpsr)
 
 Linvalid_cpsr_str:
 	.asciz "Thread state corruption detected (PE mode == 0)"
+
+/**
+ * uint64_t ml_pac_safe_interrupts_disable(void)
+ *
+ * Disable interrupts using only PAC-safe registers.
+ *
+ * ml_pac_safe_interrupts_disable's return value should be passed to a
+ * complementary ml_pac_safe_interrupts_restore call.
+ *
+ * ml_pac_safe_interrupts_{disable,restore} are intended specifically for
+ * PAC-related callers that need to disable interrupts before manipulating
+ * signed thread state.  Other callers should use ml_set_interrupts_enabled
+ * instead.
+ *
+ * @return the previous interrupt state
+ */
+	.text
+	.align 2
+	.globl EXT(ml_pac_safe_interrupts_disable)
+LEXT(ml_pac_safe_interrupts_disable)
+	mrs		x16, DAIF
+	and		x17, x16, DAIF_STANDARD_DISABLE
+	cmp		x17, DAIF_STANDARD_DISABLE
+	b.eq	Lalready_disabled
+	msr		DAIFSet, DAIFSC_STANDARD_DISABLE
+Lalready_disabled:
+	mov		x0, x16
+	ret
+
+/**
+ * void ml_pac_safe_interrupts_restore(uint64_t intr)
+ *
+ * Restores the interrupt state returned by ml_pac_safe_interrupts_disable().
+ *
+ * @param intr the previous interrupt state
+ */
+	.text
+	.align 2
+	.globl EXT(ml_pac_safe_interrupts_restore)
+LEXT(ml_pac_safe_interrupts_restore)
+	msr		DAIF, x0
+	ret
+
 #endif /* HAS_APPLE_PAC */
 
 	.text
@@ -1294,5 +1194,71 @@ LEXT(fill32_nt)
 	subs	x1, x1, #128
 	b.hi	0b
 	ret
+
+#if defined(HAS_APPLE_PAC)
+
+
+/*
+ * ptrauth_utils_sign_blob_generic(const void * ptr, size_t len_bytes, uint64_t data, int flags)
+ *
+ * See "Signing arbitrary data blobs" of doc/pac.md
+ */
+	.text
+	.align 2
+	.globl EXT(ptrauth_utils_sign_blob_generic)
+LEXT(ptrauth_utils_sign_blob_generic)
+	ARM64_STACK_PROLOG
+	PUSH_FRAME
+
+	cbz		x0, Lsign_ret
+	lsr		x10, x1, #0x3		// x10 = rounds - number of full words
+	and		x9, x1, #0x7		// x9 = ntrailing - number trailing bytes
+	tst		w3, #0x1			// Check if PTRAUTH_ADDR_DIVERSIFY is set in flags
+	csel	x17, xzr, x0, eq	// If yes, mix the diversifier with the address
+	eor		x17, x17, x2
+	mov		w16, #0xde43		// Prologue cookie: ptrauth_string_discriminator("ptrauth_utils_sign_blob_generic-prologue") | 0x01
+
+	// x16 is used to accumulate the signature because it is interrupt-safe
+	pacga	x16, x1, x16		// Mix in the data length. This helps distinguish e.g. a signature of 2 zeros from a signature of 3 zeros.
+	pacga	x16, x16, x17		// Mix in the diversifier
+	cbz		x10, Lloop_ntrailing	// Handle the case of < 8 bytes
+
+	// Handle as many full 64-bit words as possible first.
+Lloop_rounds:
+	ldr		x17, [x0], #0x8		// Load the next full 64-bit value
+	pacga	x16, x17, x16		// Mix in the next 8 bytes of data
+	subs	x10, x10, #0x1
+	b.ne	Lloop_rounds
+	cbz		x9, Lepilogue_cookie	// If there are no trailing bytes, skip to the epilogue
+
+	/*
+	 * Handle the case of between 1 and 7 trailing bytes. x9 contains the
+	 * number of trailing bytes, but we convert it to bits so we can use it
+	 * as a bitshift to accumulate the trailing bytes into x17. We use x10
+	 * as the bit index since it is guaranteed to be zero at this point.
+	 * Bytes are accumulated with the first byte read in the LSB position
+	 * (just as would be the case if we performed a little-endian 64-bit
+	 * read).
+	 */
+	lsl		x9, x9, #0x3		// x9 = ntrailing_bits, x10 = current bit index (0 at entry)
+	mov		x17, #0				// x17 = trailing bytes accumulator
+Lloop_ntrailing:
+	ldrb	w12, [x0], #0x1		// Load the next trailing byte
+	lsl		x12, x12, x10		// Shift it by how many bits we've read so far to align it with its proper slot in x17
+	orr		x17, x17, x12		// Or the byte into x17
+	add		x10, x10, #0x8		// Advance x10 by 8 bits
+	cmp		x9, x10				// Check if we're done with all bytes
+	b.ne	Lloop_ntrailing
+	pacga	x16, x17, x16		// Mix in the accumulated trailing bytes
+
+Lepilogue_cookie:
+	mov		w17, #0x9a2d		// Epilogue cookie: ptrauth_string_discriminator("ptrauth_utils_sign_blob_generic-epilogue") | 0x01
+	pacga	x0, x16, x17		// Mix in the epilogue cookie
+
+Lsign_ret:
+	POP_FRAME
+	ARM64_STACK_EPILOG
+
+#endif // defined(HAS_APPLE_PAC)
 
 /* vim: set sw=4 ts=4: */

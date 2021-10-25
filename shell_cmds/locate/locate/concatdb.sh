@@ -1,5 +1,7 @@
 #!/bin/sh
 #
+# SPDX-License-Identifier: BSD-2-Clause-FreeBSD
+#
 # Copyright (c) September 1995 Wolfram Schneider <wosch@FreeBSD.org>. Berlin.
 # All rights reserved.
 #
@@ -30,7 +32,7 @@
 #
 # Sequence of databases is important.
 #
-# $FreeBSD: src/usr.bin/locate/locate/concatdb.sh,v 1.10 2000/01/12 08:01:00 kris Exp $
+# $FreeBSD$
 
 # The directory containing locate subprograms
 : ${LIBEXECDIR:=/usr/libexec}; export LIBEXECDIR

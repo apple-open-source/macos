@@ -86,11 +86,13 @@ bool kc_with_dbt(bool writeAndRead, CFErrorRef *error, bool (^perform)(SecDbConn
 bool kc_with_dbt_non_item_tables(bool writeAndRead, CFErrorRef* error, bool (^perform)(SecDbConnectionRef dbt)); // can be used when only tables which don't store 'items' are accessed - avoids invoking SecItemDataSourceFactoryGetDefault()
 bool kc_with_custom_db(bool writeAndRead, bool usesItemTables, SecDbRef db, CFErrorRef *error, bool (^perform)(SecDbConnectionRef dbt));
 
-
+bool UpgradeItemPhase3(SecDbConnectionRef inDbt, bool *inProgress, CFErrorRef *error);
 
 /* For whitebox testing only */
+SecDbRef SecKeychainDbGetDb(CFErrorRef* error);
 void SecKeychainDbForceClose(void);
 void SecKeychainDbReset(dispatch_block_t inbetween);
+void clearLastRowIDHandledForTests(void);
 
 SOSDataSourceFactoryRef SecItemDataSourceFactoryGetDefault(void);
 
@@ -112,6 +114,8 @@ bool _SecServerRollKeysGlue(bool force, CFErrorRef *error);
 #define SecServerInitialSyncCredentialFlagPCS                (1 << 1)
 #define SecServerInitialSyncCredentialFlagPCSNonCurrent      (1 << 2)
 #define SecServerInitialSyncCredentialFlagBluetoothMigration (1 << 3)
+
+#define PERSISTENT_REF_UUID_BYTES_LENGTH (sizeof(uuid_t))
 
 CFArrayRef _SecServerCopyInitialSyncCredentials(uint32_t flags, CFErrorRef *error);
 bool _SecServerImportInitialSyncCredentials(CFArrayRef array, CFErrorRef *error);

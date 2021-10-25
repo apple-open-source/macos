@@ -130,6 +130,24 @@ _ds_serv_cache_free(void *x)
 	if (x != NULL) si_item_release(x);
 }
 
+static void
+_od_xpc_pipe_close(void)
+{
+	if (__od_pipe != NULL) {
+		xpc_release(__od_pipe);
+		__od_pipe = NULL;
+	}
+}
+
+LIBINFO_EXPORT
+void
+lookup_close_connections()
+{
+	pthread_mutex_lock(&mutex);
+	_od_xpc_pipe_close();
+	pthread_mutex_unlock(&mutex);
+}
+
 LIBINFO_EXPORT
 void
 _si_disable_opendirectory(void)
@@ -171,8 +189,7 @@ _od_xpc_pipe(bool resetPipe)
 
 	pthread_mutex_lock(&mutex);
 	if (resetPipe) {
-		xpc_release(__od_pipe);
-		__od_pipe = NULL;
+		_od_xpc_pipe_close();
 	}
 
 	if (__od_pipe == NULL) {

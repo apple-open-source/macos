@@ -1,4 +1,6 @@
-/*
+/*-
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
  * Copyright (c) 1988, 1993
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -10,11 +12,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -33,7 +31,7 @@
 
 #include <sys/cdefs.h>
 
-__FBSDID("$FreeBSD: src/usr.bin/tr/tr.c,v 1.24 2005/04/09 14:31:41 stefanf Exp $");
+__FBSDID("$FreeBSD$");
 
 #ifndef lint
 static const char copyright[] =
@@ -47,10 +45,16 @@ static const char sccsid[] = "@(#)tr.c	8.2 (Berkeley) 5/4/95";
 
 #include <sys/types.h>
 
+#ifndef __APPLE__
+#include <sys/capsicum.h>
+
+#include <capsicum_helpers.h>
+#endif
 #include <ctype.h>
 #include <err.h>
 #include <limits.h>
 #include <locale.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -62,8 +66,8 @@ static const char sccsid[] = "@(#)tr.c	8.2 (Berkeley) 5/4/95";
 #include "cset.h"
 #include "extern.h"
 
-STR s1 = { STRING1, NORMAL, 0, OOBCH, 0, { 0, OOBCH }, NULL, NULL };
-STR s2 = { STRING2, NORMAL, 0, OOBCH, 0, { 0, OOBCH }, NULL, NULL };
+static STR s1 = { STRING1, NORMAL, 0, OOBCH, 0, { 0, OOBCH }, NULL, NULL };
+static STR s2 = { STRING2, NORMAL, 0, OOBCH, 0, { 0, OOBCH }, NULL, NULL };
 
 static struct cset *setup(char *, STR *, int, int);
 static void usage(void);
@@ -79,6 +83,14 @@ main(int argc, char **argv)
 	wint_t ch, cnt, lastch;
 
 	(void)setlocale(LC_ALL, "");
+
+#ifndef __APPLE__
+	if (caph_limit_stdio() == -1)
+		err(1, "unable to limit stdio");
+
+	if (caph_enter() < 0)
+		err(1, "unable to enter capability mode");
+#endif
 
 	Cflag = cflag = dflag = sflag = 0;
 	while ((ch = getopt(argc, argv, "Ccdsu")) != -1)
@@ -114,11 +126,15 @@ main(int argc, char **argv)
 		/* NOTREACHED */
 	case 1:
 		isstring2 = 0;
+#ifdef __APPLE__
 		if(!argv[0]) usage();
+#endif
 		break;
 	case 2:
 		isstring2 = 1;
+#ifdef __APPLE__
 		if(!argv[0] || !argv[1]) usage();
+#endif
 		break;
 	}
 
@@ -273,14 +289,15 @@ endloop:
 		 */
 		s2.str = argv[1];
 		s2.state = NORMAL;
-		for (cnt = 0; cnt < WCHAR_MAX; cnt++) {
+		for (cnt = 0; cnt < WINT_MAX; cnt++) {
 			if (Cflag && !iswrune(cnt))
 				continue;
 			if (cmap_lookup(map, cnt) == OOBCH) {
-				if (next(&s2))
+				if (next(&s2)) {
 					cmap_add(map, cnt, s2.lastch);
-				if (sflag)
-					cset_add(squeeze, s2.lastch);
+					if (sflag)
+						cset_add(squeeze, s2.lastch);
+				}
 			} else
 				cmap_add(map, cnt, cnt);
 			if ((s2.state == EOS || s2.state == INFINITE) &&

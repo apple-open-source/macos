@@ -1,5 +1,5 @@
-.Dd 2/10/16
-.Dt gcore 1
+.Dd February 10, 2016
+.Dt GCORE 1
 .Os Darwin
 .Sh NAME
 .Nm gcore
@@ -17,7 +17,7 @@ The
 program creates a core file image of the process specified by
 .Ar pid .
 The resulting core file can be used with a debugger, e.g.
-.Xr lldb(1) ,
+.Xr lldb 1 ,
 to examine the state of the process.
 .Pp
 The following options are available:
@@ -48,7 +48,8 @@ specific attributes of the process into the name.
 .Pp
 Each special character is introduced by the
 .Cm %
-character.  The format characters and their meanings are:
+character.
+The format characters and their meanings are:
 .Bl -tag -width Fl
 .It Cm N
 The name of the program being dumped, as reported by
@@ -71,7 +72,8 @@ is
 By default, the core file will be written to a directory whose
 name is determined from the
 .Ar kern.corefile
-MIB.  This can be printed or modified using
+MIB.
+This can be printed or modified using
 .Xr sysctl 8 .
 .Pp
 The directory where the core file is to be written must be
@@ -80,14 +82,19 @@ accessible to the owner of the target process.
 .Nm gcore
 will not overwrite an existing file,
 nor will it create missing directories in the path.
-.Sh EXIT_STATUS
-.Ex -std
-.Pp
 .Sh FILES
 .Bl -tag -width "/cores/%N-%P-%T plus" -compact
 .It Pa /cores/%N-%P-%T
 default pathname for the corefile.
 .El
+.Sh EXIT STATUS
+.Ex -std
+.Sh SEE ALSO
+.Xr lldb 1 ,
+.Xr core 5 ,
+.Xr Mach-O 5 ,
+.Xr sudo 8 ,
+.Xr sysctl 8
 .Sh BUGS
 With the
 .Fl b
@@ -97,9 +104,3 @@ writes out as much data as it can up to the specified limit,
 even if that results in an incomplete core image.
 Such a partial core dump may confuse subsequent
 programs that attempt to parse the contents of such files.
-.Sh SEE ALSO 
-.Xr lldb 1 ,
-.Xr core 5 ,
-.Xr Mach-O 5 ,
-.Xr sysctl 8 ,
-.Xr sudo 8 .

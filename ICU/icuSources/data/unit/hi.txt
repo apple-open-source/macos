@@ -1,7 +1,7 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
-// License & terms of use: http://www.unicode.org/copyright.html#License
+// License & terms of use: http://www.unicode.org/copyright.html
+// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
 hi{
-    Version{"36.1"}
     durationUnits{
         hm{"h:mm"}
         hms{"h:mm:ss"}
@@ -11,10 +11,10 @@ hi{
         acceleration{
             g-force{
                 dnam{"गुरुत्व बल"}
-                one{"{0} गु॰ बल"}
-                other{"{0} गु॰ बल"}
+                one{"{0} गुरुत्व–बल"}
+                other{"{0} गुरुत्व–बल"}
             }
-            meter-per-second-squared{
+            meter-per-square-second{
                 dnam{"मीटर/से²"}
                 one{"{0} मीटर प्रति सेकंड वर्ग"}
                 other{"{0} मीटर प्रति सेकंड वर्ग"}
@@ -59,9 +59,9 @@ hi{
                 other{"{0} डोनम"}
             }
             hectare{
-                dnam{"हेक्टर"}
-                one{"{0} हेक्टर"}
-                other{"{0} हेक्टर"}
+                dnam{"हेक्टेयर"}
+                one{"{0} हेक्टेयर"}
+                other{"{0} हेक्टेयर"}
             }
             square-centimeter{
                 dnam{"वर्ग सेंटीमीटर"}
@@ -70,9 +70,9 @@ hi{
                 per{"{0}/वर्ग सेंटीमीटर"}
             }
             square-foot{
-                dnam{"वर्ग फ़ुट"}
-                one{"{0} वर्ग फ़ुट"}
-                other{"{0} वर्ग फ़ुट"}
+                dnam{"वर्गफ़ीट"}
+                one{"{0} वर्गफ़ुट"}
+                other{"{0} वर्गफ़ीट"}
             }
             square-inch{
                 dnam{"वर्ग इंच"}
@@ -128,11 +128,6 @@ hi{
                 one{"{0} मोल"}
                 other{"{0} मोल"}
             }
-            part-per-million{
-                dnam{"ppm"}
-                one{"{0} ppm"}
-                other{"{0} हिस्सा प्रति दस लाख"}
-            }
             percent{
                 dnam{"प्रतिशत"}
                 one{"{0} प्रतिशत"}
@@ -143,6 +138,11 @@ hi{
                 one{"{0} प्रति हज़ार"}
                 other{"{0} प्रति हज़ार"}
             }
+            permillion{
+                dnam{"हिस्सा प्रति दस लाख"}
+                one{"{0} हिस्सा प्रति दस लाख"}
+                other{"{0} हिस्सा प्रति दस लाख"}
+            }
             permyriad{
                 dnam{"प्रति दस हज़ार"}
                 one{"{0} प्रति दस हज़ार"}
@@ -150,7 +150,7 @@ hi{
             }
         }
         consumption{
-            liter-per-100kilometers{
+            liter-per-100-kilometer{
                 dnam{"लीटर प्रति 100 किलोमीटर"}
                 one{"{0} लीटर प्रति 100 किलोमीटर"}
                 other{"{0} लीटर प्रति 100 किलोमीटर"}
@@ -245,7 +245,7 @@ hi{
                 dnam{"दिन"}
                 one{"{0} दिन"}
                 other{"{0} दिन"}
-                per{"{0}/दिन"}
+                per{"{0} प्रति दिन"}
             }
             decade{
                 dnam{"दशकों"}
@@ -272,13 +272,13 @@ hi{
                 dnam{"मिनट"}
                 one{"{0} मिनट"}
                 other{"{0} मिनट"}
-                per{"{0}/मिनट"}
+                per{"{0} प्रति मिनट"}
             }
             month{
                 dnam{"माह"}
                 one{"{0} माह"}
                 other{"{0} माह"}
-                per{"{0}/माह"}
+                per{"{0} प्रति माह"}
             }
             nanosecond{
                 dnam{"नैनोसेकंड"}
@@ -295,13 +295,13 @@ hi{
                 dnam{"सप्ताह"}
                 one{"{0} सप्ताह"}
                 other{"{0} सप्ताह"}
-                per{"{0}/सप्ताह"}
+                per{"{0} प्रति सप्ताह"}
             }
             year{
                 dnam{"वर्ष"}
                 one{"{0} वर्ष"}
                 other{"{0} वर्ष"}
-                per{"{0}/वर्ष"}
+                per{"{0} प्रति वर्ष"}
             }
         }
         electric{
@@ -353,9 +353,9 @@ hi{
                 other{"{0} जूल"}
             }
             kilocalorie{
-                dnam{"किलोकैलोरी"}
-                one{"{0} किलोकैलोरी"}
-                other{"{0} किलोकैलोरी"}
+                dnam{"किलो कैलोरी"}
+                one{"{0} किलो कैलोरी"}
+                other{"{0} किलो कैलोरी"}
             }
             kilojoule{
                 dnam{"किलोजूल"}
@@ -408,6 +408,9 @@ hi{
             }
         }
         graphics{
+            dot{
+                dnam{"बिंदु"}
+            }
             dot-per-centimeter{
                 dnam{"बिंदु प्रति सेंटीमीटर"}
                 one{"{0} बिंदु प्रति सेंटीमीटर"}
@@ -459,11 +462,26 @@ hi{
                 one{"{0} डेसीमीटर"}
                 other{"{0} डेसीमीटर"}
             }
+            earth-radius{
+                dnam{"पृथ्वी की त्रिज्या"}
+                one{"{0} पृथ्वी की त्रिज्या"}
+                other{"{0} पृथ्वी की त्रिज्या"}
+            }
+            fathom{
+                dnam{"फ़ैदम"}
+                one{"{0} फ़ैदम"}
+                other{"{0} फ़ैदम"}
+            }
             foot{
-                dnam{"फ़ुट"}
+                dnam{"फ़ीट"}
                 one{"{0} फ़ुट"}
-                other{"{0} फ़ुट"}
-                per{"{0}/फ़ुट"}
+                other{"{0} फ़ीट"}
+                per{"{0}/फ़ीट"}
+            }
+            furlong{
+                dnam{"फ़र्लांग"}
+                one{"{0} फ़र्लांग"}
+                other{"{0} फ़र्लांग"}
             }
             inch{
                 dnam{"इंच"}
@@ -524,9 +542,9 @@ hi{
                 other{"{0} पार्सेक"}
             }
             picometer{
-                dnam{"पीकोमीटर"}
-                one{"{0} पीकोमीटर"}
-                other{"{0} पीकोमीटर"}
+                dnam{"पिकोमीटर"}
+                one{"{0} पिकोमीटर"}
+                other{"{0} पिकोमीटर"}
             }
             point{
                 dnam{"पॉइंट"}
@@ -545,6 +563,16 @@ hi{
             }
         }
         light{
+            candela{
+                dnam{"कैन्डेला"}
+                one{"{0} कैन्डेला"}
+                other{"{0} कैन्डेला"}
+            }
+            lumen{
+                dnam{"लुमेन"}
+                one{"{0} लुमेन"}
+                other{"{0} लुमेन"}
+            }
             lux{
                 dnam{"लक्स"}
                 one{"{0} लक्स"}
@@ -571,6 +599,11 @@ hi{
                 dnam{"पृथ्वी द्रव्यमान"}
                 one{"{0} पृथ्वी द्रव्यमान"}
                 other{"{0} पृथ्वी द्रव्यमान"}
+            }
+            grain{
+                dnam{"डेढ़ रत्ती"}
+                one{"{0} डेढ़ रत्ती"}
+                other{"{0} डेढ़ रत्ती"}
             }
             gram{
                 dnam{"ग्राम"}
@@ -600,10 +633,10 @@ hi{
                 other{"{0} मिलीग्राम"}
             }
             ounce{
-                dnam{"आउंस"}
-                one{"{0} आउंस"}
-                other{"{0} आउंस"}
-                per{"{0}/आउंस"}
+                dnam{"औंस"}
+                one{"{0} औंस"}
+                other{"{0} औंस"}
+                per{"{0}/औंस"}
             }
             ounce-troy{
                 dnam{"ट्रॉए आउंस"}
@@ -611,15 +644,20 @@ hi{
                 other{"{0} ट्रॉए आउंस"}
             }
             pound{
-                dnam{"पाउंड"}
-                one{"{0} पाउंड"}
-                other{"{0} पाउंड"}
-                per{"{0}/पाउंड"}
+                dnam{"पौंड"}
+                one{"{0} पौंड"}
+                other{"{0} पौंड"}
+                per{"{0}/पौंड"}
             }
             solar-mass{
                 dnam{"सौर द्रव्यमान"}
                 one{"{0} सौर द्रव्यमान"}
                 other{"{0} सौर द्रव्यमान"}
+            }
+            stone{
+                dnam{"14 पौंड का बट्टा"}
+                one{"{0} 14 पौंड का बट्टा"}
+                other{"{0} 14 पौंड का बट्टा"}
             }
             ton{
                 dnam{"टन"}
@@ -675,10 +713,10 @@ hi{
                 one{"{0} हेक्टोपास्कल"}
                 other{"{0} हेक्टोपास्कल"}
             }
-            inch-hg{
-                dnam{"मर्क्युरी-इंच"}
-                one{"{0} मर्क्युरी-इंच"}
-                other{"{0} मर्क्युरी-इंच"}
+            inch-ofhg{
+                dnam{"मर्करी इंच"}
+                one{"{0} मर्करी इंच"}
+                other{"{0} मर्करी इंच"}
             }
             kilopascal{
                 dnam{"किलोपास्कल"}
@@ -695,17 +733,17 @@ hi{
                 one{"{0} मिलीबार"}
                 other{"{0} मिलीबार"}
             }
-            millimeter-of-mercury{
-                dnam{"मर्क्युरी-मिलीमीटर"}
-                one{"{0} मर्क्युरी-मिलीमीटर"}
-                other{"{0} मर्क्युरी-मिलीमीटर"}
+            millimeter-ofhg{
+                dnam{"मर्क्यूरी मिलीमीटर"}
+                one{"{0} मर्क्यूरी मिलीमीटर"}
+                other{"{0} मर्क्यूरी मिलीमीटर"}
             }
             pascal{
                 dnam{"पास्कल"}
                 one{"{0} पास्कल"}
                 other{"{0} पास्कल"}
             }
-            pound-per-square-inch{
+            pound-force-per-square-inch{
                 dnam{"पाउंड प्रति वर्ग इंच"}
                 one{"{0} पाउंड प्रति वर्ग इंच"}
                 other{"{0} पाउंड प्रति वर्ग इंच"}
@@ -740,9 +778,9 @@ hi{
                 other{"{0} डिग्री सेल्सियस"}
             }
             fahrenheit{
-                dnam{"डिग्री फ़ैरनहाइट"}
-                one{"{0} डिग्री फ़ैरनहाइट"}
-                other{"{0} डिग्री फ़ैरनहाइट"}
+                dnam{"डिग्री फ़ेरनहाइट"}
+                one{"{0} डिग्री फ़ेरनहाइट"}
+                other{"{0} डिग्री फ़ेरनहाइट"}
             }
             generic{
                 dnam{"°"}
@@ -761,7 +799,7 @@ hi{
                 one{"{0} न्यूटन-मीटर"}
                 other{"{0} न्यूटन-मीटर"}
             }
-            pound-foot{
+            pound-force-foot{
                 dnam{"पाउंड-फ़ुट"}
                 one{"{0} पाउंड-फ़ुट"}
                 other{"{0} पाउंड-फ़ुट"}
@@ -777,6 +815,11 @@ hi{
                 dnam{"बैरल"}
                 one{"{0} बैरल"}
                 other{"{0} बैरल"}
+            }
+            bushel{
+                dnam{"बुशल"}
+                one{"{0} बुशल"}
+                other{"{0} बुशल"}
             }
             centiliter{
                 dnam{"सेंटीलीटर"}
@@ -835,10 +878,30 @@ hi{
                 one{"{0} डेसीलीटर"}
                 other{"{0} डेसीलीटर"}
             }
+            dessert-spoon{
+                dnam{"डेज़र्ट स्पून"}
+                one{"{0} डेज़र्ट स्पून"}
+                other{"{0} डेज़र्ट स्पून"}
+            }
+            dessert-spoon-imperial{
+                dnam{"इम्पीरियल डेज़र्टस्पून"}
+                one{"{0} इम्पीरियल डेज़र्टस्पून"}
+                other{"{0} इम्पीरियल डेज़र्टस्पून"}
+            }
+            dram{
+                dnam{"ड्रम फ्लूइड"}
+                one{"{0} ड्रम"}
+                other{"{0} ड्रम"}
+            }
+            drop{
+                dnam{"बूंद"}
+                one{"{0} बूंद"}
+                other{"{0} बूंद"}
+            }
             fluid-ounce{
-                dnam{"फ़्लुइड-आउंस"}
-                one{"{0} फ़्लुइड-आउंस"}
-                other{"{0} फ़्लुइड-आउंस"}
+                dnam{"फ़्लूइड आउंस"}
+                one{"{0} फ़्लूइड आउंस"}
+                other{"{0} फ़्लूइड आउंस"}
             }
             fluid-ounce-imperial{
                 dnam{"इम्पी॰ फ़्लुइड आउंस"}
@@ -862,6 +925,11 @@ hi{
                 one{"{0} हेक्टोलीटर"}
                 other{"{0} हेक्टोलीटर"}
             }
+            jigger{
+                dnam{"जिगर"}
+                one{"{0} जिगर"}
+                other{"{0} जिगर"}
+            }
             liter{
                 dnam{"लीटर"}
                 one{"{0} लीटर"}
@@ -878,10 +946,14 @@ hi{
                 one{"{0} मिलीलीटर"}
                 other{"{0} मिलीलीटर"}
             }
+            pinch{
+                dnam{"चुटकी"}
+                one{"{0} चुटकी"}
+                other{"{0} चुटकी"}
+            }
             pint{
-                dnam{"पिंट"}
-                one{"{0} पिंट"}
-                other{"{0} पिंट"}
+                one{"{0} पाइंट"}
+                other{"{0} पाइंट"}
             }
             pint-metric{
                 dnam{"मीट्रिक पिंट"}
@@ -893,15 +965,20 @@ hi{
                 one{"{0} क्वार्ट"}
                 other{"{0} क्वार्ट"}
             }
+            quart-imperial{
+                dnam{"क्वार्ट इम्पीरियल"}
+                one{"{0} क्वार्ट इम्पीरियल"}
+                other{"{0} क्वार्ट इम्पीरियल"}
+            }
             tablespoon{
                 dnam{"टेबलस्पून"}
                 one{"{0} टेबलस्पून"}
                 other{"{0} टेबलस्पून"}
             }
             teaspoon{
-                dnam{"टीस्पून"}
-                one{"{0} टीस्पून"}
-                other{"{0} टीस्पून"}
+                dnam{"टी स्पून"}
+                one{"{0} टी स्पून"}
+                other{"{0} टी स्पून"}
             }
         }
     }
@@ -964,8 +1041,8 @@ hi{
             }
         }
         consumption{
-            liter-per-100kilometers{
-                dnam{"ली./100 कि.मी."}
+            liter-per-100-kilometer{
+                dnam{"ली॰/100 कि॰मी॰"}
                 one{"{0}ली/100कि"}
                 other{"{0}ली/100कि"}
             }
@@ -1017,6 +1094,12 @@ hi{
                 dnam{"वर्ष"}
                 one{"{0} वर्ष"}
                 other{"{0} वर्ष"}
+            }
+        }
+        graphics{
+            dot{
+                one{"{0}बिंदु"}
+                other{"{0}बिंदु"}
             }
         }
         length{
@@ -1090,6 +1173,10 @@ hi{
                 one{"{0} पाउंड"}
                 other{"{0} पाउंड"}
             }
+            stone{
+                one{"{0} ला"}
+                other{"{0}st"}
+            }
         }
         power{
             horsepower{
@@ -1110,7 +1197,7 @@ hi{
                 one{"{0} hPa"}
                 other{"{0} hPa"}
             }
-            inch-hg{
+            inch-ofhg{
                 one{"{0}\u0022 Hg"}
                 other{"{0}\u0022 Hg"}
             }
@@ -1173,10 +1260,10 @@ hi{
                 one{"{0} गु॰ब॰"}
                 other{"{0} गु॰ब॰"}
             }
-            meter-per-second-squared{
-                dnam{"m/s²"}
-                one{"{0} m/s²"}
-                other{"{0} m/s²"}
+            meter-per-square-second{
+                dnam{"मीटर/से²"}
+                one{"{0} मी॰/व॰से॰"}
+                other{"{0} मी॰/व॰से॰"}
             }
         }
         angle{
@@ -1287,11 +1374,6 @@ hi{
                 one{"{0} मोल"}
                 other{"{0} मोल"}
             }
-            part-per-million{
-                dnam{"ppm"}
-                one{"{0} ppm"}
-                other{"{0} ppm"}
-            }
             percent{
                 dnam{"प्रतिशत"}
                 one{"{0}%"}
@@ -1302,6 +1384,11 @@ hi{
                 one{"{0}‰"}
                 other{"{0}‰"}
             }
+            permillion{
+                dnam{"ppm"}
+                one{"{0} ppm"}
+                other{"{0} ppm"}
+            }
             permyriad{
                 dnam{"‱"}
                 one{"{0}‱"}
@@ -1309,7 +1396,7 @@ hi{
             }
         }
         consumption{
-            liter-per-100kilometers{
+            liter-per-100-kilometer{
                 dnam{"ली॰/100 कि॰मी॰"}
                 one{"{0} ली॰/100 कि॰मी॰"}
                 other{"{0} ली॰/100 कि॰मी॰"}
@@ -1567,6 +1654,11 @@ hi{
             }
         }
         graphics{
+            dot{
+                dnam{"बिंदु"}
+                one{"{0} बिंदु"}
+                other{"{0} बिंदु"}
+            }
             megapixel{
                 dnam{"मेगापिक्सेल"}
             }
@@ -1591,11 +1683,21 @@ hi{
                 one{"{0} डे॰मी॰"}
                 other{"{0} डे॰मी॰"}
             }
+            fathom{
+                dnam{"फ़ैदम"}
+                one{"{0} फ़ैदम"}
+                other{"{0} फ़ैदम"}
+            }
             foot{
                 dnam{"फ़ुट"}
                 one{"{0} फ़ुट"}
                 other{"{0} फ़ुट"}
                 per{"{0}/फ़ुट"}
+            }
+            furlong{
+                dnam{"फ़र्लांग"}
+                one{"{0} फ़र्लांग"}
+                other{"{0} फ़र्लांग"}
             }
             inch{
                 dnam{"इंच"}
@@ -1704,6 +1806,11 @@ hi{
                 one{"{0} M⊕"}
                 other{"{0} M⊕"}
             }
+            grain{
+                dnam{"डे. रत्ती"}
+                one{"{0} डे. रत्ती"}
+                other{"{0} डेढ़ रत्ती"}
+            }
             gram{
                 dnam{"ग्राम"}
                 one{"{0} ग्राम"}
@@ -1752,6 +1859,11 @@ hi{
                 dnam{"M☉"}
                 one{"{0} M☉"}
                 other{"{0} M☉"}
+            }
+            stone{
+                dnam{"14 पौ. का बट्टा"}
+                one{"{0} st"}
+                other{"{0} st"}
             }
             ton{
                 dnam{"टन"}
@@ -1807,7 +1919,7 @@ hi{
                 one{"{0} hPa"}
                 other{"{0} hPa"}
             }
-            inch-hg{
+            inch-ofhg{
                 dnam{"inHg"}
                 one{"{0} inHg"}
                 other{"{0} inHg"}
@@ -1827,7 +1939,7 @@ hi{
                 one{"{0} mbar"}
                 other{"{0} mbar"}
             }
-            millimeter-of-mercury{
+            millimeter-ofhg{
                 dnam{"mm Hg"}
                 one{"{0} mm Hg"}
                 other{"{0} mm Hg"}
@@ -1837,7 +1949,7 @@ hi{
                 one{"{0} पा॰"}
                 other{"{0} पा॰"}
             }
-            pound-per-square-inch{
+            pound-force-per-square-inch{
                 dnam{"psi"}
                 one{"{0} psi"}
                 other{"{0} psi"}
@@ -1893,7 +2005,7 @@ hi{
                 one{"{0} न्यू॰मी॰"}
                 other{"{0} न्यू॰मी॰"}
             }
-            pound-foot{
+            pound-force-foot{
                 dnam{"lbf⋅ft"}
                 one{"{0} lbf⋅ft"}
                 other{"{0} lbf⋅ft"}
@@ -1909,6 +2021,11 @@ hi{
                 dnam{"बैरल"}
                 one{"{0} बैरल"}
                 other{"{0} बैरल"}
+            }
+            bushel{
+                dnam{"बुशल"}
+                one{"{0} बुश."}
+                other{"{0} बुश."}
             }
             centiliter{
                 dnam{"सें॰ली॰"}
@@ -1967,6 +2084,26 @@ hi{
                 one{"{0} डे॰ली॰"}
                 other{"{0} डे॰ली॰"}
             }
+            dessert-spoon{
+                dnam{"डे. स्पून"}
+                one{"{0} डे. स्पून"}
+                other{"{0} डे. स्पून"}
+            }
+            dessert-spoon-imperial{
+                dnam{"इम्पी. डेज़र्टस्पून"}
+                one{"{0} इम्पी. डेज़र्टस्पून"}
+                other{"{0} इम्पी. डेज़र्टस्पून"}
+            }
+            dram{
+                dnam{"ड्रम फ्लूइड"}
+                one{"{0} ड्रम फ्लू."}
+                other{"{0} ड्रम फ्लू."}
+            }
+            drop{
+                dnam{"बूंद"}
+                one{"{0} बूंद"}
+                other{"{0} बूंद"}
+            }
             fluid-ounce{
                 dnam{"फ़्लुइड-आउंस"}
                 one{"{0} फ़्लुइड-आउंस"}
@@ -1994,6 +2131,11 @@ hi{
                 one{"{0} हे॰ली॰"}
                 other{"{0} हे॰ली॰"}
             }
+            jigger{
+                dnam{"जिगर"}
+                one{"{0} जिगर"}
+                other{"{0} जिगर"}
+            }
             liter{
                 dnam{"लीटर"}
                 one{"{0} ली॰"}
@@ -2010,6 +2152,11 @@ hi{
                 one{"{0} मि॰ली॰"}
                 other{"{0} मि॰ली॰"}
             }
+            pinch{
+                dnam{"चुटकी"}
+                one{"{0} चुटकी"}
+                other{"{0} चुटकी"}
+            }
             pint{
                 dnam{"पाइंट"}
                 one{"{0} पाइंट"}
@@ -2024,6 +2171,11 @@ hi{
                 dnam{"क्वार्ट"}
                 one{"{0} क्वार्ट"}
                 other{"{0} क्वार्ट"}
+            }
+            quart-imperial{
+                dnam{"क्वार्ट इम्पी."}
+                one{"{0} क. इम्पी."}
+                other{"{0} क. इम्पी."}
             }
             tablespoon{
                 dnam{"tbsp"}

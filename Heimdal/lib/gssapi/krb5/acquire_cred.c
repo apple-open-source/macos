@@ -1281,7 +1281,7 @@ _gss_krb5_acquire_cred_ext(OM_uint32 * minor_status,
 	 * check if there an existing cache to overwrite before we lay
 	 * down the new cache
 	 */
-	(void)krb5_cc_cache_match(context, principal, &ccachereplace);
+	(void)krb5_cc_cache_match(context, handle->principal, &ccachereplace);
     }
 
 

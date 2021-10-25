@@ -280,7 +280,7 @@ kcb_delete(struct ctl_cb *kcb)
 {
 	if (kcb != 0) {
 		lck_mtx_destroy(&kcb->mtx, &ctl_lck_grp);
-		kheap_free(KHEAP_DEFAULT, kcb, sizeof(struct ctl_cb));
+		kfree_type(struct ctl_cb, kcb);
 	}
 }
 
@@ -294,25 +294,15 @@ static int
 ctl_attach(struct socket *so, int proto, struct proc *p)
 {
 #pragma unused(proto, p)
-	int error = 0;
-	struct ctl_cb                   *kcb = 0;
+	struct ctl_cb *kcb = 0;
 
-	kcb = kheap_alloc(KHEAP_DEFAULT, sizeof(struct ctl_cb), Z_WAITOK | Z_ZERO);
-	if (kcb == NULL) {
-		error = ENOMEM;
-		goto quit;
-	}
+	kcb = kalloc_type(struct ctl_cb, Z_WAITOK | Z_ZERO | Z_NOFAIL);
 
 	lck_mtx_init(&kcb->mtx, &ctl_lck_grp, &ctl_lck_attr);
 	kcb->so = so;
 	so->so_pcb = (caddr_t)kcb;
 
-quit:
-	if (error != 0) {
-		kcb_delete(kcb);
-		kcb = 0;
-	}
-	return error;
+	return 0;
 }
 
 static int
@@ -426,7 +416,7 @@ ctl_setup_kctl(struct socket *so, struct sockaddr *nam, struct proc *p)
 	u_int32_t recvbufsize, sendbufsize;
 
 	if (kcb == 0) {
-		panic("ctl_setup_kctl so_pcb null\n");
+		panic("ctl_setup_kctl so_pcb null");
 	}
 
 	if (kcb->kctl != NULL) {
@@ -565,7 +555,7 @@ ctl_bind(struct socket *so, struct sockaddr *nam, struct proc *p)
 	struct ctl_cb *kcb = (struct ctl_cb *)so->so_pcb;
 
 	if (kcb == NULL) {
-		panic("ctl_bind so_pcb null\n");
+		panic("ctl_bind so_pcb null");
 	}
 
 	lck_mtx_t *mtx_held = socket_getlock(so, PR_F_WILLUNLOCK);
@@ -578,7 +568,7 @@ ctl_bind(struct socket *so, struct sockaddr *nam, struct proc *p)
 	}
 
 	if (kcb->kctl == NULL) {
-		panic("ctl_bind kctl null\n");
+		panic("ctl_bind kctl null");
 	}
 
 	if (kcb->kctl->bind == NULL) {
@@ -603,7 +593,7 @@ ctl_connect(struct socket *so, struct sockaddr *nam, struct proc *p)
 	struct ctl_cb *kcb = (struct ctl_cb *)so->so_pcb;
 
 	if (kcb == NULL) {
-		panic("ctl_connect so_pcb null\n");
+		panic("ctl_connect so_pcb null");
 	}
 
 	lck_mtx_t *mtx_held = socket_getlock(so, PR_F_WILLUNLOCK);
@@ -623,7 +613,7 @@ ctl_connect(struct socket *so, struct sockaddr *nam, struct proc *p)
 	}
 
 	if (kcb->kctl == NULL) {
-		panic("ctl_connect kctl null\n");
+		panic("ctl_connect kctl null");
 	}
 
 	soisconnecting(so);
@@ -1353,7 +1343,7 @@ ctl_ctloutput(struct socket *so, struct sockopt *sopt)
 		}
 		if (sopt->sopt_valsize != 0) {
 			data_len = sopt->sopt_valsize;
-			data = kheap_alloc(KHEAP_TEMP, data_len, Z_WAITOK | Z_ZERO);
+			data = kalloc_data(data_len, Z_WAITOK | Z_ZERO);
 			if (data == NULL) {
 				data_len = 0;
 				error = ENOMEM;
@@ -1370,7 +1360,7 @@ ctl_ctloutput(struct socket *so, struct sockopt *sopt)
 			socket_lock(so, 0);
 		}
 
-		kheap_free(KHEAP_TEMP, data, data_len);
+		kfree_data(data, data_len);
 		break;
 
 	case SOPT_GET:
@@ -1381,7 +1371,7 @@ ctl_ctloutput(struct socket *so, struct sockopt *sopt)
 
 		if (sopt->sopt_valsize && sopt->sopt_val) {
 			data_len = sopt->sopt_valsize;
-			data = kheap_alloc(KHEAP_TEMP, data_len, Z_WAITOK | Z_ZERO);
+			data = kalloc_data(data_len, Z_WAITOK | Z_ZERO);
 			if (data == NULL) {
 				data_len = 0;
 				error = ENOMEM;
@@ -1417,7 +1407,7 @@ ctl_ctloutput(struct socket *so, struct sockopt *sopt)
 			}
 		}
 
-		kheap_free(KHEAP_TEMP, data, data_len);
+		kfree_data(data, data_len);
 		break;
 	}
 
@@ -1516,8 +1506,7 @@ kctl_tbl_grow(void)
 	new_size = kctl_tbl_size + KCTL_TBL_INC;
 
 	lck_mtx_unlock(&ctl_mtx);
-	new_table = kheap_alloc(KHEAP_DEFAULT, sizeof(struct kctl *) * new_size,
-	    Z_WAITOK | Z_ZERO);
+	new_table = kalloc_type(struct kctl *, new_size, Z_WAITOK | Z_ZERO);
 	lck_mtx_lock(&ctl_mtx);
 
 	if (new_table != NULL) {
@@ -1525,8 +1514,7 @@ kctl_tbl_grow(void)
 			bcopy(kctl_table, new_table,
 			    kctl_tbl_size * sizeof(struct kctl *));
 
-			kheap_free(KHEAP_DEFAULT, kctl_table,
-			    sizeof(struct kctl *) * kctl_tbl_size);
+			kfree_type(struct kctl *, kctl_tbl_size, kctl_table);
 		}
 		kctl_table = new_table;
 		kctl_tbl_size = new_size;
@@ -1662,16 +1650,13 @@ ctl_register(struct kern_ctl_reg *userkctl, kern_ctl_ref *kctlref)
 		return EINVAL;
 	}
 
-	kctl = kheap_alloc(KHEAP_DEFAULT, sizeof(struct kctl), Z_WAITOK | Z_ZERO);
-	if (kctl == NULL) {
-		return ENOMEM;
-	}
+	kctl = kalloc_type(struct kctl, Z_WAITOK | Z_ZERO | Z_NOFAIL);
 
 	lck_mtx_lock(&ctl_mtx);
 
 	if (kctl_make_ref(kctl) == NULL) {
 		lck_mtx_unlock(&ctl_mtx);
-		kheap_free(KHEAP_DEFAULT, kctl, sizeof(struct kctl));
+		kfree_type(struct kctl, kctl);
 		return ENOMEM;
 	}
 
@@ -1693,7 +1678,7 @@ ctl_register(struct kern_ctl_reg *userkctl, kern_ctl_ref *kctlref)
 		if (ctl_find_by_name(userkctl->ctl_name) != NULL) {
 			kctl_delete_ref(kctl->kctlref);
 			lck_mtx_unlock(&ctl_mtx);
-			kheap_free(KHEAP_DEFAULT, kctl, sizeof(struct kctl));
+			kfree_type(struct kctl, kctl);
 			return EEXIST;
 		}
 
@@ -1738,7 +1723,7 @@ ctl_register(struct kern_ctl_reg *userkctl, kern_ctl_ref *kctlref)
 		if (ctl_find_by_id_unit(userkctl->ctl_id, userkctl->ctl_unit)) {
 			kctl_delete_ref(kctl->kctlref);
 			lck_mtx_unlock(&ctl_mtx);
-			kheap_free(KHEAP_DEFAULT, kctl, sizeof(struct kctl));
+			kfree_type(struct kctl, kctl);
 			return EEXIST;
 		}
 		kctl->id = userkctl->ctl_id;
@@ -1830,7 +1815,7 @@ ctl_deregister(void *kctlref)
 	lck_mtx_unlock(&ctl_mtx);
 
 	ctl_post_msg(KEV_CTL_DEREGISTERED, kctl->id);
-	kheap_free(KHEAP_DEFAULT, kctl, sizeof(struct kctl));
+	kfree_type(struct kctl, kctl);
 	return 0;
 }
 
@@ -2040,13 +2025,13 @@ ctl_lock(struct socket *so, int refcount, void *lr)
 	if (so->so_pcb != NULL) {
 		lck_mtx_lock(&((struct ctl_cb *)so->so_pcb)->mtx);
 	} else {
-		panic("ctl_lock: so=%p NO PCB! lr=%p lrh= %s\n",
+		panic("ctl_lock: so=%p NO PCB! lr=%p lrh= %s",
 		    so, lr_saved, solockhistory_nr(so));
 		/* NOTREACHED */
 	}
 
 	if (so->so_usecount < 0) {
-		panic("ctl_lock: so=%p so_pcb=%p lr=%p ref=%x lrh= %s\n",
+		panic("ctl_lock: so=%p so_pcb=%p lr=%p ref=%x lrh= %s",
 		    so, so->so_pcb, lr_saved, so->so_usecount,
 		    solockhistory_nr(so));
 		/* NOTREACHED */
@@ -2085,12 +2070,12 @@ ctl_unlock(struct socket *so, int refcount, void *lr)
 	}
 
 	if (so->so_usecount < 0) {
-		panic("ctl_unlock: so=%p usecount=%x lrh= %s\n",
+		panic("ctl_unlock: so=%p usecount=%x lrh= %s",
 		    so, so->so_usecount, solockhistory_nr(so));
 		/* NOTREACHED */
 	}
 	if (so->so_pcb == NULL) {
-		panic("ctl_unlock: so=%p NO PCB usecount=%x lr=%p lrh= %s\n",
+		panic("ctl_unlock: so=%p NO PCB usecount=%x lr=%p lrh= %s",
 		    so, so->so_usecount, (void *)lr_saved,
 		    solockhistory_nr(so));
 		/* NOTREACHED */
@@ -2117,12 +2102,12 @@ ctl_getlock(struct socket *so, int flags)
 
         if (so->so_pcb) {
                 if (so->so_usecount < 0) {
-                        panic("ctl_getlock: so=%p usecount=%x lrh= %s\n",
+                        panic("ctl_getlock: so=%p usecount=%x lrh= %s",
                             so, so->so_usecount, solockhistory_nr(so));
 		}
                 return &kcb->mtx;
 	} else {
-                panic("ctl_getlock: so=%p NULL NO so_pcb %s\n",
+                panic("ctl_getlock: so=%p NULL NO so_pcb %s",
                     so, solockhistory_nr(so));
                 return so->so_proto->pr_domain->dom_mtx;
 	}
@@ -2139,10 +2124,7 @@ kctl_reg_list SYSCTL_HANDLER_ARGS
         struct kctl *kctl;
         size_t item_size = ROUNDUP64(sizeof(struct xkctl_reg));
 
-        buf = kheap_alloc(KHEAP_TEMP, item_size, Z_WAITOK | Z_ZERO);
-        if (buf == NULL) {
-                return ENOMEM;
-	}
+        buf = kalloc_data(item_size, Z_WAITOK | Z_ZERO | Z_NOFAIL);
 
         lck_mtx_lock(&ctl_mtx);
 
@@ -2230,7 +2212,7 @@ kctl_reg_list SYSCTL_HANDLER_ARGS
 done:
         lck_mtx_unlock(&ctl_mtx);
 
-        kheap_free(KHEAP_TEMP, buf, item_size);
+        kfree_data(buf, item_size);
 
         return error;
 }
@@ -2249,10 +2231,7 @@ kctl_pcblist SYSCTL_HANDLER_ARGS
             2 * ROUNDUP64(sizeof(struct xsockbuf_n)) +
             ROUNDUP64(sizeof(struct xsockstat_n));
 
-        buf = kheap_alloc(KHEAP_TEMP, item_size, Z_WAITOK | Z_ZERO);
-        if (buf == NULL) {
-                return ENOMEM;
-	}
+        buf = kalloc_data(item_size, Z_WAITOK | Z_ZERO | Z_NOFAIL);
 
         lck_mtx_lock(&ctl_mtx);
 
@@ -2344,7 +2323,7 @@ kctl_pcblist SYSCTL_HANDLER_ARGS
 done:
         lck_mtx_unlock(&ctl_mtx);
 
-        kheap_free(KHEAP_TEMP, buf, item_size);
+        kfree_data(buf, item_size);
         return error;
 }
 

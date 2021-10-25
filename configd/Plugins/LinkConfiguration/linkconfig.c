@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2007, 2011, 2013, 2015-2020 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2007, 2011-2013, 2015-2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -40,13 +40,11 @@
 #define	SC_LOG_HANDLE		__log_LinkConfiguration
 #define SC_LOG_HANDLE_TYPE	static
 #include "SCNetworkConfigurationInternal.h"
-#include <SystemConfiguration/SCDPlugin.h>		// for _SCDPluginExecCommand
 
 
 static CFMutableDictionaryRef	baseSettings		= NULL;
 static CFStringRef		interfacesKey		= NULL;
 static SCDynamicStoreRef	store			= NULL;
-static CFRunLoopSourceRef	rls			= NULL;
 static CFMutableDictionaryRef	wantSettings		= NULL;
 
 
@@ -74,8 +72,7 @@ __log_LinkConfiguration(void)
 #define	CAPABILITIES_KEY	CFSTR("_CAPABILITIES_")
 
 
-__private_extern__
-Boolean
+static Boolean
 _SCNetworkInterfaceSetCapabilities(SCNetworkInterfaceRef	interface,
 				   CFDictionaryRef		options)
 {
@@ -185,8 +182,7 @@ __copyMediaOptions(CFDictionaryRef options)
 }
 
 
-__private_extern__
-Boolean
+static Boolean
 _SCNetworkInterfaceSetMediaOptions(SCNetworkInterfaceRef	interface,
 				   CFDictionaryRef		options)
 {
@@ -300,38 +296,35 @@ _SCNetworkInterfaceSetMediaOptions(SCNetworkInterfaceRef	interface,
 #pragma mark MTU
 
 
-#ifndef	USE_SIOCSIFMTU
-static void
-ifconfig_exit(pid_t pid, int status, struct rusage *rusage, void *context)
+static Boolean
+interfaceSetMTU(CFStringRef interfaceName, int mtu)
 {
-#pragma unused(pid)
-#pragma unused(rusage)
-	char	*if_name	= (char *)context;
+	struct ifreq	ifr;
+	int		ret;
+	int		sock;
 
-	if (WIFEXITED(status)) {
-		if (WEXITSTATUS(status) != 0) {
-			SC_log(LOG_NOTICE, "ifconfig %s failed, exit status = %d",
-			       if_name,
-			       WEXITSTATUS(status));
-		}
-	} else if (WIFSIGNALED(status)) {
-		SC_log(LOG_NOTICE, "ifconfig %s: terminated w/signal = %d",
-		       if_name,
-		       WTERMSIG(status));
-	} else {
-		SC_log(LOG_NOTICE, "ifconfig %s: exit status = %d",
-		       if_name,
-		       status);
+	memset((char *)&ifr, 0, sizeof(ifr));
+	(void)_SC_cfstring_to_cstring(interfaceName, ifr.ifr_name, sizeof(ifr.ifr_name), kCFStringEncodingASCII);
+	ifr.ifr_mtu = mtu;
+
+	sock = socket(AF_INET, SOCK_DGRAM, 0);
+	if (sock == -1) {
+		SC_log(LOG_ERR, "socket() failed: %s", strerror(errno));
+		return FALSE;
 	}
 
-	CFAllocatorDeallocate(NULL, if_name);
-	return;
+	ret = ioctl(sock, SIOCSIFMTU, (caddr_t)&ifr);
+	(void)close(sock);
+	if (ret == -1) {
+		SC_log(LOG_ERR, "%@: ioctl(SIOCSIFMTU) failed: %s", interfaceName, strerror(errno));
+		return FALSE;
+	}
+
+	return TRUE;
 }
-#endif	/* !USE_SIOCSIFMTU */
 
 
-__private_extern__
-Boolean
+static Boolean
 _SCNetworkInterfaceSetMTU(SCNetworkInterfaceRef	interface,
 			  CFDictionaryRef	options)
 {
@@ -397,8 +390,6 @@ _SCNetworkInterfaceSetMTU(SCNetworkInterfaceRef	interface,
 			bridge_members = NULL;
 		}
 		if (bridge_members != NULL) {
-			SCNetworkInterfaceRef	member0;
-
 			/* temporarily, remove all bridge members */
 			CFRetain(bridge_members);
 			ok = SCBridgeInterfaceSetMemberInterfaces(interface, NULL);
@@ -412,69 +403,29 @@ _SCNetworkInterfaceSetMTU(SCNetworkInterfaceRef	interface,
 				goto done;
 			}
 
-			/* switch from updating the MTU of the bridge to the first member */
-			member0 = CFArrayGetValueAtIndex(bridge_members, 0);
-			interfaceName = SCNetworkInterfaceGetBSDName(member0);
-
 			bridge_updated = TRUE;
 		}
 	}
 
-#ifdef	USE_SIOCSIFMTU
-{
-	struct ifreq	ifr;
-	int		ret;
-	int		sock;
-
-	memset((char *)&ifr, 0, sizeof(ifr));
-	(void)_SC_cfstring_to_cstring(interfaceName, ifr.ifr_name, sizeof(ifr.ifr_name), kCFStringEncodingASCII);
-	ifr.ifr_mtu = requested;
-
-	sock = socket(AF_INET, SOCK_DGRAM, 0);
-	if (sock == -1) {
-		SC_log(LOG_ERR, "socket() failed: %s", strerror(errno));
-		ok = FALSE;
-		goto done;
-	}
-
-	ret = ioctl(sock, SIOCSIFMTU, (caddr_t)&ifr);
-	(void)close(sock);
-	if (ret == -1) {
-		SC_log(LOG_ERR, "%@: ioctl(SIOCSIFMTU) failed: %s", interfaceName, strerror(errno));
-		ok = FALSE;
-		goto done;
-	}
-}
-#else	/* !USE_SIOCSIFMTU */
-{
-	char	*ifconfig_argv[] = { "ifconfig", NULL, "mtu", NULL, NULL };
-	pid_t	pid;
-
-	ifconfig_argv[1] = _SC_cfstring_to_cstring(interfaceName, NULL, 0, kCFStringEncodingASCII);
-	(void)asprintf(&ifconfig_argv[3], "%d", requested);
-
-	pid = _SCDPluginExecCommand(ifconfig_exit,	// callout,
-				    ifconfig_argv[1],	// context
-				    0,			// uid
-				    0,			// gid
-				    "/sbin/ifconfig",	// path
-				    ifconfig_argv	// argv
-				   );
-
-//	CFAllocatorDeallocate(NULL, ifconfig_argv[1]);	// released in ifconfig_exit()
-	free(ifconfig_argv[3]);
-
-	if (pid <= 0) {
-		ok = FALSE;
-		goto done;
-	}
-}
-#endif	/* !USE_SIOCSIFMTU */
+	/* set MTU on the bridge interface */
+	(void) interfaceSetMTU(interfaceName, requested);
 
     done :
 
 	if (bridge_members != NULL) {
-		/* restore bridge members */
+		CFIndex	n_members	= CFArrayGetCount(bridge_members);
+
+		/* set MTU for each of the bridge members */
+		for (CFIndex i = 0; i < n_members; i++) {
+			SCNetworkInterfaceRef	member;
+			CFStringRef		memberName;
+
+			member = CFArrayGetValueAtIndex(bridge_members, i);
+			memberName = SCNetworkInterfaceGetBSDName(member);
+			(void) interfaceSetMTU(memberName, requested);
+		}
+
+		/* add the members back into the bridge */
 		(void) SCBridgeInterfaceSetMemberInterfaces(interface, bridge_members);
 		CFRelease(bridge_members);
 
@@ -721,6 +672,7 @@ load_LinkConfiguration(CFBundleRef bundle, Boolean bundleVerbose)
 	CFStringRef		key;
 	CFMutableArrayRef	keys		= NULL;
 	Boolean			ok;
+	dispatch_queue_t	q;
 	CFMutableArrayRef	patterns	= NULL;
 
 	SC_log(LOG_DEBUG, "load() called");
@@ -792,14 +744,14 @@ load_LinkConfiguration(CFBundleRef bundle, Boolean bundleVerbose)
 		goto error;
 	}
 
-	rls = SCDynamicStoreCreateRunLoopSource(NULL, store, 0);
-	if (rls == NULL) {
-		SC_log(LOG_NOTICE, "SCDynamicStoreCreateRunLoopSource() failed: %s",
+	q = dispatch_queue_create("com.apple.SystemConfiguration.LinkConfiguration", NULL);
+	ok = SCDynamicStoreSetDispatchQueue(store, q);
+	if (!ok) {
+		SC_log(LOG_NOTICE, "SCDynamicStoreSetDispatchQueue() failed: %s",
 		       SCErrorString(SCError()));
 		goto error;
 	}
 
-	CFRunLoopAddSource(CFRunLoopGetCurrent(), rls, kCFRunLoopDefaultMode);
 	return;
 
     error :
@@ -819,7 +771,7 @@ load_LinkConfiguration(CFBundleRef bundle, Boolean bundleVerbose)
 
 
 int
-main(int argc, char **argv)
+main(int argc, char * const argv[])
 {
 	SCPreferencesRef	prefs;
 

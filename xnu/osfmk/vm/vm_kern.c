@@ -255,6 +255,21 @@ kernel_memory_allocate(
 	kma_flags_t     flags,
 	vm_tag_t        tag)
 {
+	return kernel_memory_allocate_prot(map, addrp, size, mask, flags, tag,
+	           VM_PROT_DEFAULT, VM_PROT_ALL);
+}
+
+kern_return_t
+kernel_memory_allocate_prot(
+	vm_map_t        map,
+	vm_offset_t     *addrp,
+	vm_size_t       size,
+	vm_offset_t     mask,
+	kma_flags_t     flags,
+	vm_tag_t        tag,
+	vm_prot_t               protection,
+	vm_prot_t               max_protection)
+{
 	vm_object_t             object;
 	vm_object_offset_t      offset;
 	vm_object_offset_t      pg_offset;
@@ -391,10 +406,14 @@ kernel_memory_allocate(
 	kr = vm_map_find_space(map, &map_addr,
 	    fill_size, map_mask,
 	    vm_alloc_flags, vmk_flags, tag, &entry);
+
 	if (KERN_SUCCESS != kr) {
 		vm_object_deallocate(object);
 		goto out;
 	}
+
+	entry->protection = protection;
+	entry->max_protection = max_protection;
 
 	if (object == kernel_object || object == compressor_object) {
 		offset = map_addr;
@@ -515,7 +534,7 @@ kernel_memory_allocate(
 		mem->vmp_busy = FALSE;
 	}
 	if (guard_page_list || wired_page_list) {
-		panic("kernel_memory_allocate: non empty list\n");
+		panic("kernel_memory_allocate: non empty list");
 	}
 
 	if (!(flags & (KMA_VAONLY | KMA_PAGEABLE))) {
@@ -920,6 +939,7 @@ kmem_realloc(
 	vm_map_entry_t          newentry;
 	vm_page_t               mem;
 	kern_return_t           kr;
+	vm_map_kernel_flags_t   vmk_flags = VM_MAP_KERNEL_FLAGS_NONE;
 
 	oldmapmin = vm_map_trunc_page(oldaddr,
 	    VM_MAP_PAGE_MASK(map));
@@ -942,6 +962,9 @@ kmem_realloc(
 
 	if (!vm_map_lookup_entry(map, oldmapmin, &oldentry)) {
 		panic("kmem_realloc");
+	}
+	if (oldentry->vme_atomic) {
+		vmk_flags.vmkf_atomic_entry = TRUE;
 	}
 	object = VME_OBJECT(oldentry);
 
@@ -973,7 +996,7 @@ kmem_realloc(
 
 	kr = vm_map_find_space(map, &newmapaddr, newmapsize,
 	    (vm_map_offset_t) 0, 0,
-	    VM_MAP_KERNEL_FLAGS_NONE,
+	    vmk_flags,
 	    tag,
 	    &newentry);
 	if (kr != KERN_SUCCESS) {
@@ -1303,8 +1326,16 @@ kmem_suballoc(
 
 /* Start scaling iff we're managing > 2^32 = 4GB of RAM. */
 #define VM_USER_WIREABLE_MIN_CONFIG 32
+#if CONFIG_JETSAM
+/* Systems with jetsam can wire a bit more b/c the system can relieve wired
+ * pressure.
+ */
+static vm_map_size_t wire_limit_percents[] =
+{ 80, 80, 80, 80, 82, 85, 88, 91, 94, 97};
+#else
 static vm_map_size_t wire_limit_percents[] =
 { 70, 73, 76, 79, 82, 85, 88, 91, 94, 97};
+#endif /* CONFIG_JETSAM */
 
 /*
  * Sets the default global user wire limit which limits the amount of
@@ -1402,7 +1433,7 @@ kmem_init(
 			    VM_INHERIT_DEFAULT);
 
 			if (kr != KERN_SUCCESS) {
-				panic("kmem_init(0x%llx,0x%llx): vm_map_enter(0x%llx,0x%llx) error 0x%x\n",
+				panic("kmem_init(0x%llx,0x%llx): vm_map_enter(0x%llx,0x%llx) error 0x%x",
 				    (uint64_t) start, (uint64_t) end, (uint64_t) region_start,
 				    (uint64_t) region_size, kr);
 			}
@@ -1437,7 +1468,7 @@ kmem_init(
 		    VM_INHERIT_DEFAULT);
 
 		if (kr != KERN_SUCCESS) {
-			panic("kmem_init(0x%llx,0x%llx): vm_map_enter(0x%llx,0x%llx) error 0x%x\n",
+			panic("kmem_init(0x%llx,0x%llx): vm_map_enter(0x%llx,0x%llx) error 0x%x",
 			    (uint64_t) start, (uint64_t) end,
 			    (uint64_t) VM_MIN_KERNEL_AND_KEXT_ADDRESS,
 			    (uint64_t) (map_start - VM_MIN_KERNEL_AND_KEXT_ADDRESS),

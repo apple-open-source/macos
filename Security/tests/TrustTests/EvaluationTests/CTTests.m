@@ -505,7 +505,7 @@ errOut:
 @end
 
 @implementation CTExceptionsTests
-#if !TARGET_OS_BRIDGE // bridgeOS doesn't permit CT exceptions
+
 + (void)setUp {
     [super setUp];
     NSURL *trustedLogsURL = [[NSBundle bundleForClass:[self class]] URLForResource:@"CTlogs"
@@ -518,6 +518,10 @@ errOut:
 }
 
 - (void)testSetCTExceptions {
+#if TARGET_OS_BRIDGE
+    XCTSkip();
+#endif
+
     CFErrorRef error = NULL;
     const CFStringRef TrustTestsAppID = CFSTR("com.apple.trusttests");
     const CFStringRef AnotherAppID = CFSTR("com.apple.security.not-this-one");
@@ -714,6 +718,10 @@ fail("expected failure to set NULL exceptions"); \
     CFReleaseNull(error);
 
 - (void) testSpecificDomainExceptions {
+#if TARGET_OS_BRIDGE
+    XCTSkip();
+#endif
+
     SecCertificateRef system_root = NULL, system_server_after = NULL, system_server_after_with_CT = NULL;
     SecTrustRef trust = NULL;
     SecPolicyRef policy = SecPolicyCreateSSL(true, CFSTR("ct.test.apple.com"));
@@ -778,6 +786,10 @@ errOut:
 }
 
 - (void) testSubdomainExceptions {
+#if TARGET_OS_BRIDGE
+    XCTSkip();
+#endif
+
     SecCertificateRef system_root = NULL, system_server_after = NULL, system_server_after_with_CT = NULL;
     SecTrustRef trust = NULL;
     SecPolicyRef policy = SecPolicyCreateSSL(true, CFSTR("ct.test.apple.com"));
@@ -834,6 +846,10 @@ errOut:
 }
 
 - (void) testMixedDomainExceptions {
+#if TARGET_OS_BRIDGE
+    XCTSkip();
+#endif
+
     SecCertificateRef system_root = NULL, system_server_after = NULL, system_server_after_with_CT = NULL;
     SecTrustRef trust = NULL;
     SecPolicyRef policy = SecPolicyCreateSSL(true, CFSTR("ct.test.apple.com"));
@@ -890,6 +906,10 @@ errOut:
 }
 
 - (void) test_ct_leaf_exceptions {
+#if TARGET_OS_BRIDGE
+    XCTSkip();
+#endif
+
     SecCertificateRef system_root = NULL, system_server_after = NULL, system_server_after_with_CT = NULL;
     SecTrustRef trust = NULL;
     SecPolicyRef policy = SecPolicyCreateSSL(true, CFSTR("ct.test.apple.com"));
@@ -953,6 +973,10 @@ errOut:
 }
 
 - (void) test_ct_unconstrained_ca_exceptions {
+#if TARGET_OS_BRIDGE
+    XCTSkip();
+#endif
+
     SecCertificateRef root = NULL, subca = NULL;
     SecCertificateRef server_matching = NULL, server_matching_with_CT = NULL, server_partial = NULL, server_no_match = NULL, server_no_org = NULL;
     SecTrustRef trust = NULL;
@@ -1039,6 +1063,10 @@ errOut:
 }
 
 - (void) test_ct_constrained_ca_exceptions {
+#if TARGET_OS_BRIDGE
+    XCTSkip();
+#endif
+
     SecCertificateRef root = NULL, org_constrained_subca = NULL;
     SecCertificateRef constraint_pass_server = NULL, constraint_pass_server_ct = NULL, constraint_fail_server = NULL;
     SecCertificateRef dn_constrained_subca = NULL, dn_constrained_server = NULL, dn_constrained_server_mismatch = NULL;
@@ -1162,12 +1190,6 @@ errOut:
     CFReleaseNull(error);
 }
 
-#else // TARGET_OS_BRIDGE
-- (void)testSkipTests
-{
-    XCTAssert(true);
-}
-#endif // TARGET_OS_BRIDGE
 @end
 
 // MARK: -
@@ -1229,8 +1251,13 @@ errOut:
     CFReleaseNull(policy);
     CFReleaseNull(trust);
 }
+#endif // !TARGET_OS_BRIDGE
 
 - (void)testKillSwitch {
+#if TARGET_OS_BRIDGE
+    XCTSkip();
+#endif
+
     SecCertificateRef system_root = NULL,  system_server_after = NULL;
     SecTrustRef trust = NULL;
     SecPolicyRef policy = SecPolicyCreateSSL(true, CFSTR("ct.test.apple.com"));
@@ -1264,6 +1291,10 @@ errOut:
 }
 
 - (void) testWithMACheckIn {
+#if TARGET_OS_BRIDGE
+    XCTSkip();
+#endif
+
     SecCertificateRef system_root = NULL,  system_server_after = NULL;
     SecTrustRef trust = NULL;
     SecPolicyRef policy = SecPolicyCreateSSL(true, CFSTR("ct.test.apple.com"));
@@ -1300,7 +1331,6 @@ errOut:
     CFReleaseNull(trust);
     CFReleaseNull(error);
 }
-#endif // !TARGET_OS_BRIDGE
 
 - (void)testWithTrustedLogs {
     SecCertificateRef system_root = NULL,  system_server_after = NULL;
@@ -1508,9 +1538,12 @@ errOut:
     CFReleaseNull(error);
 }
 
-#if !TARGET_OS_BRIDGE
 /* bridgeOS doens't have trust settings */
 - (void) testLeafTrustSettings {
+#if TARGET_OS_BRIDGE
+    XCTSkip();
+#endif
+
     SecCertificateRef system_root = NULL,  system_server_after = NULL;
     SecTrustRef trust = NULL;
     SecPolicyRef policy = SecPolicyCreateSSL(true, CFSTR("ct.test.apple.com"));
@@ -1541,7 +1574,6 @@ errOut:
     CFReleaseNull(trust);
     CFReleaseNull(error);
 }
-#endif // !TARGET_OS_BRIDGE
 
 - (void) testEAPPolicy {
     SecCertificateRef system_root = NULL,  system_server_after = NULL;
@@ -1661,9 +1693,12 @@ errOut:
     CFReleaseNull(trust);
 }
 
-#if !TARGET_OS_BRIDGE
 // test enterprise (non-public) after date without CT passes, except on bridgeOS which doesn't have trust settings
 - (void) testEnterpriseCA {
+#if TARGET_OS_BRIDGE
+    XCTSkip();
+#endif
+
     SecCertificateRef user_root = NULL, user_server_after = NULL;
     SecTrustRef trust = NULL;
     SecPolicyRef policy = SecPolicyCreateSSL(true, CFSTR("ct.test.apple.com"));
@@ -1688,7 +1723,6 @@ errOut:
     CFReleaseNull(policy);
     CFReleaseNull(trust);
 }
-#endif // !TARGET_OS_BRIDGE
 
 // test app anchor (non-public) after date without CT passes
 - (void) testAppCA {
@@ -2043,7 +2077,7 @@ errOut:
 }
 
 #if !TARGET_OS_BRIDGE
-/* Skip tests on bridgeOS where we don't do MobileAsset updates */
+/* Skip CT tests on bridgeOS where we don't do MobileAsset updates */
 - (void)testNoMACheckIn {
     SecCertificateRef system_root = NULL,  system_server_after = NULL;
     SecTrustRef trust = NULL;
@@ -2077,8 +2111,13 @@ errOut:
     CFReleaseNull(policy);
     CFReleaseNull(trust);
 }
+#endif // !TARGET_OS_BRIDGE
 
 - (void)testKillSwitch {
+#if TARGET_OS_BRIDGE
+    XCTSkip();
+#endif
+
     SecCertificateRef system_root = NULL,  system_server_after = NULL;
     SecTrustRef trust = NULL;
     SecPolicyRef policy = [self nonTlsCTRequiredPolicy];
@@ -2112,6 +2151,10 @@ errOut:
 }
 
 - (void) testWithMACheckIn {
+#if TARGET_OS_BRIDGE
+    XCTSkip();
+#endif
+
     SecCertificateRef system_root = NULL,  system_server_after = NULL;
     SecTrustRef trust = NULL;
     SecPolicyRef policy = [self nonTlsCTRequiredPolicy];
@@ -2148,9 +2191,12 @@ errOut:
     CFReleaseNull(trust);
     CFReleaseNull(error);
 }
-#endif // !TARGET_OS_BRIDGE
 
 - (void)testWithTrustedLogs {
+#if TARGET_OS_BRIDGE
+    XCTSkip();
+#endif
+
     SecCertificateRef system_root = NULL,  system_server_after = NULL;
     SecTrustRef trust = NULL;
     SecPolicyRef policy = [self nonTlsCTRequiredPolicy];

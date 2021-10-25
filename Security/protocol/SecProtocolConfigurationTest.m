@@ -286,34 +286,6 @@ mock_protocol_copy_definition(void)
     return definition;
 }
 
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-static SSLProtocol
-protocol_string_to_version(const char *protocol)
-{
-    if (protocol == NULL) {
-        return kSSLProtocolUnknown;
-    }
-
-    const char *tlsv10 = "TLSv1.0";
-    const char *tlsv11 = "TLSv1.1";
-    const char *tlsv12 = "TLSv1.2";
-    const char *tlsv13 = "TLSv1.3";
-
-    if (strlen(protocol) == strlen(tlsv10) && strncmp(protocol, tlsv10, strlen(protocol)) == 0) {
-        return kTLSProtocol1;
-    } else if (strlen(protocol) == strlen(tlsv11) && strncmp(protocol, tlsv11, strlen(protocol)) == 0) {
-        return kTLSProtocol11;
-    } else if (strlen(protocol) == strlen(tlsv12) && strncmp(protocol, tlsv12, strlen(protocol)) == 0) {
-        return kTLSProtocol12;
-    } else if (strlen(protocol) == strlen(tlsv13) && strncmp(protocol, tlsv13, strlen(protocol)) == 0) {
-        return kTLSProtocol13;
-    }
-
-    return kSSLProtocolUnknown;
-}
-#pragma clang diagnostic pop
-
 @interface SecProtocolConfigurationTest : XCTestCase
 @end
 
@@ -423,7 +395,7 @@ isLocalTLD(NSString *host)
 #undef STRING_FOR_KEY
 #undef BOOLEAN_FOR_KEY
 
-                SSLProtocol minimum_protocol_version = protocol_string_to_version([minimum_tls cStringUsingEncoding:NSUTF8StringEncoding]);
+                SSLProtocol minimum_protocol_version = SSLProtocolFromVersionCodepoint(sec_protocol_configuration_protocol_string_to_version([minimum_tls cStringUsingEncoding:NSUTF8StringEncoding]));
 
                 sec_protocol_options_t options = [self create_sec_protocol_options];
                 sec_protocol_options_t transformed = sec_protocol_configuration_copy_transformed_options_for_host(configuration, options, [domain cStringUsingEncoding:NSUTF8StringEncoding]);
@@ -459,6 +431,76 @@ isLocalTLD(NSString *host)
     [testFiles enumerateObjectsUsingBlock:^(NSURL*  _Nonnull path, __unused NSUInteger idx, BOOL * _Nonnull stop) {
         [self testExampleFile:path];
     }];
+}
+
+- (void)test_sec_protocol_configuration_protocol_string_to_version {
+    tls_protocol_version_t tls_protocol_version_unknown = 0;
+
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+    struct {
+        const char *protocol_string;
+        tls_protocol_version_t expected_version;
+    } testCases[] = {
+        {
+            .protocol_string = NULL,
+            .expected_version = tls_protocol_version_unknown,
+        },
+        {
+            .protocol_string = "",
+            .expected_version = tls_protocol_version_unknown,
+        },
+        {
+            .protocol_string = "A",
+            .expected_version = tls_protocol_version_unknown,
+        },
+        {
+            .protocol_string = "SSLv3.0",
+            .expected_version = tls_protocol_version_unknown,
+        },
+        {
+            .protocol_string = "TLSv1.0",
+            .expected_version = tls_protocol_version_TLSv10,
+        },
+        {
+            .protocol_string = "TLSv1.1",
+            .expected_version = tls_protocol_version_TLSv11,
+        },
+        {
+            .protocol_string = "TLSv1.2",
+            .expected_version = tls_protocol_version_TLSv12,
+        },
+        {
+            .protocol_string = "TLSv1.3",
+            .expected_version = tls_protocol_version_TLSv13,
+        },
+        {
+            .protocol_string = "TLSv1.31",
+            .expected_version = tls_protocol_version_unknown,
+        },
+        {
+            .protocol_string = "TLSv1.4",
+            .expected_version = tls_protocol_version_unknown,
+        },
+        {
+            .protocol_string = "DTLSv1.0",
+            .expected_version = tls_protocol_version_DTLSv10,
+        },
+        {
+            .protocol_string = "DTLSv1.2",
+            .expected_version = tls_protocol_version_DTLSv12,
+        },
+        {
+            .protocol_string = "DTLSv1.3",
+            .expected_version = tls_protocol_version_unknown,
+        },
+    };
+#pragma clang diagnostic pop
+
+    for (size_t i = 0; i < sizeof(testCases)/sizeof(testCases[0]); i++) {
+        tls_protocol_version_t version = sec_protocol_configuration_protocol_string_to_version(testCases[i].protocol_string);
+        XCTAssertTrue(version == testCases[i].expected_version, "Test scenario %zu \"%s\" has failed.", i, testCases[i].protocol_string);
+    }
 }
 
 @end

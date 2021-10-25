@@ -2,7 +2,7 @@
 
   object.c -
 
-  $Author: naruse $
+  $Author: usa $
   created at: Thu Jul 15 12:01:24 JST 1993
 
   Copyright (C) 1993-2007 Yukihiro Matsumoto
@@ -2089,6 +2089,9 @@ rb_undefined_alloc(VALUE klass)
 	     klass);
 }
 
+static rb_alloc_func_t class_get_alloc_func(VALUE klass);
+static VALUE class_call_alloc_func(rb_alloc_func_t allocator, VALUE klass);
+
 /*
  *  call-seq:
  *     class.allocate()   ->   obj
@@ -2112,9 +2115,26 @@ rb_undefined_alloc(VALUE klass)
  */
 
 static VALUE
+rb_class_alloc_m(VALUE klass)
+{
+    rb_alloc_func_t allocator = class_get_alloc_func(klass);
+    if (!rb_obj_respond_to(klass, rb_intern("allocate"), 1)) {
+        rb_raise(rb_eTypeError, "calling %"PRIsVALUE".allocate is prohibited",
+                 klass);
+    }
+    return class_call_alloc_func(allocator, klass);
+}
+
+static VALUE
 rb_class_alloc(VALUE klass)
 {
-    VALUE obj;
+    rb_alloc_func_t allocator = class_get_alloc_func(klass);
+    return class_call_alloc_func(allocator, klass);
+}
+
+static rb_alloc_func_t
+class_get_alloc_func(VALUE klass)
+{
     rb_alloc_func_t allocator;
 
     if (RCLASS_SUPER(klass) == 0 && klass != rb_cBasicObject) {
@@ -2127,6 +2147,13 @@ rb_class_alloc(VALUE klass)
     if (!allocator) {
 	rb_undefined_alloc(klass);
     }
+    return allocator;
+}
+
+static VALUE
+class_call_alloc_func(rb_alloc_func_t allocator, VALUE klass)
+{
+    VALUE obj;
 
     RUBY_DTRACE_CREATE_HOOK(OBJECT, rb_class2name(klass));
 
@@ -2530,7 +2557,19 @@ rb_mod_const_get(int argc, VALUE *argv, VALUE mod)
 	    name = ID2SYM(id);
 	    goto wrong_name;
 	}
-	mod = RTEST(recur) ? rb_const_get(mod, id) : rb_const_get_at(mod, id);
+#if 0
+        mod = rb_const_get_0(mod, id, beglen > 0 || !RTEST(recur), RTEST(recur), FALSE);
+#else
+        if (!RTEST(recur)) {
+            mod = rb_const_get_at(mod, id);
+        }
+        else if (beglen == 0) {
+            mod = rb_const_get(mod, id);
+        }
+        else {
+            mod = rb_const_get_from(mod, id);
+        }
+#endif
     }
 
     return mod;
@@ -2678,16 +2717,30 @@ rb_mod_const_defined(int argc, VALUE *argv, VALUE mod)
 	    name = ID2SYM(id);
 	    goto wrong_name;
 	}
-	if (RTEST(recur)) {
-	    if (!rb_const_defined(mod, id))
-		return Qfalse;
-	    mod = rb_const_get(mod, id);
-	}
-	else {
+
+#if 0
+        mod = rb_const_search(mod, id, beglen > 0 || !RTEST(recur), RTEST(recur), FALSE);
+        if (mod == Qundef) return Qfalse;
+#else
+        if (!RTEST(recur)) {
 	    if (!rb_const_defined_at(mod, id))
 		return Qfalse;
+            if (p == pend) return Qtrue;
 	    mod = rb_const_get_at(mod, id);
 	}
+        else if (beglen == 0) {
+            if (!rb_const_defined(mod, id))
+                return Qfalse;
+            if (p == pend) return Qtrue;
+            mod = rb_const_get(mod, id);
+        }
+        else {
+            if (!rb_const_defined_from(mod, id))
+                return Qfalse;
+            if (p == pend) return Qtrue;
+            mod = rb_const_get_from(mod, id);
+        }
+#endif
 
 	if (p < pend && !RB_TYPE_P(mod, T_MODULE) && !RB_TYPE_P(mod, T_CLASS)) {
 	    rb_raise(rb_eTypeError, "%"PRIsVALUE" does not refer to class/module",
@@ -4242,7 +4295,7 @@ InitVM_Object(void)
     rb_define_method(rb_cModule, "deprecate_constant", rb_mod_deprecate_constant, -1); /* in variable.c */
     rb_define_method(rb_cModule, "singleton_class?", rb_mod_singleton_p, 0);
 
-    rb_define_method(rb_cClass, "allocate", rb_class_alloc, 0);
+    rb_define_method(rb_cClass, "allocate", rb_class_alloc_m, 0);
     rb_define_method(rb_cClass, "new", rb_class_s_new, -1);
     rb_define_method(rb_cClass, "initialize", rb_class_initialize, -1);
     rb_define_method(rb_cClass, "superclass", rb_class_superclass, 0);

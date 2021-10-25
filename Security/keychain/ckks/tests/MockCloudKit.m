@@ -251,6 +251,14 @@
 
             // 'clear' the error
             fakezone.subscriptionError = nil;
+        } else if(fakezone.persistentSubscriptionError) {
+            ckksnotice("fakeck", subscription.zoneID, "failing subscription with injected persistent error %@", fakezone.persistentSubscriptionError);
+            // Not the best way to do this, but it's an error
+            // Needs fixing if you want to support multiple zone failures
+            self.subscriptionError = fakezone.persistentSubscriptionError;
+
+            // do not clear the error
+
         } else {
             ckksnotice("fakeck", subscription.zoneID, "Successfully subscribed to zone");
             if(!self.subscriptionsSaved) {
@@ -368,7 +376,7 @@
 
         // Extract the database at the last time they asked
         CKServerChangeToken* fetchToken = self.configurationsByRecordZoneID[zoneID].previousServerChangeToken;
-        __block NSMutableDictionary<CKRecordID*, CKRecord*>* lastDatabase = nil;
+        __block NSDictionary<CKRecordID*, CKRecord*>* lastDatabase = nil;
         __block NSDictionary<CKRecordID*, CKRecord*>* currentDatabase = nil;
         __block CKServerChangeToken* currentChangeToken = nil;
         __block bool moreComing = false;
@@ -407,17 +415,24 @@
             return;
         }
 
-        [currentDatabase enumerateKeysAndObjectsUsingBlock:^(CKRecordID * _Nonnull recordID, CKRecord * _Nonnull record, BOOL * _Nonnull stop) {
-            id last = [lastDatabase objectForKey: recordID];
+        NSMutableDictionary<CKRecordID*, CKRecord*>* filteredCurrentDatabase = [currentDatabase mutableCopy];
+        NSMutableDictionary<CKRecordID*, CKRecord*>* filteredLastDatabase = [lastDatabase mutableCopy];
+
+        for(CKRecordID* recordID in zone.recordIDsToSkip) {
+            filteredCurrentDatabase[recordID] = nil;
+            filteredLastDatabase[recordID] = nil;
+        }
+
+        [filteredCurrentDatabase enumerateKeysAndObjectsUsingBlock:^(CKRecordID * _Nonnull recordID, CKRecord * _Nonnull record, BOOL * _Nonnull stop) {
+            id last = [filteredLastDatabase objectForKey: recordID];
             if(!last || ![record isEqual:last]) {
                 self.recordChangedBlock(record);
             }
         }];
 
         // iterate through lastDatabase, and delete items that aren't in database
-        [lastDatabase enumerateKeysAndObjectsUsingBlock:^(CKRecordID * _Nonnull recordID, CKRecord * _Nonnull record, BOOL * _Nonnull stop) {
-
-            id current = [currentDatabase objectForKey: recordID];
+        [filteredLastDatabase enumerateKeysAndObjectsUsingBlock:^(CKRecordID * _Nonnull recordID, CKRecord * _Nonnull record, BOOL * _Nonnull stop) {
+            id current = [filteredCurrentDatabase objectForKey: recordID];
             if(current == nil) {
                 self.recordWithIDWasDeletedBlock(recordID, [record recordType]);
             }
@@ -489,6 +504,11 @@
             // Not strictly right, but good enough for now
             self.fetchRecordsCompletionBlock(nil, error);
             return;
+        }
+
+        if([zone.recordIDsToSkip containsObject:recordID]) {
+            secerror("fakeck: Skipping returning record as per test request: %@", recordID);
+            continue;
         }
 
         CKRecord* record = zone.currentDatabase[recordID];
@@ -634,6 +654,7 @@
 }
 - (void)postNotificationName:(NSNotificationName)name object:(nullable NSString *)object userInfo:(nullable NSDictionary *)userInfo options:(NSDistributedNotificationOptions)options
 {
+    [[NSNotificationCenter defaultCenter] postNotificationName:name object:object userInfo:userInfo];
 }
 @end
 
@@ -649,6 +670,7 @@
         _zoneID = zoneID;
         _currentDatabase = [[NSMutableDictionary alloc] init];
         _pastDatabases = [[NSMutableDictionary alloc] init];
+        _recordIDsToSkip = [NSMutableSet set];
 
         _fetchErrors = [[NSMutableArray alloc] init];
 
@@ -662,6 +684,10 @@
         });
     }
     return self;
+}
+
+- (NSString*)description {
+    return [NSString stringWithFormat:@"<FakeCKZone(%@): %@>", self.zoneID, self.currentDatabase.allKeys];
 }
 
 - (void)_onqueueRollChangeToken {
@@ -714,6 +740,11 @@
 }
 
 - (NSError * _Nullable)errorFromSavingRecord:(CKRecord*) record {
+    return [self errorFromSavingRecord:record otherConcurrentWrites:@[]];
+}
+
+- (NSError* _Nullable)errorFromSavingRecord:(CKRecord*)record otherConcurrentWrites:(NSArray<CKRecord*>*)concurrentRecords
+{
     CKRecord* existingRecord = self.currentDatabase[record.recordID];
 
     // First, implement CKKS-specific server-side checks
@@ -723,9 +754,19 @@
         CKRecord* existingParentKey = self.currentDatabase[parentKey.recordID];
 
         if(!existingParentKey) {
-            ckksnotice("fakeck", self.zoneID, "bad sync key reference! Fail the write: %@ %@", record, existingRecord);
+            bool foundConcurrentRecord = false;
+            // Well, sure, but will this match anything we're uploading now?
+            for(CKRecord* concurrent in concurrentRecords) {
+                if([parentKey.recordID isEqual:concurrent.recordID]) {
+                    foundConcurrentRecord = true;
+                }
+            }
 
-            return [FakeCKZone internalPluginError:@"CloudkitKeychainService" code:CKKSServerMissingRecord description:@"synckey record: record not found"];
+            if(!foundConcurrentRecord) {
+                ckksnotice("fakeck", self.zoneID, "bad sync key reference! Fail the write: %@ %@", record, existingRecord);
+
+                return [FakeCKZone internalPluginError:@"CloudkitKeychainService" code:CKKSServerMissingRecord description:@"synckey record: record not found"];
+            }
         }
     }
     //

@@ -258,7 +258,7 @@ void json_add_locations(const char *path, const char *server, uint32_t addrcount
 void json_mount_header(const char *to, const char *from)
 {
     json_open_dictionary(PRINTER_NO_PREFIX, from);
-    json_dict_add_str(JSON_CURRENT_DICT, "Server", to);
+    json_dict_add_str(JSON_CURRENT_DICT, "Mount Point", to);
 }
 
 void json_mount_fh(uint32_t fh_len, unsigned char *fh_data)

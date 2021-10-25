@@ -1,6 +1,6 @@
-/*	$NetBSD: time.c,v 1.9 1997/10/20 03:28:21 lukem Exp $	*/
-
-/*
+/*-
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
  * Copyright (c) 1987, 1988, 1993
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -12,11 +12,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -33,29 +29,52 @@
  * SUCH DAMAGE.
  */
 
-#include <errno.h>
+#include <sys/cdefs.h>
+#ifndef lint
+__COPYRIGHT("@(#) Copyright (c) 1987, 1988, 1993\n\
+	The Regents of the University of California.  All rights reserved.\n");
+#endif /* not lint */
+
+#ifndef lint
+#if 0
+__SCCSID("@(#)time.c	8.1 (Berkeley) 6/6/93");
+#endif
+__FBSDID("$FreeBSD$");
+#endif /* not lint */
+
+#include <sys/types.h>
+#include <sys/resource.h>
+#include <sys/signal.h>
+#include <sys/sysctl.h>
+#include <sys/time.h>
+#include <sys/wait.h>
+
 #include <err.h>
+#include <errno.h>
 #include <inttypes.h>
-#include <langinfo.h>
 #include <libproc.h>
 #include <locale.h>
-#include <sys/cdefs.h>
-#include <sysexits.h>
-#include <sys/types.h>
-#include <sys/time.h>
-#include <sys/resource.h>
-#include <sys/wait.h>
 #include <signal.h>
 #include <stdbool.h>
 #include <stdio.h>
-#include <stdint.h>
 #include <stdlib.h>
+#include <stdint.h>
+#include <string.h>
 #include <time.h>
 #include <unistd.h>
 
-int lflag;
-int portableflag;
-bool child_running = true;
+static int getstathz(void);
+static void humantime(FILE *, long, long);
+static void showtime(FILE *, struct timespec *, struct timespec *,
+    struct rusage *);
+static void siginfo(int);
+static void usage(void);
+
+static sig_atomic_t siginfo_recvd;
+static char decimal_point;
+static struct timespec before_ts;
+static int hflag, pflag;
+static bool child_running = true;
 
 void
 child_handler(int sig)
@@ -66,32 +85,45 @@ child_handler(int sig)
 int
 main(int argc, char **argv)
 {
-	int pid;
-	int ch, status, rusage_ret = -1;
-	uint64_t before_ns, after_ns, duration_ns, duration_secs, duration_frac_ns;
+	int aflag, ch, lflag, status, rusage_ret = -1;
+	int exitonsig;
+	pid_t pid;
+	struct rlimit rl;
 	struct rusage ru;
 	struct rusage_info_v4 ruinfo;
 	sigset_t sigmask, suspmask, origmask;
+	struct timespec after;
+	char *ofn = NULL;
+	FILE *out = stderr;
 
-	lflag = 0;
-	while ((ch = getopt(argc, argv, "lp")) != -1) {
+	(void) setlocale(LC_NUMERIC, "");
+	decimal_point = localeconv()->decimal_point[0];
+
+	aflag = hflag = lflag = pflag = 0;
+	while ((ch = getopt(argc, argv, "ahlo:p")) != -1)
 		switch((char)ch) {
-		case 'p':
-			portableflag = 1;
+		case 'a':
+			aflag = 1;
+			break;
+		case 'h':
+			hflag = 1;
 			break;
 		case 'l':
 			lflag = 1;
 			break;
+		case 'o':
+			ofn = optarg;
+			break;
+		case 'p':
+			pflag = 1;
+			break;
 		case '?':
 		default:
-			fprintf(stderr, "usage: time [-lp] <command>\n");
-			exit(1);
+			usage();
 		}
-	}
 
-	if (!(argc -= optind)) {
+	if (!(argc -= optind))
 		exit(0);
-	}
 	argv += optind;
 
 	sigemptyset(&sigmask);
@@ -110,26 +142,32 @@ main(int argc, char **argv)
 
 	sigemptyset(&suspmask);
 
-	before_ns = clock_gettime_nsec_np(CLOCK_UPTIME_RAW);
+	if (ofn) {
+	        if ((out = fopen(ofn, aflag ? "ae" : "we")) == NULL)
+		        err(1, "%s", ofn);
+		setvbuf(out, (char *)NULL, _IONBF, (size_t)0);
+	}
+
+	if (clock_gettime(CLOCK_MONOTONIC, &before_ts))
+		err(1, "clock_gettime");
 	/*
 	 * NB: Don't add anything between these two lines -- measurement is
 	 * happening now.
 	 */
-	switch (pid = vfork()) {
-	case -1: /* error */
-		err(EX_OSERR, "time");
-		__builtin_unreachable();
-	case 0: /* child */
+	switch(pid = fork()) {
+	case -1:			/* error */
+		err(1, "time");
+		/* NOTREACHED */
+	case 0:				/* child */
 		/*
 		 * Allow the child to respond to signals by resetting to the original
 		 * signal handling behavior.
 		 */
 		(void)sigprocmask(SIG_SETMASK, &origmask, NULL);
 		execvp(*argv, argv);
-		perror(*argv);
-		_exit((errno == ENOENT) ? 127 : 126);
-		__builtin_unreachable();
-	default: /* parent */
+		err(errno == ENOENT ? 127 : 126, "%s", *argv);
+		/* NOTREACHED */
+	default:			/* parent */
 		break;
 	}
 
@@ -138,90 +176,79 @@ main(int argc, char **argv)
 	 */
 	(void)signal(SIGINT, SIG_IGN);
 	(void)signal(SIGQUIT, SIG_IGN);
-
+	siginfo_recvd = 0;
+	(void)signal(SIGINFO, siginfo);
+	(void)siginterrupt(SIGINFO, 1);
 	while (child_running) {
+		if (siginfo_recvd) {
+			siginfo_recvd = 0;
+			if (clock_gettime(CLOCK_MONOTONIC, &after))
+				err(1, "clock_gettime");
+			getrusage(RUSAGE_CHILDREN, &ru);
+			showtime(stdout, &before_ts, &after, &ru);
+		}
 		/*
 		 * This would be racy, but SIGCHLD is blocked above (as part of
-		 * `sigmask`.
+		 * `sigmask`).
 		 */
 		sigsuspend(&suspmask);
 	}
 	/*
-	 * NB: Minimize what's added between these statements to preserve the
+	 * minimize what's added between these statements to preserve the
 	 * accuracy of the time measurement.
 	 */
-	after_ns = clock_gettime_nsec_np(CLOCK_UPTIME_RAW);
+	if (clock_gettime(CLOCK_MONOTONIC, &after))
+		err(1, "clock_gettime");
 	if (lflag) {
 		rusage_ret = proc_pid_rusage(pid, RUSAGE_INFO_V4, (void **)&ruinfo);
 	}
-	while (wait3(&status, 0, &ru) != pid) {
+	while (wait4(pid, &status, 0, &ru) != pid) {
 	}
-	if (!WIFEXITED(status)) {
-		fprintf(stderr, "Command terminated abnormally.\n");
-	}
-	duration_ns = after_ns - before_ns;
-	duration_secs = duration_ns / (1000 * 1000 * 1000);
-	duration_frac_ns = duration_ns - (duration_secs * 1000 * 1000 * 1000);
-
-	if (portableflag) {
-		char *radix = NULL;
-
-		setlocale(LC_ALL, "");
-
-		radix = nl_langinfo(RADIXCHAR);
-		if (!radix || radix[0] == '\0') {
-			radix = ".";
-		}
-
-		fprintf(stderr, "real %9" PRIu64 "%s%02" PRIu64 "\n",
-			duration_secs, radix, duration_frac_ns / (10 * 1000 * 1000));
-		fprintf(stderr, "user %9ld%s%02ld\n",
-			(long)ru.ru_utime.tv_sec, radix, (long)ru.ru_utime.tv_usec/10000);
-		fprintf(stderr, "sys  %9ld%s%02ld\n",
-			(long)ru.ru_stime.tv_sec, radix, (long)ru.ru_stime.tv_usec/10000);
-	} else {
-		fprintf(stderr, "%9" PRIu64 ".%02" PRIu64 " real ",
-			duration_secs, duration_frac_ns / (10 * 1000 * 1000));
-		fprintf(stderr, "%9ld.%02ld user ",
-			(long)ru.ru_utime.tv_sec, (long)ru.ru_utime.tv_usec/10000);
-		fprintf(stderr, "%9ld.%02ld sys\n",
-			(long)ru.ru_stime.tv_sec, (long)ru.ru_stime.tv_usec/10000);
-	}
-
+	if ( ! WIFEXITED(status))
+		warnx("command terminated abnormally");
+	exitonsig = WIFSIGNALED(status) ? WTERMSIG(status) : 0;
+	showtime(out, &before_ts, &after, &ru);
 	if (lflag) {
-		int hz = 100; /* XXX */
-		long ticks;
+		int hz = getstathz();
+		u_long ticks;
 
 		ticks = hz * (ru.ru_utime.tv_sec + ru.ru_stime.tv_sec) +
 		     hz * (ru.ru_utime.tv_usec + ru.ru_stime.tv_usec) / 1000000;
 
-		fprintf(stderr, "%20ld  %s\n",
+		/*
+		 * If our round-off on the tick calculation still puts us at 0,
+		 * then always assume at least one tick.
+		 */
+		if (ticks == 0)
+			ticks = 1;
+
+		fprintf(out, "%20ld  %s\n",
 			ru.ru_maxrss, "maximum resident set size");
-		fprintf(stderr, "%20ld  %s\n", ticks ? ru.ru_ixrss / ticks : 0,
-			"average shared memory size");
-		fprintf(stderr, "%20ld  %s\n", ticks ? ru.ru_idrss / ticks : 0,
-			"average unshared data size");
-		fprintf(stderr, "%20ld  %s\n", ticks ? ru.ru_isrss / ticks : 0,
-			"average unshared stack size");
-		fprintf(stderr, "%20ld  %s\n",
+		fprintf(out, "%20ld  %s\n",
+			ru.ru_ixrss / ticks, "average shared memory size");
+		fprintf(out, "%20ld  %s\n",
+			ru.ru_idrss / ticks, "average unshared data size");
+		fprintf(out, "%20ld  %s\n",
+			ru.ru_isrss / ticks, "average unshared stack size");
+		fprintf(out, "%20ld  %s\n",
 			ru.ru_minflt, "page reclaims");
-		fprintf(stderr, "%20ld  %s\n",
+		fprintf(out, "%20ld  %s\n",
 			ru.ru_majflt, "page faults");
-		fprintf(stderr, "%20ld  %s\n",
+		fprintf(out, "%20ld  %s\n",
 			ru.ru_nswap, "swaps");
-		fprintf(stderr, "%20ld  %s\n",
+		fprintf(out, "%20ld  %s\n",
 			ru.ru_inblock, "block input operations");
-		fprintf(stderr, "%20ld  %s\n",
+		fprintf(out, "%20ld  %s\n",
 			ru.ru_oublock, "block output operations");
-		fprintf(stderr, "%20ld  %s\n",
+		fprintf(out, "%20ld  %s\n",
 			ru.ru_msgsnd, "messages sent");
-		fprintf(stderr, "%20ld  %s\n",
+		fprintf(out, "%20ld  %s\n",
 			ru.ru_msgrcv, "messages received");
-		fprintf(stderr, "%20ld  %s\n",
+		fprintf(out, "%20ld  %s\n",
 			ru.ru_nsignals, "signals received");
-		fprintf(stderr, "%20ld  %s\n",
+		fprintf(out, "%20ld  %s\n",
 			ru.ru_nvcsw, "voluntary context switches");
-		fprintf(stderr, "%20ld  %s\n",
+		fprintf(out, "%20ld  %s\n",
 			ru.ru_nivcsw, "involuntary context switches");
 
 		if (rusage_ret >= 0) {
@@ -240,6 +267,118 @@ main(int argc, char **argv)
 			}
 		}
 	}
+	/*
+	 * If the child has exited on a signal, exit on the same
+	 * signal, too, in order to reproduce the child's exit status.
+	 * However, avoid actually dumping core from the current process.
+	 */
+	if (exitonsig) {
+		if (signal(exitonsig, SIG_DFL) == SIG_ERR)
+			warn("signal");
+		else {
+			rl.rlim_max = rl.rlim_cur = 0;
+			if (setrlimit(RLIMIT_CORE, &rl) == -1)
+				warn("setrlimit");
+			kill(getpid(), exitonsig);
+		}
+	}
+	exit (WIFEXITED(status) ? WEXITSTATUS(status) : EXIT_FAILURE);
+}
 
-	exit(WIFEXITED(status) ? WEXITSTATUS(status) : EXIT_FAILURE);
+static void
+usage(void)
+{
+	fprintf(stderr,
+	    "usage: time [-al] [-h | -p] [-o file] utility [argument ...]\n");
+	exit(1);
+}
+
+/*
+ * Return the frequency of the kernel's statistics clock.
+ */
+static int
+getstathz(void)
+{
+	int mib[2];
+	size_t size;
+	struct clockinfo clockrate;
+
+	mib[0] = CTL_KERN;
+	mib[1] = KERN_CLOCKRATE;
+	size = sizeof clockrate;
+	if (sysctl(mib, 2, &clockrate, &size, NULL, 0) == -1)
+		err(1, "sysctl kern.clockrate");
+	return clockrate.stathz;
+}
+
+static void
+humantime(FILE *out, long sec, long centisec)
+{
+	long days, hrs, mins;
+
+	days = sec / (60L * 60 * 24);
+	sec %= (60L * 60 * 24);
+	hrs = sec / (60L * 60);
+	sec %= (60L * 60);
+	mins = sec / 60;
+	sec %= 60;
+
+	fprintf(out, "\t");
+	if (days)
+		fprintf(out, "%ldd", days);
+	if (hrs)
+		fprintf(out, "%ldh", hrs);
+	if (mins)
+		fprintf(out, "%ldm", mins);
+	fprintf(out, "%ld%c%02lds", sec, decimal_point, centisec);
+}
+
+static void
+showtime(FILE *out, struct timespec *before, struct timespec *after,
+    struct rusage *ru)
+{
+
+	after->tv_sec -= before->tv_sec;
+	after->tv_nsec -= before->tv_nsec;
+	if (after->tv_nsec < 0)
+		(void)after->tv_sec--, after->tv_nsec += 1000000000;
+
+	if (pflag) {
+		/* POSIX wants output that must look like
+		"real %f\nuser %f\nsys %f\n" and requires
+		at least two digits after the radix. */
+		fprintf(out, "real %jd%c%02ld\n",
+			(intmax_t)after->tv_sec, decimal_point,
+			after->tv_nsec/10000000);
+		fprintf(out, "user %jd%c%02ld\n",
+			(intmax_t)ru->ru_utime.tv_sec, decimal_point,
+			(long)ru->ru_utime.tv_usec/10000);
+		fprintf(out, "sys %jd%c%02ld\n",
+			(intmax_t)ru->ru_stime.tv_sec, decimal_point,
+			(long)ru->ru_stime.tv_usec/10000);
+	} else if (hflag) {
+		humantime(out, after->tv_sec, after->tv_nsec/10000000);
+		fprintf(out, " real\t");
+		humantime(out, ru->ru_utime.tv_sec, ru->ru_utime.tv_usec/10000);
+		fprintf(out, " user\t");
+		humantime(out, ru->ru_stime.tv_sec, ru->ru_stime.tv_usec/10000);
+		fprintf(out, " sys\n");
+	} else {
+		fprintf(out, "%9jd%c%02ld real ",
+			(intmax_t)after->tv_sec, decimal_point,
+			after->tv_nsec/10000000);
+		fprintf(out, "%9jd%c%02ld user ",
+			(intmax_t)ru->ru_utime.tv_sec, decimal_point,
+			(long)ru->ru_utime.tv_usec/10000);
+		fprintf(out, "%9jd%c%02ld sys\n",
+			(intmax_t)ru->ru_stime.tv_sec, decimal_point,
+			(long)ru->ru_stime.tv_usec/10000);
+	}
+}
+
+static void
+siginfo(int sig __unused)
+{
+
+	siginfo_recvd = 1;
 }

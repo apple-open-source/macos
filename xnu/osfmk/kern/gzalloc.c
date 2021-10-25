@@ -398,21 +398,10 @@ gzalloc_alloc(zone_t zone, zone_stats_t zstats, zalloc_flags_t flags)
 		addr = (gzaddr + residue);
 	}
 
-	if (zone->z_free_zeroes) {
-		bzero((void *)gzaddr, rounded_size);
-	} else {
-		/* Fill with a pattern on allocation to trap uninitialized
-		 * data use. Since the element size may be "rounded up"
-		 * by higher layers such as the kalloc layer, this may
-		 * also identify overruns between the originally requested
-		 * size and the rounded size via visual inspection.
-		 * TBD: plumb through the originally requested size,
-		 * prior to rounding by kalloc/IOMalloc etc.
-		 * We also add a signature and the zone of origin in a header
-		 * prefixed to the allocation.
-		 */
-		memset((void *)gzaddr, gzalloc_fill_pattern, rounded_size);
-	}
+	/*
+	 * All zone allocations are always zeroed
+	 */
+	bzero((void *)gzaddr, rounded_size);
 
 	gzh->gzone = (kmem_ready && vm_page_zone) ? zone : GZDEADZONE;
 	gzh->gzsize = (uint32_t)zone_elem_size(zone);
@@ -602,7 +591,7 @@ gzalloc_element_size(void *gzaddr, zone_t *z, vm_size_t *gzsz)
 		vmef = vm_map_lookup_entry(gzalloc_map, (vm_map_offset_t)a, &gzvme);
 		vm_map_unlock(gzalloc_map);
 		if (vmef == FALSE) {
-			panic("GZALLOC: unable to locate map entry for %p\n", (void *)a);
+			panic("GZALLOC: unable to locate map entry for %p", (void *)a);
 		}
 		assertf(gzvme->vme_atomic != 0, "GZALLOC: VM map entry inconsistency, "
 		    "vme: %p, start: %llu end: %llu", gzvme, gzvme->vme_start, gzvme->vme_end);
@@ -642,7 +631,7 @@ gzalloc_element_size(void *gzaddr, zone_t *z, vm_size_t *gzsz)
 
 		*gzsz = zone_elem_size(gzh->gzone);
 		if (__improbable(!gzh->gzone->gzalloc_tracked)) {
-			panic("GZALLOC: zone mismatch (%p)\n", gzh->gzone);
+			panic("GZALLOC: zone mismatch (%p)", gzh->gzone);
 		}
 
 		if (z) {

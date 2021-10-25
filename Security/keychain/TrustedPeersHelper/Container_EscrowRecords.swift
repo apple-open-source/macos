@@ -109,7 +109,7 @@ extension Container {
         escrowRecordMO.sosViability = Int64(record.viabilityStatus.rawValue)
         escrowRecordMO.federationID = record.federationID
         escrowRecordMO.expectedFederationID = record.expectedFederationID
-        
+
         let escrowRecordMetadataMO = EscrowMetadataMO(context: self.moc)
         escrowRecordMetadataMO.backupKeybagDigest = record.escrowInformationMetadata.backupKeybagDigest
         escrowRecordMetadataMO.secureBackupUsesMultipleiCSCS = Int64(record.escrowInformationMetadata.secureBackupUsesMultipleIcscs)
@@ -140,13 +140,10 @@ extension Container {
         switch viability {
         case .full:
             self.containerMO.addToFullyViableEscrowRecords(escrowRecordMO)
-            break
         case .partial:
             self.containerMO.addToPartiallyViableEscrowRecords(escrowRecordMO)
-            break
         case .none:
             self.containerMO.addToLegacyEscrowRecords(escrowRecordMO)
-            break
         }
     }
 

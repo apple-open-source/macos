@@ -837,10 +837,6 @@ extern int (**hfs_vnodeop_p) (void *);
 extern int (**hfs_fifoop_p)  (void *);
 #endif
 
-#if CONFIG_HFS_STD
-extern int (**hfs_std_vnodeop_p) (void *);
-#endif
-
 /*
  * hfs_getnewvnode - get new default vnode
  *
@@ -1303,10 +1299,6 @@ hfs_getnewvnode(
 #endif
 	if (vtype == VBLK || vtype == VCHR)
 		vfsp.vnfs_vops = hfs_specop_p;
-#if CONFIG_HFS_STD
-	else if (hfs_standard)
-		vfsp.vnfs_vops = hfs_std_vnodeop_p;
-#endif
 	else 
 		vfsp.vnfs_vops = hfs_vnodeop_p;
 
@@ -1393,6 +1385,9 @@ hfs_getnewvnode(
 		 */
 		if ((cp->c_vp == NULL) && (cp->c_rsrc_vp == NULL)) {
 			hfs_chash_abort(hfsmp, cp);
+			if ((flags & GNV_SKIPLOCK) == 0) {
+				hfs_unlock(cp);
+			}
 			hfs_reclaim_cnode(hfsmp, cp);
 		} 
 		else {
@@ -1940,12 +1935,6 @@ hfs_touchtimes(struct hfsmount *hfsmp, struct cnode* cp)
 		CLR(cp->c_flag, C_NEEDS_DATEADDED);
 		return;
 	}
-#if CONFIG_HFS_STD
-	else if (hfsmp->hfs_flags & HFS_STANDARD) {
-	/* HFS Standard doesn't support access times */
-		cp->c_touch_acctime = FALSE;
-	}
-#endif
 
 	ctx = vfs_context_current();
 	/*
@@ -1988,14 +1977,7 @@ hfs_touchtimes(struct hfsmount *hfsmp, struct cnode* cp)
 		if (cp->c_touch_modtime) {
 			cp->c_touch_modtime = FALSE;
 			time_t new_time = tv.tv_sec;
-#if CONFIG_HFS_STD
-			/*
-			 * HFS dates that WE set must be adjusted for DST
-			 */
-			if ((hfsmp->hfs_flags & HFS_STANDARD) && gTimeZone.tz_dsttime) {
-				new_time += 3600;
-			}
-#endif
+
 			if (cp->c_mtime != new_time) {
 				cp->c_mtime = new_time;
 				cp->c_flag |= C_MINOR_MOD;

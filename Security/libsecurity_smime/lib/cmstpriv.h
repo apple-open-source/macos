@@ -41,9 +41,9 @@
 #include <Security/SecCmsBase.h>
 #include <security_smime/secoidt.h>
 
+#include <Security/nameTemplates.h>
 #include <Security/secasn1t.h>
 #include <security_asn1/plarenas.h>
-#include <Security/nameTemplates.h>
 
 #include <CoreFoundation/CFArray.h>
 #include <CoreFoundation/CFDate.h>
@@ -93,7 +93,7 @@ typedef struct SecCmsSignerIdentifierStr SecCmsSignerIdentifier;
 typedef struct SecCmsSMIMEKEAParametersStr SecCmsSMIMEKEAParameters;
 
 typedef struct SecCmsCipherContextStr SecCmsCipherContext;
-typedef struct SecCmsCipherContextStr *SecCmsCipherContextRef;
+typedef struct SecCmsCipherContextStr* SecCmsCipherContextRef;
 
 /* =============================================================================
  * ENCAPSULATED CONTENTINFO & CONTENTINFO
@@ -101,38 +101,38 @@ typedef struct SecCmsCipherContextStr *SecCmsCipherContextRef;
 
 union SecCmsContentUnion {
     /* either unstructured */
-    SecAsn1Item * 			data;
+    SecAsn1Item* data;
     /* or structured data */
-    SecCmsDigestedDataRef 	digestedData;
-    SecCmsEncryptedDataRef 	encryptedData;
-    SecCmsEnvelopedDataRef 	envelopedData;
-    SecCmsSignedDataRef 		signedData;
+    SecCmsDigestedDataRef digestedData;
+    SecCmsEncryptedDataRef encryptedData;
+    SecCmsEnvelopedDataRef envelopedData;
+    SecCmsSignedDataRef signedData;
     /* or anonymous pointer to something */
-    void *			pointer;
+    void* pointer;
 };
 
 struct SecCmsContentInfoStr {
-    SecAsn1Item			contentType;
-    SecCmsContent		content;
+    SecAsn1Item contentType;
+    SecCmsContent content;
     /* --------- local; not part of encoding --------- */
-    SecCmsMessageRef 	cmsg;			/* back pointer to message */
-    SECOidData *		contentTypeTag;	
+    SecCmsMessageRef cmsg; /* back pointer to message */
+    SECOidData* contentTypeTag;
 
     /* additional info for encryptedData and envelopedData */
     /* we waste this space for signedData and digestedData. sue me. */
 
-    SECAlgorithmID		contentEncAlg;
-    SecAsn1Item * 			rawContent;		/* encrypted DER, optional */
-							/* XXXX bytes not encrypted, but encoded? */
+    SECAlgorithmID contentEncAlg;
+    SecAsn1Item* rawContent; /* encrypted DER, optional */
+                             /* XXXX bytes not encrypted, but encoded? */
     /* --------- local; not part of encoding --------- */
-    SecSymmetricKeyRef		bulkkey;		/* bulk encryption key */
-    int				keysize;		/* size of bulk encryption key
+    SecSymmetricKeyRef bulkkey;    /* bulk encryption key */
+    int keysize;                   /* size of bulk encryption key
 							 * (only used by creation code) */
-    SECOidTag			contentEncAlgTag;	/* oid tag of encryption algorithm
+    SECOidTag contentEncAlgTag;    /* oid tag of encryption algorithm
 							 * (only used by creation code) */
-    SecCmsCipherContextRef ciphcx;		/* context for en/decryption going on */
-    SecCmsDigestContextRef digcx;			/* context for digesting going on */
-    SecPrivateKeyRef		privkey;		/* @@@ private key is only here as a workaround for 3401088 */
+    SecCmsCipherContextRef ciphcx; /* context for en/decryption going on */
+    SecCmsDigestContextRef digcx;  /* context for digesting going on */
+    SecPrivateKeyRef privkey; /* @@@ private key is only here as a workaround for 3401088 */
 };
 
 /* =============================================================================
@@ -140,14 +140,14 @@ struct SecCmsContentInfoStr {
  */
 
 struct SecCmsMessageStr {
-    SecCmsContentInfo	contentInfo;		/* "outer" cinfo */
+    SecCmsContentInfo contentInfo; /* "outer" cinfo */
     /* --------- local; not part of encoding --------- */
-    PLArenaPool *	poolp;
-    int			refCount;
+    PLArenaPool* poolp;
+    int refCount;
     /* properties of the "inner" data */
-    void *		pwfn_arg;
+    void* pwfn_arg;
     SecCmsGetDecryptKeyCallback decrypt_key_cb;
-    void *		decrypt_key_cb_arg;
+    void* decrypt_key_cb_arg;
 };
 
 /* =============================================================================
@@ -155,19 +155,19 @@ struct SecCmsMessageStr {
  */
 
 struct SecCmsSignedDataStr {
-    SecCmsContentInfo		contentInfo;
-    SecAsn1Item			version;
-    SECAlgorithmID **		digestAlgorithms;
-    SecAsn1Item **		rawCerts;
-    SecAsn1Item **		rawCrls;
-    SecCmsSignerInfoRef *		signerInfos;
+    SecCmsContentInfo contentInfo;
+    SecAsn1Item version;
+    SECAlgorithmID** digestAlgorithms;
+    SecAsn1Item** rawCerts;
+    SecAsn1Item** rawCrls;
+    SecCmsSignerInfoRef* signerInfos;
     /* --------- local; not part of encoding --------- */
     //SecCmsMessageRef 		cmsg;			/* back pointer to message */
-    SecAsn1Item **		digests;
-    CFMutableArrayRef		certs;
+    SecAsn1Item** digests;
+    CFMutableArrayRef certs;
 };
-#define SEC_CMS_SIGNED_DATA_VERSION_BASIC	1	/* what we *create* */
-#define SEC_CMS_SIGNED_DATA_VERSION_EXT		3	/* what we *create* */
+#define SEC_CMS_SIGNED_DATA_VERSION_BASIC 1 /* what we *create* */
+#define SEC_CMS_SIGNED_DATA_VERSION_EXT 3   /* what we *create* */
 
 typedef enum {
     SecCmsSignerIDIssuerSN = 0,
@@ -177,62 +177,62 @@ typedef enum {
 struct SecCmsSignerIdentifierStr {
     SecCmsSignerIDSelector identifierType;
     union {
-	SecCmsIssuerAndSN *issuerAndSN;
-	SecAsn1Item * subjectKeyID;
+        SecCmsIssuerAndSN* issuerAndSN;
+        SecAsn1Item* subjectKeyID;
     } id;
 };
 
 struct SecCmsIssuerAndSNStr {
-	NSS_Name issuer;
-	SecAsn1Item serialNumber;
+    NSS_Name issuer;
+    SecAsn1Item serialNumber;
     /* --------- local; not part of encoding --------- */
-	SecAsn1Item derIssuer;
+    SecAsn1Item derIssuer;
 };
 
 struct SecCmsSignerInfoStr {
-    SecAsn1Item			version;
-    SecCmsSignerIdentifier	signerIdentifier;
-    SECAlgorithmID		digestAlg;
-    SecCmsAttribute **		authAttr;
-    SECAlgorithmID		digestEncAlg;
-    SecAsn1Item			encDigest;
-    SecCmsAttribute **		unAuthAttr;
+    SecAsn1Item version;
+    SecCmsSignerIdentifier signerIdentifier;
+    SECAlgorithmID digestAlg;
+    SecCmsAttribute** authAttr;
+    SECAlgorithmID digestEncAlg;
+    SecAsn1Item encDigest;
+    SecCmsAttribute** unAuthAttr;
     /* --------- local; not part of encoding --------- */
     //SecCmsMessageRef 		cmsg;			/* back pointer to message */
-	SecCmsSignedDataRef		signedData;		/* back pointer to signedData. */
-    SecCertificateRef		cert;
-    CFArrayRef			certList;
-    CFAbsoluteTime		signingTime;
-    SecCmsVerificationStatus	verificationStatus;
-    SecPrivateKeyRef		signingKey; /* Used if we're using subjKeyID*/
-    SecPublicKeyRef		pubKey;
-    CFDataRef           hashAgilityAttrValue;
-    CFDictionaryRef     hashAgilityV2AttrValues;
-    CFAbsoluteTime      expirationTime;
+    SecCmsSignedDataRef signedData; /* back pointer to signedData. */
+    SecCertificateRef cert;
+    CFArrayRef certList;
+    CFAbsoluteTime signingTime;
+    SecCmsVerificationStatus verificationStatus;
+    SecPrivateKeyRef signingKey; /* Used if we're using subjKeyID*/
+    SecPublicKeyRef pubKey;
+    CFDataRef hashAgilityAttrValue;
+    CFDictionaryRef hashAgilityV2AttrValues;
+    CFAbsoluteTime expirationTime;
 };
-#define SEC_CMS_SIGNER_INFO_VERSION_ISSUERSN	1	/* what we *create* */
-#define SEC_CMS_SIGNER_INFO_VERSION_SUBJKEY	3	/* what we *create* */
+#define SEC_CMS_SIGNER_INFO_VERSION_ISSUERSN 1 /* what we *create* */
+#define SEC_CMS_SIGNER_INFO_VERSION_SUBJKEY 3  /* what we *create* */
 
 /* =============================================================================
  * ENVELOPED DATA
  */
 struct SecCmsEnvelopedDataStr {
-    SecCmsContentInfo		contentInfo;
-    SecAsn1Item			version;
-    SecCmsOriginatorInfo *	originatorInfo;		/* optional */
-    SecCmsRecipientInfoRef *	recipientInfos;
-    SecCmsAttribute **		unprotectedAttr;
+    SecCmsContentInfo contentInfo;
+    SecAsn1Item version;
+    SecCmsOriginatorInfo* originatorInfo; /* optional */
+    SecCmsRecipientInfoRef* recipientInfos;
+    SecCmsAttribute** unprotectedAttr;
     /* --------- local; not part of encoding --------- */
     //SecCmsMessageRef 		cmsg;			/* back pointer to message */
 };
-#define SEC_CMS_ENVELOPED_DATA_VERSION_REG	0	/* what we *create* */
-#define SEC_CMS_ENVELOPED_DATA_VERSION_ADV	2	/* what we *create* */
+#define SEC_CMS_ENVELOPED_DATA_VERSION_REG 0 /* what we *create* */
+#define SEC_CMS_ENVELOPED_DATA_VERSION_ADV 2 /* what we *create* */
 
 struct SecCmsOriginatorInfoStr {
-    SecAsn1Item **		rawCerts;
-    SecAsn1Item **		rawCrls;
+    SecAsn1Item** rawCerts;
+    SecAsn1Item** rawCrls;
     /* --------- local; not part of encoding --------- */
-    SecCertificateRef *		certs;
+    SecCertificateRef* certs;
 };
 
 /* -----------------------------------------------------------------------------
@@ -244,19 +244,19 @@ typedef enum {
 } SecCmsRecipientIDSelector;
 
 struct SecCmsRecipientIdentifierStr {
-    SecCmsRecipientIDSelector	identifierType;
+    SecCmsRecipientIDSelector identifierType;
     union {
-	SecCmsIssuerAndSN	*issuerAndSN;
-	SecAsn1Item * subjectKeyID;
+        SecCmsIssuerAndSN* issuerAndSN;
+        SecAsn1Item* subjectKeyID;
     } id;
 };
 typedef struct SecCmsRecipientIdentifierStr SecCmsRecipientIdentifier;
 
 struct SecCmsKeyTransRecipientInfoStr {
-    SecAsn1Item			version;
-    SecCmsRecipientIdentifier	recipientIdentifier;
-    SECAlgorithmID		keyEncAlg;
-    SecAsn1Item			encKey;
+    SecAsn1Item version;
+    SecCmsRecipientIdentifier recipientIdentifier;
+    SECAlgorithmID keyEncAlg;
+    SecAsn1Item encKey;
 };
 typedef struct SecCmsKeyTransRecipientInfoStr SecCmsKeyTransRecipientInfo;
 
@@ -266,21 +266,21 @@ typedef struct SecCmsKeyTransRecipientInfoStr SecCmsKeyTransRecipientInfo;
  */
 struct SecCmsKeyTransRecipientInfoExStr {
     SecCmsKeyTransRecipientInfo recipientInfo;
-    int version;  /* version of this structure (0) */
+    int version; /* version of this structure (0) */
     SecPublicKeyRef pubKey;
 };
 
 typedef struct SecCmsKeyTransRecipientInfoExStr SecCmsKeyTransRecipientInfoEx;
 
-#define SEC_CMS_KEYTRANS_RECIPIENT_INFO_VERSION_ISSUERSN	0	/* what we *create* */
-#define SEC_CMS_KEYTRANS_RECIPIENT_INFO_VERSION_SUBJKEY		2	/* what we *create* */
+#define SEC_CMS_KEYTRANS_RECIPIENT_INFO_VERSION_ISSUERSN 0 /* what we *create* */
+#define SEC_CMS_KEYTRANS_RECIPIENT_INFO_VERSION_SUBJKEY 2  /* what we *create* */
 
 /* -----------------------------------------------------------------------------
  * key agreement recipient info
  */
 struct SecCmsOriginatorPublicKeyStr {
-    SECAlgorithmID			algorithmIdentifier;
-    SecAsn1Item				publicKey;			/* bit string! */
+    SECAlgorithmID algorithmIdentifier;
+    SecAsn1Item publicKey; /* bit string! */
 };
 typedef struct SecCmsOriginatorPublicKeyStr SecCmsOriginatorPublicKey;
 
@@ -293,17 +293,17 @@ typedef enum {
 struct SecCmsOriginatorIdentifierOrKeyStr {
     SecCmsOriginatorIDOrKeySelector identifierType;
     union {
-	SecCmsIssuerAndSN		*issuerAndSN;		/* static-static */
-	SecAsn1Item * subjectKeyID;		/* static-static */
-	SecCmsOriginatorPublicKey	originatorPublicKey;	/* ephemeral-static */
+        SecCmsIssuerAndSN* issuerAndSN;                /* static-static */
+        SecAsn1Item* subjectKeyID;                     /* static-static */
+        SecCmsOriginatorPublicKey originatorPublicKey; /* ephemeral-static */
     } id;
 };
 typedef struct SecCmsOriginatorIdentifierOrKeyStr SecCmsOriginatorIdentifierOrKey;
 
 struct SecCmsRecipientKeyIdentifierStr {
-    SecAsn1Item 				subjectKeyIdentifier;
-    SecAsn1Item 				date;			/* optional */
-    SecAsn1Item 				other;			/* optional */
+    SecAsn1Item subjectKeyIdentifier;
+    SecAsn1Item date;  /* optional */
+    SecAsn1Item other; /* optional */
 };
 typedef struct SecCmsRecipientKeyIdentifierStr SecCmsRecipientKeyIdentifier;
 
@@ -313,50 +313,50 @@ typedef enum {
 } SecCmsKeyAgreeRecipientIDSelector;
 
 struct SecCmsKeyAgreeRecipientIdentifierStr {
-    SecCmsKeyAgreeRecipientIDSelector	identifierType;
+    SecCmsKeyAgreeRecipientIDSelector identifierType;
     union {
-	SecCmsIssuerAndSN		*issuerAndSN;
-	SecCmsRecipientKeyIdentifier	recipientKeyIdentifier;
+        SecCmsIssuerAndSN* issuerAndSN;
+        SecCmsRecipientKeyIdentifier recipientKeyIdentifier;
     } id;
 };
 typedef struct SecCmsKeyAgreeRecipientIdentifierStr SecCmsKeyAgreeRecipientIdentifier;
 
 struct SecCmsRecipientEncryptedKeyStr {
-    SecCmsKeyAgreeRecipientIdentifier	recipientIdentifier;
-    SecAsn1Item				encKey;
+    SecCmsKeyAgreeRecipientIdentifier recipientIdentifier;
+    SecAsn1Item encKey;
 };
 typedef struct SecCmsRecipientEncryptedKeyStr SecCmsRecipientEncryptedKey;
 
 struct SecCmsKeyAgreeRecipientInfoStr {
-    SecAsn1Item				version;
-    SecCmsOriginatorIdentifierOrKey	originatorIdentifierOrKey;
-    SecAsn1Item 				ukm;				/* optional */
-    SECAlgorithmID			keyEncAlg;
-    SecCmsRecipientEncryptedKey **	recipientEncryptedKeys;
+    SecAsn1Item version;
+    SecCmsOriginatorIdentifierOrKey originatorIdentifierOrKey;
+    SecAsn1Item ukm; /* optional */
+    SECAlgorithmID keyEncAlg;
+    SecCmsRecipientEncryptedKey** recipientEncryptedKeys;
 };
 typedef struct SecCmsKeyAgreeRecipientInfoStr SecCmsKeyAgreeRecipientInfo;
 
-#define SEC_CMS_KEYAGREE_RECIPIENT_INFO_VERSION	3	/* what we *create* */
+#define SEC_CMS_KEYAGREE_RECIPIENT_INFO_VERSION 3 /* what we *create* */
 
 /* -----------------------------------------------------------------------------
  * KEK recipient info
  */
 struct SecCmsKEKIdentifierStr {
-    SecAsn1Item			keyIdentifier;
-    SecAsn1Item * 			date;			/* optional */
-    SecAsn1Item * 			other;			/* optional */
+    SecAsn1Item keyIdentifier;
+    SecAsn1Item* date;  /* optional */
+    SecAsn1Item* other; /* optional */
 };
 typedef struct SecCmsKEKIdentifierStr SecCmsKEKIdentifier;
 
 struct SecCmsKEKRecipientInfoStr {
-    SecAsn1Item			version;
-    SecCmsKEKIdentifier		kekIdentifier;
-    SECAlgorithmID		keyEncAlg;
-    SecAsn1Item			encKey;
+    SecAsn1Item version;
+    SecCmsKEKIdentifier kekIdentifier;
+    SECAlgorithmID keyEncAlg;
+    SecAsn1Item encKey;
 };
 typedef struct SecCmsKEKRecipientInfoStr SecCmsKEKRecipientInfo;
 
-#define SEC_CMS_KEK_RECIPIENT_INFO_VERSION	4	/* what we *create* */
+#define SEC_CMS_KEK_RECIPIENT_INFO_VERSION 4 /* what we *create* */
 
 /* -----------------------------------------------------------------------------
  * recipient info
@@ -393,44 +393,44 @@ typedef enum {
 struct SecCmsRecipientInfoStr {
     SecCmsRecipientInfoIDSelector recipientInfoType;
     union {
-	SecCmsKeyTransRecipientInfo keyTransRecipientInfo;
-	SecCmsKeyAgreeRecipientInfo keyAgreeRecipientInfo;
-	SecCmsKEKRecipientInfo kekRecipientInfo;
-	SecCmsKeyTransRecipientInfoEx keyTransRecipientInfoEx;
+        SecCmsKeyTransRecipientInfo keyTransRecipientInfo;
+        SecCmsKeyAgreeRecipientInfo keyAgreeRecipientInfo;
+        SecCmsKEKRecipientInfo kekRecipientInfo;
+        SecCmsKeyTransRecipientInfoEx keyTransRecipientInfoEx;
     } ri;
     /* --------- local; not part of encoding --------- */
     //SecCmsMessageRef 		cmsg;			/* back pointer to message */
-	SecCmsEnvelopedDataRef	envelopedData;	/* back pointer to envelopedData */
-    SecCertificateRef 		cert;			/* recipient's certificate */
+    SecCmsEnvelopedDataRef envelopedData; /* back pointer to envelopedData */
+    SecCertificateRef cert;               /* recipient's certificate */
 };
 
 /* =============================================================================
  * DIGESTED DATA
  */
 struct SecCmsDigestedDataStr {
-    SecCmsContentInfo		contentInfo;
-    SecAsn1Item			version;
-    SECAlgorithmID		digestAlg;
-    SecAsn1Item			digest;
+    SecCmsContentInfo contentInfo;
+    SecAsn1Item version;
+    SECAlgorithmID digestAlg;
+    SecAsn1Item digest;
     /* --------- local; not part of encoding --------- */
     //SecCmsMessageRef 		cmsg;		/* back pointer */
-    SecAsn1Item			cdigest;	/* calculated digest */
+    SecAsn1Item cdigest; /* calculated digest */
 };
-#define SEC_CMS_DIGESTED_DATA_VERSION_DATA	0	/* what we *create* */
-#define SEC_CMS_DIGESTED_DATA_VERSION_ENCAP	2	/* what we *create* */
+#define SEC_CMS_DIGESTED_DATA_VERSION_DATA 0  /* what we *create* */
+#define SEC_CMS_DIGESTED_DATA_VERSION_ENCAP 2 /* what we *create* */
 
 /* =============================================================================
  * ENCRYPTED DATA
  */
 struct SecCmsEncryptedDataStr {
-    SecCmsContentInfo		contentInfo;
-    SecAsn1Item			version;
-    SecCmsAttribute **		unprotectedAttr;	/* optional */
+    SecCmsContentInfo contentInfo;
+    SecAsn1Item version;
+    SecCmsAttribute** unprotectedAttr; /* optional */
     /* --------- local; not part of encoding --------- */
     //SecCmsMessageRef 		cmsg;		/* back pointer */
 };
-#define SEC_CMS_ENCRYPTED_DATA_VERSION		0	/* what we *create* */
-#define SEC_CMS_ENCRYPTED_DATA_VERSION_UPATTR	2	/* what we *create* */
+#define SEC_CMS_ENCRYPTED_DATA_VERSION 0        /* what we *create* */
+#define SEC_CMS_ENCRYPTED_DATA_VERSION_UPATTR 2 /* what we *create* */
 
 /* =============================================================================
  * FORTEZZA KEA
@@ -448,13 +448,13 @@ typedef enum {
 /* ### mwelch - S/MIME KEA parameters. These don't really fit here,
                 but I cannot think of a more appropriate place at this time. */
 struct SecCmsSMIMEKEAParametersStr {
-    SecAsn1Item originatorKEAKey;	/* sender KEA key (encrypted?) */
-    SecAsn1Item originatorRA;	/* random number generated by sender */
-    SecAsn1Item nonSkipjackIV;	/* init'n vector for SkipjackCBC64
+    SecAsn1Item originatorKEAKey; /* sender KEA key (encrypted?) */
+    SecAsn1Item originatorRA;     /* random number generated by sender */
+    SecAsn1Item nonSkipjackIV;    /* init'n vector for SkipjackCBC64
 			           decryption of KEA key if Skipjack
 				   is not the bulk algorithm used on
 				   the message */
-    SecAsn1Item bulkKeySize;	/* if Skipjack is not the bulk
+    SecAsn1Item bulkKeySize;      /* if Skipjack is not the bulk
 			           algorithm used on the message,
 				   and the size of the bulk encryption
 				   key is not the same as that of
@@ -475,11 +475,11 @@ struct SecCmsSMIMEKEAParametersStr {
  */
 struct SecCmsAttributeStr {
     /* The following fields make up an encoded Attribute: */
-    SecAsn1Item			type;
-    SecAsn1Item **		values;	/* data may or may not be encoded */
+    SecAsn1Item type;
+    SecAsn1Item** values; /* data may or may not be encoded */
     /* The following fields are not part of an encoded Attribute: */
-    SECOidData *		typeTag;
-    Boolean			encoded;	/* when true, values are encoded */
+    SECOidData* typeTag;
+    Boolean encoded; /* when true, values are encoded */
 };
 
 

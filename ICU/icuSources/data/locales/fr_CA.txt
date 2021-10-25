@@ -1,5 +1,6 @@
-﻿// © 2016 and later: Unicode, Inc. and others.
-// License & terms of use: http://www.unicode.org/copyright.html#License
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html
+// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
 fr_CA{
     AuxExemplarCharacters{"[á å ä ã ā ē í ì ī ñ ó ò ö ø ú ǔ]"}
     NumberElements{
@@ -10,6 +11,7 @@ fr_CA{
             patternsLong{
                 decimalFormat{
                     1000{
+                        1{"0 mille"}
                         one{"0 mille"}
                         other{"0 mille"}
                     }
@@ -102,11 +104,11 @@ fr_CA{
                 }
             }
             symbols{
+                approximatelySign{"≈"}
                 group{" "}
             }
         }
     }
-    Version{"36.1"}
     calendar{
         coptic{
             monthNames{
@@ -253,6 +255,31 @@ fr_CA{
                 yyyyM{"y-MM G"}
                 yyyyMEd{"E y-MM-dd G"}
                 yyyyMd{"y-MM-dd G"}
+                 
+                // The following are all copied over from fr.txt to work around the horizontal-inheritance
+                // problem and to address rdar://78420184 and should be removed when the horizontal inheritance
+                // bug is fixed.
+                Bhm{"h:mm B"}
+                E{"ccc"}
+                Ed{"E d"}
+                Gy{"y G"}
+                GyMMM{"MMM y G"}
+                GyMMMEd{"E d MMM y G"}
+                GyMMMd{"d MMM y G"}
+                M{"L"}
+                MMM{"LLL"}
+                MMMEd{"E d MMM"}
+                MMMMd{"d MMMM"}
+                MMMd{"d MMM"}
+                d{"d"}
+                y{"y G"}
+                yyyy{"y G"}
+                yyyyMMM{"MMM y G"}
+                yyyyMMMEd{"E d MMM y G"}
+                yyyyMMMM{"MMMM y G"}
+                yyyyMMMd{"d MMM y G"}
+                yyyyQQQ{"QQQ y G"}
+                yyyyQQQQ{"QQQQ y G"}
             }
             intervalFormats{
                 Bh{
@@ -506,25 +533,33 @@ fr_CA{
                 H{
                     H{"H 'h' – H 'h'"}
                 }
+                Hm{
+                    H{"H 'h' mm – H 'h' mm"}
+                    m{"H 'h' mm – H 'h' mm"}
+                }
+                Hmv{
+                    H{"H 'h' mm – H 'h' mm v"}
+                    m{"H 'h' mm – H 'h' mm v"}
+                }
                 Hv{
                     H{"H 'h' – H 'h' v"}
                 }
                 M{
-                    M{"M–M"}
+                    M{"M – M"}
                 }
                 MEd{
                     M{"E MM-dd – E MM-dd"}
                     d{"E MM-dd – E MM-dd"}
                 }
-                MMM{
-                    M{"MMM – MMM"}
+                MMMd{
+                    d{"d – d MMM"}
                 }
                 Md{
                     M{"MM-dd – MM-dd"}
                     d{"MM-dd – MM-dd"}
                 }
                 d{
-                    d{"d–d"}
+                    d{"d – d"}
                 }
                 h{
                     a{"h 'h' a – h 'h' a"}
@@ -545,7 +580,7 @@ fr_CA{
                     h{"h 'h' – h 'h' a v"}
                 }
                 y{
-                    y{"y–y"}
+                    y{"y – y"}
                 }
                 yM{
                     M{"y-MM – y-MM"}

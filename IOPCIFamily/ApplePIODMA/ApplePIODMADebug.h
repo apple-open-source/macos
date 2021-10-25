@@ -119,6 +119,6 @@ enum tApplePIODMADebugLoggingMask
 
 
 uint32_t applePIODMAgetDebugLoggingMask(const char* bootArg);
-uint32_t applePIODMAgetDebugLoggingMaskForMetaClass(const OSMetaClass* metaClass, const OSMetaClass* stopClass);
+uint32_t applePIODMAgetDebugLoggingMaskForMetaClass(const OSMetaClass* metaClass, const OSMetaClass* stopClass = OSObject::metaClass, const char* location = NULL);
 
 #endif /* ApplePIODMADebug_h */

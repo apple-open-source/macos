@@ -28,7 +28,7 @@
 
 #import <Foundation/Foundation.h>
 #import "keychain/ot/OTControl.h"
-#import "KCJoiningSession.h"
+#import <KeychainCircle/KCJoiningSession.h>
 
 @interface KCJoiningAcceptSession (Internal)
 

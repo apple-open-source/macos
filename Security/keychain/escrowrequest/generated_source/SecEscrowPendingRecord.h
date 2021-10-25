@@ -20,6 +20,7 @@ __attribute__((visibility("hidden")))
     uint64_t _uploadRetries;
     NSString *_altDSID;
     NSData *_serializedPrerecord;
+    NSData *_serializedReason;
     NSString *_uuid;
     BOOL _certCached;
     BOOL _uploadCompleted;
@@ -71,6 +72,10 @@ __attribute__((visibility("hidden")))
 @property (nonatomic) BOOL hasTriggerRequestTime;
 /** Request was generated at the time, ms since 1970 */
 @property (nonatomic) uint64_t triggerRequestTime;
+
+@property (nonatomic, readonly) BOOL hasSerializedReason;
+/** A serialized SecureBackupEscrowReason; format is defined by CloudServices. */
+@property (nonatomic, retain) NSData *serializedReason;
 
 // Performs a shallow copy into other
 - (void)copyTo:(SecEscrowPendingRecord *)other;

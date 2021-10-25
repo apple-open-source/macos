@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2005, 2009-2011, 2013, 2016, 2017, 2019 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2005, 2009-2011, 2013, 2016, 2017, 2019, 2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -47,26 +47,17 @@ SCDynamicStoreCopyKeyList(SCDynamicStoreRef store, CFStringRef pattern)
 	int				sc_status;
 	CFArrayRef			allKeys;
 
-	if (store == NULL) {
-		store = __SCDynamicStoreNullSession();
-		if (store == NULL) {
-			/* sorry, you must provide a session */
-			_SCErrorSet(kSCStatusNoStoreSession);
-			return NULL;
-		}
-	}
-
-	storePrivate = (SCDynamicStorePrivateRef)store;
-	if (storePrivate->server == MACH_PORT_NULL) {
-		_SCErrorSet(kSCStatusNoStoreServer);
+	if (!__SCDynamicStoreNormalize(&store, TRUE)) {
 		return NULL;
 	}
 
 	/* serialize the pattern */
-	if (!_SCSerializeString(pattern, &utfPattern, (void **)&myPatternRef, &myPatternLen)) {
+	if (!_SCSerializeString(pattern, &utfPattern, &myPatternRef, &myPatternLen)) {
 		_SCErrorSet(kSCStatusFailed);
 		return NULL;
 	}
+
+	storePrivate = (SCDynamicStorePrivateRef)store;
 
     retry :
 

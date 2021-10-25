@@ -608,6 +608,11 @@ buffer_flushed_callback(struct buf *bp, void *arg)
 		return;
 	}
 
+	if (tr->total_bytes == (int)0xfbadc0de) {
+		// then someone beat us to it...
+		return;
+	}
+
 	CHECK_TRANSACTION(tr);
 
 	jnl = tr->jnl;
@@ -641,6 +646,7 @@ buffer_flushed_callback(struct buf *bp, void *arg)
 	// this will single thread checking the transaction
 	lock_oldstart(jnl);
 
+	// re-check this after acquiring the lock
 	if (tr->total_bytes == (int)0xfbadc0de) {
 		// then someone beat us to it...
 		unlock_oldstart(jnl);

@@ -30,213 +30,292 @@
 #import "keychain/ot/OTConstants.h"
 #import "keychain/categories/NSError+UsefulConstructors.h"
 
-OctagonState* const OctagonStateNoAccount = (OctagonState*) @"no_account";
+OctagonState* const OctagonStateNoAccount = (OctagonState*)@"NoAccount";
 
-OctagonState* const OctagonStateWaitForHSA2 = (OctagonState*) @"wait_for_hsa2";
-OctagonState* const OctagonStateWaitForCDP = (OctagonState*) @"wait_for_cdp_enable";
+OctagonState* const OctagonStateWaitForHSA2 = (OctagonState*)@"WaitForHSA2";
+OctagonState* const OctagonStateWaitForCDP = (OctagonState*)@"WaitForCDP";
 
-OctagonState* const OctagonStateUntrusted = (OctagonState*) @"untrusted";
-OctagonState* const OctagonStateBecomeUntrusted = (OctagonState*) @"become_untrusted";
+OctagonState* const OctagonStateUntrusted = (OctagonState*)@"Untrusted";
+OctagonState* const OctagonStateBecomeUntrusted = (OctagonState*)@"BecomeUntrusted";
 
-OctagonState* const OctagonStateReady = (OctagonState*) @"ready";
-OctagonState* const OctagonStateBecomeReady = (OctagonState*) @"become_ready";
+OctagonState* const OctagonStateReady = (OctagonState*)@"Ready";
+OctagonState* const OctagonStateBecomeReady = (OctagonState*)@"BecomeReady";
+OctagonState* const OctagonStateInherited = (OctagonState*)@"Inherited";
+OctagonState* const OctagonStateBecomeInherited = (OctagonState*)@"BecomeInherited";
 
-OctagonState* const OctagonStateEnsureConsistency = (OctagonState*) @"consistency_check";
-OctagonState* const OctagonStateEnsureOctagonKeysAreConsistent = (OctagonState*)@"key_consistency_check";
-OctagonState* const OctagonStateEnsureUpdatePreapprovals = (OctagonState*)@"ensure_preapprovals_updated";
+OctagonState* const OctagonStateEnsureConsistency = (OctagonState*)@"EnsureConsistency";
+OctagonState* const OctagonStateEnsureOctagonKeysAreConsistent = (OctagonState*)@"EnsureOctagonKeysAreConsistent";
+OctagonState* const OctagonStateEnsureUpdatePreapprovals = (OctagonState*)@"EnsureUpdatePreapprovals";
 
-OctagonState* const OctagonStateInitializing = (OctagonState*) @"initializing";
-OctagonState* const OctagonStateWaitingForCloudKitAccount = (OctagonState*) @"waiting_for_cloudkit_account";
-OctagonState* const OctagonStateCloudKitNewlyAvailable = (OctagonState*) @"account_newly_available";
-OctagonState* const OctagonStateRefetchCKKSPolicy = (OctagonState*) @"ckks_fetch_policy";
-OctagonState* const OctagonStateDetermineCDPState = (OctagonState*) @"check_cdp_state";
-OctagonState* const OctagonStateCheckTrustState = (OctagonState*) @"check_trust_state";
+OctagonState* const OctagonStateInitializing = (OctagonState*)@"Initializing";
+OctagonState* const OctagonStateWaitingForCloudKitAccount = (OctagonState*)@"WaitingForCloudKitAccount";
+OctagonState* const OctagonStateCloudKitNewlyAvailable = (OctagonState*)@"CloudKitNewlyAvailable";
+OctagonState* const OctagonStateRefetchCKKSPolicy = (OctagonState*)@"RefetchCKKSPolicy";
+OctagonState* const OctagonStateDetermineCDPState = (OctagonState*)@"DetermineCDPState";
+OctagonState* const OctagonStateCheckForAccountFixups = (OctagonState*)@"CheckForAccountFixups";
+OctagonState* const OctagonStateCheckTrustState = (OctagonState*)@"CheckTrustState";
 
-OctagonState* const OctagonStateEnableUserControllableViews = (OctagonState*) @"ckks_set_user_controllable_views_on";
-OctagonState* const OctagonStateDisableUserControllableViews = (OctagonState*) @"ckks_set_user_controlable_views_off";
-OctagonState* const OctagonStateSetUserControllableViewsToPeerConsensus = (OctagonState*) @"ckks_set_user_controlable_views_peer_consensus";
+OctagonState* const OctagonStatePerformAccountFixups = (OctagonState*)@"PerformAccountFixups";
 
-OctagonState* const OctagonStateUpdateSOSPreapprovals = (OctagonState*) @"update_sos_preapprovals";
+OctagonState* const OctagonStateEnableUserControllableViews = (OctagonState*)@"EnableUserControllableViews";
+OctagonState* const OctagonStateDisableUserControllableViews = (OctagonState*)@"DisableUserControllableViews";
+OctagonState* const OctagonStateSetUserControllableViewsToPeerConsensus = (OctagonState*)@"SetUserControllableViewsToPeerConsensus";
+
+OctagonState* const OctagonStateUpdateSOSPreapprovals = (OctagonState*)@"UpdateSOSPreapprovals";
 
 /*Piggybacking and ProximitySetup as Initiator Octagon only*/
-OctagonState* const OctagonStateInitiatorSetCDPBit = (OctagonState*) @"initiator_set_cdp";
-OctagonState* const OctagonStateInitiatorUpdateDeviceList = (OctagonState*) @"initiator_device_list_update";
-OctagonState* const OctagonStateInitiatorAwaitingVoucher = (OctagonState*)@"await_voucher";
-OctagonState* const OctagonStateInitiatorJoin = (OctagonState*)@"join";
-OctagonState* const OctagonStateInitiatorJoinCKKSReset = (OctagonState*)@"join_ckks_reset";
-OctagonState* const OctagonStateInitiatorJoinAfterCKKSReset = (OctagonState*)@"join_after_ckks_reset";
+OctagonState* const OctagonStateInitiatorSetCDPBit = (OctagonState*)@"InitiatorSetCDPBit";
+OctagonState* const OctagonStateInitiatorUpdateDeviceList = (OctagonState*)@"InitiatorUpdateDeviceList";
+OctagonState* const OctagonStateInitiatorAwaitingVoucher = (OctagonState*)@"InitiatorAwaitingVoucher";
+OctagonState* const OctagonStateInitiatorJoin = (OctagonState*)@"InitiatorJoin";
+OctagonState* const OctagonStateInitiatorJoinCKKSReset = (OctagonState*)@"InitiatorJoinCKKSReset";
+OctagonState* const OctagonStateInitiatorJoinAfterCKKSReset = (OctagonState*)@"InitiatorJoinAfterCKKSReset";
 
 /* used in restore (join with bottle)*/
-OctagonState* const OctagonStateBottleJoinCreateIdentity = (OctagonState*)@"bottle_join_create_identity";
-OctagonState* const OctagonStateBottleJoinVouchWithBottle = (OctagonState*)@"bottle_join_vouch_with_bottle";
-OctagonState* const OctagonStateCreateIdentityForRecoveryKey = (OctagonState*)@"vouchWithRecovery";
-OctagonState* const OctagonStateBottlePreloadOctagonKeysInSOS = (OctagonState*)@"bottle_preload_octagon_keys_in_sos";
+OctagonState* const OctagonStateBottleJoinCreateIdentity = (OctagonState*)@"BottleJoinCreateIdentity";
+OctagonState* const OctagonStateBottleJoinVouchWithBottle = (OctagonState*)@"BottleJoinVouchWithBottle";
+OctagonState* const OctagonStateCreateIdentityForRecoveryKey = (OctagonState*)@"CreateIdentityForRecoveryKey";
+OctagonState* const OctagonStateCreateIdentityForCustodianRecoveryKey = (OctagonState*)@"CreateIdentityForCustodianRecoveryKey";
 
-/* used in resotre (join with recovery key)*/
-OctagonState* const OctagonStateVouchWithRecoveryKey = (OctagonState*)@"vouchWithRecoveryKey";
+OctagonState* const OctagonStateBottlePreloadOctagonKeysInSOS = (OctagonState*)@"BottlePreloadOctagonKeysInSOS";
 
-OctagonState* const OctagonStateStartCompanionPairing = (OctagonState*)@"start_companion_pairing";
+/* used in restore (join with recovery key)*/
+OctagonState* const OctagonStateVouchWithRecoveryKey = (OctagonState*)@"VouchWithRecoveryKey";
+OctagonState* const OctagonStateVouchWithCustodianRecoveryKey = (OctagonState*)@"VouchWithCustodianRecoveryKey";
+OctagonState* const OctagonStateJoinSOSAfterCKKSFetch = (OctagonState*)@"JoinSOSAfterCKKSFetch";
+OctagonState* const OctagonStatePrepareAndRecoverTLKSharesForInheritancePeer = (OctagonState*)@"PrepareAndRecoverTLKSharesForInheritancePeer";
 
-OctagonState* const OctagonStateWaitForCDPUpdated = (OctagonState*)@"wait_for_cdp_update";
+OctagonState* const OctagonStateStartCompanionPairing = (OctagonState*)@"StartCompanionPairing";
+
+OctagonState* const OctagonStateWaitForCDPUpdated = (OctagonState*)@"WaitForCDPUpdated";
 
 // Untrusted cuttlefish notification.
-OctagonState* const OctagonStateUntrustedUpdated = (OctagonState*)@"untrusted_update";
+OctagonState* const OctagonStateUntrustedUpdated = (OctagonState*)@"UntrustedUpdated";
 
 // Cuttlefish notifiation while ready.
-OctagonState* const OctagonStateReadyUpdated = (OctagonState*)@"ready_update";
+OctagonState* const OctagonStateReadyUpdated = (OctagonState*)@"ReadyUpdated";
 
-OctagonState* const OctagonStateError = (OctagonState*) @"error";
-OctagonState* const OctagonStateDisabled = (OctagonState*) @"disabled";
+OctagonState* const OctagonStateError = (OctagonState*)@"Error";
+OctagonState* const OctagonStateDisabled = (OctagonState*)@"Disabled";
 
-OctagonState* const OctagonStateDetermineiCloudAccountState = (OctagonState*) @"determine_icloud_account";
+OctagonState* const OctagonStateDetermineiCloudAccountState = (OctagonState*)@"DetermineiCloudAccountState";
 
-OctagonState* const OctagonStateAttemptSOSUpgradeDetermineCDPState = (OctagonState*) @"sosupgrade_cdp_check";
-OctagonState* const OctagonStateAttemptSOSUpgrade = (OctagonState*) @"sosupgrade";
-OctagonState* const OctagonStateSOSUpgradeCKKSReset = (OctagonState*) @"sosupgrade_ckks_reset";
-OctagonState* const OctagonStateSOSUpgradeAfterCKKSReset = (OctagonState*) @"sosupgrade_after_ckks_reset";
-OctagonState* const OctagonStateUnimplemented = (OctagonState*) @"unimplemented";
+OctagonState* const OctagonStateAttemptSOSUpgradeDetermineCDPState = (OctagonState*)@"AttemptSOSUpgradeDetermineCDPState";
+OctagonState* const OctagonStateAttemptSOSUpgrade = (OctagonState*)@"AttemptSOSUpgrade";
+OctagonState* const OctagonStateSOSUpgradeCKKSReset = (OctagonState*)@"SOSUpgradeCKKSReset";
+OctagonState* const OctagonStateSOSUpgradeAfterCKKSReset = (OctagonState*)@"SOSUpgradeAfterCKKSReset";
+OctagonState* const OctagonStateUnimplemented = (OctagonState*)@"Unimplemented";
 
 /* Reset and establish */
-OctagonState* const OctagonStateResetBecomeUntrusted = (OctagonState*) @"reset_become_untrusted";
-OctagonState* const OctagonStateResetAndEstablish = (OctagonState*) @"reset_and_establish";
-OctagonState* const OctagonStateResetAnyMissingTLKCKKSViews = (OctagonState*) @"reset_ckks_missing_views";
-OctagonState* const OctagonStateEstablishEnableCDPBit = (OctagonState*) @"reenact_cdp_bit";
-OctagonState* const OctagonStateReEnactDeviceList = (OctagonState*) @"reenact_device_list";
-OctagonState* const OctagonStateReEnactPrepare = (OctagonState*) @"reenact_prepare";
-OctagonState* const OctagonStateReEnactReadyToEstablish = (OctagonState*) @"reenact_ready_to_establish";
-OctagonState* const OctagonStateEstablishCKKSReset = (OctagonState*) @"reenact_ckks_reset";
-OctagonState* const OctagonStateEstablishAfterCKKSReset = (OctagonState*) @"reenact_establish_after_ckks_reset";
+OctagonState* const OctagonStateResetBecomeUntrusted = (OctagonState*)@"ResetBecomeUntrusted";
+OctagonState* const OctagonStateResetAndEstablish = (OctagonState*)@"ResetAndEstablish";
+OctagonState* const OctagonStateResetAnyMissingTLKCKKSViews = (OctagonState*)@"ResetAnyMissingTLKCKKSViews";
+OctagonState* const OctagonStateEstablishEnableCDPBit = (OctagonState*)@"EstablishEnableCDPBit";
+OctagonState* const OctagonStateReEnactDeviceList = (OctagonState*)@"ReEnactDeviceList";
+OctagonState* const OctagonStateReEnactPrepare = (OctagonState*)@"ReEnactPrepare";
+OctagonState* const OctagonStateReEnactReadyToEstablish = (OctagonState*)@"ReEnactReadyToEstablish";
+OctagonState* const OctagonStateEstablishCKKSReset = (OctagonState*)@"EstablishCKKSReset";
+OctagonState* const OctagonStateEstablishAfterCKKSReset = (OctagonState*)@"EstablishAfterCKKSReset";
 
 /* used for trust health checks */
-OctagonState* const OctagonStateHSA2HealthCheck = (OctagonState*) @"health_hsa2_check";
-OctagonState* const OctagonStateCDPHealthCheck = (OctagonState*) @"health_cdp_check";
-OctagonState* const OctagonStateTPHTrustCheck = (OctagonState*) @"tph_trust_check";
-OctagonState* const OctagonStateCuttlefishTrustCheck = (OctagonState*) @"cuttlefish_trust_check";
-OctagonState* const OctagonStatePostRepairCFU = (OctagonState*) @"post_repair_cfu";
-OctagonState* const OctagonStateSecurityTrustCheck = (OctagonState*) @"security_trust_check";
-OctagonState* const OctagonStateHealthCheckReset = (OctagonState*) @"health_check_reset";
+OctagonState* const OctagonStateHSA2HealthCheck = (OctagonState*)@"HSA2HealthCheck";
+OctagonState* const OctagonStateCDPHealthCheck = (OctagonState*)@"CDPHealthCheck";
+OctagonState* const OctagonStateTPHTrustCheck = (OctagonState*)@"TPHTrustCheck";
+OctagonState* const OctagonStateCuttlefishTrustCheck = (OctagonState*)@"CuttlefishTrustCheck";
+OctagonState* const OctagonStatePostRepairCFU = (OctagonState*)@"PostRepairCFU";
+OctagonState* const OctagonStateSecurityTrustCheck = (OctagonState*)@"SecurityTrustCheck";
+OctagonState* const OctagonStateHealthCheckReset = (OctagonState*)@"HealthCheckReset";
+
 /* signout */
-OctagonState* const OctagonStateNoAccountDoReset = (OctagonState*) @"no_account_do_reset";
+OctagonState* const OctagonStateNoAccountDoReset = (OctagonState*)@"NoAccountDoReset";
 
-OctagonState* const OctagonStateLostAccountAuth = (OctagonState*) @"authkit_auth_lost";
+OctagonState* const OctagonStateLostAccountAuth = (OctagonState*)@"LostAccountAuth";
+OctagonState* const OctagonStatePeerMissingFromServer = (OctagonState*)@"PeerMissingFromServer";
 
-OctagonState* const OctagonStateWaitForUnlock = (OctagonState*) @"wait_for_unlock";
-OctagonState* const OctagonStateWaitForClassCUnlock = (OctagonState*) @"wait_for_class_c_unlock";
+OctagonState* const OctagonStateWaitForUnlock = (OctagonState*)@"WaitForUnlock";
+OctagonState* const OctagonStateWaitForClassCUnlock = (OctagonState*)@"WaitForClassCUnlock";
 
-OctagonState* const OctagonStateAssistCKKSTLKUpload = (OctagonState*) @"assist_ckks_tlk_upload";
-OctagonState* const OctagonStateAssistCKKSTLKUploadCKKSReset = (OctagonState*) @"assist_ckks_tlk_upload_ckks_reset";
-OctagonState* const OctagonStateAssistCKKSTLKUploadAfterCKKSReset = (OctagonState*) @"assist_ckks_tlk_upload_after_ckks_reset";
+OctagonState* const OctagonStateAssistCKKSTLKUpload = (OctagonState*)@"AssistCKKSTLKUpload";
+OctagonState* const OctagonStateAssistCKKSTLKUploadCKKSReset = (OctagonState*)@"AssistCKKSTLKUploadCKKSReset";
+OctagonState* const OctagonStateAssistCKKSTLKUploadAfterCKKSReset = (OctagonState*)@"AssistCKKSTLKUploadAfterCKKSReset";
 
-OctagonState* const OctagonStateHealthCheckLeaveClique = (OctagonState*) @"leave_clique";
+OctagonState* const OctagonStateHealthCheckLeaveClique = (OctagonState*)@"HealthCheckLeaveClique";
+
+#if !defined(__OPEN_SOURCE__) && APPLE_FEATURE_WALRUS_UI
+OctagonState* const OctagonStateSetAccountSettings = (OctagonState*)@"SetAccountSettings";
+#endif /* APPLE_FEATURE_WALRUS_UI */
 
 /* escrow */
-OctagonState* const OctagonStateEscrowTriggerUpdate = (OctagonState*) @"escrow-trigger-update";
+OctagonState* const OctagonStateEscrowTriggerUpdate = (OctagonState*)@"EscrowTriggerUpdate";
 
-NSDictionary<OctagonState*, NSNumber*>* OctagonStateMap(void) {
+// Flags
+OctagonFlag* const OctagonFlagIDMSLevelChanged = (OctagonFlag*) @"idms_level";
+OctagonFlag* const OctagonFlagEgoPeerPreapproved = (OctagonFlag*) @"preapproved";
+OctagonFlag* const OctagonFlagCKKSRequestsTLKUpload = (OctagonFlag*) @"tlk_upload_needed";
+OctagonFlag* const OctagonFlagCKKSRequestsPolicyCheck = (OctagonFlag*) @"policy_check_needed";
+OctagonFlag* const OctagonFlagCKKSViewSetChanged = (OctagonFlag*) @"ckks_views_changed";
+OctagonFlag* const OctagonFlagCuttlefishNotification = (OctagonFlag*) @"recd_push";
+OctagonFlag* const OctagonFlagAccountIsAvailable = (OctagonFlag*)@"account_available";
+OctagonFlag* const OctagonFlagCDPEnabled = (OctagonFlag*) @"cdp_enabled";
+OctagonFlag* const OctagonFlagAttemptSOSUpgrade = (OctagonFlag*)@"attempt_sos_upgrade";
+OctagonFlag* const OctagonFlagFetchAuthKitMachineIDList = (OctagonFlag*)@"attempt_machine_id_list";
+OctagonFlag* const OctagonFlagUnlocked = (OctagonFlag*)@"unlocked";
+OctagonFlag* const OctagonFlagAttemptSOSUpdatePreapprovals = (OctagonFlag*)@"attempt_sos_update_preapprovals";
+OctagonFlag* const OctagonFlagAttemptSOSConsistency = (OctagonFlag*)@"attempt_sos_consistency";
+OctagonFlag* const OctagonFlagEscrowRequestInformCloudServicesOperation = (OctagonFlag*)@"escrowrequest_inform_cloudservices";
+OctagonFlag* const OctagonFlagAttemptBottleTLKExtraction = (OctagonFlag*)@"retry_bottle_tlk_extraction";
+OctagonFlag* const OctagonFlagAttemptRecoveryKeyTLKExtraction = (OctagonFlag*)@"retry_rk_tlk_extraction";
+OctagonFlag* const OctagonFlagSecureElementIdentityChanged  = (OctagonFlag*)@"se_id_changed";
+OctagonFlag* const OctagonFlagAttemptUserControllableViewStatusUpgrade = (OctagonFlag*)@"attempt_ucv_upgrade";
+
+@implementation OTStates
+
++ (NSArray<NSArray*>*) stateInit {
+    NSArray<NSArray*>* stateInit = @[
+                                     @[OctagonStateReady,                                   @0U,],
+                                     @[OctagonStateError,                                    @1U,],
+                                     @[OctagonStateInitializing,                             @2U,],
+                                     @[OctagonStateMachineNotStarted,                        @3U,],
+                                     @[OctagonStateDisabled,                                 @4U,],
+                                     @[OctagonStateUntrusted,                                @5U,],
+
+                                       //Removed: OctagonStateIdentityPrepared: @6U,],
+                                       //Removed: OctagonStateDeviceListUpdated: @7U,],
+
+                                       //8,11,12 used by multiple states
+
+                                       //Removed: OctagonStateInitiatorAwaitingAcceptorEpoch: @9U,],
+                                       //Removed: OctagonStateInitiatorReadyToSendIdentity: @10U,],
+
+
+                                     @[OctagonStateReEnactDeviceList,                        @13U,],
+                                     @[OctagonStateReEnactPrepare,                           @14U,],
+                                     @[OctagonStateReEnactReadyToEstablish,                  @15U,],
+                                     @[OctagonStateNoAccountDoReset,                         @16U,],
+                                     @[OctagonStateBottleJoinVouchWithBottle,                @17U,],
+                                     @[OctagonStateBottleJoinCreateIdentity,                 @18U,],
+                                     @[OctagonStateCloudKitNewlyAvailable,                   @19U,],
+                                     @[OctagonStateCheckTrustState,                          @20U,],
+                                     @[OctagonStateBecomeUntrusted,                          @21U,],
+                                     @[OctagonStateWaitForUnlock,                            @22U,],
+                                     @[OctagonStateWaitingForCloudKitAccount,                @23U,],
+                                     @[OctagonStateBecomeReady,                              @24U,],
+                                     @[OctagonStateVouchWithRecoveryKey,                     @25U,],
+                                     @[OctagonStateCreateIdentityForRecoveryKey,             @26U,],
+                                     @[OctagonStateUpdateSOSPreapprovals,                    @27U,],
+                                     @[OctagonStateWaitForHSA2,                              @28U,],
+                                     @[OctagonStateAssistCKKSTLKUpload,                      @29U,],
+                                     @[OctagonStateStartCompanionPairing,                    @30U,],
+                                     @[OctagonStateEscrowTriggerUpdate,                      @31U,],
+                                     @[OctagonStateEnsureConsistency,                        @32U,],
+                                     @[OctagonStateResetBecomeUntrusted,                     @33U,],
+                                     @[OctagonStateUntrustedUpdated,                         @34U,],
+                                     @[OctagonStateReadyUpdated,                             @35U,],
+                                     @[OctagonStateTPHTrustCheck,                            @36U,],
+                                     @[OctagonStateCuttlefishTrustCheck,                     @37U,],
+                                     @[OctagonStatePostRepairCFU,                            @38U,],
+                                     @[OctagonStateSecurityTrustCheck,                       @39U,],
+                                     @[OctagonStateEnsureOctagonKeysAreConsistent,           @40U,],
+                                     @[OctagonStateEnsureUpdatePreapprovals,                 @41U,],
+                                     @[OctagonStateResetAnyMissingTLKCKKSViews,              @42U,],
+                                     @[OctagonStateEstablishCKKSReset,                       @43U,],
+                                     @[OctagonStateEstablishAfterCKKSReset,                  @44U,],
+                                     @[OctagonStateSOSUpgradeCKKSReset,                      @45U,],
+                                     @[OctagonStateSOSUpgradeAfterCKKSReset,                 @46U,],
+                                     @[OctagonStateInitiatorJoinCKKSReset,                   @47U,],
+                                     @[OctagonStateInitiatorJoinAfterCKKSReset,              @48U,],
+                                     @[OctagonStateHSA2HealthCheck,                          @49U,],
+                                     @[OctagonStateHealthCheckReset,                         @50U,],
+                                     @[OctagonStateAssistCKKSTLKUploadCKKSReset,             @51U,],
+                                     @[OctagonStateAssistCKKSTLKUploadAfterCKKSReset,        @52U,],
+                                     @[OctagonStateWaitForCDP,                               @53U,],
+                                     @[OctagonStateDetermineCDPState,                        @54U,],
+                                     @[OctagonStateWaitForCDPUpdated,                        @55U,],
+                                     @[OctagonStateEstablishEnableCDPBit,                    @56U,],
+                                     @[OctagonStateInitiatorSetCDPBit,                       @57U,],
+                                     @[OctagonStateCDPHealthCheck,                           @58U,],
+                                     @[OctagonStateHealthCheckLeaveClique,                   @59U,],
+                                     @[OctagonStateRefetchCKKSPolicy,                        @60U,],
+                                     @[OctagonStateEnableUserControllableViews,              @61U,],
+                                     @[OctagonStateDisableUserControllableViews,             @62U,],
+                                     @[OctagonStateSetUserControllableViewsToPeerConsensus,  @63U,],
+                                     @[OctagonStateWaitForClassCUnlock,                      @64U,],
+                                     @[OctagonStateBottlePreloadOctagonKeysInSOS,            @65U,],
+                                     @[OctagonStateAttemptSOSUpgradeDetermineCDPState,       @66U,],
+                                     @[OctagonStateLostAccountAuth,                          @67U,],
+#if !defined(__OPEN_SOURCE__) && APPLE_FEATURE_WALRUS_UI
+                                     @[OctagonStateSetAccountSettings,                       @68U,],
+#endif /* APPLE_FEATURE_WALRUS_UI */
+                                     @[OctagonStateCreateIdentityForCustodianRecoveryKey,    @69U,],
+                                     @[OctagonStateVouchWithCustodianRecoveryKey,            @70U,],
+                                     //Removed: @[OctagonStateFixupRefetchCuttlefishForCustodian,       @71U,],
+                                     //Removed: @[OctagonStateFixupRefetchCuttlefishForCustodianFailed, @72U,],
+                                     @[OctagonStateCheckForAccountFixups,                    @73U,],
+                                     @[OctagonStatePerformAccountFixups,                     @74U,],
+                                     @[OctagonStateJoinSOSAfterCKKSFetch,                    @75U,],
+                                     //Removed: OctagonStateVouchWithInheritanceKey:         @76U,],
+                                     //Removed: OctagonStateCreateIdentityForInheritanceKey: @77U,],
+                                     @[OctagonStateAttemptSOSUpgrade,                        @78U,],
+                                     @[OctagonStateInitiatorUpdateDeviceList,                @79U,],
+                                     @[OctagonStateInitiatorAwaitingVoucher,                 @80U,],
+                                     @[OctagonStateInitiatorJoin,                            @81U,],
+                                     @[OctagonStateNoAccount,                                @82U,],
+                                     @[OctagonStateResetAndEstablish,                        @83U,],
+                                     @[OctagonStateUnimplemented,                            @84U,],
+                                     @[OctagonStateDetermineiCloudAccountState,              @85U,],
+                                     @[OctagonStateDetermineiCloudAccountState,              @85U,],
+                                     @[OctagonStatePrepareAndRecoverTLKSharesForInheritancePeer,              @86U,],
+                                     @[OctagonStateBecomeInherited,                          @87U,],
+                                     @[OctagonStateInherited,                                @88U,],
+                                     @[OctagonStatePeerMissingFromServer,                    @89U,],
+                                     ];
+    return stateInit;
+}
+
++ (NSDictionary<OctagonState*, NSNumber*>*) OctagonStateMap {
     static NSDictionary<OctagonState*, NSNumber*>* map = nil;
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
-        map = @{
-                OctagonStateReady:                              @0U,
-                OctagonStateError:                              @1U,
-                OctagonStateInitializing:                       @2U,
-                OctagonStateMachineNotStarted:                  @3U,
-                OctagonStateDisabled:                           @4U,
-                OctagonStateUntrusted:                          @5U,
+            NSMutableDictionary *tmp = [[NSMutableDictionary alloc] init];
+            NSArray<NSArray*>* aa = [self stateInit];
+            for(NSArray *a in aa) {
+                NSString *stateName = a[0];
+                NSNumber *stateNum = a[1];
 
-                //Removed: OctagonStateInitiatorAwaitingAcceptorEpoch:     @9U,
-                //Removed: OctagonStateInitiatorReadyToSendIdentity:       @10U,
-
-                OctagonStateInitiatorUpdateDeviceList:          @8U,
-                OctagonStateInitiatorAwaitingVoucher:           @11U,
-                OctagonStateInitiatorJoin:                      @12U,
-
-                //Removed: OctagonStateIdentityPrepared:                   @6U,
-                //Removed: OctagonStateDeviceListUpdated:                  @7U,
-
-                OctagonStateAttemptSOSUpgrade:                  @8U,
-
-                OctagonStateUnimplemented:                      @9U,
-                OctagonStateDetermineiCloudAccountState:        @10U,
-                OctagonStateNoAccount:                          @11U,
-
-                OctagonStateResetAndEstablish:                  @12U,
-                OctagonStateReEnactDeviceList:                  @13U,
-                OctagonStateReEnactPrepare:                     @14U,
-                OctagonStateReEnactReadyToEstablish:            @15U,
-                OctagonStateNoAccountDoReset:                   @16U,
-                OctagonStateBottleJoinVouchWithBottle:          @17U,
-                OctagonStateBottleJoinCreateIdentity:           @18U,
-                OctagonStateCloudKitNewlyAvailable:             @19U,
-                OctagonStateCheckTrustState:                    @20U,
-                OctagonStateBecomeUntrusted:                    @21U,
-                OctagonStateWaitForUnlock:                      @22U,
-                OctagonStateWaitingForCloudKitAccount:          @23U,
-                OctagonStateBecomeReady:                        @24U,
-                OctagonStateVouchWithRecoveryKey:               @25U,
-                OctagonStateCreateIdentityForRecoveryKey:       @26U,
-                OctagonStateUpdateSOSPreapprovals:              @27U,
-                OctagonStateWaitForHSA2:                        @28U,
-                OctagonStateAssistCKKSTLKUpload:                @29U,
-                OctagonStateStartCompanionPairing:              @30U,
-                OctagonStateEscrowTriggerUpdate:                @31U,
-                OctagonStateEnsureConsistency:                  @32U,
-                OctagonStateResetBecomeUntrusted:               @33U,
-                OctagonStateUntrustedUpdated:                   @34U,
-                OctagonStateReadyUpdated:                       @35U,
-                OctagonStateTPHTrustCheck:                      @36U,
-                OctagonStateCuttlefishTrustCheck:               @37U,
-                OctagonStatePostRepairCFU:                      @38U,
-                OctagonStateSecurityTrustCheck:                 @39U,
-                OctagonStateEnsureOctagonKeysAreConsistent:     @40U,
-                OctagonStateEnsureUpdatePreapprovals:           @41U,
-                OctagonStateResetAnyMissingTLKCKKSViews:        @42U,
-                OctagonStateEstablishCKKSReset:                 @43U,
-                OctagonStateEstablishAfterCKKSReset:            @44U,
-                OctagonStateSOSUpgradeCKKSReset:                @45U,
-                OctagonStateSOSUpgradeAfterCKKSReset:           @46U,
-                OctagonStateInitiatorJoinCKKSReset:             @47U,
-                OctagonStateInitiatorJoinAfterCKKSReset:        @48U,
-                OctagonStateHSA2HealthCheck:                    @49U,
-                OctagonStateHealthCheckReset:                   @50U,
-                OctagonStateAssistCKKSTLKUploadCKKSReset:       @51U,
-                OctagonStateAssistCKKSTLKUploadAfterCKKSReset:  @52U,
-                OctagonStateWaitForCDP:                         @53U,
-                OctagonStateDetermineCDPState:                  @54U,
-                OctagonStateWaitForCDPUpdated:                  @55U,
-                OctagonStateEstablishEnableCDPBit:              @56U,
-                OctagonStateInitiatorSetCDPBit:                 @57U,
-                OctagonStateCDPHealthCheck:                     @58U,
-                OctagonStateHealthCheckLeaveClique:             @59U,
-                OctagonStateRefetchCKKSPolicy:                  @60U,
-                OctagonStateEnableUserControllableViews:        @61U,
-                OctagonStateDisableUserControllableViews:       @62U,
-                OctagonStateSetUserControllableViewsToPeerConsensus: @63U,
-                OctagonStateWaitForClassCUnlock:                @64U,
-                OctagonStateBottlePreloadOctagonKeysInSOS:      @65U,
-                OctagonStateAttemptSOSUpgradeDetermineCDPState: @66U,
-                OctagonStateLostAccountAuth:                    @67U,
-            };
+                NSAssert([stateName isKindOfClass:[NSString class]], @"stateName should be string");
+                NSAssert([stateNum isKindOfClass:[NSNumber class]], @"stateNum should be number");
+                tmp[stateName] = stateNum;
+            }
+            map = tmp;
     });
     return map;
 }
 
-NSDictionary<NSNumber*, OctagonState*>* OctagonStateInverseMap(void) {
++ (NSDictionary<NSNumber*, OctagonState*>*) OctagonStateInverseMap {
     static NSDictionary<NSNumber*, OctagonState*>* backwardMap = nil;
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
-        NSDictionary<OctagonState*, NSNumber*>* forwardMap = OctagonStateMap();
-        backwardMap = [NSDictionary dictionaryWithObjects:[forwardMap allKeys] forKeys:[forwardMap allValues]];
+            NSMutableDictionary *tmp = [[NSMutableDictionary alloc] init];
+            NSArray<NSArray*>* aa = [self stateInit];
+            for(NSArray *a in aa) {
+                NSString *stateName = a[0];
+                NSNumber *stateNum = a[1];
+
+                NSAssert([stateName isKindOfClass:[NSString class]], @"stateName should be string");
+                NSAssert([stateNum isKindOfClass:[NSNumber class]], @"stateNum should be number");
+                tmp[stateNum] = stateName;
+            }
+            backwardMap = tmp;
     });
     return backwardMap;
 }
 
-NSSet<OctagonState*>* OctagonInAccountStates(void)
++ (NSSet<OctagonState*>*) OctagonInAccountStates
 {
     static NSSet<OctagonState*>* s = nil;
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
-        NSMutableSet* sourceStates = [NSMutableSet setWithArray: OctagonStateMap().allKeys];
+        NSMutableSet* sourceStates = [NSMutableSet setWithArray: [self OctagonStateMap].allKeys];
 
         // NoAccount is obviously not in-account, but we also include the startup states that determine
         // apple account and icloud account status:
@@ -256,7 +335,7 @@ NSSet<OctagonState*>* OctagonInAccountStates(void)
     return s;
 }
 
-NSSet<OctagonState*>* OctagonNotInCliqueStates(void)
++ (NSSet<OctagonState*>*) OctagonNotInCliqueStates
 {
     static NSSet<OctagonState*>* s = nil;
     static dispatch_once_t onceToken;
@@ -277,7 +356,7 @@ NSSet<OctagonState*>* OctagonNotInCliqueStates(void)
     return s;
 }
 
-NSSet<OctagonState *>* OctagonHealthSourceStates(void)
++ (NSSet<OctagonState *>*) OctagonHealthSourceStates
 {
     static NSSet<OctagonState*>* s = nil;
     static dispatch_once_t onceToken;
@@ -296,28 +375,7 @@ NSSet<OctagonState *>* OctagonHealthSourceStates(void)
     return s;
 }
 
-// Flags
-OctagonFlag* const OctagonFlagIDMSLevelChanged = (OctagonFlag*) @"idms_level";
-OctagonFlag* const OctagonFlagEgoPeerPreapproved = (OctagonFlag*) @"preapproved";
-OctagonFlag* const OctagonFlagCKKSRequestsTLKUpload = (OctagonFlag*) @"tlk_upload_needed";
-OctagonFlag* const OctagonFlagCKKSRequestsPolicyCheck = (OctagonFlag*) @"policy_check_needed";;
-OctagonFlag* const OctagonFlagCKKSViewSetChanged = (OctagonFlag*) @"ckks_views_changed";
-OctagonFlag* const OctagonFlagCuttlefishNotification = (OctagonFlag*) @"recd_push";
-OctagonFlag* const OctagonFlagAccountIsAvailable = (OctagonFlag*)@"account_available";
-OctagonFlag* const OctagonFlagCDPEnabled = (OctagonFlag*) @"cdp_enabled";
-OctagonFlag* const OctagonFlagAttemptSOSUpgrade = (OctagonFlag*)@"attempt_sos_upgrade";
-OctagonFlag* const OctagonFlagFetchAuthKitMachineIDList = (OctagonFlag*)@"attempt_machine_id_list";
-OctagonFlag* const OctagonFlagUnlocked = (OctagonFlag*)@"unlocked";
-OctagonFlag* const OctagonFlagAttemptSOSUpdatePreapprovals = (OctagonFlag*)@"attempt_sos_update_preapprovals";
-OctagonFlag* const OctagonFlagAttemptSOSConsistency = (OctagonFlag*)@"attempt_sos_consistency";
-OctagonFlag* const OctagonFlagEscrowRequestInformCloudServicesOperation = (OctagonFlag*)@"escrowrequest_inform_cloudservices";
-OctagonFlag* const OctagonFlagWarmEscrowRecordCache = (OctagonFlag*)@"warm_escrow_cache";
-OctagonFlag* const OctagonFlagAttemptBottleTLKExtraction = (OctagonFlag*)@"retry_bottle_tlk_extraction";
-OctagonFlag* const OctagonFlagAttemptRecoveryKeyTLKExtraction = (OctagonFlag*)@"retry_rk_tlk_extraction";
-
-OctagonFlag* const OctagonFlagAttemptUserControllableViewStatusUpgrade = (OctagonFlag*)@"attempt_ucv_upgrade";
-
-NSSet<OctagonFlag *>* AllOctagonFlags(void)
++ (NSSet<OctagonFlag *>*) AllOctagonFlags
 {
     static NSSet<OctagonFlag*>* f = nil;
     static dispatch_once_t onceToken;
@@ -337,14 +395,16 @@ NSSet<OctagonFlag *>* AllOctagonFlags(void)
         [flags addObject:OctagonFlagUnlocked];
         [flags addObject:OctagonFlagAttemptSOSUpdatePreapprovals];
         [flags addObject:OctagonFlagAttemptSOSConsistency];
-        [flags addObject:OctagonFlagWarmEscrowRecordCache];
         [flags addObject:OctagonFlagAttemptUserControllableViewStatusUpgrade];
         [flags addObject:OctagonFlagAttemptBottleTLKExtraction];
         [flags addObject:OctagonFlagAttemptRecoveryKeyTLKExtraction];
+        [flags addObject:OctagonFlagSecureElementIdentityChanged];
 
         f = flags;
     });
     return f;
 }
+
+@end
 
 #endif // OCTAGON

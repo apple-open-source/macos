@@ -169,7 +169,7 @@ nfsrv_uc_dequeue(struct nfsrv_sock *slp)
 		OSDecrementAtomic(&nfsrv_uc_queue_count);
 #endif
 	}
-	FREE(slp->ns_ua, M_TEMP);
+	kfree_type(struct nfsrv_uc_arg, slp->ns_ua);
 	slp->ns_ua = NULL;
 	lck_mtx_unlock(&myqueue->ucq_lock);
 }
@@ -347,7 +347,7 @@ nfsrv_uc_proxy(socket_t so, void *arg, int waitflag)
 		}
 
 		if (nfsrv_uc_queue_limit && count > nfsrv_uc_queue_limit) {
-			panic("nfsd up-call queue limit exceeded\n");
+			panic("nfsd up-call queue limit exceeded");
 		}
 	}
 #endif
@@ -376,10 +376,8 @@ nfsrv_uc_addsock(struct nfsrv_sock *slp, int start)
 	 * generate up-calls.
 	 */
 	if (nfsrv_uc_thread_count) {
-		MALLOC(arg, struct nfsrv_uc_arg *, sizeof(struct nfsrv_uc_arg), M_TEMP, M_WAITOK | M_ZERO);
-		if (arg == NULL) {
-			goto direct;
-		}
+		arg = kalloc_type(struct nfsrv_uc_arg,
+		    Z_WAITOK | Z_ZERO | Z_NOFAIL);
 
 		slp->ns_ua = arg;
 		arg->nua_slp = slp;
@@ -387,7 +385,6 @@ nfsrv_uc_addsock(struct nfsrv_sock *slp, int start)
 
 		sock_setupcall(slp->ns_so, nfsrv_uc_proxy, arg);
 	} else {
-direct:
 		slp->ns_ua = NULL;
 		DPRINT("setting nfsrv_rcv up-call\n");
 		sock_setupcall(slp->ns_so, nfsrv_rcv, slp);

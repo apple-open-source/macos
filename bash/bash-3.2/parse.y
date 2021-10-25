@@ -2280,6 +2280,12 @@ static int open_brace_count;
 		break; \
 	      if (word_token_alist[i].token == TIME && time_command_acceptable () == 0) \
 		break; \
+	      /* rdar://75277765 -- don't recognize 'esac' as a reserved token when it's used as a matching
+	       * word in a case pattern, i.e. when it's preceeded by '(' or '|'.
+	       */ \
+	      if ((parser_state & PST_CASEPAT) && (word_token_alist[i].token == ESAC) && \
+		  ((last_read_token == '(') || (last_read_token == '|'))) \
+		break; \
 	      if (word_token_alist[i].token == ESAC) \
 		parser_state &= ~(PST_CASEPAT|PST_CASESTMT); \
 	      else if (word_token_alist[i].token == CASE) \
@@ -2451,9 +2457,15 @@ special_case_tokens (tokstr)
      the designers disagree. */
   if (esacs_needed_count)
     {
-      esacs_needed_count--;
-      if (STREQ (tokstr, "esac"))
+      /* rdar://75277765 -- narrow down the scope of this check to only the
+       * case mentioned in the comment above, so that if 'esac' appears
+       * elsewhere inside the case pattern list (e.g. because we're trying to
+       * match it as a string), we don't recognize it as a token.
+       * See also the comment in CHECK_FOR_RESERVED_WORD() above
+       */
+      if (last_read_token == IN && STREQ (tokstr, "esac"))
 	{
+	  esacs_needed_count--;
 	  parser_state &= ~PST_CASEPAT;
 	  return (ESAC);
 	}

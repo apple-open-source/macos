@@ -16,6 +16,8 @@
 		<true/>
 		<key>com.apple.iokit.powerdxpc</key>
 		<true/>
+		<key>com.apple.powerd.lowpowermode</key>
+		<true/>
 	</dict>
 	<key>JetsamProperties</key>
 	<dict>

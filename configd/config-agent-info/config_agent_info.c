@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, 2019 Apple Inc. All rights reserved.
+ * Copyright (c) 2015-2017, 2019, 2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -205,27 +205,28 @@ config_agent_copy_proxy_information(const struct netagent *agent)
 done:
 	return info;
 }
- 
+
 xpc_object_t
 config_agent_update_proxy_information(xpc_object_t proxyConfig)
 {
+	struct netagent	agent;
+	xpc_object_t	newProxyConfig	= NULL;
+
 	if (proxyConfig == NULL) {
 		return NULL;
 	}
 
-	xpc_object_t newProxyConfig = NULL;
-	struct netagent agent;
-
 	get_agent_uuid_if_OOB_data_required(proxyConfig, agent.netagent_uuid);
 
 	if (uuid_is_null(agent.netagent_uuid) == 0) {
+		void		*buffer;
+		uint64_t	length;
+
 		strlcpy(agent.netagent_type, kConfigAgentTypeProxy, sizeof(agent.netagent_type));
-		
-		uint64_t length;
-		const void *buffer = _nwi_config_agent_copy_data(&agent, &length);
-		if (buffer != NULL && length > 0) {
+		buffer = _nwi_config_agent_copy_data(&agent, &length);
+		if ((buffer != NULL) && (length > 0)) {
 			newProxyConfig = xpc_create_from_plist(buffer, (size_t)length);
-			free((void *)buffer);
+			free(buffer);
 		}
 	}
 

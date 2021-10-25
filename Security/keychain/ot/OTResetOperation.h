@@ -27,6 +27,7 @@
 #import "keychain/ckks/CKKSGroupOperation.h"
 #import "keychain/ot/OctagonStateMachineHelpers.h"
 #import "keychain/ot/CuttlefishXPCWrapper.h"
+#import "keychain/ot/OTOperationDependencies.h"
 
 #import "keychain/ot/OTAuthKitAdapter.h"
 #import "keychain/ot/OTConstants.h"
@@ -38,6 +39,7 @@ NS_ASSUME_NONNULL_BEGIN
            contextID:(NSString*)contextID
               reason:(CuttlefishResetReason)reason
        intendedState:(OctagonState*)intendedState
+        dependencies:(OTOperationDependencies *)deps
           errorState:(OctagonState*)errorState
 cuttlefishXPCWrapper:(CuttlefishXPCWrapper*)cuttlefishXPCWrapper;
 

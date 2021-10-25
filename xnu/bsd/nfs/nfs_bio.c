@@ -102,7 +102,7 @@
 #include <libkern/OSAtomic.h>
 #include <os/refcnt.h>
 
-#define NFS_BIO_DBG(...) NFS_DBG(NFS_FAC_BIO, 7, ## __VA_ARGS__)
+#define NFS_BIO_DBG(...) NFSCLNT_DBG(NFSCLNT_FAC_BIO, 7, ## __VA_ARGS__)
 
 kern_return_t   thread_terminate(thread_t); /* XXX */
 
@@ -340,7 +340,7 @@ nfs_buf_freeup(int timer)
 		}
 		/* if buf was NB_META, dump buffer */
 		if (ISSET(fbp->nb_flags, NB_META) && fbp->nb_data) {
-			kheap_free(KHEAP_DATA_BUFFERS, fbp->nb_data, fbp->nb_bufsize);
+			kfree_data(fbp->nb_data, fbp->nb_bufsize);
 		}
 		NFS_ZFREE(nfsbuf_zone, fbp);
 	}
@@ -415,7 +415,7 @@ nfs_buf_incore(nfsnode_t np, daddr64_t blkno)
  * later when/if we need to write the data (again).
  */
 int
-nfs_buf_page_inval(vnode_t vp, off_t offset)
+nfs_buf_page_inval_internal(vnode_t vp, off_t offset)
 {
 	struct nfsmount *nmp = VTONMP(vp);
 	struct nfsbuf *bp;
@@ -930,7 +930,7 @@ loop:
 			}
 		} else if (ISSET(bp->nb_flags, NB_META)) {
 			if (bp->nb_data) {
-				kheap_free(KHEAP_DATA_BUFFERS, bp->nb_data, bp->nb_bufsize);
+				kfree_data(bp->nb_data, bp->nb_bufsize);
 				bp->nb_data = NULL;
 			}
 			nfsbufmetacnt--;
@@ -947,7 +947,7 @@ loop:
 		if ((nfsbufcnt < nfsbufmax) &&
 		    ((operation != NBLK_META) || (nfsbufmetacnt < nfsbufmetamax))) {
 			/* just alloc a new one */
-			bp = zalloc(nfsbuf_zone);
+			bp = zalloc_flags(nfsbuf_zone, Z_WAITOK | Z_ZERO);
 			nfsbufcnt++;
 
 			/*
@@ -965,7 +965,6 @@ loop:
 			}
 			NFSBUFCNTCHK();
 			/* init nfsbuf */
-			bzero(bp, sizeof(*bp));
 			os_ref_init(&bp->nb_refs, NULL);
 
 			bp->nb_free.tqe_next = NFSNOLIST;
@@ -1008,7 +1007,7 @@ buffer_setup:
 	case NBLK_META:
 		SET(bp->nb_flags, NB_META);
 		if ((bp->nb_bufsize != bufsize) && bp->nb_data) {
-			kheap_free(KHEAP_DATA_BUFFERS, bp->nb_data, bp->nb_bufsize);
+			kfree_data(bp->nb_data, bp->nb_bufsize);
 			bp->nb_data = NULL;
 			bp->nb_validoff = bp->nb_validend = -1;
 			bp->nb_dirtyoff = bp->nb_dirtyend = 0;
@@ -1017,8 +1016,7 @@ buffer_setup:
 			CLR(bp->nb_flags, NB_CACHE);
 		}
 		if (!bp->nb_data) {
-			bp->nb_data = kheap_alloc(KHEAP_DATA_BUFFERS,
-			    bufsize, Z_WAITOK);
+			bp->nb_data = kalloc_data(bufsize, Z_WAITOK);
 		}
 		if (!bp->nb_data) {
 			/* Ack! couldn't allocate the data buffer! */
@@ -1622,7 +1620,7 @@ nfs_buf_read(struct nfsbuf *bp)
 
 	NFS_BUF_MAP(bp);
 
-	OSAddAtomic64(1, &nfsstats.read_bios);
+	OSAddAtomic64(1, &nfsclntstats.read_bios);
 
 	error = nfs_buf_read_rpc(bp, thd, cred);
 	/*
@@ -1815,7 +1813,6 @@ nfs_buf_read_rpc_finish(struct nfsreq *req)
 	thread_t thd;
 	kauth_cred_t cred;
 	uio_t auio;
-	char uio_buf[UIO_SIZEOF(1)];
 
 finish:
 	np = req->r_np;
@@ -1845,12 +1842,15 @@ finish:
 	offset = cb.rcb_args.offset;
 	rlen = length = cb.rcb_args.length;
 
-	auio = uio_createwithbuffer(1, NBOFF(bp) + offset, UIO_SYSSPACE,
-	    UIO_READ, &uio_buf, sizeof(uio_buf));
+	auio = uio_create(1, NBOFF(bp) + offset, UIO_SYSSPACE, UIO_READ);
 	uio_addiov(auio, CAST_USER_ADDR_T(bp->nb_data + offset), length);
 
 	/* finish the RPC */
 	error = nmp->nm_funcs->nf_read_rpc_async_finish(np, req, auio, &rlen, &eof);
+
+	/* Free allocated uio buffer */
+	uio_free(auio);
+
 	if ((error == EINPROGRESS) && cb.rcb_func) {
 		/* async request restarted */
 		if (cb.rcb_func) {
@@ -2133,7 +2133,7 @@ nfs_bioread(nfsnode_t np, uio_t uio, int ioflag, vfs_context_t ctx)
 	if (np->n_flag & NNEEDINVALIDATE) {
 		np->n_flag &= ~NNEEDINVALIDATE;
 		nfs_node_unlock(np);
-		error = nfs_vinvalbuf(vp, V_SAVE | V_IGNORE_WRITEERR, ctx, 1);
+		error = nfs_vinvalbuf1(vp, V_SAVE | V_IGNORE_WRITEERR, ctx, 1);
 		if (!error) {
 			error = nfs_node_lock(np);
 		}
@@ -2202,10 +2202,7 @@ nfs_bioread(nfsnode_t np, uio_t uio, int ioflag, vfs_context_t ctx)
 		 * (If we are NOCACHE and we've issued readahead requests, we need
 		 * to grab the NB_NCRDAHEAD bufs to drop them.)
 		 */
-		if ((!(ioflag & IO_NOCACHE) || !readaheads) &&
-		    ((uio->uio_segflg == UIO_USERSPACE32 ||
-		    uio->uio_segflg == UIO_USERSPACE64 ||
-		    uio->uio_segflg == UIO_USERSPACE))) {
+		if ((!(ioflag & IO_NOCACHE) || !readaheads) && uio_isuserspace(uio)) {
 			io_resid = uio_resid(uio);
 			diff = np->n_size - uio_offset(uio);
 			if (diff < io_resid) {
@@ -2222,7 +2219,7 @@ nfs_bioread(nfsnode_t np, uio_t uio, int ioflag, vfs_context_t ctx)
 			}
 			/* count any biocache reads that we just copied directly */
 			if (lbn != (uio_offset(uio) / biosize)) {
-				OSAddAtomic64(NFS_ROUND_BLOCK(uio_offset(uio), biosize) - lbn, &nfsstats.biocache_reads);
+				OSAddAtomic64(NFS_ROUND_BLOCK(uio_offset(uio), biosize) - lbn, &nfsclntstats.biocache_reads);
 				FSDBG(514, np, 0xcacefeed, uio_offset(uio), error);
 			}
 		}
@@ -2252,9 +2249,9 @@ nfs_bioread(nfsnode_t np, uio_t uio, int ioflag, vfs_context_t ctx)
 				return error;
 			}
 			readaheads = 1;
-			OSAddAtomic64(rabn - lbn, &nfsstats.biocache_reads);
+			OSAddAtomic64(rabn - lbn, &nfsclntstats.biocache_reads);
 		} else {
-			OSAddAtomic64(1, &nfsstats.biocache_reads);
+			OSAddAtomic64(1, &nfsclntstats.biocache_reads);
 		}
 
 		/*
@@ -2354,11 +2351,9 @@ flushbuffer:
 			} else {
 				/* read the page range in */
 				uio_t auio;
-				char uio_buf[UIO_SIZEOF(1)];
 
 				NFS_BUF_MAP(bp);
-				auio = uio_createwithbuffer(1, (NBOFF(bp) + firstpg * PAGE_SIZE_64),
-				    UIO_SYSSPACE, UIO_READ, &uio_buf[0], sizeof(uio_buf));
+				auio = uio_create(1, (NBOFF(bp) + firstpg * PAGE_SIZE_64), UIO_SYSSPACE, UIO_READ);
 				if (!auio) {
 					error = ENOMEM;
 				} else {
@@ -2370,6 +2365,8 @@ flushbuffer:
 					if (ioflag & IO_NOCACHE) {
 						SET(bp->nb_flags, NB_NOCACHE);
 					}
+					/* Free allocated uio buffer */
+					uio_free(auio);
 					nfs_buf_release(bp, 1);
 					nfs_data_unlock(np);
 					FSDBG_BOT(514, np, 0xd1e000e, 0, error);
@@ -2388,6 +2385,9 @@ flushbuffer:
 				for (pg = firstpg; pg <= lastpg; pg++) {
 					NBPGVALID_SET(bp, pg);
 				}
+
+				/* Free allocated uio buffer */
+				uio_free(auio);
 			}
 		}
 		/* if no pages are valid, read the whole block */
@@ -2669,7 +2669,7 @@ nfs_buf_write(struct nfsbuf *bp)
 		bp->nb_offio = doff;
 		bp->nb_endio = dend;
 
-		OSAddAtomic64(1, &nfsstats.write_bios);
+		OSAddAtomic64(1, &nfsclntstats.write_bios);
 
 		SET(bp->nb_flags, NB_WRITEINPROG);
 		error = nfs_buf_write_rpc(bp, iomode, thd, cred);
@@ -2861,21 +2861,19 @@ nfs_buf_write_dirty_pages(struct nfsbuf *bp, thread_t thd, kauth_cred_t cred)
 	nfsbufpgs dirty;
 	uint64_t wverf;
 	uio_t auio;
-	char uio_buf[UIO_SIZEOF(1)];
 
 	if (!nfs_buf_pgs_is_set(&bp->nb_dirty)) {
 		return 0;
 	}
 
 	/* there are pages marked dirty that need to be written out */
-	OSAddAtomic64(1, &nfsstats.write_bios);
+	OSAddAtomic64(1, &nfsclntstats.write_bios);
 	NFS_BUF_MAP(bp);
 	SET(bp->nb_flags, NB_WRITEINPROG);
 	npages = bp->nb_bufsize / PAGE_SIZE;
 	iomode = NFS_WRITE_UNSTABLE;
 
-	auio = uio_createwithbuffer(1, 0, UIO_SYSSPACE, UIO_WRITE,
-	    &uio_buf, sizeof(uio_buf));
+	auio = uio_create(1, 0, UIO_SYSSPACE, UIO_WRITE);
 
 again:
 	NBPGS_COPY(&dirty, &bp->nb_dirty);
@@ -2937,6 +2935,10 @@ again:
 		SET(bp->nb_flags, NB_ERROR);
 		bp->nb_error = error;
 	}
+
+	/* Free allocated uio buffer */
+	uio_free(auio);
+
 	return error;
 }
 
@@ -2955,7 +2957,6 @@ nfs_buf_write_rpc(struct nfsbuf *bp, int iomode, thread_t thd, kauth_cred_t cred
 	struct nfsreq *req;
 	struct nfsreq_cbinfo cb;
 	uio_t auio;
-	char uio_buf[UIO_SIZEOF(1)];
 	off_t offset, length;
 
 	nmp = NFSTONMP(np);
@@ -2995,8 +2996,7 @@ nfs_buf_write_rpc(struct nfsbuf *bp, int iomode, thread_t thd, kauth_cred_t cred
 		return 0;
 	}
 
-	auio = uio_createwithbuffer(1, NBOFF(bp) + offset, UIO_SYSSPACE,
-	    UIO_WRITE, &uio_buf, sizeof(uio_buf));
+	auio = uio_create(1, NBOFF(bp) + offset, UIO_SYSSPACE, UIO_WRITE);
 	NFS_UIO_ADDIOV(auio, CAST_USER_ADDR_T(bp->nb_data + offset), length);
 
 	bp->nb_rpcs = nrpcs = (length + nmwsize - 1) / nmwsize;
@@ -3071,6 +3071,9 @@ nfs_buf_write_rpc(struct nfsbuf *bp, int iomode, thread_t thd, kauth_cred_t cred
 		}
 	}
 
+	/* Free allocated uio buffer */
+	uio_free(auio);
+
 	return error;
 }
 
@@ -3094,7 +3097,6 @@ nfs_buf_write_rpc_finish(struct nfsreq *req)
 	thread_t thd;
 	kauth_cred_t cred;
 	uio_t auio;
-	char uio_buf[UIO_SIZEOF(1)];
 
 finish:
 	np = req->r_np;
@@ -3230,8 +3232,7 @@ writeagain:
 		offset += rlen;
 		length -= rlen;
 
-		auio = uio_createwithbuffer(1, NBOFF(bp) + offset, UIO_SYSSPACE,
-		    UIO_WRITE, &uio_buf, sizeof(uio_buf));
+		auio = uio_create(1, NBOFF(bp) + offset, UIO_SYSSPACE, UIO_WRITE);
 		uio_addiov(auio, CAST_USER_ADDR_T(bp->nb_data + offset), length);
 
 		cb.rcb_args.offset = offset;
@@ -3244,6 +3245,10 @@ writeagain:
 		// XXX iomode should really match the original request
 		error = nmp->nm_funcs->nf_write_rpc_async(np, auio, length, thd, cred,
 		    NFS_WRITE_FILESYNC, &cb, &wreq);
+
+		/* Free allocated uio buffer */
+		uio_free(auio);
+
 		if (!error) {
 			if (IS_VALID_CRED(cred)) {
 				kauth_cred_unref(&cred);
@@ -3852,7 +3857,7 @@ nfs_vinvalbuf_internal(
 						/* hopefully we don't need to do */
 						/* anything for this buffer */
 					} else if (error) {
-						printf("nfs_vinvalbuf: upl setup failed %d\n", error);
+						printf("nfs_vinvalbuf_internal: upl setup failed %d\n", error);
 					}
 					NBPGS_ERASE(&bp->nb_valid);
 					NBPGS_ERASE(&bp->nb_dirty);
@@ -3878,13 +3883,13 @@ nfs_vinvalbuf_internal(
 				}
 				/* also make sure we'll have a credential to do the write */
 				if (mustwrite && !IS_VALID_CRED(bp->nb_wcred) && !IS_VALID_CRED(cred)) {
-					printf("nfs_vinvalbuf: found dirty buffer with no write creds\n");
+					printf("nfs_vinvalbuf_internal: found dirty buffer with no write creds\n");
 					mustwrite = 0;
 				}
 				if (mustwrite) {
 					FSDBG(554, np, bp, 0xd00dee, bp->nb_flags);
 					if (!ISSET(bp->nb_flags, NB_PAGELIST)) {
-						panic("nfs_vinvalbuf: dirty buffer without upl");
+						panic("nfs_vinvalbuf_internal: dirty buffer without upl");
 					}
 					/* gotta write out dirty data before invalidating */
 					/* (NB_STABLE indicates that data writes should be FILESYNC) */
@@ -3937,7 +3942,7 @@ nfs_vinvalbuf_internal(
 		nfs_buf_itercomplete(np, &blist, list);
 	}
 	if (!LIST_EMPTY(&(np)->n_dirtyblkhd) || !LIST_EMPTY(&(np)->n_cleanblkhd)) {
-		panic("nfs_vinvalbuf: flush/inval failed");
+		panic("nfs_vinvalbuf_internal: flush/inval failed");
 	}
 	lck_mtx_unlock(&nfs_buf_mutex);
 	nfs_node_lock_force(np);
@@ -3958,7 +3963,7 @@ nfs_vinvalbuf_internal(
  * doing the flush, just wait for completion.
  */
 int
-nfs_vinvalbuf(vnode_t vp, int flags, vfs_context_t ctx, int intrflg)
+nfs_vinvalbuf1(vnode_t vp, int flags, vfs_context_t ctx, int intrflg)
 {
 	return nfs_vinvalbuf2(vp, flags, vfs_context_thread(ctx), vfs_context_ucred(ctx), intrflg);
 }
@@ -3990,7 +3995,7 @@ nfs_vinvalbuf2(vnode_t vp, int flags, thread_t thd, kauth_cred_t cred, int intrf
 	lck_mtx_lock(&nfs_buf_mutex);
 	while (np->n_bflag & NBINVALINPROG) {
 		np->n_bflag |= NBINVALWANT;
-		msleep(&np->n_bflag, &nfs_buf_mutex, slpflag, "nfs_vinvalbuf", &ts);
+		msleep(&np->n_bflag, &nfs_buf_mutex, slpflag, "nfs_vinvalbuf2", &ts);
 		if ((error = nfs_sigintr(VTONMP(vp), NULL, thd, 0))) {
 			lck_mtx_unlock(&nfs_buf_mutex);
 			return error;
@@ -4027,7 +4032,7 @@ again:
 	if (UBCINFOEXISTS(vp) && (size = ubc_getsize(vp))) {
 		if ((error = ubc_msync(vp, 0, size, NULL, ubcflags))) {
 			if (error == EINVAL) {
-				panic("nfs_vinvalbuf(): ubc_msync failed!, error %d", error);
+				panic("nfs_vinvalbuf2: ubc_msync failed!, error %d", error);
 			}
 			if (retry++ < 10) { /* retry invalidating a few times */
 				if (retry > 1 || error == ENXIO) {
@@ -4036,7 +4041,7 @@ again:
 				goto again;
 			}
 			/* give up */
-			printf("nfs_vinvalbuf(): ubc_msync failed!, error %d\n", error);
+			printf("nfs_vinvalbuf2: ubc_msync failed!, error %d\n", error);
 		}
 	}
 done:

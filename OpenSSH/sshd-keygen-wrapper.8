@@ -9,6 +9,7 @@
 .Nd Simple wrapper for sshd ensuring host keys are properly created
 .Sh SYNOPSIS
 .Nm
+.Op Fl s
 .Op Ar arguments ...
 .Sh DESCRIPTION
 .Nm
@@ -17,3 +18,6 @@ is a simple wrapper for
 which ensures host keys for all the supported algorithms have been created before the
 .Nm sshd
 service gets started.
+If
+.Fl s
+is specified, password authentication is disabled.

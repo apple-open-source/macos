@@ -63,7 +63,6 @@ extern const char *_path_syslogd_log;
 #else
 #define _PATH_PIDFILE		"/var/run/syslog.pid"
 #define _PATH_SYSLOG_CONF   "/etc/syslog.conf"
-#define _PATH_SYSLOG_IN		"/var/run/syslog"
 #define _PATH_KLOG			"/dev/klog"
 #define _PATH_SYSLOGD_LOG	"/var/log/syslogd.log"
 #endif
@@ -78,7 +77,6 @@ extern const char *_path_syslogd_log;
 
 #define SOURCE_UNKNOWN      0
 #define SOURCE_INTERNAL     1
-#define SOURCE_BSD_SOCKET   2
 #define SOURCE_UDP_SOCKET   3
 #define SOURCE_KERN         4
 #define SOURCE_ASL_MESSAGE  5

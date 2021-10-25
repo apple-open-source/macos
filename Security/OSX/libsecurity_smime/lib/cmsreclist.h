@@ -35,23 +35,26 @@
 #define _CMSRECLIST_H
 
 struct SecCmsRecipientStr {
-    int				riIndex;	/* this recipient's index in recipientInfo array */
-    int				subIndex;	/* index into recipientEncryptedKeys */
-						/* (only in SecCmsKeyAgreeRecipientInfoStr) */
-    enum {RLIssuerSN=0, RLSubjKeyID=1} kind;	/* for conversion recipientinfos -> recipientlist */
+    int riIndex;  /* this recipient's index in recipientInfo array */
+    int subIndex; /* index into recipientEncryptedKeys */
+                  /* (only in SecCmsKeyAgreeRecipientInfoStr) */
+    enum {
+        RLIssuerSN = 0,
+        RLSubjKeyID = 1
+    } kind; /* for conversion recipientinfos -> recipientlist */
     union {
-	SecCmsIssuerAndSN *	issuerAndSN;
-	CSSM_DATA_PTR 		subjectKeyID;
+        SecCmsIssuerAndSN* issuerAndSN;
+        CSSM_DATA_PTR subjectKeyID;
     } id;
 
     /* result data (filled out for each recipient that's us) */
-    SecCertificateRef 		cert;
-    SecPrivateKeyRef		privkey;
+    SecCertificateRef cert;
+    SecPrivateKeyRef privkey;
     //PK11SlotInfo *		slot;
 };
 
 typedef struct SecCmsRecipientStr SecCmsRecipient;
 
-int nss_cms_FindCertAndKeyByRecipientList(SecCmsRecipient **recipient_list, void *wincx);
+int nss_cms_FindCertAndKeyByRecipientList(SecCmsRecipient** recipient_list, void* wincx);
 
 #endif /* _CMSRECLIST_H */

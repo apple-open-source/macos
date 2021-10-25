@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2020 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2021 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -863,10 +863,8 @@ inet6_rtadv_enable(const char * if_name, boolean_t use_cga)
 	    my_log(LOG_ERR, "siocsifcgaprep_in6(%s) failed, %s (%d)",
 		   if_name, strerror(saved_errno), saved_errno);
 	}
-#if ! TARGET_OS_WATCH
 	ret = saved_errno;
 	goto done;
-#endif
     }
 
     /* enable processing Router Advertisements */
@@ -923,8 +921,8 @@ inet6_has_nat64_prefixlist(const char * if_name)
     if (s < 0) {
 	ret = errno;
 	my_log(LOG_ERR,
-	       "inet6_has_nat64_prefixlist(%s): socket() failed, %s (%d)",
-	       if_name, strerror(ret), ret);
+	       "%s(%s): socket() failed, %s (%d)",
+	       __func__, if_name, strerror(ret), ret);
 	return FALSE;
     }
     bzero(&ifr, sizeof(ifr));
@@ -933,6 +931,48 @@ inet6_has_nat64_prefixlist(const char * if_name)
     close(s);
     return ((ret == 0) && (ifr.ifnat64_prefixes[0].prefix_len > 0));
 }
+
+PRIVATE_EXTERN boolean_t
+inet6_set_nat64_prefixlist(const char * if_name,
+			   struct in6_addr * prefix_list,
+			   uint8_t * prefix_length_list,
+			   int count)
+{
+    int			i;
+    struct if_nat64req	ifr;
+    int			ret = 0;
+    int			s = inet6_dgram_socket();
+    struct ipv6_prefix *scan;
+
+    if (s < 0) {
+	my_log(LOG_ERR,
+	       "%s(%s): socket() failed, %s (%d)",
+	       __func__, if_name, strerror(errno), errno);
+	return FALSE;
+    }
+    bzero(&ifr, sizeof(ifr));
+    strncpy(ifr.ifnat64_name, if_name, sizeof(ifr.ifnat64_name));
+    if (count > NAT64_MAX_NUM_PREFIXES) {
+	count = NAT64_MAX_NUM_PREFIXES;
+    }
+    for (i = 0, scan = ifr.ifnat64_prefixes; i < count; i++, scan++) {
+	scan->ipv6_prefix = prefix_list[i];
+	scan->prefix_len = prefix_length_list[i] / 8;
+    }
+    if (ioctl(s, SIOCSIFNAT64PREFIX, &ifr) != 0) {
+	ret = errno;
+	my_log(LOG_ERR,
+	       "%s: SIOCSIFNAT64PREFIX(%d) failed, %s (%d)",
+	       if_name, count, strerror(errno), errno);
+    }
+    else {
+	my_log(LOG_DEBUG,
+	       "%s: SIOCSIFNAT64PREFIX(%d) success", if_name, count);
+    }
+    close(s);
+    return (ret == 0);
+}
+
 
 PRIVATE_EXTERN int
 inet6_difaddr(int s, const char * name, const struct in6_addr * addr)

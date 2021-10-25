@@ -452,6 +452,55 @@ _notify_globals(void)
 }
 
 #pragma mark -
+#pragma mark Old IPC base support
+
+// XXX HACK - these subsets of the header don't namespace according to the userprefix
+#define __Request__notify_old_ipc_subsystem__defined
+#define __Reply__notify_old_ipc_subsystem__defined
+#include "notify_old_ipc.h"
+
+
+#ifndef _ipc_base_call
+#define _ipc_base_call(routine, ...) \
+	_new_ipc_base##routine(__VA_ARGS__)
+#endif
+
+// Note: there's no need to add new routines here, as notifyd versions using the
+// old base won't support them anyway.
+
+#define _notify_server_check(...) _ipc_base_call(_notify_server_check, ##__VA_ARGS__)
+#define _notify_server_get_state(...) _ipc_base_call(_notify_server_get_state, ##__VA_ARGS__)
+#define _notify_server_suspend(...) _ipc_base_call(_notify_server_suspend, ##__VA_ARGS__)
+#define _notify_server_resume(...) _ipc_base_call(_notify_server_resume, ##__VA_ARGS__)
+#define _notify_server_suspend_pid(...) _ipc_base_call(_notify_server_suspend_pid, ##__VA_ARGS__)
+#define _notify_server_resume_pid(...) _ipc_base_call(_notify_server_resume_pid, ##__VA_ARGS__)
+#define _notify_server_post_2(...) _ipc_base_call(_notify_server_post_2, ##__VA_ARGS__)
+#define _notify_server_post_3(...) _ipc_base_call(_notify_server_post_3, ##__VA_ARGS__)
+#define _notify_server_post_4(...) _ipc_base_call(_notify_server_post_4, ##__VA_ARGS__)
+#define _notify_server_register_plain_2(...) _ipc_base_call(_notify_server_register_plain_2, ##__VA_ARGS__)
+#define _notify_server_register_check_2(...) _ipc_base_call(_notify_server_register_check_2, ##__VA_ARGS__)
+#define _notify_server_register_signal_2(...) _ipc_base_call(_notify_server_register_signal_2, ##__VA_ARGS__)
+#define _notify_server_register_file_descriptor_2(...) _ipc_base_call(_notify_server_register_file_descriptor_2, ##__VA_ARGS__)
+#define _notify_server_register_mach_port_2(...) _ipc_base_call(_notify_server_register_mach_port_2, ##__VA_ARGS__)
+#define _notify_server_cancel_2(...) _ipc_base_call(_notify_server_cancel_2, ##__VA_ARGS__)
+#define _notify_server_get_state_2(...) _ipc_base_call(_notify_server_get_state_2, ##__VA_ARGS__)
+#define _notify_server_get_state_3(...) _ipc_base_call(_notify_server_get_state_3, ##__VA_ARGS__)
+#define _notify_server_set_state_2(...) _ipc_base_call(_notify_server_set_state_2, ##__VA_ARGS__)
+#define _notify_server_set_state_3(...) _ipc_base_call(_notify_server_set_state_3, ##__VA_ARGS__)
+#define _notify_server_monitor_file_2(...) _ipc_base_call(_notify_server_monitor_file_2, ##__VA_ARGS__)
+#define _notify_server_regenerate(...) _ipc_base_call(_notify_server_regenerate, ##__VA_ARGS__)
+#define _notify_server_checkin(...) _ipc_base_call(_notify_server_checkin, ##__VA_ARGS__)
+#define _notify_server_dump(...) _ipc_base_call(_notify_server_dump, ##__VA_ARGS__)
+#define _notify_generate_common_port(...) _ipc_base_call(_notify_generate_common_port, ##__VA_ARGS__)
+#define _notify_server_register_common_port(...) _ipc_base_call(_notify_server_register_common_port, ##__VA_ARGS__)
+#define _notify_server_register_mach_port_3(...) _ipc_base_call(_notify_server_register_mach_port_3, ##__VA_ARGS__)
+#define _filtered_notify_server_checkin(...) _ipc_base_call(_filtered_notify_server_checkin, ##__VA_ARGS__)
+#define _filtered_notify_server_post(...) _ipc_base_call(_filtered_notify_server_post, ##__VA_ARGS__)
+#define _filtered_notify_server_regenerate(...) _ipc_base_call(_filtered_notify_server_regenerate, ##__VA_ARGS__)
+#define _filtered_notify_server_set_state_2(...) _ipc_base_call(_filtered_notify_server_set_state_2, ##__VA_ARGS__)
+#define _filtered_notify_server_set_state_3(...) _ipc_base_call(_filtered_notify_server_set_state_3, ##__VA_ARGS__)
+
+#pragma mark -
 #pragma mark name_node_t
 
 #ifdef NOTDEF
@@ -920,7 +969,21 @@ _notify_lib_init_locked(notify_globals_t globals, uint32_t event)
 
 		globals->notify_server_pid = 0;
 
-		kstatus = _notify_server_checkin(globals->notify_server_port, &version, (uint32_t *)&new_pid, (int *)&status);
+		kstatus = _new_ipc_base_notify_server_checkin(globals->notify_server_port, &version, (uint32_t *)&new_pid, (int *)&status);
+
+
+		if (kstatus != KERN_SUCCESS)
+		{
+
+			kstatus = _filtered_notify_server_checkin(globals->notify_server_port, &version, (uint32_t *)&new_pid, (int *)&status);
+			if (kstatus == KERN_SUCCESS)
+			{
+				// If only the filtered checkin works - we know this client
+				// is filtered, which is only supported for dispatch-enabled clients.
+				os_atomic_or(&globals->client_opts, NOTIFY_OPT_DISPATCH | NOTIFY_OPT_REGEN | NOTIFY_OPT_FILTERED, relaxed);
+			}
+		}
+
 		if (kstatus != KERN_SUCCESS)
 		{
 		    if (kstatus == MACH_SEND_INVALID_DEST) {
@@ -1302,7 +1365,7 @@ _notify_lib_regenerate_registration(registration_node_t *r)
 	if(status != NOTIFY_STATUS_OK && status != NOTIFY_STATUS_DUP_CLIENT &&
 	   status != NOTIFY_STATUS_NO_REGEN_NEEDED)
 	{
-		REPORT_BAD_BEHAVIOR("Libnotify: _notify_server_regnerate failed for name %s with status %d", name, status);
+		REPORT_BAD_BEHAVIOR("Libnotify: _notify_server_regnerate failed for name %s with status %d (flags: %x, token %d)", name, status, r->flags, r->token);
 	}
 
 
@@ -1786,7 +1849,21 @@ notify_post(const char *name)
 	if (n != NULL)
 	{
         mutex_lock(n->name, &n->lock, __func__, __LINE__);
-		if (n->name_id == NID_UNSET)
+		if (os_unlikely(client_opts(globals) & NOTIFY_OPT_FILTERED)) {
+			kstatus = _filtered_notify_server_post(globals->notify_server_port, (caddr_t)name, should_claim_root_access());
+			if (kstatus != KERN_SUCCESS)
+			{
+				name_node_unlock_and_release(n);
+#ifdef DEBUG
+				if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "<- %s [%d]\n", __func__, __LINE__ + 2);
+#endif
+
+				REPORT_BAD_BEHAVIOR("Libnotify: %s failed with code %d (%d) on line %d", __func__,
+						NOTIFY_STATUS_SERVER_POST_4_FAILED, kstatus, __LINE__);
+				return NOTIFY_STATUS_FAILED;
+			}
+		}
+		else if (n->name_id == NID_UNSET)
 		{
 			/* First post goes using the name string. */
 			kstatus = _notify_server_post_4(globals->notify_server_port, (caddr_t)name, should_claim_root_access());
@@ -1854,7 +1931,11 @@ notify_post(const char *name)
 	}
 
 	/* Do an async post using the name string. Fast (but not as fast as using name ID). */
-	kstatus = _notify_server_post_4(globals->notify_server_port, (caddr_t)name, should_claim_root_access());
+	if (os_unlikely(client_opts(globals) & NOTIFY_OPT_FILTERED)) {
+		kstatus = _filtered_notify_server_post(globals->notify_server_port, (caddr_t)name, should_claim_root_access());
+	} else {
+		kstatus = _notify_server_post_4(globals->notify_server_port, (caddr_t)name, should_claim_root_access());
+	}
 	if (kstatus != KERN_SUCCESS)
 	{
 #ifdef DEBUG
@@ -2156,6 +2237,10 @@ notify_register_check(const char *name, int *out_token)
 		return status;
 	}
 
+	if (os_unlikely(client_opts(globals) & NOTIFY_OPT_FILTERED)) {
+	    return notify_register_plain(name, out_token);
+	}
+
 	if (name == NULL)
 	{
 #ifdef DEBUG
@@ -2417,6 +2502,7 @@ notify_register_plain(const char *name, int *out_token)
 	token = atomic_increment32(&globals->token_id);
 	cid = token;
 	kstatus = _notify_server_register_plain_2(globals->notify_server_port, (caddr_t)name, token);
+
 	if (kstatus != KERN_SUCCESS)
 	{
 #ifdef DEBUG
@@ -3967,13 +4053,21 @@ notify_set_state(int token, uint64_t state)
 
 		if ((nid == NID_UNSET) || (nid == NID_CALLED_ONCE))
 		{
-			kstatus = _notify_server_set_state_3(globals->notify_server_port, xtoken, state, (uint64_t *)&nid, (int32_t *)&status, should_claim_root_access());
+			if (os_unlikely(client_opts(globals) & NOTIFY_OPT_FILTERED)) {
+				kstatus = _filtered_notify_server_set_state_3(globals->notify_server_port, xtoken, state, (uint64_t *)&nid, (int32_t *)&status, should_claim_root_access());
+			} else {
+				kstatus = _notify_server_set_state_3(globals->notify_server_port, xtoken, state, (uint64_t *)&nid, (int32_t *)&status, should_claim_root_access());
+			}
 			if ((kstatus == KERN_SUCCESS) && (status == NOTIFY_STATUS_OK)) name_node_set_nid(name_node, nid);
 		}
 		else
 		{
 			status = NOTIFY_STATUS_OK;
-			kstatus = _notify_server_set_state_2(globals->notify_server_port, nid, state, should_claim_root_access());
+			if (os_unlikely(client_opts(globals) & NOTIFY_OPT_FILTERED)) {
+				kstatus = _filtered_notify_server_set_state_2(globals->notify_server_port, nid, state, should_claim_root_access());
+			} else {
+				kstatus = _notify_server_set_state_2(globals->notify_server_port, nid, state, should_claim_root_access());
+			}
 		}
 	}
 

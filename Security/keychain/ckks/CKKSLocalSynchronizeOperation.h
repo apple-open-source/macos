@@ -39,9 +39,10 @@ NS_ASSUME_NONNULL_BEGIN
 // Reload everything from the mirror table into the incoming queue
 // Does not process these items
 @interface CKKSReloadAllItemsOperation : CKKSResultOperation
-@property (weak) CKKSKeychainView* ckks;
+@property CKKSOperationDependencies* deps;
+
 - (instancetype)init NS_UNAVAILABLE;
-- (instancetype)initWithCKKSKeychainView:(CKKSKeychainView*)ckks;
+- (instancetype)initWithOperationDependencies:(CKKSOperationDependencies*)deps;
 @end
 
 NS_ASSUME_NONNULL_END

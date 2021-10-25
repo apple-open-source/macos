@@ -39,6 +39,7 @@
 #include <sys/stat.h>
 #include <fts.h>
 #include <unistd.h>
+#include <libgen.h>
 #include <fcntl.h>
 #include <inttypes.h>
 #include <netinet/in.h>
@@ -55,6 +56,7 @@
 #include <xar/xar.h>
 #endif // XARSIG_BUILDING_WITH_XAR
 #include "filetree.h"
+#include "util.h"
 
 #define SYMBOLIC 1
 #define NUMERIC  2
@@ -426,8 +428,24 @@ static void replace_sign(const char *filename) {
 
 	xar_t old_xar, new_xar;
 	xar_signature_t sig;
-	char *new_xar_path = (char *)malloc(15);
-	strncpy(new_xar_path, "/tmp/xar.XXXXX", 15);
+	
+	char *parent_path = xar_safe_dirname(filename);
+	if ( parent_path == NULL )
+	{
+		fprintf(stderr, "Failed to get dirname_r of: %s.\n", filename);
+		exit(1);
+	}
+	
+	char *new_xar_path;
+	if (asprintf(&new_xar_path, "%s/xar.XXXXXX", parent_path) == -1)
+	{
+		fprintf(stderr, "Failed to create temporary xar path.\n");
+		free(parent_path);
+		exit(1);
+	}
+	
+	free(parent_path);
+	
 	new_xar_path = mktemp(new_xar_path);
 	int err;
 	pid_t pid;
@@ -438,6 +456,7 @@ static void replace_sign(const char *filename) {
 	old_xar = xar_open(filename, READ);
 	if ( old_xar == NULL ) {
 		fprintf(stderr, "Could not open archive %s!\n", filename);
+		unlink(new_xar_path);
 		exit(1);
 	}
 	
@@ -448,6 +467,7 @@ static void replace_sign(const char *filename) {
 	new_xar = xar_open(new_xar_path, WRITE);
 	if( !new_xar ) {
 		fprintf(stderr, "Error creating new archive %s\n", new_xar_path);
+		unlink(new_xar_path);
 		exit(1);
 	}
 	
@@ -476,7 +496,6 @@ static void replace_sign(const char *filename) {
 	xar_iter_t iter = xar_iter_new();
 	xar_file_t f = xar_file_first(old_xar, iter);
 		// xar_file_next iterates the archive depth-first, i.e. all children are enumerated before the siblings.
-	const char *name;
 	stack s_new = stack_new();
 	stack s_old = stack_new();
 	xar_file_t last_copied = NULL, last_added;
@@ -496,7 +515,16 @@ static void replace_sign(const char *filename) {
 		//  3. the file's parent is one of the ancestors of the last file (and not NULL, that would be case 1)
 		//		that means we either go back up the tree and add a sibling of one of the ancestors, or we add a
 		//		sibling on the same level
-		xar_prop_get(f, "name", &name);	// filename, without any path info
+		const char *unsafe_name;
+		char* name;
+		xar_prop_get(f, "name", &unsafe_name);	// filename, without any path info
+		if (xar_is_safe_filename(unsafe_name, &name) < 0)
+		{
+			fprintf(stderr, "Error creating new archive %s. '%s' is not safe.\n", new_xar_path, unsafe_name);
+			unlink(new_xar_path);
+			exit(1);
+		}
+		
 		if (!XAR_FILE(f)->parent) {	// case 1
 			printf("root: %s\n",xar_get_path(f));
 			last_added = xar_add_from_archive(new_xar, NULL, name, old_xar, f);
@@ -524,6 +552,8 @@ static void replace_sign(const char *filename) {
 			stack_push(s_new, (void *)last_added);
 			stack_push(s_old, (void *)last_copied);
 		}
+		
+		free(name);
 	} while ((f = xar_file_next(iter)));
 	
 	loopIter = xar_iter_new();

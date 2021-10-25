@@ -482,6 +482,13 @@ nfsd(void)
 		exit(1);
 	}
 
+	if (config.materialize_dataless_files) {
+		if (setiopolicy_np(IOPOL_TYPE_VFS_MATERIALIZE_DATALESS_FILES, IOPOL_SCOPE_PROCESS, IOPOL_MATERIALIZE_DATALESS_FILES_ON) < 0)
+			log(LOG_ERR, "Failed to enable materialization of dataless files: %s (%d)", strerror(errno), errno);
+		else
+			log(LOG_INFO, "Materialization of dataless files enabled successfully");
+	}
+
 	/* start up all the server threads */
 	sysctl_set("vfs.generic.nfs.server.nfsd_thread_max", config.nfsd_threads);
 	nfsd_start_server_threads(config.nfsd_threads);

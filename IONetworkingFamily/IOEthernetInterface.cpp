@@ -162,11 +162,10 @@ bool IOEthernetInterface::init(IONetworkController * controller)
 {
     OSObject *  obj;
 
-    _reserved = IONew( ExpansionData, 1 );
+    _reserved = IOMallocType(ExpansionData);
 	if( _reserved == 0 )
 		return false;
-	memset(_reserved, 0, sizeof(ExpansionData));
-	
+
     if ( super::init(controller) == false )
     	return false;
 
@@ -320,8 +319,7 @@ void IOEthernetInterface::free()
             _disabledWakeFilters->release();
             _disabledWakeFilters = 0;
         }
-		IODelete( _reserved, ExpansionData, 1 );
-        _reserved = 0;
+		IOFreeType(_reserved, ExpansionData);
     }
 	
     super::free();

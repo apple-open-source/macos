@@ -310,7 +310,7 @@ void __IOHIDManagerSetDeviceMatching(
     IOReturn                kr;
     
     if (!manager->notifyPort) {
-        manager->notifyPort = IONotificationPortCreate(kIOMasterPortDefault);
+        manager->notifyPort = IONotificationPortCreate(kIOMainPortDefault);
         
         if (manager->runLoop)  {
             CFRunLoopSourceRef source = IONotificationPortGetRunLoopSource(manager->notifyPort);
@@ -443,13 +443,13 @@ void __IOHIDManagerDeviceAdded(     void *                      refcon,
                 IOObjectRelease(service);
                 continue;
             }
-            
+
             if ( manager->devices ) {
                 os_unfair_lock_lock(&manager->deviceLock);
                 CFSetAddValue(manager->devices, device);
                 os_unfair_lock_unlock(&manager->deviceLock);
             }
-            
+
             CFRelease(device);
             
             retVal = kIOReturnSuccess;
@@ -495,7 +495,7 @@ void __IOHIDManagerDeviceAdded(     void *                      refcon,
             if (manager->dispatchStateMask & kIOHIDDispatchStateActive) {
                 args.options |= kDeviceApplierActivate;
             }
-            
+
             __IOHIDManagerDeviceApplier((const void *)device, &args);
 
             if ( (manager->createOptions & kIOHIDManagerOptionUsePersistentProperties) && 
@@ -1288,7 +1288,11 @@ void IOHIDManagerSetDispatchQueue(IOHIDManagerRef manager, dispatch_queue_t queu
 {
     os_assert(!manager->runLoop && !manager->dispatchQueue);
     
-    manager->dispatchQueue = dispatch_queue_create_with_target("IOHIDManagerDispatchQueue", DISPATCH_QUEUE_SERIAL, queue);
+    char label[256] = {0};
+    
+    snprintf(label, sizeof(label), "%s.IOHIDManagerRef", dispatch_queue_get_label (queue) ? dispatch_queue_get_label (queue) : "");
+
+    manager->dispatchQueue = dispatch_queue_create_with_target(label, DISPATCH_QUEUE_SERIAL, queue);
     require(manager->dispatchQueue, exit);
     
     __ApplyToDevices(manager, kDeviceApplierSetDispatchQueue);
@@ -1316,25 +1320,25 @@ void IOHIDManagerSetCancelHandler(IOHIDManagerRef manager, dispatch_block_t hand
 void IOHIDManagerActivate(IOHIDManagerRef manager)
 {
     IOOptionBits deviceOptions = 0;
-    
+
     os_assert(manager->dispatchQueue && !manager->runLoop,
               "Activate failed queue: %p runLoop: %p", manager->dispatchQueue, manager->runLoop);
-    
+
     if (atomic_fetch_or(&manager->dispatchStateMask, kIOHIDDispatchStateActive) & kIOHIDDispatchStateActive) {
         return;
     }
-    
-    if (manager->notifyPort) {
-        IONotificationPortSetDispatchQueue(manager->notifyPort, manager->dispatchQueue);
-    }
-    
+
     deviceOptions = kDeviceApplierActivate;
-    
+
     if (manager->matchCallback) {
         deviceOptions |= kDeviceApplierInitEnumCallback;
     }
-    
+
     __ApplyToDevices(manager, deviceOptions);
+
+    if (manager->notifyPort) {
+        IONotificationPortSetDispatchQueue(manager->notifyPort, manager->dispatchQueue);
+    }
 }
 
 //------------------------------------------------------------------------------

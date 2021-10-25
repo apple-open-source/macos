@@ -175,7 +175,7 @@ static int uwsgi_send_headers(request_rec *r, proxy_conn_rec * conn)
     env = (apr_table_entry_t *) env_table->elts;
 
     for (j = 0; j < env_table->nelts; ++j) {
-        headerlen += 2 + strlen(env[j].key) + 2 + strlen(env[j].val);
+        headerlen += 2 + strlen(env[j].key) + 2 + (env[j].val ? strlen(env[j].val) : 0);
     }
 
     pktsize = headerlen - 4;
@@ -198,10 +198,12 @@ static int uwsgi_send_headers(request_rec *r, proxy_conn_rec * conn)
         memcpy(ptr, env[j].key, keylen);
         ptr += keylen;
 
-        vallen = strlen(env[j].val);
+        vallen = env[j].val ? strlen(env[j].val) : 0;
         *ptr++ = (apr_byte_t) (vallen & 0xff);
         *ptr++ = (apr_byte_t) ((vallen >> 8) & 0xff);
-        memcpy(ptr, env[j].val, vallen);
+        if (env[j].val) {
+            memcpy(ptr, env[j].val, vallen);
+        }
         ptr += vallen;
     }
 
@@ -245,6 +247,7 @@ static request_rec *make_fake_req(conn_rec *c, request_rec *r)
     request_rec *rp;
 
     apr_pool_create(&pool, c->pool);
+    apr_pool_tag(pool, "proxy_uwsgi_rp");
 
     rp = apr_pcalloc(pool, sizeof(*r));
 
@@ -369,9 +372,9 @@ static int uwsgi_response(request_rec *r, proxy_conn_rec * backend,
 #if AP_MODULE_MAGIC_AT_LEAST(20101106,0)
     dconf =
         ap_get_module_config(r->per_dir_config, &proxy_module);
-    if (dconf->error_override && ap_is_HTTP_ERROR(r->status)) {
+    if (ap_proxy_should_override(dconf, r->status)) {
 #else
-    if (conf->error_override && ap_is_HTTP_ERROR(r->status)) {
+    if (ap_proxy_should_override(conf, r->status)) {
 #endif
         int status = r->status;
         r->status = HTTP_OK;

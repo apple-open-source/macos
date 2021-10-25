@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004, 2006, 2009-2011, 2013, 2015-2019 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2004, 2006, 2009-2011, 2013, 2015-2021 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -60,12 +60,15 @@ typedef struct {
 	/* base CFType information */
 	CFRuntimeBase			cfBase;
 
+	/* queue (protects storePrivate->server) */
+	dispatch_queue_t		queue;
+
 	/* client side of the "configd" session */
 	CFStringRef			name;
 	CFDictionaryRef			options;
 
 	/* server side of the "configd" session */
-	mach_port_t			server;
+	mach_port_t			server;		// [dispatch] sync to storePrivate->lock
 	Boolean				serverNullSession;
 
 	/* per-session flags */
@@ -83,7 +86,6 @@ typedef struct {
 	CFRunLoopSourceRef		rlsNotifyRLS;
 
 	/* "client" information associated with SCDynamicStoreSetDispatchQueue() */
-	dispatch_group_t		dispatchGroup;
 	dispatch_queue_t		dispatchQueue;
 	dispatch_source_t		dispatchSource;
 
@@ -103,7 +105,7 @@ typedef struct {
 	int				notifyFile;
 	int				notifyFileIdentifier;
 
-	/* caching */
+	/* "client" caching */
 	Boolean				cache_active;
 	CFMutableDictionaryRef		cached_keys;
 	CFMutableDictionaryRef		cached_set;
@@ -115,6 +117,12 @@ typedef struct {
 
 __BEGIN_DECLS
 
+static __inline__ CFTypeRef
+isA_SCDynamicStore(CFTypeRef obj)
+{
+	return (isA_CFType(obj, SCDynamicStoreGetTypeID()));
+}
+
 __private_extern__
 os_log_t
 __log_SCDynamicStore			(void);
@@ -123,11 +131,22 @@ SCDynamicStorePrivateRef
 __SCDynamicStoreCreatePrivate		(CFAllocatorRef			allocator,
 					 const CFStringRef		name,
 					 SCDynamicStoreCallBack		callout,
-					 SCDynamicStoreContext		*context);
+					 SCDynamicStoreContext		*context,
+					 Boolean			nullSession);
 
 __private_extern__
-SCDynamicStoreRef
-__SCDynamicStoreNullSession		(void);
+Boolean
+__SCDynamicStoreNormalize		(SCDynamicStoreRef		*store,
+					 Boolean			allowNullSession);
+
+__private_extern__
+mach_port_t
+__SCDynamicStoreAddNotificationPort	(SCDynamicStoreRef		store);
+
+__private_extern__
+void
+__SCDynamicStoreRemoveNotificationPort	(SCDynamicStoreRef		store,
+					 mach_port_t			port);
 
 __private_extern__
 Boolean

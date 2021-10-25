@@ -1,4 +1,131 @@
--- $Id: CHANGES,v 1.73 2012/01/03 09:38:29 tom Exp $
+-- $Id: CHANGES,v 1.105 2021/01/13 00:18:10 tom Exp $
+
+2021/01/12 (diffstat 1.64)
+	+ recognize binary files mentioned in "git diff --binary", and
+	  "git log -p --binary" formatted files (report by Faheem Mitha).
+
+	+ update configure macros
+
+	+ update config.guess, config.sub
+
+2019/11/29 (diffstat 1.63)
+	+ eliminate fixed buffer when decoding range.
+
+	+ use locale in computing filename column-width.
+
+	+ improve parsing for git diffs.
+
+	+ use terminal-width as default for -w to tty.
+
+	+ minor fix in do_merging (Miloslaw Smyk).
+
+	+ improve relative-pathname matching in count_lines()
+
+	+ add a parsing-case for svn diff.
+
+	+ quote filenames in -t/-T output.
+
+	+ fix cppcheck warnings about sscanf.
+
+	+ update configure macros
+
+	+ update config.guess, config.sub
+
+2018/08/15 (diffstat 1.62)
+	+ improve checks for unmodified files when -S and -D options are
+	  given.
+
+	+ improve test-packages, to check warning-options.
+
+	+ minor fixes for manpage (Debian #895963)
+
+	+ update configure macros
+
+	+ update config.guess, config.sub
+
+	+ minor fixes for prefix-stripping with -S option.
+
+2016/01/14 (diffstat 1.61)
+	+ add -T option to show amount of changes next to histogram.
+
+	+ if -S option is given, check for unmodified files and add those to
+	  the report.
+
+	+ update configure macros
+
+	+ update config.guess, config.sub
+
+2015/07/07 (diffstat 1.60)
+	+ handle double-quotes, e.g., from diffutils 3.3 when filenames have
+	  embedded spaces.
+
+	+ add configure option --with-man2html
+
+	+ update configure macros
+
+	+ update config.guess, config.sub
+
+2014/06/05 (diffstat 1.59)
+	+ add -E option to filter escape-sequences, e.g., from colordiff
+	  (Ubuntu #1304262).
+
+	+ merge/adapt improvements to makefile and configure script from
+	  openembedded.org (forwarded by Ross Burton).
+	  + remove unused $(libdir) from makefile "installdirs" target
+	  + amend definition in CF_POPEN_TEST to permit use of autoheader.
+	  + workaround for gratuitous renaming of AC_ACVERSION in 2.69
+
+	+ added "docs" rule to makefile
+
+	+ improvements to configure macros:
+	  + added check for -Wlogical-op to gcc warnings
+	  + suppress check for defining _XOPEN_SOURCE on Solaris
+	  + trim an unwanted -no-gcc option for Intel compiler
+
+	+ update config.guess, config.sub
+
+2013/10/28 (diffstat 1.58)
+	+ add COPYING file (request by Dagobert Michelsen).
+
+	+ improved portability for cross-compiling, by supplying missing
+	  getopt function as well as improving checks for popen/pclose
+	  prototypes.
+
+	+ updated configure macros, e.g., for MingW and MSYS fixes.
+
+	+ update config.guess, config.sub
+
+2013/04/15 (diffstat 1.57)
+	+ improve treatment of binary files in ambiguous message introduced in
+	  diffutils 2.8.4, and finally corrected in 3.0 (report by Moritz
+	  Barsnick).
+
+2013/02/11 (diffstat 1.56)
+	+ add -K option which attempts to improve the annotation of "only"
+	  files by looking for a match in the resulting set of files and
+	  inferring whether the file was added or removed (request by Marc
+	  Haber).
+
+	+ add check of command-line options for valid numbers.
+
+	+ improve merging of patches for the same filename (report/testcase by
+	  Paul E McKenney).
+
+	+ document -d option in manpage.
+
+	+ document -b, -C, -s option in usage (patch by Tim Waugh, RedHat
+	  #852770)
+
+	+ modify configure script as done for byacc in 2012/10/03, making the
+	  2.52-patches the prerequisite and adding support for --datarootdir
+	  option.
+
+	+ update config.guess, config.sub
+
+	+ add logic to handle SVN diffs when the pathnames contain spaces
+	  (patch by Stuart Prescott, Debian #675475).
+
+	+ fix typo in package/debian/control
 
 2012/01/03 (diffstat 1.55)
 	+ add -R option, like patch's, to reverse the order of the comparison.
@@ -272,9 +399,9 @@
 
 	+ modified to avoid buffer overflows.
 
-	+ fixes for Debian #155000 (did not handle a '-' in first content-column
-	  of a unified diff) and #170947 (option to turn the progress messages
-	  off).
+	+ fixes for Debian #155000 (did not handle a '-' in first
+	  content-column of a unified diff) and Debian #170947 (option to turn
+	  the progress messages off).
 
 	+ updated configure script using aclocal.m4 macros
 
@@ -309,7 +436,7 @@
 	  workaround for OSF1's broken sed utility.
 
 	+ Check for compressed file suffixes .Z and .gz, read uncompressed data
-	  via pipe (Debian wishlist item #53975 by ch@lathspell.westend.com).
+	  via pipe (Debian #53975 by ch@lathspell.westend.com).
 
 	+ Simplified makefile based on comments by M Sweger
 	  <mikesw@whiterose.net>
@@ -341,7 +468,7 @@
 
 	+ Handle differences from /tmp (e.g., for X11R5 patches).
 
-1995-05-06 (diffstat 1.17 Patch 3)
+1995-05-06 (diffstat 1.17, Patch 3)
 
 	+ Repost whole program to comp.sources.misc (1.17)
 

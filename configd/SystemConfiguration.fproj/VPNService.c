@@ -1,9 +1,10 @@
 /*
- * Copyright (c) 2012, 2013, 2016, 2017 Apple Inc. All rights reserved.
+ * Copyright (c) 2012, 2013, 2016, 2017, 2021 Apple Inc. All rights reserved.
  */
 
 #include "SCNetworkConfigurationInternal.h"
-#include "dy_framework.h"
+#include <Security/Security.h>
+#include <Security/SecTask.h>
 
 static CFStringRef g_apple_app_prefix = CFSTR("com.apple.");
 

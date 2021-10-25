@@ -185,4 +185,14 @@ _pthread_set_errno_direct(int value)
 	*_pthread_errno_address_direct() = value;
 }
 
+/* To be used by dispatch only */
+#ifndef PTHREAD_HAVE_YIELD_TO_ENQUEUER
+
+#define PTHREAD_HAVE_YIELD_TO_ENQUEUER 1
+int
+_pthread_yield_to_enqueuer_4dispatch(unsigned long slot, void *expected_val,
+	unsigned int timeout_ms);
+
+#endif
+
 #endif // __PTHREAD_PRIVATE_H__

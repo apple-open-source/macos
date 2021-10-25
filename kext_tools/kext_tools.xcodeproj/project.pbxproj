@@ -381,13 +381,6 @@
 		4C6F9B272278C49D004FD94C /* driverkit.m in Sources */ = {isa = PBXBuildFile; fileRef = 4C7B83392194B6A600F67289 /* driverkit.m */; };
 		4C6F9B282278C4AF004FD94C /* driverkit.m in Sources */ = {isa = PBXBuildFile; fileRef = 4C7B83392194B6A600F67289 /* driverkit.m */; };
 		4C6F9B292278C4BD004FD94C /* driverkit.m in Sources */ = {isa = PBXBuildFile; fileRef = 4C7B83392194B6A600F67289 /* driverkit.m */; };
-		4C6F9B2B2278C552004FD94C /* SystemExtensions.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4C6F9B2A2278C552004FD94C /* SystemExtensions.framework */; settings = {ATTRIBUTES = (Weak, ); }; };
-		4C6F9B2C2278C55C004FD94C /* SystemExtensions.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4C6F9B2A2278C552004FD94C /* SystemExtensions.framework */; settings = {ATTRIBUTES = (Weak, ); }; };
-		4C6F9B2D2278C564004FD94C /* SystemExtensions.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4C6F9B2A2278C552004FD94C /* SystemExtensions.framework */; settings = {ATTRIBUTES = (Weak, ); }; };
-		4C6F9B2E2278C571004FD94C /* SystemExtensions.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4C6F9B2A2278C552004FD94C /* SystemExtensions.framework */; settings = {ATTRIBUTES = (Weak, ); }; };
-		4C6F9B2F2278C579004FD94C /* SystemExtensions.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4C6F9B2A2278C552004FD94C /* SystemExtensions.framework */; settings = {ATTRIBUTES = (Weak, ); }; };
-		4C6F9B302278C588004FD94C /* SystemExtensions.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4C6F9B2A2278C552004FD94C /* SystemExtensions.framework */; settings = {ATTRIBUTES = (Weak, ); }; };
-		4C6F9B312278C591004FD94C /* SystemExtensions.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4C6F9B2A2278C552004FD94C /* SystemExtensions.framework */; settings = {ATTRIBUTES = (Weak, ); }; };
 		4C7B833A2194B6A600F67289 /* driverkit.m in Sources */ = {isa = PBXBuildFile; fileRef = 4C7B83392194B6A600F67289 /* driverkit.m */; };
 		4C7B833B2194B6A600F67289 /* driverkit.m in Sources */ = {isa = PBXBuildFile; fileRef = 4C7B83392194B6A600F67289 /* driverkit.m */; };
 		4CAD780A22CAB08000396287 /* bootcaches.c in Sources */ = {isa = PBXBuildFile; fileRef = 0C3171650AB0E2F900B8CA9A /* bootcaches.c */; };
@@ -1101,7 +1094,6 @@
 		4C3E85E022B1A0E800747097 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.15.Internal.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
 		4C3E85E322B1A35B00747097 /* CommonUtilities.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CommonUtilities.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.15.Internal.sdk/System/Library/PrivateFrameworks/CommonUtilities.framework; sourceTree = DEVELOPER_DIR; };
 		4C3E85E522B1A3AB00747097 /* Bom.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Bom.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.15.Internal.sdk/System/Library/PrivateFrameworks/Bom.framework; sourceTree = DEVELOPER_DIR; };
-		4C6F9B2A2278C552004FD94C /* SystemExtensions.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SystemExtensions.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.15.Internal.sdk/System/Library/Frameworks/SystemExtensions.framework; sourceTree = DEVELOPER_DIR; };
 		4C7B83392194B6A600F67289 /* driverkit.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = driverkit.m; sourceTree = "<group>"; };
 		4C980EBC22B81ED900C30272 /* APFS.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = APFS.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.15.Internal.sdk/System/Library/PrivateFrameworks/APFS.framework; sourceTree = DEVELOPER_DIR; };
 		4CAD780E22CAB21300396287 /* EFILogin.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = EFILogin.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.15.Internal.sdk/System/Library/PrivateFrameworks/EFILogin.framework; sourceTree = DEVELOPER_DIR; };
@@ -1165,7 +1157,6 @@
 				4C56CED423C68E1B00891A02 /* KernelManagement.framework in Frameworks */,
 				4CEEB19222CFDB6D00E60094 /* APFS.framework in Frameworks */,
 				4C3E85E622B1A3AB00747097 /* Bom.framework in Frameworks */,
-				4C6F9B312278C591004FD94C /* SystemExtensions.framework in Frameworks */,
 				05097276094910D30034B52C /* CoreFoundation.framework in Frameworks */,
 				4C3E85E222B1A18200747097 /* Foundation.framework in Frameworks */,
 				05097275094910D30034B52C /* IOKit.framework in Frameworks */,
@@ -1190,7 +1181,6 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				4C6F9B302278C588004FD94C /* SystemExtensions.framework in Frameworks */,
 				36BE45FF215C5AA3001E8251 /* ServiceManagement.framework in Frameworks */,
 				728BAE25167F7FDA004193C6 /* Security.framework in Frameworks */,
 				0C2D8EA1138775A4004EB21F /* EFILogin.framework in Frameworks */,
@@ -1299,7 +1289,6 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				4C6F9B2F2278C579004FD94C /* SystemExtensions.framework in Frameworks */,
 				4C110C3523C50CB700B84DBE /* KernelManagement.framework in Frameworks */,
 				A6D698191E56B04D0050FC06 /* Foundation.framework in Frameworks */,
 				24C4E6C50DD3EC9900A70AB5 /* IOKit.framework in Frameworks */,
@@ -1322,7 +1311,6 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				4C6F9B2E2278C571004FD94C /* SystemExtensions.framework in Frameworks */,
 				24FD2FDB0DC1454E0065A35B /* CoreFoundation.framework in Frameworks */,
 				24FD30230DC145530065A35B /* IOKit.framework in Frameworks */,
 				D33D8396241A1A7700A12443 /* KernelManagement.framework in Frameworks */,
@@ -1336,7 +1324,6 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				4C6F9B2C2278C55C004FD94C /* SystemExtensions.framework in Frameworks */,
 				36F3F5B620506ADB006108B8 /* SystemPolicy.framework in Frameworks */,
 				36F3F5B320506854006108B8 /* IOKit.framework in Frameworks */,
 				36F3F5B0205067B5006108B8 /* Security.framework in Frameworks */,
@@ -1358,7 +1345,6 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				4C6F9B2B2278C552004FD94C /* SystemExtensions.framework in Frameworks */,
 				4A78ED2E211BAE3B00A78F41 /* libdarwintest.a in Frameworks */,
 				4A78ED1A211BAC7C00A78F41 /* SystemPolicy.framework in Frameworks */,
 				4A78ED1B211BAC7C00A78F41 /* IOKit.framework in Frameworks */,
@@ -1437,7 +1423,6 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				4C6F9B2D2278C564004FD94C /* SystemExtensions.framework in Frameworks */,
 				A66AD2FB1E80CE5000B2EEC9 /* CoreFoundation.framework in Frameworks */,
 				A66AD2FE1E80CE5000B2EEC9 /* IOKit.framework in Frameworks */,
 				A66AD2FF1E80CE5000B2EEC9 /* Security.framework in Frameworks */,
@@ -1889,7 +1874,6 @@
 				4C3E85DE22B1A08C00747097 /* CoreFoundation.framework */,
 				4C3E85DC22B19E9000747097 /* Foundation.framework */,
 				4C3E85DA22B19E8900747097 /* IOKit.framework */,
-				4C6F9B2A2278C552004FD94C /* SystemExtensions.framework */,
 				4A0ED9FF213F385100131491 /* MultiverseSupport.framework */,
 				4A78ED2D211BAE3B00A78F41 /* libdarwintest.a */,
 				36BE45FE215C5AA3001E8251 /* ServiceManagement.framework */,

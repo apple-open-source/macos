@@ -47,3 +47,6 @@
 (allow iokit-open 
        (iokit-user-client-class "AppleAPFSUserClient")
        (iokit-user-client-class "AppleKeyStoreUserClient"))
+
+(allow iokit-get-properties
+       (iokit-property "boot-uuid"))

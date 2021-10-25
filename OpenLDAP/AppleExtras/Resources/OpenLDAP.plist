@@ -25,8 +25,8 @@
 			<string>backport CVE-2020-12243 (ITS#9202)</string>
 			<string>backport CVE-2020-25710 (ITS#9384)</string>
 			<string>backport CVE-2020-25709 (ITS#9383)</string>
-			<string>backport CVE-2020-36221 (ITS#9404 & 9424)</string>
-			<string>backport CVE-2020-36222 (ITS#9406 & 9407)</string>
+			<string>backport CVE-2020-36221 (ITS#9404 and 9424)</string>
+			<string>backport CVE-2020-36222 (ITS#9406 and 9407)</string>
 			<string>backport CVE-2020-36223 (ITS#9408)</string>
 			<string>backport CVE-2020-36224 (ITS#9409)</string>
 			<string>backport CVE-2020-36225 (ITS#9412)</string>

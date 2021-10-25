@@ -1,10 +1,11 @@
 // © 2016 and later: Unicode, Inc. and others.
-// License & terms of use: http://www.unicode.org/copyright.html#License
+// License & terms of use: http://www.unicode.org/copyright.html
+// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
 
 {
-    "cldrVersion": "36.1",
+    "cldrVersion": "38.1",
     "aliases": {
-        "ars": "ar",
+        "ars": "ar_SA",
         "in": "id",
         "in_ID": "id_ID",
         "iw": "he",
@@ -24,10 +25,15 @@
         "yue": "zh_Hant",
         "yue_CN": "zh_Hans",
         "yue_Hans": "zh_Hans",
+        "yue_Hans_CN": "zh_Hans",
+        "yue_Hant": "zh_Hant",
         "zh_CN": "zh_Hans_CN",
         "zh_HK": "zh_Hant_HK",
         "zh_MO": "zh_Hant_MO",
         "zh_SG": "zh_Hans_SG",
         "zh_TW": "zh_Hant_TW"
+    },
+    "parents": {
+        "ff_Adlm": "root"
     }
 }

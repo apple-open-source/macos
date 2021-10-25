@@ -21,7 +21,11 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#ifdef __OBJC__
+
 #import <Foundation/Foundation.h>
 
 void
 _SOSControlSetupInterface(NSXPCInterface *interface);
+
+#endif /* __OBJC__ */

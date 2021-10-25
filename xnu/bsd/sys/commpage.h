@@ -30,6 +30,8 @@
 
 #ifdef  PRIVATE
 
+#include <stdint.h>
+
 #define _COMM_PAGE32_SIGNATURE_STRING           "commpage 32-bit"
 #define _COMM_PAGE64_SIGNATURE_STRING           "commpage 64-bit"
 

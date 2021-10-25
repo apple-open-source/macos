@@ -83,8 +83,11 @@ extern int      proc_selfpid(void);
 #define CONFIG_COALITION_MAX CONFIG_TASK_MAX
 #define COALITION_CHUNK TASK_CHUNK
 
-int unrestrict_coalition_syscalls;
-int merge_adaptive_coalitions;
+#if DEBUG || DEVELOPMENT
+TUNABLE_WRITEABLE(int, unrestrict_coalition_syscalls, "unrestrict_coalition_syscalls", 0);
+#else
+#define unrestrict_coalition_syscalls false
+#endif
 
 LCK_GRP_DECLARE(coalitions_lck_grp, "coalition");
 
@@ -118,7 +121,7 @@ struct coalition_type {
 	 * pre-condition: coalition just allocated (unlocked), unreferenced,
 	 *                type field set
 	 */
-	kern_return_t (*init)(coalition_t coal, boolean_t privileged);
+	kern_return_t (*init)(coalition_t coal, boolean_t privileged, boolean_t efficient);
 
 	/*
 	 * dealloc
@@ -169,7 +172,7 @@ struct coalition_type {
  * COALITION_TYPE_RESOURCE
  */
 
-static kern_return_t i_coal_resource_init(coalition_t coal, boolean_t privileged);
+static kern_return_t i_coal_resource_init(coalition_t coal, boolean_t privileged, boolean_t efficient);
 static void          i_coal_resource_dealloc(coalition_t coal);
 static kern_return_t i_coal_resource_adopt_task(coalition_t coal, task_t task);
 static kern_return_t i_coal_resource_remove_task(coalition_t coal, task_t task);
@@ -235,7 +238,7 @@ struct i_resource_coalition {
  * COALITION_TYPE_JETSAM
  */
 
-static kern_return_t i_coal_jetsam_init(coalition_t coal, boolean_t privileged);
+static kern_return_t i_coal_jetsam_init(coalition_t coal, boolean_t privileged, boolean_t efficient);
 static void          i_coal_jetsam_dealloc(coalition_t coal);
 static kern_return_t i_coal_jetsam_adopt_task(coalition_t coal, task_t task);
 static kern_return_t i_coal_jetsam_remove_task(coalition_t coal, task_t task);
@@ -325,7 +328,7 @@ static const struct coalition_type
 };
 
 ZONE_DECLARE(coalition_zone, "coalitions",
-    sizeof(struct coalition), ZC_NOENCRYPT | ZC_ZFREE_CLEARMEM);
+    sizeof(struct coalition), ZC_ZFREE_CLEARMEM);
 
 #define coal_call(coal, func, ...) \
 	(s_coalition_types[(coal)->type].func)(coal, ## __VA_ARGS__)
@@ -541,9 +544,10 @@ coalition_notify_user(uint64_t id, uint32_t flags)
  *
  */
 static kern_return_t
-i_coal_resource_init(coalition_t coal, boolean_t privileged)
+i_coal_resource_init(coalition_t coal, boolean_t privileged, boolean_t efficient)
 {
 	(void)privileged;
+	(void)efficient;
 	assert(coal && coal->type == COALITION_TYPE_RESOURCE);
 	coal->r.ledger = ledger_instantiate(coalition_task_ledger_template,
 	    LEDGER_CREATE_ACTIVE_ENTRIES);
@@ -925,10 +929,11 @@ coalition_resource_usage_internal(coalition_t coal, struct coalition_resource_us
  *
  */
 static kern_return_t
-i_coal_jetsam_init(coalition_t coal, boolean_t privileged)
+i_coal_jetsam_init(coalition_t coal, boolean_t privileged, boolean_t efficient)
 {
 	assert(coal && coal->type == COALITION_TYPE_JETSAM);
 	(void)privileged;
+	(void)efficient;
 
 	coal->j.leader = TASK_NULL;
 	queue_head_init(coal->j.extensions);
@@ -943,15 +948,8 @@ i_coal_jetsam_init(coalition_t coal, boolean_t privileged)
 	case COALITION_ROLE_BACKGROUND:
 		coal->j.thread_group = thread_group_find_by_id_and_retain(THREAD_GROUP_BACKGROUND);
 		break;
-	case COALITION_ROLE_ADAPTIVE:
-		if (merge_adaptive_coalitions) {
-			coal->j.thread_group = thread_group_find_by_id_and_retain(THREAD_GROUP_ADAPTIVE);
-		} else {
-			coal->j.thread_group = thread_group_create_and_retain();
-		}
-		break;
 	default:
-		coal->j.thread_group = thread_group_create_and_retain();
+		coal->j.thread_group = thread_group_create_and_retain(efficient);
 	}
 	assert(coal->j.thread_group != NULL);
 #endif
@@ -1161,7 +1159,7 @@ i_coal_jetsam_iterate_tasks(coalition_t coal, void *ctx, void (*callback)(coalit
  * Condition: coalitions_list_lock must be UNLOCKED.
  */
 kern_return_t
-coalition_create_internal(int type, int role, boolean_t privileged, coalition_t *out, uint64_t *coalition_id)
+coalition_create_internal(int type, int role, boolean_t privileged, boolean_t efficient, coalition_t *out, uint64_t *coalition_id)
 {
 	kern_return_t kr;
 	struct coalition *new_coal;
@@ -1172,17 +1170,13 @@ coalition_create_internal(int type, int role, boolean_t privileged, coalition_t 
 		return KERN_INVALID_ARGUMENT;
 	}
 
-	new_coal = (struct coalition *)zalloc(coalition_zone);
-	if (new_coal == COALITION_NULL) {
-		return KERN_RESOURCE_SHORTAGE;
-	}
-	bzero(new_coal, sizeof(*new_coal));
+	new_coal = zalloc_flags(coalition_zone, Z_WAITOK | Z_ZERO | Z_NOFAIL);
 
 	new_coal->type = type;
 	new_coal->role = role;
 
 	/* initialize type-specific resources */
-	kr = coal_call(new_coal, init, privileged);
+	kr = coal_call(new_coal, init, privileged, efficient);
 	if (kr != KERN_SUCCESS) {
 		zfree(coalition_zone, new_coal);
 		return kr;
@@ -1192,6 +1186,7 @@ coalition_create_internal(int type, int role, boolean_t privileged, coalition_t 
 	new_coal->ref_count = 2;
 
 	new_coal->privileged = privileged ? TRUE : FALSE;
+	new_coal->efficient = efficient ? TRUE : FALSE;
 #if DEVELOPMENT || DEBUG
 	new_coal->should_notify = 1;
 #endif
@@ -1329,7 +1324,7 @@ coalition_find_by_id(uint64_t cid)
 	}
 
 	if (coal->ref_count == 0) {
-		panic("resurrecting coalition %p id:%llu type:%s, active_count:%u\n",
+		panic("resurrecting coalition %p id:%llu type:%s, active_count:%u",
 		    coal, coal->id, coal_type_str(coal->type), coal->active_count);
 	}
 	coal->ref_count++;
@@ -1372,7 +1367,7 @@ coalition_find_and_activate_by_id(uint64_t cid)
 	}
 
 	if (coal->ref_count == 0) {
-		panic("resurrecting coalition %p id:%llu type:%s, active_count:%u\n",
+		panic("resurrecting coalition %p id:%llu type:%s, active_count:%u",
 		    coal, coal->id, coal_type_str(coal->type), coal->active_count);
 	}
 
@@ -1540,14 +1535,6 @@ task_coalition_nonfocal_count(task_t task)
 	}
 
 	return coal->nonfocal_task_count;
-}
-
-void
-coalition_set_efficient(coalition_t coal)
-{
-	coalition_lock(coal);
-	coal->efficient = TRUE;
-	coalition_unlock(coal);
 }
 
 #if CONFIG_THREAD_GROUPS
@@ -2051,16 +2038,6 @@ coalitions_init(void)
 
 	queue_head_init(coalitions_q);
 
-	if (!PE_parse_boot_argn("unrestrict_coalition_syscalls", &unrestrict_coalition_syscalls,
-	    sizeof(unrestrict_coalition_syscalls))) {
-		unrestrict_coalition_syscalls = 0;
-	}
-
-	if (!PE_parse_boot_argn("tg_adaptive", &merge_adaptive_coalitions,
-	    sizeof(merge_adaptive_coalitions))) {
-		merge_adaptive_coalitions = 0;
-	}
-
 	init_task_ledgers();
 
 	init_coalition_ledgers();
@@ -2078,7 +2055,7 @@ coalitions_init(void)
 		if (!ctype->has_default) {
 			continue;
 		}
-		kr = coalition_create_internal(ctype->type, COALITION_ROLE_SYSTEM, TRUE, &init_coalition[ctype->type], NULL);
+		kr = coalition_create_internal(ctype->type, COALITION_ROLE_SYSTEM, TRUE, FALSE, &init_coalition[ctype->type], NULL);
 		if (kr != KERN_SUCCESS) {
 			panic("%s: could not create init %s coalition: kr:%d",
 			    __func__, coal_type_str(i), kr);
@@ -2086,7 +2063,7 @@ coalitions_init(void)
 		if (i == COALITION_TYPE_RESOURCE) {
 			assert(COALITION_ID_KERNEL == init_coalition[ctype->type]->id);
 		}
-		kr = coalition_create_internal(ctype->type, COALITION_ROLE_SYSTEM, FALSE, &corpse_coalition[ctype->type], NULL);
+		kr = coalition_create_internal(ctype->type, COALITION_ROLE_SYSTEM, FALSE, FALSE, &corpse_coalition[ctype->type], NULL);
 		if (kr != KERN_SUCCESS) {
 			panic("%s: could not create corpse %s coalition: kr:%d",
 			    __func__, coal_type_str(i), kr);

@@ -61,6 +61,7 @@ enum nbstate {
 #define	NBF_UPCALLED	0x0010      /* unused */
 #define	NBF_NETBIOS		0x0020
 #define NBF_BOUND_IF    0x0040
+#define NBF_SOCK_OPENED 0x0080      /* socket opened by sock_socket */
 
 
 /*
@@ -80,7 +81,6 @@ struct nbpcb {
 	uint32_t            nbp_rcvchunk;
 	void               *nbp_selectid;
 	void              (*nbp_upcall)(void *);
-	lck_mtx_t           nbp_lock;
 	uint32_t            nbp_qos;
     struct sockaddr_storage nbp_sock_addr;
     uint32_t            nbp_if_idx;
@@ -94,10 +94,6 @@ struct nbpcb {
  * buffer size.  See nbssn_recv().
  */
 #define NB_SORECEIVE_CHUNK	(8 * 1024)
-
-extern lck_grp_attr_t *nbp_grp_attr;
-extern lck_grp_t *nbp_lck_group;
-extern lck_attr_t *nbp_lck_attr;
 
 extern struct smb_tran_desc smb_tran_nbtcp_desc;
 

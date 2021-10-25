@@ -32,12 +32,19 @@
 #import "keychain/ckks/CKKSHealTLKSharesOperation.h"
 #import "keychain/ckks/CKKSGroupOperation.h"
 #import "keychain/ckks/CKKSTLKShareRecord.h"
+#import "keychain/ot/OTDefines.h"
 #import "keychain/ot/ObjCImprovements.h"
+#import "keychain/categories/NSError+UsefulConstructors.h"
 
 #import "CKKSPowerCollection.h"
 
 @interface CKKSHealTLKSharesOperation ()
-@property NSBlockOperation* cloudkitModifyOperationFinished;
+@property NSHashTable* ckOperations;
+@property CKKSResultOperation* setResultStateOperation;
+
+@property BOOL cloudkitWriteFailures;
+@property BOOL failedDueToLockState;
+@property BOOL failedDueToEssentialTrustState;
 @end
 
 @implementation CKKSHealTLKSharesOperation
@@ -48,90 +55,163 @@
     return nil;
 }
 
-- (instancetype)initWithOperationDependencies:(CKKSOperationDependencies*)operationDependencies
-                                         ckks:(CKKSKeychainView*)ckks
+- (instancetype)initWithDependencies:(CKKSOperationDependencies*)operationDependencies
+                       intendedState:(CKKSState*)intendedState
+                          errorState:(CKKSState*)errorState
 {
     if(self = [super init]) {
-        _ckks = ckks;
         _deps = operationDependencies;
 
-        _nextState = SecCKKSZoneKeyStateHealTLKSharesFailed;
-        _intendedState = SecCKKSZoneKeyStateBecomeReady;
+        _nextState = errorState;
+        _intendedState = intendedState;
+
+        _cloudkitWriteFailures = NO;
+        _failedDueToLockState = NO;
+        _failedDueToEssentialTrustState = NO;
     }
     return self;
 }
 
 - (void)groupStart {
-    /*
-     * We've been invoked because something is wonky with the tlk shares.
-     *
-     * Attempt to figure out what it is, and what we can do about it.
-     */
-
     WEAKIFY(self);
 
-    if(self.cancelled) {
-        ckksnotice("ckksshare", self.deps.zoneID, "CKKSHealTLKSharesOperation cancelled, quitting");
+    if (self.deps.syncingPolicy.isInheritedAccount) {
+        secnotice("ckksshare", "Account is inherited, bailing out of healing TLKShares");
+        self.nextState = self.intendedState;
         return;
     }
+    
+    self.setResultStateOperation = [CKKSResultOperation named:@"determine-next-state" withBlockTakingSelf:^(CKKSResultOperation * _Nonnull op) {
+        STRONGIFY(self);
+
+        if(self.failedDueToEssentialTrustState) {
+            self.nextState = CKKSStateLoseTrust;
+
+        } else if(self.cloudkitWriteFailures) {
+            ckksnotice_global("ckksheal", "Due to write failures, we'll retry later");
+            self.nextState = CKKSStateHealTLKSharesFailed;
+
+        } else {
+            self.nextState = self.intendedState;
+        }
+    }];
 
     NSArray<CKKSPeerProviderState*>* trustStates = [self.deps currentTrustStates];
 
-    NSError* error = nil;
+    for(CKKSKeychainViewState* viewState in self.deps.activeManagedViews) {
+        if(![viewState.viewKeyHierarchyState isEqualToString:SecCKKSZoneKeyStateReady]) {
+            ckkserror("ckksshare", viewState.zoneID, "View key state is %@; not checking TLK share validity", viewState);
+            continue;
+        }
+
+        [self checkAndHealTLKShares:viewState
+                 currentTrustStates:trustStates];
+    }
+
+    if(self.failedDueToLockState) {
+        // This is okay, but we need to recheck these after the next unlock.
+        OctagonPendingFlag* whenUnlocked = [[OctagonPendingFlag alloc] initWithFlag:CKKSFlagKeyStateProcessRequested
+                                                                         conditions:OctagonPendingConditionsDeviceUnlocked];
+        [self.deps.flagHandler handlePendingFlag:whenUnlocked];
+    }
+
+    [self runBeforeGroupFinished:self.setResultStateOperation];
+}
+
+- (void)checkAndHealTLKShares:(CKKSKeychainViewState*)viewState
+           currentTrustStates:(NSArray<CKKSPeerProviderState*>*)currentTrustStates
+{
     __block CKKSCurrentKeySet* keyset = nil;
 
     [self.deps.databaseProvider dispatchSyncWithReadOnlySQLTransaction:^{
-        keyset = [CKKSCurrentKeySet loadForZone:self.deps.zoneID];
+        keyset = [CKKSCurrentKeySet loadForZone:viewState.zoneID];
     }];
 
     if(keyset.error) {
-        self.nextState = SecCKKSZoneKeyStateUnhealthy;
-        self.error = keyset.error;
-        ckkserror("ckksshare", self.deps.zoneID, "couldn't load current keys: can't fix TLK shares");
+        viewState.viewKeyHierarchyState = SecCKKSZoneKeyStateUnhealthy;
+        ckkserror("ckksshare", viewState.zoneID, "couldn't load current keys: can't fix TLK shares");
         return;
     } else {
-        ckksnotice("ckksshare", self.deps.zoneID, "Key set is %@", keyset);
+        ckksnotice("ckksshare", viewState.zoneID, "Key set is %@", keyset);
     }
 
-    [CKKSPowerCollection CKKSPowerEvent:kCKKSPowerEventTLKShareProcessing zone:self.deps.zoneID.zoneName];
+    [CKKSPowerCollection CKKSPowerEvent:kCKKSPowerEventTLKShareProcessing zone:viewState.zoneID.zoneName];
 
-    // Okay! Perform the checks.
-    if(![keyset.tlk loadKeyMaterialFromKeychain:&error] || error) {
-        // Well, that's no good. We can't share a TLK we don't have.
-        if([self.deps.lockStateTracker isLockedError: error]) {
-            ckkserror("ckksshare", self.deps.zoneID, "Keychain is locked: can't fix shares yet: %@", error);
-            self.nextState = SecCKKSZoneKeyStateBecomeReady;
-        } else {
-            ckkserror("ckksshare", self.deps.zoneID, "couldn't load current tlk from keychain: %@", error);
-            self.nextState = SecCKKSZoneKeyStateUnhealthy;
+    @autoreleasepool {
+        // Okay! Perform the checks.
+        NSError* tlkLoadError = nil;
+        if(![keyset.tlk loadKeyMaterialFromKeychain:&tlkLoadError] || tlkLoadError) {
+            // Well, that's no good. We can't share a TLK we don't have.
+            if([self.deps.lockStateTracker isLockedError:tlkLoadError]) {
+                ckkserror("ckksshare", viewState.zoneID, "Keychain is locked: can't fix shares yet: %@", tlkLoadError);
+                self.failedDueToLockState = true;
+
+            } else {
+                ckkserror("ckksshare", viewState.zoneID, "couldn't load current tlk from keychain: %@", tlkLoadError);
+                viewState.viewKeyHierarchyState = SecCKKSZoneKeyStateUnhealthy;
+            }
+            return;
         }
+    }
+
+    if(SecCKKSTestsEnabled() && SecCKKSTestSkipTLKHealing()) {
+        ckkserror("ckksnotice", viewState.zoneID, "Test has requested no TLK share healing!");
         return;
     }
 
-    NSSet<CKKSTLKShareRecord*>* newShares = [CKKSHealTLKSharesOperation createMissingKeyShares:keyset
-                                                                                   trustStates:trustStates
-                                                                                         error:&error];
-    if(error) {
-        ckkserror("ckksshare", self.deps.zoneID, "Unable to create shares: %@", error);
-        self.nextState = SecCKKSZoneKeyStateUnhealthy;
-        return;
+    NSError* createSharesError = nil;
+    NSMutableSet<CKKSTLKShareRecord*>* newShares = [NSMutableSet set];
+
+    for(CKKSPeerProviderState* trustState in currentTrustStates) {
+        @autoreleasepool {
+            NSError* stateError = nil;
+            NSSet<CKKSTLKShareRecord*>* newTrustShares = [CKKSHealTLKSharesOperation createMissingKeyShares:keyset
+                                                                                                      peers:trustState
+                                                                                           databaseProvider:self.deps.databaseProvider
+                                                                                                      error:&stateError];
+
+            if(newTrustShares && !stateError) {
+                [newShares unionSet:newTrustShares];
+            } else {
+                ckksnotice("ckksshare", keyset.tlk, "Unable to create shares for trust set %@: %@", trustState, stateError);
+
+                if(trustState.essential) {
+                    if(([stateError.domain isEqualToString:TrustedPeersHelperErrorDomain] && stateError.code == TrustedPeersHelperErrorNoPreparedIdentity) ||
+                       ([stateError.domain isEqualToString:CKKSErrorDomain] && stateError.code == CKKSLackingTrust) ||
+                       ([stateError.domain isEqualToString:CKKSErrorDomain] && stateError.code == CKKSNoPeersAvailable)) {
+                        ckkserror("ckksshare", viewState.zoneID, "Unable to create shares due to some trust issue: %@", createSharesError);
+
+                        viewState.viewKeyHierarchyState = SecCKKSZoneKeyStateWaitForTrust;
+                        self.failedDueToEssentialTrustState = YES;
+                        return;
+
+                    } else {
+                        ckkserror("ckksshare", viewState.zoneID, "Unable to create shares: %@", createSharesError);
+                        viewState.viewKeyHierarchyState = SecCKKSZoneKeyStateUnhealthy;
+                        return;
+                    }
+                }
+                // Not essential means we don't want to early-exit
+            }
+        }
     }
 
     if(newShares.count == 0u) {
-        ckksnotice("ckksshare", self.deps.zoneID, "Don't believe we need to change any TLKShares, stopping");
-        self.nextState = self.intendedState;
+        ckksnotice("ckksshare", viewState.zoneID, "Don't believe we need to change any TLKShares, stopping");
         return;
     }
 
     keyset.pendingTLKShares = [newShares allObjects];
 
     // Let's double-check: if we upload these TLKShares, will the world be right?
-    BOOL newSharesSufficient = [CKKSHealTLKSharesOperation areNewSharesSufficient:keyset
-                                                                      trustStates:trustStates
-                                                                            error:&error];
-    if(!newSharesSufficient || error) {
-        ckksnotice("ckksshare", self.deps.zoneID, "New shares won't resolve the share issue; erroring to avoid infinite loops");
-        self.nextState = SecCKKSZoneKeyStateError;
+    NSError* sufficientSharesError = nil;
+    BOOL newSharesSufficient = [self areNewSharesSufficient:keyset
+                                                trustStates:currentTrustStates
+                                                      error:&sufficientSharesError];
+
+    if(!newSharesSufficient || sufficientSharesError) {
+        ckksnotice("ckksshare", viewState.zoneID, "New shares won't resolve the share issue; erroring to avoid infinite loops: %@", sufficientSharesError);
+        viewState.viewKeyHierarchyState = SecCKKSZoneKeyStateError;
         return;
     }
 
@@ -141,18 +221,18 @@
     NSMutableArray<CKRecordID *>* recordIDsToDelete = [[NSMutableArray alloc] init];
     NSMutableDictionary<CKRecordID*, CKRecord*>* attemptedRecords = [[NSMutableDictionary alloc] init];
 
-    ckksnotice("ckksshare", self.deps.zoneID, "Uploading %d new TLKShares", (unsigned int)newShares.count);
+    ckksnotice("ckksshare", viewState.zoneID, "Uploading %d new TLKShares", (unsigned int)newShares.count);
     for(CKKSTLKShareRecord* share in newShares) {
-        ckksnotice("ckksshare", self.deps.zoneID, "Uploading TLKShare to %@ (as %@)", share.share.receiverPeerID, share.senderPeerID);
+        ckksnotice("ckksshare", viewState.zoneID, "Uploading TLKShare to %@ (as %@)", share.share.receiverPeerID, share.senderPeerID);
 
-        CKRecord* record = [share CKRecordWithZoneID:self.deps.zoneID];
+        CKRecord* record = [share CKRecordWithZoneID:viewState.zoneID];
         [recordsToSave addObject: record];
         attemptedRecords[record.recordID] = record;
     }
 
     // Use the spare operation trick to wait for the CKModifyRecordsOperation to complete
-    self.cloudkitModifyOperationFinished = [NSBlockOperation named:@"heal-tlkshares-modify-operation-finished" withBlock:^{}];
-    [self dependOnBeforeGroupFinished: self.cloudkitModifyOperationFinished];
+    CKKSResultOperation* cloudkitModifyOperationFinished = [CKKSResultOperation named:[NSString stringWithFormat:@"heal-tlkshares-%@", viewState.zoneID.zoneName] withBlock:^{}];
+    [self dependOnBeforeGroupFinished: cloudkitModifyOperationFinished];
 
     // Get the CloudKit operation ready...
     CKModifyRecordsOperation* modifyRecordsOp = [[CKModifyRecordsOperation alloc] initWithRecordsToSave:recordsToSave
@@ -166,28 +246,26 @@
     modifyRecordsOp.configuration.isCloudKitSupportOperation = YES;
 
     modifyRecordsOp.group = self.deps.ckoperationGroup;
-    ckksnotice("ckksshare", self.deps.zoneID, "Operation group is %@", self.deps.ckoperationGroup);
+    ckksnotice("ckksshare", viewState.zoneID, "Operation group is %@", self.deps.ckoperationGroup);
 
     modifyRecordsOp.perRecordCompletionBlock = ^(CKRecord *record, NSError * _Nullable error) {
-        STRONGIFY(self);
-
         // These should all fail or succeed as one. Do the hard work in the records completion block.
         if(!error) {
-            ckksnotice("ckksshare", self.deps.zoneID, "Successfully completed upload for record %@", record.recordID.recordName);
+            ckksnotice("ckksshare", viewState.zoneID, "Successfully completed upload for record %@", record.recordID.recordName);
         } else {
-            ckkserror("ckksshare",  self.deps.zoneID, "error on row: %@ %@", record.recordID, error);
+            ckkserror("ckksshare",  viewState.zoneID, "error on row: %@ %@", record.recordID, error);
         }
     };
+
+    WEAKIFY(self);
 
     modifyRecordsOp.modifyRecordsCompletionBlock = ^(NSArray<CKRecord *> *savedRecords, NSArray<CKRecordID *> *deletedRecordIDs, NSError *error) {
         STRONGIFY(self);
 
-        CKKSKeychainView* strongCKKS = self.ckks;
-
         [self.deps.databaseProvider dispatchSyncWithSQLTransaction:^CKKSDatabaseTransactionResult{
             if(error == nil) {
                 // Success. Persist the records to the CKKS database
-                ckksnotice("ckksshare",  self.deps.zoneID, "Completed TLK Share heal operation with success");
+                ckksnotice("ckksshare",  viewState.zoneID, "Completed TLK Share heal operation with success");
                 NSError* localerror = nil;
 
                 // Save the new CKRecords to the database
@@ -198,47 +276,41 @@
                     if(!saved || localerror != nil) {
                         // erroring means we were unable to save the new TLKShare records to the database. This will cause us to try to reupload them. Fail.
                         // No recovery from this, really...
-                        ckkserror("ckksshare", self.deps.zoneID, "Couldn't save new TLKShare record to database: %@", localerror);
-                        self.error = localerror;
-                        self.nextState = SecCKKSZoneKeyStateError;
+                        ckkserror("ckksshare", viewState.zoneID, "Couldn't save new TLKShare record to database: %@", localerror);
+                        viewState.viewKeyHierarchyState = SecCKKSZoneKeyStateError;
                         return CKKSDatabaseTransactionCommit;
 
                     } else {
-                        ckksnotice("ckksshare", self.deps.zoneID, "Successfully completed upload for %@", savedShare);
+                        ckksnotice("ckksshare", viewState.zoneID, "Successfully completed upload for %@", savedShare);
                     }
                 }
 
-                // Successfully sharing TLKs means we're now in ready!
-                self.nextState = SecCKKSZoneKeyStateBecomeReady;
             } else {
-                ckkserror("ckksshare", self.deps.zoneID, "Completed TLK Share heal operation with error: %@", error);
-                [strongCKKS _onqueueCKWriteFailed:error attemptedRecordsChanged:attemptedRecords];
-                // Send the key state machine into tlksharesfailed
-                self.nextState = SecCKKSZoneKeyStateHealTLKSharesFailed;
+                ckkserror("ckksshare", viewState.zoneID, "Completed TLK Share heal operation with error: %@", error);
+                [self.deps intransactionCKWriteFailed:error attemptedRecordsChanged:attemptedRecords];
+                self.cloudkitWriteFailures = true;
             }
             return CKKSDatabaseTransactionCommit;
         }];
 
         // Notify that we're done
-        [self.operationQueue addOperation: self.cloudkitModifyOperationFinished];
+        [self.operationQueue addOperation:cloudkitModifyOperationFinished];
     };
 
+    [self.setResultStateOperation addDependency:cloudkitModifyOperationFinished];
     [self.deps.ckdatabase addOperation:modifyRecordsOp];
 }
 
-- (void)cancel {
-    [self.cloudkitModifyOperationFinished cancel];
-    [super cancel];
-}
-
-+ (BOOL)areNewSharesSufficient:(CKKSCurrentKeySet*)keyset
+- (BOOL)areNewSharesSufficient:(CKKSCurrentKeySet*)keyset
                    trustStates:(NSArray<CKKSPeerProviderState*>*)trustStates
                          error:(NSError* __autoreleasing*)error
 {
     for(CKKSPeerProviderState* trustState in trustStates) {
         NSError* localError = nil;
-        NSSet<id<CKKSPeer>>* peersMissingShares = [trustState findPeersMissingTLKSharesFor:keyset
-                                                                                     error:&localError];
+        NSSet<id<CKKSPeer>>* peersMissingShares = [CKKSHealTLKSharesOperation filterTrustedPeers:trustState
+                                                                             missingTLKSharesFor:keyset
+                                                                                databaseProvider:self.deps.databaseProvider
+                                                                                           error:&localError];
         if(peersMissingShares == nil || localError) {
             if(trustState.essential) {
                 if(error) {
@@ -263,6 +335,7 @@
 
 + (NSSet<CKKSTLKShareRecord*>* _Nullable)createMissingKeyShares:(CKKSCurrentKeySet*)keyset
                                                     trustStates:(NSArray<CKKSPeerProviderState*>*)trustStates
+                                               databaseProvider:(id<CKKSDatabaseProviderProtocol> _Nullable)databaseProvider
                                                           error:(NSError* __autoreleasing*)error
 {
     NSError* localerror = nil;
@@ -274,6 +347,7 @@
 
         NSSet<CKKSTLKShareRecord*>* newTrustShares = [self createMissingKeyShares:keyset
                                                                             peers:trustState
+                                                                 databaseProvider:databaseProvider
                                                                             error:&stateError];
 
 
@@ -300,10 +374,13 @@
 
 + (NSSet<CKKSTLKShareRecord*>*)createMissingKeyShares:(CKKSCurrentKeySet*)keyset
                                                 peers:(CKKSPeerProviderState*)trustState
+                                     databaseProvider:(id<CKKSDatabaseProviderProtocol> _Nullable)databaseProvider
                                                 error:(NSError* __autoreleasing*)error
 {
     NSError* localerror = nil;
-    if(![keyset.tlk ensureKeyLoaded:&localerror]) {
+    CKKSKeychainBackedKey* keychainBackedTLK = [keyset.tlk ensureKeyLoaded:&localerror];
+
+    if(keychainBackedTLK == nil) {
         ckkserror("ckksshare", keyset.tlk, "TLK not loaded; cannot make shares for peers: %@", localerror);
         if(error) {
             *error = localerror;
@@ -311,8 +388,10 @@
         return nil;
     }
 
-    NSSet<id<CKKSPeer>>* remainingPeers = [trustState findPeersMissingTLKSharesFor:keyset
-                                                                             error:&localerror];
+    NSSet<id<CKKSPeer>>* remainingPeers = [self filterTrustedPeers:trustState
+                                               missingTLKSharesFor:keyset
+                                                  databaseProvider:databaseProvider
+                                                             error:&localerror];
     if(!remainingPeers) {
         ckkserror("ckksshare", keyset.tlk, "Unable to find peers missing TLKShares: %@", localerror);
         if(error) {
@@ -331,7 +410,7 @@
 
         // Create a share for this peer.
         ckksnotice("ckksshare", keyset.tlk, "Creating share of %@ as %@ for %@", keyset.tlk, trustState.currentSelfPeers.currentSelf, peer);
-        CKKSTLKShareRecord* newShare = [CKKSTLKShareRecord share:keyset.tlk
+        CKKSTLKShareRecord* newShare = [CKKSTLKShareRecord share:keychainBackedTLK
                                                               as:trustState.currentSelfPeers.currentSelf
                                                               to:peer
                                                            epoch:-1
@@ -350,6 +429,151 @@
     }
 
     return newShares;
+}
+
+// For this key, who doesn't yet have a valid CKKSTLKShare for it?
+// Note that we really want a record sharing the TLK to ourselves, so this function might return
+// a non-empty set even if all peers have the TLK: it wants us to make a record for ourself.
++ (NSSet<id<CKKSPeer>>* _Nullable)filterTrustedPeers:(CKKSPeerProviderState*)peerState
+                                 missingTLKSharesFor:(CKKSCurrentKeySet*)keyset
+                                    databaseProvider:(id<CKKSDatabaseProviderProtocol> _Nullable)databaseProvider
+                                               error:(NSError**)error
+{
+    if(peerState.currentTrustedPeersError) {
+        ckkserror("ckksshare", keyset.tlk, "Couldn't find missing shares because trusted peers aren't available: %@", peerState.currentTrustedPeersError);
+        if(error) {
+            *error = peerState.currentTrustedPeersError;
+        }
+        return [NSSet set];
+    }
+    if(peerState.currentSelfPeersError) {
+        ckkserror("ckksshare", keyset.tlk, "Couldn't find missing shares because self peers aren't available: %@", peerState.currentSelfPeersError);
+        if(error) {
+            *error = peerState.currentSelfPeersError;
+        }
+        return [NSSet set];
+    }
+
+    NSMutableSet<id<CKKSPeer>>* peersMissingShares = [NSMutableSet set];
+
+    // Ensure that the 'self peer' is one of the current trusted peers. Otherwise, any TLKShare we create
+    // won't be considered trusted the next time through...
+    if(![peerState.currentTrustedPeerIDs containsObject:peerState.currentSelfPeers.currentSelf.peerID]) {
+        ckkserror("ckksshare", keyset.tlk, "current self peer (%@) is not in the set of trusted peers: %@",
+                  peerState.currentSelfPeers.currentSelf.peerID,
+                  peerState.currentTrustedPeerIDs);
+
+        if(error) {
+            *error = [NSError errorWithDomain:CKKSErrorDomain
+                                         code:CKKSLackingTrust
+                                  description:[NSString stringWithFormat:@"current self peer (%@) is not in the set of trusted peers",
+                                               peerState.currentSelfPeers.currentSelf.peerID]];
+        }
+
+        return nil;
+    }
+
+    for(id<CKKSRemotePeerProtocol> peer in peerState.currentTrustedPeers) {
+        if(![peer shouldHaveView:keyset.tlk.zoneName]) {
+            ckkserror("ckksshare", keyset.tlk, "Peer (%@) is not supposed to have view, skipping", peer);
+            continue;
+        }
+
+        __block NSError* loadError = nil;
+        __block NSArray<CKKSTLKShareRecord*>* existingTLKSharesForPeer = nil;
+
+        // If our caller provided a databaseProvider, use it. Otherwise, just assume that we can load from a DB in this thread already.
+        if(databaseProvider == nil) {
+            @autoreleasepool {
+                existingTLKSharesForPeer = [CKKSTLKShareRecord allFor:peer.peerID
+                                                              keyUUID:keyset.tlk.uuid
+                                                               zoneID:keyset.tlk.zoneID
+                                                                error:&loadError];
+            }
+        } else {
+            [databaseProvider dispatchSyncWithReadOnlySQLTransaction:^{
+                @autoreleasepool {
+                    existingTLKSharesForPeer = [CKKSTLKShareRecord allFor:peer.peerID
+                                                                  keyUUID:keyset.tlk.uuid
+                                                                   zoneID:keyset.tlk.zoneID
+                                                                    error:&loadError];
+                }
+            }];
+        }
+
+        if(existingTLKSharesForPeer == nil || loadError != nil) {
+            ckkserror("ckksshare", keyset.tlk, "Unable to load existing TLKShares for peer (%@): %@", peer, loadError);
+            continue;
+        }
+
+        NSArray<CKKSTLKShareRecord*>* tlkShares = [existingTLKSharesForPeer arrayByAddingObjectsFromArray:keyset.pendingTLKShares ?: @[]];
+
+        // Determine if we think this peer has enough things shared to them
+        bool alreadyShared = false;
+        for(CKKSTLKShareRecord* existingShare in tlkShares) {
+            @autoreleasepool {
+                // Ensure this share is to this peer...
+                if(![existingShare.share.receiverPeerID isEqualToString:peer.peerID]) {
+                    continue;
+                }
+
+                // If an SOS Peer sent this share, is its signature still valid? Or did the signing key change?
+                if([existingShare.senderPeerID hasPrefix:CKKSSOSPeerPrefix]) {
+                    NSError* signatureError = nil;
+                    if(![existingShare signatureVerifiesWithPeerSet:peerState.currentTrustedPeers error:&signatureError]) {
+                        ckksnotice("ckksshare", keyset.tlk, "Existing TLKShare's signature doesn't verify with current peer set: %@ %@", signatureError, existingShare);
+                        continue;
+                    }
+                }
+
+                if([existingShare.tlkUUID isEqualToString:keyset.tlk.uuid] && [peerState.currentTrustedPeerIDs containsObject:existingShare.senderPeerID]) {
+                    // Was this shared to us?
+                    if([peer.peerID isEqualToString:peerState.currentSelfPeers.currentSelf.peerID]) {
+                        // We only count this as 'found' if we did the sharing and it's to our current keys
+                        NSData* currentKey = peerState.currentSelfPeers.currentSelf.publicEncryptionKey.keyData;
+
+                        if([existingShare.senderPeerID isEqualToString:peerState.currentSelfPeers.currentSelf.peerID] &&
+                           [existingShare.share.receiverPublicEncryptionKeySPKI isEqual:currentKey]) {
+                            ckksnotice("ckksshare", keyset.tlk, "Local peer %@ is shared %@ via self: %@", peer, keyset.tlk, existingShare);
+                            alreadyShared = true;
+                            break;
+                        } else {
+                            ckksnotice("ckksshare", keyset.tlk, "Local peer %@ is shared %@ via trusted %@, but that's not good enough", peer, keyset.tlk, existingShare);
+                        }
+
+                    } else {
+                        // Was this shared to the remote peer's current keys?
+                        NSData* currentKeySPKI = peer.publicEncryptionKey.keyData;
+
+                        if([existingShare.share.receiverPublicEncryptionKeySPKI isEqual:currentKeySPKI]) {
+                            // Some other peer has a trusted share. Cool!
+                            ckksnotice("ckksshare", keyset.tlk, "Peer %@ is shared %@ via trusted %@", peer, keyset.tlk, existingShare);
+                            alreadyShared = true;
+                            break;
+                        } else {
+                            ckksnotice("ckksshare", keyset.tlk, "Peer %@ has a share for %@, but to old keys: %@", peer, keyset.tlk, existingShare);
+                        }
+                    }
+                }
+            }
+        }
+
+        if(!alreadyShared) {
+            // Add this peer to our set, if it has an encryption key to receive the share
+            if(peer.publicEncryptionKey) {
+                [peersMissingShares addObject:peer];
+            }
+        }
+    }
+
+    if(peersMissingShares.count > 0u) {
+        // Log each and every one of the things
+        ckksnotice("ckksshare", keyset.tlk, "Missing TLK shares for %lu peers: %@", (unsigned long)peersMissingShares.count, peersMissingShares);
+        ckksnotice("ckksshare", keyset.tlk, "Self peers are (%@) %@", peerState.currentSelfPeersError ?: @"no error", peerState.currentSelfPeers);
+        ckksnotice("ckksshare", keyset.tlk, "Trusted peers are (%@) %@", peerState.currentTrustedPeersError ?: @"no error", peerState.currentTrustedPeers);
+    }
+
+    return peersMissingShares;
 }
 
 @end;

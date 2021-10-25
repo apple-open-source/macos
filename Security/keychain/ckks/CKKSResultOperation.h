@@ -53,7 +53,7 @@ enum {
 // Very similar to addDependency, but:
 //   if the dependent operation has an error or is canceled, cancel this operation
 - (void)addSuccessDependency:(CKKSResultOperation*)operation;
-- (void)addNullableSuccessDependency:(CKKSResultOperation*)operation;
+- (void)addNullableSuccessDependency:(CKKSResultOperation* _Nullable)operation;
 
 // Call to check if you should run.
 // Note: all subclasses must call this if they'd like to comply with addSuccessDependency

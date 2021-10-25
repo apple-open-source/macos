@@ -65,7 +65,10 @@
  *	to zones but not currently in use.
  */
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wquoted-include-in-framework-header"
 #include <vm_statistics.h>
+#pragma clang diagnostic pop
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -85,8 +88,11 @@
 #include <CoreFoundation/CoreFoundation.h>
 #include <CoreSymbolication/CoreSymbolication.h>
 
-#ifndef VM_KERN_SITE_ZONE_VIEW
-#define VM_KERN_SITE_ZONE_VIEW 0x00001000
+#ifndef VM_KERN_SITE_KALLOC
+#define VM_KERN_SITE_KALLOC 0x00002000
+#endif
+#ifndef VM_KERN_MEMORY_KALLOC_TYPE
+#define VM_KERN_MEMORY_KALLOC_TYPE 31
 #endif
 #ifndef KALLOC_SIZECLASSES
 #define KALLOC_SIZECLASSES 32
@@ -354,8 +360,20 @@ main(int argc, char **argv)
 		kr = mach_memory_info(mach_host_self(),
 		    &name, &nameCnt, &info, &infoCnt,
 		    &wiredInfo, &wiredInfoCnt);
-		if (kr != KERN_SUCCESS) {
+
+		switch (kr) {
+		case (KERN_SUCCESS):
+			break;
+		case (KERN_NO_ACCESS):
 			fprintf(stderr, "%s: mach_memory_info: %s (try running as root)\n",
+			    program, mach_error_string(kr));
+			exit(1);
+		case (KERN_DENIED):
+			fprintf(stderr, "%s: mach_memory_info: %s (entitlement required or rate-limit exceeded)\n",
+			    program, mach_error_string(kr));
+			exit(1);
+		default:
+			fprintf(stderr, "%s: mach_memory_info: %s\n",
 			    program, mach_error_string(kr));
 			exit(1);
 		}
@@ -917,6 +935,8 @@ kern_vm_tag_name(uint64_t tag)
 	case (VM_KERN_MEMORY_PTE):              name = "VM_KERN_MEMORY_PTE"; break;
 	case (VM_KERN_MEMORY_ZONE):             name = "VM_KERN_MEMORY_ZONE"; break;
 	case (VM_KERN_MEMORY_KALLOC):           name = "VM_KERN_MEMORY_KALLOC"; break;
+    case (VM_KERN_MEMORY_KALLOC_DATA):      name = "VM_KERN_MEMORY_KALLOC_DATA"; break;
+    case (VM_KERN_MEMORY_KALLOC_TYPE):      name = "VM_KERN_MEMORY_KALLOC_TYPE"; break;
 	case (VM_KERN_MEMORY_COMPRESSOR):       name = "VM_KERN_MEMORY_COMPRESSOR"; break;
 	case (VM_KERN_MEMORY_COMPRESSED_DATA):  name = "VM_KERN_MEMORY_COMPRESSED_DATA"; break;
 	case (VM_KERN_MEMORY_PHANTOM_CACHE):    name = "VM_KERN_MEMORY_PHANTOM_CACHE"; break;
@@ -932,6 +952,7 @@ kern_vm_tag_name(uint64_t tag)
 	case (VM_KERN_MEMORY_SKYWALK):          name = "VM_KERN_MEMORY_SKYWALK"; break;
 	case (VM_KERN_MEMORY_LTABLE):           name = "VM_KERN_MEMORY_LTABLE"; break;
 	case (VM_KERN_MEMORY_HV):               name = "VM_KERN_MEMORY_HV"; break;
+	case (VM_KERN_MEMORY_TRIAGE):           name = "VM_KERN_MEMORY_TRIAGE"; break;
 	case (VM_KERN_MEMORY_ANY):              name = "VM_KERN_MEMORY_ANY"; break;
 	case (VM_KERN_MEMORY_RETIRED):          name = "VM_KERN_MEMORY_RETIRED"; break;
 	default:                                name = NULL; break;
@@ -960,7 +981,9 @@ kern_vm_counter_name(uint64_t tag)
 	case (VM_KERN_COUNT_LOPAGE):                    name = "VM_KERN_COUNT_LOPAGE"; break;
 	case (VM_KERN_COUNT_MAP_KERNEL):                name = "VM_KERN_COUNT_MAP_KERNEL"; break;
 	case (VM_KERN_COUNT_MAP_ZONE):                  name = "VM_KERN_COUNT_MAP_ZONE"; break;
-	case (VM_KERN_COUNT_MAP_KALLOC):                name = "VM_KERN_COUNT_MAP_KALLOC"; break;
+	case (VM_KERN_COUNT_MAP_KALLOC_LARGE):          name = "VM_KERN_COUNT_MAP_KALLOC_LARGE"; break;
+    case (VM_KERN_COUNT_MAP_KALLOC_LARGE_DATA):     name = "VM_KERN_COUNT_MAP_KALLOC_LARGE_DATA"; break;
+    case (VM_KERN_COUNT_MAP_KERNEL_DATA):           name = "VM_KERN_COUNT_MAP_KERNEL_DATA"; break;
 	case (VM_KERN_COUNT_WIRED_STATIC_KERNELCACHE):
 		name = "VM_KERN_COUNT_WIRED_STATIC_KERNELCACHE";
 		break;
@@ -1069,13 +1092,17 @@ GetSiteName(int siteIdx, mach_zone_name_t * zoneNames, unsigned int zoneNamesCnt
 		}
 	}
 
-	if (result
-	    && (VM_KERN_SITE_ZONE & site->flags)
-	    && zoneNames
-	    && (site->zone < zoneNamesCnt)) {
+    if (result
+	    && (VM_KERN_SITE_ZONE & site->flags)) {
 		size_t namelen, zonelen;
 		namelen = strlen(result);
-		zonelen = strnlen(zoneNames[site->zone].mzn_name, sizeof(zoneNames[site->zone].mzn_name));
+        char *zonename = NULL;
+        if (VM_KERN_SITE_KALLOC & site->flags) {
+            asprintf(&zonename, "size.%d", site->zone);
+        } else if (zoneNames && (site->zone < zoneNamesCnt)) {
+            zonename = zoneNames[site->zone].mzn_name;
+        }
+		zonelen = strnlen(zonename, ZONE_NAME_MAX_LEN);
 		if (((namelen + zonelen) > 61) && (zonelen < 61)) {
 			namelen = (61 - zonelen);
 		}
@@ -1083,10 +1110,10 @@ GetSiteName(int siteIdx, mach_zone_name_t * zoneNames, unsigned int zoneNamesCnt
 		    (int)namelen,
 		    result,
 		    (int)zonelen,
-		    zoneNames[site->zone].mzn_name);
+		    zonename);
 		free(result);
 		result = append;
-	}
+    }
 	if (result && kmodid) {
 		asprintf(&append, "%-64s%3ld", result, kmodid);
 		free(result);
@@ -1215,9 +1242,12 @@ PrintLarge(mach_memory_info_t *wiredInfo, unsigned int wiredInfoCnt,
 			continue;
 		}
 
-		if ((VM_KERN_SITE_ZONE & gSites[site].flags)
-		    && gSites[site].zone < zoneCnt) {
-			elemsTagged += gSites[site].size / zoneInfo[gSites[site].zone].mzi_elem_size;
+		if (VM_KERN_SITE_ZONE & gSites[site].flags) {
+            if (VM_KERN_SITE_KALLOC & gSites[site].flags) {
+                elemsTagged += gSites[site].size / gSites[site].zone;
+            } else if (gSites[site].zone < zoneCnt) {
+                elemsTagged += gSites[site].size / zoneInfo[gSites[site].zone].mzi_elem_size;
+            }
 		}
 
 		if ((gSites[site].size < 1024) && (gSites[site].peak < 1024)) {

@@ -535,6 +535,30 @@
  * 20120211.91 (2.4.42-dev) Add ap_is_chunked() in httpd.h
  * 20120211.92 (2.4.42-dev) AP_REG_NO_DEFAULT macro in ap_regex.h
  * 20120211.93 (2.4.44-dev) Add ap_parse_strict_length()
+ * 20120211.94 (2.4.47-dev) Add ap_proxy_define_match_worker()
+ * 20120211.95 (2.4.47-dev) Add proxy check_trans hook
+ * 20120211.96 (2.4.47-dev) Add ap_get_status_line_ex()
+ * 20120211.97 (2.4.47-dev) Add read_buf_size member to core_dir_config,
+ *                          flush_max_threshold and flush_max_pipelined to
+ *                          core_server_config, and ap_get_read_buf_size().
+ * 20120211.98 (2.4.47-dev) Add ap_proxy_should_override to mod_proxy.h
+ * 20120211.99 (2.4.47-dev) Add proxy_tunnel_rec, ap_proxy_tunnel_create()
+ *                          and ap_proxy_tunnel_run() to proxy_util.
+ * 20120211.99 (2.4.47-dev) Add ap_proxy_worker_can_upgrade()
+ * 20120211.100 (2.4.47-dev) Add ap_proxy_prefetch_input(),
+ *                           ap_proxy_spool_input() and
+ *                           ap_proxy_read_input().
+ * 20120211.101 (2.4.47-dev) ETAG_DIGEST in http_core.h. struct etag_rec,
+ *                           ap_make_etag_ex() and ap_set_etag_fd() in
+ *                           http_protocol.h. ap_request_bnotes_t,
+ *                           AP_REQUEST_STRONG_ETAG, AP_REQUEST_GET_BNOTE,
+ *                           AP_REQUEST_SET_BNOTE and AP_REQUEST_IS_STRONG_ETAG
+ *                           in httpd.h.
+ * 20120211.102 (2.4.47-dev) Add ap_ssl_conn_is_ssl()/ap_ssl_var_lookup() and hooks
+ * 20120211.103 (2.4.47-dev) Add ap_ssl_add_cert_files, ap_ssl_add_fallback_cert_files
+ *                           and ap_ssl_answer_challenge and hooks.
+ * 20120211.104 (2.4.47-dev) Move ap_ssl_* into new http_ssl.h header file
+ * 20120211.105 (2.4.47-dev) Add ap_ssl_ocsp* hooks and functions to http_ssl.h.
  */
 
 #define MODULE_MAGIC_COOKIE 0x41503234UL /* "AP24" */
@@ -542,7 +566,7 @@
 #ifndef MODULE_MAGIC_NUMBER_MAJOR
 #define MODULE_MAGIC_NUMBER_MAJOR 20120211
 #endif
-#define MODULE_MAGIC_NUMBER_MINOR 93                  /* 0...n */
+#define MODULE_MAGIC_NUMBER_MINOR 105                 /* 0...n */
 
 /**
  * Determine if the server's current MODULE_MAGIC_NUMBER is at least a

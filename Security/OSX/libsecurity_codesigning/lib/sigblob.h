@@ -85,7 +85,6 @@ public:
 	uint8_t *der() { return data; }
 	const uint8_t *der() const { return data; }
 	size_t derLength() const { return BlobCore::length() - sizeof(BlobCore); }
-
 private:
 	uint8_t data[0];
 };

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2006, 2008-2020 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2006, 2008-2021 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -48,11 +48,10 @@
 #define	N_SESSIONS_WARN_DEFAULT	50	// complain if SCDynamicStore session count exceeds this [soft-]limit
 #define	N_SESSIONS_WARN_MAX	5000	// stop complaining when # sessions exceeds this [hard-]limit
 
-static pthread_mutex_t	_sc_lock		= PTHREAD_MUTEX_INITIALIZER;
-static mach_port_t	_sc_server		= MACH_PORT_NULL;
+static mach_port_t	_sc_server		= MACH_PORT_NULL;		// sync w/storeQueue()
 static CFIndex		_sc_store_advise	= N_SESSIONS_WARN_DEFAULT / 2;	// when snapshots should log
 static CFIndex		_sc_store_max		= N_SESSIONS_WARN_DEFAULT;
-static CFMutableSetRef	_sc_store_sessions	= NULL;	// sync w/storeQueue()
+static CFMutableSetRef	_sc_store_sessions	= NULL;				// sync w/storeQueue()
 
 static dispatch_queue_t
 storeQueue(void)
@@ -252,20 +251,19 @@ __SCDynamicStoreCopyDescription(CFTypeRef cf) {
 			CFStringAppendFormat(result, NULL, CFSTR(", FD notifications"));
 			break;
 		case Using_NotifierInformViaRunLoop :
+			CFStringAppendFormat(result, NULL, CFSTR(", runloop notifications"));
+			CFStringAppendFormat(result, NULL, CFSTR(" {callout = %p"), storePrivate->rlsFunction);
+			CFStringAppendFormat(result, NULL, CFSTR(", info = %p"), storePrivate->rlsContext.info);
+			CFStringAppendFormat(result, NULL, CFSTR(", rls = %p"), storePrivate->rls);
+			CFStringAppendFormat(result, NULL, CFSTR(", notify rls = %@" ), storePrivate->rlsNotifyRLS);
+			CFStringAppendFormat(result, NULL, CFSTR("}"));
+			break;
 		case Using_NotifierInformViaDispatch :
-			if (storePrivate->notifyStatus == Using_NotifierInformViaRunLoop) {
-				CFStringAppendFormat(result, NULL, CFSTR(", runloop notifications"));
-				CFStringAppendFormat(result, NULL, CFSTR(" {callout = %p"), storePrivate->rlsFunction);
-				CFStringAppendFormat(result, NULL, CFSTR(", info = %p"), storePrivate->rlsContext.info);
-				CFStringAppendFormat(result, NULL, CFSTR(", rls = %p"), storePrivate->rls);
-				CFStringAppendFormat(result, NULL, CFSTR(", notify rls = %@" ), storePrivate->rlsNotifyRLS);
-			} else if (storePrivate->notifyStatus == Using_NotifierInformViaDispatch) {
-				CFStringAppendFormat(result, NULL, CFSTR(", dispatch notifications"));
-				CFStringAppendFormat(result, NULL, CFSTR(" {callout = %p"), storePrivate->rlsFunction);
-				CFStringAppendFormat(result, NULL, CFSTR(", info = %p"), storePrivate->rlsContext.info);
-				CFStringAppendFormat(result, NULL, CFSTR(", queue = %p"), storePrivate->dispatchQueue);
-				CFStringAppendFormat(result, NULL, CFSTR(", source = %p"), storePrivate->dispatchSource);
-			}
+			CFStringAppendFormat(result, NULL, CFSTR(", dispatch notifications"));
+			CFStringAppendFormat(result, NULL, CFSTR(" {callout = %p"), storePrivate->rlsFunction);
+			CFStringAppendFormat(result, NULL, CFSTR(", info = %p"), storePrivate->rlsContext.info);
+			CFStringAppendFormat(result, NULL, CFSTR(", queue = %p"), storePrivate->dispatchQueue);
+			CFStringAppendFormat(result, NULL, CFSTR(", source = %p"), storePrivate->dispatchSource);
 			CFStringAppendFormat(result, NULL, CFSTR("}"));
 			break;
 		default :
@@ -288,10 +286,22 @@ __SCDynamicStoreDeallocate(CFTypeRef cf)
 
 	(void) pthread_setcanceltype(PTHREAD_CANCEL_DEFERRED, &oldThreadState);
 
-	dispatch_sync(storeQueue(), ^{
-		// remove session tracking
-		CFSetRemoveValue(_sc_store_sessions, storePrivate);
-	});
+	/*
+	 * When using SCDynamicStoreSetDispatchQueue(), the SCDynamicStore object will
+	 * ALWAYS have a reference while notifications are active.  This reference is
+	 * held by storePrivate->dispatchSource.  If we get here with an active
+	 * notification then we have been over-released.
+	 */
+	if (storePrivate->dispatchSource != NULL) {
+		_SC_crash("SCDynamicStore OVER-RELEASED (notification still active)", NULL, NULL);
+	}
+
+	if (!storePrivate->serverNullSession) {
+		dispatch_sync(storeQueue(), ^{
+			// remove session tracking
+			CFSetRemoveValue(_sc_store_sessions, storePrivate);
+		});
+	}
 
 	/* Remove/cancel any outstanding notification requests. */
 	(void) SCDynamicStoreNotifyCancel(store);
@@ -331,6 +341,8 @@ __SCDynamicStoreDeallocate(CFTypeRef cf)
 	if (storePrivate->cache_active) {
 		_SCDynamicStoreCacheClose(store);
 	}
+
+	dispatch_release(storePrivate->queue);
 
 	return;
 }
@@ -379,12 +391,17 @@ __SCDynamicStoreInitialize(void)
 }
 
 
+#define	MAX_UNKNOWN_SERVICE_RETRY	3
+
+
+// Note: call when [dispatch] sync'd to storeQueue()
 static mach_port_t
-__SCDynamicStoreServerPort(SCDynamicStorePrivateRef storePrivate, kern_return_t *status)
+__SCDynamicStoreServerPort(SCDynamicStorePrivateRef storePrivate, kern_return_t *status, Boolean retry)
 {
 #pragma unused(storePrivate)
 	mach_port_t	server	= MACH_PORT_NULL;
 	char		*server_name;
+	int		try	= 0;
 
 	server_name = getenv("SCD_SERVER");
 
@@ -404,6 +421,8 @@ __SCDynamicStoreServerPort(SCDynamicStorePrivateRef storePrivate, kern_return_t 
 		server_name = SCD_SERVER;
 	}
 
+    again :
+
 #if	defined(BOOTSTRAP_PRIVILEGED_SERVER) && !TARGET_OS_SIMULATOR
 	*status = bootstrap_look_up2(bootstrap_port,
 				     server_name,
@@ -417,12 +436,29 @@ __SCDynamicStoreServerPort(SCDynamicStorePrivateRef storePrivate, kern_return_t 
 	switch (*status) {
 		case BOOTSTRAP_SUCCESS :
 			/* service currently registered, "a good thing" (tm) */
+			if (try > 0) {
+				SC_log(LOG_INFO,
+				       "SCDynamicStore service found after %d retr%s",
+				       try,
+				       (try == 1) ? "y" : "ies");
+			}
 			return server;
 		case BOOTSTRAP_NOT_PRIVILEGED :
 			/* the service is not privileged */
 			break;
 		case BOOTSTRAP_UNKNOWN_SERVICE :
 			/* service not currently registered, try again later */
+			if (retry) {
+				try++;
+				SC_log((try <= MAX_UNKNOWN_SERVICE_RETRY) ? LOG_INFO : LOG_ERR,
+				       "No SCDynamicStore service() (try %d): %s",
+				       try,
+				       bootstrap_strerror(*status));
+				if (try <= MAX_UNKNOWN_SERVICE_RETRY) {
+					usleep(50 * 1000);	// sleep 50ms between attempts
+					goto again;
+				}
+			}
 			break;
 		default :
 #ifdef	DEBUG
@@ -451,13 +487,13 @@ logSessionReference(const void *key, const void *value, void *context)
 
 SCDynamicStorePrivateRef
 __SCDynamicStoreCreatePrivate(CFAllocatorRef		allocator,
-			     const CFStringRef		name,
-			     SCDynamicStoreCallBack	callout,
-			     SCDynamicStoreContext	*context)
+			      const CFStringRef		name,
+			      SCDynamicStoreCallBack	callout,
+			      SCDynamicStoreContext	*context,
+			      Boolean			nullSession)
 {
 	uint32_t			size;
 	SCDynamicStorePrivateRef	storePrivate;
-	__block Boolean			tooManySessions	= FALSE;
 
 	/* initialize runtime */
 	pthread_once(&initialized, __SCDynamicStoreInitialize);
@@ -474,6 +510,9 @@ __SCDynamicStoreCreatePrivate(CFAllocatorRef		allocator,
 	}
 
 	/* initialize non-zero/NULL members */
+
+	/* dispatch queue protecting ->server, ... */
+	storePrivate->queue = dispatch_queue_create("SCDynamicStore object", NULL);
 
 	/* client side of the "configd" session */
 	storePrivate->name				= (name != NULL) ? CFRetain(name) : NULL;
@@ -493,40 +532,46 @@ __SCDynamicStoreCreatePrivate(CFAllocatorRef		allocator,
 	/* "server" information associated with SCDynamicStoreNotifyFileDescriptor(); */
 	storePrivate->notifyFile			= -1;
 
-	/* watch for excessive SCDynamicStore usage */
-	dispatch_sync(storeQueue(), ^{
-		CFIndex		n;
+	if (nullSession) {
+		storePrivate->serverNullSession = TRUE;
+	} else {
+		__block Boolean		tooManySessions	= FALSE;
 
-		// track the session
-		CFSetAddValue(_sc_store_sessions, storePrivate);
-		n = CFSetGetCount(_sc_store_sessions);
-		if (n > _sc_store_max) {
-			if (_sc_store_max > 0) {
-				CFMutableDictionaryRef	dict;
+		/* watch for excessive SCDynamicStore usage */
+		dispatch_sync(storeQueue(), ^{
+			CFIndex		n;
 
-				dict = CFDictionaryCreateMutable(NULL,
-								 0,
-								 &kCFTypeDictionaryKeyCallBacks,
-								 &kCFTypeDictionaryValueCallBacks);
-				CFSetApplyFunction(_sc_store_sessions, addSessionReference, dict);
-				SC_log(LOG_ERR,
-				       "SCDynamicStoreCreate(): number of SCDynamicStore sessions %sexceeds %ld",
-				       (n != N_SESSIONS_WARN_DEFAULT) ? "now " : "",
-				       _sc_store_max);
-				CFDictionaryApplyFunction(dict, logSessionReference, NULL);
-				CFRelease(dict);
+			// track the session
+			CFSetAddValue(_sc_store_sessions, storePrivate);
+			n = CFSetGetCount(_sc_store_sessions);
+			if (n > _sc_store_max) {
+				if (_sc_store_max > 0) {
+					CFMutableDictionaryRef	dict;
 
-				// yes, we should complain
-				tooManySessions = TRUE;
+					dict = CFDictionaryCreateMutable(NULL,
+									 0,
+									 &kCFTypeDictionaryKeyCallBacks,
+									 &kCFTypeDictionaryValueCallBacks);
+					CFSetApplyFunction(_sc_store_sessions, addSessionReference, dict);
+					SC_log(LOG_ERR,
+					       "SCDynamicStoreCreate(): number of SCDynamicStore sessions %sexceeds %ld",
+					       (n != N_SESSIONS_WARN_DEFAULT) ? "now " : "",
+					       _sc_store_max);
+					CFDictionaryApplyFunction(dict, logSessionReference, NULL);
+					CFRelease(dict);
 
-				// bump the threshold before we complain again
-				_sc_store_max = (_sc_store_max < N_SESSIONS_WARN_MAX) ? (_sc_store_max * 2) : 0;
+					// yes, we should complain
+					tooManySessions = TRUE;
+
+					// bump the threshold before we complain again
+					_sc_store_max = (_sc_store_max < N_SESSIONS_WARN_MAX) ? (_sc_store_max * 2) : 0;
+				}
 			}
-		}
-	});
+		});
 
-	if (tooManySessions) {
-		_SC_crash_once("Excessive number of SCDynamicStore sessions", NULL, NULL);
+		if (tooManySessions) {
+			_SC_crash_once("Excessive number of SCDynamicStore sessions", NULL, NULL);
+		}
 	}
 
 	return storePrivate;
@@ -536,26 +581,26 @@ __SCDynamicStoreCreatePrivate(CFAllocatorRef		allocator,
 static void
 updateServerPort(SCDynamicStorePrivateRef storePrivate, mach_port_t *server, int *sc_status_p)
 {
-	mach_port_t	old_port;
+	__block mach_port_t	old_port;
 
-	pthread_mutex_lock(&_sc_lock);
-	old_port = _sc_server;
-	if (_sc_server != MACH_PORT_NULL) {
-		if (*server == _sc_server) {
-			// if the server we tried returned the error, save the old port,
-			// [re-]lookup the name to the server, and deallocate the original
-			// send [or dead name] right
-			_sc_server = __SCDynamicStoreServerPort(storePrivate, sc_status_p);
-			(void)mach_port_deallocate(mach_task_self(), old_port);
+	dispatch_sync(storeQueue(), ^{
+		old_port = _sc_server;
+		if (_sc_server != MACH_PORT_NULL) {
+			if (*server == _sc_server) {
+				// if the server we tried returned the error, save the old port,
+				// [re-]lookup the name to the server, and deallocate the original
+				// send [or dead name] right
+				_sc_server = __SCDynamicStoreServerPort(storePrivate, sc_status_p, TRUE);
+				(void)mach_port_deallocate(mach_task_self(), old_port);
+			} else {
+				// another thread has refreshed the [main] SCDynamicStore server port
+			}
 		} else {
-			// another thread has refreshed the [main] SCDynamicStore server port
+			_sc_server = __SCDynamicStoreServerPort(storePrivate, sc_status_p, FALSE);
 		}
-	} else {
-		_sc_server = __SCDynamicStoreServerPort(storePrivate, sc_status_p);
-	}
 
-	*server = _sc_server;
-	pthread_mutex_unlock(&_sc_lock);
+		*server = _sc_server;
+	});
 
 #ifdef	DEBUG
 	SC_log(LOG_DEBUG, "updateServerPort (%@): 0x%x (%d) --> 0x%x (%d)",
@@ -568,26 +613,27 @@ updateServerPort(SCDynamicStorePrivateRef storePrivate, mach_port_t *server, int
 }
 
 
+// Note: call when [dispatch] sync'd to storePrivate->queue (or otherwise safe)
 static Boolean
 __SCDynamicStoreAddSession(SCDynamicStorePrivateRef storePrivate)
 {
-	kern_return_t				kr		= KERN_SUCCESS;
-	CFDataRef				myName;			/* serialized name */
-	xmlData_t				myNameRef;
-	CFIndex					myNameLen;
-	CFDataRef				myOptions	= NULL;	/* serialized options */
-	xmlData_t				myOptionsRef	= NULL;
-	CFIndex					myOptionsLen	= 0;
-	int					sc_status	= kSCStatusFailed;
-	mach_port_t				server;
+	kern_return_t		kr		= KERN_SUCCESS;
+	CFDataRef		myName;			/* serialized name */
+	xmlData_t		myNameRef;
+	CFIndex			myNameLen;
+	CFDataRef		myOptions	= NULL;	/* serialized options */
+	xmlData_t		myOptionsRef	= NULL;
+	CFIndex			myOptionsLen	= 0;
+	__block int		sc_status	= kSCStatusFailed;
+	__block mach_port_t	server;
 
-	if (!_SCSerializeString(storePrivate->name, &myName, (void **)&myNameRef, &myNameLen)) {
+	if (!_SCSerializeString(storePrivate->name, &myName, &myNameRef, &myNameLen)) {
 		goto done;
 	}
 
 	/* serialize the options */
 	if (storePrivate->options != NULL) {
-		if (!_SCSerialize(storePrivate->options, &myOptions, (void **)&myOptionsRef, &myOptionsLen)) {
+		if (!_SCSerialize(storePrivate->options, &myOptions, &myOptionsRef, &myOptionsLen)) {
 			CFRelease(myName);
 			goto done;
 		}
@@ -649,7 +695,7 @@ __SCDynamicStoreAddSession(SCDynamicStorePrivateRef storePrivate)
 
 		updateServerPort(storePrivate, &server, &sc_status);
 	}
-	__MACH_PORT_DEBUG(TRUE, "*** SCDynamicStoreAddSession", storePrivate->server);
+	__MACH_PORT_DEBUG((storePrivate->server != MACH_PORT_NULL), "*** SCDynamicStoreAddSession", storePrivate->server);
 
 	// clean up
 	CFRelease(myName);
@@ -676,12 +722,11 @@ __SCDynamicStoreAddSession(SCDynamicStorePrivateRef storePrivate)
 }
 
 
-__private_extern__
-SCDynamicStoreRef
+static SCDynamicStoreRef
 __SCDynamicStoreNullSession(void)
 {
 	SCDynamicStorePrivateRef	storePrivate;
-	Boolean				ok	= TRUE;
+	__block Boolean			ok	= TRUE;
 	__SCThreadSpecificDataRef	tsd;
 
 	tsd = __SCGetThreadSpecificData();
@@ -689,28 +734,62 @@ __SCDynamicStoreNullSession(void)
 		storePrivate = __SCDynamicStoreCreatePrivate(NULL,
 							     CFSTR("NULL session"),
 							     NULL,
-							     NULL);
+							     NULL,
+							     TRUE);
 		assert(storePrivate != NULL);
-		storePrivate->serverNullSession = TRUE;
 		tsd->_sc_store = (SCDynamicStoreRef)storePrivate;
 	}
 
 	storePrivate = (SCDynamicStorePrivateRef)tsd->_sc_store;
-	if (storePrivate->server == MACH_PORT_NULL) {
-		ok = __SCDynamicStoreAddSession(storePrivate);
-	}
+	dispatch_sync(storePrivate->queue, ^{
+		if (storePrivate->server == MACH_PORT_NULL) {
+			ok = __SCDynamicStoreAddSession(storePrivate);
+		}
+	});
 
 	return ok ? tsd->_sc_store : NULL;
+}
+
+
+__private_extern__
+Boolean
+__SCDynamicStoreNormalize(SCDynamicStoreRef *store, Boolean allowNullSession)
+{
+	SCDynamicStorePrivateRef	storePrivate;
+
+	assert(store != NULL);
+
+	if ((*store == NULL) && allowNullSession) {
+		*store = __SCDynamicStoreNullSession();
+		if (*store == NULL) {
+			return FALSE;
+		}
+	}
+
+	if (!isA_SCDynamicStore(*store)) {
+		_SCErrorSet(kSCStatusNoStoreSession);
+		return FALSE;
+	}
+
+	storePrivate = (SCDynamicStorePrivateRef)*store;
+	if (storePrivate->server == MACH_PORT_NULL) {
+		_SCErrorSet(kSCStatusNoStoreServer);
+		return FALSE;
+	}
+
+	return TRUE;
 }
 
 
 static Boolean
 __SCDynamicStoreReconnect(SCDynamicStoreRef store)
 {
-	Boolean				ok;
+	__block Boolean			ok;
 	SCDynamicStorePrivateRef	storePrivate	= (SCDynamicStorePrivateRef)store;
 
-	ok = __SCDynamicStoreAddSession(storePrivate);
+	dispatch_sync(storePrivate->queue, ^{
+		ok = __SCDynamicStoreAddSession(storePrivate);
+	});
 	return ok;
 }
 
@@ -731,20 +810,23 @@ __SCDynamicStoreCheckRetryAndHandleError(SCDynamicStoreRef	store,
 
 	switch (status) {
 		case MACH_SEND_INVALID_DEST :
-		case MACH_SEND_INVALID_RIGHT :
 		case MIG_SERVER_DIED :
 			/*
 			 * the server's gone, remove the session's send (or dead name) right
 			 */
+			dispatch_sync(storePrivate->queue, ^{
 #ifdef	DEBUG
-			SC_log(LOG_DEBUG, "__SCDynamicStoreCheckRetryAndHandleError(%s): %@: 0x%x (%d) --> 0x%x (%d)",
-			       log_str,
-			       (storePrivate->name != NULL) ? storePrivate->name : CFSTR("?"),
-			       storePrivate->server, storePrivate->server,
-			       MACH_PORT_NULL, MACH_PORT_NULL);
+				SC_log(LOG_DEBUG, "__SCDynamicStoreCheckRetryAndHandleError(%s): %@: 0x%x (%d) --> 0x%x (%d)",
+				       log_str,
+				       (storePrivate->name != NULL) ? storePrivate->name : CFSTR("?"),
+				       storePrivate->server, storePrivate->server,
+				       MACH_PORT_NULL, MACH_PORT_NULL);
 #endif	// DEBUG
-			(void) mach_port_deallocate(mach_task_self(), storePrivate->server);
-			storePrivate->server = MACH_PORT_NULL;
+				if (storePrivate->server != MACH_PORT_NULL) {
+					(void) mach_port_deallocate(mach_task_self(), storePrivate->server);
+					storePrivate->server = MACH_PORT_NULL;
+				}
+			});
 
 			/* reconnect */
 			if (__SCDynamicStoreReconnect(store)) {
@@ -753,24 +835,61 @@ __SCDynamicStoreCheckRetryAndHandleError(SCDynamicStoreRef	store,
 			} else {
 				status = SCError();
 			}
-			;;
+
+			break;
 
 		default :
-			/*
-			 * an unexpected error, leave the [session] port alone
-			 */
+			;
+	}
+
+	if (status == kSCStatusNoStoreServer) {
+		/*
+		 * the server is not (or no longer) available and, at this
+		 * point, there is no need to retry nor complain
+		 */
+		goto done;
+	}
+
+	/*
+	 * an unexpected error, leave the [session] port alone
+	 *
+	 * Note: we are abandoning our usage of this port
+	 */
+
 #ifdef	DEBUG
-			SC_log(LOG_DEBUG, "__SCDynamicStoreCheckRetryAndHandleError(%s): %@: unexpected status=%s (0x%x)",
-			       log_str,
-			       (storePrivate->name != NULL) ? storePrivate->name : CFSTR("?"),
-			       mach_error_string(status),
-			       status);
+	SC_log(LOG_DEBUG, "__SCDynamicStoreCheckRetryAndHandleError(%s): %@: unexpected status=%s (0x%x)",
+	       log_str,
+	       (storePrivate->name != NULL) ? storePrivate->name : CFSTR("?"),
+	       SCErrorString(status),
+	       status);
 #endif	// DEBUG
 
-			SC_log(LOG_NOTICE, "%s: %s", log_str, mach_error_string(status));
-			storePrivate->server = MACH_PORT_NULL;
-			;;
+	SC_log(LOG_NOTICE, "%s: %s (0x%x)", log_str, SCErrorString(status), status);
+	storePrivate->server = MACH_PORT_NULL;
+
+	{
+		char		*crash_info;
+		CFStringRef	err;
+
+		err = CFStringCreateWithFormat(NULL,
+					       NULL,
+					       CFSTR("CheckRetryAndHandleError \"%s\" failed: %s (0x%x)"),
+					       log_str,
+					       SCErrorString(status),
+					       status);
+		crash_info = _SC_cfstring_to_cstring(err, NULL, 0, kCFStringEncodingASCII);
+		CFRelease(err);
+
+		err = CFStringCreateWithFormat(NULL,
+					       NULL,
+					       CFSTR("A SCDynamicStore error has been detected by \"%s\"."),
+					       getprogname());
+		_SC_crash(crash_info, CFSTR("CheckRetryAndHandleError"), err);
+		CFAllocatorDeallocate(NULL, crash_info);
+		CFRelease(err);
 	}
+
+    done :
 
 	*sc_status = status;
 	return FALSE;
@@ -817,6 +936,7 @@ __SCDynamicStoreReconnectNotifications(SCDynamicStoreRef store)
 	__SCDynamicStoreNotificationStatus	notifyStatus;
 	Boolean					ok		= TRUE;
 	CFArrayRef				rlList		= NULL;
+	int					sc_status;
 	SCDynamicStorePrivateRef		storePrivate	= (SCDynamicStorePrivateRef)store;
 
 #ifdef	DEBUG
@@ -856,8 +976,11 @@ __SCDynamicStoreReconnectNotifications(SCDynamicStoreRef store)
 						       storePrivate->keys,
 						       storePrivate->patterns);
 		if (!ok) {
-			if (SCError() != BOOTSTRAP_UNKNOWN_SERVICE) {
-				SC_log(LOG_NOTICE, "SCDynamicStoreSetNotificationKeys() failed");
+			sc_status = SCError();
+			if (sc_status != BOOTSTRAP_UNKNOWN_SERVICE) {
+				SC_log(LOG_NOTICE,
+				       "SCDynamicStoreSetNotificationKeys() failed: %s",
+				       SCErrorString(sc_status));
 			}
 			goto done;
 		}
@@ -876,8 +999,11 @@ __SCDynamicStoreReconnectNotifications(SCDynamicStoreRef store)
 
 			rls = SCDynamicStoreCreateRunLoopSource(NULL, store, 0);
 			if (rls == NULL) {
-				if (SCError() != BOOTSTRAP_UNKNOWN_SERVICE) {
-					SC_log(LOG_NOTICE, "SCDynamicStoreCreateRunLoopSource() failed");
+				sc_status = SCError();
+				if (sc_status != BOOTSTRAP_UNKNOWN_SERVICE) {
+					SC_log(LOG_NOTICE,
+					       "SCDynamicStoreCreateRunLoopSource() failed: %s",
+					       SCErrorString(sc_status));
 				}
 				ok = FALSE;
 				break;
@@ -903,8 +1029,10 @@ __SCDynamicStoreReconnectNotifications(SCDynamicStoreRef store)
 
 			ok = SCDynamicStoreSetDispatchQueue(store, dispatchQueue);
 			if (!ok) {
-				if (SCError() != BOOTSTRAP_UNKNOWN_SERVICE) {
-					SC_log(LOG_NOTICE, "SCDynamicStoreSetDispatchQueue() failed");
+				sc_status = SCError();
+				if (sc_status != BOOTSTRAP_UNKNOWN_SERVICE) {
+					SC_log(LOG_NOTICE, "SCDynamicStoreSetDispatchQueue() failed: %s",
+					       SCErrorString(sc_status));
 				}
 				goto done;
 			}
@@ -931,8 +1059,9 @@ __SCDynamicStoreReconnectNotifications(SCDynamicStoreRef store)
 	}
 
 	if (!ok) {
+		sc_status = SCError();
 		SC_log(LOG_NOTICE, "SCDynamicStore server %s, notification (%s) not restored",
-		       (SCError() == BOOTSTRAP_UNKNOWN_SERVICE) ? "shutdown" : "failed",
+		       (sc_status == BOOTSTRAP_UNKNOWN_SERVICE) ? "shutdown" : "failed",
 		       notifyType[notifyStatus]);
 	}
 
@@ -958,7 +1087,7 @@ SCDynamicStoreCreateWithOptions(CFAllocatorRef		allocator,
 	SCDynamicStorePrivateRef	storePrivate;
 
 	// allocate and initialize a new session
-	storePrivate = __SCDynamicStoreCreatePrivate(allocator, NULL, callout, context);
+	storePrivate = __SCDynamicStoreCreatePrivate(allocator, NULL, callout, context, FALSE);
 	if (storePrivate == NULL) {
 		return NULL;
 	}
@@ -1006,7 +1135,7 @@ SCDynamicStoreSetDisconnectCallBack(SCDynamicStoreRef			store,
 {
 	SCDynamicStorePrivateRef	storePrivate	= (SCDynamicStorePrivateRef)store;
 
-	if (store == NULL) {
+	if (!isA_SCDynamicStore(store)) {
 		/* sorry, you must provide a session */
 		_SCErrorSet(kSCStatusNoStoreSession);
 		return FALSE;

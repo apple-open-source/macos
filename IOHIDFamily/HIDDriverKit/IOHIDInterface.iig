@@ -298,6 +298,8 @@ class EXTENDS (IOHIDInterface) IOHIDInterfacePrivate
     virtual kern_return_t SetElementValues(uint32_t count, IOMemoryDescriptor *elementValues);
     
     virtual kern_return_t GetElementValues(uint32_t count, IOMemoryDescriptor *elementValues);
+
+    virtual kern_return_t SendDebugBuffer(IOMemoryDescriptor *debug);
 };
 
 #endif /* ! _HIDDRIVERKIT_IOHIDINTERFACE_H */

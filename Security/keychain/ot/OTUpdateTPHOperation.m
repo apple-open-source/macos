@@ -1,6 +1,8 @@
 
 #if OCTAGON
 
+#import <AppleFeatures/AppleFeatures.h>
+
 #import "keychain/TrustedPeersHelper/TrustedPeersHelperProtocol.h"
 #import "keychain/ot/categories/OTAccountMetadataClassC+KeychainSupport.h"
 
@@ -14,9 +16,11 @@
 #import "keychain/ot/OTOperationDependencies.h"
 #import "keychain/ot/OTStates.h"
 #import "keychain/ot/OTUpdateTPHOperation.h"
+#import "keychain/ot/ErrorUtils.h"
 
 @interface OTUpdateTPHOperation ()
 @property OTOperationDependencies* deps;
+@property BOOL forceRefetch;
 
 @property OctagonState* peerUnknownState;
 
@@ -33,6 +37,7 @@
                        intendedState:(OctagonState*)intendedState
                     peerUnknownState:(OctagonState*)peerUnknownState
                           errorState:(OctagonState*)errorState
+                        forceRefetch:(BOOL)forceRefetch
                            retryFlag:(OctagonFlag* _Nullable)retryFlag
 {
     if((self = [super init])) {
@@ -41,6 +46,8 @@
         _intendedState = intendedState;
         _nextState = errorState;
         _peerUnknownState = peerUnknownState;
+
+        _forceRefetch = forceRefetch;
 
         _retryFlag = retryFlag;
     }
@@ -83,7 +90,7 @@
                     pendingFlag = [[OctagonPendingFlag alloc] initWithFlag:self.retryFlag
                                                             delayInSeconds:delay];
                 }
-                secnotice("octagon", "Updating trust state no fatal: requesting retry: %@",
+                secnotice("octagon", "Updating trust state not fatal: requesting retry: %@",
                           pendingFlag);
                 [self.deps.flagHandler handlePendingFlag:pendingFlag];
             }
@@ -91,15 +98,36 @@
     }];
     [self dependOnBeforeGroupFinished:self.finishedOp];
 
+    NSError* stateError = nil;
+    OTAccountMetadataClassC* currentMetadata = [self.deps.stateHolder loadOrCreateAccountMetadata:&stateError];
+
+    // If there is no secureElementIdentity, we need to positively assert that across the XPC boundary
+    TrustedPeersHelperIntendedTPPBSecureElementIdentity* secureElementIdentity = nil;
+    if(!currentMetadata || stateError) {
+        secerror("octagon: Unable to load current metadata: %@", stateError);
+        // fall through; this isn't fatal
+    } else {
+        secureElementIdentity = [[TrustedPeersHelperIntendedTPPBSecureElementIdentity alloc] initWithSecureElementIdentity:currentMetadata.parsedSecureElementIdentity];
+    }
+
+    if(self.forceRefetch) {
+        secnotice("octagon", "Forcing a full refetch");
+    }
 
     [self.deps.cuttlefishXPCWrapper updateWithContainer:self.deps.containerName
                                                 context:self.deps.contextID
+                                           forceRefetch:self.forceRefetch
                                              deviceName:self.deps.deviceInformationAdapter.deviceName
                                            serialNumber:self.deps.deviceInformationAdapter.serialNumber
                                               osVersion:self.deps.deviceInformationAdapter.osVersion
                                           policyVersion:nil
                                           policySecrets:nil
                               syncUserControllableViews:nil
+                                  secureElementIdentity:secureElementIdentity
+#if !defined(__OPEN_SOURCE__) && APPLE_FEATURE_WALRUS_UI
+                                          walrusSetting:nil
+                                              webAccess:nil
+#endif /* APPLE_FEATURE_WALRUS_UI */         
                                                   reply:^(TrustedPeersHelperPeerState* peerState, TPSyncingPolicy* syncingPolicy, NSError* error) {
             STRONGIFY(self);
             if(error || !peerState) {
@@ -110,9 +138,7 @@
                     secnotice("octagon-ckks", "Cuttlefish reports we no longer exist.");
                     self.nextState = self.peerUnknownState;
                 } else {
-                    // On an error, for now, go back to the intended state
-                    // <rdar://problem/50190005> Octagon: handle lock state errors in update()
-                    self.nextState = self.intendedState;
+                    // On an error, don't set nextState.
                 }
                 [self runBeforeGroupFinished:self.finishedOp];
                 return;
@@ -123,6 +149,7 @@
             NSError* localError = nil;
             BOOL persisted = [self.deps.stateHolder persistAccountChanges:^OTAccountMetadataClassC * _Nonnull(OTAccountMetadataClassC * _Nonnull metadata) {
                 [metadata setTPSyncingPolicy:syncingPolicy];
+
                 return metadata;
             } error:&localError];
             if(!persisted || localError) {
@@ -130,7 +157,7 @@
 
             } else {
                 // After an update(), we're sure that we have a fresh policy
-                BOOL viewSetChanged = [self.deps.viewManager setCurrentSyncingPolicy:syncingPolicy policyIsFresh:YES];
+                BOOL viewSetChanged = [self.deps.ckks setCurrentSyncingPolicy:syncingPolicy policyIsFresh:YES];
                 if(viewSetChanged) {
                     [self.deps.flagHandler handleFlag:OctagonFlagCKKSViewSetChanged];
                 }

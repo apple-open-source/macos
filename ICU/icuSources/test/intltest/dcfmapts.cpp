@@ -840,6 +840,7 @@ void IntlTestDecimalFormatAPI::TestFixedDecimal() {
     df.adoptInsteadAndCheckErrorCode(
         new DecimalFormat("#####################0.00####################", status), status);
     assertSuccess(WHERE, status);
+    df->setAttribute(UNUM_FORMAT_WITH_FULL_PRECISION, TRUE, status); // Needed due to ICU68 additions for Apple change <rdar://problem/39240173>
     Formattable fable("12.34", status);
     assertSuccess(WHERE, status);
     df->formatToDecimalQuantity(fable, fd, status);

@@ -76,9 +76,10 @@ struct proc *
 current_proc(void)
 {
 	/* Never returns a NULL */
-	struct uthread * ut;
 	struct proc * p;
+#if CONFIG_VFORK
 	thread_t thread = current_thread();
+	struct uthread * ut;
 
 	ut = (struct uthread *)get_bsdthread_info(thread);
 	if (ut && (ut->uu_flag & UT_VFORK) && ut->uu_proc) {
@@ -91,9 +92,9 @@ current_proc(void)
 		}
 		return p;
 	}
+#endif /* CONFIG_VFORK */
 
 	p = (struct proc *)get_bsdtask_info(current_task());
-
 	if (p == NULL) {
 		return kernproc;
 	}
@@ -322,8 +323,6 @@ cdevsw_setkqueueok(int maj, const struct cdevsw * csw, int extra_flags)
 	return 0;
 }
 
-#include <pexpert/pexpert.h> /* for PE_parse_boot_arg */
-
 /*
  * Copy the "hostname" variable into a caller-provided buffer
  * Returns: 0 for success, ENAMETOOLONG for insufficient buffer space.
@@ -373,7 +372,7 @@ devsw_lock(dev_t dev, int mode)
 	assert(0 <= major(dev) && major(dev) < nchrdev);
 	assert(mode == S_IFCHR || mode == S_IFBLK);
 
-	newlock = kalloc_flags(sizeof(struct devsw_lock), Z_WAITOK | Z_ZERO);
+	newlock = kalloc_type(struct devsw_lock, Z_WAITOK | Z_ZERO);
 	newlock->dl_dev = dev;
 	newlock->dl_thread = current_thread();
 	newlock->dl_mode = mode;
@@ -396,7 +395,7 @@ devsw_lock(dev_t dev, int mode)
 	lck_mtx_unlock(&devsw_lock_list_mtx);
 
 	if (curlock != NULL) {
-		kfree(newlock, sizeof(struct devsw_lock));
+		kfree_type(struct devsw_lock, newlock);
 	}
 }
 
@@ -430,5 +429,5 @@ devsw_unlock(dev_t dev, int mode)
 	if (inheritor_thread) {
 		thread_deallocate(inheritor_thread);
 	}
-	kfree(lock, sizeof(struct devsw_lock));
+	kfree_type(struct devsw_lock, lock);
 }

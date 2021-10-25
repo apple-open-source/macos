@@ -28,6 +28,7 @@
 
 #include <Security/SecCmsBase.h>
 #include <Security/SecSMIME.h>
+#include <Security/SecCertificatePriv.h>
 #include <Security/SecCertificateRequest.h>
 #include <Security/SecIdentityPriv.h>
 
@@ -2543,6 +2544,7 @@ static void tests(void)
     SecPolicyRef policy = NULL;
     SecTrustRef trust = NULL;
     SecTrustResultType result;
+    CFArrayRef chain = NULL;
 
     policy = SecPolicyCreateSMIME(kSecSignSMIMEUsage, CFSTR("Daly_c@apple.com"));
     ok_status(SecCMSVerifySignedData(signature, message, policy, &trust, NULL, NULL, NULL), "validate message");
@@ -2560,25 +2562,9 @@ static void tests(void)
     // the root of this chain has a MD2 signature; a weak digest algorithm error is now considered fatal.
     ok(result == kSecTrustResultFatalTrustFailure, "private root");
 
-#if DUMP_CERTS
-// debug code to save a cert chain retrieved from a SecTrustRef (written to /tmp/c[0-9].cer)
-	CFIndex idx, count = SecTrustGetCertificateCount(trust);
-	for (idx=0; idx<count; idx++) {
-		SecCertificateRef c = SecTrustGetCertificateAtIndex(trust, idx);
-		if (c) {
-			CFDataRef d = SecCertificateCopyData(c);
-			if (d) {
-				char f[12] = { '/', 't', 'm', 'p', '/', 'c', 'n', '.', 'c', 'e', 'r', 0 };
-				f[6] = '0' + (idx % 10);
-				writeFile(f, CFDataGetBytePtr(d), (int)CFDataGetLength(d));
-				CFRelease(d);
-			}
-		}
-	}
-#endif
-
-    smime_cert = SecTrustGetCertificateAtIndex(trust, 0);
-    CFRetain(smime_cert);
+    chain = SecTrustCopyCertificateChain(trust);
+    smime_cert = (SecCertificateRef)CFRetainSafe(CFArrayGetValueAtIndex(chain, 0));
+    CFReleaseNull(chain);
     CFReleaseNull(trust);
 
     CFReleaseNull(policy);
@@ -2629,7 +2615,6 @@ static void tests(void)
     is(algorithmTag, (SECOidTag)SEC_OID_DES_EDE3_CBC, "okay asym, 3des for interop");
     is(keySize, 192, "superfluous");
 
-    //SecCmsSignerInfoAddSMIMEEncKeyPrefs
     SecCmsMessageRef cmsg = NULL;
     SecCmsContentInfoRef cinfo;
     SecCmsSignedDataRef sigd = NULL;
@@ -2661,8 +2646,7 @@ static void tests(void)
 #endif
     // ok_status(SecCmsSignerInfoIncludeCerts(signerinfo, SecCmsCMCertChain, certUsageAnyCA), out);
     ok_status(SecCmsSignerInfoAddSigningTime(signerinfo, CFAbsoluteTimeGetCurrent()), "set current time");
-    ok_status(SecCmsSignerInfoAddSMIMEEncKeyPrefs(signerinfo, cert, NULL), "set signing cert as preferred encryption cert");
-    //SecCmsSignerInfoAddMSSMIMEEncKeyPrefs
+    ok_status(SecCmsSignerInfoAddSMIMEEncKeyPreferences(signerinfo, cert), "set signing cert as preferred encryption cert");
     CFReleaseNull(cert);
 
 #if TARGET_OS_IPHONE
@@ -2854,7 +2838,7 @@ static void testEncKeyPrefs(uint8_t *content, size_t content_length, uint8_t *si
     /* Verify the signature */
     require_action(policy = SecPolicyCreateBasicX509(), out,
                   fail("Failed to create basic policy"));
-    require_noerr_action(SecCmsSignedDataVerifySignerInfo(sigd, 0, NULL, policy, &trust), out,
+    require_noerr_action(SecCmsSignedDataVerifySigner(sigd, 0, policy, &trust), out,
                          fail("Failed to verify signature"));
 
     /* Get the Encryption Key Preference certificate */

@@ -248,9 +248,9 @@ win_line(
     int		c_final = NUL;		// final char, mandatory if set
     int		extra_attr = 0;		// attributes when n_extra != 0
     static char_u *at_end_str = (char_u *)""; // used for p_extra when
-					   // displaying lcs_eol at end-of-line
-    int		lcs_eol_one = lcs_eol;	// lcs_eol until it's been used
-    int		lcs_prec_todo = lcs_prec;   // lcs_prec until it's been used
+					// displaying eol at end-of-line
+    int		lcs_eol_one = wp->w_lcs_chars.eol; // eol until it's been used
+    int		lcs_prec_todo = wp->w_lcs_chars.prec; // prec until it's been used
 
     // saved "extra" items for when draw_state becomes WL_LINE (again)
     int		saved_n_extra = 0;
@@ -339,6 +339,7 @@ win_line(
     int		change_end = -1;	// last col of changed area
 #endif
     colnr_T	trailcol = MAXCOL;	// start of trailing spaces
+    colnr_T	leadcol = 0;		// start of leading spaces
 #ifdef FEAT_LINEBREAK
     int		need_showbreak = FALSE; // overlong line, skipping first x
 					// chars
@@ -641,7 +642,7 @@ win_line(
 	    else
 		tocol = MAXCOL;
 	    // do at least one character; happens when past end of line
-	    if (fromcol == tocol)
+	    if (fromcol == tocol && search_match_endcol)
 		tocol = fromcol + 1;
 	    area_highlighting = TRUE;
 	    vi_attr = HL_ATTR(HLF_I);
@@ -734,15 +735,32 @@ win_line(
 
     if (wp->w_p_list)
     {
-	if (lcs_space || lcs_trail || lcs_nbsp)
+	if (wp->w_lcs_chars.space
+		|| wp->w_lcs_chars.trail
+		|| wp->w_lcs_chars.lead
+		|| wp->w_lcs_chars.nbsp)
 	    extra_check = TRUE;
+
 	// find start of trailing whitespace
-	if (lcs_trail)
+	if (wp->w_lcs_chars.trail)
 	{
 	    trailcol = (colnr_T)STRLEN(ptr);
 	    while (trailcol > (colnr_T)0 && VIM_ISWHITE(ptr[trailcol - 1]))
 		--trailcol;
 	    trailcol += (colnr_T) (ptr - line);
+	}
+	// find end of leading whitespace
+	if (wp->w_lcs_chars.lead)
+	{
+	    leadcol = 0;
+	    while (VIM_ISWHITE(ptr[leadcol]))
+		++leadcol;
+	    if (ptr[leadcol] == NUL)
+		// in a line full of spaces all of them are treated as trailing
+		leadcol = (colnr_T)0;
+	    else
+		// keep track of the first column not filled with spaces
+		leadcol += (colnr_T) (ptr - line) + 1;
 	}
     }
 
@@ -1013,12 +1031,11 @@ win_line(
 		    // Draw the 'foldcolumn'.  Allocate a buffer, "extra" may
 		    // already be in use.
 		    vim_free(p_extra_free);
-		    p_extra_free = alloc(12 + 1);
-
+		    p_extra_free = alloc(MAX_MCO * fdc + 1);
 		    if (p_extra_free != NULL)
 		    {
-			fill_foldcolumn(p_extra_free, wp, FALSE, lnum);
-			n_extra = fdc;
+			n_extra = (int)fill_foldcolumn(p_extra_free, wp,
+								  FALSE, lnum);
 			p_extra_free[n_extra] = NUL;
 			p_extra = p_extra_free;
 			c_extra = NUL;
@@ -1403,7 +1420,12 @@ win_line(
 		// Add any text property that starts in this column.
 		while (text_prop_next < text_prop_count
 			   && bcol >= text_props[text_prop_next].tp_col - 1)
-		    text_prop_idxs[text_props_active++] = text_prop_next++;
+		{
+		    if (bcol <= text_props[text_prop_next].tp_col - 1
+					   + text_props[text_prop_next].tp_len)
+			text_prop_idxs[text_props_active++] = text_prop_next;
+		    ++text_prop_next;
+		}
 
 		text_prop_attr = 0;
 		text_prop_combine = FALSE;
@@ -1980,21 +2002,23 @@ win_line(
 		}
 #endif
 
-		// 'list': Change char 160 to lcs_nbsp and space to lcs_space.
-		// But not when the character is followed by a composing
-		// character (use mb_l to check that).
+		// 'list': Change char 160 to 'nbsp' and space to 'space'
+		// setting in 'listchars'.  But not when the character is
+		// followed by a composing character (use mb_l to check that).
 		if (wp->w_p_list
 			&& ((((c == 160 && mb_l == 1)
 			      || (mb_utf8
 				  && ((mb_c == 160 && mb_l == 2)
 				      || (mb_c == 0x202f && mb_l == 3))))
-			     && lcs_nbsp)
+			     && wp->w_lcs_chars.nbsp)
 			    || (c == ' '
 				&& mb_l == 1
-				&& lcs_space
+				&& wp->w_lcs_chars.space
+				&& ptr - line >= leadcol
 				&& ptr - line <= trailcol)))
 		{
-		    c = (c == ' ') ? lcs_space : lcs_nbsp;
+		    c = (c == ' ') ? wp->w_lcs_chars.space :
+							wp->w_lcs_chars.nbsp;
 		    if (area_attr == 0 && search_attr == 0)
 		    {
 			n_attr = 1;
@@ -2012,9 +2036,11 @@ win_line(
 			mb_utf8 = FALSE;
 		}
 
-		if (trailcol != MAXCOL && ptr > line + trailcol && c == ' ')
+		if ((trailcol != MAXCOL && ptr > line + trailcol && c == ' ')
+			|| (leadcol != 0 && ptr < line + leadcol && c == ' '))
 		{
-		    c = lcs_trail;
+		    c = (ptr > line + trailcol) ? wp->w_lcs_chars.trail
+							: wp->w_lcs_chars.lead;
 		    if (!attr_pri)
 		    {
 			n_attr = 1;
@@ -2039,7 +2065,7 @@ win_line(
 		// when getting a character from the file, we may have to
 		// turn it into something else on the way to putting it
 		// into "ScreenLines".
-		if (c == TAB && (!wp->w_p_list || lcs_tab1))
+		if (c == TAB && (!wp->w_p_list || wp->w_lcs_chars.tab1))
 		{
 		    int tab_len = 0;
 		    long vcol_adjusted = vcol; // removed showbreak length
@@ -2079,18 +2105,19 @@ win_line(
 			    // there are characters to conceal
 			    tab_len += vcol_off;
 			// boguscols before FIX_FOR_BOGUSCOLS macro from above
-			if (wp->w_p_list && lcs_tab1 && old_boguscols > 0
-							 && n_extra > tab_len)
+			if (wp->w_p_list && wp->w_lcs_chars.tab1
+							&& old_boguscols > 0
+							&& n_extra > tab_len)
 			    tab_len += n_extra - tab_len;
 #endif
 
 			// if n_extra > 0, it gives the number of chars, to
 			// use for a tab, else we need to calculate the width
 			// for a tab
-			len = (tab_len * mb_char2len(lcs_tab2));
+			len = (tab_len * mb_char2len(wp->w_lcs_chars.tab2));
 			if (n_extra > 0)
 			    len += n_extra - tab_len;
-			c = lcs_tab1;
+			c = wp->w_lcs_chars.tab1;
 			p = alloc(len + 1);
 			vim_memset(p, ' ', len);
 			p[len] = NUL;
@@ -2098,7 +2125,7 @@ win_line(
 			p_extra_free = p;
 			for (i = 0; i < tab_len; i++)
 			{
-			    int lcs = lcs_tab2;
+			    int lcs = wp->w_lcs_chars.tab2;
 
 			    if (*p == NUL)
 			    {
@@ -2106,10 +2133,10 @@ win_line(
 				break;
 			    }
 
-			    // if lcs_tab3 is given, need to change the char
+			    // if tab3 is given, need to change the char
 			    // for tab
-			    if (lcs_tab3 && i == tab_len - 1)
-				lcs = lcs_tab3;
+			    if (wp->w_lcs_chars.tab3 && i == tab_len - 1)
+				lcs = wp->w_lcs_chars.tab3;
 			    mb_char2bytes(lcs, p);
 			    p += mb_char2len(lcs);
 			    n_extra += mb_char2len(lcs)
@@ -2140,21 +2167,23 @@ win_line(
 			// correctly set further below (effectively reverts the
 			// FIX_FOR_BOGSUCOLS macro
 			if (n_extra == tab_len + vc_saved && wp->w_p_list
-								  && lcs_tab1)
+						&& wp->w_lcs_chars.tab1)
 			    tab_len += vc_saved;
 		    }
 #endif
 		    mb_utf8 = FALSE;	// don't draw as UTF-8
 		    if (wp->w_p_list)
 		    {
-			c = (n_extra == 0 && lcs_tab3) ? lcs_tab3 : lcs_tab1;
+			c = (n_extra == 0 && wp->w_lcs_chars.tab3)
+							? wp->w_lcs_chars.tab3
+							: wp->w_lcs_chars.tab1;
 #ifdef FEAT_LINEBREAK
 			if (wp->w_p_lbr)
 			    c_extra = NUL; // using p_extra from above
 			else
 #endif
-			    c_extra = lcs_tab2;
-			c_final = lcs_tab3;
+			    c_extra = wp->w_lcs_chars.tab2;
+			c_final = wp->w_lcs_chars.tab3;
 			n_attr = tab_len + 1;
 			extra_attr = hl_combine_attr(win_attr, HL_ATTR(HLF_8));
 			saved_attr2 = char_attr; // save current attr
@@ -2219,8 +2248,8 @@ win_line(
 			    c_final = NUL;
 			}
 		    }
-		    if (wp->w_p_list && lcs_eol > 0)
-			c = lcs_eol;
+		    if (wp->w_p_list && wp->w_lcs_chars.eol > 0)
+			c = wp->w_lcs_chars.eol;
 		    else
 			c = ' ';
 		    lcs_eol_one = -1;
@@ -2322,7 +2351,8 @@ win_line(
 		    // don't do search HL for the rest of the line
 		    if (line_attr != 0 && char_attr == search_attr
 					&& (did_line_attr > 1
-					    || (wp->w_p_list && lcs_eol > 0)))
+					    || (wp->w_p_list &&
+						wp->w_lcs_chars.eol > 0)))
 			char_attr = line_attr;
 # ifdef FEAT_DIFF
 		    if (diff_hlf == HLF_TXD)
@@ -2382,8 +2412,8 @@ win_line(
 			c = match_conc;
 		    else if (syn_get_sub_char() != NUL)
 			c = syn_get_sub_char();
-		    else if (lcs_conceal != NUL)
-			c = lcs_conceal;
+		    else if (wp->w_lcs_chars.conceal != NUL)
+			c = wp->w_lcs_chars.conceal;
 		    else
 			c = ' ';
 
@@ -2526,7 +2556,7 @@ win_line(
 		&& draw_state > WL_NR
 		&& c != NUL)
 	{
-	    c = lcs_prec;
+	    c = wp->w_lcs_chars.prec;
 	    lcs_prec_todo = NUL;
 	    if (has_mbyte && (*mb_char2cells)(mb_c) > 1)
 	    {
@@ -2572,7 +2602,7 @@ win_line(
 	    // highlight match at end of line. If it's beyond the last
 	    // char on the screen, just overwrite that one (tricky!)  Not
 	    // needed when a '$' was displayed for 'list'.
-	    if (lcs_eol == lcs_eol_one
+	    if (wp->w_lcs_chars.eol == lcs_eol_one
 		    && ((area_attr != 0 && vcol == fromcol
 			    && (VIsual_mode != Ctrl_V
 				|| lnum == VIsual.lnum
@@ -2742,7 +2772,7 @@ win_line(
 
 	// Show "extends" character from 'listchars' if beyond the line end and
 	// 'list' is set.
-	if (lcs_ext != NUL
+	if (wp->w_lcs_chars.ext != NUL
 		&& wp->w_p_list
 		&& !wp->w_p_wrap
 #ifdef FEAT_DIFF
@@ -2757,7 +2787,7 @@ win_line(
 		    || (wp->w_p_list && lcs_eol_one > 0)
 		    || (n_extra && (c_extra != NUL || *p_extra != NUL))))
 	{
-	    c = lcs_ext;
+	    c = wp->w_lcs_chars.ext;
 	    char_attr = hl_combine_attr(win_attr, HL_ATTR(HLF_AT));
 	    mb_c = c;
 	    if (enc_utf8 && utf_char2len(c) > 1)
@@ -3014,7 +3044,8 @@ win_line(
 #ifdef FEAT_DIFF
 		    || filler_todo > 0
 #endif
-		    || (wp->w_p_list && lcs_eol != NUL && p_extra != at_end_str)
+		    || (wp->w_p_list && wp->w_lcs_chars.eol != NUL
+						&& p_extra != at_end_str)
 		    || (n_extra != 0 && (c_extra != NUL || *p_extra != NUL)))
 		)
 	{
@@ -3139,7 +3170,7 @@ win_line(
 #endif
 		saved_char_attr = 0;
 	    n_extra = 0;
-	    lcs_prec_todo = lcs_prec;
+	    lcs_prec_todo = wp->w_lcs_chars.prec;
 #ifdef FEAT_LINEBREAK
 # ifdef FEAT_DIFF
 	    if (filler_todo <= 0)

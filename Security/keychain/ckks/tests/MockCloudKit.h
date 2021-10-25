@@ -108,14 +108,20 @@ typedef NSMutableDictionary<CKRecordZoneID*, FakeCKZone*> FakeCKDatabase;
 @property int fetchRecordZoneChangesOperationCount;
 @property NSMutableArray<NSDate*>* fetchRecordZoneChangesTimestamps;
 
+// If present here, records will be skipped and not present to the client during a fetch
+@property NSMutableSet<CKRecordID*>* recordIDsToSkip;
+
 // Usually nil. If set, trying to 'create' this zone should fail.
 @property (nullable) NSError* creationError;
 
 // Usually false. If set, trying to 'create' this should should 1) pretend to succeed but 2) delete this zone from existence
 @property bool failCreationSilently;
 
-// Usually nil. If set, trying to subscribe to this zone should fail.
+// Usually nil. If set, trying to subscribe to this zone should fail. Will be cleared after one use.
 @property (nullable) NSError* subscriptionError;
+
+// Usually nil. If set, trying to subscribe to this zone should fail. Will not be cleared after one use.
+@property (nullable) NSError* persistentSubscriptionError;
 
 // Serial queue. Use this for transactionality.
 @property dispatch_queue_t queue;
@@ -147,6 +153,7 @@ typedef NSMutableDictionary<CKRecordZoneID*, FakeCKZone*> FakeCKDatabase;
 
 // Checks if this record add/modification should fail
 - (NSError* _Nullable)errorFromSavingRecord:(CKRecord*)record;
+- (NSError* _Nullable)errorFromSavingRecord:(CKRecord*)record otherConcurrentWrites:(NSArray<CKRecord*>*)concurrentRecords;
 
 // Helpfully creates an internal plugin error that CK would return
 + (NSError*)internalPluginError:(NSString*)serverDomain code:(NSInteger)code description:(NSString*)desc;

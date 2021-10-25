@@ -84,9 +84,9 @@
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2019-01-19</string>
+		<string>2021-05-04</string>
 		<key>OpenSourceLicense</key>
-		<string>BSD</string>
+		<string>MIT</string>
 		<key>OpenSourceLicenseFile</key>
 		<string>libxml-ruby.txt</string>
 		<key>OpenSourceModifications</key>
@@ -94,11 +94,11 @@
 		<key>OpenSourceProject</key>
 		<string>libxml-ruby</string>
 		<key>OpenSourceSHA256</key>
-		<string>2d6305fabbfb9e52b8e5d8f8797c1b3a0ee90ff498684fb44555dd79e33ff5e4</string>
+		<string>4088adbd96e1a99002c09fef6600d35151cae408e4f4184abd895db310e05770</string>
 		<key>OpenSourceURL</key>
-		<string>https://rubygems.org/downloads/libxml-ruby-3.1.0.gem</string>
+		<string>https://rubygems.org/downloads/libxml-ruby-3.2.1.gem</string>
 		<key>OpenSourceVersion</key>
-		<string>3.1.0</string>
+		<string>3.2.1</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>https://rubygems.org/gems/libxml-ruby</string>
 	</dict>

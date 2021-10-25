@@ -103,7 +103,7 @@ typedef void (^CompletionHandler)(void);
     }
 }
 
-- (void)updateDb:(NSUInteger)version {
+- (void)updateDb:(NSInteger)version {
     __block NSURL *updateFileURL = self->_currentUpdateFileURL;
     __block NSString *updateServer = self->_currentUpdateServer;
     __block NSFileHandle *updateFile = self->_currentUpdateFile;
@@ -135,7 +135,8 @@ typedef void (^CompletionHandler)(void);
 
         secdebug("validupdate", "verifying and ingesting data from %@", updateFileURL);
         SecValidUpdateVerifyAndIngest(updateData, (__bridge CFStringRef)updateServer, (0 == version));
-        if ((rtn = munmap((void *)CFDataGetBytePtr(updateData), CFDataGetLength(updateData))) != 0) {
+        if (CFDataGetLength(updateData) < 0 ||
+            (rtn = munmap((void *)CFDataGetBytePtr(updateData), (size_t)CFDataGetLength(updateData))) != 0) {
             secerror("unable to unmap current update %ld bytes at %p (error %d)", CFDataGetLength(updateData), CFDataGetBytePtr(updateData), rtn);
         }
         CFReleaseNull(updateData);
@@ -211,9 +212,7 @@ didReceiveResponse:(NSURLResponse *)response
     self->_currentUpdateFile = [NSFileHandle fileHandleForWritingToURL:self->_currentUpdateFileURL error:&error];
     if (!self->_currentUpdateFile) {
         secnotice("validupdate", "failed to open %@: %@. canceling task %@", self->_currentUpdateFileURL, error, dataTask);
-#if ENABLE_TRUSTD_ANALYTICS
         [[TrustAnalytics logger] logResultForEvent:TrustdHealthAnalyticsEventValidUpdate hardFailure:NO result:error];
-#endif // ENABLE_TRUSTD_ANALYTICS
         completionHandler(NSURLSessionResponseCancel);
         [self reschedule];
         return;
@@ -252,9 +251,7 @@ didReceiveResponse:(NSURLResponse *)response
 didCompleteWithError:(NSError *)error {
     if (error) {
         secnotice("validupdate", "Session %@ task %@ failed with error %@", session, task, error);
-#if ENABLE_TRUSTD_ANALYTICS
         [[TrustAnalytics logger] logResultForEvent:TrustdHealthAnalyticsEventValidUpdate hardFailure:NO result:error];
-#endif // ENABLE_TRUSTD_ANALYTICS
         [self reschedule];
         /* close file before we leave */
         [self->_currentUpdateFile closeFile];
@@ -307,7 +304,7 @@ static ValidUpdateRequest *request = nil;
         config._requiresPowerPluggedIn = YES;
         config.allowsCellularAccess = (!updateOnWiFiOnly) ? YES : NO;
     } else {
-        config = [NSURLSessionConfiguration ephemeralSessionConfiguration]; // no cookies or data storage
+        config = [NSURLSessionConfiguration ephemeralSessionConfiguration];
         config.networkServiceType = NSURLNetworkServiceTypeDefault;
         config.discretionary = NO;
     }
@@ -317,6 +314,8 @@ static ValidUpdateRequest *request = nil;
                                       @"Accept-Encoding" : @"gzip,deflate,br"};
 
     config.TLSMinimumSupportedProtocol = kTLSProtocol12;
+    config.HTTPCookieStorage = nil; // no cookies
+    config.URLCache = nil; // no resource caching
 
     return config;
 }
@@ -357,7 +356,7 @@ static ValidUpdateRequest *request = nil;
     }
 }
 
-- (BOOL) scheduleUpdateFromServer:(NSString *)server forVersion:(NSUInteger)version withQueue:(dispatch_queue_t)updateQueue {
+- (BOOL) scheduleUpdateFromServer:(NSString *)server forVersion:(NSInteger)version withQueue:(dispatch_queue_t)updateQueue {
     if (!server) {
         secnotice("validupdate", "invalid update request");
         return NO;
@@ -419,9 +418,9 @@ static ValidUpdateRequest *request = nil;
         });
 
         NSURL *validUrl = [NSURL URLWithString:[NSString stringWithFormat:@"https://%@/g3/v%ld",
-                                                server, (unsigned long)version]];
+                                                server, (long)version]];
         NSURLSessionDataTask *dataTask = [self.backgroundSession dataTaskWithURL:validUrl];
-        dataTask.taskDescription = [NSString stringWithFormat:@"%lu",(unsigned long)version];
+        dataTask.taskDescription = [NSString stringWithFormat:@"%ld",(long)version];
         [dataTask resume];
         secnotice("validupdate", "scheduled background data task %@ at %f", dataTask, CFAbsoluteTimeGetCurrent());
         (void) transaction; // dead store
@@ -431,7 +430,7 @@ static ValidUpdateRequest *request = nil;
     return YES;
 }
 
-- (BOOL)updateNowFromServer:(NSString *)server version:(NSUInteger)version queue:(dispatch_queue_t)updateQueue
+- (BOOL)updateNowFromServer:(NSString *)server version:(NSInteger)version queue:(dispatch_queue_t)updateQueue
 {
     if (!server) {
         secnotice("validupdate", "invalid update request");
@@ -458,9 +457,9 @@ static ValidUpdateRequest *request = nil;
     });
 
     NSURL *validUrl = [NSURL URLWithString:[NSString stringWithFormat:@"https://%@/g3/v%ld",
-                                            server, (unsigned long)version]];
+                                            server, (long)version]];
     NSURLSessionDataTask *dataTask = [self.ephemeralSession dataTaskWithURL:validUrl];
-    dataTask.taskDescription = [NSString stringWithFormat:@"%lu",(unsigned long)version];
+    dataTask.taskDescription = [NSString stringWithFormat:@"%ld",(long)version];
     [dataTask resume];
     secnotice("validupdate", "running foreground data task %@ at %f", dataTask, CFAbsoluteTimeGetCurrent());
     return YES;
@@ -600,7 +599,7 @@ bool SecValidUpdateUpdateNow(dispatch_queue_t queue, CFStringRef server, CFIndex
         [allowedSet removeCharactersInString:@":/?#[]@!$&'()*+,;="];
     });
     NSString *escapedRequest = [ocspBase64 stringByAddingPercentEncodingWithAllowedCharacters:allowedSet];
-    NSURLRequest *request = nil;
+    NSURLRequest *urlRequest = nil;
 
     /* Interesting tidbit from rfc5019
      When sending requests that are less than or equal to 255 bytes in
@@ -613,16 +612,16 @@ bool SecValidUpdateUpdateNow(dispatch_queue_t queue, CFStringRef server, CFIndex
         /* Use a GET */
         NSString *requestString = [NSString stringWithFormat:@"%@/%@", [uri absoluteString], escapedRequest];
         NSURL *requestURL = [NSURL URLWithString:requestString];
-        request = [super createNextRequest:requestURL context:urlContext];
+        urlRequest = [super createNextRequest:requestURL context:urlContext];
     } else {
         /* Use a POST */
         NSMutableURLRequest *mutableRequest = [[super createNextRequest:uri context:urlContext] mutableCopy];
         mutableRequest.HTTPMethod = @"POST";
         mutableRequest.HTTPBody = nsOcspDER;
-        request = mutableRequest;
+        urlRequest = mutableRequest;
     }
 
-    return request;
+    return urlRequest;
 }
 
 - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didFinishCollectingMetrics:(NSURLSessionTaskMetrics *)taskMetrics {
@@ -649,7 +648,7 @@ bool SecORVCBeginFetches(SecORVCRef orvc, SecCertificateRef cert) {
         CFArrayRef ocspResponders = CFRetainSafe(SecCertificateGetOCSPResponders(cert));
         NSArray *nsResponders = CFBridgingRelease(ocspResponders);
 
-        NSInteger count = [nsResponders count];
+        NSUInteger count = [nsResponders count];
         if (count > OCSP_REQUEST_THRESHOLD) {
             secnotice("rvc", "too may OCSP responder entries (%ld)", (long)count);
             orvc->done = true;

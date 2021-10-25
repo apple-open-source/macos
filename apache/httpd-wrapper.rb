@@ -1,6 +1,6 @@
 #!/usr/bin/ruby
 
-# Copyright (c) 2012, 2014-2015, 2017, 2019 Apple Inc. All Rights Reserved.
+# Copyright (c) 2012, 2014-2015, 2017, 2019, 2021 Apple Inc. All Rights Reserved.
 
 # IMPORTANT NOTE: This file is licensed only for use on Apple-branded
 # computers and is subject to the terms and conditions of the Apple Software
@@ -14,7 +14,8 @@
 # This script also gathers minimal usage data on the Apache web server. It logs 
 # usage data locally, but that data is only sent to Apple if the "send usage data" 
 # option is turned on.
-    
+
+require 'fileutils'
 def main
     begin
         require 'cfpropertylist'
@@ -33,6 +34,9 @@ def main
             else
                 File.rename(WFS_CONFIG_FILE_PATH, WFS_CONFIG_FILE_PATH + '.inactive')
             end
+        end
+        if !FileTest.exist?(LOG_DIR)
+        	FileUtils.mkdir_p(LOG_DIR)
         end
         if !FileTest.exist?(LAST_USE_FILE) || Time.now - File.new(LAST_USE_FILE).atime > TOO_SOON_IN_SECONDS
             metrics = Metrics.new
@@ -130,6 +134,7 @@ WFS_CONFIG_FILE_PATH = '/etc/apache2/other/httpd_webdavsharing.conf'
 HTTPD_PATH = '/usr/sbin/httpd'
 DEFAULT_WEB_CONFIG_PATH = '/etc/apache2/httpd.conf'
 SERVER_APP_PATH = 'Applications/Server.app'
+LOG_DIR = '/var/log/apache2'
 LAST_USE_FILE = '/var/db/.httpd-wrapper'
 TOO_SOON_IN_SECONDS = 3600.0        # Throttle
 

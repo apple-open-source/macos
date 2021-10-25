@@ -1,5 +1,6 @@
-﻿// © 2016 and later: Unicode, Inc. and others.
-// License & terms of use: http://www.unicode.org/copyright.html#License
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html
+// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
 zh_Hant{
     %%Parent{"root"}
     Keys{
@@ -52,7 +53,7 @@ zh_Hant{
         aro{"阿拉奧納文"}
         arp{"阿拉帕霍文"}
         arq{"阿爾及利亞阿拉伯文"}
-        ars{"阿拉伯文（納吉迪）"}
+        ars{"阿拉伯文（內志）"}
         arw{"阿拉瓦克文"}
         ary{"摩洛哥阿拉伯文"}
         arz{"埃及阿拉伯文"}
@@ -468,6 +469,7 @@ zh_Hant{
         rap{"復活島文"}
         rar{"拉羅通加文"}
         rgn{"羅馬格諾里文"}
+        rhg{"羅興亞文"}
         rif{"里菲亞諾文"}
         rm{"羅曼斯文"}
         rn{"隆迪文"}
@@ -641,13 +643,6 @@ zh_Hant{
         zxx{"無語言內容"}
         zza{"扎扎文"}
     }
-    Languages%menu{
-        yue{"粵語"}
-        zh{"中文"}
-    }
-    Languages%short{
-        az{"亞塞拜然文"}
-    }
     Scripts{
         Adlm{"富拉文"}
         Afak{"阿法卡文字"}
@@ -763,7 +758,7 @@ zh_Hant{
         Ogam{"歐甘文"}
         Olck{"桑塔利文"}
         Orkh{"鄂爾渾文"}
-        Orya{"歐利亞文"}
+        Orya{"歐迪亞文"}
         Osge{"歐塞奇文"}
         Osma{"歐斯曼亞文"}
         Palm{"帕米瑞拉文字"}
@@ -778,6 +773,7 @@ zh_Hant{
         Prti{"帕提亞文（碑銘體）"}
         Qaag{"佐基文"}
         Rjng{"拉讓文"}
+        Rohg{"哈乃斐羅興亞文"}
         Roro{"朗格朗格象形文"}
         Runr{"古北歐文字"}
         Samr{"撒馬利亞文"}
@@ -856,7 +852,7 @@ zh_Hant{
             iso8601{"ISO 8601國際曆法"}
             japanese{"日本曆"}
             persian{"波斯曆"}
-            roc{"民國曆"}
+            roc{"國曆"}
         }
         cf{
             account{"會計貨幣格式"}
@@ -996,7 +992,7 @@ zh_Hant{
             native{"原始數字"}
             nkoo{"曼德數字"}
             olck{"桑塔利文數字"}
-            orya{"歐利亞數字"}
+            orya{"歐迪亞數字"}
             osma{"奧斯曼亞數字"}
             roman{"羅馬數字"}
             romanlow{"小寫羅馬數字"}
@@ -1093,7 +1089,6 @@ zh_Hant{
         VALLADER{"瑞士瓦勒德方言"}
         WADEGILE{"威妥瑪式拼音"}
     }
-    Version{"36.1"}
     characterLabelPattern{
         all{"{0} — 全部"}
         category-list{"{0}: {1}"}
@@ -1107,6 +1102,8 @@ zh_Hant{
         strokes{
             other{"{0} 畫"}
         }
+        subscript{"下標 {0}"}
+        superscript{"上標 {0}"}
     }
     codePatterns{
         language{"語言：{0}"}

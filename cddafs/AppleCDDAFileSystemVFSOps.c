@@ -198,11 +198,8 @@ CDDA_Mount ( mount_t					mountPtr,
 	}
 	
 	// Allocate memory for private mount data
-	MALLOC ( cddaMountPtr, AppleCDDAMountPtr, sizeof ( AppleCDDAMount ), M_TEMP, M_WAITOK );
-	
-	// Zero the structure
-	bzero ( cddaMountPtr, sizeof ( AppleCDDAMount ) );
-	
+	cddaMountPtr = IOMallocType (AppleCDDAMount);
+
 	// Initialize the lock
 	cddaMountPtr->cddaMountLockGroupAttr = lck_grp_attr_alloc_init ( );
 	cddaMountPtr->cddaMountLockGroup	 = lck_grp_alloc_init ( "cddafs mount structure", cddaMountPtr->cddaMountLockGroupAttr );
@@ -217,19 +214,15 @@ CDDA_Mount ( mount_t					mountPtr,
 	cddaMountPtr->fileCreator	= cddaArgs.fileCreator;
 	
 	// Allocate memory for NodeInfo array
-	MALLOC ( cddaMountPtr->nodeInfoArrayPtr, AppleCDDANodeInfoPtr,
-			 sizeof ( AppleCDDANodeInfo ) * cddaMountPtr->numTracks, M_TEMP, M_WAITOK );
-	
-	// Zero the array
-	bzero ( cddaMountPtr->nodeInfoArrayPtr, sizeof ( AppleCDDANodeInfo ) * cddaMountPtr->numTracks );
-	
+    cddaMountPtr->nodeInfoArrayPtr = (AppleCDDANodeInfoPtr)IOMallocZeroData (sizeof (AppleCDDANodeInfo) * cddaMountPtr->numTracks);
+
 	// Fill in the mount time
 	microtime ( &now );
 	TIMEVAL_TO_TIMESPEC ( &now, &timespec );
 	cddaMountPtr->mountTime = timespec;
 	
 	// Allocate memory for CD Track Names data
-	MALLOC ( cddaMountPtr->nameData, UInt8 *, cddaArgs.nameDataSize, M_TEMP, M_WAITOK );
+	cddaMountPtr->nameData = (UInt8*)IOMallocData (cddaArgs.nameDataSize);
 	cddaMountPtr->nameDataSize = cddaArgs.nameDataSize;
 	
 	DebugLog ( ( "cddaMountPtr->nameData = %p, cddaMountPtr->nameDataSize = %d\n", cddaMountPtr->nameData, cddaMountPtr->nameDataSize ) );
@@ -270,7 +263,7 @@ CDDA_Mount ( mount_t					mountPtr,
 	vfs_getnewfsid ( mountPtr );
 	
 	// Allocate memory for xml data
-	MALLOC ( xmlData, void *, cddaArgs.xmlFileSize, M_TEMP, M_WAITOK );
+	xmlData = IOMallocZeroData (cddaArgs.xmlFileSize);
 	
 	error = copyin ( cddaArgs.xmlData, ( caddr_t ) xmlData, cddaArgs.xmlFileSize );
 	if ( error != 0 )
@@ -320,11 +313,9 @@ FREE_TRACK_NAMES:
 	
 	if ( cddaMountPtr->nameData != NULL )
 	{
-		
-		FREE ( ( caddr_t ) cddaMountPtr->nameData, M_TEMP );
+		IOFreeData (cddaMountPtr->nameData, cddaMountPtr->nameDataSize);
 		cddaMountPtr->nameData		= NULL;
 		cddaMountPtr->nameDataSize	= 0;
-		
 	}
 	
 	
@@ -333,21 +324,17 @@ FREE_NODE_INFO_ERROR:
 	
 	if ( cddaMountPtr->nodeInfoArrayPtr != NULL )
 	{
-		
-		// Free memory allocated for NodeInfo array
-		FREE ( ( caddr_t ) cddaMountPtr->nodeInfoArrayPtr, M_TEMP );
+        // Free memory allocated for NodeInfo array
+        IOFreeData (cddaMountPtr->nodeInfoArrayPtr, sizeof (AppleCDDANodeInfo) * cddaMountPtr->numTracks);
 		cddaMountPtr->nodeInfoArrayPtr = NULL;
-		
 	}
 	
 	
 	if ( cddaMountPtr != NULL )
 	{
-		
 		// Free memory allocated for mount structure
-		FREE ( ( caddr_t ) cddaMountPtr, M_TEMP );
+		IOFreeType (cddaMountPtr, AppleCDDAMount);
 		cddaMountPtr = NULL;
-		
 	}
 	
 	
@@ -439,12 +426,12 @@ CDDA_Unmount ( mount_t					mountPtr,
 	DebugLog ( ( "CDDA_Unmount: Free the name data.\n" ) );
 	
 	// Free the name data
-	FREE ( ( caddr_t ) nameData, M_TEMP );
+	IOFreeData (nameData, VFSTOCDDA(mountPtr)->nameDataSize);
 
 	DebugLog ( ( "CDDA_Unmount: Free the XML data.\n" ) );
 	
 	// Free the XML data
-	FREE ( ( caddr_t ) xmlData, M_TEMP );
+	IOFreeData (xmlData, VFSTOCDDA(mountPtr)->xmlDataSize);
 	
 	// Get a pointer to the NodeInfo Array	
 	nodeInfoArrayPtr = VFSTONODEINFO ( mountPtr );
@@ -452,7 +439,7 @@ CDDA_Unmount ( mount_t					mountPtr,
 	DebugLog ( ( "CDDA_Unmount: Free the nodeinfo array.\n" ) );
 	
 	// Free the NodeInfo Array we allocated at mount time
-	FREE ( nodeInfoArrayPtr, M_TEMP );
+	IOFreeData (nodeInfoArrayPtr, sizeof (AppleCDDANodeInfo) * VFSTOCDDA(mountPtr)->numTracks);
 	
 	DebugLog ( ( "CDDA_Unmount: Free the nodeinfo lock.\n" ) );
 	
@@ -464,7 +451,7 @@ CDDA_Unmount ( mount_t					mountPtr,
 	DebugLog ( ( "CDDA_Unmount: Free the mount point data.\n" ) );
 	
 	// Finally, free the mount-specific data we allocated at mount time
-	FREE ( vfs_fsprivate ( mountPtr ), M_TEMP );
+	IOFreeType (cddaMountPtr, AppleCDDAMount);
 	
 	// Point the pointer to nothing
 	vfs_setfsprivate ( mountPtr, NULL );

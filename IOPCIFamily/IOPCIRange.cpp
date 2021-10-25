@@ -55,7 +55,7 @@ IOPCIScalar IOPCIScalarTrunc(IOPCIScalar num, IOPCIScalar alignment)
 IOPCIRange * IOPCIRangeAlloc(void)
 {
 #ifdef KERNEL
-    return (IONew(IOPCIRange, 1));
+    return (IOMallocType(IOPCIRange));
 #else
     return ((IOPCIRange *) malloc(sizeof(IOPCIRange)));
 #endif
@@ -65,7 +65,7 @@ void IOPCIRangeFree(IOPCIRange * range)
 {
 //  memset(range, 0xBB, sizeof(*range));
 #ifdef KERNEL
-    IODelete(range, IOPCIRange, 1);
+    IOFreeType(range, IOPCIRange);
 #else
     free(range);
 #endif

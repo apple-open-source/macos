@@ -42,7 +42,7 @@
 .Nm shutdown
 .Op Fl
 .Oo
-.Fl h 
+.Fl h
 .Op Fl u
 |
 .Fl r | Fl s | Fl k
@@ -103,11 +103,11 @@ The system is rebooted at the specified
 The system is put to sleep at the specified
 .Ar time .
 .It Fl u
-The system is halted up until the point of removing system power, but waits 
-before removing power for 5 minutes so that an external UPS 
-(uninterruptible power supply) can forcibly remove power. 
-This simulates a dirty shutdown to permit a later automatic power on. OS X uses
-this mode automatically with supported UPSs in emergency shutdowns.
+The system is halted up until the point of removing system power, but waits
+before removing power for 5 minutes so that an external UPS
+(uninterruptible power supply) can forcibly remove power.
+This simulates a dirty shutdown to permit a later automatic power on.
+macOS uses this mode automatically with supported UPSs in emergency shutdowns.
 .It Ar time
 .Ar Time
 is the time at which
@@ -121,7 +121,8 @@ specify a future time in one of two formats:
 or
 .Ar yymmddhhmm ,
 where the year, month, and day may be defaulted
-to the current system values.  The first form brings the system down in
+to the current system values.
+The first form brings the system down in
 .Ar number
 minutes and the second at the absolute time specified.
 .It Ar warning-message

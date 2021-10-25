@@ -103,6 +103,10 @@ __FBSDID("$FreeBSD");
 
 static int setup_mac_metadata(struct archive_read_disk *,
     struct archive_entry *, int *fd);
+#ifdef ARCHIVE_XATTR_FREEBSD
+static int setup_xattrs_namespace(struct archive_read_disk *,
+    struct archive_entry *, int *, int);
+#endif
 static int setup_xattrs(struct archive_read_disk *,
     struct archive_entry *, int *fd);
 static int setup_sparse(struct archive_read_disk *,
@@ -127,7 +131,7 @@ archive_read_disk_entry_setup_acls(struct archive_read_disk *a,
 /*
  * Enter working directory and return working pathname of archive_entry.
  * If a pointer to an integer is provided and its value is below zero
- * open a file descriptor on this pahtname.
+ * open a file descriptor on this pathname.
  */
 const char *
 archive_read_disk_entry_setup_path(struct archive_read_disk *a,
@@ -163,6 +167,9 @@ archive_read_disk_entry_from_file(struct archive *_a,
 	int initial_fd = fd;
 	int r, r1;
 
+	archive_check_magic(_a, ARCHIVE_READ_DISK_MAGIC, ARCHIVE_STATE_ANY,
+		"archive_read_disk_entry_from_file");
+
 	archive_clear_error(_a);
 	path = archive_entry_sourcepath(entry);
 	if (path == NULL)
@@ -188,7 +195,7 @@ archive_read_disk_entry_from_file(struct archive *_a,
 				}
 			} else
 #endif
-			if (stat(path, &s) != 0) {
+			if (la_stat(path, &s) != 0) {
 				archive_set_error(&a->archive, errno,
 				    "Can't stat %s", path);
 				return (ARCHIVE_FAILED);
@@ -246,11 +253,11 @@ archive_read_disk_entry_from_file(struct archive *_a,
 
 #if defined(HAVE_READLINK) || defined(HAVE_READLINKAT)
 	if (S_ISLNK(st->st_mode)) {
-		size_t linkbuffer_len = st->st_size + 1;
+		size_t linkbuffer_len = st->st_size;
 		char *linkbuffer;
 		int lnklen;
 
-		linkbuffer = malloc(linkbuffer_len);
+		linkbuffer = malloc(linkbuffer_len + 1);
 		if (linkbuffer == NULL) {
 			archive_set_error(&a->archive, ENOMEM,
 			    "Couldn't read link data");
@@ -277,7 +284,7 @@ archive_read_disk_entry_from_file(struct archive *_a,
 			free(linkbuffer);
 			return (ARCHIVE_FAILED);
 		}
-		linkbuffer[lnklen] = 0;
+		linkbuffer[lnklen] = '\0';
 		archive_entry_set_symlink(entry, linkbuffer);
 		free(linkbuffer);
 	}
@@ -698,14 +705,13 @@ setup_xattr(struct archive_read_disk *a, struct archive_entry *entry,
 }
 
 static int
-setup_xattrs(struct archive_read_disk *a,
-    struct archive_entry *entry, int *fd)
+setup_xattrs_namespace(struct archive_read_disk *a,
+    struct archive_entry *entry, int *fd, int namespace)
 {
 	char buff[512];
 	char *list, *p;
 	ssize_t list_size;
 	const char *path;
-	int namespace = EXTATTR_NAMESPACE_USER;
 
 	path = NULL;
 
@@ -723,6 +729,8 @@ setup_xattrs(struct archive_read_disk *a,
 		list_size = extattr_list_file(path, namespace, NULL, 0);
 
 	if (list_size == -1 && errno == EOPNOTSUPP)
+		return (ARCHIVE_OK);
+	if (list_size == -1 && errno == EPERM)
 		return (ARCHIVE_OK);
 	if (list_size == -1) {
 		archive_set_error(&a->archive, errno,
@@ -757,7 +765,17 @@ setup_xattrs(struct archive_read_disk *a,
 		size_t len = 255 & (int)*p;
 		char *name;
 
-		strcpy(buff, "user.");
+		if (namespace == EXTATTR_NAMESPACE_SYSTEM) {
+			if (!strcmp(p + 1, "nfs4.acl") ||
+			    !strcmp(p + 1, "posix1e.acl_access") ||
+			    !strcmp(p + 1, "posix1e.acl_default")) {
+				p += 1 + len;
+				continue;
+			}
+			strcpy(buff, "system.");
+		} else {
+			strcpy(buff, "user.");
+		}
 		name = buff + strlen(buff);
 		memcpy(name, p + 1, len);
 		name[len] = '\0';
@@ -766,6 +784,31 @@ setup_xattrs(struct archive_read_disk *a,
 	}
 
 	free(list);
+	return (ARCHIVE_OK);
+}
+
+static int
+setup_xattrs(struct archive_read_disk *a,
+    struct archive_entry *entry, int *fd)
+{
+	int namespaces[2];
+	int i, res;
+
+	namespaces[0] = EXTATTR_NAMESPACE_USER;
+	namespaces[1] = EXTATTR_NAMESPACE_SYSTEM;
+
+	for (i = 0; i < 2; i++) {
+		res = setup_xattrs_namespace(a, entry, fd,
+		    namespaces[i]);
+		switch (res) {
+			case (ARCHIVE_OK):
+			case (ARCHIVE_WARN):
+				break;
+			default:
+				return (res);
+		}
+	}
+
 	return (ARCHIVE_OK);
 }
 

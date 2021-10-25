@@ -4,7 +4,7 @@
 #include <string.h>
 #include <stdbool.h>
 
-#include <pthread/jit_private.h>
+#include <pthread.h>
 
 static int
 test_callback_should_not_actually_run(void *ctx)

@@ -19,22 +19,21 @@ NS_ASSUME_NONNULL_BEGIN
 // This contains all key sets which couldn't be converted to CKKSKeychainBackedKeySet, due to some error
 @property NSArray<CKKSCurrentKeySet*>* incompleteKeySets;
 
-// Any existing TLKShares
-@property NSArray<CKKSTLKShare*>* tlkShares;
-
 // Any new TLKShares that CKKS suggested we upload along with this keyset
 @property NSArray<CKKSTLKShare*>* pendingTLKShares;
 
 // Any views that didn't provide a keyset within time
-@property NSSet<NSString*>* viewsTimedOutWithoutKeysets;
+@property NSSet<CKRecordZoneID*>* zonesTimedOutWithoutKeysets;
 
 // Set this to configure how long to wait for CKKS to resonse
 @property dispatch_time_t desiredTimeout;
 
 - (instancetype)initWithDependencies:(OTOperationDependencies*)dependencies
                        refetchNeeded:(BOOL)refetchNeeded;
-;
-- (instancetype)initWithViews:(NSSet<CKKSKeychainView*>*)views;
+
+- (instancetype)initWithDependencies:(OTOperationDependencies*)dependencies
+                        viewsToFetch:(NSSet<CKKSKeychainViewState*>*)views;
+
 @end
 
 NS_ASSUME_NONNULL_END

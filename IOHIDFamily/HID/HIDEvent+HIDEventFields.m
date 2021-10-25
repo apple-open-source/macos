@@ -50,7 +50,7 @@ exit:
                 
                 
                 NSInteger selectorValueIndex = 0;
-                NSInteger selectorValue =  [self integerValueForField:hidEventFieldDescTable[index].selectors[selectorIndex].value];
+                NSUInteger selectorValue =  (NSUInteger)[self integerValueForField:hidEventFieldDescTable[index].selectors[selectorIndex].value];
                 
                 while(!info && hidEventFieldDescTable[index].selectors[selectorIndex].selectorTables[selectorValueIndex].eventFieldDescTable
                       != NULL) {

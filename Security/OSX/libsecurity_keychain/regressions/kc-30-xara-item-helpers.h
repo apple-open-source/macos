@@ -205,9 +205,12 @@ static void testUpdateRetainedItem(CFStringRef itemclass) {
     CFDictionarySetValue(update, kSecAttrAccount, CFSTR("account1"));
     CFDictionarySetValue(update, kSecAttrLabel, CFSTR("test_label"));
     ok_status(SecItemUpdate(query, update), "%s: SecItemUpdate", name);
+    CFReleaseNull(update);
+    CFReleaseNull(query);
 
     cmp_ok(CFGetRetainCount(item), >=, 1, "%s: CFGetRetainCount(item)", name);
     CFReleaseNull(item);
+    CFReleaseNull(item2);
 
     checkN(name, createQueryCustomItemDictionary(kc, itemclass, CFSTR("test_label")), 1);
     ok_status(SecKeychainDelete(kc), "%s: SecKeychainDelete", name);

@@ -8,9 +8,11 @@ CORETELEPHONY=-framework CoreTelephony
 ARCHS=arm64
 endif
 
+WIRELESS_CODESIGN=codesign
 ifeq ($(PLATFORM),macosx)
 # Mac OS X internal SDK
 CORETELEPHONY=
+WIRELESS_CODESIGN=true
 endif
 
 ifeq ($(PLATFORM),)
@@ -84,7 +86,8 @@ protolist: $(IFUTIL_FILES)
 	$(CC) -isysroot $(SYSROOT) $(ARCH_FLAGS) -g  -Wall -DTEST_PROTOLIST -framework CoreFoundation -framework SystemConfiguration $(SC_PRIV) $(SYSTEM_PRIVATE) $(IBLIB) -o $@ $^
 
 wireless: wireless.c
-	$(CC) -DTEST_WIRELESS -isysroot $(SYSROOT) $(ARCH_FLAGS) -g  -Wall -DTEST_PROTOLIST -framework CoreFoundation -framework SystemConfiguration $(SC_PRIV) $(SYSTEM_PRIVATE) $(IBLIB) ../bootplib/cfutil.c ../bootplib/IPConfigurationLog.c -lio80211 -o $@ $^
+	$(CC) -DTEST_WIRELESS -isysroot $(SYSROOT) $(ARCH_FLAGS) -g  -Wall -DTEST_PROTOLIST -framework CoreFoundation -framework SystemConfiguration $(SC_PRIV) $(SYSTEM_PRIVATE) $(IBLIB) ../bootplib/cfutil.c ../bootplib/IPConfigurationLog.c -lio80211 -framework IOKit -o $@ $^
+	$(WIRELESS_CODESIGN) -s - -f --entitlements wireless-entitlements.plist $@
 
 clean:
 	rm -f *~ arptest arp_session.o inet6_addrs dhcpv6 dhcpduid cga rsakey ipv6ll ipv6defpfx ipv6lladdr IPv6AWDReportTest rtadv wireless

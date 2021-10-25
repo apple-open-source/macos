@@ -1180,19 +1180,28 @@ IOCFUnserializeBinary(const char	* buffer,
     CFTypeRef              o;
     CFStringRef            sym;
 
-    size_t           bufferPos;
+    size_t           bufferPos, objectIndex, indexCount;
     const uint32_t * next;
-    uint32_t         key, len, wordLen;
-    bool             ok, end, newCollect, isRef;
+    CFTypeRef      * indexData;
+    uint32_t         key, len, wordLen, length;
+    bool             end, newCollect, isRef;
+    bool             ok, hasLength;
 
 	CFNumberType 	numType;
     CFTypeID	    type;
 	const UInt8 *	bytes;
 
 	if (errorString) *errorString = NULL;
-	if (0 != strcmp(kOSSerializeBinarySignature, buffer)) return (NULL);
+
 	if (3 & ((uintptr_t) buffer)) return (NULL);
 	if (bufferSize < sizeof(kOSSerializeBinarySignature)) return (NULL);
+	indexData = NULL;
+	if (kOSSerializeIndexedBinarySignature == (((const uint8_t *) buffer)[0])) {
+		indexCount = (bufferSize / sizeof(uint32_t));
+		indexData  = calloc(indexCount, sizeof(CFTypeRef));
+	} else if (0 != strcmp(kOSSerializeBinarySignature, buffer)) {
+		return NULL;
+	}
 	bufferPos = sizeof(kOSSerializeBinarySignature);
 	next = (typeof(next)) (((uintptr_t) buffer) + sizeof(kOSSerializeBinarySignature));
 
@@ -1214,14 +1223,16 @@ IOCFUnserializeBinary(const char	* buffer,
 	{
 		bufferPos += sizeof(*next);
 		if (!(ok = (bufferPos <= bufferSize))) break;
+		objectIndex = next - ((uint32_t *)buffer);
 		key = *next++;
+		length = 0;
 
         len = (key & kOSSerializeDataMask);
         wordLen = (len + 3) >> 2;
 		end = (0 != (kOSSerializeEndCollecton & key));
         DEBG("key 0x%08x: 0x%04x, %d\n", key, len, end);
 
-        newCollect = isRef = false;
+        newCollect = isRef = hasLength = false;
 		o = 0; newDict = 0; newArray = 0; newSet = 0;
 
 		switch (kOSSerializeTypeMask & key)
@@ -1231,19 +1242,27 @@ IOCFUnserializeBinary(const char	* buffer,
 														&kCFTypeDictionaryKeyCallBacks,
 														&kCFTypeDictionaryValueCallBacks);
 				newCollect = (len != 0);
+				hasLength  = (indexData != NULL);
 		        break;
 		    case kOSSerializeArray:
 				o = newArray = CFArrayCreateMutable(allocator, len, &kCFTypeArrayCallBacks);
 				newCollect = (len != 0);
+				hasLength  = (indexData != NULL);
 		        break;
 		    case kOSSerializeSet:
 				o = newSet = CFSetCreateMutable(allocator, len, &kCFTypeSetCallBacks);
 				newCollect = (len != 0);
+				hasLength  = (indexData != NULL);
 		        break;
 
 		    case kOSSerializeObject:
-				if (len >= objsIdx) break;
-				o = objsArray[len];
+				if (indexData) {
+					if (len >= indexCount) break;
+					o = indexData[len];
+				} else {
+					if (len >= objsIdx) break;
+					o = objsArray[len];
+				}
 				isRef = true;
 				break;
 
@@ -1300,12 +1319,21 @@ IOCFUnserializeBinary(const char	* buffer,
 		if (!isRef)
 		{
 			setAtIndex(objs, objsIdx, o);
+			if (indexData) indexData[objectIndex] = o;
 			if (!ok)
 			{
 			     CFRelease(o);
 			     break;
             }
 			objsIdx++;
+		}
+		if (hasLength) {
+			bufferPos += sizeof(*next);
+			if (!(ok = (bufferPos <= bufferSize))) {
+				CFRelease(o);
+				break;
+			}
+			length = *next++;
 		}
 		if (dict)
 		{
@@ -1373,6 +1401,7 @@ IOCFUnserializeBinary(const char	* buffer,
 	    free(objsArray);
     }
 	if (stackCapacity) free(stackArray);
+	if (indexData)     free(indexData);
 
 	DEBG("ret %p\n", result);
 
@@ -1398,7 +1427,8 @@ IOCFUnserializeWithSize(const char	  * buffer,
 #if IOKIT_SERVER_VERSION >= 20140421
     if (bufferSize < sizeof(kOSSerializeBinarySignature)) return (0);
 	if ((kIOCFSerializeToBinary & options)
-		|| (!strcmp(kOSSerializeBinarySignature, buffer))) return (IOCFUnserializeBinary(buffer, bufferSize, allocator, options, errorString));
+		|| (!strcmp(kOSSerializeBinarySignature, buffer))
+		|| (kOSSerializeIndexedBinarySignature == (((const uint8_t *) buffer)[0]))) return (IOCFUnserializeBinary(buffer, bufferSize, allocator, options, errorString));
 #else
     if (!bufferSize) return (0);
 #endif /* IOKIT_SERVER_VERSION >= 20140421 */

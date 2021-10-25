@@ -58,8 +58,8 @@ bool IOHIDEvent::initWithCapacity(IOByteCount capacity)
 
     if (_data && (!capacity || _capacity < capacity) ) {
         // clean out old data's storage if it isn't big enough
-        IOFree(_data, _capacity);
-        _data = 0;
+        IOFreeData(_data, _capacity);
+        _data = NULL;
     }
 
     _capacity = capacity;
@@ -67,10 +67,9 @@ bool IOHIDEvent::initWithCapacity(IOByteCount capacity)
     if ( !_capacity )
         return false;
 
-    if ( !_data && !(_data = (IOHIDEventData *) IOMalloc(_capacity)))
+    if ( !_data && !(_data = (IOHIDEventData *) IOMallocZeroData(_capacity)))
         return false;
 
-    bzero(_data, _capacity);
     _data->size = (uint32_t)_capacity;
     _children = NULL;
     (void)_parent;
@@ -118,7 +117,7 @@ bool IOHIDEvent::initWithTypeTimeStamp(IOHIDEventType type, AbsoluteTime timeSta
 void IOHIDEvent::free()
 {
     if (_capacity != EXTERNAL && _data && _capacity) {
-        IOFree(_data, _capacity);
+        IOFreeData(_data, _capacity);
         _data = NULL;
         _capacity = 0;
     }
@@ -1603,29 +1602,24 @@ IOHIDEvent * IOHIDEvent::withBytes(     const void *            bytes,
         if ( eventDataType >= kIOHIDEventTypeCount ) {
             break;
         }
+
+        // Back calculate additional capacity needed
+        IOHIDEventGetSize(eventDataType, sz);
+        if (sz > eventDataSize) {
+            break;
+        }
         
-        IOHIDEvent *event = IOHIDEvent::withType(eventDataType);
+        IOHIDEvent *event = new IOHIDEvent;
 
         if ( !event ) {
             break;
         }
-        
-        if ( eventDataSize < event->_data->size ) {
+
+        if (!event->initWithType(eventDataType, eventDataSize - sz) ||
+            eventDataSize != event->_data->size ||
+            (total - (attributeLength + offset)) < eventDataSize) {
             event->release();
             break;
-        }
-        
-        if ( (total - (attributeLength + offset)) < eventDataSize ) {
-            event->release();
-            break;
-        }
-        
-        if ( eventDataType == kIOHIDEventTypeVendorDefined ) {
-            
-            if ( !event->initWithCapacity(eventDataSize) ) {
-                event->release();
-                break;
-            }
         }
         
         bcopy(eventData, event->_data, event->_data->size);

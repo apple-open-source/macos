@@ -35,6 +35,7 @@
  * CMS digesting.
  */
 #include <security_utilities/simulatecrash_assert.h>
+#include <utilities/debugging.h>
 
 #include "cmslocal.h"
 
@@ -48,28 +49,30 @@
 
 #include <Security/SecCmsDigestContext.h>
 
-/* Return the maximum value between S and T (and U) */
-#define MAX(S, T) ({__typeof__(S) _max_s = S; __typeof__(T) _max_t = T; _max_s > _max_t ? _max_s : _max_t;})
-#define MAX_OF_3(S, T, U) ({__typeof__(U) _max_st = MAX(S,T); MAX(_max_st,U);})
+/* Return the maximum value between S and T and U */
+#define MAX_OF_3(S, T, U)                  \
+    ({                                     \
+        __typeof__(U) _max_st = MAX(S, T); \
+        MAX(_max_st, U);                   \
+    })
 
 struct SecCmsDigestContextStr {
-    PLArenaPool *	poolp;
-    Boolean		saw_contents;
-    int                 digcnt;
-    void **             digobjs;
-    SECAlgorithmID **   digestalgs;
+    PLArenaPool* poolp;
+    Boolean saw_contents;
+    int digcnt;
+    void** digobjs;
+    SECAlgorithmID** digestalgs;
 };
 
 /*
  * SecCmsDigestContextStartMultiple - start digest calculation using all the
  *  digest algorithms in "digestalgs" in parallel.
  */
-SecCmsDigestContextRef
-SecCmsDigestContextStartMultiple(SECAlgorithmID **digestalgs)
+SecCmsDigestContextRef SecCmsDigestContextStartMultiple(SECAlgorithmID** digestalgs)
 {
-    PLArenaPool *poolp;
+    PLArenaPool* poolp;
     SecCmsDigestContextRef cmsdigcx;
-    void * digobj;
+    void* digobj;
     int digcnt;
     int i;
 
@@ -78,7 +81,7 @@ SecCmsDigestContextStartMultiple(SECAlgorithmID **digestalgs)
         goto loser;
     }
 
-    digcnt = (digestalgs == NULL) ? 0 : SecCmsArrayCount((void **)digestalgs);
+    digcnt = (digestalgs == NULL) ? 0 : SecCmsArrayCount((void**)digestalgs);
 
     cmsdigcx = (SecCmsDigestContextRef)PORT_ArenaAlloc(poolp, sizeof(struct SecCmsDigestContextStr));
     if (cmsdigcx == NULL) {
@@ -88,14 +91,15 @@ SecCmsDigestContextStartMultiple(SECAlgorithmID **digestalgs)
 
     if (digcnt > 0) {
         /* Security check to prevent under-allocation */
-        if (digcnt >= (int)((INT_MAX/(MAX(sizeof(void *),sizeof(SECAlgorithmID *))))-1)) {
+        if (digcnt >= (int)((INT_MAX / (MAX(sizeof(void*), sizeof(SECAlgorithmID*)))) - 1)) {
             goto loser;
         }
-        cmsdigcx->digobjs = (void**)PORT_ArenaAlloc(poolp, digcnt * sizeof(void *));
+        cmsdigcx->digobjs = (void**)PORT_ArenaAlloc(poolp, (size_t)digcnt * sizeof(void*));
         if (cmsdigcx->digobjs == NULL) {
             goto loser;
         }
-        cmsdigcx->digestalgs = (SECAlgorithmID **)PORT_ArenaZAlloc(poolp, (digcnt + 1) * sizeof(SECAlgorithmID *));
+        cmsdigcx->digestalgs =
+            (SECAlgorithmID**)PORT_ArenaZAlloc(poolp, (size_t)(digcnt + 1) * sizeof(SECAlgorithmID*));
         if (cmsdigcx->digestalgs == NULL) {
             goto loser;
         }
@@ -121,10 +125,10 @@ SecCmsDigestContextStartMultiple(SECAlgorithmID **digestalgs)
         cmsdigcx->digestalgs[cmsdigcx->digcnt] = PORT_ArenaAlloc(poolp, sizeof(SECAlgorithmID));
         if (SECITEM_CopyItem(poolp,
                              &(cmsdigcx->digestalgs[cmsdigcx->digcnt]->algorithm),
-                             &(digestalgs[i]->algorithm))
-            || SECITEM_CopyItem(poolp,
-                                &(cmsdigcx->digestalgs[cmsdigcx->digcnt]->parameters),
-                                &(digestalgs[i]->parameters))) {
+                             &(digestalgs[i]->algorithm)) ||
+            SECITEM_CopyItem(poolp,
+                             &(cmsdigcx->digestalgs[cmsdigcx->digcnt]->parameters),
+                             &(digestalgs[i]->parameters))) {
             goto loser;
         }
         cmsdigcx->digcnt++;
@@ -146,10 +150,9 @@ loser:
  * SecCmsDigestContextStartSingle - same as SecCmsDigestContextStartMultiple, but
  *  only one algorithm.
  */
-SecCmsDigestContextRef
-SecCmsDigestContextStartSingle(SECAlgorithmID *digestalg)
+SecCmsDigestContextRef SecCmsDigestContextStartSingle(SECAlgorithmID* digestalg)
 {
-    SECAlgorithmID *digestalgs[] = { NULL, NULL };		/* fake array */
+    SECAlgorithmID* digestalgs[] = {NULL, NULL}; /* fake array */
 
     digestalgs[0] = digestalg;
     return SecCmsDigestContextStartMultiple(digestalgs);
@@ -158,38 +161,41 @@ SecCmsDigestContextStartSingle(SECAlgorithmID *digestalg)
 /*
  * SecCmsDigestContextUpdate - feed more data into the digest machine
  */
-void
-SecCmsDigestContextUpdate(SecCmsDigestContextRef cmsdigcx, const unsigned char *data, size_t len)
+void SecCmsDigestContextUpdate(SecCmsDigestContextRef cmsdigcx, const unsigned char* data, size_t len)
 {
-    SecAsn1Item dataBuf;
-    int i;
+    /* rdar://problem/20642513. There is really no good way to return an error here, so let's just
+       exit without having "seen" any contents. This should cause hash comparisons to fail during
+       validation.
+     */
+    if (len > UINT32_MAX) {
+        secerror("SecCmsDigestContextUpdate: data size too big (%zu), skipping", len);
+        return;
+    }
 
-    dataBuf.Length = len;
-    dataBuf.Data = (uint8_t *)data;
+    int i;
     cmsdigcx->saw_contents = PR_TRUE;
     for (i = 0; i < cmsdigcx->digcnt; i++) {
         if (cmsdigcx->digobjs[i]) {
-            /* 64 bits cast: worst case is we truncate the length and we dont hash all the data.
-             This may cause an invalid CMS blob larger than 4GB to be validated. Unlikely, but
-             possible security issue. There is no way to return an error here, but a check at
-             the upper level may happen. */
-            /*
-             rdar://problem/20642513
-             Let's just die a horrible death rather than have the security issue.
-             CMS blob over 4GB?  Oh well.
-             */
-            if (len > UINT32_MAX) {
-                /* Ugh. */
-                abort();
-            }
-            assert(len<=UINT32_MAX); /* Debug check. Correct as long as CC_LONG is uint32_t */
+            assert(len <= UINT32_MAX); /* Debug check. Correct as long as CC_LONG is uint32_t */
             switch (SECOID_GetAlgorithmTag(cmsdigcx->digestalgs[i])) {
-                case SEC_OID_SHA1: CC_SHA1_Update((CC_SHA1_CTX *)cmsdigcx->digobjs[i], data, (CC_LONG)len); break;
-                case SEC_OID_MD5: CC_MD5_Update((CC_MD5_CTX *)cmsdigcx->digobjs[i], data, (CC_LONG)len); break;
-                case SEC_OID_SHA224: CC_SHA224_Update((CC_SHA256_CTX *)cmsdigcx->digobjs[i], data, (CC_LONG)len); break;
-                case SEC_OID_SHA256: CC_SHA256_Update((CC_SHA256_CTX *)cmsdigcx->digobjs[i], data, (CC_LONG)len); break;
-                case SEC_OID_SHA384: CC_SHA384_Update((CC_SHA512_CTX *)cmsdigcx->digobjs[i], data, (CC_LONG)len); break;
-                case SEC_OID_SHA512: CC_SHA512_Update((CC_SHA512_CTX *)cmsdigcx->digobjs[i], data, (CC_LONG)len); break;
+                case SEC_OID_SHA1:
+                    CC_SHA1_Update((CC_SHA1_CTX*)cmsdigcx->digobjs[i], data, (CC_LONG)len);
+                    break;
+                case SEC_OID_MD5:
+                    CC_MD5_Update((CC_MD5_CTX*)cmsdigcx->digobjs[i], data, (CC_LONG)len);
+                    break;
+                case SEC_OID_SHA224:
+                    CC_SHA224_Update((CC_SHA256_CTX*)cmsdigcx->digobjs[i], data, (CC_LONG)len);
+                    break;
+                case SEC_OID_SHA256:
+                    CC_SHA256_Update((CC_SHA256_CTX*)cmsdigcx->digobjs[i], data, (CC_LONG)len);
+                    break;
+                case SEC_OID_SHA384:
+                    CC_SHA384_Update((CC_SHA512_CTX*)cmsdigcx->digobjs[i], data, (CC_LONG)len);
+                    break;
+                case SEC_OID_SHA512:
+                    CC_SHA512_Update((CC_SHA512_CTX*)cmsdigcx->digobjs[i], data, (CC_LONG)len);
+                    break;
                 default:
                     break;
             }
@@ -200,8 +206,7 @@ SecCmsDigestContextUpdate(SecCmsDigestContextRef cmsdigcx, const unsigned char *
 /*
  * SecCmsDigestContextCancel - cancel digesting operation
  */
-void
-SecCmsDigestContextCancel(SecCmsDigestContextRef cmsdigcx)
+void SecCmsDigestContextCancel(SecCmsDigestContextRef cmsdigcx)
 {
     int i;
 
@@ -218,8 +223,7 @@ SecCmsDigestContextCancel(SecCmsDigestContextRef cmsdigcx)
 /*
  * SecCmsDigestContextDestroy - delete a digesting operation
  */
-void
-SecCmsDigestContextDestroy(SecCmsDigestContextRef cmsdigcx)
+void SecCmsDigestContextDestroy(SecCmsDigestContextRef cmsdigcx)
 {
     SecCmsDigestContextCancel(cmsdigcx);
 }
@@ -230,68 +234,67 @@ SecCmsDigestContextDestroy(SecCmsDigestContextRef cmsdigcx)
  * or SecCmsDisgestContextCancel (because the digests are allocated out of the context's pool).
  * The macOS version cancels and frees the digest context (because the digests are allocated from an input arena pool).
  */
-OSStatus
-SecCmsDigestContextFinishMultiple(SecCmsDigestContextRef cmsdigcx,
-                                  SECAlgorithmID ***digestalgsp,
-                                  SecAsn1Item * **digestsp)
+OSStatus SecCmsDigestContextFinishMultiple(SecCmsDigestContextRef cmsdigcx,
+                                           SECAlgorithmID*** digestalgsp,
+                                           SecAsn1Item*** digestsp)
 {
-    void * digobj;
+    void* digobj;
     SecAsn1Item **digests, *digest;
-    SECAlgorithmID **digestalgs;
+    SECAlgorithmID** digestalgs;
     int i;
-    void *mark;
+    void* mark;
     OSStatus rv = SECFailure;
 
     assert(cmsdigcx != NULL);
 
     /* A message with no contents (just signed attributes) is used within SCEP */
-#if 0
-    /* no contents? do not update digests */
-    if (digestsp == NULL || !cmsdigcx->saw_contents) {
-        for (i = 0; i < cmsdigcx->digcnt; i++) {
-            if (cmsdigcx->digobjs[i]) {
-                free(cmsdigcx->digobjs[i]);
-            }
-        }
-        rv = SECSuccess;
-        if (digestsp) {
-            *digestsp = NULL;
-        }
-        goto cleanup;
-    }
-#endif
-
     assert(digestsp != NULL);
     assert(digestalgsp != NULL);
 
-    mark = PORT_ArenaMark (cmsdigcx->poolp);
+    mark = PORT_ArenaMark(cmsdigcx->poolp);
 
     /* Security check to prevent under-allocation */
-    if (cmsdigcx->digcnt >= (int)((INT_MAX/(MAX_OF_3(sizeof(SECAlgorithmID *),sizeof(SecAsn1Item *),sizeof(SecAsn1Item))))-1)) {
+    if (cmsdigcx->digcnt >=
+        (int)((INT_MAX / (MAX_OF_3(sizeof(SECAlgorithmID*), sizeof(SecAsn1Item*), sizeof(SecAsn1Item)))) - 1)) {
         goto loser;
     }
     /* allocate digest array & SecAsn1Items on arena */
-    digestalgs = (SECAlgorithmID **)PORT_ArenaZAlloc(cmsdigcx->poolp, (cmsdigcx->digcnt+1) * sizeof(SECAlgorithmID *));
-    digests = (SecAsn1Item * *)PORT_ArenaZAlloc(cmsdigcx->poolp, (cmsdigcx->digcnt+1) * sizeof(SecAsn1Item *));
-    digest = (SecAsn1Item *)PORT_ArenaZAlloc(cmsdigcx->poolp, cmsdigcx->digcnt * sizeof(SecAsn1Item));
+    digestalgs = (SECAlgorithmID**)PORT_ArenaZAlloc(
+        cmsdigcx->poolp, (size_t)(cmsdigcx->digcnt + 1) * sizeof(SECAlgorithmID*));
+    digests = (SecAsn1Item**)PORT_ArenaZAlloc(cmsdigcx->poolp,
+                                              (size_t)(cmsdigcx->digcnt + 1) * sizeof(SecAsn1Item*));
+    digest = (SecAsn1Item*)PORT_ArenaZAlloc(cmsdigcx->poolp, (size_t)cmsdigcx->digcnt * sizeof(SecAsn1Item));
     if (digestalgs == NULL || digests == NULL || digest == NULL) {
         goto loser;
     }
 
     for (i = 0; i < cmsdigcx->digcnt; i++, digest++) {
         SECOidTag hash_alg = SECOID_GetAlgorithmTag(cmsdigcx->digestalgs[i]);
-        int diglength = 0;
+        size_t diglength = 0;
 
         switch (hash_alg) {
-            case SEC_OID_SHA1: diglength = CC_SHA1_DIGEST_LENGTH; break;
-            case SEC_OID_MD5: diglength = CC_MD5_DIGEST_LENGTH; break;
-            case SEC_OID_SHA224: diglength = CC_SHA224_DIGEST_LENGTH; break;
-            case SEC_OID_SHA256: diglength = CC_SHA256_DIGEST_LENGTH; break;
-            case SEC_OID_SHA384: diglength = CC_SHA384_DIGEST_LENGTH; break;
-            case SEC_OID_SHA512: diglength = CC_SHA512_DIGEST_LENGTH; break;
-            default: goto loser;
+            case SEC_OID_SHA1:
+                diglength = CC_SHA1_DIGEST_LENGTH;
+                break;
+            case SEC_OID_MD5:
+                diglength = CC_MD5_DIGEST_LENGTH;
+                break;
+            case SEC_OID_SHA224:
+                diglength = CC_SHA224_DIGEST_LENGTH;
+                break;
+            case SEC_OID_SHA256:
+                diglength = CC_SHA256_DIGEST_LENGTH;
+                break;
+            case SEC_OID_SHA384:
+                diglength = CC_SHA384_DIGEST_LENGTH;
+                break;
+            case SEC_OID_SHA512:
+                diglength = CC_SHA512_DIGEST_LENGTH;
+                break;
+            default:
+                goto loser;
         }
-        
+
         digobj = cmsdigcx->digobjs[i];
         if (digobj) {
             digest->Data = (unsigned char*)PORT_ArenaAlloc(cmsdigcx->poolp, diglength);
@@ -299,13 +302,26 @@ SecCmsDigestContextFinishMultiple(SecCmsDigestContextRef cmsdigcx,
                 goto loser;
             digest->Length = diglength;
             switch (hash_alg) {
-                case SEC_OID_SHA1: CC_SHA1_Final(digest->Data, digobj); break;
-                case SEC_OID_MD5: CC_MD5_Final(digest->Data, digobj); break;
-                case SEC_OID_SHA224: CC_SHA224_Final(digest->Data, digobj); break;
-                case SEC_OID_SHA256: CC_SHA256_Final(digest->Data, digobj); break;
-                case SEC_OID_SHA384: CC_SHA384_Final(digest->Data, digobj); break;
-                case SEC_OID_SHA512: CC_SHA512_Final(digest->Data, digobj); break;
-                default: goto loser;
+                case SEC_OID_SHA1:
+                    CC_SHA1_Final(digest->Data, digobj);
+                    break;
+                case SEC_OID_MD5:
+                    CC_MD5_Final(digest->Data, digobj);
+                    break;
+                case SEC_OID_SHA224:
+                    CC_SHA224_Final(digest->Data, digobj);
+                    break;
+                case SEC_OID_SHA256:
+                    CC_SHA256_Final(digest->Data, digobj);
+                    break;
+                case SEC_OID_SHA384:
+                    CC_SHA384_Final(digest->Data, digobj);
+                    break;
+                case SEC_OID_SHA512:
+                    CC_SHA512_Final(digest->Data, digobj);
+                    break;
+                default:
+                    goto loser;
             }
 
             free(digobj);
@@ -341,13 +357,11 @@ loser:
  * SecCmsDigestContextFinishSingle - same as SecCmsDigestContextFinishMultiple,
  *  but for one digest.
  */
-OSStatus
-SecCmsDigestContextFinishSingle(SecCmsDigestContextRef cmsdigcx,
-                                SecAsn1Item * digest)
+OSStatus SecCmsDigestContextFinishSingle(SecCmsDigestContextRef cmsdigcx, SecAsn1Item* digest)
 {
     OSStatus rv = SECFailure;
-    SecAsn1Item * *dp;
-    SECAlgorithmID **ap;
+    SecAsn1Item** dp;
+    SECAlgorithmID** ap;
 
     /* get the digests into arena, then copy the first digest into poolp */
     if (SecCmsDigestContextFinishMultiple(cmsdigcx, &ap, &dp) != SECSuccess) {

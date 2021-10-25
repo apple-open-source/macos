@@ -39,23 +39,8 @@ framework module SystemConfiguration_Private [extern_c] [system] {
 	  export *
   }
 
-  explicit module SNHelperPrivate {
-	  header "SNHelperPrivate.h"
-	  export *
-  }
-
   explicit module VPNConfiguration {
 	  header "VPNConfiguration.h"
-	  export *
-  }
-
-  explicit module VPNFlow {
-	  header "VPNFlow.h"
-	  export *
-  }
-
-  explicit module VPNPrivate {
-	  header "VPNPrivate.h"
 	  export *
   }
 

@@ -92,9 +92,6 @@ __BEGIN_DECLS
 
 SecSignatureHashAlgorithm SecSignatureHashAlgorithmForAlgorithmOid(const DERItem *algOid);
 
-CFDataRef SecCertificateGetAuthorityKeyID(SecCertificateRef certificate);
-CFDataRef SecCertificateGetSubjectKeyID(SecCertificateRef certificate);
-
 /* Return an array of CFURLRefs each of which is an crl distribution point for
    this certificate. */
 CFArrayRef SecCertificateGetCRLDistributionPoints(SecCertificateRef certificate);
@@ -252,6 +249,7 @@ CFArrayRef SecCertificateCopyDNSNamesFromSAN(SecCertificateRef certificate);
 CFArrayRef SecCertificateCopyIPAddressDatas(SecCertificateRef certificate);
 
 CFIndex SecCertificateGetUnparseableKnownExtension(SecCertificateRef certificate);
+CFIndex SecCertificateGetDuplicateExtension(SecCertificateRef certificate);
 
 __END_DECLS
 

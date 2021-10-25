@@ -41,16 +41,11 @@
     return self;
 }
 
-
-- (BOOL)isManagedApp:(NSString*)bundleId
+- (BOOL)isManagedApp:(NSString*)bundleId auditToken:(audit_token_t)auditToken
 {
-#if TARGET_OS_IOS
     @synchronized (self) {
 	return [self.managedApps containsObject:bundleId];
     }
-#else
-    return false;
-#endif
 }
 
 @end

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2011, 2013, 2014, 2017-2019 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2011, 2013, 2014, 2017-2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -323,7 +323,7 @@ __private_extern__ Boolean	termRequested		= FALSE;
 
 __private_extern__
 void
-do_command(int argc, char **argv)
+do_command(int argc, char * const argv[])
 {
 	int	i;
 	char	*cmd = argv[0];
@@ -355,7 +355,7 @@ do_command(int argc, char **argv)
 
 __private_extern__
 void
-do_help(int argc, char **argv)
+do_help(int argc, char * const argv[])
 {
 #pragma unused(argc)
 #pragma unused(argv)
@@ -389,7 +389,7 @@ do_help(int argc, char **argv)
 
 __private_extern__
 void
-do_readFile(int argc, char **argv)
+do_readFile(int argc, char * const argv[])
 {
 #pragma unused(argc)
 	InputRef		src;
@@ -428,7 +428,7 @@ do_readFile(int argc, char **argv)
 
 __private_extern__
 void
-do_quit(int argc, char **argv)
+do_quit(int argc, char * const argv[])
 {
 #pragma unused(argc)
 #pragma unused(argv)

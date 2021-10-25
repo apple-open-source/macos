@@ -759,10 +759,14 @@ typedef uint64_t upl_control_flags_t;
 
 /* The call prototyped below is used strictly by UPL_GET_INTERNAL_PAGE_LIST */
 
+__BEGIN_DECLS
+
 extern vm_size_t        upl_offset_to_pagelist;
 extern vm_size_t        upl_get_internal_pagelist_offset(void);
 extern void*            upl_get_internal_vectorupl(upl_t);
 extern upl_page_info_t*         upl_get_internal_vectorupl_pagelist(upl_t);
+
+__END_DECLS
 
 /*Use this variant to get the UPL's page list iff:*/
 /*- the upl being passed in is already part of a vector UPL*/

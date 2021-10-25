@@ -147,8 +147,6 @@ main(
 #endif
 	DECLARE("ACT_DEBUGDATA", offsetof(struct thread, machine.DebugData));
 	DECLARE("TH_IOTIER_OVERRIDE", offsetof(struct thread, iotier_override));
-	DECLARE("TH_RWLOCK_CNT", offsetof(struct thread, rwlock_count));
-	DECLARE("TH_TMP_ALLOC_CNT", offsetof(struct thread, t_temp_alloc_count));
 	DECLARE("TH_SCHED_FLAGS", offsetof(struct thread, sched_flags));
 	DECLARE("TH_SFLAG_RW_PROMOTED", TH_SFLAG_RW_PROMOTED);
 

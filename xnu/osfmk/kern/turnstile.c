@@ -48,7 +48,13 @@
 #include <libkern/section_keywords.h>
 
 static TUNABLE(int, turnstile_max_hop, "turnstile_max_hop", TURNSTILE_MAX_HOP_DEFAULT);
-static ZONE_DECLARE(turnstiles_zone, "turnstiles", sizeof(struct turnstile), ZC_NONE);
+
+static SECURITY_READ_ONLY_LATE(zone_t) turnstiles_zone;
+ZONE_INIT(&turnstiles_zone, "turnstiles", sizeof(struct turnstile),
+#if CONFIG_WAITQ_IRQSAFE_ALLOW_INVALID
+    ZC_NOGZALLOC | ZC_KASAN_NOQUARANTINE | ZC_SEQUESTER |
+#endif
+    ZC_ZFREE_CLEARMEM, ZONE_ID_TURNSTILE, NULL);
 
 static struct mpsc_daemon_queue turnstile_deallocate_queue;
 #define TURNSTILES_CHUNK (THREAD_CHUNK)
@@ -848,12 +854,9 @@ turnstile_alloc(void)
 static void
 turnstile_init(struct turnstile *turnstile)
 {
-	kern_return_t kret;
-
 	/* Initialize the waitq */
-	kret = waitq_init(&turnstile->ts_waitq, SYNC_POLICY_DISABLE_IRQ | SYNC_POLICY_REVERSED |
-	    SYNC_POLICY_TURNSTILE);
-	assert(kret == KERN_SUCCESS);
+	waitq_init(&turnstile->ts_waitq, SYNC_POLICY_DISABLE_IRQ | SYNC_POLICY_REVERSED |
+	    SYNC_POLICY_TURNSTILE | SYNC_POLICY_INIT_LOCKED);
 
 	turnstile->ts_inheritor = TURNSTILE_INHERITOR_NULL;
 	SLIST_INIT(&turnstile->ts_free_turnstiles);
@@ -871,6 +874,8 @@ turnstile_init(struct turnstile *turnstile)
 	turnstile->ts_thread = current_thread();
 	turnstile->ts_prev_thread = NULL;
 #endif
+
+	waitq_unlock(&turnstile->ts_waitq);
 }
 
 /*
@@ -888,6 +893,9 @@ turnstile_reference(struct turnstile *turnstile)
 	if (turnstile == TURNSTILE_NULL) {
 		return;
 	}
+
+	zone_id_require(ZONE_ID_TURNSTILE, sizeof(struct turnstile), turnstile);
+
 	os_ref_retain(&turnstile->ts_refcount);
 }
 
@@ -3238,7 +3246,7 @@ kdp_turnstile_traverse_inheritor_chain(struct turnstile *ts, uint64_t *flags, ui
 		ipc_port_t port = (ipc_port_t)ts->ts_proprietor;
 
 		if (port && ip_active(port)) {
-			if (ip_lock_held_kdp(port)) {
+			if (ip_mq_lock_held_kdp(port)) {
 				*flags |= STACKSHOT_TURNSTILE_STATUS_HELD_IPLOCK;
 				return 0;
 			}
@@ -3257,7 +3265,7 @@ kdp_turnstile_traverse_inheritor_chain(struct turnstile *ts, uint64_t *flags, ui
 	if (turnstile_is_receive_turnstile(ts)) {
 		ipc_port_t port = (ipc_port_t)ts->ts_proprietor;
 		if (port && ip_active(port)) {
-			if (ip_lock_held_kdp(port)) {
+			if (ip_mq_lock_held_kdp(port)) {
 				*flags |= STACKSHOT_TURNSTILE_STATUS_HELD_IPLOCK;
 				return 0;
 			}

@@ -94,6 +94,7 @@ static bool evaluateTrust(NSArray *certs, NSArray *anchors, SecPolicyRef policy,
     bool testPassed = false;
     SecTrustRef trust = NULL;
     bool result = false;
+    NSArray *chain = nil;
     require_noerr_string(SecTrustCreateWithCertificates((__bridge CFArrayRef)certs,
                                                         policy,
                                                         &trust),
@@ -116,11 +117,12 @@ static bool evaluateTrust(NSArray *certs, NSArray *anchors, SecPolicyRef policy,
     }
 
     /* check the chain that returned */
-    require_string((NSUInteger)SecTrustGetCertificateCount(trust) == [expectedChain count],
+    chain = CFBridgingRelease(SecTrustCopyCertificateChain(trust));
+    require_string([chain count] == [expectedChain count],
                    errOut, "wrong number of certs in result chain");
     NSUInteger ix, count = [expectedChain count];
     for (ix = 0; ix < count; ix++) {
-        require_string(CFEqual(SecTrustGetCertificateAtIndex(trust, ix),
+        require_string(CFEqual((__bridge SecCertificateRef)[chain objectAtIndex:ix],
                                (__bridge SecCertificateRef)[expectedChain objectAtIndex:ix]),
                        errOut, "chain didn't match expected");
     }

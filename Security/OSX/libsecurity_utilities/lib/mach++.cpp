@@ -197,11 +197,6 @@ bool PortSet::contains(Port member) const
 //
 // Task port features
 //
-TaskPort::TaskPort(pid_t pid)
-{
-	check(::task_for_pid(self(), pid, &mPort));
-}
-
 pid_t TaskPort::pid() const
 {
     pid_t pid;
@@ -213,13 +208,6 @@ pid_t TaskPort::pid() const
 //
 // Bootstrap port management
 //
-mach_port_t Bootstrap::checkIn(const char *name) const
-{
-	mach_port_t port;
-	check(::bootstrap_check_in(mPort, makeName(name), &port));
-	return port;
-}
-
 mach_port_t Bootstrap::checkInOptional(const char *name) const
 {
 	mach_port_t port;
@@ -240,36 +228,11 @@ void Bootstrap::registerAs(mach_port_t port, const char *name) const
 	check(::bootstrap_register(mPort, makeName(name), port));
 }
 
-mach_port_t Bootstrap::lookup(const char *name) const
-{
-	mach_port_t port;
-	check(::bootstrap_look_up(mPort, makeName(name), &port));
-	return port;
-}
-
 mach_port_t Bootstrap::lookup2(const char *name) const
 {
 	mach_port_t port;
 	check(::bootstrap_look_up2(mPort, makeName(name), &port, 0, BOOTSTRAP_PRIVILEGED_SERVER));
 	return port;
-}
-
-mach_port_t Bootstrap::lookupOptional(const char *name) const
-{
-	mach_port_t port;
-	kern_return_t err = ::bootstrap_look_up(mPort, makeName(name), &port);
-    if (err == BOOTSTRAP_UNKNOWN_SERVICE)
-        return 0;
-    check(err);
-	return port;
-}
-
-
-Bootstrap Bootstrap::subset(Port requestor)
-{
-    mach_port_t sub;
-    check(::bootstrap_subset(mPort, requestor, &sub));
-    return sub;
 }
 
 
@@ -289,26 +252,6 @@ ReceivePort::ReceivePort(const char *name, const Bootstrap &bootstrap, bool tryC
 		bootstrap.registerAs(mPort, name);
 		modRefs(MACH_PORT_RIGHT_SEND, -1);
 	}
-}
-
-
-//
-// Stack-based bootstrap switcher
-//
-ModuleNexus<Mutex> StBootstrap::critical;
-
-StBootstrap::StBootstrap(const Bootstrap &newBoot, const TaskPort &task) 
-    : mTask(task), locker(critical())
-{
-    mOldBoot = Bootstrap();
-    mTask.bootstrap(newBoot);
-    secinfo("StBoot", "bootstrap for %d switched to %d", mTask.port(), newBoot.port());
-}
-
-StBootstrap::~StBootstrap()
-{
-    mTask.bootstrap(mOldBoot);
-    secinfo("StBoot", "bootstrap for %d returned to %d", mTask.port(), mOldBoot.port());
 }
 
 

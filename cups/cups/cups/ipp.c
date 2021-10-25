@@ -3004,7 +3004,14 @@ ippReadIO(void       *src,		/* I - Data source */
 	    * Group tag...  Set the current group and continue...
 	    */
 
-            if (ipp->curtag == tag)
+            if (parent)
+            {
+	      _cupsSetError(IPP_STATUS_ERROR_INTERNAL, _("Invalid group tag."), 1);
+	      DEBUG_printf(("1ippReadIO: bad tag 0x%02x.", tag));
+	      _cupsBufferRelease((char *)buffer);
+	      return (IPP_STATE_ERROR);
+            }
+            else if (ipp->curtag == tag)
 	      ipp->prev = ippAddSeparator(ipp);
             else if (ipp->current)
 	      ipp->prev = ipp->current;
@@ -3105,7 +3112,17 @@ ippReadIO(void       *src,		/* I - Data source */
               {
                 DEBUG_printf(("1ippReadIO: Converting %s attribute from %s to %s.",
                               attr->name, ippTagString(value_tag), ippTagString(tag)));
-		ippSetValueTag(ipp, &attr, tag);
+
+                  if (ippSetValueTag(ipp, &attr, tag) == 0)
+                  {
+                      _cupsSetError(IPP_STATUS_ERROR_INTERNAL,
+                                    _("IPP 1setOf attribute with incompatible value "
+                                      "tags."), 1);
+                      DEBUG_printf(("1ippReadIO: Failed to convert %s attribute from %s to %s.",
+                                    attr->name, ippTagString(value_tag), ippTagString(tag)));
+                      _cupsBufferRelease((char *)buffer);
+                      return (IPP_STATE_ERROR);
+                  }
 	      }
             }
 	    else if (value_tag == IPP_TAG_INTEGER ||
@@ -3171,6 +3188,13 @@ ippReadIO(void       *src,		/* I - Data source */
 	    {
 	      _cupsSetError(IPP_STATUS_ERROR_INTERNAL, _("IPP member name is not empty."), 1);
 	      DEBUG_puts("1ippReadIO: member name not empty.");
+	      _cupsBufferRelease((char *)buffer);
+	      return (IPP_STATE_ERROR);
+	    }
+	    else if (!parent)
+	    {
+	      _cupsSetError(IPP_STATUS_ERROR_INTERNAL, _("IPP member attribute outside of collection."), 1);
+	      DEBUG_puts("1ippReadIO: member attribute outside of collection.");
 	      _cupsBufferRelease((char *)buffer);
 	      return (IPP_STATE_ERROR);
 	    }
@@ -3631,6 +3655,22 @@ ippReadIO(void       *src,		/* I - Data source */
     default :
         break; /* anti-compiler-warning-code */
   }
+
+#if 0
+
+  /* REMINDSMA: I'd like to put this in earlier in a cycle; but to
+   * address 78420280 I'll restrict it just to the ipp->ppd path.
+   * Cloned to 80055972 */
+
+  if (ipp->state == IPP_STATE_IDLE || ipp->state == IPP_STATE_DATA)
+  {
+    if (! ippValidateAttributes(ipp))
+    {
+      DEBUG_printf(("1ippReadIO: ipp attributes invalid - %s.", cupsLastErrorString()));
+      ipp->state = IPP_STATE_ERROR;
+    }
+  }
+#endif
 
   DEBUG_printf(("1ippReadIO: returning ipp->state=%d.", ipp->state));
   _cupsBufferRelease((char *)buffer);
@@ -5608,6 +5648,7 @@ ippWriteIO(void       *dst,		/* I - Destination */
 
 	    case IPP_TAG_TEXT :
 	    case IPP_TAG_NAME :
+	    case IPP_TAG_RESERVED_STRING :
 	    case IPP_TAG_KEYWORD :
 	    case IPP_TAG_URI :
 	    case IPP_TAG_URISCHEME :

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2020 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2021 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -53,6 +53,7 @@
 #define kPacketData			CFSTR("PacketData")
 #define kRouterHardwareAddress		CFSTR("RouterHardwareAddress")
 #define kSSID				CFSTR("SSID") /* wi-fi only */
+#define kNetworkID			CFSTR("NetworkID") /* wi-fi only */
 #define kClientIdentifier		CFSTR("ClientIdentifier")
 
 /* informative properties: */
@@ -117,6 +118,7 @@ DHCPLeaseCreateWithDictionary(CFDictionaryRef dict,
     CFDataRef			hwaddr_data;
     dhcp_lease_time_t		lease_time;
     DHCPLeaseRef		lease_p;
+    CFStringRef			networkID = NULL;
     dhcpol_t			options;
     CFDataRef			pkt_data;
     CFRange			pkt_data_range;
@@ -142,10 +144,14 @@ DHCPLeaseCreateWithDictionary(CFDictionaryRef dict,
     if (isA_CFData(pkt_data) == NULL) {
 	goto failed;
     }
-    /* if Wi-Fi, get the SSID */
+    /* if Wi-Fi, get the SSID and networkID */
     if (is_wifi) {
 	ssid = CFDictionaryGetValue(dict, kSSID);
 	if (isA_CFString(ssid) == NULL) {
+	    goto failed;
+	}
+	networkID = CFDictionaryGetValue(dict, kNetworkID);
+	if (networkID != NULL && isA_CFString(networkID) == NULL) {
 	    goto failed;
 	}
     }
@@ -200,6 +206,10 @@ DHCPLeaseCreateWithDictionary(CFDictionaryRef dict,
 	CFRetain(ssid);
 	lease_p->ssid = ssid;
     }
+    if (networkID != NULL) {
+	CFRetain(networkID);
+	lease_p->networkID = networkID;
+    }
     return (lease_p);
 
  failed:
@@ -211,9 +221,8 @@ DHCPLeaseDeallocate(void * arg)
 {
     DHCPLeaseRef lease_p = (DHCPLeaseRef)arg;
 
-    if (lease_p->ssid != NULL) {
-	CFRelease(lease_p->ssid);
-    }
+    my_CFRelease(&lease_p->ssid);
+    my_CFRelease(&lease_p->networkID);
     free(lease_p);
     return;
 }
@@ -237,7 +246,7 @@ DHCPLeaseCreate(struct in_addr our_ip, struct in_addr router_ip,
 		absolute_time_t lease_start, 
 		dhcp_lease_time_t lease_length,
 		const uint8_t * pkt, int pkt_size,
-		CFStringRef ssid)
+		CFStringRef ssid, CFStringRef networkID)
 {
     DHCPLeaseRef		lease_p = NULL;
 
@@ -260,6 +269,10 @@ DHCPLeaseCreate(struct in_addr our_ip, struct in_addr router_ip,
     if (ssid != NULL) {
 	CFRetain(ssid);
 	lease_p->ssid = ssid;
+	if (networkID != NULL) {
+	    CFRetain(networkID);
+	    lease_p->networkID = networkID;
+	}
     }
     return (lease_p);
 }
@@ -302,6 +315,9 @@ DHCPLeaseCopyDictionary(DHCPLeaseRef lease_p,
     /* set the SSID */
     if (lease_p->ssid != NULL) {
 	CFDictionarySetValue(dict, kSSID, lease_p->ssid);
+	if (lease_p->networkID != NULL) {
+	    CFDictionarySetValue(dict, kNetworkID, lease_p->networkID);
+	}
     }
 
     /* set the packet data */
@@ -355,6 +371,9 @@ DHCPLeasePrintToString(CFMutableStringRef str, DHCPLeaseRef lease_p)
     }
     if (lease_p->ssid != NULL) {
 	STRING_APPEND(str, " SSID '%@'", lease_p->ssid);
+	if (lease_p->networkID != NULL) {
+	    STRING_APPEND(str, " NetworkID '%@'", lease_p->networkID);
+	}
     }
     return;
 }
@@ -539,6 +558,7 @@ DHCPLeaseListWrite(DHCPLeaseListRef list_p,
 arp_address_info_t *
 DHCPLeaseListCopyARPAddressInfo(DHCPLeaseListRef list_p,
 				CFStringRef ssid,
+				CFStringRef networkID,
 				absolute_time_t * start_time_threshold_p,
 				bool tentative_ok,
 				int * ret_count)
@@ -562,13 +582,22 @@ DHCPLeaseListCopyARPAddressInfo(DHCPLeaseListRef list_p,
 	DHCPLeaseRef	lease_p = dynarray_element(list_p, i);
 
 	if (ssid != NULL) {
-	    if (lease_p->ssid == NULL || !CFEqual(lease_p->ssid, ssid)) {
+	    if (lease_p->ssid == NULL) {
+		my_log(LOG_INFO, "ignoring lease with no SSID");
+		continue;
+	    }
+	    if (CFEqual(lease_p->ssid, ssid)) {
+		/* SSIDs match */
+	    }
+	    else if (my_CFStringEqual(networkID, lease_p->networkID)) {
+		/* networkIDs match */
+	    }
+	    else {
 		my_log(LOG_INFO,
 		       "ignoring lease with SSID %@",
 		       lease_p->ssid);
 		continue;
 	    }
-	    
 	}
 	if (lease_p->router_ip.s_addr == 0
 	    || lease_p->router_hwaddr_length == 0) {
@@ -656,13 +685,14 @@ DHCPLeaseListFindLease(DHCPLeaseListRef list_p, struct in_addr our_ip,
 }
 
 /*
- * Function: DHCPLeaseListFindLeaseWithSSID
+ * Function: DHCPLeaseListFindLeaseForWiFi
  * Purpose:
- *   Find the most recently used lease for the given SSID. Traverses the
- *   list in reverse order to grab the most recently used lease.
+ *   Find the most recently used lease for the given SSID or networkID.
+ *   Traverses the list in reverse order to grab the most recently used lease.
  */
 int
-DHCPLeaseListFindLeaseWithSSID(DHCPLeaseListRef list_p, CFStringRef ssid)
+DHCPLeaseListFindLeaseForWiFi(DHCPLeaseListRef list_p, CFStringRef ssid,
+			      CFStringRef networkID)
 {
     int			i;
 
@@ -675,23 +705,27 @@ DHCPLeaseListFindLeaseWithSSID(DHCPLeaseListRef list_p, CFStringRef ssid)
 	if (CFEqual(lease_p->ssid, ssid)) {
 	    return (i);
 	}
+	if (my_CFStringEqual(networkID, lease_p->networkID)) {
+	    return (i);
+	}
     }
     return (DHCP_LEASE_NOT_FOUND);
 }
 
 /*
- * Function: DHCPLeaseListRemoveLeaseWithSSID
+ * Function: DHCPLeaseListRemoveLeaseForWiFi
  * Purpose:
- *   Find all leases with the given SSID, and remove them.
+ *   Find all leases with the given SSID or networkID, and remove them.
  */
 void
-DHCPLeaseListRemoveLeaseWithSSID(DHCPLeaseListRef list_p, CFStringRef ssid)
+DHCPLeaseListRemoveLeaseForWiFi(DHCPLeaseListRef list_p, CFStringRef ssid,
+				CFStringRef networkID)
 {
     while (1) {
 	DHCPLeaseRef	lease_p;
 	int		where;
 
-	where = DHCPLeaseListFindLeaseWithSSID(list_p, ssid);
+	where = DHCPLeaseListFindLeaseForWiFi(list_p, ssid, networkID);
 	if (where == DHCP_LEASE_NOT_FOUND) {
 	    break;
 	}
@@ -771,8 +805,9 @@ DHCPLeaseShouldBeRemoved(DHCPLeaseRef existing_p, DHCPLeaseRef new_p,
 	/* new lease doesn't have a router */
 	return (FALSE);
     }
-    if (bcmp(new_p->router_hwaddr, existing_p->router_hwaddr, 
-	     new_p->router_hwaddr_length) == 0) {
+    if (new_p->router_ip.s_addr == existing_p->router_ip.s_addr
+	&& bcmp(new_p->router_hwaddr, existing_p->router_hwaddr,
+		new_p->router_hwaddr_length) == 0) {
 	if (new_p->our_ip.s_addr == existing_p->our_ip.s_addr) {
 	    my_log(LOG_INFO,
 		   "Removing lease with same router for IP address "
@@ -804,7 +839,7 @@ DHCPLeaseListUpdateLease(DHCPLeaseListRef list_p, struct in_addr our_ip,
 			 absolute_time_t lease_start,
 			 dhcp_lease_time_t lease_length,
 			 const uint8_t * pkt, int pkt_size,
-			 CFStringRef ssid)
+			 CFStringRef ssid, CFStringRef networkID)
 {
     int			count;
     int			i;
@@ -814,7 +849,7 @@ DHCPLeaseListUpdateLease(DHCPLeaseListRef list_p, struct in_addr our_ip,
     lease_p = DHCPLeaseCreate(our_ip, router_ip,
 			      router_hwaddr, router_hwaddr_length,
 			      lease_start, lease_length, pkt, pkt_size,
-			      ssid);
+			      ssid, networkID);
     /* scan lease list to eliminate NAK'd, incomplete, and duplicate leases */
     count = dynarray_count(list_p);
     for (i = 0; i < count; i++) {

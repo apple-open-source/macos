@@ -1,4 +1,6 @@
 /*-
+ * SPDX-License-Identifier: BSD-2-Clause-FreeBSD
+ *
  * Copyright (C) 2009 Gabor Kovesdan <gabor@FreeBSD.org>
  * Copyright (C) 2012 Oleg Moskalenko <mom040267@gmail.com>
  * All rights reserved.
@@ -130,6 +132,33 @@ static void mt_sort(struct sort_list *list,
     int (*sort_func)(void *, size_t, size_t,
     int (*)(const void *, const void *)), const char* fn);
 
+#ifdef __APPLE__
+/* Present POSIX-shaped API for diff reduction. */
+int
+sem_init(semaphore_t *sem, int pshared __unused, unsigned int value)
+{
+	mach_port_t self;
+	kern_return_t ret;
+
+	self = mach_task_self();
+	ret = semaphore_create(self, sem, SYNC_POLICY_FIFO, value);
+	if (ret != KERN_SUCCESS)
+		err(2, NULL);
+	return (0);
+}
+
+int
+sem_destroy(semaphore_t *sem)
+{
+	mach_port_t self;
+	kern_return_t ret;
+
+	self = mach_task_self();
+	ret = semaphore_destroy(self, *sem);
+	return (ret == KERN_SUCCESS ? 0 : 1);
+}
+#endif
+
 /*
  * Init tmp files list
  */
@@ -138,17 +167,7 @@ init_tmp_files(void)
 {
 
 	LIST_INIT(&tmp_files);
-#ifndef __APPLE__
 	sem_init(&tmp_files_sem, 0, 1);
-#else
-	{
-		mach_port_t self = mach_task_self();
-		kern_return_t ret = semaphore_create(self, &tmp_files_sem, SYNC_POLICY_FIFO, 1);
-		if (ret != KERN_SUCCESS) {
-	  		err(2,NULL);
-		}
-	}
-#endif
 }
 
 /*
@@ -159,20 +178,12 @@ tmp_file_atexit(const char *tmp_file)
 {
 
 	if (tmp_file) {
-#ifndef __APPLE__
 		sem_wait(&tmp_files_sem);
-#else
-		semaphore_wait(tmp_files_sem);
-#endif
 		struct CLEANABLE_FILE *item =
 		    sort_malloc(sizeof(struct CLEANABLE_FILE));
 		item->fn = sort_strdup(tmp_file);
 		LIST_INSERT_HEAD(&tmp_files, item, files);
-#ifndef __APPLE__
 		sem_post(&tmp_files_sem);
-#else
-		semaphore_signal(tmp_files_sem);
-#endif
 	}
 }
 
@@ -184,20 +195,12 @@ clear_tmp_files(void)
 {
 	struct CLEANABLE_FILE *item;
 
-#ifndef __APPLE__
 	sem_wait(&tmp_files_sem);
-#else
-	semaphore_wait(tmp_files_sem);
-#endif
 	LIST_FOREACH(item,&tmp_files,files) {
 		if ((item) && (item->fn))
 			unlink(item->fn);
 	}
-#ifndef __APPLE__
 	sem_post(&tmp_files_sem);
-#else
-	semaphore_signal(tmp_files_sem);
-#endif
 }
 
 /*
@@ -210,11 +213,7 @@ file_is_tmp(const char* fn)
 	bool ret = false;
 
 	if (fn) {
-#ifndef __APPLE__
 		sem_wait(&tmp_files_sem);
-#else
-		semaphore_wait(tmp_files_sem);
-#endif
 		LIST_FOREACH(item,&tmp_files,files) {
 			if ((item) && (item->fn))
 				if (strcmp(item->fn, fn) == 0) {
@@ -222,11 +221,7 @@ file_is_tmp(const char* fn)
 					break;
 				}
 		}
-#ifndef __APPLE__
 		sem_post(&tmp_files_sem);
-#else
-		semaphore_signal(tmp_files_sem);
-#endif
 	}
 
 	return (ret);
@@ -270,7 +265,7 @@ file_list_init(struct file_list *fl, bool tmp)
  * Add a file name to the list
  */
 void
-file_list_add(struct file_list *fl, char *fn, bool allocate)
+file_list_add(struct file_list *fl, const char *fn, bool allocate)
 {
 
 	if (fl && fn) {
@@ -1164,7 +1159,7 @@ file_headers_merge(size_t fnum, struct file_header **fh, FILE *f_out)
  * stdout.
  */
 static void
-merge_files_array(size_t argc, char **argv, const char *fn_out)
+merge_files_array(size_t argc, const char **argv, const char *fn_out)
 {
 
 	if (argv && fn_out) {
@@ -1285,7 +1280,7 @@ sort_list_to_file(struct sort_list *list, const char *outfile)
 {
 	struct sort_mods *sm = &(keys[0].sm);
 
-	if (!(sm->Mflag) && !(sm->Rflag) && !(sm->Vflag) && !(sm->Vflag) &&
+	if (!(sm->Mflag) && !(sm->Rflag) && !(sm->Vflag) &&
 	    !(sm->gflag) && !(sm->hflag) && !(sm->nflag)) {
 		if ((sort_opts_vals.sort_method == SORT_DEFAULT) && byte_sort)
 			sort_opts_vals.sort_method = SORT_RADIXSORT;
@@ -1363,11 +1358,7 @@ mt_sort_thread(void* arg)
 	g_sort_func(list->list, list->count, sizeof(struct sort_list_item *),
 	    (int(*)(const void *, const void *)) list_coll);
 
-#ifndef __APPLE__
 	sem_post(&mtsem);
-#else
-	semaphore_signal(mtsem);
-#endif
 
 	return (arg);
 }
@@ -1609,17 +1600,7 @@ mt_sort(struct sort_list *list,
 		}
 
 		/* init threads counting semaphore */
-#ifndef __APPLE__
 		sem_init(&mtsem, 0, 0);
-#else
-		{
-		  mach_port_t self = mach_task_self();
-		  kern_return_t ret = semaphore_create(self, &mtsem, SYNC_POLICY_FIFO, 0);
-		  if (ret != KERN_SUCCESS) {
-		    err(2,NULL);
-		  }
-		}
-#endif
 
 		/* start threads */
 		for (i = 0; i < nthreads; ++i) {
@@ -1627,11 +1608,7 @@ mt_sort(struct sort_list *list,
 			pthread_attr_t attr;
 
 			pthread_attr_init(&attr);
-#ifndef __APPLE__
 			pthread_attr_setdetachstate(&attr, PTHREAD_DETACHED);
-#else
-			pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
-#endif
 
 			for (;;) {
 				int res = pthread_create(&pth, &attr,
@@ -1640,11 +1617,7 @@ mt_sort(struct sort_list *list,
 				if (res >= 0)
 					break;
 				if (errno == EAGAIN) {
-#ifndef __APPLE__
 					pthread_yield();
-#else
-					sched_yield();
-#endif
 					continue;
 				}
 				err(2, NULL);
@@ -1655,21 +1628,10 @@ mt_sort(struct sort_list *list,
 
 		/* wait for threads completion */
 		for (i = 0; i < nthreads; ++i) {
-#ifndef __APPLE__
 			sem_wait(&mtsem);
-#else
-		  semaphore_wait(mtsem);
-#endif
 		}
 		/* destroy the semaphore - we do not need it anymore */
-#ifndef __APPLE__
 		sem_destroy(&mtsem);
-#else
-		{
-		  mach_port_t self = mach_task_self();
-		  semaphore_destroy(self,mtsem);
-		}
-#endif
 
 		/* merge sorted sub-lists to the file */
 		merge_list_parts(parts, nthreads, fn);

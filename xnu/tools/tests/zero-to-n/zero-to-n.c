@@ -73,7 +73,8 @@ typedef enum my_policy_type { MY_POLICY_REALTIME, MY_POLICY_TIMESHARE, MY_POLICY
 #define LL_COMPUTATION_NANOS    ( 1000000ll)    /*  1 ms */
 #define RT_CHURN_COMP_NANOS     ( 1000000ll)    /*  1 ms */
 #define TRACEWORTHY_NANOS       (10000000ll)    /* 10 ms */
-#define TRACEWORTHY_NANOS_TEST  ( 2000000ll)    /*  2 ms */
+#define TRACEWORTHY_NANOS_TEST  ( 1000000ll)    /*  1 ms */
+#define TRACEWORTHY_NANOS_LL    (  500000ll)    /*500 us */
 
 #if DEBUG
 #define debug_log(args ...) printf(args)
@@ -94,6 +95,7 @@ static __attribute__((aligned(128))) _Atomic boolean_t  g_churn_stop = FALSE;
 static __attribute__((aligned(128))) _Atomic uint64_t   g_churn_stopped_at = 0;
 
 /* Global variables (general) */
+static uint32_t                 g_maxcpus;
 static uint32_t                 g_numcpus;
 static uint32_t                 g_nphysicalcpu;
 static uint32_t                 g_nlogicalcpu;
@@ -111,7 +113,16 @@ static uint32_t                 g_iteration_sleeptime_us = 0;
 static uint32_t                 g_priority = 0;
 static uint32_t                 g_churn_pri = 0;
 static uint32_t                 g_churn_count = 0;
+static boolean_t                g_churn_random = FALSE; /* churn threads randomly sleep and wake */
 static uint32_t                 g_rt_churn_count = 0;
+static uint32_t                 g_traceworthy_count = 0;
+
+/*
+ * If the number of threads on the command line is 0, meaning ncpus,
+ * this signed number is added to the number of threads, making it
+ * possible to specify ncpus-3 threads, or ncpus+1 etc.
+ */
+static int32_t                  g_extra_thread_count = 0;
 
 static pthread_t*               g_churn_threads = NULL;
 static pthread_t*               g_rt_churn_threads = NULL;
@@ -147,6 +158,9 @@ static boolean_t                g_test_rt_smt = FALSE;
 
 /* Test whether realtime threads are successfully avoiding CPU 0 on Intel */
 static boolean_t                g_test_rt_avoid0 = FALSE;
+
+/* Fail the test if any iteration fails */
+static boolean_t                g_test_strict_fail = FALSE;
 
 /* Print a histgram showing how many threads ran on each CPU */
 static boolean_t                g_histogram = FALSE;
@@ -215,10 +229,18 @@ churn_thread(__unused void *arg)
 	 * it's been more than 1s after the most recent run start
 	 */
 
-	while (g_churn_stop == FALSE &&
-	    mach_absolute_time() < (g_starttime_abs + NSEC_PER_SEC)) {
+	uint64_t sleep_us = 1000;
+	uint64_t ctime = mach_absolute_time();
+	uint64_t sleep_at_time = ctime + nanos_to_abs(arc4random_uniform(sleep_us * NSEC_PER_USEC) + 1);
+	while ((g_churn_stop == FALSE) && (ctime < (g_starttime_abs + NSEC_PER_SEC))) {
 		spin_count++;
 		yield();
+		ctime = mach_absolute_time();
+		if (g_churn_random && (ctime > sleep_at_time)) {
+			usleep(arc4random_uniform(sleep_us) + 1);
+			ctime = mach_absolute_time();
+			sleep_at_time = ctime + nanos_to_abs(arc4random_uniform(sleep_us * NSEC_PER_USEC) + 1);
+		}
 	}
 
 	/* This is totally racy, but only here to detect if anyone stops early */
@@ -575,7 +597,7 @@ worker_thread(void *arg)
 			debug_log("%d Leader thread wait\n", i);
 
 			if (i > 0) {
-				for (int cpuid = 0; cpuid < g_numcpus; cpuid++) {
+				for (int cpuid = 0; cpuid < g_maxcpus; cpuid++) {
 					if (g_cpu_histogram[cpuid].current == 1) {
 						atomic_fetch_or_explicit(&g_cpu_map[i - 1], (1UL << cpuid), memory_order_relaxed);
 						g_cpu_histogram[cpuid].current = 0;
@@ -671,7 +693,7 @@ worker_thread(void *arg)
 		}
 
 		unsigned int cpuid =  _os_cpu_number();
-		assert(cpuid < g_numcpus);
+		assert(cpuid < g_maxcpus);
 		debug_log("Thread %p woke up on CPU %d for iteration %d.\n", pthread_self(), cpuid, i);
 		g_cpu_histogram[cpuid].current = 1;
 		g_cpu_histogram[cpuid].accum++;
@@ -744,7 +766,7 @@ worker_thread(void *arg)
 		/* Tell everyone and the main thread that the last iteration is done */
 		debug_log("%d Leader thread done\n", g_iterations - 1);
 
-		for (int cpuid = 0; cpuid < g_numcpus; cpuid++) {
+		for (int cpuid = 0; cpuid < g_maxcpus; cpuid++) {
 			if (g_cpu_histogram[cpuid].current == 1) {
 				atomic_fetch_or_explicit(&g_cpu_map[g_iterations - 1], (1UL << cpuid), memory_order_relaxed);
 				g_cpu_histogram[cpuid].current = 0;
@@ -825,6 +847,22 @@ record_cpu_time(cpu_time_t *cpu_time)
 	cpu_time->idle = total_idle_time;
 }
 
+static int
+set_recommended_cluster(char cluster_char)
+{
+	char buff[4];
+	buff[1] = '\0';
+
+	buff[0] = cluster_char;
+
+	int ret = sysctlbyname("kern.sched_task_set_cluster_type", NULL, NULL, buff, 1);
+	if (ret != 0) {
+		perror("kern.sched_task_set_cluster_type");
+	}
+
+	return ret;
+}
+
 int
 main(int argc, char **argv)
 {
@@ -834,6 +872,7 @@ main(int argc, char **argv)
 	pthread_t       *threads;
 	uint64_t        *worst_latencies_ns;
 	uint64_t        *worst_latencies_from_first_ns;
+	uint64_t        *worst_latencies_from_previous_ns;
 	uint64_t        max, min;
 	float           avg, stddev;
 
@@ -869,35 +908,68 @@ main(int argc, char **argv)
 	}
 #endif /* TARGET_OS_OSX */
 
-	size_t ncpu_size = sizeof(g_numcpus);
-	ret = sysctlbyname("hw.ncpu", &g_numcpus, &ncpu_size, NULL, 0);
+	size_t maxcpu_size = sizeof(g_maxcpus);
+	ret = sysctlbyname("hw.ncpu", &g_maxcpus, &maxcpu_size, NULL, 0);
 	if (ret) {
 		err(EX_OSERR, "Failed sysctlbyname(hw.ncpu)");
 	}
-	assert(g_numcpus <= 64); /* g_cpu_map needs to be extended for > 64 cpus */
+	assert(g_maxcpus <= 64); /* g_cpu_map needs to be extended for > 64 cpus */
+
+	size_t numcpu_size = sizeof(g_numcpus);
+	ret = sysctlbyname("hw.perflevel0.logicalcpu", &g_numcpus, &numcpu_size, NULL, 0);
+	if (ret) {
+		/* hw.perflevel0.logicalcpu failed so falling back to hw.ncpu */
+		g_numcpus = g_maxcpus;
+	} else {
+		/* Test for multiple perf levels */
+		uint32_t result = 0;
+		size_t result_size = sizeof(result);
+		ret = sysctlbyname("hw.perflevel1.logicalcpu", &result, &result_size, NULL, 0);
+		if ((ret == 0) && (result > 0)) {
+			/* Multiple perf levels detected, so bind this task to the highest perf node */
+			ret = set_recommended_cluster('p');
+			if (ret && g_test_rt) {
+				printf("set_recommended_cluster('p') failed.  Skipping test\n");
+				exit(0);
+			}
+		}
+	}
 
 	size_t physicalcpu_size = sizeof(g_nphysicalcpu);
-	ret = sysctlbyname("hw.physicalcpu", &g_nphysicalcpu, &physicalcpu_size, NULL, 0);
+	ret = sysctlbyname("hw.perflevel0.physicalcpu", &g_nphysicalcpu, &physicalcpu_size, NULL, 0);
 	if (ret) {
-		err(EX_OSERR, "Failed sysctlbyname(hw.physicalcpu)");
+		/* hw.perflevel0.physicalcpu failed so falling back to hw.physicalcpu */
+		ret = sysctlbyname("hw.physicalcpu", &g_nphysicalcpu, &physicalcpu_size, NULL, 0);
+		if (ret) {
+			err(EX_OSERR, "Failed sysctlbyname(hw.physicalcpu)");
+		}
 	}
 
 	size_t logicalcpu_size = sizeof(g_nlogicalcpu);
-	ret = sysctlbyname("hw.logicalcpu", &g_nlogicalcpu, &logicalcpu_size, NULL, 0);
+	ret = sysctlbyname("hw.perflevel0.logicalcpu", &g_nlogicalcpu, &logicalcpu_size, NULL, 0);
 	if (ret) {
-		err(EX_OSERR, "Failed sysctlbyname(hw.logicalcpu)");
+		/* hw.perflevel0.logicalcpu failed so falling back to hw.logicalcpu */
+		ret = sysctlbyname("hw.logicalcpu", &g_nlogicalcpu, &logicalcpu_size, NULL, 0);
+		if (ret) {
+			err(EX_OSERR, "Failed sysctlbyname(hw.logicalcpu)");
+		}
 	}
 
 	if (g_test_rt) {
 		if (g_numthreads == 0) {
-			g_numthreads = g_numcpus;
+			g_numthreads = g_numcpus + g_extra_thread_count;
+			if ((int32_t)g_numthreads < 1) {
+				g_numthreads = 1;
+			}
+			if ((g_numthreads == 1) && ((g_waketype == WAKE_CHAIN) || (g_waketype == WAKE_HOP))) {
+				g_numthreads = 2;
+			}
 		}
 		g_policy = MY_POLICY_REALTIME;
-		g_do_all_spin = TRUE;
 		g_histogram = true;
 		/* Don't change g_traceworthy_latency_ns if it's explicity been set to something other than the default */
 		if (g_traceworthy_latency_ns == TRACEWORTHY_NANOS) {
-			g_traceworthy_latency_ns = TRACEWORTHY_NANOS_TEST;
+			g_traceworthy_latency_ns = g_rt_ll ? TRACEWORTHY_NANOS_LL : TRACEWORTHY_NANOS_TEST;
 		}
 	} else if (g_test_rt_smt) {
 		if (g_nlogicalcpu != 2 * g_nphysicalcpu) {
@@ -907,29 +979,45 @@ main(int argc, char **argv)
 		}
 
 		if (g_numthreads == 0) {
-			g_numthreads = g_nphysicalcpu;
+			g_numthreads = g_nphysicalcpu + g_extra_thread_count;
+		}
+		if ((int32_t)g_numthreads < 1) {
+			g_numthreads = 1;
+		}
+		if ((g_numthreads == 1) && ((g_waketype == WAKE_CHAIN) || (g_waketype == WAKE_HOP))) {
+			g_numthreads = 2;
 		}
 		g_policy = MY_POLICY_REALTIME;
-		g_do_all_spin = TRUE;
 		g_histogram = true;
 	} else if (g_test_rt_avoid0) {
 #if defined(__x86_64__) || defined(__i386__)
-		if (g_numthreads == 0) {
-			g_numthreads = g_nphysicalcpu - 1;
-		}
-		if (g_numthreads == 0) {
+		if (g_nphysicalcpu == 1) {
 			printf("Attempt to run --test-rt-avoid0 on a uniprocessor\n");
 			exit(0);
 		}
+		if (g_numthreads == 0) {
+			g_numthreads = g_nphysicalcpu - 1 + g_extra_thread_count;
+		}
+		if ((int32_t)g_numthreads < 1) {
+			g_numthreads = 1;
+		}
+		if ((g_numthreads == 1) && ((g_waketype == WAKE_CHAIN) || (g_waketype == WAKE_HOP))) {
+			g_numthreads = 2;
+		}
 		g_policy = MY_POLICY_REALTIME;
-		g_do_all_spin = TRUE;
 		g_histogram = true;
 #else
 		printf("Attempt to run --test-rt-avoid0 on a non-Intel device\n");
 		exit(0);
 #endif
 	} else if (g_numthreads == 0) {
-		g_numthreads = g_numcpus;
+		g_numthreads = g_numcpus + g_extra_thread_count;
+		if ((int32_t)g_numthreads < 1) {
+			g_numthreads = 1;
+		}
+		if ((g_numthreads == 1) && ((g_waketype == WAKE_CHAIN) || (g_waketype == WAKE_HOP))) {
+			g_numthreads = 2;
+		}
 	}
 
 	if (g_do_each_spin) {
@@ -988,7 +1076,16 @@ main(int argc, char **argv)
 		errc(EX_OSERR, ret, "memset_s latencies_from_first");
 	}
 
-	size_t histogram_size = sizeof(histogram_t) * g_numcpus;
+	worst_latencies_from_previous_ns = (uint64_t*) valloc(latencies_size);
+	assert(worst_latencies_from_previous_ns);
+
+	/* Ensure the allocation is pre-faulted */
+	ret = memset_s(worst_latencies_from_previous_ns, latencies_size, 0, latencies_size);
+	if (ret) {
+		errc(EX_OSERR, ret, "memset_s latencies_from_previous");
+	}
+
+	size_t histogram_size = sizeof(histogram_t) * g_maxcpus;
 	g_cpu_histogram = (histogram_t *)valloc(histogram_size);
 	assert(g_cpu_histogram);
 	/* Ensure the allocation is pre-faulted */
@@ -1117,7 +1214,8 @@ main(int argc, char **argv)
 
 		/*
 		 * We report the worst latencies relative to start time
-		 * and relative to the lead worker thread.
+		 * and relative to the lead worker thread
+		 * and (where relevant) relative to the previous thread
 		 */
 		for (j = 0; j < g_numthreads; j++) {
 			uint64_t latency_abs;
@@ -1139,15 +1237,30 @@ main(int argc, char **argv)
 
 		worst_latencies_from_first_ns[i] = abs_to_nanos(worst_abs);
 
+		if ((g_waketype == WAKE_CHAIN) || (g_waketype == WAKE_HOP)) {
+			worst_abs = 0;
+			for (j = 1; j < g_numthreads; j++) {
+				uint64_t latency_abs;
+
+				latency_abs = g_thread_endtimes_abs[j] - g_thread_endtimes_abs[j - 1];
+				worst_abs = worst_abs < latency_abs ? latency_abs : worst_abs;
+				best_abs = best_abs > latency_abs ? latency_abs : best_abs;
+			}
+
+			worst_latencies_from_previous_ns[i] = abs_to_nanos(worst_abs);
+		}
+
 		/*
 		 * In the event of a bad run, cut a trace point.
 		 */
-		if (worst_latencies_from_first_ns[i] > g_traceworthy_latency_ns) {
+		uint64_t worst_latency_ns = ((g_waketype == WAKE_CHAIN) || (g_waketype == WAKE_HOP)) ? worst_latencies_from_previous_ns[i] : worst_latencies_ns[i];
+		if (worst_latency_ns > g_traceworthy_latency_ns) {
+			g_traceworthy_count++;
 			/* Ariadne's ad-hoc test signpost */
-			kdebug_trace(ARIADNEDBG_CODE(0, 0), worst_latencies_from_first_ns[i], g_traceworthy_latency_ns, 0, 0);
+			kdebug_trace(ARIADNEDBG_CODE(0, 0), worst_latency_ns, g_traceworthy_latency_ns, 0, 0);
 
 			if (g_verbose) {
-				printf("Worst on this round was %.2f us.\n", ((float)worst_latencies_from_first_ns[i]) / 1000.0);
+				printf("Worst on this round was %.2f us.\n", ((float)worst_latency_ns) / 1000.0);
 			}
 		}
 
@@ -1194,16 +1307,32 @@ main(int argc, char **argv)
 	printf("Avg:\t\t%.2f us\n", avg / 1000.0);
 	printf("Stddev:\t\t%.2f us\n", stddev / 1000.0);
 
+	if ((g_waketype == WAKE_CHAIN) || (g_waketype == WAKE_HOP)) {
+		putchar('\n');
+
+		compute_stats(worst_latencies_from_previous_ns, g_iterations, &avg, &max, &min, &stddev);
+		printf("Results (relative to previous thread):\n");
+		printf("Max:\t\t%.2f us\n", ((float)max) / 1000.0);
+		printf("Min:\t\t%.2f us\n", ((float)min) / 1000.0);
+		printf("Avg:\t\t%.2f us\n", avg / 1000.0);
+		printf("Stddev:\t\t%.2f us\n", stddev / 1000.0);
+	}
+
+	if (g_test_rt) {
+		putchar('\n');
+		printf("Count of trace-worthy latencies (>%.2f us): %d\n", ((float)g_traceworthy_latency_ns) / 1000.0, g_traceworthy_count);
+	}
+
 #if 0
 	for (uint32_t i = 0; i < g_iterations; i++) {
-		printf("Iteration %d: %f us\n", i, worst_latencies_ns[i] / 1000.0);
+		printf("Iteration %d: %.2f us\n", i, worst_latencies_ns[i] / 1000.0);
 	}
 #endif
 
 	if (g_histogram) {
 		putchar('\n');
 
-		for (uint32_t i = 0; i < g_numcpus; i++) {
+		for (uint32_t i = 0; i < g_maxcpus; i++) {
 			printf("%d\t%d\n", i, g_cpu_histogram[i].accum);
 		}
 	}
@@ -1213,10 +1342,12 @@ main(int argc, char **argv)
 #define SECONDARY 0xaaaaaaaaaaaaaaaaULL
 
 		int fail_count = 0;
+		uint64_t *sched_latencies_ns = ((g_waketype == WAKE_CHAIN) || (g_waketype == WAKE_HOP)) ? worst_latencies_from_previous_ns : worst_latencies_ns;
 
 		for (uint32_t i = 0; i < g_iterations; i++) {
 			bool secondary = false;
 			bool fail = false;
+			bool warn = false;
 			uint64_t map = g_cpu_map[i];
 			if (g_test_rt_smt) {
 				/* Test for one or more threads running on secondary cores unexpectedly (WARNING) */
@@ -1224,21 +1355,26 @@ main(int argc, char **argv)
 				/* Test for threads running on both primary and secondary cpus of the same core (FAIL) */
 				fail = ((map & PRIMARY) & ((map & SECONDARY) >> 1));
 			} else if (g_test_rt) {
-				fail = (__builtin_popcountll(map) != g_numthreads) && (worst_latencies_ns[i] > g_traceworthy_latency_ns);
+				/* Test that each thread runs on its own core (WARNING for now) */
+				warn = (__builtin_popcountll(map) != g_numthreads);
+				/* Test for latency probems (FAIL) */
+				fail = (sched_latencies_ns[i] > g_traceworthy_latency_ns);
 			} else if (g_test_rt_avoid0) {
 				fail = ((map & 0x1) == 0x1);
 			}
-			if (secondary || fail) {
-				printf("Iteration %d: 0x%llx%s%s\n", i, map,
+			if (warn || secondary || fail) {
+				printf("Iteration %d: 0x%llx worst latency %.2fus%s%s%s\n", i, map,
+				    sched_latencies_ns[i] / 1000.0,
+				    warn ? " WARNING" : "",
 				    secondary ? " SECONDARY" : "",
 				    fail ? " FAIL" : "");
 			}
-			test_warn |= (secondary || fail);
+			test_warn |= (warn || secondary || fail);
 			test_fail |= fail;
 			fail_count += fail;
 		}
 
-		if (test_fail && (g_iterations >= 100) && (fail_count <= g_iterations / 100)) {
+		if (test_fail && !g_test_strict_fail && (g_iterations >= 100) && (fail_count <= g_iterations / 100)) {
 			printf("99%% or better success rate\n");
 			test_fail = 0;
 		}
@@ -1259,6 +1395,7 @@ main(int argc, char **argv)
 	free(g_thread_endtimes_abs);
 	free(worst_latencies_ns);
 	free(worst_latencies_from_first_ns);
+	free(worst_latencies_from_previous_ns);
 	free(g_cpu_histogram);
 	free(g_cpu_map);
 
@@ -1324,8 +1461,10 @@ usage()
 	    "<realtime | timeshare | timeshare_no_smt | fixed> <iterations>\n\t\t"
 	    "[--trace <traceworthy latency in ns>] "
 	    "[--verbose] [--spin-one] [--spin-all] [--spin-time <nanos>] [--affinity]\n\t\t"
-	    "[--no-sleep] [--drop-priority] [--churn-pri <pri>] [--churn-count <n>]\n\t\t"
-	    "[--rt-churn] [--rt-churn-count <n>] [--rt-ll] [--test-rt] [--test-rt-smt] [--test-rt-avoid0]",
+	    "[--no-sleep] [--drop-priority] [--churn-pri <pri>] [--churn-count <n>] [--churn-random]\n\t\t"
+	    "[--extra-thread-count <signed int>]\n\t\t"
+	    "[--rt-churn] [--rt-churn-count <n>] [--rt-ll]\n\t\t"
+	    "[--test-rt] [--test-rt-smt] [--test-rt-avoid0] [--test-strict-fail]",
 	    getprogname());
 }
 
@@ -1348,6 +1487,22 @@ read_dec_arg()
 	return arg_val;
 }
 
+static int32_t
+read_signed_dec_arg()
+{
+	char *cp;
+	/* char* optarg is a magic global */
+
+	int32_t arg_val = (int32_t)strtoull(optarg, &cp, 10);
+
+	if (cp == optarg || *cp) {
+		errx(EX_USAGE, "arg --%s requires a decimal number, found \"%s\"",
+		    g_longopts[option_index].name, optarg);
+	}
+
+	return arg_val;
+}
+
 static void
 parse_args(int argc, char *argv[])
 {
@@ -1359,6 +1514,7 @@ parse_args(int argc, char *argv[])
 		OPT_CHURN_PRI,
 		OPT_CHURN_COUNT,
 		OPT_RT_CHURN_COUNT,
+		OPT_EXTRA_THREAD_COUNT,
 	};
 
 	static struct option longopts[] = {
@@ -1369,6 +1525,8 @@ parse_args(int argc, char *argv[])
 		{ "churn-pri",          required_argument,      NULL,                           OPT_CHURN_PRI },
 		{ "churn-count",        required_argument,      NULL,                           OPT_CHURN_COUNT },
 		{ "rt-churn-count",     required_argument,      NULL,                           OPT_RT_CHURN_COUNT },
+		{ "extra-thread-count", required_argument,      NULL,                           OPT_EXTRA_THREAD_COUNT },
+		{ "churn-random",       no_argument,            (int*)&g_churn_random,          TRUE },
 		{ "switched_apptype",   no_argument,            (int*)&g_seen_apptype,          TRUE },
 		{ "spin-one",           no_argument,            (int*)&g_do_one_long_spin,      TRUE },
 		{ "intel-only",         no_argument,            (int*)&g_run_on_intel_only,     TRUE },
@@ -1379,6 +1537,7 @@ parse_args(int argc, char *argv[])
 		{ "test-rt",            no_argument,            (int*)&g_test_rt,               TRUE },
 		{ "test-rt-smt",        no_argument,            (int*)&g_test_rt_smt,           TRUE },
 		{ "test-rt-avoid0",     no_argument,            (int*)&g_test_rt_avoid0,        TRUE },
+		{ "test-strict-fail",   no_argument,            (int*)&g_test_strict_fail,      TRUE },
 		{ "rt-churn",           no_argument,            (int*)&g_rt_churn,              TRUE },
 		{ "rt-ll",              no_argument,            (int*)&g_rt_ll,                 TRUE },
 		{ "histogram",          no_argument,            (int*)&g_histogram,             TRUE },
@@ -1414,6 +1573,9 @@ parse_args(int argc, char *argv[])
 			break;
 		case OPT_RT_CHURN_COUNT:
 			g_rt_churn_count = read_dec_arg();
+			break;
+		case OPT_EXTRA_THREAD_COUNT:
+			g_extra_thread_count = read_signed_dec_arg();
 			break;
 		case '?':
 		case 'h':

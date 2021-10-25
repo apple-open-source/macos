@@ -105,17 +105,23 @@ extern uint32_t _asl_evaluate_send(asl_object_t client, asl_object_t m, int slev
 extern uint32_t _asl_lib_vlog(asl_object_t obj, uint32_t eval, asl_object_t msg, const char *format, va_list ap);
 extern uint32_t _asl_lib_vlog_text(asl_object_t obj, uint32_t eval, asl_object_t msg, const char *format, va_list ap);
 
-static void
-_syslog_asl_client()
+static asl_object_t
+_syslog_asl_client(void)
 {
 	pthread_mutex_lock(&_sl_lock);
+
 	if (_sl_asl == NULL)
 	{
 		_sl_asl = asl_open(NULL, NULL, ASL_OPT_SYSLOG_LEGACY);
 		_sl_mask = ASL_FILTER_MASK_UPTO(ASL_LEVEL_DEBUG);
 		asl_set_filter(_sl_asl, _sl_mask);
 	}
+
+	asl_object_t sl_asl = asl_retain(_sl_asl);
+
 	pthread_mutex_unlock(&_sl_lock);
+
+	return sl_asl;
 }
 
 static void
@@ -127,7 +133,7 @@ _vsyslog(int pri, const char *fmt, va_list ap, void *addr, bool mirror)
 	uint32_t eval;
 	bool trace;
 
-	_syslog_asl_client();
+	asl_object_t sl_asl = _syslog_asl_client();
 
 	msg = asl_new(ASL_TYPE_MSG);
 
@@ -137,7 +143,7 @@ _vsyslog(int pri, const char *fmt, va_list ap, void *addr, bool mirror)
 		if (facility != NULL) asl_set(msg, ASL_KEY_FACILITY, facility);
 	}
 
-	eval = _asl_evaluate_send(_sl_asl, msg, level);
+	eval = _asl_evaluate_send(sl_asl, msg, level);
 	trace = (eval & EVAL_SEND_TRACE) && os_log_shim_enabled(addr);
 
 	if (trace)
@@ -151,15 +157,16 @@ _vsyslog(int pri, const char *fmt, va_list ap, void *addr, bool mirror)
 
 		if ((eval & EVAL_TEXT_FILE) && !mirror)
 		{
-			_asl_lib_vlog_text(_sl_asl, eval, msg, fmt, ap);
+			_asl_lib_vlog_text(sl_asl, eval, msg, fmt, ap);
 		}
 	}
 
 	if ((eval & EVAL_ASL) && (mirror || !trace))
 	{
-		_asl_lib_vlog(_sl_asl, eval, msg, fmt, ap);
+		_asl_lib_vlog(sl_asl, eval, msg, fmt, ap);
 	}
 
+	asl_release(sl_asl);
 	asl_release(msg);
 }
 

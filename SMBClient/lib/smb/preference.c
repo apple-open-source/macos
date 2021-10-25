@@ -70,7 +70,6 @@ static void readPreferenceSection(struct rcfile *rcfile, struct smb_prefs *prefs
          */
 		/* Check for which versions of SMB we support */
 		rc_getint(rcfile, sname, "protocol_vers_map", &prefs->protocol_version_map);
-
 		if (prefs->protocol_version_map == 0) {
 			/* 0 is invalid so assume the safer of SMB 2/3 only */
 			prefs->protocol_version_map = 6;
@@ -83,9 +82,6 @@ static void readPreferenceSection(struct rcfile *rcfile, struct smb_prefs *prefs
 		/* Check for which versions of SMB require signing */
 		rc_getint(rcfile, sname, "signing_req_vers", &prefs->signing_req_versions);
 
-		/* Check for which versions of SMB we support */
-		rc_getint(rcfile, sname, "protocol_vers_map", &prefs->protocol_version_map);
-
 		/* Only get the value if it exists */
         if (rc_getbool(rcfile, sname, "validate_neg_off", &altflags) == 0) {
             if (altflags)
@@ -93,6 +89,26 @@ static void readPreferenceSection(struct rcfile *rcfile, struct smb_prefs *prefs
             else
                 prefs->altflags &= ~SMBFS_MNT_VALIDATE_NEG_OFF;
         }
+        
+        /*
+         * Check for which encryption algorithms of SMB encryption are enabled.
+         * AES_128_CCM is always enabled (0x0001)
+         * AES_128_GCM is enabled (0x0002)
+         * AES_256_CCM (0x0004) is enabled
+         * AES_256_GCM (0x0008) is enabled
+         */
+        rc_getint(rcfile, sname, "encrypt_cipher_map", &prefs->encrypt_algorithm_map);
+        if (prefs->encrypt_algorithm_map == 0) {
+            /* 0 is invalid so assume AES_128_CCM/AES_128_GCM/AES-256-CCM/AES-256-GCM */
+            prefs->encrypt_algorithm_map = 0xf;
+        }
+        
+        /* Check for forcing encryption */
+        /* Only get the value if it exist, ignore any error we don't care */
+        (void)rc_getbool(rcfile, sname, "force_sess_encrypt",
+                         (int *) &prefs->force_sess_encrypt);
+        (void)rc_getbool(rcfile, sname, "force_share_encrypt",
+                         (int *) &prefs->force_share_encrypt);
 	}
 	
 	/* server only preferences */
@@ -644,6 +660,15 @@ void getDefaultPreferences(struct smb_prefs *prefs)
     prefs->mc_max_channels = 9;
     prefs->mc_max_rss_channels = 4;
     prefs->mc_client_if_blacklist_len = 0;
+
+    /* AES_128_CCM/AES_128_GCM/AES-256-CCM/AES-256-GCM enabled by default */
+    prefs->encrypt_algorithm_map = 0xf;
+
+    /* Force session level encryption is OFF by default */
+    prefs->force_sess_encrypt = 0;
+
+    /* Force share level encryption is OFF by default */
+    prefs->force_share_encrypt = 0;
 
     /* Now get any values stored in the System Configuration */
     getSCPreferences(prefs);

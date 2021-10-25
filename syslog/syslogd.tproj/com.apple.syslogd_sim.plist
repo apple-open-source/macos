@@ -26,13 +26,5 @@
 		<key>com.apple.system.logger</key>
 		<true/>
 	</dict>
-	<key>Sockets</key>
-	<dict>
-		<key>BSDSystemLogger</key>
-		<dict>
-			<key>SystemLoggingSocket</key>
-			<true/>
-		</dict>
-	</dict>
 </dict>
 </plist>

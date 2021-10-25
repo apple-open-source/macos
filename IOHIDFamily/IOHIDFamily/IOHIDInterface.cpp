@@ -22,7 +22,7 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-#include <IOKit/IOLib.h>    // IOMalloc/IOFree
+#include <IOKit/IOLib.h>    // IOMalloc*/IOFree*
 #include "IOHIDInterface.h"
 #include "IOHIDDevice.h"
 #include "IOHIDElementPrivate.h"
@@ -35,8 +35,11 @@
 #include <IOKitUser/IODataQueueDispatchSource.h>
 #include "IOHIDFamilyPrivate.h"
 #include "IOHIDPrivateKeys.h"
+#include "DriverKitSharedDefs.h"
 #include <IOKit/IOKitKeys.h>
 
+#define BUFFER_CREATE_WARNING          100
+#define BUFFER_OUTSTANDING_WARNING     20
 #define kIOHIDTransportDextEntitlement "com.apple.developer.driverkit.transport.hid"
 
 #define dispatch_workloop_sync(b)            \
@@ -67,8 +70,9 @@ OSDefineMetaClassAndStructors( IOHIDInterface, IOService )
 #define _deviceElements             _reserved->deviceElements
 #define _reportPool                 _reserved->reportPool
 #define _opened                     _reserved->opened
-#define _sleeping                   _reserved->sleeping
 #define _terminated                 _reserved->terminated
+#define _bufferLeakPanic            _reserved->bufferLeakPanic
+#define _debugStats                 _reserved->debugStats
 
 //---------------------------------------------------------------------------
 // IOHIDInterface::free
@@ -82,6 +86,7 @@ void IOHIDInterface::free()
     OSSafeReleaseNULL(_serialNumberString);
     OSSafeReleaseNULL(_deviceElements);
     OSSafeReleaseNULL(_reportPool);
+    OSSafeReleaseNULL(_debugStats);
     
     if (_commandGate) {
         if ( _workLoop ) {
@@ -94,7 +99,7 @@ void IOHIDInterface::free()
 
     if ( _reserved )
     {
-        IODelete( _reserved, ExpansionData, 1 );
+        IOFreeType(_reserved, ExpansionData);
     }
     
     if (_owner) {
@@ -112,15 +117,12 @@ bool IOHIDInterface::init( OSDictionary * dictionary )
     if ( !super::init(dictionary) )
         return false;
 
-    _reserved = IONew( ExpansionData, 1 );
+    _reserved = IOMallocType(ExpansionData);
 
     if (!_reserved)
-        return false;
-		
-	bzero(_reserved, sizeof(ExpansionData));
-            
+        return false;            
         
-    bzero(_maxReportSize, sizeof(IOByteCount) * kIOHIDReportTypeCount);
+    memset(_maxReportSize, 0, sizeof(IOByteCount) * kIOHIDReportTypeCount);
         
     return true;
 }
@@ -152,10 +154,11 @@ IOReturn IOHIDInterface::message(UInt32 type,
                                  void * argument)
 {
     IOReturn result = kIOReturnSuccess;
+
     if (type == kIOMessageServiceIsRequestingClose) {
         result = messageClients(type, argument);
         if (result != kIOReturnSuccess) {
-            //HIDLogError("IOHIDInterface unsuccessfully requested close of clients: 0x%08x", result);
+            IOLog("IOHIDInterface unsuccessfully requested close of clients: 0x%08x", result);
         } else {
             provider->close(this);
         }
@@ -163,11 +166,6 @@ IOReturn IOHIDInterface::message(UInt32 type,
         result = _owner->message(type, this, argument);
     } else if (type == kIOHIDDeviceWillTerminate && provider == _owner) {
         _terminated = true;
-
-        if (_sleeping && _reportAction) {
-            _sleeping = false;
-            _commandGate->commandWakeup((void *)_reportAction);
-        }
     } else {
         result = super::message(type, provider, argument);
     }
@@ -184,6 +182,7 @@ bool IOHIDInterface::start( IOService * provider )
     bool builtin = false;
     OSArray *entitlements = NULL;
     OSArray *subArray = NULL;
+    OSSerializer * debugSerializer  = NULL;
     
 #define SET_STR_FROM_PROP(key, val)         \
     do {                                    \
@@ -310,6 +309,12 @@ bool IOHIDInterface::start( IOService * provider )
     
     setProperty(kIOServiceDEXTEntitlementsKey, entitlements);
     entitlements->release();
+
+    debugSerializer = OSSerializer::forTarget(this, OSMemberFunctionCast(OSSerializerCallback, this, &IOHIDInterface::serializeDebugState));
+    if (debugSerializer) {
+        super::setProperty("DebugState", debugSerializer);
+        OSSafeReleaseNULL(debugSerializer);
+    }
     
     registerService(kIOServiceAsynchronous);
     
@@ -386,16 +391,6 @@ void IOHIDInterface::close(
 								IOOptionBits				options)
 {
     _opened = false;
-    
-    _commandGate->runActionBlock(^IOReturn{
-        
-        if (_sleeping && _reportAction) {
-            _sleeping = false;
-            _commandGate->commandWakeup((void *)_reportAction);
-        }
-        return kIOReturnSuccess;
-    });
-    
 
     if (_owner) {
         _owner->close(client, options);
@@ -493,7 +488,7 @@ IOByteCount IOHIDInterface::getMaxReportSize (IOHIDReportType type)
 
 OSArray * IOHIDInterface::createMatchingElements (
                                 OSDictionary *              matching, 
-                                IOOptionBits                options __unused)
+                                IOOptionBits                options)
 {
     UInt32                    count        = _elementArray->getCount();
     IOHIDElementPrivate *   element        = NULL;
@@ -503,6 +498,7 @@ OSArray * IOHIDInterface::createMatchingElements (
     {
         if ( matching )
         {
+
             elements = OSArray::withCapacity(count);
 
             for ( UInt32 i = 0; i < count; i ++)
@@ -515,8 +511,13 @@ OSArray * IOHIDInterface::createMatchingElements (
                 }
             }
         }
-        else
-            elements = OSArray::withArray(_elementArray);
+        else {
+            if (options & kIOHIDSearchDeviceElements) {
+                elements = OSArray::withArray(_deviceElements);
+            } else {
+                elements = OSArray::withArray(_elementArray);
+            }
+        }
     }
 
     return elements;
@@ -644,45 +645,41 @@ void IOHIDInterface::handleReportGated(AbsoluteTime timestamp,
                                        UInt32 reportID,
                                        void *ctx)
 {
-    IOReturn ret = kIOReturnSuccess;
-    IOBufferMemoryDescriptor *poolReport;
+    IOBufferMemoryDescriptor *poolReport = NULL;
+    DextDebugStats *stats;
     
     require(_opened && !_terminated, exit);
     
     require_action(_reportPool, exit, HIDServiceLogError("No report pool"));
+
+    poolReport = OSDynamicCast(IOBufferMemoryDescriptor, _reportPool->getLastObject());
+
+    stats = _debugStats ? (DextDebugStats *)_debugStats->getVirtualAddress() : NULL;
     
-    // if the pool is empty we will have to sleep
-    _sleeping = (_reportPool->getCount() == 0);
-    
-    if (_sleeping) {
-        ret = _commandGate->commandSleep(ctx, THREAD_ABORTSAFE);
-        if (ret != THREAD_AWAKENED) {
-            HIDServiceLogError("command sleep: 0x%x", ret);
+    if (!poolReport || report->getLength() > poolReport->getLength()) {
+        HIDServiceLogDebug("Creating temporary buffer for report data");
+        if (poolReport) {
+            HIDServiceLogError("Report too large %d %d", (int)report->getLength(), (int)poolReport->getLength());
         }
-        
-        // make sure we weren't closed by close() call or are now terminating
-        require(_opened && !_terminated, exit);
+
+        if (stats) {
+            if (stats->createdBuffers && (stats->createdBuffers - stats->releasedBuffers) % BUFFER_OUTSTANDING_WARNING == 0) {
+                HIDServiceLogError("Large amount of outstanding buffers: %u %u", stats->reportAvailableCalls, stats->reportAvailableRuns);
+            }
+            stats->createdBuffers++;
+            if (stats->createdBuffers % BUFFER_CREATE_WARNING == 0) {
+                HIDServiceLogError("Significant amount of temporary report buffers created.");
+            }
+        }
+
+        poolReport = IOBufferMemoryDescriptor::withOptions(kIOMemoryDirectionOutIn | kIOMemoryKernelUserShared, report->getLength(), page_size);
+        require_action(poolReport, exit, HIDServiceLogError("BMD create"));
+    } else {
+        poolReport->retain();
+        _reportPool->removeObject(_reportPool->getCount() - 1);
     }
     
-    require_action(_reportPool->getCount(), exit, {
-        HIDServiceLogError("Report pool empty, dropping report %llu", timestamp);
-    });
-    
-    // get a report from our pool
-    poolReport = (IOBufferMemoryDescriptor *)_reportPool->getAnyObject();
-    poolReport->retain();
-    _reportPool->removeObject(poolReport);
-    
-    require_action(report->getLength() <= poolReport->getLength(), exit, {
-        HIDServiceLogError("Report too large %d %d",
-                           (int)report->getLength(), (int)poolReport->getLength());
-        
-        // return to pool
-        _reportPool->setObject(poolReport);
-        poolReport->release();
-    });
-    
-    bzero(poolReport->getBytesNoCopy(), poolReport->getLength());
+    memset(poolReport->getBytesNoCopy(), 0, poolReport->getLength());
     
     report->prepare();
     report->readBytes(0, poolReport->getBytesNoCopy(), report->getLength());
@@ -694,6 +691,9 @@ void IOHIDInterface::handleReportGated(AbsoluteTime timestamp,
                 reportID,
                 report);
     
+    if (stats) {
+        stats->reportAvailableCalls++;
+    }
     ReportAvailable(timestamp,
                     reportID,
                     (uint32_t)report->getLength(),
@@ -724,17 +724,12 @@ IOReturn IOHIDInterface::addReportToPoolGated(IOMemoryDescriptor *report)
     IOReturn ret = kIOReturnError;
     
     if (!_reportPool) {
-        _reportPool = OSSet::withCapacity(1);
+        _reportPool = OSArray::withCapacity(1);
     }
     
     require_action(_reportPool, exit, ret = kIOReturnNoMemory);
     
     _reportPool->setObject(report);
-    
-    if (_sleeping && _reportAction) {
-        _sleeping = false;
-        _commandGate->commandWakeup((void *)_reportAction);
-    }
     
     ret = kIOReturnSuccess;
     
@@ -854,7 +849,7 @@ IMPL(IOHIDInterface, GetElementValues)
     UInt32 totalSize = 0;
     UInt32 offset = 0;
     IOBufferMemoryDescriptor *md = NULL;
-    uint32_t allocSize = 0;
+    uint32_t allocSize;
     
     md = OSDynamicCast(IOBufferMemoryDescriptor, elementValues);
     require_action(md && count, exit, ret = kIOReturnBadArgument);
@@ -863,10 +858,10 @@ IMPL(IOHIDInterface, GetElementValues)
     
     values = (UInt8 *)md->getBytesNoCopy();
     
-    cookies = (IOHIDElementCookie *)IOMalloc(allocSize);
+    cookies = (IOHIDElementCookie *)IONewData(IOHIDElementCookie, count);
     require_action(cookies, exit, ret = kIOReturnNoMemory);
     
-    bzero(cookies, count);
+    memset(cookies, 0, count);
     
     // get the cookies from the buffer
     for (unsigned int i = 0; i < count; i++) {
@@ -936,8 +931,55 @@ IMPL(IOHIDInterface, GetElementValues)
     
 exit:
     if (cookies) {
-        IOFree(cookies, allocSize);
+        IODeleteData(cookies, IOHIDElementCookie, count);
     }
     
     return ret;
+}
+
+kern_return_t
+IMPL(IOHIDInterface, SendDebugBuffer)
+{
+    if (debug) {
+        _debugStats = debug->map();
+    }
+    return kIOReturnSuccess;
+}
+
+bool IOHIDInterface::serializeDebugState(void *ref __unused,
+                                         OSSerialize *serializer)
+{
+    bool             result = false;
+    OSDictionary   * dict = OSDictionary::withCapacity(4);
+    OSNumber       * num;
+    DextDebugStats   stats = {0, 0, 0, 0};
+
+    require(dict, exit);
+
+    if (_debugStats) {
+        memcpy(&stats, (void *)_debugStats->getVirtualAddress(), sizeof(DextDebugStats));
+    }
+
+    if ((num = OSNumber::withNumber(stats.reportAvailableCalls, 32))) {
+        dict->setObject("ReportAvailableCalls", num);
+        OSSafeReleaseNULL(num);
+    }
+    if ((num = OSNumber::withNumber(stats.reportAvailableRuns, 32))) {
+        dict->setObject("ReportAvailableRuns", num);
+        OSSafeReleaseNULL(num);
+    }
+    if ((num = OSNumber::withNumber(stats.createdBuffers, 32))) {
+        dict->setObject("CreatedBuffers", num);
+        OSSafeReleaseNULL(num);
+    }
+    if ((num = OSNumber::withNumber(stats.releasedBuffers, 32))) {
+        dict->setObject("ReleasedBuffers", num);
+        OSSafeReleaseNULL(num);
+    }
+
+    result = dict->serialize(serializer);
+
+exit:
+    OSSafeReleaseNULL(dict);
+    return result;
 }

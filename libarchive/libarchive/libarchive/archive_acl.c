@@ -138,14 +138,10 @@ archive_acl_clear(struct archive_acl *acl)
 		free(acl->acl_head);
 		acl->acl_head = ap;
 	}
-	if (acl->acl_text_w != NULL) {
-		free(acl->acl_text_w);
-		acl->acl_text_w = NULL;
-	}
-	if (acl->acl_text != NULL) {
-		free(acl->acl_text);
-		acl->acl_text = NULL;
-	}
+	free(acl->acl_text_w);
+	acl->acl_text_w = NULL;
+	free(acl->acl_text);
+	acl->acl_text = NULL;
 	acl->acl_p = NULL;
 	acl->acl_types = 0;
 	acl->acl_state = 0; /* Not counting. */
@@ -324,14 +320,10 @@ acl_new_entry(struct archive_acl *acl,
 		return (NULL);
 	}
 
-	if (acl->acl_text_w != NULL) {
-		free(acl->acl_text_w);
-		acl->acl_text_w = NULL;
-	}
-	if (acl->acl_text != NULL) {
-		free(acl->acl_text);
-		acl->acl_text = NULL;
-	}
+	free(acl->acl_text_w);
+	acl->acl_text_w = NULL;
+	free(acl->acl_text);
+	acl->acl_text = NULL;
 
 	/*
 	 * If there's a matching entry already in the list, overwrite it.
@@ -603,7 +595,7 @@ archive_acl_text_len(struct archive_acl *acl, int want_type, int flags,
 				else
 					length += sizeof(uid_t) * 3 + 1;
 			} else {
-				r = archive_mstring_get_mbs_l(&ap->name, &name,
+				r = archive_mstring_get_mbs_l(a, &ap->name, &name,
 				    &len, sc);
 				if (r != 0)
 					return (0);
@@ -753,8 +745,10 @@ archive_acl_to_text_w(struct archive_acl *acl, ssize_t *text_len, int flags,
 			append_entry_w(&wp, prefix, ap->type, ap->tag, flags,
 			    wname, ap->permset, id);
 			count++;
-		} else if (r < 0 && errno == ENOMEM)
+		} else if (r < 0 && errno == ENOMEM) {
+			free(ws);
 			return (NULL);
+		}
 	}
 
 	/* Add terminating character */
@@ -974,9 +968,11 @@ archive_acl_to_text_l(struct archive_acl *acl, ssize_t *text_len, int flags,
 		else
 			prefix = NULL;
 		r = archive_mstring_get_mbs_l(
-		    &ap->name, &name, &len, sc);
-		if (r != 0)
+		    NULL, &ap->name, &name, &len, sc);
+		if (r != 0) {
+			free(s);
 			return (NULL);
+		}
 		if (count > 0)
 			*p++ = separator;
 		if (name == NULL ||
@@ -1159,6 +1155,7 @@ archive_acl_from_text_w(struct archive_acl *acl, const wchar_t *text,
 	switch (want_type) {
 	case ARCHIVE_ENTRY_ACL_TYPE_POSIX1E:
 		want_type = ARCHIVE_ENTRY_ACL_TYPE_ACCESS;
+		__LA_FALLTHROUGH;
 	case ARCHIVE_ENTRY_ACL_TYPE_ACCESS:
 	case ARCHIVE_ENTRY_ACL_TYPE_DEFAULT:
 		numfields = 5;
@@ -1405,14 +1402,14 @@ isint_w(const wchar_t *start, const wchar_t *end, int *result)
 	if (start >= end)
 		return (0);
 	while (start < end) {
-		if (*start < '0' || *start > '9')
+		if (*start < L'0' || *start > L'9')
 			return (0);
 		if (n > (INT_MAX / 10) ||
-		    (n == INT_MAX / 10 && (*start - '0') > INT_MAX % 10)) {
+		    (n == INT_MAX / 10 && (*start - L'0') > INT_MAX % 10)) {
 			n = INT_MAX;
 		} else {
 			n *= 10;
-			n += *start - '0';
+			n += *start - L'0';
 		}
 		start++;
 	}
@@ -1638,6 +1635,7 @@ archive_acl_from_text_l(struct archive_acl *acl, const char *text,
 	switch (want_type) {
 	case ARCHIVE_ENTRY_ACL_TYPE_POSIX1E:
 		want_type = ARCHIVE_ENTRY_ACL_TYPE_ACCESS;
+		__LA_FALLTHROUGH;
 	case ARCHIVE_ENTRY_ACL_TYPE_ACCESS:
 	case ARCHIVE_ENTRY_ACL_TYPE_DEFAULT:
 		numfields = 5;

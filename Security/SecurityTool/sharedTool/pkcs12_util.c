@@ -246,19 +246,26 @@ PKCS12ArrayAddSecItems(CFArrayRef items, bool verbose)
         /* add certs */
         trust_ref = (SecTrustRef)CFDictionaryGetValue(item_dict, kSecImportItemTrust);
         if (trust_ref != NULL) {
-            CFIndex		cert_count;
-            CFIndex		cert_index;
+            CFArrayRef chain = SecTrustCopyCertificateChain(trust_ref);
+            if (chain) {
+                CFIndex cert_count = CFArrayGetCount(chain);
+                CFIndex cert_index = 1;
 
-            cert_count = SecTrustGetCertificateCount(trust_ref);
-            for (cert_index = 1; cert_index < cert_count; cert_index++) {
-                SecCertificateRef cert = SecTrustGetCertificateAtIndex(trust_ref, cert_index);
-                if (verbose)
-                    print_cert(cert, false);
-                status = add_cert_item(cert);
-                if (status != errSecSuccess) {
-                    fprintf(stderr, "add_cert_item %d failed %d\n", (int)cert_index, (int)status);
-                    success = FALSE;
+                for (cert_index = 1; cert_index < cert_count; cert_index++) {
+                    SecCertificateRef cert = (SecCertificateRef)CFArrayGetValueAtIndex(chain, cert_index);
+                    if (verbose) {
+                        print_cert(cert, false);
+                    }
+                    status = add_cert_item(cert);
+                    if (status != errSecSuccess) {
+                        fprintf(stderr, "add_cert_item %d failed %d\n", (int)cert_index, (int)status);
+                        success = FALSE;
+                    }
                 }
+                CFReleaseNull(chain);
+            } else {
+                fprintf(stderr, "SecTrustCopyCertificateChain failed\n");
+                success = FALSE;
             }
         }
     }

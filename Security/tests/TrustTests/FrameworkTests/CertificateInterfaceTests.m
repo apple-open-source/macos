@@ -319,8 +319,10 @@
     CFReleaseNull(cert1);
 }
 
-#if !TARGET_OS_BRIDGE // bridgeOS doesn't have a CT log list
 -(void)testCopyTrustedCTLogs {
+#if TARGET_OS_BRIDGE // bridgeOS doesn't have a CT log list
+    XCTSkip();
+#endif
     __block CFDictionaryRef trustedLogs = NULL;
     __block int matched = 0;
 
@@ -341,10 +343,11 @@
 errOut:
     CFReleaseSafe(trustedLogs);
 }
-#endif // !TARGET_OS_BRIDGE
 
-#if !TARGET_OS_BRIDGE // bridgeOS doesn't have a CT log list
 -(void)testCopyCTLogForKeyID {
+#if TARGET_OS_BRIDGE // bridgeOS doesn't have a CT log list
+    XCTSkip();
+#endif
     int matched = 0;
     /* look for some known CT log ids to ensure functionality */
     for (int ix = 0; ix < CTLOG_KEYID_COUNT; ix++) {
@@ -371,7 +374,6 @@ errContinue:
 errOut:
     return;
 }
-#endif // !TARGET_OS_BRIDGE
 
 - (void)testDeveloperIdDate {
     SecCertificateRef old_devid = SecCertificateCreateWithBytes(NULL, _old_developer_cert, sizeof(_old_developer_cert));
@@ -398,6 +400,8 @@ errOut:
         "a1.example.com",
         "example.xn--3hcrj9c",
         "example.xn--80ao21a",
+        /* underscore in a DNS name is now allowed for compatibility (70721372) */
+        "_foo.example.com",
     };
 
     const char *invalid_names[] = {
@@ -412,8 +416,6 @@ errOut:
         "example.--3hcrj9c",
         /* Error: TLD ends with a hyphen. */
         "example.80ao21a--",
-        /* Error: Label has invalid characters. */
-        "_foo.example.com",
     };
 
     size_t i;
@@ -449,7 +451,7 @@ errOut:
         "apple.com.1", /* invalid characters */
         "284.321.1.1", /* IPv4 octet values > 255 */
         "192.168.254.0/24", /* CIDR notation; not for SAN values */
-        "2606:4700:4700::1111::1" /* multiple IPv6 expansions */
+        "2606:4700:4700::1111::1", /* multiple IPv6 expansions */
         "[2606:4700:4700:[0:0:0:0]:1111]", /* too many brackets */
         "...1", /* not enough fields for IPv4 */
         "23.45.56.67.78", /* too many fields */

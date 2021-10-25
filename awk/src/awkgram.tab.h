@@ -56,85 +56,87 @@
      CCL = 272,
      NCCL = 273,
      CHAR = 274,
-     OR = 275,
-     STAR = 276,
-     QUEST = 277,
-     PLUS = 278,
-     EMPTYRE = 279,
-     ZERO = 280,
-     IGNORE_PRIOR_ATOM = 281,
-     AND = 282,
-     BOR = 283,
-     APPEND = 284,
-     EQ = 285,
-     GE = 286,
-     GT = 287,
-     LE = 288,
-     LT = 289,
-     NE = 290,
-     IN = 291,
-     ARG = 292,
-     BLTIN = 293,
-     BREAK = 294,
-     CLOSE = 295,
-     CONTINUE = 296,
-     DELETE = 297,
-     DO = 298,
-     EXIT = 299,
-     FOR = 300,
-     FUNC = 301,
-     SUB = 302,
-     GSUB = 303,
-     IF = 304,
-     INDEX = 305,
-     LSUBSTR = 306,
-     MATCHFCN = 307,
-     NEXT = 308,
-     NEXTFILE = 309,
-     ADD = 310,
-     MINUS = 311,
-     MULT = 312,
-     DIVIDE = 313,
-     MOD = 314,
-     ASSIGN = 315,
-     ASGNOP = 316,
-     ADDEQ = 317,
-     SUBEQ = 318,
-     MULTEQ = 319,
-     DIVEQ = 320,
-     MODEQ = 321,
-     POWEQ = 322,
-     PRINT = 323,
-     PRINTF = 324,
-     SPRINTF = 325,
-     ELSE = 326,
-     INTEST = 327,
-     CONDEXPR = 328,
-     POSTINCR = 329,
-     PREINCR = 330,
-     POSTDECR = 331,
-     PREDECR = 332,
-     VAR = 333,
-     IVAR = 334,
-     VARNF = 335,
-     CALL = 336,
-     NUMBER = 337,
-     STRING = 338,
-     REGEXPR = 339,
-     GETLINE = 340,
-     SUBSTR = 341,
-     SPLIT = 342,
-     RETURN = 343,
-     WHILE = 344,
-     CAT = 345,
-     UPLUS = 346,
-     UMINUS = 347,
-     NOT = 348,
-     POWER = 349,
-     INCR = 350,
-     DECR = 351,
-     INDIRECT = 352,
-     LASTTOKEN = 353
+     HAT = 275,
+     DOLLAR = 276,
+     OR = 277,
+     STAR = 278,
+     QUEST = 279,
+     PLUS = 280,
+     EMPTYRE = 281,
+     ZERO = 282,
+     IGNORE_PRIOR_ATOM = 283,
+     AND = 284,
+     BOR = 285,
+     APPEND = 286,
+     EQ = 287,
+     GE = 288,
+     GT = 289,
+     LE = 290,
+     LT = 291,
+     NE = 292,
+     IN = 293,
+     ARG = 294,
+     BLTIN = 295,
+     BREAK = 296,
+     CLOSE = 297,
+     CONTINUE = 298,
+     DELETE = 299,
+     DO = 300,
+     EXIT = 301,
+     FOR = 302,
+     FUNC = 303,
+     SUB = 304,
+     GSUB = 305,
+     IF = 306,
+     INDEX = 307,
+     LSUBSTR = 308,
+     MATCHFCN = 309,
+     NEXT = 310,
+     NEXTFILE = 311,
+     ADD = 312,
+     MINUS = 313,
+     MULT = 314,
+     DIVIDE = 315,
+     MOD = 316,
+     ASSIGN = 317,
+     ASGNOP = 318,
+     ADDEQ = 319,
+     SUBEQ = 320,
+     MULTEQ = 321,
+     DIVEQ = 322,
+     MODEQ = 323,
+     POWEQ = 324,
+     PRINT = 325,
+     PRINTF = 326,
+     SPRINTF = 327,
+     ELSE = 328,
+     INTEST = 329,
+     CONDEXPR = 330,
+     POSTINCR = 331,
+     PREINCR = 332,
+     POSTDECR = 333,
+     PREDECR = 334,
+     VAR = 335,
+     IVAR = 336,
+     VARNF = 337,
+     CALL = 338,
+     NUMBER = 339,
+     STRING = 340,
+     REGEXPR = 341,
+     GETLINE = 342,
+     SUBSTR = 343,
+     SPLIT = 344,
+     RETURN = 345,
+     WHILE = 346,
+     CAT = 347,
+     UPLUS = 348,
+     UMINUS = 349,
+     NOT = 350,
+     POWER = 351,
+     INCR = 352,
+     DECR = 353,
+     INDIRECT = 354,
+     LASTTOKEN = 355
    };
 #endif
 /* Tokens.  */
@@ -155,85 +157,87 @@
 #define CCL 272
 #define NCCL 273
 #define CHAR 274
-#define OR 275
-#define STAR 276
-#define QUEST 277
-#define PLUS 278
-#define EMPTYRE 279
-#define ZERO 280
-#define IGNORE_PRIOR_ATOM 281
-#define AND 282
-#define BOR 283
-#define APPEND 284
-#define EQ 285
-#define GE 286
-#define GT 287
-#define LE 288
-#define LT 289
-#define NE 290
-#define IN 291
-#define ARG 292
-#define BLTIN 293
-#define BREAK 294
-#define CLOSE 295
-#define CONTINUE 296
-#define DELETE 297
-#define DO 298
-#define EXIT 299
-#define FOR 300
-#define FUNC 301
-#define SUB 302
-#define GSUB 303
-#define IF 304
-#define INDEX 305
-#define LSUBSTR 306
-#define MATCHFCN 307
-#define NEXT 308
-#define NEXTFILE 309
-#define ADD 310
-#define MINUS 311
-#define MULT 312
-#define DIVIDE 313
-#define MOD 314
-#define ASSIGN 315
-#define ASGNOP 316
-#define ADDEQ 317
-#define SUBEQ 318
-#define MULTEQ 319
-#define DIVEQ 320
-#define MODEQ 321
-#define POWEQ 322
-#define PRINT 323
-#define PRINTF 324
-#define SPRINTF 325
-#define ELSE 326
-#define INTEST 327
-#define CONDEXPR 328
-#define POSTINCR 329
-#define PREINCR 330
-#define POSTDECR 331
-#define PREDECR 332
-#define VAR 333
-#define IVAR 334
-#define VARNF 335
-#define CALL 336
-#define NUMBER 337
-#define STRING 338
-#define REGEXPR 339
-#define GETLINE 340
-#define SUBSTR 341
-#define SPLIT 342
-#define RETURN 343
-#define WHILE 344
-#define CAT 345
-#define UPLUS 346
-#define UMINUS 347
-#define NOT 348
-#define POWER 349
-#define INCR 350
-#define DECR 351
-#define INDIRECT 352
-#define LASTTOKEN 353
+#define HAT 275
+#define DOLLAR 276
+#define OR 277
+#define STAR 278
+#define QUEST 279
+#define PLUS 280
+#define EMPTYRE 281
+#define ZERO 282
+#define IGNORE_PRIOR_ATOM 283
+#define AND 284
+#define BOR 285
+#define APPEND 286
+#define EQ 287
+#define GE 288
+#define GT 289
+#define LE 290
+#define LT 291
+#define NE 292
+#define IN 293
+#define ARG 294
+#define BLTIN 295
+#define BREAK 296
+#define CLOSE 297
+#define CONTINUE 298
+#define DELETE 299
+#define DO 300
+#define EXIT 301
+#define FOR 302
+#define FUNC 303
+#define SUB 304
+#define GSUB 305
+#define IF 306
+#define INDEX 307
+#define LSUBSTR 308
+#define MATCHFCN 309
+#define NEXT 310
+#define NEXTFILE 311
+#define ADD 312
+#define MINUS 313
+#define MULT 314
+#define DIVIDE 315
+#define MOD 316
+#define ASSIGN 317
+#define ASGNOP 318
+#define ADDEQ 319
+#define SUBEQ 320
+#define MULTEQ 321
+#define DIVEQ 322
+#define MODEQ 323
+#define POWEQ 324
+#define PRINT 325
+#define PRINTF 326
+#define SPRINTF 327
+#define ELSE 328
+#define INTEST 329
+#define CONDEXPR 330
+#define POSTINCR 331
+#define PREINCR 332
+#define POSTDECR 333
+#define PREDECR 334
+#define VAR 335
+#define IVAR 336
+#define VARNF 337
+#define CALL 338
+#define NUMBER 339
+#define STRING 340
+#define REGEXPR 341
+#define GETLINE 342
+#define SUBSTR 343
+#define SPLIT 344
+#define RETURN 345
+#define WHILE 346
+#define CAT 347
+#define UPLUS 348
+#define UMINUS 349
+#define NOT 350
+#define POWER 351
+#define INCR 352
+#define DECR 353
+#define INDIRECT 354
+#define LASTTOKEN 355
 
 
 
@@ -248,7 +252,7 @@ typedef union YYSTYPE
 	char	*s;
 }
 /* Line 1529 of yacc.c.  */
-#line 252 "awkgram.tab.h"
+#line 256 "awkgram.tab.h"
 	YYSTYPE;
 # define yystype YYSTYPE /* obsolescent; will be withdrawn */
 # define YYSTYPE_IS_DECLARED 1

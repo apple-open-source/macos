@@ -1,5 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
-// License & terms of use: http://www.unicode.org/copyright.html#License
+// License & terms of use: http://www.unicode.org/copyright.html
+// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
 am{
     Countries{
         001{"ዓለም"}
@@ -220,7 +221,7 @@ am{
         PK{"ፓኪስታን"}
         PL{"ፖላንድ"}
         PM{"ቅዱስ ፒዬር እና ሚኩኤሎን"}
-        PN{"ፒትካኢርን አይስላንድ"}
+        PN{"ፒትካኢርን ደሴቶች"}
         PR{"ፖርታ ሪኮ"}
         PS{"የፍልስጤም ግዛት"}
         PT{"ፖርቱጋል"}
@@ -305,12 +306,11 @@ am{
     }
     Countries%variant{
         CD{"ኮንጎ (የዲሞክራቲክ ሪፐብሊክ ኮንጎ)"}
-        CG{"ኮንጎ (ሪፐብሊክ)"}
+        CG{"ኮንጎ (ሪፑብሊክ)"}
         CI{"አይቮሪኮስት"}
         CZ{"ቼክ ሪፑብሊክ"}
         FK{"ፎክላንድ ደሴቶች (ኢስላስ ማልቪናስ)"}
         SZ{"ስዋዚላንድ"}
         TL{"ምስራቅ ቲሞር"}
     }
-    Version{"36.1"}
 }

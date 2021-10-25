@@ -32,26 +32,29 @@
 extern "C" {
 #endif
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+
 // MARK: ----- Generalized NSS_TaggedItem template chooser support -----
 
 /*
  * A tagged item for use with simple CHOICE types implemented
  * via SEC_ASN1_DYNAMIC.
  */
-typedef struct {
+typedef struct SEC_ASN1_API_DEPRECATED {
 	SecAsn1Item		item;
 	unsigned char	tag;
-} NSS_TaggedItem;
+} NSS_TaggedItem SEC_ASN1_API_DEPRECATED;
 
 /*
  * Type/template-specific SecAsn1TemplateChooser passes
  * an array of these, terminated by a NSS_TagChoice with 
  * a NULL templ field, to SecAsn1TaggedTemplateChooser().
  */
-typedef struct {
+typedef struct SEC_ASN1_API_DEPRECATED {
 	unsigned char 			tag;
 	const SecAsn1Template	*templ;
-} NSS_TagChoice;
+} NSS_TagChoice SEC_ASN1_API_DEPRECATED;
 
 /*
  * Generalized Template chooser.
@@ -64,7 +67,7 @@ const SecAsn1Template * SecAsn1TaggedTemplateChooser(
 	size_t len,
 	void *dest,
 	/* array of tag/template pairs */
-	const NSS_TagChoice *chooser);
+	const NSS_TagChoice *chooser) SEC_ASN1_API_DEPRECATED;
 
 // MARK: ----- X509 Name, RDN ------
 
@@ -90,10 +93,10 @@ const SecAsn1Template * SecAsn1TaggedTemplateChooser(
  * DirectoryString, but some certs (e.g. the Thawte serverbasic cert)
  * use this type.
  */
-typedef struct {
+typedef struct SEC_ASN1_API_DEPRECATED {
     SecAsn1Oid 		type;
     NSS_TaggedItem 	value;	
-} NSS_ATV;
+} NSS_ATV SEC_ASN1_API_DEPRECATED;
 
 /*
  * ASN class : RelativeDistinguishedName
@@ -101,9 +104,9 @@ typedef struct {
  *
  * Corresponds to CSSM_X509_RDN. 
  */
-typedef struct  {
+typedef struct SEC_ASN1_API_DEPRECATED {
     NSS_ATV 	**atvs;
-} NSS_RDN;
+} NSS_RDN SEC_ASN1_API_DEPRECATED;
 
 /*
  * ASN class : Name
@@ -111,13 +114,13 @@ typedef struct  {
  *
  * Corresponds to CSSM_X509_NAME.
  */
-typedef struct {
+typedef struct SEC_ASN1_API_DEPRECATED {
     NSS_RDN 	**rdns;
-} NSS_Name;
+} NSS_Name SEC_ASN1_API_DEPRECATED;
 
-extern const SecAsn1Template kSecAsn1ATVTemplate[];
-extern const SecAsn1Template kSecAsn1RDNTemplate[];
-extern const SecAsn1Template kSecAsn1NameTemplate[];
+extern const SecAsn1Template kSecAsn1ATVTemplate[] SEC_ASN1_API_DEPRECATED;
+extern const SecAsn1Template kSecAsn1RDNTemplate[] SEC_ASN1_API_DEPRECATED;
+extern const SecAsn1Template kSecAsn1NameTemplate[] SEC_ASN1_API_DEPRECATED;
 
 // MARK: ----- OtherName, GeneralizedName -----
 
@@ -127,13 +130,13 @@ extern const SecAsn1Template kSecAsn1NameTemplate[];
  *
  * CE_OtherName.value expressed as ASN_ANY, not en/decoded.
  */
-extern const SecAsn1Template kSecAsn1OtherNameTemplate[];
+extern const SecAsn1Template kSecAsn1OtherNameTemplate[] SEC_ASN1_API_DEPRECATED;
 
 /* 
  * For decoding an OtherName when it's a context-specific CHOICE
  * of a GeneralName.
  */
-extern const SecAsn1Template kSecAsn1GenNameOtherNameTemplate[];
+extern const SecAsn1Template kSecAsn1GenNameOtherNameTemplate[] SEC_ASN1_API_DEPRECATED;
 
 /*
  * ASN Class : GeneralName
@@ -146,7 +149,7 @@ extern const SecAsn1Template kSecAsn1GenNameOtherNameTemplate[];
  * atomic type (IA5String, Octet string) or is raw, un{de,en}coded
  * ASN_ANY.
  */
-typedef NSS_TaggedItem NSS_GeneralName;
+typedef NSS_TaggedItem NSS_GeneralName SEC_ASN1_API_DEPRECATED;
 
 /*
  * These context-specific tag definitions, for use in 
@@ -168,9 +171,9 @@ typedef enum {
 	NGT_URI = 6,				// IA5String
 	NGT_IPAddress = 7,			// OCTET_STRING
 	NGT_RegisteredID = 8		// OID
-} NSS_GeneralNameTag;
+} NSS_GeneralNameTag SEC_ASN1_API_DEPRECATED;
 
-extern const SecAsn1Template kSecAsn1GeneralNameTemplate[];
+extern const SecAsn1Template kSecAsn1GeneralNameTemplate[] SEC_ASN1_API_DEPRECATED;
 
 /*
  * ASN Class : GeneralNames
@@ -183,11 +186,13 @@ extern const SecAsn1Template kSecAsn1GeneralNameTemplate[];
  * that step. Each of the resulting elements is individually 
  * decoded into an NSS_GeneralName.
  */
-typedef struct {
+typedef struct SEC_ASN1_API_DEPRECATED {
 	SecAsn1Item **names;		/* sequence */
-} NSS_GeneralNames;
+} NSS_GeneralNames SEC_ASN1_API_DEPRECATED;
 
-#define kSecAsn1GeneralNamesTemplate kSecAsn1SequenceOfAnyTemplate 
+#define kSecAsn1GeneralNamesTemplate kSecAsn1SequenceOfAnyTemplate
+
+#pragma clang diagnostic pop
 
 #ifdef  __cplusplus
 }

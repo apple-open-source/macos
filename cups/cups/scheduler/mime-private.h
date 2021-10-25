@@ -28,6 +28,7 @@ extern "C" {
 
 extern void	_mimeError(mime_t *mime, const char *format, ...) _CUPS_FORMAT(2, 3);
 
+extern mime_type_t  *mimeFileTypeFD(mime_t *mime, int fd, const char *filename);
 
 #  ifdef __cplusplus
 }

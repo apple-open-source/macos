@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2019 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2021 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -115,8 +115,10 @@ _EAPOLClientCFMachPortCreate(CFMachPortCallBack callout,
 	goto failed;
     }
     have_send_right = TRUE;
-    cf_port = CFMachPortCreateWithPort(NULL, port, callout, context, NULL);
+    cf_port = _SC_CFMachPortCreateWithPort("EAPOLClient",
+					   port, callout, context);
     if (cf_port != NULL) {
+	/* _SC_CFMachPortCreateWithPort already logged the failure */
 	return (cf_port);
     }
  failed:
@@ -184,6 +186,7 @@ EAPOLClientAttach(const char * interface_name,
     CFMachPortContext		context = {0, NULL, NULL, NULL, NULL};
     mach_port_t			port;
     mach_port_t			port_old;
+    boolean_t			remove_send_right = TRUE;
     int				result = 0;
     mach_port_t			server;
     kern_return_t		status;
@@ -226,11 +229,16 @@ EAPOLClientAttach(const char * interface_name,
 		  mach_error_string(status));
 	goto failed;
     }
+    remove_send_right = FALSE;
     status = eapolcontroller_client_attach(server,
 					   client->if_name,
 					   port, &client->session_port,
 					   &control, &control_len, &result);
     if (status != KERN_SUCCESS) {
+	if (status == MACH_SEND_INVALID_DEST) {
+	    /* we didn't move the send right to the server */
+	    remove_send_right = TRUE;
+	}
 	EAPLOG_FL(LOG_NOTICE, 
 		  "eapolcontroller_client_attach(%s): %s",
 		  client->if_name, mach_error_string(status));
@@ -260,7 +268,7 @@ EAPOLClientAttach(const char * interface_name,
 
  failed:
     if (client != NULL) {
-	EAPOLClientInvalidate(client, TRUE);
+	EAPOLClientInvalidate(client, remove_send_right);
     }
     my_CFRelease(control_dict);
     if (client != NULL) {

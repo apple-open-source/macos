@@ -20,7 +20,7 @@ extern int (*XFakeXCTestCallback)(const char *fmt, va_list);
 void FakeXCFailureHandler(XCTestCase *, BOOL, const char *, NSUInteger, NSString *, NSString *, ...);
 
 #define FakeXCFailure(test, format...)                  \
-    (void) FakeXCFailureHandler(test, false, __FILE__, __LINE__, @"failure", @"", format)
+    (void) FakeXCFailureHandler(test, false, __FILE__, __LINE__, @"failure", @format)
 
 #define XCTFail(format...)            \
     FakeXCFailure(self, format);

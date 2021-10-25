@@ -657,6 +657,17 @@ create_newfile(path, target, sbp)
 	return (open(path, O_CREAT | O_RDWR | O_TRUNC, S_IRUSR | S_IWUSR));
 }
 
+/* Memory strategy threshold, in pages: if physmem is larger then this, use a
+ * large buffer */
+#define PHYSPAGES_THRESHOLD (32*1024)
+
+/* Maximum buffer size in bytes - do not allow it to grow larger than this */
+#define BUFSIZE_MAX (2*1024*1024)
+
+/* Small (default) buffer size in bytes. It's inefficient for this to be
+ * smaller than MAXPHYS */
+#define BUFSIZE_SMALL (MAXPHYS)
+
 /*
  * copy --
  *	copy from one file to another
@@ -670,8 +681,10 @@ copy(from_fd, from_name, to_fd, to_name, size)
 	register int nr, nw;
 	int serrno;
 	char *p;
-	char buf[MAXBSIZE];
 	int done_copy;
+
+	static char *buf = NULL;
+	static size_t bufsize = 0;
 
 	/* Rewind file descriptors. */
 	if (lseek(from_fd, (off_t)0, SEEK_SET) == (off_t)-1)
@@ -697,7 +710,22 @@ copy(from_fd, from_name, to_fd, to_name, size)
 		done_copy = 1;
 	}
 	if (!done_copy) {
-		while ((nr = read(from_fd, buf, sizeof(buf))) > 0)
+		if (buf == NULL) {
+			/*
+			 * Note that buf and bufsize are static. If
+			 * malloc() fails, it will fail at the start
+			 * and not copy only some files.
+			 */
+			if (sysconf(_SC_PHYS_PAGES) >
+			    PHYSPAGES_THRESHOLD)
+				bufsize = MIN(BUFSIZE_MAX, MAXPHYS * 8);
+			else
+				bufsize = BUFSIZE_SMALL;
+			buf = malloc(bufsize);
+			if (buf == NULL)
+				err(1, "Not enough memory");
+		}
+		while ((nr = read(from_fd, buf, bufsize)) > 0)
 			if ((nw = write(to_fd, buf, nr)) != nr) {
 				serrno = errno;
 				(void)unlink(to_name);

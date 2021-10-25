@@ -30,8 +30,6 @@
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
-#include <mach-o/dyld_priv.h>
-#include <mach-o/dyld_cache_format.h>
 #include <mach/mach_time.h>
 #include <sys/kdebug_private.h>
 
@@ -411,7 +409,7 @@ do_boot_cache()
 
 	userspace_timestamps.ssup_oid_timestamp = mach_absolute_time();
 	BC_set_userspace_timestamps(&userspace_timestamps);
-
+	
 	error = BC_start(pc);
 	if (error != 0) {
 		errno = error;
@@ -453,7 +451,7 @@ add_playlist_for_preheated_user(struct BC_playlist *pc, bool isFusion) {
 	struct BC_playlist* user_playlist = NULL;
 
 	//rdar://8830944&9209576 Detect FDE user
-	io_registry_entry_t service = IORegistryEntryFromPath(kIOMasterPortDefault, "IODeviceTree:/chosen");
+	io_registry_entry_t service = IORegistryEntryFromPath(kIOMainPortDefault, "IODeviceTree:/chosen");
 	if (service != MACH_PORT_NULL) {
 
 		CFDataRef fde_login_user = IORegistryEntryCreateCFProperty(service, CFSTR(kCSFDEEFILoginUnlockIdentID),
@@ -546,7 +544,10 @@ add_playlist_for_preheated_user(struct BC_playlist *pc, bool isFusion) {
 									}
 
 									PC_FREE_ZERO(app_playlist);
-									// DLOG("Added playlist for app %s", playlist_path);
+#ifdef DEBUG
+									DLOG("Merged playlist for app %s into user playlist:", playlist_path);
+									BC_print_playlist(user_playlist, false);
+#endif
 								}
 
 							}
@@ -597,6 +598,11 @@ add_playlist_for_preheated_user(struct BC_playlist *pc, bool isFusion) {
 	error = BC_merge_playlists(pc, user_playlist);
 	if (error != 0) {
 		BC_reset_playlist(pc);
+	} else {
+#ifdef DEBUG
+		DLOG("Merged preheated user playlist into root playlist:");
+		BC_print_playlist(pc, false);
+#endif
 	}
 
 out:
@@ -868,6 +874,13 @@ add_file(struct BC_playlist *pc, const char *fname, const int batch, const bool 
 	error = merge_into_batch(pc, playlist, batch, low_priority);
 	PC_FREE_ZERO(playlist);
 	
+#ifdef DEBUG
+	if (!error) {
+		DLOG("Merged playlist for file %s into playlist:", fname);
+		BC_print_playlist(pc, false);
+	}
+#endif
+	
 	return error;
 }
 
@@ -985,79 +998,50 @@ add_fseventsd_files(struct BC_playlist *pc, const int batch)
  * Add the native shared cache to the bootcache.
  */
 static int
-add_shared_cache(struct BC_playlist *pc, const char* shared_cache_path, int batch, bool low_priority, bool look_for_update)
-{
-	int error;
-	
-	int fd = open(shared_cache_path, O_RDONLY);
-	if (fd == -1) {
-		if (errno != ENOENT && errno != EINVAL) {
-			LOG_ERRNO("Unable to open %s to add it to the boot cache", shared_cache_path);
-		}
-		return errno;
-	}
-
-	struct BC_playlist *playlist = NULL;
-	error = BC_playlist_for_filename(fd, shared_cache_path, 0, &playlist);
-	close(fd);
-	if (playlist == NULL) {
-		if (error != ENOENT && error != EINVAL) {
-			LOG_ERRNO("Unable to create playlist for %s", shared_cache_path);
-		}
-		return error;
-	}
-
-	for (int i = 0; i < playlist->p_nentries; i++) {
-		playlist->p_entries[i].pe_flags |= BC_PE_SHARED;
-	}
-	
-	// Handle dyld shared cache being updated since last boot
-	if (look_for_update) {
-		
-		// Check for overlap between our playlist and the new shared cache
-		if (! BC_playlists_intersect(pc, playlist)) {
-			DLOG("Shared cache has moved, removing old shared cache entries, and explicitly new shared cache at high priority");
-			
-			// Remove all old shared cache entires (all shared caches, since when one updates, they probably all have been updated)
-			for (int i = 0; i < pc->p_nentries; i++) {
-				if (pc->p_entries[i].pe_flags & BC_PE_SHARED) {
-					pc->p_entries[i].pe_length = 0;
-				}
-			}
-			
-			// Even if we requested low priority, make the new shared cache high priority (because our previous recording of shared cache I/Os is now wrong)
-			low_priority = false;
-			
-		} else {
-			DLOG("Shared cache hasn't moved");
-			// The shared cache is in the same place on disk as last boot, don't need to do anything special
-		}
-	}
-	
-
-	error = merge_into_batch(pc, playlist, batch, low_priority);
-	PC_FREE_ZERO(playlist);
-	
-	return error;
-}
-
-/*
- * Add the native shared cache to the bootcache.
- */
-static int
 add_native_shared_cache(struct BC_playlist *pc, int batch, bool low_priority)
 {
 #if ! BC_ADD_SHARED_CACHE_AT_HIGH_PRIORITY
 	low_priority = true;
 #endif
 	
-	const char* shared_cache_path = dyld_shared_cache_file_path();
-	if (! shared_cache_path) {
-		LOG("No shared cache path");
-		return ENOENT;
+	struct BC_playlist *shared_cache_playlist = NULL;
+	int err = BC_playlist_for_native_shared_caches(&shared_cache_playlist);
+	if (err != 0) {
+		return err;
 	}
 	
-	return add_shared_cache(pc, shared_cache_path, batch, low_priority, true);
+	// Handle dyld shared cache being updated since last boot
+	// Check for overlap between our playlist and the new shared cache
+	if (! BC_playlists_intersect(pc, shared_cache_playlist)) {
+		DLOG("Shared cache has moved, removing old shared cache entries, and setting new shared cache to high priority");
+		
+		// Remove all old shared cache entires (all shared caches, since when one updates, they probably all have been updated)
+		for (int i = 0; i < pc->p_nentries; i++) {
+			if (pc->p_entries[i].pe_flags & BC_PE_SHARED) {
+				pc->p_entries[i].pe_length = 0;
+			}
+		}
+		
+		// Even if we requested low priority, make the new shared cache high priority (because our previous recording of shared cache I/Os is now wrong)
+		low_priority = false;
+		
+	} else {
+		DLOG("Shared cache hasn't moved");
+		// The shared cache is in the same place on disk as last boot, don't need to do anything special
+	}
+	
+	int error = merge_into_batch(pc, shared_cache_playlist, batch, low_priority);
+	
+	PC_FREE_ZERO(shared_cache_playlist);
+
+#ifdef DEBUG
+	if (!error) {
+		DLOG("Merged native shared cache playlist into root playlist:");
+		BC_print_playlist(pc, false);
+	}
+#endif
+
+	return error;
 }
 
 
@@ -1102,14 +1086,20 @@ start_cache(const char *pfname)
 		 * completes successfully.
 		 */
 
-		//char prev_path[MAXPATHLEN];
-		//snprintf(prev_path, sizeof(prev_path), "%s.previous", pfname);
-		//error = rename(pfname, prev_path); // for debugging
+#ifdef DEBUG
+		char prev_path[MAXPATHLEN];
+		snprintf(prev_path, sizeof(prev_path), "%s.previous", pfname);
+		error = rename(pfname, prev_path); // for debugging
+		if (error != 0 && errno != ENOENT) {
+			LOG_ERRNO("could not rename bootcache playlist %s", pfname);
+		}
+#else
 		error = unlink(pfname);
 		if (error != 0 && errno != ENOENT) {
 			LOG_ERRNO("could not unlink playlist %s", pfname);
 		}
-		
+#endif
+
 		error = trim_playlist_to_max_size(pc);
 		if (error != 0) {
 			errno = error;
@@ -1271,6 +1261,11 @@ merge_playlists(const char *pfname, int argc, char *argv[], int* pbatch)
 		if (BC_merge_playlists(pc, npc)){
 			error = 1;
 			goto out;
+		} else {
+#ifdef DEBUG
+			DLOG("Merged into:");
+			BC_print_playlist(pc, false);
+#endif
 		}
 		PC_FREE_ZERO(npc);
 	}
@@ -1714,10 +1709,10 @@ _bootcachectl_copy_uuid_for_bsd_device(const char* bsd_name, bool *is_apfs_out, 
 	
 	CFStringRef uuid = NULL;
 	
-	mach_port_t masterPort;
-	if (KERN_SUCCESS == IOMasterPort(bootstrap_port, &masterPort)) {
+	mach_port_t mainPort;
+	if (KERN_SUCCESS == IOMainPort(bootstrap_port, &mainPort)) {
 		
-		io_registry_entry_t serviceMatchingBSDName = IOServiceGetMatchingService(masterPort, IOBSDNameMatching(masterPort, 0, bsd_name));
+		io_registry_entry_t serviceMatchingBSDName = IOServiceGetMatchingService(mainPort, IOBSDNameMatching(mainPort, 0, bsd_name));
 		if (IO_OBJECT_NULL != serviceMatchingBSDName) {
 			
 			if (IOObjectConformsTo(serviceMatchingBSDName, kCoreStorageLogicalClassName) ||

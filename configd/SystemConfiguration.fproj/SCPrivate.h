@@ -229,7 +229,7 @@ void		_SCErrorSet			(int			error);
  */
 Boolean		_SCSerialize			(CFPropertyListRef	obj,
 						 CFDataRef		*xml,
-						 void			**dataRef,
+						 const void *		*dataRef,
 						 CFIndex		*dataLen);
 
 /*!
@@ -246,7 +246,7 @@ Boolean		_SCSerialize			(CFPropertyListRef	obj,
  */
 Boolean		_SCUnserialize			(CFPropertyListRef	*obj,
 						 CFDataRef		xml,
-						 void			*dataRef,
+						 const void *		dataRef,
 						 CFIndex		dataLen);
 
 /*!
@@ -262,7 +262,7 @@ Boolean		_SCUnserialize			(CFPropertyListRef	*obj,
  */
 Boolean		_SCSerializeString		(CFStringRef		str,
 						 CFDataRef		*data,
-						 void			**dataRef,
+						 const void *		*dataRef,
 						 CFIndex		*dataLen);
 
 /*!
@@ -279,7 +279,7 @@ Boolean		_SCSerializeString		(CFStringRef		str,
  */
 Boolean		_SCUnserializeString		(CFStringRef		*str,
 						 CFDataRef		utf8,
-						 void			*dataRef,
+						 const void *		dataRef,
 						 CFIndex		dataLen);
 
 /*!
@@ -292,7 +292,7 @@ Boolean		_SCUnserializeString		(CFStringRef		*str,
 		allocated/serialized data
  */
 Boolean		_SCSerializeData		(CFDataRef		data,
-						 void			**dataRef,
+						 const void *		*dataRef,
 						 CFIndex		*dataLen);
 
 /*!
@@ -305,7 +305,7 @@ Boolean		_SCSerializeData		(CFDataRef		data,
 	@param dataLen A pointer to the length of the serialized data
  */
 Boolean		_SCUnserializeData		(CFDataRef		*data,
-						 void			*dataRef,
+						 const void *		dataRef,
 						 CFIndex		dataLen);
 
 /*!
@@ -847,11 +847,19 @@ _SC_dlopen					(const char		*framework);
 	#define __MACH_PORT_DEBUG(cond, str, port)
 #endif	// DEBUG_MACH_PORT_ALLOCATIONS
 
+Boolean
+_SC_checkMachPortReceive			(const char		*err_prefix,
+						 mach_port_t		port);
+
+Boolean
+_SC_checkMachPortSend				(const char		*err_prefix,
+						 mach_port_t		port);
+
 void
 _SC_logMachPortStatus				(void);
 
 void
-_SC_logMachPortReferences			(const char		*str,
+_SC_logMachPortReferences			(const char		*err_prefix,
 						 mach_port_t		port);
 
 CFStringRef

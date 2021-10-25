@@ -20,6 +20,8 @@
 #include <sys/stat.h>
 #include <TargetConditionals.h>
 
+#include <mach-o/dyld_cache_format.h>
+
 static const size_t dyld_cache_header_size = sizeof (struct copied_dyld_cache_header);
 
 /*
@@ -49,9 +51,9 @@ shared_cache_filename(const uuid_t uu)
     assert(!uuid_is_null(uu));
     static char *sc_argv[] = {
 #if TARGET_OS_OSX
-        "/System/Library/dyld",
+        MACOSX_MRM_DYLD_SHARED_CACHE_DIR,
 #elif TARGET_OS_IPHONE
-        "/System/Library/Caches/com.apple.dyld",
+        IPHONE_DYLD_SHARED_CACHE_DIR,
 #else
 #error undefined
 #endif
@@ -66,7 +68,7 @@ shared_cache_filename(const uuid_t uu)
                 (fe->fts_info & FTS_ERR) != 0)
                 continue;
 
-            static const char prefix[] = "dyld_shared_cache_";
+            static const char prefix[] = DYLD_SHARED_CACHE_BASE_NAME;
             if (strncmp(fe->fts_name, prefix, strlen(prefix)) != 0)
                 continue;
 

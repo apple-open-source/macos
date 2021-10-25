@@ -1,0 +1,18 @@
+syntax = "proto2";
+
+option objc_class_naming = "extended";
+
+package OT;
+
+message SecureElementPeerIdentity {
+    optional bytes peerIdentifier = 1;
+    optional bytes peerData = 2;
+}
+
+message CurrentSecureElementIdentities {
+    optional SecureElementPeerIdentity localPeerIdentity = 1;
+    repeated SecureElementPeerIdentity trustedPeerSecureElementIdentities = 2;
+
+    // Present when Octagon has received a local peer identity to set, but hasn't managed to set it yet.
+    optional SecureElementPeerIdentity pendingLocalPeerIdentity = 3;
+}

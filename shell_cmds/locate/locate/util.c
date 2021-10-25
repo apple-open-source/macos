@@ -1,4 +1,6 @@
 /*
+ * SPDX-License-Identifier: BSD-4-Clause
+ *
  * Copyright (c) 1995 Wolfram Schneider <wosch@FreeBSD.org>. Berlin.
  * Copyright (c) 1989, 1993
  *	The Regents of the University of California.  All rights reserved.
@@ -34,7 +36,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $FreeBSD: src/usr.bin/locate/locate/util.c,v 1.10 2002/06/24 12:40:11 naddy Exp $
+ * $FreeBSD$
  */
 
 
@@ -71,7 +73,6 @@ check_bigram_char(ch)
 	errx(1,
 		"locate database header corrupt, bigram char outside 0, %d-%d: %d",  
 		ASCII_MIN, ASCII_MAX, ch);
-	exit(1);
 }
 
 /* split a colon separated string into a char vector
@@ -83,17 +84,15 @@ check_bigram_char(ch)
  *
  */
 char **
-colon(dbv, path, dot)
-	char **dbv;
-	char *path;
-	char *dot; /* default for single ':' */
+colon(char **dbv, char *path, char *dot)
 {
-	int vlen, slen;
+	int vlen;
+	long slen;
 	char *c, *ch, *p;
 	char **pv;
 
 	if (dbv == NULL) {
-		if ((dbv = malloc(sizeof(char **))) == NULL)
+		if ((dbv = malloc(sizeof(char *))) == NULL)
 			err(1, "malloc");
 		*dbv = NULL;
 	}
@@ -123,7 +122,7 @@ colon(dbv, path, dot)
 				*(p + slen) = '\0';
 			}
 			/* increase dbv with element p */
-			if ((dbv = realloc(dbv, sizeof(char **) * (vlen + 2)))
+			if ((dbv = realloc(dbv, sizeof(char *) * (vlen + 2)))
 			    == NULL)
 				err(1, "realloc");
 			*(dbv + vlen) = p;
@@ -162,7 +161,7 @@ patprep(name)
 
 	/* skip trailing metacharacters */
 	for (; p >= name; p--)
-		if (index(LOCATE_REG, *p) == NULL)
+		if (strchr(LOCATE_REG, *p) == NULL)
 			break;
 
 	/* 
@@ -172,7 +171,7 @@ patprep(name)
 	 *        |----< p
 	 */
 	if (p >= name && 
-	    (index(p, '[') != NULL || index(p, ']') != NULL)) {
+	    (strchr(p, '[') != NULL || strchr(p, ']') != NULL)) {
 		for (p = name; *p != '\0'; p++)
 			if (*p == ']' || *p == '[')
 				break;
@@ -183,7 +182,7 @@ patprep(name)
 		 * '*\*[a-z]'
 		 *    |-------< p
 		 */
-		if (p >= name && index(LOCATE_REG, *p) != NULL)
+		if (p >= name && strchr(LOCATE_REG, *p) != NULL)
 			p = name - 1;
 	}
 	
@@ -193,7 +192,7 @@ patprep(name)
 
 	else {
 		for (endmark = p; p >= name; p--)
-			if (index(LOCATE_REG, *p) != NULL)
+			if (strchr(LOCATE_REG, *p) != NULL)
 				break;
 		for (++p;
 		    (p <= endmark) && subp < (globfree + sizeof(globfree));)
@@ -218,16 +217,16 @@ tolower_word(word)
 
 
 /*
- * Read integer from mmap pointer. 
- * Essential a simple  ``return *(int *)p'' but avoid sigbus 
+ * Read integer from mmap pointer.
+ * Essentially a simple ``return *(int *)p'' but avoids sigbus
  * for integer alignment (SunOS 4.x, 5.x).
  *
- * Convert network byte order to host byte order if neccessary. 
- * So we can read on FreeBSD/i386 (little endian) a locate database
+ * Convert network byte order to host byte order if necessary.
+ * So we can read a locate database on FreeBSD/i386 (little endian)
  * which was built on SunOS/sparc (big endian).
  */
 
-int 
+int
 getwm(p)
 	caddr_t p;
 {
@@ -235,18 +234,19 @@ getwm(p)
 		char buf[INTSIZE];
 		int i;
 	} u;
-	register int i;
+	register int i, hi;
 
-	for (i = 0; i < INTSIZE; i++)
+	for (i = 0; i < (int)INTSIZE; i++)
 		u.buf[i] = *p++;
 
 	i = u.i;
 
 	if (i > MAXPATHLEN || i < -(MAXPATHLEN)) {
-		i = ntohl(i);
-		if (i > MAXPATHLEN || i < -(MAXPATHLEN))
-			errx(1, "integer out of +-MAXPATHLEN (%d): %d",
-			    MAXPATHLEN, abs(i) < abs(htonl(i)) ? i : htonl(i));
+		hi = ntohl(i);
+		if (hi > MAXPATHLEN || hi < -(MAXPATHLEN))
+			errx(1, "integer out of +-MAXPATHLEN (%d): %u",
+			    MAXPATHLEN, abs(i) < abs(hi) ? i : hi);
+		return(hi);
 	}
 	return(i);
 }
@@ -254,7 +254,7 @@ getwm(p)
 /*
  * Read integer from stream.
  *
- * Convert network byte order to host byte order if neccessary. 
+ * Convert network byte order to host byte order if necessary.
  * So we can read on FreeBSD/i386 (little endian) a locate database
  * which was built on SunOS/sparc (big endian).
  */
@@ -263,16 +263,16 @@ int
 getwf(fp)
 	FILE *fp;
 {
-	register int word;
+	register int word, hword;
 
 	word = getw(fp);
 
 	if (word > MAXPATHLEN || word < -(MAXPATHLEN)) {
-		word = ntohl(word);
-		if (word > MAXPATHLEN || word < -(MAXPATHLEN))
-			errx(1, "integer out of +-MAXPATHLEN (%d): %d",
-			    MAXPATHLEN, abs(word) < abs(htonl(word)) ? word :
-				htonl(word));
+		hword = ntohl(word);
+		if (hword > MAXPATHLEN || hword < -(MAXPATHLEN))
+			errx(1, "integer out of +-MAXPATHLEN (%d): %u",
+			    MAXPATHLEN, abs(word) < abs(hword) ? word : hword);
+		return(hword);
 	}
 	return(word);
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, 2003-2005, 2008-2010, 2015, 2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2003-2005, 2008-2010, 2015, 2017, 2018, 2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -62,8 +62,8 @@ typedef const struct CF_BRIDGED_TYPE(id) __SCDynamicStore *	SCDynamicStoreRef;
 
 /*!
 	@typedef SCDynamicStoreContext
-	Structure containing user-specified data and callbacks for an
-	SCDynamicStore session.
+	@discussion Structure containing user-specified data and callbacks for an
+		SCDynamicStore session.
 	@field version The version number of the structure type being passed
 		in as a parameter to the SCDynamicStore creation function.
 		This structure is version 0.

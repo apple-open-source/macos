@@ -32,6 +32,10 @@ __BEGIN_DECLS
 
 #define TRUSTD_ROLE_ACCOUNT 282
 
+#define TRUST_SETTINGS_STAFF_GID    20
+#define TRUST_SETTINGS_USER_MODE    0600    /* owner can read/write, no others have access */
+#define TRUST_SETTINGS_ADMIN_MODE   0666    /* writable only if entitled, but as any uid */
+
 // Returns a boolean for whether the current instance is the system trustd
 bool SecOTAPKIIsSystemTrustd(void);
 

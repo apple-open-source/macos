@@ -58,6 +58,7 @@
 #include "http_main.h"
 #include "http_log.h"
 #include "http_connection.h"
+#include "http_ssl.h"
 #include "util_filter.h"
 #include "util_ebcdic.h"
 #include "ap_provider.h"
@@ -201,7 +202,6 @@ typedef struct {
     unsigned int ppinherit_set:1;
 } proxy_server_conf;
 
-
 typedef struct {
     const char *p;            /* The path */
     ap_regex_t  *r;            /* Is this a regex? */
@@ -242,6 +242,8 @@ typedef struct {
 
     unsigned int forward_100_continue:1;
     unsigned int forward_100_continue_set:1;
+
+    apr_array_header_t *error_override_codes;
 } proxy_dir_conf;
 
 /* if we interpolate env vars per-request, we'll need a per-request
@@ -453,6 +455,7 @@ typedef struct {
     unsigned int     keepalive_set:1;
     unsigned int     disablereuse_set:1;
     unsigned int     was_malloced:1;
+    unsigned int     is_name_matchable:1;
     char      hcuri[PROXY_WORKER_MAX_ROUTE_SIZE];     /* health check uri */
     char      hcexpr[PROXY_WORKER_MAX_SCHEME_SIZE];   /* name of condition expr for health check */
     int             passes;     /* number of successes for check to pass */
@@ -619,6 +622,8 @@ APR_DECLARE_EXTERNAL_HOOK(proxy, PROXY, int, scheme_handler,
                           (request_rec *r, proxy_worker *worker,
                            proxy_server_conf *conf, char *url,
                            const char *proxyhost, apr_port_t proxyport))
+APR_DECLARE_EXTERNAL_HOOK(proxy, PROXY, int, check_trans,
+                          (request_rec *r, const char *url))
 APR_DECLARE_EXTERNAL_HOOK(proxy, PROXY, int, canon_handler,
                           (request_rec *r, char *url))
 
@@ -725,6 +730,19 @@ PROXY_DECLARE(char *) ap_proxy_worker_name(apr_pool_t *p,
                                            proxy_worker *worker);
 
 /**
+ * Return whether a worker upgrade configuration matches Upgrade header
+ * @param p       memory pool used for displaying worker name
+ * @param worker  the worker
+ * @param upgrade the Upgrade header to match
+ * @param dflt    default protocol (NULL for none)
+ * @return        1 (true) or 0 (false)
+ */
+PROXY_DECLARE(int) ap_proxy_worker_can_upgrade(apr_pool_t *p,
+                                               const proxy_worker *worker,
+                                               const char *upgrade,
+                                               const char *dflt);
+
+/**
  * Get the worker from proxy configuration
  * @param p        memory pool used for finding worker
  * @param balancer the balancer that the worker belongs to
@@ -747,6 +765,24 @@ PROXY_DECLARE(proxy_worker *) ap_proxy_get_worker(apr_pool_t *p,
  * @return          error message or NULL if successful (*worker is new worker)
  */
 PROXY_DECLARE(char *) ap_proxy_define_worker(apr_pool_t *p,
+                                             proxy_worker **worker,
+                                             proxy_balancer *balancer,
+                                             proxy_server_conf *conf,
+                                             const char *url,
+                                             int do_malloc);
+
+/**
+ * Define and Allocate space for the ap_strcmp_match()able worker to proxy
+ * configuration.
+ * @param p         memory pool to allocate worker from
+ * @param worker    the new worker
+ * @param balancer  the balancer that the worker belongs to
+ * @param conf      current proxy server configuration
+ * @param url       url containing worker name (produces match pattern)
+ * @param do_malloc true if shared struct should be malloced
+ * @return          error message or NULL if successful (*worker is new worker)
+ */
+PROXY_DECLARE(char *) ap_proxy_define_match_worker(apr_pool_t *p,
                                              proxy_worker **worker,
                                              proxy_balancer *balancer,
                                              proxy_server_conf *conf,
@@ -1168,6 +1204,55 @@ PROXY_DECLARE(int) ap_proxy_create_hdrbrgd(apr_pool_t *p,
                                            char **old_te_val);
 
 /**
+ * Prefetch the client request body (in memory), up to a limit.
+ * Read what's in the client pipe. If nonblocking is set and read is EAGAIN,
+ * pass a FLUSH bucket to the backend and read again in blocking mode.
+ * @param r             client request
+ * @param backend       backend connection
+ * @param input_brigade input brigade to use/fill
+ * @param block         blocking or non-blocking mode
+ * @param bytes_read    number of bytes read
+ * @param max_read      maximum number of bytes to read
+ * @return              OK or HTTP_* error code
+ * @note max_read is rounded up to APR_BUCKET_BUFF_SIZE
+ */
+PROXY_DECLARE(int) ap_proxy_prefetch_input(request_rec *r,
+                                           proxy_conn_rec *backend,
+                                           apr_bucket_brigade *input_brigade,
+                                           apr_read_type_e block,
+                                           apr_off_t *bytes_read,
+                                           apr_off_t max_read);
+
+/**
+ * Spool the client request body to memory, or disk above given limit.
+ * @param r             client request
+ * @param backend       backend connection
+ * @param input_brigade input brigade to use/fill
+ * @param bytes_spooled number of bytes spooled
+ * @param max_mem_spool maximum number of in-memory bytes
+ * @return              OK or HTTP_* error code
+ */
+PROXY_DECLARE(int) ap_proxy_spool_input(request_rec *r,
+                                        proxy_conn_rec *backend,
+                                        apr_bucket_brigade *input_brigade,
+                                        apr_off_t *bytes_spooled,
+                                        apr_off_t max_mem_spool);
+
+/**
+ * Read what's in the client pipe. If the read would block (EAGAIN),
+ * pass a FLUSH bucket to the backend and read again in blocking mode.
+ * @param r             client request
+ * @param backend       backend connection
+ * @param input_brigade brigade to use/fill
+ * @param max_read      maximum number of bytes to read
+ * @return              OK or HTTP_* error code
+ */
+PROXY_DECLARE(int) ap_proxy_read_input(request_rec *r,
+                                       proxy_conn_rec *backend,
+                                       apr_bucket_brigade *input_brigade,
+                                       apr_off_t max_read);
+
+/**
  * @param bucket_alloc  bucket allocator
  * @param r             request
  * @param p_conn        proxy connection
@@ -1180,6 +1265,40 @@ PROXY_DECLARE(int) ap_proxy_pass_brigade(apr_bucket_alloc_t *bucket_alloc,
                                          request_rec *r, proxy_conn_rec *p_conn,
                                          conn_rec *origin, apr_bucket_brigade *bb,
                                          int flush);
+
+struct proxy_tunnel_conn; /* opaque */
+typedef struct {
+    request_rec *r;
+    const char *scheme;
+    apr_pollset_t *pollset;
+    apr_array_header_t *pfds;
+    apr_interval_time_t timeout;
+    struct proxy_tunnel_conn *client,
+                             *origin;
+    apr_size_t read_buf_size;
+    int replied;
+} proxy_tunnel_rec;
+
+/**
+ * Create a tunnel, to be activated by ap_proxy_tunnel_run().
+ * @param tunnel   tunnel created
+ * @param r        client request
+ * @param c_o      connection to origin
+ * @param scheme   caller proxy scheme (connect, ws(s), http(s), ...)
+ * @return         APR_SUCCESS or error status
+ */
+PROXY_DECLARE(apr_status_t) ap_proxy_tunnel_create(proxy_tunnel_rec **tunnel,
+                                                   request_rec *r, conn_rec *c_o,
+                                                   const char *scheme);
+
+/**
+ * Forward anything from either side of the tunnel to the other,
+ * until one end aborts or a polling timeout/error occurs.
+ * @param tunnel  tunnel to run
+ * @return        OK if completion is full, HTTP_GATEWAY_TIME_OUT on timeout
+ *                or another HTTP_ error otherwise.
+ */
+PROXY_DECLARE(int) ap_proxy_tunnel_run(proxy_tunnel_rec *tunnel);
 
 /**
  * Clear the headers referenced by the Connection header from the given
@@ -1209,6 +1328,15 @@ PROXY_DECLARE(int) ap_proxy_is_socket_connected(apr_socket_t *socket);
  * @return  number of workers to allocate in the scoreboard
  */
 int ap_proxy_lb_workers(void);
+
+/**
+ * Returns 1 if a response with the given status should be overridden.
+ *
+ * @param conf   proxy directory configuration
+ * @param code   http status code
+ * @return       1 if code is considered an error-code, 0 otherwise
+ */
+PROXY_DECLARE(int) ap_proxy_should_override(proxy_dir_conf *conf, int code);
 
 /**
  * Return the port number of a known scheme (eg: http -> 80).
@@ -1255,6 +1383,15 @@ PROXY_DECLARE(apr_status_t) ap_proxy_buckets_lifetime_transform(request_rec *r,
                                                       apr_bucket_brigade *from,
                                                       apr_bucket_brigade *to);
 
+/* 
+ * The flags for ap_proxy_transfer_between_connections(), where for legacy and
+ * compatibility reasons FLUSH_EACH and FLUSH_AFTER are boolean values.
+ */
+#define AP_PROXY_TRANSFER_FLUSH_EACH        (0x00)
+#define AP_PROXY_TRANSFER_FLUSH_AFTER       (0x01)
+#define AP_PROXY_TRANSFER_YIELD_PENDING     (0x02)
+#define AP_PROXY_TRANSFER_YIELD_MAX_READS   (0x04)
+
 /*
  * Sends all data that can be read non blocking from the input filter chain of
  * c_i and send it down the output filter chain of c_o. For reading it uses
@@ -1272,10 +1409,12 @@ PROXY_DECLARE(apr_status_t) ap_proxy_buckets_lifetime_transform(request_rec *r,
  * @param name  string for logging from where data was pulled
  * @param sent  if not NULL will be set to 1 if data was sent through c_o
  * @param bsize maximum amount of data pulled in one iteration from c_i
- * @param after if set flush data on c_o only once after the loop
+ * @param flags AP_PROXY_TRANSFER_* bitmask
  * @return      apr_status_t of the operation. Could be any error returned from
  *              either the input filter chain of c_i or the output filter chain
- *              of c_o. APR_EPIPE if the outgoing connection was aborted.
+ *              of c_o, APR_EPIPE if the outgoing connection was aborted, or
+ *              APR_INCOMPLETE if AP_PROXY_TRANSFER_YIELD_PENDING was set and
+ *              the output stack gets full before the input stack is exhausted.
  */
 PROXY_DECLARE(apr_status_t) ap_proxy_transfer_between_connections(
                                                        request_rec *r,
@@ -1286,7 +1425,7 @@ PROXY_DECLARE(apr_status_t) ap_proxy_transfer_between_connections(
                                                        const char *name,
                                                        int *sent,
                                                        apr_off_t bsize,
-                                                       int after);
+                                                       int flags);
 
 extern module PROXY_DECLARE_DATA proxy_module;
 

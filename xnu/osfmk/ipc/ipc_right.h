@@ -71,8 +71,14 @@
 #include <ipc/ipc_port.h>
 #include <ipc/ipc_entry.h>
 
-#define ipc_right_lookup_read           ipc_right_lookup_write
 #define ipc_right_lookup_two_read       ipc_right_lookup_two_write
+
+/* Find an entry in a space, given the name */
+extern kern_return_t ipc_right_lookup_read(
+	ipc_space_t             space,
+	mach_port_name_t        name,
+	ipc_entry_bits_t       *bitsp,
+	ipc_object_t           *objectp);
 
 /* Find an entry in a space, given the name */
 extern kern_return_t ipc_right_lookup_write(

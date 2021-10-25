@@ -318,7 +318,7 @@ static apr_status_t ap_session_set(request_rec * r, session_rec * z,
 static int identity_count(void *v, const char *key, const char *val)
 {
     int *count = v;
-    *count += strlen(key) * 3 + strlen(val) * 3 + 1;
+    *count += strlen(key) * 3 + strlen(val) * 3 + 2;
     return 1;
 }
 
@@ -354,7 +354,6 @@ static int identity_concat(void *v, const char *key, const char *val)
  */
 static apr_status_t session_identity_encode(request_rec * r, session_rec * z)
 {
-
     char *buffer = NULL;
     int length = 0;
     if (z->expiry) {
@@ -405,8 +404,8 @@ static apr_status_t session_identity_decode(request_rec * r, session_rec * z)
         char *plast = NULL;
         const char *psep = "=";
         char *key = apr_strtok(pair, psep, &plast);
-        char *val = apr_strtok(NULL, psep, &plast);
         if (key && *key) {
+            char *val = apr_strtok(NULL, sep, &plast);
             if (!val || !*val) {
                 apr_table_unset(z->entries, key);
             }
@@ -649,7 +648,7 @@ static const char *
 
     conf->expiry_update_time = atoi(arg);
     if (conf->expiry_update_time < 0) {
-        return "SessionExpiryUpdateInterval must be positive or nul";
+        return "SessionExpiryUpdateInterval must be zero (disable) or a positive value";
     }
     conf->expiry_update_time = apr_time_from_sec(conf->expiry_update_time);
     conf->expiry_update_set = 1;

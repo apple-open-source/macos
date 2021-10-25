@@ -195,21 +195,24 @@ RESPONSECODE CmdPowerOn(unsigned int reader_index, unsigned int * nlength,
 check_again:
 		if ((1 == voltage) && !(bVoltageSupport & 1))
 		{
-			DEBUG_INFO1("5V requested but not support by reader");
+			DEBUG_INFO1("5V requested but not supported by reader");
 			voltage = 2;	/* 3V */
 		}
 
 		if ((2 == voltage) && !(bVoltageSupport & 2))
 		{
-			DEBUG_INFO1("3V requested but not support by reader");
+			DEBUG_INFO1("3V requested but not supported by reader");
 			voltage = 3;	/* 1.8V */
 		}
 
 		if ((3 == voltage) && !(bVoltageSupport & 4))
 		{
-			DEBUG_INFO1("1.8V requested but not support by reader");
+			DEBUG_INFO1("1.8V requested but not supported by reader");
 			voltage = 1;	/* 5V */
-			goto check_again;
+
+			/* do not (infinite) loop if bVoltageSupport == 0 */
+			if (bVoltageSupport)
+				goto check_again;
 		}
 	}
 	init_voltage = voltage;
@@ -232,7 +235,7 @@ again:
 	res = ReadPort(reader_index, nlength, buffer);
 	CHECK_STATUS(res)
 
-	if (*nlength < STATUS_OFFSET+1)
+	if (*nlength < CCID_RESPONSE_HEADER_SIZE)
 	{
 		DEBUG_CRITICAL2("Not enough data received: %d bytes", *nlength);
 		return IFD_COMMUNICATION_ERROR;
@@ -286,11 +289,12 @@ again:
 
 	/* extract the ATR */
 	atr_len = dw2i(buffer, 1);	/* ATR length */
-	if (atr_len > *nlength)
-		atr_len = *nlength;
+	if (atr_len > *nlength - 10)
+		atr_len = *nlength - 10;
 	else
 		*nlength = atr_len;
 
+	/* the buffer length should be 10 + MAX_ATR_SIZE */
 	memmove(buffer, buffer+10, atr_len);
 
 	return return_value;
@@ -994,7 +998,7 @@ time_request:
 		goto end;
 	}
 
-	if (length_out < STATUS_OFFSET+1)
+	if (length_out < CCID_RESPONSE_HEADER_SIZE)
 	{
 		free(cmd_out);
 		DEBUG_CRITICAL2("Not enough data received: %d bytes", length_out);
@@ -1109,7 +1113,7 @@ RESPONSECODE CmdPowerOff(unsigned int reader_index)
 	res = ReadPort(reader_index, &length, cmd);
 	CHECK_STATUS(res)
 
-	if (length < STATUS_OFFSET+1)
+	if (length < CCID_RESPONSE_HEADER_SIZE)
 	{
 		DEBUG_CRITICAL2("Not enough data received: %d bytes", length);
 		return IFD_COMMUNICATION_ERROR;
@@ -1182,7 +1186,7 @@ again_status:
 	if (PROTOCOL_ICCD_B == ccid_descriptor->bInterfaceProtocol)
 	{
 		int r;
-		unsigned char buffer_tmp[3];
+		unsigned char buffer_tmp[3] = {0, 2, 0};
 
 		/* SlotStatus */
 		r = ControlUSB(reader_index, 0xA1, 0x81, 0, buffer_tmp,
@@ -1232,7 +1236,7 @@ again_status:
 	res = ReadPort(reader_index, &length, buffer);
 	CHECK_STATUS(res)
 
-	if (length < STATUS_OFFSET+1)
+	if (length < CCID_RESPONSE_HEADER_SIZE)
 	{
 		DEBUG_CRITICAL2("Not enough data received: %d bytes", length);
 		return IFD_COMMUNICATION_ERROR;
@@ -1370,7 +1374,8 @@ RESPONSECODE CCID_Transmit(unsigned int reader_index, unsigned int tx_length,
 	cmd[8] = rx_length & 0xFF;	/* Expected length, in character mode only */
 	cmd[9] = (rx_length >> 8) & 0xFF;
 
-	memcpy(cmd+10, tx_buffer, tx_length);
+	if (tx_buffer)
+		memcpy(cmd+10, tx_buffer, tx_length);
 
 	ret = WritePort(reader_index, 10+tx_length, cmd);
 	CHECK_STATUS(ret)
@@ -1523,7 +1528,7 @@ time_request:
 	ccid_descriptor -> readTimeout = old_timeout;
 	CHECK_STATUS(ret)
 
-	if (length < STATUS_OFFSET+1)
+	if (length < CCID_RESPONSE_HEADER_SIZE)
 	{
 		DEBUG_CRITICAL2("Not enough data received: %d bytes", length);
 		return IFD_COMMUNICATION_ERROR;
@@ -1552,6 +1557,12 @@ time_request:
 
 			case 0xFD:	/* Parity error during exchange */
 				return IFD_PARITY_ERROR;
+
+			case 0xFE:	/* Card absent or mute */
+				if (2 == (cmd[STATUS_OFFSET] & 0x02)) /* No ICC */
+					return IFD_ICC_NOT_PRESENT;
+				else
+					return IFD_COMMUNICATION_ERROR;
 
 			default:
 				return IFD_COMMUNICATION_ERROR;
@@ -1595,7 +1606,8 @@ time_request:
 		return_value = IFD_COMMUNICATION_ERROR;
 	}
 	else
-		memcpy(rx_buffer, cmd+10, length);
+		if (length)
+			memcpy(rx_buffer, cmd+10, length);
 
 	/* Extended case?
 	 * Only valid for RDR_to_PC_DataBlock frames */
@@ -1852,6 +1864,9 @@ static RESPONSECODE T0ProcACK(unsigned int reader_index,
 
 	DEBUG_COMM2("Enter, is_rcv = %d", is_rcv);
 
+	if (proc_len > 0x20000)
+		return IFD_COMMUNICATION_ERROR;
+
 	if (is_rcv == 1)
 	{	/* Receiving mode */
 		unsigned int remain_len;
@@ -1947,6 +1962,12 @@ static RESPONSECODE T0ProcACK(unsigned int reader_index,
 		return_value = CCID_Transmit(reader_index, proc_len, *snd_buf, 1, 0);
 		if (return_value != IFD_SUCCESS)
 			return return_value;
+
+		if (proc_len > *snd_len)
+		{
+			DEBUG_CRITICAL("proc_len > snd_len");
+			return IFD_COMMUNICATION_ERROR;
+		}
 
 		*snd_len -= proc_len;
 		*snd_buf += proc_len;
@@ -2280,7 +2301,7 @@ RESPONSECODE SetParameters(unsigned int reader_index, char protocol,
 	res = ReadPort(reader_index, &length, cmd);
 	CHECK_STATUS(res)
 
-	if (length < STATUS_OFFSET+1)
+	if (length < CCID_RESPONSE_HEADER_SIZE)
 	{
 		DEBUG_CRITICAL2("Not enough data received: %d bytes", length);
 		return IFD_COMMUNICATION_ERROR;

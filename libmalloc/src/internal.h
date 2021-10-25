@@ -103,9 +103,9 @@
 #include "magazine_malloc.h"
 #include "malloc_common.h"
 #include "nano_malloc_common.h"
-#include "nano_malloc.h"
 #include "nanov2_malloc.h"
-#include "pguard_malloc.h"
+#include "pgm_malloc.h"
+#include "quarantine_malloc.h"
 #include "purgeable_malloc.h"
 #include "malloc_private.h"
 #include "thresholds.h"
@@ -117,6 +117,7 @@
 #include "nanov2_zone.h"
 #include "magazine_inline.h"
 #include "stack_logging.h"
+#include "stack_trace.h"
 #include "malloc_implementation.h"
 
 MALLOC_NOEXPORT
@@ -130,6 +131,9 @@ extern bool malloc_space_efficient_enabled;
 
 MALLOC_NOEXPORT
 extern bool malloc_medium_space_efficient_enabled;
+
+MALLOC_NOEXPORT
+extern bool malloc_quarantine_enabled;
 
 MALLOC_NOEXPORT MALLOC_NOINLINE
 void
@@ -171,11 +175,11 @@ void set_msl_lite_hooks(set_msl_lite_hooks_callout_t callout);
 
 
 // pthread reserves 5 TSD keys for libmalloc
-#define __TSD_MALLOC_PGUARD_SAMPLE_COUNTER __PTK_LIBMALLOC_KEY0
-#define __TSD_MALLOC_UNUSED1               __PTK_LIBMALLOC_KEY1
-#define __TSD_MALLOC_UNUSED2               __PTK_LIBMALLOC_KEY2
-#define __TSD_MALLOC_UNUSED3               __PTK_LIBMALLOC_KEY3
-#define __TSD_MALLOC_UNUSED4               __PTK_LIBMALLOC_KEY4
+#define __TSD_MALLOC_PROB_GUARD_SAMPLE_COUNTER __PTK_LIBMALLOC_KEY0
+#define __TSD_MALLOC_UNUSED1                   __PTK_LIBMALLOC_KEY1
+#define __TSD_MALLOC_UNUSED2                   __PTK_LIBMALLOC_KEY2
+#define __TSD_MALLOC_UNUSED3                   __PTK_LIBMALLOC_KEY3
+#define __TSD_MALLOC_UNUSED4                   __PTK_LIBMALLOC_KEY4
 
 
 #endif // __INTERNAL_H

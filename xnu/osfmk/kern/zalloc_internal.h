@@ -108,8 +108,9 @@ typedef struct gzalloc_data {
  * @description
  * - Valid pages have the top bit set.
  * - 0 represents the "NULL" page
- * - non 0 values with the top bit cleared do not represent any valid page.
- *   the zone freelists use this space to encode "queue" addresses.
+ * - non 0 values with the top bit cleared represent queue heads,
+ *   indexed from the beginning of the __DATA section of the kernel.
+ *   (see zone_pageq_base).
  */
 typedef struct zone_packed_virtual_address {
 	uint32_t packed_address;
@@ -127,7 +128,6 @@ typedef struct zone_packed_virtual_address {
 struct zone_stats {
 	uint64_t            zs_mem_allocated;
 	uint64_t            zs_mem_freed;
-	uint32_t            zs_poison_seqno; /* counter for poisoning every N frees */
 	uint32_t            zs_alloc_rr;     /* allocation rr bias */
 };
 
@@ -163,34 +163,22 @@ struct zone {
 	 */
 	    z_destroyed        :1,  /* zone is (being) destroyed */
 	    z_async_refilling  :1,  /* asynchronous allocation pending? */
-	    z_replenish_wait   :1,  /* someone is waiting on the replenish thread */
 	    z_expanding_wait   :1,  /* is thread waiting for expansion? */
 	    z_expander_vm_priv :1,  /* a vm privileged thread is expanding */
-
-	/*
-	 * Security sensitive configuration bits
-	 */
-	    z_allows_foreign   :1,  /* allow non-zalloc space  */
-	    z_destructible     :1,  /* zone can be zdestroy()ed  */
-	    kalloc_heap        :2,  /* zone_kheap_id_t when part of a kalloc heap */
-	    z_noencrypt        :1,  /* do not encrypt pages when hibernating */
-	    z_submap_idx       :2,  /* a Z_SUBMAP_IDX_* value */
-	    z_va_sequester     :1,  /* page sequester: no VA reuse with other zones */
-	    z_free_zeroes      :1,  /* clear memory of elements on free and assert on alloc */
 
 	/*
 	 * Behavior configuration bits
 	 */
 	    z_percpu           :1,  /* the zone is percpu */
 	    z_permanent        :1,  /* the zone allocations are permanent */
-	    z_replenishes      :1,  /* uses the async replenish mechanism for VM */
 	    z_nocaching        :1,  /* disallow zone caching for this zone */
 	    collectable        :1,  /* garbage collect empty pages */
 	    exhaustible        :1,  /* merely return if empty? */
 	    expandable         :1,  /* expand zone (with message)? */
 	    no_callout         :1,
+	    z_destructible     :1,  /* zone can be zdestroy()ed  */
 
-	    _reserved          :26,
+	    _reserved          :37,
 
 	/*
 	 * Debugging features
@@ -200,11 +188,13 @@ struct zone {
 	    gzalloc_exempt     :1,  /* this zone doesn't participate with gzalloc */
 	    kasan_fakestacks   :1,
 	    kasan_noquarantine :1,  /* whether to use the kasan quarantine */
-	    tag_zone_index     :7,
-	    tags               :1,
-	    tags_inline        :1,
+	    z_tags_sizeclass   :5,  /* idx into zone_tags_sizeclasses to associate
+	                             * sizeclass for a particualr kalloc tag */
+	    z_uses_tags        :1,
+	    z_tags_inline      :1,
 	    zleak_on           :1,  /* Are we collecting allocation information? */
-	    zone_logging       :1;  /* Enable zone logging for this zone. */
+	    zone_logging       :1,  /* Enable zone logging for this zone. */
+	    z_tbi_tag          :1;  /* Zone supports tbi tagging */
 
 	/*
 	 * often mutated fields
@@ -227,9 +217,6 @@ struct zone {
 
 	/*
 	 * list of metadata structs, which maintain per-page free element lists
-	 *
-	 * Note: Due to the index packing in page metadata,
-	 *       these pointers can't be at the beginning of the zone struct.
 	 */
 	zone_pva_t          z_pageq_empty;  /* populated, completely empty pages   */
 	zone_pva_t          z_pageq_partial;/* populated, partially filled pages   */
@@ -288,8 +275,33 @@ struct zone {
 	/* zone logging structure to hold stacks and element references to those stacks. */
 	btlog_t            *zlog_btlog;
 #endif
+#if DEBUG || DEVELOPMENT
+	struct zone        *z_kt_next;
+#endif
 };
 
+/*!
+ * @typedef zone_security_flags_t
+ *
+ * @brief
+ * Type used to store the immutable security properties of a zone.
+ *
+ * @description
+ * These properties influence the security nature of a zone and can't be
+ * modified after lockdown.
+ */
+typedef struct zone_security_flags {
+	uint8_t
+	/*
+	 * Security sensitive configuration bits
+	 */
+	    z_allows_foreign   :1,  /* allow non-zalloc space  */
+	    z_kheap_id         :2,  /* zone_kheap_id_t when part of a kalloc heap */
+	    z_noencrypt        :1,  /* do not encrypt pages when hibernating */
+	    z_submap_idx       :2,  /* a Z_SUBMAP_IDX_* value */
+	    z_va_sequester     :1,  /* page sequester: no VA reuse with other zones */
+	    z_kalloc_type      :1;  /* zones that does types based seggregation */
+} zone_security_flags_t;
 
 __options_decl(zone_security_options_t, uint64_t, {
 	/*
@@ -300,17 +312,43 @@ __options_decl(zone_security_options_t, uint64_t, {
 	 * Zsecurity option to enable creating separate kalloc zones for
 	 * bags of bytes
 	 */
-	ZSECURITY_OPTIONS_SUBMAP_USER_DATA      = 0x00000004,
+	ZSECURITY_OPTIONS_SUBMAP_USER_DATA      = 0x00000002,
 	/*
 	 * Zsecurity option to enable sequestering of kalloc zones used by
 	 * kexts (KHEAP_KEXT heap)
 	 */
-	ZSECURITY_OPTIONS_SEQUESTER_KEXT_KALLOC = 0x00000008,
+	ZSECURITY_OPTIONS_SEQUESTER_KEXT_KALLOC = 0x00000004,
 	/*
 	 * Zsecurity option to enable strict free of iokit objects to zone
 	 * or heap they were allocated from.
 	 */
-	ZSECURITY_OPTIONS_STRICT_IOKIT_FREE     = 0x00000010,
+	ZSECURITY_OPTIONS_STRICT_IOKIT_FREE     = 0x00000008,
+	/*
+	 * Zsecurity option to enable the read-only allocator
+	 */
+	ZSECURITY_OPTIONS_READ_ONLY             = 0x00000010,
+	/*
+	 * Zsecurity option to enable the kernel and kalloc data maps.
+	 */
+	ZSECURITY_OPTIONS_KERNEL_DATA_MAP       = 0x00000020,
+});
+
+__options_decl(kalloc_type_options_t, uint64_t, {
+	/*
+	 * kalloc type option to switch default accounting to private.
+	 */
+	KT_OPTIONS_ACCT                         = 0x00000001,
+	/*
+	 * kalloc type option to turn on signature based type segregation.
+	 * The total number of zones to be for this feature should be
+	 * provided with the kt_zbudget boot-arg.
+	 */
+	KT_OPTIONS_ON                           = 0x00000002,
+	/*
+	 * kalloc type option to print additional stats regarding zone
+	 * budget distribution and signatures.
+	 */
+	KT_OPTIONS_DEBUG                        = 0x00000004,
 });
 
 #define KALLOC_MINALIGN     (1 << KALLOC_LOG2_MINALIGN)
@@ -325,18 +363,17 @@ struct kheap_zones {
 	uint8_t                         k_zindex_start;
 	/* If there's no hit in the DLUT, then start searching from k_zindex_start. */
 	zone_t                         *k_zone;
+	vm_size_t                       kalloc_max;
 };
 
+#define MAX_ZONES       650
 extern zone_security_options_t zsecurity_options;
 extern zone_id_t _Atomic       num_zones;
 extern uint32_t                zone_view_count;
 extern struct zone             zone_array[];
+extern zone_security_flags_t   zone_security_array[];
+extern uint16_t                zone_ro_elem_size[];
 extern const char * const      kalloc_heap_names[KHEAP_ID_COUNT];
-extern bool                    panic_include_zprint;
-#if CONFIG_ZLEAKS
-extern bool                    panic_include_ztrace;
-extern struct ztrace          *top_ztrace;
-#endif
 extern mach_memory_info_t     *panic_kext_memory_info;
 extern vm_size_t               panic_kext_memory_size;
 extern unsigned int            zone_map_jetsam_limit;
@@ -355,11 +392,45 @@ struct zone_map_range {
 	vm_offset_t max_address;
 } __attribute__((aligned(2 * sizeof(vm_offset_t))));
 
+__abortlike
+extern void zone_invalid_panic(zone_t zone);
+
+__pure2
+static inline zone_id_t
+zone_index(zone_t z)
+{
+	zone_id_t zid = (zone_id_t)(z - zone_array);
+	if (__improbable(zid >= MAX_ZONES)) {
+		zone_invalid_panic(z);
+	}
+	return zid;
+}
+
+__pure2
+static inline bool
+zone_is_ro(zone_t zone)
+{
+	return zone >= &zone_array[ZONE_ID__FIRST_RO] &&
+	       zone <= &zone_array[ZONE_ID__LAST_RO];
+}
+
 __pure2
 static inline vm_offset_t
 zone_elem_size(zone_t zone)
 {
+	if (zone_is_ro(zone)) {
+		zone_id_t zid = zone_index(zone);
+		return zone_ro_elem_size[zid];
+	}
 	return zone->z_elem_size;
+}
+
+__pure2
+static inline zone_security_flags_t
+zone_security_config(zone_t z)
+{
+	zone_id_t zid = zone_index(z);
+	return zone_security_array[zid];
 }
 
 static inline uint32_t
@@ -395,6 +466,7 @@ zone_size_free(zone_t zone)
 	           (vm_size_t)zone->z_elem_size * zone->z_elems_free);
 }
 
+/* Under KASAN builds, this also accounts for quarantined elements. */
 static inline vm_size_t
 zone_size_allocated(zone_t zone)
 {
@@ -486,10 +558,15 @@ extern void     zone_bootstrap(void);
  * Steal memory from pmap (prior to initialization of zalloc)
  * for the special vm zones that allow foreign memory and store
  * the range so as to facilitate range checking in zfree.
+ *
+ * @param size              the size to steal (must be a page multiple)
+ * @param allow_meta_steal  whether allocator metadata should be stolen too
+ *                          due to a non natural config.
  */
 __startup_func
 extern vm_offset_t zone_foreign_mem_init(
-	vm_size_t       size);
+	vm_size_t       size,
+	bool            allow_meta_steal);
 
 /*!
  * @function zone_get_foreign_alloc_size
@@ -556,21 +633,43 @@ extern void     zfree_ext(
 	zone_stats_t    zstats,
 	void           *addr);
 
-/*!
- * @function zone_replenish_configure
- *
- * @brief
- * Used by zones backing the VM to maintain a reserve of free elements.
- *
- * @discussion
- * This function should not be used by anyone else than the VM.
- */
-extern void     zone_replenish_configure(
-	zone_t          zone);
+extern zone_id_t zone_id_for_native_element(
+	void           *addr,
+	vm_size_t       esize);
 
 extern vm_size_t zone_element_size(
 	void           *addr,
 	zone_t         *z);
+
+__attribute__((overloadable))
+extern bool      zone_range_contains(
+	const struct zone_map_range *r,
+	vm_offset_t     addr);
+
+__attribute__((overloadable))
+extern bool      zone_range_contains(
+	const struct zone_map_range *r,
+	vm_offset_t     addr,
+	vm_offset_t     size);
+
+extern vm_size_t zone_range_size(
+	const struct zone_map_range *r);
+
+/*!
+ * @function zone_spans_ro_va
+ *
+ * @abstract
+ * This function is used to check whether the specified address range
+ * spans through the read-only zone range.
+ *
+ * @discussion
+ * This only checks for the range specified within ZONE_ADDR_READONLY.
+ * The parameters addr_start and addr_end are stripped off of PAC bits
+ * before the check is made.
+ */
+extern bool zone_spans_ro_va(
+	vm_offset_t     addr_start,
+	vm_offset_t     addr_end);
 
 /*!
  * @function zone_owns
@@ -592,6 +691,16 @@ extern bool     zone_owns(
 	zone_t          zone,
 	void           *addr);
 
+/**!
+ * @function zone_submap
+ *
+ * @param zsflags       the security flags of a specified zone.
+ * @returns             the zone (sub)map this zone allocates from.
+ */
+__pure2
+extern vm_map_t zone_submap(
+	zone_security_flags_t   zsflags);
+
 /*
  *  Structure for keeping track of a backtrace, used for leak detection.
  *  This is in the .h file because it is used during panic, see kern/debug.c
@@ -605,16 +714,18 @@ struct ztrace {
 	uint32_t                zt_hit_count;                   /* for determining effectiveness of hash function */
 };
 
-#ifndef VM_MAX_TAG_ZONES
+#ifndef VM_TAG_SIZECLASSES
 #error MAX_TAG_ZONES
 #endif
-#if VM_MAX_TAG_ZONES
+#if VM_TAG_SIZECLASSES
 
-extern uint32_t zone_index_from_tag_index(
-	uint32_t        tag_zone_index,
-	vm_size_t      *elem_size);
+extern uint16_t zone_index_from_tag_index(
+	uint32_t        tag_zone_index);
 
-#endif /* VM_MAX_TAG_ZONES */
+#endif /* VM_TAG_SIZECLASSES */
+
+extern void kalloc_init_maps(
+	vm_address_t min_address);
 
 static inline void
 zone_lock(zone_t zone)
@@ -658,12 +769,13 @@ boolean_t gzalloc_element_size(void *, zone_t *, vm_size_t *);
 #endif /* CONFIG_GZALLOC */
 
 #define MAX_ZONE_NAME   32      /* max length of a zone name we can take from the boot-args */
+
 int track_this_zone(const char *zonename, const char *logname);
+extern bool panic_include_kalloc_types;
+extern zone_t kalloc_type_src_zone;
+extern zone_t kalloc_type_dst_zone;
 
 #if DEBUG || DEVELOPMENT
-extern boolean_t run_zone_test(void);
-extern void zone_gc_replenish_test(void);
-extern void zone_alloc_replenish_test(void);
 extern vm_size_t zone_element_info(void *addr, vm_tag_t * ptag);
 extern bool zalloc_disable_copyio_check;
 #else

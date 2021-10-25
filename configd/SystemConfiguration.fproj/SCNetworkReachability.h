@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2005, 2008-2010, 2015-2016, 2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2003-2005, 2008-2010, 2015-2018, 2021 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -168,7 +168,7 @@ typedef CF_OPTIONS(uint32_t, SCNetworkReachabilityFlags) {
 	kSCNetworkReachabilityFlagsConnectionOnTraffic		= 1<<3,
 	kSCNetworkReachabilityFlagsInterventionRequired		= 1<<4,
 	kSCNetworkReachabilityFlagsConnectionOnDemand
-		API_AVAILABLE(macos(6.0),ios(3.0))		= 1<<5,
+		API_AVAILABLE(macos(10.6),ios(3.0))		= 1<<5,
 	kSCNetworkReachabilityFlagsIsLocalAddress		= 1<<16,
 	kSCNetworkReachabilityFlagsIsDirect			= 1<<17,
 	kSCNetworkReachabilityFlagsIsWWAN

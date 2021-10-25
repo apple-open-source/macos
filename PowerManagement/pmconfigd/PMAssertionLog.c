@@ -25,6 +25,7 @@
 #include <asl.h>
 #include <mach/mach.h>
 #include <notify.h>
+#include <CoreFoundation/CFXPCBridge.h>
 
 #include "PMAssertions.h"
 #include "PrivateLib.h"
@@ -73,6 +74,9 @@ assertionActivity_t     activity;
 assertionAggregate_t    aggregate;
 static  uint32_t        gActivityLogCnt = 0;  // Has to be explicity enabled on OSX
 uint64_t gNumAssertions = 0;
+// connection to powerlog for async callback
+xpc_connection_t gRemoteConnection = NULL;
+xpc_object_t gRemoteMsg = NULL;
 
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 __private_extern__ bool isDisplayAsleep(void);
@@ -102,6 +106,7 @@ static void logAssertionActivity(assertLogAction  action,
     CFTypeRef       type = NULL, name = NULL, btSymbols = NULL;
     CFTypeRef       onBehalfPid = NULL, onBehalfPidStr = NULL;
     CFTypeRef       onBehalfBundleID = NULL;
+    CFStringRef     procName = NULL;
 
     CFMutableDictionaryRef  entry = NULL;
     CFDictionaryRef         props = assertion->props;
@@ -155,6 +160,10 @@ static void logAssertionActivity(assertLogAction  action,
         actionStr = CFSTR(kPMASLAssertionActionResume);
         break;
 
+    case kASystemTimeoutLog:
+        actionStr = CFSTR(kPMASLAssertionActionSystemTimeout);
+        break;
+
     default:
         return;
     }
@@ -167,6 +176,7 @@ static void logAssertionActivity(assertLogAction  action,
         activity.unreadCnt = UINT_MAX;
         // Send a high water mark notification to force a read by powerlog after powerd's crash
         notify_post(kIOPMAssertionsLogBufferHighWM);
+        INFO_LOG("Assertion bufffer initialized. Sending high water mark notification");
     }
 
     entry = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, 
@@ -201,10 +211,16 @@ static void logAssertionActivity(assertLogAction  action,
     CFDictionarySetValue(entry, kIOPMAssertionActivityAction, actionStr);
 
     // PID owning this assertion
-    if ((pid_cf = CFNumberCreate(NULL, kCFNumberIntType, &assertion->pinfo->pid)) != NULL) {
-        CFDictionarySetValue(entry, kIOPMAssertionPIDKey, pid_cf);
-        CFRelease(pid_cf);
+    if (assertion->pinfo) {
+        if ((pid_cf = CFNumberCreate(NULL, kCFNumberIntType, &assertion->pinfo->pid)) != NULL) {
+            CFDictionarySetValue(entry, kIOPMAssertionPIDKey, pid_cf);
+            CFRelease(pid_cf);
+        }
+        if ((procName = CFDictionaryGetValue(props, kIOPMAssertionProcessNameKey)) != NULL) {
+            CFDictionarySetValue(entry, kIOPMAssertionProcessKey, procName);
+        }
     }
+
       
     // Retain count
     if ((retain_cf = CFNumberCreate(NULL, kCFNumberIntType, &assertion->retainCnt)) != NULL) {
@@ -213,7 +229,7 @@ static void logAssertionActivity(assertLogAction  action,
     }
 
     // Assertion ID
-    if ((uniqueAID = CFDictionaryGetValue(props, kIOPMAssertionGlobalUniqueIDKey)) != NULL) 
+    if ((uniqueAID = CFDictionaryGetValue(props, kIOPMAssertionGlobalUniqueIDKey)) != NULL)
         CFDictionarySetValue(entry, kIOPMAssertionGlobalUniqueIDKey, uniqueAID);
 
     // Assertion on behalf of PID
@@ -241,6 +257,7 @@ static void logAssertionActivity(assertLogAction  action,
     if ((activity.unreadCnt != UINT_MAX) && (++activity.unreadCnt >= 0.9*AA_MAX_ENTRIES))  {
         notify_post(kIOPMAssertionsLogBufferHighWM);
         activity.unreadCnt = UINT_MAX;
+        INFO_LOG("Assertion bufffer has reached capacity. Sending high water mark notification");
     }
 }
 
@@ -253,7 +270,7 @@ __private_extern__ void logASLAssertionTypeSummary( kerAssertionType type)
                           });
 }
 
-static void printAssertionQualifiersToBuf(assertion_t *assertion, char *aBuf, int bufsize)
+static void printAssertionQualifiersToBuf(assertion_t *assertion, char *aBuf, size_t bufsize)
 {
     if ((assertion->audioin || assertion->audioout || assertion->gps || assertion->baseband
             || assertion->bluetooth || assertion->allowsDeviceRestart || assertion->budgetedActivity) == 0) {
@@ -291,7 +308,7 @@ static void printAssertionQualifiersToBuf(assertion_t *assertion, char *aBuf, in
 }
 
 
-static void printAggregateAssertionsToBuf(char *aBuf, int bufsize, uint32_t kbits)
+static void printAggregateAssertionsToBuf(char *aBuf, size_t bufsize, uint32_t kbits)
 {
     size_t printed = 0;
 
@@ -450,6 +467,10 @@ static void logAssertionToASL(assertLogAction  action,
     case kAStateResume:
         assertionAction = kPMASLAssertionActionResume;
         break;
+    case kASystemTimeoutLog:
+        assertionAction = kPMASLAssertionActionSystemTimeout;
+        break;
+
 
     default:
         return;
@@ -630,7 +651,31 @@ void logAssertionEvent(assertLogAction  action,
 
     if (gActivityLogCnt)
         logAssertionActivity(action, assertion);
-        
+
+}
+
+void logAsyncAssertionActivity(ProcessInfo *pinfo, CFArrayRef assertionActivity)
+{
+    assertion_t *assertion = NULL;
+    assertion = calloc(1, sizeof(assertion_t));
+    int length = (int)CFArrayGetCount(assertionActivity);
+
+    for (int i = 0; i < length; i++) {
+        CFDictionaryRef props = (CFDictionaryRef)CFArrayGetValueAtIndex(assertionActivity, i);
+        assertion->props = (CFMutableDictionaryRef)props;
+        assertion->pinfo = pinfo;
+
+        if (CFDictionaryContainsKey(props, kIOPMAssertionCreateDateKey)) {
+            // was it logged already
+            if (!CFDictionaryContainsKey(props, kIOPMAsyncAssertionLoggedCreate)) {
+                logAssertionActivity(kACreateLog, assertion);
+            }
+        }
+        if (CFDictionaryContainsKey(props, kIOPMAssertionReleaseDateKey)) {
+            logAssertionActivity(kAReleaseLog, assertion);
+        }
+    }
+    free(assertion);
 }
 
 void setAssertionActivityLog(int value)
@@ -642,58 +687,23 @@ void setAssertionActivityLog(int value)
         gActivityLogCnt--;
 }
 
-kern_return_t _io_pm_assertion_activity_log (
-                                             mach_port_t         server __unused,
-                                             audit_token_t       token,
-                                             vm_offset_t         *log,
-                                             mach_msg_type_number_t   *logSize,
-                                             uint32_t                 *refCnt,
-                                             uint32_t                 *overflow,
-                                             int                      *rc)
+CFMutableArrayRef _getAssertionActivityUpdates(uint32_t *refCnt, uint32_t *overflow, bool firstcall)
 {
-    CFRange             range;
-    CFIndex             startIdx, endIdx;
-    CFDataRef           serializedLog = NULL;
-    uint32_t            readFromIdx;
-    uint32_t            writeToIdx;
-    CFMutableArrayRef   updates = NULL;
-    CFIndex             arrCnt;
-    static bool         firstcall = true;
-
-    if ((log == NULL) || (overflow == NULL))
-    {
-        *rc = kIOReturnBadArgument;
-        goto exit;
-    }
-
- 
-    *rc = kIOReturnNotFound;
-    *log = 0;
-    *logSize = 0;
-    readFromIdx = *refCnt;
-    writeToIdx = activity.idx;
+    CFIndex startIdx, endIdx;
+    CFRange range;
+    uint32_t readFromIdx = *refCnt;
+    uint32_t writeToIdx = activity.idx;
+    CFMutableArrayRef updates = NULL;
+    CFIndex arrCnt = 0;
     *overflow = false;
 
-    if (auditTokenHasEntitlement(token, CFSTR("com.apple.private.iokit.powerlogging"))) 
-    {
-        activity.unreadCnt = 0;
-        if (firstcall) {
-            *overflow = true;
-            *refCnt = readFromIdx = UINT_MAX;
-            firstcall = false;
-        }
+    if (isA_CFArray(activity.log)) {
+        arrCnt = CFArrayGetCount(activity.log);
     }
-
-    if (!activity.log) {
-        activity.log = CFArrayCreateMutable(NULL, AA_MAX_ENTRIES, &kCFTypeArrayCallBacks);
-
-        if (!activity.log) {
-            *rc = kIOReturnNoMemory;
-            goto exit;
-        }
+    if (firstcall) {
+        *overflow = true;
+        *refCnt = readFromIdx = UINT_MAX;
     }
-    arrCnt = CFArrayGetCount(activity.log);
-
     if ((readFromIdx == writeToIdx) || (arrCnt == 0)) {
         goto exit;
     }
@@ -733,7 +743,7 @@ kern_return_t _io_pm_assertion_activity_log (
         goto exit;
     }
 
-    // Copy log entries in sequential order 
+    // Copy log entries in sequential order
     if (startIdx > endIdx) {
         if (arrCnt == AA_MAX_ENTRIES) {
             range = CFRangeMake(startIdx, AA_MAX_ENTRIES-startIdx);
@@ -758,7 +768,63 @@ kern_return_t _io_pm_assertion_activity_log (
         *refCnt = activity.idx;
         goto exit;
     }
+    *refCnt = activity.idx;
 
+exit:
+    return updates;
+}
+
+kern_return_t _io_pm_assertion_activity_log (
+                                             mach_port_t         server __unused,
+                                             audit_token_t       token,
+                                             vm_offset_t         *log,
+                                             mach_msg_type_number_t   *logSize,
+                                             uint32_t                 *refCnt,
+                                             uint32_t                 *overflow,
+                                             int                      *rc)
+{
+
+    CFDataRef           serializedLog = NULL;
+    uint32_t            readFromIdx;
+    uint32_t            writeToIdx;
+    CFMutableArrayRef   updates = NULL;
+    static bool         firstcall = true;
+
+    if ((log == NULL) || (overflow == NULL))
+    {
+        *rc = kIOReturnBadArgument;
+        goto exit;
+    }
+
+    *rc = kIOReturnNotFound;
+    *log = 0;
+    *logSize = 0;
+    readFromIdx = *refCnt;
+    writeToIdx = activity.idx;
+    *overflow = false;
+
+    if (auditTokenHasEntitlement(token, CFSTR("com.apple.private.iokit.powerlogging")))
+    {
+        activity.unreadCnt = 0;
+        if (firstcall) {
+            firstcall = false;
+        }
+    } else {
+        ERROR_LOG("Process is not entitled to copy assertion activity updates");
+        *rc = kIOReturnNotPermitted;
+        goto exit;
+    }
+
+    if (!activity.log) {
+        activity.log = CFArrayCreateMutable(NULL, AA_MAX_ENTRIES, &kCFTypeArrayCallBacks);
+
+        if (!activity.log) {
+            *rc = kIOReturnNoMemory;
+            goto exit;
+        }
+    }
+
+    updates = _getAssertionActivityUpdates(refCnt, overflow, firstcall);
 
     serializedLog = CFPropertyListCreateData(0, updates,
                                              kCFPropertyListBinaryFormat_v1_0, 0, NULL);            
@@ -785,7 +851,212 @@ exit:
     return KERN_SUCCESS;
 }
 
+void _sendAssertionActivityUpdate(CFArrayRef processes, bool client_overflow)
+{
+    IOReturn            rc = kIOReturnSuccess;
+    CFMutableArrayRef   updates = NULL;
+    static bool         firstcall = true;
+    uint32_t            overflow = false;
+    uint32_t            refCnt = 0;
 
+    // check for first call
+    activity.unreadCnt = 0;
+    if (firstcall) {
+        firstcall = false;
+    }
+    if (!gRemoteMsg || !gRemoteConnection) {
+        ERROR_LOG("_sendAssertionActivityUpdate: No current msg or connection to send a reply");
+        goto exit;
+    }
+
+    refCnt = (uint32_t)xpc_dictionary_get_uint64(gRemoteMsg, kAssertionCopyActivityUpdateRefCntKey);
+    updates = _getAssertionActivityUpdates(&refCnt, &overflow, firstcall);
+    if (client_overflow) {
+        INFO_LOG("_sendAssertionActivityUpdate: Overflow from a client");
+        overflow = client_overflow;
+    }
+
+#ifndef XCTEST
+    xpc_object_t reply_msg = xpc_dictionary_create_reply(gRemoteMsg);
+    if (!reply_msg) {
+        ERROR_LOG("Cannot create reply dictionary");
+        rc = kIOReturnInternalError;
+        goto exit;
+    }
+#endif
+    xpc_object_t data = NULL;
+    if (updates) {
+        data = _CFXPCCreateXPCObjectFromCFObject(updates);
+    }
+    xpc_object_t timedout_processes = NULL;
+    if (processes) {
+        timedout_processes = _CFXPCCreateXPCObjectFromCFObject(processes);
+    }
+#ifndef XCTEST
+    xpc_dictionary_set_uint64(reply_msg, kAssertionCopyActivityUpdateRefCntKey, refCnt);
+    xpc_dictionary_set_bool(reply_msg, kAssertionCopyActivityUpdateOverflowKey, overflow);
+    xpc_dictionary_set_value(reply_msg, kAssertionCopyActivityUpdateDataKey, data);
+    xpc_dictionary_set_value(reply_msg, kAssertionCopyActivityUpdateProcessListKey, timedout_processes);
+    xpc_dictionary_set_uint64(reply_msg, kMsgReturnCode, rc);
+    xpc_connection_send_message(gRemoteConnection, reply_msg);
+    if (reply_msg) {
+        xpc_release(reply_msg);
+    }
+#else
+    xpc_dictionary_set_value(gRemoteMsg, kAssertionCopyActivityUpdateDataKey, data);
+    xpc_dictionary_set_uint64(gRemoteMsg, kAssertionCopyActivityUpdateRefCntKey, refCnt);
+    xpc_dictionary_set_bool(gRemoteMsg, kAssertionCopyActivityUpdateOverflowKey, overflow);
+    xpc_dictionary_set_value(gRemoteMsg, kAssertionCopyActivityUpdateProcessListKey, timedout_processes);
+    xpc_dictionary_set_uint64(gRemoteMsg, kMsgReturnCode, rc);
+
+#endif
+    int count = 0;
+    if (updates) {
+        count = (int)CFArrayGetCount(updates);
+    }
+    INFO_LOG("Assertion Activity Update: logged %d entries. New refCnt %d, overflow %d", count, refCnt, overflow);
+    if (data) {
+        xpc_release(data);
+    }
+    if (timedout_processes) {
+        xpc_release(timedout_processes);
+    }
+exit:
+    if (updates) {
+        CFRelease(updates);
+    }
+    if (gRemoteMsg) {
+        xpc_release(gRemoteMsg);
+        gRemoteMsg = NULL;
+    }
+    if (gRemoteConnection) {
+        xpc_release(gRemoteConnection);
+        gRemoteConnection = NULL;
+    }
+}
+
+void copyAssertionActivityUpdate(xpc_object_t remote, xpc_object_t msg)
+{
+
+    IOReturn            rc = kIOReturnSuccess;
+#ifndef XCTEST
+    if (!remote || !msg) {
+        ERROR_LOG("Invalid parameters. remote: %@ msg: %@", remote, msg);
+        rc = kIOReturnBadArgument;
+    }
+    if (!xpcConnectionHasEntitlement(remote, CFSTR("com.apple.private.iokit.powerlogging"))) {
+        ERROR_LOG("Client is not entitled to read assertion activity");
+        rc = kIOReturnNotPermitted;
+    }
+
+#endif
+    if (assertionActivityUpdateInProgress()) {
+        ERROR_LOG("Assertion activity update requested before current one is complete");
+        rc = kIOReturnBusy;
+    }
+
+    if (rc != kIOReturnSuccess) {
+        xpc_object_t reply = xpc_dictionary_create_reply(remote);
+        if (reply) {
+            xpc_dictionary_set_uint64(reply, kMsgReturnCode, rc);
+            xpc_connection_send_message(remote, reply);
+            xpc_release(reply);
+        }
+        return;
+    } else {
+        // copy updates from clients
+        /*
+         Update will be sent through _sendAssertionActivityUpdate
+         after receiving updates from clients
+         */
+        // Let's retain remote and msg for sending the reply later
+        gRemoteConnection = xpc_retain(remote);
+        gRemoteMsg = xpc_retain(msg);
+        checkForAssertionActivityUpdates(false);
+    }
+
+}
+
+void _sendActiveAssertions(CFMutableDictionaryRef assertions)
+{
+    // reply to client
+    IOReturn rc = kIOReturnSuccess;
+    xpc_object_t data = NULL;
+    if (!gRemoteMsg || !gRemoteConnection) {
+        ERROR_LOG("_sendActiveAssertions: No current msg or connection to send a reply");
+        goto exit;
+    }
+#ifndef XCTEST
+    xpc_object_t reply_msg = xpc_dictionary_create_reply(gRemoteMsg);
+    if (!reply_msg) {
+        ERROR_LOG("Cannot create reply dictionary");
+        rc = kIOReturnInternalError;
+        goto exit;
+    }
+#endif
+    if (assertions) {
+        data = _CFXPCCreateXPCObjectFromCFObject(assertions);
+    }
+
+#ifndef XCTEST
+    xpc_dictionary_set_value(reply_msg, kAssertionCopyActiveAsyncAssertionsKey, data);
+    xpc_dictionary_set_uint64(reply_msg, kMsgReturnCode, rc);
+    xpc_connection_send_message(gRemoteConnection, reply_msg);
+    if (reply_msg) {
+        xpc_release(reply_msg);
+    }
+
+#else
+    xpc_dictionary_set_value(gRemoteMsg, kAssertionCopyActiveAsyncAssertionsKey, data);
+    xpc_dictionary_set_uint64(gRemoteMsg, kMsgReturnCode, rc);
+#endif
+exit:
+    if (data) {
+        xpc_release(data);
+    }
+    return;
+}
+
+void copyActiveAssertions(xpc_object_t remote, xpc_object_t msg)
+{
+    IOReturn            rc = kIOReturnSuccess;
+#ifndef XCTEST
+    if (!remote || !msg) {
+        ERROR_LOG("Invalid parameters. remote: %@ msg: %@", remote, msg);
+        rc = kIOReturnBadArgument;
+    }
+    if (!xpcConnectionHasEntitlement(remote, CFSTR("com.apple.private.iokit.powerlogging"))) {
+        ERROR_LOG("Client is not entitled to read assertion activity");
+        rc = kIOReturnNotPermitted;
+    }
+#endif
+    if (assertionActivityUpdateInProgress()) {
+        ERROR_LOG("Assertion activity update requested before current one is complete");
+        rc = kIOReturnBusy;
+    }
+
+    if (rc != kIOReturnSuccess) {
+        xpc_object_t reply = xpc_dictionary_create_reply(remote);
+        if (reply) {
+            xpc_dictionary_set_uint64(reply, kMsgReturnCode, rc);
+            xpc_connection_send_message(remote, reply);
+            xpc_release(reply);
+        }
+        return;
+    } else {
+        // copy updates from clients
+        /*
+         Update will be sent through _sendActiveAssertions
+         after receiving updates from clients
+         */
+        // Let's retain remote and msg for sending the reply later
+        gRemoteConnection = xpc_retain(remote);
+        gRemoteMsg = xpc_retain(msg);
+        checkForAssertionActivityUpdates(true);
+    }
+
+
+}
 struct aggregateStats {
     CFMutableDataRef    reportBufs;    /* IOReporter's simple array buffers for each process */
     uint32_t            bufSize;       /* Memory size allocated for reportBufs */

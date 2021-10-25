@@ -89,12 +89,6 @@ union os_log_fmt_types_u {
 	long long   ll;
 };
 
-typedef struct os_log_format_value_s {
-	union os_log_fmt_types_u type;
-	os_log_fmt_cmd_type_t ctype;
-	uint16_t size;
-} *os_log_format_value_t;
-
 typedef struct os_log_fmt_hdr_s {
 	os_log_fmt_hdr_flags_t hdr_flags;
 	uint8_t hdr_cmd_cnt;

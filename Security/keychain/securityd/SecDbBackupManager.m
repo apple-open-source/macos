@@ -737,7 +737,7 @@ static SecDbBackupManager* staticManager;
     set.wrappedKCSKSecret = [NSKeyedArchiver archivedDataWithRootObject:wrappedkcsksecret requiringSecureCoding:YES error:error];
 
     NSMutableData* wrappedrecoverykey = [[NSMutableData alloc] initWithLength:APPLE_KEYSTORE_MAX_SYM_WRAPPED_KEY_LEN];
-    if (![SecAKSObjCWrappers aksEncryptWithKeybag:KEYBAG_DEVICE keyclass:key_class_aku plaintext:recoverykey.keyData outKeyclass:nil ciphertext:wrappedrecoverykey error:&cryptoError]) {
+    if (![SecAKSObjCWrappers aksEncryptWithKeybag:KEYBAG_DEVICE keyclass:key_class_aku plaintext:recoverykey.keyData outKeyclass:nil ciphertext:wrappedrecoverykey personaId:NULL personaIdLength:0 error:&cryptoError]) {
         secerror("SecDbBackup: Unable to wrap recovery key to AKS: %@", cryptoError);
         [self fillError:error code:SecDbBackupAKSFailure underlying:cryptoError description:@"Unable to wrap recovery key to AKS"];
         return nil;
@@ -916,6 +916,8 @@ static SecDbBackupManager* staticManager;
                                             plaintext:key.keyData
                                           outKeyclass:nil
                                            ciphertext:wrappedKey
+                                            personaId:NULL
+                                      personaIdLength:0
                                                 error:&localError]) {
             return;
         }

@@ -15,6 +15,7 @@ const CFStringRef kSCPropVersion                                   = CFSTR("Vers
 const CFStringRef kSCPropNetIgnoreLinkStatus                       = CFSTR("IgnoreLinkStatus");
 const CFStringRef kSCPropConfirmedInterfaceName                    = CFSTR("ConfirmedInterfaceName");
 const CFStringRef kSCPropDisableUntilNeeded                        = CFSTR("DisableUntilNeeded");
+const CFStringRef kSCPropDisablePrivateRelay                       = CFSTR("DisablePrivateRelay");
 const CFStringRef kSCPrefCurrentSet                                = CFSTR("CurrentSet");
 const CFStringRef kSCPrefNetworkServices                           = CFSTR("NetworkServices");
 const CFStringRef kSCPrefSets                                      = CFSTR("Sets");

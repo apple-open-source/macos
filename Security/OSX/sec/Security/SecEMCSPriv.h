@@ -26,6 +26,10 @@
 #ifndef SecEMCS_h
 #define SecEMCS_h
 
+#ifdef __OBJC__
+
+#import <Foundation/Foundation.h>
+
 NSData *
 SecEMCSCreateDerivedEMCSKey(NSDictionary *iDMSData, NSString *passcode, NSError **error);
 
@@ -37,5 +41,7 @@ SecEMCSCreateNewiDMSKey(NSDictionary *options,
                         NSError **error);
 
 
+
+#endif /* __OBJC__ */
 
 #endif /* SecEMCS_h */

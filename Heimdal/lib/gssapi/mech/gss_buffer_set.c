@@ -35,7 +35,7 @@
 GSSAPI_LIB_FUNCTION OM_uint32 GSSAPI_LIB_CALL
 gss_create_empty_buffer_set
 	   (OM_uint32 * __nonnull minor_status,
-	    __nonnull gss_buffer_set_t *__nullable buffer_set)
+	    __nullable gss_buffer_set_t *__nonnull buffer_set)
 {
     gss_buffer_set_t set;
 
@@ -98,7 +98,7 @@ gss_add_buffer_set_member
 
 GSSAPI_LIB_FUNCTION OM_uint32 GSSAPI_LIB_CALL
 gss_release_buffer_set(OM_uint32 * __nonnull minor_status,
-		       __nonnull gss_buffer_set_t * __nullable buffer_set)
+		       __nullable gss_buffer_set_t * __nonnull buffer_set)
 {
     size_t i;
     OM_uint32 minor;

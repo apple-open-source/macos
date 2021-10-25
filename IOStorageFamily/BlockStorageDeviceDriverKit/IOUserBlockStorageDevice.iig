@@ -1,0 +1,161 @@
+/*
+ * Copyright (c) 2020 Apple Inc. All rights reserved.
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ *
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ *
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ *
+ * @APPLE_LICENSE_HEADER_END@
+ */
+
+#ifndef _IOUSERBLOCKSTORAGEDEVICE_H
+#define _IOUSERBLOCKSTORAGEDEVICE_H
+
+#include <DriverKit/IOService.iig>
+#include <DriverKit/IOMemoryDescriptor.iig>
+
+#define kMaxDeviceStringLength 256
+
+struct DeviceString {
+	char data[kMaxDeviceStringLength];
+};
+
+struct DeviceParams {
+	uint64_t numOfBlocks;
+	uint32_t blockSize;
+	uint32_t maxIOSize;
+	uint32_t numOfOutstandingIOs;
+	uint32_t maxNumOfUnmapRegions;
+	uint32_t minSegmentAlignment;
+	uint8_t numOfAddressBits;
+	bool isUnmapSupported;
+	bool isFUASupported;
+};
+
+struct BlockRange {
+	uint64_t startBlock;
+	uint64_t numOfBlocks;
+};
+
+
+#define kIOUserStorageOptionNone 0x0000
+#define kIOUserStorageOptionForceUnitAccess 0x0001
+
+typedef uint32_t IOUserStorageOptions;
+
+/*!
+ @iig implementation
+ #if KERNEL
+ #include "IOUserBlockStorageDevice_kext.h"
+ #endif
+ @iig end
+ */
+class KERNEL IOUserBlockStorageDevice : public IOService
+{
+	virtual bool init() override;
+	virtual void free() override;
+
+	virtual kern_return_t Start(IOService * provider) override;
+	virtual kern_return_t Stop(IOService * provider) override;
+
+	/*!
+	 * @brief       Send Eject request to the dext.
+	 * @param       requestID opaque data. To be used in Complete() call once the request is completed
+	 * @return      kIOReturnSuccess on success. See IOReturn.h for error codes.
+	 */
+	virtual kern_return_t DoAsyncEjectMedia(uint32_t requestID) = 0;
+
+	/*!
+	 * @brief       Send Synchronize request to the dext.
+	 * @param       requestID opaque data. To be used in Complete() call once the request is completed
+	 * @param       lba Start logical block number
+	 * @param       numOfBlocks Number of blocks to be synchronized
+	 * @return      kIOReturnSuccess on success. See IOReturn.h for error codes.
+	 */
+	virtual kern_return_t DoAsyncSynchronize(uint32_t requestID, uint64_t lba, uint64_t numOfBlocks) = 0;
+
+	/*!
+	 * @brief       Send unmap request to the dext.
+	 * @param       requestID opaque data. To be used in Complete() call once the request is completed
+	 * @param       buffer Memory buffer containing the block ranges
+	 * @param       numOfRanges Number of ranges
+	 * @return      kIOReturnSuccess on success. See IOReturn.h for error codes.
+	 */
+	virtual kern_return_t DoAsyncUnmap(uint32_t requestID, IOMemoryDescriptor *buffer, uint32_t numOfRanges) LOCAL;
+
+	/*!
+	 * @brief       Send read/write request to the dext.
+	 * @param       requestID opaque data. To be used in CompleteIO() call once the request is completed
+	 * @param       dmaAddr DMA address of the data buffer
+	 * @param       size Size of data buffer
+	 * @param       lba Start logical block number
+	 * @param       numOfBlocks Number of blocks to be read/written
+	 * @param       options Options
+	 * @return      kIOReturnSuccess on success. See IOReturn.h for error codes.
+	 */
+	virtual kern_return_t DoAsyncReadWrite (bool isRead,
+						uint32_t requestID,
+						uint64_t dmaAddr,
+						uint64_t size,
+						uint64_t lba,
+						uint64_t numOfBlocks,
+						IOUserStorageOptions options) = 0;
+
+	/*!
+	 * @brief       Get device parameters from the dext.
+	 * @param       deviceParams Device parameters returned by the dext
+	 * @return      kIOReturnSuccess on success. See IOReturn.h for error codes.
+	 */
+	virtual kern_return_t GetDeviceParams (struct DeviceParams *deviceParams) = 0;
+
+	virtual kern_return_t GetVendorString (struct DeviceString *vendor) = 0;
+	virtual kern_return_t GetProductString (struct DeviceString *product) = 0;
+	virtual kern_return_t GetRevisionString (struct DeviceString *revision) = 0;
+	virtual kern_return_t GetAdditionalInfoString (struct DeviceString *additionalInfo) = 0;
+	
+	virtual kern_return_t ReportEjectability ( bool *isEjectable ) = 0;
+	virtual kern_return_t ReportRemovability ( bool *isRemovable ) = 0;
+	virtual kern_return_t ReportWriteProtection ( bool *isWriteProtected ) = 0;
+
+	/*!
+	 * @brief       Called by the dext to complete the IO.
+	 * @param       requestID passed by DoAsyncReadWrite()
+	 * @param       bytesTransferred Number of bytes transferred
+	 * @param       IOStatus request status
+	 */
+	virtual void CompleteIO (uint32_t requestID, uint64_t bytesTransferred, kern_return_t IOStatus) QUEUENAME (Completion);
+
+	/*!
+	 * @brief       Called by the dext to complete the IO.
+	 * @param       requestID passed by in DoAsyncEjectMedia() or DoAsyncSynchronize() or DoAsyncUnmap()
+	 * @param       status request status
+	 */
+	virtual void Complete (uint32_t requestID, kern_return_t status) QUEUENAME (Completion) ;
+	
+	virtual kern_return_t RegisterDext();
+private:
+	/*!
+	 * @brief       Send unmap request to the dext.
+	 * @param       requestID opaque data. To be used in Complete() call once the request is completed
+	 * @param       ranges array of block ranges
+	 * @param       numOfRanges Number of ranges
+	 * @return      kIOReturnSuccess on success. See IOReturn.h for error codes.
+	 */
+	virtual kern_return_t DoAsyncUnmapPriv(uint32_t requestID, struct BlockRange *ranges, uint32_t numOfRanges) LOCALONLY = 0;
+};
+
+
+#endif /* _IOUSERBLOCKSTORAGEDEVICE_H */

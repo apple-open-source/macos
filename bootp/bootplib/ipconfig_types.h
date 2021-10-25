@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2019 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2021 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -28,6 +28,7 @@
 #include <net/if.h>
 #include <netinet/in.h>
 #include "cfutil.h"
+#include "util.h"
 
 #ifdef mig_external
 #undef mig_external
@@ -126,7 +127,7 @@ typedef enum {
     ipconfig_status_resource_unavailable_e = 18,
     ipconfig_status_network_changed_e = 19,
     ipconfig_status_lease_expired_e = 20,
-    ipconfig_status_last_e,
+    ipconfig_status_dhcp_waiting_e = 21
 } ipconfig_status_t;
 
 static __inline__ const char *
@@ -153,10 +154,13 @@ ipconfig_status_string(ipconfig_status_t status)
 	"not found",
 	"resource unavailable",
 	"network changed",
-	"lease expired"
+	"lease expired",
+	"DHCP waiting"
     };
-    if (status >= ipconfig_status_last_e)
+    int str_count = countof(str);
+    if (status >= str_count) {
 	return ("<unknown>");
+    }
     return (str[status]);
 }
     

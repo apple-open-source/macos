@@ -1,5 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
-// License & terms of use: http://www.unicode.org/copyright.html#License
+// License & terms of use: http://www.unicode.org/copyright.html
+// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
 gn{
     AuxExemplarCharacters{"[b c d f q w x z]"}
     ExemplarCharacters{
@@ -10,7 +11,41 @@ gn{
         "[A Ã {CH} E Ẽ G {G\u0303} H I Ĩ J K L M {MB} N Ñ {ND} {NG} {NT} O Õ P R {RR}"
         " S T U Ũ V Y Ỹ ʼ]"
     }
-    Version{"36.1"}
+    calendar{
+        gregorian{
+            dayNames{
+                format{
+                    wide{
+                        "Arateĩ",
+                        "Arakõi",
+                        "Araapy",
+                        "Ararundy",
+                        "Arapo",
+                        "Arapoteĩ",
+                        "Arapokõi",
+                    }
+                }
+            }
+            monthNames{
+                format{
+                    wide{
+                        "Jasyteĩ",
+                        "Jasykõi",
+                        "Jasyapy",
+                        "Jasyrundy",
+                        "Jasypo",
+                        "Jasypoteĩ",
+                        "Jasypokõi",
+                        "Jasypoapy",
+                        "Jasyporundy",
+                        "Jasypa",
+                        "Jasypateĩ",
+                        "Jasypakõi",
+                    }
+                }
+            }
+        }
+    }
     layout{
         characters{"left-to-right"}
         lines{"top-to-bottom"}

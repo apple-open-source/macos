@@ -1,0 +1,52 @@
+--- pythonrun.c.orig	2021-06-07 12:32:57.000000000 -0700
++++ pythonrun.c	2021-06-07 14:26:22.000000000 -0700
+@@ -1,3 +1,6 @@
++#define PYTHON_WRAPPER_PATH "/System/Library/Frameworks/Python.framework/Versions/2.7/bin/pythonwrapper"
++#define PYTHONWRAPPER "pythonwrapper"
++#define PYTHON_NO_EXEC_ARG "noexec"
+ 
+ /* Python interpreter top-level routines, including init/exit */
+ 
+@@ -158,8 +161,8 @@
+     return 0;
+ }
+ 
+-void
+-Py_InitializeEx(int install_sigs)
++static void
++Py_InitializeExWithoutMetrics(int install_sigs)
+ {
+     PyInterpreterState *interp;
+     PyThreadState *tstate;
+@@ -383,11 +386,31 @@
+ }
+ 
+ void
++Py_InitializeEx(int install_sigs)
++{
++    if (initialized)
++        return;
++
++    if (!fork()) {
++        char *const args[] = { PYTHONWRAPPER, PYTHON_NO_EXEC_ARG, NULL };
++        execv(PYTHON_WRAPPER_PATH, args);
++        exit(1);
++    }
++
++    Py_InitializeExWithoutMetrics(install_sigs);
++}
++
++void
+ Py_Initialize(void)
+ {
+     Py_InitializeEx(1);
+ }
+ 
++void
++Py_InitializeWithoutMetrics(void)
++{
++    Py_InitializeExWithoutMetrics(1);
++}
+ 
+ #ifdef COUNT_ALLOCS
+ extern void dump_counts(FILE*);

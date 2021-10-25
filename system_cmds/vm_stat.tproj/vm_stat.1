@@ -2,7 +2,7 @@
 .\"
 .Dd August 13, 1997
 .Dt VM_STAT 1
-.Os "Mac OS X"
+.Os "macOS"
 .Sh NAME
 .Nm vm_stat
 .Nd show Mach virtual memory statistics
@@ -13,16 +13,17 @@
 .Ar interval
 .Oc
 .Sh DESCRIPTION
-.Nm vm_stat 
-displays Mach virtual memory statistics.  If the optional 
-.Ar interval 
-is specified, then 
-.Nm vm_stat 
-will display the statistics every 
-.Ar interval 
-seconds.  In this case, each line of output displays the change in
-each statistic (an
-.Ar interval 
+.Nm vm_stat
+displays Mach virtual memory statistics.
+If the optional
+.Ar interval
+is specified, then
+.Nm vm_stat
+will display the statistics every
+.Ar interval
+seconds.
+In this case, each line of output displays the change in each statistic (an
+.Ar interval
 count of 1 displays the values per second).  However, the first line
 of output following each banner displays the system-wide totals for
 each statistic.
@@ -42,10 +43,10 @@ the total number of pages on the inactive list.
 .It Pages speculative
 the total number of pages on the speculative list.
 .It Pages throttled
-the total number of pages on the throttled list (not wired but not pageable). 
+the total number of pages on the throttled list (not wired but not pageable).
 .It Pages wired down
-the total number of pages wired down.  That is, pages that cannot be
-paged out.
+the total number of pages wired down.
+That is, pages that cannot be paged out.
 .It Pages purgeable
 the total number of purgeable pages.
 .It Translation faults
@@ -82,8 +83,8 @@ the total number of compressed pages that have been swapped out to disk.
 the total number of compressed pages that have been swapped back in from disk.
 .El
 .Pp
-If 
-.Ar interval 
-is not specified, then 
-.Nm vm_stat 
+If
+.Ar interval
+is not specified, then
+.Nm vm_stat
 displays all accumulated statistics along with the page size.

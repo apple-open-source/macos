@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Project</key>
+	<string>Security</string>
+	<key>Tests</key>
+	<array>
+		<dict>
+			<key>TestName</key>
+			<string>SecureTransportTests</string>
+			<key>WorkingDirectory</key>
+			<string>/AppleInternal/XCTests/com.apple.security/</string>
+			<key>Command</key>
+			<array>
+				<string>BATS_XCTEST_CMD</string>
+				<string>-NSTreatUnknownArgumentsAsOpen</string>
+				<string>NO</string>
+				<string> -ApplePersistenceIgnoreState</string>
+				<string>YES</string>
+				<string>-XCTest</string>
+				<string>Self</string>
+				<string>SecureTransportTests.xctest</string>
+			</array>
+		</dict>
+	</array>
+</dict>
+</plist>

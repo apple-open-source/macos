@@ -300,7 +300,7 @@ _dnsinfo_flatfile_create_resolver(const char *dir, const char *path)
 
 	while ((buf = fgetln(f, &len)) != NULL) {
 		char	*lineptr;
-		int	max_count;
+		int	max_count	= 0;
 		int	token;
 		char	*word;
 
@@ -575,7 +575,7 @@ _dnsinfo_flatfile_add_resolvers(dns_create_config_t *config)
 #include "dnsinfo_copy.c"
 
 int
-main(int argc, char **argv)
+main(int argc, char * const argv[])
 {
 	dns_config_t		*dns_config	= NULL;
 	_dns_config_buf_t	*dns_config_buf	= NULL;
@@ -593,7 +593,7 @@ main(int argc, char **argv)
 
 		n = sizeof(_dns_config_buf_t);
 		n += ntohl(((_dns_config_buf_t *)dns_create_config)->n_attribute);
-		dns_config_buf = _dns_configuration_buffer_create((void *)dns_create_config, n);
+		dns_config_buf = _dns_configuration_buffer_create(dns_create_config, n);
 		_dns_configuration_free(&dns_create_config);
 	}
 

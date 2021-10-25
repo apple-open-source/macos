@@ -41,11 +41,18 @@
 {
     NSError* localerror = nil;
 
-    for(CKKSKeychainViewState* view in self.deps.zones) {
+    for(CKKSKeychainViewState* view in self.deps.views) {
+        view.viewKeyHierarchyState = SecCKKSZoneKeyStateResettingLocalData;
+
         CKKSZoneStateEntry* ckse = [CKKSZoneStateEntry state:view.zoneID.zoneName];
         ckse.ckzonecreated = false;
         ckse.ckzonesubscribed = false; // I'm actually not sure about this: can you be subscribed to a non-existent zone?
         ckse.changeToken = NULL;
+
+        ckse.moreRecordsInCloudKit = NO;
+        ckse.lastFetchTime = nil;
+        ckse.lastLocalKeychainScanTime = nil;
+
         [ckse saveToDatabase:&localerror];
         if(localerror && self.error == nil) {
             ckkserror("local-reset", view.zoneID, "couldn't reset zone status: %@", localerror);
@@ -115,7 +122,7 @@
     }
 
     if(!self.error) {
-        ckksnotice_global("local-reset", "Successfully deleted all local data for zones: %@", self.deps.zones);
+        ckksnotice_global("local-reset", "Successfully deleted all local data for zones: %@", self.deps.views);
         self.nextState = self.intendedState;
     }
 }

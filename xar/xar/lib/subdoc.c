@@ -143,7 +143,11 @@ int32_t xar_subdoc_copyin(xar_subdoc_t s, const unsigned char *buf, unsigned int
 	if( !reader )
 		return -1;
 
-	xar_subdoc_unserialize(s, reader);
+	if (xar_subdoc_unserialize(s, reader) != 0)
+	{
+		xmlFreeTextReader(reader);
+		return -1;
+	}
 	xmlFreeTextReader(reader);
 	return 0;
 }
@@ -195,13 +199,15 @@ void xar_subdoc_remove(xar_subdoc_t s) {
 	return;
 }
 
-void xar_subdoc_unserialize(xar_subdoc_t s, xmlTextReaderPtr reader) {
+int xar_subdoc_unserialize(xar_subdoc_t s, xmlTextReaderPtr reader) {
 	int type;
 
 	while( xmlTextReaderRead(reader) == 1 ) {
 		type = xmlTextReaderNodeType(reader);
 		if( type == XML_READER_TYPE_ELEMENT ) {
-			xar_prop_unserialize((xar_file_t)s, NULL, reader);
+			if (xar_prop_unserialize((xar_file_t)s, NULL, reader) != 0) {
+				return -1;
+			}
 		}
 		if( type == XML_READER_TYPE_TEXT ) {
 			const char *value;
@@ -214,5 +220,5 @@ void xar_subdoc_unserialize(xar_subdoc_t s, xmlTextReaderPtr reader) {
 		}
 	}
 
-	return;
+	return 0;
 }

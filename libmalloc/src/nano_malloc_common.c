@@ -23,26 +23,23 @@
 
 #include "internal.h"
 
-// Code that is common to Nano V1 and Nano V2. When Nano V1 is removed,
-// most of this file will move to nanov2_malloc.c.
-
 #if CONFIG_NANOZONE
 
 // Possible enablement modes for Nano V2
 typedef enum {
-	NANO_INACTIVE,	// Inactive, but can be selected with MallocNanoZone=V2
 	NANO_ENABLED,	// Available and default if Nano is turned on.
 	NANO_FORCED,	// Force use of Nano V2 for all processes.
+	NANO_CONDITIONAL,	// Use Nano V2 in non space-efficient processes
 } nanov2_mode_t;
 
-// Which version of Nano is engaged. By default, none.
+// Whether Nano is engaged. By default, none.
 nano_version_t _malloc_engaged_nano = NANO_NONE;
 
 // Nano mode selection boot argument
 static const char mode_boot_arg[] = "nanov2_mode";
-static const char inactive_mode[] = "inactive"; // Use Nano V1 for Nano
 static const char enabled_mode[] = "enabled";	// Use Nano V2 for Nano
 static const char forced_mode[] = "forced";		// Force Nano V2 everywhere
+static const char conditional_mode[] = "conditional"; // Use Nano V2 in non space-efficient processes
 
 // The maximum number of per-CPU allocation regions to use for Nano.
 unsigned int nano_common_max_magazines;
@@ -58,58 +55,50 @@ static const char nano_max_magazines_boot_arg[] = "malloc_nano_max_magazines";
 // if any, and sets _malloc_engaged_nano. The Nano version is determined as
 // follows:
 // 1. If the nanov2_mode boot arg has value "forced", Nano V2 is used
-//		unconditionally in every process, except in processes that have
-//		the MallocNanoZone variable set to V1.
+//		unconditionally in every process
 // 2. If the nanov2_mode boot arg has value "enabled", Nano V2 is used if
-//		the process wants to use Nano (i.e. the kernel opts the process in, or
-//		the environment variable MallocNanoZone is 1).
-// 3. If the nanov2_mode boot arg is not present or has any other value,
-//		Nano V1 is used if the process wants to use Nano (i.e. the kernel opts
-//		the process in, or the environment variable MallocNanoZone is 1).
-//
-// In cases (2) and (3), the selection can be explicitly overridden by setting
-// the environment variable MallocNanoZone to V1 or V2.
+//		the process wants to use Nano
 void
 nano_common_init(const char *envp[], const char *apple[], const char *bootargs)
 {
 	// Use the nanov2_mode boot argument and MallocNanoZone to determine
-	// which version of Nano to use, if any.
-	nanov2_mode_t nanov2_mode = NANO_ENABLED;
+	// whether to use nano
+	nanov2_mode_t nanov2_mode = NANOV2_DEFAULT_MODE;
+
 	const char *p = malloc_common_value_for_key(bootargs, mode_boot_arg);
 	if (p) {
-		if (!strncmp(p, inactive_mode, sizeof(inactive_mode) - 1)) {
-			nanov2_mode = NANO_INACTIVE;
-		} else if (!strncmp(p, enabled_mode, sizeof(enabled_mode) - 1)) {
+		if (!strncmp(p, enabled_mode, sizeof(enabled_mode) - 1)) {
 			nanov2_mode = NANO_ENABLED;
 		} else if (!strncmp(p, forced_mode, sizeof(forced_mode) - 1)) {
 			nanov2_mode = NANO_FORCED;
+		} else if (!strncmp(p, conditional_mode, sizeof(conditional_mode) - 1)) {
+			nanov2_mode = NANO_CONDITIONAL;
 		}
 	}
 
 	if (nanov2_mode == NANO_FORCED) {
-		// We will use Nano V2 unless MallocNanoZone is "V1".
-		const char *flag = _simple_getenv(envp, "MallocNanoZone");
-		if (flag && (flag[0] == 'V' || flag[0] == 'v') && flag[1] == '1') {
-			_malloc_engaged_nano = NANO_V1;
-		} else {
-			_malloc_engaged_nano = NANO_V2;
-		}
+		_malloc_engaged_nano = NANO_V2;
 	} else {
-		const char *flag = _simple_getenv(apple, "MallocNanoZone");
-		if (flag && flag[0] == '1') {
-			_malloc_engaged_nano = nanov2_mode == NANO_ENABLED ? NANO_V2 : NANO_V1;
+		const char *flag = NULL;
+		if (nanov2_mode == NANO_CONDITIONAL) {
+			// If conditional mode is selected, ignore the apple[] array and
+			// make the decision based of space efficient mode.
+			_malloc_engaged_nano = malloc_space_efficient_enabled ? NANO_NONE : NANO_V2;
+		} else {
+			flag = _simple_getenv(apple, "MallocNanoZone");
+			if (flag && flag[0] == '1') {
+				_malloc_engaged_nano = NANO_V2;
+			}
 		}
 		/* Explicit overrides from the environment */
 		flag = _simple_getenv(envp, "MallocNanoZone");
 		if (flag) {
 			if (flag[0] == '1') {
-				_malloc_engaged_nano = nanov2_mode == NANO_ENABLED ? NANO_V2 : NANO_V1;
+				_malloc_engaged_nano = NANO_V2;
 			} else if (flag[0] == '0') {
 				_malloc_engaged_nano = NANO_NONE;
 			} else if (flag[0] == 'V' || flag[0] == 'v') {
-				if (flag[1] == '1') {
-					_malloc_engaged_nano = NANO_V1;
-				} else if (flag[1] == '2') {
+				if (flag[1] == '1' || flag[1] == '2') {
 					_malloc_engaged_nano = NANO_V2;
 				}
 			}
@@ -138,9 +127,6 @@ nano_common_init(const char *envp[], const char *apple[], const char *bootargs)
 	}
 
 	switch (_malloc_engaged_nano) {
-	case NANO_V1:
-		nano_init(envp, apple, bootargs);
-		break;
 	case NANO_V2:
 		nanov2_init(envp, apple, bootargs);
 		break;
@@ -193,9 +179,6 @@ nano_common_configure(void)
 	nano_common_cpu_number_override_set();
 
 	switch (_malloc_engaged_nano) {
-	case NANO_V1:
-		nano_configure();
-		break;
 	case NANO_V2:
 		nanov2_configure();
 		break;
@@ -233,8 +216,10 @@ nano_common_allocate_based_pages(size_t size, unsigned char align,
 			allocation_mask, alloc_flags, MEMORY_OBJECT_NULL, 0, FALSE,
 			VM_PROT_DEFAULT, VM_PROT_ALL, VM_INHERIT_DEFAULT);
 	if (kr) {
-		malloc_zone_error(debug_flags, false, "*** can't allocate pages: "
-				"mach_vm_map(size=%lu) failed (error code=%d)\n", size, kr);
+		if (kr != KERN_NO_SPACE) {
+			malloc_zone_error(debug_flags, false, "*** can't allocate pages: "
+					"mach_vm_map(size=%lu) failed (error code=%d)\n", size, kr);
+		}
 		return NULL;
 	}
 	addr = (uintptr_t)vm_addr;

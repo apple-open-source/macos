@@ -476,4 +476,9 @@ uadatpg_remapPatternWithOptions(UDateTimePatternGenerator *dtpg,
     return patternString.extract(newPattern, newPatternCapacity, *pErrorCode);
 }
 
+U_CAPI UDateFormatHourCycle U_EXPORT2
+udatpg_getDefaultHourCycle(const UDateTimePatternGenerator *dtpg, UErrorCode* pErrorCode) {
+    return ((const DateTimePatternGenerator *)dtpg)->getDefaultHourCycle(*pErrorCode);
+}
+
 #endif

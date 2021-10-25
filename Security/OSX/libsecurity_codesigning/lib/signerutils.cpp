@@ -38,15 +38,10 @@
 
 #include <security_utilities/unix++.h>
 #include <security_utilities/logging.h>
-#include <security_utilities/unixchild.h>
 
 #include <vector>
 
-// for helper validation
-#include "Code.h"
-#include <security_utilities/cfmunge.h>
-#include <sys/codesign.h>
-
+#include "codesign_alloc.h"
 
 namespace Security {
 namespace CodeSigning {
@@ -55,9 +50,6 @@ namespace CodeSigning {
 //
 // About the Mach-O allocation helper
 //
-static const char helperName[] = "codesign_allocate";
-static const char helperPath[] = "/usr/bin/codesign_allocate";
-static const char helperOverride[] = "CODESIGN_ALLOCATE";
 static const size_t csAlign = 16;
 
 
@@ -153,23 +145,14 @@ MachOEditor::MachOEditor(DiskRep::Writer *w, Universal &code, CodeDirectory::Has
 	  mHashTypes(hashTypes),
 	  mNewCode(NULL),
 	  mTempMayExist(false)
-{
-	if (const char *path = getenv(helperOverride)) {
-		mHelperPath = path;
-		mHelperOverridden = true;
-	} else {
-		mHelperPath = helperPath;
-		mHelperOverridden = false;
-	}
-}
+{}
 
 MachOEditor::~MachOEditor()
 {
 	delete mNewCode;
-	if (mTempMayExist)
+	if (mTempMayExist) {
 		::remove(tempPath.c_str());		// ignore error (can't do anything about it)
-
-	this->kill();
+	}
 }
 
 
@@ -181,15 +164,46 @@ void MachOEditor::component(CodeDirectory::SpecialSlot slot, CFDataRef data)
 
 void MachOEditor::allocate()
 {
+	char* errorMessage = NULL;
 	// note that we may have a temporary file from now on (for cleanup in the error case)
 	mTempMayExist = true;
 
-	// run codesign_allocate to make room in the executable file
-	fork();
-	wait();
-	if (!Child::succeeded())
-		MacOSError::throwMe(errSecCSHelperFailed);
-	
+	bool removeSignature = false;
+	for (auto arch : architecture) {
+		if(arch.second->blobSize == 0) {
+			removeSignature = true;
+		} else if (removeSignature) {
+			secerror("codesign allocate error: one architecture signaled removal while another signaled signing");
+			MacOSError::throwMe(errSecCSInternalError);
+		}
+	}
+
+	if (removeSignature) {
+		if (!code_sign_deallocate(sourcePath.c_str(), tempPath.c_str(), errorMessage)) {
+			secerror("codesign deallocation failed: %s", errorMessage);
+			::free(errorMessage);
+			MacOSError::throwMe(errSecCSInternalError);
+		}
+	} else {
+		if (!code_sign_allocate(sourcePath.c_str(),
+								tempPath.c_str(),
+								^unsigned int(cpu_type_t cputype, cpu_subtype_t cpusubtype) {
+									Architecture currentArch(cputype,cpusubtype);
+									size_t blobSize = UINT32_MAX;
+									for (auto arch : architecture) {
+										if (arch.first.matches(currentArch)) {
+											blobSize = arch.second->blobSize;
+										}
+									}
+									blobSize = LowLevelMemoryUtilities::alignUp(blobSize, csAlign);
+									return (blobSize < UINT32_MAX) ? (unsigned int) blobSize : UINT32_MAX;
+								}, errorMessage)) {
+			secerror("codesign allocation failed: %s", errorMessage);
+			::free(errorMessage);
+			MacOSError::throwMe(errSecCSInternalError);
+		}
+	}
+
 	// open the new (temporary) Universal file
 	{
 		UidGuard guard(0);
@@ -197,65 +211,6 @@ void MachOEditor::allocate()
 	}
 	mNewCode = new Universal(mFd);
 }
-
-static const unsigned char appleReq[] = {
-	// anchor apple and info["Application-Group"] = "com.apple.tool.codesign_allocate"
-	0xfa, 0xde, 0x0c, 0x00, 0x00, 0x00, 0x00, 0x58, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x06,
-	0x00, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00, 0x0a, 0x00, 0x00, 0x00, 0x11, 0x41, 0x70, 0x70, 0x6c,
-	0x69, 0x63, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x2d, 0x47, 0x72, 0x6f, 0x75, 0x70, 0x00, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x20, 0x63, 0x6f, 0x6d, 0x2e, 0x61, 0x70, 0x70, 0x6c,
-	0x65, 0x2e, 0x74, 0x6f, 0x6f, 0x6c, 0x2e, 0x63, 0x6f, 0x64, 0x65, 0x73, 0x69, 0x67, 0x6e, 0x5f,
-	0x61, 0x6c, 0x6c, 0x6f, 0x63, 0x61, 0x74, 0x65,
-};
-
-void MachOEditor::parentAction()
-{
-	if (mHelperOverridden) {
-		CODESIGN_ALLOCATE_VALIDATE((char*)mHelperPath, this->pid());
-		// check code identity of an overridden allocation helper
-		SecPointer<SecStaticCode> code = new SecStaticCode(DiskRep::bestGuess(mHelperPath));
-		code->staticValidate(kSecCSDefaultFlags, NULL);
-		code->validateRequirement((const Requirement *)appleReq, errSecCSReqFailed);
-	}
-}
-
-void MachOEditor::childAction()
-{
-	vector<const char *> arguments;
-	arguments.push_back(helperName);
-	arguments.push_back("-i");
-	arguments.push_back(sourcePath.c_str());
-	arguments.push_back("-o");
-	arguments.push_back(tempPath.c_str());
-	
-	for (Iterator it = architecture.begin(); it != architecture.end(); ++it) {
-		size_t size = LowLevelMemoryUtilities::alignUp(it->second->blobSize, csAlign);
-		char *ssize;			// we'll leak this (execv is coming soon)
-		asprintf(&ssize, "%zd", size);
-
-		if (const char *arch = it->first.name()) {
-			CODESIGN_ALLOCATE_ARCH((char*)arch, (unsigned int)size);
-			arguments.push_back("-a");
-			arguments.push_back(arch);
-		} else {
-			CODESIGN_ALLOCATE_ARCHN(it->first.cpuType(), it->first.cpuSubtype(), (unsigned int)size);
-			arguments.push_back("-A");
-			char *anum;
-			asprintf(&anum, "%d", it->first.cpuType());
-			arguments.push_back(anum);
-			asprintf(&anum, "%d", it->first.cpuSubtype());
-			arguments.push_back(anum);
-		}
-		arguments.push_back(ssize);
-	}
-	arguments.push_back(NULL);
-	
-	if (mHelperOverridden)
-		::csops(0, CS_OPS_MARKKILL, NULL, 0);		// force code integrity
-	(void)::seteuid(0);	// activate privilege if caller has it; ignore error if not
-	execv(mHelperPath, (char * const *)&arguments[0]);
-}
-
 void MachOEditor::reset(Arch &arch)
 {
 	arch.source.reset(mNewCode->architecture(arch.architecture));
@@ -281,8 +236,9 @@ void MachOEditor::write(Arch &arch, EmbeddedSignatureBlob *blob)
 	if (size_t offset = arch.source->signingOffset()) {
 		size_t signingLength = arch.source->signingLength();
 		CODESIGN_ALLOCATE_WRITE((char*)arch.architecture.name(), offset, (unsigned)blob->length(), (unsigned)signingLength);
-		if (signingLength < blob->length())
+		if (signingLength < blob->length()) {
 			MacOSError::throwMe(errSecCSCMSTooLarge);
+		}
 		arch.source->seek(offset);
 		arch.source->writeAll(*blob);
 		::free(blob);		// done with it
@@ -370,6 +326,18 @@ void MachOEditor::commit()
 //
 void InternalRequirements::operator () (const Requirements *given, const Requirements *defaulted, const Requirement::Context &context)
 {
+	bool requirements_supported = true;
+
+#if !TARGET_OS_OSX
+	requirements_supported = false;
+#endif
+
+	if (!requirements_supported) {
+		secinfo("signer", "Platform does not support signing internal requirements");
+		mReqs = NULL;
+		return;
+	}
+
 	// first add the default internal requirements
 	if (defaulted) {
 		this->add(defaulted);
@@ -402,13 +370,25 @@ PreSigningContext::PreSigningContext(const SecCodeSigner::Signer &signer)
 	if (signer.signingIdentity() != SecIdentityRef(kCFNull)) {
 		CFRef<SecCertificateRef> signingCert;
 		MacOSError::check(SecIdentityCopyCertificate(signer.signingIdentity(), &signingCert.aref()));
-		CFRef<SecPolicyRef> policy = SecPolicyCreateWithOID(kSecPolicyAppleCodeSigning);
+		CFRef<SecPolicyRef> policy = SecPolicyCreateWithProperties(kSecPolicyAppleCodeSigning, NULL);
 		CFRef<SecTrustRef> trust;
 		MacOSError::check(SecTrustCreateWithCertificates(CFArrayRef(signingCert.get()), policy, &trust.aref()));
-		SecTrustResultType result;
-		MacOSError::check(SecTrustEvaluate(trust, &result));
-		CSSM_TP_APPLE_EVIDENCE_INFO *info;
-		MacOSError::check(SecTrustGetResult(trust, &result, &mCerts.aref(), &info));
+
+		if (!SecTrustEvaluateWithError(trust, NULL)) {
+			secinfo("signer", "SecTrust evaluation of signing certificate failed - not fatal");
+		}
+
+		CFRef<CFArrayRef> certChain = SecTrustCopyCertificateChain(trust);
+		if (!certChain) {
+			secerror("Certificate chain is NULL");
+			MacOSError::throwMe(errSecCSInvalidObjectRef);
+		}
+
+		mCerts.take(CFArrayCreateCopy(kCFAllocatorDefault, certChain));
+		if (!mCerts) {
+			secerror("Unable to copy certChain array");
+			MacOSError::throwMe(errSecCSInternalError);
+		}
 		this->certs = mCerts;
 	}
 	

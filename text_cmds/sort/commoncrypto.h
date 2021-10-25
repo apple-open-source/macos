@@ -3,6 +3,6 @@
 #define MD5_CTX CC_MD5_CTX
 #define MD5Init CC_MD5_Init
 #define MD5Update CC_MD5_Update
+#define MD5Final CC_MD5_Final
 
-char *MD5End(CC_MD5_CTX *, char *);
-char *MD5File(const char *, char *);
+#define MD5_DIGEST_LENGTH CC_MD5_DIGEST_LENGTH

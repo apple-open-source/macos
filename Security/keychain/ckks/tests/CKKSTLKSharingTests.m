@@ -129,12 +129,13 @@
     [self expectCKModifyKeyRecords:0 currentKeyPointerRecords:0 tlkShareRecords:1 zoneID:self.keychainZoneID];
     [self startCKKSSubsystem];
     XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], "Key state should become ready");
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:20*NSEC_PER_SEC], "CKKS state machine should enter ready");
 
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
 
     // Verify that there are three local keys, and three local current key records
     __weak __typeof(self) weakSelf = self;
-    [self.keychainView dispatchSyncWithReadOnlySQLTransaction:^{
+    [self.defaultCKKS dispatchSyncWithReadOnlySQLTransaction:^{
         __strong __typeof(weakSelf) strongSelf = weakSelf;
         XCTAssertNotNil(strongSelf, "self exists");
 
@@ -176,12 +177,13 @@
                }];
     [self startCKKSSubsystem];
     XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], "Key state should become ready");
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:20*NSEC_PER_SEC], "CKKS state machine should enter ready");
 
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
 
     // Verify that there are three local keys, and three local current key records
     __weak __typeof(self) weakSelf = self;
-    [self.keychainView dispatchSyncWithReadOnlySQLTransaction:^{
+    [self.defaultCKKS dispatchSyncWithReadOnlySQLTransaction:^{
         __strong __typeof(weakSelf) strongSelf = weakSelf;
         XCTAssertNotNil(strongSelf, "self exists");
 
@@ -208,6 +210,7 @@
     [self expectCKModifyKeyRecords:0 currentKeyPointerRecords:0 tlkShareRecords:1 zoneID:self.keychainZoneID];
     [self startCKKSSubsystem];
     XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], "Key state should become ready");
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:20*NSEC_PER_SEC], "CKKS state machine should enter ready");
 
     // We expect a single record to be uploaded for each key class
     [self expectCKModifyItemRecords: 1 currentKeyPointerRecords: 1 zoneID:self.keychainZoneID
@@ -240,18 +243,19 @@
     [self expectCKModifyKeyRecords:0 currentKeyPointerRecords:0 tlkShareRecords:1 zoneID:self.keychainZoneID];
     [self startCKKSSubsystem];
     XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], "Key state should become ready");
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:20*NSEC_PER_SEC], "CKKS state machine should enter ready");
 
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
     [self waitForCKModifications];
 
     // Verify that making a new share will have the old share's change tag
     __weak __typeof(self) weakSelf = self;
-    [self.keychainView dispatchSyncWithReadOnlySQLTransaction:^{
+    [self.defaultCKKS dispatchSyncWithReadOnlySQLTransaction:^{
         __strong __typeof(weakSelf) strongSelf = weakSelf;
         XCTAssertNotNil(strongSelf, "self exists");
 
         NSError* error = nil;
-        CKKSTLKShareRecord* share = [CKKSTLKShareRecord share:strongSelf.keychainZoneKeys.tlk
+        CKKSTLKShareRecord* share = [CKKSTLKShareRecord share:[strongSelf.keychainZoneKeys.tlk getKeychainBackedKey:&error]
                                                            as:strongSelf.mockSOSAdapter.selfPeer
                                                            to:strongSelf.mockSOSAdapter.selfPeer
                                             epoch:-1
@@ -282,15 +286,17 @@
     [self expectCKModifyKeyRecords:0 currentKeyPointerRecords:0 tlkShareRecords:1 zoneID:self.keychainZoneID];
     [self startCKKSSubsystem];
     XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], "Key state should become ready");
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:20*NSEC_PER_SEC], "CKKS state machine should enter ready");
 
     // The CKKS subsystem should not try to write anything to the CloudKit database while it's accepting the keys
     XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], "Key state should become ready");
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:20*NSEC_PER_SEC], "CKKS state machine should enter ready");
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
 
 
     // Make another share, but from an untrusted peer to some other peer. local shouldn't necessarily care.
     NSError* error = nil;
-    CKKSTLKShareRecord* share = [CKKSTLKShareRecord share:self.keychainZoneKeys.tlk
+    CKKSTLKShareRecord* share = [CKKSTLKShareRecord share:[self.keychainZoneKeys.tlk getKeychainBackedKey:&error]
                                            as:self.untrustedPeer
                                            to:self.remotePeer1
                                         epoch:-1
@@ -303,9 +309,9 @@
     XCTAssertNotNil(shareCKRecord, "Should have been able to create a CKRecord");
     [self.keychainZone addToZone:shareCKRecord];
     [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
-    [self.keychainView waitForFetchAndIncomingQueueProcessing];
+    [self.defaultCKKS waitForFetchAndIncomingQueueProcessing];
 
-    [self.keychainView dispatchSyncWithReadOnlySQLTransaction:^{
+    [self.defaultCKKS dispatchSyncWithReadOnlySQLTransaction:^{
         NSError* blockerror = nil;
         CKKSTLKShareRecord* localshare = [CKKSTLKShareRecord tryFromDatabaseFromCKRecordID:shareCKRecord.recordID error:&blockerror];
         XCTAssertNil(blockerror, "Shouldn't error finding TLKShare record in database");
@@ -315,10 +321,10 @@
     // Delete the record in CloudKit...
     [self.keychainZone deleteCKRecordIDFromZone:shareCKRecord.recordID];
     [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
-    [self.keychainView waitForFetchAndIncomingQueueProcessing];
+    [self.defaultCKKS waitForFetchAndIncomingQueueProcessing];
 
     // Should be gone now.
-    [self.keychainView dispatchSyncWithReadOnlySQLTransaction:^{
+    [self.defaultCKKS dispatchSyncWithReadOnlySQLTransaction:^{
         NSError* blockerror = nil;
         CKKSTLKShareRecord* localshare = [CKKSTLKShareRecord tryFromDatabaseFromCKRecordID:shareCKRecord.recordID error:&blockerror];
 
@@ -337,6 +343,7 @@
 
     // The CKKS subsystem should not try to write anything to the CloudKit database, but it should enter waitfortlk
     XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateWaitForTLK] wait:20*NSEC_PER_SEC], "Key state should become waitfortlk");
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:20*NSEC_PER_SEC], "CKKS state machine should enter ready");
 
     // peer1 arrives to save the day
     // The CKKS subsystem should accept the keys, and share the TLK back to itself
@@ -344,9 +351,10 @@
 
     [self putTLKSharesInCloudKit:self.keychainZoneKeys.tlk from:self.remotePeer1 zoneID:self.keychainZoneID];
     [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
-    [self.keychainView waitForFetchAndIncomingQueueProcessing];
+    [self.defaultCKKS waitForFetchAndIncomingQueueProcessing];
 
     XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], "Key state should become ready");
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:20*NSEC_PER_SEC], "CKKS state machine should enter ready");
 
     // We expect a single record to be uploaded for each key class
     [self expectCKModifyItemRecords: 1 currentKeyPointerRecords: 1 zoneID:self.keychainZoneID
@@ -380,6 +388,7 @@
 
     // The CKKS subsystem should not try to write anything to the CloudKit database, but it should enter waitforunlock
     XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateWaitForUnlock] wait:20*NSEC_PER_SEC], "Key state should become waitforunlock");
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:20*NSEC_PER_SEC], "CKKS state machine should enter ready");
 
     // Now unlock things. We expect a TLKShare upload.
     [self expectCKModifyKeyRecords:0 currentKeyPointerRecords:0 tlkShareRecords:1 zoneID:self.keychainZoneID];
@@ -388,6 +397,7 @@
     [self.lockStateTracker recheck];
 
     XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], "Key state should become ready");
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:20*NSEC_PER_SEC], "CKKS state machine should enter ready");
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
 }
 
@@ -400,24 +410,25 @@
 
     // CKKS _should_ upload itself a share.
     [self expectCKModifyKeyRecords:0 currentKeyPointerRecords:0 tlkShareRecords:1 zoneID:self.keychainZoneID];
+    XCTAssertNotEqual(0, [self.defaultCKKS.trustStatusKnown wait:100*NSEC_PER_MSEC], @"CKKS should not know the trust status");
 
     // We start untrusted, but receive trust just as we fail to unwrap the TLK....
     self.mockSOSAdapter.circleStatus = kSOSCCNotInCircle;
     [self.accountStateTracker notifyCircleStatusChangeAndWaitForSignal];
 
     [self startCKKSSubsystem];
-
-    [self.keychainView.stateMachine testPauseStateMachineAfterEntering:SecCKKSZoneKeyStateTLKMissing];
+    XCTAssertEqual(0, [self.defaultCKKS.trustStatusKnown wait:20*NSEC_PER_SEC], @"CKKS should know the trust status");
 
     // The CKKS subsystem should not try to write anything to the CloudKit database, but it should enter waitfortlk
-    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateTLKMissing] wait:20*NSEC_PER_SEC], "Key state should become tlk_missing");
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateWaitForTrust] wait:20*NSEC_PER_SEC], "Key state should become waitfortrust");
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateWaitForTrust] wait:20*NSEC_PER_SEC], "CKKS state machine should enter waitfortrust");
 
     self.mockSOSAdapter.circleStatus = kSOSCCInCircle;
-    [self beginSOSTrustedViewOperation:self.keychainView];
-
-    [self.keychainView.stateMachine testReleaseStateMachinePause:SecCKKSZoneKeyStateTLKMissing];
+    [self beginSOSTrustedViewOperation:self.defaultCKKS];
 
     XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], "Key state should become ready");
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:20*NSEC_PER_SEC], "CKKS state machine should enter ready");
+    XCTAssertEqual(0, [self.defaultCKKS.trustStatusKnown wait:20*NSEC_PER_SEC], @"CKKS should know the trust status");
 }
 
 - (void)testUploadTLKSharesForExistingHierarchy {
@@ -440,11 +451,12 @@
     [self startCKKSSubsystem];
 
     XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], "Key state should become ready");
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:20*NSEC_PER_SEC], "CKKS state machine should enter ready");
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
     [self waitForCKModifications];
 
     // Now, delete all the TLK Shares, so CKKS will upload them again
-    [self.keychainView dispatchSyncWithSQLTransaction:^CKKSDatabaseTransactionResult{
+    [self.defaultCKKS dispatchSyncWithSQLTransaction:^CKKSDatabaseTransactionResult{
         NSError* error = nil;
         [CKKSTLKShareRecord deleteAll:self.keychainZoneID error:&error];
         XCTAssertNil(error, "Shouldn't be an error deleting all TLKShares");
@@ -461,11 +473,13 @@
 
     // Restart. We expect an upload of 3 TLK shares.
     [self expectCKModifyKeyRecords: 0 currentKeyPointerRecords:0 tlkShareRecords:3 zoneID:self.keychainZoneID];
-    self.keychainView = [self.injectedManager restartZone: self.keychainZoneID.zoneName];
-    [self beginSOSTrustedViewOperation:self.keychainView];
+    self.defaultCKKS = [self.injectedManager restartCKKSAccountSync:self.defaultCKKS];
+    self.keychainView = [self.defaultCKKS.operationDependencies viewStateForName:@"keychain"];
+    [self beginSOSTrustedViewOperation:self.defaultCKKS];
 
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
     XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], "Key state should become ready");
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:20*NSEC_PER_SEC], "CKKS state machine should enter ready");
 }
 
 - (void)testHandleExternalSharedTLKRoll {
@@ -488,8 +502,9 @@
 
     // Trigger a notification
     [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
-    [self.keychainView waitForFetchAndIncomingQueueProcessing];
+    [self.defaultCKKS waitForFetchAndIncomingQueueProcessing];
     XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], "Key state should become ready");
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:20*NSEC_PER_SEC], "CKKS state machine should enter ready");
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
     [self waitForCKModifications];
 
@@ -526,6 +541,7 @@
 
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
     XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], "Key state should become ready");
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:20*NSEC_PER_SEC], "CKKS state machine should enter ready");
 
     // We expect a single record to be uploaded.
     [self expectCKModifyItemRecords: 1 currentKeyPointerRecords: 1 zoneID:self.keychainZoneID
@@ -549,6 +565,7 @@
 
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
     XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], "Key state should become ready");
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:20*NSEC_PER_SEC], "CKKS state machine should enter ready");
 }
 
 - (void)testFillInMissingPeerShares {
@@ -563,6 +580,7 @@
     [self expectCKModifyKeyRecords:0 currentKeyPointerRecords:0 tlkShareRecords:1 zoneID:self.keychainZoneID];
     [self startCKKSSubsystem];
     XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], "Key state should become ready");
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:20*NSEC_PER_SEC], "CKKS state machine should enter ready");
 
     // We expect a single record to be uploaded for each key class
     [self expectCKModifyItemRecords: 1 currentKeyPointerRecords: 1 zoneID:self.keychainZoneID
@@ -593,6 +611,7 @@
     // The CKKS subsystem should go into waitfortlk, since it doesn't trust this peer, but the peer is active
     [self startCKKSSubsystem];
     XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateWaitForTLK] wait:20*NSEC_PER_SEC], "Key state should become waitfortlk");
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:20*NSEC_PER_SEC], "CKKS state machine should enter ready");
 }
 
 - (void)testAcceptSharedTLKOnTrustSetAdditionOfSharer {
@@ -607,10 +626,11 @@
 
     // The CKKS subsystem should go into waitfortlk, since it doesn't trust this peer, but the peer is active
     [self startCKKSSubsystem];
-    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateWaitForTLK] wait:2000*NSEC_PER_SEC], "Key state should become waitfortlk");
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateWaitForTLK] wait:20*NSEC_PER_SEC], "Key state should become waitfortlk");
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:20*NSEC_PER_SEC], "CKKS state machine should enter ready");
 
     // Wait to be sure we really get into that state
-    [self.keychainView waitForOperationsOfClass:[CKKSProcessReceivedKeysOperation class]];
+    [self.defaultCKKS waitForOperationsOfClass:[CKKSProcessReceivedKeysOperation class]];
 
     // Now, trust the previously-untrusted peer
     [self.mockSOSAdapter.trustedPeers addObject: self.untrustedPeer];
@@ -620,6 +640,7 @@
     [self expectCKModifyKeyRecords:0 currentKeyPointerRecords:0 tlkShareRecords:1 zoneID:self.keychainZoneID];
 
     XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], "Key state should become ready");
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:20*NSEC_PER_SEC], "CKKS state machine should enter ready");
 
     // And use it as well
     [self expectCKModifyItemRecords: 1 currentKeyPointerRecords: 1 zoneID:self.keychainZoneID
@@ -652,13 +673,13 @@
     // step 2: add a new peer who already has a share; no share should be created
     [self putTLKShareInCloudKit:self.keychainZoneKeys.tlk from:self.remotePeer1 to:self.remotePeer2 zoneID:self.keychainZoneID];
     [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
-    [self.keychainView waitForFetchAndIncomingQueueProcessing];
+    [self.defaultCKKS waitForFetchAndIncomingQueueProcessing];
 
     // CKKS should not upload a tlk share for this peer
     [self.mockSOSAdapter.trustedPeers addObject:self.remotePeer2];
     [self.mockSOSAdapter sendTrustedPeerSetChangedUpdate];
 
-    [self.keychainView waitUntilAllOperationsAreFinished];
+    [self.defaultCKKS waitUntilAllOperationsAreFinished];
 }
 
 - (void)testFillInMissingPeerSharesAfterUnlock {
@@ -670,6 +691,7 @@
     [self performOctagonTLKUpload:self.ckksViews];
 
     XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], @"Key state should become 'ready'");
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:20*NSEC_PER_SEC], @"CKKS state machine should enter 'ready'");
 
     [self expectCKModifyItemRecords: 1 currentKeyPointerRecords: 1 zoneID:self.keychainZoneID
                           checkItem: [self checkClassCBlock:self.keychainZoneID message:@"Object was encrypted under class C key in hierarchy"]];
@@ -685,7 +707,8 @@
     [self.mockSOSAdapter sendTrustedPeerSetChangedUpdate];
 
     // CKKS should notice that it has things to do...
-    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReadyPendingUnlock] wait:20*NSEC_PER_SEC], @"Key state should become 'readypendingunlock'");
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], @"Key state should become 'ready'");
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:20*NSEC_PER_SEC], @"CKKS state machine should enter 'ready'");
 
     // And do them.
     [self expectCKModifyKeyRecords: 0 currentKeyPointerRecords:0 tlkShareRecords:1 zoneID:self.keychainZoneID];
@@ -696,6 +719,7 @@
 
     // and return to ready
     XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], @"Key state should become 'ready'");
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:20*NSEC_PER_SEC], @"CKKS state machine should enter 'ready'");
 }
 
 - (void)testAddItemDuringNewTLKSharesOnTrustSetAddition {
@@ -750,6 +774,7 @@
     // CKKS should become very upset, and enter waitfortlk.
     [self startCKKSSubsystem];
     XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateWaitForTLK] wait:20*NSEC_PER_SEC], "Key state should become waitfortlk");
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:20*NSEC_PER_SEC], "CKKS state machine should enter ready");
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
 }
 
@@ -764,6 +789,7 @@
 
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
     XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], "Key state should become ready");
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:20*NSEC_PER_SEC], "CKKS state machine should enter ready");
 
     // Remote peer rolls its encryption key...
     [self expectCKModifyKeyRecords:0 currentKeyPointerRecords:0 tlkShareRecords:1 zoneID:self.keychainZoneID
@@ -782,6 +808,7 @@
     [self waitForCKModifications];
 
     XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], "Key state should become ready");
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:20*NSEC_PER_SEC], "CKKS state machine should enter ready");
 }
 
 - (void)testRecoverFromBrokenSignatureOnTLKShareDuetoSignatureKeyChange {
@@ -804,6 +831,7 @@
 
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
     XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateWaitForTLK] wait:20*NSEC_PER_SEC], "Key state should become waitfortlk");
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:20*NSEC_PER_SEC], "CKKS state machine should enter ready");
 
     // Remote peer discovers its error and sends a new TLKShare! CKKS should recover and share itself a TLKShare
     [self expectCKModifyKeyRecords:0 currentKeyPointerRecords:0 tlkShareRecords:1 zoneID:self.keychainZoneID
@@ -819,6 +847,7 @@
     [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
 
     XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], "Key state should become ready");
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:20*NSEC_PER_SEC], "CKKS state machine should enter ready");
 
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
     [self waitForCKModifications];
@@ -840,6 +869,7 @@
     [self startCKKSSubsystem];
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
     XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], "Key state should become ready");
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:20*NSEC_PER_SEC], "CKKS state machine should enter ready");
 
     // Remote peer rolls its signing key, but hasn't updated its TLKShare. We should send it one.
     [self expectCKModifyKeyRecords:0 currentKeyPointerRecords:0 tlkShareRecords:1 zoneID:self.keychainZoneID
@@ -858,6 +888,7 @@
     [self waitForCKModifications];
 
     XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], "Key state should become ready");
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:20*NSEC_PER_SEC], "CKKS state machine should enter ready");
 }
 
 - (void)testSendNewTLKShareToPeerOnDisappearanceOfPeerKeys {
@@ -871,6 +902,7 @@
     [self startCKKSSubsystem];
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
     XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], "Key state should become ready");
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:20*NSEC_PER_SEC], "CKKS state machine should enter ready");
 
     // Now, peer 1 updates its keys (to be nil). Local peer should re-send TLKShares to peer2.
 
@@ -895,6 +927,7 @@
     [self waitForCKModifications];
 
     XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], "Key state should become ready");
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:20*NSEC_PER_SEC], "CKKS state machine should enter ready");
 }
 
 - (void)testSendNewTLKShareToPeerOnDisappearanceOfPeerSigningKey {
@@ -910,6 +943,7 @@
     [self startCKKSSubsystem];
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
     XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], "Key state should become ready");
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:20*NSEC_PER_SEC], "CKKS state machine should enter ready");
 
     // Now, peer 1 updates its signing key (to be nil). Local peer should re-send TLKShares to peer1 and peer2.
     // Both should be sent because both peers don't have a signed TLKShare that gives them the TLK
@@ -946,6 +980,7 @@
     [self waitForExpectations:@[peer1Share, peer2Share] timeout:5];
 
     XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], "Key state should become ready");
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:20*NSEC_PER_SEC], "CKKS state machine should enter ready");
 }
 
 - (void)testSendNewTLKShareToSelfOnSelfKeyChanges {
@@ -961,6 +996,7 @@
     [self startCKKSSubsystem];
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
     XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], "Key state should become ready");
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:20*NSEC_PER_SEC], "CKKS state machine should enter ready");
 
     // Local peer rolls its encryption key (and loses the old ones)
     [self expectCKModifyKeyRecords: 0 currentKeyPointerRecords:0 tlkShareRecords:1 zoneID:self.keychainZoneID
@@ -981,6 +1017,7 @@
 
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
     XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], "Key state should become ready");
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:20*NSEC_PER_SEC], "CKKS state machine should enter ready");
 
     // Now, local peer loses and rolls its signing key (and loses the old one)
     [self expectCKModifyKeyRecords: 0 currentKeyPointerRecords:0 tlkShareRecords:1 zoneID:self.keychainZoneID
@@ -1001,6 +1038,7 @@
 
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
     XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], "Key state should become ready");
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:20*NSEC_PER_SEC], "CKKS state machine should enter ready");
 }
 
 - (void)testDoNotResetCloudKitZoneFromWaitForTLKDueToRecentTLKShare {
@@ -1023,6 +1061,7 @@
     [self startCKKSSubsystem];
 
     XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateWaitForTLK] wait:20*NSEC_PER_SEC], @"Key state should become 'waitfortlk'");
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:20*NSEC_PER_SEC], @"CKKS state machine should enter ready");
 
     XCTAssertTrue(self.keychainZone.flag, "Zone flag should not have been reset to false");
 }
@@ -1051,10 +1090,12 @@
     [self startCKKSSubsystem];
 
     XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateWaitForTLK] wait:20*NSEC_PER_SEC], @"Key state should become 'waitfortlk'");
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:20*NSEC_PER_SEC], @"CKKS state machine should enter 'ready'");
     XCTAssertTrue(self.keychainZone.flag, "Zone flag should not have been reset to false");
 
     // And ensure it doesn't go on to 'reset'
     XCTAssertNotEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateResettingZone] wait:100*NSEC_PER_MSEC], @"Key state should not become 'resetzone'");
+    XCTAssertNotEqual(0, [self.defaultCKKS.stateConditions[CKKSStateResettingZone] wait:100*NSEC_PER_MSEC], @"CKKS state machine shouldn't have become 'resetzone'");
 }
 
 - (void)testResetCloudKitZoneFromWaitForTLKDueToUntustedTLKShareNotRecentEnough {
@@ -1085,6 +1126,7 @@
     // Then we should reset.
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
     XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], @"Key state should become 'ready'");
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:20*NSEC_PER_SEC], @"CKKS state machine should enter 'ready'");
 
     // And the zone should have been cleared and re-made
     XCTAssertFalse(self.keychainZone.flag, "Zone flag should have been reset to false");
@@ -1103,9 +1145,10 @@
 
     self.mockSOSAdapter.selfPeerError = [NSError errorWithDomain:NSOSStatusErrorDomain code:errSecParam description:@"injected test failure"];
 
-    // CKKS subsystem should realize that it can't read the shares it has, and enter waitfortlk
+    // CKKS subsystem should realize that it can't read the shares it has, and enter waitfortrust
     [self startCKKSSubsystem];
-    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateWaitForTLK] wait:20*NSEC_PER_SEC], "Key state should become 'waitfortlk'");
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateWaitForTrust] wait:20*NSEC_PER_SEC], "Key state should become 'waitfortrust'");
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateWaitForTrust] wait:20*NSEC_PER_SEC], "CKKS state machine should enter 'waitfortrust'");
 
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
     [self waitForCKModifications];
@@ -1127,6 +1170,7 @@
 
     [self.mockSOSAdapter sendSelfPeerChangedUpdate];
     XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], "Key state should become 'ready''");
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:20*NSEC_PER_SEC], "CKKS state machine should enter 'ready''");
 
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
     [self waitForCKModifications];
@@ -1141,14 +1185,26 @@
     [self startCKKSSubsystem];
 
     NSMutableArray<CKKSResultOperation<CKKSKeySetProviderOperationProtocol>*>* keysetOps = [NSMutableArray array];
-    for(CKKSKeychainView* view in self.ckksViews) {
+    for(CKKSKeychainViewState* view in self.ckksViews) {
         XCTAssertEqual(0, [view.keyHierarchyConditions[SecCKKSZoneKeyStateWaitForTLKCreation] wait:40*NSEC_PER_SEC], @"key state should enter 'waitfortlkcreation' (view %@)", view);
-        [keysetOps addObject: [view findKeySet:NO]];
     }
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:20*NSEC_PER_SEC], @"CKKS state machine should enter 'ready')");
+    [keysetOps addObject:[self.defaultCKKS findKeySets:NO]];
 
     // Now that we've kicked them all off, wait for them to not crash
-    for(CKKSKeychainView* view in self.ckksViews) {
-        XCTAssertEqual(0, [view.keyHierarchyConditions[SecCKKSZoneKeyStateError] wait:40*NSEC_PER_SEC], @"key state should enter 'error'");
+    for(CKKSKeychainViewState* view in self.ckksViews) {
+        XCTAssertEqual(0, [view.keyHierarchyConditions[SecCKKSZoneKeyStateWaitForTLKCreation] wait:40*NSEC_PER_SEC], @"key state should enter 'waitfortlkcreation'");
+    }
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:40*NSEC_PER_SEC], @"CKKS state machine should enter 'ready'");
+
+    for(CKKSResultOperation* op in keysetOps) {
+        [op timeout:5*NSEC_PER_SEC];
+    }
+
+    for(CKKSResultOperation* op in keysetOps) {
+        [op waitUntilFinished];
+
+        XCTAssertNotNil(op.error, "Should be an error asking CKKS to make a key hierarchy when trust is very, very broken");
     }
 
     /*
@@ -1169,6 +1225,7 @@
 
     [self.mockSOSAdapter sendSelfPeerChangedUpdate];
     XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], "Key state should become 'ready''");
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:20*NSEC_PER_SEC], "CKKS state machine should enter 'ready''");
 
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
     [self waitForCKModifications];*/
@@ -1187,6 +1244,7 @@
     [self expectCKModifyKeyRecords:0 currentKeyPointerRecords:0 tlkShareRecords:1 zoneID:self.keychainZoneID];
     [self startCKKSSubsystem];
     XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], "Key state should become 'ready'");
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:20*NSEC_PER_SEC], "CKKS state machine should enter 'ready'");
 
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
     [self waitForCKModifications];
@@ -1197,8 +1255,9 @@
                                                      description:@"injected test failure (Octagon key loss)"];
 
     // Kick off TLK checking
-    [self.keychainView trustedPeerSetChanged:self.mockSOSAdapter];
+    [self.defaultCKKS trustedPeerSetChanged:self.mockSOSAdapter];
     XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateWaitForTrust] wait:20*NSEC_PER_SEC], "Key state should become 'untrusted'");
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateWaitForTrust] wait:20*NSEC_PER_SEC], "CKKS state machine should enter 'untrusted'");
 
     // Fetching status should be quick
     XCTestExpectation* callbackOccurs = [self expectationWithDescription:@"callback-occurs"];
@@ -1210,6 +1269,7 @@
 
     // and it should pause, and not spin infinitely
     XCTAssertNotEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateInitialized] wait:2*NSEC_PER_SEC], "Key state should not become 'initialized'");
+    XCTAssertNotEqual(0, [self.defaultCKKS.stateConditions[CKKSStateInitialized] wait:2*NSEC_PER_SEC], "CKKS state machine shouldn't have become 'initialized'");
 }
 
 - (void)testLoseTrustIfSelfPeerNotTrusted {
@@ -1223,6 +1283,7 @@
     [self expectCKModifyKeyRecords:0 currentKeyPointerRecords:0 tlkShareRecords:1 zoneID:self.keychainZoneID];
     [self startCKKSSubsystem];
     XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], "Key state should become 'ready'");
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:20*NSEC_PER_SEC], "CKKS state machine should enter 'ready'");
 
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
     [self waitForCKModifications];
@@ -1230,11 +1291,13 @@
     self.mockSOSAdapter.excludeSelfPeerFromTrustSet = true;
 
     // Kick off TLK checking
-    [self.keychainView trustedPeerSetChanged:self.mockSOSAdapter];
+    [self.defaultCKKS trustedPeerSetChanged:self.mockSOSAdapter];
     XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateWaitForTrust] wait:20*NSEC_PER_SEC], "Key state should become 'untrusted'");
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateWaitForTrust] wait:20*NSEC_PER_SEC], "CKKS state machine should enter 'untrusted'");
 
     // and it should pause, and not spin infinitely
     XCTAssertNotEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateInitialized] wait:2*NSEC_PER_SEC], "Key state should not become 'initialized'");
+    XCTAssertNotEqual(0, [self.defaultCKKS.stateConditions[CKKSStateInitialized] wait:2*NSEC_PER_SEC], "CKKS state machine shouldn't have become 'initialized'");
 }
 
 - (void)testDontLoseTrustIfNonessentialTrustStateIsBroken {
@@ -1249,6 +1312,7 @@
     [self expectCKModifyKeyRecords:0 currentKeyPointerRecords:0 tlkShareRecords:1 zoneID:self.keychainZoneID];
     [self startCKKSSubsystem];
     XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], "Key state should become 'ready'");
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:20*NSEC_PER_SEC], "CKKS state machine should enter 'ready'");
 
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
     [self waitForCKModifications];
@@ -1263,15 +1327,17 @@
                                                                                          essential:NO];
     brokenAdapter.excludeSelfPeerFromTrustSet = true;
 
-    [self.keychainView endTrustedOperation];
+    [self.defaultCKKS endTrustedOperation];
     XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateWaitForTrust] wait:20*NSEC_PER_SEC], "Key state should become 'waitfortrust'");
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateWaitForTrust] wait:20*NSEC_PER_SEC], "CKKS state machine should enter 'waitfortrust'");
 
-    [self.keychainView beginTrustedOperation:@[self.mockSOSAdapter, brokenAdapter]
-                            suggestTLKUpload:self.suggestTLKUpload
-                          requestPolicyCheck:self.requestPolicyCheck];
+    [self.defaultCKKS beginTrustedOperation:@[self.mockSOSAdapter, brokenAdapter]
+                           suggestTLKUpload:self.suggestTLKUpload
+                         requestPolicyCheck:self.requestPolicyCheck];
 
     // CKKS should ignore the non-essential and broken peer adapter
     XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], "Key state should become 'ready'");
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:20*NSEC_PER_SEC], "CKKS state machine should enter 'ready'");
 }
 
 - (void)testTLKSharesForOctagonPeer {
@@ -1283,21 +1349,24 @@
     [self startCKKSSubsystem];
 
     XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], "Key state should become ready");
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:20*NSEC_PER_SEC], "CKKS state machine should enter ready");
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
     [self waitForCKModifications];
 
-    [self.keychainView endTrustedOperation];
+    [self.defaultCKKS endTrustedOperation];
     XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateWaitForTrust] wait:20*NSEC_PER_SEC], "Key state should become 'waitfortrust'");
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateWaitForTrust] wait:20*NSEC_PER_SEC], "CKKS state machine should enter 'waitfortrust'");
 
     // Spin up Octagon. We expect an upload of 3 TLK shares, this time for the octagon peer
     [self expectCKModifyKeyRecords: 0 currentKeyPointerRecords:0 tlkShareRecords:1 zoneID:self.keychainZoneID];
-    [self.keychainView beginTrustedOperation:@[self.mockSOSAdapter, self.mockOctagonAdapter]
-                            suggestTLKUpload:self.suggestTLKUpload
-                          requestPolicyCheck:self.requestPolicyCheck];
+    [self.defaultCKKS beginTrustedOperation:@[self.mockSOSAdapter, self.mockOctagonAdapter]
+                           suggestTLKUpload:self.suggestTLKUpload
+                         requestPolicyCheck:self.requestPolicyCheck];
     [self.mockOctagonAdapter sendTrustedPeerSetChangedUpdate];
 
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
     XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], "Key state should become ready");
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:20*NSEC_PER_SEC], "CKKS state machine should enter ready");
 }
 
 - (void)testQuiesceOnTrustLossDuringInitialFetch {
@@ -1309,11 +1378,13 @@
 
     [self startCKKSSubsystem];
     XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateFetch] wait:20*NSEC_PER_SEC], "Key state should become 'fetch'");
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateFetch] wait:20*NSEC_PER_SEC], "CKKS state machine should enter 'fetch'");
 
     [self endSOSTrustedOperationForAllViews];
 
     [self releaseCloudKitFetchHold];
     XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateWaitForTrust] wait:20*NSEC_PER_SEC], "Key state should become 'waitfortrust'");
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateWaitForTrust] wait:20*NSEC_PER_SEC], "CKKS state machine should enter 'waitfortrust'");
 }
 
 @end

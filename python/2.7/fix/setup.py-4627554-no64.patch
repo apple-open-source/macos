@@ -1,18 +1,20 @@
 diff --git a/setup.py b/setup.py
-index 27e679a..3cdfb23 100644
+index abf45df..18c4573 100644
 --- a/setup.py
 +++ b/setup.py
-@@ -47,6 +47,9 @@ def macosx_sdk_root():
-     Return the directory of the current OSX SDK,
-     or '/' if no SDK was specified.
-     """
+@@ -68,6 +68,11 @@ def macosx_sdk_root():
+     if MACOS_SDK_ROOT:
+         return MACOS_SDK_ROOT
+ 
 +    sdkroot = os.environ.get('SDKROOT')
 +    if sdkroot is not None:
-+        return sdkroot
++        MACOS_SDK_ROOT = sdkroot
++        return MACOS_SDK_ROOT
++
      cflags = sysconfig.get_config_var('CFLAGS')
      m = re.search(r'-isysroot\s+(\S+)', cflags)
-     if m is None:
-@@ -94,7 +97,8 @@ def find_file(filename, std_dirs, paths):
+     if m is not None:
+@@ -140,7 +145,8 @@ def find_file(filename, std_dirs, paths):
          f = os.path.join(dir, filename)
  
          if host_platform == 'darwin' and is_macosx_sdk_path(dir):
@@ -22,7 +24,7 @@ index 27e679a..3cdfb23 100644
  
          if os.path.exists(f):
              return [dir]
-@@ -146,8 +150,9 @@ def find_library_file(compiler, libname, std_dirs, paths):
+@@ -192,8 +198,9 @@ def find_library_file(compiler, libname, std_dirs, paths):
          p = p.rstrip(os.sep)
  
          if host_platform == 'darwin' and is_macosx_sdk_path(p):
@@ -34,7 +36,7 @@ index 27e679a..3cdfb23 100644
  
          if p == dirname:
              return [p]
-@@ -319,7 +324,7 @@ class PyBuildExt(build_ext):
+@@ -365,7 +372,7 @@ class PyBuildExt(build_ext):
              return
  
          if host_platform == 'darwin' and (
@@ -43,7 +45,7 @@ index 27e679a..3cdfb23 100644
              # Don't bother doing an import check when an extension was
              # build with an explicit '-arch' flag on OSX. That's currently
              # only used to build 32-bit only extensions in a 4-way
-@@ -454,10 +459,10 @@ class PyBuildExt(build_ext):
+@@ -500,10 +507,10 @@ class PyBuildExt(build_ext):
              os.unlink(tmpfile)
  
      def detect_modules(self):
@@ -58,7 +60,7 @@ index 27e679a..3cdfb23 100644
          if cross_compiling:
              self.add_gcc_paths()
          self.add_multiarch_paths()
-@@ -516,7 +521,13 @@ class PyBuildExt(build_ext):
+@@ -562,7 +569,13 @@ class PyBuildExt(build_ext):
          # if a file is found in one of those directories, it can
          # be assumed that no additional -I,-L directives are needed.
          inc_dirs = self.compiler.include_dirs[:]
@@ -72,7 +74,7 @@ index 27e679a..3cdfb23 100644
          if not cross_compiling:
              for d in (
                  '/usr/include',
-@@ -716,7 +727,7 @@ class PyBuildExt(build_ext):
+@@ -762,7 +775,7 @@ class PyBuildExt(build_ext):
          exts.append( Extension('audioop', ['audioop.c']) )
  
          # Disabled on 64-bit platforms
@@ -81,7 +83,7 @@ index 27e679a..3cdfb23 100644
              # Operations on images
              exts.append( Extension('imageop', ['imageop.c']) )
          else:
-@@ -752,27 +763,27 @@ class PyBuildExt(build_ext):
+@@ -798,27 +811,27 @@ class PyBuildExt(build_ext):
          elif self.compiler.find_library_file(lib_dirs, 'curses'):
              curses_library = 'curses'
  
@@ -124,7 +126,7 @@ index 27e679a..3cdfb23 100644
              else:
                  readline_extra_link_args = ()
  
-@@ -786,7 +797,7 @@ class PyBuildExt(build_ext):
+@@ -832,7 +845,7 @@ class PyBuildExt(build_ext):
                                                       'termcap'):
                  readline_libs.append('termcap')
              exts.append( Extension('readline', ['readline.c'],
@@ -133,7 +135,7 @@ index 27e679a..3cdfb23 100644
                                     extra_link_args=readline_extra_link_args,
                                     libraries=readline_libs) )
          else:
-@@ -1202,7 +1213,7 @@ class PyBuildExt(build_ext):
+@@ -1248,7 +1261,7 @@ class PyBuildExt(build_ext):
                  # for dynamic libraries on the entire path.
                  # This way a statically linked custom sqlite gets picked up
                  # before the dynamic library in /usr/lib.
@@ -142,7 +144,7 @@ index 27e679a..3cdfb23 100644
              else:
                  sqlite_extra_link_args = ()
  
-@@ -1422,7 +1433,7 @@ class PyBuildExt(build_ext):
+@@ -1468,7 +1481,7 @@ class PyBuildExt(build_ext):
              if version >= version_req:
                  if (self.compiler.find_library_file(lib_dirs, 'z')):
                      if host_platform == "darwin":
@@ -151,7 +153,7 @@ index 27e679a..3cdfb23 100644
                      else:
                          zlib_extra_link_args = ()
                      exts.append( Extension('zlib', ['zlibmodule.c'],
-@@ -1454,7 +1465,7 @@ class PyBuildExt(build_ext):
+@@ -1500,7 +1513,7 @@ class PyBuildExt(build_ext):
          # Gustavo Niemeyer's bz2 module.
          if (self.compiler.find_library_file(lib_dirs, 'bz2')):
              if host_platform == "darwin":
@@ -160,7 +162,7 @@ index 27e679a..3cdfb23 100644
              else:
                  bz2_extra_link_args = ()
              exts.append( Extension('bz2', ['bz2module.c'],
-@@ -1542,7 +1553,7 @@ class PyBuildExt(build_ext):
+@@ -1588,7 +1601,7 @@ class PyBuildExt(build_ext):
                  missing.append('_codecs_%s' % loc)
  
          # Dynamic loading module
@@ -169,7 +171,7 @@ index 27e679a..3cdfb23 100644
              # This requires sizeof(int) == sizeof(long) == sizeof(char*)
              dl_inc = find_file('dlfcn.h', [], inc_dirs)
              if (dl_inc is not None) and (host_platform not in ['atheos']):
-@@ -1707,22 +1718,22 @@ class PyBuildExt(build_ext):
+@@ -1753,22 +1766,22 @@ class PyBuildExt(build_ext):
                             '_Dlg', '_Drag', '_Evt', '_File', '_Folder', '_Fm',
                             '_Help', '_Icn', '_IBCarbon', '_List',
                             '_Menu', '_Mlte', '_OSA', '_Res', '_Qd', '_Qdoffs',
@@ -204,19 +206,17 @@ index 27e679a..3cdfb23 100644
  
  
              # Application Services & QuickTime
-@@ -1733,9 +1744,9 @@ class PyBuildExt(build_ext):
-             addMacExtension('_CG', app_kwds)
+@@ -1780,8 +1793,7 @@ class PyBuildExt(build_ext):
  
              exts.append( Extension('_Qt', ['qt/_Qtmodule.c'],
--                        extra_compile_args=carbon_extra_compile_args,
-+                        extra_compile_args=carbon_extra_compile_args + ['-no64'],
-                         extra_link_args=['-framework', 'QuickTime',
+                         extra_compile_args=carbon_extra_compile_args,
+-                        extra_link_args=['-framework', 'QuickTime',
 -                                     '-framework', 'Carbon']) )
-+                                     '-framework', 'Carbon', '-no64']) )
++                        extra_link_args=['-framework', 'Carbon']) )
  
  
          self.extensions.extend(exts)
-@@ -1808,7 +1819,8 @@ class PyBuildExt(build_ext):
+@@ -1854,7 +1866,8 @@ class PyBuildExt(build_ext):
  
              for fw in 'Tcl', 'Tk':
                  if is_macosx_sdk_path(F):
@@ -226,7 +226,7 @@ index 27e679a..3cdfb23 100644
                          break
                  else:
                      if not exists(join(F, fw + '.framework')):
-@@ -1835,29 +1847,29 @@ class PyBuildExt(build_ext):
+@@ -1881,29 +1894,29 @@ class PyBuildExt(build_ext):
          # For 8.4a2, the X11 headers are not included. Rather than include a
          # complicated search, this is a hard-coded path. It could bail out
          # if X11 libs are not found...
@@ -277,7 +277,7 @@ index 27e679a..3cdfb23 100644
  
          ext = Extension('_tkinter', ['_tkinter.c', 'tkappinit.c'],
                          define_macros=[('WITH_APPINIT', 1)],
-@@ -1930,21 +1942,21 @@ class PyBuildExt(build_ext):
+@@ -1976,21 +1989,21 @@ class PyBuildExt(build_ext):
              if dir not in include_dirs:
                  include_dirs.append(dir)
  
@@ -314,7 +314,7 @@ index 27e679a..3cdfb23 100644
  
          # If Cygwin, then verify that X is installed before proceeding
          if host_platform == 'cygwin':
-@@ -2082,7 +2094,7 @@ class PyBuildExt(build_ext):
+@@ -2128,7 +2141,7 @@ class PyBuildExt(build_ext):
          depends = ['_ctypes/ctypes.h']
  
          if host_platform == 'darwin':

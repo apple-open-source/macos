@@ -35,8 +35,26 @@ make_corefile_mach_header(void *data)
     mh->cputype = is64 ? CPU_TYPE_X86_64 : CPU_TYPE_I386;
     mh->cpusubtype = is64 ? CPU_SUBTYPE_X86_64_ALL : CPU_SUBTYPE_I386_ALL;
 #elif defined(__arm__) || defined(__arm64__)
+#if defined(RC_HIDE_HARDWARE_LATE_FALL_2018_WATCHOS) || defined(__OPEN_SOURCE__)
     mh->cputype = is64 ? CPU_TYPE_ARM64 : CPU_TYPE_ARM;
     mh->cpusubtype = is64 ? CPU_SUBTYPE_ARM64_ALL : CPU_SUBTYPE_ARM_ALL;
+#else
+    if (is64) {
+        /* uses the ARMv8 instruction set, LP64 data model */
+        mh->cputype = CPU_TYPE_ARM64;
+        mh->cpusubtype = CPU_SUBTYPE_ARM64_ALL;
+    } else {
+#if defined(__arm64__)
+        /* ILP32 but still uses the ARMv8 instruction set */
+        mh->cputype = CPU_TYPE_ARM64_32;
+        mh->cpusubtype = CPU_SUBTYPE_ARM64_32_ALL;
+#else
+        /* ILP32 using some variant of the ARMv7 ISA */
+        mh->cputype = CPU_TYPE_ARM;
+        mh->cpusubtype = CPU_SUBTYPE_ARM_ALL;
+#endif  /* __arm64__ */
+    }
+#endif /* RC_HIDE .. */
 #else
 #error undefined
 #endif

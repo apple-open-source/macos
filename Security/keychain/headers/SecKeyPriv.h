@@ -117,6 +117,9 @@ typedef CF_ENUM(CFIndex, SecKeyOperationMode) {
     kSecKeyOperationModeCheckIfSupported = 1,
 };
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+
 typedef OSStatus (*SecKeyInitMethod)(SecKeyRef, const uint8_t *, CFIndex,
     SecKeyEncoding);
 typedef void  (*SecKeyDestroyMethod)(SecKeyRef);
@@ -148,6 +151,8 @@ typedef SecKeyRef (*SecKeyCopyPublicKeyMethod)(SecKeyRef key);
 typedef Boolean (*SecKeyIsEqualMethod)(SecKeyRef key1, SecKeyRef key2);
 typedef SecKeyRef (*SecKeyCreateDuplicateMethod)(SecKeyRef key);
 typedef Boolean (*SecKeySetParameterMethod)(SecKeyRef key, CFStringRef name, CFPropertyListRef value, CFErrorRef *error);
+
+#pragma clang diagnostic pop
 
 /*!
  @abstract Performs cryptographic operation with the key.
@@ -232,7 +237,7 @@ struct __SecKey {
 SecKeyRef SecKeyCreateFromSubjectPublicKeyInfoData(CFAllocatorRef allocator,
                                                    CFDataRef subjectPublicKeyInfoData);
 
-/* Crete a SubjectPublicKeyInfo in DER format from a SecKey */
+/* Create a SubjectPublicKeyInfo in DER format from a SecKey */
 CFDataRef SecKeyCopySubjectPublicKeyInfo(SecKeyRef key);
 
 
@@ -250,10 +255,15 @@ SecKeyRef SecKeyCreate(CFAllocatorRef allocator,
     const SecKeyDescriptor *key_class, const uint8_t *keyData,
      CFIndex keyDataLength, SecKeyEncoding encoding);
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+
 /* Create a public key from an oid, params and keyData all in DER format. */
 SecKeyRef SecKeyCreatePublicFromDER(CFAllocatorRef allocator,
     const SecAsn1Oid *oid1, const SecAsn1Item *params,
     const SecAsn1Item *keyData);
+
+#pragma clang diagnostic pop
 
 /* Create public key from private key */
 SecKeyRef SecKeyCreatePublicFromPrivate(SecKeyRef privateKey);
@@ -357,7 +367,7 @@ SPI_AVAILABLE(macos(10.8), ios(9.0));
      For compatibility, your code should migrate to use SecKeyGetAlgorithmId instead.
 */
 CFIndex SecKeyGetAlgorithmID(SecKeyRef key)
-API_DEPRECATED_WITH_REPLACEMENT("SecKeyGetAlgorithmId", ios(5.0, 9.0)) API_UNAVAILABLE(macCatalyst);
+SPI_DEPRECATED_WITH_REPLACEMENT("SecKeyGetAlgorithmId", ios(5.0, 9.0)) API_UNAVAILABLE(macCatalyst);
 #endif // TARGET_OS_IPHONE
 
 #if TARGET_OS_OSX
@@ -372,7 +382,7 @@ API_DEPRECATED_WITH_REPLACEMENT("SecKeyGetAlgorithmId", ios(5.0, 9.0)) API_UNAVA
  had different arguments and a different return value. Use SecKeyGetAlgorithmId instead.
  */
 OSStatus SecKeyGetAlgorithmID(SecKeyRef key, const CSSM_X509_ALGORITHM_IDENTIFIER **algid)
-API_DEPRECATED_WITH_REPLACEMENT("SecKeyGetAlgorithmId", macos(10.2, 10.8)) API_UNAVAILABLE(ios, tvos, watchos, bridgeos, macCatalyst);
+SPI_DEPRECATED_WITH_REPLACEMENT("SecKeyGetAlgorithmId", macos(10.2, 10.8)) API_UNAVAILABLE(ios, tvos, watchos, bridgeos, macCatalyst);
 #endif
 
 #if !SEC_OS_OSX
@@ -394,7 +404,7 @@ typedef CF_ENUM(int, SecKeySize) {
  this function is the size of the modulus.
  */
 size_t SecKeyGetSize(SecKeyRef key, SecKeySize whichSize)
-__OSX_AVAILABLE_STARTING(__MAC_10_8, __IPHONE_5_0);
+SPI_DEPRECATED("No longer supported", macos(10.8, 12.0), ios(5.0, 15.0), tvos(5.0, 15.0), watchos(1.0, 8.0));
 #endif
 
 /*!
@@ -405,7 +415,7 @@ __OSX_AVAILABLE_STARTING(__MAC_10_8, __IPHONE_5_0);
  @result Errors when using SecItemFind for the persistent ref.
  */
 OSStatus SecKeyFindWithPersistentRef(CFDataRef persistentRef, SecKeyRef* lookedUpData)
-__OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_7_0);
+SPI_DEPRECATED("No longer supported", macos(10.9, 12.0), ios(7.0, 15.0), tvos(7.0, 15.0), watchos(1.0, 8.0));
 
 /*!
  @function SecKeyCopyPersistentRef
@@ -415,7 +425,7 @@ __OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_7_0);
  @result Errors when using SecItemFind for the persistent ref.
  */
 OSStatus SecKeyCopyPersistentRef(SecKeyRef key, CFDataRef* persistentRef)
-__OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_7_0);
+SPI_DEPRECATED("No longer supported", macos(10.9, 12.0), ios(7.0, 15.0), tvos(7.0, 15.0), watchos(1.0, 8.0));
 
 extern const CFStringRef _kSecKeyWrapPGPSymAlg; /* CFNumber */
 extern const CFStringRef _kSecKeyWrapPGPFingerprint; /* CFDataRef, at least 20 bytes */
@@ -432,7 +442,7 @@ enum { kSecKeyWrapPGPFingerprintMinSize = 20 };
 
 CFDataRef
 _SecKeyCopyWrapKey(SecKeyRef key, SecKeyWrapType type, CFDataRef unwrappedKey, CFDictionaryRef parameters, CFDictionaryRef *outParam, CFErrorRef *error)
-__OSX_AVAILABLE_STARTING(__MAC_10_10, __IPHONE_8_0);
+SPI_DEPRECATED("No longer supported", macos(10.10, 12.0), ios(8.0, 15.0), tvos(8.0, 15.0), watchos(1.0, 8.0));
 
 /*!
  @function _SecKeyWrapKey
@@ -441,7 +451,7 @@ __OSX_AVAILABLE_STARTING(__MAC_10_10, __IPHONE_8_0);
 
 CFDataRef
 _SecKeyCopyUnwrapKey(SecKeyRef key, SecKeyWrapType type, CFDataRef wrappedKey, CFDictionaryRef parameters, CFDictionaryRef *outParam, CFErrorRef *error)
-__OSX_AVAILABLE_STARTING(__MAC_10_10, __IPHONE_8_0);
+SPI_DEPRECATED("No longer supported", macos(10.10, 12.0), ios(8.0, 15.0), tvos(8.0, 15.0), watchos(1.0, 8.0));
 
 #if SEC_OS_OSX_INCLUDES
 /*!
@@ -452,7 +462,8 @@ __OSX_AVAILABLE_STARTING(__MAC_10_10, __IPHONE_8_0);
     @param strength On return, the key strength in bits.
     @result A result code.  See "Security Error Codes" (SecBase.h).
 */
-OSStatus SecKeyGetStrengthInBits(SecKeyRef key, const CSSM_X509_ALGORITHM_IDENTIFIER *algid, unsigned int *strength) API_DEPRECATED("CSSM_X509_ALGORITHM_IDENTIFIER is deprecated", macos(10.4, 10.14));
+OSStatus SecKeyGetStrengthInBits(SecKeyRef key, const CSSM_X509_ALGORITHM_IDENTIFIER *algid, unsigned int *strength)
+SPI_DEPRECATED("CSSM_X509_ALGORITHM_IDENTIFIER is deprecated", macos(10.4, 10.14));
 
 /*!
     @function SecKeyImportPair
@@ -473,7 +484,7 @@ OSStatus SecKeyImportPair(
         SecAccessRef initialAccess,
         SecKeyRef* publicKey,
         SecKeyRef* privateKey)
-        API_DEPRECATED_WITH_REPLACEMENT("SecItemImport", macos(10.0, 10.5)) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
+SPI_DEPRECATED_WITH_REPLACEMENT("SecItemImport", macos(10.0, 10.5)) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 
 /*!
     @function SecKeyCreate
@@ -502,13 +513,17 @@ SecKeyRef SecKeyCreate(CFAllocatorRef allocator,
     @result A result code. See "Security Error Codes" (SecBase.h).
     @discussion Warning: this function is NOT intended for use outside the Security stack in its current state. <rdar://3201885>
 */
-OSStatus SecKeyCreateWithCSSMKey(const CSSM_KEY *key, SecKeyRef* keyRef) API_DEPRECATED("CSSM_KEY is deprecated", macos(10.11, 10.14));
+OSStatus SecKeyCreateWithCSSMKey(const CSSM_KEY *key, SecKeyRef* keyRef)
+SPI_DEPRECATED("CSSM_KEY is deprecated", macos(10.11, 10.14));
 
 // Alias macOS versions of this deprecated SPI to unique macOS names. Undecorated names are used for macCatalyst.
 #define SecKeyRawSign SecKeyRawSign_macOS
 #define SecKeyRawVerify SecKeyRawVerify_macOS
 
 CF_IMPLICIT_BRIDGING_ENABLED
+
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
 
 /*!
     @function SecKeyRawSign
@@ -541,7 +556,7 @@ OSStatus SecKeyRawSign(
         size_t              dataToSignLen,
         uint8_t             *sig,
         size_t              *sigLen)
-SPI_DEPRECATED_WITH_REPLACEMENT("SecKeyCreateSignature", macos(10.7, 10.15));
+SPI_DEPRECATED("Use SecKeyCreateSignature", macos(10.7, 10.15));
 
 
 /*!
@@ -568,7 +583,7 @@ OSStatus SecKeyRawVerify(
          size_t              signedDataLen,
          const uint8_t       *sig,
          size_t              sigLen)
-SPI_DEPRECATED_WITH_REPLACEMENT("SecKeyVerifySignature", macos(10.7, 10.15));
+SPI_DEPRECATED("Use SecKeyVerifySignature", macos(10.7, 10.15));
 
 CF_IMPLICIT_BRIDGING_DISABLED
 
@@ -601,7 +616,7 @@ OSStatus SecKeyEncrypt(
        size_t              plainTextLen,
        uint8_t             *cipherText,
        size_t              *cipherTextLen)
-SPI_DEPRECATED_WITH_REPLACEMENT("SecKeyCreateEncryptedData", macos(10.7, 10.15));
+SPI_DEPRECATED("Use SecKeyCreateEncryptedData", macos(10.7, 10.15));
 
 
 /*!
@@ -630,18 +645,16 @@ OSStatus SecKeyDecrypt(
        size_t              cipherTextLen,    /* length of cipherText */
        uint8_t             *plainText,
        size_t              *plainTextLen)    /* IN/OUT */
-SPI_DEPRECATED_WITH_REPLACEMENT("SecKeyCreateDecryptedData", macos(10.7, 10.15));
+SPI_DEPRECATED("Use SecKeyCreateDecryptedData", macos(10.7, 10.15));
 
-// SecAsn1AlgId is deprecated, but we still need to use it.
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
 OSStatus SecKeyVerifyDigest(
        SecKeyRef           key,            /* Private key */
        const SecAsn1AlgId  *algId,         /* algorithm oid/params */
        const uint8_t       *digestData,       /* signature over this digest */
        size_t              digestDataLen,  /* length of dataToDigest */
        const uint8_t       *sig,           /* signature to verify */
-       size_t              sigLen);        /* length of sig */
+       size_t              sigLen)         /* length of sig */
+SPI_DEPRECATED("Use SecKeyVerifySignature", macos(10.7, 10.15));
 
 OSStatus SecKeySignDigest(
        SecKeyRef           key,            /* Private key */
@@ -649,7 +662,8 @@ OSStatus SecKeySignDigest(
        const uint8_t       *digestData,    /* signature over this digest */
        size_t              digestDataLen,  /* length of digestData */
        uint8_t             *sig,           /* signature, RETURNED */
-       size_t              *sigLen);       /* IN/OUT */
+       size_t              *sigLen)        /* IN/OUT */
+SPI_DEPRECATED("Use SecKeyCreateSignature", macos(10.7, 10.15));
 #pragma clang diagnostic pop
 
 #endif  // SEC_OS_OSX_INCLUDES
@@ -712,7 +726,7 @@ OSStatus SecKeyRawVerifyOSX(
          size_t              signedDataLen,
          const uint8_t       *sig,
          size_t              sigLen)
-SPI_DEPRECATED_WITH_REPLACEMENT("SecKeyVerifySignature", macos(10.7, 10.15));
+SPI_DEPRECATED("Use SecKeyVerifySignature", macos(10.7, 10.15));
 
 #endif // SEC_OS_OSX_INCLUDES
 
@@ -799,33 +813,51 @@ CFDataRef SecKeyCreateDecryptedDataWithParameters(SecKeyRef key, SecKeyAlgorithm
 SPI_AVAILABLE(macos(10.14.4), ios(12.2), tvos(12.2), watchos(5.2));
 
 /*!
- @enum SecKeyAttestationKeyType
- @abstract Defines types of builtin attestation keys.
+ @enum SecKeySystemKeyType
+ @abstract Defines types of builtin system keys.
 */
-typedef CF_ENUM(uint32_t, SecKeyAttestationKeyType)
+typedef CF_ENUM(uint32_t, SecKeySystemKeyType)
 {
-    kSecKeyAttestationKeyTypeSIK = 0,
-    kSecKeyAttestationKeyTypeGID = 1,
-    kSecKeyAttestationKeyTypeUIKCommitted SPI_AVAILABLE(macos(10.14), ios(12.0), tvos(12.0), watchos(5.0)) = 2,
-    kSecKeyAttestationKeyTypeUIKProposed SPI_AVAILABLE(macos(10.14), ios(12.0), tvos(12.0), watchos(5.0)) = 3,
-    kSecKeyAttestationKeyTypeSecureElement SPI_AVAILABLE(ios(13.0)) = 4,
-    kSecKeyAttestationKeyTypeOIKCommitted SPI_AVAILABLE(macos(10.16), ios(14.0), tvos(14.0), watchos(7.0)) = 5,
-    kSecKeyAttestationKeyTypeOIKProposed SPI_AVAILABLE(macos(10.16), ios(14.0), tvos(14.0), watchos(7.0)) = 6,
-    kSecKeyAttestationKeyTypeDAKCommitted SPI_AVAILABLE(macos(10.16), ios(14.0), tvos(14.0), watchos(7.0)) = 7,
-    kSecKeyAttestationKeyTypeDAKProposed SPI_AVAILABLE(macos(10.16), ios(14.0), tvos(14.0), watchos(7.0)) = 8,
-} SPI_AVAILABLE(macos(10.12), ios(10.0), tvos(10.0), watchos(3.0));
+    kSecKeySystemKeyTypeSIK = 0,
+    kSecKeySystemKeyTypeGID = 1,
+    kSecKeySystemKeyTypeUIKCommitted = 2,
+    kSecKeySystemKeyTypeUIKProposed = 3,
+    kSecKeySystemKeyTypeSecureElement SPI_AVAILABLE(ios(15.0)) = 4,
+    kSecKeySystemKeyTypeOIKCommitted = 5,
+    kSecKeySystemKeyTypeOIKProposed = 6,
+    kSecKeySystemKeyTypeDAKCommitted = 7,
+    kSecKeySystemKeyTypeDAKProposed = 8,
+    kSecKeySystemKeyTypeHavenCommitted = 9,
+    kSecKeySystemKeyTypeHavenProposed = 10,
+} SPI_AVAILABLE(macos(12.0), ios(15.0), tvos(15.0), watchos(8.0));
 
 /*!
- @function SecKeyCopyAttestationKey
- @abstract Returns a copy of a builtin attestation key.
+ @function SecKeyCopySystemKey
+ @abstract Returns a copy of a builtin system key.
 
  @param keyType Type of the requested builtin key.
  @param error An optional pointer to a CFErrorRef. This value is set if an error occurred.
 
  @result On success a SecKeyRef containing the requested key is returned, on failure it returns NULL.
 */
+SecKeyRef SecKeyCopySystemKey(SecKeySystemKeyType keyType, CFErrorRef *error)
+SPI_AVAILABLE(macos(12.0), ios(15.0), tvos(15.0), watchos(8.0));
+
+typedef CF_ENUM(uint32_t, SecKeyAttestationKeyType)
+{
+    kSecKeyAttestationKeyTypeSIK = 0,
+    kSecKeyAttestationKeyTypeGID = 1,
+    kSecKeyAttestationKeyTypeUIKCommitted SPI_DEPRECATED_WITH_REPLACEMENT("kSecKeySystemKeyTypeUIKCommitted", macos(10.14, 12.0), ios(12.0, 15.0), tvos(12.0, 15.0), watchos(5.0, 8.0)) = 2,
+    kSecKeyAttestationKeyTypeUIKProposed SPI_DEPRECATED_WITH_REPLACEMENT("kSecKeySystemKeyTypeUIKProposed", macos(10.14, 12.0), ios(12.0, 15.0), tvos(12.0, 15.0), watchos(5.0, 8.0)) = 3,
+    kSecKeyAttestationKeyTypeSecureElement SPI_DEPRECATED_WITH_REPLACEMENT("kSecKeySystemKeyTypeSecureElement", ios(13.0, 15.0)) = 4,
+    kSecKeyAttestationKeyTypeOIKCommitted SPI_DEPRECATED_WITH_REPLACEMENT("kSecKeySystemKeyTypeOIKCommitted", macos(10.14, 12.0), ios(12.0, 15.0), tvos(12.0, 15.0), watchos(5.0, 8.0)) = 5,
+    kSecKeyAttestationKeyTypeOIKProposed SPI_DEPRECATED_WITH_REPLACEMENT("kSecKeySystemKeyTypeOIKProposed", macos(10.14, 12.0), ios(12.0, 15.0), tvos(12.0, 15.0), watchos(5.0, 8.0)) = 6,
+    kSecKeyAttestationKeyTypeDAKCommitted SPI_DEPRECATED_WITH_REPLACEMENT("kSecKeySystemKeyTypeDAKCommitted", macos(10.14, 12.0), ios(12.0, 15.0), tvos(12.0, 15.0), watchos(5.0, 8.0)) = 7,
+    kSecKeyAttestationKeyTypeDAKProposed SPI_DEPRECATED_WITH_REPLACEMENT("kSecKeySystemKeyTypeDAKProposed", macos(10.14, 12.0), ios(12.0, 15.0), tvos(12.0, 15.0), watchos(5.0, 8.0)) = 8,
+} SPI_DEPRECATED_WITH_REPLACEMENT("SecKeySystemKeyType", macos(10.12, 12.0), ios(10.0, 15.0), tvos(10.0, 15.0), watchos(3.0, 8.0));
+
 SecKeyRef SecKeyCopyAttestationKey(SecKeyAttestationKeyType keyType, CFErrorRef *error)
-SPI_AVAILABLE(macos(10.12), ios(10.0), tvos(10.0), watchos(3.0));
+SPI_DEPRECATED_WITH_REPLACEMENT("SecKeyCopySystemKey", macos(10.12, 12.0), ios(10.0, 15.0), tvos(10.0, 15.0), watchos(3.0, 8.0));
 
 /*!
  @function SecKeyCreateAttestation

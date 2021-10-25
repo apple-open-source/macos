@@ -329,6 +329,10 @@ _SecAbsoluteTimeFromDateContentWithError
 /* Internal securityd RPC stuff */
 _CKKSSetupControlProtocol
 SEC_EXP_CLASS(CKKSControl)
+_CKKSSEViewPTA
+_CKKSSEViewPTC
+SEC_EXP_CLASS(CKKSExternalKey)
+SEC_EXP_CLASS(CKKSExternalTLKShare)
 SEC_EXP_CLASS(SecuritydXPCClient)
 
 #if __OBJC2__
@@ -338,7 +342,9 @@ SEC_EXP_CLASS(OTConfigurationContext)
 SEC_EXP_CLASS(OTBottleIDs)
 SEC_EXP_CLASS(OTOperationConfiguration)
 _kSecEntitlementPrivateOctagonEscrow
-#endif
+_kSecEntitlementPrivateOctagonSecureElement
+#endif /* __OBJC2__ */
+
 
 __OctagonSignpostCreate
 __OctagonSignpostGetNanoseconds
@@ -363,7 +369,6 @@ _OctagonErrorDomain
 _OTProtocolPairing
 _OTProtocolPiggybacking
 _OTDefaultsDomain
-_OTDefaultsOctagonEnable
 _OTTrustStatusChangeNotification
 _OTEscrowRecordPrefix
 
@@ -371,29 +376,21 @@ _SecEscrowRequestHavePrecord
 _SecEscrowRequestPendingPasscode
 _SecEscrowRequestPendingCertificate
 
+_SecEscrowRequestOptionFederationMove
+
 _CuttlefishErrorDomain
 _CuttlefishErrorRetryAfterKey
 
 _OctagonPlatformSupportsSOS
 _OctagonSetPlatformSupportsSOS
-_OctagonPerformSOSUpgrade
-_OctagonSetSOSUpgrade
-_OctagonIsEnabled
-_OctagonSetIsEnabled
-_OctagonRecoveryKeyIsEnabled
-_OctagonRecoveryKeySetIsEnabled
-_OctagonAuthoritativeTrustIsEnabled
-_OctagonAuthoritativeTrustSetIsEnabled
 _OctagonIsSOSFeatureEnabled
 _OctagonSetSOSFeatureEnabled
-_OctagonIsOptimizationEnabled
-_OctagonSetOptimizationEnabled
-_OctagonSetEscrowRecordFetchEnabled
-_OctagonIsEscrowRecordFetchEnabled
 _SecKVSOnCloudKitIsEnabled
 _SecKVSOnCloudKitSetOverrideIsEnabled
 _SecErrorIsNestedErrorCappingEnabled
 _SecErrorSetOverrideNestedErrorCappingIsEnabled
+_SecKeychainIsStaticPersistentRefsEnabled
+_SecKeychainSetOverrideStaticPersistentRefsIsEnabled
 
 SEC_EXP_CLASS(OTJoiningConfiguration)
 SEC_EXP_CLASS(OTControl)
@@ -410,10 +407,12 @@ _securityd_message_with_reply_sync
 _securityd_message_no_error
 _securityd_send_sync_and_do
 _securityd_send_async_and_do
-#if TARGET_OS_IOS
+
+#if (TARGET_OS_IOS || TARGET_OS_TV || TARGET_OS_OSX)
 _SecSecuritySetMusrMode
 _SecSecuritySetPersonaMusr
 #endif
+
 #if TARGET_OS_OSX
 __SecSetSecuritydTargetUID
 #endif
@@ -1378,6 +1377,7 @@ _kSecAsn1SignedCertTemplate
 _kSecAsn1SignedCrlTemplate
 _kSecAsn1TBSCertificateTemplate
 _kSecAsn1TBSCrlTemplate
+_kSecAsn1TimeTemplate
 _kSecAsn1ValidityTemplate
 
 _kSecAsn1AccessDescriptionTemplate
@@ -1566,6 +1566,7 @@ _kSecAsn1T61StringTemplate
 _kSecAsn1TBSCertificateTemplate
 _kSecAsn1TBSCrlTemplate
 _kSecAsn1TeletexStringTemplate
+_kSecAsn1TimeTemplate
 _kSecAsn1UTCTimeTemplate
 _kSecAsn1UTF8StringTemplate
 _kSecAsn1UniversalStringTemplate
@@ -1597,6 +1598,7 @@ _SecCodeCopySigningInformation
 _SecCodeMapMemory
 _SecCodeSetDetachedSignature
 _SecCodeCopyComponent
+_SecCodeSpecialSlotIsPresent
 _SecCodeValidateFileResource
 _kSecCodeAttributeArchitecture
 _kSecCodeAttributeBundleVersion
@@ -1674,6 +1676,7 @@ _kSecCodeInfoTime
 _kSecCodeInfoTimestamp
 _kSecCodeInfoDesignatedRequirement
 _kSecCodeInfoEntitlements
+_kSecCodeInfoEntitlementsDER
 _kSecCodeInfoEntitlementsDict
 _kSecCodeInfoFlags
 _kSecCodeInfoFormat
@@ -1796,6 +1799,7 @@ _kDisabledOverride
 _SecCodeCheckValidity
 _SecCodeCheckValidityWithErrors
 _SecCodeCopyComponent
+_SecCodeSpecialSlotIsPresent
 _SecCodeCopyDesignatedRequirement
 _SecCodeCopyHost
 _SecCodeCopyInternalRequirement
@@ -1970,15 +1974,6 @@ _oidGoogleOCSPSignedCertificateTimestamp
 //
 // libsecurity_manifest
 //
-_SecManifestGetVersion
-_SecManifestCompare
-_SecManifestCreate
-_SecManifestRelease
-_SecManifestVerifySignature
-_SecManifestVerifySignatureWithPolicy
-_SecManifestCreateSignature
-_SecManifestAddObject
-_SecManifestAddSigner
 _SecureDownloadCreateWithTicket
 _SecureDownloadUpdateWithData
 _SecureDownloadFinished
@@ -1987,8 +1982,6 @@ _SecureDownloadCopyName
 _SecureDownloadCopyURLs
 _SecureDownloadCopyCreationDate
 _SecureDownloadGetDownloadSize
-__SecureDownloadCreateTicketXML
-__SecureDownloadParseTicketXML
 _SecureDownloadCopyTicketLocation
 #endif // TARGET_OS_OSX
 
@@ -2093,7 +2086,7 @@ _OBJC_CLASS_$_SFAnalyticsSQLiteStore
 _OBJC_CLASS_$_SecCoreAnalytics
 _SecCoreAnalyticsValue
 _SecCoreAnalyticsSendValue
-_SecCoreAnalyticsSendKernEntropyHealth
+_SecCoreAnalyticsSendKernEntropyAnalytics
 _SFAnalyticsMaxEventsToReport
 _SFSQLiteJournalSuffixes
 _SFAnalyticsSamplerIntervalOncePerReport

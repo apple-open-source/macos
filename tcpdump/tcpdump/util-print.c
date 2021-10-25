@@ -52,6 +52,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "netdissect-ctype.h"
+
 #include "netdissect.h"
 #include "ascii_strcasecmp.h"
 #include "timeval-operations.h"
@@ -574,6 +576,14 @@ signed_relts_print(netdissect_options *ndo,
 		return;
 	}
 	unsigned_relts_print(ndo, secs);
+}
+
+/* Print the protocol name in caps (uppercases) */
+void nd_print_protocol_caps(netdissect_options *ndo)
+{
+	const char *p;
+        for (p = ndo->ndo_protocol; *p != '\0'; p++)
+                ND_PRINT((ndo, "%c", ND_ASCII_TOUPPER(*p)));
 }
 
 /*

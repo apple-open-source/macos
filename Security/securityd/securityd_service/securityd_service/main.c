@@ -691,9 +691,25 @@ done:
 }
 
 static int
+mkb_to_kb(int mkb_rc)
+{
+    switch (mkb_rc) {
+        case kMobileKeyBagSuccess:
+            return KB_Success;
+        case kMobileKeyBagNotFoundError:
+            return KB_BagNotLoaded;
+        case kMobileKeyBagError:
+            /* FALLTHROUGH */
+        default:
+            return KB_GeneralError;
+    }
+}
+
+static int
 service_kb_unlock(service_context_t * context, const void * secret, int secret_len)
 {
     int rc = KB_GeneralError;
+    int mkb_rc = kMobileKeyBagError;
     keybag_handle_t session_handle;
     CFDataRef passcode = NULL;
     CFMutableDictionaryRef options = NULL;
@@ -705,8 +721,10 @@ service_kb_unlock(service_context_t * context, const void * secret, int secret_l
 
     require(passcode = CFDataCreateWithBytesNoCopy(NULL, secret, secret_len, kCFAllocatorNull), done);
 
-    rc = MKBUnlockDevice(passcode, options);
-    os_log_info(OS_LOG_DEFAULT, "MKBUnlockDevice result: (%ld), caller pid: %d", (long)rc, get_caller_pid(&context->procToken));
+    mkb_rc = MKBUnlockDevice(passcode, options);
+    os_log_info(OS_LOG_DEFAULT, "MKBUnlockDevice result: (%ld), caller pid: %d", (long)mkb_rc, get_caller_pid(&context->procToken));
+
+    rc = mkb_to_kb(mkb_rc);
 
 done:
     if (options) { CFRelease(options); }

@@ -1,0 +1,1 @@
+../../keychain/ot/OTJoiningConfiguration.h

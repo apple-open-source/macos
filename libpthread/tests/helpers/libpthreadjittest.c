@@ -1,5 +1,4 @@
-#include <pthread/pthread.h>
-#include <pthread/jit_private.h>
+#include <pthread.h>
 
 int
 test_dylib_jit_write_callback(void *ctx);

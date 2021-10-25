@@ -42,6 +42,7 @@
 #include <utilities/debugging.h>
 #include <Security/SecItemPriv.h>
 #include <Security/SecInternal.h>
+#include <Security/SecCFAllocator.h>
 #include <utilities/SecCFError.h>
 #include <utilities/SecCFWrappers.h>
 #include <utilities/array_size.h>
@@ -358,7 +359,7 @@ static CFDataRef SecECKeyCopyWrapKey(SecKeyRef key, SecKeyWrapType type, CFDataR
         return NULL;
     }
 
-    CFMutableDataRef data = CFDataCreateMutableWithScratch(NULL, output_size);
+    CFMutableDataRef data = CFDataCreateMutableWithScratch(SecCFAllocatorZeroize(), output_size);
     require_quiet(data, errOut);
 
     err = ccec_rfc6637_wrap_key(pubkey, CFDataGetMutableBytePtr(data), flags,
@@ -537,7 +538,7 @@ static CFTypeRef SecECPrivateKeyCopyOperationResult(SecKeyRef key, SecKeyOperati
                     require_noerr_action_quiet(err, out, SecError(errSecParam, error,
                                                                   CFSTR("ECpriv sharedsecret: bad public key (err %d)"), err));
                     size_t size = ccec_ccn_size(cp);
-                    result = CFDataCreateMutableWithScratch(NULL, size);
+                    result = CFDataCreateMutableWithScratch(SecCFAllocatorZeroize(), size);
                     err = ccecdh_compute_shared_secret(fullkey, pubkey, &size,
                                                        CFDataGetMutableBytePtr((CFMutableDataRef)result), ccrng_seckey);
                     require_noerr_action_quiet(err, out, (CFReleaseNull(result),
@@ -581,7 +582,7 @@ static CFDataRef SecECPrivateKeyCopyExternalRepresentation(SecKeyRef key, CFErro
     ccec_full_ctx_t fullkey = key->key;
     size_t prime_size = ccec_cp_prime_size(ccec_ctx_cp(fullkey));
     size_t key_size = ccec_export_pub_size(ccec_ctx_pub(fullkey)) + prime_size;
-    CFMutableDataRef blob = CFDataCreateMutableWithScratch(NULL, key_size);
+    CFMutableDataRef blob = CFDataCreateMutableWithScratch(SecCFAllocatorZeroize(), key_size);
     ccec_export_pub(ccec_ctx_pub(fullkey), CFDataGetMutableBytePtr(blob));
     UInt8 *dest = CFDataGetMutableBytePtr(blob) + ccec_export_pub_size(ccec_ctx_pub(fullkey));
     const cc_unit *k = ccec_ctx_k(fullkey);
@@ -601,7 +602,7 @@ static CFStringRef SecECPrivateKeyCopyKeyDescription(SecKeyRef key) {
 
     const char* curve = getCurveName(key);
 
-	return CFStringCreateWithFormat(kCFAllocatorDefault,NULL,CFSTR( "<SecKeyRef curve type: %s, algorithm id: %lu, key type: %s, version: %d, block size: %zu bits, addr: %p>"), curve, (long)SecKeyGetAlgorithmId(key), key->key_class->name, key->key_class->version, (8*SecKeyGetBlockSize(key)), key);
+	return CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR( "<SecKeyRef curve type: %s, algorithm id: %lu, key type: %s, version: %d, block size: %zu bits, addr: %p>"), curve, (long)SecKeyGetAlgorithmId(key), key->key_class->name, key->key_class->version, (8*SecKeyGetBlockSize(key)), key);
 
 }
 
@@ -640,19 +641,19 @@ static CFDataRef SecECKeyCopyUnwrapKey(SecKeyRef key, SecKeyWrapType type, CFDat
         return NULL;
     }
 
-    CFNumberRef num = CFDictionaryGetValue(parameters, _kSecKeyWrapRFC6637Flags);
-    if (isNumber(num)) {
-        if (!CFNumberGetValue(num, kCFNumberSInt32Type, &flags)) {
-            SecError(errSecUnsupportedOperation, error, CFSTR("invalid flags: %@"), num);
+    CFNumberRef rfc6637FlagsNum = CFDictionaryGetValue(parameters, _kSecKeyWrapRFC6637Flags);
+    if (isNumber(rfc6637FlagsNum)) {
+        if (!CFNumberGetValue(rfc6637FlagsNum, kCFNumberSInt32Type, &flags)) {
+            SecError(errSecUnsupportedOperation, error, CFSTR("invalid flags: %@"), rfc6637FlagsNum);
             return NULL;
         }
-    } else if (num) {
+    } else if (rfc6637FlagsNum) {
         SecError(errSecUnsupportedOperation, error, CFSTR("unknown flags"));
         return NULL;
     }
 
     size_t keysize = CFDataGetLength(wrappedKey);
-    data = CFDataCreateMutableWithScratch(NULL, keysize);
+    data = CFDataCreateMutableWithScratch(SecCFAllocatorZeroize(), keysize);
     if (data == NULL)
         return NULL;
 
@@ -714,7 +715,7 @@ OSStatus SecECKeyGeneratePair(CFDictionaryRef parameters,
                               SecKeyRef *publicKey, SecKeyRef *privateKey) {
     OSStatus status = errSecParam;
 
-    CFAllocatorRef allocator = NULL; /* @@@ get from parameters. */
+    CFAllocatorRef allocator = SecCFAllocatorZeroize(); /* @@@ get from parameters. */
     SecKeyRef pubKey = NULL;
 
     SecKeyRef privKey = SecKeyCreate(allocator, &kSecECPrivateKeyDescriptor,

@@ -1,16 +1,17 @@
 # Ciphers
 
 With curl's options
-[`CURLOPT_SSL_CIPHER_LIST`](https://curl.haxx.se/libcurl/c/CURLOPT_SSL_CIPHER_LIST.html)
+[`CURLOPT_SSL_CIPHER_LIST`](https://curl.se/libcurl/c/CURLOPT_SSL_CIPHER_LIST.html)
 and
-[`--ciphers`](https://curl.haxx.se/docs/manpage.html#--ciphers)
+[`--ciphers`](https://curl.se/docs/manpage.html#--ciphers)
 users can control which ciphers to consider when negotiating TLS connections.
 
-TLS 1.3 ciphers are supported since curl 7.61 with options
-[`CURLOPT_TLS13_CIPHERS`](https://curl.haxx.se/libcurl/c/CURLOPT_TLS13_CIPHERS.html)
+TLS 1.3 ciphers are supported since curl 7.61 for OpenSSL 1.1.1+ with options
+[`CURLOPT_TLS13_CIPHERS`](https://curl.se/libcurl/c/CURLOPT_TLS13_CIPHERS.html)
 and
-[`--tls13-ciphers`](https://curl.haxx.se/docs/manpage.html#--tls13-ciphers)
-.
+[`--tls13-ciphers`](https://curl.se/docs/manpage.html#--tls13-ciphers)
+. If you are using a different SSL backend you can try setting TLS 1.3 cipher
+suites by using the respective regular cipher option.
 
 The names of the known ciphers differ depending on which TLS backend that
 libcurl was built to use. This is an attempt to list known cipher names.
@@ -269,9 +270,16 @@ When specifying multiple cipher names, separate them with colon (`:`).
 `ecdhe_ecdsa_chacha20_poly1305_sha_256`
 `dhe_rsa_chacha20_poly1305_sha_256`
 
+### TLS 1.3 cipher suites
+
+`aes_128_gcm_sha_256`
+`aes_256_gcm_sha_384`
+`chacha20_poly1305_sha_256`
+
 ## GSKit
 
-Ciphers are internally defined as numeric codes (https://www.ibm.com/support/knowledgecenter/ssw_ibm_i_73/apis/gsk_attribute_set_buffer.htm),
+Ciphers are internally defined as
+[numeric codes](https://www.ibm.com/support/knowledgecenter/ssw_ibm_i_73/apis/gsk_attribute_set_buffer.htm),
 but libcurl maps them to the following case-insensitive names.
 
 ### SSL2 cipher suites (insecure: disabled by default)
@@ -446,9 +454,18 @@ but libcurl maps them to the following case-insensitive names.
 `DHE-PSK-CHACHA20-POLY1305`,
 `EDH-RSA-DES-CBC3-SHA`,
 
-## WinSSL
+## Schannel
 
-WinSSL allows the enabling and disabling of encryption algorithms, but not specific ciphersuites. They are defined by Microsoft (https://msdn.microsoft.com/en-us/library/windows/desktop/aa375549(v=vs.85).aspx)
+Schannel allows the enabling and disabling of encryption algorithms, but not
+specific ciphersuites. They are
+[defined](https://docs.microsoft.com/windows/desktop/SecCrypto/alg-id) by
+Microsoft.
+
+There is also the case that the selected algorithm is not supported by the
+protocol or does not match the ciphers offered by the server during the SSL
+negotiation. In this case curl will return error
+`CURLE_SSL_CONNECT_ERROR (35) SEC_E_ALGORITHM_MISMATCH`
+and the request will fail.
 
 `CALG_MD2`,
 `CALG_MD4`,
@@ -497,3 +514,9 @@ WinSSL allows the enabling and disabling of encryption algorithms, but not speci
 `CALG_ECMQV`,
 `CALG_ECDSA`,
 `CALG_ECDH_EPHEM`,
+
+As of curl 7.77.0, you can also pass `SCH_USE_STRONG_CRYPTO` as a cipher name
+to [constrain the set of available ciphers as specified in the schannel
+documentation](https://docs.microsoft.com/en-us/windows/win32/secauthn/tls-cipher-suites-in-windows-server-2022).
+Note that the supported ciphers in this case follows the OS version, so if you
+are running an outdated OS you might still be supporting weak ciphers.

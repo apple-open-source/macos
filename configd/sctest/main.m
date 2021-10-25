@@ -24,7 +24,7 @@
 #import "SCTest.h"
 #import "SCTestUtils.h"
 
-static void
+static void __attribute__((noreturn))
 usage()
 {
 	NSArray *testClasses = getTestClasses();
@@ -103,6 +103,4 @@ int main(int argc, const char * argv[]) {
 
 		dispatch_main();
 	}
-
-	return 0;
 }

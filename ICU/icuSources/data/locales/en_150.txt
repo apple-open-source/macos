@@ -1,5 +1,6 @@
-// © 2016 and later: Unicode, Inc. and others.
-// License & terms of use: http://www.unicode.org/copyright.html#License
+﻿// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html
+// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
 en_150{
     %%Parent{"en_001"}
     NumberElements{
@@ -10,7 +11,6 @@ en_150{
             }
         }
     }
-    Version{"36.1"}
     calendar{
         chinese{
             DateTimePatterns{
@@ -129,10 +129,10 @@ en_150{
                 "HH:mm:ss z",
                 "HH:mm:ss",
                 "HH:mm",
-                "EEEE, d MMMM y G",
-                "d MMMM y G",
-                "dd MMM y G",
-                "dd/MM/y GGGGG",
+                "EEEE, d MMMM G y",
+                "d MMMM G y",
+                "dd MMM G y",
+                "dd/MM/GGGGGy",
                 "{1}, {0}",
                 "{1} 'at' {0}",
                 "{1} 'at' {0}",

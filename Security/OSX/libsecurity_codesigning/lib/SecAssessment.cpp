@@ -474,11 +474,13 @@ Boolean SecAssessmentControl(CFStringRef control, void *arguments, CFErrorRef *e
 	} else if (CFEqual(control, CFSTR("ui-enable-devid"))) {
 		updateAuthority("Developer ID", true, errors);
 		updateAuthority("Notarized Developer ID", true, errors);
+		updateAuthority("Testflight", true, errors);
 		MessageTrace trace("com.apple.security.assessment.state", "enable-devid");
 		trace.send("enable Developer ID approval");
 		return true;
 	} else if (CFEqual(control, CFSTR("ui-disable-devid"))) {
 		updateAuthority("Developer ID", false, errors);
+		updateAuthority("Testflight", false, errors);
 		MessageTrace trace("com.apple.security.assessment.state", "disable-devid");
 		trace.send("disable Developer ID approval");
 		return true;

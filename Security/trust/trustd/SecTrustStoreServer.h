@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007-2009,2012-2020 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2007-2009,2012-2021 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -37,9 +37,7 @@ __BEGIN_DECLS
 
 SecTrustStoreRef SecTrustStoreForDomainName(CFStringRef domainName, CFErrorRef *error);
 
-bool _SecTrustStoreSetTrustSettings(SecTrustStoreRef ts,
-	SecCertificateRef certificate,
-    CFTypeRef trustSettingsDictOrArray, CFErrorRef *error);
+bool _SecTrustStoreSetTrustSettings(SecTrustStoreRef ts, SecCertificateRef certificate, CFTypeRef trustSettingsDictOrArray, CFErrorRef *error);
 
 bool _SecTrustStoreRemoveCertificate(SecTrustStoreRef ts, SecCertificateRef cert, CFErrorRef *error);
 
@@ -56,6 +54,8 @@ bool _SecTrustStoreCopyAll(SecTrustStoreRef ts, CFArrayRef *trustStoreContents, 
 bool _SecTrustStoreMigrateUserStore(CFErrorRef *error);
 
 void _SecTrustStoreMigrateConfigurations(void);
+
+void _SecTrustStoreMigrateTrustSettings(void);
 
 bool _SecTrustStoreSetCTExceptions(CFStringRef appID, CFDictionaryRef exceptions, CFErrorRef *error);
 CF_RETURNS_RETAINED CFDictionaryRef _SecTrustStoreCopyCTExceptions(CFStringRef appID, CFErrorRef *error);

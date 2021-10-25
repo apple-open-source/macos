@@ -87,8 +87,11 @@ struct sigaction parterm;	/* Parents terminate catch */
 int do_logout = 0;
 #endif /* TESLA */
 
-
+#ifdef __APPLE__
+int    use_fork = 1;		/* use fork() instead of vfork()? */
+#else
 int    use_fork = 0;		/* use fork() instead of vfork()? */
+#endif /* __APPLE__ */
 
 /*
  * Magic pointer values. Used to specify other invalid conditions aside

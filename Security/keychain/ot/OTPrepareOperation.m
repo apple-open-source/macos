@@ -78,8 +78,7 @@
 
     if (altDSID) {
         bottleSalt = altDSID;
-    }
-    else {
+    } else {
         secnotice("octagon-sos", "AuthKit doesn't know about the altDSID: %@", authKitError);
 
         NSError* accountError = nil;
@@ -88,9 +87,14 @@
         if(account && !accountError) {
             secnotice("octagon", "retrieved account, altdsid is: %@", account.altDSID);
             bottleSalt = account.altDSID;
-        }
-        if(accountError || !account){
-            secerror("failed to rerieve account object: %@", accountError);
+        } else {
+            if (accountError == nil) {
+                accountError = [NSError errorWithDomain:(__bridge NSString *)kSecErrorDomain code:errSecInternalError userInfo:nil];
+            }
+            secerror("failed to retrieve account object: %@", accountError);
+            self.error = accountError;
+            [self runBeforeGroupFinished:self.finishedOp];
+            return;
         }
     }
     WEAKIFY(self);
@@ -129,8 +133,17 @@
         }
     }
 
+    __block TPPBSecureElementIdentity* existingSecureElementIdentity = nil;
+
     NSError* persistError = nil;
-    BOOL persisted = [self.deps.stateHolder persistOctagonJoinAttempt:OTAccountMetadataClassC_AttemptedAJoinState_ATTEMPTED error:&persistError];
+
+    BOOL persisted = [self.deps.stateHolder persistAccountChanges:^OTAccountMetadataClassC * _Nullable(OTAccountMetadataClassC * _Nonnull metadata) {
+        existingSecureElementIdentity = [metadata parsedSecureElementIdentity];
+        metadata.attemptedJoin = OTAccountMetadataClassC_AttemptedAJoinState_ATTEMPTED;
+
+        return metadata;
+    } error:&persistError];
+
     if(!persisted || persistError) {
         secerror("octagon: failed to save 'attempted join' state: %@", persistError);
     }
@@ -150,7 +163,8 @@
                                                osVersion:self.deviceInfo.osVersion
                                            policyVersion:self.policyOverride
                                            policySecrets:nil
-                               syncUserControllableViews:TPPBPeerStableInfo_UserControllableViewStatus_FOLLOWING
+                               syncUserControllableViews:TPPBPeerStableInfoUserControllableViewStatus_FOLLOWING
+                                   secureElementIdentity:existingSecureElementIdentity
                              signingPrivKeyPersistentRef:signingKeyPersistRef
                                  encPrivKeyPersistentRef:encryptionKeyPersistRef
                                                    reply:^(NSString * _Nullable peerID,
@@ -193,7 +207,7 @@
                 }
 
                 // Let CKKS know of the new policy, so it can spin up
-                [self.deps.viewManager setCurrentSyncingPolicy:syncingPolicy];
+                [self.deps.ckks setCurrentSyncingPolicy:syncingPolicy];
 
                 self.nextState = self.intendedState;
                 [self runBeforeGroupFinished:self.finishedOp];

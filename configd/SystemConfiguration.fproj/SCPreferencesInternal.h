@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, 2003-2005, 2007-2011, 2013-2020 Apple Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2003-2005, 2007-2011, 2013-2021 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -53,9 +53,6 @@
 #define	PREFS_DEFAULT_CONFIG_PLIST	"preferences.plist"
 #define	PREFS_DEFAULT_CONFIG		CFSTR(PREFS_DEFAULT_CONFIG_PLIST)
 
-#define	PREFS_DEFAULT_DIR_OLD		CFSTR("/var/db/SystemConfiguration")
-#define	PREFS_DEFAULT_CONFIG_OLD	CFSTR("preferences.xml")
-
 #define	PREFS_DEFAULT_USER_DIR		CFSTR("Library/Preferences")
 
 #define	INTERFACES_DEFAULT_CONFIG_PLIST	"NetworkInterfaces.plist"
@@ -83,7 +80,6 @@ typedef struct {
 
 	/* configuration file */
 	char			*path;
-	char			*newPath;
 
 	/* preferences lock, lock file */
 	Boolean			locked;
@@ -181,8 +177,7 @@ __SCPSignatureFromStatbuf		(const struct stat	*statBuf);
 
 char *
 __SCPreferencesPath			(CFAllocatorRef		allocator,
-					 CFStringRef		prefsID,
-					 Boolean		useNewPrefs);
+					 CFStringRef		prefsID);
 
 off_t
 __SCPreferencesPrefsSize		(SCPreferencesRef	prefs);

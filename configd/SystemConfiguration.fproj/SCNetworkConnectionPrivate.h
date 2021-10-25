@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006, 2008, 2009, 2011-2015, 2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2006, 2008, 2009, 2011-2015, 2017, 2018, 2021 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -139,7 +139,7 @@ SCNetworkConnectionSetClientAuditInfo		(SCNetworkConnectionRef		connection,
  @abstract The traffic class that is attempting to trigger OnDemand.
  */
 #define kSCNetworkConnectionSelectionOptionOnDemandTrafficClass	CFSTR("OnDemandTrafficClass")	// CFNumber
-												// API_AVAILABLE(macos(9.0))
+												// API_AVAILABLE(macos(10.9))
 												// SPI_AVAILABLE(ios(7.0), tvos(9.0), watchos(1.0), bridgeos(1.0))
 
 /*!

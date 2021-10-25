@@ -28,6 +28,12 @@ NS_ASSUME_NONNULL_BEGIN
 @property BOOL ckks4AllStatus;
 @property BOOL ckks4AllStatusIsSet;
 
+@property bool joinAfterRestoreCircleStatusOverride;
+@property bool joinAfterRestoreResult;
+
+@property bool resetToOfferingCircleStatusOverride;
+@property bool resetToOfferingResult;
+
 @property (nullable) void (^updateOctagonKeySetListener)(id<CKKSSelfPeer>);
 
 - (instancetype)initWithSelfPeer:(CKKSSOSSelfPeer*)selfPeer

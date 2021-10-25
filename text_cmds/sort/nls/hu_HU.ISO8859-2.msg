@@ -1,4 +1,4 @@
-$ $FreeBSD: head/usr.bin/sort/nls/hu_HU.ISO8859-2.msg 235434 2012-05-14 09:55:23Z gabor $
+$ $FreeBSD$
 $
 $set 1
 $quote "

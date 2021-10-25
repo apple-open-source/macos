@@ -618,6 +618,16 @@ enum {
     
     kIOAudioChannelLabel_Haptic                   = 45,
 	
+    kIOAudioChannelLabel_LeftTopFront             = kIOAudioChannelLabel_VerticalHeightLeft,
+    kIOAudioChannelLabel_CenterTopFront           = kIOAudioChannelLabel_VerticalHeightCenter,
+    kIOAudioChannelLabel_RightTopFront            = kIOAudioChannelLabel_VerticalHeightRight,
+    kIOAudioChannelLabel_LeftTopMiddle            = 49,
+    kIOAudioChannelLabel_CenterTopMiddle          = kIOAudioChannelLabel_TopCenterSurround,
+    kIOAudioChannelLabel_RightTopMiddle           = 51,
+    kIOAudioChannelLabel_LeftTopRear              = 52,
+    kIOAudioChannelLabel_CenterTopRear            = 53,
+    kIOAudioChannelLabel_RightTopRear             = 54,
+    
     // first order ambisonic channels
     kIOAudioChannelLabel_Ambisonic_W              = 200,
     kIOAudioChannelLabel_Ambisonic_X              = 201,

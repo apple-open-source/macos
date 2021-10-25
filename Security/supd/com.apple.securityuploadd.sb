@@ -66,7 +66,8 @@
     (global-name "com.apple.AppSSO.service-xpc")
     (global-name "com.apple.dnssd.service")
     (global-name "com.apple.usymptomsd")
-    (global-name "com.apple.ak.auth.xpc"))
+    (global-name "com.apple.ak.auth.xpc")
+    (global-name "com.apple.nesessionmanager.content-filter"))
 
 ;; Legacy SecKey operations
 (allow file-read* file-write*

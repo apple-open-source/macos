@@ -75,7 +75,7 @@ struct passwd;
 typedef struct _entry {
 	const char *prompt;
 #ifdef OPEN_DIRECTORY
-	void (*display)();
+	void (*display)(CFDictionaryRef, CFStringRef, const char*, FILE *);
 #endif
 	int (*func)(char *, struct passwd *, struct _entry *);
 	int restricted;

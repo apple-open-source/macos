@@ -945,7 +945,8 @@ apr_status_t h2_beam_send(h2_bucket_beam *beam,
 apr_status_t h2_beam_receive(h2_bucket_beam *beam, 
                              apr_bucket_brigade *bb, 
                              apr_read_type_e block,
-                             apr_off_t readbytes)
+                             apr_off_t readbytes,
+                             int *pclosed)
 {
     h2_beam_lock bl;
     apr_bucket *bsender, *brecv, *ng;
@@ -953,7 +954,7 @@ apr_status_t h2_beam_receive(h2_bucket_beam *beam,
     apr_status_t status = APR_SUCCESS;
     apr_off_t remain;
     int transferred_buckets = 0;
-    
+
     /* Called from the receiver thread to take buckets from the beam */
     if (enter_yellow(beam, &bl) == APR_SUCCESS) {
         if (readbytes <= 0) {
@@ -1039,6 +1040,7 @@ transfer:
                 H2_BLIST_INSERT_TAIL(&beam->hold_list, bsender);
 
                 remain -= bsender->length;
+                beam->received_bytes += bsender->length;
                 ++transferred;
                 ++transferred_buckets;
                 continue;
@@ -1126,7 +1128,8 @@ transfer:
             }
             goto transfer;
         }
-leave:        
+leave:
+        if (pclosed) *pclosed = beam->closed? 1 : 0;
         leave_yellow(beam, &bl);
     }
     return status;

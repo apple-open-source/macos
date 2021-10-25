@@ -37,6 +37,7 @@
 #include <syslog.h>
 #include <sys/time.h>
 #include <unistd.h>
+#include <os/log_simple_private.h>
 
 struct os_debug_log_globals_s {
 	uint64_t start;
@@ -230,7 +231,7 @@ _os_debug_log_write_error(void)
 
 static inline
 void
-_os_debug_log_write(int level, char *str)
+_os_debug_log_write(int level, char *str, uint64_t offset)
 {
 	int fd = os_debug_log_globals()->logfd;
 	os_redirect_t rdr = os_debug_log_globals()->redirect;
@@ -247,7 +248,14 @@ _os_debug_log_write(int level, char *str)
 			// Don't return, fall out to syslog().
 		}
 	}
+#if TARGET_OS_SIMULATOR
+	// Old hosts don't have libplatform support for os_log_simple, so we need
+	// to use legacy shims on simulator
 	_simple_asl_log(level, "com.apple.os_debug_log", str);
+#else // TARGET_OS_SIMULATOR
+	_os_log_simple_offset(os_log_simple_type_from_asl(level),
+			"com.apple.os_debug_log", offset, str);
+#endif // TARGET_OS_SIMULATOR
 }
 
 static __attribute__((always_inline))
@@ -283,14 +291,20 @@ _os_debug_logv(int level, const char *msg, va_list ap)
 		}
 	}
 
-	_os_debug_log_write(level, buf);
+	_os_debug_log_write(level, buf, (uint64_t)(uintptr_t)__builtin_return_address(0));
 	free(freebuf);
 }
 
 void
 _os_debug_log_error_str(char *msg)
 {
-	_os_debug_log_write(LOG_ERR, msg);
+	_os_debug_log_write(LOG_ERR, msg, (uint64_t)(uintptr_t)__builtin_return_address(0));
+}
+
+void
+_os_debug_log_error_offset(char *msg, uint64_t offset)
+{
+	_os_debug_log_write(LOG_ERR, msg, offset);
 }
 
 OS_FORMAT_PRINTF(1, 2)

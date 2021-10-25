@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2020 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2002-2021 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -649,7 +649,7 @@ OSStatus SecIdentitySetPreference(
     CFRelease(labelStr);
 
     // service attribute (name provided by the caller)
-    CFIndex serviceUTF8Len = CFStringGetMaximumSizeForEncoding(CFStringGetLength(perAppName), kCFStringEncodingUTF8) + 1;;
+    CFIndex serviceUTF8Len = CFStringGetMaximumSizeForEncoding(CFStringGetLength(perAppName), kCFStringEncodingUTF8) + 1;
     char *serviceUTF8 = (char *)malloc(serviceUTF8Len);
     if (!serviceUTF8) {
         CFReleaseNull(perAppName);
@@ -799,13 +799,17 @@ OSStatus SecIdentityDeletePreferenceItemWithNameAndKeyUsage(
 	return (status == errSecItemNotFound) ? errSecSuccess : status;
 }
 
-OSStatus SecIdentityDeleteApplicationPreferenceItems(void)
+static OSStatus _SecIdentityCopyApplicationPreferenceItemURLs(CFArrayRef *items, bool deleteItems)
 {
     BEGIN_SECAPI
-    os_activity_t activity = os_activity_create("SecIdentityDeleteApplicationPreferenceItems", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
+    os_activity_t activity = os_activity_create("SecIdentityCopyApplicationPreferenceItemURLs", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
     os_activity_scope(activity);
     os_release(activity);
 
+    CFMutableArrayRef urls = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+    if (items) {
+        *items = urls; /* always return, even if empty */
+    }
     StorageManager::KeychainList keychains;
     globals().storageManager.optionalSearchList(NULL, keychains);
     KCCursor cursor(keychains, kSecGenericPasswordItemClass, NULL);
@@ -821,6 +825,9 @@ OSStatus SecIdentityDeleteApplicationPreferenceItems(void)
     if (!suffixString || !matches) {
         CFReleaseNull(matches);
         CFReleaseNull(suffixString);
+        if (!items) {
+            CFReleaseNull(urls);
+        }
         MacOSError::throwMe(errSecItemNotFound);
     }
     // iterate through candidate items and add matches to array
@@ -838,6 +845,16 @@ OSStatus SecIdentityDeleteApplicationPreferenceItems(void)
                     kCFStringEncodingUTF8, false);
                 if (serviceString && (CFStringHasSuffix(serviceString, suffixString))) {
                     CFArrayAppendValue(matches, itemRef);
+                    CFStringRef urlString = CFStringCreateWithSubstring(NULL, serviceString,
+                        CFRangeMake(0, CFStringGetLength(serviceString) - CFStringGetLength(suffixString)));
+                    if (urlString) {
+                        CFURLRef url = CFURLCreateWithString(NULL, urlString, NULL);
+                        if (url) {
+                            CFArrayAppendValue(urls, url);
+                            CFReleaseNull(url);
+                        }
+                        CFReleaseNull(urlString);
+                    }
                 }
                 CFReleaseNull(serviceString);
             }
@@ -845,10 +862,10 @@ OSStatus SecIdentityDeleteApplicationPreferenceItems(void)
         }
         CFReleaseNull(itemRef);
     }
-    // delete matching items, if any
+    // delete matching items, if any (and if specified)
     CFIndex numDeleted=0, count = CFArrayGetCount(matches);
     OSStatus status = (count > 0) ? errSecSuccess : errSecItemNotFound;
-    for (CFIndex idx=0; idx < count; idx++) {
+    for (CFIndex idx=0; deleteItems && idx < count; idx++) {
         SecKeychainItemRef itemRef = (SecKeychainItemRef)CFArrayGetValueAtIndex(matches, idx);
         OSStatus tmpStatus = SecKeychainItemDelete(itemRef);
         if (errSecSuccess == tmpStatus) {
@@ -861,11 +878,26 @@ OSStatus SecIdentityDeleteApplicationPreferenceItems(void)
            (long)count, (long)numDeleted, (long)status);
     CFReleaseNull(matches);
     CFReleaseNull(suffixString);
+    if (!items) {
+        CFReleaseNull(urls);
+    }
 
     if (status != errSecSuccess) {
         MacOSError::throwMe(status);
     }
     END_SECAPI
+}
+
+OSStatus SecIdentityDeleteApplicationPreferenceItems(void)
+{
+    return _SecIdentityCopyApplicationPreferenceItemURLs(NULL, true);
+}
+
+CFArrayRef SecIdentityCopyApplicationPreferenceItemURLs(void)
+{
+    CFArrayRef result = NULL;
+    (void)_SecIdentityCopyApplicationPreferenceItemURLs(&result, false);
+    return result;
 }
 
 /*

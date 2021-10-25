@@ -357,16 +357,29 @@ protopr(uint32_t proto,		/* for sysctl version we pass proto # */
 				printf("%-16.16s ", "Socket");
 				printf("%-9.9s", "Flowhash");
 			}
-			if (Lflag)
-				printf("%-14.14s %-22.22s\n",
-					   "Listen", "Local Address");
-			else {
-				printf((Aflag && !Wflag) ?
-					   "%-5.5s %-6.6s %-6.6s  %-18.18s %-18.18s %-11.11s" :
-					   "%-5.5s %-6.6s %-6.6s  %-22.22s %-22.22s %-11.11s",
-					   "Proto", "Recv-Q", "Send-Q",
-					   "Local Address", "Foreign Address",
-					   "(state)");
+            if (Lflag) {
+                if (lflag) {
+                    printf("%-14.14s %-39.39s\n",
+                           "Listen", "Local Address");
+                } else {
+                    printf("%-14.14s %-22.22s\n",
+                           "Listen", "Local Address");
+                }
+            } else {
+                printf("%-5.5s %-6.6s %-6.6s  ",
+                       "Proto", "Recv-Q", "Send-Q");
+                if (lflag) {
+                    printf("%-45.45s %-45.45s ",
+                           "Local Address", "Foreign Address");
+                } else if (Aflag) {
+                    printf("%-18.18s %-18.18s ",
+                           "Local Address", "Foreign Address");
+                } else {
+                    printf("%-22.22s %-22.22s ",
+                           "Local Address", "Foreign Address");
+                }
+                printf("%-11.11s",
+                       "(state)");
 				if (bflag > 0)
 					printf(" %10.10s %10.10s", "rxbytes", "txbytes");
 				if (prioflag >= 0)
@@ -922,24 +935,9 @@ ip_stats(uint32_t off , char *name, int af )
 	struct ipstat ipstat;
 	size_t ipstat_len = sizeof ipstat;
 
-	static net_perf_t pout_net_perf, pin_net_perf;
-	net_perf_t out_net_perf, in_net_perf;
-	size_t out_net_perf_len = sizeof (out_net_perf);
-	size_t in_net_perf_len = sizeof (in_net_perf);
-
 	if (sysctlbyname("net.inet.ip.stats", &ipstat, &ipstat_len, 0, 0) < 0) {
 		warn("sysctl: net.inet.ip.stats");
 		return;
-	}
-
-	if (sysctlbyname("net.inet.ip.output_perf_data", &out_net_perf, &out_net_perf_len, 0, 0) < 0) {
-		warn("sysctl: net.inet.ip.output_perf_data");
-		bzero(&out_net_perf, out_net_perf_len);
-	}
-
-	if (sysctlbyname("net.inet.ip.input_perf_data", &in_net_perf, &in_net_perf_len, 0, 0) < 0) {
-		warn("sysctl: net.inet.ip.input_perf_data");
-		bzero(&in_net_perf, in_net_perf_len);
 	}
 
 	if (interval && vflag > 0)
@@ -997,30 +995,6 @@ ip_stats(uint32_t off , char *name, int af )
 	p(ips_rcv_if_no_match,
 	  "\t\t%u input packet%s with no interface address match\n");
 
-#define INPERFDIFF(f) (in_net_perf.f - pin_net_perf.f)
-	if (INPERFDIFF(np_total_pkts) > 0 && in_net_perf.np_total_usecs > 0) {
-		printf("\tInput Performance Stats:\n");
-		printf("\t\t%llu total packets measured\n", INPERFDIFF(np_total_pkts));
-		printf("\t\t%llu total usec elapsed\n", INPERFDIFF(np_total_usecs));
-		printf("\t\t%f usec per packet\n",
-		    (double)in_net_perf.np_total_usecs/(double)in_net_perf.np_total_pkts);
-		printf("\t\tHistogram:\n");
-		printf("\t\t\t x <= %u: %llu\n", in_net_perf.np_hist_bars[0],
-		    INPERFDIFF(np_hist1));
-		printf("\t\t\t %u < x <= %u: %llu\n",
-		    in_net_perf.np_hist_bars[0], in_net_perf.np_hist_bars[1],
-		    INPERFDIFF(np_hist2));
-		printf("\t\t\t %u < x <= %u: %llu\n",
-		    in_net_perf.np_hist_bars[1], in_net_perf.np_hist_bars[2],
-		    INPERFDIFF(np_hist3));
-		printf("\t\t\t %u < x <= %u: %llu\n",
-		    in_net_perf.np_hist_bars[2], in_net_perf.np_hist_bars[3],
-		    INPERFDIFF(np_hist4));
-		printf("\t\t\t %u < x: %llu\n",
-		    in_net_perf.np_hist_bars[3], INPERFDIFF(np_hist5));
-	}
-#undef INPERFDIFF
-
 	p(ips_localout, "\t%u packet%s sent from this host\n");
 	p(ips_rawout, "\t\t%u packet%s sent with fabricated ip header\n");
 	p(ips_odropped,
@@ -1037,34 +1011,8 @@ ip_stats(uint32_t off , char *name, int af )
 	p2(ips_snd_swcsum, ips_snd_swcsum_bytes,
 	    "\t\t%u header%s (%u byte%s) checksummed in software\n");
 
-#define OUTPERFDIFF(f) (out_net_perf.f - pout_net_perf.f)
-	if (OUTPERFDIFF(np_total_pkts) > 0 && out_net_perf.np_total_usecs > 0) {
-		printf("\tOutput Performance Stats:\n");
-		printf("\t\t%llu total packets measured\n", OUTPERFDIFF(np_total_pkts));
-		printf("\t\t%llu total usec elapsed\n", OUTPERFDIFF(np_total_usecs));
-		printf("\t\t%f usec per packet\n",
-		    (double)out_net_perf.np_total_usecs/(double)out_net_perf.np_total_pkts);
-		printf("\t\tHistogram:\n");
-		printf("\t\t\t x <= %u: %llu\n", out_net_perf.np_hist_bars[0],
-		    OUTPERFDIFF(np_hist1));
-		printf("\t\t\t %u < x <= %u: %llu\n",
-		    out_net_perf.np_hist_bars[0], out_net_perf.np_hist_bars[1],
-		    OUTPERFDIFF(np_hist2));
-		printf("\t\t\t %u < x <= %u: %llu\n",
-		    out_net_perf.np_hist_bars[1], out_net_perf.np_hist_bars[2],
-		    OUTPERFDIFF(np_hist3));
-		printf("\t\t\t %u < x <= %u: %llu\n",
-		    out_net_perf.np_hist_bars[2], out_net_perf.np_hist_bars[3],
-		    OUTPERFDIFF(np_hist4));
-		printf("\t\t\t %u < x: %llu\n",
-		    out_net_perf.np_hist_bars[3], OUTPERFDIFF(np_hist5));
-	}
-#undef OUTPERFDIFF
-
 	if (interval > 0) {
 		bcopy(&ipstat, &pipstat, ipstat_len);
-		bcopy(&in_net_perf, &pin_net_perf, in_net_perf_len);
-		bcopy(&out_net_perf, &pout_net_perf, out_net_perf_len);
 	}
 
 #undef IPDIFF
@@ -1309,7 +1257,7 @@ inetprint(struct in_addr *in, int port, char *proto, int numeric_port)
 		snprintf(cp, sizeof(line) - (cp - line), "%.15s ", sp ? sp->s_name : "*");
 	else
 		snprintf(cp, sizeof(line) - (cp - line), "%d ", ntohs((u_short)port));
-	width = (Aflag && !Wflag) ? 18 : 22;
+    width = lflag ? 45 : Aflag ? 18 : 22;
 	if (Wflag)
 	    printf("%-*s ", width, line);
 	else

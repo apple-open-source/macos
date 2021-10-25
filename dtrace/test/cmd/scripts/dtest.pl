@@ -191,7 +191,8 @@ $defdir = '.';
 $bindir = '.';
 
 readtestlist($DEFAULT_TEST_LIST) if (scalar(@files) == 0);
-die $USAGE if (scalar(@files) == 0);
+$files_count = scalar(@files);
+die $USAGE if ($files_count == 0);
 
 if (!$opt_d) {
 	$opt_d = "/tmp/dtest.$$";
@@ -218,6 +219,8 @@ $ENV{'TZ'} = 'Etc/UTC';
 
 logmsg "[TEST] dtrace\n";
 logmsg "Results in $opt_d\n";
+logmsg "Total tests $files_count\n";
+
 #
 # Iterate over the set of test files specified on the command-line or located
 # by a find on "." and execute each one.  If the test file is executable, we
@@ -425,19 +428,19 @@ foreach $file (@files) {
 	}
 }
 
-if (scalar(@files) > 1) {
+if ($files_count > 1) {
 	$opt_q = 0; # force final summary to appear regardless of -q option
 	my $timespent = time - $ts;
 
 	logmsg("[SUMMARY]\n");
-	logmsg("Passed: " . (scalar(@files) - $errs - $bypassed) . "\n");
+	logmsg("Passed: " . ($files_count - $errs - $bypassed) . "\n");
 
 	if ($bypassed) {
 		logmsg("Bypassed: " . $bypassed . "\n");
 	}
 
 	logmsg("Failed: " . $errs . "\n");
-	logmsg("Total: " . scalar(@files) . "\n");
+	logmsg("Total: " . $files_count . "\n");
 	logmsg("Time: "  . $timespent . "\n");
 }
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, 2020 Apple Inc. All rights reserved.
+ * Copyright (c) 2015-2017, 2020-2021 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -23,6 +23,7 @@
 
 #import "controller.h"
 #import <SystemConfiguration/SCPrivate.h>
+#import <NEHelperClient.h>
 #import "ip_plugin.h"
 
 #define numberToNSNumber(x)	[NSNumber numberWithUnsignedInteger:x]
@@ -1845,6 +1846,7 @@ done:
 	NSMutableArray		*	policyArray;
 	NSUInteger			policyID1;
 	NSUInteger			policyID2;
+	NSUInteger			privacyProxyRemovalPolicyID = 0;
 	NEPolicyResult		*	result;
 	uint32_t			skipOrder;
 	AgentType			type;
@@ -1936,6 +1938,23 @@ done:
 		return NO;
 	}
 
+	if (type == kAgentTypeProxy) {
+		NSUUID *privacyProxyUUID = [[NSUUID alloc] initWithUUIDBytes:ne_privacy_proxy_netagent_id];
+		NEPolicyResult *policyResultPrivacyProxyRemoval = [NEPolicyResult removeNetworkAgentUUID:privacyProxyUUID];
+		newPolicy = [[NEPolicy alloc] initWithOrder:order
+							result:policyResultPrivacyProxyRemoval
+							conditions:(condition ? @[condition] : nil)];
+		if (newPolicy == nil) {
+			SC_log(LOG_NOTICE, "Could not create a policy for agent %@", [agent getAgentName]);
+			return NO;
+		}
+		privacyProxyRemovalPolicyID = [session addPolicy:newPolicy];
+		if (privacyProxyRemovalPolicyID == 0) {
+			SC_log(LOG_NOTICE, "Could not add a privacy proxy removal policy for agent %@", [agent getAgentName]);
+			return NO;
+		}
+	}
+
 	policyArray = [self.policyDB objectForKey:[agent getAgentName]];
 	if (policyArray == nil) {
 		policyArray = [NSMutableArray array];
@@ -1943,6 +1962,9 @@ done:
 
 	[policyArray addObject:numberToNSNumber(policyID1)];
 	[policyArray addObject:numberToNSNumber(policyID2)];
+	if (privacyProxyRemovalPolicyID != 0) {
+		[policyArray addObject:numberToNSNumber(privacyProxyRemovalPolicyID)];
+	}
 	[self.policyDB setObject:policyArray forKey:[agent getAgentName]];
 
 	return YES;

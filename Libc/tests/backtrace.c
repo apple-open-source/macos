@@ -1,7 +1,9 @@
 #include <darwintest.h>
 #include <dlfcn.h>
 #include <execinfo.h>
+#include <fake_swift_async.h>
 #include <mach-o/dyld_priv.h>
+#include <pthread/private.h>
 #include <stdbool.h>
 #include <stdlib.h>
 #include <uuid/uuid.h>
@@ -168,4 +170,72 @@ T_DECL(backtrace_symbols, "tests backtrace_symbols")
 	T_EXPECT_TRUE(found_setup, "should have found the setup frame");
 
 	free(symbols);
+}
+
+__attribute__((noinline))
+static void test_async(void *unused __attribute__((unused)), bool async) {
+    void* callstack[16];
+    unsigned task_id;
+    unsigned frames = backtrace_async(callstack, 16, &task_id);
+
+    if (async) {
+        T_EXPECT_EQ(task_id, FAKE_TASK_ID, "backtrace_async returns the right task id.");
+
+        // The 4 frames we expect are
+        // 0 test
+        // 1 fake_async_frame
+        // 2 level2_func
+        // 3 level1_func
+        T_EXPECT_EQ(frames, 4, "Got the right number of async frames");
+        T_EXPECT_EQ(callstack[1], __builtin_return_address(0), "Found fake_async_frame");
+        T_EXPECT_EQ(callstack[2], ptrauth_strip(&level2_func, ptrauth_key_function_pointer) + 1, "Found level2_func");
+        T_EXPECT_EQ(callstack[3], ptrauth_strip(&level1_func, ptrauth_key_function_pointer) + 1, "Found level1_func");
+  } else {
+        T_EXPECT_EQ(task_id, 0, "backtrace_async returns no task id.");
+        // The 3 frames we expect are
+        // 0 test
+        // 1 fake_async_frame
+        // 2 <Test function>
+        // ... Potential test runner frames
+        T_EXPECT_GE(frames, 3, "Got the right number of stack frames");
+        T_EXPECT_EQ(callstack[1], __builtin_return_address(0), "Found fake_async_frame");
+        T_EXPECT_EQ(callstack[2], __builtin_return_address(1), "Found test runner");
+  }
+}
+
+
+__attribute__((noinline))
+static void fake_async_frame() {
+    uint64_t *fp = __builtin_frame_address(0);
+    // We cannot use a variable of pointer type, because this ABI is valid
+    // on arm64_32 where pointers are 32bits, but the context pointer will
+    // still be stored in a 64bits slot on the stack.
+    /* struct fake_async_context * */ uint64_t ctx  = (uintptr_t)&level2;
+
+    // The Swift runtime stashes the current async task address in its 3rd
+    // private TSD slot.
+    _pthread_setspecific_direct(__PTK_FRAMEWORK_SWIFT_KEY3, &task);
+
+#if __LP64__ || __ARM64_ARCH_8_32__
+    // The signature of an async frame on the OS stack is:
+    // [ <AsyncContext address>, <Saved FP | (1<<60)>, <return address> ]
+    // The Async context must be right before the saved FP on the stack. This
+    // should happen naturraly in an optimized build as it is the only
+    // variable on the stack.
+    // This function cannot use T_ASSERT_* beacuse it changes the stack
+    // layout.
+    assert((uintptr_t)fp - (uintptr_t)&ctx == 8);
+
+    // Modify the saved FP on the stack to include the async frame marker
+    *fp |= (0x1ll << 60);
+    test_async(&ctx, true);
+    *fp ^= (0x1ll << 60);
+#endif
+    test_async(&ctx, false);
+}
+
+
+T_DECL(backtrace_async, "ensure backtrace_async(3) gives the correct backtrace")
+{
+    fake_async_frame();
 }

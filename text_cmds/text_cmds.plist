@@ -24,13 +24,16 @@
 		<key>OpenSourceProject</key>
 		<string>cat</string>
 		<key>OpenSourceVersion</key>
-		<string>2005-09-16</string>
+		<string>2021-01-20</string>
 		<key>OpenSourceWebsiteURL</key>
-		<string>http://www.freebsd.org/cgi/cvsweb.cgi/src/bin/cat/</string>
-		<key>OpenSourceCVS</key>
-		<string>cvs -d freebsdanoncvs@anoncvs.FreeBSD.org:/home/ncvs co cat</string>
+		<string>https://cgit.freebsd.org/src/tree/bin/cat?id=81c3f64110bb76e24d6062eafd7206c10f676d6f</string>
 		<key>OpenSourceImportDate</key>
-		<string>2005-09-16</string>
+		<string>2021-04-28</string>
+		<key>OpenSourceModifications</key>
+		<array>
+			<string>cat.c: remove capsicum support</string>
+			<string>cat.c: remove `cat -v` multibyte support (75696174)</string>
+		</array>
 		<key>OpenSourceLicense</key>
 		<string>BSD</string>
 	</dict>
@@ -130,13 +133,16 @@
 		<key>OpenSourceProject</key>
 		<string>cut</string>
 		<key>OpenSourceVersion</key>
-		<string>2005-09-16</string>
+		<string>2018-05-23</string>
 		<key>OpenSourceWebsiteURL</key>
-		<string>http://www.freebsd.org/cgi/cvsweb.cgi/src/usr.bin/cut/</string>
-		<key>OpenSourceCVS</key>
-		<string>cvs -d freebsdanoncvs@anoncvs.FreeBSD.org:/home/ncvs co cut</string>
+		<string>https://cgit.freebsd.org/src/commit/usr.bin/cut?id=6872fd3c9470e867df5ff4cdcbcfe758248b6b48</string>
 		<key>OpenSourceImportDate</key>
-		<string>2005-09-16</string>
+		<string>2021-05-03</string>
+		<key>OpenSourceModifications</key>
+		<array>
+			<string>cut.1: improved description (4873845)</string>
+			<string>cut.c: abort on file stream errors (6555390)</string>
+		</array>
 		<key>OpenSourceLicense</key>
 		<string>BSD</string>
 	</dict>
@@ -225,30 +231,25 @@
 		<key>OpenSourceProject</key>
 		<string>bsdgrep</string>
 		<key>OpenSourceVersion</key>
-		<string>2012-01-15</string>
+		<string>2021-01-19</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://wiki.freebsd.org/BSDgrep</string>
 		<key>OpenSourceSCM</key>
-		<string>cvs -d anoncvs@anoncvs1.FreeBSD.org:/home/ncvs co src/usr.bin/grep</string>
+		<string>https://cgit.freebsd.org/src/tree/usr.bin/grep?id=81c3f64110bb76e24d6062eafd7206c10f676d6f</string>
 		<key>OpenSourceImportDate</key>
-		<string>2012-01-23</string>
+		<string>2021-02-23</string>
 		<key>OpenSourceModifications</key>
 		<array>
-			<string>9510115 (grep.c, util.c)</string>
-			<string>WITHOUT_FASTMATCH (grep.h, grep.c, util.c)</string>
-			<string>WITHOUT_LZMA (file.c, grep.c)</string>
-			<string>file.c: casts in grep_fgetln to fix warnings</string>
+			<string>compression support (file.c, grep.c)</string>
 			<string>file.c: adjust mmap flags</string>
 			<string>grep.c: enable REG_ENHANCED (except for -F mode)</string>
-			<string>grep.c: disable FILE_MMAP options</string>
-			<string>util.c: basename expects char *</string>
 			<string>util.c: ignore locale for binary files (10462853)</string>
-			<string>util.c: recursive stdin warning (10290183)</string>
-			<string>util.c: -w fix (10593340)</string>
-			<string>util.c: -c -q fix (10680370)</string>
-			<string>util.c, grep.h: avoid MAX_LINE_MATCHES limitation (10511988)</string>
 			<string>grep.c: Remove -P from usage statement (13475367)</string>
+			<string>grep.c: Add -d to usage statement (18742491)</string>
 			<string>util.c: Use mbtowc instead of sscanf (20248554)</string>
+			<string>grep.c, grep.h: Fix default link behavior (25930963)</string>
+			<string>util.c: Skip symbolically linked files with -p (25930963)</string>
+			<string>grep.c, grep.h, util.c: Implement linkbehave correctly (33017461)</string>
 		</array>
 		<key>OpenSourceLicense</key>
 		<string>BSD</string>
@@ -259,18 +260,17 @@
 		<key>OpenSourceProject</key>
 		<string>head</string>
 		<key>OpenSourceVersion</key>
-		<string>2007-01-11</string>
+		<string>2019-12-11</string>
 		<key>OpenSourceWebsiteURL</key>
-		<string>http://www.freebsd.org/cgi/cvsweb.cgi/src/usr.bin/head/</string>
-		<key>OpenSourceCVS</key>
-		<string>cvs -d freebsdanoncvs@anoncvs.FreeBSD.org:/home/ncvs co head</string>
+		<string>https://cgit.freebsd.org/src/tree/usr.bin/head/</string>
 		<key>OpenSourceImportDate</key>
-		<string>2010-05-10</string>
+		<string>2021-05-18</string>
 		<key>OpenSourceLicense</key>
 		<string>BSD</string>
 		<key>OpenSourceModifications</key>
 		<array>
 			<string>Check ferror (6555390).</string>
+			<string>head.c: remove capsicum support</string>
 		</array>
 	</dict>
 	<dict>
@@ -373,16 +373,15 @@
 		<key>OpenSourceProject</key>
 		<string>pr</string>
 		<key>OpenSourceVersion</key>
-		<string>2005-09-16</string>
+		<string>2019-03-11</string>
 		<key>OpenSourceWebsiteURL</key>
-		<string>http://www.freebsd.org/cgi/cvsweb.cgi/src/usr.bin/pr/</string>
-		<key>OpenSourceCVS</key>
-		<string>cvs -d freebsdanoncvs@anoncvs.FreeBSD.org:/home/ncvs co pr</string>
+		<string>https://cgit.freebsd.org/src/commit/usr.bin/pr?id=809a8352dd5bb83dca991ff6c82e509208afad26</string>
 		<key>OpenSourceImportDate</key>
-		<string>2005-09-16</string>
+		<string>2021-05-17</string>
 		<key>OpenSourceModifications</key>
 		<array>
 			<string>Conformance fixes (3743086, 3936126).</string>
+			<string>pr.c: fix buffer overflow with -n -m (78111812)</string>
 		</array>
 		<key>OpenSourceLicense</key>
 		<string>BSD</string>
@@ -425,19 +424,14 @@
 		<key>OpenSourceProject</key>
 		<string>sed</string>
 		<key>OpenSourceVersion</key>
-		<string>2005-09-16</string>
+		<string>2020-07-30</string>
 		<key>OpenSourceWebsiteURL</key>
-		<string>http://www.freebsd.org/cgi/cvsweb.cgi/src/usr.bin/sed/</string>
-		<key>OpenSourceCVS</key>
-		<string>cvs -d freebsdanoncvs@anoncvs.FreeBSD.org:/home/ncvs co sed</string>
+		<string>https://cgit.freebsd.org/src/commit/usr.bin/sed?id=98369a6980f5448fa9ab8bde9f04ba10c4ca3c93</string>
 		<key>OpenSourceImportDate</key>
-		<string>2005-09-16</string>
+		<string>2021-04-04</string>
 		<key>OpenSourceModifications</key>
 		<array>
-			<string>Correctly document -y option (4134578).</string>
-			<string>Rewind stdin before exit (3681024).</string>
-			<string>Handle &apos;[&apos; delimiter (3733839).</string>
-			<string>Handle backslash with &apos;y&apos;, remove handy warning (3733839).</string>
+			<string>compile.c: remove POSIX incompliant escape sequences</string>
 		</array>
 		<key>OpenSourceLicense</key>
 		<string>BSD</string>
@@ -446,19 +440,18 @@
 		<key>OpenSourceProject</key>
 		<string>sort</string>
 		<key>OpenSourceVersion</key>
-		<string>2017-09-27</string>
+		<string>2020-09-10</string>
 		<key>OpenSourceWebsiteURL</key>
-		<string>https://svnweb.freebsd.org/base/head/usr.bin/sort/</string>
-		<key>OpenSourceSCM</key>
-		<string>svn co http://svn.freebsd.org/base/head/usr.bin/sort</string>
+		<string>https://cgit.freebsd.org/src/commit/usr.bin/sort?id=266b51ac6e24a71a4df54c30f63215bf1c3decdb</string>
 		<key>OpenSourceImportDate</key>
-		<string>2017-09-27</string>
+		<string>2021-05-05</string>
 		<key>OpenSourceModifications</key>
 		<array>
-			<string>file.c: mmap portability</string>
-			<string>file.c: fix unreachable code warning</string>
-			<string>coll.c, sort.c, sort.h: md5 portability</string>
-			<string>sort.c: update version output</string>
+			<string>file.c: mmap portability (11351444)</string>
+			<string>file.c: fix unreachable code warning (11351444)</string>
+			<string>file.h: switch default sort to mergesort (34598129)</string>
+			<string>coll.c, sort.c, sort.h: md5 portability (11351444)</string>
+			<string>sort.c: update version output (11351444)</string>
 			<string>sort.c: conformance failure with -k (28745165)</string>
 		</array>
 		<key>OpenSourceLicense</key>
@@ -500,17 +493,17 @@
 		<key>OpenSourceProject</key>
 		<string>tr</string>
 		<key>OpenSourceVersion</key>
-		<string>2005-09-16</string>
+		<string>2018-06-19</string>
 		<key>OpenSourceWebsiteURL</key>
-		<string>http://www.freebsd.org/cgi/cvsweb.cgi/src/usr.bin/tr/</string>
-		<key>OpenSourceCVS</key>
-		<string>cvs -d freebsdanoncvs@anoncvs.FreeBSD.org:/home/ncvs co tr</string>
+		<string>https://cgit.freebsd.org/src/tree/usr.bin/tr</string>
+		<key>OpenSourceSCM</key>
+		<string>https://cgit.freebsd.org/src/tree/usr.bin/tr?id=7672a0148f79063eac8f8e0beb0db5350d02d5d4</string>
 		<key>OpenSourceImportDate</key>
-		<string>2005-09-16</string>
+		<string>2020-03-22</string>
 		<key>OpenSourceModifications</key>
 		<array>
-			<string>Add missing character classes to man page (4115259).</string>
 			<string>Handle tr -s &apos;[a*]&apos; (3673947).</string>
+			<string>Support multibyte character equivalence. (57168782)</string>
 		</array>
 		<key>OpenSourceLicense</key>
 		<string>BSD</string>

@@ -185,10 +185,16 @@ sqlite3_int64 SecDbItemGetRowId(SecDbItemRef item, CFErrorRef *error);
 bool SecDbItemSetRowId(SecDbItemRef item, sqlite3_int64 rowid, CFErrorRef *error);
 bool SecDbItemClearRowId(SecDbItemRef item, CFErrorRef *error);
 
+CFDataRef SecDbItemGetPersistentRef(SecDbItemRef item, CFErrorRef *error);
+bool SecDbItemSetPersistentRef(SecDbItemRef item, CFDataRef uuid, CFErrorRef *error);
+bool SecDbItemClearPersistentRef(SecDbItemRef item, CFErrorRef *error);
+
 bool SecDbItemIsSyncableOrCorrupted(SecDbItemRef item);
 bool SecDbItemIsSyncable(SecDbItemRef item);
 
 bool SecDbItemSetSyncable(SecDbItemRef item, bool sync, CFErrorRef *error);
+
+bool SecDbItemIsPrimaryUserItem(SecDbItemRef item);
 
 bool SecDbItemIsTombstone(SecDbItemRef item);
 
@@ -228,7 +234,8 @@ bool SecDbItemInsertOrReplace(SecDbItemRef item, SecDbConnectionRef dbconn, CFEr
 bool SecErrorIsSqliteDuplicateItemError(CFErrorRef error);
 
 // Note: this function might modify item, unless always_use_uuid_from_new_item is true
-bool SecDbItemInsert(SecDbItemRef item, SecDbConnectionRef dbconn, bool always_use_uuid_from_new_item, CFErrorRef *error);
+// Another note: if items are being restored from a backup, we're going to take the incoming item if there's a conflict
+bool SecDbItemInsert(SecDbItemRef item, SecDbConnectionRef dbconn, bool always_use_uuid_from_new_item, bool always_use_persistentref_from_backup, CFErrorRef *error);
 
 bool SecDbItemDelete(SecDbItemRef item, SecDbConnectionRef dbconn, CFBooleanRef makeTombstone, bool tombstone_time_from_item, CFErrorRef *error);
 

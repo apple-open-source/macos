@@ -47,6 +47,8 @@ __END_DECLS
 
 #endif // KERNEL
 
+#ifdef TARGET_CPU_X86_64
+
 #define DGT(args...) D(TRACE, "GTraceBuffer", args)
 
 OSDefineMetaClassAndFinalStructors(GTraceBuffer, OSObject);
@@ -576,3 +578,5 @@ GTraceBuffer::destroyArchaicCpp(GTraceBuffer *buffer)
 {
     destroy(iog::move(buffer->fArchaicCPPSharedObjectHack)); // 🤮
 }
+
+#endif // TARGET_CPU_X86_64

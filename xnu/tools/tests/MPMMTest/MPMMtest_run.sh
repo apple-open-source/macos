@@ -8,10 +8,14 @@ KQMPMMTEST_64="${TESTDIR}/KQMPMMtest_64"
 
 is_64_bit_env()
 {
-	ARCHOUT=`file /bin/ls`
-	if [[ $ARCHOUT == *"64-bit"* ]]; then
+	ARM64=`sysctl -n hw.optional.arm64`
+	X86_64=`sysctl -n hw.optional.x86_64`
+	if [[ $ARM64 == 1 ]] || [[ $X86_64 == 1 ]]
+	then
+		echo "Device arch is 64-bit."
 		return 1
 	fi
+	echo "Device arch is NOT 64-bit."
 	return 0
 }
 
@@ -27,11 +31,9 @@ then
 	then
 		# If 32-bit support appears to be present OR if this is not
 		# a 64-bit environment, run the test.
-		
-		echo "Disable the test on 32-bit platforms until 37721005 is fixed"
-		exit 0;
-		# echo ""; echo " Running $MPMMTEST";
-		# $MPMMTEST -perf || { x=$?; echo "$MPMMTEST failed $x "; exit $x; }
+
+		echo ""; echo " Running $MPMMTEST";
+		$MPMMTEST -perf || { x=$?; echo "$MPMMTEST failed $x "; exit $x; }
 	fi
 fi
 
@@ -51,11 +53,8 @@ then
 		# If 32-bit support appears to be present OR if this is not
 		# a 64-bit environment, run the test.
 
-		echo "Disable the test on 32-bit platforms until 37721005 is fixed"
-		exit 0;
-
-		# echo ""; echo " Running $KQMPMMTEST"
-		# $KQMPMMTEST -perf || { x=$?; echo "$KQMPMMTEST failed $x"; exit $x; }
+		echo ""; echo " Running $KQMPMMTEST"
+		$KQMPMMTEST -perf || { x=$?; echo "$KQMPMMTEST failed $x"; exit $x; }
 	fi
 fi
 

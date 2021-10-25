@@ -67,10 +67,12 @@ typedef enum {
     kIOHIDLogCategoryFastPath,
     kIOHIDLogCategoryUserDevice,
     kIOHIDLogCategoryService,
+    kIOHIDLogCategoryServicePlugin,
     kIOHIDServiceLogCategoryCarplay,
     kIOHIDLogCategoryConnection,
     kIOHIDLogCategoryCursor,
     kIOHIDLogCategorySignpost,
+    kIOHIDLogCategoryUPS,
     kIOHIDLogCategoryCount
 } IOHIDLogCategory;
 
@@ -79,12 +81,24 @@ extern uint32_t gIOHIDDebugConfig;
 
 #define kIOHIDLogSubsytem   "com.apple.iohid"
 
-#define IOHIDLog(fmt, ...)        os_log(_IOHIDLogCategory(kIOHIDLogCategoryDefault), fmt, ##__VA_ARGS__)
-#define IOHIDLogInfo(fmt, ...)    os_log_info(_IOHIDLogCategory(kIOHIDLogCategoryDefault), fmt, ##__VA_ARGS__)
-#define IOHIDLogError(fmt, ...)   os_log_error(_IOHIDLogCategory(kIOHIDLogCategoryDefault), fmt, ##__VA_ARGS__)
-#define IOHIDLogDebug(fmt, ...)   os_log_debug(_IOHIDLogCategory(kIOHIDLogCategoryDefault), fmt, ##__VA_ARGS__)
-#define IOHIDLogInfo(fmt, ...)    os_log_info(_IOHIDLogCategory(kIOHIDLogCategoryDefault), fmt, ##__VA_ARGS__)
-#define IOHIDLogFault(fmt, ...)   os_log_fault(_IOHIDLogCategory(kIOHIDLogCategoryDefault), fmt, ##__VA_ARGS__)
+#define IOHIDLog(fmt, ...)            os_log(_IOHIDLogCategory(kIOHIDLogCategoryDefault), fmt, ##__VA_ARGS__)
+#define IOHIDLogInfo(fmt, ...)        os_log_info(_IOHIDLogCategory(kIOHIDLogCategoryDefault), fmt, ##__VA_ARGS__)
+#define IOHIDLogError(fmt, ...)       os_log_error(_IOHIDLogCategory(kIOHIDLogCategoryDefault), fmt, ##__VA_ARGS__)
+#define IOHIDLogDebug(fmt, ...)       os_log_debug(_IOHIDLogCategory(kIOHIDLogCategoryDefault), fmt, ##__VA_ARGS__)
+#define IOHIDLogInfo(fmt, ...)        os_log_info(_IOHIDLogCategory(kIOHIDLogCategoryDefault), fmt, ##__VA_ARGS__)
+#define IOHIDLogFault(fmt, ...)       os_log_fault(_IOHIDLogCategory(kIOHIDLogCategoryDefault), fmt, ##__VA_ARGS__)
+
+#define HIDLog(fmt, ...)              os_log(_IOHIDLogCategory(kIOHIDLogCategoryDefault), fmt "\n", ##__VA_ARGS__)
+#define HIDLogError(fmt, ...)         os_log_error(_IOHIDLogCategory(kIOHIDLogCategoryDefault), fmt "\n", ##__VA_ARGS__)
+#define HIDLogDebug(fmt, ...)         os_log_debug(_IOHIDLogCategory(kIOHIDLogCategoryDefault), fmt "\n", ##__VA_ARGS__)
+#define HIDLogInfo(fmt, ...)          os_log_info(_IOHIDLogCategory(kIOHIDLogCategoryDefault), fmt "\n", ##__VA_ARGS__)
+#define HIDLogFault(fmt, ...)         os_log_fault(_IOHIDLogCategory(kIOHIDLogCategoryDefault), fmt "\n", ##__VA_ARGS__)
+
+#define UPSLog(fmt, ...)              os_log(_IOHIDLogCategory(kIOHIDLogCategoryUPS), fmt, ##__VA_ARGS__)
+#define UPSLogError(fmt, ...)         os_log_error(_IOHIDLogCategory(kIOHIDLogCategoryUPS), fmt, ##__VA_ARGS__)
+#define UPSLogDebug(fmt, ...)         os_log_debug(_IOHIDLogCategory(kIOHIDLogCategoryUPS), fmt, ##__VA_ARGS__)
+
+#define HIDLogActivityDebug(fmt, ...) os_log_debug(_IOHIDLogCategory(kIOHIDLogCategoryActivity), fmt, ##__VA_ARGS__)
 
 // Creates a function that is properly typecasted for objc_msgSend. Takes return
 // type, function name, and a list of function arguments.

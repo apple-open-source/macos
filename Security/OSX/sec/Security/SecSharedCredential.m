@@ -37,8 +37,9 @@
 // Forward declaration of the primary function implemented in this file
 OSStatus SecCopySharedWebCredentialSyncUsingAuthSvcs(CFStringRef fqdn, CFStringRef account, CFArrayRef *credentials, CFErrorRef *error);
 
+CFStringRef SecCopyFQDNFromEntitlementString(CFStringRef entitlement);
+
 // Classes we will load dynamically
-static Class kASAuthorizationClass = NULL;
 static Class kASAuthorizationControllerClass = NULL;
 static Class kASAuthorizationPasswordProviderClass = NULL;
 static Class kASPasswordCredentialClass = NULL;
@@ -54,7 +55,6 @@ static void loadAuthenticationServices(void) {
         }
         void* lib_handle = dlopen(path, RTLD_LAZY);
         if (lib_handle != NULL) {
-            kASAuthorizationClass = NSClassFromString(@"ASAuthorization");
             kASAuthorizationControllerClass = NSClassFromString(@"ASAuthorizationController");
             kASAuthorizationPasswordProviderClass = NSClassFromString(@"ASAuthorizationPasswordProvider");
             kASPasswordCredentialClass = NSClassFromString(@"ASPasswordCredential");
@@ -85,11 +85,6 @@ static void loadAppKit(void) {
             kNSApplicationClass = NSClassFromString(@"NSApplication");
         }
     });
-}
-
-static Class ASAuthorizationClass() {
-    loadAuthenticationServices();
-    return kASAuthorizationClass;
 }
 
 static Class ASAuthorizationControllerClass() {
@@ -244,4 +239,16 @@ OSStatus SecCopySharedWebCredentialSyncUsingAuthSvcs(CFStringRef fqdn, CFStringR
         *credentials = (CFArrayRef)CFBridgingRetain(returnedCredentials);
     }
     return status;
+}
+
+CFStringRef SecCopyFQDNFromEntitlementString(CFStringRef entitlement) {
+    CFStringRef result = NULL;
+    NSString* prefix = @"webcredentials:";
+    if ([(__bridge NSString*)entitlement hasPrefix:prefix]) {
+        NSString* suffix = [(__bridge NSString*)entitlement substringFromIndex:[prefix length]];
+        if ([suffix length]) {
+            result = (CFStringRef)CFBridgingRetain(suffix);
+        }
+    }
+    return result;
 }

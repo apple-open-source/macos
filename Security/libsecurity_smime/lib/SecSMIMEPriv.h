@@ -47,8 +47,8 @@ extern "C" {
  */
 
 /* Cipher Suite "Families" */
-#define CIPHER_FAMILYID_MASK			0xFFFF0000L
-#define CIPHER_FAMILYID_SMIME			0x00010000L
+#define CIPHER_FAMILYID_MASK 0xFFFF0000L
+#define CIPHER_FAMILYID_SMIME 0x00010000L
 
 /* SMIME "Cipher Suites" */
 /*
@@ -57,18 +57,18 @@ extern "C" {
  * So, if you want to add a cipher that is greater than 0033, secmime.c
  * needs to be made smarter at the same time.
  */
-#define	SMIME_RC2_CBC_40		(CIPHER_FAMILYID_SMIME | 0001)
-#define	SMIME_RC2_CBC_64		(CIPHER_FAMILYID_SMIME | 0002)
-#define	SMIME_RC2_CBC_128		(CIPHER_FAMILYID_SMIME | 0003)
-#define	SMIME_DES_CBC_56		(CIPHER_FAMILYID_SMIME | 0011)
-#define	SMIME_DES_EDE3_168		(CIPHER_FAMILYID_SMIME | 0012)
-#define	SMIME_AES_CBC_128		(CIPHER_FAMILYID_SMIME | 0013)
-#define	SMIME_AES_CBC_192		(CIPHER_FAMILYID_SMIME | 0014)
-#define	SMIME_AES_CBC_256		(CIPHER_FAMILYID_SMIME | 0015)
-#define	SMIME_RC5PAD_64_16_40		(CIPHER_FAMILYID_SMIME | 0021)
-#define	SMIME_RC5PAD_64_16_64		(CIPHER_FAMILYID_SMIME | 0022)
-#define	SMIME_RC5PAD_64_16_128		(CIPHER_FAMILYID_SMIME | 0023)
-#define	SMIME_FORTEZZA			(CIPHER_FAMILYID_SMIME | 0031)
+#define SMIME_RC2_CBC_40 (CIPHER_FAMILYID_SMIME | 0001)
+#define SMIME_RC2_CBC_64 (CIPHER_FAMILYID_SMIME | 0002)
+#define SMIME_RC2_CBC_128 (CIPHER_FAMILYID_SMIME | 0003)
+#define SMIME_DES_CBC_56 (CIPHER_FAMILYID_SMIME | 0011)
+#define SMIME_DES_EDE3_168 (CIPHER_FAMILYID_SMIME | 0012)
+#define SMIME_AES_CBC_128 (CIPHER_FAMILYID_SMIME | 0013)
+#define SMIME_AES_CBC_192 (CIPHER_FAMILYID_SMIME | 0014)
+#define SMIME_AES_CBC_256 (CIPHER_FAMILYID_SMIME | 0015)
+#define SMIME_RC5PAD_64_16_40 (CIPHER_FAMILYID_SMIME | 0021)
+#define SMIME_RC5PAD_64_16_64 (CIPHER_FAMILYID_SMIME | 0022)
+#define SMIME_RC5PAD_64_16_128 (CIPHER_FAMILYID_SMIME | 0023)
+#define SMIME_FORTEZZA (CIPHER_FAMILYID_SMIME | 0031)
 
 
 /*
@@ -119,7 +119,7 @@ extern OSStatus SecSMIMEAllowCipher(unsigned long which, Boolean on);
  * Does the current policy allow S/MIME decryption of this particular
  * algorithm and keysize?
  */
-extern Boolean SecSMIMEDecryptionAllowed(SECAlgorithmID *algid, SecSymmetricKeyRef key);
+extern Boolean SecSMIMEDecryptionAllowed(SECAlgorithmID* algid, SecSymmetricKeyRef key);
 
 /*
  * Does the current policy allow *any* S/MIME encryption (or decryption)?
@@ -147,23 +147,24 @@ extern Boolean SecSMIMEEncryptionPossible(void);
  * scans the list of allowed and enabled ciphers and construct a PKCS9-compliant
  * S/MIME capabilities attribute value.
  */
-extern OSStatus SecSMIMECreateSMIMECapabilities(PLArenaPool *poolp, SecAsn1Item * dest, Boolean includeFortezzaCiphers);
+extern OSStatus SecSMIMECreateSMIMECapabilities(PLArenaPool* poolp, SecAsn1Item* dest, Boolean includeFortezzaCiphers);
 
 /*
  * SecSMIMECreateSMIMEEncKeyPrefs - create S/MIME encryption key preferences attr value
  */
-extern OSStatus SecSMIMECreateSMIMEEncKeyPrefs(PLArenaPool *poolp, SecAsn1Item * dest, SecCertificateRef cert);
+extern OSStatus SecSMIMECreateSMIMEEncKeyPrefs(PLArenaPool* poolp, SecAsn1Item* dest, SecCertificateRef cert);
 
 /*
  * SecSMIMECreateMSSMIMEEncKeyPrefs - create S/MIME encryption key preferences attr value using MS oid
  */
-extern OSStatus SecSMIMECreateMSSMIMEEncKeyPrefs(PLArenaPool *poolp, SecAsn1Item * dest, SecCertificateRef cert);
+extern OSStatus SecSMIMECreateMSSMIMEEncKeyPrefs(PLArenaPool* poolp, SecAsn1Item* dest, SecCertificateRef cert);
 
 /*
  * SecSMIMEGetCertFromEncryptionKeyPreference - find cert marked by EncryptionKeyPreference
  *          attribute
  */
-    extern SecCertificateRef SecSMIMEGetCertFromEncryptionKeyPreference(SecAsn1Item **rawCerts, SecAsn1Item *DERekp);
+extern SecCertificateRef SecSMIMEGetCertFromEncryptionKeyPreference(SecAsn1Item** rawCerts,
+                                                                    SecAsn1Item* DERekp);
 
 
 #ifdef __cplusplus

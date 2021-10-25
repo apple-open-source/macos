@@ -666,8 +666,13 @@ list_item_verbose(struct bsdtar *bsdtar, FILE *out, struct archive_entry *entry)
 	const char		*fmt;
 	time_t			 tim;
 	static time_t		 now;
-#ifdef __APPLE__
-	struct tm               *lt;
+	struct tm		*ltime;
+#if defined(HAVE_LOCALTIME_R) || defined(HAVE__LOCALTIME64_S)
+	struct tm		tmbuf;
+#endif
+#if defined(HAVE__LOCALTIME64_S)
+	errno_t			terr;
+	__time64_t		tmptime;
 #endif
 
 	/*
@@ -740,16 +745,23 @@ list_item_verbose(struct bsdtar *bsdtar, FILE *out, struct archive_entry *entry)
 		fmt = bsdtar->day_first ? DAY_FMT " %b  %Y" : "%b " DAY_FMT "  %Y";
 	else
 		fmt = bsdtar->day_first ? DAY_FMT " %b %H:%M" : "%b " DAY_FMT " %H:%M";
-#ifdef __APPLE__
-	lt = localtime(&tim);
-	if (lt == NULL) {
-		tim = 0;
-		lt = localtime(&tim);
-	}
-	strftime(tmp, sizeof(tmp), fmt, lt);
+#if defined(HAVE_LOCALTIME_R)
+	ltime = localtime_r(&tim, &tmbuf);
+#elif defined(HAVE__LOCALTIME64_S)
+	tmptime = tim;
+	terr = _localtime64_s(&tmbuf, &tmptime);
+	if (terr)
+		ltime = NULL;
+	else
+		ltime = &tmbuf;
 #else
-	strftime(tmp, sizeof(tmp), fmt, localtime(&tim));
+	ltime = localtime(&tim);
 #endif
+	if (ltime == NULL) {
+		tim = 0;
+		ltime = localtime(&tim);
+	}
+	strftime(tmp, sizeof(tmp), fmt, ltime);
 	fprintf(out, " %s ", tmp);
 	safe_fprintf(out, "%s", archive_entry_pathname(entry));
 

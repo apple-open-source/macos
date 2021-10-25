@@ -29,6 +29,17 @@
 			name = Libc_dyld;
 			productName = Libc_dyld;
 		};
+		2BA2A20325F290B000259A56 /* install_ErrnoErrors.strings */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = 2BA2A20425F290B100259A56 /* Build configuration list for PBXAggregateTarget "install_ErrnoErrors.strings" */;
+			buildPhases = (
+				2BA2A20925F290D600259A56 /* Install ErrnoErrors.Strings Into CoreTypes For Localization */,
+			);
+			dependencies = (
+			);
+			name = install_ErrnoErrors.strings;
+			productName = install_ErrnoErrors.strings;
+		};
 		925E7FE619E8945900AC7889 /* Libc_tests */ = {
 			isa = PBXAggregateTarget;
 			buildConfigurationList = 925E7FF919E8945A00AC7889 /* Build configuration list for PBXAggregateTarget "Libc_tests" */;
@@ -60,6 +71,7 @@
 				E47E981722150F0A006E312E /* PBXTargetDependency */,
 				E47E981B22150F2F006E312E /* PBXTargetDependency */,
 				E47E981D22150F32006E312E /* PBXTargetDependency */,
+				2BA2A20825F290CA00259A56 /* PBXTargetDependency */,
 			);
 			name = Libc;
 			productName = Libc;
@@ -91,7 +103,12 @@
 		18177ABF236A351B008CCFDE /* collections_map.h in Headers */ = {isa = PBXBuildFile; fileRef = 18177A85236A0EBC008CCFDE /* collections_map.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		18177AC0236A351B008CCFDE /* collections.h in Headers */ = {isa = PBXBuildFile; fileRef = 18177A83236A0EBB008CCFDE /* collections.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		18177AC1236A3525008CCFDE /* collections_map.c in Sources */ = {isa = PBXBuildFile; fileRef = 18177A81236A0EB3008CCFDE /* collections_map.c */; };
+		1827996E24F06400006E0418 /* collections_set.h in Headers */ = {isa = PBXBuildFile; fileRef = 1827996B24F05D01006E0418 /* collections_set.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		1827996F24F06405006E0418 /* _collections_set.h in Headers */ = {isa = PBXBuildFile; fileRef = 1827996C24F063BA006E0418 /* _collections_set.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		18B5085B237CF7090058A52D /* _collections_map.in.h in Headers */ = {isa = PBXBuildFile; fileRef = 18B5085A237CF3A30058A52D /* _collections_map.in.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		18E6EA57251015C700C93E0D /* _collections_set.in.h in Headers */ = {isa = PBXBuildFile; fileRef = 1827996D24F063DC006E0418 /* _collections_set.in.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		18E6EA5B2510173E00C93E0D /* collections_set.c in Sources */ = {isa = PBXBuildFile; fileRef = 18E6EA5A2510173E00C93E0D /* collections_set.c */; };
+		2BA2A20A25F290F200259A56 /* ErrnoErrors.strings in Install ErrnoErrors.Strings Into CoreTypes For Localization */ = {isa = PBXBuildFile; fileRef = 2BBA28CD25F156570021752E /* ErrnoErrors.strings */; };
 		2DF67CDE184F9CBE00B83A3D /* debug_private.c in Sources */ = {isa = PBXBuildFile; fileRef = 2DF67CDD184F9CBE00B83A3D /* debug_private.c */; };
 		2DF67CDF184F9CBE00B83A3D /* debug_private.c in Sources */ = {isa = PBXBuildFile; fileRef = 2DF67CDD184F9CBE00B83A3D /* debug_private.c */; };
 		2DF67CE0184F9CBE00B83A3D /* debug_private.c in Sources */ = {isa = PBXBuildFile; fileRef = 2DF67CDD184F9CBE00B83A3D /* debug_private.c */; };
@@ -5563,6 +5580,13 @@
 			remoteGlobalIDString = C942102D13900C8A004BA536;
 			remoteInfo = libc_dyld;
 		};
+		2BA2A20725F290CA00259A56 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = C9B53597138D9A690028D27C /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 2BA2A20325F290B000259A56;
+			remoteInfo = install_ErrnoErrors.strings;
+		};
 		3F51211616C318EB00AFB431 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = C9B53597138D9A690028D27C /* Project object */;
@@ -5761,19 +5785,42 @@
 		};
 /* End PBXContainerItemProxy section */
 
+/* Begin PBXCopyFilesBuildPhase section */
+		2BA2A20925F290D600259A56 /* Install ErrnoErrors.Strings Into CoreTypes For Localization */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = System/Library/CoreServices/CoreTypes.bundle/Contents/Resources;
+			dstSubfolderSpec = 0;
+			files = (
+				2BA2A20A25F290F200259A56 /* ErrnoErrors.strings in Install ErrnoErrors.Strings Into CoreTypes For Localization */,
+			);
+			name = "Install ErrnoErrors.Strings Into CoreTypes For Localization";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
 		147CDFCF1B7C14FA00831EC6 /* clock_gettime.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = clock_gettime.3; sourceTree = "<group>"; };
 		147CDFD01B7C14FA00831EC6 /* clock_gettime.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = clock_gettime.c; sourceTree = "<group>"; };
 		18177A7C236A0DF0008CCFDE /* collections.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = collections.xcconfig; sourceTree = "<group>"; };
-		18177A81236A0EB3008CCFDE /* collections_map.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = collections_map.c; sourceTree = "<group>"; };
+		18177A81236A0EB3008CCFDE /* collections_map.c */ = {isa = PBXFileReference; indentWidth = 8; lastKnownFileType = sourcecode.c.c; path = collections_map.c; sourceTree = "<group>"; tabWidth = 8; };
 		18177A82236A0EB3008CCFDE /* collections_map.in.c */ = {isa = PBXFileReference; indentWidth = 8; lastKnownFileType = sourcecode.c.c; path = collections_map.in.c; sourceTree = "<group>"; tabWidth = 8; };
-		18177A83236A0EBB008CCFDE /* collections.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = collections.h; sourceTree = "<group>"; };
-		18177A84236A0EBC008CCFDE /* _collections_map.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = _collections_map.h; sourceTree = "<group>"; };
+		18177A83236A0EBB008CCFDE /* collections.h */ = {isa = PBXFileReference; indentWidth = 8; lastKnownFileType = sourcecode.c.h; path = collections.h; sourceTree = "<group>"; tabWidth = 8; };
+		18177A84236A0EBC008CCFDE /* _collections_map.h */ = {isa = PBXFileReference; indentWidth = 8; lastKnownFileType = sourcecode.c.h; path = _collections_map.h; sourceTree = "<group>"; tabWidth = 8; };
 		18177A85236A0EBC008CCFDE /* collections_map.h */ = {isa = PBXFileReference; indentWidth = 8; lastKnownFileType = sourcecode.c.h; path = collections_map.h; sourceTree = "<group>"; tabWidth = 8; };
 		18177ABA236A350B008CCFDE /* libsystem_collections.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libsystem_collections.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
-		18B50859237CF0B70058A52D /* collections_utilities.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = collections_utilities.h; sourceTree = "<group>"; };
-		18B5085A237CF3A30058A52D /* _collections_map.in.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = _collections_map.in.h; sourceTree = "<group>"; };
+		1827996B24F05D01006E0418 /* collections_set.h */ = {isa = PBXFileReference; indentWidth = 8; lastKnownFileType = sourcecode.c.h; path = collections_set.h; sourceTree = "<group>"; tabWidth = 8; };
+		1827996C24F063BA006E0418 /* _collections_set.h */ = {isa = PBXFileReference; indentWidth = 8; lastKnownFileType = sourcecode.c.h; path = _collections_set.h; sourceTree = "<group>"; tabWidth = 8; };
+		1827996D24F063DC006E0418 /* _collections_set.in.h */ = {isa = PBXFileReference; indentWidth = 8; lastKnownFileType = sourcecode.c.h; path = _collections_set.in.h; sourceTree = "<group>"; tabWidth = 8; };
+		18B50859237CF0B70058A52D /* collections_utilities.h */ = {isa = PBXFileReference; indentWidth = 8; lastKnownFileType = sourcecode.c.h; path = collections_utilities.h; sourceTree = "<group>"; tabWidth = 8; };
+		18B5085A237CF3A30058A52D /* _collections_map.in.h */ = {isa = PBXFileReference; indentWidth = 8; lastKnownFileType = sourcecode.c.h; path = _collections_map.in.h; sourceTree = "<group>"; tabWidth = 8; };
+		18E6EA56250FE71700C93E0D /* collections_common.in.c */ = {isa = PBXFileReference; indentWidth = 8; lastKnownFileType = sourcecode.c.c; path = collections_common.in.c; sourceTree = "<group>"; tabWidth = 8; };
+		18E6EA582510172F00C93E0D /* collections_set.in.c */ = {isa = PBXFileReference; indentWidth = 8; lastKnownFileType = sourcecode.c.c; path = collections_set.in.c; sourceTree = "<group>"; tabWidth = 8; };
+		18E6EA5A2510173E00C93E0D /* collections_set.c */ = {isa = PBXFileReference; indentWidth = 8; lastKnownFileType = sourcecode.c.c; path = collections_set.c; sourceTree = "<group>"; tabWidth = 8; };
 		2B514AB3203E4D9500641A4B /* thread_stack_pcs.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = thread_stack_pcs.h; sourceTree = "<group>"; };
+		2B88FEED254A21C90027556A /* _libc_init.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = _libc_init.h; sourceTree = "<group>"; };
+		2BBA28CC25F156570021752E /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/ErrnoErrors.strings; sourceTree = "<group>"; };
+		2BDA7FB4257EDD4D004D9B08 /* atexit_receipt_internal.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = atexit_receipt_internal.h; sourceTree = "<group>"; };
 		2DF67CDD184F9CBE00B83A3D /* debug_private.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = debug_private.c; path = os/debug_private.c; sourceTree = "<group>"; };
 		2DF67CE7184F9CD000B83A3D /* debug_private.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = debug_private.h; path = os/debug_private.h; sourceTree = "<group>"; };
 		3006CB0E20BF7482003C5C79 /* _stdio.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = _stdio.h; sourceTree = "<group>"; };
@@ -5910,7 +5957,6 @@
 		C976616B138EF14100741512 /* generate_features.pl */ = {isa = PBXFileReference; lastKnownFileType = text.script.perl; path = generate_features.pl; sourceTree = "<group>"; };
 		C97A721C1517AF53005E1998 /* libc_eOS.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libc_eOS.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		C9950E6A1390D2CA009863B6 /* headers.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = headers.sh; sourceTree = "<group>"; };
-		C99F922E23982C7D0068CA74 /* ErrnoErrors.strings */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.strings; path = ErrnoErrors.strings; sourceTree = "<group>"; };
 		C9A288A71ACDBA95004A33A7 /* Makefile.inc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.pascal; path = Makefile.inc; sourceTree = "<group>"; };
 		C9AE91AE1517CDAC00A2626C /* eos.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = eos.xcconfig; sourceTree = "<group>"; };
 		C9B535AE138D9E980028D27C /* APPLE_LICENSE */ = {isa = PBXFileReference; lastKnownFileType = text; path = APPLE_LICENSE; sourceTree = "<group>"; };
@@ -7164,6 +7210,9 @@
 				18177A84236A0EBC008CCFDE /* _collections_map.h */,
 				18B5085A237CF3A30058A52D /* _collections_map.in.h */,
 				18177A85236A0EBC008CCFDE /* collections_map.h */,
+				1827996C24F063BA006E0418 /* _collections_set.h */,
+				1827996D24F063DC006E0418 /* _collections_set.in.h */,
+				1827996B24F05D01006E0418 /* collections_set.h */,
 				18177A83236A0EBB008CCFDE /* collections.h */,
 			);
 			path = PublicHeader;
@@ -7174,7 +7223,10 @@
 			children = (
 				18177A81236A0EB3008CCFDE /* collections_map.c */,
 				18177A82236A0EB3008CCFDE /* collections_map.in.c */,
+				18E6EA56250FE71700C93E0D /* collections_common.in.c */,
 				18B50859237CF0B70058A52D /* collections_utilities.h */,
+				18E6EA582510172F00C93E0D /* collections_set.in.c */,
+				18E6EA5A2510173E00C93E0D /* collections_set.c */,
 			);
 			path = Source;
 			sourceTree = "<group>";
@@ -7425,14 +7477,16 @@
 		C9B53612138D9E980028D27C /* darwin */ = {
 			isa = PBXGroup;
 			children = (
-				C99F922E23982C7D0068CA74 /* ErrnoErrors.strings */,
+				2BBA28CD25F156570021752E /* ErrnoErrors.strings */,
 				A5BF59BD23A20A6900B1FADA /* subsystem.h */,
 				A5BF59BE23A20A6900B1FADA /* subsystem.c */,
 				C9ECE2761950E384008E8672 /* atexit_receipt.c */,
+				2BDA7FB4257EDD4D004D9B08 /* atexit_receipt_internal.h */,
 				92ABC7E81D375FC2000DF880 /* compatibility_hacks.c */,
 				C9D9432A138DB72000FB7ACC /* forceLibcToBuild.c */,
 				C9B53616138D9E980028D27C /* kvm.c */,
 				FC960EF21850F33A005B9A9A /* libc_private.h */,
+				2B88FEED254A21C90027556A /* _libc_init.h */,
 			);
 			path = darwin;
 			sourceTree = "<group>";
@@ -9119,8 +9173,11 @@
 			files = (
 				18177ABE236A351B008CCFDE /* _collections_map.h in Headers */,
 				18177ABF236A351B008CCFDE /* collections_map.h in Headers */,
+				1827996E24F06400006E0418 /* collections_set.h in Headers */,
+				1827996F24F06405006E0418 /* _collections_set.h in Headers */,
 				18177AC0236A351B008CCFDE /* collections.h in Headers */,
 				18B5085B237CF7090058A52D /* _collections_map.in.h in Headers */,
+				18E6EA57251015C700C93E0D /* _collections_set.in.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -9436,7 +9493,6 @@
 				C9D9432B138DB73300FB7ACC /* Sources */,
 				C9D9432C138DB73300FB7ACC /* Frameworks */,
 				C942135B13905EB9004BA536 /* Install Manpages */,
-				C99F922D23982C410068CA74 /* Install CoreTypes Strings */,
 				C965CBF3143BBFF7003912CE /* Remove deps.c */,
 				C93D6152143D321000EB9023 /* Sanitise Headers (rdar://problem/10241868) */,
 			);
@@ -9531,6 +9587,10 @@
 						CreatedOnToolsVersion = 11.0;
 						ProvisioningStyle = Automatic;
 					};
+					2BA2A20325F290B000259A56 = {
+						CreatedOnToolsVersion = 13.0;
+						ProvisioningStyle = Automatic;
+					};
 					925E7FE619E8945900AC7889 = {
 						CreatedOnToolsVersion = 6.1;
 					};
@@ -9555,11 +9615,11 @@
 			};
 			buildConfigurationList = C9B5359A138D9A690028D27C /* Build configuration list for PBXProject "Libc" */;
 			compatibilityVersion = "Xcode 3.2";
-			developmentRegion = English;
+			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
-				English,
 				en,
+				Base,
 			);
 			mainGroup = C9B53595138D9A690028D27C;
 			productRefGroup = C9B535A9138D9E890028D27C /* Products */;
@@ -9591,6 +9651,7 @@
 				926F73911E03E2A3001E049D /* libsystem_darwin.dylib */,
 				18177AB9236A350B008CCFDE /* libsystem_collections */,
 				928F25D01BEACED7007B13C7 /* darwintests */,
+				2BA2A20325F290B000259A56 /* install_ErrnoErrors.strings */,
 			);
 		};
 /* End PBXProject section */
@@ -9995,27 +10056,6 @@
 			shellScript = ". \"${SCRIPT_INPUT_FILE_0}\"\n";
 			showEnvVarsInLog = 0;
 		};
-		C99F922D23982C410068CA74 /* Install CoreTypes Strings */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 8;
-			files = (
-			);
-			inputFileListPaths = (
-			);
-			inputPaths = (
-				"$(SRCROOT)/xcodescripts/install_errorstrings.sh",
-				"$(SRCROOT)/darwin/ErrnoErrors.strings",
-			);
-			name = "Install CoreTypes Strings";
-			outputFileListPaths = (
-			);
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 1;
-			shellPath = "/bin/bash -e";
-			shellScript = ". \"${SCRIPT_INPUT_FILE_0}\" \"${SCRIPT_INPUT_FILE_1}\"\n";
-			showEnvVarsInLog = 0;
-		};
 		C9AE91C21517E17600A2626C /* Build Link List */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
@@ -10159,6 +10199,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				18E6EA5B2510173E00C93E0D /* collections_set.c in Sources */,
 				18177AC1236A3525008CCFDE /* collections_map.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -15733,6 +15774,11 @@
 			target = C942102D13900C8A004BA536 /* libc_dyld */;
 			targetProxy = 2B9F888223011C2B00771815 /* PBXContainerItemProxy */;
 		};
+		2BA2A20825F290CA00259A56 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 2BA2A20325F290B000259A56 /* install_ErrnoErrors.strings */;
+			targetProxy = 2BA2A20725F290CA00259A56 /* PBXContainerItemProxy */;
+		};
 		3F51211716C318EB00AFB431 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 3F51206A16C3174300AFB431 /* FortifySource */;
@@ -15875,6 +15921,17 @@
 		};
 /* End PBXTargetDependency section */
 
+/* Begin PBXVariantGroup section */
+		2BBA28CD25F156570021752E /* ErrnoErrors.strings */ = {
+			isa = PBXVariantGroup;
+			children = (
+				2BBA28CC25F156570021752E /* en */,
+			);
+			name = ErrnoErrors.strings;
+			sourceTree = "<group>";
+		};
+/* End PBXVariantGroup section */
+
 /* Begin XCBuildConfiguration section */
 		18177ABC236A350B008CCFDE /* Debug */ = {
 			isa = XCBuildConfiguration;
@@ -15916,6 +15973,26 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+		2BA2A20525F290B100259A56 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				INSTALLHDRS_COPY_PHASE = NO;
+				INSTALLHDRS_SCRIPT_PHASE = NO;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		2BA2A20625F290B100259A56 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				INSTALLHDRS_COPY_PHASE = NO;
+				INSTALLHDRS_SCRIPT_PHASE = NO;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Release;
@@ -16057,6 +16134,8 @@
 		926F739F1E046E56001E049D /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				INSTALLHDRS_COPY_PHASE = NO;
+				INSTALLHDRS_SCRIPT_PHASE = NO;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Debug;
@@ -16064,6 +16143,8 @@
 		926F73A01E046E56001E049D /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				INSTALLHDRS_COPY_PHASE = NO;
+				INSTALLHDRS_SCRIPT_PHASE = NO;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Release;
@@ -16461,7 +16542,6 @@
 					"$(inherited)",
 					"$(SDK_INSTALL_ROOT)/usr/lib/system",
 				);
-				"ORDER_FILE[sdk=iphoneos*]" = "$(SDKROOT)/AppleInternal/OrderFiles/libsystem_c.order";
 				OTHER_LDFLAGS = "$(LIBSYSTEM_C_LDFLAGS)";
 				PRODUCT_NAME = c;
 				SKIP_INSTALL = NO;
@@ -16482,7 +16562,6 @@
 					"$(inherited)",
 					"$(SDK_INSTALL_ROOT)/usr/lib/system",
 				);
-				"ORDER_FILE[sdk=iphoneos*]" = "$(SDKROOT)/AppleInternal/OrderFiles/libsystem_c.order";
 				OTHER_LDFLAGS = "$(LIBSYSTEM_C_LDFLAGS)";
 				PRODUCT_NAME = c;
 				SKIP_INSTALL = NO;
@@ -16630,6 +16709,15 @@
 			buildConfigurations = (
 				2B9F887E2301074E00771815 /* Debug */,
 				2B9F887F2301074E00771815 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		2BA2A20425F290B100259A56 /* Build configuration list for PBXAggregateTarget "install_ErrnoErrors.strings" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				2BA2A20525F290B100259A56 /* Debug */,
+				2BA2A20625F290B100259A56 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

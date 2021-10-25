@@ -27,7 +27,7 @@
 
 #import "OctagonTrust.h"
 #import <Security/OTClique+Private.h>
-#import <utilities/debugging.h>
+#import "utilities/debugging.h"
 #import "OTEscrowTranslation.h"
 
 #import <SoftLinking/SoftLinking.h>
@@ -38,16 +38,12 @@
 #import "keychain/ot/OTControl.h"
 #import "keychain/ot/OTClique+Private.h"
 #import <Security/OctagonSignPosts.h>
-#include <utilities/SecCFRelease.h>
+#include "utilities/SecCFRelease.h"
 
-SOFT_LINK_FRAMEWORK(PrivateFrameworks, KeychainCircle);
 SOFT_LINK_OPTIONAL_FRAMEWORK(PrivateFrameworks, CloudServices);
 
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wstrict-prototypes"
 SOFT_LINK_CLASS(CloudServices, SecureBackup);
 SOFT_LINK_CONSTANT(CloudServices, kSecureBackupErrorDomain, NSErrorDomain);
-SOFT_LINK_CONSTANT(CloudServices, kSecureBackupiCDPRecordsKey, NSString*);
 SOFT_LINK_CONSTANT(CloudServices, kSecureBackupMetadataKey, NSString*);
 SOFT_LINK_CONSTANT(CloudServices, kSecureBackupRecordIDKey, NSString*);
 
@@ -56,10 +52,8 @@ SOFT_LINK_CONSTANT(CloudServices, kSecureBackupKeybagDigestKey, NSString*);
 SOFT_LINK_CONSTANT(CloudServices, kSecureBackupBagPasswordKey, NSString*);
 SOFT_LINK_CONSTANT(CloudServices, kSecureBackupRecordLabelKey, NSString*);
 
-#pragma clang diagnostic pop
-
 static NSString * const kOTEscrowAuthKey = @"kOTEscrowAuthKey";
-NSString* OTCKContainerName = @"com.apple.security.keychain";
+static NSString* localOTCKContainerName = @"com.apple.security.keychain";
 
 @implementation OTConfigurationContext(Framework)
 
@@ -244,55 +238,8 @@ NSString* OTCKContainerName = @"com.apple.security.keychain";
 + (NSArray<OTEscrowRecord*>* _Nullable)fetchEscrowRecords:(OTConfigurationContext*)data error:(NSError**)error
 {
 #if OCTAGON
-    if (OctagonIsOptimizationEnabled() && OctagonIsEscrowRecordFetchEnabled()) {
-        secnotice("octagontrust-fetchescrowrecords", "fetching filtered escrow records for context with feature flag enabled:%@, altdsid:%@", data.context, data.altDSID);
-        return [OTClique fetchAndHandleEscrowRecords:data shouldFilter:YES error:error];
-    } else {
-        if ([OTClique isCloudServicesAvailable] == NO) {
-            if (error) {
-                *error = [NSError errorWithDomain:NSOSStatusErrorDomain code:errSecUnimplemented userInfo:nil];
-            }
-            return NULL;
-        }
-
-        OctagonSignpost signPost = OctagonSignpostBegin(OctagonSignpostNameGetAccountInfo);
-        secnotice("octagontrust-fetchescrowrecords", "fetching escrow records for context with feature flag disabled:%@, altdsid:%@", data.context, data.altDSID);
-        id<OctagonEscrowRecovererPrococol> sb = data.sbd ?: [[getSecureBackupClass() alloc] init];
-
-        OTEscrowAuthenticationInformation *escrowAuth = nil;
-        NSDictionary* escrowAuthDictionary = nil;
-        if(data.escrowAuth != nil) {
-            escrowAuth = data.escrowAuth;
-            escrowAuthDictionary = [OTEscrowTranslation escrowAuthenticationInfoToDictionary:escrowAuth];
-        }
-        NSDictionary* results = nil;
-        NSError* recoverError = [sb getAccountInfoWithInfo:escrowAuthDictionary results:&results];
-        bool subTaskSuccess = false;
-        if(recoverError || results == nil) {
-            secerror("octagontrust-fetchescrowrecords: error fetching escrow records: %@", recoverError);
-            if(error){
-                *error = recoverError;
-            }
-            OctagonSignpostEnd(signPost, OctagonSignpostNameGetAccountInfo, OctagonSignpostNumber1(OctagonSignpostNameGetAccountInfo), (int)subTaskSuccess);
-            return nil;
-        } else {
-            secnotice("octagontrust-fetchescrowrecords", "recovered accountWithInfo results: %@", results);
-            NSArray *icdpRecords = results[getkSecureBackupiCDPRecordsKey()];
-            secnotice("octagontrust-fetchescrowrecords", "recovered iCDP records: %@", icdpRecords);
-
-            NSMutableArray<OTEscrowRecord*>* records = [NSMutableArray array];
-            for (NSDictionary *dictionaryRecord in icdpRecords) {
-                OTEscrowRecord* otEscrowRecord = [OTEscrowTranslation dictionaryToEscrowRecord:dictionaryRecord];
-                [records addObject:otEscrowRecord];
-            }
-            secnotice("octagontrust-fetchescrowrecords", "translated dictionary records to escrow record protos: %@", records);
-
-            subTaskSuccess = true;
-            OctagonSignpostEnd(signPost, OctagonSignpostNameGetAccountInfo, OctagonSignpostNumber1(OctagonSignpostNameGetAccountInfo), (int)subTaskSuccess);
-
-            return records;
-        }
-    }
+    secnotice("octagontrust-fetchescrowrecords", "fetching filtered escrow records for context:%@, altdsid:%@", data.context, data.altDSID);
+    return [OTClique fetchAndHandleEscrowRecords:data shouldFilter:YES error:error];
 #else
     if (error) {
         *error = [NSError errorWithDomain:NSOSStatusErrorDomain code:errSecUnimplemented userInfo:nil];
@@ -366,7 +313,7 @@ NSString* OTCKContainerName = @"com.apple.security.keychain";
         OctagonSignpost bottleRestoreSignPost = performedSilentBurn ? OctagonSignpostBegin(OctagonSignpostNamePerformOctagonJoinForSilent) : OctagonSignpostBegin(OctagonSignpostNamePerformOctagonJoinForNonSilent);
 
         //restore bottle!
-        [control restore:OTCKContainerName
+        [control restore:localOTCKContainerName
                contextID:data.context
               bottleSalt:data.altDSID
                  entropy:bottledPeerEntropy
@@ -497,14 +444,12 @@ NSString* OTCKContainerName = @"com.apple.security.keychain";
     BOOL supportedRestorePath = [OTEscrowTranslation supportedRestorePath:cdpContext];
     secnotice("octagontrust-performEscrowRecovery", "restore path is supported? %@", supportedRestorePath ? @"YES" : @"NO");
 
-    if (OctagonIsOptimizationEnabled() && supportedRestorePath) {
-        secnotice("octagontrust-performEscrowRecovery", "optimization flag turned on");
+    if (supportedRestorePath) {
         OctagonSignpost recoverFromSBDSignPost = OctagonSignpostBegin(OctagonSignpostNameRecoverWithCDPContext);
         recoveredInformation = [sb recoverWithCDPContext:cdpContext escrowRecord:escrowRecord error:&recoverError];
         subTaskSuccess = (recoverError == nil) ? true : false;
         OctagonSignpostEnd(recoverFromSBDSignPost, OctagonSignpostNameRecoverWithCDPContext, OctagonSignpostNumber1(OctagonSignpostNameRecoverWithCDPContext), (int)subTaskSuccess);
     } else {
-        secnotice("octagontrust-performEscrowRecovery", "optimization flag turned off");
         NSMutableDictionary* sbdRecoveryArguments = [[OTEscrowTranslation CDPRecordContextToDictionary:cdpContext] mutableCopy];
         NSDictionary* metadata = [OTEscrowTranslation metadataToDictionary:escrowRecord.escrowInformationMetadata];
         sbdRecoveryArguments[getkSecureBackupMetadataKey()] = metadata;
@@ -572,14 +517,12 @@ NSString* OTCKContainerName = @"com.apple.security.keychain";
     BOOL supportedRestorePath = [OTEscrowTranslation supportedRestorePath:cdpContext];
     secnotice("octagontrust-performSilentEscrowRecovery", "restore path is supported? %@", supportedRestorePath ? @"YES" : @"NO");
 
-    if (OctagonIsOptimizationEnabled() && supportedRestorePath) {
-        secnotice("octagontrust-performSilentEscrowRecovery", "optimization flag turned on");
+    if (supportedRestorePath) {
         OctagonSignpost recoverFromSBDSignPost = OctagonSignpostBegin(OctagonSignpostNameRecoverSilentWithCDPContext);
         recoveredInformation = [sb recoverSilentWithCDPContext:cdpContext allRecords:allRecords error:&recoverError];
         subTaskSuccess = (recoverError == nil) ? true : false;
         OctagonSignpostEnd(recoverFromSBDSignPost, OctagonSignpostNameRecoverSilentWithCDPContext, OctagonSignpostNumber1(OctagonSignpostNameRecoverSilentWithCDPContext), (int)subTaskSuccess);
     } else {
-        secnotice("octagontrust-performSilentEscrowRecovery", "optimization flag turned off");
         NSDictionary* sbdRecoveryArguments = [OTEscrowTranslation CDPRecordContextToDictionary:cdpContext];
 
         OctagonSignpost recoverFromSBDSignPost = OctagonSignpostBegin(OctagonSignpostNamePerformRecoveryFromSBD);
@@ -627,7 +570,7 @@ NSString* OTCKContainerName = @"com.apple.security.keychain";
         return invalidatedCache;
     }
 
-    [control invalidateEscrowCache:OTCKContainerName
+    [control invalidateEscrowCache:localOTCKContainerName
                          contextID:configurationContext.context
                              reply:^(NSError * _Nullable invalidateError) {
         if(invalidateError) {
@@ -646,6 +589,174 @@ NSString* OTCKContainerName = @"com.apple.security.keychain";
     secnotice("clique-invalidateEscrowCache", "invalidateEscrowCache complete");
 
     return invalidatedCache;
+#else
+    if (error) {
+        *error = [NSError errorWithDomain:NSOSStatusErrorDomain code:errSecUnimplemented userInfo:nil];
+    }
+    return NO;
+#endif
+}
+
+- (BOOL)setLocalSecureElementIdentity:(OTSecureElementPeerIdentity*)secureElementIdentity
+                                error:(NSError**)error
+{
+#if OCTAGON
+    secnotice("octagontrust-se", "setLocalSecureElementIdentity invoked for context:%@", self.ctx);
+    __block NSError* localError = nil;
+
+    OTControl *control = [self.ctx makeOTControl:&localError];
+    if (!control) {
+        secnotice("octagontrust-se", "unable to create otcontrol: %@", localError);
+        if (error) {
+            *error = localError;
+        }
+        return NO;
+    }
+
+    [control setLocalSecureElementIdentity:self.ctx.containerName
+                                 contextID:self.ctx.context
+                     secureElementIdentity:secureElementIdentity
+                                     reply:^(NSError* _Nullable replyError) {
+        if(replyError) {
+            secnotice("octagontrust-se", "setLocalSecureElementIdentity errored: %@", replyError);
+        } else {
+            secnotice("octagontrust-se", "setLocalSecureElementIdentity succeeded");
+        }
+
+        localError = replyError;
+    }];
+
+    if(error && localError) {
+        *error = localError;
+    }
+    return localError == nil;
+
+#else
+    if (error) {
+        *error = [NSError errorWithDomain:NSOSStatusErrorDomain code:errSecUnimplemented userInfo:nil];
+    }
+    return NO;
+#endif
+}
+
+- (BOOL)removeLocalSecureElementIdentityPeerID:(NSData*)sePeerID
+                                         error:(NSError**)error
+{
+#if OCTAGON
+    secnotice("octagontrust-se", "removeLocalSecureElementIdentityPeerID invoked for context:%@", self.ctx);
+    __block NSError* localError = nil;
+
+    OTControl *control = [self.ctx makeOTControl:&localError];
+    if (!control) {
+        secnotice("octagontrust-se", "unable to create otcontrol: %@", localError);
+        if (error) {
+            *error = localError;
+        }
+        return NO;
+    }
+
+    [control removeLocalSecureElementIdentityPeerID:self.ctx.containerName
+                                          contextID:self.ctx.context
+                        secureElementIdentityPeerID:sePeerID
+                                              reply:^(NSError* _Nullable replyError) {
+        if(replyError) {
+            secnotice("octagontrust-se", "removeLocalSecureElementIdentityPeerID errored: %@", replyError);
+        } else {
+            secnotice("octagontrust-se", "removeLocalSecureElementIdentityPeerID succeeded");
+        }
+
+        localError = replyError;
+    }];
+
+    if(error && localError) {
+        *error = localError;
+    }
+    return localError == nil;
+
+#else
+    if (error) {
+        *error = [NSError errorWithDomain:NSOSStatusErrorDomain code:errSecUnimplemented userInfo:nil];
+    }
+    return NO;
+#endif
+}
+
+- (OTCurrentSecureElementIdentities* _Nullable)fetchTrustedSecureElementIdentities:(NSError**)error
+{
+#if OCTAGON
+    secnotice("octagontrust-se", "fetchTrustedSecureElementIdentities invoked for context:%@", self.ctx);
+    __block NSError* localError = nil;
+
+    OTControl *control = [self.ctx makeOTControl:&localError];
+    if (!control) {
+        secnotice("octagontrust-se", "unable to create otcontrol: %@", localError);
+        if (error) {
+            *error = localError;
+        }
+        return nil;
+    }
+
+    __block OTCurrentSecureElementIdentities* ret = nil;
+
+    [control fetchTrustedSecureElementIdentities:self.ctx.containerName
+                                       contextID:self.ctx.context
+                                           reply:^(OTCurrentSecureElementIdentities* currentSet,
+                                                   NSError* replyError) {
+        if(replyError) {
+            secnotice("octagontrust-se", "fetchTrustedSecureElementIdentities errored: %@", replyError);
+        } else {
+            secnotice("octagontrust-se", "fetchTrustedSecureElementIdentities succeeded");
+            ret = currentSet;
+        }
+
+        localError = replyError;
+    }];
+
+    if(error && localError) {
+        *error = localError;
+    }
+    return ret;
+
+#else
+    if (error) {
+        *error = [NSError errorWithDomain:NSOSStatusErrorDomain code:errSecUnimplemented userInfo:nil];
+    }
+    return NO;
+#endif
+}
+
+
+- (BOOL)waitForPriorityViewKeychainDataRecovery:(NSError**)error
+{
+#if OCTAGON
+    secnotice("octagn-ckks", "waitForPriorityViewKeychainDataRecovery invoked for context:%@", self.ctx);
+    __block NSError* localError = nil;
+
+    OTControl *control = [self.ctx makeOTControl:&localError];
+    if (!control) {
+        secnotice("octagn-ckks", "unable to create otcontrol: %@", localError);
+        if (error) {
+            *error = localError;
+        }
+        return NO;
+    }
+
+    [control waitForPriorityViewKeychainDataRecovery:self.ctx.containerName contextID:self.ctx.context reply:^(NSError * _Nullable replyError) {
+        if(replyError) {
+            secnotice("octagn-ckks", "waitForPriorityViewKeychainDataRecovery errored: %@", replyError);
+        } else {
+            secnotice("octagn-ckks", "waitForPriorityViewKeychainDataRecovery succeeded");
+        }
+
+        localError = replyError;
+    }];
+
+    if(error && localError) {
+        *error = localError;
+    }
+
+    return localError == nil;
+
 #else
     if (error) {
         *error = [NSError errorWithDomain:NSOSStatusErrorDomain code:errSecUnimplemented userInfo:nil];

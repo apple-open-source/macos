@@ -2087,6 +2087,14 @@ incoming packet not on interface en0:
 Note that a complex packet metadata filter expression needs to be put in quotes as the option
 .B \-Q
 takes a single string parameter.
+.LP
+Likewise, strings that contain spaces have to be surrounded by quotes. For example:
+.LP
+.RS
+.nf
+\fB-Q "proc = 'Some App'"\fP
+.fi
+.RE
 .SH "SEE ALSO"
 stty(1), pcap(3PCAP), bpf(4), nit(4P), \%pcap-savefile(5),
 \%pcap-filter(7), \%pcap-tstamp(7)

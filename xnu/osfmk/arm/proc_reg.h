@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007-2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2007-2020 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -117,21 +117,8 @@
 #define __ARM_ENABLE_WFE_ 0
 #endif /* defined(ARM_BOARD_WFE_TIMEOUT_NS) */
 
-/*
- * MAX_PSETS allows the scheduler to create statically sized
- * scheduling data structures (such as an array of processor sets, clutch
- * buckets in Edge scheduler etc.). All current AMP platforms are dual
- * pset and all non-AMP platforms are single pset architectures. This
- * define might need to be conditionalized better (or moved to a better
- * header) in the future.
- *
- * <Edge Multi-cluster Support Needed>
- */
-#if __ARM_AMP__
-#define MAX_PSETS 2
-#else /*__ARM_AMP__ */
-#define MAX_PSETS 1
-#endif /* __ARM_AMP__ */
+/* For arm platforms, create one pset per cluster */
+#define MAX_PSETS MAX_CPU_CLUSTERS
 
 /*
  * The clutch scheduler is enabled only on non-AMP platforms for now.
@@ -394,6 +381,7 @@
 #error processor not supported
 #endif
 
+#define MAX_L2_CLINE_BYTES (1 << MAX_L2_CLINE)
 
 #if (__ARM_VMSA__ <= 7)
 
@@ -613,7 +601,7 @@
  *  L2 Translation table
  *
  *  Each translation table is up to 1KB
- *  4096 32-bit entries of 1MB (2^30) of address space.
+ *  256 32-bit entries of 4KB (2^12) of address space.
  */
 
 #define ARM_TT_L2_SIZE       0x00001000 /* size of area covered by a tte */

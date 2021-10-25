@@ -1,0 +1,4 @@
+#include "libplatform.xcconfig"
+
+INSTALLHDRS_SCRIPT_PHASE = YES
+INSTALLHDRS_COPY_PHASE = YES

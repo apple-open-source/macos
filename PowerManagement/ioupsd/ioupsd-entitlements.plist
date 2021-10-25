@@ -13,5 +13,7 @@
 		<string>IOAccessoryManagerUserClient</string>
 		<string>IOHIDLibUserClient</string>
 	</array>
+	<key>com.apple.private.accessories.showallconnections</key>
+	<true/>
 </dict>
 </plist>

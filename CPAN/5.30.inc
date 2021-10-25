@@ -194,7 +194,6 @@ CPAN_PROJECTS := \
     Inline-0.86 \
     Proc-ProcessTable-0.59 \
     Test-Number-Delta-1.06 \
-    Inline-Python-0.56 \
     Test-utf8-1.02 \
     Test-File-1.443 \
     File-Copy-Recursive-0.45 \

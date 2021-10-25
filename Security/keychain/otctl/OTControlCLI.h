@@ -3,6 +3,8 @@
 
 #import "keychain/ot/OTControl.h"
 
+#import <AppleFeatures/AppleFeatures.h>
+
 NS_ASSUME_NONNULL_BEGIN
 
 
@@ -11,57 +13,108 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (instancetype)initWithOTControl:(OTControl*)control;
 
-- (long)startOctagonStateMachine:(NSString *)container context:(NSString *)contextID;
+- (int)startOctagonStateMachine:(NSString* _Nullable)container context:(NSString *)contextID;
 
-- (long)signIn:(NSString *)altDSID container:(NSString * _Nullable)container context:(NSString *)contextID;
+- (int)signIn:(NSString *)altDSID container:(NSString * _Nullable)container context:(NSString *)contextID;
 
-- (long)signOut:(NSString * _Nullable)container context:(NSString *)contextID;
+- (int)signOut:(NSString * _Nullable)container context:(NSString *)contextID;
 
-- (long)depart:(NSString * _Nullable)container context:(NSString *)contextID;
+- (int)depart:(NSString * _Nullable)container context:(NSString *)contextID;
 
-- (long)resetOctagon:(NSString *)container context:(NSString *)contextID altDSID:(NSString *)altDSID;
+- (int)resetOctagon:(NSString* _Nullable)container context:(NSString *)contextID altDSID:(NSString *)altDSID;
 
-- (long)resetProtectedData:(NSString *)container context:(NSString *)contextID altDSID:(NSString *)altDSID appleID:(NSString *)appleID dsid:(NSString *)dsid;
+- (int)resetProtectedData:(NSString* _Nullable)container context:(NSString *)contextID altDSID:(NSString *)altDSID appleID:(NSString * _Nullable)appleID dsid:(NSString *_Nullable)dsid;
 
-- (long)status:(NSString * _Nullable)container context:(NSString *)contextID json:(bool)json;
+- (int)status:(NSString * _Nullable)container context:(NSString *)contextID json:(bool)json;
 
-- (long)recoverUsingBottleID:(NSString *)bottleID
+- (int)recoverUsingBottleID:(NSString *)bottleID
                      entropy:(NSData *)entropy
                      altDSID:(NSString *)altDSID
-               containerName:(NSString *)containerName
+               containerName:(NSString* _Nullable)containerName
                      context:(NSString *)context
                      control:(OTControl *)control;
 
-- (long)fetchAllBottles:(NSString *)altDSID
-          containerName:(NSString *)containerName
+- (int)fetchAllBottles:(NSString *)altDSID
+          containerName:(NSString* _Nullable)containerName
                 context:(NSString *)context
                 control:(OTControl *)control;
 
-- (long)fetchEscrowRecords:(NSString * _Nullable)container context:(NSString *)contextID;
-- (long)fetchAllEscrowRecords:(NSString* _Nullable)container context:(NSString*)contextID;
+- (int)fetchEscrowRecords:(NSString * _Nullable)container context:(NSString *)contextID;
+- (int)fetchAllEscrowRecords:(NSString* _Nullable)container context:(NSString*)contextID;
 
-- (long)healthCheck:(NSString * _Nullable)container context:(NSString *)contextID skipRateLimitingCheck:(BOOL)skipRateLimitingCheck;
-- (long)refetchCKKSPolicy:(NSString *)container context:(NSString *)contextID;
+- (int)healthCheck:(NSString * _Nullable)container context:(NSString *)contextID skipRateLimitingCheck:(BOOL)skipRateLimitingCheck;
+- (int)refetchCKKSPolicy:(NSString* _Nullable)container context:(NSString *)contextID;
 
-- (long)tapToRadar:(NSString *)action description:(NSString *)description radar:(NSString *)radar;
+- (int)tapToRadar:(NSString *)action description:(NSString *)description radar:(NSString *)radar;
 
-- (long)performEscrowRecovery:(NSString * _Nullable)container
+- (int)performEscrowRecovery:(NSString * _Nullable)container
                       context:(NSString *)contextID
                      recordID:(NSString *)recordID
                       appleID:(NSString *)appleID
                        secret:(NSString *)secret;
 
-- (long)performSilentEscrowRecovery:(NSString * _Nullable)container context:(NSString *)contextID appleID:(NSString *)appleID secret:(NSString *)secret;
+- (int)performSilentEscrowRecovery:(NSString * _Nullable)container context:(NSString *)contextID appleID:(NSString *)appleID secret:(NSString *)secret;
 
-- (long)setUserControllableViewsSyncStatus:(NSString * _Nullable)containerName
+- (int)setUserControllableViewsSyncStatus:(NSString * _Nullable)containerName
                                  contextID:(NSString *)contextID
                                    enabled:(BOOL)enabled;
 
-- (long)fetchUserControllableViewsSyncStatus:(NSString * _Nullable)containerName
+- (int)fetchUserControllableViewsSyncStatus:(NSString * _Nullable)containerName
                                    contextID:(NSString *)contextID;
 
-- (long)resetAccountCDPContentsWithContainerName:(NSString *)containerName
+- (int)resetAccountCDPContentsWithContainerName:(NSString* _Nullable)containerName
                                        contextID:(NSString *)contextID;
+
+- (int)createCustodianRecoveryKeyWithContainerName:(NSString* _Nullable)containerName
+                                          contextID:(NSString *)contextID
+                                               json:(bool)json;
+
+- (int)joinWithCustodianRecoveryKeyWithContainerName:(NSString* _Nullable)containerName
+                                           contextID:(NSString *)contextID
+                                         wrappingKey:(NSString*)wrappingKey
+                                          wrappedKey:(NSString*)wrappedKey
+                                          uuidString:(NSString*)uuidString;
+
+- (int)preflightJoinWithCustodianRecoveryKeyWithContainerName:(NSString* _Nullable)containerName
+                                                    contextID:(NSString *)contextID
+                                                  wrappingKey:(NSString*)wrappingKey
+                                                   wrappedKey:(NSString*)wrappedKey
+                                                   uuidString:(NSString*)uuidString;
+
+- (int)removeCustodianRecoveryKeyWithContainerName:(NSString* _Nullable)containerName
+                                         contextID:(NSString *)contextID
+                                        uuidString:(NSString*)uuidString;
+
+- (int)createInheritanceKeyWithContainerName:(NSString* _Nullable)containerName
+                                   contextID:(NSString *)contextID
+                                        json:(bool)json;
+
+- (int)generateInheritanceKeyWithContainerName:(NSString* _Nullable)containerName
+                                     contextID:(NSString *)contextID
+                                          json:(bool)json;
+
+- (int)storeInheritanceKeyWithContainerName:(NSString* _Nullable)containerName
+                                   contextID:(NSString *)contextID
+                                   wrappingKey:(NSString*)wrappingKey
+                                    wrappedKey:(NSString*)wrappedKey
+                                    uuidString:(NSString*)uuidString;
+
+- (int)joinWithInheritanceKeyWithContainerName:(NSString* _Nullable)containerName
+                                     contextID:(NSString *)contextID
+                                   wrappingKey:(NSString*)wrappingKey
+                                    wrappedKey:(NSString*)wrappedKey
+                                    uuidString:(NSString*)uuidString;
+
+- (int)preflightJoinWithInheritanceKeyWithContainerName:(NSString* _Nullable)containerName
+                                              contextID:(NSString *)contextID
+                                            wrappingKey:(NSString*)wrappingKey
+                                             wrappedKey:(NSString*)wrappedKey
+                                             uuidString:(NSString*)uuidString;
+
+- (int)removeInheritanceKeyWithContainerName:(NSString* _Nullable)containerName
+                                   contextID:(NSString *)contextID
+                                  uuidString:(NSString*)uuidString;
+
 
 @end
 

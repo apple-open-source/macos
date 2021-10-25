@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2005, 2009-2011, 2013, 2016, 2017 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2005, 2009-2011, 2013, 2016, 2017, 2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -37,7 +37,7 @@
 
 __private_extern__
 void
-do_dictInit(int argc, char **argv)
+do_dictInit(int argc, char * const argv[])
 {
 #pragma unused(argc)
 #pragma unused(argv)
@@ -57,7 +57,7 @@ do_dictInit(int argc, char **argv)
 
 __private_extern__
 void
-do_dictShow(int argc, char **argv)
+do_dictShow(int argc, char * const argv[])
 {
 #pragma unused(argc)
 #pragma unused(argv)
@@ -74,7 +74,7 @@ do_dictShow(int argc, char **argv)
 
 __private_extern__
 void
-do_dictSetKey(int argc, char **argv)
+do_dictSetKey(int argc, char * const argv[])
 {
 	CFMutableArrayRef	array		= NULL;
 	Boolean			doArray		= FALSE;
@@ -241,7 +241,7 @@ do_dictSetKey(int argc, char **argv)
 
 __private_extern__
 void
-do_dictRemoveKey(int argc, char **argv)
+do_dictRemoveKey(int argc, char * const argv[])
 {
 #pragma unused(argc)
 	CFStringRef		key;

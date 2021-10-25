@@ -6670,8 +6670,35 @@ smbfs_vnop_rename(struct vnop_rename_args *ap)
         }
 	}
 	
-    /* Are we renaming a directory? */
-    if (vnode_isdir(fvp)) {
+    /* Are we renaming a file? */
+    if (!(vnode_isdir(fvp))) {
+		/* Close any deferred file handles */
+		CloseDeferredFileRefs(fvp, "vnop_rename", 0, ap->a_context);
+	}
+    
+    /*
+     * <80594196> If we are renaming a dir, just go ahead and try to rename it.
+     * Mac Servers and Samba servers should have no problems renaming a parent
+     * dir even if child dirs are still open. Only Windows OS servers have a
+     * problem with that.
+     *
+	 * Try to rename the file, this may fail if the file is open. Some 
+	 * SAMBA systems allow us to rename an open file, so try this case
+	 * first. 
+	 *
+	 * FYI: While working on Radar 4532498 I notice that you can move/rename
+	 * an open file if it is open for read-only. Only tested this on Windows 2003.
+	 */  
+	error = smbfs_smb_rename(share, fnp, tdnp, tcnp->cn_nameptr, 
+							 tcnp->cn_namelen, ap->a_context);
+    
+    /*
+     * <80594196>
+     * If the rename attempt failed and its a dir, it could be a Windows server
+     * where a parent dir can not be renamed if a child dir is currently open.
+     * Try to close the child dirs at this point.
+     */
+    if ((error) && vnode_isdir(fvp)) {
         /*
          * Do not allow Change Notifies to be restarted until after we attempt
          * the rename of a folder so we can close all the children's Change
@@ -6690,60 +6717,50 @@ smbfs_vnop_rename(struct vnop_rename_args *ap)
             fnp->d_needReopen = TRUE;
             fnp->d_fid = 0;
         }
-		
-		/* 
-		 * Enumerations also have the dir open, so halt them too. Since we
-		 * have exclusive lock on this dir, enumerations wont start up again
-		 * until we finish.
-		 */
+        
+        /*
+         * Enumerations also have the dir open, so halt them too. Since we
+         * have exclusive lock on this dir, enumerations wont start up again
+         * until we finish.
+         */
         smbfs_closedirlookup(fnp, 0, "vnop_rename from", ap->a_context);
         smbfs_closedirlookup(fnp, 1, "vnop_rename from", ap->a_context);
 
         /*
-         * Windows Servers will not let you rename a folder if any of its 
+         * Windows Servers will not let you rename a folder if any of its
          * children dir are open due to a Change Notify. Go find all of its
          * children dirs and close them which will cancel the Change Notify.
          */
         smbfs_CloseChildren(share, fnp, 1, &rename_child_listp, ap->a_context);
-		
-		/* Stop enumerations */
-		tptr = rename_child_listp;
-		while (tptr != NULL) {
-			if ((smbnode_lock(tptr->np, SMBFS_EXCLUSIVE_LOCK))) {
-				SMBERROR_LOCK(tptr->np, "failed to lock <%s> \n", tptr->np->n_name);
-				error = EBUSY;
-				goto out;
-			}
-			else {
-				tptr->is_locked = 1;
-				
-				/*
-				 * Enumerations also have the dir open, so halt them too. Since we
-				 * have exclusive lock on this dir, enumerations wont start up again
-				 * until we finish.
-				 */
+        
+        /* Stop enumerations */
+        tptr = rename_child_listp;
+        while (tptr != NULL) {
+            if ((smbnode_lock(tptr->np, SMBFS_EXCLUSIVE_LOCK))) {
+                SMBERROR_LOCK(tptr->np, "failed to lock <%s> \n", tptr->np->n_name);
+                error = EBUSY;
+                goto out;
+            }
+            else {
+                tptr->is_locked = 1;
+                
+                /*
+                 * Enumerations also have the dir open, so halt them too. Since we
+                 * have exclusive lock on this dir, enumerations wont start up again
+                 * until we finish.
+                 */
                 smbfs_closedirlookup(tptr->np, 0, "vnop_rename to", ap->a_context);
                 smbfs_closedirlookup(tptr->np, 1, "vnop_rename to", ap->a_context);
-			}
+            }
 
-			tptr = tptr->next;
-		}
+            tptr = tptr->next;
+        }
+        
+        /* And try the rename again */
+        error = smbfs_smb_rename(share, fnp, tdnp, tcnp->cn_nameptr,
+                                 tcnp->cn_namelen, ap->a_context);
+
     }
-	else {
-		/* Close any deferred file handles */
-		CloseDeferredFileRefs(fvp, "vnop_rename", 0, ap->a_context);
-	}
-    
-    /*
-	 * Try to rename the file, this may fail if the file is open. Some 
-	 * SAMBA systems allow us to rename an open file, so try this case
-	 * first. 
-	 *
-	 * FYI: While working on Radar 4532498 I notice that you can move/rename
-	 * an open file if it is open for read-only. Only tested this on Windows 2003.
-	 */  
-	error = smbfs_smb_rename(share, fnp, tdnp, tcnp->cn_nameptr, 
-							 tcnp->cn_namelen, ap->a_context);
     
 	/* 
 	 * The file could be open so lets try again. This call does not work on

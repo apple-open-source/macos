@@ -27,7 +27,10 @@ NSXPCInterface* TrustedPeersHelperSetupProtocol(NSXPCInterface* interface)
         NSSet* arrayOfStrings = [NSSet setWithArray:@[[NSArray class], [NSString class]]];
         NSSet* trustedPeersHelperPeerState = [NSSet setWithObject:[TrustedPeersHelperPeerState class]];
 
+        NSSet* trustedPeersHelperCustodianRecoveryKey= [NSSet setWithObject:[TrustedPeersHelperCustodianRecoveryKey class]];
+
         NSSet* arrayOfTrustedPeersHelperPeer = [NSSet setWithArray:@[[NSArray class], [TrustedPeersHelperPeer class]]];
+        NSSet* arrayOfSettings = [NSSet setWithArray:@[[NSArray class], [NSDictionary class], [NSString class], [TPPBPeerStableInfoSetting class]]];
 
         [interface setClasses:errClasses forSelector:@selector(dumpWithContainer:context:reply:) argumentIndex:1 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(departByDistrustingSelfWithContainer:context:reply:) argumentIndex:0 ofReply:YES];
@@ -40,33 +43,45 @@ NSXPCInterface* TrustedPeersHelperSetupProtocol(NSXPCInterface* interface)
         [interface setClasses:errClasses forSelector:@selector(removeAllowedMachineIDsWithContainer:context:machineIDs:reply:) argumentIndex:0 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(fetchAllowedMachineIDsWithContainer:context:reply:) argumentIndex:1 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(fetchEgoEpochWithContainer:context:reply:) argumentIndex:1 ofReply:YES];
-        [interface setClasses:errClasses forSelector:@selector(prepareWithContainer:context:epoch:machineID:bottleSalt:bottleID:modelID:deviceName:serialNumber:osVersion:policyVersion:policySecrets:syncUserControllableViews:signingPrivKeyPersistentRef:encPrivKeyPersistentRef:reply:) argumentIndex:6 ofReply:YES];
+        [interface setClasses:errClasses forSelector:@selector(prepareWithContainer:context:epoch:machineID:bottleSalt:bottleID:modelID:deviceName:serialNumber:osVersion:policyVersion:policySecrets:syncUserControllableViews:secureElementIdentity:signingPrivKeyPersistentRef:encPrivKeyPersistentRef:reply:) argumentIndex:6 ofReply:YES];
+        [interface setClasses:errClasses forSelector:@selector(prepareInheritancePeerWithContainer:context:epoch:machineID:bottleSalt:bottleID:modelID:deviceName:serialNumber:osVersion:policyVersion:policySecrets:syncUserControllableViews:secureElementIdentity:signingPrivKeyPersistentRef:encPrivKeyPersistentRef:crk:reply:) argumentIndex:7 ofReply:YES];
+
         [interface setClasses:errClasses forSelector:@selector(establishWithContainer:context:ckksKeys:tlkShares:preapprovedKeys:reply:) argumentIndex:3 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(vouchWithContainer:context:peerID:permanentInfo:permanentInfoSig:stableInfo:stableInfoSig:ckksKeys:reply:) argumentIndex:2 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(preflightVouchWithBottleWithContainer:context:bottleID:reply:) argumentIndex:3 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(vouchWithBottleWithContainer:context:bottleID:entropy:bottleSalt:tlkShares:reply:) argumentIndex:4 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(preflightVouchWithRecoveryKeyWithContainer:context:recoveryKey:salt:reply:) argumentIndex:2 ofReply:YES];
-        [interface setClasses:errClasses forSelector:@selector(vouchWithRecoveryKeyWithContainer:context:recoveryKey:salt:tlkShares:reply:) argumentIndex:2 ofReply:YES];
+        [interface setClasses:errClasses forSelector:@selector(preflightVouchWithCustodianRecoveryKeyWithContainer:context:crk:reply:) argumentIndex:2 ofReply:YES];
+        [interface setClasses:errClasses forSelector:@selector(vouchWithRecoveryKeyWithContainer:context:recoveryKey:salt:tlkShares:reply:) argumentIndex:4 ofReply:YES];
+        [interface setClasses:errClasses forSelector:@selector(vouchWithCustodianRecoveryKeyWithContainer:context:crk:tlkShares:reply:) argumentIndex:4 ofReply:YES];
+        [interface setClasses:errClasses forSelector:@selector(recoverTLKSharesForInheritorWithContainer:context:crk:tlkShares:reply:) argumentIndex:2 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(joinWithContainer:context:voucherData:voucherSig:ckksKeys:tlkShares:preapprovedKeys:reply:) argumentIndex:3 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(preflightPreapprovedJoinWithContainer:context:preapprovedKeys:reply:) argumentIndex:1 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(attemptPreapprovedJoinWithContainer:context:ckksKeys:tlkShares:preapprovedKeys:reply:) argumentIndex:3 ofReply:YES];
-        [interface setClasses:errClasses forSelector:@selector(updateWithContainer:context:deviceName:serialNumber:osVersion:policyVersion:policySecrets:syncUserControllableViews:reply:) argumentIndex:2 ofReply:YES];
+        [interface setClasses:errClasses forSelector:@selector(updateWithContainer:context:forceRefetch:deviceName:serialNumber:osVersion:policyVersion:policySecrets:syncUserControllableViews:secureElementIdentity:reply:) argumentIndex:2 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(setPreapprovedKeysWithContainer:context:preapprovedKeys:reply:) argumentIndex:1 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(updateTLKsWithContainer:context:ckksKeys:tlkShares:reply:) argumentIndex:1 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(fetchViableBottlesWithContainer:context:reply:) argumentIndex:2 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(fetchViableEscrowRecordsWithContainer:context:forceFetch:reply:) argumentIndex:1 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(fetchEscrowContentsWithContainer:context:reply:) argumentIndex:3 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(fetchPolicyDocumentsWithContainer:context:versions:reply:) argumentIndex:1 ofReply:YES];
-        [interface setClasses:errClasses forSelector:@selector(fetchCurrentPolicyWithContainer:context:modelIDOverride:reply:) argumentIndex:2 ofReply:YES];
+        [interface setClasses:errClasses forSelector:@selector(fetchCurrentPolicyWithContainer:context:modelIDOverride:isInheritedAccount:reply:) argumentIndex:2 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(validatePeersWithContainer:context:reply:) argumentIndex:1 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(fetchTrustStateWithContainer:context:reply:) argumentIndex:2 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(setRecoveryKeyWithContainer:context:recoveryKey:salt:ckksKeys:reply:) argumentIndex:1 ofReply:YES];
+        [interface setClasses:errClasses forSelector:@selector(createCustodianRecoveryKeyWithContainer:context:recoveryKey:salt:ckksKeys:uuid:kind:reply:) argumentIndex:2 ofReply:YES];
+        [interface setClasses:errClasses forSelector:@selector(removeCustodianRecoveryKeyWithContainer:context:uuid:reply:) argumentIndex:0 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(reportHealthWithContainer:context:stateMachineState:trustState:reply:) argumentIndex:0 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(pushHealthInquiryWithContainer:context:reply:) argumentIndex:0 ofReply:YES];
-        [interface setClasses:errClasses forSelector:@selector(requestHealthCheckWithContainer:context:requiresEscrowCheck:reply:) argumentIndex:4 ofReply:YES];
+        [interface setClasses:errClasses forSelector:@selector(requestHealthCheckWithContainer:context:requiresEscrowCheck:reply:) argumentIndex:5 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(getSupportAppInfoWithContainer:context:reply:) argumentIndex:1 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(removeEscrowCacheWithContainer:context:reply:) argumentIndex:0 ofReply:YES];
+        [interface setClasses:errClasses forSelector:@selector(fetchAccountSettingsWithContainer:context:reply:) argumentIndex:1 ofReply:YES];
+        [interface setClasses:arrayOfSettings forSelector:@selector(fetchAccountSettingsWithContainer:context:reply:) argumentIndex:0 ofReply:YES];
 
+        [interface setClasses:errClasses forSelector:@selector(fetchRecoverableTLKSharesWithContainer:context:peerID:reply:) argumentIndex:1 ofReply:YES];
+       
+        [interface setClasses:arrayOfCKRecords forSelector:@selector(fetchRecoverableTLKSharesWithContainer:context:peerID:reply:) argumentIndex:0 ofReply:YES];
 
         [interface setClasses:arrayOfStrings   forSelector:@selector(addAllowedMachineIDsWithContainer:context:machineIDs:reply:) argumentIndex:2 ofReply:NO];
         [interface setClasses:arrayOfStrings   forSelector:@selector(removeAllowedMachineIDsWithContainer:context:machineIDs:reply:) argumentIndex:2 ofReply:NO];
@@ -100,6 +115,13 @@ NSXPCInterface* TrustedPeersHelperSetupProtocol(NSXPCInterface* interface)
                                                                      bottleSalt:
                                                                      tlkShares:
                                                                      reply:) argumentIndex:5 ofReply:NO];
+        [interface setClasses:arrayOfTLKShares forSelector:@selector(vouchWithBottleWithContainer:
+                                                                     context:
+                                                                     bottleID:
+                                                                     entropy:
+                                                                     bottleSalt:
+                                                                     tlkShares:
+                                                                     reply:) argumentIndex:2 ofReply:YES];
         [interface setClasses:arrayOfKeySets forSelector:@selector(setRecoveryKeyWithContainer:
                                                                    context:
                                                                    recoveryKey:
@@ -112,21 +134,106 @@ NSXPCInterface* TrustedPeersHelperSetupProtocol(NSXPCInterface* interface)
                                                                      salt:
                                                                      ckksKeys:
                                                                      reply:) argumentIndex:0 ofReply:YES];
+        [interface setClasses:arrayOfKeySets forSelector:@selector(createCustodianRecoveryKeyWithContainer:
+                                                                   context:
+                                                                   recoveryKey:
+                                                                   salt:
+                                                                   ckksKeys:
+                                                                   uuid:
+                                                                   kind:
+                                                                   reply:) argumentIndex:4 ofReply:NO];
+        [interface setClasses:arrayOfCKRecords forSelector:@selector(createCustodianRecoveryKeyWithContainer:
+                                                                   context:
+                                                                   recoveryKey:
+                                                                   salt:
+                                                                   ckksKeys:
+                                                                   uuid:
+                                                                   kind:
+                                                                   reply:) argumentIndex:0 ofReply:YES];
         [interface setClasses:arrayOfTLKShares forSelector:@selector(vouchWithRecoveryKeyWithContainer:
                                                                      context:
                                                                      recoveryKey:
                                                                      salt:
                                                                      tlkShares:
                                                                      reply:) argumentIndex:4 ofReply:NO];
+        [interface setClasses:arrayOfTLKShares forSelector:@selector(vouchWithRecoveryKeyWithContainer:
+                                                                     context:
+                                                                     recoveryKey:
+                                                                     salt:
+                                                                     tlkShares:
+                                                                     reply:) argumentIndex:2 ofReply:YES];
+        [interface setClasses:arrayOfTLKShares forSelector:@selector(vouchWithCustodianRecoveryKeyWithContainer:
+                                                                     context:
+                                                                     crk:
+                                                                     tlkShares:
+                                                                     reply:) argumentIndex:3 ofReply:NO];
+        
+        [interface setClasses:arrayOfCKRecords forSelector:@selector(prepareInheritancePeerWithContainer:
+                                                                     context:
+                                                                     epoch:
+                                                                     machineID:
+                                                                     bottleSalt:
+                                                                     bottleID:
+                                                                     modelID:
+                                                                     deviceName:
+                                                                     serialNumber:
+                                                                     osVersion:
+                                                                     policyVersion:
+                                                                     policySecrets:
+                                                                     syncUserControllableViews:
+                                                                     secureElementIdentity:
+                                                                     signingPrivKeyPersistentRef:
+                                                                     encPrivKeyPersistentRef:
+                                                                     crk:
+                                                                     reply:) argumentIndex:7 ofReply:YES];
+        
+        [interface setClasses:arrayOfTLKShares forSelector:@selector(vouchWithCustodianRecoveryKeyWithContainer:
+                                                                     context:
+                                                                     crk:
+                                                                     tlkShares:
+                                                                     reply:) argumentIndex:2 ofReply:YES];
 
+        [interface setClasses:arrayOfTLKShares forSelector:@selector(recoverTLKSharesForInheritorWithContainer:
+                                                                             context:
+                                                                             crk:
+                                                                             tlkShares:
+                                                                             reply:)
+                                                                             argumentIndex:3 ofReply:NO];
+
+        [interface setClasses:arrayOfTLKShares forSelector:@selector(recoverTLKSharesForInheritorWithContainer:
+                                                                             context:
+                                                                             crk:
+                                                                             tlkShares:
+                                                                             reply:)
+                                                                             argumentIndex:0 ofReply:YES];
+        
+        [interface setClasses:trustedPeersHelperCustodianRecoveryKey forSelector:@selector(createCustodianRecoveryKeyWithContainer:
+                                                                                           context:
+                                                                                           recoveryKey:
+                                                                                           salt:
+                                                                                           ckksKeys:
+                                                                                           uuid:
+                                                                                           kind:
+                                                                                           reply:) argumentIndex:1 ofReply:YES];
+        [interface setClasses:trustedPeersHelperCustodianRecoveryKey forSelector:@selector(preflightVouchWithCustodianRecoveryKeyWithContainer:
+                                                                                           context:
+                                                                                           crk:
+                                                                                           reply:) argumentIndex:2 ofReply:NO];
+        [interface setClasses:trustedPeersHelperCustodianRecoveryKey forSelector:@selector(vouchWithCustodianRecoveryKeyWithContainer:
+                                                                                           context:
+                                                                                           crk:
+                                                                                           tlkShares:
+                                                                                           reply:) argumentIndex:2 ofReply:NO];
         [interface setClasses:trustedPeersHelperPeerState forSelector:@selector(updateWithContainer:
                                                                                 context:
+                                                                                forceRefetch:
                                                                                 deviceName:
                                                                                 serialNumber:
                                                                                 osVersion:
                                                                                 policyVersion:
                                                                                 policySecrets:
                                                                                 syncUserControllableViews:
+                                                                                secureElementIdentity:
                                                                                 reply:) argumentIndex:0 ofReply:YES];
 
         [interface setClasses:trustedPeersHelperPeerState   forSelector:@selector(fetchTrustStateWithContainer:
@@ -183,13 +290,20 @@ NSXPCInterface* TrustedPeersHelperSetupProtocol(NSXPCInterface* interface)
 
 - (NSString*)description
 {
-    return [NSString stringWithFormat:@"<TPHPeerState: %@ preapproved:%d status:%@ memberChanges: %@ unk. mIDs: %@ osVersion: %@>",
+    return [NSString stringWithFormat:@"<TPHPeerState: %@ "
+                         "preapproved:%d "
+                         "status:%@ "
+                         "memberChanges: %@ "
+                         "unk. mIDs: %@ "
+                         "osVersion: %@ "
+                         ">",
             self.peerID,
             self.identityIsPreapproved,
             TPPeerStatusToString(self.peerStatus),
             self.memberChanges ? @"YES" : @"NO",
             self.unknownMachineIDsPresent ? @"YES" : @"NO",
-            self.osVersion?:@"unknown"];
+            self.osVersion?:@"unknown"
+            ];
 }
 
 + (BOOL)supportsSecureCoding {
@@ -215,7 +329,6 @@ NSXPCInterface* TrustedPeersHelperSetupProtocol(NSXPCInterface* interface)
     [coder encodeInt64:(int64_t)self.memberChanges forKey:@"memberChanges"];
     [coder encodeInt64:(int64_t)self.unknownMachineIDsPresent forKey:@"unknownMachineIDs"];
     [coder encodeObject:self.osVersion forKey:@"osVersion"];
-
 }
 @end
 
@@ -290,12 +403,14 @@ NSXPCInterface* TrustedPeersHelperSetupProtocol(NSXPCInterface* interface)
 - (instancetype)initWithPeerID:(NSString*)peerID
                    signingSPKI:(NSData*)signingSPKI
                 encryptionSPKI:(NSData*)encryptionSPKI
+         secureElementIdentity:(TPPBSecureElementIdentity * _Nullable)secureElementIdentity
                       viewList:(NSSet<NSString*>*)viewList
 {
     if((self = [super init])) {
         _peerID = peerID;
         _signingSPKI = signingSPKI;
         _encryptionSPKI = encryptionSPKI;
+        _secureElementIdentity = secureElementIdentity;
         _viewList = viewList;
     }
     return self;
@@ -303,10 +418,11 @@ NSXPCInterface* TrustedPeersHelperSetupProtocol(NSXPCInterface* interface)
 
 - (NSString*)description
 {
-    return [NSString stringWithFormat:@"<TPHPeer: %@ %@ %@ (%lu views)>",
+    return [NSString stringWithFormat:@"<TPHPeer: %@ %@ %@ se:%@ (%lu views)>",
             self.peerID,
             self.signingSPKI,
             self.encryptionSPKI,
+            [self.secureElementIdentity.peerIdentifier base64EncodedStringWithOptions:0],
             (unsigned long)self.viewList.count];
 }
 
@@ -319,6 +435,7 @@ NSXPCInterface* TrustedPeersHelperSetupProtocol(NSXPCInterface* interface)
         _peerID = [coder decodeObjectOfClass:[NSString class] forKey:@"peerID"];
         _signingSPKI = [coder decodeObjectOfClass:[NSData class] forKey:@"signingSPKI"];
         _encryptionSPKI = [coder decodeObjectOfClass:[NSData class] forKey:@"encryptionSPKI"];
+        _secureElementIdentity = [coder decodeObjectOfClass:[TPPBSecureElementIdentity class] forKey:@"seIdentity"];
         _viewList = [coder decodeObjectOfClasses:[NSSet setWithArray:@[[NSSet class], [NSString class]]] forKey:@"viewList"];
     }
     return self;
@@ -328,6 +445,100 @@ NSXPCInterface* TrustedPeersHelperSetupProtocol(NSXPCInterface* interface)
     [coder encodeObject:self.peerID forKey:@"peerID"];
     [coder encodeObject:self.signingSPKI forKey:@"signingSPKI"];
     [coder encodeObject:self.encryptionSPKI forKey:@"encryptionSPKI"];
+    [coder encodeObject:self.secureElementIdentity forKey:@"seIdentity"];
     [coder encodeObject:self.viewList forKey:@"viewList"];
 }
 @end
+
+@implementation TrustedPeersHelperCustodianRecoveryKey
+- (instancetype)initWithUUID:(NSString*)uuid
+               encryptionKey:(NSData*)encryptionKey
+                  signingKey:(NSData*)signingKey
+              recoveryString:(NSString*)recoveryString
+                        salt:(NSString*)salt
+                        kind:(TPPBCustodianRecoveryKey_Kind)kind
+{
+    if ((self = [super init])) {
+        _uuid = uuid;
+        _encryptionKey = encryptionKey;
+        _signingKey = signingKey;
+        _recoveryString = recoveryString;
+        _salt = salt;
+        _kind = kind;
+    }
+    return self;
+}
+
+- (NSString*)description
+{
+    return [NSString stringWithFormat:@"<CustodianRecoveryKey: %@, (%@)>",
+                     self.uuid, TPPBCustodianRecoveryKey_KindAsString(self.kind)];
+}
+
++ (BOOL)supportsSecureCoding {
+    return YES;
+}
+
+- (instancetype)initWithCoder:(NSCoder *)coder {
+    if ((self = [super init])) {
+        _uuid = [coder decodeObjectOfClass:[NSString class] forKey:@"uuid"];
+        _encryptionKey = [coder decodeObjectOfClass:[NSData class] forKey:@"encryptionKey"];
+        _signingKey = [coder decodeObjectOfClass:[NSData class] forKey:@"signingKey"];
+        _recoveryString = [coder decodeObjectOfClass:[NSString class] forKey:@"recoveryString"];
+        _salt = [coder decodeObjectOfClass:[NSString class] forKey:@"salt"];
+        _kind = [coder decodeInt32ForKey:@"kind"];
+    }
+    return self;
+}
+
+- (void)encodeWithCoder:(NSCoder *)coder {
+    [coder encodeObject:self.uuid forKey:@"uuid"];
+    [coder encodeObject:self.encryptionKey forKey:@"encryptionKey"];
+    [coder encodeObject:self.signingKey forKey:@"signingKey"];
+    [coder encodeObject:self.recoveryString forKey:@"recoveryString"];
+    [coder encodeObject:self.salt forKey:@"salt"];
+    [coder encodeInt32:self.kind forKey:@"kind"];
+}
+@end
+
+
+@implementation TrustedPeersHelperTLKRecoveryResult
+- (instancetype)initWithSuccessfulKeyUUIDs:(NSSet<NSString*>*)successfulKeysRecovered
+                   totalTLKSharesRecovered:(int64_t)totalTLKSharesRecovered
+                         tlkRecoveryErrors:(NSDictionary<NSString*, NSArray<NSError*>*>*)tlkRecoveryErrors
+{
+    if((self = [super init])) {
+        _successfulKeysRecovered = successfulKeysRecovered;
+        _totalTLKSharesRecovered = totalTLKSharesRecovered;
+        _tlkRecoveryErrors = tlkRecoveryErrors;
+    }
+    return self;
+}
+
+- (NSString*)description
+{
+    return [NSString stringWithFormat:@"<TLKRecoveryResult: %@ totalTLKSharesRecovered:%d>",
+            self.successfulKeysRecovered,
+            (int)self.totalTLKSharesRecovered];
+}
+
++ (BOOL)supportsSecureCoding {
+    return YES;
+}
+
+- (instancetype)initWithCoder:(NSCoder *)coder {
+    if ((self = [super init])) {
+        _successfulKeysRecovered = [coder decodeObjectOfClasses:[NSSet setWithArray:@[[NSSet class], [NSString class]]] forKey:@"keys"];
+        _totalTLKSharesRecovered = [coder decodeInt64ForKey:@"totalShares"];
+        _tlkRecoveryErrors = [coder decodeObjectOfClasses:[SecXPCHelper safeErrorClasses] forKey:@"errors"];
+    }
+    return self;
+}
+
+- (void)encodeWithCoder:(NSCoder *)coder {
+    [coder encodeObject:self.successfulKeysRecovered forKey:@"keys"];
+    [coder encodeInt64:self.totalTLKSharesRecovered forKey:@"totalShares"];
+    [coder encodeObject:self.tlkRecoveryErrors forKey:@"errors"];
+}
+@end
+

@@ -29,10 +29,6 @@ APR_DECLARE_OPTIONAL_FN(int, ssl_engine_disable, (conn_rec *));
 APR_DECLARE_OPTIONAL_FN(int, ssl_engine_set, (conn_rec *,
                                               ap_conf_vector_t *,
                                               int proxy, int enable));
-APR_DECLARE_OPTIONAL_FN(int, ssl_is_https, (conn_rec *));
-APR_DECLARE_OPTIONAL_FN(char *, ssl_var_lookup,
-                        (apr_pool_t *, server_rec *,
-                         conn_rec *, request_rec *, char *));
 #endif
 
 #ifndef MAX
@@ -314,7 +310,8 @@ static const char *set_worker_param(apr_pool_t *p,
         }
     }
     else if (!strcasecmp(key, "upgrade")) {
-        if (PROXY_STRNCPY(worker->s->upgrade, val) != APR_SUCCESS) {
+        if (PROXY_STRNCPY(worker->s->upgrade,
+                          strcasecmp(val, "ANY") ? val : "*") != APR_SUCCESS) {
             return apr_psprintf(p, "upgrade protocol length must be < %d characters",
                                 (int)sizeof(worker->s->upgrade));
         }
@@ -585,7 +582,7 @@ static int proxy_detect(request_rec *r)
     if (conf->req && r->parsed_uri.scheme) {
         /* but it might be something vhosted */
         if (!(r->parsed_uri.hostname
-              && !strcasecmp(r->parsed_uri.scheme, ap_http_scheme(r))
+              && !ap_cstr_casecmp(r->parsed_uri.scheme, ap_http_scheme(r))
               && ap_matches_request_vhost(r, r->parsed_uri.hostname,
                                           (apr_port_t)(r->parsed_uri.port_str ? r->parsed_uri.port
                                                        : ap_default_port(r))))) {
@@ -758,6 +755,15 @@ PROXY_DECLARE(int) ap_proxy_trans_match(request_rec *r, struct proxy_alias *ent,
     }
 
     if (found) {
+        /* A proxy module is assigned this URL, check whether it's interested
+         * in the request itself (e.g. proxy_wstunnel cares about Upgrade
+         * requests only, and could hand over to proxy_http otherwise).
+         */
+        int rc = proxy_run_check_trans(r, found + 6);
+        if (rc != OK && rc != DECLINED) {
+            return DONE;
+        }
+
         r->filename = found;
         r->handler = "proxy-server";
         r->proxyreq = PROXYREQ_REVERSE;
@@ -863,6 +869,7 @@ static int proxy_walk(request_rec *r)
             if (entry_proxy->refs && entry_proxy->refs->nelts) {
                 if (!rxpool) {
                     apr_pool_create(&rxpool, r->pool);
+                    apr_pool_tag(rxpool, "proxy_rxpool");
                 }
                 nmatch = entry_proxy->refs->nelts;
                 pmatch = apr_palloc(rxpool, nmatch*sizeof(ap_regmatch_t));
@@ -985,7 +992,7 @@ static int proxy_needsdomain(request_rec *r, const char *url, const char *domain
     /* If host does contain a dot already, or it is "localhost", decline */
     if (strchr(r->parsed_uri.hostname, '.') != NULL /* has domain, or IPv4 literal */
      || strchr(r->parsed_uri.hostname, ':') != NULL /* IPv6 literal */
-     || strcasecmp(r->parsed_uri.hostname, "localhost") == 0)
+     || ap_cstr_casecmp(r->parsed_uri.hostname, "localhost") == 0)
         return DECLINED;    /* host name has a dot already */
 
     ref = apr_table_get(r->headers_in, "Referer");
@@ -1192,9 +1199,9 @@ static int proxy_handler(request_rec *r)
                 if (strcmp(ents[i].scheme, "*") == 0 ||
                     (ents[i].use_regex &&
                      ap_regexec(ents[i].regexp, url, 0, NULL, 0) == 0) ||
-                    (p2 == NULL && strcasecmp(scheme, ents[i].scheme) == 0) ||
+                    (p2 == NULL && ap_cstr_casecmp(scheme, ents[i].scheme) == 0) ||
                     (p2 != NULL &&
-                    strncasecmp(url, ents[i].scheme,
+                    ap_cstr_casecmpn(url, ents[i].scheme,
                                 strlen(ents[i].scheme)) == 0)) {
 
                     /* handle the scheme */
@@ -1566,6 +1573,7 @@ static void *create_proxy_dir_config(apr_pool_t *p, char *dummy)
     new->raliases = apr_array_make(p, 10, sizeof(struct proxy_alias));
     new->cookie_paths = apr_array_make(p, 10, sizeof(struct proxy_alias));
     new->cookie_domains = apr_array_make(p, 10, sizeof(struct proxy_alias));
+    new->error_override_codes = apr_array_make(p, 10, sizeof(int));
     new->preserve_host_set = 0;
     new->preserve_host = 0;
     new->interpolate_env = -1; /* unset */
@@ -1577,6 +1585,11 @@ static void *create_proxy_dir_config(apr_pool_t *p, char *dummy)
     new->forward_100_continue_set = 0;
 
     return (void *) new;
+}
+
+static int int_order(const void *i1, const void *i2)
+{
+    return *(const int *)i1 - *(const int *)i2;
 }
 
 static void *merge_proxy_dir_config(apr_pool_t *p, void *basev, void *addv)
@@ -1596,6 +1609,17 @@ static void *merge_proxy_dir_config(apr_pool_t *p, void *basev, void *addv)
         = apr_array_append(p, base->cookie_paths, add->cookie_paths);
     new->cookie_domains
         = apr_array_append(p, base->cookie_domains, add->cookie_domains);
+    new->error_override_codes
+        = apr_array_append(p, base->error_override_codes, add->error_override_codes);
+    /* Keep the array sorted for binary search (since "base" and "add" are
+     * already sorted, it's only needed only if both are merged).
+     */
+    if (base->error_override_codes->nelts
+            && add->error_override_codes->nelts) {
+        qsort(new->error_override_codes->elts,
+              new->error_override_codes->nelts,
+              sizeof(int), int_order);
+    }
     new->interpolate_env = (add->interpolate_env == -1) ? base->interpolate_env
                                                         : add->interpolate_env;
     new->preserve_host = (add->preserve_host_set == 0) ? base->preserve_host
@@ -1701,7 +1725,7 @@ PROXY_DECLARE(const char *) ap_proxy_de_socketfy(apr_pool_t *p, const char *url)
      * We could be passed a URL during the config stage that contains
      * the UDS path... ignore it
      */
-    if (!strncasecmp(url, "unix:", 5) &&
+    if (!ap_cstr_casecmpn(url, "unix:", 5) &&
         ((ptr = ap_strchr_c(url, '|')) != NULL)) {
         /* move past the 'unix:...|' UDS path info */
         const char *ret, *c;
@@ -1864,15 +1888,41 @@ static const char *
         new->balancer = balancer;
     }
     else {
-        proxy_worker *worker = ap_proxy_get_worker(cmd->temp_pool, NULL, conf, ap_proxy_de_socketfy(cmd->pool, r));
+        proxy_worker *worker = ap_proxy_get_worker(cmd->temp_pool, NULL, conf, new->real);
         int reuse = 0;
         if (!worker) {
-            const char *err = ap_proxy_define_worker(cmd->pool, &worker, NULL, conf, r, 0);
+            const char *err;
+            if (use_regex) {
+                err = ap_proxy_define_match_worker(cmd->pool, &worker, NULL,
+                                                   conf, r, 0);
+            }
+            else {
+                err = ap_proxy_define_worker(cmd->pool, &worker, NULL,
+                                             conf, r, 0);
+            }
             if (err)
                 return apr_pstrcat(cmd->temp_pool, "ProxyPass ", err, NULL);
 
             PROXY_COPY_CONF_PARAMS(worker, conf);
-        } else {
+        }
+        else if ((use_regex != 0) ^ (worker->s->is_name_matchable != 0)) {
+            ap_log_error(APLOG_MARK, APLOG_WARNING, 0, cmd->server, APLOGNO(10249)
+                         "ProxyPass/<Proxy> and ProxyPassMatch/<ProxyMatch> "
+                         "can't be used altogether with the same worker "
+                         "name (%s); ignoring ProxyPass%s",
+                         worker->s->name, use_regex ? "Match" : "");
+            /* Rollback new alias */
+            if (cmd->path) {
+                dconf->alias = NULL;
+                dconf->alias_set = 0;
+            }
+            else {
+                memset(new, 0, sizeof(*new));
+                apr_array_pop(conf->aliases);
+            }
+            return NULL;
+        }
+        else {
             reuse = 1;
             ap_log_error(APLOG_MARK, APLOG_INFO, 0, cmd->server, APLOGNO(01145)
                          "Sharing worker '%s' instead of creating new worker '%s'",
@@ -2091,14 +2141,50 @@ static const char *
 }
 
 static const char *
-    set_proxy_error_override(cmd_parms *parms, void *dconf, int flag)
+    set_proxy_error_override(cmd_parms *parms, void *dconf, const char *arg)
 {
     proxy_dir_conf *conf = dconf;
 
-    conf->error_override = flag;
-    conf->error_override_set = 1;
+    if (strcasecmp(arg, "Off") == 0) {
+        conf->error_override = 0;
+        conf->error_override_set = 1;
+    }
+    else if (strcasecmp(arg, "On") == 0) {
+        conf->error_override = 1;
+        conf->error_override_set = 1;
+    }
+    else if (conf->error_override_set == 1) {
+        int *newcode;
+        int argcode, i;
+        if (!apr_isdigit(arg[0]))
+            return "ProxyErrorOverride: status codes to intercept must be numeric";
+        if (!conf->error_override) 
+            return "ProxyErrorOverride: status codes must follow a value of 'on'";
+
+        argcode = strtol(arg, NULL, 10);
+        if (!ap_is_HTTP_ERROR(argcode))
+            return "ProxyErrorOverride: status codes to intercept must be valid HTTP Status Codes >=400 && <600";
+
+        newcode = apr_array_push(conf->error_override_codes);
+        *newcode = argcode;
+
+        /* Keep the array sorted for binary search. */
+        for (i = conf->error_override_codes->nelts - 1; i > 0; --i) {
+            int *oldcode = &((int *)conf->error_override_codes->elts)[i - 1];
+            if (*oldcode <= argcode) {
+                break;
+            }
+            *newcode = *oldcode;
+            *oldcode = argcode;
+            newcode = oldcode;
+        }
+    }
+    else
+        return "ProxyErrorOverride first parameter must be one of: off | on";
+
     return NULL;
 }
+
 static const char *
    add_proxy_http_headers(cmd_parms *parms, void *dconf, int flag)
 {
@@ -2499,6 +2585,7 @@ static const char *proxysection(cmd_parms *cmd, void *mconfig, const char *arg)
     char *word, *val;
     proxy_balancer *balancer = NULL;
     proxy_worker *worker = NULL;
+    int use_regex = 0;
 
     const char *err = ap_check_cmd_context(cmd, NOT_IN_DIR_CONTEXT);
     proxy_server_conf *sconf =
@@ -2537,6 +2624,7 @@ static const char *proxysection(cmd_parms *cmd, void *mconfig, const char *arg)
         if (!r) {
             return "Regex could not be compiled";
         }
+        use_regex = 1;
     }
 
     /* initialize our config and fetch it */
@@ -2586,11 +2674,28 @@ static const char *proxysection(cmd_parms *cmd, void *mconfig, const char *arg)
             worker = ap_proxy_get_worker(cmd->temp_pool, NULL, sconf,
                                          ap_proxy_de_socketfy(cmd->temp_pool, (char*)conf->p));
             if (!worker) {
-                err = ap_proxy_define_worker(cmd->pool, &worker, NULL,
-                                          sconf, conf->p, 0);
+                if (use_regex) {
+                    err = ap_proxy_define_match_worker(cmd->pool, &worker, NULL,
+                                                       sconf, conf->p, 0);
+                }
+                else {
+                    err = ap_proxy_define_worker(cmd->pool, &worker, NULL,
+                                                 sconf, conf->p, 0);
+                }
                 if (err)
                     return apr_pstrcat(cmd->temp_pool, thiscmd->name,
                                        " ", err, NULL);
+            }
+            else if ((use_regex != 0) ^ (worker->s->is_name_matchable != 0)) {
+                ap_log_error(APLOG_MARK, APLOG_WARNING, 0, cmd->server, APLOGNO(10250)
+                             "ProxyPass/<Proxy> and ProxyPassMatch/<ProxyMatch> "
+                             "can't be used altogether with the same worker "
+                             "name (%s); ignoring <Proxy%s>",
+                             worker->s->name, use_regex ? "Match" : "");
+                /* Rollback new section */
+                ((void **)sconf->sec_proxy->elts)[sconf->sec_proxy->nelts - 1] = NULL;
+                apr_array_pop(sconf->sec_proxy);
+                goto cleanup;
             }
             if (!worker->section_config) {
                 worker->section_config = new_dir_conf;
@@ -2621,6 +2726,7 @@ static const char *proxysection(cmd_parms *cmd, void *mconfig, const char *arg)
         }
     }
 
+cleanup:
     cmd->path = old_path;
     cmd->override = old_overrides;
 
@@ -2668,7 +2774,7 @@ static const command_rec proxy_cmds[] =
      "The default intranet domain name (in absence of a domain in the URL)"),
     AP_INIT_TAKE1("ProxyVia", set_via_opt, NULL, RSRC_CONF,
      "Configure Via: proxy header header to one of: on | off | block | full"),
-    AP_INIT_FLAG("ProxyErrorOverride", set_proxy_error_override, NULL, RSRC_CONF|ACCESS_CONF,
+    AP_INIT_ITERATE("ProxyErrorOverride", set_proxy_error_override, NULL, RSRC_CONF|ACCESS_CONF,
      "use our error handling pages instead of the servers' we are proxying"),
     AP_INIT_FLAG("ProxyPreserveHost", set_preserve_host, NULL, RSRC_CONF|ACCESS_CONF,
      "on if we should preserve host header while proxying"),
@@ -2706,8 +2812,6 @@ static const command_rec proxy_cmds[] =
 static APR_OPTIONAL_FN_TYPE(ssl_proxy_enable) *proxy_ssl_enable = NULL;
 static APR_OPTIONAL_FN_TYPE(ssl_engine_disable) *proxy_ssl_disable = NULL;
 static APR_OPTIONAL_FN_TYPE(ssl_engine_set) *proxy_ssl_engine = NULL;
-static APR_OPTIONAL_FN_TYPE(ssl_is_https) *proxy_is_https = NULL;
-static APR_OPTIONAL_FN_TYPE(ssl_var_lookup) *proxy_ssl_val = NULL;
 
 PROXY_DECLARE(int) ap_proxy_ssl_enable(conn_rec *c)
 {
@@ -2757,23 +2861,14 @@ PROXY_DECLARE(int) ap_proxy_ssl_engine(conn_rec *c,
 
 PROXY_DECLARE(int) ap_proxy_conn_is_https(conn_rec *c)
 {
-    if (proxy_is_https) {
-        return proxy_is_https(c);
-    }
-    else
-        return 0;
+    return ap_ssl_conn_is_ssl(c);
 }
 
 PROXY_DECLARE(const char *) ap_proxy_ssl_val(apr_pool_t *p, server_rec *s,
                                              conn_rec *c, request_rec *r,
                                              const char *var)
 {
-    if (proxy_ssl_val) {
-        /* XXX Perhaps the casting useless */
-        return (const char *)proxy_ssl_val(p, s, c, r, (char *)var);
-    }
-    else
-        return NULL;
+    return ap_ssl_var_lookup(p, s, c, r, var);
 }
 
 static int proxy_post_config(apr_pool_t *pconf, apr_pool_t *plog,
@@ -2791,8 +2886,6 @@ static int proxy_post_config(apr_pool_t *pconf, apr_pool_t *plog,
     proxy_ssl_enable = APR_RETRIEVE_OPTIONAL_FN(ssl_proxy_enable);
     proxy_ssl_disable = APR_RETRIEVE_OPTIONAL_FN(ssl_engine_disable);
     proxy_ssl_engine = APR_RETRIEVE_OPTIONAL_FN(ssl_engine_set);
-    proxy_is_https = APR_RETRIEVE_OPTIONAL_FN(ssl_is_https);
-    proxy_ssl_val = APR_RETRIEVE_OPTIONAL_FN(ssl_var_lookup);
     ap_proxy_strmatch_path = apr_strmatch_precompile(pconf, "path=", 0);
     ap_proxy_strmatch_domain = apr_strmatch_precompile(pconf, "domain=", 0);
 
@@ -2963,12 +3056,13 @@ static void child_init(apr_pool_t *p, server_rec *s)
          */
         worker = (proxy_worker *)conf->workers->elts;
         for (i = 0; i < conf->workers->nelts; i++, worker++) {
-            ap_proxy_initialize_worker(worker, s, conf->pool);
+            ap_proxy_initialize_worker(worker, s, p);
         }
         /* Create and initialize forward worker if defined */
         if (conf->req_set && conf->req) {
             proxy_worker *forward;
-            ap_proxy_define_worker(p, &forward, NULL, NULL, "http://www.apache.org", 0);
+            ap_proxy_define_worker(conf->pool, &forward, NULL, NULL,
+                                   "http://www.apache.org", 0);
             conf->forward = forward;
             PROXY_STRNCPY(conf->forward->s->name,     "proxy:forward");
             PROXY_STRNCPY(conf->forward->s->hostname, "*"); /* for compatibility */
@@ -2982,12 +3076,13 @@ static void child_init(apr_pool_t *p, server_rec *s)
             conf->forward->s->status |= PROXY_WORKER_IGNORE_ERRORS;
             /* Mark as the "generic" worker */
             conf->forward->s->status |= PROXY_WORKER_GENERIC;
-            ap_proxy_initialize_worker(conf->forward, s, conf->pool);
+            ap_proxy_initialize_worker(conf->forward, s, p);
             /* Disable address cache for generic forward worker */
             conf->forward->s->is_address_reusable = 0;
         }
         if (!reverse) {
-            ap_proxy_define_worker(p, &reverse, NULL, NULL, "http://www.apache.org", 0);
+            ap_proxy_define_worker(conf->pool, &reverse, NULL, NULL,
+                                   "http://www.apache.org", 0);
             PROXY_STRNCPY(reverse->s->name,     "proxy:reverse");
             PROXY_STRNCPY(reverse->s->hostname, "*"); /* for compatibility */
             PROXY_STRNCPY(reverse->s->hostname_ex, "*");
@@ -3001,7 +3096,7 @@ static void child_init(apr_pool_t *p, server_rec *s)
             /* Mark as the "generic" worker */
             reverse->s->status |= PROXY_WORKER_GENERIC;
             conf->reverse = reverse;
-            ap_proxy_initialize_worker(conf->reverse, s, conf->pool);
+            ap_proxy_initialize_worker(conf->reverse, s, p);
             /* Disable address cache for generic reverse worker */
             reverse->s->is_address_reusable = 0;
         }
@@ -3082,6 +3177,7 @@ APR_HOOK_STRUCT(
     APR_HOOK_LINK(pre_request)
     APR_HOOK_LINK(post_request)
     APR_HOOK_LINK(request_status)
+    APR_HOOK_LINK(check_trans)
 )
 
 APR_IMPLEMENT_EXTERNAL_HOOK_RUN_FIRST(proxy, PROXY, int, scheme_handler,
@@ -3090,6 +3186,9 @@ APR_IMPLEMENT_EXTERNAL_HOOK_RUN_FIRST(proxy, PROXY, int, scheme_handler,
                                       char *url, const char *proxyhost,
                                       apr_port_t proxyport),(r,worker,conf,
                                       url,proxyhost,proxyport),DECLINED)
+APR_IMPLEMENT_EXTERNAL_HOOK_RUN_FIRST(proxy, PROXY, int, check_trans,
+                                      (request_rec *r, const char *url),
+                                      (r, url), DECLINED)
 APR_IMPLEMENT_EXTERNAL_HOOK_RUN_FIRST(proxy, PROXY, int, canon_handler,
                                       (request_rec *r, char *url),(r,
                                       url),DECLINED)

@@ -69,44 +69,36 @@
 #include <util.h>
 #include <syslog.h>
 
-int openpty(amaster, aslave, name, termp, winp)
-	int *amaster, *aslave;
-	char *name;
-	struct termios *termp;
-	struct winsize *winp;
+int openpty(int *aprimary, int *areplica, char *name, struct termios *termp, struct winsize *winp)
 {
-	int master, slave;
-	char sname[128];
+	int primary, replica;
+	char rname[128];
 
-	if ((master = posix_openpt(O_RDWR|O_NOCTTY)) < 0)
+	if ((primary = posix_openpt(O_RDWR|O_NOCTTY)) < 0)
 		return -1;
-	if (grantpt(master) < 0 || unlockpt(master) < 0
-	    || ptsname_r(master, sname, sizeof(sname)) == -1
-	    || (slave = open(sname, O_RDWR|O_NOCTTY, 0)) < 0) {
-		(void) close(master);
+	if (grantpt(primary) < 0 || unlockpt(primary) < 0
+	    || ptsname_r(primary, rname, sizeof(rname)) == -1
+	    || (replica = open(rname, O_RDWR|O_NOCTTY, 0)) < 0) {
+		(void) close(primary);
 		return -1;
 	}
-	*amaster = master;
-	*aslave = slave;
+	*aprimary = primary;
+	*areplica = replica;
 	if (name)
-		strcpy(name, sname);
+		strcpy(name, rname);
 	if (termp)
-		(void) tcsetattr(slave, TCSAFLUSH, termp);
+		(void) tcsetattr(replica, TCSAFLUSH, termp);
 	if (winp)
-		(void) ioctl(slave, TIOCSWINSZ, (char *)winp);
+		(void) ioctl(replica, TIOCSWINSZ, (char *)winp);
 	return (0);
 }
 
 int
-forkpty(amaster, name, termp, winp)
-	int *amaster;
-	char *name;
-	struct termios *termp;
-	struct winsize *winp;
+forkpty(int *aprimary, char *name, struct termios *termp, struct winsize *winp)
 {
-	int master, slave, pid;
+	int primary, replica, pid;
 
-	if (openpty(&master, &slave, name, termp, winp) == -1)
+	if (openpty(&primary, &replica, name, termp, winp) == -1)
 		return (-1);
 	switch (pid = fork()) {
 	case -1:
@@ -115,26 +107,26 @@ forkpty(amaster, name, termp, winp)
 		/* 
 		 * child
 		 */
-		(void) close(master);
+		(void) close(primary);
 		/*
 		 * 4300297: login_tty() may fail to set the controlling tty.
 		 * Since we have already forked, the best we can do is to 
-		 * dup the slave as if login_tty() succeeded.
+		 * dup the replica as if login_tty() succeeded.
 		 */
-		if (login_tty(slave) < 0) {
+		if (login_tty(replica) < 0) {
 			syslog(LOG_ERR, "forkpty: login_tty could't make controlling tty");
-			(void) dup2(slave, 0);
-			(void) dup2(slave, 1);
-			(void) dup2(slave, 2);
-			if (slave > 2)
-				(void) close(slave);
+			(void) dup2(replica, 0);
+			(void) dup2(replica, 1);
+			(void) dup2(replica, 2);
+			if (replica > 2)
+				(void) close(replica);
 		}
 		return (0);
 	}
 	/*
 	 * parent
 	 */
-	*amaster = master;
-	(void) close(slave);
+	*aprimary = primary;
+	(void) close(replica);
 	return (pid);
 }

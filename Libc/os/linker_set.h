@@ -84,6 +84,7 @@
 # include <mach-o/getsect.h>
 # include <mach-o/loader.h>
 # include <mach-o/dyld.h>
+# include <mach-o/dyld_priv.h>
 # include <crt_externs.h>
 
 # if __LP64__
@@ -209,20 +210,7 @@ static __inline intptr_t
 __linker_get_slide(struct mach_header *_header)
 {
 #ifndef KERNEL
-	/*
-	 * Gross.
-	 *
-	 * We cannot get the image slide directly from the header, so we need to
-	 * determine the image's index and ask for the slide of that index.
-	 */
-	uint32_t i = 0;
-	for (i = 0; i < _dyld_image_count(); i++) {
-		const struct mach_header *hdr = _dyld_get_image_header(i);
-		if (_header == hdr) {
-			return _dyld_get_image_vmaddr_slide(i);
-		}
-	}
-	return 0;
+	return _dyld_get_image_slide(_header);
 #else
 	(void)_header;
 	return 0;

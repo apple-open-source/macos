@@ -57,6 +57,9 @@ dtrace_subrstr(dtrace_hdl_t *dtp, int subr)
 	case DIF_SUBR_INET_NTOA6: return ("inet_ntoa6");
 	case DIF_SUBR_KDEBUG_TRACE: return ("kdebug_trace");
 	case DIF_SUBR_KDEBUG_TRACE_STRING: return ("kdebug_trace_string");
+#if defined(DIF_SUBR_LIVEDUMP)
+	case DIF_SUBR_LIVEDUMP: return ("livedump");
+#endif /* defined(DIF_SUBR_LIVEDUMP) */
 	default: return ("unknown");
 	}
 }

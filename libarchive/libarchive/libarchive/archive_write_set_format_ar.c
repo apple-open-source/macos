@@ -42,6 +42,7 @@ __FBSDID("$FreeBSD: head/lib/libarchive/archive_write_set_format_ar.c 201108 200
 #include "archive_entry.h"
 #include "archive_private.h"
 #include "archive_write_private.h"
+#include "archive_write_set_format_private.h"
 
 struct ar_w {
 	uint64_t	 entry_bytes_remaining;
@@ -180,16 +181,21 @@ archive_write_ar_header(struct archive_write *a, struct archive_entry *entry)
 	}
 
 	memset(buff, ' ', 60);
-	strncpy(&buff[AR_fmag_offset], "`\n", 2);
+	memcpy(&buff[AR_fmag_offset], "`\n", 2);
 
 	if (strcmp(pathname, "/") == 0 ) {
 		/* Entry is archive symbol table in GNU format */
 		buff[AR_name_offset] = '/';
 		goto stat;
 	}
+	if (strcmp(pathname, "/SYM64/") == 0) {
+		/* Entry is archive symbol table in GNU 64-bit format */
+		memcpy(buff + AR_name_offset, "/SYM64/", 7);
+		goto stat;
+	}
 	if (strcmp(pathname, "__.SYMDEF") == 0) {
 		/* Entry is archive symbol table in BSD format */
-		strncpy(buff + AR_name_offset, "__.SYMDEF", 9);
+		memcpy(buff + AR_name_offset, "__.SYMDEF", 9);
 		goto stat;
 	}
 	if (strcmp(pathname, "//") == 0) {
@@ -225,7 +231,7 @@ archive_write_ar_header(struct archive_write *a, struct archive_entry *entry)
 		 * actually 15 bytes.
 		 */
 		if (strlen(filename) <= 15) {
-			strncpy(&buff[AR_name_offset], 
+			memcpy(&buff[AR_name_offset],
 			    filename, strlen(filename));
 			buff[AR_name_offset + strlen(filename)] = '/';
 		} else {
@@ -248,7 +254,7 @@ archive_write_ar_header(struct archive_write *a, struct archive_entry *entry)
 				return (ARCHIVE_FATAL);
 			}
 
-			strncpy(se, filename, strlen(filename));
+			memcpy(se, filename, strlen(filename));
 			strcpy(se + strlen(filename), "/\n");
 
 			ss = strstr(ar->strtab, se);
@@ -285,11 +291,11 @@ archive_write_ar_header(struct archive_write *a, struct archive_entry *entry)
 		 * archive header.
 		 */
 		if (strlen(filename) <= 16 && strchr(filename, ' ') == NULL) {
-			strncpy(&buff[AR_name_offset], filename, strlen(filename));
+			memcpy(&buff[AR_name_offset], filename, strlen(filename));
 			buff[AR_name_offset + strlen(filename)] = ' ';
 		}
 		else {
-			strncpy(buff + AR_name_offset, "#1/", 3);
+			memcpy(buff + AR_name_offset, "#1/", 3);
 			if (format_decimal(strlen(filename),
 			    buff + AR_name_offset + 3,
 			    AR_name_size - 3)) {
@@ -374,13 +380,14 @@ archive_write_ar_data(struct archive_write *a, const void *buff, size_t s)
 			return (ARCHIVE_WARN);
 		}
 
-		ar->strtab = (char *)malloc(s);
+		ar->strtab = (char *)malloc(s + 1);
 		if (ar->strtab == NULL) {
 			archive_set_error(&a->archive, ENOMEM,
 			    "Can't allocate strtab buffer");
 			return (ARCHIVE_FATAL);
 		}
-		strncpy(ar->strtab, buff, s);
+		memcpy(ar->strtab, buff, s);
+		ar->strtab[s] = '\0';
 		ar->has_strtab = 1;
 	}
 

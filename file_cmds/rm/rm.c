@@ -180,6 +180,7 @@ void
 rm_tree(argv)
 	char **argv;
 {
+	errno_t dir_errno = -1;
 	FTS *fts;
 	FTSENT *p;
 	int needstat;
@@ -304,6 +305,22 @@ rm_tree(argv)
 						    p->fts_path);
 					continue;
 				}
+
+				if (rval == -1) {
+					if (p->fts_info == FTS_DP && errno == ENOTEMPTY && (dir_errno == EACCES || dir_errno == -1)) {
+						/*
+						 * If we reach this point, it means that we either failed to
+						 * delete an entry because of a permission error,
+						 * Or because we couldn't even list the dir entities.
+						 * This case should be EACCES.
+						 */
+						errno = EACCES;
+					}
+
+					if ((dir_errno == -1) || (dir_errno == EACCES))
+						dir_errno = errno;
+				}
+
 				break;
 
 			case FTS_W:
@@ -333,6 +350,10 @@ rm_tree(argv)
 						(void)printf("%s\n",
 						    p->fts_path);
 					continue;
+				}
+				if (rval == -1) {
+					if ((dir_errno == -1) || (dir_errno == EACCES))
+						dir_errno = errno;
 				}
 			}
 		}

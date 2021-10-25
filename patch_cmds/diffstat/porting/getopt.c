@@ -1,7 +1,12 @@
+/* $Id: getopt.c,v 4.2 2013/10/25 22:08:08 tom Exp $ */
+
 /* ::[[ @(#) getopt.c 1.5 89/03/11 05:40:23 ]]:: */
+
+/*
 #ifndef LINT
-static const char Id[] = "$Id: getopt.c,v 1.2 2009/09/01 00:41:59 tom Exp $";
+static char sccsid[]="::[[ @(#) getopt.c 1.5 89/03/11 05:40:23 ]]::";
 #endif
+*/
 
 /*
  * Here's something you've all been waiting for:  the AT&T public domain
@@ -25,55 +30,56 @@ static const char Id[] = "$Id: getopt.c,v 1.2 2009/09/01 00:41:59 tom Exp $";
 
 #include <stdio.h>
 #include <string.h>
+#include <getopt.h>
 
 #define ERR(szz,czz) if(opterr){fprintf(stderr,"%s%s%c\n",argv[0],szz,czz);}
 
-int opterr = 1;
-int optind = 1;
-int optopt;
-char *optarg;
+int   opterr = 1;
+int   optind = 1;
+int   optopt;
+char  *optarg;
 
 int
-getopt(int argc, char *const *argv, const char *opts)
+getopt(int argc, char **argv, const char *opts)
 {
-    static int sp = 1;
-    register int c;
-    register char *cp;
+   static int sp = 1;
+   register int c;
+   register char *cp;
 
-    if (sp == 1) {
-	if (optind >= argc ||
-	    argv[optind][0] != '-' || argv[optind][1] == '\0')
-	    return (EOF);
-	else if (strcmp(argv[optind], "--") == 0) {
-	    optind++;
-	    return (EOF);
-	}
-    }
-    optopt = c = argv[optind][sp];
-    if (c == ':' || (cp = strchr(opts, c)) == NULL) {
-	ERR(": illegal option -- ", c);
-	if (argv[optind][++sp] == '\0') {
-	    optind++;
-	    sp = 1;
-	}
-	return ('?');
-    }
-    if (*++cp == ':') {
-	if (argv[optind][sp + 1] != '\0')
-	    optarg = &argv[optind++][sp + 1];
-	else if (++optind >= argc) {
-	    ERR(": option requires an argument -- ", c);
-	    sp = 1;
-	    return ('?');
-	} else
-	    optarg = argv[optind++];
-	sp = 1;
-    } else {
-	if (argv[optind][++sp] == '\0') {
-	    sp = 1;
-	    optind++;
-	}
-	optarg = NULL;
-    }
-    return (c);
+   if(sp == 1) {
+      if(optind >= argc ||
+         argv[optind][0] != '-' || argv[optind][1] == '\0')
+         return(EOF);
+      else if(strcmp(argv[optind], "--") == 0) {
+         optind++;
+         return(EOF);
+      }
+   }
+   optopt = (c = argv[optind][sp]);
+   if(c == ':' || (cp=strchr(opts, c)) == NULL) {
+      ERR(": illegal option -- ", c);
+      if(argv[optind][++sp] == '\0') {
+         optind++;
+         sp = 1;
+      }
+      return('?');
+   }
+   if(*++cp == ':') {
+      if(argv[optind][sp+1] != '\0')
+         optarg = &argv[optind++][sp+1];
+      else if(++optind >= argc) {
+         ERR(": option requires an argument -- ", c);
+         sp = 1;
+         return('?');
+      } else
+         optarg = argv[optind++];
+      sp = 1;
+   } else {
+      if(argv[optind][++sp] == '\0') {
+         sp = 1;
+         optind++;
+      }
+      optarg = NULL;
+   }
+   return(c);
 }

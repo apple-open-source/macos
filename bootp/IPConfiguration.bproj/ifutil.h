@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2020 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2021 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -141,6 +141,11 @@ inet6_router_and_prefix_count(int if_index, int * ret_prefix_count);
 
 boolean_t
 inet6_has_nat64_prefixlist(const char * if_name);
+
+boolean_t
+inet6_set_nat64_prefixlist(const char * ifname, struct in6_addr * prefix_list,
+			   uint8_t * prefix_length_list,
+			   int list_count);
 
 int
 inet6_clat46_start(const char * if_name);

@@ -251,7 +251,6 @@ protected:
     IOLock *              _assertionLock;
     AbsoluteTime          _assertionTime;
 #endif /* TARGET_OS_OSX */
-    OSMallocTag           _iostorageMallocTag;
 ///w:stop
 
 public:
@@ -284,7 +283,6 @@ public:
     void                  lockAssertion();
     void                  unlockAssertion();
 #endif /* TARGET_OS_OSX */
-    OSMallocTag           getIOStorageMallocTag();
 ///w:stop
 };
 
@@ -566,7 +564,7 @@ bool IOMediaBSDClient::createNodes(IOMedia * media)
     // Allocate space for and build the slice path for the device node names.
     //
 
-    slicePath = (char *) IOMalloc(slicePathSize);
+    slicePath = (char *) IOMallocData(slicePathSize);
     if ( slicePath == 0 )  goto createNodesErr;
 
     whole = getWholeMedia(media, &slicePathSize, slicePath);
@@ -597,14 +595,14 @@ bool IOMediaBSDClient::createNodes(IOMedia * media)
     // Clean up outstanding resources.
     //
 
-    IOFree(slicePath, slicePathSize);
+    IOFreeData(slicePath, slicePathSize);
 
     return true; // (success)
 
 createNodesErr:
 
     if (anchorNew)  anchors->remove(anchorID);
-    if (slicePath)  IOFree(slicePath, slicePathSize);
+    if (slicePath)  IOFreeData(slicePath, slicePathSize);
 
     return false; // (failure)
 }
@@ -1746,7 +1744,7 @@ int dkioctl(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc)
                 if ( request.capacities == 0 )  { error = EINVAL;  break; }
 
                 capacitiesCount = min(capacitiesCount, capacitiesMaxCount);
-                capacities      = IONew(UInt64, capacitiesCount);
+                capacities      = (UInt64 *) IOMallocData(sizeof(UInt64) * capacitiesCount);
 
                 if ( capacities == 0 )  { error = ENOMEM;  break; }
                 bzero( capacities, sizeof(UInt64) * capacitiesCount );
@@ -1781,7 +1779,7 @@ int dkioctl(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc)
                     if ( error )  break;
                 }
 
-                IODelete(capacities, UInt64, capacitiesCount);
+                IOFreeData(capacities, sizeof(UInt64) * capacitiesCount);
 
                 if ( capacitiesCount < capacitiesMaxCount )  { error = E2BIG; }
             } else {
@@ -1862,7 +1860,6 @@ int dkioctl(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc)
             dk_unmap_32_t *   request32;
             dk_unmap_64_t *   request64;
             IOReturn          status;
-            OSMallocTag       iostorageTag          = gIOMediaBSDClientGlobals.getIOStorageMallocTag();
 
             assert(sizeof(dk_extent_t) == sizeof(IOStorageExtent));
 
@@ -1909,8 +1906,7 @@ int dkioctl(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc)
             {
             
                 // Attempt to allocate the extents.
-                extents = ( IOStorageExtent * ) OSMalloc_noblock ( extentsNumBytesTotal, iostorageTag );
-
+                extents = ( IOStorageExtent * ) kalloc_data ( extentsNumBytesTotal, Z_NOWAIT); 
                 if ( extents == 0 )
                 {
                     
@@ -1991,7 +1987,7 @@ int dkioctl(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc)
 
             if ( extents != extentsArray )
             {
-                OSFree ( ( void * ) extents, request.extentsCount * sizeof ( IOStorageExtent ), iostorageTag );
+                kfree_data ( extents, request.extentsCount * sizeof ( IOStorageExtent ));
             }
 
         } break;
@@ -2013,7 +2009,7 @@ int dkioctl(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc)
             extentsCount = min ( extentsCount,  MAX_PROVISION_EXTENTS_COUNT );
             request->extentsCount = extentsCount;
 
-            extents = IONew(IOStorageProvisionExtent, request->extentsCount);
+            extents = (IOStorageProvisionExtent *) IONewData(IOStorageProvisionExtent, request->extentsCount);
             if ( extents == 0 )  { error = ENOMEM;  break; }
 
             bzero ( extents, sizeof(IOStorageProvisionExtent)*request->extentsCount);
@@ -2050,7 +2046,7 @@ int dkioctl(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc)
                 error = minor->media->errnoFromReturn(status);
             }
 
-            IODelete(extents, IOStorageProvisionExtent, extentsCount);
+            IODeleteData(extents, IOStorageProvisionExtent, extentsCount);
 
         } break;
 
@@ -2115,6 +2111,7 @@ int dkioctl(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc)
             //
             // This ioctl returns a string describing errors
             //
+#define kNVMeFormatErrorCodeKey               "Format Error Detail"
 #define kNVMeFatalErrorCodeKey                "Fatal Error Code"
 #define kIOSATAQueueManagerTerminateReasonKey  "Terminate Reason"
 
@@ -2122,10 +2119,15 @@ int dkioctl(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc)
             char * p = ((dk_error_description_t *)data)->description;
             OSObject  * obj;
             OSString  * str;
-
-            obj = minor->media->copyProperty(kNVMeFatalErrorCodeKey, gIOServicePlane);
+            
+            obj = minor->media->copyProperty(kNVMeFormatErrorCodeKey, gIOServicePlane);
             if (!obj)
-                obj = minor->media->copyProperty(kIOSATAQueueManagerTerminateReasonKey, gIOServicePlane);
+            {
+                obj = minor->media->copyProperty(kNVMeFatalErrorCodeKey, gIOServicePlane);
+                if (!obj)
+                    obj = minor->media->copyProperty(kIOSATAQueueManagerTerminateReasonKey, gIOServicePlane);
+            }
+
             if ((str = OSDynamicCast(OSString, obj)))
                 strlcpy(p, str->getCStringNoCopy(), l);
             else
@@ -2590,7 +2592,7 @@ int dkioctl_bdev(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc)
 
             if ( request.extents == 0 )  { error = EINVAL;  break; }
 
-            extents = IONew(IOStorageExtent, request.extentsCount);
+            extents = (IOStorageExtent *) IONewData(IOStorageExtent, request.extentsCount);
 
             if ( extents == 0 )  { error = ENOMEM;  break; }
 
@@ -2617,7 +2619,7 @@ int dkioctl_bdev(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc)
                 error = minor->media->errnoFromReturn(status);
             }
 
-            IODelete(extents, IOStorageExtent, request.extentsCount);
+            IODeleteData(extents, IOStorageExtent, request.extentsCount);
 
         } break;
 
@@ -3099,12 +3101,20 @@ int dkreadwrite(dkr_t dkr, dkrtype_t dkrtype)
         dkreadwritecompletion(dkr, (void *)dkrtype, status, byteCount);
     }
 
+    if ( ( minor == NULL ) || ( minor->media == NULL ) )
+    {
+        return ENXIO;
+    }
     return minor->media->errnoFromReturn(status);       // (return error status)
 
 dkreadwriteErr:
 
     dkreadwritecompletion(dkr, (void *)dkrtype, status, 0);
 
+    if ( ( minor == NULL ) || ( minor->media == NULL ) )
+    {
+        return ENXIO;
+    }
     return minor->media->errnoFromReturn(status);       // (return error status)
 }
 
@@ -3547,7 +3557,7 @@ UInt32 MinorTable::insert( IOMedia *          media,
     for (unsigned temp = anchorID; temp >= 10; temp /= 10)  minorNameSize++;
     minorNameSize += strlen(slicePath);
     minorNameSize += 1;
-    minorName = IONew(char, minorNameSize);
+    minorName = (char *) IOMallocData(sizeof(char) * minorNameSize);
 
     // Create a block and character device node in BSD for this media.
 
@@ -3583,7 +3593,7 @@ UInt32 MinorTable::insert( IOMedia *          media,
     {
         if ( cdevNode )   devfs_remove(cdevNode);
         if ( bdevNode )   devfs_remove(bdevNode);
-        if ( minorName )  IODelete(minorName, char, minorNameSize);
+        if ( minorName )  IOFreeData(minorName, sizeof(char) * minorNameSize);
 
         return kInvalidMinorID;
     }
@@ -3663,7 +3673,7 @@ void MinorTable::remove(UInt32 minorID)
 
     devfs_remove(_table[minorID].cdevNode);
     devfs_remove(_table[minorID].bdevNode);
-    IODelete(_table[minorID].name, char, strlen(_table[minorID].name) + 1);
+    IOFreeData(_table[minorID].name, sizeof(char) * (unsigned long)strlen(_table[minorID].name) + 1);
     _table[minorID].client->release();             // (release client)
     _table[minorID].media->release();              // (release media)
 
@@ -3711,7 +3721,7 @@ UInt32 MinorTable::update( IOMedia *          media,
     for (unsigned temp = anchorID; temp >= 10; temp /= 10)  minorNameSize++;
     minorNameSize += strlen(slicePath);
     minorNameSize += 1;
-    minorName = IONew(char, minorNameSize);
+    minorName = (char *) IOMallocData(sizeof(char) * minorNameSize);
 
     if ( minorName == 0 )  return kInvalidMinorID;
 
@@ -3731,7 +3741,7 @@ UInt32 MinorTable::update( IOMedia *          media,
              strcmp(_table[minorID].name, minorName) == 0        )  break;
     }
 
-    IODelete(minorName, char, minorNameSize);
+    IOFreeData(minorName, sizeof(char) * minorNameSize);
 
     if ( minorID == _tableCount )  return kInvalidMinorID;
 
@@ -3916,8 +3926,6 @@ IOMediaBSDClientGlobals::IOMediaBSDClientGlobals()
     _assertionID   = kIOPMUndefinedDriverAssertionID;
     _assertionLock = IOLockAlloc();
 #endif /* TARGET_OS_OSX */
-    // Alloc tag before bdevsw and cdevsw hook-ups.
-    _iostorageMallocTag = OSMalloc_Tagalloc ( "com.apple.iokit.iostoragefamily", 0 );
 ///w:stop
 }
 
@@ -3940,8 +3948,6 @@ IOMediaBSDClientGlobals::~IOMediaBSDClientGlobals()
 
     if ( _minors )                      delete _minors;
     if ( _anchors )                     delete _anchors;
-    if ( _iostorageMallocTag )          OSMalloc_Tagfree(_iostorageMallocTag);
-    _iostorageMallocTag = NULL;
 }
 
 AnchorTable * IOMediaBSDClientGlobals::getAnchors()
@@ -3996,8 +4002,7 @@ bool IOMediaBSDClientGlobals::isValid()
 #endif /* TARGET_OS_OSX */
 ///w:stop
            ( _openLock                   ) &&
-           ( _stateLock                  ) &&
-           ( _iostorageMallocTag         );
+           ( _stateLock                  );
 }
 
 void IOMediaBSDClientGlobals::lockOpen()
@@ -4036,10 +4041,6 @@ void IOMediaBSDClientGlobals::unlockState()
     IOLockUnlock(_stateLock);
 }
 
-OSMallocTag IOMediaBSDClientGlobals::getIOStorageMallocTag()
-{
-    return _iostorageMallocTag;
-}
 ///w:start
 #if TARGET_OS_OSX
 thread_call_t IOMediaBSDClientGlobals::getAssertionCall()

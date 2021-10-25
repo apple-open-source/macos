@@ -106,7 +106,8 @@ int PersonalizeOSVolume(BLContextPtr context, const char *volumePath, const char
 		rootsURL = [[NSURL fileURLWithFileSystemRepresentation:tmpLoc isDirectory:YES relativeToURL:nil] URLByAppendingPathComponent:@"roots"];
 		
 		options = [NSMutableDictionary dictionary];
-		[options setObject:[NSNumber numberWithBool:YES] forKey:OSPersonalizationOptionUseRunningDeviceIdentity];
+		[options setObject:@YES forKey:OSPersonalizationOptionUseRunningDeviceIdentity];
+		[options setObject:@NO forKey:OSPersonalizationOptionPreferBuildManifest];
 		if (suppressACPrompt) [options setObject:[NSNumber numberWithBool:NO] forKey:OSPersonalizationOptionShowUI];
 		if (prFile) {
 			prOptions = [NSDictionary dictionaryWithContentsOfFile:[NSString stringWithUTF8String:prFile]];

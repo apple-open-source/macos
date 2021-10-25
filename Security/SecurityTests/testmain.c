@@ -30,7 +30,8 @@ int main(int argc, char *argv[])
 #if 0 && NO_SERVER
     SOSCloudKeychainServerInit();
 #endif
-    
+
+#if TARGET_OS_IPHONE
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
         int result = tests_begin(argc, argv);
 
@@ -45,4 +46,14 @@ int main(int argc, char *argv[])
     CFRunLoopRun();
 
     return 0;
+#else
+    int result = tests_begin(argc, argv);
+
+    fflush(stdout);
+    fflush(stderr);
+
+    sleep(1);
+
+    return result;
+#endif
 }

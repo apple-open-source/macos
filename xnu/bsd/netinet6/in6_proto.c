@@ -295,7 +295,6 @@ struct ip6protosw inet6sw[] = {
 		.pr_input =             encap6_input,
 		.pr_output =            rip6_pr_output,
 		.pr_ctloutput =         rip6_ctloutput,
-		.pr_init =              encap6_init,
 		.pr_usrreqs =           &rip6_usrreqs,
 		.pr_unlock =            rip_unlock,
 		.pr_update_last_owner = inp_update_last_owner,
@@ -309,7 +308,6 @@ struct ip6protosw inet6sw[] = {
 		.pr_input =             encap6_input,
 		.pr_output =            rip6_pr_output,
 		.pr_ctloutput =         rip6_ctloutput,
-		.pr_init =              encap6_init,
 		.pr_usrreqs =           &rip6_usrreqs,
 		.pr_unlock =            rip_unlock,
 		.pr_update_last_owner = inp_update_last_owner,
@@ -417,7 +415,7 @@ rip6_pr_output(struct mbuf *m, struct socket *so, struct sockaddr_in6 *sin6,
     struct mbuf *m1)
 {
 #pragma unused(m, so, sin6, m1)
-	panic("%s\n", __func__);
+	panic("%s", __func__);
 	/* NOTREACHED */
 	return 0;
 }

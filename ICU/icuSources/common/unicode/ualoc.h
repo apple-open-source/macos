@@ -106,6 +106,69 @@ ualoc_getLanguagesForRegion(const char *regionID, double minimumFraction,
                             UALanguageEntry *entries, int32_t entriesCapacity,
                             UErrorCode *err);
 
+/**
+ * UAREGIONDATA_CODELEN is the maximum length of a region code
+ * in the UARegionEntry struct. (This should be the same as ULOC_COUNTRY_CAPACITY, which
+ * is in a header we don't want to include here.)
+ * @draft ICU 68
+ */
+#define UAREGIONDATA_CODELEN 4
+
+/**
+ * The UARegionEntry structure provides information about
+ * one of the languages for a specified region.
+ * @draft ICU 68
+ */
+typedef struct {
+    char regionCode[UAREGIONDATA_CODELEN];  /**< region code
+                                                @draft ICU 68 */
+    double userFraction;      /**< fraction of region's population (from 0.0 to 1.0) that
+                                uses this language (not necessarily as a first language).
+                                This may be 0.0 if the fraction is known to be very small.
+                                @draft ICU 68 */
+    UALanguageStatus status;  /**< status of the language, if any.
+                                @draft ICU 68 */
+} UARegionEntry;
+
+/**
+ * Fills out a provided UARegionEntry entry with information about the regions where the spceified
+ * language is spoken.
+ *
+ * @param languageID
+ *          The specified language ID.  This can be a two- or three-character language ID,
+ *          or a combination of language and script IDs.
+ * @param minimumFraction
+ *          The minimum fraction of language users for a region to be included
+ *          in the UARegionEntry array. Must be in the range 0.0 to 1.0; set to
+ *          0.0 if no minimum threshold is desired.
+ * @param entries
+ *          Caller-provided array of UARegionEntry elements. This will be filled
+ *          out with information for regions for which the specified language meets
+ *          the minimumFraction threshold, sorted in descending order by
+ *          userFraction, up to the number of elements specified by entriesCapacity
+ *          (so the number of languages for which data is provided can be limited by
+ *          total count, by userFraction, or both).
+ *          Preflight option: You may set this to NULL (and entriesCapacity to 0)
+ *          to just obtain a count of all of the languages that meet the specified
+ *          minimumFraction, without actually getting data for any of them.
+ * @param entriesCapacity
+ *          The number of elements in the provided entries array. Must be 0 if
+ *          entries is NULL (preflight option).
+ * @param status
+ *          A pointer to a UErrorCode to receive any errors, for example
+ *          U_MISSING_RESOURCE_ERROR if there is no data available for the
+ *          specified region.
+ * @return
+ *          The number of elements in entries filled out with data, or if
+ *          entries is NULL and entriesCapacity is 0 (preflight option ), the total
+ *          number of languages for the specified region that meet the minimumFraction
+ *          threshold.
+ * @draft ICU 68
+ */
+U_DRAFT int32_t U_EXPORT2
+ualoc_getRegionsForLanguage(const char *languageID, double minimumFraction,
+                            UARegionEntry *entries, int32_t entriesCapacity,
+                            UErrorCode *err);
 
 /**
  * Gets the desired lproj parent locale ID for the specified locale,

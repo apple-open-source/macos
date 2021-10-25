@@ -81,7 +81,7 @@ typedef struct IOHIDEventData IOHIDEventData;
 #endif
 
 #ifndef _IOKIT_HID_IOHIDEVENT_H
-typedef struct __IOHIDEvent *IOHIDEventRef;
+typedef struct CF_BRIDGED_TYPE(id) __IOHIDEvent *IOHIDEventRef;
 
 typedef void (*IOHIDEventCallback)(void * _Nullable target,
                                    void * _Nullable refcon,
@@ -94,9 +94,9 @@ typedef void (*IOHIDEventCallback)(void * _Nullable target,
  * IOHIDService forward declares
  */
 #ifndef _IOKIT_HID_HIDTYPES_H
-typedef struct __IOHIDService *IOHIDServiceRef;
-typedef struct __IOHIDSession *IOHIDSessionRef;
-typedef const struct __IOHIDNotification *IOHIDNotificationRef;
+typedef struct CF_BRIDGED_TYPE(id) __IOHIDService *IOHIDServiceRef;
+typedef struct CF_BRIDGED_TYPE(id) __IOHIDSession *IOHIDSessionRef;
+typedef const struct CF_BRIDGED_TYPE(id) __IOHIDNotification *IOHIDNotificationRef;
 #endif
 
 #ifndef _IOKIT_HID_IOHIDSERVICEPLUGIN_H_
@@ -124,22 +124,22 @@ typedef struct __IOHIDSessionQueueContext __IOHIDSessionQueueContext;
  * IOHIDSession forward declares
  */
 #ifndef _IOKIT_HID_IOHIDEVENTSYSTEM_H
-typedef struct __IOHIDEventSystem *IOHIDEventSystemRef;
+typedef struct CF_BRIDGED_TYPE(id) __IOHIDEventSystem *IOHIDEventSystemRef;
 #endif
 
 /*
  * IOHIDConnection forward declares
  */
 #ifndef _IOKIT_HID_CONNECTION_FILTER_H
-typedef struct  __IOHIDConnectionFilter *IOHIDConnectionFilterRef;
+typedef struct CF_BRIDGED_TYPE(id) __IOHIDConnectionFilter *IOHIDConnectionFilterRef;
 #endif
 
 #ifndef _IOKIT_HID_IOHIDEVENTQUEUE_H
-typedef struct __IOHIDEventQueue *IOHIDEventQueueRef;
+typedef struct CF_BRIDGED_TYPE(id) __IOHIDEventQueue *IOHIDEventQueueRef;
 #endif
 
 #ifndef _IOKIT_HID_IOHIDEVENTSYSTEM_CONNECTION_H
-typedef struct __IOHIDEventSystemConnection *IOHIDEventSystemConnectionRef;
+typedef struct CF_BRIDGED_TYPE(id) __IOHIDEventSystemConnection *IOHIDEventSystemConnectionRef;
 #endif
 
 #ifndef _IOKIT_HID_IOHIDEVENTSYSTEM_CONNECTION_PRIVATE_H
@@ -159,9 +159,9 @@ typedef struct IOHIDDeviceTimeStampedDeviceInterface IOHIDDeviceTimeStampedDevic
 #endif
 
 #ifndef _IOKIT_HID_IOHIDBASE_H_
-typedef struct __IOHIDDevice *IOHIDDeviceRef;
-typedef struct __IOHIDElement *IOHIDElementRef;
-typedef struct __IOHIDValue *IOHIDValueRef;
+typedef struct CF_BRIDGED_TYPE(id) __IOHIDDevice *IOHIDDeviceRef;
+typedef struct CF_BRIDGED_TYPE(id) __IOHIDElement *IOHIDElementRef;
+typedef struct CF_BRIDGED_TYPE(id) __IOHIDValue *IOHIDValueRef;
 #endif
 
 #ifndef _IOKIT_IOHIDLibUserClient_H_
@@ -173,11 +173,11 @@ typedef struct IOHIDElementStruct IOHIDElementStruct;
  * IOHIDServiceClient forward declares
  */
 #ifndef IOHIDEventSystemClient_h
-typedef struct __IOHIDEventSystemClient *IOHIDEventSystemClientRef;
+typedef struct CF_BRIDGED_TYPE(id) __IOHIDEventSystemClient *IOHIDEventSystemClientRef;
 #endif
 
 #ifndef IOHIDServiceClient_h
-typedef struct __IOHIDServiceClient *IOHIDServiceClientRef;
+typedef struct CF_BRIDGED_TYPE(id) __IOHIDServiceClient *IOHIDServiceClientRef;
 #endif
 
 #ifndef _IOKIT_HID_IOHIDSERVICE_CLIENT_H
@@ -195,7 +195,7 @@ typedef struct _IOHIDServiceClientUsagePair IOHIDServiceClientUsagePair;
 #endif
 
 #ifndef _IOKIT_HID_IOHIDQUEUE_USER_H
-typedef struct __IOHIDQueue *IOHIDQueueRef;
+typedef struct CF_BRIDGED_TYPE(id) __IOHIDQueue *IOHIDQueueRef;
 #endif
 
 CF_ASSUME_NONNULL_END

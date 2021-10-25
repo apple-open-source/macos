@@ -1,0 +1,18 @@
+	<dict>
+		<key>OpenSourceProject</key>
+		<string>killall</string>
+		<key>OpenSourceVersion</key>
+		<string>2020-06-27</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>https://cgit.freebsd.org/src/tree/usr.bin/killall?id=c842df488905df8d2df5e8fbecd4f96a809469c7</string>
+		<key>OpenSourceImportDate</key>
+		<string>2021-03-30</string>
+		<key>OpenSourceModifications</key>
+		<array>
+		    <string>killall.1, killall.c: Removed jail support</string>
+			<string>killall.c: Use getopt(3) for argument parsing</string>
+			<string>killall.c: Fix sysctl(3) size fetching (51000099)</string>
+		</array>
+		<key>OpenSourceLicense</key>
+		<string>bsd</string>
+	</dict>

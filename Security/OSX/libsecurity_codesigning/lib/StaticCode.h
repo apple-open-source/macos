@@ -36,6 +36,7 @@
 #include <Security/SecTrust.h>
 #include <CoreFoundation/CFData.h>
 #include <security_utilities/dispatch.h>
+#include <CoreEntitlements/CoreEntitlements.h>
 
 namespace Security {
 namespace CodeSigning {
@@ -294,6 +295,8 @@ private:
 	CFRef<CFDataRef> mCDHash;			// hash of chosen CodeDirectory
 	CFRef<CFArrayRef> mCDHashes;		// hashes of all CodeDirectories (in digest type code order)
 	CFRef<CFDictionaryRef> mCDHashFullDict;	// untruncated hashes of CodeDirectories (as dictionary)
+	CEQueryContext_t mCEQueryContext; // Reference to the CoreEntitlements object associated with this Code's entitlements
+	CFRef<CFDataRef> mCEReconstitutedEnts; // XML entitlements blob that has been reconsituted, used where the raw form IS NOT needed
 
 	bool mGotResourceBase;				// asked mRep for resourceBasePath
 	CFRef<CFURLRef> mResourceBase;		// URL form of resource base directory

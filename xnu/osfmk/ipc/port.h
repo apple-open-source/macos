@@ -67,6 +67,7 @@
 #define _IPC_PORT_H_
 
 #include <mach/port.h>
+#include <ipc/ipc_space.h>
 
 #define MACH_PORT_NGEN(name)            MACH_PORT_MAKE(0, MACH_PORT_GEN(name))
 
@@ -94,9 +95,16 @@ extern void mach_port_guard_exception(
 	unsigned      reason);
 
 extern void mach_port_guard_exception_immovable(
+	ipc_space_t             space,
 	mach_port_name_t        name,
 	mach_port_t             port,
 	uint64_t                portguard);
+
+extern void mach_port_guard_exception_pinned(
+	ipc_space_t          space,
+	mach_port_name_t     name,
+	__unused mach_port_t port,
+	uint64_t             portguard);
 __END_DECLS
 
 #endif  /* _IPC_PORT_H_ */

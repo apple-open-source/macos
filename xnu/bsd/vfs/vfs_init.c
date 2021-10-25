@@ -164,8 +164,8 @@ vfs_opv_init(void)
 		 * Also handle backwards compatibility.
 		 */
 		if (*opv_desc_vector_p == NULL) {
-			*opv_desc_vector_p = kheap_alloc(KHEAP_DEFAULT,
-			    vfs_opv_numops * sizeof(PFIvp), Z_WAITOK | Z_ZERO);
+			*opv_desc_vector_p = zalloc_permanent(vfs_opv_numops * sizeof(PFIvp),
+			    ZALIGN(PFIvp));
 			DODEBUG(printf("vector at %x allocated\n",
 			    opv_desc_vector_p));
 		}
@@ -288,7 +288,13 @@ static LCK_ATTR_DECLARE(mnt_lck_attr, 0, 0);
 static LCK_GRP_DECLARE(mnt_list_lck_grp, "mount list");
 LCK_MTX_DECLARE(mnt_list_mtx_lock, &mnt_list_lck_grp);
 
-struct mount * dead_mountp;
+/*
+ * We want dead_mountp to be a constant pointer, but vfsinit() runs
+ * pretty late, so we'll allocate the dead_mount statically and
+ * statically-initialized dead_mountp.
+ */
+static struct mount dead_mount_store;
+struct mount * const dead_mountp = &dead_mount_store;
 
 /*
  * Initialize the vnode structures and initialize each file system type.
@@ -348,7 +354,7 @@ vfsinit(void)
 			struct sysctl_oid *oidp = NULL;
 			struct sysctl_oid oid = SYSCTL_STRUCT_INIT(_vfs, vfsp->vfc_typenum, , CTLTYPE_NODE | CTLFLAG_KERN | CTLFLAG_RW | CTLFLAG_LOCKED, NULL, 0, vfs_sysctl_node, "-", "");
 
-			oidp = kheap_alloc(KHEAP_DEFAULT, sizeof(struct sysctl_oid), Z_WAITOK);
+			oidp = kalloc_type(struct sysctl_oid, Z_WAITOK);
 			*oidp = oid;
 
 			/* Memory for VFS oid held by vfsentry forever */
@@ -373,7 +379,7 @@ vfsinit(void)
 	/*
 	 * create a mount point for dead vnodes
 	 */
-	mp = zalloc_flags(mount_zone, Z_WAITOK | Z_ZERO);
+	mp = &dead_mount_store;
 	/* Initialize the default IO constraints */
 	mp->mnt_maxreadcnt = mp->mnt_maxwritecnt = MAXPHYS;
 	mp->mnt_segreadcnt = mp->mnt_segwritecnt = 32;
@@ -398,7 +404,10 @@ vfsinit(void)
 	mac_mount_label_init(mp);
 	mac_mount_label_associate(vfs_context_kernel(), mp);
 #endif
-	dead_mountp = mp;
+	/*
+	 * dead_mountp is a statically-initialized constant pointer
+	 * to dead_mount_store.
+	 */
 
 #if FS_COMPRESSION
 	decmpfs_init();
@@ -480,7 +489,7 @@ vfstable_add(struct vfstable  *nvfsp)
 	if (nvfsp->vfc_vfsops->vfs_sysctl) {
 		struct sysctl_oid oid = SYSCTL_STRUCT_INIT(_vfs, nvfsp->vfc_typenum, , CTLTYPE_NODE | CTLFLAG_KERN | CTLFLAG_RW | CTLFLAG_LOCKED, NULL, 0, vfs_sysctl_node, "-", "");
 
-		oidp = kheap_alloc(KHEAP_DEFAULT, sizeof(struct sysctl_oid), Z_WAITOK);
+		oidp = kalloc_type(struct sysctl_oid, Z_WAITOK);
 		*oidp = oid;
 	}
 
@@ -500,8 +509,7 @@ findslot:
 		if (allocated == NULL) {
 			mount_list_unlock();
 			/* out of static slots; allocate one instead */
-			allocated = kheap_alloc(KHEAP_DEFAULT, sizeof(struct vfstable),
-			    Z_WAITOK);
+			allocated = kalloc_type(struct vfstable, Z_WAITOK);
 			goto findslot;
 		} else {
 			slotp = allocated;
@@ -542,7 +550,7 @@ findslot:
 
 	if (allocated && allocated != slotp) {
 		/* did allocation, but ended up using static slot */
-		kheap_free(KHEAP_DEFAULT, allocated, sizeof(struct vfstable));
+		kfree_type(struct vfstable, allocated);
 	}
 
 	return slotp;
@@ -588,7 +596,7 @@ vfstable_del(struct vfstable  * vtbl)
 	if ((*vcpp)->vfc_sysctl) {
 		sysctl_unregister_oid((*vcpp)->vfc_sysctl);
 		(*vcpp)->vfc_sysctl->oid_name = NULL;
-		kheap_free(KHEAP_DEFAULT, (*vcpp)->vfc_sysctl, sizeof(struct sysctl_oid));
+		kfree_type(struct sysctl_oid, (*vcpp)->vfc_sysctl);
 	}
 
 	/* Unlink entry */
@@ -614,7 +622,7 @@ vfstable_del(struct vfstable  * vtbl)
 		 */
 		numregistered_fses--;
 		mount_list_unlock();
-		kheap_free(KHEAP_DEFAULT, vcdelp, sizeof(struct vfstable));
+		kfree_type(struct vfstable, vcdelp);
 		mount_list_lock();
 	}
 

@@ -88,7 +88,7 @@ struct hfsinfo_metadata {
 
 /*
  * Maximum number of buckets to represent number of file/directory name characters
- * (range 1 to 255) in increments of 5.
+ * in increments of 5.  Last bucket is used for names larger than or equal to 255.
  */
 #define HFS_FSINFO_NAME_MAX_BUCKETS     51
 

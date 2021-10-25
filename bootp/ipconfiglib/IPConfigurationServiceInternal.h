@@ -62,6 +62,8 @@
 
 #define _kIPConfigurationServiceOptionIPv6Entity	\
     CFSTR("IPv6Entity")	/* dictionary */
+#define _kIPConfigurationServiceOptionIPv4Entity	\
+    CFSTR("IPv4Entity")	/* dictionary */
 
 #define IPCONFIGURATION_SERVICE_FORMAT CFSTR("Plugin:IPConfigurationService:%@")
 

@@ -5,11 +5,11 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2019, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2021, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
- * are also available at https://curl.haxx.se/docs/copyright.html.
+ * are also available at https://curl.se/docs/copyright.html.
  *
  * You may opt to use, copy, modify, merge, publish, distribute and/or sell
  * copies of the Software, and permit persons to whom the Software is
@@ -28,6 +28,7 @@
 extern LARGE_INTEGER Curl_freq;
 extern bool Curl_isVistaOrGreater;
 
+/* In case of bug fix this function has a counterpart in tool_util.c */
 struct curltime Curl_now(void)
 {
   struct curltime now;
@@ -66,7 +67,9 @@ struct curltime Curl_now(void)
   ** in any case the time starting point does not change once that the
   ** system has started up.
   */
+#ifdef HAVE_GETTIMEOFDAY
   struct timeval now;
+#endif
   struct curltime cnow;
   struct timespec tsnow;
 
@@ -75,14 +78,16 @@ struct curltime Curl_now(void)
   ** code compiles but fails during run-time if clock_gettime() is
   ** called on unsupported OS version.
   */
-#if defined(__APPLE__) && (HAVE_BUILTIN_AVAILABLE == 1)
+#if defined(__APPLE__) && defined(HAVE_BUILTIN_AVAILABLE) && \
+        (HAVE_BUILTIN_AVAILABLE == 1)
   bool have_clock_gettime = FALSE;
   if(__builtin_available(macOS 10.12, iOS 10, tvOS 10, watchOS 3, *))
     have_clock_gettime = TRUE;
 #endif
 
   if(
-#if defined(__APPLE__) && (HAVE_BUILTIN_AVAILABLE == 1)
+#if defined(__APPLE__) && defined(HAVE_BUILTIN_AVAILABLE) && \
+        (HAVE_BUILTIN_AVAILABLE == 1)
     have_clock_gettime &&
 #endif
     (0 == clock_gettime(CLOCK_MONOTONIC, &tsnow))) {
@@ -172,14 +177,6 @@ struct curltime Curl_now(void)
 
 #endif
 
-#if SIZEOF_TIME_T < 8
-#define TIME_MAX INT_MAX
-#define TIME_MIN INT_MIN
-#else
-#define TIME_MAX 9223372036854775807LL
-#define TIME_MIN -9223372036854775807LL
-#endif
-
 /*
  * Returns: time difference in number of milliseconds. For too large diffs it
  * returns max value.
@@ -189,10 +186,10 @@ struct curltime Curl_now(void)
 timediff_t Curl_timediff(struct curltime newer, struct curltime older)
 {
   timediff_t diff = (timediff_t)newer.tv_sec-older.tv_sec;
-  if(diff >= (TIME_MAX/1000))
-    return TIME_MAX;
-  else if(diff <= (TIME_MIN/1000))
-    return TIME_MIN;
+  if(diff >= (TIMEDIFF_T_MAX/1000))
+    return TIMEDIFF_T_MAX;
+  else if(diff <= (TIMEDIFF_T_MIN/1000))
+    return TIMEDIFF_T_MIN;
   return diff * 1000 + (newer.tv_usec-older.tv_usec)/1000;
 }
 
@@ -203,9 +200,9 @@ timediff_t Curl_timediff(struct curltime newer, struct curltime older)
 timediff_t Curl_timediff_us(struct curltime newer, struct curltime older)
 {
   timediff_t diff = (timediff_t)newer.tv_sec-older.tv_sec;
-  if(diff >= (TIME_MAX/1000000))
-    return TIME_MAX;
-  else if(diff <= (TIME_MIN/1000000))
-    return TIME_MIN;
+  if(diff >= (TIMEDIFF_T_MAX/1000000))
+    return TIMEDIFF_T_MAX;
+  else if(diff <= (TIMEDIFF_T_MIN/1000000))
+    return TIMEDIFF_T_MIN;
   return diff * 1000000 + newer.tv_usec-older.tv_usec;
 }

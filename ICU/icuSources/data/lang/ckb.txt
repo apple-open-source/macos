@@ -1,5 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
-// License & terms of use: http://www.unicode.org/copyright.html#License
+// License & terms of use: http://www.unicode.org/copyright.html
+// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
 ckb{
     Keys{
         calendar{"ڕۆژژمێر"}
@@ -396,7 +397,6 @@ ckb{
         zza{"زازا"}
     }
     Languages%short{
-        az{"ئازەربایجانی"}
         en_GB{"ئینگلیزی (GB)"}
         en_US{"ئینگلیزیی ئەمەریکایی"}
     }
@@ -453,10 +453,11 @@ ckb{
     Types{
         calendar{
             chinese{"ڕۆژژمێری چینی"}
-            gregorian{"ڕۆژژمێری گورجی"}
+            gregorian{"ڕۆژژمێری زاینیی"}
             hebrew{"ڕۆژژمێری عیبری"}
             indian{"ڕۆژژمێری نەتەوەیی ھیندی"}
             islamic{"ڕۆژژمێری کۆچیی مانگی"}
+            iso8601{"ISO-8601 ڕۆژژمێری"}
             persian{"ڕۆژژمێری کۆچیی ھەتاوی"}
         }
         numbers{
@@ -467,10 +468,9 @@ ckb{
             mymr{"ژمارە میانمارییەکان"}
         }
     }
-    Version{"36.1"}
     codePatterns{
         language{"زمان: {0}"}
-        script{"خەت: {0}"}
+        script{"نووسە:{0}"}
         territory{"ناوچە: {0}"}
     }
 }

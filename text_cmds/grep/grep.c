@@ -1,8 +1,10 @@
-/*	$NetBSD: grep.c,v 1.4 2011/02/16 01:31:33 joerg Exp $	*/
-/* 	$FreeBSD: src/usr.bin/grep/grep.c,v 1.16 2012/01/15 17:01:28 eadler Exp $	*/
+/*	$NetBSD: grep.c,v 1.6 2011/04/18 03:48:23 joerg Exp $	*/
+/* 	$FreeBSD$	*/
 /*	$OpenBSD: grep.c,v 1.42 2010/07/02 22:18:03 tedu Exp $	*/
 
 /*-
+ * SPDX-License-Identifier: BSD-2-Clause-FreeBSD
+ *
  * Copyright (c) 1999 James Howard and Dag-Erling Coïdan Smørgrav
  * Copyright (C) 2008-2009 Gabor Kovesdan <gabor@FreeBSD.org>
  * All rights reserved.
@@ -30,7 +32,7 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/usr.bin/grep/grep.c,v 1.16 2012/01/15 17:01:28 eadler Exp $");
+__FBSDID("$FreeBSD$");
 
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -49,63 +51,47 @@ __FBSDID("$FreeBSD: src/usr.bin/grep/grep.c,v 1.16 2012/01/15 17:01:28 eadler Ex
 #include <string.h>
 #include <unistd.h>
 
-#ifndef WITHOUT_FASTMATCH
-#include "fastmatch.h"
-#endif
 #include "grep.h"
 
-#ifndef WITHOUT_NLS
-#include <nl_types.h>
-nl_catd	 catalog;
-#endif
-
-/*
- * Default messags to use when NLS is disabled or no catalogue
- * is found.
- */
 const char	*errstr[] = {
 	"",
 /* 1*/	"(standard input)",
-/* 2*/	"cannot read bzip2 compressed file",
-/* 3*/	"unknown %s option",
+/* 2*/	"unknown %s option",
 #ifdef __APPLE__
-/* 4*/	"usage: %s [-abcDEFGHhIiJLlmnOoqRSsUVvwxZ] [-A num] [-B num] [-C[num]]\n",
+/* 3*/	"usage: %s [-abcdDEFGHhIiJLlMmnOopqRSsUVvwXxZz] [-A num] [-B num] [-C[num]]\n",
 #else
-/* 4*/	"usage: %s [-abcDEFGHhIiJLlmnOoPqRSsUVvwxZ] [-A num] [-B num] [-C[num]]\n",
+/* 3*/	"usage: %s [-abcDEFGHhIiLlmnOoPqRSsUVvwxz] [-A num] [-B num] [-C[num]]\n",
 #endif
-/* 5*/	"\t[-e pattern] [-f file] [--binary-files=value] [--color=when]\n",
-/* 6*/	"\t[--context[=num]] [--directories=action] [--label] [--line-buffered]\n",
-/* 7*/	"\t[--null] [pattern] [file ...]\n",
-/* 8*/	"Binary file %s matches\n",
-/* 9*/	"%s (BSD grep) %s\n",
+/* 4*/	"\t[-e pattern] [-f file] [--binary-files=value] [--color=when]\n",
+/* 5*/	"\t[--context[=num]] [--directories=action] [--label] [--line-buffered]\n",
+/* 6*/	"\t[--null] [pattern] [file ...]\n",
+/* 7*/	"Binary file %s matches\n",
+/* 8*/	"%s (BSD grep, GNU compatible) %s\n",
 };
 
 /* Flags passed to regcomp() and regexec() */
-int		 cflags = REG_NOSUB;
+int		 cflags = REG_NOSUB | REG_NEWLINE;
 int		 eflags = REG_STARTEND;
 
-/* Shortcut for matching all cases like empty regex */
 bool		 matchall;
 
 /* Searching patterns */
-unsigned int	 patterns, pattern_sz;
+unsigned int	 patterns;
+static unsigned int pattern_sz;
 struct pat	*pattern;
 regex_t		*r_pattern;
-#ifndef WITHOUT_FASTMATCH
-fastmatch_t	*fg_pattern;
-#endif
 
 /* Filename exclusion/inclusion patterns */
-unsigned int	 fpatterns, fpattern_sz;
-unsigned int	 dpatterns, dpattern_sz;
+unsigned int	fpatterns, dpatterns;
+static unsigned int fpattern_sz, dpattern_sz;
 struct epat	*dpattern, *fpattern;
 
 /* For regex errors  */
 char	 re_error[RE_ERROR_BUF + 1];
 
 /* Command-line flags */
-unsigned long long Aflag;	/* -A x: print x lines trailing each match */
-unsigned long long Bflag;	/* -B x: print x lines leading each match */
+long long Aflag;	/* -A x: print x lines trailing each match */
+long long Bflag;	/* -B x: print x lines leading each match */
 bool	 Hflag;		/* -H: always print file name */
 bool	 Lflag;		/* -L: only show names of files with no matches */
 bool	 bflag;		/* -b: show block numbers for each match */
@@ -115,6 +101,8 @@ bool	 iflag;		/* -i: ignore case */
 bool	 lflag;		/* -l: only show names of files with matches */
 bool	 mflag;		/* -m x: stop reading the files after x matches */
 long long mcount;	/* count for -m */
+long long mlimit;	/* requested value for -m */
+char	 fileeol;	/* indicator for eol */
 bool	 nflag;		/* -n: show line numbers in front of matching lines */
 bool	 oflag;		/* -o: print only matching part */
 bool	 qflag;		/* -q: quiet mode (don't output anything) */
@@ -131,7 +119,11 @@ int	 binbehave = BINFILE_BIN;	/* -aIU: handling of binary files */
 int	 filebehave = FILE_STDIO;	/* -JZ: normal, gzip or bzip2 file */
 int	 devbehave = DEV_READ;		/* -D: handling of devices */
 int	 dirbehave = DIR_READ;		/* -dRr: handling of directories */
+#ifdef __APPLE__
+int	 linkbehave = LINK_DEFAULT;	/* -OpS: handling of symlinks */
+#else
 int	 linkbehave = LINK_READ;	/* -OpS: handling of symlinks */
+#endif
 
 bool	 dexclude, dinclude;	/* --exclude-dir and --include-dir */
 bool	 fexclude, finclude;	/* --exclude and --include */
@@ -153,9 +145,6 @@ enum {
 static inline const char	*init_color(const char *);
 
 /* Housekeeping */
-bool	 first = true;	/* flag whether we are processing the first match */
-bool	 prev;		/* flag whether or not the previous line matched */
-int	 tail;		/* lines left to print */
 bool	 file_err;	/* file reading error */
 
 /*
@@ -164,14 +153,18 @@ bool	 file_err;	/* file reading error */
 static void
 usage(void)
 {
-	fprintf(stderr, getstr(4), getprogname());
-	fprintf(stderr, "%s", getstr(5));
-	fprintf(stderr, "%s", getstr(6));
-	fprintf(stderr, "%s", getstr(7));
+	fprintf(stderr, errstr[3], getprogname());
+	fprintf(stderr, "%s", errstr[4]);
+	fprintf(stderr, "%s", errstr[5]);
+	fprintf(stderr, "%s", errstr[6]);
 	exit(2);
 }
 
-static const char	*optstr = "0123456789A:B:C:D:EFGHIJMLOPSRUVZabcd:e:f:hilm:nopqrsuvwxXy";
+#ifdef __APPLE__
+static const char	*optstr = "0123456789A:B:C:D:EFGHIJLMOSRUVXZabcd:e:f:hilm:nopqrsuvwxyz";
+#else
+static const char	*optstr = "0123456789A:B:C:D:EFGHILOPSRUVabcd:e:f:hilm:nopqrsuvwxyz";
+#endif
 
 static const struct option long_options[] =
 {
@@ -203,11 +196,15 @@ static const struct option long_options[] =
 	{"no-filename",		no_argument,		NULL, 'h'},
 	{"with-filename",	no_argument,		NULL, 'H'},
 	{"ignore-case",		no_argument,		NULL, 'i'},
+#ifdef __APPLE__
 	{"bz2decompress",	no_argument,		NULL, 'J'},
+#endif
 	{"files-with-matches",	no_argument,		NULL, 'l'},
 	{"files-without-match", no_argument,            NULL, 'L'},
 	{"max-count",		required_argument,	NULL, 'm'},
+#ifdef __APPLE__
 	{"lzma",		no_argument,		NULL, 'M'},
+#endif
 	{"line-number",		no_argument,		NULL, 'n'},
 	{"only-matching",	no_argument,		NULL, 'o'},
 	{"quiet",		no_argument,		NULL, 'q'},
@@ -220,8 +217,13 @@ static const struct option long_options[] =
 	{"version",		no_argument,		NULL, 'V'},
 	{"word-regexp",		no_argument,		NULL, 'w'},
 	{"line-regexp",		no_argument,		NULL, 'x'},
+#ifdef __APPLE__
 	{"xz",			no_argument,		NULL, 'X'},
+#endif
+	{"null-data",		no_argument,		NULL, 'z'},
+#ifdef __APPLE__
 	{"decompress",          no_argument,            NULL, 'Z'},
+#endif
 	{NULL,			no_argument,		NULL, 0}
 };
 
@@ -232,22 +234,9 @@ static void
 add_pattern(char *pat, size_t len)
 {
 
-	/* Do not add further pattern is we already match everything */
-	if (matchall)
-	  return;
-
 	/* Check if we can do a shortcut */
 	if (len == 0) {
 		matchall = true;
-#ifndef WITHOUT_FASTMATCH
-		for (unsigned int i = 0; i < patterns; i++) {
-			free(pattern[i].pat);
-		}
-		pattern = grep_realloc(pattern, sizeof(struct pat));
-		pattern[0].pat = NULL;
-		pattern[0].len = 0;
-		patterns = 1;
-#endif
 		return;
 	}
 	/* Increase size if necessary */
@@ -303,21 +292,6 @@ add_dpattern(const char *pat, int mode)
 }
 
 /*
- * Adds search patterns from arguments.
- */
-static void
-add_arg_patterns(const char *arg)
-{
-	char *argcopy, *pattern;
-
-	argcopy = grep_strdup(arg);
-	while ((pattern = strsep(&argcopy, "\n")) != NULL) {
-		add_pattern(pattern, strlen(pattern));
-	}
-	free(argcopy);
-}
-
-/*
  * Reads searching patterns from a file and adds them with add_pattern().
  */
 static void
@@ -327,18 +301,29 @@ read_patterns(const char *fn)
 	FILE *f;
 	char *line;
 	size_t len;
+	ssize_t rlen;
 
-	if ((f = fopen(fn, "r")) == NULL)
+	if (strcmp(fn, "-") == 0)
+		f = stdin;
+	else if ((f = fopen(fn, "r")) == NULL)
 		err(2, "%s", fn);
 	if ((fstat(fileno(f), &st) == -1) || (S_ISDIR(st.st_mode))) {
 		fclose(f);
 		return;
 	}
-        while ((line = fgetln(f, &len)) != NULL)
-		add_pattern(line, line[0] == '\n' ? 0 : len);
+	len = 0;
+	line = NULL;
+	while ((rlen = getline(&line, &len, f)) != -1) {
+		if (line[0] == '\0')
+			continue;
+		add_pattern(line, line[0] == '\n' ? 0 : (size_t)rlen);
+	}
+
+	free(line);
 	if (ferror(f))
 		err(2, "%s", fn);
-	fclose(f);
+	if (strcmp(fn, "-") != 0)
+		fclose(f);
 }
 
 static inline const char *
@@ -356,20 +341,20 @@ main(int argc, char *argv[])
 	char **aargv, **eargv, *eopts;
 	char *ep;
 	const char *pn;
-	unsigned long long l;
+	long long l;
 	unsigned int aargc, eargc, i;
 	int c, lastc, needpattern, newarg, prevoptind;
+	bool matched;
 
 	setlocale(LC_ALL, "");
 
-#ifndef WITHOUT_NLS
-	catalog = catopen("grep", NL_CAT_LOCALE);
-#endif
-
-	/* Check what is the program name of the binary.  In this
-	   way we can have all the funcionalities in one binary
-	   without the need of scripting and using ugly hacks. */
+	/*
+	 * Check how we've bene invoked to determine the behavior we should
+	 * exhibit. In this way we can have all the functionalities in one
+	 * binary without the need of scripting and using ugly hacks.
+	 */
 	pn = getprogname();
+#ifdef __APPLE__
 	if (pn[0] == 'b' && pn[1] == 'z') {
 		filebehave = FILE_BZIP;
 		pn += 2;
@@ -383,6 +368,7 @@ main(int argc, char *argv[])
 		filebehave = FILE_GZIP;
 		pn += 1;
 	}
+#endif
 	switch (pn[0]) {
 	case 'e':
 		grepbehave = GREP_EXTENDED;
@@ -390,12 +376,24 @@ main(int argc, char *argv[])
 	case 'f':
 		grepbehave = GREP_FIXED;
 		break;
+	case 'r':
+#ifdef __APPLE__
+		/*
+		 * rdar://problem/25930963 -- recursive grep, skip all symlinks
+		 * by default as documented in the manpage.
+		 */
+		linkbehave = LINK_SKIP;
+#endif
+		dirbehave = DIR_RECURSE;
+		Hflag = true;
+		break;
 	}
 
 	lastc = '\0';
 	newarg = 1;
 	prevoptind = 1;
 	needpattern = 1;
+	fileeol = '\n';
 
 	eopts = getenv("GREP_OPTIONS");
 
@@ -439,10 +437,11 @@ main(int argc, char *argv[])
 		case '5': case '6': case '7': case '8': case '9':
 			if (newarg || !isdigit(lastc))
 				Aflag = 0;
-			else if (Aflag > LLONG_MAX / 10) {
+			else if (Aflag > LLONG_MAX / 10 - 1) {
 				errno = ERANGE;
 				err(2, NULL);
 			}
+
 			Aflag = Bflag = (Aflag * 10) + (c - '0');
 			break;
 		case 'C':
@@ -455,14 +454,17 @@ main(int argc, char *argv[])
 			/* FALLTHROUGH */
 		case 'B':
 			errno = 0;
-			l = strtoull(optarg, &ep, 10);
-			if (((errno == ERANGE) && (l == ULLONG_MAX)) ||
-			    ((errno == EINVAL) && (l == 0)))
+			l = strtoll(optarg, &ep, 10);
+			if (errno == ERANGE || errno == EINVAL)
 				err(2, NULL);
 			else if (ep[0] != '\0') {
 				errno = EINVAL;
 				err(2, NULL);
+			} else if (l < 0) {
+				errno = EINVAL;
+				err(2, "context argument must be non-negative");
 			}
+
 			if (c == 'A')
 				Aflag = l;
 			else if (c == 'B')
@@ -485,10 +487,15 @@ main(int argc, char *argv[])
 			else if (strcasecmp(optarg, "read") == 0)
 				devbehave = DEV_READ;
 			else
-				errx(2, getstr(3), "--devices");
+				errx(2, errstr[2], "--devices");
 			break;
 		case 'd':
 			if (strcasecmp("recurse", optarg) == 0) {
+#ifdef __APPLE__
+				/* rdar://problem/25930963 */
+				if (linkbehave == LINK_DEFAULT)
+					linkbehave = LINK_SKIP;
+#endif
 				Hflag = true;
 				dirbehave = DIR_RECURSE;
 			} else if (strcasecmp("skip", optarg) == 0)
@@ -496,13 +503,21 @@ main(int argc, char *argv[])
 			else if (strcasecmp("read", optarg) == 0)
 				dirbehave = DIR_READ;
 			else
-				errx(2, getstr(3), "--directories");
+				errx(2, errstr[2], "--directories");
 			break;
 		case 'E':
 			grepbehave = GREP_EXTENDED;
 			break;
 		case 'e':
-			add_arg_patterns(optarg);
+			{
+				char *token;
+				char *string = grep_strdup(optarg);
+
+				while ((token = strsep(&string, "\n")) != NULL)
+					add_pattern(token, strlen(token));
+
+				free(string);
+			}
 			needpattern = 0;
 			break;
 		case 'F':
@@ -530,13 +545,11 @@ main(int argc, char *argv[])
 			iflag =  true;
 			cflags |= REG_ICASE;
 			break;
+#ifdef __APPLE__
 		case 'J':
-#ifdef WITHOUT_BZIP2
-			errno = EOPNOTSUPP;
-			err(2, "bzip2 support was disabled at compile-time");
-#endif
 			filebehave = FILE_BZIP;
 			break;
+#endif
 		case 'L':
 			lflag = false;
 			Lflag = true;
@@ -548,7 +561,7 @@ main(int argc, char *argv[])
 		case 'm':
 			mflag = true;
 			errno = 0;
-			mcount = strtoll(optarg, &ep, 10);
+			mlimit = mcount = strtoll(optarg, &ep, 10);
 			if (((errno == ERANGE) && (mcount == LLONG_MAX)) ||
 			    ((errno == EINVAL) && (mcount == 0)))
 				err(2, NULL);
@@ -557,13 +570,11 @@ main(int argc, char *argv[])
 				err(2, NULL);
 			}
 			break;
+#ifdef __APPLE__
 		case 'M':
-#ifdef WITHOUT_LZMA
-			errno = EOPNOTSUPP;
-			err(2, "lzma support was disabled at compile-time");
-#endif
 			filebehave = FILE_LZMA;
 			break;
+#endif
 		case 'n':
 			nflag = true;
 			break;
@@ -585,6 +596,11 @@ main(int argc, char *argv[])
 			break;
 		case 'R':
 		case 'r':
+#ifdef __APPLE__
+			/* rdar://problem/25930963 */
+			if (linkbehave == LINK_DEFAULT)
+				linkbehave = LINK_SKIP;
+#endif
 			dirbehave = DIR_RECURSE;
 			Hflag = true;
 			break;
@@ -596,13 +612,10 @@ main(int argc, char *argv[])
 			break;
 		case 'u':
 		case MMAP_OPT:
-#ifndef __APPLE__
-			/* mmap mode is buggy (10789286) */
 			filebehave = FILE_MMAP;
-#endif
 			break;
 		case 'V':
-			printf(getstr(9), getprogname(), VERSION);
+			printf(errstr[8], getprogname(), VERSION);
 			exit(0);
 		case 'v':
 			vflag = true;
@@ -615,16 +628,19 @@ main(int argc, char *argv[])
 			xflag = true;
 			cflags &= ~REG_NOSUB;
 			break;
+#ifdef __APPLE__
 		case 'X':
-#ifdef WITHOUT_LZMA
-			errno = EOPNOTSUPP;
-			err(2, "xz support was disabled at compile-time");
-#endif
 			filebehave = FILE_XZ;
 			break;
+#endif
+		case 'z':
+			fileeol = '\0';
+			break;
+#ifdef __APPLE__
 		case 'Z':
 			filebehave = FILE_GZIP;
 			break;
+#endif
 		case BIN_OPT:
 			if (strcasecmp("binary", optarg) == 0)
 				binbehave = BINFILE_BIN;
@@ -633,7 +649,7 @@ main(int argc, char *argv[])
 			else if (strcasecmp("text", optarg) == 0)
 				binbehave = BINFILE_TEXT;
 			else
-				errx(2, getstr(3), "--binary-files");
+				errx(2, errstr[2], "--binary-files");
 			break;
 		case COLOR_OPT:
 			color = NULL;
@@ -653,7 +669,7 @@ main(int argc, char *argv[])
 			} else if (strcasecmp("never", optarg) != 0 &&
 			    strcasecmp("none", optarg) != 0 &&
 			    strcasecmp("no", optarg) != 0)
-				errx(2, getstr(3), "--color");
+				errx(2, errstr[2], "--color");
 			cflags &= ~REG_NOSUB;
 			break;
 		case LABEL_OPT:
@@ -692,13 +708,15 @@ main(int argc, char *argv[])
 	aargc -= optind;
 	aargv += optind;
 
-	/* Empty pattern file matches nothing */
-#ifndef WITHOUT_FASTMATCH
-	if (!needpattern && (patterns == 0))
-#else
-	if (!needpattern && (patterns == 0) && !matchall)
+#ifdef __APPLE__
+	/* rdar://problem/25930963 -- non-recursive grep, read any symlinks. */
+	if (linkbehave == LINK_DEFAULT)
+		linkbehave = LINK_READ;
 #endif
-		exit(1);
+
+	/* xflag takes precedence, don't confuse the matching bits. */
+	if (wflag && xflag)
+		wflag = false;
 
 	/* Fail if we don't have any pattern */
 	if (aargc == 0 && needpattern)
@@ -706,7 +724,13 @@ main(int argc, char *argv[])
 
 	/* Process patterns from command line */
 	if (aargc != 0 && needpattern) {
-		add_arg_patterns(*aargv);
+		char *token;
+		char *string = grep_strdup(*aargv);
+
+		while ((token = strsep(&string, "\n")) != NULL)
+			add_pattern(token, strlen(token));
+
+		free(string);
 		--aargc;
 		++aargv;
 	}
@@ -718,8 +742,20 @@ main(int argc, char *argv[])
 #endif
 		break;
 	case GREP_FIXED:
-		/* XXX: header mess, REG_LITERAL not defined in gnu/regex.h */
-		cflags |= 0020;
+		/*
+		 * regex(3) implementations that support fixed-string searches generally
+		 * define either REG_NOSPEC or REG_LITERAL. Set the appropriate flag
+		 * here. If neither are defined, GREP_FIXED later implies that the
+		 * internal literal matcher should be used. Other cflags that have
+		 * the same interpretation as REG_NOSPEC and REG_LITERAL should be
+		 * similarly added here, and grep.h should be amended to take this into
+		 * consideration when defining WITH_INTERNAL_NOSPEC.
+		 */
+#if defined(REG_NOSPEC)
+		cflags |= REG_NOSPEC;
+#elif defined(REG_LITERAL)
+		cflags |= REG_LITERAL;
+#endif
 		break;
 	case GREP_EXTENDED:
 		cflags |= REG_EXTENDED;
@@ -732,27 +768,22 @@ main(int argc, char *argv[])
 		usage();
 	}
 
-#ifndef WITHOUT_FASTMATCH
-	fg_pattern = grep_calloc(patterns, sizeof(*fg_pattern));
-#endif
 	r_pattern = grep_calloc(patterns, sizeof(*r_pattern));
 
-	/* Check if cheating is allowed (always is for fgrep). */
-	for (i = 0; i < patterns; ++i) {
-#ifndef WITHOUT_FASTMATCH
-		if (fastncomp(&fg_pattern[i], pattern[i].pat,
-		    pattern[i].len, cflags) != 0) {
+#ifdef WITH_INTERNAL_NOSPEC
+	if (grepbehave != GREP_FIXED) {
+#else
+	{
 #endif
-			/* Fall back to full regex library */
+		/* Check if cheating is allowed (always is for fgrep). */
+		for (i = 0; i < patterns; ++i) {
 			c = regcomp(&r_pattern[i], pattern[i].pat, cflags);
 			if (c != 0) {
 				regerror(c, &r_pattern[i], re_error,
 				    RE_ERROR_BUF);
 				errx(2, "%s", re_error);
 			}
-#ifndef WITHOUT_FASTMATCH
 		}
-#endif
 	}
 
 	if (lbflag)
@@ -761,23 +792,27 @@ main(int argc, char *argv[])
 	if ((aargc == 0 || aargc == 1) && !Hflag)
 		hflag = true;
 
-	if (aargc == 0)
-		exit(!procfile("-"));
+	initqueue();
+
+	if (aargc == 0 && dirbehave != DIR_RECURSE)
+		exit(!procfile("-", NULL));
 
 	if (dirbehave == DIR_RECURSE)
-		c = grep_tree(aargv);
+		matched = grep_tree(aargv);
 	else
-		for (c = 0; aargc--; ++aargv) {
+		for (matched = false; aargc--; ++aargv) {
 			if ((finclude || fexclude) && !file_matching(*aargv))
 				continue;
-			c+= procfile(*aargv);
+			if (procfile(*aargv, NULL))
+				matched = true;
 		}
 
-#ifndef WITHOUT_NLS
-	catclose(catalog);
-#endif
+	if (Lflag)
+		matched = !matched;
 
-	/* Find out the correct return value according to the
-	   results and the command line option. */
-	exit(c ? (file_err ? (qflag ? 0 : 2) : 0) : (file_err ? 2 : 1));
+	/*
+	 * Calculate the correct return value according to the
+	 * results and the command line option.
+	 */
+	exit(matched ? (file_err ? (qflag ? 0 : 2) : 0) : (file_err ? 2 : 1));
 }

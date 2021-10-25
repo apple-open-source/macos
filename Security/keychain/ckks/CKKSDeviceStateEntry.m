@@ -147,7 +147,7 @@
             return [[OTCliqueStatusWrapper alloc] initWithStatus:CliqueStatusError];
         default:
             ckkserror_global("ckks", "%d is not an OTCliqueStatus?", n);
-            return [[OTCliqueStatusWrapper alloc] initWithStatus:CliqueStatusError];;
+            return [[OTCliqueStatusWrapper alloc] initWithStatus:CliqueStatusError];
     }
 }
 
@@ -408,6 +408,9 @@
 
 #pragma mark - CKKS interaction methods
 
+
+// There are some errors which won't be reported but will be reflected in the CDSE; any error coming out of here is fatal
+
 + (CKKSDeviceStateEntry* _Nullable)intransactionCreateDeviceStateForView:(CKKSKeychainViewState*)viewState
                                                           accountTracker:(CKKSAccountStateTracker*)accountTracker
                                                         lockStateTracker:(CKKSLockStateTracker*)lockStateTracker
@@ -524,7 +527,7 @@
                                                                   octagonStatus:accountTracker.octagonStatus
                                                                    circlePeerID:accountTracker.accountCirclePeerID
                                                                    circleStatus:accountTracker.currentCircleStatus.status
-                                                                       keyState:viewState.zoneCKKSState
+                                                                       keyState:viewState.viewKeyHierarchyState
                                                                  currentTLKUUID:suggestedTLK.uuid
                                                               currentClassAUUID:suggestedClassAKey.uuid
                                                               currentClassCUUID:suggestedClassCKey.uuid

@@ -532,6 +532,10 @@ struct kcdata_type_definition {
 #define STACKSHOT_KCTYPE_LATENCY_INFO_THREAD         0x92du /* struct stackshot_latency_thread */
 #define STACKSHOT_KCTYPE_LOADINFO64_TEXT_EXEC        0x92eu /* TEXT_EXEC load info -- same as KCDATA_TYPE_LIBRARY_LOADINFO64 */
 #define STACKSHOT_KCTYPE_AOTCACHE_LOADINFO           0x92fu /* struct dyld_aot_cache_uuid_info */
+#define STACKSHOT_KCTYPE_TRANSITIONING_TASK_SNAPSHOT 0x930u /* transitioning_task_snapshot */
+#define STACKSHOT_KCCONTAINER_TRANSITIONING_TASK     0x931u
+#define STACKSHOT_KCTYPE_USER_ASYNC_START_INDEX      0x932u /* uint32_t index in user_stack of beginning of async stack */
+#define STACKSHOT_KCTYPE_USER_ASYNC_STACKLR64        0x933u /* uint64_t async stack pointers */
 
 #define STACKSHOT_KCTYPE_TASK_DELTA_SNAPSHOT 0x940u   /* task_delta_snapshot_v2 */
 #define STACKSHOT_KCTYPE_THREAD_DELTA_SNAPSHOT 0x941u /* thread_delta_snapshot_v* */
@@ -646,23 +650,30 @@ enum task_snapshot_flags {
 	kTaskSharedRegionNone                 = 0x20000000,     /* task doesn't have a shared region */
 	kTaskSharedRegionSystem               = 0x40000000,     /* task is attached to system shared region */
 	kTaskSharedRegionOther                = 0x80000000,     /* task is attached to a different shared region */
+}; // Note: Add any new flags to kcdata.py (ts_ss_flags)
+
+enum task_transition_type {
+	kTaskIsTerminated                      = 0x1,// Past LPEXIT
 };
 
 enum thread_snapshot_flags {
 	/* k{User,Kernel}64_p (values 0x1 and 0x2) are defined in generic_snapshot_flags */
-	kHasDispatchSerial    = 0x4,
-	kStacksPCOnly         = 0x8,    /* Stack traces have no frame pointers. */
-	kThreadDarwinBG       = 0x10,   /* Thread is darwinbg */
-	kThreadIOPassive      = 0x20,   /* Thread uses passive IO */
-	kThreadSuspended      = 0x40,   /* Thread is suspended */
-	kThreadTruncatedBT    = 0x80,   /* Unmapped pages caused truncated backtrace */
-	kGlobalForcedIdle     = 0x100,  /* Thread performs global forced idle */
-	kThreadFaultedBT      = 0x200,  /* Some thread stack pages were faulted in as part of BT */
-	kThreadTriedFaultBT   = 0x400,  /* We tried to fault in thread stack pages as part of BT */
-	kThreadOnCore         = 0x800,  /* Thread was on-core when we entered debugger context */
-	kThreadIdleWorker     = 0x1000, /* Thread is an idle libpthread worker thread */
-	kThreadMain           = 0x2000, /* Thread is the main thread */
-};
+	kHasDispatchSerial      = 0x4,
+	kStacksPCOnly           = 0x8,    /* Stack traces have no frame pointers. */
+	kThreadDarwinBG         = 0x10,   /* Thread is darwinbg */
+	kThreadIOPassive        = 0x20,   /* Thread uses passive IO */
+	kThreadSuspended        = 0x40,   /* Thread is suspended */
+	kThreadTruncatedBT      = 0x80,   /* Unmapped pages caused truncated backtrace */
+	kGlobalForcedIdle       = 0x100,  /* Thread performs global forced idle */
+	kThreadFaultedBT        = 0x200,  /* Some thread stack pages were faulted in as part of BT */
+	kThreadTriedFaultBT     = 0x400,  /* We tried to fault in thread stack pages as part of BT */
+	kThreadOnCore           = 0x800,  /* Thread was on-core when we entered debugger context */
+	kThreadIdleWorker       = 0x1000, /* Thread is an idle libpthread worker thread */
+	kThreadMain             = 0x2000, /* Thread is the main thread */
+	kThreadTruncKernBT      = 0x4000, /* Unmapped pages caused truncated kernel BT */
+	kThreadTruncUserBT      = 0x8000, /* Unmapped pages caused truncated user BT */
+	kThreadTruncUserAsyncBT = 0x10000, /* Unmapped pages caused truncated user async BT */
+}; // Note: Add any new flags to kcdata.py (ths_ss_flags)
 
 struct mem_and_io_snapshot {
 	uint32_t        snapshot_magic;
@@ -772,7 +783,7 @@ struct thread_group_snapshot {
 enum thread_group_flags {
 	kThreadGroupEfficient = 0x1,
 	kThreadGroupUIApp = 0x2
-};
+}; // Note: Add any new flags to kcdata.py (tgs_flags)
 
 struct thread_group_snapshot_v2 {
 	uint64_t tgs_id;
@@ -785,7 +796,7 @@ enum coalition_flags {
 	kCoalitionTerminated    = 0x2,
 	kCoalitionReaped        = 0x4,
 	kCoalitionPrivileged    = 0x8,
-};
+}; // Note: Add any new flags to kcdata.py (jcs_flags)
 
 struct jetsam_coalition_snapshot {
 	uint64_t jcs_id;
@@ -872,6 +883,14 @@ struct task_snapshot_v2 {
 	char      ts_p_comm[32];
 } __attribute__ ((packed));
 
+struct transitioning_task_snapshot {
+	uint64_t  tts_unique_pid;
+	uint64_t  tts_ss_flags;
+	uint64_t  tts_transition_type;
+	int32_t   tts_pid;
+	char      tts_p_comm[32];
+} __attribute__ ((packed));
+
 struct task_delta_snapshot_v2 {
 	uint64_t  tds_unique_pid;
 	uint64_t  tds_ss_flags;
@@ -935,7 +954,7 @@ typedef struct stackshot_thread_turnstileinfo {
 #define STACKSHOT_TURNSTILE_STATUS_THREAD          0x08   /* The final inheritor is a thread */
 #define STACKSHOT_TURNSTILE_STATUS_BLOCKED_ON_TASK 0x10   /* blocked on task, dind't find thread */
 #define STACKSHOT_TURNSTILE_STATUS_HELD_IPLOCK     0x20   /* the ip_lock was held */
-	uint64_t turnstile_flags;
+	uint64_t turnstile_flags; // Note: Add any new flags to kcdata.py (turnstile_flags)
 } __attribute__((packed)) thread_turnstileinfo_t;
 
 #define STACKSHOT_WAITOWNER_KERNEL         (UINT64_MAX - 1)
@@ -1011,6 +1030,16 @@ struct crashinfo_proc_uniqidentifierinfo {
 	uint64_t                p_reserve4;             /* reserved for future use */
 } __attribute__((packed));
 
+#define MAX_TRIAGE_STRING_LEN   (128)
+
+struct kernel_triage_info_v1 {
+	char triage_string1[MAX_TRIAGE_STRING_LEN];
+	char triage_string2[MAX_TRIAGE_STRING_LEN];
+	char triage_string3[MAX_TRIAGE_STRING_LEN];
+	char triage_string4[MAX_TRIAGE_STRING_LEN];
+	char triage_string5[MAX_TRIAGE_STRING_LEN];
+} __attribute__((packed));
+
 #define TASK_CRASHINFO_BEGIN                KCDATA_BUFFER_BEGIN_CRASHINFO
 #define TASK_CRASHINFO_STRING_DESC          KCDATA_TYPE_STRING_DESC
 #define TASK_CRASHINFO_UINT32_DESC          KCDATA_TYPE_UINT32_DESC
@@ -1070,6 +1099,10 @@ struct crashinfo_proc_uniqidentifierinfo {
 #define TASK_CRASHINFO_LEDGER_NEURAL_FOOTPRINT                  0x833 /* uint64_t */
 #define TASK_CRASHINFO_LEDGER_NEURAL_FOOTPRINT_COMPRESSED       0x834 /* uint64_t */
 #define TASK_CRASHINFO_MEMORYSTATUS_EFFECTIVE_PRIORITY          0x835 /* int32_t */
+#define TASK_CRASHINFO_KERNEL_TRIAGE_INFO_V1                    0x836 /* struct kernel_triage_info_v1 */
+
+#define TASK_CRASHINFO_TASK_IS_CORPSE_FORK                      0x837 /* boolean_t */
+#define TASK_CRASHINFO_EXCEPTION_TYPE                           0x838 /* int */
 
 #define TASK_CRASHINFO_END                  KCDATA_TYPE_BUFFER_END
 
@@ -1114,6 +1147,7 @@ struct codesigning_exit_reason_info {
 #define EXIT_REASON_USER_DESC_MAX_LEN   1024
 #define EXIT_REASON_PAYLOAD_MAX_LEN     2048
 /**************** safe iterators *********************/
+#if !XNU_BOUND_CHECKS
 
 typedef struct kcdata_iter {
 	kcdata_item_t item;
@@ -1420,4 +1454,5 @@ kcdata_iter_get_data_with_desc(kcdata_iter_t iter, char **desc_ptr, void **data_
 	}
 }
 
+#endif /* !XNU_BOUND_CHECKS */
 #endif

@@ -1,0 +1,16 @@
+	<dict>
+		<key>OpenSourceProject</key>
+		<string>dirname</string>
+		<key>OpenSourceVersion</key>
+		<string>2018-06-19</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>https://cgit.freebsd.org/src/tree/usr.bin/dirname?id=7672a0148f79063eac8f8e0beb0db5350d02d5d4</string>
+		<key>OpenSourceImportDate</key>
+		<string>2021-04-19</string>
+		<key>OpenSourceModifications</key>
+		<array>
+		    <string>dirname.c: Removed capsicum support (76241133)</string>
+		</array>
+		<key>OpenSourceLicense</key>
+		<string>bsd</string>
+	</dict>

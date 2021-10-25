@@ -218,7 +218,7 @@ main(int argc, char *argv[])
 			if (argc != 0)
 				usage();
 			if (lflag) {
-				printf("%-23s %-17s %-9.9s %-9.9s %8.8s %4s "
+				printf("%-23s %-17s %-9.9s %-9.9s %14.14s %4s "
 				    "%4s", "Neighbor",
 				    "Linklayer Address", "Expire(O)",
 				    "Expire(I)", "Netif", "Refs", "Prbs");

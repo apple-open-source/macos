@@ -41,6 +41,7 @@ enum Command {
     case viableBottles
     case vouch(String, Data, Data, Data, Data)
     case vouchWithBottle(String, Data, String)
+    case fetchRecoverableTLKShares(String)
     case allow(Set<String>, Bool)
     case supportApp
 }
@@ -69,6 +70,8 @@ func printUsage() {
     print("                            Create a voucher for a new peer. permanentInfo, permanentInfoSig, stableInfo, stableInfoSig should be base64 data")
     print("  vouchWithBottle BOTTLEID ENTROPY SALT")
     print("                            Create a voucher for the ego peer using the given bottle. entropy should be base64 data.")
+    print("  fetchRecoverableTLKShares PEERID")
+    print("                            Ask cuttlefish for the recoverable TLK shares for this peer.")
     print("  reset                     Resets Cuttlefish for this account")
     print()
     print("Options applying to `join', `establish' and `update'")
@@ -443,6 +446,14 @@ while let arg = argIterator.next() {
 
         commands.append(.vouchWithBottle(bottleID, entropy, salt))
 
+    case "fetchRecoverableTLKShares":
+        guard let peerID = argIterator.next() else {
+            print("Error: fetchRecoverableTLKShares needs a peerID")
+            print()
+            exitUsage(1)
+        }
+        commands.append(.fetchRecoverableTLKShares(peerID))
+
     case "allow":
         var machineIDs = Set<String>()
         var performIDMS = false
@@ -641,6 +652,7 @@ for command in commands {
                          policyVersion: nil,
                          policySecrets: policySecrets,
                          syncUserControllableViews: .UNKNOWN,
+                         secureElementIdentity: nil,
                          signingPrivKeyPersistentRef: nil,
                          encPrivKeyPersistentRef: nil) { peerID, permanentInfo, permanentInfoSig, stableInfo, stableInfoSig, syncingPolicy, error in
                             guard error == nil else {
@@ -666,14 +678,19 @@ for command in commands {
 
     case .update:
         logger.log("updating (\(container), \(context))")
+#if !__OPEN_SOURCE__ && APPLE_FEATURE_WALRUS_UI
         tpHelper.update(withContainer: container,
                         context: context,
+                        forceRefetch: false,
                         deviceName: deviceName,
                         serialNumber: serialNumber,
                         osVersion: osVersion,
                         policyVersion: nil,
                         policySecrets: policySecrets,
-                        syncUserControllableViews: nil) { _, _, error in
+                        syncUserControllableViews: nil,
+                        secureElementIdentity: nil,
+                        walrusSetting: nil,
+                        webAccess: nil) { _, _, error in
                             guard error == nil else {
                                 print("Error updating:", error!)
                                 return
@@ -681,6 +698,25 @@ for command in commands {
 
                             print("Update complete")
         }
+#else
+        tpHelper.update(withContainer: container,
+                        context: context,
+                        forceRefetch: false,
+                        deviceName: deviceName,
+                        serialNumber: serialNumber,
+                        osVersion: osVersion,
+                        policyVersion: nil,
+                        policySecrets: policySecrets,
+                        syncUserControllableViews: nil,
+                        secureElementIdentity: nil) { _, _, error in
+                            guard error == nil else {
+                                print("Error updating:", error!)
+                                return
+                            }
+
+                            print("Update complete")
+        }
+#endif /* APPLE_FEATURE_WALRUS_UI */
 
     case .reset:
         logger.log("resetting (\(container), \(context))")
@@ -771,6 +807,21 @@ for command in commands {
                                     } catch {
                                         print("Error during processing vouch results: \(error)")
                                     }
+        }
+
+    case let .fetchRecoverableTLKShares(peerID):
+        logger.log("fetching recoverable TLKShares for (\(container), \(context))")
+        tpHelper.fetchRecoverableTLKShares(withContainer: container,
+                                           context: context,
+                                           peerID: peerID) { records, error in
+            guard error == nil else {
+                print("Error during fetchRecoverableTLKShares", error!)
+                return
+            }
+
+            let tlkShares = records?.filter { $0.recordType == SecCKRecordTLKShareType }
+
+            print("Received \(records?.count ?? 0) total CKRecords, \(tlkShares?.count ?? 0) recoverable TLKShares")
         }
 
     case let .allow(machineIDs, performIDMS):

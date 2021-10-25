@@ -310,7 +310,7 @@ done:
     return result;
 }
 
-bool isInFVUnlock()
+bool isInFVUnlockOrRecovery()
 {
     // temporary solution until we find a better way
     return getenv("__OSINSTALL_ENVIRONMENT") != NULL;

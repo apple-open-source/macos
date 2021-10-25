@@ -1,6 +1,9 @@
 #include "mach_vm_tests.h"
 
-T_GLOBAL_META(T_META_NAMESPACE("xnu.vm"));
+T_GLOBAL_META(
+	T_META_NAMESPACE("xnu.vm"),
+	T_META_RADAR_COMPONENT_NAME("xnu"),
+	T_META_RADAR_COMPONENT_VERSION("VM"));
 
 extern char **environ;
 

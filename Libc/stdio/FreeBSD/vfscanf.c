@@ -490,16 +490,20 @@ literal:
 					fp->_p++;
 					fp->_r--;
 					mbs = initial;
-					nconv = mbrtowc_l(wcp, buf, n, &mbs, loc);
+					/*
+					 * Copy the character to destination only
+					 * after all the checks are completed
+					 */
+					nconv = mbrtowc_l(&twc, buf, n, &mbs, loc);
 					if (nconv == (size_t)-1) {
 						fp->_flags |= __SERR;
 						goto input_failure;
 					}
 					if (nconv == 0)
-						*wcp = L'\0';
+						twc = L'\0';
 					if (nconv != (size_t)-2) {
-						if (wctob_l(*wcp, loc) != EOF &&
-						    !ccltab[wctob_l(*wcp, loc)]) {
+						if (wctob_l(twc, loc) != EOF &&
+							!ccltab[wctob_l(twc, loc)]) {
 							while (n != 0) {
 								n--;
 								__ungetc(buf[n],
@@ -509,8 +513,10 @@ literal:
 						}
 						nread += n;
 						width--;
-						if (!(flags & SUPPRESS))
+						if (!(flags & SUPPRESS)) {
+							*wcp = twc;
 							wcp++;
+						}
 						nchars++;
 						n = 0;
 					}

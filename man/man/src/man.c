@@ -752,7 +752,7 @@ make_mandoc_command(const char * __unused path, const char *file) {
 	width = width * 9/10;
     }
 
-    char *command = my_xsprintf("%s -c -O width=%d %s",
+    char *command = my_xsprintf("%s -c -O width=%d '%Q'",
 	    "/usr/bin/mandoc", width, file);
 
     if (os_variant_is_darwinos("com.apple.man")) {

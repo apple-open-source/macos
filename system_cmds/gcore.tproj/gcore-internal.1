@@ -1,8 +1,8 @@
-.Dd 9/29/16
-.Dt gcore-internal 1
+.Dd September 29, 2016
+.Dt GCORE-INTERNAL 1
 .Os Darwin
 .Sh NAME
-.Nm gcore
+.Nm gcore-internal
 .Nd get core images of running processes and corpses
 .Sh SYNOPSIS
 .Nm
@@ -38,7 +38,8 @@ command intended, for the moment, for internal use only.
 The following set of additional flags are available:
 .Bl -tag -width Fl
 .It Fl x
-Create extended (compact) core files.  With this flag,
+Create extended (compact) core files.
+With this flag,
 .Nm
 elides empty and unmapped regions from the dump, and uses
 metadata from the VM system and
@@ -58,11 +59,12 @@ is specified,
 .Nm
 makes conservative assumptions about which files should be
 incorporated into the dump as file references so that the
-full core file can be recreated later.  This flag attempts to make
+full core file can be recreated later.
+This flag attempts to make
 .Em every
-mapped file into a file reference.  While this can occasionally
-be useful for applications that map many files into their address space,
-it may be
+mapped file into a file reference.
+While this can occasionally be useful for applications that map many
+files into their address space, it may be
 .Em extremely
 difficult to recreate the process image as a result.
 Use cautiously!
@@ -91,7 +93,8 @@ If the
 value is specified as 0,
 .Nm
 assumes it has been passed a corpse port by its parent;
-if so it will generate a core dump for that corpse.  The
+if so it will generate a core dump for that corpse.
+The
 .Fl c
 flag may not be used in this case, as the process context may no longer exist.
 .Pp
@@ -100,14 +103,14 @@ The
 command supports several sub-commands that can be
 used with extended core files created using the
 .Fl x
-flag.  These are:
+flag.
+These are:
 .Bl -tag -width frefs
 .\" -compact -offset indent
-.Pp
 .It Sy conv
 Copy and convert a core file to the "pre-coreinfo" format
 compatible with
-.Xr lldb(1) .
+.Xr lldb 1 .
 This operation reads the input core file dereferencing any file
 references it contains by copying the content
 and decompressing any compressed data into the output core file.
@@ -123,7 +126,6 @@ thus can easily be "forged" using
 .Xr touch 1 .
 .Pp
 Several flags can be used with the conversion:
-.Pp
 .Bl -tag -width Fl
 .It Fl L Ar searchpath
 When processing file references,
@@ -150,15 +152,17 @@ subcommand.
 .El
 .It Sy map
 Print a representation of the address space contained in the core file.
-.Pp
 .It Sy frefs
 Print a list of files corresponding to the file references
 in the core file.
 Can be used to capture the set of files needed to bind the file references
 into the core file at a later time.
 .El
+.Sh SEE ALSO
+.Xr dsymForUUID 1 ,
+.Xr dyld 1 ,
+.Xr update_dyld_shared_cache 1
 .Sh BUGS
-.Pp
 When using the
 .Fl x
 flag,
@@ -184,7 +188,7 @@ When using the
 flag,
 .Nm
 may be unable to locate the currently mapped shared cache in the filesystem.
-In this case 
+In this case
 .Nm
 does not generate any file references to the content of the
 shared cache; it just copies as much of the content
@@ -194,8 +198,3 @@ This may lead to substantially larger core files than expected.
 It would be nice if
 .Xr lldb 1
 could examine extended core files directly i.e. without the conversion step.
-.Pp
-.Sh SEE ALSO 
-.Xr dyld 1 ,
-.Xr update_dyld_shared_cache 1 ,
-.Xr dsymForUUID 1

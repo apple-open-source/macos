@@ -24,8 +24,8 @@
 
 #include <IOKit/system.h>
 
-#include <IOKit/pci/IOPCIBridge.h>
 #include <IOKit/pci/IOPCIPrivate.h>
+#include <IOKit/pci/IOPCIBridge.h>
 #include <PCIDriverKit/PCIDriverKitPrivate.h>
 #include <IOKit/pci/IOAGPDevice.h>
 #include <IOKit/pci/IOPCIConfigurator.h>
@@ -35,6 +35,7 @@
 #include <IOKit/IOUserClient.h>
 #include <IOKit/IOUserServer.h>
 #include <IOKit/IOKitKeys.h>
+#include <libkern/OSKextLib.h>
 
 #include <IOKit/IOLib.h>
 #include <IOKit/assert.h>
@@ -280,13 +281,13 @@ void IOPCIDevice::detach( IOService * provider )
 
     PMstop();
 
-	IOLockLock(reserved->lock);
+	IORecursiveLockLock(reserved->lock);
 	while (false && reserved->pmActive)
 	{
 		reserved->pmWait = true;
-		IOLockSleep(reserved->lock, &reserved->pmActive, THREAD_UNINT);
+		IORecursiveLockSleep(reserved->lock, &reserved->pmActive, THREAD_UNINT);
 	}
-	IOLockUnlock(reserved->lock);
+	IORecursiveLockUnlock(reserved->lock);
 
     if (parent) parent->removeDevice(this);
 
@@ -302,11 +303,11 @@ IOPCIDevice::detachAbove( const IORegistryPlane * plane )
 
     if (plane == gIOPowerPlane)
 	{
-		IOLockLock(reserved->lock);
+		IORecursiveLockLock(reserved->lock);
 		reserved->pmActive = false;
 		if (reserved->pmWait)
-			IOLockWakeup(reserved->lock, &reserved->pmActive, true);
-		IOLockUnlock(reserved->lock);
+			IORecursiveLockWakeup(reserved->lock, &reserved->pmActive, true);
+		IORecursiveLockUnlock(reserved->lock);
 	}
 }
 
@@ -316,11 +317,10 @@ IOPCIDevice::initReserved(void)
     // allocate our expansion data
     if (!reserved)
     {
-        reserved = IONew(IOPCIDeviceExpansionData, 1);
+        reserved = IOMallocType(IOPCIDeviceExpansionData);
         if (!reserved)
             return (false);
-        bzero(reserved, sizeof(IOPCIDeviceExpansionData));
-		reserved->lock = IOLockAlloc();
+		reserved->lock = IORecursiveLockAlloc();
     }
     return (true);
 }
@@ -343,7 +343,7 @@ void IOPCIDevice::free()
     if (savedConfig)
     {
 		if (configShadow(this)->link.next) panic("IOPCIDevice(%p) linked", this);
-        IODelete(savedConfig, IOPCIConfigShadow, 1);
+        IOFreeType(savedConfig, IOPCIConfigShadow);
         savedConfig = 0;
     }
     //  This needs to be the LAST thing we do, as it disposes of our "fake" member
@@ -352,8 +352,8 @@ void IOPCIDevice::free()
     if (reserved)
 	{
 		if (reserved->lock)
-			IOLockFree(reserved->lock);
-        IODelete(reserved, IOPCIDeviceExpansionData, 1);
+			IORecursiveLockFree(reserved->lock);
+        IOFreeType(reserved, IOPCIDeviceExpansionData);
 	}
 
     super::free();
@@ -621,6 +621,12 @@ IOReturn IOPCIDevice::setPowerState( unsigned long newState,
 IOReturn IOPCIDevice::saveDeviceState( IOOptionBits options )
 {
 	IOReturn ret;
+
+	if (!reserved->interruptVectorsResolved)
+	{
+		// TODO: Remove the temporary workaround for legacy drivers
+		(void)getProperty(gIOInterruptSpecifiersKey);
+	}
 
 	ret = parent->setDevicePowerState(this, kIOPCIConfigShadowPermanent & options, 
 									  kIOPCIDeviceOnState, kIOPCIDeviceDozeState);
@@ -1293,6 +1299,43 @@ IOPCIDevice::createEventSource(OSObject * owner, IOPCIEventSource::Action action
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
+OSObject* IOPCIDevice::getProperty(const OSSymbol * aKey) const
+{
+    OSObject *value;
+
+    if (aKey == gIOInterruptControllersKey || aKey == gIOInterruptSpecifiersKey)
+    {
+        IORecursiveLockLock(reserved->lock);
+        value = super::getProperty(aKey);
+        if (!value)
+        {
+            OSArray * controllers = OSArray::withCapacity(1);
+            OSArray * specifiers  = OSArray::withCapacity(1);
+            if (controllers && specifiers)
+            {
+                IOPCIDevice * self = const_cast<IOPCIDevice*>(this);
+                self->setProperty(gIOInterruptControllersKey, controllers);
+                self->setProperty(gIOInterruptSpecifiersKey,  specifiers);
+            }
+            OSSafeReleaseNULL(controllers);
+            OSSafeReleaseNULL(specifiers);
+        }
+        if (!reserved->interruptVectorsResolved)
+        {
+            reserved->interruptVectorsResolved = 1;
+            parent->resolveInterrupts(const_cast<IOPCIDevice*>(this));
+        }
+        IORecursiveLockUnlock(reserved->lock);
+        if (!value)
+        {
+            value = super::getProperty(aKey);
+        }
+    } else {
+        value = super::getProperty(aKey);
+    }
+    return value;
+}
+
 IOReturn
 IOPCIDevice::setProperties(OSObject * properties)
 {
@@ -1397,22 +1440,41 @@ IOReturn IOPCIDevice::newUserClient(task_t owningTask, void * securityID,
 
 bool IOPCIDevice::handleOpen(IOService * forClient, IOOptionBits options, void * arg)
 {
+    OSObject *prop = NULL;
+
     bool result = super::handleOpen(forClient, options, arg);
 
     if (result == true)
     {
         reserved->sessionOptions = options;
 
+#if ACPI_SUPPORT
+        // Copy relevant keys for mapper selection
+        if (forClient) {
+            if (forClient->getProperty(kIOPCIUseDeviceMapperKey))
+                setProperty(kIOPCIUseDeviceMapperKey, true);
+            if ((prop = forClient->getProperty(kCFBundleIdentifierKey)) != NULL)
+                setProperty(kIOPCIChildBundleIdentifierKey, prop);
+        }
+    
+        getResources();
+#endif
+
         if((options & kIOPCISessionOptionDriverkit) != 0)
         {
             // check if the task is entitled to disable the offload engine
+#if 0
             OSObject* offloadEngineDisableEntitlement = IOUserClient::copyClientEntitlement(current_task(), kIOPCITransportDextEntitlementOffloadEngineDisable);
             if(offloadEngineDisableEntitlement != NULL)
             {
                 reserved->offloadEngineMMIODisable = 1;
             }
             OSSafeReleaseNULL(offloadEngineDisableEntitlement);
+#else
+            reserved->offloadEngineMMIODisable = 1;
+#endif
         }
+
     }
 
     return result;
@@ -1420,18 +1482,27 @@ bool IOPCIDevice::handleOpen(IOService * forClient, IOOptionBits options, void *
 
 void IOPCIDevice::handleClose(IOService * forClient, IOOptionBits options)
 {
-    if (   (isOpen(forClient) == true)
-        && ((reserved->sessionOptions & kIOPCISessionOptionDriverkit) != 0))
+    if (isOpen(forClient) == true)
     {
-        reserved->offloadEngineMMIODisable = 0;
-        // Driverkit either called close or crashed. Turn off bus mastering to prevent any further DMAs
-        uint16_t command = extendedConfigRead16(kIOPCIConfigurationOffsetCommand);
-        if ((command & (kIOPCICommandBusMaster | kIOPCICommandMemorySpace)) != 0)
+        if ((reserved->sessionOptions & kIOPCISessionOptionDriverkit) != 0)
         {
-            DLOG("IOPCIDevice::handleClose: disabling memory and bus mastering for client %s\n", (forClient) ? forClient->getName() : "unknown");
-            extendedConfigWrite16(kIOPCIConfigurationOffsetCommand, command & ~(kIOPCICommandBusMaster | kIOPCICommandMemorySpace));
+            reserved->offloadEngineMMIODisable = 0;
+            // Driverkit either called close or crashed. Turn off bus mastering to prevent any further DMAs
+            uint16_t command = extendedConfigRead16(kIOPCIConfigurationOffsetCommand);
+            if ((command & (kIOPCICommandBusMaster | kIOPCICommandMemorySpace)) != 0)
+            {
+                DLOG("IOPCIDevice::handleClose: disabling memory and bus mastering for client %s\n", (forClient) ? forClient->getName() : "unknown");
+                extendedConfigWrite16(kIOPCIConfigurationOffsetCommand, command & ~(kIOPCICommandBusMaster | kIOPCICommandMemorySpace));
+            }
         }
+        
+#if ACPI_SUPPORT
+        removeProperty(kIOPCIChildBundleIdentifierKey);
+        removeProperty(kIOPCIUseDeviceMapperKey);
+        removeProperty("iommu-selection");
+#endif
     }
+
     super::handleClose(forClient, options);
 }
 
@@ -1837,7 +1908,7 @@ IOReturn IOPCIDevice::deviceMemoryWrite8(uint8_t  memoryIndex,
 }
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-#if TARGET_OS_OSX
+#if TARGET_OS_HAS_PCIDRIVERKIT_IOPCIDEVICE
 
 #pragma mark Public DriverKit Methods
 
@@ -1937,8 +2008,8 @@ kern_return_t IOPCIDevice::ClientCrashed_Impl(IOService *client, uint64_t option
             if(thread_call_enter1(threadCall, threadCall /* so the call cleans itself up */) == TRUE)
             {
                 thread_call_free(threadCall);
-                release();
                 parent->release();
+                release();
             }
         }
     }
@@ -1967,6 +2038,7 @@ IOReturn IOPCIDevice::clientCrashedThreadCall(thread_call_t threadCall)
             pciPeer->terminate();
         }
     }
+    OSSafeReleaseNULL(peerIterator);
 
     IOPCIDevice* bridgeDevice = OSDynamicCast(IOPCIDevice, parent->getParentEntry(gIOServicePlane));
     if (bridgeDevice != NULL)
@@ -1981,8 +2053,8 @@ IOReturn IOPCIDevice::clientCrashedThreadCall(thread_call_t threadCall)
     }
 
     // clean up threadcall
-    release();
     parent->release();
+    release();
     thread_call_free(threadCall);
 
     return kIOReturnSuccess;
@@ -2303,6 +2375,92 @@ IMPL(IOPCIDevice, EnablePCIPowerManagement)
     return enablePCIPowerManagement(static_cast<IOOptionBits>(state));
 }
 
+#pragma mark State Management
+
+kern_return_t
+IMPL(IOPCIDevice, SaveDeviceState)
+{
+    return saveDeviceState(options);
+}
+
+kern_return_t
+IMPL(IOPCIDevice, RestoreDeviceState)
+{
+    return restoreDeviceState(options);
+}
+
+#pragma mark Memory Accessor helpers
+
+kern_return_t
+IMPL(IOPCIDevice, GetBARInfo)
+{
+    IOPCIConfigEntry *configEntry = reserved->configEntry;
+    IOReturn result = kIOReturnNotFound;
+    OSArray *deviceMemoryArray  = NULL;
+
+    if (barIndex > kIOPCIRangeExpansionROM)
+    {
+        DLOG("IOPCIDevice::%s:%s invalid bar index %u\n", __FUNCTION__, getName(), barIndex);
+        return kIOReturnBadArgument;
+    }
+
+    if ((deviceMemoryArray = OSDynamicCast(OSArray, getProperty(gIODeviceMemoryKey))) == NULL)
+    {
+        DLOG("IOPCIDevice::%s:%s unable to access device memory\n", __FUNCTION__, getName());
+        return kIOReturnError;
+    }
+
+    if (configEntry == NULL)
+    {
+        DLOG("IOPCIDevice::%s:%s NULL config entry\n", __FUNCTION__, getName());
+        return kIOReturnError;
+    }
+
+    for (unsigned int i = 0; i < deviceMemoryArray->getCount(); i++)
+    {
+        static const uint8_t barRegisters[kIOPCIRangeExpansionROM + 1] = {
+            kIOPCIConfigBaseAddress0, kIOPCIConfigBaseAddress1, kIOPCIConfigBaseAddress2,
+            kIOPCIConfigBaseAddress3, kIOPCIConfigBaseAddress4, kIOPCIConfigBaseAddress5,
+            kIOPCIConfigExpansionROMBase
+        };
+
+        IOMemoryDescriptor *memoryDescriptor = OSDynamicCast(IOMemoryDescriptor, deviceMemoryArray->getObject(static_cast<uint32_t>(i)));
+
+        if (memoryDescriptor == NULL)
+        {
+            continue;
+        }
+
+        IOPCIAddressSpace addressSpace;
+        addressSpace.bits = static_cast<uint32_t>(memoryDescriptor->getTag());
+
+        if (addressSpace.s.registerNum == barRegisters[barIndex])
+        {
+            IOPCIRange *range = configEntry->ranges[barIndex];
+
+            *memoryIndex = i;
+            *barSize = range->size;
+
+            if (addressSpace.s.space == kIOPCIIOSpace)
+            {
+                *barType = kPCIBARTypeIO;
+            }
+            else if (range->flags & kIOPCIRangeFlagBar64)
+            {
+                *barType = (addressSpace.s.prefetch) ? kPCIBARTypeM64PF : kPCIBARTypeM64;
+            }
+            else
+            {
+                *barType = (addressSpace.s.prefetch) ? kPCIBARTypeM32PF : kPCIBARTypeM32;
+            }
+
+            result = kIOReturnSuccess;
+            break;
+        }
+    }
+
+    return result;
+}
 
 #endif
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -2377,4 +2535,3 @@ IOReturn IOAGPDevice::releaseAGPMemory( IOMemoryDescriptor * memory,
 {
     return (parent->releaseAGPMemory(this, memory, agpOffset, options));
 }
-

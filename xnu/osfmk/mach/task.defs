@@ -79,6 +79,19 @@ subsystem
 #endif
 
 /*
+ * Sandbox builds task.defs with KERNEL_SERVER defined when generating the map
+ * of MIG routine names to message IDs.
+ * The MIG routine names need to be kept stable so as to not break Sandbox
+ * profiles.
+ */
+#if	KERNEL_SERVER && !SANDBOX_COMPILER
+#define MIG_SERVER_SUFFIX(NAME) NAME ## _mig
+#else
+#define MIG_SERVER_SUFFIX(NAME) NAME
+#endif
+
+
+/*
  *	Create a new task with an empty set of IPC rights,
  *	and having an address space constructed from the
  *	target task (or empty, if inherit_memory is FALSE).
@@ -191,7 +204,12 @@ task_get_special_port(
  *	Set one of the special ports associated with the
  *	target task.
  */
-routine task_set_special_port(
+routine
+#if	KERNEL_SERVER && !SANDBOX_COMPILER
+task_set_special_port_from_user(
+#else
+task_set_special_port(
+#endif
 		task		: task_t;
 		which_port	: int;
 		special_port	: mach_port_t);
@@ -277,20 +295,22 @@ routine	task_swap_exception_ports(
 	  out	old_flavors	: exception_flavor_array_t, SameCount);
 
 /*
- * OBSOLETE interface.
+ * OBSOLETE interface, removed from kernel
  */
+#if KERNEL_SERVER
+skip;
+skip;
+#else
 routine lock_set_create(
 		task		: task_t;
 	out	new_lock_set	: lock_set_t;
 		n_ulocks	: int;
 		policy		: int);
 
-/*
- * OBSOLETE interface.
- */
 routine lock_set_destroy(
 		task		: task_t;
 		lock_set	: lock_set_t);
+#endif
 
 /*
  * Create and destroy semaphore synchronizers on a
@@ -460,11 +480,11 @@ routine task_set_phys_footprint_limit(
 		new_limit	: int;
 	out old_limit	: int);
 
-routine task_suspend2(
+routine MIG_SERVER_SUFFIX(task_suspend2)(
 		target_task : task_read_t;
 	out suspend_token : task_suspension_token_t);
 
-routine task_resume2(
+routine MIG_SERVER_SUFFIX(task_resume2)(
 		suspend_token : task_suspension_token_t);
 
 routine task_purgable_info(
@@ -579,6 +599,14 @@ routine task_get_exception_ports_info(
 	out	old_handlers_info	: exception_handler_info_array_t, SameCount;
 	out	old_behaviors	: exception_behavior_array_t, SameCount;
 	out	old_flavors	: exception_flavor_array_t, SameCount);
+
+routine task_test_sync_upcall(
+	task	: task_t;
+	port	: mach_port_t);
+
+routine task_set_corpse_forking_behavior(
+		task	 : task_t;
+		behavior : task_corpse_forking_behavior_t);
 	
 /* vim: set ft=c : */
 

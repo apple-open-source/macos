@@ -28,10 +28,6 @@
 #include <TargetConditionals.h>
 #if TARGET_OS_OSX
 
-extern CFURLRef SecCopyKeychainDirectoryFile(CFStringRef file);
-
-CFURLRef PortableCFCopyHomeDirectoryURL(void);
-
 #ifndef _SECURITY_SECRANDOM_H_
 extern const void *kSecRandomDefault;
 #endif
@@ -44,7 +40,5 @@ OSStatus SecKeyFindWithPersistentRef(CFDataRef persistentRef, SecKeyRef *key);
 
 
 #endif
-
-CFURLRef PortableCFCopyHomeDirectoryURL(void) asm("_CFCopyHomeDirectoryURL");
 
 #endif

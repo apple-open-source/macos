@@ -225,8 +225,8 @@ API_DEPRECATED_WITH_REPLACEMENT("CCCryptorGCMSetIV", macos(10.8, 10.13), ios(5.0
 
 /*
    This adds the initial vector octets from iv of length ivLen to the GCM
-   CCCryptorRef. The input iv cannot be NULL and ivLen must be between 12
-   to 16 bytes inclusive. CCRandomGenerateBytes() can be used to generate random IVs
+   CCCryptorRef. The input iv cannot be NULL and ivLen must be at least 12 bytes.
+   CCRandomGenerateBytes() can be used to generate random IVs
 */
 
 CCCryptorStatus

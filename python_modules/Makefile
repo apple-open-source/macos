@@ -2,7 +2,7 @@
 
 include $(VERSIONER_PYTHON_VERSION).inc
 
-EXTRAS = $(shell python -c "import sys, os;print(os.path.join(sys.prefix, 'Extras'))")
+EXTRAS = $(PYPREFIX)/Extras
 EXTRASPYTHON = $(EXTRAS)/lib/python
 
 make := $(SRCROOT)/make.pl

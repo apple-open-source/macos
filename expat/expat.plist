@@ -5,22 +5,23 @@
 	<key>OpenSourceProject</key>
 	<string>expat</string>
 	<key>OpenSourceVersion</key>
-	<string>2.2.8</string>
+	<string>2.4.1</string>
 	<key>OpenSourceWebsiteURL</key>
 	<string>https://libexpat.github.io</string>
 	<key>OpenSourceURL</key>
-	<string>https://github.com/libexpat/libexpat/releases/download/R_2_2_8/expat-2.2.8.tar.xz</string>
+	<string>https://github.com/libexpat/libexpat/releases/download/R_2_4_1/expat-2.4.1.tar.gz</string>
 	<key>OpenSourceSHA512256</key>
-	<string>88f7cdf49a0fede9946a98776bd2a76b26dff455c2a84b5416c82785569e6c54</string>
+	<string>3703aa15af2f2bbb3905fbffc0a43a8ee9b5e1c9f275c0b38eb71a18b0e98e0f</string>
 	<key>OpenSourceImportDate</key>
-	<string>2019-04-22</string>
+	<string>2021-06-11</string>
 	<key>OpenSourceLicense</key>
 	<string>MIT</string>
 	<key>OpenSourceLicenseFile</key>
 	<string>expat.txt</string>
 	<key>OpenSourceModifications</key>
 	<array>
-		<string>Added availability attribute to XML_SetHashSalt.</string>
+	  <string>Added availability attribute to XML_SetHashSalt. (#23977554, #61360720)</string>
+	  <string>Fix build warnings. (#61360720, #78419325)</string>
 	</array>
 </dict>
 </plist>

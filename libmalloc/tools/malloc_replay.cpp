@@ -48,6 +48,9 @@
 
 #endif // TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR
 
+// Opt out malloc_replay from PGM
+asm(".section __DATA, __pgm_opt_out\n.long 0\n");
+
 static void (*s_funcMagSetThreadIndex)(unsigned int index);
 
 extern "C" int thread_selfcounts(int type, void *buf, size_t nbytes);

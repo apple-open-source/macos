@@ -1,0 +1,874 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 50;
+	objects = {
+
+/* Begin PBXAggregateTarget section */
+		AAF3199B25F97F8000E5BF09 /* All */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = AAF3199C25F97F8000E5BF09 /* Build configuration list for PBXAggregateTarget "All" */;
+			buildPhases = (
+			);
+			dependencies = (
+				AAF319A125F97F9100E5BF09 /* PBXTargetDependency */,
+				AAF319A325F97F9300E5BF09 /* PBXTargetDependency */,
+				AAF319A525F97F9500E5BF09 /* PBXTargetDependency */,
+				AAF319A725F97F9600E5BF09 /* PBXTargetDependency */,
+				AAF319A925F97F9700E5BF09 /* PBXTargetDependency */,
+			);
+			name = All;
+			productName = All;
+		};
+/* End PBXAggregateTarget section */
+
+/* Begin PBXBuildFile section */
+		AAF3194C25F967A700E5BF09 /* libasn1_fuzz.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = AAF3193625F965FA00E5BF09 /* libasn1_fuzz.dylib */; };
+		AAF3194D25F967A700E5BF09 /* libipp_fuzz.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = AAF3192E25F965E500E5BF09 /* libipp_fuzz.dylib */; };
+		AAF3194E25F967BC00E5BF09 /* asn1_fuzzing.m in Sources */ = {isa = PBXBuildFile; fileRef = AAF3194525F9665600E5BF09 /* asn1_fuzzing.m */; };
+		AAF3194F25F967C000E5BF09 /* ipp_fuzzing.m in Sources */ = {isa = PBXBuildFile; fileRef = AAF3194625F9665600E5BF09 /* ipp_fuzzing.m */; };
+		AAF3195125F9680200E5BF09 /* libiconv.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = AAF3195025F9680200E5BF09 /* libiconv.tbd */; };
+		AAF3195225F9684C00E5BF09 /* libiconv.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = AAF3195025F9680200E5BF09 /* libiconv.tbd */; };
+		AAF319AB25F98B0D00E5BF09 /* libc++.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = AAF319AA25F98B0D00E5BF09 /* libc++.tbd */; };
+		AAF319AC25F98B2B00E5BF09 /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = AAF3194025F9661800E5BF09 /* main.m */; };
+		AAF319AD25F98B5C00E5BF09 /* ipp_fuzzing.m in Sources */ = {isa = PBXBuildFile; fileRef = AAF3194625F9665600E5BF09 /* ipp_fuzzing.m */; };
+		AAF319B025F98C7B00E5BF09 /* libiconv.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = AAF319AE25F98B6A00E5BF09 /* libiconv.tbd */; };
+		AAF319B125F98C8400E5BF09 /* libiconv.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = AAF3195025F9680200E5BF09 /* libiconv.tbd */; };
+		AAF319B325F98C8F00E5BF09 /* libc++.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = AAF319B225F98C8F00E5BF09 /* libc++.tbd */; };
+		AAF319B425F98C9B00E5BF09 /* asn1_fuzzing.m in Sources */ = {isa = PBXBuildFile; fileRef = AAF3194525F9665600E5BF09 /* asn1_fuzzing.m */; };
+		AAF319B725F99F9C00E5BF09 /* libstdc++.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = AAF319B625F99F9C00E5BF09 /* libstdc++.tbd */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		AAF3194725F9675700E5BF09 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = AAF3191B25F964DB00E5BF09 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = AAF3192D25F965E500E5BF09;
+			remoteInfo = lib_ipp_fuzz;
+		};
+		AAF3194925F9675800E5BF09 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = AAF3191B25F964DB00E5BF09 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = AAF3193525F965FA00E5BF09;
+			remoteInfo = lib_asn1_fuzz;
+		};
+		AAF319A025F97F9100E5BF09 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = AAF3191B25F964DB00E5BF09 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = AAF3192D25F965E500E5BF09;
+			remoteInfo = ipp_fuzz;
+		};
+		AAF319A225F97F9300E5BF09 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = AAF3191B25F964DB00E5BF09 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = AAF3193525F965FA00E5BF09;
+			remoteInfo = asn1_fuzz;
+		};
+		AAF319A425F97F9500E5BF09 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = AAF3191B25F964DB00E5BF09 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = AAF3193D25F9661800E5BF09;
+			remoteInfo = testfuzzing;
+		};
+		AAF319A625F97F9600E5BF09 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = AAF3191B25F964DB00E5BF09 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = AAF3197B25F97EFE00E5BF09;
+			remoteInfo = ipp_libfuzzer;
+		};
+		AAF319A825F97F9700E5BF09 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = AAF3191B25F964DB00E5BF09 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = AAF3198B25F97F2400E5BF09;
+			remoteInfo = asn1_libfuzzer;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		AAF3193C25F9661800E5BF09 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = /usr/share/man/man1/;
+			dstSubfolderSpec = 0;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		AAF3198525F97EFE00E5BF09 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = /usr/share/man/man1/;
+			dstSubfolderSpec = 0;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		AAF3199525F97F2400E5BF09 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = /usr/share/man/man1/;
+			dstSubfolderSpec = 0;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		AAF3192E25F965E500E5BF09 /* libipp_fuzz.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libipp_fuzz.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
+		AAF3193625F965FA00E5BF09 /* libasn1_fuzz.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libasn1_fuzz.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
+		AAF3193E25F9661800E5BF09 /* testfuzzing */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = testfuzzing; sourceTree = BUILT_PRODUCTS_DIR; };
+		AAF3194025F9661800E5BF09 /* main.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = main.m; sourceTree = "<group>"; };
+		AAF3194525F9665600E5BF09 /* asn1_fuzzing.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = asn1_fuzzing.m; sourceTree = "<group>"; };
+		AAF3194625F9665600E5BF09 /* ipp_fuzzing.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = ipp_fuzzing.m; sourceTree = "<group>"; };
+		AAF3195025F9680200E5BF09 /* libiconv.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libiconv.tbd; path = usr/lib/libiconv.tbd; sourceTree = SDKROOT; };
+		AAF3195325F9691D00E5BF09 /* stubs.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = stubs.m; sourceTree = "<group>"; };
+		AAF3195625F97C8200E5BF09 /* fuzzer-target.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = "fuzzer-target.xcconfig"; sourceTree = "<group>"; };
+		AAF3198A25F97EFE00E5BF09 /* ipp_libfuzzer */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = ipp_libfuzzer; sourceTree = BUILT_PRODUCTS_DIR; };
+		AAF3199A25F97F2400E5BF09 /* asn1_libfuzzer */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = asn1_libfuzzer; sourceTree = BUILT_PRODUCTS_DIR; };
+		AAF319AA25F98B0D00E5BF09 /* libc++.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = "libc++.tbd"; path = "Platforms/MacOSX.platform/Developer/SDKs/MacOSX12.0.Internal.sdk/usr/lib/libc++.tbd"; sourceTree = DEVELOPER_DIR; };
+		AAF319AE25F98B6A00E5BF09 /* libiconv.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libiconv.tbd; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX12.0.Internal.sdk/usr/lib/libiconv.tbd; sourceTree = DEVELOPER_DIR; };
+		AAF319B225F98C8F00E5BF09 /* libc++.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = "libc++.tbd"; path = "usr/lib/libc++.tbd"; sourceTree = SDKROOT; };
+		AAF319B625F99F9C00E5BF09 /* libstdc++.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = "libstdc++.tbd"; path = "Platforms/MacOSX.platform/Developer/SDKs/MacOSX12.0.Internal.sdk/usr/lib/libstdc++.tbd"; sourceTree = DEVELOPER_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		AAF3192C25F965E500E5BF09 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AAF3195225F9684C00E5BF09 /* libiconv.tbd in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AAF3193425F965FA00E5BF09 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AAF3195125F9680200E5BF09 /* libiconv.tbd in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AAF3193B25F9661800E5BF09 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AAF319B725F99F9C00E5BF09 /* libstdc++.tbd in Frameworks */,
+				AAF3194C25F967A700E5BF09 /* libasn1_fuzz.dylib in Frameworks */,
+				AAF3194D25F967A700E5BF09 /* libipp_fuzz.dylib in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AAF3198225F97EFE00E5BF09 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AAF319B025F98C7B00E5BF09 /* libiconv.tbd in Frameworks */,
+				AAF319AB25F98B0D00E5BF09 /* libc++.tbd in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AAF3199225F97F2400E5BF09 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AAF319B325F98C8F00E5BF09 /* libc++.tbd in Frameworks */,
+				AAF319B125F98C8400E5BF09 /* libiconv.tbd in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		AAF3191A25F964DB00E5BF09 = {
+			isa = PBXGroup;
+			children = (
+				AAF3195625F97C8200E5BF09 /* fuzzer-target.xcconfig */,
+				AAF3194525F9665600E5BF09 /* asn1_fuzzing.m */,
+				AAF3194625F9665600E5BF09 /* ipp_fuzzing.m */,
+				AAF3195325F9691D00E5BF09 /* stubs.m */,
+				AAF3193F25F9661800E5BF09 /* testfuzzing */,
+				AAF3192625F9654E00E5BF09 /* Products */,
+				AAF3194B25F967A700E5BF09 /* Frameworks */,
+			);
+			sourceTree = "<group>";
+		};
+		AAF3192625F9654E00E5BF09 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				AAF3192E25F965E500E5BF09 /* libipp_fuzz.dylib */,
+				AAF3193625F965FA00E5BF09 /* libasn1_fuzz.dylib */,
+				AAF3193E25F9661800E5BF09 /* testfuzzing */,
+				AAF3198A25F97EFE00E5BF09 /* ipp_libfuzzer */,
+				AAF3199A25F97F2400E5BF09 /* asn1_libfuzzer */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		AAF3193F25F9661800E5BF09 /* testfuzzing */ = {
+			isa = PBXGroup;
+			children = (
+				AAF3194025F9661800E5BF09 /* main.m */,
+			);
+			path = testfuzzing;
+			sourceTree = "<group>";
+		};
+		AAF3194B25F967A700E5BF09 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				AAF319B625F99F9C00E5BF09 /* libstdc++.tbd */,
+				AAF319B225F98C8F00E5BF09 /* libc++.tbd */,
+				AAF319AE25F98B6A00E5BF09 /* libiconv.tbd */,
+				AAF319AA25F98B0D00E5BF09 /* libc++.tbd */,
+				AAF3195025F9680200E5BF09 /* libiconv.tbd */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXHeadersBuildPhase section */
+		AAF3192A25F965E500E5BF09 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AAF3193225F965FA00E5BF09 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXHeadersBuildPhase section */
+
+/* Begin PBXNativeTarget section */
+		AAF3192D25F965E500E5BF09 /* ipp_fuzz */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = AAF3192F25F965E500E5BF09 /* Build configuration list for PBXNativeTarget "ipp_fuzz" */;
+			buildPhases = (
+				AAF3192A25F965E500E5BF09 /* Headers */,
+				AAF3192B25F965E500E5BF09 /* Sources */,
+				AAF3192C25F965E500E5BF09 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = ipp_fuzz;
+			productName = lib_ipp_fuzz;
+			productReference = AAF3192E25F965E500E5BF09 /* libipp_fuzz.dylib */;
+			productType = "com.apple.product-type.library.dynamic";
+		};
+		AAF3193525F965FA00E5BF09 /* asn1_fuzz */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = AAF3193725F965FA00E5BF09 /* Build configuration list for PBXNativeTarget "asn1_fuzz" */;
+			buildPhases = (
+				AAF3193225F965FA00E5BF09 /* Headers */,
+				AAF3193325F965FA00E5BF09 /* Sources */,
+				AAF3193425F965FA00E5BF09 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = asn1_fuzz;
+			productName = lib_asn1_fuzz;
+			productReference = AAF3193625F965FA00E5BF09 /* libasn1_fuzz.dylib */;
+			productType = "com.apple.product-type.library.dynamic";
+		};
+		AAF3193D25F9661800E5BF09 /* testfuzzing */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = AAF3194225F9661800E5BF09 /* Build configuration list for PBXNativeTarget "testfuzzing" */;
+			buildPhases = (
+				AAF3193A25F9661800E5BF09 /* Sources */,
+				AAF3193B25F9661800E5BF09 /* Frameworks */,
+				AAF3193C25F9661800E5BF09 /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				AAF3194825F9675700E5BF09 /* PBXTargetDependency */,
+				AAF3194A25F9675800E5BF09 /* PBXTargetDependency */,
+			);
+			name = testfuzzing;
+			productName = testfuzzing;
+			productReference = AAF3193E25F9661800E5BF09 /* testfuzzing */;
+			productType = "com.apple.product-type.tool";
+		};
+		AAF3197B25F97EFE00E5BF09 /* ipp_libfuzzer */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = AAF3198625F97EFE00E5BF09 /* Build configuration list for PBXNativeTarget "ipp_libfuzzer" */;
+			buildPhases = (
+				AAF3198025F97EFE00E5BF09 /* Sources */,
+				AAF3198225F97EFE00E5BF09 /* Frameworks */,
+				AAF3198525F97EFE00E5BF09 /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = ipp_libfuzzer;
+			productName = testfuzzing;
+			productReference = AAF3198A25F97EFE00E5BF09 /* ipp_libfuzzer */;
+			productType = "com.apple.product-type.tool";
+		};
+		AAF3198B25F97F2400E5BF09 /* asn1_libfuzzer */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = AAF3199625F97F2400E5BF09 /* Build configuration list for PBXNativeTarget "asn1_libfuzzer" */;
+			buildPhases = (
+				AAF3199025F97F2400E5BF09 /* Sources */,
+				AAF3199225F97F2400E5BF09 /* Frameworks */,
+				AAF3199525F97F2400E5BF09 /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = asn1_libfuzzer;
+			productName = testfuzzing;
+			productReference = AAF3199A25F97F2400E5BF09 /* asn1_libfuzzer */;
+			productType = "com.apple.product-type.tool";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		AAF3191B25F964DB00E5BF09 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				LastUpgradeCheck = 1300;
+				TargetAttributes = {
+					AAF3192D25F965E500E5BF09 = {
+						CreatedOnToolsVersion = 13.0;
+					};
+					AAF3193525F965FA00E5BF09 = {
+						CreatedOnToolsVersion = 13.0;
+					};
+					AAF3193D25F9661800E5BF09 = {
+						CreatedOnToolsVersion = 13.0;
+					};
+					AAF3199B25F97F8000E5BF09 = {
+						CreatedOnToolsVersion = 13.0;
+					};
+				};
+			};
+			buildConfigurationList = AAF3191E25F964DB00E5BF09 /* Build configuration list for PBXProject "cups_fuzzing" */;
+			compatibilityVersion = "Xcode 9.3";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = AAF3191A25F964DB00E5BF09;
+			productRefGroup = AAF3192625F9654E00E5BF09 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				AAF3199B25F97F8000E5BF09 /* All */,
+				AAF3192D25F965E500E5BF09 /* ipp_fuzz */,
+				AAF3193525F965FA00E5BF09 /* asn1_fuzz */,
+				AAF3193D25F9661800E5BF09 /* testfuzzing */,
+				AAF3197B25F97EFE00E5BF09 /* ipp_libfuzzer */,
+				AAF3198B25F97F2400E5BF09 /* asn1_libfuzzer */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		AAF3192B25F965E500E5BF09 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AAF3194F25F967C000E5BF09 /* ipp_fuzzing.m in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AAF3193325F965FA00E5BF09 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AAF3194E25F967BC00E5BF09 /* asn1_fuzzing.m in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AAF3193A25F9661800E5BF09 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AAF319AC25F98B2B00E5BF09 /* main.m in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AAF3198025F97EFE00E5BF09 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AAF319AD25F98B5C00E5BF09 /* ipp_fuzzing.m in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AAF3199025F97F2400E5BF09 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AAF319B425F98C9B00E5BF09 /* asn1_fuzzing.m in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		AAF3194825F9675700E5BF09 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = AAF3192D25F965E500E5BF09 /* ipp_fuzz */;
+			targetProxy = AAF3194725F9675700E5BF09 /* PBXContainerItemProxy */;
+		};
+		AAF3194A25F9675800E5BF09 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = AAF3193525F965FA00E5BF09 /* asn1_fuzz */;
+			targetProxy = AAF3194925F9675800E5BF09 /* PBXContainerItemProxy */;
+		};
+		AAF319A125F97F9100E5BF09 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = AAF3192D25F965E500E5BF09 /* ipp_fuzz */;
+			targetProxy = AAF319A025F97F9100E5BF09 /* PBXContainerItemProxy */;
+		};
+		AAF319A325F97F9300E5BF09 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = AAF3193525F965FA00E5BF09 /* asn1_fuzz */;
+			targetProxy = AAF319A225F97F9300E5BF09 /* PBXContainerItemProxy */;
+		};
+		AAF319A525F97F9500E5BF09 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = AAF3193D25F9661800E5BF09 /* testfuzzing */;
+			targetProxy = AAF319A425F97F9500E5BF09 /* PBXContainerItemProxy */;
+		};
+		AAF319A725F97F9600E5BF09 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = AAF3197B25F97EFE00E5BF09 /* ipp_libfuzzer */;
+			targetProxy = AAF319A625F97F9600E5BF09 /* PBXContainerItemProxy */;
+		};
+		AAF319A925F97F9700E5BF09 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = AAF3198B25F97F2400E5BF09 /* asn1_libfuzzer */;
+			targetProxy = AAF319A825F97F9700E5BF09 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		AAF3195725F97C9800E5BF09 /* Fuzzing */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				HEADER_SEARCH_PATHS = (
+					../cups/cups,
+					../cups/xcode,
+				);
+			};
+			name = Fuzzing;
+		};
+		AAF3195825F97C9800E5BF09 /* Fuzzing */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = AAF3195625F97C8200E5BF09 /* fuzzer-target.xcconfig */;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				EXECUTABLE_PREFIX = lib;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_SYMBOLS_PRIVATE_EXTERN = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 12.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx.internal;
+				SKIP_INSTALL = YES;
+			};
+			name = Fuzzing;
+		};
+		AAF3195925F97C9800E5BF09 /* Fuzzing */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = AAF3195625F97C8200E5BF09 /* fuzzer-target.xcconfig */;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				EXECUTABLE_PREFIX = lib;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_SYMBOLS_PRIVATE_EXTERN = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 12.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx.internal;
+				SKIP_INSTALL = YES;
+			};
+			name = Fuzzing;
+		};
+		AAF3195A25F97C9800E5BF09 /* Fuzzing */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = AAF3195625F97C8200E5BF09 /* fuzzer-target.xcconfig */;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 12.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				OTHER_CFLAGS = "$(inherited)";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx.internal;
+			};
+			name = Fuzzing;
+		};
+		AAF3198825F97EFE00E5BF09 /* Fuzzing */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = AAF3195625F97C8200E5BF09 /* fuzzer-target.xcconfig */;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 12.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				OTHER_CFLAGS = "$(inherited)";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx.internal;
+			};
+			name = Fuzzing;
+		};
+		AAF3199825F97F2400E5BF09 /* Fuzzing */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = AAF3195625F97C8200E5BF09 /* fuzzer-target.xcconfig */;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 12.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				OTHER_CFLAGS = "$(inherited)";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx.internal;
+			};
+			name = Fuzzing;
+		};
+		AAF3199E25F97F8000E5BF09 /* Fuzzing */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Fuzzing;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		AAF3191E25F964DB00E5BF09 /* Build configuration list for PBXProject "cups_fuzzing" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AAF3195725F97C9800E5BF09 /* Fuzzing */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Fuzzing;
+		};
+		AAF3192F25F965E500E5BF09 /* Build configuration list for PBXNativeTarget "ipp_fuzz" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AAF3195825F97C9800E5BF09 /* Fuzzing */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Fuzzing;
+		};
+		AAF3193725F965FA00E5BF09 /* Build configuration list for PBXNativeTarget "asn1_fuzz" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AAF3195925F97C9800E5BF09 /* Fuzzing */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Fuzzing;
+		};
+		AAF3194225F9661800E5BF09 /* Build configuration list for PBXNativeTarget "testfuzzing" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AAF3195A25F97C9800E5BF09 /* Fuzzing */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Fuzzing;
+		};
+		AAF3198625F97EFE00E5BF09 /* Build configuration list for PBXNativeTarget "ipp_libfuzzer" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AAF3198825F97EFE00E5BF09 /* Fuzzing */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Fuzzing;
+		};
+		AAF3199625F97F2400E5BF09 /* Build configuration list for PBXNativeTarget "asn1_libfuzzer" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AAF3199825F97F2400E5BF09 /* Fuzzing */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Fuzzing;
+		};
+		AAF3199C25F97F8000E5BF09 /* Build configuration list for PBXAggregateTarget "All" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AAF3199E25F97F8000E5BF09 /* Fuzzing */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Fuzzing;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = AAF3191B25F964DB00E5BF09 /* Project object */;
+}

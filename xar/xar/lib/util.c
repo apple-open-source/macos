@@ -53,6 +53,66 @@
 #include "archive.h"
 #include "filetree.h"
 
+int xar_is_safe_filename(const char *in_filename, char** out_filename)
+{
+	int result = -1;
+	
+	// Bail for NULL
+	if (in_filename == NULL) {
+		goto exit;
+	}
+
+	// Set walker.
+	size_t slash_count = 0;
+	size_t in_filename_length = strlen(in_filename);
+
+	// Find how many "/" we have.
+	// This doesn't deal with \/ but it's close enough.
+	for (size_t index = 0; index < in_filename_length; ++index)
+	{
+		if (in_filename[index] == '/') {
+			if (slash_count <= PATH_MAX) {
+				++slash_count;
+			} else {
+				fprintf(stderr, "slash_count exceeded PATH_MAX. Filename is invalid.\n");
+				goto exit;
+			}
+		}
+		
+	}
+	
+	// If we didn't find any "/" just return 0.
+	result = (slash_count == 0) ? 0 : -1;
+	
+	// If we don't have a slash or don't have a out, just bail.
+	if (out_filename == NULL) {
+		goto exit;
+	}
+	
+	// Shortcut the rest with strdup in this case.
+	if (slash_count == 0) {
+		*out_filename = strdup(in_filename);
+		goto exit;
+	}
+	
+	
+	// Now do the translation.
+	*out_filename = calloc(in_filename_length+1, 1);
+	
+	for (size_t index = 0; index < in_filename_length; ++index)
+	{
+		if (in_filename[index] == '/') {
+			// Add "_" at this location
+			(*out_filename)[index] = ':';
+		} else {
+			(*out_filename)[index] = in_filename[index];
+		}
+	}
+	
+exit:
+	
+	return result;
+}
 
 // SC: This is function is a exact copy of dirname BUT instead of
 // just using the same buffer over and over again, we allocate one.
@@ -60,9 +120,9 @@
 // result will be correct.
 char *xar_safe_dirname(const char *path)
 {
-	char *dname = malloc(MAXPATHLEN);
-	size_t len;
+	char *dname = malloc(PATH_MAX);
 	const char *endp;
+	size_t len;
 
 	/* Empty or NULL string gets treated as "." */
 	if (path == NULL || *path == '\0') {
@@ -70,13 +130,16 @@ char *xar_safe_dirname(const char *path)
 		dname[1] = '\0';
 		return (dname);
 	}
+
 	/* Strip any trailing slashes */
 	endp = path + strlen(path) - 1;
 	while (endp > path && *endp == '/')
 		endp--;
+
 	/* Find the start of the dir */
 	while (endp > path && *endp != '/')
 		endp--;
+
 	/* Either the dir is "/" or there are no slashes */
 	if (endp == path) {
 		dname[0] = *endp == '/' ? '/' : '.';
@@ -88,13 +151,14 @@ char *xar_safe_dirname(const char *path)
 			endp--;
 		} while (endp > path && *endp == '/');
 	}
+
 	len = endp - path + 1;
 	if (len >= MAXPATHLEN) {
 		errno = ENAMETOOLONG;
 		free(dname);
 		return (NULL);
 	}
-	memcpy(dname, path, len);
+	memmove(dname, path, len);
 	dname[len] = '\0';
 	return (dname);
 }
@@ -131,6 +195,36 @@ uint32_t xar_swap32(uint32_t num) {
 	return ret;
 }
 
+char *xar_get_safe_path(xar_file_t f)
+{
+	char *ret, *tmp;
+	const char *unsafe_parent_name;
+	xar_file_t i;
+
+	xar_prop_get(f, "name", &unsafe_parent_name);
+	if( unsafe_parent_name == NULL ) {
+		return NULL;
+	}
+	
+	// strdup the parent name into ret if safe.
+	xar_is_safe_filename(unsafe_parent_name, &ret);
+	
+	for(i = XAR_FILE(f)->parent; i; i = XAR_FILE(i)->parent) {
+		const char *unsafe_name;
+		char* name = NULL;
+		
+		xar_prop_get(i, "name", &unsafe_name);
+		xar_is_safe_filename(unsafe_name, &name);
+		
+		tmp = ret;
+		asprintf(&ret, "%s/%s", name, tmp);
+		free(tmp);
+		free(name);
+	}
+
+	return ret;
+}
+
 /* xar_get_path
  * Summary: returns the archive path of the file f.
  * Caller needs to free the return value.
@@ -148,7 +242,7 @@ char *xar_get_path(xar_file_t f) {
 	ret = strdup(name);
 	for(i = XAR_FILE(f)->parent; i; i = XAR_FILE(i)->parent) {
 		const char *name;
-	       	xar_prop_get(i, "name", &name);
+			xar_prop_get(i, "name", &name);
 		tmp = ret;
 		asprintf(&ret, "%s/%s", name, tmp);
 		free(tmp);
@@ -156,6 +250,7 @@ char *xar_get_path(xar_file_t f) {
 
 	return ret;
 }
+
 
 off_t xar_get_heap_offset(xar_t x) {
 	return XAR(x)->toc_count + sizeof(xar_header_t);

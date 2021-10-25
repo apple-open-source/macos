@@ -1,0 +1,14 @@
+//
+//  powerd-binary-embedded.xcconfig
+//  PowerManagement
+//
+//  Created by Archana Venkatesh on 5/4/21.
+//
+
+// Configuration settings file format documentation can be found at:
+// https://help.apple.com/xcode/#/dev745c5c974
+
+OTHER_LDFLAGS[sdk=iphoneos*] = -weak_framework CPMS -weak_framework CoreAnalytics -weak_framework Trial -weak_framework DataMigration
+OTHER_LDFLAGS[sdk=watchos*] = -weak_framework CPMS -weak_framework CoreAnalytics -weak_framework Trial
+OTHER_LDFLAGS[sdk=bridgeos*] = -weak_framwork CPMS -weak_framework CoreAnalytics
+

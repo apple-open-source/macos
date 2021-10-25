@@ -318,6 +318,8 @@ int32_t xar_hash_toheap_done(xar_t x, xar_file_t f, xar_prop_t p, void **context
 	
 	archived_hash = xar_hash_finish(CONTEXT(context)->archived, &archived_length);
 	unarchived_hash = xar_hash_finish(CONTEXT(context)->unarchived, &unarchived_length);
+	CONTEXT(context)->archived = NULL;
+	CONTEXT(context)->unarchived = NULL;
 	
 	char *str;
 	xar_prop_t tmpp;
@@ -371,6 +373,7 @@ int32_t xar_hash_fromheap_done(xar_t x, xar_file_t f, xar_prop_t p, void **conte
 			size_t calculated_length = -1;
 			const char *calculated_style = strdup(xar_hash_get_digest_name(CONTEXT(context)->archived));
 			void *calculated_buffer = xar_hash_finish(CONTEXT(context)->archived, &calculated_length);
+			CONTEXT(context)->archived = NULL;
 			char *calculated_hash = _xar_format_hash(calculated_buffer, calculated_length);
 			free(calculated_buffer);
 			
@@ -395,6 +398,7 @@ int32_t xar_hash_fromheap_done(xar_t x, xar_file_t f, xar_prop_t p, void **conte
 	if( CONTEXT(context)->unarchived ) {
 		size_t length = -1;
 		void *hash = xar_hash_finish(CONTEXT(context)->unarchived, &length);
+		CONTEXT(context)->unarchived = NULL;
 		free(hash);
 	}
 

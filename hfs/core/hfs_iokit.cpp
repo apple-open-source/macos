@@ -63,9 +63,6 @@ protected:
 OSDefineMetaClassAndStructors(com_apple_filesystems_hfs, IOService)
 
 extern struct vnodeopv_desc hfs_vnodeop_opv_desc;
-#if CONFIG_HFS_STD
-extern struct vnodeopv_desc hfs_std_vnodeop_opv_desc;
-#endif
 extern struct vnodeopv_desc hfs_specop_opv_desc;
 extern struct vnodeopv_desc hfs_fifoop_opv_desc;
 extern struct vfsops hfs_vfsops;
@@ -85,9 +82,6 @@ bool com_apple_filesystems_hfs::start(IOService *provider)
 
 	struct vnodeopv_desc *op_descs[] = {
 		&hfs_vnodeop_opv_desc,
-#if CONFIG_HFS_STD
-		&hfs_std_vnodeop_opv_desc,
-#endif
 		&hfs_specop_opv_desc,
 #if FIFO
 		&hfs_fifoop_opv_desc,

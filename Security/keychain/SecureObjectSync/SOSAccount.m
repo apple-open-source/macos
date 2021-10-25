@@ -60,12 +60,15 @@
 
 
 #import "ipc/SecdWatchdog.h"
+#import "Analytics/Clients/SOSAnalytics.h"
+
 #include <utilities/SecCFWrappers.h>
 #include <utilities/SecCFError.h>
 #include <utilities/SecFileLocations.h>
 
 #include <os/activity.h>
 #include <os/state_private.h>
+#import <os/feature_private.h>
 
 #include <utilities/SecCoreCrypto.h>
 
@@ -249,11 +252,13 @@ static NSDictionary<OctagonState*, NSNumber*>* SOSStateMap(void);
         self.saveBlock = nil;
 
         self.settings =  [[NSUserDefaults alloc] initWithSuiteName:SOSAccountUserDefaultsSuite];
+        [self sosIsEnabled];
 
         [self ensureFactoryCircles];
         SOSAccountEnsureUUID(self);
         self.accountIsChanging = false;
-
+        self.sosTestmode = false;
+        self.consolidateKeyInterest = false;
 #if OCTAGON
         [self setupStateMachine];
 #endif
@@ -448,8 +453,8 @@ static bool Flush(CFErrorRef *error) {
 }
 - (void)stashAccountCredential:(NSData *)credential complete:(void(^)(bool success, NSError *error))complete
 {
-
-    dispatch_sync(SOSCCCredentialQueue(), ^{
+    CFErrorRef localError = NULL;
+    SOSDoWithCredentialsWhileUnlocked(&localError, ^bool(CFErrorRef *error) {
         CFErrorRef syncerror = NULL;
 
         if (![self syncWaitAndFlush:&syncerror]) {
@@ -502,7 +507,12 @@ static bool Flush(CFErrorRef *error) {
                 CFReleaseNull(localError);
             }
         }
+        return true;
     });
+    if(localError) {
+        secnotice("pairing", "Failed to process credentials %@", localError);
+    }
+    CFReleaseNull(localError);
 }
 
 - (void)myPeerInfo:(void (^)(NSData *, NSError *))complete
@@ -907,6 +917,80 @@ static bool Flush(CFErrorRef *error) {
         reply(result, (__bridge NSError *)localError);
         CFReleaseNull(localError);
     }];
+}
+
+- (void) sosEnableValidityCheck {
+    id valuePresent = [self.settings objectForKey: @"SOSEnabled"];
+    if(!valuePresent) {
+        [[SOSAnalytics logger] logSuccessForEventNamed:@"SOSInitialized"];
+        secnotice("SOSMonitorMode", "No value found for SOSMonitorMode initializing to Active");
+        [self sosEnable];
+    }
+}
+
+- (void) sosDisable {
+    if(os_feature_enabled(Security, SOSMonitorMode)) {
+        secnotice("SOSMonitorMode", "Putting SOS into monitor mode");
+        [self.settings setBool: NO forKey: @"SOSEnabled"];
+    } else {
+        secnotice("SOSMonitorMode", "SOSMonitorMode is not turned on for this platform");
+    }
+}
+
+- (void) sosEnable {
+    secnotice("SOSMonitorMode", "Setting SOS to active");
+    [self.settings setBool: YES forKey: @"SOSEnabled"];
+}
+
+- (void) sosIsEnabledCB: (void(^)(bool result)) complete {
+    complete([self sosIsEnabled]);
+}
+
+- (bool)sosIsEnabled {
+    [self sosEnableValidityCheck];
+    return [self.settings boolForKey: @"SOSEnabled"];
+}
+
+- (NSString *) sosIsEnabledString {
+    return [self sosIsEnabled] ? @"[SOS is active]": @"[SOS is monitoring]";
+}
+
+/*
+     If we trust the circle and it's legacy, enable SOS, otherwise disable.
+    We're still listening to circle / keyparm changes (trust) so if changes happen there we'll re-enable if legacy
+ */
+- (bool) sosEvaluateIfNeeded {
+    if(!os_feature_enabled(Security, SOSMonitorMode)) {
+        if(![self sosIsEnabled]) {
+            // make sure SOS wasn't accidentally turned off
+            secnotice("SOSMonitorMode", "sosEvaluateIfNeeded - Turning on SOS since monitor mode is unavailable");
+            [self sosEnable];
+            [[SOSAnalytics logger] logSuccessForEventNamed:@"SOSEnable"];
+        }
+    } else {
+        // SOSMonitorMode is go
+        secnotice("SOSMonitorMode", "sosEvaluateIfNeeded - checking circle");
+        if(!self.accountKeyIsTrusted) {
+            if([self sosIsEnabled]) {
+                secnotice("SOSMonitorMode", "SOS is in monitor mode since the account key isn't trusted");
+                [self sosDisable];
+                [[SOSAnalytics logger] logSuccessForEventNamed:@"SOSDisable"];
+            }
+        } else if(SOSCircleIsLegacy(self.trust.trustedCircle, self.accountKey)) {
+            if(![self sosIsEnabled]) {
+                secnotice("SOSMonitorMode", "Putting SOS into active mode for circle change");
+                [self sosEnable];
+                [[SOSAnalytics logger] logSuccessForEventNamed:@"SOSEnable"];
+            }
+        } else {
+            if([self sosIsEnabled]) {
+                secnotice("SOSMonitorMode", "Putting SOS into monitor mode due to circle change");
+                [self sosDisable];
+                [[SOSAnalytics logger] logSuccessForEventNamed:@"SOSDisable"];
+            }
+        }
+    }
+    return [self sosIsEnabled];
 }
 
 
@@ -1804,6 +1888,10 @@ bool SOSAccountEnsurePeerRegistration(SOSAccount*  account, CFErrorRef *error) {
     if(!SOSAccountIsMyPeerActive(account, NULL)) {
         return result;
     }
+    
+    if(![account sosIsEnabled]) {
+        return true;
+    }
 
     // This code only uses the SOSFullPeerInfoRef for two things:
     //  - Finding out if this device is in the trusted circle
@@ -2043,7 +2131,7 @@ AddStrippedTLKs(NSMutableArray* results, NSArray<CKKSKeychainBackedKey*>* tlks, 
 {
     for(CKKSKeychainBackedKey* tlk in tlks) {
         NSError* localerror = nil;
-        CKKSAESSIVKey* keyBytes = [tlk ensureKeyLoaded:&localerror];
+        CKKSAESSIVKey* keyBytes = [tlk ensureKeyLoadedFromKeychain:&localerror];
 
         if(!keyBytes || localerror) {
             secnotice("piggy", "Failed to load TLK %@: %@", tlk, localerror);
@@ -2574,7 +2662,7 @@ bool SOSAccountJoinWithCircleJoiningBlob(SOSAccount*  account, CFDataRef joining
                                            gencount,
                                            pubKey,
                                            signature,
-                                           trust.fullPeerInfo, error);;
+                                           trust.fullPeerInfo, error);
     }];
     
     CFReleaseNull(gencount);
@@ -2601,10 +2689,11 @@ void SOSAccountLogState(SOSAccount*  account) {
 
     secnotice(ACCOUNTLOGSTATE, "Start");
 
-    secnotice(ACCOUNTLOGSTATE, "ACCOUNT: [keyStatus: %c%c%c hpub %@] [SOSCCStatus: %@] [UID: %d  EUID: %d]",
+    secnotice(ACCOUNTLOGSTATE, "ACCOUNT: [keyStatus: %c%c%c hpub %@] [SOSCCStatus: %@] [UID: %d  EUID: %d] %@",
               boolToChars(hasPubKey, 'U', 'u'), boolToChars(pubTrusted, 'T', 't'), boolToChars(hasPriv, 'I', 'i'),
               userPubKeyID,
-              SOSAccountGetSOSCCStatusString(stat), getuid(), geteuid()
+              SOSAccountGetSOSCCStatusString(stat), getuid(), geteuid(),
+              [account sosIsEnabledString]
               );
     CFReleaseNull(userPubKeyID);
     if(trust.trustedCircle)  SOSCircleLogState(ACCOUNTLOGSTATE, trust.trustedCircle, account.accountKey, (__bridge CFStringRef)(account.peerID));
@@ -2859,6 +2948,11 @@ static NSSet<OctagonFlag*>* SOSFlagsSet(void) {
 
 - (void)triggerRingUpdate
 {
+    // this is a guard, it shouldn't be necessary, but let's do it
+    if(self.consolidateKeyInterest) {
+        return;
+    }
+    
     WEAKIFY(self);
     dispatch_async(self.stateMachineQueue, ^{
         STRONGIFY(self);
@@ -2938,7 +3032,11 @@ static NSSet<OctagonFlag*>* SOSFlagsSet(void) {
                 }
             }
         }];
-                
+        
+        [self performTransaction:^(SOSAccountTransaction * _Nonnull txn) {
+            self.consolidateKeyInterest = true;
+        }];
+        
         if(goodPubKey && myBackupViews && !CFSetIsEmpty(myBackupViews)) {
             CFSetForEach(myBackupViews, ^(const void *value) {
                 CFStringRef viewName = asString(value, NULL);
@@ -2950,6 +3048,10 @@ static NSSet<OctagonFlag*>* SOSFlagsSet(void) {
             });
         }
         CFReleaseNull(myBackupViews);
+        
+        [self performTransaction:^(SOSAccountTransaction * _Nonnull txn) {
+            self.consolidateKeyInterest = false;
+        }];
 
         // This is where circle and ring flushes happen now.
         // If a circle or ring has been Pushed in handleUpdate routines we need them to get out now.

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2009-2021 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -119,6 +119,8 @@ enum {
 
 struct afswtch {
 	const char	*af_name;	/* as given on cmd line, e.g. "inet" */
+	const char	*af_clone_name; /* "bridge", "vlan", etc. */
+	uint8_t		af_clone_name_length;
 	short		af_af;		/* AF_* */
 	/*
 	 * Status is handled one of two ways; if there is an

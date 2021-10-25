@@ -77,7 +77,7 @@ typedef enum {
  * @abstract
  * Abstract data type used as a unique identifier for an element.
  */
-#ifdef __LP64__
+#if  TARGET_OS_DRIVERKIT || defined(__LP64__)
 typedef uint32_t IOHIDElementCookie;
 #else
 typedef void * IOHIDElementCookie;

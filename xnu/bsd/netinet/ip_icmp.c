@@ -824,7 +824,7 @@ icmp_reflect(struct mbuf *m)
 	 * or anonymous), use the address which corresponds
 	 * to the incoming interface.
 	 */
-	lck_rw_lock_shared(in_ifaddr_rwlock);
+	lck_rw_lock_shared(&in_ifaddr_rwlock);
 	TAILQ_FOREACH(ia, INADDR_HASH(t.s_addr), ia_hash) {
 		IFA_LOCK(&ia->ia_ifa);
 		if (t.s_addr == IA_SIN(ia)->sin_addr.s_addr) {
@@ -850,7 +850,7 @@ icmp_reflect(struct mbuf *m)
 		IFA_UNLOCK(&ia->ia_ifa);
 	}
 match:
-	lck_rw_done(in_ifaddr_rwlock);
+	lck_rw_done(&in_ifaddr_rwlock);
 
 	/* Initialize */
 	bzero(&icmpdst, sizeof(icmpdst));
@@ -866,15 +866,15 @@ match:
 	 * and was received on an interface with no IP address.
 	 */
 	if (ia == (struct in_ifaddr *)0) {
-		lck_rw_lock_shared(in_ifaddr_rwlock);
+		lck_rw_lock_shared(&in_ifaddr_rwlock);
 		ia = in_ifaddrhead.tqh_first;
 		if (ia == (struct in_ifaddr *)0) {/* no address yet, bail out */
-			lck_rw_done(in_ifaddr_rwlock);
+			lck_rw_done(&in_ifaddr_rwlock);
 			m_freem(m);
 			goto done;
 		}
 		IFA_ADDREF(&ia->ia_ifa);
-		lck_rw_done(in_ifaddr_rwlock);
+		lck_rw_done(&in_ifaddr_rwlock);
 	}
 	IFA_LOCK_SPIN(&ia->ia_ifa);
 	t = IA_SIN(ia)->sin_addr;
@@ -1342,9 +1342,9 @@ icmp_dgram_send(struct socket *so, int flags, struct mbuf *m,
 		 */
 		if (ip->ip_src.s_addr != INADDR_ANY) {
 			socket_unlock(so, 0);
-			lck_rw_lock_shared(in_ifaddr_rwlock);
+			lck_rw_lock_shared(&in_ifaddr_rwlock);
 			if (TAILQ_EMPTY(&in_ifaddrhead)) {
-				lck_rw_done(in_ifaddr_rwlock);
+				lck_rw_done(&in_ifaddr_rwlock);
 				socket_lock(so, 0);
 				goto bad;
 			}
@@ -1354,13 +1354,13 @@ icmp_dgram_send(struct socket *so, int flags, struct mbuf *m,
 				if (IA_SIN(ia)->sin_addr.s_addr ==
 				    ip->ip_src.s_addr) {
 					IFA_UNLOCK(&ia->ia_ifa);
-					lck_rw_done(in_ifaddr_rwlock);
+					lck_rw_done(&in_ifaddr_rwlock);
 					socket_lock(so, 0);
 					goto ours;
 				}
 				IFA_UNLOCK(&ia->ia_ifa);
 			}
-			lck_rw_done(in_ifaddr_rwlock);
+			lck_rw_done(&in_ifaddr_rwlock);
 			socket_lock(so, 0);
 			goto bad;
 		}

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2020 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2021 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -112,12 +112,71 @@ static const struct option longopts[] = {
 	{ "secret",		required_argument,	NULL,	0	},
 	{ "log",		required_argument,	NULL,	0	},
 	{ "advisory",		required_argument,	NULL,	0	},
+	{ "rank",		required_argument,	NULL,	0	},
 #if	!TARGET_OS_IPHONE
 	{ "allow-new-interfaces", no_argument,		NULL,	0	},
 #endif	// !TARGET_OS_IPHONE
 	{ "disable-until-needed", no_argument,		NULL,	0	},
+	{ "disable-private-relay", no_argument,		NULL,	0	},
 	{ NULL,			0,			NULL,	0	}
 };
+
+
+__private_extern__
+Boolean
+get_bool_from_string(const char	*str,
+		     Boolean	def_value,
+		     Boolean	*ret_value,
+		     Boolean	*use_default)
+{
+	if        ((strcasecmp(str, "disable") == 0) ||
+		   (strcasecmp(str, "no"     ) == 0) ||
+		   (strcasecmp(str, "off"    ) == 0) ||
+		   (strcasecmp(str, "0"      ) == 0)) {
+		*ret_value = FALSE;
+	} else if ((strcasecmp(str, "enable") == 0) ||
+		   (strcasecmp(str, "yes"   ) == 0) ||
+		   (strcasecmp(str, "on"    ) == 0) ||
+		   (strcasecmp(str, "1"     ) == 0)) {
+		*ret_value = TRUE;
+	} else if ((strcasecmp(str, "default") == 0) ||
+		   (strlen(str) == 0)) {
+		*ret_value = def_value;
+		if (use_default != NULL) {
+			*use_default = TRUE;
+		}
+	} else {
+		return FALSE;
+	}
+
+	return TRUE;
+}
+
+
+__private_extern__
+Boolean
+get_rank_from_string(const char * str, SCNetworkServicePrimaryRank *ret_rank)
+{
+	SCNetworkServicePrimaryRank 	rank;
+	Boolean				valid = TRUE;
+
+	if ((strcasecmp(str, "Default") == 0)) {
+		rank = kSCNetworkServicePrimaryRankDefault;
+	} else if ((strcasecmp(str, "First") == 0)) {
+		rank = kSCNetworkServicePrimaryRankFirst;
+	} else if ((strcasecmp(str, "Last") == 0)) {
+		rank = kSCNetworkServicePrimaryRankLast;
+	} else if ((strcasecmp(str, "Never") == 0)) {
+		rank = kSCNetworkServicePrimaryRankNever;
+	} else if ((strcasecmp(str, "Scoped") == 0)) {
+		rank = kSCNetworkServicePrimaryRankScoped;
+	} else {
+		rank = kSCNetworkServicePrimaryRankDefault;
+		valid = FALSE;
+	}
+	*ret_rank = rank;
+	return (valid);
+}
 
 
 __private_extern__
@@ -323,7 +382,7 @@ process_line(InputRef src)
 }
 
 
-static void
+static void __attribute__((noreturn))
 usage(const char *command)
 {
 	SCPrint(TRUE, stderr, CFSTR("usage: %s\n"), command);
@@ -370,6 +429,11 @@ usage(const char *command)
 		SCPrint(TRUE, stderr, CFSTR("\n"));
 		SCPrint(TRUE, stderr, CFSTR("   or: %s --disable-until-needed <interfaceName> [on|off ]\n"), command);
 		SCPrint(TRUE, stderr, CFSTR("\tmanage secondary interface demand.\n"));
+
+		SCPrint(TRUE, stderr, CFSTR("\n"));
+		SCPrint(TRUE, stderr, CFSTR("   or: %s --disable-private-relay <interfaceName> [on|off ]\n"), command);
+		SCPrint(TRUE, stderr, CFSTR("\tmanage Private Relay preferences.\n"));
+
 	}
 
 #if	!TARGET_OS_IPHONE
@@ -413,12 +477,14 @@ main(int argc, char * const argv[])
 #endif	// !TARGET_OS_IPHONE
 	Boolean			configuration		= FALSE;
 	Boolean			disableUntilNeeded	= FALSE;
+	Boolean			disablePrivateRelay	= FALSE;
 	Boolean			doAdvisory		= FALSE;
 	Boolean			doDNS			= FALSE;
 	Boolean			doNet			= FALSE;
 	Boolean			doNWI			= FALSE;
 	Boolean			doPrefs			= FALSE;
 	Boolean			doProxy			= FALSE;
+	Boolean			doRank			= FALSE;
 	Boolean			doReach			= FALSE;
 	Boolean			doSnap			= FALSE;
 	char			*error			= NULL;
@@ -428,6 +494,7 @@ main(int argc, char * const argv[])
 	int			opt;
 	int			opti;
 	const char		*prog			= argv[0];
+	const char *		rankInterface		= NULL;
 	char			*renew			= NULL;
 	char			*set			= NULL;
 	char			*nc_cmd			= NULL;
@@ -517,6 +584,9 @@ main(int argc, char * const argv[])
 			} else if (strcmp(longopts[opti].name, "disable-until-needed") == 0) {
 				disableUntilNeeded = TRUE;
 				xStore++;
+			} else if (strcmp(longopts[opti].name, "disable-private-relay") == 0) {
+				disablePrivateRelay = TRUE;
+				xStore++;
 			} else if (strcmp(longopts[opti].name, "user") == 0) {
 				username = CFStringCreateWithCString(NULL, optarg, kCFStringEncodingUTF8);
 			} else if (strcmp(longopts[opti].name, "password") == 0) {
@@ -526,6 +596,10 @@ main(int argc, char * const argv[])
 			} else if (strcmp(longopts[opti].name, "advisory") == 0) {
 				doAdvisory = TRUE;
 				advisoryInterface = optarg;
+				xStore++;
+			} else if (strcmp(longopts[opti].name, "rank") == 0) {
+				doRank = TRUE;
+				rankInterface = optarg;
 				xStore++;
 			}
 			break;
@@ -546,7 +620,7 @@ main(int argc, char * const argv[])
 	/* are we asking for a configuration summary */
 	if (configuration) {
 		do_configuration(argc, (char **)argv);
-		/* NOT REACHED */
+		exit(0);
 	}
 
 	/* are we checking (or watching) the reachability of a host/address */
@@ -555,36 +629,36 @@ main(int argc, char * const argv[])
 			usage(prog);
 		}
 		if (watch) {
-			do_watchReachability(argc, (char **)argv);
+			do_watchReachability(argc, argv);
 		} else {
-			do_checkReachability(argc, (char **)argv);
+			do_checkReachability(argc, argv);
 		}
-		/* NOT REACHED */
+		exit(0);
 	}
 
 	/* are we waiting on the presense of a dynamic store key */
 	if (wait) {
 		do_wait(wait, timeout);
-		/* NOT REACHED */
+		exit(0);
 	}
 
 	/* are we looking up the DNS configuration */
 	if (doDNS) {
 		if (watch) {
-			do_watchDNSConfiguration(argc, (char **)argv);
+			do_watchDNSConfiguration(argc, argv);
 		} else {
-			do_showDNSConfiguration(argc, (char **)argv);
+			do_showDNSConfiguration(argc, argv);
 		}
-		/* NOT REACHED */
+		exit(0);
 	}
 
 	if (doNWI) {
 		if (watch) {
-			do_watchNWI(argc, (char**)argv);
+			do_watchNWI(argc, argv);
 		} else {
-			do_showNWI(argc, (char**)argv);
+			do_showNWI(argc, argv);
 		}
-		/* NOT REACHED */
+		exit(0);
 	}
 
 	if (doSnap) {
@@ -593,13 +667,18 @@ main(int argc, char * const argv[])
 		}
 
 		do_open(0, NULL);	/* open the dynamic store */
-		do_snapshot(argc, (char**)argv);
+		do_snapshot(argc, argv);
 		exit(0);
 	}
 
 	if (doAdvisory) {
-		do_advisory(advisoryInterface, watch, argc, (char**)argv);
-		/* NOT REACHED */
+		do_advisory(advisoryInterface, watch, argc, argv);
+		exit(0);
+	}
+
+	if (doRank) {
+		do_rank(rankInterface, watch, argc, argv);
+		exit(0);
 	}
 
 	/* are we translating error #'s to descriptive text */
@@ -633,14 +712,14 @@ main(int argc, char * const argv[])
 			usage(prog);
 		}
 
-		do_getPref(get, argc, (char **)argv);
-		/* NOT REACHED */
+		do_getPref(get, argc, argv);
+		exit(0);
 	}
 
 	/* are we looking up the proxy configuration */
 	if (doProxy) {
-		do_showProxyConfiguration(argc, (char **)argv);
-		/* NOT REACHED */
+		do_showProxyConfiguration(argc, argv);
+		exit(0);
 	}
 
 	/* are we changing a preference value */
@@ -648,8 +727,8 @@ main(int argc, char * const argv[])
 		if (findPref(set) < 0) {
 			usage(prog);
 		}
-		do_setPref(set, argc, (char **)argv);
-		/* NOT REACHED */
+		do_setPref(set, argc, argv);
+		exit(0);
 	}
 
 	/* verbose log */
@@ -657,22 +736,28 @@ main(int argc, char * const argv[])
 		if (strcasecmp(log, "IPMonitor")) {
 			usage(prog);
 		}
-		do_log(log, argc, (char * *)argv);
-		/* NOT REACHED */
+		do_log(log, argc, argv);
+		exit(0);
 	}
 
 #if	!TARGET_OS_IPHONE
 	/* allowNewInterfaces */
 	if (allowNewInterfaces) {
-		do_ifnamer("allow-new-interfaces", argc, (char * *)argv);
-		/* NOT REACHED */
+		do_ifnamer("allow-new-interfaces", argc, argv);
+		exit(0);
 	}
 #endif	// !TARGET_OS_IPHONE
 
 	/* disableUntilNeeded */
 	if (disableUntilNeeded) {
-		do_disable_until_needed(argc, (char * *)argv);
-		/* NOT REACHED */
+		do_disable_until_needed(argc, argv);
+		exit(0);
+	}
+
+	/* disablePrivateRelay */
+	if (disablePrivateRelay) {
+		do_disable_private_relay(argc, argv);
+		exit(0);
 	}
 
 	/* network connection commands */
@@ -680,13 +765,13 @@ main(int argc, char * const argv[])
 		if (find_nc_cmd(nc_cmd) < 0) {
 			usage(prog);
 		}
-		do_nc_cmd(nc_cmd, argc, (char **)argv, watch);
-		/* NOT REACHED */
+		do_nc_cmd(nc_cmd, argc, argv, watch);
+		exit(0);
 	}
 
 	if (doNet) {
 		/* if we are going to be managing the network configuration */
-		commands  = (cmdInfo *)commands_net;
+		commands  = commands_net;
 		nCommands = nCommands_net;
 
 		if (!getenv("ENABLE_EXPERIMENTAL_SCUTIL_COMMANDS")) {
@@ -694,18 +779,18 @@ main(int argc, char * const argv[])
 		}
 
 		do_net_init();				/* initialization */
-		do_net_open(argc, (char **)argv);	/* open prefs */
+		do_net_open(argc, argv);	/* open prefs */
 	} else if (doPrefs) {
 		/* if we are going to be managing the network configuration */
-		commands  = (cmdInfo *)commands_prefs;
+		commands  = commands_prefs;
 		nCommands = nCommands_prefs;
 
 		do_dictInit(0, NULL);			/* start with an empty dictionary */
 		do_prefs_init();			/* initialization */
-		do_prefs_open(argc, (char **)argv);	/* open prefs */
+		do_prefs_open(argc, argv);		/* open prefs */
 	} else {
 		/* if we are going to be managing the dynamic store */
-		commands  = (cmdInfo *)commands_store;
+		commands  = commands_store;
 		nCommands = nCommands_store;
 
 		do_dictInit(0, NULL);	/* start with an empty dictionary */
@@ -715,7 +800,7 @@ main(int argc, char * const argv[])
 	/* are we trying to renew a DHCP lease */
 	if (renew != NULL) {
 		do_renew(renew);
-		/* NOT REACHED */
+		exit(0);
 	}
 
 	/* allocate command input stream */
@@ -775,5 +860,4 @@ main(int argc, char * const argv[])
 	CFAllocatorDeallocate(NULL, src);
 
 	exit (EX_OK);	// insure the process exit status is 0
-	return 0;	// ...and make main fit the ANSI spec.
 }

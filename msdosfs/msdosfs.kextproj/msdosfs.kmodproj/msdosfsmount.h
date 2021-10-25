@@ -149,7 +149,12 @@ struct msdosfsmount {
 	SInt32		pm_sync_scheduled;
 	SInt32		pm_sync_incomplete;
 	thread_call_t	pm_sync_timer;
-	
+
+    thread_t        pm_flush_thread;    /* Thread ID */
+    lck_mtx_t*      pm_flush_lock;      /* Lock protecting this handle */
+    bool            pm_flush_shutdown;  /* Shutdown flag */
+    bool            pm_flush_request;   /* Request flag */
+
 	u_int32_t	pm_iosize;		/* "optimal" I/O size */
 };
 
@@ -246,8 +251,6 @@ uid_t get_pmuid(struct msdosfsmount *pmp, uid_t current_user);
 extern lck_grp_attr_t *msdosfs_lck_grp_attr;
 extern lck_grp_t *msdosfs_lck_grp;
 extern lck_attr_t *msdosfs_lck_attr;
-
-extern OSMallocTag msdosfs_malloc_tag;
 
 #endif /* KERNEL */
 

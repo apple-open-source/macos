@@ -25,7 +25,7 @@
 
 #import <Foundation/Foundation.h>
 #import <dispatch/dispatch.h>
-#import <keychain/ckks/CKKSResultOperation.h>
+#import "keychain/ckks/CKKSResultOperation.h"
 
 NS_ASSUME_NONNULL_BEGIN
 

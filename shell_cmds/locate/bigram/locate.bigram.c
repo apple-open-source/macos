@@ -1,4 +1,6 @@
 /*
+ * SPDX-License-Identifier: BSD-4-Clause
+ *
  * Copyright (c) 1995 Wolfram Schneider <wosch@FreeBSD.org>. Berlin.
  * Copyright (c) 1989, 1993
  *	The Regents of the University of California.  All rights reserved.
@@ -34,9 +36,10 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $FreeBSD: src/usr.bin/locate/bigram/locate.bigram.c,v 1.12 2005/02/09 09:13:36 stefanf Exp $
+ * $FreeBSD$
  */
 
+#if 0
 #ifndef lint
 static char copyright[] =
 "@(#) Copyright (c) 1989, 1993\n\
@@ -46,6 +49,7 @@ static char copyright[] =
 #ifndef lint
 static char sccsid[] = "@(#)locate.bigram.c	8.1 (Berkeley) 6/6/93";
 #endif /* not lint */
+#endif
 
 /*
  *  bigram < sorted_file_names | sort -nr | 
@@ -55,6 +59,10 @@ static char sccsid[] = "@(#)locate.bigram.c	8.1 (Berkeley) 6/6/93";
  * Use 'code' to encode a file using this output.
  */
 
+#ifndef __APPLE__
+#include <capsicum_helpers.h>
+#endif
+#include <err.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/param.h>			/* for MAXPATHLEN */
@@ -67,9 +75,14 @@ u_int bigram[UCHAR_MAX + 1][UCHAR_MAX + 1];
 int
 main(void)
 {
-  	register u_char *cp;
-	register u_char *oldpath = buf1, *path = buf2;
-	register u_int i, j;
+	u_char *cp;
+	u_char *oldpath = buf1, *path = buf2;
+	u_int i, j;
+
+#ifndef __APPLE__
+	if (caph_limit_stdio() < 0 || caph_enter() < 0)
+		err(1, "capsicum");
+#endif
 
      	while (fgets(path, sizeof(buf2), stdin) != NULL) {
 

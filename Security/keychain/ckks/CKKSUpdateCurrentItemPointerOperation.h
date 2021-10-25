@@ -29,19 +29,22 @@ NS_ASSUME_NONNULL_BEGIN
 
 
 @interface CKKSUpdateCurrentItemPointerOperation : CKKSGroupOperation
-@property (weak,nullable) CKKSKeychainView* ckks;
 
 @property NSString* currentPointerIdentifier;
+@property (readonly) CKKSKeychainViewState* viewState;
 
 - (instancetype)init NS_UNAVAILABLE;
-- (instancetype)initWithCKKSKeychainView:(CKKSKeychainView* _Nonnull)ckks
-                                 newItem:(NSData* _Nonnull)newItemPersistentRef
-                                    hash:(NSData* _Nonnull)newItemSHA1
-                             accessGroup:(NSString* _Nonnull)accessGroup
-                              identifier:(NSString* _Nonnull)identifier
-                               replacing:(NSData* _Nullable)oldCurrentItemPersistentRef
-                                    hash:(NSData* _Nullable)oldItemSHA1
-                        ckoperationGroup:(CKOperationGroup* _Nullable)ckoperationGroup;
+
+// Unlike many other CKKS operations, this one takes a specific zone to operate in.
+- (instancetype)initWithCKKSOperationDependencies:(CKKSOperationDependencies*)operationDependencies
+                                        viewState:(CKKSKeychainViewState*)viewState
+                                          newItem:(NSData*)newItemPersistentRef
+                                             hash:(NSData*)newItemSHA1
+                                      accessGroup:(NSString*)accessGroup
+                                       identifier:(NSString*)identifier
+                                        replacing:(NSData* _Nullable)oldCurrentItemPersistentRef
+                                             hash:(NSData* _Nullable)oldItemSHA1
+                                 ckoperationGroup:(CKOperationGroup* _Nullable)ckoperationGroup;
 @end
 
 NS_ASSUME_NONNULL_END

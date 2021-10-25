@@ -48,4 +48,5 @@ DOVIEWMACRO(Health,                 "Health",               "health",           
 DOVIEWMACRO(ApplePay,               "ApplePay",             "applepay",                CKKS, D,  , A,  ,  )
 DOVIEWMACRO(Home,                   "Home",                 "home",                    CKKS, D,  , A,  ,  )
 DOVIEWMACRO(LimitedPeersAllowed,    "LimitedPeersAllowed",  "limitedpeersallowed",     CKKS, D,  , A,  ,  )
+DOVIEWMACRO(MFi,                    "MFi",                  "mfi",                     CKKS, D,  , A,  ,  )
 

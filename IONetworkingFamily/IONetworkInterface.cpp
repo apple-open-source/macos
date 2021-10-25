@@ -191,15 +191,11 @@ bool IONetworkInterface::init( IONetworkController * controller )
     _driver = controller;
     _driver->retain();
 
-    // Allocate memory for the ExpansionData structure.
+    // Allocate & Zero memory for the ExpansionData structure.
 
-    _reserved = IONew( ExpansionData, 1 );
+    _reserved = IOMallocType(ExpansionData);
     if ( _reserved == 0 )
         goto fail;
-
-    // Initialize the fields in the ExpansionData structure.
-
-    bzero(_reserved, sizeof(ExpansionData));
 
     _inputEventThreadCall = thread_call_allocate( handleNetworkInputEvent, this );
     if ( !_inputEventThreadCall )
@@ -216,8 +212,7 @@ bool IONetworkInterface::init( IONetworkController * controller )
     _controller = controller;
     _rxPollModel = IFNET_MODEL_INPUT_POLL_OFF;
 
-    _inputPushQueue = IONew(IOMbufQueue, 1);
-    bzero(_inputPushQueue, sizeof(*_inputPushQueue));
+    _inputPushQueue = IOMallocType(IOMbufQueue);
 
     // Set initial queue state before attaching to network stack.
     _txThreadState = kTxThreadStateInit | kTxThreadStateHalted;
@@ -344,8 +339,7 @@ void IONetworkInterface::free( void )
     if ( _inputPushQueue )
     {
 		clearInputQueue();
-        IODelete(_inputPushQueue, IOMbufQueue, 1);
-        _inputPushQueue = 0;
+        IOFreeType(_inputPushQueue, IOMbufQueue);
     }
 
     if ( _privateLock )
@@ -378,15 +372,13 @@ void IONetworkInterface::free( void )
         }
 
         if (_remote_NMI_pattern) {
-            IOFree(_remote_NMI_pattern, _remote_NMI_len);
+            IOFreeData(_remote_NMI_pattern, sizeof(char) * (_remote_NMI_len + 1));
         }
 
         if (_txWorkLoop)
             _txWorkLoop->release();
 
-        memset(_reserved, 0, sizeof(ExpansionData));
-        IODelete(_reserved, ExpansionData, 1);
-        _reserved = 0;
+        IOFreeType(_reserved, ExpansionData);
     }
 
     super::free();
@@ -1245,15 +1237,14 @@ SInt32 IONetworkInterface::syncSIOCGIFMEDIA(IONetworkController * ctr,
         }
 
         // Allocate memory for the copyout buffer.
-        // IONew checks for overflow.
+        // IONewZero checks for overflow.
         //
-        typeList = IONew(UInt32, maxCount);
+        typeList = IONewZeroData(UInt32, maxCount);
         if (!typeList)
         {
             error = ENOMEM;
             break;
         }
-        bzero(typeList, maxCount * sizeof(UInt32));
 
         // Iterate through the medium dictionary and copy the type of
         // each medium entry to typeList[].
@@ -1283,7 +1274,7 @@ SInt32 IONetworkInterface::syncSIOCGIFMEDIA(IONetworkController * ctr,
             }
         }
 
-        IODelete(typeList, UInt32, maxCount);
+        IODeleteData(typeList, UInt32, maxCount);
     }
     while (0);
 
@@ -2329,7 +2320,7 @@ void IONetworkInterface::debuggerRegistered( void )
         buffer[i] = val;
     }
 
-    _remote_NMI_pattern = (char *) IOMalloc(sizeof(char) * i + 1);
+    _remote_NMI_pattern = (char *) IOMallocData(sizeof(char) * (i + 1));
     if (!_remote_NMI_pattern) 
         return;
 
@@ -3086,7 +3077,8 @@ void IONetworkInterface::if_input_poll(
 
     driver = me->_driver;
     assert(driver);
-    if (__builtin_expect(!driver, 0))
+    if (__builtin_expect(!driver, 0) ||
+        (me->getInterfaceState() & kIONetworkInterfaceDisabledState))
     {
         return;
     }
@@ -3132,7 +3124,8 @@ void IONetworkInterface::if_input_poll_gated(
 
     driver = me->_driver;
     assert(driver);
-    if (__builtin_expect(!driver, 0))
+    if ((__builtin_expect(!driver, 0) ||
+           (me->getInterfaceState() & kIONetworkInterfaceDisabledState)))
     {
         return;
     }

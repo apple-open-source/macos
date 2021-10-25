@@ -447,7 +447,7 @@ void setFieldUnknownExt(
 {
 	CSSM_X509_EXTENSION_PTR cssmExt = verifySetFreeExtension(fieldValue, true);
 	SecNssCoder &coder = cert.coder();
-	CSSM_DATA *rawExtn = (CSSM_DATA *)coder.malloc(sizeof(CSSM_DATA));
+	CSSM_DATA *rawExtn = (CSSM_DATA *)coder.alloc(sizeof(CSSM_DATA));
 	coder.allocCopyItem(cssmExt->BERvalue, *rawExtn);
 	cert.addExtension(NULL, cssmExt->extnId, cssmExt->critical, 
 		true, NULL /* no template */, rawExtn); 

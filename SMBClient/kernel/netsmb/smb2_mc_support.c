@@ -489,6 +489,7 @@ smb2_mc_parse_client_interface_array(
 	struct network_nic_info *client_info_array = NULL;
 	int error = 0;
     bool in_blacklist = false;
+    uint64_t current_offset;
 
 	uint32_t array_size = client_info->total_buffer_size;
     
@@ -510,7 +511,18 @@ smb2_mc_parse_client_interface_array(
 	}
 
 	struct network_nic_info * client_info_entry = (struct network_nic_info *) client_info_array;
+    current_offset = 0;
+
 	for (uint32_t counter = 0; counter < client_info->interface_instance_count; counter++) {
+
+        if ((current_offset + sizeof(struct network_nic_info)) > array_size) {
+            SMBERROR("Avoid OOB access when parsing client nic info array \n");
+            error = EINVAL;
+            goto exit;
+        }
+
+        client_info_entry = (struct network_nic_info *) ((uint8_t*) client_info_array + current_offset);
+
         in_blacklist = false;
 
         for (uint32_t i = 0; i < session_table->client_if_blacklist_len; i++)
@@ -531,7 +543,7 @@ smb2_mc_parse_client_interface_array(
             break;
         }
 
-		client_info_entry = (struct network_nic_info *) ((uint8_t*) client_info_entry + client_info_entry->next_offset);
+        current_offset += client_info_entry->next_offset;
 	}
 
 exit:
@@ -955,23 +967,33 @@ smb2_mc_init(
     session_table->max_rss_channels = max_rss_channels ? max_rss_channels : 4;
     session_table->prefer_wired = prefer_wired;
     session_table->pause_trials = 0;
+    session_table->client_if_blacklist = NULL;
+    session_table->client_if_blacklist_len = 0;
 
     if (client_if_blacklist_len && client_if_blacklist) {
-        array_size = sizeof(uint32_t) * client_if_blacklist_len;
-        SMB_MALLOC(session_table->client_if_blacklist, uint32_t*,
-                   array_size, M_NSMBDEV, M_WAITOK | M_ZERO);
 
-        if (session_table->client_if_blacklist == NULL) {
-            SMBERROR("failed to allocate session_table->client_if_blacklist (size %u)!", client_if_blacklist_len);
-            session_table->client_if_blacklist_len = 0;
+        /*
+         * <79577111> check the value of client_if_blacklist_len with the limit of
+         * client_if_blacklist (kClientIfBlacklistMaxLen) to prevent OOB read
+         * by later memcpy.
+         */
+        if (client_if_blacklist_len > kClientIfBlacklistMaxLen) {
+            SMBERROR("invalid client if ignore list length %u)!",
+                     client_if_blacklist_len);
         } else {
-            memcpy(session_table->client_if_blacklist,
-                   client_if_blacklist, array_size);
-            session_table->client_if_blacklist_len = client_if_blacklist_len;
+            array_size = sizeof(uint32_t) * client_if_blacklist_len;
+            SMB_MALLOC(session_table->client_if_blacklist, uint32_t*,
+                       array_size, M_NSMBDEV, M_WAITOK | M_ZERO);
+
+            if (session_table->client_if_blacklist == NULL) {
+                SMBERROR("failed to allocate session_table->client_if_ignore_list (size %u)!", client_if_blacklist_len);
+                session_table->client_if_blacklist_len = 0;
+            } else {
+                memcpy(session_table->client_if_blacklist,
+                       client_if_blacklist, array_size);
+                session_table->client_if_blacklist_len = client_if_blacklist_len;
+            }
         }
-    } else {
-        session_table->client_if_blacklist = NULL;
-        session_table->client_if_blacklist_len = 0;
     }
 
     TAILQ_INIT(&session_table->server_nic_info_list);
@@ -1751,15 +1773,22 @@ int smb2_mc_notifier_event(struct session_network_interface_info *session_table,
     struct session_network_interface_info updated_interface_table;
 
     smb2_mc_init(&updated_interface_table, 0, 0, NULL, 0, 0);
-    smb2_mc_parse_client_interface_array(&updated_interface_table, client_info);
-    error = smb2_mc_update_nic_list_from_notifier(session_table, &updated_interface_table, true);
-    smb2_mc_destroy(&updated_interface_table);
+    error = smb2_mc_parse_client_interface_array(&updated_interface_table, client_info);
+
     if (error) {
-        SMBDEBUG("smb2_mc_update_client_interface_array returned %d.\n", error);
+        SMBDEBUG("smb2_mc_parse_client_interface_array returned %d.\n", error);
+        goto exit;
+    }
+
+    error = smb2_mc_update_nic_list_from_notifier(session_table, &updated_interface_table, true);
+
+    if (error) {
+        SMBDEBUG("smb2_mc_update_nic_list_from_notifier returned %d.\n", error);
         goto exit;
     }
     
 exit:
+    smb2_mc_destroy(&updated_interface_table);
     return error;
 }
 

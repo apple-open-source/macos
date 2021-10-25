@@ -1,0 +1,39 @@
+﻿// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html
+// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
+ain{
+    ExemplarCharacters{
+        "[ヽ ヾ ー ァ ア ィ イ ゥ ウ ヴ ェ エ ォ オ ヵ カ ガ キ ギ ㇰ ク グ ヶ ケ ゲ コ ゴ サ ザ ㇱ シ ジ ㇲ ス ズ セ"
+        " ゼ {セ/u309A} ソ ゾ タ ダ チ ヂ ッ ツ ヅ {ツ/u309A} テ デ ㇳ ト ド {ト/u309A} ナ ニ ㇴ ヌ ネ ノ ㇵ ハ バ"
+        " パ ㇶ ヒ ビ ピ ㇷ {ㇷ/u309A} フ ブ プ ㇸ ヘ ベ ペ ㇹ ホ ボ ポ マ ミ ㇺ ム メ モ ャ ヤ ュ ユ ョ ヨ ㇻ ラ ㇼ"
+        " リ ㇽ ル ㇾ レ ㇿ ロ ヮ ワ ヰ ヱ ヲ ン]"
+    }
+    ExemplarCharactersNumbers{"[\\- ‑ , . % ‰ + 0 1 2 3 4 5 6 7 8 9]"}
+    ExemplarCharactersPunctuation{
+        "[\\- － ‐ ‑ — ― 〜 ・ ,， 、 ;； \\:： !！ ?？ .． ‥ … 。 '＇ ‘ ’ \u0022＂ “ ” (（ )） \\[［"
+        " \\]］ \\{｛ \\}｝ 〈 〉 《 》 「 」 『 』 【 】 〔 〕 ‖ § @＠ *＊ /／ \\&＆ #＃ † ‡ ′ ″]"
+    }
+    calendar{
+        gregorian{
+            DateTimePatterns{
+                "H:mm:ss zzzz",
+                "H:mm:ss z",
+                "H:mm:ss",
+                "H:mm",
+                "y MMMM d, EEEE",
+                "y MMMM d",
+                "y MMM d",
+                "y-MM-dd",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+            }
+        }
+    }
+    layout{
+        characters{"left-to-right"}
+        lines{"top-to-bottom"}
+    }
+}

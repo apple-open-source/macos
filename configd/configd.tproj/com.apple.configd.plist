@@ -23,5 +23,7 @@
 	<integer>18</integer>
 	<key>MinimalBootProfile</key>
 	<true/>
+	<key>_ExponentialThrottling</key>
+	<true/>
 </dict>
 </plist>

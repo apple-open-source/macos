@@ -31,62 +31,33 @@
 #import "keychain/ot/ObjCImprovements.h"
 
 @implementation CKKSFixups
-+(nullable CKKSGroupOperation*)fixup:(CKKSFixup)lastfixup for:(CKKSKeychainView*)keychainView
++ (CKKSState* _Nullable)fixupOperation:(CKKSFixup)lastfixup
 {
     if(lastfixup == CKKSCurrentFixupNumber) {
         return nil;
     }
 
-    CKOperationGroup* fixupCKGroup = [CKOperationGroup CKKSGroupWithName:@"fixup"];
-    CKKSGroupOperation* fixups = [[CKKSGroupOperation alloc] init];
-    fixups.name = @"ckks-fixups";
-
-    CKKSResultOperation* previousOp = keychainView.holdFixupOperation;
-
     if(lastfixup < CKKSFixupRefetchCurrentItemPointers) {
-        CKKSResultOperation* refetch = [[CKKSFixupRefetchAllCurrentItemPointers alloc] initWithCKKSKeychainView:keychainView
-                                                                                               ckoperationGroup:fixupCKGroup];
-        [refetch addNullableDependency:previousOp];
-        [fixups runBeforeGroupFinished:refetch];
-        previousOp = refetch;
+        return CKKSStateFixupRefetchCurrentItemPointers;
     }
 
     if(lastfixup < CKKSFixupFetchTLKShares) {
-        CKKSResultOperation* fetchShares = [[CKKSFixupFetchAllTLKShares alloc] initWithCKKSKeychainView:keychainView
-                                                                                       ckoperationGroup:fixupCKGroup];
-        [fetchShares addNullableSuccessDependency:previousOp];
-        [fixups runBeforeGroupFinished:fetchShares];
-        previousOp = fetchShares;
+        return CKKSStateFixupFetchTLKShares;
     }
 
     if(lastfixup < CKKSFixupLocalReload) {
-        CKKSResultOperation* localSync = [[CKKSFixupLocalReloadOperation alloc] initWithCKKSKeychainView:keychainView
-                                                                                             fixupNumber:CKKSFixupLocalReload
-                                                                                        ckoperationGroup:fixupCKGroup];
-        [localSync addNullableSuccessDependency:previousOp];
-        [fixups runBeforeGroupFinished:localSync];
-        previousOp = localSync;
+        return CKKSStateFixupLocalReload;
     }
 
     if(lastfixup < CKKSFixupResaveDeviceStateEntries) {
-        CKKSResultOperation* resave = [[CKKSFixupResaveDeviceStateEntriesOperation alloc] initWithCKKSKeychainView:keychainView];
-
-        [resave addNullableSuccessDependency:previousOp];
-        [fixups runBeforeGroupFinished:resave];
-        previousOp = resave;
+        return CKKSStateFixupResaveDeviceStateEntries;
     }
 
     if(lastfixup < CKKSFixupDeleteAllCKKSTombstones) {
-        CKKSResultOperation* localSync = [[CKKSFixupLocalReloadOperation alloc] initWithCKKSKeychainView:keychainView
-                                                                                             fixupNumber:CKKSFixupDeleteAllCKKSTombstones
-                                                                                        ckoperationGroup:fixupCKGroup];
-        [localSync addNullableSuccessDependency:previousOp];
-        [fixups runBeforeGroupFinished:localSync];
-        previousOp = localSync;
+        return CKKSStateFixupDeleteAllCKKSTombstones;
     }
 
-    (void)previousOp;
-    return fixups;
+    return nil;
 }
 @end
 
@@ -100,111 +71,115 @@
 //  We found that some devices could end up with multiple current item pointer records for a given record ID.
 //  This fixup will fetch all CKRecords matching any existing current item pointer records, and then trigger processing.
 @implementation CKKSFixupRefetchAllCurrentItemPointers
-- (instancetype)initWithCKKSKeychainView:(CKKSKeychainView*)keychainView
-                        ckoperationGroup:(CKOperationGroup *)ckoperationGroup
+@synthesize intendedState = _intendedState;
+@synthesize nextState = _nextState;
+
+- (instancetype)initWithOperationDependencies:(CKKSOperationDependencies*)operationDependencies
+                             ckoperationGroup:(CKOperationGroup*)ckoperationGroup
 {
     if((self = [super init])) {
-        _ckks = keychainView;
+        _deps = operationDependencies;
         _group = ckoperationGroup;
+
+        _intendedState = CKKSStateFixupFetchTLKShares;
+        _nextState = CKKSStateError;
     }
     return self;
 }
 
 - (NSString*)description {
-    return [NSString stringWithFormat:@"<CKKSFixup:RefetchAllCurrentItemPointers (%@)>", self.ckks];
+    return [NSString stringWithFormat:@"<CKKSFixup:RefetchAllCurrentItemPointers (%@)>", self.deps.views];
 }
 - (void)groupStart {
-    CKKSKeychainView* ckks = self.ckks;
-    if(!ckks) {
-        ckkserror("ckksfixup", ckks, "no CKKS object");
-        self.error = [NSError errorWithDomain:@"securityd" code:errSecInternalError userInfo:@{NSLocalizedDescriptionKey: @"no CKKS object"}];
-        return;
-    }
+    id<CKKSDatabaseProviderProtocol> databaseProvider = self.deps.databaseProvider;
 
-    [ckks dispatchSyncWithSQLTransaction:^CKKSDatabaseTransactionResult{
-        NSError* error = nil;
+    for(CKKSKeychainViewState* viewState in self.deps.activeManagedViews) {
+        [databaseProvider dispatchSyncWithSQLTransaction:^CKKSDatabaseTransactionResult{
 
-        NSArray<CKKSCurrentItemPointer*>* cips = [CKKSCurrentItemPointer allInZone: ckks.zoneID error:&error];
-        if(error) {
-            ckkserror("ckksfixup", ckks, "Couldn't fetch current item pointers: %@", error);
-            return CKKSDatabaseTransactionRollback;
-        }
+            NSError* error = nil;
 
-        NSMutableSet<CKRecordID*>* recordIDs = [NSMutableSet set];
-        for(CKKSCurrentItemPointer* cip in cips) {
-            CKRecordID* recordID = cip.storedCKRecord.recordID;
-            if(recordID) {
-                ckksnotice("ckksfixup", ckks, "Re-fetching %@ for %@", recordID, cip);
-                [recordIDs addObject:recordID];
-            } else {
-                ckkserror("ckksfixup", ckks, "No record ID for stored %@", cip);
+            NSArray<CKKSCurrentItemPointer*>* cips = [CKKSCurrentItemPointer allInZone:viewState.zoneID error:&error];
+            if(error) {
+                ckkserror("ckksfixup", viewState.zoneID, "Couldn't fetch current item pointers: %@", error);
+                return CKKSDatabaseTransactionRollback;
             }
-        }
 
-        if(recordIDs.count == 0) {
-            ckksnotice("ckksfixup", ckks, "No existing CIPs; fixup complete");
-        }
+            NSMutableSet<CKRecordID*>* recordIDs = [NSMutableSet set];
+            for(CKKSCurrentItemPointer* cip in cips) {
+                CKRecordID* recordID = cip.storedCKRecord.recordID;
+                if(recordID) {
+                    ckksnotice("ckksfixup", viewState.zoneID, "Re-fetching %@ for %@", recordID, cip);
+                    [recordIDs addObject:recordID];
+                } else {
+                    ckkserror("ckksfixup", viewState.zoneID, "No record ID for stored %@", cip);
+                }
+            }
 
-        WEAKIFY(self);
-        NSBlockOperation* doneOp = [NSBlockOperation named:@"fetch-records-operation-complete" withBlock:^{}];
-        CKDatabaseOperation<CKKSFetchRecordsOperation>* fetch = [[ckks.cloudKitClassDependencies.fetchRecordsOperationClass alloc] initWithRecordIDs: [recordIDs allObjects]];
-        fetch.fetchRecordsCompletionBlock = ^(NSDictionary<CKRecordID *,CKRecord *> * _Nullable recordsByRecordID, NSError * _Nullable error) {
-            STRONGIFY(self);
-            CKKSKeychainView* strongCKKS = self.ckks;
+            if(recordIDs.count == 0) {
+                ckksnotice("ckksfixup", viewState.zoneID, "No existing CIPs; fixup complete");
+            }
 
-            [strongCKKS dispatchSyncWithSQLTransaction:^CKKSDatabaseTransactionResult{
-                if(error) {
-                    ckkserror("ckksfixup", strongCKKS, "Finished record fetch with error: %@", error);
+            WEAKIFY(self);
+            NSBlockOperation* doneOp = [NSBlockOperation named:@"fetch-records-operation-complete" withBlock:^{}];
+            CKDatabaseOperation<CKKSFetchRecordsOperation>* fetch = [[self.deps.cloudKitClassDependencies.fetchRecordsOperationClass alloc] initWithRecordIDs:[recordIDs allObjects]];
+            fetch.fetchRecordsCompletionBlock = ^(NSDictionary<CKRecordID *,CKRecord *> * _Nullable recordsByRecordID, NSError * _Nullable error) {
+                STRONGIFY(self);
 
-                    NSDictionary<CKRecordID*,NSError*>* partialErrors = error.userInfo[CKPartialErrorsByItemIDKey];
-                    if([error.domain isEqualToString:CKErrorDomain] && error.code == CKErrorPartialFailure && partialErrors) {
-                        // Check if any of these records no longer exist on the server
-                        for(CKRecordID* recordID in partialErrors.keyEnumerator) {
-                            NSError* recordError = partialErrors[recordID];
-                            if(recordError && [recordError.domain isEqualToString:CKErrorDomain] && recordError.code == CKErrorUnknownItem) {
-                                ckkserror("ckksfixup", strongCKKS, "CloudKit believes %@ no longer exists", recordID);
-                                [strongCKKS _onqueueCKRecordDeleted: recordID recordType:SecCKRecordCurrentItemType resync:true];
-                            } else {
-                                ckkserror("ckksfixup", strongCKKS, "Unknown error for %@: %@", recordID, error);
-                                self.error = error;
+                [self.deps.databaseProvider dispatchSyncWithSQLTransaction:^CKKSDatabaseTransactionResult{
+                    if(error) {
+                        ckkserror("ckksfixup", viewState.zoneID, "Finished record fetch with error: %@", error);
+
+                        NSDictionary<CKRecordID*,NSError*>* partialErrors = error.userInfo[CKPartialErrorsByItemIDKey];
+                        if([error.domain isEqualToString:CKErrorDomain] && error.code == CKErrorPartialFailure && partialErrors) {
+                            // Check if any of these records no longer exist on the server
+                            for(CKRecordID* recordID in partialErrors.keyEnumerator) {
+                                NSError* recordError = partialErrors[recordID];
+                                if(recordError && [recordError.domain isEqualToString:CKErrorDomain] && recordError.code == CKErrorUnknownItem) {
+                                    ckkserror("ckksfixup", viewState.zoneID, "CloudKit believes %@ no longer exists", recordID);
+                                    [self.deps intransactionCKRecordDeleted:recordID recordType:SecCKRecordCurrentItemType resync:true];
+                                } else {
+                                    ckkserror("ckksfixup", viewState.zoneID, "Unknown error for %@: %@", recordID, error);
+                                    self.error = error;
+                                }
                             }
+                        } else {
+                            self.error = error;
                         }
                     } else {
-                        self.error = error;
+                        ckksnotice("ckksfixup", viewState.zoneID, "Finished record fetch successfully");
                     }
-                } else {
-                    ckksnotice("ckksfixup", strongCKKS, "Finished record fetch successfully");
-                }
 
-                for(CKRecordID* recordID in recordsByRecordID) {
-                    CKRecord* record = recordsByRecordID[recordID];
-                    ckksnotice("ckksfixup", strongCKKS, "Recieved record %@", record);
-                    [self.ckks _onqueueCKRecordChanged:record resync:true];
-                }
-
-                if(!self.error) {
-                    // Now, update the zone state entry to be at this level
-                    NSError* localerror = nil;
-                    CKKSZoneStateEntry* ckse = [CKKSZoneStateEntry fromDatabase:strongCKKS.zoneName error:&localerror];
-                    ckse.lastFixup = CKKSFixupRefetchCurrentItemPointers;
-                    [ckse saveToDatabase:&localerror];
-                    if(localerror) {
-                        ckkserror("ckksfixup", strongCKKS, "Couldn't save CKKSZoneStateEntry(%@): %@", ckse, localerror);
-                    } else {
-                        ckksnotice("ckksfixup", strongCKKS, "Updated zone fixup state to CKKSFixupRefetchCurrentItemPointers");
+                    for(CKRecordID* recordID in recordsByRecordID) {
+                        CKRecord* record = recordsByRecordID[recordID];
+                        ckksnotice("ckksfixup", viewState.zoneID, "Recieved record %@", record);
+                        [self.deps intransactionCKRecordChanged:record resync:true];
                     }
-                }
 
-                [self runBeforeGroupFinished:doneOp];
-                return CKKSDatabaseTransactionCommit;
-            }];
-        };
-        [ckks.operationDependencies.ckdatabase addOperation:fetch];
-        [self dependOnBeforeGroupFinished:fetch];
-        [self dependOnBeforeGroupFinished:doneOp];
+                    if(!self.error) {
+                        // Now, update the zone state entry to be at this level
+                        NSError* localerror = nil;
+                        CKKSZoneStateEntry* ckse = [CKKSZoneStateEntry fromDatabase:viewState.zoneID.zoneName error:&localerror];
+                        ckse.lastFixup = CKKSFixupRefetchCurrentItemPointers;
+                        [ckse saveToDatabase:&localerror];
+                        if(localerror) {
+                            ckkserror("ckksfixup", viewState.zoneID, "Couldn't save CKKSZoneStateEntry(%@): %@", ckse, localerror);
+                        } else {
+                            ckksnotice("ckksfixup", viewState.zoneID, "Updated zone fixup state to CKKSFixupRefetchCurrentItemPointers");
+                            self.nextState = self.intendedState;
+                        }
+                    }
 
-        return CKKSDatabaseTransactionCommit;
-    }];
+                    [self runBeforeGroupFinished:doneOp];
+                    return CKKSDatabaseTransactionCommit;
+                }];
+            };
+            [self.deps.ckdatabase addOperation:fetch];
+            [self dependOnBeforeGroupFinished:fetch];
+            [self dependOnBeforeGroupFinished:doneOp];
+
+            return CKKSDatabaseTransactionCommit;
+        }];
+    }
 }
 @end
 
@@ -218,82 +193,84 @@
 // We introduced TLKShare records.
 // Older devices will throw them away, so on upgrade, they must refetch them
 @implementation CKKSFixupFetchAllTLKShares
-- (instancetype)initWithCKKSKeychainView:(CKKSKeychainView*)keychainView
-                        ckoperationGroup:(CKOperationGroup *)ckoperationGroup
+@synthesize intendedState = _intendedState;
+@synthesize nextState = _nextState;
+
+- (instancetype)initWithOperationDependencies:(CKKSOperationDependencies*)operationDependencies
+                             ckoperationGroup:(CKOperationGroup*)ckoperationGroup
 {
     if((self = [super init])) {
-        _ckks = keychainView;
+        _deps = operationDependencies;
         _group = ckoperationGroup;
+
+        _intendedState = CKKSStateFixupLocalReload;
+        _nextState = CKKSStateError;
     }
     return self;
 }
 
 - (NSString*)description {
-    return [NSString stringWithFormat:@"<CKKSFixup:FetchAllTLKShares (%@)>", self.ckks];
+    return [NSString stringWithFormat:@"<CKKSFixup:FetchAllTLKShares (%@)>", self.deps.views];
 }
 - (void)groupStart {
-    CKKSKeychainView* ckks = self.ckks;
-    if(!ckks) {
-        ckkserror("ckksfixup", ckks, "no CKKS object");
-        self.error = [NSError errorWithDomain:@"securityd" code:errSecInternalError userInfo:@{NSLocalizedDescriptionKey: @"no CKKS object"}];
-        return;
+    id<CKKSDatabaseProviderProtocol> databaseProvider = self.deps.databaseProvider;
+
+    for(CKKSKeychainViewState* viewState in self.deps.activeManagedViews) {
+        [databaseProvider dispatchSyncWithSQLTransaction:^CKKSDatabaseTransactionResult{
+            WEAKIFY(self);
+            NSBlockOperation* doneOp = [NSBlockOperation named:@"fetch-records-operation-complete" withBlock:^{}];
+
+            NSPredicate *yes = [NSPredicate predicateWithValue:YES];
+            CKQuery *query = [[CKQuery alloc] initWithRecordType:SecCKRecordTLKShareType predicate:yes];
+
+            CKDatabaseOperation<CKKSQueryOperation>* fetch = [[self.deps.cloudKitClassDependencies.queryOperationClass alloc] initWithQuery:query];
+            fetch.zoneID = viewState.zoneID;
+            fetch.desiredKeys = nil;
+
+            fetch.recordFetchedBlock = ^(CKRecord * _Nonnull record) {
+                STRONGIFY(self);
+                [self.deps.databaseProvider dispatchSyncWithSQLTransaction:^CKKSDatabaseTransactionResult{
+                    ckksnotice("ckksfixup", viewState.zoneID, "Recieved tlk share record from query: %@", record);
+
+                    [self.deps intransactionCKRecordChanged:record resync:true];
+                    return CKKSDatabaseTransactionCommit;
+                }];
+            };
+
+            fetch.queryCompletionBlock = ^(CKQueryCursor * _Nullable cursor, NSError * _Nullable error) {
+                STRONGIFY(self);
+
+                [self.deps.databaseProvider dispatchSyncWithSQLTransaction:^CKKSDatabaseTransactionResult{
+                    if(error) {
+                        ckkserror("ckksfixup", viewState.zoneID, "Couldn't fetch all TLKShare records: %@", error);
+                        self.error = error;
+                        return CKKSDatabaseTransactionRollback;
+                    }
+
+                    ckksnotice("ckksfixup", viewState.zoneID, "Successfully fetched TLKShare records (%@)", cursor);
+
+                    NSError* localerror = nil;
+                    CKKSZoneStateEntry* ckse = [CKKSZoneStateEntry fromDatabase:viewState.zoneID.zoneName error:&localerror];
+                    ckse.lastFixup = CKKSFixupFetchTLKShares;
+                    [ckse saveToDatabase:&localerror];
+                    if(localerror) {
+                        ckkserror("ckksfixup", viewState.zoneID, "Couldn't save CKKSZoneStateEntry(%@): %@", ckse, localerror);
+                    } else {
+                        ckksnotice("ckksfixup", viewState.zoneID, "Updated zone fixup state to CKKSFixupFetchTLKShares");
+                        self.nextState = self.intendedState;
+                    }
+                    return CKKSDatabaseTransactionCommit;
+                }];
+                [self runBeforeGroupFinished:doneOp];
+            };
+
+            [self.deps.ckdatabase addOperation:fetch];
+            [self dependOnBeforeGroupFinished:fetch];
+            [self dependOnBeforeGroupFinished:doneOp];
+
+            return CKKSDatabaseTransactionCommit;
+        }];
     }
-
-    [ckks dispatchSyncWithSQLTransaction:^CKKSDatabaseTransactionResult{
-        WEAKIFY(self);
-        NSBlockOperation* doneOp = [NSBlockOperation named:@"fetch-records-operation-complete" withBlock:^{}];
-
-        NSPredicate *yes = [NSPredicate predicateWithValue:YES];
-        CKQuery *query = [[CKQuery alloc] initWithRecordType:SecCKRecordTLKShareType predicate:yes];
-
-        CKDatabaseOperation<CKKSQueryOperation>* fetch = [[ckks.cloudKitClassDependencies.queryOperationClass alloc] initWithQuery:query];
-        fetch.zoneID = ckks.zoneID;
-        fetch.desiredKeys = nil;
-
-        fetch.recordFetchedBlock = ^(CKRecord * _Nonnull record) {
-            STRONGIFY(self);
-            CKKSKeychainView* strongCKKS = self.ckks;
-            [strongCKKS dispatchSyncWithSQLTransaction:^CKKSDatabaseTransactionResult{
-                ckksnotice("ckksfixup", strongCKKS, "Recieved tlk share record from query: %@", record);
-
-                [strongCKKS _onqueueCKRecordChanged:record resync:true];
-                return CKKSDatabaseTransactionCommit;
-            }];
-        };
-
-        fetch.queryCompletionBlock = ^(CKQueryCursor * _Nullable cursor, NSError * _Nullable error) {
-            STRONGIFY(self);
-            CKKSKeychainView* strongCKKS = self.ckks;
-
-            [strongCKKS dispatchSyncWithSQLTransaction:^CKKSDatabaseTransactionResult{
-                if(error) {
-                    ckkserror("ckksfixup", strongCKKS, "Couldn't fetch all TLKShare records: %@", error);
-                    self.error = error;
-                    return CKKSDatabaseTransactionRollback;
-                }
-
-                ckksnotice("ckksfixup", strongCKKS, "Successfully fetched TLKShare records (%@)", cursor);
-
-                NSError* localerror = nil;
-                CKKSZoneStateEntry* ckse = [CKKSZoneStateEntry fromDatabase:strongCKKS.zoneName error:&localerror];
-                ckse.lastFixup = CKKSFixupFetchTLKShares;
-                [ckse saveToDatabase:&localerror];
-                if(localerror) {
-                    ckkserror("ckksfixup", strongCKKS, "Couldn't save CKKSZoneStateEntry(%@): %@", ckse, localerror);
-                } else {
-                    ckksnotice("ckksfixup", strongCKKS, "Updated zone fixup state to CKKSFixupFetchTLKShares");
-                }
-                return CKKSDatabaseTransactionCommit;
-            }];
-            [self runBeforeGroupFinished:doneOp];
-        };
-
-        [ckks.operationDependencies.ckdatabase addOperation:fetch];
-        [self dependOnBeforeGroupFinished:fetch];
-        [self dependOnBeforeGroupFinished:doneOp];
-
-        return CKKSDatabaseTransactionCommit;
-    }];
 }
 @end
 
@@ -312,54 +289,58 @@
 // some CKKS participants uploaded entries with tomb=1 to CKKS
 // Performing a local reload operation should find and delete those entries
 @implementation CKKSFixupLocalReloadOperation
-- (instancetype)initWithCKKSKeychainView:(CKKSKeychainView*)keychainView
-                             fixupNumber:(CKKSFixup)fixupNumber
-                        ckoperationGroup:(CKOperationGroup *)ckoperationGroup
+@synthesize intendedState = _intendedState;
+@synthesize nextState = _nextState;
+
+- (instancetype)initWithOperationDependencies:(CKKSOperationDependencies*)operationDependencies
+                                  fixupNumber:(CKKSFixup)fixupNumber
+                             ckoperationGroup:(CKOperationGroup *)ckoperationGroup
+                                     entering:(CKKSState*)state
 {
     if((self = [super init])) {
-        _ckks = keychainView;
+        _deps = operationDependencies;
         _fixupNumber = fixupNumber;
         _group = ckoperationGroup;
+
+        _intendedState = state;
+        _nextState = CKKSStateError;
     }
     return self;
 }
 
 - (NSString*)description {
-    return [NSString stringWithFormat:@"<CKKSFixup:LocalReload (%d)(%@)>", (int)self.fixupNumber, self.ckks];
+    return [NSString stringWithFormat:@"<CKKSFixup:LocalReload (%d)(%@)>", (int)self.fixupNumber, self.deps.views];
 }
 - (void)groupStart {
-    CKKSKeychainView* ckks = self.ckks;
     WEAKIFY(self);
-    if(!ckks) {
-        ckkserror("ckksfixup", ckks, "no CKKS object");
-        self.error = [NSError errorWithDomain:CKKSErrorDomain code:errSecInternalError userInfo:@{NSLocalizedDescriptionKey: @"no CKKS object"}];
-        return;
-    }
 
-    CKKSResultOperation* reload = [[CKKSReloadAllItemsOperation alloc] initWithCKKSKeychainView:ckks];
+    CKKSResultOperation* reload = [[CKKSReloadAllItemsOperation alloc] initWithOperationDependencies:self.deps];
     [self runBeforeGroupFinished:reload];
 
     CKKSResultOperation* cleanup = [CKKSResultOperation named:@"local-reload-cleanup" withBlock:^{
         STRONGIFY(self);
-        __strong __typeof(self.ckks) strongCKKS = self.ckks;
-        [strongCKKS dispatchSyncWithSQLTransaction:^CKKSDatabaseTransactionResult{
-            if(reload.error) {
-                ckkserror("ckksfixup", strongCKKS, "Couldn't perform a reload: %@", reload.error);
-                self.error = reload.error;
-                return CKKSDatabaseTransactionRollback;
-            }
 
-            ckksnotice("ckksfixup", strongCKKS, "Successfully performed a reload fixup. New fixup number is %d",
-                       (int)self.fixupNumber);
+        if(reload.error) {
+            ckkserror_global("ckksfixup", "Couldn't perform a reload: %@", reload.error);
+            self.error = reload.error;
+            return;
+        }
 
-            NSError* localerror = nil;
-            CKKSZoneStateEntry* ckse = [CKKSZoneStateEntry fromDatabase:strongCKKS.zoneName error:&localerror];
-            ckse.lastFixup = self.fixupNumber;
-            [ckse saveToDatabase:&localerror];
-            if(localerror) {
-                ckkserror("ckksfixup", strongCKKS, "Couldn't save CKKSZoneStateEntry(%@): %@", ckse, localerror);
-            } else {
-                ckksnotice("ckksfixup", strongCKKS, "Updated zone fixup state to CKKSFixupLocalReload");
+        [self.deps.databaseProvider dispatchSyncWithSQLTransaction:^CKKSDatabaseTransactionResult{
+            for(CKKSKeychainViewState* viewState in self.deps.activeManagedViews) {
+                ckksnotice("ckksfixup", viewState.zoneID, "Successfully performed a reload fixup. New fixup number is %d",
+                           (int)self.fixupNumber);
+
+                NSError* localerror = nil;
+                CKKSZoneStateEntry* ckse = [CKKSZoneStateEntry fromDatabase:viewState.zoneID.zoneName error:&localerror];
+                ckse.lastFixup = self.fixupNumber;
+                [ckse saveToDatabase:&localerror];
+                if(localerror) {
+                    ckkserror("ckksfixup", viewState.zoneID, "Couldn't save CKKSZoneStateEntry(%@): %@", ckse, localerror);
+                } else {
+                    ckksnotice("ckksfixup", viewState.zoneID, "Updated zone fixup state to CKKSFixupLocalReload");
+                    self.nextState = self.intendedState;
+                }
             }
             return CKKSDatabaseTransactionCommit;
         }];
@@ -372,72 +353,75 @@
 #pragma mark - CKKSFixupResaveDeviceStateEntriesOperation
 
 @implementation CKKSFixupResaveDeviceStateEntriesOperation: CKKSGroupOperation
+@synthesize intendedState = _intendedState;
+@synthesize nextState = _nextState;
 
-- (instancetype)initWithCKKSKeychainView:(CKKSKeychainView*)keychainView
+- (instancetype)initWithOperationDependencies:(CKKSOperationDependencies*)operationDependencies
 {
     if((self = [super init])) {
-        _ckks = keychainView;
+        _deps = operationDependencies;
+
+        _intendedState = CKKSStateFixupDeleteAllCKKSTombstones;
+        _nextState = CKKSStateError;
     }
     return self;
 }
 
 - (NSString*)description {
-    return [NSString stringWithFormat:@"<CKKSFixup:ResaveCDSE (%@)>", self.ckks];
+    return [NSString stringWithFormat:@"<CKKSFixup:ResaveCDSE (%@)>", self.deps.views];
 }
 
 - (void)groupStart {
-    CKKSKeychainView* ckks = self.ckks;
-
-    if(!ckks) {
-        ckkserror("ckksfixup", ckks, "no CKKS object");
-        self.error = [NSError errorWithDomain:CKKSErrorDomain code:errSecInternalError userInfo:@{NSLocalizedDescriptionKey: @"no CKKS object"}];
-        return;
-    }
-
     // This operation simply loads all CDSEs, remakes them from their CKRecord, and resaves them
-    [ckks dispatchSyncWithSQLTransaction:^CKKSDatabaseTransactionResult{
-        NSError* error = nil;
-        NSArray<CKKSDeviceStateEntry*>* cdses = [CKKSDeviceStateEntry allInZone:ckks.zoneID
-                                                                          error:&error];
 
-        if(error) {
-            ckkserror("ckksfixup", ckks, "Unable to fetch all CDSEs: %@", error);
-            self.error = error;
-            return CKKSDatabaseTransactionRollback;
-        }
+    id<CKKSDatabaseProviderProtocol> databaseProvider = self.deps.databaseProvider;
 
-        for(CKKSDeviceStateEntry* cdse in cdses) {
-            CKRecord* record = cdse.storedCKRecord;
+    for(CKKSKeychainViewState* viewState in self.deps.activeManagedViews) {
+        [databaseProvider dispatchSyncWithSQLTransaction:^CKKSDatabaseTransactionResult{
+            NSError* error = nil;
+            NSArray<CKKSDeviceStateEntry*>* cdses = [CKKSDeviceStateEntry allInZone:viewState.zoneID
+                                                                              error:&error];
 
-            if(record) {
-                [cdse setFromCKRecord:record];
-                [cdse saveToDatabase:&error];
-                if(error) {
-                    ckkserror("ckksfixup", ckks, "Unable to save CDSE: %@", error);
-                    self.error = error;
-                    return CKKSDatabaseTransactionRollback;
-                }
-            } else {
-                ckksnotice("ckksfixup", ckks, "Saved CDSE has no stored record: %@", cdse);
+            if(error) {
+                ckkserror("ckksfixup", viewState.zoneID, "Unable to fetch all CDSEs: %@", error);
+                self.error = error;
+                return CKKSDatabaseTransactionRollback;
             }
-        }
 
-        ckksnotice("ckksfixup", ckks, "Successfully performed a ResaveDeviceState fixup");
+            for(CKKSDeviceStateEntry* cdse in cdses) {
+                CKRecord* record = cdse.storedCKRecord;
 
-        NSError* localerror = nil;
-        CKKSZoneStateEntry* ckse = [CKKSZoneStateEntry fromDatabase:ckks.zoneName error:&localerror];
-        ckse.lastFixup = CKKSFixupResaveDeviceStateEntries;
-        [ckse saveToDatabase:&localerror];
-        if(localerror) {
-            ckkserror("ckksfixup", ckks, "Couldn't save CKKSZoneStateEntry(%@): %@", ckse, localerror);
-            self.error = localerror;
-            return CKKSDatabaseTransactionRollback;
-        }
+                if(record) {
+                    [cdse setFromCKRecord:record];
+                    [cdse saveToDatabase:&error];
+                    if(error) {
+                        ckkserror("ckksfixup", viewState.zoneID, "Unable to save CDSE: %@", error);
+                        self.error = error;
+                        return CKKSDatabaseTransactionRollback;
+                    }
+                } else {
+                    ckksnotice("ckksfixup", viewState.zoneID, "Saved CDSE has no stored record: %@", cdse);
+                }
+            }
 
-        ckksnotice("ckksfixup", ckks, "Updated zone fixup state to CKKSFixupResaveDeviceStateEntries");
+            ckksnotice("ckksfixup", viewState.zoneID, "Successfully performed a ResaveDeviceState fixup");
 
-        return CKKSDatabaseTransactionCommit;
-    }];
+            NSError* localerror = nil;
+            CKKSZoneStateEntry* ckse = [CKKSZoneStateEntry fromDatabase:viewState.zoneID.zoneName error:&localerror];
+            ckse.lastFixup = CKKSFixupResaveDeviceStateEntries;
+            [ckse saveToDatabase:&localerror];
+            if(localerror) {
+                ckkserror("ckksfixup", viewState.zoneID, "Couldn't save CKKSZoneStateEntry(%@): %@", ckse, localerror);
+                self.error = localerror;
+                return CKKSDatabaseTransactionRollback;
+            }
+
+            ckksnotice("ckksfixup", viewState.zoneID, "Updated zone fixup state to CKKSFixupResaveDeviceStateEntries");
+            self.nextState = self.intendedState;
+
+            return CKKSDatabaseTransactionCommit;
+        }];
+    }
 }
 
 

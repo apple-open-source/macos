@@ -236,12 +236,6 @@ read_again:
 	 * to 0 above, we just jump to exit.  HFS Standard has its own behavior.
 	 */
 	if (offset > filesize) {
-#if CONFIG_HFS_STD
-		if ((hfsmp->hfs_flags & HFS_STANDARD) &&
-		    (offset > (off_t)MAXHFSFILESIZE)) {
-			retval = EFBIG;
-		}
-#endif
 		goto exit;
 	}
 
@@ -1938,7 +1932,12 @@ fail_change_next_allocation:
 		}
 
 		// Dropped in unmount
-		vnode_ref(di_vp);
+		error = vnode_ref(di_vp);
+		if (error) {
+			(void)vnode_put(di_vp);
+			file_drop(bsdata->backingfd);
+			return (error);
+		}
 
 		hfs_lock_mount(hfsmp);
 		hfsmp->hfs_backingvp = di_vp;
@@ -2083,11 +2082,6 @@ fail_change_next_allocation:
 	case HFSIOC_EXT_BULKACCESS32:
 	case HFSIOC_EXT_BULKACCESS64: {
 	    int size;
-#if CONFIG_HFS_STD
-	    if (hfsmp->hfs_flags & HFS_STANDARD) {
-			return EINVAL;
-	    }
-#endif
 
 	    if (is64bit) {
 		size = sizeof(struct user64_ext_access_t);

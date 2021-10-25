@@ -58,6 +58,14 @@ test_fuzz(const struct files *filesets)
 	size_t blk_size;
 	int64_t blk_offset;
 	int n;
+	const char *skip_fuzz_tests;
+
+	skip_fuzz_tests = getenv("SKIP_TEST_FUZZ");
+	if (skip_fuzz_tests != NULL) {
+		skipping("Skipping fuzz tests due to SKIP_TEST_FUZZ "
+		    "environment variable");
+		return;
+	}
 
 	for (n = 0; filesets[n].names != NULL; ++n) {
 		const size_t buffsize = 30000000;
@@ -111,7 +119,8 @@ test_fuzz(const struct files *filesets)
 			for (i = 0; filesets[n].names[i] != NULL; ++i)
 			{
 				char *newraw;
-				tmp = slurpfile(&size, filesets[n].names[i]);
+				tmp = slurpfile(&size, "%s",
+						filesets[n].names[i]);
 				newraw = realloc(rawimage, oldsize + size);
 				if (!assert(newraw != NULL))
 				{
@@ -145,7 +154,7 @@ test_fuzz(const struct files *filesets)
 		srand((unsigned)time(NULL));
 
 		for (i = 0; i < 1000; ++i) {
-            FILE *f = NULL;
+			FILE *f = NULL;
 			int j, numbytes, trycnt;
 
 			/* Fuzz < 1% of the bytes in the archive. */
@@ -413,6 +422,12 @@ DEFINE_TEST(test_fuzz_tar)
 		NULL
 	};
 #endif
+#if HAVE_ZSTD_H && HAVE_LIBZSTD
+	static const char *fileset10[] = {
+		"test_compat_zstd_1.tar.zst",
+		NULL
+	};
+#endif
 	static const struct files filesets[] = {
 		{0, fileset1}, /* Exercise bzip2 decompressor. */
 		{1, fileset1},
@@ -425,6 +440,9 @@ DEFINE_TEST(test_fuzz_tar)
 		{0, fileset8},
 #if HAVE_LIBLZO2 && HAVE_LZO_LZO1X_H && HAVE_LZO_LZOCONF_H
 		{0, fileset9}, /* Exercise lzo decompressor. */
+#endif
+#if HAVE_ZSTD_H && HAVE_LIBZSTD
+		{0, fileset10}, /* Exercise zstd decompressor. */
 #endif
 		{1, NULL}
 	};

@@ -18,7 +18,7 @@ do { \
 
 #define FAIL(fmt,...) \
 do { \
-    printf("[FAIL]"fmt"\n", ##__VA_ARGS__ ); \
+    printf("[FAIL] line:%d"fmt"\n", __LINE__, ##__VA_ARGS__ ); \
     gFailCnt++; \
 } while(0)
 

@@ -3,6 +3,12 @@
 #include <mach/task.h>
 #include <mach/mach_init.h>
 
+T_GLOBAL_META(
+	T_META_NAMESPACE("xnu.ipc"),
+	T_META_RUN_CONCURRENTLY(TRUE),
+	T_META_RADAR_COMPONENT_NAME("xnu"),
+	T_META_RADAR_COMPONENT_VERSION("IPC"));
+
 T_DECL(mach_task_is_self,
     "test task port comparison check")
 {

@@ -29,8 +29,6 @@
 #import "keychain/ot/OctagonStateMachineHelpers.h"
 #import "keychain/ot/OTOperationDependencies.h"
 
-@class OTCuttlefishContext;
-
 NS_ASSUME_NONNULL_BEGIN
 
 @interface OTPreloadOctagonKeysOperation : CKKSGroupOperation <OctagonStateTransitionOperationProtocol>

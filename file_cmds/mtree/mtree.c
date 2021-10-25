@@ -284,7 +284,7 @@ main(int argc, char *argv[])
 		} else if (status) {
 			RECORD_FAILURE(100, status);
 		}
-		if (mflag && CFDictionaryGetCount(dict)) {
+		if (mflag) {
 			if (!write_plist_to_file()) {
 				RECORD_FAILURE(101, EIO);
 				errx(1, "could not write manifest to the file\n");
@@ -346,7 +346,7 @@ write_plist_to_file(void)
 		goto out;
 	}
 
-	if (!bytes_written) {
+	if (CFDictionaryGetCount(dict) && !bytes_written) {
 		status = false;
 		RECORD_FAILURE(106, EIO);
 	}

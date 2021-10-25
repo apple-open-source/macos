@@ -25,7 +25,7 @@
 
 #import "CloudKitMockXCTest.h"
 #import "keychain/ckks/CKKS.h"
-#import "keychain/ckks/CKKSControl.h"
+#import <Security/CKKSControl.h>
 #import "keychain/ckks/CKKSCurrentKeyPointer.h"
 #import "keychain/ckks/CKKSItem.h"
 #import "keychain/ckks/tests/CKKSMockSOSPresentAdapter.h"
@@ -39,6 +39,8 @@ NS_ASSUME_NONNULL_BEGIN
 
 @interface ZoneKeys : CKKSCurrentKeySet
 @property CKKSKey* rolledTLK;
+
+@property NSArray<CKKSTLKShareRecord*>* tlkShares;
 
 - (instancetype)initLoadingRecordsFromZone:(FakeCKZone*)zone;
 @end
@@ -64,7 +66,7 @@ NS_ASSUME_NONNULL_BEGIN
 @property id suggestTLKUpload;
 @property id requestPolicyCheck;
 
-@property NSMutableSet<CKKSKeychainView*>* ckksViews;
+@property NSMutableSet<CKKSKeychainViewState*>* ckksViews;
 @property NSMutableSet<CKRecordZoneID*>* ckksZones;
 @property (nullable) NSMutableDictionary<CKRecordZoneID*, ZoneKeys*>* keys;
 
@@ -110,10 +112,14 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)rollFakeKeyHierarchyInCloudKit:(CKRecordZoneID*)zoneID;
 
 - (NSArray<CKRecord*>*)putKeySetInCloudKit:(CKKSCurrentKeySet*)keyset;
-- (void)performOctagonTLKUpload:(NSSet<CKKSKeychainView*>*)views;
-- (void)performOctagonTLKUpload:(NSSet<CKKSKeychainView*>*)views afterUpload:(void (^_Nullable)(void))afterUpload;
+- (void)performOctagonTLKUpload:(NSSet<CKKSKeychainViewState*>*)views;
+- (void)performOctagonTLKUpload:(NSSet<CKKSKeychainViewState*>*)views afterUpload:(void (^_Nullable)(void))afterUpload;
+
+- (NSArray<CKRecord*>*)performOctagonKeySetWrites:(NSDictionary<CKRecordZoneID*, CKKSCurrentKeySet*>*)keysets;
 
 - (NSDictionary*)fakeRecordDictionary:(NSString* _Nullable)account zoneID:(CKRecordZoneID*)zoneID;
+- (NSDictionary*)fakeRecordDictionary:(NSString* _Nullable)account password:(NSString* _Nullable)password zoneID:(CKRecordZoneID*)zoneID;
+
 - (CKRecord*)createFakeRecord:(CKRecordZoneID*)zoneID recordName:(NSString*)recordName;
 - (CKRecord*)createFakeRecord:(CKRecordZoneID*)zoneID recordName:(NSString*)recordName withAccount:(NSString* _Nullable)account;
 - (CKRecord*)createFakeRecord:(CKRecordZoneID*)zoneID
@@ -122,6 +128,7 @@ NS_ASSUME_NONNULL_BEGIN
                           key:(CKKSKey* _Nullable)key;
 
 - (CKRecord*)createFakeTombstoneRecord:(CKRecordZoneID*)zoneID recordName:(NSString*)recordName account:(NSString*)account;
+- (CKRecord*)createFakeMultiuserRecord:(CKRecordZoneID*)zoneID musr:(NSUUID*)musruuid recordName:(NSString*)recordName account:(NSString*)account;
 
 - (CKKSItem*)newItem:(CKRecordID*)recordID withNewItemData:(NSDictionary*) dictionary key:(CKKSKey*)key;
 - (CKRecord*)newRecord:(CKRecordID*)recordID withNewItemData:(NSDictionary*)dictionary;
@@ -154,13 +161,14 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)updateGenericPassword:(NSString*)newPassword account:(NSString*)account;
 - (void)updateAccountOfGenericPassword:(NSString*)newAccount account:(NSString*)account;
 
-- (void)checkNoCKKSData:(CKKSKeychainView*)view;
+- (void)checkNoCKKSDataForView:(CKKSKeychainViewState*)viewState;
 
 - (void)deleteGenericPassword:(NSString*)account;
 - (void)deleteGenericPasswordWithoutTombstones:(NSString*)account;
 
 - (void)findGenericPassword:(NSString*)account expecting:(OSStatus)status;
 - (void)checkGenericPassword:(NSString*)password account:(NSString*)account;
+- (NSData*)findGenericPasswordPersistentReference: (NSString*) account expecting: (OSStatus) status;
 
 - (void)checkGenericPasswordStoredUUID:(NSString*)uuid account:(NSString*)account;
 - (void)setGenericPasswordStoredUUID:(NSString*)uuid account:(NSString*)account;
@@ -176,8 +184,10 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (void)checkNSyncableTLKsInKeychain:(size_t)n;
 
-// Returns an expectation that someone will send an NSNotification that this view changed
+// Returns an expectation that someone will send an notification that this view changed
 - (XCTestExpectation*)expectChangeForView:(NSString*)view;
+- (XCTestExpectation*)expectLibNotifyReadyForView:(NSString*)viewName;
+- (XCTestExpectation*)expectNSNotificationReadyForView:(NSString*)viewName;
 
 // Establish an assertion that CKKS will cause a server extension error soon.
 - (void)expectCKReceiveSyncKeyHierarchyError:(CKRecordZoneID*)zoneID;

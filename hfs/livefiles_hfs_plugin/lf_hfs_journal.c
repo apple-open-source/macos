@@ -3069,15 +3069,14 @@ static void swap_journal_header(journal *jnl) {
 static unsigned int calc_checksum(const char *ptr, int len) {
     int i;
     unsigned int cksum=0;
-    
+
     // this is a lame checksum but for now it'll do
     for(i = 0; i < len; i++, ptr++) {
         cksum = (cksum << 8) ^ (cksum + *(unsigned char *)ptr);
     }
-    
+
     return (~cksum);
 }
-
 
 static size_t do_journal_io(journal *jnl, off_t *offset, void *data, size_t len, int direction) {
     off_t     curlen = len;
@@ -3089,20 +3088,19 @@ static size_t do_journal_io(journal *jnl, off_t *offset, void *data, size_t len,
     off_t     accumulated_offset = 0;
     ExtendedVCB *vcb = HFSTOVCB(jnl->fsmount->psHfsmount);
 #endif
-    
+
     if (*offset < 0 || *offset > jnl->jhdr->size) {
         panic("jnl: do_jnl_io: bad offset 0x%llx (max 0x%llx)\n", *offset, jnl->jhdr->size);
     }
-    
+
     if (direction & JNL_WRITE)
         max_iosize = jnl->max_write_size;
     else if (direction & JNL_READ)
         max_iosize = jnl->max_read_size;
     else
         max_iosize = 128 * 1024;
-    
+
 again:
-    
     // Determine the Current R/W Length, taking cyclic wrap around into account
     if (*offset + curlen > jnl->jhdr->size && *offset != 0 && jnl->jhdr->size != 0) {
         if (*offset == jnl->jhdr->size) {
@@ -3111,27 +3109,25 @@ again:
             curlen = jnl->jhdr->size - *offset;
         }
     }
-    
+
     if (curlen > max_iosize) {
         curlen = max_iosize;
     }
-    
+
     if (curlen <= 0) {
         panic("jnl: do_jnl_io: curlen == %lld, offset 0x%llx len %zd\n", curlen, *offset, len);
     }
-    
+
     if (*offset == 0 && (direction & JNL_HEADER) == 0) {
         panic("jnl: request for i/o to jnl-header without JNL_HEADER flag set! (len %lld, data %p)\n", curlen, data);
     }
-    
 
     // Perform the I/O
     uint64_t phyblksize = jnl->fsmount->psHfsmount->hfs_physical_block_size; 
     uint64_t uBlkNum    = jnl->jdev_blknum+(*offset)/phyblksize;
-    
+
     if (direction & JNL_READ) {
         raw_readwrite_read_mount(jnl->jdev, uBlkNum, phyblksize, data, curlen, NULL, NULL);
-
     } else if (direction & JNL_WRITE) {
         raw_readwrite_write_mount(jnl->jdev, uBlkNum, phyblksize, data, curlen, NULL, NULL);
     }
@@ -3139,7 +3135,7 @@ again:
     // Move to the next section
     *offset += curlen;
     io_sz   += curlen;
-    
+
     if (io_sz != len) {
         // handle wrap-around
         data    = (char *)data + curlen;
@@ -3149,13 +3145,13 @@ again:
         }
         goto again;
     }
-    
+
     return io_sz;
 }
 
 static size_t read_journal_header(journal *jnl, void *data, size_t len) {
     off_t hdr_offset = 0;
-    
+
     return do_journal_io(jnl, &hdr_offset, data, len, JNL_READ|JNL_HEADER);
 }
 
@@ -3165,56 +3161,55 @@ static void get_io_info(struct vnode *devvp, size_t phys_blksz, journal *jnl) {
     off_t    readmaxcnt=0, tmp_readmaxcnt;
     off_t    writemaxcnt=0, tmp_writemaxcnt;
     off_t    readsegcnt, writesegcnt;
-    
+
     // First check the max read size via several different mechanisms...
     ioctl(devvp->psFSRecord->iFD, DKIOCGETMAXBYTECOUNTREAD, (caddr_t)&readmaxcnt);
-    
+
     if (ioctl(devvp->psFSRecord->iFD, DKIOCGETMAXBLOCKCOUNTREAD, (caddr_t)&readblockcnt) == 0) {
         tmp_readmaxcnt = readblockcnt * phys_blksz;
         if (readmaxcnt == 0 || (readblockcnt > 0 && tmp_readmaxcnt < readmaxcnt)) {
             readmaxcnt = tmp_readmaxcnt;
         }
     }
-    
+
     if (ioctl(devvp->psFSRecord->iFD, DKIOCGETMAXSEGMENTCOUNTREAD, (caddr_t)&readsegcnt)) {
         readsegcnt = 0;
     }
-    
+
     if (readsegcnt > 0 && (readsegcnt * PAGE_SIZE) < readmaxcnt) {
         readmaxcnt = readsegcnt * PAGE_SIZE;
     }
-    
+
     if (readmaxcnt == 0) {
         readmaxcnt = 128 * 1024;
     } else if (readmaxcnt > UINT32_MAX) {
         readmaxcnt = UINT32_MAX;
     }
-    
-    
+
     // Now check the max writes size via several different mechanisms...
     ioctl(devvp->psFSRecord->iFD, DKIOCGETMAXBYTECOUNTWRITE, (caddr_t)&writemaxcnt);
-    
+
     if (ioctl(devvp->psFSRecord->iFD, DKIOCGETMAXBLOCKCOUNTWRITE, (caddr_t)&writeblockcnt) == 0) {
         tmp_writemaxcnt = writeblockcnt * phys_blksz;
         if (writemaxcnt == 0 || (writeblockcnt > 0 && tmp_writemaxcnt < writemaxcnt)) {
             writemaxcnt = tmp_writemaxcnt;
         }
     }
-    
+
     if (ioctl(devvp->psFSRecord->iFD, DKIOCGETMAXSEGMENTCOUNTWRITE, (caddr_t)&writesegcnt)) {
         writesegcnt = 0;
     }
-    
+
     if (writesegcnt > 0 && (writesegcnt * PAGE_SIZE) < writemaxcnt) {
         writemaxcnt = writesegcnt * PAGE_SIZE;
     }
-    
+
     if (writemaxcnt == 0) {
         writemaxcnt = 128 * 1024;
     } else if (writemaxcnt > UINT32_MAX) {
         writemaxcnt = UINT32_MAX;
     }
-    
+
     jnl->max_read_size  = readmaxcnt;
     jnl->max_write_size = writemaxcnt;
 }
@@ -3228,23 +3223,21 @@ static void get_io_info(struct vnode *devvp, size_t phys_blksz, journal *jnl) {
 static void free_old_stuff(journal *jnl) {
     transaction *tr, *next;
     block_list_header  *blhdr=NULL, *next_blhdr=NULL;
-    
+
     if (jnl->tr_freeme == NULL)
         return;
-    
+
     lock_oldstart(jnl);
     tr = jnl->tr_freeme;
     jnl->tr_freeme = NULL;
     unlock_oldstart(jnl);
-    
+
     for(; tr; tr=next) {
         for (blhdr = tr->blhdr; blhdr; blhdr = next_blhdr) {
             next_blhdr = (block_list_header *)((long)blhdr->binfo[0].bnum);
             blhdr->binfo[0].bnum = 0xdeadc0de;
-            
+
             hfs_free(blhdr);
-            
-            KERNEL_DEBUG(0xbbbbc01c, jnl, tr, tr->tbuffer_size, 0, 0);
         }
         next = tr->next;
         hfs_free(tr);

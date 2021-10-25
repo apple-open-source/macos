@@ -82,6 +82,9 @@ sec_protocol_configuration_builder_get_is_apple_bundle(sec_protocol_configuratio
 SEC_RETURNS_RETAINED xpc_object_t
 sec_protocol_configuration_get_map(sec_protocol_configuration_t configuration);
 
+tls_protocol_version_t
+sec_protocol_configuration_protocol_string_to_version(const char *protocol);
+
 void
 sec_protocol_options_clear_tls_ciphersuites(sec_protocol_options_t options);
 

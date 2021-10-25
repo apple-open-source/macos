@@ -24,6 +24,7 @@
 #ifndef SecProtocolTypesPriv_h
 #define SecProtocolTypesPriv_h
 
+#include <Security/SecProtocolPriv.h>
 #include <Security/SecProtocolTypes.h>
 
 __BEGIN_DECLS

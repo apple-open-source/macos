@@ -26,6 +26,7 @@
 #include "codesigning_dtrace.h"
 #include <security_utilities/cfmunge.h>
 #include <Security/Security.h>
+#include <Security/SecCertificatePriv.h>
 #include <Security/SecCodePriv.h>
 #include <Security/SecRequirementPriv.h>
 #include <Security/SecPolicyPriv.h>

@@ -49,6 +49,9 @@
 #define CLUSTER_SIZE(psFSRecord) (psFSRecord->sFSInfo.uBytesPerCluster)
 #define SECTOR_SIZE(psFSRecord) (psFSRecord->sFSInfo.uBytesPerSector)
 
+#define ZERO_LENGTH_INITIAL_FILEID 0xFFFFFFFFFFFFFFFF
+#define ZERO_LENGTH_WRAP_AROUND_FILEID 0xFFFFFFFF00000000
+
 #define FAT_CACHE_SIZE (4)
 #define MAX_CHAIN_CACHE_ELEMENTS_PER_ENTRY (10)
 #define MAX_CHAIN_CACHE_ENTRIES (100)
@@ -129,7 +132,10 @@ typedef struct
     uint64_t    uFatCacheEntryOffset;                // which block is being cached; relative to start of active FAT
     uint64_t    uLRUCounter;
     bool        bIsDirty;
+    bool        bFailedToFlush;
 
+    pthread_cond_t  sFATCahceCond;
+    pthread_mutex_t sFATCahceMutex;
 } FatCacheEntry_s;
 
 typedef struct
@@ -139,6 +145,9 @@ typedef struct
     uint8_t                         uAmountOfAllocatedCacheEntries;
     FatCacheEntry_s                 psFATCacheEntries[FAT_CACHE_SIZE];
     bool                            bDriveDirtyBit;
+    
+    pthread_mutex_t                 sAlterFatMutex;
+    FatCacheEntry_s                 psAlterFATCacheEntries[FAT_CACHE_SIZE];
 
 } VolumeFatCache_s;
 
@@ -296,6 +305,8 @@ typedef struct
                                                              * <rdar://problem/45664056> - in order to prevent deadlock,
                                                              * need to acquire the DirtyBit Lock before locking the NodeRecord */
     volatile atomic_uint_least64_t  uPreAllocatedOpenFiles;
+    
+    atomic_ullong                   uNextAvailableFileID;   // Counter for tracking next unique file_id for zero-length files
 
     void*                           pvFSInfoCluster;        //FsInfoSector to allocate in case of FAT32
     // Locking order: NodeRecord -> sDirHTLRUTableLock
@@ -433,13 +444,6 @@ typedef struct
             ((NodeRecord_s*)psNodeRecord)->uValidNodeMagic1 != VALID_NODE_MAGIC ||              \
             ((NodeRecord_s*)psNodeRecord)->uValidNodeMagic2 != VALID_NODE_MAGIC ) {             \
             MSDOS_LOG( LEVEL_ERROR, "Got invalid node" );                                       \
-            return EINVAL;                                                                      \
-        }                                                                                       \
-        uint32_t firstCluster=((NodeRecord_s*)psNodeRecord)->sRecordData.uFirstCluster;         \
-        FileSystemRecord_s *psFSRecord = GET_FSRECORD(GET_RECORD((NodeRecord_s*)psNodeRecord)); \
-        if (firstCluster != 0 &&                                                                \
-            !CLUSTER_IS_VALID(firstCluster, psFSRecord)) {                                      \
-            MSDOS_LOG( LEVEL_ERROR, "Got node with invalid firstCluster" );                     \
             return EINVAL;                                                                      \
         }                                                                                       \
     } while(0)

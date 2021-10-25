@@ -12,7 +12,7 @@
 
 #define DUMP_POLICY_TREE  0
 
-int verbose = DUMP_POLICY_TREE;
+int policytree_verbose = DUMP_POLICY_TREE;
 
 static bool randomly_add_children(policy_tree_t node, void *ctx) {
     int i, count;
@@ -52,7 +52,7 @@ static void tests(void)
     policy_tree_t tree;
     ok(tree = policy_tree_create(&oidAnyPolicy, p_q),
         "create tree root");
-    if (verbose) policy_tree_dump(tree);
+    if (policytree_verbose) policy_tree_dump(tree);
 
 #if 0
     int i, count = 4;
@@ -75,12 +75,12 @@ static void tests(void)
                 (added ? "added children" : "no children added"));
 #endif
         }
-        if (verbose) policy_tree_dump(tree);
+        if (policytree_verbose) policy_tree_dump(tree);
 #if DUMP_POLICY_TREE
         diag("prune_childless depth: %d", depth);
 #endif
         policy_tree_prune_childless(&tree, depth);
-        if (verbose) {
+        if (policytree_verbose) {
             if (tree)
                 policy_tree_dump(tree);
             else {

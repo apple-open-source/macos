@@ -40,12 +40,19 @@ NSString* ESRPendingSince = @"ERSPending";
 - (BOOL)triggerEscrowUpdate:(nonnull NSString *)reason
                       error:(NSError * _Nullable __autoreleasing * _Nullable)error
 {
+    return [self triggerEscrowUpdate:reason options:nil error:error];
+}
+
+- (BOOL)triggerEscrowUpdate:(nonnull NSString *)reason
+                    options:(NSDictionary *)options
+                      error:(NSError * _Nullable __autoreleasing * _Nullable)error
+{
     // Magical async code style to sync conversion only happens with NSXPC.
     // Use a semaphore here, since we don't have any other option.
     dispatch_semaphore_t sema = dispatch_semaphore_create(0);
 
     __block NSError* updateError = nil;
-    [self triggerEscrowUpdate:reason reply:^(NSError * _Nullable operationError) {
+    [self triggerEscrowUpdate:reason options:options reply:^(NSError * _Nullable operationError) {
         updateError = operationError;
         dispatch_semaphore_signal(sema);
     }];
@@ -105,6 +112,21 @@ NSString* ESRPendingSince = @"ERSPending";
     return inProgress;
 }
 
+- (BOOL)escrowCompletedWithinLastSeconds:(NSTimeInterval)timeInterval
+{
+    __block BOOL result = YES;
+
+    dispatch_semaphore_t sema = dispatch_semaphore_create(0);
+    [self escrowCompletedWithinLastSeconds:timeInterval
+                                     reply:^(BOOL escrowCompletedWithin, NSError* _Nullable error) {
+        result = escrowCompletedWithin;
+        dispatch_semaphore_signal(sema);
+    }];
+    dispatch_semaphore_wait(sema, DISPATCH_TIME_FOREVER);
+
+    return result;
+}
+
 - (void)cachePrerecord:(NSString*)uuid
    serializedPrerecord:(nonnull NSData *)prerecord
                  reply:(nonnull void (^)(NSError * _Nullable))reply
@@ -143,6 +165,13 @@ NSString* ESRPendingSince = @"ERSPending";
 
     if(error) {
         secerror("escrowrequest: unable to load prerecord with uuid %@: %@", prerecordUUID, error);
+        reply(nil, error);
+        return;
+    }
+
+    if(record.uploadCompleted) {
+        secerror("escrowrequest: prerecord for uuid %@ already uploaded", prerecordUUID);
+        // TODO: fill in error
         reply(nil, error);
         return;
     }
@@ -197,11 +226,13 @@ NSString* ESRPendingSince = @"ERSPending";
 }
 
 - (void)triggerEscrowUpdate:(nonnull NSString *)reason
+                    options:(NSDictionary *)options
                       reply:(nonnull void (^)(NSError * _Nullable))reply
 {
     secnotice("escrowrequest", "Triggering an escrow update request due to '%@'", reason);
 
     [self.controller triggerEscrowUpdateRPC:reason
+                                    options:options
                                       reply:reply];
 }
 
@@ -276,6 +307,36 @@ NSString* ESRPendingSince = @"ERSPending";
     secnotice("escrowrequest", "attempting to store a prerecord in escrow");
 
     [self.controller storePrerecordsInEscrowRPC:reply];
+}
+
+- (void)escrowCompletedWithinLastSeconds:(NSTimeInterval)timeInterval
+                                   reply:(void (^)(BOOL escrowCompletedWithin, NSError* _Nullable error))reply
+{
+    NSError* error = nil;
+    NSArray<SecEscrowPendingRecord*>* records = [SecEscrowPendingRecord loadAllFromKeychain:&error];
+
+    if(error && [error.domain isEqualToString:NSOSStatusErrorDomain] && error.code == errSecItemNotFound) {
+        // No pending requests.
+        reply(NO, nil);
+        return;
+    }
+
+    if(error) {
+        secerror("escrowrequest: failed to load requests: %@", error);
+        // If something goes wrong, we want to be safe and rate-limit the request.
+        reply(YES, nil);
+        return;
+    }
+
+    BOOL found = NO;
+    for(SecEscrowPendingRecord* record in records) {
+        if (record.uploadCompleted && [record escrowAttemptedWithinLastSeconds:timeInterval]) {
+            found = YES;
+            break;
+        }
+    }
+
+    reply(found, nil);
 }
 
 - (void)setupAnalytics

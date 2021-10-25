@@ -18,6 +18,7 @@
 
 #include <strings.h>	// bcopy()
 #include <errno.h>
+#include <bsm/audit_record.h>
 #include <bsm/libbsm.h>
 #include <security_utilities/utilities.h>
 #include <security_utilities/debugging.h>

@@ -193,7 +193,7 @@ static void tests(void)
     /* Case 1b: add certificate ref should be returned implicitly. */
     ok_status(SecItemAdd(dict, &certHandle),
               "Case 1: add certificate dont ask for return type");
-    // See also: "<rdar://problem/7091317493> SecItemAdd unimplemented feature";
+    // See also: "<rdar://problem/7091317&6073493> SecItemAdd unimplemented feature";
     is(certHandle, NULL, "nothing returned");
     CFReleaseNull(certHandle);
     ok_status(SecItemDelete(dict), "delete certificate");

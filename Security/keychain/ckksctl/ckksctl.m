@@ -6,6 +6,7 @@
 #import <Foundation/NSXPCConnection_Private.h>
 #import <Security/Security.h>
 #import <Security/SecItemPriv.h>
+#import <Security/CKKSExternalTLKClient.h>
 #import <xpc/xpc.h>
 #import <err.h>
 
@@ -47,6 +48,14 @@ static id cleanObjectForJSON(id obj) {
         return newErrorDict;
     } else if([NSJSONSerialization isValidJSONObject:obj]) {
         return obj;
+
+    } else if([obj respondsToSelector:@selector(jsonDictionary)]) {
+        id result = [obj jsonDictionary];
+        if([NSJSONSerialization isValidJSONObject:result]) {
+            return result;
+        } else {
+            return [obj description];
+        }
 
     } else if ([obj isKindOfClass: [NSNumber class]]) {
         return obj;
@@ -198,8 +207,9 @@ static void print_entry(id k, id v, int ind)
                               dispatch_semaphore_signal(sema);
                           }];
 
-    if(dispatch_semaphore_wait(sema, dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC * 60 * 2)) != 0) {
+    if(dispatch_semaphore_wait(sema, dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC * 60 * 3)) != 0) {
         printf("\n\nError: timed out waiting for response\n");
+        secnotice("ckkscontrol", "Timed out waiting for reset-local response");
         return -1;
     }
 #endif // OCTAGON
@@ -209,7 +219,7 @@ static void print_entry(id k, id v, int ind)
 - (long)resetCloudKit:(NSString*)view {
     __block long ret = 0;
 #if OCTAGON
-    printf("Beginning CloudKit reset for %s...\n", view ? [[view description] UTF8String] : "all zones");
+    printf("Beginning CloudKit reset for %s...\n", view ? [[view description] UTF8String] : "all CKKS-managed zones");
     dispatch_semaphore_t sema = dispatch_semaphore_create(0);
 
     [self.control rpcResetCloudKit:view reason:@"ckksctl" reply:^(NSError* error){
@@ -225,6 +235,7 @@ static void print_entry(id k, id v, int ind)
 
     if(dispatch_semaphore_wait(sema, dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC * 60 * 5)) != 0) {
         printf("\n\nError: timed out waiting for response\n");
+        secnotice("ckkscontrol", "Timed out waiting for reset-cloudkit response");
         return -1;
     }
 #endif // OCTAON
@@ -248,8 +259,9 @@ static void print_entry(id k, id v, int ind)
         dispatch_semaphore_signal(sema);
     }];
 
-    if(dispatch_semaphore_wait(sema, dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC * 60 * 2)) != 0) {
+    if(dispatch_semaphore_wait(sema, dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC * 60 * 5)) != 0) {
         printf("\n\nError: timed out waiting for response\n");
+        secnotice("ckkscontrol", "Timed out waiting for resync response");
         return -1;
     }
 #endif // OCTAGON
@@ -277,8 +289,9 @@ static void print_entry(id k, id v, int ind)
         dispatch_semaphore_signal(sema);
     }];
 
-    if(dispatch_semaphore_wait(sema, dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC * 30)) != 0) {
+    if(dispatch_semaphore_wait(sema, dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC * 45)) != 0) {
         status[@"error"] = @"timed out";
+        secnotice("ckkscontrol", "Timed out waiting for status response");
     }
 #endif // OCTAGON
     return status;
@@ -309,10 +322,26 @@ static void print_entry(id k, id v, int ind)
             NSString *syncingPolicy = pop(global, @"policy", NSString);
             NSString *viewsFromPolicy = pop(global, @"viewsFromPolicy", NSString);
 
+            NSString* accountStatus = pop(global,@"ckaccountstatus", NSString);
+            NSString* accountTracker = pop(global,@"accounttracker", NSString);
+            NSString* fetcher = pop(global,@"fetcher", NSString);
+
+            NSString* ckksstate = pop(global,@"ckksstate", NSString);
+
+            NSString* lastIncomingQueueOperation          = pop(global,@"lastIncomingQueueOperation", NSString);
+            NSString* lastNewTLKOperation                 = pop(global,@"lastNewTLKOperation", NSString);
+            NSString* lastOutgoingQueueOperation          = pop(global,@"lastOutgoingQueueOperation", NSString);
+            NSString* lastProcessReceivedKeysOperation    = pop(global,@"lastProcessReceivedKeysOperation", NSString);
+            NSString* lastReencryptOutgoingItemsOperation = pop(global,@"lastReencryptOutgoingItemsOperation", NSString);
+
             if(!shortenOutput) {
                 printf("================================================================================\n\n");
                 printf("Global state:\n\n");
             }
+
+            printf("CKKS state machine:   %s\n", [ckksstate UTF8String]);
+            printf("CloudKit account:     %s\n", [accountStatus UTF8String]);
+            printf("Account tracker:      %s\n", [accountTracker UTF8String]);
 
             printf("Syncing Policy:       %s\n", [[syncingPolicy description] UTF8String]);
             printf("Views from policy:    %s\n", [[viewsFromPolicy description] UTF8String]);
@@ -324,6 +353,14 @@ static void print_entry(id k, id v, int ind)
                 printf("CK DeviceID Error:    %s\n", [[ckdeviceIDError description] UTF8String]);
                 printf("Lock state:           %s\n", [[lockStateTracker description] UTF8String]);
                 printf("Last CKKS push:       %s\n", [[lastCKKSPush description] UTF8String]);
+                printf("\n");
+
+                printf("zone change fetcher:                 %s\n", [[fetcher description] UTF8String]);
+                printf("lastIncomingQueueOperation:          %s\n", lastIncomingQueueOperation          == nil ? "never" : [lastIncomingQueueOperation          UTF8String]);
+                printf("lastNewTLKOperation:                 %s\n", lastNewTLKOperation                 == nil ? "never" : [lastNewTLKOperation                 UTF8String]);
+                printf("lastOutgoingQueueOperation:          %s\n", lastOutgoingQueueOperation          == nil ? "never" : [lastOutgoingQueueOperation          UTF8String]);
+                printf("lastProcessReceivedKeysOperation:    %s\n", lastProcessReceivedKeysOperation    == nil ? "never" : [lastProcessReceivedKeysOperation    UTF8String]);
+                printf("lastReencryptOutgoingItemsOperation: %s\n", lastReencryptOutgoingItemsOperation == nil ? "never" : [lastReencryptOutgoingItemsOperation UTF8String]);
             }
 
             printf("\n");
@@ -349,9 +386,7 @@ static void print_entry(id k, id v, int ind)
             NSMutableDictionary* status = [viewStatus mutableCopy];
 
             NSString* viewName = pop(status,@"view", NSString);
-            NSString* accountStatus = pop(status,@"ckaccountstatus", NSString);
-            NSString* accountTracker = pop(status,@"accounttracker", NSString);
-            NSString* fetcher = pop(status,@"fetcher", NSString);
+            NSString* ckksManaged = pop(status,@"ckksManaged", NSString);
             NSString* zoneCreated = pop(status,@"zoneCreated", NSString);
             NSString* zoneSubscribed = pop(status,@"zoneSubscribed", NSString);
             NSString* zoneInitializeScheduler = pop(status,@"zoneInitializeScheduler", NSString);
@@ -373,12 +408,6 @@ static void print_entry(id k, id v, int ind)
             NSArray* devicestates = pop(status, @"devicestates", NSArray);
             NSArray* tlkshares = pop(status, @"tlkshares", NSArray);
 
-            NSString* lastIncomingQueueOperation          = pop(status,@"lastIncomingQueueOperation", NSString);
-            NSString* lastNewTLKOperation                 = pop(status,@"lastNewTLKOperation", NSString);
-            NSString* lastOutgoingQueueOperation          = pop(status,@"lastOutgoingQueueOperation", NSString);
-            NSString* lastProcessReceivedKeysOperation    = pop(status,@"lastProcessReceivedKeysOperation", NSString);
-            NSString* lastReencryptOutgoingItemsOperation = pop(status,@"lastReencryptOutgoingItemsOperation", NSString);
-
             printf("================================================================================\n\n");
 
             printf("View: %s\n\n", [viewName UTF8String]);
@@ -386,9 +415,6 @@ static void print_entry(id k, id v, int ind)
             if(statusError != nil) {
                 printf("ERROR FETCHING STATUS: %s\n\n", [statusError UTF8String]);
             }
-
-            printf("CloudKit account:     %s\n", [accountStatus UTF8String]);
-            printf("Account tracker:      %s\n", [accountTracker UTF8String]);
 
             if(!([zoneCreated isEqualToString:@"yes"] && [zoneSubscribed isEqualToString:@"yes"])) {
                 printf("CK Zone Created:            %s\n", [[zoneCreated description] UTF8String]);
@@ -398,32 +424,36 @@ static void print_entry(id k, id v, int ind)
             }
 
             printf("Key state:            %s\n", [keystate UTF8String]);
-            printf("Current TLK:          %s\n", currentTLK != nil
-                   ? [currentTLK    UTF8String]
-                   : [[NSString stringWithFormat:@"missing; pointer is %@", currentTLKPtr] UTF8String]);
-            printf("Current ClassA:       %s\n", currentClassA != nil
-                   ? [currentClassA UTF8String]
-                   : [[NSString stringWithFormat:@"missing; pointer is %@", currentClassAPtr] UTF8String]);
-            printf("Current ClassC:       %s\n", currentClassC != nil
-                   ? [currentClassC UTF8String]
-                   : [[NSString stringWithFormat:@"missing; pointer is %@", currentClassCPtr] UTF8String]);
+            printf("CKKS managed view:    %s\n", [ckksManaged UTF8String]);
+
+            bool printCKKSInfo = [ckksManaged isEqualToString:@"yes"];
+
+            if(printCKKSInfo) {
+                printf("Current TLK:          %s\n", currentTLK != nil
+                       ? [currentTLK    UTF8String]
+                       : [[NSString stringWithFormat:@"missing; pointer is %@", currentTLKPtr] UTF8String]);
+
+                printf("Current ClassA:       %s\n", currentClassA != nil
+                       ? [currentClassA UTF8String]
+                       : [[NSString stringWithFormat:@"missing; pointer is %@", currentClassAPtr] UTF8String]);
+                printf("Current ClassC:       %s\n", currentClassC != nil
+                       ? [currentClassC UTF8String]
+                       : [[NSString stringWithFormat:@"missing; pointer is %@", currentClassCPtr] UTF8String]);
+            } else {
+                printf("Current TLK:          %s\n", [[currentTLKPtr description] UTF8String]);
+            }
 
             printf("TLK shares:           %s\n", [[tlkshares description] UTF8String]);
 
-            printf("Item syncing:          %s\n", [[itemSyncEnabled description] UTF8String]);
-            printf("Outgoing Queue counts: %s\n", [[oqe description] UTF8String]);
-            printf("Incoming Queue counts: %s\n", [[iqe description] UTF8String]);
-            printf("Key counts: %s\n", [[keys description] UTF8String]);
+            if(printCKKSInfo) {
+                printf("Item syncing:          %s\n", [[itemSyncEnabled description] UTF8String]);
+                printf("Outgoing Queue counts: %s\n", [[oqe description] UTF8String]);
+                printf("Incoming Queue counts: %s\n", [[iqe description] UTF8String]);
+                printf("Key counts: %s\n", [[keys description] UTF8String]);
 
-            printf("Item counts (by key):  %s\n", [[ckmirror description] UTF8String]);
-            printf("Peer states:           %s\n", [[devicestates description] UTF8String]);
-
-            printf("zone change fetcher:                 %s\n", [[fetcher description] UTF8String]);
-            printf("lastIncomingQueueOperation:          %s\n", lastIncomingQueueOperation          == nil ? "never" : [lastIncomingQueueOperation          UTF8String]);
-            printf("lastNewTLKOperation:                 %s\n", lastNewTLKOperation                 == nil ? "never" : [lastNewTLKOperation                 UTF8String]);
-            printf("lastOutgoingQueueOperation:          %s\n", lastOutgoingQueueOperation          == nil ? "never" : [lastOutgoingQueueOperation          UTF8String]);
-            printf("lastProcessReceivedKeysOperation:    %s\n", lastProcessReceivedKeysOperation    == nil ? "never" : [lastProcessReceivedKeysOperation    UTF8String]);
-            printf("lastReencryptOutgoingItemsOperation: %s\n", lastReencryptOutgoingItemsOperation == nil ? "never" : [lastReencryptOutgoingItemsOperation UTF8String]);
+                printf("Item counts (by key):  %s\n", [[ckmirror description] UTF8String]);
+                printf("Peer states:           %s\n", [[devicestates description] UTF8String]);
+            }
 
             printf("Launch sequence:\n");
             for (NSString *event in launchSequence) {
@@ -438,8 +468,9 @@ static void print_entry(id k, id v, int ind)
         dispatch_semaphore_signal(sema);
     }];
 
-    if(dispatch_semaphore_wait(sema, dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC * 30)) != 0) {
+    if(dispatch_semaphore_wait(sema, dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC * 45)) != 0) {
         printf("\n\nError: timed out waiting for response\n");
+        secnotice("ckkscontrol", "Timed out waiting for status response");
     }
 #endif // OCTAGON
 }
@@ -462,8 +493,9 @@ static void print_entry(id k, id v, int ind)
     }];
 
     // The maximum device-side delay to start a fetch is 120s, so we must wait longer than that for a response.
-    if(dispatch_semaphore_wait(sema, dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC * 135)) != 0) {
+    if(dispatch_semaphore_wait(sema, dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC * 150)) != 0) {
         printf("\n\nError: timed out waiting for response\n");
+        secnotice("ckkscontrol", "Timed out waiting for fetch response");
         return -1;
     }
 #endif // OCTAGON
@@ -486,8 +518,9 @@ static void print_entry(id k, id v, int ind)
         dispatch_semaphore_signal(sema);
     }];
 
-    if(dispatch_semaphore_wait(sema, dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC * 65)) != 0) {
+    if(dispatch_semaphore_wait(sema, dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC * 150)) != 0) {
         printf("\n\nError: timed out waiting for response\n");
+        secnotice("ckkscontrol", "Timed out waiting for push response");
         return -1;
     }
 
@@ -513,11 +546,258 @@ static void print_entry(id k, id v, int ind)
 
     if(dispatch_semaphore_wait(sema, dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC * 65)) != 0) {
         printf("\n\nError: timed out waiting for response\n");
+        secnotice("ckkscontrol", "Timed out waiting for ckmetric response");
         return -1;
     }
 #endif // OCTAGON
     return ret;
 
+}
+
+- (id)parseJSON:(Class)type
+           name:(NSString*)name
+           json:(NSString*)json
+{
+    NSError* jsonError = nil;
+    NSDictionary* dict = [NSJSONSerialization JSONObjectWithData:[json dataUsingEncoding:NSUTF8StringEncoding]
+                                                         options:0
+                                                           error:&jsonError];
+
+    if(!dict || jsonError != nil) {
+        printf("Unable to parse %s as JSON: %s\n", [name UTF8String], [[jsonError description] UTF8String]);
+        return nil;
+    }
+
+    id parsed = [type parseFromJSONDict:dict error:&jsonError];
+    if(!parsed) {
+        printf("Unable to parse %s from JSON: %s\n", [name UTF8String], [[jsonError description] UTF8String]);
+        printf("JSON: %s\n", [json UTF8String]);
+        return nil;
+    }
+
+    return parsed;
+}
+
+- (int)proposeSETLK:(NSString*)viewName
+            tlkJson:(NSString*)tlkJsonString
+         oldTlkJson:(NSString* _Nullable)oldTlkJsonString
+tlkShareJsonStrings:(NSArray<NSString*>*)tlkShareJsonStrings
+{
+    __block int ret = 1;
+#if OCTAGON
+
+    CKKSExternalKey* tlk = [self parseJSON:[CKKSExternalKey class]
+                                      name:@"TLK"
+                                      json:tlkJsonString];
+    if(!tlk) {
+        return 1;
+    }
+
+    CKKSExternalKey* oldTLK = nil;
+    if(oldTlkJsonString) {
+        oldTLK = [self parseJSON:[CKKSExternalKey class]
+                                          name:@"old TLK"
+                                          json:oldTlkJsonString];
+        if(!oldTLK) {
+            return 1;
+        }
+    }
+
+    NSMutableArray<CKKSExternalTLKShare*>* tlkShares = [NSMutableArray array];
+    for(NSString* json in tlkShareJsonStrings) {
+        CKKSExternalTLKShare* tlkShare =  [self parseJSON:[CKKSExternalTLKShare class]
+                                                     name:@"TLKShare"
+                                                     json:json];
+        if(!tlkShare) {
+            return 1;
+        }
+
+        [tlkShares addObject:tlkShare];
+    }
+
+    dispatch_semaphore_t sema = dispatch_semaphore_create(0);
+
+    [self.control  proposeTLKForSEView:viewName
+                           proposedTLK:tlk
+                         wrappedOldTLK:nil
+                             tlkShares:tlkShares
+                                 reply:^(NSError* error) {
+        if(error) {
+            printf("Error proposing TLK: %s\n", [[error description] UTF8String]);
+
+        } else {
+            printf("Success.\n");
+            ret = 0;
+        }
+        dispatch_semaphore_signal(sema);
+    }];
+
+    if(dispatch_semaphore_wait(sema, dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC * 150)) != 0) {
+        printf("\n\nError: timed out waiting for response\n");
+        secnotice("ckkscontrol", "Timed out waiting for proposeSETLK response");
+        return -1;
+    }
+
+#endif
+    return ret;
+}
+
+- (int)fetchSEView:(NSString*)viewName
+              json:(BOOL)json
+{
+    __block int ret = 1;
+#if OCTAGON
+
+    dispatch_semaphore_t sema = dispatch_semaphore_create(0);
+
+    [self.control fetchSEViewKeyHierarchy:viewName reply:^(CKKSExternalKey * _Nullable currentTLK,
+                                                           NSArray<CKKSExternalKey *> * _Nullable pastTLKs,
+                                                           NSArray<CKKSExternalTLKShare *> * _Nullable currentTLKShares,
+                                                           NSError * _Nullable error) {
+
+        if(error) {
+            printf("Error fetching view: %s\n", [[error description] UTF8String]);
+
+        } else {
+            if(json) {
+                NSMutableDictionary* dict = [NSMutableDictionary dictionary];
+                dict[@"tlk"] = currentTLK;
+                dict[@"pastTLKs"] = pastTLKs;
+                dict[@"tlkShares"] = currentTLKShares;
+
+                print_result(dict, true);
+                printf("\n");
+
+            } else {
+                printf("TLK: %s\n", [[currentTLK description] UTF8String]);
+                printf("Old TLKs: %s\n", [[pastTLKs description] UTF8String]);
+                printf("TLKShares: %s\n", [[currentTLKShares description] UTF8String]);
+            }
+
+            ret = 0;
+        }
+        dispatch_semaphore_signal(sema);
+    }];
+
+    if(dispatch_semaphore_wait(sema, dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC * 150)) != 0) {
+        printf("\n\nError: timed out waiting for response\n");
+        secnotice("ckkscontrol", "Timed out waiting for fetchSEView response");
+        return -1;
+    }
+
+#endif
+    return ret;
+}
+
+- (int)modifySEZone:(NSString*)viewName
+tlkShareJsonStrings:(NSArray<NSString*>*)tlkShareJsonStrings
+deletetlkShareJsonStrings:(NSArray<NSString*>*)deletingTlkShareJsonStrings
+{
+    __block int ret = 1;
+#if OCTAGON
+    NSMutableArray<CKKSExternalTLKShare*>* tlkShares = [NSMutableArray array];
+    for(NSString* json in tlkShareJsonStrings) {
+        CKKSExternalTLKShare* tlkShare = [self parseJSON:[CKKSExternalTLKShare class]
+                                                    name:@"TLK Share"
+                                                    json:json];
+        if(!tlkShare) {
+            return 1;
+        }
+
+        [tlkShares addObject:tlkShare];
+    }
+
+
+    NSMutableArray<CKKSExternalTLKShare*>* deletingTlkShares = [NSMutableArray array];
+    for(NSString* json in deletingTlkShareJsonStrings) {
+        CKKSExternalTLKShare* tlkShare = [self parseJSON:[CKKSExternalTLKShare class]
+                                                    name:@"TLK Share"
+                                                    json:json];
+        if(!tlkShare) {
+            return 1;
+        }
+
+        [deletingTlkShares addObject:tlkShare];
+    }
+
+
+    dispatch_semaphore_t sema = dispatch_semaphore_create(0);
+
+    [self.control modifyTLKSharesForSEView:viewName
+                                    adding:tlkShares
+                                  deleting:deletingTlkShares
+                                     reply:^(NSError* error) {
+        if(error) {
+            printf("Error modifying tlk shares: %s\n", [[error description] UTF8String]);
+
+        } else {
+            printf("Success.\n");
+            ret = 0;
+        }
+        dispatch_semaphore_signal(sema);
+    }];
+
+    if(dispatch_semaphore_wait(sema, dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC * 150)) != 0) {
+        printf("\n\nError: timed out waiting for response\n");
+        secnotice("ckkscontrol", "Timed out waiting for modifySEZone response");
+        return -1;
+    }
+
+#endif
+    return ret;
+}
+
+- (int)deleteSEZone:(NSString*)viewName {
+    __block int ret = 1;
+#if OCTAGON
+
+    dispatch_semaphore_t sema = dispatch_semaphore_create(0);
+
+    [self.control deleteSEView:viewName
+                          reply: ^(NSError* error) {
+        if(error) {
+            printf("Error deleting zone: %s\n", [[error description] UTF8String]);
+
+        } else {
+            printf("Success.\n");
+            ret = 0;
+        }
+        dispatch_semaphore_signal(sema);
+    }];
+
+    if(dispatch_semaphore_wait(sema, dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC * 150)) != 0) {
+        printf("\n\nError: timed out waiting for response\n");
+        secnotice("ckkscontrol", "Timed out waiting for deleteSEZone response");
+        return -1;
+    }
+
+#endif
+    return ret;
+}
+
+- (int)toggleHavoc {
+    __block int ret = 1;
+#if OCTAGON
+    dispatch_semaphore_t sema = dispatch_semaphore_create(0);
+
+    [self.control toggleHavoc:^(BOOL havoc, NSError* error) {
+        if(error) {
+            printf("Error causing havoc: %s\n", [[error description] UTF8String]);
+
+        } else {
+            printf("Success. Havoc is now %s\n", [(havoc ? @"ON" : @"OFF") UTF8String]);
+            ret = 0;
+        }
+        dispatch_semaphore_signal(sema);
+    }];
+
+    if(dispatch_semaphore_wait(sema, dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC * 65)) != 0) {
+        printf("\n\nError: timed out waiting for response\n");
+        return -1;
+    }
+
+#endif
+    return ret;
 }
 
 @end
@@ -533,8 +813,21 @@ static int push = false;
 static int json = false;
 static int shortOutput = false;
 static int ckmetric = false;
+static int seProposeTLK = false;
+static int seFetch = false;
+static int seModify = false;
+static int seDeleteZone = false;
+static int toggleHavoc = false;
 
 static char* viewArg = NULL;
+
+static char* tlkJsonArg = NULL;
+static char* oldTlkJsonArg = NULL;
+static char** tlkShareJsonArgArray = NULL;
+static size_t tlkShareJsonArgArraySize = 0;
+
+static char** deleteTlkShareJsonArgArray = NULL;
+static size_t deleteTlkShareJsonArgArraySize = 0;
 
 int main(int argc, char **argv)
 {
@@ -544,6 +837,11 @@ int main(int argc, char **argv)
         { .shortname='s', .longname="short", .flag=&shortOutput, .flagval=true, .description="Output a short format"},
         { .shortname='v', .longname="view", .argument=&viewArg, .description="Operate on a single view"},
 
+        { .longname="tlkShare", .argument_array=&tlkShareJsonArgArray, .argument_array_count=&tlkShareJsonArgArraySize, .description="A TLK share to propose"},
+        { .longname="deleteTLKShare", .argument_array=&deleteTlkShareJsonArgArray, .argument_array_count=&deleteTlkShareJsonArgArraySize, .description="A TLK share to delete"},
+        { .longname="newTLK", .argument=&tlkJsonArg, .description="A TLK to propose"},
+        { .longname="oldTLK", .argument=&oldTlkJsonArg, .description="An old TLK, wrapped by the new TLK"},
+
         { .command="status", .flag=&status, .flagval=true, .description="Report status on CKKS views"},
         { .command="fetch", .flag=&fetch, .flagval=true, .description="Fetch all new changes in CloudKit and attempt to process them"},
         { .command="push", .flag=&push, .flagval=true, .description="Push all pending local changes to CloudKit"},
@@ -551,6 +849,12 @@ int main(int argc, char **argv)
         { .command="reset", .flag=&reset, .flagval=true, .description="All local data will be wiped, and data refetched from CloudKit"},
         { .command="reset-cloudkit", .flag=&resetCloudKit, .flagval=true, .description="All data in CloudKit will be removed and replaced with what's local"},
         { .command="ckmetric", .flag=&ckmetric, .flagval=true, .description="Push CloudKit metric"},
+        { .command="se-propose-tlk", .flag=&seProposeTLK, .flagval=true, .description="Propose a fake TLK for an SE view. Requires --newTLK TLK_JSON and optional repeated [--tlkShare SHARE_JSON ...]", .internal_only=true},
+        { .command="se-fetch", .flag=&seFetch, .flagval=true, .description="Fetch the current state of an SE view", .internal_only=true},
+        { .command="se-modify", .flag=&seModify, .flagval=true, .description="Update the TLKShares in an SE view. Use with [--tlkShare SHARE_JSON ...] and [--deleteTLKShare SHARE_JSON ...]", .internal_only=true},
+        { .command="se-delete-zone", .flag=&seDeleteZone, .flagval=true, .description="Delete an SE view", .internal_only=true},
+
+        { .command="toggle-havoc", .flag=&toggleHavoc, .flagval=true, .description="Break the device in some interesting way", .internal_only=true},
         {}
     };
 
@@ -577,6 +881,27 @@ int main(int argc, char **argv)
         CKKSControlCLI* ctl = [[CKKSControlCLI alloc] initWithCKKSControl:rpc];
 
         NSString* view = viewArg ? [NSString stringWithCString: viewArg encoding: NSUTF8StringEncoding] : nil;
+
+        NSString* tlkJsonString = tlkJsonArg ? [NSString stringWithCString:tlkJsonArg encoding:NSUTF8StringEncoding] : nil;
+        NSString* oldTlkJsonString = oldTlkJsonArg ? [NSString stringWithCString:oldTlkJsonArg encoding:NSUTF8StringEncoding] : nil;
+
+        NSMutableArray<NSString*>* tlkSharesJson = nil;
+        if(tlkShareJsonArgArraySize > 0) {
+            tlkSharesJson = [NSMutableArray array];
+            for(size_t i = 0; i < tlkShareJsonArgArraySize; i++) {
+                NSString* tlkShareJsonString = [NSString stringWithCString:tlkShareJsonArgArray[i] encoding:NSUTF8StringEncoding];
+                [tlkSharesJson addObject:tlkShareJsonString];
+            }
+        }
+
+        NSMutableArray<NSString*>* deleteTlkSharesJson = nil;
+        if(deleteTlkShareJsonArgArraySize > 0) {
+            deleteTlkSharesJson = [NSMutableArray array];
+            for(size_t i = 0; i < deleteTlkShareJsonArgArraySize; i++) {
+                NSString* tlkShareJsonString = [NSString stringWithCString:deleteTlkShareJsonArgArray[i] encoding:NSUTF8StringEncoding];
+                [deleteTlkSharesJson addObject:tlkShareJsonString];
+            }
+        }
 
         if(status) {
             // Complicated logic, but you can choose any combination of (json, perfcounters) that you like.
@@ -613,6 +938,59 @@ int main(int argc, char **argv)
             return (int)[ctl resync:view];
         } else if(ckmetric) {
             return (int)[ctl ckmetric];
+        } else if(seProposeTLK) {
+            if(!view) {
+                printf("View is a required argument.\n\n");
+                print_usage(&args);
+                return 1;
+            }
+
+            if(!tlkJsonString) {
+                printf("newTLK is a required argument.\n\n");
+                print_usage(&args);
+                return 1;
+            }
+
+            return (int)[ctl proposeSETLK:view
+                                  tlkJson:tlkJsonString
+                               oldTlkJson:oldTlkJsonString
+                      tlkShareJsonStrings:tlkSharesJson];
+
+        } else if(seFetch) {
+            if(!view) {
+                printf("View is a required argument.\n\n");
+                print_usage(&args);
+                return 1;
+            }
+            return (int)[ctl fetchSEView:view
+                                    json:json];
+        } else if(seModify) {
+            if(!view) {
+                printf("View is a required argument.\n\n");
+                print_usage(&args);
+                return 1;
+            }
+
+            if(tlkSharesJson == nil && deleteTlkSharesJson == nil) {
+                printf("At least one of --tlkShare or --deleteTLKShare is required.\n");
+                print_usage(&args);
+                return 1;
+            }
+
+            return (int)[ctl modifySEZone:view
+                      tlkShareJsonStrings:tlkSharesJson
+                deletetlkShareJsonStrings:deleteTlkSharesJson];
+
+        } else if(seDeleteZone) {
+            if(!view) {
+                printf("View is a required argument.\n\n");
+                print_usage(&args);
+                return 1;
+            }
+            return (int)[ctl deleteSEZone:view];
+
+        } else if(toggleHavoc) {
+            return (int)[ctl toggleHavoc];
         } else {
             print_usage(&args);
             return -1;

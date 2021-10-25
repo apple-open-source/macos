@@ -33,6 +33,7 @@ extern "C" {
 extern void DALog( const char * format, ... );
 extern void DALogClose( void );
 extern void DALogDebug( const char * format, ... );
+extern void DALogInfo( const char * format, ... );
 extern void DALogDebugHeader( const char * format, ... );
 extern void DALogError( const char * format, ... );
 extern void DALogOpen( char * name, Boolean debug, Boolean error );

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Apple Inc. All rights reserved.
+ * Copyright (c) 2017-2021 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -35,14 +35,12 @@
 #include <CoreFoundation/CoreFoundation.h>
 #include <SystemConfiguration/SystemConfiguration.h>
 #include <SystemConfiguration/SCPrivate.h>
-#if TEST_NAT64_CONFIGURATION
+#ifdef	TEST_NAT64_CONFIGURATION
 static Boolean			G_set_prefixes_force_failure;
 #define my_if_nametoindex	if_nametoindex
 #else
 #include "ip_plugin.h"
 #endif
-
-#define	INET6	1
 
 #include <string.h>
 #include <net/if.h>
@@ -126,7 +124,7 @@ _nat64_prefix_post(CFStringRef		interface,
 		   nw_nat64_prefix_t	*prefixes,
 		   CFAbsoluteTime	start_time)
 {
-#if TEST_NAT64_CONFIGURATION
+#ifdef	TEST_NAT64_CONFIGURATION
 #pragma unused(interface)
 #pragma unused(num_prefixes)
 #pragma unused(prefixes)
@@ -305,7 +303,7 @@ NAT64PrefixRequestCreate(CFStringRef if_name_cf)
 	}
 	request = malloc(sizeof(*request));
 	SC_log(LOG_DEBUG, "%@: %s %p", if_name_cf, __FUNCTION__, request);
-	bzero(request, sizeof(*request));
+	memset(request, 0, sizeof(*request));
 	request->if_name_cf = CFRetain(if_name_cf);
 	request->if_name = if_name;
 	request->if_index = if_index;
@@ -416,7 +414,7 @@ NAT64PrefixRequestStart(NAT64PrefixRequestRef request)
 		}
 		_nat64_prefix_post(request->if_name_cf,
 				   num_prefixes, prefixes, start_time);
-#if TEST_NAT64_CONFIGURATION
+#ifdef	TEST_NAT64_CONFIGURATION
 		if (G_set_prefixes_force_failure) {
 			remove_resolver = TRUE;
 		}
@@ -618,7 +616,7 @@ nat64_configuration_update(CFSetRef requests, CFSetRef updates,
 	return;
 }
 
-#if TEST_NAT64_CONFIGURATION
+#ifdef	TEST_NAT64_CONFIGURATION
 int
 main(int argc, char * argv[])
 {

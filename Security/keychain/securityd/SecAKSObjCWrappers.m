@@ -22,23 +22,36 @@
  */
 
 #import "SecAKSObjCWrappers.h"
+#if __has_include(<UserManagement/UserManagement.h>)
+#import <UserManagement/UserManagement.h>
+#endif
 
 @implementation SecAKSObjCWrappers
 
 + (bool)aksEncryptWithKeybag:(keybag_handle_t)keybag keyclass:(keyclass_t)keyclass plaintext:(NSData*)plaintext
-                 outKeyclass:(keyclass_t*)outKeyclass ciphertext:(NSMutableData*)ciphertext error:(NSError**)error
+                 outKeyclass:(keyclass_t*)outKeyclass ciphertext:(NSMutableData*)ciphertext personaId:(const void*)personaId personaIdLength:(size_t)personaIdLength error:(NSError**)error
 {
     CFErrorRef cfError = NULL;
-    bool result = ks_crypt(kAKSKeyOpEncrypt, keybag, keyclass, (uint32_t)plaintext.length, plaintext.bytes, outKeyclass, (__bridge CFMutableDataRef)ciphertext, &cfError);
+    bool result = false;
+    if (personaId) {
+        result = ks_crypt_diversify(kAKSKeyOpEncrypt, keybag, keyclass, (uint32_t)plaintext.length, plaintext.bytes, outKeyclass, (__bridge CFMutableDataRef)ciphertext, personaId, personaIdLength, &cfError);
+    } else {
+        result = ks_crypt(kAKSKeyOpEncrypt, keybag, keyclass, (uint32_t)plaintext.length, plaintext.bytes, outKeyclass, (__bridge CFMutableDataRef)ciphertext, &cfError);
+    }
     BridgeCFErrorToNSErrorOut(error, cfError);
     return result;
 }
 
 + (bool)aksDecryptWithKeybag:(keybag_handle_t)keybag keyclass:(keyclass_t)keyclass ciphertext:(NSData*)ciphertext
-                 outKeyclass:(keyclass_t*)outKeyclass plaintext:(NSMutableData*)plaintext error:(NSError**)error
+                 outKeyclass:(keyclass_t*)outKeyclass plaintext:(NSMutableData*)plaintext personaId:(const void*)personaId personaIdLength:(size_t)personaIdLength error:(NSError**)error
 {
     CFErrorRef cfError = NULL;
-    bool result = ks_crypt(kAKSKeyOpDecrypt, keybag, keyclass, (uint32_t)ciphertext.length, ciphertext.bytes, outKeyclass, (__bridge CFMutableDataRef)plaintext, &cfError);
+    bool result = false;
+    if (personaId) {
+        result = ks_crypt_diversify(kAKSKeyOpDecrypt, keybag, keyclass, (uint32_t)ciphertext.length, ciphertext.bytes, outKeyclass, (__bridge CFMutableDataRef)plaintext, personaId, personaIdLength, &cfError);
+    } else {
+        result = ks_crypt(kAKSKeyOpDecrypt, keybag, keyclass, (uint32_t)ciphertext.length, ciphertext.bytes, outKeyclass, (__bridge CFMutableDataRef)plaintext, &cfError);
+    }
     BridgeCFErrorToNSErrorOut(error, cfError);
     return result;
 }

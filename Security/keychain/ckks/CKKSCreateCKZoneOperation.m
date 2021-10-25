@@ -28,80 +28,131 @@
 
 - (void)groupStart
 {
-    __block CKKSZoneStateEntry* ckseOriginal = nil;
+    __block NSMutableArray<CKRecordZone*>* zonesNeedingCreation = [NSMutableArray array];
+
     [self.deps.databaseProvider dispatchSyncWithReadOnlySQLTransaction:^{
-        ckseOriginal = [CKKSZoneStateEntry state:self.deps.zoneID.zoneName];
+        for(CKKSKeychainViewState* viewState in self.deps.views) {
+            CKKSZoneStateEntry* ckse = [CKKSZoneStateEntry state:viewState.zoneID.zoneName];
+
+            if(ckse.ckzonecreated && ckse.ckzonesubscribed) {
+                ckksinfo("ckkskey", viewState.zoneID, "Zone is already created and subscribed");
+            } else {
+                CKRecordZone* zone = [[CKRecordZone alloc] initWithZoneID:viewState.zoneID];
+                [zonesNeedingCreation addObject:zone];
+                viewState.viewKeyHierarchyState = SecCKKSZoneKeyStateInitializing;
+            }
+        }
     }];
 
-    if(ckseOriginal.ckzonecreated && ckseOriginal.ckzonesubscribed) {
-        ckksinfo("ckkskey", self.deps.zoneID, "Zone is already created and subscribed");
+    if(zonesNeedingCreation.count == 0) {
         self.nextState = self.intendedState;
         return;
     }
 
-    ckksnotice("ckkszone", self.deps.zoneID, "Asking to create and subscribe to CloudKit zone '%@'", self.deps.zoneID.zoneName);
-    CKRecordZone* zone = [[CKRecordZone alloc] initWithZoneID:self.deps.zoneID];
-    CKKSZoneModifyOperations* zoneOps = [self.deps.zoneModifier createZone:zone];
+    ckksnotice_global("ckkszone", "Asking to create and subscribe to CloudKit zones: %@", zonesNeedingCreation);
+
+    CKKSZoneModifyOperations* zoneOps = [self.deps.zoneModifier createZones:zonesNeedingCreation];
 
     WEAKIFY(self);
 
     CKKSResultOperation* handleModificationsOperation = [CKKSResultOperation named:@"handle-modification" withBlock:^{
         STRONGIFY(self);
-        BOOL zoneCreated = NO;
-        BOOL zoneSubscribed = NO;
-        if([zoneOps.savedRecordZones containsObject:zone]) {
-            ckksinfo("ckkszone", self.deps.zoneID, "Successfully created '%@'", self.deps.zoneID);
-            zoneCreated = YES;
-        } else {
-            ckkserror("ckkszone", self.deps.zoneID, "Failed to create '%@'", self.deps.zoneID);
-        }
-
-        bool createdSubscription = false;
-        for(CKSubscription* subscription in zoneOps.savedSubscriptions) {
-            if([subscription.subscriptionID isEqual:[@"zone:" stringByAppendingString: self.deps.zoneID.zoneName]]) {
-                zoneSubscribed = true;
-                break;
-            }
-        }
-
-        if(createdSubscription) {
-            ckksinfo("ckkszone", self.deps.zoneID, "Successfully subscribed '%@'", self.deps.zoneID);
-            zoneSubscribed = YES;
-        } else {
-            ckkserror("ckkszone", self.deps.zoneID, "Failed to subscribe to '%@'", self.deps.zoneID);
-        }
 
         [self.deps.databaseProvider dispatchSyncWithSQLTransaction:^CKKSDatabaseTransactionResult{
-            ckksnotice("ckkszone", self.deps.zoneID, "Zone setup progress: created:%d %@ subscribed:%d %@",
-                       zoneCreated,
-                       zoneOps.zoneModificationOperation.error,
-                       zoneSubscribed,
-                       zoneOps.zoneSubscriptionOperation.error);
+            bool allZoneCreationsSucceeded = true;
+            bool allZoneSubscriptionsSucceeded = true;
 
-            NSError* error = nil;
-            CKKSZoneStateEntry* ckse = [CKKSZoneStateEntry state:self.deps.zoneID.zoneName];
-            ckse.ckzonecreated = zoneCreated;
-            ckse.ckzonesubscribed = zoneSubscribed;
+            for(CKKSKeychainViewState* viewState in self.deps.views) {
+                CKRecordZone* zone = nil;
 
-            // Although, if the zone subscribed error says there's no zone, mark down that there's no zone
-            if(zoneOps.zoneSubscriptionOperation.error &&
-               [zoneOps.zoneSubscriptionOperation.error.domain isEqualToString:CKErrorDomain] && zoneOps.zoneSubscriptionOperation.error.code == CKErrorPartialFailure) {
-                NSError* subscriptionError = zoneOps.zoneSubscriptionOperation.error.userInfo[CKPartialErrorsByItemIDKey][self.deps.zoneID];
-                if(subscriptionError && [subscriptionError.domain isEqualToString:CKErrorDomain] && subscriptionError.code == CKErrorZoneNotFound) {
-
-                    ckkserror("ckks", self.deps.zoneID, "zone subscription error appears to say the zone doesn't exist, fixing status: %@", zoneOps.zoneSubscriptionOperation.error);
-                    ckse.ckzonecreated = false;
+                for(CKRecordZone* possibleZone in zonesNeedingCreation) {
+                    if([possibleZone.zoneID isEqual:viewState.zoneID]) {
+                        zone = possibleZone;
+                        break;
+                    }
                 }
+
+                if(zone == nil) {
+                    // We weren't intending to modify this zone. Skip with predjudice!
+                    continue;
+                }
+
+                BOOL zoneCreated = NO;
+                BOOL zoneSubscribed = NO;
+
+                if([zoneOps.savedRecordZones containsObject:zone]) {
+                    ckksinfo("ckkszone", viewState.zoneID, "Successfully created '%@'", viewState.zoneID);
+                    zoneCreated = YES;
+
+                    // Since we've successfully created the zone, we should send the ready notification the next time the zone is ready.
+                    [viewState armReadyNotification];
+                } else {
+                    ckkserror("ckkszone", viewState.zoneID, "Failed to create '%@'", viewState.zoneID);
+                }
+
+                NSString* intendedSubscriptionID = [@"zone:" stringByAppendingString:viewState.zoneID.zoneName];
+                bool createdSubscription = false;
+                for(CKSubscription* subscription in zoneOps.savedSubscriptions) {
+                    if([subscription.subscriptionID isEqual:intendedSubscriptionID]) {
+                        createdSubscription = true;
+                        break;
+                    }
+                }
+
+                // Or, if the subcription error is 'the subscription already exists', that's fine too
+                if(zoneOps.zoneSubscriptionOperation.error &&
+                   [zoneOps.zoneSubscriptionOperation.error.domain isEqualToString:CKErrorDomain] && zoneOps.zoneSubscriptionOperation.error.code == CKErrorPartialFailure) {
+                    NSError* subscriptionError = zoneOps.zoneSubscriptionOperation.error.userInfo[CKPartialErrorsByItemIDKey][intendedSubscriptionID];
+                    NSError* thirdLevelError = subscriptionError.userInfo[NSUnderlyingErrorKey];
+
+                    if(subscriptionError && [subscriptionError.domain isEqualToString:CKErrorDomain] && subscriptionError.code == CKErrorServerRejectedRequest &&
+                       thirdLevelError && [thirdLevelError.domain isEqualToString:CKErrorDomain] && thirdLevelError.code == CKErrorInternalDuplicateSubscription) {
+                        ckkserror("ckks", viewState.zoneID, "zone subscription error appears to say that the zone subscription exists; this is okay!");
+                        createdSubscription = true;
+                    }
+                }
+
+                if(createdSubscription) {
+                    ckksinfo("ckkszone", viewState.zoneID, "Successfully subscribed '%@'", viewState.zoneID);
+                    zoneSubscribed = YES;
+                } else {
+                    ckkserror("ckkszone", viewState.zoneID, "Failed to subscribe to '%@'", viewState.zoneID);
+                }
+
+                ckksnotice("ckkszone", viewState.zoneID, "Zone setup progress: created:%d %@ subscribed:%d %@",
+                           zoneCreated,
+                           zoneOps.zoneModificationOperation.error,
+                           zoneSubscribed,
+                           zoneOps.zoneSubscriptionOperation.error);
+
+                NSError* error = nil;
+                CKKSZoneStateEntry* ckse = [CKKSZoneStateEntry state:viewState.zoneID.zoneName];
+                ckse.ckzonecreated = zoneCreated;
+                ckse.ckzonesubscribed = zoneSubscribed;
+
+                // Although, if the zone subscribed error says there's no zone, mark down that there's no zone
+                if(zoneOps.zoneSubscriptionOperation.error &&
+                   [zoneOps.zoneSubscriptionOperation.error.domain isEqualToString:CKErrorDomain] && zoneOps.zoneSubscriptionOperation.error.code == CKErrorPartialFailure) {
+                    NSError* subscriptionError = zoneOps.zoneSubscriptionOperation.error.userInfo[CKPartialErrorsByItemIDKey][viewState.zoneID];
+                    if(subscriptionError && [subscriptionError.domain isEqualToString:CKErrorDomain] && subscriptionError.code == CKErrorZoneNotFound) {
+
+                        ckkserror("ckks", viewState.zoneID, "zone subscription error appears to say the zone doesn't exist, fixing status: %@", zoneOps.zoneSubscriptionOperation.error);
+                        ckse.ckzonecreated = false;
+                    }
+                }
+
+                [ckse saveToDatabase:&error];
+                if(error) {
+                    ckkserror("ckks", viewState.zoneID, "couldn't save zone creation status for %@: %@", viewState.zoneID, error);
+                }
+
+                allZoneCreationsSucceeded = allZoneCreationsSucceeded && zoneCreated;
+                allZoneSubscriptionsSucceeded = allZoneSubscriptionsSucceeded && zoneSubscribed;
             }
 
-            [ckse saveToDatabase:&error];
-            if(error) {
-                ckkserror("ckks", self.deps.zoneID, "couldn't save zone creation status for %@: %@", self.deps.zoneID, error);
-            }
-
-            if(!zoneCreated || !zoneSubscribed) {
+            if(!allZoneCreationsSucceeded || !allZoneSubscriptionsSucceeded) {
                 // Go into 'zonecreationfailed'
-                self.nextState = SecCKKSZoneKeyStateZoneCreationFailed;
+                self.nextState = CKKSStateZoneCreationFailed;
                 self.error = zoneOps.zoneModificationOperation.error ?: zoneOps.zoneSubscriptionOperation.error;
             } else {
                 self.nextState = self.intendedState;

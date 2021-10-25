@@ -134,7 +134,7 @@
 #include <console/video_console.h>
 #endif
 
-#ifdef JOE_DEBUG
+#ifdef CONFIG_IOCOUNT_TRACE
 #include <libkern/OSDebug.h>
 #endif
 
@@ -158,10 +158,10 @@ static LCK_ATTR_DECLARE(trigger_vnode_lck_attr, 0, 0);
 extern lck_mtx_t mnt_list_mtx_lock;
 
 ZONE_DECLARE(specinfo_zone, "specinfo",
-    sizeof(struct specinfo), ZC_NOENCRYPT | ZC_ZFREE_CLEARMEM);
+    sizeof(struct specinfo), ZC_ZFREE_CLEARMEM);
 
 ZONE_DECLARE(vnode_zone, "vnodes",
-    sizeof(struct vnode), ZC_NOENCRYPT | ZC_NOGC | ZC_ZFREE_CLEARMEM);
+    sizeof(struct vnode), ZC_NOGC | ZC_ZFREE_CLEARMEM);
 
 enum vtype iftovt_tab[16] = {
 	VNON, VFIFO, VCHR, VNON, VDIR, VNON, VBLK, VNON,
@@ -232,15 +232,17 @@ static int vnode_authattr_new_internal(vnode_t dvp, struct vnode_attr *vap, int 
 
 errno_t rmdir_remove_orphaned_appleDouble(vnode_t, vfs_context_t, int *);
 
-#ifdef JOE_DEBUG
+#ifdef CONFIG_IOCOUNT_TRACE
 static void record_vp(vnode_t vp, int count);
-#endif
+static TUNABLE(int, bootarg_vnode_iocount_trace, "vnode_iocount_trace", 0);
+static TUNABLE(int, bootarg_uthread_iocount_trace, "uthread_iocount_trace", 0);
+#endif /* CONFIG_IOCOUNT_TRACE */
 
 #if CONFIG_JETSAM && (DEVELOPMENT || DEBUG)
-extern int bootarg_no_vnode_jetsam;    /* from bsd_init.c default value is 0 */
+static TUNABLE(bool, bootarg_no_vnode_jetsam, "-no_vnode_jetsam", false);
 #endif /* CONFIG_JETSAM && (DEVELOPMENT || DEBUG) */
 
-extern int bootarg_no_vnode_drain;    /* from bsd_init.c default value is 0 */
+static TUNABLE(bool, bootarg_no_vnode_drain, "-no_vnode_drain", false);
 
 boolean_t root_is_CF_drive = FALSE;
 
@@ -1303,11 +1305,10 @@ vfs_mountroot(void)
 			KDBG_RELEASE(DBG_MOUNTROOT | DBG_FUNC_END, 0, 3);
 			return 0;
 		}
+		vfs_rootmountfailed(mp);
 #if CONFIG_MACF
 fail:
 #endif
-		vfs_rootmountfailed(mp);
-
 		if (error != EINVAL) {
 			printf("%s_mountroot failed: %d\n", vfsp->vfc_name, error);
 		}
@@ -2372,7 +2373,7 @@ again:
 	if (ISSET(vp->v_lflag, VL_DEAD)
 	    && (!LIST_EMPTY(&vp->v_cleanblkhd) || !LIST_EMPTY(&vp->v_dirtyblkhd))) {
 		++vp->v_iocount;        // Probably not necessary, but harmless
-#ifdef JOE_DEBUG
+#ifdef CONFIG_IOCOUNT_TRACE
 		record_vp(vp, 1);
 #endif
 		vnode_unlock(vp);
@@ -2604,7 +2605,7 @@ vnode_rele_internal(vnode_t vp, int fmode, int dont_reenter, int locked)
 	 * VNOP_INACTIVE with the vnode lock unheld
 	 */
 	vp->v_iocount++;
-#ifdef JOE_DEBUG
+#ifdef CONFIG_IOCOUNT_TRACE
 	record_vp(vp, 1);
 #endif
 	vp->v_lflag &= ~VL_NEEDINACTIVE;
@@ -2773,7 +2774,7 @@ loop:
 		    ((vp->v_usecount - vp->v_kusecount) == 0))) {
 			vnode_lock_convert(vp);
 			vp->v_iocount++;        /* so that drain waits for * other iocounts */
-#ifdef JOE_DEBUG
+#ifdef CONFIG_IOCOUNT_TRACE
 			record_vp(vp, 1);
 #endif
 			vnode_reclaim_internal(vp, 1, 1, 0);
@@ -2795,7 +2796,7 @@ loop:
 
 			if (vp->v_type != VBLK && vp->v_type != VCHR) {
 				vp->v_iocount++;        /* so that drain waits * for other iocounts */
-#ifdef JOE_DEBUG
+#ifdef CONFIG_IOCOUNT_TRACE
 				record_vp(vp, 1);
 #endif
 				vnode_abort_advlocks(vp);
@@ -3422,7 +3423,7 @@ vn_getpath_ext(struct vnode *vp, struct vnode *dvp, char *pathbuf, int *len, int
 
 	if (flags && (flags != VN_GETPATH_FSENTER)) {
 		if (flags & VN_GETPATH_NO_FIRMLINK) {
-			bpflags |= BUILDPATH_NO_FIRMLINK;;
+			bpflags |= BUILDPATH_NO_FIRMLINK;
 		}
 		if (flags & VN_GETPATH_VOLUME_RELATIVE) {
 			bpflags |= (BUILDPATH_VOLUME_RELATIVE | BUILDPATH_NO_FIRMLINK);
@@ -3456,7 +3457,7 @@ vn_getpath_ext_with_mntlen(struct vnode *vp, struct vnode *dvp, char *pathbuf, s
 
 	if (flags && (flags != VN_GETPATH_FSENTER)) {
 		if (flags & VN_GETPATH_NO_FIRMLINK) {
-			bpflags |= BUILDPATH_NO_FIRMLINK;;
+			bpflags |= BUILDPATH_NO_FIRMLINK;
 		}
 		if (flags & VN_GETPATH_VOLUME_RELATIVE) {
 			bpflags |= (BUILDPATH_VOLUME_RELATIVE | BUILDPATH_NO_FIRMLINK);
@@ -3520,15 +3521,14 @@ set_package_extensions_table(user_addr_t data, int nentries, int maxwidth)
 
 
 	// allocate one byte extra so we can guarantee null termination
-	new_exts = kheap_alloc(KHEAP_DATA_BUFFERS, (nentries * maxwidth) + 1,
-	    Z_WAITOK);
+	new_exts = kalloc_data((nentries * maxwidth) + 1, Z_WAITOK);
 	if (new_exts == NULL) {
 		return ENOMEM;
 	}
 
 	error = copyin(data, new_exts, nentries * maxwidth);
 	if (error) {
-		kheap_free(KHEAP_DATA_BUFFERS, new_exts, (nentries * maxwidth) + 1);
+		kfree_data(new_exts, (nentries * maxwidth) + 1);
 		return error;
 	}
 
@@ -3547,8 +3547,7 @@ set_package_extensions_table(user_addr_t data, int nentries, int maxwidth)
 
 	lck_mtx_unlock(&pkg_extensions_lck);
 
-	kheap_free(KHEAP_DATA_BUFFERS, old_exts,
-	    (old_nentries * old_maxwidth) + 1);
+	kfree_data(old_exts, (old_nentries * old_maxwidth) + 1);
 
 	return 0;
 }
@@ -3862,7 +3861,7 @@ unmount_callback(mount_t mp, void *arg)
 
 	uip->u_count++;
 
-	mntname = zalloc(ZV_NAMEI);
+	mntname = zalloc_flags(ZV_NAMEI, Z_WAITOK | Z_NOFAIL);
 	strlcpy(mntname, mp->mnt_vfsstat.f_mntonname, MAXPATHLEN);
 
 	if (uip->u_only_non_system
@@ -3883,9 +3882,7 @@ unmount_callback(mount_t mp, void *arg)
 			}
 		}
 	}
-	if (mntname) {
-		zfree(ZV_NAMEI, mntname);
-	}
+	zfree(ZV_NAMEI, mntname);
 
 	return VFS_RETURNED;
 }
@@ -3998,7 +3995,7 @@ vfs_init_io_attributes(vnode_t devvp, mount_t mp)
 	u_int64_t location = 0;
 	vfs_context_t ctx = vfs_context_current();
 	dk_corestorage_info_t cs_info;
-	boolean_t cs_present = FALSE;;
+	boolean_t cs_present = FALSE;
 	int isssd = 0;
 	int isvirtual = 0;
 
@@ -4378,7 +4375,7 @@ again:
 		return ENOMEM;
 	}
 
-	fsidlst = kheap_alloc(KHEAP_TEMP, req->oldlen, Z_WAITOK | Z_ZERO);
+	fsidlst = kalloc_data(req->oldlen, Z_WAITOK | Z_ZERO);
 	if (fsidlst == NULL) {
 		return ENOMEM;
 	}
@@ -4390,14 +4387,14 @@ again:
 	 * slept in malloc above.  If this is the case then try again.
 	 */
 	if (error == ENOMEM) {
-		kheap_free(KHEAP_TEMP, fsidlst, req->oldlen);
+		kfree_data(fsidlst, req->oldlen);
 		req->oldlen = space;
 		goto again;
 	}
 	if (error == 0) {
 		error = SYSCTL_OUT(req, fsidlst, actual * sizeof(fsid_t));
 	}
-	kheap_free(KHEAP_TEMP, fsidlst, req->oldlen);
+	kfree_data(fsidlst, req->oldlen);
 	return error;
 }
 
@@ -4526,7 +4523,7 @@ sysctl_vfs_ctlbyfsid(__unused struct sysctl_oid *oidp, void *arg1, int arg2,
 			goto out;
 		}
 
-		sfsbuf = kheap_alloc(KHEAP_TEMP, sizeof(*sfsbuf), Z_WAITOK);
+		sfsbuf = kalloc_type(typeof(*sfsbuf), Z_WAITOK);
 
 		if (name[0] == VFS_CTL_STATFS64) {
 			struct statfs64 *sfs = &sfsbuf->sfs64;
@@ -4602,7 +4599,7 @@ sysctl_vfs_ctlbyfsid(__unused struct sysctl_oid *oidp, void *arg1, int arg2,
 				temp = lmax(sp->f_iosize, sp->f_bsize);
 				if (temp > INT32_MAX) {
 					error = EINVAL;
-					kheap_free(KHEAP_TEMP, sfsbuf, sizeof(*sfsbuf));
+					kfree_type(typeof(*sfsbuf), sfsbuf);
 					goto out;
 				}
 				sfs->f_iosize = (user32_long_t)temp;
@@ -4631,7 +4628,7 @@ sysctl_vfs_ctlbyfsid(__unused struct sysctl_oid *oidp, void *arg1, int arg2,
 
 			error = SYSCTL_OUT(req, sfs, sizeof(*sfs));
 		}
-		kheap_free(KHEAP_TEMP, sfsbuf, sizeof(*sfsbuf));
+		kfree_type(typeof(*sfsbuf), sfsbuf);
 		break;
 	default:
 		error = ENOTSUP;
@@ -4953,7 +4950,7 @@ process_vp(vnode_t vp, int want_vp, bool can_defer, int *deferred)
 		 * so we'll just go grab a new candidate
 		 */
 		vp->v_iocount++;
-#ifdef JOE_DEBUG
+#ifdef CONFIG_IOCOUNT_TRACE
 		record_vp(vp, 1);
 #endif
 		vnode_put_locked(vp);
@@ -5163,6 +5160,14 @@ retry:
 		}
 #endif /* MAC */
 
+#if CONFIG_IOCOUNT_TRACE
+		if (__improbable(bootarg_vnode_iocount_trace)) {
+			vp->v_iocount_trace = (vnode_iocount_trace_t)kalloc_data(
+				IOCOUNT_TRACE_MAX_TYPES * sizeof(struct vnode_iocount_trace),
+				Z_WAITOK | Z_ZERO);
+		}
+#endif /* CONFIG_IOCOUNT_TRACE */
+
 		vp->v_iocount = 1;
 		goto done;
 	}
@@ -5288,7 +5293,7 @@ retry:
 
 #if DEVELOPMENT || DEBUG
 		if (bootarg_no_vnode_jetsam) {
-			panic("vnode table is full\n");
+			panic("vnode table is full");
 		}
 #endif /* DEVELOPMENT || DEBUG */
 
@@ -5302,7 +5307,7 @@ retry:
 			 * still aren't any free vnodes, panic. Hopefully we'll get a
 			 * panic log to tell us why we ran out.
 			 */
-			panic("vnode table is full\n");
+			panic("vnode table is full");
 		}
 
 		/*
@@ -5456,7 +5461,7 @@ vnode_get_locked(struct vnode *vp)
 		panic("v_iocount overflow");
 	}
 
-#ifdef JOE_DEBUG
+#ifdef CONFIG_IOCOUNT_TRACE
 	record_vp(vp, 1);
 #endif
 	return 0;
@@ -5869,7 +5874,7 @@ vnode_getiocount(vnode_t vp, unsigned int vid, int vflags)
 		vnode_list_remove(vp);
 	}
 	vp->v_iocount++;
-#ifdef JOE_DEBUG
+#ifdef CONFIG_IOCOUNT_TRACE
 	record_vp(vp, 1);
 #endif
 	return 0;
@@ -5883,7 +5888,7 @@ vnode_dropiocount(vnode_t vp)
 	}
 
 	vp->v_iocount--;
-#ifdef JOE_DEBUG
+#ifdef CONFIG_IOCOUNT_TRACE
 	record_vp(vp, -1);
 #endif
 	if ((vp->v_lflag & (VL_DRAIN | VL_SUSPENDED)) && (vp->v_iocount <= 1)) {
@@ -5970,7 +5975,7 @@ vnode_reclaim_internal(struct vnode * vp, int locked, int reuse, int flags)
 
 		fip = vp->v_fifoinfo;
 		vp->v_fifoinfo = NULL;
-		kheap_free(KHEAP_DEFAULT, fip, sizeof(struct fifoinfo));
+		kfree_type(struct fifoinfo, fip);
 	}
 	vp->v_type = VBAD;
 
@@ -5994,6 +5999,13 @@ vnode_reclaim_internal(struct vnode * vp, int locked, int reuse, int flags)
 
 	vp->v_lflag &= ~VL_TERMINATE;
 	vp->v_owner = NULL;
+
+#if CONFIG_IOCOUNT_TRACE
+	if (__improbable(bootarg_vnode_iocount_trace)) {
+		bzero(vp->v_iocount_trace,
+		    IOCOUNT_TRACE_MAX_TYPES * sizeof(struct vnode_iocount_trace));
+	}
+#endif /* CONFIG_IOCOUNT_TRACE */
 
 	KNOTE(&vp->v_knotes, NOTE_REVOKE);
 
@@ -6111,7 +6123,7 @@ vnode_create_internal(uint32_t flavor, uint32_t size, void *data, vnode_t *vpp,
 	if (vp->v_type == VREG) {
 		error = ubc_info_init_withsize(vp, param->vnfs_filesize);
 		if (error) {
-#ifdef JOE_DEBUG
+#ifdef CONFIG_IOCOUNT_TRACE
 			record_vp(vp, 1);
 #endif
 			vn_set_dead(vp);
@@ -6123,7 +6135,7 @@ vnode_create_internal(uint32_t flavor, uint32_t size, void *data, vnode_t *vpp,
 			memory_object_mark_io_tracking(vp->v_ubcinfo->ui_control);
 		}
 	}
-#ifdef JOE_DEBUG
+#ifdef CONFIG_IOCOUNT_TRACE
 	record_vp(vp, 1);
 #endif
 
@@ -6142,14 +6154,14 @@ vnode_create_internal(uint32_t flavor, uint32_t size, void *data, vnode_t *vpp,
 		 * mount if successful, which we would need to undo on a
 		 * subsequent failure.
 		 */
-#ifdef JOE_DEBUG
+#ifdef CONFIG_IOCOUNT_TRACE
 		record_vp(vp, -1);
 #endif
 		error = vnode_resolver_create(param->vnfs_mp, vp, tinfo, FALSE);
 		if (error) {
 			printf("vnode_create: vnode_resolver_create() err %d\n", error);
 			vn_set_dead(vp);
-#ifdef JOE_DEBUG
+#ifdef CONFIG_IOCOUNT_TRACE
 			record_vp(vp, 1);
 #endif
 			vnode_put(vp);
@@ -6203,8 +6215,7 @@ vnode_create_internal(uint32_t flavor, uint32_t size, void *data, vnode_t *vpp,
 	if (vp->v_type == VFIFO) {
 		struct fifoinfo *fip;
 
-		fip = kheap_alloc(KHEAP_DEFAULT, sizeof(struct fifoinfo),
-		    Z_WAITOK | Z_ZERO);
+		fip = kalloc_type(struct fifoinfo, Z_WAITOK | Z_ZERO);
 		vp->v_fifoinfo = fip;
 	}
 	/* The file systems must pass the address of the location where
@@ -6224,7 +6235,7 @@ vnode_create_internal(uint32_t flavor, uint32_t size, void *data, vnode_t *vpp,
 		}
 		if (insert) {
 			if ((vp->v_freelist.tqe_prev != (struct vnode **)0xdeadb)) {
-				panic("insmntque: vp on the free list\n");
+				panic("insmntque: vp on the free list");
 			}
 
 			/*
@@ -6385,7 +6396,7 @@ vnode_addfsref(vnode_t vp)
 		panic("add_fsref: vp already has named reference");
 	}
 	if ((vp->v_freelist.tqe_prev != (struct vnode **)0xdeadb)) {
-		panic("addfsref: vp on the free list\n");
+		panic("addfsref: vp on the free list");
 	}
 	vp->v_lflag |= VNAMED_FSHASH;
 	vnode_unlock(vp);
@@ -6419,7 +6430,7 @@ vfs_iterate(int flags, int (*callout)(mount_t, void *), void *arg)
 	count = mount_getvfscnt();
 	count += 10;
 
-	fsid_list = kheap_alloc(KHEAP_TEMP, count * sizeof(fsid_t), Z_WAITOK);
+	fsid_list = kalloc_data(count * sizeof(fsid_t), Z_WAITOK);
 	allocmem = (void *)fsid_list;
 
 	actualcount = mount_fillfsids(fsid_list, count);
@@ -6485,7 +6496,7 @@ vfs_iterate(int flags, int (*callout)(mount_t, void *), void *arg)
 	}
 
 out:
-	kheap_free(KHEAP_TEMP, allocmem, (count * sizeof(fsid_t)));
+	kfree_data(allocmem, count * sizeof(fsid_t));
 	return ret;
 }
 
@@ -6686,10 +6697,7 @@ vnode_lookupat(const char *path, int flags, vnode_t *vpp, vfs_context_t ctx,
 		return EINVAL;
 	}
 
-	ndp = kheap_alloc(KHEAP_TEMP, sizeof(struct nameidata), Z_WAITOK);
-	if (!ndp) {
-		return ENOMEM;
-	}
+	ndp = kalloc_type(struct nameidata, Z_WAITOK | Z_NOFAIL);
 
 	if (flags & VNODE_LOOKUP_NOFOLLOW) {
 		ndflags = NOFOLLOW;
@@ -6724,7 +6732,7 @@ vnode_lookupat(const char *path, int flags, vnode_t *vpp, vfs_context_t ctx,
 	nameidone(ndp);
 
 out_free:
-	kheap_free(KHEAP_TEMP, ndp, sizeof(struct nameidata));
+	kfree_type(struct nameidata, ndp);
 	return error;
 }
 
@@ -6746,10 +6754,7 @@ vnode_open(const char *path, int fmode, int cmode, int flags, vnode_t *vpp, vfs_
 		ctx = vfs_context_current();
 	}
 
-	ndp = kheap_alloc(KHEAP_TEMP, sizeof(struct nameidata), Z_WAITOK);
-	if (!ndp) {
-		return ENOMEM;
-	}
+	ndp = kalloc_type(struct nameidata, Z_WAITOK | Z_NOFAIL);
 
 	if (fmode & O_NOFOLLOW) {
 		lflags |= VNODE_LOOKUP_NOFOLLOW;
@@ -6779,7 +6784,7 @@ vnode_open(const char *path, int fmode, int cmode, int flags, vnode_t *vpp, vfs_
 		*vpp = ndp->ni_vp;
 	}
 
-	kheap_free(KHEAP_TEMP, ndp, sizeof(struct nameidata));
+	kfree_type(struct nameidata, ndp);
 	return error;
 }
 
@@ -7145,7 +7150,14 @@ vn_attribute_cleanup(struct vnode_attr *vap, uint32_t defaulted_fields)
 		}
 
 		if (nacl != NULL) {
-			kauth_acl_free(nacl);
+			/*
+			 * Only free the ACL buffer if 'VA_FILESEC_ACL' is not set as it
+			 * should be freed by the caller or it is a post-inheritance copy.
+			 */
+			if (!(vap->va_vaflags & VA_FILESEC_ACL) ||
+			    (oacl != NULL && nacl != oacl)) {
+				kauth_acl_free(nacl);
+			}
 		}
 	}
 
@@ -9310,7 +9322,7 @@ vnode_attr_authorize(struct vnode_attr *vap, struct vnode_attr *dvap, mount_t mp
 		if (!VATTR_IS_SUPPORTED(vap, va_uid) ||
 		    !VATTR_IS_SUPPORTED(vap, va_gid) ||
 		    (mp && vfs_extendedsecurity(mp) && !VATTR_IS_SUPPORTED(vap, va_acl))) {
-			panic("vnode attrs not complete for vnode_attr_authorize\n");
+			panic("vnode attrs not complete for vnode_attr_authorize");
 		}
 	}
 
@@ -9431,8 +9443,9 @@ vnode_authattr_new_internal(vnode_t dvp, struct vnode_attr *vap, int noauth, uin
 
 	/* default mode is everything, masked with current umask */
 	if (!VATTR_IS_ACTIVE(vap, va_mode)) {
-		VATTR_SET(vap, va_mode, ACCESSPERMS & ~vfs_context_proc(ctx)->p_fd->fd_cmask);
-		KAUTH_DEBUG("ATTR - defaulting new file mode to %o from umask %o", vap->va_mode, vfs_context_proc(ctx)->p_fd->fd_cmask);
+		VATTR_SET(vap, va_mode, ACCESSPERMS & ~vfs_context_proc(ctx)->p_fd.fd_cmask);
+		KAUTH_DEBUG("ATTR - defaulting new file mode to %o from umask %o",
+		    vap->va_mode, vfs_context_proc(ctx)->p_fd.fd_cmask);
 		defaulted_mode = 1;
 	}
 	/* set timestamps to now */
@@ -10289,7 +10302,7 @@ rmdir_remove_orphaned_appleDouble(vnode_t vp, vfs_context_t ctx, int * restart_f
 	uio_t auio = NULL;
 	int eofflag, siz = UIO_BUFF_SIZE, alloc_size = 0, nentries = 0;
 	int open_flag = 0, full_erase_flag = 0;
-	char uio_buf[UIO_SIZEOF(1)];
+	uio_stackbuf_t uio_buf[UIO_SIZEOF(1)];
 	char *rbuf = NULL;
 	void *dir_pos;
 	void *dir_end;
@@ -10320,7 +10333,7 @@ rmdir_remove_orphaned_appleDouble(vnode_t vp, vfs_context_t ctx, int * restart_f
 	/*
 	 * set up UIO
 	 */
-	rbuf = kheap_alloc(KHEAP_DATA_BUFFERS, siz, Z_WAITOK);
+	rbuf = kalloc_data(siz, Z_WAITOK);
 	alloc_size = siz;
 	if (rbuf) {
 		auio = uio_createwithbuffer(1, 0, UIO_SYSSPACE, UIO_READ,
@@ -10494,7 +10507,7 @@ outsc:
 	if (auio) {
 		uio_free(auio);
 	}
-	kheap_free(KHEAP_DATA_BUFFERS, rbuf, alloc_size);
+	kfree_data(rbuf, alloc_size);
 
 	if (saved_nodatalessfaults == false) {
 		ut->uu_flag &= ~UT_NSPACE_NODATALESSFAULTS;
@@ -10662,20 +10675,41 @@ panic_print_vnodes(void)
 #endif
 
 
-#ifdef JOE_DEBUG
+#ifdef CONFIG_IOCOUNT_TRACE
 static void
-record_vp(vnode_t vp, int count)
+record_iocount_trace_vnode(vnode_t vp, int type)
+{
+	void *stacks[IOCOUNT_TRACE_MAX_FRAMES] = {0};
+	int idx = vp->v_iocount_trace[type].idx;
+
+	if (idx >= IOCOUNT_TRACE_MAX_IDX) {
+		return;
+	}
+
+	OSBacktrace((void **)&stacks[0], IOCOUNT_TRACE_MAX_FRAMES);
+
+	/*
+	 * To save index space, only store the unique backtraces. If dup is found,
+	 * just bump the count and return.
+	 */
+	for (int i = 0; i < idx; i++) {
+		if (memcmp(&stacks[0], &vp->v_iocount_trace[type].stacks[i][0],
+		    sizeof(stacks)) == 0) {
+			vp->v_iocount_trace[type].counts[i]++;
+			return;
+		}
+	}
+
+	memcpy(&vp->v_iocount_trace[type].stacks[idx][0], &stacks[0],
+	    sizeof(stacks));
+	vp->v_iocount_trace[type].counts[idx] = 1;
+	vp->v_iocount_trace[type].idx++;
+}
+
+static void
+record_iocount_trace_uthread(vnode_t vp, int count)
 {
 	struct uthread *ut;
-
-#if CONFIG_TRIGGERS
-	if (vp->v_resolve) {
-		return;
-	}
-#endif
-	if ((vp->v_flag & VSYSTEM)) {
-		return;
-	}
 
 	ut = get_bsdthread_info(current_thread());
 	ut->uu_iocount += count;
@@ -10689,8 +10723,55 @@ record_vp(vnode_t vp, int count)
 		}
 	}
 }
+
+static void
+record_vp(vnode_t vp, int count)
+{
+	if (__probable(bootarg_vnode_iocount_trace == 0 &&
+	    bootarg_uthread_iocount_trace == 0)) {
+		return;
+	}
+
+#if CONFIG_TRIGGERS
+	if (vp->v_resolve) {
+		return;
+	}
+#endif
+	if ((vp->v_flag & VSYSTEM)) {
+		return;
+	}
+
+	if (bootarg_vnode_iocount_trace) {
+		record_iocount_trace_vnode(vp,
+		    (count > 0) ? IOCOUNT_TRACE_VGET : IOCOUNT_TRACE_VPUT);
+	}
+	if (bootarg_uthread_iocount_trace) {
+		record_iocount_trace_uthread(vp, count);
+	}
+}
+#endif /* CONFIG_IOCOUNT_TRACE */
+
+#if CONFIG_TRIGGERS
+#define __triggers_unused
+#else
+#define __triggers_unused       __unused
 #endif
 
+resolver_result_t
+vfs_resolver_result(__triggers_unused uint32_t seq, __triggers_unused enum resolver_status stat, __triggers_unused int aux)
+{
+#if CONFIG_TRIGGERS
+	/*
+	 * |<---   32   --->|<---  28  --->|<- 4 ->|
+	 *      sequence        auxiliary    status
+	 */
+	return (((uint64_t)seq) << 32) |
+	       (((uint64_t)(aux & 0x0fffffff)) << 4) |
+	       (uint64_t)(stat & 0x0000000F);
+#else
+	return (0x0ULL) | (((uint64_t)ENOTSUP) << 4) | (((uint64_t)RESOLVER_ERROR) & 0xF);
+#endif
+}
 
 #if CONFIG_TRIGGERS
 
@@ -10706,17 +10787,6 @@ record_vp(vnode_t vp, int count)
  * Resolver result functions
  */
 
-resolver_result_t
-vfs_resolver_result(uint32_t seq, enum resolver_status stat, int aux)
-{
-	/*
-	 * |<---   32   --->|<---  28  --->|<- 4 ->|
-	 *      sequence        auxiliary    status
-	 */
-	return (((uint64_t)seq) << 32) |
-	       (((uint64_t)(aux & 0x0fffffff)) << 4) |
-	       (uint64_t)(stat & 0x0000000F);
-}
 
 enum resolver_status
 vfs_resolver_status(resolver_result_t result)
@@ -10822,10 +10892,7 @@ vnode_resolver_create(mount_t mp, vnode_t vp, struct vnode_trigger_param *tinfo,
 		byte = *((char *)tinfo->vnt_data);
 	}
 #endif
-	rp = kheap_alloc(KHEAP_DEFAULT, sizeof(struct vnode_resolve), Z_WAITOK);
-	if (rp == NULL) {
-		return ENOMEM;
-	}
+	rp = kalloc_type(struct vnode_resolve, Z_WAITOK | Z_NOFAIL);
 
 	lck_mtx_init(&rp->vr_lock, &trigger_vnode_lck_grp, &trigger_vnode_lck_attr);
 
@@ -10852,7 +10919,7 @@ vnode_resolver_create(mount_t mp, vnode_t vp, struct vnode_trigger_param *tinfo,
 	return result;
 
 out:
-	kheap_free(KHEAP_DEFAULT, rp, sizeof(struct vnode_resolve));
+	kfree_type(struct vnode_resolve, rp);
 	return result;
 }
 
@@ -10867,7 +10934,7 @@ vnode_resolver_release(vnode_resolve_t rp)
 	}
 
 	lck_mtx_destroy(&rp->vr_lock, &trigger_vnode_lck_grp);
-	kheap_free(KHEAP_DEFAULT, rp, sizeof(struct vnode_resolve));
+	kfree_type(struct vnode_resolve, rp);
 }
 
 /* Called after the vnode has been drained */
@@ -11274,10 +11341,7 @@ vfs_addtrigger(mount_t mp, const char *relpath, struct vnode_trigger_info *vtip,
 	TRIG_LOG("Adding trigger at %s\n", relpath);
 	TRIG_LOG("Trying VFS_ROOT\n");
 
-	ndp = kheap_alloc(KHEAP_TEMP, sizeof(struct nameidata), Z_WAITOK);
-	if (!ndp) {
-		return ENOMEM;
-	}
+	ndp = kalloc_type(struct nameidata, Z_WAITOK | Z_NOFAIL);
 
 	/*
 	 * We do a lookup starting at the root of the mountpoint, unwilling
@@ -11323,7 +11387,7 @@ vfs_addtrigger(mount_t mp, const char *relpath, struct vnode_trigger_info *vtip,
 	res = vnode_resolver_create(mp, vp, &vtp, TRUE);
 	vnode_put(vp);
 out:
-	kheap_free(KHEAP_TEMP, ndp, sizeof(struct nameidata));
+	kfree_type(struct nameidata, ndp);
 	TRIG_LOG("Returning %d\n", res);
 	return res;
 }

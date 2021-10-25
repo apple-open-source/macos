@@ -18,10 +18,14 @@
 #include "vim.h"
 
     void
-ui_write(char_u *s, int len)
+ui_write(char_u *s, int len, int console UNUSED)
 {
 #ifdef FEAT_GUI
-    if (gui.in_use && !gui.dying && !gui.starting)
+    if (gui.in_use && !gui.dying && !gui.starting
+# ifndef NO_CONSOLE
+	    && !console
+# endif
+	    )
     {
 	gui_write(s, len);
 	if (p_wd)
@@ -33,7 +37,7 @@ ui_write(char_u *s, int len)
     // Don't output anything in silent mode ("ex -s") unless 'verbose' set
     if (!(silent_mode && p_verbose == 0))
     {
-#if !defined(MSWIN)
+# if !defined(MSWIN)
 	char_u	*tofree = NULL;
 
 	if (output_conv.vc_type != CONV_NONE)
@@ -43,9 +47,13 @@ ui_write(char_u *s, int len)
 	    if (tofree != NULL)
 		s = tofree;
 	}
-#endif
+# endif
 
 	mch_write(s, len);
+# if defined(HAVE_FSYNC)
+	if (console && s[len - 1] == '\n')
+	    vim_fsync(1);
+# endif
 
 # if !defined(MSWIN)
 	if (output_conv.vc_type != CONV_NONE)
@@ -1012,13 +1020,14 @@ fill_input_buf(int exit_on_error UNUSED)
 	}
 	while (len-- > 0)
 	{
-	    /*
-	     * If a CTRL-C was typed, remove it from the buffer and set
-	     * got_int.  Also recognize CTRL-C with modifyOtherKeys set.
-	     */
+	    // If a CTRL-C was typed, remove it from the buffer and set
+	    // got_int.  Also recognize CTRL-C with modifyOtherKeys set, in two
+	    // forms.
 	    if (ctrl_c_interrupts && (inbuf[inbufcount] == 3
-			|| (len >= 9 && STRNCMP(inbuf + inbufcount,
-						   "\033[27;5;99~", 10) == 0)))
+			|| (len >= 10 && STRNCMP(inbuf + inbufcount,
+						   "\033[27;5;99~", 10) == 0)
+			|| (len >= 7 && STRNCMP(inbuf + inbufcount,
+						       "\033[99;5u", 7) == 0)))
 	    {
 		// remove everything typed before the CTRL-C
 		mch_memmove(inbuf, inbuf + inbufcount, (size_t)(len + 1));
@@ -1100,7 +1109,6 @@ check_row(int row)
     return row;
 }
 
-#if defined(FEAT_GUI) || defined(MSWIN) || defined(PROTO)
 /*
  * Called when focus changed.  Used for the GUI or for systems where this can
  * be done in the console (Win32).
@@ -1163,7 +1171,6 @@ ui_focus_change(
 	maketitle();
 #endif
 }
-#endif
 
 #if defined(HAVE_INPUT_METHOD) || defined(PROTO)
 /*

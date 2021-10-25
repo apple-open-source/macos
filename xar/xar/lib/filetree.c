@@ -396,7 +396,11 @@ xar_prop_t xar_prop_new(xar_file_t f, xar_prop_t parent) {
 	XAR_PROP(p)->attrs = NULL;
 	XAR_PROP(p)->parent = parent;
 	XAR_PROP(p)->file = f;
-	XAR_PROP(p)->prefix = XAR_FILE(f)->prefix;
+	if (XAR_FILE(f)->prefix) {
+		XAR_PROP(p)->prefix = strdup(XAR_FILE(f)->prefix);
+	} else {
+		XAR_PROP(p)->prefix = NULL;
+	}
 	XAR_PROP(p)->ns = NULL;
 	if(parent) {
 		if( !XAR_PROP(parent)->children ) {
@@ -657,8 +661,18 @@ void xar_prop_free(xar_prop_t p) {
 		XAR_PROP(p)->attrs = XAR_ATTR(a)->next;
 		xar_attr_free(a);
 	}
-	free((char*)XAR_PROP(p)->key);
-	free((char*)XAR_PROP(p)->value);
+	if (XAR_PROP(p)->key) {
+		free((char*)XAR_PROP(p)->key);
+	}
+	
+	if (XAR_PROP(p)->value) {
+		free((char*)XAR_PROP(p)->value);
+	}
+	
+	if (XAR_PROP(p)->prefix) {
+		free((char*)XAR_PROP(p)->prefix);
+	}
+	
 	free(XAR_PROP(p));
 }
 
@@ -776,6 +790,12 @@ void xar_file_free(xar_file_t f) {
 		XAR_FILE(f)->attrs = XAR_ATTR(a)->next;
 		xar_attr_free(a);
 	}
+	XAR_FILE(f)->next = NULL;
+	
+	if (XAR_FILE(f)->prefix) {
+		free((char *)XAR_FILE(f)->prefix);
+	}
+	
 	free((char *)XAR_FILE(f)->fspath);
 	free(XAR_FILE(f));
 }
@@ -884,6 +904,36 @@ xar_file_t xar_file_find(xar_file_t f, const char *path) {
 	return NULL;
 }
 
+int xar_prop_serializable(xar_prop_t p)
+{
+	if( !p )
+		return -1;
+	
+	xar_prop_t i = p;
+	do {
+		
+		// Verify that the filename is valid and not unsafe.
+		// If it's unsafe we'll skip serializing this prop.
+		if( XAR_PROP(i)->value ) {
+			if( strcmp(XAR_PROP(i)->key, "name") == 0 ) {
+				const char* unsafe_value = XAR_PROP(i)->value;
+				char* value = NULL;
+				
+				if (xar_is_safe_filename(unsafe_value, &value) < 0)
+				{
+					fprintf(stderr, "xar_prop_serializable failed because %s is not a valid filename.\n", unsafe_value);
+					free(value);
+					return -1;
+				}
+				free(value);
+			}
+		}
+		
+		i = XAR_PROP(i)->next;
+	} while(i);
+	
+	return 0;
+}
 
 /* xar_prop_serialize
  * p: property to serialize
@@ -899,6 +949,12 @@ void xar_prop_serialize(xar_prop_t p, xmlTextWriterPtr writer) {
 		return;
 	i = p;
 	do {
+		// Can only serialize these properties if it's safe to do so.
+		if (xar_prop_serializable(i) != 0) {
+			i = XAR_PROP(i)->next;
+			continue;
+		}
+		
 		if( XAR_PROP(i)->prefix || XAR_PROP(i)->ns )
 			xmlTextWriterStartElementNS(writer, BAD_CAST(XAR_PROP(i)->prefix), BAD_CAST(XAR_PROP(i)->key), NULL);
 		else
@@ -909,18 +965,21 @@ void xar_prop_serialize(xar_prop_t p, xmlTextWriterPtr writer) {
 		if( XAR_PROP(i)->value ) {
 			if( strcmp(XAR_PROP(i)->key, "name") == 0 ) {
 				unsigned char *tmp;
-				int outlen = strlen(XAR_PROP(i)->value);
+				const char* value = XAR_PROP(i)->value;
+				
+				int outlen = strlen(value);
 				int inlen, len;
 
 				inlen = len = outlen;
 
 				tmp = malloc(len);
 				assert(tmp);
-				if( UTF8Toisolat1(tmp, &len, BAD_CAST(XAR_PROP(i)->value), &inlen) < 0 ) {
+				if( UTF8Toisolat1(tmp, &len, BAD_CAST(value), &inlen) < 0 ) {
 					xmlTextWriterWriteAttribute(writer, BAD_CAST("enctype"), BAD_CAST("base64"));
-					xmlTextWriterWriteBase64(writer, XAR_PROP(i)->value, 0, strlen(XAR_PROP(i)->value));
-				} else
-					xmlTextWriterWriteString(writer, BAD_CAST(XAR_PROP(i)->value));
+					xmlTextWriterWriteBase64(writer, value, 0, strlen(value));
+				} else {
+					xmlTextWriterWriteString(writer, BAD_CAST(value));
+				}
 				free(tmp);
 			} else
 				xmlTextWriterWriteString(writer, BAD_CAST(XAR_PROP(i)->value));
@@ -947,6 +1006,14 @@ void xar_file_serialize(xar_file_t f, xmlTextWriterPtr writer) {
 
 	i = f;
 	do {
+		if (xar_prop_serializable(XAR_FILE(i)->props) != 0)
+		{
+			// Prop is not serializable, move on to the next file.
+			// This also has the side effect of skipping all children.
+			i = XAR_FILE(i)->next;
+			continue;
+		}
+		
 		xmlTextWriterStartElement(writer, BAD_CAST("file"));
 		for(a = XAR_FILE(i)->attrs; a; a = XAR_ATTR(a)->next) {
 			xmlTextWriterWriteAttribute(writer, BAD_CAST(XAR_ATTR(a)->key), BAD_CAST(XAR_ATTR(a)->value));
@@ -1005,7 +1072,12 @@ int32_t xar_prop_unserialize(xar_file_t f, xar_prop_t parent, xmlTextReaderPtr r
 		type = xmlTextReaderNodeType(reader);
 		switch(type) {
 		case XML_READER_TYPE_ELEMENT:
-			xar_prop_unserialize(f, p, reader);
+			if (xar_prop_unserialize(f, p, reader) != 0)
+			{
+				// Do not call free because this will result in a use after free because xar is wonderful in that it
+				// inserts the properties into the parent link list before they're inited.
+				return -1;
+			}
 			break;
 		case XML_READER_TYPE_TEXT:
 			value = (const char *)xmlTextReaderConstValue(reader);
@@ -1015,6 +1087,16 @@ int32_t xar_prop_unserialize(xar_file_t f, xar_prop_t parent, xmlTextReaderPtr r
 			else
 				XAR_PROP(p)->value = strdup(value);
 			if( isname ) {
+				
+				// Sanitize the filename
+				const char* unsafe_name = XAR_PROP(p)->value;
+				char* safe_name;
+				xar_is_safe_filename(unsafe_name, &safe_name);
+				
+				if (!safe_name) {
+					return -1;
+				}
+				
 				if( XAR_FILE(f)->parent ) {
 					
 					if (XAR_FILE(f)->fspath) {		/* It's possible that a XAR header may contain multiple name entries. Make sure we don't smash the old one. */
@@ -1022,7 +1104,7 @@ int32_t xar_prop_unserialize(xar_file_t f, xar_prop_t parent, xmlTextReaderPtr r
 						XAR_FILE(f)->fspath = NULL;
 					}
 					
-					asprintf((char **)&XAR_FILE(f)->fspath, "%s/%s", XAR_FILE(XAR_FILE(f)->parent)->fspath, XAR_PROP(p)->value);
+					asprintf((char **)&XAR_FILE(f)->fspath, "%s/%s", XAR_FILE(XAR_FILE(f)->parent)->fspath, safe_name);
 				} else {
 					
 					if (XAR_FILE(f)->fspath) {		/* It's possible that a XAR header may contain multiple name entries. Make sure we don't smash the old one. */
@@ -1030,8 +1112,10 @@ int32_t xar_prop_unserialize(xar_file_t f, xar_prop_t parent, xmlTextReaderPtr r
 						XAR_FILE(f)->fspath = NULL;
 					}
 					
-					XAR_FILE(f)->fspath = strdup(XAR_PROP(p)->value);
+					XAR_FILE(f)->fspath = strdup(safe_name);
 				}
+				
+				free(safe_name);
 			}
 			break;
 		case XML_READER_TYPE_END_ELEMENT:
@@ -1089,11 +1173,28 @@ xar_file_t xar_file_unserialize(xar_t x, xar_file_t parent, xmlTextReaderPtr rea
 			return ret;
 		}
 
-		if( type == XML_READER_TYPE_ELEMENT ) {
-			if( strcmp(name, "file")==0 ) {
-				xar_file_unserialize(x, ret, reader);
-			} else
-				xar_prop_unserialize(ret, NULL, reader);
+		if (type == XML_READER_TYPE_ELEMENT)
+		{
+			if (strcmp(name, "file") == 0)
+			{
+				if (xar_file_unserialize(x, ret, reader) == NULL)
+				{
+					if (parent == NULL) {
+						xar_file_free(ret);
+					}
+					return NULL;
+				}
+			}
+			else
+			{
+				if (xar_prop_unserialize(ret, NULL, reader) != 0)
+				{
+					if (parent == NULL) {
+						xar_file_free(ret);
+					}
+					return NULL;
+				}
+			}
 		}
 	}
 

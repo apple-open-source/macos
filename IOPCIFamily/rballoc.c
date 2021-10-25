@@ -32,8 +32,8 @@ cc rballoc.c -o /tmp/rballoc -Wall -framework IOKit  -framework CoreFoundation -
 #include <IOKit/IOKitKeys.h>
 #include <Kernel/libkern/tree.h>
 
-#define IONew(type,number)        (type*)malloc(sizeof(type) * (number) )
-#define IODelete(ptr,type,number) free( (ptr) )
+#define IOMallocType(type)   (type*)malloc(sizeof(type) )
+#define IOFreeType(ptr,type) free( (ptr) )
 
 #define atop(n) ((n) >> 12)
 
@@ -256,7 +256,7 @@ vtd_rbfree(vtd_space_t * bf, vtd_rbaddr_t addr, vtd_rbaddr_t size)
 				RB_REMOVE(vtd_rbaddr_list, &bf->rbaddr_list, next);
 				RB_REMOVE(vtd_rbsize_list, &bf->rbsize_list, next);
 				bf->rentries--;
-				IODelete(next, typeof(*next), 1);
+				IOFreeType(next, typeof(*next));
 			}
 		}
 	}
@@ -275,7 +275,7 @@ vtd_rbfree(vtd_space_t * bf, vtd_rbaddr_t addr, vtd_rbaddr_t size)
 	}
 	else
 	{
-		next = IONew(typeof(*next), 1);
+		next = IOMallocType(typeof(*next));
 		bf->rentries++;
 #if VTASRT
 		memset(next, 0xef, sizeof(*next));
@@ -332,7 +332,7 @@ vtd_rballoc(vtd_space_t * bf, vtd_rbaddr_t size, vtd_rbaddr_t align,
 		if (!head && !tail)
 		{
 			bf->rentries--;
-			IODelete(prior, typeof(*prior), 1);
+			IOFreeType(prior, typeof(*prior));
 		}
 		else
 		{
@@ -348,7 +348,7 @@ vtd_rballoc(vtd_space_t * bf, vtd_rbaddr_t size, vtd_rbaddr_t align,
 			{
 				if (tail)
 				{
-					prior = IONew(typeof(*prior), 1);
+					prior = IOMallocType(typeof(*prior));
 					bf->rentries++;
 #if VASRT
 					memset(prior, 0xef, sizeof(*prior));
@@ -413,7 +413,7 @@ vtd_rballoc_fixed(vtd_space_t * bf, vtd_rbaddr_t addr, vtd_rbaddr_t size)
 		{
 			if (tail)
 			{
-				prior = IONew(typeof(*prior), 1);
+				prior = IOMallocType(typeof(*prior));
 				bf->rentries++;
 #if VASRT
 				memset(prior, 0xef, sizeof(*prior));
@@ -456,6 +456,6 @@ vtd_rballocator_free(vtd_space_t * bf)
 	{
 		RB_REMOVE(vtd_rbaddr_list, &bf->rbaddr_list, elem);
 		bf->rentries--;
-		IODelete(elem, typeof(*elem), 1);
+		IOFreeType(elem, typeof(*elem));
 	}
 }

@@ -36,6 +36,7 @@
 #include <unistd.h>
 
 #include "secd_regressions.h"
+#include "SOSAccountTesting.h"
 #include "SOSTestDataSource.h"
 
 #include "SOSRegressionUtilities.h"
@@ -44,7 +45,6 @@
 #include "keychain/securityd/SOSCloudCircleServer.h"
 
 #include "SecdTestKeychainUtilities.h"
-#include "SOSAccountTesting.h"
 
 #if SOS_ENABLED
 

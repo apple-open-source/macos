@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2019 Apple Inc. All rights reserved.
+ * Copyright (c) 2009-2021 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -101,7 +101,9 @@ __unused static const char copyright[] =
 #include <strings.h>
 #include <unistd.h>
 #include <sysexits.h>
-#include <syslog.h>
+
+#include <stdbool.h>
+#include <regex.h>
 
 #include "ifconfig.h"
 
@@ -184,8 +186,9 @@ usage(void)
 	"       ifconfig interface create\n"
 	"       ifconfig -a %s[-d] [-m] [-u] [-v] [address_family]\n"
 	"       ifconfig -l [-d] [-u] [address_family]\n"
-	"       ifconfig %s[-d] [-m] [-u] [-v]\n",
-		options, options, options);
+	"       ifconfig %s[-d] [-m] [-u] [-v]\n"
+	"       ifconfig -X pattern %s[-a] [-d] [-d] [-m] [-u] [-v] [address_family]\n",
+		options, options, options, options);
 	exit(1);
 }
 
@@ -199,9 +202,11 @@ main(int argc, char *argv[])
 	struct ifreq paifr;
 	const struct sockaddr_dl *sdl;
 	char options[1024], *cp;
-	const char *ifname;
+	const char *ifname = NULL;
 	struct option *p;
 	size_t iflen;
+	bool is_regex = false;
+	regex_t if_reg = {};
 
 	all = downonly = uponly = namesonly = noload = 0;
 
@@ -209,12 +214,18 @@ main(int argc, char *argv[])
 #ifndef __APPLE__
 	strlcpy(options, "adklmnuv", sizeof(options));
 #else
-	strlcpy(options, "abdlmruv", sizeof(options));
+	strlcpy(options, "X:abdlmruv", sizeof(options));
 #endif
 	for (p = opts; p != NULL; p = p->next)
 		strlcat(options, p->opt, sizeof(options));
 	while ((c = getopt(argc, argv, options)) != -1) {
 		switch (c) {
+#ifdef __APPLE__
+		case 'X':
+			is_regex = true;
+			ifname = optarg;
+			break;
+#endif /* __APPLE__ */
 		case 'a':	/* scan all interfaces */
 			all++;
 			break;
@@ -276,12 +287,17 @@ main(int argc, char *argv[])
 	if (!namesonly && argc < 1)
 		all = 1;
 
+	if (is_regex) {
+		if (regcomp(&if_reg, ifname, REG_EXTENDED | REG_NOSUB) != 0) {
+			errx(1, "bad interface pattern '%s'", ifname);
+		}
+	}
+
 	/* -a and -l allow an address family arg to limit the output */
-	if (all || namesonly) {
+	if (all || namesonly || is_regex) {
 		if (argc > 1)
 			usage();
 
-		ifname = NULL;
 		if (argc == 1) {
 			afp = af_getbyname(*argv);
 			if (afp == NULL)
@@ -298,10 +314,6 @@ main(int argc, char *argv[])
 		ifname = *argv;
 		argc--, argv++;
 
-#ifdef notdef
-		/* check and maybe load support for this interface */
-		ifmaybeload(ifname);
-#endif
 		ifindex = if_nametoindex(ifname);
 		if (ifindex == 0) {
 			/*
@@ -310,11 +322,11 @@ main(int argc, char *argv[])
 			 * to find the interface.
 			 */
 			if (argc > 0 && (strcmp(argv[0], "create") == 0 ||
-			    strcmp(argv[0], "plumb") == 0)) {
+							 strcmp(argv[0], "plumb") == 0)) {
 				iflen = strlcpy(name, ifname, sizeof(name));
 				if (iflen >= sizeof(name))
 					errx(1, "%s: cloning name too long",
-					    ifname);
+						 ifname);
 				ifconfig(argc, argv, 1, NULL);
 				exit(0);
 			}
@@ -341,8 +353,14 @@ main(int argc, char *argv[])
 			    ifa->ifa_addr->sa_len);
 		}
 
-		if (ifname != NULL && strcmp(ifname, ifa->ifa_name) != 0)
-			continue;
+		if (is_regex) {
+			if (regexec(&if_reg, ifa->ifa_name, 0, NULL, 0) != 0) {
+				continue;
+			}
+		} else {
+			if (ifname != NULL && strcmp(ifname, ifa->ifa_name) != 0)
+				continue;
+		}
 		if (ifa->ifa_addr->sa_family == AF_LINK)
 			sdl = (const struct sockaddr_dl *) ifa->ifa_addr;
 		else
@@ -380,6 +398,9 @@ main(int argc, char *argv[])
 	if (namesonly)
 		printf("\n");
 	freeifaddrs(ifap);
+	if (is_regex) {
+		regfree(&if_reg);
+	}
 
 	exit(0);
 }
@@ -416,6 +437,17 @@ af_getbyfamily(int af)
 }
 
 static void
+call_af_other_status(const struct afswtch *afp, int s)
+{
+	if (afp->af_clone_name != NULL &&
+	    strncmp(name, afp->af_clone_name, afp->af_clone_name_length) != 0) {
+		/* clone specific status */
+		return;
+	}
+	(*afp->af_other_status)(s);
+}
+
+static void
 af_other_status(int s)
 {
 	struct afswtch *afp;
@@ -427,7 +459,7 @@ af_other_status(int s)
 			continue;
 		if (afp->af_af != AF_UNSPEC && isset(afmask, afp->af_af))
 			continue;
-		afp->af_other_status(s);
+		call_af_other_status(afp, s);
 		setbit(afmask, afp->af_af);
 	}
 }
@@ -792,8 +824,13 @@ setifcap(const char *vname, int value, int s, const struct afswtch *afp)
 	if (value < 0) {
 		value = -value;
 		flags &= ~value;
-	} else
+	} else {
 		flags |= value;
+	}
+	/* SIOCGIFCAP returns the supported capabilities in ifr_reqcap */
+	if ((value & ifr.ifr_reqcap) != value) {
+		errx(1, "%s does not support %s", ifr.ifr_name, vname);
+	}
 	flags &= ifr.ifr_reqcap;
 	ifr.ifr_reqcap = flags;
 	if (ioctl(s, SIOCSIFCAP, (caddr_t)&ifr) < 0)
@@ -1423,17 +1460,11 @@ setprobeconnectivity(const char *vname, int value, int s, const struct afswtch *
 		Perror(vname);
 }
 
-#if defined(SIOCSQOSMARKINGMODE) && defined(SIOCSQOSMARKINGENABLED)
-
 void
 setqosmarking(const char *cmd, const char *arg, int s, const struct afswtch *afp)
 {
 	u_long ioc;
 
-#if (DEBUG | DEVELOPMENT)
-	printf("%s(%s, %s)\n", __func__, cmd, arg);
-#endif /* (DEBUG | DEVELOPMENT) */
-	
 	strlcpy(ifr.ifr_name, name, sizeof(ifr.ifr_name));
 	
 	if (strcmp(cmd, "mode") == 0) {
@@ -1443,6 +1474,10 @@ setqosmarking(const char *cmd, const char *arg, int s, const struct afswtch *afp
 			ifr.ifr_qosmarking_mode = IFRTYPE_QOSMARKING_FASTLANE;
         else if (strcmp(arg, "rfc4594") == 0)
             ifr.ifr_qosmarking_mode = IFRTYPE_QOSMARKING_RFC4594;
+#ifdef IFRTYPE_QOSMARKING_CUSTOM
+        else if (strcmp(arg, "custom") == 0)
+            ifr.ifr_qosmarking_mode = IFRTYPE_QOSMARKING_CUSTOM;
+#endif /* IFRTYPE_QOSMARKING_CUSTOM */
 		else if (strcasecmp(arg, "none") == 0 || strcasecmp(arg, "off") == 0)
 			ifr.ifr_qosmarking_mode = IFRTYPE_QOSMARKING_MODE_NONE;
 		else
@@ -1495,68 +1530,6 @@ setfastlane(const char *cmd, const char *arg, int s, const struct afswtch *afp)
 	}
 }
 
-#else /* defined(SIOCSQOSMARKINGMODE) && defined(SIOCSQOSMARKINGENABLED) */
-
-void
-setfastlane(const char *cmd, const char *arg, int s, const struct afswtch *afp)
-{
-	int value;
-	u_long ioc;
-	
-	strlcpy(ifr.ifr_name, name, sizeof(ifr.ifr_name));
-	
-	if (strcmp(cmd, "capable") == 0)
-		ioc = SIOCSFASTLANECAPABLE;
-	else if (strcmp(cmd, "enable") == 0)
-		ioc = SIOCSFASTLEENABLED;
-	else
-		err(EX_USAGE, "fastlane takes capable or enabled");
-	
-	if (strcmp(arg, "1") == 0 || strcasecmp(arg, "on") == 0||
-	    strcasecmp(arg, "yes") == 0 || strcasecmp(arg, "true") == 0)
-		value = 1;
-	else if (strcmp(arg, "0") == 0 || strcasecmp(arg, "off") == 0||
-		 strcasecmp(arg, "no") == 0 || strcasecmp(arg, "false") == 0)
-		value = 0;
-	else
-		err(EX_USAGE, "bad value for fastlane %s", cmd);
-	
-	if (ioc == SIOCSFASTLANECAPABLE)
-		ifr.ifr_fastlane_capable = value;
-	else
-		ifr.ifr_fastlane_enabled = value;
-	
-	if (ioctl(s, ioc, (caddr_t)&ifr) < 0)
-		err(EX_OSERR, "ioctl(%s, %s)", cmd, arg);
-}
-
-
-void
-setqosmarking(const char *cmd, const char *arg, int s, const struct afswtch *afp)
-{
-	if (strcmp(cmd, "mode") == 0) {
-		if (strcmp(arg, "fastlane") == 0)
-			setfastlane("capable", "on", s, afp);
-		else if (strcmp(arg, "none") == 0)
-			setfastlane("capable", "off", s, afp);
-		else
-			err(EX_USAGE, "bad value for qosmarking mode: %s", arg);
-	} else if (strcmp(cmd, "enabled") == 0) {
-		if (strcmp(arg, "1") == 0 || strcasecmp(arg, "on") == 0||
-		    strcasecmp(arg, "yes") == 0 || strcasecmp(arg, "true") == 0)
-			setfastlane("enable", "on", s, afp);
-		else if (strcmp(arg, "0") == 0 || strcasecmp(arg, "off") == 0||
-			 strcasecmp(arg, "no") == 0 || strcasecmp(arg, "false") == 0)
-			setfastlane("enable", "off", s, afp);
-		else
-			err(EX_USAGE, "bad value for qosmarking enabled: %s", arg);
-	} else {
-		err(EX_USAGE, "qosmarking takes mode or enabled");
-	}
-}
-
-#endif /* defined(SIOCSQOSMARKINGMODE) && defined(SIOCSQOSMARKINGENABLED) */
-
 void
 setlowpowermode(const char *vname, int value, int s, const struct afswtch *afp)
 {
@@ -1564,6 +1537,28 @@ setlowpowermode(const char *vname, int value, int s, const struct afswtch *afp)
 	ifr.ifr_low_power_mode = !!value;
 
 	if (ioctl(s, SIOCSIFLOWPOWER, (caddr_t)&ifr) < 0)
+		Perror(vname);
+}
+
+void
+setifmarkwakepkt(const char *vname, int value, int s, const struct afswtch *afp)
+{
+#if defined(SIOCSIFMARKWAKEPKT)
+	strlcpy(ifr.ifr_name, name, sizeof(ifr.ifr_name));
+	ifr.ifr_intval = value;
+
+	if (ioctl(s, SIOCSIFMARKWAKEPKT, (caddr_t)&ifr) < 0)
+		Perror(vname);
+#endif /* SIOCSIFMARKWAKEPKT */
+}
+
+void
+setnoackpri(const char *vname, int value, int s, const struct afswtch *afp)
+{
+	strlcpy(ifr.ifr_name, name, sizeof(ifr.ifr_name));
+	ifr.ifr_noack_prio = value;
+
+	if (ioctl(s, SIOCSIFNOACKPRIO, (caddr_t)&ifr) < 0)
 		Perror(vname);
 }
 
@@ -1678,7 +1673,7 @@ show_routermode6(void)
 
 #define	IFXFBITS \
 "\020\1WOL\2TIMESTAMP\3NOAUTONX\4LEGACY\5TXLOWINET\6RXLOWINET\7ALLOCKPI" \
-"\10LOWPOWER\11MPKLOG\12CONSTRAINED"
+"\10LOWPOWER\11MPKLOG\12CONSTRAINED\13LOWLAT\14MARKWKPKT"
 
 #define	IFCAPBITS \
 "\020\1RXCSUM\2TXCSUM\3VLAN_MTU\4VLAN_HWTAGGING\5JUMBO_MTU" \
@@ -1809,8 +1804,9 @@ status(const struct afswtch *afp, const struct sockaddr_dl *sdl,
 #endif
 	if (allfamilies)
 		af_other_status(s);
-	else if (afp->af_other_status != NULL)
-		afp->af_other_status(s);
+	else if (afp->af_other_status != NULL) {
+		call_af_other_status(afp, s);
+	}
 
 	strlcpy(ifs.ifs_name, name, sizeof ifs.ifs_name);
 	if (ioctl(s, SIOCGIFSTATUS, &ifs) == 0) 
@@ -2119,6 +2115,11 @@ status(const struct afswtch *afp, const struct sockaddr_dl *sdl,
                 case IFRTYPE_QOSMARKING_RFC4594:
                     printf("RFC4594\n");
                     break;
+#ifdef IFRTYPE_QOSMARKING_CUSTOM
+                case IFRTYPE_QOSMARKING_CUSTOM:
+                    printf("custom\n");
+                    break;
+#endif /* IFRTYPE_QOSMARKING_CUSTOM */
 				case IFRTYPE_QOSMARKING_MODE_NONE:
 					printf("none\n");
 					break;
@@ -2249,8 +2250,8 @@ clat46_addr(int s, char * if_name)
 	strlcpy(ifr.ifclat46_name, if_name, sizeof(ifr.ifclat46_name));
 
 	if (ioctl(s, SIOCGIFCLAT46ADDR, &ifr) < 0) {
-		if (errno != ENOENT)
-			syslog(LOG_WARNING, "ioctl (SIOCGIFCLAT46ADDR): %d", errno);
+		if (errno != ENOENT && errno != ENOMEM && errno != EPERM)
+			warn("ioctl (SIOCGIFCLAT46ADDR)");
 		return;
 	}
 
@@ -2270,8 +2271,8 @@ nat64_status(int s, char * if_name)
 	strlcpy(ifr.ifnat64_name, if_name, sizeof(ifr.ifnat64_name));
 
 	if (ioctl(s, SIOCGIFNAT64PREFIX, &ifr) < 0) {
-		if (errno != ENOENT)
-			syslog(LOG_WARNING, "ioctl(SIOCGIFNAT64PREFIX): %d", errno);
+		if (errno != ENOENT && errno != ENOMEM && errno != EPERM)
+			warn("ioctl(SIOCGIFNAT64PREFIX)");
 		return;
 	}
 
@@ -2332,59 +2333,6 @@ printb(const char *s, unsigned v, const char *bits)
 		putchar('>');
 	}
 }
-
-#ifndef __APPLE__
-void
-ifmaybeload(const char *name)
-{
-#define MOD_PREFIX_LEN		3	/* "if_" */
-	struct module_stat mstat;
-	int fileid, modid;
-	char ifkind[IFNAMSIZ + MOD_PREFIX_LEN], ifname[IFNAMSIZ], *dp;
-	const char *cp;
-
-	/* loading suppressed by the user */
-	if (noload)
-		return;
-
-	/* trim the interface number off the end */
-	strlcpy(ifname, name, sizeof(ifname));
-	for (dp = ifname; *dp != 0; dp++)
-		if (isdigit(*dp)) {
-			*dp = 0;
-			break;
-		}
-
-	/* turn interface and unit into module name */
-	strlcpy(ifkind, "if_", sizeof(ifkind));
-	strlcpy(ifkind + MOD_PREFIX_LEN, ifname,
-	    sizeof(ifkind) - MOD_PREFIX_LEN);
-
-	/* scan files in kernel */
-	mstat.version = sizeof(struct module_stat);
-	for (fileid = kldnext(0); fileid > 0; fileid = kldnext(fileid)) {
-		/* scan modules in file */
-		for (modid = kldfirstmod(fileid); modid > 0;
-		     modid = modfnext(modid)) {
-			if (modstat(modid, &mstat) < 0)
-				continue;
-			/* strip bus name if present */
-			if ((cp = strchr(mstat.name, '/')) != NULL) {
-				cp++;
-			} else {
-				cp = mstat.name;
-			}
-			/* already loaded? */
-			if (strncmp(ifname, cp, strlen(ifname) + 1) == 0 ||
-			    strncmp(ifkind, cp, strlen(ifkind) + 1) == 0)
-				return;
-		}
-	}
-
-	/* not present, we should try to load it */
-	kldload(ifkind);
-}
-#endif
 
 static struct cmd basic_cmds[] = {
 	DEF_CMD("up",		IFF_UP,		setifflags),
@@ -2511,6 +2459,10 @@ static struct cmd basic_cmds[] = {
 	DEF_CMD("available",	1,	setifavailability),
 	DEF_CMD("-available",	0,	setifavailability),
 	DEF_CMD("unavailable",	0,	setifavailability),
+	DEF_CMD("markwakepkt",	1,	setifmarkwakepkt),
+	DEF_CMD("-markwakepkt",	0,	setifmarkwakepkt),
+	DEF_CMD("noackpri",  1,      setnoackpri),
+	DEF_CMD("-noackpri", 0,      setnoackpri),
 };
 
 static __constructor void

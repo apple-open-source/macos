@@ -886,6 +886,23 @@ static int smb_negotiate(struct smb_ctx *ctx, struct sockaddr *raddr,
         rq.ioc_extra_flags |= SMB_DISABLE_311;
     }
 
+    /* What SMB 3.1.1 encryption algorithms are allowed? */
+    if (ctx->prefs.encrypt_algorithm_map & 0x0001) {
+        rq.ioc_extra_flags |= SMB_ENABLE_AES_128_CCM;
+    }
+    
+    if (ctx->prefs.encrypt_algorithm_map & 0x0002) {
+        rq.ioc_extra_flags |= SMB_ENABLE_AES_128_GCM;
+    }
+    
+    if (ctx->prefs.encrypt_algorithm_map & 0x0004) {
+        rq.ioc_extra_flags |= SMB_ENABLE_AES_256_CCM;
+    }
+
+    if (ctx->prefs.encrypt_algorithm_map & 0x0008) {
+        rq.ioc_extra_flags |= SMB_ENABLE_AES_256_GCM;
+    }
+
     if (rq.ioc_extra_flags & (SMB_SMB2_ENABLED | SMB_SMB3_ENABLED)) {
         if (ctx->prefs.altflags & SMBFS_MNT_MULTI_CHANNEL_ON) {  // obtained from nsmb.conf
             rq.ioc_extra_flags |= SMB_MULTICHANNEL_ENABLE;
@@ -919,7 +936,16 @@ static int smb_negotiate(struct smb_ctx *ctx, struct sockaddr *raddr,
 		}
     }
 	
-    /* 
+    /* Check for forcing encryption */
+    if (ctx->prefs.force_sess_encrypt) {
+        rq.ioc_extra_flags |= SMB_FORCE_SESSION_ENCRYPT;
+    }
+    
+    if (ctx->prefs.force_share_encrypt) {
+        rq.ioc_extra_flags |= SMB_FORCE_SHARE_ENCRYPT;
+    }
+        
+    /*
      * See if "cifs://" was specified. 
 	 * Specifying "cifs://" forces us to only try SMB 1
      */
@@ -983,6 +1009,14 @@ static int smb_negotiate(struct smb_ctx *ctx, struct sockaddr *raddr,
         os_log_error(OS_LOG_DEFAULT, "%s: HiFi requested ", __FUNCTION__);
 #endif
         rq.ioc_extra_flags |= SMB_HIFI_REQUESTED;
+    }
+
+    if (ctx->ct_flags & SMBCF_SESSION_ENCRYPT) {
+        rq.ioc_extra_flags |= SMB_FORCE_SESSION_ENCRYPT;
+    }
+    
+    if (ctx->ct_flags & SMBCF_SHARE_ENCRYPT) {
+        rq.ioc_extra_flags |= SMB_FORCE_SHARE_ENCRYPT;
     }
 
     /* Call the kernel to make the negotiate call */
@@ -2544,6 +2578,8 @@ int smb_get_server_info(struct smb_ctx *ctx, CFURLRef url, CFDictionaryRef OpenO
 	Boolean noUserPrefs = SMBGetDictBooleanValue(OpenOptions, kNetFSNoUserPreferencesKey, FALSE);
     Boolean forceNewSession = SMBGetDictBooleanValue(OpenOptions, kNetFSForceNewSessionKey, FALSE);
     Boolean HiFiRequested = SMBGetDictBooleanValue(OpenOptions, kHighFidelityMountKey, FALSE);
+    Boolean forceEncryptSession = SMBGetDictBooleanValue(OpenOptions, kSessionEncryptionKey, FALSE);
+    Boolean forceEncryptShare = SMBGetDictBooleanValue(OpenOptions, kShareEncryptionKey, FALSE);
 
     *ServerParams = NULL;
 
@@ -2589,7 +2625,15 @@ int smb_get_server_info(struct smb_ctx *ctx, CFURLRef url, CFDictionaryRef OpenO
         ctx->ct_flags |= SMBCF_HIFI_REQUESTED;
     }
 
-	error = smb_connect(ctx, forceNewSession, loopBackAllowed);
+    if (forceEncryptSession) {
+        ctx->ct_flags |= SMBCF_SESSION_ENCRYPT;
+    }
+
+    if (forceEncryptShare) {
+        ctx->ct_flags |= SMBCF_SHARE_ENCRYPT;
+    }
+
+    error = smb_connect(ctx, forceNewSession, loopBackAllowed);
     if (error) {
 		return error;
     }
@@ -2649,6 +2693,8 @@ int smb_open_session(struct smb_ctx *ctx, CFURLRef url, CFDictionaryRef OpenOpti
 	Boolean	ChangePassword = SMBGetDictBooleanValue(OpenOptions, kNetFSChangePasswordKey, FALSE);
 	Boolean noUserPrefs = SMBGetDictBooleanValue(OpenOptions, kNetFSNoUserPreferencesKey, FALSE);
     Boolean HiFiRequested = SMBGetDictBooleanValue(OpenOptions, kHighFidelityMountKey, FALSE);
+    Boolean forceEncryptSession = SMBGetDictBooleanValue(OpenOptions, kSessionEncryptionKey, FALSE);
+    Boolean forceEncryptShare = SMBGetDictBooleanValue(OpenOptions, kShareEncryptionKey, FALSE);
 	CFDictionaryRef authInfoDict = NULL;
 
     /* Remove any previously auth request flags */
@@ -2688,6 +2734,9 @@ int smb_open_session(struct smb_ctx *ctx, CFURLRef url, CFDictionaryRef OpenOpti
 	/* Remember that parsing the url can set the SMBV_GUEST_ACCESS */
 	if (ctx->ct_url) {
 		error = ParseSMBURL(ctx);
+        if (error) {
+            goto done;
+        }
 	} else {
 		error = ENOMEM;
 		goto done;
@@ -2774,7 +2823,15 @@ int smb_open_session(struct smb_ctx *ctx, CFURLRef url, CFDictionaryRef OpenOpti
         ctx->ct_flags |= SMBCF_HIFI_REQUESTED;
     }
 
-	/* We haven't connect yet or we need to start over in either case read the preference again and do the connect */
+    if (forceEncryptSession) {
+        ctx->ct_flags |= SMBCF_SESSION_ENCRYPT;
+    }
+
+    if (forceEncryptShare) {
+        ctx->ct_flags |= SMBCF_SHARE_ENCRYPT;
+    }
+
+    /* We haven't connect yet or we need to start over in either case read the preference again and do the connect */
 	if ((ctx->ct_flags & SMBCF_CONNECTED) != SMBCF_CONNECTED) {
 		/* Only read the preference files once */
 		if ((ctx->ct_flags & SMBCF_READ_PREFS) != SMBCF_READ_PREFS) {
@@ -3048,7 +3105,15 @@ int smb_mount(struct smb_ctx *ctx, CFStringRef mpoint,
         mdata.altflags |= SMBFS_MNT_MDATACACHE_OFF;
     }
 
-    /*
+    if (SMBGetDictBooleanValue(mOptions, kSessionEncryptionKey, FALSE)) {
+        mdata.altflags |= SMBFS_MNT_SESSION_ENCRYPT;
+    }
+    
+    if (SMBGetDictBooleanValue(mOptions, kShareEncryptionKey, FALSE)) {
+        mdata.altflags |= SMBFS_MNT_SHARE_ENCRYPT;
+    }
+    
+   /*
 	 * Get the mount flags, just in case there are no flags or something is 
 	 * wrong we start with them set to zero. 
 	 */

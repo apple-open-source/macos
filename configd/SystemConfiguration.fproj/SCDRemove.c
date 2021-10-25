@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2005, 2009-2011, 2013, 2016-2019 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2005, 2009-2011, 2013, 2016-2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -45,21 +45,11 @@ SCDynamicStoreRemoveValue(SCDynamicStoreRef store, CFStringRef key)
 	CFIndex				myKeyLen;
 	int				sc_status;
 
-	if (store == NULL) {
-		store = __SCDynamicStoreNullSession();
-		if (store == NULL) {
-			/* sorry, you must provide a session */
-			_SCErrorSet(kSCStatusNoStoreSession);
-			return FALSE;
-		}
+	if (!__SCDynamicStoreNormalize(&store, TRUE)) {
+		return FALSE;
 	}
 
 	storePrivate = (SCDynamicStorePrivateRef)store;
-	if (storePrivate->server == MACH_PORT_NULL) {
-		/* sorry, you must have an open session to play */
-		_SCErrorSet(kSCStatusNoStoreServer);
-		return FALSE;
-	}
 
 	if (storePrivate->cache_active) {
 		if (storePrivate->cached_set != NULL)  {
@@ -82,7 +72,7 @@ SCDynamicStoreRemoveValue(SCDynamicStoreRef store, CFStringRef key)
 	}
 
 	/* serialize the key */
-	if (!_SCSerializeString(key, &utfKey, (void **)&myKeyRef, &myKeyLen)) {
+	if (!_SCSerializeString(key, &utfKey, &myKeyRef, &myKeyLen)) {
 		_SCErrorSet(kSCStatusFailed);
 		return FALSE;
 	}

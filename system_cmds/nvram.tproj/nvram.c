@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -23,6 +23,7 @@
 cc -o nvram nvram.c -framework CoreFoundation -framework IOKit -Wall
 */
 
+#include <os/assumes.h>
 #include <stdio.h>
 #include <IOKit/IOKitLib.h>
 #include <IOKit/IOKitKeys.h>
@@ -42,9 +43,10 @@ static kern_return_t GetOFVariable(const char *name, CFStringRef *nameRef,
 static kern_return_t SetOFVariable(const char *name, const char *value);
 static void DeleteOFVariable(const char *name);
 static void PrintOFVariables(void);
+static void PrintOFLargestVariables(void);
 static void PrintOFVariable(const void *key,const void *value,void *context);
 static void SetOFVariableFromFile(const void *key, const void *value, void *context);
-static void ClearOFVariables(void);
+static int ClearOFVariables(void);
 static void ClearOFVariable(const void *key,const void *value,void *context);
 static CFTypeRef ConvertValueToCFTypeRef(CFTypeID typeID, const char *value);
 
@@ -85,21 +87,21 @@ int main(int argc, char **argv)
   long                cnt;
   char                *str, errorMessage[256];
   kern_return_t       result;
-  mach_port_t         masterPort;
+  mach_port_t         mainPort;
   int                 argcount = 0;
 
-  result = IOMasterPort(bootstrap_port, &masterPort);
+  result = IOMainPort(bootstrap_port, &mainPort);
   if (result != KERN_SUCCESS) {
-    errx(1, "Error getting the IOMaster port: %s",
+    errx(1, "Error getting the IOMainPort: %s",
         mach_error_string(result));
   }
 
-  gOptionsRef = IORegistryEntryFromPath(masterPort, "IODeviceTree:/options");
+  gOptionsRef = IORegistryEntryFromPath(mainPort, "IODeviceTree:/options");
   if (gOptionsRef == 0) {
     errx(1, "nvram is not supported on this system");
   }
 
-  gSystemOptionsRef = IORegistryEntryFromPath(masterPort, "IOService:/options/options-system");
+  gSystemOptionsRef = IORegistryEntryFromPath(mainPort, "IOService:/options/options-system");
 
   gSelectedOptionsRef = gOptionsRef;
 
@@ -165,7 +167,7 @@ int main(int argc, char **argv)
               return 1;
             }
 #endif
-            ClearOFVariables();
+            result = ClearOFVariables();
             break;
           case 's':
             // -s option is unadvertised -- advises the kernel more forcibly to
@@ -218,7 +220,7 @@ int main(int argc, char **argv)
     IOObjectRelease(gSystemOptionsRef);
   }
 
-  return 0;
+  return result;
 }
 
 // UsageMessage(message)
@@ -468,7 +470,8 @@ static void SetOrGetOFVariable(char *str)
   char               *value;
   CFStringRef        nameRef = NULL;
   CFTypeRef          valueRef = NULL;
-  CFMutableStringRef appended = NULL;
+  char *             appended = NULL;
+  size_t             len;
   kern_return_t      result;
 
   // OF variable name is first.
@@ -522,33 +525,44 @@ static void SetOrGetOFVariable(char *str)
 
   if (append == 1) {
     // On append, the value to append follows the += substring
-    appended = CFStringCreateMutableCopy(NULL, 0, valueRef);
-    CFStringAppendCString(appended, str, kCFStringEncodingUTF8);
-    value = (char*)CFStringGetCStringPtr(appended, kCFStringEncodingUTF8);
+    len = CFStringGetLength(valueRef) * 2; // CFStringGetLength() return is in UTF-16 code pairs
+    len += strlen(str);
+    appended = (char *)malloc(len + 1);
+    CFStringGetCString(valueRef, appended, len, kCFStringEncodingUTF8);
+    strcpy(appended + strlen(appended), str);
+    value = appended;
   }
 
   if (set == 1 || append == 1) {
 #if TARGET_OS_BRIDGE
     if (gBridgeToIntel) {
       result = SetMacOFVariable(name, value);
+        if (result != KERN_SUCCESS) {
+          errx(1, "Error setting variable - '%s': %s", name,
+               mach_error_string(result));
+        }
     }
     else
 #endif
     {
       result = SetOFVariable(name, value);
-      /* Try syncing the new data to device, best effort! */
+      // Try syncing the new data to device, best effort!
       NVRamSyncNow();
-    }
-    if (result != KERN_SUCCESS) {
-      errx(1, "Error setting variable - '%s': %s", name,
+      if (result != KERN_SUCCESS) {
+        fprintf(stderr, "Error setting variable - '%s': %s.\n", name,
            mach_error_string(result));
+        if (result == kIOReturnNoMemory) {
+          PrintOFLargestVariables();
+        }
+        exit(1);
+      }
     }
   } else {
     PrintOFVariable(nameRef, valueRef, 0);
   }
   if (nameRef) CFRelease(nameRef);
   if (valueRef) CFRelease(valueRef);
-  if (appended) CFRelease(appended);
+  if (appended) free(appended);
 }
 
 #if TARGET_OS_BRIDGE
@@ -643,50 +657,33 @@ static kern_return_t SetOFVariable(const char *name, const char *value)
   kern_return_t result = KERN_SUCCESS;
 
   nameRef = CFStringCreateWithCString(kCFAllocatorDefault, name,
-                                      kCFStringEncodingUTF8);
+                                        kCFStringEncodingUTF8);
   if (nameRef == 0) {
-      errx(1, "Error creating CFString for key %s", name);
+    errx(1, "Error creating CFString for key %s", name);
   }
 
   valueRef = IORegistryEntryCreateCFProperty(gSelectedOptionsRef, nameRef, 0, 0);
   if (valueRef) {
-      typeID = CFGetTypeID(valueRef);
-      CFRelease(valueRef);
-
-      valueRef = ConvertValueToCFTypeRef(typeID, value);
-      if (valueRef == 0) {
-          errx(1, "Error creating CFTypeRef for value %s", value);
-      }  result = IORegistryEntrySetCFProperty(gSelectedOptionsRef, nameRef, valueRef);
+    typeID = CFGetTypeID(valueRef);
+    CFRelease(valueRef);
+    valueRef = ConvertValueToCFTypeRef(typeID, value);
+    if (valueRef == 0) {
+      errx(1, "Error creating CFTypeRef for value %s", value);
+    }
+    result = IORegistryEntrySetCFProperty(gSelectedOptionsRef, nameRef, valueRef);
   } else {
-      while (1) {
-          // In the default case, try data, string, number, then boolean.
-
-          valueRef = ConvertValueToCFTypeRef(CFDataGetTypeID(), value);
-          if (valueRef != 0) {
-              result = IORegistryEntrySetCFProperty(gSelectedOptionsRef, nameRef, valueRef);
-              if (result == KERN_SUCCESS) break;
-          }
-
-          valueRef = ConvertValueToCFTypeRef(CFStringGetTypeID(), value);
-          if (valueRef != 0) {
-              result = IORegistryEntrySetCFProperty(gSelectedOptionsRef, nameRef, valueRef);
-              if (result == KERN_SUCCESS) break;
-          }
-
-          valueRef = ConvertValueToCFTypeRef(CFNumberGetTypeID(), value);
-          if (valueRef != 0) {
-              result = IORegistryEntrySetCFProperty(gSelectedOptionsRef, nameRef, valueRef);
-              if (result == KERN_SUCCESS) break;
-          }
-
-          valueRef = ConvertValueToCFTypeRef(CFBooleanGetTypeID(), value);
-          if (valueRef != 0) {
-              result = IORegistryEntrySetCFProperty(gSelectedOptionsRef, nameRef, valueRef);
-              if (result == KERN_SUCCESS) break;
-          }
-
+    // In the default case, try data, string, number, then boolean.
+    CFTypeID types[] = {CFDataGetTypeID(),
+    CFStringGetTypeID(), CFNumberGetTypeID(),CFBooleanGetTypeID() };
+    for (int i = 0; i < sizeof(types)/sizeof(types[0]); i++) {
+      valueRef = ConvertValueToCFTypeRef(types[i], value);
+      if (valueRef != 0) {
+        result = IORegistryEntrySetCFProperty(gSelectedOptionsRef, nameRef, valueRef);
+        if (result == KERN_SUCCESS || result == kIOReturnNoMemory || result ==  kIOReturnNoSpace) {
           break;
+        }
       }
+    }
   }
 
   CFRelease(nameRef);
@@ -758,6 +755,76 @@ static void PrintOFVariables(void)
 
   }
 
+  CFRelease(dict);
+}
+
+static size_t
+ElementSize(const void *value)
+{
+  CFTypeID typeId = CFGetTypeID(value);
+  if (typeId == CFStringGetTypeID()) {
+    return CFStringGetLength(value);
+  }
+  else if (typeId == CFDataGetTypeID()) {
+    return CFDataGetLength(value);
+  }
+  else if (typeId == CFNumberGetTypeID()) {
+    return 8;
+  }
+  return 0;
+}
+
+// PrintOFLargestVariables()
+//
+//   Print the LARGEST_COUNT largest
+//   nvram variables.
+//
+void
+PrintOFLargestVariables(void)
+{
+#define LARGEST_COUNT 5
+  kern_return_t          result;
+  CFMutableDictionaryRef dict;
+  long                   count;
+  void                   **keys, **values;
+  size_t                 *indices;
+
+  result = IORegistryEntryCreateCFProperties(gOptionsRef, &dict, 0, 0);
+  if (result != KERN_SUCCESS) {
+    errx(1, "Error getting the firmware variables: %s", mach_error_string(result));
+  }
+
+  count = CFDictionaryGetCount(dict);
+
+  keys = calloc(count, sizeof(void *));
+  os_assert(keys != NULL);
+  values = calloc(count, sizeof(void *));
+  os_assert(values != NULL);
+
+  indices = calloc(count, sizeof(*indices));
+  os_assert(indices != NULL);
+  for (size_t i = 0; i < count; i++) {
+    indices[i] = i;
+  }
+
+  CFDictionaryGetKeysAndValues(dict, (const void **)keys, (const void **)values);
+
+  qsort_b(indices, count, sizeof(*indices), ^(const void *a, const void *b) {
+    return (int)(((int64_t)ElementSize(values[*(size_t*)b]) - (int64_t)(ElementSize(values[*(size_t*)a]))));
+  });
+
+  fprintf(stderr, "key\tbytes\n");
+  for (long i = 0; i < count && i < LARGEST_COUNT; i++) {
+    size_t size = ElementSize(values[indices[i]]);
+    if (size > 0) {
+      fprintf(stderr, "%s\t%zu\n", CFStringGetCStringPtr(keys[indices[i]], kCFStringEncodingUTF8
+  ), size);
+    }
+  }
+
+  free(keys);
+  free(values);
+  free(indices);
   CFRelease(dict);
 }
 
@@ -871,7 +938,7 @@ static void PrintOFVariable(const void *key, const void *value, void *context)
 //
 //   Deletes all OF variables
 //
-static void ClearOFVariables(void)
+static int ClearOFVariables(void)
 {
     kern_return_t          result;
     CFMutableDictionaryRef dict;
@@ -880,9 +947,11 @@ static void ClearOFVariables(void)
     if (result != KERN_SUCCESS) {
       errx(1, "Error getting the firmware variables: %s", mach_error_string(result));
     }
-    CFDictionaryApplyFunction(dict, &ClearOFVariable, 0);
+    CFDictionaryApplyFunction(dict, &ClearOFVariable, &result);
 
     CFRelease(dict);
+
+    return result;
 }
 
 static void ClearOFVariable(const void *key, const void *value, void *context)
@@ -909,6 +978,10 @@ static void ClearOFVariable(const void *key, const void *value, void *context)
     warnx("Error clearing firmware variable %s: %s", keyStr, mach_error_string(result));
     if (keyBuffer) {
       free(keyBuffer);
+    }
+
+    if (context) {
+      *(int *)context = result;
     }
   }
 }

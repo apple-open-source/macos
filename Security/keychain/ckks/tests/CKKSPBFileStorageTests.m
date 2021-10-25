@@ -3,6 +3,7 @@
 //
 
 #import <XCTest/XCTest.h>
+#import <Foundation/Foundation.h>
 
 #import "keychain/ckks/CKKSPBFileStorage.h"
 #import "keychain/ckks/proto/generated_source/CKKSSerializedKey.h"
@@ -14,7 +15,8 @@
 @implementation CKKSPBFileStorageTests
 
 - (void)setUp {
-    self.tempDir = [[NSFileManager defaultManager] temporaryDirectory];
+    self.tempDir = [[[NSFileManager defaultManager] temporaryDirectory] URLByAppendingPathComponent:[[NSUUID UUID] UUIDString]];
+    [[NSFileManager defaultManager] createDirectoryAtURL:self.tempDir withIntermediateDirectories:NO attributes:nil error:nil];
 }
 - (void)tearDown {
     [[NSFileManager defaultManager] removeItemAtURL:self.tempDir error:nil];

@@ -629,6 +629,14 @@ _bsdthread_register(struct proc *p,
 				data.mach_thread_self_offset);
 	}
 
+	if (pthread_kern->proc_set_workqueue_quantum_offset) {
+		if (data.wq_quantum_expiry_offset > max_tsd_offset) {
+			data.wq_quantum_expiry_offset = 0;
+		}
+
+		pthread_kern->proc_set_workqueue_quantum_offset(p, data.wq_quantum_expiry_offset);
+	}
+
 	if (pthread_init_data != 0) {
 		/* Outgoing data that userspace expects as a reply */
 		data.version = sizeof(struct _pthread_registration_data);

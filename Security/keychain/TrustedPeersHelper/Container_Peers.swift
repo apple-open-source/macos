@@ -1,7 +1,7 @@
 import CloudKitCode
-import CloudKitCodeProtobuf
 import CoreData
 import Foundation
+import InternalSwiftProtobuf
 import os
 import Security
 import SecurityFoundation

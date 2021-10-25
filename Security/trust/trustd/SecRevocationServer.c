@@ -47,6 +47,7 @@
 #include "trust/trustd/SecCertificateServer.h"
 #include "trust/trustd/SecPolicyServer.h"
 #include "trust/trustd/SecRevocationNetworking.h"
+#include "trust/trustd/trustdVariants.h"
 
 #include "trust/trustd/SecRevocationServer.h"
 
@@ -125,10 +126,10 @@ static bool SecOCSPSingleResponseProcess(SecOCSPSingleResponseRef this,
 void SecORVCUpdatePVC(SecORVCRef rvc) {
     if (rvc->ocspSingleResponse) {
         SecOCSPSingleResponseProcess(rvc->ocspSingleResponse, rvc);
+        rvc->thisUpdate = rvc->ocspSingleResponse->thisUpdate;
     }
     if (rvc->ocspResponse) {
         rvc->nextUpdate = SecOCSPResponseGetExpirationTime(rvc->ocspResponse);
-        rvc->thisUpdate = SecOCSPResponseProducedAt(rvc->ocspResponse);
     }
 }
 
@@ -984,33 +985,29 @@ bool SecPathBuilderCheckRevocation(SecPathBuilderRef builder) {
             continue;
         }
 
-#if !TARGET_OS_BRIDGE
         /* Check valid database first (separate from OCSP response cache) */
-        if (SecRVCCheckValidInfoDatabase(rvc)) {
+        if (TrustdVariantAllowsFileWrite() && SecRVCCheckValidInfoDatabase(rvc)) {
             SecRVCProcessValidInfoResults(rvc);
         }
-#endif
         /* Any other revocation method requires an issuer certificate to verify the response;
          * skip the last cert in the chain since it doesn't have one. */
         if (certIX + 1 >= certCount) {
             continue;
         }
 
-        /* Ignore stapled OCSP responses only if CRLs are enabled and the
-         * policy specifically requested CRLs only. */
-        if (SecRVCShouldCheckOCSP(rvc)) {
-            /*  If we have any OCSP stapled responses, check those first */
-            SecORVCProcessStapledResponses(rvc->orvc);
+        /*  If we have any OCSP stapled responses, check those first */
+        SecORVCProcessStapledResponses(rvc->orvc);
+
+        if (TrustdVariantAllowsFileWrite()) {
+            /* Then check the caches for revocation results. */
+            SecRVCCheckRevocationCaches(rvc);
         }
 
-#if TARGET_OS_BRIDGE
-        /* The bridge has no writeable storage and no network. Nothing else we can
-         * do here. */
-        SecRVCSetFinishedWithoutNetwork(rvc);
-        continue;
-#else // !TARGET_OS_BRIDGE
-        /* Then check the caches for revocation results. */
-        SecRVCCheckRevocationCaches(rvc);
+        if (!TrustdVariantAllowsNetwork()) {
+            /* Without network, there's nothing else we can do here */
+            SecRVCSetFinishedWithoutNetwork(rvc);
+            continue;
+        }
 
         /* The check is done if we found cached responses from either method. */
         if (rvc->done || rvc->orvc->done) {
@@ -1042,7 +1039,6 @@ bool SecPathBuilderCheckRevocation(SecPathBuilderRef builder) {
         } else {
             (void)SecRVCFetchNext(rvc);
         }
-#endif // !TARGET_OS_BRIDGE
     }
 
     /* Return false if there are still async jobs running. */

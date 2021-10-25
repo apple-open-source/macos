@@ -225,6 +225,9 @@ serveur HTTP Apache</h1>
       <dt><code class="module"><a href="./mod/mod_md.html">mod_md</a></code> (disponible à partir de la version 2.4.30)</dt>
       <dd>Automatisation de l'obtention de certificats via le protocole ACME.</dd>
 
+      <dt><code class="module"><a href="./mod/mod_proxy_uwsgi.html">mod_proxy_uwsgi</a></code> (disponible à partir de la version 2.4.30)</dt>
+      <dd>module passerelle UWSGI pour <code class="module"><a href="./mod/mod_proxy.html">mod_proxy</a></code>.</dd>
+
       <dt><code class="module"><a href="./mod/mod_socache_redis.html">mod_socache_redis</a></code> (disponible à partir de la version 2.4.39)</dt>
       <dd>Supporte le fournisseur de cache d'objets partagés basé sur <a href="http://redis.io/">Redis</a>.</dd>
 
@@ -511,7 +514,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/new_features_2_4.htm
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2020 The Apache Software Foundation.<br />Autorisé sous <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2021 The Apache Software Foundation.<br />Autorisé sous <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="./mod/">Modules</a> | <a href="./mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="./glossary.html">Glossaire</a> | <a href="./sitemap.html">Plan du site</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

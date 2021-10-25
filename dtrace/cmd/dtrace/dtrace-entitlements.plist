@@ -4,8 +4,7 @@
 <dict>
 	<key>com.apple.private.kernel.get-kext-info</key>
 	<true/>
-	<key>com.apple.security.cs.debugger.root</key>
+	<key>com.apple.security.cs.debugger.read.root</key>
 	<true/>
 </dict>
 </plist>
-

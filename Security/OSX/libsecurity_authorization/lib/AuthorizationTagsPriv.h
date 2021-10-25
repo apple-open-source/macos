@@ -235,6 +235,11 @@
  */
 #define kAuthorizationRuleParameterPasswordOnly		"password-only"
 
+/*! @defined kAuthorizationRuleSecureTokenOnly
+ boolean, default false - if true, requires user with SecureToken
+ */
+#define kAuthorizationRuleParameterSecureTokenOnly  "securetoken-only"
+
 /*
  * Hints for internal Authorization use
  */
@@ -267,6 +272,7 @@
 #define AGENT_HINT_SHEET_CONTEXT "sheet-context"
 #define AGENT_HINT_LACONTEXT "lacontext"
 #define AGENT_HINT_REQUIRED_USER "required-user"
+#define AGENT_HINT_REQUIRE_STOKEN "required-secure-token"
 
 // Public Key Hash from certificate used for login
 #define AGENT_HINT_TOKEN_HASH "token-hash"

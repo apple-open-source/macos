@@ -27,6 +27,7 @@
 #include <IOKit/hid/IOHIDKeys.h>
 #include <IOKit/hid/IOHIDServiceKeys.h>
 #include <IOKit/hid/IOHIDEventServiceTypes.h>
+#include <IOKit/hid/IOHIDLibPrivate.h>
 #include  "IOHIDParameter.h"
 #include  "IOHIDEventData.h"
 
@@ -36,7 +37,6 @@
 #include <fcntl.h>
 #include <mach/mach.h>
 #include <mach/mach_time.h>
-#include "IOHIDDebug.h"
 #include "CF.h"
 #include "IOHIDevicePrivateKeys.h"
 #include <sstream>
@@ -342,7 +342,9 @@ CFStringRef IOHIDPointerScrollFilter::_cachedPropertyList[] = {
     CFSTR(kIOHIDUserScrollAccelCurvesKey),
     CFSTR(kIOHIDPointerAccelerationMultiplierKey),
     CFSTR(kIOHIDPointerAccelerationSupportKey),
-    CFSTR(kIOHIDScrollAccelerationSupportKey)
+    CFSTR(kIOHIDScrollAccelerationSupportKey),
+    CFSTR(kHIDPointerReportRateKey),
+    CFSTR(kIOHIDScrollReportRateKey),
 };
 
 //------------------------------------------------------------------------------
@@ -533,7 +535,7 @@ void IOHIDPointerScrollFilter::setupPointerAcceleration(double pointerAccelerati
     }
   }
   
-    CFNumberRefWrap defaultRate = CFNumberRefWrap((CFNumberRef)IOHIDServiceCopyProperty (_service, CFSTR(kHIDPointerReportRateKey)), true);
+    CFNumberRefWrap defaultRate = CFNumberRefWrap((CFNumberRef)copyCachedProperty(CFSTR(kHIDPointerReportRateKey)), true);
     if (defaultRate.Reference() == NULL) {
         defaultRate = CFNumberRefWrap((SInt32) 0);
         if (defaultRate.Reference () == NULL) {
@@ -694,7 +696,7 @@ void IOHIDPointerScrollFilter::setupScrollAcceleration(double scrollAcceleration
   
   HIDLogDebug("[%@] Scroll acceleration value %f", SERVICE_ID, _scrollAcceleration);
   
-  CFNumberRefWrap rate = CFNumberRefWrap((CFNumberRef)IOHIDServiceCopyProperty (_service, CFSTR("HIDScrollReportRate")), true);
+  CFNumberRefWrap rate = CFNumberRefWrap((CFNumberRef)copyCachedProperty(CFSTR(kIOHIDScrollReportRateKey)), true);
   if (rate.Reference() == NULL || (SInt32)rate == 0) {
     rate = CFNumberRefWrap((SInt32)((int)FRAME_RATE << 16));
     if (rate.Reference() == NULL) {

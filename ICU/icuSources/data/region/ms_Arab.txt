@@ -1,5 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
-// License & terms of use: http://www.unicode.org/copyright.html#License
+// License & terms of use: http://www.unicode.org/copyright.html
+// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
 ms_Arab{
     %%Parent{"root"}
     Countries{
@@ -28,5 +29,4 @@ ms_Arab{
         US{"اميريک شريکت"}
         ZZ{"ولايه تيدق دکتاهوءي"}
     }
-    Version{"36.1"}
 }

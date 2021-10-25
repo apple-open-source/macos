@@ -78,7 +78,7 @@
 
     // We expect no uploads.
     [self startCKKSSubsystem];
-    [self.keychainView waitUntilAllOperationsAreFinished];
+    [self.defaultCKKS waitUntilAllOperationsAreFinished];
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
 }
 
@@ -98,7 +98,7 @@
     // Okay, now the delete/add. Note that this is not a coalescing operation, since the new item
     // has different contents. (This test used to upload the item to a different UUID, but no longer).
 
-    self.keychainView.holdOutgoingQueueOperation = [CKKSResultOperation named:@"hold-outgoing-queue"
+    self.defaultCKKS.holdOutgoingQueueOperation = [CKKSResultOperation named:@"hold-outgoing-queue"
                                                                     withBlock:^{}];
 
     [self deleteGenericPassword: account];
@@ -107,7 +107,7 @@
     [self expectCKModifyItemRecords:1 currentKeyPointerRecords:1 zoneID:self.keychainZoneID
                           checkItem:[self checkPasswordBlock:self.keychainZoneID account:account password:@"data_new_contents"]];
 
-    [self.operationQueue addOperation:self.keychainView.holdOutgoingQueueOperation];
+    [self.operationQueue addOperation:self.defaultCKKS.holdOutgoingQueueOperation];
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
 }
 
@@ -139,10 +139,10 @@
     CKRecord* recordUpdate = [self newRecord:itemRecord.recordID withNewItemData:contents];
     [self.keychainZone addCKRecordToZone:recordUpdate];
 
-    self.keychainView.holdIncomingQueueOperation = [NSBlockOperation blockOperationWithBlock:^{}];
+    self.defaultCKKS.holdIncomingQueueOperation = [NSBlockOperation blockOperationWithBlock:^{}];
 
     // Ensure we wait for the whole fetch
-    NSOperation* fetchOp = [self.keychainView.zoneChangeFetcher requestSuccessfulFetch:CKKSFetchBecauseTesting];
+    NSOperation* fetchOp = [self.defaultCKKS.zoneChangeFetcher requestSuccessfulFetch:CKKSFetchBecauseTesting];
     [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
 
     [fetchOp waitUntilFinished];
@@ -151,10 +151,10 @@
     [self expectCKDeleteItemRecords:1 zoneID:self.keychainZoneID];
     [self deleteGenericPassword:account];
 
-    [self.operationQueue addOperation:self.keychainView.holdIncomingQueueOperation];
+    [self.operationQueue addOperation:self.defaultCKKS.holdIncomingQueueOperation];
 
-    [self.keychainView waitForOperationsOfClass:[CKKSIncomingQueueOperation class]];
-    [self.keychainView waitForOperationsOfClass:[CKKSOutgoingQueueOperation class]];
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], @"key state should enter 'ready'");
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:10*NSEC_PER_SEC], @"CKKS state machine should enter 'ready'");
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
 
     // And the item shouldn't be present, since it was deleted via API after the item was fetched
@@ -168,6 +168,7 @@
 
     [self startCKKSSubsystem];
     XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], @"key state should enter 'ready'");
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:20*NSEC_PER_SEC], @"CKKS state machine should enter 'ready'");
 
     __block CKRecord* itemRecord = nil;
     [self expectCKModifyItemRecords:1 currentKeyPointerRecords:1 zoneID:self.keychainZoneID
@@ -183,26 +184,30 @@
 
     // Ensure we fetch again, to prime the delete (due to insufficient mock CK)
     [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
-    [self.keychainView waitForFetchAndIncomingQueueProcessing];
+    [self.defaultCKKS waitForFetchAndIncomingQueueProcessing];
 
-    [self.keychainView waitForOperationsOfClass:[CKKSIncomingQueueOperation class]];
-    [self.keychainView waitForOperationsOfClass:[CKKSOutgoingQueueOperation class]];
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], @"key state should enter 'ready'");
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:10*NSEC_PER_SEC], @"CKKS state machine should enter 'ready'");
 
     // Now, we receive a delete from CK, but after we modify the item locally
-    self.keychainView.holdOutgoingQueueOperation = [NSBlockOperation blockOperationWithBlock:^{}];
+    [self.defaultCKKS.stateMachine testPauseStateMachineAfterEntering:CKKSStateProcessOutgoingQueue];
 
     XCTAssertNotNil(itemRecord, "Should have an item record from the upload");
     [self.keychainZone deleteCKRecordIDFromZone:itemRecord.recordID];
     [self updateGenericPassword:@"new-password" account:account];
 
+    // Cause the fetch to happen before the OutgoingQueueOperation
     [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
-    [self.keychainView waitForFetchAndIncomingQueueProcessing];
+    [self.injectedManager.zoneChangeFetcher.inflightFetch waitUntilFinished];
+
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateProcessOutgoingQueue] wait:10*NSEC_PER_SEC], @"CKKS state machine should enter 'CKKSStateProcessOutgoingQueue'");
+    [self.defaultCKKS.stateMachine testReleaseStateMachinePause:CKKSStateProcessOutgoingQueue];
+
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:10*NSEC_PER_SEC], @"CKKS state machine should enter 'ready'");
     [self findGenericPassword:account expecting:errSecItemNotFound];
 
-    [self.operationQueue addOperation:self.keychainView.holdOutgoingQueueOperation];
-
-    [self.keychainView waitForOperationsOfClass:[CKKSIncomingQueueOperation class]];
-    [self.keychainView waitForOperationsOfClass:[CKKSOutgoingQueueOperation class]];
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], @"key state should enter 'ready'");
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:10*NSEC_PER_SEC], @"CKKS state machine should enter 'ready'");
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
 
     // And the item shouldn't be present, since it was deleted via CK after the API change

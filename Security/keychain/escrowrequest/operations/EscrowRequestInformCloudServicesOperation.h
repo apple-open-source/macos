@@ -12,7 +12,7 @@ NS_ASSUME_NONNULL_BEGIN
                            errorState:(OctagonState*)errorState
                      lockStateTracker:(CKKSLockStateTracker*)lockStateTracker;
 
-+ (NSData* _Nullable)triggerCloudServicesPasscodeRequest:(NSString*)uuid error:(NSError**)error;
++ (NSData* _Nullable)triggerCloudServicesPasscodeRequest:(NSString*)uuid serializedReason:(NSData *)serializedReason error:(NSError**)error;
 
 @end
 

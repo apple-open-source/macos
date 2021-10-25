@@ -651,7 +651,7 @@ mount_generic(char *special, char *fstype, char *opts, int nfsvers,
 	newargv[i++] = mntpnt;
 	newargv[i] = NULL;
 
-	if (trace > 5) {
+	if (trace > 1) {
 		trace_prt(1, "  newargv size is %d out of %d before run_mount_cmd", i, ARGV_MAX);
 	}
 
@@ -875,7 +875,7 @@ run_mount_cmd(char *fstype, char **newargv, uid_t sendereuid, au_asid_t asid)
 		syslog(LOG_ERR, "Failed to set spawn's uid, %m");
 		goto done_attrs;
 	}
-	if (trace > 5) {
+	if (trace > 1) {
 		trace_prt(1, "  run_mount_cmd: sendereuid: %d", sendereuid);
 	}
 
@@ -887,7 +887,7 @@ run_mount_cmd(char *fstype, char **newargv, uid_t sendereuid, au_asid_t asid)
 		syslog(LOG_ERR, "Failed to retrieve automount port, %m");
 		goto done_attrs;
 	}
-	if (trace > 5) {
+	if (trace > 1) {
 		trace_prt(1, "  run_mount_cmd: asid: %d", asid);
 	}
 
@@ -917,10 +917,10 @@ run_mount_cmd(char *fstype, char **newargv, uid_t sendereuid, au_asid_t asid)
 	snprintf(CFUserTextEncodingEnvSetting,
 		 sizeof(CFUserTextEncodingEnvSetting),
 		 CFENVVAR "=" CFENVFORMATSTRING,
-		 getuid());
+		 sendereuid);
 
 	nenviron = count_environ();
-	if (trace > 5) {
+	if (trace > 1) {
 		trace_prt(1, "  run_mount_cmd: environment count: %d\n", nenviron);
 	}
 
@@ -940,12 +940,12 @@ run_mount_cmd(char *fstype, char **newargv, uid_t sendereuid, au_asid_t asid)
 		    strncmp(environ[i], CFENVVAR, strlen(CFENVVAR)) == 0) {
 			spawn_environ[i] = CFUserTextEncodingEnvSetting;
 			did_set_encoding = 1;
-			if (trace > 6) {
+			if (trace > 1) {
 				trace_prt(1, "  run_mount_cmd: replacing encoding @ index: %d", i);
 			}
 		} else {
 			spawn_environ[i] = environ[i];
-			if (trace > 6) {
+			if (trace > 1) {
 				trace_prt(1, "  run_mount_cmd: env[%d] -> [%s]", i, spawn_environ[i]);
 			}
 		}
@@ -957,7 +957,7 @@ run_mount_cmd(char *fstype, char **newargv, uid_t sendereuid, au_asid_t asid)
 	 */
 	if (!did_set_encoding) {
 		spawn_environ[i] = CFUserTextEncodingEnvSetting;
-		if (trace > 5) {
+		if (trace > 1) {
 			trace_prt(1, "  run_mount_cmd: set user encoding at index %d\n", i);
 		}
 	}

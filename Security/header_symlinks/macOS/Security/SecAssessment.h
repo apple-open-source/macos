@@ -1,0 +1,1 @@
+../../../OSX/libsecurity_codesigning/lib/SecAssessment.h

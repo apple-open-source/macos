@@ -9,15 +9,15 @@
  * DO NOT run this test file by itself.
  * This test is meant to be invoked by control_port_options darwintest.
  *
- * If hard enforcement for pinned control port is on, pinned_test_main_thread_mod_ref-5 are
+ * If hard enforcement for pinned control port is on, pinned tests are
  * expected to generate fatal EXC_GUARD.
  *
- * If hard enforcement for immovable control port is on, immovable_test_move_send_task_self-13 are
+ * If hard enforcement for immovable control port is on, immovable tests are
  * expected to generate fatal EXC_GUARD.
  *
  * The type of exception raised (if any) is checked on control_port_options side.
  */
-#define MAX_TEST_NUM 13
+#define MAX_TEST_NUM 16
 
 static int
 attempt_send_immovable_port(mach_port_name_t port, mach_msg_type_name_t disp)
@@ -51,7 +51,7 @@ attempt_send_immovable_port(mach_port_name_t port, mach_msg_type_name_t disp)
 }
 
 static void
-pinned_test_main_thread_mod_ref()
+pinned_test_main_thread_mod_ref(void)
 {
 	printf("[Crasher]: Mod refs main thread's self port to 0\n");
 	mach_port_t thread_self = mach_thread_self();
@@ -61,7 +61,7 @@ pinned_test_main_thread_mod_ref()
 }
 
 static void*
-pthread_run()
+pthread_run(void)
 {
 	printf("[Crasher]: Deallocate pthread_self\n");
 	mach_port_t th_self = pthread_mach_thread_np(pthread_self());
@@ -72,7 +72,7 @@ pthread_run()
 }
 
 static void
-pinned_test_pthread_dealloc()
+pinned_test_pthread_dealloc(void)
 {
 	printf("[Crasher]: Create a pthread and deallocate its self port\n");
 	pthread_t thread;
@@ -83,7 +83,7 @@ pinned_test_pthread_dealloc()
 }
 
 static void
-pinned_test_task_self_dealloc()
+pinned_test_task_self_dealloc(void)
 {
 	printf("[Crasher]: Deallocate mach_task_self twice\n");
 	mach_port_t task_self = mach_task_self();
@@ -95,7 +95,7 @@ pinned_test_task_self_dealloc()
 }
 
 static void
-pinned_test_task_self_mod_ref()
+pinned_test_task_self_mod_ref(void)
 {
 	printf("[Crasher]: Mod refs mach_task_self() to 0\n");
 	kern_return_t kr = mach_port_mod_refs(mach_task_self(), mach_task_self(), MACH_PORT_RIGHT_SEND, -2);
@@ -104,7 +104,7 @@ pinned_test_task_self_mod_ref()
 }
 
 static void
-pinned_test_task_threads_mod_ref()
+pinned_test_task_threads_mod_ref(void)
 {
 	printf("[Crasher]: task_threads should return pinned thread ports. Mod refs them to 0\n");
 	thread_array_t th_list;
@@ -119,6 +119,57 @@ pinned_test_task_threads_mod_ref()
 	kr = mach_port_mod_refs(mach_task_self(), th_list[0], MACH_PORT_RIGHT_SEND, -1);
 
 	printf("[Crasher pinned_test_task_threads_mod_ref] mach_port_mod_refs returned %s \n.", mach_error_string(kr));
+}
+
+static void
+pinned_test_mach_port_destroy(void)
+{
+	kern_return_t kr = mach_port_destroy(mach_task_self(), mach_task_self());
+	printf("[Crasher pinned_test_mach_port_destroy] mach_port_destroy returned %s \n.", mach_error_string(kr));
+}
+
+static void
+pinned_test_move_send_as_remote_port(void)
+{
+	struct {
+		mach_msg_header_t header;
+	} msg;
+
+	kern_return_t kr = mach_port_deallocate(mach_task_self(), mach_task_self());
+	assert(kr == 0);
+
+	/*
+	 * We allow move send on remote kobject port but this should trip on pinning on last ref.
+	 * See: IPC_OBJECT_COPYIN_FLAGS_ALLOW_IMMOVABLE_SEND.
+	 */
+	msg.header.msgh_remote_port = mach_task_self();
+	msg.header.msgh_local_port = MACH_PORT_NULL;
+	msg.header.msgh_bits = MACH_MSGH_BITS(MACH_MSG_TYPE_MOVE_SEND, 0);
+	msg.header.msgh_id = 2000;
+	msg.header.msgh_size = sizeof msg;
+
+	kr = mach_msg_send(&msg.header);
+
+	printf("[Crasher pinned_test_move_send_as_remote_port] mach_msg_send returned %s \n.", mach_error_string(kr));
+}
+
+static void
+immovable_test_move_send_as_remote_port(void)
+{
+	struct {
+		mach_msg_header_t header;
+	} msg;
+
+	/* Local port cannot be immovable. See: ipc_right_copyin_check_reply() */
+	msg.header.msgh_remote_port = mach_task_self();
+	msg.header.msgh_local_port = mach_task_self();
+	msg.header.msgh_bits = MACH_MSGH_BITS(MACH_MSG_TYPE_MOVE_SEND, MACH_MSG_TYPE_MOVE_SEND);
+	msg.header.msgh_id = 2000;
+	msg.header.msgh_size = sizeof msg;
+
+	kern_return_t kr = mach_msg_send(&msg.header);
+
+	printf("[Crasher immovable_test_move_send_as_remote_port] mach_msg_send returned %s \n.", mach_error_string(kr));
 }
 
 static void
@@ -232,6 +283,8 @@ main(int argc, char *argv[])
 		pinned_test_task_self_dealloc,
 		pinned_test_task_self_mod_ref,
 		pinned_test_task_threads_mod_ref,
+		pinned_test_mach_port_destroy,
+		pinned_test_move_send_as_remote_port,
 
 		immovable_test_move_send_task_self,
 		immovable_test_copy_send_task_self,
@@ -241,6 +294,7 @@ main(int argc, char *argv[])
 		immovable_test_copy_send_task_inspect,
 		immovable_test_move_send_thread_inspect,
 		immovable_test_copy_send_thread_read,
+		immovable_test_move_send_as_remote_port,
 	};
 	printf("[Crasher]: My Pid: %d\n", getpid());
 

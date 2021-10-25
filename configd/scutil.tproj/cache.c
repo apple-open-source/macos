@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2005, 2011, 2017, 2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2005, 2011, 2012, 2017, 2018, 2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -48,7 +48,7 @@
 
 __private_extern__
 void
-do_block(int argc, char **argv)
+do_block(int argc, char * const argv[])
 {
 	Boolean		enable	= FALSE;
 
@@ -126,7 +126,7 @@ sort_keys(const void *p1, const void *p2, void *context)
 
 __private_extern__
 void
-do_list(int argc, char **argv)
+do_list(int argc, char * const argv[])
 {
 	int				i;
 	CFStringRef			pattern;
@@ -208,7 +208,7 @@ do_list(int argc, char **argv)
 
 __private_extern__
 void
-do_add(int argc, char **argv)
+do_add(int argc, char * const argv[])
 {
 	CFStringRef	key;
 
@@ -239,7 +239,7 @@ do_add(int argc, char **argv)
 
 __private_extern__
 void
-do_get(int argc, char **argv)
+do_get(int argc, char * const argv[])
 {
 #pragma unused(argc)
 	CFStringRef		key;
@@ -264,7 +264,7 @@ do_get(int argc, char **argv)
 
 __private_extern__
 void
-do_set(int argc, char **argv)
+do_set(int argc, char * const argv[])
 {
 #pragma unused(argc)
 	CFStringRef	key;
@@ -280,7 +280,7 @@ do_set(int argc, char **argv)
 
 __private_extern__
 void
-do_show(int argc, char **argv)
+do_show(int argc, char * const argv[])
 {
 	CFStringRef		key;
 	CFPropertyListRef	newValue;
@@ -350,7 +350,7 @@ do_show(int argc, char **argv)
 
 __private_extern__
 void
-do_remove(int argc, char **argv)
+do_remove(int argc, char * const argv[])
 {
 #pragma unused(argc)
 	CFStringRef	key;
@@ -366,7 +366,7 @@ do_remove(int argc, char **argv)
 
 __private_extern__
 void
-do_notify(int argc, char **argv)
+do_notify(int argc, char * const argv[])
 {
 #pragma unused(argc)
 	CFStringRef	key;

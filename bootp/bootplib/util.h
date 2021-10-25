@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2018 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2021 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -163,6 +163,9 @@ int	create_path(const char * dirname, mode_t mode);
 char *  tagtext_get(char * data, char * data_end, char * tag, char * * end_p);
 
 int	ether_cmp(struct ether_addr * e1, struct ether_addr * e2);
+
+#define LINK_ADDR_STR_LEN(hwaddr_len)	(hwaddr_len * 3)
+#define LINK_ADDR_ETHER_STR_LEN		LINK_ADDR_STR_LEN(ETHER_ADDR_LEN)
 
 void
 link_addr_to_string(char * string_buffer, int string_buffer_length,

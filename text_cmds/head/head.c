@@ -1,4 +1,6 @@
 /*
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
  * Copyright (c) 1980, 1987, 1992, 1993
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -10,11 +12,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -43,17 +41,30 @@ static char sccsid[] = "@(#)head.c	8.2 (Berkeley) 5/4/95";
 #endif
 #endif /* not lint */
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/usr.bin/head/head.c,v 1.20 2007/01/11 20:23:01 brooks Exp $");
+__FBSDID("$FreeBSD$");
 
+#ifndef __APPLE__
+#include <sys/capsicum.h>
+#endif
 #include <sys/types.h>
 
+#ifndef __APPLE__
+#include <capsicum_helpers.h>
+#endif
 #include <ctype.h>
 #include <err.h>
+#include <errno.h>
+#include <getopt.h>
 #include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+
+#ifndef __APPLE__
+#include <libcasper.h>
+#include <casper/cap_fileargs.h>
+#endif
 
 /*
  * head - give the first few lines of a stream or of each of a set of files
@@ -66,17 +77,31 @@ static void head_bytes(FILE *, off_t);
 static void obsolete(char *[]);
 static void usage(void);
 
+static const struct option long_opts[] =
+{
+	{"bytes",	required_argument,	NULL, 'c'},
+	{"lines",	required_argument,	NULL, 'n'},
+	{NULL,		no_argument,		NULL, 0}
+};
+
 int
 main(int argc, char *argv[])
 {
-	int ch;
 	FILE *fp;
-	int first, linecnt = -1, eval = 0;
-	off_t bytecnt = -1;
 	char *ep;
+	off_t bytecnt;
+	int ch, first, linecnt, eval;
+#ifndef __APPLE__
+	fileargs_t *fa;
+	cap_rights_t rights;
+#endif
+
+	linecnt = -1;
+	eval = 0;
+	bytecnt = -1;
 
 	obsolete(argv);
-	while ((ch = getopt(argc, argv, "n:c:")) != -1)
+	while ((ch = getopt_long(argc, argv, "+n:c:", long_opts, NULL)) != -1) {
 		switch(ch) {
 		case 'c':
 			bytecnt = strtoimax(optarg, &ep, 10);
@@ -91,17 +116,34 @@ main(int argc, char *argv[])
 		case '?':
 		default:
 			usage();
+			/* NOTREACHED */
 		}
+	}
 	argc -= optind;
 	argv += optind;
 
+#ifndef __APPLE__
+	fa = fileargs_init(argc, argv, O_RDONLY, 0,
+	    cap_rights_init(&rights, CAP_READ, CAP_FSTAT, CAP_FCNTL), FA_OPEN);
+	if (fa == NULL)
+		err(1, "unable to init casper");
+
+	caph_cache_catpages();
+	if (caph_limit_stdio() < 0 || caph_enter_casper() < 0)
+		err(1, "unable to enter capability mode");
+#endif
+
 	if (linecnt != -1 && bytecnt != -1)
 		errx(1, "can't combine line and byte counts");
-	if (linecnt == -1 )
+	if (linecnt == -1)
 		linecnt = 10;
-	if (*argv) {
-		for (first = 1; *argv; ++argv) {
+	if (*argv != NULL) {
+		for (first = 1; *argv != NULL; ++argv) {
+#ifndef __APPLE__
+			if ((fp = fileargs_fopen(fa, *argv, "r")) == NULL) {
+#else
 			if ((fp = fopen(*argv, "r")) == NULL) {
+#endif
 				warn("%s", *argv);
 				eval = 1;
 				continue;
@@ -133,6 +175,9 @@ main(int argc, char *argv[])
 		}
 	}
 
+#ifndef __APPLE__
+	fileargs_free(fa);
+#endif
 	exit(eval);
 }
 
@@ -142,7 +187,7 @@ head(FILE *fp, int cnt)
 	char *cp;
 	size_t error, readlen;
 
-	while (cnt && (cp = fgetln(fp, &readlen)) != NULL) {
+	while (cnt != 0 && (cp = fgetln(fp, &readlen)) != NULL) {
 		error = fwrite(cp, sizeof(char), readlen, stdout);
 		if (error != readlen)
 			err(1, "stdout");

@@ -394,12 +394,7 @@ dev_add_name(const char * name, devnode_t * dirnode, __unused devdirent_t * back
 	/*
 	 * Allocate and fill out a new directory entry
 	 */
-	MALLOC(dirent_p, devdirent_t *, sizeof(devdirent_t),
-	    M_DEVFSNAME, M_WAITOK);
-	if (!dirent_p) {
-		return ENOMEM;
-	}
-	bzero(dirent_p, sizeof(devdirent_t));
+	dirent_p = kalloc_type(devdirent_t, Z_WAITOK | Z_ZERO | Z_NOFAIL);
 
 	/* inherrit our parent's mount info */ /*XXX*/
 	/* a kludge but.... */
@@ -617,9 +612,7 @@ dev_add_node(int entrytype, devnode_type_t * typeinfo, devnode_t * proto,
 		 * A symlink only exists on one plane and has its own
 		 * node.. therefore we might be on any random plane.
 		 */
-		MALLOC(dnp->dn_typeinfo.Slnk.name, char *,
-		    typeinfo->Slnk.namelen + 1,
-		    M_DEVFSNODE, M_WAITOK);
+		dnp->dn_typeinfo.Slnk.name = kalloc_data(typeinfo->Slnk.namelen + 1, Z_WAITOK);
 		if (!dnp->dn_typeinfo.Slnk.name) {
 			error = ENOMEM;
 			break;
@@ -675,7 +668,7 @@ devnode_free(devnode_t * dnp)
 #endif
 	if (dnp->dn_type == DEV_SLNK) {
 		DEVFS_DECR_STRINGSPACE(dnp->dn_typeinfo.Slnk.namelen + 1);
-		FREE(dnp->dn_typeinfo.Slnk.name, M_DEVFSNODE);
+		kfree_data(dnp->dn_typeinfo.Slnk.name, dnp->dn_typeinfo.Slnk.namelen + 1);
 	}
 	DEVFS_DECR_NODES();
 	FREE(dnp, M_DEVFSNODE);
@@ -954,7 +947,7 @@ devfs_free_plane(struct devfsmount *devfs_mp_p)
 	devfs_nmountplanes--;
 
 	if (devfs_nmountplanes > (devfs_nmountplanes + 1)) {
-		panic("plane count wrapped around.\n");
+		panic("plane count wrapped around.");
 	}
 }
 
@@ -1082,7 +1075,7 @@ dev_free_name(devdirent_t * dirent_p)
 	}
 
 	DEVFS_DECR_ENTRIES();
-	FREE(dirent_p, M_DEVFSNAME);
+	kfree_type(devdirent_t, dirent_p);
 	return 0;
 }
 
@@ -1279,7 +1272,7 @@ retry:
 				goto out;
 			}
 
-			vfsp.vnfs_rdev = makedev(n_major, n_minor);;
+			vfsp.vnfs_rdev = makedev(n_major, n_minor);
 		} else {
 			vfsp.vnfs_rdev = dnp->dn_typeinfo.dev;
 		}
@@ -1307,7 +1300,7 @@ retry:
 		vnode_settag(vn_p, VT_DEVFS);
 
 		if ((dnp->dn_clone != NULL) && (dnp->dn_vn != NULLVP)) {
-			panic("devfs_dntovn: cloning device with a vnode?\n");
+			panic("devfs_dntovn: cloning device with a vnode?");
 		}
 
 		*vn_pp = vn_p;
@@ -1376,7 +1369,7 @@ devfs_rele_node(devnode_t *dnp)
 {
 	os_ref_count_t rc = os_ref_release_locked_raw(&dnp->dn_refcount, &devfs_refgrp);
 	if (rc < 1) {
-		panic("devfs_rele_node: devnode without a refcount!\n");
+		panic("devfs_rele_node: devnode without a refcount!");
 	} else if ((rc == 1) && (dnp->dn_lflags & DN_DELETE)) {
 		/* release final reference from dev_add_node */
 		(void) os_ref_release_locked_raw(&dnp->dn_refcount, &devfs_refgrp);
@@ -1428,7 +1421,7 @@ static void
 devfs_record_event(devfs_event_log_t delp, devnode_t *dnp, uint32_t events)
 {
 	if (delp->del_used >= delp->del_max) {
-		panic("devfs event log overflowed.\n");
+		panic("devfs event log overflowed.");
 	}
 
 	/* Can only notify for nodes that have an associated vnode */
@@ -1465,7 +1458,7 @@ static void
 devfs_release_event_log(devfs_event_log_t delp, int need_free)
 {
 	if (delp->del_entries == NULL) {
-		panic("Free of devfs notify info that has not been intialized.\n");
+		panic("Free of devfs notify info that has not been intialized.");
 	}
 
 	if (need_free) {

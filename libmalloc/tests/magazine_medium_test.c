@@ -11,6 +11,8 @@
 #include "magazine_testing.h"
 
 bool aggressive_madvise_enabled = false;
+uint64_t magazine_medium_madvise_window_scale_factor = 1;
+
 T_GLOBAL_META(T_META_RUN_CONCURRENTLY(true));
 
 static inline void
@@ -149,4 +151,41 @@ T_DECL(free_end_of_region, "End of region's footer is marked dirty",
 	free_medium(&rack, before_trailing_2, MEDIUM_REGION_FOR_PTR(before_trailing_2), 0);
 
 	assert_block_madvise_headers(last_ptr, block_size + final_block_size, false, true);
+}
+
+T_DECL(madvise_scale_factor, "madvise_scale_factor changes window size",
+	   T_META_ENABLED(CONFIG_MEDIUM_ALLOCATOR))
+{
+	struct rack_s rack;
+	medium_test_rack_setup(&rack);
+
+	magazine_t *mag = NULL;
+	void *ptr = medium_malloc_should_clear(&rack, 1, false);
+	mag = get_magazine(&rack, ptr);
+	free_medium(&rack, ptr, MEDIUM_REGION_FOR_PTR(ptr), 0);
+	ptr = NULL;
+
+	magazine_medium_madvise_window_scale_factor = 1;
+	uint64_t granularity = medium_sliding_madvise_granularity(mag);
+	T_QUIET; T_ASSERT_EQ(granularity, (uint64_t) MEDIUM_MADVISE_MIN, "window is at min size when magazine is empty");
+	magazine_medium_madvise_window_scale_factor = 4;
+	granularity = medium_sliding_madvise_granularity(mag);
+	T_QUIET; T_ASSERT_EQ(granularity, 4ULL * MEDIUM_MADVISE_MIN, "scale factor multiplies min size");
+	magazine_medium_madvise_window_scale_factor = 1;
+
+	// Allocate the majority of the magazine
+	for (size_t i = 0; i < NUM_MEDIUM_BLOCKS / 2; i++) {
+		ptr = medium_malloc_should_clear(&rack, 1, false);
+		T_QUIET; T_ASSERT_NOTNULL(ptr, "allocation");
+	}
+
+	uint64_t num_bytes_allocated = (NUM_MEDIUM_BLOCKS / 2) << SHIFT_MEDIUM_QUANTUM;
+	uint64_t base_window_size = 1 << (64 - __builtin_clzl(num_bytes_allocated >> MEDIUM_MADVISE_SHIFT));
+	T_QUIET; T_ASSERT_GE(base_window_size, (uint64_t) MEDIUM_MADVISE_MIN, "window grows as more bytes are allocated");
+
+	granularity = medium_sliding_madvise_granularity(mag);
+	T_QUIET; T_ASSERT_EQ(granularity, base_window_size, "window grows correctly");
+	magazine_medium_madvise_window_scale_factor = 8;
+	granularity = medium_sliding_madvise_granularity(mag);
+	T_QUIET; T_ASSERT_EQ(granularity, 8 * base_window_size, "larger window also scales up");
 }

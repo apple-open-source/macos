@@ -1,5 +1,6 @@
-﻿// © 2016 and later: Unicode, Inc. and others.
-// License & terms of use: http://www.unicode.org/copyright.html#License
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html
+// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
 es_US{
     %%Parent{"es_419"}
     MoreInformation{"[...]"}
@@ -128,7 +129,6 @@ es_US{
             }
         }
     }
-    Version{"36.1"}
     calendar{
         generic{
             DateTimePatterns{
@@ -175,6 +175,29 @@ es_US{
                 yyyyMMMMd{"d 'de' MMMM 'de' y G"}
                 yyyyMMMd{"MMM d, y G"}
                 yyyyMd{"M/d/y G"}
+                 
+                // The following are all copied over from es_419.txt to work around the horizontal-inheritance
+                // problem and to address rdar://78420184 and should be removed when the horizontal inheritance
+                // bug is fixed.
+                Bh{"h B"}
+                Bhm{"h:mm B"}
+                Bhms{"h:mm:ss B"}
+                E{"ccc"}
+                EBhm{"E h:mm B"}
+                EBhms{"E h:mm:ss B"}
+                EHm{"E, HH:mm"}
+                EHms{"E, HH:mm:ss"}
+                Ed{"E d"}
+                Ehm{"E h:mm a"}
+                Ehms{"E h:mm:ss a"}
+                Gy{"y G"}
+                Hmsv{"H:mm:ss v"}
+                MMM{"LLL"}
+                hmsv{"h:mm:ss a v"}
+                hmv{"h:mm a v"}
+                y{"y G"}
+                yyyy{"y G"}
+                yyyyQQQ{"QQQ 'de' y G"}
             }
             intervalFormats{
                 MEd{
@@ -247,14 +270,6 @@ es_US{
             }
         }
         gregorian{
-            AmPmMarkers{
-                "a. m.",
-                "p. m.",
-            }
-            AmPmMarkersAbbr{
-                "a. m.",
-                "p. m.",
-            }
             DateTimePatterns{
                 "h:mm:ss a zzzz",
                 "h:mm:ss a z",
@@ -460,30 +475,68 @@ es_US{
                 }
             }
         }
+        japanese{
+            DateTimePatterns{
+                "h:mm:ss a zzzz",
+                "h:mm:ss a z",
+                "h:mm:ss a",
+                "h:mm a",
+                "EEEE, d 'de' MMMM 'de' G y",
+                "d 'de' MMMM 'de' G y",
+                "MMM d, G y",
+                "M/d/GGGGGyy",
+                "{1} {0}",
+                "{1}, {0}",
+                "{1}, {0}",
+                "{1} {0}",
+                "{1} {0}",
+            }
+            availableFormats{
+                GyMMM{"MMM G y"}
+                GyMMMEd{"E, MMM d, G y"}
+                GyMMMM{"MMMM 'de' G y"}
+                GyMMMMEd{"E, d 'de' MMMM 'de' G y"}
+                GyMMMMd{"d 'de' MMMM 'de' G y"}
+                GyMMMd{"MMM d, G y"}
+                H{"HH"}
+                Hm{"HH:mm"}
+                Hms{"HH:mm:ss"}
+                MEd{"E, MM/dd"}
+                MMMEd{"E, MMM d"}
+                MMMMEd{"E, d 'de' MMMM"}
+                MMMMd{"d 'de' MMMM"}
+                MMMd{"MMM d"}
+                Md{"M/d"}
+                h{"h a"}
+                hm{"h:mm a"}
+                hms{"h:mm:ss a"}
+                ms{"mm:ss"}
+                yyyyM{"M/GGGGGyy"}
+                yyyyMEd{"E, M/d/GGGGGyy"}
+                yyyyMMM{"MMM G y"}
+                yyyyMMMEd{"E, MMM d, G y"}
+                yyyyMMMM{"MMMM 'de' G y"}
+                yyyyMMMMEd{"E, d 'de' MMMM 'de' G y"}
+                yyyyMMMMd{"d 'de' MMMM 'de' G y"}
+                yyyyMMMd{"MMM d, G y"}
+                yyyyMd{"M/d/GGGGGyy"}
+            }
+        }
     }
     characterLabel{
-        arrows{"Flechas"}
+        activities{"actividades"}
+        african_scripts{"símbolos de escritura de África"}
+        american_scripts{"símbolos de escritura de América"}
+        arrows{"flechas"}
         female{"mujer"}
-        format_whitespace{"Formato y espacio duro"}
+        format{"formato"}
         keycap{"tecla"}
-        letterlike_symbols{"Símbolos con letras"}
-        limited_use{"Uso limitado"}
         male{"hombre"}
+        miscellaneous{"varios"}
         modern_scripts{"Sistemas de escritura modernos"}
-        nonspacing{"Sin espaciado"}
         other{"Otros"}
-        phonetic_alphabet{"Alfabeto fonético"}
-        sign_standard_symbols{"Símbolos de señales/estándar"}
         smiley{"cara sonriente"}
-        south_asian_scripts{"Sistemas de escritura de Asia Meridional"}
-        southeast_asian_scripts{"Sistemas de escritura de Asia Sudoriental"}
-        symbols{"Símbolos"}
-        tone_marks{"Marcas tonales"}
-        travel_places{"Viajes y destinos"}
-        variant_forms{"Variantes"}
-        weather{"tiempo"}
         western_asian_scripts{"Sistemas de escritura de Asia Occidental"}
-        whitespace{"Espacio duro"}
     }
     fields{
         dayOfYear-narrow{
@@ -502,6 +555,11 @@ es_US{
             dn{"a. m./p. m."}
         }
         fri{
+            relative{
+                "-1"{"el viernes pasado"}
+                "0"{"este viernes"}
+                "1"{"el viernes próximo"}
+            }
             relativeTime{
                 future{
                     one{"dentro de {0} viernes"}
@@ -518,6 +576,11 @@ es_US{
             }
         }
         fri-short{
+            relative{
+                "-1"{"el vier. pasado"}
+                "0"{"este vier."}
+                "1"{"el próximo vier."}
+            }
             relativeTime{
                 future{
                     one{"dentro de {0} vie."}
@@ -526,6 +589,11 @@ es_US{
             }
         }
         mon{
+            relative{
+                "-1"{"el lunes pasado"}
+                "0"{"este lunes"}
+                "1"{"el lunes próximo"}
+            }
             relativeTime{
                 future{
                     one{"dentro de {0} lunes"}
@@ -565,6 +633,11 @@ es_US{
             }
         }
         sat{
+            relative{
+                "-1"{"el sábado pasado"}
+                "0"{"este sábado"}
+                "1"{"el sábado próximo"}
+            }
             relativeTime{
                 future{
                     one{"dentro de {0} sábado"}
@@ -584,6 +657,11 @@ es_US{
             }
         }
         sun{
+            relative{
+                "-1"{"el domingo pasado"}
+                "0"{"este domingo"}
+                "1"{"el domingo próximo"}
+            }
             relativeTime{
                 future{
                     one{"dentro de {0} domingo"}
@@ -604,6 +682,11 @@ es_US{
             }
         }
         thu{
+            relative{
+                "-1"{"el jueves pasado"}
+                "0"{"este jueves"}
+                "1"{"el jueves próximo"}
+            }
             relativeTime{
                 future{
                     one{"dentro de {0} jueves"}
@@ -620,13 +703,24 @@ es_US{
             }
         }
         tue{
+            relative{
+                "-1"{"el martes pasado"}
+                "0"{"este martes"}
+                "1"{"el martes próximo"}
+            }
             relativeTime{
                 future{
+                    one{"dentro de {0} martes"}
                     other{"dentro de {0} martes"}
                 }
             }
         }
         wed{
+            relative{
+                "-1"{"el miércoles pasado"}
+                "0"{"este miércoles"}
+                "1"{"el miércoles próximo"}
+            }
             relativeTime{
                 future{
                     one{"dentro de {0} miércoles"}
@@ -670,6 +764,20 @@ es_US{
                 "1"{"la semana próxima"}
             }
         }
+        week-narrow{
+            relative{
+                "-1"{"sem. pasada"}
+                "0"{"esta sem."}
+                "1"{"próxima sem."}
+            }
+        }
+        week-short{
+            relative{
+                "-1"{"sem. pasada"}
+                "0"{"esta sem."}
+                "1"{"próxima sem."}
+            }
+        }
         weekOfMonth-narrow{
             dn{"sem. de m"}
         }
@@ -692,5 +800,8 @@ es_US{
                 "1"{"el año próximo"}
             }
         }
+    }
+    measurementSystemNames{
+        UK{"imperial"}
     }
 }

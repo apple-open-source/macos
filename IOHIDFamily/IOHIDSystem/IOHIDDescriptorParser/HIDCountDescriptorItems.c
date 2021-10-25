@@ -27,7 +27,7 @@
 
 	Version:	xxx put version here xxx
 
-	Copyright:	© 1999 by Apple Computer, Inc., all rights reserved.
+	Copyright:	ï¿½ 1999 by Apple Computer, Inc., all rights reserved.
 
 	File Ownership:
 
@@ -48,7 +48,28 @@
 
 #include "HIDLib.h"
 
-//#include <stdlib.h>
+#if !(KERNEL || TARGET_OS_DRIVERKIT)
+
+#include <stdlib.h>
+
+static void * IOMallocZeroData(size_t size) {
+	return calloc(1, size);
+}
+
+#else
+
+#if TARGET_OS_DRIVERKIT
+#include <DriverKit/IOLib.h>
+
+extern void *
+IOMallocZeroData(size_t length);
+
+#else
+#include <IOKit/system.h>
+#include <IOKit/IOLib.h>
+#endif
+
+#endif
 
 /*
  *------------------------------------------------------------------------------
@@ -225,7 +246,7 @@ OSStatus HIDCountDescriptorItems(HIDReportDescriptor *ptDescriptor, HIDPreparsed
 	if (os_add_overflow(iSpaceRequired, (sizeof(HIDGlobalItems) * iMaxGlobalsNesting), &sz)) return kHIDInvalidPreparsedDataErr;
 	iSpaceRequired += (sizeof(HIDGlobalItems) * iMaxGlobalsNesting);
 
-	pMem = PoolAllocateResident(iSpaceRequired, kShouldClearMem);
+	pMem = IOMallocZeroData((size_t)iSpaceRequired);
 	
 	if (pMem == NULL)
 		return kHIDNotEnoughMemoryErr;

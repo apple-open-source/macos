@@ -27,7 +27,8 @@ InstallHeaders /usr/local/include \
 	lookup.subproj/si_compare.h \
 	lookup.subproj/si_data.h \
 	lookup.subproj/si_module.h \
-	lookup.subproj/thread_data.h
+    lookup.subproj/thread_data.h \
+    lookup.subproj/lookupPriv.h
 
 InstallHeaders /usr/local/include \
 	lookup.subproj/libinfo_muser.h \

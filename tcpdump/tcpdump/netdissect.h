@@ -157,6 +157,7 @@ struct netdissect_options {
 				 * LF, CR and SPACE as graphical chars
 				 */
   int ndo_Hflag;		/* dissect 802.11s draft mesh standard */
+  const char *ndo_protocol;	/* protocol */
 
 #ifdef __APPLE__
 	int ndo_gflag;      /* no line break in verbose mode for easier grepping */
@@ -484,6 +485,7 @@ extern u_int sll_if_print IF_PRINTER_ARGS;
 extern u_int sunatm_if_print IF_PRINTER_ARGS;
 extern u_int symantec_if_print IF_PRINTER_ARGS;
 extern u_int token_if_print IF_PRINTER_ARGS;
+extern void unsupported_if_print IF_PRINTER_ARGS;
 extern u_int usb_linux_48_byte_print IF_PRINTER_ARGS;
 extern u_int usb_linux_64_byte_print IF_PRINTER_ARGS;
 
@@ -689,6 +691,8 @@ extern int nextproto4_cksum(netdissect_options *, const struct ip *, const uint8
 extern int nextproto6_cksum(netdissect_options *, const struct ip6_hdr *, const uint8_t *, u_int, u_int, u_int);
 
 /* Utilities */
+extern void nd_print_protocol_caps(netdissect_options *);
+
 extern int mask2plen(uint32_t);
 extern int mask62plen(const u_char *);
 

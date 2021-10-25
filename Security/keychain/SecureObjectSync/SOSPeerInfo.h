@@ -131,6 +131,8 @@ CFTypeRef SOSPeerInfoLookupGestaltValue(SOSPeerInfoRef pi, CFStringRef key);
 CFDictionaryRef SOSPeerInfoCopyPeerGestalt(SOSPeerInfoRef pi);
 CFDictionaryRef SOSPeerGetGestalt(SOSPeerInfoRef pi);
 CFStringRef SOSPeerInfoGetPeerName(SOSPeerInfoRef peer);
+bool SOSPeerInfoIsLegacy(SOSPeerInfoRef pi);
+
 
 //
 // Syntactic Sugar for some commone ones, might get deprectated at this level.
@@ -224,12 +226,13 @@ CFStringRef SOSPeerInfoCopySerialNumber(SOSPeerInfoRef pi);
 void SOSPeerInfoLogState(char *category, SOSPeerInfoRef pi, SecKeyRef pubKey, CFStringRef myPID, char sigchr);
 
 enum {
-    SOSPeerInfo_unknown = 0,
+    SOSPeerInfo_unknown = 0, // there is no string for device name
     SOSPeerInfo_iCloud = 1,
     SOSPeerInfo_iOS = 2,
     SOSPeerInfo_macOS = 3,
     SOSPeerInfo_watchOS = 4,
     SOSPeerInfo_tvOS = 5,
+    SOSPeerInfo_undetermined = 6, // There is a string for device name, but it isn't recognized
 };
 typedef uint32_t SOSPeerInfoDeviceClass;
 

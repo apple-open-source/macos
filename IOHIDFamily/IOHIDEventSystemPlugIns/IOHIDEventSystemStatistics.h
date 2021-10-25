@@ -14,7 +14,6 @@
 #endif
 
 #include <memory>
-#include <WirelessDiagnostics/AWDServerConnection.h>
 
 
 class IOHIDEventSystemStatistics
@@ -52,18 +51,10 @@ private:
         uint32_t                    home_wake;
         uint32_t                    power_wake;
         uint32_t                    power_sleep;
-        uint32_t                    high_latency;
     } Buttons;
-
-    typedef struct {
-        uint32_t					accel_count;
-        uint32_t					gyro_count;
-        uint32_t					mag_count;
-        uint32_t					pressure_count;
-        uint32_t					devmotion_count;
-    } MotionStats;
     
     typedef struct {
+        uint32_t                    enumeration_count;
         uint32_t                    character_count;
         uint32_t                    symbol_count;
         uint32_t                    spacebar_count;
@@ -71,32 +62,14 @@ private:
         uint32_t                    cursor_count;
         uint32_t                    modifier_count;
     } KeyStats;
-    
-    typedef struct {
-        uint32_t                    open_count;
-        uint32_t                    close_count;
-        uint32_t                    toggled_50ms;
-        uint32_t                    toggled_50_100ms;
-        uint32_t                    toggled_100_250ms;
-        uint32_t                    toggled_250_500ms;
-        uint32_t                    toggled_500_1000ms;
-        uint32_t                    unknownStateEnter;
-        uint32_t                    unknownStateExit;
-    } HESStats;
 
     Buttons _pending_buttons;
-    MotionStats _pending_motionstats;
-    uint64_t _last_motionstat_ts;
     KeyStats _pending_keystats;
-    HESStats _pending_hesstats;
     
     CFMutableSetRef             _keyServices;
-    CFMutableSetRef             _hesServices;
     
     IOHIDEventRef               _attachEvent;
-    
-    std::shared_ptr<awd::AWDServerConnection> _awdConnection;
-    
+        
 private:
     static IOHIDSessionFilterPlugInInterface sIOHIDEventSystemStatisticsFtbl;
     static HRESULT QueryInterface( void *self, REFIID iid, LPVOID *ppv );
@@ -117,9 +90,7 @@ private:
 
     static void handlePendingStats(void * self);
     
-    bool collectMotionStats(IOHIDServiceRef sender, IOHIDEventRef event);
     bool collectKeyStats(IOHIDServiceRef sender, IOHIDEventRef event);
-    bool collectHESStats(IOHIDServiceRef sender, IOHIDEventRef event);
     
     static bool isCharacterKey(uint16_t usagePage, uint16_t usage);
     static bool isSymbolKey(uint16_t usagePage, uint16_t usage);

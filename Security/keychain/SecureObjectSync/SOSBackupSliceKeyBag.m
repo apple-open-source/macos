@@ -664,7 +664,7 @@ static bool SOSPerformWithRecoveryKeyFullKey(CFDataRef wrappingSecret, CFErrorRe
     require_quiet(keyID, errOut);
     {
         size_t keysize = ccec_compact_import_priv_size(CFDataGetLength((__bridge CFDataRef)fullKeyBytes));
-        ccec_const_cp_t cp = ccec_curve_for_length_lookup(keysize, ccec_cp_256(), ccec_cp_384(), ccec_cp_521());
+        ccec_const_cp_t cp = ccec_curve_for_length_lookup(keysize, ccec_cp_256(), ccec_cp_384(), ccec_cp_521(), NULL);
         ccec_full_ctx_decl_cp(cp, fullKey);
         int res = ccec_compact_import_priv(cp, CFDataGetLength((__bridge CFDataRef)fullKeyBytes), CFDataGetBytePtr((__bridge CFDataRef)fullKeyBytes), fullKey);
         if(res == 0) {

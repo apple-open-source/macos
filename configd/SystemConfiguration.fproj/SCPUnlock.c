@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, 2004-2010, 2013, 2015, 2016, 2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2004-2010, 2013, 2015, 2016, 2018, 2021 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -147,7 +147,7 @@ SCPreferencesUnlock(SCPreferencesRef prefs)
 	}
 
 	SC_log(LOG_DEBUG, "SCPreferences() unlock: %s",
-	       prefsPrivate->newPath ? prefsPrivate->newPath : prefsPrivate->path);
+	       prefsPrivate->path);
 
 	__SCPreferencesUpdateLockedState(prefs, FALSE);
 

@@ -54,6 +54,16 @@
 .Fa "const char *restrict s2"
 .Fa "size_t n"
 .Fc
+.Sh ADMONISHMENT
+.Pp
+.ti +8
+.Pp
+YOU SHOULD ALMOST CERTAINLY USE
+.Fn strlcat
+INSTEAD.
+.ti +8
+.Pp
+See "Security Considerations" below.
 .Sh DESCRIPTION
 The
 .Fn strcat

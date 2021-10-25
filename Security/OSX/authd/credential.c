@@ -108,7 +108,7 @@ _credential_create()
     require(cred != NULL, done);
     
     cred->creationTime = CFAbsoluteTimeGetCurrent();
-    cred->cachedGroups = CFSetCreateMutable(kCFAllocatorDefault, 0, &kCFTypeSetCallBacks);;
+    cred->cachedGroups = CFSetCreateMutable(kCFAllocatorDefault, 0, &kCFTypeSetCallBacks);
     
 done:
     return cred;
@@ -243,7 +243,7 @@ credential_check_membership(credential_t cred, const char* group)
 {
     bool result = false;
     
-    if (isInFVUnlock()) {
+    if (isInFVUnlockOrRecovery()) {
        return false; // cannot succeed in FVUnlock as we do not have group data
     }
     

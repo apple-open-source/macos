@@ -53,30 +53,25 @@ typedef enum {
     notInUse
 } sec_asn1e_parse_place;
 
-typedef enum {
-    allDone,
-    encodeError,
-    keepGoing,
-    needBytes
-} sec_asn1e_parse_status;
+typedef enum { allDone, encodeError, keepGoing, needBytes } sec_asn1e_parse_status;
 
 typedef enum {
-    hdr_normal      = 0,  /* encode header normally */
-    hdr_any         = 1,  /* header already encoded in content */
-    hdr_decoder     = 2,  /* template only used by decoder. skip it. */
-    hdr_optional    = 3,  /* optional component, to be omitted */
-    hdr_placeholder = 4   /* place holder for from_buf content */
+    hdr_normal = 0,     /* encode header normally */
+    hdr_any = 1,        /* header already encoded in content */
+    hdr_decoder = 2,    /* template only used by decoder. skip it. */
+    hdr_optional = 3,   /* optional component, to be omitted */
+    hdr_placeholder = 4 /* place holder for from_buf content */
 } sec_asn1e_hdr_encoding;
 
 typedef struct sec_asn1e_state_struct {
-    SEC_ASN1EncoderContext *top;
-    const SecAsn1Template *theTemplate;
-    void *src;
+    SEC_ASN1EncoderContext* top;
+    const SecAsn1Template* theTemplate;
+    void* src;
 
-    struct sec_asn1e_state_struct *parent;	/* aka prev */
-    struct sec_asn1e_state_struct *child;	/* aka next */
+    struct sec_asn1e_state_struct* parent; /* aka prev */
+    struct sec_asn1e_state_struct* child;  /* aka next */
 
-    sec_asn1e_parse_place place;	/* where we are in encoding process */
+    sec_asn1e_parse_place place; /* where we are in encoding process */
 
     /*
      * XXX explain the next fields as clearly as possible...
@@ -87,17 +82,17 @@ typedef struct sec_asn1e_state_struct {
 
     int depth;
 
-    PRBool explicit,		/* we are handling an explicit header */
-    indefinite,		/* need end-of-contents */
-    is_string,		/* encoding a simple string or an ANY */
-    may_stream,		/* when streaming, do indefinite encoding */
-    optional,		/* omit field if it has no contents */
-    ignore_stream	/* ignore streaming value of sub-template */
-#ifdef	__APPLE__
-    ,
-    signedInt	/* signed alternate to SEC_ASN1_INTEGER */
+    PRBool explicit,  /* we are handling an explicit header */
+        indefinite,   /* need end-of-contents */
+        is_string,    /* encoding a simple string or an ANY */
+        may_stream,   /* when streaming, do indefinite encoding */
+        optional,     /* omit field if it has no contents */
+        ignore_stream /* ignore streaming value of sub-template */
+#ifdef __APPLE__
+        ,
+        signedInt /* signed alternate to SEC_ASN1_INTEGER */
 #endif
-    ;
+        ;
 } sec_asn1e_state;
 
 /*
@@ -107,27 +102,27 @@ typedef struct sec_asn1e_state_struct {
  * it is passed to SEC_ASN1EncoderFinish().
  */
 struct sec_EncoderContext_struct {
-    PRArenaPool *our_pool;		/* for our internal allocs */
+    PRArenaPool* our_pool; /* for our internal allocs */
 
-    sec_asn1e_state *current;
+    sec_asn1e_state* current;
     sec_asn1e_parse_status status;
 
     PRBool streaming;
     PRBool from_buf;
 
-    SEC_ASN1NotifyProc notify_proc;	/* call before/after handling field */
-    void *notify_arg;			/* argument to notify_proc */
-    PRBool during_notify;		/* true during call to notify_proc */
+    SEC_ASN1NotifyProc notify_proc; /* call before/after handling field */
+    void* notify_arg;               /* argument to notify_proc */
+    PRBool during_notify;           /* true during call to notify_proc */
 
-    SEC_ASN1WriteProc output_proc;	/* pass encoded bytes to this  */
-    void *output_arg;			/* argument to that function */
+    SEC_ASN1WriteProc output_proc; /* pass encoded bytes to this  */
+    void* output_arg;              /* argument to that function */
 };
 
 
-static sec_asn1e_state *
-sec_asn1e_push_state(SEC_ASN1EncoderContext *cx,
-                     const SecAsn1Template *theTemplate,
-                     const void *src, PRBool new_depth)
+static sec_asn1e_state* sec_asn1e_push_state(SEC_ASN1EncoderContext* cx,
+                                             const SecAsn1Template* theTemplate,
+                                             const void* src,
+                                             PRBool new_depth)
 {
     sec_asn1e_state *state, *new_state;
 
@@ -144,7 +139,7 @@ sec_asn1e_push_state(SEC_ASN1EncoderContext *cx,
     new_state->theTemplate = theTemplate;
     new_state->place = notInUse;
     if (src != NULL) {
-        new_state->src = (char *)src + theTemplate->offset;
+        new_state->src = (char*)src + theTemplate->offset;
     }
 
     if (state != NULL) {
@@ -160,8 +155,7 @@ sec_asn1e_push_state(SEC_ASN1EncoderContext *cx,
 }
 
 
-static void
-sec_asn1e_scrub_state(sec_asn1e_state *state)
+static void sec_asn1e_scrub_state(sec_asn1e_state* state)
 {
     /*
      * Some default "scrubbing".
@@ -172,40 +166,37 @@ sec_asn1e_scrub_state(sec_asn1e_state *state)
 }
 
 
-static void
-sec_asn1e_notify_before(SEC_ASN1EncoderContext *cx, void *src, int depth)
+static void sec_asn1e_notify_before(SEC_ASN1EncoderContext* cx, void* src, int depth)
 {
     if (cx->notify_proc == NULL) {
         return;
     }
 
     cx->during_notify = PR_TRUE;
-    (* cx->notify_proc)(cx->notify_arg, PR_TRUE, src, depth);
+    (*cx->notify_proc)(cx->notify_arg, PR_TRUE, src, depth);
     cx->during_notify = PR_FALSE;
 }
 
 
-static void
-sec_asn1e_notify_after(SEC_ASN1EncoderContext *cx, void *src, int depth)
+static void sec_asn1e_notify_after(SEC_ASN1EncoderContext* cx, void* src, int depth)
 {
     if (cx->notify_proc == NULL) {
         return;
     }
 
     cx->during_notify = PR_TRUE;
-    (* cx->notify_proc)(cx->notify_arg, PR_FALSE, src, depth);
+    (*cx->notify_proc)(cx->notify_arg, PR_FALSE, src, depth);
     cx->during_notify = PR_FALSE;
 }
 
 
-static sec_asn1e_state *
-sec_asn1e_init_state_based_on_template(sec_asn1e_state *state)
+static sec_asn1e_state* sec_asn1e_init_state_based_on_template(sec_asn1e_state* state)
 {
     PRBool explicit, is_string, may_stream, optional, universal, ignore_stream;
     unsigned char tag_modifiers;
     unsigned long encode_kind, under_kind;
     unsigned long tag_number;
-#ifdef	__APPLE__
+#ifdef __APPLE__
     PRBool signedInt, dynamic;
 #endif
 
@@ -214,35 +205,34 @@ sec_asn1e_init_state_based_on_template(sec_asn1e_state *state)
     universal = ((encode_kind & SEC_ASN1_CLASS_MASK) == SEC_ASN1_UNIVERSAL) ? PR_TRUE : PR_FALSE;
 
     explicit = (encode_kind & SEC_ASN1_EXPLICIT) ? PR_TRUE : PR_FALSE;
-    encode_kind &= ~SEC_ASN1_EXPLICIT;
+    encode_kind &= (unsigned long)~SEC_ASN1_EXPLICIT;
 
     optional = (encode_kind & SEC_ASN1_OPTIONAL) ? PR_TRUE : PR_FALSE;
-    encode_kind &= ~SEC_ASN1_OPTIONAL;
+    encode_kind &= (unsigned long)~SEC_ASN1_OPTIONAL;
 
-    PORT_Assert(!(explicit && universal));	/* bad templates */
+    PORT_Assert(!(explicit && universal)); /* bad templates */
 
     may_stream = (encode_kind & SEC_ASN1_MAY_STREAM) ? PR_TRUE : PR_FALSE;
-    encode_kind &= ~SEC_ASN1_MAY_STREAM;
+    encode_kind &= (unsigned long)~SEC_ASN1_MAY_STREAM;
 
     ignore_stream = (encode_kind & SEC_ASN1_NO_STREAM) ? PR_TRUE : PR_FALSE;
-    encode_kind &= ~SEC_ASN1_NO_STREAM;
+    encode_kind &= (unsigned long)~SEC_ASN1_NO_STREAM;
 
-#ifdef	__APPLE__
+#ifdef __APPLE__
     signedInt = (encode_kind & SEC_ASN1_SIGNED_INT) ? PR_TRUE : PR_FALSE;
-    encode_kind &= ~SEC_ASN1_SIGNED_INT;
+    encode_kind &= (unsigned long)~SEC_ASN1_SIGNED_INT;
 #endif
 
-#ifdef	__APPLE__
+#ifdef __APPLE__
     dynamic = (encode_kind & SEC_ASN1_DYNAMIC) ? PR_TRUE : PR_FALSE;
 #endif
-    encode_kind &= ~SEC_ASN1_DYNAMIC;
+    encode_kind &= (unsigned long)~SEC_ASN1_DYNAMIC;
 
-    if( encode_kind & SEC_ASN1_CHOICE ) {
+    if (encode_kind & SEC_ASN1_CHOICE) {
         under_kind = SEC_ASN1_CHOICE;
-    } else if ((encode_kind & (SEC_ASN1_POINTER | SEC_ASN1_INLINE)) ||
-               (!universal && !explicit)) {
-        const SecAsn1Template *subt;
-        void *src = NULL;
+    } else if ((encode_kind & (SEC_ASN1_POINTER | SEC_ASN1_INLINE)) || (!universal && !explicit)) {
+        const SecAsn1Template* subt;
+        void* src = NULL;
 
         PORT_Assert((encode_kind & (SEC_ASN1_ANY | SEC_ASN1_SKIP)) == 0);
 
@@ -255,7 +245,7 @@ sec_asn1e_init_state_based_on_template(sec_asn1e_state *state)
              * probably copying what the decoder now checks for, and
              * adding a big comment here to explain what the checks mean.
              */
-            src = *(void **)state->src;
+            src = *(void**)state->src;
             state->place = afterPointer;
             if (src == NULL) {
                 /*
@@ -284,7 +274,8 @@ sec_asn1e_init_state_based_on_template(sec_asn1e_state *state)
                  * on to the next state in case this is a member of a
                  * SEQUENCE OF
                  */
-                state->tag_modifiers = (unsigned char)encode_kind & SEC_ASN1_TAG_MASK & ~SEC_ASN1_TAGNUM_MASK;
+                state->tag_modifiers =
+                    (unsigned char)encode_kind & SEC_ASN1_TAG_MASK & ~SEC_ASN1_TAGNUM_MASK;
                 state->tag_number = (unsigned char)encode_kind & SEC_ASN1_TAGNUM_MASK;
 
                 state->place = afterImplicit;
@@ -292,8 +283,8 @@ sec_asn1e_init_state_based_on_template(sec_asn1e_state *state)
             }
         }
 
-        subt = SEC_ASN1GetSubtemplate(state->theTemplate, state->src, PR_TRUE,
-                                      NULL /* __APPLE__ */, 0 /* __APPLE__ */);
+        subt = SEC_ASN1GetSubtemplate(
+            state->theTemplate, state->src, PR_TRUE, NULL /* __APPLE__ */, 0 /* __APPLE__ */);
         state = sec_asn1e_push_state(state->top, subt, src, PR_FALSE);
         if (state == NULL) {
             return NULL;
@@ -321,7 +312,7 @@ sec_asn1e_init_state_based_on_template(sec_asn1e_state *state)
             if (!ignore_stream) {
                 may_stream = PR_TRUE;
             }
-            under_kind &= ~SEC_ASN1_MAY_STREAM;
+            under_kind &= (unsigned long)~SEC_ASN1_MAY_STREAM;
         }
     } else {
         under_kind = encode_kind;
@@ -334,10 +325,9 @@ sec_asn1e_init_state_based_on_template(sec_asn1e_state *state)
      * XXX is this the right set of bits to test here? (i.e. need to add
      * or remove any?)
      */
-    PORT_Assert((under_kind & (/*SEC_ASN1_EXPLICIT | */SEC_ASN1_OPTIONAL
-                               | SEC_ASN1_SKIP | SEC_ASN1_INNER
-                               | SEC_ASN1_DYNAMIC | SEC_ASN1_MAY_STREAM
-                               | SEC_ASN1_INLINE | SEC_ASN1_POINTER)) == 0);
+    PORT_Assert((under_kind & (/*SEC_ASN1_EXPLICIT | */ SEC_ASN1_OPTIONAL | SEC_ASN1_SKIP |
+                               SEC_ASN1_INNER | SEC_ASN1_DYNAMIC | SEC_ASN1_MAY_STREAM |
+                               SEC_ASN1_INLINE | SEC_ASN1_POINTER)) == 0);
 
     if (encode_kind & SEC_ASN1_ANY) {
         PORT_Assert(encode_kind == under_kind);
@@ -353,7 +343,7 @@ sec_asn1e_init_state_based_on_template(sec_asn1e_state *state)
          * do not provide a way to specify more *tag* bits in encode_kind.
          */
 
-#ifdef	__APPLE__
+#ifdef __APPLE__
         /*
          * Apple change: if this is a DYNAMIC template, use the tag number
          * from the subtemplate's kind
@@ -362,9 +352,8 @@ sec_asn1e_init_state_based_on_template(sec_asn1e_state *state)
             tag_number = state->theTemplate->kind & SEC_ASN1_TAGNUM_MASK;
             explicit = (state->theTemplate->kind & SEC_ASN1_EXPLICIT) ? PR_TRUE : PR_FALSE;
             tag_modifiers |= (state->theTemplate->kind & SEC_ASN1_CONSTRUCTED);
-        }
-        else
-#endif	/* __APPLE__ */
+        } else
+#endif /* __APPLE__ */
             tag_number = encode_kind & SEC_ASN1_TAGNUM_MASK;
 
         is_string = PR_FALSE;
@@ -407,7 +396,7 @@ sec_asn1e_init_state_based_on_template(sec_asn1e_state *state)
     state->is_string = is_string;
     state->optional = optional;
     state->ignore_stream = ignore_stream;
-#ifdef	__APPLE__
+#ifdef __APPLE__
     state->signedInt = signedInt;
 #endif
 
@@ -417,15 +406,12 @@ sec_asn1e_init_state_based_on_template(sec_asn1e_state *state)
 }
 
 
-static void
-sec_asn1e_write_part(sec_asn1e_state *state,
-                     const char *buf, size_t len,
-                     SEC_ASN1EncodingPart part)
+static void sec_asn1e_write_part(sec_asn1e_state* state, const char* buf, size_t len, SEC_ASN1EncodingPart part)
 {
-    SEC_ASN1EncoderContext *cx;
+    SEC_ASN1EncoderContext* cx;
 
     cx = state->top;
-    (* cx->output_proc)(cx->output_arg, buf, len, state->depth, part);
+    (*cx->output_proc)(cx->output_arg, buf, len, state->depth, part);
 }
 
 
@@ -434,24 +420,23 @@ sec_asn1e_write_part(sec_asn1e_state *state,
  * the HIGH TAG form we would need to modify this interface and
  * teach it to properly encode the special form.
  */
-static void
-sec_asn1e_write_identifier_bytes(sec_asn1e_state *state, unsigned char value)
+static void sec_asn1e_write_identifier_bytes(sec_asn1e_state* state, unsigned char value)
 {
     char byte;
 
-    byte = (char) value;
+    byte = (char)value;
     sec_asn1e_write_part(state, &byte, 1, SEC_ASN1_Identifier);
 }
 
-int
-SEC_ASN1EncodeLength(unsigned char *buf,unsigned long value) {
-    int lenlen;
+unsigned long SEC_ASN1EncodeLength(unsigned char* buf, unsigned long value)
+{
+    unsigned long lenlen;
 
     lenlen = SEC_ASN1LengthLength(value);
     if (lenlen == 1) {
         buf[0] = value;
     } else {
-        int i;
+        unsigned long i;
 
         i = lenlen - 1;
         buf[0] = 0x80 | i;
@@ -464,11 +449,9 @@ SEC_ASN1EncodeLength(unsigned char *buf,unsigned long value) {
     return lenlen;
 }
 
-static void
-sec_asn1e_write_length_bytes(sec_asn1e_state *state, unsigned long value,
-                             PRBool indefinite)
+static void sec_asn1e_write_length_bytes(sec_asn1e_state* state, unsigned long value, PRBool indefinite)
 {
-    int lenlen;
+    unsigned long lenlen;
     unsigned char buf[sizeof(unsigned long) + 1];
 
     if (indefinite) {
@@ -476,37 +459,33 @@ sec_asn1e_write_length_bytes(sec_asn1e_state *state, unsigned long value,
         buf[0] = 0x80;
         lenlen = 1;
     } else {
-        lenlen = SEC_ASN1EncodeLength(buf,value);
+        lenlen = SEC_ASN1EncodeLength(buf, value);
     }
 
-    sec_asn1e_write_part(state, (char *) buf, lenlen, SEC_ASN1_Length);
+    sec_asn1e_write_part(state, (char*)buf, lenlen, SEC_ASN1_Length);
 }
 
 
-static void
-sec_asn1e_write_contents_bytes(sec_asn1e_state *state,
-                               const char *buf, unsigned long len)
+static void sec_asn1e_write_contents_bytes(sec_asn1e_state* state, const char* buf, unsigned long len)
 {
     sec_asn1e_write_part(state, buf, len, SEC_ASN1_Contents);
 }
 
 
-static void
-sec_asn1e_write_end_of_contents_bytes(sec_asn1e_state *state)
+static void sec_asn1e_write_end_of_contents_bytes(sec_asn1e_state* state)
 {
     const char eoc[2] = {0, 0};
 
     sec_asn1e_write_part(state, eoc, 2, SEC_ASN1_EndOfContents);
 }
 
-static int
-sec_asn1e_which_choice(void *src, const SecAsn1Template *theTemplate)
+static int sec_asn1e_which_choice(void* src, const SecAsn1Template* theTemplate)
 {
     int rv;
-    unsigned int which = *(unsigned int *)src;
+    unsigned int which = *(unsigned int*)src;
 
-    for( rv = 1, theTemplate++; theTemplate->kind != 0; rv++, theTemplate++ ) {
-        if( which == theTemplate->size ) {
+    for (rv = 1, theTemplate++; theTemplate->kind != 0; rv++, theTemplate++) {
+        if (which == theTemplate->size) {
             return rv;
         }
     }
@@ -514,15 +493,16 @@ sec_asn1e_which_choice(void *src, const SecAsn1Template *theTemplate)
     return 0;
 }
 
-static unsigned long
-sec_asn1e_contents_length(const SecAsn1Template *theTemplate, void *src,
-                          PRBool ignoresubstream, PRBool insideIndefinite,
-                          sec_asn1e_hdr_encoding *pHdrException)
+static unsigned long sec_asn1e_contents_length(const SecAsn1Template* theTemplate,
+                                               void* src,
+                                               PRBool ignoresubstream,
+                                               PRBool insideIndefinite,
+                                               sec_asn1e_hdr_encoding* pHdrException)
 {
     unsigned long encode_kind, underlying_kind;
     PRBool explicit, optional, universal, may_stream;
     unsigned long len;
-#ifdef	__APPLE__
+#ifdef __APPLE__
     PRBool signedInt;
 #endif
 
@@ -546,46 +526,44 @@ sec_asn1e_contents_length(const SecAsn1Template *theTemplate, void *src,
     universal = ((encode_kind & SEC_ASN1_CLASS_MASK) == SEC_ASN1_UNIVERSAL) ? PR_TRUE : PR_FALSE;
 
     explicit = (encode_kind & SEC_ASN1_EXPLICIT) ? PR_TRUE : PR_FALSE;
-    encode_kind &= ~SEC_ASN1_EXPLICIT;
+    encode_kind &= (unsigned long)~SEC_ASN1_EXPLICIT;
 
     optional = (encode_kind & SEC_ASN1_OPTIONAL) ? PR_TRUE : PR_FALSE;
-    encode_kind &= ~SEC_ASN1_OPTIONAL;
+    encode_kind &= (unsigned long)~SEC_ASN1_OPTIONAL;
 
-    PORT_Assert(!(explicit && universal));	/* bad templates */
+    PORT_Assert(!(explicit && universal)); /* bad templates */
 
     may_stream = (encode_kind & SEC_ASN1_MAY_STREAM) ? PR_TRUE : PR_FALSE;
-    encode_kind &= ~SEC_ASN1_MAY_STREAM;
+    encode_kind &= (unsigned long)~SEC_ASN1_MAY_STREAM;
 
     /* Just clear this to get it out of the way; we do not need it here */
-    encode_kind &= ~SEC_ASN1_DYNAMIC;
+    encode_kind &= (unsigned long)~SEC_ASN1_DYNAMIC;
 
     if (encode_kind & SEC_ASN1_NO_STREAM) {
         ignoresubstream = PR_TRUE;
     }
-    encode_kind &= ~SEC_ASN1_NO_STREAM;
+    encode_kind &= (unsigned long)~SEC_ASN1_NO_STREAM;
 
     if (encode_kind & SEC_ASN1_CHOICE) {
-        void *src2;
+        void* src2;
         int indx = sec_asn1e_which_choice(src, theTemplate);
-        if( 0 == indx ) {
+        if (0 == indx) {
             /* XXX set an error? "choice not found" */
             /* state->top->status = encodeError; */
             return 0;
         }
 
-        src2 = (void *)((char *)src - theTemplate->offset + theTemplate[indx].offset);
+        src2 = (void*)((char*)src - theTemplate->offset + theTemplate[indx].offset);
 
-        return sec_asn1e_contents_length(&theTemplate[indx], src2,
-                                         ignoresubstream, insideIndefinite,
-                                         pHdrException);
+        return sec_asn1e_contents_length(
+            &theTemplate[indx], src2, ignoresubstream, insideIndefinite, pHdrException);
     }
 
     if ((encode_kind & (SEC_ASN1_POINTER | SEC_ASN1_INLINE)) || !universal) {
-
         /* XXX any bits we want to disallow (PORT_Assert against) here? */
 
-        theTemplate = SEC_ASN1GetSubtemplate(theTemplate, src, PR_TRUE,
-                                             NULL /* __APPLE__ */, 0 /* __APPLE__ */);
+        theTemplate = SEC_ASN1GetSubtemplate(
+            theTemplate, src, PR_TRUE, NULL /* __APPLE__ */, 0 /* __APPLE__ */);
 
         if (encode_kind & SEC_ASN1_POINTER) {
             /*
@@ -597,21 +575,19 @@ sec_asn1e_contents_length(const SecAsn1Template *theTemplate, void *src,
              * just letting sec_asn1e_init_state_based_on_template
              * do it, since that routine can do better error handling, too.
              */
-            src = *(void **)src;
+            src = *(void**)src;
             if (src == NULL) {
                 *pHdrException = optional ? hdr_optional : hdr_normal;
                 return 0;
             }
         } else if (encode_kind & SEC_ASN1_INLINE) {
             /* check that there are no extraneous bits */
-            PORT_Assert (encode_kind == SEC_ASN1_INLINE && !optional);
+            PORT_Assert(encode_kind == SEC_ASN1_INLINE && !optional);
         }
 
-        src = (char *)src + theTemplate->offset;
+        src = (char*)src + theTemplate->offset;
 
-        len = sec_asn1e_contents_length(theTemplate, src,
-                                        ignoresubstream, insideIndefinite,
-                                        pHdrException);
+        len = sec_asn1e_contents_length(theTemplate, src, ignoresubstream, insideIndefinite, pHdrException);
         if (len == 0 && optional) {
             *pHdrException = hdr_optional;
         } else if (explicit) {
@@ -634,60 +610,58 @@ sec_asn1e_contents_length(const SecAsn1Template *theTemplate, void *src,
 
     underlying_kind = encode_kind;
 
-#ifdef	__APPLE__
-    signedInt = (underlying_kind & SEC_ASN1_SIGNED_INT) ?
-    PR_TRUE : PR_FALSE;
+#ifdef __APPLE__
+    signedInt = (underlying_kind & SEC_ASN1_SIGNED_INT) ? PR_TRUE : PR_FALSE;
 #endif
 
     /* This is only used in decoding; it plays no part in encoding.  */
     if (underlying_kind & SEC_ASN1_SAVE) {
         /* check that there are no extraneous bits */
-        PORT_Assert (underlying_kind == SEC_ASN1_SAVE);
+        PORT_Assert(underlying_kind == SEC_ASN1_SAVE);
         *pHdrException = hdr_decoder;
         return 0;
     }
 
     /* Having any of these bits is not expected here...  */
-    PORT_Assert ((underlying_kind & (SEC_ASN1_EXPLICIT | SEC_ASN1_OPTIONAL
-                                     | SEC_ASN1_INLINE | SEC_ASN1_POINTER
-                                     | SEC_ASN1_DYNAMIC | SEC_ASN1_MAY_STREAM
-                                     | SEC_ASN1_SAVE | SEC_ASN1_SKIP)) == 0);
+    PORT_Assert((underlying_kind & (SEC_ASN1_EXPLICIT | SEC_ASN1_OPTIONAL | SEC_ASN1_INLINE |
+                                    SEC_ASN1_POINTER | SEC_ASN1_DYNAMIC | SEC_ASN1_MAY_STREAM |
+                                    SEC_ASN1_SAVE | SEC_ASN1_SKIP)) == 0);
 
     if (underlying_kind & SEC_ASN1_CHOICE) {
-        void *src2;
+        void* src2;
         int indx = sec_asn1e_which_choice(src, theTemplate);
-        if( 0 == indx ) {
+        if (0 == indx) {
             /* XXX set an error? "choice not found" */
             /* state->top->status = encodeError; */
             return 0;
         }
 
-        src2 = (void *)((char *)src - theTemplate->offset + theTemplate[indx].offset);
-        len = sec_asn1e_contents_length(&theTemplate[indx], src2, ignoresubstream,
-                                        insideIndefinite, pHdrException);
+        src2 = (void*)((char*)src - theTemplate->offset + theTemplate[indx].offset);
+        len = sec_asn1e_contents_length(
+            &theTemplate[indx], src2, ignoresubstream, insideIndefinite, pHdrException);
     } else {
         switch (underlying_kind) {
             case SEC_ASN1_SEQUENCE_OF:
             case SEC_ASN1_SET_OF: {
-                const SecAsn1Template *tmpt;
-                void *sub_src;
+                const SecAsn1Template* tmpt;
+                void* sub_src;
                 unsigned long sub_len;
-                void **group;
+                void** group;
 
                 len = 0;
 
-                group = *(void ***)src;
+                group = *(void***)src;
                 if (group == NULL) {
                     break;
                 }
 
-                tmpt = SEC_ASN1GetSubtemplate(theTemplate, src, PR_TRUE,
-                                              NULL /* __APPLE__ */, 0 /* __APPLE__ */);
+                tmpt = SEC_ASN1GetSubtemplate(
+                    theTemplate, src, PR_TRUE, NULL /* __APPLE__ */, 0 /* __APPLE__ */);
 
                 for (; *group != NULL; group++) {
-                    sub_src = (char *)(*group) + tmpt->offset;
-                    sub_len = sec_asn1e_contents_length(tmpt, sub_src, ignoresubstream,
-                                                        insideIndefinite, pHdrException);
+                    sub_src = (char*)(*group) + tmpt->offset;
+                    sub_len = sec_asn1e_contents_length(
+                        tmpt, sub_src, ignoresubstream, insideIndefinite, pHdrException);
                     len += sub_len;
                     /*
                      * XXX The 1 below is the presumed length of the identifier;
@@ -697,35 +671,33 @@ sec_asn1e_contents_length(const SecAsn1Template *theTemplate, void *src,
                         len += 1 + SEC_ASN1LengthLength(sub_len);
                     }
                 }
-            }
-                break;
+            } break;
 
             case SEC_ASN1_SEQUENCE:
             case SEC_ASN1_SET: {
-                const SecAsn1Template *tmpt;
-                void *sub_src;
+                const SecAsn1Template* tmpt;
+                void* sub_src;
                 unsigned long sub_len;
 
                 len = 0;
                 for (tmpt = theTemplate + 1; tmpt->kind; tmpt++) {
-                    sub_src = (char *)src + tmpt->offset;
-                    sub_len = sec_asn1e_contents_length(tmpt, sub_src, ignoresubstream,
-                                                        insideIndefinite, pHdrException);
+                    sub_src = (char*)src + tmpt->offset;
+                    sub_len = sec_asn1e_contents_length(
+                        tmpt, sub_src, ignoresubstream, insideIndefinite, pHdrException);
                     len += sub_len;
                     /*
                      * XXX The 1 below is the presumed length of the identifier;
                      * to support a high-tag-number this would need to be smarter.
                      */
                     if (*pHdrException == hdr_normal) {
-                        len += 1 + SEC_ASN1LengthLength (sub_len);
+                        len += 1 + SEC_ASN1LengthLength(sub_len);
                     }
                 }
-            }
-                break;
+            } break;
 
             case SEC_ASN1_BIT_STRING:
                 /* convert bit length to byte */
-                len = (((SecAsn1Item *)src)->Length + 7) >> 3;
+                len = (((SecAsn1Item*)src)->Length + 7) >> 3;
                 /* bit string contents involve an extra octet */
                 if (len) {
                     len++;
@@ -737,21 +709,21 @@ sec_asn1e_contents_length(const SecAsn1Template *theTemplate, void *src,
                  * If the source is an unsigned integer, the encoder will need
                  * to handle the conversion here.
                  */
-                unsigned char *buf = ((SecAsn1Item *)src)->Data;
-#ifndef	__APPLE__
-                SecAsn1ItemType integerType = ((SecAsn1Item *)src)->type;
+                unsigned char* buf = ((SecAsn1Item*)src)->Data;
+#ifndef __APPLE__
+                SecAsn1ItemType integerType = ((SecAsn1Item*)src)->type;
 #endif
-                len = ((SecAsn1Item *)src)->Length;
+                len = ((SecAsn1Item*)src)->Length;
                 while (len > 0) {
                     if (*buf != 0) {
-#ifdef	__APPLE__
+#ifdef __APPLE__
                         if (*buf & 0x80 && !signedInt)
 #else
-                            if (*buf & 0x80 && integerType == siUnsignedInteger)
-#endif	// __APPLE__
-                            {
-                                len++; /* leading zero needed to make number signed */
-                            }
+                        if (*buf & 0x80 && integerType == siUnsignedInteger)
+#endif  // __APPLE__
+                        {
+                            len++; /* leading zero needed to make number signed */
+                        }
                         break; /* reached beginning of number */
                     }
                     if (len == 1) {
@@ -764,11 +736,10 @@ sec_asn1e_contents_length(const SecAsn1Template *theTemplate, void *src,
                     buf++;
                     len--;
                 }
-            }
-                break;
+            } break;
 
             default:
-                len = ((SecAsn1Item *)src)->Length;
+                len = ((SecAsn1Item*)src)->Length;
                 break;
         } /* end switch */
 
@@ -782,24 +753,24 @@ sec_asn1e_contents_length(const SecAsn1Template *theTemplate, void *src,
 
     if (len == 0 && optional)
         *pHdrException = hdr_optional;
-    else if (underlying_kind == SEC_ASN1_ANY)
+    else if (underlying_kind == SEC_ASN1_ANY) {
         *pHdrException = hdr_any;
-    else
+    } else {
         *pHdrException = hdr_normal;
+    }
 
     return len;
 }
 
 
-static void
-sec_asn1e_write_header(sec_asn1e_state *state)
+static void sec_asn1e_write_header(sec_asn1e_state* state)
 {
     unsigned long contents_length;
     unsigned char tag_number, tag_modifiers;
     sec_asn1e_hdr_encoding hdrException = hdr_normal;
     PRBool indefinite = PR_FALSE;
 
-    PORT_Assert (state->place == beforeHeader);
+    PORT_Assert(state->place == beforeHeader);
 
     tag_number = state->tag_number;
     tag_modifiers = state->tag_modifiers;
@@ -811,23 +782,22 @@ sec_asn1e_write_header(sec_asn1e_state *state)
 
     if (state->underlying_kind & SEC_ASN1_CHOICE) {
         int indx = sec_asn1e_which_choice(state->src, state->theTemplate);
-        if( 0 == indx ) {
+        if (0 == indx) {
             /* XXX set an error? "choice not found" */
             state->top->status = encodeError;
             return;
         }
 
         state->place = afterChoice;
-        state = sec_asn1e_push_state(state->top, &state->theTemplate[indx],
-                                     (char *)state->src - state->theTemplate->offset,
-                                     PR_TRUE);
+        state = sec_asn1e_push_state(
+            state->top, &state->theTemplate[indx], (char*)state->src - state->theTemplate->offset, PR_TRUE);
 
         if (state) {
             /*
              * Do the "before" field notification.
              */
-            sec_asn1e_notify_before (state->top, state->src, state->depth);
-            (void)sec_asn1e_init_state_based_on_template (state);
+            sec_asn1e_notify_before(state->top, state->src, state->depth);
+            (void)sec_asn1e_init_state_based_on_template(state);
         }
         return;
     }
@@ -848,23 +818,17 @@ sec_asn1e_write_header(sec_asn1e_state *state)
      *    a SAVE or some other kind of template used only by the decoder.
      * So, we call this function either way.
      */
-    contents_length = sec_asn1e_contents_length(state->theTemplate,
-                                                state->src,
-                                                state->ignore_stream,
-                                                indefinite,
-                                                &hdrException);
+    contents_length = sec_asn1e_contents_length(
+        state->theTemplate, state->src, state->ignore_stream, indefinite, &hdrException);
     /*
      * We might be told explicitly not to put out a header.
      * But it can also be the case, via a pushed subtemplate, that
      * sec_asn1e_contents_length could not know that this field is
      * really optional.  So check for that explicitly, too.
      */
-    if (hdrException != hdr_normal ||
-        (contents_length == 0 && state->optional)) {
+    if (hdrException != hdr_normal || (contents_length == 0 && state->optional)) {
         state->place = afterContents;
-        if (state->top->streaming &&
-            state->may_stream &&
-            state->top->from_buf) {
+        if (state->top->streaming && state->may_stream && state->top->from_buf) {
             /* we did not find an optional indefinite string, so we
              * don't encode it.  However, if TakeFromBuf is on, we stop
              * here anyway to give our caller a chance to intercept at the
@@ -883,10 +847,8 @@ sec_asn1e_write_header(sec_asn1e_state *state)
          * or that it is not universal (e.g. context-specific).
          */
         state->indefinite = PR_TRUE;
-        PORT_Assert ((tag_number == SEC_ASN1_SET)
-                     || (tag_number == SEC_ASN1_SEQUENCE)
-                     || ((tag_modifiers & SEC_ASN1_CLASS_MASK) != 0)
-                     || state->is_string);
+        PORT_Assert((tag_number == SEC_ASN1_SET) || (tag_number == SEC_ASN1_SEQUENCE) ||
+                    ((tag_modifiers & SEC_ASN1_CLASS_MASK) != 0) || state->is_string);
         tag_modifiers |= SEC_ASN1_CONSTRUCTED;
         contents_length = 0;
     }
@@ -908,8 +870,8 @@ sec_asn1e_write_header(sec_asn1e_state *state)
      */
     if (state->explicit) {
         state->place = afterContents;
-        const SecAsn1Template *subt = SEC_ASN1GetSubtemplate(state->theTemplate, state->src, PR_TRUE,
-                                                             NULL /* __APPLE__ */, 0 /* __APPLE__ */);
+        const SecAsn1Template* subt = SEC_ASN1GetSubtemplate(
+            state->theTemplate, state->src, PR_TRUE, NULL /* __APPLE__ */, 0 /* __APPLE__ */);
         state = sec_asn1e_push_state(state->top, subt, state->src, PR_TRUE);
         if (state != NULL) {
             (void)sec_asn1e_init_state_based_on_template(state);
@@ -923,10 +885,10 @@ sec_asn1e_write_header(sec_asn1e_state *state)
             /*
              * We need to push a child to handle each member.
              */
-            void **group;
-            const SecAsn1Template *subt;
+            void** group;
+            const SecAsn1Template* subt;
 
-            group = *(void ***)state->src;
+            group = *(void***)state->src;
             if (group == NULL || *group == NULL) {
                 /*
                  * Group is empty; we are done.
@@ -935,14 +897,13 @@ sec_asn1e_write_header(sec_asn1e_state *state)
                 return;
             }
             state->place = duringGroup;
-            subt = SEC_ASN1GetSubtemplate(state->theTemplate, state->src,
-                                          PR_TRUE, NULL /* __APPLE__ */, 0 /* __APPLE__ */);
+            subt = SEC_ASN1GetSubtemplate(
+                state->theTemplate, state->src, PR_TRUE, NULL /* __APPLE__ */, 0 /* __APPLE__ */);
             state = sec_asn1e_push_state(state->top, subt, *group, PR_TRUE);
             if (state != NULL) {
                 (void)sec_asn1e_init_state_based_on_template(state);
             }
-        }
-            break;
+        } break;
 
         case SEC_ASN1_SEQUENCE:
         case SEC_ASN1_SET:
@@ -950,8 +911,7 @@ sec_asn1e_write_header(sec_asn1e_state *state)
              * We need to push a child to handle the individual fields.
              */
             state->place = duringSequence;
-            state = sec_asn1e_push_state(state->top, state->theTemplate + 1,
-                                         state->src, PR_TRUE);
+            state = sec_asn1e_push_state(state->top, state->theTemplate + 1, state->src, PR_TRUE);
             if (state != NULL) {
                 /*
                  * Do the "before" field notification.
@@ -972,9 +932,7 @@ sec_asn1e_write_header(sec_asn1e_state *state)
 }
 
 
-static void
-sec_asn1e_write_contents_from_buf(sec_asn1e_state *state,
-                                  const char *buf, unsigned long len)
+static void sec_asn1e_write_contents_from_buf(sec_asn1e_state* state, const char* buf, unsigned long len)
 {
     PORT_Assert(state->place == duringContents);
     PORT_Assert(state->top->from_buf);
@@ -997,7 +955,7 @@ sec_asn1e_write_contents_from_buf(sec_asn1e_state *state,
      * out as is (our caller is required to ensure that it
      * is a properly encoded entity).
      */
-    PORT_Assert(state->is_string);		/* includes ANY */
+    PORT_Assert(state->is_string); /* includes ANY */
     if (state->underlying_kind != SEC_ASN1_ANY) {
         unsigned char identifier;
 
@@ -1042,8 +1000,7 @@ sec_asn1e_write_contents_from_buf(sec_asn1e_state *state,
     state->top->status = needBytes;
 }
 
-static void
-sec_asn1e_write_contents(sec_asn1e_state *state)
+static void sec_asn1e_write_contents(sec_asn1e_state* state)
 {
     unsigned long len = 0;
 
@@ -1051,25 +1008,24 @@ sec_asn1e_write_contents(sec_asn1e_state *state)
     switch (state->underlying_kind) {
         case SEC_ASN1_SET:
         case SEC_ASN1_SEQUENCE:
-            PORT_Assert (0);
+            PORT_Assert(0);
             break;
 
         case SEC_ASN1_BIT_STRING: {
-            SecAsn1Item *item;
+            SecAsn1Item* item;
             char rem;
 
-            item = (SecAsn1Item *)state->src;
+            item = (SecAsn1Item*)state->src;
             len = (item->Length + 7) >> 3;
-            rem = (unsigned char)((len << 3) - item->Length);	/* remaining bits */
+            rem = (char)((len << 3) - item->Length); /* remaining bits */
             sec_asn1e_write_contents_bytes(state, &rem, 1);
-            sec_asn1e_write_contents_bytes(state, (char *) item->Data, len);
-        }
-            break;
+            sec_asn1e_write_contents_bytes(state, (char*)item->Data, len);
+        } break;
 
         case SEC_ASN1_BMP_STRING:
             /* The number of bytes must be divisable by 2 */
-            if ((((SecAsn1Item *)state->src)->Length) % 2) {
-                SEC_ASN1EncoderContext *cx;
+            if ((((SecAsn1Item*)state->src)->Length) % 2) {
+                SEC_ASN1EncoderContext* cx;
 
                 cx = state->top;
                 cx->status = encodeError;
@@ -1080,8 +1036,8 @@ sec_asn1e_write_contents(sec_asn1e_state *state)
 
         case SEC_ASN1_UNIVERSAL_STRING:
             /* The number of bytes must be divisable by 4 */
-            if ((((SecAsn1Item *)state->src)->Length) % 4) {
-                SEC_ASN1EncoderContext *cx;
+            if ((((SecAsn1Item*)state->src)->Length) % 4) {
+                SEC_ASN1EncoderContext* cx;
 
                 cx = state->top;
                 cx->status = encodeError;
@@ -1095,42 +1051,41 @@ sec_asn1e_write_contents(sec_asn1e_state *state)
              * integer, the encoder will need to handle the conversion here.
              */
             size_t blen;
-            unsigned char *intbuf;
-#ifdef	__APPLE__
+            unsigned char* intbuf;
+#ifdef __APPLE__
             PRBool signedInt = state->signedInt;
 #else
-            SECItemType integerType = ((SecAsn1Item *)state->src)->type;
+            SECItemType integerType = ((SecAsn1Item*)state->src)->type;
 #endif
-            blen = ((SecAsn1Item *)state->src)->Length;
-            intbuf = ((SecAsn1Item *)state->src)->Data;
+            blen = ((SecAsn1Item*)state->src)->Length;
+            intbuf = ((SecAsn1Item*)state->src)->Data;
             while (blen > 0) {
-#ifdef	__APPLE__
+#ifdef __APPLE__
                 if (*intbuf & 0x80 && !signedInt)
 #else
-                    if (*intbuf & 0x80 && integerType == siUnsignedInteger)
+                if (*intbuf & 0x80 && integerType == siUnsignedInteger)
 #endif
-                    {
-                        char zero = 0; /* write a leading 0 */
-                        sec_asn1e_write_contents_bytes(state, &zero, 1);
-                        /* and then the remaining buffer */
-                        sec_asn1e_write_contents_bytes(state, (char *)intbuf, blen);
-                        break;
-                    }
+                {
+                    char zero = 0; /* write a leading 0 */
+                    sec_asn1e_write_contents_bytes(state, &zero, 1);
+                    /* and then the remaining buffer */
+                    sec_asn1e_write_contents_bytes(state, (char*)intbuf, blen);
+                    break;
+                }
                 /* Check three possibilities:
                  * 1.  No leading zeros, msb of MSB is not 1;
                  * 2.  The number is zero itself;
                  * 3.  Encoding a signed integer with a leading zero,
                  *     keep the zero so that the number is positive.
                  */
-                if (*intbuf != 0 ||
-                    blen == 1 ||
-#ifdef	__APPLE__
-                    (intbuf[1] & 0x80 && signedInt) )
+                if (*intbuf != 0 || blen == 1 ||
+#ifdef __APPLE__
+                    (intbuf[1] & 0x80 && signedInt))
 #else
-                    (intbuf[1] & 0x80 && integerType != siUnsignedInteger) )
+                    (intbuf[1] & 0x80 && integerType != siUnsignedInteger))
 #endif
                 {
-                    sec_asn1e_write_contents_bytes(state, (char *)intbuf, blen);
+                    sec_asn1e_write_contents_bytes(state, (char*)intbuf, blen);
                     break;
                 }
                 /* byte is 0, continue */
@@ -1138,18 +1093,16 @@ sec_asn1e_write_contents(sec_asn1e_state *state)
                 blen--;
             }
         }
-            /* done with this content */
-            break;
+        /* done with this content */
+        break;
 
         process_string:
-        default:
-        {
-            SecAsn1Item *item;
+        default: {
+            SecAsn1Item* item;
 
-            item = (SecAsn1Item *)state->src;
-            sec_asn1e_write_contents_bytes(state, (char *) item->Data, item->Length);
-        }
-            break;
+            item = (SecAsn1Item*)state->src;
+            sec_asn1e_write_contents_bytes(state, (char*)item->Data, item->Length);
+        } break;
     }
     state->place = afterContents;
 }
@@ -1158,24 +1111,23 @@ sec_asn1e_write_contents(sec_asn1e_state *state)
 /*
  * We are doing a SET OF or SEQUENCE OF, and have just finished an item.
  */
-static void
-sec_asn1e_next_in_group(sec_asn1e_state *state)
+static void sec_asn1e_next_in_group(sec_asn1e_state* state)
 {
-    sec_asn1e_state *child;
-    void **group;
-    void *member;
+    sec_asn1e_state* child;
+    void** group;
+    void* member;
 
     PORT_Assert(state->place == duringGroup);
     PORT_Assert(state->child != NULL);
 
     child = state->child;
 
-    group = *(void ***)state->src;
+    group = *(void***)state->src;
 
     /*
      * Find placement of current item.
      */
-    member = (char *)(state->child->src) - child->theTemplate->offset;
+    member = (char*)(state->child->src) - child->theTemplate->offset;
     while (*group != member) {
         group++;
     }
@@ -1192,7 +1144,7 @@ sec_asn1e_next_in_group(sec_asn1e_state *state)
         state->place = afterContents;
         return;
     }
-    child->src = (char *)(*group) + child->theTemplate->offset;
+    child->src = (char*)(*group) + child->theTemplate->offset;
 
     /*
      * Re-"push" child.
@@ -1206,10 +1158,9 @@ sec_asn1e_next_in_group(sec_asn1e_state *state)
  * We are moving along through a sequence; move forward by one,
  * (detecting end-of-sequence when it happens).
  */
-static void
-sec_asn1e_next_in_sequence(sec_asn1e_state *state)
+static void sec_asn1e_next_in_sequence(sec_asn1e_state* state)
 {
-    sec_asn1e_state *child;
+    sec_asn1e_state* child;
 
     PORT_Assert(state->place == duringSequence);
     PORT_Assert(state->child != NULL);
@@ -1238,7 +1189,7 @@ sec_asn1e_next_in_sequence(sec_asn1e_state *state)
      * Reset state and push.
      */
 
-    child->src = (char *)state->src + child->theTemplate->offset;
+    child->src = (char*)state->src + child->theTemplate->offset;
 
     /*
      * Do the "before" field notification.
@@ -1250,8 +1201,7 @@ sec_asn1e_next_in_sequence(sec_asn1e_state *state)
 }
 
 
-static void
-sec_asn1e_after_contents (sec_asn1e_state *state)
+static void sec_asn1e_after_contents(sec_asn1e_state* state)
 {
     PORT_Assert(state->place == afterContents);
 
@@ -1278,11 +1228,9 @@ sec_asn1e_after_contents (sec_asn1e_state *state)
  * more bytes or after our caller has instructed us that we are done
  * (for now) with the buffer.
  */
-SECStatus
-SEC_ASN1EncoderUpdate(SEC_ASN1EncoderContext *cx,
-                      const char *buf, unsigned long len)
+SECStatus SEC_ASN1EncoderUpdate(SEC_ASN1EncoderContext* cx, const char* buf, unsigned long len)
 {
-    sec_asn1e_state *state;
+    sec_asn1e_state* state;
 
     if (cx->status == needBytes) {
         PORT_Assert(buf != NULL && len != 0);
@@ -1351,8 +1299,7 @@ SEC_ASN1EncoderUpdate(SEC_ASN1EncoderContext *cx,
 }
 
 
-void
-SEC_ASN1EncoderFinish(SEC_ASN1EncoderContext *cx)
+void SEC_ASN1EncoderFinish(SEC_ASN1EncoderContext* cx)
 {
     /*
      * XXX anything else that needs to be finished?
@@ -1362,12 +1309,13 @@ SEC_ASN1EncoderFinish(SEC_ASN1EncoderContext *cx)
 }
 
 
-SEC_ASN1EncoderContext *
-SEC_ASN1EncoderStart(const void *src, const SecAsn1Template *theTemplate,
-                     SEC_ASN1WriteProc output_proc, void *output_arg)
+SEC_ASN1EncoderContext* SEC_ASN1EncoderStart(const void* src,
+                                             const SecAsn1Template* theTemplate,
+                                             SEC_ASN1WriteProc output_proc,
+                                             void* output_arg)
 {
-    PRArenaPool *our_pool;
-    SEC_ASN1EncoderContext *cx;
+    PRArenaPool* our_pool;
+    SEC_ASN1EncoderContext* cx;
 
     our_pool = PORT_NewArena(SEC_ASN1_DEFAULT_ARENA_SIZE);
     if (our_pool == NULL) {
@@ -1386,13 +1334,13 @@ SEC_ASN1EncoderStart(const void *src, const SecAsn1Template *theTemplate,
 
     cx->status = keepGoing;
 
-    if (sec_asn1e_push_state(cx, theTemplate, src, PR_FALSE) == NULL
-        || sec_asn1e_init_state_based_on_template(cx->current) == NULL) {
+    if (sec_asn1e_push_state(cx, theTemplate, src, PR_FALSE) == NULL ||
+        sec_asn1e_init_state_based_on_template(cx->current) == NULL) {
         /*
          * Trouble initializing (probably due to failed allocations)
          * requires that we just give up.
          */
-        PORT_FreeArena (our_pool,PR_FALSE);
+        PORT_FreeArena(our_pool, PR_FALSE);
         return NULL;
     }
 
@@ -1405,25 +1353,21 @@ SEC_ASN1EncoderStart(const void *src, const SecAsn1Template *theTemplate,
  */
 
 
-void
-SEC_ASN1EncoderSetNotifyProc(SEC_ASN1EncoderContext *cx,
-                             SEC_ASN1NotifyProc fn, void *arg)
+void SEC_ASN1EncoderSetNotifyProc(SEC_ASN1EncoderContext* cx, SEC_ASN1NotifyProc fn, void* arg)
 {
     cx->notify_proc = fn;
     cx->notify_arg = arg;
 }
 
 
-void
-SEC_ASN1EncoderClearNotifyProc(SEC_ASN1EncoderContext *cx)
+void SEC_ASN1EncoderClearNotifyProc(SEC_ASN1EncoderContext* cx)
 {
     cx->notify_proc = NULL;
-    cx->notify_arg = NULL;	/* not necessary; just being clean */
+    cx->notify_arg = NULL; /* not necessary; just being clean */
 }
 
 
-void
-SEC_ASN1EncoderAbort(SEC_ASN1EncoderContext *cx, int error)
+void SEC_ASN1EncoderAbort(SEC_ASN1EncoderContext* cx, int error)
 {
     PORT_Assert(cx);
     PORT_SetError(error);
@@ -1431,8 +1375,7 @@ SEC_ASN1EncoderAbort(SEC_ASN1EncoderContext *cx, int error)
 }
 
 
-void
-SEC_ASN1EncoderSetStreaming(SEC_ASN1EncoderContext *cx)
+void SEC_ASN1EncoderSetStreaming(SEC_ASN1EncoderContext* cx)
 {
     /* XXX is there a way to check that we are "between" fields here? */
 
@@ -1440,8 +1383,7 @@ SEC_ASN1EncoderSetStreaming(SEC_ASN1EncoderContext *cx)
 }
 
 
-void
-SEC_ASN1EncoderClearStreaming(SEC_ASN1EncoderContext *cx)
+void SEC_ASN1EncoderClearStreaming(SEC_ASN1EncoderContext* cx)
 {
     /* XXX is there a way to check that we are "between" fields here? */
 
@@ -1449,8 +1391,7 @@ SEC_ASN1EncoderClearStreaming(SEC_ASN1EncoderContext *cx)
 }
 
 
-void
-SEC_ASN1EncoderSetTakeFromBuf(SEC_ASN1EncoderContext *cx)
+void SEC_ASN1EncoderSetTakeFromBuf(SEC_ASN1EncoderContext* cx)
 {
     /*
      * XXX is there a way to check that we are "between" fields here?  this
@@ -1462,12 +1403,11 @@ SEC_ASN1EncoderSetTakeFromBuf(SEC_ASN1EncoderContext *cx)
 }
 
 
-void
-SEC_ASN1EncoderClearTakeFromBuf(SEC_ASN1EncoderContext *cx)
+void SEC_ASN1EncoderClearTakeFromBuf(SEC_ASN1EncoderContext* cx)
 {
     /* we should actually be taking from buf *now* */
-    PORT_Assert (cx->from_buf);
-    if (! cx->from_buf)	{	/* if not, just do nothing */
+    PORT_Assert(cx->from_buf);
+    if (!cx->from_buf) { /* if not, just do nothing */
         return;
     }
 
@@ -1480,11 +1420,12 @@ SEC_ASN1EncoderClearTakeFromBuf(SEC_ASN1EncoderContext *cx)
 }
 
 
-SECStatus
-SEC_ASN1Encode(const void *src, const SecAsn1Template *theTemplate,
-               SEC_ASN1WriteProc output_proc, void *output_arg)
+SECStatus SEC_ASN1Encode(const void* src,
+                         const SecAsn1Template* theTemplate,
+                         SEC_ASN1WriteProc output_proc,
+                         void* output_arg)
 {
-    SEC_ASN1EncoderContext *ecx;
+    SEC_ASN1EncoderContext* ecx;
     SECStatus rv;
 
     ecx = SEC_ASN1EncoderStart(src, theTemplate, output_proc, output_arg);
@@ -1503,11 +1444,9 @@ SEC_ASN1Encode(const void *src, const SecAsn1Template *theTemplate,
  * XXX depth and data_kind are unused; is there a PC way to silence warnings?
  * (I mean "politically correct", not anything to do with intel/win platform)
  */
-void
-sec_asn1e_encode_item_count(void *arg, const char *buf, size_t len,
-                            int depth, SEC_ASN1EncodingPart data_kind)
+void sec_asn1e_encode_item_count(void* arg, const char* buf, size_t len, int depth, SEC_ASN1EncodingPart data_kind)
 {
-    size_t *count;
+    size_t* count;
 
     count = (unsigned long*)arg;
     PORT_Assert(count != NULL);
@@ -1517,11 +1456,9 @@ sec_asn1e_encode_item_count(void *arg, const char *buf, size_t len,
 
 
 /* XXX depth and data_kind are unused; is there a PC way to silence warnings? */
-void
-sec_asn1e_encode_item_store(void *arg, const char *buf, size_t len,
-                            int depth, SEC_ASN1EncodingPart data_kind)
+void sec_asn1e_encode_item_store(void* arg, const char* buf, size_t len, int depth, SEC_ASN1EncodingPart data_kind)
 {
-    SecAsn1Item *dest;
+    SecAsn1Item* dest;
 
     dest = (SecAsn1Item*)arg;
     PORT_Assert(dest != NULL);
@@ -1540,11 +1477,10 @@ sec_asn1e_encode_item_store(void *arg, const char *buf, size_t len,
  *
  * XXX This seems like a reasonable general-purpose function (for SECITEM_)?
  */
-SecAsn1Item *
-sec_asn1e_allocate_item(PRArenaPool *poolp, SecAsn1Item *dest, unsigned long len)
+SecAsn1Item* sec_asn1e_allocate_item(PRArenaPool* poolp, SecAsn1Item* dest, unsigned long len)
 {
     if (poolp != NULL) {
-        void *release;
+        void* release;
 
         release = PORT_ArenaMark(poolp);
         if (dest == NULL) {
@@ -1564,14 +1500,14 @@ sec_asn1e_allocate_item(PRArenaPool *poolp, SecAsn1Item *dest, unsigned long len
             PORT_ArenaUnmark(poolp, release);
         }
     } else {
-        SecAsn1Item *indest;
+        SecAsn1Item* indest;
 
         indest = dest;
         if (dest == NULL) {
             dest = (SecAsn1Item*)PORT_Alloc(sizeof(SecAsn1Item));
         }
         if (dest != NULL) {
-#ifndef	__APPLE__
+#ifndef __APPLE__
             dest->type = siBuffer;
 #endif
             dest->Data = (unsigned char*)PORT_Alloc(len);
@@ -1588,9 +1524,7 @@ sec_asn1e_allocate_item(PRArenaPool *poolp, SecAsn1Item *dest, unsigned long len
 }
 
 
-SecAsn1Item *
-SEC_ASN1EncodeItem(PRArenaPool *poolp, SecAsn1Item *dest, const void *src,
-                   const SecAsn1Template *theTemplate)
+SecAsn1Item* SEC_ASN1EncodeItem(PRArenaPool* poolp, SecAsn1Item* dest, const void* src, const SecAsn1Template* theTemplate)
 {
     unsigned long encoding_length;
     SECStatus rv;
@@ -1598,8 +1532,7 @@ SEC_ASN1EncodeItem(PRArenaPool *poolp, SecAsn1Item *dest, const void *src,
     PORT_Assert(dest == NULL || dest->Data == NULL);
 
     encoding_length = 0;
-    rv = SEC_ASN1Encode(src, theTemplate,
-                        sec_asn1e_encode_item_count, &encoding_length);
+    rv = SEC_ASN1Encode(src, theTemplate, sec_asn1e_encode_item_count, &encoding_length);
     if (rv != SECSuccess) {
         return NULL;
     }
@@ -1623,13 +1556,11 @@ SEC_ASN1EncodeItem(PRArenaPool *poolp, SecAsn1Item *dest, const void *src,
 }
 
 
-static SecAsn1Item *
-sec_asn1e_integer(PRArenaPool *poolp, SecAsn1Item *dest, unsigned long value,
-                  PRBool make_unsigned)
+static SecAsn1Item* sec_asn1e_integer(PRArenaPool* poolp, SecAsn1Item* dest, unsigned long value, PRBool make_unsigned)
 {
     unsigned long copy;
     unsigned char sign;
-    int len = 0;
+    unsigned long len = 0;
 
     /*
      * Determine the length of the encoded value (minimum of 1).
@@ -1672,16 +1603,13 @@ sec_asn1e_integer(PRArenaPool *poolp, SecAsn1Item *dest, unsigned long value,
 }
 
 
-SecAsn1Item *
-SEC_ASN1EncodeInteger(PRArenaPool *poolp, SecAsn1Item *dest, long value)
+SecAsn1Item* SEC_ASN1EncodeInteger(PRArenaPool* poolp, SecAsn1Item* dest, long value)
 {
-    return sec_asn1e_integer(poolp, dest, (unsigned long) value, PR_FALSE);
+    return sec_asn1e_integer(poolp, dest, (unsigned long)value, PR_FALSE);
 }
 
 
-extern SecAsn1Item *
-SEC_ASN1EncodeUnsignedInteger(PRArenaPool *poolp,
-                              SecAsn1Item *dest, unsigned long value)
+extern SecAsn1Item* SEC_ASN1EncodeUnsignedInteger(PRArenaPool* poolp, SecAsn1Item* dest, unsigned long value)
 {
     return sec_asn1e_integer(poolp, dest, value, PR_TRUE);
 }

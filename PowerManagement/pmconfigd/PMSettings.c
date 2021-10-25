@@ -296,7 +296,7 @@ __private_extern__ void saveAlarmInfo(CFDictionaryRef info)
     CFPreferencesSynchronize(CFSTR(kIOPMCFPrefsPath), kCFPreferencesAnyUser, kCFPreferencesCurrentHost);
 }
 
-__private_extern__ CFDictionaryRef copyAlarmInfo()
+__private_extern__ CFDictionaryRef copyAlarmInfo(void)
 {
     return CFPreferencesCopyValue(kAlarmDataKey, CFSTR(kIOPMCFPrefsPath), kCFPreferencesAnyUser, kCFPreferencesCurrentHost);
 }
@@ -913,16 +913,6 @@ static void sendEnergySettingsToKernel(
             CFRelease(num);
         }
     }
-
-    // ProModeControl
-    if( !removeUnsupportedSettings
-       || IOPMFeatureIsAvailableWithSupportedTable(CFSTR(kIOPMFeatureProModeKey), providing_power, _supportedCached))
-    {
-		CFNumberRef modeNum;
-		if ((modeNum = CFDictionaryGetValue(useSettings, CFSTR(kIOPMProModeKey))) && isA_CFNumber(modeNum)) {
-				IORegistryEntrySetCFProperty(PMRootDomain, CFSTR(kIOPMSettingProModeControl), modeNum);
-			}
-	}
 
     if ( !_platformSleepServiceSupport && !_platformBackgroundTaskSupport)
     {
@@ -1650,7 +1640,7 @@ exit:
  * This function merges old SC based prefs on disk and new CF based prefs
  * on disk and saves them to disk
  */
-void migrateSCPrefs()
+void migrateSCPrefs(void)
 {
     CFDictionaryRef         oldPrefs = NULL;
     CFMutableDictionaryRef  mergedPrefs = NULL;

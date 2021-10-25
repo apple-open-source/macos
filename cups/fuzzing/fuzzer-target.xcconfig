@@ -1,0 +1,12 @@
+//
+//  fuzzer-target.xcconfig
+//  cups_fuzzing
+//
+//  Created by steve on 3/10/21.
+//
+
+// Configuration settings file format documentation can be found at:
+// https://help.apple.com/xcode/#/dev745c5c974
+
+OTHER_CFLAGS = $(inherited) -D_FUZZING -fsanitize=address,undefined,fuzzer
+OTHER_LDFLAGS = $(inherited) -fsanitize=address,undefined,fuzzer

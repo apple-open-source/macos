@@ -61,7 +61,7 @@ enum {
 uint32_t gClamshellState = kPMClamshellUnknown;
 IOPMAssertionID gDisplayOnAssertionID = kIOPMNullAssertionID;
 IOPMAssertionID gLidOpenAssertionID = kIOPMNullAssertionID;
-CFMutableDictionaryRef    gAssertionDescription = NULL;
+IOPMAssertionID gSLInitializeAssertionID = kIOPMNullAssertionID;
 SLSDisplayPowerControlClient *gSLPowerClient = nil;
 
 struct request_entry {
@@ -89,24 +89,24 @@ uint32_t xctGetClamshellState() {
 // list for storing display requests to WindowServer
 STAILQ_HEAD( , request_entry) gRequestUUIDs = STAILQ_HEAD_INITIALIZER(gRequestUUIDs);
 
-__private_extern__ void dimDisplay()
+__private_extern__ void dimDisplay(void)
 {
     requestDisplayState(kDisplaysDim, -1);
 }
 
-__private_extern__ void unblankDisplay()
+__private_extern__ void unblankDisplay(void)
 {
     requestDisplayState(kDisplaysUnblank, -1);
 }
 
-__private_extern__ void blankDisplay()
+__private_extern__ void blankDisplay(void)
 {
     // turn off display with dim timer set to 0
     // called during software sleep
     requestDisplayState(kDisplaysDim, 0);
 }
 
-__private_extern__ bool canSustainFullWake()
+__private_extern__ bool canSustainFullWake(void)
 {
     if (isEmergencySleep()) {
         INFO_LOG("Cannot sustain full wake due to emergency sleep");
@@ -177,17 +177,17 @@ __private_extern__ void skylightCheckIn(xpc_object_t connection, xpc_object_t ms
 }
 #endif
 
-__private_extern__ bool skylightDisplayOn()
+__private_extern__ bool skylightDisplayOn(void)
 {
     return gDisplayOn;
 }
 
-__private_extern__ bool isDesktopMode()
+__private_extern__ bool isDesktopMode(void)
 {
     return gDesktopMode;
 }
 
-__private_extern__ void evaluateClamshellSleepState()
+__private_extern__ void evaluateClamshellSleepState(void)
 {
     dispatch_async(_getPMMainQueue(), ^{
         setClamshellSleepState();
@@ -218,7 +218,7 @@ __private_extern__ void updateClamshellState(void *message)
     INFO_LOG("ClamshellState. Closed : %u. ClamshellSleepState: isSleepDisabled : %d\n", closed, getClamshellSleepState());
 }
 
-__private_extern__ uint64_t inFlightDimRequest()
+__private_extern__ uint64_t inFlightDimRequest(void)
 {
     return gDimRequest;
 }
@@ -233,7 +233,7 @@ __private_extern__ void resetDisplayState()
 }
 
 #if (TARGET_OS_OSX && TARGET_CPU_ARM64)
-void handleDesktopMode()
+void handleDesktopMode(void)
 {
     INFO_LOG("EvaluateClamshellSleepState on DesktopMode update");
     evaluateClamshellSleepState();
@@ -336,8 +336,8 @@ void handleSkylightNotification(void *dict)
 
                             // take a UserIsActive assertion if display is on
                             if (state == kDisplaysPowered) {
-                                IOPMAssertionID assertionID = kIOPMNullAssertionID;
-                                InternalDeclareUserActive(CFSTR("com.apple.powerd.ws.initialize"), &assertionID);
+                                gSLInitializeAssertionID = kIOPMNullAssertionID;
+                                InternalDeclareUserActive(CFSTR("com.apple.powerd.ws.initialize"), &gSLInitializeAssertionID);
                             }
                         }
                     }
@@ -377,8 +377,25 @@ void handleSkylightNotification(void *dict)
             break;
             
         case kSLDCNotificationTypeStateBroadcast:
-            // broadcast notification. We dont need it. Just log it
+            // broadcast notification
             INFO_LOG("Recevied broadcast notification");
+            if (payload_type == kSLDCNotificationPayloadTypeArray) {
+                // payload. The second element is the logical display state
+                NSArray *payload = (NSArray *)ns_dict[kSLSDisplayControlNotificationPayload];
+                if (payload) {
+                    // iterate through payload to find LogcalDisplayState
+                    int i = 0;
+                    for (i = 0; i < [payload count]; i++) {
+                        if (payload[i][kSLSDisplayControlNotificationLogicalDisplaysState]) {
+                            uint64_t state = [payload[i][kSLSDisplayControlNotificationLogicalDisplaysState] longLongValue];
+                            if (state == kDisplaysUnpowered || state == kDisplaysPowered) {
+                                // ignore dim state
+                                displayStateDidChange(state);
+                            }
+                        }
+                    }
+                }
+            }
             break;
             
         case kSLDCNotificationTypeIdleRequest:
@@ -402,7 +419,7 @@ void handleSkylightNotification(void *dict)
 }
 
 #if (TARGET_OS_OSX && TARGET_CPU_ARM64)
-void handleSkylightCheckIn()
+void handleSkylightCheckIn(void)
 {
     // monitor gSLPid for process exit
     if (!gSLExit) {
@@ -524,22 +541,21 @@ void requestClamshellState(SLSClamshellState state)
     }
 }
 
-void createProxyAssertion()
+void createProxyAssertion(void)
 {
-    if (!gAssertionDescription) {
-        gAssertionDescription = _IOPMAssertionDescriptionCreate(
-                        kIOPMAssertionTypePreventUserIdleSystemSleep,
-                        CFSTR("Powerd - Prevent sleep while display is on"),
-                        NULL, NULL, NULL,
-                        0, 0);
-    }
     if (gDisplayOnAssertionID == kIOPMNullAssertionID) {
+        CFMutableDictionaryRef assertionDescription = _IOPMAssertionDescriptionCreate(
+                                                    kIOPMAssertionTypePreventUserIdleSystemSleep,
+                                                    CFSTR("Powerd - Prevent sleep while display is on"),
+                                                    NULL, NULL, NULL,
+                                                    0, 0);
         INFO_LOG("Creating assertion to keep device awake while display is on\n");
-        InternalCreateAssertion(gAssertionDescription, &gDisplayOnAssertionID);
+        InternalCreateAssertion(assertionDescription, &gDisplayOnAssertionID);
+        CFRelease(assertionDescription);
     }
 }
 
-void releaseProxyAssertion()
+void releaseProxyAssertion(void)
 {
     if (gDisplayOnAssertionID != kIOPMNullAssertionID) {
         INFO_LOG("Releasing prevent sleep while display is on\n");

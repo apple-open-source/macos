@@ -289,6 +289,8 @@ OPENSOURCEVERSIONS = /usr/local/OpenSourceVersions
 PLIST = $(OPENSOURCEVERSIONS)/perl.plist
 mergeplist:
 	mkdir -p $(DSTROOT)$(OPENSOURCEVERSIONS)
+	echo '<?xml version="1.0" encoding="UTF-8"?>' > $(DSTROOT)$(PLIST)
+	echo '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">' > $(DSTROOT)$(PLIST)
 	echo '<plist version="1.0">' > $(DSTROOT)$(PLIST)
 	echo '<array>' >> $(DSTROOT)$(PLIST)
 	@set -x && \

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008-2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2008-2018, 2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -1603,6 +1603,8 @@ si_addrinfo(si_mod_t *si, const char *node, const char *serv, uint32_t family, u
 		if (nat64_list2 != NULL)
 		{
 			out = si_list_concat(out, nat64_list2);
+			si_list_release(nat64_list2);
+			nat64_list2 = NULL;
 		}
 
 		return _gai_sort_list(out, flags);

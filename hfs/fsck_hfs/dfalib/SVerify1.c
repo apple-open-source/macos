@@ -3576,18 +3576,11 @@ static int RecordBadExtent(SGlobPtr GPtr, UInt32 fileID, UInt8 forkType,
  * Build a catalog node thread key.
  */
 __unused static void
-buildthreadkey(UInt32 parentID, int std_hfs, CatalogKey *key)
+buildthreadkey(UInt32 parentID, CatalogKey *key)
 {
-	if (std_hfs) {
-		key->hfs.keyLength = kHFSCatalogKeyMinimumLength;
-		key->hfs.reserved = 0;
-		key->hfs.parentID = parentID;
-		key->hfs.nodeName[0] = 0;
-	} else {
-		key->hfsPlus.keyLength = kHFSPlusCatalogKeyMinimumLength;
-		key->hfsPlus.parentID = parentID;
-		key->hfsPlus.nodeName.length = 0;
-	}
+	key->hfsPlus.keyLength = kHFSPlusCatalogKeyMinimumLength;
+	key->hfsPlus.parentID = parentID;
+	key->hfsPlus.nodeName.length = 0;
 }
 
 

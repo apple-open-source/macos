@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2016 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2002-2021 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -152,7 +152,13 @@ extern const CFStringRef kSecPropertyTypeError
         if this chain is CT qualified.
     @constant kSecTrustCertificateTransparencyWhiteList
         This key will be present and have a value of kCFBooleanTrue
-        if this chain is EV, not CT qualified, but included of the CT WhiteList.
+        if this chain is EV, but not CT qualified, and is permitted
+        as an exception to CT policy requirements.
+        Note: in macOS 10.12 and iOS 10, previously-issued EV certificates
+        were considered exempt from the CT requirement. As those certificates
+        expired, exempting them was no longer needed. This key is deprecated
+        in macOS 10.13 and iOS 11, and is no longer returned in the trust
+        results dictionary as of those releases.
  */
 extern const CFStringRef kSecTrustEvaluationDate
     __OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_7_0);
@@ -503,10 +509,14 @@ CFIndex SecTrustGetCertificateCount(SecTrustRef trust)
     The leaf cert (index 0) is always present regardless of whether the trust
     reference has been evaluated or not.
     @result A SecCertificateRef for the requested certificate.
+    @discussion This API is fundamentally not thread-safe -- other threads using the same
+    trust object may trigger trust evaluations that release the returned certificate or change the
+    certificate chain as a thread is iterating through the certificate chain. The replacement function
+    SecTrustCopyCertificateChain provides thread-safe results.
  */
 __nullable
 SecCertificateRef SecTrustGetCertificateAtIndex(SecTrustRef trust, CFIndex ix)
-    __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_2_0);
+    API_DEPRECATED_WITH_REPLACEMENT("SecTrustCopyCertificateChain", macos(10.7, 12.0), ios(2.0, 15.0), watchos(1.0, 8.0), tvos(9.0, 15.0));
 
 /*!
     @function SecTrustCopyExceptions
@@ -561,14 +571,17 @@ bool SecTrustSetExceptions(SecTrustRef trust, CFDataRef __nullable exceptions)
     evaluated, the returned property array will be empty.
     @result A property array. It is the caller's responsibility to CFRelease
     the returned array when it is no longer needed.
-    @discussion This function returns an ordered array of CFDictionaryRef
+    @discussion On macOS, this function returns an ordered array of CFDictionaryRef
     instances for each certificate in the chain. Indices run from 0 (leaf) to
-    the anchor (or last certificate found if no anchor was found.) See the
-    "Trust Property Constants" section for a list of currently defined keys.
+    the anchor (or last certificate found if no anchor was found.)
+    On other platforms, this function returns an unordered array of CFDictionary instances.
+    See the "Trust Property Constants" section for a list of currently defined keys.
+    The error information conveyed via this interface is also conveyed via the
+    returned error of SecTrustEvaluateWithError.
  */
 __nullable
 CFArrayRef SecTrustCopyProperties(SecTrustRef trust)
-    __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_2_0);
+    API_DEPRECATED_WITH_REPLACEMENT("SecTrustEvaluateWithError", macos(10.7, 12.0), ios(2.0, 15.0), watchos(1.0, 8.0), tvos(9.0, 15.0)) API_UNAVAILABLE(macCatalyst);
 
 /*!
     @function SecTrustCopyResult
@@ -613,6 +626,16 @@ OSStatus SecTrustSetOCSPResponse(SecTrustRef trust, CFTypeRef __nullable respons
  */
 OSStatus SecTrustSetSignedCertificateTimestamps(SecTrustRef trust, CFArrayRef __nullable sctArray)
     API_AVAILABLE(macos(10.14.2), ios(12.1.1), tvos(12.1.1), watchos(5.1.1));
+
+/*!
+    @function SecTrustCopyCertificateChain
+    @abstract Returns the certificate trust chain
+    @param trust Reference to a trust object.
+    @result A CFArray of the SecCertificateRefs for the resulting certificate chain
+ */
+_Nullable CF_RETURNS_RETAINED
+CFArrayRef SecTrustCopyCertificateChain(SecTrustRef trust)
+    API_AVAILABLE(macos(12.0), ios(15.0), tvos(15.0), watchos(8.0));
 
 CF_IMPLICIT_BRIDGING_DISABLED
 CF_ASSUME_NONNULL_END

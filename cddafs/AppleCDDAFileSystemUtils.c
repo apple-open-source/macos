@@ -89,7 +89,7 @@ CreateNewCDDANode ( mount_t 				mountPtr,
 	DebugAssert ( ( mountPtr != NULL ) );
 	DebugAssert ( ( vNodeHandle != NULL ) );
 	
-	// Allocate the cddaNode
+	// Allocate the cddaNode. We cannot use IOMallocType because AppleCDDANode has union
 	MALLOC ( cddaNodePtr, AppleCDDANodePtr, sizeof ( AppleCDDANode ), M_TEMP, M_WAITOK );
 	
 	// Zero the structure
@@ -243,7 +243,7 @@ CreateNewCDDAFile ( mount_t 				mountPtr,
 		
 		DebugLog ( ( "CreateNewCDDAFile called with NULL compNamePtr\n" ) );
 		
-		MALLOC ( cn.cn_pnbuf, caddr_t, MAXPATHLEN, M_TEMP, M_WAITOK );
+		cn.cn_pnbuf = (caddr_t)IOMallocData (MAXPATHLEN);
 		
 		cn.cn_nameiop	= LOOKUP;
 		cn.cn_flags		= ISLASTCN | MAKEENTRY;
@@ -272,7 +272,7 @@ CreateNewCDDAFile ( mount_t 				mountPtr,
 	{
 		
 		DebugLog ( ( "CreateNewCDDAFile: freeing cn_pnbuf\n" ) );
-		FREE ( cn.cn_pnbuf, M_TEMP );
+		IOFreeData (cn.cn_pnbuf, MAXPATHLEN);
 		
 	}
 	
@@ -345,7 +345,7 @@ CreateNewXMLFile ( 	mount_t 				mountPtr,
 
 		DebugLog ( ( "CreateNewXMLFile called with NULL compNamePtr\n" ) );
 		
-		MALLOC ( cn.cn_pnbuf, caddr_t, MAXPATHLEN, M_TEMP, M_WAITOK );
+		cn.cn_pnbuf = (caddr_t)IOMallocData (MAXPATHLEN);
 		
 		cn.cn_nameiop	= LOOKUP;
 		cn.cn_flags		= ISLASTCN | MAKEENTRY;
@@ -374,7 +374,7 @@ CreateNewXMLFile ( 	mount_t 				mountPtr,
 	{
 		
 		DebugLog ( ( "CreateNewXMLFile: freeing cn_pnbuf\n" ) );
-		FREE ( cn.cn_pnbuf, M_TEMP );
+        IOFreeData (cn.cn_pnbuf, MAXPATHLEN);
 		
 	}
 	
@@ -821,7 +821,7 @@ BuildTrackName ( mount_t mountPtr, AppleCDDANodeInfoPtr nodeInfoPtr )
 	
 	// If we got here, then we have a valid track and the nodeInfoArrayPtr points to our
 	// offset into the array. So, MALLOC the name here
-	MALLOC ( nodeInfoPtr->name, char *, nodeInfoPtr->nameSize + 1, M_TEMP, M_WAITOK ); 
+	nodeInfoPtr->name = (char*)IOMallocData(nodeInfoPtr->nameSize + 1); 
 	
 	// Copy the name
 	bcopy ( name, &nodeInfoPtr->name[0], nameSize );

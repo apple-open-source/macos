@@ -107,6 +107,10 @@
 #include <security/mac_mach_internal.h>
 #endif
 
+#if CONFIG_CSR
+#include <sys/csr.h>
+#endif
+
 #include <pexpert/pexpert.h>
 
 SCALABLE_COUNTER_DEFINE(vm_statistics_zero_fill_count);        /* # of zero fill pages */
@@ -157,7 +161,7 @@ host_processors(host_priv_t host_priv, processor_array_t * out_array, mach_msg_t
 
 	static_assert(sizeof(mach_port_t) == sizeof(processor_t));
 
-	mach_port_t* ports = kalloc((vm_size_t)(count * sizeof(mach_port_t)));
+	mach_port_t *ports = kalloc_type(mach_port_t, count, Z_WAITOK);
 	if (!ports) {
 		return KERN_RESOURCE_SHORTAGE;
 	}
@@ -1070,7 +1074,7 @@ host_kernel_version(host_t host, kernel_version_t out_version)
 kern_return_t
 host_processor_sets(host_priv_t host_priv, processor_set_name_array_t * pset_list, mach_msg_type_number_t * count)
 {
-	void * addr;
+	mach_port_t *ports;
 
 	if (host_priv == HOST_PRIV_NULL) {
 		return KERN_INVALID_ARGUMENT;
@@ -1081,15 +1085,12 @@ host_processor_sets(host_priv_t host_priv, processor_set_name_array_t * pset_lis
 	 *	touched while holding a lock.
 	 */
 
-	addr = kalloc((vm_size_t)sizeof(mach_port_t));
-	if (addr == 0) {
-		return KERN_RESOURCE_SHORTAGE;
-	}
+	ports = kalloc_type(mach_port_t, 1, Z_WAITOK | Z_ZERO | Z_NOFAIL);
 
 	/* do the conversion that Mig should handle */
-	*((ipc_port_t *)addr) = convert_pset_name_to_port(&pset0);
+	ports[0] = convert_pset_name_to_port(&pset0);
 
-	*pset_list = (processor_set_array_t)addr;
+	*pset_list = (processor_set_array_t)ports;
 	*count = 1;
 
 	return KERN_SUCCESS;
@@ -1219,10 +1220,6 @@ kernel_set_special_port(host_priv_t host_priv, int id, ipc_port_t port)
 
 	host_lock(host_priv);
 	old_port = host_priv->special[id];
-	if ((id == HOST_AMFID_PORT) && (current_task()->bsd_info != initproc)) {
-		host_unlock(host_priv);
-		return KERN_NO_ACCESS;
-	}
 	host_priv->special[id] = port;
 	host_unlock(host_priv);
 
@@ -1288,6 +1285,19 @@ host_set_special_port(host_priv_t host_priv, int id, ipc_port_t port)
 		return KERN_INVALID_ARGUMENT;
 	}
 
+	if (current_task() != kernel_task && current_task()->bsd_info != initproc) {
+		bool allowed = (id == HOST_TELEMETRY_PORT &&
+		    IOTaskHasEntitlement(current_task(), "com.apple.private.xpc.launchd.event-monitor"));
+#if CONFIG_CSR
+		if (!allowed) {
+			allowed = (csr_check(CSR_ALLOW_TASK_FOR_PID) == 0);
+		}
+#endif
+		if (!allowed) {
+			return KERN_NO_ACCESS;
+		}
+	}
+
 #if CONFIG_MACF
 	if (mac_task_check_set_host_special_port(current_task(), id, port) != 0) {
 		return KERN_NO_ACCESS;
@@ -1317,7 +1327,7 @@ host_get_special_port_from_user(host_priv_t host_priv, __unused int node, int id
 	if (task && task_is_driver(task) && id > HOST_MAX_SPECIAL_KERNEL_PORT) {
 		/* allow HID drivers to get the sysdiagnose port for keychord handling */
 		if (id == HOST_SYSDIAGNOSE_PORT &&
-		    IOTaskHasEntitlement(task, kIODriverKitHIDFamilyEventServiceEntitlementKey)) {
+		    IOCurrentTaskHasEntitlement(kIODriverKitHIDFamilyEventServiceEntitlementKey)) {
 			goto get_special_port;
 		}
 		return KERN_NO_ACCESS;
@@ -1370,12 +1380,6 @@ host_priv_self(void)
 	return &realhost;
 }
 
-host_security_t
-host_security_self(void)
-{
-	return &realhost;
-}
-
 kern_return_t
 host_set_atm_diagnostic_flag(host_t host, uint32_t diagnostic_flag)
 {
@@ -1383,7 +1387,7 @@ host_set_atm_diagnostic_flag(host_t host, uint32_t diagnostic_flag)
 		return KERN_INVALID_ARGUMENT;
 	}
 
-	if (!IOTaskHasEntitlement(current_task(), "com.apple.private.set-atm-diagnostic-flag")) {
+	if (!IOCurrentTaskHasEntitlement("com.apple.private.set-atm-diagnostic-flag")) {
 		return KERN_NO_ACCESS;
 	}
 

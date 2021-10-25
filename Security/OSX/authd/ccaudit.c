@@ -7,6 +7,7 @@
 
 #include <Security/Authorization.h>
 #include <Security/AuthorizationPlugin.h>
+#include <bsm/audit_record.h>
 #include <bsm/libbsm.h>
 
 AUTHD_DEFINE_LOG

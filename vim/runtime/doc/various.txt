@@ -1,4 +1,4 @@
-*various.txt*   For Vim version 8.2.  Last change: 2020 Nov 16
+*various.txt*   For Vim version 8.2.  Last change: 2021 Mar 02
 
 
 		  VIM REFERENCE MANUAL    by Bram Moolenaar
@@ -345,8 +345,9 @@ N  *+clientserver*	Unix and Win32: Remote invocation |clientserver|
    *+clipboard*		|clipboard| support compiled-in
    *+clipboard_working*	|clipboard| support compiled-in and working
 T  *+cmdline_compl*	command line completion |cmdline-completion|
-S  *+cmdline_hist*	command line history |cmdline-history|
+T  *+cmdline_hist*	command line history |cmdline-history|
 N  *+cmdline_info*	|'showcmd'| and |'ruler'|
+S  *+cmdwin*		|cmdline-window| support
 T  *+comments*		|'comments'| support
 B  *+conceal*		"conceal" support, see |conceal| |:syn-conceal| etc.
 N  *+cryptv*		encryption support |encryption|
@@ -411,7 +412,7 @@ N  *+mouse_sysmouse*	Unix only: *BSD console mouse handling |sysmouse|
 B  *+mouse_sgr*		Unix only: sgr mouse handling |sgr-mouse|
 B  *+mouse_urxvt*	Unix only: urxvt mouse handling |urxvt-mouse|
 N  *+mouse_xterm*	Unix only: xterm mouse handling |xterm-mouse|
-N  *+multi_byte*	16 and 32 bit characters |multibyte|
+T  *+multi_byte*	Unicode support, 16 and 32 bit characters |multibyte|
    *+multi_byte_ime*	Win32 input method for multibyte chars |multibyte-ime|
 N  *+multi_lang*	non-English language support |multi-lang|
 m  *+mzscheme*		Mzscheme interface |mzscheme|
@@ -571,7 +572,7 @@ N  *+X11*		Unix only: can restore window title |X11|
 			it in / any non-ID character (see |'isident'|) can be
 			used, so long as it does not appear in {pat}.  Without
 			the enclosing character the pattern cannot include the
-			bar character.
+			bar character. 'ignorecase' is not used.
 
 			The pattern is matched against the relevant part of
 			the output, not necessarily the whole line. Only some
@@ -707,12 +708,12 @@ K			Run a program to lookup the keyword under the
 			not more than one line.
 
 [N]gs							*gs* *:sl* *:sleep*
-:[N]sl[eep] [N]	[m]	Do nothing for [N] seconds.  When [m] is included,
+:[N]sl[eep] [N][m]	Do nothing for [N] seconds.  When [m] is included,
 			sleep for [N] milliseconds.  The count for "gs" always
 			uses seconds.  The default is one second. >
 			     :sleep	     "sleep for one second
 			     :5sleep	     "sleep for five seconds
-			     :sleep 100m     "sleep for a hundred milliseconds
+			     :sleep 100m     "sleep for 100 milliseconds
 			     10gs	     "sleep for ten seconds
 <			Can be interrupted with CTRL-C (CTRL-Break on
 			MS-Windows).  "gs" stands for "goto sleep".
@@ -721,6 +722,9 @@ K			Run a program to lookup the keyword under the
 			Also process the received netbeans messages. {only
 			available when compiled with the |+netbeans_intg|
 			feature}
+
+							*:sl!* *:sleep!*
+:[N]sl[eep]! [N] [m]	Same as above, but hide the cursor
 
 							*:xrestore* *:xr*
 :xr[estore] [display]	Reinitializes the connection to the X11 server. Useful

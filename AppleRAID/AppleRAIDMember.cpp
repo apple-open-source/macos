@@ -290,7 +290,6 @@ IOReturn AppleRAIDMember::synchronizeCacheCallout(AppleRAIDSet *masterSet)
 //***************************************************************************************************************
 //***************************************************************************************************************
 
-
 IOReturn AppleRAIDMember::readRAIDHeader(void)
 {
     UInt64 size = getSize();
@@ -316,8 +315,9 @@ readheader:
 
     // Read the raid header
     arHeaderBuffer->setDirection(kIODirectionIn);
+    
     IOReturn rc = getTarget()->read(this, arHeaderOffset, arHeaderBuffer);
-        
+    
     // Close the member.
     getTarget()->close(this, 0);
 

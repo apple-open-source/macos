@@ -25,10 +25,15 @@
 #import <TrustedPeers/TrustedPeers.h>
 #import <objc/runtime.h>
 
+#import <AppleFeatures/AppleFeatures.h>
+
+#import "keychain/TrustedPeersHelper/TrustedPeersHelperProtocolTransitObjects.h"
 #import "keychain/ckks/CKKSKeychainBackedKey.h"
 #import "keychain/ckks/CKKSTLKShare.h"
 
 #import "keychain/ot/OTConstants.h"
+
+#import "keychain/ot/proto/generated_source/OTEscrowMoveRequestContext.h"
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -48,7 +53,8 @@ NS_ASSUME_NONNULL_BEGIN
                         status:(TPPeerStatus)peerStatus
                  memberChanges:(BOOL)memberChanges
              unknownMachineIDs:(BOOL)unknownMachineIDs
-                     osVersion:(NSString * _Nullable)osVersion;
+                     osVersion:(NSString * _Nullable)osVersion
+;
 @end
 
 @interface TrustedPeersHelperPeer : NSObject <NSSecureCoding>
@@ -57,9 +63,12 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nullable) NSData* encryptionSPKI;
 @property (nullable) NSSet<NSString*>* viewList;
 
+@property (nullable) TPPBSecureElementIdentity* secureElementIdentity;
+
 - (instancetype)initWithPeerID:(NSString*)peerID
                    signingSPKI:(NSData*)signingSPKI
                 encryptionSPKI:(NSData*)encryptionSPKI
+         secureElementIdentity:(TPPBSecureElementIdentity* _Nullable)secureElementIdentity
                       viewList:(NSSet<NSString*>*)viewList;
 @end
 
@@ -86,6 +95,32 @@ NS_ASSUME_NONNULL_BEGIN
                        isExcluded:(BOOL)isExcluded
                          isLocked:(BOOL)isLocked;
 
+@end
+
+@interface TrustedPeersHelperCustodianRecoveryKey : NSObject <NSSecureCoding>
+@property NSString* uuid;
+@property (nullable) NSData* encryptionKey;
+@property (nullable) NSData* signingKey;
+@property NSString* recoveryString;
+@property NSString* salt;
+@property TPPBCustodianRecoveryKey_Kind kind;
+
+- (instancetype)initWithUUID:(NSString*)uuid
+               encryptionKey:(NSData* _Nullable)encryptionKey
+                  signingKey:(NSData* _Nullable)signingKey
+              recoveryString:(NSString*)recoveryString
+                        salt:(NSString*)salt
+                        kind:(TPPBCustodianRecoveryKey_Kind)kind;
+@end
+
+@interface TrustedPeersHelperTLKRecoveryResult : NSObject <NSSecureCoding>
+@property NSSet<NSString*>* successfulKeysRecovered;
+@property int64_t totalTLKSharesRecovered;
+@property NSDictionary<NSString*, NSArray<NSError*>*>* tlkRecoveryErrors;
+
+- (instancetype)initWithSuccessfulKeyUUIDs:(NSSet<NSString*>*)successfulKeysRecovered
+                        totalTLKSharesRecovered:(int64_t)totalTLKSharesRecovered
+                         tlkRecoveryErrors:(NSDictionary<NSString*, NSArray<NSError*>*>*)tlkRecoveryErrors;
 @end
 
 // This protocol describes the interface of the TrustedPeersHelper XPC service.
@@ -166,7 +201,8 @@ NS_ASSUME_NONNULL_BEGIN
                    osVersion:(NSString *)osVersion
                policyVersion:(nullable TPPolicyVersion *)policyVersion
                policySecrets:(nullable NSDictionary<NSString*,NSData*> *)policySecrets
-   syncUserControllableViews:(TPPBPeerStableInfo_UserControllableViewStatus)syncUserControllableViews
+   syncUserControllableViews:(TPPBPeerStableInfoUserControllableViewStatus)syncUserControllableViews
+       secureElementIdentity:(nullable TPPBSecureElementIdentity*)secureElementIdentity
  signingPrivKeyPersistentRef:(nullable NSData *)spkPr
      encPrivKeyPersistentRef:(nullable NSData*)epkPr
                        reply:(void (^)(NSString * _Nullable peerID,
@@ -176,6 +212,33 @@ NS_ASSUME_NONNULL_BEGIN
                                        NSData * _Nullable stableInfoSig,
                                        TPSyncingPolicy* _Nullable syncingPolicy,
                                        NSError * _Nullable error))reply;
+
+- (void)prepareInheritancePeerWithContainer:(NSString *)container
+                                    context:(NSString *)context
+                                      epoch:(unsigned long long)epoch
+                                  machineID:(NSString *)machineID
+                                 bottleSalt:(NSString *)bottleSalt
+                                   bottleID:(NSString *)bottleID
+                                    modelID:(NSString *)modelID
+                                 deviceName:(nullable NSString *)deviceName
+                               serialNumber:(nullable NSString *)serialNumber
+                                  osVersion:(NSString *)osVersion
+                              policyVersion:(nullable TPPolicyVersion *)policyVersion
+                              policySecrets:(nullable NSDictionary<NSString*,NSData*> *)policySecrets
+                  syncUserControllableViews:(TPPBPeerStableInfoUserControllableViewStatus)syncUserControllableViews
+                      secureElementIdentity:(nullable TPPBSecureElementIdentity*)secureElementIdentity
+                signingPrivKeyPersistentRef:(nullable NSData *)spkPr
+                    encPrivKeyPersistentRef:(nullable NSData*)epkPr
+                                        crk:(TrustedPeersHelperCustodianRecoveryKey*)crk
+                                      reply:(void (^)(NSString * _Nullable peerID,
+                                                      NSData * _Nullable permanentInfo,
+                                                      NSData * _Nullable permanentInfoSig,
+                                                      NSData * _Nullable stableInfo,
+                                                      NSData * _Nullable stableInfoSig,
+                                                      TPSyncingPolicy* _Nullable syncingPolicy,
+                                                      NSString * _Nullable recoveryKeyID,
+                                                      NSArray<CKRecord*>* _Nullable keyHierarchyRecords,
+                                                      NSError * _Nullable error))reply;
 
 // If there already are existing CKKSViews, please pass in their key sets anyway.
 // This function will create a self TLK Share for those TLKs.
@@ -224,8 +287,8 @@ NS_ASSUME_NONNULL_BEGIN
                            tlkShares:(NSArray<CKKSTLKShare*> *)tlkShares
                                reply:(void (^)(NSData * _Nullable voucher,
                                                NSData * _Nullable voucherSig,
-                                               int64_t uniqueTLKsRecovered,
-                                               int64_t totalTLKSharesRecovered,
+                                               NSArray<CKKSTLKShare*>* _Nullable newSelfTLKShares,
+                                               TrustedPeersHelperTLKRecoveryResult* _Nullable tlkRecoveryResults,
                                                NSError * _Nullable error))reply;
 
 // Preflighting a vouch will return the RK ID, view list and policy associated with the RK you will be recovering.
@@ -238,6 +301,15 @@ NS_ASSUME_NONNULL_BEGIN
                                                              TPSyncingPolicy* _Nullable syncingPolicy,
                                                              NSError * _Nullable error))reply;
 
+// Preflighting a vouch will return the RK ID, view list and policy associated with the RK you will be recovering.
+// You can then use that peer ID to filter the tlkshares provided to vouchWithRecoveryKey.
+- (void)preflightVouchWithCustodianRecoveryKeyWithContainer:(NSString*)container
+                                                    context:(NSString*)context
+                                                        crk:(TrustedPeersHelperCustodianRecoveryKey*)crk
+                                                      reply:(void (^)(NSString* _Nullable recoveryKeyID,
+                                                                      TPSyncingPolicy* _Nullable syncingPolicy,
+                                                                      NSError * _Nullable error))reply;
+
 // Returns a voucher for our own identity, using recovery key
 - (void)vouchWithRecoveryKeyWithContainer:(NSString *)container
                                   context:(NSString *)context
@@ -246,7 +318,29 @@ NS_ASSUME_NONNULL_BEGIN
                                 tlkShares:(NSArray<CKKSTLKShare*> *)tlkShares
                                     reply:(void (^)(NSData * _Nullable voucher,
                                                     NSData * _Nullable voucherSig,
+                                                    NSArray<CKKSTLKShare*>* _Nullable newSelfTLKShares,
+                                                    TrustedPeersHelperTLKRecoveryResult* _Nullable tlkRecoveryResults,
                                                     NSError * _Nullable error))reply;
+
+//returns set of new tlkShares for inheritor
+- (void)recoverTLKSharesForInheritorWithContainer:(NSString *)container
+                                          context:(NSString *)context
+                                              crk:(TrustedPeersHelperCustodianRecoveryKey*)crk
+                                        tlkShares:(NSArray<CKKSTLKShare*> *)tlkShares
+                                            reply:(void (^)(NSArray<CKKSTLKShare*>* _Nullable newSelfTLKShares,
+                                                            TrustedPeersHelperTLKRecoveryResult* _Nullable tlkRecoveryResults,
+                                                            NSError * _Nullable error))reply;
+
+// Returns a voucher for our own identity, using custodian recovery key
+- (void)vouchWithCustodianRecoveryKeyWithContainer:(NSString *)container
+                                           context:(NSString *)context
+                                               crk:(TrustedPeersHelperCustodianRecoveryKey*)crk
+                                         tlkShares:(NSArray<CKKSTLKShare*> *)tlkShares
+                                             reply:(void (^)(NSData * _Nullable voucher,
+                                                             NSData * _Nullable voucherSig,
+                                                             NSArray<CKKSTLKShare*>* _Nullable newSelfTLKShares,
+                                                             TrustedPeersHelperTLKRecoveryResult* _Nullable tlkRecoveryResults,
+                                                             NSError * _Nullable error))reply;
 
 // As of right now, join and attemptPreapprovedJoin will upload TLKShares for any TLKs that this peer already has.
 // Note that in The Future, a device might decide to join an existing Octagon set while introducing a new view.
@@ -288,15 +382,18 @@ NS_ASSUME_NONNULL_BEGIN
                                                       NSError * _Nullable error))reply;
 
 // TODO: if the new policy causes someone to lose access to a view, how should this API work?
-// syncUserControllableViews should contain the raw value of the TPPBPeerStableInfo_UserControllableViewStatus enum, or be nil
+// syncUserControllableViews should contain the raw value of the TPPBPeerStableInfoUserControllableViewStatus enum, or be nil
+// secureElementIdentity has a wrapper type so you can specify "this identity", "no identity", or nil (no opinion)
 - (void)updateWithContainer:(NSString *)container
                     context:(NSString *)context
+               forceRefetch:(BOOL)forceRefetch
                  deviceName:(nullable NSString *)deviceName
                serialNumber:(nullable NSString *)serialNumber
                   osVersion:(nullable NSString *)osVersion
               policyVersion:(nullable NSNumber *)policyVersion
               policySecrets:(nullable NSDictionary<NSString*,NSData*> *)policySecrets
   syncUserControllableViews:(nullable NSNumber *)syncUserControllableViews
+      secureElementIdentity:(nullable TrustedPeersHelperIntendedTPPBSecureElementIdentity*)secureElementIdentity
                       reply:(void (^)(TrustedPeersHelperPeerState* _Nullable peerState,
                                       TPSyncingPolicy* _Nullable syncingPolicy,
                                       NSError * _Nullable error))reply;
@@ -335,6 +432,12 @@ NS_ASSUME_NONNULL_BEGIN
                                     reply:(void (^)(NSDictionary<TPPolicyVersion*, NSData*>* _Nullable entries,
                                                     NSError * _Nullable error))reply;
 
+- (void)fetchRecoverableTLKSharesWithContainer:(NSString*)container
+                                       context:(NSString*)context
+                                        peerID:(NSString* _Nullable)peerID
+                                         reply:(void (^)(NSArray<CKRecord*>* _Nullable keyHierarchyRecords,
+                                                         NSError * _Nullable error))reply;
+
 // Fetch the policy and view list for current peer.
 // Note: userControllableViewStatusOfPeers is not our current peer's view of the world, but rather what
 // our peers believe.
@@ -342,8 +445,9 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)fetchCurrentPolicyWithContainer:(NSString*)container
                                 context:(NSString*)context
                         modelIDOverride:(NSString* _Nullable)modelID
+                     isInheritedAccount:(BOOL)isInheritedAccount
                                   reply:(void (^)(TPSyncingPolicy* _Nullable syncingPolicy,
-                                                  TPPBPeerStableInfo_UserControllableViewStatus userControllableViewStatusOfPeers,
+                                                  TPPBPeerStableInfoUserControllableViewStatus userControllableViewStatusOfPeers,
                                                   NSError * _Nullable error))reply;
 
 - (void)validatePeersWithContainer:(NSString *)container
@@ -366,6 +470,22 @@ NS_ASSUME_NONNULL_BEGIN
                               reply:(void (^)(NSArray<CKRecord*>* _Nullable keyHierarchyRecords,
                                               NSError* _Nullable error))reply;
 
+- (void)createCustodianRecoveryKeyWithContainer:(NSString *)container
+                                        context:(NSString *)context
+                                    recoveryKey:(NSString *)recoveryString
+                                           salt:(NSString *)salt
+                                       ckksKeys:(NSArray<CKKSKeychainBackedKeySet*> *)ckksKeys
+                                           uuid:(NSUUID *)uuid
+                                           kind:(TPPBCustodianRecoveryKey_Kind)kind
+                                          reply:(void (^)(NSArray<CKRecord*>* _Nullable keyHierarchyRecords,
+                                                          TrustedPeersHelperCustodianRecoveryKey *_Nullable crk,
+                                                          NSError* _Nullable error))reply;
+
+- (void)removeCustodianRecoveryKeyWithContainer:(NSString *)container
+                                        context:(NSString *)context
+                                           uuid:(NSUUID *)uuid
+                                          reply:(void (^)(NSError* _Nullable error))reply;
+
 - (void)reportHealthWithContainer:(NSString *)container
                           context:(NSString *)context
                 stateMachineState:(NSString *)state
@@ -379,7 +499,7 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)requestHealthCheckWithContainer:(NSString *)container
                                 context:(NSString *)context
                     requiresEscrowCheck:(BOOL)requiresEscrowCheck
-                                  reply:(void (^)(BOOL postRepairCFU, BOOL postEscrowCFU, BOOL resetOctagon, BOOL leaveTrust, NSError* _Nullable))reply;
+                                  reply:(void (^)(BOOL postRepairCFU, BOOL postEscrowCFU, BOOL resetOctagon, BOOL leaveTrust, OTEscrowMoveRequestContext* _Nullable moveRequest, NSError* _Nullable error))reply;
 
 - (void)getSupportAppInfoWithContainer:(NSString *)container
                                context:(NSString *)context
@@ -393,6 +513,11 @@ NS_ASSUME_NONNULL_BEGIN
                                context:(NSString *)context
                                  reply:(void (^)(NSError * _Nullable))reply;
 
+
+- (void)fetchAccountSettingsWithContainer:(NSString *)container
+                                  context:(NSString *)context
+                                    reply:(void (^)(NSDictionary<NSString*, TPPBPeerStableInfoSetting *> * _Nullable setting,
+                                                    NSError* _Nullable error))reply;
 @end
 
 /*

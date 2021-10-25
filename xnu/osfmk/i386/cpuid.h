@@ -289,8 +289,6 @@
 #define CPUID_VMM_FAMILY_KVM            0x6
 
 
-#if DEBUG || DEVELOPMENT
-
 /*
  * Apple Paravirtualization CPUID leaves
  * The base leaf can be placed at any unused 0x100 aligned boundary
@@ -310,8 +308,7 @@
  */
 
 #define CPUID_LEAF_FEATURE_COREDUMP         _Bit(0)
-
-#endif /* DEBUG || DEVELOPMENT */
+#define CPUID_LEAF_FEATURE_XNU_DEBUG        _Bit(1)
 
 
 #ifndef ASSEMBLER
@@ -513,10 +510,11 @@ typedef struct {
 } i386_vmm_info_t;
 
 typedef enum {
+	CPU_INTEL_RSBST = 0,
 	CPU_INTEL_SEGCHK = 1,
 	CPU_INTEL_TSXFA = 2,
-	CPU_INTEL_TSXDA = 4,
-	CPU_INTEL_SRBDS = 8
+	CPU_INTEL_TSXDA = 3,
+	CPU_INTEL_SRBDS = 4
 } cpu_wa_e;
 
 typedef enum {
@@ -579,10 +577,7 @@ extern i386_cpu_info_t  *cpuid_info(void);
 extern void             cpuid_set_info(void);
 extern boolean_t        cpuid_vmm_present(void);
 extern uint32_t         cpuid_vmm_family(void);
-
-#if DEBUG || DEVELOPMENT
 extern uint64_t         cpuid_vmm_get_applepv_features(void);
-#endif /* DEBUG || DEVELOPMENT */
 
 #ifdef MACH_KERNEL_PRIVATE
 extern i386_vmm_info_t  *cpuid_vmm_info(void);

@@ -37,6 +37,7 @@
 
 #import "keychain/ckks/CKKS.h"
 #import "keychain/ckks/CKKSKeychainView.h"
+#import "keychain/ckks/CKKSKeychainViewState.h"
 #import "keychain/ckks/CKKSManifest.h"
 #import "keychain/ckks/CKKSViewManager.h"
 
@@ -52,7 +53,9 @@ NS_ASSUME_NONNULL_BEGIN
 
 @interface CloudKitKeychainSyncingTestsBase : CloudKitKeychainSyncingMockXCTest
 @property (nullable) CKRecordZoneID* keychainZoneID;
-@property (nullable) CKKSKeychainView* keychainView;
+
+@property (nullable) CKKSKeychainViewState* keychainView;
+
 @property (nullable) FakeCKZone* keychainZone;
 @property (nullable, readonly) ZoneKeys* keychainZoneKeys;
 

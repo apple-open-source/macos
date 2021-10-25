@@ -170,14 +170,20 @@ static CCCryptorStatus
 CCCKGConvertNativeToECCryptor(ccckg_ctx_t context, ccec_full_ctx_t P, CCECKeyType keyType, CCECCryptorRef *key)
 {
     bool fullkey = (keyType == ccECKeyPrivate);
-    uint8_t key_data[ccec_x963_export_size_cp(fullkey, context->cp)];
+
+    size_t key_size = ccec_x963_export_size_cp(fullkey, context->cp);
+    uint8_t *key_data = malloc(key_size);
+    if (!key_data) {
+        return kCCMemoryFailure;
+    }
 
     // Export the raw key.
     ccec_x963_export(fullkey, key_data, P);
 
     // Import into a CCECCryptor.
-    CCCryptorStatus rv = CCECCryptorImportKey(kCCImportKeyBinary, key_data, sizeof(key_data), keyType, key);
+    CCCryptorStatus rv = CCECCryptorImportKey(kCCImportKeyBinary, key_data, key_size, keyType, key);
     cc_clear(sizeof(key_data), key_data);
+    free(key_data);
     return rv;
 }
 

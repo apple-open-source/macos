@@ -29,6 +29,8 @@ TSAN_EXTRA_LDFLAGS_ = $(TSAN_EXTRA_LDFLAGS_NO)
 NOINIT_LDFLAGS = -Wl,-no_inits $(ASAN_EXTRA_LDFLAGS_$(ENABLE_ADDRESS_SANITIZER)) $(TSAN_EXTRA_LDFLAGS_$(ENABLE_THREAD_SANITIZER))
 
 OTHER_LDFLAGS = -laks -lCrashReporterClient -Wl,-upward_framework,Foundation $(NOINIT_LDFLAGS)
+// Need no_warn_inits since fuzzing enables ASAN
+OTHER_LDFLAGS[config=Fuzzing][sdk=*] = $(OTHER_LDFLAGS) -Wl,-no_warn_inits -fsanitize=address,fuzzer-no-link -g -O0 -fno-sanitize-coverage=pc-table
 
 SECTORDER_FLAGS = -order_file_statistics
 APPLY_RULES_IN_COPY_FILES = NO

@@ -355,8 +355,12 @@ static void test_find_bt_item(OSStatus expectedCode, bool sync, const char *data
     is_status(SecItemCopyMatching(query, (CFTypeRef *)&pwdata), expectedCode,
               "test_find_bt_item: %s", data);
     CFIndex len = strlen(data);
-    is(len, CFDataGetLength(pwdata), "length wrong(%s)", data);
-    ok(memcmp(data, CFDataGetBytePtr(pwdata), len) == 0, "length wrong(%s)", data);
+
+    isnt(pwdata, NULL, "Should have some data");
+    if(pwdata != NULL) {
+        is(len, CFDataGetLength(pwdata), "length wrong(%s)", data);
+        ok(memcmp(data, CFDataGetBytePtr(pwdata), len) == 0, "length wrong(%s)", data);
+    }
     CFReleaseSafe(query);
 }
 
@@ -574,7 +578,7 @@ static void tests(void)
 
 int si_33_keychain_backup(int argc, char *const *argv)
 {
-	plan_tests(77);
+	plan_tests(78);
 
 	tests();
 

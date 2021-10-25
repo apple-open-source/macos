@@ -30,10 +30,7 @@
 #import "OTDeviceInformation.h"
 #import "keychain/ot/OTOperationDependencies.h"
 
-@class OTCuttlefishContext;
-
 NS_ASSUME_NONNULL_BEGIN
-
 
 @interface OTCheckHealthOperation : CKKSGroupOperation <OctagonStateTransitionOperationProtocol>
 @property OctagonState* nextState;
@@ -47,13 +44,13 @@ NS_ASSUME_NONNULL_BEGIN
                 skipRateLimitedCheck:(BOOL)skipRateLimitedCheck;
 
 @property OTDeviceInformation* deviceInfo;
-@property (weak) OTCuttlefishContext* cuttlefishContext;
 
 @property BOOL skipRateLimitingCheck;
 @property BOOL postRepairCFU;
 @property BOOL postEscrowCFU;
 @property BOOL resetOctagon;
 @property BOOL leaveTrust;
+@property OTEscrowMoveRequestContext* moveRequest;
 
 @end
 

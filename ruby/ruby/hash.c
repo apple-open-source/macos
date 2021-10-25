@@ -2,7 +2,7 @@
 
   hash.c -
 
-  $Author: ko1 $
+  $Author: usa $
   created at: Mon Nov 22 18:51:18 JST 1993
 
   Copyright (C) 1993-2007 Yukihiro Matsumoto
@@ -607,10 +607,14 @@ ar_try_convert_table(VALUE hash)
 {
     st_table *new_tab;
     ar_table_entry *entry;
-    const unsigned size = RHASH_AR_TABLE_SIZE(hash);
+    unsigned size;
     st_index_t i;
 
-    if (!RHASH_AR_TABLE_P(hash) || size < RHASH_AR_TABLE_MAX_SIZE) {
+    if (!RHASH_AR_TABLE_P(hash)) return;
+
+    size = RHASH_AR_TABLE_SIZE(hash);
+
+    if (size < RHASH_AR_TABLE_MAX_SIZE) {
         return;
     }
 
@@ -824,6 +828,11 @@ ar_update(VALUE hash, st_data_t key,
     st_data_t value = 0, old_key;
     st_hash_t hash_value = do_hash(key);
 
+    if (UNLIKELY(!RHASH_AR_TABLE_P(hash))) {
+        /* `#hash` changes ar_table -> st_table */
+        return -1;
+    }
+
     if (RHASH_AR_TABLE_SIZE(hash) > 0) {
         bin = find_entry(hash, hash_value, key);
         existing = (bin != RHASH_AR_TABLE_MAX_BOUND) ? TRUE : FALSE;
@@ -872,6 +881,11 @@ ar_insert(VALUE hash, st_data_t key, st_data_t value)
     unsigned bin = RHASH_AR_TABLE_BOUND(hash);
     st_hash_t hash_value = do_hash(key);
 
+    if (UNLIKELY(!RHASH_AR_TABLE_P(hash))) {
+        /* `#hash` changes ar_table -> st_table */
+        return -1;
+    }
+
     hash_ar_table(hash); /* prepare ltbl */
 
     bin = find_entry(hash, hash_value, key);
@@ -900,7 +914,12 @@ static int
 ar_lookup(VALUE hash, st_data_t key, st_data_t *value)
 {
     st_hash_t hash_value = do_hash(key);
-    unsigned bin = find_entry(hash, hash_value, key);
+    unsigned bin;
+    if (UNLIKELY(!RHASH_AR_TABLE_P(hash))) {
+        /* `#hash` changes ar_table -> st_table */
+        return st_lookup(RHASH_ST_TABLE(hash), key, value);
+    }
+    bin = find_entry(hash, hash_value, key);
 
     if (bin == RHASH_AR_TABLE_MAX_BOUND) {
         return 0;
@@ -920,6 +939,10 @@ ar_delete(VALUE hash, st_data_t *key, st_data_t *value)
     unsigned bin;
     st_hash_t hash_value = do_hash(*key);
 
+    if (UNLIKELY(!RHASH_AR_TABLE_P(hash))) {
+        /* `#hash` changes ar_table -> st_table */
+        return st_delete(RHASH_ST_TABLE(hash), key, value);
+    }
 
     bin = find_entry(hash, hash_value, *key);
 
@@ -5629,13 +5652,29 @@ env_invert(void)
     return rb_hash_invert(env_to_hash());
 }
 
+static void
+keylist_delete(VALUE keys, VALUE key)
+{
+    long keylen, elen;
+    const char *keyptr, *eptr;
+    RSTRING_GETMEM(key, keyptr, keylen);
+    for (long i=0; i<RARRAY_LEN(keys); i++) {
+        VALUE e = RARRAY_AREF(keys, i);
+        RSTRING_GETMEM(e, eptr, elen);
+        if (elen != keylen) continue;
+        if (!ENVNMATCH(keyptr, eptr, elen)) continue;
+        rb_ary_delete_at(keys, i);
+        return;
+    }
+}
+
 static int
 env_replace_i(VALUE key, VALUE val, VALUE keys)
 {
+    env_name(key);
     env_aset(Qnil, key, val);
-    if (rb_ary_includes(keys, key)) {
-	rb_ary_delete(keys, key);
-    }
+
+    keylist_delete(keys, key);
     return ST_CONTINUE;
 }
 

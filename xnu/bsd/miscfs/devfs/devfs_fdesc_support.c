@@ -239,7 +239,7 @@ loop:
 	fdcache_lock |= FDL_LOCKED;
 	fdesc_unlock();
 
-	MALLOC(fd, void *, sizeof(struct fdescnode), M_TEMP, M_WAITOK);
+	fd = kalloc_type(struct fdescnode, Z_WAITOK);
 
 	vfsp.vnfs_mp = mp;
 	vfsp.vnfs_vtype = vtype;
@@ -256,7 +256,7 @@ loop:
 
 	error = vnode_create(VNCREATE_FLAVOR, VCREATESIZE, &vfsp, vpp);
 	if (error) {
-		FREE(fd, M_TEMP);
+		kfree_type(struct fdescnode, fd);
 		fdesc_lock();
 		goto out;
 	}
@@ -264,10 +264,9 @@ loop:
 	(*vpp)->v_tag = VT_FDESC;
 	fd->fd_vnode = *vpp;
 	fd->fd_type = ftype;
-	fd->fd_fd = -1;
+	fd->fd_fd = fdno;
 	fd->fd_link = NULL;
 	fd->fd_ix = ix;
-	fd->fd_fd = fdno;
 
 	fdesc_lock();
 
@@ -300,7 +299,7 @@ devfs_devfd_lookup(struct vnop_lookup_args *ap)
 	struct componentname *cnp = ap->a_cnp;
 	char *pname = cnp->cn_nameptr;
 	struct proc *p = vfs_context_proc(ap->a_context);
-	int numfiles = p->p_fd->fd_nfiles;
+	int numfiles = p->p_fd.fd_nfiles;
 	int fd;
 	int error;
 	struct vnode *fvp;
@@ -316,8 +315,7 @@ devfs_devfd_lookup(struct vnop_lookup_args *ap)
 
 	fd = 0;
 	while (*pname >= '0' && *pname <= '9') {
-		fd = 10 * fd + *pname++ - '0';
-		if (fd >= numfiles) {
+		if (os_mul_and_add_overflow(fd, 10, *pname++ - '0', &fd)) {
 			break;
 		}
 	}
@@ -472,7 +470,7 @@ fdesc_getattr(struct vnop_getattr_args *ap)
 		break;
 
 	default:
-		panic("Invalid type for an fdesc node!\n");
+		panic("Invalid type for an fdesc node!");
 		break;
 	}
 
@@ -505,7 +503,7 @@ fdesc_setattr(struct vnop_setattr_args *ap)
 	case Fdesc:
 		break;
 	default:
-		panic("Invalid type for an fdesc node!\n");
+		panic("Invalid type for an fdesc node!");
 		return EACCES;
 	}
 
@@ -586,7 +584,7 @@ devfs_devfd_readdir(struct vnop_readdir_args *ap)
 	i = uio->uio_offset / UIO_MX;
 	error = 0;
 	while (uio_resid(uio) >= UIO_MX) {
-		if (i >= p->p_fd->fd_nfiles || i < 0) {
+		if (i >= p->p_fd.fd_nfiles || i < 0) {
 			break;
 		}
 
@@ -663,8 +661,7 @@ fdesc_reclaim(struct vnop_reclaim_args *ap)
 	fdesc_lock();
 
 	LIST_REMOVE(fd, fd_hash);
-	FREE(vp->v_data, M_TEMP);
-	vp->v_data = NULL;
+	kfree_type(struct fdescnode, vp->v_data);
 
 	fdesc_unlock();
 

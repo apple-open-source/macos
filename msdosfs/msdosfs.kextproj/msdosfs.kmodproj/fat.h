@@ -198,7 +198,7 @@ int msdosfs_markvoldirty(struct msdosfsmount *pmp, int dirty);
  * skips the boot sector, FSInfo sector, and non-active copies of the FAT.
  */
 void msdosfs_meta_flush(struct msdosfsmount *pmp, int sync);
-void msdosfs_meta_sync_callback(void *pmp, void *unused);
+void msdosfs_meta_flush_internal(struct msdosfsmount *pmp, int sync);
 
 enum vtype msdosfs_check_link(struct denode *dep, vfs_context_t context);
 

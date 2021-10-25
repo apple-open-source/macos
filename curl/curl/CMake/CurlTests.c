@@ -5,11 +5,11 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2014, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2021, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
- * are also available at https://curl.haxx.se/docs/copyright.html.
+ * are also available at https://curl.se/docs/copyright.html.
  *
  * You may opt to use, copy, modify, merge, publish, distribute and/or sell
  * copies of the Software, and permit persons to whom the Software is
@@ -125,6 +125,7 @@ int main(void)
 #if   defined(HAVE_GETHOSTBYADDR_R_5) || \
       defined(HAVE_GETHOSTBYADDR_R_5_REENTRANT)
   rc = gethostbyaddr_r(address, length, type, &h, &hdata);
+  (void)rc;
 #elif defined(HAVE_GETHOSTBYADDR_R_7) || \
       defined(HAVE_GETHOSTBYADDR_R_7_REENTRANT)
   hp = gethostbyaddr_r(address, length, type, &h, buffer, 8192, &h_errnop);
@@ -132,6 +133,7 @@ int main(void)
 #elif defined(HAVE_GETHOSTBYADDR_R_8) || \
       defined(HAVE_GETHOSTBYADDR_R_8_REENTRANT)
   rc = gethostbyaddr_r(address, length, type, &h, buffer, 8192, &hp, &h_errnop);
+  (void)rc;
 #endif
 
 #if   defined(HAVE_GETHOSTBYNAME_R_3) || \
@@ -212,24 +214,6 @@ if (sizeof (bool *) )
 #include <float.h>
 int main() { return 0; }
 #endif
-#ifdef RETSIGTYPE_TEST
-#include <sys/types.h>
-#include <signal.h>
-#ifdef signal
-# undef signal
-#endif
-#ifdef __cplusplus
-extern "C" void (*signal (int, void (*)(int)))(int);
-#else
-void (*signal ()) ();
-#endif
-
-int
-main ()
-{
-  return 0;
-}
-#endif
 #ifdef HAVE_INET_NTOA_R_DECL
 #include <arpa/inet.h>
 
@@ -240,6 +224,7 @@ int main()
 #ifndef inet_ntoa_r
   func_type func;
   func = (func_type)inet_ntoa_r;
+  (void)func;
 #endif
   return 0;
 }
@@ -255,6 +240,7 @@ int main()
 #ifndef inet_ntoa_r
   func_type func;
   func = (func_type)&inet_ntoa_r;
+  (void)func;
 #endif
   return 0;
 }
@@ -583,6 +569,8 @@ int
 main() {
   int res3 = c99_vmacro3(1, 2, 3);
   int res2 = c99_vmacro2(1, 2);
+  (void)res3;
+  (void)res2;
   return 0;
 }
 #endif
@@ -604,6 +592,8 @@ int
 main() {
   int res3 = gcc_vmacro3(1, 2, 3);
   int res2 = gcc_vmacro2(1, 2);
+  (void)res3;
+  (void)res2;
   return 0;
 }
 #endif

@@ -6,13 +6,13 @@
 		<key>OpenSourceProject</key>
 		<string>ccid</string>
 		<key>OpenSourceVersion</key>
-		<string>1.4.32</string>
+		<string>1.4.34</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>https://ccid.apdu.fr</string>
 		<key>OpenSourceURL</key>
-		<string>https://ccid.apdu.fr/files/ccid-1.4.32.tar.bz2</string>
+		<string>https://ccid.apdu.fr/files/ccid-1.4.34.tar.bz2</string>
 		<key>OpenSourceImportDate</key>
-		<string>2020-04-27</string>
+		<string>2021-04-20</string>
 		<key>OpenSourceModifications</key>
 		<array>
 			<string>destDirFix.patch - makefile.in, customized destination directory</string>
@@ -29,13 +29,13 @@
 		<key>OpenSourceProject</key>
 		<string>libusb</string>
 		<key>OpenSourceVersion</key>
-		<string>1.0.9</string>
+		<string>1.0.24</string>
 		<key>OpenSourceWebsiteURL</key>
-		<string>http://www.libusb.org</string>
+		<string>https://libusb.info</string>
 		<key>OpenSourceURL</key>
-		<string>http://sourceforge.net/projects/libusb/files/libusb-1.0/libusb-1.0.9/libusb-1.0.9.tar.bz2/download</string>
+		<string>https://github.com/libusb/libusb/releases</string>
 		<key>OpenSourceImportDate</key>
-		<string>2013-12-10</string>
+		<string>2021-04-20</string>
 		<key>OpenSourceModifications</key>
 		<array>
 			<string>darwin_no_seize.patch - darwin.c, replace USBDeviceOpenSeize by USBDeviceOpen</string>

@@ -89,6 +89,7 @@
 #include <sys/syslog.h>
 #include <sys/tprintf.h>
 #include <libkern/OSAtomic.h>
+#include <IOKit/IOPlatformExpert.h>
 
 #include <sys/reboot.h>
 #include <sys/time.h>
@@ -112,8 +113,8 @@
 #include <nfs/nfsmount.h>
 #include <nfs/nfsnode.h>
 
-#define NFS_SOCK_DBG(...) NFS_DBG(NFS_FAC_SOCK, 7, ## __VA_ARGS__)
-#define NFS_SOCK_DUMP_MBUF(msg, mb) if (NFS_IS_DBG(NFS_FAC_SOCK, 15)) nfs_dump_mbuf(__func__, __LINE__, (msg), (mb))
+#define NFS_SOCK_DBG(...) NFSCLNT_DBG(NFSCLNT_FAC_SOCK, 7, ## __VA_ARGS__)
+#define NFS_SOCK_DUMP_MBUF(msg, mb) if (NFSCLNT_IS_DBG(NFSCLNT_FAC_SOCK, 15)) nfs_dump_mbuf(__func__, __LINE__, (msg), (mb))
 
 #ifndef SUN_LEN
 #define SUN_LEN(su) \
@@ -121,7 +122,6 @@
 #endif /* SUN_LEN */
 
 /* XXX */
-boolean_t       current_thread_aborted(void);
 kern_return_t   thread_terminate(thread_t);
 
 ZONE_DECLARE(nfs_fhandle_zone, "fhandle", sizeof(struct fhandle), ZC_NONE);
@@ -592,16 +592,9 @@ nfs_socket_create(
 	*nsop = NULL;
 
 	/* Create the socket. */
-	MALLOC(nso, struct nfs_socket *, sizeof(struct nfs_socket), M_TEMP, M_WAITOK | M_ZERO);
-	if (nso) {
-		MALLOC(nso->nso_saddr, struct sockaddr *, sa->sa_len, M_SONAME, M_WAITOK | M_ZERO);
-	}
-	if (!nso || !nso->nso_saddr) {
-		if (nso) {
-			FREE(nso, M_TEMP);
-		}
-		return ENOMEM;
-	}
+	nso = kalloc_type(struct nfs_socket, Z_WAITOK | Z_ZERO | Z_NOFAIL);
+	nso->nso_saddr = (struct sockaddr *)alloc_sockaddr(sa->sa_len, Z_WAITOK | Z_NOFAIL);
+
 	lck_mtx_init(&nso->nso_lock, &nfs_request_grp, LCK_ATTR_NULL);
 	nso->nso_sotype = sotype;
 	if (nso->nso_sotype == SOCK_STREAM) {
@@ -690,14 +683,12 @@ nfs_socket_destroy(struct nfs_socket *nso)
 		nfs_rpc_record_state_cleanup(&nso->nso_rrs);
 	}
 	lck_mtx_destroy(&nso->nso_lock, &nfs_request_grp);
-	if (nso->nso_saddr) {
-		FREE(nso->nso_saddr, M_SONAME);
-	}
-	if (nso->nso_saddr2) {
-		FREE(nso->nso_saddr2, M_SONAME);
-	}
+
+	free_sockaddr(nso->nso_saddr);
+	free_sockaddr(nso->nso_saddr2);
+
 	NFS_SOCK_DBG("nfs connect - socket %p destroyed\n", nso);
-	FREE(nso, M_TEMP);
+	kfree_type(struct nfs_socket, nso);
 }
 
 /*
@@ -1586,10 +1577,7 @@ keepsearching:
 			}
 			/* create sockaddr for MOUNT */
 			if (!error) {
-				MALLOC(nsonfs->nso_saddr2, struct sockaddr *, ss.ss_len, M_SONAME, M_WAITOK | M_ZERO);
-			}
-			if (!error && !nsonfs->nso_saddr2) {
-				error = ENOMEM;
+				nsonfs->nso_saddr2 = (struct sockaddr *)alloc_sockaddr(ss.ss_len, Z_WAITOK | Z_NOFAIL);
 			}
 			if (!error) {
 				bcopy(&ss, nsonfs->nso_saddr2, ss.ss_len);
@@ -1874,9 +1862,8 @@ keepsearching:
 	}
 
 	lck_mtx_unlock(&nmp->nm_lock);
-	if (oldsaddr) {
-		FREE(oldsaddr, M_SONAME);
-	}
+
+	free_sockaddr(oldsaddr);
 
 	if (nss.nss_flags & NSS_WARNED) {
 		log(LOG_INFO, "nfs_connect: socket connect completed for %s\n",
@@ -2143,7 +2130,7 @@ nfs_mount_sock_thread(void *arg, __unused wait_result_t wr)
 				if (error == EIO || error == EINTR) {
 					lvl = (do_reconnect_sleep++ % 600) ? 7 : 0;
 				}
-				NFS_DBG(NFS_FAC_SOCK, lvl, "nfs reconnect %s: returned %d\n",
+				NFSCLNT_DBG(NFSCLNT_FAC_SOCK, lvl, "nfs reconnect %s: returned %d\n",
 				    vfs_statfs(nmp->nm_mountp)->f_mntfromname, error);
 			} else {
 				nmp->nm_reconnect_start = 0;
@@ -2654,7 +2641,7 @@ nfs4_mount_callback_shutdown(struct nfsmount *nmp)
 		sock_shutdown(ncbsp->ncbs_so, SHUT_RDWR);
 		sock_close(ncbsp->ncbs_so);
 		nfs_rpc_record_state_cleanup(&ncbsp->ncbs_rrs);
-		FREE(ncbsp, M_TEMP);
+		kfree_type(struct nfs_callback_socket, ncbsp);
 	}
 }
 
@@ -2687,7 +2674,7 @@ loop:
 		sock_shutdown(ncbsp->ncbs_so, SHUT_RDWR);
 		sock_close(ncbsp->ncbs_so);
 		nfs_rpc_record_state_cleanup(&ncbsp->ncbs_rrs);
-		FREE(ncbsp, M_TEMP);
+		kfree_type(struct nfs_callback_socket, ncbsp);
 		goto loop;
 	}
 	nfs4_callback_timer_on = 1;
@@ -2717,12 +2704,8 @@ nfs4_cb_accept(socket_t so, __unused void *arg, __unused int waitflag)
 	}
 
 	/* allocate/initialize a new nfs_callback_socket */
-	MALLOC(ncbsp, struct nfs_callback_socket *, sizeof(struct nfs_callback_socket), M_TEMP, M_WAITOK);
-	if (!ncbsp) {
-		log(LOG_ERR, "nfs callback accept: no memory for new socket\n");
-		return;
-	}
-	bzero(ncbsp, sizeof(*ncbsp));
+	ncbsp = kalloc_type(struct nfs_callback_socket,
+	    Z_WAITOK | Z_ZERO | Z_NOFAIL);
 	ncbsp->ncbs_saddr.ss_len = (ip == 4) ? sizeof(struct sockaddr_in) : sizeof(struct sockaddr_in6);
 	nfs_rpc_record_state_init(&ncbsp->ncbs_rrs);
 
@@ -2732,7 +2715,7 @@ nfs4_cb_accept(socket_t so, __unused void *arg, __unused int waitflag)
 	    nfs4_cb_rcv, ncbsp, &newso);
 	if (error) {
 		log(LOG_INFO, "nfs callback accept: error %d accepting IPv%d socket\n", error, ip);
-		FREE(ncbsp, M_TEMP);
+		kfree_type(struct nfs_callback_socket, ncbsp);
 		return;
 	}
 
@@ -3114,7 +3097,7 @@ nfs4_cb_handler(struct nfs_callback_socket *ncbsp, mbuf_t mreq)
 
 nfsmout:
 	if (status == EBADRPC) {
-		OSAddAtomic64(1, &nfsstats.rpcinvalid);
+		OSAddAtomic64(1, &nfsclntstats.rpcinvalid);
 	}
 
 	/* build reply header */
@@ -3438,7 +3421,7 @@ again:
 				microuptime(&now);
 				if ((now.tv_sec - nmp->nm_reconnect_start) >= 8) {
 					/* soft mount in reconnect for a while... terminate ASAP */
-					OSAddAtomic64(1, &nfsstats.rpctimeouts);
+					OSAddAtomic64(1, &nfsclntstats.rpctimeouts);
 					req->r_flags |= R_SOFTTERM;
 					req->r_error = error = ETIMEDOUT;
 					break;
@@ -3577,7 +3560,7 @@ again:
 		/* SUCCESS */
 		req->r_flags &= ~R_RESENDERR;
 		if (rexmit) {
-			OSAddAtomic64(1, &nfsstats.rpcretries);
+			OSAddAtomic64(1, &nfsclntstats.rpcretries);
 		}
 		req->r_flags |= R_SENT;
 		if (req->r_flags & R_WAITSENT) {
@@ -3864,7 +3847,7 @@ nfs_request_match_reply(struct nfsmount *nmp, mbuf_t mrep)
 	nfsm_chain_get_32(error, &nmrep, rxid);
 	nfsm_chain_get_32(error, &nmrep, reply);
 	if (error || (reply != RPC_REPLY)) {
-		OSAddAtomic64(1, &nfsstats.rpcinvalid);
+		OSAddAtomic64(1, &nfsclntstats.rpcinvalid);
 		mbuf_freem(mrep);
 		return;
 	}
@@ -3960,7 +3943,7 @@ nfs_request_match_reply(struct nfsmount *nmp, mbuf_t mrep)
 	if (!req) {
 		/* not matched to a request, so drop it. */
 		lck_mtx_unlock(&nfs_request_mutex);
-		OSAddAtomic64(1, &nfsstats.rpcunexpected);
+		OSAddAtomic64(1, &nfsclntstats.rpcunexpected);
 		mbuf_freem(mrep);
 	}
 }
@@ -4099,10 +4082,14 @@ nfs_request_create(
 	}
 
 	if ((nmp->nm_vers != NFS_VER4) && (procnum >= 0) && (procnum < NFS_NPROCS)) {
-		OSAddAtomic64(1, &nfsstats.rpccnt[procnum]);
+		OSAddAtomic64(1, &nfsclntstats.rpccntv3[procnum]);
 	}
-	if ((nmp->nm_vers == NFS_VER4) && (procnum != NFSPROC4_COMPOUND) && (procnum != NFSPROC4_NULL)) {
-		panic("nfs_request: invalid NFSv4 RPC request %d\n", procnum);
+	if (nmp->nm_vers == NFS_VER4) {
+		if (procnum == NFSPROC4_COMPOUND || procnum == NFSPROC4_NULL) {
+			OSAddAtomic64(1, &nfsclntstats.opcntv4[procnum]);
+		} else {
+			panic("nfs_request: invalid NFSv4 RPC request %d", procnum);
+		}
 	}
 
 	lck_mtx_init(&req->r_mtx, &nfs_request_grp, LCK_ATTR_NULL);
@@ -4238,13 +4225,13 @@ nfs_request_destroy(struct nfsreq *req)
 		nfs_gss_clnt_rpcdone(req);
 	}
 	SLIST_FOREACH_SAFE(gsp, &req->r_gss_seqlist, gss_seqnext, ngsp)
-	FREE(gsp, M_TEMP);
+	kfree_type(struct gss_seq, gsp);
 	if (req->r_gss_ctx) {
 		nfs_gss_clnt_ctx_unref(req);
 	}
 #endif /* CONFIG_NFS_GSS */
 	if (req->r_wrongsec) {
-		FREE(req->r_wrongsec, M_TEMP);
+		kfree_data(req->r_wrongsec, NX_MAX_SEC_FLAVORS * sizeof(uint32_t));
 	}
 	if (nmp) {
 		nfs_mount_rele(nmp);
@@ -4361,7 +4348,7 @@ nfs_request_send(struct nfsreq *req, int wait)
 		    ((nmp->nm_tprintf_delay) - (nmp->nm_tprintf_initial_delay));
 	}
 
-	OSAddAtomic64(1, &nfsstats.rpcrequests);
+	OSAddAtomic64(1, &nfsclntstats.rpcrequests);
 
 	/*
 	 * Make sure the request is not in the queue.
@@ -4603,7 +4590,7 @@ nfs_request_finish(
 			if ((req->r_delay >= 30) && !(nmp->nm_state & NFSSTA_MOUNTED)) {
 				/* we're not yet completely mounted and */
 				/* we can't complete an RPC, so we fail */
-				OSAddAtomic64(1, &nfsstats.rpctimeouts);
+				OSAddAtomic64(1, &nfsclntstats.rpctimeouts);
 				nfs_softterm(req);
 				error = req->r_error;
 				goto nfsmout;
@@ -4625,7 +4612,7 @@ nfs_request_finish(
 			if ((NMFLAG(nmp, SOFT) || (req->r_flags & R_SOFT)) && (req->r_delay == 30) &&
 			    !(req->r_flags & R_NOINTR)) {
 				/* for soft mounts, just give up after a short while */
-				OSAddAtomic64(1, &nfsstats.rpctimeouts);
+				OSAddAtomic64(1, &nfsclntstats.rpctimeouts);
 				nfs_softterm(req);
 				error = req->r_error;
 				goto nfsmout;
@@ -4678,7 +4665,7 @@ nfs_request_finish(
 
 			if (!req->r_wrongsec) {
 				/* first time... set up flavor array */
-				MALLOC(req->r_wrongsec, uint32_t*, NX_MAX_SEC_FLAVORS * sizeof(uint32_t), M_TEMP, M_WAITOK);
+				req->r_wrongsec = kalloc_data(NX_MAX_SEC_FLAVORS * sizeof(uint32_t), Z_WAITOK);
 				if (!req->r_wrongsec) {
 					error = EACCES;
 					goto nfsmout;
@@ -5330,7 +5317,7 @@ restart:
 				lck_mtx_unlock(&nmp->nm_lock);
 				/* we're not yet completely mounted and */
 				/* we can't complete an RPC, so we fail */
-				OSAddAtomic64(1, &nfsstats.rpctimeouts);
+				OSAddAtomic64(1, &nfsclntstats.rpctimeouts);
 				nfs_softterm(req);
 				finish_asyncio = ((req->r_callback.rcb_func != NULL) && !(req->r_flags & R_WAITSENT));
 				wakeup(req);
@@ -5464,7 +5451,7 @@ restart:
 		if ((NMFLAG(nmp, SOFT) || (req->r_flags & (R_SETUP | R_RECOVER | R_SOFT))) &&
 		    ((req->r_rexmit >= req->r_retry) || /* too many */
 		    ((now.tv_sec - req->r_start) * NFS_HZ > maxtime))) { /* too long */
-			OSAddAtomic64(1, &nfsstats.rpctimeouts);
+			OSAddAtomic64(1, &nfsclntstats.rpctimeouts);
 			lck_mtx_lock(&nmp->nm_lock);
 			if (!(nmp->nm_state & NFSSTA_TIMEO)) {
 				lck_mtx_unlock(&nmp->nm_lock);
@@ -5555,7 +5542,6 @@ nfs_noremotehang(thread_t thd)
  * and the mount is interruptable, or if we are a thread that is in the process
  * of cancellation (also SIGKILL posted).
  */
-extern int sigprop[NSIG + 1];
 int
 nfs_sigintr(struct nfsmount *nmp, struct nfsreq *req, thread_t thd, int nmplocked)
 {
@@ -5566,7 +5552,13 @@ nfs_sigintr(struct nfsmount *nmp, struct nfsreq *req, thread_t thd, int nmplocke
 		return ENXIO;
 	}
 
-	if (get_system_inshutdown()) {
+	/*
+	 * If the mount is hung and we've requested shutdown, then bail.
+	 * If reboot_kernel was called, no need to wait for mount to become unresponsive
+	 * because network state may be unknown.
+	 */
+	if ((IOPMRootDomainGetWillShutdown() && (nmp->nm_state & NFSSTA_TIMEO)) ||
+	    get_system_inshutdown()) {
 		NFS_SOCK_DBG("Shutdown in progress\n");
 		return ESHUTDOWN;
 	}
@@ -5620,11 +5612,7 @@ nfs_sigintr(struct nfsmount *nmp, struct nfsreq *req, thread_t thd, int nmplocke
 	 * were killed by a signal and this is the exiting thread which
 	 * is attempting to dump core.
 	 */
-	if (((p = current_proc()) != kernproc) && current_thread_aborted() &&
-	    (!(p->p_acflag & AXSIG) || (p->exit_thread != current_thread()) ||
-	    (p->p_sigacts == NULL) ||
-	    (p->p_sigacts->ps_sig < 1) || (p->p_sigacts->ps_sig > NSIG) ||
-	    !(sigprop[p->p_sigacts->ps_sig] & SA_CORE))) {
+	if (proc_isabortedsignal(current_proc())) {
 		return EINTR;
 	}
 
@@ -6512,7 +6500,7 @@ done:
 
 	*nmrepp = nmrep;
 	if ((err != 0) && (err != NFSERR_RETVOID)) {
-		OSAddAtomic64(1, &nfsstats.srvrpc_errs);
+		OSAddAtomic64(1, &nfsrvstats.srvrpc_errs);
 	}
 	return 0;
 }
@@ -6539,7 +6527,7 @@ nfsrv_send(struct nfsrv_sock *slp, mbuf_t nam, mbuf_t top)
 			msg.msg_namelen = sendnam->sa_len;
 		}
 	}
-	if (NFS_IS_DBG(NFS_FAC_SRV, 15)) {
+	if (NFSRV_IS_DBG(NFSRV_FAC_SRV, 15)) {
 		nfs_dump_mbuf(__func__, __LINE__, "nfsrv_send\n", top);
 	}
 	error = sock_sendmbuf(so, &msg, top, 0, NULL);
@@ -6630,7 +6618,7 @@ nfsrv_rcv_locked(socket_t so, struct nfsrv_sock *slp, int waitflag)
 		m = mp;
 		if (slp->ns_rawend) {
 			if ((error = mbuf_setnext(slp->ns_rawend, m))) {
-				panic("nfsrv_rcv: mbuf_setnext failed %d\n", error);
+				panic("nfsrv_rcv: mbuf_setnext failed %d", error);
 			}
 			slp->ns_cc += bytes_read;
 		} else {
@@ -6853,7 +6841,7 @@ nfsrv_getstream(struct nfsrv_sock *slp, int waitflag)
 				m = m2;
 			}
 			if ((error = mbuf_setnext(m, recm))) {
-				panic("nfsrv_getstream: mbuf_setnext failed 3, %d\n", error);
+				panic("nfsrv_getstream: mbuf_setnext failed 3, %d", error);
 			}
 		}
 		if (slp->ns_flag & SLP_LASTFRAG) {
@@ -6901,7 +6889,7 @@ nfsrv_dorec(
 		nam = m;
 		m = mbuf_next(m);
 		if ((error = mbuf_setnext(nam, NULL))) {
-			panic("nfsrv_dorec: mbuf_setnext failed %d\n", error);
+			panic("nfsrv_dorec: mbuf_setnext failed %d", error);
 		}
 	} else {
 		nam = NULL;

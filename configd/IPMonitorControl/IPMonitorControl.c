@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2013-2021 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -38,6 +38,7 @@
 #include "IPMonitorControlPrivate.h"
 #include "symbol_scope.h"
 #include <CoreFoundation/CFRuntime.h>
+#include <CoreFoundation/CFXPCBridge.h>
 #include <net/if.h>
 #include <xpc/xpc.h>
 #include <xpc/private.h>
@@ -209,6 +210,22 @@ IPMonitorControlHandleResponse(xpc_object_t event, Boolean async,
     return (success);
 }
 
+STATIC int64_t
+cfdict_get_number(CFDictionaryRef dict, CFStringRef key)
+{
+    int64_t		num = 0;
+    CFNumberRef		num_cf;
+
+    num_cf = CFDictionaryGetValue(dict, key);
+    if (isA_CFNumber(num_cf) != NULL) {
+	(void)CFNumberGetValue(num_cf, kCFNumberSInt64Type, &num);
+    }
+    return (num);
+}
+
+/**
+ ** Interface Rank Assertion
+ **/
 
 STATIC void
 _IPMonitorControlSetInterfacePrimaryRank(IPMonitorControlRef control,
@@ -257,15 +274,15 @@ ApplyInterfaceRank(const void * key, const void * value, void * context)
 	return;
     }
     request = create_request_dictionary();
-    xpc_dictionary_set_uint64(request,
-			      kIPMonitorControlRequestKeyType,
-			      kIPMonitorControlRequestTypeSetInterfaceRank);
+    xpc_dictionary_set_int64(request,
+			     kIPMonitorControlRequestKeyType,
+			     kIPMonitorControlRequestTypeSetInterfaceRank);
     xpc_dictionary_set_string(request,
 			      kIPMonitorControlRequestKeyInterfaceName,
 			      ifname);
-    xpc_dictionary_set_uint64(request,
-			      kIPMonitorControlRequestKeyPrimaryRank,
-			      rank);
+    xpc_dictionary_set_int64(request,
+			     kIPMonitorControlRequestKeyPrimaryRank,
+			     rank);
     xpc_connection_send_message(connection, request);
     xpc_release(request);
     return;
@@ -319,15 +336,15 @@ ApplyInterfaceAdvisory(const void * key, const void * value, void * context)
 	return;
     }
     request = create_request_dictionary();
-    xpc_dictionary_set_uint64(request,
-			      kIPMonitorControlRequestKeyType,
-			      kIPMonitorControlRequestTypeSetInterfaceAdvisory);
+    xpc_dictionary_set_int64(request,
+			     kIPMonitorControlRequestKeyType,
+			     kIPMonitorControlRequestTypeSetInterfaceAdvisory);
     xpc_dictionary_set_string(request,
 			      kIPMonitorControlRequestKeyInterfaceName,
 			      ifname);
-    xpc_dictionary_set_uint64(request,
-			      kIPMonitorControlRequestKeyAdvisory,
-			      advisory);
+    xpc_dictionary_set_int64(request,
+			     kIPMonitorControlRequestKeyAdvisory,
+			     advisory);
     xpc_connection_send_message(connection, request);
     xpc_release(request);
     return;
@@ -423,15 +440,15 @@ IPMonitorControlSetInterfacePrimaryRank(IPMonitorControlRef control,
     }
 
     request = create_request_dictionary();
-    xpc_dictionary_set_uint64(request,
-			      kIPMonitorControlRequestKeyType,
-			      kIPMonitorControlRequestTypeSetInterfaceRank);
+    xpc_dictionary_set_int64(request,
+			     kIPMonitorControlRequestKeyType,
+			     kIPMonitorControlRequestTypeSetInterfaceRank);
     xpc_dictionary_set_string(request,
 			      kIPMonitorControlRequestKeyInterfaceName,
 			      ifname);
-    xpc_dictionary_set_uint64(request,
-			      kIPMonitorControlRequestKeyPrimaryRank,
-			      rank);
+    xpc_dictionary_set_int64(request,
+			     kIPMonitorControlRequestKeyPrimaryRank,
+			     rank);
     reply = IPMonitorControlSendRequest(control, request);
     xpc_release(request);
     if (reply != NULL) {
@@ -469,22 +486,143 @@ IPMonitorControlGetInterfacePrimaryRank(IPMonitorControlRef control,
     }
 
     request = create_request_dictionary();
-    xpc_dictionary_set_uint64(request,
-			      kIPMonitorControlRequestKeyType,
-			      kIPMonitorControlRequestTypeGetInterfaceRank);
+    xpc_dictionary_set_int64(request,
+			     kIPMonitorControlRequestKeyType,
+			     kIPMonitorControlRequestTypeGetInterfaceRank);
     xpc_dictionary_set_string(request,
 			      kIPMonitorControlRequestKeyInterfaceName,
 			      ifname);
     reply = IPMonitorControlSendRequest(control, request);
     if (reply != NULL) {
 	rank = (SCNetworkServicePrimaryRank)
-	    xpc_dictionary_get_uint64(reply,
+	    xpc_dictionary_get_int64(reply,
 				      kIPMonitorControlResponseKeyPrimaryRank);
 	xpc_release(reply);
     }
     xpc_release(request);
     return (rank);
 }
+
+PRIVATE_EXTERN CFStringRef
+IPMonitorControlCopyInterfaceRankAssertionNotificationKey(CFStringRef ifname)
+{
+    return (_IPMonitorControlCopyInterfaceRankAssertionNotificationKey(ifname));
+}
+
+PRIVATE_EXTERN SCNetworkServicePrimaryRank
+InterfaceRankAssertionInfoGetPrimaryRank(InterfaceRankAssertionInfoRef info)
+{
+    CFDictionaryRef	dict = (CFDictionaryRef)info;
+
+    return (SCNetworkInterfaceAdvisory)
+	cfdict_get_number(dict, CFSTR(kIPMonitorControlRankAssertionInfoPrimaryRank));
+}
+
+PRIVATE_EXTERN pid_t
+InterfaceRankAssertionInfoGetProcessID(InterfaceRankAssertionInfoRef info)
+{
+    CFDictionaryRef	dict = (CFDictionaryRef)info;
+
+    return (pid_t)
+	cfdict_get_number(dict,
+			  CFSTR(kIPMonitorControlRankAssertionInfoProcessID));
+}
+
+PRIVATE_EXTERN CFStringRef
+InterfaceRankAssertionInfoGetProcessName(InterfaceRankAssertionInfoRef info)
+{
+    CFDictionaryRef	dict = (CFDictionaryRef)info;
+
+    return CFDictionaryGetValue(dict,
+				CFSTR(kIPMonitorControlRankAssertionInfoProcessName));
+}
+
+STATIC CFArrayRef
+CopyAssertionOrAdvisoryInfo(IPMonitorControlRef control,
+			    CFStringRef ifname_cf,
+			    IPMonitorControlRequestType type,
+			    const char * response_key)
+{
+    char		ifname[IF_NAMESIZE];
+    CFArrayRef		list_cf = NULL;
+    xpc_object_t	reply;
+    xpc_object_t	request;
+
+    if (!CFStringGetCString(ifname_cf, ifname, sizeof(ifname),
+			   kCFStringEncodingUTF8)) {
+	goto done;
+    }
+
+    request = create_request_dictionary();
+    xpc_dictionary_set_int64(request,
+			     kIPMonitorControlRequestKeyType,
+			     type);
+    xpc_dictionary_set_string(request,
+			      kIPMonitorControlRequestKeyInterfaceName,
+			      ifname);
+    reply = IPMonitorControlSendRequest(control, request);
+    if (reply != NULL) {
+	xpc_object_t	list;
+
+	list = xpc_dictionary_get_value(reply,
+					response_key);
+	if (list != NULL) {
+	    list_cf = _CFXPCCreateCFObjectFromXPCObject(list);
+	}
+	xpc_release(reply);
+    }
+    xpc_release(request);
+
+ done:
+    return (list_cf);
+}
+
+STATIC CFArrayRef
+CopyInterfaceNames(IPMonitorControlRef control,
+		   IPMonitorControlRequestType type)
+{
+    CFArrayRef		list_cf = NULL;
+    xpc_object_t	reply;
+    xpc_object_t	request;
+
+    request = create_request_dictionary();
+    xpc_dictionary_set_int64(request,
+			     kIPMonitorControlRequestKeyType,
+			     type);
+    reply = IPMonitorControlSendRequest(control, request);
+    if (reply != NULL) {
+	xpc_object_t	list;
+
+	list = xpc_dictionary_get_value(reply,
+				kIPMonitorControlResponseKeyInterfaceNames);
+	if (list != NULL) {
+	    list_cf = _CFXPCCreateCFObjectFromXPCObject(list);
+	}
+	xpc_release(reply);
+    }
+    xpc_release(request);
+    return (list_cf);
+}
+
+PRIVATE_EXTERN CFArrayRef
+IPMonitorControlCopyInterfaceRankAssertionInfo(IPMonitorControlRef control,
+					       CFStringRef ifname_cf)
+{
+    return CopyAssertionOrAdvisoryInfo(control, ifname_cf,
+		     kIPMonitorControlRequestTypeGetInterfaceRankAssertionInfo,
+		     kIPMonitorControlResponseKeyRankAssertionInfo);
+}
+
+PRIVATE_EXTERN CFArrayRef /* of CFString */
+IPMonitorControlCopyInterfaceRankAssertionInterfaceNames(IPMonitorControlRef control)
+{
+    return CopyInterfaceNames(control,
+      kIPMonitorControlRequestTypeGetInterfaceRankAssertionInterfaceNames);
+}
+
+/**
+ ** Interface Advisory
+ **/
 
 PRIVATE_EXTERN Boolean
 IPMonitorControlSetInterfaceAdvisory(IPMonitorControlRef control,
@@ -507,15 +645,15 @@ IPMonitorControlSetInterfaceAdvisory(IPMonitorControlRef control,
 	    = _SC_cfstring_to_cstring(reason, NULL, 0, kCFStringEncodingUTF8);
     }
     request = create_request_dictionary();
-    xpc_dictionary_set_uint64(request,
-			      kIPMonitorControlRequestKeyType,
-			      kIPMonitorControlRequestTypeSetInterfaceAdvisory);
+    xpc_dictionary_set_int64(request,
+			     kIPMonitorControlRequestKeyType,
+			     kIPMonitorControlRequestTypeSetInterfaceAdvisory);
     xpc_dictionary_set_string(request,
 			      kIPMonitorControlRequestKeyInterfaceName,
 			      ifname);
-    xpc_dictionary_set_uint64(request,
-			      kIPMonitorControlRequestKeyAdvisory,
-			      advisory);
+    xpc_dictionary_set_int64(request,
+			     kIPMonitorControlRequestKeyAdvisory,
+			     advisory);
     if (reason_str != NULL) {
 	xpc_dictionary_set_string(request,
 				  kIPMonitorControlRequestKeyReason,
@@ -544,8 +682,9 @@ IPMonitorControlSetInterfaceAdvisory(IPMonitorControlRef control,
 }
 
 PRIVATE_EXTERN Boolean
-IPMonitorControlInterfaceAdvisoryIsSet(IPMonitorControlRef control,
-				       CFStringRef ifname_cf)
+IPMonitorControlIsInterfaceAdvisorySet(IPMonitorControlRef control,
+				       CFStringRef ifname_cf,
+				       SCNetworkInterfaceAdvisory advisory)
 {
     char		ifname[IF_NAMESIZE];
     xpc_object_t	reply;
@@ -557,12 +696,19 @@ IPMonitorControlInterfaceAdvisoryIsSet(IPMonitorControlRef control,
 	return (FALSE);
     }
     request = create_request_dictionary();
-    xpc_dictionary_set_uint64(request,
-			      kIPMonitorControlRequestKeyType,
-			      kIPMonitorControlRequestTypeInterfaceAdvisoryIsSet);
+    xpc_dictionary_set_int64(request,
+			     kIPMonitorControlRequestKeyType,
+			     kIPMonitorControlRequestTypeInterfaceAdvisoryIsSet);
     xpc_dictionary_set_string(request,
 			      kIPMonitorControlRequestKeyInterfaceName,
 			      ifname);
+    if (advisory != kSCNetworkInterfaceAdvisoryNone) {
+	/* asking about a specific advisory code */
+	xpc_dictionary_set_int64(request,
+				 kIPMonitorControlRequestKeyAdvisory,
+				 advisory);
+    }
+
     reply = IPMonitorControlSendRequest(control, request);
     xpc_release(request);
     if (reply != NULL) {
@@ -583,9 +729,9 @@ IPMonitorControlAnyInterfaceAdvisoryIsSet(IPMonitorControlRef control)
     Boolean		is_set = FALSE;
 
     request = create_request_dictionary();
-    xpc_dictionary_set_uint64(request,
-			      kIPMonitorControlRequestKeyType,
-			      kIPMonitorControlRequestTypeAnyInterfaceAdvisoryIsSet);
+    xpc_dictionary_set_int64(request,
+			     kIPMonitorControlRequestKeyType,
+			     kIPMonitorControlRequestTypeAnyInterfaceAdvisoryIsSet);
     reply = IPMonitorControlSendRequest(control, request);
     xpc_release(request);
     if (reply != NULL) {
@@ -602,4 +748,47 @@ PRIVATE_EXTERN CFStringRef
 IPMonitorControlCopyInterfaceAdvisoryNotificationKey(CFStringRef ifname)
 {
     return (_IPMonitorControlCopyInterfaceAdvisoryNotificationKey(ifname));
+}
+
+PRIVATE_EXTERN SCNetworkInterfaceAdvisory
+InterfaceAdvisoryInfoGetAdvisory(InterfaceAdvisoryInfoRef info)
+{
+    CFDictionaryRef	dict = (CFDictionaryRef)info;
+
+    return (SCNetworkInterfaceAdvisory)
+	cfdict_get_number(dict, CFSTR(kIPMonitorControlAdvisoryInfoAdvisory));
+}
+
+PRIVATE_EXTERN pid_t
+InterfaceAdvisoryInfoGetProcessID(InterfaceAdvisoryInfoRef info)
+{
+    CFDictionaryRef	dict = (CFDictionaryRef)info;
+
+    return (pid_t)
+	cfdict_get_number(dict, CFSTR(kIPMonitorControlAdvisoryInfoProcessID));
+}
+
+PRIVATE_EXTERN CFStringRef
+InterfaceAdvisoryInfoGetProcessName(InterfaceAdvisoryInfoRef info)
+{
+    CFDictionaryRef	dict = (CFDictionaryRef)info;
+
+    return CFDictionaryGetValue(dict,
+				CFSTR(kIPMonitorControlAdvisoryInfoProcessName));
+}
+
+PRIVATE_EXTERN CFArrayRef /* of InterfaceAdvisoryInfoRef */
+IPMonitorControlCopyInterfaceAdvisoryInfo(IPMonitorControlRef control,
+					  CFStringRef ifname_cf)
+{
+    return CopyAssertionOrAdvisoryInfo(control, ifname_cf,
+		     kIPMonitorControlRequestTypeGetInterfaceAdvisoryInfo,
+		     kIPMonitorControlResponseKeyAdvisoryInfo);
+}
+
+PRIVATE_EXTERN CFArrayRef /* of CFString */
+IPMonitorControlCopyInterfaceAdvisoryInterfaceNames(IPMonitorControlRef control)
+{
+    return CopyInterfaceNames(control,
+	      kIPMonitorControlRequestTypeGetInterfaceAdvisoryInterfaceNames);
 }

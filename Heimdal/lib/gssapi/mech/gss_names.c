@@ -50,7 +50,7 @@ OM_uint32
 _gss_find_mn(OM_uint32 *__nonnull minor_status,
 	     struct _gss_name *__nonnull name,
 	     __nonnull gss_const_OID mech,
-	     struct _gss_mechanism_name *__nonnull* __nullable output_mn)
+	     struct _gss_mechanism_name * __nullable * __nonnull output_mn)
 {
 	OM_uint32 major_status;
 	gssapi_mech_interface m;
@@ -173,7 +173,7 @@ _gss_mech_import_name(OM_uint32 * __nonnull minor_status,
 		      struct _gss_name_type *__nonnull names,
 		      __nonnull const gss_buffer_t input_name_buffer,
 		      __nonnull gss_const_OID input_name_type,
-		      __nonnull gss_name_t * __nullable output_name)
+		      __nullable gss_name_t * __nonnull output_name)
 {
     struct _gss_name_type *name;
     gss_buffer_t name_buffer = input_name_buffer;
@@ -240,7 +240,7 @@ _gss_mech_import_name(OM_uint32 * __nonnull minor_status,
 OM_uint32
 _gss_mech_inquire_names_for_mech(OM_uint32 * __nonnull minor_status,
 				 struct _gss_name_type *__nonnull names,
-				 gss_OID_set __nonnull * __nullable name_types)
+				 gss_OID_set __nullable * __nonnull name_types)
 {
     struct _gss_name_type *name;
     OM_uint32 ret, junk;

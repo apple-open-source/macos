@@ -251,6 +251,31 @@ done:
     return CFRetain(formatName);
 }
 
+#define LIFS_FSTYPENAME "lifs"
+
+static CFStringRef _FSGetRealFsType(const struct statfs* fsInfo)
+{
+	CFStringRef fsType = NULL;
+
+	// Lifs mounts store fstype in f_mntfromname
+	if (strncmp(fsInfo->f_fstypename, LIFS_FSTYPENAME, MFSNAMELEN) == 0) {
+		CFURLRef url = CFURLCreateWithBytes(kCFAllocatorDefault, (const UInt8 *)fsInfo->f_mntfromname, strlen(fsInfo->f_mntfromname), kCFStringEncodingUTF8, NULL);
+		if (url) {
+			if (CFURLCanBeDecomposed(url)) {
+				fsType = CFURLCopyScheme(url);
+			}
+
+			CFRelease(url);
+		}
+	}
+
+	if (fsType == NULL) {
+		fsType = CFStringCreateWithCString(NULL, fsInfo->f_fstypename, kCFStringEncodingASCII);
+	}
+
+	return fsType;
+}
+
 CFStringRef _FSCopyLocalizedNameForVolumeFormatAtURL(CFURLRef url) 
 {
     CFStringRef formatName = NULL;
@@ -261,7 +286,7 @@ CFStringRef _FSCopyLocalizedNameForVolumeFormatAtURL(CFURLRef url)
 		bool encrypted = false;
 
         if (statfs((char *)buffer, &fsInfo) == 0) {
-            CFStringRef fsType = CFStringCreateWithCString(NULL, fsInfo.f_fstypename, kCFStringEncodingASCII);
+            CFStringRef fsType = _FSGetRealFsType(&fsInfo);
 
 			encrypted = IsEncrypted(fsInfo.f_mntfromname);
 #ifdef _DARWIN_FEATURE_64_BIT_INODE
@@ -286,7 +311,7 @@ CFStringRef _FSCopyNameForVolumeFormatAtURL(CFURLRef url)
 	struct statfs fsInfo;
 
         if (statfs((char *)buffer, &fsInfo) == 0) {
-            CFStringRef fsType = CFStringCreateWithCString(NULL, fsInfo.f_fstypename, kCFStringEncodingASCII);
+			CFStringRef fsType = _FSGetRealFsType(&fsInfo);
 			bool encrypted = false;
 			
 			encrypted = IsEncrypted(fsInfo.f_mntfromname);

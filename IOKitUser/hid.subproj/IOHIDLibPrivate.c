@@ -91,10 +91,12 @@ os_log_t _IOHIDLogCategory(IOHIDLogCategory category)
         log[kIOHIDLogCategoryFastPath]          = os_log_create(kIOHIDLogSubsytem, "fastpath");
         log[kIOHIDLogCategoryUserDevice]        = os_log_create(kIOHIDLogSubsytem, "userdevice");
         log[kIOHIDLogCategoryService]           = os_log_create(kIOHIDLogSubsytem, "service");
+        log[kIOHIDLogCategoryServicePlugin]     = os_log_create(kIOHIDLogSubsytem, "serviceplugin");
         log[kIOHIDServiceLogCategoryCarplay]    = os_log_create(kIOHIDLogSubsytem, "service.carplay");
         log[kIOHIDLogCategoryConnection]        = os_log_create(kIOHIDLogSubsytem, "connection");
         log[kIOHIDLogCategoryCursor]            = os_log_create(kIOHIDLogSubsytem, "cursor");	
         log[kIOHIDLogCategorySignpost]          = os_log_create(kIOHIDLogSubsytem, "hidsignpost");
+        log[kIOHIDLogCategoryUPS]               = os_log_create(kIOHIDLogSubsytem, "ups");
 
     });
     return log[category];

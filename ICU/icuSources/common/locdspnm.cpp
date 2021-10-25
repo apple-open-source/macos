@@ -755,6 +755,11 @@ LocaleDisplayNamesImpl::localeIdName(const char* localeId,
         if (!result.isBogus()) {
             return result;
         }
+    } else if (nameLength == UDISPCTX_LENGTH_VARIANT) {
+        langData.getNoFallback("Languages%variant", localeId, result);
+        if (!result.isBogus()) {
+            return result;
+        }
     }
     if (substitute) {
         return langData.get("Languages", localeId, result);
@@ -771,6 +776,11 @@ LocaleDisplayNamesImpl::languageDisplayName(const char* lang,
     }
     if (nameLength == UDISPCTX_LENGTH_SHORT) {
         langData.getNoFallback("Languages%short", lang, result);
+        if (!result.isBogus()) {
+            return adjustForUsageAndContext(kCapContextUsageLanguage, result);
+        }
+    } else if (nameLength == UDISPCTX_LENGTH_VARIANT) {
+        langData.getNoFallback("Languages%variant", lang, result);
         if (!result.isBogus()) {
             return adjustForUsageAndContext(kCapContextUsageLanguage, result);
         }
@@ -795,6 +805,11 @@ LocaleDisplayNamesImpl::scriptDisplayName(const char* script,
     }
     if (nameLength == UDISPCTX_LENGTH_SHORT) {
         langData.getNoFallback("Scripts%short", script, result);
+        if (!result.isBogus()) {
+            return skipAdjust? result: adjustForUsageAndContext(kCapContextUsageScript, result);
+        }
+    } else if (nameLength == UDISPCTX_LENGTH_VARIANT) {
+        langData.getNoFallback("Scripts%variant", script, result);
         if (!result.isBogus()) {
             return skipAdjust? result: adjustForUsageAndContext(kCapContextUsageScript, result);
         }
@@ -828,6 +843,11 @@ LocaleDisplayNamesImpl::regionDisplayName(const char* region,
         if (!result.isBogus()) {
             return skipAdjust? result: adjustForUsageAndContext(kCapContextUsageTerritory, result);
         }
+    } else if (nameLength == UDISPCTX_LENGTH_VARIANT) {
+        regionData.getNoFallback("Countries%variant", region, result);
+        if (!result.isBogus()) {
+            return skipAdjust? result: adjustForUsageAndContext(kCapContextUsageTerritory, result);
+        }
     }
     if (substitute == UDISPCTX_SUBSTITUTE) {
         regionData.get("Countries", region, result);
@@ -842,6 +862,12 @@ LocaleDisplayNamesImpl::regionDisplayName(const char* region,
 UnicodeString&
 LocaleDisplayNamesImpl::regionShortDisplayName(const char* region,
                                           UnicodeString& result) const {
+    if (nameLength == UDISPCTX_LENGTH_VARIANT) {
+        regionData.getNoFallback("Countries%variant", region, result);
+        if (!result.isBogus()) {
+            return result;
+        }
+    }
     if (uprv_strcmp(region, "PS") != 0) {
         regionData.getNoFallback("Countries%short", region, result);
         if (!result.isBogus()) {

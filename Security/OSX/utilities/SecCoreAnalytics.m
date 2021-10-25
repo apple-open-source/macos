@@ -26,6 +26,8 @@
 #import <SoftLinking/SoftLinking.h>
 #import <Availability.h>
 #import <sys/sysctl.h>
+#import <os/log.h>
+#import <limits.h>
 
 NSString* const SecCoreAnalyticsValue = @"value";
 
@@ -38,71 +40,124 @@ void SecCoreAnalyticsSendValue(CFStringRef _Nonnull eventName, int64_t value)
                           }];
 }
 
-void SecCoreAnalyticsSendKernEntropyHealth()
+// Round up to the nearest power of two. If x is a power of two,
+// return x. If x is zero, return zero. If x > 2^63, return UINT64_MAX
+// (which is technically not a power of two). For example:
+//
+// ceil2n(0) -> 0
+// ceil2n(1) -> 1
+// ceil2n(2) -> 2
+// ceil2n(3) -> 4
+// ceil2n(4) -> 4
+// ceil2n(5) -> 8
+// ...
+static
+uint64_t ceil2n(uint64_t x)
 {
-    size_t sz_int = sizeof(int);
-    size_t sz_uint = sizeof(unsigned int);
-    size_t sz_tv = sizeof(struct timeval);
-
-    int startup_done;
-    unsigned int adaptive_proportion_failure_count = 0;
-    unsigned int adaptive_proportion_max_observation_count = 0;
-    unsigned int adaptive_proportion_reset_count = 0;
-    unsigned int repetition_failure_count = 0;
-    unsigned int repetition_max_observation_count = 0;
-    unsigned int repetition_reset_count = 0;
-
-    int rv = sysctlbyname("kern.entropy.health.startup_done", &startup_done, &sz_int, NULL, 0);
-    rv |= sysctlbyname("kern.entropy.health.adaptive_proportion_test.failure_count", &adaptive_proportion_failure_count, &sz_uint, NULL, 0);
-    rv |= sysctlbyname("kern.entropy.health.adaptive_proportion_test.max_observation_count", &adaptive_proportion_max_observation_count, &sz_uint, NULL, 0);
-    rv |= sysctlbyname("kern.entropy.health.adaptive_proportion_test.reset_count", &adaptive_proportion_reset_count, &sz_uint, NULL, 0);
-    rv |= sysctlbyname("kern.entropy.health.repetition_count_test.failure_count", &repetition_failure_count, &sz_uint, NULL, 0);
-    rv |= sysctlbyname("kern.entropy.health.repetition_count_test.max_observation_count", &repetition_max_observation_count, &sz_uint, NULL, 0);
-    rv |= sysctlbyname("kern.entropy.health.repetition_count_test.reset_count", &repetition_reset_count, &sz_uint, NULL, 0);
-
-    // Round up to next power of two.
-    if (adaptive_proportion_reset_count > 0) {
-        adaptive_proportion_reset_count =
-            1U << (sizeof(unsigned int) * 8 - __builtin_clz(adaptive_proportion_reset_count));
+    if (__builtin_popcountll(x) < 2) {
+        return x;
     }
 
-    // Round up to next power of two.
-    if (repetition_reset_count > 0) {
-        repetition_reset_count =
-            1U << (sizeof(unsigned int) * 8 - __builtin_clz(repetition_reset_count));
+    int clz = __builtin_clzll(x);
+    if (clz == 0) {
+        return UINT64_MAX;
     }
+
+    return 1ULL << (64 - clz);
+}
+
+static
+int sysctl_read(const char *name, void *valp, size_t size)
+{
+    size_t tmp_size = size;
+    int rv = sysctlbyname(name, valp, &tmp_size, NULL, 0);
+
+    if (rv < 0) {
+        return rv;
+    }
+
+    if (tmp_size != size) {
+        return -1;
+    }
+
+    return rv;
+}
+
+#define SYSCTL_READ(type, varname, sysctlname)                          \
+    type varname;                                                       \
+    if (sysctl_read(sysctlname, &varname, sizeof(varname)) < 0) {       \
+        os_log_error(OS_LOG_DEFAULT, "failed to read sysctl %s", sysctlname); \
+        return;                                                         \
+    }                                                                   \
+    while (0)
+
+static
+void SecCoreAnalyticsSendKernEntropyHealthAnalytics(void)
+{
+    SYSCTL_READ(int, startup_done, "kern.entropy.health.startup_done");
+
+    SYSCTL_READ(uint32_t, adaptive_proportion_test_failure_count, "kern.entropy.health.adaptive_proportion_test.failure_count");
+    SYSCTL_READ(uint32_t, adaptive_proportion_test_max_observation_count, "kern.entropy.health.adaptive_proportion_test.max_observation_count");
+    SYSCTL_READ(uint32_t, adaptive_proportion_test_reset_count, "kern.entropy.health.adaptive_proportion_test.reset_count");
+    SYSCTL_READ(uint32_t, repetition_count_test_failure_count, "kern.entropy.health.repetition_count_test.failure_count");
+    SYSCTL_READ(uint32_t, repetition_count_test_max_observation_count, "kern.entropy.health.repetition_count_test.max_observation_count");
+    SYSCTL_READ(uint32_t, repetition_count_test_reset_count, "kern.entropy.health.repetition_count_test.reset_count");
+
+    // Round up to next power of two.
+    adaptive_proportion_test_reset_count = (uint32_t)ceil2n(adaptive_proportion_test_reset_count);
+
+    // Round up to next power of two.
+    repetition_count_test_reset_count = (uint32_t)ceil2n(repetition_count_test_reset_count);
 
     // Default to not submitting uptime, except on failure.
     int uptime = -1;
 
-    if (adaptive_proportion_failure_count > 0 || repetition_failure_count > 0) {
+    if (adaptive_proportion_test_failure_count > 0 || repetition_count_test_failure_count > 0) {
         time_t now;
         time(&now);
 
-        struct timeval boottime;
-        int mib[2] = { CTL_KERN, KERN_BOOTTIME };
-        rv |= sysctl(mib, 2, &boottime, &sz_tv, NULL, 0);
+        SYSCTL_READ(struct timeval, boottime, "kern.boottime");
 
         // Submit uptime in minutes.
         uptime = (int)((now - boottime.tv_sec) / 60);
-    }
-
-    if (rv) {
-        return;
     }
 
     [SecCoreAnalytics sendEventLazy:@"com.apple.kern.entropyHealth" builder:^NSDictionary<NSString *,NSObject *> * _Nonnull{
         return @{
             @"uptime" : @(uptime),
             @"startup_done" : @(startup_done),
-            @"adaptive_proportion_failure_count" : @(adaptive_proportion_failure_count),
-            @"adaptive_proportion_max_observation_count" : @(adaptive_proportion_max_observation_count),
-            @"adaptive_proportion_reset_count" : @(adaptive_proportion_reset_count),
-            @"repetition_failure_count" : @(repetition_failure_count),
-            @"repetition_max_observation_count" : @(repetition_max_observation_count),
-            @"repetition_reset_count" : @(repetition_reset_count)
+            @"adaptive_proportion_failure_count" : @(adaptive_proportion_test_failure_count),
+            @"adaptive_proportion_max_observation_count" : @(adaptive_proportion_test_max_observation_count),
+            @"adaptive_proportion_reset_count" : @(adaptive_proportion_test_reset_count),
+            @"repetition_failure_count" : @(repetition_count_test_failure_count),
+            @"repetition_max_observation_count" : @(repetition_count_test_max_observation_count),
+            @"repetition_reset_count" : @(repetition_count_test_reset_count)
         };
     }];
+}
+
+static
+void SecCoreAnalyticsSendKernEntropyFilterAnalytics(void)
+{
+    SYSCTL_READ(uint64_t, rejected_sample_count, "kern.entropy.filter.rejected_sample_count");
+    SYSCTL_READ(uint64_t, total_sample_count, "kern.entropy.filter.total_sample_count");
+
+    double rejection_rate = (double)rejected_sample_count / total_sample_count;
+
+    total_sample_count = ceil2n(total_sample_count);
+
+    [SecCoreAnalytics sendEventLazy:@"com.apple.kern.entropy.filter" builder:^NSDictionary<NSString *,NSObject *> * _Nonnull{
+        return @{
+            @"rejection_rate" : @(rejection_rate),
+            @"total_sample_count" : @(total_sample_count)
+        };
+    }];
+}
+
+void SecCoreAnalyticsSendKernEntropyAnalytics(void)
+{
+    SecCoreAnalyticsSendKernEntropyHealthAnalytics();
+    SecCoreAnalyticsSendKernEntropyFilterAnalytics();
 }
 
 @implementation SecCoreAnalytics

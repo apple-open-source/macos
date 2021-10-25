@@ -35,6 +35,7 @@
 #define _LDAP_UTF8_H
 
 #include <lber_types.h>	/* get ber_*_t */
+#include <stddef.h>
 
 /*
  * UTF-8 Utility Routines

@@ -136,9 +136,9 @@ lck_grp_attr_t *srs_grp_attr;
 lck_grp_t *srs_lck_group;
 lck_attr_t *srs_lck_attr;
 
-lck_grp_attr_t *nbp_grp_attr;
-lck_grp_t *nbp_lck_group;
-lck_attr_t *nbp_lck_attr;
+lck_grp_attr_t *iodtdata_grp_attr;
+lck_grp_t *iodtdata_lck_group;
+lck_attr_t *iodtdata_lck_attr;
 
 lck_grp_attr_t *dev_lck_grp_attr;
 lck_grp_t *dev_lck_grp;
@@ -316,9 +316,9 @@ smbnet_lock_init()
 	srs_grp_attr = lck_grp_attr_alloc_init();
 	srs_lck_group = lck_grp_alloc_init("smb-srs", srs_grp_attr);
 	
-	nbp_lck_attr = lck_attr_alloc_init();
-	nbp_grp_attr = lck_grp_attr_alloc_init();
-	nbp_lck_group = lck_grp_alloc_init("smb-nbp", nbp_grp_attr);
+    iodtdata_lck_attr = lck_attr_alloc_init();
+    iodtdata_grp_attr = lck_grp_attr_alloc_init();
+    iodtdata_lck_group = lck_grp_alloc_init("smb-iodtdata", iodtdata_grp_attr);
 	
 	dev_lck_attr = lck_attr_alloc_init();
 	dev_lck_grp_attr = lck_grp_attr_alloc_init();
@@ -341,9 +341,9 @@ smbnet_lock_uninit()
 	lck_grp_attr_free(dev_lck_grp_attr);
 	lck_attr_free(dev_lck_attr);
 	
-	lck_grp_free(nbp_lck_group);
-	lck_grp_attr_free(nbp_grp_attr);
-	lck_attr_free(nbp_lck_attr);
+	lck_grp_free(iodtdata_lck_group);
+	lck_grp_attr_free(iodtdata_grp_attr);
+	lck_attr_free(iodtdata_lck_attr);
 	
 	lck_grp_free(srs_lck_group);
 	lck_grp_attr_free(srs_grp_attr);
@@ -970,6 +970,26 @@ smbfs_mount(struct mount *mp, vnode_t devvp, user_addr_t data, vfs_context_t con
 	}
     
     /*
+     * Are we forcing share encryption?
+     * This is probably from mount_smbfs mount option being set meaning that
+     * only one share is being encrypted.
+     */
+    if (smp->sm_args.altflags & SMBFS_MNT_SHARE_ENCRYPT) {
+        /* Force share level encryption */
+        SMBWARNING("Share level encryption forced on for %s volume \n",
+                   vfs_statfs(mp)->f_mntfromname);
+        share->ss_share_flags |= SMB2_SHAREFLAG_ENCRYPT_DATA;
+        
+        /*
+         * If one share is being encrypted, then should also encrypt the
+         * IPC$ traffic as that may also relate to that share. For example,
+         * Spotlight/SMB uses IPC$ and may contain search info for the
+         * encrypted share.
+         */
+        SS_TO_SESSION(share)->session_misc_flags |= SMBV_FORCE_IPC_ENCRYPT;
+    }
+
+    /*
      * Validate the negotiate if SMB 2/3. smb2fs_smb_validate_neg_info will
      * check for whether the session needs to be validated or not.
      */
@@ -1014,8 +1034,17 @@ smbfs_mount(struct mount *mp, vnode_t devvp, user_addr_t data, vfs_context_t con
 	/* Copy in the from name, used for reconnects and other things  */
 	strlcpy(vfs_statfs(mp)->f_mntfromname, args->url_fromname, MAXPATHLEN);
 
-	/* Now get the mounted volumes unique id */
-	smp->sm_args.unique_id_len = args->unique_id_len;
+    /*
+     * Now get the mounted volumes unique id <79665965> while
+     * preventing OOB read when copying from unique_id buffer
+     */
+    if (args->unique_id_len > SMB_MAX_UNIQUE_ID) {
+        SMBERROR("Invalid unique id buffer length\n");
+        error = EINVAL;
+        goto bad;
+    }
+
+    smp->sm_args.unique_id_len = args->unique_id_len;
 	SMB_MALLOC(smp->sm_args.unique_id, unsigned char *, smp->sm_args.unique_id_len, 
 		   M_SMBFSDATA, M_WAITOK);
 	if (smp->sm_args.unique_id) {
@@ -1981,10 +2010,11 @@ smbfs_vfs_getattr(struct mount *mp, struct vfs_attr *fsap, vfs_context_t context
 {
 	struct smbmount *smp = VFSTOSMBFS(mp);
 	struct smb_share *share = NULL;
-	struct vfsstatfs cachedstatfs;
+	struct vfsstatfs *cachedstatfs = NULL;
 	struct timespec ts;
 	int error = 0;
     struct smb_session *sessionp = NULL;
+    char *tmp_str = NULL;
 
     SMB_LOG_KTRACE(SMB_DBG_VFS_GETATTR | DBG_FUNC_START, 0, 0, 0, 0, 0);
 
@@ -1992,12 +2022,24 @@ smbfs_vfs_getattr(struct mount *mp, struct vfs_attr *fsap, vfs_context_t context
 		error = EINVAL;
         goto done;
     }
-	
+
+    SMB_MALLOC(cachedstatfs,
+               struct vfsstatfs *,
+               sizeof(struct vfsstatfs),
+               M_SMBTEMP,
+               M_WAITOK | M_ZERO);
+
+    if (cachedstatfs == NULL) {
+        SMBERROR("cachedstatfs failed malloc\n");
+        error = ENOMEM;
+        goto done;
+    }
+
 	share = smb_get_share_with_reference(smp);
     sessionp = SS_TO_SESSION(share);
 
 	lck_mtx_lock(&smp->sm_statfslock);
-	cachedstatfs = smp->sm_statfsbuf;
+    memcpy(cachedstatfs, &smp->sm_statfsbuf, sizeof(struct vfsstatfs));
 	if (smp->sm_status & SM_STATUS_STATFS)
 		lck_mtx_unlock(&smp->sm_statfslock);
 	else {
@@ -2011,12 +2053,12 @@ smbfs_vfs_getattr(struct mount *mp, struct vfs_attr *fsap, vfs_context_t context
 			 VFSATTR_IS_ACTIVE(fsap, f_bfree) || VFSATTR_IS_ACTIVE(fsap, f_bavail) ||
 			 VFSATTR_IS_ACTIVE(fsap, f_files) || VFSATTR_IS_ACTIVE(fsap, f_ffree)))) {
 			/* update cached from-the-server data */
-			error = smbfs_smb_statfs(smp, &cachedstatfs, context);
+			error = smbfs_smb_statfs(smp, cachedstatfs, context);
 			if (error == 0) {
 				nanouptime(&ts);
 				smp->sm_statfstime = ts.tv_sec;
 				lck_mtx_lock(&smp->sm_statfslock);
-				smp->sm_statfsbuf = cachedstatfs;
+                memcpy(&smp->sm_statfsbuf, cachedstatfs, sizeof(struct vfsstatfs));
 				lck_mtx_unlock(&smp->sm_statfslock);
 			}
             else {
@@ -2045,14 +2087,14 @@ smbfs_vfs_getattr(struct mount *mp, struct vfs_attr *fsap, vfs_context_t context
 	VFSATTR_RETURN (fsap, f_maxobjcount, (uint64_t) 0xFFFFFFFF);
 	
 	/* copy results from cached statfs */
-	VFSATTR_RETURN(fsap, f_bsize, cachedstatfs.f_bsize);
-	VFSATTR_RETURN(fsap, f_iosize, cachedstatfs.f_iosize);
-	VFSATTR_RETURN(fsap, f_blocks, cachedstatfs.f_blocks);
-	VFSATTR_RETURN(fsap, f_bfree, cachedstatfs.f_bfree);
-	VFSATTR_RETURN(fsap, f_bavail, cachedstatfs.f_bavail);
-	VFSATTR_RETURN (fsap, f_bused, cachedstatfs.f_blocks - cachedstatfs.f_bavail);
-	VFSATTR_RETURN(fsap, f_files, cachedstatfs.f_files);
-	VFSATTR_RETURN(fsap, f_ffree, cachedstatfs.f_ffree);
+	VFSATTR_RETURN(fsap, f_bsize, cachedstatfs->f_bsize);
+	VFSATTR_RETURN(fsap, f_iosize, cachedstatfs->f_iosize);
+	VFSATTR_RETURN(fsap, f_blocks, cachedstatfs->f_blocks);
+	VFSATTR_RETURN(fsap, f_bfree, cachedstatfs->f_bfree);
+	VFSATTR_RETURN(fsap, f_bavail, cachedstatfs->f_bavail);
+	VFSATTR_RETURN (fsap, f_bused, cachedstatfs->f_blocks - cachedstatfs->f_bavail);
+	VFSATTR_RETURN(fsap, f_files, cachedstatfs->f_files);
+	VFSATTR_RETURN(fsap, f_ffree, cachedstatfs->f_ffree);
 	
 	fsap->f_fsid.val[0] = vfs_statfs(mp)->f_fsid.val[0];
 	fsap->f_fsid.val[1] = vfs_typenum(mp);
@@ -2126,8 +2168,9 @@ smbfs_vfs_getattr(struct mount *mp, struct vfs_attr *fsap, vfs_context_t context
              */
         }
 
-        if (share->ss_attributes & FILE_SUPPORTS_SPARSE_FILES)
+        if (share->ss_attributes & FILE_SUPPORTS_SPARSE_FILES) {
 			cap->capabilities[VOL_CAPABILITIES_FORMAT] |= VOL_CAP_FMT_SPARSE_FILES;
+        }
 
 		cap->capabilities[VOL_CAPABILITIES_INTERFACES] = 
 			VOL_CAP_INT_ATTRLIST | 
@@ -2193,8 +2236,8 @@ smbfs_vfs_getattr(struct mount *mp, struct vfs_attr *fsap, vfs_context_t context
          * We only turn on VOL_CAP_INT_COPYFILE if it's an SMB 2/3 connection
          * AND we know it supports FSCTL_SRV_COPY_CHUNK IOCTL.
          */
-		if ((SS_TO_SESSION(share)->session_flags & SMBV_SMB2) &&
-            (SS_TO_SESSION(share)->session_misc_flags & SMBV_HAS_COPYCHUNK)) {
+		if ((sessionp->session_flags & SMBV_SMB2) &&
+            (sessionp->session_misc_flags & SMBV_HAS_COPYCHUNK)) {
             cap->capabilities[VOL_CAPABILITIES_INTERFACES] |= VOL_CAP_INT_COPYFILE;
         }
         
@@ -2292,7 +2335,7 @@ smbfs_vfs_getattr(struct mount *mp, struct vfs_attr *fsap, vfs_context_t context
                                                 /* ATTR_CMN_DATA_PROTECT_FLAGS | */
 												0;
 
-        if (SS_TO_SESSION(share)->session_misc_flags & SMBV_MNT_HIGH_FIDELITY) {
+        if (sessionp->session_misc_flags & SMBV_MNT_HIGH_FIDELITY) {
             /* Copied from apfs */
             fsap->f_attributes.validattr.commonattr |=
                                                 ATTR_CMN_OBJPERMANENTID |
@@ -2329,7 +2372,7 @@ smbfs_vfs_getattr(struct mount *mp, struct vfs_attr *fsap, vfs_context_t context
 												ATTR_DIR_MOUNTSTATUS |
 												0;
 
-        if (SS_TO_SESSION(share)->session_misc_flags & SMBV_MNT_HIGH_FIDELITY) {
+        if (sessionp->session_misc_flags & SMBV_MNT_HIGH_FIDELITY) {
             /* Copied from apfs */
             fsap->f_attributes.validattr.dirattr |= ATTR_DIR_ENTRYCOUNT;
         }
@@ -2348,7 +2391,7 @@ smbfs_vfs_getattr(struct mount *mp, struct vfs_attr *fsap, vfs_context_t context
 												ATTR_FILE_RSRCALLOCSIZE |
 												0;
 
-        if (SS_TO_SESSION(share)->session_misc_flags & SMBV_MNT_HIGH_FIDELITY) {
+        if (sessionp->session_misc_flags & SMBV_MNT_HIGH_FIDELITY) {
             /* Copied from apfs */
             fsap->f_attributes.validattr.fileattr |= ATTR_FILE_IOBLOCKSIZE;
         }
@@ -2376,7 +2419,7 @@ smbfs_vfs_getattr(struct mount *mp, struct vfs_attr *fsap, vfs_context_t context
 												/* ATTR_CMN_USERACCESS | */	/* Supported but not native */
 												0;
 
-        if (SS_TO_SESSION(share)->session_misc_flags & SMBV_MNT_HIGH_FIDELITY) {
+        if (sessionp->session_misc_flags & SMBV_MNT_HIGH_FIDELITY) {
             /* Copied from apfs */
             fsap->f_attributes.nativeattr.commonattr |=
                                                 ATTR_CMN_OBJPERMANENTID |
@@ -2430,7 +2473,7 @@ smbfs_vfs_getattr(struct mount *mp, struct vfs_attr *fsap, vfs_context_t context
 
 		fsap->f_attributes.nativeattr.dirattr = 0;
 
-        if (SS_TO_SESSION(share)->session_misc_flags & SMBV_MNT_HIGH_FIDELITY) {
+        if (sessionp->session_misc_flags & SMBV_MNT_HIGH_FIDELITY) {
             /* Copied from apfs */
             fsap->f_attributes.nativeattr.dirattr |=
                                                 ATTR_DIR_ENTRYCOUNT |
@@ -2447,7 +2490,7 @@ smbfs_vfs_getattr(struct mount *mp, struct vfs_attr *fsap, vfs_context_t context
 												ATTR_FILE_DATAALLOCSIZE |
 												0;
 
-        if (SS_TO_SESSION(share)->session_misc_flags & SMBV_MNT_HIGH_FIDELITY) {
+        if (sessionp->session_misc_flags & SMBV_MNT_HIGH_FIDELITY) {
             /* Copied from apfs */
             fsap->f_attributes.nativeattr.fileattr |=
                                                 ATTR_FILE_LINKCOUNT |
@@ -2482,8 +2525,30 @@ smbfs_vfs_getattr(struct mount *mp, struct vfs_attr *fsap, vfs_context_t context
 		
 	if (VFSATTR_IS_ACTIVE(fsap, f_vol_name) && fsap->f_vol_name) {
 		if (smp->sm_args.volume_name) {
-			strlcpy(fsap->f_vol_name, smp->sm_args.volume_name, MAXPATHLEN);
-		} else {
+            if ((sessionp->session_misc_flags & SMBV_MNT_SNAPSHOT) &&
+                (strnlen(sessionp->snapshot_time, sizeof(sessionp->snapshot_time)) > 0)) {
+                SMB_MALLOC(tmp_str,
+                           char *,
+                           MAXPATHLEN,
+                           M_SMBTEMP,
+                           M_WAITOK | M_ZERO);
+
+                if (tmp_str == NULL) {
+                    SMBERROR("tmp_str failed malloc\n");
+                    error = ENOMEM;
+                    goto done;
+                }
+                /* If snapshot mount, return the name with the time stamp */
+                strlcpy(tmp_str, smp->sm_args.volume_name, MAXPATHLEN);
+                strlcat(tmp_str, sessionp->snapshot_time, MAXPATHLEN);
+
+                strlcpy(fsap->f_vol_name, tmp_str, MAXPATHLEN);
+            }
+            else {
+                strlcpy(fsap->f_vol_name, smp->sm_args.volume_name, MAXPATHLEN);
+            }
+		}
+        else {
 			/*
 			 * ref 3984574.  Returning null here keeps vfs from returning
 			 * f_mntonname, and causes CarbonCore (File Mgr) to use the
@@ -2491,6 +2556,7 @@ smbfs_vfs_getattr(struct mount *mp, struct vfs_attr *fsap, vfs_context_t context
 			 */			
 			*fsap->f_vol_name = '\0';			
 		}
+        
 		VFSATTR_SET_SUPPORTED(fsap, f_vol_name);
 	}
 
@@ -2500,6 +2566,14 @@ smbfs_vfs_getattr(struct mount *mp, struct vfs_attr *fsap, vfs_context_t context
 	smb_share_rele(share, context);
 
 done:
+    if (cachedstatfs) {
+        SMB_FREE(cachedstatfs, M_TEMP);
+    }
+
+    if (tmp_str) {
+        SMB_FREE(tmp_str, M_TEMP);
+    }
+
     SMB_LOG_KTRACE(SMB_DBG_VFS_GETATTR | DBG_FUNC_END, error, 0, 0, 0, 0);
     return (error);
 }
@@ -2910,6 +2984,13 @@ smbfs_vget(struct mount *mp, ino64_t ino, vnode_t *vpp, vfs_context_t context)
         /* make sure it is one of my vnodes */
         if (vnode_tag(*vpp) != VT_CIFS) {
             SMBDEBUG("vnode_lookup found non SMB vnode???\n");
+            /*
+             * <80744043> vnode_lookup was successful and it returns with an
+             * iocount held on the resulting vnode which must be dropped with
+             * vnode_put(). When we return an error, the caller will not drop
+             * the iocount so we must do it to avoid iocount leak.
+             */
+            vnode_put(*vpp);
             error = ENOENT;
             goto done;
         }

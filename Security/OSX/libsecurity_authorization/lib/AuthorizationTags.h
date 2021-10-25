@@ -82,6 +82,12 @@
  */
 #define kAuthorizationPamResult  "pam_result"
 
+/*!
+    @define kAuthorizationFlags
+    Flags passed to AuthorizationCopyRights
+ */
+#define kAuthorizationFlags  "flags"
+
 
 
 #endif /* !_SECURITY_AUTHORIZATIONTAGS_H_ */

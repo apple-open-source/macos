@@ -59,6 +59,33 @@ const uint8_t* der_decode_string(CFAllocatorRef allocator,
     return payload + payload_size;
 }
 
+const uint8_t* der_decode_numeric_string(CFAllocatorRef allocator,
+                                 CFStringRef* string, CFErrorRef *error,
+                                 const uint8_t* der, const uint8_t *der_end)
+{
+    if (NULL == der) {
+        SecCFDERCreateError(kSecDERErrorNullInput, CFSTR("null input"), NULL, error);
+        return NULL;
+    }
+    
+    size_t payload_size = 0;
+    const uint8_t *payload = ccder_decode_tl(CCDER_NUMERIC_STRING, &payload_size, der, der_end);
+    
+    if (NULL == payload || (ssize_t) (der_end - payload) < (ssize_t) payload_size){
+        SecCFDERCreateError(kSecDERErrorUnknownEncoding, CFSTR("Unknown numeric string encoding"), NULL, error);
+        return NULL;
+    }
+    
+    *string = CFStringCreateWithBytes(allocator, payload, payload_size, kCFStringEncodingUTF8, false);
+    
+    if (NULL == *string) {
+        SecCFDERCreateError(kSecDERErrorAllocationFailure, CFSTR("Numeric string allocation failed"), NULL, error);
+        return NULL;
+    }
+    
+    return payload + payload_size;
+}
+
 
 size_t der_sizeof_string(CFStringRef str, CFErrorRef *error)
 {

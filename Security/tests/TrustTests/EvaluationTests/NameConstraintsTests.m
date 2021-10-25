@@ -125,7 +125,7 @@ errOut:
     require_action(subca = SecCertificateCreateWithBytes(NULL, _test_intermediate, sizeof(_test_intermediate)), errOut,
                    fail("Failed to create subca cert"));
     require_action(leaf3 = SecCertificateCreateWithBytes(NULL, _test_leaf3, sizeof(_test_leaf3)), errOut,
-                   fail("Failed to create leaf cert 3"));;
+                   fail("Failed to create leaf cert 3"));
 
     certs3 = @[(__bridge id)leaf3, (__bridge id)subca];
     test_anchors = @[(__bridge id)root];
@@ -148,8 +148,10 @@ errOut:
     CFReleaseNull(trust);
 }
 
-#if !TARGET_OS_BRIDGE
 - (void)testUserAnchorWithNameConstraintsPass {
+#if TARGET_OS_BRIDGE // bridgeOS doesn't have trust settings
+    XCTSkip();
+#endif
     SecCertificateRef subca = NULL, leaf1 = NULL;
     NSArray *certs1 = nil;
     SecPolicyRef policy = SecPolicyCreateBasicX509();
@@ -177,7 +179,6 @@ errOut:
     CFReleaseNull(policy);
     CFReleaseNull(trust);
 }
-#endif
 
 - (void)testAppAnchorWithNameConstraintsPass {
     SecCertificateRef subca = NULL, leaf1 = NULL;
@@ -209,8 +210,10 @@ errOut:
     CFReleaseNull(trust);
 }
 
-#if !TARGET_OS_BRIDGE
 - (void)testUserAnchorWithNameConstraintsFail {
+#if TARGET_OS_BRIDGE // bridgeOS doesn't have trust settings
+    XCTSkip();
+#endif
     SecCertificateRef subca = NULL, leaf4 = NULL;
     NSArray *certs1 = nil;
     SecPolicyRef policy = SecPolicyCreateBasicX509();
@@ -238,7 +241,6 @@ errOut:
     CFReleaseNull(policy);
     CFReleaseNull(trust);
 }
-#endif
 
 - (void)testAppAnchorwithNameContraintsFail {
     SecCertificateRef subca = NULL, leaf4 = NULL;
@@ -363,7 +365,7 @@ exit:
                 if (size == 0) {
                     break;
                 }
-                [fh writeData:[NSData dataWithBytes:buf length:size]];
+                [fh writeData:[NSData dataWithBytes:buf length:(size_t)size]];
             }
             free(buf);
             [fh closeFile];
@@ -493,9 +495,11 @@ exit:
     return result;
 }
 
-#if !TARGET_OS_WATCH
-// Skip test on watchOS due to size constraints (rdar://66792084)
 - (void) testBetterTLS {
+#if TARGET_OS_WATCH
+    // Skip test on watchOS due to size constraints (rdar://66792084)
+    XCTSkip();
+#endif
     NSArray<NSDictionary *> *testsArray = [self getTestsArray];
     if([self untar_test_certs]) {
         [testsArray enumerateObjectsUsingBlock:^(NSDictionary * _Nonnull testDict, NSUInteger idx, BOOL * _Nonnull stop) {
@@ -541,6 +545,5 @@ exit:
 
     [[NSFileManager defaultManager] removeItemAtURL:tmpCertsDir error:nil];
 }
-#endif //!TARGET_OS_WATCH
 
 @end

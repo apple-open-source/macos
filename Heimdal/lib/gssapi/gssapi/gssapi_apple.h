@@ -205,7 +205,7 @@ gss_aapl_initial_cred (
 	__nonnull const gss_name_t desired_name,
 	__nonnull gss_const_OID desired_mech,
 	__nullable CFDictionaryRef attributes,
-	__nonnull gss_cred_id_t * __nullable output_cred_handle,
+	__nullable gss_cred_id_t * __nonnull output_cred_handle,
 	__nullable CFErrorRef *__nullable error)  __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_5_0);
 
 #ifdef __cplusplus

@@ -22,9 +22,11 @@
  */
 
 import Foundation
+import Foundation_Private.NSXPCConnection
 import os.log
 
-let containerMap = ContainerMap(invocableCreator: CKCodeCuttlefishInvocableCreator())
+let containerMap = ContainerMap(ckCodeOperationRunnerCreator: CuttlefishCKOperationRunnerCreator(),
+                                darwinNotifier: CKKSNotifyPostNotifier.self)
 
 class ServiceDelegate: NSObject, NSXPCListenerDelegate {
     func listener(_ listener: NSXPCListener, shouldAcceptNewConnection newConnection: NSXPCConnection) -> Bool {

@@ -39,6 +39,7 @@ public:
     void Ticket10983();
     void Ticket12130();
     void Ticket13344();
+    void AccessChangesChunkSize(); // rdar://78720690 
 
 private:
     struct m {                              // Map between native indices & code points.

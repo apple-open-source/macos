@@ -1,7 +1,7 @@
 SSHD_CONFIG(5)                File Formats Manual               SSHD_CONFIG(5)
 
 NAME
-     sshd_config M-bM-^@M-^S OpenSSH SSH daemon configuration file
+     sshd_config M-bM-^@M-^S OpenSSH daemon configuration file
 
 DESCRIPTION
      sshd(8) reads configuration data from /etc/ssh/sshd_config (or the file
@@ -45,9 +45,8 @@ DESCRIPTION
              users whose primary group or supplementary group list matches one
              of the patterns.  Only group names are valid; a numerical group
              ID is not recognized.  By default, login is allowed for all
-             groups.  The allow/deny directives are processed in the following
-             order: DenyUsers, AllowUsers, DenyGroups, and finally
-             AllowGroups.
+             groups.  The allow/deny groups directives are processed in the
+             following order: DenyGroups, AllowGroups.
 
              See PATTERNS in ssh_config(5) for more information on patterns.
 
@@ -79,9 +78,8 @@ DESCRIPTION
              USER@HOST then USER and HOST are separately checked, restricting
              logins to particular users from particular hosts.  HOST criteria
              may additionally contain addresses to match in CIDR
-             address/masklen format.  The allow/deny directives are processed
-             in the following order: DenyUsers, AllowUsers, DenyGroups, and
-             finally AllowGroups.
+             address/masklen format.  The allow/deny users directives are
+             processed in the following order: DenyUsers, AllowUsers.
 
              See PATTERNS in ssh_config(5) for more information on patterns.
 
@@ -132,11 +130,10 @@ DESCRIPTION
              target user is used.
 
              The program should produce on standard output zero or more lines
-             of authorized_keys output (see AUTHORIZED_KEYS in sshd(8)).  If a
-             key supplied by AuthorizedKeysCommand does not successfully
-             authenticate and authorize the user then public key
-             authentication continues using the usual AuthorizedKeysFile
-             files.  By default, no AuthorizedKeysCommand is run.
+             of authorized_keys output (see AUTHORIZED_KEYS in sshd(8)).
+             AuthorizedKeysCommand is tried after the usual AuthorizedKeysFile
+             files and will not be executed if a matching key is found there.
+             By default, no AuthorizedKeysCommand is run.
 
      AuthorizedKeysCommandUser
              Specifies the user under whose account the AuthorizedKeysCommand
@@ -210,8 +207,9 @@ DESCRIPTION
              Specifies which algorithms are allowed for signing of
              certificates by certificate authorities (CAs).  The default is:
 
-                   ecdsa-sha2-nistp256,ecdsa-sha2-nistp384,ecdsa-sha2-nistp521,
-                   ssh-ed25519,rsa-sha2-512,rsa-sha2-256,ssh-rsa
+                   ssh-ed25519,ecdsa-sha2-nistp256,ecdsa-sha2-nistp384,ecdsa-sha2-nistp521,
+                   sk-ssh-ed25519@openssh.com,sk-ecdsa-sha2-nistp256@openssh.com,
+                   rsa-sha2-512,rsa-sha2-256
 
              Certificates signed using other algorithms will not be accepted
              for public key or host-based authentication.
@@ -295,6 +293,8 @@ DESCRIPTION
              The default value is 3.  If ClientAliveInterval is set to 15, and
              ClientAliveCountMax is left at the default, unresponsive SSH
              clients will be disconnected after approximately 45 seconds.
+             Setting a zero ClientAliveCountMax disables connection
+             termination.
 
      ClientAliveInterval
              Sets a timeout interval in seconds after which if no data has
@@ -314,8 +314,8 @@ DESCRIPTION
              group or supplementary group list matches one of the patterns.
              Only group names are valid; a numerical group ID is not
              recognized.  By default, login is allowed for all groups.  The
-             allow/deny directives are processed in the following order:
-             DenyUsers, AllowUsers, DenyGroups, and finally AllowGroups.
+             allow/deny groups directives are processed in the following
+             order: DenyGroups, AllowGroups.
 
              See PATTERNS in ssh_config(5) for more information on patterns.
 
@@ -328,9 +328,8 @@ DESCRIPTION
              then USER and HOST are separately checked, restricting logins to
              particular users from particular hosts.  HOST criteria may
              additionally contain addresses to match in CIDR address/masklen
-             format.  The allow/deny directives are processed in the following
-             order: DenyUsers, AllowUsers, DenyGroups, and finally
-             AllowGroups.
+             format.  The allow/deny users directives are processed in the
+             following order: DenyUsers, AllowUsers.
 
              See PATTERNS in ssh_config(5) for more information on patterns.
 
@@ -392,29 +391,37 @@ DESCRIPTION
              facility is provided to assist with operation on multi homed
              machines.  The default is yes.
 
-     HostbasedAcceptedKeyTypes
-             Specifies the key types that will be accepted for hostbased
-             authentication as a list of comma-separated patterns.
+     HostbasedAcceptedAlgorithms
+             Specifies the signature algorithms that will be accepted for
+             hostbased authentication as a list of comma-separated patterns.
              Alternately if the specified list begins with a M-bM-^@M-^X+M-bM-^@M-^Y character,
-             then the specified key types will be appended to the default set
-             instead of replacing them.  If the specified list begins with a
-             M-bM-^@M-^X-M-bM-^@M-^Y character, then the specified key types (including wildcards)
-             will be removed from the default set instead of replacing them.
-             If the specified list begins with a M-bM-^@M-^X^M-bM-^@M-^Y character, then the
-             specified key types will be placed at the head of the default
-             set.  The default for this option is:
+             then the specified signature algorithms will be appended to the
+             default set instead of replacing them.  If the specified list
+             begins with a M-bM-^@M-^X-M-bM-^@M-^Y character, then the specified signature
+             algorithms (including wildcards) will be removed from the default
+             set instead of replacing them.  If the specified list begins with
+             a M-bM-^@M-^X^M-bM-^@M-^Y character, then the specified signature algorithms will be
+             placed at the head of the default set.  The default for this
+             option is:
 
+                ssh-ed25519-cert-v01@openssh.com,
                 ecdsa-sha2-nistp256-cert-v01@openssh.com,
                 ecdsa-sha2-nistp384-cert-v01@openssh.com,
                 ecdsa-sha2-nistp521-cert-v01@openssh.com,
-                ssh-ed25519-cert-v01@openssh.com,
-                rsa-sha2-512-cert-v01@openssh.com,rsa-sha2-256-cert-v01@openssh.com,
+                sk-ssh-ed25519-cert-v01@openssh.com,
+                sk-ecdsa-sha2-nistp256-cert-v01@openssh.com,
+                rsa-sha2-512-cert-v01@openssh.com,
+                rsa-sha2-256-cert-v01@openssh.com,
                 ssh-rsa-cert-v01@openssh.com,
+                ssh-ed25519,
                 ecdsa-sha2-nistp256,ecdsa-sha2-nistp384,ecdsa-sha2-nistp521,
-                ssh-ed25519,rsa-sha2-512,rsa-sha2-256,ssh-rsa
+                sk-ssh-ed25519@openssh.com,
+                sk-ecdsa-sha2-nistp256@openssh.com,
+                rsa-sha2-512,rsa-sha2-256,ssh-rsa
 
-             The list of available key types may also be obtained using "ssh
-             -Q key".
+             The list of available signature algorithms may also be obtained
+             using "ssh -Q HostbasedAcceptedAlgorithms".  This was formerly
+             named HostbasedAcceptedKeyTypes.
 
      HostbasedAuthentication
              Specifies whether rhosts or /etc/hosts.equiv authentication
@@ -457,38 +464,54 @@ DESCRIPTION
              read from the SSH_AUTH_SOCK environment variable.
 
      HostKeyAlgorithms
-             Specifies the host key algorithms that the server offers.  The
-             default for this option is:
+             Specifies the host key signature algorithms that the server
+             offers.  The default for this option is:
 
+                ssh-ed25519-cert-v01@openssh.com,
                 ecdsa-sha2-nistp256-cert-v01@openssh.com,
                 ecdsa-sha2-nistp384-cert-v01@openssh.com,
                 ecdsa-sha2-nistp521-cert-v01@openssh.com,
-                ssh-ed25519-cert-v01@openssh.com,
-                rsa-sha2-512-cert-v01@openssh.com,rsa-sha2-256-cert-v01@openssh.com,
+                sk-ssh-ed25519-cert-v01@openssh.com,
+                sk-ecdsa-sha2-nistp256-cert-v01@openssh.com,
+                rsa-sha2-512-cert-v01@openssh.com,
+                rsa-sha2-256-cert-v01@openssh.com,
                 ssh-rsa-cert-v01@openssh.com,
+                ssh-ed25519,
                 ecdsa-sha2-nistp256,ecdsa-sha2-nistp384,ecdsa-sha2-nistp521,
-                ssh-ed25519,rsa-sha2-512,rsa-sha2-256,ssh-rsa
+                sk-ssh-ed25519@openssh.com,
+                sk-ecdsa-sha2-nistp256@openssh.com,
+                rsa-sha2-512,rsa-sha2-256,ssh-rsa
 
-             The list of available key types may also be obtained using "ssh
-             -Q key".
+             The list of available signature algorithms may also be obtained
+             using "ssh -Q HostKeyAlgorithms".
 
      IgnoreRhosts
-             Specifies that .rhosts and .shosts files will not be used in
-             HostbasedAuthentication.
+             Specifies whether to ignore per-user .rhosts and .shosts files
+             during HostbasedAuthentication.  The system-wide /etc/hosts.equiv
+             and /etc/shosts.equiv are still used regardless of this setting.
 
-             /etc/hosts.equiv and /etc/shosts.equiv are still used.  The
-             default is yes.
+             Accepted values are yes (the default) to ignore all per-user
+             files, shosts-only to allow the use of .shosts but to ignore
+             .rhosts or no to allow both .shosts and rhosts.
 
      IgnoreUserKnownHosts
              Specifies whether sshd(8) should ignore the user's
              ~/.ssh/known_hosts during HostbasedAuthentication and use only
              the system-wide known hosts file /etc/ssh/known_hosts.  The
-             default is no.
+             default is M-bM-^@M-^\noM-bM-^@M-^].
+
+     Include
+             Include the specified configuration file(s).  Multiple pathnames
+             may be specified and each pathname may contain glob(7) wildcards
+             that will be expanded and processed in lexical order.  Files
+             without absolute paths are assumed to be in /etc/ssh.  An Include
+             directive may appear inside a Match block to perform conditional
+             inclusion.
 
      IPQoS   Specifies the IPv4 type-of-service or DSCP class for the
              connection.  Accepted values are af11, af12, af13, af21, af22,
              af23, af31, af32, af33, af41, af42, af43, cs0, cs1, cs2, cs3,
-             cs4, cs5, cs6, cs7, ef, lowdelay, throughput, reliability, a
+             cs4, cs5, cs6, cs7, ef, le, lowdelay, throughput, reliability, a
              numeric value, or none to use the operating system default.  This
              option may take one or two arguments, separated by whitespace.
              If one argument is specified, it is used as the packet class
@@ -548,6 +571,7 @@ DESCRIPTION
                    ecdh-sha2-nistp256
                    ecdh-sha2-nistp384
                    ecdh-sha2-nistp521
+                   sntrup761x25519-sha512@openssh.com
 
              The default is:
 
@@ -555,10 +579,10 @@ DESCRIPTION
                    ecdh-sha2-nistp256,ecdh-sha2-nistp384,ecdh-sha2-nistp521,
                    diffie-hellman-group-exchange-sha256,
                    diffie-hellman-group16-sha512,diffie-hellman-group18-sha512,
-                   diffie-hellman-group14-sha256,diffie-hellman-group14-sha1
+                   diffie-hellman-group14-sha256
 
              The list of available key exchange algorithms may also be
-             obtained using "ssh -Q kex".
+             obtained using "ssh -Q KexAlgorithms".
 
      ListenAddress
              Specifies the local addresses sshd(8) should listen on.  The
@@ -589,6 +613,19 @@ DESCRIPTION
              DEBUG and DEBUG1 are equivalent.  DEBUG2 and DEBUG3 each specify
              higher levels of debugging output.  Logging with a DEBUG level
              violates the privacy of users and is not recommended.
+
+     LogVerbose
+             Specify one or more overrides to LogLevel.  An override consists
+             of a pattern lists that matches the source file, function and
+             line number to force detailed logging for.  For example, an
+             override pattern of:
+
+                   kex.c:*:1000,*:kex_exchange_identification():*,packet.c:*
+
+             would enable detailed logging for line 1000 of kex.c, everything
+             in the kex_exchange_identification() function, and all code in
+             the packet.c file.  This option is intended for debugging and no
+             overrides are enabled by default.
 
      MACs    Specifies the available MAC (message authentication code)
              algorithms.  The MAC algorithm is used for data integrity
@@ -667,13 +704,14 @@ DESCRIPTION
              AuthorizedKeysFile, AuthorizedPrincipalsCommand,
              AuthorizedPrincipalsCommandUser, AuthorizedPrincipalsFile,
              Banner, ChrootDirectory, ClientAliveCountMax,
-             ClientAliveInterval, DenyGroups, DenyUsers, ForceCommand,
-             GatewayPorts, GSSAPIAuthentication, HostbasedAcceptedKeyTypes,
-             HostbasedAuthentication, HostbasedUsesNameFromPacketOnly, IPQoS,
+             ClientAliveInterval, DenyGroups, DenyUsers, DisableForwarding,
+             ForceCommand, GatewayPorts, GSSAPIAuthentication,
+             HostbasedAcceptedAlgorithms, HostbasedAuthentication,
+             HostbasedUsesNameFromPacketOnly, IgnoreRhosts, Include, IPQoS,
              KbdInteractiveAuthentication, KerberosAuthentication, LogLevel,
              MaxAuthTries, MaxSessions, PasswordAuthentication,
              PermitEmptyPasswords, PermitListen, PermitOpen, PermitRootLogin,
-             PermitTTY, PermitTunnel, PermitUserRC, PubkeyAcceptedKeyTypes,
+             PermitTTY, PermitTunnel, PermitUserRC, PubkeyAcceptedAlgorithms,
              PubkeyAuthentication, RekeyLimit, RevokedKeys, RDomain, SetEnv,
              StreamLocalBindMask, StreamLocalBindUnlink, TrustedUserCAKeys,
              X11DisplayOffset, X11Forwarding and X11UseLocalhost.
@@ -705,6 +743,12 @@ DESCRIPTION
              connections.  The probability increases linearly and all
              connection attempts are refused if the number of unauthenticated
              connections reaches full (60).
+
+     ModuliFile
+             Specifies the moduli(5) file that contains the Diffie-Hellman
+             groups used for the M-bM-^@M-^\diffie-hellman-group-exchange-sha1M-bM-^@M-^] and
+             M-bM-^@M-^\diffie-hellman-group-exchange-sha256M-bM-^@M-^] key exchange methods.  The
+             default is /etc/moduli.
 
      PasswordAuthentication
              Specifies whether password authentication is allowed.  The
@@ -751,8 +795,9 @@ DESCRIPTION
              restrictions and permit any forwarding requests.  An argument of
              none can be used to prohibit all forwarding requests.  The
              wildcard M-bM-^@M-^X*M-bM-^@M-^Y can be used for host or port to allow all hosts or
-             ports, respectively.  By default all port forwarding requests are
-             permitted.
+             ports respectively.  Otherwise, no pattern matching or address
+             lookups are performed on supplied names.  By default all port
+             forwarding requests are permitted.
 
      PermitRootLogin
              Specifies whether root can log in using ssh(1).  The argument
@@ -797,6 +842,19 @@ DESCRIPTION
              Specifies whether any ~/.ssh/rc file is executed.  The default is
              yes.
 
+     PerSourceMaxStartups
+             Specifies the number of unauthenticated connections allowed from
+             a given source address, or M-bM-^@M-^\noneM-bM-^@M-^] if there is no limit.  This
+             limit is applied in addition to MaxStartups, whichever is lower.
+             The default is none.
+
+     PerSourceNetBlockSize
+             Specifies the number of bits of source address that are grouped
+             together for the purposes of applying PerSourceMaxStartups
+             limits.  Values for IPv4 and optionally IPv6 may be specified,
+             separated by a colon.  The default is 32:128, which means each
+             address is considered individually.
+
      PidFile
              Specifies the file that contains the process ID of the SSH
              daemon, or none to not write one.  The default is
@@ -816,29 +874,55 @@ DESCRIPTION
              in interactively.  (On some systems it is also printed by the
              shell, /etc/profile, or equivalent.)  The default is yes.
 
-     PubkeyAcceptedKeyTypes
-             Specifies the key types that will be accepted for public key
-             authentication as a list of comma-separated patterns.
+     PubkeyAcceptedAlgorithms
+             Specifies the signature algorithms that will be accepted for
+             public key authentication as a list of comma-separated patterns.
              Alternately if the specified list begins with a M-bM-^@M-^X+M-bM-^@M-^Y character,
-             then the specified key types will be appended to the default set
+             then the specified algorithms will be appended to the default set
              instead of replacing them.  If the specified list begins with a
-             M-bM-^@M-^X-M-bM-^@M-^Y character, then the specified key types (including wildcards)
-             will be removed from the default set instead of replacing them.
-             If the specified list begins with a M-bM-^@M-^X^M-bM-^@M-^Y character, then the
-             specified key types will be placed at the head of the default
-             set.  The default for this option is:
+             M-bM-^@M-^X-M-bM-^@M-^Y character, then the specified algorithms (including
+             wildcards) will be removed from the default set instead of
+             replacing them.  If the specified list begins with a M-bM-^@M-^X^M-bM-^@M-^Y
+             character, then the specified algorithms will be placed at the
+             head of the default set.  The default for this option is:
 
+                ssh-ed25519-cert-v01@openssh.com,
                 ecdsa-sha2-nistp256-cert-v01@openssh.com,
                 ecdsa-sha2-nistp384-cert-v01@openssh.com,
                 ecdsa-sha2-nistp521-cert-v01@openssh.com,
-                ssh-ed25519-cert-v01@openssh.com,
-                rsa-sha2-512-cert-v01@openssh.com,rsa-sha2-256-cert-v01@openssh.com,
+                sk-ssh-ed25519-cert-v01@openssh.com,
+                sk-ecdsa-sha2-nistp256-cert-v01@openssh.com,
+                rsa-sha2-512-cert-v01@openssh.com,
+                rsa-sha2-256-cert-v01@openssh.com,
                 ssh-rsa-cert-v01@openssh.com,
+                ssh-ed25519,
                 ecdsa-sha2-nistp256,ecdsa-sha2-nistp384,ecdsa-sha2-nistp521,
-                ssh-ed25519,rsa-sha2-512,rsa-sha2-256,ssh-rsa
+                sk-ssh-ed25519@openssh.com,
+                sk-ecdsa-sha2-nistp256@openssh.com,
+                rsa-sha2-512,rsa-sha2-256,ssh-rsa
 
-             The list of available key types may also be obtained using "ssh
-             -Q key".
+             The list of available signature algorithms may also be obtained
+             using "ssh -Q PubkeyAcceptedAlgorithms".
+
+     PubkeyAuthOptions
+             Sets one or more public key authentication options.  The
+             supported keywords are: none (the default; indicating no
+             additional options are enabled), touch-required and
+             verify-required.
+
+             The touch-required option causes public key authentication using
+             a FIDO authenticator algorithm (i.e. ecdsa-sk or ed25519-sk) to
+             always require the signature to attest that a physically present
+             user explicitly confirmed the authentication (usually by touching
+             the authenticator).  By default, sshd(8) requires user presence
+             unless overridden with an authorized_keys option.  The
+             touch-required flag disables this override.
+
+             The verify-required option requires a FIDO key signature attest
+             that the user was verified, e.g. via a PIN.
+
+             Neither the touch-required or verify-required options have any
+             effect for other, non-FIDO, public key types.
 
      PubkeyAuthentication
              Specifies whether public key authentication is allowed.  The
@@ -846,7 +930,7 @@ DESCRIPTION
 
      RekeyLimit
              Specifies the maximum amount of data that may be transmitted
-             before the session key is renegotiated, optionally followed a
+             before the session key is renegotiated, optionally followed by a
              maximum amount of time that may pass before the session key is
              renegotiated.  The first argument is specified in bytes and may
              have a suffix of M-bM-^@M-^XKM-bM-^@M-^Y, M-bM-^@M-^XMM-bM-^@M-^Y, or M-bM-^@M-^XGM-bM-^@M-^Y to indicate Kilobytes,
@@ -874,6 +958,11 @@ DESCRIPTION
              forwarded or listening IP sockets, will be bound to this
              rdomain(4).  If the routing domain is set to %D, then the domain
              in which the incoming connection was received will be applied.
+
+     SecurityKeyProvider
+             Specifies a path to a library that will be used when loading FIDO
+             authenticator-hosted keys, overriding the default of using the
+             built-in USB HID support.
 
      SetEnv  Specifies one or more environment variables to set in child
              sessions started by sshd(8) as M-bM-^@M-^\NAME=VALUEM-bM-^@M-^].  The environment
@@ -1099,4 +1188,4 @@ AUTHORS
      versions 1.5 and 2.0.  Niels Provos and Markus Friedl contributed support
      for privilege separation.
 
-OpenBSD 6.6                    September 6, 2019                   OpenBSD 6.6
+OpenBSD 6.9                      April 4, 2021                     OpenBSD 6.9

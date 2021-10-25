@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004, 2010, 2011, 2017, 2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2004, 2010, 2011, 2017, 2018, 2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -49,7 +49,7 @@ reconnected(SCDynamicStoreRef store, void *info)
 
 __private_extern__
 void
-do_open(int argc, char **argv)
+do_open(int argc, char * const argv[])
 {
 #pragma unused(argv)
 	if (store) {
@@ -93,7 +93,7 @@ do_open(int argc, char **argv)
 
 __private_extern__
 void
-do_close(int argc, char **argv)
+do_close(int argc, char * const argv[])
 {
 #pragma unused(argc)
 #pragma unused(argv)

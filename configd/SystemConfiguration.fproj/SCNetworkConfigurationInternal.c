@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2007, 2009, 2010-2013, 2015-2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2007, 2009-2013, 2015-2021 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -70,8 +70,11 @@ logConfiguration_NetworkInterfaces(int level, const char *description, SCPrefere
 
 		for (CFIndex i = 0; i < n; i++) {
 			CFStringRef	bsdName;
+			CFBooleanRef	bVal;
 			CFDictionaryRef	dict;
 			CFDictionaryRef	info;
+			Boolean		isBuiltin;
+			Boolean		isHidden;
 			CFStringRef	name;
 
 			dict = CFArrayGetValueAtIndex(interfaces, i);
@@ -84,11 +87,19 @@ logConfiguration_NetworkInterfaces(int level, const char *description, SCPrefere
 				continue;
 			}
 
-			info    = CFDictionaryGetValue(dict, CFSTR(kSCNetworkInterfaceInfo));
-			name    = CFDictionaryGetValue(info, kSCPropUserDefinedName);
-			SC_log(level, "  %@ (%@)",
+			bVal = CFDictionaryGetValue(dict, CFSTR(kSCNetworkInterfaceIOBuiltin));
+			isBuiltin = (bVal != NULL) && CFBooleanGetValue(bVal);
+
+			isHidden = CFDictionaryContainsKey(dict, kSCNetworkInterfaceHiddenConfigurationKey) ||
+				   CFDictionaryContainsKey(dict, kSCNetworkInterfaceHiddenInterfaceKey);
+
+			info = CFDictionaryGetValue(dict, CFSTR(kSCNetworkInterfaceInfo));
+			name = CFDictionaryGetValue(info, kSCPropUserDefinedName);
+			SC_log(level, "  %@ (%@%s%s)",
 			       bsdName,
-			       name != NULL ? name : CFSTR("???"));
+			       name != NULL ? name : CFSTR("???"),
+			       isBuiltin ? ", built-in" : "",
+			       isHidden ? ", hidden" : "");
 		}
 
 	}
@@ -97,6 +108,7 @@ logConfiguration_NetworkInterfaces(int level, const char *description, SCPrefere
 static void
 logConfiguration_preferences(int level, const char *description, SCPreferencesRef prefs)
 {
+	CFArrayRef		interfaces;
 	CFStringRef		model	= SCPreferencesGetValue(prefs, MODEL);
 	CFIndex			n;
 	CFMutableArrayRef	orphans;
@@ -118,14 +130,19 @@ logConfiguration_preferences(int level, const char *description, SCPreferencesRe
 
 	sets = SCNetworkSetCopyAll(prefs);
 	if (sets != NULL) {
+		SCNetworkSetRef	currentSet;
+
+		currentSet = SCNetworkSetCopyCurrent(prefs);
+
 		n = CFArrayGetCount(sets);
 		for (CFIndex i = 0; i < n; i++) {
 			SCNetworkSetRef	set;
 
 			set = CFArrayGetValueAtIndex(sets, i);
-			SC_log(level, "  Set %@ (%@)",
+			SC_log(level, "  Set %@ (%@%s)",
 			       SCNetworkSetGetSetID(set),
-			       SCNetworkSetGetName(set));
+			       SCNetworkSetGetName(set),
+			       _SC_CFEqual(set, currentSet) ? ", current" : "");
 
 			services = SCNetworkSetCopyServices(set);
 			if (services != NULL) {
@@ -180,7 +197,7 @@ logConfiguration_preferences(int level, const char *description, SCPreferencesRe
 											  serviceID);
 					}
 					if (orderIndex != kCFNotFound) {
-						SC_log(level, "    Service %2ld : %@, %2d (%@%s%@%s%@)",
+						SC_log(level, "    Service %2ld : %@, %2d (%@%s%@%s%@%s%s%s%s)",
 						       orderIndex + 1,
 						       serviceID,
 						       __SCNetworkInterfaceOrder(interface),	// temp?
@@ -188,16 +205,24 @@ logConfiguration_preferences(int level, const char *description, SCPreferencesRe
 						       bsdName != NULL ? ", " : "",
 						       bsdName != NULL ? bsdName : CFSTR(""),
 						       userDefinedName != NULL ? " : " : "",
-						       userDefinedName != NULL ? userDefinedName : CFSTR(""));
+						       userDefinedName != NULL ? userDefinedName : CFSTR(""),
+						       SCNetworkInterfaceGetDisablePrivateRelay(interface) ? ", no-private-relay" : "",
+						       SCNetworkInterfaceGetDisableUntilNeeded(interface) ? ", disable-until-needed" : "",
+						       _SCNetworkInterfaceIsHiddenConfiguration(interface) ? ", hidden" : "",
+						       SCNetworkServiceGetEnabled(service) ? "" : ", disabled");
 					} else {
-						SC_log(level, "    Service    : %@, %2d (%@%s%@%s%@)",
+						SC_log(level, "    Service    : %@, %2d (%@%s%@%s%@%s%s%s%s)",
 						       serviceID,
 						       __SCNetworkInterfaceOrder(interface),	// temp?
 						       serviceName,
 						       bsdName != NULL ? ", " : "",
 						       bsdName != NULL ? bsdName : CFSTR(""),
 						       userDefinedName != NULL ? " : " : "",
-						       userDefinedName != NULL ? userDefinedName : CFSTR(""));
+						       userDefinedName != NULL ? userDefinedName : CFSTR(""),
+						       SCNetworkInterfaceGetDisablePrivateRelay(interface) ? ", no-private-relay" : "",
+						       SCNetworkInterfaceGetDisableUntilNeeded(interface) ? ", disable-until-needed" : "",
+						       _SCNetworkInterfaceIsHiddenConfiguration(interface) ? ", hidden" : "",
+						       SCNetworkServiceGetEnabled(service) ? "" : ", disabled");
 					}
 
 					o = CFArrayGetFirstIndexOfValue(orphans, CFRangeMake(0, CFArrayGetCount(orphans)), service);
@@ -211,6 +236,9 @@ logConfiguration_preferences(int level, const char *description, SCPreferencesRe
 		}
 
 		CFRelease(sets);
+		if (currentSet != NULL) {
+			CFRelease(currentSet);
+		}
 	}
 
 	n = CFArrayGetCount(orphans);
@@ -241,6 +269,140 @@ logConfiguration_preferences(int level, const char *description, SCPreferencesRe
 		}
 	}
 	CFRelease(orphans);
+
+	interfaces = SCBridgeInterfaceCopyAll(prefs);
+	if (interfaces != NULL) {
+		CFIndex		n;
+
+		n = CFArrayGetCount(interfaces);
+		if (n > 0) {
+			SC_log(level, "  Bridge interfaces");
+		}
+
+		for (CFIndex i = 0; i < n; i++) {
+			SCBridgeInterfaceRef	bridge;
+			CFMutableStringRef	bridgeDescription;
+			CFStringRef		bsdName;
+			CFArrayRef		members;
+
+			bridge = CFArrayGetValueAtIndex(interfaces, i);
+			bsdName = SCNetworkInterfaceGetBSDName(bridge);
+			if (bsdName == NULL) {
+				continue;
+			}
+
+			bridgeDescription = CFStringCreateMutable(NULL, 0);
+			CFStringAppendFormat(bridgeDescription, NULL, CFSTR("%@: "), bsdName);
+
+			members = SCBridgeInterfaceGetMemberInterfaces(bridge);
+			if (members != NULL) {
+				CFIndex		n_members;
+
+				n_members = CFArrayGetCount(members);
+				for (CFIndex j = 0; j < n_members; j++) {
+					SCNetworkInterfaceRef	member;
+
+					member = CFArrayGetValueAtIndex(members, j);
+					bsdName = SCNetworkInterfaceGetBSDName(member);
+					if (bsdName == NULL) {
+						bsdName = CFSTR("?");
+					}
+					CFStringAppendFormat(bridgeDescription, NULL, CFSTR("%s%@"),
+								j == 0 ? "" : ", ",
+								bsdName);
+				}
+			}
+
+			SC_log(level, "    %@", bridgeDescription);
+			CFRelease(bridgeDescription);
+		}
+		CFRelease(interfaces);
+	}
+
+#if	!TARGET_OS_IPHONE
+	interfaces = SCBondInterfaceCopyAll(prefs);
+	if (interfaces != NULL) {
+		CFIndex		n;
+
+		n = CFArrayGetCount(interfaces);
+		if (n > 0) {
+			SC_log(level, "  Ethernet Bond interfaces");
+		}
+
+		for (CFIndex i = 0; i < n; i++) {
+			SCBondInterfaceRef	bond;
+			CFMutableStringRef	bondDescription;
+			CFStringRef		bsdName;
+			CFArrayRef		members;
+
+			bond = CFArrayGetValueAtIndex(interfaces, i);
+			bsdName = SCNetworkInterfaceGetBSDName(bond);
+			if (bsdName == NULL) {
+				continue;
+			}
+
+			bondDescription = CFStringCreateMutable(NULL, 0);
+			CFStringAppendFormat(bondDescription, NULL, CFSTR("%@: "), bsdName);
+
+			members = SCBondInterfaceGetMemberInterfaces(bond);
+			if (members != NULL) {
+				CFIndex		n_members;
+
+				n_members = CFArrayGetCount(members);
+				for (CFIndex j = 0; j < n_members; j++) {
+					SCNetworkInterfaceRef	member;
+
+					member = CFArrayGetValueAtIndex(members, j);
+					bsdName = SCNetworkInterfaceGetBSDName(member);
+					if (bsdName == NULL) {
+						bsdName = CFSTR("?");
+					}
+					CFStringAppendFormat(bondDescription, NULL, CFSTR("%s%@"),
+								j == 0 ? "" : ", ",
+								bsdName);
+				}
+			}
+
+			SC_log(level, "    %@", bondDescription);
+			CFRelease(bondDescription);
+		}
+		CFRelease(interfaces);
+	}
+#endif	// !TARGET_OS_IPHONE
+
+	interfaces = SCVLANInterfaceCopyAll(prefs);
+	if (interfaces != NULL) {
+		CFIndex		n;
+
+		n = CFArrayGetCount(interfaces);
+		if (n > 0) {
+			SC_log(level, "  VLAN interfaces");
+		}
+
+		for (CFIndex i = 0; i < n; i++) {
+			CFStringRef		bsdName;
+			SCVLANInterfaceRef	vlan;
+			SCNetworkInterfaceRef	physical;
+			CFStringRef		physicalName;
+			CFNumberRef		tag;
+
+			vlan = CFArrayGetValueAtIndex(interfaces, i);
+			bsdName = SCNetworkInterfaceGetBSDName(vlan);
+			if (bsdName == NULL) {
+				continue;
+			}
+
+			physical = SCVLANInterfaceGetPhysicalInterface(vlan);
+			physicalName = (physical != NULL) ? SCNetworkInterfaceGetBSDName(physical) : NULL;
+
+			tag = SCVLANInterfaceGetTag(vlan);
+
+			SC_log(level, "    %@: physical=%@, tag=%@", bsdName,
+			       physicalName != NULL ? physicalName : CFSTR("?"),
+			       tag != NULL ? tag : (CFNumberRef)CFSTR("?"));
+		}
+		CFRelease(interfaces);
+	}
 
 	return;
 }
@@ -633,65 +795,6 @@ __destroyInterface(int s, CFStringRef interface)
 }
 
 
-/*
- * For rdar://problem/4685223
- *
- * To keep MoreSCF happy we need to ensure that the first "Set" and
- * "NetworkService" have a [less than] unique identifier that can
- * be parsed as a numeric string.
- *
- * Note: this backwards compatibility code must be enabled using the
- *       following command:
- *
- *       sudo defaults write						\
- *       	/Library/Preferences/SystemConfiguration/preferences	\
- *       	MoreSCF							\
- *       	-bool true
- */
-__private_extern__
-CFStringRef
-__SCPreferencesPathCreateUniqueChild_WithMoreSCFCompatibility(SCPreferencesRef prefs, CFStringRef prefix)
-{
-	static int	hack	= -1;
-	CFStringRef	path	= NULL;
-
-	if (hack < 0) {
-		CFBooleanRef	enable;
-
-		enable = SCPreferencesGetValue(prefs, CFSTR("MoreSCF"));
-		hack = (isA_CFBoolean(enable) && CFBooleanGetValue(enable)) ? 1 : 0;
-	}
-
-	if (hack > 0) {
-		CFDictionaryRef	dict;
-		Boolean	ok;
-
-		path = CFStringCreateWithFormat(NULL, NULL, CFSTR("%@/%@"), prefix, CFSTR("0"));
-		dict = SCPreferencesPathGetValue(prefs, path);
-		if (dict != NULL) {
-			// if path "0" exists
-			CFRelease(path);
-			return NULL;
-		}
-
-		// unique child with path "0" does not exist, create
-		dict = CFDictionaryCreate(NULL,
-					  NULL, NULL, 0,
-					  &kCFTypeDictionaryKeyCallBacks,
-					  &kCFTypeDictionaryValueCallBacks);
-		ok = SCPreferencesPathSetValue(prefs, path, dict);
-		CFRelease(dict);
-		if (!ok) {
-			// if create failed
-			CFRelease(path);
-			return NULL;
-		}
-	}
-
-	return path;
-}
-
-
 static CFDataRef
 __copy_legacy_password(CFTypeRef password)
 {
@@ -707,7 +810,7 @@ __copy_legacy_password(CFTypeRef password)
 			CFStringEncoding	encoding;
 			CFStringRef		str;
 
-#if	__BIG_ENDIAN__
+#ifdef	__BIG_ENDIAN__
 			encoding = (*(CFDataGetBytePtr(password) + 1) == 0x00) ? kCFStringEncodingUTF16LE : kCFStringEncodingUTF16BE;
 #else	// __LITTLE_ENDIAN__
 			encoding = (*(CFDataGetBytePtr(password)    ) == 0x00) ? kCFStringEncodingUTF16BE : kCFStringEncodingUTF16LE;

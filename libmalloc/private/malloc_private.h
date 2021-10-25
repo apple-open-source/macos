@@ -76,16 +76,21 @@ boolean_t malloc_zone_claimed_address(malloc_zone_t *zone, void *ptr) __result_u
 API_AVAILABLE(macos(10.14), ios(12.0), tvos(12.0), watchos(5.0))
 int malloc_engaged_nano(void) __result_use_check;
 
-
-/********* PGuard ************/
-
-const static uint32_t k_pguard_trace_max_frames = 16;
+/****** Crash Reporter integration ******/
 
 typedef struct {
 	uint64_t thread_id;
+	uint64_t time;
 	uint32_t num_frames;
-	vm_address_t frames[k_pguard_trace_max_frames];
+	vm_address_t frames[64];
 } stack_trace_t;
+
+/**
+ * Like memory_reader_t, but caller must free returned memory if not NULL.
+ */
+typedef void *(*crash_reporter_memory_reader_t)(task_t task, vm_address_t address, size_t size);
+
+/****** Probabilistic Guard Malloc ******/
 
 typedef struct {
 	// diagnose_page_fault
@@ -97,18 +102,25 @@ typedef struct {
 	size_t allocation_size;
 	const char *allocation_state;
 	uint32_t num_traces;
+	// fill_in_trace
 	stack_trace_t alloc_trace;
 	stack_trace_t dealloc_trace;
-} pguard_report_t;
-typedef pguard_report_t pgm_report_t;
+} pgm_report_t;
 
-/**
- * Like memory_reader_t, but caller must free returned memory if not NULL.
- */
-typedef void *(*crash_reporter_memory_reader_t)(task_t task, vm_address_t address, size_t size);
-
-API_AVAILABLE(macos(10.16), ios(14.0), tvos(14.0), watchos(7.0))
 kern_return_t pgm_diagnose_fault_from_crash_reporter(vm_address_t fault_address, pgm_report_t *report,
+		task_t task, vm_address_t zone_address, crash_reporter_memory_reader_t crm_reader) __result_use_check;
+
+/****** Quarantine Zone ******/
+
+typedef struct {
+	vm_address_t fault_address;
+	vm_address_t nearest_allocation;
+	size_t allocation_size;
+	stack_trace_t alloc_trace;
+	stack_trace_t dealloc_trace;
+} quarantine_report_t;
+
+kern_return_t quarantine_diagnose_fault_from_crash_reporter(vm_address_t fault_address, quarantine_report_t *report,
 		task_t task, vm_address_t zone_address, crash_reporter_memory_reader_t crm_reader) __result_use_check;
 
 

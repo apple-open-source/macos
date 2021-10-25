@@ -1,5 +1,5 @@
---- icuSources/data/unidata/base_unidata/DerivedCoreProperties.txt	2020-07-19 22:47:59.000000000 -0700
-+++ icuSources/data/unidata/DerivedCoreProperties.txt	2020-07-20 18:24:41.000000000 -0700
+--- icuSources/data/unidata/base_unidata/DerivedCoreProperties.txt	2020-11-30 21:17:46.000000000 -0800
++++ icuSources/data/unidata/DerivedCoreProperties.txt	2020-12-01 23:14:13.000000000 -0800
 @@ -163,6 +163,9 @@
  29FE..2AFF    ; Math
  2B30..2B44    ; Math
@@ -99,8 +99,8 @@
  
  # ================================================
  
---- icuSources/data/unidata/base_unidata/ppucd.txt	2020-07-19 22:47:59.000000000 -0700
-+++ icuSources/data/unidata/ppucd.txt	2020-07-20 18:29:07.000000000 -0700
+--- icuSources/data/unidata/base_unidata/ppucd.txt	2020-11-30 21:17:46.000000000 -0800
++++ icuSources/data/unidata/ppucd.txt	2020-12-01 23:10:38.000000000 -0800
 @@ -19338,8 +19338,47 @@
  block;DC00..DFFF;age=2.0;blk=Low_Surrogates;gc=Cs;lb=SG
  # DC00..DFFF Low Surrogates
@@ -151,8 +151,8 @@
  
  block;F900..FAFF;age=1.1;Alpha;blk=CJK_Compat_Ideographs;Comp_Ex;CWKCF;dt=Can;ea=W;gc=Lo;Gr_Base;IDC;Ideo;IDS;lb=ID;NFC_QC=N;NFD_QC=N;NFKC_QC=N;NFKD_QC=N;SB=LE;sc=Hani;vo=U;XIDC;XIDS
  # F900..FAFF CJK Compatibility Ideographs
---- icuSources/data/unidata/base_unidata/UnicodeData.txt	2020-07-19 22:47:59.000000000 -0700
-+++ icuSources/data/unidata/UnicodeData.txt	2020-07-20 13:50:18.000000000 -0700
+--- icuSources/data/unidata/base_unidata/UnicodeData.txt	2020-11-30 21:17:46.000000000 -0800
++++ icuSources/data/unidata/UnicodeData.txt	2020-12-01 23:12:07.000000000 -0800
 @@ -15149,7 +15149,65 @@
  DC00;<Low Surrogate, First>;Cs;0;L;;;;;N;;;;;
  DFFF;<Low Surrogate, Last>;Cs;0;L;;;;;N;;;;;

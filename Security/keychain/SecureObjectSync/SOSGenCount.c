@@ -26,16 +26,16 @@ void SOSGenerationCountWithDescription(SOSGenCountRef gen, void (^operation)(CFS
 }
 
 CFStringRef SOSGenerationCountCopyDescription(SOSGenCountRef gen) {
-    int64_t value = SOSGetGenerationSint(gen);
-
     CFMutableStringRef gcDecsription = CFStringCreateMutableCopy(kCFAllocatorDefault, 0, CFSTR("["));
-
-    withStringOfAbsoluteTime(SOSGenerationCountGetDateBits(value), ^(CFStringRef decription) {
-        CFStringAppend(gcDecsription, decription);
-    });
-
-    CFStringAppendFormat(gcDecsription, NULL, CFSTR(" %u]"), (uint32_t)(value & 0xFFFFFFFF));
-
+    if(gen) {
+        int64_t value = SOSGetGenerationSint(gen);
+        withStringOfAbsoluteTime(SOSGenerationCountGetDateBits(value), ^(CFStringRef decription) {
+            CFStringAppend(gcDecsription, decription);
+        });
+        CFStringAppendFormat(gcDecsription, NULL, CFSTR(" %u]"), (uint32_t)(value & 0xFFFFFFFF));
+    } else {
+        CFStringAppend(gcDecsription, CFSTR("NA]"));
+    }
     return gcDecsription;
 }
 

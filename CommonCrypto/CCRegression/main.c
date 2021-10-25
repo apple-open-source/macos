@@ -12,5 +12,5 @@
 
 int main (int argc, char * const *argv) {
     int rc = tests_begin(argc, argv);
-    return rc;
+    return rc != 0;
 }

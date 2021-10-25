@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, 2004-2006, 2010, 2015, 2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2004-2006, 2010, 2015, 2016, 2021 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -112,7 +112,7 @@ SCPreferencesApplyChanges(SCPreferencesRef prefs)
 	}
 
 	SC_log(LOG_INFO, "SCPreferences() apply: %s",
-	       prefsPrivate->newPath ? prefsPrivate->newPath : prefsPrivate->path);
+	       prefsPrivate->path);
 
 	/* post notification */
 	ok = SCDynamicStoreNotifyValue(NULL, prefsPrivate->sessionKeyApply);

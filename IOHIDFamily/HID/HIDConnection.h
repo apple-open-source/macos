@@ -18,6 +18,8 @@ NS_ASSUME_NONNULL_BEGIN
 
 @property (readonly) NSString *uuid;
 
+-(void)getAuditToken:(audit_token_t *)token;
+
 @end
 
 NS_ASSUME_NONNULL_END

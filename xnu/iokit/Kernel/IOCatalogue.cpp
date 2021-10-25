@@ -41,12 +41,12 @@
 #define IOKIT_ENABLE_SHARED_PTR
 
 extern "C" {
-#include <machine/machine_routines.h>
 #include <libkern/kernel_mach_header.h>
 #include <kern/host.h>
 #include <security/mac_data.h>
 };
 
+#include <machine/machine_routines.h>
 #include <libkern/c++/OSContainers.h>
 #include <libkern/c++/OSUnserialize.h>
 #include <libkern/c++/OSKext.h>
@@ -473,6 +473,40 @@ SInt32
 IOCatalogue::getGenerationCount(void) const
 {
 	return generation;
+}
+/*********************************************************************
+*********************************************************************/
+/* static */
+
+bool
+IOCatalogue::personalityIsBoot(OSDictionary * match)
+{
+	OSString * moduleName;
+	OSSharedPtr<OSKext> theKext;
+
+	moduleName = OSDynamicCast(OSString, match->getObject(gIOModuleIdentifierKey.get()));
+	if (!moduleName) {
+		return true;
+	}
+	theKext = OSKext::lookupKextWithIdentifier(moduleName->getCStringNoCopy());
+	if (!theKext) {
+		return true;
+	}
+	switch (theKext->kc_type) {
+	case KCKindPrimary:
+		return true;
+	case KCKindUnknown:
+		return true;
+	case KCKindNone:
+		return false;
+	case KCKindAuxiliary:
+		return false;
+	case KCKindPageable:
+		return false;
+	default:
+		assert(false);
+		return false;
+	}
 }
 
 // Check to see if kernel module has been loaded already, and request its load.

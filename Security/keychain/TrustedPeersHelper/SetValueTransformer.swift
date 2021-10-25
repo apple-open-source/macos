@@ -33,7 +33,7 @@ class SetValueTransformer: ValueTransformer {
             }
 
             let unarchiver = try NSKeyedUnarchiver(forReadingFrom: data)
-            return unarchiver.decodeObject(of: [NSSet.self], forKey: NSKeyedArchiveRootObjectKey)
+            return unarchiver.decodeObject(of: [NSSet.self, NSString.self], forKey: NSKeyedArchiveRootObjectKey)
         } catch {
             os_log("Failed to deserialize a purported Set: %@", log: tplogDebug, type: .default, error as CVarArg)
             return nil

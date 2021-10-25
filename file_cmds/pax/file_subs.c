@@ -46,6 +46,7 @@ __used static const char rcsid[] = "$OpenBSD: file_subs.c,v 1.30 2005/11/09 19:5
 #include <sys/param.h>
 #include <sys/time.h>
 #include <sys/stat.h>
+#include <sys/attr.h>
 #include <sys/uio.h>
 #include <err.h>
 #include <errno.h>
@@ -196,7 +197,8 @@ file_close(ARCHD *arcn, int fd)
 	if (pmode)
 		set_pmode(arcn->name, arcn->sb.st_mode);
 	if (patime || pmtime)
-		set_ftime(arcn->name, arcn->sb.st_mtime, arcn->sb.st_atime, 0);
+		set_ftime(arcn->name, arcn->sb.st_mtime_sec, arcn->sb.st_mtime_nsec,
+			  arcn->sb.st_atime_sec, arcn->sb.st_atime_nsec, 0);
 }
 
 /*
@@ -576,7 +578,8 @@ badlink:
 	}
 
 	if (patime || pmtime)
-		set_ftime(nm, arcn->sb.st_mtime, arcn->sb.st_atime, 0);
+		set_ftime(nm, arcn->sb.st_mtime_sec, arcn->sb.st_mtime_nsec,
+			  arcn->sb.st_atime_sec, arcn->sb.st_atime_nsec, 0);
 	return(0);
 }
 
@@ -750,23 +753,36 @@ chk_path(char *name, uid_t st_uid, gid_t st_gid, char ** new_name)
  */
 
 void
-set_ftime(char *fnm, time_t mtime, time_t atime, int frc)
+set_ftime(char *fnm, time_t mtime_sec, time_t mtime_nsec, time_t atime_sec, time_t atime_nsec, int frc)
 {
-	static struct timeval tv[2] = {{0L, 0L}, {0L, 0L}};
+	struct attrlist ts_req = {
+		.bitmapcount = ATTR_BIT_MAP_COUNT,
+		.commonattr = ATTR_CMN_MODTIME | ATTR_CMN_ACCTIME,
+	};
+	struct {
+		struct timespec mtime;
+		struct timespec atime;
+	} set_ts;
 	struct stat sb;
 
-	tv[0].tv_sec = (long)atime;
-	tv[1].tv_sec = (long)mtime;
+	set_ts.atime.tv_sec = atime_sec;
+	set_ts.atime.tv_nsec = atime_nsec;
+	set_ts.mtime.tv_sec = mtime_sec;
+	set_ts.mtime.tv_nsec = mtime_nsec;
 	if (!frc && (!patime || !pmtime)) {
 		/*
 		 * if we are not forcing, only set those times the user wants
 		 * set. We get the current values of the times if we need them.
 		 */
 		if (lstat(fnm, &sb) == 0) {
-			if (!patime)
-				tv[0].tv_sec = (long)sb.st_atime;
-			if (!pmtime)
-				tv[1].tv_sec = (long)sb.st_mtime;
+			if (!patime) {
+				set_ts.atime.tv_sec = sb.st_atime_sec;
+				set_ts.atime.tv_nsec = sb.st_atime_nsec;
+			}
+			if (!pmtime) {
+				set_ts.mtime.tv_sec = sb.st_mtime_sec;
+				set_ts.mtime.tv_nsec = sb.st_mtime_nsec;
+			}
 		} else
 			syswarn(0,errno,"Unable to obtain file stats %s", fnm);
 	}
@@ -779,13 +795,14 @@ set_ftime(char *fnm, time_t mtime, time_t atime, int frc)
 		char * cwd;
 		cwd = getcwd(&cwd_buff[0],MAXPATHLEN);
 		chdir(pax_invalid_action_write_cwd);
-		if (utimes(pax_invalid_action_write_path, tv) < 0)
+		if (setattrlist(pax_invalid_action_write_path, &ts_req, &set_ts,
+				sizeof(set_ts), FSOPT_NOFOLLOW) < 0)
 			syswarn(1, errno, "Access/modification time set failed on: %s",
 			    pax_invalid_action_write_path);
 		chdir(cwd);
 		cleanup_pax_invalid_action();
 	} else {
-		if (utimes(fnm, tv) < 0)
+		if (setattrlist(fnm, &ts_req, &set_ts, sizeof(set_ts), FSOPT_NOFOLLOW) < 0)
 			syswarn(1, errno, "Access/modification time set failed on: %s",
 			    fnm);
 	}
@@ -793,30 +810,43 @@ set_ftime(char *fnm, time_t mtime, time_t atime, int frc)
 }
 
 void
-fset_ftime(char *fnm, int fd, time_t mtime, time_t atime, int frc)
+fset_ftime(char *fnm, int fd, time_t mtime_sec, time_t mtime_nsec, time_t atime_sec, time_t atime_nsec, int frc)
 {
-	static struct timeval tv[2] = {{0L, 0L}, {0L, 0L}};
+	struct attrlist ts_req = {
+		.bitmapcount = ATTR_BIT_MAP_COUNT,
+		.commonattr = ATTR_CMN_MODTIME | ATTR_CMN_ACCTIME,
+	};
+	struct {
+		struct timespec mtime;
+		struct timespec atime;
+	} set_ts;
 	struct stat sb;
 
-	tv[0].tv_sec = (long)atime;
-	tv[1].tv_sec = (long)mtime;
+	set_ts.atime.tv_sec = atime_sec;
+	set_ts.atime.tv_nsec = atime_nsec;
+	set_ts.mtime.tv_sec = mtime_sec;
+	set_ts.mtime.tv_nsec = mtime_nsec;
 	if (!frc && (!patime || !pmtime)) {
 		/*
 		 * if we are not forcing, only set those times the user wants
 		 * set. We get the current values of the times if we need them.
 		 */
 		if (fstat(fd, &sb) == 0) {
-			if (!patime)
-				tv[0].tv_sec = (long)sb.st_atime;
-			if (!pmtime)
-				tv[1].tv_sec = (long)sb.st_mtime;
+			if (!patime) {
+				set_ts.atime.tv_sec = sb.st_atime_sec;
+				set_ts.atime.tv_nsec = sb.st_atime_nsec;
+			}
+			if (!pmtime) {
+				set_ts.mtime.tv_sec = sb.st_mtime_sec;
+				set_ts.mtime.tv_nsec = sb.st_mtime_nsec;
+			}
 		} else
 			syswarn(0,errno,"Unable to obtain file stats %s", fnm);
 	}
 	/*
 	 * set the times
 	 */
-	if (futimes(fd, tv) < 0)
+	if (fsetattrlist(fd, &ts_req, &set_ts, sizeof(set_ts), FSOPT_NOFOLLOW) < 0)
 		syswarn(1, errno, "Access/modification time set failed on: %s",
 		    fnm);
 	return;
@@ -1113,7 +1143,8 @@ rdfile_close(ARCHD *arcn, int *fd)
 	/*
 	 * user wants last access time reset
 	 */
-	set_ftime(arcn->org_name, arcn->sb.st_mtime, arcn->sb.st_atime, 1);
+	set_ftime(arcn->org_name, arcn->sb.st_mtime_sec, arcn->sb.st_mtime_nsec,
+		  arcn->sb.st_atime_sec, arcn->sb.st_atime_nsec, 1);
 	return;
 }
 

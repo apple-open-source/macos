@@ -1,0 +1,16 @@
+	<dict>
+		<key>OpenSourceProject</key>
+		<string>touch</string>
+		<key>OpenSourceVersion</key>
+		<string>2018-06-01</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>https://cgit.freebsd.org/src/tree/usr.bin/touch?id=2a1fb740484524abbbf0175a5cd26d7c66a621f5</string>
+		<key>OpenSourceImportDate</key>
+		<string>2021-05-10</string>
+		<key>OpenSourceModifications</key>
+		<array>
+			<string>touch.c: annotate unused strings as __used (15079272)</string>
+		</array>
+		<key>OpenSourceLicense</key>
+		<string>bsd</string>
+	</dict>

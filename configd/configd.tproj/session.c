@@ -42,10 +42,6 @@
 #include <os/state_private.h>
 #include <sandbox.h>
 
-#if !TARGET_OS_SIMULATOR || (defined(IPHONE_SIMULATOR_HOST_MIN_VERSION_REQUIRED) && (IPHONE_SIMULATOR_HOST_MIN_VERSION_REQUIRED >= 1090))
-#define HAVE_MACHPORT_GUARDS
-#endif
-
 
 /* information maintained for the main listener */
 static serverSessionRef		server_session		= NULL;
@@ -163,21 +159,14 @@ __serverSessionCreate(CFAllocatorRef allocator, mach_port_t server)
 	if (server == MACH_PORT_NULL) {
 		kern_return_t		kr;
 		mach_port_t		mp	= MACH_PORT_NULL;
-#ifdef	HAVE_MACHPORT_GUARDS
 		mach_port_options_t	opts;
-#endif	// HAVE_MACHPORT_GUARDS
 
 	    retry_allocate :
 
-#ifdef	HAVE_MACHPORT_GUARDS
 		memset(&opts, 0, sizeof(opts));
 		opts.flags = MPO_CONTEXT_AS_GUARD;
 
 		kr = mach_port_construct(mach_task_self(), &opts, (mach_port_context_t)session, &mp);
-#else	// HAVE_MACHPORT_GUARDS
-		kr = mach_port_allocate(mach_task_self(), MACH_PORT_RIGHT_RECEIVE, &mp);
-#endif	// HAVE_MACHPORT_GUARDS
-
 		if (kr != KERN_SUCCESS) {
 			char	*err	= NULL;
 
@@ -216,7 +205,6 @@ __serverSessionCreate(CFAllocatorRef allocator, mach_port_t server)
 	}
 
 	session->callerEUID		= 1;		/* not "root" */
-	session->callerRootAccess	= UNKNOWN;
 	session->callerWriteEntitlement	= kCFNull;	/* UNKNOWN */
 	session->key			= server;
 //	session->store			= NULL;
@@ -376,78 +364,39 @@ getSessionStr(CFStringRef serverKey)
 }
 
 
-#if __has_feature(ptrauth_intrinsics)
-extern const struct { char c; } objc_absolute_packed_isa_class_mask;
-#endif
-
-static void
-memcpy_objc_object(void* dst, const void* restrict src, size_t size)
-{
-	// first, we copy the object
-	memcpy(dst, src, size);
-
-	// then, if needed, fix the isa pointer
-  #if	__has_feature(ptrauth_intrinsics)
-	uintptr_t	flags;
-	uintptr_t	isa_mask;
-	void **		opaqueObject;
-	uintptr_t	raw_isa;
-	uintptr_t	real_isa;
-
-	opaqueObject = (void**)src;
-	isa_mask = (uintptr_t)&objc_absolute_packed_isa_class_mask;
-	flags = (uintptr_t)(*opaqueObject) & ~isa_mask;
-	real_isa = (uintptr_t)(*opaqueObject) & isa_mask;
-
-    #if		__has_feature(ptrauth_objc_isa)
-	raw_isa = (uintptr_t)ptrauth_auth_data((void *)real_isa,
-					       ptrauth_key_process_independent_data,
-					       ptrauth_blend_discriminator(opaqueObject, 0x6AE1));
-    #else	// __has_feature(ptrauth_objc_isa)
-	raw_isa = (uintptr_t)ptrauth_strip((void*)real_isa, ptrauth_key_process_independent_data);
-    #endif	// __has_feature(ptrauth_objc_isa)
-	((CFRuntimeBase*)dst)->_cfisa = raw_isa;
-	((uint64_t*)dst)[0] |= flags;
-  #endif	// __has_feature(ptrauth_intrinsics)
-}
-
-
 __private_extern__
 serverSessionRef
 tempSession(mach_port_t server, CFStringRef name, audit_token_t auditToken)
 {
 	static dispatch_once_t		once;
 	SCDynamicStorePrivateRef	storePrivate;	/* temp session */
-	static serverSession		temp_session;
+	static serverSessionRef		temp_session;
 
 	dispatch_once(&once, ^{
-		memcpy_objc_object(&temp_session,	/* use "server" session clone */
-				   server_session,
-				   sizeof(temp_session));
-		(void) __SCDynamicStoreOpen(&temp_session.store, NULL);
+		temp_session = __serverSessionCreate(NULL, server_session->key);
+		(void) __SCDynamicStoreOpen(&temp_session->store, NULL);
 	});
 
-	if (temp_session.key != server) {
+	if (temp_session->key != server) {
 		// if not SCDynamicStore "server" port
 		return NULL;
 	}
 
 	/* save audit token, caller entitlements */
-	temp_session.auditToken			= auditToken;
-	temp_session.callerEUID			= 1;		/* not "root" */
-	temp_session.callerRootAccess		= UNKNOWN;
-	if ((temp_session.callerWriteEntitlement != NULL) &&
-	    (temp_session.callerWriteEntitlement != kCFNull)) {
-		CFRelease(temp_session.callerWriteEntitlement);
+	temp_session->auditToken		= auditToken;
+	temp_session->callerEUID		= audit_token_to_euid(auditToken);
+	if ((temp_session->callerWriteEntitlement != NULL) &&
+	    (temp_session->callerWriteEntitlement != kCFNull)) {
+		CFRelease(temp_session->callerWriteEntitlement);
 	}
-	temp_session.callerWriteEntitlement	= kCFNull;	/* UNKNOWN */
+	temp_session->callerWriteEntitlement	= kCFNull;	/* UNKNOWN */
 
 	/* save name */
-	storePrivate = (SCDynamicStorePrivateRef)temp_session.store;
+	storePrivate = (SCDynamicStorePrivateRef)temp_session->store;
 	if (storePrivate->name != NULL) CFRelease(storePrivate->name);
 	storePrivate->name = CFRetain(name);
 
-	return &temp_session;
+	return temp_session;
 }
 
 
@@ -502,6 +451,7 @@ addClient(mach_port_t server, audit_token_t audit_token)
 
 			// save the audit_token in case we need to check the callers credentials
 			newSession->auditToken = audit_token;
+			newSession->callerEUID = audit_token_to_euid(newSession->auditToken);
 
 			CFRelease(newSession);	// reference held by dictionary
 		}
@@ -546,14 +496,19 @@ cleanupSession(serverSessionRef session)
 	(void) __SCDynamicStoreClose(&session->store);
 	__MACH_PORT_DEBUG(TRUE, "*** cleanupSession (after __SCDynamicStoreClose)", server);
 
+#ifdef	DEBUG_MACH_PORT_ALLOCATIONS
+	Boolean	ok;
+
+	ok = _SC_checkMachPortReceive("*** cleanupSession (check send right)", server);
+	if (!ok) {
+		_SC_logMachPortReferences("*** cleanupSession w/unexpected rights", server);
+	}
+#endif	// DEBUG_MACH_PORT_ALLOCATIONS
+
 	/*
 	 * Our send right has already been removed. Remove our receive right.
 	 */
-#ifdef	HAVE_MACHPORT_GUARDS
 	(void) mach_port_destruct(mach_task_self(), server, 0, (mach_port_context_t)session);
-#else	// HAVE_MACHPORT_GUARDS
-	(void) mach_port_mod_refs(mach_task_self(), server, MACH_PORT_RIGHT_RECEIVE, -1);
-#endif	// HAVE_MACHPORT_GUARDS
 
 	/*
 	 * release any entitlement info
@@ -678,23 +633,10 @@ copyEntitlement(serverSessionRef session, CFStringRef entitlement)
 static pid_t
 sessionPid(serverSessionRef session)
 {
-	pid_t	caller_pid;
+	pid_t	pid;
 
-#if     (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1080) && !TARGET_OS_IPHONE
-	caller_pid = audit_token_to_pid(session->auditToken);
-#else	// (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1080) && !TARGET_OS_IPHONE
-	audit_token_to_au32(session->auditToken,
-			    NULL,		// auidp
-			    NULL,		// euid
-			    NULL,		// egid
-			    NULL,		// ruid
-			    NULL,		// rgid
-			    &caller_pid,	// pid
-			    NULL,		// asid
-			    NULL);		// tid
-#endif	// (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1080) && !TARGET_OS_IPHONE
-
-	return caller_pid;
+	pid = audit_token_to_pid(session->auditToken);
+	return pid;
 }
 
 
@@ -704,24 +646,7 @@ hasRootAccess(serverSessionRef session)
 {
 #if	!TARGET_OS_SIMULATOR
 
-	if (session->callerRootAccess == UNKNOWN) {
-#if     (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1080) && !TARGET_OS_IPHONE
-		session->callerEUID = audit_token_to_euid(session->auditToken);
-#else	// (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1080) && !TARGET_OS_IPHONE
-		audit_token_to_au32(session->auditToken,
-				    NULL,			// auidp
-				    &session->callerEUID,	// euid
-				    NULL,			// egid
-				    NULL,			// ruid
-				    NULL,			// rgid
-				    NULL,			// pid
-				    NULL,			// asid
-				    NULL);			// tid
-#endif	// (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1080) && !TARGET_OS_IPHONE
-		session->callerRootAccess = (session->callerEUID == 0) ? YES : NO;
-	}
-
-	return (session->callerRootAccess == YES) ? TRUE : FALSE;
+	return (session->callerEUID == 0) ? TRUE : FALSE;
 
 #else	// !TARGET_OS_SIMULATOR
 #pragma unused(session)
@@ -836,41 +761,4 @@ hasWriteAccess(serverSessionRef session, const char *op, CFStringRef key)
 	}
 
 	return FALSE;
-}
-
-
-__private_extern__
-Boolean
-hasPathAccess(serverSessionRef session, const char *path)
-{
-	pid_t	pid;
-	char	realPath[PATH_MAX];
-
-	if (realpath(path, realPath) == NULL) {
-		SC_log(LOG_INFO, "realpath() failed: %s", strerror(errno));
-		return FALSE;
-	}
-
-#if	(__MAC_OS_X_VERSION_MIN_REQUIRED >= 1080) && !TARGET_OS_IPHONE
-	pid = audit_token_to_pid(session->auditToken);
-#else	// (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1080) && !TARGET_OS_IPHONE
-	audit_token_to_au32(session->auditToken,
-			    NULL,		// auidp
-			    NULL,		// euid
-			    NULL,		// egid
-			    NULL,		// ruid
-			    NULL,		// rgid
-			    &pid,		// pid
-			    NULL,		// asid
-			    NULL);		// tid
-#endif	// (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1080) && !TARGET_OS_IPHONE
-	if (sandbox_check(pid,							// pid
-			  "file-write-data",					// operation
-			  SANDBOX_FILTER_PATH | SANDBOX_CHECK_NO_REPORT,	// sandbox_filter_type
-			  realPath) > 0) {					// ...
-		SC_log(LOG_INFO, "sandbox access denied: %s", strerror(errno));
-		return FALSE;
-	}
-
-	return TRUE;
 }

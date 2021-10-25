@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999 - 2020 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -59,14 +59,10 @@
 #include <unistd.h>
 #include <err.h>
 
-int		  checkvfsname __P((const char *, const char **));
-const char	**makevfslist __P((char *));
-static int	  skipvfs;
+static int skipvfs;
 
 int
-checkvfsname(vfsname, vfslist)
-	const char *vfsname;
-	const char **vfslist;
+checkvfsname(const char *vfsname, const char **vfslist)
 {
 
 	if (vfslist == NULL)
@@ -80,8 +76,7 @@ checkvfsname(vfsname, vfslist)
 }
 
 const char **
-makevfslist(fslist)
-	char *fslist;
+makevfslist(char *fslist)
 {
 	const char **av;
 	int i;

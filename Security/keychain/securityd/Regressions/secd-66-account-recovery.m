@@ -239,7 +239,6 @@ static void tests(bool recKeyFirst)
     
     ok(SOSAccountIsMyPeerInBackupAndCurrentInView_wTxn(alice_account, kTestView1), "Bob left the circle, Alice is in the backup");
 
-    //ok(testAccountPersistence(alice_account), "Test Account->DER->Account Equivalence");
     SOSAccountTrustClassic* bobTrust = bob_account.trust;
     ok(!SOSAccountIsPeerInBackupAndCurrentInView_wTxn(alice_account, bobTrust.peerInfo, kTestView1), "Bob is still in the backup!");
     

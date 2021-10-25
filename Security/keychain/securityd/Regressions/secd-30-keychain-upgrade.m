@@ -88,7 +88,7 @@ static void tests(void)
                "populate keychain");
 
             is(sqlite3_close_v2(db), SQLITE_OK,
-               "Should be able to close db");;
+               "Should be able to close db");
         });
         
         CFReleaseSafe(keychain_path_cf);

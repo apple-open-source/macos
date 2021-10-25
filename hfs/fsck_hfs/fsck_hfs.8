@@ -15,7 +15,7 @@
 .\" under the License.
 .\" 
 .\"     @(#)fsck_hfs.8
-.Dd August 5, 2008
+.Dd October  27, 2020
 .Dt FSCK_HFS 8
 .Os "Mac OS X"
 .Sh NAME
@@ -44,7 +44,7 @@
 .Pp
 The
 .Nm
-utility verifies and repairs standard HFS and HFS+ file systems.
+utility verifies and repairs HFS+ file systems.
 .Pp
 The first form of
 .Nm
@@ -211,7 +211,6 @@ work if there is enough free space on the file system for the new btree
 file, and if
 .Nm
 is able to traverse each of the nodes in the requested btree successfully.
-Rebuilding btrees is not supported on HFS Standard volumes.
 .It Fl r
 Rebuild the catalog btree.  This is synonymous with
 .Fl Rc .

@@ -68,28 +68,6 @@ static IOPMPowerState myTwoStates[2] = {
 
 OSDefineMetaClassAndStructors(AppleSmartBatteryManager, IOService)
 
-#if TARGET_OS_BRIDGE || TARGET_OS_OSX_AS
-// prevent ASBM from loading on desktops rdar://problem/37197241
-IOService *AppleSmartBatteryManager::probe(IOService *provider, SInt32 *score)
-{
-    AppleSMCFamily *p = OSDynamicCast(AppleSMCFamily, provider);
-    if (!p) {
-        return nullptr;
-    }
-
-    if (!super::probe(provider, score)) {
-        return nullptr;
-    }
-
-    uint16_t relCharge;
-    SMCResult ret = p->smcReadKeyHostEndian('BRSC', sizeof(relCharge), &relCharge);
-    if (ret != kSMCSuccess) {
-        return nullptr;
-    }
-
-    return this;
-}
-#endif // TARGET_OS_BRIDGE || TARGET_OS_OSX_AS
 
 bool AppleSmartBatteryManager::init(void)
 {
@@ -250,12 +228,12 @@ IOReturn AppleSmartBatteryManager::smbusCompletionHandler(void *ref, IOReturn st
 }
 
 
+#if TARGET_OS_OSX_X86
 IOReturn AppleSmartBatteryManager::performSmbusTransactionGated(
                                                                 ASBMgrRequest *req,
                                                                 OSObject *target, void *ref)
 {
     IOReturn ret = kIOReturnSuccess;
-#if TARGET_OS_OSX_X86
     ASSERT_GATED();
 
     // Save the incoming params
@@ -265,13 +243,11 @@ IOReturn AppleSmartBatteryManager::performSmbusTransactionGated(
 
     ret = fSmbus->performTransaction(req, OSMemberFunctionCast(ASBMgrTransactionCompletion, this,
                                                          &AppleSmartBatteryManager::smbusCompletionHandler), this, NULL);
-#endif // TARGET_OS_OSX_X86
     return ret;
 }
 
 IOReturn AppleSmartBatteryManager::performTransaction(ASBMgrRequest *req, OSObject * target, void * reference)
 {
-#if TARGET_OS_OSX_X86
     switch (req->opType) {
         case kASBMSMBUSReadWord:
         case kASBMSMBUSReadBlock:
@@ -289,9 +265,8 @@ IOReturn AppleSmartBatteryManager::performTransaction(ASBMgrRequest *req, OSObje
             BM_ERRLOG("Unsupported transaction type %d\n", req->opType);
             return kIOReturnInvalid;
     }
-#endif // TARGET_OS_OSX_X86
-    return kIOReturnSuccess;
 }
+#endif // TARGET_OS_OSX_X86
 
 
 /*
@@ -528,6 +503,8 @@ IOReturn AppleSmartBatteryManager::setOverrideCapacity(uint16_t level)
     if (_started) {
         fBattery->handleSetOverrideCapacity(level, true);
     }
+    fBattery->updateStatus();
+
     return ret;
 }
 

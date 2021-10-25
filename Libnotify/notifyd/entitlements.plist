@@ -6,5 +6,7 @@
 	<array>
 		<string>notifyd</string>
 	</array>
+	<key>com.apple.private.xpc.launchd.ios-system-session</key>
+	<true/>
 </dict>
 </plist>

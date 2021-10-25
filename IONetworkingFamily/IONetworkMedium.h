@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2008 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2008, 2021 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -82,6 +82,15 @@ typedef UInt32 IOMediumType;
 // 31-28    instance number
 
 // Ethernet.
+//
+// Important Note:
+//
+// The kIOMediumEthernet* definitions are aliases for the IFM_* definitions
+// in <net/if_media.h>. The kIOMediumEthernet* list defined here is no longer
+// complete and will not be extended beyond its current set of definitions.
+// Use the IFM_* definitions from <net/if_media.h> directly to make use
+// of media types not defined here. For example to specify an IOMediumType
+// corresponding to 25G_T, use (IFM_25G_T | IFM_ETHER).
 //
 enum {
     kIOMediumEthernet             =  IFM_ETHER,

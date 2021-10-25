@@ -231,3 +231,17 @@ load_identities_from_keychain(int (^add_identity)(const char *identity))
 
 	return ret;
 }
+
+void
+warn_keychain_option()
+{
+	static int warned = 0;
+	if (warned++)
+		return;
+	fprintf(stderr,
+"WARNING: The -K and -A flags are deprecated and have been replaced\n"
+"         by the --apple-use-keychain and --apple-load-keychain\n"
+"         flags, respectively.  To suppress this warning, set the\n"
+"         environment variable APPLE_SSH_ADD_BEHAVIOR as described in\n"
+"         the ssh-add(1) manual page.\n");
+}

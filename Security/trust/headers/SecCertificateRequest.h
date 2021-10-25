@@ -32,7 +32,7 @@
 
 #include <Security/SecBase.h>
 #include <Security/SecKey.h>
-#include <Security/SecCertificatePriv.h>
+#include <Security/SecCertificate.h>
 #include <Security/SecCMS.h>
 
 __BEGIN_DECLS
@@ -62,6 +62,10 @@ extern const unsigned char SecASN1UTF8String;
             a CA cert.  If 0 <= number < 256, specifies path length, otherwise
             path length will be omitted.  Basic contraints will always be
             marked critical.
+        @param kSecCertificateExtendedKeyUsage     CFArrayRef
+            an array of all ExtendedKeyUsage (EKU) OIDs to include. EKUs may be
+            specified using one of the constants below, or as a CFStringRef
+            using the "dot" notation.
         @param kSecCertificateExtensions     CFDictionaryRef
             if set all keys (strings with oids in dotted notation) will be added
             as extensions with accompanying value in binary (CFDataRef) or
@@ -78,13 +82,19 @@ extern const unsigned char SecASN1UTF8String;
              hash algorithm will be used (SHA1 for RSA and SHA256 for ECDSA).
              Supported digest algorithm strings are defined in
              SecCMS.h, e.g. kSecCMSHashingAlgorithmSHA256;.
+        @param kSecCertificateLifetime  CFNumberRef
+            Lifetime of certificate in seconds. If unspecified, the lifetime will
+            be 365 days. Only applicable to certificate generation
+            (SecGenerateSelfSignedCertificate and SecIdentitySignCertificate)
 */
 extern const CFStringRef kSecCSRChallengePassword;
 extern const CFStringRef kSecSubjectAltName;
 extern const CFStringRef kSecCertificateKeyUsage;
 extern const CFStringRef kSecCSRBasicContraintsPathLen;
+extern const CFStringRef kSecCertificateExtendedKeyUsage;
 extern const CFStringRef kSecCertificateExtensions;
 extern const CFStringRef kSecCertificateExtensionsEncoded;
+extern const CFStringRef kSecCertificateLifetime;
 
 /*
  Keys for kSecSubjectAltName dictionaries:
@@ -105,6 +115,14 @@ extern const CFStringRef kSecSubjectAltNameDNSName;
 extern const CFStringRef kSecSubjectAltNameEmailAddress;
 extern const CFStringRef kSecSubjectAltNameURI;
 extern const CFStringRef kSecSubjectAltNameNTPrincipalName;
+
+/* Extended Key Usage OIDs */
+extern const CFStringRef kSecEKUServerAuth;
+extern const CFStringRef kSecEKUClientAuth;
+extern const CFStringRef kSecEKUCodesigning;
+extern const CFStringRef kSecEKUEmailProtection;
+extern const CFStringRef kSecEKUTimeStamping;
+extern const CFStringRef kSecEKUOCSPSigning;
 
 typedef struct {
     CFTypeRef oid;    /* kSecOid constant or CFDataRef with oid */
@@ -201,6 +219,10 @@ SecCertificateRef SecGenerateSelfSignedCertificate(CFArrayRef subject, CFDiction
  @param subject     subject name for the issued certificate
  @param extensions  extensions for the issued certificate
  @param hashingAlgorithm hash algorithm to use for signature
+ @param parameters  parameters dictionary as per above. Extensions specified
+ via this parameter override all extensions in the extensions parameter. Extensions
+ set via the "parameters" are assumed to be set by the "CA", whereas those in the
+ "extensions" are set by the requestor.
  @result On success, a newly allocated certificate, otherwise NULL
  @discussion This call can be used in combination with SecVerifyCertificateRequest
  to generate a signed certifcate from a CSR after verifying it. The outputs
@@ -218,7 +240,11 @@ SecCertificateRef SecIdentitySignCertificate(SecIdentityRef issuer, CFDataRef se
 
 CF_RETURNS_RETAINED _Nullable
 SecCertificateRef SecIdentitySignCertificateWithAlgorithm(SecIdentityRef issuer, CFDataRef serialno,
-   SecKeyRef publicKey, CFTypeRef subject, CFTypeRef _Nullable extensions, CFStringRef _Nullable hashingAlgorithm);
+    SecKeyRef publicKey, CFTypeRef subject, CFTypeRef _Nullable extensions, CFStringRef _Nullable hashingAlgorithm);
+
+CF_RETURNS_RETAINED _Nullable
+SecCertificateRef SecIdentitySignCertificateWithParameters(SecIdentityRef issuer, CFDataRef serialno,
+    SecKeyRef publicKey, CFTypeRef subject, CFTypeRef _Nullable extensions, CFDictionaryRef _Nullable parameters);
 
 /* PRIVATE */
 

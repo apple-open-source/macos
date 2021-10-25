@@ -347,16 +347,16 @@
 		189D462D166AC95C001D8533 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 1200;
+				LastUpgradeCheck = 1300;
 				ORGANIZATIONNAME = Apple;
 			};
 			buildConfigurationList = 189D4630166AC95C001D8533 /* Build configuration list for PBXProject "securityd_service" */;
 			compatibilityVersion = "Xcode 3.2";
-			developmentRegion = English;
+			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
-				English,
 				en,
+				Base,
 			);
 			mainGroup = 189D462C166AC95C001D8533;
 			productRefGroup = 189D4636166AC95C001D8533 /* Products */;
@@ -490,6 +490,7 @@
 				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
 				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
 				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
 				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
 				CLANG_WARN_STRICT_PROTOTYPES = YES;
 				CLANG_WARN_SUSPICIOUS_MOVE = YES;
@@ -526,6 +527,12 @@
 				);
 				SDKROOT = macosx.internal;
 				SYSTEM_HEADER_SEARCH_PATHS = "$(SDKROOT)/System/Library/PrivateFrameworks";
+				WARNING_CFLAGS = (
+					"$(inherited)",
+					"-Wstrlcpy-strlcat-size",
+					"-Warray-bounds-pointer-arithmetic",
+					"-Wstrncat-size",
+				);
 			};
 			name = Debug;
 		};
@@ -548,6 +555,7 @@
 				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
 				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
 				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
 				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
 				CLANG_WARN_STRICT_PROTOTYPES = YES;
 				CLANG_WARN_SUSPICIOUS_MOVE = YES;
@@ -578,6 +586,12 @@
 				);
 				SDKROOT = macosx.internal;
 				SYSTEM_HEADER_SEARCH_PATHS = "$(SDKROOT)/System/Library/PrivateFrameworks";
+				WARNING_CFLAGS = (
+					"$(inherited)",
+					"-Wstrlcpy-strlcat-size",
+					"-Warray-bounds-pointer-arithmetic",
+					"-Wstrncat-size",
+				);
 			};
 			name = Release;
 		};

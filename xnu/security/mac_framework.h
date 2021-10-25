@@ -324,13 +324,19 @@ void    mac_proc_notify_cs_invalidated(proc_t proc);
 int     mac_proc_check_sched(proc_t proc, proc_t proc2) __result_use_check;
 int     mac_proc_check_setaudit(proc_t proc, struct auditinfo_addr *ai) __result_use_check;
 int     mac_proc_check_setauid(proc_t proc, uid_t auid) __result_use_check;
+int     mac_proc_check_seteuid(proc_t curp, kauth_cred_t cred, uid_t euid) __result_use_check;
+int     mac_proc_check_setegid(proc_t curp, kauth_cred_t cred, gid_t egid) __result_use_check;
+int     mac_proc_check_setuid(proc_t curp, kauth_cred_t cred, uid_t uid) __result_use_check;
+int     mac_proc_check_setgid(proc_t curp, kauth_cred_t cred, gid_t gid) __result_use_check;
+int     mac_proc_check_setreuid(proc_t curp, kauth_cred_t cred, uid_t ruid, uid_t euid) __result_use_check;
+int     mac_proc_check_setregid(proc_t curp, kauth_cred_t cred, gid_t rgid, gid_t egid) __result_use_check;
+int     mac_proc_check_settid(proc_t curp, uid_t uid, gid_t gid) __result_use_check;
 int     mac_proc_check_setlcid(proc_t proc1, proc_t proc2,
     pid_t pid1, pid_t pid2) __result_use_check;
 int     mac_proc_check_signal(proc_t proc1, proc_t proc2,
     int signum) __result_use_check;
 int     mac_proc_check_syscall_unix(proc_t proc, int scnum) __result_use_check;
 int     mac_proc_check_wait(proc_t proc1, proc_t proc2) __result_use_check;
-int     mac_proc_check_work_interval_ctl(proc_t proc, uint32_t operation) __result_use_check;
 void    mac_proc_notify_exit(proc_t proc);
 int     mac_socket_check_accept(kauth_cred_t cred, struct socket *so) __result_use_check;
 int     mac_socket_check_accepted(kauth_cred_t cred, struct socket *so) __result_use_check;
@@ -431,6 +437,9 @@ int     mac_vnode_check_chroot(vfs_context_t ctx, struct vnode *dvp,
     struct componentname *cnp) __result_use_check;
 int     mac_vnode_check_clone(vfs_context_t ctx, struct vnode *dvp,
     struct vnode *vp, struct componentname *cnp) __result_use_check;
+int     mac_vnode_check_copyfile(vfs_context_t ctx, struct vnode *dvp,
+    struct vnode *tvp, struct vnode *fvp, struct componentname *cnp,
+    mode_t mode, int flags) __result_use_check;
 int     mac_vnode_check_create(vfs_context_t ctx, struct vnode *dvp,
     struct componentname *cnp, struct vnode_attr *vap) __result_use_check;
 int     mac_vnode_check_deleteextattr(vfs_context_t ctx, struct vnode *vp,
@@ -541,8 +550,9 @@ void    mac_vnode_notify_deleteextattr(vfs_context_t ctx, struct vnode *vp, cons
 void    mac_vnode_notify_link(vfs_context_t ctx, struct vnode *vp,
     struct vnode *dvp, struct componentname *cnp);
 void    mac_vnode_notify_open(vfs_context_t ctx, struct vnode *vp, int acc_flags);
-void    mac_vnode_notify_rename(vfs_context_t ctx, struct vnode *vp,
-    struct vnode *dvp, struct componentname *cnp);
+void    mac_vnode_notify_rename(vfs_context_t ctx, struct vnode *fvp,
+    struct vnode *fdvp, struct componentname *fcnp, struct vnode *tvp,
+    struct vnode *tdvp, struct componentname *tcnp, bool swap);
 void    mac_vnode_notify_setacl(vfs_context_t ctx, struct vnode *vp, struct kauth_acl *acl);
 void    mac_vnode_notify_setattrlist(vfs_context_t ctx, struct vnode *vp, struct attrlist *alist);
 void    mac_vnode_notify_setextattr(vfs_context_t ctx, struct vnode *vp, const char *name, struct uio *uio);
@@ -557,9 +567,11 @@ int     vnode_label(struct mount *mp, struct vnode *dvp, struct vnode *vp,
 void    vnode_relabel(struct vnode *vp);
 void    mac_pty_notify_grant(proc_t p, struct tty *tp, dev_t dev, struct label *label);
 void    mac_pty_notify_close(proc_t p, struct tty *tp, dev_t dev, struct label *label);
+__BEGIN_DECLS
 int     mac_kext_check_load(kauth_cred_t cred, const char *identifier) __result_use_check;
 int     mac_kext_check_unload(kauth_cred_t cred, const char *identifier) __result_use_check;
 int     mac_kext_check_query(kauth_cred_t cred) __result_use_check;
+__END_DECLS
 int     mac_skywalk_flow_check_connect(proc_t p, void *flow, const struct sockaddr *addr, int type, int protocol) __result_use_check;
 int     mac_skywalk_flow_check_listen(proc_t p, void *flow, const struct sockaddr *addr, int type, int protocol) __result_use_check;
 void    mac_vnode_notify_reclaim(vnode_t vp);

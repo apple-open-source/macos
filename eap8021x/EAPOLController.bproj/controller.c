@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2019 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2021 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -317,6 +317,49 @@ get_ifm_type(const char * name)
 }
 
 
+static CFMachPortRef
+my_CFMachPortCreate(const void * port_context,
+		    CFMachPortCallBack callout,
+		    CFMachPortContext * context)
+{
+    CFMachPortRef	cf_port;
+    mach_port_options_t	opts;
+    mach_port_t 	port = MACH_PORT_NULL;
+    kern_return_t 	status;
+
+    memset(&opts, 0, sizeof(opts));
+    opts.flags = MPO_CONTEXT_AS_GUARD | MPO_INSERT_SEND_RIGHT;
+    status = mach_port_construct(mach_task_self(), &opts,
+				 (mach_port_context_t)port_context, &port);
+    if (status != KERN_SUCCESS) {
+	EAPLOG(LOG_ERR,
+	       "could not allocate mach port: %s", mach_error_string(status));
+	return (NULL);
+    }
+    cf_port = _SC_CFMachPortCreateWithPort("EAPOLController",
+					   port, callout, context);
+    if (cf_port == NULL) {
+	/* _SC_CFMachPortCreateWithPort already logged the failure */
+	(void)mach_port_destruct(mach_task_self(),
+				 port, 0, (mach_port_context_t)port_context);
+    }
+    return (cf_port);
+}
+
+static void
+my_CFMachPortDeallocate(const void * port_context,
+			CFMachPortRef * cf_port_p)
+{
+    CFMachPortRef	cf_port = *cf_port_p;
+    mach_port_t		port;
+
+    port = CFMachPortGetPort(cf_port);
+    CFMachPortInvalidate(cf_port);
+    (void)mach_port_destruct(mach_task_self(), port, 0,
+			     (mach_port_context_t)port_context);
+    my_CFRelease(cf_port_p);
+}
+
 static int
 eapolClientStop(eapolClientRef client);
 
@@ -450,8 +493,7 @@ eapolClientInvalidate(eapolClientRef client)
 	client->au_session = MACH_PORT_NULL;
     }
     if (client->session_cfport != NULL) {
-	CFMachPortInvalidate(client->session_cfport);
-	my_CFRelease(&client->session_cfport);
+	my_CFMachPortDeallocate(client, &client->session_cfport);
     }
     my_CFRelease(&client->config_dict);
     my_CFRelease(&client->user_input_dict);
@@ -1548,9 +1590,13 @@ ControllerClientAttach(pid_t pid, if_name_t if_name,
 	result = EEXIST;
 	goto failed;
     }
+    client->session_cfport
+	= my_CFMachPortCreate(client, server_handle_request, NULL);
+    if (client->session_cfport == NULL) {
+	result = ENOMEM;
+	goto failed;
+    }
     client->notify_port = notify_port;
-    client->session_cfport 
-	= CFMachPortCreate(NULL, server_handle_request, NULL, NULL);
     *session_port = CFMachPortGetPort(client->session_cfport);
     rls = CFMachPortCreateRunLoopSource(NULL, client->session_cfport, 0);
     CFRunLoopAddSource(CFRunLoopGetCurrent(), rls, kCFRunLoopDefaultMode);

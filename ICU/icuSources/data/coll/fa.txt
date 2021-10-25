@@ -1,14 +1,14 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
-// License & terms of use: http://www.unicode.org/copyright.html#License
+// License & terms of use: http://www.unicode.org/copyright.html
+// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
 fa{
-    Version{"36.1"}
     collations{
         search{
             Sequence{
                 "[import und-u-co-search]"
                 "[import fa-u-co-standard]"
             }
-            Version{"36.1"}
+            Version{"38"}
         }
         standard{
             Sequence{
@@ -23,7 +23,7 @@ fa{
                 "&ۏ<ه<<ە<<ہ<<ة<<ۃ<<ۀ<<ھ"
                 "&ی<<*ىےيېۑۍێ"
             }
-            Version{"36.1"}
+            Version{"38.1"}
         }
     }
 }

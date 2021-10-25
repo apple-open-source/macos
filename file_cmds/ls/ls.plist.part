@@ -1,0 +1,21 @@
+	<dict>
+		<key>OpenSourceProject</key>
+		<string>ls</string>
+		<key>OpenSourceVersion</key>
+		<string>2020-12-26</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>https://cgit.freebsd.org/src/tree/bin/ls?id=3fee777ec5a2e91ffbd9b396e99edae386eb150e</string>
+		<key>OpenSourceImportDate</key>
+		<string>2021-05-04</string>
+		<key>OpenSourceModifications</key>
+		<array>
+			<string>extern.h, ls.h: add include guards (65569070)</string>
+			<string>ls.1, ls.c, print.c: implement -@: extended attributes (4518860)</string>
+			<string>ls.1, ls.c: implement -%: distinguish dataless files and directories (44903893)</string>
+			<string>ls.1: improve descriptions (3856723, 6591295)</string>
+			<string>ls.c: improve UNIX conformance (3666135, 6591295)</string>
+			<string>ls.c: remove -Z support</string>
+		</array>
+		<key>OpenSourceLicense</key>
+		<string>bsd</string>
+	</dict>

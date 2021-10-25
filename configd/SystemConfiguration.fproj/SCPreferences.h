@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, 2004, 2005, 2007-2010, 2015, 2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2003-2005, 2007-2010, 2015, 2017, 2018, 2021 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -84,10 +84,10 @@ typedef const struct CF_BRIDGED_TYPE(id) __SCPreferences *	SCPreferencesRef;
  */
 typedef CF_OPTIONS(uint32_t, SCPreferencesNotification) {
 	kSCPreferencesNotificationCommit
-		API_AVAILABLE(macos(4.0))
+		API_AVAILABLE(macos(10.4))
 		SPI_AVAILABLE(ios(2.0), tvos(9.0), watchos(1.0), bridgeos(1.0))	= 1<<0,
 	kSCPreferencesNotificationApply
-		API_AVAILABLE(macos(4.0))
+		API_AVAILABLE(macos(10.4))
 		SPI_AVAILABLE(ios(2.0), tvos(9.0), watchos(1.0), bridgeos(1.0))	= 1<<1
 };
 

@@ -31,7 +31,7 @@
 NS_ASSUME_NONNULL_BEGIN
 
 NSURL * _Nullable setUpTmpDir(void);
-int ping_host(char *host_name);
+int ping_host(char *host_name, char *port);
 
 @interface TestTrustEvaluation : NSObject
 @property (assign, nonnull) SecTrustRef trust;

@@ -2,7 +2,7 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 2018 Apple Computer, Inc.  All Rights Reserved.
+ * Copyright (c) 2018-2020 Apple Computer, Inc.  All Rights Reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -27,28 +27,52 @@
 
 #include <IOKit/hidevent/IOHIDEventService.h>
 #include <IOKit/hidevent/IOHIDEventDriver.h>
+#include <sys/queue.h>
+
+struct EventCopyCaller;
+struct SetPropertiesCaller;
+struct SetLEDCaller;
 
 class AppleUserHIDEventService: public IOHIDEventDriver
 {
     OSDeclareDefaultStructors (AppleUserHIDEventService)
-private:
+
+private:    
+  
+    STAILQ_HEAD(EventCopyCallerList, EventCopyCaller);
+    STAILQ_HEAD(SetPropertiesCallerList, SetPropertiesCaller);
+    STAILQ_HEAD(SetLEDCallerList, SetLEDCaller);
+
     struct AppleUserHIDEventService_IVars
     {
-        OSArray         * elements;
-        IOHIDInterface  * provider;
-        uint32_t        state;
+        OSArray               * elements;
+        IOHIDInterface        * provider;
+        uint32_t                state;
+        IOCommandGate         * commandGate;
+        IOWorkLoop            * workLoop;
+        EventCopyCallerList     eventCopyCallers;
+        SetPropertiesCallerList setPropertiesCallers;
+        SetLEDCallerList        setLEDCallers;
+        OSAction              * eventCopyAction;
+        OSAction              * setPropertiesAction;
+        OSAction              * setLEDAction;
     };
     
     AppleUserHIDEventService_IVars  *ivar;
-    
+
+protected:
+
+    virtual void    completeCopyEvent(OSAction * action, IOHIDEvent * event, uint64_t context) APPLE_KEXT_OVERRIDE;
+
 public:
+    
     virtual IOService *probe(IOService *provider, SInt32 *score) APPLE_KEXT_OVERRIDE;
     virtual bool init(OSDictionary * dictionary = 0) APPLE_KEXT_OVERRIDE;
     virtual void free(void) APPLE_KEXT_OVERRIDE;
 
     virtual bool start(IOService * provider) APPLE_KEXT_OVERRIDE;
-    virtual IOReturn setProperties(OSObject * properties) APPLE_KEXT_OVERRIDE;
-    virtual bool terminate(IOOptionBits options = 0); APPLE_KEXT_OVERRIDE;
+    virtual void handleStop(IOService * provider) APPLE_KEXT_OVERRIDE;
+    virtual bool terminate(IOOptionBits options = 0) APPLE_KEXT_OVERRIDE;
     
     // IOHIDEventService overrides
     virtual IOReturn setElementValue(UInt32 usagePage,
@@ -81,5 +105,23 @@ public:
                                                        IOOptionBits                options = 0) APPLE_KEXT_OVERRIDE;
     
     virtual void    dispatchEvent(IOHIDEvent * event, IOOptionBits options=0) APPLE_KEXT_OVERRIDE;
+    
+    virtual IOHIDEvent *    copyEvent(
+                                IOHIDEventType              type,
+                                IOHIDEvent *                matching = 0,
+                                IOOptionBits                options = 0) APPLE_KEXT_OVERRIDE;
+    
+    virtual IOHIDEvent *copyMatchingEvent(OSDictionary *matching) APPLE_KEXT_OVERRIDE;
+
+    virtual IOReturn setProperties(OSObject * properties) APPLE_KEXT_OVERRIDE;
+    virtual void completeSetProperties(OSAction * action, IOReturn status, uint64_t context) APPLE_KEXT_OVERRIDE;
+    virtual IOReturn setSystemProperties(OSDictionary * properties) APPLE_KEXT_OVERRIDE;
+    virtual void completeSetLED(OSAction * action, IOReturn status, uint64_t context) APPLE_KEXT_OVERRIDE;
+
+private:
+    void updateElementsProperty(OSArray * userElements, OSArray * deviceElements);
+    void setSensorProperties(OSDictionary * sensorProps, OSArray * deviceElements);
+    void setDigitizerProperties(OSDictionary * digitizerProps, OSArray * deviceElements);
+    void setUnicodeProperties(OSDictionary * unicodeProps, OSArray * deviceElements);
 };
 #endif /* !_APPLEUSERHIDEVENTSERVICE_H */

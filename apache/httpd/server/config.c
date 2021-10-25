@@ -59,7 +59,6 @@
 
 AP_DECLARE_DATA const char *ap_server_argv0 = NULL;
 AP_DECLARE_DATA const char *ap_server_root = NULL;
-AP_DECLARE_DATA const char *ap_runtime_dir = NULL;
 AP_DECLARE_DATA server_rec *ap_server_conf = NULL;
 AP_DECLARE_DATA apr_pool_t *ap_pglobal = NULL;
 
@@ -1038,11 +1037,11 @@ static const char *invoke_cmd(const command_rec *cmd, cmd_parms *parms,
          */
         w = ap_getword_conf(parms->temp_pool, &args);
 
-        if (*w == '\0' || (strcasecmp(w, "on") && strcasecmp(w, "off")))
+        if (*w == '\0' || (ap_cstr_casecmp(w, "on") && ap_cstr_casecmp(w, "off")))
             return apr_pstrcat(parms->pool, cmd->name, " must be On or Off",
                                NULL);
 
-        return cmd->AP_FLAG(parms, mconfig, strcasecmp(w, "off") != 0);
+        return cmd->AP_FLAG(parms, mconfig, ap_cstr_casecmp(w, "off") != 0);
 
     default:
         return apr_pstrcat(parms->pool, cmd->name,
@@ -1055,7 +1054,7 @@ AP_CORE_DECLARE(const command_rec *) ap_find_command(const char *name,
                                                      const command_rec *cmds)
 {
     while (cmds->name) {
-        if (!strcasecmp(name, cmds->name))
+        if (!ap_cstr_casecmp(name, cmds->name))
             return cmds;
 
         ++cmds;
@@ -1224,7 +1223,7 @@ static const char *ap_build_config_sub(apr_pool_t *p, apr_pool_t *temp_pool,
 
             *bracket = '\0';
 
-            if (strcasecmp(cmd_name + 2,
+            if (ap_cstr_casecmp(cmd_name + 2,
                            (*curr_parent)->directive + 1) != 0) {
                 parms->err_directive = newdir;
                 return apr_pstrcat(p, "Expected </",
@@ -1271,7 +1270,7 @@ AP_DECLARE(const char *) ap_build_cont_config(apr_pool_t *p,
     while ((rc = ap_varbuf_cfg_getline(&vb, parms->config_file, max_len))
            == APR_SUCCESS) {
         if (!memcmp(vb.buf, "</", 2)
-            && (strcasecmp(vb.buf + 2, bracket) == 0)
+            && (ap_cstr_casecmp(vb.buf + 2, bracket) == 0)
             && (*curr_parent == NULL)) {
             break;
         }
@@ -1648,7 +1647,7 @@ AP_DECLARE(const char *) ap_soak_end_container(cmd_parms *cmd, char *directive)
             if (cmd_name[1] == '/') {
                 cmd_name[strlen(cmd_name) - 1] = '\0';
 
-                if (strcasecmp(cmd_name + 2, directive + 1) != 0) {
+                if (ap_cstr_casecmp(cmd_name + 2, directive + 1) != 0) {
                     return apr_pstrcat(cmd->pool, "Expected </",
                                        directive + 1, "> but saw ",
                                        cmd_name, ">", NULL);
@@ -2537,7 +2536,7 @@ static int count_directives_sub(const char *directive, ap_directive_t *current)
     while (current != NULL) {
         if (current->first_child != NULL)
             count += count_directives_sub(directive, current->first_child);
-        if (strcasecmp(current->directive, directive) == 0)
+        if (ap_cstr_casecmp(current->directive, directive) == 0)
             count++;
         current = current->next;
     }

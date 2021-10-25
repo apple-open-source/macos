@@ -71,7 +71,6 @@ HeimCredGlobalContext HeimCredGlobalCTX;
 
 static bool validateObject(CFDictionaryRef, CFErrorRef *);
 static void addErrorToReply(xpc_object_t, CFErrorRef);
-static CFTypeRef GetValidatedValue(CFDictionaryRef, CFStringRef, CFTypeID, CFErrorRef *);
 static void HCMakeError(CFErrorRef *, CFIndex,  const void *const *, const void *const *, CFIndex);
 static CFTypeID getSessionTypeID(void);
 static void handleDefaultCredentialUpdate(struct HeimSession *, HeimCredRef, CFDictionaryRef);
@@ -562,11 +561,7 @@ checkACLInCredentialChain(struct peer *peer, CFUUIDRef uuid, bool *hasACL)
 		if (CFEqual(prefix, CFSTR("com.apple.private.gssapi.allowmanagedapps"))) {
 		    if (peer->needsManagedAppCheck) {
 			os_log_debug(GSSOSLog(), "checking managed app status for: %{private}s", CFStringGetCStringPtr(peer->bundleID, kCFStringEncodingUTF8));
-#if TARGET_OS_IOS
-			peer->isManagedApp = [HeimCredGlobalCTX.managedAppManager isManagedApp:(__bridge NSString *)peer->bundleID];
-#else
-			peer->isManagedApp = false;
-#endif
+			peer->isManagedApp = [HeimCredGlobalCTX.managedAppManager isManagedApp:(__bridge NSString *)peer->bundleID auditToken:peer->auditToken];
 			peer->needsManagedAppCheck = false;
 			os_log_debug(GSSOSLog(), "app %{private}s %s",  CFStringGetCStringPtr(peer->bundleID, kCFStringEncodingUTF8), (peer->isManagedApp ? "is managed" : "is not managed") );
 		    }
@@ -2162,7 +2157,7 @@ getMechTypeID(void)
  *
  */
 
-static CFTypeRef
+CFTypeRef
 GetValidatedValue(CFDictionaryRef object, CFStringRef key, CFTypeID requiredTypeID, CFErrorRef *error)
 {
     heim_assert(error != NULL, "error ptr required");
@@ -2369,6 +2364,7 @@ _HeimCredRegisterMech(CFStringRef name,
 		      HeimCredStatusCallback statusCallback,
 		      HeimCredAuthCallback authCallback,
 		      HeimCredNotifyCaches notifyCaches,
+		      HeimCredTraceCallback traceCallback,
 		      bool readRestricted,
 		      CFArrayRef readOnlyCommands)
 {
@@ -2388,6 +2384,7 @@ _HeimCredRegisterMech(CFStringRef name,
     mech->statusCallback = statusCallback;
     mech->authCallback = authCallback;
     mech->notifyCaches = notifyCaches;
+    mech->traceCallback = traceCallback;
     mech->readRestricted = readRestricted;
     mech->readOnlyCommands = readOnlyCommands;
 
@@ -2459,7 +2456,7 @@ _HeimCredRegisterGeneric(void)
 
     CFSetAddValue(set, schema);
     CFRELEASE_NULL(schema);
-    _HeimCredRegisterMech(kHEIMTypeGeneric, set, KerberosStatusCallback, NULL, NULL, false, NULL);
+    _HeimCredRegisterMech(kHEIMTypeGeneric, set, KerberosStatusCallback, NULL, NULL, DefaultTraceCallback, false, NULL);
     CFRELEASE_NULL(set);
 }
 
@@ -2474,7 +2471,7 @@ _HeimCredRegisterConfiguration(void)
 
     CFSetAddValue(set, schema);
     CFRELEASE_NULL(schema);
-    _HeimCredRegisterMech(kHEIMTypeConfiguration, set, ConfigurationStatusCallback, NULL, NULL, false, NULL);
+    _HeimCredRegisterMech(kHEIMTypeConfiguration, set, ConfigurationStatusCallback, NULL, NULL, DefaultTraceCallback, false, NULL);
     CFRELEASE_NULL(set);
 }
 
@@ -2558,6 +2555,55 @@ addUUIDAttributeStringToDictionary(NSDictionary *sourceDictionary, NSString *sou
 	    CFRELEASE_NULL(uuidstr);
 	}
     }
+}
+
+CFDictionaryRef
+DefaultTraceCallback(CFDictionaryRef attributes) CF_RETURNS_RETAINED
+{
+
+    NSMutableDictionary *newAttributes = [[NSMutableDictionary alloc] init];
+    NSDictionary *originalAttributes = (__bridge NSDictionary *)attributes;
+
+    NSArray *allowedKeys = @[
+	(id)kHEIMAttrType,
+	(id)kHEIMObjectType,
+	(id)kHEIMAttrUUID,
+	(id)kHEIMAttrParentCredential,
+	(id)kHEIMAttrASID,
+	(id)kHEIMAttrAltDSID,
+	(id)kHEIMAttrUserID,
+	(id)kHEIMAttrDefaultCredential,
+	(id)kHEIMAttrBundleIdentifierACL,
+	(id)kHEIMAttrClientName,
+	(id)kHEIMAttrServerName,
+	(id)kHEIMAttrDisplayName,
+	(id)kHEIMAttrExpire,
+	(id)kHEIMAttrAuthTime,
+	(id)kHEIMAttrStoreTime,
+	(id)kHEIMAttrRenewTill,
+	(id)kHEIMAttrRetainStatus,
+	(id)kHEIMAttrLeadCredential,
+	(id)kHEIMAttrNTLMUsername,
+	(id)kHEIMAttrNTLMDomain,
+	(id)kHEIMAttrTransient,
+	(id)kHEIMAttrAllowedDomain,
+	(id)kHEIMAttrStatus,
+	(id)kHEIMAttrTemporaryCache,
+    ];
+
+    for (NSString *key in allowedKeys) {
+	newAttributes[key] = originalAttributes[key];
+    }
+
+    if (originalAttributes[(id)kHEIMAttrData]!=nil) {
+	newAttributes[(id)kHEIMAttrData] = @"<private>";
+    }
+    if (originalAttributes[(id)kHEIMAttrNTLMSessionKey]!=nil) {
+	newAttributes[(id)kHEIMAttrNTLMSessionKey] = @"<private>";
+    }
+
+    return CFBridgingRetain(newAttributes);
+
 }
 
 CFTypeRef

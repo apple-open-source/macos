@@ -43,11 +43,8 @@ to 1 causes the system version to be reported as 10.16 when running on macOS 11 
 .Sh COMPILATION
 Defining
 .Dv _NONSTD_SOURCE
-for i386 causes library and kernel calls to behave as closely to Mac 
-OS X 10.3's library and kernel calls as possible.  Any behavioral changes are
-documented in the LEGACY sections of the man pages for the individual function
-calls.  Defining this macro when compiling for any other architecture will
-result in a compilation error.
+will result in a compilation error.
+This is no longer supported.
 .Pp
 Defining
 .Dv _POSIX_C_SOURCE
@@ -78,16 +75,13 @@ or
 are defined, and the environment variable
 .Ev MACOSX_DEPLOYMENT_TARGET
 is either undefined or set to 10.5 or greater (or equivalently, the
-.Xr gcc 1
+.Xr clang 1
 option
 .Fl mmacosx-version-min
 is either not specified or set to 10.5 or greater), then UNIX conformance will
 be on by default, and non-POSIX extensions will also be available
 (this is the equivalent of defining
 .Dv _DARWIN_C_SOURCE ) .
-For version values less that 10.5, UNIX conformance will be off when targeting
-i386 (the equivalent of defining
-.Dv _NONSTD_SOURCE ) .
 .Pp
 In order to provide both legacy and conformance versions of functions, two
 versions of affected functions are provided.  Legacy variants have symbol names
@@ -96,77 +90,25 @@ have a $UNIX2003 suffix appended to their symbol name.  These $UNIX2003
 suffixes are automatically appended by the compiler tool-chain and should not
 be used directly.
 .Pp
-Platforms that were released after these updates only have conformance variants
-available and do not have a $UNIX2003 suffix.
+All currently supported platforms only have conformance variants available and
+do not have the legacy $UNIX2003 suffix.
 .Pp
 .TS
 center;
-c s s s s
 c c | c c c
 c c | c c c
-l c | c c c
-l c | c c c
-l c | c c c
-l c | c c c
-l c | c c c
-l c | c c c
-l c | c c c.
-T{
-.Dv i386
-T}
+li c | c c c
+li c | c s s
+li c | c c c
+li c | c c c.
 =
 user defines	deployment	namespace	conformance	suffix
 	target
 _
-T{
-.Em (none)
-T}	< 10.5	full	10.3 compatibility	(none)
-T{
-.Em (none)
-T}	>= 10.5	full	SUSv3 conformance	$UNIX2003
-T{
-.Em _NONSTD_SOURCE
-T}	(any)	full	10.3 compatibility	(none)
-T{
-.Em _DARWIN_C_SOURCE
-T}	< 10.4	full	10.3 compatibility	(none)
-T{
-.Em _DARWIN_C_SOURCE
-T}	>= 10.4	full	SUSv3 conformance	$UNIX2003
-T{
-.Em _POSIX_C_SOURCE
-T}	< 10.4	strict	10.3 compatibility	(none)
-T{
-.Em _POSIX_C_SOURCE
-T}	>= 10.4	strict	SUSv3 conformance	$UNIX2003
-_
-.T&
-c s s s s
-c c | c c c
-c c | c c c
-l c | c c c
-l c | c s s
-l c | c c c
-l c | c c c.
-T{
-.Dv Newer Architectures
-T}
-=
-user defines	deployment	namespace	conformance	suffix
-	target
-_
-T{
-.Em (none)
-T}	(any)	full	SUSv3 conformance	(none)
-T{
-.Em _NONSTD_SOURCE
-T}	(any)	(error)
-T{
-.Em _DARWIN_C_SOURCE
-T}	(any)	full	SUSv3 conformance	(none)
-T{
-.Em _POSIX_C_SOURCE
-T}	(any)	strict	SUSv3 conformance	(none)
+(none)	(any)	full	SUSv3 conformance	(none)
+_NONSTD_SOURCE	(any)	(error)
+_DARWIN_C_SOURCE	(any)	full	SUSv3 conformance	(none)
+_POSIX_C_SOURCE	(any)	strict	SUSv3 conformance	(none)
 _
 .TE
 .Sh STANDARDS
@@ -177,7 +119,6 @@ With
 .Dv _POSIX_C_SOURCE
 or
 .Dv _DARWIN_C_SOURCE
-for i386, or when building for any other architecture,
 system and library calls conform to
 .St -susv3 .
 .Sh BUGS

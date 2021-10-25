@@ -252,6 +252,7 @@
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
+		02DE403E25DD396B00701E7D /* err.D_PROTO_LEN.livedump.d in Copy common/funcs */ = {isa = PBXBuildFile; fileRef = 02DE403D25DD11BB00701E7D /* err.D_PROTO_LEN.livedump.d */; };
 		180015E51FD643DB00D113F6 /* libproc_apple.h in Headers */ = {isa = PBXBuildFile; fileRef = 180015E31FD643B400D113F6 /* libproc_apple.h */; };
 		180015E61FD643E400D113F6 /* libproc.c in Sources */ = {isa = PBXBuildFile; fileRef = 180015E41FD643B400D113F6 /* libproc.c */; };
 		1800160B1FD6485900D113F6 /* ctf_create.c in Sources */ = {isa = PBXBuildFile; fileRef = 1800160A1FD6484200D113F6 /* ctf_create.c */; };
@@ -4036,6 +4037,7 @@
 				184941421EC674B700736745 /* err.D_PROTO_LEN.copyoutstrtoofew.d in Copy common/funcs */,
 				184941431EC674B700736745 /* err.D_PROTO_LEN.copyouttoofew.d in Copy common/funcs */,
 				184941441EC674B700736745 /* err.D_PROTO_LEN.copyouttoomany.d in Copy common/funcs */,
+				02DE403E25DD396B00701E7D /* err.D_PROTO_LEN.livedump.d in Copy common/funcs */,
 				1849414A1EC674B700736745 /* err.D_PROTO_LEN.panicbadarg.d in Copy common/funcs */,
 				1849414B1EC674B700736745 /* err.D_PROTO_LEN.progenyofbad2.d in Copy common/funcs */,
 				1849414C1EC674B700736745 /* err.D_PROTO_LEN.stopbadarg.d in Copy common/funcs */,
@@ -5033,6 +5035,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		02DE403D25DD11BB00701E7D /* err.D_PROTO_LEN.livedump.d */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.dtrace; name = err.D_PROTO_LEN.livedump.d; path = test/tst/common/funcs/err.D_PROTO_LEN.livedump.d; sourceTree = "<group>"; };
 		180015E11FD643B300D113F6 /* libproc.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = libproc.h; path = lib/libproc/libproc.h; sourceTree = "<group>"; };
 		180015E21FD643B400D113F6 /* procfs.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = procfs.h; path = lib/libproc/procfs.h; sourceTree = "<group>"; };
 		180015E31FD643B400D113F6 /* libproc_apple.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = libproc_apple.h; path = lib/libproc/libproc_apple.h; sourceTree = "<group>"; };
@@ -8586,6 +8589,7 @@
 				18493D0E1EC6663600736745 /* err.D_PROTO_LEN.copyoutstrtoofew.d */,
 				18493D0F1EC6663600736745 /* err.D_PROTO_LEN.copyouttoofew.d */,
 				18493D101EC6663600736745 /* err.D_PROTO_LEN.copyouttoomany.d */,
+				02DE403D25DD11BB00701E7D /* err.D_PROTO_LEN.livedump.d */,
 				18493D111EC6663600736745 /* err.D_PROTO_LEN.motoofew.d */,
 				18493D121EC6663600736745 /* err.D_PROTO_LEN.motoomany.d */,
 				18493D131EC6663600736745 /* err.D_PROTO_LEN.mtabadarg.d */,

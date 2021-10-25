@@ -145,6 +145,7 @@ __private_extern__ CFTypeRef              _DAUnserializeWithBytes( CFAllocatorRe
 
 __private_extern__ char * _DAVolumeCopyID( const struct statfs * fs );
 __private_extern__ char * _DAVolumeGetID( const struct statfs * fs );
+__private_extern__ int __DAVolumeGetDeviceIDForLifsMount( char *mntpoint, char *devname, int len );
 
 #ifdef __cplusplus
 }

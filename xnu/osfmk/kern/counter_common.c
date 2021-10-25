@@ -33,9 +33,7 @@
 #include <machine/machine_routines.h>
 #include <machine/cpu_number.h>
 
-SECURITY_READ_ONLY_LATE(zone_t) counters_zone;
-ZONE_INIT(&counters_zone, "per_cpu_counters", sizeof(uint64_t),
-    ZC_PERCPU | ZC_ALIGNMENT_REQUIRED, ZONE_ID_ANY, NULL);
+ZONE_VIEW_DEFINE(counters_zone, "per_cpu_counters", .zv_zone = &percpu_u64_zone, sizeof(uint64_t));
 
 /*
  * Tracks how many static scalable counters are in use since they won't show up

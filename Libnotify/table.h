@@ -28,19 +28,26 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-#define _nc_table(key_t, _ns) \
-	struct _nc_table##_ns { \
-		uint32_t     count; \
-		uint32_t     tombstones; \
-		uint32_t     size; \
-		uint16_t     grow_shift; \
-		uint16_t     key_offset; \
-		key_t      **keys; \
-	}
+#include <os/collections.h>
 
-typedef _nc_table(char *, ) table_t;
-typedef _nc_table(uint32_t, _n) table_n_t;
-typedef _nc_table(uint64_t, _64) table_64_t;
+struct _nc_table_ns {
+	os_set_str_ptr_t set;
+	size_t key_offset;
+};
+
+struct _nc_table_n_ns {
+	os_set_32_ptr_t set;
+	size_t key_offset;
+};
+
+struct _nc_table_64_ns {
+	os_set_64_ptr_t set;
+	size_t key_offset;
+};
+
+typedef struct _nc_table_ns table_t;
+typedef struct _nc_table_n_ns table_n_t;
+typedef struct _nc_table_64_ns table_64_t;
 
 __BEGIN_DECLS
 

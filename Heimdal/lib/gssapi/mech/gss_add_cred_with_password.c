@@ -37,7 +37,7 @@ gss_add_cred_with_password(OM_uint32 * __nonnull minor_status,
     gss_cred_usage_t cred_usage,
     OM_uint32 initiator_time_req,
     OM_uint32 acceptor_time_req,
-    __nonnull gss_cred_id_t *__nullable output_cred_handle,
+    __nullable gss_cred_id_t * __nonnull output_cred_handle,
     __nullable gss_OID_set * __nullable actual_mechs,
     OM_uint32 * __nonnull initiator_time_rec,
     OM_uint32 * __nonnull acceptor_time_rec)

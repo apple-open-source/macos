@@ -25,6 +25,7 @@
 #define _CC_DH_H_
 
 #include <stddef.h>
+#include <stdint.h>
 
 #if defined(_MSC_VER)
 #include <availability.h>
@@ -39,27 +40,29 @@ extern "C" {
 
 typedef struct CCDHRef_s *CCDHRef;
 
-typedef struct CCDHParameters_s *CCDHParameters;
+/*!
+    @enum       CCDHParameters
+    @abstract   Diffie-Hellman parameters.
 
-    // 1024 bit DL group
-extern const CCDHParameters kCCDHRFC2409Group2
-    API_AVAILABLE(macos(10.8), ios(5.0));
-    
+    @constant   kCCDHRFC3526Group5
+*/
+enum {
     // 1536 bit DL group
-extern const CCDHParameters kCCDHRFC3526Group5
-    API_AVAILABLE(macos(10.8), ios(5.0));
+    kCCDHRFC3526Group5 = 1
+};
+
+typedef uint32_t CCDHParameters
+API_AVAILABLE(macos(10.8), ios(5.0));
 
 /*!
     @function   CCDHCreate
     @abstract   Creates a Diffie-Hellman context.
 
 	@param      dhParameter  The Diffie-Hellman Group to use (provides p and g).
-                             The only appropriate values are kCCDHGenerator2 or
-                             kCCDHGenerator5, defined above.
+                             The only accepted value is kCCDHRFC3526Group5.
 
     @result     If unable to allocate memory this returns NULL.
 */
-
 CCDHRef
 CCDHCreate(CCDHParameters dhParameter)
 API_AVAILABLE(macos(10.8), ios(5.0));
@@ -71,7 +74,6 @@ API_AVAILABLE(macos(10.8), ios(5.0));
 	@param      ref  The Diffie-Hellman context to clear and deallocate.
 
 */
-
 void
 CCDHRelease(CCDHRef ref)
 API_AVAILABLE(macos(10.8), ios(5.0));
@@ -79,14 +81,11 @@ API_AVAILABLE(macos(10.8), ios(5.0));
 /*!
     @function   CCDHGenerateKey
     @abstract   Generate the public key for use in a Diffie-Hellman handshake.
-                This value is returned as a byte string.
 
 	@param      ref  The Diffie-Hellman context.
     @result		returns -1 on failure.
 
 */
-
-
 int
 CCDHGenerateKey(CCDHRef ref, void *output, size_t *outputLength)
 API_AVAILABLE(macos(10.8), ios(5.0));
@@ -100,35 +99,13 @@ API_AVAILABLE(macos(10.8), ios(5.0));
                             and the private key.
 	@param      peerPubKey  Public key received from the peer.
     @param		peerPubKeyLen Length of peer public key.
-	@param      ref  The Diffie-Hellman context to clear and deallocate.
+	@param      ref  The Diffie-Hellman context.
 
 	@returns    length of the shared key.
 
 */
-
 int
 CCDHComputeKey(unsigned char *sharedKey, size_t *sharedKeyLen, const void *peerPubKey, size_t peerPubKeyLen, CCDHRef ref)
-API_AVAILABLE(macos(10.8), ios(5.0));
-
-
-CCDHParameters
-CCDHParametersCreateFromData(const void *p, size_t pLen, const void *g, size_t gLen, size_t l)
-API_AVAILABLE(macos(10.8), ios(5.0));
-
-CCDHParameters
-CCDHParametersCreateFromPKCS3(const void *data, size_t len)
-API_AVAILABLE(macos(10.8), ios(5.0));
-
-size_t
-CCDHParametersPKCS3EncodeLength(CCDHParameters parms)
-API_AVAILABLE(macos(10.8), ios(5.0));
-
-size_t
-CCDHParametersPKCS3Encode(CCDHParameters parms, void *data, size_t dataAvailable)
-API_AVAILABLE(macos(10.8), ios(5.0));
-
-void
-CCDHParametersRelease(CCDHParameters parameters)
 API_AVAILABLE(macos(10.8), ios(5.0));
 
 #ifdef __cplusplus

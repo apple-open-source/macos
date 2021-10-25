@@ -1,9 +1,25 @@
 ##
 # Makefile for python
 ##
+Allowable_Clients = $(shell cat $(SRCROOT)/allowableclients.txt)
+Allowable_Clients_Flags = $(addprefix -allowable_client ,$(Allowable_Clients))
+
+ifeq ($(INTERNALINSTALL), YES) 
+$(info Installing 2.7 for internal users only)
+Install_Prefix = /usr/local
+Install_Man = /usr/local/share/man
+Install_Info = /usr/local/share/info
+Install_HTML = /usr/local/share/html
+else
+$(info Installing 2.7 for all users)
+endif
+
+USRBIN = $(USRPREFIX)/bin
+FRAMEWORKS = $(INSTALLPREFIX)/Library/Frameworks
+MAN1 = $(USRPREFIX)/share/man/man1
 
 Project               = python
-Extra_Configure_Flags = --enable-ipv6 --with-system-expat --with-threads --enable-framework=/System/Library/Frameworks --enable-toolbox-glue --with-system-ffi
+Extra_Configure_Flags = --enable-ipv6 --with-system-expat --with-threads --enable-framework=$(FRAMEWORKS) --enable-toolbox-glue --with-system-ffi --with-framework-name=$(PYFRAMEWORKNAME)
 # Define the environment variable DEBUG to YES, to build without optimization
 ifeq ($(DEBUG),YES)
 Extra_Configure_Flags += --with-pydebug
@@ -15,7 +31,7 @@ endif
 # python Makefile
 ##---------------------------------------------------------------------
 Extra_CC_Flags += -fno-common -fno-strict-aliasing -fwrapv -DENABLE_DTRACE -DMACOSX -DNDEBUG -Wall -Wstrict-prototypes -Wshorten-64-to-32 -iwithsysroot /usr/local/libressl/include
-Extra_LD_Flags += -Wl,-F. -L$(SDKROOT)/usr/local/libressl/lib
+Extra_LD_Flags += -Wl,-F. -L$(SDKROOT)/usr/local/libressl/lib $(Allowable_Clients_Flags)
 Extra_Install_Flags   = DESTDIR='$(DSTROOT)'
 GnuAfterInstall       = fixup-after-install install-plist
 Extra_Environment     = CCSHARED='$(RC_CFLAGS)'
@@ -40,7 +56,7 @@ ConfigStamp2 = $(ConfigStamp)2
 configure:: $(ConfigStamp2)
 
 $(ConfigStamp2): $(ConfigStamp)
-	ed - '$(OBJROOT)/Makefile' < $(FIX)/Makefile.ed
+	sed 's,@LIBRARYPREFIX@,$(LIBRARYPREFIX),' $(FIX)/Makefile.ed | ed - $(OBJROOT)/Makefile
 	ed - '$(OBJROOT)/pyconfig.h' < $(FIX)/pyconfig.ed
 	$(TOUCH) $(ConfigStamp2)
 
@@ -48,10 +64,8 @@ $(ConfigStamp2): $(ConfigStamp)
 # Fixup a lot of problems after the install
 ##---------------------------------------------------------------------
 APPS = /Applications
-USRBIN = /usr/bin
 PYTHONAPPNAME = Python.app
-FRAMEWORKS = /System/Library/Frameworks
-PYFRAMEWORK = $(FRAMEWORKS)/Python.framework
+PYFRAMEWORK = $(FRAMEWORKS)/$(PYFRAMEWORKNAME).framework
 VERSIONSVERS = $(PYFRAMEWORK)/Versions/$(VERS)
 RESOURCESVERS = $(VERSIONSVERS)/Resources
 LIBPYTHONVERS = $(VERSIONSVERS)/lib/python$(VERS)
@@ -76,18 +90,25 @@ fixup-after-install: delete-stuff \
 # Carbon, and doesn't work in 64-bit.  We also leave "Python Launcher.app"
 # in $(APPS) to be deleted (10692664).
 delete-stuff:
-	rm -rf '$(DSTROOT)/usr/local' '$(DSTROOT)$(APPS)'
+ifneq ($(INTERNALINSTALL), YES) 
+	rm -rf '$(DSTROOT)$(APPS)'
+	rm -rf '$(DSTROOT)/usr/local'
+else
+	rm -rf '$(DSTROOT)$(INSTALLPREFIX)$(APPS)'
+endif
+	# rdar://78720130 (Localization is requesting we remove the old and unused English.lproj)
+	rm -rf '$(DSTROOT)$(RESOURCESVERS)/English.lproj'
 
 # We now need to create the .dSYM bundles ourselves
 # ($(DSTROOT)$(PYTHONAPP) is already stripped, so copy an unstripped binary)
 strip-installed-files:
 	ditto '$(DSTROOT)$(PYTHONAPP)' '$(SYMROOT)/$(PYTHONAPPNAME)'
-	ditto '$(OBJROOT)/python.exe' '$(SYMROOT)/$(PYTHONAPPNAME)/Contents/MacOS/Python'
-	$(DSYMUTIL) -o '$(SYMROOT)/$(PYTHONAPPNAME).dSYM' '$(SYMROOT)/$(PYTHONAPPNAME)/Contents/MacOS/Python'
-	$(STRIP) -x '$(DSTROOT)$(PAMACOS)/Python'
-	ditto '$(OBJROOT)/Python.framework' '$(SYMROOT)/Python.framework'
-	$(DSYMUTIL) -o '$(SYMROOT)/Python.framework.dSYM' '$(SYMROOT)/Python.framework/Python'
-	$(STRIP) -x '$(DSTROOT)$(VERSIONSVERS)/Python'
+	ditto '$(OBJROOT)/python.exe' '$(SYMROOT)/$(PYTHONAPPNAME)/Contents/MacOS/$(PYFRAMEWORKNAME)'
+	$(DSYMUTIL) -o '$(SYMROOT)/$(PYTHONAPPNAME).dSYM' '$(SYMROOT)/$(PYTHONAPPNAME)/Contents/MacOS/$(PYFRAMEWORKNAME)'
+	$(STRIP) -x '$(DSTROOT)$(PAMACOS)/$(PYFRAMEWORKNAME)'
+	ditto '$(OBJROOT)/$(PYFRAMEWORKNAME).framework' '$(SYMROOT)/$(PYFRAMEWORKNAME).framework'
+	$(DSYMUTIL) -o '$(SYMROOT)/$(PYFRAMEWORKNAME).framework.dSYM' '$(SYMROOT)/$(PYFRAMEWORKNAME).framework/$(PYFRAMEWORKNAME)'
+	$(STRIP) -x '$(DSTROOT)$(VERSIONSVERS)/$(PYFRAMEWORKNAME)'
 	ditto '$(DSTROOT)$(LIBPYTHONVERS)'/lib-dynload/*.so '$(SYMROOT)/lib-dynload/'
 	cd '$(SYMROOT)/lib-dynload' && \
 	for so in *.so; do \
@@ -102,7 +123,6 @@ fix-PInfo:
 ##---------------------------------------------------------------------
 # As of python 2.7, the real man page is now python2.7.1 (not python.1).
 ##---------------------------------------------------------------------
-MAN1 = /usr/share/man/man1
 additional-man-pages:
 	mv -f $(DSTROOT)$(MAN1)/python$(VERS).1 $(DSTROOT)$(MAN1)/python.1
 	install -m 0644 $(FIX)/pydoc.1 '$(DSTROOT)$(MAN1)'
@@ -124,7 +144,7 @@ fix-paths:
 	cd '$(DSTROOT)$(VERSIONSVERS)/bin' && \
 	for i in `find . -type f | sed 's,^\./,,'`; do \
 	    if [ -n "`file $$i | fgrep script`" ]; then \
-		ed - $$i < $(FIX)/skipextraexec.ed; \
+		sed 's,@PYFRAMEWORKNAME@,$(PYFRAMEWORKNAME),' $(FIX)/skipextraexec.ed | ed - $$i; \
 	    fi || exit 1; \
 	done
 
@@ -146,7 +166,7 @@ INSTALLPY = $(LIBPYTHONVERS)/distutils/command/install.py
 SYSCONFIGDATA = $(LIBPYTHONVERS)/_sysconfigdata.py
 fix-config-Makefile:
 	ed - '$(DSTROOT)$(LIBPYTHONVERS)/config/Makefile' < $(FIX)/config_Makefile.ed
-	ed - '$(DSTROOT)$(SYSCONFIGDATA)' < $(FIX)/_sysconfigdata.py.ed
+	ed - '$(DSTROOT)$(SYSCONFIGDATA)' < $(FIX)/_sysconfigdata.py.ed$(PATCHEXT)
 	$(RUNPYTHON) -c "from py_compile import compile;compile('$(DSTROOT)$(SYSCONFIGDATA)', dfile='$(SYSCONFIGDATA)', doraise=True)" && \
 	$(RUNPYTHON) -O -c "from py_compile import compile;compile('$(DSTROOT)$(SYSCONFIGDATA)', dfile='$(SYSCONFIGDATA)', doraise=True)"
 
@@ -156,19 +176,18 @@ fix-usr-bin:
 	rm -f idle* && \
 	for i in *; do \
 	    rm -f $$i && \
-	    ln -s ../..$(VERSIONSVERS)/bin/$$i || exit 1; \
+	    ln -s $(BINBACKPATH)$(VERSIONSVERS)/bin/$$i || exit 1; \
 	done
 
-LIBRARYPYTHON = /Library/Python
-LIBRARYPYTHONVERS = $(LIBRARYPYTHON)/$(VERS)
-
 fix-permissions:
+ifneq ($(INTERNALINSTALL), YES) 
 ifeq ($(shell id -u), 0)
 	@set -x && \
 	for i in Applications Developer Library; do \
 	    chgrp -Rf admin $(DSTROOT)/$$i && \
 	    chmod -Rf g+w $(DSTROOT)/$$i; \
 	done
+endif
 endif
 
 OSV = /usr/local/OpenSourceVersions

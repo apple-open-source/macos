@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004, 2006, 2008, 2011, 2012, 2014-2017, 2019 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2004, 2006, 2008, 2011, 2012, 2014-2017, 2019, 2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -209,12 +209,12 @@ _configset(mach_port_t			server,
 	*sc_status = kSCStatusOK;
 
 	/* un-serialize the key */
-	if (!_SCUnserializeString(&key, NULL, (void *)keyRef, keyLen)) {
+	if (!_SCUnserializeString(&key, NULL, keyRef, keyLen)) {
 		*sc_status = kSCStatusFailed;
 	}
 
 	/* un-serialize the data */
-	if (!_SCUnserializeData(&data, (void *)dataRef, dataLen)) {
+	if (!_SCUnserializeData(&data, dataRef, dataLen)) {
 		*sc_status = kSCStatusFailed;
 	}
 
@@ -372,21 +372,21 @@ _configset_m(mach_port_t		server,
 
 	if ((dictRef != NULL) && (dictLen > 0)) {
 		/* un-serialize the key/value pairs to set */
-		if (!_SCUnserialize((CFPropertyListRef *)&dict, NULL, (void *)dictRef, dictLen)) {
+		if (!_SCUnserialize((CFPropertyListRef *)&dict, NULL, dictRef, dictLen)) {
 			*sc_status = kSCStatusFailed;
 		}
 	}
 
 	if ((removeRef != NULL) && (removeLen > 0)) {
 		/* un-serialize the keys to remove */
-		if (!_SCUnserialize((CFPropertyListRef *)&remove, NULL, (void *)removeRef, removeLen)) {
+		if (!_SCUnserialize((CFPropertyListRef *)&remove, NULL, removeRef, removeLen)) {
 			*sc_status = kSCStatusFailed;
 		}
 	}
 
 	if ((notifyRef != NULL) && (notifyLen > 0)) {
 		/* un-serialize the keys to notify */
-		if (!_SCUnserialize((CFPropertyListRef *)&notify, NULL, (void *)notifyRef, notifyLen)) {
+		if (!_SCUnserialize((CFPropertyListRef *)&notify, NULL, notifyRef, notifyLen)) {
 			*sc_status = kSCStatusFailed;
 		}
 	}

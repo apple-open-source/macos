@@ -56,6 +56,6 @@ _HeimCredRegisterKerberosAcquireCred(void)
     CFSetAddValue(set, schema);
     CFRELEASE_NULL(schema);
     
-    _HeimCredRegisterMech(kHEIMTypeKerberosAcquireCred, set, KerberosAcquireCredStatusCallback, NULL, NULL, true, (__bridge CFArrayRef)@[@"fetch", @"query"]);
+    _HeimCredRegisterMech(kHEIMTypeKerberosAcquireCred, set, KerberosAcquireCredStatusCallback, NULL, NULL, DefaultTraceCallback, true, (__bridge CFArrayRef)@[@"fetch", @"query"]);
     CFRELEASE_NULL(set);
 }

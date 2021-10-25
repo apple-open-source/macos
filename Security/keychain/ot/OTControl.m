@@ -26,6 +26,8 @@
 #import <Foundation/NSXPCConnection_Private.h>
 #import <xpc/xpc.h>
 
+#import <AppleFeatures/AppleFeatures.h>
+
 #import <Security/SecItemPriv.h>
 #import <Security/SecXPCHelper.h>
 
@@ -34,6 +36,8 @@
 #import "keychain/ot/OTDefines.h"
 #import "keychain/ot/OTControlProtocol.h"
 #import "keychain/ot/OctagonControlServer.h"
+#import "keychain/ot/proto/generated_source/OTCurrentSecureElementIdentities.h"
+#import "OctagonTrust/OctagonTrust.h"
 
 #include <security_utilities/debugging.h>
 
@@ -156,23 +160,6 @@
     }] notifyIDMSTrustLevelChangeForContainer:container context:contextID reply:^(NSError * _Nullable error) {
         reply(error);
     }];
-}
-
-- (void)handleIdentityChangeForSigningKey:(SFECKeyPair* _Nonnull)peerSigningKey
-                         ForEncryptionKey:(SFECKeyPair* _Nonnull)encryptionKey
-                                ForPeerID:(NSString*)peerID
-                                    reply:(void (^)(BOOL result,
-                                                    NSError* _Nullable error))reply
-{
-#if OCTAGON
-    [[self getConnection: ^(NSError* error) {
-        reply(NO, error);
-    }] handleIdentityChangeForSigningKey:peerSigningKey ForEncryptionKey:encryptionKey ForPeerID:peerID reply:^(BOOL result, NSError* _Nullable error) {
-        reply(result, error);
-     }];
-#else
-    reply(NO, NULL);
-#endif
 }
 
 - (void)rpcEpochWithConfiguration:(OTJoiningConfiguration*)config
@@ -431,6 +418,106 @@ bottleID:(NSString *)bottleID
     }] joinWithRecoveryKey:containerName contextID:contextID recoveryKey:recoveryKey reply:reply];
 }
 
+- (void) createCustodianRecoveryKey:(NSString* _Nullable)containerName
+                          contextID:(NSString *)contextID
+                               uuid:(NSUUID *_Nullable)uuid
+                              reply:(void (^)(OTCustodianRecoveryKey *_Nullable crk, NSError *_Nullable error))reply
+{
+    [[self getConnection:^(NSError *error) {
+        reply(nil, error);
+    }] createCustodianRecoveryKey:containerName contextID:contextID uuid:uuid reply:reply];
+}
+
+- (void) joinWithCustodianRecoveryKey:(NSString* _Nullable)containerName
+                            contextID:(NSString *)contextID
+                 custodianRecoveryKey:(OTCustodianRecoveryKey *)crk
+                                reply:(void(^)(NSError* _Nullable error)) reply
+{
+    [[self getConnection:^(NSError *error) {
+        reply(error);
+    }] joinWithCustodianRecoveryKey:containerName contextID:contextID custodianRecoveryKey:crk reply:reply];
+}
+
+- (void) preflightJoinWithCustodianRecoveryKey:(NSString* _Nullable)containerName
+                                     contextID:(NSString *)contextID
+                          custodianRecoveryKey:(OTCustodianRecoveryKey *)crk
+                                         reply:(void(^)(NSError* _Nullable error)) reply
+{
+    [[self getConnection:^(NSError *error) {
+        reply(error);
+    }] preflightJoinWithCustodianRecoveryKey:containerName contextID:contextID custodianRecoveryKey:crk reply:reply];
+}
+
+- (void) removeCustodianRecoveryKey:(NSString* _Nullable)containerName
+                          contextID:(NSString *)contextID
+                               uuid:(NSUUID *)uuid
+                              reply:(void (^)(NSError *_Nullable error))reply
+{
+    [[self getConnection:^(NSError *error) {
+        reply(error);
+    }] removeCustodianRecoveryKey:containerName contextID:contextID uuid:uuid reply:reply];
+}
+
+- (void) createInheritanceKey:(NSString* _Nullable)containerName
+                    contextID:(NSString *)contextID
+                         uuid:(NSUUID *_Nullable)uuid
+                        reply:(void (^)(OTInheritanceKey *_Nullable crk, NSError *_Nullable error))reply
+{
+    [[self getConnection:^(NSError *error) {
+        reply(nil, error);
+    }] createInheritanceKey:containerName contextID:contextID uuid:uuid reply:reply];
+}
+
+- (void) generateInheritanceKey:(NSString* _Nullable)containerName
+                    contextID:(NSString *)contextID
+                         uuid:(NSUUID *_Nullable)uuid
+                        reply:(void (^)(OTInheritanceKey *_Nullable crk, NSError *_Nullable error))reply
+{
+    [[self getConnection:^(NSError *error) {
+        reply(nil, error);
+    }] generateInheritanceKey:containerName contextID:contextID uuid:uuid reply:reply];
+}
+
+- (void) storeInheritanceKey:(NSString* _Nullable)containerName
+                   contextID:(NSString *)contextID
+                          ik:(OTInheritanceKey *)ik
+                       reply:(void (^)(NSError *_Nullable error)) reply
+{
+    [[self getConnection:^(NSError *error) {
+        reply(error);
+    }] storeInheritanceKey:containerName contextID:contextID ik:ik reply:reply];
+}
+
+- (void) joinWithInheritanceKey:(NSString* _Nullable)containerName
+                      contextID:(NSString *)contextID
+                 inheritanceKey:(OTInheritanceKey *)ik
+                          reply:(void(^)(NSError* _Nullable error)) reply
+{
+    [[self getConnection:^(NSError *error) {
+        reply(error);
+    }] joinWithInheritanceKey:containerName contextID:contextID inheritanceKey:ik reply:reply];
+}
+
+- (void) preflightJoinWithInheritanceKey:(NSString* _Nullable)containerName
+                               contextID:(NSString *)contextID
+                          inheritanceKey:(OTInheritanceKey *)ik
+                                   reply:(void(^)(NSError* _Nullable error)) reply
+{
+    [[self getConnection:^(NSError *error) {
+        reply(error);
+    }] preflightJoinWithInheritanceKey:containerName contextID:contextID inheritanceKey:ik reply:reply];
+}
+
+- (void) removeInheritanceKey:(NSString* _Nullable)containerName
+                    contextID:(NSString *)contextID
+                         uuid:(NSUUID *)uuid
+                        reply:(void (^)(NSError *_Nullable error))reply
+{
+    [[self getConnection:^(NSError *error) {
+        reply(error);
+    }] removeInheritanceKey:containerName contextID:contextID uuid:uuid reply:reply];
+}
+
 - (void)healthCheck:(NSString *)container
             context:(NSString *)context
 skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
@@ -546,6 +633,47 @@ skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
     [[self getConnection: ^(NSError* connectionError) {
         reply(connectionError);
     }] resetAccountCDPContents:containerName contextID:contextID reply:reply];
+}
+
+- (void)setLocalSecureElementIdentity:(NSString* _Nullable)containerName
+                            contextID:(NSString*)contextID
+                secureElementIdentity:(OTSecureElementPeerIdentity*)secureElementIdentity
+                                reply:(void (^)(NSError* _Nullable))reply
+{
+    [[self getConnection:^(NSError *connectionError) {
+        reply(connectionError);
+    }] setLocalSecureElementIdentity:containerName contextID:contextID secureElementIdentity:secureElementIdentity reply:reply];
+
+}
+
+- (void)removeLocalSecureElementIdentityPeerID:(NSString* _Nullable)containerName
+                                     contextID:(NSString*)contextID
+                   secureElementIdentityPeerID:(NSData*)sePeerID
+                                         reply:(void (^)(NSError* _Nullable))reply
+{
+    [[self getConnection:^(NSError *connectionError) {
+        reply(connectionError);
+    }] removeLocalSecureElementIdentityPeerID:containerName contextID:contextID secureElementIdentityPeerID:sePeerID reply:reply];
+}
+
+- (void)fetchTrustedSecureElementIdentities:(NSString* _Nullable)containerName
+                                  contextID:(NSString*)contextID
+                                      reply:(void (^)(OTCurrentSecureElementIdentities* currentSet,
+                                                      NSError* replyError))reply
+{
+    [[self getConnection:^(NSError *connectionError) {
+        reply(nil, connectionError);
+    }] fetchTrustedSecureElementIdentities:containerName contextID:contextID reply:reply];
+}
+
+
+- (void)waitForPriorityViewKeychainDataRecovery:(NSString* _Nullable)containerName
+                                      contextID:(NSString*)contextID
+                                          reply:(void (^)(NSError* _Nullable replyError))reply
+{
+    [[self getConnection:^(NSError *connectionError) {
+        reply(connectionError);
+    }] waitForPriorityViewKeychainDataRecovery:containerName contextID:contextID reply:reply];
 }
 
 + (OTControl*)controlObject:(NSError* __autoreleasing *)error {

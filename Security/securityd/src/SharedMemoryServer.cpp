@@ -112,7 +112,7 @@ SharedMemoryServer::SharedMemoryServer (const char* segmentName, SegmentOffsetTy
         unlinkfile(mFileName.c_str());
     } else {
         mDataPtr = mDataArea = mSegment + sizeof(SegmentOffsetType);
-        mDataMax = mSegment + segmentSize;;
+        mDataMax = mSegment + segmentSize;
 
         SetProducerOffset (0);
     }

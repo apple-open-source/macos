@@ -49,6 +49,9 @@ static CFMutableDictionaryRef createQueryKeyDictionary(SecKeychainRef kc, CFStri
     CFDictionarySetValue(query, kSecAttrKeyClass, keyClass);
 
     CFDictionarySetValue(query, kSecMatchLimit, kSecMatchLimitAll);
+
+    CFRelease(searchList); // retained by query dict
+
     return query;
 }
 
@@ -142,6 +145,7 @@ static void makeCustomDuplicateKey(const char* name, SecKeychainRef kc, CFString
     CFReleaseSafe(SecKeyGenerateSymmetric(query, &error));
     is(CFErrorGetCode(error), errSecDuplicateItem, "%s: SecKeyGenerateSymmetric (duplicate) errored: %ld", name, error ? CFErrorGetCode(error) : -1);
 
+    CFReleaseNull(error);
     CFReleaseNull(query);
 }
 #define makeCustomDuplicateKeyTests 1
@@ -161,7 +165,7 @@ static SecKeyRef makeCustomFreeKey(const char* name, SecKeychainRef kc, CFString
                              CSSM_KEYUSE_ENCRYPT | CSSM_KEYUSE_DECRYPT,
                              CSSM_KEYATTR_EXTRACTABLE,
                              NULL, /* initialAccess */
-                             &symkey), "%s: SecKeyGenerate", name);;
+                             &symkey), "%s: SecKeyGenerate", name);
 
     CFMutableDictionaryRef query = createAddKeyDictionary(kc, kSecAttrKeyClassSymmetric, label);
 
@@ -193,7 +197,7 @@ static SecKeyRef makeCustomDuplicateFreeKey(const char* name, SecKeychainRef kc,
                              CSSM_KEYUSE_ENCRYPT | CSSM_KEYUSE_DECRYPT,
                              CSSM_KEYATTR_EXTRACTABLE,
                              NULL, /* initialAccess */
-                             &symkey), "%s: SecKeyGenerate", name);;
+                             &symkey), "%s: SecKeyGenerate", name);
 
     CFMutableDictionaryRef query = createAddKeyDictionary(kc, kSecAttrKeyClassSymmetric, label);
 

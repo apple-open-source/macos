@@ -2,7 +2,7 @@
 
   proc.c - Proc, Binding, Env
 
-  $Author: naruse $
+  $Author: usa $
   created at: Wed Jan 17 12:13:14 2007
 
   Copyright (C) 2004-2007 Koichi Sasada
@@ -2100,10 +2100,22 @@ method_clone(VALUE self)
  */
 
 
+/*  Document-method: Method#[]
+ *
+ *  call-seq:
+ *     meth[args, ...]         -> obj
+ *
+ *  Invokes the <i>meth</i> with the specified arguments, returning the
+ *  method's return value, like #call.
+ *
+ *     m = 12.method("+")
+ *     m[3]         #=> 15
+ *     m[20]        #=> 32
+ */
+
 /*
  *  call-seq:
  *     meth.call(args, ...)    -> obj
- *     meth[args, ...]         -> obj
  *
  *  Invokes the <i>meth</i> with the specified arguments, returning the
  *  method's return value.
@@ -2635,7 +2647,8 @@ method_inspect(VALUE method)
     str = rb_sprintf("#<% "PRIsVALUE": ", rb_obj_class(method));
     OBJ_INFECT_RAW(str, method);
 
-    mklass = data->klass;
+    mklass = data->iclass;
+    if (!mklass) mklass = data->klass;
 
     if (data->me->def->type == VM_METHOD_TYPE_ALIAS) {
 	defined_class = data->me->def->body.alias.original_me->owner;
@@ -2667,6 +2680,12 @@ method_inspect(VALUE method)
 	}
     }
     else {
+        mklass = data->klass;
+        if (FL_TEST(mklass, FL_SINGLETON)) {
+            do {
+               mklass = RCLASS_SUPER(mklass);
+            } while (RB_TYPE_P(mklass, T_ICLASS));
+        }
 	rb_str_buf_append(str, rb_inspect(mklass));
 	if (defined_class != mklass) {
 	    rb_str_catf(str, "(% "PRIsVALUE")", defined_class);
@@ -2741,6 +2760,8 @@ method_to_proc(VALUE method)
     return procval;
 }
 
+extern VALUE rb_find_defined_class_by_owner(VALUE current_class, VALUE target_owner);
+
 /*
  * call-seq:
  *   meth.super_method  -> method
@@ -2760,8 +2781,15 @@ method_super_method(VALUE method)
     TypedData_Get_Struct(method, struct METHOD, &method_data_type, data);
     iclass = data->iclass;
     if (!iclass) return Qnil;
-    super_class = RCLASS_SUPER(RCLASS_ORIGIN(iclass));
-    mid = data->me->called_id;
+    if (data->me->def->type == VM_METHOD_TYPE_ALIAS && data->me->defined_class) {
+        super_class = RCLASS_SUPER(rb_find_defined_class_by_owner(data->me->defined_class,
+            data->me->def->body.alias.original_me->owner));
+        mid = data->me->def->body.alias.original_me->def->original_id;
+    }
+    else {
+        super_class = RCLASS_SUPER(RCLASS_ORIGIN(iclass));
+        mid = data->me->def->original_id;
+    }
     if (!super_class) return Qnil;
     me = (rb_method_entry_t *)rb_callable_method_entry_without_refinements(super_class, mid, &iclass);
     if (!me) return Qnil;
@@ -3157,8 +3185,8 @@ rb_method_compose_to_left(VALUE self, VALUE g)
  *     meth >> g -> a_proc
  *
  *  Returns a proc that is the composition of this method and the given <i>g</i>.
- *  The returned proc takes a variable number of arguments, calls <i>g</i> with them
- *  then calls this method with the result.
+ *  The returned proc takes a variable number of arguments, calls this method
+ *  with them then calls <i>g</i> with the result.
  *
  *     def f(x)
  *       x * x

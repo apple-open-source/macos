@@ -223,7 +223,54 @@ interpret_and_display(char *share, SMBShareAttributes *sattrs)
                   0, "SMB_VERSION",
                   "SMB_1", &ret);
     
-    /*
+    /* SMB 3.1.1 Encryption Algorithms enabled */
+    print_if_attr(stdout, sattrs->session_misc_flags,
+                  SMBV_ENABLE_AES_128_CCM, "SMB_ENCRYPT_ALGORITHMS",
+                  "AES_128_CCM_ENABLED", &ret);
+    print_if_attr(stdout, sattrs->session_misc_flags,
+                  SMBV_ENABLE_AES_128_GCM, "SMB_ENCRYPT_ALGORITHMS",
+                  "AES_128_GCM_ENABLED", &ret);
+    print_if_attr(stdout, sattrs->session_misc_flags,
+                  SMBV_ENABLE_AES_256_CCM, "SMB_ENCRYPT_ALGORITHMS",
+                  "AES_256_CCM_ENABLED", &ret);
+    print_if_attr(stdout, sattrs->session_misc_flags,
+                  SMBV_ENABLE_AES_256_GCM, "SMB_ENCRYPT_ALGORITHMS",
+                  "AES_256_GCM_ENABLED", &ret);
+    
+    /* Current in use encryption algorithm */
+    switch (sattrs->session_encrypt_cipher) {
+        case 0:
+            print_if_attr(stdout, 1, 1, "SMB_CURR_ENCRYPT_ALGORITHM",
+                          "OFF", &ret);
+            break;
+
+        case 1:
+            print_if_attr(stdout, 1, 1, "SMB_CURR_ENCRYPT_ALGORITHM",
+                          "AES-128-CCM", &ret);
+            break;
+            
+        case 2:
+            print_if_attr(stdout, 1, 1, "SMB_CURR_ENCRYPT_ALGORITHM",
+                          "AES-128-GCM", &ret);
+            break;
+
+        case 3:
+            print_if_attr(stdout, 1, 1, "SMB_CURR_ENCRYPT_ALGORITHM",
+                          "AES-256-CCM", &ret);
+            break;
+            
+        case 4:
+            print_if_attr(stdout, 1, 1, "SMB_CURR_ENCRYPT_ALGORITHM",
+                          "AES-256-GCM", &ret);
+            break;
+
+        default:
+            print_if_attr_chk_ret(stdout, 0, 0, "SMB_CURR_ENCRYPT_ALGORITHM",
+                                  "UNKNOWN", &ret);
+            break;
+    }
+    
+   /*
      * Note: No way to get file system type since the type is determined at
      * mount time and not just by a Tree Connect.  If we ever wanted to display
      * the file system type, we would probably need an IOCTL to the mount 
@@ -365,8 +412,13 @@ display_json(char *share, SMBShareAttributes *sattrs)
         fprintf(stderr, "CFDictionaryCreateMutable failed\n");
         return NULL;
     }
-    CFMutableArrayRef arr =  CFArrayCreateMutable(NULL, 3, &kCFTypeArrayCallBacks);
+    CFMutableArrayRef arr = CFArrayCreateMutable(NULL, 3, &kCFTypeArrayCallBacks);
     if (arr == NULL) {
+        fprintf(stderr, "CFArrayCreateMutable failed\n");
+        return NULL;
+    }
+    CFMutableArrayRef arr2 = CFArrayCreateMutable(NULL, 3, &kCFTypeArrayCallBacks);
+    if (arr2 == NULL) {
         fprintf(stderr, "CFArrayCreateMutable failed\n");
         return NULL;
     }
@@ -432,6 +484,54 @@ display_json(char *share, SMBShareAttributes *sattrs)
         CFDictionarySetValue(dict, CFSTR("SMB_VERSION"), CFSTR("SMB_1"));
     }
     
+    /* SMB 3.1.1 Encryption Algorithms enabled */
+    if (sattrs->session_misc_flags & SMBV_ENABLE_AES_128_CCM) {
+        CFArrayAppendValue(arr2, CFSTR("AES_128_CCM_ENABLED"));
+    }
+    if (sattrs->session_misc_flags & SMBV_ENABLE_AES_128_GCM) {
+        CFArrayAppendValue(arr2, CFSTR("AES_128_GCM_ENABLED"));
+    }
+    if (sattrs->session_misc_flags & SMBV_ENABLE_AES_256_CCM) {
+        CFArrayAppendValue(arr2, CFSTR("AES_256_CCM_ENABLED"));
+    }
+    if (sattrs->session_misc_flags & SMBV_ENABLE_AES_256_GCM) {
+        CFArrayAppendValue(arr2, CFSTR("AES_256_GCM_ENABLED"));
+    }
+    CFDictionarySetValue(dict, CFSTR("SMB_ENCRYPT_ALGORITHMS"), arr2);
+
+    /* Current in use encryption algorithm */
+    switch (sattrs->session_encrypt_cipher) {
+        case 0:
+            CFDictionarySetValue(dict, CFSTR("SMB_CURR_ENCRYPT_ALGORITHM"),
+                                 CFSTR("OFF"));
+            break;
+
+        case 1:
+            CFDictionarySetValue(dict, CFSTR("SMB_CURR_ENCRYPT_ALGORITHM"),
+                                 CFSTR("AES-128-CCM"));
+            break;
+            
+        case 2:
+            CFDictionarySetValue(dict, CFSTR("SMB_CURR_ENCRYPT_ALGORITHM"),
+                                 CFSTR("AES-128-GCM"));
+            break;
+
+        case 3:
+            CFDictionarySetValue(dict, CFSTR("SMB_CURR_ENCRYPT_ALGORITHM"),
+                                 CFSTR("AES-256-CCM"));
+            break;
+            
+        case 4:
+            CFDictionarySetValue(dict, CFSTR("SMB_CURR_ENCRYPT_ALGORITHM"),
+                                 CFSTR("AES-256-GCM"));
+            break;
+
+        default:
+            CFDictionarySetValue(dict, CFSTR("SMB_CURR_ENCRYPT_ALGORITHM"),
+                                 CFSTR("UNKNOWN"));
+            break;
+    }
+ 
     /*
      * Note: No way to get file system type since the type is determined at
      * mount time and not just by a Tree Connect.  If we ever wanted to display

@@ -1,7 +1,13 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
-// License & terms of use: http://www.unicode.org/copyright.html#License
+// License & terms of use: http://www.unicode.org/copyright.html
+// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
 en_AU{
     %%Parent{"en_001"}
+    Keys{
+        colCaseFirst{"Upper case / Lower case Ordering"}
+        x{"Private Use"}
+        x0{"Private Use Transform"}
+    }
     Languages{
         ar_001{"Modern Standard Arabic"}
         ars{"Arabic (Najdi)"}
@@ -27,6 +33,9 @@ en_AU{
         en_GB{"UK English"}
         en_US{"US English"}
     }
+    Languages%variant{
+        ckb{"Kurdish (Central)"}
+    }
     Scripts{
         Beng{"Bengali"}
     }
@@ -36,5 +45,4 @@ en_AU{
             ethiopic{"Ethiopian Calendar"}
         }
     }
-    Version{"36.1"}
 }

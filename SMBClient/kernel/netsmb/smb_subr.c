@@ -293,7 +293,7 @@ void * smb_memdupin(user_addr_t umem, int len)
 	if (len > SMB_WAIT_SIZE_MAX) {
 		flags = M_NOWAIT;
 	}
-    SMB_MALLOC(p, char *, len, M_SMBDATA, flags);
+    SMB_MALLOC(p, char *, len, M_SMBDATA, flags | M_ZERO);
 	if (!p) {
 		SMBDEBUG("malloc failed : %d\n", ENOMEM);
 		return NULL;

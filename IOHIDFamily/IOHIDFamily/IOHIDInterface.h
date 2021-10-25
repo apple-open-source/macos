@@ -107,10 +107,10 @@ private:
         IOWorkLoop                  *workLoop;
         IOCommandGate               *commandGate;
         OSArray                     *deviceElements;
-        OSSet                     	*reportPool;
+        OSArray                     *reportPool;
         bool                        opened;
-        bool                        sleeping;
 		bool                        terminated;
+		IOMemoryMap                 *debugStats;
     };
 
     /*! @var reserved
@@ -124,6 +124,8 @@ private:
                            UInt32 reportID,
                            void *ctx);
     IOReturn addReportToPoolGated(IOMemoryDescriptor *report);
+
+	bool serializeDebugState(void *ref, OSSerialize *serializer);
     
 protected:
 	

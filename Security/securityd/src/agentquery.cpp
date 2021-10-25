@@ -376,7 +376,7 @@ SecurityAgentXPCQuery::create(const char *pluginId, const char *mechanismId)
 
         if (doSwitchBootstrap) {
             secnotice("SecurityAgentXPCQuery", "attaching a bootstrap port because the uid was %d", targetUid);
-            MachPlusPlus::Bootstrap processBootstrap = Server::process().taskPort().bootstrap();
+            MachPlusPlus::Bootstrap processBootstrap = Server::process().bootstrap();
             xpc_dictionary_set_mach_send(requestObject, AUTH_XPC_BOOTSTRAP_PORT, processBootstrap);
         }
 

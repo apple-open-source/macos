@@ -28,6 +28,7 @@
 
 #include <kern/debug.h>
 #include <kern/kalloc.h>
+#include <kern/perfmon.h>
 #include <sys/param.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
@@ -98,8 +99,7 @@ kpc_get_bigarray(uint32_t *size_out)
 	 * Another element is needed to hold the CPU number when getting counter
 	 * values.
 	 */
-	bigarray = kheap_alloc_tag(KHEAP_DATA_BUFFERS, size,
-	    Z_WAITOK, VM_KERN_MEMORY_DIAG);
+	bigarray = kalloc_data_tag(size, Z_WAITOK, VM_KERN_MEMORY_DIAG);
 	assert(bigarray != NULL);
 	return bigarray;
 }
@@ -412,6 +412,10 @@ kpc_sysctl SYSCTL_HANDLER_ARGS
 
 	ktrace_unlock();
 
+	if (perfmon_in_use(perfmon_cpmu)) {
+		return EBUSY;
+	}
+
 	lck_mtx_lock(&sysctl_lock);
 
 	/* which request */
@@ -440,7 +444,6 @@ kpc_sysctl SYSCTL_HANDLER_ARGS
 		ret = sysctl_setget_int( req,
 		    (setget_func_t)kpc_get_counter_count );
 		break;
-
 
 	case REQ_THREAD_COUNTERS:
 		ret = sysctl_get_bigarray( req, sysctl_kpc_get_thread_counters );
@@ -576,3 +579,12 @@ SYSCTL_PROC(_kpc, OID_AUTO, actionid,
     "QU", "Set counter actionids");
 
 
+
+#ifdef __arm64__
+
+extern int kpc_pc_capture;
+SYSCTL_INT(_kpc, OID_AUTO, pc_capture_supported,
+    CTLFLAG_RD | CTLFLAG_ANYBODY | CTLFLAG_LOCKED, &kpc_pc_capture, 0,
+    "whether PC capture is supported by the hardware");
+
+#endif /* __arm64__ */

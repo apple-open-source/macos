@@ -1,0 +1,31 @@
+diff --git sh.c sh.c
+index 4b5c624..045c163 100644
+--- sh.c
++++ sh.c
+@@ -87,8 +87,11 @@ struct sigaction parterm;	/* Parents terminate catch */
+ int do_logout = 0;
+ #endif /* TESLA */
+ 
+-
++#ifdef __APPLE__
++int    use_fork = 1;		/* use fork() instead of vfork()? */
++#else
+ int    use_fork = 0;		/* use fork() instead of vfork()? */
++#endif /* __APPLE__ */
+ 
+ /*
+  * Magic pointer values. Used to specify other invalid conditions aside
+diff --git tcsh.man tcsh.man
+index 3d06e55..dba15c9 100644
+--- tcsh.man
++++ tcsh.man
+@@ -138,7 +138,8 @@ The shell does not load any resource or startup files, or perform any
+ command hashing, and thus starts faster.
+ .TP 4
+ .B \-F
+-The shell uses \fIfork\fR(2) instead of \fIvfork\fR(2) to spawn processes. (+)
++The shell uses \fIfork\fR(2) instead of \fIvfork\fR(2) to spawn processes. This
++is now the default and this option is ignored. (+)
+ .TP 4
+ .B \-i
+ The shell is interactive and prompts for its top-level input, even if

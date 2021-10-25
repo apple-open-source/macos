@@ -507,6 +507,23 @@ bool SecTrustReportNetworkingAnalytics(const char *eventName, xpc_object_t event
  */
 void SecTrustSetNeedsEvaluation(SecTrustRef trust);
 
+/*!
+ @function SecTrustSetClientAuditToken
+ @abstract Set client audit token for delegated trust evaluations
+ @param trust Trust object to modify
+ @param auditToken Client's audit token. Set to NULL to reset.
+ @discussion Client audit tokens will only be propagated if the caller has
+ the com.apple.private.network.socket-delegate entitlement.
+ */
+OSStatus SecTrustSetClientAuditToken(SecTrustRef trust, CFDataRef _Nullable auditToken);
+
+/*!
+ @function SecTrustGetAppleAnchors
+ @abstract Returns the Apple anchors
+ @result Array of SecCertificateRefs representing the Apple roots
+ */
+CFArrayRef SecTrustGetAppleAnchors(void);
+
 CF_IMPLICIT_BRIDGING_DISABLED
 CF_ASSUME_NONNULL_END
 

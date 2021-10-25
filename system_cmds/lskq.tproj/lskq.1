@@ -1,8 +1,8 @@
 .\" Copyright (c) 2015, Apple Inc.  All rights reserved.
 .\"
-.Dd Apr 20, 2015
-.Dt lskq 1
-.Os "Mac OS X"
+.Dd April 20, 2015
+.Dt LSKQ 1
+.Os "macOS"
 .Sh NAME
 .Nm lskq
 .Nd display process kqueue state
@@ -15,13 +15,13 @@ The
 .Nm lskq
 command enumerates kqueues and registered kevents of running processes.
 .Sh OPTIONS
-.Pp
 .Bl -tag -width xxx
 .It Fl p Ar <pid>
 Show kqueues of process
 .Ar <pid> .
 .It Fl a
-Show kqueues for all running processes. Requires root.
+Show kqueues for all running processes.
+Requires root.
 .It Fl v
 Verbose: show opaque user data and filter-specific extension fields.
 .It Fl e
@@ -34,10 +34,13 @@ Show help and exit.
 .Sh OUTPUT
 .Nm lskq
 prints one line of output for each registered kevent, consisting of process,
-kqueue, and kevent information. For kqueues with no registered kevents, a single
-line is output with an ident of `-'. See
+kqueue, and kevent information.
+For kqueues with no registered kevents, a single line is output with an
+ident of `-'.
+See
 .Xr kevent 2
-for field semantics. The output columns are:
+for field semantics.
+The output columns are:
 .Bl -tag -width xxxxxxxxxxxx
 .It command
 shortened process name.
@@ -60,8 +63,9 @@ wait set (KQ_SEL).
 Type of kevents on this kqueue: KEV32, KEV64, or KEV_QOS.
 .El
 .It ident
-kevent identifier. The meaning depends on the kevent filter specified. Where
-possible,
+kevent identifier.
+The meaning depends on the kevent filter specified.
+Where possible,
 .Nm lskq
 prints both numeric and symbolic names.
 .It filter
@@ -69,9 +73,10 @@ kevent filter type (EVFILT_*).
 .It fdtype
 file descriptor type, for filters operating on file descriptors.
 .It fflags
-kevent filter flags bitmask. The meaning of each field depends on the filter type.
-.Bl -tag -width xxxxxxx -compact
+kevent filter flags bitmask.
+The meaning of each field depends on the filter type.
 .Pp
+.Bl -tag -width xxxxxxx -compact
 .It EVFILT_READ:
 .It Sy l
 NOTE_LOWAT
@@ -221,16 +226,18 @@ filter-specific extension fields are printed in raw hexadecimal.
 .Sh NOTES
 The output of
 .Nm lskq
-is not an atomic snapshot of system state. In cases where
+is not an atomic snapshot of system state.
+In cases where
 .Nm lskq
 is able to detect an inconsistency, a warning will be printed.
 .Pp
-Not all flags are symbolicated. Use
+Not all flags are symbolicated.
+Use
 .Fl r
 (raw mode) to inspect additional flags.
 .Sh SEE ALSO
-.Xr kqueue 2 ,
-.Xr kevent 2 ,
 .Xr ddt 1 ,
-.Xr lsof 8 ,
-.Xr lsmp 1
+.Xr lsmp 1 ,
+.Xr kevent 2 ,
+.Xr kqueue 2 ,
+.Xr lsof 8

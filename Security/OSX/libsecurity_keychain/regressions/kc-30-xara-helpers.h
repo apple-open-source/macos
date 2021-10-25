@@ -128,11 +128,13 @@ static void checkPartitionIDs(const char* name, SecKeychainItemRef item, uint32_
         CFReleaseNull(acllist);
     }
 
+    CFReleaseNull(access);
+
     is(partitionIDsFound, n, "%s: Wrong number of partition IDs found", name);
 }
 
 #define getIntegrityHashTests 3
-static CFStringRef getIntegrityHash(const char* name, SecKeychainItemRef item) {
+static CFStringRef copyIntegrityHash(const char* name, SecKeychainItemRef item) {
     if(!item) {
         for(int i = 0; i < getIntegrityHashTests; i++) {
             fail("%s: getIntegrityHash not passed an item", name);
@@ -164,6 +166,7 @@ static CFStringRef getIntegrityHash(const char* name, SecKeychainItemRef item) {
                 // found a hash. match it.
                 hashesFound++;
 
+                CFReleaseNull(output);
                 output = description;
             }
 
@@ -173,13 +176,15 @@ static CFStringRef getIntegrityHash(const char* name, SecKeychainItemRef item) {
         CFReleaseNull(acllist);
     }
 
+    CFReleaseNull(access);
+
     is(hashesFound, 1, "%s: Wrong number of hashes found", name);
     return output;
 }
 
 // Pulls the Integrity hash out of an item and compares it against the given one.
 static void checkIntegrityHash(const char* name, SecKeychainItemRef item, CFStringRef expectedHash) {
-    CFStringRef hash = getIntegrityHash(name, item);
+    CFStringRef hash = copyIntegrityHash(name, item);
 
     if(!hash) {
         fail("No hash to match");
@@ -200,12 +205,13 @@ static void checkIntegrityHash(const char* name, SecKeychainItemRef item, CFStri
         fflush(stdout);
         fail("Hashes don't match");
     }
+    CFReleaseNull(hash);
 }
 #define checkIntegrityHashTests (getIntegrityHashTests + 1)
 
 static void checkHashesMatch(const char* name, SecKeychainItemRef item, SecKeychainItemRef comp) {
-    CFStringRef itemhash    = getIntegrityHash(name, item);
-    CFStringRef comparehash = getIntegrityHash(name, comp);
+    CFStringRef itemhash    = copyIntegrityHash(name, item);
+    CFStringRef comparehash = copyIntegrityHash(name, comp);
 
     if(!itemhash) {
         fail("%s: original item not passed in", name);
@@ -222,6 +228,9 @@ static void checkHashesMatch(const char* name, SecKeychainItemRef item, SecKeych
         CFShow(itemhash);
         CFShow(comparehash);
     }
+
+    CFReleaseNull(comparehash);
+    CFReleaseNull(itemhash);
 }
 #define checkHashesMatchTests (getIntegrityHashTests + getIntegrityHashTests + 1)
 

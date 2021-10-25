@@ -101,6 +101,42 @@ Node	*curnode = NULL;	/* the node being executed, for debugging */
 static Awkfloat prev_srand, tmp_srand;
 
 /* buffer memory management */
+int wcadjbuf(wchar_t **pbuf, int *psiz, int minlen, int quantum, wchar_t **pbptr,
+	const char *whatrtn)
+/* wchar_t version of adjbuf, handles wchar_t pointers appropriately
+ * pbuf:    address of pointer to buffer being managed
+ * psiz:    address of buffer size variable
+ * minlen:  minimum length of buffer needed
+ * quantum: buffer size quantum
+ * pbptr:   address of movable pointer into buffer, or 0 if none
+ * whatrtn: name of the calling routine if failure should cause fatal error
+ *
+ * return   0 for realloc failure, !=0 for success
+ */
+{
+	size_t elem_sz = sizeof(wchar_t);
+	if (minlen > *psiz) {
+		wchar_t *tbuf;
+		int rminlen = quantum ? minlen % quantum : 0;
+		int boff = pbptr ? *pbptr - *pbuf : 0;
+		/* round up to next multiple of quantum */
+		if (rminlen)
+			minlen += quantum - rminlen;
+		tbuf = realloc(*pbuf, minlen * elem_sz);
+		DPRINTF("wcadjbuf %s: %d %d (pbuf=%p, tbuf=%p)\n", whatrtn, *psiz, minlen, (void*)*pbuf, (void*)tbuf);
+		if (tbuf == NULL) {
+			if (whatrtn)
+				FATAL("out of memory in %s", whatrtn);
+			return 0;
+		}
+		*pbuf = tbuf;
+		*psiz = minlen;
+		if (pbptr)
+			*pbptr = tbuf + boff;
+	}
+	return 1;
+}
+
 int adjbuf(char **pbuf, int *psiz, int minlen, int quantum, char **pbptr,
 	const char *whatrtn)
 /* pbuf:    address of pointer to buffer being managed
@@ -296,6 +332,11 @@ Cell *call(Node **a, int n)	/* function call.  very kludgy and fragile */
 		if (isarr(t)) {
 			if (t->csub == CCOPY) {
 				if (i >= ncall) {
+					/* T.misc unireghf dropped core */
+					if (insymtab(t, y)) {
+						freed = 1;
+					}
+
 					freesymtab(t);
 					t->csub = CTEMP;
 					tempfree(t);
@@ -316,9 +357,9 @@ Cell *call(Node **a, int n)	/* function call.  very kludgy and fragile */
 		}
 	}
 	tempfree(fcn);
-	if (isexit(y) || isnext(y))
-		return y;
 	if (freed == 0) {
+		if (isexit(y) || isnext(y))
+			return y;
 		tempfree(y);	/* don't free twice! */
 	}
 	z = frp->retval;			/* return value */
@@ -967,7 +1008,10 @@ int format(char **pbuf, int *pbufsize, const char *s, Node *a)	/* printf-like co
 		}
 		tempfree(x);
 		p += strlen(p);
-		s++;
+
+		if (*s) {
+			s++;
+		}
 	}
 	*p = '\0';
 	free(fmt);
@@ -1265,6 +1309,7 @@ Cell *split(Node **a, int nnn)	/* split(a[0], a[1], a[2]); a[3] is type */
 
 	y = execute(a[0]);	/* source string */
 	origs = s = strdup(getsval(y));
+	tempfree(y);	/* t.split2a: free now bc. it is ref'd by output array */
 	arg3type = ptoi(a[3]);
 	if (a[2] == NULL)		/* fs string */
 		fs = getsval(fsloc);
@@ -1285,7 +1330,7 @@ Cell *split(Node **a, int nnn)	/* split(a[0], a[1], a[2]); a[3] is type */
 	ap->sval = (char *) makesymtab(NSYMTAB);
 
 	n = 0;
-        if (arg3type == REGEXPR && strlen((char*)((fa*)a[2])->restr) == 0) {
+	if (arg3type == REGEXPR && a[2] != NULL && strlen((char*)((fa*)a[2])->restr) == 0) {
 		/* split(s, a, //); have to arrange that it looks like empty sep */
 		arg3type = 0;
 		fs = "";
@@ -1385,7 +1430,6 @@ Cell *split(Node **a, int nnn)	/* split(a[0], a[1], a[2]); a[3] is type */
 		}
 	}
 	tempfree(ap);
-	tempfree(y);
 	xfree(origs);
 	xfree(origfs);
 	x = gettemp();

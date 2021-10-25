@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004, 2006, 2008-2010, 2012, 2015, 2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2004, 2006, 2008-2010, 2012, 2015, 2017, 2018, 2021 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -107,11 +107,11 @@ enum {
 	 * SCNetworkConnection error codes
 	 */
 	kSCStatusConnectionNoService
-		API_AVAILABLE(macos(6.0))
+		API_AVAILABLE(macos(10.6))
 		SPI_AVAILABLE(ios(2.0), tvos(9.0), watchos(1.0), bridgeos(1.0))
 						= 5001,	/* Network service for connection not available */
 	kSCStatusConnectionIgnore
-		API_AVAILABLE(macos(9.0))
+		API_AVAILABLE(macos(10.9))
 		SPI_AVAILABLE(ios(6.0), tvos(9.0), watchos(1.0), bridgeos(1.0))
 						= 5002, /* Network connection information not available at this time */
 };

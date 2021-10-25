@@ -21,6 +21,57 @@
 extern uint64_t wake_abstime;
 extern int      lck_mtx_adaptive_spin_mode;
 
+#if DEVELOPMENT || DEBUG
+/* Various tuneables to modulate selection of WFE in the idle path */
+extern int wfe_rec_max;
+extern int wfe_allowed;
+
+extern int wfe_rec_none;
+extern uint32_t idle_proximate_timer_wfe;
+extern uint32_t idle_proximate_io_wfe_masked;
+extern uint32_t idle_proximate_io_wfe_unmasked;
+
+static
+SYSCTL_INT(_machdep, OID_AUTO, wfe_rec_max,
+    CTLFLAG_RW, &wfe_rec_max, 0,
+    "");
+
+static
+SYSCTL_INT(_machdep, OID_AUTO, wfe_allowed,
+    CTLFLAG_RW, &wfe_allowed, 0,
+    "");
+
+static
+SYSCTL_INT(_machdep, OID_AUTO, idle_timer_wfe,
+    CTLFLAG_RW, &idle_proximate_timer_wfe, 0,
+    "");
+
+static
+SYSCTL_INT(_machdep, OID_AUTO, idle_io_wfe_masked,
+    CTLFLAG_RW, &idle_proximate_io_wfe_masked, 0,
+    "");
+static
+SYSCTL_INT(_machdep, OID_AUTO, idle_io_wfe_unmasked,
+    CTLFLAG_RW, &idle_proximate_io_wfe_unmasked, 0,
+    "");
+
+static
+SYSCTL_INT(_machdep, OID_AUTO, wfe_rec_none,
+    CTLFLAG_RW, &wfe_rec_none, 0,
+    "");
+
+extern uint64_t wfe_rec_override_mat;
+SYSCTL_QUAD(_machdep, OID_AUTO, wfe_rec_override_mat,
+    CTLFLAG_RW, &wfe_rec_override_mat,
+    "");
+
+extern uint64_t wfe_rec_clamp;
+SYSCTL_QUAD(_machdep, OID_AUTO, wfe_rec_clamp,
+    CTLFLAG_RW, &wfe_rec_clamp,
+    "");
+
+#endif
+
 static
 SYSCTL_QUAD(_machdep, OID_AUTO, wake_abstime,
     CTLFLAG_RD, &wake_abstime,
@@ -268,6 +319,28 @@ SYSCTL_QUAD(_machdep, OID_AUTO, tlto,
     CTLFLAG_RW | CTLFLAG_LOCKED, &TLockTimeOut,
     "Ticket spinlock timeout (MATUs): use with care");
 
+extern uint32_t timebase_validation;
+SYSCTL_UINT(_machdep, OID_AUTO, timebase_validation,
+    CTLFLAG_RW | CTLFLAG_LOCKED, &timebase_validation, 0,
+    "Monotonicity validation of kernel mach_absolute_time()");
+
+#if __WKDM_ISA_2P_WORKAROUND__
+extern uint64_t wkdmdretries, wkdmdretriespb;
+extern uint32_t simulate_wkdm2p_error, wkdm_isa_2p_war_required;
+SYSCTL_QUAD(_machdep, OID_AUTO, wkdmdretries,
+    CTLFLAG_RW | CTLFLAG_LOCKED, &wkdmdretries,
+    "Number of WKDM errata retries");
+SYSCTL_QUAD(_machdep, OID_AUTO, wkdmdretriespb,
+    CTLFLAG_RW | CTLFLAG_LOCKED, &wkdmdretriespb,
+    "Number of retries where payload was on page boundary");
+SYSCTL_UINT(_machdep, OID_AUTO, simulate_wkdm2p_error,
+    CTLFLAG_RW | CTLFLAG_LOCKED,
+    &simulate_wkdm2p_error, 0, "");
+SYSCTL_UINT(_machdep, OID_AUTO, wkdm_isa_2p_war_required,
+    CTLFLAG_RW | CTLFLAG_LOCKED,
+    &wkdm_isa_2p_war_required, 0, "");
+#endif /* __WKDM_ISA_2P_WORKAROUND__ */
+
 
 /*
  * macro to generate a sysctl machdep.cpu.sysreg_* for a given system register
@@ -302,6 +375,38 @@ SYSCTL_PROC_MACHDEP_CPU_SYSREG(TCR_EL1);
 SYSCTL_PROC_MACHDEP_CPU_SYSREG(ID_AA64MMFR0_EL1);
 // ARM64: AArch64 Instruction Set Attribute Register 1
 SYSCTL_PROC_MACHDEP_CPU_SYSREG(ID_AA64ISAR1_EL1);
+#if APPLE_ARM64_ARCH_FAMILY
+// Apple ID Register
+SYSCTL_PROC_MACHDEP_CPU_SYSREG(AIDR_EL1);
+#endif /* APPLE_ARM64_ARCH_FAMILY */
 
 #endif /* DEVELOPMENT || DEBUG */
 
+
+#ifdef ML_IO_TIMEOUTS_ENABLED
+/* Timeouts for ml_{io|phys}_{read|write}... */
+
+SYSCTL_UINT(_machdep, OID_AUTO, report_phy_read_delay, CTLFLAG_KERN | CTLFLAG_RW | CTLFLAG_LOCKED,
+    &report_phy_read_delay_to, 0, "Maximum time before io/phys read gets reported or panics");
+SYSCTL_UINT(_machdep, OID_AUTO, report_phy_write_delay, CTLFLAG_KERN | CTLFLAG_RW | CTLFLAG_LOCKED,
+    &report_phy_write_delay_to, 0, "Maximum time before io/phys write gets reported or panics");
+SYSCTL_UINT(_machdep, OID_AUTO, trace_phy_read_delay, CTLFLAG_KERN | CTLFLAG_RW | CTLFLAG_LOCKED,
+    &trace_phy_read_delay_to, 0, "Maximum time before io/phys read gets ktraced");
+SYSCTL_UINT(_machdep, OID_AUTO, trace_phy_write_delay, CTLFLAG_KERN | CTLFLAG_RW | CTLFLAG_LOCKED,
+    &trace_phy_write_delay_to, 0, "Maximum time before io/phys write gets ktraced");
+SYSCTL_UINT(_machdep, OID_AUTO, report_phy_read_osbt, CTLFLAG_KERN | CTLFLAG_RW | CTLFLAG_LOCKED,
+    &report_phy_read_osbt, 0, "Whether to report exceeding io/phys read duration via OSReportWithBacktrace");
+SYSCTL_UINT(_machdep, OID_AUTO, report_phy_write_osbt, CTLFLAG_KERN | CTLFLAG_RW | CTLFLAG_LOCKED,
+    &report_phy_write_osbt, 0, "Whether to report exceeding io/phys write duration via OSReportWithBacktrace");
+
+SYSCTL_INT(_machdep, OID_AUTO, phy_read_delay_panic, CTLFLAG_KERN | CTLFLAG_RW | CTLFLAG_LOCKED,
+    &phy_read_panic, 0, "if set, report-phy-read-delay timeout panics");
+SYSCTL_INT(_machdep, OID_AUTO, phy_writedelay_panic, CTLFLAG_KERN | CTLFLAG_RW | CTLFLAG_LOCKED,
+    &phy_write_panic, 0, "if set, report-phy-write-delay timeout panics");
+
+#if ML_IO_SIMULATE_STRETCHED_ENABLED
+SYSCTL_QUAD(_machdep, OID_AUTO, sim_stretched_io_ns, CTLFLAG_KERN | CTLFLAG_RW | CTLFLAG_LOCKED,
+    &simulate_stretched_io, "simulate stretched io in ml_read_io, ml_write_io");
+#endif /* ML_IO_SIMULATE_STRETCHED_ENABLED */
+
+#endif /* ML_IO_TIMEOUTS_ENABLED */

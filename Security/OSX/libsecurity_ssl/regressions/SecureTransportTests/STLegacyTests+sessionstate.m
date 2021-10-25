@@ -245,7 +245,7 @@ tls_handshake_ready_callback(tls_handshake_ctx_t ctx, bool write, bool ready)
             } else {
                 tls_handshake_write_callback(ctx, appdata_buffer, tls_record_type_AppData);
             }
-            handle->ready_count++;;
+            handle->ready_count++;
         }
     }
 }

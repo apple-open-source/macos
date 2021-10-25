@@ -199,10 +199,10 @@ notEV:
 
 SecCertificateVCRef SecCertificateVCCreate(SecCertificateRef certificate, CFArrayRef usageConstraints) {
     if (!certificate) { return NULL; }
-    CFIndex size = sizeof(struct SecCertificateVC);
+    CFIndex size = sizeof(struct SecCertificateVC) - sizeof(CFRuntimeBase);
     SecCertificateVCRef result =
     (SecCertificateVCRef)_CFRuntimeCreateInstance(kCFAllocatorDefault,
-                                                      SecCertificateVCGetTypeID(), size - sizeof(CFRuntimeBase), 0);
+                                                      SecCertificateVCGetTypeID(), size, 0);
     if (!result)
         return NULL;
     result->certificate = CFRetainSafe(certificate);
@@ -380,11 +380,8 @@ SecCertificatePathVCRef SecCertificatePathVCCreate(SecCertificatePathVCRef path,
         isSelfSigned = false;
     }
 
-    CFIndex size = sizeof(struct SecCertificatePathVC) +
-    count * sizeof(SecCertificateRef);
-    SecCertificatePathVCRef result =
-    (SecCertificatePathVCRef)_CFRuntimeCreateInstance(allocator,
-                                                    SecCertificatePathVCGetTypeID(), size - sizeof(CFRuntimeBase), 0);
+    CFIndex size = (CFIndex)sizeof(struct SecCertificatePathVC) + count * (CFIndex)sizeof(SecCertificateRef) - (CFIndex)sizeof(CFRuntimeBase);
+    SecCertificatePathVCRef result = (SecCertificatePathVCRef)_CFRuntimeCreateInstance(allocator, SecCertificatePathVCGetTypeID(), size, 0);
     if (!result)
         return NULL;
 
@@ -425,11 +422,8 @@ SecCertificatePathVCRef SecCertificatePathVCCopyFromParent(
     ? path->selfIssued - skipCount : -1;
     isSelfSigned = path->selfIssued >= 0 ? path->isSelfSigned : false;
 
-    CFIndex size = sizeof(struct SecCertificatePathVC) +
-    count * sizeof(SecCertificateRef);
-    SecCertificatePathVCRef result =
-    (SecCertificatePathVCRef)_CFRuntimeCreateInstance(allocator,
-                                                    SecCertificatePathVCGetTypeID(), size - sizeof(CFRuntimeBase), 0);
+    CFIndex size = (CFIndex)sizeof(struct SecCertificatePathVC) + count * (CFIndex)sizeof(SecCertificateRef) - (CFIndex)sizeof(CFRuntimeBase);
+    SecCertificatePathVCRef result = (SecCertificatePathVCRef)_CFRuntimeCreateInstance(allocator,SecCertificatePathVCGetTypeID(), size, 0);
     if (!result)
         return NULL;
 
@@ -472,11 +466,8 @@ SecCertificatePathVCRef SecCertificatePathVCCopyAddingLeaf(SecCertificatePathVCR
     selfIssued = path->selfIssued;
     isSelfSigned = path->isSelfSigned;
 
-    CFIndex size = sizeof(struct SecCertificatePathVC) +
-    count * sizeof(SecCertificateRef);
-    SecCertificatePathVCRef result =
-    (SecCertificatePathVCRef)_CFRuntimeCreateInstance(allocator,
-                                                    SecCertificatePathVCGetTypeID(), size - sizeof(CFRuntimeBase), 0);
+    CFIndex size = (CFIndex)sizeof(struct SecCertificatePathVC) + count * (CFIndex)sizeof(SecCertificateRef) - (CFIndex)sizeof(CFRuntimeBase);
+    SecCertificatePathVCRef result = (SecCertificatePathVCRef)_CFRuntimeCreateInstance(allocator, SecCertificatePathVCGetTypeID(), size, 0);
     if (!result)
         return NULL;
 
@@ -502,7 +493,7 @@ SecCertificatePathVCRef SecCertificatePathVCCopyAddingLeaf(SecCertificatePathVCR
 
 CFArrayRef SecCertificatePathVCCopyCertificates(SecCertificatePathVCRef path) {
     CFMutableArrayRef outCerts = NULL;
-    size_t count = path->count;
+    CFIndex count = path->count;
     require_quiet(outCerts = CFArrayCreateMutable(NULL, count, &kCFTypeArrayCallBacks), exit);
     SecCertificatePathVCForEachCertificate(path, ^(SecCertificateRef cert, bool * __unused stop) {
         CFArrayAppendValue(outCerts, cert);
@@ -514,7 +505,7 @@ exit:
 CFArrayRef SecCertificatePathVCCreateSerialized(SecCertificatePathVCRef path) {
     CFMutableArrayRef serializedCerts = NULL;
     require_quiet(path, exit);
-    size_t count = path->count;
+    CFIndex count = path->count;
     require_quiet(serializedCerts = CFArrayCreateMutable(NULL, count, &kCFTypeArrayCallBacks), exit);
     SecCertificatePathVCForEachCertificate(path, ^(SecCertificateRef cert, bool * __unused stop) {
         CFDataRef certData = SecCertificateCopyData(cert);
@@ -725,26 +716,28 @@ bool SecCertificatePathVCIsValid(SecCertificatePathVCRef certificatePath, CFAbso
     return result;
 }
 
-CFAbsoluteTime SecCertificatePathVCGetMaximumNotBefore(SecCertificatePathVCRef certificatePath) {
-    __block CFAbsoluteTime notBefore = -DBL_MAX;
+CFArrayRef SecCertificatePathVCCopyNotBefores(SecCertificatePathVCRef certificatePath) {
+    CFMutableArrayRef notBefores = CFArrayCreateMutable(NULL, certificatePath->count, &kCFTypeArrayCallBacks);
     SecCertificatePathVCForEachCertificate(certificatePath, ^(SecCertificateRef certificate, bool *stop) {
-        CFAbsoluteTime certNotBefore = SecCertificateNotValidBefore(certificate);
-        if (certNotBefore > notBefore) {
-            notBefore = certNotBefore;
+        CFDateRef date = CFDateCreate(NULL, SecCertificateNotValidBefore(certificate));
+        if (date) {
+            CFArrayAppendValue(notBefores, date);
         }
+        CFReleaseNull(date);
     });
-    return notBefore;
+    return notBefores;
 }
 
-CFAbsoluteTime SecCertificatePathVCGetMinimumNotAfter(SecCertificatePathVCRef certificatePath) {
-    __block CFAbsoluteTime notAfter = DBL_MAX;
+CFArrayRef SecCertificatePathVCCopyNotAfters(SecCertificatePathVCRef certificatePath) {
+    CFMutableArrayRef notAfters = CFArrayCreateMutable(NULL, certificatePath->count, &kCFTypeArrayCallBacks);
     SecCertificatePathVCForEachCertificate(certificatePath, ^(SecCertificateRef certificate, bool *stop) {
-        CFAbsoluteTime certNotAfter = SecCertificateNotValidAfter(certificate);
-        if (certNotAfter < notAfter) {
-            notAfter = certNotAfter;
+        CFDateRef date = CFDateCreate(NULL, SecCertificateNotValidAfter(certificate));
+        if (date) {
+            CFArrayAppendValue(notAfters, date);
         }
+        CFReleaseNull(date);
     });
-    return notAfter;
+    return notAfters;
 }
 
 bool SecCertificatePathVCHasWeakHash(SecCertificatePathVCRef certificatePath) {
@@ -867,7 +860,10 @@ bool SecCertificatePathVCIsRevocationDone(SecCertificatePathVCRef certificatePat
 }
 
 void SecCertificatePathVCAllocateRVCs(SecCertificatePathVCRef certificatePath, CFIndex certCount) {
-    certificatePath->rvcs = calloc(sizeof(struct OpaqueSecRVC), certCount);
+    if (certCount < 0) {
+        return;
+    }
+    certificatePath->rvcs = calloc(sizeof(struct OpaqueSecRVC), (size_t)certCount);
     certificatePath->rvcCount = certCount;
 }
 
@@ -920,23 +916,30 @@ CFAbsoluteTime SecCertificatePathVCGetEarliestNextUpdate(SecCertificatePathVCRef
     return enu;
 }
 
-CFAbsoluteTime SecCertificatePathVCGetLatestThisUpdate(SecCertificatePathVCRef path) {
-    CFIndex certIX, certCount = path->count;
-    CFAbsoluteTime ltu = -DBL_MAX;
-    if (certCount <= 1 || !path->rvcs) {
-        return ltu;
-    }
-
-    for (certIX = 0; certIX < path->rvcCount; ++certIX) {
+CFArrayRef SecCertificatePathVCCopyNextUpdates(SecCertificatePathVCRef path) {
+    CFMutableArrayRef nextUpdates = CFArrayCreateMutable(NULL, path->rvcCount, &kCFTypeArrayCallBacks);
+    for (CFIndex certIX = 0; certIX < path->rvcCount; ++certIX) {
         SecRVCRef rvc = SecCertificatePathVCGetRVCAtIndex(path, certIX);
-        CFAbsoluteTime thisCertThisUpdate = SecRVCGetLatestThisUpdate(rvc);
-        if (thisCertThisUpdate > ltu) {
-            ltu = thisCertThisUpdate;
+        CFDateRef date = CFDateCreate(NULL, SecRVCGetEarliestNextUpdate(rvc));
+        if (date) {
+            CFArrayAppendValue(nextUpdates, date);
         }
+        CFReleaseNull(date);
     }
+    return nextUpdates;
+}
 
-    secdebug("rvc", "revocation valid starting: %lg", ltu);
-    return ltu;
+CFArrayRef SecCertificatePathVCCopyThisUpdates(SecCertificatePathVCRef path) {
+    CFMutableArrayRef thisUpdates = CFArrayCreateMutable(NULL, path->rvcCount, &kCFTypeArrayCallBacks);
+    for (CFIndex certIX = 0; certIX < path->rvcCount; ++certIX) {
+        SecRVCRef rvc = SecCertificatePathVCGetRVCAtIndex(path, certIX);
+        CFDateRef date = CFDateCreate(NULL, SecRVCGetLatestThisUpdate(rvc));
+        if (date) {
+            CFArrayAppendValue(thisUpdates, date);
+        }
+        CFReleaseNull(date);
+    }
+    return thisUpdates;
 }
 
 bool SecCertificatePathVCRevocationCheckedAllCerts(SecCertificatePathVCRef path) {
@@ -1230,8 +1233,11 @@ static bool policy_tree_map_if_any(policy_tree_t node, void *ctx) {
     for (mapping_ix = 0; mapping_ix < mapping_count; mapping_ix++) {
         oid_t issuerDomainPolicy = pm->mappings[mapping_ix].issuerDomainPolicy;
         oid_t subjectDomainPolicy = pm->mappings[mapping_ix].subjectDomainPolicy;
-        idp = CFDataCreateWithBytesNoCopy(NULL, issuerDomainPolicy.data, issuerDomainPolicy.length, kCFAllocatorNull);
-        sdp = CFDataCreateWithBytesNoCopy(NULL, subjectDomainPolicy.data, subjectDomainPolicy.length, kCFAllocatorNull);
+        if (issuerDomainPolicy.length > LONG_MAX || subjectDomainPolicy.length > LONG_MAX) {
+            continue;
+        }
+        idp = CFDataCreateWithBytesNoCopy(NULL, issuerDomainPolicy.data, (CFIndex)issuerDomainPolicy.length, kCFAllocatorNull);
+        sdp = CFDataCreateWithBytesNoCopy(NULL, subjectDomainPolicy.data, (CFIndex)subjectDomainPolicy.length, kCFAllocatorNull);
         CFMutableArrayRef sdps = (CFMutableArrayRef)CFDictionaryGetValue(mappings, idp);
         if (sdps) {
             CFArrayAppendValue(sdps, sdp);
@@ -1248,23 +1254,29 @@ static bool policy_tree_map_if_any(policy_tree_t node, void *ctx) {
 
     /* Now we use the dictionary to generate the new nodes */
     CFDictionaryForEach(mappings, ^(const void *key, const void *value) {
-        CFDataRef idp = key;
+        CFDataRef id_p = key;
         CFArrayRef sdps = value;
+        if (CFDataGetLength(id_p) < 0) {
+            return;
+        }
 
         /* (i)   set the valid_policy to ID-P; */
         oid_t p_oid;
-        p_oid.data = (uint8_t *)CFDataGetBytePtr(idp);
-        p_oid.length = CFDataGetLength(idp);
+        p_oid.data = (uint8_t *)CFDataGetBytePtr(id_p);
+        p_oid.length = (size_t)CFDataGetLength(id_p);
 
         /* (ii)  set the qualifier_set to the qualifier set of the policy anyPolicy in the certificate policies extension of certificate i */
         policy_qualifier_t p_q = node->qualifier_set;
 
         /* (iii) set the expected_policy_set to the set of subjectDomainPolicy values that are specified as equivalent to ID-P by the policy mappings extension.  */
         __block policy_set_t p_expected = NULL;
-        CFArrayForEach(sdps, ^(const void *value) {
+        CFArrayForEach(sdps, ^(const void *sdpValue) {
+            if (CFDataGetLength(sdpValue) < 0) {
+                return;
+            }
             policy_set_t p_node = (policy_set_t)malloc(sizeof(*p_expected));
-            p_node->oid.data = (void *)CFDataGetBytePtr(value);
-            p_node->oid.length = CFDataGetLength(value);
+            p_node->oid.data = (void *)CFDataGetBytePtr(sdpValue);
+            p_node->oid.length = (size_t)CFDataGetLength(sdpValue);
             p_node->oid_next = p_expected ? p_expected : NULL;
             p_expected = p_node;
         });
@@ -1338,18 +1350,21 @@ bool SecCertificatePathVCVerifyPolicyTree(SecCertificatePathVCRef path, bool anc
     SecCertificatePathVCPrunePolicyTree(path);
     path->policy_tree = policy_tree_create(&oidAnyPolicy, NULL);
 
-    assert((unsigned long)path->count<=UINT32_MAX); /* Debug check. Correct as long as CFIndex is long */
-    uint32_t n = (uint32_t)path->count;
+    assert((unsigned long)path->count<=INT32_MAX); /* Debug check. Correct as long as CFIndex is long */
+    if (path->count > INT32_MAX || path->count < 0) {
+        return false;
+    }
+    int32_t n = (int32_t)path->count;
     if (anchor_trusted) {
         n--;
     }
 
-    uint32_t explicit_policy = initial_explicit_policy ? 0 : n + 1;
-    uint32_t inhibit_any_policy = initial_any_policy_inhibit ? 0 : n + 1;
-    uint32_t policy_mapping = initial_policy_mapping_inhibit ? 0 : n + 1;
+    uint32_t explicit_policy = initial_explicit_policy ? 0 : (uint32_t)n + 1;
+    uint32_t inhibit_any_policy = initial_any_policy_inhibit ? 0 : (uint32_t)n + 1;
+    uint32_t policy_mapping = initial_policy_mapping_inhibit ? 0 : (uint32_t)n + 1;
 
     SecCertificateRef cert = NULL;
-    uint32_t i;
+    int32_t i;
     for (i = 1; i <= n; ++i) {
         /* Process Cert */
         cert = SecCertificatePathVCGetCertificateAtIndex(path, n - i);

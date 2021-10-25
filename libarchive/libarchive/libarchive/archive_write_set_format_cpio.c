@@ -43,6 +43,7 @@ __FBSDID("$FreeBSD: head/lib/libarchive/archive_write_set_format_cpio.c 201170 2
 #include "archive_entry_locale.h"
 #include "archive_private.h"
 #include "archive_write_private.h"
+#include "archive_write_set_format_private.h"
 
 static ssize_t	archive_write_cpio_data(struct archive_write *,
 		    const void *buff, size_t s);
@@ -69,6 +70,7 @@ struct cpio {
 	struct archive_string_conv *opt_sconv;
 	struct archive_string_conv *sconv_default;
 	int		  init_default_conversion;
+    int       omit_trailer;
 };
 
 #define	c_magic_offset 0
@@ -149,8 +151,36 @@ archive_write_cpio_options(struct archive_write *a, const char *key,
 				ret = ARCHIVE_FATAL;
 		}
 		return (ret);
-	}
+	} else if (strcmp(key, "starting-inode")  == 0) {
+        
+		if (val == NULL || val[0] == 0) {
+			archive_set_error(&a->archive, ARCHIVE_ERRNO_MISC,
+			    "%s: starting-inode option needs an integer value",
+			    a->format_name);
+            return (ret);
+        } else {
+        
+            char *endptr;
+            uint64_t starting_ino = strtoll(val, &endptr, 0);
 
+            if ((endptr[0] != '\0' && endptr[0] != '.') || (0 == starting_ino)) {
+
+                archive_set_error(&a->archive, ARCHIVE_ERRNO_MISC,
+                    "%s: starting-inode value invalid",
+                    a->format_name);
+
+                return ARCHIVE_FATAL;
+            }
+            
+            cpio->ino_next = starting_ino;
+            return (ARCHIVE_OK);
+        }
+    } else if (strcmp(key, "skip-trailer") == 0) {
+		
+        cpio->omit_trailer = (val != NULL && val[0] != 0);
+		return (ARCHIVE_OK);
+	}
+    
 	/* Note: The "warn" return is just to inform the options
 	 * supervisor that we didn't handle it.  It will generate
 	 * a suitable error if no one used this option. */
@@ -249,7 +279,7 @@ archive_write_cpio_header(struct archive_write *a, struct archive_entry *entry)
 	const char *path;
 	size_t len;
 
-	if (archive_entry_filetype(entry) == 0) {
+	if (archive_entry_filetype(entry) == 0 && archive_entry_hardlink(entry) == NULL) {
 		archive_set_error(&a->archive, -1, "Filetype required");
 		return (ARCHIVE_FAILED);
 	}
@@ -347,7 +377,7 @@ write_header(struct archive_write *a, struct archive_entry *entry)
 	format_octal(archive_entry_nlink(entry), h + c_nlink_offset, c_nlink_size);
 	if (archive_entry_filetype(entry) == AE_IFBLK
 	    || archive_entry_filetype(entry) == AE_IFCHR)
-	    format_octal(archive_entry_dev(entry), h + c_rdev_offset, c_rdev_size);
+	    format_octal(archive_entry_rdev(entry), h + c_rdev_offset, c_rdev_size);
 	else
 	    format_octal(0, h + c_rdev_offset, c_rdev_size);
 	format_octal(archive_entry_mtime(entry), h + c_mtime_offset, c_mtime_size);
@@ -408,8 +438,7 @@ write_header(struct archive_write *a, struct archive_entry *entry)
 		}
 	}
 exit_write_header:
-	if (entry_main)
-		archive_entry_free(entry_main);
+	archive_entry_free(entry_main);
 	return (ret_final);
 }
 
@@ -464,17 +493,24 @@ format_octal_recursive(int64_t v, char *p, int s)
 static int
 archive_write_cpio_close(struct archive_write *a)
 {
-	int er;
-	struct archive_entry *trailer;
+	int er = ARCHIVE_OK;
 
-	trailer = archive_entry_new2(NULL);
-	/* nlink = 1 here for GNU cpio compat. */
-	archive_entry_set_nlink(trailer, 1);
-	archive_entry_set_size(trailer, 0);
-	archive_entry_set_pathname(trailer, "TRAILER!!!");
-	er = write_header(a, trailer);
-	archive_entry_free(trailer);
-	return (er);
+	struct cpio *cpio = (struct cpio *)a->format_data;
+
+    if (!cpio->omit_trailer) {
+        
+        struct archive_entry *trailer;
+
+        trailer = archive_entry_new2(NULL);
+        /* nlink = 1 here for GNU cpio compat. */
+        archive_entry_set_nlink(trailer, 1);
+        archive_entry_set_size(trailer, 0);
+        archive_entry_set_pathname(trailer, "TRAILER!!!");
+        er = write_header(a, trailer);
+        archive_entry_free(trailer);
+    }
+    
+    return (er);
 }
 
 static int

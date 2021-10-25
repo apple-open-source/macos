@@ -2,7 +2,7 @@
 #
 # tmpdir - retrieve temporary directory path
 #
-# $Id: tmpdir.rb 66941 2019-01-29 09:19:52Z naruse $
+# $Id: tmpdir.rb 67910 2021-03-02 11:37:36Z usa $
 #
 
 require 'fileutils'
@@ -90,7 +90,7 @@ class Dir
     }
     if block_given?
       begin
-        yield path
+        yield path.dup
       ensure
         unless base
           stat = File.stat(File.dirname(path))

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2020 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2021 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -97,6 +97,7 @@ typedef struct {
     struct in_addr	addr;
     struct in_addr	mask;
     struct in_addr	router;
+    struct in_addr	dest;
     boolean_t		ignore_link_status;
     int32_t		failover_timeout;
 } ipconfig_method_data_manual, *ipconfig_method_data_manual_t;
@@ -200,6 +201,7 @@ typedef struct {
     RouterAdvertisementRef	ra;
     boolean_t			perform_plat_discovery;
     CFDictionaryRef		ipv4_dict;
+    CFStringRef			nat64_prefix;
 } ipv6_info_t;
 
 typedef struct {

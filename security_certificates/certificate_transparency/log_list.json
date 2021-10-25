@@ -1,6 +1,6 @@
 {
     "$schema": "https://valid.apple.com/ct/log_list/schema_versions/log_list_schema_v3.json",
-    "assetVersion": 13,
+    "assetVersion": 14,
     "operators": [
         {
             "email": [
@@ -833,9 +833,9 @@
                     "log_id": "IkVFB1lVJFaWP6Ev8fdthuAjJmOtwEt/XcaDXG7iDwI=",
                     "mmd": 86400,
                     "state": {
-                        "usable": {
-                            "timestamp": "2018-05-18T19:25:41Z",
-                            "version": "17"
+                        "retired": {
+                            "timestamp": "2021-07-21T00:00:00Z",
+                            "version": "100"
                         }
                     },
                     "temporal_interval": {
@@ -911,6 +911,23 @@
                         "start_inclusive": "2023-01-01T00:00:00Z"
                     },
                     "url": "https://nessie2023.ct.digicert.com/log/"
+                },
+                {
+                    "description": "DigiCert 'Yeti 2022' log #2",
+                    "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEHWlePwrycXfNnV3DNEkA7mB34XJ2dKh8XH0J8jIdBX4u/lsx1Tr9czRuSRROUFiWWsTH9L4FZKT31+WxbTMMww==",
+                    "log_id": "BZwB0yDgB4QTlYBJjRF8kDJmr69yULWvO0akPhGEDUo=",
+                    "mmd": 86400,
+                    "state": {
+                        "qualified": {
+                            "timestamp": "2021-07-20T20:14:50Z",
+                            "version": "102"
+                        }
+                    },
+                    "temporal_interval": {
+                        "end_exclusive": "2023-01-01T00:00:00Z",
+                        "start_inclusive": "2022-01-01T00:00:00Z"
+                    },
+                    "url": "https://yeti2022-2.ct.digicert.com/log/"
                 }
             ],
             "name": "DigiCert"
@@ -1119,5 +1136,5 @@
             "name": "TrustAsia"
         }
     ],
-    "version": "99"
+    "version": "102"
 }

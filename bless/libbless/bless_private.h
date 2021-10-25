@@ -87,6 +87,23 @@
 #define USE_DISKARBITRATION		0
 #endif
 
+
+/*!
+ * @define kBL_PATH_ROOT_HASH_INTEL
+ * @discussion ARV root hash path within Preboot volume on Intel Macs
+ */
+#define kBL_PATH_ROOT_HASH_INTEL            "/usr/standalone/OS.dmg.root_hash"
+
+
+/*!
+ * @define kBL_PATH_ROOT_HASH_AS
+ * @discussion ARV root hash path within NSIH directory on AS Macs
+ */
+#define kBL_PATH_ROOT_HASH_AS               "/usr/standalone/firmware/root_hash.img4"
+
+
+
+
 /*
  * Internal support for EFI routines shared between tool & library.
  */

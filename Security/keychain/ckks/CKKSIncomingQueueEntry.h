@@ -25,7 +25,7 @@
 
 #import <CloudKit/CloudKit.h>
 #include "keychain/securityd/SecDbItem.h"
-#include <utilities/SecDb.h>
+#include "utilities/SecDb.h"
 #import "CKKSItem.h"
 #import "CKKSMirrorEntry.h"
 #import "CKKSSQLDatabaseObject.h"
@@ -54,6 +54,12 @@ NS_ASSUME_NONNULL_BEGIN
 
 + (NSDictionary<NSString*, NSNumber*>*)countsByStateInZone:(CKRecordZoneID*)zoneID error:(NSError* __autoreleasing*)error;
 + (NSInteger)countByState:(CKKSItemState *)state zone:(CKRecordZoneID*)zoneID error: (NSError * __autoreleasing *)error;
+
++ (NSDictionary<NSString*, NSNumber*>*)countNewEntriesByKeyInZone:(CKRecordZoneID*)zoneID error:(NSError* __autoreleasing*)error;
+
+// Returns true if all extant IQEs for the given zone have parent keys which exist and can be loaded (whether or not they're local or reoote)
+// This is intended to return false if CKKS desyncs from the server about the existence of a sync key
++ (BOOL)allIQEsHaveValidUnwrappingKeys:(CKRecordZoneID*)zoneID error:(NSError**)error;
 
 @end
 

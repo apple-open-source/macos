@@ -422,6 +422,7 @@ xar_t xar_open_digest_verify(const char *file, int32_t flags, void *expected_toc
 		
 		size_t tlen = 0;
 		void *toccksum = xar_hash_finish(XAR(ret)->toc_hash_ctx, &tlen);
+		XAR(ret)->toc_hash_ctx = NULL;
 		
 		if( length != tlen ) {
 			free(toccksum);
@@ -465,9 +466,9 @@ xar_t xar_open_digest_verify(const char *file, int32_t flags, void *expected_toc
 	
 	if ( expected_toc_digest )
 	{
-		if ( ! XAR(ret)->toc_hash_ctx )
+		if ( ! XAR(ret)->toc_hash )
 		{
-			fprintf(stderr, "xar_open_digest_verify: xar lacks a toc_hash_ctx.\n");
+			fprintf(stderr, "xar_open_digest_verify: xar lacks a toc_hash.\n");
 			xar_close(ret);
 			return NULL;
 		}
@@ -731,6 +732,8 @@ int xar_close(xar_t x) {
 		if( XAR(x)->toc_hash_ctx ) {
 			size_t chklen = 0;
 			void *chkstr = xar_hash_finish(XAR(x)->toc_hash_ctx, &chklen);
+			XAR(x)->toc_hash_ctx = NULL;
+			
 			write(XAR(x)->fd, chkstr, chklen);
 
 			/* If there are any signatures, get the signed data a sign it */
@@ -835,6 +838,13 @@ CLOSE_BAIL:
 	free((char *)XAR(x)->dirname);
 	free(XAR(x)->readbuf);
 	free(XAR(x)->toc_hash);
+	if (XAR(x)->toc_hash_ctx) {
+		size_t bytes = 0;
+		char* buffer = xar_hash_finish(XAR(x)->toc_hash_ctx, &bytes);
+		if (buffer) {
+			free(buffer);
+		}
+	}
 	free((void *)x);
 
 	return retval;
@@ -1262,7 +1272,7 @@ xar_file_t xar_add_frombuffer(xar_t x, xar_file_t parent, const char *name, char
 	
 	xar_prop_set(ret, "name", name);
 		
-	//int32_t xar_arcmod_archive(xar_t x, xar_file_t f, const char *file, const char *buffer, size_t len) 
+	//int32_t xar_arcmod_archive(xar_t x, xar_file_t f, const char *file, const char *buffer, size_t len)
 	if( xar_arcmod_archive(x, ret, NULL , buffer , length) < 0 ) {
 		xar_file_t i;
 		if( parent ) {
@@ -1486,27 +1496,35 @@ int32_t xar_extract(xar_t x, xar_file_t f) {
 	struct stat sb;
 	char *tmp1, *dname;
 	xar_file_t tmpf;
+	uint32_t result = -1;
 	
 	if( (strstr(XAR_FILE(f)->fspath, "/") != NULL) && (stat(XAR_FILE(f)->fspath, &sb)) && (XAR_FILE(f)->parent_extracted == 0) ) {
 		tmp1 = strdup(XAR_FILE(f)->fspath);
 		dname = xar_safe_dirname(tmp1);
 		tmpf = xar_file_find(XAR(x)->files, dname);
+		free(dname);
+		free(tmp1);
 		if( !tmpf ) {
 			xar_err_set_string(x, "Unable to find file");
 			xar_err_callback(x, XAR_SEVERITY_NONFATAL, XAR_ERR_ARCHIVE_EXTRACTION);
 			return -1;
 		}
-		free(dname);
-		free(tmp1);
+		
 		XAR_FILE(f)->parent_extracted++;
-		int32_t result = xar_extract(x, tmpf);
+		result = xar_extract(x, tmpf);
 		
 		if (result < 0)
 			return result;
 			
 	}
 	
-	return xar_extract_tofile(x, f, XAR_FILE(f)->fspath);
+	char* safe_path = xar_get_safe_path(f);
+	if (safe_path) {
+		result = xar_extract_tofile(x, f, safe_path);
+		free(safe_path);
+	}
+	
+	return result;
 }
 
 int32_t xar_verify_progress(xar_t x, xar_file_t f, xar_progress_callback p) {
@@ -1652,6 +1670,11 @@ static int32_t xar_unserialize(xar_t x) {
 						if( type == XML_READER_TYPE_ELEMENT ) {
 							if(strcmp((const char*)name, "file") == 0) {
 								f = xar_file_unserialize(x, NULL, reader);
+								if (f == NULL)
+								{
+									xmlFreeTextReader(reader);
+									return -1;
+								}
 								XAR_FILE(f)->next = XAR(x)->files;
 								XAR(x)->files = f;
 							} else if( strcmp((const char*)name, "signature") == 0
@@ -1673,7 +1696,10 @@ static int32_t xar_unserialize(xar_t x) {
 									XAR(x)->signatures = sig;
 									
 							} else {
-								xar_prop_unserialize(XAR_FILE(x), NULL, reader);
+								if (xar_prop_unserialize(XAR_FILE(x), NULL, reader) != 0) {
+									xmlFreeTextReader(reader);
+									return -1;
+								}
 							}
 						}
 					}
@@ -1712,7 +1738,10 @@ static int32_t xar_unserialize(xar_t x) {
                         if(a){
                             XAR_SUBDOC(s)->attrs = XAR_ATTR(a);
                         }
-                        xar_subdoc_unserialize(s, reader);
+						if (xar_subdoc_unserialize(s, reader) != 0){
+							xmlFreeTextReader(reader);
+							return -1;
+						}
                     }else{
                         xmlFreeTextReader(reader);
                         return -1;

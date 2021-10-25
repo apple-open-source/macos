@@ -29,7 +29,6 @@
 #import "keychain/ot/OTPreloadOctagonKeysOperation.h"
 #import "keychain/ot/OTClientStateMachine.h"
 #import "keychain/ot/OTCuttlefishContext.h"
-#import "keychain/ot/OTFetchCKKSKeysOperation.h"
 #import "keychain/ot/OTDefines.h"
 #import "keychain/ot/OTConstants.h"
 #import "keychain/ot/OctagonCKKSPeerAdapter.h"
@@ -70,7 +69,7 @@
     [self dependOnBeforeGroupFinished:self.finishOp];
 
     if(!self.deps.sosAdapter.sosEnabled) {
-        self.error = [NSError errorWithDomain:OctagonErrorDomain code:OTErrorSOSAdapter userInfo:@{NSLocalizedDescriptionKey : @"sos adapter not enabled"}];
+        self.error = [NSError errorWithDomain:OctagonErrorDomain code:OctagonErrorSOSAdapter userInfo:@{NSLocalizedDescriptionKey : @"sos adapter not enabled"}];
         [self runBeforeGroupFinished:self.finishOp];
         return;
     }
@@ -87,7 +86,7 @@
     id<CKKSSelfPeer> currentSelfPeer = selfPeers.currentSelf;
     if(currentSelfPeer == nil) {
         secnotice("octagon-preload-keys", "failed to retrieve current self");
-        self.error = [NSError errorWithDomain:OctagonErrorDomain code:OTErrorOctagonAdapter userInfo: @{ NSLocalizedDescriptionKey : @"failed to retrieve current self"}];
+        self.error = [NSError errorWithDomain:OctagonErrorDomain code:OctagonErrorOctagonAdapter userInfo: @{ NSLocalizedDescriptionKey : @"failed to retrieve current self"}];
         [self runBeforeGroupFinished:self.finishOp];
         return;
     }

@@ -436,7 +436,16 @@ IOReturn IOPlatformGetDeviceColor(
 
             IOObjectRelease(platform);
         }
-
+#if defined(__arm64__)
+		if (!prop)
+		{
+			// ENCLOSURE_COLOR_SILVER
+			if (red)   *red   = 0xE1;
+			if (green) *green = 0xE1;
+			if (blue)  *blue  = 0xDF;
+			ret = kIOReturnSuccess;
+		}
+#endif /* defined(__arm64__) */
         if (prop && (CFGetTypeID(prop) == CFDataGetTypeID()))
         {
             CFDataRef data = (typeof(data)) prop;

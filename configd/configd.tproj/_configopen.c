@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2009, 2011, 2015-2017, 2019 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2009, 2011, 2015-2017, 2019-2021 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -46,7 +46,7 @@ __SCDynamicStoreOpen(SCDynamicStoreRef *store, CFStringRef name)
 	/*
 	 * allocate and initialize a new session
 	 */
-	*store = (SCDynamicStoreRef)__SCDynamicStoreCreatePrivate(NULL, name, NULL, NULL);
+	*store = (SCDynamicStoreRef)__SCDynamicStoreCreatePrivate(NULL, name, NULL, NULL, FALSE);
 
 	/*
 	 * If necessary, initialize the store and session data dictionaries
@@ -96,13 +96,13 @@ _configopen(mach_port_t			server,
 	*sc_status = kSCStatusOK;
 
 	/* un-serialize the name */
-	if (!_SCUnserializeString(&name, NULL, (void *)nameRef, nameLen)) {
+	if (!_SCUnserializeString(&name, NULL, nameRef, nameLen)) {
 		*sc_status = kSCStatusFailed;
 	}
 
 	if ((optionsRef != NULL) && (optionsLen > 0)) {
 		/* un-serialize the [session] options */
-		if (!_SCUnserialize((CFPropertyListRef *)&options, NULL, (void *)optionsRef, optionsLen)) {
+		if (!_SCUnserialize((CFPropertyListRef *)&options, NULL, optionsRef, optionsLen)) {
 			*sc_status = kSCStatusFailed;
 		}
 	}

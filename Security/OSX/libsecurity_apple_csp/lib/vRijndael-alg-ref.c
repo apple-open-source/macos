@@ -344,7 +344,7 @@ void vInvMixColumn(vector unsigned char v[2])
 	//	vector 1 contains row 2 in bytes 0-7 and row 3 in bytes 8-f
 
 	register vector unsigned char a0, a1, a2, a3, b0, b1, b2, b3;
-	register vector unsigned char nine, eleven, thirteen, fourteen;;
+	register vector unsigned char nine, eleven, thirteen, fourteen;
 	
 	nine = vec_splat_u8( 0x9 );
 	eleven = vec_splat_u8( 0xb );

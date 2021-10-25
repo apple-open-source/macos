@@ -45,6 +45,8 @@ subsystem KernelUser autofs 666;
 
 import "autofs_types.h";
 
+MsgOption MACH_SEND_PROPAGATE_QOS;
+
 /*
  * AUTOFS routines.
  */

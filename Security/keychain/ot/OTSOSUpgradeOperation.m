@@ -8,12 +8,13 @@
 
 #include "keychain/SecureObjectSync/SOSAccount.h"
 #import "keychain/escrowrequest/Framework/SecEscrowRequest.h"
-#import "keychain/ot/ObjCImprovements.h"
-#import "keychain/ot/OTFetchViewsOperation.h"
-#import "keychain/ot/OTSOSUpgradeOperation.h"
-#import "keychain/ot/OTOperationDependencies.h"
+#import "keychain/ot/ErrorUtils.h"
 #import "keychain/ot/OTCuttlefishAccountStateHolder.h"
+#import "keychain/ot/OTFetchViewsOperation.h"
+#import "keychain/ot/OTOperationDependencies.h"
+#import "keychain/ot/OTSOSUpgradeOperation.h"
 #import "keychain/ot/OTUpdateTrustedDeviceListOperation.h"
+#import "keychain/ot/ObjCImprovements.h"
 #import "keychain/TrustedPeersHelper/TrustedPeersHelperProtocol.h"
 #import "keychain/ot/categories/OTAccountMetadataClassC+KeychainSupport.h"
 #import "keychain/ot/OTFetchCKKSKeysOperation.h"
@@ -144,7 +145,7 @@
         STRONGIFY(self);
 
         if(self.error) {
-            if ([self.error retryableCuttlefishError]) {
+            if ([self.error isRetryable]) {
                 NSTimeInterval delay = [self.error overallCuttlefishRetry];
                 secnotice("octagon-sos", "SOS upgrade error is not fatal: requesting retry in %0.2fs: %@", delay, self.error);
                 [self.deps.flagHandler handlePendingFlag:[[OctagonPendingFlag alloc] initWithFlag:OctagonFlagAttemptSOSUpgrade
@@ -155,6 +156,20 @@
         }
     }];
     [self dependOnBeforeGroupFinished:self.finishedOp];
+
+    NSError* accountError = nil;
+    OTAccountMetadataClassC* account = [self.deps.stateHolder loadOrCreateAccountMetadata:&accountError];
+    if (account == nil) {
+        if (accountError == nil) {
+            accountError = [NSError errorWithDomain:(__bridge NSString *)kSecErrorDomain code:errSecInternalError userInfo:nil];
+        }
+        secerror("failed to retrieve account object: %@", accountError);
+        self.error = accountError;
+        [self runBeforeGroupFinished:self.finishedOp];
+        return;
+    }
+
+    TPPBSecureElementIdentity* existingSecureElementIdentity = [account parsedSecureElementIdentity];
 
     secnotice("octagon-sos", "Fetching trusted peers from SOS");
 
@@ -174,20 +189,11 @@
     NSError *authKitError = nil;
 
     NSString *altDSID = [self.deps.authKitAdapter primaryiCloudAccountAltDSID:&authKitError];
-    if(altDSID){
+    if(altDSID) {
         bottleSalt = altDSID;
-    }
-    else {
-        NSError* accountError = nil;
-        OTAccountMetadataClassC* account = [self.deps.stateHolder loadOrCreateAccountMetadata:&accountError];
-
-        if(account && !accountError) {
-            secnotice("octagon", "retrieved account, altdsid is: %@", account.altDSID);
-            bottleSalt = account.altDSID;
-        }
-        if(accountError || !account){
-            secerror("failed to rerieve account object: %@", accountError);
-        }
+    } else {
+        secnotice("octagon-sos", "Unable to fetch altDSID from AuthKit: %@", authKitError);
+        bottleSalt = account.altDSID;
     }
 
     NSError* sosViewError = nil;
@@ -197,6 +203,7 @@
     }
 
     secnotice("octagon-sos", "Safari view is: %@", safariViewEnabled ? @"enabled" : @"disabled");
+
 
     [self.deps.cuttlefishXPCWrapper prepareWithContainer:self.deps.containerName
                                                  context:self.deps.contextID
@@ -211,8 +218,9 @@
                                            policyVersion:self.policyOverride
                                            policySecrets:nil
                                syncUserControllableViews:safariViewEnabled ?
-                                                            TPPBPeerStableInfo_UserControllableViewStatus_ENABLED :
-                                                            TPPBPeerStableInfo_UserControllableViewStatus_DISABLED
+                                                            TPPBPeerStableInfoUserControllableViewStatus_ENABLED :
+                                                            TPPBPeerStableInfoUserControllableViewStatus_DISABLED
+                                   secureElementIdentity:existingSecureElementIdentity
                              signingPrivKeyPersistentRef:signingKeyPersistRef
                                  encPrivKeyPersistentRef:encryptionKeyPersistRef
                                                    reply:^(NSString * _Nullable peerID,
@@ -251,7 +259,7 @@
                 return;
             }
 
-            [self.deps.viewManager setCurrentSyncingPolicy:syncingPolicy];
+            [self.deps.ckks setCurrentSyncingPolicy:syncingPolicy];
 
             [self afterPrepare];
         }];
@@ -404,7 +412,7 @@
         [self requestSilentEscrowUpdate];
 
         secerror("octagon-sos: attemptPreapprovedJoin succeded");
-        [self.deps.viewManager setCurrentSyncingPolicy:syncingPolicy];
+        [self.deps.ckks setCurrentSyncingPolicy:syncingPolicy];
 
         NSError* localError = nil;
         BOOL persisted = [self.deps.stateHolder persistAccountChanges:^OTAccountMetadataClassC *  _Nonnull(OTAccountMetadataClassC * _Nonnull metadata) {
@@ -426,11 +434,8 @@
         self.nextState = self.intendedState;
 
         // Tell CKKS about our shiny new records!
-        for (id key in self.deps.viewManager.views) {
-            CKKSKeychainView* view = self.deps.viewManager.views[key];
-            secnotice("octagon-ckks", "Providing ck records (from sos upgrade) to %@", view);
-            [view receiveTLKUploadRecords: keyHierarchyRecords];
-        }
+        secnotice("octagon-ckks", "Providing ck records (from sos upgrade) to %@", self.deps.ckks);
+        [self.deps.ckks receiveTLKUploadRecords:keyHierarchyRecords];
 
         [self runBeforeGroupFinished:self.finishedOp];
     }];

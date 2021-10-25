@@ -67,12 +67,22 @@ T_DECL(netbsd_snprintf_float, "test that floating conversions don't leak memory"
 	uint32_t ul, uh;
 	time_t now;
 	char buf[1000];
+
+#if 0
+	// rlimit isn't a good way to test for memory growth on our platform.
+	// Even a relatively simple program will use an unpredictable and
+	// large amount of memory just to reach main().
+	// To test for proper leaks, we rely on libdarwintest's built-in
+	// leaks support. To test for non-leaking growth, well... we don't
+	// have a great way to do that at present.
+
 	struct rlimit rl;
 
 	rl.rlim_cur = rl.rlim_max = 1 * 1024 * 1024;
 	T_WITH_ERRNO; T_EXPECT_NE(setrlimit(RLIMIT_AS, &rl), -1, NULL);
 	rl.rlim_cur = rl.rlim_max = 1 * 1024 * 1024;
 	T_EXPECT_POSIX_SUCCESS(setrlimit(RLIMIT_DATA, &rl), NULL);
+#endif
 
 	time(&now);
 	srand((unsigned int)now);

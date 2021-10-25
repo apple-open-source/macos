@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, 2004, 2011, 2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2003, 2004, 2011, 2018, 2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -42,14 +42,14 @@ void	storeCallback		(SCDynamicStoreRef	store,
 				 CFArrayRef		changedKeys,
 				 void			*info);
 
-void	do_notify_list		(int argc, char **argv);
-void	do_notify_add		(int argc, char **argv);
-void	do_notify_remove	(int argc, char **argv);
-void	do_notify_changes	(int argc, char **argv);
-void	do_notify_watch		(int argc, char **argv);
-void	do_notify_wait		(int argc, char **argv);
-void	do_notify_file		(int argc, char **argv);
-void	do_notify_cancel	(int argc, char **argv);
+void	do_notify_list		(int argc, char * const argv[]);
+void	do_notify_add		(int argc, char * const argv[]);
+void	do_notify_remove	(int argc, char * const argv[]);
+void	do_notify_changes	(int argc, char * const argv[]);
+void	do_notify_watch		(int argc, char * const argv[]);
+void	do_notify_wait		(int argc, char * const argv[]);
+void	do_notify_file		(int argc, char * const argv[]);
+void	do_notify_cancel	(int argc, char * const argv[]);
 
 __END_DECLS
 

@@ -209,8 +209,8 @@ naselrelease(NAHSelectionRef nasel)
     CFRELEASE(nasel->clienttype);
     CFRELEASE(nasel->server);
     CFRELEASE(nasel->servertype);
-    if (nasel->ccache)
-	krb5_cc_close(nasel->na->context, nasel->ccache);
+    if (nasel->ccache && nasel->na)
+        krb5_cc_close(nasel->na->context, nasel->ccache);
     CFRELEASE(nasel->certificate);
     CFRELEASE(nasel->inferredLabel);
 }
@@ -400,6 +400,17 @@ nahrelease(NAHRef na)
 
     CFRELEASE(na->mechs);
 
+    // close any kerberos caches used by the selections before releasing them.  krb5_cc_close needs the context held by this class.
+    NAHSelectionRef nasel = NULL;
+    for (int n = 0; n < CFArrayGetCount(na->selections); n++) {
+        nasel = (NAHSelectionRef)CFArrayGetValueAtIndex(na->selections, n);
+        if (nasel->ccache) {
+            krb5_cc_close(na->context, nasel->ccache);
+            nasel->ccache = NULL;
+        }
+        nasel->na = NULL;
+    }
+
     CFRELEASE(na->selections);
 
     if (na->q)
@@ -560,7 +571,8 @@ addSelection(NAHRef na,
 	return NULL;
 
     nasel->client = CFRetain(client);
-    nasel->server = CFRetain(server);
+    nasel->server = server;
+    if (server) CFRetain(server);
     nasel->clienttype = clienttype;
     CFRetain(clienttype);
     nasel->servertype = servertype;
@@ -835,10 +847,13 @@ use_existing_principals(NAHRef na, int only_lkdc, unsigned long flags)
 	    }
 
 	    if (cr == NULL || CFStringCompare(na->hostname, cr, 0) != kCFCompareEqualTo) {
-		krb5_free_principal(na->context, client);
-		krb5_cc_close(na->context, id);
-		continue;
+            krb5_free_principal(na->context, client);
+            krb5_cc_close(na->context, id);
+            CFRELEASE(cr);
+            CFRELEASE(u);
+            continue;
 	    }
+        CFRELEASE(cr);
 
 	    /* Create server principal */
 	    server = CFStringCreateWithFormat(na->alloc, NULL, CFSTR("%@/%s@%s"),
@@ -1215,7 +1230,7 @@ NAHCreate(CFAllocatorRef alloc,
 	  CFDictionaryRef info)
 {
     NAHRef na = NAAlloc(alloc);
-    CFStringRef canonname;
+    CFStringRef canonname = NULL;
     char *hostnamestr = NULL;
     
     dispatch_once(&init_globals, ^{
@@ -1231,13 +1246,15 @@ NAHCreate(CFAllocatorRef alloc,
     /* first undo the damage BrowserServices have done to the hostname */
 
     if (_CFNetServiceDeconstructServiceName(hostname, &hostnamestr)) {
-	canonname = CFStringCreateWithCString(na->alloc, hostnamestr, kCFStringEncodingUTF8);
-	free(hostnamestr);
-	if (canonname == NULL)
-	    return NULL;
+        canonname = CFStringCreateWithCString(na->alloc, hostnamestr, kCFStringEncodingUTF8);
+        free(hostnamestr);
+        if (canonname == NULL) {
+            CFRELEASE(na);
+            return NULL;
+        }
     } else {
-	canonname = hostname;
-	CFRetain(canonname);
+        canonname = hostname;
+        CFRetain(canonname);
     }
 
     na->hostname = CFStringCreateMutableCopy(alloc, 0, canonname);
@@ -1657,6 +1674,7 @@ NAHSelectionAcquireCredential(NAHSelectionRef selection,
 	if (selection->ccache) {
 	    os_log(na_get_oslog(), "have ccache");
 	    KRBCredChangeReferenceCount(selection->client, 1, 1);
+        CFRelease(selection->na);
 	    return true;
 	}
 

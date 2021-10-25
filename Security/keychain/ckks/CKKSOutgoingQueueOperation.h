@@ -43,6 +43,7 @@ NS_ASSUME_NONNULL_BEGIN
 - (instancetype)init NS_UNAVAILABLE;
 - (instancetype)initWithDependencies:(CKKSOperationDependencies*)dependencies
                            intending:(OctagonState*)intending
+                        ckErrorState:(OctagonState*)ckErrorState
                           errorState:(OctagonState*)errorState;
 @end
 

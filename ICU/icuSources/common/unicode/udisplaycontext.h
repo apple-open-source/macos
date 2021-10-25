@@ -151,6 +151,14 @@ enum UDisplayContext {
      */
     UDISPCTX_LENGTH_SHORT = (UDISPCTX_TYPE_DISPLAY_LENGTH<<8) + 1,
     /**
+     * [Apple-specific addition for rdar://76655165]
+     * A possible setting for DISPLAY_LENGTH:
+     * use variant names when generating a locale name,
+     * e.g. "Swaziland" for SZ, instead of "Eswatini"
+     * @stable ICU 54
+     */
+    UDISPCTX_LENGTH_VARIANT = (UDISPCTX_TYPE_DISPLAY_LENGTH<<8) + 2,
+    /**
      * ================================
      * SUBSTITUTE_HANDLING can be set to one of UDISPCTX_SUBSTITUTE or
      * UDISPCTX_NO_SUBSTITUTE. Use UDisplayContextType UDISPCTX_TYPE_SUBSTITUTE_HANDLING
@@ -165,7 +173,8 @@ enum UDisplayContext {
     UDISPCTX_SUBSTITUTE = (UDISPCTX_TYPE_SUBSTITUTE_HANDLING<<8) + 0,
     /**
      * A possible setting for SUBSTITUTE_HANDLING:
-     * Returns a null value when no data is available.
+     * Returns a null value with error code set to U_ILLEGAL_ARGUMENT_ERROR when no
+     * data is available.
      * @stable ICU 58
      */
     UDISPCTX_NO_SUBSTITUTE = (UDISPCTX_TYPE_SUBSTITUTE_HANDLING<<8) + 1

@@ -259,6 +259,8 @@ enum {
 #define kActionGetBHDataFromPrefs                       "getbhdatafromprefs"
 #define kActionGetAgingDataFromPrefs                    "getagingdatafromprefs"
 #define kActionGetVactSupported                         "isvactsupported"
+
+
 #define kActionSetPermFaultStatus                       "setpermfaultstatus"
 
 #define kArgIOPMConnection                              "iopmconnection"

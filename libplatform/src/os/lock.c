@@ -502,7 +502,18 @@ OS_NOINLINE OS_NORETURN OS_COLD
 void
 _os_unfair_lock_corruption_abort(os_ulock_value_t current)
 {
-	__LIBPLATFORM_CLIENT_CRASH__(current, "os_unfair_lock is corrupt");
+	if (current >= 0x200 && current <= 0x40000) {
+		/*
+		 * 0x103 tends to be mach_task_self()
+		 * and up to 0x400 ports (512) is pretty common.
+		 * so it might be a thread leaving without unlocking
+		 */
+		__LIBPLATFORM_CLIENT_CRASH__(current,
+				"os_unfair_lock is corrupt, "
+				"or owner thread exited without unlocking");
+	} else {
+		__LIBPLATFORM_CLIENT_CRASH__(current, "os_unfair_lock is corrupt");
+	}
 }
 
 

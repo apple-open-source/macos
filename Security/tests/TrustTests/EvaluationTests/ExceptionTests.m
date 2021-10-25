@@ -35,10 +35,12 @@ static NSDate *date = nil;
     CFReleaseNull(cert1);
 }
 
-#if !TARGET_OS_BRIDGE
-// bridgeOS doesn't have a system root store
 - (void)testPassingTrust
 {
+#if TARGET_OS_BRIDGE
+    // bridgeOS doesn't have a system root store
+    XCTSkip();
+#endif
     SecTrustRef trust = NULL;
     SecPolicyRef policy = SecPolicyCreateSSL(true, CFSTR("store.apple.com"));
     ok_status(SecTrustCreateWithCertificates((__bridge CFArrayRef)certs, policy, &trust), "create trust");
@@ -59,7 +61,6 @@ static NSDate *date = nil;
     CFReleaseNull(policy);
     CFReleaseNull(exceptions);
 }
-#endif
 
 - (void)testFailingTrust
 {
@@ -113,10 +114,12 @@ static NSDate *date = nil;
     CFReleaseNull(exceptions);
 }
 
-#if !TARGET_OS_BRIDGE
-// bridgeOS always has an AnchorTrusted error due to lack of a system root store
 - (void)testIntroduceNewAnchorTrustedFailure
 {
+#if TARGET_OS_BRIDGE
+    // bridgeOS doesn't have a system root store
+    XCTSkip();
+#endif
     SecTrustRef trust = NULL;
     SecPolicyRef policy = SecPolicyCreateSSL(true, CFSTR("badstore.apple.com"));
     ok_status(SecTrustCreateWithCertificates((__bridge CFArrayRef)certs, policy, &trust), "create trust");
@@ -146,7 +149,6 @@ static NSDate *date = nil;
     CFReleaseNull(policy);
     CFReleaseNull(exceptions);
 }
-#endif
 
 - (void)testIntroduceNewExpiredFailure
 {
@@ -269,8 +271,12 @@ static NSDate *date = nil;
     CFReleaseNull(exceptions);
 }
 
-- (void)testExtensionsEpoch
+- (void)testExceptionsEpoch
 {
+#if TARGET_OS_BRIDGE
+    // bridgeOS doesn't support the exceptions epoch
+    XCTSkip();
+#endif
     SecTrustRef trust = NULL;
     SecTrustResultType trustResult;
     CFDataRef exceptions = NULL;
@@ -306,10 +312,12 @@ static NSDate *date = nil;
     CFReleaseNull(exceptions);
 }
 
-#if !TARGET_OS_BRIDGE
-// bridgeOS doesn't support Valid
 - (void)testFatalResultsNonOverride
 {
+#if TARGET_OS_BRIDGE
+    // bridgeOS doesn't support Valid
+    XCTSkip();
+#endif
     id root = [self SecCertificateCreateFromPEMResource:@"ca-ki" subdirectory:@"si-88-sectrust-valid-data"];
     id revokedLeaf = [self SecCertificateCreateFromPEMResource:@"leaf-ki-revoked1" subdirectory:@"si-88-sectrust-valid-data"];
     TestTrustEvaluation *eval = [[TestTrustEvaluation alloc] initWithCertificates:@[revokedLeaf, root] policies:nil];
@@ -325,6 +333,5 @@ static NSDate *date = nil;
     XCTAssertFalse([eval evaluate:nil]);
     XCTAssertEqual(eval.trustResult, kSecTrustResultFatalTrustFailure);
 }
-#endif
 
 @end

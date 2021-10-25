@@ -72,7 +72,7 @@ bool ApplePIODMARequestPool::initWithWorkLoop(IOWorkLoop* workLoop,
     }
 
     // allocate the commands during initialization
-    for(unsigned int i = 0; i < maximumCommandsSupported(); i++)
+    for(unsigned int i = 0; i < _maxOutstandingCommands; i++)
     {
         IOCommand* command = allocateCommand();
         returnCommand(command);
@@ -97,9 +97,4 @@ IOCommand* ApplePIODMARequestPool::allocateCommand()
                                           _numberOfAddressBits,
                                           _maxTransferSize,
                                           _maxSegmentSize);
-}
-
-unsigned int ApplePIODMARequestPool::maximumCommandsSupported()
-{
-    return _maxOutstandingCommands;
 }

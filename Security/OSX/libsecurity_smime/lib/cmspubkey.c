@@ -37,25 +37,25 @@
 
 #include "cmslocal.h"
 
+#include "cryptohi.h"
 #include "secitem.h"
 #include "secoid.h"
-#include "cryptohi.h"
 
-#include <security_asn1/secasn1.h>
-#include <security_asn1/secerr.h>
-#include <Security/SecCertificatePriv.h>
-#include <Security/SecKeyPriv.h>
-#include <Security/SecItemPriv.h>
-#include <Security/Security.h>
+#include <CommonCrypto/CommonCryptor.h>
+#include <CommonCrypto/CommonRandom.h>
+#include <CommonCrypto/CommonRandomSPI.h>
 #include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacErrors.h>
+#include <Security/SecCertificatePriv.h>
 #include <Security/SecCmsBase.h>
+#include <Security/SecItemPriv.h>
+#include <Security/SecKeyPriv.h>
+#include <Security/Security.h>
+#include <Security/keyTemplates.h>
 #include <Security/secasn1t.h>
 #include <security_asn1/plarenas.h>
-#include <Security/keyTemplates.h>
+#include <security_asn1/secasn1.h>
+#include <security_asn1/secerr.h>
 #include <utilities/SecCFWrappers.h>
-#include <CommonCrypto/CommonCryptor.h>
-#include <CommonCrypto/CommonRandomSPI.h>
-#include <CommonCrypto/CommonRandom.h>
 
 /* ====== RSA ======================================================================= */
 
@@ -65,35 +65,37 @@
  * this function takes a symmetric key and encrypts it using an RSA public key
  * according to PKCS#1 and RFC2633 (S/MIME)
  */
-OSStatus
-SecCmsUtilEncryptSymKeyRSA(PLArenaPool *poolp, SecCertificateRef cert, 
-                              SecSymmetricKeyRef bulkkey,
-                              CSSM_DATA_PTR encKey)
+OSStatus SecCmsUtilEncryptSymKeyRSA(PLArenaPool* poolp,
+                                    SecCertificateRef cert,
+                                    SecSymmetricKeyRef bulkkey,
+                                    CSSM_DATA_PTR encKey)
 {
     OSStatus rv;
     SecPublicKeyRef publickey = SecCertificateCopyKey(cert);
-    if (publickey == NULL)
-	return SECFailure;
+    if (publickey == NULL) {
+        return SECFailure;
+    }
 
     rv = SecCmsUtilEncryptSymKeyRSAPubKey(poolp, publickey, bulkkey, encKey);
-    CFRelease(publickey);
+    CFReleaseNull(publickey);
     return rv;
 }
 
-OSStatus
-SecCmsUtilEncryptSymKeyRSAPubKey(PLArenaPool *poolp, 
-				 SecPublicKeyRef publickey, 
-				 SecSymmetricKeyRef bulkkey, CSSM_DATA_PTR encKey)
+OSStatus SecCmsUtilEncryptSymKeyRSAPubKey(PLArenaPool* poolp,
+                                          SecPublicKeyRef publickey,
+                                          SecSymmetricKeyRef bulkkey,
+                                          CSSM_DATA_PTR encKey)
 {
     OSStatus rv;
     unsigned int data_len;
     //KeyType keyType;
-    void *mark = NULL;
+    void* mark = NULL;
     CFDictionaryRef theirKeyAttrs = NULL;
 
     mark = PORT_ArenaMark(poolp);
-    if (!mark)
-	goto loser;
+    if (!mark) {
+        goto loser;
+    }
     /* allocate memory for the encrypted key */
     theirKeyAttrs = SecKeyCopyAttributes(publickey);
     if (!theirKeyAttrs) {
@@ -109,24 +111,23 @@ SecCmsUtilEncryptSymKeyRSAPubKey(PLArenaPool *poolp,
 
     encKey->Data = (unsigned char*)PORT_ArenaAlloc(poolp, data_len);
     encKey->Length = data_len;
-    if (encKey->Data == NULL)
-	goto loser;
+    if (encKey->Data == NULL) {
+        goto loser;
+    }
 
     /* encrypt the key now */
     rv = WRAP_PubWrapSymKey(publickey, bulkkey, encKey);
     if (rv != SECSuccess)
-	goto loser;
+        goto loser;
 
     PORT_ArenaUnmark(poolp, mark);
     CFReleaseNull(theirKeyAttrs);
     return SECSuccess;
 
 loser:
-    if (theirKeyAttrs) {
-        CFRelease(theirKeyAttrs);
-    }
+    CFReleaseNull(theirKeyAttrs);
     if (mark) {
-	PORT_ArenaRelease(poolp, mark);
+        PORT_ArenaRelease(poolp, mark);
     }
     return SECFailure;
 }
@@ -138,509 +139,79 @@ loser:
  * key handle. Please note that the actual unwrapped key data may not be allowed to leave
  * a hardware token...
  */
-SecSymmetricKeyRef
-SecCmsUtilDecryptSymKeyRSA(SecPrivateKeyRef privkey, CSSM_DATA_PTR encKey, SECOidTag bulkalgtag)
+SecSymmetricKeyRef SecCmsUtilDecryptSymKeyRSA(SecPrivateKeyRef privkey, CSSM_DATA_PTR encKey, SECOidTag bulkalgtag)
 {
     /* that's easy */
     return WRAP_PubUnwrapSymKey(privkey, encKey, bulkalgtag);
 }
 
-#if 0
-// @@@ Implement Fortezza and Diffie hellman support
-
-/* ====== MISSI (Fortezza) ========================================================== */
-
-extern const SecAsn1Template NSS_SMIMEKEAParamTemplateAllParams[];
-
-OSStatus
-SecCmsUtilEncryptSymKeyMISSI(PLArenaPool *poolp, SecCertificateRef cert, SecSymmetricKeyRef bulkkey,
-			SECOidTag symalgtag, CSSM_DATA_PTR encKey, CSSM_DATA_PTR *pparams, void *pwfn_arg)
-{
-    SECOidTag certalgtag;	/* the certificate's encryption algorithm */
-    SECOidTag encalgtag;	/* the algorithm used for key exchange/agreement */
-    OSStatus rv = SECFailure;
-    CSSM_DATA_PTR params = NULL;
-    OSStatus err;
-    SecSymmetricKeyRef tek;
-    SecCertificateRef ourCert;
-    SecPublicKeyRef ourPubKey, *publickey = NULL;
-    SecPrivateKeyRef ourPrivKey = NULL;
-    SecCmsKEATemplateSelector whichKEA = SecCmsKEAInvalid;
-    SecCmsSMIMEKEAParameters keaParams;
-    PLArenaPool *arena = NULL;
-    extern const SecAsn1Template *nss_cms_get_kea_template(SecCmsKEATemplateSelector whichTemplate);
-    const SECAlgorithmID *algid;
-
-    /* Clear keaParams, since cleanup code checks the lengths */
-    (void) memset(&keaParams, 0, sizeof(keaParams));
-
-    SecCertificateGetAlgorithmID(cert,&algid);
-    certalgtag = SECOID_GetAlgorithmTag(algid);
-    PORT_Assert(certalgtag == SEC_OID_MISSI_KEA_DSS_OLD ||
-		certalgtag == SEC_OID_MISSI_KEA_DSS ||
-		certalgtag == SEC_OID_MISSI_KEA);
-
-#define SMIME_FORTEZZA_RA_LENGTH 128
-#define SMIME_FORTEZZA_IV_LENGTH 24
-#define SMIME_FORTEZZA_MAX_KEY_SIZE 256
-
-    /* We really want to show our KEA tag as the key exchange algorithm tag. */
-    encalgtag = SEC_OID_NETSCAPE_SMIME_KEA;
-
-    /* Get the public key of the recipient. */
-    publickey = CERT_ExtractPublicKey(cert);
-    if (publickey == NULL) goto loser;
-
-    /* Find our own cert, and extract its keys. */
-    ourCert = PK11_FindBestKEAMatch(cert, pwfn_arg);
-    if (ourCert == NULL) goto loser;
-
-    arena = PORT_NewArena(1024);
-    if (arena == NULL)
-	goto loser;
-
-    ourPubKey = CERT_ExtractPublicKey(ourCert);
-    if (ourPubKey == NULL) {
-	CERT_DestroyCertificate(ourCert);
-	goto loser;
+#define CFRELEASE(cf)  \
+    if (cf != NULL) {  \
+        CFRelease(cf); \
     }
-
-    /* While we're here, copy the public key into the outgoing
-     * KEA parameters. */
-    SECITEM_CopyItem(arena, &(keaParams.originatorKEAKey), &(ourPubKey->u.fortezza.KEAKey));
-    SECKEY_DestroyPublicKey(ourPubKey);
-    ourPubKey = NULL;
-
-    /* Extract our private key in order to derive the KEA key. */
-    ourPrivKey = PK11_FindKeyByAnyCert(ourCert, pwfn_arg);
-    CERT_DestroyCertificate(ourCert); /* we're done with this */
-    if (!ourPrivKey)
-	goto loser;
-
-    /* Prepare raItem with 128 bytes (filled with zeros). */
-    keaParams.originatorRA.Data = (unsigned char *)PORT_ArenaAlloc(arena,SMIME_FORTEZZA_RA_LENGTH);
-    keaParams.originatorRA.Length = SMIME_FORTEZZA_RA_LENGTH;
-
-    /* Generate the TEK (token exchange key) which we use
-     * to wrap the bulk encryption key. (keaparams.originatorRA) will be
-     * filled with a random seed which we need to send to
-     * the recipient. (user keying material in RFC2630/DSA speak) */
-    tek = PK11_PubDerive(ourPrivKey, publickey, PR_TRUE,
-			 &keaParams.originatorRA, NULL,
-			 CKM_KEA_KEY_DERIVE, CKM_SKIPJACK_WRAP,
-			 CKA_WRAP, 0,  pwfn_arg);
-
-    SECKEY_DestroyPublicKey(publickey);
-    SECKEY_DestroyPrivateKey(ourPrivKey);
-    publickey = NULL;
-    ourPrivKey = NULL;
-    
-    if (!tek)
-	goto loser;
-
-    /* allocate space for the wrapped key data */
-    encKey->Data = (unsigned char *)PORT_ArenaAlloc(poolp, SMIME_FORTEZZA_MAX_KEY_SIZE);
-    encKey->Length = SMIME_FORTEZZA_MAX_KEY_SIZE;
-
-    if (encKey->Data == NULL) {
-	CFRelease(tek);
-	goto loser;
-    }
-
-    /* Wrap the bulk key. What we do with the resulting data
-       depends on whether we're using Skipjack to wrap the key. */
-    switch (PK11_AlgtagToMechanism(symalgtag)) {
-    case CKM_SKIPJACK_CBC64:
-    case CKM_SKIPJACK_ECB64:
-    case CKM_SKIPJACK_OFB64:
-    case CKM_SKIPJACK_CFB64:
-    case CKM_SKIPJACK_CFB32:
-    case CKM_SKIPJACK_CFB16:
-    case CKM_SKIPJACK_CFB8:
-	/* SKIPJACK, we use the wrap mechanism because we can do it on the hardware */
-	err = PK11_WrapSymKey(CKM_SKIPJACK_WRAP, NULL, tek, bulkkey, encKey);
-	whichKEA = SecCmsKEAUsesSkipjack;
-	break;
-    default:
-	/* Not SKIPJACK, we encrypt the raw key data */
-	keaParams.nonSkipjackIV.Data = 
-	  (unsigned char *)PORT_ArenaAlloc(arena, SMIME_FORTEZZA_IV_LENGTH);
-	keaParams.nonSkipjackIV.Length = SMIME_FORTEZZA_IV_LENGTH;
-	err = PK11_WrapSymKey(CKM_SKIPJACK_CBC64, &keaParams.nonSkipjackIV, tek, bulkkey, encKey);
-	if (err != SECSuccess)
-	    goto loser;
-
-	if (encKey->Length != PK11_GetKeyLength(bulkkey)) {
-	    /* The size of the encrypted key is not the same as
-	       that of the original bulk key, presumably due to
-	       padding. Encode and store the real size of the
-	       bulk key. */
-	    if (SEC_ASN1EncodeInteger(arena, &keaParams.bulkKeySize, PK11_GetKeyLength(bulkkey)) == NULL)
-		err = (OSStatus)PORT_GetError();
-	    else
-		/* use full template for encoding */
-		whichKEA = SecCmsKEAUsesNonSkipjackWithPaddedEncKey;
-	}
-	else
-	    /* enc key length == bulk key length */
-	    whichKEA = SecCmsKEAUsesNonSkipjack; 
-	break;
-    }
-
-    CFRelease(tek);
-
-    if (err != SECSuccess)
-	goto loser;
-
-    PORT_Assert(whichKEA != SecCmsKEAInvalid);
-
-    /* Encode the KEA parameters into the recipient info. */
-    params = SEC_ASN1EncodeItem(poolp, NULL, &keaParams, nss_cms_get_kea_template(whichKEA));
-    if (params == NULL)
-	goto loser;
-
-    /* pass back the algorithm params */
-    *pparams = params;
-
-    rv = SECSuccess;
-
-loser:
-    if (arena)
-	PORT_FreeArena(arena, PR_FALSE);
-    if (publickey)
-        SECKEY_DestroyPublicKey(publickey);
-    if (ourPrivKey)
-        SECKEY_DestroyPrivateKey(ourPrivKey);
-    return rv;
-}
-
-SecSymmetricKeyRef
-SecCmsUtilDecryptSymKeyMISSI(SecPrivateKeyRef privkey, CSSM_DATA_PTR encKey, SECAlgorithmID *keyEncAlg, SECOidTag bulkalgtag, void *pwfn_arg)
-{
-    /* fortezza: do a key exchange */
-    OSStatus err;
-    CK_MECHANISM_TYPE bulkType;
-    SecSymmetricKeyRef tek;
-    SecPublicKeyRef originatorPubKey;
-    SecCmsSMIMEKEAParameters keaParams;
-    SecSymmetricKeyRef bulkkey;
-    int bulkLength;
-
-    (void) memset(&keaParams, 0, sizeof(keaParams));
-
-    /* NOTE: this uses the SMIME v2 recipientinfo for compatibility.
-       All additional KEA parameters are DER-encoded in the encryption algorithm parameters */
-
-    /* Decode the KEA algorithm parameters. */
-    err = SEC_ASN1DecodeItem(NULL, &keaParams, NSS_SMIMEKEAParamTemplateAllParams,
-			     &(keyEncAlg->parameters));
-    if (err != SECSuccess)
-	goto loser;
-
-    /* get originator's public key */
-   originatorPubKey = PK11_MakeKEAPubKey(keaParams.originatorKEAKey.Data,
-			   keaParams.originatorKEAKey.Length);
-   if (originatorPubKey == NULL)
-	  goto loser;
-    
-   /* Generate the TEK (token exchange key) which we use to unwrap the bulk encryption key.
-      The Derive function generates a shared secret and combines it with the originatorRA
-      data to come up with an unique session key */
-   tek = PK11_PubDerive(privkey, originatorPubKey, PR_FALSE,
-			 &keaParams.originatorRA, NULL,
-			 CKM_KEA_KEY_DERIVE, CKM_SKIPJACK_WRAP,
-			 CKA_WRAP, 0, pwfn_arg);
-   SECKEY_DestroyPublicKey(originatorPubKey);	/* not needed anymore */
-   if (tek == NULL)
-	goto loser;
-    
-    /* Now that we have the TEK, unwrap the bulk key
-       with which to decrypt the message. We have to
-       do one of two different things depending on 
-       whether Skipjack was used for *bulk* encryption 
-       of the message. */
-    bulkType = PK11_AlgtagToMechanism(bulkalgtag);
-    switch (bulkType) {
-    case CKM_SKIPJACK_CBC64:
-    case CKM_SKIPJACK_ECB64:
-    case CKM_SKIPJACK_OFB64:
-    case CKM_SKIPJACK_CFB64:
-    case CKM_SKIPJACK_CFB32:
-    case CKM_SKIPJACK_CFB16:
-    case CKM_SKIPJACK_CFB8:
-	/* Skipjack is being used as the bulk encryption algorithm.*/
-	/* Unwrap the bulk key. */
-	bulkkey = PK11_UnwrapSymKey(tek, CKM_SKIPJACK_WRAP, NULL,
-				    encKey, CKM_SKIPJACK_CBC64, CKA_DECRYPT, 0);
-	break;
-    default:
-	/* Skipjack was not used for bulk encryption of this
-	   message. Use Skipjack CBC64, with the nonSkipjackIV
-	   part of the KEA key parameters, to decrypt 
-	   the bulk key. If the optional parameter bulkKeySize is present,
-	   bulk key size is different than the encrypted key size */
-	if (keaParams.bulkKeySize.Length > 0) {
-	    err = SEC_ASN1DecodeItem(NULL, &bulkLength,
-				     SEC_ASN1_GET(SEC_IntegerTemplate),
-				     &keaParams.bulkKeySize);
-	    if (err != SECSuccess)
-		goto loser;
-	}
-	
-	bulkkey = PK11_UnwrapSymKey(tek, CKM_SKIPJACK_CBC64, &keaParams.nonSkipjackIV, 
-				    encKey, bulkType, CKA_DECRYPT, bulkLength);
-	break;
-    }
-    return bulkkey;
-loser:
-    return NULL;
-}
-
-/* ====== ESDH (Ephemeral-Static Diffie-Hellman) ==================================== */
-
-OSStatus
-SecCmsUtilEncryptSymKeyESDH(PLArenaPool *poolp, SecCertificateRef cert, SecSymmetricKeyRef key,
-			CSSM_DATA_PTR encKey, CSSM_DATA_PTR ukm, SECAlgorithmID *keyEncAlg,
-			CSSM_DATA_PTR pubKey)
-{
-#if 0 /* not yet done */
-    SECOidTag certalgtag;	/* the certificate's encryption algorithm */
-    SECOidTag encalgtag;	/* the algorithm used for key exchange/agreement */
-    OSStatus rv;
-    CSSM_DATA_PTR params = NULL;
-    int data_len;
-    OSStatus err;
-    SecSymmetricKeyRef tek;
-    SecCertificateRef ourCert;
-    SecPublicKeyRef ourPubKey;
-    SecCmsKEATemplateSelector whichKEA = SecCmsKEAInvalid;
-
-    certalgtag = SECOID_GetAlgorithmTag(&(cert->subjectPublicKeyInfo.algorithm));
-    PORT_Assert(certalgtag == SEC_OID_X942_DIFFIE_HELMAN_KEY);
-
-    /* We really want to show our KEA tag as the key exchange algorithm tag. */
-    encalgtag = SEC_OID_CMS_EPHEMERAL_STATIC_DIFFIE_HELLMAN;
-
-    /* Get the public key of the recipient. */
-    publickey = CERT_ExtractPublicKey(cert);
-    if (publickey == NULL) goto loser;
-
-    /* XXXX generate a DH key pair on a PKCS11 module (XXX which parameters?) */
-    /* XXXX */ourCert = PK11_FindBestKEAMatch(cert, wincx);
-    if (ourCert == NULL) goto loser;
-
-    arena = PORT_NewArena(1024);
-    if (arena == NULL) goto loser;
-
-    /* While we're here, extract the key pair's public key data and copy it into */
-    /* the outgoing parameters. */
-    /* XXXX */ourPubKey = CERT_ExtractPublicKey(ourCert);
-    if (ourPubKey == NULL)
-    {
-	goto loser;
-    }
-    SECITEM_CopyItem(arena, pubKey, /* XXX */&(ourPubKey->u.fortezza.KEAKey));
-    SECKEY_DestroyPublicKey(ourPubKey); /* we only need the private key from now on */
-    ourPubKey = NULL;
-
-    /* Extract our private key in order to derive the KEA key. */
-    ourPrivKey = PK11_FindKeyByAnyCert(ourCert,wincx);
-    CERT_DestroyCertificate(ourCert); /* we're done with this */
-    if (!ourPrivKey) goto loser;
-
-    /* If ukm desired, prepare it - allocate enough space (filled with zeros). */
-    if (ukm) {
-	ukm->Data = (unsigned char*)PORT_ArenaZAlloc(arena,/* XXXX */);
-	ukm->Length = /* XXXX */;
-    }
-
-    /* Generate the KEK (key exchange key) according to RFC2631 which we use
-     * to wrap the bulk encryption key. */
-    kek = PK11_PubDerive(ourPrivKey, publickey, PR_TRUE,
-			 ukm, NULL,
-			 /* XXXX */CKM_KEA_KEY_DERIVE, /* XXXX */CKM_SKIPJACK_WRAP,
-			 CKA_WRAP, 0, wincx);
-
-    SECKEY_DestroyPublicKey(publickey);
-    SECKEY_DestroyPrivateKey(ourPrivKey);
-    publickey = NULL;
-    ourPrivKey = NULL;
-    
-    if (!kek)
-	goto loser;
-
-    /* allocate space for the encrypted CEK (bulk key) */
-    encKey->Data = (unsigned char*)PORT_ArenaAlloc(poolp, SMIME_FORTEZZA_MAX_KEY_SIZE);
-    encKey->Length = SMIME_FORTEZZA_MAX_KEY_SIZE;
-
-    if (encKey->Data == NULL)
-    {
-	CFRelease(kek);
-	goto loser;
-    }
-
-
-    /* Wrap the bulk key using CMSRC2WRAP or CMS3DESWRAP, depending on the */
-    /* bulk encryption algorithm */
-    switch (/* XXXX */PK11_AlgtagToMechanism(enccinfo->encalg))
-    {
-    case /* XXXX */CKM_SKIPJACK_CFB8:
-	err = PK11_WrapSymKey(/* XXXX */CKM_CMS3DES_WRAP, NULL, kek, bulkkey, encKey);
-	whichKEA = SecCmsKEAUsesSkipjack;
-	break;
-    case /* XXXX */CKM_SKIPJACK_CFB8:
-	err = PK11_WrapSymKey(/* XXXX */CKM_CMSRC2_WRAP, NULL, kek, bulkkey, encKey);
-	whichKEA = SecCmsKEAUsesSkipjack;
-	break;
-    default:
-	/* XXXX what do we do here? Neither RC2 nor 3DES... */
-        err = SECFailure;
-        /* set error */
-	break;
-    }
-
-    CFRelease(kek);	/* we do not need the KEK anymore */
-    if (err != SECSuccess)
-	goto loser;
-
-    PORT_Assert(whichKEA != SecCmsKEAInvalid);
-
-    /* see RFC2630 12.3.1.1 "keyEncryptionAlgorithm must be ..." */
-    /* params is the DER encoded key wrap algorithm (with parameters!) (XXX) */
-    params = SEC_ASN1EncodeItem(arena, NULL, &keaParams, sec_pkcs7_get_kea_template(whichKEA));
-    if (params == NULL)
-	goto loser;
-
-    /* now set keyEncAlg */
-    rv = SECOID_SetAlgorithmID(poolp, keyEncAlg, SEC_OID_CMS_EPHEMERAL_STATIC_DIFFIE_HELLMAN, params);
-    if (rv != SECSuccess)
-	goto loser;
-
-    /* XXXXXXX this is not right yet */
-loser:
-    if (arena) {
-	PORT_FreeArena(arena, PR_FALSE);
-    }
-    if (publickey) {
-        SECKEY_DestroyPublicKey(publickey);
-    }
-    if (ourPrivKey) {
-        SECKEY_DestroyPrivateKey(ourPrivKey);
-    }
-#endif
-    return SECFailure;
-}
-
-SecSymmetricKeyRef
-SecCmsUtilDecryptSymKeyESDH(SecPrivateKeyRef privkey, CSSM_DATA_PTR encKey, SECAlgorithmID *keyEncAlg, SECOidTag bulkalgtag, void *pwfn_arg)
-{
-#if 0 /* not yet done */
-    OSStatus err;
-    CK_MECHANISM_TYPE bulkType;
-    SecSymmetricKeyRef tek;
-    SecPublicKeyRef originatorPubKey;
-    SecCmsSMIMEKEAParameters keaParams;
-
-   /* XXXX get originator's public key */
-   originatorPubKey = PK11_MakeKEAPubKey(keaParams.originatorKEAKey.Data,
-			   keaParams.originatorKEAKey.Length);
-   if (originatorPubKey == NULL)
-      goto loser;
-    
-   /* Generate the TEK (token exchange key) which we use to unwrap the bulk encryption key.
-      The Derive function generates a shared secret and combines it with the originatorRA
-      data to come up with an unique session key */
-   tek = PK11_PubDerive(privkey, originatorPubKey, PR_FALSE,
-			 &keaParams.originatorRA, NULL,
-			 CKM_KEA_KEY_DERIVE, CKM_SKIPJACK_WRAP,
-			 CKA_WRAP, 0, pwfn_arg);
-   SECKEY_DestroyPublicKey(originatorPubKey);	/* not needed anymore */
-   if (tek == NULL)
-	goto loser;
-    
-    /* Now that we have the TEK, unwrap the bulk key
-       with which to decrypt the message. */
-    /* Skipjack is being used as the bulk encryption algorithm.*/
-    /* Unwrap the bulk key. */
-    bulkkey = PK11_UnwrapSymKey(tek, CKM_SKIPJACK_WRAP, NULL,
-				encKey, CKM_SKIPJACK_CBC64, CKA_DECRYPT, 0);
-
-    return bulkkey;
-
-loser:
-#endif
-    return NULL;
-}
-
-#endif	/* Fortezza, DIffie-Hellman */
-
-#define CFRELEASE(cf)	if(cf != NULL) { CFRelease(cf); }
 
 /* ====== ECDH (Ephemeral-Static Diffie-Hellman) ==================================== */
 
-#pragma mark ---- ECDH support functions ----
+#pragma mark---- ECDH support functions ----
 
-#ifdef	NDEBUG
+#ifdef NDEBUG
 #define CSSM_PERROR(f, r)
 #define dprintf(args...)
 #else
-#define CSSM_PERROR(f, r)   cssmPerror(f, r)
-#define dprintf(args...)    fprintf(stderr, args)
+#define CSSM_PERROR(f, r) cssmPerror(f, r)
+#define dprintf(args...) fprintf(stderr, args)
 #endif
 
 /* Length of KeyAgreeRecipientInfo.ukm we create */
-#define UKM_LENGTH	8
+#define UKM_LENGTH 8
 
 /* KEK algorithm info we generate */
-#define ECDH_KEK_ALG_TAG	    SEC_OID_DES_EDE3_CBC
-#define ECDH_KEK_KEY_CSSM_ALGID	    CSSM_ALGID_3DES_3KEY
-#define ECDH_KEK_ENCR_CSSM_ALGID    CSSM_ALGID_3DES_3KEY_EDE
-#define ECDH_KEK_KEY_LEN_BYTES	    24
-#define ECDH_KEK_IV_LEN_BYTES	    8
+#define ECDH_KEK_ALG_TAG SEC_OID_DES_EDE3_CBC
+#define ECDH_KEK_KEY_CSSM_ALGID CSSM_ALGID_3DES_3KEY
+#define ECDH_KEK_ENCR_CSSM_ALGID CSSM_ALGID_3DES_3KEY_EDE
+#define ECDH_KEK_KEY_LEN_BYTES 24
+#define ECDH_KEK_IV_LEN_BYTES 8
 
-#define CMS_DUMP_BUFS	    0
-#if	CMS_DUMP_BUFS
+#define CMS_DUMP_BUFS 0
+#if CMS_DUMP_BUFS
 
-static void dumpBuf(
-    const char *label,
-    const CSSM_DATA *cd)
+static void dumpBuf(const char* label, const CSSM_DATA* cd)
 {
     unsigned dex;
-    
+
     printf("%s:\n   ", label);
-    for(dex=0; dex<cd->Length; dex++) {
-	printf("%02X ", cd->Data[dex]);
-	if(((dex % 16) == 15) && (dex != (cd->Length - 1))) {
-	    printf("\n   ");
-	}
+    for (dex = 0; dex < cd->Length; dex++) {
+        printf("%02X ", cd->Data[dex]);
+        if (((dex % 16) == 15) && (dex != (cd->Length - 1))) {
+            printf("\n   ");
+        }
     }
     putchar('\n');
 }
 
 #else
 #define dumpBuf(l, d)
-#endif	/* CMS_DUMP_BUFS */
+#endif /* CMS_DUMP_BUFS */
 
 /* 
  * The ECC-CMS-SharedInfo struct, as defined in RFC 3278 8.2, and the 
  * template for DER encoding and decoding it. 
  */
 typedef struct {
-    SECAlgorithmID  algId;	    /* KEK alg, NULL params */
-    CSSM_DATA	    entityUInfo;    /* optional, ukm */
-    CSSM_DATA	    suppPubInfo;    /* length of KEK in bits as 4-byte integer */
+    SECAlgorithmID algId;  /* KEK alg, NULL params */
+    CSSM_DATA entityUInfo; /* optional, ukm */
+    CSSM_DATA suppPubInfo; /* length of KEK in bits as 4-byte integer */
 } ECC_CMS_SharedInfo;
 
 static const SecAsn1Template ECC_CMS_SharedInfoTemplate[] = {
-    { SEC_ASN1_SEQUENCE, 0, NULL, sizeof(ECC_CMS_SharedInfo) },
-    { SEC_ASN1_OPTIONAL | SEC_ASN1_CONSTRUCTED | SEC_ASN1_EXPLICIT | SEC_ASN1_CONTEXT_SPECIFIC | 0,
-	  offsetof(ECC_CMS_SharedInfo,entityUInfo),
-	  kSecAsn1OctetStringTemplate },
-    { SEC_ASN1_CONSTRUCTED | SEC_ASN1_EXPLICIT | SEC_ASN1_CONTEXT_SPECIFIC | 2,
-	  offsetof(ECC_CMS_SharedInfo,suppPubInfo),
-	  kSecAsn1OctetStringTemplate },
-    { 0 }
-};
+    {SEC_ASN1_SEQUENCE, 0, NULL, sizeof(ECC_CMS_SharedInfo)},
+    {SEC_ASN1_OPTIONAL | SEC_ASN1_CONSTRUCTED | SEC_ASN1_EXPLICIT | SEC_ASN1_CONTEXT_SPECIFIC | 0,
+     offsetof(ECC_CMS_SharedInfo, entityUInfo),
+     kSecAsn1OctetStringTemplate},
+    {SEC_ASN1_CONSTRUCTED | SEC_ASN1_EXPLICIT | SEC_ASN1_CONTEXT_SPECIFIC | 2,
+     offsetof(ECC_CMS_SharedInfo, suppPubInfo),
+     kSecAsn1OctetStringTemplate},
+    {0}};
 
 /*
  * Given a context specified via a CSSM_CC_HANDLE, add a new
@@ -648,20 +219,15 @@ static const SecAsn1Template ECC_CMS_SharedInfoTemplate[] = {
  * AttributeLength, and an untyped pointer.
  */
 /* specify either 32-bit integer or a pointer as an added attribute value */
-typedef enum {
-	CAT_Uint32,
-	CAT_Ptr
-} ContextAttrType;
+typedef enum { CAT_Uint32, CAT_Ptr } ContextAttrType;
 
 /* convert uint32 to big-endian 4 bytes */
-static void int32ToBytes(
-	uint32_t i,
-	unsigned char *b)
+static void int32ToBytes(uint32_t i, unsigned char* b)
 {
     int dex;
-    for(dex=3; dex>=0; dex--) {
-	    b[dex] = i;
-	    i >>= 8;
+    for (dex = 3; dex >= 0; dex--) {
+        b[dex] = i;
+        i >>= 8;
     }
 }
 
@@ -671,16 +237,15 @@ static void int32ToBytes(
  * be used here because the message does not contain a key size
  * indication. 
  */
-static OSStatus encrAlgInfo(
-    SECOidTag		oidTag,
-    uint32		*keySizeBits,	/* RETURNED */
-    CCAlgorithm         *algorithm,	/* RETURNED */
-    CCOptions           *options)	/* RETURNED */
+static OSStatus encrAlgInfo(SECOidTag oidTag,
+                            uint32* keySizeBits,    /* RETURNED */
+                            CCAlgorithm* algorithm, /* RETURNED */
+                            CCOptions* options)     /* RETURNED */
 {
-    *keySizeBits = 64;		    /* default */
+    *keySizeBits = 64;                /* default */
     *options = kCCOptionPKCS7Padding; /* default */
-    
-    switch(oidTag) {
+
+    switch (oidTag) {
         case SEC_OID_RC2_CBC:
         case SEC_OID_RC4:
         case SEC_OID_RC5_CBC_PAD:
@@ -734,32 +299,30 @@ static OSStatus encrAlgInfo(
     }
     return noErr;
 }
-    
-#pragma mark ---- ECDH CEK key wrap ----
+
+#pragma mark---- ECDH CEK key wrap ----
 
 /* 
  * Encrypt bulk encryption key (a.k.a. content encryption key, CEK) using ECDH
- */ 
-OSStatus
-SecCmsUtilEncryptSymKeyECDH(
-    PLArenaPool *poolp, 
-    SecCertificateRef cert,	/* recipient's cert */
-    SecSymmetricKeyRef key,	/* bulk key */ 
-    /* remaining fields RETURNED */
-    CSSM_DATA_PTR encKey,	/* encrypted key --> recipientEncryptedKeys[0].EncryptedKey */
-    CSSM_DATA_PTR ukm,		/* random UKM --> KeyAgreeRecipientInfo.ukm */
-    SECAlgorithmID *keyEncAlg,	/* alg := dhSinglePass-stdDH-sha1kdf-scheme
+ */
+OSStatus SecCmsUtilEncryptSymKeyECDH(PLArenaPool* poolp,
+                                     SecCertificateRef cert, /* recipient's cert */
+                                     SecSymmetricKeyRef key, /* bulk key */
+                                     /* remaining fields RETURNED */
+                                     CSSM_DATA_PTR encKey, /* encrypted key --> recipientEncryptedKeys[0].EncryptedKey */
+                                     CSSM_DATA_PTR ukm, /* random UKM --> KeyAgreeRecipientInfo.ukm */
+                                     SECAlgorithmID* keyEncAlg, /* alg := dhSinglePass-stdDH-sha1kdf-scheme
 				 * params := another encoded AlgId, with the KEK alg and IV */
-    CSSM_DATA_PTR pubKey)	/* our pub key as ECPoint --> 
+                                     CSSM_DATA_PTR pubKey) /* our pub key as ECPoint --> 
 				 * KeyAgreeRecipientInfo.originator.OriginatorPublicKey */
 {
     OSStatus rv = noErr;
     SecKeyRef theirPubKey = NULL, ourPubKey = NULL, ourPrivKey = NULL;
     CFDictionaryRef theirKeyAttrs = NULL, ourKeyParams = NULL, kekParams = NULL;
     uint8_t iv[ECDH_KEK_IV_LEN_BYTES];
-    CSSM_DATA ivData = { ECDH_KEK_IV_LEN_BYTES, iv };
+    CSSM_DATA ivData = {ECDH_KEK_IV_LEN_BYTES, iv};
     SECAlgorithmID kekAlgId;
-    SECOidData *kekOid;
+    SECOidData* kekOid;
     ECC_CMS_SharedInfo sharedInfo;
     CSSM_DATA sharedInfoEnc = {0, NULL};
     uint8 nullData[2] = {SEC_ASN1_NULL, 0};
@@ -797,11 +360,10 @@ SecCmsUtilEncryptSymKeyECDH(
     }
 
     /* Generate ephemeral ECDH key */
-    const void *keys[] = { kSecAttrKeyType, kSecAttrKeySizeInBits, kSecUseDataProtectionKeychain};
-    const void *values[] = { keyType, keySizeNum, kCFBooleanTrue };
-    ourKeyParams = CFDictionaryCreate(NULL, keys, values, 3,
-                                      &kCFTypeDictionaryKeyCallBacks,
-                                      &kCFTypeDictionaryValueCallBacks);
+    const void* keys[] = {kSecAttrKeyType, kSecAttrKeySizeInBits, kSecUseDataProtectionKeychain};
+    const void* values[] = {keyType, keySizeNum, kCFBooleanTrue};
+    ourKeyParams = CFDictionaryCreate(
+        NULL, keys, values, 3, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
     rv = SecKeyGeneratePair(ourKeyParams, &ourPubKey, &ourPrivKey);
     if (rv || !ourPubKey || !ourPrivKey) {
         dprintf("SecKeyGeneratePair: unable to generate ECDH key pair, %d\n", (int)rv);
@@ -835,28 +397,26 @@ SecCmsUtilEncryptSymKeyECDH(
     dumpBuf("sender IV", &ivData);
 
     memset(&kekAlgId, 0, sizeof(kekAlgId));
-    if (!SEC_ASN1EncodeItem(poolp, &kekAlgId.parameters,
-                            &ivData, kSecAsn1OctetStringTemplate)) {
+    if (!SEC_ASN1EncodeItem(poolp, &kekAlgId.parameters, &ivData, kSecAsn1OctetStringTemplate)) {
         rv = internalComponentErr;
         goto out;
     }
 
     /* Drop in the KEK OID and encode the whole thing */
     kekOid = SECOID_FindOIDByTag(ECDH_KEK_ALG_TAG);
-    if(kekOid == NULL) {
+    if (kekOid == NULL) {
         dprintf("SecCmsUtilEncryptSymKeyECDH: OID screwup\n");
         rv = internalComponentErr;
         goto out;
     }
     kekAlgId.algorithm = kekOid->oid;
     memset(keyEncAlg, 0, sizeof(*keyEncAlg));
-    if (!SEC_ASN1EncodeItem(poolp, &keyEncAlg->parameters,
-                            &kekAlgId, SECOID_AlgorithmIDTemplate)) {
+    if (!SEC_ASN1EncodeItem(poolp, &keyEncAlg->parameters, &kekAlgId, SECOID_AlgorithmIDTemplate)) {
         rv = internalComponentErr;
         goto out;
     }
     kekOid = SECOID_FindOIDByTag(SEC_OID_DH_SINGLE_STD_SHA1KDF);
-    if(kekOid == NULL) {
+    if (kekOid == NULL) {
         dprintf("SecCmsUtilEncryptSymKeyECDH: OID screwup\n");
         rv = internalComponentErr;
         goto out;
@@ -878,25 +438,28 @@ SecCmsUtilEncryptSymKeyECDH(
     int32ToBytes(ECDH_KEK_KEY_LEN_BYTES << 3, keyLenAsBytes);
     sharedInfo.suppPubInfo.Length = 4;
     sharedInfo.suppPubInfo.Data = keyLenAsBytes;
-    if (!SEC_ASN1EncodeItem(poolp, &sharedInfoEnc,
-                            &sharedInfo, ECC_CMS_SharedInfoTemplate)) {
+    if (!SEC_ASN1EncodeItem(poolp, &sharedInfoEnc, &sharedInfo, ECC_CMS_SharedInfoTemplate)) {
         rv = internalComponentErr;
+        goto out;
+    }
+    if (sharedInfoEnc.Length > LONG_MAX) {
+        rv = errSecAllocate;
         goto out;
     }
     dumpBuf("sender encoded SharedInfo", &sharedInfoEnc);
 
     /* Derive KEK */
-    sharedInfoData = CFDataCreate(NULL, sharedInfoEnc.Data, sharedInfoEnc.Length);
+    sharedInfoData = CFDataCreate(NULL, sharedInfoEnc.Data, (CFIndex)sharedInfoEnc.Length);
     int32_t ecdh_key_key_len = ECDH_KEK_KEY_LEN_BYTES;
     kekLen = CFNumberCreate(NULL, kCFNumberSInt32Type, &ecdh_key_key_len);
-    const void *kekKeys[] = { kSecKeyKeyExchangeParameterRequestedSize, kSecKeyKeyExchangeParameterSharedInfo };
-    const void *kekValues[] = { kekLen, sharedInfoData };
-    kekParams = CFDictionaryCreate(NULL, kekKeys, kekValues, 2,
-                                   &kCFTypeDictionaryKeyCallBacks,
-                                   &kCFTypeDictionaryValueCallBacks);
-    kekData = SecKeyCopyKeyExchangeResult(ourPrivKey, kSecKeyAlgorithmECDHKeyExchangeStandardX963SHA1,
-                                          theirPubKey, kekParams, &error);
-    if (error) {
+    const void* kekKeys[] = {kSecKeyKeyExchangeParameterRequestedSize,
+                             kSecKeyKeyExchangeParameterSharedInfo};
+    const void* kekValues[] = {kekLen, sharedInfoData};
+    kekParams = CFDictionaryCreate(
+        NULL, kekKeys, kekValues, 2, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+    kekData = SecKeyCopyKeyExchangeResult(
+        ourPrivKey, kSecKeyAlgorithmECDHKeyExchangeStandardX963SHA1, theirPubKey, kekParams, &error);
+    if (error || CFDataGetLength(kekData) < 0) {
         dprintf("SecKeyCopyKeyExchangeResult: failed\n");
         goto out;
     }
@@ -904,8 +467,13 @@ SecCmsUtilEncryptSymKeyECDH(
     /*
      * Encrypt the raw CEK bits with the KEK we just derived
      */
-    rv = CCCryptorCreate(kCCEncrypt, kCCAlgorithm3DES, kCCOptionPKCS7Padding,
-                         CFDataGetBytePtr(kekData), CFDataGetLength(kekData), iv, &ciphercc);
+    rv = CCCryptorCreate(kCCEncrypt,
+                         kCCAlgorithm3DES,
+                         kCCOptionPKCS7Padding,
+                         CFDataGetBytePtr(kekData),
+                         (size_t)CFDataGetLength(kekData),
+                         iv,
+                         &ciphercc);
     if (rv) {
         dprintf("CCCryptorCreate failed: %d\n", (int)rv);
         goto out;
@@ -919,13 +487,15 @@ SecCmsUtilEncryptSymKeyECDH(
     size_t expectedEncKeyLength = CCCryptorGetOutputLength(ciphercc, cek.KeyData.Length, true);
     encKey->Data = PORT_ArenaAlloc(poolp, expectedEncKeyLength);
     size_t bytes_output = 0;
-    rv = CCCryptorUpdate(ciphercc, cek.KeyData.Data, cek.KeyData.Length, encKey->Data, expectedEncKeyLength, &bytes_output);
+    rv = CCCryptorUpdate(
+        ciphercc, cek.KeyData.Data, cek.KeyData.Length, encKey->Data, expectedEncKeyLength, &bytes_output);
     if (rv) {
         dprintf("CCCryptorUpdate failed: %d\n", (int)rv);
         goto out;
     }
     size_t final_bytes_output = 0;
-    rv = CCCryptorFinal(ciphercc, encKey->Data+bytes_output, expectedEncKeyLength - bytes_output, &final_bytes_output);
+    rv = CCCryptorFinal(
+        ciphercc, encKey->Data + bytes_output, expectedEncKeyLength - bytes_output, &final_bytes_output);
     if (rv) {
         dprintf("CCCryptorFinal failed: %d\n", (int)rv);
         goto out;
@@ -934,11 +504,11 @@ SecCmsUtilEncryptSymKeyECDH(
 
     /* Provide our ephemeral public key to the caller */
     ourPubData = SecKeyCopyExternalRepresentation(ourPubKey, &error);
-    if (error) {
+    if (error || CFDataGetLength(ourPubData) < 0) {
         dprintf("SecKeyCopyExternalRepresentation failed\n");
         goto out;
     }
-    pubKey->Length = CFDataGetLength(ourPubData);
+    pubKey->Length = (size_t)CFDataGetLength(ourPubData);
     pubKey->Data = malloc(pubKey->Length);
     if (pubKey->Data) {
         memcpy(pubKey->Data, CFDataGetBytePtr(ourPubData), pubKey->Length);
@@ -949,18 +519,20 @@ SecCmsUtilEncryptSymKeyECDH(
     pubKey->Length <<= 3;
 
 out:
-    if (theirPubKey) { CFRelease(theirPubKey); }
-    if (theirKeyAttrs) { CFRelease(theirKeyAttrs); }
-    if (ourKeyParams) { CFRelease(ourKeyParams); }
-    if (ourPubKey) { CFRelease(ourPubKey); }
-    if (ourPrivKey) { CFRelease(ourPrivKey); }
-    if (sharedInfoData) { CFRelease(sharedInfoData); }
-    if (kekLen != NULL) { CFRelease(kekLen); }
-    if (kekParams) { CFRelease(kekParams); }
-    if (kekData) { CFRelease(kekData); }
-    if (error) { CFRelease(error); }
-    if (ciphercc) { CCCryptorRelease(ciphercc); }
-    if (ourPubData) { CFRelease(ourPubData); }
+    CFReleaseNull(theirPubKey);
+    CFReleaseNull(theirKeyAttrs);
+    CFReleaseNull(ourKeyParams);
+    CFReleaseNull(ourPubKey);
+    CFReleaseNull(ourPrivKey);
+    CFReleaseNull(sharedInfoData);
+    CFReleaseNull(kekLen);
+    CFReleaseNull(kekParams);
+    CFReleaseNull(kekData);
+    CFReleaseNull(error);
+    CFReleaseNull(ourPubData);
+    if (ciphercc) {
+        CCCryptorRelease(ciphercc);
+    }
     if (rv && encKey->Data) {
         PORT_Free(encKey->Data);
         encKey->Data = NULL;
@@ -975,24 +547,22 @@ out:
 }
 
 
-#pragma mark ---- ECDH CEK key unwrap ----
+#pragma mark---- ECDH CEK key unwrap ----
 
-SecSymmetricKeyRef
-SecCmsUtilDecryptSymKeyECDH(
-    SecPrivateKeyRef privkey,	/* our private key */
-    CSSM_DATA_PTR encKey,	/* encrypted CEK */
-    CSSM_DATA_PTR ukm,		/* random UKM from KeyAgreeRecipientInfo.ukm */
-    SECAlgorithmID *keyEncAlg,	/* alg := dhSinglePass-stdDH-sha1kdf-scheme
+SecSymmetricKeyRef SecCmsUtilDecryptSymKeyECDH(SecPrivateKeyRef privkey, /* our private key */
+                                               CSSM_DATA_PTR encKey, /* encrypted CEK */
+                                               CSSM_DATA_PTR ukm, /* random UKM from KeyAgreeRecipientInfo.ukm */
+                                               SECAlgorithmID* keyEncAlg, /* alg := dhSinglePass-stdDH-sha1kdf-scheme
 				 * params := another encoded AlgId, with the KEK alg and IV */
-    SECOidTag bulkalgtag,	/* algorithm of returned key */
-    CSSM_DATA_PTR pubKey)	/* sender's pub key as ECPoint from
+                                               SECOidTag bulkalgtag, /* algorithm of returned key */
+                                               CSSM_DATA_PTR pubKey) /* sender's pub key as ECPoint from
 				 * KeyAgreeRecipientInfo.originator.OriginatorPublicKey */
 {
     SecSymmetricKeyRef outKey = NULL;
     OSStatus rv = noErr;
-    PLArenaPool *pool = NULL;
+    PLArenaPool* pool = NULL;
     SECAlgorithmID keyAlgParam;
-    SECOidData *kekOid = NULL;
+    SECOidData* kekOid = NULL;
     CSSM_DATA iv = {0, NULL};
     ECC_CMS_SharedInfo sharedInfo;
     CSSM_DATA sharedInfoEnc = {0, NULL};
@@ -1003,7 +573,7 @@ SecCmsUtilDecryptSymKeyECDH(
     CFStringRef keyType = NULL;
     CFDictionaryRef theirKeyAttrs = NULL, kekParams = NULL;
     CFMutableDictionaryRef cekParams = NULL;
-    CFDataRef sharedInfoData = NULL, theirPubData= NULL, kekData = NULL, cekData = NULL;
+    CFDataRef sharedInfoData = NULL, theirPubData = NULL, kekData = NULL, cekData = NULL;
     CFNumberRef kekLen = NULL, theirKeyLen = NULL;
     CFErrorRef error = NULL;
     CCAlgorithm alg;
@@ -1015,27 +585,25 @@ SecCmsUtilDecryptSymKeyECDH(
      * Decode keyEncAlg.params to get KEK algorithm and IV
      */
     pool = PORT_NewArena(1024);
-    if(pool == NULL) {
+    if (pool == NULL) {
         goto out;
     }
     memset(&keyAlgParam, 0, sizeof(keyAlgParam));
-    if(SEC_ASN1DecodeItem(pool, &keyAlgParam, SECOID_AlgorithmIDTemplate,
-                          &keyEncAlg->parameters)) {
+    if (SEC_ASN1DecodeItem(pool, &keyAlgParam, SECOID_AlgorithmIDTemplate, &keyEncAlg->parameters)) {
         dprintf("SecCmsUtilDecryptSymKeyECDH: error decoding keyAlgParams\n");
         goto out;
     }
     kekOid = SECOID_FindOID(&keyAlgParam.algorithm);
-    if(kekOid == NULL) {
+    if (kekOid == NULL) {
         dprintf("SecCmsUtilDecryptSymKeyECDH: unknown KEK enc OID\n");
         goto out;
     }
     rv = encrAlgInfo(kekOid->offset, &kekSizeBits, &alg, &options);
-    if(rv) {
+    if (rv) {
         goto out;
     }
     /* IV is OCTET STRING in the alg params */
-    if(SEC_ASN1DecodeItem(pool, &iv, kSecAsn1OctetStringTemplate,
-                          &keyAlgParam.parameters)) {
+    if (SEC_ASN1DecodeItem(pool, &iv, kSecAsn1OctetStringTemplate, &keyAlgParam.parameters)) {
         /*
          * Not sure here - is it legal to have no IV? I haven't seen this
          * addressed in any spec. Maybe we should condition the behavior
@@ -1059,8 +627,7 @@ SecCmsUtilDecryptSymKeyECDH(
     int32ToBytes(kekSizeBits, keyLenAsBytes);
     sharedInfo.suppPubInfo.Length = 4;
     sharedInfo.suppPubInfo.Data = keyLenAsBytes;
-    if (!SEC_ASN1EncodeItem(pool, &sharedInfoEnc,
-                            &sharedInfo, ECC_CMS_SharedInfoTemplate)) {
+    if (!SEC_ASN1EncodeItem(pool, &sharedInfoEnc, &sharedInfo, ECC_CMS_SharedInfoTemplate)) {
         rv = internalComponentErr;
         goto out;
     }
@@ -1072,31 +639,36 @@ SecCmsUtilDecryptSymKeyECDH(
     /* pubKey is bit string, convert here */
     theirKeySizeInBits = pubKey->Length;
     pubKey->Length = (theirKeySizeInBits + 7) >> 3;
-    theirPubData = CFDataCreate(NULL, pubKey->Data, pubKey->Length);
+    if (pubKey->Length > LONG_MAX) {
+        goto out;
+    }
+    theirPubData = CFDataCreate(NULL, pubKey->Data, (CFIndex)pubKey->Length);
     theirKeyLen = CFNumberCreate(NULL, kCFNumberSInt64Type, &theirKeySizeInBits);
-    const void *keys[] = { kSecAttrKeyType, kSecAttrKeyClass, kSecAttrKeySizeInBits };
-    const void *values[] = { kSecAttrKeyTypeECSECPrimeRandom, kSecAttrKeyClassPublic, theirKeyLen};
-    theirKeyAttrs = CFDictionaryCreate(NULL, keys, values, 3,
-                                       &kCFTypeDictionaryKeyCallBacks,
-                                       &kCFTypeDictionaryValueCallBacks);
+    const void* keys[] = {kSecAttrKeyType, kSecAttrKeyClass, kSecAttrKeySizeInBits};
+    const void* values[] = {kSecAttrKeyTypeECSECPrimeRandom, kSecAttrKeyClassPublic, theirKeyLen};
+    theirKeyAttrs = CFDictionaryCreate(
+        NULL, keys, values, 3, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
     theirPubKey = SecKeyCreateWithData(theirPubData, theirKeyAttrs, &error);
     if (error) {
         dprintf("SecKeyCreateWithData: failed\n");
         goto out;
     }
+    if (sharedInfoEnc.Length > LONG_MAX) {
+        goto out;
+    }
 
     /* Derive KEK */
-    sharedInfoData = CFDataCreate(NULL, sharedInfoEnc.Data, sharedInfoEnc.Length);
+    sharedInfoData = CFDataCreate(NULL, sharedInfoEnc.Data, (CFIndex)sharedInfoEnc.Length);
     int32_t ecdh_key_key_len = (kekSizeBits + 7) >> 3;
     kekLen = CFNumberCreate(NULL, kCFNumberSInt32Type, &ecdh_key_key_len);
-    const void *kekKeys[] = { kSecKeyKeyExchangeParameterRequestedSize, kSecKeyKeyExchangeParameterSharedInfo };
-    const void *kekValues[] = { kekLen, sharedInfoData };
-    kekParams = CFDictionaryCreate(NULL, kekKeys, kekValues, 2,
-                                   &kCFTypeDictionaryKeyCallBacks,
-                                   &kCFTypeDictionaryValueCallBacks);
-    kekData = SecKeyCopyKeyExchangeResult(privkey, kSecKeyAlgorithmECDHKeyExchangeStandardX963SHA1,
-                                          theirPubKey, kekParams, &error);
-    if (error) {
+    const void* kekKeys[] = {kSecKeyKeyExchangeParameterRequestedSize,
+                             kSecKeyKeyExchangeParameterSharedInfo};
+    const void* kekValues[] = {kekLen, sharedInfoData};
+    kekParams = CFDictionaryCreate(
+        NULL, kekKeys, kekValues, 2, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+    kekData = SecKeyCopyKeyExchangeResult(
+        privkey, kSecKeyAlgorithmECDHKeyExchangeStandardX963SHA1, theirPubKey, kekParams, &error);
+    if (error || CFDataGetLength(kekData) < 0) {
         dprintf("SecKeyCopyKeyExchangeResult: failed\n");
         goto out;
     }
@@ -1104,9 +676,9 @@ SecCmsUtilDecryptSymKeyECDH(
     /*
      * Decrypt the raw CEK bits with the KEK we just derived
      */
-    CSSM_DATA cek = { 0, NULL };
-    rv = CCCryptorCreate(kCCDecrypt, alg, options,
-                         CFDataGetBytePtr(kekData), CFDataGetLength(kekData), iv.Data, &ciphercc);
+    CSSM_DATA cek = {0, NULL};
+    rv = CCCryptorCreate(
+        kCCDecrypt, alg, options, CFDataGetBytePtr(kekData), (size_t)CFDataGetLength(kekData), iv.Data, &ciphercc);
     if (rv) {
         dprintf("CCCryptorCreate failed: %d\n", (int)rv);
         goto out;
@@ -1120,22 +692,24 @@ SecCmsUtilDecryptSymKeyECDH(
         goto out;
     }
     size_t final_bytes_output = 0;
-    rv = CCCryptorFinal(ciphercc, cek.Data+bytes_output, expectedKeyLength - bytes_output, &final_bytes_output);
+    rv = CCCryptorFinal(ciphercc, cek.Data + bytes_output, expectedKeyLength - bytes_output, &final_bytes_output);
     if (rv) {
         dprintf("CCCryptorFinal failed: %d\n", (int)rv);
         goto out;
     }
     cek.Length = bytes_output + final_bytes_output;
+    if (cek.Length > LONG_MAX) {
+        goto out;
+    }
 
     /* create the SecSymmetricKeyRef */
-    cekData = CFDataCreate(NULL, cek.Data, cek.Length);
+    cekData = CFDataCreate(NULL, cek.Data, (CFIndex)cek.Length);
     keyType = SECOID_CopyKeyTypeByTag(bulkalgtag);
     if (!keyType) {
         goto out;
     }
-    cekParams = CFDictionaryCreateMutable(NULL, 1,
-                                          &kCFTypeDictionaryKeyCallBacks,
-                                          &kCFTypeDictionaryValueCallBacks);
+    cekParams = CFDictionaryCreateMutable(
+        NULL, 1, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
     if (!cekParams) {
         goto out;
     }
@@ -1143,23 +717,25 @@ SecCmsUtilDecryptSymKeyECDH(
     outKey = SecKeyCreateFromData(cekParams, cekData, NULL);
 
 out:
-    if(pool != NULL) {
+    if (pool != NULL) {
         PORT_FreeArena(pool, PR_FALSE);
     }
-    if (theirPubData) { CFRelease(theirPubData); }
-    if (theirKeyLen != NULL) { CFRelease(theirKeyLen); }
-    if (theirPubKey) { CFRelease(theirPubKey); }
-    if (theirKeyAttrs) { CFRelease(theirKeyAttrs); }
-    if (sharedInfoData) { CFRelease(sharedInfoData); }
-    if (kekLen != NULL) { CFRelease(kekLen); }
-    if (kekParams) { CFRelease(kekParams); }
-    if (kekData) { CFRelease(kekData); }
-    if (error) { CFRelease(error); }
-    if (ciphercc) { CCCryptorRelease(ciphercc); }
-    if (cekData) { CFRelease(cekData); }
-    if (keyType) { CFRelease(keyType); }
-    if (cekParams) { CFRelease(cekParams); }
-    if(outKey == NULL) {
+    CFReleaseNull(theirPubData);
+    CFReleaseNull(theirKeyLen);
+    CFReleaseNull(theirPubKey);
+    CFReleaseNull(theirKeyAttrs);
+    CFReleaseNull(sharedInfoData);
+    CFReleaseNull(kekLen);
+    CFReleaseNull(kekParams);
+    CFReleaseNull(kekData);
+    CFReleaseNull(error);
+    CFReleaseNull(cekData);
+    CFReleaseNull(keyType);
+    CFReleaseNull(cekParams);
+    if (ciphercc) {
+        CCCryptorRelease(ciphercc);
+    }
+    if (outKey == NULL) {
         PORT_SetError(SEC_ERROR_NO_KEY);
     }
     return outKey;

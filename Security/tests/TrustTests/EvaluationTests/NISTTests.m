@@ -50,6 +50,9 @@
 }
 
 - (void)testNoBasicConstraintsAnchor_UserTrusted {
+#if TARGET_OS_BRIDGE // bridgeOS doesn't have trust settings
+    XCTSkip();
+#endif
     SecCertificateRef leaf = (__bridge SecCertificateRef)[self SecCertificateCreateFromResource:@"InvalidMissingbasicConstraintsTest1EE"
                                                                                    subdirectory:@"nist-certs"];
     SecCertificateRef ca = (__bridge SecCertificateRef)[self SecCertificateCreateFromResource:@"MissingbasicConstraintsCACert"
@@ -102,6 +105,9 @@
 }
 
 - (void)testNotCABasicConstraintsAnchor_UserTrusted {
+#if TARGET_OS_BRIDGE // bridgeOS doesn't have trust settings
+    XCTSkip();
+#endif
     SecCertificateRef leaf = (__bridge SecCertificateRef)[self SecCertificateCreateFromResource:@"InvalidcAFalseTest2EE"
                                                                                    subdirectory:@"nist-certs"];
     SecCertificateRef ca = (__bridge SecCertificateRef)[self SecCertificateCreateFromResource:@"basicConstraintsCriticalcAFalseCACert"

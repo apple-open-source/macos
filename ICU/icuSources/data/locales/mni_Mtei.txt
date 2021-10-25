@@ -1,5 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
-// License & terms of use: http://www.unicode.org/copyright.html#License
+// License & terms of use: http://www.unicode.org/copyright.html
+// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
 mni_Mtei{
     %%Parent{"root"}
     ExemplarCharacters{
@@ -7,11 +8,9 @@ mni_Mtei{
         "\uABE8 ꯩ ꯪ ꯛ ꯜ ꯝ ꯞ ꯟ ꯠ ꯡ ꯢ \uABED]"
     }
     ExemplarCharactersNumbers{"[\\- ‑ , . % + 0꯰ 1꯱ 2꯲ 3꯳ 4꯴ 5꯵ 6꯶ 7꯷ 8꯸ 9꯹]"}
-    ExemplarCharactersPunctuation{"[\\- ‑ , ; \\: ! ? . … ꯫ ' \u0022 ( ) \\[ \\] @ * / \\& #]"}
     NumberElements{
         default{"mtei"}
     }
-    Version{"36.1"}
     calendar{
         gregorian{
             DateTimePatterns{

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009, 2010, 2012, 2013, 2015, 2018, 2019, 2020 Apple Inc. All rights reserved.
+ * Copyright (c) 2009-2013, 2015, 2018-2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -54,7 +54,7 @@ CNSetSupportedSSIDs(CFArrayRef ssidArray)
 	static typeof (CNSetSupportedSSIDs) *dyfunc = NULL;
 	if (!dyfunc) {
 		void *image = __loadCaptiveNetwork();
-		if (image) dyfunc = dlsym(image, "__CNSetSupportedSSIDs");
+		if (image) dyfunc = (typeof (CNSetSupportedSSIDs) *)dlsym(image, "__CNSetSupportedSSIDs");
 	}
 	return dyfunc ? dyfunc(ssidArray) : FALSE;
 }
@@ -65,7 +65,7 @@ CNMarkPortalOnline(CFStringRef interfaceName)
 	static typeof (CNMarkPortalOnline) *dyfunc = NULL;
 	if (!dyfunc) {
 		void *image = __loadCaptiveNetwork();
-		if (image) dyfunc = dlsym(image, "__CNMarkPortalOnline");
+		if (image) dyfunc = (typeof (CNMarkPortalOnline) *)dlsym(image, "__CNMarkPortalOnline");
 	}
 	return dyfunc ? dyfunc(interfaceName) : FALSE;
 }
@@ -76,7 +76,7 @@ CNMarkPortalOffline(CFStringRef interfaceName)
 	static typeof (CNMarkPortalOffline) *dyfunc = NULL;
 	if (!dyfunc) {
 		void *image = __loadCaptiveNetwork();
-		if (image) dyfunc = dlsym(image, "__CNMarkPortalOffline");
+		if (image) dyfunc = (typeof (CNMarkPortalOffline) *)dlsym(image, "__CNMarkPortalOffline");
 	}
 	return dyfunc ? dyfunc(interfaceName) : FALSE;
 }
@@ -87,7 +87,7 @@ CNCopySupportedInterfaces(void)
 	static typeof (CNCopySupportedInterfaces) *dyfunc = NULL;
 	if (!dyfunc) {
 		void *image = __loadCaptiveNetwork();
-		if (image) dyfunc = dlsym(image, "__CNCopySupportedInterfaces");
+		if (image) dyfunc = (typeof (CNCopySupportedInterfaces) *)dlsym(image, "__CNCopySupportedInterfaces");
 	}
 	return dyfunc ? dyfunc() : NULL;
 }
@@ -98,7 +98,7 @@ CNCopyCurrentNetworkInfo(CFStringRef interfaceName)
 	static typeof (CNCopyCurrentNetworkInfo) *dyfunc = NULL;
 	if (!dyfunc) {
 		void *image = __loadCaptiveNetwork();
-		if (image) dyfunc = dlsym(image, "__CNCopyCurrentNetworkInfo");
+		if (image) dyfunc = (typeof (CNCopyCurrentNetworkInfo) *)dlsym(image, "__CNCopyCurrentNetworkInfo");
 	}
 	return dyfunc ? dyfunc(interfaceName) : NULL;
 }

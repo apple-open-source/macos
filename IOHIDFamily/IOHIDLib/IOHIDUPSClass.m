@@ -33,7 +33,7 @@
 #import <AssertMacros.h>
 #import <Foundation/NSDate.h>
 #import "IOHIDDeviceClass.h"
-#import "IOHIDDebug.h"
+#include <IOKit/hid/IOHIDLibPrivate.h>
 #include <IOKit/hid/IOHIDPrivateKeys.h>
 
 // See HID spec for explanation (6.2.2.7 Global Items)
@@ -395,9 +395,9 @@ static void logUpsEventDict(NSDictionary* dict, NSString* s)
                     // const and updated we can stop the timer.
                     bool needsUpdate = false;
                     for (id obj in _elements.feature) {
-                        HIDLibElement *element = (HIDLibElement*)obj;
-                        if (element.isConstant) {
-                            needsUpdate = !element.isUpdated;
+                        HIDLibElement *feature = (HIDLibElement*)obj;
+                        if (feature.isConstant) {
+                            needsUpdate = !feature.isUpdated;
                             if (needsUpdate) {
                                 break;
                             }
@@ -415,7 +415,7 @@ static void logUpsEventDict(NSDictionary* dict, NSString* s)
 
                     // only dispatch an event if the element values were updated.
                     if ([self updateEvent] && _eventCallback) {
-                        logUpsEventDict(_upsEvent, @"timer dispatchEvent");
+                        logUpsEventDict(_upsUpdatedEvent, @"timer dispatchEvent");
 
                         (_eventCallback)(_eventTarget,
                                          kIOReturnSuccess,

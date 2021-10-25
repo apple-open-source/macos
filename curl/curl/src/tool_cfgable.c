@@ -5,11 +5,11 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2019, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2021, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
- * are also available at https://curl.haxx.se/docs/copyright.html.
+ * are also available at https://curl.se/docs/copyright.html.
  *
  * You may opt to use, copy, modify, merge, publish, distribute and/or sell
  * copies of the Software, and permit persons to whom the Software is
@@ -26,7 +26,7 @@
 
 #include "memdebug.h" /* keep this as LAST include */
 
-void config_init(struct OperationConfig* config)
+void config_init(struct OperationConfig *config)
 {
   memset(config, 0, sizeof(struct OperationConfig));
 
@@ -34,16 +34,16 @@ void config_init(struct OperationConfig* config)
   config->use_httpget = FALSE;
   config->create_dirs = FALSE;
   config->maxredirs = DEFAULT_MAXREDIRS;
-  config->proto = CURLPROTO_ALL; /* FIXME: better to read from library */
+  config->proto = CURLPROTO_ALL;
   config->proto_present = FALSE;
   config->proto_redir = CURLPROTO_ALL & /* All except FILE, SCP and SMB */
-                        ~(CURLPROTO_FILE | CURLPROTO_SCP | CURLPROTO_SMB |
-                          CURLPROTO_SMBS);
+    ~(CURLPROTO_FILE | CURLPROTO_SCP | CURLPROTO_SMB |
+      CURLPROTO_SMBS);
   config->proto_redir_present = FALSE;
   config->proto_default = NULL;
   config->tcp_nodelay = TRUE; /* enabled by default */
   config->happy_eyeballs_timeout_ms = CURL_HET_DEFAULT;
-  config->http09_allowed = TRUE;
+  config->http09_allowed = FALSE;
   config->ftp_skip_ip = TRUE;
 }
 
@@ -55,9 +55,10 @@ static void free_config_fields(struct OperationConfig *config)
   Curl_safefree(config->egd_file);
   Curl_safefree(config->useragent);
   Curl_safefree(config->altsvc);
-  Curl_safefree(config->cookie);
+  Curl_safefree(config->hsts);
+  curl_slist_free_all(config->cookies);
   Curl_safefree(config->cookiejar);
-  Curl_safefree(config->cookiefile);
+  curl_slist_free_all(config->cookiefiles);
 
   Curl_safefree(config->postfields);
   Curl_safefree(config->referer);
@@ -90,6 +91,7 @@ static void free_config_fields(struct OperationConfig *config)
   Curl_safefree(config->mail_auth);
 
   Curl_safefree(config->netrc_file);
+  Curl_safefree(config->output_dir);
 
   urlnode = config->url_list;
   while(urlnode) {
@@ -113,6 +115,7 @@ static void free_config_fields(struct OperationConfig *config)
   Curl_safefree(config->cert_type);
   Curl_safefree(config->proxy_cert_type);
   Curl_safefree(config->cacert);
+  Curl_safefree(config->login_options);
   Curl_safefree(config->proxy_cacert);
   Curl_safefree(config->capath);
   Curl_safefree(config->proxy_capath);
@@ -129,11 +132,14 @@ static void free_config_fields(struct OperationConfig *config)
   Curl_safefree(config->pubkey);
   Curl_safefree(config->hostpubmd5);
   Curl_safefree(config->engine);
+  Curl_safefree(config->etag_save_file);
+  Curl_safefree(config->etag_compare_file);
   Curl_safefree(config->request_target);
   Curl_safefree(config->customrequest);
   Curl_safefree(config->krblevel);
 
   Curl_safefree(config->oauth_bearer);
+  Curl_safefree(config->sasl_authzid);
 
   Curl_safefree(config->unix_socket_path);
   Curl_safefree(config->writeout);
@@ -162,6 +168,8 @@ static void free_config_fields(struct OperationConfig *config)
 
   Curl_safefree(config->ftp_account);
   Curl_safefree(config->ftp_alternative_to_user);
+
+  Curl_safefree(config->aws_sigv4);
 }
 
 void config_free(struct OperationConfig *config)

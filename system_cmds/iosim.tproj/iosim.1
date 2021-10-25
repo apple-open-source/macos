@@ -1,27 +1,30 @@
 .\" Copyright (c) 2013, Apple Inc.  All rights reserved.
 .\"
-.Dd Oct 9, 2013
+.Dd October 9, 2013
 .Dt IOSIM 1
+.Os "macOS"
 .Sh NAME
 .Nm iosim
-.Nd A performance tool to simulate I/O workloads.
+.Nd A performance tool to simulate I/O workloads
 .Sh SYNOPSIS
-.Pp
 .Nm iosim
 .Ar -c <number>
-Burst Count. No. of I/Os performed in an I/O burst.
+Burst Count.
+No. of I/Os performed in an I/O burst.
 Default Value: 10
 Valid Range: [0, INT_MAX]
 .Pp
 .Nm iosim
 .Ar -i <msecs>
-Inter Burst Duration. Amount of time each thread sleeps between bursts (-1 indicates random durations between 0-100 msecs)
+Inter Burst Duration.
+Amount of time each thread sleeps between bursts (-1 indicates random durations between 0-100 msecs)
 Default Value: 0
 Valid Range: [-1, INT_MAX]
 .Pp
 .Nm iosim
 .Ar -d <msecs>
-Inter I/O delay. Amount of time thread sleeps between issuing I/Os
+Inter I/O delay.
+Amount of time thread sleeps between issuing I/Os
 Default Value: 0
 Valid Range: [0, INT_MAX]
 .Pp
@@ -51,7 +54,9 @@ Valid Range: [0, INT_MAX]
 .Pp
 .Nm iosim
 .Ar -s <msecs>
-Frequency of sync() calls
+Frequency of
+.Xr sync 2
+calls
 Default Value: 5000
 Valid Range: [0, INT_MAX]
 .Pp
@@ -86,15 +91,20 @@ Valid Range: Valid filename
 .Sh DESCRIPTION
 The
 .Nm iosim
-tool allows simulating workloads for I/O performance evaluation. The tool spawns 'n' threads which issue non-cached I/Os. If specified, it also creates a sync thread which issues system wide sync() calls to flush data and metadata to disk (emulates launchd behavior). The I/Os are issued at the specified I/O tier and the tool reports latency and throughput numbers.
-.P
+tool allows simulating workloads for I/O performance evaluation.
+The tool spawns 'n' threads which issue non-cached I/Os.
+If specified, it also creates a sync thread which issues system wide
+.Xr sync 2
+calls to flush data and metadata to disk (emulates launchd behavior).
+The I/Os are issued at the specified I/O tier and the tool reports latency and throughput numbers.
+.Pp
 .nf
 Following is an explanation of the results:
 Avg. Latency : Avg. latency experienced by the I/Os.
 Low Latency Histogram: Frequency distribution of I/O latency for low latency I/Os.
 Latency Histogram: Frequency distribution of I/O latency.
 Burst Avg. Latency Histogram: Frequency distribution of burst avg. latency.
-Throughput timeline: Time windowed throughput distrbution.  
+Throughput timeline: Time windowed throughput distrbution.
 .fi
 .Sh SEE ALSO
 .Xr fs_usage 1

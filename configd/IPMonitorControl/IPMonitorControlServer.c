@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2013-2021 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -41,6 +41,7 @@
 #include <CoreFoundation/CFRunLoop.h>
 #include <SystemConfiguration/SCNetworkConfigurationPrivate.h>
 #include <SystemConfiguration/SCPrivate.h>
+#include <os/state_private.h>
 #include "IPMonitorControlServer.h"
 #include "symbol_scope.h"
 #include "IPMonitorControlPrivate.h"
@@ -55,6 +56,18 @@
 
 STATIC dispatch_queue_t 	S_IPMonitorControlServerQueue;
 
+STATIC dispatch_queue_t
+IPMonitorControlServerGetQueue(void)
+{
+    return (S_IPMonitorControlServerQueue);
+}
+
+STATIC void
+IPMonitorControlServerSetQueue(dispatch_queue_t queue)
+{
+    S_IPMonitorControlServerQueue = queue;
+}
+
 typedef struct ControlSession ControlSession, * ControlSessionRef;
 
 #define LIST_HEAD_ControlSession LIST_HEAD(ControlSessionHead, ControlSession)
@@ -64,6 +77,8 @@ LIST_HEAD_ControlSession	S_ControlSessions;
 struct ControlSession {
     LIST_ENTRY_ControlSession	link;
     xpc_connection_t		connection;
+    pid_t			pid;
+    char *			process_name;
 
     CFMutableDictionaryRef	assertions; /* ifname<string> = rank<number> */
     CFMutableDictionaryRef	advisories; /* ifname<string> = advisory<number> */
@@ -74,6 +89,22 @@ struct ControlSession {
  **/
 STATIC CFMutableArrayRef	S_if_changes;
 STATIC CFRange			S_if_changes_range;
+
+
+STATIC CFMutableDictionaryRef
+mutable_dict_create(CFIndex capacity)
+{
+    return CFDictionaryCreateMutable(NULL,
+				     capacity,
+				     &kCFTypeDictionaryKeyCallBacks,
+				     &kCFTypeDictionaryValueCallBacks);
+}
+
+STATIC CFMutableArrayRef
+mutable_array_create(CFIndex capacity)
+{
+    return CFArrayCreateMutable(NULL, capacity, &kCFTypeArrayCallBacks);
+}
 
 STATIC CFNumberRef
 RankLastNumberGet(void)
@@ -93,8 +124,7 @@ STATIC void
 InterfaceChangedListAddInterface(CFStringRef ifname)
 {
     if (S_if_changes == NULL) {
-	S_if_changes = CFArrayCreateMutable(NULL,
-					    0, &kCFTypeArrayCallBacks);
+	S_if_changes = mutable_array_create(0);
 	CFArrayAppendValue(S_if_changes, ifname);
 	S_if_changes_range.length = 1;
     }
@@ -123,10 +153,7 @@ InterfaceRankAssertionAdd(const void * key, const void * value, void * context)
 
     assertions_p = (CFMutableDictionaryRef *)context;
     if (*assertions_p == NULL) {
-	*assertions_p
-	    = CFDictionaryCreateMutable(NULL, 0,
-					&kCFTypeDictionaryKeyCallBacks,
-					&kCFTypeDictionaryValueCallBacks);
+	*assertions_p = mutable_dict_create(0);
 	CFDictionarySetValue(*assertions_p, key, rank);
 	return;
     }
@@ -151,10 +178,7 @@ InterfaceAdvisoryAdd(const void * key, const void * value, void * context)
     rank = RankLastNumberGet();
     assertions_p = (CFMutableDictionaryRef *)context;
     if (*assertions_p == NULL) {
-	*assertions_p
-	    = CFDictionaryCreateMutable(NULL, 0,
-					&kCFTypeDictionaryKeyCallBacks,
-					&kCFTypeDictionaryValueCallBacks);
+	*assertions_p = mutable_dict_create(0);
 	CFDictionarySetValue(*assertions_p, key, rank);
 	return;
     }
@@ -189,14 +213,31 @@ InterfaceRankAssertionsCopy(void)
 }
 
 STATIC Boolean
-InterfaceHasAdvisories(CFStringRef ifname)
+InterfaceHasAdvisory(CFStringRef ifname,
+		     SCNetworkInterfaceAdvisory advisory)
 {
     ControlSessionRef		session;
 
     LIST_FOREACH(session, &S_ControlSessions, link) {
-	if (session->advisories != NULL
-	    && CFDictionaryContainsKey(session->advisories, ifname)) {
-	    return (TRUE);
+	if (session->advisories != NULL) {
+	    CFNumberRef		this_advisory_cf;
+
+	    this_advisory_cf = CFDictionaryGetValue(session->advisories, ifname);
+	    if (this_advisory_cf != NULL) {
+		SCNetworkInterfaceAdvisory 	this_advisory;
+
+		if (advisory == kSCNetworkInterfaceAdvisoryNone) {
+		    /* not looking for a specific advisory value */
+		    return (TRUE);
+		}
+		(void)CFNumberGetValue(this_advisory_cf, kCFNumberSInt32Type,
+				       &this_advisory);
+		if (this_advisory == advisory) {
+		    /* found the specific advisory */
+		    return (TRUE);
+		}
+		/* keep looking for the specific advisory */
+	    }
 	}
     }
     return (FALSE);
@@ -293,6 +334,17 @@ NotifyIPMonitor(void)
 }
 
 STATIC void
+NotifyInterfaceRankAssertion(CFStringRef ifname)
+{
+    CFStringRef		key;
+
+    key = _IPMonitorControlCopyInterfaceRankAssertionNotificationKey(ifname);
+    SCDynamicStoreNotifyValue(NULL, key);
+    CFRelease(key);
+    return;
+}
+
+STATIC void
 NotifyInterfaceAdvisory(CFStringRef ifname)
 {
     CFStringRef		key;
@@ -332,17 +384,32 @@ SubmitInterfaceAdvisoryMetric(CFStringRef ifname,
 /**
  ** ControlSession
  **/
+STATIC pid_t
+ControlSessionGetPID(ControlSessionRef session)
+{
+    return (session->pid);
+}
+
+STATIC const char *
+ControlSessionGetProcessName(ControlSessionRef session)
+{
+    return (session->process_name);
+}
+
 STATIC void
-AddChangedInterface(const void * key, const void * value, void * context)
+AddChangedInterfaceNotifyRankAssertion(const void * key, const void * value,
+				       void * context)
 {
 #pragma unused(value)
 #pragma unused(context)
     InterfaceChangedListAddInterface((CFStringRef)key);
+    NotifyInterfaceRankAssertion((CFStringRef)key);
     return;
 }
 
 STATIC void
-AddChangedInterfaceNotify(const void * key, const void * value, void * context)
+AddChangedInterfaceNotifyAdvisory(const void * key, const void * value,
+				  void * context)
 {
 #pragma unused(value)
 #pragma unused(context)
@@ -400,7 +467,7 @@ ControlSessionInvalidate(ControlSessionRef session)
 		   xpc_connection_get_pid(session->connection),
 		   session->advisories);
 	    CFDictionaryApplyFunction(session->advisories,
-				      AddChangedInterfaceNotify,
+				      AddChangedInterfaceNotifyAdvisory,
 				      NULL);
 	    my_CFRelease(&session->advisories);
 	}
@@ -409,7 +476,8 @@ ControlSessionInvalidate(ControlSessionRef session)
 		   "pid %d removing assertions %@",
 		   xpc_connection_get_pid(session->connection),
 		   session->assertions);
-	    CFDictionaryApplyFunction(session->assertions, AddChangedInterface,
+	    CFDictionaryApplyFunction(session->assertions,
+				      AddChangedInterfaceNotifyRankAssertion,
 				      NULL);
 	    my_CFRelease(&session->assertions);
 	}
@@ -421,7 +489,12 @@ ControlSessionInvalidate(ControlSessionRef session)
 STATIC void
 ControlSessionRelease(void * p)
 {
-    my_log(LOG_DEBUG, "Releasing %p", p);
+    ControlSessionRef	session = (ControlSessionRef)p;
+
+    my_log(LOG_DEBUG, "Releasing %s [%d] session %p",
+	   ControlSessionGetProcessName(session),
+	   ControlSessionGetPID(session), p);
+    free(session->process_name);
     free(p);
     return;
 }
@@ -432,23 +505,36 @@ ControlSessionLookup(xpc_connection_t connection)
     return ((ControlSessionRef)xpc_connection_get_context(connection));
 }
 
+
 STATIC ControlSessionRef
-ControlSessionCreate(xpc_connection_t connection)
+ControlSessionCreate(xpc_connection_t connection, xpc_object_t request)
 {
+    const char *	process_name;
     ControlSessionRef	session;
 
     session = (ControlSessionRef)malloc(sizeof(*session));
     memset(session, 0, sizeof(*session));
     session->connection = connection;
+    session->pid = xpc_connection_get_pid(connection);
+    process_name
+	= xpc_dictionary_get_string(request,
+				    kIPMonitorControlRequestKeyProcessName);
+    if (process_name == NULL) {
+	process_name = "<unknown>";
+    }
+    session->process_name = strdup(process_name);
     xpc_connection_set_finalizer_f(connection, ControlSessionRelease);
     xpc_connection_set_context(connection, session);
     LIST_INSERT_HEAD(&S_ControlSessions, session, link);
-    my_log(LOG_DEBUG, "Created %p (connection %p)", session, connection);
+    my_log(LOG_DEBUG, "Created %s [%d] session %p (connection %p)",
+	   ControlSessionGetProcessName(session),
+	   ControlSessionGetPID(session),
+	   session, connection);
     return (session);
 }
 
 STATIC ControlSessionRef
-ControlSessionForConnection(xpc_connection_t connection)
+ControlSessionForConnection(xpc_connection_t connection, xpc_object_t request)
 {
     ControlSessionRef	session;
 
@@ -456,7 +542,7 @@ ControlSessionForConnection(xpc_connection_t connection)
     if (session != NULL) {
 	return (session);
     }
-    return (ControlSessionCreate(connection));
+    return (ControlSessionCreate(connection, request));
 }
 
 STATIC void
@@ -471,10 +557,7 @@ ControlSessionSetInterfaceRank(ControlSessionRef session,
 	    /* no assertions, no need to store rank */
 	    return;
 	}
-	session->assertions
-	    = CFDictionaryCreateMutable(NULL, 0,
-					&kCFTypeDictionaryKeyCallBacks,
-					&kCFTypeDictionaryValueCallBacks);
+	session->assertions = mutable_dict_create(0);
     }
     ifname_cf = CFStringCreateWithCString(NULL, ifname,
 					  kCFStringEncodingUTF8);
@@ -495,6 +578,7 @@ ControlSessionSetInterfaceRank(ControlSessionRef session,
     }
     InterfaceChangedListAddInterface(ifname_cf);
     NotifyIPMonitor();
+    NotifyInterfaceRankAssertion(ifname_cf);
     CFRelease(ifname_cf);
     return;
 }
@@ -536,10 +620,7 @@ ControlSessionSetInterfaceAdvisory(ControlSessionRef session,
 	    /* no advisories, no need to store advisory */
 	    return;
 	}
-	session->advisories
-	    = CFDictionaryCreateMutable(NULL, 0,
-					&kCFTypeDictionaryKeyCallBacks,
-					&kCFTypeDictionaryValueCallBacks);
+	session->advisories = mutable_dict_create(0);
     }
     ifname_cf = CFStringCreateWithCString(NULL, ifname,
 					  kCFStringEncodingUTF8);
@@ -572,21 +653,6 @@ ControlSessionSetInterfaceAdvisory(ControlSessionRef session,
 /**
  ** IPMonitorControlServer
  **/
-
-STATIC const char *
-get_process_name(xpc_object_t request)
-{
-    const char *	process_name;
-
-    process_name
-	= xpc_dictionary_get_string(request,
-				    kIPMonitorControlRequestKeyProcessName);
-    if (process_name == NULL) {
-	process_name = "<unknown>";
-    }
-    return (process_name);
-}
-
 STATIC Boolean
 IPMonitorControlServerConnectionIsRoot(xpc_connection_t connection)
 {
@@ -663,17 +729,17 @@ HandleSetInterfaceRank(xpc_connection_t connection,
 	return (EINVAL);
     }
     rank = (SCNetworkServicePrimaryRank)
-	xpc_dictionary_get_uint64(request,
-				  kIPMonitorControlRequestKeyPrimaryRank);
+	xpc_dictionary_get_int64(request,
+				 kIPMonitorControlRequestKeyPrimaryRank);
     rank_str = get_rank_str(rank);
     if (rank_str == NULL) {
 	return (EINVAL);
     }
-    session = ControlSessionForConnection(connection);
+    session = ControlSessionForConnection(connection, request);
     ControlSessionSetInterfaceRank(session, ifname, rank);
     my_log(LOG_NOTICE, "%s[%d] SetInterfaceRank(%s) = %s (%u)",
-	   get_process_name(request),
-	   xpc_connection_get_pid(connection), ifname, rank_str, rank);
+	   ControlSessionGetProcessName(session), ControlSessionGetPID(session),
+	   ifname, rank_str, rank);
     return (0);
 }
 
@@ -702,8 +768,8 @@ HandleGetInterfaceRank(xpc_connection_t connection,
 	return (EINVAL);
     }
     rank = ControlSessionGetInterfaceRank(session, ifname);
-    xpc_dictionary_set_uint64(reply, kIPMonitorControlResponseKeyPrimaryRank,
-			      rank);
+    xpc_dictionary_set_int64(reply, kIPMonitorControlResponseKeyPrimaryRank,
+			     rank);
     return (0);
 }
 
@@ -721,6 +787,9 @@ get_advisory_str(SCNetworkInterfaceAdvisory advisory)
 	break;
     case kSCNetworkInterfaceAdvisoryUplinkIssue:
 	str = "UplinkIssue";
+	break;
+    case kSCNetworkInterfaceAdvisoryBetterInterfaceAvailable:
+	str = "BetterInterfaceAvailable";
 	break;
     default:
 	break;
@@ -758,18 +827,19 @@ HandleSetInterfaceAdvisory(xpc_connection_t connection,
 	= xpc_dictionary_get_string(request,
 				    kIPMonitorControlRequestKeyReason);
     advisory = (SCNetworkInterfaceAdvisory)
-	xpc_dictionary_get_uint64(request, kIPMonitorControlRequestKeyAdvisory);
+	xpc_dictionary_get_int64(request, kIPMonitorControlRequestKeyAdvisory);
 
     /* validate the advisory code */
     advisory_str = get_advisory_str(advisory);
     if (advisory_str == NULL) {
 	return (EINVAL);
     }
-    session = ControlSessionForConnection(connection);
+    session = ControlSessionForConnection(connection, request);
     ControlSessionSetInterfaceAdvisory(session, ifname, advisory);
     my_log(LOG_NOTICE, "%s[%d] SetInterfaceAdvisory(%s) = %s (%u) reason='%s'",
-	   get_process_name(request),
-	   xpc_connection_get_pid(connection), ifname, advisory_str, advisory,
+	   ControlSessionGetProcessName(session),
+	   ControlSessionGetPID(session),
+	   ifname, advisory_str, advisory,
 	   reason != NULL ? reason : "" );
     return (0);
 }
@@ -780,6 +850,7 @@ HandleInterfaceAdvisoryIsSet(xpc_connection_t connection,
 			     xpc_object_t reply)
 {
 #pragma unused(connection)
+    SCNetworkInterfaceAdvisory	advisory;
     const char *		ifname;
     CFStringRef			ifname_cf;
 
@@ -795,9 +866,11 @@ HandleInterfaceAdvisoryIsSet(xpc_connection_t connection,
     }
     ifname_cf = CFStringCreateWithCString(NULL, ifname,
 					  kCFStringEncodingUTF8);
+    advisory = (SCNetworkInterfaceAdvisory)
+	xpc_dictionary_get_int64(request, kIPMonitorControlRequestKeyAdvisory);
     xpc_dictionary_set_bool(reply,
 			    kIPMonitorControlResponseKeyAdvisoryIsSet,
-			    InterfaceHasAdvisories(ifname_cf));
+			    InterfaceHasAdvisory(ifname_cf, advisory));
     CFRelease(ifname_cf);
     return (0);
 }
@@ -817,6 +890,324 @@ HandleAnyInterfaceAdvisoryIsSet(xpc_connection_t connection,
 			    kIPMonitorControlResponseKeyAdvisoryIsSet,
 			    AnyInterfaceHasAdvisories());
     return (0);
+}
+
+STATIC xpc_object_t
+assertion_dict_create(const char * process_name,
+		      pid_t pid, SCNetworkServicePrimaryRank rank)
+{
+    xpc_object_t	dict;
+
+    dict = xpc_dictionary_create_empty();
+    xpc_dictionary_set_string(dict,
+			      kIPMonitorControlRankAssertionInfoProcessName,
+			      process_name);
+    xpc_dictionary_set_int64(dict,
+			     kIPMonitorControlRankAssertionInfoProcessID,
+			     pid);
+    xpc_dictionary_set_int64(dict,
+			     kIPMonitorControlRankAssertionInfoPrimaryRank,
+			     rank);
+    return (dict);
+}
+
+STATIC xpc_object_t
+assertion_info_copy(CFStringRef ifname_cf)
+{
+    ControlSessionRef		session;
+    xpc_object_t		list = NULL;
+
+    LIST_FOREACH(session, &S_ControlSessions, link) {
+	xpc_object_t			dict;
+	SCNetworkServicePrimaryRank	rank;
+	CFNumberRef			rank_cf;
+
+	if (session->assertions == NULL) {
+	    continue;
+	}
+	rank_cf = CFDictionaryGetValue(session->assertions, ifname_cf);
+	if (rank_cf == NULL) {
+	    /* session has no assertions for this interface */
+	    continue;
+	}
+	(void)CFNumberGetValue(rank_cf, kCFNumberSInt32Type, &rank);
+	if (list == NULL) {
+	    list = xpc_array_create_empty();
+	}
+	dict = assertion_dict_create(ControlSessionGetProcessName(session),
+				     ControlSessionGetPID(session), rank);
+	xpc_array_append_value(list, dict);
+	xpc_release(dict);
+    }
+    return (list);
+}
+
+STATIC int
+HandleGetRankAssertionInfo(xpc_connection_t connection,
+			   xpc_object_t request,
+			   xpc_object_t reply)
+{
+#pragma unused(connection)
+    int			error = 0;
+    const char *	ifname;
+    CFStringRef		ifname_cf;
+    xpc_object_t	info;
+
+    if (reply == NULL) {
+	/* no point in processing the request if we can't provide an answer */
+	error = EINVAL;
+	goto done;
+    }
+    ifname
+	= xpc_dictionary_get_string(request,
+				    kIPMonitorControlRequestKeyInterfaceName);
+    if (ifname == NULL) {
+	error = EINVAL;
+	goto done;
+    }
+    ifname_cf = CFStringCreateWithCString(NULL, ifname,
+					  kCFStringEncodingUTF8);
+    info = assertion_info_copy(ifname_cf);
+    CFRelease(ifname_cf);
+    if (info != NULL) {
+	xpc_dictionary_set_value(reply,
+				 kIPMonitorControlResponseKeyRankAssertionInfo,
+				 info);
+	xpc_release(info);
+    }
+    else {
+	error = ENOENT;
+    }
+ done:
+    return (error);
+}
+
+STATIC xpc_object_t
+advisory_dict_create(const char * process_name,
+		     pid_t pid, SCNetworkInterfaceAdvisory advisory)
+{
+    xpc_object_t	dict;
+
+    dict = xpc_dictionary_create_empty();
+    xpc_dictionary_set_string(dict,
+			      kIPMonitorControlAdvisoryInfoProcessName,
+			      process_name);
+    xpc_dictionary_set_int64(dict,
+			     kIPMonitorControlAdvisoryInfoProcessID,
+			     pid);
+    xpc_dictionary_set_int64(dict,
+			     kIPMonitorControlAdvisoryInfoAdvisory,
+			     advisory);
+    return (dict);
+}
+
+STATIC xpc_object_t
+advisory_info_copy(CFStringRef ifname_cf)
+{
+    ControlSessionRef		session;
+    xpc_object_t		list = NULL;
+
+    LIST_FOREACH(session, &S_ControlSessions, link) {
+	xpc_object_t			dict;
+	SCNetworkInterfaceAdvisory 	advisory;
+	CFNumberRef			advisory_cf;
+
+	if (session->advisories == NULL) {
+	    continue;
+	}
+	advisory_cf = CFDictionaryGetValue(session->advisories, ifname_cf);
+	if (advisory_cf == NULL) {
+	    /* session has no advisories for this interface */
+	    continue;
+	}
+	(void)CFNumberGetValue(advisory_cf, kCFNumberSInt32Type, &advisory);
+	if (list == NULL) {
+	    list = xpc_array_create_empty();
+	}
+	dict = advisory_dict_create(ControlSessionGetProcessName(session),
+				    ControlSessionGetPID(session),
+				    advisory);
+	xpc_array_append_value(list, dict);
+	xpc_release(dict);
+    }
+    return (list);
+}
+
+STATIC int
+HandleGetAdvisoryInfo(xpc_connection_t connection,
+		      xpc_object_t request,
+		      xpc_object_t reply)
+{
+#pragma unused(connection)
+    int			error = 0;
+    const char *	ifname;
+    CFStringRef		ifname_cf;
+    xpc_object_t	info;
+
+    if (reply == NULL) {
+	/* no point in processing the request if we can't provide an answer */
+	error = EINVAL;
+	goto done;
+    }
+    ifname
+	= xpc_dictionary_get_string(request,
+				    kIPMonitorControlRequestKeyInterfaceName);
+    if (ifname == NULL) {
+	error = EINVAL;
+	goto done;
+    }
+    ifname_cf = CFStringCreateWithCString(NULL, ifname,
+					  kCFStringEncodingUTF8);
+    info = advisory_info_copy(ifname_cf);
+    CFRelease(ifname_cf);
+    if (info != NULL) {
+	xpc_dictionary_set_value(reply,
+				 kIPMonitorControlResponseKeyAdvisoryInfo,
+				 info);
+	xpc_release(info);
+    }
+    else {
+	error = ENOENT;
+    }
+ done:
+    return (error);
+}
+
+
+STATIC bool
+my_xpc_array_contains_string(xpc_object_t list, const char * str)
+{
+    __block bool	contains_string = false;
+    xpc_array_applier_t	match_string;
+
+    match_string = ^ bool(size_t index, xpc_object_t _Nonnull value)
+	{
+#pragma unused(index)
+#pragma unused(value)
+	 const char * this_str = xpc_string_get_string_ptr(value);
+
+	 if (strcmp(this_str, str) == 0) {
+	     contains_string = true;
+	     return (false);
+	 }
+	 return (true);
+	};
+    (void)xpc_array_apply(list, match_string);
+    return (contains_string);
+}
+
+STATIC void
+AddUniqueCFDictionaryKeyToXPCArray(const void *key, const void *value,
+				   void *context)
+{
+#pragma unused (value)
+    xpc_object_t *	list_p = (xpc_object_t *)context;
+    char *		str;
+    bool		string_present;
+
+    str = _SC_cfstring_to_cstring((CFStringRef)key, NULL, 0,
+				  kCFStringEncodingUTF8);
+    if (*list_p == NULL) {
+	*list_p = xpc_array_create_empty();
+	string_present = false;
+    } else {
+	string_present = my_xpc_array_contains_string(*list_p, str);
+    }
+    if (!string_present) {
+	xpc_array_set_string(*list_p, XPC_ARRAY_APPEND, str);
+    }
+    CFAllocatorDeallocate(NULL, str);
+    return;
+}
+
+STATIC xpc_object_t
+rank_assertion_copy_interface_names(void)
+{
+    ControlSessionRef		session;
+    xpc_object_t		list = NULL;
+
+    LIST_FOREACH(session, &S_ControlSessions, link) {
+	if (session->assertions == NULL) {
+	    continue;
+	}
+	CFDictionaryApplyFunction(session->assertions,
+				  AddUniqueCFDictionaryKeyToXPCArray,
+				  &list);
+    }
+    return (list);
+}
+STATIC int
+HandleGetRankAssertionInterfaceNames(xpc_connection_t connection,
+				     xpc_object_t request,
+				     xpc_object_t reply)
+{
+#pragma unused(connection)
+#pragma unused(request)
+    int			error = 0;
+    xpc_object_t	names;
+
+    if (reply == NULL) {
+	/* no point in processing the request if we can't provide an answer */
+	error = EINVAL;
+	goto done;
+    }
+    names = rank_assertion_copy_interface_names();
+    if (names != NULL) {
+	xpc_dictionary_set_value(reply,
+				 kIPMonitorControlResponseKeyInterfaceNames,
+				 names);
+	xpc_release(names);
+    }
+    else {
+	error = ENOENT;
+    }
+ done:
+    return (error);
+}
+
+STATIC xpc_object_t
+advisory_copy_interface_names(void)
+{
+    ControlSessionRef		session;
+    xpc_object_t		list = NULL;
+
+    LIST_FOREACH(session, &S_ControlSessions, link) {
+	if (session->advisories == NULL) {
+	    continue;
+	}
+	CFDictionaryApplyFunction(session->advisories,
+				  AddUniqueCFDictionaryKeyToXPCArray,
+				  &list);
+    }
+    return (list);
+}
+STATIC int
+HandleGetAdvisoryInterfaceNames(xpc_connection_t connection,
+				xpc_object_t request,
+				xpc_object_t reply)
+{
+#pragma unused(connection)
+#pragma unused(request)
+    int			error = 0;
+    xpc_object_t	names;
+
+    if (reply == NULL) {
+	/* no point in processing the request if we can't provide an answer */
+	error = EINVAL;
+	goto done;
+    }
+    names = advisory_copy_interface_names();
+    if (names != NULL) {
+	xpc_dictionary_set_value(reply,
+				 kIPMonitorControlResponseKeyInterfaceNames,
+				 names);
+	xpc_release(names);
+    }
+    else {
+	error = ENOENT;
+    }
+ done:
+    return (error);
 }
 
 STATIC void
@@ -844,13 +1235,13 @@ IPMonitorControlServerHandleRequest(xpc_connection_t connection,
     type = xpc_get_type(request);
     if (type == XPC_TYPE_DICTIONARY) {
 	int			error = 0;
-	uint64_t		request_type;
+	IPMonitorControlRequestType request_type;
 	xpc_connection_t	remote;
 	xpc_object_t		reply;
 
-	request_type
-	    = xpc_dictionary_get_uint64(request,
-					kIPMonitorControlRequestKeyType);
+	request_type = (IPMonitorControlRequestType)
+	    xpc_dictionary_get_int64(request,
+				     kIPMonitorControlRequestKeyType);
 	reply = xpc_dictionary_create_reply(request);
 	switch (request_type) {
 	case kIPMonitorControlRequestTypeSetInterfaceRank:
@@ -867,6 +1258,18 @@ IPMonitorControlServerHandleRequest(xpc_connection_t connection,
 	    break;
 	case kIPMonitorControlRequestTypeAnyInterfaceAdvisoryIsSet:
 	    error = HandleAnyInterfaceAdvisoryIsSet(connection, request, reply);
+	    break;
+	case kIPMonitorControlRequestTypeGetInterfaceRankAssertionInfo:
+	    error = HandleGetRankAssertionInfo(connection, request, reply);
+	    break;
+	case kIPMonitorControlRequestTypeGetInterfaceAdvisoryInfo:
+	    error = HandleGetAdvisoryInfo(connection, request, reply);
+	    break;
+	case kIPMonitorControlRequestTypeGetInterfaceRankAssertionInterfaceNames:
+	    error = HandleGetRankAssertionInterfaceNames(connection, request, reply);
+	    break;
+	case kIPMonitorControlRequestTypeGetInterfaceAdvisoryInterfaceNames:
+	    error = HandleGetAdvisoryInterfaceNames(connection, request, reply);
 	    break;
 	default:
 	    error = EINVAL;
@@ -905,7 +1308,7 @@ IPMonitorControlServerHandleNewConnection(xpc_connection_t connection)
 	IPMonitorControlServerHandleRequest(connection, event);
     };
     xpc_connection_set_event_handler(connection, handler);
-    xpc_connection_set_target_queue(connection, S_IPMonitorControlServerQueue);
+    xpc_connection_set_target_queue(connection, IPMonitorControlServerGetQueue());
     xpc_connection_resume(connection);
     return;
 }
@@ -944,10 +1347,116 @@ IPMonitorControlServerCreate(dispatch_queue_t queue, const char * name)
 	    my_log(LOG_NOTICE, "unknown event %p", type);
 	}
     };
-    S_IPMonitorControlServerQueue = queue;
+    IPMonitorControlServerSetQueue(queue);
     xpc_connection_set_event_handler(connection, handler);
     xpc_connection_resume(connection);
     return (connection);
+}
+
+STATIC CFDictionaryRef
+sessionInfoCopy(ControlSessionRef session)
+{
+    CFDictionaryRef	dict;
+#define N_SESSION_KEYS	4
+    CFIndex		i;
+    const void *	keys[N_SESSION_KEYS];
+    const void *	values[N_SESSION_KEYS];
+    CFNumberRef		pid_cf;
+    CFStringRef		process_name_cf;
+
+    if (session->assertions == NULL && session->advisories == NULL) {
+	return (NULL);
+    }
+    pid_cf = CFNumberCreate(NULL, kCFNumberSInt32Type, &session->pid);
+    process_name_cf = CFStringCreateWithCString(NULL, session->process_name,
+						kCFStringEncodingUTF8);
+    i = 0;
+    keys[i] = CFSTR("ProcessID"); 	/* 0 */
+    values[i] = pid_cf;
+    i++;
+    keys[i] = CFSTR("ProcessName");	/* 1 */
+    values[i] = process_name_cf;
+    i++;
+    if (session->assertions != NULL) {	/* 2 */
+	keys[i] = CFSTR("Assertions");
+	values[i] = session->assertions;
+	i++;
+    }
+    if (session->advisories != NULL) {	/* 3 */
+	keys[i] = CFSTR("Advisories");
+	values[i] = session->advisories;
+	i++;
+    }
+    dict = CFDictionaryCreate(NULL,
+			      (const void * *)keys,
+			      (const void * *)values,
+			      i,
+			      &kCFTypeDictionaryKeyCallBacks,
+			      &kCFTypeDictionaryValueCallBacks);
+    CFRelease(pid_cf);
+    CFRelease(process_name_cf);
+    return (dict);
+}
+
+STATIC os_state_data_t
+IPMonitorControlCopyOSStateData(os_state_hints_t hints)
+{
+#pragma unused(hints)
+    CFDataRef			data;
+    CFMutableArrayRef		list;
+    ControlSessionRef		session;
+    os_state_data_t		state_data;
+    size_t			state_data_size;
+    CFIndex			state_len;
+
+    list = mutable_array_create(0);
+    LIST_FOREACH(session, &S_ControlSessions, link) {
+	CFDictionaryRef		info;
+
+	info = sessionInfoCopy(session);
+	if (info != NULL) {
+	    CFArrayAppendValue(list, info);
+	    CFRelease(info);
+	}
+    }
+    /* serialize the array into XML plist form */
+    data = CFPropertyListCreateData(NULL,
+				    list,
+				    kCFPropertyListBinaryFormat_v1_0,
+				    0,
+				    NULL);
+    CFRelease(list);
+    state_len = CFDataGetLength(data);
+    state_data_size = OS_STATE_DATA_SIZE_NEEDED(state_len);
+    if (state_data_size > MAX_STATEDUMP_SIZE) {
+	state_data = NULL;
+	my_log(LOG_NOTICE, "%s: state data too large (%zd > %d)",
+	       __func__, state_data_size, MAX_STATEDUMP_SIZE);
+    }
+    else {
+	state_data = calloc(1, state_data_size);
+	state_data->osd_type = OS_STATE_DATA_SERIALIZED_NSCF_OBJECT;
+	state_data->osd_data_size = (uint32_t)state_len;
+	strlcpy(state_data->osd_title,
+		"IPMonitorControl Sessions",
+		sizeof(state_data->osd_title));
+	memcpy(state_data->osd_data, CFDataGetBytePtr(data), state_len);
+    }
+    CFRelease(data);
+    return (state_data);
+}
+
+STATIC void
+IPMonitorControlServerAddStateHandler(void)
+{
+    os_state_block_t	dump_state;
+
+    dump_state = ^os_state_data_t(os_state_hints_t hints)
+	{
+	 return (IPMonitorControlCopyOSStateData(hints));
+	};
+
+    (void) os_state_add_handler(IPMonitorControlServerGetQueue(), dump_state);
 }
 
 PRIVATE_EXTERN Boolean
@@ -967,6 +1476,7 @@ IPMonitorControlServerStart(CFRunLoopRef runloop, CFRunLoopSourceRef rls,
 	dispatch_release(q);
 	return (FALSE);
     }
+    IPMonitorControlServerAddStateHandler();
     return (TRUE);
 }
 
@@ -976,7 +1486,7 @@ IPMonitorControlServerCopyInterfaceRankInformation(CFDictionaryRef * info)
     __block CFArrayRef		changed;
     __block CFDictionaryRef	dict;
 
-    dispatch_sync(S_IPMonitorControlServerQueue,
+    dispatch_sync(IPMonitorControlServerGetQueue(),
 		  ^{
 		      dict = InterfaceRankAssertionsCopy();
 		      changed = InterfaceChangedListCopy();

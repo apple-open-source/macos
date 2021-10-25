@@ -38,10 +38,8 @@
 #define HAS_IPI                 1 /* Has IPI registers */
 #define HAS_CLUSTER             1 /* Has eCores and pCores in separate clusters */
 #define HAS_RETENTION_STATE     1 /* Supports architectural state retention */
-#define HAS_VMSA_LOCK           1 /* Supports lockable MMU config registers */
 #define HAS_DPC_ERR             1 /* Has an error register for DPC */
 #define HAS_UCNORMAL_MEM        1 /* Supports completely un-cacheable normal memory type */
-#define HAS_SPR_LOCK            1 /* Supports lockable special-purpose registers */
 #define HAS_TWO_STAGE_SPR_LOCK  1 /* SPR locks are split into RO_CTL and LOCK registers */
 #define HAS_FAST_CNTVCT         1
 #define HAS_E0PD                1 /* Supports E0PD0 and E0PD1 in TCR for Meltdown mitigation (ARMv8.5)*/
@@ -53,17 +51,29 @@
 #define UNCORE_PER_CLUSTER                   1
 #define UNCORE_NCTRS                         16
 #define CORE_NCTRS                           10
+#define HAS_CPMU_PC_CAPTURE                  1
 
-#define __ARM_AMP__                          1
-#define __ARM_16K_PG__                       1
-#define __ARM_GLOBAL_SLEEP_BIT__             1
-#define __ARM_PAN_AVAILABLE__                1
-#define __ARM_WKDM_ISA_AVAILABLE__           1
-#define __ARM_WKDM_POPCNT__                  1
-#define __ARM_WKDM_POPCNT_COMPRESSED_DATA__  0
-#define __ARM_SB_AVAILABLE__                 1
-#define __PLATFORM_WKDM_ALIGNMENT_MASK__     (0x3FULL)
-#define __PLATFORM_WKDM_ALIGNMENT_BOUNDARY__ (64)
+/* Performance Monitor */
+#define CPMU_PMC_COUNT                       10
+#define CPMU_INSTRUCTION_MATCHING            1
+#define CPMU_MEMORY_FILTERING                1
+#define HAS_UPMU                             1
+#define UPMU_VERSION                         2
+#define UPMU_PMC_COUNT                       16
+#define UPMU_PER_CLUSTER                     1
+#define UPMU_AF_LATENCY                      1
+#define UPMU_META_EVENTS                     1
+
+#define __ARM_AMP__                             1
+#define __ARM_16K_PG__                          1
+#define __ARM_GLOBAL_SLEEP_BIT__                1
+#define __ARM_PAN_AVAILABLE__                   1
+#define __APPLE_WKDM_EXTENSIONS__               1
+#define __APPLE_WKDM_POPCNT_EXTENSIONS__        1
+#define __APPLE_WKDM_POPCNT_COMPRESSED_DATA__   0
+#define __ARM_SB_AVAILABLE__                    1
+#define __PLATFORM_WKDM_ALIGNMENT_MASK__        (0x3FULL)
+#define __PLATFORM_WKDM_ALIGNMENT_BOUNDARY__    (64)
 
 /* Optional CPU features -- an SoC may #undef these */
 #define ARM_PARAMETERIZED_PMAP               1

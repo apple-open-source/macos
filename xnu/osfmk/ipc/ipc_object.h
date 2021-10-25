@@ -72,6 +72,7 @@
 #ifndef _IPC_IPC_OBJECT_H_
 #define _IPC_IPC_OBJECT_H_
 
+#include <os/atomic_private.h>
 #include <mach/kern_return.h>
 #include <mach/message.h>
 #include <kern/locks.h>
@@ -80,6 +81,9 @@
 #include <kern/zalloc.h>
 #include <ipc/ipc_types.h>
 #include <libkern/OSAtomic.h>
+
+__BEGIN_DECLS __ASSUME_PTR_ABI_SINGLE_BEGIN
+#pragma GCC visibility push(hidden)
 
 typedef natural_t ipc_object_refs_t;    /* for ipc/ipc_object.h		*/
 typedef natural_t ipc_object_bits_t;
@@ -91,12 +95,11 @@ __options_closed_decl(ipc_object_copyout_flags_t, uint32_t, {
 	IPC_OBJECT_COPYOUT_FLAGS_NO_LABEL_CHECK       = 0x2,
 });
 
-__options_closed_decl(ipc_object_copyin_flags_t, uint32_t, {
+__options_closed_decl(ipc_object_copyin_flags_t, uint16_t, {
 	IPC_OBJECT_COPYIN_FLAGS_NONE                     = 0x0,
 	IPC_OBJECT_COPYIN_FLAGS_ALLOW_IMMOVABLE_SEND     = 0x1, /* Dest port contains an immovable send right */
-	IPC_OBJECT_COPYIN_FLAGS_SOFT_FAIL_IMMOVABLE_SEND = 0x2, /* Silently fail copyin without guard exception */
-	IPC_OBJECT_COPYIN_FLAGS_ALLOW_DEAD_SEND_ONCE     = 0x4,
-	IPC_OBJECT_COPYIN_FLAGS_DEADOK                   = 0x8,
+	IPC_OBJECT_COPYIN_FLAGS_ALLOW_DEAD_SEND_ONCE     = 0x2,
+	IPC_OBJECT_COPYIN_FLAGS_DEADOK                   = 0x4,
 });
 
 /*
@@ -111,22 +114,9 @@ __options_closed_decl(ipc_object_copyin_flags_t, uint32_t, {
  * (with which lock size varies).
  */
 struct ipc_object {
-	ipc_object_bits_t io_bits;
-	ipc_object_refs_t io_references;
-	lck_spin_t        io_lock_data;
+	ipc_object_bits_t _Atomic io_bits;
+	ipc_object_refs_t _Atomic io_references;
 } __attribute__((aligned(8)));
-
-/*
- * If another object type needs to participate in io_kotype()-based
- * dispatching, it must include a stub structure as the first
- * element
- */
-struct ipc_object_header {
-	ipc_object_bits_t io_bits;
-#ifdef __LP64__
-	natural_t         io_padding; /* pad to natural boundary */
-#endif
-};
 
 /*
  * Legacy defines.  Should use IPC_OBJECT_NULL, etc...
@@ -143,6 +133,11 @@ struct ipc_object_header {
  *	mark a port for no more senders detection.  Any change
  *	to IO_BITS_PORT_INFO must be coordinated with bitfield
  *	definitions in ipc_port.h.
+ *
+ *	Note that the io_bits can be read atomically without
+ *	holding the object lock (for example to read the kobject type).
+ *	As such updates to this field need to use the io_bits_or()
+ *	or io_bits_andnot() functions.
  */
 #define IO_BITS_PORT_INFO       0x0000f000      /* stupid port tricks */
 #define IO_BITS_KOTYPE          0x000003ff      /* used by the object */
@@ -151,12 +146,34 @@ struct ipc_object_header {
 #define IO_BITS_OTYPE           0x7fff0000      /* determines a zone */
 #define IO_BITS_ACTIVE          0x80000000      /* is object alive? */
 
-#define io_active(io)           (((io)->io_bits & IO_BITS_ACTIVE) != 0)
+#define io_bits(io)             os_atomic_load(&(io)->io_bits, relaxed)
 
-#define io_otype(io)            (((io)->io_bits & IO_BITS_OTYPE) >> 16)
-#define io_kotype(io)           ((io)->io_bits & IO_BITS_KOTYPE)
-#define io_is_kobject(io)       (((io)->io_bits & IO_BITS_KOBJECT) != IKOT_NONE)
-#define io_is_kolabeled(io)     (((io)->io_bits & IO_BITS_KOLABEL) != 0)
+static inline void
+io_bits_or(ipc_object_t io, ipc_object_bits_t bits)
+{
+	/*
+	 * prevent any possibility for the compiler to tear the update,
+	 * the update still requires the io lock to be held.
+	 */
+	os_atomic_store(&io->io_bits, io_bits(io) | bits, relaxed);
+}
+
+static inline void
+io_bits_andnot(ipc_object_t io, ipc_object_bits_t bits)
+{
+	/*
+	 * prevent any possibility for the compiler to tear the update,
+	 * the update still requires the io lock to be held.
+	 */
+	os_atomic_store(&io->io_bits, io_bits(io) & ~bits, relaxed);
+}
+
+#define io_active(io)           ((io_bits(io) & IO_BITS_ACTIVE) != 0)
+
+#define io_otype(io)            ((io_bits(io) & IO_BITS_OTYPE) >> 16)
+#define io_kotype(io)           (io_bits(io) & IO_BITS_KOTYPE)
+#define io_is_kobject(io)       ((io_bits(io) & IO_BITS_KOBJECT) != 0)
+#define io_is_kolabeled(io)     ((io_bits(io) & IO_BITS_KOLABEL) != 0)
 #define io_makebits(active, otype, kotype)      \
 	(((active) ? IO_BITS_ACTIVE : 0) | ((otype) << 16) | (kotype))
 
@@ -167,8 +184,7 @@ struct ipc_object_header {
 #define IOT_PORT_SET            1
 #define IOT_NUMBER              2               /* number of types used */
 
-extern zone_t ipc_object_zones[IOT_NUMBER];
-extern lck_grp_t        ipc_lck_grp;
+extern zone_t __single ipc_object_zones[IOT_NUMBER];
 
 static inline ipc_object_t
 io_alloc(unsigned int otype, zalloc_flags_t flags)
@@ -176,95 +192,25 @@ io_alloc(unsigned int otype, zalloc_flags_t flags)
 	return zalloc_flags(ipc_object_zones[otype], flags);
 }
 
-extern void     io_free(
-	unsigned int    otype,
-	ipc_object_t    object);
-
 /*
- * Here we depend on the ipc_object being first within the kernel struct
- * (ipc_port and ipc_pset).
+ * Here we depend on all ipc_objects being an ipc_wait_queue
  */
-#define io_lock_init(io) \
-	lck_spin_init(&(io)->io_lock_data, &ipc_lck_grp, &ipc_lck_attr)
-#define io_lock_destroy(io) \
-	lck_spin_destroy(&(io)->io_lock_data, &ipc_lck_grp)
-#define io_lock_held(io) \
-	LCK_SPIN_ASSERT(&(io)->io_lock_data, LCK_ASSERT_OWNED)
-#define io_lock_held_kdp(io) \
-	kdp_lck_spin_is_acquired(&(io)->io_lock_data)
-#define io_unlock(io) \
-	lck_spin_unlock(&(io)->io_lock_data)
+#define io_waitq(io) \
+	(&__container_of(io, struct ipc_object_waitq, iowq_object)->iowq_waitq)
+#define io_from_waitq(waitq) \
+	(&__container_of(waitq, struct ipc_object_waitq, iowq_waitq)->iowq_object)
 
-extern void io_lock(
-	ipc_object_t io);
-extern boolean_t io_lock_try(
-	ipc_object_t io);
+#define io_lock(io)          ipc_object_lock(io)
+#define io_lock_try(io)      ipc_object_lock_try(io)
+#define io_unlock(io)        ipc_object_unlock(io)
+#define io_lock_held(io)     assert(waitq_held(io_waitq(io)))
+#define io_lock_held_kdp(io) waitq_held(io_waitq(io))
+#define io_lock_allow_invalid(io) ipc_object_lock_allow_invalid(io)
 
-#define _VOLATILE_ volatile
-
-/* Sanity check the ref count.  If it is 0, we may be doubly zfreeing.
- * If it is larger than max int, it has been corrupted or leaked,
- * probably by being modified into an address (this is architecture
- * dependent, but it's safe to assume there cannot really be max int
- * references unless some code is leaking the io_reference without leaking
- * object). Saturate the io_reference on release kernel if it reaches
- * max int to avoid use after free.
- *
- * NOTE: The 0 test alone will not catch double zfreeing of ipc_port
- * structs, because the io_references field is the first word of the struct,
- * and zfree modifies that to point to the next free zone element.
- */
-#define IO_MAX_REFERENCES                                               \
-	(unsigned)(~0U ^ (1U << (sizeof(int)*BYTE_SIZE - 1)))
-
-static inline void
-io_reference(ipc_object_t io)
-{
-	ipc_object_refs_t new_io_references;
-	ipc_object_refs_t old_io_references;
-
-	if ((io)->io_references == 0 ||
-	    (io)->io_references >= IO_MAX_REFERENCES) {
-		panic("%s: reference count %u is invalid\n", __func__, (io)->io_references);
-	}
-
-	do {
-		old_io_references = (io)->io_references;
-		new_io_references = old_io_references + 1;
-		if (old_io_references == IO_MAX_REFERENCES) {
-			break;
-		}
-	} while (OSCompareAndSwap(old_io_references, new_io_references,
-	    &((io)->io_references)) == FALSE);
-}
-
-
-static inline void
-io_release(ipc_object_t io)
-{
-	ipc_object_refs_t new_io_references;
-	ipc_object_refs_t old_io_references;
-
-	if ((io)->io_references == 0 ||
-	    (io)->io_references >= IO_MAX_REFERENCES) {
-		panic("%s: reference count %u is invalid\n", __func__, (io)->io_references);
-	}
-
-	do {
-		old_io_references = (io)->io_references;
-		new_io_references = old_io_references - 1;
-		if (old_io_references == IO_MAX_REFERENCES) {
-			break;
-		}
-	} while (OSCompareAndSwap(old_io_references, new_io_references,
-	    &((io)->io_references)) == FALSE);
-
-	/* If we just removed the last reference count */
-	if (1 == old_io_references) {
-		/* Free the object */
-		io_free(io_otype((io)), (io));
-	}
-}
+#define io_reference(io)     ipc_object_reference(io)
+#define io_release(io)       ipc_object_release(io)
+#define io_release_safe(io)  ipc_object_release_safe(io)
+#define io_release_live(io)  ipc_object_release_live(io)
 
 /*
  * Retrieve a label for use in a kernel call that takes a security
@@ -280,12 +226,35 @@ extern struct label *io_getlabel(ipc_object_t obj);
  * Exported interfaces
  */
 
+extern void ipc_object_lock(
+	ipc_object_t    object);
+
+#if MACH_LOCKFREE_SPACE
+extern bool ipc_object_lock_allow_invalid(
+	ipc_object_t    object) __result_use_check;
+#endif
+
+extern bool ipc_object_lock_try(
+	ipc_object_t    object);
+
+extern void ipc_object_unlock(
+	ipc_object_t    object);
+
+extern void ipc_object_deallocate_register_queue(void);
+
 /* Take a reference to an object */
 extern void ipc_object_reference(
 	ipc_object_t    object);
 
 /* Release a reference to an object */
 extern void ipc_object_release(
+	ipc_object_t    object);
+
+extern void ipc_object_release_safe(
+	ipc_object_t    object);
+
+/* Release a reference to an object that isn't the last one */
+extern void ipc_object_release_live(
 	ipc_object_t    object);
 
 /* Look up an object in a space */
@@ -336,7 +305,8 @@ extern kern_return_t ipc_object_alloc_name(
 	mach_port_type_t        type,
 	mach_port_urefs_t       urefs,
 	mach_port_name_t        name,
-	ipc_object_t            *objectp);
+	ipc_object_t            *objectp,
+	void                    (^finish_init)(ipc_object_t object));
 
 /* Convert a send type name to a received type name */
 extern mach_msg_type_name_t ipc_object_copyin_type(
@@ -396,5 +366,8 @@ extern void ipc_object_copyout_dest(
 	ipc_object_t            object,
 	mach_msg_type_name_t    msgt_name,
 	mach_port_name_t        *namep);
+
+#pragma GCC visibility pop
+__ASSUME_PTR_ABI_SINGLE_BEGIN __END_DECLS
 
 #endif  /* _IPC_IPC_OBJECT_H_ */

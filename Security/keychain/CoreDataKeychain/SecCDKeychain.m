@@ -966,7 +966,7 @@ SecCDKeychainLookupValueType* const SecCDKeychainLookupValueTypeDate = (SecCDKey
             if (error) {
                 *error = [NSError errorWithDomain:SecCDKeychainErrorDomain code:SecCDKeychainErrorDeserializing userInfo:@{NSLocalizedDescriptionKey : [NSString stringWithFormat:@"failed to deserialize SecCDKeychainItemMetadata with item type (%@) persistentID: %@ owner: %@", _itemType, _persistentID, _owner]}];
             }
-            self = nil;;
+            self = nil;
         }
     }
     

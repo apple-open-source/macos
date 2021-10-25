@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, 2003, 2004, 2006, 2008, 2011, 2012, 2014-2017, 2019 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2004, 2006, 2008, 2011, 2012, 2014-2017, 2019, 2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -102,12 +102,12 @@ _configadd(mach_port_t 			server,
 	*sc_status = kSCStatusOK;
 
 	/* un-serialize the key */
-	if (!_SCUnserializeString(&key, NULL, (void *)keyRef, keyLen)) {
+	if (!_SCUnserializeString(&key, NULL, keyRef, keyLen)) {
 		*sc_status = kSCStatusFailed;
 	}
 
 	/* un-serialize the data */
-	if (!_SCUnserializeData(&data, (void *)dataRef, dataLen)) {
+	if (!_SCUnserializeData(&data, dataRef, dataLen)) {
 		*sc_status = kSCStatusFailed;
 	}
 
@@ -166,12 +166,12 @@ _configadd_s(mach_port_t 		server,
 	*sc_status = kSCStatusOK;
 
 	/* un-serialize the key */
-	if (!_SCUnserializeString(&key, NULL, (void *)keyRef, keyLen)) {
+	if (!_SCUnserializeString(&key, NULL, keyRef, keyLen)) {
 		*sc_status = kSCStatusFailed;
 	}
 
 	/* un-serialize the data */
-	if (!_SCUnserializeData(&data, (void *)dataRef, dataLen)) {
+	if (!_SCUnserializeData(&data, dataRef, dataLen)) {
 		*sc_status = kSCStatusFailed;
 	}
 

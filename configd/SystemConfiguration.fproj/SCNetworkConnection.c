@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2019 Apple Inc. All rights reserved.
+ * Copyright (c) 2003-2021 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -49,7 +49,6 @@
 
 #if	!TARGET_OS_IPHONE
 #include <Security/Security.h>
-#include "dy_framework.h"
 #endif	// !TARGET_OS_IPHONE
 
 #include <bootstrap.h>
@@ -96,6 +95,9 @@ typedef struct {
 	/* service */
 	SCNetworkServiceRef		service;
 
+	/* logging */
+	char				log_prefix[32];
+
 	/* client info (if we are proxying for another process */
 	mach_port_t			client_audit_session;
 	audit_token_t			client_audit_token;
@@ -123,7 +125,6 @@ typedef struct {
 	CFMutableArrayRef		rlList;
 
 	/* SCNetworkConnectionSetDispatchQueue */
-	dispatch_group_t		dispatchGroup;
 	dispatch_queue_t		dispatchQueue;
 	dispatch_source_t		dispatchSource;
 
@@ -251,6 +252,8 @@ static void
 __SCNetworkConnectionDeallocate(CFTypeRef cf)
 {
 	SCNetworkConnectionPrivateRef	connectionPrivate = (SCNetworkConnectionPrivateRef)cf;
+
+	SC_log(LOG_DEBUG, "%srelease", connectionPrivate->log_prefix);
 
 	/* release resources */
 	pthread_mutex_destroy(&connectionPrivate->lock);
@@ -402,7 +405,11 @@ __SCNetworkConnectionNotify(SCNetworkConnectionRef	connection,
 			    void			(*context_release)(const void *),
 			    void			*context_info)
 {
-	SC_log(LOG_DEBUG, "exec SCNetworkConnection callout");
+	SCNetworkConnectionPrivateRef	connectionPrivate	= (SCNetworkConnectionPrivateRef)connection;
+
+	SC_log(LOG_DEBUG, "%sexec SCNetworkConnection callout w/status = %d",
+	       connectionPrivate->log_prefix,
+	       nc_status);
 	(*rlsFunction)(connection, nc_status, context_info);
 	if ((context_release != NULL) && (context_info != NULL)) {
 		(*context_release)(context_info);
@@ -412,8 +419,30 @@ __SCNetworkConnectionNotify(SCNetworkConnectionRef	connection,
 }
 
 
+/*
+ * called from caller provided (not main) CFRunLoop/CFRunLoopMode, get status
+ * and perform callout
+ */
 static void
-__SCNetworkConnectionCallBackRunLoopPerform(SCNetworkConnectionRef		connection,
+__SCNetworkConnectionCallBackPerformDirect(SCNetworkConnectionRef		connection,
+					   SCNetworkConnectionCallBack		rlsFunction,
+					   void					(*context_release)(const void *),
+					   void					*context_info)
+{
+	SCNetworkConnectionStatus	nc_status;
+
+	nc_status = SCNetworkConnectionGetStatus(connection);
+	__SCNetworkConnectionNotify(connection, rlsFunction, nc_status, context_release, context_info);
+	return;
+}
+
+
+/*
+ * called from _SCNetworkConnectionQueue(), get status and perform callout on
+ * caller provided (main) CFRunLoop/CFRunLoopMode
+ */
+static void
+__SCNetworkConnectionCallBackPerformRunLoop(SCNetworkConnectionRef		connection,
 					    CFRunLoopRef			rl,
 					    CFStringRef				rl_mode,
 					    SCNetworkConnectionCallBack		rlsFunction,
@@ -423,6 +452,8 @@ __SCNetworkConnectionCallBackRunLoopPerform(SCNetworkConnectionRef		connection,
 	SCNetworkConnectionStatus	nc_status;
 
 	nc_status = SCNetworkConnectionGetStatus(connection);
+
+	CFRetain(connection);
 	CFRunLoopPerformBlock(rl, rl_mode, ^{
 		__SCNetworkConnectionNotify(connection, rlsFunction, nc_status, context_release, context_info);
 		CFRelease(connection);
@@ -431,8 +462,13 @@ __SCNetworkConnectionCallBackRunLoopPerform(SCNetworkConnectionRef		connection,
 	return;
 }
 
+
+/*
+ * called from _SCNetworkConnectionQueue(), get status and perform callout on
+ * caller provided queue
+ */
 static void
-__SCNetworkConnectionCallBackDispatchPerform(SCNetworkConnectionRef		connection,
+__SCNetworkConnectionCallBackPerformDispatch(SCNetworkConnectionRef		connection,
 					     dispatch_queue_t			q,
 					     SCNetworkConnectionCallBack	rlsFunction,
 					     void				(*context_release)(const void *),
@@ -441,6 +477,8 @@ __SCNetworkConnectionCallBackDispatchPerform(SCNetworkConnectionRef		connection,
 	SCNetworkConnectionStatus	nc_status;
 
 	nc_status = SCNetworkConnectionGetStatus(connection);
+
+	CFRetain(connection);
 	dispatch_async(q, ^{
 		__SCNetworkConnectionNotify(connection, rlsFunction, nc_status, context_release, context_info);
 		CFRelease(connection);
@@ -449,23 +487,24 @@ __SCNetworkConnectionCallBackDispatchPerform(SCNetworkConnectionRef		connection,
 }
 
 
+/*
+ * __SCNetworkConnectionCallBack
+ *   called from caller provided CFRunLoop/CFRunLoopMode *OR* _SCNetworkConnectionQueue()
+ */
 static void
 __SCNetworkConnectionCallBack(void *connection)
 {
-	boolean_t			exec_async		= FALSE;
 	SCNetworkConnectionPrivateRef	connectionPrivate	= (SCNetworkConnectionPrivateRef)connection;
 	void				*context_info;
 	void				(*context_release)(const void *);
-	CFRunLoopRef			rl			= NULL;
-	CFStringRef			rl_mode;
 	SCNetworkConnectionCallBack	rlsFunction		= NULL;
-	dispatch_queue_t		q			= NULL;
-	SCNetworkConnectionStatus	nc_status		= kSCNetworkConnectionInvalid;
 
 	pthread_mutex_lock(&connectionPrivate->lock);
 
 	if (!connectionPrivate->scheduled) {
 		// if not currently scheduled
+		SC_log(LOG_INFO, "%sskipping SCNetworkConnection callback, no longer scheduled",
+		       connectionPrivate->log_prefix);
 		pthread_mutex_unlock(&connectionPrivate->lock);
 		return;
 	}
@@ -486,6 +525,8 @@ __SCNetworkConnectionCallBack(void *connection)
 
 #if	!TARGET_OS_SIMULATOR
 	if (__SCNetworkConnectionUsingNetworkExtension(connectionPrivate)) {
+		SCNetworkConnectionStatus	nc_status;
+
 		pthread_mutex_unlock(&connectionPrivate->lock);
 
 		nc_status = SCNetworkConnectionGetStatus(connection);
@@ -495,56 +536,46 @@ __SCNetworkConnectionCallBack(void *connection)
 	}
 #endif	/* !TARGET_OS_SIMULATOR */
 
-	// Do we need to spin a new thread? (either we are running on the main
-	// dispatch queue or main runloop)
-	if (connectionPrivate->rlList == NULL) {
-		// if we are performing the callback on a dispatch queue
-		q = connectionPrivate->dispatchQueue;
-		if (q == dispatch_get_main_queue()) {
-			exec_async = TRUE;
-		}
-	} else {
-		rl = CFRunLoopGetCurrent();
-		if (rl == CFRunLoopGetMain()) {
-			exec_async = TRUE;
-		}
-	}
-
 	CFRetain(connection);
-	pthread_mutex_unlock(&connectionPrivate->lock);
+	if (connectionPrivate->rlList != NULL) {
+		CFRunLoopRef	rl;
+		CFStringRef	rl_mode;
 
-	if (!exec_async) {
-		nc_status = SCNetworkConnectionGetStatus(connection);
-		__SCNetworkConnectionNotify(connection, rlsFunction, nc_status, context_release, context_info);
-		CFRelease(connection);
-		return;
-	}
-
-	if (connectionPrivate->rlList == NULL) {
-		assert(q != NULL);
-		dispatch_retain(q);
-		dispatch_async(__SCNetworkConnectionQueue(), ^{
-		       __SCNetworkConnectionCallBackDispatchPerform(connection,
-								    q,
-								    rlsFunction,
-								    context_release,
-								    context_info);
-			dispatch_release(q);
-		});
-	} else {
+		rl = CFRunLoopGetCurrent();
 		assert(rl != NULL);
-		CFRetain(rl);
-		rl_mode = CFRunLoopCopyCurrentMode(rl);
-		dispatch_async(__SCNetworkConnectionQueue(), ^{
-			__SCNetworkConnectionCallBackRunLoopPerform(connection,
-								    rl,
-								    rl_mode,
-								    rlsFunction,
-								    context_release,
-								    context_info);
-			CFRelease(rl);
-			CFRelease(rl_mode);
-		});
+		if (rl == CFRunLoopGetMain()) {
+			CFRetain(rl);
+			rl_mode = CFRunLoopCopyCurrentMode(rl);
+			pthread_mutex_unlock(&connectionPrivate->lock);
+			dispatch_async(__SCNetworkConnectionQueue(), ^{
+				__SCNetworkConnectionCallBackPerformRunLoop(connection,
+									    rl,
+									    rl_mode,
+									    rlsFunction,
+									    context_release,
+									    context_info);
+				CFRelease(rl);
+				CFRelease(rl_mode);
+				CFRelease(connection);
+			});
+		} else {
+			pthread_mutex_unlock(&connectionPrivate->lock);
+			__SCNetworkConnectionCallBackPerformDirect(connection, rlsFunction, context_release, context_info);
+			CFRelease(connection);
+		}
+	} else {
+		dispatch_queue_t	q;
+
+		// if we need to perform the callout on a dispatch queue
+		q = connectionPrivate->dispatchQueue;
+		assert(q != NULL);
+		pthread_mutex_unlock(&connectionPrivate->lock);
+	       __SCNetworkConnectionCallBackPerformDispatch(connection,
+							    q,
+							    rlsFunction,
+							    context_release,
+							    context_info);
+		CFRelease(connection);
 	}
 
 	return;
@@ -626,6 +657,13 @@ __SCNetworkConnectionCreatePrivate(CFAllocatorRef		allocator,
 	}
 	connectionPrivate->type = kSCNetworkConnectionTypeUnknown;
 
+	if (_sc_log > kSCLogDestinationFile) {
+		snprintf(connectionPrivate->log_prefix,
+			 sizeof(connectionPrivate->log_prefix),
+			 "[%p] ",
+			 connectionPrivate);
+	}
+
 #if	!TARGET_OS_SIMULATOR
 	if (__SCNetworkConnectionUseNetworkExtension(connectionPrivate)) {
 		CFStringRef serviceID = SCNetworkServiceGetServiceID(connectionPrivate->service);
@@ -635,6 +673,9 @@ __SCNetworkConnectionCreatePrivate(CFAllocatorRef		allocator,
 				uuid_t config_id;
 				if (uuid_parse(service_uuid_str, config_id) == 0) {
 					connectionPrivate->ne_session = ne_session_create(config_id, NESessionTypeVPN);
+					if (connectionPrivate->ne_session != NULL) {
+						SC_log(LOG_DEBUG, "%sne_session created", connectionPrivate->log_prefix);
+					}
 				}
 			}
 		}
@@ -730,31 +771,20 @@ __SCNetworkConnectionRefreshServerPort(mach_port_t current_server, int *mach_res
 	return new_server;
 }
 
-#if	((__MAC_OS_X_VERSION_MIN_REQUIRED >= 1070) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 50000)) && (!TARGET_OS_SIMULATOR || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 70000))
-#define	HAVE_PPPCONTROLLER_ATTACHWITHAUDITSESSION
-#endif
-
-
-#if	((__MAC_OS_X_VERSION_MIN_REQUIRED >= 1080) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 50000)) && !TARGET_OS_SIMULATOR
-#define	HAVE_PPPCONTROLLER_ATTACHWITHPROXY
-#endif
 
 static mach_port_t
 __SCNetworkConnectionSessionPort(SCNetworkConnectionPrivateRef connectionPrivate)
 {
-	void		*data		= NULL;
+	mach_port_t	au_session	= MACH_PORT_NULL;
+	CFDataRef	data		= NULL;
+	const void	*dataRef	= NULL;
 	CFIndex		dataLen		= 0;
-	CFDataRef	dataRef		= NULL;
 	mach_port_t	notify_port	= MACH_PORT_NULL;
 	mach_port_t	oldNotify	= MACH_PORT_NULL;
 	int		retry		= 0;
 	int		sc_status	= kSCStatusFailed;
 	mach_port_t	server		= __SCNetworkConnectionGetCurrentServerPort();
 	kern_return_t	status		= KERN_SUCCESS;
-
-#ifdef	HAVE_PPPCONTROLLER_ATTACHWITHAUDITSESSION
-	mach_port_t	au_session	= MACH_PORT_NULL;
-#endif	// HAVE_PPPCONTROLLER_ATTACHWITHAUDITSESSION
 
 	if (connectionPrivate->session_port != MACH_PORT_NULL) {
 		return connectionPrivate->session_port;
@@ -765,7 +795,7 @@ __SCNetworkConnectionSessionPort(SCNetworkConnectionPrivateRef connectionPrivate
 		goto done;
 	}
 
-	if (!_SCSerializeString(SCNetworkServiceGetServiceID(connectionPrivate->service), &dataRef, &data, &dataLen)) {
+	if (!_SCSerializeString(SCNetworkServiceGetServiceID(connectionPrivate->service), &data, &dataRef, &dataLen)) {
 		goto done;
 	}
 
@@ -779,9 +809,7 @@ __SCNetworkConnectionSessionPort(SCNetworkConnectionPrivateRef connectionPrivate
 		mach_port_mod_refs(mach_task_self(), mp, MACH_PORT_RIGHT_RECEIVE, -1);
 	}
 
-#ifdef	HAVE_PPPCONTROLLER_ATTACHWITHAUDITSESSION
 	au_session = audit_session_self();
-#endif	// HAVE_PPPCONTROLLER_ATTACHWITHAUDITSESSION
 
 	// open a new session with the server
 	while (TRUE) {
@@ -808,25 +836,20 @@ __SCNetworkConnectionSessionPort(SCNetworkConnectionPrivateRef connectionPrivate
 		}
 
 		if (server != MACH_PORT_NULL) {
-#ifdef	HAVE_PPPCONTROLLER_ATTACHWITHPROXY
 			if ((connectionPrivate->client_audit_session == MACH_PORT_NULL) &&
 			    (connectionPrivate->client_bootstrap_port == MACH_PORT_NULL) &&
 			    (connectionPrivate->client_uid == geteuid()) &&
 			    (connectionPrivate->client_gid == getegid()) &&
 			    (connectionPrivate->client_pid == getpid())
 			   ) {
-#endif	// HAVE_PPPCONTROLLER_ATTACHWITHPROXY
 				status = pppcontroller_attach(server,
-							      data,
+							      dataRef,
 							       (mach_msg_type_number_t)dataLen,
 							      bootstrap_port,
 							      notify_port,
-#ifdef	HAVE_PPPCONTROLLER_ATTACHWITHAUDITSESSION
 							      au_session,
-#endif	// HAVE_PPPCONTROLLER_ATTACHWITHAUDITSESSION
 							      &connectionPrivate->session_port,
 							      &sc_status);
-#ifdef	HAVE_PPPCONTROLLER_ATTACHWITHPROXY
 			} else {
 				mach_port_t	client_au_session;
 				mach_port_t	client_bootstrap_port;
@@ -844,7 +867,7 @@ __SCNetworkConnectionSessionPort(SCNetworkConnectionPrivateRef connectionPrivate
 				}
 
 				status = pppcontroller_attach_proxy(server,
-								    data,
+								    dataRef,
 								    (mach_msg_type_number_t)dataLen,
 								    client_bootstrap_port,
 								    notify_port,
@@ -855,7 +878,6 @@ __SCNetworkConnectionSessionPort(SCNetworkConnectionPrivateRef connectionPrivate
 								    &connectionPrivate->session_port,
 								    &sc_status);
 			}
-#endif	// HAVE_PPPCONTROLLER_ATTACHWITHPROXY
 			if (status == KERN_SUCCESS) {
 				if (sc_status != kSCStatusOK) {
 					SC_log(LOG_DEBUG, "attach w/error, sc_status=%s%s",
@@ -930,8 +952,8 @@ __SCNetworkConnectionSessionPort(SCNetworkConnectionPrivateRef connectionPrivate
 		if (connectionPrivate->session_port != MACH_PORT_NULL) {
 			CFMachPortContext	context	= { 0
 							  , (void *)connectionPrivate
-							  , NULL
-							  , NULL
+							  , CFRetain
+							  , CFRelease
 							  , pppMPCopyDescription
 			};
 
@@ -977,16 +999,16 @@ __SCNetworkConnectionSessionPort(SCNetworkConnectionPrivateRef connectionPrivate
 
 	// clean up
 
-#ifdef	HAVE_PPPCONTROLLER_ATTACHWITHAUDITSESSION
 	if (au_session != MACH_PORT_NULL) {
 		(void)mach_port_deallocate(mach_task_self(), au_session);
 	}
-#endif	// HAVE_PPPCONTROLLER_ATTACHWITHAUDITSESSION
 
-	if (dataRef != NULL)	CFRelease(dataRef);
+	if (data != NULL)	CFRelease(data);
 
 	switch (sc_status) {
 		case kSCStatusOK :
+			SC_log(LOG_DEBUG, "%sPPPController session created",
+			       connectionPrivate->log_prefix);
 			__MACH_PORT_DEBUG(connectionPrivate->session_port != MACH_PORT_NULL,
 					  "*** __SCNetworkConnectionSessionPort session_port",
 					  connectionPrivate->session_port);
@@ -995,11 +1017,15 @@ __SCNetworkConnectionSessionPort(SCNetworkConnectionPrivateRef connectionPrivate
 					  notify_port);
 			break;
 		case BOOTSTRAP_UNKNOWN_SERVICE :
-			SC_log((status == KERN_SUCCESS) ? LOG_NOTICE : LOG_ERR, "PPPController not available");
+			SC_log((status == KERN_SUCCESS) ? LOG_NOTICE : LOG_ERR,
+			       "%sPPPController not available",
+			       connectionPrivate->log_prefix);
 			break;
 		default :
-			SC_log((status == KERN_SUCCESS) ? LOG_NOTICE : LOG_ERR, "pppcontroller_attach() failed: %s",
-			      SCErrorString(sc_status));
+			SC_log((status == KERN_SUCCESS) ? LOG_NOTICE : LOG_ERR,
+			       "%spppcontroller_attach() failed: %s",
+			       connectionPrivate->log_prefix,
+			       SCErrorString(sc_status));
 			break;
 	}
 
@@ -1026,7 +1052,6 @@ static Boolean
 __SCNetworkConnectionReconnectNotifications(SCNetworkConnectionRef connection)
 {
 	SCNetworkConnectionPrivateRef	connectionPrivate	= (SCNetworkConnectionPrivateRef)connection;
-	dispatch_group_t		dispatchGroup		= NULL;
 	dispatch_queue_t		dispatchQueue		= NULL;
 	Boolean				ok			= TRUE;
 	CFArrayRef			rlList			= NULL;
@@ -1052,12 +1077,7 @@ __SCNetworkConnectionReconnectNotifications(SCNetworkConnectionRef connection)
 		connectionPrivate->dispatchSource = NULL;
 	}
 
-	// make sure dispatchSource is cancelled before removing group/queue
 	if (connectionPrivate->dispatchQueue != NULL) {
-		// save dispatchQueue, release reference when we've queue'd blocks
-		// complete, allow re-scheduling
-		dispatchGroup = connectionPrivate->dispatchGroup;
-		connectionPrivate->dispatchGroup = NULL;
 		dispatchQueue = connectionPrivate->dispatchQueue;
 		connectionPrivate->dispatchQueue = NULL;
 
@@ -1068,14 +1088,6 @@ __SCNetworkConnectionReconnectNotifications(SCNetworkConnectionRef connection)
 	connectionPrivate->scheduled = FALSE;
 
 	pthread_mutex_unlock(&connectionPrivate->lock);
-
-	if (dispatchGroup != NULL) {
-		dispatch_group_notify(dispatchGroup, dispatchQueue, ^{
-			// release group/queue references
-			dispatch_release(dispatchQueue);
-			dispatch_release(dispatchGroup);	// releases our connection reference
-		});
-	}
 
 	// re-schedule
 	if (rlList != NULL) {
@@ -1140,10 +1152,15 @@ __SCNetworkConnectionNeedsRetry(SCNetworkConnectionRef	connection,
 
 	if ((status == MACH_SEND_INVALID_DEST) || (status == MIG_SERVER_DIED)) {
 		// the server's gone and our session port's dead, remove the dead name right
+		SC_log(LOG_DEBUG, "%sPPPController session no longer valid",
+		       connectionPrivate->log_prefix);
 		(void) mach_port_deallocate(mach_task_self(), connectionPrivate->session_port);
 	} else {
 		// we got an unexpected error, leave the [session] port alone
-		SC_log(LOG_NOTICE, "%s: %s", error_label, mach_error_string(status));
+		SC_log(LOG_NOTICE, "%s%s: %s",
+		       connectionPrivate->log_prefix,
+		       error_label,
+		       mach_error_string(status));
 	}
 	connectionPrivate->session_port = MACH_PORT_NULL;
 	if ((status == MACH_SEND_INVALID_DEST) || (status == MIG_SERVER_DIED)) {
@@ -1242,6 +1259,14 @@ SCNetworkConnectionCreateWithService(CFAllocatorRef			allocator,
 	}
 
 	connectionPrivate = __SCNetworkConnectionCreatePrivate(allocator, service, callout, context);
+	if (connectionPrivate == NULL) {
+		return NULL;
+	}
+
+	SC_log(LOG_DEBUG, "%screate w/service %@",
+	       connectionPrivate->log_prefix,
+	       service);
+
 	return (SCNetworkConnectionRef)connectionPrivate;
 }
 
@@ -1268,6 +1293,14 @@ SCNetworkConnectionCreateWithServiceID(CFAllocatorRef			allocator,
 	connection = SCNetworkConnectionCreateWithService(allocator, service, callout, context);
 	CFRelease(service);
 
+	if (connection == NULL) {
+		return NULL;
+	}
+
+	SC_log(LOG_DEBUG, "%screate w/serviceID %@",
+	       ((SCNetworkConnectionPrivateRef)connection)->log_prefix,
+	       service);
+
 	return connection;
 }
 
@@ -1277,7 +1310,15 @@ SCNetworkConnectionCreate(CFAllocatorRef		allocator,
 			  SCNetworkConnectionCallBack	callout,
 			  SCNetworkConnectionContext	*context)
 {
-	SCNetworkConnectionPrivateRef	connectionPrivate = __SCNetworkConnectionCreatePrivate(allocator, NULL, callout, context);
+	SCNetworkConnectionPrivateRef	connectionPrivate;
+
+	connectionPrivate = __SCNetworkConnectionCreatePrivate(allocator, NULL, callout, context);
+	if (connectionPrivate == NULL) {
+		return NULL;
+	}
+
+	SC_log(LOG_DEBUG, "%screate", connectionPrivate->log_prefix);
+
 	return (SCNetworkConnectionRef)connectionPrivate;
 }
 
@@ -1356,13 +1397,9 @@ SCNetworkConnectionSetClientAuditInfo(SCNetworkConnectionRef	connection,
 	uid_t				uid			= 0;
 
 	if (memcmp(&client_audit_token, &null_audit, sizeof(client_audit_token))) {
-#if	TARGET_OS_IPHONE
-		audit_token_to_au32(client_audit_token, NULL, &uid, &gid, NULL, NULL, &pid, NULL, NULL);
-#else	// TARGET_OS_IPHONE
 		uid = audit_token_to_euid(client_audit_token);
 		gid = audit_token_to_egid(client_audit_token);
 		pid = audit_token_to_pid(client_audit_token);
-#endif	// TARGET_OS_IPHONE
 	} else {
 		pid = client_pid;
 	}
@@ -1732,7 +1769,7 @@ SCNetworkConnectionStart(SCNetworkConnectionRef	connection,
 {
 	SCNetworkConnectionPrivateRef	connectionPrivate	= (SCNetworkConnectionPrivateRef)connection;
 	CFDataRef			dataref			= NULL;
-	void				*data			= NULL;
+	const void *			data			= NULL;
 	CFIndex				datalen			= 0;
 	Boolean				ok			= FALSE;
 	int				sc_status		= kSCStatusFailed;
@@ -1767,7 +1804,7 @@ SCNetworkConnectionStart(SCNetworkConnectionRef	connection,
 	if (debug > 0) {
 		CFMutableDictionaryRef	mdict = NULL;
 
-		SC_log(LOG_INFO, "SCNetworkConnectionStart (%p)", connectionPrivate);
+		SC_log(LOG_INFO, "%sstart", connectionPrivate->log_prefix);
 
 		if (userOptions != NULL) {
 			CFDictionaryRef		dict;
@@ -1894,7 +1931,9 @@ SCNetworkConnectionStart(SCNetworkConnectionRef	connection,
 	if (dataref)	CFRelease(dataref);
 
 	if (debug > 0) {
-		SC_log(LOG_INFO, "SCNetworkConnectionStart (%p), return: %d", connectionPrivate, sc_status);
+		SC_log(LOG_INFO, "%sstart, return: %d",
+		       connectionPrivate->log_prefix,
+		       sc_status);
 	}
 
 	if (sc_status != kSCStatusOK) {
@@ -1927,7 +1966,7 @@ SCNetworkConnectionStop(SCNetworkConnectionRef	connection,
 	}
 
 	if (debug > 0) {
-		SC_log(LOG_INFO, "SCNetworkConnectionStop (%p)", connectionPrivate);
+		SC_log(LOG_INFO, "%sstop", connectionPrivate->log_prefix);
 	}
 
 	pthread_mutex_lock(&connectionPrivate->lock);
@@ -1958,7 +1997,7 @@ SCNetworkConnectionStop(SCNetworkConnectionRef	connection,
 	}
 
 	if (debug > 0) {
-		SC_log(LOG_INFO, "SCNetworkConnectionStop (%p), return: %d", connectionPrivate, sc_status);
+		SC_log(LOG_INFO, "%sstop, return: %d", connectionPrivate->log_prefix, sc_status);
 	}
 
 	if (sc_status != kSCStatusOK) {
@@ -1991,7 +2030,7 @@ SCNetworkConnectionSuspend(SCNetworkConnectionRef connection)
 	}
 
 	if (debug > 0) {
-		SC_log(LOG_INFO, "SCNetworkConnectionSuspend (%p)", connectionPrivate);
+		SC_log(LOG_INFO, "%ssuspend", connectionPrivate->log_prefix);
 	}
 
 	pthread_mutex_lock(&connectionPrivate->lock);
@@ -2020,7 +2059,9 @@ SCNetworkConnectionSuspend(SCNetworkConnectionRef connection)
 	}
 
 	if (debug > 0) {
-		SC_log(LOG_INFO, "SCNetworkConnectionSuspend (%p), return: %d", connectionPrivate, sc_status);
+		SC_log(LOG_INFO, "%ssuspend, return: %d",
+		       connectionPrivate->log_prefix,
+		       sc_status);
 	}
 
 	if (sc_status != kSCStatusOK) {
@@ -2053,7 +2094,7 @@ SCNetworkConnectionResume(SCNetworkConnectionRef connection)
 	}
 
 	if (debug > 0) {
-		SC_log(LOG_INFO, "SCNetworkConnectionResume (%p)", connectionPrivate);
+		SC_log(LOG_INFO, "%sresume", connectionPrivate->log_prefix);
 	}
 
 	pthread_mutex_lock(&connectionPrivate->lock);
@@ -2082,7 +2123,9 @@ SCNetworkConnectionResume(SCNetworkConnectionRef connection)
 	}
 
 	if (debug > 0) {
-		SC_log(LOG_INFO, "SCNetworkConnectionResume (%p), return: %d", connectionPrivate, sc_status);
+		SC_log(LOG_INFO, "%sresume, return: %d",
+		       connectionPrivate->log_prefix,
+		       sc_status);
 	}
 
 	if (sc_status != kSCStatusOK) {
@@ -2146,7 +2189,8 @@ SCNetworkConnectionCopyUserOptions(SCNetworkConnectionRef connection)
 		dispatch_semaphore_wait(ne_sema, DISPATCH_TIME_FOREVER);
 		dispatch_release(ne_sema);
 
-		if (config != NULL) {
+		if ((config != NULL) &&
+		    (xpc_get_type(config) == XPC_TYPE_DICTIONARY)) {
 			xpc_object_t xoptions = xpc_dictionary_get_value(config, NESMSessionLegacyUserConfigurationKey);
 			if (xoptions != NULL) {
 				userOptions = _CFXPCCreateCFObjectFromXPCObject(xoptions);
@@ -2262,8 +2306,8 @@ __SCNetworkConnectionScheduleWithRunLoop(SCNetworkConnectionRef	connection,
 			CFRunLoopSourceContext rlsContext = {
 			    0,					// version
 			    (void *)connection,			// info
-			    NULL,				// retain
-			    NULL,				// release
+			    CFRetain,				// retain
+			    CFRelease,				// release
 			    NULL,				// copy description
 			    NULL,				// equal
 			    NULL,				// hash
@@ -2280,51 +2324,60 @@ __SCNetworkConnectionScheduleWithRunLoop(SCNetworkConnectionRef	connection,
 	}
 
 	if (queue != NULL) {
-		// retain the dispatch queue
+		// retain the caller provided dispatch queue
 		connectionPrivate->dispatchQueue = queue;
 		dispatch_retain(connectionPrivate->dispatchQueue);
 
 		if (!__SCNetworkConnectionUsingNetworkExtension(connectionPrivate)) {
-			dispatch_group_t	group	= NULL;
 			mach_port_t		mp;
+			CFMachPortRef		notifyPort	= connectionPrivate->notify_port;
 			dispatch_source_t	source;
 
-			//
-			// We've taken a reference to the caller's dispatch_queue and we
-			// want to hold on to that reference until we've processed any/all
-			// notifications.  To facilitate this we create a group, dispatch
-			// any notification blocks via that group, and when the caller
-			// has told us to stop the notifications (unschedule) we wait for
-			// the group to empty and use the group's finalizer to release
-			// our reference to the SCNetworkConnection.
-			//
-			group = dispatch_group_create();
-			connectionPrivate->dispatchGroup = group;
-			CFRetain(connection);
-			dispatch_set_context(connectionPrivate->dispatchGroup, (void *)connection);
-			dispatch_set_finalizer_f(connectionPrivate->dispatchGroup, (dispatch_function_t)CFRelease);
+			mp = CFMachPortGetPort(notifyPort);
+			if (mp == MACH_PORT_NULL) {
+				// release our dispatch queue reference
+				dispatch_release(connectionPrivate->dispatchQueue);
+				connectionPrivate->dispatchQueue = NULL;
 
-			mp = CFMachPortGetPort(connectionPrivate->notify_port);
-			source = dispatch_source_create(DISPATCH_SOURCE_TYPE_MACH_RECV, mp, 0, queue);
-			if (source == NULL) {
-				SC_log(LOG_NOTICE, "dispatch_source_create() failed");
 				_SCErrorSet(kSCStatusFailed);
 				goto done;
 			}
 
-			// have our dispatch source hold a reference to the notification CFMachPort
-			CFRetain(connectionPrivate->notify_port);
-			dispatch_set_context(source, (void *)connectionPrivate->notify_port);
+			source = dispatch_source_create(DISPATCH_SOURCE_TYPE_MACH_RECV, mp, 0, __SCNetworkConnectionQueue());
+			if (source == NULL) {
+				SC_log(LOG_NOTICE, "dispatch_source_create() failed");
+
+				// release our dispatch queue reference
+				dispatch_release(connectionPrivate->dispatchQueue);
+				connectionPrivate->dispatchQueue = NULL;
+
+				_SCErrorSet(kSCStatusFailed);
+				goto done;
+			}
+
+			// While a notification is active we need to ensure that the SCNetworkConnection
+			// object is available.  To do this we take a reference, associate it with
+			// the dispatch source, and set the finalizer to release our reference.
+			CFRetain(connection);
+			dispatch_set_context(source, (void *)connection);
 			dispatch_set_finalizer_f(source, (dispatch_function_t)CFRelease);
+
+			// while scheduled, hold a reference to the notification CFMachPort (that
+			// also holds a reference to the SCNetworkConnection object).
+			CFRetain(notifyPort);
+
+			// because we will exec our callout on the caller provided queue
+			// we need to hold a reference; release in the cancel handler
+			dispatch_retain(queue);
 
 			dispatch_source_set_event_handler(source, ^{
 				kern_return_t	kr;
 				typedef union {
-					u_int8_t			buf[sizeof(mach_msg_empty_t) + MAX_TRAILER_SIZE];
+					u_int8_t			buf1[sizeof(mach_msg_empty_rcv_t) + MAX_TRAILER_SIZE];
+					u_int8_t			buf2[sizeof(mach_no_senders_notification_t) + MAX_TRAILER_SIZE];
 					mach_msg_empty_rcv_t		msg;
 					mach_no_senders_notification_t	no_senders;
 				} *notify_message_t;
-				CFMachPortRef		notify_port;
 				notify_message_t	notify_msg;
 
 				notify_msg = (notify_message_t)malloc(sizeof(*notify_msg));
@@ -2337,16 +2390,14 @@ __SCNetworkConnectionScheduleWithRunLoop(SCNetworkConnectionRef	connection,
 					      MACH_MSG_TIMEOUT_NONE,	// timeout
 					      MACH_PORT_NULL);		// notify
 				if (kr != KERN_SUCCESS) {
-					SC_log(LOG_NOTICE, "SCDynamicStore notification handler, kr=0x%x", kr);
+					SC_log(LOG_NOTICE, "SCNetworkConnection notification handler, kr=0x%x", kr);
 					free(notify_msg);
 					return;
 				}
 
 				CFRetain(connection);
-				notify_port = dispatch_get_context(source);
-
-				dispatch_group_async(group, queue, ^{
-					__SCNetworkConnectionMachCallBack(notify_port,
+				dispatch_async(queue, ^{
+					__SCNetworkConnectionMachCallBack(NULL,
 									  (void *)notify_msg,
 									  sizeof(*notify_msg),
 									  (void *)connection);
@@ -2356,14 +2407,21 @@ __SCNetworkConnectionScheduleWithRunLoop(SCNetworkConnectionRef	connection,
 			});
 
 			dispatch_source_set_cancel_handler(source, ^{
+				// release our reference to the notify port
+				CFRelease(notifyPort);
+
+				// release source
 				dispatch_release(source);
+
+				// release caller provided dispatch queue
+				dispatch_release(queue);
 			});
 
 			connectionPrivate->dispatchSource = source;
 			dispatch_resume(source);
 		}
 	} else {
-		if (!_SC_isScheduled(NULL, runLoop, runLoopMode, connectionPrivate->rlList)) {
+		if (!_SC_isScheduled(connection, runLoop, runLoopMode, connectionPrivate->rlList)) {
 			/*
 			 * if we do not already have notifications scheduled with
 			 * this runLoop / runLoopMode
@@ -2386,17 +2444,22 @@ __SCNetworkConnectionScheduleWithRunLoop(SCNetworkConnectionRef	connection,
 					CFRunLoopSourceSignal(connectionPrivate->rls);
 					_SC_signalRunLoop(connection, connectionPrivate->rls, connectionPrivate->rlList);
 				} else if (connectionPrivate->dispatchQueue != NULL) {
+					CFRetain(connection);
 					dispatch_async(connectionPrivate->dispatchQueue, ^{
 						__SCNetworkConnectionCallBack((void *)connection);
+						CFRelease(connection);
 					});
 				}
 				pthread_mutex_unlock(&connectionPrivate->lock);
 			} else if (event == NESessionEventCanceled) {
+				SC_log(LOG_DEBUG, "%sne_session canceled", connectionPrivate->log_prefix);
 				CFRelease(connection);
 			}
 		});
 	}
 #endif	/* !TARGET_OS_SIMULATOR */
+
+	SC_log(LOG_DEBUG, "%sscheduled", connectionPrivate->log_prefix);
 
 	ok = TRUE;
 
@@ -2415,8 +2478,6 @@ __SCNetworkConnectionUnscheduleFromRunLoop(SCNetworkConnectionRef	connection,
 {
 #pragma unused(queue)
 	SCNetworkConnectionPrivateRef	connectionPrivate	= (SCNetworkConnectionPrivateRef)connection;
-	dispatch_group_t		drainGroup		= NULL;
-	dispatch_queue_t		drainQueue		= NULL;
 	int				sc_status		= kSCStatusFailed;
 	CFIndex				n			= 0;
 	Boolean				ok			= FALSE;
@@ -2446,12 +2507,10 @@ __SCNetworkConnectionUnscheduleFromRunLoop(SCNetworkConnectionRef	connection,
 				connectionPrivate->dispatchSource = NULL;
 			}
 
-			// save dispatchQueue/group, release reference when all queue'd blocks
-			// have been processed, allow re-scheduling
-			drainGroup = connectionPrivate->dispatchGroup;
-			connectionPrivate->dispatchGroup = NULL;
-			drainQueue = connectionPrivate->dispatchQueue;
-			connectionPrivate->dispatchQueue = NULL;
+			if (connectionPrivate->dispatchQueue != NULL) {
+				dispatch_release(connectionPrivate->dispatchQueue);
+				connectionPrivate->dispatchQueue = NULL;
+			}
 		} else {
 			dispatch_release(connectionPrivate->dispatchQueue);
 			connectionPrivate->dispatchQueue = NULL;
@@ -2464,7 +2523,7 @@ __SCNetworkConnectionUnscheduleFromRunLoop(SCNetworkConnectionRef	connection,
 		}
 
 		n = CFArrayGetCount(connectionPrivate->rlList);
-		if (n == 0 || !_SC_isScheduled(NULL, runLoop, runLoopMode, connectionPrivate->rlList)) {
+		if (n == 0 || !_SC_isScheduled(connection, runLoop, runLoopMode, connectionPrivate->rlList)) {
 			/*
 			 * if we are no longer scheduled to receive notifications for
 			 * this runLoop / runLoopMode
@@ -2512,19 +2571,13 @@ __SCNetworkConnectionUnscheduleFromRunLoop(SCNetworkConnectionRef	connection,
 		}
 	}
 
+	SC_log(LOG_DEBUG, "%sunscheduled", connectionPrivate->log_prefix);
+
 	ok = TRUE;
 
     done :
 
 	pthread_mutex_unlock(&connectionPrivate->lock);
-
-	if (drainGroup != NULL) {
-		dispatch_group_notify(drainGroup, drainQueue, ^{
-			// release group/queue references
-			dispatch_release(drainQueue);
-			dispatch_release(drainGroup);	// releases our connection reference
-		});
-	}
 
 	// release our reference
 	CFRelease(connection);
@@ -3899,10 +3952,10 @@ __SCNetworkConnectionIPv4AddressMatchesRoutes (struct sockaddr_in *addr_in, CFDi
 {
 	CFIndex		count;
 	CFIndex		i;
-	CFDataRef	maskData	= NULL;
-	struct in_addr	*maskDataArray;
-	CFDataRef	routeaddrData	= NULL;
-	struct in_addr	*routeaddrDataArray;
+	CFDataRef	maskData;
+	struct in_addr	*maskDataArray		= NULL;
+	CFDataRef	routeaddrData;
+	struct in_addr	*routeaddrDataArray	= NULL;
 
 	if (!isA_CFDictionary(routes)) {
 		return FALSE;
@@ -3925,7 +3978,7 @@ __SCNetworkConnectionIPv4AddressMatchesRoutes (struct sockaddr_in *addr_in, CFDi
 	for (i=0; i<count; i++) {
 		struct in_addr	routeAddr	= *routeaddrDataArray;
 
-		if (maskData) {
+		if (maskDataArray != NULL) {
 			struct in_addr	mask	= *maskDataArray;
 
 			if ((addr_in->sin_addr.s_addr & mask.s_addr) == (routeAddr.s_addr & mask.s_addr)) {
@@ -3958,7 +4011,7 @@ __SCNetworkConnectionIPv6AddressMatchesRoutes (struct sockaddr_in6 *addr_in6, CF
 	CFIndex		count;
 	CFIndex		i;
 	CFDataRef	maskData	= NULL;
-	struct in6_addr	*maskDataArray;
+	struct in6_addr	*maskDataArray	= NULL;
 	CFDataRef	routeaddrData	= NULL;
 	struct in6_addr	*routeaddrDataArray;
 
@@ -4773,6 +4826,8 @@ copyPasswordFromKeychain(CFStringRef uniqueID)
 						    (void *)&data);	// outData
 		if ((result == noErr) && (data != NULL) && (dataLen > 0)) {
 			password = CFStringCreateWithBytes(NULL, data, dataLen, kCFStringEncodingUTF8, TRUE);
+		}
+		if (data != NULL) {
 			(void) SecKeychainItemFreeContent(NULL, data);
 		}
 
@@ -4792,7 +4847,7 @@ __private_extern__
 char *
 __SCNetworkConnectionGetControllerPortName(void)
 {
-#if	((__MAC_OS_X_VERSION_MIN_REQUIRED >= 1090) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 70000)) && !TARGET_OS_SIMULATOR
+#if	!TARGET_OS_SIMULATOR
 	if (scnc_server_name == NULL){
 		if (!(sandbox_check(getpid(), "mach-lookup", SANDBOX_FILTER_GLOBAL_NAME | SANDBOX_CHECK_NO_REPORT, PPPCONTROLLER_SERVER_PRIV))){
 			scnc_server_name = PPPCONTROLLER_SERVER_PRIV;

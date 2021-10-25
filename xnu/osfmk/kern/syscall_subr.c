@@ -207,7 +207,7 @@ thread_switch(
 	boolean_t                       depress_option = FALSE;
 	boolean_t                       wait_option = FALSE;
 	wait_interrupt_t                interruptible = THREAD_ABORTSAFE;
-	port_to_thread_options_t        ptt_options = PORT_TO_THREAD_NOT_CURRENT_THREAD;
+	port_intrans_options_t        ptt_options = PORT_INTRANS_THREAD_NOT_CURRENT_THREAD;
 
 	/*
 	 *	Validate and process option.
@@ -233,12 +233,12 @@ thread_switch(
 	case SWITCH_OPTION_OSLOCK_DEPRESS:
 		depress_option = TRUE;
 		interruptible |= THREAD_WAIT_NOREPORT;
-		ptt_options |= PORT_TO_THREAD_IN_CURRENT_TASK;
+		ptt_options |= PORT_INTRANS_THREAD_IN_CURRENT_TASK;
 		break;
 	case SWITCH_OPTION_OSLOCK_WAIT:
 		wait_option = TRUE;
 		interruptible |= THREAD_WAIT_NOREPORT;
-		ptt_options |= PORT_TO_THREAD_IN_CURRENT_TASK;
+		ptt_options |= PORT_INTRANS_THREAD_IN_CURRENT_TASK;
 		break;
 	default:
 		return KERN_INVALID_ARGUMENT;

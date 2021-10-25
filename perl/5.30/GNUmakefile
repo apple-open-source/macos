@@ -4,7 +4,7 @@
 # tarball to create the project source directory
 ##---------------------------------------------------------------------
 PROJECT = perl
-VERSION = 5.30.2
+VERSION = 5.30.3
 COMPATVERSIONS =
 MODSUFFIX = -mod
 #TARVERSION :=
@@ -225,10 +225,6 @@ $(OBJROOT)/$(PROJECT)::
 	    -e 's/@VERSION_ALT@/$(ENV_VERSION_ALT)/g' \
 	    fix/README.macosx.ed | ed - $(PROJECT)/README.macosx && \
 	ed - $(PROJECT)/cpan/ExtUtils-MakeMaker/lib/ExtUtils/MM_Unix.pm < fix/ExtUtils_MM_Unix.pm.ed && \
-	(cd $(PROJECT) ; patch -p1 < $(SRCROOT)/fix/v530-0001-CVE-2020-10543.patch) && \
-	(cd $(PROJECT) ; patch -p1 < $(SRCROOT)/fix/v530-0002-CVE-2020-10878.patch) && \
-	(cd $(PROJECT) ; patch -p1 < $(SRCROOT)/fix/v530-0003-CVE-2020-10878.patch) && \
-	(cd $(PROJECT) ; patch -p1 < $(SRCROOT)/fix/v530-0004-CVE-2020-12723.patch) && \
 	(cd $(PROJECT) ; patch -p1 < $(SRCROOT)/fix/perl-extutils-makemaker-tbd-support.patch) && \
 	(cd $(PROJECT) ; sed -e 's#@SDKROOT@#$(SDKROOT)#g' $(SRCROOT)/fix/perl-compress-raw-bzip2-use-sdk.patch | patch -p1) && \
 	(cd $(PROJECT) ; sed -e 's#@SDKROOT@#$(SDKROOT)#g' $(SRCROOT)/fix/perl-compress-raw-zlib-use-sdk.patch | patch -p1)

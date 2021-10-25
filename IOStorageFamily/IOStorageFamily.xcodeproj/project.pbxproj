@@ -60,8 +60,12 @@
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
+		3D2608F126CADB6100E5B031 /* IOUserBlockStorageDevice.iig in Sources */ = {isa = PBXBuildFile; fileRef = 498DCD2F25593F34005ADBE1 /* IOUserBlockStorageDevice.iig */; };
+		3D2608F426CB065300E5B031 /* IOUserBlockStorageDevice_kext.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 498DCD8D255959C2005ADBE1 /* IOUserBlockStorageDevice_kext.cpp */; };
 		3D67B4DD242C80D400EFB54D /* IOBlockStoragePerfControlExports.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 728B62EF237A310B00FCA69D /* IOBlockStoragePerfControlExports.h */; };
 		3D67B4DE242C80DE00EFB54D /* IOBlockStoragePerfControlExports.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 728B62EF237A310B00FCA69D /* IOBlockStoragePerfControlExports.h */; };
+		3DCEA31726CB146A00F4D72D /* IORequest.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 498DCD90255959C2005ADBE1 /* IORequest.cpp */; };
+		3DCEA31826CB146A00F4D72D /* IORequestsPool.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 498DCD8F255959C2005ADBE1 /* IORequestsPool.cpp */; };
 		3F9C5E661644E23600FC6152 /* IOBlockStorageDevice.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0560FFAA008B961F11CA2AA4 /* IOBlockStorageDevice.h */; };
 		3F9C5E671644E23600FC6152 /* IOBlockStorageDriver.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0560FFAB008B961F11CA2AA4 /* IOBlockStorageDriver.h */; };
 		3F9C5E681644E23600FC6152 /* IOFDiskPartitionScheme.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0560FFAC008B961F11CA2AA4 /* IOFDiskPartitionScheme.h */; };
@@ -90,6 +94,16 @@
 		45EE25250ED6421200C2BC69 /* IOFilterScheme.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 60D01BE106E3CBC7005DAC06 /* IOFilterScheme.cpp */; };
 		45EE25260ED6422900C2BC69 /* IOFilterScheme.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 60D01BE006E3CBC7005DAC06 /* IOFilterScheme.h */; };
 		45EE25270ED6423200C2BC69 /* IOFilterScheme.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 60D01BE006E3CBC7005DAC06 /* IOFilterScheme.h */; };
+		498DCD3025593F34005ADBE1 /* IOUserBlockStorageDevice.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 498DCD2E25593F34005ADBE1 /* IOUserBlockStorageDevice.cpp */; };
+		498DCD3125593F34005ADBE1 /* IOUserBlockStorageDevice.iig in Sources */ = {isa = PBXBuildFile; fileRef = 498DCD2F25593F34005ADBE1 /* IOUserBlockStorageDevice.iig */; settings = {ATTRIBUTES = (Public, ); }; };
+		498DCD4125593F78005ADBE1 /* DriverKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 498DCD4025593F78005ADBE1 /* DriverKit.framework */; };
+		498DCD92255959C2005ADBE1 /* IORequest.h in Headers */ = {isa = PBXBuildFile; fileRef = 498DCD8C255959C2005ADBE1 /* IORequest.h */; };
+		498DCD93255959C2005ADBE1 /* IOUserBlockStorageDevice_kext.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 498DCD8D255959C2005ADBE1 /* IOUserBlockStorageDevice_kext.cpp */; };
+		498DCD94255959C2005ADBE1 /* IOUserBlockStorageDevice_kext.h in Headers */ = {isa = PBXBuildFile; fileRef = 498DCD8E255959C2005ADBE1 /* IOUserBlockStorageDevice_kext.h */; };
+		498DCD95255959C2005ADBE1 /* IORequestsPool.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 498DCD8F255959C2005ADBE1 /* IORequestsPool.cpp */; };
+		498DCD96255959C2005ADBE1 /* IORequest.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 498DCD90255959C2005ADBE1 /* IORequest.cpp */; };
+		498DCD97255959C2005ADBE1 /* IORequestsPool.h in Headers */ = {isa = PBXBuildFile; fileRef = 498DCD91255959C2005ADBE1 /* IORequestsPool.h */; };
+		498DCD9F25595A02005ADBE1 /* IOUserBlockStorageDevice.iig in Sources */ = {isa = PBXBuildFile; fileRef = 498DCD2F25593F34005ADBE1 /* IOUserBlockStorageDevice.iig */; };
 		603C2B8A18E9D0BF00FD7A03 /* IOStorageControllerCharacteristics.h in Headers */ = {isa = PBXBuildFile; fileRef = 603C2B8918E9D0BF00FD7A03 /* IOStorageControllerCharacteristics.h */; };
 		603C2B8B18E9D0BF00FD7A03 /* IOStorageControllerCharacteristics.h in Headers */ = {isa = PBXBuildFile; fileRef = 603C2B8918E9D0BF00FD7A03 /* IOStorageControllerCharacteristics.h */; };
 		603C2B8C18E9D11A00FD7A03 /* IOStorageControllerCharacteristics.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 603C2B8918E9D0BF00FD7A03 /* IOStorageControllerCharacteristics.h */; };
@@ -381,45 +395,68 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		0560FF97008B94F111CA2AA4 /* IOApplePartitionScheme.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IOApplePartitionScheme.cpp; sourceTree = "<group>"; };
-		0560FF98008B94F111CA2AA4 /* IOBlockStorageDriver.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IOBlockStorageDriver.cpp; sourceTree = "<group>"; };
-		0560FF99008B94F111CA2AA4 /* IOFDiskPartitionScheme.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IOFDiskPartitionScheme.cpp; sourceTree = "<group>"; };
-		0560FF9A008B94F111CA2AA4 /* IOMedia.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IOMedia.cpp; sourceTree = "<group>"; };
-		0560FF9B008B94F111CA2AA4 /* IOMediaBSDClient.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IOMediaBSDClient.cpp; sourceTree = "<group>"; };
-		0560FF9D008B94F111CA2AA4 /* IOPartitionScheme.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IOPartitionScheme.cpp; sourceTree = "<group>"; };
-		0560FF9E008B94F111CA2AA4 /* IOStorage.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IOStorage.cpp; sourceTree = "<group>"; };
-		0560FFA7008B954511CA2AA4 /* IOBlockStorageDevice.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IOBlockStorageDevice.cpp; sourceTree = "<group>"; };
-		0560FFA9008B961F11CA2AA4 /* IOApplePartitionScheme.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOApplePartitionScheme.h; sourceTree = "<group>"; };
-		0560FFAA008B961F11CA2AA4 /* IOBlockStorageDevice.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOBlockStorageDevice.h; sourceTree = "<group>"; };
-		0560FFAB008B961F11CA2AA4 /* IOBlockStorageDriver.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOBlockStorageDriver.h; sourceTree = "<group>"; };
-		0560FFAC008B961F11CA2AA4 /* IOFDiskPartitionScheme.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOFDiskPartitionScheme.h; sourceTree = "<group>"; };
-		0560FFAD008B961F11CA2AA4 /* IOMedia.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOMedia.h; sourceTree = "<group>"; };
-		0560FFAE008B961F11CA2AA4 /* IOMediaBSDClient.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOMediaBSDClient.h; sourceTree = "<group>"; };
-		0560FFB0008B961F11CA2AA4 /* IOPartitionScheme.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOPartitionScheme.h; sourceTree = "<group>"; };
-		0560FFB1008B961F11CA2AA4 /* IOStorage.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOStorage.h; sourceTree = "<group>"; };
+		0560FF97008B94F111CA2AA4 /* IOApplePartitionScheme.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = IOApplePartitionScheme.cpp; sourceTree = "<group>"; usesTabs = 0; };
+		0560FF98008B94F111CA2AA4 /* IOBlockStorageDriver.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = IOBlockStorageDriver.cpp; sourceTree = "<group>"; usesTabs = 0; };
+		0560FF99008B94F111CA2AA4 /* IOFDiskPartitionScheme.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = IOFDiskPartitionScheme.cpp; sourceTree = "<group>"; usesTabs = 0; };
+		0560FF9A008B94F111CA2AA4 /* IOMedia.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = IOMedia.cpp; sourceTree = "<group>"; usesTabs = 0; };
+		0560FF9B008B94F111CA2AA4 /* IOMediaBSDClient.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = IOMediaBSDClient.cpp; sourceTree = "<group>"; usesTabs = 0; };
+		0560FF9D008B94F111CA2AA4 /* IOPartitionScheme.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = IOPartitionScheme.cpp; sourceTree = "<group>"; usesTabs = 0; };
+		0560FF9E008B94F111CA2AA4 /* IOStorage.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = IOStorage.cpp; sourceTree = "<group>"; usesTabs = 0; };
+		0560FFA7008B954511CA2AA4 /* IOBlockStorageDevice.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = IOBlockStorageDevice.cpp; sourceTree = "<group>"; usesTabs = 0; };
+		0560FFA9008B961F11CA2AA4 /* IOApplePartitionScheme.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IOApplePartitionScheme.h; sourceTree = "<group>"; usesTabs = 0; };
+		0560FFAA008B961F11CA2AA4 /* IOBlockStorageDevice.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IOBlockStorageDevice.h; sourceTree = "<group>"; usesTabs = 0; };
+		0560FFAB008B961F11CA2AA4 /* IOBlockStorageDriver.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IOBlockStorageDriver.h; sourceTree = "<group>"; usesTabs = 0; };
+		0560FFAC008B961F11CA2AA4 /* IOFDiskPartitionScheme.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IOFDiskPartitionScheme.h; sourceTree = "<group>"; usesTabs = 0; };
+		0560FFAD008B961F11CA2AA4 /* IOMedia.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IOMedia.h; sourceTree = "<group>"; usesTabs = 0; };
+		0560FFAE008B961F11CA2AA4 /* IOMediaBSDClient.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IOMediaBSDClient.h; sourceTree = "<group>"; usesTabs = 0; };
+		0560FFB0008B961F11CA2AA4 /* IOPartitionScheme.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IOPartitionScheme.h; sourceTree = "<group>"; usesTabs = 0; };
+		0560FFB1008B961F11CA2AA4 /* IOStorage.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IOStorage.h; sourceTree = "<group>"; usesTabs = 0; };
 		089C167EFE841241C02AAC07 /* English */ = {isa = PBXFileReference; fileEncoding = 10; lastKnownFileType = text.plist.strings; name = English; path = English.lproj/InfoPlist.strings; sourceTree = "<group>"; };
-		6008184505C5671B00B652A2 /* IOGUIDPartitionScheme.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IOGUIDPartitionScheme.h; sourceTree = "<group>"; };
-		6008184605C5671B00B652A2 /* IOGUIDPartitionScheme.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = IOGUIDPartitionScheme.cpp; sourceTree = "<group>"; };
-		603C2B8918E9D0BF00FD7A03 /* IOStorageControllerCharacteristics.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IOStorageControllerCharacteristics.h; sourceTree = "<group>"; };
-		60AA59530D64D57400A955B0 /* IOStorageDeviceCharacteristics.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IOStorageDeviceCharacteristics.h; sourceTree = "<group>"; };
-		60AA59540D64D57400A955B0 /* IOStorageProtocolCharacteristics.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IOStorageProtocolCharacteristics.h; sourceTree = "<group>"; };
-		60BF9EB0122D7EC0000D606C /* IOStorageCardCharacteristics.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IOStorageCardCharacteristics.h; sourceTree = "<group>"; };
-		60D01BE006E3CBC7005DAC06 /* IOFilterScheme.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IOFilterScheme.h; sourceTree = "<group>"; };
-		60D01BE106E3CBC7005DAC06 /* IOFilterScheme.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = IOFilterScheme.cpp; sourceTree = "<group>"; };
-		60DB532506DCFE850053A0B9 /* IOAppleLabelScheme.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IOAppleLabelScheme.h; sourceTree = "<group>"; };
-		60DB532606DCFE850053A0B9 /* IOAppleLabelScheme.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = IOAppleLabelScheme.cpp; sourceTree = "<group>"; };
+		498DCD1D25593EEA005ADBE1 /* BlockStorageDeviceDriverKit.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = BlockStorageDeviceDriverKit.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		498DCD2025593EEA005ADBE1 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		498DCD2E25593F34005ADBE1 /* IOUserBlockStorageDevice.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = IOUserBlockStorageDevice.cpp; sourceTree = "<group>"; };
+		498DCD2F25593F34005ADBE1 /* IOUserBlockStorageDevice.iig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.iig; path = IOUserBlockStorageDevice.iig; sourceTree = "<group>"; };
+		498DCD4025593F78005ADBE1 /* DriverKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = DriverKit.framework; path = Platforms/MacOSX.platform/Developer/SDKs/DriverKit20.0.sdk/System/DriverKit/System/Library/Frameworks/DriverKit.framework; sourceTree = DEVELOPER_DIR; };
+		498DCD8C255959C2005ADBE1 /* IORequest.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IORequest.h; sourceTree = "<group>"; usesTabs = 0; };
+		498DCD8D255959C2005ADBE1 /* IOUserBlockStorageDevice_kext.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = IOUserBlockStorageDevice_kext.cpp; sourceTree = "<group>"; usesTabs = 0; };
+		498DCD8E255959C2005ADBE1 /* IOUserBlockStorageDevice_kext.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IOUserBlockStorageDevice_kext.h; sourceTree = "<group>"; usesTabs = 0; };
+		498DCD8F255959C2005ADBE1 /* IORequestsPool.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = IORequestsPool.cpp; sourceTree = "<group>"; usesTabs = 0; };
+		498DCD90255959C2005ADBE1 /* IORequest.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = IORequest.cpp; sourceTree = "<group>"; usesTabs = 0; };
+		498DCD91255959C2005ADBE1 /* IORequestsPool.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IORequestsPool.h; sourceTree = "<group>"; usesTabs = 0; };
+		6008184505C5671B00B652A2 /* IOGUIDPartitionScheme.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IOGUIDPartitionScheme.h; sourceTree = "<group>"; usesTabs = 0; };
+		6008184605C5671B00B652A2 /* IOGUIDPartitionScheme.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = IOGUIDPartitionScheme.cpp; sourceTree = "<group>"; usesTabs = 0; };
+		603C2B8918E9D0BF00FD7A03 /* IOStorageControllerCharacteristics.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IOStorageControllerCharacteristics.h; sourceTree = "<group>"; usesTabs = 0; };
+		60AA59530D64D57400A955B0 /* IOStorageDeviceCharacteristics.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IOStorageDeviceCharacteristics.h; sourceTree = "<group>"; usesTabs = 0; };
+		60AA59540D64D57400A955B0 /* IOStorageProtocolCharacteristics.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IOStorageProtocolCharacteristics.h; sourceTree = "<group>"; usesTabs = 0; };
+		60BF9EB0122D7EC0000D606C /* IOStorageCardCharacteristics.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IOStorageCardCharacteristics.h; sourceTree = "<group>"; usesTabs = 0; };
+		60D01BE006E3CBC7005DAC06 /* IOFilterScheme.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IOFilterScheme.h; sourceTree = "<group>"; usesTabs = 0; };
+		60D01BE106E3CBC7005DAC06 /* IOFilterScheme.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = IOFilterScheme.cpp; sourceTree = "<group>"; usesTabs = 0; };
+		60DB532506DCFE850053A0B9 /* IOAppleLabelScheme.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IOAppleLabelScheme.h; sourceTree = "<group>"; usesTabs = 0; };
+		60DB532606DCFE850053A0B9 /* IOAppleLabelScheme.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = IOAppleLabelScheme.cpp; sourceTree = "<group>"; usesTabs = 0; };
 		60DDA51B07382C6A00FAB8B3 /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		60DDA51C07382C6A00FAB8B3 /* IOStorageFamily.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IOStorageFamily.kext; sourceTree = BUILT_PRODUCTS_DIR; };
 		60DDA54307382D0000FAB8B3 /* Kernel.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Kernel.framework; path = /System/Library/Frameworks/Kernel.framework; sourceTree = "<absolute>"; };
 		722F152A1F16D2F4005ADD98 /* kext.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = kext.xcconfig; sourceTree = "<group>"; };
-		728B62EF237A310B00FCA69D /* IOBlockStoragePerfControlExports.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = IOBlockStoragePerfControlExports.h; sourceTree = "<group>"; };
+		728B62EF237A310B00FCA69D /* IOBlockStoragePerfControlExports.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IOBlockStoragePerfControlExports.h; sourceTree = "<group>"; usesTabs = 0; };
 		C1E55B250D32D158002875AA /* IOStorageFamily.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IOStorageFamily.kext; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		498DCD1A25593EEA005ADBE1 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				498DCD4125593F78005ADBE1 /* DriverKit.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
 		089C166AFE841209C02AAC07 /* IOStorageFamily */ = {
 			isa = PBXGroup;
 			children = (
+				498DCD1E25593EEA005ADBE1 /* BlockStorageDeviceDriverKit */,
 				60DDA54607382D0300FAB8B3 /* Frameworks */,
 				19C28FB6FE9D52B211CA2CBB /* Products */,
 				089C167CFE841241C02AAC07 /* Resources */,
@@ -443,6 +480,7 @@
 			children = (
 				60DDA51C07382C6A00FAB8B3 /* IOStorageFamily.kext */,
 				C1E55B250D32D158002875AA /* IOStorageFamily.kext */,
+				498DCD1D25593EEA005ADBE1 /* BlockStorageDeviceDriverKit.framework */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -450,6 +488,7 @@
 		247142CAFF3F8F9811CA285C /* Sources */ = {
 			isa = PBXGroup;
 			children = (
+				499BBD3C255969260073DCDB /* BlockStorageDeviceDriverKitKernelSupport */,
 				60DB532606DCFE850053A0B9 /* IOAppleLabelScheme.cpp */,
 				60DB532506DCFE850053A0B9 /* IOAppleLabelScheme.h */,
 				0560FF97008B94F111CA2AA4 /* IOApplePartitionScheme.cpp */,
@@ -481,9 +520,33 @@
 			name = Sources;
 			sourceTree = "<group>";
 		};
+		498DCD1E25593EEA005ADBE1 /* BlockStorageDeviceDriverKit */ = {
+			isa = PBXGroup;
+			children = (
+				498DCD2E25593F34005ADBE1 /* IOUserBlockStorageDevice.cpp */,
+				498DCD2F25593F34005ADBE1 /* IOUserBlockStorageDevice.iig */,
+				498DCD2025593EEA005ADBE1 /* Info.plist */,
+			);
+			path = BlockStorageDeviceDriverKit;
+			sourceTree = "<group>";
+		};
+		499BBD3C255969260073DCDB /* BlockStorageDeviceDriverKitKernelSupport */ = {
+			isa = PBXGroup;
+			children = (
+				498DCD8C255959C2005ADBE1 /* IORequest.h */,
+				498DCD8E255959C2005ADBE1 /* IOUserBlockStorageDevice_kext.h */,
+				498DCD91255959C2005ADBE1 /* IORequestsPool.h */,
+				498DCD8D255959C2005ADBE1 /* IOUserBlockStorageDevice_kext.cpp */,
+				498DCD90255959C2005ADBE1 /* IORequest.cpp */,
+				498DCD8F255959C2005ADBE1 /* IORequestsPool.cpp */,
+			);
+			name = BlockStorageDeviceDriverKitKernelSupport;
+			sourceTree = "<group>";
+		};
 		60DDA54607382D0300FAB8B3 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				498DCD4025593F78005ADBE1 /* DriverKit.framework */,
 				60DDA54307382D0000FAB8B3 /* Kernel.framework */,
 			);
 			name = Frameworks;
@@ -492,6 +555,13 @@
 /* End PBXGroup section */
 
 /* Begin PBXHeadersBuildPhase section */
+		498DCD1825593EEA005ADBE1 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		60DDA4F907382C6A00FAB8B3 /* Headers */ = {
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
@@ -499,13 +569,16 @@
 				728B62F0237A310B00FCA69D /* IOBlockStoragePerfControlExports.h in Headers */,
 				60DDA4FA07382C6A00FAB8B3 /* IOAppleLabelScheme.h in Headers */,
 				60DDA4FB07382C6A00FAB8B3 /* IOApplePartitionScheme.h in Headers */,
+				498DCD97255959C2005ADBE1 /* IORequestsPool.h in Headers */,
 				60DDA4FC07382C6A00FAB8B3 /* IOBlockStorageDevice.h in Headers */,
 				60DDA4FD07382C6A00FAB8B3 /* IOBlockStorageDriver.h in Headers */,
 				60DDA4FE07382C6A00FAB8B3 /* IOFDiskPartitionScheme.h in Headers */,
 				60DDA4FF07382C6A00FAB8B3 /* IOFilterScheme.h in Headers */,
 				60DDA50007382C6A00FAB8B3 /* IOGUIDPartitionScheme.h in Headers */,
+				498DCD92255959C2005ADBE1 /* IORequest.h in Headers */,
 				60DDA50107382C6A00FAB8B3 /* IOMedia.h in Headers */,
 				60DDA50207382C6A00FAB8B3 /* IOMediaBSDClient.h in Headers */,
+				498DCD94255959C2005ADBE1 /* IOUserBlockStorageDevice_kext.h in Headers */,
 				60DDA50407382C6A00FAB8B3 /* IOPartitionScheme.h in Headers */,
 				60DDA50507382C6A00FAB8B3 /* IOStorage.h in Headers */,
 				60BF9EB1122D7EF1000D606C /* IOStorageCardCharacteristics.h in Headers */,
@@ -540,6 +613,27 @@
 /* End PBXHeadersBuildPhase section */
 
 /* Begin PBXNativeTarget section */
+		498DCD1C25593EEA005ADBE1 /* BlockStorageDeviceDriverKit */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 498DCD2625593EEA005ADBE1 /* Build configuration list for PBXNativeTarget "BlockStorageDeviceDriverKit" */;
+			buildPhases = (
+				529B5D3425CC8A94009EF9B4 /* Install .iig files */,
+				529B5D3525CD54B5009EF9B4 /* stageFrameworks */,
+				529B5D3625CD5543009EF9B4 /* iigFramework */,
+				498DCD1825593EEA005ADBE1 /* Headers */,
+				498DCD1925593EEA005ADBE1 /* Sources */,
+				498DCD1A25593EEA005ADBE1 /* Frameworks */,
+				498DCD1B25593EEA005ADBE1 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = BlockStorageDeviceDriverKit;
+			productName = BlockStorageDeviceDriverKit;
+			productReference = 498DCD1D25593EEA005ADBE1 /* BlockStorageDeviceDriverKit.framework */;
+			productType = "com.apple.product-type.framework";
+		};
 		60DDA4F607382C6A00FAB8B3 /* IOStorageFamily */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 60CD8A3308A7E7F300DC31BD /* Build configuration list for PBXNativeTarget "IOStorageFamily" */;
@@ -586,6 +680,12 @@
 			isa = PBXProject;
 			attributes = {
 				LastUpgradeCheck = 0630;
+				TargetAttributes = {
+					498DCD1C25593EEA005ADBE1 = {
+						CreatedOnToolsVersion = 12.0;
+						ProvisioningStyle = Automatic;
+					};
+				};
 			};
 			buildConfigurationList = 60CD8A3708A7E7F300DC31BD /* Build configuration list for PBXProject "IOStorageFamily" */;
 			compatibilityVersion = "Xcode 3.2";
@@ -605,11 +705,19 @@
 				606B789F0D4A556B00A2EB99 /* IOStorageFamily Headers_Embedded */,
 				3F9C5E641644E23600FC6152 /* IOStorageFamily_Sim */,
 				723761472447C3BA000AFEA7 /* IOStorageFamily Headers_DriverKit */,
+				498DCD1C25593EEA005ADBE1 /* BlockStorageDeviceDriverKit */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		498DCD1B25593EEA005ADBE1 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		60DDA50607382C6A00FAB8B3 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -633,6 +741,63 @@
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
 			shellScript = "headers=\"${DSTROOT}${INSTALL_PATH_PREFIX}${SYSTEM_LIBRARY_DIR}/Frameworks/IOKit.framework/Versions/A/Headers/storage/*.h\";\nfor header in ${headers}; do\n    unifdef -UKERNEL \"${header}\" > \"${header}.unifdef\"\n    mv \"${header}.unifdef\" \"${header}\"\ndone\n";
+		};
+		529B5D3425CC8A94009EF9B4 /* Install .iig files */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/BlockStorageDeviceDriverKit/IOUserBlockStorageDevice.iig",
+			);
+			name = "Install .iig files";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = "/bin/bash -ex";
+			shellScript = "if [[ \"${ACTION}\" == installhdrs || \"${ACTION}\" == installapi ]]; then\nfor (( i=0; i < ${SCRIPT_INPUT_FILE_COUNT}; i++ )); do\nf=\"SCRIPT_INPUT_FILE_${i}\"\nditto ${!f} ${TARGET_BUILD_DIR}/${FULL_PRODUCT_NAME}/Headers/\ndone\nfi\n";
+		};
+		529B5D3525CD54B5009EF9B4 /* stageFrameworks */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"$(SDKROOT)/$(DRIVERKITROOT)/System/Library/Frameworks/DriverKit.framework",
+			);
+			name = stageFrameworks;
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = "/bin/bash -ex";
+			shellScript = "if [[ \"${ACTION}\" == installapi && -f $SDKROOT/$DRIVERKITROOT/System/Library/Frameworks/DriverKit.framework/Headers/stageFrameworks.sh ]]; then\n. $SDKROOT/$DRIVERKITROOT/System/Library/Frameworks/DriverKit.framework/Headers/stageFrameworks.sh;\nfi\n";
+		};
+		529B5D3625CD5543009EF9B4 /* iigFramework */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"$(TARGET_BUILD_DIR)/$(FULL_PRODUCT_NAME)",
+			);
+			name = iigFramework;
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = "/bin/bash -ex";
+			shellScript = "if [[ \"${ACTION}\" == installapi ]]\nthen\n. ${SRCROOT}/iigFramework.sh ${SCRIPT_INPUT_FILE_0} ${SDK_NAME}\nfi\n";
 		};
 		60284E141517B57C00FDF55B /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -693,10 +858,22 @@
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		498DCD1925593EEA005ADBE1 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				498DCD3125593F34005ADBE1 /* IOUserBlockStorageDevice.iig in Sources */,
+				498DCD3025593F34005ADBE1 /* IOUserBlockStorageDevice.cpp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		60DDA50B07382C6A00FAB8B3 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				498DCD9F25595A02005ADBE1 /* IOUserBlockStorageDevice.iig in Sources */,
+				498DCD95255959C2005ADBE1 /* IORequestsPool.cpp in Sources */,
+				498DCD93255959C2005ADBE1 /* IOUserBlockStorageDevice_kext.cpp in Sources */,
 				60DDA50C07382C6A00FAB8B3 /* IOAppleLabelScheme.cpp in Sources */,
 				60DDA50D07382C6A00FAB8B3 /* IOApplePartitionScheme.cpp in Sources */,
 				60DDA50E07382C6A00FAB8B3 /* IOBlockStorageDevice.cpp in Sources */,
@@ -708,6 +885,7 @@
 				60DDA51407382C6A00FAB8B3 /* IOMediaBSDClient.cpp in Sources */,
 				60DDA51607382C6A00FAB8B3 /* IOPartitionScheme.cpp in Sources */,
 				60DDA51707382C6A00FAB8B3 /* IOStorage.cpp in Sources */,
+				498DCD96255959C2005ADBE1 /* IORequest.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -715,6 +893,10 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				3DCEA31726CB146A00F4D72D /* IORequest.cpp in Sources */,
+				3DCEA31826CB146A00F4D72D /* IORequestsPool.cpp in Sources */,
+				3D2608F426CB065300E5B031 /* IOUserBlockStorageDevice_kext.cpp in Sources */,
+				3D2608F126CADB6100E5B031 /* IOUserBlockStorageDevice.iig in Sources */,
 				606006701746B7DA00B4220D /* IOApplePartitionScheme.cpp in Sources */,
 				C1E55B180D32D158002875AA /* IOBlockStorageDevice.cpp in Sources */,
 				C1E55B190D32D158002875AA /* IOBlockStorageDriver.cpp in Sources */,
@@ -768,6 +950,8 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CLANG_CXX_LANGUAGE_STANDARD = "c++0x";
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				IIG_FRAMEWORK_NAME = BlockStorageDeviceDriverKit;
 				INFOPLIST_FILE = Info.plist;
 				INFOPLIST_PREFIX_HEADER = "$(SDKROOT)/usr/include/TargetConditionals.h";
 				INFOPLIST_PREPROCESS = YES;
@@ -775,6 +959,7 @@
 					"-fprofile-instr-generate",
 					"-fcoverage-mapping",
 				);
+				OTHER_IIG_FLAGS = "--framework BlockStorageDeviceDriverKit";
 				OTHER_LDFLAGS = "";
 				"OTHER_LDFLAGS[sdk=macosx*]" = (
 					"-Wl,-sectcreate,__LINKINFO,__symbolsets,$(SYMROOT)/symbolsets.plist",
@@ -789,6 +974,7 @@
 		305CA1DD1AD49B7700E8FE14 /* DebugCoverage */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				IIG_FRAMEWORK_NAME = BlockStorageDeviceDriverKit;
 				INFOPLIST_FILE = Info.plist;
 				INFOPLIST_PREFIX_HEADER = "$(SDKROOT)/usr/include/TargetConditionals.h";
 				INFOPLIST_PREPROCESS = YES;
@@ -796,6 +982,7 @@
 					"-fprofile-instr-generate",
 					"-fcoverage-mapping",
 				);
+				OTHER_IIG_FLAGS = "--framework BlockStorageDeviceDriverKit";
 				OTHER_LDFLAGS = "";
 				PRODUCT_NAME = IOStorageFamily;
 				WARNING_CFLAGS = "-Wall";
@@ -843,6 +1030,8 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CLANG_CXX_LANGUAGE_STANDARD = "c++0x";
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				IIG_FRAMEWORK_NAME = BlockStorageDeviceDriverKit;
 				INFOPLIST_FILE = Info.plist;
 				INFOPLIST_PREFIX_HEADER = "$(SDKROOT)/usr/include/TargetConditionals.h";
 				INFOPLIST_PREPROCESS = YES;
@@ -850,6 +1039,7 @@
 					"-fprofile-instr-generate",
 					"-fcoverage-mapping",
 				);
+				OTHER_IIG_FLAGS = "--framework BlockStorageDeviceDriverKit";
 				OTHER_LDFLAGS = "";
 				"OTHER_LDFLAGS[sdk=macosx*]" = (
 					"-Wl,-sectcreate,__LINKINFO,__symbolsets,$(SYMROOT)/symbolsets.plist",
@@ -864,6 +1054,7 @@
 		305CA1E31AD49B7F00E8FE14 /* ReleaseCoverage */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				IIG_FRAMEWORK_NAME = BlockStorageDeviceDriverKit;
 				INFOPLIST_FILE = Info.plist;
 				INFOPLIST_PREFIX_HEADER = "$(SDKROOT)/usr/include/TargetConditionals.h";
 				INFOPLIST_PREPROCESS = YES;
@@ -871,6 +1062,7 @@
 					"-fprofile-instr-generate",
 					"-fcoverage-mapping",
 				);
+				OTHER_IIG_FLAGS = "--framework BlockStorageDeviceDriverKit";
 				OTHER_LDFLAGS = "";
 				PRODUCT_NAME = IOStorageFamily;
 				WARNING_CFLAGS = "-Wall";
@@ -923,6 +1115,348 @@
 			};
 			name = Release;
 		};
+		498DCD2225593EEA005ADBE1 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++17";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEFINES_MODULE = YES;
+				DRIVERKIT_DEPLOYMENT_TARGET = 19.4;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				DYLIB_INSTALL_NAME_BASE = "";
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)/System/DriverKit/System/Library/Frameworks",
+				);
+				FRAMEWORK_VERSION = A;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				INFOPLIST_FILE = BlockStorageDeviceDriverKit/Info.plist;
+				INSTALLHDRS_COPY_PHASE = YES;
+				INSTALLHDRS_SCRIPT_PHASE = YES;
+				INSTALL_PATH = "$(DRIVERKITROOT)/System/Library/Frameworks";
+				LD_DYLIB_INSTALL_NAME = "$(DRIVERKITROOT)/System/Library/Frameworks/$(EXECUTABLE_PATH)";
+				LD_RUNPATH_SEARCH_PATHS = "";
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				OTHER_IIG_CFLAGS = "-I$(SRCROOT) -isystem $(SDKROOT)/$(DRIVERKITROOT)/usr/include -iframework $(SDKROOT)/$(DRIVERKITROOT)/System/Library/Frameworks";
+				OTHER_TAPI_FLAGS = "-x c++ -std=gnu++1z";
+				"OTHER_TAPI_FLAGS[sdk=driverkit20.0.internal]" = "-x c++ -std=gnu++1z -fno-rtti";
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.BlockStorageDeviceDriverKit;
+				PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
+				RUN_CLANG_STATIC_ANALYZER = YES;
+				SDKROOT = driverkit;
+				SKIP_INSTALL = NO;
+				SUPPORTS_TEXT_BASED_API = YES;
+				TAPI_VERIFY_MODE = Pedantic;
+				VERSIONING_SYSTEM = "apple-generic";
+				VERSION_INFO_PREFIX = "__attribute__((visibility(\"hidden\"))) __";
+			};
+			name = Debug;
+		};
+		498DCD2325593EEA005ADBE1 /* DebugCoverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++17";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEFINES_MODULE = YES;
+				DRIVERKIT_DEPLOYMENT_TARGET = 19.4;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				DYLIB_INSTALL_NAME_BASE = "";
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)/System/DriverKit/System/Library/Frameworks",
+				);
+				FRAMEWORK_VERSION = A;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				INFOPLIST_FILE = BlockStorageDeviceDriverKit/Info.plist;
+				INSTALLHDRS_COPY_PHASE = YES;
+				INSTALLHDRS_SCRIPT_PHASE = YES;
+				INSTALL_PATH = "$(DRIVERKITROOT)/System/Library/Frameworks";
+				LD_DYLIB_INSTALL_NAME = "$(DRIVERKITROOT)/System/Library/Frameworks/$(EXECUTABLE_PATH)";
+				LD_RUNPATH_SEARCH_PATHS = "";
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				OTHER_IIG_CFLAGS = "-I$(SRCROOT) -isystem $(SDKROOT)/$(DRIVERKITROOT)/usr/include -iframework $(SDKROOT)/$(DRIVERKITROOT)/System/Library/Frameworks";
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.BlockStorageDeviceDriverKit;
+				PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
+				RUN_CLANG_STATIC_ANALYZER = YES;
+				SDKROOT = driverkit;
+				SKIP_INSTALL = NO;
+				SUPPORTS_TEXT_BASED_API = YES;
+				TAPI_VERIFY_MODE = Pedantic;
+				VERSIONING_SYSTEM = "apple-generic";
+				VERSION_INFO_PREFIX = "__attribute__((visibility(\"hidden\"))) __";
+			};
+			name = DebugCoverage;
+		};
+		498DCD2425593EEA005ADBE1 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++17";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEFINES_MODULE = YES;
+				DRIVERKIT_DEPLOYMENT_TARGET = 19.4;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				DYLIB_INSTALL_NAME_BASE = "";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)/System/DriverKit/System/Library/Frameworks",
+				);
+				FRAMEWORK_VERSION = A;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				INFOPLIST_FILE = BlockStorageDeviceDriverKit/Info.plist;
+				INSTALLHDRS_COPY_PHASE = YES;
+				INSTALLHDRS_SCRIPT_PHASE = YES;
+				INSTALL_PATH = "$(DRIVERKITROOT)/System/Library/Frameworks";
+				LD_DYLIB_INSTALL_NAME = "$(DRIVERKITROOT)/System/Library/Frameworks/$(EXECUTABLE_PATH)";
+				LD_RUNPATH_SEARCH_PATHS = "";
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				OTHER_IIG_CFLAGS = "-I$(SRCROOT) -isystem $(SDKROOT)/$(DRIVERKITROOT)/usr/include -iframework $(SDKROOT)/$(DRIVERKITROOT)/System/Library/Frameworks";
+				OTHER_TAPI_FLAGS = "-x c++ -std=gnu++1z";
+				"OTHER_TAPI_FLAGS[sdk=driverkit20.0.internal]" = "-x c++ -std=gnu++1z -fno-rtti";
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.BlockStorageDeviceDriverKit;
+				PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
+				RUN_CLANG_STATIC_ANALYZER = YES;
+				SDKROOT = driverkit;
+				SKIP_INSTALL = NO;
+				SUPPORTS_TEXT_BASED_API = YES;
+				TAPI_VERIFY_MODE = Pedantic;
+				VERSIONING_SYSTEM = "apple-generic";
+				VERSION_INFO_PREFIX = "__attribute__((visibility(\"hidden\"))) __";
+			};
+			name = Release;
+		};
+		498DCD2525593EEA005ADBE1 /* ReleaseCoverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++17";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEFINES_MODULE = YES;
+				DRIVERKIT_DEPLOYMENT_TARGET = 19.4;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				DYLIB_INSTALL_NAME_BASE = "";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)/System/DriverKit/System/Library/Frameworks",
+				);
+				FRAMEWORK_VERSION = A;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				INFOPLIST_FILE = BlockStorageDeviceDriverKit/Info.plist;
+				INSTALLHDRS_COPY_PHASE = YES;
+				INSTALLHDRS_SCRIPT_PHASE = YES;
+				INSTALL_PATH = "$(DRIVERKITROOT)/System/Library/Frameworks";
+				LD_DYLIB_INSTALL_NAME = "$(DRIVERKITROOT)/System/Library/Frameworks/$(EXECUTABLE_PATH)";
+				LD_RUNPATH_SEARCH_PATHS = "";
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				OTHER_IIG_CFLAGS = "-I$(SRCROOT) -isystem $(SDKROOT)/$(DRIVERKITROOT)/usr/include -iframework $(SDKROOT)/$(DRIVERKITROOT)/System/Library/Frameworks";
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.BlockStorageDeviceDriverKit;
+				PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
+				RUN_CLANG_STATIC_ANALYZER = YES;
+				SDKROOT = driverkit;
+				SKIP_INSTALL = NO;
+				SUPPORTS_TEXT_BASED_API = YES;
+				TAPI_VERIFY_MODE = Pedantic;
+				VERSIONING_SYSTEM = "apple-generic";
+				VERSION_INFO_PREFIX = "__attribute__((visibility(\"hidden\"))) __";
+			};
+			name = ReleaseCoverage;
+		};
 		606B78A00D4A556B00A2EB99 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -946,9 +1480,12 @@
 			baseConfigurationReference = 722F152A1F16D2F4005ADD98 /* kext.xcconfig */;
 			buildSettings = {
 				CLANG_CXX_LANGUAGE_STANDARD = "c++0x";
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				IIG_FRAMEWORK_NAME = BlockStorageDeviceDriverKit;
 				INFOPLIST_FILE = Info.plist;
 				INFOPLIST_PREFIX_HEADER = "$(SDKROOT)/usr/include/TargetConditionals.h";
 				INFOPLIST_PREPROCESS = YES;
+				OTHER_IIG_FLAGS = "--framework BlockStorageDeviceDriverKit";
 				OTHER_LDFLAGS = "";
 				"OTHER_LDFLAGS[sdk=macosx*]" = (
 					"-Wl,-sectcreate,__LINKINFO,__symbolsets,$(SYMROOT)/symbolsets.plist",
@@ -965,9 +1502,12 @@
 			baseConfigurationReference = 722F152A1F16D2F4005ADD98 /* kext.xcconfig */;
 			buildSettings = {
 				CLANG_CXX_LANGUAGE_STANDARD = "c++0x";
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				IIG_FRAMEWORK_NAME = BlockStorageDeviceDriverKit;
 				INFOPLIST_FILE = Info.plist;
 				INFOPLIST_PREFIX_HEADER = "$(SDKROOT)/usr/include/TargetConditionals.h";
 				INFOPLIST_PREPROCESS = YES;
+				OTHER_IIG_FLAGS = "--framework BlockStorageDeviceDriverKit";
 				OTHER_LDFLAGS = "";
 				"OTHER_LDFLAGS[sdk=macosx*]" = (
 					"-Wl,-sectcreate,__LINKINFO,__symbolsets,$(SYMROOT)/symbolsets.plist",
@@ -1059,9 +1599,11 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 722F152A1F16D2F4005ADD98 /* kext.xcconfig */;
 			buildSettings = {
+				IIG_FRAMEWORK_NAME = BlockStorageDeviceDriverKit;
 				INFOPLIST_FILE = Info.plist;
 				INFOPLIST_PREFIX_HEADER = "$(SDKROOT)/usr/include/TargetConditionals.h";
 				INFOPLIST_PREPROCESS = YES;
+				OTHER_IIG_FLAGS = "--framework BlockStorageDeviceDriverKit";
 				PRODUCT_NAME = IOStorageFamily;
 				WARNING_CFLAGS = "-Wall";
 				WRAPPER_EXTENSION = kext;
@@ -1072,9 +1614,11 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 722F152A1F16D2F4005ADD98 /* kext.xcconfig */;
 			buildSettings = {
+				IIG_FRAMEWORK_NAME = BlockStorageDeviceDriverKit;
 				INFOPLIST_FILE = Info.plist;
 				INFOPLIST_PREFIX_HEADER = "$(SDKROOT)/usr/include/TargetConditionals.h";
 				INFOPLIST_PREPROCESS = YES;
+				OTHER_IIG_FLAGS = "--framework BlockStorageDeviceDriverKit";
 				PRODUCT_NAME = IOStorageFamily;
 				WARNING_CFLAGS = "-Wall";
 				WRAPPER_EXTENSION = kext;
@@ -1091,6 +1635,17 @@
 				305CA1E01AD49B7700E8FE14 /* DebugCoverage */,
 				3F9C5E821644E23600FC6152 /* Release */,
 				305CA1E61AD49B7F00E8FE14 /* ReleaseCoverage */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		498DCD2625593EEA005ADBE1 /* Build configuration list for PBXNativeTarget "BlockStorageDeviceDriverKit" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				498DCD2225593EEA005ADBE1 /* Debug */,
+				498DCD2325593EEA005ADBE1 /* DebugCoverage */,
+				498DCD2425593EEA005ADBE1 /* Release */,
+				498DCD2525593EEA005ADBE1 /* ReleaseCoverage */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

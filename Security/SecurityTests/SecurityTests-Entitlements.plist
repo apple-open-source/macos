@@ -51,5 +51,11 @@
 	</array>
 	<key>com.apple.private.security.storage.Keychains</key>
 	<true/>
+	<key>com.apple.application-identifier</key>
+	<string>com.apple.security.regressions</string>
+	<key>com.apple.private.AuthorizationServices</key>
+	<array>
+		<string>com.apple.trust-settings.admin</string>
+	</array>
 </dict>
 </plist>

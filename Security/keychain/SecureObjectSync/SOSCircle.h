@@ -171,6 +171,9 @@ SOSConcordanceStatus SOSCircleConcordanceTrust(SOSCircleRef known_circle, SOSCir
 CFDataRef SOSCircleCopyNextGenSignatureWithPeerAdded(SOSCircleRef circle, SOSPeerInfoRef peer, SecKeyRef privKey, CFErrorRef *error);
 bool SOSCirclePreGenerationSign(SOSCircleRef circle, SecKeyRef userPubKey, CFErrorRef *error);
 
+// SOS Deprecation function
+bool SOSCircleIsLegacy(SOSCircleRef circle, SecKeyRef userPubKey);
+
 //
 // Testing routines:
 //

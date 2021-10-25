@@ -1,20 +1,23 @@
 framework module IOKit [extern_c] {
+  header "IOReturn.h"
+  header "IOMapTypes.h"
+  header "IOTypes.h"
+  header "IOKitKeys.h"
+  header "OSMessageNotification.h"
+  header "IOKitLib.h"
   header "IOBSD.h"
   header "IODataQueueClient.h"
-  header "IOReturn.h"
   header "IOCFBundle.h"
   header "IODataQueueShared.h"
   header "IOSharedLock.h"
   header "IOCFPlugIn.h"
-  header "IOKitKeys.h"
-  header "IOTypes.h"
   header "IOCFSerialize.h"
-  header "IOKitLib.h"
-  header "OSMessageNotification.h"
   header "IOCFURLAccess.h"
   header "IOKitServer.h"
   header "IOCFUnserialize.h"
   header "IOMessage.h"
+  header "IORPC.h"
+  header "IOUserServer.h"
 
   export *
 
@@ -69,6 +72,11 @@ framework module IOKit [extern_c] {
     header "hid/IOHIDElement.h"
     header "hid/IOHIDManager.h"
     header "hid/IOHIDValue.h"
+    header "hid/IOHIDDeviceKeys.h"
+    header "hid/IOHIDDeviceTypes.h"
+    header "hid/IOHIDEventServiceKeys.h"
+    header "hid/IOHIDEventServiceTypes.h"
+    header "hid/IOHIDProperties.h"
     export *
   }
 
@@ -80,6 +88,9 @@ framework module IOKit [extern_c] {
     header "hidsystem/IOLLEvent.h"
     header "hidsystem/IOHIDShared.h"
     header "hidsystem/ev_keymap.h"
+    header "hidsystem/IOHIDEventSystemClient.h"
+    header "hidsystem/IOHIDServiceClient.h"
+    header "hidsystem/IOHIDUserDevice.h"
     export *
   }
   	

@@ -42,10 +42,10 @@
 
 #include "cmslocal.h"
 
-#include "secitem.h"
-#include "secoid.h"
 #include <security_asn1/secasn1.h>
 #include <security_asn1/secerr.h>
+#include "secitem.h"
+#include "secoid.h"
 
 /*
  * SecCmsDigestedDataCreate - create a digestedData object (presumably for encoding)
@@ -55,12 +55,11 @@
  * contentInfo must be filled by the user
  * digest will be calculated while encoding
  */
-SecCmsDigestedDataRef
-SecCmsDigestedDataCreate(SecCmsMessageRef cmsg, SECAlgorithmID *digestalg)
+SecCmsDigestedDataRef SecCmsDigestedDataCreate(SecCmsMessageRef cmsg, SECAlgorithmID* digestalg)
 {
-    void *mark;
+    void* mark;
     SecCmsDigestedDataRef digd;
-    PLArenaPool *poolp;
+    PLArenaPool* poolp;
 
     poolp = cmsg->poolp;
 
@@ -68,12 +67,12 @@ SecCmsDigestedDataCreate(SecCmsMessageRef cmsg, SECAlgorithmID *digestalg)
 
     digd = (SecCmsDigestedDataRef)PORT_ArenaZAlloc(poolp, sizeof(SecCmsDigestedData));
     if (digd == NULL)
-	goto loser;
+        goto loser;
 
     digd->cmsg = cmsg;
 
-    if (SECOID_CopyAlgorithmID (poolp, &(digd->digestAlg), digestalg) != SECSuccess)
-	goto loser;
+    if (SECOID_CopyAlgorithmID(poolp, &(digd->digestAlg), digestalg) != SECSuccess)
+        goto loser;
 
     PORT_ArenaUnmark(poolp, mark);
     return digd;
@@ -86,8 +85,7 @@ loser:
 /*
  * SecCmsDigestedDataDestroy - destroy a digestedData object
  */
-void
-SecCmsDigestedDataDestroy(SecCmsDigestedDataRef digd)
+void SecCmsDigestedDataDestroy(SecCmsDigestedDataRef digd)
 {
     if (digd == NULL) {
         return;
@@ -100,8 +98,7 @@ SecCmsDigestedDataDestroy(SecCmsDigestedDataRef digd)
 /*
  * SecCmsDigestedDataGetContentInfo - return pointer to digestedData object's contentInfo
  */
-SecCmsContentInfoRef
-SecCmsDigestedDataGetContentInfo(SecCmsDigestedDataRef digd)
+SecCmsContentInfoRef SecCmsDigestedDataGetContentInfo(SecCmsDigestedDataRef digd)
 {
     return &(digd->contentInfo);
 }
@@ -113,15 +110,14 @@ SecCmsDigestedDataGetContentInfo(SecCmsDigestedDataRef digd)
  * In particular:
  *  - set the right version number. The contentInfo's content type must be set up already.
  */
-OSStatus
-SecCmsDigestedDataEncodeBeforeStart(SecCmsDigestedDataRef digd)
+OSStatus SecCmsDigestedDataEncodeBeforeStart(SecCmsDigestedDataRef digd)
 {
-    unsigned long version;
+    long version;
     CSSM_DATA_PTR dummy;
 
     version = SEC_CMS_DIGESTED_DATA_VERSION_DATA;
     if (SecCmsContentInfoGetContentTypeTag(&(digd->contentInfo)) != SEC_OID_PKCS7_DATA)
-	version = SEC_CMS_DIGESTED_DATA_VERSION_ENCAP;
+        version = SEC_CMS_DIGESTED_DATA_VERSION_ENCAP;
 
     dummy = SEC_ASN1EncodeInteger(digd->cmsg->poolp, &(digd->version), version);
     return (dummy == NULL) ? SECFailure : SECSuccess;
@@ -134,15 +130,14 @@ SecCmsDigestedDataEncodeBeforeStart(SecCmsDigestedDataRef digd)
  * In detail:
  *  - set up the digests if necessary
  */
-OSStatus
-SecCmsDigestedDataEncodeBeforeData(SecCmsDigestedDataRef digd)
+OSStatus SecCmsDigestedDataEncodeBeforeData(SecCmsDigestedDataRef digd)
 {
     /* set up the digests */
     if (digd->digestAlg.algorithm.Length != 0 && digd->digest.Length == 0) {
-	/* if digest is already there, do nothing */
-	digd->contentInfo.digcx = SecCmsDigestContextStartSingle(&(digd->digestAlg));
-	if (digd->contentInfo.digcx == NULL)
-	    return SECFailure;
+        /* if digest is already there, do nothing */
+        digd->contentInfo.digcx = SecCmsDigestContextStartSingle(&(digd->digestAlg));
+        if (digd->contentInfo.digcx == NULL)
+            return SECFailure;
     }
     return SECSuccess;
 }
@@ -154,16 +149,15 @@ SecCmsDigestedDataEncodeBeforeData(SecCmsDigestedDataRef digd)
  * In detail:
  *  - finish the digests
  */
-OSStatus
-SecCmsDigestedDataEncodeAfterData(SecCmsDigestedDataRef digd)
+OSStatus SecCmsDigestedDataEncodeAfterData(SecCmsDigestedDataRef digd)
 {
     OSStatus rv = SECSuccess;
     /* did we have digest calculation going on? */
     if (digd->contentInfo.digcx) {
-	rv = SecCmsDigestContextFinishSingle(digd->contentInfo.digcx,
-					     (SecArenaPoolRef)digd->cmsg->poolp, &(digd->digest));
-	/* error has been set by SecCmsDigestContextFinishSingle */
-	digd->contentInfo.digcx = NULL;
+        rv = SecCmsDigestContextFinishSingle(
+            digd->contentInfo.digcx, (SecArenaPoolRef)digd->cmsg->poolp, &(digd->digest));
+        /* error has been set by SecCmsDigestContextFinishSingle */
+        digd->contentInfo.digcx = NULL;
     }
 
     return rv;
@@ -176,16 +170,15 @@ SecCmsDigestedDataEncodeAfterData(SecCmsDigestedDataRef digd)
  * In detail:
  *  - set up the digests if necessary
  */
-OSStatus
-SecCmsDigestedDataDecodeBeforeData(SecCmsDigestedDataRef digd)
+OSStatus SecCmsDigestedDataDecodeBeforeData(SecCmsDigestedDataRef digd)
 {
     /* is there a digest algorithm yet? */
     if (digd->digestAlg.algorithm.Length == 0)
-	return SECFailure;
+        return SECFailure;
 
     digd->contentInfo.digcx = SecCmsDigestContextStartSingle(&(digd->digestAlg));
     if (digd->contentInfo.digcx == NULL)
-	return SECFailure;
+        return SECFailure;
 
     return SECSuccess;
 }
@@ -197,16 +190,15 @@ SecCmsDigestedDataDecodeBeforeData(SecCmsDigestedDataRef digd)
  * In detail:
  *  - finish the digests
  */
-OSStatus
-SecCmsDigestedDataDecodeAfterData(SecCmsDigestedDataRef digd)
+OSStatus SecCmsDigestedDataDecodeAfterData(SecCmsDigestedDataRef digd)
 {
     OSStatus rv = SECSuccess;
     /* did we have digest calculation going on? */
     if (digd->contentInfo.digcx) {
-	rv = SecCmsDigestContextFinishSingle(digd->contentInfo.digcx,
-					     (SecArenaPoolRef)digd->cmsg->poolp, &(digd->cdigest));
-	/* error has been set by SecCmsDigestContextFinishSingle */
-	digd->contentInfo.digcx = NULL;
+        rv = SecCmsDigestContextFinishSingle(
+            digd->contentInfo.digcx, (SecArenaPoolRef)digd->cmsg->poolp, &(digd->cdigest));
+        /* error has been set by SecCmsDigestContextFinishSingle */
+        digd->contentInfo.digcx = NULL;
     }
 
     return rv;
@@ -218,17 +210,16 @@ SecCmsDigestedDataDecodeAfterData(SecCmsDigestedDataRef digd)
  * In detail:
  *  - check the digests for equality
  */
-OSStatus
-SecCmsDigestedDataDecodeAfterEnd(SecCmsDigestedDataRef digd)
+OSStatus SecCmsDigestedDataDecodeAfterEnd(SecCmsDigestedDataRef digd)
 {
     if (!digd) {
         return SECFailure;
     }
     /* did we have digest calculation going on? */
     if (digd->cdigest.Length != 0) {
-	/* XXX comparision btw digest & cdigest */
-	/* XXX set status */
-	/* TODO!!!! */
+        /* XXX comparision btw digest & cdigest */
+        /* XXX set status */
+        /* TODO!!!! */
     }
 
     return SECSuccess;

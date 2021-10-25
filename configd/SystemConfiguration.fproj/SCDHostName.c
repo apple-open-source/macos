@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2008, 2011, 2013-2020 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2008, 2011, 2013-2021 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -32,11 +32,15 @@
  */
 
 
+#include <TargetConditionals.h>
 #include <CoreFoundation/CoreFoundation.h>
 #include <CoreFoundation/CFStringDefaultEncoding.h>	// for __CFStringGetUserDefaultEncoding
+#include <Security/Security.h>
+#include <Security/SecTask.h>
 #include "SCPreferencesInternal.h"
 #include "SCNetworkConfigurationInternal.h"
-#include "dy_framework.h"
+
+
 
 
 #ifndef	__OPEN_SOURCE
@@ -150,6 +154,8 @@ SCDynamicStoreKeyCreateComputerName(CFAllocatorRef allocator)
 }
 
 
+
+
 CFStringRef
 SCDynamicStoreCopyComputerName(SCDynamicStoreRef	store,
 			       CFStringEncoding		*nameEncoding)
@@ -163,6 +169,11 @@ SCDynamicStoreCopyComputerName(SCDynamicStoreRef	store,
 		return NULL;
 	}
 #endif	// __OPEN_SOURCE
+
+	if (nameEncoding != NULL) {
+		// set a default encoding
+		*nameEncoding = kCFStringEncodingUTF8;
+	}
 
 	key  = SCDynamicStoreKeyCreateComputerName(NULL);
 	dict = SCDynamicStoreCopyValue(store, key);
@@ -190,6 +201,7 @@ SCDynamicStoreCopyComputerName(SCDynamicStoreRef	store,
 	CFRetain(name);
 
 	if (nameEncoding != NULL) {
+		// return the "ComputerNameEncoding" value
 		*nameEncoding = getNameEncoding(dict);
 	}
 
@@ -527,7 +539,6 @@ _SC_stringIsValidDNSName(const char *name)
 				default:
 					/* an invalid character */
 					return FALSE;
-					break;
 			}
 		}
 		prev = ch;

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010-2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2010-2021 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -180,7 +180,7 @@ DHCPDUIDGet(interface_list_t * interfaces)
     if (if_p == NULL) {
 	goto done;
     }
-    my_log(LOG_INFO, "DHCPv6Client: chose %s for DUID", if_name(if_p));
+    my_log(LOG_INFO, "DHCPDUID: chose %s for DUID", if_name(if_p));
     if (G_dhcp_duid_type == kDHCPDUIDTypeLL || G_is_netboot) {
 	S_DUID = make_DUID_LL_data(if_p);
     }
@@ -191,6 +191,12 @@ DHCPDUIDGet(interface_list_t * interfaces)
 
  done:
     return (S_DUID);
+}
+
+PRIVATE_EXTERN CFDataRef
+DHCPDUIDCopy(interface_t * if_p)
+{
+    return (make_DUID_LL_data(if_p));
 }
 
 PRIVATE_EXTERN DHCPIAID

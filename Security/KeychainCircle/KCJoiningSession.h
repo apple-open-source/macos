@@ -10,9 +10,6 @@
 #include <Security/SecureObjectSync/SOSCloudCircle.h>
 
 
-bool KCJoiningOctagonPiggybackingEnabled(void);
-bool KCSetJoiningOctagonPiggybackingEnabled(bool value);
-
 NS_ASSUME_NONNULL_BEGIN
 
 @protocol KCJoiningRequestCircleDelegate <NSObject>

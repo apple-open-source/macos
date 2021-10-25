@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006, 2007, 2010, 2014, 2016-2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2006-2008, 2010, 2014, 2016-2018, 2020, 2021 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -36,7 +36,6 @@
 #include <sys/param.h>
 #include <CoreFoundation/CoreFoundation.h>
 #include <CoreFoundation/CFBundlePriv.h>	// for _CFBundleCopyMainBundleExecutableURL
-#include "dy_framework.h"
 
 #include "SCPreferencesInternal.h"
 
@@ -91,100 +90,6 @@ copyMyExecutablePath(void)
 #pragma mark Keychain helper APIs
 
 
-#if	(__MAC_OS_X_VERSION_MIN_REQUIRED < 1070)
-/*
- * Create a SecAccessRef with a custom form.
- *
- * Both the owner and the ACL set allow free access to root,
- * but nothing to anyone else.
- *
- * NOTE: This is not the easiest way to build up CSSM data structures
- *       but it is a way that does not depend on any outside software
- *       layers (other than CSSM and Security's Sec* layer, of course).
- */
-static SecAccessRef
-_SCSecAccessCreateForUID(uid_t uid)
-{
-	SecAccessRef	access	= NULL;
-	OSStatus	status;
-
-	// make the "uid/gid" ACL subject
-	// this is a CSSM_LIST_ELEMENT chain
-
-	CSSM_ACL_PROCESS_SUBJECT_SELECTOR	selector	= {
-		CSSM_ACL_PROCESS_SELECTOR_CURRENT_VERSION,			// version
-		CSSM_ACL_MATCH_UID,						// active fields mask: match uids (only)
-		uid,								// effective user id to match
-		0								// effective group id to match
-	};
-
-	CSSM_LIST_ELEMENT			subject2	= {
-		NULL,								// NextElement
-		0								// WordID
-		// rest is defaulted
-	};
-
-	subject2.Element.Word.Data   = (UInt8 *)&selector;
-	subject2.Element.Word.Length = sizeof(selector);
-
-	CSSM_LIST_ELEMENT			subject1	= {
-		&subject2,							// NextElement
-		CSSM_ACL_SUBJECT_TYPE_PROCESS,					// WordID
-		CSSM_LIST_ELEMENT_WORDID					// ElementType
-		// rest is defaulted
-	};
-
-	// rights granted (replace with individual list if desired)
-	CSSM_ACL_AUTHORIZATION_TAG		rights[]	= {
-		CSSM_ACL_AUTHORIZATION_ANY					// everything
-	};
-
-	// owner component (right to change ACL)
-	CSSM_ACL_OWNER_PROTOTYPE		owner		= {
-		{								// TypedSubject
-			CSSM_LIST_TYPE_UNKNOWN,					   // type of this list
-			&subject1,						   // head of the list
-			&subject2						   // tail of the list
-		},
-		FALSE								// Delegate
-	};
-
-	// ACL entries (any number, just one here)
-	CSSM_ACL_ENTRY_INFO			acls[]		= {
-		{
-			{							// EntryPublicInfo
-				{						   // TypedSubject
-					CSSM_LIST_TYPE_UNKNOWN,			      // type of this list
-					&subject1,				      // head of the list
-					&subject2				      // tail of the list
-				},
-				FALSE,						   // Delegate
-				{						   // Authorization
-					sizeof(rights) / sizeof(rights[0]),	      // NumberOfAuthTags
-					rights					      // AuthTags
-				},
-				{						   // TimeRange
-				},
-				{						   // EntryTag
-				}
-			},
-			0							// EntryHandle
-		}
-	};
-
-	status = SecAccessCreateFromOwnerAndACL(&owner,
-						sizeof(acls) / sizeof(acls[0]),
-						acls,
-						&access);
-	if (status != noErr) {
-		_SCErrorSet(status);
-	}
-
-	return access;
-}
-#endif	// (__MAC_OS_X_VERSION_MIN_REQUIRED < 1070)
-
-
 // one example would be to pass a URL for "/System/Library/CoreServices/SystemUIServer.app"
 static SecAccessRef
 _SCSecAccessCreateForExecutables(CFStringRef	label,
@@ -206,7 +111,10 @@ _SCSecAccessCreateForExecutables(CFStringRef	label,
 	// user confirmation.
 
 	// Trust the calling application
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated"
 	status = SecTrustedApplicationCreateFromPath(NULL, &trustedApplication);
+#pragma GCC diagnostic pop
 	if (status == noErr) {
 		CFArrayAppendValue(trustedApplications, trustedApplication);
 		CFRelease(trustedApplication);
@@ -224,7 +132,10 @@ _SCSecAccessCreateForExecutables(CFStringRef	label,
 			continue;
 		}
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated"
 		status = SecTrustedApplicationCreateFromPath(path, &trustedApplication);
+#pragma GCC diagnostic pop
 		if (status == noErr) {
 			CFArrayAppendValue(trustedApplications, trustedApplication);
 			CFRelease(trustedApplication);
@@ -430,12 +341,6 @@ _SCSecKeychainPasswordItemSet(SecKeychainRef	keychain,
 	}
 
 	if ((allowRoot != NULL) && CFBooleanGetValue(allowRoot)) {
-#if	(__MAC_OS_X_VERSION_MIN_REQUIRED < 1070)
-		access = _SCSecAccessCreateForUID(0);
-		if (access == NULL) {
-			return FALSE;
-		}
-#else	// (__MAC_OS_X_VERSION_MIN_REQUIRED < 1070)
 		CFErrorRef	error	= NULL;
 
 		access = SecAccessCreateWithOwnerAndACL(0, 0, kSecUseOnlyUID, NULL, &error);
@@ -450,7 +355,6 @@ _SCSecKeychainPasswordItemSet(SecKeychainRef	keychain,
 			_SCErrorSet((int)code);
 			return FALSE;
 		}
-#endif	// (__MAC_OS_X_VERSION_MIN_REQUIRED < 1070)
 	} else if (allowedExecutables != NULL) {
 		access = _SCSecAccessCreateForExecutables(label, allowedExecutables);
 		if (access == NULL) {

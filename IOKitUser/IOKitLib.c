@@ -55,6 +55,7 @@
 
 #include <IOKit/IOBSD.h>
 #include <IOKit/IOKitLib.h>
+#include <IOKit/IOKitKeys.h>
 #include <IOKit/IOKitServer.h>
 
 #include <IOKit/IOCFSerialize.h>
@@ -110,6 +111,13 @@ gIOKitLibSerializeOptions = kIOCFSerializeToBinary;
 
 extern 	mach_port_t 	mach_task_self();
 const 	mach_port_t 	kIOMasterPortDefault = MACH_PORT_NULL;
+const 	mach_port_t 	kIOMainPortDefault   = MACH_PORT_NULL;
+
+kern_return_t
+IOMainPort(mach_port_t bootstrapPort, mach_port_t * mainPort)
+{
+	return IOMasterPort(bootstrapPort, mainPort);
+}
 
 static mach_port_t
 __IOGetDefaultMasterPort()
@@ -765,6 +773,7 @@ IOServiceAddMatchingNotification(
 	io_iterator_t * 	notification )
 {
     io_user_reference_t	asyncRef[kIOMatchingCalloutCount];
+    bzero(asyncRef, sizeof(asyncRef));
 
     asyncRef[kIOMatchingCalloutFuncIndex]   = (io_user_reference_t) callback;
     asyncRef[kIOMatchingCalloutRefconIndex] = (io_user_reference_t) refcon;
@@ -786,6 +795,7 @@ IOServiceAddInterestNotification(
 {
     io_user_reference_t	asyncRef[kIOInterestCalloutCount];
     kern_return_t	kr;
+    bzero(asyncRef, sizeof(asyncRef));
 
     asyncRef[kIOInterestCalloutFuncIndex]    = (io_user_reference_t) callback;
     asyncRef[kIOInterestCalloutRefconIndex]  = (io_user_reference_t) refcon;
@@ -3366,4 +3376,77 @@ boolean_t ev_try_lock(OSSpinLock * l)
 void ev_unlock(OSSpinLock * l)
 {
     OSSpinLockUnlock(l);
+}
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
+kern_return_t
+IOServiceCopySystemStateNotificationService(
+        mach_port_t		masterPort,
+        io_service_t  * service)
+{
+	*service = IOServiceGetMatchingService(masterPort, IOServiceMatching("IOSystemStateNotification"));
+
+	return (*service != MACH_PORT_NULL) ? kIOReturnSuccess : kIOReturnUnsupported;
+}
+
+kern_return_t
+IOServiceStateNotificationItemCreate(io_service_t service, CFStringRef itemName, CFDictionaryRef schema)
+{
+	kern_return_t kr;
+	CFMutableDictionaryRef setValue;
+
+	if (!itemName || !schema) {
+		return kIOReturnBadArgument;
+	}
+
+	setValue = CFDictionaryCreateMutableCopy(kCFAllocatorDefault, 0, schema);
+	CFDictionarySetValue(setValue, CFSTR(kIOStateNotificationNameKey), itemName);
+	kr = IORegistryEntrySetCFProperty(service, CFSTR(kIOStateNotificationItemCreateKey), setValue);
+	CFRelease(setValue);
+
+	return kr;
+}
+
+kern_return_t
+IOServiceStateNotificationItemSet(io_service_t service, CFStringRef itemName, CFDictionaryRef value)
+{
+	kern_return_t kr;
+	CFMutableDictionaryRef setValue;
+
+	if (!itemName || !value) {
+		return kIOReturnBadArgument;
+	}
+
+	setValue = CFDictionaryCreateMutableCopy(kCFAllocatorDefault, 0, value);
+	CFDictionarySetValue(setValue, CFSTR(kIOStateNotificationNameKey), itemName);
+	kr = IORegistryEntrySetCFProperty(service, CFSTR(kIOStateNotificationItemSetKey), setValue);
+	CFRelease(setValue);
+
+	return kr;
+}
+
+kern_return_t
+IOServiceStateNotificationItemCopy(io_service_t service, CFStringRef itemName, CFDictionaryRef * value)
+{
+	kern_return_t kr;
+	CFMutableDictionaryRef dict;
+	CFTypeRef result;
+
+	kr = IORegistryEntryCreateCFProperties(service, &dict, kCFAllocatorDefault, 0);
+	if (kIOReturnSuccess != kr) {
+		return kr;
+	}
+
+	result = CFDictionaryGetValue(dict, itemName);
+	if (result) {
+		CFRetain(result);
+		*value = result;
+		kr = kIOReturnSuccess;
+	} else {
+		kr = kIOReturnNotFound;
+	}
+	*value = result;
+
+	return kr;
 }

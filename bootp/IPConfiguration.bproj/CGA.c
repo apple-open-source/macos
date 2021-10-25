@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2013-2021 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -84,9 +84,6 @@
     (sizeof(struct in6_cga_prepare)			\
      + (2 * (sizeof(uint16_t) + IN6_CGA_KEY_MAXSIZE)))
 
-#define SECS_PER_HOUR				(3600)
-#define LINKLOCAL_MODIFIER_EXPIRATION_SECONDS	(SECS_PER_HOUR * 24)
-
 STATIC CFDictionaryRef		S_GlobalModifier;
 STATIC CFMutableDictionaryRef	S_LinkLocalModifiers;
 STATIC CFMutableDictionaryRef	S_InterfaceModifiers;
@@ -112,6 +109,8 @@ linklocal_modifier_has_expired(CFDictionaryRef dict, CFDateRef now)
     CFDataRef	modifier;
     uint8_t	security_level;
 
+#define SECS_PER_HOUR				(3600)
+#define LINKLOCAL_MODIFIER_EXPIRATION_SECONDS	(SECS_PER_HOUR * 24)
     modifier = CGAModifierDictGetModifier(dict, &security_level);
     if (modifier != NULL) {
 	CFDateRef	creation_date;
@@ -424,7 +423,7 @@ CGAParametersCreate(CFDataRef host_uuid)
 }
 
 STATIC bool
-CGAParametersLoad(CFDataRef host_uuid)
+CGAParametersLoad(CFDataRef host_uuid, bool expire_ipv6ll_modifiers)
 {
     CFDictionaryRef	interface_modifiers = NULL;
     CFDictionaryRef	keys_info = NULL;
@@ -528,7 +527,9 @@ CGAParametersLoad(CFDataRef host_uuid)
 	/* make a copy of the existing one */
 	S_LinkLocalModifiers
 	    = CFDictionaryCreateMutableCopy(NULL, 0, linklocal_modifiers);
-	remove_old_linklocal_modifiers(S_LinkLocalModifiers);
+	if (expire_ipv6ll_modifiers) {
+	    remove_old_linklocal_modifiers(S_LinkLocalModifiers);
+	}
     }
     else {
 	/* create an empty modifiers dictionary */
@@ -656,7 +657,7 @@ CGAIsEnabled(void)
 }
 
 PRIVATE_EXTERN void
-CGAInit(void)
+CGAInit(bool expire_ipv6ll_modifiers)
 {
     CFDataRef		host_uuid;
 
@@ -668,7 +669,7 @@ CGAInit(void)
 	my_log_fl(LOG_NOTICE, "Failed to get HostUUID");
 	return;
     }
-    if (CGAParametersLoad(host_uuid) == FALSE) {
+    if (!CGAParametersLoad(host_uuid, expire_ipv6ll_modifiers)) {
 	return;
     }
     return;
@@ -682,7 +683,7 @@ int
 main(int argc, char * argv[])
 {
     ipconfigd_create_paths();
-    CGAInit();
+    CGAInit(true);
     if (argc > 1) {
 	const char *	ifname = argv[1];
 

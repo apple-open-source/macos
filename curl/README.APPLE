@@ -1,6 +1,12 @@
-The 'curl' subdirectory is based on curl 7.64.1
+The 'curl' subdirectory is based on curl 7.77.0
 
-== Updating ==
+== Updating to a new upstream version ==
+
+The upstream code this curl fork is based on is present in the `dev/UPSTREAM` git branch.
+To upgrade to a new upstream version of curl, use autopatch_project.sh from buildtools:
+- https://stashweb.sd.apple.com/users/achivetta/repos/buildtools/browse
+
+== Updating configuration ==
 
 Confirm/update versions in xcconfigs/libcurl-version.xcconfig
  - This will probably require building the regular open source version and running otool on the resulting library.
@@ -23,7 +29,7 @@ Update xcscripts/install_libtest.sh (see comment at top) -- NOTE: This hasn't be
 == Configuration ==
 
 macOS:
-SDKROOT=macosx.internal ./configure --enable-hidden-symbols --enable-threaded-resolver --with-gssapi --with-ssl=/usr/local/libressl
+SDKROOT=macosx.internal ./configure --enable-hidden-symbols --enable-threaded-resolver --with-gssapi --with-ssl=$(xcrun --show-sdk-path)/usr/local/libressl --with-secure-transport
 
 iOS (etc):
 SDKROOT=macosx.internal ./configure --enable-hidden-symbols --enable-threaded-resolver --disable-ldap --with-darwinssl

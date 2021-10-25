@@ -10,6 +10,7 @@ ARCHIVE_READ_FILTER(3) manual page
 '''archive_read_support_filter_rpm''', 
 '''archive_read_support_filter_uu''', 
 '''archive_read_support_filter_xz''', 
+'''archive_read_support_filter_zstd''', 
 '''archive_read_support_filter_program''', 
 '''archive_read_support_filter_program_signature''' 
 - functions for reading streaming archives 
@@ -21,6 +22,10 @@ Streaming Archive Library (libarchive, -larchive)
 ''int'' 
 <br> 
 '''archive_read_support_filter_all'''(''struct archive *''); 
+<br> 
+''int'' 
+<br> 
+'''archive_read_support_filter_by_code'''(''struct archive *'', ''int''); 
 <br> 
 ''int'' 
 <br> 
@@ -72,6 +77,10 @@ Streaming Archive Library (libarchive, -larchive)
 <br> 
 ''int'' 
 <br> 
+'''archive_read_support_filter_zstd'''(''struct archive *''); 
+<br> 
+''int'' 
+<br> 
 '''archive_read_support_filter_program'''(''struct archive *'', ''const char *cmd''); 
 <br> 
 ''int'' 
@@ -91,7 +100,8 @@ Streaming Archive Library (libarchive, -larchive)
 '''archive_read_support_filter_none'''(), 
 '''archive_read_support_filter_rpm'''(), 
 '''archive_read_support_filter_uu'''(), 
-'''archive_read_support_filter_xz'''() 
+'''archive_read_support_filter_xz'''(), 
+'''archive_read_support_filter_zstd'''(), 
 </dt> <dd> 
 Enables auto-detection code and decompression support for the 
 specified compression. 
@@ -104,6 +114,14 @@ Note that
 is always enabled by default. 
 </dd><dt>'''archive_read_support_filter_all'''()</dt><dd> 
 Enables all available decompression filters. 
+</dd><dt>'''archive_read_support_filter_by_code'''()</dt><dd> 
+Enables a single filter specified by the filter code. 
+This function does not work with 
+'''ARCHIVE_FILTER_PROGRAM'''. 
+Note: In statically-linked executables, this will cause 
+your program to include support for every filter. 
+If executable size is a concern, you may wish to avoid 
+using this function. 
 </dd><dt>'''archive_read_support_filter_program'''()</dt><dd> 
 Data is fed through the specified external program before being dearchived. 
 Note that this disables automatic detection of the compression format, 
@@ -130,8 +148,8 @@ and
 '''archive_error_string'''() 
 functions. 
 == SEE ALSO == 
-[[ManPageibarchive3]], 
-[[ManPagerchiveead3]], 
-[[ManPagerchiveeadata3]], 
-[[ManPagerchiveeadormat3]], 
-[[ManPagerchiveeadormat3]] 
+[[ManPageArchiveRead3]], 
+[[ManPageArchiveReadData3]], 
+[[ManPageArchiveReadFormat3]], 
+[[ManPageArchiveReadFormat3]], 
+[[ManPageLibarchive3]] 

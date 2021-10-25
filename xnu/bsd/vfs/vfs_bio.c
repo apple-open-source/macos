@@ -444,25 +444,20 @@ bufattr_setcpx(__unused bufattr_t bap, __unused struct cpx *cpx)
 bufattr_t
 bufattr_alloc(void)
 {
-	return kheap_alloc(KHEAP_DEFAULT, sizeof(struct bufattr),
-	           Z_WAITOK | Z_ZERO);
+	return kalloc_type(struct bufattr, Z_WAITOK | Z_ZERO);
 }
 
 void
 bufattr_free(bufattr_t bap)
 {
-	kheap_free(KHEAP_DEFAULT, bap, sizeof(struct bufattr));
+	kfree_type(struct bufattr, bap);
 }
 
 bufattr_t
 bufattr_dup(bufattr_t bap)
 {
 	bufattr_t new_bufattr;
-	new_bufattr = kheap_alloc(KHEAP_DEFAULT, sizeof(struct bufattr),
-	    Z_WAITOK);
-	if (new_bufattr == NULL) {
-		return NULL;
-	}
+	new_bufattr = kalloc_type(struct bufattr, Z_WAITOK | Z_NOFAIL);
 
 	/* Copy the provided one into the new copy */
 	memcpy(new_bufattr, bap, sizeof(struct bufattr));
@@ -618,6 +613,15 @@ int
 bufattr_expeditedmeta(bufattr_t bap)
 {
 	if ((bap->ba_flags & BA_EXPEDITED_META_IO)) {
+		return 1;
+	}
+	return 0;
+}
+
+int
+bufattr_willverify(bufattr_t bap)
+{
+	if ((bap->ba_flags & BA_WILL_VERIFY)) {
 		return 1;
 	}
 	return 0;
@@ -887,6 +891,7 @@ buf_create_shadow_internal(buf_t bp, boolean_t force_copy, uintptr_t external_st
 	io_bp->b_flags = bp->b_flags & (B_META | B_ZALLOC | B_ASYNC | B_READ | B_FUA);
 	io_bp->b_blkno = bp->b_blkno;
 	io_bp->b_lblkno = bp->b_lblkno;
+	io_bp->b_lblksize = bp->b_lblksize;
 
 	if (iodone) {
 		io_bp->b_transaction = arg;
@@ -1048,6 +1053,12 @@ buf_lblkno(buf_t bp)
 	return bp->b_lblkno;
 }
 
+uint32_t
+buf_lblksize(buf_t bp)
+{
+	return bp->b_lblksize;
+}
+
 void
 buf_setblkno(buf_t bp, daddr64_t blkno)
 {
@@ -1058,6 +1069,12 @@ void
 buf_setlblkno(buf_t bp, daddr64_t lblkno)
 {
 	bp->b_lblkno = lblkno;
+}
+
+void
+buf_setlblksize(buf_t bp, uint32_t lblksize)
+{
+	bp->b_lblksize = lblksize;
 }
 
 dev_t
@@ -1133,8 +1150,8 @@ buf_proc(buf_t bp)
 }
 
 
-errno_t
-buf_map(buf_t bp, caddr_t *io_addr)
+static errno_t
+buf_map_range_internal(buf_t bp, caddr_t *io_addr, boolean_t legacymode)
 {
 	buf_t           real_bp;
 	vm_offset_t     vaddr;
@@ -1157,14 +1174,21 @@ buf_map(buf_t bp, caddr_t *io_addr)
 		*io_addr = (caddr_t)real_bp->b_datap;
 		return 0;
 	}
-	kret = ubc_upl_map(bp->b_upl, &vaddr);    /* Map it in */
+
+	if (legacymode) {
+		kret = ubc_upl_map(bp->b_upl, &vaddr);    /* Map it in */
+		if (kret == KERN_SUCCESS) {
+			vaddr += bp->b_uploffset;
+		}
+	} else {
+		kret = ubc_upl_map_range(bp->b_upl, bp->b_uploffset, bp->b_bcount, VM_PROT_DEFAULT, &vaddr);    /* Map it in */
+	}
 
 	if (kret != KERN_SUCCESS) {
 		*io_addr = NULL;
 
 		return ENOMEM;
 	}
-	vaddr += bp->b_uploffset;
 
 	*io_addr = (caddr_t)vaddr;
 
@@ -1172,7 +1196,19 @@ buf_map(buf_t bp, caddr_t *io_addr)
 }
 
 errno_t
-buf_unmap(buf_t bp)
+buf_map_range(buf_t bp, caddr_t *io_addr)
+{
+	return buf_map_range_internal(bp, io_addr, false);
+}
+
+errno_t
+buf_map(buf_t bp, caddr_t *io_addr)
+{
+	return buf_map_range_internal(bp, io_addr, true);
+}
+
+static errno_t
+buf_unmap_range_internal(buf_t bp, boolean_t legacymode)
 {
 	buf_t           real_bp;
 	kern_return_t   kret;
@@ -1203,12 +1239,29 @@ buf_unmap(buf_t bp)
 		 */
 		bp->b_flags |= B_AGE;
 	}
-	kret = ubc_upl_unmap(bp->b_upl);
+
+	if (legacymode) {
+		kret = ubc_upl_unmap(bp->b_upl);
+	} else {
+		kret = ubc_upl_unmap_range(bp->b_upl, bp->b_uploffset, bp->b_bcount);
+	}
 
 	if (kret != KERN_SUCCESS) {
 		return EINVAL;
 	}
 	return 0;
+}
+
+errno_t
+buf_unmap_range(buf_t bp)
+{
+	return buf_unmap_range_internal(bp, false);
+}
+
+errno_t
+buf_unmap(buf_t bp)
+{
+	return buf_unmap_range_internal(bp, true);
 }
 
 
@@ -1258,6 +1311,7 @@ buf_strategy_fragmented(vnode_t devvp, buf_t bp, off_t f_offset, size_t contig_b
 	io_bp = alloc_io_buf(devvp, 0);
 
 	io_bp->b_lblkno = bp->b_lblkno;
+	io_bp->b_lblksize = bp->b_lblksize;
 	io_bp->b_datap  = bp->b_datap;
 	io_resid        = bp->b_bcount;
 	io_direction    = bp->b_flags & B_READ;
@@ -1351,7 +1405,7 @@ buf_strategy(vnode_t devvp, void *ap)
 #endif
 
 	if (vp == NULL || vp->v_type == VCHR || vp->v_type == VBLK) {
-		panic("buf_strategy: b_vp == NULL || vtype == VCHR | VBLK\n");
+		panic("buf_strategy: b_vp == NULL || vtype == VCHR | VBLK");
 	}
 	/*
 	 * associate the physical device with
@@ -1381,7 +1435,9 @@ buf_strategy(vnode_t devvp, void *ap)
 			off_t       f_offset;
 			size_t  contig_bytes;
 
-			if ((error = VNOP_BLKTOOFF(vp, bp->b_lblkno, &f_offset))) {
+			if (bp->b_lblksize && bp->b_lblkno >= 0) {
+				f_offset = bp->b_lblkno * bp->b_lblksize;
+			} else if ((error = VNOP_BLKTOOFF(vp, bp->b_lblkno, &f_offset))) {
 				DTRACE_IO1(start, buf_t, bp);
 				buf_seterror(bp, error);
 				buf_biodone(bp);
@@ -1437,7 +1493,16 @@ buf_strategy(vnode_t devvp, void *ap)
 		/* No need to go here for older EAs */
 		if (cpx_use_offset_for_iv(cpx) && !cpx_synthetic_offset_for_iv(cpx)) {
 			off_t f_offset;
-			if ((error = VNOP_BLKTOOFF(bp->b_vp, bp->b_lblkno, &f_offset))) {
+
+			/*
+			 * this assert should be changed if cluster_io  ever
+			 * changes its logical block size.
+			 */
+			assert((bp->b_lblksize == CLUSTER_IO_BLOCK_SIZE) || !(bp->b_flags & B_CLUSTER));
+
+			if (bp->b_lblksize && bp->b_lblkno >= 0) {
+				f_offset = bp->b_lblkno * bp->b_lblksize;
+			} else if ((error = VNOP_BLKTOOFF(bp->b_vp, bp->b_lblkno, &f_offset))) {
 				return error;
 			}
 
@@ -2139,7 +2204,7 @@ bufinit(void)
 
 	/* Register a callout for relieving vm pressure */
 	if (vm_set_buffer_cleanup_callout(buffer_cache_gc) != KERN_SUCCESS) {
-		panic("Couldn't register buffer cache callout for vm pressure!\n");
+		panic("Couldn't register buffer cache callout for vm pressure!");
 	}
 }
 
@@ -2529,7 +2594,7 @@ buf_brelse_shadow(buf_t bp)
 	__IGNORE_WCASTALIGN(bp_head = (buf_t)bp->b_orig);
 
 	if (bp_head->b_whichq != -1) {
-		panic("buf_brelse_shadow: bp_head on freelist %d\n", bp_head->b_whichq);
+		panic("buf_brelse_shadow: bp_head on freelist %d", bp_head->b_whichq);
 	}
 
 #ifdef BUF_MAKE_PRIVATE
@@ -2637,7 +2702,7 @@ buf_brelse(buf_t bp)
 
 
 	if (bp->b_whichq != -1 || !(bp->b_lflags & BL_BUSY)) {
-		panic("buf_brelse: bad buffer = %p\n", bp);
+		panic("buf_brelse: bad buffer = %p", bp);
 	}
 
 #ifdef JOE_DEBUG
@@ -2686,7 +2751,7 @@ buf_brelse(buf_t bp)
 			bp->b_transaction = NULL;
 
 			if (iodone_func == NULL) {
-				panic("brelse: bp @ %p has NULL b_iodone!\n", bp);
+				panic("brelse: bp @ %p has NULL b_iodone!", bp);
 			}
 			(*iodone_func)(bp, arg);
 		}
@@ -3047,7 +3112,7 @@ start:
 				/*
 				 * unknown operation requested
 				 */
-				panic("getblk: paging or unknown operation for incore busy buffer - %x\n", operation);
+				panic("getblk: paging or unknown operation for incore busy buffer - %x", operation);
 				/*NOTREACHED*/
 				break;
 			}
@@ -3162,7 +3227,7 @@ start:
 				break;
 
 			default:
-				panic("getblk: paging or unknown operation for incore buffer- %d\n", operation);
+				panic("getblk: paging or unknown operation for incore buffer- %d", operation);
 				/*NOTREACHED*/
 				break;
 			}
@@ -3216,6 +3281,7 @@ start:
 		}
 
 		bp->b_blkno = bp->b_lblkno = blkno;
+		bp->b_lblksize = 0; /* Should be set by caller */
 		bp->b_vp = vp;
 
 		/*
@@ -3664,16 +3730,13 @@ add_newbufs:
 		lck_mtx_unlock(&buf_mtx);
 
 		/* Create a new temporary buffer header */
-		bp = (struct buf *)zalloc(buf_hdr_zone);
-
-		if (bp) {
-			bufhdrinit(bp);
-			bp->b_whichq = BQ_EMPTY;
-			bp->b_timestamp = buf_timestamp();
-			BLISTNONE(bp);
-			SET(bp->b_flags, B_HDRALLOC);
-			*queue = BQ_EMPTY;
-		}
+		bp = zalloc_flags(buf_hdr_zone, Z_WAITOK | Z_NOFAIL);
+		bufhdrinit(bp);
+		bp->b_whichq = BQ_EMPTY;
+		bp->b_timestamp = buf_timestamp();
+		BLISTNONE(bp);
+		SET(bp->b_flags, B_HDRALLOC);
+		*queue = BQ_EMPTY;
 		lck_mtx_lock_spin(&buf_mtx);
 
 		if (bp) {
@@ -3756,7 +3819,7 @@ add_newbufs:
 	}
 found:
 	if (ISSET(bp->b_flags, B_LOCKED) || ISSET(bp->b_lflags, BL_BUSY)) {
-		panic("getnewbuf: bp @ %p is LOCKED or BUSY! (flags 0x%x)\n", bp, bp->b_flags);
+		panic("getnewbuf: bp @ %p is LOCKED or BUSY! (flags 0x%x)", bp, bp->b_flags);
 	}
 
 	/* Clean it */
@@ -3874,6 +3937,7 @@ bcleanbuf(buf_t bp, boolean_t discard)
 		bp->b_redundancy_flags = 0;
 		bp->b_dev = NODEV;
 		bp->b_blkno = bp->b_lblkno = 0;
+		bp->b_lblksize = 0;
 		bp->b_iodone = NULL;
 		bp->b_error = 0;
 		bp->b_resid = 0;
@@ -4197,7 +4261,7 @@ buf_biodone(buf_t bp)
 		int     callout = ISSET(bp->b_flags, B_CALL);
 
 		if (iodone_func == NULL) {
-			panic("biodone: bp @ %p has NULL b_iodone!\n", bp);
+			panic("biodone: bp @ %p has NULL b_iodone!", bp);
 		}
 
 		CLR(bp->b_flags, (B_CALL | B_FILTER));  /* filters and callouts are one-shot */
@@ -4343,7 +4407,7 @@ vfs_bufstats()
 
 #define NRESERVEDIOBUFS 128
 
-#define MNT_VIRTUALDEV_MAX_IOBUFS 16
+#define MNT_VIRTUALDEV_MAX_IOBUFS 128
 #define VIRTUALDEV_MAX_IOBUFS ((40*niobuf_headers)/100)
 
 buf_t
@@ -4417,6 +4481,7 @@ alloc_io_buf(vnode_t vp, int priv)
 	}
 	bp->b_redundancy_flags = 0;
 	bp->b_blkno = bp->b_lblkno = 0;
+	bp->b_lblksize = 0;
 #ifdef JOE_DEBUG
 	bp->b_owner = current_thread();
 	bp->b_tag   = 6;

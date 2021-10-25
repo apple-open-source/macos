@@ -27,6 +27,7 @@
 
 #include <Security/SecSharedCredential.h>
 #include <Security/SecBasePriv.h>
+#include <Security/SecEntitlements.h>
 #include <utilities/SecCFError.h>
 #include <utilities/SecCFWrappers.h>
 #include "SecItemInternal.h"
@@ -38,6 +39,7 @@ OSStatus SecAddSharedWebCredentialSync(CFStringRef fqdn, CFStringRef account, CF
 OSStatus SecCopySharedWebCredentialSync(CFStringRef fqdn, CFStringRef account, CFArrayRef *credentials, CFErrorRef *error);
 #if TARGET_OS_OSX || TARGET_OS_MACCATALYST
 OSStatus SecCopySharedWebCredentialSyncUsingAuthSvcs(CFStringRef fqdn, CFStringRef account, CFArrayRef *credentials, CFErrorRef *error);
+CFStringRef SecCopyFQDNFromEntitlementString(CFStringRef entitlement);
 #endif
 
 #if SHAREDWEBCREDENTIALS
@@ -237,33 +239,63 @@ void SecRequestSharedWebCredential(CFStringRef fqdn,
     CFStringRef account,
     void (^completionHandler)(CFArrayRef credentials, CFErrorRef error))
 {
-	__block CFErrorRef error = NULL;
-	__block dispatch_queue_t dst_queue = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT,0);
+    __block CFErrorRef error = NULL;
+    __block dispatch_queue_t dst_queue = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT,0);
 #if SHAREDWEBCREDENTIALS
     __block CFArrayRef result = NULL;
-
-    /* sanity check input arguments, if provided */
-	CFStringRef errStr = NULL;
-	if (fqdn && (CFGetTypeID(fqdn) != CFStringGetTypeID() || !CFStringGetLength(fqdn))) {
-		errStr = CFSTR("fqdn was empty or not a CFString");
-    }
-    else if (account && (CFGetTypeID(account) != CFStringGetTypeID() || !CFStringGetLength(account))) {
-		errStr = CFSTR("account was empty or not a CFString");
-	}
-	if (errStr) {
-		SecError(errSecParam, &error, CFSTR("%@"), errStr);
-		dispatch_async(dst_queue, ^{
-			if (completionHandler) {
-				completionHandler(result, error);
-			}
-			CFReleaseSafe(error);
-            CFReleaseSafe(result);
-		});
-		return;
-	}
-
     __block CFStringRef serverStr = CFRetainSafe(fqdn);
-	__block CFStringRef accountStr = CFRetainSafe(account);
+    __block CFStringRef accountStr = CFRetainSafe(account);
+
+    /* sanity check input arguments */
+    CFStringRef errStr = NULL;
+    if (fqdn && (CFGetTypeID(fqdn) != CFStringGetTypeID() || !CFStringGetLength(fqdn))) {
+        errStr = CFSTR("fqdn was empty or not a CFString");
+    }
+#if TARGET_OS_OSX || TARGET_OS_MACCATALYST
+    /* a NULL 'fqdn' is documented to implicitly specify the domain(s) in
+       the 'com.apple.developer.associated-domains' entitlement. On iOS,
+       this is handled in SecItemServer within securityd, but since macOS
+       and Catalyst use Authentication Services instead, we need to obtain
+       an associated domain here before we can proceed. */
+    if (!fqdn) {
+        CFArrayRef domains = NULL;
+        SecTaskRef task = SecTaskCreateFromSelf(NULL);
+        if (task) {
+            domains = (CFArrayRef)SecTaskCopyValueForEntitlement(task, kSecEntitlementAssociatedDomains, NULL);
+        }
+        CFIndex idx, count = (domains) ? CFArrayGetCount(domains) : 0;
+        for (idx=0; idx < count; idx++) {
+            CFStringRef str = (CFStringRef) CFArrayGetValueAtIndex(domains, idx);
+            if ((serverStr = SecCopyFQDNFromEntitlementString(str)) != NULL) {
+                break;
+            }
+        }
+        CFReleaseSafe(domains);
+        CFReleaseSafe(task);
+    }
+    if (!errStr && !serverStr) {
+        errStr = CFSTR("fqdn was NULL, and no associated domains found");
+    }
+#endif
+    if (!errStr && serverStr && (CFGetTypeID(serverStr) != CFStringGetTypeID() || !CFStringGetLength(serverStr))) {
+        errStr = CFSTR("fqdn was empty or not a CFString");
+    }
+    if (!errStr && accountStr && (CFGetTypeID(accountStr) != CFStringGetTypeID() || !CFStringGetLength(accountStr))) {
+        errStr = CFSTR("account was empty or not a CFString");
+    }
+    if (errStr) {
+        CFReleaseSafe(serverStr);
+        CFReleaseSafe(accountStr);
+        SecError(errSecParam, &error, CFSTR("%@"), errStr);
+        dispatch_async(dst_queue, ^{
+            if (completionHandler) {
+                completionHandler(result, error);
+            }
+            CFReleaseSafe(error);
+            CFReleaseSafe(result);
+        });
+        return;
+    }
 
     dispatch_async(dst_queue, ^{
 #if TARGET_OS_OSX || TARGET_OS_MACCATALYST

@@ -1,8 +1,5 @@
-/*	$OpenBSD: backupfile.c,v 1.20 2009/10/27 23:59:41 deraadt Exp $	*/
-
-/*
- * backupfile.c -- make Emacs style backup file names Copyright (C) 1990 Free
- * Software Foundation, Inc.
+/*-
+ * Copyright (C) 1990 Free Software Foundation, Inc.
  * 
  * This program is free software; you can redistribute it and/or modify it
  * without restriction.
@@ -10,10 +7,13 @@
  * This program is distributed in the hope that it will be useful, but WITHOUT
  * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
  * FITNESS FOR A PARTICULAR PURPOSE.
- */
-
-/*
+ *
+ * backupfile.c -- make Emacs style backup file names
+ *
  * David MacKenzie <djm@ai.mit.edu>. Some algorithms adapted from GNU Emacs.
+ *
+ * $OpenBSD: backupfile.c,v 1.20 2009/10/27 23:59:41 deraadt Exp $
+ * $FreeBSD$
  */
 
 #include <ctype.h>
@@ -27,7 +27,7 @@
 #include "backupfile.h"
 
 
-#define ISDIGIT(c) (isascii (c) && isdigit (c))
+#define ISDIGIT(c) (isascii ((unsigned char)c) && isdigit ((unsigned char)c))
 
 /* Which type of backup file names are generated. */
 enum backup_type backup_type = none;
@@ -36,7 +36,7 @@ enum backup_type backup_type = none;
  * The extension added to file names to produce a simple (as opposed to
  * numbered) backup file name.
  */
-char		*simple_backup_suffix = "~";
+const char	*simple_backup_suffix = "~";
 
 static char	*concat(const char *, const char *);
 static char	*make_version_name(const char *, int);
@@ -53,21 +53,32 @@ static void	invalid_arg(const char *, const char *, int);
 char *
 find_backup_file_name(const char *file)
 {
-	char	*dir, *base_versions;
+	char	*dir, *base_versions, *tmp_file;
 	int	highest_backup;
 
 	if (backup_type == simple)
 		return concat(file, simple_backup_suffix);
-	base_versions = concat(basename((char *)file), ".~");
+	tmp_file = strdup(file);
+	if (tmp_file == NULL)
+		return NULL;
+	base_versions = concat(basename(tmp_file), ".~");
+	free(tmp_file);
 	if (base_versions == NULL)
 		return NULL;
-	dir = dirname((char *)file);
+	tmp_file = strdup(file);
+	if (tmp_file == NULL) {
+		free(base_versions);
+		return NULL;
+	}
+	dir = dirname(tmp_file);
 	if (dir == NULL) {
 		free(base_versions);
+		free(tmp_file);
 		return NULL;
 	}
 	highest_backup = max_backup_version(base_versions, dir);
 	free(base_versions);
+	free(tmp_file);
 	if (backup_type == numbered_existing && highest_backup == 0)
 		return concat(file, simple_backup_suffix);
 	return make_version_name(file, highest_backup + 1);
@@ -208,11 +219,11 @@ invalid_arg(const char *kind, const char *value, int problem)
 }
 
 static const char *backup_args[] = {
-	"never", "simple", "nil", "existing", "t", "numbered", 0
+	"none", "never", "simple", "nil", "existing", "t", "numbered", 0
 };
 
 static enum backup_type backup_types[] = {
-	simple, simple, numbered_existing,
+	none, simple, simple, numbered_existing,
 	numbered_existing, numbered, numbered
 };
 

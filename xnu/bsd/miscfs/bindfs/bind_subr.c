@@ -238,12 +238,10 @@ bind_nodecreate(struct vnode * lowervp)
 {
 	struct bind_node * xp;
 
-	MALLOC(xp, struct bind_node *, sizeof(struct bind_node), M_TEMP, M_WAITOK | M_ZERO);
-	if (xp != NULL) {
-		if (lowervp) {
-			xp->bind_lowervp  = lowervp;
-			xp->bind_lowervid = vnode_vid(lowervp);
-		}
+	xp = kalloc_type(struct bind_node, Z_WAITOK | Z_ZERO | Z_NOFAIL);
+	if (lowervp) {
+		xp->bind_lowervp  = lowervp;
+		xp->bind_lowervid = vnode_vid(lowervp);
 	}
 	return xp;
 }
@@ -285,7 +283,7 @@ bind_getnewvnode(
 		xp->bind_myvid = vnode_vid(*vpp);
 		vnode_settag(*vpp, VT_BINDFS);
 	} else {
-		FREE(xp, M_TEMP);
+		kfree_type(struct bind_node, xp);
 	}
 	return error;
 }

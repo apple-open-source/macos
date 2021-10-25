@@ -343,7 +343,7 @@
 		4D3DCC1308E0B48600C78A0B /* msdosfs_lookup.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = msdosfs_lookup.c; sourceTree = "<group>"; tabWidth = 4; };
 		4D3DCC1408E0B48600C78A0B /* msdosfs_vfsops.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = msdosfs_vfsops.c; sourceTree = "<group>"; tabWidth = 4; };
 		4D3DCC1508E0B48600C78A0B /* msdosfs_vnops.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = msdosfs_vnops.c; sourceTree = "<group>"; tabWidth = 4; };
-		4D3DCC1608E0B48600C78A0B /* msdosfsmount.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = msdosfsmount.h; sourceTree = "<group>"; tabWidth = 8; };
+		4D3DCC1608E0B48600C78A0B /* msdosfsmount.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = msdosfsmount.h; sourceTree = "<group>"; tabWidth = 4; };
 		4D3DCC2808E0B4EC00C78A0B /* mount_msdos.8 */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = mount_msdos.8; sourceTree = "<group>"; };
 		4D3DCC2908E0B4EC00C78A0B /* mount_msdos.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = mount_msdos.c; sourceTree = "<group>"; tabWidth = 4; };
 		4D3DCC3108E0B53A00C78A0B /* dosutil.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = dosutil.c; sourceTree = "<group>"; tabWidth = 4; usesTabs = 1; };

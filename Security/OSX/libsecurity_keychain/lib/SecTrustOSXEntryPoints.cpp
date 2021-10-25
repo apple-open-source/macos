@@ -45,7 +45,7 @@ void SecTrustLegacySourcesListenForKeychainEvents(void) {
                              ^(int token __unused) {
         // Purge keychain parent cache
         SecItemParentCachePurge();
-        // Purge tust settings cert cache
+        // Purge trust settings cert cache
         SecTrustSettingsPurgeUserAdminCertsCache();
         // Purge the trust settings cache
         SecTrustSettingsPurgeCache();

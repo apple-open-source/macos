@@ -123,6 +123,7 @@
 #include <kern/page_decrypt.h>
 
 #include <IOKit/IOReturn.h>
+#include <IOKit/IOBSD.h>
 
 #include <vm/vm_map.h>
 #include <vm/vm_kern.h>
@@ -142,7 +143,7 @@
 static uint32_t
 proc_2020_fall_os_sdk(void)
 {
-	switch (current_proc()->p_platform) {
+	switch (proc_platform(current_proc())) {
 	case PLATFORM_MACOS:
 		return 0x000a1000; // DYLD_MACOSX_VERSION_10_16
 	case PLATFORM_IOS:
@@ -1187,7 +1188,7 @@ madvise(__unused proc_t p, struct madvise_args *uap, __unused int32_t *retval)
 	    uap->behav == MADV_FREE_REUSABLE)) {
 		printf("** FOURK_COMPAT: %d[%s] "
 		    "failing madvise(0x%llx,0x%llx,%s)\n",
-		    p->p_pid, p->p_comm, start, size,
+		    proc_getpid(p), p->p_comm, start, size,
 		    ((uap->behav == MADV_FREE_REUSABLE)
 		    ? "MADV_FREE_REUSABLE"
 		    : "MADV_FREE"));
@@ -1274,7 +1275,7 @@ mincore(__unused proc_t p, struct mincore_args *uap, __unused int32_t *retval)
 	cur_vec_size_pages = MIN(req_vec_size_pages, (MAX_PAGE_RANGE_QUERY >> effective_page_shift));
 	size_t kernel_vec_size = cur_vec_size_pages;
 
-	kernel_vec = kheap_alloc(KHEAP_TEMP, kernel_vec_size, Z_WAITOK | Z_ZERO);
+	kernel_vec = (char *)kalloc_data(kernel_vec_size, Z_WAITOK | Z_ZERO);
 
 	if (kernel_vec == NULL) {
 		return ENOMEM;
@@ -1287,10 +1288,10 @@ mincore(__unused proc_t p, struct mincore_args *uap, __unused int32_t *retval)
 
 	pqueryinfo_vec_size = cur_vec_size_pages * sizeof(struct vm_page_info_basic);
 
-	info = kheap_alloc(KHEAP_TEMP, pqueryinfo_vec_size, Z_WAITOK);
+	info = (struct vm_page_info_basic *)kalloc_data(pqueryinfo_vec_size, Z_WAITOK);
 
 	if (info == NULL) {
-		kheap_free(KHEAP_TEMP, kernel_vec, kernel_vec_size);
+		kfree_data(kernel_vec, kernel_vec_size);
 		return ENOMEM;
 	}
 
@@ -1368,8 +1369,8 @@ mincore(__unused proc_t p, struct mincore_args *uap, __unused int32_t *retval)
 		first_addr = addr;
 	}
 
-	kheap_free(KHEAP_TEMP, info, pqueryinfo_vec_size);
-	kheap_free(KHEAP_TEMP, kernel_vec, kernel_vec_size);
+	kfree_data(info, pqueryinfo_vec_size);
+	kfree_data(kernel_vec, kernel_vec_size);
 
 	if (error) {
 		return EFAULT;
@@ -1542,6 +1543,12 @@ mremap_encrypted(__unused struct proc *p, struct mremap_encrypted_args *uap, __u
 	    __FUNCTION__, vpath, cryptid, cputype, cpusubtype, (uint64_t)user_addr, (uint64_t)user_size);
 #endif
 
+	if (user_size == 0) {
+		printf("%s:%d '%s': user_addr 0x%llx user_size 0x%llx cryptid 0x%x ignored\n", __FUNCTION__, __LINE__, vpath, user_addr, user_size, cryptid);
+		zfree(ZV_NAMEI, vpath);
+		return 0;
+	}
+
 	/* set up decrypter first */
 	crypt_file_data_t crypt_data = {
 		.filename = vpath,
@@ -1552,7 +1559,7 @@ mremap_encrypted(__unused struct proc *p, struct mremap_encrypted_args *uap, __u
 #if VM_MAP_DEBUG_APPLE_PROTECT
 	if (vm_map_debug_apple_protect) {
 		printf("APPLE_PROTECT: %d[%s] map %p [0x%llx:0x%llx] %s(%s) -> 0x%x\n",
-		    p->p_pid, p->p_comm,
+		    proc_getpid(p), p->p_comm,
 		    user_map,
 		    (uint64_t) user_addr,
 		    (uint64_t) (user_addr + user_size),

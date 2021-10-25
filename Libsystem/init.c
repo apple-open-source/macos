@@ -32,18 +32,23 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <corecrypto/cc_priv.h>
-#include <libc_private.h>
+#include <_libc_init.h>
 #include <pthread.h>
 #include <pthread/private.h>
 #if !TARGET_OS_DRIVERKIT
 #include <dlfcn.h>
 #include <os/variant_private.h>
+#include <os/feature_private.h>
 #endif
 #include <fcntl.h>
 #include <errno.h>
 #include <sys/kdebug.h>
 #include <_libkernel_init.h> // Must be after voucher_private.h
 #include <malloc_implementation.h>
+
+#if TARGET_OS_DRIVERKIT
+#include <MallocStackLogging/MallocStackLogging.h>
+#endif
 
 #include <mach-o/dyld_priv.h>
 
@@ -105,9 +110,11 @@ extern char *_dirhelper(int, char *, size_t);
 #endif
 
 // advance decls for below;
-void libSystem_atfork_prepare(void);
-void libSystem_atfork_parent(void);
-void libSystem_atfork_child(void);
+static void libSystem_atfork_prepare(unsigned int flags, ...);
+static void libSystem_atfork_parent(unsigned int flags, ...);
+static void libSystem_atfork_child(unsigned int flags, ...);
+
+__attribute__((__visibility__("default"))) void libSystem_init_after_boot_tasks_4launchd(void);
 
 #if SUPPORT_ASAN
 const char *__asan_default_options(void);
@@ -160,6 +167,36 @@ enum init_func {
 #define _libSystem_ktrace_init_func(what) \
 	_libSystem_ktrace1(ARIADNE_LIFECYCLE_libsystem_init | DBG_FUNC_NONE, INIT_##what)
 
+
+#if TARGET_OS_DRIVERKIT
+
+__attribute__((weak_import)) void msl_initialize(void);
+
+__attribute__((noinline))
+static struct _malloc_msl_symbols*
+fill_msl_symbols(struct _malloc_msl_symbols *msl_symbols) {
+	if (&msl_initialize == NULL)  {
+		return NULL;
+	}
+	*msl_symbols = (struct _malloc_msl_symbols){
+		.version = 1,
+		.handle_memory_event = &msl_handle_memory_event,
+		.stack_logging_locked = &msl_stack_logging_locked,
+		.fork_prepare = &msl_fork_prepare,
+		.fork_child = &msl_fork_child,
+		.fork_parent = &msl_fork_parent,
+		//stack_logging_mode_type and stack_logging_mode_t are identical
+		.turn_on_stack_logging = (boolean_t (*) (stack_logging_mode_type type))&msl_turn_on_stack_logging,
+		.turn_off_stack_logging = &msl_turn_off_stack_logging,
+		.set_flags_from_environment = &msl_set_flags_from_environment,
+		.initialize = &msl_initialize,
+		.copy_msl_lite_hooks = &msl_copy_msl_lite_hooks,
+	};
+	return msl_symbols;
+}
+#endif
+
+
 // libsyscall_initializer() initializes all of libSystem.dylib
 // <rdar://problem/4892197>
 __attribute__((constructor))
@@ -195,13 +232,13 @@ libSystem_initializer(int argc,
 	};
 
 	static const struct _libc_functions libc_funcs = {
-		.version = 1,
-		.atfork_prepare = libSystem_atfork_prepare,
-		.atfork_parent = libSystem_atfork_parent,
-		.atfork_child = libSystem_atfork_child,
+		.version = 2,
 #if defined(HAVE_SYSTEM_CORESERVICES)
 		.dirhelper = _dirhelper,
 #endif
+		.atfork_prepare_v2 = libSystem_atfork_prepare,
+		.atfork_parent_v2 = libSystem_atfork_parent,
+		.atfork_child_v2 = libSystem_atfork_child,
 	};
 	
 	_libSystem_ktrace0(ARIADNE_LIFECYCLE_libsystem_init | DBG_FUNC_START);
@@ -267,13 +304,21 @@ libSystem_initializer(int argc,
 	_libSystem_ktrace_init_func(DARWIN);
 #endif // !TARGET_OS_DRIVERKIT
 
+
+#if TARGET_OS_DRIVERKIT
+	const struct _malloc_msl_symbols msl_symbols_buf = {};
+	const struct _malloc_msl_symbols *msl_symbols = fill_msl_symbols(&msl_symbols_buf);
+#endif
+
 	const struct _malloc_late_init mli = {
-		.version = 1,
+		.version = 2,
 #if !TARGET_OS_DRIVERKIT
 		.dlopen = dlopen,
 		.dlsym = dlsym,
 		// this must come after _libxpc_initializer()
 		.internal_diagnostics = os_variant_has_internal_diagnostics("com.apple.libsystem"),
+#else
+		.msl = msl_symbols,
 #endif
 	};
 
@@ -294,6 +339,7 @@ libSystem_initializer(int argc,
 #if TARGET_OS_OSX && !defined(__i386__)
 	bool enable_system_version_compat = false;
 	bool enable_ios_version_compat = false;
+	bool enable_posix_spawn_filtering = false;
 	char *system_version_compat_override = getenv("SYSTEM_VERSION_COMPAT");
 	if (system_version_compat_override != NULL) {
 		long override = strtol(system_version_compat_override, NULL, 0);
@@ -311,15 +357,25 @@ libSystem_initializer(int argc,
 	} else if (!dyld_program_sdk_at_least(dyld_platform_version_macOS_10_16)) {
 		enable_system_version_compat = true;
 	}
+	/* 
+	 * In launchd (pid 1), feature flags are not available here because the data
+	 * volume is not mounted yet. We'll query posix_spawn_filtering via the
+	 * libSystem_init_after_boot_tasks_4launchd call below instead.
+	 */
+	if (getpid() != 1 && os_feature_enabled(Libsystem, posix_spawn_filtering)) {
+		enable_posix_spawn_filtering = true;
+	}
 
-	if (enable_system_version_compat || enable_ios_version_compat) {
+	if (enable_system_version_compat || enable_ios_version_compat || enable_posix_spawn_filtering) {
 		struct _libkernel_late_init_config config = {
-			.version = 2,
+			.version = 3,
 			.enable_system_version_compat = enable_system_version_compat,
 			.enable_ios_version_compat = enable_ios_version_compat,
+			.enable_posix_spawn_filtering = enable_posix_spawn_filtering,
 		};
 		__libkernel_init_late(&config);
 	}
+#else // TARGET_OS_OSX && !defined(__i386__)
 #endif // TARGET_OS_OSX && !defined(__i386__)
 
 	_libSystem_ktrace0(ARIADNE_LIFECYCLE_libsystem_init | DBG_FUNC_END);
@@ -332,14 +388,33 @@ libSystem_initializer(int argc,
 	errno = 0;
 }
 
-/*
- * libSystem_atfork_{prepare,parent,child}() are called by libc during fork(2).
- */
+extern __attribute__((__visibility__("default")))
 void
-libSystem_atfork_prepare(void)
+libSystem_init_after_boot_tasks_4launchd()
 {
-	// first call client prepare handlers registered with pthread_atfork()
-	_pthread_atfork_prepare_handlers();
+#if TARGET_OS_OSX && !defined(__i386__)
+	if (os_feature_enabled(Libsystem, posix_spawn_filtering)) {
+		struct _libkernel_init_after_boot_tasks_config config = {
+			.version = 1,
+			.enable_posix_spawn_filtering = true,
+		};
+		__libkernel_init_after_boot_tasks(&config);
+	}
+#endif
+}
+
+/*
+ * libSystem_atfork_{prepare,parent,child}() are called by libc during fork(2)
+ * and vfork(2) now that vfork is just an alias for fork - but vfork doesn't
+ * call API pthread_atfork handlers, only the Libsystem-internal handlers.
+ */
+static void
+libSystem_atfork_prepare(unsigned int flags, ...)
+{
+	if ((flags & LIBSYSTEM_ATFORK_HANDLERS_ONLY_FLAG) == 0) {
+		// first call client prepare handlers registered with pthread_atfork()
+		_pthread_atfork_prepare_handlers();
+	}
 
 	// second call hardwired fork prepare handlers for Libsystem components
 	// in the _reverse_ order of library initalization above
@@ -354,8 +429,8 @@ libSystem_atfork_prepare(void)
 	_pthread_atfork_prepare();
 }
 
-void
-libSystem_atfork_parent(void)
+static void
+libSystem_atfork_parent(unsigned int flags, ...)
 {
 	// first call hardwired fork parent handlers for Libsystem components
 	// in the order of library initalization above
@@ -369,12 +444,14 @@ libSystem_atfork_parent(void)
 	_libSC_info_fork_parent();
 #endif // !TARGET_OS_DRIVERKIT
 
-	// second call client parent handlers registered with pthread_atfork()
-	_pthread_atfork_parent_handlers();
+	if ((flags & LIBSYSTEM_ATFORK_HANDLERS_ONLY_FLAG) == 0) {
+		// second call client parent handlers registered with pthread_atfork()
+		_pthread_atfork_parent_handlers();
+	}
 }
 
-void
-libSystem_atfork_child(void)
+static void
+libSystem_atfork_child(unsigned int flags, ...)
 {
 	// first call hardwired fork child handlers for Libsystem components
 	// in the order of library initalization above
@@ -398,8 +475,10 @@ libSystem_atfork_child(void)
 	_libSC_info_fork_child();
 #endif // !TARGET_OS_DRIVERKIT
 
-	// second call client parent handlers registered with pthread_atfork()
-	_pthread_atfork_child_handlers();
+	if ((flags & LIBSYSTEM_ATFORK_HANDLERS_ONLY_FLAG) == 0) {
+		// second call client child handlers registered with pthread_atfork()
+		_pthread_atfork_child_handlers();
+	}
 }
 
 #if SUPPORT_ASAN

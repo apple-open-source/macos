@@ -152,7 +152,7 @@ errOut:
 
 }
 
-static int compute_crt_components(CCRSACryptorRef rsaKey, void *dp, size_t *np, void *dq, size_t *nq)
+static int compute_crt_components(CCRSACryptorRef rsaKey, CCBigNumRef dp, CCBigNumRef dq)
 {
     size_t nbytes = (CCRSAGetKeySize(rsaKey)+7)/8;
     size_t modulus_sz = nbytes;
@@ -168,30 +168,22 @@ static int compute_crt_components(CCRSACryptorRef rsaKey, void *dp, size_t *np, 
     uint8_t q_be[q_sz];
     
     ok_or_fail(CCRSAGetKeyComponents(rsaKey, modulus_be, &modulus_sz, d_be, &d_sz, p_be, &p_sz, q_be, &q_sz)== kCCSuccess, "getting RSA key components") ;
-    
-    // m, p, q, e
-    size_t n = ccn_nof(CCRSAGetKeySize(rsaKey));
-    cc_unit modulus[n];
-    ccn_read_uint(n, modulus, modulus_sz, modulus_be);
-    
-    *np = ccn_nof_size(p_sz);
-    cc_unit p[*np];
-    ccn_read_uint(*np, p, p_sz, p_be);
-    
-    *nq = ccn_nof_size(q_sz);
-    ok_or_fail(*np>=*nq, "np must be larger than nq");
-   
-    cc_unit q[*np]; //set length to np not to nq
-    ccn_read_uint(*np, q, q_sz, q_be);
-    
-    cc_unit d[n];
-    ccn_read_uint(n, d, d_sz, d_be);
-    
-    p[0]--; q[0]--;
-    ok_or_fail(ccn_mod(n, dp, n, d, *np, p)==0, "computing dp");
-    ok_or_fail(ccn_mod(n, dq, n, d, *np, q)==0, "computing dq");
-    p[0]++; q[0]++;
-    
+
+    CCStatus status;
+    CCBigNumRef p = CCBigNumFromData(&status, p_be, p_sz);
+    CCBigNumRef q = CCBigNumFromData(&status, q_be, q_sz);
+    CCBigNumRef d = CCBigNumFromData(&status, d_be, d_sz);
+
+    CCBigNumSubI(p, p, 1);
+    CCBigNumSubI(q, q, 1);
+
+    CCBigNumMod(dp, d, p);
+    CCBigNumMod(dq, d, q);
+
+    CCBigNumFree(p);
+    CCBigNumFree(q);
+    CCBigNumFree(d);
+
     return 1;
 }
 
@@ -207,25 +199,24 @@ static int CCRSAGetCRTComponentsTest(CCRSACryptorRef rsaKey)
     
     CCCryptorStatus rc = CCRSAGetCRTComponents(rsaKey, dp, dp_size, dq, dq_size, qinv, qinv_size);
     ok_or_fail(rc==kCCSuccess, "getting CRT parameters");
-    
-    //- compute crt parameters
-    size_t keybits = CCRSAGetKeySize(rsaKey); //should probably be CCRSAGetKeyNBits
-    size_t n =  ccn_nof(keybits); //should probaly be ccn_nof_bits()
-    cc_unit dp2[n]; //larger than needed, but thats fine
-    cc_unit dq2[n];
-    
-    size_t np, nq;
-    compute_crt_components(rsaKey, dp2, &np, dq2, &nq);
-    
+
+    //- compute crt components
+    CCStatus status;
+    CCBigNumRef dp2 = CCCreateBigNum(&status);
+    CCBigNumRef dq2 = CCCreateBigNum(&status);
+
+    compute_crt_components(rsaKey, dp2, dq2);
+
     //- compare computed crt parameters with those received from CCRSAGetCRTComponents()
-    cc_unit dp3[n];
-    cc_unit dq3[n];
-    ccn_read_uint(n, dp3, dp_size, dp);
-    ccn_read_uint(n, dq3, dq_size, dq);
-    
-    ok_or_fail(ccn_cmp(ccn_nof_size(dp_size), dp2, dp3)==0, "comparing received dp with computed dp");
-    ok_or_fail(ccn_cmp(ccn_nof_size(dq_size), dq2, dq3)==0, "comparing received dq with computed dq");
-    
+    CCBigNumRef dp3 = CCBigNumFromData(&status, dp, dp_size);
+    CCBigNumRef dq3 = CCBigNumFromData(&status, dq, dq_size);
+
+    ok_or_fail(CCBigNumCompare(dp2, dp3)==0, "comparing received dp with computed dp");
+    ok_or_fail(CCBigNumCompare(dq2, dq3)==0, "comparing received dq with computed dq");
+
+    CCBigNumFree(dp2);
+    CCBigNumFree(dq2);
+
     return 1;
 }
 
@@ -308,12 +299,26 @@ static CCCryptorStatus CCRSACryptorCreateFromData_and_test_keys(CCRSAKeyType key
         rv = sign_verify(pub, priv, ccPKCS1Padding, kCCDigestSHA1);
 #pragma clang diagnostic pop
         ok(rv==kCCSuccess, "sign/verify of created key");
-        
+        CCRSACryptorRelease(pub);
+
         size_t dp_size, dq_size, qinv_size;
         rv=CCRSAGetCRTComponentsSizes(priv, &dp_size, &dq_size, &qinv_size); ok(rv==kCCSuccess, "getting CRT components sizes");
         uint8_t dp[dp_size], dq[dq_size], qinv[qinv_size];
         rv=CCRSAGetCRTComponents(priv, dp, dp_size, dq, dq_size, qinv, qinv_size); ok(rv==kCCSuccess, "getting CRT components");
-        CCRSACryptorRelease(pub);
+
+        modulusLength = (CCRSAGetKeySize(priv)+7)/8;
+        uint8_t modulus2[modulusLength], privateExponent[modulusLength], p[modulusLength], q[modulusLength];
+        size_t privateExponentLength = sizeof(privateExponent);
+        size_t p_len = sizeof(p);
+        size_t q_len = sizeof(q);
+
+        rv = CCRSAGetKeyComponents(priv, modulus2, &modulusLength, privateExponent, &privateExponentLength, p, &p_len, q, &q_len);
+        ok(rv==kCCSuccess, "getting key components");
+
+        CCRSACryptorRef priv2 = NULL;
+        rv=CCRSACryptorRecoverPrivateKey(modulus2, modulusLength, publicExponent, publicExponentLength, privateExponent, privateExponentLength, &priv2);
+        ok(rv==kCCSuccess, "recover private key");
+        CCRSACryptorRelease(priv2);
     }else{
         size_t modulusLength2, exponentLength2;
         assert(modulusLength!=0 && publicExponentLength!=0);
@@ -452,7 +457,8 @@ int CommonRSA (int __unused argc, char *const * __unused argv) {
     int stdgen = 1;
     size_t keystep = 512;
 
-    plan_tests(553);
+    plan_tests(550);
+
     CCRSACryptorCreateFromData_tests();
     CCRSACryptorCreateFromData_KATtests();
 

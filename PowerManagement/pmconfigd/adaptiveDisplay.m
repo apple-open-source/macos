@@ -27,7 +27,7 @@
 
 
 void ads_prime(void) {}
-void evaluateADS() {}
+void evaluateADS(void) {}
 
 
 

@@ -3075,7 +3075,7 @@ report_printer_state(ipp_t *ipp)	/* I - IPP response */
   * Report alerts and messages...
   */
 
-  if ((pa = ippFindAttribute(ipp, "printer-alert", IPP_TAG_TEXT)) != NULL)
+  if ((pa = ippFindAttribute(ipp, "printer-alert", IPP_TAG_STRING)) != NULL)
     report_attr(pa);
 
   if ((pam = ippFindAttribute(ipp, "printer-alert-message",
@@ -3203,7 +3203,8 @@ run_as_user(char       *argv[],		/* I - Command-line arguments */
 	    const char *device_uri,	/* I - Device URI */
 	    int        fd)		/* I - File to print */
 {
-  const char		*auth_negotiate;/* AUTH_NEGOTIATE env var */
+  const char		*auth_negotiate,/* AUTH_NEGOTIATE env var */
+			*content_type;	/* [FINAL_]CONTENT_TYPE env vars */
   xpc_connection_t	conn;		/* Connection to XPC service */
   xpc_object_t		request;	/* Request message dictionary */
   __block xpc_object_t	response;	/* Response message dictionary */
@@ -3266,6 +3267,10 @@ run_as_user(char       *argv[],		/* I - Command-line arguments */
                             getenv("AUTH_INFO_REQUIRED"));
   if ((auth_negotiate = getenv("AUTH_NEGOTIATE")) != NULL)
     xpc_dictionary_set_string(request, "auth-negotiate", auth_negotiate);
+  if ((content_type = getenv("CONTENT_TYPE")) != NULL)
+    xpc_dictionary_set_string(request, "content-type", content_type);
+  if ((content_type = getenv("FINAL_CONTENT_TYPE")) != NULL)
+    xpc_dictionary_set_string(request, "final-content-type", content_type);
   xpc_dictionary_set_fd(request, "stdin", fd);
   xpc_dictionary_set_fd(request, "stderr", 2);
   xpc_dictionary_set_fd(request, "side-channel", CUPS_SC_FD);

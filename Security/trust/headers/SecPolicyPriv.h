@@ -199,8 +199,18 @@ extern const CFStringRef kSecPolicyAppleAggregateMetricTransparency
     API_AVAILABLE(macos(10.15.6), ios(13.6), watchos(6.2), tvos(13.4));
 extern const CFStringRef kSecPolicyAppleAggregateMetricEncryption
     API_AVAILABLE(macos(11.1), ios(14.3), watchos(7.2), tvos(14.3));
+extern const CFStringRef kSecPolicyAppleDeveloperIDInstaller
+    API_AVAILABLE(macos(12.0), ios(15.0), watchos(8.0), tvos(15.0));
+extern const CFStringRef kSecPolicyAppleMacAppStoreInstaller
+    API_AVAILABLE(macos(12.0), ios(15.0), watchos(8.0), tvos(15.0));
+extern const CFStringRef kSecPolicyAppleMacDistributionInstaller
+    API_AVAILABLE(macos(12.0), ios(15.0), watchos(8.0), tvos(15.0));
 extern const CFStringRef kSecPolicyApplePayModelSigning
     API_AVAILABLE(macos(11.3), ios(14.5), watchos(7.4), tvos(14.5));
+extern const CFStringRef kSecPolicyAppleMDLTerminalAuth
+    API_AVAILABLE(macos(12.0), ios(15.0), watchos(8.0), tvos(15.0));
+extern const CFStringRef kSecPolicyAppleCHIPUpdateSigning
+    API_AVAILABLE(macos(12.0), ios(15.0), watchos(8.0), tvos(15.0));
 
 
 /*!
@@ -226,6 +236,7 @@ extern const CFStringRef kSecPolicyApplePayModelSigning
     @constant kSecPolicyNameAppleHomeAppClipUploadService
     @constant kSecPolicyNameAppleUpdatesService
     @constant kSecPolicyNameApplePushCertPortal
+    @constant kSecPolicyNameApplePotluckService
  */
 extern const CFStringRef kSecPolicyNameAppleAST2Service
     __OSX_AVAILABLE(10.13) __IOS_AVAILABLE(11.0) __TVOS_AVAILABLE(11.0) __WATCHOS_AVAILABLE(4.0);
@@ -265,6 +276,8 @@ extern const CFStringRef kSecPolicyNameAppleUpdatesService
     API_AVAILABLE(macos(10.15.4), ios(13.4), watchos(6.2), tvos(13.4));
 extern const CFStringRef kSecPolicyNameApplePushCertPortal
     API_AVAILABLE(macos(10.16), ios(14.0), watchos(7.0), tvos(14.0));
+extern const CFStringRef kSecPolicyNameApplePotluckService
+    API_AVAILABLE(macos(12.0), ios(15.0), watchos(8.0), tvos(15.0));
 
 /*!
  @enum Policy Value Constants
@@ -1711,7 +1724,6 @@ SecPolicyRef SecPolicyCreateAppleComponentCertificate(CFDataRef __nullable testR
      * The intermediate has a marker extension with OID 1.2.840.113635.100.6.2.3".
      * The leaf has a marker extension with OID 1.2.840.113635.100.6.69.1 and value
         matching the applicationId.
-     * Revocation is checked via any available method.
      * RSA key sizes are 2048-bit or larger. EC key sizes are P-256 or larger.
  @result A policy object. The caller is responsible for calling CFRelease on this when
  it is no longer needed.
@@ -1880,6 +1892,63 @@ SecPolicyRef SecPolicyCreateAggregateMetricEncryption(bool facilitator)
     API_AVAILABLE(macos(11.1), ios(14.3), watchos(7.2), tvos(14.3));
 
 /*!
+ @function SecPolicyCreateDeveloperIDInstaller
+ @abstract Returns a policy object for verifying DeveloperID Installer signing certificates
+ @discussion The resulting policy uses the Basic X.509 policy with no validity check and
+ pinning options:
+     * The chain is anchored to any of the Apple Root CAs.
+     * There are exactly 3 certs in the chain.
+     * The intermediate has a marker extension with OID 1.2.840.113635.100.6.2.6.
+     * The leaf has a marker extension with OID 1.2.840.113635.100.6.1.14.
+     * The leaf has EKU with OID 1.2.840.113635.100.4.13.
+     * RSA key sizes are 2048-bit or larger. EC key sizes are P-256 or larger.
+     * Revocation is checked via any available method
+ @result A policy object. The caller is responsible for calling CFRelease on this when
+ it is no longer needed.
+ */
+__nullable CF_RETURNS_RETAINED
+SecPolicyRef SecPolicyCreateDeveloperIDInstaller(void)
+    API_AVAILABLE(macos(12.0), ios(15.0), watchos(8.0), tvos(15.0));
+
+/*!
+ @function SecPolicyCreateMacAppStoreInstaller
+ @abstract Returns a policy object for verifying Mac App Store Installer signing certificates
+ @discussion The resulting policy uses the Basic X.509 policy with no validity check and
+ pinning options:
+     * The chain is anchored to any of the Apple Root CAs.
+     * There are exactly 3 certs in the chain.
+     * The intermediate has a marker extension with OID 1.2.840.113635.100.6.2.1.
+     * The leaf has a marker extension with OID 1.2.840.113635.100.6.1.10, or, if QA
+        is enabled, 1.2.840.113635.100.6.1.10.1.
+     * The leaf has EKU with OID 1.2.840.113635.100.4.10.
+     * RSA key sizes are 2048-bit or larger. EC key sizes are P-256 or larger.
+     * Revocation is checked via any available method
+ @result A policy object. The caller is responsible for calling CFRelease on this when
+ it is no longer needed.
+ */
+__nullable CF_RETURNS_RETAINED
+SecPolicyRef SecPolicyCreateMacAppStoreInstaller(void)
+    API_AVAILABLE(macos(12.0), ios(15.0), watchos(8.0), tvos(15.0));
+
+/*!
+ @function SecPolicyCreate MacDistributionInstaller
+ @abstract Returns a policy object for verifying Mac Distribution Installer signing certificates
+ @discussion The resulting policy uses the Basic X.509 policy with validity check and
+ pinning options:
+     * The chain is anchored to any of the Apple Root CAs.
+     * There are exactly 3 certs in the chain.
+     * The intermediate has a marker extension with OID 1.2.840.113635.100.6.2.1.
+     * The leaf has a marker extension with OID 1.2.840.113635.100.6.1.8.
+     * RSA key sizes are 2048-bit or larger. EC key sizes are P-256 or larger.
+     * Revocation is checked via any available method
+ @result A policy object. The caller is responsible for calling CFRelease on this when
+ it is no longer needed.
+ */
+__nullable CF_RETURNS_RETAINED
+SecPolicyRef SecPolicyCreateMacDistributionInstaller(void)
+    API_AVAILABLE(macos(12.0), ios(15.0), watchos(8.0), tvos(15.0));
+
+/*!
  @function SecPolicyCreateSSLWithKeyUsage
  @abstract Returns a policy object for evaluating SSL certificate chains (with key usage enforcement)
  @param server Passing true for this parameter creates a policy for SSL
@@ -1909,8 +1978,8 @@ void SecPolicySetSHA256Pins(SecPolicyRef policy, CFArrayRef _Nullable leafSPKISH
     API_AVAILABLE(macos(11.3), ios(14.5), watchos(7.4), tvos(14.5));
 
 /*!
- @function SecPolicyCreateApplayPayModelSigning
- @abstract Returns a policy object for verifying Aggregate Metric Encryption certificates
+ @function SecPolicyCreateApplePayModelSigning
+ @abstract Returns a policy object for verifying ApplePay Model Signing certificates
  @param checkExpiration A boolean to indicate whether the policy should check for expiration.
  @discussion The resulting policy uses the Basic X.509 policy with optional validity check and
  pinning options:
@@ -1926,6 +1995,44 @@ void SecPolicySetSHA256Pins(SecPolicyRef policy, CFArrayRef _Nullable leafSPKISH
 __nullable CF_RETURNS_RETAINED
 SecPolicyRef SecPolicyCreateApplePayModelSigning(bool checkExpiration)
     API_AVAILABLE(macos(11.3), ios(14.5), watchos(7.4), tvos(14.5));
+
+/*!
+ @function SecPolicyCreateMDLTerminalAuth
+ @abstract Returns a policy object for verifying MDL Terminal Authentication certificates
+ @param checkExtension A boolean to indicate whether the policy should check for the
+    mdlTerminalAuth () extension in the leaf.
+ @param leafIsCA A boolean to indicate whether the policy should check that the leaf has
+    a basicConstraints extension with CA=TRUE.
+ @discussion The resulting policy uses the Basic X.509 policy with no validity check and
+ pinning options:
+     * RSA key sizes are 2048-bit or larger. EC key sizes are P-256 or larger.
+ The intended use of this policy is that the caller pass in the trusted roots to SecTrustSetAnchorCertificates().
+ @result A policy object. The caller is responsible for calling CFRelease on this when
+ it is no longer needed.
+ */
+__nullable CF_RETURNS_RETAINED
+SecPolicyRef SecPolicyCreateMDLTerminalAuth(bool checkExtension, bool leafIsCA)
+    API_AVAILABLE(macos(12.0), ios(15.0), watchos(8.0), tvos(15.0));
+
+/*!
+ @function SecPolicyCreateAppleCHIPUpdateSigning
+ @abstract Returns a policy object for verifying CHIP Firmware Update Signing certificates
+ @discussion The resulting policy uses the Basic X.509 policy with no validity check and
+ pinning options:
+     * The chain is anchored to any of the Apple Root CAs.
+     * There are exactly 3 certs in the chain.
+     * The intermediate has a marker extension with OID 1.2.840.113635.100.6.2.17.
+     * The leaf has a marker extension with OID 1.2.840.113635.100.12.25, or, if
+        "AllowCHIPUpdateSigningBeta" is set to true in the com.apple.security
+        preference/defaults domain, OID 1.2.840.113635.100.12.26
+     * RSA key sizes are 2048-bit or larger. EC key sizes are P-256 or larger.
+     * Revocation is checked via any available method
+ @result A policy object. The caller is responsible for calling CFRelease on this when
+ it is no longer needed.
+ */
+__nullable CF_RETURNS_RETAINED
+SecPolicyRef SecPolicyCreateAppleCHIPUpdateSigning(void)
+    API_AVAILABLE(macos(12.0), ios(15.0), watchos(8.0), tvos(15.0));
 
 /*
  *  Legacy functions (OS X only)
@@ -1992,6 +2099,7 @@ extern const CFStringRef kSecPolicyCheckCertificatePolicy;
 extern const CFStringRef kSecPolicyCheckChainLength;
 extern const CFStringRef kSecPolicyCheckCriticalExtensions;
 extern const CFStringRef kSecPolicyCheckCTRequired;
+extern const CFStringRef kSecPolicyCheckDuplicateExtension;
 extern const CFStringRef kSecPolicyCheckEAPTrustedServerNames;
 extern const CFStringRef kSecPolicyCheckEmail;
 extern const CFStringRef kSecPolicyCheckExtendedKeyUsage;
@@ -2012,7 +2120,6 @@ extern const CFStringRef kSecPolicyCheckIssuerPolicyConstraints;
 extern const CFStringRef kSecPolicyCheckIssuerNameConstraints;
 extern const CFStringRef kSecPolicyCheckKeySize;
 extern const CFStringRef kSecPolicyCheckKeyUsage;
-extern const CFStringRef kSecPolicyCheckKeyUsageReportOnly;
 extern const CFStringRef kSecPolicyCheckLeafMarkerOid;
 extern const CFStringRef kSecPolicyCheckLeafMarkerOidWithoutValueCheck;
 extern const CFStringRef kSecPolicyCheckLeafMarkersProdAndQA;
@@ -2133,6 +2240,7 @@ bool SecPolicyCheckCertCriticalExtensions(SecCertificateRef cert, CFTypeRef __nu
 bool SecPolicyCheckCertSubjectCountry(SecCertificateRef cert, CFTypeRef pvcValue);
 bool SecPolicyCheckCertUnparseableExtension(SecCertificateRef cert, CFTypeRef pvcValue);
 bool SecPolicyCheckCertNotCA(SecCertificateRef cert, CFTypeRef pvcValue);
+bool SecPolicyCheckCertDuplicateExtension(SecCertificateRef cert, CFTypeRef pvcValue);
 
 void SecPolicySetName(SecPolicyRef policy, CFStringRef policyName);
 __nullable CFArrayRef SecPolicyXPCArrayCopyArray(xpc_object_t xpc_policies, CFErrorRef *error);

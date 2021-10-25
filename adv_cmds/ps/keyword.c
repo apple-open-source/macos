@@ -145,6 +145,9 @@ static VAR var[] = {
 	{"ppid", "PPID",
 		NULL, 0, evar, NULL, PIDLEN, EOFF(e_ppid), UINT, PIDFMT},
 	{"pri", "PRI", NULL, 0, pri, NULL, 3},
+#ifdef __APPLE__
+	{"prsna", "PRSNA", NULL, 0, persona, NULL, UIDLEN, 0, UINT, UIDFMT},
+#endif /* __APPLE__ */
 	{"pstime", "", "stime"},
 	{"putime", "", "utime"},
 	{"re", "RE", NULL, 0, pvar, NULL, 3, POFF(p_swtime), UINT, "d"},

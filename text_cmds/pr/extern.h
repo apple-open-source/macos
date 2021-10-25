@@ -1,4 +1,6 @@
 /*-
+ * SPDX-License-Identifier: BSD-4-Clause
+ *
  * Copyright (c) 1991 Keith Muller.
  * Copyright (c) 1993
  *	The Regents of the University of California.  All rights reserved.
@@ -35,10 +37,12 @@
  * SUCH DAMAGE.
  *
  *      @(#)extern.h	8.1 (Berkeley) 6/6/93
- * $FreeBSD: src/usr.bin/pr/extern.h,v 1.3 2002/09/04 23:29:05 dwmalone Exp $
+ * $FreeBSD$
  */
 
+extern int eopterr;
 extern int eoptind;
+extern int eoptopt;
 extern char *eoptarg;
 
 void	 addnum(char *, int, int);

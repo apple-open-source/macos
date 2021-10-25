@@ -25,6 +25,8 @@
 #ifndef _LDAP_PRIVATE_H
 #define _LDAP_PRIVATE_H
 
+#include <ldap.h>
+
 LDAP_BEGIN_DECL
 
 /* Apple specific options */

@@ -33,27 +33,27 @@ verify_files(const char *msg)
 	 */
 
 	/* Regular file with 2 links. */
-	failure(msg);
+	failure("%s", msg);
 	assertIsReg("file", 0644);
-	failure(msg);
+	failure("%s", msg);
 	assertFileSize("file", 10);
-	failure(msg);
+	failure("%s", msg);
 	assertFileNLinks("file", 2);
 
 	/* Another name for the same file. */
-	failure(msg);
+	failure("%s", msg);
 	assertIsHardlink("linkfile", "file");
 
 	/* Symlink */
 	if (canSymlink())
-		assertIsSymlink("symlink", "file");
+		assertIsSymlink("symlink", "file", 0);
 
 	/* Another file with 1 link and different permissions. */
-	failure(msg);
+	failure("%s", msg);
 	assertIsReg("file2", 0777);
-	failure(msg);
+	failure("%s", msg);
 	assertFileSize("file2", 10);
-	failure(msg);
+	failure("%s", msg);
 	assertFileNLinks("file2", 1);
 
 	/* dir */
@@ -144,49 +144,79 @@ DEFINE_TEST(test_basic)
 	/* File with 10 bytes content. */
 	assertMakeFile("file", 0644, "1234567890");
 	fprintf(filelist, "file\n");
-	if (is_LargeInode("file"))
+	if (is_LargeInode("file")) {
 		strncat(result,
-		    "cpio: file: large inode number truncated: "
-		    "Result too large\n",
+		    "bsdcpio: file: large inode number truncated: ",
 		    sizeof(result) - strlen(result) -1);
+		strncat(result,
+		    strerror(ERANGE),
+		    sizeof(result) - strlen(result) -1);
+		strncat(result,
+		    "\n",
+		    sizeof(result) - strlen(result) -1);
+	}
 
 	/* hardlink to above file. */
 	assertMakeHardlink("linkfile", "file");
 	fprintf(filelist, "linkfile\n");
-	if (is_LargeInode("linkfile"))
+	if (is_LargeInode("linkfile")) {
 		strncat(result,
-		    "cpio: linkfile: large inode number truncated: "
-		    "Result too large\n",
+		    "bsdcpio: linkfile: large inode number truncated: ",
 		    sizeof(result) - strlen(result) -1);
+		strncat(result,
+		    strerror(ERANGE),
+		    sizeof(result) - strlen(result) -1);
+		strncat(result,
+		    "\n",
+		    sizeof(result) - strlen(result) -1);
+	}
 
 	/* Symlink to above file. */
 	if (canSymlink()) {
-		assertMakeSymlink("symlink", "file");
+		assertMakeSymlink("symlink", "file", 0);
 		fprintf(filelist, "symlink\n");
-		if (is_LargeInode("symlink"))
+		if (is_LargeInode("symlink")) {
 			strncat(result,
-			    "cpio: symlink: large inode number truncated: "
-				"Result too large\n",
+			    "bsdcpio: symlink: large inode number truncated: ",
 			    sizeof(result) - strlen(result) -1);
+			strncat(result,
+			    strerror(ERANGE),
+			    sizeof(result) - strlen(result) -1);
+			strncat(result,
+			    "\n",
+			    sizeof(result) - strlen(result) -1);
+		}
 	}
 
 	/* Another file with different permissions. */
 	assertMakeFile("file2", 0777, "1234567890");
 	fprintf(filelist, "file2\n");
-	if (is_LargeInode("file2"))
+	if (is_LargeInode("file2")) {
 		strncat(result,
-		    "cpio: file2: large inode number truncated: "
-		    "Result too large\n",
+		    "bsdcpio: file2: large inode number truncated: ",
 		    sizeof(result) - strlen(result) -1);
+		strncat(result,
+		    strerror(ERANGE),
+		    sizeof(result) - strlen(result) -1);
+		strncat(result,
+		    "\n",
+		    sizeof(result) - strlen(result) -1);
+	}
 
 	/* Directory. */
 	assertMakeDir("dir", 0775);
 	fprintf(filelist, "dir\n");
-	if (is_LargeInode("dir"))
+	if (is_LargeInode("dir")) {
 		strncat(result,
-		    "cpio: dir: large inode number truncated: "
-		    "Result too large\n",
+		    "bsdcpio: dir: large inode number truncated: ",
 		    sizeof(result) - strlen(result) -1);
+		strncat(result,
+		    strerror(ERANGE),
+		    sizeof(result) - strlen(result) -1);
+		strncat(result,
+		    "\n",
+		    sizeof(result) - strlen(result) -1);
+	}
 	strncat(result, "2 blocks\n", sizeof(result) - strlen(result) -1);
 
 	/* All done. */

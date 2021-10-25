@@ -1,0 +1,22 @@
+--- numpy-1.8.0rc1.orig/numpy/f2py/setup.py	2021-01-27 08:44:07.000000000 -0800
++++ numpy-1.8.0rc1/numpy/f2py/setup.py	2021-01-27 08:44:58.000000000 -0800
+@@ -51,6 +51,10 @@
+         target = os.path.join(build_dir, f2py_exe)
+         if newer(__file__, target):
+             log.info('Creating %s', target)
++            if os.environ.get('__INTERNALSDKBUILD__'):
++                pyexecutable = '@PYEXECUTABLE@'
++            else:
++                pyexecutable = sys.executable
+             f = open(target, 'w')
+             f.write('''\
+ #!%s
+@@ -77,7 +81,7 @@
+     sys.stderr.write("Unknown mode: " + repr(mode) + "\\n")
+     sys.exit(1)
+ main()
+-'''%(sys.executable))
++'''%(pyexecutable))
+             f.close()
+         return target
+ 

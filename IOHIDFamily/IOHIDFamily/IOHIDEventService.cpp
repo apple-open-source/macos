@@ -29,6 +29,7 @@
 #include <IOKit/IOLib.h>
 #include <IOKit/usb/IOUSBHostFamily.h>
 #include <IOKit/hid/IOHIDEventServiceTypes.h>
+#include <IOKit/IOCommand.h>
 
 #include "IOHIDKeys.h"
 #include "IOHIDSystem.h"
@@ -190,12 +191,10 @@ bool IOHIDEventService::init ( OSDictionary * properties )
     if (!super::init(properties))
         return false;
 
-    _reserved = IONew(ExpansionData, 1);
+    _reserved = IOMallocType(ExpansionData);
     if (!_reserved) {
         return false;
     }
-    
-    bzero(_reserved, sizeof(ExpansionData));
 
     _nubLock = IORecursiveLockAlloc();
  
@@ -219,6 +218,8 @@ bool IOHIDEventService::start ( IOService * provider )
     OSString    *string       = NULL;
     OSBoolean   *boolean      = NULL;
     IOHIDDevice *device       = NULL;
+
+    HIDServiceLogInfo("start");
 
     _provider = provider;
     _provider->retain();
@@ -295,10 +296,10 @@ bool IOHIDEventService::start ( IOService * provider )
     }
     OSSafeReleaseNULL(obj);
 
+    _powerButtonNmi = false;
+
    
     int legacy_shim;
-    
-    _powerButtonNmi = false;
     
     // Figure out whether the power button should trigger an NMI (i.e. a panic)
     UInt32 debugFlags = 0;
@@ -377,6 +378,8 @@ static void stopAndReleaseShim ( IOService * service, IOService * provider )
 //====================================================================================================
 void IOHIDEventService::stop( IOService * provider )
 {
+    HIDServiceLogInfo("stop");
+
     handleStop ( provider );
 
     if (_multiAxis.timer) {
@@ -618,9 +621,9 @@ IOReturn IOHIDEventService::setProperties( OSObject * properties )
     OSDictionary *  propertyDict    = OSDynamicCast(OSDictionary, properties);
     IOReturn        ret             = kIOReturnBadArgument;
     if (propertyDict) {
-      propertyDict->setObject(kIOHIDDeviceParametersKey, kOSBooleanTrue);
-      ret = setSystemProperties( propertyDict );
-      propertyDict->removeObject(kIOHIDDeviceParametersKey);
+        propertyDict->setObject(kIOHIDDeviceParametersKey, kOSBooleanTrue);
+        ret = setSystemProperties( propertyDict );
+        propertyDict->removeObject(kIOHIDDeviceParametersKey);
     }
     return ret;
 }
@@ -1077,8 +1080,7 @@ void IOHIDEventService::free()
     }
 
     if (_reserved) {
-        IODelete(_reserved, ExpansionData, 1);
-        _reserved = NULL;
+        IOFreeType(_reserved, ExpansionData);
     }
 
     if (_clientDictLock) {
@@ -1366,7 +1368,6 @@ void IOHIDEventService::multiAxisTimerCallback(IOTimerEventSource *sender __unus
     dispatchMultiAxisPointerEvent(timestamp, _multiAxis.buttonState, _multiAxis.x, _multiAxis.y, _multiAxis.z, _multiAxis.rX, _multiAxis.rY, _multiAxis.rZ, _multiAxis.options | kIOHIDEventOptionIsRepeat);
 }
 
-
 KeyValueMask IOHIDEventService::keyMonitorTable[] = {
     {Key(kHIDPage_KeyboardOrKeypad, kHIDUsage_KeyboardLeftControl       ),     kKeyMaskCtrl},
     {Key(kHIDPage_KeyboardOrKeypad, kHIDUsage_KeyboardRightControl      ),     kKeyMaskCtrl},
@@ -1388,43 +1389,53 @@ KeyValueMask IOHIDEventService::keyMonitorTable[] = {
 };
 
 DebugKeyAction IOHIDEventService::debugKeyActionTable[] = {
-    { (kKeyMaskCtrl | kKeyMaskShift | kKeyMaskAlt | kKeyMaskLeftCommand | kKeyMaskPeriod),
-    IOHIDEventService::debugActionSysdiagnose,
-    (void*)kHIDUsage_KeyboardPeriod
-    },
-    { (kKeyMaskCtrl | kKeyMaskShift | kKeyMaskAlt | kKeyMaskRightCommand | kKeyMaskPeriod),
+    { false,
+      (kKeyMaskCtrl | kKeyMaskShift | kKeyMaskAlt | kKeyMaskLeftCommand | kKeyMaskPeriod),
       IOHIDEventService::debugActionSysdiagnose,
       (void*)kHIDUsage_KeyboardPeriod
     },
-    { (kKeyMaskCtrl | kKeyMaskShift | kKeyMaskAlt | kKeyMaskLeftCommand | kKeyMaskComma),
-    IOHIDEventService::debugActionSysdiagnose,
-    (void*)kHIDUsage_KeyboardComma
+    { false,
+      (kKeyMaskCtrl | kKeyMaskShift | kKeyMaskAlt | kKeyMaskRightCommand | kKeyMaskPeriod),
+      IOHIDEventService::debugActionSysdiagnose,
+      (void*)kHIDUsage_KeyboardPeriod
     },
-    { (kKeyMaskCtrl | kKeyMaskShift | kKeyMaskAlt | kKeyMaskRightCommand | kKeyMaskComma),
+    { false,
+      (kKeyMaskCtrl | kKeyMaskShift | kKeyMaskAlt | kKeyMaskLeftCommand | kKeyMaskComma),
       IOHIDEventService::debugActionSysdiagnose,
       (void*)kHIDUsage_KeyboardComma
     },
-    { (kKeyMaskCtrl | kKeyMaskShift | kKeyMaskAlt | kKeyMaskLeftCommand | kKeyMaskSlash),
-    IOHIDEventService::debugActionSysdiagnose,
-    (void*)kHIDUsage_KeyboardSlash
+    { false,
+      (kKeyMaskCtrl | kKeyMaskShift | kKeyMaskAlt | kKeyMaskRightCommand | kKeyMaskComma),
+      IOHIDEventService::debugActionSysdiagnose,
+      (void*)kHIDUsage_KeyboardComma
     },
-    { (kKeyMaskCtrl | kKeyMaskShift | kKeyMaskAlt | kKeyMaskRightCommand | kKeyMaskSlash),
+    { false,
+      (kKeyMaskCtrl | kKeyMaskShift | kKeyMaskAlt | kKeyMaskLeftCommand | kKeyMaskSlash),
       IOHIDEventService::debugActionSysdiagnose,
       (void*)kHIDUsage_KeyboardSlash
     },
-    { (kKeyMaskCtrl | kKeyMaskShift | kKeyMaskAlt | kKeyMaskLeftCommand | kKeyMaskEsc),
-    IOHIDEventService::debugActionNMI,
-    NULL
+    { false,
+      (kKeyMaskCtrl | kKeyMaskShift | kKeyMaskAlt | kKeyMaskRightCommand | kKeyMaskSlash),
+      IOHIDEventService::debugActionSysdiagnose,
+      (void*)kHIDUsage_KeyboardSlash
     },
-    { (kKeyMaskCtrl | kKeyMaskShift | kKeyMaskAlt | kKeyMaskRightCommand | kKeyMaskEsc),
+    { false,
+      (kKeyMaskCtrl | kKeyMaskShift | kKeyMaskAlt | kKeyMaskLeftCommand | kKeyMaskEsc),
       IOHIDEventService::debugActionNMI,
       NULL
     },
-    { (kKeyMaskLeftCommand | kKeyMaskRightCommand | kKeyMaskDelete),
+    { false,
+      (kKeyMaskCtrl | kKeyMaskShift | kKeyMaskAlt | kKeyMaskRightCommand | kKeyMaskEsc),
       IOHIDEventService::debugActionNMI,
       NULL
     },
-    { kKeyMaskPower,
+    { false,
+      (kKeyMaskLeftCommand | kKeyMaskRightCommand | kKeyMaskDelete),
+      IOHIDEventService::debugActionNMI,
+      NULL
+    },
+    { true,
+      kKeyMaskPower,
       IOHIDEventService::powerButtonNMI,
       NULL
     }
@@ -1456,6 +1467,7 @@ void IOHIDEventService::powerButtonNMI (IOHIDEventService *self, void * paramete
     }
 }
 
+#define SYSDIAGNOSE_FULL_MASK (1 << 31)
 //====================================================================================================
 // IOHIDEventService::debugActionSysdiagnose
 //====================================================================================================
@@ -1465,7 +1477,6 @@ void IOHIDEventService::debugActionSysdiagnose (IOHIDEventService *self __unused
   sysdiagnose_notify_user(keyCode);
   HIDLog("HID: Posted stackshot event 0x%08x", keyCode);
 }
-
 
 //====================================================================================================
 // IOHIDEventService::dispatchKeyboardEvent
@@ -2555,6 +2566,9 @@ void IOHIDEventService::dispatchKeyboardEvent(AbsoluteTime                timeSt
     if ( ! _readyForInputReports )
         return;
     IOHIDEvent * event = NULL;
+    UInt32 debugMask = 0;
+
+    require_quiet(usagePage != kHIDPage_KeyboardOrKeypad || usage != kHIDUsage_KeyboardPower, dispatch);
 
     for (unsigned int index = 0 ; index < (sizeof(_keyboard.pressedKeys)/sizeof(_keyboard.pressedKeys[0])); index++) {
         if (value) {
@@ -2586,25 +2600,30 @@ void IOHIDEventService::dispatchKeyboardEvent(AbsoluteTime                timeSt
         _keyboard.pressedKeysMask |= maskForKey;
     }
 
-    uint32_t debugMask = (_keyboard.pressedKeysMask & kKeyMaskUnknown) ? 0 : _keyboard.pressedKeysMask;
+    debugMask = (_keyboard.pressedKeysMask & kKeyMaskUnknown) ? 0 : _keyboard.pressedKeysMask;
+    
 
     if (debugMask && value != 0) {
         for (unsigned int index = 0 ; index < (sizeof(debugKeyActionTable)/sizeof(debugKeyActionTable[0])); index++) {
+            bool maskSet = debugKeyActionTable[index].mask == debugMask;
+            bool requiresDebugBootArg = debugKeyActionTable[index].debugArgRequired;
 
-            if (debugKeyActionTable[index].mask == debugMask && ((debugMask != kKeyMaskPower) || ((debugMask == kKeyMaskPower) && isPowerButtonNmiEnabled()))) {
-                HIDLogError ("HID: taking action for debug key mask %x", debugMask);
+            if (maskSet && (!requiresDebugBootArg || (requiresDebugBootArg && isPowerButtonNmiEnabled()))) {
+                HIDLogError ("HID: taking action for debug key mask %x", (unsigned int)debugMask);
                 debugKeyActionTable[index].action(this, debugKeyActionTable[index].parameter);
                 return;
             }
         }
     }
 
+dispatch:
 
     event = IOHIDEvent::keyboardEvent(timeStamp, usagePage, usage, (value!=0), pressCount, longPress, clickSpeed, options);
     if ( event ) {
         dispatchEvent(event);
         event->release();
     }
+
 
     if (_keyboardShim != kLegacyShimDisabled) {
 
@@ -2636,9 +2655,28 @@ void IOHIDEventService::dispatchKeyboardEvent(AbsoluteTime                timeSt
 
 }
 
-OSMetaClassDefineReservedUnused(IOHIDEventService, 24);
-OSMetaClassDefineReservedUnused(IOHIDEventService, 25);
-OSMetaClassDefineReservedUnused(IOHIDEventService, 26);
+//====================================================================================================
+// IOHIDEventService::completeCopyEvent
+//====================================================================================================
+OSMetaClassDefineReservedUsed(IOHIDEventService, 24);
+void IOHIDEventService::completeCopyEvent(OSAction * action, IOHIDEvent * event, uint64_t context)
+{
+    
+}
+
+
+OSMetaClassDefineReservedUsed(IOHIDEventService, 25);
+void IOHIDEventService::completeSetProperties(OSAction *, IOReturn status, uint64_t context)
+{
+
+}
+
+OSMetaClassDefineReservedUsed(IOHIDEventService, 26);
+void IOHIDEventService::completeSetLED(OSAction * __unused action, IOReturn __unused status, uint64_t __unused context)
+{
+
+}
+
 OSMetaClassDefineReservedUnused(IOHIDEventService, 27);
 OSMetaClassDefineReservedUnused(IOHIDEventService, 28);
 OSMetaClassDefineReservedUnused(IOHIDEventService, 29);
@@ -2649,6 +2687,19 @@ OSMetaClassDefineReservedUnused(IOHIDEventService, 31);
 #pragma clang diagnostic ignored "-Wunused-parameter"
 
 #include <IOKit/IOUserServer.h>
+
+kern_return_t
+IMPL(IOHIDEventService, Start)
+{
+    return kIOReturnSuccess;
+}
+
+kern_return_t
+IMPL(IOHIDEventService, Stop)
+{
+    return kIOReturnSuccess;
+}
+
 
 kern_return_t
 IMPL(IOHIDEventService, _Start)
@@ -2755,10 +2806,70 @@ IMPL(IOHIDEventService, EventAvailable)
     
     if (event && !isInactive()) {
         dispatchEvent(event);
-        event->release();
         ret = kIOReturnSuccess;
     } else {
         HIDServiceLogError("Failed to create event");
     }
+
+    OSSafeReleaseNULL(event);
     return ret;
+}
+
+void
+IMPL(IOHIDEventService, _CopyEvent)
+{
+
+}
+
+void
+IMPL(IOHIDEventService, _CompleteCopyEvent)
+{
+    IOHIDEvent *event = NULL;
+    if (eventBuffer) {
+        event = IOHIDEvent::withBytes(eventBuffer->getBytesNoCopy(), eventBuffer->getLength());
+    }
+    completeCopyEvent(action, event, context);
+    OSSafeReleaseNULL(event);
+}
+
+kern_return_t
+IMPL(IOHIDEventService, handleCopyMatchingEvent)
+{
+    return kIOReturnSuccess;
+}
+
+kern_return_t
+IMPL(IOHIDEventService, SetProperties)
+{
+    return setSystemProperties(properties);
+}
+
+void
+IMPL(IOHIDEventService, _SetUserProperties)
+{
+
+}
+
+void
+IMPL(IOHIDEventService, _CompleteSetProperties)
+{
+    completeSetProperties(action, result, context);
+}
+
+void
+IMPL(IOHIDEventService, _SetLED)
+{
+
+}
+
+kern_return_t
+IMPL(IOHIDEventService, SetLEDState)
+{
+    return kIOReturnUnsupported;
+}
+
+void
+IMPL(IOHIDEventService, _CompleteSetLED)
+{
+    completeSetLED(action, result, context);
 }

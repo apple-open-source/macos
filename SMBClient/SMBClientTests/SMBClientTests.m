@@ -31,20 +31,21 @@
 #ifndef FAKE_XC_TEST
     #import <XCTest/XCTest.h>
 
-#if 0
-    char g_test_url1[1024] = "smb://smbtest:storageSW0@127.0.0.1/SMBBasic";
-    char g_test_url2[1024] = "smb://smbtest2:storageSW0@127.0.0.1/SMBBasic";
-    char g_test_url3[1024] = "cifs://smbtest2:storageSW0@127.0.0.1/SMBBasic";
-#elsif 1
-    char g_test_url1[1024] = "smb://Administrator:Password01!@192.168.1.30/SMBBasic";
-    char g_test_url2[1024] = "smb://adbrad:Password01!@192.168.1.30/SMBBasic";
-    char g_test_url3[1024] = "cifs://adbrad:Password01!@192.168.1.30/SMBBasic";
-#else
-    char g_test_url1[1024] = "smb://ITAI-RAAB-PRL;nfs.lab.1:12345tgB@192.168.10.3/win_share_1";
-    char g_test_url2[1024] = "smb://ITAI-RAAB-PRL;nfs.lab.2:12345tgB@192.168.10.3/win_share_1";
-    char g_test_url3[1024] = "cifs://ITAI-RAAB-PRL;nfs.lab.2:12345tgB@192.168.10.3/win_share_1";
-#endif
-
+    #if 0
+        char g_test_url1[1024] = "smb://smbtest:storageSW0@127.0.0.1/SMBBasic";
+        char g_test_url2[1024] = "smb://smbtest2:storageSW0@127.0.0.1/SMBBasic";
+        char g_test_url3[1024] = "cifs://smbtest2:storageSW0@127.0.0.1/SMBBasic";
+    #else
+        #if 1
+            char g_test_url1[1024] = "smb://Administrator:Password01!@192.168.1.30/SMBBasic";
+            char g_test_url2[1024] = "smb://adbrad:Password01!@192.168.1.30/SMBBasic";
+            char g_test_url3[1024] = "cifs://adbrad:Password01!@192.168.1.30/SMBBasic";
+        #else
+            char g_test_url1[1024] = "smb://ITAI-RAAB-PRL;nfs.lab.1:12345tgB@192.168.10.3/win_share_1";
+            char g_test_url2[1024] = "smb://ITAI-RAAB-PRL;nfs.lab.2:12345tgB@192.168.10.3/win_share_1";
+            char g_test_url3[1024] = "cifs://ITAI-RAAB-PRL;nfs.lab.2:12345tgB@192.168.10.3/win_share_1";
+        #endif
+    #endif
 #else
     /* BATS support */
     #import "FakeXCTest.h"
@@ -58,7 +59,19 @@
 #include <smbclient/smbclient.h>
 #include <smbclient/smbclient_netfs.h>
 #include <NetFS/NetFS.h>
+#include <SystemConfiguration/SystemConfiguration.h>
+
 #include "netshareenum.h"
+#include "smb_lib.h"
+#include "parse_url.h"
+#include "upi_mbuf.h"
+#include "mchain.h"
+#include "rq.h"
+#include "smb_converter.h"
+#include "ntstatus.h"
+#include "smbclient_internal.h"
+#include "LsarLookup.h"
+#include <smbclient/netbios.h>
 
 #include <stdio.h>
 #include <sys/stat.h>
@@ -85,10 +98,6 @@ int gInitialized = 0;
 CFURLRef urlRef1 = NULL;
 CFURLRef urlRef2 = NULL;
 CFURLRef urlRef3 = NULL;
-
-/* Mount points to use locally */
-const char *mp1 = "/private/tmp/mp1";
-const char *mp2 = "/private/tmp/mp2";
 
 /* Data for UBC Cache tests */
 const char data1[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
@@ -293,6 +302,21 @@ int do_delete_test_dirs(const char *mp) {
 
 done:
     return(error);
+}
+
+static void do_create_mount_path(char *mp, size_t mp_len, const char *test_name)
+{
+    UInt8 uuid[16] = {0};
+    uuid_generate(uuid);
+    
+    snprintf(mp, mp_len, "/private/tmp/%s_%x%x%x%x-%x%x-%x%x-%x%x-%x%x%x%x%x%x",
+             test_name,
+             uuid[0], uuid[1], uuid[2], uuid[3],
+             uuid[4], uuid[5],
+             uuid[6], uuid[7],
+             uuid[8], uuid[9],
+             uuid[10], uuid[11], uuid[12], uuid[13], uuid[14], uuid[15]);
+    printf("Created mountpoint: <%s> \n", mp);
 }
 
 static int do_mount(const char *mp, CFURLRef url, CFDictionaryRef openOptions, int mntflags)
@@ -666,10 +690,15 @@ static int do_EnumerateShares(SMBHANDLE inConnection,
     int mode1 = O_RDWR;
     int mode2 = O_RDONLY;
     int iteration = 0;
+    char mp1[PATH_MAX];
+    char mp2[PATH_MAX];
 
     /*
      * We will need two mounts to start with
      */
+    do_create_mount_path(mp1, sizeof(mp1), "testUBCOpenWriteCloseMp1");
+    do_create_mount_path(mp2, sizeof(mp2), "testUBCOpenWriteCloseMp2");
+    
     error = mount_two_sessions(mp1, mp2, 0);
     if (error) {
         XCTFail("mount_two_sessions failed %d \n", error);
@@ -911,11 +940,11 @@ done:
     }
 
     if (unmount(mp1, MNT_FORCE) == -1) {
-        XCTFail("unmount failed for first url  %d\n", errno);
+        XCTFail("unmount failed for first url %d\n", errno);
     }
 
     if (unmount(mp2, MNT_FORCE) == -1) {
-        XCTFail("unmount failed for second url  %d\n", errno);
+        XCTFail("unmount failed for second url %d\n", errno);
     }
 
     rmdir(mp1);
@@ -940,10 +969,15 @@ done:
     char file_path1[PATH_MAX];
     char file_path2[PATH_MAX];
     int fd1 = -1, fd2 = -1;
+    char mp1[PATH_MAX];
+    char mp2[PATH_MAX];
 
     /*
      * We will need two mounts to start with
      */
+    do_create_mount_path(mp1, sizeof(mp1), "testUBCOpenWriteFsyncCloseMp1");
+    do_create_mount_path(mp2, sizeof(mp2), "testUBCOpenWriteFsyncCloseMp2");
+
     error = mount_two_sessions(mp1, mp2, 0);
     if (error) {
         XCTFail("mount_two_sessions failed %d \n", error);
@@ -1155,11 +1189,11 @@ done:
     }
 
     if (unmount(mp1, MNT_FORCE) == -1) {
-        XCTFail("unmount failed for first url  %d\n", errno);
+        XCTFail("unmount failed for first url %d\n", errno);
     }
 
     if (unmount(mp2, MNT_FORCE) == -1) {
-        XCTFail("unmount failed for second url  %d\n", errno);
+        XCTFail("unmount failed for second url %d\n", errno);
     }
 
     rmdir(mp1);
@@ -1188,10 +1222,15 @@ done:
     char file_path2[PATH_MAX];
     int fd1 = -1, fd2 = -1;
     struct stat stat_buffer = {0};
+    char mp1[PATH_MAX];
+    char mp2[PATH_MAX];
 
     /*
      * We will need two mounts to start with
      */
+    do_create_mount_path(mp1, sizeof(mp1), "testUBCOpenWriteFsyncMp1");
+    do_create_mount_path(mp2, sizeof(mp2), "testUBCOpenWriteFsyncMp2");
+
     error = mount_two_sessions(mp1, mp2, 0);
     if (error) {
         XCTFail("mount_two_sessions failed %d \n", error);
@@ -1408,11 +1447,11 @@ done:
     }
 
     if (unmount(mp1, MNT_FORCE) == -1) {
-        XCTFail("unmount failed for first url  %d\n", errno);
+        XCTFail("unmount failed for first url %d\n", errno);
     }
 
     if (unmount(mp2, MNT_FORCE) == -1) {
-        XCTFail("unmount failed for second url  %d\n", errno);
+        XCTFail("unmount failed for second url %d\n", errno);
     }
 
     rmdir(mp1);
@@ -1437,10 +1476,15 @@ done:
     char file_path1[PATH_MAX];
     char file_path2[PATH_MAX];
     int fd1 = -1, fd2 = -1;
+    char mp1[PATH_MAX];
+    char mp2[PATH_MAX];
 
     /*
      * We will need two mounts to start with
      */
+    do_create_mount_path(mp1, sizeof(mp1), "testUBCOpenWriteNoCacheMp1");
+    do_create_mount_path(mp2, sizeof(mp2), "testUBCOpenWriteNoCacheMp2");
+
     error = mount_two_sessions(mp1, mp2, 0);
     if (error) {
         XCTFail("mount_two_sessions failed %d \n", error);
@@ -1603,11 +1647,11 @@ done:
     }
 
     if (unmount(mp1, MNT_FORCE) == -1) {
-        XCTFail("unmount failed for first url  %d\n", errno);
+        XCTFail("unmount failed for first url %d\n", errno);
     }
 
     if (unmount(mp2, MNT_FORCE) == -1) {
-        XCTFail("unmount failed for second url  %d\n", errno);
+        XCTFail("unmount failed for second url %d\n", errno);
     }
 
     rmdir(mp1);
@@ -1627,10 +1671,13 @@ done:
     int mode = S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH; /* -rw-rw-rw- */
     struct stat stat_buffer = {0};
     int i;
+    char mp1[PATH_MAX];
 
     /*
      * We will need just one mount to start with
      */
+    do_create_mount_path(mp1, sizeof(mp1), "testFileCreateInitialModeMp1");
+
     error = mount_two_sessions(mp1, NULL, 0);
     if (error) {
         XCTFail("mount_two_sessions failed %d \n", error);
@@ -1733,23 +1780,26 @@ done:
     }
 
     if (unmount(mp1, MNT_FORCE) == -1) {
-        XCTFail("unmount failed for first url  %d\n", errno);
+        XCTFail("unmount failed for first url %d\n", errno);
     }
 
     rmdir(mp1);
 }
 
 /* Unit test for 42944162 which only occurs with SMB v1 */
--(void)testFileCreate
+-(void)testFileCreateSMBv1
 {
     int error = 0;
     char file_path[PATH_MAX];
     int fd = -1;
     int oflag = O_EXCL | O_CREAT | O_RDWR;
+    char mp1[PATH_MAX];
 
     /*
      * We will need just one mount to start with using SMB 1
      */
+    do_create_mount_path(mp1, sizeof(mp1), "testFileCreateSMBv1Mp1");
+
     error = mount_two_sessions(mp1, NULL, 1);
     if (error) {
         XCTFail("mount_two_sessions failed %d \n", error);
@@ -1815,7 +1865,7 @@ done:
     }
 
     if (unmount(mp1, MNT_FORCE) == -1) {
-        XCTFail("unmount failed for first url  %d\n", errno);
+        XCTFail("unmount failed for first url %d\n", errno);
     }
 
     rmdir(mp1);
@@ -2781,10 +2831,14 @@ void PrintDirEntriesBulk(attribute_set_t requested_attributes, int count, char *
     __block int i;
     __block int test_file_cnt = 1000;
     __block int mode = S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH; /* -rw-rw-rw- */
+    char mp1[PATH_MAX];
+    char *mount_path = mp1;
 
     /*
      * We will need just one mount to start with
      */
+    do_create_mount_path(mp1, sizeof(mp1), "testNoXattrSupportWithNoXattrsMp1");
+
     error = mount_two_sessions(mp1, NULL, 0);
     if (error) {
         XCTFail("mount_two_sessions failed %d \n", error);
@@ -2833,7 +2887,7 @@ void PrintDirEntriesBulk(attribute_set_t requested_attributes, int count, char *
 err_out:
     if (error) {
         if (unmount(mp1, MNT_FORCE) == -1) {
-            XCTFail("unmount failed for first url  %d\n", errno);
+            XCTFail("unmount failed for first url %d\n", errno);
         }
         
         rmdir(mp1);
@@ -2861,7 +2915,7 @@ err_out:
         int dir_fd = -1;
         long item_cnt = 0;
 
-        strlcpy(base_file_path, mp1, sizeof(base_file_path));
+        strlcpy(base_file_path, mount_path, sizeof(base_file_path));
         strlcat(base_file_path, "/", sizeof(base_file_path));
         strlcat(base_file_path, cur_test_dir, sizeof(base_file_path));
 
@@ -2871,7 +2925,7 @@ err_out:
         /* Create a file, then delete it to invalidate any dir enum caching */
         sprintf(file_path, "%s/%s",
                 base_file_path, default_test_filename);
-        
+
         /* Create the test file on mp1 */
         fd = open(file_path, O_RDONLY | O_CREAT, mode);
         if (fd == -1) {
@@ -2993,7 +3047,7 @@ err_out:
     do_delete_test_dirs(mp1);
     
     if (unmount(mp1, MNT_FORCE) == -1) {
-        XCTFail("unmount failed for first url  %d\n", errno);
+        XCTFail("unmount failed for first url %d\n", errno);
     }
     
     rmdir(mp1);
@@ -3008,11 +3062,15 @@ err_out:
     __block int i;
     __block int test_file_cnt = 1000;
     __block int mode = S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH; /* -rw-rw-rw- */
+    char mp1[PATH_MAX];
+    char *mount_path = mp1;
 #define kXattrData "test_value"
     
     /*
      * We will need just one mount to start with
      */
+    do_create_mount_path(mp1, sizeof(mp1), "testNoXattrSupportWithXattrsMp1");
+
     error = mount_two_sessions(mp1, NULL, 0);
     if (error) {
         XCTFail("mount_two_sessions failed %d \n", error);
@@ -3094,7 +3152,7 @@ err_out:
 err_out:
     if (error) {
         if (unmount(mp1, MNT_FORCE) == -1) {
-            XCTFail("unmount failed for first url  %d\n", errno);
+            XCTFail("unmount failed for first url %d\n", errno);
         }
         
         rmdir(mp1);
@@ -3122,7 +3180,7 @@ err_out:
         int dir_fd = -1;
         long item_cnt = 0;
         
-        strlcpy(base_file_path, mp1, sizeof(base_file_path));
+        strlcpy(base_file_path, mount_path, sizeof(base_file_path));
         strlcat(base_file_path, "/", sizeof(base_file_path));
         strlcat(base_file_path, cur_test_dir, sizeof(base_file_path));
         
@@ -3253,7 +3311,7 @@ err_out:
     do_delete_test_dirs(mp1);
     
     if (unmount(mp1, MNT_FORCE) == -1) {
-        XCTFail("unmount failed for first url  %d\n", errno);
+        XCTFail("unmount failed for first url %d\n", errno);
     }
     
     rmdir(mp1);
@@ -3274,10 +3332,13 @@ err_out:
     DIR * dirp;
     struct stat sb;
     int item_count = 0;
+    char mp1[PATH_MAX];
 
     /*
      * We will need just one mount to start with using SMB 2
      */
+    do_create_mount_path(mp1, sizeof(mp1), "testReadDirOfSymLinkMp1");
+
     error = mount_two_sessions(mp1, NULL, 0);
     if (error) {
         XCTFail("mount_two_sessions failed %d \n", error);
@@ -3455,7 +3516,7 @@ done:
     }
 
     if (unmount(mp1, MNT_FORCE) == -1) {
-        XCTFail("unmount failed for first url  %d\n", errno);
+        XCTFail("unmount failed for first url %d\n", errno);
     }
 
     rmdir(mp1);
@@ -3524,10 +3585,13 @@ done:
     int oflag = O_CREAT | O_RDWR | O_EXCL | O_TRUNC;
     char buffer[] = "abcd";
     ssize_t write_size;
+    char mp1[PATH_MAX];
 
     /*
      * We will need just one mount to start with using SMB 2
      */
+    do_create_mount_path(mp1, sizeof(mp1), "testUBCOpenWriteOpenReadCloseMp1");
+
     error = mount_two_sessions(mp1, NULL, 0);
     if (error) {
         XCTFail("mount_two_sessions failed %d \n", error);
@@ -3623,7 +3687,7 @@ done:
     }
 
     if (unmount(mp1, MNT_FORCE) == -1) {
-        XCTFail("unmount failed for first url  %d\n", errno);
+        XCTFail("unmount failed for first url %d\n", errno);
     }
 
     rmdir(mp1);
@@ -3652,10 +3716,13 @@ done:
     char buffer[] = "abcd";
     char buffer2[] = "efghijkl";
     ssize_t write_size;
+    char mp1[PATH_MAX];
 
     /*
      * We will need just one mount to start with using SMB 2
      */
+    do_create_mount_path(mp1, sizeof(mp1), "testUBCOpenWriteCloseOpenWriteOpenReadMp1");
+
     error = mount_two_sessions(mp1, NULL, 0);
     if (error) {
         XCTFail("mount_two_sessions failed %d \n", error);
@@ -3792,13 +3859,1263 @@ done:
     }
 
     if (unmount(mp1, MNT_FORCE) == -1) {
-        XCTFail("unmount failed for first url  %d\n", errno);
+        XCTFail("unmount failed for first url %d\n", errno);
     }
 
     rmdir(mp1);
 }
 
 
+#define MAX_URL_TO_DICT_TO_URL_TEST 12
+
+struct urlToDictToURLStrings {
+    const char *url;
+    const CFStringRef EscapedHost;
+    const CFStringRef EscapedShare;
+};
+
+struct urlToDictToURLStrings urlToDictToURL[] = {
+    /* Make sure IPv6 addresses are handled in host */
+    { "smb://local1:local@[fe80::d9b6:f149:a17c:8307%25en1]/Vista-Share", CFSTR("[fe80::d9b6:f149:a17c:8307%en1]"), CFSTR("Vista-Share") },
+
+    /* Make sure escaped chars in host are handled */
+    { "smb://local:local@colley%5B3%5D._smb._tcp.local/local", CFSTR("colley[3]._smb._tcp.local"), CFSTR("local") },
+
+    /* Make sure escaped chars in user name are handled */
+    { "smb://BAD%3A%3B%2FBAD@colley2/badbad", CFSTR("colley2"), CFSTR("badbad") },
+
+    /* Make sure escaped chars in host are handled */
+    { "smb://user:password@%7e%21%40%24%3b%27%28%29/share", CFSTR("~!@$;'()"), CFSTR("share") },
+
+    /* Make sure we handle a "/" in share name */
+    { "smb://server.local/Open%2fSpace", CFSTR("server.local"), CFSTR("Open%2FSpace") },
+
+    /* Make sure we handle "%" in share name */
+    { "smb://server.local/Odd%25ShareName", CFSTR("server.local"), CFSTR("Odd%ShareName") },
+    
+    /* Make sure we handle share name of just "/" */
+    { "smb://server.local/%2f", CFSTR("server.local"), CFSTR("%2F") },
+    
+    /* Make sure we handle a "/" and a "%" in share name */
+    { "smb://server.local/Odd%2fShare%25Name", CFSTR("server.local"), CFSTR("Odd%2FShare%Name") },
+    
+    /* Make sure we handle all URL reserved chars of " !#$%&'()*+,:;<=>?@[]|" in share name */
+    { "smb://server.local/%20%21%23%24%25%26%27%28%29%2a%2b%2c%3a%3b%3c%3d%3e%3f%40%5b%5d%7c", CFSTR("server.local"), CFSTR(" !#$%&'()*+,:;<=>?@[]|") },
+    
+    /* Make sure we handle all URL reserved chars of " !#$%&'()*+,:;<=>?@[]|" in path */
+    { "smb://server.local/share/%20%21%23%24%25%26%27%28%29%2a%2b%2c%3a%3b%3c%3d%3e%3f%40%5b%5d%7c", CFSTR("server.local"), CFSTR("share/ !#$%&'()*+,:;<=>?@[]|") },
+    
+    /* Make sure workgroup;user round trips correctly */
+    { "smb://foo;bar@server.local/share", CFSTR("server.local"), CFSTR("share") },
+
+    /* Make sure alternate port round trips correctly */
+    { "smb://foo@server.local:446/share", CFSTR("server.local"), CFSTR("share") },
+
+    { NULL, NULL, NULL }
+};
+
+-(void)testURLToDictToURL
+{
+    /*
+     * This tests round tripping from smb_url_to_dictionary()
+     * and smb_dictionary_to_url()
+     *
+     * It also checks that host and share are escaped properly
+     */
+    CFURLRef startURL, endURL;
+    CFDictionaryRef dict;
+    int ii, error = 0;
+    CFStringRef host = NULL;
+    CFStringRef share = NULL;
+
+    for (ii = 0; ii < MAX_URL_TO_DICT_TO_URL_TEST; ii++) {
+        startURL = CreateSMBURL(urlToDictToURL[ii].url);
+        if (!startURL) {
+            error = errno;
+            XCTFail("CreateSMBURL with <%s> failed, %d\n",
+                    urlToDictToURL[ii].url, error);
+            break;
+        }
+        
+        /* Convert CFURL to a dictionary */
+        error = smb_url_to_dictionary(startURL, &dict);
+        if (error) {
+            XCTFail("smb_url_to_dictionary with <%s> failed, %d\n",
+                    urlToDictToURL[ii].url, error);
+
+            CFRelease(startURL);
+            break;
+        }
+        
+        /* Get the host from the dictionary */
+        host = CFDictionaryGetValue(dict, kNetFSHostKey);
+        if (host == NULL) {
+            XCTFail("Failed to find host in dictionary for <%s> \n",
+                    urlToDictToURL[ii].url);
+            CFShow(dict);
+            CFShow(startURL);
+
+            CFRelease(dict);
+            CFRelease(startURL);
+            break;
+        }
+        
+        /* Verify the host is escaped out correctly */
+        if (kCFCompareEqualTo == CFStringCompare (host,
+                                                  urlToDictToURL[ii].EscapedHost,
+                                                  kCFCompareCaseInsensitive)) {
+            printf("Host in dictionary is correct for <%s> \n",
+                   urlToDictToURL[ii].url);
+        }
+        else {
+            XCTFail("Host in dictionary did not match for <%s> \n",
+                    urlToDictToURL[ii].url);
+            CFShow(dict);
+            CFShow(urlToDictToURL[ii].EscapedHost);
+
+            CFRelease(dict);
+            CFRelease(startURL);
+            break;
+        }
+
+        /* Get the share from the dictionary */
+        share = CFDictionaryGetValue(dict, kNetFSPathKey);
+        if (share == NULL) {
+            XCTFail("Failed to find share in dictionary for <%s> \n",
+                    urlToDictToURL[ii].url);
+            CFShow(dict);
+            CFShow(startURL);
+
+            CFRelease(dict);
+            CFRelease(startURL);
+            break;
+        }
+        
+        /* Verify the share is escaped out correctly */
+        if (kCFCompareEqualTo == CFStringCompare (share, urlToDictToURL[ii].EscapedShare,
+                                                  kCFCompareCaseInsensitive)) {
+            printf("Share in dictionary is correct for <%s> \n",
+                   urlToDictToURL[ii].url);
+        }
+        else {
+            XCTFail("Share in dictionary did not match for <%s> \n",
+                    urlToDictToURL[ii].url);
+            CFShow(dict);
+            CFShow(urlToDictToURL[ii].EscapedShare);
+
+            CFRelease(dict);
+            CFRelease(startURL);
+            break;
+        }
+        
+        error = smb_dictionary_to_url(dict, &endURL);
+        if (error) {
+            XCTFail("smb_dictionary_to_url with <%s> failed, %d\n", urlToDictToURL[ii].url,  error);
+            CFShow(dict);
+            CFShow(startURL);
+
+            CFRelease(dict);
+            CFRelease(startURL);
+            break;
+        }
+        /* We only want to compare the URL string currently, may want to add more later */
+        if (CFStringCompare(CFURLGetString(startURL), CFURLGetString(endURL),
+                            kCFCompareCaseInsensitive) != kCFCompareEqualTo) {
+            XCTFail("Round trip failed for <%s>\n", urlToDictToURL[ii].url);
+            CFShow(dict);
+            CFShow(startURL);
+            CFShow(endURL);
+            
+            CFRelease(dict);
+            CFRelease(startURL);
+            CFRelease(endURL);
+            break;
+        }
+
+        printf("Round trip was successful for <%s> \n", urlToDictToURL[ii].url);
+
+        CFRelease(dict);
+        CFRelease(startURL);
+        CFRelease(endURL);
+    }
+}
+
+
+#define MAX_URL_TO_DICT_TEST 8
+
+struct urlToDictStrings {
+    const char *url;
+    const CFStringRef userAndDomain;
+    const CFStringRef password;
+    const CFStringRef host;
+    const CFStringRef port;
+    const CFStringRef path;
+};
+
+struct urlToDictStrings urlToDict[] = {
+    /* Just server, .local server name */
+    { "smb://server.local", NULL, NULL, CFSTR("server.local"), NULL, NULL },
+
+    /* Empty user name, dns server name */
+    { "smb://@netfs-13.apple.com", CFSTR(""), NULL, CFSTR("netfs-13.apple.com"), NULL, NULL },
+
+    /* Empty domain and username, netbios server name */
+    { "smb://;@Windoze2016", CFSTR(""), NULL, CFSTR("Windoze2016"), NULL, NULL },
+
+    /* Empty domain, username and password, Bonjour server name */
+    { "smb://;:@User's%20Macintosh._smb._tcp.local", CFSTR(""), CFSTR(""), CFSTR("User's Macintosh._smb._tcp.local"), NULL, NULL },
+
+    /* Guest login with no password, IPv4 server name */
+    { "smb://guest:@192.168.1.30/", CFSTR("guest"), CFSTR(""), CFSTR("192.168.1.30"), NULL, NULL },
+
+    /* Workgroup, user and password. Note the "\\" instead of the ";", IPv6 server */
+    { "smb://workgroup;foo:bar@[fe80::d9b6:f149:a17c:8307%25en1]", CFSTR("workgroup\\foo"), CFSTR("bar"), CFSTR("[fe80::d9b6:f149:a17c:8307%en1]"), NULL, NULL },
+
+    /* Check for alternate port, dns server name with port */
+    { "smb://workgroup;foo:bar@server.local:446", CFSTR("workgroup\\foo"), CFSTR("bar"), CFSTR("server.local"), CFSTR("446"), NULL },
+
+    /* Check for path, IPv4 server with port */
+    { "smb://workgroup;foo:bar@192.168.1.30:446/share", CFSTR("workgroup\\foo"), CFSTR("bar"), CFSTR("192.168.1.30"), CFSTR("446"), CFSTR("share") },
+
+    { NULL, NULL, NULL }
+};
+
+-(void)testURLToDict
+{
+    /*
+     * This tests smb_url_to_dictionary() fills in the dictionary correctly
+     */
+    CFURLRef startURL;
+    CFDictionaryRef dict;
+    int ii, error = 0;
+    CFStringRef userAndDomain = NULL;
+    CFStringRef password = NULL;
+    CFStringRef host = NULL;
+    CFStringRef port = NULL;
+    CFStringRef path = NULL;
+
+    for (ii = 0; ii < MAX_URL_TO_DICT_TEST; ii++) {
+        startURL = CreateSMBURL(urlToDict[ii].url);
+        if (!startURL) {
+            error = errno;
+            XCTFail("CreateSMBURL with <%s> failed, %d\n",
+                    urlToDict[ii].url, error);
+            break;
+        }
+        
+        /* Convert CFURL to a dictionary */
+        error = smb_url_to_dictionary(startURL, &dict);
+        if (error) {
+            XCTFail("smb_url_to_dictionary with <%s> failed, %d\n",
+                    urlToDict[ii].url, error);
+
+            CFRelease(startURL);
+            break;
+        }
+        
+        /* Get the domain and user from the dictionary */
+        userAndDomain = CFDictionaryGetValue(dict, kNetFSUserNameKey);
+        if (urlToDict[ii].userAndDomain == NULL) {
+            /* We expect no user name to be found */
+            if (userAndDomain != NULL) {
+                XCTFail("Username should have been NULL with <%s> \n",
+                        urlToDict[ii].url);
+                CFShow(dict);
+                CFShow(userAndDomain);
+                
+                CFRelease(startURL);
+                CFRelease(dict);
+                break;
+            }
+            else {
+                printf("Username in dictionary is NULL as expected for <%s> \n",
+                       urlToDict[ii].url);
+            }
+        }
+        else {
+            /* Verify that user name matches */
+            if (userAndDomain == NULL) {
+                XCTFail("Failed to find Username in dictionary for <%s> \n",
+                        urlToDict[ii].url);
+                CFShow(dict);
+
+                CFRelease(dict);
+                CFRelease(startURL);
+                break;
+            }
+
+            if (kCFCompareEqualTo == CFStringCompare (userAndDomain,
+                                                      urlToDict[ii].userAndDomain,
+                                                      kCFCompareCaseInsensitive)) {
+                printf("Username in dictionary is correct for <%s> \n",
+                       urlToDict[ii].url);
+            }
+            else {
+                XCTFail("Username in dictionary did not match for <%s> \n",
+                        urlToDict[ii].url);
+                CFShow(dict);
+                CFShow(urlToDict[ii].userAndDomain);
+
+                CFRelease(dict);
+                CFRelease(startURL);
+                break;
+            }
+        }
+        
+        /* Get the password from the dictionary */
+        password = CFDictionaryGetValue(dict, kNetFSPasswordKey);
+        if (urlToDict[ii].password == NULL) {
+            /* We expect no password to be found */
+            if (password != NULL) {
+                XCTFail("Password should have been NULL with <%s> \n",
+                        urlToDict[ii].url);
+                CFShow(dict);
+                CFShow(password);
+                
+                CFRelease(startURL);
+                CFRelease(dict);
+                break;
+            }
+            else {
+                printf("Password in dictionary is NULL as expected for <%s> \n",
+                       urlToDict[ii].url);
+            }
+        }
+        else {
+            /* Verify that password matches */
+            if (password == NULL) {
+                XCTFail("Failed to find Password in dictionary for <%s> \n",
+                        urlToDict[ii].url);
+                CFShow(dict);
+
+                CFRelease(dict);
+                CFRelease(startURL);
+                break;
+            }
+
+            if (kCFCompareEqualTo == CFStringCompare (password,
+                                                      urlToDict[ii].password,
+                                                      kCFCompareCaseInsensitive)) {
+                printf("Password in dictionary is correct for <%s> \n",
+                       urlToDict[ii].url);
+            }
+            else {
+                XCTFail("Password in dictionary did not match for <%s> \n",
+                        urlToDict[ii].url);
+                CFShow(dict);
+                CFShow(urlToDict[ii].password);
+
+                CFRelease(dict);
+                CFRelease(startURL);
+                break;
+            }
+        }
+
+        /* Get the host from the dictionary */
+        host = CFDictionaryGetValue(dict, kNetFSHostKey);
+        if (host == NULL) {
+            XCTFail("Failed to find host in dictionary for <%s> \n",
+                    urlToDict[ii].url);
+            CFShow(dict);
+
+            CFRelease(dict);
+            CFRelease(startURL);
+            break;
+        }
+        
+        /* Verify that host matches */
+        if (kCFCompareEqualTo == CFStringCompare (host,
+                                                  urlToDict[ii].host,
+                                                  kCFCompareCaseInsensitive)) {
+            printf("Host in dictionary is correct for <%s> \n",
+                   urlToDict[ii].url);
+        }
+        else {
+            XCTFail("Host in dictionary did not match for <%s> \n",
+                    urlToDict[ii].url);
+            CFShow(dict);
+            CFShow(urlToDict[ii].host);
+
+            CFRelease(dict);
+            CFRelease(startURL);
+            break;
+        }
+
+        /* Get the port from the dictionary */
+        port = CFDictionaryGetValue(dict, kNetFSAlternatePortKey);
+        if (urlToDict[ii].port == NULL) {
+            /* We expect no port to be found */
+            if (port != NULL) {
+                XCTFail("Port should have been NULL with <%s> \n",
+                        urlToDict[ii].url);
+                CFShow(dict);
+                CFShow(port);
+                
+                CFRelease(startURL);
+                CFRelease(dict);
+                break;
+            }
+            else {
+                printf("Port in dictionary is NULL as expected for <%s> \n",
+                       urlToDict[ii].url);
+            }
+        }
+        else {
+            /* Verify that port matches */
+            if (port == NULL) {
+                XCTFail("Failed to find Port in dictionary for <%s> \n",
+                        urlToDict[ii].url);
+                CFShow(dict);
+
+                CFRelease(dict);
+                CFRelease(startURL);
+                break;
+            }
+
+            if (kCFCompareEqualTo == CFStringCompare (port,
+                                                      urlToDict[ii].port,
+                                                      kCFCompareCaseInsensitive)) {
+                printf("Port in dictionary is correct for <%s> \n",
+                       urlToDict[ii].url);
+            }
+            else {
+                XCTFail("Port in dictionary did not match for <%s> \n",
+                        urlToDict[ii].url);
+                CFShow(dict);
+                CFShow(urlToDict[ii].port);
+
+                CFRelease(dict);
+                CFRelease(startURL);
+                break;
+            }
+        }
+
+        /* Get the path from the dictionary */
+        path = CFDictionaryGetValue(dict, kNetFSPathKey);
+        if (urlToDict[ii].path == NULL) {
+            /* We expect no path to be found */
+            if (path != NULL) {
+                XCTFail("Path should have been NULL with <%s> \n",
+                        urlToDict[ii].url);
+                CFShow(dict);
+                CFShow(path);
+                
+                CFRelease(startURL);
+                CFRelease(dict);
+                break;
+            }
+            else {
+                printf("Path in dictionary is NULL as expected for <%s> \n",
+                       urlToDict[ii].url);
+            }
+        }
+        else {
+            /* Verify that port matches */
+            if (path == NULL) {
+                XCTFail("Failed to find Path in dictionary for <%s> \n",
+                        urlToDict[ii].url);
+                CFShow(dict);
+
+                CFRelease(dict);
+                CFRelease(startURL);
+                break;
+            }
+
+            if (kCFCompareEqualTo == CFStringCompare (path,
+                                                      urlToDict[ii].path,
+                                                      kCFCompareCaseInsensitive)) {
+                printf("Path in dictionary is correct for <%s> \n",
+                       urlToDict[ii].url);
+            }
+            else {
+                XCTFail("Path in dictionary did not match for <%s> \n",
+                        urlToDict[ii].url);
+                CFShow(dict);
+                CFShow(urlToDict[ii].path);
+
+                CFRelease(dict);
+                CFRelease(startURL);
+                break;
+            }
+        }
+        
+        printf("URL to dictionary was successful for <%s> \n", urlToDict[ii].url);
+
+        CFRelease(dict);
+        CFRelease(startURL);
+    }
+}
+
+-(void)testListSharesOnce
+{
+    /*
+     * This tests SMBNetFsCreateSessionRef, SMBNetFsOpenSession and
+     * smb_netshareenum works.
+     */
+    CFURLRef url = NULL;
+    SMBHANDLE serverConnection = NULL;
+    int error;
+    CFMutableDictionaryRef OpenOptions = NULL;
+    CFDictionaryRef shares = NULL;
+    
+    error = SMBNetFsCreateSessionRef(&serverConnection);
+    if (error) {
+        XCTFail("SMBNetFsCreateSessionRef failed %d for <%s>\n",
+                error, g_test_url1);
+        goto done;
+    }
+    
+    url = CreateSMBURL(g_test_url1);
+    if (!url) {
+        error = errno;
+        XCTFail("CreateSMBURL failed %d for <%s>\n",
+                error, g_test_url1);
+        goto done;
+    }
+    
+    OpenOptions = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+                                            &kCFTypeDictionaryKeyCallBacks,
+                                            &kCFTypeDictionaryValueCallBacks);
+    if (OpenOptions == NULL) {
+        error = errno;
+        XCTFail("CFDictionaryCreateMutable failed %d for <%s>\n",
+                error, g_test_url1);
+        goto done;
+    }
+    
+    error = SMBNetFsOpenSession(url, serverConnection, OpenOptions, NULL);
+    if (error) {
+        XCTFail("SMBNetFsOpenSession failed %d for <%s>\n",
+                error, g_test_url1);
+        goto done;
+    }
+    
+    error = smb_netshareenum(serverConnection, &shares, FALSE);
+    if (error) {
+        XCTFail("smb_netshareenum failed %d for <%s>\n",
+                error, g_test_url1);
+        goto done;
+    }
+
+    CFShow(shares);
+    printf("List shares was successful for <%s> \n", g_test_url1);
+
+done:
+    if (url) {
+        CFRelease(url);
+    }
+    
+    if (OpenOptions) {
+        CFRelease(OpenOptions);
+    }
+    
+    if (shares) {
+        CFRelease(shares);
+    }
+    
+    if (serverConnection) {
+        SMBNetFsCloseSession(serverConnection);
+    }
+}
+
+
+#define MAX_NUMBER_TESTSTRING 6
+
+#define TESTSTRING1 "/George/J\\im/T:?.*est"
+#define TESTSTRING2 "/George/J\\im/T:?.*est/"
+#define TESTSTRING3 "George/J\\im/T:?.*est/"
+#define TESTSTRING4 "George/J\\im/T:?.*est"
+#define TESTSTRING5 "George"
+#define TESTSTRING6 "/"
+#define TESTSTRING7 "/George"
+
+const char *teststr[MAX_NUMBER_TESTSTRING] = {TESTSTRING1, TESTSTRING2, TESTSTRING3, TESTSTRING4, TESTSTRING5, TESTSTRING6 };
+const char *testslashstr[MAX_NUMBER_TESTSTRING] = {TESTSTRING1, TESTSTRING2, TESTSTRING2, TESTSTRING1, TESTSTRING7, TESTSTRING6 };
+
+static int test_path(struct smb_ctx *ctx, const char *instring, const char *comparestring, uint32_t flags)
+{
+    char utf8str[1024];
+    char ntwrkstr[1024];
+    size_t ntwrk_len = 1024;
+    size_t utf8_len = 1024;
+
+    printf("\nTesting string  %s\n", instring);
+    
+    ntwrk_len = 1024;
+    memset(ntwrkstr, 0, 1024);
+    if (smb_localpath_to_ntwrkpath(ctx, instring, strlen(instring), ntwrkstr, &ntwrk_len, flags)) {
+        printf("smb_localpath_to_ntwrkpath: %s failed %d\n", instring, errno);
+        return -1;
+    }
+
+    //smb_ctx_hexdump(__FUNCTION__, "network name  =", (u_char *)ntwrkstr, ntwrk_len);
+    
+    memset(utf8str, 0, 1024);
+    if (smb_ntwrkpath_to_localpath(ctx, ntwrkstr, ntwrk_len, utf8str, &utf8_len, flags)) {
+        printf("smb_ntwrkpath_to_localpath: %s failed %d\n", instring, errno);
+        return -1;
+    }
+    
+    if (strcmp(comparestring, utf8str) != 0) {
+        printf("UTF8 string didn't match: %s != %s\n", instring, utf8str);
+        return -1;
+    }
+
+    printf("utf8str = %s len = %ld\n", utf8str, utf8_len);
+    return 0;
+}
+
+static int test_path_conversion(struct smb_ctx *ctx)
+{
+    int ii, failcnt = 0, passcnt = 0;
+    int maxcnt = MAX_NUMBER_TESTSTRING;
+    uint32_t flags = SMB_UTF_SFM_CONVERSIONS;
+    
+    for (ii = 0; ii < maxcnt; ii++) {
+        if (test_path(ctx, teststr[ii], teststr[ii], flags) == -1) {
+            failcnt++;
+        }
+        else {
+            passcnt++;
+        }
+    }
+    
+    flags |= SMB_FULLPATH_CONVERSIONS;
+    for (ii = 0; ii < maxcnt; ii++) {
+        if (test_path(ctx, teststr[ii], testslashstr[ii], flags) == -1) {
+            failcnt++;
+        }
+        else {
+            passcnt++;
+        }
+    }
+
+    printf("test_path_conversion: Total = %d Passed = %d Failed = %d\n",
+           (maxcnt * 2), passcnt, failcnt);
+
+    return (failcnt) ? EIO : 0;
+}
+
+-(void)testNameConversion
+{
+    /*
+     * This tests round tripping from smb_localpath_to_ntwrkpath()
+     * and smb_ntwrkpath_to_localpath()
+     */
+    CFURLRef url = NULL;
+    void *ref = NULL;
+    int error = 0;
+    CFMutableDictionaryRef OpenOptions = NULL;
+    CFStringRef urlString = NULL;
+    
+    url = CreateSMBURL(g_test_url1);
+    if (!url) {
+        error = errno;
+        XCTFail("CreateSMBURL failed %d for <%s>\n",
+                error, g_test_url1);
+        goto done;
+    }
+
+    OpenOptions = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+                                            &kCFTypeDictionaryKeyCallBacks,
+                                            &kCFTypeDictionaryValueCallBacks);
+    if (OpenOptions == NULL) {
+        error = errno;
+        XCTFail("CFDictionaryCreateMutable failed %d for <%s>\n",
+                error, g_test_url1);
+        goto done;
+    }
+    
+    ref = create_smb_ctx();
+    if (ref == NULL) {
+        error = errno;
+        XCTFail("create_smb_ctx failed %d for <%s>\n",
+                error, g_test_url1);
+        goto done;
+    }
+    
+    error = smb_open_session(ref, url, OpenOptions, NULL);
+    if (error) {
+        XCTFail("smb_open_session failed %d for <%s>\n",
+                error, g_test_url1);
+        goto done;
+    }
+    
+    error = test_path_conversion((struct smb_ctx *)ref);
+    if (error) {
+        XCTFail("test_path_conversion failed %d for <%s>\n",
+                error, g_test_url1);
+        goto done;
+    }
+
+done:
+    if (OpenOptions)
+        CFRelease(OpenOptions);
+    if (urlString)
+        CFRelease(urlString);
+    if (url)
+        CFRelease(url);
+
+    smb_ctx_done(ref);
+}
+
+-(void)testSMBOpenServerWithMountPoint
+{
+    /*
+     * This tests testSMBOpenServerWithMountPoint works.
+     */
+    SMBHANDLE mpConnection = NULL;
+    SMBHANDLE shareConnection = NULL;
+    int error = 0;
+    uint32_t status = 0;
+    CFDictionaryRef shares = NULL;
+    char mp1[PATH_MAX];
+    
+    do_create_mount_path(mp1, sizeof(mp1), "testSMBOpenServerWithMountPointMp1");
+
+    /* First mount a volume */
+    if ((mkdir(mp1, S_IRWXU | S_IRWXG) == -1) && (errno != EEXIST)) {
+        error = errno;
+        XCTFail("mkdir failed %d for <%s>\n",
+                error, g_test_url1);
+        goto done;
+    }
+    
+    status = SMBOpenServerEx(g_test_url1, &mpConnection,
+                             kSMBOptionNoPrompt | kSMBOptionSessionOnly);
+    if (!NT_SUCCESS(status)) {
+        XCTFail("SMBOpenServerEx failed 0x%x for <%s>\n",
+                status, g_test_url1);
+        goto done;
+    }
+    
+    status = SMBMountShareEx(mpConnection, NULL, mp1, 0, 0, 0, 0, NULL, NULL);
+    if (!NT_SUCCESS(status)) {
+        XCTFail("SMBMountShareEx failed 0x%x for <%s>\n",
+                status, g_test_url1);
+        goto done;
+    }
+    
+    /* Now that we have a mounted volume we run the real test */
+    status = SMBOpenServerWithMountPoint(mp1, "IPC$",
+                                         &shareConnection, 0);
+    if (!NT_SUCCESS(status)) {
+        XCTFail("SMBMountShareEx failed 0x%x for <%s>\n",
+                status, g_test_url1);
+        goto done;
+    }
+    
+    error = smb_netshareenum(shareConnection, &shares, FALSE);
+    if (error == 0) {
+        CFShow(shares);
+        printf("SMBOpenServerWithMountPoint() and list shares was successful for <%s> \n",
+               g_test_url1);
+    }
+    
+    if (shares) {
+        CFRelease(shares);
+    }
+ 
+done:
+    /* Now cleanup everything */
+    if (shareConnection) {
+        SMBReleaseServer(shareConnection);
+    }
+    
+    if (mpConnection) {
+        SMBReleaseServer(mpConnection);
+    }
+    
+    if (unmount(mp1, MNT_FORCE) == -1) {
+        XCTFail("unmount failed %d\n", errno);
+    }
+}
+
+#define MAX_SID_PRINTBUFFER    256    /* Used to print out the sid in case of an error */
+
+static
+void print_ntsid(ntsid_t *sidptr, const char *printstr)
+{
+    char sidprintbuf[MAX_SID_PRINTBUFFER];
+    char *s = sidprintbuf;
+    int subs;
+    uint64_t auth = 0;
+    unsigned i;
+    uint32_t *ip;
+    size_t len;
+    
+    bzero(sidprintbuf, MAX_SID_PRINTBUFFER);
+    for (i = 0; i < sizeof(sidptr->sid_authority); i++) {
+        auth = (auth << 8) | sidptr->sid_authority[i];
+    }
+    s += snprintf(s, MAX_SID_PRINTBUFFER, "S-%u-%llu", sidptr->sid_kind, auth);
+    
+    subs = sidptr->sid_authcount;
+    
+    for (ip = sidptr->sid_authorities; subs--; ip++)  {
+        len = MAX_SID_PRINTBUFFER - (s - sidprintbuf);
+        s += snprintf(s, len, "-%u", *ip);
+    }
+    
+    fprintf(stdout, "%s: sid = %s \n", printstr, sidprintbuf);
+}
+
+-(void)testAccountNameSID
+{
+    /*
+     * This tests that LSAR DCE/RPC works.
+     */
+    ntsid_t *sid = NULL;
+    SMBHANDLE serverConnection = NULL;
+    uint64_t options = kSMBOptionAllowGuestAuth | kSMBOptionAllowAnonymousAuth;
+    uint32_t status = 0;
+    SMBServerPropertiesV1 properties;
+    char *AccountName = NULL, *DomainName = NULL;
+    int error;
+
+    status = SMBOpenServerEx(g_test_url1, &serverConnection, options);
+    if (!NT_SUCCESS(status)) {
+        error = errno;
+        XCTFail("SMBOpenServerEx failed %d for <%s>\n",
+                error, g_test_url1);
+        return;
+    }
+    status = SMBGetServerProperties(serverConnection, &properties, kPropertiesVersion, sizeof(properties));
+    if (!NT_SUCCESS(status)) {
+        error = errno;
+        XCTFail("SMBGetServerProperties failed %d for <%s>\n",
+                error, g_test_url1);
+        return;
+    }
+
+    status = GetNetworkAccountSID(properties.serverName, &AccountName, &DomainName, &sid);
+    if (!NT_SUCCESS(status)) {
+        error = errno;
+        XCTFail("GetNetworkAccountSID failed %d for <%s>\n",
+                error, g_test_url1);
+        return;
+    }
+    
+    if (serverConnection) {
+        SMBReleaseServer(serverConnection);
+    }
+
+    printf("user = %s domain = %s\n", AccountName, DomainName);
+    print_ntsid(sid, "Network Users ");
+
+    if (sid) {
+        free(sid);
+    }
+    
+    if (AccountName) {
+        free(AccountName);
+    }
+    
+    if (DomainName) {
+        free(DomainName);
+    }
+}
+
+static int do_mount_URL(const char *mp, CFURLRef url, CFDictionaryRef openOptions, int mntflags)
+{
+    SMBHANDLE theConnection = NULL;
+    CFStringRef mountPoint = NULL;
+    CFDictionaryRef mountInfo = NULL;
+    int error;
+    CFNumberRef numRef = NULL;
+    CFMutableDictionaryRef mountOptions = NULL;
+    
+    if ((mkdir(mp, S_IRWXU | S_IRWXG) == -1) && (errno != EEXIST)) {
+        return errno;
+    }
+
+    error = SMBNetFsCreateSessionRef(&theConnection);
+    if (error) {
+        return error;
+    }
+    
+    error = SMBNetFsOpenSession(url, theConnection, openOptions, NULL);
+    if (error) {
+        (void)SMBNetFsCloseSession(theConnection);
+        return error;
+    }
+    
+    mountOptions = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+                                             &kCFTypeDictionaryKeyCallBacks,
+                                             &kCFTypeDictionaryValueCallBacks);
+    if (!mountOptions) {
+        (void)SMBNetFsCloseSession(theConnection);
+        return error;
+    }
+    
+    numRef = CFNumberCreate(nil, kCFNumberIntType, &mntflags);
+    if (numRef) {
+        CFDictionarySetValue( mountOptions, kNetFSMountFlagsKey, numRef);
+        CFRelease(numRef);
+    }
+    
+    mountPoint = CFStringCreateWithCString(kCFAllocatorDefault, mp,
+                                           kCFStringEncodingUTF8);
+    if (mountPoint) {
+        error = SMBNetFsMount(theConnection, url, mountPoint, mountOptions, &mountInfo, NULL, NULL);
+        CFRelease(mountPoint);
+        if (mountInfo) {
+            CFRelease(mountInfo);
+        }
+    }
+    else {
+        error = ENOMEM;
+    }
+    
+    CFRelease(mountOptions);
+    (void)SMBNetFsCloseSession(theConnection);
+    return error;
+}
+
+-(void)testMountExists
+{
+    int error;
+    int do_unmount1 = 0;
+    int do_unmount2 = 0;
+    char mp1[PATH_MAX];
+    char mp2[PATH_MAX];
+
+    /*
+     * <80936007> Need to do forced unmounts because Spotlight tends to
+     * get into the mount which causes a normal unmount to return EBUSY.
+     */
+    
+    do_create_mount_path(mp1, sizeof(mp1), "testMountExistsMp1");
+    do_create_mount_path(mp2, sizeof(mp2), "testMountExistsMp2");
+
+    /* Test one: mount no browse twice */
+    printf("Test 1: mount twice with MNT_DONTBROWSE. Second mount should get EEXIST error. \n");
+    
+    error = do_mount_URL(mp1, urlRef1, NULL, MNT_DONTBROWSE);
+    if (error) {
+        XCTFail("TEST 1 mntFlags = MNT_DONTBROWSE: Couldn't mount first volume: shouldn't happen %d\n", error);
+        goto done;
+    }
+    do_unmount1 = 1;
+    
+    error = do_mount_URL(mp2, urlRef1, NULL, MNT_DONTBROWSE);
+    if (error != EEXIST) {
+        XCTFail("TEST 1, mntFlags = MNT_DONTBROWSE: Second volume returned wrong error: %d\n", error);
+        
+        /* If second mount somehow succeeded, try to unmount it now. */
+        if ((error == 0) && (unmount(mp2, MNT_FORCE) == -1)) {
+            XCTFail("TEST 1 unmount mp2 failed %d\n", errno);
+            /* try force unmount on exit */
+            do_unmount2 = 1;
+        }
+        goto done;
+    }
+    
+    /* Try unmount of mp1 */
+    if (unmount(mp1, MNT_FORCE) == -1) {
+        XCTFail("TEST 1 unmount mp1 failed %d\n", errno);
+        goto done;
+    }
+    do_unmount1 = 0;
+    
+    
+    /* Test two: mount first no browse second browse */
+    printf("Test 2: mount first with MNT_DONTBROWSE then second mount with browse \n");
+
+    error = do_mount_URL(mp1, urlRef1, NULL, MNT_DONTBROWSE);
+    if (error) {
+        XCTFail("TEST 2, mntFlags = MNT_DONTBROWSE: Couldn't mount first volume: shouldn't happen %d\n", error);
+        goto done;
+    }
+    do_unmount1 = 1;
+
+    error = do_mount_URL(mp2, urlRef1, NULL, 0);
+    if (error != 0) {
+        XCTFail("TEST 2, mntFlags = 0: Second volume return wrong error: %d\n", error);
+        goto done;
+    }
+    do_unmount2 = 1;
+
+    /* Try unmount of mp1 */
+   if (unmount(mp1, MNT_FORCE) == -1) {
+       XCTFail("TEST 2 unmount mp1 failed %d\n", errno);
+       goto done;
+    }
+    do_unmount1 = 0;
+
+    /* Try unmount of mp2 */
+   if (unmount(mp2, MNT_FORCE) == -1) {
+       XCTFail("TEST 2 unmount mp2 failed %d\n", errno);
+       goto done;
+    }
+    do_unmount2 = 0;
+
+    
+    /* Test three: mount first browse second no browse */
+    printf("Test 3: mount first with browse then second mount with MNT_DONTBROWSE \n");
+
+    error = do_mount_URL(mp1, urlRef1, NULL, 0);
+    if (error) {
+        XCTFail("TEST 3, mntFlags = 0: Couldn't mount first volume: shouldn't happen %d\n", error);
+        goto done;
+    }
+    do_unmount1 = 1;
+
+    error = do_mount_URL(mp2, urlRef1, NULL, MNT_DONTBROWSE);
+    if (error != 0) {
+        XCTFail("TEST 3, mntFlags = MNT_DONTBROWSE: Second volume return wrong error: %d\n", error);
+        goto done;
+    }
+    do_unmount2 = 1;
+
+    /* Try unmount of mp1 */
+    if (unmount(mp1, MNT_FORCE) == -1) {
+        XCTFail("TEST 3 unmount mp1 failed %d\n", errno);
+        goto done;
+    }
+    do_unmount1 = 0;
+
+    /* Try unmount of mp2 */
+    if (unmount(mp2, MNT_FORCE) == -1) {
+        XCTFail("TEST 3 unmount mp2 failed %d\n", errno);
+        goto done;
+    }
+    do_unmount2 = 0;
+
+    
+    /* Test four: mount first browse second browse */
+    printf("Test 4: mount first with browse then second mount with browse which should get EEXIST \n");
+
+    error = do_mount_URL(mp1, urlRef1, NULL, 0);
+    if (error) {
+        XCTFail("TEST 4, mntFlags = 0: Couldn't mount first volume: shouldn't happen %d\n", error);
+        goto done;
+    }
+    do_unmount1 = 1;
+
+    error = do_mount_URL(mp2, urlRef1, NULL, 0);
+    if (error != EEXIST) {
+        XCTFail("TEST 4, mntFlags = 0: Second volume return wrong error: %d\n", error);
+        
+        /* If second mount somehow succeeded, try to unmount it now. */
+        if ((error == 0) && (unmount(mp2, MNT_FORCE) == -1)) {
+            XCTFail("TEST 4 unmount mp2 failed %d\n", errno);
+            /* try force unmount on exit */
+            do_unmount2 = 1;
+        }
+        goto done;
+    }
+
+    /* Try unmount of mp1 */
+    if (unmount(mp1, MNT_FORCE) == -1) {
+        XCTFail("TEST 4 unmount mp1 failed %d\n", errno);
+        goto done;
+    }
+    do_unmount1 = 0;
+
+
+    /* Test five: mount first automount second no flags */
+    printf("Test 5: mount first with automount then second mount with browse \n");
+
+    error = do_mount_URL(mp1, urlRef1, NULL, MNT_AUTOMOUNTED);
+    if (error) {
+        XCTFail("TEST 5, mntFlags = MNT_AUTOMOUNTED: Couldn't mount first volume: shouldn't happen %d\n", error);
+        goto done;
+    }
+    do_unmount1 = 1;
+
+    error = do_mount_URL(mp2, urlRef1, NULL, 0);
+    if (error != 0) {
+        XCTFail("TEST 5, mntFlags = 0: Second volume return wrong error: %d\n", error);
+        goto done;
+    }
+    do_unmount2 = 1;
+
+    /* Try unmount of mp1 */
+    if (unmount(mp1, MNT_FORCE) == -1) {
+        XCTFail("TEST 5 unmount mp1 failed %d\n", errno);
+        goto done;
+    }
+    do_unmount1 = 0;
+
+    /* Try unmount of mp2 */
+    if (unmount(mp2, MNT_FORCE) == -1) {
+        XCTFail("TEST 5 unmount mp2 failed %d\n", errno);
+        goto done;
+    }
+    do_unmount2 = 0;
+
+
+    /* Test six: mount first no flags second automount */
+    printf("Test 6: mount first with browse then second mount with automount \n");
+
+    error = do_mount_URL(mp1, urlRef1, NULL, 0);
+    if (error) {
+        XCTFail("TEST 6, mntFlags = 0: Couldn't mount first volume: shouldn't happen %d\n", error);
+        goto done;
+    }
+    do_unmount1 = 1;
+
+    error = do_mount_URL(mp2, urlRef1, NULL, MNT_AUTOMOUNTED);
+    if (error != 0) {
+        XCTFail("TEST 6, mntFlags = MNT_AUTOMOUNTED: Second volume return wrong error: %d\n", error);
+        goto done;
+    }
+    do_unmount2 = 1;
+
+    /* Try unmount of mp1 */
+    if (unmount(mp1, MNT_FORCE) == -1) {
+        XCTFail("TEST 5 unmount mp1 failed %d\n", errno);
+        goto done;
+    }
+    do_unmount1 = 0;
+
+    /* Try unmount of mp2 */
+    if (unmount(mp2, MNT_FORCE) == -1) {
+        XCTFail("TEST 5 unmount mp2 failed %d\n", errno);
+        goto done;
+    }
+    do_unmount2 = 0;
+
+    printf("All mount exists tests pass \n");
+    
+done:
+    if (do_unmount1) {
+        if (unmount(mp1, MNT_FORCE) == -1) {
+            XCTFail("unmount failed for first url %d\n", errno);
+        }
+    }
+
+    if (do_unmount2) {
+        if (unmount(mp2, MNT_FORCE) == -1) {
+            XCTFail("unmount failed for second url %d\n", errno);
+        }
+    }
+
+    rmdir(mp1);
+    rmdir(mp2);
+
+    return;
+}
+
+-(void)testNetBIOSNameConversion
+{
+    static const struct {
+        CFStringRef    proposed;
+        CFStringRef    expected;
+    } test_names[] = {
+        { NULL , NULL },
+        { CFSTR(""), NULL },
+        { CFSTR("james"), CFSTR("JAMES") },
+        { CFSTR("colley-xp4"), CFSTR("COLLEY-XP4") },
+        //{ CFSTR("jåmes"), CFSTR("JAMES") }, /* Unknown failure */
+        //{ CFSTR("iPadæøåýÐ만돌"), CFSTR("IPADAYMANDOL") }, /* Unknown failure */
+        { CFSTR("longnameshouldbetruncated"), CFSTR("LONGNAMESHOULDB") }
+    };
+
+    unsigned ii;
+    unsigned count = (unsigned)(sizeof(test_names) / sizeof(test_names[0]));
+
+    for (ii = 0; ii < sizeof(test_names) / sizeof(test_names[0]); ++ii) {
+        CFStringRef converted;
+
+        converted = SMBCreateNetBIOSName(test_names[ii].proposed);
+        if (converted == NULL && test_names[ii].expected == NULL) {
+            /* Expected this to fail ... good! */
+            --count;
+            continue;
+        }
+
+        if (!converted) {
+            char buf[256];
+
+            buf[0] = '\0';
+            CFStringGetCString(test_names[ii].proposed, buf, sizeof(buf), kCFStringEncodingUTF8);
+
+            XCTFail("failed to convert '%s'\n", buf);
+            continue;
+        }
+
+        // CFShow(converted);
+
+        if (CFEqual(converted, test_names[ii].expected)) {
+            /* pass */
+            --count;
+        }
+        else {
+            char buf1[256];
+            char buf2[256];
+
+            buf1[0] = buf2[0] = '\0';
+            CFStringGetCString(test_names[ii].expected, buf1, sizeof(buf1), kCFStringEncodingUTF8);
+            CFStringGetCString(converted, buf2, sizeof(buf2), kCFStringEncodingUTF8);
+
+            XCTFail("expected '%s' but received '%s'\n", buf1, buf2);
+        }
+
+        CFRelease(converted);
+    }
+    
+    if (count == 0) {
+        printf("All netbios names converted successfully \n");
+    }
+    
+#if 0
+    /*
+     * %%% TO DO - SOMEDAY %%%
+     * rdar://78620392 (Unit test of testNetBIOSNameConversion is failing for two odd names)
+     * Debugging code to try to figure out why CFSTR("jåmes") and
+     * CFSTR("iPadæøåýÐ만돌").
+     *
+     * This code is copied from SMBCreateNetBIOSName()
+     *
+     * Could not figure it out, something to do with
+     * the code page translations, I think.
+     */
+    {
+        /* This is the code page for 437, cp437 and should be the right one */
+        CFStringEncoding codepage = kCFStringEncodingDOSLatinUS;
+        CFMutableStringRef composedName;
+        CFIndex nconverted = 0;
+        uint8_t name_buffer[NetBIOS_NAME_LEN];
+        CFIndex nused = 0;
+
+        composedName = CFStringCreateMutableCopy(kCFAllocatorDefault, 0,
+                                                 CFSTR("jåmes"));
+        CFShow(composedName);
+        
+        CFStringUppercase(composedName, CFLocaleGetSystem());
+        CFShow(composedName);
+        
+        printf("codepage %d \n", codepage);
+
+        nconverted = CFStringGetBytes(composedName,
+                                      CFRangeMake(0, MIN((CFIndex) sizeof(name_buffer), CFStringGetLength(composedName))),
+                                      codepage, 0 /* loss byte */, false /* no BOM */,
+                                      name_buffer, sizeof(name_buffer), &nused);
+
+        /*
+         * At this point, we are supposed to have CFSTR("JAMES"), but instead
+         * we end up with "J\u00c5MES".
+         */
+
+        if (nconverted == 0) {
+            char buf[256];
+
+            buf[0] = '\0';
+            CFStringGetCString(composedName, buf, sizeof(buf), kCFStringEncodingUTF8);
+            printf("failed to compose a NetBIOS name string from '%s'", buf);
+        }
+        else {
+            printf("nconverted %ld \n", (long) nconverted);
+            CFShow(composedName);
+        }
+
+        CFRelease(composedName);
+
+    }
+#endif
+}
 
 
 

@@ -1,6 +1,6 @@
 .\"
 .\"
-.\" Copyright (c) 1999-2014 Apple Inc. All rights reserved.
+.\" Copyright (c) 1999-2020 Apple Inc. All rights reserved.
 .\"
 .\" @APPLE_LICENSE_HEADER_START@
 .\" 
@@ -21,7 +21,7 @@
 .\" 
 .\" @APPLE_LICENSE_HEADER_END@
 .\"
-.Dd April 8, 2014
+.Dd October 8, 2020
 .Dt BOOTPD 8
 .Os "Mac OS X"
 .Sh NAME
@@ -235,7 +235,7 @@ won't respond to the request until the bp_secs field is at least
 (Boolean) If this property is set to true,
 .Nm
 will look for static IP address to ethernet address bindings in
-\fBOpen Directory\fR.  The default value is true.
+\fBOpen Directory\fR.  The default value is false.
 .It Sy dhcp_ignore_client_identifier
 (Boolean) If this property is set to true, the DHCP server tries to
 ignore the DHCP client identifier option (code 61) in the client's

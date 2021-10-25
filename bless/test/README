@@ -1,0 +1,66 @@
+BLESS Testing Information  (November, 2020)
+=========================
+
+1. Test Program
+
+   /AppleInternal/CoreOS/tests/bless/test_bless  (test libbless on x86 systems)
+   /AppleInternal/CoreOS/tests/bless/test_bless2 (test libbless2 on Apple Silicon)
+   /AppleInternal/CoreOS/tests/bless/SharedModule.py (shared code)
+   /AppleInternal/CoreOS/tests/bless/SharedVars.py (shared variables)
+   /AppleInternal/CoreOS/tests/bless/bless2cli (CLI for libbless2 API)
+
+
+2. Source Code
+
+   ./test_bless : testing libbless on x86 systems
+   ./test_bless2 : testing libbless2 via bless2cli on Apple Silicon systems
+   ./ShareModule.py : shared code between test_bless and test_bless2
+   ./ShareVars.py : shared variables between test_bless2 and ShareModule.py
+   ./bless.plist : for BATS
+   ./bless2.plist : for BATS
+   ../bless2cli : CLI for libbless2 API
+   * Other files in this directory are legacy programs
+
+
+3. Run Tests
+
+   - Print out usage
+     % test_bless
+     or
+     % test_bless2
+
+   - List all test names
+     % test_bless -l
+     or
+     % test_bless2 -l
+
+   - Follow the test program usage
+
+
+4. BATS
+
+   - test_bless and test_bless2 are recognized by BATS, can be specified with '-t'
+   - test_bless is setup as the default, but only work on x86
+   - Still need to update BATS defaults between x86 and Apple Silicon
+
+
+5. Source Code Design Basic
+
+   - ShareModule.py is derived from test_asr for the SOURCE class
+   - test_bless/test_bless2 use SOURCE class to set up a dummy boot volume
+     for blessing
+   - TEST class is for the test run
+   - For each test:
+       . define a test_<testname> function
+       . setup options for SOURCE to build a boot volume
+       . specify testing flags
+       . instantiate a TEST instance
+       . run the test
+
+
+6. Future Enhancement
+
+   - ASR an OS system to an internal disk partition,
+     use /usr/local/bin/bootabilityutil to make it bootable, then reboot
+   - Check XXX notes in the source code for improvement
+

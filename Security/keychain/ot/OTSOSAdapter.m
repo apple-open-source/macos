@@ -396,6 +396,35 @@
 
     return result == kSOSCCViewMember;
 }
+
+- (bool)joinAfterRestore:(NSError * _Nullable __autoreleasing * _Nullable)error
+{
+    CFErrorRef restoreError = NULL;
+    bool restoreResult = SOSCCRequestToJoinCircleAfterRestore(&restoreError);
+    
+    secnotice("octagon-sos", "SOSCCRequestToJoinCircleAfterRestore complete: %d %@", restoreResult, restoreError);
+   
+    if (error) {
+        *error = CFBridgingRelease(restoreError);
+    }
+    
+    return restoreResult;
+}
+
+- (bool)resetToOffering:(NSError * _Nullable __autoreleasing * _Nullable)error
+{
+    CFErrorRef resetError = NULL;
+    bool resetResult = SOSCCResetToOffering(&resetError);
+    
+    secnotice("octagon-sos", "SOSCCResetToOffering complete: %d %@", resetResult, resetError);
+   
+    if (error) {
+        *error = CFBridgingRelease(resetError);
+    }
+    
+    return resetResult;
+}
+
 @end
 
 @implementation OTSOSMissingAdapter
@@ -508,6 +537,26 @@
     }
     return NO;
 }
+
+- (bool)joinAfterRestore:(NSError * _Nullable __autoreleasing * _Nullable)error {
+    if(error) {
+        *error = [NSError errorWithDomain:NSOSStatusErrorDomain
+                                     code:errSecUnimplemented
+                              description:@"SOS unsupported on this platform"];
+    }
+    return false;
+}
+
+
+- (bool)resetToOffering:(NSError * _Nullable __autoreleasing * _Nullable)error {
+    if(error) {
+        *error = [NSError errorWithDomain:NSOSStatusErrorDomain
+                                     code:errSecUnimplemented
+                              description:@"SOS unsupported on this platform"];
+    }
+    return false;
+}
+
 
 @end
 

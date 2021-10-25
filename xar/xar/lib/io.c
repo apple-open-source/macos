@@ -868,8 +868,6 @@ ssize_t xar_pwrite_block(int fd, const void *buf, size_t nbyte, off_t offset)
  */
 int32_t xar_heap_to_archive(xar_t x) {
 	const long bsize = xar_io_get_rsize(x);
-	char *b = malloc(bsize);
-	if( !b ) return -1;
 
 	const ssize_t dst_heap_start_offset = lseek(XAR(x)->fd, 0, SEEK_CUR);
 	if ( dst_heap_start_offset < 0 ) {
@@ -880,6 +878,9 @@ int32_t xar_heap_to_archive(xar_t x) {
 	if ( src_heap_size < 0 ) {
 		return -1;
 	}
+	
+	char *b = malloc(bsize);
+	if( !b ) return -1;
 		
 	// Let's set our offset to the end of the XAR file (end of dst heap)
 	ssize_t src_heap_offset = src_heap_size;

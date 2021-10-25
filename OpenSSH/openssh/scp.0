@@ -1,18 +1,22 @@
 SCP(1)                      General Commands Manual                     SCP(1)
 
 NAME
-     scp M-bM-^@M-^S secure copy (remote file copy program)
+     scp M-bM-^@M-^S OpenSSH secure file copy
 
 SYNOPSIS
-     scp [-346BCpqrTv] [-c cipher] [-F ssh_config] [-i identity_file]
+     scp [-346ABCpqrTv] [-c cipher] [-F ssh_config] [-i identity_file]
          [-J destination] [-l limit] [-o ssh_option] [-P port] [-S program]
          source ... target
 
 DESCRIPTION
-     scp copies files between hosts on a network.  It uses ssh(1) for data
-     transfer, and uses the same authentication and provides the same security
-     as ssh(1).  scp will ask for passwords or passphrases if they are needed
-     for authentication.
+     scp copies files between hosts on a network.
+
+     It uses ssh(1) for data transfer, and uses the same authentication and
+     provides the same security as a login session.  The scp protocol requires
+     execution of the remote user's shell to perform glob(3) pattern matching.
+
+     scp will ask for passwords or passphrases if they are needed for
+     authentication.
 
      The source and target may be specified as a local pathname, a remote host
      with optional path in the form [user@]host:[path], or a URI in the form
@@ -28,11 +32,15 @@ DESCRIPTION
      -3      Copies between two remote hosts are transferred through the local
              host.  Without this option the data is copied directly between
              the two remote hosts.  Note that this option disables the
-             progress meter.
+             progress meter and selects batch mode for the second host, since
+             scp cannot ask for passwords or passphrases for both hosts.
 
      -4      Forces scp to use IPv4 addresses only.
 
      -6      Forces scp to use IPv6 addresses only.
+
+     -A      Allows forwarding of ssh-agent(1) to the remote system.  The
+             default is not to forward an authentication agent.
 
      -B      Selects batch mode (prevents asking for passwords or
              passphrases).
@@ -96,8 +104,8 @@ DESCRIPTION
                    GSSAPIDelegateCredentials
                    HashKnownHosts
                    Host
+                   HostbasedAcceptedAlgorithms
                    HostbasedAuthentication
-                   HostbasedKeyTypes
                    HostKeyAlgorithms
                    HostKeyAlias
                    Hostname
@@ -108,6 +116,7 @@ DESCRIPTION
                    KbdInteractiveAuthentication
                    KbdInteractiveDevices
                    KexAlgorithms
+                   KnownHostsCommand
                    LogLevel
                    MACs
                    NoHostAuthenticationForLocalhost
@@ -118,7 +127,7 @@ DESCRIPTION
                    PreferredAuthentications
                    ProxyCommand
                    ProxyJump
-                   PubkeyAcceptedKeyTypes
+                   PubkeyAcceptedAlgorithms
                    PubkeyAuthentication
                    RekeyLimit
                    SendEnv
@@ -179,4 +188,4 @@ AUTHORS
      Timo Rinne <tri@iki.fi>
      Tatu Ylonen <ylo@cs.hut.fi>
 
-OpenBSD 6.6                      June 12, 2019                     OpenBSD 6.6
+OpenBSD 6.9                    January 26, 2021                    OpenBSD 6.9

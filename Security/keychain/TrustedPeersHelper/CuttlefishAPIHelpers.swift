@@ -53,3 +53,10 @@ extension TLKShare {
         }
     }
 }
+
+extension FetchRecoverableTLKSharesResponse.View {
+    func ckrecords() -> [CKRecord] {
+        let records = [CKRecord(self.keys.tlk), CKRecord(self.keys.classA), CKRecord(self.keys.classC)] + self.tlkShares.map { CKRecord($0) }
+        return records.compactMap { $0 }
+    }
+}

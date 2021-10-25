@@ -1,5 +1,6 @@
 .Dd September 20, 2005
-.Dt purge 8
+.Dt PURGE 8
+.Os "macOS"
 .Sh NAME
 .Nm purge
 .Nd force disk cache to be purged (flushed and emptied)
@@ -7,8 +8,8 @@
 .Nm purge
 .Sh DESCRIPTION
 .Nm Purge
-can be used to approximate initial boot conditions with a cold disk buffer cache for performance analysis. It does not affect anonymous memory that has been allocated through malloc, vm_allocate, etc.
-.Pp
+can be used to approximate initial boot conditions with a cold disk buffer cache for performance analysis.
+It does not affect anonymous memory that has been allocated through malloc, vm_allocate, etc.
 .Sh SEE ALSO
-.Xr sync 8 , 
-.Xr malloc 3
+.Xr malloc 3 ,
+.Xr sync 8

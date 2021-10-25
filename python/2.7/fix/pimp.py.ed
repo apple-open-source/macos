@@ -1,0 +1,2 @@
+,s/\/System\/Library\/Frameworks\/Python.framework/\@INSTALLPREFIX@\/Library\/Frameworks\/@PYFRAMEWORKNAME@\.framework/
+w

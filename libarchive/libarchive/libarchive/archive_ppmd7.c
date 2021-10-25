@@ -4,7 +4,7 @@ This code is based on PPMd var.H (2001): Dmitry Shkarin : Public domain */
 
 #include "archive_platform.h"
 
-#include <memory.h>
+#include <stdlib.h>
 
 #include "archive_ppmd7_private.h"
 
@@ -115,14 +115,14 @@ static void Ppmd7_Construct(CPpmd7 *p)
   memset(p->HB2Flag + 0x40, 8, 0x100 - 0x40);
 }
 
-static void Ppmd7_Free(CPpmd7 *p, ISzAlloc *alloc)
+static void Ppmd7_Free(CPpmd7 *p)
 {
-  alloc->Free(alloc, p->Base);
+  free(p->Base);
   p->Size = 0;
   p->Base = 0;
 }
 
-static Bool Ppmd7_Alloc(CPpmd7 *p, UInt32 size, ISzAlloc *alloc)
+static Bool Ppmd7_Alloc(CPpmd7 *p, UInt32 size)
 {
   if (p->Base == 0 || p->Size != size)
   {
@@ -131,14 +131,14 @@ static Bool Ppmd7_Alloc(CPpmd7 *p, UInt32 size, ISzAlloc *alloc)
     if (size < UNIT_SIZE) {
       return False;
     }
-    Ppmd7_Free(p, alloc);
+    Ppmd7_Free(p);
     p->AlignOffset =
       #ifdef PPMD_32BIT
         (4 - size) & 3;
       #else
         4 - (size & 3);
       #endif
-    if ((p->Base = (Byte *)alloc->Alloc(alloc, p->AlignOffset + size
+    if ((p->Base = (Byte *)malloc(p->AlignOffset + size
         #ifndef PPMD_32BIT
         + UNIT_SIZE
         #endif
@@ -1003,7 +1003,7 @@ static void RangeEnc_ShiftLow(CPpmd7z_RangeEnc *p)
 
 static void RangeEnc_Encode(CPpmd7z_RangeEnc *p, UInt32 start, UInt32 size, UInt32 total)
 {
-  p->Low += start * (p->Range /= total);
+  p->Low += (UInt64)start * (UInt64)(p->Range /= total);
   p->Range *= size;
   while (p->Range < kTopValue)
   {

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, 2003-2018, 2020 Apple Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2003-2018, 2020-2021 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -67,7 +67,7 @@ static Boolean	resolver_bypass;
 
 
 static CF_RETURNS_RETAINED CFMutableDictionaryRef
-_setupReachabilityOptions(int argc, char **argv, const char *interface)
+_setupReachabilityOptions(int argc, char * const argv[], const char *interface)
 {
 	int			i;
 	CFMutableDictionaryRef	options;
@@ -89,18 +89,6 @@ _setupReachabilityOptions(int argc, char **argv, const char *interface)
 			continue;
 		}
 
-
-		if (strcasecmp(argv[i], "server") == 0) {
-			CFDictionarySetValue(options,
-					     kSCNetworkReachabilityOptionServerBypass,
-					     kCFBooleanFalse);
-			continue;
-		} else if (strcasecmp(argv[i], "no-server") == 0) {
-			CFDictionarySetValue(options,
-					     kSCNetworkReachabilityOptionServerBypass,
-					     kCFBooleanTrue);
-			continue;
-		}
 
 		if (strcasecmp(argv[i], "no-connection-on-demand") == 0) {
 			CFDictionarySetValue(options,
@@ -156,18 +144,18 @@ _setupReachabilityOptions(int argc, char **argv, const char *interface)
 
 
 static SCNetworkReachabilityRef
-_setupReachability(int argc, char **argv, SCNetworkReachabilityContext *context)
+_setupReachability(int argc, char * const argv[], SCNetworkReachabilityContext *context)
 {
-	const char			*ip_address	= argv[0];
-	char				*ip_addressN	= NULL;
+	const char			*ip_address		= argv[0];
+	char				*ip_addressN		= NULL;
 	const char			*interface;
-	CFMutableDictionaryRef		options		= NULL;
-	const char			*remote_address	= NULL;
-	char				*remote_addressN= NULL;
-	const char			*remote_interface;
+	CFMutableDictionaryRef		options			= NULL;
+	const char			*remote_address		= NULL;
+	char				*remote_addressN	= NULL;
+	const char			*remote_interface	= NULL;
 	struct sockaddr_in		sin;
 	struct sockaddr_in6		sin6;
-	SCNetworkReachabilityRef	target		= NULL;
+	SCNetworkReachabilityRef	target			= NULL;
 
 	memset(&sin, 0, sizeof(sin));
 	sin.sin_len    = sizeof(sin);
@@ -200,17 +188,21 @@ _setupReachability(int argc, char **argv, SCNetworkReachabilityContext *context)
 	if (inet_aton(ip_address, &sin.sin_addr) == 1) {
 		struct sockaddr_in	r_sin;
 
-		if (argc > 1) {
+		// if the first argument was an IP[v4] address
+		argc--;
+		argv++;
+
+		if (argc > 0) {
 			memset(&r_sin, 0, sizeof(r_sin));
 			r_sin.sin_len    = sizeof(r_sin);
 			r_sin.sin_family = AF_INET;
 		}
 
-		if ((argc == 1)
+		if ((argc == 0)
 		    || (remote_address == NULL)
 		    || (inet_aton(remote_address, &r_sin.sin_addr) == 0)) {
-			if (argc > 2) {
-				options = _setupReachabilityOptions(argc - 2, argv + 2, interface);
+			if ((argc > 0) || (interface != NULL)) {
+				options = _setupReachabilityOptions(argc, argv, interface);
 			}
 			if (options == NULL) {
 				target = SCNetworkReachabilityCreateWithAddress(NULL, (struct sockaddr *)&sin);
@@ -238,6 +230,10 @@ _setupReachability(int argc, char **argv, SCNetworkReachabilityContext *context)
 				}
 			}
 		} else {
+			// we have both a local and [possibly a] remote address
+			argc--;
+			argv++;
+
 			if (remote_interface != NULL) {
 				if ((interface != NULL) && (strcmp(interface, remote_interface) != 0)) {
 					SCPrint(TRUE, stderr,
@@ -250,7 +246,7 @@ _setupReachability(int argc, char **argv, SCNetworkReachabilityContext *context)
 				interface = remote_interface;
 			}
 
-			options = _setupReachabilityOptions(argc - 2, argv + 2, interface);
+			options = _setupReachabilityOptions(argc, argv, interface);
 			if (options == NULL) {
 				target = SCNetworkReachabilityCreateWithAddressPair(NULL,
 										    (struct sockaddr *)&sin,
@@ -285,21 +281,25 @@ _setupReachability(int argc, char **argv, SCNetworkReachabilityContext *context)
 	} else if (inet_pton(AF_INET6, ip_address, &sin6.sin6_addr) == 1) {
 		struct sockaddr_in6	r_sin6;
 
+		// if the first argument was an IP[v6] address
+		argc--;
+		argv++;
+
 		if (interface != NULL) {
 			sin6.sin6_scope_id = if_nametoindex(interface);
 		}
 
-		if (argc > 1) {
+		if (argc > 0) {
 			memset(&r_sin6, 0, sizeof(r_sin6));
 			r_sin6.sin6_len    = sizeof(r_sin6);
 			r_sin6.sin6_family = AF_INET6;
 		}
 
-		if ((argc == 1)
+		if ((argc == 0)
 		    || (remote_address == NULL)
 		    || (inet_pton(AF_INET6, remote_address, &r_sin6.sin6_addr) == 0)) {
-			if (argc > 2) {
-				options = _setupReachabilityOptions(argc - 2, argv + 2, NULL);
+			if (argc > 0) {
+				options = _setupReachabilityOptions(argc, argv, NULL);
 			}
 			if (options == NULL) {
 				target = SCNetworkReachabilityCreateWithAddress(NULL, (struct sockaddr *)&sin6);
@@ -318,6 +318,10 @@ _setupReachability(int argc, char **argv, SCNetworkReachabilityContext *context)
 				}
 			}
 		} else {
+			// we have both a local and [possibly a] remote address
+			argc--;
+			argv++;
+
 			if (remote_interface != NULL) {
 				r_sin6.sin6_scope_id = if_nametoindex(remote_interface);
 
@@ -330,7 +334,7 @@ _setupReachability(int argc, char **argv, SCNetworkReachabilityContext *context)
 				}
 			}
 
-			options = _setupReachabilityOptions(argc - 2, argv + 2, NULL);
+			options = _setupReachabilityOptions(argc, argv, NULL);
 			if (options == NULL) {
 				target = SCNetworkReachabilityCreateWithAddressPair(NULL,
 										    (struct sockaddr *)&sin6,
@@ -457,7 +461,7 @@ _printReachability(SCNetworkReachabilityRef target)
 
 __private_extern__
 void
-do_checkReachability(int argc, char **argv)
+do_checkReachability(int argc, char * const argv[])
 {
 	SCNetworkReachabilityRef	target;
 
@@ -469,12 +473,12 @@ do_checkReachability(int argc, char **argv)
 
 	_printReachability(target);
 	CFRelease(target);
-	exit(0);
+	return;
 }
 
 
 static void
-do_printNWI(int argc, char **argv, nwi_state_t state)
+do_printNWI(int argc, char * const argv[], nwi_state_t state)
 {
 	if (state == NULL) {
 		SCPrint(TRUE, stdout, CFSTR("No network information\n"));
@@ -510,7 +514,7 @@ do_printNWI(int argc, char **argv, nwi_state_t state)
 
 __private_extern__
 void
-do_showNWI(int argc, char **argv)
+do_showNWI(int argc, char * const argv[])
 {
 	nwi_state_t	state;
 
@@ -522,13 +526,13 @@ do_showNWI(int argc, char **argv)
 		exit(1);
 	}
 
-	exit(0);
+	return;
 }
 
 
 __private_extern__
 void
-do_watchNWI(int argc, char **argv)
+do_watchNWI(int argc, char * const argv[])
 {
 	nwi_state_t	state;
 	int		status;
@@ -569,7 +573,6 @@ do_watchNWI(int argc, char **argv)
 	}
 
 	CFRunLoopRun();
-	exit(0);
 }
 
 
@@ -598,7 +601,7 @@ callout(SCNetworkReachabilityRef target, SCNetworkReachabilityFlags flags, void 
 
 __private_extern__
 void
-do_watchReachability(int argc, char **argv)
+do_watchReachability(int argc, char * const argv[])
 {
 	SCNetworkReachabilityContext	context	= { 0, NULL, NULL, NULL, NULL };
 	SCNetworkReachabilityRef	target;
@@ -624,7 +627,8 @@ do_watchReachability(int argc, char **argv)
 	// we provide the "CHECK_REACHABILITY_BEFORE_SCHEDULING" environment variable.
 	if (getenv("CHECK_REACHABILITY_BEFORE_SCHEDULING") != NULL) {
 		CFRelease(target_async);
-		target_async = CFRetain(target);
+		target_async = target;
+		CFRetain(target);
 	}
 
 	// Direct check of reachability
@@ -665,12 +669,12 @@ do_watchReachability(int argc, char **argv)
 	SCPrint(TRUE, stdout, CFSTR("\n"));
 
 	CFRunLoopRun();
-	exit(0);
+	return;
 }
 
 
 static void
-do_printDNSConfiguration(int argc, char **argv, dns_config_t *dns_config)
+do_printDNSConfiguration(int argc, char * const argv[], dns_config_t *dns_config)
 {
 #pragma unused(argc)
 #pragma unused(argv)
@@ -696,7 +700,7 @@ do_printDNSConfiguration(int argc, char **argv, dns_config_t *dns_config)
 
 __private_extern__
 void
-do_showDNSConfiguration(int argc, char **argv)
+do_showDNSConfiguration(int argc, char * const argv[])
 {
 	dns_config_t	*dns_config;
 
@@ -708,13 +712,13 @@ do_showDNSConfiguration(int argc, char **argv)
 		exit(1);
 	}
 
-	exit(0);
+	return;
 }
 
 
 __private_extern__
 void
-do_watchDNSConfiguration(int argc, char **argv)
+do_watchDNSConfiguration(int argc, char * const argv[])
 {
 	dns_config_t	*dns_config;
 	int		status;
@@ -755,7 +759,6 @@ do_watchDNSConfiguration(int argc, char **argv)
 	}
 
 	CFRunLoopRun();
-	exit(0);
 }
 
 
@@ -780,7 +783,7 @@ showProxy(CFDictionaryRef proxy)
 
 __private_extern__
 void
-do_showProxyConfiguration(int argc, char **argv)
+do_showProxyConfiguration(int argc, char * const argv[])
 {
 	CFDictionaryRef		proxies;
 
@@ -816,6 +819,9 @@ do_showProxyConfiguration(int argc, char **argv)
 					exit(1);
 				}
 
+				if (interface != NULL) {
+					CFRelease(interface);
+				}
 				interface = CFStringCreateWithCString(NULL, argv[0], kCFStringEncodingUTF8);
 				argv++;
 				argc--;
@@ -823,7 +829,6 @@ do_showProxyConfiguration(int argc, char **argv)
 				if (server != NULL) {
 					CFRelease(server);
 				}
-
 				server = CFStringCreateWithCString(NULL, argv[0], kCFStringEncodingUTF8);
 				argv++;
 				argc--;
@@ -879,16 +884,14 @@ do_showProxyConfiguration(int argc, char **argv)
 		SCPrint(TRUE, stdout, CFSTR("No proxy configuration available\n"));
 	}
 
-	exit(0);
+	return;
 }
 
 
 __private_extern__
 void
-do_snapshot(int argc, char **argv)
+do_snapshot(int argc, char * const argv[])
 {
-#pragma unused(argc)
-#pragma unused(argv)
 	if (argc == 1) {
 		CFDictionaryRef		dict;
 		int			fd;
@@ -993,7 +996,7 @@ do_renew(char *if_name)
 		}
 
 		if (ok) {
-			exit(0);
+			return;
 		}
 	}
 
@@ -1045,18 +1048,18 @@ do_renew(char *if_name)
 	}
 
 	_prefs_close();
-	exit(0);
+	return;
 }
 
 
 static void
 waitKeyFound()
 {
-	exit(0);
+	return;
 }
 
 
-static void
+static void __attribute__((noreturn))
 waitTimeout(int sigraised)
 {
 #pragma unused(sigraised)
@@ -1102,11 +1105,11 @@ do_wait(char *waitKey, int timeout)
 	CFRunLoopAddSource(CFRunLoopGetCurrent(), notifyRls, kCFRunLoopDefaultMode);
 
 	value = SCDynamicStoreCopyValue(store, key);
+	CFRelease(key);
 	if (value) {
 		/* if the key is already present */
-		exit(0);
+		return;
 	}
-	CFRelease(key);
 
 	if (timeout > 0) {
 		signal(SIGALRM, waitTimeout);
@@ -1125,7 +1128,46 @@ do_wait(char *waitKey, int timeout)
 /**
  ** "scutil --advisory <ifname> [ set | -W ]"
  **/
-void
+
+static void
+store_watch_key(SCDynamicStoreCallBack callback, CFStringRef label,
+		const void * info, CFStringRef key)
+{
+	SCDynamicStoreContext	context = { .info = (void *)info };
+	CFMutableArrayRef	keys;
+	Boolean			ok;
+
+	store = SCDynamicStoreCreate(NULL, label, callback, &context);
+	if (store == NULL) {
+		SCPrint(TRUE, stderr,
+			CFSTR("SCDynamicStoreCreate() failed: %s\n"),
+			SCErrorString(SCError()));
+		exit(1);
+	}
+	keys = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+	CFArrayAppendValue(keys, key);
+	CFRelease(key);
+	ok = SCDynamicStoreSetNotificationKeys(store, keys, NULL);
+	CFRelease(keys);
+	if (!ok) {
+		SCPrint(TRUE, stderr,
+			CFSTR("SCDynamicStoreSetNotificationKeys failed: %s\n"),
+			SCErrorString(SCError()));
+		exit(1);
+	}
+	notifyRls = SCDynamicStoreCreateRunLoopSource(NULL, store, 0);
+	if (!notifyRls) {
+		SCPrint(TRUE, stderr,
+			CFSTR("SCDynamicStoreCreateRunLoopSource() failed: %s\n"),
+			SCErrorString(SCError()));
+		exit(1);
+	}
+	CFRunLoopAddSource(CFRunLoopGetCurrent(), notifyRls,
+			   kCFRunLoopDefaultMode);
+	return;
+}
+
+static void __printflike(2, 3)
 timestamp_fprintf(FILE * f, const char * message, ...)
 {
 	struct timeval	tv;
@@ -1146,14 +1188,90 @@ timestamp_fprintf(FILE * f, const char * message, ...)
 	va_end(ap);
 }
 
-static void
-advisoryCheck(SCNetworkInterfaceRef interface, Boolean show_timestamp)
+typedef struct {
+	SCNetworkInterfaceRef	interface;
+	SCNetworkInterfaceAdvisory advisory;
+} advisoryContext, *advisoryContextRef;
+
+static const char *
+get_advisory_str(SCNetworkInterfaceAdvisory advisory)
 {
+	const char *	str = NULL;
+
+	switch (advisory) {
+	case kSCNetworkInterfaceAdvisoryLinkLayerIssue:
+		str = "LinkLayer";
+		break;
+	case kSCNetworkInterfaceAdvisoryUplinkIssue:
+		str = "Uplink";
+		break;
+	case kSCNetworkInterfaceAdvisoryBetterInterfaceAvailable:
+		str = "BetterInterface";
+		break;
+	default:
+		str = "<unknown>";
+		break;
+	}
+	return (str);
+}
+
+static void
+advisoryShow(SCNetworkInterfaceRef interface)
+{
+	CFIndex		count;
+	CFArrayRef	list;
+
+	list = SCNetworkInterfaceCopyAdvisoryInfo(interface);
+	if (list == NULL) {
+		return;
+	}
+	count = CFArrayGetCount(list);
+	SCPrint(TRUE, stdout,
+		CFSTR("%@: advisory count %d\n"),
+		SCNetworkInterfaceGetBSDName(interface),
+		(int)count);
+	for (CFIndex i = 0; i < count; i++) {
+		SCNetworkInterfaceAdvisory 		advisory;
+		SCNetworkInterfaceAdvisoryInfoRef 	info;
+
+		info = (SCNetworkInterfaceAdvisoryInfoRef)
+			CFArrayGetValueAtIndex(list, i);
+		advisory = SCNetworkInterfaceAdvisoryInfoGetAdvisory(info);
+		SCPrint(TRUE, stdout,
+			CFSTR("%ld. %@ [%d] %s [%u]\n"),
+			i + 1,
+			SCNetworkInterfaceAdvisoryInfoGetProcessName(info),
+			SCNetworkInterfaceAdvisoryInfoGetProcessID(info),
+			get_advisory_str(advisory), advisory);
+	}
+	CFRelease(list);
+}
+
+static void
+advisoryCheck(SCNetworkInterfaceRef interface,
+	      SCNetworkInterfaceAdvisory advisory,
+	      Boolean show_timestamp)
+{
+	Boolean		is_set;
+
+	is_set = SCNetworkInterfaceAdvisoryIsSpecificSet(interface, advisory);
 	if (show_timestamp) {
 		timestamp_fprintf(stdout, "");
 	}
-	printf("%sset\n",
-	       SCNetworkInterfaceAdvisoryIsSet(interface) ? "" : "not ");
+	if (advisory == kSCNetworkInterfaceAdvisoryNone) {
+		if (is_set) {
+			printf("At least one advisory is set\n");
+		} else {
+			printf("No advisories are set\n");
+		}
+	} else {
+		printf("%s advisory is %sset\n",
+		       get_advisory_str(advisory),
+		       is_set ? "" : "not ");
+	}
+	if (is_set && _sc_verbose) {
+		advisoryShow(interface);
+	}
 }
 
 static void
@@ -1161,69 +1279,107 @@ advisoryChanged(SCDynamicStoreRef session, CFArrayRef changes,
 		void * info)
 {
 #pragma unused(session, changes)
-	SCNetworkInterfaceRef	interface = (SCNetworkInterfaceRef)info;
+	advisoryContextRef	context = (advisoryContextRef)info;
 
-	advisoryCheck(interface, TRUE);
+	advisoryCheck(context->interface, context->advisory, TRUE);
 	return;
 }
 
 static void
-advisoryWatch(SCNetworkInterfaceRef interface)
+advisoryWatch(SCNetworkInterfaceRef interface,
+	      SCNetworkInterfaceAdvisory advisory)
 {
-	SCDynamicStoreContext	context = {
-		.info = (void *)interface,
-	};
+	advisoryContextRef	adv_context;
 	CFStringRef		key;
-	CFMutableArrayRef	keys;
-	Boolean			ok;
 
-	store = SCDynamicStoreCreate(NULL, CFSTR("scutil (advisory)"), advisoryChanged, &context);
-	if (store == NULL) {
-		SCPrint(TRUE, stderr,
-			CFSTR("SCDynamicStoreCreate() failed: %s\n"), SCErrorString(SCError()));
-		exit(1);
-	}
+	adv_context = malloc(sizeof(*adv_context));
+	adv_context->interface = interface;
+	adv_context->advisory = advisory;
 	key = SCNetworkInterfaceCopyAdvisoryNotificationKey(interface);
-	keys = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
-	CFArrayAppendValue(keys, key);
+	store_watch_key(advisoryChanged, CFSTR("scutil --advisory"),
+			adv_context, key);
 	CFRelease(key);
-	ok = SCDynamicStoreSetNotificationKeys(store, keys, NULL);
-	CFRelease(keys);
-	if (!ok) {
-		SCPrint(TRUE, stderr,
-			CFSTR("SCDynamicStoreSetNotificationKeys() failed: %s\n"), SCErrorString(SCError()));
-		exit(1);
-	}
-	notifyRls = SCDynamicStoreCreateRunLoopSource(NULL, store, 0);
-	if (!notifyRls) {
-		SCPrint(TRUE, stderr,
-			CFSTR("SCDynamicStoreCreateRunLoopSource() failed: %s\n"), SCErrorString(SCError()));
-		exit(1);
-	}
-	CFRunLoopAddSource(CFRunLoopGetCurrent(), notifyRls, kCFRunLoopDefaultMode);
 }
 
+static void
+advisoryShowAll(void)
+{
+	CFIndex		count;
+	Boolean		first = TRUE;
+	CFArrayRef	list;
+
+	list = SCNetworkInterfaceAdvisoryCopyInterfaceNames();
+	if (list == NULL) {
+		printf("No advisories\n");
+		return;
+	}
+	count = CFArrayGetCount(list);
+	for (CFIndex i = 0; i < count; i++) {
+		CFStringRef		ifname_cf;
+		SCNetworkInterfaceRef	interface;
+
+		ifname_cf = CFArrayGetValueAtIndex(list, i);
+		interface = _SCNetworkInterfaceCreateWithBSDName(NULL,
+								 ifname_cf,
+								 kIncludeAllVirtualInterfaces);
+		if (interface != NULL) {
+			if (first) {
+				first = FALSE;
+			} else {
+				printf("\n");
+			}
+			advisoryShow(interface);
+			CFRelease(interface);
+		}
+	}
+	CFRelease(list);
+}
+
+static void
+advisoryUsage(void)
+{
+	fprintf(stderr,
+		"usage:\n"
+		"\tscutil --advisory \"\"\n"
+		"\tscutil --advisory <ifname> "
+		"( show | set ) "
+		"[ linklayer | uplink | betterinterface ] "
+		"[ -W ]\n");
+}
 __private_extern__
 void
-do_advisory(const char * ifname, Boolean watch, int argc, char **argv)
+do_advisory(const char * ifname, Boolean watch, int argc, char * const argv[])
 {
-	CFStringRef		ifname_cf;
-	SCNetworkInterfaceRef	interface;
+	SCNetworkInterfaceAdvisory advisory = kSCNetworkInterfaceAdvisoryNone;
+	Boolean			do_set = FALSE;
+	Boolean			show_all = FALSE;
+	SCNetworkInterfaceRef	interface = NULL;
 
-	ifname_cf = CFStringCreateWithCString(NULL, ifname, kCFStringEncodingUTF8);
-	interface = _SCNetworkInterfaceCreateWithBSDName(NULL, ifname_cf, kIncludeAllVirtualInterfaces);
-	CFRelease(ifname_cf);
-	if (interface == NULL) {
-		fprintf(stderr, "Failed to instantiate SCNetworkInterfaceRef\n");
-		exit(1);
+	if (ifname[0] == '\0') {
+		show_all = TRUE;
+	} else {
+		CFStringRef		ifname_cf;
+
+		ifname_cf = CFStringCreateWithCString(NULL, ifname, kCFStringEncodingUTF8);
+		interface = _SCNetworkInterfaceCreateWithBSDName(NULL, ifname_cf, kIncludeAllVirtualInterfaces);
+		CFRelease(ifname_cf);
+		if (interface == NULL) {
+			fprintf(stderr, "Failed to instantiate SCNetworkInterfaceRef\n");
+			exit(1);
+		}
 	}
 	if (argc >= 1) {
-		SCNetworkInterfaceAdvisory advisory = kSCNetworkInterfaceAdvisoryUplinkIssue;
-
-		if (strcasecmp(argv[0], "set") != 0) {
-			fprintf(stderr,
-				"usage: scutil --advisory <ifname> "
-				"[ set [ linklayer | uplink ] | -W ]\n");
+		if (show_all) {
+			advisoryUsage();
+			exit(1);
+		}
+		if (strcasecmp(argv[0], "set") == 0) {
+			do_set = TRUE;
+			advisory = kSCNetworkInterfaceAdvisoryLinkLayerIssue;
+		} else if (strcasecmp(argv[0], "get") == 0
+			   || strcasecmp(argv[0], "show") == 0) {
+		} else {
+			advisoryUsage();
 			exit(1);
 		}
 		if (argc >= 2) {
@@ -1231,23 +1387,241 @@ do_advisory(const char * ifname, Boolean watch, int argc, char **argv)
 				advisory = kSCNetworkInterfaceAdvisoryUplinkIssue;
 			} else if (strcasecmp(argv[1], "linklayer") == 0) {
 				advisory = kSCNetworkInterfaceAdvisoryLinkLayerIssue;
+			} else if (strcasecmp(argv[1], "betterinterface") == 0) {
+				advisory = kSCNetworkInterfaceAdvisoryBetterInterfaceAvailable;
 			} else {
 				fprintf(stderr,
-					"Bad advisory '%s', must be either 'uplink' or 'linklayer'\n",
+					"Bad advisory '%s', must be either 'uplink', 'linklayer', or 'betterinterface'\n",
 					argv[1]);
 				exit(1);
 			}
 		}
-		SCNetworkInterfaceSetAdvisory(interface, advisory, CFSTR("Because"));
+	}
+	if (show_all) {
+		advisoryShowAll();
+	} else if (do_set) {
+		if (!SCNetworkInterfaceSetAdvisory(interface, advisory,
+						   CFSTR("scutil advisory"))) {
+			fprintf(stderr,
+				"SCNetworkInterfaceSetAdvisory failed %s\n",
+				SCErrorString(SCError()));
+			exit(1);
+		}
 		CFRunLoopRun();
 	} else {
-		advisoryCheck(interface, watch);
 		if (watch) {
-			advisoryWatch(interface);
+			advisoryWatch(interface, advisory);
+		}
+		advisoryCheck(interface, advisory, watch);
+		if (watch) {
 			CFRunLoopRun();
 		}
 	}
-	exit(0);
+
+	return;
+}
+
+static const char *
+get_rank_str(SCNetworkServicePrimaryRank rank)
+{
+    const char *	str = NULL;
+
+    switch (rank) {
+    case kSCNetworkServicePrimaryRankDefault:
+	    str = "Default";
+	    break;
+    case kSCNetworkServicePrimaryRankFirst:
+	    str = "First";
+	    break;
+    case kSCNetworkServicePrimaryRankLast:
+	    str = "Last";
+	    break;
+    case kSCNetworkServicePrimaryRankNever:
+	    str = "Never";
+	    break;
+    case kSCNetworkServicePrimaryRankScoped:
+	    str = "Scoped";
+	    break;
+    default:
+	    str = "<unknown>";
+	    break;
+    }
+    return (str);
+}
+
+static void
+rankAssertionShow(SCNetworkInterfaceRef interface,
+		  Boolean show_timestamp)
+{
+	CFIndex		count;
+	CFArrayRef	list;
+
+	if (show_timestamp) {
+		timestamp_fprintf(stdout, "");
+	}
+
+	list = SCNetworkInterfaceCopyRankAssertionInfo(interface);
+	if (list == NULL) {
+		printf("No rank assertions\n");
+		return;
+	}
+	count = CFArrayGetCount(list);
+	SCPrint(TRUE, stdout,
+		CFSTR("%@ rank assertion count %d\n"),
+		SCNetworkInterfaceGetBSDName(interface),
+		(int)count);
+	for (CFIndex i = 0; i < count; i++) {
+		SCNetworkInterfaceRankAssertionInfoRef 	info;
+		SCNetworkServicePrimaryRank 		rank;
+
+		info = (SCNetworkInterfaceRankAssertionInfoRef)
+			CFArrayGetValueAtIndex(list, i);
+		rank = SCNetworkInterfaceRankAssertionInfoGetPrimaryRank(info);
+		SCPrint(TRUE, stdout,
+			CFSTR("%ld. %@ [%d] %s [%u]\n"),
+			i + 1,
+			SCNetworkInterfaceRankAssertionInfoGetProcessName(info),
+			SCNetworkInterfaceRankAssertionInfoGetProcessID(info),
+			get_rank_str(rank), rank);
+	}
+	CFRelease(list);
+}
+static void
+rankAssertionShowAll(void)
+{
+	CFIndex		count;
+	Boolean		first = TRUE;
+	CFArrayRef	list;
+
+	list = SCNetworkInterfaceRankAssertionCopyInterfaceNames();
+	if (list == NULL) {
+		printf("No rank assertions\n");
+		return;
+	}
+	count = CFArrayGetCount(list);
+	for (CFIndex i = 0; i < count; i++) {
+		CFStringRef		ifname_cf;
+		SCNetworkInterfaceRef	interface;
+
+		ifname_cf = CFArrayGetValueAtIndex(list, i);
+		interface = _SCNetworkInterfaceCreateWithBSDName(NULL,
+								 ifname_cf,
+								 kIncludeAllVirtualInterfaces);
+		if (interface != NULL) {
+			if (first) {
+				first = FALSE;
+			} else {
+				printf("\n");
+			}
+			rankAssertionShow(interface, FALSE);
+			CFRelease(interface);
+		}
+	}
+	CFRelease(list);
+}
+
+static void
+rankAssertionChanged(SCDynamicStoreRef session, CFArrayRef changes,
+		     void * info)
+{
+#pragma unused(session)
+#pragma unused(changes)
+	SCNetworkInterfaceRef	interface = (SCNetworkInterfaceRef)info;
+
+	rankAssertionShow(interface, TRUE);
+	return;
+}
+
+static void
+rankAssertionWatch(SCNetworkInterfaceRef interface)
+{
+	CFStringRef		key;
+
+	key = SCNetworkInterfaceCopyRankAssertionNotificationKey(interface);
+	store_watch_key(rankAssertionChanged, CFSTR("scutil --rank"),
+			interface, key);
+	CFRelease(key);
+}
+
+static void
+rankUsage(void)
+{
+	fprintf(stderr,
+		"usage:\n"
+		"\tscutil --rank \"\"\n"
+		"\tscutil --rank <ifname> "
+		"show | set (First | Last | Never | Scoped)\n");
+}
+
+__private_extern__
+void
+do_rank(const char * ifname, Boolean watch, int argc, char * const argv[])
+{
+	Boolean				do_set = FALSE;
+	SCNetworkInterfaceRef		interface = NULL;
+	SCNetworkServicePrimaryRank 	rank;
+	Boolean				show_all = FALSE;
+
+	if (ifname[0] == '\0') {
+		show_all = TRUE;
+	} else {
+		CFStringRef			ifname_cf;
+
+		ifname_cf = CFStringCreateWithCString(NULL, ifname,
+						      kCFStringEncodingUTF8);
+		interface = _SCNetworkInterfaceCreateWithBSDName(NULL, ifname_cf,
+								 kIncludeAllVirtualInterfaces);
+		CFRelease(ifname_cf);
+		if (interface == NULL) {
+			fprintf(stderr,
+				"Failed to instantiate SCNetworkInterfaceRef\n");
+			exit(1);
+		}
+	}
+	rank = kSCNetworkServicePrimaryRankDefault;
+	if (argc >= 1) {
+		if (show_all) {
+			rankUsage();
+			exit(1);
+		}
+		if (strcasecmp(argv[0], "set") == 0) {
+			do_set = TRUE;
+		} else if (strcasecmp(argv[0], "show") == 0
+			   || strcasecmp(argv[0], "get") == 0) {
+		} else {
+			rankUsage();
+			exit(1);
+		}
+		if (argc >= 2) {
+			if (!get_rank_from_string(argv[1], &rank)) {
+				fprintf(stderr,
+					"Bad rank '%s', must be 'First', "
+					"'Last', 'Never', or 'Scoped'\n",
+					argv[1]);
+				exit(1);
+			}
+		}
+	}
+	if (show_all) {
+		rankAssertionShowAll();
+	} else if (do_set) {
+		if (!SCNetworkInterfaceSetPrimaryRank(interface, rank)) {
+			fprintf(stderr,
+				"SCNetworkInterfaceSetPrimaryRank failed, %s\n",
+				SCErrorString(SCError()));
+			exit(1);
+		}
+		CFRunLoopRun();
+	} else {
+		if (watch) {
+			rankAssertionWatch(interface);
+		}
+		rankAssertionShow(interface, watch);
+		if (watch) {
+			CFRunLoopRun();
+		}
+	}
+	return;
 }
 
 
@@ -1259,7 +1633,7 @@ SCDynamicStoreRef	store		= NULL;
 CFPropertyListRef	value		= NULL;
 
 int
-main(int argc, char **argv)
+main(int argc, char * const argv[])
 {
 	dns_config_t	*dns_config;
 

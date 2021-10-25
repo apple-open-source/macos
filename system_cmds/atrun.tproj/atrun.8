@@ -31,7 +31,7 @@
 .\"
 .Dd March 9, 2008
 .Dt ATRUN 8
-.Os "Mac OS X"
+.Os "macOS"
 .Sh NAME
 .Nm atrun
 .Nd run jobs queued for later execution
@@ -44,19 +44,18 @@ utility runs commands queued by
 .Xr at 1 .
 It is invoked periodically by
 .Xr launchd 8
-as specified in the 
+as specified in the
 .Pa com.apple.atrun.plist
 property list.
 By default the property list contains the
-.Em Disabled 
+.Em Disabled
 key set to true, so
-.Nm atrun 
+.Nm atrun
 is never invoked.
 .Pp
 Execute the following command as root to enable
 .Nm atrun :
 .Dl "launchctl load -w /System/Library/LaunchDaemons/com.apple.atrun.plist"
-.Pp
 .Sh FILES
 .Bl -tag -width /var/at/lockfile -compact
 .It Pa /var/at/jobs
@@ -69,7 +68,5 @@ Job-creation lock file.
 .Sh SEE ALSO
 .Xr at 1 ,
 .Xr launchd 8
-.Sh AUTHOR
-.Bl -tag
-Thomas Koenig, ig25@rz.uni-karlsruhe.de
-.El
+.Sh AUTHORS
+.An Thomas Koenig Aq ig25@rz.uni-karlsruhe.de

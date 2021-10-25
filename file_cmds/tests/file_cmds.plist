@@ -12,6 +12,24 @@
 			<key>Command</key>
 			<array>
 				<string>/bin/sh</string>
+				<string>pax.sh</string>
+			</array>
+			<key>AsRoot</key>
+			<false/>
+			<key>TestName</key>
+			<string>pax</string>
+			<key>WhenToRun</key>
+			<array>
+				<string>PRESUBMISSION</string>
+				<string>NIGHTLY</string>
+			</array>
+			<key>WorkingDirectory</key>
+			<string>/AppleInternal/Tests/file_cmds</string>
+		</dict>
+		<dict>
+			<key>Command</key>
+			<array>
+				<string>/bin/sh</string>
 				<string>cp.sh</string>
 			</array>
 			<key>AsRoot</key>
@@ -54,6 +72,24 @@
 			<true/>
 			<key>TestName</key>
 			<string>chgrp</string>
+			<key>WhenToRun</key>
+			<array>
+				<string>PRESUBMISSION</string>
+				<string>NIGHTLY</string>
+			</array>
+			<key>WorkingDirectory</key>
+			<string>/AppleInternal/Tests/file_cmds</string>
+		</dict>
+		<dict>
+			<key>Command</key>
+			<array>
+				<string>/bin/sh</string>
+				<string>xattr.sh</string>
+			</array>
+			<key>AsRoot</key>
+			<true/>
+			<key>TestName</key>
+			<string>xattr</string>
 			<key>WhenToRun</key>
 			<array>
 				<string>PRESUBMISSION</string>

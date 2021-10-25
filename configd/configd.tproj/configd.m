@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2011, 2013-2020 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2011, 2013-2021 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -43,6 +43,7 @@
 #include <unistd.h>
 #include <paths.h>
 #include <fcntl.h>
+#include <sys/resource.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
@@ -88,7 +89,7 @@ static const struct option longopts[] = {
 };
 
 
-static void
+static void __attribute__((noreturn))
 usage(const char *prog)
 {
 	SCPrint(TRUE, stderr, CFSTR("%s: [-d] [-v] [-V bundleID] [-b] [-B bundleID] [-A bundleID] [-t bundle-path]\n"), prog);
@@ -172,7 +173,7 @@ term(CFMachPortRef port, void *msg, CFIndex size, void *info)
 }
 
 
-static void
+static void __attribute((noreturn))
 parent_exit(int i)
 {
 #pragma unused(i)
@@ -408,13 +409,22 @@ main(int argc, char * const argv[])
 			init_fds();
 		}
 
+#ifdef	USE_SYSLOG_FOR_INSTALL
 		if (_SC_isInstallEnvironment()) {
 			openlog("configd",
 				LOG_CONS|LOG_NDELAY|LOG_PID,	// logopt
 				LOG_INSTALL);			// facility
 		}
+#endif	// USE_SYSLOG_FOR_INSTALL
 	} else {
 		_sc_log = kSCLogDestinationFile;	/* redirect SCLog() to stdout/stderr */
+	}
+
+	/* allow low space writes */
+	if (setiopolicy_np(IOPOL_TYPE_VFS_ALLOW_LOW_SPACE_WRITES,
+			   IOPOL_SCOPE_PROCESS,
+			   IOPOL_VFS_ALLOW_LOW_SPACE_WRITES_ON) == -1) {
+		SC_log(LOG_ERR, "setiopolicy_np() failed: %s", strerror(errno));
 	}
 
 	/* add signal handler to catch a SIGHUP */
@@ -481,5 +491,4 @@ main(int argc, char * const argv[])
 	CFRunLoopRun();
 
 	exit (EX_OK);	/* insure the process exit status is 0 */
-	return 0;	/* ...and make main fit the ANSI spec. */
 }

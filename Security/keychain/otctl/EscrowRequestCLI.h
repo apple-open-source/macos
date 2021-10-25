@@ -9,10 +9,10 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (instancetype)initWithEscrowRequest:(SecEscrowRequest*)er;
 
-- (long)trigger;
-- (long)status;
-- (long)reset;
-- (long)storePrerecordsInEscrow;
+- (int)trigger;
+- (int)status;
+- (int)reset;
+- (int)storePrerecordsInEscrow;
 
 @end
 

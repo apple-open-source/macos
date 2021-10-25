@@ -45,22 +45,6 @@ typedef enum {
     kRequestSecretDone
 } KCJoiningRequestSecretSessionState;
 
-#if OCTAGON
-static bool KCJoiningOctagonPiggybackingDefault = false;
-bool KCSetJoiningOctagonPiggybackingEnabled(bool value)
-{
-    KCJoiningOctagonPiggybackingDefault = value;
-    return value;
-}
-
-// defaults write com.apple.security.octagon enable -bool YES
-bool KCJoiningOctagonPiggybackingEnabled() {
-    bool result = KCJoiningOctagonPiggybackingDefault ? KCJoiningOctagonPiggybackingDefault : OctagonIsEnabled();
-    secnotice("octagon", "Octagon Piggybacking is %@ ", result ? @"on" : @"off");
-    return result;
-}
-#endif
-
 
 @interface KCJoiningRequestSecretSession ()
 @property (weak) id<KCJoiningRequestSecretDelegate> secretDelegate;
@@ -103,18 +87,16 @@ bool KCJoiningOctagonPiggybackingEnabled() {
 
     if(self.piggy_version == kPiggyV2){
 #if OCTAGON
-        if(KCJoiningOctagonPiggybackingEnabled()){
-            NSData* uuidData = [self createUUID];
+        NSData* uuidData = [self createUUID];
 
-            NSString* version = @"o";
-            NSData* octagonVersion = [version dataUsingEncoding:kCFStringEncodingUTF8];
+        NSString* version = @"o";
+        NSData* octagonVersion = [version dataUsingEncoding:kCFStringEncodingUTF8];
 
-            initialMessage = [NSMutableData dataWithLength: sizeof_initialmessage_version2(start, kPiggyV1, uuidData, octagonVersion)];
+        initialMessage = [NSMutableData dataWithLength: sizeof_initialmessage_version2(start, kPiggyV1, uuidData, octagonVersion)];
 
-            if (NULL == encode_initialmessage_version2(start, uuidData, octagonVersion, error, initialMessage.mutableBytes, initialMessage.mutableBytes + initialMessage.length)){
-                secerror("failed to create version 2 message");
-                return nil;
-            }
+        if (NULL == encode_initialmessage_version2(start, uuidData, octagonVersion, error, initialMessage.mutableBytes, initialMessage.mutableBytes + initialMessage.length)){
+            secerror("failed to create version 2 message");
+            return nil;
         }
 #endif
     }
@@ -214,25 +196,21 @@ bool KCJoiningOctagonPiggybackingEnabled() {
     }
 #if OCTAGON
     //handle octagon data if it exists
-    if (KCJoiningOctagonPiggybackingEnabled()){
-        self.piggy_version = [message secondData] ? kPiggyV2 : kPiggyV1;
+    self.piggy_version = [message secondData] ? kPiggyV2 : kPiggyV1;
 
-        // The session may or may not exist at this point. If it doesn't, the version will be set at object creation time.
-        self.session.piggybackingVersion = self.piggy_version;
+    // The session may or may not exist at this point. If it doesn't, the version will be set at object creation time.
+    self.session.piggybackingVersion = self.piggy_version;
 
-        if (self.piggy_version == kPiggyV2){
-            OTPairingMessage* pairingMessage = [[OTPairingMessage alloc]initWithData: [message secondData]];
-            if (pairingMessage.hasEpoch) {
-                secnotice("octagon", "received epoch message: %@", [pairingMessage.epoch dictionaryRepresentation]);
-                self.epoch = pairingMessage.epoch.epoch;
-            }
-            else{
-                secerror("octagon: acceptor did not send its epoch. discontinuing octagon protocol. downgrading to verison 1");
-                self.piggy_version = kPiggyV1;
-            }
+    if (self.piggy_version == kPiggyV2){
+        OTPairingMessage* pairingMessage = [[OTPairingMessage alloc]initWithData: [message secondData]];
+        if (pairingMessage.hasEpoch) {
+            secnotice("octagon", "received epoch message: %@", [pairingMessage.epoch dictionaryRepresentation]);
+            self.epoch = pairingMessage.epoch.epoch;
         }
-    }else{
-        self.piggy_version = kPiggyV1;
+        else{
+            secerror("octagon: acceptor did not send its epoch. discontinuing octagon protocol. downgrading to verison 1");
+            self.piggy_version = kPiggyV1;
+        }
     }
 #endif
     return [self handleChallengeData:[message firstData] secret:password error:error];
@@ -349,7 +327,7 @@ bool KCJoiningOctagonPiggybackingEnabled() {
         self->_defaults = [NSMutableDictionary dictionary];
 
 #if OCTAGON
-        self->_piggy_version = KCJoiningOctagonPiggybackingEnabled() ? kPiggyV2 : kPiggyV1;
+        self->_piggy_version = kPiggyV2;
         self->_otControl = [OTControl controlObject:true error:error];
 
         _sessionUUID = [[NSUUID UUID] UUIDString];

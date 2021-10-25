@@ -182,6 +182,7 @@ typedef struct cnode cnode_t;
 #define H_ATTACH     0x00002    /* CNode is being attached to by another vnode */
 #define H_TRANSIT    0x00004    /* CNode is getting recycled  */
 #define H_WAITING    0x00008    /* CNode is being waited for */
+#define H_GETTING    0x00010    /* CNode is being "gotten" */
 
 /*
  * Runtime cnode flags (kept in c_flag)

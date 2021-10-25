@@ -72,7 +72,13 @@ void SOSDigestVectorAppend(struct SOSDigestVector *dv, const uint8_t *digest)
 
 static int SOSDigestCompare(const void *a, const void *b)
 {
-	return memcmp(a, b, SOSDigestSize);
+    if(a && b) {
+        return memcmp(a, b, SOSDigestSize);
+    } else {
+        if(a) return -1;
+        if(b) return 1;
+        return 0;
+    }
 }
 
 // Remove duplicates from sorted manifest using minimal memmove() calls

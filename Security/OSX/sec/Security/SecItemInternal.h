@@ -32,7 +32,6 @@
 #include <CoreFoundation/CFData.h>
 #include <sqlite3.h>
 #include <ipc/securityd_client.h>
-#include <ctkclient/ctkclient.h>
 
 __BEGIN_DECLS
 
@@ -49,9 +48,10 @@ static const CFStringRef kSecTokenValueAccessControlKey = CFSTR("ac");
 static const CFStringRef kSecTokenValueDataKey = CFSTR("data");
 
 CFDataRef _SecItemCreatePersistentRef(CFTypeRef iclass, sqlite_int64 rowid, CFDictionaryRef attributes);
+CFDataRef _SecItemCreateUUIDBasedPersistentRef(CFTypeRef iclass, CFDataRef uuidData, CFDictionaryRef attributes);
 
 bool _SecItemParsePersistentRef(CFDataRef persistent_ref, CFStringRef *return_class,
-    sqlite_int64 *return_rowid, CFDictionaryRef *return_token_attrs);
+    sqlite_int64 *return_rowid, CFDataRef *return_uuid, CFDictionaryRef *return_token_attrs);
 
 OSStatus _SecRestoreKeychain(const char *path);
 
@@ -80,24 +80,13 @@ typedef struct {
 
 CFMutableDictionaryRef SecCFDictionaryCOWGetMutable(SecCFDictionaryCOW *cow_dictionary);
 
-bool SecItemResultProcess(CFDictionaryRef query, CFDictionaryRef auth_params, TKTokenRef token,
-                          CFTypeRef raw_result, CFTypeRef *result, CFErrorRef *error);
-
 typedef enum {
     kSecItemAuthResultOK,
     kSecItemAuthResultError,
     kSecItemAuthResultNeedAuth
 } SecItemAuthResult;
 
-bool SecItemAuthDo(SecCFDictionaryCOW *auth_params, CFErrorRef *error, SecItemAuthResult (^perform)(CFArrayRef *ac_pairs, CFErrorRef *error),
-                   void (^newCredentialRefAdded)(void));
-
-bool SecItemAuthDoQuery(SecCFDictionaryCOW *query, SecCFDictionaryCOW *attributes, const void *secItemOperation, CFErrorRef *error,
-                               bool (^perform)(TKTokenRef token, CFDictionaryRef query, CFDictionaryRef attributes, CFDictionaryRef auth_params, CFErrorRef *error));
-
 void SecItemAuthCopyParams(SecCFDictionaryCOW *auth_params, SecCFDictionaryCOW *query);
-
-TKTokenRef SecTokenCreate(CFStringRef token_id, SecCFDictionaryCOW *auth_params, CFErrorRef *error);
 
 CFDictionaryRef SecTokenItemValueCopy(CFDataRef db_value, CFErrorRef *error);
 

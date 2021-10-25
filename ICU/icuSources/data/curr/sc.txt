@@ -1,5 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
-// License & terms of use: http://www.unicode.org/copyright.html#License
+// License & terms of use: http://www.unicode.org/copyright.html
+// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
 sc{
     Currencies{
         ADP{
@@ -376,7 +377,7 @@ sc{
         }
         EUR{
             "€",
-            "euro",
+            "èuro",
         }
         FIM{
             "FIM",
@@ -1586,11 +1587,11 @@ sc{
         }
         ETB{
             one{"birr etìope"}
-            other{"etìopes"}
+            other{"birrs etìopes"}
         }
         EUR{
-            one{"euro"}
-            other{"euros"}
+            one{"èuro"}
+            other{"èuros"}
         }
         FIM{
             one{"marcu finlandesu"}
@@ -2429,5 +2430,4 @@ sc{
             other{"dòllaros zimbabweanos (2008)"}
         }
     }
-    Version{"36.1"}
 }

@@ -44,88 +44,85 @@
 #include <string.h>
 
 /* Compute the number of buckets in ht */
-#define NBUCKETS(ht)    (1 << (PL_HASH_BITS - (ht)->shift))
+#define NBUCKETS(ht) (1 << (PL_HASH_BITS - (ht)->shift))
 
 /* The smallest table has 16 buckets */
-#define MINBUCKETSLOG2  4
-#define MINBUCKETS      (1 << MINBUCKETSLOG2)
+#define MINBUCKETSLOG2 4
+#define MINBUCKETS (1 << MINBUCKETSLOG2)
 
 /* Compute the maximum entries given n buckets that we will tolerate, ~90% */
-#define OVERLOADED(n)   ((n) - ((n) >> 3))
+#define OVERLOADED(n) ((n) - ((n) >> 3))
 
 /* Compute the number of entries below which we shrink the table by half */
-#define UNDERLOADED(n)  (((n) > MINBUCKETS) ? ((n) >> 2) : 0)
+#define UNDERLOADED(n) (((n) > MINBUCKETS) ? ((n) >> 2) : 0)
 
 /*
 ** Stubs for default hash allocator ops.
 */
-static void * PR_CALLBACK
-DefaultAllocTable(void *pool, PRSize size)
+static void* PR_CALLBACK DefaultAllocTable(void* pool, PRSize size)
 {
 #if defined(XP_MAC)
-#pragma unused (pool)
+#pragma unused(pool)
 #endif
 
     return PR_MALLOC(size);
 }
 
-static void PR_CALLBACK
-DefaultFreeTable(void *pool, void *item)
+static void PR_CALLBACK DefaultFreeTable(void* pool, void* item)
 {
 #if defined(XP_MAC)
-#pragma unused (pool)
+#pragma unused(pool)
 #endif
 
     PR_Free(item);
 }
 
-static PLHashEntry * PR_CALLBACK
-DefaultAllocEntry(void *pool, const void *key)
+static PLHashEntry* PR_CALLBACK DefaultAllocEntry(void* pool, const void* key)
 {
 #if defined(XP_MAC)
-#pragma unused (pool,key)
+#pragma unused(pool, key)
 #endif
 
     return PR_NEW(PLHashEntry);
 }
 
-static void PR_CALLBACK
-DefaultFreeEntry(void *pool, PLHashEntry *he, PRUintn flag)
+static void PR_CALLBACK DefaultFreeEntry(void* pool, PLHashEntry* he, PRUintn flag)
 {
 #if defined(XP_MAC)
-#pragma unused (pool)
+#pragma unused(pool)
 #endif
 
     if (flag == HT_FREE_ENTRY)
         PR_Free(he);
 }
 
-static PLHashAllocOps defaultHashAllocOps = {
-    DefaultAllocTable, DefaultFreeTable,
-    DefaultAllocEntry, DefaultFreeEntry
-};
+static PLHashAllocOps defaultHashAllocOps = {DefaultAllocTable, DefaultFreeTable, DefaultAllocEntry, DefaultFreeEntry};
 
-PR_IMPLEMENT(PLHashTable *)
-PL_NewHashTable(PRUint32 n, PLHashFunction keyHash,
-                PLHashComparator keyCompare, PLHashComparator valueCompare,
-                const PLHashAllocOps *allocOps, void *allocPriv)
+PR_IMPLEMENT(PLHashTable*)
+PL_NewHashTable(PRUint32 n,
+                PLHashFunction keyHash,
+                PLHashComparator keyCompare,
+                PLHashComparator valueCompare,
+                const PLHashAllocOps* allocOps,
+                void* allocPriv)
 {
-    PLHashTable *ht;
+    PLHashTable* ht;
     PRSize nb;
 
     if (n <= MINBUCKETS) {
         n = MINBUCKETSLOG2;
     } else {
-        n = PR_CeilingLog2(n);
+        n = (PRUint32)PR_CeilingLog2(n);
         if ((PRInt32)n < 0)
             return 0;
     }
 
-    if (!allocOps) allocOps = &defaultHashAllocOps;
+    if (!allocOps)
+        allocOps = &defaultHashAllocOps;
 
     ht = (PLHashTable*)((*allocOps->allocTable)(allocPriv, sizeof *ht));
     if (!ht)
-	return 0;
+        return 0;
     memset(ht, 0, sizeof *ht);
     ht->shift = PL_HASH_BITS - n;
     n = 1 << n;
@@ -134,8 +131,8 @@ PL_NewHashTable(PRUint32 n, PLHashFunction keyHash,
         (*allocOps->freeTable)(allocPriv, ht);
         return 0;
     }
-#endif  /* WIN16 */
-    nb = n * sizeof(PLHashEntry *);
+#endif /* WIN16 */
+    nb = n * sizeof(PLHashEntry*);
     ht->buckets = (PLHashEntry**)((*allocOps->allocTable)(allocPriv, nb));
     if (!ht->buckets) {
         (*allocOps->freeTable)(allocPriv, ht);
@@ -152,12 +149,12 @@ PL_NewHashTable(PRUint32 n, PLHashFunction keyHash,
 }
 
 PR_IMPLEMENT(void)
-PL_HashTableDestroy(PLHashTable *ht)
+PL_HashTableDestroy(PLHashTable* ht)
 {
     PRUint32 i, n;
     PLHashEntry *he, *next;
-    const PLHashAllocOps *allocOps = ht->allocOps;
-    void *allocPriv = ht->allocPriv;
+    const PLHashAllocOps* allocOps = ht->allocOps;
+    void* allocPriv = ht->allocPriv;
 
     n = NBUCKETS(ht);
     for (i = 0; i < n; i++) {
@@ -179,10 +176,10 @@ PL_HashTableDestroy(PLHashTable *ht)
 /*
 ** Multiplicative hash, from Knuth 6.4.
 */
-#define GOLDEN_RATIO    0x9E3779B9U
+#define GOLDEN_RATIO 0x9E3779B9U
 
-PR_IMPLEMENT(PLHashEntry **)
-PL_HashTableRawLookup(PLHashTable *ht, PLHashNumber keyHash, const void *key)
+PR_IMPLEMENT(PLHashEntry**)
+PL_HashTableRawLookup(PLHashTable* ht, PLHashNumber keyHash, const void* key)
 {
     PLHashEntry *he, **hep, **hep0;
     PLHashNumber h;
@@ -214,9 +211,8 @@ PL_HashTableRawLookup(PLHashTable *ht, PLHashNumber keyHash, const void *key)
 /*
 ** Same as PL_HashTableRawLookup but doesn't reorder the hash entries.
 */
-PR_IMPLEMENT(PLHashEntry **)
-PL_HashTableRawLookupConst(PLHashTable *ht, PLHashNumber keyHash,
-                           const void *key)
+PR_IMPLEMENT(PLHashEntry**)
+PL_HashTableRawLookupConst(PLHashTable* ht, PLHashNumber keyHash, const void* key)
 {
     PLHashEntry *he, **hep;
     PLHashNumber h;
@@ -239,9 +235,8 @@ PL_HashTableRawLookupConst(PLHashTable *ht, PLHashNumber keyHash,
     return hep;
 }
 
-PR_IMPLEMENT(PLHashEntry *)
-PL_HashTableRawAdd(PLHashTable *ht, PLHashEntry **hep,
-                   PLHashNumber keyHash, const void *key, void *value)
+PR_IMPLEMENT(PLHashEntry*)
+PL_HashTableRawAdd(PLHashTable* ht, PLHashEntry** hep, PLHashNumber keyHash, const void* key, void* value)
 {
     PRUint32 i, n;
     PLHashEntry *he, *next, **oldbuckets;
@@ -254,10 +249,9 @@ PL_HashTableRawAdd(PLHashTable *ht, PLHashEntry **hep,
 #if defined(WIN16)
         if (2 * n > 16000)
             return 0;
-#endif  /* WIN16 */
-        nb = 2 * n * sizeof(PLHashEntry *);
-        ht->buckets = (PLHashEntry**)
-            ((*ht->allocOps->allocTable)(ht->allocPriv, nb));
+#endif /* WIN16 */
+        nb = 2 * n * sizeof(PLHashEntry*);
+        ht->buckets = (PLHashEntry**)((*ht->allocOps->allocTable)(ht->allocPriv, nb));
         if (!ht->buckets) {
             ht->buckets = oldbuckets;
             return 0;
@@ -287,7 +281,7 @@ PL_HashTableRawAdd(PLHashTable *ht, PLHashEntry **hep,
     /* Make a new key value entry */
     he = (*ht->allocOps->allocEntry)(ht->allocPriv, key);
     if (!he)
-	return 0;
+        return 0;
     he->keyHash = keyHash;
     he->key = key;
     he->value = value;
@@ -297,8 +291,8 @@ PL_HashTableRawAdd(PLHashTable *ht, PLHashEntry **hep,
     return he;
 }
 
-PR_IMPLEMENT(PLHashEntry *)
-PL_HashTableAdd(PLHashTable *ht, const void *key, void *value)
+PR_IMPLEMENT(PLHashEntry*)
+PL_HashTableAdd(PLHashTable* ht, const void* key, void* value)
 {
     PLHashNumber keyHash;
     PLHashEntry *he, **hep;
@@ -320,7 +314,7 @@ PL_HashTableAdd(PLHashTable *ht, const void *key, void *value)
 }
 
 PR_IMPLEMENT(void)
-PL_HashTableRawRemove(PLHashTable *ht, PLHashEntry **hep, PLHashEntry *he)
+PL_HashTableRawRemove(PLHashTable* ht, PLHashEntry** hep, PLHashEntry* he)
 {
     PRUint32 i, n;
     PLHashEntry *next, **oldbuckets;
@@ -334,8 +328,7 @@ PL_HashTableRawRemove(PLHashTable *ht, PLHashEntry **hep, PLHashEntry *he)
     if (--ht->nentries < UNDERLOADED(n)) {
         oldbuckets = ht->buckets;
         nb = n * sizeof(PLHashEntry*) / 2;
-        ht->buckets = (PLHashEntry**)(
-            (*ht->allocOps->allocTable)(ht->allocPriv, nb));
+        ht->buckets = (PLHashEntry**)((*ht->allocOps->allocTable)(ht->allocPriv, nb));
         if (!ht->buckets) {
             ht->buckets = oldbuckets;
             return;
@@ -363,7 +356,7 @@ PL_HashTableRawRemove(PLHashTable *ht, PLHashEntry **hep, PLHashEntry *he)
 }
 
 PR_IMPLEMENT(Boolean)
-PL_HashTableRemove(PLHashTable *ht, const void *key)
+PL_HashTableRemove(PLHashTable* ht, const void* key)
 {
     PLHashNumber keyHash;
     PLHashEntry *he, **hep;
@@ -378,8 +371,8 @@ PL_HashTableRemove(PLHashTable *ht, const void *key)
     return PR_TRUE;
 }
 
-PR_IMPLEMENT(void *)
-PL_HashTableLookup(PLHashTable *ht, const void *key)
+PR_IMPLEMENT(void*)
+PL_HashTableLookup(PLHashTable* ht, const void* key)
 {
     PLHashNumber keyHash;
     PLHashEntry *he, **hep;
@@ -395,8 +388,8 @@ PL_HashTableLookup(PLHashTable *ht, const void *key)
 /*
 ** Same as PL_HashTableLookup but doesn't reorder the hash entries.
 */
-PR_IMPLEMENT(void *)
-PL_HashTableLookupConst(PLHashTable *ht, const void *key)
+PR_IMPLEMENT(void*)
+PL_HashTableLookupConst(PLHashTable* ht, const void* key)
 {
     PLHashNumber keyHash;
     PLHashEntry *he, **hep;
@@ -415,12 +408,12 @@ PL_HashTableLookupConst(PLHashTable *ht, const void *key)
 ** Return a count of the number of elements scanned.
 */
 PR_IMPLEMENT(int)
-PL_HashTableEnumerateEntries(PLHashTable *ht, PLHashEnumerator f, void *arg)
+PL_HashTableEnumerateEntries(PLHashTable* ht, PLHashEnumerator f, void* arg)
 {
     PLHashEntry *he, **hep;
     PRUint32 i, nbuckets;
     int rv, n = 0;
-    PLHashEntry *todo = 0;
+    PLHashEntry* todo = 0;
 
     nbuckets = NBUCKETS(ht);
     for (i = 0; i < nbuckets; i++) {
@@ -456,12 +449,12 @@ out:
 #include <stdio.h>
 
 PR_IMPLEMENT(void)
-PL_HashTableDumpMeter(PLHashTable *ht, PLHashEnumerator dump, FILE *fp)
+PL_HashTableDumpMeter(PLHashTable* ht, PLHashEnumerator dump, FILE* fp)
 {
     double mean, variance;
     PRUint32 nchains, nbuckets;
     PRUint32 i, n, maxChain, maxChainLen;
-    PLHashEntry *he;
+    PLHashEntry* he;
 
     variance = 0;
     nchains = 0;
@@ -488,8 +481,7 @@ PL_HashTableDumpMeter(PLHashTable *ht, PLHashEnumerator dump, FILE *fp)
     fprintf(fp, "     number of entries: %u\n", ht->nentries);
     fprintf(fp, "       number of grows: %u\n", ht->ngrows);
     fprintf(fp, "     number of shrinks: %u\n", ht->nshrinks);
-    fprintf(fp, "   mean steps per hash: %g\n", (double)ht->nsteps
-                                                / ht->nlookups);
+    fprintf(fp, "   mean steps per hash: %g\n", (double)ht->nsteps / ht->nlookups);
     fprintf(fp, "mean hash chain length: %g\n", mean);
     fprintf(fp, "    standard deviation: %g\n", sqrt(variance));
     fprintf(fp, " max hash chain length: %u\n", maxChainLen);
@@ -502,7 +494,7 @@ PL_HashTableDumpMeter(PLHashTable *ht, PLHashEnumerator dump, FILE *fp)
 #endif /* HASHMETER */
 
 PR_IMPLEMENT(int)
-PL_HashTableDump(PLHashTable *ht, PLHashEnumerator dump, FILE *fp)
+PL_HashTableDump(PLHashTable* ht, PLHashEnumerator dump, FILE* fp)
 {
     int count;
 
@@ -514,10 +506,10 @@ PL_HashTableDump(PLHashTable *ht, PLHashEnumerator dump, FILE *fp)
 }
 
 PR_IMPLEMENT(PLHashNumber)
-PL_HashString(const void *key)
+PL_HashString(const void* key)
 {
     PLHashNumber h;
-    const PRUint8 *s;
+    const PRUint8* s;
 
     h = 0;
     for (s = (const PRUint8*)key; *s; s++)
@@ -526,13 +518,13 @@ PL_HashString(const void *key)
 }
 
 PR_IMPLEMENT(int)
-PL_CompareStrings(const void *v1, const void *v2)
+PL_CompareStrings(const void* v1, const void* v2)
 {
     return strcmp((const char*)v1, (const char*)v2) == 0;
 }
 
 PR_IMPLEMENT(int)
-PL_CompareValues(const void *v1, const void *v2)
+PL_CompareValues(const void* v1, const void* v2)
 {
     return v1 == v2;
 }

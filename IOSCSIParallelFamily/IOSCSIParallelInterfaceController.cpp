@@ -1328,7 +1328,8 @@ IOSCSIParallelInterfaceController::CompleteParallelTask (
 							SCSIServiceResponse 		serviceResponse )
 {
 	
-	IOSCSIParallelInterfaceDevice *		target = NULL;
+	IOSCSIParallelInterfaceDevice *		target			= NULL;
+	SCSIParallelTask *					parallelTask	= NULL;
 	
 	STATUS_LOG ( ( "+IOSCSIParallelInterfaceController::CompleteParallelTask\n" ) );
 	
@@ -1351,6 +1352,9 @@ IOSCSIParallelInterfaceController::CompleteParallelTask (
 		
 	}
 	
+	parallelTask = ( SCSIParallelTask * ) parallelRequest;
+	OSSafeReleaseNULL ( parallelTask->fDextDataBuffer );
+
 	// Remove the task from the timeout list.
 	( ( SCSIParallelTimer * ) fTimerEvent )->RemoveTask ( parallelRequest );
 	

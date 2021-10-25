@@ -1,0 +1,84 @@
+commit 32b37348661b73b1dd6e061ef56679039222f31b
+Author: Ned Deily <nad@python.org>
+Date:   Sat Dec 3 02:14:09 2016 -0500
+
+    Issue #28440: No longer add /Library/Python/site-packages, the Apple-supplied
+    system Python site-packages directory, to sys.path for macOS framework builds.
+    The coupling between the two Python instances often caused confusion and, as
+    of macOS 10.12, changes to the site-packages layout can cause pip component
+    installations to fail.  This change reverts the effects introduced in 2.7.0
+    by Issue #4865.  If you are using a package with both the Apple system Python
+    2.7 and a user-installed Python 2.7, you will need to ensure that copies of
+    the package are installed with both Python instances.
+
+diff --git a/Doc/whatsnew/2.7.rst b/Doc/whatsnew/2.7.rst
+index 24137a8aeb..28a8d4be47 100644
+--- a/Doc/whatsnew/2.7.rst
++++ b/Doc/whatsnew/2.7.rst
+@@ -2343,6 +2343,18 @@ Port-Specific Changes: Mac OS X
+   installation and a user-installed copy of the same version.
+   (Changed by Ronald Oussoren; :issue:`4865`.)
+ 
++   .. versionchanged:: 2.7.13
++
++     As of 2.7.13, this change was removed.
++     ``/Library/Python/2.7/site-packages``, the site-packages directory
++     used by the Apple-supplied system Python 2.7 is no longer appended to
++     ``sys.path`` for user-installed Pythons such as from the python.org
++     installers.  As of macOS 10.12, Apple changed how the system
++     site-packages directory is configured, which could cause installation
++     of pip components, like setuptools, to fail.  Packages installed for
++     the system Python will no longer be shared with user-installed
++     Pythons. (:issue:`28440`)
++
+ Port-Specific Changes: FreeBSD
+ -----------------------------------
+ 
+--- a/Lib/site.py
++++ b/Lib/site.py
+@@ -295,20 +295,6 @@ def getsitepackages():
+         else:
+             sitepackages.append(prefix)
+             sitepackages.append(os.path.join(prefix, "lib", "site-packages"))
+-        if sys.platform == "darwin":
+-            # for framework builds *only* we add the standard Apple
+-            # locations.
+-            from sysconfig import get_config_var
+-            framework = get_config_var("PYTHONFRAMEWORK")
+-            # The framework has been renamed to PythonLegacy, but the library
+-            # kept the Python name
+-            if framework == 'PythonLegacy':
+-                framework = 'Python'
+-            if framework:
+-                for p in ["/AppleInternal/Library", "/Library"]:
+-                    sitepackages.append(
+-                            os.path.join(p, framework, sys.version[:3],
+-                                "site-packages"))
+     return sitepackages
+ 
+ def addsitepackages(known_paths):
+diff --git a/Lib/test/test_site.py b/Lib/test/test_site.py
+index 78c48094e4..d9a9324cb0 100644
+--- a/Lib/test/test_site.py
++++ b/Lib/test/test_site.py
+@@ -233,19 +233,8 @@ class HelperFunctionsTests(unittest.TestCase):
+             self.assertEqual(len(dirs), 1)
+             wanted = os.path.join('xoxo', 'Lib', 'site-packages')
+             self.assertEqual(dirs[0], wanted)
+-        elif (sys.platform == "darwin" and
+-            sysconfig.get_config_var("PYTHONFRAMEWORK")):
+-            # OS X framework builds
+-            site.PREFIXES = ['PythonLegacy.framework']
+-            dirs = site.getsitepackages()
+-            self.assertEqual(len(dirs), 3)
+-            wanted = os.path.join('/AppleInternal/Library',
+-                                  sysconfig.get_config_var("PYTHONFRAMEWORK"),
+-                                  sys.version[:3],
+-                                  'site-packages')
+-            self.assertEqual(dirs[2], wanted)
+         elif os.sep == '/':
+-            # OS X non-framwework builds, Linux, FreeBSD, etc
++            # OS X, Linux, FreeBSD, etc
+             self.assertEqual(len(dirs), 2)
+             wanted = os.path.join('xoxo', 'lib', 'python' + sys.version[:3],
+                                   'site-packages')

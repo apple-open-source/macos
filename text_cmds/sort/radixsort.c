@@ -1,4 +1,6 @@
 /*-
+ * SPDX-License-Identifier: BSD-2-Clause-FreeBSD
+ *
  * Copyright (C) 2012 Oleg Moskalenko <mom040267@gmail.com>
  * Copyright (C) 2012 Gabor Kovesdan <gabor@FreeBSD.org>
  * All rights reserved.
@@ -50,6 +52,10 @@ __FBSDID("$FreeBSD$");
 #include <unistd.h>
 
 #include "coll.h"
+#ifdef __APPLE__
+/* Provides sem_{init,destroy} */
+#include "file.h"
+#endif
 #include "radixsort.h"
 
 #define DEFAULT_SORT_FUNC_RADIXSORT mergesort
@@ -101,7 +107,7 @@ static size_t sort_left;
 #ifndef __APPLE__
 static sem_t mtsem;
 #else
-semaphore_t rmtsem;
+semaphore_t mtsem;
 #endif
 
 /*
@@ -138,6 +144,14 @@ have_sort_left(void)
 
 #endif /* SORT_THREADS */
 
+static void
+_push_ls(struct level_stack *ls)
+{
+
+	ls->next = g_ls;
+	g_ls = ls;
+}
+
 /*
  * Push sort level to the stack
  */
@@ -150,22 +164,14 @@ push_ls(struct sort_level *sl)
 	new_ls->sl = sl;
 
 #if defined(SORT_THREADS)
-	if (nthreads > 1)
+	if (nthreads > 1) {
 		pthread_mutex_lock(&g_ls_mutex);
-#endif
-
-	new_ls->next = g_ls;
-	g_ls = new_ls;
-
-#if defined(SORT_THREADS)
-	if (nthreads > 1)
+		_push_ls(new_ls);
 		pthread_cond_signal(&g_ls_cond);
-#endif
-
-#if defined(SORT_THREADS)
-	if (nthreads > 1)
 		pthread_mutex_unlock(&g_ls_mutex);
+	} else
 #endif
+		_push_ls(new_ls);
 }
 
 /*
@@ -267,14 +273,28 @@ add_leaf(struct sort_level *sl, struct sort_list_item *item)
 static inline int
 get_wc_index(struct sort_list_item *sli, size_t level)
 {
+	const size_t wcfact = (MB_CUR_MAX == 1) ? 1 : sizeof(wchar_t);
 	const struct key_value *kv;
 	const struct bwstring *bws;
 
 	kv = get_key_from_keys_array(&sli->ka, 0);
 	bws = kv->k;
 
-	if ((BWSLEN(bws) > level))
-		return (unsigned char) BWS_GET(bws,level);
+	if ((BWSLEN(bws) * wcfact > level)) {
+		wchar_t res;
+
+		/*
+		 * Sort wchar strings a byte at a time, rather than a single
+		 * byte from each wchar.
+		 */
+		res = (wchar_t)BWS_GET(bws, level / wcfact);
+		/* Sort most-significant byte first. */
+		if (level % wcfact < wcfact - 1)
+			res = (res >> (8 * (wcfact - 1 - (level % wcfact))));
+
+		return (res & 0xff);
+	}
+
 	return (-1);
 }
 
@@ -326,6 +346,7 @@ free_sort_level(struct sort_level *sl)
 static void
 run_sort_level_next(struct sort_level *sl)
 {
+	const size_t wcfact = (MB_CUR_MAX == 1) ? 1 : sizeof(wchar_t);
 	struct sort_level *slc;
 	size_t i, sln, tosort_num;
 
@@ -342,8 +363,16 @@ run_sort_level_next(struct sort_level *sl)
 		sort_left_dec(1);
 		goto end;
 	case (2):
+		/*
+		 * Radixsort only processes a single byte at a time.  In wchar
+		 * mode, this can be a subset of the length of a character.
+		 * list_coll_offset() offset is in units of wchar, not bytes.
+		 * So to calculate the offset, we must divide by
+		 * sizeof(wchar_t) and round down to the index of the first
+		 * character this level references.
+		 */
 		if (list_coll_offset(&(sl->tosort[0]), &(sl->tosort[1]),
-		    sl->level) > 0) {
+		    sl->level / wcfact) > 0) {
 			sl->sorted[sl->start_position++] = sl->tosort[1];
 			sl->sorted[sl->start_position] = sl->tosort[0];
 		} else {
@@ -357,7 +386,13 @@ run_sort_level_next(struct sort_level *sl)
 		if (TINY_NODE(sl) || (sl->level > 15)) {
 			listcoll_t func;
 
-			func = get_list_call_func(sl->level);
+			/*
+			 * Collate comparison offset is in units of
+			 * character-width, so we must divide the level (bytes)
+			 * by operating character width (wchar_t or char).  See
+			 * longer comment above.
+			 */
+			func = get_list_call_func(sl->level / wcfact);
 
 			sl->leaves = sl->tosort;
 			sl->leaves_num = sl->tosort_num;
@@ -531,14 +566,8 @@ run_sort_cycle_mt(void)
 static void*
 sort_thread(void* arg)
 {
-
 	run_sort_cycle_mt();
-
-#ifndef __APPLE__
 	sem_post(&mtsem);
-#else
-	semaphore_signal(rmtsem);
-#endif
 
 	return (arg);
 }
@@ -633,12 +662,7 @@ run_top_sort_level(struct sort_level *sl)
 			pthread_t pth;
 
 			pthread_attr_init(&attr);
-#ifndef __APPLE__
-			pthread_attr_setdetachstate(&attr,
-			    PTHREAD_DETACHED);
-#else
-			pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
-#endif
+			pthread_attr_setdetachstate(&attr, PTHREAD_DETACHED);
 
 			for (;;) {
 				int res = pthread_create(&pth, &attr,
@@ -646,11 +670,7 @@ run_top_sort_level(struct sort_level *sl)
 				if (res >= 0)
 					break;
 				if (errno == EAGAIN) {
-#ifndef __APPLE__
 					pthread_yield();
-#else
-					sched_yield();
-#endif
 					continue;
 				}
 				err(2, NULL);
@@ -659,12 +679,8 @@ run_top_sort_level(struct sort_level *sl)
 			pthread_attr_destroy(&attr);
 		}
 
-		for(i = 0; i < nthreads; ++i)
-#ifndef __APPLE__
+		for (i = 0; i < nthreads; ++i)
 			sem_wait(&mtsem);
-#else
-		  semaphore_wait(rmtsem);
-#endif
 	}
 #endif /* defined(SORT_THREADS) */
 }
@@ -692,17 +708,7 @@ run_sort(struct sort_list_item **base, size_t nmemb)
 
 		pthread_mutexattr_destroy(&mattr);
 
-#ifndef __APPLE__
 		sem_init(&mtsem, 0, 0);
-#else
-		{
-		  mach_port_t self = mach_task_self();
-		  kern_return_t ret = semaphore_create(self, &rmtsem, SYNC_POLICY_FIFO, 0);
-		  if (ret != KERN_SUCCESS) {
-		    err(2,NULL);
-		  }
-		}
-#endif
 
 	}
 #endif
@@ -724,15 +730,10 @@ run_sort(struct sort_list_item **base, size_t nmemb)
 
 #if defined(SORT_THREADS)
 	if (nthreads > 1) {
-#ifndef __APPLE__
 		sem_destroy(&mtsem);
-#else
-	  {
-	    mach_port_t self = mach_task_self();
-	    semaphore_destroy(self,rmtsem);
-	  }
+#ifndef __APPLE__
+		pthread_mutex_destroy(&g_ls_mutex);
 #endif
-	  pthread_mutex_destroy(&g_ls_mutex);
 	}
 	nthreads = nthreads_save;
 #endif

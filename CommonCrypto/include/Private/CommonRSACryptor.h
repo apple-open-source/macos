@@ -390,6 +390,27 @@ CCRSACryptorCrypt(
 API_AVAILABLE(macos(10.7), ios(5.0));
 
 /*!
+    @function   CCRSACryptorRecoverPrivateKey
+    @abstract   Recovers a full private key given a modulus and the public and private exponent.
+
+    @param      modulus                The modulus in MSB format.
+    @param      modulusLength          The modulus data length.
+    @param      publicExponent         The raw data bytes of the public exponent (aka "e").
+    @param      publicExponentLength   The public exponent data length.
+    @param      privateExponent        The raw data bytes of the private exponent (aka "d").
+    @param      privateExponentLength  The private exponent data length.
+
+    @result     kCCSuccess, iff the recovery succeeds.
+*/
+
+CCCryptorStatus
+CCRSACryptorRecoverPrivateKey(const uint8_t *modulus, size_t modulusLength,
+                              const uint8_t *publicExponent, size_t publicExponentLength,
+                              const uint8_t *privateExponent, size_t privateExponentLength,
+                              CCRSACryptorRef *ref)
+API_AVAILABLE(macos(11.1), ios(15.0), tvos(15.0), watchos(8.0));
+
+/*!
     @function   CCRSAGetKeyComponents
 	@abstract   Extracts the modulus, p, q, and private exponent if rsaKey is a private key, and modulus and public exponent if rsaKey is a public key.
     @param      rsaKey		A pointer to a CCRSACryptorRef.

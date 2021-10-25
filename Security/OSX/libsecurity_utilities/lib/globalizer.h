@@ -163,47 +163,6 @@ private:
 };
 
 
-//
-// A ProcessNexus is global within a single process, regardless of
-// load module boundaries. You can have any number of ProcessNexus
-// scopes, each identified by a C string (compared by value, not pointer).
-//
-class ProcessNexusBase : public GlobalNexus {
-protected:
-	ProcessNexusBase(const char *identifier);
-
-	struct Store {
-		void *mObject;
-		Mutex mLock;
-	};
-	Store *mStore;
-};
-
-template <class Type>
-class ProcessNexus : public ProcessNexusBase {
-public:
-	ProcessNexus(const char *identifier) : ProcessNexusBase(identifier) { }
-	Type &operator () ();
-	
-private:
-	Type *mObject;
-};
-
-template <class Type>
-Type &ProcessNexus<Type>::operator () ()
-{
-#if !defined(PTHREAD_STRICT)
-    // not strictly kosher POSIX, but pointers are usually atomic types
-    if (mStore->mObject)
-        return *reinterpret_cast<Type *>(mStore->mObject);
-#endif
-    StLock<Mutex> _(mStore->mLock);
-    if (mStore->mObject == NULL)
-        mStore->mObject = new Type;
-    return *reinterpret_cast<Type *>(mStore->mObject);
-};
-
-
 } // end namespace Security
 
 #endif //_H_GLOBALIZER

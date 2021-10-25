@@ -42,7 +42,7 @@ void
 mvm_aslr_init(void)
 {
 	// Prepare ASLR
-#if __i386__ || __x86_64__ || __arm64__ || (TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
+#if __i386__ || __x86_64__ || __arm64__ || TARGET_OS_DRIVERKIT || (TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 #if __i386__
 	uintptr_t stackbase = 0x8fe00000;
 	int entropic_bits = 3;
@@ -125,9 +125,11 @@ retry:
 				VM_PROT_DEFAULT, VM_PROT_ALL, VM_INHERIT_DEFAULT);
 	}
 	if (kr) {
-		malloc_zone_error(debug_flags, false, "can't allocate region\n:"
-				"*** mach_vm_map(size=%lu, flags: %x) failed (error code=%d)\n",
-				size, debug_flags, kr);
+		if (kr != KERN_NO_SPACE) {
+			malloc_zone_error(debug_flags, false, "can't allocate region\n:"
+					"*** mach_vm_map(size=%lu, flags: %x) failed (error code=%d)\n",
+					size, debug_flags, kr);
+		}
 		return NULL;
 	}
 	addr = (uintptr_t)vm_addr;

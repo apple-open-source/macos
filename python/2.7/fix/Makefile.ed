@@ -1,7 +1,7 @@
 /^BUILDEXE/c
 BUILDEXE = .exe
 
-LIBPYTHON=	/Library/Python/$(VERSION)
+LIBPYTHON=	@LIBRARYPREFIX@/Python/$(VERSION)
 .
 /quiet="-q"/s//quiet=""/
 /$(CC)/s//& $(RC_CFLAGS)/

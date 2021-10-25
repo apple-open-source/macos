@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2008, 2011-2017, 2019, 2020 Apple Inc. All rights reserved.
+ * Copyright (c) 2003-2008, 2011-2017, 2019-2021 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -29,7 +29,6 @@
  */
 
 #include <TargetConditionals.h>
-#include <dlfcn.h>
 #include <unistd.h>
 #include <sys/param.h>
 #include <sys/types.h>
@@ -41,57 +40,11 @@
 
 #include "SCNetworkConfigurationInternal.h"
 
+/* -------------------- */
+
 #if	!TARGET_OS_IPHONE
+
 #include <Security/Authorization.h>
-#endif	/* !TARGET_OS_IPHONE */
-
-
-/* -------------------- */
-
-
-#if	!TARGET_OS_IPHONE
-static void *
-__loadSecurity(void) {
-	static void		*image	= NULL;
-	static dispatch_once_t	once;
-
-	dispatch_once(&once, ^{
-		image = _SC_dlopen("/System/Library/Frameworks/Security.framework/Security");
-	});
-
-	return image;
-}
-
-
-static OSStatus
-_AuthorizationCreate(const AuthorizationRights *rights, const AuthorizationEnvironment *environment, AuthorizationFlags flags, AuthorizationRef *authorization)
-{
-	#undef AuthorizationCreate
-	static typeof (AuthorizationCreate) *dyfunc = NULL;
-	if (dyfunc == NULL) {
-		void *image = __loadSecurity();
-		if (image) dyfunc = dlsym(image, "AuthorizationCreate");
-	}
-	return dyfunc ? dyfunc(rights, environment, flags, authorization) : -1;
-}
-#define AuthorizationCreate _AuthorizationCreate
-
-
-static OSStatus
-_AuthorizationFree(AuthorizationRef authorization, AuthorizationFlags flags)
-{
-	#undef AuthorizationFree
-	static typeof (AuthorizationFree) *dyfunc = NULL;
-	if (dyfunc == NULL) {
-		void *image = __loadSecurity();
-		if (image) dyfunc = dlsym(image, "AuthorizationFree");
-	}
-	return dyfunc ? dyfunc(authorization, flags) : -1;
-}
-#define AuthorizationFree _AuthorizationFree
-
-
-/* -------------------- */
 
 __private_extern__
 AuthorizationRef
@@ -163,6 +116,17 @@ _prefs_open(CFStringRef name, const char *path)
 #else
 		authorization = kSCPreferencesUseEntitlementAuthorization;
 #endif	/* !TARGET_OS_IPHONE */
+	}
+
+	if (getenv("SCPREFERENCES_ALLOW_MODEL_CONFLICT") != NULL) {
+		if (options == NULL) {
+			options = CFDictionaryCreateMutable(NULL,
+							    0,
+							    &kCFTypeDictionaryKeyCallBacks,
+							    &kCFTypeDictionaryValueCallBacks);
+			useOptions = TRUE;
+		}
+		CFDictionarySetValue(options, kSCPreferencesOptionAllowModelConflict, kCFBooleanTrue);
 	}
 
 	if (getenv("SCPREFERENCES_REMOVE_WHEN_EMPTY") != NULL) {
@@ -313,7 +277,7 @@ _prefs_close()
 
 __private_extern__
 Boolean
-_prefs_commitRequired(int argc, char **argv, const char *command)
+_prefs_commitRequired(int argc, char * const argv[], const char *command)
 {
 	if (_prefs_changed) {
 		if ((currentInput != NULL)			&&
@@ -343,7 +307,7 @@ _prefs_commitRequired(int argc, char **argv, const char *command)
 
 
 static void
-get_ComputerName(int argc, char **argv)
+get_ComputerName(int argc, char * const argv[])
 {
 #pragma unused(argc)
 #pragma unused(argv)
@@ -373,12 +337,12 @@ get_ComputerName(int argc, char **argv)
 	SCPrint(TRUE, stdout, CFSTR("%@\n"), hostname);
 	CFRelease(hostname);
 
-	exit(0);
+	return;
 }
 
 
 static void
-set_ComputerName(int argc, char **argv)
+set_ComputerName(int argc, char * const argv[])
 {
 	CFStringRef	hostname	= NULL;
 	Boolean		ok;
@@ -416,12 +380,12 @@ set_ComputerName(int argc, char **argv)
 
 	_prefs_save();
 	_prefs_close();
-	exit(0);
+	return;
 }
 
 
 static void
-get_HostName(int argc, char **argv)
+get_HostName(int argc, char * const argv[])
 {
 #pragma unused(argc)
 #pragma unused(argv)
@@ -460,12 +424,12 @@ get_HostName(int argc, char **argv)
 
 	SCPrint(TRUE, stdout, CFSTR("%@\n"), hostname);
 	_prefs_close();
-	exit(0);
+	return;
 }
 
 
 static void
-set_HostName(int argc, char **argv)
+set_HostName(int argc, char * const argv[])
 {
 	CFStringRef	hostname = NULL;
 	Boolean		ok;
@@ -498,12 +462,12 @@ set_HostName(int argc, char **argv)
 
 	_prefs_save();
 	_prefs_close();
-	exit(0);
+	return;
 }
 
 
 static void
-get_LocalHostName(int argc, char **argv)
+get_LocalHostName(int argc, char * const argv[])
 {
 #pragma unused(argc)
 #pragma unused(argv)
@@ -532,12 +496,12 @@ get_LocalHostName(int argc, char **argv)
 	SCPrint(TRUE, stdout, CFSTR("%@\n"), hostname);
 	CFRelease(hostname);
 
-	exit(0);
+	return;
 }
 
 
 static void
-set_LocalHostName(int argc, char **argv)
+set_LocalHostName(int argc, char * const argv[])
 {
 	CFStringRef	hostname	= NULL;
 	Boolean		ok;
@@ -574,14 +538,14 @@ set_LocalHostName(int argc, char **argv)
 
 	_prefs_save();
 	_prefs_close();
-	exit(0);
+	return;
 }
 
 
 /* -------------------- */
 
 
-typedef void (*pref_func) (int argc, char **argv);
+typedef void (*pref_func) (int argc, char * const argv[]);
 
 static const struct {
 	char		*pref;
@@ -613,7 +577,7 @@ findPref(char *pref)
 
 __private_extern__
 void
-do_getPref(char *pref, int argc, char **argv)
+do_getPref(char *pref, int argc, char * const argv[])
 {
 	int	i;
 
@@ -648,7 +612,7 @@ do_getPref(char *pref, int argc, char **argv)
 		if (prefs_val != NULL) {
 			SCPrint(TRUE, stdout, CFSTR("%@\n"), prefs_val);
 			_prefs_close();
-			exit(0);
+			return;
 		}
 	}
 
@@ -660,7 +624,7 @@ do_getPref(char *pref, int argc, char **argv)
 
 __private_extern__
 void
-do_setPref(char *pref, int argc, char **argv)
+do_setPref(char *pref, int argc, char * const argv[])
 {
 	int	i;
 
@@ -685,7 +649,7 @@ do_prefs_init()
 
 __private_extern__
 void
-do_prefs_open(int argc, char **argv)
+do_prefs_open(int argc, char * const argv[])
 {
 	Boolean		ok;
 
@@ -712,7 +676,7 @@ do_prefs_open(int argc, char **argv)
 
 __private_extern__
 void
-do_prefs_lock(int argc, char **argv)
+do_prefs_lock(int argc, char * const argv[])
 {
 #pragma unused(argv)
 	Boolean	wait	= (argc > 0) ? TRUE : FALSE;
@@ -728,7 +692,7 @@ do_prefs_lock(int argc, char **argv)
 
 __private_extern__
 void
-do_prefs_unlock(int argc, char **argv)
+do_prefs_unlock(int argc, char * const argv[])
 {
 #pragma unused(argc)
 #pragma unused(argv)
@@ -743,7 +707,7 @@ do_prefs_unlock(int argc, char **argv)
 
 __private_extern__
 void
-do_prefs_commit(int argc, char **argv)
+do_prefs_commit(int argc, char * const argv[])
 {
 #pragma unused(argc)
 #pragma unused(argv)
@@ -759,7 +723,7 @@ do_prefs_commit(int argc, char **argv)
 
 __private_extern__
 void
-do_prefs_apply(int argc, char **argv)
+do_prefs_apply(int argc, char * const argv[])
 {
 #pragma unused(argc)
 #pragma unused(argv)
@@ -773,7 +737,7 @@ do_prefs_apply(int argc, char **argv)
 
 __private_extern__
 void
-do_prefs_close(int argc, char **argv)
+do_prefs_close(int argc, char * const argv[])
 {
 	if (_prefs_commitRequired(argc, argv, "close")) {
 		return;
@@ -786,7 +750,7 @@ do_prefs_close(int argc, char **argv)
 
 __private_extern__
 void
-do_prefs_quit(int argc, char **argv)
+do_prefs_quit(int argc, char * const argv[])
 {
 	if (_prefs_commitRequired(argc, argv, "quit")) {
 		return;
@@ -801,7 +765,7 @@ do_prefs_quit(int argc, char **argv)
 
 __private_extern__
 void
-do_prefs_synchronize(int argc, char **argv)
+do_prefs_synchronize(int argc, char * const argv[])
 {
 #pragma unused(argc)
 #pragma unused(argv)
@@ -826,7 +790,7 @@ sort_paths(const void *p1, const void *p2, void *context)
 
 __private_extern__
 void
-do_prefs_list(int argc, char **argv)
+do_prefs_list(int argc, char * const argv[])
 {
 	int			i;
 	CFIndex			n;
@@ -894,7 +858,7 @@ do_prefs_list(int argc, char **argv)
 
 __private_extern__
 void
-do_prefs_get(int argc, char **argv)
+do_prefs_get(int argc, char * const argv[])
 {
 #pragma unused(argc)
 	CFDictionaryRef		dict;
@@ -953,7 +917,7 @@ do_prefs_get(int argc, char **argv)
 
 __private_extern__
 void
-do_prefs_set(int argc, char **argv)
+do_prefs_set(int argc, char * const argv[])
 {
 	CFDictionaryRef		dict;
 	CFMutableDictionaryRef	newDict	= NULL;
@@ -1028,7 +992,7 @@ do_prefs_set(int argc, char **argv)
 
 __private_extern__
 void
-do_prefs_remove(int argc, char **argv)
+do_prefs_remove(int argc, char * const argv[])
 {
 #pragma unused(argc)
 	CFStringRef	path;
@@ -1069,7 +1033,7 @@ allow_new_interfaces_usage(void)
 
 __private_extern__
 void
-do_ifnamer(char * pref, int argc, char **argv)
+do_ifnamer(char * pref, int argc, char * const argv[])
 {
 	Boolean	allow	= FALSE;
 
@@ -1079,28 +1043,16 @@ do_ifnamer(char * pref, int argc, char **argv)
 	}
 
 	if (strcmp(pref, "allow-new-interfaces")) {
-		exit(0);
+		return;
 	}
 
 	if (argc == 0) {
 		SCPrint(TRUE, stdout, CFSTR("AllowNewInterfaces is %s\n"),
 			on_off_str(InterfaceNamerControlPrefsAllowNewInterfaces()));
-		exit(0);
+		return;
 	}
 
-	if        ((strcasecmp(argv[0], "disable") == 0) ||
-		   (strcasecmp(argv[0], "no"     ) == 0) ||
-		   (strcasecmp(argv[0], "off"    ) == 0) ||
-		   (strcasecmp(argv[0], "0"      ) == 0)) {
-		allow = FALSE;
-	} else if ((strcasecmp(argv[0], "enable") == 0) ||
-		   (strcasecmp(argv[0], "yes"   ) == 0) ||
-		   (strcasecmp(argv[0], "on"   ) == 0) ||
-		   (strcasecmp(argv[0], "1"     ) == 0)) {
-		allow = TRUE;
-	} else if (strcasecmp(argv[0], "default") == 0) {
-		allow = FALSE;
-	} else {
+	if (!get_bool_from_string(argv[0], FALSE, &allow, NULL)) {
 		allow_new_interfaces_usage();
 		exit(1);
 	}
@@ -1110,7 +1062,6 @@ do_ifnamer(char * pref, int argc, char **argv)
 		exit(2);
 	}
 
-	exit(0);
 	return;
 }
 
@@ -1122,31 +1073,21 @@ do_ifnamer(char * pref, int argc, char **argv)
 
 __private_extern__
 void
-do_log(char * log, int argc, char **argv)
+do_log(char * log, int argc, char * const argv[])
 {
 	Boolean	verbose	= FALSE;
 
 	if (strcmp(log, "IPMonitor")) {
-		exit(0);
+		return;
 	}
 
 	if (argc == 0) {
 		SCPrint(TRUE, stdout, CFSTR("IPMonitor log is %s\n"),
 			on_off_str(IPMonitorControlPrefsIsVerbose()));
-		exit(0);
+		return;
 	}
 
-	if        ((strcasecmp(argv[0], "disable") == 0) ||
-		   (strcasecmp(argv[0], "no"     ) == 0) ||
-		   (strcasecmp(argv[0], "off"    ) == 0) ||
-		   (strcasecmp(argv[0], "0"      ) == 0)) {
-		verbose = FALSE;
-	} else if ((strcasecmp(argv[0], "enable") == 0) ||
-		   (strcasecmp(argv[0], "yes"   ) == 0) ||
-		   (strcasecmp(argv[0], "on"   ) == 0) ||
-		   (strcasecmp(argv[0], "1"     ) == 0)) {
-		verbose = TRUE;
-	} else {
+	if (!get_bool_from_string(argv[0], FALSE, &verbose, NULL)) {
 		SCPrint(TRUE, stdout, CFSTR("invalid value, must be 'on' or 'off'\n"));
 		exit(1);
 	}
@@ -1156,7 +1097,6 @@ do_log(char * log, int argc, char **argv)
 		exit(2);
 	}
 
-	exit(0);
 	return;
 }
 
@@ -1231,13 +1171,12 @@ disable_until_needed_usage(void)
 
 __private_extern__
 void
-do_disable_until_needed(int argc, char **argv)
+do_disable_until_needed(int argc, char * const argv[])
 {
 	const char * 		if_name;
 	CFStringRef		if_name_cf;
 	SCNetworkInterfaceRef	net_if;
 	Boolean			on		= FALSE;
-	const char *		on_off		= "?";
 	Boolean			ok;
 	Boolean			set_default	= FALSE;
 	Boolean			set_value	= FALSE;
@@ -1248,15 +1187,7 @@ do_disable_until_needed(int argc, char **argv)
 	}
 	if_name = argv[0];
 	if (argc > 1) {
-		on_off = argv[1];
-		if (strcasecmp(on_off, "on") == 0) {
-			on = TRUE;
-		} else if (strcasecmp(on_off, "off") == 0) {
-			on = FALSE;
-		} else if ((strcmp(on_off, "") == 0) || (strcasecmp(on_off, "default") == 0)) {
-			set_default = TRUE;
-			on_off = "default";
-		} else {
+		if (!get_bool_from_string(argv[1], TRUE, &on, &set_default)) {
 			disable_until_needed_usage();
 			exit(1);
 		}
@@ -1275,6 +1206,7 @@ do_disable_until_needed(int argc, char **argv)
 						     kCFStringEncodingASCII,
 						     kCFAllocatorNull);
 	net_if = copy_configured_interface(prefs, if_name_cf);
+	CFRelease(if_name_cf);
 	if (net_if == NULL) {
 		fprintf(stderr, "%s is not configured\n", if_name);
 		exit(1);
@@ -1286,8 +1218,7 @@ do_disable_until_needed(int argc, char **argv)
 			ok = __SCNetworkInterfaceSetDisableUntilNeededValue(net_if, NULL);
 		}
 		if (!ok) {
-			fprintf(stderr, "failed to turn disable-until-needed %s\n",
-				on_off);
+			fprintf(stderr, "failed to set preferences\n");
 			exit(1);
 		}
 		_prefs_save();
@@ -1296,6 +1227,79 @@ do_disable_until_needed(int argc, char **argv)
 		printf("%s disable-until-needed is %s\n", if_name, on_off_str(on));
 	}
 	_prefs_close();
-	exit(0);
+	CFRelease(net_if);
+
+	return;
+}
+
+/* -------------------- */
+
+static void
+disable_private_relay_usage(void)
+{
+	fprintf(stderr, "usage: scutil --disable-private-relay <interfaceName> [on|off|default]\n");
+	return;
+}
+
+__private_extern__
+void
+do_disable_private_relay(int argc, char * const argv[])
+{
+	const char * 		if_name;
+	CFStringRef		if_name_cf;
+	SCNetworkInterfaceRef	net_if;
+	Boolean			on		= FALSE;
+	Boolean			ok;
+	Boolean			set_default	= FALSE;
+	Boolean			set_value	= FALSE;
+
+	if (argc < 1 || argc > 2) {
+		disable_private_relay_usage();
+		exit(1);
+	}
+	if_name = argv[0];
+	if (argc > 1) {
+		if (!get_bool_from_string(argv[1], TRUE, &on, &set_default)) {
+			disable_private_relay_usage();
+			exit(1);
+		}
+		set_value = TRUE;
+	}
+	ok = _prefs_open(CFSTR("scutil --disable-private-relay"), NULL);
+	if (!ok) {
+		SCPrint(TRUE,
+			stdout,
+			CFSTR("Could not open prefs: %s\n"),
+			SCErrorString(SCError()));
+		exit(1);
+	}
+	if_name_cf = CFStringCreateWithCStringNoCopy(NULL,
+						     if_name,
+						     kCFStringEncodingASCII,
+						     kCFAllocatorNull);
+	net_if = copy_configured_interface(prefs, if_name_cf);
+	CFRelease(if_name_cf);
+	if (net_if == NULL) {
+		fprintf(stderr, "%s is not configured\n", if_name);
+		exit(1);
+	}
+	if (set_value) {
+		if (!set_default) {
+			ok = SCNetworkInterfaceSetDisablePrivateRelay(net_if, on);
+		} else {
+			ok = __SCNetworkInterfaceSetDisablePrivateRelayValue(net_if, NULL);
+		}
+		if (!ok) {
+			fprintf(stderr, "failed to set preferences\n");
+			exit(1);
+		}
+		_prefs_save();
+	} else {
+		on = SCNetworkInterfaceGetDisablePrivateRelay(net_if);
+		printf("%s disable-private-relay is %s\n", if_name, on_off_str(on));
+	}
+	_prefs_close();
+	CFRelease(net_if);
+
 	return;
 }

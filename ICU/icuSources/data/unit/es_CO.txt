@@ -1,8 +1,8 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
-// License & terms of use: http://www.unicode.org/copyright.html#License
+// License & terms of use: http://www.unicode.org/copyright.html
+// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
 es_CO{
     %%Parent{"es_419"}
-    Version{"36.1"}
     units{
         duration{
             month{
@@ -24,10 +24,6 @@ es_CO{
                 one{"{0} h"}
                 other{"{0} h"}
             }
-            millisecond{
-                one{"{0} ms"}
-                other{"{0} ms"}
-            }
             minute{
                 one{"{0} min"}
                 other{"{0} min"}
@@ -36,10 +32,6 @@ es_CO{
                 dnam{"mes"}
                 one{"{0} mes"}
                 other{"{0} meses"}
-            }
-            second{
-                one{"{0} s"}
-                other{"{0} s"}
             }
             week{
                 one{"{0} sem."}

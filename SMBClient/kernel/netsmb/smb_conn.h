@@ -138,29 +138,37 @@
 /*
  * session_misc_flags - another flags field since session_flags is almost full.
  */
-#define	SMBV_NEG_SMB1_ENABLED			0x00000001	/* Allow SMB 1 */
-#define	SMBV_NEG_SMB2_ENABLED			0x00000002	/* Allow SMB 2 */
-#define	SMBV_64K_QUERY_DIR				0x00000004	/* Use 64Kb OutputBufLen in Query_Dir */
-#define	SMBV_HAS_FILEIDS				0x00000010	/* Has File IDs that we can use for hash values and inode number */
-#define	SMBV_NO_QUERYINFO				0x00000020	/* Server does not like Query Info for FileAllInformation */
-#define	SMBV_OSX_SERVER					0x00000040	/* Server is OS X based */
-#define	SMBV_OTHER_SERVER				0x00000080	/* Server is not OS X based */
-#define SMBV_CLIENT_SIGNING_REQUIRED	0x00000100
-#define SMBV_NON_COMPOUND_REPLIES       0x00000200	/* Server does not send compound replies */
-#define SMBV_63K_IOCTL					0x00000400	/* Use 63K MaxOutputResponse */
-#define SMBV_HAS_COPYCHUNK				0x00000800	/* Server supports FSCTL_SRV_COPY_CHUNK IOCTL */
-#define	SMBV_NEG_SMB3_ENABLED			0x00001000	/* Allow SMB 3 */
-#define	SMBV_NO_WRITE_THRU				0x00002000	/* Server does not like Write Through */
-#define SMBV_SMB1_SIGNING_REQUIRED		0x00004000
-#define SMBV_SMB2_SIGNING_REQUIRED		0x00008000
-#define SMBV_SMB3_SIGNING_REQUIRED		0x00010000
-#define SMBV_MNT_TIME_MACHINE			0x00020000	/* Time Machine session */
-#define SMBV_HAS_DUR_HNDL_V2			0x00040000	/* Server supports Durable Handle V2 */
-#define SMBV_NO_DUR_HNDL_V2				0x00080000	/* Server does not support Durable Handle V2 */
-#define SMBV_MNT_HIGH_FIDELITY          0x00100000  /* High Fidelity session */
-#define SMBV_MNT_DATACACHE_OFF          0x00200000  /* Disable data caching */
-#define SMBV_MNT_MDATACACHE_OFF         0x00400000  /* Disable meta data caching */
-#define SMBV_MNT_SNAPSHOT               0x00800000  /* Snapshot mount */
+#define	SMBV_NEG_SMB1_ENABLED       0x00000001  /* Allow SMB 1 */
+#define	SMBV_NEG_SMB2_ENABLED       0x00000002  /* Allow SMB 2 */
+#define	SMBV_64K_QUERY_DIR          0x00000004  /* Use 64Kb OutputBufLen in Query_Dir */
+#define SMBV_NO_CMPD_FLUSH_CLOSE    0x00000008  /* Server does not like cmpd Flush/Close */
+#define	SMBV_HAS_FILEIDS            0x00000010  /* Has File IDs that we can use for hash values and inode number */
+#define	SMBV_NO_QUERYINFO           0x00000020  /* Server does not like Query Info for FileAllInformation */
+#define	SMBV_OSX_SERVER             0x00000040  /* Server is OS X based */
+#define	SMBV_OTHER_SERVER           0x00000080  /* Server is not OS X based */
+#define SMBV_CLIENT_SIGNING_REQUIRED 0x00000100
+#define SMBV_NON_COMPOUND_REPLIES   0x00000200  /* Server does not send compound replies */
+#define SMBV_63K_IOCTL              0x00000400  /* Use 63K MaxOutputResponse */
+#define SMBV_HAS_COPYCHUNK          0x00000800  /* Server supports FSCTL_SRV_COPY_CHUNK IOCTL */
+#define	SMBV_NEG_SMB3_ENABLED       0x00001000  /* Allow SMB 3 */
+#define	SMBV_NO_WRITE_THRU          0x00002000  /* Server does not like Write Through */
+#define SMBV_SMB1_SIGNING_REQUIRED  0x00004000
+#define SMBV_SMB2_SIGNING_REQUIRED  0x00008000
+#define SMBV_SMB3_SIGNING_REQUIRED  0x00010000
+#define SMBV_MNT_TIME_MACHINE       0x00020000  /* Time Machine session */
+#define SMBV_HAS_DUR_HNDL_V2        0x00040000  /* Server supports Durable Handle V2 */
+#define SMBV_NO_DUR_HNDL_V2         0x00080000  /* Server does not support Durable Handle V2 */
+#define SMBV_MNT_HIGH_FIDELITY      0x00100000  /* High Fidelity session */
+#define SMBV_MNT_DATACACHE_OFF      0x00200000  /* Disable data caching */
+#define SMBV_MNT_MDATACACHE_OFF     0x00400000  /* Disable meta data caching */
+#define SMBV_MNT_SNAPSHOT           0x00800000  /* Snapshot mount */
+#define SMBV_ENABLE_AES_128_CCM     0x01000000  /* Enable SMB v3.1.1 AES_128_CCM encryption */
+#define SMBV_ENABLE_AES_128_GCM     0x02000000  /* Enable SMB v3.1.1 AES_128_GCM encryption */
+#define SMBV_ENABLE_AES_256_CCM     0x04000000  /* Enable SMB v3.1.1 AES_256_CCM encryption */
+#define SMBV_ENABLE_AES_256_GCM     0x08000000  /* Enable SMB v3.1.1 AES_256_GCM encryption */
+#define SMBV_FORCE_SESSION_ENCRYPT  0x10000000  /* Force session level encryption */
+#define SMBV_FORCE_SHARE_ENCRYPT    0x20000000  /* Force share level encryption */
+#define SMBV_FORCE_IPC_ENCRYPT      0x40000000  /* Force share level encryption on IPC$ */
 
 #define SMBV_HAS_GUEST_ACCESS(sessionp)		(((sessionp)->session_flags & (SMBV_GUEST_ACCESS | SMBV_SFS_ACCESS)) != 0)
 #define SMBV_HAS_ANONYMOUS_ACCESS(sessionp)	(((sessionp)->session_flags & (SMBV_ANONYMOUS_ACCESS | SMBV_SFS_ACCESS)) != 0)
@@ -379,8 +387,13 @@ TAILQ_HEAD(iod_tailq_head, smbiod);
 #define	SMBC_ST_LOCK(sessionp)	lck_mtx_lock(&(sessionp)->session_stlock)
 #define	SMBC_ST_UNLOCK(sessionp)	lck_mtx_unlock(&(sessionp)->session_stlock)
 
-/* SMB3 Signing/Encrypt Key Length */
+/*
+ * SMB3 Signing/Encrypt Key Length
+ * SMB3_256BIT_KEY_LEN is used for the 256 bit long keys which is currently
+ * only being used by newer encryption algorithms
+ */
 #define SMB3_KEY_LEN 16
+#define SMB3_256BIT_KEY_LEN 32  /* Used for 256 bit long keys */
 
 /* Max number of SMB Dialects we currently support */
 #define SMB3_MAX_DIALECTS 5
@@ -435,8 +448,10 @@ struct smb_session {
     struct smbiod       *round_robin_iod;        /* last iod used to transfer io */
 	lck_mtx_t			session_stlock;
 	uint32_t			session_seqno;           /* my next sequence number */
-	uint8_t				*session_mackey;         /* MAC key */
-	uint32_t			session_mackeylen;       /* length of MAC key */
+    uint8_t             *session_mackey;         /* MAC key */
+    uint32_t            session_mackeylen;       /* length of MAC key */
+    uint8_t             *full_session_mackey;    /* Session.FullSessionKey */
+    uint32_t            full_session_mackeylen;  /* length of Session.FullSessionKey */
 
     /* Adaptive Read/Write values */
     lck_mtx_t           iod_quantum_lock;
@@ -457,13 +472,13 @@ struct smb_session {
     
     /* SMB 3 encryption key (Session.EncryptionKey) */
     /* A 128-bit key used for encrypting messages sent by the client */
-    uint8_t             session_smb3_encrypt_key[SMB3_KEY_LEN];
+    uint8_t             session_smb3_encrypt_key[SMB3_256BIT_KEY_LEN];
     uint32_t            session_smb3_encrypt_key_len;
     uint16_t            session_smb3_encrypt_ciper;
 
     /* SMB 3 decryption key (Session.DecryptionKey) */
     /* A 128-bit key used for decrypting messages received from the server. */
-    uint8_t             session_smb3_decrypt_key[SMB3_KEY_LEN];
+    uint8_t             session_smb3_decrypt_key[SMB3_256BIT_KEY_LEN];
     uint32_t            session_smb3_decrypt_key_len;
     
     /* SMB 3 Nonce used for encryption */
@@ -795,6 +810,7 @@ struct smbiod {
     TAILQ_ENTRY(smbiod) tailq;                  /* list of iods per session */
     struct sockaddr     *iod_saddr;             /* server addr */
     struct sockaddr     *iod_laddr;             /* local addr, if any, only used for port 139 */
+    lck_mtx_t           iod_tdata_lock;         /* transport control block lock */
     void                *iod_tdata;             /* transport control block */
     uint32_t            iod_ref_cnt;            /* counts references to this iod, protected by iod_tailq_lock */
     struct smb_tran_desc *iod_tdesc;            /* transport functions */
@@ -813,6 +829,8 @@ struct smbiod {
     /* Alternate channels have their own signing key */
     uint8_t             *iod_mackey;            /* MAC key */
     uint32_t            iod_mackeylen;          /* length of MAC key */
+    uint8_t             *iod_full_mackey;       /* Session.FullSessionKey */
+    uint32_t            iod_full_mackeylen;     /* length of Session.FullSessionKey */
     uint8_t             iod_smb3_signing_key[SMB3_KEY_LEN]; /* Channel.SigningKey */
     uint32_t            iod_smb3_signing_key_len;
 
@@ -829,6 +847,8 @@ struct smbiod {
     /* Saved last session setup reply */
     uint8_t             *iod_sess_setup_reply;  /* Used for pre auth and alt channels */
     size_t              iod_sess_setup_reply_len;
+
+    struct timeval      iod_connection_to; /* tcp connection timeout */
 };
 
 int  smb_iod_nb_intr(struct smbiod *iod);
@@ -896,6 +916,10 @@ extern lck_attr_t *iodflags_lck_attr;
 extern lck_grp_attr_t *iodrq_grp_attr;
 extern lck_grp_t *iodrq_lck_group;
 extern lck_attr_t *iodrq_lck_attr;
+
+extern lck_grp_attr_t *iodtdata_grp_attr;
+extern lck_grp_t *iodtdata_lck_group;
+extern lck_attr_t *iodtdata_lck_attr;
 
 extern lck_grp_attr_t *iodev_grp_attr;
 extern lck_grp_t *iodev_lck_group;

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2020 Apple Inc. All rights reserved.
+ * Copyright (c) 2016-2021 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -49,6 +49,7 @@
 
 #import <Foundation/Foundation.h>
 #import <NetworkExtension/NEPolicySession.h>
+#import <NetworkExtension/NEProcessInfo.h>
 #import <NEHelperClient.h>
 
 // define the QoSMarking.bundle Info.plist key containing [application] bundleIDs to be white-listed
@@ -301,213 +302,6 @@ qosMarkingSetEnabled(int s, const char *ifname, BOOL enabled)
 #pragma mark -
 
 
-- (NSUUID *)copyUUIDForSingleArch:(int)fd
-{
-	uint64_t		bytes	= 0;
-	struct mach_header	header;
-	NSUUID *		uuid	= nil;
-
-	if (read(fd, &header, sizeof(header)) != sizeof(header)) {
-		return nil;
-	}
-
-	// Go past the 64 bit header if we have a 64 arch
-	if (header.magic == MH_MAGIC_64) {
-		if (lseek(fd, sizeof(uint32_t), SEEK_CUR) == -1) {
-			SC_log(LOG_ERR, "could not lseek() past 64 bit header");
-			return nil;
-		}
-	}
-
-	if(os_mul_overflow((uint64_t)header.ncmds, sizeof(struct load_command), &bytes) ||
-	   (bytes > header.sizeofcmds)) {
-		SC_log(LOG_ERR, "mach_header error with \".ncmds\" (%llu), \".sizeofcmds\" (%llu)",
-		       (uint64_t)header.ncmds,
-		       (uint64_t)header.sizeofcmds);
-		return nil;
-	}
-
-	// Find LC_UUID in the load commands
-	for (size_t i = 0; i < header.ncmds; i++) {
-		struct load_command	lcmd;
-
-		if (read(fd, &lcmd, sizeof(lcmd)) != sizeof(lcmd)) {
-			SC_log(LOG_ERR, "could not read() load_command");
-			break;
-		}
-
-		if (lcmd.cmd == LC_UUID) {
-			struct uuid_command	uuid_cmd;
-
-			if (read(fd, uuid_cmd.uuid, sizeof(uuid_t)) != sizeof(uuid_t)) {
-				SC_log(LOG_ERR, "could not read() uuid_command");
-				break;
-			}
-
-			uuid = [[NSUUID alloc] initWithUUIDBytes:uuid_cmd.uuid];
-			break;
-		} else {
-			if (lseek(fd, lcmd.cmdsize - sizeof(lcmd), SEEK_CUR) == -1) {
-				SC_log(LOG_ERR, "could not lseek() past load command");
-				return nil;
-			}
-		}
-	}
-
-	return uuid;
-}
-
-#define	MAX_NFAT_ARCH	32
-
-- (NSArray *)copyUUIDsForFatBinary:(int)fd
-{
-	struct fat_arch *	arches		= NULL;
-	mach_msg_type_number_t	count;
-	struct fat_header	hdr;
-	struct host_basic_info	hostinfo;
-	kern_return_t		kr;
-	NSMutableArray *	uuids		= nil;
-
-	// For a fat architecture, we need find the section that is closet to the host cpu
-	memset(&hostinfo, 0, sizeof(hostinfo));
-	count = HOST_BASIC_INFO_COUNT;
-	kr = host_info(mach_host_self(), HOST_BASIC_INFO, (host_info_t)&hostinfo, &count);
-	if (kr != KERN_SUCCESS) {
-		SC_log(LOG_ERR, "host_info() failed: %d", kr);
-		return nil;
-	}
-
-	if (read(fd, &hdr, sizeof(hdr)) != sizeof(hdr)) {
-		SC_log(LOG_ERR, "could not read() fat_header");
-		return nil;
-	}
-
-	// Fat header info are always big-endian
-	hdr.nfat_arch = OSSwapInt32(hdr.nfat_arch);
-	if (hdr.nfat_arch > MAX_NFAT_ARCH) {
-		SC_log(LOG_ERR, "fat_header.nfat_arch (%d) > %d", hdr.nfat_arch, MAX_NFAT_ARCH);
-		return nil;
-	}
-
-	arches = (struct fat_arch *)malloc(hdr.nfat_arch * sizeof(struct fat_arch));
-	if (arches == NULL) {
-		// if we could not allocate space for architectures
-		return nil;
-	}
-
-	uuids = [[NSMutableArray alloc] init];
-
-	for (size_t i = 0; i < hdr.nfat_arch; ++i) {
-		struct fat_arch	arch;
-
-		if (read(fd, &arch, sizeof(arch)) != sizeof(arch)) {
-			SC_log(LOG_ERR, "could not read() fat_arch");
-			goto done;
-		}
-		arch.cputype = (int)OSSwapInt32(arch.cputype);
-		arch.offset = OSSwapInt32(arch.offset);
-		memcpy(&arches[i], &arch, sizeof(arch));
-	}
-
-	for (size_t i = 0; i < hdr.nfat_arch; ++i) {
-		struct fat_arch arch;
-		NSUUID *	uuid;
-
-		memcpy(&arch, &arches[i], sizeof(arch));
-
-		if (arch.offset == 0) {
-			SC_log(LOG_ERR, "invalid offset for arch %d", arch.cputype);
-			goto done;
-		}
-
-		if (lseek(fd, arch.offset, SEEK_SET) == -1) {
-			SC_log(LOG_ERR, "could not lseek() to arch %d", arch.cputype);
-			goto done;
-		}
-
-		uuid = [self copyUUIDForSingleArch:fd];
-		if (uuid == nil) {
-			SC_log(LOG_ERR, "could not get uuid for arch %d", arch.cputype);
-			goto done;
-		}
-
-		if (arch.cputype == hostinfo.cpu_type) {
-			[uuids insertObject:uuid atIndex:0];
-		} else {
-			[uuids addObject:uuid];
-		}
-	}
-
-    done:
-
-	if (arches != NULL) {
-		free(arches);
-	}
-	if (uuids.count == 0) {
-		uuids = nil;
-	}
-	return uuids;
-}
-
-- (NSArray *)copyUUIDsForExecutable:(const char *)executablePath
-{
-	int		fd;
-	uint32_t	magic;
-	NSArray *	uuids	= nil;
-
-	if (executablePath == NULL) {
-		return nil;
-	}
-
-	fd = open(executablePath, O_RDONLY);
-	if (fd == -1) {
-		if (errno != ENOENT) {
-			SC_log(LOG_ERR, "open(\"%s\", O_RDONLY) failed: %s", executablePath, strerror(errno));
-		}
-
-		return nil;
-	}
-
-	// Read the magic format to decide which path to take
-	if (read(fd, &magic, sizeof(magic)) != sizeof(magic)) {
-		SC_log(LOG_ERR, "read() no magic format: %s", executablePath);
-		goto done;
-	}
-
-	// Rewind to the beginning
-	lseek(fd, 0, SEEK_SET);
-	switch (magic) {
-		case FAT_CIGAM: {
-			uuids = [self copyUUIDsForFatBinary:fd];
-			break;
-		}
-
-		case MH_MAGIC:
-		case MH_MAGIC_64: {
-			NSUUID *	uuid;
-
-			uuid = [self copyUUIDForSingleArch:fd];
-			if (uuid == nil) {
-				SC_log(LOG_ERR, "%s: failed to get UUID for single arch", __FUNCTION__);
-				goto done;
-			}
-
-			uuids = @[ uuid ];
-			break;
-		}
-
-		default: {
-			break;
-		}
-	}
-
-    done:
-
-	close(fd);
-	return uuids;
-}
-
-
 - (void)addWhitelistedPathPolicy:(NSString *)interface forPath:(NSString *)path order:(uint32_t)order
 {
 	NEPolicyCondition *	allInterfacesCondition;
@@ -530,7 +324,7 @@ qosMarkingSetEnabled(int s, const char *ifname, BOOL enabled)
 	// create "all interfaces" condition
 	allInterfacesCondition = [NEPolicyCondition allInterfaces];
 
-	uuids = [self copyUUIDsForExecutable:[path UTF8String]];
+	uuids = [NEProcessInfo copyUUIDsForExecutable:path];
 	if ((uuids == nil) || (uuids.count == 0)) {
 		SC_log(LOG_ERR, "QoS marking policy: %@: could not add path \"%@\"",
 		       interface,
@@ -574,47 +368,6 @@ qosMarkingSetEnabled(int s, const char *ifname, BOOL enabled)
 #pragma mark -
 
 
-- (NSArray *)copyUUIDsForUUIDMapping:(xpc_object_t)mapping
-{
-	NSMutableArray *	uuids		= nil;
-
-	if ((mapping != NULL) &&
-	    (xpc_get_type(mapping) == XPC_TYPE_ARRAY)) {
-		uuids = [NSMutableArray array];
-
-		xpc_array_apply(mapping, ^bool(size_t index, xpc_object_t value) {
-#pragma unused(index)
-			if ((value != NULL) &&
-			    (xpc_get_type(value) == XPC_TYPE_UUID)) {
-				NSUUID *	uuid;
-
-				uuid = [[NSUUID alloc] initWithUUIDBytes:xpc_uuid_get_bytes(value)];
-				[uuids addObject:uuid];
-			}
-			return YES;
-		});
-
-		if (uuids.count == 0) {
-			uuids = nil;
-		}
-	}
-
-	return uuids;
-}
-
-
-- (NSArray *)copyUUIDsForBundleID:(NSString *)bundleID
-{
-	NSArray *	uuids;
-	xpc_object_t	uuidsFromHelper;
-
-	uuidsFromHelper = NEHelperCacheCopyAppUUIDMapping([bundleID UTF8String], NULL);
-
-	uuids = [self copyUUIDsForUUIDMapping:uuidsFromHelper];
-	return uuids;
-}
-
-
 - (void)addWhitelistedAppIdentifierPolicy:(NSString *)interface forApp:(NSString *)appBundleID order:(uint32_t)order
 {
 	NEPolicyCondition *	allInterfacesCondition;
@@ -646,7 +399,7 @@ qosMarkingSetEnabled(int s, const char *ifname, BOOL enabled)
 	// create "all interfaces" condition
 	allInterfacesCondition = [NEPolicyCondition allInterfaces];
 
-	uuids = [self copyUUIDsForBundleID:appBundleID];
+	uuids = [NEProcessInfo copyUUIDsForBundleID:appBundleID uid:0];
 	if ((uuids == nil) || (uuids.count == 0)) {
 		SC_log(LOG_ERR, "QoS marking policy: %@: could not add bundleID \"%@\"",
 		       interface,
@@ -1239,7 +992,7 @@ load_QoSMarking(CFBundleRef bundle, Boolean bundleVerbose)
 
 
 int
-main(int argc, char **argv)
+main(int argc, char * const argv[])
 {
 	_sc_log     = kSCLogDestinationFile;
 	_sc_verbose = (argc > 1) ? TRUE : FALSE;

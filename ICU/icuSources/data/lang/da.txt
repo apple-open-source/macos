@@ -1,5 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
-// License & terms of use: http://www.unicode.org/copyright.html#License
+// License & terms of use: http://www.unicode.org/copyright.html
+// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
 da{
     Keys{
         calendar{"kalender"}
@@ -160,6 +161,7 @@ da{
         eu{"baskisk"}
         ewo{"ewondo"}
         fa{"persisk"}
+        fa_AF{"dari"}
         fan{"fang"}
         fat{"fanti"}
         ff{"fulah"}
@@ -176,7 +178,7 @@ da{
         fro{"oldfransk"}
         frr{"nordfrisisk"}
         frs{"østfrisisk"}
-        fur{"friulian"}
+        fur{"friulisk"}
         fy{"vestfrisisk"}
         ga{"irsk"}
         gaa{"ga"}
@@ -413,6 +415,7 @@ da{
         raj{"rajasthani"}
         rap{"rapanui"}
         rar{"rarotonga"}
+        rhg{"rohingya"}
         rm{"rætoromansk"}
         rn{"rundi"}
         ro{"rumænsk"}
@@ -426,7 +429,7 @@ da{
         rwk{"rwa"}
         sa{"sanskrit"}
         sad{"sandawe"}
-        sah{"yakut"}
+        sah{"jakutisk"}
         sam{"samaritansk aramæisk"}
         saq{"samburu"}
         sas{"sasak"}
@@ -536,7 +539,7 @@ da{
         wo{"wolof"}
         wuu{"wu-kinesisk"}
         xal{"kalmyk"}
-        xh{"isiXhosa"}
+        xh{"xhosa"}
         xog{"soga"}
         yao{"yao"}
         yap{"yapese"}
@@ -564,12 +567,15 @@ da{
     }
     Languages%short{
         az{"azeri"}
+        en_GB{"britisk engelsk"}
     }
     Languages%variant{
+        ckb{"centralkurdisk"}
         ps{"pushto"}
         ug{"uighurisk"}
     }
     Scripts{
+        Adlm{"adlam"}
         Afak{"afaka"}
         Arab{"arabisk"}
         Aran{"nastaliq"}
@@ -685,6 +691,7 @@ da{
         Prti{"prti"}
         Qaag{"zawgyi"}
         Rjng{"rejang"}
+        Rohg{"hanifi rohingya"}
         Roro{"rongo-rongo"}
         Runr{"runer"}
         Samr{"samaritansk"}
@@ -966,7 +973,6 @@ da{
         VALLADER{"vallader"}
         WADEGILE{"Wade-Giles"}
     }
-    Version{"36.1"}
     characterLabelPattern{
         all{"{0} – alle"}
         category-list{"{0}: {1}"}
@@ -981,6 +987,8 @@ da{
             one{"{0} streg"}
             other{"{0} streger"}
         }
+        subscript{"sænket skrift {0}"}
+        superscript{"hævet skrift {0}"}
     }
     codePatterns{
         language{"Sprog: {0}"}

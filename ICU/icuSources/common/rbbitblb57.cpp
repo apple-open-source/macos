@@ -1100,15 +1100,15 @@ int32_t  RBBITableBuilder57::getTableSize() const {
         return 0;
     }
 
-    size    = sizeof(RBBIStateTable) - 4;    // The header, with no rows to the table.
+    size    = sizeof(RBBIStateTable57) - 4;    // The header, with no rows to the table.
 
     numRows = fDStates->size();
     numCols = fRB->fSetBuilder->getNumCharCategories();
 
-    //  Note  The declaration of RBBIStateTableRow is for a table of two columns.
+    //  Note  The declaration of RBBIStateTableRow57 is for a table of two columns.
     //        Therefore we subtract two from numCols when determining
     //        how much storage to add to a row for the total columns.
-    rowSize = sizeof(RBBIStateTableRow) + sizeof(uint16_t)*(numCols-2);
+    rowSize = sizeof(RBBIStateTableRow57) + sizeof(uint16_t)*(numCols-2);
     size   += numRows * rowSize;
     return size;
 }
@@ -1123,7 +1123,7 @@ int32_t  RBBITableBuilder57::getTableSize() const {
 //
 //-----------------------------------------------------------------------------
 void RBBITableBuilder57::exportTable(void *where) {
-    RBBIStateTable    *table = (RBBIStateTable *)where;
+    RBBIStateTable57   *table = (RBBIStateTable57 *)where;
     uint32_t           state;
     int                col;
 
@@ -1137,7 +1137,7 @@ void RBBITableBuilder57::exportTable(void *where) {
         return;
     }
 
-    table->fRowLen    = sizeof(RBBIStateTableRow) +
+    table->fRowLen    = sizeof(RBBIStateTableRow57) +
                             sizeof(uint16_t) * (fRB->fSetBuilder->getNumCharCategories() - 2);
     table->fNumStates = fDStates->size();
     table->fFlags     = 0;
@@ -1151,7 +1151,7 @@ void RBBITableBuilder57::exportTable(void *where) {
 
     for (state=0; state<table->fNumStates; state++) {
         RBBIStateDescriptor *sd = (RBBIStateDescriptor *)fDStates->elementAt(state);
-        RBBIStateTableRow   *row = (RBBIStateTableRow *)(table->fTableData + state*table->fRowLen);
+        RBBIStateTableRow57 *row = (RBBIStateTableRow57 *)(table->fTableData + state*table->fRowLen);
         U_ASSERT (-32768 < sd->fAccepting && sd->fAccepting <= 32767);
         U_ASSERT (-32768 < sd->fLookAhead && sd->fLookAhead <= 32767);
         row->fAccepting = (int16_t)sd->fAccepting;

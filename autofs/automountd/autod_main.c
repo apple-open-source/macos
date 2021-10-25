@@ -28,6 +28,7 @@
  * Portions Copyright 2007-2017 Apple Inc.
  */
 
+#include <sys/syslog.h>
 #pragma ident	"@(#)autod_main.c	1.69	05/06/08 SMI"
 
 #include <stdio.h>
@@ -48,8 +49,12 @@
 #include <vproc.h>
 #include <assert.h>
 #include <mach/mach.h>
+#include <sys/sysctl.h>
 #include <servers/bootstrap.h>
 #include <bsm/libbsm.h>
+#include <dispatch/dispatch.h>
+#include <dispatch/private.h>
+#include <os/transaction_private.h>
 
 #include "automount.h"
 #include "automountd.h"
@@ -59,14 +64,13 @@
 #include <strings.h>
 #include "sysctl_fsid.h"
 
+#include <os/log.h>
 #define MAXVAL(a, b)	((a) > (b) ? (a) : (b))
 #define AUTOFS_MAX_MSG_SIZE \
 	MAXVAL(sizeof (union __RequestUnion__autofs_subsystem), \
 	    sizeof (union __ReplyUnion__autofs_subsystem))
 
 static void usage(void);
-static void *automount_thread(void *);
-static void new_worker_thread(void);
 static void compute_new_timeout(struct timespec *);
 static void *shutdown_thread(void *);
 static void *timeout_thread(void *);
@@ -87,12 +91,11 @@ static int do_mount_subtrigger(autofs_pathname, autofs_pathname,
 #define	TIMEOUT RDDIR_CACHE_TIME  /* Hang around if caches might be valid */
 #define	APPLE_PREFIX  "com.apple." /* Bootstrap name prefix */
 #define	MAXLABEL	256	/* Max bootstrap name */
+#define MIG_MAX_REPLY_SIZE 65536 /* Largest reply is returned from autofs_readdir() */
 
-static pthread_mutex_t numthreads_lock;
-static pthread_cond_t numthreads_cv;
+os_log_t automountd_logger;
 static int numthreads;
 static pthread_attr_t attr;	/* To create detached threads */
-static vproc_transaction_t vproc_transaction;
 static time_t timeout = TIMEOUT; /* Seconds to wait before exiting */
 static int bye = 0;		/* Force clean shutdown flag. */
 
@@ -100,6 +103,7 @@ static sigset_t waitset;	/* Signals that we wait for */
 static sigset_t contset;	/* Signals that we don't exit from */
 
 static mach_port_t service_port_receive_right;
+static dispatch_mach_t public_mach_channel;
 
 static int autofs_fd;
 
@@ -115,60 +119,19 @@ int automountd_nobrowse = 0;
 int automountd_nosuid = TRUE;
 char *automountd_defopts = NULL;
 
-/*
- * This daemon is to be started by launchd, as such it follows the following
- * launchd rules:
- *	We don't:
- *		call daemon(3)
- *		call fork and having the parent process exit
- *		change uids or gids.
- *		set up the current working directory or chroot.
- *		set the session id
- *		change stdio to /dev/null.
- *		call setrusage(2)
- *		call setpriority(2)
- *		Ignore SIGTERM.
- *	We are launched on demand
- *		and we catch SIGTERM and use vproc_transactions to exit cleanly.
- *
- * In practice daemonizing in the classic unix sense would probably be ok
- * since we get invoked by traffic on a task_special_port, but we will play
- * by the rules; it's even easier, to boot.
- */
+/* dispatch related */
+#define QUEUE_NAME_PREFIX "com.apple.automountd.wq_"
+#define QUEUE_NAME_LEN 30
+dispatch_queue_t *work_queues = NULL;
+static int current_worker_queue = 0;
+int num_cpus;
 
-
-int
-main(argc, argv)
-	int argc;
-	char *argv[];
-
+void
+parse_config_file()
 {
-	int c, error;
-	kern_return_t ret;
-	pthread_t thread, timeout_thr, shutdown_thr;
-	char *defval;
 	int defflags;
-	char bname[MAXLABEL] = { APPLE_PREFIX };
-	char *myname;
+	char *defval;
 
-	/*
-	 * If launchd is redirecting these two files they'll be block-
-	 * buffered, as they'll be pipes, or some other such non-tty,
-	 * sending data to launchd. Probably not what you want.
-	 */
-	setlinebuf(stdout);
-	setlinebuf(stderr);
-
-	/* Figure out our bootstrap name based on what we are called. */
-
-	myname = strrchr(argv[0], '/');
-	myname = myname ? myname + 1 : argv[0];
-	strlcat(bname, myname, sizeof(bname));
-
-	/*
-	 * Read in the values from config file first before we check
-	 * commandline options so the options override the file.
-	 */
 	if ((defopen(AUTOFSADMIN)) == 0) {
 		if ((defval = defread("AUTOMOUNTD_VERBOSE=")) != NULL) {
 			if (strncasecmp("true", defval, 4) == 0)
@@ -227,6 +190,12 @@ main(argc, argv)
 		/* close defaults file */
 		defopen(NULL);
 	}
+}
+
+void
+parse_args(int argc, char **argv)
+{
+	int c;
 
 	while ((c = getopt(argc, argv, "vnTo:D:")) != EOF) {
 		switch (c) {
@@ -251,13 +220,11 @@ main(argc, argv)
 			usage();
 		}
 	}
+}
 
-	openlog(myname, LOG_PID, LOG_DAEMON);
-	(void) setlocale(LC_ALL, "");
-
-	if (trace > 0)
-		trace_prt(1, "%s running", myname);
-
+void
+determine_platform()
+{
 	/*
 	 * This is platform-dependent; for now, we just say
 	 * "macintosh".
@@ -280,45 +247,11 @@ main(argc, argv)
 #error "can't determine processor type");
 #endif
 	}
+}
 
-	/*
-	 * We catch
-	 *
-	 *	SIGINT - if we get one, we just drive on;
-	 *	SIGHUP - if we get one, we log a message
-	 *		 so the user knows that it doesn't
-	 *		 do anything useful, and drive on;
-	 *	SIGTERM - we quit.
-	 */
-	sigemptyset(&waitset);
-	sigaddset(&waitset, SIGINT);
-	sigaddset(&waitset, SIGHUP);
-	contset = waitset;
-	sigaddset(&waitset, SIGTERM);
-	pthread_sigmask(SIG_BLOCK, &waitset, NULL);
-
-	/*
-	 * We create most threads as detached threads, so any Mach
-	 * resources they have are reclaimed when they terminate.
-	 */
-	(void) pthread_attr_init(&attr);
-	(void) pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
-
-	(void) pthread_mutex_init(&numthreads_lock, NULL);
-	(void) pthread_cond_init(&numthreads_cv, NULL);
-	(void) pthread_rwlock_init(&cache_lock, NULL);
-	(void) pthread_rwlock_init(&rddir_cache_lock, NULL);
-
-	/*
-	 * initialize the name services, use NULL arguments to ensure
-	 * we don't initialize the stack of files used in file service
-	 *
-	 * XXX - do we need to do something equivalent here?
-	 */
-#if 0
-	(void) ns_setup(NULL, NULL);
-#endif
-
+void
+open_autofs_fd()
+{
 	/*
 	 * Attempt to open the autofs device to establish ourselves
 	 * as an automounter;
@@ -336,6 +269,145 @@ main(argc, argv)
 		    strerror(errno));
 		exit(2);
 	}
+}
+
+void
+signal_handler(void *context)
+{
+	bye = 2;
+
+	/*
+	 * Cancel the mach channel - prevent further messages from being received.
+	 * Port deallocation will happen in the channel's handler when
+	 * DISPATCH_MACH_DISCONNECTED is received.
+	 */
+	dispatch_mach_cancel(public_mach_channel);
+}
+
+struct worker_context {
+	void *context;
+	dispatch_mach_reason_t reason;
+	dispatch_mach_msg_t message;
+	mach_error_t error;
+};
+
+static void
+mach_channel_handler(void *context, dispatch_mach_reason_t reason,
+	dispatch_mach_msg_t message, mach_error_t error)
+{
+    kern_return_t kr;
+	/*
+	 * Check if we got a SIGTERM. If so, deallocate mach port and we're done.
+	 * Else, dispatch the work to one of the worker queues in a round-robin.
+	 */
+	if (reason == DISPATCH_MACH_CANCELED) {
+		/*
+		 * Wake up the "wait for flush indication" thread.
+		 */
+		if (ioctl(autofs_fd, AUTOFS_NOTIFYCHANGE, 0) == -1)
+			pr_msg(LOG_ERR, "AUTOFS_NOTIFYCHANGE failed: %m");
+        kr = mach_port_mod_refs(mach_task_self(), service_port_receive_right, MACH_PORT_RIGHT_RECEIVE, -1);
+        if (!kr) {
+            syslog(LOG_ERR, "mach_port_mod_refs failed (%d)\n", kr);
+        }
+		return;
+	}
+	if (message) {
+		dispatch_retain((dispatch_object_t)message);
+	}
+	dispatch_async(work_queues[current_worker_queue], ^ {
+		static const struct mig_subsystem *subsystems[] = {
+			(mig_subsystem_t)&autofs_subsystem,
+		};
+		os_transaction_t trans;
+
+		switch (reason) {
+		case DISPATCH_MACH_MESSAGE_RECEIVED:
+			trans = os_transaction_create("com.apple.automountd.transaction");
+			if (!dispatch_mach_mig_demux(context, subsystems, 1, message)) {
+				syslog(LOG_ERR, "dispatch_mach_mig_demux failed, %m");
+				mach_msg_destroy(dispatch_mach_msg_get_msg(message, NULL));
+			} else {
+			}
+			os_release(trans);
+			break;
+		default:
+			syslog(LOG_ERR, "Unsupported message type %lu", reason);
+			break;
+		}
+		if (message) {
+			dispatch_release(message);
+		}
+		});
+	current_worker_queue = (current_worker_queue + 1) % num_cpus; 
+}
+
+/*
+ * This daemon is to be started by launchd, as such it follows the following
+ * launchd rules:
+ *	We don't:
+ *		call daemon(3)
+ *		call fork and having the parent process exit
+ *		change uids or gids.
+ *		set up the current working directory or chroot.
+ *		set the session id
+ *		change stdio to /dev/null.
+ *		call setrusage(2)
+ *		call setpriority(2)
+ *		Ignore SIGTERM.
+ *	We are launched on demand
+ *		and we catch SIGTERM and use vproc_transactions to exit cleanly.
+ *
+ * In practice daemonizing in the classic unix sense would probably be ok
+ * since we get invoked by traffic on a task_special_port, but we will play
+ * by the rules; it's even easier, to boot.
+ */
+
+int
+main(int argc, char *argv[])
+{
+	char bname[MAXLABEL] = { APPLE_PREFIX };
+	dispatch_workloop_t main_workloop;
+	dispatch_source_t signal_source;
+	kern_return_t ret;
+	pthread_t thread;
+	size_t num_len;
+	char *myname;
+	int error;
+	int i;
+
+	automountd_logger = os_log_create("com.apple.filesystem.automountd", "automountd");
+
+	/* Figure out our bootstrap name based on what we are called. */
+	myname = strrchr(argv[0], '/');
+	myname = myname ? myname + 1 : argv[0];
+	strlcat(bname, myname, sizeof(bname));
+
+	/*
+	 * Read in the values from config file first before we check
+	 * commandline options so the options override the file.
+	 */
+	parse_config_file();
+	parse_args(argc, argv);
+
+	openlog(myname, LOG_PID, LOG_DAEMON);
+	(void) setlocale(LC_ALL, "");
+
+	if (trace > 0)
+		trace_prt(1, "%s running", myname);
+
+	determine_platform();
+
+	/*
+	 * We create most threads as detached threads, so any Mach
+	 * resources they have are reclaimed when they terminate.
+	 */
+	(void) pthread_attr_init(&attr);
+	(void) pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
+	(void) pthread_rwlock_init(&cache_lock, NULL);
+	(void) pthread_rwlock_init(&rddir_cache_lock, NULL);
+
+	open_autofs_fd();
 
 	/*
 	 * Check in with launchd to get the receive right.
@@ -348,20 +420,6 @@ main(argc, argv)
 	if (ret != BOOTSTRAP_SUCCESS) {
 		syslog(LOG_ERR, "Could not get receive right for %s: %s (%d)\n",
 				bname, bootstrap_strerror(ret), ret);
-		exit(EXIT_FAILURE);
-	}
-
-	/* Create signal handling thread */
-	error = pthread_create(&shutdown_thr, &attr, shutdown_thread, NULL);
-	if (error) {
-		syslog(LOG_ERR, "unable to create shutdown thread: %s", strerror(error));
-		exit(EXIT_FAILURE);
-	}
-
-	/* Create time out thread */
-	error = pthread_create(&timeout_thr, NULL, timeout_thread, NULL);
-	if (error) {
-		syslog(LOG_ERR, "unable to create time out thread: %s", strerror(error));
 		exit(EXIT_FAILURE);
 	}
 
@@ -387,30 +445,68 @@ main(argc, argv)
 	}
 
 	/*
-	 * Start a worker thread to listen for a message.
-	 * Then just spin.
-	 *
-	 * This is a bit ugly.  If there were a version of mach_msg_server()
-	 * that spun off a thread before calling the dispatch routine,
-	 * and had that thread handle the message, we could have this
-	 * thread run that routine, with workers created as messages arrive.
+	 * Get number of CPUs. We'll create numcpus serial queues to execute work
+	 * during upcalls to get maximum concurrency.
 	 */
-	new_worker_thread();
+	num_len = sizeof(num_cpus);
+	error = sysctlbyname("hw.logicalcpu", &num_cpus, &num_len, NULL, 0);
 
-	/* Wait for time out */
-	pthread_join(timeout_thr, NULL);
+	if (error == -1) {
+		syslog(LOG_ERR, "Failed to retrieve number of CPUs %m, setting to 4");
+		num_cpus = 4;
+	}
 
-	pthread_attr_destroy(&attr);
+	if (trace > 2) {
+		trace_prt(1, "Number of logical CPUs is %d", num_cpus);
+	}
 
 	/*
-	 * Wake up the "wait for flush indication" thread.
+	 * Create the main queue. Not using the daemon's main queue because it's
+	 * considered an anti-pattern.
+	 * Using a workloop (subclass of a queue) to allow priority ordering, so
+	 * a signal is handled before mach messages but mach messages are still
+	 * handled FIFO.
 	 */
-	if (ioctl(autofs_fd, AUTOFS_NOTIFYCHANGE, 0) == -1)
-		pr_msg(LOG_ERR, "AUTOFS_NOTIFYCHANGE failed: %m");
+	main_workloop = dispatch_workloop_create("com.apple.automountd.main_workloop");
+	if (main_workloop == NULL) {
+		syslog(LOG_ERR, "Failed to create main main workloop\n");
+		exit(1);
+	}
 
-	if (trace > 0)
-		trace_prt(1, "%s exited", myname);
+	/* Create mach channel to receive upcalls */
+	public_mach_channel = dispatch_mach_create_f("com.apple.automountd.upcall_channel",
+		main_workloop, NULL, mach_channel_handler);
+	dispatch_set_qos_class_fallback(public_mach_channel, QOS_CLASS_DEFAULT);
 
+	/* Create a SOURCE_SIGNAL to catch signals */
+	signal_source = dispatch_source_create(DISPATCH_SOURCE_TYPE_SIGNAL, SIGTERM,
+		0, main_workloop);
+	/* Set handler for the signal source */
+	dispatch_source_set_event_handler_f(signal_source, signal_handler);
+	dispatch_resume(signal_source);
+
+	/*
+	 * Create the array of serial queues to dispatch kernel upcalls to demux
+	 * the messages
+	 */
+	work_queues = (dispatch_queue_t*)calloc(num_cpus, sizeof(dispatch_queue_t));
+	if (work_queues == NULL) {
+		syslog(LOG_ERR, "Failed to allocate work queues array %m");
+		exit(1);
+	}
+	/* Create each work queue */
+	for (i = 0; i < num_cpus; i++) {
+		char q_name[QUEUE_NAME_LEN];
+		snprintf(q_name, QUEUE_NAME_LEN, "%s%d", QUEUE_NAME_PREFIX, i);
+		work_queues[i] = dispatch_queue_create(q_name, DISPATCH_QUEUE_SERIAL);
+	}
+
+	/* Connect the mach channel to start receiving messages */
+	dispatch_mach_connect(public_mach_channel, service_port_receive_right,
+		MACH_PORT_NULL, NULL);
+	dispatch_main();
+
+	/* We should never reach this */
 	return (EXIT_SUCCESS);
 }
 
@@ -426,136 +522,6 @@ usage(void)
 	/* NOTREACHED */
 }
 
-/*
- * Receive one message and process it.
- */
-static void *
-automount_thread(__unused void *arg)
-{
-	kern_return_t ret;
-
-	pthread_setname_np("upcall receiver");
-	ret = mach_msg_server_once(autofs_server, AUTOFS_MAX_MSG_SIZE,
-	    service_port_receive_right,
-	    MACH_RCV_TRAILER_ELEMENTS(MACH_RCV_TRAILER_AUDIT) | MACH_RCV_TRAILER_TYPE(MACH_MSG_TRAILER_FORMAT_0));
-	if (ret != KERN_SUCCESS) {
-		syslog(LOG_ERR, "automounter mach_msg_server_once failed: %s",
-		    mach_error_string(ret));
-	}
-	return NULL;
-}
-
-/*
- * Wait until we have fewer than the maximum number of worker threads,
- * and then create one running automount_thread().
- *
- * Called by the dispatch routines just before processing a message,
- * so we're listening for messages even while processing a message,
- * as long as we aren't out of threads.
- */
-static void
-new_worker_thread(void)
-{
-	pthread_t thread;
-	int error;
-
-	(void) pthread_mutex_lock(&numthreads_lock);
-	while (bye == 0 && numthreads >= MAXTHREADS)
-		(void) pthread_cond_wait(&numthreads_cv, &numthreads_lock);
-	if (bye)
-		goto out;
-	numthreads++;
-	error = pthread_create(&thread, &attr, automount_thread, NULL);
-	if (error) {
-		syslog(LOG_ERR, "unable to create worker thread: %s",
-		    strerror(error));
-		numthreads--;
-	}
-
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated"
-	if (numthreads == 2)
-		vproc_transaction = vproc_transaction_begin(NULL);
-#pragma clang diagnostic pop
-
-out:
-	(void) pthread_mutex_unlock(&numthreads_lock);
-}
-
-/*
- * This worker thread is terminating; reduce the count of worker threads,
- * and, if it's dropped below the maximum, wake up anybody waiting for
- * it to drop below the maximum.
- *
- * Called by the dispatch routines just before returning.
- */
-static void
-end_worker_thread(void)
-{
-	(void) pthread_mutex_lock(&numthreads_lock);
-	numthreads--;
-
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated"
-	if (numthreads == 1)
-		vproc_transaction_end(NULL, vproc_transaction);
-#pragma clang diagnostic pop
-	if (numthreads < MAXTHREADS)
-		pthread_cond_signal(&numthreads_cv);
-	(void) pthread_mutex_unlock(&numthreads_lock);
-}
-
-/*
- * Thread that handles signals for us and will tell the timeout thread to
- * shut us down if we get a signal that we don't continue for. We set a global
- * variable bye and the timeout value to SHUTDOWN_TIMEOUT and wake every
- * body up. Threads blocked in new_worker_thread will see bye is set and exit.
- * We set timeout to SHUTDOWN_TIMEOUT for the timeout thread, so that threads
- * executing dispatch routines have an opportunity to finish.
- *
- * If there are no worker threads running, as indicated by vproc_transaction
- * then launchd will signal with SIGKILL instead of SIGTERM so we'll exit
- * immediately rather than wait for the shutdown timeout.
- */
-static void*
-shutdown_thread(__unused void *arg)
-{
-	int sig;
-
-	pthread_setname_np("shutdown");
-	do {
-		sigwait(&waitset, &sig);
-		switch (sig) {
-		case SIGHUP:
-			/*
-			 * The old automounter supported a SIGHUP
-			 * to allow it to resynchronize internal
-			 * state with the /etc/mnttab.
-			 * This is no longer relevant, but we
-			 * need to catch the signal and warn
-			 * the user.
-			 */
-
-			syslog(LOG_ERR, "SIGHUP received: ignored");
-			break;
-		}
-	} while (sigismember(&contset, sig));
-
-	pthread_mutex_lock(&numthreads_lock);
-	bye = 1;
-	/*
-	 * Wait a little bit for dispatch threads to complete.
-	 */
-	timeout = SHUTDOWN_TIMEOUT;
-	/*
-	 * Force the timeout_thread and all the rest to to wake up and exit.
-	 */
-	pthread_cond_broadcast(&numthreads_cv);
-	pthread_mutex_unlock(&numthreads_lock);
-
-	return (NULL);
-}
-
 static void
 compute_new_timeout(struct timespec *new)
 {
@@ -564,41 +530,6 @@ compute_new_timeout(struct timespec *new)
 	gettimeofday(&current, NULL);
 	new->tv_sec = current.tv_sec + timeout;
 	new->tv_nsec = 1000 * current.tv_usec;
-}
-
-static void*
-timeout_thread(__unused void *arg)
-{
-	int rv = 0;
-	struct timespec exittime;
-
-	pthread_setname_np("timeout");
-	(void) pthread_mutex_lock(&numthreads_lock);
-
-	/*
-	 * Wait until the timer given to pthread_cond_timedwait()
-	 * expires (which causes it to return ETIMEDOUT rather
-	 * than 0) and we have no worker threads running, or
-	 * until bye was set to 1 by the shutdown thread (telling
-	 * us to terminate) and the timer expires (we shut down
-	 * after SHUTDOWN_TIMEOUT in that case).
-	 */
-	while ((rv == 0 || numthreads > 1) && bye < 2) {
-		compute_new_timeout(&exittime);
-		/*
-		 * If the shutdown thread has told us to exit (bye == 1),
-		 * then increment bye so that we will exit after
-		 * SHUTDOWN_TIMEOUT.
-		 */
-		if (bye)
-			bye++;
-		rv = pthread_cond_timedwait(&numthreads_cv,
-					&numthreads_lock, &exittime);
-	}
-
-	(void) pthread_mutex_unlock(&numthreads_lock);
-
-	return (NULL);
 }
 
 static void *
@@ -614,12 +545,9 @@ wait_for_flush_indication_thread(__unused void *arg)
 		/*
 		 * Check whether we're shutting down.
 		 */
-		pthread_mutex_lock(&numthreads_lock);
 		if (bye >= 1) {
-			pthread_mutex_unlock(&numthreads_lock);
 			break;
 		}
-		pthread_mutex_unlock(&numthreads_lock);
 
 		if (ioctl(autofs_fd, AUTOFS_WAITFORFLUSH, 0) == -1) {
 			if (errno != EINTR) {
@@ -663,10 +591,6 @@ autofs_readdir(__unused mach_port_t server,
 	*rddir_entries = NULL;
 	*rddir_entriesCnt = 0;
 
-	new_worker_thread();
-
-	pthread_setname_np("readdir worker");
-
 	/*
 	 * Reject this if the sender wasn't a kernel process
 	 * (all messages from the kernel must have zero pid in audit_token_t).
@@ -692,7 +616,6 @@ autofs_readdir(__unused mach_port_t server,
 	}
 
 out:
-	end_worker_thread();
 	return KERN_SUCCESS;
 }
 
@@ -721,8 +644,6 @@ autofs_readsubdir(__unused mach_port_t server,
 	*rddir_eof = TRUE;
 	*rddir_entries = NULL;
 	*rddir_entriesCnt = 0;
-
-	new_worker_thread();
 
 	/*
 	 * Reject this if the sender wasn't a kernel process
@@ -769,7 +690,6 @@ autofs_readsubdir(__unused mach_port_t server,
 		trace_prt(1, "READSUBDIR REPLY   : status=%d\n", *status);
 
 out:
-	end_worker_thread();
 	return KERN_SUCCESS;
 }
 
@@ -785,10 +705,6 @@ autofs_unmount(__unused mach_port_t server,
 {
 	/* Sanitize our OUT parameters */
 	*status = EPERM;
-
-	new_worker_thread();
-
-	pthread_setname_np("unmount worker");
 
 	/*
 	 * Reject this if the sender wasn't a kernel process
@@ -813,7 +729,6 @@ autofs_unmount(__unused mach_port_t server,
 		trace_prt(1, "UNMOUNT REPLY: status=%d\n", *status);
 
 out:
-	end_worker_thread();
 	return KERN_SUCCESS;
 }
 
@@ -838,10 +753,6 @@ autofs_lookup(__unused mach_port_t server,
 	*err = EPERM;
 	*node_type = 0;
 	*lu_verbose = 0;
-
-	new_worker_thread();
-
-	pthread_setname_np("lookup worker");
 
 	/*
 	 * Reject this if the sender wasn't a kernel process
@@ -881,7 +792,6 @@ autofs_lookup(__unused mach_port_t server,
 		trace_prt(1, "LOOKUP REPLY  : status=%d\n", *err);
 
 out:
-	end_worker_thread();
 	return KERN_SUCCESS;
 }
 
@@ -911,6 +821,7 @@ autofs_mount(__unused mach_port_t server,
 	int status;
 	static time_t prevmsg = 0;
 
+	os_log_debug(automountd_logger, "autofs_mount started");
 	/* Sanitize our OUT parameters */
 	*err = EPERM;
 	*mr_type = AUTOFS_DONE;
@@ -919,10 +830,6 @@ autofs_mount(__unused mach_port_t server,
 	*actions = NULL;
 	*actionsCnt = 0;
 	*mr_verbose = FALSE;
-
-	new_worker_thread();
-
-	pthread_setname_np("mount worker");
 
 	/*
 	 * Reject this if the sender wasn't a kernel process
@@ -1010,7 +917,6 @@ autofs_mount(__unused mach_port_t server,
 	free(key);
 
 out:
-	end_worker_thread();
 	return KERN_SUCCESS;
 }
 
@@ -1035,10 +941,6 @@ autofs_mount_subtrigger(__unused mach_port_t server,
 	*err = EPERM;
 	memset(fsidp, 0, sizeof(*fsidp));
 	*top_level = FALSE;
-
-	new_worker_thread();
-
-	pthread_setname_np("mount-subtrigger worker");
 
 	/*
 	 * Reject this if the sender wasn't a kernel process
@@ -1066,7 +968,6 @@ autofs_mount_subtrigger(__unused mach_port_t server,
 		    strerror(*err));
 
 out:
-	end_worker_thread();
 	return KERN_SUCCESS;
 }
 
@@ -1173,10 +1074,6 @@ autofs_mount_url(__unused mach_port_t server,
 	memset(fsidp, 0, sizeof(*fsidp));
 	*retflags = 0;	/* what we call sets retflags as needed */
 
-	new_worker_thread();
-
-	pthread_setname_np("mount-url worker");
-
 	/*
 	 * Reject this if the sender wasn't a kernel process
 	 * (all messages from the kernel must have zero pid in audit_token_t).
@@ -1202,7 +1099,6 @@ autofs_mount_url(__unused mach_port_t server,
 		syslog(LOG_ERR, "mount of %s on %s failed", url, mountpoint);
 
 out:
-	end_worker_thread();
 	return KERN_SUCCESS;
 }
 
@@ -1221,10 +1117,6 @@ autofs_smb_remount_server(__unused mach_port_t server,
 	uint32_t byte_count;
 	ssize_t bytes_written;
 	int stat_loc;
-
-	new_worker_thread();
-
-	pthread_setname_np("smb-remount-server worker");
 
 	/*
 	 * Reject this if the sender wasn't a kernel process
@@ -1278,8 +1170,9 @@ autofs_smb_remount_server(__unused mach_port_t server,
 		 *
 		 * Join the passed in audit session so we will have access to credentials
 		 */
-		if (join_session(asid))
+		if (join_session(asid)) {
 			_exit(EPERM);
+		}
 
 		if (dup2(pipefds[0], 0) == -1) {
 			res = errno;
@@ -1373,7 +1266,6 @@ done:
 	}
 
 out:
-	end_worker_thread();
 	return KERN_SUCCESS;
 }
 

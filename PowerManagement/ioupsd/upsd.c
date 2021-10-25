@@ -63,18 +63,16 @@
 #define kDefaultUPSName		"Generic UPS"
 #define kDefaultTransport   "UNK"
 
-#ifndef LOG_STREAM
-#define LOG_STREAM OS_LOG_DEFAULT
-#endif
-#define INFO_LOG(fmt, args...)    os_log(LOG_STREAM, fmt, ##args);
-#define DEBUG_LOG(fmt, args...)   os_log_debug(LOG_STREAM, fmt, ##args);
-#define ERROR_LOG(fmt, args...)   os_log_error(LOG_STREAM, fmt, ##args);
+#define INFO_LOG(fmt, args...)    os_log(ioupsdLog, fmt, ##args);
+#define DEBUG_LOG(fmt, args...)   os_log_debug(ioupsdLog, fmt, ##args);
+#define ERROR_LOG(fmt, args...)   os_log_error(ioupsdLog, fmt, ##args);
 
 //---------------------------------------------------------------------------
 // Globals
 //---------------------------------------------------------------------------
 static CFRunLoopSourceRef       gClientRequestRunLoopSource = NULL;
 static CFRunLoopRef             gMainRunLoop = NULL;
+static os_log_t                 ioupsdLog;
 static CFMutableArrayRef        gUPSDataArrayRef = NULL;
 static unsigned int             gUPSCount = 0;
 static IONotificationPortRef	gNotifyPort = NULL;
@@ -164,7 +162,7 @@ int main (int argc, const char *argv[]) {
     
     // Create a notification port and add its run loop event source to our run
     // loop. This is how async notifications get set up.
-    gNotifyPort = IONotificationPortCreate(kIOMasterPortDefault);
+    gNotifyPort = IONotificationPortCreate(kIOMainPortDefault);
     CFRunLoopAddSource(CFRunLoopGetCurrent(),
                        IONotificationPortGetRunLoopSource(gNotifyPort),
                        kCFRunLoopDefaultMode);
@@ -485,31 +483,34 @@ void UPSDeviceAdded(void *refCon, io_iterator_t iterator)
         if ( ( result == S_OK ) && upsPlugInInterface )
         {
             kr = (*upsPlugInInterface)->createAsyncEventSource(upsPlugInInterface, &typeRef);
-            
+
             if ((kr != kIOReturnSuccess) || !typeRef)
                 goto UPSDEVICEADDED_FAIL;
-            
-            if ( CFGetTypeID(typeRef) == CFArrayGetTypeID() )
-            {
+
+            if (CFGetTypeID(typeRef) == CFArrayGetTypeID()) {
                 CFArrayRef  arrayRef = (CFArrayRef)typeRef;
                 CFIndex     index, count;
-                
-                for (index=0, count=CFArrayGetCount(typeRef); index<count; index++)
+
+                for (index=0, count=CFArrayGetCount(typeRef); index<count; index++) {
                     ProcessUPSEventSource(CFArrayGetValueAtIndex(arrayRef, index), &upsEventTimer, &upsEventSource);
-            }
-            else
-            {
+                }
+            } else {
                 ProcessUPSEventSource(typeRef, &upsEventTimer, &upsEventSource);
             }
-            
-            if ( upsEventSource )
+
+            if (upsEventSource) {
+                CFRetain(upsEventSource);
                 CFRunLoopAddSource(CFRunLoopGetCurrent(), upsEventSource, kCFRunLoopDefaultMode);
-            
-            if ( upsEventTimer )
+            }
+
+            if (upsEventTimer) {
+                CFRetain(upsEventTimer);
                 CFRunLoopAddTimer(CFRunLoopGetCurrent(), upsEventTimer, kCFRunLoopDefaultMode);
-            
-            if ( typeRef )
+            }
+
+            if (typeRef) {
                 CFRelease(typeRef);
+            }
         }
         // Couldn't grab the new interface.  Fallback on the old.
         else
@@ -618,17 +619,19 @@ void UPSDeviceAdded(void *refCon, io_iterator_t iterator)
             (*upsPlugInInterface)->Release(upsPlugInInterface);
             upsPlugInInterface = NULL;
         }
-        
+
         if (upsEventSource) {
             CFRunLoopRemoveSource(CFRunLoopGetCurrent(), upsEventSource,
                                   kCFRunLoopDefaultMode);
+            CFRelease(upsEventSource);
             upsEventSource = NULL;
         }
-        
+
         if (upsEventTimer) {
             CFRunLoopRemoveTimer(CFRunLoopGetCurrent(), upsEventTimer,
                                  kCFRunLoopDefaultMode);
-            upsEventSource = NULL;
+            CFRelease(upsEventTimer);
+            upsEventTimer = NULL;
         }
         
     UPSDEVICEADDED_CLEANUP:
@@ -1036,6 +1039,7 @@ IOReturn PopulateUpsStoreDict(UPSDataRef upsDataRef,
     CFNumberRef pid = NULL;
     CFNumberRef number = NULL;
     CFNumberRef modelNum = NULL;
+    CFBooleanRef chargingUI = NULL;
     int elementValue = 0;
     uint32_t psID = 0;
 
@@ -1049,10 +1053,11 @@ IOReturn PopulateUpsStoreDict(UPSDataRef upsDataRef,
     //
     upsName = (CFStringRef) CFDictionaryGetValue(properties,
                                                  CFSTR(kIOPSNameKey));
+    if (!upsName && !CFDictionaryContainsKey(upsStoreDict, CFSTR(kIOPSNameKey))) {
+        upsName = CFSTR(kDefaultUPSName);
+    }
     if (upsName) {
         CFDictionarySetValue(upsStoreDict, CFSTR(kIOPSNameKey), upsName);
-    } else if (!CFDictionaryContainsKey(upsStoreDict, CFSTR(kIOPSNameKey))) {
-        CFDictionarySetValue(upsStoreDict, CFSTR(kIOPSNameKey), CFSTR(kDefaultUPSName));
     }
 
     transport = (CFStringRef) CFDictionaryGetValue(properties,
@@ -1125,6 +1130,11 @@ IOReturn PopulateUpsStoreDict(UPSDataRef upsDataRef,
                                 &elementValue);
         CFDictionarySetValue(upsStoreDict, CFSTR(kIOPSMaxCapacityKey), number);
         CFRelease(number);
+    }
+
+    chargingUI = CFDictionaryGetValue(properties, CFSTR(kIOPSShowChargingUIKey));
+    if (chargingUI) {
+        CFDictionarySetValue(upsStoreDict, CFSTR(kIOPSShowChargingUIKey), chargingUI);
     }
 
     if (CFSetContainsValue(capabilities, CFSTR(kIOPSCurrentCapacityKey))) {
@@ -1210,7 +1220,7 @@ static io_service_t GetIOPMPS(void)
 {
     static io_service_t iopmps;
     if (!iopmps) {
-        iopmps = IOServiceGetMatchingService(kIOMasterPortDefault, IOServiceMatching("IOPMPowerSource"));
+        iopmps = IOServiceGetMatchingService(kIOMainPortDefault, IOServiceMatching("IOPMPowerSource"));
         if (!iopmps) {
             ERROR_LOG("failed to find IOPMPowerSource\n");
         }

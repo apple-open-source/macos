@@ -196,7 +196,8 @@ static SOSAccount* SOSAccountCreateBasicTest(CFAllocatorRef allocator,
                                                SOSDataSourceFactoryRef factory) {
     SOSAccount* a;
     a =  SOSAccountCreate(kCFAllocatorDefault, gestalt, factory);
-    
+    a.sosTestmode = true;
+
     return a;
 }
 
@@ -224,6 +225,7 @@ static SOSAccount* SOSAccountCreateTestFromData(CFAllocatorRef allocator,
         a = SOSAccountCreate(allocator, gestalt, factory);
         CFReleaseNull(gestalt);
     }
+    a.sosTestmode = true;
     
     SOSAccountResetToTest(a, accountName);
     if(a)
@@ -246,8 +248,6 @@ static inline bool SOSAccountAssertUserCredentialsAndUpdate(SOSAccount* account,
 done:
     return success;
 }
-
-
 
 static void unretired_peers_is_subset(const char* label, CFArrayRef peers, CFSetRef allowed_peers)
 {
@@ -723,7 +723,6 @@ static inline SOSAccount* CreateAccountForLocalChanges(CFStringRef name, CFStrin
     CFStringRef randomDevID = CFStringCreateRandomHexWithLength(16);
     SOSAccount* retval = CreateAccountForLocalChangesWithStartingAttributes(name, data_source_name, SOSPeerInfo_iOS, randomSerial,
                                                               kCFBooleanTrue, kCFBooleanTrue, kCFBooleanTrue, SOSTransportMessageTypeKVS, randomDevID);
-
     CFReleaseNull(randomSerial);
     CFReleaseNull(randomDevID);
     return retval;

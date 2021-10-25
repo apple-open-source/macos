@@ -1,5 +1,7 @@
 #!/bin/sh
 #
+# SPDX-License-Identifier: BSD-2-Clause-FreeBSD
+#
 # Copyright (c) September 1995 Wolfram Schneider <wosch@FreeBSD.org>. Berlin.
 # All rights reserved.
 #
@@ -26,7 +28,7 @@
 #
 # updatedb - update locate database for local mounted filesystems
 #
-# $FreeBSD: src/usr.bin/locate/locate/updatedb.sh,v 1.20 2005/11/12 12:45:08 grog Exp $
+# $FreeBSD$
 
 if [ "$(id -u)" = "0" ]; then
 	rc=0
@@ -58,15 +60,18 @@ set -o noglob
 
 : ${mklocatedb:=locate.mklocatedb}      # make locate database program
 : ${FCODES:=/var/db/locate.database}    # the database
-: ${SEARCHPATHS:="/"}                   # directories to be put in the database
-: ${PRUNEPATHS:="/private/tmp /private/var/folders /private/var/tmp */Backups.backupdb"} # unwanted directories
-: ${FILESYSTEMS:="hfs ufs apfs"}        # allowed filesystems
+: ${SEARCHPATHS="/"}                   # directories to be put in the database
+: ${PRUNEPATHS="/private/tmp /private/var/folders /private/var/tmp */Backups.backupdb"} # unwanted directories
+: ${FILESYSTEMS="hfs ufs apfs"}        # allowed filesystems
+: ${PRUNEDIRS=""}	# unwanted directories, in any parent
 : ${find:=find}
 
-case X"$SEARCHPATHS" in 
-	X) echo "$0: empty variable SEARCHPATHS"; exit 1;; esac
-case X"$FILESYSTEMS" in 
-	X) echo "$0: empty variable FILESYSTEMS"; exit 1;; esac
+if [ -z "$SEARCHPATHS" ]; then
+	echo "$0: empty variable SEARCHPATHS" >&2; exit 1
+fi
+if [ -z "$FILESYSTEMS" ]; then
+	echo "$0: empty variable FILESYSTEMS" >&2; exit 1
+fi
 
 # Make a list a paths to exclude in the locate run
 excludes="! (" or=""
@@ -77,13 +82,17 @@ do
 done
 excludes="$excludes ) -prune"
 
-case X"$PRUNEPATHS" in
-	X) ;;
-	*) for path in $PRUNEPATHS
-	do
+if [ -n "$PRUNEPATHS" ]; then
+	for path in $PRUNEPATHS; do
 		excludes="$excludes -or -path $path -prune"
-	done;;
-esac
+	done
+fi
+
+if [ -n "$PRUNEDIRS" ]; then
+	for dir in $PRUNEDIRS; do
+		excludes="$excludes -or -name dir -type d -prune"
+	done
+fi
 
 # Ignore the target of firmlinks
 while read firmlink; do
@@ -94,13 +103,13 @@ tmp=$TMPDIR/_updatedb$$
 trap 'rm -f $tmp; rmdir $TMPDIR; exit' 0 1 2 3 5 10 15
 
 # search locally
-# echo $find $SEARCHPATHS $excludes -or -print && exit
 if $find -s $SEARCHPATHS $excludes -or -print 2>/dev/null |
         $mklocatedb -presort > $tmp
 then
-	case X"`$find $tmp -size -257c -print`" in
-		X) cat $tmp > $FCODES;;
-		*) echo "updatedb: locate database $tmp is empty"
-		   exit 1
-	esac
+	if [ -n "$($find $tmp -size -257c -print)" ]; then
+		echo "updatedb: locate database $tmp is empty" >&2
+		exit 1
+	else
+		cat $tmp > $FCODES		# should be cp?
+	fi
 fi

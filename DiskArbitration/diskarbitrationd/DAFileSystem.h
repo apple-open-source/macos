@@ -32,7 +32,7 @@ extern "C" {
 #endif /* __cplusplus */
 
 typedef struct __DAFileSystem * DAFileSystemRef;
-
+typedef struct __DAFileSystemContext __DAFileSystemContext;
 extern const CFStringRef kDAFileSystemMountArgumentForce;
 extern const CFStringRef kDAFileSystemMountArgumentNoDevice;
 extern const CFStringRef kDAFileSystemMountArgumentNoExecute;
@@ -41,6 +41,7 @@ extern const CFStringRef kDAFileSystemMountArgumentNoSetUserID;
 extern const CFStringRef kDAFileSystemMountArgumentNoWrite;
 extern const CFStringRef kDAFileSystemMountArgumentUnion;
 extern const CFStringRef kDAFileSystemMountArgumentUpdate;
+extern const CFStringRef kDAFileSystemMountArgumentNoBrowse;
 
 extern const CFStringRef kDAFileSystemUnmountArgumentForce;
 
@@ -66,17 +67,21 @@ extern void DAFileSystemInitialize( void );
 
 extern void DAFileSystemMount( DAFileSystemRef      filesystem,
                                CFURLRef             device,
+                               CFStringRef          volumeName,
                                CFURLRef             mountpoint,
                                uid_t                userUID,
                                gid_t                userGID,
                                DAFileSystemCallback callback,
-                               void *               callbackContext );
+                               void *               callbackContext,
+                               Boolean              userFSPreferenceEnabled );
 
 extern void DAFileSystemMountWithArguments( DAFileSystemRef      filesystem,
                                             CFURLRef             device,
+                                            CFStringRef          volumeName,
                                             CFURLRef             mountpoint,
                                             uid_t                userUID,
                                             gid_t                userGID,
+                                            Boolean              userFSPreferenceEnabled,
                                             DAFileSystemCallback callback,
                                             void *               callbackContext,
                                             ... );
@@ -112,6 +117,18 @@ extern void DAFileSystemUnmountWithArguments( DAFileSystemRef      filesystem,
                                               DAFileSystemCallback callback,
                                               void *               callbackContext,
                                               ... );
+extern int __DAMountUserFSVolume( void * parameter );
+extern void __DAMountUserFSVolumeCallback( int status, void * parameter );
+struct __DAFileSystemContext
+{
+    DAFileSystemCallback callback;
+    void *               callbackContext;
+    CFStringRef          deviceName;
+    CFUUIDRef            volumeUUID;
+    CFStringRef          fileSystem;
+    CFStringRef          mountPoint;
+    CFStringRef          volumeName;
+};
 
 #ifdef __cplusplus
 }

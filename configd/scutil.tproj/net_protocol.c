@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2009, 2011, 2014, 2017, 2019, 2020 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2009, 2011, 2014, 2016, 2017, 2019, 2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -165,7 +165,7 @@ _find_protocol(char *match)
 
 __private_extern__
 void
-create_protocol(int argc, char **argv)
+create_protocol(int argc, char * const argv[])
 {
 	SCNetworkInterfaceRef	interface;
 	CFStringRef		protocolType;
@@ -241,7 +241,7 @@ create_protocol(int argc, char **argv)
 
 __private_extern__
 void
-disable_protocol(int argc, char **argv)
+disable_protocol(int argc, char * const argv[])
 {
 	SCNetworkProtocolRef	protocol	= NULL;
 
@@ -276,7 +276,7 @@ disable_protocol(int argc, char **argv)
 
 __private_extern__
 void
-enable_protocol(int argc, char **argv)
+enable_protocol(int argc, char * const argv[])
 {
 	SCNetworkProtocolRef	protocol	= NULL;
 
@@ -311,7 +311,7 @@ enable_protocol(int argc, char **argv)
 
 __private_extern__
 void
-remove_protocol(int argc, char **argv)
+remove_protocol(int argc, char * const argv[])
 {
 	SCNetworkProtocolRef	protocol	= NULL;
 	CFStringRef		protocolType;
@@ -368,7 +368,7 @@ remove_protocol(int argc, char **argv)
 
 __private_extern__
 void
-select_protocol(int argc, char **argv)
+select_protocol(int argc, char * const argv[])
 {
 #pragma unused(argc)
 	SCNetworkProtocolRef	protocol;
@@ -412,7 +412,7 @@ __cleanupDomainName(CFStringRef domain)
 
 
 static int
-__doDNSDomain(CFStringRef key, const char *description, void *info, int argc, char **argv, CFMutableDictionaryRef newConfiguration)
+__doDNSDomain(CFStringRef key, const char *description, void *info, int argc, char * const argv[], CFMutableDictionaryRef newConfiguration)
 {
 #pragma unused(description)
 #pragma unused(info)
@@ -445,7 +445,7 @@ __doDNSDomain(CFStringRef key, const char *description, void *info, int argc, ch
 
 
 static int
-__doDNSDomainArray(CFStringRef key, const char *description, void *info, int argc, char **argv, CFMutableDictionaryRef newConfiguration)
+__doDNSDomainArray(CFStringRef key, const char *description, void *info, int argc, char * const argv[], CFMutableDictionaryRef newConfiguration)
 {
 #pragma unused(description)
 #pragma unused(info)
@@ -500,7 +500,7 @@ __doDNSDomainArray(CFStringRef key, const char *description, void *info, int arg
 
 
 static int
-__doDNSServerAddresses(CFStringRef key, const char *description, void *info, int argc, char **argv, CFMutableDictionaryRef newConfiguration)
+__doDNSServerAddresses(CFStringRef key, const char *description, void *info, int argc, char * const argv[], CFMutableDictionaryRef newConfiguration)
 {
 #pragma unused(description)
 #pragma unused(info)
@@ -588,7 +588,7 @@ static options dnsOptions[] = {
 
 
 static Boolean
-set_protocol_dns(int argc, char **argv, CFMutableDictionaryRef newConfiguration)
+set_protocol_dns(int argc, char * const argv[], CFMutableDictionaryRef newConfiguration)
 {
 	Boolean	ok;
 
@@ -618,7 +618,7 @@ static selections ipv4ConfigMethods[] = {
 
 
 static int
-__doIPv4ConfigMethod(CFStringRef key, const char *description, void *info, int argc, char **argv, CFMutableDictionaryRef newConfiguration)
+__doIPv4ConfigMethod(CFStringRef key, const char *description, void *info, int argc, char * const argv[], CFMutableDictionaryRef newConfiguration)
 {
 #pragma unused(description)
 #pragma unused(info)
@@ -653,7 +653,7 @@ __doIPv4ConfigMethod(CFStringRef key, const char *description, void *info, int a
 
 
 static int
-__doIPv4Addresses(CFStringRef key, const char *description, void *info, int argc, char **argv, CFMutableDictionaryRef newConfiguration)
+__doIPv4Addresses(CFStringRef key, const char *description, void *info, int argc, char * const argv[], CFMutableDictionaryRef newConfiguration)
 {
 #pragma unused(description)
 #pragma unused(argc)
@@ -716,7 +716,7 @@ static options ipv4Options[] = {
 
 
 static Boolean
-set_protocol_ipv4(int argc, char **argv, CFMutableDictionaryRef newConfiguration)
+set_protocol_ipv4(int argc, char * const argv[], CFMutableDictionaryRef newConfiguration)
 {
 	Boolean	ok;
 
@@ -785,7 +785,7 @@ static selections ipv6ConfigMethods[] = {
 
 
 static int
-__doIPv6ConfigMethod(CFStringRef key, const char *description, void *info, int argc, char **argv, CFMutableDictionaryRef newConfiguration)
+__doIPv6ConfigMethod(CFStringRef key, const char *description, void *info, int argc, char * const argv[], CFMutableDictionaryRef newConfiguration)
 {
 #pragma unused(description)
 #pragma unused(info)
@@ -817,7 +817,7 @@ __doIPv6ConfigMethod(CFStringRef key, const char *description, void *info, int a
 
 
 static int
-__doIPv6Addresses(CFStringRef key, const char *description, void *info, int argc, char **argv, CFMutableDictionaryRef newConfiguration)
+__doIPv6Addresses(CFStringRef key, const char *description, void *info, int argc, char * const argv[], CFMutableDictionaryRef newConfiguration)
 {
 #pragma unused(description)
 #pragma unused(argc)
@@ -849,7 +849,7 @@ __doIPv6Addresses(CFStringRef key, const char *description, void *info, int argc
 }
 
 static int
-__doIPv6PrefixLength(CFStringRef key, const char *description, void *info, int argc, char **argv, CFMutableDictionaryRef newConfiguration)
+__doIPv6PrefixLength(CFStringRef key, const char *description, void *info, int argc, char * const argv[], CFMutableDictionaryRef newConfiguration)
 {
 #pragma unused(description)
 #pragma unused(argc)
@@ -908,7 +908,7 @@ static options ipv6Options[] = {
 
 
 static Boolean
-set_protocol_ipv6(int argc, char **argv, CFMutableDictionaryRef newConfiguration)
+set_protocol_ipv6(int argc, char * const argv[], CFMutableDictionaryRef newConfiguration)
 {
 	Boolean	ok;
 
@@ -1031,12 +1031,12 @@ static proxyKeys proxyKeys_WPAD   = { "WPAD",
 static proxyKeys	*currentProxy	= NULL;
 
 
-static int __doProxySelect    (CFStringRef key, const char *description, void *info, int argc, char **argv, CFMutableDictionaryRef newConfiguration);
-static int __doProxyEnable    (CFStringRef key, const char *description, void *info, int argc, char **argv, CFMutableDictionaryRef newConfiguration);
-static int __doProxyHost      (CFStringRef key, const char *description, void *info, int argc, char **argv, CFMutableDictionaryRef newConfiguration);
-static int __doProxyPort      (CFStringRef key, const char *description, void *info, int argc, char **argv, CFMutableDictionaryRef newConfiguration);
-static int __doProxyURL       (CFStringRef key, const char *description, void *info, int argc, char **argv, CFMutableDictionaryRef newConfiguration);
-static int __doProxyFTPPassive(CFStringRef key, const char *description, void *info, int argc, char **argv, CFMutableDictionaryRef newConfiguration);
+static int __doProxySelect    (CFStringRef key, const char *description, void *info, int argc, char * const argv[], CFMutableDictionaryRef newConfiguration);
+static int __doProxyEnable    (CFStringRef key, const char *description, void *info, int argc, char * const argv[], CFMutableDictionaryRef newConfiguration);
+static int __doProxyHost      (CFStringRef key, const char *description, void *info, int argc, char * const argv[], CFMutableDictionaryRef newConfiguration);
+static int __doProxyPort      (CFStringRef key, const char *description, void *info, int argc, char * const argv[], CFMutableDictionaryRef newConfiguration);
+static int __doProxyURL       (CFStringRef key, const char *description, void *info, int argc, char * const argv[], CFMutableDictionaryRef newConfiguration);
+static int __doProxyFTPPassive(CFStringRef key, const char *description, void *info, int argc, char * const argv[], CFMutableDictionaryRef newConfiguration);
 
 
 static options proxyOptions[] = {
@@ -1108,7 +1108,7 @@ static options proxyOptions[] = {
 
 
 static int
-__doProxySelect(CFStringRef key, const char *description, void *info, int argc, char **argv, CFMutableDictionaryRef newConfiguration)
+__doProxySelect(CFStringRef key, const char *description, void *info, int argc, char * const argv[], CFMutableDictionaryRef newConfiguration)
 {
 #pragma unused(key)
 #pragma unused(description)
@@ -1134,7 +1134,7 @@ __doProxySelect(CFStringRef key, const char *description, void *info, int argc, 
 
 
 static int
-__doProxyEnable(CFStringRef key, const char *description, void *info, int argc, char **argv, CFMutableDictionaryRef newConfiguration)
+__doProxyEnable(CFStringRef key, const char *description, void *info, int argc, char * const argv[], CFMutableDictionaryRef newConfiguration)
 {
 #pragma unused(key)
 #pragma unused(description)
@@ -1199,7 +1199,7 @@ __proxy_enabled(CFDictionaryRef configuration, const CFStringRef *enableKey)
 
 
 static int
-__doProxyHost(CFStringRef key, const char *description, void *info, int argc, char **argv, CFMutableDictionaryRef newConfiguration)
+__doProxyHost(CFStringRef key, const char *description, void *info, int argc, char * const argv[], CFMutableDictionaryRef newConfiguration)
 {
 #pragma unused(key)
 #pragma unused(description)
@@ -1250,7 +1250,7 @@ __doProxyHost(CFStringRef key, const char *description, void *info, int argc, ch
 
 
 static int
-__doProxyPort(CFStringRef key, const char *description, void *info, int argc, char **argv, CFMutableDictionaryRef newConfiguration)
+__doProxyPort(CFStringRef key, const char *description, void *info, int argc, char * const argv[], CFMutableDictionaryRef newConfiguration)
 {
 #pragma unused(key)
 #pragma unused(description)
@@ -1299,7 +1299,7 @@ __doProxyPort(CFStringRef key, const char *description, void *info, int argc, ch
 
 
 static int
-__doProxyURL(CFStringRef key, const char *description, void *info, int argc, char **argv, CFMutableDictionaryRef newConfiguration)
+__doProxyURL(CFStringRef key, const char *description, void *info, int argc, char * const argv[], CFMutableDictionaryRef newConfiguration)
 {
 #pragma unused(key)
 #pragma unused(description)
@@ -1339,7 +1339,7 @@ __doProxyURL(CFStringRef key, const char *description, void *info, int argc, cha
 
 
 static int
-__doProxyFTPPassive(CFStringRef key, const char *description, void *info, int argc, char **argv, CFMutableDictionaryRef newConfiguration)
+__doProxyFTPPassive(CFStringRef key, const char *description, void *info, int argc, char * const argv[], CFMutableDictionaryRef newConfiguration)
 {
 #pragma unused(key)
 #pragma unused(description)
@@ -1362,7 +1362,7 @@ __doProxyFTPPassive(CFStringRef key, const char *description, void *info, int ar
 
 
 static Boolean
-set_protocol_proxies(int argc, char **argv, CFMutableDictionaryRef newConfiguration)
+set_protocol_proxies(int argc, char * const argv[], CFMutableDictionaryRef newConfiguration)
 {
 	Boolean	ok;
 
@@ -1395,7 +1395,7 @@ __cleanupName(CFStringRef name)
 
 
 static int
-__doSMBName(CFStringRef key, const char *description, void *info, int argc, char **argv, CFMutableDictionaryRef newConfiguration)
+__doSMBName(CFStringRef key, const char *description, void *info, int argc, char * const argv[], CFMutableDictionaryRef newConfiguration)
 {
 #pragma unused(description)
 #pragma unused(info)
@@ -1428,7 +1428,7 @@ __doSMBName(CFStringRef key, const char *description, void *info, int argc, char
 
 
 static int
-__doSMBWorkgroup(CFStringRef key, const char *description, void *info, int argc, char **argv, CFMutableDictionaryRef newConfiguration)
+__doSMBWorkgroup(CFStringRef key, const char *description, void *info, int argc, char * const argv[], CFMutableDictionaryRef newConfiguration)
 {
 #pragma unused(description)
 #pragma unused(info)
@@ -1461,7 +1461,7 @@ __doSMBWorkgroup(CFStringRef key, const char *description, void *info, int argc,
 
 
 static int
-__doSMBWINSAddresses(CFStringRef key, const char *description, void *info, int argc, char **argv, CFMutableDictionaryRef newConfiguration)
+__doSMBWINSAddresses(CFStringRef key, const char *description, void *info, int argc, char * const argv[], CFMutableDictionaryRef newConfiguration)
 {
 #pragma unused(description)
 #pragma unused(info)
@@ -1554,7 +1554,7 @@ static options smbOptions[] = {
 
 
 static Boolean
-set_protocol_smb(int argc, char **argv, CFMutableDictionaryRef newConfiguration)
+set_protocol_smb(int argc, char * const argv[], CFMutableDictionaryRef newConfiguration)
 {
 	Boolean	ok;
 
@@ -1572,7 +1572,7 @@ set_protocol_smb(int argc, char **argv, CFMutableDictionaryRef newConfiguration)
 
 __private_extern__
 void
-set_protocol(int argc, char **argv)
+set_protocol(int argc, char * const argv[])
 {
 	CFDictionaryRef		configuration;
 	CFMutableDictionaryRef	newConfiguration	= NULL;
@@ -1643,7 +1643,7 @@ set_protocol(int argc, char **argv)
 
 __private_extern__
 void
-show_protocol(int argc, char **argv)
+show_protocol(int argc, char * const argv[])
 {
 	CFDictionaryRef 	configuration;
 	SCNetworkProtocolRef	protocol	= NULL;
@@ -1686,7 +1686,7 @@ show_protocol(int argc, char **argv)
 
 __private_extern__
 void
-show_protocols(int argc, char **argv)
+show_protocols(int argc, char * const argv[])
 {
 #pragma unused(argc)
 #pragma unused(argv)

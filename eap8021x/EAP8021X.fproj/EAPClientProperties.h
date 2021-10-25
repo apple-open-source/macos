@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2020 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2021 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -186,6 +186,9 @@
  */ 
 #define kEAPClientPropSystemModeCredentialsSource	CFSTR("SystemModeCredentialsSource")
 #define kEAPClientCredentialsSourceActiveDirectory	CFSTR("ActiveDirectory")
+
+/* AppSSO provider as a credential source  */
+#define kEAPClientPropExtensibleSSOProvider		CFSTR("ExtensibleSSOProvider") /* ssoid URL string */
 
 /**
  ** Properties for TTLS

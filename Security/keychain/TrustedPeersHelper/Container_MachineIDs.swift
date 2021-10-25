@@ -405,4 +405,13 @@ extension Container {
 
         return !outdatedMOs.isEmpty
     }
+
+    func fullIDMSListWouldBeHelpful() -> Bool {
+        var ret: Bool = false
+        self.moc.performAndWait {
+            ret = self.onqueueFullIDMSListWouldBeHelpful()
+        }
+
+        return ret
+    }
 }

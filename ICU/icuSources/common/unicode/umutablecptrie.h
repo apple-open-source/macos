@@ -14,8 +14,6 @@
 #include "unicode/ucptrie.h"
 #include "unicode/utf8.h"
 
-U_CDECL_BEGIN
-
 /**
  * \file
  *
@@ -232,7 +230,5 @@ umutablecptrie_setRange(UMutableCPTrie *trie,
 U_CAPI UCPTrie * U_EXPORT2
 umutablecptrie_buildImmutable(UMutableCPTrie *trie, UCPTrieType type, UCPTrieValueWidth valueWidth,
                               UErrorCode *pErrorCode);
-
-U_CDECL_END
 
 #endif

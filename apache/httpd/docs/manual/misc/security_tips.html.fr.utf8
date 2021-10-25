@@ -149,9 +149,9 @@
       en entrée. Dans ces cas, son comportement se ramène à celui
       du module mpm <code class="module"><a href="../mod/worker.html">worker</a></code>.</li>
 
-      <li>Il existe de nombreux modules tiers disponibles à <a href="http://modules.apache.org/">http://modules.apache.org/</a> qui
-      peuvent retreindre les comportements de certains clients et ainsi
-      minimiser les problèmes de DoS.</li>
+      <li>Il existe de nombreux modules tiers qui peuvent restreindre les
+      comportements de certains clients et ainsi minimiser les problèmes de
+      DoS.</li>
 
     </ul>
 
@@ -504,7 +504,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/misc/security_tips.h
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2020 The Apache Software Foundation.<br />Autorisé sous <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2021 The Apache Software Foundation.<br />Autorisé sous <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossaire</a> | <a href="../sitemap.html">Plan du site</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

@@ -2,6 +2,7 @@
  * Copyright (c) 2016 Apple Inc.  All rights reserved.
  */
 
+#include <System/sys/proc.h>
 #include "options.h"
 #include "utils.h"
 #include "corefile.h"
@@ -532,12 +533,12 @@ gcore_main(int argc, char *const *argv)
 			corefname = make_gcore_path(&corefmt, pbi->pbi_pid, pbi->pbi_uid, pbi->pbi_name[0] ? pbi->pbi_name : pbi->pbi_comm);
 
 		if (MACH_PORT_NULL == corpse) {
-			ret = task_for_pid(mach_task_self(), pid, &task);
+			ret = task_read_for_pid(mach_task_self(), pid, &task);
 			if (KERN_SUCCESS != ret) {
 				if (KERN_FAILURE == ret)
 					errx(EX_NOPERM, "insufficient privilege");
 				else
-					errx(EX_NOPERM, "task_for_pid: %s", mach_error_string(ret));
+					errx(EX_NOPERM, "task_read_for_pid: %s", mach_error_string(ret));
 			}
 		}
 

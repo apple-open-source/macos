@@ -1,9 +1,10 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 #
 # gkhandmake - manually create a recorded snippet
 #
 # gkhandmake path type source outputfile
 #
+from __future__ import print_function
 import sys
 import os
 import signal
@@ -16,11 +17,11 @@ import plistlib
 # Usage and fail
 #
 def usage():
-	print >>sys.stderr, "Usage: %s program specfile outputfile" % sys.argv[0]
+	print("Usage: %s program specfile outputfile" % sys.argv[0], file=sys.stderr)
 	sys.exit(2)
 
 def fail(whatever):
-	print >>sys.stderr, "%s: %s" % (sys.argv[0], whatever)
+	print("%s: %s" % (sys.argv[0], whatever), file=sys.stderr)
 	sys.exit(1)
 
 

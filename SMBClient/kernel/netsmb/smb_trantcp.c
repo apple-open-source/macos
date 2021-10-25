@@ -74,7 +74,7 @@ SYSCTL_DECL(_net_smb_fs);
 SYSCTL_INT(_net_smb_fs, OID_AUTO, tcpsndbuf, CTLFLAG_RW, &smb_tcpsndbuf, 0, "");
 SYSCTL_INT(_net_smb_fs, OID_AUTO, tcprcvbuf, CTLFLAG_RW, &smb_tcprcvbuf, 0, "");
 
-static int nbssn_recv(struct nbpcb *nbp, mbuf_t *mpp, int *lenp, uint8_t *rpcodep, 
+static int nbssn_recv(struct nbpcb *nbp, mbuf_t *mpp, int *lenp, uint8_t *rpcodep,
 					  struct timespec *wait_time);
 static int  smb_nbst_disconnect(struct smbiod *iod);
 
@@ -122,7 +122,7 @@ nb_put_name(struct mbchain *mbp, struct sockaddr_nb *snb)
 	return (0);
 }
 
-static int tcp_connect(struct nbpcb *nbp, struct sockaddr *to)
+static int tcp_connect(struct nbpcb *nbp, struct sockaddr *to, struct timeval timeout)
 {
 	socket_t so;
 	int error;
@@ -130,10 +130,20 @@ static int tcp_connect(struct nbpcb *nbp, struct sockaddr *to)
 	int optlen;
 	uint32_t bufsize, default_size;
 	
+    if (!nbp->nbp_iod) {
+        SMBERROR("no nbp_iod. Abort.\n");
+        return ENOENT;
+    }
+
     error = sock_socket(to->sa_family, SOCK_STREAM, IPPROTO_TCP, NULL, nbp, &so);
+
 	if (error)
 		return (error);
     
+    lck_mtx_lock(&nbp->nbp_iod->iod_tdata_lock);
+    nbp->nbp_flags |= NBF_SOCK_OPENED;
+    lck_mtx_unlock(&nbp->nbp_iod->iod_tdata_lock);
+
 	nbp->nbp_tso = so;
 	tv.tv_sec = SMBSBTIMO;
 	tv.tv_usec = 0;
@@ -262,6 +272,13 @@ static int tcp_connect(struct nbpcb *nbp, struct sockaddr *to)
 	if (error)	/* Should we error out if this fails? */
 		goto bad;
     
+    if (timeout.tv_sec) {
+        error = sock_setsockopt(so, IPPROTO_TCP, TCP_CONNECTIONTIMEOUT,
+                                &timeout, (int)sizeof(timeout));
+        if (error)
+            goto bad;
+    }
+
 	error = sock_nointerrupt(so, 0);
 	if (error)
 		goto bad;
@@ -297,7 +314,7 @@ bad:
 }
 
 static int
-nbssn_rq_request(struct nbpcb *nbp)
+nbssn_rq_request(struct nbpcb *nbp, struct timeval connection_to)
 {
 	struct mbchain mb, *mbp = &mb;
 	struct mdchain md, *mdp = &md;
@@ -338,10 +355,15 @@ nbssn_rq_request(struct nbpcb *nbp)
 	error = 0;
 	do {
 		if (rpcode == NB_SSN_POSRESP) {
-			lck_mtx_lock(&nbp->nbp_lock);
+            if (!nbp->nbp_iod) {
+                SMBERROR("no nbp_iod. This should not happen. \n");
+                error = ENOENT;
+                break;
+            }
+			lck_mtx_lock(&nbp->nbp_iod->iod_tdata_lock);
 			nbp->nbp_state = NBST_SESSION;
 			nbp->nbp_flags |= NBF_CONNECTED;
-			lck_mtx_unlock(&nbp->nbp_lock);
+			lck_mtx_unlock(&nbp->nbp_iod->iod_tdata_lock);
 			break;
 		}
 		if (rpcode != NB_SSN_RTGRESP) {
@@ -357,9 +379,10 @@ nbssn_rq_request(struct nbpcb *nbp)
 		sin.sin_port = port;
 		nbp->nbp_state = NBST_RETARGET;
 		smb_nbst_disconnect(nbp->nbp_iod);
-		error = tcp_connect(nbp, (struct sockaddr *)&sin);
+
+		error = tcp_connect(nbp, (struct sockaddr *)&sin, connection_to);
 		if (!error)
-			error = nbssn_rq_request(nbp);
+			error = nbssn_rq_request(nbp, connection_to);
 		if (error) {
 			smb_nbst_disconnect(nbp->nbp_iod);
 			break;
@@ -370,7 +393,7 @@ nbssn_rq_request(struct nbpcb *nbp)
 	return (error);
 }
 
-static int nbssn_recvhdr(struct nbpcb *nbp, uint32_t *lenp, uint8_t *rpcodep, 
+static int nbssn_recvhdr(struct nbpcb *nbp, uint32_t *lenp, uint8_t *rpcodep,
 						 struct timespec *wait_time)
 {
 	struct iovec aio;
@@ -435,12 +458,21 @@ static int nbssn_recvhdr(struct nbpcb *nbp, uint32_t *lenp, uint8_t *rpcodep,
                 continue;
             }
 
-            /* The connect got closed */
-            if (!sock_isconnected(nbp->nbp_tso)) {
+            /*
+             * Check if the connect got closed.
+             * <78410582> sock_isconnected must not be called if the socket was closed
+             */
+            if (!nbp->nbp_iod) {
+                SMBERROR("no nbp_iod! something went awefully wrong \n");
+                return ENOENT;
+            }
+            lck_mtx_lock(&nbp->nbp_iod->iod_tdata_lock);
+            if (((nbp->nbp_flags & NBF_SOCK_OPENED) == 0) || (!sock_isconnected(nbp->nbp_tso))) {
                 nbp->nbp_state = NBST_CLOSED;
                 SMBERROR("session closed by peer\n");
                 error = EPIPE;
             }
+            lck_mtx_unlock(&nbp->nbp_iod->iod_tdata_lock);
 
             if ((error == EWOULDBLOCK) && resid && (resid < sizeof(len))) {
                 SMBERROR("Timed out reading the nbt header: missing %ld bytes\n", resid);
@@ -501,7 +533,7 @@ static int nbssn_recvhdr(struct nbpcb *nbp, uint32_t *lenp, uint8_t *rpcodep,
 	return (0);
 }
 
-static int nbssn_recv(struct nbpcb *nbp, mbuf_t *mpp, int *lenp, uint8_t *rpcodep, 
+static int nbssn_recv(struct nbpcb *nbp, mbuf_t *mpp, int *lenp, uint8_t *rpcodep,
 					  struct timespec *wait_time)
 {
 	mbuf_t m;
@@ -717,8 +749,9 @@ smb_nbst_create(struct smbiod *iod)
 	nbp->nbp_iod = iod;
 	nbp->nbp_sndbuf = smb_tcpsndbuf;
 	nbp->nbp_rcvbuf = smb_tcprcvbuf;
-	lck_mtx_init(&nbp->nbp_lock, nbp_lck_group, nbp_lck_attr);
+    lck_mtx_lock(&iod->iod_tdata_lock);
 	iod->iod_tdata = nbp;
+    lck_mtx_unlock(&iod->iod_tdata_lock);
 	return (0);
 }
 
@@ -730,13 +763,14 @@ smb_nbst_done(struct smbiod *iod)
 	if (nbp == NULL)
 		return (ENOTCONN);
 	smb_nbst_disconnect(iod);
+    lck_mtx_lock(&iod->iod_tdata_lock);
 	if (nbp->nbp_laddr)
 		SMB_FREE(nbp->nbp_laddr, M_SONAME);
 	if (nbp->nbp_paddr)
 		SMB_FREE(nbp->nbp_paddr, M_SONAME);
 	/* The session_tdata is no longer valid */
-	iod->iod_tdata = NULL;
-	lck_mtx_destroy(&nbp->nbp_lock, nbp_lck_group);
+    iod->iod_tdata = NULL;
+    lck_mtx_unlock(&iod->iod_tdata_lock);
 	SMB_FREE(nbp, M_NBDATA);
 	return (0);
 }
@@ -768,10 +802,10 @@ smb_nbst_bind(struct smbiod *iod, struct sockaddr *sap)
 			error = ENOMEM;
 			break;
 		}
-		lck_mtx_lock(&nbp->nbp_lock);
+		lck_mtx_lock(&iod->iod_tdata_lock);
 		nbp->nbp_laddr = snb;
 		nbp->nbp_flags |= NBF_LOCADDR;
-		lck_mtx_unlock(&nbp->nbp_lock);
+		lck_mtx_unlock(&iod->iod_tdata_lock);
 		error = 0;
 	} while(0);
 	return (error);
@@ -819,7 +853,7 @@ smb_nbst_connect(struct smbiod *iod, struct sockaddr *sap)
 	 * timeouts are simply too short.
 	 */
 	nanouptime(&ts1);
-	error = tcp_connect(nbp, so);
+	error = tcp_connect(nbp, so, iod->iod_connection_to);
     if (error) {
 		return (error);
     }
@@ -840,7 +874,7 @@ smb_nbst_connect(struct smbiod *iod, struct sockaddr *sap)
 		nbp->nbp_state = NBST_SESSION;
 	else {
 		nbp->nbp_flags |= NBF_NETBIOS;
-		error = nbssn_rq_request(nbp);
+		error = nbssn_rq_request(nbp, iod->iod_connection_to);
 		if (error)
 			smb_nbst_disconnect(iod);
 	}
@@ -873,10 +907,11 @@ smb_nbst_disconnect(struct smbiod *iod)
     }
 
 	if ((so = nbp->nbp_tso) != NULL) {
-		lck_mtx_lock(&nbp->nbp_lock);
+		lck_mtx_lock(&iod->iod_tdata_lock);
 		nbp->nbp_flags &= ~NBF_CONNECTED;
+        nbp->nbp_flags &= ~NBF_SOCK_OPENED;
         /* Do not null out nbp_tso here due to the read thread using it */
-		lck_mtx_unlock(&nbp->nbp_lock);
+		lck_mtx_unlock(&iod->iod_tdata_lock);
 		sock_shutdown(so, 2);
 		sock_close(so);
 	}
@@ -1046,10 +1081,20 @@ smb_nbst_fatal(struct smbiod *iod, int error)
 		return 1;
 	}
 	DBG_ASSERT(iod);
+    if (iod == NULL) return 1;
+    lck_mtx_lock(&iod->iod_tdata_lock);
 	nbp = iod->iod_tdata;
-	if ((nbp == NULL) || (nbp->nbp_tso == NULL) || (! sock_isconnected(nbp->nbp_tso)))
-			return 1;
-	
+
+    /*
+     * <78410582> sock_isconnected must not be called if the socket was closed
+     */
+	if ((nbp == NULL) || (nbp->nbp_tso == NULL) ||
+        ((nbp->nbp_flags & NBF_SOCK_OPENED) == 0) ||
+        (!sock_isconnected(nbp->nbp_tso))) {
+        lck_mtx_unlock(&iod->iod_tdata_lock);
+        return 1;
+    }
+    lck_mtx_unlock(&iod->iod_tdata_lock);
 	return (0);
 }
 

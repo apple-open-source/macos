@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, 2004, 2005, 2009-2011, 2016, 2017, 2019 Apple Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2003-2005, 2009-2011, 2016, 2017, 2019, 2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -41,21 +41,11 @@ SCDynamicStoreSnapshot(SCDynamicStoreRef store)
 	kern_return_t			status;
 	int				sc_status;
 
-	if (store == NULL) {
-		store = __SCDynamicStoreNullSession();
-		if (store == NULL) {
-			/* sorry, you must provide a session */
-			_SCErrorSet(kSCStatusNoStoreSession);
-			return FALSE;
-		}
+	if (!__SCDynamicStoreNormalize(&store, TRUE)) {
+		return FALSE;
 	}
 
 	storePrivate = (SCDynamicStorePrivateRef)store;
-	if (storePrivate->server == MACH_PORT_NULL) {
-		/* sorry, you must have an open session to play */
-		_SCErrorSet(kSCStatusNoStoreServer);
-		return FALSE;
-	}
 
     retry :
 

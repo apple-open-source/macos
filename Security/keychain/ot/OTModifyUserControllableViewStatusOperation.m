@@ -23,12 +23,15 @@
 
 #if OCTAGON
 
+#import <AppleFeatures/AppleFeatures.h>
+
 #import <TrustedPeers/TrustedPeers.h>
 #import "keychain/ckks/CKKSAnalytics.h"
 #import "keychain/ot/categories/OTAccountMetadataClassC+KeychainSupport.h"
 #import "keychain/ot/OTModifyUserControllableViewStatusOperation.h"
 #import "keychain/ot/OTStates.h"
 #import "keychain/ot/ObjCImprovements.h"
+#import "keychain/OctagonTrust/OTNotifications.h"
 #import "keychain/TrustedPeersHelper/TrustedPeersHelperProtocol.h"
 
 @interface OTModifyUserControllableViewStatusOperation ()
@@ -36,7 +39,7 @@
 
 @property OctagonState* peerMissingState;
 
-@property TPPBPeerStableInfo_UserControllableViewStatus intendedViewStatus;
+@property TPPBPeerStableInfoUserControllableViewStatus intendedViewStatus;
 @end
 
 @implementation OTModifyUserControllableViewStatusOperation
@@ -44,7 +47,7 @@
 @synthesize nextState = _nextState;
 
 - (instancetype)initWithDependencies:(OTOperationDependencies*)dependencies
-                  intendedViewStatus:(TPPBPeerStableInfo_UserControllableViewStatus)intendedViewStatus
+                  intendedViewStatus:(TPPBPeerStableInfoUserControllableViewStatus)intendedViewStatus
                        intendedState:(OctagonState*)intendedState
                     peerMissingState:(OctagonState*)peerMissingState
                           errorState:(OctagonState*)errorState
@@ -64,7 +67,7 @@
 - (void)groupStart
 {
 
-    if(self.intendedViewStatus == TPPBPeerStableInfo_UserControllableViewStatus_FOLLOWING) {
+    if(self.intendedViewStatus == TPPBPeerStableInfoUserControllableViewStatus_FOLLOWING) {
 #if TARGET_OS_WATCH || TARGET_OS_TV
         // Watches and TVs want to be able to set the FOLLOWING state
         [self performWithStatus:self.intendedViewStatus];
@@ -85,21 +88,32 @@
 
             secnotice("octagon-ckks", "Currently SOS believes the safari view is '%@'", safariViewEnabled ? @"enabled" : @"disabled");
 
-            TPPBPeerStableInfo_UserControllableViewStatus status = safariViewEnabled ?
-                TPPBPeerStableInfo_UserControllableViewStatus_ENABLED :
-                TPPBPeerStableInfo_UserControllableViewStatus_DISABLED;
+            TPPBPeerStableInfoUserControllableViewStatus status = safariViewEnabled ?
+                TPPBPeerStableInfoUserControllableViewStatus_ENABLED :
+                TPPBPeerStableInfoUserControllableViewStatus_DISABLED;
 
             [self performWithStatus:status];
             return;
         }
 
+        BOOL isInheritedAccount = NO;
+        NSError* localError = nil;
+        OTAccountMetadataClassC* currentAccountMetadata = [self.deps.stateHolder loadOrCreateAccountMetadata:&localError];
+
+        if (!currentAccountMetadata || localError) {
+            secnotice("octagon-ckks", "Failed to load account metadata: %@", localError);
+        } else {
+            isInheritedAccount = currentAccountMetadata.isInheritedAccount;
+        }
+        
         secnotice("octagon-ckks", "Determining peers' user-controllable views policy");
 
         [self.deps.cuttlefishXPCWrapper fetchCurrentPolicyWithContainer:self.deps.containerName
                                                                 context:self.deps.contextID
                                                         modelIDOverride:nil
+                                                     isInheritedAccount:isInheritedAccount
                                                                   reply:^(TPSyncingPolicy* _Nullable syncingPolicy,
-                                                                          TPPBPeerStableInfo_UserControllableViewStatus userControllableViewStatusOfPeers,
+                                                                          TPPBPeerStableInfoUserControllableViewStatus userControllableViewStatusOfPeers,
                                                                           NSError* _Nullable error) {
             STRONGIFY(self);
 
@@ -110,7 +124,7 @@
             }
 
             secnotice("octagon-ckks", "Retrieved peers' user-controllable views policy as: %@",
-                      TPPBPeerStableInfo_UserControllableViewStatusAsString(userControllableViewStatusOfPeers));
+                      TPPBPeerStableInfoUserControllableViewStatusAsString(userControllableViewStatusOfPeers));
 
             [self performWithStatus:userControllableViewStatusOfPeers];
             return;
@@ -122,20 +136,26 @@
     }
 }
 
-- (void)performWithStatus:(TPPBPeerStableInfo_UserControllableViewStatus)intendedViewStatus
+- (void)performWithStatus:(TPPBPeerStableInfoUserControllableViewStatus)intendedViewStatus
 {
     WEAKIFY(self);
 
-    secnotice("octagon-ckks", "Setting user-controllable views to %@", TPPBPeerStableInfo_UserControllableViewStatusAsString(self.intendedViewStatus));
+    secnotice("octagon-ckks", "Setting user-controllable views to %@", TPPBPeerStableInfoUserControllableViewStatusAsString(self.intendedViewStatus));
 
     [self.deps.cuttlefishXPCWrapper updateWithContainer:self.deps.containerName
                                                 context:self.deps.contextID
+                                           forceRefetch:NO
                                              deviceName:nil
                                            serialNumber:nil
                                               osVersion:nil
                                           policyVersion:nil
                                           policySecrets:nil
                               syncUserControllableViews:[NSNumber numberWithInt:intendedViewStatus]
+                                  secureElementIdentity:nil
+#if !defined(__OPEN_SOURCE__) && APPLE_FEATURE_WALRUS_UI
+                                          walrusSetting:nil
+                                              webAccess:nil
+#endif /* APPLE_FEATURE_WALRUS_UI */
                                                   reply:^(TrustedPeersHelperPeerState* peerState, TPSyncingPolicy* syncingPolicy, NSError* error) {
         STRONGIFY(self);
         if(error || !syncingPolicy) {
@@ -170,7 +190,9 @@
             return;
         }
 
-        [self.deps.viewManager setCurrentSyncingPolicy:syncingPolicy];
+        [self.deps.ckks setCurrentSyncingPolicy:syncingPolicy];
+
+        [self.deps.notifierClass post:OTUserControllableViewStatusChanged];
 
         self.nextState = self.intendedState;
     }];

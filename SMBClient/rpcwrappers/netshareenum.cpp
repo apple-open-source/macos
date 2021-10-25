@@ -124,10 +124,8 @@ static void addShareToDictionary(SMBHANDLE inConnection,
 {
 	CFMutableDictionaryRef currDict = NULL;
 	CFRange foundSlash;
-	CFRange	foundPercentSign;
-    CFStringRef tempShareName1 = NULL;
-    CFStringRef tempShareName2 = NULL;
-	
+    CFMutableStringRef newshare = NULL;
+
 	if (shareName == NULL) {
 		return;
 	}
@@ -183,30 +181,38 @@ static void addShareToDictionary(SMBHANDLE inConnection,
 	}
 	CFDictionarySetValue (currDict, kNetFSHasPasswordKey, kCFBooleanFalse);
     
-    /* Check for a '/' or '%' in the share name */
+    /* Check for a '/' in the share name */
     foundSlash = CFStringFind (shareName, CFSTR("/"), 0);
-    foundPercentSign = CFStringFind (shareName, CFSTR("%"), 0);
-    if ( (foundSlash.location != kCFNotFound) || (foundPercentSign.location != kCFNotFound) ) {
-        /* found a '/' or '%' in the name, so set a display name to be used */
+    if (foundSlash.location != kCFNotFound) {
+        /* found a '/' in the name, so set a display name to be used */
         CFDictionarySetValue (currDict, kNetFSDisplayNameKey, shareName);
         
-        /* escape the vol name to get '/' converted to %2f and '%' to %25 */
-        /* CFURLCreateStringByAddingPercentEscapes is deprecated, but we have no other alternatives */
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-        tempShareName1 = CFURLCreateStringByAddingPercentEscapes (NULL, shareName, NULL, CFSTR("/%"),
-                                                                  kCFStringEncodingUTF8);
-#pragma clang diagnostic pop
-        
-        /* re-escape it leaving the '/' as %2f and '%' as %25 */
-        tempShareName2 = CFURLCreateStringByReplacingPercentEscapes (NULL, tempShareName1, CFSTR("/%"));
-        
-        CFDictionarySetValue (shareDict, tempShareName2, currDict);
-        
-        CFRelease (tempShareName1);
-        CFRelease (tempShareName2);
+        /*
+         * Have to handle the special case of "/" in the share name like
+         * "Open%2FSpace". Because the share name is part of the path, we
+         * cant just unescape it to "/" because that gives us a path of
+         * Open/Space and we end up thinking the share name is Open instead
+         * of "Open/Space". So we special case it and leave it unescaped
+         * in the dictionary as "Open%2FSpace".
+        */
+        newshare = CFStringCreateMutableCopy(NULL, 0, shareName);
+        if (newshare) {
+            /* Manually replace all "/" with "%2F" */
+            CFStringFindAndReplace(newshare, CFSTR("/"), CFSTR("%2F"),
+                                   CFRangeMake(0, CFStringGetLength(newshare)),
+                                   kCFCompareCaseInsensitive);
+            
+            CFDictionarySetValue (shareDict, newshare, currDict);
+            CFRelease(newshare);
+            newshare = NULL;
+        }
+        else {
+            /* Paranoid case that should never happen */
+            CFDictionarySetValue (shareDict, shareName, currDict);
+        }
     }
     else {
+        /* No slash found in share name, so just add it */
         CFDictionarySetValue (shareDict, shareName, currDict);
     }
     

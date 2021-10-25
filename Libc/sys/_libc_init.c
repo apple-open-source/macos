@@ -33,7 +33,7 @@
 #include <TargetConditionals.h>
 #include <_simple.h>
 
-#include "libc_private.h"
+#include "_libc_init.h"
 
 extern void _program_vars_init(const struct ProgramVars *vars);
 extern void _libc_fork_init(const struct _libc_functions *funcs);

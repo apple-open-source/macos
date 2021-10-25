@@ -46,6 +46,7 @@
 #include <utilities/array_size.h>
 #include <Security/SecItemPriv.h>
 #include <Security/SecInternal.h>
+#include <Security/SecCFAllocator.h>
 
 #include <corecrypto/ccn.h>
 #include <corecrypto/ccrsa.h>
@@ -88,7 +89,7 @@ static void SecRSAPublicKeyDestroy(SecKeyRef key) {
 #define cc_skip_zeros(size, ptr) { while (size > 0 && *ptr == 0) { ++ptr; --size; } }
 
 //
-// pubkey is initilaized with an n which is the maximum it can hold
+// pubkey is initialized with an n which is the maximum it can hold
 // We set the n to its correct value given m.
 //
 static int ccrsa_pub_init(ccrsa_pub_ctx_t pubkey,
@@ -102,11 +103,7 @@ static int ccrsa_pub_init(ccrsa_pub_ctx_t pubkey,
         return -1;
 
     ccrsa_ctx_n(pubkey) = nm;
-
-    ccn_read_uint(nm, ccrsa_ctx_m(pubkey), m_size, m);
-    cczp_init(ccrsa_ctx_zm(pubkey));
-
-    return ccn_read_uint(nm, ccrsa_ctx_e(pubkey), e_size, e);
+    return ccrsa_make_pub(pubkey, e_size, e, m_size, m);
 }
 
 
@@ -275,7 +272,7 @@ static CFTypeRef SecRSAPublicKeyCopyOperationResult(SecKeyRef key, SecKeyOperati
                                                (int)bufferSize)));
 
                 // Decrypt into output buffer.
-                result = CFDataCreateMutableWithScratch(NULL, bufferSize);
+                result = CFDataCreateMutableWithScratch(SecCFAllocatorZeroize(), bufferSize);
                 ccerr = ccrsa_pub_crypt(pubkey, (cc_unit *)CFDataGetMutableBytePtr((CFMutableDataRef)result),
                                         (const cc_unit *)CFDataGetBytePtr(in1));
             }
@@ -433,9 +430,7 @@ CFDataRef SecKeyCopyExponent(SecKeyRef key) {
         ccrsa_pub_ctx_t pubkey = key->key;
 
         size_t e_size = ccn_write_uint_size(ccrsa_ctx_n(pubkey), ccrsa_ctx_e(pubkey));
-
-        CFAllocatorRef allocator = CFGetAllocator(key);
-        CFMutableDataRef exponentData = CFDataCreateMutable(allocator, e_size);
+        CFMutableDataRef exponentData = CFDataCreateMutable(SecCFAllocatorZeroize(), e_size);
 
         if (exponentData == NULL)
             return NULL;
@@ -578,7 +573,7 @@ static CFTypeRef SecRSAPrivateKeyCopyOperationResult(SecKeyRef key, SecKeyOperat
                                                    (int)bufferSize)));
 
                     // Decrypt buffer and write it to output data.
-                    result = CFDataCreateMutableWithScratch(NULL, bufferSize);
+                    result = CFDataCreateMutableWithScratch(SecCFAllocatorZeroize(), bufferSize);
                     ccerr = ccrsa_priv_crypt(fullkey, (cc_unit *)CFDataGetMutableBytePtr((CFMutableDataRef)result),
                                              (const cc_unit *)CFDataGetBytePtr(in1));
                 } else {
@@ -704,7 +699,7 @@ OSStatus SecRSAKeyGeneratePair(CFDictionaryRef parameters,
                                SecKeyRef *rsaPublicKey, SecKeyRef *rsaPrivateKey) {
     OSStatus status = errSecParam;
 
-    CFAllocatorRef allocator = NULL; /* @@@ get from parameters. */
+    CFAllocatorRef allocator = SecCFAllocatorZeroize(); /* @@@ get from parameters. */
 
     SecKeyRef pubKey = NULL;
     SecKeyRef privKey = SecKeyCreate(allocator, &kSecRSAPrivateKeyDescriptor,

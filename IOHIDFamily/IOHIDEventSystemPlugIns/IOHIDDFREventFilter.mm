@@ -8,7 +8,6 @@
  */
 
 #include "IOHIDDFREventFilter.hpp"
-#include "IOHIDDebug.h"
 #include "IOHIDProperties.h"
 #include <new>
 #include <IOKit/hid/IOHIDService.h>
@@ -17,6 +16,7 @@
 #include <IOKit/hid/IOHIDPrivateKeys.h>
 #include <IOKit/hid/IOHIDEventData.h>
 #include <IOKit/hid/IOHIDEventSystemKeys.h>
+#include <IOKit/hid/IOHIDLibPrivate.h>
 #include <IOKit/hid/AppleHIDUsageTables.h>
 #include <mach/mach_time.h>
 
@@ -258,6 +258,7 @@ void IOHIDDFREventFilter::scheduleWithDispatchQueue(dispatch_queue_t queue)
         dispatch_source_set_event_handler(_eventCancelTimer, ^(void) {
             dispatch_source_set_timer(_eventCancelTimer, DISPATCH_TIME_FOREVER, 0, 0);
             _cancel = false;
+            _cancelledTouchInProgress = false;
             if (_bioInProgress) {
                 // We're not guaranteed a finger off event, so set this to false
                 _bioInProgress = false;
@@ -473,6 +474,7 @@ void IOHIDDFREventFilter::handleBiometricEvent(IOHIDEventRef event)
         } else {
             _bioInProgress = false;
             _cancel = false;
+            _cancelledTouchInProgress = false;
             dispatch_source_set_timer(_eventCancelTimer, DISPATCH_TIME_FOREVER, 0, 0);
         }
     }

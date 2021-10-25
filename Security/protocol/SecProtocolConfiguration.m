@@ -14,6 +14,7 @@
 #define MINIMUM_ECDSA_KEY_SIZE 256
 #define MINIMUM_HASH_ALGORITHM kSecSignatureHashAlgorithmSHA256
 #define MINIMUM_PROTOCOL kTLSProtocol12
+#define TLS_V1_PREFIX "TLSv1."
 
 static const char *
 get_running_process()
@@ -244,29 +245,80 @@ sec_protocol_configuration_tls_required_for_address(sec_protocol_configuration_t
     return !xpc_dictionary_get_bool(map, kAllowsLocalNetworking);
 }
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
 static tls_protocol_version_t
+tls1x_minor_version_digit_to_version(char version_digit) {
+    tls_protocol_version_t tls_protocol_version_unknown = 0;
+
+    switch(version_digit) {
+        case '0':
+            return tls_protocol_version_TLSv10;
+        case '1':
+            return tls_protocol_version_TLSv11;
+        case '2':
+            return tls_protocol_version_TLSv12;
+        case '3':
+            return tls_protocol_version_TLSv13;
+        default:
+            return tls_protocol_version_unknown;
+    }
+}
+
+static tls_protocol_version_t
+dtls1x_minor_version_digit_to_version(char version_digit) {
+    tls_protocol_version_t tls_protocol_version_unknown = 0;
+
+    switch(version_digit) {
+        case '0':
+            return tls_protocol_version_DTLSv10;
+        case '2':
+            return tls_protocol_version_DTLSv12;
+        default:
+            return tls_protocol_version_unknown;
+    }
+}
+#pragma clang diagnostic pop
+
+tls_protocol_version_t
 sec_protocol_configuration_protocol_string_to_version(const char *protocol)
 {
+    tls_protocol_version_t tls_protocol_version_unknown = 0;
+
     if (protocol == NULL) {
-        return 0;
+        return tls_protocol_version_unknown;
     }
 
-    const char *tlsv10 = "TLSv1.0";
-    const char *tlsv11 = "TLSv1.1";
-    const char *tlsv12 = "TLSv1.2";
-    const char *tlsv13 = "TLSv1.3";
-
-    if (strlen(protocol) == strlen(tlsv10) && strncmp(protocol, tlsv10, strlen(protocol)) == 0) {
-        return tls_protocol_version_TLSv10;
-    } else if (strlen(protocol) == strlen(tlsv11) && strncmp(protocol, tlsv11, strlen(protocol)) == 0) {
-        return tls_protocol_version_TLSv11;
-    } else if (strlen(protocol) == strlen(tlsv12) && strncmp(protocol, tlsv12, strlen(protocol)) == 0) {
-        return tls_protocol_version_TLSv12;
-    } else if (strlen(protocol) == strlen(tlsv13) && strncmp(protocol, tlsv13, strlen(protocol)) == 0) {
-        return tls_protocol_version_TLSv13;
+    // The protocol string's prefix must be "(D)TLSv1.".
+    int isDTLS = 0;
+    if (*protocol == 'D') {
+        isDTLS = 1; // Maybe DTLS
+        protocol = protocol + 1;
     }
 
-    return 0;
+    if (strncmp(protocol, TLS_V1_PREFIX, strlen(TLS_V1_PREFIX)) != 0) {
+        return tls_protocol_version_unknown;
+    }
+    protocol = protocol + strlen(TLS_V1_PREFIX);
+
+    // Look up the minor version digit among the known (D)TLS 1.x versions.
+    tls_protocol_version_t (*minor_version_digit_to_version[])(char) = {
+        &tls1x_minor_version_digit_to_version,
+        &dtls1x_minor_version_digit_to_version,
+    };
+
+    tls_protocol_version_t version = (*minor_version_digit_to_version[isDTLS])(*protocol);
+    if (version == tls_protocol_version_unknown) {
+        return tls_protocol_version_unknown;
+    }
+    protocol = protocol + 1;
+
+    // The protocol string must end with the minor version digit.
+    if (*protocol != '\0') {
+        return tls_protocol_version_unknown;
+    }
+
+    return version;
 }
 
 static void
@@ -288,6 +340,8 @@ sec_protocol_configuration_register_builtin_exception(xpc_object_t dict, const c
     }
 }
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
 void
 sec_protocol_configuration_register_builtin_exceptions(sec_protocol_configuration_t config)
 {
@@ -300,6 +354,7 @@ sec_protocol_configuration_register_builtin_exceptions(sec_protocol_configuratio
     sec_protocol_configuration_register_builtin_exception(dict, "apple-mapkit.com", tls_protocol_version_TLSv10, false, true, true, true);
     sec_protocol_configuration_register_builtin_exception(dict, "setup.icloud.com", tls_protocol_version_TLSv12, false, true, true, true);
 }
+#pragma clang diagnostic pop
 
 void
 sec_protocol_configuration_populate_insecure_defaults(sec_protocol_configuration_t config)

@@ -87,7 +87,8 @@ static void build_trust_chains(const void *key, const void *value,
     SecCertificateRef cert = NULL;
     SecIdentityRef identity = NULL;
     SecPolicyRef policy = NULL;
-    CFMutableArrayRef cert_chain = NULL, eval_chain = NULL;
+    CFArrayRef cert_chain = NULL;
+    CFMutableArrayRef eval_chain = NULL;
     SecTrustRef trust = NULL;
     build_trust_chains_context * a_build_trust_chains_context = (build_trust_chains_context*)context;
 
@@ -129,12 +130,8 @@ static void build_trust_chains(const void *key, const void *value,
     require(trust, out);
     SecTrustEvaluate(trust, &result);
     CFDictionarySetValue(identity_dict, kSecImportItemTrust, trust);
-    
-    require(cert_chain = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks), out);
-    CFIndex cert_chain_length = SecTrustGetCertificateCount(trust);
-    int i;
-    for (i = 0; i < cert_chain_length; i++)
-        CFArrayAppendValue(cert_chain, SecTrustGetCertificateAtIndex(trust, i));
+
+    require(cert_chain = SecTrustCopyCertificateChain(trust), out);
     CFDictionarySetValue(identity_dict, kSecImportItemCertChain, cert_chain);
     
     CFArrayAppendValue(a_build_trust_chains_context->identities, identity_dict);

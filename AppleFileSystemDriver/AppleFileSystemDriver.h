@@ -38,11 +38,10 @@ class AppleFileSystemDriver : public IOService
 
 protected:
 
-    IONotifier *_notifier;
     uuid_t      _uuid;
     OSString   *_uuidString;
-    OSString   *_apfsPrebootUUIDString;
-    UInt32      _matched;
+    OSString   *_containerUUID;
+    UInt32      _state;
     
     struct ExpansionData { /* */ };
     ExpansionData * _expansionData;
@@ -55,11 +54,26 @@ public:
     
 private:
 
-    static bool mediaNotificationHandler(void * target, void * ref,
-										 IOService * newService,
-										 IONotifier * notifier);
+    bool startWithAPFSUUIDForRecovery(OSObject *uuid);
+    bool checkAPFSUUIDForRecovery(void *ref, IOService *service, IONotifier *notifier);
+    bool checkAPFSRecoveryVolumeInContainer(void *ref, IOService *service, IONotifier *notifier);
+    
+    bool startWithAPFSUUID(OSObject *uuid);
+    bool checkAPFSUUID(void *ref, IOService *service, IONotifier *notifier);
+
+    bool startWithBootUUID(OSObject *uuid);
+    bool checkBootUUID(void *ref, IOService *service, IONotifier *notifier);
+    
+    bool publishBootMediaAndTerminate(IOMedia *media); // calls release()
     
     static IOReturn readHFSUUID(IOMedia *media, void **uuidPtr);
+
+    static uint16_t getAPFSRoleForVolume(IOMedia *media);
+    static OSString *copyAPFSContainerUUIDForVolume(IOMedia *media);
+    static bool volumeMatchesAPFSUUID(IOMedia *media, OSString *uuid, bool matchAnyRoleInGroup = false);
+    static bool volumeMatchesAPFSContainerUUID(IOMedia *media, OSString *uuid);
+    static bool volumeMatchesAPFSRole(IOMedia *media, uint16_t role);
+    IONotifier *startMatchingForAPFSVolumes(IOServiceMatchingNotificationHandler callback);
         
 };
 

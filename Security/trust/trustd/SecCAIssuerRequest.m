@@ -251,7 +251,7 @@ bool SecCAIssuerCopyParents(SecCertificateRef certificate, void *context, void (
             analytics->ca_issuer_network = true;
         }
 
-        NSInteger count = [nsIssuers count];
+        NSUInteger count = [nsIssuers count];
         if (count >= CA_ISSUERS_REQUEST_THRESHOLD) {
             secnotice("caissuer", "too many caIssuer entries (%ld)", (long)count);
             callback(context, NULL);

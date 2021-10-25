@@ -1658,7 +1658,7 @@ arp_session_new_if_session(arp_session_t * session, interface_t * if_p)
 	}
 	break;
     default:
-	my_log(LOG_ERR, "arp_client_init(%s): unsupported network type",
+	my_log(LOG_NOTICE, "arp_client_init(%s): unsupported network type",
 	       if_name(if_p));
 	return (NULL);
     }

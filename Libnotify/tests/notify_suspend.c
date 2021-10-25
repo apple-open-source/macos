@@ -11,11 +11,9 @@
 #include <stdint.h>
 #include <notify.h>
 #include <darwintest.h>
+#include "notify_private.h"
 
-T_DECL(notify_suspend,
-       "notify suspend registration test",
-       T_META("owner", "Core Darwin Daemons & Tools"),
-       T_META("as_root", "false"))
+static void run_test()
 {
 	__block bool suspendedToggle = false;
 	__block bool notSuspendedToggle = false;
@@ -61,5 +59,24 @@ T_DECL(notify_suspend,
 	T_ASSERT_EQ(notSuspendedToggle, true, "check no-suspend token after final post");
 
 	T_PASS("Test complete");
+}
+
+T_DECL(notify_suspend,
+       "notify suspend registration test",
+       T_META("owner", "Core Darwin Daemons & Tools"),
+       T_META("as_root", "false"))
+{
+	run_test();
+}
+
+T_DECL(notify_suspend_filtered,
+       "notify filtered suspend registration test",
+       T_META("owner", "Core Darwin Daemons & Tools"),
+       T_META("as_root", "false"))
+{
+
+	notify_set_options(NOTIFY_OPT_DISPATCH | NOTIFY_OPT_REGEN | NOTIFY_OPT_FILTERED);
+
+	run_test();
 }
 

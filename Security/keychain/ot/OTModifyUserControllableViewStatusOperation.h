@@ -35,7 +35,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 // Pass 'unknown' to intendedViewStatus to set your peer view status to the opinion of your peers
 - (instancetype)initWithDependencies:(OTOperationDependencies*)dependencies
-                  intendedViewStatus:(TPPBPeerStableInfo_UserControllableViewStatus)intendedViewStatus
+                  intendedViewStatus:(TPPBPeerStableInfoUserControllableViewStatus)intendedViewStatus
                        intendedState:(OctagonState*)intendedState
                     peerMissingState:(OctagonState*)peerMissingState
                           errorState:(OctagonState*)errorState;

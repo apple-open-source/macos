@@ -10,14 +10,14 @@
 
 #include <CoreFoundation/CoreFoundation.h>
 #include <CoreFoundation/CFRuntime.h>
-#include <utilities/SecCFWrappers.h>
-#include <utilities/SecCFError.h>
-#include <utilities/SecAKSWrappers.h>
+#include "utilities/SecCFWrappers.h"
+#include "utilities/SecCFError.h"
+#include "utilities/SecAKSWrappers.h"
 
 #include <Security/SecKeyPriv.h>
 
 #include <Security/der_plist.h>
-#include <utilities/der_plist_internal.h>
+#include "utilities/der_plist_internal.h"
 #include <corecrypto/ccder.h>
 
 #include <AssertMacros.h>
@@ -40,8 +40,6 @@
 #include "keychain/SecureObjectSync/SOSPeerInfoInternal.h"
 #include "keychain/SecureObjectSync/SOSUserKeygen.h"
 #include "keychain/SecureObjectSync/SOSTransportCircle.h"
-
-#include <utilities/iCloudKeychainTrace.h>
 
 #include <Security/SecItemPriv.h>
 
@@ -129,6 +127,10 @@ typedef void (^SOSAccountSaveBlock)(CFDataRef flattenedAccount, CFErrorRef flatt
 @property   (nonatomic)              SecKeyRef                  octagonEncryptionFullKeyRef;
 
 @property   (nonatomic, assign)     BOOL                        accountIsChanging;
+@property   (nonatomic, assign)     BOOL                        sosTestmode;
+@property   (nonatomic, assign)     BOOL                        consolidateKeyInterest;
+
+
 
 
 -(id) init NS_UNAVAILABLE;
@@ -148,6 +150,13 @@ void SOSAccountAddSyncablePeerBlock(SOSAccount*  a,
 -(void) ghostBustSchedule;
 + (SOSAccountGhostBustingOptions) ghostBustGetRampSettings;
 - (bool) ghostBustCheckDate;
+
+- (void) sosDisable;
+- (void) sosEnable;
+- (void) sosIsEnabledCB: (void(^)(bool result)) complete;
+- (bool) sosIsEnabled;
+- (NSString *) sosIsEnabledString;
+- (bool) sosEvaluateIfNeeded;
 
 #if OCTAGON
 - (void)triggerBackupForPeers:(NSArray<NSString*>*)backupPeer;

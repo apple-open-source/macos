@@ -188,8 +188,6 @@ AP_DECLARE(int) ap_strcmp_match(const char *str, const char *expected)
     int x, y;
 
     for (x = 0, y = 0; expected[y]; ++y, ++x) {
-        if ((!str[x]) && (expected[y] != '*'))
-            return -1;
         if (expected[y] == '*') {
             while (expected[++y] == '*');
             if (!expected[y])
@@ -201,6 +199,8 @@ AP_DECLARE(int) ap_strcmp_match(const char *str, const char *expected)
             }
             return -1;
         }
+        else if (!str[x])
+            return -1;
         else if ((expected[y] != '?') && (str[x] != expected[y]))
             return 1;
     }
@@ -941,7 +941,7 @@ AP_DECLARE(apr_status_t) ap_pcfg_openfile(ap_configfile_t **ret_cfg,
 
     if (finfo.filetype != APR_REG &&
 #if defined(WIN32) || defined(OS2) || defined(NETWARE)
-        strcasecmp(apr_filepath_name_get(name), "nul") != 0) {
+        ap_cstr_casecmp(apr_filepath_name_get(name), "nul") != 0) {
 #else
         strcmp(name, "/dev/null") != 0) {
 #endif /* WIN32 || OS2 */
@@ -1698,7 +1698,7 @@ AP_DECLARE(int) ap_find_token(apr_pool_t *p, const char *line, const char *tok)
         while (*s && !TEST_CHAR(*s, T_HTTP_TOKEN_STOP)) {
             ++s;
         }
-        if (!strncasecmp((const char *)start_token, (const char *)tok,
+        if (!ap_cstr_casecmpn((const char *)start_token, (const char *)tok,
                          s - start_token)) {
             return 1;
         }
@@ -2413,11 +2413,9 @@ char *ap_get_local_host(apr_pool_t *a)
 AP_DECLARE(char *) ap_pbase64decode(apr_pool_t *p, const char *bufcoded)
 {
     char *decoded;
-    int l;
 
-    decoded = (char *) apr_palloc(p, 1 + apr_base64_decode_len(bufcoded));
-    l = apr_base64_decode(decoded, bufcoded);
-    decoded[l] = '\0'; /* make binary sequence into string */
+    decoded = (char *) apr_palloc(p, apr_base64_decode_len(bufcoded));
+    apr_base64_decode(decoded, bufcoded);
 
     return decoded;
 }
@@ -2427,9 +2425,8 @@ AP_DECLARE(char *) ap_pbase64encode(apr_pool_t *p, char *string)
     char *encoded;
     int l = strlen(string);
 
-    encoded = (char *) apr_palloc(p, 1 + apr_base64_encode_len(l));
-    l = apr_base64_encode(encoded, string, l);
-    encoded[l] = '\0'; /* make binary sequence into string */
+    encoded = (char *) apr_palloc(p, apr_base64_encode_len(l));
+    apr_base64_encode(encoded, string, l);
 
     return encoded;
 }
@@ -2712,7 +2709,7 @@ AP_DECLARE(int) ap_parse_form_data(request_rec *r, ap_filter_t *f,
 
     /* sanity check - we only support forms for now */
     ct = apr_table_get(r->headers_in, "Content-Type");
-    if (!ct || strncasecmp("application/x-www-form-urlencoded", ct, 33)) {
+    if (!ct || ap_cstr_casecmpn("application/x-www-form-urlencoded", ct, 33)) {
         return ap_discard_request_body(r);
     }
 

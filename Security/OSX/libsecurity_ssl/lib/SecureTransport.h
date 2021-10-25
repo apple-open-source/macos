@@ -1223,8 +1223,8 @@ SSLCopyTrustedRoots			(SSLContextRef 		context,
  * @note This function is not available on iOS, and should be considered
  *    deprecated on Mac OS X. To get peer certificates, call SSLCopyPeerTrust
  *    to obtain the SecTrustRef for the peer certificate chain, then use the
- *    SecTrustGetCertificateCount and SecTrustGetCertificateAtIndex functions
- *    to retrieve individual certificates in the chain (see SecTrust.h).
+ *    SecTrustCopyCertificateChain to retrieve individual certificates in
+ *    the chain (see SecTrust.h).
  * @param context A valid SSLContextRef.
  * @param certs Pointer to CFArrayRef that will store a reference to the peer's certificates.
  * @result errSecSuccess on success, alternative error on failure.

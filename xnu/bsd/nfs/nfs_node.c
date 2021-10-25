@@ -101,7 +101,7 @@ LCK_MTX_DECLARE(nfs_node_hash_mutex, &nfs_node_hash_lck_grp);
 ZONE_DECLARE(nfsnode_zone, "NFS node",
     sizeof(struct nfsnode), ZC_ZFREE_CLEARMEM);
 
-#define NFS_NODE_DBG(...) NFS_DBG(NFS_FAC_NODE, 7, ## __VA_ARGS__)
+#define NFS_NODE_DBG(...) NFSCLNT_DBG(NFSCLNT_FAC_NODE, 7, ## __VA_ARGS__)
 
 void
 nfs_nhinit_finish(void)
@@ -348,13 +348,13 @@ loop:
 
 				cmp = nfs_case_insensitive(mp) ? strncasecmp : strncmp;
 
-				if (vp->v_name && cn_namelen != strnlen(vp->v_name, MAXPATHLEN)) {
+				if (vnode_getname(vp) && cn_namelen != strnlen(vnode_getname(vp), MAXPATHLEN)) {
 					update_flags |= VNODE_UPDATE_NAME;
 				}
-				if (vp->v_name && cn_namelen && (*cmp)(cnp->cn_nameptr, vp->v_name, cn_namelen)) {
+				if (vnode_getname(vp) && cn_namelen && (*cmp)(cnp->cn_nameptr, vnode_getname(vp), cn_namelen)) {
 					update_flags |= VNODE_UPDATE_NAME;
 				}
-				if ((vp->v_name == NULL && cn_namelen != 0) || (vp->v_name != NULL && cn_namelen == 0)) {
+				if ((vnode_getname(vp) == NULL && cn_namelen != 0) || (vnode_getname(vp) != NULL && cn_namelen == 0)) {
 					update_flags |= VNODE_UPDATE_NAME;
 				}
 				if (vnode_parent(vp) != NFSTOV(dnp)) {
@@ -362,7 +362,7 @@ loop:
 				}
 				if (update_flags) {
 					NFS_NODE_DBG("vnode_update_identity old name %s new name %.*s update flags = %x\n",
-					    vp->v_name, cn_namelen, cnp->cn_nameptr ? cnp->cn_nameptr : "", update_flags);
+					    vnode_getname(vp), cn_namelen, cnp->cn_nameptr ? cnp->cn_nameptr : "", update_flags);
 					vnode_update_identity(vp, NFSTOV(dnp), cnp->cn_nameptr, cn_namelen, 0, update_flags);
 				}
 			}
@@ -421,7 +421,7 @@ loop:
 
 	/* setup node's file handle */
 	if (fhsize > NFS_SMALLFH) {
-		MALLOC(np->n_fhp, u_char *, fhsize, M_NFSBIGFH, M_WAITOK);
+		np->n_fhp = kalloc_data(fhsize, Z_WAITOK);
 		if (!np->n_fhp) {
 			lck_mtx_unlock(&nfs_node_hash_mutex);
 			NFS_ZFREE(nfsnode_zone, np);
@@ -475,7 +475,7 @@ loop:
 		lck_rw_destroy(&np->n_datalock, &nfs_data_lck_grp);
 		lck_mtx_destroy(&np->n_openlock, &nfs_open_grp);
 		if (np->n_fhsize > NFS_SMALLFH) {
-			FREE(np->n_fhp, M_NFSBIGFH);
+			kfree_data(np->n_fhp, np->n_fhsize);
 		}
 		NFS_ZFREE(nfsnode_zone, np);
 		*npp = 0;
@@ -569,7 +569,7 @@ loop:
 		lck_rw_destroy(&np->n_datalock, &nfs_data_lck_grp);
 		lck_mtx_destroy(&np->n_openlock, &nfs_open_grp);
 		if (np->n_fhsize > NFS_SMALLFH) {
-			FREE(np->n_fhp, M_NFSBIGFH);
+			kfree_data(np->n_fhp, np->n_fhsize);
 		}
 		NFS_ZFREE(nfsnode_zone, np);
 		*npp = 0;
@@ -625,7 +625,7 @@ nfs_vnop_inactive(
 
 	nmp = NFSTONMP(np);
 	mp = vnode_mount(vp);
-	MALLOC(nvattr, struct nfs_vattr *, sizeof(*nvattr), M_TEMP, M_WAITOK);
+	nvattr = kalloc_type(struct nfs_vattr, Z_WAITOK);
 
 restart:
 	force = (!mp || vfs_isforce(mp));
@@ -903,10 +903,10 @@ restart:
 		/* in case of forceful unmount usecounts ignore anyways */
 		vnode_rele(NFSTOV(nsp->nsr_dnp));
 	}
-	FREE(nsp, M_TEMP);
+	kfree_type(struct nfs_sillyrename, nsp);
 	FSDBG_BOT(264, vp, np, np->n_flag, 0);
 out_free:
-	FREE(nvattr, M_TEMP);
+	kfree_type(struct nfs_vattr, nvattr);
 	return 0;
 }
 
@@ -923,6 +923,7 @@ nfs_vnop_reclaim(
 {
 	vnode_t vp = ap->a_vp;
 	nfsnode_t np = VTONFS(vp);
+	vfs_context_t ctx = ap->a_context;
 	struct nfs_open_file *nofp, *nextnofp;
 	struct nfs_file_lock *nflp, *nextnflp;
 	struct nfs_lock_owner *nlop, *nextnlop;
@@ -963,8 +964,7 @@ nfs_vnop_reclaim(
 			np->n_openflags &= ~N_DELEG_MASK;
 		}
 		if (np->n_attrdirfh) {
-			FREE(np->n_attrdirfh, M_TEMP);
-			np->n_attrdirfh = NULL;
+			kfree_data(np->n_attrdirfh, *np->n_attrdirfh + 1);
 		}
 	}
 #endif
@@ -986,7 +986,7 @@ nfs_vnop_reclaim(
 			lck_mtx_unlock(&nflp->nfl_owner->nlo_lock);
 		}
 		TAILQ_REMOVE(&np->n_locks, nflp, nfl_link);
-		nfs_file_lock_destroy(nflp);
+		nfs_file_lock_destroy(np, nflp, vfs_context_thread(ctx), vfs_context_ucred(ctx));
 	}
 	/* clean up lock owners */
 	TAILQ_FOREACH_SAFE(nlop, &np->n_lock_owners, nlo_link, nextnlop) {
@@ -1064,7 +1064,7 @@ nfs_vnop_reclaim(
 		NP(np, "nfs_reclaim: dropping %s buffers", (!LIST_EMPTY(&np->n_dirtyblkhd) ? "dirty" : "clean"));
 	}
 	lck_mtx_unlock(&nfs_buf_mutex);
-	nfs_vinvalbuf(vp, V_IGNORE_WRITEERR, ap->a_context, 0);
+	nfs_vinvalbuf1(vp, V_IGNORE_WRITEERR, ap->a_context, 0);
 
 	lck_mtx_lock(&nfs_node_hash_mutex);
 
@@ -1076,7 +1076,7 @@ nfs_vnop_reclaim(
 			kauth_cred_unref(&np->n_sillyrename->nsr_cred);
 		}
 		vnode_rele(NFSTOV(np->n_sillyrename->nsr_dnp));
-		FREE(np->n_sillyrename, M_TEMP);
+		kfree_type(struct nfs_sillyrename, np->n_sillyrename);
 	}
 
 	vnode_removefsref(vp);
@@ -1097,7 +1097,7 @@ nfs_vnop_reclaim(
 		NFS_ZFREE(ZV_NFSDIROFF, np->n_cookiecache);
 	}
 	if (np->n_fhsize > NFS_SMALLFH) {
-		FREE(np->n_fhp, M_NFSBIGFH);
+		kfree_data(np->n_fhp, np->n_fhsize);
 	}
 	if (np->n_vattr.nva_acl) {
 		kauth_acl_free(np->n_vattr.nva_acl);
@@ -1454,7 +1454,7 @@ out:
 	microuptime(&then);
 	timersub(&then, &now, &diff);
 
-	NFS_DBG(NFS_FAC_SOCK, 7, "mount_is_dirty for %s took %lld mics for %ld slots and %ld nodes return %d\n",
+	NFSCLNT_DBG(NFSCLNT_FAC_SOCK, 7, "mount_is_dirty for %s took %lld mics for %ld slots and %ld nodes return %d\n",
 	    vfs_statfs(mp)->f_mntfromname, (uint64_t)diff.tv_sec * 1000000LL + diff.tv_usec, i, ncnt, (i <= nfsnodehash));
 #endif
 

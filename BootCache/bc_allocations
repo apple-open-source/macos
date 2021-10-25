@@ -1,0 +1,45 @@
+#!/usr/bin/perl
+
+# Detects allocations still alive allocated by the BootCache kext
+#
+# Instructions for use:
+#
+# Compile Development BootCache.kext with BC_DEBUG_ALLOCATIONS defined
+# Boot with the kext
+# Jettison the cache via `BootCacheControl jettison` (to clean up everything, otherwise we have bunch of allocations still alive expectedly)
+# Capture output of `BootCacheControl debugbuffer`
+# Run this script against that output
+
+use strict;
+my %allocations = ();
+
+while (my $line = <>) {
+	#    10.061       BC_copyin_playlist[4746]: *** playlist_mounts: allocated nopointer array item size 44, count 1: 0xffffff947a085fc0
+	#    10.062           BC_setup_mount[3849]: *** cm->cm_pextents: allocated withpointer array item size 8, count 1995: 0xffffff94799c8000
+	#    10.062 BC_fill_in_cache_mount_e[4174]: *** cd: allocated single of size 40: 0xffffff947a085f30
+	if ($line =~ /allocated.*: 0x([[:xdigit:]]+)/) {
+		$allocations{$1} = $line;
+		
+		
+	#    10.062       BC_copyin_playlist[5115]: *** playlist_entries: freeing nopointer array item size 32, count 512: 0xffffff947a333000
+	#    10.496       BC_terminate_cache[3370]: *** BC_cache->c_extentlists: freeing withpointer array item size 8, count 1: 0xffffff9479855690
+	#    10.496       BC_terminate_cache[3352]: *** cm->cm_disk: freeing single of size 40: 0xffffff947a085f30
+	} else {
+		if ($line =~ /freeing.*: 0x([[:xdigit:]]+)/) {
+			# print "$allocations{$1}$line\n";
+			delete $allocations{$1};
+		}
+	}
+}
+
+my $num_allocations = values %allocations;
+if ($num_allocations > 0) {
+	print "Allocations still alive:\n";
+	foreach my $allocation (sort { $a <=> $b } values %allocations) {
+		print "$allocation";
+	}
+	exit($num_allocations);
+} else {
+	print "No live allocations!\n";
+	exit(0);
+}

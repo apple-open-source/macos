@@ -527,13 +527,8 @@ vm_object_allocate(
 {
 	vm_object_t object;
 
-	object = (vm_object_t) zalloc(vm_object_zone);
-
-//	dbgLog(object, size, 0, 2);			/* (TEST/DEBUG) */
-
-	if (object != VM_OBJECT_NULL) {
-		_vm_object_allocate(size, object);
-	}
+	object = zalloc_flags(vm_object_zone, Z_WAITOK | Z_NOFAIL);
+	_vm_object_allocate(size, object);
 
 	return object;
 }
@@ -556,15 +551,8 @@ vm_object_bootstrap(void)
 	vm_object_size = (sizeof(struct vm_object) + (VM_PAGE_PACKED_PTR_ALIGNMENT - 1)) &
 	    ~(VM_PAGE_PACKED_PTR_ALIGNMENT - 1);
 
-	vm_object_zone = zone_create_ext("vm objects", vm_object_size,
-	    ZC_NOENCRYPT | ZC_ALIGNMENT_REQUIRED,
-	    ZONE_ID_ANY, ^(zone_t z){
-#if defined(__LP64__)
-		zone_set_submap_idx(z, Z_SUBMAP_IDX_VA_RESTRICTED);
-#else
-		(void)z;
-#endif
-	});
+	vm_object_zone = zone_create("vm objects", vm_object_size,
+	    ZC_NOENCRYPT | ZC_ALIGNMENT_REQUIRED | ZC_VM_LP64 | ZC_NOTBITAG);
 
 	queue_init(&vm_object_cached_list);
 
@@ -677,11 +665,11 @@ vm_object_deallocate(
 
 		if (object->ref_count == 0) {
 			if (object == kernel_object) {
-				panic("vm_object_deallocate: losing kernel_object\n");
+				panic("vm_object_deallocate: losing kernel_object");
 			} else if (object == retired_pages_object) {
-				panic("vm_object_deallocate: losing retired_pages_object\n");
+				panic("vm_object_deallocate: losing retired_pages_object");
 			} else {
-				panic("vm_object_deallocate: losing compressor_object\n");
+				panic("vm_object_deallocate: losing compressor_object");
 			}
 		}
 		vm_object_unlock(object);
@@ -1508,7 +1496,7 @@ vm_object_reap(
 			/* remove from nonvolatile queue */
 			vm_purgeable_nonvolatile_dequeue(object);
 		} else {
-			panic("object %p in unexpected purgeable state 0x%x\n",
+			panic("object %p in unexpected purgeable state 0x%x",
 			    object, object->purgable);
 		}
 		if (object->transposed &&
@@ -2582,7 +2570,7 @@ vm_object_reuse_pages(
 	vm_object_lock_assert_exclusive(object);
 
 	if (object->all_reusable) {
-		panic("object %p all_reusable: can't update pmap stats\n",
+		panic("object %p all_reusable: can't update pmap stats",
 		    object);
 		assert(object->reusable_page_count == 0);
 		object->all_reusable = FALSE;
@@ -3413,10 +3401,10 @@ Retry:
 	return KERN_SUCCESS;
 }
 
-static int copy_delayed_lock_collisions = 0;
-static int copy_delayed_max_collisions = 0;
-static int copy_delayed_lock_contention = 0;
-static int copy_delayed_protect_iterate = 0;
+static uint32_t copy_delayed_lock_collisions;
+static uint32_t copy_delayed_max_collisions;
+static uint32_t copy_delayed_lock_contention;
+static uint32_t copy_delayed_protect_iterate;
 
 /*
  *	Routine:	vm_object_copy_delayed [internal]
@@ -3447,7 +3435,7 @@ vm_object_copy_delayed(
 	boolean_t               delayed_pmap_flush = FALSE;
 
 
-	int collisions = 0;
+	uint32_t collisions = 0;
 	/*
 	 *	The user-level memory manager wants to see all of the changes
 	 *	to this object, but it has promised not to make any changes on
@@ -4267,7 +4255,7 @@ vm_object_compressor_pager_create(
 	    object->vo_size,
 	    FALSE);
 	if (pager_object != object) {
-		panic("vm_object_compressor_pager_create: mismatch (pager: %p, pager_object: %p, orig_object: %p, orig_object size: 0x%llx)\n", pager, pager_object, object, (uint64_t) object->vo_size);
+		panic("vm_object_compressor_pager_create: mismatch (pager: %p, pager_object: %p, orig_object: %p, orig_object size: 0x%llx)", pager, pager_object, object, (uint64_t) object->vo_size);
 	}
 
 	/*
@@ -7361,7 +7349,7 @@ vm_object_lock_shared(vm_object_t object)
 boolean_t
 vm_object_lock_yield_shared(vm_object_t object)
 {
-	boolean_t retval = FALSE, force_yield = FALSE;;
+	boolean_t retval = FALSE, force_yield = FALSE;
 
 	vm_object_lock_assert_shared(object);
 
@@ -7411,7 +7399,7 @@ vm_object_unlock(vm_object_t object)
 #if DEVELOPMENT || DEBUG
 	if (object->Lock_owner) {
 		if (object->Lock_owner != current_thread()) {
-			panic("vm_object_unlock: not owner - %p\n", object);
+			panic("vm_object_unlock: not owner - %p", object);
 		}
 		object->Lock_owner = 0;
 		DTRACE_VM(vm_object_unlock);
@@ -7926,8 +7914,7 @@ vm_decmp_upl_reprioritize(upl_t upl, int prio)
 	upl_unlock(upl);
 
 	/* Now perform the allocation */
-	io_upl_reprio_info = (uint64_t *)kheap_alloc(KHEAP_TEMP,
-	    sizeof(uint64_t) * atop(io_upl_size), Z_WAITOK);
+	io_upl_reprio_info = kalloc_data(sizeof(uint64_t) * atop(io_upl_size), Z_WAITOK);
 	if (io_upl_reprio_info == NULL) {
 		return;
 	}
@@ -7976,8 +7963,8 @@ vm_decmp_upl_reprioritize(upl_t upl, int prio)
 
 		if (blkno != 0 && len != 0) {
 			/* Create the request for I/O reprioritization */
-			req = (io_reprioritize_req_t)zalloc(io_reprioritize_req_zone);
-			assert(req != NULL);
+			req = zalloc_flags(io_reprioritize_req_zone,
+			    Z_WAITOK | Z_NOFAIL);
 			req->blkno = blkno;
 			req->len = len;
 			req->priority = prio;
@@ -7998,8 +7985,7 @@ vm_decmp_upl_reprioritize(upl_t upl, int prio)
 	IO_REPRIO_THREAD_WAKEUP();
 
 out:
-	kheap_free(KHEAP_TEMP, io_upl_reprio_info,
-	    sizeof(uint64_t) * atop(io_upl_size));
+	kfree_data(io_upl_reprio_info, sizeof(uint64_t) * atop(io_upl_size));
 }
 
 void
@@ -8237,7 +8223,7 @@ vm_object_ledger_tag_ledgers(
 		}
 		break;
 	default:
-		panic("%s: object %p has unsupported ledger_tag %d\n",
+		panic("%s: object %p has unsupported ledger_tag %d",
 		    __FUNCTION__, object, object->vo_ledger_tag);
 	}
 }

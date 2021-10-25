@@ -1,8 +1,4 @@
-/*	$OpenBSD: patch.c,v 1.48 2009/10/27 23:59:41 deraadt Exp $	*/
-
-/*
- * patch - a program to apply diffs to original files
- * 
+/*-
  * Copyright 1986, Larry Wall
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -22,20 +18,27 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  * 
+ * patch - a program to apply diffs to original files
+ *
  * -C option added in 1998, original code by Marc Espie, based on FreeBSD
  * behaviour
+ *
+ * $OpenBSD: patch.c,v 1.54 2014/12/13 10:31:07 tobias Exp $
+ * $FreeBSD$
+ *
  */
 
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <unistd.h>
 
+#include <assert.h>
 #include <ctype.h>
 #include <getopt.h>
 #include <limits.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <unistd.h>
 
 #include "common.h"
 #include "util.h"
@@ -46,10 +49,12 @@
 
 mode_t		filemode = 0644;
 
-char		buf[MAXLINELEN];	/* general purpose buffer */
+char		*buf;			/* general purpose buffer */
+size_t		buf_size;		/* size of the general purpose buffer */
 
 bool		using_plan_a = true;	/* try to keep everything in memory */
 bool		out_of_mem = false;	/* ran out of memory in plan a */
+bool		nonempty_patchf_seen = false;	/* seen nonempty patch file? */
 
 #define MAXFILEC 2
 
@@ -72,7 +77,7 @@ int		debug = 0;
 
 bool		force = false;
 bool		batch = false;
-int		verbose = false;
+bool		verbose = false;
 bool		reverse = false;
 bool		noreverse = false;
 bool		skip_rest_of_patch = false;
@@ -94,11 +99,12 @@ static void	apply_hunk(LINENUM);
 static void	init_output(const char *);
 static void	init_reject(const char *);
 static void	copy_till(LINENUM, bool);
-static void	spew_output(void);
+static bool	spew_output(void);
 static void	dump_line(LINENUM, bool);
 static bool	patch_match(LINENUM, LINENUM, LINENUM);
 static bool	similar(const char *, const char *, int);
-static __dead void usage(void);
+static void	usage(void);
+static bool	handle_creation(bool, bool *);
 
 /* true if -E was specified on command line.  */
 static bool	remove_empty_files = false;
@@ -106,11 +112,10 @@ static bool	remove_empty_files = false;
 /* true if -R was specified on command line.  */
 static bool	reverse_flag_specified = false;
 
-/* buffer holding the name of the rejected patch file. */
-static char	rejname[NAME_MAX + 1];
+static bool	Vflag = false;
 
-/* buffer for stderr */
-static char	serrbuf[BUFSIZ];
+/* buffer holding the name of the rejected patch file. */
+static char	rejname[PATH_MAX];
 
 /* how many input lines have been irretractibly output */
 static LINENUM	last_frozen_line = 0;
@@ -144,15 +149,23 @@ static char		end_defined[128];
 int
 main(int argc, char *argv[])
 {
+	struct stat statbuf;
 	int	error = 0, hunk, failed, i, fd;
-	bool	patch_seen;
+	bool	out_creating, out_existed, patch_seen, remove_file;
+	bool	reverse_seen;
 	LINENUM	where = 0, newwhere, fuzz, mymaxfuzz;
 	const	char *tmpdir;
 	char	*v;
 
-	setbuf(stderr, serrbuf);
+	setvbuf(stdout, NULL, _IOLBF, 0);
+	setvbuf(stderr, NULL, _IOLBF, 0);
 	for (i = 0; i < MAXFILEC; i++)
 		filearg[i] = NULL;
+
+	buf_size = INITLINELEN;
+	buf = malloc((unsigned)(buf_size));
+	if (buf == NULL)
+		fatal("out of memory\n");
 
 	/* Cons up the names of the temporary files.  */
 	if ((tmpdir = getenv("TMPDIR")) == NULL || *tmpdir == '\0')
@@ -195,7 +208,7 @@ main(int argc, char *argv[])
 	Argv = argv;
 	get_some_switches();
 
-	if (backup_type == none) {
+	if (!Vflag) {
 		if ((v = getenv("PATCH_VERSION_CONTROL")) == NULL)
 			v = getenv("VERSION_CONTROL");
 		if (v != NULL || !posix)
@@ -209,13 +222,32 @@ main(int argc, char *argv[])
 	for (open_patch_file(filearg[1]); there_is_another_patch();
 	    reinitialize_almost_everything()) {
 		/* for each patch in patch file */
-		
+
+		if (source_file != NULL && (diff_type == CONTEXT_DIFF ||
+		    diff_type == NEW_CONTEXT_DIFF ||
+		    diff_type == UNI_DIFF))
+			out_creating = strcmp(source_file, _PATH_DEVNULL) == 0;
+		else
+			out_creating = false;
 		patch_seen = true;
 
 		warn_on_invalid_line = true;
 
 		if (outname == NULL)
-			outname = savestr(filearg[0]);
+			outname = xstrdup(filearg[0]);
+
+		/*
+		 * At this point, we know if we're supposed to be creating the
+		 * file and we know if we should be trying to handle a conflict
+		 * between the patch and the file already existing.  We defer
+		 * handling it until hunk processing because we want to swap
+		 * the hunk if they opt to reverse it, but we want to make sure
+		 * we *can* swap the hunk without running into memory issues
+		 * before we offer it.  We also want to be verbose if flags or
+		 * user decision cause us to skip -- this is explained a little
+		 * more later.
+		 */
+		out_existed = stat(outname, &statbuf) == 0;
 
 		/* for ed script just up and do it and exit */
 		if (diff_type == ED_DIFF) {
@@ -233,23 +265,45 @@ main(int argc, char *argv[])
 		if (!skip_rest_of_patch)
 			scan_input(filearg[0]);
 
-		/* from here on, open no standard i/o files, because malloc */
-		/* might misfire and we can't catch it easily */
+		/*
+		 * from here on, open no standard i/o files, because
+		 * malloc might misfire and we can't catch it easily
+		 */
 
 		/* apply each hunk of patch */
 		hunk = 0;
 		failed = 0;
+		reverse_seen = false;
 		out_of_mem = false;
+		remove_file = false;
 		while (another_hunk()) {
+			assert(!out_creating || hunk == 0);
 			hunk++;
 			fuzz = 0;
+
+			/*
+			 * There are only three cases in handle_creation() that
+			 * results in us skipping hunk location, in order:
+			 *
+			 * 1.) Potentially reversed but -f/--force'd,
+			 * 2.) Potentially reversed but -N/--forward'd
+			 * 3.) Reversed and the user's opted to not apply it.
+			 *
+			 * In all three cases, we still want to inform the user
+			 * that we're ignoring it in the standard way, which is
+			 * also tied to this hunk processing loop.
+			 */
+			if (out_creating)
+				reverse_seen = handle_creation(out_existed,
+				    &remove_file);
+
 			mymaxfuzz = pch_context();
 			if (maxfuzz < mymaxfuzz)
 				mymaxfuzz = maxfuzz;
 			if (!skip_rest_of_patch) {
 				do {
 					where = locate_hunk(fuzz);
-					if (hunk == 1 && where == 0 && !force) {
+					if (hunk == 1 && where == 0 && !force && !reverse_seen) {
 						/* dwim for reversed patch? */
 						if (!pch_swap()) {
 							if (fuzz == 0)
@@ -285,6 +339,8 @@ main(int argc, char *argv[])
 								ask("Apply anyway? [n] ");
 								if (*buf != 'y')
 									skip_rest_of_patch = true;
+								else
+									reverse_seen = true;
 								where = 0;
 								reverse = !reverse;
 								if (!pch_swap())
@@ -297,7 +353,11 @@ main(int argc, char *argv[])
 				    ++fuzz <= mymaxfuzz);
 
 				if (skip_rest_of_patch) {	/* just got decided */
-					fclose(ofp);
+					if (ferror(ofp) || fclose(ofp)) {
+						say("Error writing %s\n",
+						    TMPOUTNAME);
+						error = 1;
+					}
 					ofp = NULL;
 				}
 			}
@@ -346,13 +406,14 @@ main(int argc, char *argv[])
 			fatal("Internal error: hunk should not be 0\n");
 
 		/* finish spewing out the new file */
-		if (!skip_rest_of_patch)
-			spew_output();
+		if (!skip_rest_of_patch && !spew_output()) {
+			say("Can't write %s\n", TMPOUTNAME);
+			error = 1;
+		}
 
 		/* and put the output where desired */
 		ignore_signals();
 		if (!skip_rest_of_patch) {
-			struct stat	statbuf;
 			char	*realout = outname;
 
 			if (!check_only) {
@@ -363,7 +424,18 @@ main(int argc, char *argv[])
 				} else
 					chmod(outname, filemode);
 
-				if (remove_empty_files &&
+				/*
+				 * remove_file is a per-patch flag indicating
+				 * whether it's OK to remove the empty file.
+				 * This is specifically set when we're reversing
+				 * the creation of a file and it ends up empty.
+				 * This is an exception to the global policy
+				 * (remove_empty_files) because the user would
+				 * likely not expect the reverse of file
+				 * creation to leave an empty file laying
+				 * around.
+				 */
+				if ((remove_empty_files || remove_file) &&
 				    stat(realout, &statbuf) == 0 &&
 				    statbuf.st_size == 0) {
 					if (verbose)
@@ -373,7 +445,10 @@ main(int argc, char *argv[])
 				}
 			}
 		}
-		fclose(rejfp);
+		if (ferror(rejfp) || fclose(rejfp)) {
+			say("Error writing %s\n", rejname);
+			error = 1;
+		}
 		rejfp = NULL;
 		if (failed) {
 			error = 1;
@@ -385,20 +460,19 @@ main(int argc, char *argv[])
 				    sizeof(rejname)) >= sizeof(rejname))
 					fatal("filename %s is too long\n", outname);
 			}
-			if (skip_rest_of_patch) {
-				say("%d out of %d hunks ignored--saving rejects to %s\n",
-				    failed, hunk, rejname);
-			} else {
-				say("%d out of %d hunks failed--saving rejects to %s\n",
-				    failed, hunk, rejname);
-			}
+			if (!check_only)
+				say("%d out of %d hunks %s--saving rejects to %s\n",
+				    failed, hunk, skip_rest_of_patch ? "ignored" : "failed", rejname);
+			else
+				say("%d out of %d hunks %s while patching %s\n",
+				    failed, hunk, skip_rest_of_patch ? "ignored" : "failed", filearg[0]);
 			if (!check_only && move_file(TMPREJNAME, rejname) < 0)
 				trejkeep = true;
 		}
 		set_signals(1);
 	}
-	
-	if (!patch_seen)
+
+	if (!patch_seen && nonempty_patchf_seen)
 		error = 2;
 
 	my_exit(error);
@@ -422,6 +496,9 @@ reinitialize_almost_everything(void)
 		filearg[0] = NULL;
 	}
 
+	free(source_file);
+	source_file = NULL;
+
 	free(outname);
 	outname = NULL;
 
@@ -437,6 +514,12 @@ reinitialize_almost_everything(void)
 	get_some_switches();
 }
 
+#ifdef __APPLE__
+enum {
+	BINARY_OPT = CHAR_MAX + 1,
+};
+#endif
+
 /* Process switches and filenames. */
 
 static void
@@ -446,7 +529,6 @@ get_some_switches(void)
 	static struct option longopts[] = {
 		{"backup",		no_argument,		0,	'b'},
 		{"batch",		no_argument,		0,	't'},
-		{"binary",		no_argument,		0,	1},
 		{"check",		no_argument,		0,	'C'},
 		{"context",		no_argument,		0,	'c'},
 		{"debug",		required_argument,	0,	'x'},
@@ -473,7 +555,10 @@ get_some_switches(void)
 		{"version",		no_argument,		0,	'v'},
 		{"version-control",	required_argument,	0,	'V'},
 		{"posix",		no_argument,		&posix,	1},
-		{"verbose",		no_argument,		&verbose,	true},
+#ifdef __APPLE__
+		{"binary",		no_argument,		0,	BINARY_OPT},
+		{"verbose",		no_argument,		&verbose, 1},
+#endif
 		{NULL,			0,			0,	0}
 	};
 	int ch;
@@ -486,6 +571,11 @@ get_some_switches(void)
 	optreset = optind = 1;
 	while ((ch = getopt_long(Argc, Argv, options, longopts, NULL)) != -1) {
 		switch (ch) {
+#ifdef __APPLE__
+		case BINARY_OPT:
+			/* ignored */
+			break;
+#endif
 		case 'b':
 			if (backup_type == none)
 				backup_type = numbered_existing;
@@ -497,10 +587,10 @@ get_some_switches(void)
 			/* FALLTHROUGH */
 		case 'z':
 			/* must directly follow 'b' case for backwards compat */
-			simple_backup_suffix = savestr(optarg);
+			simple_backup_suffix = xstrdup(optarg);
 			break;
 		case 'B':
-			origprae = savestr(optarg);
+			origprae = xstrdup(optarg);
 			break;
 		case 'c':
 			diff_type = CONTEXT_DIFF;
@@ -514,7 +604,7 @@ get_some_switches(void)
 			break;
 		case 'D':
 			do_defines = true;
-			if (!isalpha(*optarg) && *optarg != '_')
+			if (!isalpha((unsigned char)*optarg) && *optarg != '_')
 				fatal("argument to -D is not an identifier\n");
 			snprintf(if_defined, sizeof if_defined,
 			    "#ifdef %s\n", optarg);
@@ -538,7 +628,7 @@ get_some_switches(void)
 		case 'i':
 			if (++filec == MAXFILEC)
 				fatal("too many file arguments\n");
-			filearg[filec] = savestr(optarg);
+			filearg[filec] = xstrdup(optarg);
 			break;
 		case 'l':
 			canonicalize = true;
@@ -550,7 +640,7 @@ get_some_switches(void)
 			noreverse = true;
 			break;
 		case 'o':
-			outname = savestr(optarg);
+			outname = xstrdup(optarg);
 			break;
 		case 'p':
 			strippath = atoi(optarg);
@@ -578,15 +668,13 @@ get_some_switches(void)
 			break;
 		case 'V':
 			backup_type = get_version(optarg);
+			Vflag = true;
 			break;
 #ifdef DEBUGGING
 		case 'x':
 			debug = atoi(optarg);
 			break;
 #endif
-		case 1:
-			/* ignored */
-			break;
 		default:
 			if (ch != '\0')
 				usage();
@@ -597,12 +685,12 @@ get_some_switches(void)
 	Argv += optind;
 
 	if (Argc > 0) {
-		filearg[0] = savestr(*Argv++);
+		filearg[0] = xstrdup(*Argv++);
 		Argc--;
 		while (Argc > 0) {
 			if (++filec == MAXFILEC)
 				fatal("too many file arguments\n");
-			filearg[filec] = savestr(*Argv++);
+			filearg[filec] = xstrdup(*Argv++);
 			Argc--;
 		}
 	}
@@ -611,16 +699,16 @@ get_some_switches(void)
 		posix = 1;
 }
 
-static __dead void
+static void
 usage(void)
 {
 	fprintf(stderr,
 "usage: patch [-bCcEeflNnRstuv] [-B backup-prefix] [-D symbol] [-d directory]\n"
 "             [-F max-fuzz] [-i patchfile] [-o out-file] [-p strip-count]\n"
-"             [-r rej-name] [-V t | nil | never] [-x number] [-z backup-ext]\n"
-"             [--posix] [origfile [patchfile]]\n"
+"             [-r rej-name] [-V t | nil | never | none] [-x number]\n"
+"             [-z backup-ext] [--posix] [origfile [patchfile]]\n"
 "       patch <patchfile\n");
-	my_exit(EXIT_SUCCESS);
+	my_exit(EXIT_FAILURE);
 }
 
 /*
@@ -735,8 +823,12 @@ rej_line(int ch, LINENUM i)
 	len = strlen(line);
 
 	fprintf(rejfp, "%c%s", ch, line);
-	if (len == 0 || line[len-1] != '\n')
-		fprintf(rejfp, "\n\\ No newline at end of file\n");
+	if (len == 0 || line[len - 1] != '\n') {
+		if (len >= USHRT_MAX)
+			fprintf(rejfp, "\n\\ Line too long\n");
+		else
+			fprintf(rejfp, "\n\\ No newline at end of line\n");
+	}
 }
 
 static void
@@ -958,17 +1050,20 @@ copy_till(LINENUM lastline, bool endoffile)
 /*
  * Finish copying the input file to the output file.
  */
-static void
+static bool
 spew_output(void)
 {
+	int rv;
+
 #ifdef DEBUGGING
 	if (debug & 256)
 		say("il=%ld lfl=%ld\n", input_lines, last_frozen_line);
 #endif
 	if (input_lines)
 		copy_till(input_lines, true);	/* dump remainder of file */
-	fclose(ofp);
+	rv = ferror(ofp) == 0 && fclose(ofp) == 0;
 	ofp = NULL;
+	return rv;
 }
 
 /*
@@ -1000,8 +1095,11 @@ patch_match(LINENUM base, LINENUM offset, LINENUM fuzz)
 	LINENUM		pat_lines = pch_ptrn_lines() - fuzz;
 	const char	*ilineptr;
 	const char	*plineptr;
-	short		plinelen;
+	unsigned short	plinelen;
 
+	/* Patch does not match if we don't have any more context to use */
+	if (pline > pat_lines)
+		return false;
 	for (iline = base + offset + fuzz; pline <= pat_lines; pline++, iline++) {
 		ilineptr = ifetch(iline, offset >= 0);
 		if (ilineptr == NULL)
@@ -1039,12 +1137,12 @@ static bool
 similar(const char *a, const char *b, int len)
 {
 	while (len) {
-		if (isspace(*b)) {	/* whitespace (or \n) to match? */
-			if (!isspace(*a))	/* no corresponding whitespace? */
+		if (isspace((unsigned char)*b)) {	/* whitespace (or \n) to match? */
+			if (!isspace((unsigned char)*a))	/* no corresponding whitespace? */
 				return false;
-			while (len && isspace(*b) && *b != '\n')
+			while (len && isspace((unsigned char)*b) && *b != '\n')
 				b++, len--;	/* skip pattern whitespace */
-			while (isspace(*a) && *a != '\n')
+			while (isspace((unsigned char)*a) && *a != '\n')
 				a++;	/* skip target whitespace */
 			if (*a == '\n' || *b == '\n')
 				return (*a == *b);	/* should end in sync */
@@ -1055,4 +1153,85 @@ similar(const char *a, const char *b, int len)
 	}
 	return true;		/* actually, this is not reached */
 	/* since there is always a \n */
+}
+
+static bool
+handle_creation(bool out_existed, bool *remove)
+{
+	bool reverse_seen;
+
+	reverse_seen = false;
+	if (reverse && out_existed) {
+		/*
+		 * If the patch creates the file and we're reversing the patch,
+		 * then we need to indicate to the patch processor that it's OK
+		 * to remove this file.
+		 */
+		*remove = true;
+	} else if (!reverse && out_existed) {
+		/*
+		 * Otherwise, we need to blow the horn because the patch appears
+		 * to be reversed/already applied.  For non-batch jobs, we'll
+		 * prompt to figure out what we should be trying to do to raise
+		 * awareness of the issue.  batch (-t) processing suppresses the
+		 * questions and just assumes that we're reversed if it looks
+		 * like we are, which is always the case if we've reached this
+		 * branch.
+		 */
+		if (force) {
+			skip_rest_of_patch = true;
+			return (false);
+		}
+		if (noreverse) {
+			/* If -N is supplied, however, we bail out/ignore. */
+			say("Ignoring previously applied (or reversed) patch.\n");
+			skip_rest_of_patch = true;
+			return (false);
+		}
+
+		/* Unreversed... suspicious if the file existed. */
+		if (!pch_swap())
+			fatal("lost hunk on alloc error!\n");
+
+		reverse = !reverse;
+
+		if (batch) {
+			if (verbose)
+				say("Patch creates file that already exists, %s %seversed",
+				    reverse ? "Assuming" : "Ignoring",
+				    reverse ? "R" : "Unr");
+		} else {
+			ask("Patch creates file that already exists!  %s -R? [y] ",
+			    reverse ? "Assume" : "Ignore");
+
+			if (*buf == 'n') {
+				ask("Apply anyway? [n]");
+				if (*buf != 'y')
+					/* Don't apply; error out. */
+					skip_rest_of_patch = true;
+				else
+					/* Attempt to apply. */
+					reverse_seen = true;
+				reverse = !reverse;
+				if (!pch_swap())
+					fatal("lost hunk on alloc error!\n");
+			} else {
+				/*
+				 * They've opted to assume -R; effectively the
+				 * same as the first branch in this function,
+				 * but the decision is here rather than in a
+				 * prior patch/hunk as in that branch.
+				 */
+				*remove = true;
+			}
+		}
+	}
+
+	/*
+	 * The return value indicates if we offered a chance to reverse but the
+	 * user declined.  This keeps the main patch processor in the loop since
+	 * we've taken this out of the normal flow of hunk processing to
+	 * simplify logic a little bit.
+	 */
+	return (reverse_seen);
 }

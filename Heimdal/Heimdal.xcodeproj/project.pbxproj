@@ -582,6 +582,52 @@
 		8C46F0982408902600739184 /* libbsm.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 8C46F09724088EAA00739184 /* libbsm.tbd */; };
 		8C5D2C9522F1080D00F18C97 /* libbsm.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = EBEF29590FFEB23E00B7E286 /* libbsm.dylib */; };
 		8C5D2C9622F1082700F18C97 /* libbsm.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = EBEF29590FFEB23E00B7E286 /* libbsm.dylib */; };
+		8C61C7A425897A2100535950 /* rtbl.h in Headers */ = {isa = PBXBuildFile; fileRef = EBFB57710F21822D0009D37C /* rtbl.h */; };
+		8C61C7A525897A2100535950 /* roken.h in Headers */ = {isa = PBXBuildFile; fileRef = EBB6B2980F22B6CD006BD106 /* roken.h */; };
+		8C61C7A625897A2100535950 /* roken-common.h in Headers */ = {isa = PBXBuildFile; fileRef = EBFB576C0F21822D0009D37C /* roken-common.h */; };
+		8C61C7A725897A2100535950 /* getarg.h in Headers */ = {isa = PBXBuildFile; fileRef = EBFB57260F21822D0009D37C /* getarg.h */; };
+		8C61C7A825897A2100535950 /* config.h in Headers */ = {isa = PBXBuildFile; fileRef = EBB6B2970F22B6CD006BD106 /* config.h */; };
+		8C61C7A925897A2100535950 /* com_right.h in Headers */ = {isa = PBXBuildFile; fileRef = EBFB56EE0F2181E90009D37C /* com_right.h */; };
+		8C61C7AA25897A2100535950 /* com_err.h in Headers */ = {isa = PBXBuildFile; fileRef = EBFB56ED0F2181E90009D37C /* com_err.h */; };
+		8C61C7AB25897A2100535950 /* gssapi_mech.h in Headers */ = {isa = PBXBuildFile; fileRef = EB91CFDF0F28478E00CCDEA3 /* gssapi_mech.h */; };
+		8C61C7AC25897A2100535950 /* gssapi_krb5.h in Headers */ = {isa = PBXBuildFile; fileRef = EB91CFD90F28477300CCDEA3 /* gssapi_krb5.h */; };
+		8C61C7AD25897A2100535950 /* gssapi_ntlm.h in Headers */ = {isa = PBXBuildFile; fileRef = EB24F6C30F318BA500B2533C /* gssapi_ntlm.h */; };
+		8C61C7AE25897A2100535950 /* gssapi_spnego.h in Headers */ = {isa = PBXBuildFile; fileRef = EB91CFDA0F28477300CCDEA3 /* gssapi_spnego.h */; };
+		8C61C7AF25897A2100535950 /* gssapi.h in Headers */ = {isa = PBXBuildFile; fileRef = EB91CFDB0F28477300CCDEA3 /* gssapi.h */; };
+		8C61C7B025897A2100535950 /* gsskrb5-private.h in Headers */ = {isa = PBXBuildFile; fileRef = EB432CFC0F284059000EA2F7 /* gsskrb5-private.h */; };
+		8C61C7B125897A2100535950 /* krb5-types.h in Headers */ = {isa = PBXBuildFile; fileRef = EBB6B38E0F22BF54006BD106 /* krb5-types.h */; };
+		8C61C7B225897A2100535950 /* krb5cf-protos.h in Headers */ = {isa = PBXBuildFile; fileRef = 77EC94FE2007FFF000DD3C2F /* krb5cf-protos.h */; };
+		8C61C7B325897A2100535950 /* krb5_locl.h in Headers */ = {isa = PBXBuildFile; fileRef = EBC6F2590F22CD3500D1AB35 /* krb5_locl.h */; };
+		8C61C7B425897A2100535950 /* krb5-private.h in Headers */ = {isa = PBXBuildFile; fileRef = EBC6F26C0F22CD3500D1AB35 /* krb5-private.h */; };
+		8C61C7B525897A2100535950 /* base64.h in Headers */ = {isa = PBXBuildFile; fileRef = EBFB57020F21822D0009D37C /* base64.h */; };
+		8C61C7B625897A2100535950 /* der-protos.h in Headers */ = {isa = PBXBuildFile; fileRef = EBFB56910F2181960009D37C /* der-protos.h */; };
+		8C61C7B725897A2100535950 /* der.h in Headers */ = {isa = PBXBuildFile; fileRef = EBFB56930F2181960009D37C /* der.h */; };
+		8C61C7B825897A2100535950 /* gssapi_netlogon.h in Headers */ = {isa = PBXBuildFile; fileRef = EB17B5DD1062E0980015DEB4 /* gssapi_netlogon.h */; };
+		8C61C7B925897A2100535950 /* heim_asn1.h in Headers */ = {isa = PBXBuildFile; fileRef = EBFB56A30F2181960009D37C /* heim_asn1.h */; };
+		8C61C7BA25897A2100535950 /* heimntlm-protos.h in Headers */ = {isa = PBXBuildFile; fileRef = EBE9B1070F2C3CEB006561DA /* heimntlm-protos.h */; };
+		8C61C7BB25897A2100535950 /* heimntlm.h in Headers */ = {isa = PBXBuildFile; fileRef = EBE9B1080F2C3CEB006561DA /* heimntlm.h */; };
+		8C61C7BC25897A2100535950 /* hex.h in Headers */ = {isa = PBXBuildFile; fileRef = EBFB573D0F21822D0009D37C /* hex.h */; };
+		8C61C7BD25897A2100535950 /* hx509-protos.h in Headers */ = {isa = PBXBuildFile; fileRef = EBF569A90F32D8FF00501CE8 /* hx509-protos.h */; };
+		8C61C7BE25897A2100535950 /* hx509.h in Headers */ = {isa = PBXBuildFile; fileRef = EBF569AA0F32D8FF00501CE8 /* hx509.h */; };
+		8C61C7BF25897A2100535950 /* krb5-protos.h in Headers */ = {isa = PBXBuildFile; fileRef = EBC6F26D0F22CD3500D1AB35 /* krb5-protos.h */; };
+		8C61C7C025897A2100535950 /* krb5.h in Headers */ = {isa = PBXBuildFile; fileRef = EBC6F2710F22CD3500D1AB35 /* krb5.h */; };
+		8C61C7C125897A2100535950 /* parse_time.h in Headers */ = {isa = PBXBuildFile; fileRef = EBFB575F0F21822D0009D37C /* parse_time.h */; };
+		8C61C7C225897A2100535950 /* sl.h in Headers */ = {isa = PBXBuildFile; fileRef = EBC6F0A10F22CA4600D1AB35 /* sl.h */; };
+		8C61C7C325897A2100535950 /* heimbase_impl.h in Headers */ = {isa = PBXBuildFile; fileRef = EB70DC0D16D6A75C00C2DD9D /* heimbase_impl.h */; };
+		8C61C7C425897A2100535950 /* test_common.h in Headers */ = {isa = PBXBuildFile; fileRef = EBB741DF0FFD57520047AC11 /* test_common.h */; };
+		8C61C7C525897A2100535950 /* wind.h in Headers */ = {isa = PBXBuildFile; fileRef = EBA240840F24305200C3DF74 /* wind.h */; };
+		8C61C7C625897A2100535950 /* config-apple.h in Headers */ = {isa = PBXBuildFile; fileRef = EB6927301079287A00ACB444 /* config-apple.h */; };
+		8C61C7C725897A2100535950 /* heimbase.h in Headers */ = {isa = PBXBuildFile; fileRef = EB42F4FE116BCE9400FCDD8F /* heimbase.h */; };
+		8C61C7C825897A2100535950 /* gssapi_spi.h in Headers */ = {isa = PBXBuildFile; fileRef = EBF8B8B7101785A6000BA085 /* gssapi_spi.h */; };
+		8C61C7C925897A2100535950 /* gsskrb5_crypto.h in Headers */ = {isa = PBXBuildFile; fileRef = EBA055D0122B27C2002E2390 /* gsskrb5_crypto.h */; };
+		8C61C7CA25897A2100535950 /* gssapi_rewrite.h in Headers */ = {isa = PBXBuildFile; fileRef = EBAE7AB812B0445A002DA026 /* gssapi_rewrite.h */; };
+		8C61C7CB25897A2100535950 /* gssapi_oid.h in Headers */ = {isa = PBXBuildFile; fileRef = EB085EC11429F37400AD2AA2 /* gssapi_oid.h */; };
+		8C61C7CC25897A2100535950 /* gssapi_apple.h in Headers */ = {isa = PBXBuildFile; fileRef = EB168440146E090F0019138B /* gssapi_apple.h */; };
+		8C61C7CD25897A2100535950 /* gssapi_private.h in Headers */ = {isa = PBXBuildFile; fileRef = EB168441146E090F0019138B /* gssapi_private.h */; };
+		8C61C7CE25897A2100535950 /* gssapi_protos.h in Headers */ = {isa = PBXBuildFile; fileRef = EB168442146E090F0019138B /* gssapi_protos.h */; };
+		8C61C7CF25897A2100535950 /* heim_threads.h in Headers */ = {isa = PBXBuildFile; fileRef = EB7B4152114F09C100D6EA17 /* heim_threads.h */; };
+		8C61C7D425897A2100535950 /* Heimdal.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EB49AA6C0F2584790076E27F /* Heimdal.framework */; };
+		8C61C7DF25897A3C00535950 /* test_plugin.c in Sources */ = {isa = PBXBuildFile; fileRef = EBC6F2B70F22CD3600D1AB35 /* test_plugin.c */; };
 		8C6230FF2494301D004900EE /* heim-ordered-test-2.plist in Resources */ = {isa = PBXBuildFile; fileRef = 8C6230FE24943007004900EE /* heim-ordered-test-2.plist */; };
 		8C623101249435A8004900EE /* heim-ordered-test-3.plist in Resources */ = {isa = PBXBuildFile; fileRef = 8C62310024943596004900EE /* heim-ordered-test-3.plist */; };
 		8C6FBE5C246B33AC000B3EB3 /* heim-ipc.h in Headers */ = {isa = PBXBuildFile; fileRef = EB9535370FFB34DA0013822C /* heim-ipc.h */; };
@@ -675,6 +721,8 @@
 		8CEB5AAA2421C75D0017B4F0 /* XCTest.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 8CEB5AA92421C75D0017B4F0 /* XCTest.framework */; };
 		8CEB5AAD24225AB80017B4F0 /* CommonAuth.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EB5F3C6511A38EAD0061142C /* CommonAuth.framework */; };
 		8CED36E925B87EBB00E656A8 /* krb5-types.h in Headers */ = {isa = PBXBuildFile; fileRef = EBB6B38E0F22BF54006BD106 /* krb5-types.h */; };
+		8CF0D7CD25AFC86200AA1DB1 /* check-apple-plugins in Install Apple tests */ = {isa = PBXBuildFile; fileRef = 8CF0D6C825AFC7D700AA1DB1 /* check-apple-plugins */; };
+		8CFB9DB22423EB470015AF99 /* Heimdal.plist in Install bats files */ = {isa = PBXBuildFile; fileRef = EB670F861C5EDB53003D49CA /* Heimdal.plist */; };
 		8CFB9DCC24257D720015AF99 /* mock_aks.m in Sources */ = {isa = PBXBuildFile; fileRef = 8CFB9DCB24257D720015AF99 /* mock_aks.m */; };
 		8CFB9DCE24257DB80015AF99 /* mock_aks.h in Headers */ = {isa = PBXBuildFile; fileRef = 8CFB9DCD24257DB10015AF99 /* mock_aks.h */; };
 		EB00129F1A2D07D6005B4B09 /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EB82E91F0F8A680100EE4F4A /* SystemConfiguration.framework */; };
@@ -1181,7 +1229,6 @@
 		EB224E351288D8C50093D709 /* crypto-null.c in Sources */ = {isa = PBXBuildFile; fileRef = EB224E291288D8C50093D709 /* crypto-null.c */; };
 		EB224E361288D8C50093D709 /* crypto-pk.c in Sources */ = {isa = PBXBuildFile; fileRef = EB224E2A1288D8C50093D709 /* crypto-pk.c */; };
 		EB224E371288D8C50093D709 /* crypto-rand.c in Sources */ = {isa = PBXBuildFile; fileRef = EB224E2B1288D8C50093D709 /* crypto-rand.c */; };
-		EB224E381288D8C50093D709 /* crypto-stubs.c in Sources */ = {isa = PBXBuildFile; fileRef = EB224E2C1288D8C50093D709 /* crypto-stubs.c */; };
 		EB224E391288D8C50093D709 /* crypto.h in Headers */ = {isa = PBXBuildFile; fileRef = EB224E2D1288D8C50093D709 /* crypto.h */; };
 		EB224E5E1288D9F90093D709 /* salt-aes.c in Sources */ = {isa = PBXBuildFile; fileRef = EB224E571288D9F90093D709 /* salt-aes.c */; };
 		EB224E5F1288D9F90093D709 /* salt-arcfour.c in Sources */ = {isa = PBXBuildFile; fileRef = EB224E581288D9F90093D709 /* salt-arcfour.c */; };
@@ -7800,6 +7847,7 @@
 				EB1A97DA13146A08008903D6 /* principal.GUPTA4.APPLE.COM in Install Apple tests */,
 				EBFB161818DC487A00C34C11 /* check-apple-netlogon in Install Apple tests */,
 				EB805BBD1492EE7D00F1E44F /* check-apple-ac in Install Apple tests */,
+				8CF0D7CD25AFC86200AA1DB1 /* check-apple-plugins in Install Apple tests */,
 			);
 			name = "Install Apple tests";
 			runOnlyForDeploymentPostprocessing = 1;
@@ -8192,6 +8240,7 @@
 		8C4319E4241B218800BC1F3B /* gsscred.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = gsscred.m; path = lib/heimcred/gsscred.m; sourceTree = "<group>"; };
 		8C4319E7241B251500BC1F3B /* gsscred.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = gsscred.h; path = lib/heimcred/gsscred.h; sourceTree = "<group>"; };
 		8C46F09724088EAA00739184 /* libbsm.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libbsm.tbd; path = usr/lib/libbsm.tbd; sourceTree = SDKROOT; };
+		8C61C7DE25897A2100535950 /* test_plugin */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = test_plugin; sourceTree = BUILT_PRODUCTS_DIR; };
 		8C6230FE24943007004900EE /* heim-ordered-test-2.plist */ = {isa = PBXFileReference; lastKnownFileType = file.bplist; name = "heim-ordered-test-2.plist"; path = "lib/heimcred/heim-ordered-test-2.plist"; sourceTree = "<group>"; };
 		8C62310024943596004900EE /* heim-ordered-test-3.plist */ = {isa = PBXFileReference; lastKnownFileType = file.bplist; name = "heim-ordered-test-3.plist"; path = "lib/heimcred/heim-ordered-test-3.plist"; sourceTree = "<group>"; };
 		8C6FBE61246B38F8000B3EB3 /* acquirecred.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = acquirecred.h; path = lib/heimcred/acquirecred.h; sourceTree = "<group>"; };
@@ -8237,6 +8286,8 @@
 		8CEB5AA12421C02B0017B4F0 /* GSS.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = GSS.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS14.0.Internal.sdk/System/Library/Frameworks/GSS.framework; sourceTree = DEVELOPER_DIR; };
 		8CEB5AA32421C0320017B4F0 /* CommonAuth.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CommonAuth.framework; path = System/Library/PrivateFrameworks/CommonAuth.framework; sourceTree = SDKROOT; };
 		8CEB5AA92421C75D0017B4F0 /* XCTest.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = XCTest.framework; path = Platforms/iPhoneOS.platform/Developer/Library/Frameworks/XCTest.framework; sourceTree = DEVELOPER_DIR; };
+		8CF0D54025AFC5AF00AA1DB1 /* check-apple-plugins.in */ = {isa = PBXFileReference; lastKnownFileType = text; name = "check-apple-plugins.in"; path = "tests/apple/check-apple-plugins.in"; sourceTree = "<group>"; };
+		8CF0D6C825AFC7D700AA1DB1 /* check-apple-plugins */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; name = "check-apple-plugins"; path = "tests/apple/check-apple-plugins"; sourceTree = "<group>"; };
 		8CFB9DCB24257D720015AF99 /* mock_aks.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = mock_aks.m; path = lib/heimcred/mock_aks.m; sourceTree = "<group>"; };
 		8CFB9DCD24257DB10015AF99 /* mock_aks.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = mock_aks.h; path = lib/heimcred/mock_aks.h; sourceTree = "<group>"; };
 		EB00F0E1103CC6CA00399574 /* ct.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = ct.c; path = lib/roken/ct.c; sourceTree = "<group>"; };
@@ -10248,6 +10299,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		8C61C7D325897A2100535950 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				8C61C7D425897A2100535950 /* Heimdal.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		8C866208247AF1CD001442FE /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -11292,8 +11351,8 @@
 				EBD090AB1330353B001D0938 /* Frameworks */,
 				EB5F3C6511A38EAD0061142C /* CommonAuth.framework */,
 				EBB1EA2416C45ABB00DC776D /* Foundation.framework */,
-				EBB1EA2716C45B2600DC776D /* GSS.framework */,
 				EBDA3358105990230042FFAE /* GSS.framework */,
+				EBB1EA2716C45B2600DC776D /* GSS.framework */,
 				1AB674ADFE9D54B511CA2CBB /* Products */,
 				EB42F4F0116BCE2500FCDD8F /* libheimbase.a */,
 				EBC288E911A4D17900011423 /* CommonAuth-Info.plist */,
@@ -11426,6 +11485,7 @@
 				8C896EDB23F4B03600428939 /* gsstoolwrapper */,
 				8CCF9CD424205E9200E5F303 /* GSSCredTests.xctest */,
 				8C866219247AF1CD001442FE /* test_wait_cred */,
+				8C61C7DE25897A2100535950 /* test_plugin */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -11879,6 +11939,7 @@
 			isa = PBXGroup;
 			children = (
 				EBC177351283693700CC7BBE /* check-apple-dump */,
+				8CF0D6C825AFC7D700AA1DB1 /* check-apple-plugins */,
 				8C8661FC247AEDFE001442FE /* check-apple-acquire */,
 				EBC177361283693700CC7BBE /* krb5-dump.conf */,
 				EB13F5901280B24300E610D1 /* check-apple-ad */,
@@ -13154,6 +13215,7 @@
 				EBECDD25130201A800E709C4 /* check-apple-server.in */,
 				8C8661FB247AE852001442FE /* check-apple-acquire.in */,
 				EBF3F4BE12F10372005EC680 /* check-apple-ad.in */,
+				8CF0D54025AFC5AF00AA1DB1 /* check-apple-plugins.in */,
 				EBFB161218DC47EB00C34C11 /* check-apple-ac.in */,
 				EBFB161318DC47EB00C34C11 /* check-apple-netlogon.in */,
 				EBFB161518DC47EC00C34C11 /* coswin7-od.plist */,
@@ -14103,6 +14165,57 @@
 				77EC95322008041C00DD3C2F /* krb5cf-protos.h in Headers */,
 				772992AD1FD1F0A000665B56 /* heimbase.h in Headers */,
 				772992AE1FD1F0A000665B56 /* heim_threads.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		8C61C7A325897A2100535950 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				8C61C7A425897A2100535950 /* rtbl.h in Headers */,
+				8C61C7A525897A2100535950 /* roken.h in Headers */,
+				8C61C7A625897A2100535950 /* roken-common.h in Headers */,
+				8C61C7A725897A2100535950 /* getarg.h in Headers */,
+				8C61C7A825897A2100535950 /* config.h in Headers */,
+				8C61C7A925897A2100535950 /* com_right.h in Headers */,
+				8C61C7AA25897A2100535950 /* com_err.h in Headers */,
+				8C61C7AB25897A2100535950 /* gssapi_mech.h in Headers */,
+				8C61C7AC25897A2100535950 /* gssapi_krb5.h in Headers */,
+				8C61C7AD25897A2100535950 /* gssapi_ntlm.h in Headers */,
+				8C61C7AE25897A2100535950 /* gssapi_spnego.h in Headers */,
+				8C61C7AF25897A2100535950 /* gssapi.h in Headers */,
+				8C61C7B025897A2100535950 /* gsskrb5-private.h in Headers */,
+				8C61C7B125897A2100535950 /* krb5-types.h in Headers */,
+				8C61C7B225897A2100535950 /* krb5cf-protos.h in Headers */,
+				8C61C7B325897A2100535950 /* krb5_locl.h in Headers */,
+				8C61C7B425897A2100535950 /* krb5-private.h in Headers */,
+				8C61C7B525897A2100535950 /* base64.h in Headers */,
+				8C61C7B625897A2100535950 /* der-protos.h in Headers */,
+				8C61C7B725897A2100535950 /* der.h in Headers */,
+				8C61C7B825897A2100535950 /* gssapi_netlogon.h in Headers */,
+				8C61C7B925897A2100535950 /* heim_asn1.h in Headers */,
+				8C61C7BA25897A2100535950 /* heimntlm-protos.h in Headers */,
+				8C61C7BB25897A2100535950 /* heimntlm.h in Headers */,
+				8C61C7BC25897A2100535950 /* hex.h in Headers */,
+				8C61C7BD25897A2100535950 /* hx509-protos.h in Headers */,
+				8C61C7BE25897A2100535950 /* hx509.h in Headers */,
+				8C61C7BF25897A2100535950 /* krb5-protos.h in Headers */,
+				8C61C7C025897A2100535950 /* krb5.h in Headers */,
+				8C61C7C125897A2100535950 /* parse_time.h in Headers */,
+				8C61C7C225897A2100535950 /* sl.h in Headers */,
+				8C61C7C325897A2100535950 /* heimbase_impl.h in Headers */,
+				8C61C7C425897A2100535950 /* test_common.h in Headers */,
+				8C61C7C525897A2100535950 /* wind.h in Headers */,
+				8C61C7C625897A2100535950 /* config-apple.h in Headers */,
+				8C61C7C725897A2100535950 /* heimbase.h in Headers */,
+				8C61C7C825897A2100535950 /* gssapi_spi.h in Headers */,
+				8C61C7C925897A2100535950 /* gsskrb5_crypto.h in Headers */,
+				8C61C7CA25897A2100535950 /* gssapi_rewrite.h in Headers */,
+				8C61C7CB25897A2100535950 /* gssapi_oid.h in Headers */,
+				8C61C7CC25897A2100535950 /* gssapi_apple.h in Headers */,
+				8C61C7CD25897A2100535950 /* gssapi_private.h in Headers */,
+				8C61C7CE25897A2100535950 /* gssapi_protos.h in Headers */,
+				8C61C7CF25897A2100535950 /* heim_threads.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -17051,6 +17164,23 @@
 			productReference = 772992B91FD1F0A000665B56 /* test_get_principal_list */;
 			productType = "com.apple.product-type.tool";
 		};
+		8C61C79A25897A2100535950 /* test_plugin */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 8C61C7D925897A2100535950 /* Build configuration list for PBXNativeTarget "test_plugin" */;
+			buildPhases = (
+				8C61C7A325897A2100535950 /* Headers */,
+				8C61C7D025897A2100535950 /* Sources */,
+				8C61C7D325897A2100535950 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = test_plugin;
+			productName = test_context;
+			productReference = 8C61C7DE25897A2100535950 /* test_plugin */;
+			productType = "com.apple.product-type.tool";
+		};
 		8C8661FE247AF1CD001442FE /* test_wait_cred */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 8C866214247AF1CD001442FE /* Build configuration list for PBXNativeTarget "test_wait_cred" */;
@@ -19263,6 +19393,7 @@
 				8C896EDA23F4B03600428939 /* gsstoolwrapper */,
 				8CCF9CD324205E9200E5F303 /* GSSCredTests */,
 				8C8661FE247AF1CD001442FE /* test_wait_cred */,
+				8C61C79A25897A2100535950 /* test_plugin */,
 			);
 		};
 /* End PBXProject section */
@@ -19586,7 +19717,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "# shell script goes here\n\nmkdir -p \"${HEIMDAL_TMPDIR}/tmp\"\n\nset -x\n\nfunction slccompile() {\n\tinput=\"${SOURCE_ROOT}/$1\"\n\toutput=\"$2\"\n\n\techo \"slc-compile $2\"\n\n\ttest -d ${DERIVED_FILES_DIR} || mkdir ${DERIVED_FILES_DIR}\n     c=\"xcrun heimdal-slc\"\n\n\tcd ${HEIMDAL_TMPDIR}/tmp/ && ${c} ${input} || exit 1\n   \n\tif cmp \"${HEIMDAL_TMPDIR}/tmp/${output}.c\" \"${HEIMDAL_TMPDIR}/${output}.c\" 2> /dev/null; then\n\t\trm \"${HEIMDAL_TMPDIR}/tmp/${output}\".*\n\telse\n\t\tmv \"${HEIMDAL_TMPDIR}/tmp/${output}\".* \"${HEIMDAL_TMPDIR}/\"\n\tfi\n}\n\nslccompile lib/hx509/hxtool-commands.in hxtool-commands\nslccompile lib/akadmin/hod-commands.in hod-commands\nslccompile lib/gssapi/gss-commands.in gss-commands\nslccompile kadmin/kadmin-commands.in kadmin-commands\nslccompile admin/ktutil-commands.in ktutil-commands\nslccompile kuser/kcc-commands.in kcc-commands\n\nexit 0\n";
+			shellScript = "# shell script goes here\n\nmkdir -p \"${HEIMDAL_TMPDIR}/tmp\"\n\nset -x\n\nslccompile() {\n\tinput=\"${SOURCE_ROOT}/$1\"\n\toutput=\"$2\"\n\n\techo \"slc-compile $2\"\n\n\ttest -d ${DERIVED_FILES_DIR} || mkdir ${DERIVED_FILES_DIR}\n     c=\"xcrun heimdal-slc\"\n\n\tcd ${HEIMDAL_TMPDIR}/tmp/ && ${c} ${input} || exit 1\n   \n\tif cmp \"${HEIMDAL_TMPDIR}/tmp/${output}.c\" \"${HEIMDAL_TMPDIR}/${output}.c\" 2> /dev/null; then\n\t\trm \"${HEIMDAL_TMPDIR}/tmp/${output}\".*\n\telse\n\t\tmv \"${HEIMDAL_TMPDIR}/tmp/${output}\".* \"${HEIMDAL_TMPDIR}/\"\n\tfi\n}\n\nslccompile lib/hx509/hxtool-commands.in hxtool-commands\nslccompile lib/akadmin/hod-commands.in hod-commands\nslccompile lib/gssapi/gss-commands.in gss-commands\nslccompile kadmin/kadmin-commands.in kadmin-commands\nslccompile admin/ktutil-commands.in ktutil-commands\nslccompile kuser/kcc-commands.in kcc-commands\n\nexit 0\n";
 		};
 		EB1517B718A38D3A006215FF /* Install OSX specific debug files */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -19617,7 +19748,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /usr/bin/perl;
-			shellScript = "# -*- perl -*- \nuse strict;\nuse File::Path qw(make_path);\n\nmy $base = \"/usr/local/libexec/heimdal\";\nmy $SRCROOT = $ENV{SRCROOT};\nmy $srcdir = \"${SRCROOT}/tests/kdc\";\nmy $port = 4714;\nmy $admport = 4713;\nmy $pwport = 4712;\n\nmy @do_subst_base= (\n    \"sed\",\n    \"-e\", \"s,[@]env_setup[@],${base}/bin/setup-env,g\",\n    \"-e\", \"s,[@]port[@],${port},g\",\n    \"-e\", \"s,[@]admport[@],${admport},g\",\n    \"-e\", \"s,[@]pwport[@],${pwport},g\",\n    \"-e\", \"s,[@]testdir[@],/tmp/heimdal,g\",\n    \"-e\", \"s,[@]certdir[@],${base}/certs,g\",\n    \"-e\", \"s,[@]kdc[@],,g\",\n    \"-e\", \"s,[@]dk[@],,g\",\n    \"-e\", \"s,[@]WEAK[@],false,g\",\n    );\n\nsub func {\n\tmy $path = shift;\n\tmy $list = shift;\n\tmy $do_subst = shift;\n\n\tmy $dest = \"$ENV{HEIMDAL_TMPDIR}/$path\";\n\n\tmake_path \"${dest}\";\n\n\tforeach my $a (@{$list}) {\n\t    print \"rewriting tests $a\\n\";\n\t    my $cmd = join(' ', @{$do_subst});\n\t    system \"$cmd < ${SRCROOT}/${path}/${a}.in > ${dest}/$a.new\";\n\t    system \"chmod +x ${dest}/$a.new\" if ($a =~ m/check/ or $a =~ m/have-/ or $a =~ m/\\.sh$/);\n\t    system \"mv ${dest}/$a.new ${dest}/$a\";\n\t}\n}\n\nmy @subst;\n\n@subst = ( @do_subst_base, \"-e\", \"s,[@]confdir[@],${base}/tests/db,g\");\nfunc(\"tests/db\", [\"have-db\", \"krb5.conf\"], \\@subst);\n\n@subst = ( @do_subst_base, \"-e\", \"s,[@]confdir[@],${base}/tests/kdc,g\");\nfunc(\"tests/kdc\", [\"check-kdc\", \"check-cc\", \"check-delegation\", \"check-fuzzer\", \"check-kpasswdd\", \"check-fast\", \"krb5.conf\", \"krb5.conf.keys\"], \\@subst);\n\n@subst = ( @do_subst_base, \"-e\", \"s,[@]confdir[@],${base}/tests/gss,g\");\nfunc(\"tests/gss\", [\"check-basic\", \"check-context\", \"check-gss\", \"check-gssmask\", \"check-ntlm\", \"check-spnego\", \"krb5.conf\"], \\@subst);\n\n@subst = ( @do_subst_base, \"-e\", \"s,[@]confdir[@],${base}/tests/apple,g\");\nfunc(\"tests/apple\", [\"check-apple-lkdc\", \"check-apple-hodadmin\",  \"check-server-hodadmin\", \"check-apple-leo\", \"check-apple-od\", \"check-apple-ad\", \"check-apple-netlogon\", \"check-apple-dump\", \"check-apple-ac\", \"check-apple-server\", \"check-apple-mitdump\", \"check-apple-acquire\", \"krb5.conf\", \"krb5-kkdcp.conf\", \"krb5-dump.conf\", \"krb5-mitdump.conf\" ], \\@subst);\n\n";
+			shellScript = "# -*- perl -*- \nuse strict;\nuse File::Path qw(make_path);\n\nmy $base = \"/usr/local/libexec/heimdal\";\nmy $SRCROOT = $ENV{SRCROOT};\nmy $srcdir = \"${SRCROOT}/tests/kdc\";\nmy $port = 4714;\nmy $admport = 4713;\nmy $pwport = 4712;\n\nmy @do_subst_base= (\n    \"sed\",\n    \"-e\", \"s,[@]env_setup[@],${base}/bin/setup-env,g\",\n    \"-e\", \"s,[@]port[@],${port},g\",\n    \"-e\", \"s,[@]admport[@],${admport},g\",\n    \"-e\", \"s,[@]pwport[@],${pwport},g\",\n    \"-e\", \"s,[@]testdir[@],/tmp/heimdal,g\",\n    \"-e\", \"s,[@]certdir[@],${base}/certs,g\",\n    \"-e\", \"s,[@]kdc[@],,g\",\n    \"-e\", \"s,[@]dk[@],,g\",\n    \"-e\", \"s,[@]WEAK[@],false,g\",\n    );\n\nsub func {\n\tmy $path = shift;\n\tmy $list = shift;\n\tmy $do_subst = shift;\n\n\tmy $dest = \"$ENV{HEIMDAL_TMPDIR}/$path\";\n\n\tmake_path \"${dest}\";\n\n\tforeach my $a (@{$list}) {\n\t    print \"rewriting tests $a\\n\";\n\t    my $cmd = join(' ', @{$do_subst});\n\t    system \"$cmd < ${SRCROOT}/${path}/${a}.in > ${dest}/$a.new\";\n\t    system \"chmod +x ${dest}/$a.new\" if ($a =~ m/check/ or $a =~ m/have-/ or $a =~ m/\\.sh$/);\n\t    system \"mv ${dest}/$a.new ${dest}/$a\";\n\t}\n}\n\nmy @subst;\n\n@subst = ( @do_subst_base, \"-e\", \"s,[@]confdir[@],${base}/tests/db,g\");\nfunc(\"tests/db\", [\"have-db\", \"krb5.conf\"], \\@subst);\n\n@subst = ( @do_subst_base, \"-e\", \"s,[@]confdir[@],${base}/tests/kdc,g\");\nfunc(\"tests/kdc\", [\"check-kdc\", \"check-cc\", \"check-delegation\", \"check-fuzzer\", \"check-kpasswdd\", \"check-fast\", \"krb5.conf\", \"krb5.conf.keys\"], \\@subst);\n\n@subst = ( @do_subst_base, \"-e\", \"s,[@]confdir[@],${base}/tests/gss,g\");\nfunc(\"tests/gss\", [\"check-basic\", \"check-context\", \"check-gss\", \"check-gssmask\", \"check-ntlm\", \"check-spnego\", \"krb5.conf\"], \\@subst);\n\n@subst = ( @do_subst_base, \"-e\", \"s,[@]confdir[@],${base}/tests/apple,g\");\nfunc(\"tests/apple\", [\"check-apple-lkdc\", \"check-apple-hodadmin\",  \"check-server-hodadmin\", \"check-apple-leo\", \"check-apple-od\", \"check-apple-ad\", \"check-apple-plugins\", \"check-apple-netlogon\", \"check-apple-dump\", \"check-apple-ac\", \"check-apple-server\", \"check-apple-mitdump\", \"check-apple-acquire\", \"krb5.conf\", \"krb5-kkdcp.conf\", \"krb5-dump.conf\", \"krb5-mitdump.conf\" ], \\@subst);\n\n";
 		};
 		EB24F50A0F317E2A00B2533C /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -19822,6 +19953,14 @@
 			buildActionMask = 2147483647;
 			files = (
 				772992BB1FD1F0E600665B56 /* test_get_principal_list.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		8C61C7D025897A2100535950 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				8C61C7DF25897A3C00535950 /* test_plugin.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -21046,7 +21185,6 @@
 				EB224E351288D8C50093D709 /* crypto-null.c in Sources */,
 				EB224E361288D8C50093D709 /* crypto-pk.c in Sources */,
 				EB224E371288D8C50093D709 /* crypto-rand.c in Sources */,
-				EB224E381288D8C50093D709 /* crypto-stubs.c in Sources */,
 				EB224E5E1288D9F90093D709 /* salt-aes.c in Sources */,
 				EB224E5F1288D9F90093D709 /* salt-arcfour.c in Sources */,
 				EB224E601288D9F90093D709 /* salt-des.c in Sources */,
@@ -25745,6 +25883,58 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Debug;
+		};
+		8C61C7DA25897A2100535950 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)/System/Library/PrivateFrameworks";
+				GCC_MODEL_TUNING = G5;
+				INSTALL_PATH = /usr/local/libexec/heimdal/bin;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+		8C61C7DB25897A2100535950 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)/System/Library/PrivateFrameworks";
+				GCC_MODEL_TUNING = G5;
+				INSTALL_PATH = /usr/local/libexec/heimdal/bin;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		8C61C7DC25897A2100535950 /* Release-asan */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)/System/Library/PrivateFrameworks";
+				GCC_MODEL_TUNING = G5;
+				INSTALL_PATH = /usr/local/libexec/heimdal/bin;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = "Release-asan";
+		};
+		8C61C7DD25897A2100535950 /* Release-Embedded */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)/System/Library/PrivateFrameworks";
+				GCC_MODEL_TUNING = G5;
+				INSTALL_PATH = /usr/local/libexec/heimdal/bin;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = "Release-Embedded";
 		};
 		8C866215247AF1CD001442FE /* Release */ = {
 			isa = XCBuildConfiguration;
@@ -31852,6 +32042,17 @@
 				8C08F29523BE91A200BFB6FE /* Debug */,
 				8C08F29623BE91A200BFB6FE /* Release-asan */,
 				8C08F29723BE91A200BFB6FE /* Release-Embedded */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		8C61C7D925897A2100535950 /* Build configuration list for PBXNativeTarget "test_plugin" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				8C61C7DA25897A2100535950 /* Release */,
+				8C61C7DB25897A2100535950 /* Debug */,
+				8C61C7DC25897A2100535950 /* Release-asan */,
+				8C61C7DD25897A2100535950 /* Release-Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;

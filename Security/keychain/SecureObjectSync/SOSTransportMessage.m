@@ -392,7 +392,7 @@ static void SOSTransportSendPendingMessage(CFArrayRef attributes, SOSMessage* tr
     ok &= SOSEngineWithPeerID((SOSEngineRef)transport.engine, peer_id, error, ^(SOSPeerRef peer, SOSCoderRef coder, SOSDataSourceRef dataSource, SOSTransactionRef txn, bool *forceSaveState) {
         // Now under engine lock do stuff
         CFDataRef message_to_send = NULL;
-        SOSEnginePeerMessageSentCallback* sentCallback = NULL;
+        SOSEnginePeerMessageCallBackInfo* sentCallback = nil;
         CFMutableArrayRef attributes = NULL;
         ok = SOSPeerCoderSendMessageIfNeeded([transport SOSTransportMessageGetAccount],(SOSEngineRef)transport.engine, txn, peer, coder, &message_to_send, peer_id, &attributes, &sentCallback, error);
         secnotice("ratelimit","attribute list: %@", attributes);
@@ -432,8 +432,7 @@ static void SOSTransportSendPendingMessage(CFArrayRef attributes, SOSMessage* tr
             secnotice("transport", "no message to send to peer: %@", peer_id);
         }
 
-        SOSEngineFreeMessageCallback(sentCallback);
-        sentCallback = NULL;
+        sentCallback = nil;
         CFReleaseSafe(message_to_send);
         CFReleaseNull(attributes);
 

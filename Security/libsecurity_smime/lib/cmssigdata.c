@@ -43,32 +43,33 @@
 
 #include "cmslocal.h"
 
-#include "cert.h"
 #include "SecAsn1Item.h"
+#include "cert.h"
 #include "secoid.h"
 
 #include <security_asn1/secasn1.h>
 #include <security_asn1/secerr.h>
 #include <security_asn1/secport.h>
 
+#include <utilities/SecCFWrappers.h>
+
 #if !USE_CDSA_CRYPTO
 #include <Security/SecCertificatePriv.h>
 #endif
 
-SecCmsSignedDataRef
-SecCmsSignedDataCreate(SecCmsMessageRef cmsg)
+SecCmsSignedDataRef SecCmsSignedDataCreate(SecCmsMessageRef cmsg)
 {
-    void *mark;
+    void* mark;
     SecCmsSignedDataRef sigd;
-    PLArenaPool *poolp;
+    PLArenaPool* poolp;
 
     poolp = cmsg->poolp;
 
     mark = PORT_ArenaMark(poolp);
 
-    sigd = (SecCmsSignedDataRef)PORT_ArenaZAlloc (poolp, sizeof(SecCmsSignedData));
+    sigd = (SecCmsSignedDataRef)PORT_ArenaZAlloc(poolp, sizeof(SecCmsSignedData));
     if (sigd == NULL)
-	goto loser;
+        goto loser;
 
     sigd->contentInfo.cmsg = cmsg;
 
@@ -83,25 +84,25 @@ loser:
     return NULL;
 }
 
-void
-SecCmsSignedDataDestroy(SecCmsSignedDataRef sigd)
+void SecCmsSignedDataDestroy(SecCmsSignedDataRef sigd)
 {
     SecCmsSignerInfoRef *signerinfos, si;
 
-    if (sigd == NULL)
-	return;
+    if (sigd == NULL) {
+        return;
+    }
 
-    if (sigd->certs != NULL)
-	CFRelease(sigd->certs);
+    CFReleaseNull(sigd->certs);
 
     signerinfos = sigd->signerInfos;
     if (signerinfos != NULL) {
-	while ((si = *signerinfos++) != NULL)
-	    SecCmsSignerInfoDestroy(si);
+        while ((si = *signerinfos++) != NULL) {
+            SecCmsSignerInfoDestroy(si);
+        }
     }
 
     /* everything's in a pool, so don't worry about the storage */
-   SecCmsContentInfoDestroy(&(sigd->contentInfo));
+    SecCmsContentInfoDestroy(&(sigd->contentInfo));
 }
 
 /*
@@ -115,89 +116,87 @@ SecCmsSignedDataDestroy(SecCmsSignedDataRef sigd)
  *         If we happen to have a pre-set list of algorithms (and digest values!), we
  *         check if we have all the signerinfos' algorithms. If not, this is an error.
  */
-OSStatus
-SecCmsSignedDataEncodeBeforeStart(SecCmsSignedDataRef sigd)
+OSStatus SecCmsSignedDataEncodeBeforeStart(SecCmsSignedDataRef sigd)
 {
     SecCmsSignerInfoRef signerinfo;
     SECOidTag digestalgtag;
-    SecAsn1Item * dummy;
+    SecAsn1Item* dummy;
     int version;
     OSStatus rv;
     Boolean haveDigests = PR_FALSE;
     int n, i;
-    PLArenaPool *poolp;
+    PLArenaPool* poolp;
 
     poolp = sigd->contentInfo.cmsg->poolp;
 
     /* we assume that we have precomputed digests if there is a list of algorithms, and */
     /* a chunk of data for each of those algorithms */
     if (sigd->digestAlgorithms != NULL && sigd->digests != NULL) {
-	for (i=0; sigd->digestAlgorithms[i] != NULL; i++) {
-	    if (sigd->digests[i] == NULL)
-		break;
-	}
-	if (sigd->digestAlgorithms[i] == NULL)	/* reached the end of the array? */
-	    haveDigests = PR_TRUE;		/* yes: we must have all the digests */
+        for (i = 0; sigd->digestAlgorithms[i] != NULL; i++) {
+            if (sigd->digests[i] == NULL)
+                break;
+        }
+        if (sigd->digestAlgorithms[i] == NULL) /* reached the end of the array? */
+            haveDigests = PR_TRUE;             /* yes: we must have all the digests */
     }
-	    
+
     version = SEC_CMS_SIGNED_DATA_VERSION_BASIC;
 
     /* RFC2630 5.1 "version is the syntax version number..." */
     if (SecCmsContentInfoGetContentTypeTag(&(sigd->contentInfo)) != SEC_OID_PKCS7_DATA)
-	version = SEC_CMS_SIGNED_DATA_VERSION_EXT;
+        version = SEC_CMS_SIGNED_DATA_VERSION_EXT;
 
     /* prepare all the SignerInfos (there may be none) */
-    for (i=0; i < SecCmsSignedDataSignerInfoCount(sigd); i++) {
-	signerinfo = SecCmsSignedDataGetSignerInfo(sigd, i);
+    for (i = 0; i < SecCmsSignedDataSignerInfoCount(sigd); i++) {
+        signerinfo = SecCmsSignedDataGetSignerInfo(sigd, i);
 
-	/* RFC2630 5.1 "version is the syntax version number..." */
-	if (SecCmsSignerInfoGetVersion(signerinfo) != SEC_CMS_SIGNER_INFO_VERSION_ISSUERSN)
-	    version = SEC_CMS_SIGNED_DATA_VERSION_EXT;
-	
-	/* collect digestAlgorithms from SignerInfos */
-	/* (we need to know which algorithms we have when the content comes in) */
-	/* do not overwrite any existing digestAlgorithms (and digest) */
-	digestalgtag = SecCmsSignerInfoGetDigestAlgTag(signerinfo);
-	n = SecCmsAlgArrayGetIndexByAlgTag(sigd->digestAlgorithms, digestalgtag);
-	if (n < 0 && haveDigests) {
-	    /* oops, there is a digestalg we do not have a digest for */
-	    /* but we were supposed to have all the digests already... */
-	    goto loser;
-	} else if (n < 0) {
-	    /* add the digestAlgorithm & a NULL digest */
-	    rv = SecCmsSignedDataAddDigest(poolp, sigd, digestalgtag, NULL);
-	    if (rv != SECSuccess)
-		goto loser;
-	} else {
-	    /* found it, nothing to do */
-	}
+        /* RFC2630 5.1 "version is the syntax version number..." */
+        if (SecCmsSignerInfoGetVersion(signerinfo) != SEC_CMS_SIGNER_INFO_VERSION_ISSUERSN)
+            version = SEC_CMS_SIGNED_DATA_VERSION_EXT;
+
+        /* collect digestAlgorithms from SignerInfos */
+        /* (we need to know which algorithms we have when the content comes in) */
+        /* do not overwrite any existing digestAlgorithms (and digest) */
+        digestalgtag = SecCmsSignerInfoGetDigestAlgTag(signerinfo);
+        n = SecCmsAlgArrayGetIndexByAlgTag(sigd->digestAlgorithms, digestalgtag);
+        if (n < 0 && haveDigests) {
+            /* oops, there is a digestalg we do not have a digest for */
+            /* but we were supposed to have all the digests already... */
+            goto loser;
+        } else if (n < 0) {
+            /* add the digestAlgorithm & a NULL digest */
+            rv = SecCmsSignedDataAddDigest(poolp, sigd, digestalgtag, NULL);
+            if (rv != SECSuccess)
+                goto loser;
+        } else {
+            /* found it, nothing to do */
+        }
     }
 
     dummy = SEC_ASN1EncodeInteger(poolp, &(sigd->version), (long)version);
     if (dummy == NULL)
-	return SECFailure;
+        return SECFailure;
 
     /* this is a SET OF, so we need to sort them guys */
-    rv = SecCmsArraySortByDER((void **)sigd->digestAlgorithms, 
-                                SEC_ASN1_GET(SECOID_AlgorithmIDTemplate),
-				(void **)sigd->digests);
+    rv = SecCmsArraySortByDER((void**)sigd->digestAlgorithms,
+                              SEC_ASN1_GET(SECOID_AlgorithmIDTemplate),
+                              (void**)sigd->digests);
     if (rv != SECSuccess)
-	return SECFailure;
-    
+        return SECFailure;
+
     return SECSuccess;
 
 loser:
     return SECFailure;
 }
 
-OSStatus
-SecCmsSignedDataEncodeBeforeData(SecCmsSignedDataRef sigd)
+OSStatus SecCmsSignedDataEncodeBeforeData(SecCmsSignedDataRef sigd)
 {
     /* set up the digests */
     if (sigd->digestAlgorithms != NULL) {
-	sigd->contentInfo.digcx = SecCmsDigestContextStartMultiple(sigd->digestAlgorithms);
-	if (sigd->contentInfo.digcx == NULL)
-	    return SECFailure;
+        sigd->contentInfo.digcx = SecCmsDigestContextStartMultiple(sigd->digestAlgorithms);
+        if (sigd->contentInfo.digcx == NULL)
+            return SECFailure;
     }
     return SECSuccess;
 }
@@ -212,18 +211,17 @@ SecCmsSignedDataEncodeBeforeData(SecCmsSignedDataRef sigd)
  * Please note that nothing is done to the Certificates and CRLs in the message - this
  * is entirely the responsibility of our callers.
  */
-OSStatus
-SecCmsSignedDataEncodeAfterData(SecCmsSignedDataRef sigd)
+OSStatus SecCmsSignedDataEncodeAfterData(SecCmsSignedDataRef sigd)
 {
     SecCmsSignerInfoRef *signerinfos, signerinfo;
     SecCmsContentInfoRef cinfo;
     SECOidTag digestalgtag;
     OSStatus ret = SECFailure;
     OSStatus rv;
-    SecAsn1Item * contentType;
+    SecAsn1Item* contentType;
     CFIndex certcount;
     int i, ci, n, rci, si;
-    PLArenaPool *poolp;
+    PLArenaPool* poolp;
     CFArrayRef certlist;
     extern const SecAsn1Template SecCmsSignerInfoTemplate[];
 
@@ -232,59 +230,59 @@ SecCmsSignedDataEncodeAfterData(SecCmsSignedDataRef sigd)
 
     /* did we have digest calculation going on? */
     if (cinfo->digcx) {
-	SecAsn1Item **digests = NULL;
-	SECAlgorithmID **digestalgs = NULL;
-	rv = SecCmsDigestContextFinishMultiple(cinfo->digcx, &digestalgs, &digests);
-	if (rv != SECSuccess)
-	    goto loser;		/* error has been set by SecCmsDigestContextFinishMultiple */
+        SecAsn1Item** digests = NULL;
+        SECAlgorithmID** digestalgs = NULL;
+        rv = SecCmsDigestContextFinishMultiple(cinfo->digcx, &digestalgs, &digests);
+        if (rv != SECSuccess)
+            goto loser; /* error has been set by SecCmsDigestContextFinishMultiple */
         if (digestalgs && digests) {
             rv = SecCmsSignedDataSetDigests(sigd, digestalgs, digests);
             if (rv != SECSuccess)
-                goto loser;		/* error has been set by SecCmsSignedDataSetDigests */
+                goto loser; /* error has been set by SecCmsSignedDataSetDigests */
         }
-	SecCmsDigestContextDestroy(cinfo->digcx);
-	cinfo->digcx = NULL;
+        SecCmsDigestContextDestroy(cinfo->digcx);
+        cinfo->digcx = NULL;
     }
 
     signerinfos = sigd->signerInfos;
     certcount = 0;
 
     /* prepare all the SignerInfos (there may be none) */
-    for (i=0; i < SecCmsSignedDataSignerInfoCount(sigd); i++) {
-	signerinfo = SecCmsSignedDataGetSignerInfo(sigd, i);
+    for (i = 0; i < SecCmsSignedDataSignerInfoCount(sigd); i++) {
+        signerinfo = SecCmsSignedDataGetSignerInfo(sigd, i);
 
-	/* find correct digest for this signerinfo */
-	digestalgtag = SecCmsSignerInfoGetDigestAlgTag(signerinfo);
-	n = SecCmsAlgArrayGetIndexByAlgTag(sigd->digestAlgorithms, digestalgtag);
-	if (n < 0 || sigd->digests == NULL || sigd->digests[n] == NULL) {
-	    /* oops - digest not found */
-	    PORT_SetError(SEC_ERROR_DIGEST_NOT_FOUND);
-	    goto loser;
-	}
+        /* find correct digest for this signerinfo */
+        digestalgtag = SecCmsSignerInfoGetDigestAlgTag(signerinfo);
+        n = SecCmsAlgArrayGetIndexByAlgTag(sigd->digestAlgorithms, digestalgtag);
+        if (n < 0 || sigd->digests == NULL || sigd->digests[n] == NULL) {
+            /* oops - digest not found */
+            PORT_SetError(SEC_ERROR_DIGEST_NOT_FOUND);
+            goto loser;
+        }
 
-	/* XXX if our content is anything else but data, we need to force the
+        /* XXX if our content is anything else but data, we need to force the
 	 * presence of signed attributes (RFC2630 5.3 "signedAttributes is a
 	 * collection...") */
 
-	/* pass contentType here as we want a contentType attribute */
-	if ((contentType = SecCmsContentInfoGetContentTypeOID(cinfo)) == NULL)
-	    goto loser;
+        /* pass contentType here as we want a contentType attribute */
+        if ((contentType = SecCmsContentInfoGetContentTypeOID(cinfo)) == NULL)
+            goto loser;
 
-	/* sign the thing */
-	rv = SecCmsSignerInfoSign(signerinfo, sigd->digests[n], contentType);
-	if (rv != SECSuccess)
-	    goto loser;
+        /* sign the thing */
+        rv = SecCmsSignerInfoSign(signerinfo, sigd->digests[n], contentType);
+        if (rv != SECSuccess)
+            goto loser;
 
-	/* while we're at it, count number of certs in certLists */
-	certlist = SecCmsSignerInfoGetCertList(signerinfo);
-	if (certlist)
-	    certcount += CFArrayGetCount(certlist);
+        /* while we're at it, count number of certs in certLists */
+        certlist = SecCmsSignerInfoGetCertList(signerinfo);
+        if (certlist)
+            certcount += CFArrayGetCount(certlist);
     }
 
     /* this is a SET OF, so we need to sort them guys */
-    rv = SecCmsArraySortByDER((void **)signerinfos, SecCmsSignerInfoTemplate, NULL);
+    rv = SecCmsArraySortByDER((void**)signerinfos, SecCmsSignerInfoTemplate, NULL);
     if (rv != SECSuccess)
-	goto loser;
+        goto loser;
 
     /*
      * now prepare certs & crls
@@ -292,12 +290,12 @@ SecCmsSignedDataEncodeAfterData(SecCmsSignedDataRef sigd)
 
     /* count the rest of the certs */
     if (sigd->certs != NULL)
-	certcount += CFArrayGetCount(sigd->certs);
+        certcount += CFArrayGetCount(sigd->certs);
 
-    if (certcount == 0) {
-	sigd->rawCerts = NULL;
+    if (certcount <= 0 || certcount >= (long)((LONG_MAX / sizeof(SecAsn1Item*)) - 1)) {
+        sigd->rawCerts = NULL;
     } else {
-	/*
+        /*
 	 * Combine all of the certs and cert chains into rawcerts.
 	 * Note: certcount is an upper bound; we may not need that many slots
 	 * but we will allocate anyway to avoid having to do another pass.
@@ -306,11 +304,12 @@ SecCmsSignedDataEncodeAfterData(SecCmsSignedDataRef sigd)
 	 * XXX ARGH - this NEEDS to be fixed. need to come up with a decent
 	 *  SetOfDERcertficates implementation
 	 */
-	sigd->rawCerts = (SecAsn1Item * *)PORT_ArenaAlloc(poolp, (certcount + 1) * sizeof(SecAsn1Item *));
-	if (sigd->rawCerts == NULL)
-	    return SECFailure;
+        sigd->rawCerts =
+            (SecAsn1Item**)PORT_ArenaAlloc(poolp, (size_t)(certcount + 1) * sizeof(SecAsn1Item*));
+        if (sigd->rawCerts == NULL)
+            return SECFailure;
 
-	/*
+        /*
 	 * XXX Want to check for duplicates and not add *any* cert that is
 	 * already in the set.  This will be more important when we start
 	 * dealing with larger sets of certs, dual-key certs (signing and
@@ -319,42 +318,41 @@ SecCmsSignedDataEncodeAfterData(SecCmsSignedDataRef sigd)
 	 * XXX ARGH - this NEEDS to be fixed. need to come up with a decent
 	 *  SetOfDERcertficates implementation
 	 */
-	rci = 0;
-	if (signerinfos != NULL) {
-	    for (si = 0; signerinfos[si] != NULL; si++) {
-		signerinfo = signerinfos[si];
-		for (ci = 0; ci < CFArrayGetCount(signerinfo->certList); ci++) {
-		    sigd->rawCerts[rci] = PORT_ArenaZAlloc(poolp, sizeof(SecAsn1Item));
-		    SecCertificateRef cert = (SecCertificateRef)CFArrayGetValueAtIndex(signerinfo->certList, ci);
-#if USE_CDSA_CRYPTO    
-		    SecCertificateGetData(cert, sigd->rawCerts[rci++]);
-#else
-                    SecAsn1Item cert_data = { SecCertificateGetLength(cert),
-                        (uint8_t *)SecCertificateGetBytePtr(cert) };
+        rci = 0;
+        if (signerinfos != NULL) {
+            for (si = 0; signerinfos[si] != NULL; si++) {
+                signerinfo = signerinfos[si];
+                for (ci = 0; ci < CFArrayGetCount(signerinfo->certList); ci++) {
+                    sigd->rawCerts[rci] = PORT_ArenaZAlloc(poolp, sizeof(SecAsn1Item));
+                    SecCertificateRef cert =
+                        (SecCertificateRef)CFArrayGetValueAtIndex(signerinfo->certList, ci);
+                    if (SecCertificateGetLength(cert) < 0) {
+                        continue;
+                    }
+                    SecAsn1Item cert_data = {(size_t)SecCertificateGetLength(cert),
+                                             (uint8_t*)SecCertificateGetBytePtr(cert)};
                     *(sigd->rawCerts[rci++]) = cert_data;
-#endif
-		}
-	    }
-	}
+                }
+            }
+        }
 
-	if (sigd->certs != NULL) {
-	    for (ci = 0; ci < CFArrayGetCount(sigd->certs); ci++) {
-		sigd->rawCerts[rci] = PORT_ArenaZAlloc(poolp, sizeof(SecAsn1Item));
-		SecCertificateRef cert = (SecCertificateRef)CFArrayGetValueAtIndex(sigd->certs, ci);
-#if USE_CDSA_CRYPTO    
-                SecCertificateGetData(cert, sigd->rawCerts[rci++]);
-#else
-                    SecAsn1Item cert_data = { SecCertificateGetLength(cert),
-                        (uint8_t *)SecCertificateGetBytePtr(cert) };
-                    *(sigd->rawCerts[rci++]) = cert_data;
-#endif
-	    }
-	}
+        if (sigd->certs != NULL) {
+            for (ci = 0; ci < CFArrayGetCount(sigd->certs); ci++) {
+                sigd->rawCerts[rci] = PORT_ArenaZAlloc(poolp, sizeof(SecAsn1Item));
+                SecCertificateRef cert = (SecCertificateRef)CFArrayGetValueAtIndex(sigd->certs, ci);
+                if (SecCertificateGetLength(cert) < 0) {
+                    continue;
+                }
+                SecAsn1Item cert_data = {(size_t)SecCertificateGetLength(cert),
+                                         (uint8_t*)SecCertificateGetBytePtr(cert)};
+                *(sigd->rawCerts[rci++]) = cert_data;
+            }
+        }
 
-	sigd->rawCerts[rci] = NULL;
+        sigd->rawCerts[rci] = NULL;
 
-	/* this is a SET OF, so we need to sort them guys - we have the DER already, though */
-	SecCmsArraySort((void **)sigd->rawCerts, SecCmsUtilDERCompare, NULL, NULL);
+        /* this is a SET OF, so we need to sort them guys - we have the DER already, though */
+        SecCmsArraySort((void**)sigd->rawCerts, SecCmsUtilDERCompare, NULL, NULL);
     }
 
     ret = SECSuccess;
@@ -363,15 +361,15 @@ loser:
     return ret;
 }
 
-OSStatus
-SecCmsSignedDataDecodeBeforeData(SecCmsSignedDataRef sigd)
+OSStatus SecCmsSignedDataDecodeBeforeData(SecCmsSignedDataRef sigd)
 {
     /* set up the digests, if we have digest algorithms, no digests yet, and content is attached */
-    if (sigd->digestAlgorithms != NULL && sigd->digests == NULL /* && sigd->contentInfo.content.pointer != NULL*/) {
-	/* if digests are already there, do nothing */
-	sigd->contentInfo.digcx = SecCmsDigestContextStartMultiple(sigd->digestAlgorithms);
-	if (sigd->contentInfo.digcx == NULL)
-	    return SECFailure;
+    if (sigd->digestAlgorithms != NULL &&
+        sigd->digests == NULL /* && sigd->contentInfo.content.pointer != NULL*/) {
+        /* if digests are already there, do nothing */
+        sigd->contentInfo.digcx = SecCmsDigestContextStartMultiple(sigd->digestAlgorithms);
+        if (sigd->contentInfo.digcx == NULL)
+            return SECFailure;
     }
     return SECSuccess;
 }
@@ -380,8 +378,7 @@ SecCmsSignedDataDecodeBeforeData(SecCmsSignedDataRef sigd)
  * SecCmsSignedDataDecodeAfterData - do all the necessary things to a SignedData
  *     after all the encapsulated data was passed through the decoder.
  */
-OSStatus
-SecCmsSignedDataDecodeAfterData(SecCmsSignedDataRef sigd)
+OSStatus SecCmsSignedDataDecodeAfterData(SecCmsSignedDataRef sigd)
 {
     OSStatus rv = SECSuccess;
 
@@ -389,17 +386,17 @@ SecCmsSignedDataDecodeAfterData(SecCmsSignedDataRef sigd)
     if (sigd->contentInfo.digcx) {
         /* @@@ we should see if data was absent vs. zero length */
         if (sigd->contentInfo.content.data && sigd->contentInfo.content.data->Length) {
-            SecAsn1Item * *digests = NULL;
-            SECAlgorithmID **digestalgs = NULL;
+            SecAsn1Item** digests = NULL;
+            SECAlgorithmID** digestalgs = NULL;
             rv = SecCmsDigestContextFinishMultiple(sigd->contentInfo.digcx, &digestalgs, &digests);
             if (rv != SECSuccess)
-                goto loser;		/* error has been set by SecCmsDigestContextFinishMultiple */
+                goto loser; /* error has been set by SecCmsDigestContextFinishMultiple */
             rv = SecCmsSignedDataSetDigests(sigd, digestalgs, digests);
             if (rv != SECSuccess)
-                goto loser;		/* error has been set by SecCmsSignedDataSetDigests */
+                goto loser; /* error has been set by SecCmsSignedDataSetDigests */
         }
-	SecCmsDigestContextDestroy(sigd->contentInfo.digcx);
-	sigd->contentInfo.digcx = NULL;
+        SecCmsDigestContextDestroy(sigd->contentInfo.digcx);
+        sigd->contentInfo.digcx = NULL;
     }
 
 loser:
@@ -410,10 +407,9 @@ loser:
  * SecCmsSignedDataDecodeAfterEnd - do all the necessary things to a SignedData
  *     after all decoding is finished.
  */
-OSStatus
-SecCmsSignedDataDecodeAfterEnd(SecCmsSignedDataRef sigd)
+OSStatus SecCmsSignedDataDecodeAfterEnd(SecCmsSignedDataRef sigd)
 {
-    SecCmsSignerInfoRef *signerinfos;
+    SecCmsSignerInfoRef* signerinfos;
     int i;
 
     if (!sigd) {
@@ -425,8 +421,8 @@ SecCmsSignedDataDecodeAfterEnd(SecCmsSignedDataRef sigd)
 
     /* set signedData for all the signerinfos */
     if (signerinfos) {
-	for (i = 0; signerinfos[i] != NULL; i++)
-	    signerinfos[i]->signedData = sigd;
+        for (i = 0; signerinfos[i] != NULL; i++)
+            signerinfos[i]->signedData = sigd;
     }
 
     return SECSuccess;
@@ -435,20 +431,17 @@ SecCmsSignedDataDecodeAfterEnd(SecCmsSignedDataRef sigd)
 /* 
  * SecCmsSignedDataGetSignerInfos - retrieve the SignedData's signer list
  */
-SecCmsSignerInfoRef *
-SecCmsSignedDataGetSignerInfos(SecCmsSignedDataRef sigd)
+SecCmsSignerInfoRef* SecCmsSignedDataGetSignerInfos(SecCmsSignedDataRef sigd)
 {
     return sigd->signerInfos;
 }
 
-int
-SecCmsSignedDataSignerInfoCount(SecCmsSignedDataRef sigd)
+int SecCmsSignedDataSignerInfoCount(SecCmsSignedDataRef sigd)
 {
-    return SecCmsArrayCount((void **)sigd->signerInfos);
+    return SecCmsArrayCount((void**)sigd->signerInfos);
 }
 
-SecCmsSignerInfoRef
-SecCmsSignedDataGetSignerInfo(SecCmsSignedDataRef sigd, int i)
+SecCmsSignerInfoRef SecCmsSignedDataGetSignerInfo(SecCmsSignedDataRef sigd, int i)
 {
     return sigd->signerInfos[i];
 }
@@ -456,8 +449,7 @@ SecCmsSignedDataGetSignerInfo(SecCmsSignedDataRef sigd, int i)
 /* 
  * SecCmsSignedDataGetDigestAlgs - retrieve the SignedData's digest algorithm list
  */
-SECAlgorithmID **
-SecCmsSignedDataGetDigestAlgs(SecCmsSignedDataRef sigd)
+SECAlgorithmID** SecCmsSignedDataGetDigestAlgs(SecCmsSignedDataRef sigd)
 {
     return sigd->digestAlgorithms;
 }
@@ -465,8 +457,7 @@ SecCmsSignedDataGetDigestAlgs(SecCmsSignedDataRef sigd)
 /*
  * SecCmsSignedDataGetContentInfo - return pointer to this signedData's contentinfo
  */
-SecCmsContentInfoRef
-SecCmsSignedDataGetContentInfo(SecCmsSignedDataRef sigd)
+SecCmsContentInfoRef SecCmsSignedDataGetContentInfo(SecCmsSignedDataRef sigd)
 {
     return &(sigd->contentInfo);
 }
@@ -474,34 +465,17 @@ SecCmsSignedDataGetContentInfo(SecCmsSignedDataRef sigd)
 /* 
  * SecCmsSignedDataGetCertificateList - retrieve the SignedData's certificate list
  */
-SecAsn1Item * *
-SecCmsSignedDataGetCertificateList(SecCmsSignedDataRef sigd)
+SecAsn1Item** SecCmsSignedDataGetCertificateList(SecCmsSignedDataRef sigd)
 {
     return sigd->rawCerts;
 }
 
-OSStatus
-SecCmsSignedDataImportCerts(SecCmsSignedDataRef sigd, SecKeychainRef keychain,
-				SECCertUsage certusage, Boolean keepcerts)
+OSStatus SecCmsSignedDataImportCerts(SecCmsSignedDataRef sigd,
+                                     SecKeychainRef keychain,
+                                     SECCertUsage certusage,
+                                     Boolean keepcerts)
 {
-    OSStatus rv = -1;
-
-#if USE_CDSA_CRYPTO
-    int ix, certcount = SecCmsArrayCount((void **)sigd->rawCerts);
-    rv = CERT_ImportCerts(keychain, certusage, certcount, sigd->rawCerts, NULL,
-			  keepcerts, PR_FALSE, NULL);
-    /* XXX CRL handling */
-
-    if (sigd->signerInfos != NULL) {
-	/* fill in all signerinfo's certs */
-	for (ix = 0; sigd->signerInfos[ix] != NULL; i++)
-	    (void)SecCmsSignerInfoGetSigningCertificate(sigd->signerInfos[ix], keychain);
-    }
-#else
-    // XXX we should only ever import certs for a cert only data blob
-#endif
-
-    return rv;
+    return errSecUnimplemented;
 }
 
 /*
@@ -522,13 +496,15 @@ SecCmsSignedDataImportCerts(SecCmsSignedDataRef sigd, SecKeychainRef keychain,
  * If trustRef is NULL the cert chain is verified and the VerificationStatus is set accordingly.
  * Otherwise a SecTrust object is returned for the caller to evaluate using SecTrustEvaluate().
  */
-OSStatus
-SecCmsSignedDataVerifySignerInfo(SecCmsSignedDataRef sigd, int i, 
-			    SecKeychainRef keychainOrArray, CFTypeRef policies, SecTrustRef *trustRef)
+static OSStatus SecCmsSignedDataVerifySignerInfo_internal(SecCmsSignedDataRef sigd,
+                                          int i,
+                                          SecKeychainRef keychainOrArray,
+                                          CFTypeRef policies,
+                                          SecTrustRef* trustRef)
 {
     SecCmsSignerInfoRef signerinfo;
     SecCmsContentInfoRef cinfo;
-    SECOidData *algiddata;
+    SECOidData* algiddata;
     SecAsn1Item *contentType, *digest;
     OSStatus status;
 
@@ -549,7 +525,7 @@ SecCmsSignedDataVerifySignerInfo(SecCmsSignedDataRef sigd, int i,
     }
 
     if (!sigd->digests) {
-        SECAlgorithmID **digestalgs = SecCmsSignedDataGetDigestAlgs(sigd);
+        SECAlgorithmID** digestalgs = SecCmsSignedDataGetDigestAlgs(sigd);
         SecCmsDigestContextRef digcx = SecCmsDigestContextStartMultiple(digestalgs);
         SecCmsSignedDataSetDigestContext(sigd, digcx);
         SecCmsDigestContextDestroy(digcx);
@@ -565,8 +541,10 @@ SecCmsSignedDataVerifySignerInfo(SecCmsSignedDataRef sigd, int i,
     /* verify signature */
     status = SecCmsSignerInfoVerify(signerinfo, digest, contentType);
 #if SECTRUST_VERBOSE_DEBUG
-	syslog(LOG_ERR, "SecCmsSignedDataVerifySignerInfo: SecCmsSignerInfoVerify returned %d, will %sverify cert",
-		(int)status, (status) ? "NOT " : "");
+    syslog(LOG_ERR,
+           "SecCmsSignedDataVerifySignerInfo: SecCmsSignerInfoVerify returned %d, will %sverify cert",
+           (int)status,
+           (status) ? "NOT " : "");
 #endif
     if (status) {
         return status;
@@ -576,104 +554,91 @@ SecCmsSignedDataVerifySignerInfo(SecCmsSignedDataRef sigd, int i,
        behavior is different than the macOS code. */
     status = SecCmsSignerInfoVerifyCertificate(signerinfo, keychainOrArray, policies, trustRef);
 #if SECTRUST_VERBOSE_DEBUG
-	syslog(LOG_ERR, "SecCmsSignedDataVerifySignerInfo: SecCmsSignerInfoVerifyCertificate returned %d", (int)status);
+    syslog(LOG_ERR,
+           "SecCmsSignedDataVerifySignerInfo: SecCmsSignerInfoVerifyCertificate returned %d",
+           (int)status);
 #endif
 
     return status;
 }
 
-#if USE_CDSA_CRYPTO
-
-/*
- * SecCmsSignedDataVerifyCertsOnly - verify the certs in a certs-only message
- */
-OSStatus
-SecCmsSignedDataVerifyCertsOnly(SecCmsSignedDataRef sigd, 
-                                  SecKeychainRef keychainOrArray, 
-                                  CFTypeRef policies)
+OSStatus SecCmsSignedDataVerifySignerInfo(SecCmsSignedDataRef sigd,
+                                          int i,
+                                          SecKeychainRef keychainOrArray,
+                                          CFTypeRef policies,
+                                          SecTrustRef* trustRef)
 {
-    SecCertificateRef cert;
-    OSStatus rv = SECSuccess;
-    int i;
-    int count;
-
-    if (!sigd || !keychainOrArray || !sigd->rawCerts) {
-	PORT_SetError(SEC_ERROR_INVALID_ARGS);
-	return SECFailure;
-    }
-
-    count = SecCmsArrayCount((void**)sigd->rawCerts);
-    for (i=0; i < count; i++) {
-	if (sigd->certs && CFArrayGetCount(sigd->certs) > i) {
-	    cert = (SecCertificateRef)CFArrayGetValueAtIndex(sigd->certs, i);
-	    CFRetain(cert);
-	} else {
-	    cert = CERT_FindCertByDERCert(keychainOrArray, sigd->rawCerts[i]);
-	    if (!cert) {
-		rv = SECFailure;
-		break;
-	    }
-	}
-	rv |= CERT_VerifyCert(keychainOrArray, cert, policies, CFAbsoluteTimeGetCurrent(), NULL);
-	CFRelease(cert);
-    }
-
-    return rv;
+    return SecCmsSignedDataVerifySignerInfo_internal(sigd, i, keychainOrArray, policies, trustRef);
 }
-#else
-OSStatus
-SecCmsSignedDataVerifyCertsOnly(SecCmsSignedDataRef sigd, 
-                                  SecKeychainRef keychainOrArray, 
-                                  CFTypeRef policies)
+
+OSStatus SecCmsSignedDataVerifySigner(SecCmsSignedDataRef sigd,
+                                      int i,
+                                      CFTypeRef policies,
+                                      SecTrustRef* trustRef)
+{
+    return SecCmsSignedDataVerifySignerInfo_internal(sigd, i, NULL, policies, trustRef);
+}
+
+static OSStatus SecCmsSignedDataVerifyCertsOnly_internal(SecCmsSignedDataRef sigd, SecKeychainRef keychainOrArray, CFTypeRef policies)
 {
     OSStatus rv = SECSuccess;
 
     if (!sigd || !keychainOrArray || !sigd->rawCerts) {
-	PORT_SetError(SEC_ERROR_INVALID_ARGS);
-	return SECFailure;
+        PORT_SetError(SEC_ERROR_INVALID_ARGS);
+        return SECFailure;
     }
 
-    SecAsn1Item **cert_datas = sigd->rawCerts;
-    SecAsn1Item *cert_data;
+    SecAsn1Item** cert_datas = sigd->rawCerts;
+    SecAsn1Item* cert_data;
     while ((cert_data = *cert_datas++) != NULL) {
-        SecCertificateRef cert = SecCertificateCreateWithBytes(NULL, cert_data->Data, cert_data->Length);
-        if (cert) {
-            CFArrayRef certs = CFArrayCreate(kCFAllocatorDefault, (const void **)&cert, 1, NULL);
-            rv |= CERT_VerifyCert(keychainOrArray, certs, policies, CFAbsoluteTimeGetCurrent(), NULL);
-            CFRelease(certs);
-            CFRelease(cert);
-        }
-        else
+        if (cert_data->Length > LONG_MAX) {
             rv |= SECFailure;
+            continue;
+        }
+        SecCertificateRef cert = SecCertificateCreateWithBytes(NULL, cert_data->Data, (CFIndex)cert_data->Length);
+        if (cert) {
+            CFArrayRef certs = CFArrayCreate(kCFAllocatorDefault, (const void**)&cert, 1, NULL);
+            rv |= CERT_VerifyCert(keychainOrArray, certs, policies, CFAbsoluteTimeGetCurrent(), NULL);
+            CFReleaseNull(certs);
+            CFReleaseNull(cert);
+        } else {
+            rv |= SECFailure;
+        }
     }
 
     return rv;
 }
-#endif
+
+OSStatus SecCmsSignedDataVerifyCertsOnly(SecCmsSignedDataRef sigd, SecKeychainRef keychainOrArray, CFTypeRef policies)
+{
+    return SecCmsSignedDataVerifyCertsOnly_internal(sigd, keychainOrArray, policies);
+}
+
+OSStatus SecCmsSignedDataVerifyCertsOnlyMessage(SecCmsSignedDataRef sigd, CFTypeRef policies)
+{
+    return SecCmsSignedDataVerifyCertsOnly_internal(sigd, NULL, policies);
+}
 
 /*
  * SecCmsSignedDataHasDigests - see if we have digests in place
  */
-Boolean
-SecCmsSignedDataHasDigests(SecCmsSignedDataRef sigd)
+Boolean SecCmsSignedDataHasDigests(SecCmsSignedDataRef sigd)
 {
     return (sigd->digests != NULL);
 }
 
-OSStatus
-SecCmsSignedDataAddCertList(SecCmsSignedDataRef sigd, CFArrayRef certlist)
+OSStatus SecCmsSignedDataAddCertList(SecCmsSignedDataRef sigd, CFArrayRef certlist)
 {
     PORT_Assert(certlist != NULL);
 
     if (certlist == NULL)
-	return SECFailure;
+        return SECFailure;
 
     if (!sigd->certs)
-	sigd->certs = CFArrayCreateMutableCopy(NULL, 0, certlist);
-    else
-    {
-	CFRange certlistRange = { 0, CFArrayGetCount(certlist) };
-	CFArrayAppendArray(sigd->certs, certlist, certlistRange);
+        sigd->certs = CFArrayCreateMutableCopy(NULL, 0, certlist);
+    else {
+        CFRange certlistRange = {0, CFArrayGetCount(certlist)};
+        CFArrayAppendArray(sigd->certs, certlist, certlistRange);
     }
 
     return SECSuccess;
@@ -682,8 +647,7 @@ SecCmsSignedDataAddCertList(SecCmsSignedDataRef sigd, CFArrayRef certlist)
 /*
  * SecCmsSignedDataAddCertChain - add cert and its entire chain to the set of certs 
  */
-OSStatus
-SecCmsSignedDataAddCertChain(SecCmsSignedDataRef sigd, SecCertificateRef cert)
+OSStatus SecCmsSignedDataAddCertChain(SecCmsSignedDataRef sigd, SecCertificateRef cert)
 {
     CFArrayRef certlist;
     SECCertUsage usage;
@@ -693,59 +657,56 @@ SecCmsSignedDataAddCertChain(SecCmsSignedDataRef sigd, SecCertificateRef cert)
 
     /* do not include root */
     certlist = CERT_CertChainFromCert(cert, usage, PR_FALSE, PR_FALSE);
-    if (certlist == NULL)
-	return SECFailure;
+    if (certlist == NULL) {
+        return SECFailure;
+    }
 
     rv = SecCmsSignedDataAddCertList(sigd, certlist);
-    CFRelease(certlist);
+    CFReleaseNull(certlist);
 
     return rv;
 }
 
-OSStatus
-SecCmsSignedDataAddCertificate(SecCmsSignedDataRef sigd, SecCertificateRef cert)
+OSStatus SecCmsSignedDataAddCertificate(SecCmsSignedDataRef sigd, SecCertificateRef cert)
 {
     PORT_Assert(cert != NULL);
 
     if (cert == NULL)
-	return SECFailure;
+        return SECFailure;
 
     if (!sigd->certs)
-	sigd->certs = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+        sigd->certs = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
 
     CFArrayAppendValue(sigd->certs, cert);
 
     return SECSuccess;
 }
 
-Boolean
-SecCmsSignedDataContainsCertsOrCrls(SecCmsSignedDataRef sigd)
+Boolean SecCmsSignedDataContainsCertsOrCrls(SecCmsSignedDataRef sigd)
 {
     if (sigd->rawCerts != NULL && sigd->rawCerts[0] != NULL)
-	return PR_TRUE;
+        return PR_TRUE;
     else if (sigd->rawCrls != NULL && sigd->rawCrls[0] != NULL)
-	return PR_TRUE;
+        return PR_TRUE;
     else
-	return PR_FALSE;
+        return PR_FALSE;
 }
 
-OSStatus
-SecCmsSignedDataAddSignerInfo(SecCmsSignedDataRef sigd,
-			      SecCmsSignerInfoRef signerinfo)
+OSStatus SecCmsSignedDataAddSignerInfo(SecCmsSignedDataRef sigd, SecCmsSignerInfoRef signerinfo)
 {
-    void *mark;
+    void* mark;
     OSStatus rv;
     SECOidTag digestalgtag;
-    PLArenaPool *poolp;
+    PLArenaPool* poolp;
 
     poolp = sigd->contentInfo.cmsg->poolp;
 
     mark = PORT_ArenaMark(poolp);
 
     /* add signerinfo */
-    rv = SecCmsArrayAdd(poolp, (void ***)&(sigd->signerInfos), (void *)signerinfo);
+    rv = SecCmsArrayAdd(poolp, (void***)&(sigd->signerInfos), (void*)signerinfo);
     if (rv != SECSuccess)
-	goto loser;
+        goto loser;
 
     /*
      * add empty digest
@@ -756,7 +717,7 @@ SecCmsSignedDataAddSignerInfo(SecCmsSignedDataRef sigd,
     digestalgtag = SecCmsSignerInfoGetDigestAlgTag(signerinfo);
     rv = SecCmsSignedDataSetDigestValue(sigd, digestalgtag, NULL);
     if (rv != SECSuccess)
-	goto loser;
+        goto loser;
 
     /*
      * The last thing to get consistency would be adding the digest.
@@ -766,33 +727,30 @@ SecCmsSignedDataAddSignerInfo(SecCmsSignedDataRef sigd,
     return SECSuccess;
 
 loser:
-    PORT_ArenaRelease (poolp, mark);
+    PORT_ArenaRelease(poolp, mark);
     return SECFailure;
 }
 
-SecAsn1Item *
-SecCmsSignedDataGetDigestByAlgTag(SecCmsSignedDataRef sigd, SECOidTag algtag)
+SecAsn1Item* SecCmsSignedDataGetDigestByAlgTag(SecCmsSignedDataRef sigd, SECOidTag algtag)
 {
     int idx;
 
-    if(sigd == NULL || sigd->digests == NULL) {
+    if (sigd == NULL || sigd->digests == NULL) {
         return NULL;
     }
     idx = SecCmsAlgArrayGetIndexByAlgTag(sigd->digestAlgorithms, algtag);
-    return (idx >= 0)?(sigd->digests)[idx]:NULL;
+    return (idx >= 0) ? (sigd->digests)[idx] : NULL;
 }
 
-OSStatus
-SecCmsSignedDataSetDigestContext(SecCmsSignedDataRef sigd,
-				 SecCmsDigestContextRef digestContext)
+OSStatus SecCmsSignedDataSetDigestContext(SecCmsSignedDataRef sigd, SecCmsDigestContextRef digestContext)
 {
-    SECAlgorithmID **digestalgs;
-    SecAsn1Item * *digests;
+    SECAlgorithmID** digestalgs;
+    SecAsn1Item** digests;
 
     if (SecCmsDigestContextFinishMultiple(digestContext, &digestalgs, &digests) != SECSuccess)
-	goto loser;
+        goto loser;
     if (SecCmsSignedDataSetDigests(sigd, digestalgs, digests) != SECSuccess)
-	goto loser;
+        goto loser;
 
     return 0;
 loser:
@@ -805,16 +763,13 @@ loser:
  * "digestalgs" - array of digest algorithm IDs
  * "digests"    - array of digests corresponding to the digest algorithms
  */
-OSStatus
-SecCmsSignedDataSetDigests(SecCmsSignedDataRef sigd,
-				SECAlgorithmID **digestalgs,
-				SecAsn1Item * *digests)
+OSStatus SecCmsSignedDataSetDigests(SecCmsSignedDataRef sigd, SECAlgorithmID** digestalgs, SecAsn1Item** digests)
 {
     int cnt, i, idx;
 
     /* Check input structure and items in structure */
-    if (sigd == NULL || sigd->digestAlgorithms == NULL || sigd->contentInfo.cmsg == NULL ||
-        sigd->contentInfo.cmsg->poolp == NULL) {
+    if (sigd == NULL || sigd->digestAlgorithms == NULL ||
+        sigd->contentInfo.cmsg == NULL || sigd->contentInfo.cmsg->poolp == NULL) {
         PORT_SetError(SEC_ERROR_INVALID_ARGS);
         return SECFailure;
     }
@@ -823,10 +778,10 @@ SecCmsSignedDataSetDigests(SecCmsSignedDataRef sigd,
        whether or not they're detached, we have to avoid overwriting
        externally set digest for detached content => return early */
     if (sigd->digests && sigd->digests[0])
-	return 0;
+        return 0;
 
     /* we assume that the digests array is just not there yet */
-/*
+    /*
     PORT_Assert(sigd->digests == NULL);
     if (sigd->digests != NULL) {
 	PORT_SetError(SEC_ERROR_LIBRARY_FAILURE);
@@ -835,77 +790,83 @@ SecCmsSignedDataSetDigests(SecCmsSignedDataRef sigd,
 */
     /* now allocate one (same size as digestAlgorithms) */
     if (sigd->digests == NULL) {
-        cnt = SecCmsArrayCount((void **)sigd->digestAlgorithms);
-        sigd->digests = PORT_ArenaZAlloc(sigd->contentInfo.cmsg->poolp, (cnt + 1) * sizeof(SecAsn1Item *));
+        cnt = SecCmsArrayCount((void**)sigd->digestAlgorithms);
+        if (cnt < 0 || cnt >= (int)((INT_MAX / sizeof(SecAsn1Item*)) - 1)) {
+            PORT_SetError(SEC_ERROR_NO_MEMORY);
+            return SECFailure;
+        }
+        sigd->digests =
+            PORT_ArenaZAlloc(sigd->contentInfo.cmsg->poolp, (size_t)(cnt + 1) * sizeof(SecAsn1Item*));
         if (sigd->digests == NULL) {
             PORT_SetError(SEC_ERROR_NO_MEMORY);
             return SECFailure;
         }
     }
-    
-    for (i = 0; sigd->digestAlgorithms[i] != NULL; i++) {
-	/* try to find the sigd's i'th digest algorithm in the array we passed in */
-	idx = SecCmsAlgArrayGetIndexByAlgID(digestalgs, sigd->digestAlgorithms[i]);
-	if (idx < 0) {
-	    PORT_SetError(SEC_ERROR_DIGEST_NOT_FOUND);
-	    return SECFailure;
-	}
 
-	/* found it - now set it */
-	if ((sigd->digests[i] = SECITEM_AllocItem(sigd->contentInfo.cmsg->poolp, NULL, 0)) == NULL ||
-	    SECITEM_CopyItem(sigd->contentInfo.cmsg->poolp, sigd->digests[i], digests[idx]) != SECSuccess)
-	{
-	    PORT_SetError(SEC_ERROR_NO_MEMORY);
-	    return SECFailure;
-	}
+    for (i = 0; sigd->digestAlgorithms[i] != NULL; i++) {
+        /* try to find the sigd's i'th digest algorithm in the array we passed in */
+        idx = SecCmsAlgArrayGetIndexByAlgID(digestalgs, sigd->digestAlgorithms[i]);
+        if (idx < 0) {
+            PORT_SetError(SEC_ERROR_DIGEST_NOT_FOUND);
+            return SECFailure;
+        }
+
+        /* found it - now set it */
+        if ((sigd->digests[i] = SECITEM_AllocItem(sigd->contentInfo.cmsg->poolp, NULL, 0)) == NULL ||
+            SECITEM_CopyItem(sigd->contentInfo.cmsg->poolp, sigd->digests[i], digests[idx]) != SECSuccess) {
+            PORT_SetError(SEC_ERROR_NO_MEMORY);
+            return SECFailure;
+        }
     }
     return SECSuccess;
 }
 
-OSStatus
-SecCmsSignedDataSetDigestValue(SecCmsSignedDataRef sigd,
-				SECOidTag digestalgtag,
-				SecAsn1Item * digestdata)
+OSStatus SecCmsSignedDataSetDigestValue(SecCmsSignedDataRef sigd, SECOidTag digestalgtag, SecAsn1Item* digestdata)
 {
-    SecAsn1Item * digest = NULL;
-    PLArenaPool *poolp;
-    void *mark;
+    SecAsn1Item* digest = NULL;
+    PLArenaPool* poolp;
+    void* mark;
     int n, cnt;
 
     poolp = sigd->contentInfo.cmsg->poolp;
 
     mark = PORT_ArenaMark(poolp);
 
-   
-    if (digestdata) {
-        digest = (SecAsn1Item *) PORT_ArenaZAlloc(poolp,sizeof(SecAsn1Item));
 
-	/* copy digestdata item to arena (in case we have it and are not only making room) */
-	if (SECITEM_CopyItem(poolp, digest, digestdata) != SECSuccess)
-	    goto loser;
+    if (digestdata) {
+        digest = (SecAsn1Item*)PORT_ArenaZAlloc(poolp, sizeof(SecAsn1Item));
+
+        /* copy digestdata item to arena (in case we have it and are not only making room) */
+        if (SECITEM_CopyItem(poolp, digest, digestdata) != SECSuccess)
+            goto loser;
     }
 
     /* now allocate one (same size as digestAlgorithms) */
     if (sigd->digests == NULL) {
-        cnt = SecCmsArrayCount((void **)sigd->digestAlgorithms);
-        sigd->digests = PORT_ArenaZAlloc(sigd->contentInfo.cmsg->poolp, (cnt + 1) * sizeof(SecAsn1Item *));
+        cnt = SecCmsArrayCount((void**)sigd->digestAlgorithms);
+        if (cnt < 0 || cnt >= (int)((INT_MAX / sizeof(SecAsn1Item*)) - 1)) {
+            PORT_SetError(SEC_ERROR_NO_MEMORY);
+            return SECFailure;
+        }
+        sigd->digests =
+            PORT_ArenaZAlloc(sigd->contentInfo.cmsg->poolp, (size_t)(cnt + 1) * sizeof(SecAsn1Item*));
         if (sigd->digests == NULL) {
-	        PORT_SetError(SEC_ERROR_NO_MEMORY);
-	        return SECFailure;
+            PORT_SetError(SEC_ERROR_NO_MEMORY);
+            return SECFailure;
         }
     }
 
     n = -1;
     if (sigd->digestAlgorithms != NULL)
-	n = SecCmsAlgArrayGetIndexByAlgTag(sigd->digestAlgorithms, digestalgtag);
+        n = SecCmsAlgArrayGetIndexByAlgTag(sigd->digestAlgorithms, digestalgtag);
 
     /* if not found, add a digest */
     if (n < 0) {
-	if (SecCmsSignedDataAddDigest(poolp, sigd, digestalgtag, digest) != SECSuccess)
-	    goto loser;
+        if (SecCmsSignedDataAddDigest(poolp, sigd, digestalgtag, digest) != SECSuccess)
+            goto loser;
     } else {
-	/* replace NULL pointer with digest item (and leak previous value) */
-	sigd->digests[n] = digest;
+        /* replace NULL pointer with digest item (and leak previous value) */
+        sigd->digests[n] = digest;
     }
 
     PORT_ArenaUnmark(poolp, mark);
@@ -916,29 +877,27 @@ loser:
     return SECFailure;
 }
 
-OSStatus
-SecCmsSignedDataAddDigest(PRArenaPool *poolp,
-				SecCmsSignedDataRef sigd,
-				SECOidTag digestalgtag,
-				SecAsn1Item * digest)
+OSStatus SecCmsSignedDataAddDigest(PRArenaPool* poolp,
+                                   SecCmsSignedDataRef sigd,
+                                   SECOidTag digestalgtag,
+                                   SecAsn1Item* digest)
 {
-    SECAlgorithmID *digestalg;
-    void *mark;
+    SECAlgorithmID* digestalg;
+    void* mark;
 
     mark = PORT_ArenaMark(poolp);
 
     digestalg = PORT_ArenaZAlloc(poolp, sizeof(SECAlgorithmID));
     if (digestalg == NULL)
-	goto loser;
+        goto loser;
 
-    if (SECOID_SetAlgorithmID (poolp, digestalg, digestalgtag, NULL) != SECSuccess) /* no params */
-	goto loser;
+    if (SECOID_SetAlgorithmID(poolp, digestalg, digestalgtag, NULL) != SECSuccess) /* no params */
+        goto loser;
 
-    if (SecCmsArrayAdd(poolp, (void ***)&(sigd->digestAlgorithms), (void *)digestalg) != SECSuccess ||
-	/* even if digest is NULL, add dummy to have same-size array */
-	SecCmsArrayAdd(poolp, (void ***)&(sigd->digests), (void *)digest) != SECSuccess)
-    {
-	goto loser;
+    if (SecCmsArrayAdd(poolp, (void***)&(sigd->digestAlgorithms), (void*)digestalg) != SECSuccess ||
+        /* even if digest is NULL, add dummy to have same-size array */
+        SecCmsArrayAdd(poolp, (void***)&(sigd->digests), (void*)digest) != SECSuccess) {
+        goto loser;
     }
 
     PORT_ArenaUnmark(poolp, mark);
@@ -949,13 +908,12 @@ loser:
     return SECFailure;
 }
 
-SecAsn1Item *
-SecCmsSignedDataGetDigestValue(SecCmsSignedDataRef sigd, SECOidTag digestalgtag)
+SecAsn1Item* SecCmsSignedDataGetDigestValue(SecCmsSignedDataRef sigd, SECOidTag digestalgtag)
 {
     int n;
 
     if (sigd->digestAlgorithms == NULL)
-	return NULL;
+        return NULL;
 
     n = SecCmsAlgArrayGetIndexByAlgTag(sigd->digestAlgorithms, digestalgtag);
 
@@ -978,12 +936,11 @@ SecCmsSignedDataGetDigestValue(SecCmsSignedDataRef sigd, SECOidTag digestalgtag)
  *
  * XXXX CRLs
  */
-SecCmsSignedDataRef
-SecCmsSignedDataCreateCertsOnly(SecCmsMessageRef cmsg, SecCertificateRef cert, Boolean include_chain)
+SecCmsSignedDataRef SecCmsSignedDataCreateCertsOnly(SecCmsMessageRef cmsg, SecCertificateRef cert, Boolean include_chain)
 {
     SecCmsSignedDataRef sigd;
-    void *mark;
-    PLArenaPool *poolp;
+    void* mark;
+    PLArenaPool* poolp;
     OSStatus rv;
 
     poolp = cmsg->poolp;
@@ -991,18 +948,18 @@ SecCmsSignedDataCreateCertsOnly(SecCmsMessageRef cmsg, SecCertificateRef cert, B
 
     sigd = SecCmsSignedDataCreate(cmsg);
     if (sigd == NULL)
-	goto loser;
+        goto loser;
 
     /* no signerinfos, thus no digestAlgorithms */
 
     /* but certs */
     if (include_chain) {
-	rv = SecCmsSignedDataAddCertChain(sigd, cert);
+        rv = SecCmsSignedDataAddCertChain(sigd, cert);
     } else {
-	rv = SecCmsSignedDataAddCertificate(sigd, cert);
+        rv = SecCmsSignedDataAddCertificate(sigd, cert);
     }
     if (rv != SECSuccess)
-	goto loser;
+        goto loser;
 
     /* RFC2630 5.2 sez:
      * In the degenerate case where there are no signers, the
@@ -1013,14 +970,14 @@ SecCmsSignedDataCreateCertsOnly(SecCmsMessageRef cmsg, SecCertificateRef cert, B
      */
     rv = SecCmsContentInfoSetContentData(&(sigd->contentInfo), NULL, PR_TRUE);
     if (rv != SECSuccess)
-	goto loser;
+        goto loser;
 
     PORT_ArenaUnmark(poolp, mark);
     return sigd;
 
 loser:
     if (sigd)
-	SecCmsSignedDataDestroy(sigd);
+        SecCmsSignedDataDestroy(sigd);
     PORT_ArenaRelease(poolp, mark);
     return NULL;
 }
@@ -1030,4 +987,3 @@ loser:
  * SecCmsSignedDataHasReceiptRequest()
  * easy way to iterate over signers
  */
-

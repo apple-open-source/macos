@@ -108,7 +108,7 @@ enum SOSCoderUnwrapStatus SOSPeerHandleCoderMessage(SOSPeerRef peer, SOSCoderRef
 xit:
     return result;
 }
-bool SOSPeerCoderSendMessageIfNeeded(SOSAccount* account, SOSEngineRef engine, SOSTransactionRef txn, SOSPeerRef peer, SOSCoderRef coder, CFDataRef *message_to_send, CFStringRef peer_id, CFMutableArrayRef *attributeList, SOSEnginePeerMessageSentCallback **sentCallback, CFErrorRef *error) {
+bool SOSPeerCoderSendMessageIfNeeded(SOSAccount* account, SOSEngineRef engine, SOSTransactionRef txn, SOSPeerRef peer, SOSCoderRef coder, CFDataRef *message_to_send, CFStringRef peer_id, CFMutableArrayRef *attributeList, SOSEnginePeerMessageCallBackInfo **sentCallback, CFErrorRef *error) {
     bool ok = false;
     
     if(!coder) {
@@ -144,13 +144,15 @@ bool SOSPeerCoderSendMessageIfNeeded(SOSAccount* account, SOSEngineRef engine, S
         SOSEngineSetCodersNeedSaving(engine, true);
         secinfo("transport", "%@ negotiating, %@", peer_id, (message_to_send && *message_to_send) ? CFSTR("sending negotiation message.") : CFSTR("waiting for negotiation message."));
 
-        SOSEnginePeerMessageSentCallback* pmsc = malloc(sizeof(SOSEnginePeerMessageSentCallback));
-        memset(pmsc, 0, sizeof(SOSEnginePeerMessageSentCallback));
+        SOSEnginePeerMessageCallBackInfo* pmsc = [SOSEnginePeerMessageCallBackInfo new];
+        [pmsc setCallbackBlock:nil];
 
-        pmsc->coder = CFRetainSafe(coder);
+        [pmsc setCoder: coder];
+        __weak SOSEnginePeerMessageCallBackInfo* weakPmsc = pmsc;
         SOSEngineMessageCallbackSetCallback(pmsc, ^(bool wasSent){
+            __strong SOSEnginePeerMessageCallBackInfo* strongPmsc = weakPmsc;
             if (wasSent) {
-                SOSCoderConsumeResponse(pmsc->coder);
+                SOSCoderConsumeResponse([strongPmsc coder]);
             }
         });
 

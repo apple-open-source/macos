@@ -43,10 +43,8 @@
 #include <sys/socket.h>
 #include <sys/sysctl.h>
 #include <net/ethernet.h>
-#define	KERNEL_PRIVATE
 #include <net/if.h>
 #include <net/if_var.h>
-#undef	KERNEL_PRIVATE
 #include <net/if_types.h>
 #include <net/if_media.h>
 #include <net/route.h>

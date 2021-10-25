@@ -37,7 +37,7 @@
 extern int __in_sigtramp;
 #endif /* __DYNAMIC_ */
 
-#if TARGET_OS_OSX || TARGET_OS_DRIVERKIT
+#if ((TARGET_OS_OSX || TARGET_OS_DRIVERKIT) && (defined(__LP64__) || defined(__i386__)))
 
 #if defined(__x86_64__) || defined(__i386__)
 

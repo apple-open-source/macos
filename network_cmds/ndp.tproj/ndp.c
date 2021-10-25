@@ -573,7 +573,7 @@ delete:
 	return (0);
 }
 
-#define	W_ADDR	31
+#define	W_ADDR	39
 #define	W_LL	17
 #define	W_IF	6
 

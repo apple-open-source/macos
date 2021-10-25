@@ -28,7 +28,7 @@ _gss_acquire_mech_cred (
 	OM_uint32 time_req,
 	gss_const_OID __nullable desired_mech,
 	gss_cred_usage_t cred_usage,
-	struct _gss_mechanism_cred *__nonnull* __nullable output_cred_handle);
+	struct _gss_mechanism_cred * __nullable * __nonnull output_cred_handle);
 
 OM_uint32
 _gss_copy_buffer (
@@ -61,7 +61,7 @@ _gss_find_mn (
 	OM_uint32 *__nonnull minor_status,
 	struct _gss_name *__nonnull name,
 	__nonnull gss_const_OID mech,
-	struct _gss_mechanism_name *__nonnull* __nullable output_mn);
+	struct _gss_mechanism_name * __nullable * __nonnull output_mn);
 
 OM_uint32
 _gss_free_oid (
@@ -81,13 +81,13 @@ _gss_mech_import_name (
 	struct _gss_name_type *__nonnull names,
 	__nonnull const gss_buffer_t input_name_buffer,
 	__nonnull gss_const_OID input_name_type,
-	__nonnull gss_name_t * __nullable output_name);
+	__nullable gss_name_t * __nonnull output_name);
 
 OM_uint32
 _gss_mech_inquire_names_for_mech (
 	OM_uint32 * __nonnull minor_status,
 	struct _gss_name_type *__nonnull names,
-	gss_OID_set __nonnull * __nullable name_types);
+	gss_OID_set __nullable * __nonnull name_types);
 
 struct _gss_cred * __nullable
 _gss_mg_alloc_cred (void);
@@ -242,7 +242,7 @@ gss_acquire_cred_ext (
 	OM_uint32 time_req,
 	__nullable gss_const_OID desired_mech,
 	gss_cred_usage_t cred_usage,
-	__nonnull gss_cred_id_t *__nullable output_cred_handle);
+	__nullable gss_cred_id_t * __nonnull output_cred_handle);
 
 GSSAPI_LIB_FUNCTION OM_uint32 GSSAPI_LIB_CALL
 gss_add_cred_with_password (
@@ -254,7 +254,7 @@ gss_add_cred_with_password (
 	gss_cred_usage_t cred_usage,
 	OM_uint32 initiator_time_req,
 	OM_uint32 acceptor_time_req,
-	__nonnull gss_cred_id_t *__nullable output_cred_handle,
+	__nullable gss_cred_id_t * __nonnull output_cred_handle,
 	__nullable gss_OID_set * __nullable actual_mechs,
 	OM_uint32 * __nonnull initiator_time_rec,
 	OM_uint32 * __nonnull acceptor_time_rec);
@@ -387,7 +387,7 @@ gss_mo_get (
 GSSAPI_LIB_FUNCTION void GSSAPI_LIB_CALL
 gss_mo_list (
 	__nonnull gss_const_OID mech,
-	__nonnull gss_OID_set *__nullable options);
+	__nullable gss_OID_set * __nonnull options);
 
 GSSAPI_LIB_FUNCTION OM_uint32 GSSAPI_LIB_CALL
 gss_mo_name (
@@ -484,19 +484,19 @@ GSSAPI_LIB_FUNCTION OM_uint32 GSSAPI_LIB_CALL
 gsskrb5_extract_service_keyblock (
 	OM_uint32 *__nonnull minor_status,
 	__nonnull gss_ctx_id_t context_handle,
-	struct EncryptionKey *__nonnull* __nullable keyblock);
+	struct EncryptionKey * __nullable * __nonnull keyblock);
 
 GSSAPI_LIB_FUNCTION OM_uint32 GSSAPI_LIB_CALL
 gsskrb5_get_initiator_subkey (
 	OM_uint32 *__nonnull minor_status,
 	__nonnull gss_ctx_id_t context_handle,
-	struct EncryptionKey *__nonnull* __nullable keyblock);
+	struct EncryptionKey * __nullable * __nonnull keyblock);
 
 GSSAPI_LIB_FUNCTION OM_uint32 GSSAPI_LIB_CALL
 gsskrb5_get_subkey (
 	OM_uint32 *__nonnull minor_status,
 	__nonnull gss_ctx_id_t context_handle,
-	struct EncryptionKey *__nonnull* __nullable keyblock);
+	struct EncryptionKey * __nullable * __nonnull keyblock);
 
 GSSAPI_LIB_FUNCTION OM_uint32 GSSAPI_LIB_CALL
 gsskrb5_get_time_offset (int *__nonnull offset);

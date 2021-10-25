@@ -208,7 +208,7 @@
 
 + (BOOL)intransactionRecordChanged:(CKRecord*)record
                             resync:(BOOL)resync
-                       flagHandler:(id<OctagonStateFlagHandler>)flagHandler
+                       flagHandler:(id<OctagonStateFlagHandler> _Nullable)flagHandler
                              error:(NSError**)error
 {
     // Pull out the old CKP, if it exists
@@ -252,12 +252,45 @@
     return YES;
 }
 
++ (BOOL)intransactionRecordDeleted:(CKRecordID*)recordID
+                             error:(NSError**)error
+{
+    // Pull out the old CKP, if it exists
+    NSError* ckperror = nil;
+    CKKSCurrentKeyPointer* oldckp = [CKKSCurrentKeyPointer tryFromDatabase:((CKKSKeyClass*)recordID.recordName) zoneID:recordID.zoneID error:&ckperror];
+    if(ckperror) {
+        ckkserror("ckkskey", recordID.zoneID, "error loading ckp: %@", ckperror);
+        if(error) {
+            *error = ckperror;
+        }
+        return NO;
+    }
+
+    if(!oldckp) {
+        return YES;
+    }
+
+    NSError* deletionError = nil;
+    [oldckp deleteFromDatabase:&deletionError];
+
+    if(deletionError) {
+        ckkserror("ckkskey", recordID.zoneID, "error deleting ckp: %@", deletionError);
+        if(error) {
+            *error = deletionError;
+        }
+        return NO;
+    }
+
+    return YES;
+}
+
 @end
 
 @implementation CKKSCurrentKeySet
--(instancetype)initForZoneName:(NSString*)zoneName {
+- (instancetype)initWithZoneID:(CKRecordZoneID*)zoneID
+{
     if((self = [super init])) {
-        _viewName = zoneName;
+        _zoneID = zoneID;
     }
 
     return self;
@@ -265,31 +298,32 @@
 
 + (CKKSCurrentKeySet*)loadForZone:(CKRecordZoneID*)zoneID
 {
-    CKKSCurrentKeySet* set = [[CKKSCurrentKeySet alloc] initForZoneName:zoneID.zoneName];
-    NSError* error = nil;
+    @autoreleasepool {
+        CKKSCurrentKeySet* set = [[CKKSCurrentKeySet alloc] initWithZoneID:zoneID];
+        NSError* error = nil;
 
-    set.currentTLKPointer    = [CKKSCurrentKeyPointer tryFromDatabase: SecCKKSKeyClassTLK zoneID:zoneID error:&error];
-    set.currentClassAPointer = [CKKSCurrentKeyPointer tryFromDatabase: SecCKKSKeyClassA   zoneID:zoneID error:&error];
-    set.currentClassCPointer = [CKKSCurrentKeyPointer tryFromDatabase: SecCKKSKeyClassC   zoneID:zoneID error:&error];
+        set.currentTLKPointer    = [CKKSCurrentKeyPointer tryFromDatabase: SecCKKSKeyClassTLK zoneID:zoneID error:&error];
+        set.currentClassAPointer = [CKKSCurrentKeyPointer tryFromDatabase: SecCKKSKeyClassA   zoneID:zoneID error:&error];
+        set.currentClassCPointer = [CKKSCurrentKeyPointer tryFromDatabase: SecCKKSKeyClassC   zoneID:zoneID error:&error];
 
-    set.tlk    = set.currentTLKPointer.currentKeyUUID    ? [CKKSKey tryFromDatabase:set.currentTLKPointer.currentKeyUUID    zoneID:zoneID error:&error] : nil;
-    set.classA = set.currentClassAPointer.currentKeyUUID ? [CKKSKey tryFromDatabase:set.currentClassAPointer.currentKeyUUID zoneID:zoneID error:&error] : nil;
-    set.classC = set.currentClassCPointer.currentKeyUUID ? [CKKSKey tryFromDatabase:set.currentClassCPointer.currentKeyUUID zoneID:zoneID error:&error] : nil;
+        set.tlk    = set.currentTLKPointer.currentKeyUUID    ? [CKKSKey tryFromDatabase:set.currentTLKPointer.currentKeyUUID    zoneID:zoneID error:&error] : nil;
+        set.classA = set.currentClassAPointer.currentKeyUUID ? [CKKSKey tryFromDatabase:set.currentClassAPointer.currentKeyUUID zoneID:zoneID error:&error] : nil;
+        set.classC = set.currentClassCPointer.currentKeyUUID ? [CKKSKey tryFromDatabase:set.currentClassCPointer.currentKeyUUID zoneID:zoneID error:&error] : nil;
 
-    set.tlkShares = [CKKSTLKShareRecord allForUUID:set.currentTLKPointer.currentKeyUUID zoneID:zoneID error:&error];
-    set.pendingTLKShares = nil;
+        set.pendingTLKShares = nil;
 
-    set.proposed = NO;
+        set.proposed = NO;
 
-    set.error = error;
+        set.error = error;
 
-    return set;
+        return set;
+    }
 }
 
 -(NSString*)description {
     if(self.error) {
         return [NSString stringWithFormat:@"<CKKSCurrentKeySet(%@): %@:%@ %@:%@ %@:%@ new:%d %@>",
-                self.viewName,
+                self.zoneID.zoneName,
                 self.currentTLKPointer.currentKeyUUID, self.tlk,
                 self.currentClassAPointer.currentKeyUUID, self.classA,
                 self.currentClassCPointer.currentKeyUUID, self.classC,
@@ -298,7 +332,7 @@
 
     } else {
         return [NSString stringWithFormat:@"<CKKSCurrentKeySet(%@): %@:%@ %@:%@ %@:%@ new:%d>",
-                self.viewName,
+                self.zoneID.zoneName,
                 self.currentTLKPointer.currentKeyUUID, self.tlk,
                 self.currentClassAPointer.currentKeyUUID, self.classA,
                 self.currentClassCPointer.currentKeyUUID, self.classC,
@@ -307,6 +341,7 @@
 }
 - (instancetype)copyWithZone:(NSZone*)zone {
     CKKSCurrentKeySet* copy = [[[self class] alloc] init];
+    copy.zoneID = [self.zoneID copyWithZone:zone];
     copy.currentTLKPointer = [self.currentTLKPointer copyWithZone:zone];
     copy.currentClassAPointer = [self.currentClassAPointer copyWithZone:zone];
     copy.currentClassCPointer = [self.currentClassCPointer copyWithZone:zone];
@@ -321,20 +356,31 @@
 
 - (CKKSKeychainBackedKeySet* _Nullable)asKeychainBackedSet:(NSError**)error
 {
-    if(!self.tlk.keycore ||
-       !self.classA.keycore ||
-       !self.classC.keycore) {
+    NSError* tlkError = nil;
+    CKKSKeychainBackedKey* keychainBackedTLK = [self.tlk getKeychainBackedKey:&tlkError];
+
+    NSError* classAError = nil;
+    CKKSKeychainBackedKey* keychainBackedClassA = [self.classA getKeychainBackedKey:&classAError];
+
+    NSError* classCError = nil;
+    CKKSKeychainBackedKey* keychainBackedClassC = [self.classC getKeychainBackedKey:&classCError];
+
+    if(keychainBackedTLK == nil ||
+       keychainBackedClassA == nil ||
+       keychainBackedClassC == nil) {
         if(error) {
             *error = [NSError errorWithDomain:CKKSErrorDomain
                                          code:CKKSKeysMissing
-                                  description:@"unable to make keychain backed set; key is missing"];
+                                  description:@"unable to make keychain backed set; key is missing"
+                                   underlying:tlkError ?: classAError ?: classCError];
+
         }
         return nil;
     }
 
-    return [[CKKSKeychainBackedKeySet alloc] initWithTLK:self.tlk.keycore
-                                                  classA:self.classA.keycore
-                                                  classC:self.classC.keycore
+    return [[CKKSKeychainBackedKeySet alloc] initWithTLK:keychainBackedTLK
+                                                  classA:keychainBackedClassA
+                                                  classC:keychainBackedClassC
                                                newUpload:self.proposed];
 }
 @end

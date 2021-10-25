@@ -34,6 +34,7 @@
 #include <corecrypto/ccrsa.h>
 #include <corecrypto/ccrsa_priv.h>
 #include <corecrypto/ccasn1.h>
+#include <corecrypto/cczp.h>
 #include <corecrypto/ccn.h>
 
 #include "ccErrors.h"
@@ -44,17 +45,17 @@
 
 #define kCCMaximumRSAKeyBits 4096
 
-static inline size_t
-ccRSAFullContextSize(size_t bits)
-{
-    return cc_ctx_sizeof(struct ccrsa_full_ctx, ccrsa_full_ctx_size(ccn_sizeof(bits)));
-}
-
 typedef struct _CCRSACryptor {
     size_t key_nbits;
     CCRSAKeyType keyType;
     struct ccrsa_full_ctx fk[];
 } CCRSACryptor;
+
+static inline size_t
+ccRSACryptorSize(size_t bits)
+{
+    return sizeof(CCRSACryptor) + ccrsa_full_ctx_size(ccn_sizeof(bits));
+}
 
 static CCRSACryptor *
 ccMallocRSACryptor(size_t nbits)
@@ -66,7 +67,7 @@ ccMallocRSACryptor(size_t nbits)
     CCRSACryptor *retval;
     cc_size n = ccn_nof(nbits);
 
-    if ((retval = malloc(sizeof(CCRSACryptor) + ccRSAFullContextSize(nbits))) == NULL) {
+    if ((retval = malloc(ccRSACryptorSize(nbits))) == NULL) {
         return NULL;
     }
 
@@ -80,7 +81,7 @@ ccRSACryptorClear(CCRSACryptorRef theKey)
 {
     CCRSACryptor *key = (CCRSACryptor *) theKey;
     if(key==NULL) return;
-    cc_clear(sizeof(CCRSACryptor) + ccRSAFullContextSize(key->key_nbits), key);
+    cc_clear(ccRSACryptorSize(key->key_nbits), key);
     free(key);
 }
 
@@ -91,7 +92,7 @@ ccRSAkeysize(CCRSACryptor *cryptor) {
 
 #pragma mark APIDone
 
-CCCryptorStatus 
+CCCryptorStatus
 CCRSACryptorGeneratePair(size_t keysize, uint32_t e, CCRSACryptorRef *publicKey, CCRSACryptorRef *privateKey)
 {
     CC_DEBUG_LOG("Entering\n");
@@ -99,16 +100,17 @@ CCRSACryptorGeneratePair(size_t keysize, uint32_t e, CCRSACryptorRef *publicKey,
     CCRSACryptor *privateCryptor = NULL;
     CCRSACryptor *publicCryptor = NULL;
     struct ccrng_state *rng;
-    
-    
+
+    *publicKey = *privateKey = NULL;
+
     // ccrsa_generate_key() requires the exponent as length / pointer to bytes
     cc_unit cc_unit_e = (cc_unit) e;
-    
+
     size_t eSize = ccn_write_int_size(1, &cc_unit_e);
-    uint8_t eBytes[eSize];
+    uint8_t *eBytes = malloc(eSize);
+    __Require_Action(eBytes != NULL, errOut, retval = kCCMemoryFailure);
     ccn_write_int(1, &cc_unit_e, eSize, eBytes);
-    
-    *publicKey = *privateKey = NULL;
+
     __Require_Action(keysize<=kCCMaximumRSAKeyBits, errOut, retval = kCCParamError);
 
     rng=ccDRBGGetRngState();
@@ -121,21 +123,19 @@ CCRSACryptorGeneratePair(size_t keysize, uint32_t e, CCRSACryptorRef *publicKey,
     // as long as the keysize is one specified by the standard and that |e|>=17bits.
     // Consistency check done in corecrypto.
     __Require_Action((ccrsa_generate_fips186_key(keysize, privateCryptor->fk, eSize, eBytes, rng, rng) == 0), errOut, retval = kCCDecodeError);
-    
+
     privateCryptor->keyType = ccRSAKeyPrivate;
     __Require_Action((publicCryptor = CCRSACryptorCreatePublicKeyFromPrivateKey(privateCryptor)) != NULL, errOut, retval = kCCMemoryFailure);
-    
+
     *publicKey = publicCryptor;
     *privateKey = privateCryptor;
+    publicCryptor = privateCryptor = NULL;
+    retval = kCCSuccess;
 
-
-
-    return kCCSuccess;
-    
 errOut:
+    free(eBytes);
     ccRSACryptorClear(privateCryptor);
     ccRSACryptorClear(publicCryptor);
-    *publicKey = *privateKey = NULL;
     return retval;
 }
 
@@ -323,64 +323,47 @@ errOut:
     return retval;
 }
 
-CCCryptorStatus 
+CCCryptorStatus
 CCRSACryptorCrypt(CCRSACryptorRef rsaKey, const void *in, size_t inLen, void *out, size_t *outLen)
-{    
+{
     CC_DEBUG_LOG("Entering\n");
-    if(!rsaKey || !in || !out || !outLen) return kCCParamError;
-    
-    size_t keysizeBytes = (rsaKey->key_nbits+7)/8;
-    
-    if(inLen != keysizeBytes || *outLen < keysizeBytes) return kCCMemoryFailure;
-    
+    CCCryptorStatus retval;
+
+    cc_unit *buf = NULL;
+    size_t len = *outLen;
+    *outLen = 0;
+
+    __Require_Action_Quiet(rsaKey && in && out && len, out, retval = kCCParamError);
+
+    size_t keysizeBytes = (rsaKey->key_nbits + 7) / 8;
+    __Require_Action(inLen == keysizeBytes && len >= keysizeBytes, out, retval = kCCMemoryFailure);
+
     cc_size n = ccrsa_ctx_n(rsaKey->fk);
-    cc_unit buf[n];
-    ccn_read_uint(n, buf, inLen, in);
-    
-    int rc;
-    switch(rsaKey->keyType) {
-        case ccRSAKeyPublic: 
+    buf = malloc(ccn_sizeof_n(n));
+    __Require_Action(buf != NULL, out, retval = kCCMemoryFailure);
+    __Require_Action(ccn_read_uint(n, buf, inLen, in) == CCERR_OK, out, retval = kCCParamError);
+
+    int rc = -1;
+    switch (rsaKey->keyType) {
+        case ccRSAKeyPublic:
             rc = ccrsa_pub_crypt(ccrsa_ctx_public(rsaKey->fk), buf, buf);
             break;
         case ccRSAKeyPrivate:
             rc = ccrsa_priv_crypt(rsaKey->fk, buf, buf);
             break;
-        default:
-            rc=-1;
     }
-    
-    if(rc==0){
-        *outLen = keysizeBytes;
-        ccn_write_uint_padded(n, buf, *outLen, out);
-        return kCCSuccess;
-    } else
-        return kCCParamError;
-    
+
+    __Require_Action(rc == CCERR_OK, out, retval = kCCParamError);
+    ccn_write_uint_padded(n, buf, len, out);
+
+    retval = kCCSuccess;
+    *outLen = keysizeBytes;
+
+out:
+    free(buf);
+    return retval;
 }
 
-
-static inline
-CCCryptorStatus ccn_write_arg(size_t n, const cc_unit *source, uint8_t *dest, size_t *destLen)
-{
-    size_t len;
-    if((len = ccn_write_uint_size(n, source)) > *destLen) {
-        return kCCMemoryFailure;
-    }
-    *destLen = len;
-    ccn_write_uint(n, source, *destLen, dest);
-    return kCCSuccess;
-}
-
-
-static CCRSACryptor *malloc_rsa_cryptor(size_t modulus_nbytes)
-{
-    if(modulus_nbytes==0)
-        return NULL;
-    
-    size_t nbits = ccn_bitsof_size(modulus_nbytes);
-    CCRSACryptor * rsaKey= ccMallocRSACryptor(nbits);
-    return rsaKey;
-}
 
 #define expect(cond)  __Require_Action((cond) , errOut, retval = kCCParamError)
 static CCCryptorStatus
@@ -396,15 +379,15 @@ create_pub(const uint8_t *modulus, size_t modulusLength,
     CCRSACryptor *rsaKey = NULL;
     
     size_t n = ccn_nof_size(modulusLength);
-    expect(n!=0);
+    expect(modulusLength > 0 && n > 0);
     
-    __Require_Action((rsaKey = malloc_rsa_cryptor(modulusLength)) != NULL, errOut, retval = kCCMemoryFailure);
+    __Require_Action((rsaKey = ccMallocRSACryptor(ccn_bitsof_size(modulusLength))) != NULL, errOut, retval = kCCMemoryFailure);
     ccrsa_full_ctx_t fk = rsaKey->fk;
    
     CCZP_N(ccrsa_ctx_zm(fk)) = n;
     int rc = ccrsa_make_pub(ccrsa_ctx_public(fk), publicExponentLength, publicExponent, modulusLength, modulus);  expect(rc==0);
     
-    rsaKey->key_nbits = ccn_bitlen(n, ccrsa_ctx_m(fk));
+    rsaKey->key_nbits = ccRSAkeysize(rsaKey);
     rsaKey->keyType = ccRSAKeyPublic;
     
     *ref = rsaKey;
@@ -428,9 +411,9 @@ create_priv(const uint8_t *publicExponent, size_t publicExponentLength, const ui
 
     size_t modulusLength = pLength+qLength;
     size_t n = ccn_nof_size(modulusLength);
-    expect(n!=0);
+    expect(modulusLength > 0 && n > 0);
 
-    __Require_Action((rsaKey = malloc_rsa_cryptor(modulusLength)) != NULL, errOut, retval = kCCMemoryFailure);
+    __Require_Action((rsaKey = ccMallocRSACryptor(ccn_bitsof_size(modulusLength))) != NULL, errOut, retval = kCCMemoryFailure);
     ccrsa_full_ctx_t fk = rsaKey->fk;
 
     CCZP_N(ccrsa_ctx_zm(fk)) = n;
@@ -438,7 +421,7 @@ create_priv(const uint8_t *publicExponent, size_t publicExponentLength, const ui
     rc = ccrsa_make_priv(fk, publicExponentLength, publicExponent, pLength, p, qLength, q);
     expect(rc==0);
 
-    rsaKey->key_nbits = ccn_bitlen(n, ccrsa_ctx_m(rsaKey->fk));
+    rsaKey->key_nbits = ccRSAkeysize(rsaKey);
     rsaKey->keyType = ccRSAKeyPrivate;
 
 	*ref = rsaKey;
@@ -465,8 +448,42 @@ CCRSACryptorCreateFromData( CCRSAKeyType keyType, const uint8_t *modulus, size_t
         rv = kCCParamError;
 
     return rv;
- }
+}
 
+CCCryptorStatus
+CCRSACryptorRecoverPrivateKey(const uint8_t *modulus, size_t modulusLength,
+                              const uint8_t *publicExponent, size_t publicExponentLength,
+                              const uint8_t *privateExponent, size_t privateExponentLength,
+                              CCRSACryptorRef *ref)
+{
+    CCCryptorStatus retval;
+    CCRSACryptor *rsaKey = NULL;
+
+    expect(modulus && modulusLength > 0 &&
+           publicExponent && publicExponentLength > 0 &&
+           privateExponent && privateExponentLength > 0 && ref);
+
+    __Require_Action((rsaKey = ccMallocRSACryptor(ccn_bitsof_size(modulusLength))) != NULL, errOut, retval = kCCMemoryFailure);
+
+    struct ccrng_state *rng = ccDRBGGetRngState();
+    __Require_Action(rng != NULL, errOut, retval=kCCRNGFailure);
+
+    ccrsa_full_ctx_t fk = rsaKey->fk;
+    int rc = ccrsa_recover_priv(fk, modulusLength, modulus,
+                                    publicExponentLength, publicExponent,
+                                    privateExponentLength, privateExponent, rng);
+    expect(rc == 0);
+
+    rsaKey->key_nbits = cczp_bitlen(ccrsa_ctx_zm(fk));
+    rsaKey->keyType = ccRSAKeyPrivate;
+
+    *ref = rsaKey;
+    return kCCSuccess;
+
+errOut:
+    ccRSACryptorClear(rsaKey);
+    return retval;
+}
 
 CCCryptorStatus
 CCRSAGetKeyComponents(CCRSACryptorRef rsaKey, uint8_t *modulus, size_t *modulusLength, uint8_t *exponent, size_t *exponentLength,
@@ -597,23 +614,34 @@ CCRSACryptorVerify(CCRSACryptorRef publicKey, CCAsymmetricPadding padding,
 {
     CC_DEBUG_LOG("Entering\n");
     const struct ccdigest_info *di = validate_sign_verify_params(publicKey, padding, hash, digestType, signedData, &signedDataLen);
-    if(di==NULL) return kCCParamError;
-    
-    bool valid = false;
+
+    if (di == NULL) {
+        return kCCParamError;
+    }
+
     ccrsa_pub_ctx_t fk = ccrsa_ctx_public(publicKey->fk);
     int rc;
-    
-    if(padding==ccPKCS1Padding)
-        rc=ccrsa_verify_pkcs1v15(fk, di->oid, hashLen, hash, signedDataLen, signedData, &valid);
-    else
-        rc=ccrsa_verify_pss(fk, di, di, hashLen, hash, signedDataLen, signedData, saltLen, &valid);
-    
-    CCCryptorStatus rv;
-    if(!valid || rc!=0 )
-        rv = kCCDecodeError;
-    else
-        rv = kCCSuccess;
-    
-    return rv;
+
+    if (padding == ccPKCS1Padding) {
+        uint8_t fault_canary[sizeof(CCRSA_PKCS1_FAULT_CANARY)];
+        rc = ccrsa_verify_pkcs1v15_digest(fk, di->oid, hashLen, hash, signedDataLen, signedData, fault_canary);
+
+        if (cc_cmp_safe(sizeof(CCRSA_PKCS1_FAULT_CANARY), CCRSA_PKCS1_FAULT_CANARY, fault_canary)) {
+            rc = CCERR_INVALID_SIGNATURE;
+        }
+    } else {
+        uint8_t fault_canary[sizeof(CCRSA_PSS_FAULT_CANARY)];
+        rc = ccrsa_verify_pss_digest(fk, di, di, hashLen, hash, signedDataLen, signedData, saltLen, fault_canary);
+
+        if (cc_cmp_safe(sizeof(CCRSA_PSS_FAULT_CANARY), CCRSA_PSS_FAULT_CANARY, fault_canary)) {
+            rc = CCERR_INVALID_SIGNATURE;
+        }
+    }
+
+    if (rc == CCERR_VALID_SIGNATURE) {
+        return kCCSuccess;
+    }
+
+    return kCCDecodeError;
 }
 

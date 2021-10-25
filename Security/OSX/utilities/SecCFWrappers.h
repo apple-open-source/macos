@@ -256,7 +256,9 @@ static void fprint_string(FILE *file, CFStringRef string) {
     while (range.length > 0) {
         CFIndex bytesUsed = 0;
         CFIndex converted = CFStringGetBytes(string, range, kCFStringEncodingUTF8, 0, false, buf, sizeof(buf), &bytesUsed);
-        fwrite(buf, 1, bytesUsed, file);
+        if (bytesUsed > 0) {
+            fwrite(buf, 1, (size_t)bytesUsed, file);
+        }
         range.length -= converted;
         range.location += converted;
     }
@@ -349,8 +351,6 @@ static inline CFDataRef CFDataCreateCopyFromRange(CFAllocatorRef allocator, CFDa
 
 CFDataRef CFDataCreateWithRandomBytes(size_t len);
 
-CFDataRef CFDataCreateWithInitializer(CFAllocatorRef allocator, CFIndex size, bool (^operation)(size_t size, uint8_t *buffer));
-
 static inline uint8_t* CFDataIncreaseLengthAndGetMutableBytes(CFMutableDataRef data, CFIndex extraLength)
 {
     CFIndex startOffset = CFDataGetLength(data);
@@ -373,9 +373,18 @@ static inline const uint8_t* CFDataGetPastEndPtr(CFDataRef theData) {
 // of the data objects when doing the comparsion which item is "before" or "after"
 static inline CFComparisonResult CFDataCompareDERData(CFDataRef left, CFDataRef right)
 {
-    const size_t left_size = CFDataGetLength(left);
-    const size_t right_size = CFDataGetLength(right);
-    const size_t shortest = (left_size <= right_size) ? left_size : right_size;
+    const CFIndex left_size = CFDataGetLength(left);
+    const CFIndex right_size = CFDataGetLength(right);
+    if (left_size < 0 || right_size < 0) {
+        if (left_size > right_size) {
+            return kCFCompareGreaterThan;
+        } else if (left_size < right_size) {
+            return kCFCompareLessThan;
+        } else {
+            return kCFCompareEqualTo;
+        }
+    }
+    const size_t shortest = (left_size <= right_size) ? (size_t)left_size : (size_t)right_size;
     
     int comparison = memcmp(CFDataGetBytePtr(left), CFDataGetBytePtr(right), shortest);
 
@@ -392,7 +401,10 @@ static inline __deprecated_msg("please use CFEqual or CFDataCompareDERData") CFC
 }
 
 static inline CFDataRef CFDataCreateWithHash(CFAllocatorRef allocator, const struct ccdigest_info *di, const uint8_t *buffer, const uint8_t length) {
-    CFMutableDataRef result = CFDataCreateMutableWithScratch(allocator, di->output_size);
+    if (di->output_size > LONG_MAX) {
+        return NULL;
+    }
+    CFMutableDataRef result = CFDataCreateMutableWithScratch(allocator, (CFIndex)di->output_size);
 
     ccdigest(di, length, buffer, CFDataGetMutableBytePtr(result));
     
@@ -428,8 +440,6 @@ static inline CFDataRef CFDataCreateFromHexString(CFAllocatorRef allocator, CFSt
 // MARK: CFString Helpers
 //
 
-CFComparisonResult CFStringCompareSafe(const void *val1, const void *val2, void *context);
-
 //
 // Turn a CFString into an allocated UTF8-encoded C string.
 //
@@ -441,9 +451,9 @@ static inline char *CFStringToCString(CFStringRef inStr)
 
     // need to extract into buffer
     CFIndex length = CFStringGetLength(inStr);  // in 16-bit character units
-    size_t len = CFStringGetMaximumSizeForEncoding(length, kCFStringEncodingUTF8) + 1;
-    char *buffer = (char *)malloc(len);                 // pessimistic
-    if (!CFStringGetCString(inStr, buffer, len, kCFStringEncodingUTF8))
+    CFIndex encoded_len = CFStringGetMaximumSizeForEncoding(length, kCFStringEncodingUTF8) + 1;
+    char *buffer = (char *)malloc((size_t)encoded_len);                 // pessimistic
+    if (!CFStringGetCString(inStr, buffer, encoded_len, kCFStringEncodingUTF8))
         buffer[0] = 0;
 
     CFRelease(inStr);
@@ -467,6 +477,9 @@ static inline void CFStringAppendEncryptedData(CFMutableStringRef s, CFDataRef e
 {
     const uint8_t *bytes = CFDataGetBytePtr(edata);
     CFIndex len = CFDataGetLength(edata);
+    if (len < 0) {
+        return;
+    }
     CFStringAppendFormat(s, 0, CFSTR("%04lx:"), len);
     if(len<=8) {
         for (CFIndex ix = 0; ix < len; ++ix) {
@@ -474,7 +487,7 @@ static inline void CFStringAppendEncryptedData(CFMutableStringRef s, CFDataRef e
         }
     } else {
         uint64_t crc = 0;
-        CNCRC(kCN_CRC_64_ECMA_182, bytes+8, len-8, &crc);
+        CNCRC(kCN_CRC_64_ECMA_182, bytes+8, (size_t)len-8, &crc);
         for (CFIndex ix = 0; ix < 8; ++ix) {
             CFStringAppendFormat(s, 0, CFSTR("%02X"), bytes[ix]);
         }
@@ -917,10 +930,10 @@ static inline CFMutableSetRef CFSetCreateIntersection(CFAllocatorRef allocator, 
 
 static inline CFSetRef CFSetCreateCopyOfArrayForCFTypes(CFArrayRef array) {
     CFIndex count = CFArrayGetCount(array);
-    if (SIZE_MAX/sizeof(const void *) < (size_t)count) {
+    if (count < 0 || SIZE_MAX/sizeof(const void *) < (size_t)count) {
         return NULL;
     }
-    const void **values = (const void **)malloc(sizeof(const void *) * count);
+    const void **values = (const void **)malloc(sizeof(const void *) * (size_t)count);
     CFArrayGetValues(array, CFRangeMake(0, count), values);
     CFSetRef set = CFSetCreate(CFGetAllocator(array), values, count, &kCFTypeSetCallBacks);
     free(values);
@@ -936,7 +949,6 @@ static inline void CFSetTransferObject(CFTypeRef object, CFMutableSetRef from, C
 // MARK: CFStringXxx Helpers
 //
 
-void CFStringArrayPerformWithDelimiterWithDescription(CFArrayRef strings, CFStringRef start, CFStringRef end, void (^action)(CFStringRef description));
 void CFStringArrayPerformWithDescription(CFArrayRef strings, void (^action)(CFStringRef description));
 void CFStringSetPerformWithDescription(CFSetRef set, void (^action)(CFStringRef description));
 
@@ -1035,53 +1047,6 @@ static inline CFDateRef CFDateCreateForGregorianZuluMoment(CFAllocatorRef alloca
 static inline CFDateRef CFDateCreateForGregorianZuluDay(CFAllocatorRef allocator, int year, int month, int day)
 {
     return CFDateCreate(allocator, CFAbsoluteTimeForGregorianZuluDay(year, month, day));
-}
-
-//
-// MARK: PropertyList Helpers
-//
-
-//
-// Crazy reading and writing stuff
-//
-
-static inline void CFPropertyListWriteToFile(CFPropertyListRef plist, CFURLRef file)
-{
-    CFWriteStreamRef writeStream = CFWriteStreamCreateWithFile(kCFAllocatorDefault, file);
-    CFErrorRef error = NULL;
-    
-    CFWriteStreamOpen(writeStream);
-    CFPropertyListWrite(plist, writeStream, kCFPropertyListBinaryFormat_v1_0, 0, &error);
-    if (error)
-        secerror("Can't write plist: %@", error);
-    
-    CFReleaseNull(error);
-    CFReleaseNull(writeStream);
-}
-
-static inline CF_RETURNS_RETAINED CFPropertyListRef CFPropertyListReadFromFile(CFURLRef file)
-{
-    CFPropertyListRef result = NULL;
-    CFErrorRef error = NULL;
-    CFBooleanRef isRegularFile;
-    if (!CFURLCopyResourcePropertyForKey(file, kCFURLIsRegularFileKey, &isRegularFile, &error)) {
-        secinfo("plist", "file %@: %@", file, error);
-    } else if (CFBooleanGetValue(isRegularFile)) {
-        CFReadStreamRef readStream = CFReadStreamCreateWithFile(kCFAllocatorDefault, file);
-        if (readStream) {
-            if (CFReadStreamOpen(readStream)) {
-                CFPropertyListFormat format;
-                result = CFPropertyListCreateWithStream(kCFAllocatorDefault, readStream, 0, kCFPropertyListMutableContainers, &format, &error);
-                if (!result) {
-                    secerror("read plist from %@: %@", file, error);
-                }
-            }
-            CFRelease(readStream);
-        }
-    }
-    CFReleaseNull(error);
-    
-    return result;
 }
 
 __END_DECLS

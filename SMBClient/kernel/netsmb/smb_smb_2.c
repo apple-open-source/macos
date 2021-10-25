@@ -692,6 +692,7 @@ smb2_smb_add_negotiate_contexts(struct smb_session *sessionp,
     uint32_t *data_len_ptr;
     size_t name_len = 0;
     uint16_t neg_context_cnt = 0;
+    uint32_t encrypt_algorithm_cnt = 0;
 
     /*
      * All Negotiate Contexts start with 8 bytes which is the
@@ -733,20 +734,6 @@ smb2_smb_add_negotiate_contexts(struct smb_session *sessionp,
      * Add SMB2_ENCRYPTION_CAPABILITIES context next
      * Put the cipher in order of most to least preferred
      */
-#if 1
-    /*
-     * Right now we only support one cipher until we get the new algorithm
-     * code from corecrypto team
-     */
-    context_len = 8;        /* Neg Context Header Len */
-    context_len += 4;       /* This context data len is currently 4 */
-
-    mb_put_uint16le(mbp, SMB2_ENCRYPTION_CAPABILITIES); /* ContextType */
-    mb_put_uint16le(mbp, 4);                            /* DataLength */
-    mb_put_uint32le(mbp, 0);                            /* Reserved */
-    mb_put_uint16le(mbp, 1);                            /* CipherCount */
-    mb_put_uint16le(mbp, sessionp->session_smb3_encrypt_ciper);  /* SMB 3.1.1 Cipher */
-#else
     if (inReconnect) {
         /*
          * Doing reconnect or alternate channel
@@ -763,16 +750,51 @@ smb2_smb_add_negotiate_contexts(struct smb_session *sessionp,
     }
     else {
         context_len = 8;        /* Neg Context Header Len */
-        context_len += 6;       /* This context data len is currently 4 */
 
+        if (sessionp->session_misc_flags & SMBV_ENABLE_AES_128_CCM) {
+            encrypt_algorithm_cnt += 1;
+        }
+        if (sessionp->session_misc_flags & SMBV_ENABLE_AES_128_GCM) {
+            encrypt_algorithm_cnt += 1;
+        }
+        if (sessionp->session_misc_flags & SMBV_ENABLE_AES_256_CCM) {
+            encrypt_algorithm_cnt += 1;
+        }
+        if (sessionp->session_misc_flags & SMBV_ENABLE_AES_256_GCM) {
+            encrypt_algorithm_cnt += 1;
+        }
+
+        if (encrypt_algorithm_cnt == 0) {
+            /* Paranoid check */
+            SMBERROR("No encryption algorithm set? Assuming AES-128-CCM \n");
+            sessionp->session_misc_flags |= SMBV_ENABLE_AES_128_CCM;
+            encrypt_algorithm_cnt = 1;
+        }
+
+        context_len += 2 + (2 * encrypt_algorithm_cnt);
+        
         mb_put_uint16le(mbp, SMB2_ENCRYPTION_CAPABILITIES); /* ContextType */
-        mb_put_uint16le(mbp, 6);                            /* DataLength */
+        mb_put_uint16le(mbp, (2 + (2 * encrypt_algorithm_cnt))); /* DataLength */
         mb_put_uint32le(mbp, 0);                            /* Reserved */
-        mb_put_uint16le(mbp, 2);                            /* CipherCount */
-        mb_put_uint16le(mbp, SMB2_ENCRYPTION_AES_128_GCM);  /* SMB 3.1.1 Cipher */
-        mb_put_uint16le(mbp, SMB2_ENCRYPTION_AES_128_CCM);  /* SMB 3.0.2 Cipher */
+        mb_put_uint16le(mbp, encrypt_algorithm_cnt);        /* CipherCount */
+        /* [MS-SMB2] 2.2.3.1.2 Most prefered cipher at the beginning */
+        if (sessionp->session_misc_flags & SMBV_ENABLE_AES_256_GCM) {
+            /* SMB 3.1.1 Cipher */
+            mb_put_uint16le(mbp, SMB2_ENCRYPTION_AES_256_GCM);
+        }
+        if (sessionp->session_misc_flags & SMBV_ENABLE_AES_256_CCM) {
+            /* SMB 3.1.1 Cipher */
+            mb_put_uint16le(mbp, SMB2_ENCRYPTION_AES_256_CCM);
+        }
+        if (sessionp->session_misc_flags & SMBV_ENABLE_AES_128_GCM) {
+            /* SMB 3.1.1 Cipher */
+            mb_put_uint16le(mbp, SMB2_ENCRYPTION_AES_128_GCM);
+        }
+        if (sessionp->session_misc_flags & SMBV_ENABLE_AES_128_CCM) {
+            /* SMB 3.0.2 Cipher */
+            mb_put_uint16le(mbp, SMB2_ENCRYPTION_AES_128_CCM);
+        }
     }
-#endif
 
     neg_context_cnt += 1;
 
@@ -2776,6 +2798,16 @@ resend:
         smb_iod_rel(iod, NULL, __FUNCTION__);
         return error;
     }
+    
+    /*
+     * <80752785> Have to be careful here since we always send the lease break
+     * acknowledgement on the same iod the lease break arrived on. BUT, the
+     * share might not be on the same iod that the lease break arrived on.
+     * We MUST make sure the Lease Break Ack iod and sessionID match up, so
+     * take the sessionID from the session attached to the IOD and use that
+     * in the rqp.
+     */
+    rqp->sr_rqsessionid = iod->iod_session->session_session_id;
     
     SMB_LOG_MC_REF("id %u function %s rqp %p cmd %d ref_cnt %u.\n",
                    iod->iod_id, __FUNCTION__, rqp, rqp->sr_command,
@@ -9369,6 +9401,7 @@ smb2_smb_tree_connect(struct smb_session *sessionp, struct smb_share *share,
 	share->ss_tree_id = SMB2_TID_UNKNOWN;
     struct smbiod *iod = NULL;
     bool replay = false;
+    uint32_t was_encrypted = 0;
 
 resend:
     /*
@@ -9523,11 +9556,55 @@ resend:
     if (error)
         goto bad;
     
+    /*
+     * Could be a reconnect, save if share was set to be encrypted. This is
+     * for the case of mount_smbfs mount option where only one share is being
+     * encrypted
+     */
+    if (share->ss_share_flags & SMB2_SHAREFLAG_ENCRYPT_DATA) {
+        was_encrypted = 1;
+    }
+    
     /* Get Share Flags */
     error = md_get_uint32le(mdp, &share->ss_share_flags);
     if (error)
         goto bad;
     
+    /*
+     * Is share encryption being forced on?
+     *
+     * [MS-SMB2] 3.3.4.1.4
+     * If Connection.Dialect belongs to the SMB 3.x dialect family and
+     * Connection.ClientCapabilities includes the SMB2_GLOBAL_CAP_ENCRYPTION
+     * bit, the server MUST encrypt the message before sending, if
+     * IsEncryptionSupported is TRUE and any of the following conditions are
+     * satisfied:
+     *     If the message being sent is any response to a client request for
+     *     which Request.IsEncrypted is TRUE.
+     *
+     * This is probably from the nsmb.conf option being set meaning that all
+     * shares will be encrypted.
+     */
+    if ((sessionp->session_misc_flags & SMBV_FORCE_SHARE_ENCRYPT) ||
+        (was_encrypted == 1)) {
+        /*
+         * If forcing share encryption, then pretend like the share told us
+         * they are using share encryption.
+         */
+        SMBWARNING("Share level encryption forced on \n ");
+        share->ss_share_flags |= SMB2_SHAREFLAG_ENCRYPT_DATA;
+    }
+    
+    if ((sessionp->session_misc_flags & SMBV_FORCE_IPC_ENCRYPT) &&
+        (strcmp(share->ss_name, "IPC$") == 0)) {
+        /*
+         * Its the IPC$ share and some other share in this session must be
+         * encrypted, so encrypt IPC$ too.
+         */
+        SMBWARNING("Share level encryption forced on for IPC$ \n ");
+        share->ss_share_flags |= SMB2_SHAREFLAG_ENCRYPT_DATA;
+    }
+
     /* Get Capabilities */
     error = md_get_uint32le(mdp, &share->ss_share_caps);
     if (error)

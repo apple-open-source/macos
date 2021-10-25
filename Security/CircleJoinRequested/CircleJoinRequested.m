@@ -24,7 +24,6 @@
 #import <Accounts/Accounts.h>
 #import <Accounts/ACAccountStore_Private.h>
 #import <Accounts/ACAccountType_Private.h>
-#import <AggregateDictionary/ADClient.h>
 #import <AppSupport/AppSupportUtils.h>
 #import <AppleAccount/AppleAccount.h>
 #import <AppleAccount/ACAccountStore+AppleAccount.h>
@@ -646,31 +645,10 @@ static void kickOutChoice(CFUserNotificationRef userNotification, CFOptionFlags 
 	cancelCurrentAlert(true);
 }
 
-
-CFStringRef const CJRAggdDepartureReasonKey  = CFSTR("com.apple.security.circlejoinrequested.departurereason");
-CFStringRef const CJRAggdNumCircleDevicesKey = CFSTR("com.apple.security.circlejoinrequested.numcircledevices");
-
 static void postKickedOutAlert(enum DepartureReason reason)
 {
 	NSString	*header  = nil;
 	NSString	*message = nil;
-
-	// <rdar://problem/20358568> iCDP telemetry: ☂ Statistics on circle reset and drop out events
-	ADClientSetValueForScalarKey(CJRAggdDepartureReasonKey, reason);
-
-	int64_t    num_peers = 0;
-	CFArrayRef peerList  = SOSCCCopyPeerPeerInfo(NULL);
-	if (peerList) {
-		num_peers = CFArrayGetCount(peerList);
-		if (num_peers > 99) {
-			// Round down # peers to 2 significant digits
-			int factor;
-			for (factor = 10; num_peers >= 100*factor; factor *= 10) ;
-			num_peers = (num_peers / factor) * factor;
-		}
-		CFRelease(peerList);
-	}
-	ADClientSetValueForScalarKey(CJRAggdNumCircleDevicesKey, num_peers);
 
 	debugState = @"pKOA A";
 	secnotice("cjr", "DepartureReason %d", reason);

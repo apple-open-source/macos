@@ -469,7 +469,7 @@ device_pager_synchronize(
 	__unused memory_object_size_t   length,
 	__unused vm_sync_t              sync_flags)
 {
-	panic("device_pager_synchronize: memory_object_synchronize no longer supported\n");
+	panic("device_pager_synchronize: memory_object_synchronize no longer supported");
 	return KERN_FAILURE;
 }
 
@@ -537,12 +537,8 @@ device_object_create(void)
 {
 	device_pager_t  device_object;
 
-	device_object = (struct device_pager *) zalloc(device_pager_zone);
-	if (device_object == DEVICE_PAGER_NULL) {
-		return DEVICE_PAGER_NULL;
-	}
-
-	bzero(device_object, sizeof(*device_object));
+	device_object = zalloc_flags(device_pager_zone,
+	    Z_WAITOK | Z_ZERO | Z_NOFAIL);
 
 	device_object->dev_pgr_hdr.mo_ikot = IKOT_MEMORY_OBJECT;
 	device_object->dev_pgr_hdr.mo_pager_ops = &device_pager_ops;

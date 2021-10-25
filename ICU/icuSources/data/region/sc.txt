@@ -1,5 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
-// License & terms of use: http://www.unicode.org/copyright.html#License
+// License & terms of use: http://www.unicode.org/copyright.html
+// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
 sc{
     Countries{
         001{"Mundu"}
@@ -133,7 +134,7 @@ sc{
         GU{"Guàm"}
         GW{"Guinea-Bissau"}
         GY{"Guyana"}
-        HK{"RAS tzinesa de Hong Kong"}
+        HK{"Hong Kong"}
         HM{"Ìsulas Heard e McDonald"}
         HN{"Honduras"}
         HR{"Croàtzia"}
@@ -187,7 +188,7 @@ sc{
         ML{"Mali"}
         MM{"Myanmàr (Birmània)"}
         MN{"Mongòlia"}
-        MO{"RAS tzinesa de Macao"}
+        MO{"Macao"}
         MP{"Ìsulas Mariannas setentrionales"}
         MQ{"Martinica"}
         MR{"Mauritània"}
@@ -287,7 +288,7 @@ sc{
         VU{"Vanuatu"}
         WF{"Wallis e Futuna"}
         WS{"Samoa"}
-        XA{"psèudo-atentos"}
+        XA{"psèudo-atzentos"}
         XB{"psèudo-bidi"}
         XK{"Kòssovo"}
         YE{"Yemen"}
@@ -299,8 +300,6 @@ sc{
     }
     Countries%short{
         GB{"RU"}
-        HK{"Hong Kong"}
-        MO{"Macao"}
         PS{"Palestina"}
         US{"IUA"}
     }
@@ -313,5 +312,4 @@ sc{
         SZ{"Swàziland"}
         TL{"Timor Orientale"}
     }
-    Version{"36.1"}
 }

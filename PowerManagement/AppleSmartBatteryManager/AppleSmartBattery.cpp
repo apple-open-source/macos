@@ -25,7 +25,7 @@
 #include <IOKit/IOWorkLoop.h>
 #include <IOKit/IOTimerEventSource.h>
 #include <IOKit/pwr_mgt/RootDomain.h>
-#include <IOKit/IONVRAM.h>
+#include <IOKit/IOKitKeysPrivate.h>
 #include <libkern/c++/OSObject.h>
 #include <kern/clock.h>
 #include "AppleSmartBatteryManager.h"
@@ -325,13 +325,13 @@ void AppleSmartBattery::initializeCommands(void)
         {kKioskModeCmd,             kBatt, kASBMSMBUSReadWord,   0, 0, NULL,                      kUserVis, false},
 #endif
         {kBCycleCountCmd,           kBatt, kASBMSMBUSReadWord, 0, 0, cycleCountKey,               kFull,    false},
-        // TTF need AverageCurrent and ExternalConnected
-        {kBAverageTimeToFullCmd,    kBatt, kASBMSMBUSReadWord, 0, 0, NULL,                        kUserVis, false},
+        // TTE need AverageCurrent and ExternalConnected
+        {kBAverageTimeToEmptyCmd,   kBatt, kASBMSMBUSReadWord, 0, 0, NULL,                        kUserVis, false},
 #if TARGET_OS_OSX
         {kBExtendedPFStatusCmd,     kBatt, kASBMSMBUSExtendedReadWord, 0, 0, _PFStatusSym,        kFull,    false},
         {kBDesignCycleCount9CCmd,   kBatt, kASBMSMBUSReadWord, 0, 0, _DesignCycleCount9CSym,      kBoot,    false},
-        // TTE need AverageCurrent and ExternalConnected
-        {kBAverageTimeToEmptyCmd,   kBatt, kASBMSMBUSReadWord, 0, 0, NULL,                        kUserVis, false},
+        // TTF need AverageCurrent and ExternalConnected
+        {kBAverageTimeToFullCmd,    kBatt, kASBMSMBUSReadWord, 0, 0, NULL,                        kUserVis, false},
         {kBPackReserveCmd,          kBatt, kASBMSMBUSReadWord, 0, 0, _PackReserveSym,             kBoot,    false},
         {kBDeviceNameCmd,           kBatt, kASBMSMBUSReadBlock, 0, 0, _DeviceNameSym,             kBoot,    false},
 #endif // TARGET_OS_OSX

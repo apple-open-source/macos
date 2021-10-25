@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, 2004, 2007, 2011, 2012, 2014, 2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2003, 2004, 2007, 2011, 2012, 2014, 2018, 2020-2021 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -40,17 +40,18 @@
 
 __BEGIN_DECLS
 
-void	do_checkReachability		(int argc, char **argv);
-void	do_watchReachability		(int argc, char **argv);
+void	do_checkReachability		(int argc, char * const argv[]);
+void	do_watchReachability		(int argc, char * const argv[]);
 void	do_renew			(char *interface);
-void	do_showDNSConfiguration		(int argc, char **argv);
-void	do_watchDNSConfiguration	(int argc, char **argv);
-void	do_showProxyConfiguration	(int argc, char **argv);
-void	do_snapshot			(int argc, char **argv);
+void	do_showDNSConfiguration		(int argc, char * const argv[]);
+void	do_watchDNSConfiguration	(int argc, char * const argv[]);
+void	do_showProxyConfiguration	(int argc, char * const argv[]);
+void	do_snapshot			(int argc, char * const argv[]);
 void	do_wait				(char *waitKey, int timeout);
-void	do_showNWI			(int argc, char **argv);
-void	do_watchNWI			(int argc, char **argv);
-void	do_advisory			(const char * interface, Boolean watch, int argc, char **argv);
+void	do_showNWI			(int argc, char * const argv[]);
+void	do_watchNWI			(int argc, char * const argv[]);
+void	do_advisory			(const char * interface, Boolean watch, int argc, char * const argv[]);
+void	do_rank				(const char * interface, Boolean watch, int argc, char * const argv[]);
 
 __END_DECLS
 

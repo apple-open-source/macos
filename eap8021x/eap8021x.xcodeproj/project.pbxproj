@@ -94,6 +94,7 @@
 		4434A3E42166B75B0067E1E3 /* EAPClientConfiguration.c in Sources */ = {isa = PBXBuildFile; fileRef = 4474E8AB2166AD8C00CD7B6D /* EAPClientConfiguration.c */; };
 		4461C8F92280B86B00CBCB24 /* libbsm.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 4461C8F82280B86A00CBCB24 /* libbsm.dylib */; };
 		4461C8FB2280B8AD00CBCB24 /* libbsm.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 4461C8FA2280B8AD00CBCB24 /* libbsm.tbd */; };
+		447011B325DB1260007F7D25 /* AppSSO.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 447011B225DB125F007F7D25 /* AppSSO.framework */; settings = {ATTRIBUTES = (Required, ); }; };
 		4474E8AA2166AD5A00CD7B6D /* EAPClientConfiguration.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = 4474E8A92166AD5A00CD7B6D /* EAPClientConfiguration.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		4474E8AC2166AD8C00CD7B6D /* EAPClientConfiguration.c in Sources */ = {isa = PBXBuildFile; fileRef = 4474E8AB2166AD8C00CD7B6D /* EAPClientConfiguration.c */; };
 		447B2CCC21891FDC00DE73CF /* EAPClientConfiguration.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = 4474E8A92166AD5A00CD7B6D /* EAPClientConfiguration.h */; settings = {ATTRIBUTES = (Public, ); }; };
@@ -109,6 +110,7 @@
 		44B4EB7424633603008764D5 /* EAPTLSTrustExceptionUtil.c in Sources */ = {isa = PBXBuildFile; fileRef = 44B4EB7224633603008764D5 /* EAPTLSTrustExceptionUtil.c */; };
 		44D554A22065727300681A0F /* SIMAccess.m in Sources */ = {isa = PBXBuildFile; fileRef = 44D554A12065727300681A0F /* SIMAccess.m */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
 		44D554A4206573D400681A0F /* SIMAccessPrivate.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = 44D554A3206573D400681A0F /* SIMAccessPrivate.h */; };
+		44EAF9E225DA600300817560 /* AppSSOProviderAccess.m in Sources */ = {isa = PBXBuildFile; fileRef = 44EAF9E125DA600300817560 /* AppSSOProviderAccess.m */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
 		44EC34221D130EC000E1886A /* EAPOLSIMPrefsManage.c in Sources */ = {isa = PBXBuildFile; fileRef = 44EC34201D130EC000E1886A /* EAPOLSIMPrefsManage.c */; };
 		44EC34231D130EC000E1886A /* EAPOLSIMPrefsManage.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = 44EC34211D130EC000E1886A /* EAPOLSIMPrefsManage.h */; };
 		44EC34251D14A59B00E1886A /* EAPOLSIMPrefsManage.c in Sources */ = {isa = PBXBuildFile; fileRef = 44EC34201D130EC000E1886A /* EAPOLSIMPrefsManage.c */; };
@@ -508,6 +510,7 @@
 		4445AE4320659AD40051CCCD /* CoreTelephony.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreTelephony.framework; path = System/Library/Frameworks/CoreTelephony.framework; sourceTree = SDKROOT; };
 		4461C8F82280B86A00CBCB24 /* libbsm.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libbsm.dylib; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS13.0.Internal.sdk/usr/lib/libbsm.dylib; sourceTree = DEVELOPER_DIR; };
 		4461C8FA2280B8AD00CBCB24 /* libbsm.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libbsm.tbd; path = usr/lib/libbsm.tbd; sourceTree = SDKROOT; };
+		447011B225DB125F007F7D25 /* AppSSO.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AppSSO.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS15.0.Internal.sdk/System/Library/PrivateFrameworks/AppSSO.framework; sourceTree = DEVELOPER_DIR; };
 		4474E8A92166AD5A00CD7B6D /* EAPClientConfiguration.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = EAPClientConfiguration.h; sourceTree = "<group>"; };
 		4474E8AB2166AD8C00CD7B6D /* EAPClientConfiguration.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = EAPClientConfiguration.c; sourceTree = "<group>"; };
 		4478B6F71AE19D0100051F29 /* sim_simulator.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = sim_simulator.h; sourceTree = "<group>"; };
@@ -520,6 +523,8 @@
 		44B4EB7224633603008764D5 /* EAPTLSTrustExceptionUtil.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = EAPTLSTrustExceptionUtil.c; sourceTree = "<group>"; };
 		44D554A12065727300681A0F /* SIMAccess.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = SIMAccess.m; sourceTree = "<group>"; };
 		44D554A3206573D400681A0F /* SIMAccessPrivate.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SIMAccessPrivate.h; sourceTree = "<group>"; };
+		44EAF9E125DA600300817560 /* AppSSOProviderAccess.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = AppSSOProviderAccess.m; sourceTree = "<group>"; };
+		44EAF9E325DA601600817560 /* AppSSOProviderAccess.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = AppSSOProviderAccess.h; sourceTree = "<group>"; };
 		44EC34201D130EC000E1886A /* EAPOLSIMPrefsManage.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = EAPOLSIMPrefsManage.c; sourceTree = "<group>"; };
 		44EC34211D130EC000E1886A /* EAPOLSIMPrefsManage.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = EAPOLSIMPrefsManage.h; sourceTree = "<group>"; };
 		68A6B7900DE0EE5C00D48B5D /* entitlements.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = entitlements.plist; path = eapolclient.tproj/entitlements.plist; sourceTree = SOURCE_ROOT; };
@@ -675,6 +680,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				447011B325DB1260007F7D25 /* AppSSO.framework in Frameworks */,
 				F90FEE540CA3338A00A7B5A8 /* EAP8021X.framework in Frameworks */,
 				F90FEE550CA3338A00A7B5A8 /* Security.framework in Frameworks */,
 				F90FEE560CA3338A00A7B5A8 /* CoreFoundation.framework in Frameworks */,
@@ -806,6 +812,7 @@
 		449213AA1D12062700D8FB30 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				447011B225DB125F007F7D25 /* AppSSO.framework */,
 				4461C8FA2280B8AD00CBCB24 /* libbsm.tbd */,
 				4461C8F82280B86A00CBCB24 /* libbsm.dylib */,
 				44B2B61D20AE6A480060E361 /* libio80211.a */,
@@ -1040,6 +1047,7 @@
 		F91F7B9D0C8F84A7000EA394 /* Sources */ = {
 			isa = PBXGroup;
 			children = (
+				44EAF9E125DA600300817560 /* AppSSOProviderAccess.m */,
 				F98E42EA19017F4900DE4397 /* wireless.m */,
 				F94E3F730F6706420061BC58 /* InterestNotification.c */,
 				F91F7B6E0C8F7F55000EA394 /* Alert.c */,
@@ -1059,6 +1067,7 @@
 		F91F7B9E0C8F84B1000EA394 /* Headers */ = {
 			isa = PBXGroup;
 			children = (
+				44EAF9E325DA601600817560 /* AppSSOProviderAccess.h */,
 				F94E3F750F6706510061BC58 /* InterestNotification.h */,
 				F91F7B6F0C8F7F55000EA394 /* Alert.h */,
 				F91F7B720C8F7F55000EA394 /* Dialogue.h */,
@@ -1569,6 +1578,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				44EAF9E225DA600300817560 /* AppSSOProviderAccess.m in Sources */,
 				F90FEE480CA3338A00A7B5A8 /* main.c in Sources */,
 				F90FEE490CA3338A00A7B5A8 /* Supplicant.c in Sources */,
 				F90FEE4A0CA3338A00A7B5A8 /* Timer.c in Sources */,
@@ -1930,6 +1940,8 @@
 				CODE_SIGN_ENTITLEMENTS = eapolclient.tproj/entitlements.plist;
 				COPY_PHASE_STRIP = YES;
 				DEAD_CODE_STRIPPING = YES;
+				"EXCLUDED_SOURCE_FILE_NAMES[sdk=appletvos*]" = AppSSO.framework;
+				"EXCLUDED_SOURCE_FILE_NAMES[sdk=watchos*]" = AppSSO.framework;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(SYMROOT)",
 					"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
@@ -1959,6 +1971,8 @@
 				CODE_SIGN_ENTITLEMENTS = eapolclient.tproj/entitlements.plist;
 				COPY_PHASE_STRIP = NO;
 				DEAD_CODE_STRIPPING = YES;
+				"EXCLUDED_SOURCE_FILE_NAMES[sdk=appletvos*]" = AppSSO.framework;
+				"EXCLUDED_SOURCE_FILE_NAMES[sdk=watchos*]" = AppSSo.framework;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(SYMROOT)",
 					"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",

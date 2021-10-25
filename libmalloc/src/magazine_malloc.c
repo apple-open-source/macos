@@ -53,6 +53,18 @@ bool magazine_medium_enabled = true;
 // Control the DRAM limit at which medium kicks in.
 uint64_t magazine_medium_active_threshold = MEDIUM_ACTIVATION_THRESHOLD;
 
+#if CONFIG_MEDIUM_ALLOCATOR
+
+// Control the dram divisor that's used to scale up medium's madvise window.
+// We'll double the window for each multiple of magazine_medium_madvise_dram_scale_divisor
+// bytes of dram on the system rounded down to the neareast power of 2.
+// This is done by setting magazine_medium_madvise_window_scale_factor.
+uint64_t magazine_medium_madvise_dram_scale_divisor = MEDIUM_MADVISE_DRAM_SCALE_DIVISOR;
+
+// Controls how much to scale up medium's madvise window.
+uint64_t magazine_medium_madvise_window_scale_factor = 1;
+#endif // CONFIG_MEDIUM_ALLOCATOR
+
 // Control the DRAM limit at which the expanded large cache kicks in.
 uint64_t magazine_large_expanded_cache_threshold = LARGE_CACHE_EXPANDED_THRESHOLD;
 
@@ -910,6 +922,10 @@ szone_check(szone_t *szone)
 	return szone_check_all(szone, "");
 }
 
+// To support the quarantine zone, we need to be able to perform zone enumeration across different
+// architecture slices on macOS, because ReportCrash is always running as a native (arm64e) process,
+// but we also need to be able to inspect x86_64 targets that are running under Rosetta. So the data
+// layout and zone logic needs to match between x86_64 and arm64(e).
 static kern_return_t
 szone_ptr_in_use_enumerator(task_t task,
 		void *context,

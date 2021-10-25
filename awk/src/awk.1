@@ -7,8 +7,11 @@
 .fi
 .ft 1
 ..
-.TH AWK 1
-.CT 1 files prog_other
+.de TF
+.IP "" "\w'\fB\\$1\ \ \fP'u"
+.PD 0
+..
+.TH AWK 1 2020-11-24
 .SH NAME
 awk \- pattern-directed scanning and processing language
 .SH SYNOPSIS
@@ -88,7 +91,7 @@ is null, the input line is split into one field per character.
 .PP
 A pattern-action statement has the form:
 .IP
-.IB pattern " { " action " }
+.IB pattern " { " action " } "
 .PP
 A missing
 .BI { " action " }
@@ -102,7 +105,6 @@ A statement can be one of the following:
 .EX
 .ta \w'\f(CWdelete array[expression]\fR'u
 .RS
-.nf
 .ft CW
 if(\fI expression \fP)\fI statement \fP\fR[ \fPelse\fI statement \fP\fR]\fP
 while(\fI expression \fP)\fI statement\fP
@@ -123,7 +125,6 @@ delete\fI array\fP	#\fR delete all elements of array\fP
 exit\fR [ \fP\fIexpression \fP\fR]\fP	#\fR exit immediately; status is \fP\fIexpression\fP
 .fi
 .RE
-.EE
 .DT
 .PP
 Statements are terminated by
@@ -160,11 +161,11 @@ The
 .B print
 statement prints its arguments on the standard output
 (or on a file if
-.BI > " file
+.BI > " file "
 or
-.BI >> " file
+.BI >> " file "
 is present or on a pipe if
-.BI | " cmd
+.BI | " cmd "
 is present), separated by the current output field separator,
 and terminated by the output record separator.
 .I file
@@ -293,7 +294,7 @@ and
 .B gsub
 return the number of replacements.
 .TP
-.BI sprintf( fmt , " expr" , " ...\fB)
+.BI sprintf( fmt , " expr" , " ..."\fB)
 the string resulting from formatting
 .I expr ...
 according to the
@@ -335,7 +336,7 @@ sets
 .B $0
 to the next input record from the current input file;
 .B getline
-.BI < " file
+.BI < " file "
 sets
 .B $0
 to the next record from
@@ -346,7 +347,7 @@ sets variable
 .I x
 instead.
 Finally,
-.IB cmd " | getline
+.IB cmd " | getline "
 pipes the output of
 .I cmd
 into
@@ -511,12 +512,10 @@ and
 .B gsub
 with respect to consecutive backslashes and ampersands.
 .SH EXAMPLES
-.TP
 .EX
 length($0) > 72
 .EE
 Print lines longer than 72 characters.
-.TP
 .EX
 { print $2, $1 }
 .EE
@@ -531,28 +530,23 @@ BEGIN { FS = ",[ \et]*|[ \et]+" }
 Same, with input fields separated by comma and/or spaces and tabs.
 .PP
 .EX
-.nf
 	{ s += $1 }
 END	{ print "sum is", s, " average is", s/NR }
 .fi
-.EE
 .ns
 .IP
 Add up first column, print sum and average.
-.TP
 .EX
 /start/, /stop/
 .EE
 Print all lines between start/stop pairs.
 .PP
 .EX
-.nf
 BEGIN	{	# Simulate echo(1)
 	for (i = 1; i < ARGC; i++) printf "%s ", ARGV[i]
 	printf "\en"
 	exit }
 .fi
-.EE
 .SH SEE ALSO
 .IR grep (1),
 .IR lex (1),

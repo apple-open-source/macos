@@ -878,7 +878,7 @@ split(const void * key, const void * value, void * context)
 }
 
 int
-main(int argc, char **argv)
+main(int argc, char * const argv[])
 {
 	CFDictionaryRef		entities;
 	CFStringRef		key;

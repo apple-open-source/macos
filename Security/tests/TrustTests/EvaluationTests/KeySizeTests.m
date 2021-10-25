@@ -232,8 +232,10 @@ errOut:
     CFReleaseNull(legacyClientPolicy);
 }
 
-#if !TARGET_OS_BRIDGE // bridgeOS doesn't have trust settings
 - (void)test1024_trustSettingsOnRoot_TestLeaf {
+#if TARGET_OS_BRIDGE // bridgeOS doesn't have trust settings
+    XCTSkip();
+#endif
     NSDate *verifyDate = [NSDate dateWithTimeIntervalSinceReferenceDate:578000000.0]; // April 26, 2019 at 12:33:20 PM PDT
     SecCertificateRef leaf = SecCertificateCreateWithBytes(NULL, _leaf1024SSL, sizeof(_leaf1024SSL));
     SecCertificateRef root = SecCertificateCreateWithBytes(NULL, _rootSSL, sizeof(_rootSSL));
@@ -259,6 +261,9 @@ errOut:
 }
 
 - (void)test1024_trustSettingsOnLeaf {
+#if TARGET_OS_BRIDGE // bridgeOS doesn't have trust settings
+    XCTSkip();
+#endif
     NSDate *verifyDate = [NSDate dateWithTimeIntervalSinceReferenceDate:578000000.0]; // April 26, 2019 at 12:33:20 PM PDT
     SecCertificateRef leaf = SecCertificateCreateWithBytes(NULL, _leaf1024SSL, sizeof(_leaf1024SSL));
     NSArray *certs = @[ (__bridge id)leaf ];
@@ -280,10 +285,11 @@ errOut:
     [self removeTrustSettingsForCert:leaf persistentRef:persistentRef];
     CFReleaseNull(leaf);
 }
-#endif // !TARGET_OS_BRIDGE
 
-#if !TARGET_OS_BRIDGE // bridgeOS doesn't have a system trust store
 - (void)test2048_systemTrusted {
+#if TARGET_OS_BRIDGE // bridgeOS doesn't have a system trust store
+    XCTSkip();
+#endif
     NSDate *verifyDate = [NSDate dateWithTimeIntervalSinceReferenceDate:500000000.0]; // April 26, 2019 at 12:33:20 PM PDT
 
     SecCertificateRef leaf = SecCertificateCreateWithBytes(NULL, _leaf2048SystemTrust, sizeof(_leaf2048SystemTrust));
@@ -304,7 +310,6 @@ errOut:
     XCTAssertTrue([self runTrust:certs anchors:nil policy:eapPolicy verifyDate:verifyDate], "system trusted 2048-bit certs failed for EAP");
     CFReleaseNull(eapPolicy);
 }
-#endif // !TARGET_OS_BRIDGE
 
 - (void)test2048_appTrustedLeaf {
     NSDate *verifyDate = [NSDate dateWithTimeIntervalSinceReferenceDate:578000000.0]; // April 26, 2019 at 12:33:20 PM PDT
@@ -329,8 +334,10 @@ errOut:
     CFReleaseNull(eapPolicy);
 }
 
-#if !TARGET_OS_BRIDGE // bridgeOS doesn't have trust settings
 - (void)test2048_trustSettingsOnRoot_TestLeaf {
+#if TARGET_OS_BRIDGE // bridgeOS doesn't have trust settings
+    XCTSkip();
+#endif
     NSDate *verifyDate = [NSDate dateWithTimeIntervalSinceReferenceDate:578000000.0]; // April 26, 2019 at 12:33:20 PM PDT
     SecCertificateRef leaf = SecCertificateCreateWithBytes(NULL, _leaf2048SSL, sizeof(_leaf2048SSL));
     SecCertificateRef root = SecCertificateCreateWithBytes(NULL, _rootSSL, sizeof(_rootSSL));
@@ -356,6 +363,9 @@ errOut:
 }
 
 - (void)test2048_trustSettingsOnLeaf {
+#if TARGET_OS_BRIDGE // bridgeOS doesn't have trust settings
+    XCTSkip();
+#endif
     NSDate *verifyDate = [NSDate dateWithTimeIntervalSinceReferenceDate:578000000.0]; // April 26, 2019 at 12:33:20 PM PDT
     SecCertificateRef leaf = SecCertificateCreateWithBytes(NULL, _leaf2048SSL, sizeof(_leaf2048SSL));
     NSArray *certs = @[ (__bridge id)leaf ];
@@ -377,6 +387,5 @@ errOut:
     [self removeTrustSettingsForCert:leaf persistentRef:persistentRef];
     CFReleaseNull(leaf);
 }
-#endif // !TARGET_OS_BRIDGE
 
 @end

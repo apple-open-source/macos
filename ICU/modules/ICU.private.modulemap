@@ -1,0 +1,327 @@
+module ICU_Private [extern_c] [system] {
+    header "docmain.h"
+    header "icudataver.h"
+    header "errorcode.h"
+    header "parsepos.h"
+
+    // Common data types
+    header "uenum.h"
+    header "strenum.h"
+    header "uset.h"
+    header "uniset.h"
+    header "usetiter.h"
+    header "bytestream.h"
+    header "std_string.h"
+    header "stringpiece.h"
+    header "umisc.h"
+    header "unistr.h"
+    header "uobject.h"
+
+    // Editing
+    header "urep.h"
+    header "rep.h"
+    header "edits.h"
+    header "unirepl.h"
+
+    // Filtering
+    header "unifilt.h"
+    header "unifunct.h"
+    header "unimatch.h"
+
+    // Case mapping
+    header "ucasemap.h"
+    header "casemap.h"
+
+    // Iteration
+    header "chariter.h"
+    header "schriter.h"
+    header "uchriter.h"
+
+    // Trie
+    header "bytestrie.h"
+    header "bytestriebuilder.h"
+    header "stringtriebuilder.h"
+    header "ucharstrie.h"
+    header "ucharstriebuilder.h"
+    header "ucptrie.h"
+    header "umutablecptrie.h"
+    header "ustringtrie.h"
+
+    // Utility headers
+    header "uclean.h"
+    header "udata.h"
+    header "utrace.h"
+
+    // Assorted
+    header "appendable.h"
+    header "char16ptr.h"
+    header "simpleformatter.h"
+    header "symtable.h"
+
+    // This file is obsolete and its contents moved to utf_old.h.
+    exclude header "utf32.h"
+
+    explicit module BiDi {
+        header "ubidi.h"
+        header "ubiditransform.h"
+        export *
+    }
+
+    explicit module BreakIteration {
+        header "ubrk.h"
+        header "brkiter.h"
+        header "urbtok.h"
+        header "filteredbrk.h"
+        header "rbbi.h"
+        export *
+
+        explicit module Compatibility {
+            header "dbbi.h"
+            export *
+        }
+    }
+
+    explicit module Calendar {
+        header "ucal.h"
+        header "calendar.h"
+        header "gregocal.h"
+        export *
+    }
+
+    explicit module Collate {
+        header "ucol.h"
+        header "coll.h"
+        header "ucoleitr.h"
+        header "coleitr.h"
+        header "alphaindex.h"
+        header "sortkey.h"
+        header "tblcoll.h"
+        export *
+    }
+
+    explicit module Convert {
+        header "ucnv.h"
+        header "ucnv_cb.h"
+        header "ucnv_err.h"
+        header "ucnvsel.h"
+        header "ucsdet.h"
+        export *
+    }
+
+    explicit module Format {
+        header "umsg.h"
+        header "msgfmt.h"
+        header "messagepattern.h"
+        header "selfmt.h"
+
+        header "ulistformatter.h"
+        header "listformatter.h"
+        header "ugender.h"
+        header "gender.h"
+
+        header "uregion.h"
+        header "region.h"
+
+        header "uformattable.h"
+        header "fmtable.h"
+        header "uformattedvalue.h"
+        header "formattedvalue.h"
+        header "ufieldpositer.h"
+        header "fieldpos.h"
+        header "fpositer.h"
+
+        header "enumset.h"
+        header "format.h"
+        header "udisplaycontext.h"
+
+        explicit module Currency {
+            header "ucurr.h"
+            header "curramt.h"
+            header "currpinf.h"
+            header "currunit.h"
+            export *
+        }
+
+        explicit module Date {
+            header "udat.h"
+            header "datefmt.h"
+            header "udateintervalformat.h"
+            header "dtintrv.h"
+            header "ureldatefmt.h"
+            header "reldatefmt.h"
+            header "udatpg.h"
+            header "dtptngen.h"
+            header "dtitvfmt.h"
+            header "dtitvinf.h"
+            header "dtfmtsym.h"
+            header "dtrule.h"
+            header "smpdtfmt.h"
+            export *
+        }
+
+        explicit module Measure {
+            header "uameasureunit.h"
+            header "uameasureformat.h"
+            header "measunit.h"
+            header "measure.h"
+            header "nounit.h"
+            export *
+        }
+
+        explicit module Number {
+            header "unumberformatter.h"
+            header "unum.h"
+            header "numberformatter.h"
+            header "unumberrangeformatter.h"
+            header "numberrangeformatter.h"
+            header "unumsys.h"
+            header "numsys.h"
+            header "dcfmtsym.h"
+            header "scientificnumberformatter.h"
+
+            // Rule-based number formatting, typically for spelling out numeric values in words
+            header "rbnf.h"
+
+            export *
+        }
+
+        explicit module Plurals {
+            header "upluralrules.h"
+            header "plurrule.h"
+            header "plurfmt.h"
+            export *
+
+            explicit module Compatibility {
+                header "uplrule.h"
+                export *
+            }
+        }
+
+        explicit module Time {
+            header "uatimeunitformat.h"
+            header "tmunit.h"
+            header "tmutamt.h"
+            header "utmscale.h"
+            export *
+        }
+
+        explicit module TimeZone {
+            header "tzfmt.h"
+            header "tznames.h"
+            export *
+        }
+
+        explicit module Compatibility {
+            header "choicfmt.h"
+            header "compactdecimalformat.h"
+            header "decimfmt.h"
+            header "measfmt.h"
+            header "numfmt.h"
+            header "tmutfmt.h"
+            header "udatintv.h"
+            export *
+        }
+
+        export *
+    }
+
+    explicit module IDNA {
+        header "uidna.h"
+        header "idna.h"
+        header "usprep.h"
+        export *
+    }
+
+#if defined(BUILD_FOR_MACOS) && BUILD_FOR_MACOS
+    explicit module IO {
+        header "ustdio.h"
+        header "ustream.h"
+        export *
+    }
+#endif
+
+    explicit module Locale {
+        header "uloc.h"
+        header "locid.h"
+        header "ualoc.h"
+        header "uldnames.h"
+        header "locdspnm.h"
+        header "ulocdata.h"
+        header "localebuilder.h"
+        header "localematcher.h"
+        export *
+    }
+
+    explicit module Normalize {
+        header "unorm2.h"
+        header "normalizer2.h"
+        header "caniter.h"
+        export *
+
+        explicit module Compatibility {
+            header "unorm.h"
+            header "normlzr.h"
+            export *
+        }
+    }
+
+    explicit module Plugin {
+        header "icuplug.h"
+        export *
+    }
+
+    explicit module Regex {
+        header "regex.h"
+        export *
+    }
+
+    explicit module ResourceBundle {
+        header "ures.h"
+        header "resbund.h"
+        header "ucat.h"
+        export *
+    }
+
+    explicit module Script {
+        header "uscript.h"
+        export *
+    }
+
+    explicit module Search {
+        header "usearch.h"
+        header "search.h"
+        header "stsearch.h"
+        export *
+    }
+
+    explicit module Shape {
+        header "ushape.h"
+        export *
+    }
+
+    explicit module SpoofDetection {
+        header "uspoof.h"
+        export *
+    }
+
+    explicit module TimeZone {
+        header "timezone.h"
+        header "basictz.h"
+        header "rbtz.h"
+        header "simpletz.h"
+        header "tzrule.h"
+        header "tztrans.h"
+        header "vtzone.h"
+        export *
+    }
+
+    explicit module Transliterate {
+        header "utrans.h"
+        header "translit.h"
+        export *
+    }
+
+    link "icucore"
+
+    export *
+}

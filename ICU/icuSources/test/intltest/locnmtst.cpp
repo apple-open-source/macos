@@ -82,6 +82,7 @@ void LocaleDisplayNamesTest::runIndexedTest(int32_t index, UBool exec, const cha
         TESTCASE(12, TestUldnDisplayContext);
         TESTCASE(13, TestUldnWithGarbage);
         TESTCASE(14, TestSubstituteHandling);
+        TESTCASE(15, TestNumericRegionID);
 #endif
         default:
             name = "";
@@ -297,8 +298,7 @@ static char uz_Latn[] = "uz_Latn";
 static UChar daFor_en[]       = {0x65,0x6E,0x67,0x65,0x6C,0x73,0x6B,0}; //"engelsk"
 static UChar daFor_en_cabud[] = {0x65,0x6E,0x67,0x65,0x6C,0x73,0x6B,0x20,0x28,0x62,0x75,0x64,0x64,0x68,0x69,0x73,0x74,0x69,0x73,0x6B,0x20,
                                  0x6B,0x61,0x6C,0x65,0x6E,0x64,0x65,0x72,0x29,0}; //"engelsk (buddhistisk kalender)"
-static UChar daFor_en_GB[]    = {0x65,0x6E,0x67,0x65,0x6C,0x73,0x6B,0x20,0x28,0x55,0x4B,0x29,0}; //"engelsk (UK)" // Apple change
-static UChar daFor_en_GB_S[]  = {0x65,0x6E,0x67,0x65,0x6C,0x73,0x6B,0x20,0x28,0x55,0x4B,0x29,0}; //"engelsk (UK)"
+static UChar daFor_en_GB[]    = {0x65,0x6E,0x67,0x65,0x6C,0x73,0x6B,0x20,0x28,0x53,0x74,0x6F,0x72,0x62,0x72,0x69,0x74,0x61,0x6E,0x6E,0x69,0x65,0x6E,0x29,0}; //"engelsk (Storbritannien)" // da removed short UK that Apple used
 static UChar daFor_en_GB_D[]  = {0x62,0x72,0x69,0x74,0x69,0x73,0x6B,0x20,0x65,0x6E,0x67,0x65,0x6C,0x73,0x6B,0}; //"britisk engelsk"
 static UChar esFor_en[]       = {0x69,0x6E,0x67,0x6C,0xE9,0x73,0}; //"ingles" with acute on the e
 static UChar esFor_en_GB[]    = {0x69,0x6E,0x67,0x6C,0xE9,0x73,0x20,0x28,0x52,0x55,0x29,0}; //"ingles (RU)" ... // Apple change
@@ -309,8 +309,7 @@ static UChar ruFor_uz_Latn[]  = {0x0443,0x0437,0x0431,0x0435,0x043A,0x0441,0x043
 static UChar daFor_en_T[]     = {0x45,0x6E,0x67,0x65,0x6C,0x73,0x6B,0}; //"Engelsk"
 static UChar daFor_en_cabudT[]= {0x45,0x6E,0x67,0x65,0x6C,0x73,0x6B,0x20,0x28,0x62,0x75,0x64,0x64,0x68,0x69,0x73,0x74,0x69,0x73,0x6B,0x20,
                                  0x6B,0x61,0x6C,0x65,0x6E,0x64,0x65,0x72,0x29,0}; //"Engelsk (buddhistisk kalender)"
-static UChar daFor_en_GB_T[]  = {0x45,0x6E,0x67,0x65,0x6C,0x73,0x6B,0x20,0x28,0x55,0x4B,0x29,0}; //"Engelsk (UK)" // Apple change
-static UChar daFor_en_GB_ST[] = {0x45,0x6E,0x67,0x65,0x6C,0x73,0x6B,0x20,0x28,0x55,0x4B,0x29,0}; //"Engelsk (UK)"
+static UChar daFor_en_GB_T[]  = {0x45,0x6E,0x67,0x65,0x6C,0x73,0x6B,0x20,0x28,0x53,0x74,0x6F,0x72,0x62,0x72,0x69,0x74,0x61,0x6E,0x6E,0x69,0x65,0x6E,0x29,0}; //"Engelsk (Storbritannien)" // da removed short UK that Apple used
 static UChar daFor_en_GB_DT[] = {0x42,0x72,0x69,0x74,0x69,0x73,0x6B,0x20,0x65,0x6E,0x67,0x65,0x6C,0x73,0x6B,0}; //"Britisk engelsk"
 static UChar esFor_en_T[]     = {0x49,0x6E,0x67,0x6C,0xE9,0x73,0}; //"Ingles" with acute on the e
 static UChar esFor_en_GB_T[]  = {0x49,0x6E,0x67,0x6C,0xE9,0x73,0x20,0x28,0x52,0x55,0x29,0}; //"Ingles (RU)" ... // Apple change
@@ -323,7 +322,7 @@ static const LocNameDispContextItem ctxtItems[] = {
     { "da", UDISPCTX_STANDARD_NAMES, UDISPCTX_CAPITALIZATION_FOR_MIDDLE_OF_SENTENCE,    UDISPCTX_LENGTH_FULL,   en,    daFor_en },
     { "da", UDISPCTX_STANDARD_NAMES, UDISPCTX_CAPITALIZATION_FOR_MIDDLE_OF_SENTENCE,    UDISPCTX_LENGTH_FULL,   en_cabud, daFor_en_cabud },
     { "da", UDISPCTX_STANDARD_NAMES, UDISPCTX_CAPITALIZATION_FOR_MIDDLE_OF_SENTENCE,    UDISPCTX_LENGTH_FULL,   en_GB, daFor_en_GB },
-    { "da", UDISPCTX_STANDARD_NAMES, UDISPCTX_CAPITALIZATION_FOR_MIDDLE_OF_SENTENCE,    UDISPCTX_LENGTH_SHORT,  en_GB, daFor_en_GB_S },
+    { "da", UDISPCTX_STANDARD_NAMES, UDISPCTX_CAPITALIZATION_FOR_MIDDLE_OF_SENTENCE,    UDISPCTX_LENGTH_SHORT,  en_GB, daFor_en_GB },
     { "da", UDISPCTX_DIALECT_NAMES,  UDISPCTX_CAPITALIZATION_FOR_MIDDLE_OF_SENTENCE,    UDISPCTX_LENGTH_FULL,   en_GB, daFor_en_GB_D },
     { "es", UDISPCTX_STANDARD_NAMES, UDISPCTX_CAPITALIZATION_FOR_MIDDLE_OF_SENTENCE,    UDISPCTX_LENGTH_FULL,   en,    esFor_en },
     { "es", UDISPCTX_STANDARD_NAMES, UDISPCTX_CAPITALIZATION_FOR_MIDDLE_OF_SENTENCE,    UDISPCTX_LENGTH_FULL,   en_GB, esFor_en_GB },
@@ -334,7 +333,7 @@ static const LocNameDispContextItem ctxtItems[] = {
     { "da", UDISPCTX_STANDARD_NAMES, UDISPCTX_CAPITALIZATION_FOR_BEGINNING_OF_SENTENCE, UDISPCTX_LENGTH_FULL,   en,    daFor_en_T },
     { "da", UDISPCTX_STANDARD_NAMES, UDISPCTX_CAPITALIZATION_FOR_BEGINNING_OF_SENTENCE, UDISPCTX_LENGTH_FULL,   en_cabud, daFor_en_cabudT },
     { "da", UDISPCTX_STANDARD_NAMES, UDISPCTX_CAPITALIZATION_FOR_BEGINNING_OF_SENTENCE, UDISPCTX_LENGTH_FULL,   en_GB, daFor_en_GB_T },
-    { "da", UDISPCTX_STANDARD_NAMES, UDISPCTX_CAPITALIZATION_FOR_BEGINNING_OF_SENTENCE, UDISPCTX_LENGTH_SHORT,  en_GB, daFor_en_GB_ST },
+    { "da", UDISPCTX_STANDARD_NAMES, UDISPCTX_CAPITALIZATION_FOR_BEGINNING_OF_SENTENCE, UDISPCTX_LENGTH_SHORT,  en_GB, daFor_en_GB_T },
     { "da", UDISPCTX_DIALECT_NAMES,  UDISPCTX_CAPITALIZATION_FOR_BEGINNING_OF_SENTENCE, UDISPCTX_LENGTH_FULL,   en_GB, daFor_en_GB_DT },
     { "es", UDISPCTX_STANDARD_NAMES, UDISPCTX_CAPITALIZATION_FOR_BEGINNING_OF_SENTENCE, UDISPCTX_LENGTH_FULL,   en,    esFor_en_T },
     { "es", UDISPCTX_STANDARD_NAMES, UDISPCTX_CAPITALIZATION_FOR_BEGINNING_OF_SENTENCE, UDISPCTX_LENGTH_FULL,   en_GB, esFor_en_GB_T },
@@ -345,7 +344,7 @@ static const LocNameDispContextItem ctxtItems[] = {
     { "da", UDISPCTX_STANDARD_NAMES, UDISPCTX_CAPITALIZATION_FOR_UI_LIST_OR_MENU,       UDISPCTX_LENGTH_FULL,   en,    daFor_en_T },
     { "da", UDISPCTX_STANDARD_NAMES, UDISPCTX_CAPITALIZATION_FOR_UI_LIST_OR_MENU,       UDISPCTX_LENGTH_FULL,   en_cabud, daFor_en_cabudT },
     { "da", UDISPCTX_STANDARD_NAMES, UDISPCTX_CAPITALIZATION_FOR_UI_LIST_OR_MENU,       UDISPCTX_LENGTH_FULL,   en_GB, daFor_en_GB_T },
-    { "da", UDISPCTX_STANDARD_NAMES, UDISPCTX_CAPITALIZATION_FOR_UI_LIST_OR_MENU,       UDISPCTX_LENGTH_SHORT,  en_GB, daFor_en_GB_ST },
+    { "da", UDISPCTX_STANDARD_NAMES, UDISPCTX_CAPITALIZATION_FOR_UI_LIST_OR_MENU,       UDISPCTX_LENGTH_SHORT,  en_GB, daFor_en_GB_T },
     { "da", UDISPCTX_DIALECT_NAMES,  UDISPCTX_CAPITALIZATION_FOR_UI_LIST_OR_MENU,       UDISPCTX_LENGTH_FULL,   en_GB, daFor_en_GB_DT },
     { "es", UDISPCTX_STANDARD_NAMES, UDISPCTX_CAPITALIZATION_FOR_UI_LIST_OR_MENU,       UDISPCTX_LENGTH_FULL,   en,    esFor_en_T },
     { "es", UDISPCTX_STANDARD_NAMES, UDISPCTX_CAPITALIZATION_FOR_UI_LIST_OR_MENU,       UDISPCTX_LENGTH_FULL,   en_GB, esFor_en_GB_T },
@@ -356,7 +355,7 @@ static const LocNameDispContextItem ctxtItems[] = {
     { "da", UDISPCTX_STANDARD_NAMES, UDISPCTX_CAPITALIZATION_FOR_STANDALONE,            UDISPCTX_LENGTH_FULL,   en,    daFor_en },
     { "da", UDISPCTX_STANDARD_NAMES, UDISPCTX_CAPITALIZATION_FOR_STANDALONE,            UDISPCTX_LENGTH_FULL,   en_cabud, daFor_en_cabud },
     { "da", UDISPCTX_STANDARD_NAMES, UDISPCTX_CAPITALIZATION_FOR_STANDALONE,            UDISPCTX_LENGTH_FULL,   en_GB, daFor_en_GB },
-    { "da", UDISPCTX_STANDARD_NAMES, UDISPCTX_CAPITALIZATION_FOR_STANDALONE,            UDISPCTX_LENGTH_SHORT,  en_GB, daFor_en_GB_S },
+    { "da", UDISPCTX_STANDARD_NAMES, UDISPCTX_CAPITALIZATION_FOR_STANDALONE,            UDISPCTX_LENGTH_SHORT,  en_GB, daFor_en_GB },
     { "da", UDISPCTX_DIALECT_NAMES,  UDISPCTX_CAPITALIZATION_FOR_STANDALONE,            UDISPCTX_LENGTH_FULL,   en_GB, daFor_en_GB_D },
     { "es", UDISPCTX_STANDARD_NAMES, UDISPCTX_CAPITALIZATION_FOR_STANDALONE,            UDISPCTX_LENGTH_FULL,   en,    esFor_en_T },
     { "es", UDISPCTX_STANDARD_NAMES, UDISPCTX_CAPITALIZATION_FOR_STANDALONE,            UDISPCTX_LENGTH_FULL,   en_GB, esFor_en_GB_T },
@@ -364,6 +363,26 @@ static const LocNameDispContextItem ctxtItems[] = {
     { "es", UDISPCTX_DIALECT_NAMES,  UDISPCTX_CAPITALIZATION_FOR_STANDALONE,            UDISPCTX_LENGTH_FULL,   en_GB, esFor_en_GB_DT },
     { "ru", UDISPCTX_STANDARD_NAMES, UDISPCTX_CAPITALIZATION_FOR_STANDALONE,            UDISPCTX_LENGTH_FULL,   uz_Latn, ruFor_uz_Latn_T },
  #endif /* #if !UCONFIG_NO_BREAK_ITERATION */
+    
+    // Tests for rdar://76655165 [Apple-specific]
+    { "en", UDISPCTX_STANDARD_NAMES, UDISPCTX_CAPITALIZATION_FOR_STANDALONE,         UDISPCTX_LENGTH_FULL,    "sw_CD", u"Swahili (Congo - Kinshasa)" },
+    { "en", UDISPCTX_STANDARD_NAMES, UDISPCTX_CAPITALIZATION_FOR_STANDALONE,         UDISPCTX_LENGTH_VARIANT, "sw_CD", u"Swahili (Congo [DRC])" },
+    { "en", UDISPCTX_STANDARD_NAMES, UDISPCTX_CAPITALIZATION_FOR_STANDALONE,         UDISPCTX_LENGTH_FULL,    "fr_CG", u"French (Congo - Brazzaville)" },
+    { "en", UDISPCTX_STANDARD_NAMES, UDISPCTX_CAPITALIZATION_FOR_STANDALONE,         UDISPCTX_LENGTH_VARIANT, "fr_CG", u"French (Congo [Republic])" },
+    { "en", UDISPCTX_STANDARD_NAMES, UDISPCTX_CAPITALIZATION_FOR_STANDALONE,         UDISPCTX_LENGTH_FULL,    "en_SZ", u"English (Eswatini)" },
+    { "en", UDISPCTX_STANDARD_NAMES, UDISPCTX_CAPITALIZATION_FOR_STANDALONE,         UDISPCTX_LENGTH_VARIANT, "en_SZ", u"English (Swaziland)" },
+    { "en", UDISPCTX_STANDARD_NAMES, UDISPCTX_CAPITALIZATION_FOR_STANDALONE,         UDISPCTX_LENGTH_FULL,    "en_GB", u"English (UK)" },
+    { "en", UDISPCTX_STANDARD_NAMES, UDISPCTX_CAPITALIZATION_FOR_STANDALONE,         UDISPCTX_LENGTH_VARIANT, "en_GB", u"English (UK)" },
+    { "en", UDISPCTX_STANDARD_NAMES, UDISPCTX_CAPITALIZATION_FOR_STANDALONE,         UDISPCTX_LENGTH_FULL,    "fr_FR", u"French (France)" },
+    { "en", UDISPCTX_STANDARD_NAMES, UDISPCTX_CAPITALIZATION_FOR_STANDALONE,         UDISPCTX_LENGTH_VARIANT, "fr_FR", u"French (France)" },
+    
+    // Test for rdar://79109691 [Apple-specific]
+    { "ja", UDISPCTX_STANDARD_NAMES, UDISPCTX_CAPITALIZATION_FOR_STANDALONE,         UDISPCTX_LENGTH_FULL,    "en_GB", u"英語（イギリス）" },
+    
+    // Test for rdar://79401338 [Apple-specific]
+    { "ain", UDISPCTX_STANDARD_NAMES, UDISPCTX_CAPITALIZATION_FOR_STANDALONE,         UDISPCTX_LENGTH_FULL,   "ain_Kana", u"アイヌ・イタㇰ (カタカナ)" },
+    { "syr", UDISPCTX_STANDARD_NAMES, UDISPCTX_CAPITALIZATION_FOR_STANDALONE,         UDISPCTX_LENGTH_FULL,   "syr_Syrc", u"ܣܘܪܝܬ (ܣܘܪܝܬ)" },
+
     { NULL, (UDisplayContext)0,      (UDisplayContext)0,                                (UDisplayContext)0,     NULL,  NULL }
 };
 
@@ -420,6 +439,23 @@ void LocaleDisplayNamesTest::TestRootEtc() {
   test_assert_equal("en_GB", temp);
 
   delete ldn;
+}
+
+void LocaleDisplayNamesTest::TestNumericRegionID() {
+    UErrorCode err = U_ZERO_ERROR;
+    ULocaleDisplayNames* ldn = uldn_open("es_MX", ULDN_STANDARD_NAMES, &err);
+    UChar displayName[200];
+    int32_t displayNameLength = uldn_regionDisplayName(ldn, "019", displayName, 200, &err);
+    test_assert(U_SUCCESS(err));
+    test_assert_equal(UnicodeString(u"América"), UnicodeString(displayName));
+    uldn_close(ldn);    
+
+    err = U_ZERO_ERROR; // reset in case the test above returned an error code
+    ldn = uldn_open("en_AU", ULDN_STANDARD_NAMES, &err);
+    displayNameLength = uldn_regionDisplayName(ldn, "002", displayName, 200, &err);
+    test_assert(U_SUCCESS(err));
+    test_assert_equal(UnicodeString(u"Africa"), UnicodeString(displayName));
+    uldn_close(ldn);    
 }
 
 static const char unknown_region[] = "wx";

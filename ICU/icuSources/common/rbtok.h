@@ -33,7 +33,7 @@ U_NAMESPACE_BEGIN
 
 /** @internal */
 struct RBBIDataHeader57;
-struct RBBIStateTableRow;
+struct RBBIStateTableRow57;
 
 
 /**
@@ -50,7 +50,7 @@ private:
      * The row corresponding to the start state
      * @internal
      */
-    const RBBIStateTableRow *fStartRow;
+    const RBBIStateTableRow57 *fStartRow;
 
     /**
      * The merged flag results for accepting states

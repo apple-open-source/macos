@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2014 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2021 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -103,7 +103,6 @@ enum {
     dhcptag_slp_directory_agent_e      	= 78,
     dhcptag_slp_service_scope_e        	= 79,
     dhcptag_ldap_url_e                 	= 95,
-    dhcptag_swap_path_e                	= 108,
 
     /* dhcp-specific extensions: 50..61, 66, 67 */
     dhcptag_requested_ip_address_e     	= 50,
@@ -121,11 +120,14 @@ enum {
     dhcptag_tftp_server_name_e         	= 66,
     dhcptag_bootfile_name_e            	= 67,
 
+    /* IPv6-only preferred (RFC 8925) */
+    dhcptag_ipv6_only_preferred_e      	= 108,
+
     /* netinfo parent tags: 112, 113 */
     dhcptag_netinfo_server_address_e   	= 112,
     dhcptag_netinfo_server_tag_e       	= 113,
 
-    /* captive portal uri */
+    /* captive portal (RFC 8910) */
     dhcptag_captive_portal_url_e       	= 114,
 
     /* ad-hoc network disable option */
@@ -381,7 +383,6 @@ enum {
 #define DHCPTAG_SLP_DIRECTORY_AGENT        	"slp_directory_agent"
 #define DHCPTAG_SLP_SERVICE_SCOPE          	"slp_service_scope"
 #define DHCPTAG_LDAP_URL                   	"ldap_url"
-#define DHCPTAG_SWAP_PATH                  	"swap_path"
 #define DHCPTAG_REQUESTED_IP_ADDRESS       	"requested_ip_address"
 #define DHCPTAG_LEASE_TIME                 	"lease_time"
 #define DHCPTAG_OPTION_OVERLOAD            	"option_overload"
@@ -396,6 +397,7 @@ enum {
 #define DHCPTAG_CLIENT_IDENTIFIER          	"client_identifier"
 #define DHCPTAG_TFTP_SERVER_NAME           	"tftp_server_name"
 #define DHCPTAG_BOOTFILE_NAME              	"bootfile_name"
+#define DHCPTAG_IPV6_ONLY_PREFERRED        	"ipv6_only_preferred"
 #define DHCPTAG_NETINFO_SERVER_ADDRESS     	"netinfo_server_address"
 #define DHCPTAG_NETINFO_SERVER_TAG         	"netinfo_server_tag"
 #define DHCPTAG_CAPTIVE_PORTAL_URL         	"captive_portal_url"

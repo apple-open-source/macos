@@ -1,0 +1,34 @@
+﻿// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html
+// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
+rhg{
+    AuxExemplarCharacters{"[ـ]"}
+    ExemplarCharacters{
+        "[𐴀 𐴁 𐴂 𐴃 𐴄 𐴅 𐴆 𐴇 𐴈 𐴉 𐴊 𐴋 𐴌 𐴍 𐴎 𐴏 𐴐 𐴑 𐴒 𐴓 𐴔 𐴕 𐴖 𐴗 𐴘 "
+        "𐴙 𐴚 𐴛 𐴝 𐴞 𐴟 𐴠 𐴡 𐴢 𐴣 𐴤 𐴥 𐴦 𐴧]"
+    }
+    ExemplarCharactersNumbers{"[\\- ‑ , . % + 0𐴰 1𐴱 2𐴲 3𐴳 4𐴴 5𐴵 6𐴶 7𐴷 8𐴸 9𐴹]"}
+    ExemplarCharactersPunctuation{"[\\- ‐ ‑ – — ، ؛ \\: ! ؟ . … ' \u0022 ( ) \\[ \\]]"}
+    calendar{
+        gregorian{
+            DateTimePatterns{
+                "zzzz HH:mm:ss",
+                "z HH:mm:ss",
+                "HH:mm:ss",
+                "H:mm",
+                "y MMMM d, EEEE",
+                "y MMMM d",
+                "y MMM d",
+                "y-MM-dd",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+            }
+        }
+    }
+    layout{
+        characters{"right-to-left"}
+    }
+}

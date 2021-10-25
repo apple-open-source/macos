@@ -77,8 +77,13 @@ extern int	__swrite(void *, char const *, int);
 extern fpos_t	__sseek(void *, fpos_t, int);
 extern int	__sclose(void *);
 extern void	__sinit(void);
+#if __has_feature(ptrauth_calls)
+#define CLEANUP_PTRAUTH __ptrauth(ptrauth_key_process_dependent_code, true, ptrauth_string_discriminator("libc.cleanup"))
+#else
+#define CLEANUP_PTRAUTH
+#endif
 extern void	_cleanup(void);
-extern void	(*__cleanup)(void);
+extern void	(* CLEANUP_PTRAUTH __cleanup)(void);
 extern void	__smakebuf(FILE *);
 extern int	__swhatbuf(FILE *, size_t *, int *);
 extern int	_fwalk(int (*)(FILE *));

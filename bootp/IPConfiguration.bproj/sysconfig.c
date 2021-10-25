@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2020 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2021 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -283,18 +283,11 @@ DHCPInfoDictionaryCreate(ipconfig_method_t method, dhcpol_t * options_p,
     }
 
     if (method == ipconfig_method_dhcp_e) {
-	CFDateRef	date;
-
-	/* start */
-	date = CFDateCreate(NULL, (CFAbsoluteTime)start_time);
-	CFDictionarySetValue(dict, CFSTR("LeaseStartTime"), date);
-	CFRelease(date);
-
-	/* expiration */
+	my_CFDictionarySetAbsoluteTime(dict, CFSTR("LeaseStartTime"),
+				       (CFAbsoluteTime)start_time);
 	if (expiration_time != 0) {
-	    date = CFDateCreate(NULL, (CFAbsoluteTime)expiration_time);
-	    CFDictionarySetValue(dict, CFSTR("LeaseExpirationTime"), date);
-	    CFRelease(date);
+	    my_CFDictionarySetAbsoluteTime(dict, CFSTR("LeaseExpirationTime"),
+					   (CFAbsoluteTime)expiration_time);
 	}
     }
     if (CFDictionaryGetCount(dict) == 0) {
@@ -454,19 +447,53 @@ process_domain_name(const uint8_t * dns_domain, int dns_domain_len,
     return;
 }
 
+STATIC CFArrayRef
+createDNSServersArray(const char * if_name,
+		      const struct in_addr * dns_server, int dns_server_len)
+{
+    CFMutableArrayRef	array = NULL;
+
+    if (dns_server == NULL || dns_server_len < sizeof(struct in_addr)) {
+	/* don't have DNS servers, or it's invalid */
+	goto done;
+    }
+    for (int i = 0; i < (dns_server_len / sizeof(struct in_addr)); i++) {
+	struct in_addr		ip;
+	CFStringRef		str;
+
+	memcpy(&ip, dns_server + i, sizeof(ip));
+	if (ip.s_addr == INADDR_ANY || ip.s_addr == INADDR_BROADCAST) {
+	    /* skip bad IP */
+	    my_log(LOG_NOTICE,
+		   "%s: ignoring invalid DNS server " IP_FORMAT,
+		   if_name, IP_LIST(&ip));
+	    continue;
+	}
+	if (array == NULL) {
+	    array = CFArrayCreateMutable(NULL,
+					 0,
+					 &kCFTypeArrayCallBacks);
+	}
+	str = my_CFStringCreateWithIPAddress(ip);
+	CFArrayAppendValue(array, str);
+	CFRelease(str);
+    }
+
+ done:
+    return (array);
+}
 
 STATIC CFDictionaryRef
-DNSEntityCreateWithDHCPInfo(dhcp_info_t * info_p)
+DNSEntityCreateWithDHCPInfo(const char * if_name, dhcp_info_t * info_p)
 {
-    CFMutableArrayRef		array = NULL;
+    CFArrayRef			array;
     CFMutableDictionaryRef	dns_dict = NULL;
     const uint8_t *		dns_domain = NULL;
     int				dns_domain_len = 0;
-    struct in_addr *		dns_server = NULL;
+    const struct in_addr *	dns_server = NULL;
     int				dns_server_len = 0;
     uint8_t *			dns_search = NULL;
     int				dns_search_len = 0;
-    int				i;
     dhcpol_t *			options;
 
     if (info_p == NULL || info_p->options == NULL) {
@@ -474,7 +501,7 @@ DNSEntityCreateWithDHCPInfo(dhcp_info_t * info_p)
     }
     options = info_p->options;
     if (dhcp_parameter_is_ok(dhcptag_domain_name_server_e)) {
-	dns_server = (struct in_addr *)
+	dns_server = (const struct in_addr *)
 	    dhcpol_find(options, 
 			dhcptag_domain_name_server_e,
 			&dns_server_len, NULL);
@@ -492,20 +519,12 @@ DNSEntityCreateWithDHCPInfo(dhcp_info_t * info_p)
 			       dhcptag_domain_search_e,
 			       &dns_search_len);
     }
-    if (dns_server && dns_server_len >= sizeof(struct in_addr)) {
+    array = createDNSServersArray(if_name, dns_server, dns_server_len);
+    if (array != NULL) {
 	dns_dict 
 	    = CFDictionaryCreateMutable(NULL, 0,
 					&kCFTypeDictionaryKeyCallBacks,
 					&kCFTypeDictionaryValueCallBacks);
-	array = CFArrayCreateMutable(NULL, 
-				     dns_server_len / sizeof(struct in_addr),
-				     &kCFTypeArrayCallBacks);
-	for (i = 0; i < (dns_server_len / sizeof(struct in_addr)); i++) {
-	    CFStringRef		str;
-	    str = my_CFStringCreateWithIPAddress(dns_server[i]);
-	    CFArrayAppendValue(array, str);
-	    CFRelease(str);
-	}
 	CFDictionarySetValue(dns_dict, kSCPropNetDNSServerAddresses, 
 			     array);
 	CFRelease(array);
@@ -812,7 +831,7 @@ DNSEntityCreateWithInfo(const char * if_name,
     CFDictionaryRef		dnsv4;
     CFDictionaryRef		dnsv6;
 
-    dnsv4 = DNSEntityCreateWithDHCPInfo(info_p);
+    dnsv4 = DNSEntityCreateWithDHCPInfo(if_name, info_p);
     dnsv6 = DNSEntityCreateWithIPv6Info(if_name, info_v6_p);
     if (dnsv4 == NULL && dnsv6 == NULL) {
 	return (NULL);
@@ -894,19 +913,6 @@ DHCPv6InfoDictionaryCreate(DHCPv6OptionListRef options)
 /**
  ** Captive Portal
  **/
-
-#ifndef kSCPropNetCaptivePortalURL
-
-PRIVATE_EXTERN CFDictionaryRef
-CaptivePortalEntityCreateWithInfo(dhcp_info_t * info_p,
-				  ipv6_info_t * info_v6_p)
-{
-#pragma unused(info_p)
-#pragma unused(info_v6_p)
-    return (NULL);
-}
-
-#else /* kSCPropNetCaptivePortalURL */
 
 STATIC CFDictionaryRef
 dict_create(CFStringRef key, CFStringRef val)
@@ -1031,4 +1037,42 @@ CaptivePortalEntityCreateWithInfo(dhcp_info_t * info_p,
     return (dict);
 }
 
-#endif /* kSCPropNetCaptivePortalURL */
+PRIVATE_EXTERN CFDictionaryRef
+route_dict_create(const struct in_addr * dest, const struct in_addr * mask,
+		  const struct in_addr * gate)
+{
+    int			count = 0;
+    CFDictionaryRef	dict;
+    int			i;
+#define N_KEYS		3
+    const void *	keys[N_KEYS];
+    CFStringRef		values[N_KEYS];
+
+    if (dest != NULL) {
+	keys[count] = kSCPropNetIPv4RouteDestinationAddress;
+	values[count] = my_CFStringCreateWithIPAddress(*dest);
+	count++;
+    }
+    if (mask != NULL) {
+	keys[count] = kSCPropNetIPv4RouteSubnetMask;
+	values[count] = my_CFStringCreateWithIPAddress(*mask);
+	count++;
+    }
+    if (gate != NULL) {
+	keys[count] = kSCPropNetIPv4RouteGatewayAddress;
+	values[count] = my_CFStringCreateWithIPAddress(*gate);
+	count++;
+    }
+    if (count == 0) {
+	return (NULL);
+    }
+    dict = CFDictionaryCreate(NULL, keys, (const void * *)values,
+			      count,
+			      &kCFTypeDictionaryKeyCallBacks,
+			      &kCFTypeDictionaryValueCallBacks);
+    for (i = 0; i < count; i++) {
+	CFRelease(values[i]);
+    }
+    return (dict);
+}
+

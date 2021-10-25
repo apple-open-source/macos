@@ -37,7 +37,7 @@ void SOSEnsureBackupWhileUnlocked(void) {
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
         backupOperationQueue = [NSOperationQueue new];
-        lockStateTracker = [CKKSLockStateTracker new];
+        lockStateTracker = [CKKSLockStateTracker globalTracker];
     });
 
     // CKKSLockStateTracker does not use @synchronized(self). If it ever starts to this needs to be updated.

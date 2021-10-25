@@ -96,7 +96,9 @@ SecCmsSignedDataGetContentInfo(SecCmsSignedDataRef sigd);
  */
 extern OSStatus
 SecCmsSignedDataImportCerts(SecCmsSignedDataRef sigd, SecKeychainRef keychain,
-				SECCertUsage certusage, Boolean keepcerts);
+				SECCertUsage certusage, Boolean keepcerts)
+API_DEPRECATED_WITH_REPLACEMENT("SecItemAdd", macos(10.0, 12.0), ios(1.0, 15.0), watchos(1.0, 8.0), tvos(9.0, 15.0)) API_UNAVAILABLE(macCatalyst);
+
 
 /*!
     @function
@@ -119,7 +121,23 @@ SecCmsSignedDataHasDigests(SecCmsSignedDataRef sigd);
  */
 extern OSStatus
 SecCmsSignedDataVerifySignerInfo(SecCmsSignedDataRef sigd, int i, SecKeychainRef keychainOrArray,
-				 CFTypeRef policies, SecTrustRef *trustRef);
+				 CFTypeRef policies, SecTrustRef *trustRef)
+API_DEPRECATED_WITH_REPLACEMENT("SecCmsSignedDataVerifySigner", macos(10.0, 12.0), ios(1.0, 15.0), watchos(1.0, 8.0), tvos(9.0, 15.0)) API_UNAVAILABLE(macCatalyst);
+
+/*!
+    @function
+    @abstract Check the signatures.
+    @discussion The digests were either calculated during decoding (and are stored in the
+                signedData itself) or set after decoding using SecCmsSignedDataSetDigests.
+
+                The verification checks if the signing cert is valid and has a trusted chain
+                for the purpose specified by "policies".
+
+                If trustRef is NULL the cert chain is verified and the VerificationStatus is set accordingly.
+                Otherwise a SecTrust object is returned for the caller to evaluate using SecTrustEvaluate().
+ */
+extern OSStatus
+SecCmsSignedDataVerifySigner(SecCmsSignedDataRef sigd, int i, CFTypeRef policies, SecTrustRef *trustRef);
 
 /*!
     @function
@@ -128,7 +146,16 @@ SecCmsSignedDataVerifySignerInfo(SecCmsSignedDataRef sigd, int i, SecKeychainRef
 extern OSStatus
 SecCmsSignedDataVerifyCertsOnly(SecCmsSignedDataRef sigd, 
                                   SecKeychainRef keychainOrArray, 
-                                  CFTypeRef policies);
+                                  CFTypeRef policies)
+API_DEPRECATED_WITH_REPLACEMENT("SecCmsSignedDataVerifyCertsOnlyMessage", macos(10.0, 12.0), ios(1.0, 15.0), watchos(1.0, 8.0), tvos(9.0, 15.0)) API_UNAVAILABLE(macCatalyst);
+
+/*!
+ @function
+ @abstract Verify the certs in a certs-only message.
+ */
+extern OSStatus
+SecCmsSignedDataVerifyCertsOnlyMessage(SecCmsSignedDataRef sigd,
+                                       CFTypeRef policies);
 
 /*!
     @function
@@ -155,18 +182,17 @@ SecCmsSignedDataAddCertificate(SecCmsSignedDataRef sigd, SecCertificateRef cert)
 extern Boolean
 SecCmsSignedDataContainsCertsOrCrls(SecCmsSignedDataRef sigd);
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
 
 #if TARGET_OS_OSX
 /*!
      @function
      @abstract Retrieve the SignedData's certificate list.
  */
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
 extern CSSM_DATA_PTR *
 SecCmsSignedDataGetCertificateList(SecCmsSignedDataRef sigd)
     API_AVAILABLE(macos(10.4)) API_UNAVAILABLE(macCatalyst);
-#pragma clang diagnostic pop
 #else // !TARGET_OS_OSX
 /*!
     @function
@@ -176,6 +202,8 @@ extern SecAsn1Item * *
 SecCmsSignedDataGetCertificateList(SecCmsSignedDataRef sigd)
     API_AVAILABLE(ios(2.0), tvos(2.0), watchos(1.0)) API_UNAVAILABLE(macCatalyst);
 #endif // !TARGET_OS_OSX
+
+#pragma clang diagnostic pop
 
 /*!
     @function

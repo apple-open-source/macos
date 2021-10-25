@@ -31,10 +31,14 @@
 // We assume that we're mounted on /Volumes.
 #define MOUNT_PATH				"/Volumes/" VOLUME_NAME
 
+#define AFSCUTIL_PATH			"/usr/local/bin/afscutil"
 #define HDIUTIL_PATH			"/usr/bin/hdiutil"
 #define DIFF_PATH				"/usr/bin/diff"
 
 // Test routine helpers.
+bool verify_path_missing_xattr(const char *path, const char *xattr_name);
+bool verify_path_xattr_content(const char *path, const char *xattr_name, const char *expected,
+							   size_t size);
 bool verify_fd_xattr_contents(int orig_fd, int copy_fd);
 bool verify_st_flags(struct stat *sb, uint32_t flags_to_expect);
 bool verify_contents_with_buf(int orig_fd, off_t orig_pos, const char *expected, size_t length);
@@ -43,6 +47,8 @@ bool verify_copy_contents(const char *orig_name, const char *copy_name);
 bool verify_copy_sizes(struct stat *orig_sb, struct stat *copy_sb, copyfile_state_t cpf_state,
 					   bool do_sparse, off_t src_start);
 int create_hole_in_fd(int fd, off_t offset, off_t length);
+void write_compressible_data(int fd);
+void compress_file(const char *path, const char *type);
 void create_test_file_name(const char *dir, const char *postfix, int id, char *string_out);
 
 // Our disk image test functions.
@@ -114,6 +120,18 @@ assert_fail_(const char *file, int line, const char *assertion, ...)
 		if (strcmp(lhs_, rhs_))											\
 			assert_fail("\"%s\" != \"%s\"", lhs_, rhs_);				\
 	} while (0)
+
+#define check_io(fn, len) check_io_((fn), len, __FILE_NAME__, __LINE__, #fn)
+
+static inline ssize_t check_io_(ssize_t res, ssize_t len, const char *file,
+								int line, const char *fn_str)
+{
+	if (res < 0)
+		assert_fail_(file, line, "%s failed: %s", fn_str, strerror(errno));
+	else if (len != -1 && res != len)
+		assert_fail_(file, line, "%s != %ld (%ld)", fn_str, len, res);
+	return res;
+}
 
 #define ignore_eintr(x, error_val)								\
 	({															\

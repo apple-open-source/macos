@@ -251,7 +251,7 @@ cs_get_content_hint_for_pv(struct stat *st)
 			}
 
 			service = IOServiceGetMatchingService(
-					kIOMasterPortDefault, matching);
+					kIOMainPortDefault, matching);
 			if (!service) {
 				goto out;
 			}

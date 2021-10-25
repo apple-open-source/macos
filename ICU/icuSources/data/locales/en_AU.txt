@@ -1,8 +1,8 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
-// License & terms of use: http://www.unicode.org/copyright.html#License
+// License & terms of use: http://www.unicode.org/copyright.html
+// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
 en_AU{
     %%Parent{"en_001"}
-    ExemplarCharactersNumbers{"[↑]"}
     NumberElements{
         latn{
             miscPatterns{
@@ -13,7 +13,6 @@ en_AU{
             }
         }
     }
-    Version{"36.1"}
     calendar{
         chinese{
             monthNames{
@@ -95,19 +94,19 @@ en_AU{
                 "{1} 'at' {0}",
                 "{1}, {0}",
             }
-            availableFormats{
-                H{"HH"}
-                Hm{"HH:mm"}
-                Hms{"HH:mm:ss"}
-                h{"h a"}
-                hm{"h:mm a"}
-                hms{"h:mm:ss a"}
-                ms{"mm:ss"}
-                yMEd{"E, dd/MM/y"}
-                yMd{"dd/MM/y"}
-            }
             intervalFormats{
-                fallback{"{0} – {1}"}
+                GyMEd{
+                    G{"E dd/MM/y GGGGG – E dd/MM/y GGGGG"}
+                    M{"E dd/MM/y – E dd/MM/y GGGGG"}
+                    d{"E dd/MM/y – E dd/MM/y GGGGG"}
+                    y{"E dd/MM/y – E dd/MM/y GGGGG"}
+                }
+                GyMMMEd{
+                    G{"E d MMM y G – E d MMM y G"}
+                    M{"E d MMM – E d MMM y G"}
+                    d{"E d MMM – E d MMM y G"}
+                    y{"E d MMM y – E d MMM y G"}
+                }
                 MEd{
                     M{"E, d/M – E, d/M"}
                     d{"E, d/M – E, d/M"}
@@ -116,6 +115,7 @@ en_AU{
                     M{"E, d MMM – E, d MMM"}
                     d{"E, d MMM – E, d MMM"}
                 }
+                fallback{"{0} – {1}"}
                 yMMMEd{
                     d{"E, d MMM – E, d MMM y G"}
                 }
@@ -155,6 +155,9 @@ en_AU{
             availableFormats{
                 MEd{"E, d/M"}
                 Md{"d/M"}
+                yM{"M/yy"}
+                yMEd{"E, d/M/yy"}
+                yMd{"d/M/yy"}
             }
             dayNames{
                 format{

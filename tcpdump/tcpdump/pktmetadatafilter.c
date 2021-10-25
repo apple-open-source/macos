@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2012-2021 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -43,47 +43,52 @@
  *  ifexpr: "if" compexpr
  *  compexpr: equalexpr | notequalexpr
  *  equalexpr: "=" str
+ *  notequalexpr: "!=" str
  *  str: a-zA-Z0-9
  *  procexpr: "proc" compexpr
  *  svcexpre: "svc" compexpr
  *  direxpr: "dir" compexpr
- * 
- */
+` */
 
-#include <stdio.h>
-#include <string.h>
 #include <ctype.h>
-#include <unistd.h>
-#include <stdlib.h>
-#include <sysexits.h>
 #include <err.h>
+#include <stdbool.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sysexits.h>
+#include <unistd.h>
 
 #include "pktmetadatafilter.h"
 
-enum {
-	TOK_NONE,
-	
-	TOK_OR,
-	TOK_AND,
-	TOK_NOT,
-	TOK_LP,
-	TOK_RP,
-	TOK_IF,
-	TOK_PROC,
-	TOK_EPROC,
-	TOK_PID,
-	TOK_EPID,
-	TOK_SVC,
-	TOK_DIR,
-	TOK_EQ,
-	TOK_NEQ,
-	TOK_STR
+#define TOKEN_ID_LIST	\
+	X(TOK_NONE)		\
+	X(TOK_OR)		\
+	X(TOK_AND)		\
+	X(TOK_NOT)		\
+	X(TOK_LP)		\
+	X(TOK_RP)		\
+	X(TOK_IF)		\
+	X(TOK_PROC)		\
+	X(TOK_EPROC)	\
+	X(TOK_PID)		\
+	X(TOK_EPID)		\
+	X(TOK_SVC)		\
+	X(TOK_DIR)		\
+	X(TOK_EQ)		\
+	X(TOK_NEQ)		\
+	X(TOK_STR)		\
+
+enum token_id_type {
+#define X(name, ...) name,
+	TOKEN_ID_LIST
+#undef X
 };
 
 struct token {
-	int		id;
-	char	*label;
-	size_t	len;
+	int		tok_id;
+	char	*tok_label;
+	size_t	tok_len;
 };
 
 struct token lex_token = { TOK_NONE, NULL, 0 };
@@ -102,7 +107,7 @@ struct token tokens[] = {
 	{ TOK_SVC, "svc", 0 },
 	{ TOK_DIR, "dir", 0 },
 	{ TOK_EQ, "=", 0 },
-	{ TOK_NEQ, "!=", 0 },
+    { TOK_NEQ, "!=", 0 },
 
 	/* alternate notation */
 	{ TOK_OR, "||", 0 },
@@ -126,7 +131,7 @@ static int num_nodes = 0;
 
 static struct node * alloc_node(int);
 static void free_node(struct node *);
-static const char * get_strcharset(void);
+static const char * get_strcharset(bool);
 static void get_token(const char **);
 static struct node * parse_term_expression(const char **);
 static struct node * parse_paren_expression(const char **);
@@ -136,6 +141,26 @@ static struct node * parse_or_expression(const char **);
 
 #ifdef DEBUG
 static int parse_verbose = 0;
+
+void
+set_parse_verbose(int val)
+{
+    parse_verbose = val;
+}
+
+const char *
+get_token_id_str(int tok_id)
+{
+#define X(name, ...) case name: return #name;
+	switch (tok_id) {
+		TOKEN_ID_LIST
+
+		default:
+			break;
+	}
+	return "invalid token";
+#undef X
+}
 #endif /* DEBUG */
 
 static struct node *
@@ -162,7 +187,7 @@ free_node(struct node *node)
 }
 
 static const char *
-get_strcharset(void)
+get_strcharset(bool quoted)
 {
 	static char *strcharset = NULL;
 	
@@ -183,7 +208,10 @@ get_strcharset(void)
 		strcharset[n++] = '_';
 		strcharset[n++] = '+';
 		strcharset[n++] = '.';
-		strcharset[n++] = '*';
+        strcharset[n++] = '*';
+		if (quoted) {
+			strcharset[n++] = ' ';
+		}
 	}
 	
 	return strcharset;
@@ -192,7 +220,7 @@ get_strcharset(void)
 static void
 get_token(const char **ptr)
 {
-	size_t len;
+	size_t len = 0;
 	const char *charset;
 	struct token *tok;
    
@@ -208,45 +236,69 @@ get_token(const char **ptr)
 	
 	/* Are we at the end of the expression */
 	if (**ptr == 0) {
-		lex_token.id = TOK_NONE;
+		lex_token.tok_id = TOK_NONE;
 		return;
 	}
 	
-	for (tok = &tokens[0]; tok->id != TOK_NONE; tok++) {
-		if (tok->len == 0)
-			tok->len = strlen(tok->label);
+	for (tok = &tokens[0]; tok->tok_id != TOK_NONE; tok++) {
+		if (tok->tok_len == 0)
+			tok->tok_len = strlen(tok->tok_label);
 		
-		if (strncmp(*ptr, tok->label, tok->len) == 0) {
+		if (strncmp(*ptr, tok->tok_label, tok->tok_len) == 0) {
 #ifdef DEBUG
 			if (parse_verbose)
-				printf("tok id: %d label: %s\n", tok->id, tok->label);
+				printf("tok id: %s label: %s\n", get_token_id_str(tok->tok_id), tok->tok_label);
 #endif /* DEBUG */
 
-			lex_token.id = tok->id;
-			lex_token.label = strdup(tok->label);
-			lex_token.len = tok->len;
-			*ptr += lex_token.len;
+			lex_token.tok_id = tok->tok_id;
+			lex_token.tok_label = strdup(tok->tok_label);
+			lex_token.tok_len = tok->tok_len;
+			*ptr += lex_token.tok_len;
 			
 			return;
 		}
 	}
 	
-	lex_token.id = TOK_STR;
+	lex_token.tok_id = TOK_STR;
 
 	if (strncmp(*ptr, "''", 2) == 0 || strncmp(*ptr, "\"\"", 2) == 0) {
-		lex_token.label = malloc(1);
-		*lex_token.label = 0; // empty string
-		lex_token.len = 0;
+		lex_token.tok_label = malloc(1);
+		*lex_token.tok_label = 0; // empty string
+		lex_token.tok_len = 0;
 		*ptr += 2;
 	} else {
-		charset = get_strcharset();
+		bool single_quoted = false;
+		bool double_quoted = false;
+
+		if (**ptr == '\'') {
+			single_quoted = 1;
+			*ptr += 1;
+		} else if (**ptr == '"') {
+			double_quoted = 1;
+			*ptr += 1;
+		}
+		charset = get_strcharset(single_quoted || double_quoted);
 		
 		len = strspn(*ptr, charset);
 
-		lex_token.label = realloc(lex_token.label, len + 1);
-		strlcpy(lex_token.label, *ptr, len + 1);
-		lex_token.len = len;
-		*ptr += lex_token.len;
+		lex_token.tok_label = realloc(lex_token.tok_label, len + 1);
+		strlcpy(lex_token.tok_label, *ptr, len + 1);
+		lex_token.tok_len = len;
+		*ptr += lex_token.tok_len;
+
+		if (single_quoted) {
+			if (**ptr != '\'') {
+				lex_token.tok_id = TOK_NONE;
+			} else {
+				*ptr += 1;
+			}
+		} else if (double_quoted) {
+				if (**ptr != '"') {
+					lex_token.tok_id = TOK_NONE;
+				} else {
+					*ptr += 1;
+				}
+		}
 	}
 	
 #ifdef DEBUG
@@ -254,8 +306,8 @@ get_token(const char **ptr)
 		char fmt[50];
 
 		bzero(fmt, sizeof(fmt));
-		snprintf(fmt, sizeof(fmt), "tok id: %%d len: %%lu str: %%.%lus\n", len);
-		printf(fmt, lex_token.id , lex_token.len, lex_token.label);
+		snprintf(fmt, sizeof(fmt), "tok id: %%s len: %%lu str: %%.%lus *ptr: %%s\n", len);
+		printf(fmt, get_token_id_str(lex_token.tok_id) , lex_token.tok_len, lex_token.tok_label, *ptr);
 	}
 #endif /* DEBUG */
 	return;
@@ -271,7 +323,7 @@ parse_term_expression(const char **ptr)
 		printf("%s\n", __func__);
 #endif /* DEBUG */
 
-	switch (lex_token.id) {
+	switch (lex_token.tok_id) {
 		case TOK_IF:
 		case TOK_PROC:
 		case TOK_EPROC:
@@ -279,17 +331,17 @@ parse_term_expression(const char **ptr)
 		case TOK_EPID:
 		case TOK_SVC:
 		case TOK_DIR:
-			term_node = alloc_node(lex_token.id);
+			term_node = alloc_node(lex_token.tok_id);
 			get_token(ptr);
 			
-			if (lex_token.id == TOK_EQ || lex_token.id == TOK_NEQ)
-				term_node->op = lex_token.id;
+			if (lex_token.tok_id == TOK_EQ || lex_token.tok_id == TOK_NEQ)
+				term_node->op = lex_token.tok_id;
 			else {
 				warnx("cannot parse operator at: %s", *ptr);
 				goto fail;
 			}
 			get_token(ptr);
-			if (lex_token.id != TOK_STR) {
+			if (lex_token.tok_id != TOK_STR) {
 				warnx("missig comparison string at: %s", *ptr);
 				goto fail;
 			}
@@ -298,7 +350,7 @@ parse_term_expression(const char **ptr)
 			 * For TOK_SVC and TOK_DIR restrict to meaningful values
 			 */
 			
-			term_node->str = strdup(lex_token.label);
+			term_node->str = strdup(lex_token.tok_label);
 			
 			if (term_node->id == TOK_PID || term_node->id == TOK_EPID)
 				term_node->num = atoi(term_node->str);
@@ -323,7 +375,7 @@ parse_paren_expression(const char **ptr)
 		printf("%s\n", __func__);
 #endif /* DEBUG */
 
-	if (lex_token.id == TOK_LP) {
+	if (lex_token.tok_id == TOK_LP) {
 		struct node *or_node;
 		
 		get_token(ptr);
@@ -331,7 +383,7 @@ parse_paren_expression(const char **ptr)
 		if (or_node == NULL)
 			return (NULL);
 		
-		if (lex_token.id != TOK_RP) {
+		if (lex_token.tok_id != TOK_RP) {
 			warnx("missing right parenthesis at %s", *ptr);
 			free_node(or_node);
 
@@ -352,7 +404,7 @@ parse_not_expression(const char **ptr)
 		printf("%s\n", __func__);
 #endif /* DEBUG */
 
-	if (lex_token.id == TOK_NOT) {
+	if (lex_token.tok_id == TOK_NOT) {
 		struct node *other_node;
 
 		get_token(ptr);
@@ -389,7 +441,7 @@ parse_and_expression(const char **ptr)
 		return (NULL);
 
 	get_token(ptr);
-	if (lex_token.id == TOK_AND) {
+	if (lex_token.tok_id == TOK_AND) {
 		struct node *other_node;
 		
 		get_token(ptr);
@@ -430,7 +482,7 @@ parse_or_expression(const char **ptr)
 	 * Note that  parse_and_expression() returns
 	 * with the current token
 	 */
-	if (lex_token.id == TOK_OR) {
+	if (lex_token.tok_id == TOK_OR) {
 		struct node *other_node;
 		
 		get_token(ptr);
@@ -538,6 +590,9 @@ evaluate_expression(node_t *expression, struct pkt_meta_data *p)
 void
 print_expression(node_t *expression)
 {
+    if (expression == NULL) {
+        return;
+    }
 	switch (expression->id) {
 		case TOK_AND:
 			printf("(");

@@ -37,6 +37,8 @@
 
 #include "IOGraphicsKTrace.h"
 
+#ifdef TARGET_CPU_X86_64
+
 #define COUNT_OF(x) \
     ((sizeof(x)/sizeof(0[x])) / ((size_t)(!(sizeof(x) % sizeof(0[x])))))
 #define IOUCACTION(f) static_cast<IOExternalMethodAction>(f)
@@ -618,3 +620,5 @@ IOReturn IOFramebufferSharedUserClient::clientMemoryForType( UInt32 type,
     IOFBSUC_END(clientMemoryForType,err,0,0);
     return (err);
 }
+
+#endif // TARGET_CPU_X86_64

@@ -58,9 +58,6 @@ NS_ASSUME_NONNULL_BEGIN
                           trustedPeers:(NSSet<id<CKKSPeer>>* _Nullable)currentTrustedPeers
                      trustedPeersError:(NSError* _Nullable)trustedPeersError;
 
-- (NSSet<id<CKKSPeer>>* _Nullable)findPeersMissingTLKSharesFor:(CKKSCurrentKeySet*)keyset
-                                                         error:(NSError**)error;
-
 - (BOOL)unwrapKey:(CKKSKey*)proposedTLK
        fromShares:(NSArray<CKKSTLKShareRecord*>*)tlkShares
             error:(NSError**)error;

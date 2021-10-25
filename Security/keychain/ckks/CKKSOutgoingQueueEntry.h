@@ -22,7 +22,7 @@
  */
 
 #include "keychain/securityd/SecDbItem.h"
-#include <utilities/SecDb.h>
+#include "utilities/SecDb.h"
 #import "CKKSItem.h"
 #import "CKKSMirrorEntry.h"
 #import "CKKSSQLDatabaseObject.h"

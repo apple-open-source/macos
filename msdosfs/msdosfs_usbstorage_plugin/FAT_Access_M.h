@@ -21,6 +21,7 @@
 #define   FAT_BLOCK_SIZE (8192U)
 #define   FAT_BLOCK_MASK (FAT_BLOCK_SIZE -1)
 #define   MAX_BLOCK_SIZE (4096U)
+#define   GET_ENTRY_END(entry, fsRecord) (entry->uFileOffset + (uint64_t) ((uint64_t)entry->uAmountOfClusters * CLUSTER_SIZE(fsRecord)))
 
 typedef struct NewAllocatedClusterInfo{
     uint32_t uNewAlloctedStartCluster;

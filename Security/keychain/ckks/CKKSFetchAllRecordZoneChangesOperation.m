@@ -60,7 +60,7 @@
 @property CKDatabaseOperation<CKKSFetchRecordZoneChangesOperation>* fetchRecordZoneChangesOperation;
 @property NSMutableDictionary<CKRecordZoneID*, CKFetchRecordZoneChangesConfiguration*>* allClientOptions;
 
-@property NSMutableDictionary<CKRecordZoneID*, id<CKKSChangeFetcherClient>>* clientMap;
+@property NSDictionary<CKRecordZoneID*, id<CKKSChangeFetcherClient>>* clientMap;
 
 @property CKOperationGroup* ckoperationGroup;
 @property (assign) NSUInteger fetchedItems;
@@ -88,7 +88,7 @@
 
 - (instancetype)initWithContainer:(CKContainer*)container
                        fetchClass:(Class<CKKSFetchRecordZoneChangesOperation>)fetchRecordZoneChangesOperationClass
-                          clients:(NSArray<id<CKKSChangeFetcherClient>>*)clients
+                        clientMap:(NSDictionary<CKRecordZoneID*, id<CKKSChangeFetcherClient>>*)clientMap
                      fetchReasons:(NSSet<CKKSFetchBecause*>*)fetchReasons
                        apnsPushes:(NSSet<CKRecordZoneNotification*>*)apnsPushes
                       forceResync:(bool)forceResync
@@ -98,10 +98,7 @@
         _container = container;
         _fetchRecordZoneChangesOperationClass = fetchRecordZoneChangesOperationClass;
 
-        _clientMap = [NSMutableDictionary dictionary];
-        for(id<CKKSChangeFetcherClient> client in clients) {
-            _clientMap[client.zoneID] = client;
-        }
+        _clientMap = clientMap;
 
         _ckoperationGroup = ckoperationGroup;
         _forceResync = forceResync;
@@ -135,9 +132,9 @@
     for(CKRecordZoneID* clientZoneID in self.clientMap) {
         id<CKKSChangeFetcherClient> client = self.clientMap[clientZoneID];
 
-        CKKSCloudKitFetchRequest* clientPreference = [client participateInFetch];
+        CKKSCloudKitFetchRequest* clientPreference = [client participateInFetch:clientZoneID];
         if(clientPreference.participateInFetch) {
-            [self.fetchedZoneIDs addObject:client.zoneID];
+            [self.fetchedZoneIDs addObject:clientZoneID];
 
             CKFetchRecordZoneChangesConfiguration* options = [[CKFetchRecordZoneChangesConfiguration alloc] init];
 
@@ -154,7 +151,7 @@
                 [self.resyncingZones addObject:clientZoneID];
             }
 
-            self.allClientOptions[client.zoneID] = options;
+            self.allClientOptions[clientZoneID] = options;
         }
     }
 }
@@ -169,6 +166,9 @@
         // No clients actually want to fetch right now, so quit
         self.error = [NSError errorWithDomain:CKKSErrorDomain code:CKKSNoFetchesRequested description:@"No clients want a fetch right now"];
         ckksnotice_global("ckksfetch", "Cancelling fetch: %@", self.error);
+
+        // Drop pointer to clients
+        self.clientMap = @{};
         return;
     }
 
@@ -355,7 +355,7 @@
         [self runBeforeGroupFinished: self.fetchCompletedOperation];
 
         // Drop strong pointer to clients
-        [self.clientMap removeAllObjects];
+        self.clientMap = @{};
     };
 
     [self dependOnBeforeGroupFinished:self.fetchCompletedOperation];
@@ -401,6 +401,7 @@
     // Tell the client about these changes!
     [client changesFetched:zoneModifications
           deletedRecordIDs:zoneDeletions
+                    zoneID:recordZoneID
             newChangeToken:self.changeTokens[recordZoneID]
                 moreComing:moreComing
                     resync:resync];

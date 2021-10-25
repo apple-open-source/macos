@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2021 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -32,7 +32,7 @@ myIORegistryEntryCopyValue(const char * path)
     kern_return_t       	status;
     CFMutableDictionaryRef	properties = NULL;
 
-    service = IORegistryEntryFromPath(kIOMasterPortDefault, path);
+    service = IORegistryEntryFromPath(kIOMainPortDefault, path);
     if (service == MACH_PORT_NULL) {
 	return (NULL);
     }
@@ -53,7 +53,7 @@ myIORegistryEntryCopyProperty(const char * path, CFStringRef prop)
     io_registry_entry_t 	service;
     CFTypeRef			val;
 
-    service = IORegistryEntryFromPath(kIOMasterPortDefault, path);
+    service = IORegistryEntryFromPath(kIOMainPortDefault, path);
     if (service == MACH_PORT_NULL) {
 	return (NULL);
     }
@@ -72,8 +72,8 @@ myIORegistryEntryBSDNameMatchingCopyValue(const char * devname, Boolean parent)
     io_registry_entry_t 	service;
 
     service 
-	= IOServiceGetMatchingService(kIOMasterPortDefault,
-				      IOBSDNameMatching(kIOMasterPortDefault, 0, devname));
+	= IOServiceGetMatchingService(kIOMainPortDefault,
+				      IOBSDNameMatching(kIOMainPortDefault, 0, devname));
     if (service == MACH_PORT_NULL) {
 	return (NULL);
     }

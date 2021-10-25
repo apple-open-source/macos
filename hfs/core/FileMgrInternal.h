@@ -325,12 +325,6 @@ void hfs_free_locked(hfsmount_t *hfsmp, struct rl_entry **reservation);
 EXTERN_API_C( OSErr )
 FlushExtentFile					(ExtendedVCB *			vcb);
 
-#if CONFIG_HFS_STD
-EXTERN_API_C( int32_t )
-CompareExtentKeys				(const HFSExtentKey *	searchKey,
-								 const HFSExtentKey *	trialKey);
-#endif
-
 EXTERN_API_C( int32_t )
 CompareExtentKeysPlus			(const HFSPlusExtentKey *searchKey,
 								 const HFSPlusExtentKey *trialKey);

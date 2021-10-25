@@ -168,7 +168,7 @@
 		FD9B88A8104C8F090096D791 /* Copy Scripts */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
-			dstPath = "/usr/bin";
+			dstPath = /usr/bin;
 			dstSubfolderSpec = 0;
 			files = (
 				FD9B88AC104C8F3B0096D791 /* bzdiff in Copy Scripts */,
@@ -180,7 +180,7 @@
 		FD9B88C4104C93630096D791 /* Copy Man Pages */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
-			dstPath = "/usr/share/man/man1";
+			dstPath = /usr/share/man/man1;
 			dstSubfolderSpec = 0;
 			files = (
 				FD9B88CB104C93D70096D791 /* bzdiff.1 in Copy Man Pages */,
@@ -418,16 +418,18 @@
 		FD9B87C6104C7D8B0096D791 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
+				LastUpgradeCheck = 1220;
 			};
 			buildConfigurationList = FD9B87C9104C7D8B0096D791 /* Build configuration list for PBXProject "bzip2" */;
 			compatibilityVersion = "Xcode 3.2";
-			developmentRegion = English;
+			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
-				English,
-				Japanese,
-				French,
-				German,
+				ja,
+				Base,
+				en,
+				fr,
+				de,
 			);
 			mainGroup = FD9B87C4104C7D8B0096D791;
 			productRefGroup = FD9B87DA104C7E630096D791 /* Products */;
@@ -638,6 +640,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 81A74C2C185E80F400B6A38B /* libs.xcconfig */;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Release;
@@ -646,6 +649,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 81A74C2D185E828C00B6A38B /* executables.xcconfig */;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Release;
@@ -654,6 +658,28 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 81A74C2E185E834500B6A38B /* base.xcconfig */;
 			buildSettings = {
+				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 			};
 			name = Release;
 		};
@@ -661,6 +687,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 81A74C2C185E80F400B6A38B /* libs.xcconfig */;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				PRODUCT_NAME = bz2.1.0;
 			};
 			name = Release;
@@ -668,6 +695,7 @@
 		FD9B87E2104C7E840096D791 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				COPY_PHASE_STRIP = NO;
 				INSTALL_PATH = /usr/local/lib;
 				PRODUCT_NAME = bz2;
@@ -680,6 +708,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 81A74C2D185E828C00B6A38B /* executables.xcconfig */;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				PRODUCT_NAME = bzip2;
 			};
 			name = Release;
@@ -688,6 +717,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 81A74C2D185E828C00B6A38B /* executables.xcconfig */;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				PRODUCT_NAME = bzip2recover;
 			};
 			name = Release;
@@ -695,6 +725,7 @@
 		FD9B880C104C7F730096D791 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				PRODUCT_NAME = buildall;
 			};
 			name = Release;
@@ -702,6 +733,7 @@
 		FD9B880F104C7F830096D791 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				PRODUCT_NAME = "Scripts and Documentation";
 			};
 			name = Release;
@@ -709,6 +741,7 @@
 		FD9B88D9104C96600096D791 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				PRODUCT_NAME = testbots;
 			};
 			name = Release;

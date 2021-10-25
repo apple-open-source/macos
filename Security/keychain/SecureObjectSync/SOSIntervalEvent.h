@@ -2,8 +2,6 @@
 //  SOSIntervalEvent.h
 //  Security
 //
-//  Created by murf on 9/12/19.
-//
 
 #ifndef SOSIntervalEvent_h
 #define SOSIntervalEvent_h

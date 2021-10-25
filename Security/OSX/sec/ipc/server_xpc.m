@@ -54,6 +54,7 @@
 #include "keychain/ckks/CKKSViewManager.h"
 
 #import "keychain/securityd/SecDbBackupManager.h"
+#import "keychain/ot/OTConstants.h"
 
 @interface SecOSTransactionHolder : NSObject
 @property os_transaction_t transaction;
@@ -371,11 +372,22 @@
         accessGroups = NULL;
     }
 
-    NSDictionary *attributes  = @{
-                                  (__bridge NSString *)kSecClass : itemClass,
-                                  (__bridge NSString *)kSecAttrAccessGroup : accessGroup,
-                                  (__bridge NSString *)kSecAttrSynchronizable : (__bridge NSString *)kSecAttrSynchronizableAny,
-                                  };
+    NSDictionary *attributes = NULL;
+    if (SecKeychainIsStaticPersistentRefsEnabled()) {
+        //<rdar://problem/72194459> Fix Copy Digest UUID Persistent Refs
+        attributes = @{
+            (__bridge NSString *)kSecClass : itemClass,
+            (__bridge NSString *)kSecAttrAccessGroup : accessGroup,
+            (__bridge NSString *)kSecAttrSynchronizable : (__bridge NSString *)kSecAttrSynchronizableAny,
+            (__bridge NSString *)kSecReturnPersistentRef : @YES,
+        };
+    } else {
+        attributes = @{
+            (__bridge NSString *)kSecClass : itemClass,
+            (__bridge NSString *)kSecAttrAccessGroup : accessGroup,
+            (__bridge NSString *)kSecAttrSynchronizable : (__bridge NSString *)kSecAttrSynchronizableAny,
+        };
+    }
 
     Query *q = query_create_with_limit((__bridge CFDictionaryRef)attributes, _client.musr, 0, &(_client), &cferror);
     if (q == NULL) {
@@ -421,7 +433,7 @@
 
     }
 
-#if TARGET_OS_IPHONE
+#if KEYCHAIN_SUPPORTS_PERSONA_MULTIUSER
     bool status = kc_with_dbt(true, &cferror, ^(SecDbConnectionRef dbt) {
         return SecServerDeleteAllForUser(dbt, (__bridge CFDataRef)uuid, false, &cferror);
     });

@@ -30,6 +30,8 @@
 #ifndef _I386_CPU_CAPABILITIES_H
 #define _I386_CPU_CAPABILITIES_H
 
+#if defined (__i386__) || defined (__x86_64__)
+
 #ifndef __ASSEMBLER__
 #include <stdint.h>
 #endif
@@ -322,5 +324,6 @@ CREATE_COMM_PAGE_SYMBOL(___end_comm_page, _COMM_PAGE_END)
 #endif /* __COMM_PAGE_SYMBOLS */
 #endif /* __ASSEMBLER__ */
 
+#endif /* defined (__i386__) || defined (__x86_64__) */
 #endif /* _I386_CPU_CAPABILITIES_H */
 #endif /* PRIVATE */

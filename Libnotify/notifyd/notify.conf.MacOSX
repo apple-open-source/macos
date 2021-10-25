@@ -8,4 +8,8 @@ monitor com.apple.system.timezone /etc/localtime
 monitor com.apple.system.info:/etc/hosts /etc/hosts
 monitor com.apple.system.info:/etc/services /etc/services
 monitor com.apple.system.info:/etc/protocols /etc/protocols
-
+set com.apple.system.batterysavermode
+set com.apple.system.batterysavermode.discretionary
+set com.apple.system.lowpowermode
+set com.apple.system.lowpowermode.discretionary
+set com.apple.system.highpowermode

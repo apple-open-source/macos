@@ -120,9 +120,7 @@
     [self putFakeKeyHierachiesInCloudKit];
     [self saveTLKsToKeychain];
 
-    for(CKRecordZoneID* zoneID in self.ckksZones) {
-        [self expectCKKSTLKSelfShareUpload:zoneID];
-    }
+    [self expectCKKSTLKSelfShareUploads];
     [self startCKKSSubsystem];
 
     [self waitForKeyHierarchyReadinesses];
@@ -137,7 +135,7 @@
     NSArray<NSData *>* icloudidentities = piggydata[@"idents"];
     NSArray<NSDictionary *>* tlks = piggydata[@"tlk"];
 
-    XCTAssertEqual([tlks count], [[self.injectedManager viewList] count], "TLKs not same as views");
+    XCTAssertEqual([tlks count], [[self.defaultCKKS viewList] count], "TLKs not same as views");
 
     XCTAssertNotNil(tlks, "tlks not set");
     XCTAssertNotEqual([tlks count], (NSUInteger)0, "0 tlks");
@@ -172,9 +170,7 @@
     [self putFakeKeyHierachiesInCloudKit];
     [self saveTLKsToKeychain];
 
-    for(CKRecordZoneID* zoneID in self.ckksZones) {
-        [self expectCKKSTLKSelfShareUpload:zoneID];
-    }
+    [self expectCKKSTLKSelfShareUploads];
     [self startCKKSSubsystem];
     [self waitForKeyHierarchyReadinesses];
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
@@ -266,20 +262,17 @@
     [self deleteTLKMaterialsFromKeychain];
 
     // The CKKS subsystem should write a TLK Share for each view
-    for(CKRecordZoneID* zoneID in self.ckksZones) {
-        [self expectCKKSTLKSelfShareUpload:zoneID];
-    }
-
+    [self expectCKKSTLKSelfShareUploads];
     // Spin up CKKS subsystem.
     [self startCKKSSubsystem];
 
-    [self.manateeView waitForKeyHierarchyReadiness];
+    [self.defaultCKKS waitForKeyHierarchyReadiness];
     
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
     
     // Verify that there are three local keys, and three local current key records
     __weak __typeof(self) weakSelf = self;
-    [self.manateeView dispatchSyncWithReadOnlySQLTransaction:^{
+    [self.defaultCKKS dispatchSyncWithReadOnlySQLTransaction:^{
         __strong __typeof(weakSelf) strongSelf = weakSelf;
         XCTAssertNotNil(strongSelf, "self exists");
         
@@ -325,13 +318,12 @@
     
     // The CKKS subsystem should not try to write anything to the CloudKit database.
     XCTAssertEqual(0, [self.manateeView.keyHierarchyConditions[SecCKKSZoneKeyStateWaitForTLK] wait:20*NSEC_PER_SEC], "CKKS entered waitfortlk");
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:20*NSEC_PER_SEC], "CKKS state machine should enter ready");
 
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
     
     // Now, save the TLKs to the keychain (to simulate them coming in later via piggybacking).
-    for(CKRecordZoneID* zoneID in self.ckksZones) {
-        [self expectCKKSTLKSelfShareUpload:zoneID];
-    }
+    [self expectCKKSTLKSelfShareUploads];
 
     [self SOSPiggyBackAddToKeychain:piggyData];
     [self waitForKeyHierarchyReadinesses];

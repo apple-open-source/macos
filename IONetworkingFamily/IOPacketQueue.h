@@ -134,7 +134,7 @@ public:
     @result Returns the packet at the head of the queue. 
 */
 
-    virtual const mbuf_t peek() const;
+    virtual mbuf_t peek() const;
 
 /*! @function prepend
     @abstract Adds a chain of packets to the head of the queue.

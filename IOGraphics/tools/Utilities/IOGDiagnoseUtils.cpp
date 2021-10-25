@@ -16,6 +16,8 @@
 // Pick up local headers
 #include "IOGraphicsTypes.h"
 
+#ifdef TARGET_CPU_X86_64
+
 #define COUNT_OF(x) \
     ((sizeof(x)/sizeof(0[x])) / ((size_t)(!(sizeof(x) % sizeof(0[x])))))
 #define kResourcePath     kIOServicePlane ":/" kIOResourcesClass "/"
@@ -70,3 +72,5 @@ kern_return_t openGTrace(IOConnect* gtraceConnectP, const char **errmsgP)
 {
     return openWranglerUC(gtraceConnectP, kIOGDiagnoseGTraceType, errmsgP);
 }
+
+#endif // TARGET_CPU_X86_64

@@ -949,7 +949,8 @@ atdir_end(void)
 		 * not read by pax. Read time reset is controlled by -t.
 		 */
 		for (; pt != NULL; pt = pt->fow)
-			set_ftime(pt->name, pt->mtime, pt->atime, 1);
+			set_ftime(pt->name, pt->mtime_sec, pt->mtime_nsec,
+				  pt->atime_sec, pt->atime_nsec, 1);
 	}
 }
 
@@ -960,7 +961,8 @@ atdir_end(void)
  */
 
 void
-add_atdir(char *fname, dev_t dev, ino_t ino, time_t mtime, time_t atime)
+add_atdir(char *fname, dev_t dev, ino_t ino, time_t mtime_sec,
+	  time_t mtime_nsec, time_t atime_sec, time_t atime_nsec)
 {
 	ATDIR *pt;
 	u_int indx;
@@ -997,8 +999,10 @@ add_atdir(char *fname, dev_t dev, ino_t ino, time_t mtime, time_t atime)
 		if ((pt->name = strdup(fname)) != NULL) {
 			pt->dev = dev;
 			pt->ino = ino;
-			pt->mtime = mtime;
-			pt->atime = atime;
+			pt->mtime_sec = mtime_sec;
+			pt->mtime_nsec = mtime_nsec;
+			pt->atime_sec = atime_sec;
+			pt->atime_nsec = atime_nsec;
 			pt->fow = atab[indx];
 			atab[indx] = pt;
 			return;
@@ -1022,7 +1026,8 @@ add_atdir(char *fname, dev_t dev, ino_t ino, time_t mtime, time_t atime)
  */
 
 int
-get_atdir(dev_t dev, ino_t ino, time_t *mtime, time_t *atime)
+get_atdir(dev_t dev, ino_t ino, time_t *mtime_sec, time_t *mtime_nsec,
+	  time_t *atime_sec, time_t *atime_nsec)
 {
 	ATDIR *pt;
 	ATDIR **ppt;
@@ -1058,8 +1063,10 @@ get_atdir(dev_t dev, ino_t ino, time_t *mtime, time_t *atime)
 	 * found it. return the times and remove the entry from the table.
 	 */
 	*ppt = pt->fow;
-	*mtime = pt->mtime;
-	*atime = pt->atime;
+	*mtime_sec = pt->mtime_sec;
+	*mtime_nsec = pt->mtime_nsec;
+	*atime_sec = pt->atime_sec;
+	*atime_nsec = pt->atime_nsec;
 	(void)free((char *)pt->name);
 	(void)free((char *)pt);
 	return(0);
@@ -1156,8 +1163,10 @@ add_dir(char *name, size_t nlen, struct stat *psb, int frc_mode)
 		return;
 	}
 	dblk->mode = psb->st_mode & 0xffff;
-	dblk->mtime = psb->st_mtime;
-	dblk->atime = psb->st_atime;
+	dblk->mtime_sec = psb->st_mtime_sec;
+	dblk->mtime_nsec = psb->st_mtime_nsec;
+	dblk->atime_sec = psb->st_atime_sec;
+	dblk->atime_nsec = psb->st_atime_nsec;
 	dblk->frc_mode = frc_mode;
 	++dircnt;
 }
@@ -1189,7 +1198,8 @@ proc_dir(void)
 		if (pmode || dblk->frc_mode)
 			set_pmode(dblk->name, dblk->mode);
 		if (patime || pmtime)
-			set_ftime(dblk->name, dblk->mtime, dblk->atime, 0);
+			set_ftime(dblk->name, dblk->mtime_sec, dblk->mtime_nsec,
+				  dblk->atime_sec, dblk->atime_sec, 0);
 		free(dblk->name);
 	}
 

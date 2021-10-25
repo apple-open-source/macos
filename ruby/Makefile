@@ -14,6 +14,25 @@ ToolType	= Commands
 GnuAfterInstall = post-install install-plist install-irbrc install-rails-placeholder
 GnuNoBuild	= YES
 
+##
+# Determine our libressl path.  ruby unfortunately needs to run the built product
+# as part of the build, so we need to use a version of libressl that supports both
+# the build machine and the host machine.
+##
+
+BUILDER_VERSION := $(shell sw_vers -productVersion)
+BUILDER_MAJOR := $(shell echo $(BUILDER_VERSION) | cut -f1 -d.)
+BUILDER_MINOR := $(shell echo $(BUILDER_VERSION) | cut -f2 -d.)
+HOST_MAJOR := $(shell echo $(MACOSX_DEPLOYMENT_TARGET) | cut -f1 -d.)
+HOST_MINOR := $(shell echo $(MACOSX_DEPLOYMENT_TARGET) | cut -f2 -d.)
+HOST_NEWER := $(shell test $(HOST_MAJOR) -gt $(BUILDER_MAJOR) -o \( $(HOST_MAJOR) -eq $(BUILDER_MAJOR) -a $(HOST_MINOR) -gt $(BUILDER_MINOR) \) && echo "true")
+
+ifeq ($(HOST_NEWER),true)
+    SSL_PATH := /usr/local/libressl-by-deployment-target/$(BUILDER_VERSION)
+else
+    SSL_PATH := /usr/local/libressl-by-deployment-target/$(MACOSX_DEPLOYMENT_TARGET)
+endif
+
 # ruby_atomic.h
 Extra_CC_Flags = -DHAVE_GCC_ATOMIC_BUILTINS
 # <rdar://problem/64900188> ruby needs to switch to using the modern libffi closure API as the legacy API is not supported on arm64
@@ -29,7 +48,7 @@ Extra_Configure_Flags  = \
 	--with-sitedir=$(SITEDIR) \
 	--enable-shared \
 	--with-arch=$(subst $(space),$(comma),$(RC_ARCHS)) \
-	--with-openssl-dir=$(SDKROOT)/usr/local/libressl \
+	--with-openssl-dir=$(SDKROOT)$(SSL_PATH) \
 	--with-out-ext=tk \
 	--disable-silent-rules \
 	ac_cv_func_getcontext=no \
@@ -73,9 +92,7 @@ AEP_Patches    = \
 	getaddrinfo-test.diff \
 	empty_files_verifier.diff \
 	deprecate.diff \
-	ruby-CVE-2019-15845.patch \
-	ruby-gitignore-fix-build.patch \
-	ruby-CVE-2020-10663.patch
+	ruby-gitignore-fix-build.patch
 
 MAJOR     = $(shell echo $(AEP_Version) | cut -d. -f1)
 MINOR     = $(shell echo $(AEP_Version) | cut -d. -f2)

@@ -102,7 +102,10 @@ PMSettingDescriptorStruct defaultSettings[] =
     {kIOPMWakeOnRingKey,                                1,   0,  0},
     {kIOPMTCPKeepAlivePrefKey,                          1,   1,  1},
     {kIOPMProximityDarkWakeKey,                         1,   0,  0},
-    {kIOPMProModeKey,                                   0,   0,  0},
+    {kIOPMLowPowerModeKey,                              0,   0,  0},
+#if !RC_HIDE_J316
+    {kIOPMHighPowerModeKey,                             0,   0,  0},
+#endif
 };
 
 static const int kPMSettingsCount = sizeof(defaultSettings)/sizeof(PMSettingDescriptorStruct);
@@ -272,7 +275,6 @@ bool isA_GenericPref(CFStringRef key)
         CFSTR(kIOPMRestartOnPowerLossKey),
         CFSTR(kIOPMSystemSleepKey),
         CFSTR(kIOPMWakeOnLANKey),
-        CFSTR(kIOPMProModeKey),
         CFSTR(kIOPMCarrierMode),
         CFSTR(kIOPMCarrierModeVh),
         CFSTR(kIOPMCarrierModeVl),
@@ -1110,6 +1112,73 @@ bool IOPMFeatureIsAvailableWithSupportedTable(
         goto exit;
     }
 #endif // TARGET_OS_IOS || TARGET_OS_WATCH
+
+#if TARGET_OS_OSX
+    static char *model = NULL;
+    static uint32_t majorRev = 0;
+    static uint32_t minorRev = 0;
+    static IOReturn modelFound = kIOReturnSuccess;
+    if (!model) {
+        modelFound = IOCopyModel(&model, &majorRev, &minorRev);
+    }
+
+    if (CFEqual(PMFeature, CFSTR(kIOPMLowPowerModeKey)))
+    {
+        // Only supported currently on AC and Battery
+        if (CFEqual(power_source, CFSTR(kIOPMUPSPowerKey))) {
+            ret = false;
+        } else {
+            // Only supported currently on Skylake+ MacBook Pro and Air (2016+)
+            if (modelFound != kIOReturnSuccess) {
+                // Try again
+                modelFound = IOCopyModel(&model, &majorRev, &minorRev);
+            }
+            if (modelFound != kIOReturnSuccess) {
+                os_log(OS_LOG_DEFAULT, "kIOPMLowPowerModeKey: Could not find machine model\n");
+                ret = false;
+            } else if ((!strncmp(model, "MacBookPro", 10) && (majorRev >= 13)) ||
+                (!strncmp(model, "MacBookAir", 10) && (majorRev >= 8))) {
+                ret = true;
+            } else {
+                ret = false;
+            }
+        }
+        goto exit;
+    }
+
+#if !RC_HIDE_J316
+    if (CFEqual(PMFeature, CFSTR(kIOPMHighPowerModeKey)))
+    {
+        // Only supported currently on AC and Battery
+        if (CFEqual(power_source, CFSTR(kIOPMUPSPowerKey))) {
+            ret = false;
+        } else {
+            // Only supported currently on J316c
+            // j316s    MacBookPro18,1
+            // j316c    MacBookPro18,2
+            // j314s    MacBookPro18,3
+            // j314c    MacBookPro18,4
+            if (modelFound != kIOReturnSuccess) {
+                // Try again
+                modelFound = IOCopyModel(&model, &majorRev, &minorRev);
+            }
+            if (modelFound != kIOReturnSuccess) {
+                os_log(OS_LOG_DEFAULT, "kIOPMHighPowerModeKey: Could not find machine model\n");
+                ret = false;
+            } else if (!strncmp(model, "MacBookPro", 10)) {
+                if (majorRev == 18 && minorRev == 2) { // J316c
+                    ret = true;
+                } else {
+                    ret = false;
+                }
+            } else {
+                ret = false;
+            }
+        }
+        goto exit;
+    }
+#endif // !RC_HIDE_J316
+#endif // TARGET_OS_OSX
 
     // ***********************************
     // Generic code for all other settings

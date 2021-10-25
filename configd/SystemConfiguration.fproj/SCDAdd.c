@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2005, 2009-2011, 2013, 2016, 2017, 2019 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2005, 2009-2011, 2013, 2016, 2017, 2019, 2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -37,7 +37,7 @@
 Boolean
 SCDynamicStoreAddTemporaryValue(SCDynamicStoreRef store, CFStringRef key, CFPropertyListRef value)
 {
-	SCDynamicStorePrivateRef	storePrivate = (SCDynamicStorePrivateRef)store;
+	SCDynamicStorePrivateRef	storePrivate	= (SCDynamicStorePrivateRef)store;
 	kern_return_t			status;
 	CFDataRef			utfKey;		/* serialized key */
 	xmlData_t			myKeyRef;
@@ -48,26 +48,18 @@ SCDynamicStoreAddTemporaryValue(SCDynamicStoreRef store, CFStringRef key, CFProp
 	int				newInstance;
 	int				sc_status;
 
-	if (store == NULL) {
-		/* sorry, you must provide a session */
-		_SCErrorSet(kSCStatusNoStoreSession);
-		return FALSE;
-	}
-
-	if (storePrivate->server == MACH_PORT_NULL) {
-		/* sorry, you must have an open session to play */
-		_SCErrorSet(kSCStatusNoStoreServer);
+	if (!__SCDynamicStoreNormalize(&store, FALSE)) {
 		return FALSE;
 	}
 
 	/* serialize the key */
-	if (!_SCSerializeString(key, &utfKey, (void **)&myKeyRef, &myKeyLen)) {
+	if (!_SCSerializeString(key, &utfKey, &myKeyRef, &myKeyLen)) {
 		_SCErrorSet(kSCStatusFailed);
 		return FALSE;
 	}
 
 	/* serialize the data */
-	if (!_SCSerialize(value, &xmlData, (void **)&myDataRef, &myDataLen)) {
+	if (!_SCSerialize(value, &xmlData, &myDataRef, &myDataLen)) {
 		CFRelease(utfKey);
 		_SCErrorSet(kSCStatusFailed);
 		return FALSE;
@@ -117,34 +109,24 @@ SCDynamicStoreAddValue(SCDynamicStoreRef store, CFStringRef key, CFPropertyListR
 	int				newInstance;
 	int				sc_status;
 
-	if (store == NULL) {
-		store = __SCDynamicStoreNullSession();
-		if (store == NULL) {
-			/* sorry, you must provide a session */
-			_SCErrorSet(kSCStatusNoStoreSession);
-			return FALSE;
-		}
-	}
-
-	storePrivate = (SCDynamicStorePrivateRef)store;
-	if (storePrivate->server == MACH_PORT_NULL) {
-		/* sorry, you must have an open session to play */
-		_SCErrorSet(kSCStatusNoStoreServer);
+	if (!__SCDynamicStoreNormalize(&store, TRUE)) {
 		return FALSE;
 	}
 
 	/* serialize the key */
-	if (!_SCSerializeString(key, &utfKey, (void **)&myKeyRef, &myKeyLen)) {
+	if (!_SCSerializeString(key, &utfKey, &myKeyRef, &myKeyLen)) {
 		_SCErrorSet(kSCStatusFailed);
 		return FALSE;
 	}
 
 	/* serialize the data */
-	if (!_SCSerialize(value, &xmlData, (void **)&myDataRef, &myDataLen)) {
+	if (!_SCSerialize(value, &xmlData, &myDataRef, &myDataLen)) {
 		CFRelease(utfKey);
 		_SCErrorSet(kSCStatusFailed);
 		return FALSE;
 	}
+
+	storePrivate = (SCDynamicStorePrivateRef)store;
 
     retry :
 

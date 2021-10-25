@@ -220,9 +220,6 @@ CFErrorRef EncryptDecryptBase::SerializedTransformStartingExecution()
 
 	if (isSymmetrical)
 	{
-        // Clang thinks we're leaking initVect.data.
-        // While it's difficult to analyze whether that ends up being true or not, this is not code we love enough to refactor
-#ifndef __clang_analyzer__
 		CSSM_DATA initVector;
 		if (hasIVData)
 		{
@@ -232,7 +229,6 @@ CFErrorRef EncryptDecryptBase::SerializedTransformStartingExecution()
 		else
 		{
 			initVector.Length = gKeySalt.Length;
-			initVector.Data = (uint8 *)malloc(initVector.Length);
 			initVector.Data = gKeySalt.Data;
 		}
 
@@ -247,7 +243,6 @@ CFErrorRef EncryptDecryptBase::SerializedTransformStartingExecution()
 			CFReleaseNull(result);
 			return retValue;
 		}
-#endif
 	}
 	else
 	{

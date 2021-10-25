@@ -2,57 +2,17 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>SecKeychainStaticPersistentRefs</key>
+	<dict>
+		<key>Enabled</key>
+		<true/>
+	</dict>
 	<key>SecErrorNestedErrorCapping</key>
 	<dict>
 		<key>Enabled</key>
 		<true/>
 	</dict>
-	<key>OctagonEscrowRecordFetch</key>
-	<dict>
-		<key>Enabled</key>
-		<true/>
-	</dict>
 	<key>EnableSecureObjectSync</key>
-	<dict>
-		<key>Enabled</key>
-		<true/>
-	</dict>
-	<key>octagonTrust</key>
-	<dict>
-		<key>Enabled</key>
-		<true/>
-	</dict>
-	<key>recoverykey</key>
-	<dict>
-		<key>Enabled</key>
-		<true/>
-	</dict>
-	<key>octagonSOSupgrade</key>
-	<dict>
-		<key>Enabled</key>
-		<true/>
-	</dict>
-	<key>octagon</key>
-	<dict>
-		<key>Enabled</key>
-		<true/>
-	</dict>
-	<key>CKKSViewsFromPolicy</key>
-	<dict>
-		<key>Enabled</key>
-		<true/>
-	</dict>
-	<key>securitydReportPolicy</key>
-	<dict>
-		<key>Enabled</key>
-		<false/>
-	</dict>
-	<key>octagonUseDeviceName</key>
-	<dict>
-		<key>Enabled</key>
-		<false/>
-	</dict>
-	<key>OctagonOptimization</key>
 	<dict>
 		<key>Enabled</key>
 		<true/>
@@ -71,6 +31,36 @@
 	<dict>
 		<key>Enabled</key>
 		<true/>
+	</dict>
+	<key>SOSMonitorMode</key>
+	<dict>
+		<key>Enabled</key>
+		<false/>
+	</dict>
+	<key>KeychainKeyDiversification</key>
+	<dict>
+		<key>Enabled</key>
+		<true/>
+	</dict>
+	<key>TrustSettingsUseXPC</key>
+	<dict>
+		<key>Enabled</key>
+		<true/>
+	</dict>
+	<key>WarnTooManyPeers</key>
+	<dict>
+		<key>Enabled</key>
+		<true/>
+	</dict>
+	<key>OctagonEscrowMove</key>
+	<dict>
+		<key>Enabled</key>
+		<true/>
+	</dict>
+	<key>OctagonEscrowMoveUnthrottled</key>
+	<dict>
+		<key>Enabled</key>
+		<false/>
 	</dict>
 </dict>
 </plist>

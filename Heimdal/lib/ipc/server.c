@@ -36,7 +36,7 @@
 #include "hi_locl.h"
 #include "heimbase.h"
 #include <assert.h>
-#include <syslog.h>
+#import <os/log.h>
 
 struct heim_sipc {
     int (*release)(heim_sipc ctx);
@@ -52,13 +52,13 @@ struct heim_sipc {
 #include "heim_ipc_reply.h"
 #include "heim_ipc_async.h"
 
-static dispatch_source_t timer;
-static dispatch_queue_t timerq;
+static dispatch_source_t timer = NULL;
+static dispatch_queue_t timerq = NULL;
 static uint64_t timeoutvalue;
 
-static dispatch_queue_t eventq;
+static dispatch_queue_t eventq = NULL;
 
-static dispatch_queue_t workq;
+static dispatch_queue_t workq = NULL;
 
 struct dispatch_signal {
     dispatch_source_t s;
@@ -93,6 +93,7 @@ init_globals(void)
     dispatch_once(&once, ^{
 	timerq = dispatch_queue_create("hiem-sipc-timer-q", NULL);
         timer = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, timerq);
+	heim_assert(timer!=NULL, "init timer is NULL");
 	dispatch_source_set_event_handler(timer, ^{ timer_ev(); } );
 
 	workq = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0);
@@ -120,6 +121,7 @@ void heim_ipc_suspend_events(void)
 void
 _heim_ipc_suspend_timer(void)
 {
+    heim_assert(timer!=NULL, "suspend timer is NULL");
     dispatch_suspend(timer);
 }
 
@@ -127,6 +129,7 @@ void
 _heim_ipc_restart_timer(void)
 {
     dispatch_async(timerq, ^{
+	    heim_assert(timer!=NULL, "restart timer is NULL");
 	    set_timer();
 	    dispatch_resume(timer);
 	});
@@ -153,20 +156,27 @@ mach_complete_sync(heim_sipc_call ctx, int returnvalue, heim_idata *reply)
     mach_msg_type_number_t replyinCnt;
     heim_ipc_message_outband_t replyout;
     mach_msg_type_number_t replyoutCnt;
+    kern_return_t kr;
 
     if (returnvalue) {
 	/* on error, no reply */
 	replyinCnt = 0;
 	replyout = 0; replyoutCnt = 0;
+	kr = KERN_SUCCESS;
     } else if (reply->length < 2048) {
 	replyinCnt = (mach_msg_type_number_t)reply->length;
 	memcpy(replyin, reply->data, replyinCnt);
 	replyout = 0; replyoutCnt = 0;
+	kr = KERN_SUCCESS;
     } else {
 	replyinCnt = 0;
-	vm_read(mach_task_self(),
+	kr = vm_read(mach_task_self(),
 		(vm_address_t)reply->data, reply->length,
 		(vm_address_t *)&replyout, &replyoutCnt);
+    }
+
+    if (kr) {
+	os_log_error(OS_LOG_DEFAULT, "vm_read returned: %s", mach_error_string(kr));
     }
 
     mheim_ripc_call_reply(s->reply_port, returnvalue,
@@ -204,6 +214,10 @@ mach_complete_async(heim_sipc_call ctx, int returnvalue, heim_idata *reply)
 	kr = vm_read(mach_task_self(),
 		     (vm_address_t)reply->data, reply->length,
 		     (vm_address_t *)&replyout, &replyoutCnt);
+    }
+
+    if (kr) {
+	os_log_error(OS_LOG_DEFAULT, "vm_read returned: %s", mach_error_string(kr));
     }
 
     kr = mheim_aipc_acall_reply(s->reply_port, returnvalue,

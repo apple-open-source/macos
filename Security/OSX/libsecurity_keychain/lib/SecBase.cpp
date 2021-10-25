@@ -1005,7 +1005,7 @@ OSStatus SecKeychainErrFromOSStatus(OSStatus osStatus)
 		case CSSMERR_APPLETP_INVALID_CA:
 			return errSecInvalidCertAuthority;
 		case CSSMERR_TP_INVALID_CRL_AUTHORITY:
-			return errSecInvaldCRLAuthority;
+			return errSecInvalidCRLAuthority;
 		case CSSMERR_TP_INVALID_CRL_ENCODING:
 			return errSecInvalidCRLEncoding;
 		case CSSMERR_TP_INVALID_CRL_TYPE:
@@ -1055,7 +1055,7 @@ OSStatus SecKeychainErrFromOSStatus(OSStatus osStatus)
 		case CSSMERR_AC_INVALID_BASE_ACLS:
 			return errSecInvalidBaseACLs;
 		case CSSMERR_AC_INVALID_TUPLE_CREDENTIALS:
-			return errSecInvalidTupleCredendtials;
+			return errSecInvalidTupleCredentials;
 		case CSSMERR_AC_INVALID_ENCODING:
 			return errSecInvalidEncoding;
 		case CSSMERR_AC_INVALID_VALIDITY_PERIOD:

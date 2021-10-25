@@ -32,7 +32,7 @@ clean:
 	rm -rf staged
 
 stage: asset
-	echo "PKItrustSupplementals staging"
+	echo "PKITrustSupplementals staging"
 	rm -rf staged
-	$(shell /usr/bin/xcrun --find assettool) stage -p . -s staged -b ${BASE_URL} -v 13
+	$(shell /usr/bin/xcrun --find assettool) stage -p . -s staged -b ${BASE_URL} -v 14
 	$(shell /usr/bin/xcrun --find assettool) sign -s staged

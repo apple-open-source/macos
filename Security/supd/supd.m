@@ -281,6 +281,10 @@ _isiCloudAnalyticsEnabled()
 }
 @end
 
+@interface SFAnalyticsClient ()
+@property dispatch_queue_t queue;
+@end
+
 @implementation SFAnalyticsClient {
     NSString* _path;
     NSString* _name;
@@ -291,13 +295,17 @@ _isiCloudAnalyticsEnabled()
 @synthesize storePath = _path;
 @synthesize name = _name;
 
-- (instancetype)initWithStorePath:(NSString*)path name:(NSString*)name
-                  deviceAnalytics:(BOOL)deviceAnalytics iCloudAnalytics:(BOOL)iCloudAnalytics {
+- (instancetype)initWithStorePath:(NSString*)path
+                             name:(NSString*)name
+                  deviceAnalytics:(BOOL)deviceAnalytics iCloudAnalytics:(BOOL)iCloudAnalytics
+{
     if (self = [super init]) {
         _path = path;
         _name = name;
         _requireDeviceAnalytics = deviceAnalytics;
         _requireiCloudAnalytics = iCloudAnalytics;
+        NSString* queueName = [NSString stringWithFormat: @"SFAnalyticsClient queue-%@", name];
+        _queue = dispatch_queue_create([queueName UTF8String], DISPATCH_QUEUE_SERIAL_WITH_AUTORELEASE_POOL);
     }
     return self;
 }
@@ -665,8 +673,10 @@ _isiCloudAnalyticsEnabled()
     return statistics;
 }
 
-- (NSMutableDictionary*)healthSummaryWithName:(NSString*)name store:(SFAnalyticsSQLiteStore*)store uuid:(NSUUID *)uuid
+- (NSMutableDictionary*)healthSummaryWithName:(SFAnalyticsClient*)client store:(SFAnalyticsSQLiteStore*)store uuid:(NSUUID *)uuid
 {
+    dispatch_assert_queue(client.queue);
+    NSString *name = client.name;
     __block NSMutableDictionary* summary = [NSMutableDictionary new];
 
     // Add some events of our own before pulling in data
@@ -735,13 +745,15 @@ _isiCloudAnalyticsEnabled()
 - (void)updateUploadDateForClients:(NSArray<SFAnalyticsClient*>*)clients date:(NSDate *)date clearData:(BOOL)clearData
 {
     for (SFAnalyticsClient* client in clients) {
-        SFAnalyticsSQLiteStore* store = [SFAnalyticsSQLiteStore storeWithPath:client.storePath schema:SFAnalyticsTableSchema];
-        secnotice("postprocess", "Setting upload date (%@) for client: %@", date, client.name);
-        store.uploadDate = date;
-        if (clearData) {
-            secnotice("postprocess", "Clearing collected data for client: %@", client.name);
-            [store clearAllData];
-        }
+        dispatch_sync(client.queue, ^{
+            SFAnalyticsSQLiteStore* store = [SFAnalyticsSQLiteStore storeWithPath:client.storePath schema:SFAnalyticsTableSchema];
+            secnotice("postprocess", "Setting upload date (%@) for client: %@", date, client.name);
+            store.uploadDate = date;
+            if (clearData) {
+                secnotice("postprocess", "Clearing collected data for client: %@", client.name);
+                [store clearAllData];
+            }
+        });
     }
 }
 
@@ -887,21 +899,23 @@ participatingClients:(NSMutableArray<SFAnalyticsClient*>**)clients
     NSString *ckdeviceID = nil;
     NSString *accountID = nil;
 
-    if (os_variant_has_internal_diagnostics("com.apple.security") && [_internalTopicName isEqualToString:SFAnalyticsTopicKeySync]) {
+    if (os_variant_has_internal_diagnostics("com.apple.security") &&
+        ([_internalTopicName isEqualToString:SFAnalyticsTopicKeySync] ||
+         [_internalTopicName isEqualToString:SFAnalyticsTopicCloudServices])) {
         ckdeviceID = [self askSecurityForCKDeviceID];
         accountID = accountAltDSID();
     }
     for (SFAnalyticsClient* client in self->_topicClients) {
-        @autoreleasepool {
+        dispatch_sync(client.queue, ^{
             if (!force && [client requireDeviceAnalytics] && !_isDeviceAnalyticsEnabled()) {
                 // Client required device analytics, yet the user did not opt in.
                 secnotice("getLoggingJSON", "Client '%@' requires device analytics yet user did not opt in.", [client name]);
-                continue;
+                return;
             }
             if (!force && [client requireiCloudAnalytics] && !_isiCloudAnalyticsEnabled()) {
                 // Client required iCloud analytics, yet the user did not opt in.
                 secnotice("getLoggingJSON", "Client '%@' requires iCloud analytics yet user did not opt in.", [client name]);
-                continue;
+                return;
             }
 
             SFAnalyticsSQLiteStore* store = [SFAnalyticsSQLiteStore storeWithPath:client.storePath schema:SFAnalyticsTableSchema];
@@ -911,7 +925,7 @@ participatingClients:(NSMutableArray<SFAnalyticsClient*>**)clients
                 if (!force && uploadDate && [[NSDate date] timeIntervalSinceDate:uploadDate] < _secondsBetweenUploads) {
                     secnotice("json", "ignoring client '%@' for %@ because last upload too recent: %@",
                               client.name, _internalTopicName, uploadDate);
-                    continue;
+                    return;
                 }
 
                 if (force) {
@@ -922,7 +936,7 @@ participatingClients:(NSMutableArray<SFAnalyticsClient*>**)clients
                 [localClients addObject:client];
             }
 
-            NSMutableDictionary* healthSummary = [self healthSummaryWithName:client.name store:store uuid:linkedUUID];
+            NSMutableDictionary* healthSummary = [self healthSummaryWithName:client store:store uuid:linkedUUID];
             if (healthSummary) {
                 if (ckdeviceID) {
                     healthSummary[SFAnalyticsDeviceID] = ckdeviceID;
@@ -935,7 +949,7 @@ participatingClients:(NSMutableArray<SFAnalyticsClient*>**)clients
 
             [hardFailures addObject:store.hardFailures];
             [softFailures addObject:store.softFailures];
-        }
+        });
     }
 
     if (upload && [localClients count] == 0) {
@@ -1586,15 +1600,17 @@ static bool ShouldInitializeWithAsset(NSBundle *trustStoreBundle, NSURL *directo
 
     for (SFAnalyticsTopic* topic in _analyticsTopics) {
         for (SFAnalyticsClient* client in topic.topicClients) {
-            [sysdiagnose appendString:[NSString stringWithFormat:@"Client: %@\n", client.name]];
-            SFAnalyticsSQLiteStore* store = [SFAnalyticsSQLiteStore storeWithPath:client.storePath schema:SFAnalyticsTableSchema];
-            NSArray* allEvents = store.allEvents;
-            for (NSDictionary* eventRecord in allEvents) {
-                [sysdiagnose appendFormat:@"%@\n", [self sysdiagnoseStringForEventRecord:eventRecord]];
-            }
-            if (allEvents.count == 0) {
-                [sysdiagnose appendString:@"No data to report for this client\n"];
-            }
+            dispatch_sync(client.queue, ^{
+                [sysdiagnose appendString:[NSString stringWithFormat:@"Client: %@\n", client.name]];
+                SFAnalyticsSQLiteStore* store = [SFAnalyticsSQLiteStore storeWithPath:client.storePath schema:SFAnalyticsTableSchema];
+                NSArray* allEvents = store.allEvents;
+                for (NSDictionary* eventRecord in allEvents) {
+                    [sysdiagnose appendFormat:@"%@\n", [self sysdiagnoseStringForEventRecord:eventRecord]];
+                }
+                if (allEvents.count == 0) {
+                    [sysdiagnose appendString:@"No data to report for this client\n"];
+                }
+            });
         }
     }
     return sysdiagnose;
@@ -1734,11 +1750,13 @@ static bool ShouldInitializeWithAsset(NSBundle *trustStoreBundle, NSURL *directo
     NSMutableDictionary *info = [NSMutableDictionary dictionary];
     for (SFAnalyticsTopic* topic in _analyticsTopics) {
         for (SFAnalyticsClient *client in topic.topicClients) {
-            SFAnalyticsSQLiteStore* store = [SFAnalyticsSQLiteStore storeWithPath:client.storePath schema:SFAnalyticsTableSchema];
+            dispatch_sync(client.queue, ^{
+                SFAnalyticsSQLiteStore* store = [SFAnalyticsSQLiteStore storeWithPath:client.storePath schema:SFAnalyticsTableSchema];
 
-            NSMutableDictionary *clientInfo = [NSMutableDictionary dictionary];
-            clientInfo[@"uploadDate"] = store.uploadDate;
-            info[client.name] = clientInfo;
+                NSMutableDictionary *clientInfo = [NSMutableDictionary dictionary];
+                clientInfo[@"uploadDate"] = store.uploadDate;
+                info[client.name] = clientInfo;
+            });
         }
     }
 

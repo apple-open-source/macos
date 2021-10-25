@@ -30,7 +30,8 @@
 
 #include <corecrypto/ccder.h>
 #include <CoreFoundation/CoreFoundation.h>
-
+#define CORE_ENTITLEMENTS_I_KNOW_WHAT_IM_DOING
+#include <CoreEntitlements/CoreEntitlementsPriv.h>
 
 const uint8_t* der_decode_data(CFAllocatorRef allocator,
                                CFDataRef* data, CFErrorRef *error,
@@ -56,6 +57,34 @@ const uint8_t* der_decode_data(CFAllocatorRef allocator,
         return NULL;
     }
 
+    return payload + payload_size;
+}
+
+const uint8_t* der_decode_core_entitlements_data(CFAllocatorRef allocator,
+                                                 CFDataRef* data, CFErrorRef *error,
+                                                 const uint8_t* der, const uint8_t *der_end)
+{
+    if (NULL == der) {
+        SecCFDERCreateError(kSecDERErrorNullInput, CFSTR("null input"), NULL, error);
+        return NULL;
+    }
+    
+    size_t payload_size = 0;
+    const uint8_t *payload = ccder_decode_tl(CCDER_ENTITLEMENTS, &payload_size, der, der_end);
+    
+    if (NULL == payload || (ssize_t) (der_end - payload) < (ssize_t) payload_size) {
+        SecCFDERCreateError(kSecDERErrorUnknownEncoding, CFSTR("Unknown CoreEntitlements encoding"), NULL, error);
+        return NULL;
+    }
+    
+    // the entitlements structure is the whole thing
+    *data = CFDataCreate(allocator, der, (size_t)((payload + payload_size) - der));
+    
+    if (NULL == *data) {
+        SecCFDERCreateError(kSecDERErrorAllocationFailure, CFSTR("Failed to create CoreEntitlements data"), NULL, error);
+        return NULL;
+    }
+    
     return payload + payload_size;
 }
 

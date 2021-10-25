@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2006, 2009, 2011-2013, 2015-2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2006, 2009, 2011-2013, 2015-2018, 2021 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -202,8 +202,8 @@ _dns_configuration_signature(dns_create_config_t	*_config,
 			sha256 = (signature_len >= CC_SHA256_DIGEST_LENGTH) ? signature : sha256_buf;
 			CC_SHA256_Init(&ctx);
 			CC_SHA256_Update(&ctx,
-				       config,
-				       sizeof(_dns_config_buf_t) + ntohl(config->n_attribute));
+					 config,
+					 sizeof(_dns_config_buf_t) + ntohl(config->n_attribute));
 			CC_SHA256_Final(sha256, &ctx);
 			if (sha256 != signature) {
 				memcpy(signature, sha256, signature_len);
@@ -441,9 +441,6 @@ _dns_resolver_set_reach_flags(dns_create_resolver_t _resolver)
 							  0,
 							  &kCFTypeDictionaryKeyCallBacks,
 							  &kCFTypeDictionaryValueCallBacks);
-		CFDictionarySetValue(targetOptions,
-				     kSCNetworkReachabilityOptionServerBypass,
-				     kCFBooleanTrue);
 		if (resolver->resolver.if_index != 0) {
 			char		if_name[IFNAMSIZ];
 

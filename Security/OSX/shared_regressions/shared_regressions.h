@@ -1,7 +1,7 @@
 /* To add a test:
  1) add it here
  2) Add it as command line argument for SecurityTest.app/SecurityTestOSX.app in the Release, Debug schemes, and World schemes
- 3) Add any resource your test needs in to the SecurityTest.app, SecurityDevTest.app, and SecurityTestOSX.app targets.
+ 3) Add any resource your test needs in to the SecurityTest.app and SecurityTestOSX.app targets.
 
  This file contains iOS/OSX shared tests that are built in libSharedRegression.a
  For iOS-only tests see Security_regressions.h
@@ -26,6 +26,7 @@ ONE_TEST(si_44_seckey_proxy)
 ONE_TEST(si_60_cms)
 ONE_TEST(si_61_pkcs12)
 ONE_TEST(si_62_csr)
+ONE_TEST(si_63_scep)
 ONE_TEST(si_64_ossl_cms)
 ONE_TEST(si_65_cms_cert_policy)
 ONE_TEST(si_66_smime)

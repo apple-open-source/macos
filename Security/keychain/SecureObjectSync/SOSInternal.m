@@ -403,7 +403,7 @@ SOSCCStatus SOSGetCachedCircleStatus(CFErrorRef *error) {
 
     if(statusMask & CC_STATISVALID) {
         if(statusMask & CC_UKEY_TRUSTED) {
-            retval = (SOSCCStatus) statusMask & CC_MASK;
+            retval = (SOSCCStatus) (statusMask & CC_MASK);
         } else {
             retval = kSOSCCError;
             if(error) {
@@ -463,6 +463,20 @@ dispatch_queue_t SOSCCCredentialQueue(void) {
     return credQueue;
 }
 
+bool SOSDoWithCredentialsWhileUnlocked(CFErrorRef *error, bool (^action)(CFErrorRef* error)) {
+    __block bool result = false;
+    dispatch_sync(SOSCCCredentialQueue(), ^{
+        __block bool retval = false;
+        SecAKSDoWithUserBagLockAssertion(error, ^{
+            retval = action(error);
+        });
+        result = retval;
+        if(result) {
+            CFReleaseNull(*error);
+        }
+    });
+    return result;
+}
 
 #if TARGET_OS_OSX
 #define KEYCHAINSYNCDISABLE "DisableKeychainCloudSync"

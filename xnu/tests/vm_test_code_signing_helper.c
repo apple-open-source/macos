@@ -141,13 +141,7 @@ main(
 	fprintf(stdout, "%s: WARNING: unsigned code was executed\n",
 	    cmdname);
 
-#if !TARGET_OS_OSX
 	/* fail: unsigned code was executed */
 	fprintf(stdout, "%s: FAIL\n", cmdname);
 	exit(1);
-#else /* !TARGET_OS_OSX */
-	/* no fail: unsigned code is only prohibited on embedded platforms */
-	fprintf(stdout, "%s: SUCCESS\n", cmdname);
-	exit(0);
-#endif /* !TARGET_OS_OSX */
 }

@@ -42,6 +42,7 @@
 
 void configure_misc_apple_boot_args(void);
 void configure_misc_apple_regs(void);
+void configure_timer_apple_regs(void);
 
 void
 configure_misc_apple_boot_args(void)
@@ -50,6 +51,11 @@ configure_misc_apple_boot_args(void)
 
 void
 configure_misc_apple_regs(void)
+{
+}
+
+void
+configure_timer_apple_regs(void)
 {
 }
 

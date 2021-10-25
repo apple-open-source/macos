@@ -34,17 +34,20 @@
 extern "C" {
 #endif
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+
 /*
  * Basic Constraints
  * NSS struct  : NSS_BasicConstraints
  * CDSA struct : CE_BasicConstraints
  */
-typedef struct {
+typedef struct SEC_ASN1_API_DEPRECATED {
 	SecAsn1Item		cA;					// BOOL
 	SecAsn1Item		pathLenConstraint;	// INTEGER optional
-} NSS_BasicConstraints;
+} NSS_BasicConstraints SEC_ASN1_API_DEPRECATED;
 
-extern const SecAsn1Template kSecAsn1BasicConstraintsTemplate[];
+extern const SecAsn1Template kSecAsn1BasicConstraintsTemplate[] SEC_ASN1_API_DEPRECATED;
 
 /* 
  * Key Usage
@@ -58,9 +61,9 @@ extern const SecAsn1Template kSecAsn1BasicConstraintsTemplate[];
  * NSS struct  : NSS_ExtKeyUsage
  * CDSA struct : CE_ExtendedKeyUsage
  */
-typedef struct {
+typedef struct SEC_ASN1_API_DEPRECATED {
 	SecAsn1Oid	**purposes;
-} NSS_ExtKeyUsage;
+} NSS_ExtKeyUsage SEC_ASN1_API_DEPRECATED;
 #define kSecAsn1ExtKeyUsageTemplate		kSecAsn1SequenceOfObjectIDTemplate
 
 /*
@@ -79,38 +82,38 @@ typedef struct {
  * NOTE: due to an anomaly in the encoding module, if the first field
  * of a sequence is optional, it has to be a POINTER type. 
  */
-typedef struct {
+typedef struct SEC_ASN1_API_DEPRECATED {
 	SecAsn1Item			*keyIdentifier;		// octet string
 	NSS_GeneralNames	genNames;	
 	SecAsn1Item			serialNumber;		// integer
-} NSS_AuthorityKeyId;
+} NSS_AuthorityKeyId SEC_ASN1_API_DEPRECATED;
 
-extern const SecAsn1Template kSecAsn1AuthorityKeyIdTemplate[];
+extern const SecAsn1Template kSecAsn1AuthorityKeyIdTemplate[] SEC_ASN1_API_DEPRECATED;
 
 /*
  * Certificate policies. 
  * NSS struct  : NSS_CertPolicies
  * CDSA struct : CE_CertPolicies
  */
-typedef struct {
+typedef struct SEC_ASN1_API_DEPRECATED {
 	SecAsn1Oid		policyQualifierId;	// CSSMOID_QT_CPS, CSSMOID_QT_UNOTICE
 	SecAsn1Item		qualifier;			// ASN_ANY, not interpreted here
-} NSS_PolicyQualifierInfo;
+} NSS_PolicyQualifierInfo SEC_ASN1_API_DEPRECATED;
 
-extern const SecAsn1Template kSecAsn1PolicyQualifierTemplate[];
+extern const SecAsn1Template kSecAsn1PolicyQualifierTemplate[] SEC_ASN1_API_DEPRECATED;
 
-typedef struct {
+typedef struct SEC_ASN1_API_DEPRECATED {
 	SecAsn1Oid				certPolicyId;
 	NSS_PolicyQualifierInfo	**policyQualifiers;	// SEQUENCE OF
-} NSS_PolicyInformation;
+} NSS_PolicyInformation SEC_ASN1_API_DEPRECATED;
 
-extern const SecAsn1Template kSecAsn1PolicyInformationTemplate[];
+extern const SecAsn1Template kSecAsn1PolicyInformationTemplate[] SEC_ASN1_API_DEPRECATED;
 
-typedef struct {
+typedef struct SEC_ASN1_API_DEPRECATED {
 	NSS_PolicyInformation	**policies;			// SEQUENCE OF
-} NSS_CertPolicies;
+} NSS_CertPolicies SEC_ASN1_API_DEPRECATED;
 
-extern const SecAsn1Template kSecAsn1CertPoliciesTemplate[];
+extern const SecAsn1Template kSecAsn1CertPoliciesTemplate[] SEC_ASN1_API_DEPRECATED;
 
 /* 
  * netscape-cert-type
@@ -125,18 +128,18 @@ extern const SecAsn1Template kSecAsn1CertPoliciesTemplate[];
  * CDSA struct : CE_CRLDistributionPoint, CE_CRLDistributionPointSyntax
  */
 
-typedef struct {
+typedef struct SEC_ASN1_API_DEPRECATED {
 	SecAsn1Item			*distPointName;		// ASN_ANY, optional
 	SecAsn1Item			reasons;			// BIT_STRING, optional
 	NSS_GeneralNames	crlIssuer;			// optional
-} NSS_DistributionPoint;
+} NSS_DistributionPoint SEC_ASN1_API_DEPRECATED;
 
-typedef struct {
+typedef struct SEC_ASN1_API_DEPRECATED {
 	NSS_DistributionPoint	**distPoints;	// SEQUENCE OF
-} NSS_CRLDistributionPoints;
+} NSS_CRLDistributionPoints SEC_ASN1_API_DEPRECATED;
 
-extern const SecAsn1Template kSecAsn1DistributionPointTemplate[];
-extern const SecAsn1Template kSecAsn1CRLDistributionPointsTemplate[];
+extern const SecAsn1Template kSecAsn1DistributionPointTemplate[] SEC_ASN1_API_DEPRECATED;
+extern const SecAsn1Template kSecAsn1CRLDistributionPointsTemplate[] SEC_ASN1_API_DEPRECATED;
 
 /*
  * Resolving the NSS_DistributionPoint.distributionPoint option
@@ -147,13 +150,13 @@ extern const SecAsn1Template kSecAsn1CRLDistributionPointsTemplate[];
  * This one resolves to an NSS_GeneralNames:
  */
 #define NSS_DIST_POINT_FULL_NAME_TAG	0
-extern const SecAsn1Template kSecAsn1DistPointFullNameTemplate[];
+extern const SecAsn1Template kSecAsn1DistPointFullNameTemplate[] SEC_ASN1_API_DEPRECATED;
  
 /*
  * This one resolves to an NSS_RDN.
  */
 #define NSS_DIST_POINT_RDN_TAG			1
-extern const SecAsn1Template kSecAsn1DistPointRDNTemplate[];
+extern const SecAsn1Template kSecAsn1DistPointRDNTemplate[] SEC_ASN1_API_DEPRECATED;
 
 /*
  * Issuing distribution point.
@@ -163,7 +166,7 @@ extern const SecAsn1Template kSecAsn1DistPointRDNTemplate[];
  *
  * All fields optional; default for ASN_BOOLs is false.
  */
-typedef struct {
+typedef struct SEC_ASN1_API_DEPRECATED {
 	/* manually decode to a CE_DistributionPointName */
 	SecAsn1Item			*distPointName;		// ASN_ANY, optional
 	
@@ -173,7 +176,7 @@ typedef struct {
 	SecAsn1Item			*indirectCRL;		// ASN_BOOL
 } NSS_IssuingDistributionPoint;
 
-extern const SecAsn1Template kSecAsn1IssuingDistributionPointTemplate[];
+extern const SecAsn1Template kSecAsn1IssuingDistributionPointTemplate[] SEC_ASN1_API_DEPRECATED;
 
 /* 
  * Authority Information Access, Subject Information Access.
@@ -181,91 +184,93 @@ extern const SecAsn1Template kSecAsn1IssuingDistributionPointTemplate[];
  * NSS Struct  : NSS_AuthorityInfoAccess
  * CDSA struct : CE_AuthorityInfoAccess
  */
-typedef struct {
+typedef struct SEC_ASN1_API_DEPRECATED {
 	SecAsn1Item				accessMethod;
 	
 	/* NSS encoder just can't handle direct inline of an NSS_GeneralName here.
 	 * After decode and prior to encode this is an encoded GeneralName. 
 	 */
 	SecAsn1Item				encodedAccessLocation;
-} NSS_AccessDescription;
+} NSS_AccessDescription SEC_ASN1_API_DEPRECATED;
 
-typedef struct {
+typedef struct SEC_ASN1_API_DEPRECATED {
 	NSS_AccessDescription	**accessDescriptions;
-} NSS_AuthorityInfoAccess;
+} NSS_AuthorityInfoAccess SEC_ASN1_API_DEPRECATED;
 
-extern const SecAsn1Template kSecAsn1AccessDescriptionTemplate[];
-extern const SecAsn1Template kSecAsn1AuthorityInfoAccessTemplate[];
+extern const SecAsn1Template kSecAsn1AccessDescriptionTemplate[] SEC_ASN1_API_DEPRECATED;
+extern const SecAsn1Template kSecAsn1AuthorityInfoAccessTemplate[] SEC_ASN1_API_DEPRECATED;
 
 /*
  * Qualified Certificate Statements support
  */
-typedef struct {
+typedef struct SEC_ASN1_API_DEPRECATED {
 	SecAsn1Oid				*semanticsIdentifier;			/* optional */
 	NSS_GeneralNames		*nameRegistrationAuthorities;	/* optional */
-} NSS_SemanticsInformation;
+} NSS_SemanticsInformation SEC_ASN1_API_DEPRECATED;
 
-typedef struct {
+typedef struct SEC_ASN1_API_DEPRECATED {
 	SecAsn1Oid				statementId;
 	SecAsn1Item				info;		/* optional, ANY */
-} NSS_QC_Statement;
+} NSS_QC_Statement SEC_ASN1_API_DEPRECATED;
 
-typedef struct {
+typedef struct SEC_ASN1_API_DEPRECATED {
 	NSS_QC_Statement		**qcStatements;
-} NSS_QC_Statements; 
+} NSS_QC_Statements SEC_ASN1_API_DEPRECATED;
 
-extern const SecAsn1Template kSecAsn1SemanticsInformationTemplate[];
-extern const SecAsn1Template kSecAsn1QC_StatementTemplate[];
-extern const SecAsn1Template kSecAsn1QC_StatementsTemplate[];
+extern const SecAsn1Template kSecAsn1SemanticsInformationTemplate[] SEC_ASN1_API_DEPRECATED;
+extern const SecAsn1Template kSecAsn1QC_StatementTemplate[] SEC_ASN1_API_DEPRECATED;
+extern const SecAsn1Template kSecAsn1QC_StatementsTemplate[] SEC_ASN1_API_DEPRECATED;
 
 /*
  * NameConstraints support
  */
-typedef struct {
+typedef struct SEC_ASN1_API_DEPRECATED {
 	NSS_GeneralNames		base;
 	SecAsn1Item				minimum;	// INTEGER default=0
 	SecAsn1Item				maximum;	// INTEGER optional
-} NSS_GeneralSubtree;
+} NSS_GeneralSubtree SEC_ASN1_API_DEPRECATED;
 
-typedef struct {
+typedef struct SEC_ASN1_API_DEPRECATED {
 	NSS_GeneralSubtree		**subtrees; // SEQUENCE OF
-} NSS_GeneralSubtrees; 
+} NSS_GeneralSubtrees SEC_ASN1_API_DEPRECATED;
 
-typedef struct {
+typedef struct SEC_ASN1_API_DEPRECATED {
 	NSS_GeneralSubtrees		*permittedSubtrees; // optional
 	NSS_GeneralSubtrees		*excludedSubtrees;  // optional
-} NSS_NameConstraints; 
+} NSS_NameConstraints SEC_ASN1_API_DEPRECATED;
 
-extern const SecAsn1Template kSecAsn1NameConstraintsTemplate[];
+extern const SecAsn1Template kSecAsn1NameConstraintsTemplate[] SEC_ASN1_API_DEPRECATED;
 
 /*
  * PolicyMappings support
  */
-typedef struct {
+typedef struct SEC_ASN1_API_DEPRECATED {
 	SecAsn1Oid				issuerDomainPolicy;
 	SecAsn1Oid				subjectDomainPolicy;
-} NSS_PolicyMapping;
+} NSS_PolicyMapping SEC_ASN1_API_DEPRECATED;
 
-typedef struct {
+typedef struct SEC_ASN1_API_DEPRECATED {
 	NSS_PolicyMapping		**policyMappings; // SEQUENCE OF
-} NSS_PolicyMappings; 
+} NSS_PolicyMappings SEC_ASN1_API_DEPRECATED;
 
-extern const SecAsn1Template kSecAsn1PolicyMappingsTemplate[];
+extern const SecAsn1Template kSecAsn1PolicyMappingsTemplate[] SEC_ASN1_API_DEPRECATED;
 
 /*
  * PolicyConstraints support
  */
-typedef struct {
+typedef struct SEC_ASN1_API_DEPRECATED {
 	SecAsn1Item				requireExplicitPolicy;	// INTEGER optional
 	SecAsn1Item				inhibitPolicyMapping;	// INTEGER optional
-} NSS_PolicyConstraints;
+} NSS_PolicyConstraints SEC_ASN1_API_DEPRECATED;
 
-extern const SecAsn1Template kSecAsn1PolicyConstraintsTemplate[];
+extern const SecAsn1Template kSecAsn1PolicyConstraintsTemplate[] SEC_ASN1_API_DEPRECATED;
 
 /*
  * InhibitAnyPolicy support
  */
 #define kSecAsn1InhibitAnyPolicyTemplate	kSecAsn1IntegerTemplate;
+
+#pragma clang diagnostic pop
 
 #ifdef	__cplusplus
 }

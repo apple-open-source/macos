@@ -55,6 +55,7 @@
 #include "utilities/sec_action.h"
 
 #include "keychain/ckks/CKKS.h"
+#include "keychain/ot/OTConstants.h"
 
 #define kSecBackupKeybagUUIDKey CFSTR("keybag-uuid")
 
@@ -170,10 +171,20 @@ static void SecDbAppendDropTableWithClass(CFMutableStringRef sql, const SecDbCla
 }
 
 static CFDataRef SecPersistentRefCreateWithItem(SecDbItemRef item, CFErrorRef *error) {
-    sqlite3_int64 row_id = SecDbItemGetRowId(item, error);
-    if (row_id)
-        return _SecItemCreatePersistentRef(SecDbItemGetClass(item)->name, row_id, item->attributes);
-    return NULL;
+    CFDataRef returnValue = NULL;
+    if (SecKeychainIsStaticPersistentRefsEnabled()) {
+        CFDataRef uuidData = SecDbItemGetPersistentRef(item, error);
+        returnValue = _SecItemCreateUUIDBasedPersistentRef(SecDbItemGetClass(item)->name, uuidData, item->attributes);
+    } else {
+        sqlite3_int64 row_id = SecDbItemGetRowId(item, error);
+        if (row_id) {
+            if (SecKeychainIsStaticPersistentRefsEnabled()) {
+                secnotice("pref", "SecPersistentRefCreateWithItem: Creating old persistent ref for %llu", row_id);
+            }
+            returnValue = _SecItemCreatePersistentRef(SecDbItemGetClass(item)->name, row_id, item->attributes);
+        }
+    }
+    return returnValue;
 }
 
 bool SecItemDbCreateSchema(SecDbConnectionRef dbt, const SecDbSchema *schema, CFArrayRef classIndexesForNewTables, bool includeVersion, CFErrorRef *error)
@@ -254,6 +265,7 @@ CFTypeRef SecDbItemCopyResult(SecDbItemRef item, ReturnTypeMask return_type, CFE
                 }
             }
         }
+
         CFDictionaryRemoveValue(dict, kSecAttrUUID);
 
 		if (return_type & kSecReturnPersistentRefMask) {
@@ -294,6 +306,9 @@ s3dl_query_add(SecDbConnectionRef dbt, Query *q, CFTypeRef *result, CFErrorRef *
         ok = SecDbItemSetValueWithName(item, CFSTR("v_Data"), q->q_data, error);
     if (q->q_row_id)
         ok = SecDbItemSetRowId(item, q->q_row_id, error);
+    if (SecKeychainIsStaticPersistentRefsEnabled() && q->q_uuid_pref) {
+        ok = SecDbItemSetPersistentRef(item, q->q_uuid_pref, error);
+    }
     if (q->q_musrView)
         ok = SecDbItemSetValueWithName(item, CFSTR("musr"), q->q_musrView, error);
     SecDbItemSetCredHandle(item, q->q_use_cred_handle);
@@ -316,7 +331,7 @@ s3dl_query_add(SecDbConnectionRef dbt, Query *q, CFTypeRef *result, CFErrorRef *
     if (ok) {
         // We care about the new item's UUID only when we just made it from the primary key.
         // Otherwise, we just made a random one, and don't mind if it changes.
-        ok = SecDbItemInsert(item, dbt, q->q_uuid_from_primary_key, error);
+        ok = SecDbItemInsert(item, dbt, q->q_uuid_from_primary_key, false, error);
     }
 
     if (ok) {
@@ -433,14 +448,22 @@ struct s3dl_query_ctx {
 static CF_RETURNS_RETAINED CFTypeRef
 handle_result(Query *q,
               CFMutableDictionaryRef item,
-              sqlite_int64 rowid)
+              sqlite_int64 rowid,
+              CFDataRef uuidData)
 {
     CFTypeRef a_result;
     CFDataRef data;
     data = CFDictionaryGetValue(item, kSecValueData);
 	CFDataRef pref = NULL;
 	if (q->q_return_type & kSecReturnPersistentRefMask) {
-		pref = _SecItemCreatePersistentRef(q->q_class->name, rowid, item);
+        if (SecKeychainIsStaticPersistentRefsEnabled() && uuidData && CFDataGetLength(uuidData) == PERSISTENT_REF_UUID_BYTES_LENGTH) {
+            pref = _SecItemCreateUUIDBasedPersistentRef(q->q_class->name, uuidData, item);
+        } else {
+            if (SecKeychainIsStaticPersistentRefsEnabled()) {
+                secnotice("pref", "handle_result: Creating old persistent ref for %llu", rowid);
+            }
+            pref = _SecItemCreatePersistentRef(q->q_class->name, rowid, item);
+        }
 	}
 	if (q->q_return_type == 0) {
 		/* Caller isn't interested in any results at all. */
@@ -452,9 +475,14 @@ handle_result(Query *q,
         } else {
             a_result = CFDataCreate(kCFAllocatorDefault, NULL, 0);
         }
-	} else if (q->q_return_type == kSecReturnPersistentRefMask) {
-		a_result = _SecItemCreatePersistentRef(q->q_class->name, rowid, item);
-	} else {
+    } else if (q->q_return_type == kSecReturnPersistentRefMask) {
+        if (SecKeychainIsStaticPersistentRefsEnabled() && uuidData && CFDataGetLength(uuidData) == PERSISTENT_REF_UUID_BYTES_LENGTH) {
+            a_result = _SecItemCreateUUIDBasedPersistentRef(q->q_class->name, uuidData, item);
+        } else {
+            secnotice("pref", "handle_result: Creating old persistent ref for %llu", rowid);
+            a_result = _SecItemCreatePersistentRef(q->q_class->name, rowid, item);
+        }
+    } else {
 		/* We need to return more than one value. */
         if (q->q_return_type & kSecReturnRefMask) {
             CFDictionarySetValue(item, kSecClass, q->q_class->name);
@@ -595,10 +623,17 @@ decode:
     if (q->q_class == identity_class()) {
         // TODO: Use col 2 for key rowid and use both rowids in persistent ref.
 
-        CFMutableDictionaryRef key;
         /* TODO : if there is a errSecDecode error here, we should cleanup */
-        if (!s3dl_item_from_col(stmt, q, 3, c->accessGroups, &key, NULL, NULL, &q->q_error) || !key)
-            goto out;
+        CFMutableDictionaryRef key = NULL;
+        if (SecKeychainIsStaticPersistentRefsEnabled() &&  q->q_uuid_pref && CFDataGetLength(q->q_uuid_pref) == PERSISTENT_REF_UUID_BYTES_LENGTH) {
+            if (!s3dl_item_from_col(stmt, q, 4, c->accessGroups, &key, NULL, NULL, &q->q_error) || !key) {
+                goto out;
+            }
+        } else {
+            if (!s3dl_item_from_col(stmt, q, 3, c->accessGroups, &key, NULL, NULL, &q->q_error) || !key)
+                goto out;
+        }
+
 
         CFDataRef certData = CFDictionaryGetValue(item, kSecValueData);
         if (certData) {
@@ -619,7 +654,9 @@ decode:
     if (!match_item(c->dbt, q, c->accessGroups, item))
         goto out;
 
-    CFTypeRef a_result = handle_result(q, item, rowid);
+    CFDataRef uuidData = CFDictionaryGetValue(item, kSecAttrPersistentReference);
+    
+    CFTypeRef a_result = handle_result(q, item, rowid, uuidData);
     if (a_result) {
         if (a_result == kCFNull) {
             /* Caller wasn't interested in a result, but we still
@@ -632,6 +669,10 @@ decode:
             CFRelease(a_result);
         }
         c->found++;
+    }
+
+    if (CFDictionaryContainsKey(item, kSecAttrPersistentReference) && (q->q_return_type & kSecReturnAttributesMask)) {
+        CFDictionaryRemoveValue(item, kSecAttrPersistentReference);
     }
 
 out:
@@ -688,7 +729,7 @@ isQueryOverSingleUserView(CFTypeRef musrView)
     return isNull(musrView);
 }
 
-#if TARGET_OS_IPHONE
+#if KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER
 static bool
 isQueryOverBothUserAndSystem(CFTypeRef musrView, uid_t *uid)
 {
@@ -703,7 +744,7 @@ SecDbAppendWhereMusr(CFMutableStringRef sql,
 {
     SecDbAppendWhereOrAnd(sql, needWhere);
 
-#if TARGET_OS_IPHONE
+#if KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER
     if (isQueryOverBothUserAndSystem(q->q_musrView, NULL)) {
         CFStringAppend(sql, CFSTR("(musr = ? OR musr = ?)"));
     } else
@@ -730,12 +771,39 @@ SecDbAppendWhereAppClip(CFMutableStringRef sql,
     CFStringAppend(sql, CFSTR("clip = 0"));
 }
 
+static void
+SecDbAppendWhereUUIDPeristentRef(CFMutableStringRef sql,
+                                 const Query* q,
+                                 bool* needWhere)
+{
+    if (!SecKeychainIsStaticPersistentRefsEnabled() || !q->q_uuid_pref || CFDataGetLength(q->q_uuid_pref) != PERSISTENT_REF_UUID_BYTES_LENGTH) {
+        return;
+    }
+
+    SecDbAppendWhereOrAnd(sql, needWhere);
+    CFStringAppend(sql, CFSTR("persistref = ?"));
+}
+
+static void
+SecDbAppendWhereUUIDPersistentRefForIdentities(CFMutableStringRef sql,
+                                              const Query* q,
+                                              bool* needWhere)
+{
+    if (!SecKeychainIsStaticPersistentRefsEnabled() || !q->q_uuid_pref || CFDataGetLength(q->q_uuid_pref) != PERSISTENT_REF_UUID_BYTES_LENGTH) {
+        return;
+    }
+
+    SecDbAppendWhereOrAnd(sql, needWhere);
+    CFStringAppend(sql, CFSTR("certpersistref = ?"));
+}
+
 static void SecDbAppendWhereClause(CFMutableStringRef sql, const Query *q,
                                    CFArrayRef accessGroups) {
     bool needWhere = true;
     SecDbAppendWhereROWID(sql, CFSTR("ROWID"), q->q_row_id, &needWhere);
     SecDbAppendWhereAttrs(sql, q, &needWhere);
     SecDbAppendWhereMusr(sql, q, &needWhere);
+    SecDbAppendWhereUUIDPeristentRef(sql, q, &needWhere);
     SecDbAppendWhereAccessGroups(sql, CFSTR("agrp"), accessGroups, &needWhere);
     SecDbAppendWhereAppClip(sql, q, &needWhere);
 }
@@ -747,15 +815,26 @@ static void SecDbAppendLimit(CFMutableStringRef sql, CFIndex limit) {
 
 static CFStringRef s3dl_create_select_sql(Query *q, CFArrayRef accessGroups) {
     CFMutableStringRef sql = CFStringCreateMutable(NULL, 0);
-	if (q->q_class == identity_class()) {
-        CFStringAppend(sql, CFSTR("SELECT crowid, certdata"
-                                  ", rowid,data FROM "
-                                  "(SELECT cert.rowid AS crowid, cert.labl AS labl,"
-                                  " cert.issr AS issr, cert.slnr AS slnr, cert.skid AS skid,"
-                                  " cert.tkid AS tkid,"
-                                  " keys.*,cert.data AS certdata"
-                                  " FROM keys, cert"
-                                  " WHERE keys.priv == 1 AND cert.pkhh == keys.klbl"));
+    if (q->q_class == identity_class()) {
+        if (SecKeychainIsStaticPersistentRefsEnabled() && (q->q_uuid_pref && CFDataGetLength(q->q_uuid_pref) == PERSISTENT_REF_UUID_BYTES_LENGTH)){
+            CFStringAppend(sql, CFSTR("SELECT crowid, certdata, certpersistref"
+                                      ", rowid, data, persistref FROM "
+                                      "(SELECT cert.rowid AS crowid, cert.labl AS labl,"
+                                      " cert.issr AS issr, cert.slnr AS slnr, cert.skid AS skid,"
+                                      " cert.tkid AS tkid,"
+                                      " keys.*,cert.data AS certdata, cert.persistref AS certpersistref"
+                                      " FROM keys, cert"
+                                      " WHERE keys.priv == 1 AND cert.pkhh == keys.klbl"));
+        } else {
+            CFStringAppend(sql, CFSTR("SELECT crowid, certdata"
+                                      ", rowid, data FROM "
+                                      "(SELECT cert.rowid AS crowid, cert.labl AS labl,"
+                                      " cert.issr AS issr, cert.slnr AS slnr, cert.skid AS skid,"
+                                      " cert.tkid AS tkid,"
+                                      " keys.*,cert.data AS certdata"
+                                      " FROM keys, cert"
+                                      " WHERE keys.priv == 1 AND cert.pkhh == keys.klbl"));
+        }
         SecDbAppendWhereAccessGroups(sql, CFSTR("cert.agrp"), accessGroups, 0);
         /* The next 3 SecDbAppendWhere calls are in the same order as in
          SecDbAppendWhereClause().  This makes sqlBindWhereClause() work,
@@ -765,11 +844,16 @@ static CFStringRef s3dl_create_select_sql(Query *q, CFArrayRef accessGroups) {
         bool needWhere = true;
         SecDbAppendWhereAttrs(sql, q, &needWhere);
         SecDbAppendWhereMusr(sql, q, &needWhere);
+        SecDbAppendWhereUUIDPersistentRefForIdentities(sql, q, &needWhere);
         SecDbAppendWhereAccessGroups(sql, CFSTR("agrp"), accessGroups, &needWhere);
         SecDbAppendWhereAppClip(sql, q, &needWhere);
 	} else {
         // Most of the time we don't need agrp, but if an item fails to decode and we want to know more then this is helpful
-        CFStringAppend(sql, CFSTR("SELECT rowid, data, agrp FROM "));
+        if (SecKeychainIsStaticPersistentRefsEnabled() && ((q->q_uuid_pref && CFDataGetLength(q->q_uuid_pref) == PERSISTENT_REF_UUID_BYTES_LENGTH) || (q->q_return_type & kSecReturnPersistentRefMask))) {
+            CFStringAppend(sql, CFSTR("SELECT rowid, data, agrp, persistref FROM "));
+        } else {
+            CFStringAppend(sql, CFSTR("SELECT rowid, data, agrp FROM "));
+        }
 		CFStringAppend(sql, q->q_class->name);
         SecDbAppendWhereClause(sql, q, accessGroups);
     }
@@ -778,13 +862,14 @@ static CFStringRef s3dl_create_select_sql(Query *q, CFArrayRef accessGroups) {
         SecDbAppendLimit(sql, q->q_limit);
     }
 
+
     return sql;
 }
 
 static bool sqlBindMusr(sqlite3_stmt *stmt, const Query *q, int *pParam, CFErrorRef *error) {
     int param = *pParam;
     bool result = true;
-#if TARGET_OS_IPHONE
+#if KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER
     uid_t uid;
 
     if (isQueryOverBothUserAndSystem(q->q_musrView, &uid)) {
@@ -828,6 +913,15 @@ static bool sqlBindAccessGroups(sqlite3_stmt *stmt, CFArrayRef accessGroups,
     return result;
 }
 
+static bool sqlBindUUIDPersistentRef(sqlite3_stmt *stmt, CFDataRef uuidData,
+                                     int *pParam, CFErrorRef *error) {
+    bool result = true;
+    int param = *pParam;
+    result = SecDbBindObject(stmt, param++, uuidData, error);
+    *pParam = param;
+    return result;
+}
+
 static bool sqlBindWhereClause(sqlite3_stmt *stmt, const Query *q,
                                CFArrayRef accessGroups, int *pParam, CFErrorRef *error) {
     bool result = true;
@@ -841,6 +935,11 @@ static bool sqlBindWhereClause(sqlite3_stmt *stmt, const Query *q,
 
     if (result) {
         result = sqlBindMusr(stmt, q, &param, error);
+    }
+
+    /* Bind the persistent ref to the sql. */
+    if (SecKeychainIsStaticPersistentRefsEnabled() && result && q->q_uuid_pref && CFDataGetLength(q->q_uuid_pref) == PERSISTENT_REF_UUID_BYTES_LENGTH) {
+        result = sqlBindUUIDPersistentRef(stmt, q->q_uuid_pref, &param, error);
     }
 
     /* Bind the access group to the sql. */
@@ -862,7 +961,7 @@ bool SecDbItemQuery(SecDbQueryRef query, CFArrayRef accessGroups, SecDbConnectio
     bool (^return_attr)(const SecDbAttr *attr) = ^bool (const SecDbAttr * attr) {
         // The attributes here must match field list hardcoded in s3dl_select_sql used below, which is
         // "rowid, data"
-        return attr->kind == kSecDbRowIdAttr || attr->kind == kSecDbEncryptedDataAttr;
+        return attr->kind == kSecDbRowIdAttr || attr->kind == kSecDbEncryptedDataAttr || (SecKeychainIsStaticPersistentRefsEnabled() ? attr->kind == kSecDbUUIDAttr : 0);
     };
 
     CFStringRef sql = s3dl_create_select_sql(query, accessGroups);
@@ -930,8 +1029,9 @@ s3dl_query(s3dl_handle_row handle_row,
             /* Bind the access groups to cert.agrp. */
             sql_ok = sqlBindAccessGroups(stmt, accessGroups, &param, error);
         }
-        if (sql_ok)
+        if (sql_ok) {
             sql_ok = sqlBindWhereClause(stmt, q, accessGroups, &param, error);
+        }
         if (sql_ok) {
             SecDbForEach(dbt, stmt, error, ^bool (int row_index) {
                 handle_row(stmt, context);
@@ -972,7 +1072,10 @@ s3dl_copy_matching(SecDbConnectionRef dbt, Query *q, CFTypeRef *result,
     struct s3dl_query_ctx ctx = {
         .q = q, .accessGroups = accessGroups, .dbt = dbt,
     };
-    if (q->q_row_id && query_attr_count(q))
+    if (SecKeychainIsStaticPersistentRefsEnabled() && q->q_uuid_pref != NULL && CFDataGetLength(q->q_uuid_pref) == PERSISTENT_REF_UUID_BYTES_LENGTH && query_attr_count(q)) {
+        return SecError(errSecItemIllegalQuery, error,
+                        CFSTR("attributes to query illegal; both persistent ref and other attributes can't be searched at the same time"));
+    } else if (SecKeychainIsStaticPersistentRefsEnabled() == false && q->q_row_id && query_attr_count(q))
         return SecError(errSecItemIllegalQuery, error,
                         CFSTR("attributes to query illegal; both row_id and other attributes can't be searched at the same time"));
     if (q->q_token_object_id && query_attr_count(q) != 1)
@@ -1005,16 +1108,32 @@ static void s3dl_query_row_digest(sqlite3_stmt *stmt, void *context) {
 
     sqlite_int64 rowid = sqlite3_column_int64(stmt, 0);
     CFDataRef edata = s3dl_copy_data_from_col(stmt, 1, NULL);
-    CFDataRef persistant_reference = _SecItemCreatePersistentRef(q->q_class->name, rowid, NULL);
+    
+    CFDataRef persistent_reference = NULL;
+   
+    if (SecKeychainIsStaticPersistentRefsEnabled()) {
+        CFDataRef uuidData = CFDataCreate(kCFAllocatorDefault, sqlite3_column_blob(stmt, 3),
+                                          sqlite3_column_bytes(stmt, 3));
+        if (uuidData && CFDataGetLength(uuidData) == PERSISTENT_REF_UUID_BYTES_LENGTH) {
+            persistent_reference = _SecItemCreateUUIDBasedPersistentRef(q->q_class->name, uuidData, NULL);
+        }
+        CFReleaseNull(uuidData);
+    } else {
+        if (SecKeychainIsStaticPersistentRefsEnabled()) {
+            secnotice("pref", "s3dl_query_row_digest: Creating old persistent ref for %llu", rowid);
+        }
+        persistent_reference = _SecItemCreatePersistentRef(q->q_class->name, rowid, NULL);
+    }
+    
     CFDataRef digest = NULL;
 
     if (edata) {
         digest = CFDataCopySHA256Digest(edata, NULL);
     }
 
-    if (digest && persistant_reference) {
+    if (digest && persistent_reference) {
         CFDictionaryRef item = CFDictionaryCreateForCFTypes(NULL,
-                                                            kSecValuePersistentRef, persistant_reference,
+                                                            kSecValuePersistentRef, persistent_reference,
                                                             kSecValueData, digest,
                                                             NULL);
         if (item)
@@ -1026,7 +1145,7 @@ static void s3dl_query_row_digest(sqlite3_stmt *stmt, void *context) {
     }
     CFReleaseNull(digest);
     CFReleaseNull(edata);
-    CFReleaseNull(persistant_reference);
+    CFReleaseNull(persistent_reference);
 }
 
 
@@ -1469,7 +1588,7 @@ static bool SecServerDeleteAll(SecDbConnectionRef dbt, CFErrorRef *error) {
     });
 }
 
-#if TARGET_OS_IPHONE
+#if KEYCHAIN_SUPPORTS_PERSONA_MULTIUSER
 
 static bool DeleteAllFromTableForMUSRView(SecDbConnectionRef dbt,
                                           CFStringRef sql,
@@ -1569,6 +1688,7 @@ static void s3dl_export_row(sqlite3_stmt *stmt, void *context) {
     CFErrorRef localError = NULL;
 
     sqlite_int64 rowid = sqlite3_column_int64(stmt, 0);
+
     CFMutableDictionaryRef allAttributes = NULL;
     CFMutableDictionaryRef metadataAttributes = NULL;
     CFMutableDictionaryRef secretStuff = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
@@ -1601,7 +1721,16 @@ static void s3dl_export_row(sqlite3_stmt *stmt, void *context) {
             /* Re-encode the item. */
             secdebug("item", "export rowid %llu item: %@", rowid, allAttributes);
             /* The code below could be moved into handle_row. */
-            CFDataRef pref = _SecItemCreatePersistentRef(q->q_class->name, rowid, allAttributes);
+            CFDataRef pref = NULL;
+            CFDataRef uuidData = CFDictionaryGetValue(allAttributes, kSecAttrPersistentReference);
+            if (SecKeychainIsStaticPersistentRefsEnabled() && uuidData && CFDataGetLength(uuidData) == PERSISTENT_REF_UUID_BYTES_LENGTH) {
+                pref = _SecItemCreateUUIDBasedPersistentRef(q->q_class->name, uuidData, allAttributes);
+            } else {
+                if (SecKeychainIsStaticPersistentRefsEnabled()) {
+                    secnotice("pref", "s3dl_export_row: Creating old persistent ref for %llu", rowid);
+                }
+                pref = _SecItemCreatePersistentRef(q->q_class->name, rowid, allAttributes);
+            }
             if (pref) {
                 if (c->dest_keybag != KEYBAG_NONE) {
                     CFMutableDictionaryRef auth_attribs = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
@@ -1722,7 +1851,7 @@ SecServerCopyKeychainPlist(SecDbConnectionRef dbt,
     q.q_skip_acl_items = true;
     q.q_skip_app_clip_items = true;
 
-#if TARGET_OS_IPHONE
+#if KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER
     if (client && client->inMultiUser) {
         q.q_musrView = SecMUSRCreateActiveUserUUID(client->uid);
         inMultiUser = true;
@@ -1812,7 +1941,7 @@ SecServerImportItem(const void *value, void *context)
 {
     struct SecServerImportItemState *state = (struct SecServerImportItemState *)context;
     bool inMultiUser = false;
-#if TARGET_OS_IPHONE
+#if KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER
     if (state->s->client->inMultiUser)
         inMultiUser = true;
 #endif
@@ -1897,11 +2026,13 @@ SecServerImportItem(const void *value, void *context)
 
     if (item && item->attributes) {
         CFDataRef musr = NULL;
+
+#if KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER
         CFDataRef musrBackup = CFDictionaryGetValue(item->attributes, kSecAttrMultiUser);
+
         CFDataRef systemKeychainUUID = SecMUSRGetSystemKeychainUUID();
         bool systemKeychain = CFEqualSafe(musrBackup, systemKeychainUUID);
 
-#if TARGET_OS_IPHONE
         if (state->s->client && state->s->client->inMultiUser) {
             if (systemKeychain) {
                 secwarning("system keychain not allowed in multi user mode for item: %@", item);
@@ -1909,7 +2040,6 @@ SecServerImportItem(const void *value, void *context)
                 musr = SecMUSRCreateActiveUserUUID(state->s->client->uid);
             }
         } else
-#endif
         {
             if (systemKeychain) {
                 musr = SecMUSRCopySystemKeychainUUID();
@@ -1918,6 +2048,10 @@ SecServerImportItem(const void *value, void *context)
                 CFRetainSafe(musr);
             }
         }
+#else
+        musr = SecMUSRGetSingleUserKeychainUUID();
+        CFRetainSafe(musr);
+#endif
         if (musr == NULL) {
             CFReleaseNull(item);
         } else {
@@ -1934,10 +2068,38 @@ SecServerImportItem(const void *value, void *context)
         bool insertStatus;
 
         if(state->s->filter != kSecSysBoundItemFilter) {
-            SecDbItemExtractRowIdFromBackupDictionary(item, dict, &state->s->error);
+            if (SecKeychainIsStaticPersistentRefsEnabled()) {
+                SecDbItemExtractUUIDPersistentRefFromBackupDictionary(item, dict, &state->s->error);
+            } else {
+                SecDbItemExtractRowIdFromBackupDictionary(item, dict, &state->s->error);
+            }
         }
+
+        if (SecKeychainIsStaticPersistentRefsEnabled()) {
+            CFErrorRef fetchError = NULL;
+            CFDataRef uuid = SecDbItemGetPersistentRef(item, &fetchError);
+            if (fetchError) {
+                secerror("import: failed to get the persistent ref: %@", fetchError);
+                CFReleaseNull(fetchError);
+            }
+
+            if (!uuid || CFDataGetLength(uuid) != PERSISTENT_REF_UUID_BYTES_LENGTH) {
+                CFUUIDRef prefUUID = CFUUIDCreate(kCFAllocatorDefault);
+                CFUUIDBytes uuidBytes = CFUUIDGetUUIDBytes(prefUUID);
+                CFDataRef uuidData = CFDataCreate(kCFAllocatorDefault, (const void *)&uuidBytes, sizeof(uuidBytes));
+                CFErrorRef setError = NULL;
+                SecDbItemSetPersistentRef(item, uuidData, &setError);
+                secnotice("import", "SecServerImportItem: generated a new persistentref UUID for item %@: %@", item, setError);
+                CFReleaseNull(prefUUID);
+                CFReleaseNull(uuidData);
+                CFReleaseNull(setError);
+            } else {
+                secnotice("import", "Item already has a UUID persistent ref set: %@", item);
+            }
+        }
+
         SecDbItemInferSyncable(item, &state->s->error);
-        insertStatus = SecDbItemInsert(item, state->s->dbt, false, &state->s->error);
+        insertStatus = SecDbItemInsert(item, state->s->dbt, false, true, &state->s->error);
         if (!insertStatus) {
             /*
              When running in EduMode, multiple users share the same
@@ -1951,7 +2113,7 @@ SecServerImportItem(const void *value, void *context)
              again to insert the record.
              */
             SecDbItemClearRowId(item, NULL);
-            SecDbItemInsert(item, state->s->dbt, false, &state->s->error);
+            SecDbItemInsert(item, state->s->dbt, false, true, &state->s->error);
         }
     }
 
@@ -1961,6 +2123,8 @@ SecServerImportItem(const void *value, void *context)
         secwarning("Failed to import an item (%@) of class '%@': %@ - ignoring error.",
                    item, state->class->name, state->s->error);
         CFReleaseNull(state->s->error);
+    } else {
+        secnotice("import", "imported item: %@", item);
     }
 
     CFReleaseSafe(item);

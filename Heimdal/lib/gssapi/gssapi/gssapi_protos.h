@@ -60,7 +60,7 @@ extern "C" {
 GSSAPI_LIB_FUNCTION OM_uint32 GSSAPI_LIB_CALL
 gss_accept_sec_context (
 	 OM_uint32 * __nonnull minor_status,
-	__nonnull gss_ctx_id_t * __nullable context_handle,
+	__nullable gss_ctx_id_t * __nonnull context_handle,
 	__nullable const gss_cred_id_t acceptor_cred_handle,
 	__nullable const gss_buffer_t input_token,
 	__nullable const gss_channel_bindings_t input_chan_bindings,
@@ -78,7 +78,7 @@ gss_acquire_cred (
 	OM_uint32 time_req,
 	__nullable const gss_OID_set desired_mechs,
 	gss_cred_usage_t cred_usage,
-	__nonnull gss_cred_id_t * __nullable output_cred_handle,
+	__nullable gss_cred_id_t * __nonnull output_cred_handle,
 	__nullable gss_OID_set * __nullable actual_mechs,
 	OM_uint32 * __nullable time_rec)  __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_5_0);
 
@@ -90,7 +90,7 @@ gss_acquire_cred_with_password (
 	OM_uint32 time_req,
 	__nullable const gss_OID_set desired_mechs,
 	gss_cred_usage_t cred_usage,
-	__nonnull gss_cred_id_t *__nullable output_cred_handle,
+	__nullable gss_cred_id_t * __nonnull output_cred_handle,
 	__nullable gss_OID_set *__nullable actual_mechs,
 	OM_uint32 * __nullable time_rec)  __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_5_0);
 
@@ -109,7 +109,7 @@ gss_add_cred (
 	gss_cred_usage_t cred_usage,
 	OM_uint32 initiator_time_req,
 	OM_uint32 acceptor_time_req,
-	__nonnull gss_cred_id_t * __nullable output_cred_handle,
+	__nullable gss_cred_id_t * __nonnull output_cred_handle,
 	__nullable gss_OID_set * __nullable actual_mechs,
 	OM_uint32 * __nullable initiator_time_rec,
 	OM_uint32 * __nullable acceptor_time_rec)  __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_5_0);
@@ -167,7 +167,7 @@ gss_canonicalize_name (
 	OM_uint32 * __nonnull minor_status,
 	__nonnull const gss_name_t input_name,
 	__nonnull const gss_OID mech_type,
-	__nonnull gss_name_t * __nullable output_name)  __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_5_0);
+	__nullable gss_name_t * __nonnull output_name)  __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_5_0);
 
 GSSAPI_LIB_FUNCTION OM_uint32 GSSAPI_LIB_CALL
 gss_compare_name (
@@ -185,12 +185,12 @@ gss_context_time (
 GSSAPI_LIB_FUNCTION OM_uint32 GSSAPI_LIB_CALL
 gss_create_empty_buffer_set (
 	OM_uint32 * __nonnull minor_status,
-	__nonnull gss_buffer_set_t *__nullable buffer_set)  __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_5_0);
+	__nullable gss_buffer_set_t *__nonnull buffer_set)  __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_5_0);
 
 GSSAPI_LIB_FUNCTION OM_uint32 GSSAPI_LIB_CALL
 gss_create_empty_oid_set (
 	OM_uint32 *__nonnull minor_status,
-	__nonnull gss_OID_set *__nullable oid_set)  __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_5_0);
+	__nullable gss_OID_set *__nonnull oid_set)  __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_5_0);
 
 GSSAPI_LIB_FUNCTION OM_uint32 GSSAPI_LIB_CALL
 gss_decapsulate_token (
@@ -201,7 +201,7 @@ gss_decapsulate_token (
 GSSAPI_LIB_FUNCTION OM_uint32 GSSAPI_LIB_CALL
 gss_delete_sec_context (
 	OM_uint32 * __nonnull minor_status,
-	__nonnull gss_ctx_id_t * __nullable context_handle,
+	__nullable gss_ctx_id_t * __nonnull context_handle,
 	__nullable gss_buffer_t output_token)  __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_5_0);
 
 /**
@@ -221,7 +221,7 @@ gss_delete_sec_context (
 OM_uint32 GSSAPI_LIB_FUNCTION
 gss_destroy_cred (
 	OM_uint32 *__nonnull min_stat,
-	__nonnull gss_cred_id_t * __nullable cred_handle)  __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_5_0);
+	__nullable gss_cred_id_t * __nonnull cred_handle)  __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_5_0);
 
 /**
  * Return names and descriptions of mech attributes
@@ -280,13 +280,13 @@ GSSAPI_LIB_FUNCTION OM_uint32 GSSAPI_LIB_CALL
 gss_duplicate_name (
 	OM_uint32 *__nonnull minor_status,
 	__nonnull const gss_name_t src_name,
-	__nonnull gss_name_t * __nullable dest_name)  __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_5_0);
+	__nullable gss_name_t * __nonnull dest_name)  __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_5_0);
 
 GSSAPI_LIB_FUNCTION OM_uint32 GSSAPI_LIB_CALL
 gss_duplicate_oid (
 	 OM_uint32 *__nonnull minor_status,
 	__nonnull gss_OID src_oid,
-	__nonnull gss_OID * __nullable dest_oid )  __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_7, __MAC_10_9, __IPHONE_5_0, __IPHONE_7_0, "Not standardised");
+	__nullable gss_OID * __nonnull dest_oid )  __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_7, __MAC_10_9, __IPHONE_5_0, __IPHONE_7_0, "Not standardised");
 
 GSSAPI_LIB_FUNCTION OM_uint32 GSSAPI_LIB_CALL
 gss_encapsulate_token (
@@ -309,7 +309,7 @@ gss_export_name (
 GSSAPI_LIB_FUNCTION OM_uint32 GSSAPI_LIB_CALL
 gss_export_sec_context (
 	OM_uint32 *__nonnull minor_status,
-	__nonnull gss_ctx_id_t * __nullable context_handle,
+	__nullable gss_ctx_id_t * __nonnull context_handle,
 	__nullable gss_buffer_t interprocess_token)  __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_5_0);
 
 GSSAPI_LIB_FUNCTION OM_uint32 GSSAPI_LIB_CALL
@@ -324,7 +324,7 @@ GSSAPI_LIB_FUNCTION OM_uint32 GSSAPI_LIB_CALL
 gss_import_cred (
 	OM_uint32 * __nonnull minor_status,
 	__nonnull gss_buffer_t token,
-	__nonnull gss_cred_id_t * __nullable cred_handle)  __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_5_0);
+	__nullable gss_cred_id_t * __nonnull cred_handle)  __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_5_0);
 
 /**
  * Import a name internal or mechanism name
@@ -356,7 +356,7 @@ gss_import_name (
 	OM_uint32 *__nonnull minor_status,
 	__nonnull const gss_buffer_t input_name_buffer,
 	__nullable gss_const_OID input_name_type,
-	__nonnull gss_name_t * __nullable output_name)  __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_5_0);
+	__nullable gss_name_t * __nonnull output_name)  __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_5_0);
 
 /**
 	 * If we can't find a mechanism name for the name, we fail though.
@@ -366,12 +366,12 @@ GSSAPI_LIB_FUNCTION OM_uint32 GSSAPI_LIB_CALL
 gss_import_sec_context (
 	OM_uint32 *__nonnull minor_status,
 	__nonnull const gss_buffer_t interprocess_token,
-	__nonnull gss_ctx_id_t * __nullable context_handle)  __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_5_0);
+	__nullable gss_ctx_id_t * __nonnull context_handle)  __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_5_0);
 
 GSSAPI_LIB_FUNCTION OM_uint32 GSSAPI_LIB_CALL
 gss_indicate_mechs (
 	OM_uint32 *__nonnull minor_status,
-	__nonnull gss_OID_set *__nullable mech_set)  __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_5_0);
+	__nullable gss_OID_set * __nonnull mech_set)  __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_5_0);
 
 /**
  * Return set of mechanism that fullfill the criteria
@@ -385,7 +385,7 @@ gss_indicate_mechs_by_attrs (
 	__nullable gss_const_OID_set desired_mech_attrs,
 	__nullable gss_const_OID_set except_mech_attrs,
 	__nullable gss_const_OID_set critical_mech_attrs,
-	__nonnull gss_OID_set * __nullable mechs)  __OSX_AVAILABLE_STARTING(__MAC_10_10, __IPHONE_8_0);
+	__nullable gss_OID_set * __nonnull mechs)  __OSX_AVAILABLE_STARTING(__MAC_10_10, __IPHONE_8_0);
 
 /**
  * As the initiator build a context with an acceptor.
@@ -452,7 +452,7 @@ GSSAPI_LIB_FUNCTION OM_uint32 GSSAPI_LIB_CALL
 gss_init_sec_context (
 	OM_uint32 * __nonnull minor_status,
 	__nullable const gss_cred_id_t initiator_cred_handle,
-	__nonnull gss_ctx_id_t * __nullable context_handle,
+	__nullable gss_ctx_id_t * __nonnull context_handle,
 	__nonnull const gss_name_t target_name,
 	__nullable const gss_OID input_mech_type,
 	OM_uint32 req_flags,
@@ -521,7 +521,7 @@ gss_inquire_cred_by_oid (
 	OM_uint32 *__nonnull minor_status,
 	__nonnull const gss_cred_id_t cred_handle,
 	__nonnull const gss_OID desired_object,
-	__nonnull gss_buffer_set_t *__nullable data_set)  __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_5_0);
+	__nullable gss_buffer_set_t * __nonnull data_set)  __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_5_0);
 
 /**
  * Find a mech for a sasl name
@@ -537,27 +537,27 @@ GSSAPI_LIB_FUNCTION OM_uint32 GSSAPI_LIB_CALL
 gss_inquire_mech_for_saslname (
 	OM_uint32 *__nonnull minor_status,
 	__nullable const gss_buffer_t sasl_mech_name,
-	__nullable gss_OID *__nullable mech_type)  __OSX_AVAILABLE_STARTING(__MAC_10_10, __IPHONE_8_0);
+	__nullable gss_OID * __nonnull mech_type)  __OSX_AVAILABLE_STARTING(__MAC_10_10, __IPHONE_8_0);
 
 GSSAPI_LIB_FUNCTION OM_uint32 GSSAPI_LIB_CALL
 gss_inquire_mechs_for_name (
 	OM_uint32 *__nonnull minor_status,
 	__nonnull const gss_name_t input_name,
-	__nonnull gss_OID_set * __nullable mech_types)  __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_5_0);
+	__nullable gss_OID_set * __nonnull mech_types)  __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_5_0);
 
 GSSAPI_LIB_FUNCTION OM_uint32 GSSAPI_LIB_CALL
 gss_inquire_name (
 	OM_uint32 *__nonnull minor_status,
 	__nonnull gss_name_t input_name,
 	int *__nonnull name_is_MN,
-	__nullable gss_OID *__nullable MN_mech,
+	__nullable gss_OID * __nullable MN_mech,
 	__nullable gss_buffer_set_t * __nullable attrs)  __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_5_0);
 
 GSSAPI_LIB_FUNCTION OM_uint32 GSSAPI_LIB_CALL
 gss_inquire_names_for_mech (
 	OM_uint32 *__nonnull minor_status,
 	__nonnull gss_const_OID mechanism,
-	__nonnull gss_OID_set * __nullable name_types)  __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_5_0);
+	__nullable gss_OID_set * __nonnull name_types)  __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_5_0);
 
 /**
  * Returns different protocol names and description of the mechanism.
@@ -643,7 +643,7 @@ gss_krb5_copy_ccache (
 GSSAPI_LIB_FUNCTION OM_uint32 GSSAPI_LIB_CALL
 gss_krb5_export_lucid_sec_context (
 	OM_uint32 *__nonnull minor_status,
-	__nonnull gss_ctx_id_t * __nullable context_handle,
+	__nullable gss_ctx_id_t * __nonnull context_handle,
 	OM_uint32 version,
 	void *__nonnull * __nullable rctx)  __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_5_0);
 
@@ -725,7 +725,7 @@ gss_release_buffer (
 GSSAPI_LIB_FUNCTION OM_uint32 GSSAPI_LIB_CALL
 gss_release_buffer_set (
 	OM_uint32 * __nonnull minor_status,
-	__nonnull gss_buffer_set_t * __nullable buffer_set)  __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_5_0);
+	__nullable gss_buffer_set_t * __nonnull  buffer_set)  __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_5_0);
 
 /**
  * Release a credentials
@@ -752,7 +752,7 @@ gss_release_buffer_set (
 GSSAPI_LIB_FUNCTION OM_uint32 GSSAPI_LIB_CALL
 gss_release_cred (
 	OM_uint32 *__nonnull minor_status,
-	__nonnull gss_cred_id_t *__nullable cred_handle)  __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_5_0);
+	__nullable gss_cred_id_t * __nonnull cred_handle)  __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_5_0);
 
 /**
  * Free a name
@@ -773,7 +773,7 @@ gss_release_cred (
 GSSAPI_LIB_FUNCTION OM_uint32 GSSAPI_LIB_CALL
 gss_release_name (
 	OM_uint32 *__nonnull minor_status,
-	__nonnull gss_name_t *__nullable input_name)  __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_5_0);
+	__nullable gss_name_t * __nonnull input_name)  __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_5_0);
 
 /**
  * Release a gss_OID
@@ -800,12 +800,12 @@ gss_release_name (
 GSSAPI_LIB_FUNCTION OM_uint32 GSSAPI_LIB_CALL
 gss_release_oid (
 	OM_uint32 *__nonnull minor_status,
-	__nonnull gss_OID * __nullable oid)  __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_7, __MAC_10_9, __IPHONE_5_0, __IPHONE_7_0, "Not standardised and not safe to call for most gss_OIDs");
+	__nullable gss_OID * __nonnull oid)  __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_7, __MAC_10_9, __IPHONE_5_0, __IPHONE_7_0, "Not standardised and not safe to call for most gss_OIDs");
 
 GSSAPI_LIB_FUNCTION OM_uint32 GSSAPI_LIB_CALL
 gss_release_oid_set (
 	OM_uint32 *__nonnull minor_status,
-	__nonnull gss_OID_set * __nullable set)  __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_5_0);
+	__nullable gss_OID_set * __nonnull set)  __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_5_0);
 
 GSSAPI_LIB_FUNCTION OM_uint32 GSSAPI_LIB_CALL
 gss_seal (

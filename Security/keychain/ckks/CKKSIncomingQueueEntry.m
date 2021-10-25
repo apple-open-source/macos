@@ -110,7 +110,7 @@
 }
 
 - (NSDictionary<NSString*,NSString*>*)whereClauseToFindSelf {
-    return [self.item whereClauseToFindSelf];
+    return @{@"UUID": self.uuid, @"state": self.state, @"ckzone": self.item.zoneID.zoneName};
 }
 
 - (NSDictionary<NSString*,NSString*>*)sqlValues {
@@ -157,6 +157,58 @@
                                    }
                                         error: error];
     return result;
+}
+
++ (NSDictionary<NSString*, NSNumber*>*)countNewEntriesByKeyInZone:(CKRecordZoneID*)zoneID error:(NSError* __autoreleasing*)error
+{
+    NSMutableDictionary* results = [[NSMutableDictionary alloc] init];
+
+    [CKKSSQLDatabaseObject queryDatabaseTable:[[self class] sqlTable]
+                                        where:@{@"ckzone": CKKSNilToNSNull(zoneID.zoneName), @"state": SecCKKSStateNew}
+                                      columns:@[@"parentKeyUUID", @"count(rowid)"]
+                                      groupBy:@[@"parentKeyUUID"]
+                                      orderBy:nil
+                                        limit:-1
+                                   processRow:^(NSDictionary<NSString*, CKKSSQLResult*>* row) {
+                                       results[row[@"parentKeyUUID"].asString] = row[@"count(rowid)"].asNSNumberInteger;
+                                   }
+                                        error: error];
+    return results;
+}
+
+
++ (BOOL)allIQEsHaveValidUnwrappingKeys:(CKRecordZoneID*)zoneID error:(NSError**)error
+{
+    NSError* parentKeyUUIDsError = nil;
+    NSSet<NSString*>* parentKeyUUIDs = [CKKSIncomingQueueEntry allParentKeyUUIDs:zoneID error:&parentKeyUUIDsError];
+
+    if(parentKeyUUIDsError != nil) {
+        ckkserror("ckkskey", zoneID, "Unable to find IQE parent keys: %@", parentKeyUUIDsError);
+        if(error) {
+            *error = parentKeyUUIDsError;
+        }
+        return NO;
+    }
+
+    for(NSString* parentKeyUUID in parentKeyUUIDs) {
+        NSError* keyLoadError = nil;
+        CKKSKey* parentKey = [CKKSKey tryFromDatabase:parentKeyUUID zoneID:zoneID error:&keyLoadError];
+        if(keyLoadError != nil) {
+            // An error here means a database issue. Let's bail.
+            ckkserror("ckksheal", zoneID, "Unable to find key %@: %@", keyLoadError, parentKeyUUID);
+            if(error) {
+                *error = keyLoadError;
+            }
+            return NO;
+        } else if(parentKey == nil) {
+            // No error but also no key means it doesn't exist. That's bad!
+            ckksnotice("ckkskey", zoneID, "Some item is encrypted under a non-existent key(%@).", parentKeyUUID);
+            return NO;
+        }
+    }
+
+    // No issues found!
+    return YES;
 }
 
 @end

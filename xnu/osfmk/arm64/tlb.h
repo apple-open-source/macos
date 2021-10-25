@@ -87,13 +87,13 @@ static inline void
 flush_core_tlb(void)
 {
 	flush_core_tlb_async();
-	sync_tlb_flush();
+	sync_tlb_flush_local();
 }
 
 // flush_mmu_tlb_allentries_async: flush entries that map VA range, all ASIDS, all cores
 // start and end are in units of 4K pages.
 static inline void
-flush_mmu_tlb_allentries_async(uint64_t start, uint64_t end, uint64_t pmap_page_size)
+flush_mmu_tlb_allentries_async(uint64_t start, uint64_t end, uint64_t pmap_page_size, bool last_level_only)
 {
 #if __ARM_16K_PG__
 	if (pmap_page_size == 16384) {
@@ -117,15 +117,21 @@ flush_mmu_tlb_allentries_async(uint64_t start, uint64_t end, uint64_t pmap_page_
 		end = (end + 0x3ULL) & ~0x3ULL;
 	}
 #endif // __ARM_16K_PG__
-	for (; start < end; start += (pmap_page_size / 4096)) {
-		asm volatile ("tlbi vaae1is, %0" : : "r"(start));
+	if (last_level_only) {
+		for (; start < end; start += (pmap_page_size / 4096)) {
+			asm volatile ("tlbi vaale1is, %0" : : "r"(start));
+		}
+	} else {
+		for (; start < end; start += (pmap_page_size / 4096)) {
+			asm volatile ("tlbi vaae1is, %0" : : "r"(start));
+		}
 	}
 }
 
 static inline void
-flush_mmu_tlb_allentries(uint64_t start, uint64_t end, uint64_t pmap_page_size)
+flush_mmu_tlb_allentries(uint64_t start, uint64_t end, uint64_t pmap_page_size, bool last_level_only)
 {
-	flush_mmu_tlb_allentries_async(start, end, pmap_page_size);
+	flush_mmu_tlb_allentries_async(start, end, pmap_page_size, last_level_only);
 	sync_tlb_flush();
 }
 
@@ -158,7 +164,7 @@ flush_mmu_tlb_entry(uint64_t val)
 // start and end must have the ASID in the high 16 bits, with the VA in units of 4K in the lowest bits
 // Will also flush global entries that match the VA range
 static inline void
-flush_mmu_tlb_entries_async(uint64_t start, uint64_t end, uint64_t pmap_page_size)
+flush_mmu_tlb_entries_async(uint64_t start, uint64_t end, uint64_t pmap_page_size, bool last_level_only)
 {
 #if __ARM_16K_PG__
 	if (pmap_page_size == 16384) {
@@ -189,30 +195,51 @@ flush_mmu_tlb_entries_async(uint64_t start, uint64_t end, uint64_t pmap_page_siz
 	 * ASID scheme, this means we should flush all ASIDs.
 	 */
 	if (asid == 0) {
-		for (; start < end; start += (pmap_page_size / 4096)) {
-			asm volatile ("tlbi vaae1is, %0" : : "r"(start));
+		if (last_level_only) {
+			for (; start < end; start += (pmap_page_size / 4096)) {
+				asm volatile ("tlbi vaale1is, %0" : : "r"(start));
+			}
+		} else {
+			for (; start < end; start += (pmap_page_size / 4096)) {
+				asm volatile ("tlbi vaae1is, %0" : : "r"(start));
+			}
 		}
 		return;
 	}
 	start = start | (1ULL << TLBI_ASID_SHIFT);
 	end = end | (1ULL << TLBI_ASID_SHIFT);
-	for (; start < end; start += (pmap_page_size / 4096)) {
-		start = start & ~(1ULL << TLBI_ASID_SHIFT);
-		asm volatile ("tlbi vae1is, %0" : : "r"(start));
-		start = start | (1ULL << TLBI_ASID_SHIFT);
-		asm volatile ("tlbi vae1is, %0" : : "r"(start));
+	if (last_level_only) {
+		for (; start < end; start += (pmap_page_size / 4096)) {
+			start = start & ~(1ULL << TLBI_ASID_SHIFT);
+			asm volatile ("tlbi vale1is, %0" : : "r"(start));
+			start = start | (1ULL << TLBI_ASID_SHIFT);
+			asm volatile ("tlbi vale1is, %0" : : "r"(start));
+		}
+	} else {
+		for (; start < end; start += (pmap_page_size / 4096)) {
+			start = start & ~(1ULL << TLBI_ASID_SHIFT);
+			asm volatile ("tlbi vae1is, %0" : : "r"(start));
+			start = start | (1ULL << TLBI_ASID_SHIFT);
+			asm volatile ("tlbi vae1is, %0" : : "r"(start));
+		}
 	}
 #else
-	for (; start < end; start += (pmap_page_size / 4096)) {
-		asm volatile ("tlbi vae1is, %0" : : "r"(start));
+	if (last_level_only) {
+		for (; start < end; start += (pmap_page_size / 4096)) {
+			asm volatile ("tlbi vale1is, %0" : : "r"(start));
+		}
+	} else {
+		for (; start < end; start += (pmap_page_size / 4096)) {
+			asm volatile ("tlbi vae1is, %0" : : "r"(start));
+		}
 	}
 #endif /* __ARM_KERNEL_PROTECT__ */
 }
 
 static inline void
-flush_mmu_tlb_entries(uint64_t start, uint64_t end, uint64_t pmap_page_size)
+flush_mmu_tlb_entries(uint64_t start, uint64_t end, uint64_t pmap_page_size, bool last_level_only)
 {
-	flush_mmu_tlb_entries_async(start, end, pmap_page_size);
+	flush_mmu_tlb_entries_async(start, end, pmap_page_size, last_level_only);
 	sync_tlb_flush();
 }
 
@@ -273,7 +300,7 @@ static inline void
 flush_core_tlb_asid(uint64_t val)
 {
 	flush_core_tlb_asid_async(val);
-	sync_tlb_flush();
+	sync_tlb_flush_local();
 }
 
 #if __ARM_RANGE_TLBI__
@@ -308,15 +335,19 @@ generate_rtlbi_param(ppnum_t npages, uint32_t asid, vm_offset_t va, uint64_t pma
 // The argument should be encoded according to generate_rtlbi_param().
 // Follows the same ASID matching behavior as flush_mmu_tlb_entries()
 static inline void
-flush_mmu_tlb_range_async(uint64_t val)
+flush_mmu_tlb_range_async(uint64_t val, bool last_level_only)
 {
-	asm volatile ("tlbi rvae1is, %0" : : "r"(val));
+	if (last_level_only) {
+		asm volatile ("tlbi rvale1is, %0" : : "r"(val));
+	} else {
+		asm volatile ("tlbi rvae1is, %0" : : "r"(val));
+	}
 }
 
 static inline void
-flush_mmu_tlb_range(uint64_t val)
+flush_mmu_tlb_range(uint64_t val, bool last_level_only)
 {
-	flush_mmu_tlb_range_async(val);
+	flush_mmu_tlb_range_async(val, last_level_only);
 	sync_tlb_flush();
 }
 
@@ -324,15 +355,19 @@ flush_mmu_tlb_range(uint64_t val)
 // The argument should be encoded according to generate_rtlbi_param().
 // Follows the same ASID matching behavior as flush_mmu_tlb_allentries()
 static inline void
-flush_mmu_tlb_allrange_async(uint64_t val)
+flush_mmu_tlb_allrange_async(uint64_t val, bool last_level_only)
 {
-	asm volatile ("tlbi rvaae1is, %0" : : "r"(val));
+	if (last_level_only) {
+		asm volatile ("tlbi rvaale1is, %0" : : "r"(val));
+	} else {
+		asm volatile ("tlbi rvaae1is, %0" : : "r"(val));
+	}
 }
 
 static inline void
-flush_mmu_tlb_allrange(uint64_t val)
+flush_mmu_tlb_allrange(uint64_t val, bool last_level_only)
 {
-	flush_mmu_tlb_allrange_async(val);
+	flush_mmu_tlb_allrange_async(val, last_level_only);
 	sync_tlb_flush();
 }
 
@@ -349,7 +384,7 @@ static inline void
 flush_core_tlb_allrange(uint64_t val)
 {
 	flush_core_tlb_allrange_async(val);
-	sync_tlb_flush();
+	sync_tlb_flush_local();
 }
 
 #endif // __ARM_RANGE_TLBI__

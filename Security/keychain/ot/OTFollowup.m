@@ -42,12 +42,16 @@ NSString* OTFollowupContextTypeToString(OTFollowupContextType contextType)
     switch(contextType) {
         case OTFollowupContextTypeNone:
             return @"none";
+#if OCTAGON_PLATFORM_SUPPORTS_RK_CFU
         case OTFollowupContextTypeRecoveryKeyRepair:
             return @"recovery key";
+#endif
         case OTFollowupContextTypeStateRepair:
             return @"repair";
         case OTFollowupContextTypeConfirmExistingSecret:
             return @"confirm existing secret";
+        case OTFollowupContextTypeSecureTerms:
+            return @"secure terms";
     }
 }
 
@@ -78,11 +82,16 @@ NSString* OTFollowupContextTypeToString(OTFollowupContextType contextType)
         case OTFollowupContextTypeStateRepair: {
             return [CDPFollowUpContext contextForStateRepair];
         }
+#if OCTAGON_PLATFORM_SUPPORTS_RK_CFU
         case OTFollowupContextTypeRecoveryKeyRepair: {
             return [CDPFollowUpContext contextForRecoveryKeyRepair];
         }
+#endif
         case OTFollowupContextTypeConfirmExistingSecret: {
             return [CDPFollowUpContext contextForConfirmExistingSecret];
+        }
+        case OTFollowupContextTypeSecureTerms: {
+            return [CDPFollowUpContext contextForSecureTerms];
         }
         default: {
             return nil;
@@ -142,7 +151,7 @@ NSString* OTFollowupContextTypeToString(OTFollowupContextType contextType)
         NSError *error = nil;
         pendingCFUs = [NSMutableDictionary dictionary];
 
-        FLFollowUpController *followUpController = [[FLFollowUpController alloc] initWithClientIdentifier:@"com.apple.corecdp"];
+        FLFollowUpController *followUpController = [[FLFollowUpController alloc] initWithClientIdentifier:nil];
         NSArray <FLFollowUpItem*>* followUps = [followUpController pendingFollowUpItems:&error];
         if (error) {
             secnotice("octagon", "Fetching pending follow ups failed with: %@", error);
@@ -163,9 +172,7 @@ NSString* OTFollowupContextTypeToString(OTFollowupContextType contextType)
     if ([FLFollowUpController class]) {
         NSError *error = nil;
 
-        //pretend to be CDP
-        FLFollowUpController *followUpController = [[FLFollowUpController alloc] initWithClientIdentifier:@"com.apple.corecdp"];
-
+        FLFollowUpController *followUpController = [[FLFollowUpController alloc] initWithClientIdentifier:nil];
         NSArray <FLFollowUpItem*>* followUps = [followUpController pendingFollowUpItems:&error];
         if (error) {
             secnotice("octagon", "Fetching pending follow ups failed with: %@", error);
@@ -180,6 +187,8 @@ NSString* OTFollowupContextTypeToString(OTFollowupContextType contextType)
             NSString *key = [NSString stringWithFormat:@"OACFU-%@", followUp.uniqueIdentifier];
             values[key] = @(created);
         }
+
+        secnotice("octagon", "Analytics CFUs are %@", values);
     }
 #endif
     return values;

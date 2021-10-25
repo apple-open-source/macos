@@ -18,6 +18,7 @@
 #define kHIDAnalyticsEventActivate                 "HIDAnalyticsEventActivate"
 #define kHIDAnalyticsEventCancel                   "HIDAnalyticsEventCancel"
 #define kHIDAnalyticsEventSetIntegerValueForField  "HIDAnalyticsEventSetIntegerValueForField"
+#define kHIDAnalyticsEventSetStringValueForField   "HIDAnalyticsEventSetStringValueForField"
 #define kHIDAnalyticsHistogramEventCreate          "HIDAnalyticsHistogramEventCreate"
 #define kHIDAnalyticsHistogramEventSetIntegerValue "HIDAnalyticsHistogramEventSetIntegerValue"
 
@@ -25,6 +26,7 @@ typedef CFTypeRef (*HIDAnalyticsEventCreatePtr)(CFStringRef eventName, CFDiction
 typedef void (*HIDAnalyticsEventAddHistogramFieldPtr) (CFTypeRef event, CFStringRef fieldName, IOHIDAnalyticsHistogramSegmentConfig* segments, uint8_t count);
 typedef void (*HIDAnalyticsEventAddFieldPtr) (CFTypeRef event, CFStringRef fieldName);
 typedef void (*HIDAnalyticsEventSetIntegerValueForFieldPtr) (CFTypeRef event, CFStringRef fieldName, uint64_t value);
+typedef void (*HIDAnalyticsEventSetStringValueForFieldPtr) (CFTypeRef event, CFStringRef fieldName, CFStringRef value);
 typedef void (*HIDAnalyticsEventActivatePtr) (CFTypeRef  event);
 typedef void (*HIDAnalyticsEventCancelPtr) (CFTypeRef  event);
 typedef CFTypeRef (*HIDAnalyticsHistogramEventCreatePtr)(CFStringRef eventName, CFDictionaryRef _Nullable description, CFStringRef fieldName,IOHIDAnalyticsHistogramSegmentConfig*  segments, CFIndex count);
@@ -35,6 +37,7 @@ static HIDAnalyticsEventCreatePtr createEventFuncPtr = NULL;
 static HIDAnalyticsEventAddHistogramFieldPtr addHistogramFieldFuncPtr = NULL;
 static HIDAnalyticsEventAddFieldPtr addFieldFuncPtr = NULL;
 static HIDAnalyticsEventSetIntegerValueForFieldPtr setIntegerValueForFieldFuncPtr = NULL;
+static HIDAnalyticsEventSetStringValueForFieldPtr setStringValueForFieldFuncPtr = NULL;
 static HIDAnalyticsEventActivatePtr activateEventFuncPtr = NULL;
 static HIDAnalyticsEventCancelPtr cancelEventFuncPtr = NULL;
 static HIDAnalyticsHistogramEventCreatePtr createHistogramEventFuncPtr = NULL;
@@ -70,6 +73,8 @@ static void __loadFramework()
         
         setIntegerValueForFieldFuncPtr = (HIDAnalyticsEventSetIntegerValueForFieldPtr)HIDAnalyticsFrameworkGetSymbol(haHandle, kHIDAnalyticsEventSetIntegerValueForField);
         
+        setStringValueForFieldFuncPtr = (HIDAnalyticsEventSetStringValueForFieldPtr)HIDAnalyticsFrameworkGetSymbol(haHandle, kHIDAnalyticsEventSetStringValueForField);
+
         activateEventFuncPtr = (HIDAnalyticsEventActivatePtr)HIDAnalyticsFrameworkGetSymbol(haHandle, kHIDAnalyticsEventActivate);
         
         cancelEventFuncPtr = (HIDAnalyticsEventCancelPtr)HIDAnalyticsFrameworkGetSymbol(haHandle, kHIDAnalyticsEventCancel);
@@ -91,7 +96,7 @@ CFTypeRef IOHIDAnalyticsEventCreate(CFStringRef eventName, CFDictionaryRef descr
     __loadFramework();
     
     if (!createEventFuncPtr) {
-        return kCFNull;
+        return NULL;
     }
     
     // not needed because if framework not linked
@@ -110,7 +115,7 @@ CFTypeRef __nullable IOHIDAnalyticsHistogramEventCreate(CFStringRef eventName, C
     __loadFramework();
     
     if (!createHistogramEventFuncPtr) {
-        return kCFNull;
+        return NULL;
     }
     
     event = createHistogramEventFuncPtr(eventName, description, fieldName, segments, count);
@@ -145,6 +150,15 @@ void IOHIDAnalyticsEventSetIntegerValueForField(CFTypeRef  event, CFStringRef  f
     }
     
     setIntegerValueForFieldFuncPtr(event, fieldName, value);
+}
+
+void IOHIDAnalyticsEventSetStringValueForField(CFTypeRef event, CFStringRef fieldName, CFStringRef value)
+{
+    if (!setStringValueForFieldFuncPtr) {
+        return;
+    }
+
+    setStringValueForFieldFuncPtr(event, fieldName, value);
 }
 
 void IOHIDAnalyticsEventActivate(CFTypeRef event)

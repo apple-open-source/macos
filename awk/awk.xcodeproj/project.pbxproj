@@ -91,6 +91,7 @@
 			);
 			path = src;
 			sourceTree = "<group>";
+			usesTabs = 1;
 		};
 /* End PBXGroup section */
 
@@ -118,6 +119,7 @@
 		727081F00FD4748300B533D9 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
+				LastUpgradeCheck = 1300;
 			};
 			buildConfigurationList = 727081F30FD4748300B533D9 /* Build configuration list for PBXProject "awk" */;
 			compatibilityVersion = "Xcode 2.4";
@@ -178,11 +180,11 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
 				CODE_SIGN_IDENTITY = "-";
 				COPY_PHASE_STRIP = YES;
 				CURRENT_PROJECT_VERSION = "$(RC_ProjectSourceVersion)";
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				PREBINDING = NO;
 				VERSIONING_SYSTEM = "apple-generic";
 				ZERO_LINK = NO;
 			};
@@ -191,6 +193,8 @@
 		727082060FD476AB00B533D9 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CODE_SIGN_IDENTITY = "-";
 				INSTALL_PATH = /usr/bin;
 				PRODUCT_NAME = awk;
 			};

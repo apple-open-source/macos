@@ -1,5 +1,5 @@
 /*
- * Copyright(c) 2000-2020 Apple Inc. All rights reserved.
+ * Copyright(c) 2000-2021 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -46,7 +46,6 @@
 #include "SCPreferencesInternal.h"
 #include "SCD.h"
 #include "SCHelper_client.h"
-#include "dy_framework.h"
 
 
 const AuthorizationRef	kSCPreferencesUseEntitlementAuthorization	= (AuthorizationRef)CFSTR("UseEntitlement");
@@ -77,7 +76,7 @@ __SCPreferencesCopyDescription(CFTypeRef cf) {
 	CFStringAppendFormat(result, NULL, CFSTR(", id = %@"),
 			     prefsPrivate->prefsID != NULL ? prefsPrivate->prefsID : CFSTR("[default]"));
 	CFStringAppendFormat(result, NULL, CFSTR(", path = %s"),
-			     prefsPrivate->newPath != NULL ? prefsPrivate->newPath : prefsPrivate->path);
+			     prefsPrivate->path);
 	if (prefsPrivate->accessed) {
 		CFStringAppendFormat(result, NULL, CFSTR(", accessed"));
 	}
@@ -129,7 +128,6 @@ __SCPreferencesDeallocate(CFTypeRef cf)
 	if (prefsPrivate->prefsID)		CFRelease(prefsPrivate->prefsID);
 	if (prefsPrivate->options)		CFRelease(prefsPrivate->options);
 	if (prefsPrivate->path)			CFAllocatorDeallocate(NULL, prefsPrivate->path);
-	if (prefsPrivate->newPath)		CFAllocatorDeallocate(NULL, prefsPrivate->newPath);
 	if (prefsPrivate->lockFD != -1)	{
 		if (prefsPrivate->lockPath != NULL) {
 			unlink(prefsPrivate->lockPath);
@@ -413,14 +411,10 @@ __SCPreferencesCreate(CFAllocatorRef	allocator,
 		prefsPrivate->options = CFDictionaryCreateCopy(allocator, options);
 	}
 
-    retry :
-
 	/*
 	 * convert prefsID to path
 	 */
-	prefsPrivate->path = __SCPreferencesPath(allocator,
-						 prefsID,
-						 (prefsPrivate->newPath == NULL));
+	prefsPrivate->path = __SCPreferencesPath(allocator, prefsID);
 	if (prefsPrivate->path == NULL) {
 		sc_status = kSCStatusFailed;
 		goto error;
@@ -432,29 +426,6 @@ __SCPreferencesCreate(CFAllocatorRef	allocator,
 
 	switch (errno) {
 		case ENOENT :
-			/* no prefs file */
-			if ((prefsID == NULL) || !CFStringHasPrefix(prefsID, CFSTR("/"))) {
-				/* if default preference ID or relative path */
-				if (prefsPrivate->newPath == NULL) {
-					/*
-					 * we've looked in the "new" prefs directory
-					 * without success.  Save the "new" path and
-					 * look in the "old" prefs directory.
-					 */
-					prefsPrivate->newPath = prefsPrivate->path;
-					goto retry;
-				} else {
-					/*
-					 * we've looked in both the "new" and "old"
-					 * prefs directories without success.  Use
-					 * the "new" path.
-					 */
-					CFAllocatorDeallocate(NULL, prefsPrivate->path);
-					prefsPrivate->path = prefsPrivate->newPath;
-					prefsPrivate->newPath = NULL;
-				}
-			}
-
 			/* no preference data, start fresh */
 			sc_status = kSCStatusNoConfigFile;
 			goto done;
@@ -485,6 +456,47 @@ __SCPreferencesCreate(CFAllocatorRef	allocator,
 	/* all OK */
 	_SCErrorSet(sc_status);
 	return prefsPrivate;
+}
+
+
+static void
+processHardwareDependency(SCPreferencesRef prefs)
+{
+	CFStringRef 		new_model;
+	CFStringRef		old_model;
+	SCPreferencesPrivateRef	prefsPrivate	= (SCPreferencesPrivateRef)prefs;
+	CFBooleanRef		val		= NULL;
+
+	if (!__SCPreferencesUsingDefaultPrefs(prefs)) {
+		// if not default [/L/P/SC/preferences.plist] preferences
+		return;
+	}
+
+	if ((prefsPrivate->options != NULL) &&
+	    CFDictionaryGetValueIfPresent(prefsPrivate->options,
+					  kSCPreferencesOptionAllowModelConflict,
+					  (const void **)&val) &&
+	    isA_CFBoolean(val) &&
+	    CFBooleanGetValue(val)) {
+		// if we are preserving configurations with model conflicts
+		return;
+	}
+
+	// check if we need to regenerate the configuration for a new model
+	old_model = CFDictionaryGetValue(prefsPrivate->prefs, MODEL);
+	new_model = _SC_hw_model(FALSE);
+	if ((old_model != NULL) && !_SC_CFEqual(old_model, new_model)) {
+		SC_log(LOG_NOTICE, "Hardware model changed\n"
+				   "  created on \"%@\"\n"
+				   "  now on     \"%@\"",
+		       old_model,
+		       new_model);
+
+		CFDictionaryRemoveAllValues(prefsPrivate->prefs);
+		prefsPrivate->changed = TRUE;
+	}
+
+	return;
 }
 
 
@@ -583,6 +595,11 @@ __SCPreferencesAccess(SCPreferencesRef	prefs)
 
 		prefsPrivate->prefs = CFDictionaryCreateMutableCopy(allocator, 0, dict);
 		CFRelease(dict);
+
+		/*
+		 * check hardware dependency
+		 */
+		processHardwareDependency(prefs);
 	}
 
     done :
@@ -604,7 +621,7 @@ __SCPreferencesAccess(SCPreferencesRef	prefs)
 	}
 
 	SC_log(LOG_DEBUG, "SCPreferences() access: %s, size=%lld",
-	       prefsPrivate->newPath ? prefsPrivate->newPath : prefsPrivate->path,
+	       prefsPrivate->path,
 	       __SCPreferencesPrefsSize(prefs));
 
 	prefsPrivate->accessed = TRUE;
@@ -1407,7 +1424,7 @@ SCPreferencesSynchronize(SCPreferencesRef prefs)
 	}
 
 	SC_log(LOG_DEBUG, "SCPreferences() synchronize: %s",
-	       prefsPrivate->newPath ? prefsPrivate->newPath : prefsPrivate->path);
+	       prefsPrivate->path);
 
 	if (prefsPrivate->authorizationData != NULL) {
 		__SCPreferencesSynchronize_helper(prefs);

@@ -36,6 +36,10 @@
 
 #include "version.h"
 
+#ifdef __APPLE__
+#include <System/sys/codesign.h>
+#endif /* __APPLE__
+
 /**/
 int noexitct = 0;
 
@@ -1315,9 +1319,26 @@ run_init_scripts(void)
 	} else
 	    source("/etc/suid_profile");
     } else {
+int restrict_source = 0;
+#ifdef __APPLE__
+	uint32_t flags = 0;
+	if (!csops(getpid(), CS_OPS_STATUS, &flags, sizeof(flags))) {
+		if (flags & CS_INSTALLER) {
+			restrict_source = 1;
+			fprintf(xtrerr ? xtrerr : stderr,
+					"Refusing to load unsafe zshenv.\n");
+		}
+	} else {
+		fprintf(xtrerr ? xtrerr : stderr,
+				"Failed to fetch code signing information when loading "
+				"zshenv.\n");
+	}
+#endif /* __APPLE__ */
 #ifdef GLOBAL_ZSHENV
-	source(GLOBAL_ZSHENV);
-#endif
+	if (!restrict_source) {
+		source(GLOBAL_ZSHENV);
+	}
+#endif /* GLOBAL_ZSHENV */
 
 	if (isset(RCS) && unset(PRIVILEGED))
 	{
@@ -1332,7 +1353,9 @@ run_init_scripts(void)
 		}
 	    }
 
-	    sourcehome(".zshenv");
+		if (!restrict_source) {
+			sourcehome(".zshenv");
+		}
 	}
 	if (islogin) {
 #ifdef GLOBAL_ZPROFILE

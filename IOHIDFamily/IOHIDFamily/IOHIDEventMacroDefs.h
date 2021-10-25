@@ -1028,6 +1028,12 @@ case kIOHIDEventTypeNULL:\
         case kIOHIDEventFieldIsBuiltIn: \
             ((IOHIDNULLEventData*)event)->options.builtIn = value ? 1 : 0; \
             break; \
+        case kIOHIDEventFieldInterpolated: \
+            ((IOHIDNULLEventData*)event)->options.interpolated = value ? 1 : 0; \
+            break; \
+        case kIOHIDEventFieldInjected: \
+            ((IOHIDNULLEventData*)event)->options.injected = value ? 1 : 0; \
+            break; \
         _IOHIDNULLSetSynthesizedFieldsAsIntegerMacro(event,field) \
     }\
     break;\
@@ -1052,6 +1058,12 @@ case kIOHIDEventTypeNULL:\
             break; \
         case kIOHIDEventFieldIsBuiltIn: \
             value = (typeof(value))CAST_INTEGER_TO_INTEGER(((IOHIDNULLEventData*)event)->options.builtIn); \
+            break; \
+        case kIOHIDEventFieldInterpolated: \
+            value = (typeof(value))CAST_INTEGER_TO_INTEGER(((IOHIDNULLEventData*)event)->options.interpolated); \
+            break; \
+        case kIOHIDEventFieldInjected: \
+            value = (typeof(value))CAST_INTEGER_TO_INTEGER(((IOHIDNULLEventData*)event)->options.injected); \
             break; \
         _IOHIDNULLGetSynthesizedFieldsAsIntegerMacro(event,field) \
     }\
@@ -1078,6 +1090,12 @@ case kIOHIDEventTypeNULL:\
         case kIOHIDEventFieldIsBuiltIn: \
             ((IOHIDNULLEventData*)event)->options.builtIn = value ? 1 : 0; \
             break; \
+        case kIOHIDEventFieldInterpolated: \
+            ((IOHIDNULLEventData*)event)->options.interpolated = value ? 1 : 0; \
+            break; \
+        case kIOHIDEventFieldInjected: \
+            ((IOHIDNULLEventData*)event)->options.injected = value ? 1 : 0; \
+            break; \
         _IOHIDNULLSetSynthesizedFieldsAsDoubleMacro(event,field) \
     }\
     break;\
@@ -1102,6 +1120,12 @@ case kIOHIDEventTypeNULL:\
             break; \
         case kIOHIDEventFieldIsBuiltIn: \
             value = (typeof(value))CAST_INTEGER_TO_DOUBLE(((IOHIDNULLEventData*)event)->options.builtIn); \
+            break; \
+        case kIOHIDEventFieldInterpolated: \
+            value = (typeof(value))CAST_INTEGER_TO_DOUBLE(((IOHIDNULLEventData*)event)->options.interpolated); \
+            break; \
+        case kIOHIDEventFieldInjected: \
+            value = (typeof(value))CAST_INTEGER_TO_DOUBLE(((IOHIDNULLEventData*)event)->options.injected); \
             break; \
         _IOHIDNULLGetSynthesizedFieldsAsDoubleMacro(event,field) \
     }\
@@ -1128,6 +1152,12 @@ case kIOHIDEventTypeNULL:\
         case kIOHIDEventFieldIsBuiltIn: \
             ((IOHIDNULLEventData*)event)->options.builtIn = value ? 1 : 0; \
             break; \
+        case kIOHIDEventFieldInterpolated: \
+            ((IOHIDNULLEventData*)event)->options.interpolated = value ? 1 : 0; \
+            break; \
+        case kIOHIDEventFieldInjected: \
+            ((IOHIDNULLEventData*)event)->options.injected = value ? 1 : 0; \
+            break; \
         _IOHIDNULLSetSynthesizedFieldsAsFixedMacro(event,field) \
     }\
     break;\
@@ -1152,6 +1182,12 @@ case kIOHIDEventTypeNULL:\
             break; \
         case kIOHIDEventFieldIsBuiltIn: \
             value = (typeof(value))CAST_SHORTINTEGER_TO_FIXED(((IOHIDNULLEventData*)event)->options.builtIn); \
+            break; \
+        case kIOHIDEventFieldInterpolated: \
+            value = (typeof(value))CAST_SHORTINTEGER_TO_FIXED(((IOHIDNULLEventData*)event)->options.interpolated); \
+            break; \
+        case kIOHIDEventFieldInjected: \
+            value = (typeof(value))CAST_SHORTINTEGER_TO_FIXED(((IOHIDNULLEventData*)event)->options.injected); \
             break; \
         _IOHIDNULLGetSynthesizedFieldsAsFixedMacro(event,field) \
     }\

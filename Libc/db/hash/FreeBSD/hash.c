@@ -51,6 +51,8 @@ __FBSDID("$FreeBSD: src/lib/libc/db/hash/hash.c,v 1.21 2009/03/28 07:20:39 delph
 #endif
 #include "un-namespace.h"
 
+#include "libc_private.h" // for LIBC_ABORT
+
 #include <db.h>
 #include "hash.h"
 #include "page.h"

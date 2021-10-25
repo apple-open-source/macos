@@ -16,5 +16,7 @@
 	</array>
 	<key>com.apple.private.SkyLight.displaycontrol</key>
 	<true/>
+	<key>com.apple.private.iokit.powerlogging</key>
+	<true/>
 </dict>
 </plist>

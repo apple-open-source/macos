@@ -1,0 +1,4 @@
+,s/\/System\/Library\/Frameworks\/Python/\/@TOPDIR@\/Library\/Frameworks\/Python/
+,s/Python\.framework/@PYAPPNAME@.framework/g
+,s,Versions\/\%s\/Python,Versions/%s/@PYAPPNAME@,g
+w

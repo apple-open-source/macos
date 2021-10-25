@@ -134,6 +134,29 @@
 #endif /* HAS_PARAVIRTUALIZED_PAC */
 .endmacro
 
+/**
+ * PAC_INIT_KEY_STATE
+ *
+ * Sets the initial PAC key state, but does not enable the keys.
+ *
+ *   tmp - scratch register
+ *   tmp2 - scratch register
+ */
+.macro PAC_INIT_KEY_STATE	tmp, tmp2
+#if HAS_PARAVIRTUALIZED_PAC
+#if HIBERNATION
+	#error PAC_INIT_KEY_STATE is not implemented for HAS_PARAVIRTUALIZED_PAC && HIBERNATION
+#endif
+	/*
+	 * This call clobbers x0-x3.  However we only initialize PAC at a point in
+	 * common_start where x0-x3 are safe to clobber, and where we don't yet have
+	 * a working stack to stash the existing values anyway.
+	 */
+	mov		x0, #VMAPPLE_PAC_SET_INITIAL_STATE
+	hvc		#0
+#endif /* HAS_PARAVIRTUALIZED_PAC */
+.endmacro
+
 /* END IGNORE CODESTYLE */
 
 #endif /* defined(HAS_APPLE_PAC) */

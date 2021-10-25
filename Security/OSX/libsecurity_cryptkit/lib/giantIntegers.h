@@ -28,30 +28,18 @@
 extern "C" {
 #endif
 
+#include <inttypes.h>
+
 /*
  * Size of giant digit.
  */
-#if	NeXT || __i386__ || __i486__ || __x86_64__
-
-typedef unsigned int giantDigit;
+typedef uint32_t giantDigit;
 
 /*
  * used to divide by GIANT_BITS_PER_DIGIT via shift - no easy way to get
  * the compiler to calculate this.
  */
 #define GIANT_LOG2_BITS_PER_DIGIT 5
-
-#elif defined(macintosh) || defined(__ppc__)
-
-typedef unsigned int giantDigit;
-#define GIANT_LOG2_BITS_PER_DIGIT	5
-
-#else
-
-typedef unsigned short giantDigit;
-#define GIANT_LOG2_BITS_PER_DIGIT	4
-
-#endif
 
 /* platform-independent digit manipulation macros */
 

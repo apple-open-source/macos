@@ -205,7 +205,7 @@
     [self addNullableSuccessDependency:operation];
 }
 
-- (void)addNullableSuccessDependency:(CKKSResultOperation *)operation {
+- (void)addNullableSuccessDependency:(CKKSResultOperation * _Nullable)operation {
     if(!operation) {
         return;
     }

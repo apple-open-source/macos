@@ -24,32 +24,47 @@
 #include <sys/stat.h>
 #include <errno.h>
 #include <TargetConditionals.h>
+#include <stdbool.h>
 
-#include "libc_private.h"
+#include "_libc_init.h" // for libc_atfork_helper
 
 extern pid_t __fork(void);
+extern pid_t __vfork(void);
 
 static void (*_libSystem_atfork_prepare)(void) = 0;
 static void (*_libSystem_atfork_parent)(void) = 0;
 static void (*_libSystem_atfork_child)(void) = 0;
+static void (*_libSystem_atfork_prepare_v2)(unsigned int flags, ...) = 0;
+static void (*_libSystem_atfork_parent_v2)(unsigned int flags, ...) = 0;
+static void (*_libSystem_atfork_child_v2)(unsigned int flags, ...) = 0;
 
 __private_extern__
 void _libc_fork_init(const struct _libc_functions *funcs)
 {
-	_libSystem_atfork_prepare = funcs->atfork_prepare;
-	_libSystem_atfork_parent = funcs->atfork_parent;
-	_libSystem_atfork_child = funcs->atfork_child;
+	if (funcs->version >= 2) {
+		_libSystem_atfork_prepare_v2 = funcs->atfork_prepare_v2;
+		_libSystem_atfork_parent_v2 = funcs->atfork_parent_v2;
+		_libSystem_atfork_child_v2 = funcs->atfork_child_v2;
+	} else {
+		_libSystem_atfork_prepare = funcs->atfork_prepare;
+		_libSystem_atfork_parent = funcs->atfork_parent;
+		_libSystem_atfork_child = funcs->atfork_child;
+	}
 }
 
-/*
- * fork stub
- */
+static inline __attribute__((always_inline))
 pid_t
-fork(void)
+_do_fork(bool libsystem_atfork_handlers_only)
 {
 	int ret;
-	
-	_libSystem_atfork_prepare();
+
+	int flags = libsystem_atfork_handlers_only ? LIBSYSTEM_ATFORK_HANDLERS_ONLY_FLAG : 0;
+
+	if (_libSystem_atfork_prepare_v2) {
+		_libSystem_atfork_prepare_v2(flags);
+	} else {
+		_libSystem_atfork_prepare();
+	}
 	// Reader beware: this __fork() call is yet another wrapper around the actual syscall
 	// and lives inside libsyscall. The fork syscall needs some cuddling by asm before it's
 	// allowed to see the big wide C world.
@@ -57,18 +72,46 @@ fork(void)
 	if (-1 == ret)
 	{
 		// __fork already set errno for us
-		_libSystem_atfork_parent();
+		if (_libSystem_atfork_parent_v2) {
+			_libSystem_atfork_parent_v2(flags);
+		} else {
+			_libSystem_atfork_parent();
+		}
 		return ret;
 	}
-	
+
 	if (0 == ret)
 	{
 		// We're the child in this part.
-		_libSystem_atfork_child();
+		if (_libSystem_atfork_child_v2) {
+			_libSystem_atfork_child_v2(flags);
+		} else {
+			_libSystem_atfork_child();
+		}
 		return 0;
 	}
-	
-	_libSystem_atfork_parent();
+
+	if (_libSystem_atfork_parent_v2) {
+		_libSystem_atfork_parent_v2(flags);
+	} else {
+		_libSystem_atfork_parent();
+	}
 	return ret;
+}
+
+pid_t
+fork(void)
+{
+	return _do_fork(false);
+}
+
+pid_t
+vfork(void)
+{
+	// vfork() is now just fork().
+	// Skip the API pthread_atfork handlers, but do call our own
+	// Libsystem_atfork handlers. People are abusing vfork in ways where
+	// it matters, e.g. tcsh does all kinds of stuff after the vfork. Sigh.
+	return _do_fork(true);
 }
 

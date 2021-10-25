@@ -32,338 +32,366 @@
 #include <Security/SecBasePriv.h>
 #include <Security/SecAccessControlPriv.h>
 #include <utilities/SecCFError.h>
+#include <Security/SecCFAllocator.h>
 #include <utilities/SecCFWrappers.h>
-#include <utilities/array_size.h>
-#include <ctkclient/ctkclient.h>
-#include <libaks_acl_cf_keys.h>
-#include <coreauthd_spi.h>
+#import <CryptoTokenKit/CryptoTokenKit_Private.h>
+#import <LocalAuthentication/LocalAuthentication_Private.h>
 #include "OSX/sec/Security/SecItemShim.h"
 
 #include "SecECKey.h"
 #include "SecRSAKey.h"
 #include "SecCTKKeyPriv.h"
 
+#include "SecSoftLink.h"
+
 const CFStringRef kSecUseToken = CFSTR("u_Token");
+const CFStringRef kSecUseTokenSession = CFSTR("u_TokenSession");
 
-typedef struct {
-    TKTokenRef token;
-    CFStringRef token_id;
-    CFDataRef object_id;
-    SecCFDictionaryCOW auth_params;
-    SecCFDictionaryCOW attributes;
-    CFMutableDictionaryRef params;
-} SecCTKKeyData;
+@interface SecCTKKey : NSObject<NSCopying>
+@property (nonatomic) TKClientTokenObject *tokenObject;
+@property (nonatomic, readonly) NSDictionary *keychainAttributes;
+@property (nonatomic) NSDictionary *sessionParameters;
+@end
 
-static void SecCTKKeyDestroy(SecKeyRef key) {
-    SecCTKKeyData *kd = key->key;
-    CFReleaseNull(kd->token);
-    CFReleaseNull(kd->token_id);
-    CFReleaseNull(kd->object_id);
-    CFReleaseNull(kd->auth_params.mutable_dictionary);
-    CFReleaseNull(kd->attributes.mutable_dictionary);
-    CFReleaseNull(kd->params);
+@implementation SecCTKKey
+
++ (SecCTKKey *)fromKeyRef:(SecKeyRef)keyRef {
+    return (__bridge SecCTKKey *)keyRef->key;
 }
 
-static CFIndex SecCTKGetAlgorithmID(SecKeyRef key) {
-    SecCTKKeyData *kd = key->key;
-    if (CFEqualSafe(CFDictionaryGetValue(kd->attributes.dictionary, kSecAttrKeyType), kSecAttrKeyTypeECSECPrimeRandom) ||
-        CFEqualSafe(CFDictionaryGetValue(kd->attributes.dictionary, kSecAttrKeyType), kSecAttrKeyTypeECSECPrimeRandomPKA) ||
-        CFEqualSafe(CFDictionaryGetValue(kd->attributes.dictionary, kSecAttrKeyType), kSecAttrKeyTypeSecureEnclaveAttestation)) {
+- (nullable instancetype)initWithAttributes:(NSDictionary *)attributes error:(NSError **)error {
+    if (self = [super init]) {
+        // Get or connect or generate token/session/object.
+        if (_tokenObject == nil) {
+            TKClientTokenSession *session = attributes[(__bridge id)kSecUseTokenSession];
+            if (session == nil) {
+                // Get new session.
+                if (isCryptoTokenKitAvailable()) {
+                    TKClientToken *token = [[getTKClientTokenClass() alloc] initWithTokenID:attributes[(id)kSecAttrTokenID]];
+                    session = [token sessionWithLAContext:attributes[(id)kSecUseAuthenticationContext] error:error];
+                } else {
+                    if (error != nil) {
+                        *error = [NSError errorWithDomain:NSOSStatusErrorDomain code:errSecUnimplemented userInfo:@{NSDebugDescriptionErrorKey: @"CryptoTokenKit is not available"}];
+                    }
+                }
+                if (session == nil) {
+                    return nil;
+                }
+            }
+
+            NSData *objectID = attributes[(id)kSecAttrTokenOID];
+            if (objectID != nil) {
+                // Get actual tokenObject from the session.
+                _tokenObject = [session objectForObjectID:objectID error:error];
+            } else {
+                // Generate new key.
+                NSMutableDictionary *attrs = attributes.mutableCopy;
+                if (attributes[(id)kSecUseAuthenticationContext] != nil) {
+                    // LAContext is passed differently, not by attributes.
+                    [attrs removeObjectForKey:(id)kSecUseAuthenticationContext];
+                }
+                id sac = attributes[(id)kSecAttrAccessControl];
+                if (sac != nil && (CFGetTypeID((__bridge CFTypeRef)sac) == SecAccessControlGetTypeID())) {
+                    // Convert SecAccessControl to NSData format as expected by TKClientToken interface.
+                    sac = CFBridgingRelease(SecAccessControlCopyData((__bridge SecAccessControlRef)sac));
+                    attrs[(id)kSecAttrAccessControl] = sac;
+                }
+                attributes = attrs.copy;
+                _tokenObject = [session createObjectWithAttributes:attributes error:error];
+            }
+
+            if (_tokenObject == nil) {
+                return nil;
+            }
+        }
+
+        _sessionParameters = @{};
+
+        // Get resulting attributes, by merging input attributes from keychain and token object attributes. Keychain attributes have preference.
+        NSMutableDictionary *attrs = self.tokenObject.keychainAttributes.mutableCopy;
+        [attrs addEntriesFromDictionary:attributes];
+
+        // Convert kSecAttrAccessControl from data to CF object if needed.
+        id accc = attrs[(id)kSecAttrAccessControl];
+        if ([accc isKindOfClass:NSData.class]) {
+            accc = CFBridgingRelease(SecAccessControlCreateFromData(kCFAllocatorDefault, (__bridge CFDataRef)accc, (void *)error));
+            if (accc == nil) {
+                return nil;
+            }
+            attrs[(id)kSecAttrAccessControl] = accc;
+        }
+
+        // Remove internal-only attributes.
+        [attrs removeObjectForKey:(id)kSecAttrTokenOID];
+        [attrs removeObjectForKey:(__bridge id)kSecUseTokenSession];
+
+        // Convert some attributes which are stored as numbers in iOS keychain but a lot of code counts that the values
+        // are actually strings as specified by kSecAttrXxx constants.
+        for (id attrName in @[(id)kSecAttrKeyType, (id)kSecAttrKeyClass]) {
+            id value = attrs[attrName];
+            if ([value isKindOfClass:NSNumber.class]) {
+                attrs[attrName] = [value stringValue];
+            }
+        }
+
+        // Sanitize some important attributes.
+        attrs[(id)kSecClass] = (id)kSecClassKey;
+        attrs[(id)kSecAttrKeyClass] = (id)kSecAttrKeyClassPrivate;
+
+        // Store resulting attributes as an immutable dictionary.
+        _keychainAttributes = attrs.copy;
+    }
+
+    return self;
+}
+
+- (instancetype)initFromKey:(SecCTKKey *)source {
+    if (self = [super init]) {
+        _sessionParameters = source.sessionParameters;
+        _keychainAttributes = source.keychainAttributes;
+        _tokenObject = source.tokenObject;
+    }
+
+    return self;
+}
+
+- (nonnull id)copyWithZone:(nullable NSZone *)zone {
+    return [[SecCTKKey alloc] initFromKey:self];
+}
+
+- (nullable id)performOperation:(TKTokenOperation)operation data:(nullable NSData *)data algorithms:(NSArray<NSString *> *)algorithms parameters:(NSDictionary *)parameters error:(NSError **)error {
+    // Check, whether we are not trying to perform the operation with large data.  If yes, explicitly do the check whether
+    // the operation is supported first, in order to avoid jetsam of target extension with operation type which is typically
+    // not supported by the extension at all.
+    // <rdar://problem/31762984> unable to decrypt large data with kSecKeyAlgorithmECIESEncryptionCofactorX963SHA256AESGCM
+    if (data != nil) {
+        if (data.length > 32 * 1024) {
+            id result = [self.tokenObject operation:operation data:nil algorithms:algorithms parameters:parameters error:error];
+            if (result == nil || [result isEqual:NSNull.null]) {
+                // Operation failed or si not supported with specified algorithms.
+                return result;
+            }
+        }
+    }
+
+    return [self.tokenObject operation:operation data:data algorithms:algorithms parameters:parameters error:error];
+}
+
+- (BOOL)isEqual:(id)object {
+    SecCTKKey *other = object;
+    return [self.tokenObject.session.token.tokenID isEqualToString:other.tokenObject.session.token.tokenID] && [self.tokenObject.objectID isEqualToData:other.tokenObject.objectID];
+}
+
+@end
+
+static void SecCTKKeyDestroy(SecKeyRef keyRef) {
+    @autoreleasepool {
+        CFBridgingRelease(keyRef->key);
+    }
+}
+
+static CFIndex SecCTKGetAlgorithmID(SecKeyRef keyRef) {
+    SecCTKKey *key = [SecCTKKey fromKeyRef:keyRef];
+    NSString *keyType = key.tokenObject.keychainAttributes[(id)kSecAttrKeyType];
+    if ([keyType isEqualToString:(id)kSecAttrKeyTypeECSECPrimeRandom] ||
+        [keyType isEqualToString:(id)kSecAttrKeyTypeECSECPrimeRandomPKA] ||
+        [keyType isEqualToString:(id)kSecAttrKeyTypeSecureEnclaveAttestation]) {
         return kSecECDSAAlgorithmID;
     }
     return kSecRSAAlgorithmID;
 }
 
-static SecItemAuthResult SecCTKProcessError(CFStringRef operation, TKTokenRef token, CFDataRef object_id, CFArrayRef *ac_pairs, CFErrorRef *error) {
-    if (CFEqualSafe(CFErrorGetDomain(*error), CFSTR(kTKErrorDomain)) &&
-        CFErrorGetCode(*error) == kTKErrorCodeAuthenticationNeeded &&
-        operation != NULL) {
-        CFDataRef access_control = TKTokenCopyObjectAccessControl(token, object_id, error);
-        if (access_control != NULL) {
-            CFArrayRef ac_pair = CFArrayCreateForCFTypes(NULL, access_control, operation, NULL);
-            CFAssignRetained(*ac_pairs, CFArrayCreateForCFTypes(NULL, ac_pair, NULL));
-
-            CFReleaseNull(*error);
-            CFRelease(ac_pair);
-            CFRelease(access_control);
-            return kSecItemAuthResultNeedAuth;
-        }
-    }
-    return kSecItemAuthResultError;
-}
-
-static TKTokenRef SecCTKKeyCreateToken(SecKeyRef key, CFDictionaryRef auth_params, CFDictionaryRef *last_params, CFErrorRef *error) {
-    TKTokenRef token = NULL;
-    SecCTKKeyData *kd = key->key;
-    SecCFDictionaryCOW attributes = { auth_params };
-    if (kd->params && CFDictionaryGetCount(kd->params) > 0) {
-        CFDictionarySetValue(SecCFDictionaryCOWGetMutable(&attributes), CFSTR(kTKTokenCreateAttributeAuxParams), kd->params);
-    }
-    require_quiet(token = SecTokenCreate(kd->token_id, &attributes, error), out);
-    if (last_params != NULL) {
-        CFAssignRetained(*last_params, auth_params ? CFDictionaryCreateCopy(NULL, auth_params) : NULL);
-    }
-
-out:
-    CFReleaseNull(attributes.mutable_dictionary);
-    return token;
-}
-
-static TKTokenRef SecCTKKeyCopyToken(SecKeyRef key, CFErrorRef *error) {
-    SecCTKKeyData *kd = key->key;
-    TKTokenRef token = CFRetainSafe(kd->token);
-    if (token == NULL) {
-        token = SecCTKKeyCreateToken(key, kd->auth_params.dictionary, NULL, error);
-    }
-    return token;
-}
-
-static CFTypeRef SecCTKKeyCopyOperationResult(SecKeyRef key, SecKeyOperationType operation, SecKeyAlgorithm algorithm,
+static CFTypeRef SecCTKKeyCopyOperationResult(SecKeyRef keyRef, SecKeyOperationType operation, SecKeyAlgorithm algorithm,
                                               CFArrayRef algorithms, SecKeyOperationMode mode,
                                               CFTypeRef in1, CFTypeRef in2, CFErrorRef *error) {
-    SecCTKKeyData *kd = key->key;
-    __block SecCFDictionaryCOW auth_params = { kd->auth_params.dictionary };
-    __block CFDictionaryRef last_params = kd->auth_params.dictionary ? CFDictionaryCreateCopy(NULL, kd->auth_params.dictionary) : NULL;
-    __block TKTokenRef token = CFRetainSafe(kd->token);
-    __block CFTypeRef result = kCFNull;
+    TKTokenOperation tokenOperation;
+    switch (operation) {
+        case kSecKeyOperationTypeSign:
+            tokenOperation = TKTokenOperationSignData;
+            break;
+        case kSecKeyOperationTypeDecrypt:
+            tokenOperation = TKTokenOperationDecryptData;
+            break;
+        case kSecKeyOperationTypeKeyExchange:
+            tokenOperation = TKTokenOperationPerformKeyExchange;
+            break;
+        default:
+            SecError(errSecParam, error, CFSTR("Invalid key operation %d"), (int)operation);
+            return nil;
+    }
 
-    CFErrorRef localError = NULL;
-    SecItemAuthDo(&auth_params, &localError, ^SecItemAuthResult(CFArrayRef *ac_pairs, CFErrorRef *error) {
-        if (!CFEqualSafe(last_params, auth_params.dictionary) || token == NULL) {
-            // token was not connected yet or auth_params were modified, so reconnect the token in order to update the attributes.
-            CFAssignRetained(token, SecCTKKeyCreateToken(key, auth_params.dictionary, &last_params, error));
-            if (token == NULL) {
-                return kSecItemAuthResultError;
-            }
-        }
-
-        result = kCFBooleanTrue;
-        if (mode == kSecKeyOperationModePerform) {
-            // Check, whether we are not trying to perform the operation with large data.  If yes, explicitly do the check whether
-            // the operation is supported first, in order to avoid jetsam of target extension with operation type which is typically
-            // not supported by the extension at all.
-            // <rdar://problem/31762984> unable to decrypt large data with kSecKeyAlgorithmECIESEncryptionCofactorX963SHA256AESGCM
-            CFIndex inputSize = 0;
-            if (in1 != NULL && CFGetTypeID(in1) == CFDataGetTypeID()) {
-                inputSize += CFDataGetLength(in1);
-            }
-            if (in2 != NULL && CFGetTypeID(in2) == CFDataGetTypeID()) {
-                inputSize += CFDataGetLength(in2);
-            }
-            if (inputSize > 32 * 1024) {
-                result = TKTokenCopyOperationResult(token, kd->object_id, operation, algorithms, kSecKeyOperationModeCheckIfSupported,
-                                                    NULL, NULL, error);
-            }
-        }
-
-        if (CFEqualSafe(result, kCFBooleanTrue)) {
-            result = TKTokenCopyOperationResult(token, kd->object_id, operation, algorithms, mode, in1, in2, error);
-        }
-
-        if (result != NULL) {
-            return kSecItemAuthResultOK;
-        }
-
-        CFStringRef AKSOperation = NULL;
-        switch (operation) {
-            case kSecKeyOperationTypeSign:
-                AKSOperation = kAKSKeyOpSign;
-                break;
-            case kSecKeyOperationTypeDecrypt: {
-                AKSOperation = kAKSKeyOpDecrypt;
-                if (in2 != NULL && CFGetTypeID(in2) == CFDictionaryGetTypeID() && CFDictionaryGetValue(in2, kSecKeyEncryptionParameterRecryptCertificate) != NULL) {
-                    // This is actually recrypt operation, which is special separate AKS operation.
-                    AKSOperation = kAKSKeyOpECIESTranscode;
-                }
-                break;
-            }
-            case kSecKeyOperationTypeKeyExchange:
-                AKSOperation = kAKSKeyOpComputeKey;
-                break;
-            default:
-                break;;
-        }
-        return SecCTKProcessError(AKSOperation, token, kd->object_id, ac_pairs, error);
-    }, ^{
-        CFAssignRetained(token, SecCTKKeyCreateToken(key, auth_params.dictionary, &last_params, NULL));
-    });
-
-    CFErrorPropagate(localError, error);
-    CFReleaseNull(auth_params.mutable_dictionary);
-    CFReleaseNull(token);
-    CFReleaseNull(last_params);
-    return result;
+    SecCTKKey *key = [SecCTKKey fromKeyRef:keyRef];
+    key.tokenObject.session.authenticateWhenNeeded = YES;
+    NSError *err;
+    id result = [key.tokenObject operation:tokenOperation data:(__bridge NSData *)in1 algorithms:(__bridge NSArray *)algorithms parameters:(__bridge NSDictionary *)in2 error:&err];
+    if (result == nil && error != NULL) {
+        *error = (CFErrorRef)CFBridgingRetain(err);
+    }
+    return CFBridgingRetain(result);
 }
 
-static size_t SecCTKKeyBlockSize(SecKeyRef key) {
-    SecCTKKeyData *kd = key->key;
-    CFTypeRef keySize = CFDictionaryGetValue(kd->attributes.dictionary, kSecAttrKeySizeInBits);
-    if (CFGetTypeID(keySize) == CFNumberGetTypeID()) {
-        CFIndex bitSize;
-        if (CFNumberGetValue(keySize, kCFNumberCFIndexType, &bitSize))
-            return (bitSize + 7) / 8;
+static size_t SecCTKKeyBlockSize(SecKeyRef keyRef) {
+    SecCTKKey *key = [SecCTKKey fromKeyRef:keyRef];
+    NSNumber *bitSize = key.keychainAttributes[(id)kSecAttrKeySizeInBits];
+    if ([bitSize isKindOfClass:NSNumber.class]) {
+        return (bitSize.integerValue + 7) / 8;
     }
 
     return 0;
 }
 
-static OSStatus SecCTKKeyCopyPublicOctets(SecKeyRef key, CFDataRef *data) {
-    OSStatus status = errSecSuccess;
-    CFErrorRef error = NULL;
-    CFDataRef publicData = NULL;
-    TKTokenRef token = NULL;
-
-    SecCTKKeyData *kd = key->key;
-    require_action_quiet(token = SecCTKKeyCopyToken(key, &error), out, status = SecErrorGetOSStatus(error));
-    require_action_quiet(publicData = TKTokenCopyPublicKeyData(token, kd->object_id, &error), out,
-                         status = SecErrorGetOSStatus(error));
-    *data = publicData;
-
-out:
-    CFReleaseSafe(error);
-    CFReleaseSafe(token);
-    return status;
+static OSStatus SecCTKKeyCopyPublicOctets(SecKeyRef keyRef, CFDataRef *data) {
+    SecCTKKey *key = [SecCTKKey fromKeyRef:keyRef];
+    *data = CFBridgingRetain(key.tokenObject.publicKey);
+    return errSecSuccess;
 }
 
-static CFStringRef SecCTKKeyCopyKeyDescription(SecKeyRef key) {
-    SecCTKKeyData *kd = key->key;
-    return CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("<SecKeyRef:('%@') %p>"),
-                                    CFDictionaryGetValue(kd->attributes.dictionary, kSecAttrTokenID), key);
+static CFStringRef SecCTKKeyCopyKeyDescription(SecKeyRef keyRef) {
+    SecCTKKey *key = [SecCTKKey fromKeyRef:keyRef];
+    NSString *tokenID = key.keychainAttributes[(id)kSecAttrTokenID] ?: @"uninited";
+    NSString *description = [NSString stringWithFormat:@"<SecKeyRef:('%@') %p>", tokenID, keyRef];
+    return CFBridgingRetain(description);
 }
 
-// Attributes allowed to be exported from all internal key attributes.
-static const CFStringRef *kSecExportableCTKKeyAttributes[] = {
-    &kSecClass,
-    &kSecAttrTokenID,
-    &kSecAttrKeyClass,
-    &kSecAttrAccessControl,
-    &kSecAttrIsPrivate,
-    &kSecAttrIsModifiable,
-    &kSecAttrKeyType,
-    &kSecAttrKeySizeInBits,
-    &kSecAttrEffectiveKeySize,
-    &kSecAttrIsSensitive,
-    &kSecAttrWasAlwaysSensitive,
-    &kSecAttrIsExtractable,
-    &kSecAttrWasNeverExtractable,
-    &kSecAttrCanEncrypt,
-    &kSecAttrCanDecrypt,
-    &kSecAttrCanDerive,
-    &kSecAttrCanSign,
-    &kSecAttrCanVerify,
-    &kSecAttrCanSignRecover,
-    &kSecAttrCanVerifyRecover,
-    &kSecAttrCanWrap,
-    &kSecAttrCanUnwrap,
-    NULL
-};
+static CFDictionaryRef SecCTKKeyCopyAttributeDictionary(SecKeyRef keyRef) {
+    static NSArray<NSString *> *exportableAttributes;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        exportableAttributes = @[
+            (id)kSecClass,
+            (id)kSecAttrTokenID,
+            (id)kSecAttrKeyClass,
+            (id)kSecAttrAccessControl,
+            (id)kSecAttrIsPrivate,
+            (id)kSecAttrIsModifiable,
+            (id)kSecAttrKeyType,
+            (id)kSecAttrKeySizeInBits,
+            (id)kSecAttrEffectiveKeySize,
+            (id)kSecAttrIsSensitive,
+            (id)kSecAttrWasAlwaysSensitive,
+            (id)kSecAttrIsExtractable,
+            (id)kSecAttrWasNeverExtractable,
+            (id)kSecAttrCanEncrypt,
+            (id)kSecAttrCanDecrypt,
+            (id)kSecAttrCanDerive,
+            (id)kSecAttrCanSign,
+            (id)kSecAttrCanVerify,
+            (id)kSecAttrCanSignRecover,
+            (id)kSecAttrCanVerifyRecover,
+            (id)kSecAttrCanWrap,
+            (id)kSecAttrCanUnwrap,
+        ];
+    });
 
-static CFDictionaryRef SecCTKKeyCopyAttributeDictionary(SecKeyRef key) {
-    CFMutableDictionaryRef attrs = NULL;
-    CFErrorRef error = NULL;
-    CFDataRef publicData = NULL, digest = NULL;
-    TKTokenRef token = NULL;
-    SecCTKKeyData *kd = key->key;
+    SecCTKKey *key = [SecCTKKey fromKeyRef:keyRef];
+    NSMutableDictionary *attrs = [[NSMutableDictionary alloc] init];
+    for (NSString *attrName in exportableAttributes) {
+        id value = key.keychainAttributes[attrName];
+        if (value != nil) {
+            attrs[attrName] = value;
+        }
+    }
 
     // Encode ApplicationLabel as SHA1 digest of public key bytes.
-    require_quiet(token = SecCTKKeyCopyToken(key, &error), out);
-    require_quiet(publicData = TKTokenCopyPublicKeyData(token, kd->object_id, &error), out);
-
-    // Calculate the digest of the public key.
-    require_quiet(digest = SecSHA1DigestCreate(NULL, CFDataGetBytePtr(publicData), CFDataGetLength(publicData)), out);
-    attrs = CFDictionaryCreateMutableForCFTypes(CFGetAllocator(key));
-    CFDictionarySetValue(attrs, kSecAttrApplicationLabel, digest);
-
-    for (const CFStringRef **attrKey = &kSecExportableCTKKeyAttributes[0]; *attrKey != NULL; attrKey++) {
-        CFTypeRef value = CFDictionaryGetValue(kd->attributes.dictionary, **attrKey);
-        if (value != NULL) {
-            CFDictionarySetValue(attrs, **attrKey, value);
-        }
-    }
+    NSData *publicKey = key.tokenObject.publicKey;
+    attrs[(id)kSecAttrApplicationLabel] = CFBridgingRelease(SecSHA1DigestCreate(kCFAllocatorDefault, publicKey.bytes, publicKey.length));
 
     // Consistently with existing RSA and EC software keys implementation, mark all keys as permanent ones.
-    CFDictionarySetValue(attrs, kSecAttrIsPermanent, kCFBooleanTrue);
+    attrs[(id)kSecAttrIsPermanent] = @YES;
 
     // Always export token_id and object_id.
-    CFDictionarySetValue(attrs, kSecAttrTokenID, kd->token_id);
-    CFDictionarySetValue(attrs, kSecAttrTokenOID, kd->object_id);
+    attrs[(id)kSecAttrTokenID] = key.tokenObject.session.token.tokenID;
+    attrs[(id)kSecAttrTokenOID] = key.tokenObject.objectID;
 
-out:
-    CFReleaseSafe(error);
-    CFReleaseSafe(publicData);
-    CFReleaseSafe(digest);
-    CFReleaseSafe(token);
-    return attrs;
+    // Return immutable copy of created dictionary.
+    return CFBridgingRetain(attrs.copy);
 }
 
-static SecKeyRef SecCTKKeyCreateDuplicate(SecKeyRef key);
+static SecKeyRef SecCTKKeyCreateDuplicate(SecKeyRef keyRef);
 
-static Boolean SecCTKKeySetParameter(SecKeyRef key, CFStringRef name, CFPropertyListRef value, CFErrorRef *error) {
-    SecCTKKeyData *kd = key->key;
-    CFTypeRef acm_reference = NULL;
+static LAContext *processAuthParameters(NSMutableDictionary *parameters) {
+    LAContext *authContext;
+    for (NSString *name in parameters.copy) {
+        id value = parameters[name];
+        if ([name isEqual:(id)kSecUseAuthenticationContext]) {
+            authContext = value;
+            [parameters removeObjectForKey:name];
+        }
 
-    static const CFStringRef *const knownUseFlags[] = {
-        &kSecUseOperationPrompt,
-        &kSecUseAuthenticationContext,
-        &kSecUseAuthenticationUI,
-        &kSecUseCallerName,
-        &kSecUseCredentialReference,
-    };
+        if ([name isEqual:(id)kSecUseCredentialReference]) {
+            if (isLocalAuthenticationAvailable()) {
+                authContext = [[getLAContextClass() alloc] initWithExternalizedContext:value];
+            }
+            [parameters removeObjectForKey:name];
+        }
 
-    // Check, whether name is part of known use flags.
-    bool isUseFlag = false;
-    for (size_t i = 0; i < array_size(knownUseFlags); i++) {
-        if (CFEqual(*knownUseFlags[i], name)) {
-            isUseFlag = true;
-            break;
+#if !TARGET_OS_WATCH && !TARGET_OS_TV
+        if ([name isEqual:(id)kSecUseOperationPrompt]) {
+            if (isLocalAuthenticationAvailable()) {
+                authContext = authContext ?: [[getLAContextClass() alloc] init];
+                authContext.localizedReason = value;
+            }
+            [parameters removeObjectForKey:name];
+        }
+#endif
+
+        if (isLocalAuthenticationAvailable() && [name isEqual:(id)kSecUseCallerName]) {
+            if (isLocalAuthenticationAvailable()) {
+                authContext = authContext ?: [[getLAContextClass() alloc] init];
+                authContext.optionCallerName = value;
+            }
+            [parameters removeObjectForKey:name];
+        }
+
+        if ([name isEqual:(id)kSecUseAuthenticationUI]) {
+            if (isLocalAuthenticationAvailable()) {
+                authContext = authContext ?: [[getLAContextClass() alloc] init];
+                authContext.optionNotInteractive = @([value isEqual:(id)kSecUseAuthenticationUIFail]);
+            }
+            [parameters removeObjectForKey:name];
         }
     }
 
-    if (CFEqual(name, kSecUseAuthenticationContext)) {
-        // Preprocess LAContext to ACMRef value.
-        if (value != NULL) {
-            require_quiet(acm_reference = LACopyACMContext(value, error), out);
-            value = acm_reference;
-        }
-        name = kSecUseCredentialReference;
-    }
+    return authContext;
+}
 
-    // Release existing token connection to enforce creation of new connection with new params.
-    CFReleaseNull(kd->token);
+static Boolean SecCTKKeySetParameter(SecKeyRef keyRef, CFStringRef name, CFPropertyListRef value, CFErrorRef *error) {
+    SecCTKKey *key = [SecCTKKey fromKeyRef:keyRef];
+    NSMutableDictionary *parameters = key.sessionParameters.mutableCopy;
+    parameters[(__bridge id)name] = (__bridge id)value;
+    LAContext *authContext = processAuthParameters(parameters);
 
-    if (isUseFlag) {
-        if (value != NULL) {
-            CFDictionarySetValue(SecCFDictionaryCOWGetMutable(&kd->auth_params), name, value);
-        } else {
-            CFDictionaryRemoveValue(SecCFDictionaryCOWGetMutable(&kd->auth_params), name);
-        }
+    // Reconnect token object.
+    NSError *err;
+    TKClientTokenObject *object;
+    if (isCryptoTokenKitAvailable()) {
+        TKClientTokenSession *session = [[getTKClientTokenSessionClass() alloc] initWithToken:key.tokenObject.session.token LAContext:authContext parameters:parameters error:&err];
+        object = [session objectForObjectID:key.tokenObject.objectID error:&err];
     } else {
-        if (kd->params == NULL) {
-            kd->params = CFDictionaryCreateMutableForCFTypes(kCFAllocatorDefault);
+        err = [NSError errorWithDomain:NSOSStatusErrorDomain code:errSecUnimplemented userInfo:@{NSDebugDescriptionErrorKey: @"CryptoTokenKit is not available"}];
+    }
+    if (object == nil) {
+        if (error != NULL) {
+            *error = (CFErrorRef)CFBridgingRetain(err);
         }
-        if (value != NULL) {
-            CFDictionarySetValue(kd->params, name, value);
-        } else {
-            CFDictionaryRemoveValue(kd->params, name);
-        }
+        return false;
     }
 
-out:
-    CFReleaseSafe(acm_reference);
-    return TRUE;
+    key.sessionParameters = parameters;
+    key.tokenObject = object;
+
+    return true;
 }
 
-static Boolean SecCTKKeyIsEqual(SecKeyRef key1, SecKeyRef key2) {
-    SecCTKKeyData *kd1 = key1->key;
-    SecCTKKeyData *kd2 = key2->key;
-
-    return CFEqual(kd1->token_id, kd2->token_id) && CFEqual(kd1->object_id, kd2->object_id);
+static Boolean SecCTKKeyIsEqual(SecKeyRef keyRef1, SecKeyRef keyRef2) {
+    SecCTKKey *key1 = [SecCTKKey fromKeyRef:keyRef1];
+    SecCTKKey *key2 = [SecCTKKey fromKeyRef:keyRef2];
+    return [key1 isEqual:key2];
 }
 
 static SecKeyDescriptor kSecCTKKeyDescriptor = {
     .version = kSecKeyDescriptorVersion,
     .name = "CTKKey",
-    .extraBytes = sizeof(SecCTKKeyData),
 
     .destroy = SecCTKKeyDestroy,
     .blockSize = SecCTKKeyBlockSize,
@@ -377,151 +405,71 @@ static SecKeyDescriptor kSecCTKKeyDescriptor = {
     .setParameter = SecCTKKeySetParameter,
 };
 
-static SecKeyRef SecCTKKeyCreateDuplicate(SecKeyRef key) {
-    SecKeyRef result = SecKeyCreate(CFGetAllocator(key), &kSecCTKKeyDescriptor, 0, 0, 0);
-    SecCTKKeyData *kd = key->key, *rd = result->key;
-    rd->token = CFRetainSafe(kd->token);
-    rd->object_id = CFRetainSafe(kd->object_id);
-    rd->token_id = CFRetainSafe(kd->token_id);
-    if (kd->attributes.dictionary != NULL) {
-        rd->attributes.dictionary = kd->attributes.dictionary;
-        SecCFDictionaryCOWGetMutable(&rd->attributes);
-    }
-    if (kd->auth_params.dictionary != NULL) {
-        rd->auth_params.dictionary = kd->auth_params.dictionary;
-        SecCFDictionaryCOWGetMutable(&rd->auth_params);
-    }
+static SecKeyRef SecCTKKeyCreateDuplicate(SecKeyRef keyRef) {
+    SecCTKKey *sourceKey = [SecCTKKey fromKeyRef:keyRef];
+    SecKeyRef result = SecKeyCreate(CFGetAllocator(keyRef), &kSecCTKKeyDescriptor, 0, 0, 0);
+    result->key = (void *)CFBridgingRetain(sourceKey.copy);
     return result;
 }
 
 SecKeyRef SecKeyCreateCTKKey(CFAllocatorRef allocator, CFDictionaryRef refAttributes, CFErrorRef *error) {
-    SecKeyRef result = NULL;
-    SecKeyRef key = SecKeyCreate(allocator, &kSecCTKKeyDescriptor, 0, 0, 0);
-    SecCTKKeyData *kd = key->key;
-    kd->token = CFRetainSafe(CFDictionaryGetValue(refAttributes, kSecUseToken));
-    kd->object_id = CFRetainSafe(CFDictionaryGetValue(refAttributes, kSecAttrTokenOID));
-    kd->token_id = CFRetainSafe(CFDictionaryGetValue(refAttributes, kSecAttrTokenID));
-    kd->attributes.dictionary = refAttributes;
-    CFDictionaryRemoveValue(SecCFDictionaryCOWGetMutable(&kd->attributes), kSecUseToken);
-    CFDictionaryRemoveValue(SecCFDictionaryCOWGetMutable(&kd->attributes), kSecAttrTokenOID);
-    SecItemAuthCopyParams(&kd->auth_params, &kd->attributes);
-    if (CFDictionaryGetValue(kd->attributes.dictionary, kSecAttrIsPrivate) == NULL) {
-        CFDictionarySetValue(SecCFDictionaryCOWGetMutable(&kd->attributes), kSecAttrIsPrivate, kCFBooleanTrue);
-    }
-
-    CFMutableDictionaryRef attrs = NULL;
-    if (kd->token == NULL) {
-        require_quiet(kd->token = SecCTKKeyCopyToken(key, error), out);
-        if (kd->token != NULL) {
-            attrs = CFDictionaryCreateMutableCopy(kCFAllocatorDefault, 0, kd->attributes.dictionary);
-            CFAssignRetained(kd->object_id, TKTokenCreateOrUpdateObject(kd->token, kd->object_id, attrs, error));
-            require_quiet(kd->object_id, out);
-            CFDictionaryForEach(attrs, ^(const void *key, const void *value) {
-                CFDictionaryAddValue(SecCFDictionaryCOWGetMutable(&kd->attributes), key, value);
-            });
-            
-            CFTypeRef accc = CFDictionaryGetValue(kd->attributes.dictionary, kSecAttrAccessControl);
-            if (accc && CFDataGetTypeID() == CFGetTypeID(accc)) {
-                SecAccessControlRef ac = SecAccessControlCreateFromData(kCFAllocatorDefault, accc, error);
-                require_quiet(ac, out);
-                CFDictionarySetValue(SecCFDictionaryCOWGetMutable(&kd->attributes), kSecAttrAccessControl, ac);
-                CFRelease(ac);
-            }
-            CFDictionaryRemoveValue(SecCFDictionaryCOWGetMutable(&kd->attributes), kSecAttrTokenOID);
+    SecKeyRef keyRef = SecKeyCreate(allocator, &kSecCTKKeyDescriptor, 0, 0, 0);
+    NSError *err;
+    SecCTKKey *key = [[SecCTKKey alloc] initWithAttributes:(__bridge NSDictionary *)refAttributes error:&err];
+    if (key == nil) {
+        if (error != NULL) {
+            *error = (CFErrorRef)CFBridgingRetain(err);
         }
-        require_quiet(kd->token != NULL && kd->object_id != NULL, out);
+        return NULL;
     }
 
-    // Convert some attributes which are stored as numbers in iOS keychain but a lot of code counts that the values
-    // are actually strings as specified by kSecAttrXxx constants.
-    static const CFStringRef *numericAttributes[] = {
-        &kSecAttrKeyType,
-        &kSecAttrKeyClass,
-        NULL,
-    };
-
-    for (const CFStringRef **attrName = &numericAttributes[0]; *attrName != NULL; attrName++) {
-        CFTypeRef value = CFDictionaryGetValue(kd->attributes.dictionary, **attrName);
-        if (value != NULL && CFGetTypeID(value) == CFNumberGetTypeID()) {
-            CFIndex number;
-            if (CFNumberGetValue(value, kCFNumberCFIndexType, &number)) {
-                CFStringRef newValue = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("%ld"), (long)number);
-                if (newValue != NULL) {
-                    CFDictionarySetValue(SecCFDictionaryCOWGetMutable(&kd->attributes), **attrName, newValue);
-                    CFRelease(newValue);
-                }
-            }
-        }
-    }
-
-    // Sanitize some important attributes.
-    CFDictionarySetValue(SecCFDictionaryCOWGetMutable(&kd->attributes), kSecClass, kSecClassKey);
-    CFDictionarySetValue(SecCFDictionaryCOWGetMutable(&kd->attributes), kSecAttrKeyClass, kSecAttrKeyClassPrivate);
-
-    result = (SecKeyRef)CFRetain(key);
-
-out:
-    CFReleaseSafe(attrs);
-    CFReleaseSafe(key);
-    return result;
+    keyRef->key = (void *)CFBridgingRetain(key);
+    return keyRef;
 }
 
 OSStatus SecCTKKeyGeneratePair(CFDictionaryRef parameters, SecKeyRef *publicKey, SecKeyRef *privateKey) {
-    OSStatus status;
-    __block SecCFDictionaryCOW attrs = { NULL };
-    CFDataRef publicData = NULL;
+    if (publicKey == NULL || privateKey == NULL) {
+        return errSecParam;
+    }
 
-    require_action_quiet(publicKey != NULL, out, status = errSecParam);
-    require_action_quiet(privateKey != NULL, out, status = errSecParam);
-
-    // Simply adding key on the token without value will cause the token to generate the key.
-    // Prepare dictionary specifying item to add.
-    attrs.dictionary = CFDictionaryGetValue(parameters, kSecPrivateKeyAttrs);
-
-    CFDictionaryForEach(parameters, ^(const void *key, const void *value) {
-        if (!CFEqual(key, kSecPrivateKeyAttrs) && !CFEqual(key, kSecPublicKeyAttrs)) {
-            CFDictionarySetValue(SecCFDictionaryCOWGetMutable(&attrs), key, value);
-        }
-    });
-    CFDictionaryRemoveValue(SecCFDictionaryCOWGetMutable(&attrs), kSecValueData);
-    CFDictionarySetValue(SecCFDictionaryCOWGetMutable(&attrs), kSecClass, kSecClassKey);
-    CFDictionarySetValue(SecCFDictionaryCOWGetMutable(&attrs), kSecAttrKeyClass, kSecAttrKeyClassPrivate);
-    CFDictionarySetValue(SecCFDictionaryCOWGetMutable(&attrs), kSecReturnRef, kCFBooleanTrue);
-
-    // Do not automatically store tke key into the keychain, caller will do it on its own if it is really requested.
-    CFDictionarySetValue(SecCFDictionaryCOWGetMutable(&attrs), kSecAttrIsPermanent, kCFBooleanFalse);
-
-    // Add key from given attributes to the token (having no data will cause the token to actually generate the key).
-    require_noerr_quiet(status = SecItemAdd(attrs.dictionary, (CFTypeRef *)privateKey), out);
+    // Generate new key from given parameters.
+    NSMutableDictionary *params = [(__bridge NSDictionary *)parameters mutableCopy];
+    NSDictionary *privateAttrs = params[(id)kSecPrivateKeyAttrs] ?: @{};
+    [params removeObjectForKey:(id)kSecPrivateKeyAttrs];
+    [params removeObjectForKey:(id)kSecPublicKeyAttrs];
+    NSMutableDictionary *attrs = privateAttrs.mutableCopy;
+    [attrs addEntriesFromDictionary:params];
+    NSError *error;
+    SecCTKKey *key = [[SecCTKKey alloc] initWithAttributes:attrs error:&error];
+    if (key == nil) {
+        return SecErrorGetOSStatus((__bridge CFErrorRef)error);
+    }
 
     // Create non-token public key.
-    require_noerr_quiet(status = SecCTKKeyCopyPublicOctets(*privateKey, &publicData), out);
-    if (CFEqualSafe(CFDictionaryGetValue(parameters, kSecAttrKeyType), kSecAttrKeyTypeEC) ||
-        CFEqualSafe(CFDictionaryGetValue(parameters, kSecAttrKeyType), kSecAttrKeyTypeECSECPrimeRandomPKA) ||
-        CFEqualSafe(CFDictionaryGetValue(parameters, kSecAttrKeyType), kSecAttrKeyTypeSecureEnclaveAttestation)) {
-        *publicKey = SecKeyCreateECPublicKey(NULL, CFDataGetBytePtr(publicData), CFDataGetLength(publicData),
-                                             kSecKeyEncodingBytes);
-    } else if (CFEqualSafe(CFDictionaryGetValue(parameters, kSecAttrKeyType), kSecAttrKeyTypeRSA)) {
-        *publicKey = SecKeyCreateRSAPublicKey(NULL, CFDataGetBytePtr(publicData), CFDataGetLength(publicData),
-                                              kSecKeyEncodingBytes);
-    }
-
-    if (*publicKey != NULL) {
-        status = errSecSuccess;
+    NSData *publicKeyData = key.tokenObject.publicKey;
+    id keyType = key.tokenObject.keychainAttributes[(id)kSecAttrKeyType];
+    if ([keyType isEqual:(id)kSecAttrKeyTypeECSECPrimeRandom] || [keyType isEqual:(id)kSecAttrKeyTypeECSECPrimeRandomPKA] || [keyType isEqual:(id)kSecAttrKeyTypeSecureEnclaveAttestation]) {
+        *publicKey = SecKeyCreateECPublicKey(SecCFAllocatorZeroize(), publicKeyData.bytes, publicKeyData.length, kSecKeyEncodingBytes);
     } else {
-        status = errSecInvalidKey;
-        CFReleaseNull(*privateKey);
+        *publicKey = SecKeyCreateRSAPublicKey(SecCFAllocatorZeroize(), publicKeyData.bytes, publicKeyData.length, kSecKeyEncodingBytes);
     }
 
-out:
-    CFReleaseSafe(attrs.mutable_dictionary);
-    CFReleaseSafe(publicData);
-    return status;
+    if (*publicKey == NULL) {
+        return errSecInvalidKey;
+    }
+
+    *privateKey = SecKeyCreate(kCFAllocatorDefault, &kSecCTKKeyDescriptor, 0, 0, 0);
+    (*privateKey)->key = (void *)CFBridgingRetain(key);
+    return errSecSuccess;
 }
 
 const CFStringRef kSecKeyParameterSETokenAttestationNonce = CFSTR("com.apple.security.seckey.setoken.attestation-nonce");
 
 SecKeyRef SecKeyCopyAttestationKey(SecKeyAttestationKeyType keyType, CFErrorRef *error) {
+    return SecKeyCopySystemKey((SecKeySystemKeyType)keyType, error);
+}
+
+SecKeyRef SecKeyCopySystemKey(SecKeySystemKeyType keyType, CFErrorRef *error) {
     CFDictionaryRef attributes = NULL;
     CFDataRef object_id = NULL;
     SecKeyRef key = NULL;
@@ -547,36 +495,47 @@ SecKeyRef SecKeyCopyAttestationKey(SecKeyAttestationKeyType keyType, CFErrorRef 
     // [[TKTLVBERRecord alloc] initWithPropertyList:[@"com.apple.setoken.dakp" dataUsingEncoding:NSUTF8StringEncoding]].data
     static const uint8_t dakProposedObjectIDBytes[] = { 0x04, 22, 'c', 'o', 'm', '.', 'a', 'p', 'p', 'l', 'e', '.', 's', 'e', 't', 'o', 'k', 'e', 'n', '.', 'd', 'a', 'k', 'p' };
 
+    // [[TKTLVBERRecord alloc] initWithPropertyList:[@"com.apple.setoken.havenc" dataUsingEncoding:NSUTF8StringEncoding]].data
+    static const uint8_t havenCommittedObjectIDBytes[] = { 0x04, 24, 'c', 'o', 'm', '.', 'a', 'p', 'p', 'l', 'e', '.', 's', 'e', 't', 'o', 'k', 'e', 'n', '.', 'h', 'a', 'v', 'e', 'n', 'c' };
+    // [[TKTLVBERRecord alloc] initWithPropertyList:[@"com.apple.setoken.havenp" dataUsingEncoding:NSUTF8StringEncoding]].data
+    static const uint8_t havenProposedObjectIDBytes[] = { 0x04, 24, 'c', 'o', 'm', '.', 'a', 'p', 'p', 'l', 'e', '.', 's', 'e', 't', 'o', 'k', 'e', 'n', '.', 'h', 'a', 'v', 'e', 'n', 'p' };
+
     CFStringRef token = kSecAttrTokenIDAppleKeyStore;
     
     switch (keyType) {
-        case kSecKeyAttestationKeyTypeSIK:
+        case kSecKeySystemKeyTypeSIK:
             object_id = CFDataCreate(kCFAllocatorDefault, sikObjectIDBytes, sizeof(sikObjectIDBytes));
             break;
-        case kSecKeyAttestationKeyTypeGID:
+        case kSecKeySystemKeyTypeGID:
             object_id = CFDataCreate(kCFAllocatorDefault, gidObjectIDBytes, sizeof(gidObjectIDBytes));
             break;
-        case kSecKeyAttestationKeyTypeUIKCommitted:
+        case kSecKeySystemKeyTypeUIKCommitted:
             object_id = CFDataCreate(kCFAllocatorDefault, uikCommittedObjectIDBytes, sizeof(uikCommittedObjectIDBytes));
             break;
-        case kSecKeyAttestationKeyTypeUIKProposed:
+        case kSecKeySystemKeyTypeUIKProposed:
             object_id = CFDataCreate(kCFAllocatorDefault, uikProposedObjectIDBytes, sizeof(uikProposedObjectIDBytes));
             break;
-        case kSecKeyAttestationKeyTypeSecureElement:
+        case kSecKeySystemKeyTypeSecureElement:
             object_id = CFDataCreate(kCFAllocatorDefault, casdObjectIDBytes, sizeof(casdObjectIDBytes));
             token = kSecAttrTokenIDSecureElement;
             break;
-        case kSecKeyAttestationKeyTypeOIKCommitted:
+        case kSecKeySystemKeyTypeOIKCommitted:
             object_id = CFDataCreate(kCFAllocatorDefault, oikCommittedObjectIDBytes, sizeof(uikCommittedObjectIDBytes));
             break;
-        case kSecKeyAttestationKeyTypeOIKProposed:
+        case kSecKeySystemKeyTypeOIKProposed:
             object_id = CFDataCreate(kCFAllocatorDefault, oikProposedObjectIDBytes, sizeof(uikProposedObjectIDBytes));
             break;
-        case kSecKeyAttestationKeyTypeDAKCommitted:
+        case kSecKeySystemKeyTypeDAKCommitted:
             object_id = CFDataCreate(kCFAllocatorDefault, dakCommittedObjectIDBytes, sizeof(uikCommittedObjectIDBytes));
             break;
-        case kSecKeyAttestationKeyTypeDAKProposed:
+        case kSecKeySystemKeyTypeDAKProposed:
             object_id = CFDataCreate(kCFAllocatorDefault, dakProposedObjectIDBytes, sizeof(uikProposedObjectIDBytes));
+            break;
+        case kSecKeySystemKeyTypeHavenCommitted:
+            object_id = CFDataCreate(kCFAllocatorDefault, havenCommittedObjectIDBytes, sizeof(havenCommittedObjectIDBytes));
+            break;
+        case kSecKeySystemKeyTypeHavenProposed:
+            object_id = CFDataCreate(kCFAllocatorDefault, havenProposedObjectIDBytes, sizeof(havenProposedObjectIDBytes));
             break;
         default:
             SecError(errSecParam, error, CFSTR("unexpected attestation key type %d"), (int)keyType);
@@ -587,7 +546,7 @@ SecKeyRef SecKeyCopyAttestationKey(SecKeyAttestationKeyType keyType, CFErrorRef 
                                               kSecAttrTokenOID, object_id,
                                               kSecAttrTokenID, token,
                                               NULL);
-    key = SecKeyCreateCTKKey(kCFAllocatorDefault, attributes, error);
+    key = SecKeyCreateCTKKey(SecCFAllocatorZeroize(), attributes, error);
 
 out:
     CFReleaseSafe(attributes);
@@ -595,93 +554,56 @@ out:
     return key;
 }
 
-CFDataRef SecKeyCreateAttestation(SecKeyRef key, SecKeyRef keyToAttest, CFErrorRef *error) {
-    __block CFDictionaryRef attributes = NULL, outputAttributes = NULL;
-    CFDataRef attestationData = NULL;
-    CFErrorRef localError = NULL;
-    SecCTKKeyData *attestingKeyData = key->key;
-    SecCTKKeyData *keyToAttestData = keyToAttest->key;
-    __block TKTokenRef token = NULL;
+CFDataRef SecKeyCreateAttestation(SecKeyRef keyRef, SecKeyRef toAttestKeyRef, CFErrorRef *error) {
+    SecCTKKey *key = [SecCTKKey fromKeyRef:keyRef];
+    SecCTKKey *keyToAttest = [SecCTKKey fromKeyRef:toAttestKeyRef];
 
-    if (error == NULL) {
-        error = &localError;
+    if (keyRef->key_class != &kSecCTKKeyDescriptor) {
+        SecError(errSecUnsupportedOperation, error, CFSTR("attestation not supported by key %@"), keyRef);
+        return NULL;
+    }
+    if (toAttestKeyRef->key_class != &kSecCTKKeyDescriptor) {
+        SecError(errSecUnsupportedOperation, error, CFSTR("attestation not supported for key %@"), toAttestKeyRef);
+        return NULL;
     }
 
-    __block SecCFDictionaryCOW auth_params = { keyToAttestData->auth_params.dictionary };
-
-    require_action_quiet(key->key_class == &kSecCTKKeyDescriptor, out,
-                         SecError(errSecUnsupportedOperation, error, CFSTR("attestation not supported by key %@"), key));
-    require_action_quiet(keyToAttest->key_class == &kSecCTKKeyDescriptor, out,
-                         SecError(errSecUnsupportedOperation, error, CFSTR("attestation not supported for key %@"), keyToAttest));
-
-    attributes = CFDictionaryCreateForCFTypes(kCFAllocatorDefault,
-                                              CFSTR(kTKTokenControlAttribAttestingKey), attestingKeyData->object_id,
-                                              CFSTR(kTKTokenControlAttribKeyToAttest), keyToAttestData->object_id,
-                                              NULL);
-
-    bool ok = SecItemAuthDo(&auth_params, error, ^SecItemAuthResult(CFArrayRef *ac_pairs, CFErrorRef *error) {
-        if (auth_params.mutable_dictionary != NULL || token == NULL) {
-            CFAssignRetained(token, SecCTKKeyCopyToken(key, error));
-            if (token == NULL) {
-                return kSecItemAuthResultError;
-            }
+    NSError *err;
+    NSData *attestation = [key.tokenObject attestKey:keyToAttest.tokenObject.objectID nonce:key.sessionParameters[(__bridge id)kSecKeyParameterSETokenAttestationNonce] error:&err];
+    if (attestation == nil) {
+        if (error != NULL) {
+            *error = (CFErrorRef)CFBridgingRetain(err);
         }
+        return NULL;
+    }
 
-        outputAttributes = TKTokenControl(token, attributes, error);
-        return outputAttributes ? kSecItemAuthResultOK : SecCTKProcessError(kAKSKeyOpAttest, keyToAttestData->token, keyToAttestData->object_id, ac_pairs, error);
-    }, NULL);
-    require_quiet(ok, out);
-    require_action_quiet(attestationData = CFRetainSafe(CFDictionaryGetValue(outputAttributes, CFSTR(kTKTokenControlAttribAttestationData))),
-                         out, SecError(errSecInternal, error, CFSTR("could not get attestation data")));
-
-out:
-    CFReleaseSafe(attributes);
-    CFReleaseSafe(outputAttributes);
-    CFReleaseSafe(localError);
-    CFReleaseSafe(auth_params.mutable_dictionary);
-    CFReleaseSafe(token);
-    return attestationData;
+    return CFBridgingRetain(attestation);
 }
 
-Boolean SecKeyControlLifetime(SecKeyRef key, SecKeyControlLifetimeType type, CFErrorRef *error) {
-    NSError *localError;
-    __block id token;
-    if (error == NULL) {
-        error = (void *)&localError;
+Boolean SecKeyControlLifetime(SecKeyRef keyRef, SecKeyControlLifetimeType type, CFErrorRef *error) {
+    if (keyRef->key_class != &kSecCTKKeyDescriptor) {
+        return SecError(errSecUnsupportedOperation, error, CFSTR("lifetimecontrol not supported for key %@"), keyRef);
     }
 
-    SecCTKKeyData *keyData = key->key;
-    NSDictionary *attributes = @{
-        @kTKTokenControlAttribLifetimeControlKey: (__bridge NSData *)keyData->object_id,
-        @kTKTokenControlAttribLifetimeType: @(type),
-    };
-
-    if (key->key_class != &kSecCTKKeyDescriptor) {
-        return SecError(errSecUnsupportedOperation, error, CFSTR("lifetimecontrol not supported for key %@"), key);
+    BOOL result;
+    NSError *err;
+    SecCTKKey *key = [SecCTKKey fromKeyRef:keyRef];
+    switch (type) {
+        case kSecKeyControlLifetimeTypeBump:
+            result = [key.tokenObject bumpKeyWithError:&err];
+            break;
+        case kSecKeyControlLifetimeTypeCommit:
+            result = [key.tokenObject commitKeyWithError:&err];
+            break;
+        default:
+            return SecError(errSecParam, error, CFSTR("Unsupported lifetime operation %d requested"), (int)type);
     }
 
-    __block SecCFDictionaryCOW auth_params = { keyData->auth_params.dictionary };
-    return SecItemAuthDo(&auth_params, error, ^SecItemAuthResult(CFArrayRef *ac_pairs, CFErrorRef *error) {
-        if (auth_params.mutable_dictionary != NULL || token == NULL) {
-            token = CFBridgingRelease(SecCTKKeyCopyToken(key, error));
-            if (token == nil) {
-                return kSecItemAuthResultError;
-            }
+    if (!result) {
+        if (error != NULL) {
+            *error = (CFErrorRef)CFBridgingRetain(err);
         }
-
-        NSDictionary *outputAttributes = CFBridgingRelease(TKTokenControl((__bridge TKTokenRef)token, (__bridge CFDictionaryRef)attributes, error));
-        return outputAttributes ? kSecItemAuthResultOK : kSecItemAuthResultError;
-    }, NULL);
-}
-
-void SecCTKKeySetTestMode(CFStringRef tokenID, CFTypeRef enable) {
-    CFErrorRef error = NULL;
-    CFDictionaryRef options = CFDictionaryCreateForCFTypes(kCFAllocatorDefault, kSecAttrTokenID, tokenID, @kTKTokenCreateAttributeTestMode, enable, nil);
-    TKTokenRef token = TKTokenCreate(options, &error);
-    if (token == NULL) {
-        secerror("Failed to set token attributes %@: error %@", options, error);
+        return false;
     }
-    CFReleaseNull(options);
-    CFReleaseNull(error);
-    CFReleaseNull(token);
+
+    return true;
 }

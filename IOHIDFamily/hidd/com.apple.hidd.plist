@@ -2,8 +2,6 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<key>KeepAlive</key>
-	<false/>
 	<key>Label</key>
 	<string>com.apple.hidd</string>
 	<key>EnableTransactions</key>
@@ -21,6 +19,8 @@
 	</dict>
 	<key>EnablePressuredExit</key>
 	<true/>
+	<key>_LimitLoadFromVariant</key>
+	<string>IsDarwinOS</string>
 	<key>ProgramArguments</key>
 	<array>
 		<string>/usr/libexec/hidd</string>

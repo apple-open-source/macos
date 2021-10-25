@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020 Apple Inc. All rights reserved.
+ * Copyright (c) 2020, 2021 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -389,7 +389,7 @@ create_hidden_interface(u_char ea_unique)
 - (BOOL)unitTestInsertRemoveOneInterface
 {
 	NSString		*bsdName1	= nil;
-	BOOL			ok;
+	BOOL			ok		= TRUE;
 	SCTestInterfaceNamer	*test;
 
 	test = [[SCTestInterfaceNamer alloc] initWithOptions:self.options];
@@ -443,7 +443,7 @@ create_hidden_interface(u_char ea_unique)
 		NSString		*bsdName;
 		IOEthernetControllerRef	controller;
 	} interfaces[N_INTERFACES]			= { { } };
-	BOOL				ok;
+	BOOL				ok		= TRUE;
 	SCTestInterfaceNamer		*test;
 
 	test = [[SCTestInterfaceNamer alloc] initWithOptions:self.options];
@@ -619,7 +619,7 @@ create_hidden_interface(u_char ea_unique)
 			 *
 			 * So, let's just check/wait.
 			 */
-			ret = IOKitWaitQuiet(kIOMasterPortDefault, &waitTime);
+			ret = IOKitWaitQuiet(kIOMainPortDefault, &waitTime);
 			if (ret == kIOReturnSuccess) {
 				if (hasNamer) {
 					SCTestLog("*** configd/InterfaceNamer released before quiet");
@@ -714,6 +714,7 @@ create_hidden_interface(u_char ea_unique)
 		SCTestLog("Verified \"%@\"", en0);
 	}
 
+	CFRelease(en0);
 	return ok;
 }
 

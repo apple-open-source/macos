@@ -1,5 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
-// License & terms of use: http://www.unicode.org/copyright.html#License
+// License & terms of use: http://www.unicode.org/copyright.html
+// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
 mni_Mtei{
     %%Parent{"root"}
     Languages{
@@ -9,7 +10,6 @@ mni_Mtei{
         Beng{"ꯕꯪꯂꯥ"}
         Mtei{"ꯃꯤꯇꯩ ꯃꯌꯦꯛ"}
     }
-    Version{"36.1"}
     localeDisplayPattern{
         keyTypePattern{"{0}: {1}"}
         pattern{"{0} ({1})"}

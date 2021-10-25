@@ -40,15 +40,6 @@
 	</dict>
 	<key>Sockets</key>
 	<dict>
-		<key>BSDSystemLogger</key>
-		<dict>
-			<key>SockPathName</key>
-			<string>/var/run/syslog</string>
-			<key>SockType</key>
-			<string>dgram</string>
-			<key>SockPathMode</key>
-			<integer>438</integer>
-		</dict>
 <!--
 	Un-comment the following lines to enable the network syslog protocol listener.
 -->

@@ -6,5 +6,7 @@
 	<true/>
 	<key>com.apple.rootless.datavault.metadata</key>
 	<true/>
+	<key>com.apple.private.LiveFS.connection</key>
+	<true/>
 </dict>
 </plist>

@@ -78,6 +78,13 @@
 
                     // Don't touch the CDP or account states; those can carry over
 
+                    metadata.voucher = nil;
+                    metadata.voucherSignature = nil;
+                    metadata.tlkSharesForVouchedIdentitys = nil;
+                    metadata.isInheritedAccount = NO;
+                    metadata.warmedEscrowCache = NO;
+                    metadata.warnedTooManyPeers = NO;
+
                     return metadata;
                 } error:&localError];
 

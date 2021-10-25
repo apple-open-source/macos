@@ -1,5 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
-// License & terms of use: http://www.unicode.org/copyright.html#License
+// License & terms of use: http://www.unicode.org/copyright.html
+// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
 trv{
     Countries{
         AQ{"alang Nanci"}
@@ -26,5 +27,4 @@ trv{
         US{"alang Amarika"}
         ZZ{"ini klayi na alang ni"}
     }
-    Version{"36.1"}
 }

@@ -190,11 +190,18 @@ static IOHIDEventRef _Nullable  __HIDVirtualServiceClientCopyMatchingEventCallba
 
 - (BOOL) dispatchEvent: (HIDEvent *) event
 {
+    if (!self.serviceClient) {
+        return false;
+    }
     return IOHIDVirtualServiceClientDispatchEvent ((__bridge IOHIDServiceClientRef) self.serviceClient, (IOHIDEventRef) event);
 }
 
 - (uint64_t) serviceID
 {
+    if (!self.serviceClient) {
+        return 0;
+    }
+
     NSNumber * senderID = (NSNumber *)IOHIDServiceClientGetRegistryID ((__bridge IOHIDServiceClientRef) self.serviceClient);
     return [senderID unsignedLongLongValue];
 }

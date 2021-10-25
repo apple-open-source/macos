@@ -76,6 +76,20 @@ NSXPCInterface* OTSetupControlProtocol(NSXPCInterface* interface) {
         [interface setClasses:errorClasses forSelector:@selector(setUserControllableViewsSyncStatus:contextID:enabled:reply:) argumentIndex:1 ofReply:YES];
         [interface setClasses:errorClasses forSelector:@selector(fetchUserControllableViewsSyncStatus:contextID:reply:) argumentIndex:1 ofReply:YES];
         [interface setClasses:errorClasses forSelector:@selector(resetAccountCDPContents:contextID:reply:) argumentIndex:0 ofReply:YES];
+        [interface setClasses:errorClasses forSelector:@selector(setLocalSecureElementIdentity:contextID:secureElementIdentity:reply:) argumentIndex:0 ofReply:YES];
+        [interface setClasses:errorClasses forSelector:@selector(removeLocalSecureElementIdentityPeerID:contextID:secureElementIdentityPeerID:reply:) argumentIndex:0 ofReply:YES];
+        [interface setClasses:errorClasses forSelector:@selector(fetchTrustedSecureElementIdentities:contextID:reply:) argumentIndex:1 ofReply:YES];
+        [interface setClasses:errorClasses forSelector:@selector(waitForPriorityViewKeychainDataRecovery:contextID:reply:) argumentIndex:0 ofReply:YES];
+        [interface setClasses:errorClasses forSelector:@selector(createCustodianRecoveryKey:contextID:uuid:reply:) argumentIndex:1 ofReply:YES];
+        [interface setClasses:errorClasses forSelector:@selector(joinWithCustodianRecoveryKey:contextID:custodianRecoveryKey:reply:) argumentIndex:0 ofReply:YES];
+        [interface setClasses:errorClasses forSelector:@selector(preflightJoinWithCustodianRecoveryKey:contextID:custodianRecoveryKey:reply:) argumentIndex:0 ofReply:YES];
+        [interface setClasses:errorClasses forSelector:@selector(removeCustodianRecoveryKey:contextID:uuid:reply:) argumentIndex:0 ofReply:YES];
+        [interface setClasses:errorClasses forSelector:@selector(createInheritanceKey:contextID:uuid:reply:) argumentIndex:1 ofReply:YES];
+        [interface setClasses:errorClasses forSelector:@selector(generateInheritanceKey:contextID:uuid:reply:) argumentIndex:1 ofReply:YES];
+        [interface setClasses:errorClasses forSelector:@selector(storeInheritanceKey:contextID:ik:reply:) argumentIndex:0 ofReply:YES];
+        [interface setClasses:errorClasses forSelector:@selector(joinWithInheritanceKey:contextID:inheritanceKey:reply:) argumentIndex:0 ofReply:YES];
+        [interface setClasses:errorClasses forSelector:@selector(preflightJoinWithInheritanceKey:contextID:inheritanceKey:reply:) argumentIndex:0 ofReply:YES];
+        [interface setClasses:errorClasses forSelector:@selector(removeInheritanceKey:contextID:uuid:reply:) argumentIndex:0 ofReply:YES];
     }
     @catch(NSException* e) {
         secerror("OTSetupControlProtocol failed, continuing, but you might crash later: %@", e);

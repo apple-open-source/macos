@@ -1070,7 +1070,7 @@ static void emit_head(request_rec *r, char *header_fname, int suppress_amble,
                     emit_H1 = 1;
                 }
             }
-            else if (!strncasecmp("text/", rr->content_type, 5)) {
+            else if (!ap_cstr_casecmpn("text/", rr->content_type, 5)) {
                 /*
                  * If we can open the file, prefix it with the preamble
                  * regardless; since we'll be sending a <pre> block around
@@ -1165,7 +1165,7 @@ static void emit_tail(request_rec *r, char *readme_fname, int suppress_amble)
                     suppress_post = suppress_amble;
                 }
             }
-            else if (!strncasecmp("text/", rr->content_type, 5)) {
+            else if (!ap_cstr_casecmpn("text/", rr->content_type, 5)) {
                 /*
                  * If we can open the file, suppress the signature.
                  */
@@ -1517,6 +1517,7 @@ static void output_directories(struct ent **ar, int n,
     char *breakrow = "";
 
     apr_pool_create(&scratch, r->pool);
+    apr_pool_tag(scratch, "autoindex_scratch");
 
     name_width = d->name_width;
     desc_width = d->desc_width;

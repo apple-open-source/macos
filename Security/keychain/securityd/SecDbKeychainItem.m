@@ -29,6 +29,8 @@
 
 #include "keychain/securityd/SecDbKeychainItem.h"
 
+#include "keychain/ot/OTConstants.h"
+
 #import "SecInternalReleasePriv.h"
 #include "keychain/securityd/SecItemSchema.h"
 #include "keychain/securityd/SecItemServer.h"
@@ -312,6 +314,12 @@ bool ks_encrypt_data(keybag_handle_t keybag, SecAccessControlRef _Nullable acces
 
 bool ks_encrypt_data_with_backupuuid(keybag_handle_t keybag, SecAccessControlRef _Nullable access_control, CFDataRef _Nullable acm_context,
                      CFDictionaryRef _Nonnull secretData, CFDictionaryRef _Nonnull attributes, CFDictionaryRef _Nonnull authenticated_attributes, CFDataRef _Nonnull *pBlob, CFDataRef _Nullable *bkUUID, bool useDefaultIV, CFErrorRef *error) {
+    uint32_t encryption_version;
+    if (ks_is_key_diversification_enabled()) {
+        encryption_version = 8;
+    } else {
+        encryption_version = 7;
+    }
     if (keybag != KEYBAG_DEVICE) {
         ks_warn_non_device_keybag();
 
@@ -329,12 +337,6 @@ bool ks_encrypt_data_with_backupuuid(keybag_handle_t keybag, SecAccessControlRef
         return false;
     }
 
-    if (SecAccessControlGetConstraints(access_control)) {
-        NSMutableDictionary* allAttributes = [(__bridge NSDictionary*)attributes mutableCopy];
-        [allAttributes addEntriesFromDictionary:(__bridge NSDictionary*_Nonnull)secretData];
-        return ks_encrypt_data_legacy(keybag, access_control, acm_context, (__bridge CFDictionaryRef _Nonnull)allAttributes, authenticated_attributes, pBlob, useDefaultIV, error);
-    }
-
     bool success = false;
     @autoreleasepool {
         NSMutableDictionary* metadataAttributes = attributes ? [(__bridge NSDictionary*)attributes mutableCopy] : [NSMutableDictionary dictionary];
@@ -348,7 +350,7 @@ bool ks_encrypt_data_with_backupuuid(keybag_handle_t keybag, SecAccessControlRef
         NSData* encryptedBlob = [item encryptedBlobWithKeybag:keybag accessControl:access_control acmContext:(__bridge NSData*)acm_context error:&localError];
         if (encryptedBlob) {
             NSMutableData* encryptedBlobWithVersion = [NSMutableData dataWithLength:encryptedBlob.length + sizeof(uint32_t)];
-            *((uint32_t*)encryptedBlobWithVersion.mutableBytes) = (uint32_t)7;
+            *((uint32_t*)encryptedBlobWithVersion.mutableBytes) = encryption_version;
             memcpy((uint32_t*)encryptedBlobWithVersion.mutableBytes + 1, encryptedBlob.bytes, encryptedBlob.length);
             *pBlob = (__bridge_retained CFDataRef)encryptedBlobWithVersion;
             if (bkUUID && item.backupUUID) {    // TODO: Failing this should turn into at least a stern warning at some point
@@ -433,7 +435,11 @@ bool ks_decrypt_data(keybag_handle_t keybag, CFTypeRef cryptoOp, SecAccessContro
     if (version >= 7) {
         @autoreleasepool {
             NSError* localError = nil;
+            bool keyDiversify = false;
             NSData* encryptedBlob = [NSData dataWithBytes:cursor length:blobLen];
+            if (version >= 8) {
+                keyDiversify = true;
+            }
             SecDbKeychainItemV7* item = [[SecDbKeychainItemV7 alloc] initWithData:encryptedBlob decryptionKeybag:keybag error:&localError];
             if (outKeyclass) {
                 *outKeyclass = item.keyclass;
@@ -444,22 +450,26 @@ bool ks_decrypt_data(keybag_handle_t keybag, CFTypeRef cryptoOp, SecAccessContro
                 NSData* accessControlData = itemAttributes[@"SecAccessControl"];
                 access_control = SecAccessControlCreateFromData(NULL, (__bridge CFDataRef)accessControlData, error);
                 [itemAttributes removeObjectForKey:@"SecAccessControl"];
-
-                if (decryptSecretData) {
-                    NSDictionary* secretAttributes = [item secretAttributesWithAcmContext:(__bridge NSData*)acm_context accessControl:access_control callerAccessGroups:(__bridge NSArray*)caller_access_groups error:&localError];
-                    if (secretAttributes) {
-                        [itemAttributes addEntriesFromDictionary:secretAttributes];
-                    }
-                    else {
-                        ok = false;
+                if (CFEqual(kAKSKeyOpDelete, cryptoOp)) {
+                    ok = [item deleteWithAcmContext:(__bridge NSData*)acm_context accessControl:access_control callerAccessGroups:(__bridge NSArray*)caller_access_groups keyDiversify:keyDiversify error:&localError];
+                } else {
+                    /* Should also try and decrypt if there are ACL contraints */
+                    if (decryptSecretData || SecAccessControlGetConstraints(access_control)) {
+                        NSDictionary* secretAttributes = [item secretAttributesWithAcmContext:(__bridge NSData*)acm_context accessControl:access_control callerAccessGroups:(__bridge NSArray*)caller_access_groups keyDiversify:keyDiversify error:&localError];
+                        if (secretAttributes) {
+                            if (decryptSecretData) {
+                                [itemAttributes addEntriesFromDictionary:secretAttributes];
+                            }
+                        } else {
+                            ok = false;
+                            if (localError.code == errSecDecode && version == 8) {
+                                secerror("ks_decrypt_data failed to decrypt secretdata: version %u mismatch with content", version);
+                            }
+                        }
                     }
                 }
 
                 if (ok) {
-                    if (CFEqual(kAKSKeyOpDelete, cryptoOp)) {
-                        ok = [item deleteWithAcmContext:(__bridge NSData*)acm_context accessControl:access_control callerAccessGroups:(__bridge NSArray*)caller_access_groups error:&localError];
-                    }
-
                     attributes = (__bridge_retained CFMutableDictionaryRef)itemAttributes;
                 }
             }
@@ -1163,19 +1173,48 @@ SecDbItemRef SecDbItemCreateWithBackupDictionary(const SecDbClass *dbclass, CFDi
 }
 
 bool SecDbItemExtractRowIdFromBackupDictionary(SecDbItemRef item, CFDictionaryRef dict, CFErrorRef *error) {
-    CFDataRef ref = CFDictionaryGetValue(dict, CFSTR("v_PersistentRef"));
+    CFDataRef ref = CFDictionaryGetValue(dict, kSecValuePersistentRef);
     if (!ref)
         return SecError(errSecDecode, error, CFSTR("No v_PersistentRef in backup dictionary %@"), dict);
 
-    CFStringRef className;
+    CFStringRef className = NULL;
     sqlite3_int64 rowid;
-    if (!_SecItemParsePersistentRef(ref, &className, &rowid, NULL))
+    if (!_SecItemParsePersistentRef(ref, &className, &rowid, NULL, NULL))
         return SecError(errSecDecode, error, CFSTR("v_PersistentRef %@ failed to decode"), ref);
 
     if (!CFEqual(SecDbItemGetClass(item)->name, className))
         return SecError(errSecDecode, error, CFSTR("v_PersistentRef has unexpected class %@"), className);
-
+    
     return SecDbItemSetRowId(item, rowid, error);
+}
+
+bool SecDbItemExtractUUIDPersistentRefFromBackupDictionary(SecDbItemRef item, CFDictionaryRef dict, CFErrorRef *error) {
+    CFDataRef ref = CFDictionaryGetValue(dict, kSecValuePersistentRef);
+    if (!ref) {
+        return SecError(errSecDecode, error, CFSTR("No v_PersistentRef in backup dictionary %@"), dict);
+    }
+    
+    CFStringRef className = NULL;
+    CFDataRef uuid = NULL;
+    sqlite3_int64 rowid;
+    if (!_SecItemParsePersistentRef(ref, &className, &rowid, &uuid, NULL)) {
+        CFReleaseNull(uuid);
+        return SecError(errSecDecode, error, CFSTR("v_PersistentRef %@ failed to decode"), ref);
+    }
+    
+    if (!CFEqual(SecDbItemGetClass(item)->name, className)) {
+        CFReleaseNull(uuid);
+        return SecError(errSecDecode, error, CFSTR("v_PersistentRef has unexpected class %@"), className);
+    }
+
+    bool isSet = false;
+    if (uuid && CFDataGetLength(uuid) == PERSISTENT_REF_UUID_BYTES_LENGTH) {
+        isSet = SecDbItemSetPersistentRef(item, uuid, error);
+    }
+
+    CFReleaseNull(uuid);
+
+    return isSet;
 }
 
 static CFDataRef SecDbItemCopyDERWithMask(SecDbItemRef item, CFOptionFlags mask, CFErrorRef *error) {
@@ -1507,8 +1546,7 @@ static const uint8_t* der_decode_set_with_repair(CFAllocatorRef allocator,
         return NULL;
     }
 
-    CFMutableSetRef theSet = (set && *set) ? CFSetCreateMutableCopy(allocator, 0, *set)
-                                           : CFSetCreateMutable(allocator, 0, &kCFTypeSetCallBacks);
+    CFMutableSetRef theSet = CFSetCreateMutable(allocator, 0, &kCFTypeSetCallBacks);
 
     if (NULL == theSet) {
         SecCFDERCreateError(kSecDERErrorAllocationFailure, CFSTR("Failed to create set"), NULL, error);
@@ -1529,7 +1567,7 @@ static const uint8_t* der_decode_set_with_repair(CFAllocatorRef allocator,
     
     
 exit:
-    if (set && payload == payload_end) {
+    if (payload == payload_end) {
         CFTransferRetained(*set, theSet);
     }
     

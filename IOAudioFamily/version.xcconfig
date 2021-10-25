@@ -3,10 +3,16 @@
 //  IOAudioFamily
 //
 //  Created by Mike Mckenna on 10/31/13.
-//  Copyright 2000-2019 Apple Inc. All rights reserved.
+//  Copyright 2000-2021 Apple Inc. All rights reserved.
 //
 
-AE_CONCISE_VERSION = 300.6.1
+// RC_ProjectSourceVersion is set by:
+//  - B&I using the git tag
+//  - B&I will populate it as 9999.99.99 if there is no tag (when building eng/PR-XXX branches)
+//  - buildit by passing in a version, i.e.
+//    sudo xcrun -sdk macosx.internal xbs buildit --codesign --update PrevailingStar --project IOAudioFamily-500 .
+// This will default to 8888.88.88 for local builds
+AE_CONCISE_VERSION = ${RC_ProjectSourceVersion}
 
 MODULE_VERSION = ${AE_CONCISE_VERSION}
 
@@ -16,4 +22,4 @@ INFOPLIST_PREPROCESS = YES
 
 OTHER_CFLAGS = -DPROJECT_NAME=\"$(TARGET)\" -DPROJECT_VERSION=\"${AE_CONCISE_VERSION}\"
 
-AE_COPYRIGHT_END = 2020
+AE_COPYRIGHT_END = 2021

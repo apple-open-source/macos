@@ -92,7 +92,7 @@ CFStringRef
 SecServerBackupGetKeybagUUID(CFDictionaryRef keychain, CFErrorRef *error);
 
 
-#if TARGET_OS_IPHONE
+#if KEYCHAIN_SUPPORTS_SINGLE_DATABASE_MULTIUSER
 bool SecServerDeleteAllForUser(SecDbConnectionRef dbt, CFDataRef musrView, bool keepU, CFErrorRef *error);
 #endif
 OSStatus SecServerDeleteForAppClipApplicationIdentifier(CFStringRef identifier);

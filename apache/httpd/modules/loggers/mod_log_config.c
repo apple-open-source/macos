@@ -473,7 +473,7 @@ static APR_INLINE char *find_multiple_headers(apr_pool_t *pool,
     result_list = rp = NULL;
 
     do {
-        if (!strcasecmp(t_elt->key, key)) {
+        if (!ap_cstr_casecmp(t_elt->key, key)) {
             if (!result_list) {
                 result_list = rp = apr_palloc(pool, sizeof(*rp));
             }
@@ -517,10 +517,10 @@ static const char *log_header_out(request_rec *r, char *a)
 {
     const char *cp = NULL;
 
-    if (!strcasecmp(a, "Content-type") && r->content_type) {
+    if (!ap_cstr_casecmp(a, "Content-type") && r->content_type) {
         cp = ap_field_noparam(r->pool, r->content_type);
     }
-    else if (!strcasecmp(a, "Set-Cookie")) {
+    else if (!ap_cstr_casecmp(a, "Set-Cookie")) {
         cp = find_multiple_headers(r->pool, r->headers_out, a);
     }
     else {
@@ -576,7 +576,7 @@ static const char *log_cookie(request_rec *r, char *a)
                     --last;
                 }
 
-                if (!strcasecmp(name, a)) {
+                if (!ap_cstr_casecmp(name, a)) {
                     /* last1 points to the next char following the ';' delim,
                        or the trailing NUL char of the string */
                     last = last1 - (*last1 ? 2 : 1);
@@ -1172,11 +1172,9 @@ static int config_log_transaction(request_rec *r, config_log_state *cls,
 
     for (i = 0; i < format->nelts; ++i) {
         strs[i] = process_item(r, orig, &items[i]);
-    }
-
-    for (i = 0; i < format->nelts; ++i) {
         len += strl[i] = strlen(strs[i]);
     }
+
     if (!log_writer) {
         ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(00645)
                 "log writer isn't correctly setup");

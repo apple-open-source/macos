@@ -44,6 +44,7 @@
 #include <bsm/libbsm.h>
 #include <servers/bootstrap.h>
 #include <os/trace_private.h>
+#include <sandbox.h>
 
 #include "pathwatch.h"
 #include "service.h"
@@ -369,8 +370,8 @@ fprint_quick_status(FILE *f)
 	fprintf(f, "portproc     alloc %9u   free %9u   extant %9u\n", global.notify_state.stat_portproc_alloc , global.notify_state.stat_portproc_free, global.notify_state.stat_portproc_alloc - global.notify_state.stat_portproc_free);
 	fprintf(f, "\n");
 
-	fprintf(f, "port count   %u\n", global.notify_state.port_table.count);
-	fprintf(f, "proc count   %u\n", global.notify_state.proc_table.count);
+	fprintf(f, "port count   %u\n", os_set_count(&global.notify_state.port_table.set));
+	fprintf(f, "proc count   %u\n", os_set_count(&global.notify_state.proc_table.set));
 	fprintf(f, "\n");
 
 	fprintf(f, "--- NAME TABLE ---\n");
@@ -383,7 +384,7 @@ fprint_quick_status(FILE *f)
 		return true;
 	});
 
-	fprintf(f, "--- NAME COUNT %u ---\n", global.notify_state.name_table.count);
+	fprintf(f, "--- NAME COUNT %u ---\n", os_set_count(&global.notify_state.name_table.set));
 	fprintf(f, "\n");
 
 	fprintf(f, "--- CONTROLLED NAME ---\n");
@@ -422,7 +423,7 @@ fprint_quick_status(FILE *f)
 		return true;
 	});
 
-	fprintf(f, "--- PUBLIC SERVICE COUNT %u ---\n", global.notify_state.name_table.count);
+	fprintf(f, "--- PUBLIC SERVICE COUNT %u ---\n", os_set_count(&global.notify_state.name_table.set));
 	fprintf(f, "\n");
 
 	fprintf(f, "--- PRIVATE SERVICE ---\n");
@@ -449,7 +450,7 @@ fprint_quick_status(FILE *f)
 		return true;
 	});
 
-	fprintf(f, "--- PRIVATE SERVICE COUNT %u ---\n", global.notify_state.client_table.count);
+	fprintf(f, "--- PRIVATE SERVICE COUNT %u ---\n", os_set_count(&global.notify_state.client_table.set));
 	fprintf(f, "\n");
 
 }
@@ -524,8 +525,8 @@ fprint_status(FILE *f)
 	fprintf(f, "portproc     alloc %9u   free %9u   extant %9u\n", global.notify_state.stat_portproc_alloc , global.notify_state.stat_portproc_free, global.notify_state.stat_portproc_alloc - global.notify_state.stat_portproc_free);
 	fprintf(f, "\n");
 
-	fprintf(f, "port count   %u\n", global.notify_state.port_table.count);
-	fprintf(f, "proc count   %u\n", global.notify_state.proc_table.count);
+	fprintf(f, "port count   %u\n", os_set_count(&global.notify_state.port_table.set));
+	fprintf(f, "proc count   %u\n", os_set_count(&global.notify_state.proc_table.set));
 	fprintf(f, "\n");
 
 	fprintf(f, "--- NAME TABLE ---\n");
@@ -537,7 +538,7 @@ fprint_status(FILE *f)
 		return true;
 	});
 
-	fprintf(f, "--- NAME COUNT %u ---\n", global.notify_state.name_table.count);
+	fprintf(f, "--- NAME COUNT %u ---\n", os_set_count(&global.notify_state.name_table.set));
 	fprintf(f, "\n");
 
 	fprintf(f, "--- SUBSCRIPTION TABLE ---\n");
@@ -548,7 +549,7 @@ fprint_status(FILE *f)
 		return true;
 	});
 
-	fprintf(f, "--- SUBSCRIPTION COUNT %u ---\n", global.notify_state.client_table.count);
+	fprintf(f, "--- SUBSCRIPTION COUNT %u ---\n", os_set_count(&global.notify_state.client_table.set));
 	fprintf(f, "\n");
 
 	fprintf(f, "--- CONTROLLED NAME ---\n");
@@ -587,7 +588,7 @@ fprint_status(FILE *f)
 		return true;
 	});
 
-	fprintf(f, "--- PUBLIC SERVICE COUNT %u ---\n", global.notify_state.name_table.count);
+	fprintf(f, "--- PUBLIC SERVICE COUNT %u ---\n", os_set_count(&global.notify_state.name_table.set));
 	fprintf(f, "\n");
 
 	fprintf(f, "--- PRIVATE SERVICE ---\n");
@@ -615,7 +616,7 @@ fprint_status(FILE *f)
 		return true;
 	});
 
-	fprintf(f, "--- PRIVATE SERVICE COUNT %u ---\n", global.notify_state.client_table.count);
+	fprintf(f, "--- PRIVATE SERVICE COUNT %u ---\n", os_set_count(&global.notify_state.client_table.set));
 	fprintf(f, "\n");
 
 	fprintf(f, "--- PROCESSES ---\n");
@@ -1231,6 +1232,12 @@ main(int argc, const char *argv[])
 	notify_set_options(NOTIFY_OPT_DISABLE);
 	os_trace_set_mode(OS_TRACE_MODE_DISABLE);
 
+#if TARGET_OS_OSX
+	if (sandbox_init("com.apple.notifyd", SANDBOX_NAMED, NULL) != 0){
+		exit(EXIT_FAILURE);
+	}
+#endif
+
 	/* remove limit of number of file descriptors */
 	rlim.rlim_max = RLIM_INFINITY;
 	rlim.rlim_cur = MIN(OPEN_MAX, rlim.rlim_max);
@@ -1383,7 +1390,10 @@ main(int argc, const char *argv[])
 		notify_reset_stats();
 	});
 	dispatch_activate(global.stat_reset_src);
-	notify_reset_stats();
+
+	dispatch_async(global.workloop, ^{
+		notify_reset_stats();
+	});
 
 	dispatch_main();
 }

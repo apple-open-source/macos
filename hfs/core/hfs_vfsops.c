@@ -135,11 +135,6 @@ int hfs_active_mounts = 0;
 
 extern struct vnodeopv_desc hfs_vnodeop_opv_desc;
 
-#if CONFIG_HFS_STD
-extern struct vnodeopv_desc hfs_std_vnodeop_opv_desc;
-static int hfs_flushMDB(struct hfsmount *hfsmp, int waitfor, int altflush);
-#endif
-
 /* not static so we can re-use in hfs_readwrite.c for vn_getpath_ext calls */
 int hfs_vfs_vget(struct mount *mp, ino64_t ino, struct vnode **vpp, vfs_context_t context);
 
@@ -607,12 +602,6 @@ hfs_changefs(struct mount *mp, struct hfs_mount_args *args)
 	struct hfs_changefs_cargs cargs;
 	u_int32_t mount_flags;
 
-#if CONFIG_HFS_STD
-	u_int32_t old_encoding = 0;
-	hfs_to_unicode_func_t	get_unicode_func;
-	unicode_to_hfs_func_t	get_hfsname_func = NULL;
-#endif
-
 	hfsmp = VFSTOHFS(mp);
 	vcb = HFSTOVCB(hfsmp);
 	mount_flags = (unsigned int)vfs_flags(mp);
@@ -671,33 +660,6 @@ hfs_changefs(struct mount *mp, struct hfs_mount_args *args)
 				++permfix;
 		}
 	}
-	
-#if CONFIG_HFS_STD
-	/* Change the hfs encoding value (hfs only) */
-	if ((vcb->vcbSigWord == kHFSSigWord)	&&
-	    (args->hfs_encoding != (u_int32_t)VNOVAL)              &&
-	    (hfsmp->hfs_encoding != args->hfs_encoding)) {
-
-		retval = hfs_getconverter(args->hfs_encoding, &get_unicode_func, &get_hfsname_func);
-		if (retval)
-			goto exit;
-
-		/*
-		 * Connect the new hfs_get_unicode converter but leave
-		 * the old hfs_get_hfsname converter in place so that
-		 * we can lookup existing vnodes to get their correctly
-		 * encoded names.
-		 *
-		 * When we're all finished, we can then connect the new
-		 * hfs_get_hfsname converter and release our interest
-		 * in the old converters.
-		 */
-		hfsmp->hfs_get_unicode = get_unicode_func;
-		old_encoding = hfsmp->hfs_encoding;
-		hfsmp->hfs_encoding = args->hfs_encoding;
-		++namefix;
-	}
-#endif
 
 	if (!(namefix || permfix || permswitch))
 		goto exit;
@@ -727,20 +689,6 @@ hfs_changefs(struct mount *mp, struct hfs_mount_args *args)
 	cargs.permswitch = permswitch;
 
 	vnode_iterate(mp, 0, hfs_changefs_callback, (void *)&cargs);
-
-#if CONFIG_HFS_STD
-	/*
-	 * If we're switching name converters we can now
-	 * connect the new hfs_get_hfsname converter and
-	 * release our interest in the old converters.
-	 */
-	if (namefix) {
-		/* HFS standard only */
-		hfsmp->hfs_get_hfsname = get_hfsname_func;
-		vcb->volumeNameEncodingHint = args->hfs_encoding;
-		(void) hfs_relconverter(old_encoding);
-	}
-#endif
 
 exit:
 	hfsmp->hfs_flags &= ~HFS_IN_CHANGEFS;
@@ -1460,67 +1408,9 @@ hfs_mountfs(struct vnode *devvp, struct mount *mp, struct hfs_mount_args *args,
 	/* Mount a standard HFS disk */
 	if ((SWAP_BE16(mdbp->drSigWord) == kHFSSigWord) &&
 	    (mntwrapper || (SWAP_BE16(mdbp->drEmbedSigWord) != kHFSPlusSigWord))) {
-#if CONFIG_HFS_STD 
-		/* If only journal replay is requested, exit immediately */
-		if (journal_replay_only) {
-			retval = 0;
-			goto error_exit;
-		}
-
-		/* On 10.6 and beyond, non read-only mounts for HFS standard vols get rejected */
-		if (vfs_isrdwr(mp)) {
-			retval = EROFS;
-			goto error_exit;
-		}
-
-		printf("hfs_mountfs: Mounting HFS Standard volumes was deprecated in Mac OS 10.7 \n");
-
-		/* Treat it as if it's read-only and not writeable */
-		hfsmp->hfs_flags |= HFS_READ_ONLY;
-		hfsmp->hfs_flags &= ~HFS_WRITEABLE_MEDIA;
-
-		if ((vfs_flags(mp) & MNT_ROOTFS)) {
-			retval = EINVAL;  /* Cannot root from HFS standard disks */
-			goto error_exit;
-		}
-		/* HFS disks can only use 512 byte physical blocks */
-		if (log_blksize > kHFSBlockSize) {
-			log_blksize = kHFSBlockSize;
-			if (VNOP_IOCTL(devvp, DKIOCSETBLOCKSIZE, (caddr_t)&log_blksize, FWRITE, context)) {
-				retval = ENXIO;
-				goto error_exit;
-			}
-			if (VNOP_IOCTL(devvp, DKIOCGETBLOCKCOUNT, (caddr_t)&log_blkcnt, 0, context)) {
-				retval = ENXIO;
-				goto error_exit;
-			}
-			hfsmp->hfs_logical_block_size = log_blksize;
-			hfsmp->hfs_logical_block_count = log_blkcnt;
-			hfsmp->hfs_logical_bytes = (uint64_t) log_blksize * (uint64_t) log_blkcnt;
-			hfsmp->hfs_physical_block_size = log_blksize;
-			hfsmp->hfs_log_per_phys = 1;
-		}
-		if (args) {
-			hfsmp->hfs_encoding = args->hfs_encoding;
-			HFSTOVCB(hfsmp)->volumeNameEncodingHint = args->hfs_encoding;
-
-			/* establish the timezone */
-			gTimeZone = args->hfs_timezone;
-		}
-
-		retval = hfs_getconverter(hfsmp->hfs_encoding, &hfsmp->hfs_get_unicode,
-					&hfsmp->hfs_get_hfsname);
-		if (retval)
-			goto error_exit;
-
-		retval = hfs_MountHFSVolume(hfsmp, mdbp, p);
-		if (retval)
-			(void) hfs_relconverter(hfsmp->hfs_encoding);
-#else
 		/* On platforms where HFS Standard is not supported, deny the mount altogether */
 		retval = EINVAL;
 		goto error_exit;
-#endif
 
 	} 
 	else { /* Mount an HFS Plus disk */
@@ -1773,10 +1663,6 @@ hfs_mountfs(struct vnode *devvp, struct mount *mp, struct hfs_mount_args *args,
 			goto error_exit;
 		}
 
-#if CONFIG_HFS_STD
-		(void) hfs_getconverter(0, &hfsmp->hfs_get_unicode, &hfsmp->hfs_get_hfsname);
-#endif
-
 		retval = hfs_MountHFSPlusVolume(hfsmp, vhp, embeddedOffset, disksize, p, args, cred);
 		/*
 		 * If the backend didn't like our physical blocksize
@@ -1871,10 +1757,6 @@ hfs_mountfs(struct vnode *devvp, struct mount *mp, struct hfs_mount_args *args,
 				printf("hfs_MountHFSPlusVolume (late) returned %d\n",retval); 
 			}
 		}
-#if CONFIG_HFS_STD
-		if (retval)
-			(void) hfs_relconverter(0);
-#endif
 	}
 
 	// save off a snapshot of the mtime from the previous mount
@@ -1893,13 +1775,6 @@ hfs_mountfs(struct vnode *devvp, struct mount *mp, struct hfs_mount_args *args,
 	vsfs->f_fsid.val[1] = vfs_typenum(mp);
 
 	vfs_setmaxsymlen(mp, 0);
-
-#if CONFIG_HFS_STD
-	if (ISSET(hfsmp->hfs_flags, HFS_STANDARD)) {
-		/* HFS standard doesn't support extended readdir! */
-		mount_set_noreaddirext (mp);
-	}
-#endif
 
 	if (args) {
 		/*
@@ -2185,12 +2060,6 @@ hfs_unmount(struct mount *mp, int mntflags, vfs_context_t context)
 	 */
 	(void) hfsUnmount(hfsmp, p);
 
-#if CONFIG_HFS_STD
-	if (HFSTOVCB(hfsmp)->vcbSigWord == kHFSSigWord) {
-		(void) hfs_relconverter(hfsmp->hfs_encoding);
-	}
-#endif
-
 	// XXXdbg
 	if (hfsmp->jnl) {
 	    journal_close(hfsmp->jnl);
@@ -2389,12 +2258,6 @@ hfs_statfs(struct mount *mp, register struct vfsstatfs *sbp, __unused vfs_contex
 			subtype |= HFS_SUBTYPE_CASESENSITIVE;
 		}
 	}
-#if CONFIG_HFS_STD
-	else {
-		/* HFS standard */
-		subtype = HFS_SUBTYPE_STANDARDHFS;
-	} 
-#endif
 	sbp->f_fssubtype = subtype;
 
 	return (0);
@@ -2618,17 +2481,6 @@ hfs_sync(struct mount *mp, int waitfor, vfs_context_t context)
 		vnode_put(btvp);
 	};
 
-
-#if CONFIG_HFS_STD
-	/*
-	 * Force stale file system control information to be flushed.
-	 */
-	if (vcb->vcbSigWord == kHFSSigWord) {
-		if ((error = VNOP_FSYNC(hfsmp->hfs_devvp, waitfor, context))) {
-			allerror = error;
-		}
-	}
-#endif
 
 #if QUOTA
 	hfs_qsync(mp);
@@ -3654,101 +3506,6 @@ hfs_volupdate(struct hfsmount *hfsmp, enum volop op, int inroot)
 }
 
 
-#if CONFIG_HFS_STD
-/* HFS Standard MDB flush */
-static int
-hfs_flushMDB(struct hfsmount *hfsmp, int waitfor, int altflush)
-{
-	ExtendedVCB *vcb = HFSTOVCB(hfsmp);
-	struct filefork *fp;
-	HFSMasterDirectoryBlock	*mdb;
-	struct buf *bp = NULL;
-	int retval;
-	int sector_size;
-	ByteCount namelen;
-
-	sector_size = hfsmp->hfs_logical_block_size;
-	retval = (int)buf_bread(hfsmp->hfs_devvp, (daddr64_t)HFS_PRI_SECTOR(sector_size), sector_size, NOCRED, &bp);
-	if (retval) {
-		if (bp)
-			buf_brelse(bp);
-		return retval;
-	}
-
-	hfs_lock_mount (hfsmp);
-
-	mdb = (HFSMasterDirectoryBlock *)(buf_dataptr(bp) + HFS_PRI_OFFSET(sector_size));
-    
-	mdb->drCrDate	= SWAP_BE32 (UTCToLocal(to_hfs_time(vcb->hfs_itime)));
-	mdb->drLsMod	= SWAP_BE32 (UTCToLocal(to_hfs_time(vcb->vcbLsMod)));
-	mdb->drAtrb	= SWAP_BE16 (vcb->vcbAtrb);
-	mdb->drNmFls	= SWAP_BE16 (vcb->vcbNmFls);
-	mdb->drAllocPtr	= SWAP_BE16 (vcb->nextAllocation);
-	mdb->drClpSiz	= SWAP_BE32 (vcb->vcbClpSiz);
-	mdb->drNxtCNID	= SWAP_BE32 (vcb->vcbNxtCNID);
-	mdb->drFreeBks	= SWAP_BE16 (vcb->freeBlocks);
-
-	namelen = strlen((char *)vcb->vcbVN);
-	retval = utf8_to_hfs(vcb, namelen, vcb->vcbVN, mdb->drVN);
-	/* Retry with MacRoman in case that's how it was exported. */
-	if (retval)
-		retval = utf8_to_mac_roman(namelen, vcb->vcbVN, mdb->drVN);
-	
-	mdb->drVolBkUp	= SWAP_BE32 (UTCToLocal(to_hfs_time(vcb->vcbVolBkUp)));
-	mdb->drWrCnt	= SWAP_BE32 (vcb->vcbWrCnt);
-	mdb->drNmRtDirs	= SWAP_BE16 (vcb->vcbNmRtDirs);
-	mdb->drFilCnt	= SWAP_BE32 (vcb->vcbFilCnt);
-	mdb->drDirCnt	= SWAP_BE32 (vcb->vcbDirCnt);
-	
-	bcopy(vcb->vcbFndrInfo, mdb->drFndrInfo, sizeof(mdb->drFndrInfo));
-
-	fp = VTOF(vcb->extentsRefNum);
-	mdb->drXTExtRec[0].startBlock = SWAP_BE16 (fp->ff_extents[0].startBlock);
-	mdb->drXTExtRec[0].blockCount = SWAP_BE16 (fp->ff_extents[0].blockCount);
-	mdb->drXTExtRec[1].startBlock = SWAP_BE16 (fp->ff_extents[1].startBlock);
-	mdb->drXTExtRec[1].blockCount = SWAP_BE16 (fp->ff_extents[1].blockCount);
-	mdb->drXTExtRec[2].startBlock = SWAP_BE16 (fp->ff_extents[2].startBlock);
-	mdb->drXTExtRec[2].blockCount = SWAP_BE16 (fp->ff_extents[2].blockCount);
-	mdb->drXTFlSize	= SWAP_BE32 (fp->ff_blocks * vcb->blockSize);
-	mdb->drXTClpSiz	= SWAP_BE32 (fp->ff_clumpsize);
-	FTOC(fp)->c_flag &= ~C_MODIFIED;
-	
-	fp = VTOF(vcb->catalogRefNum);
-	mdb->drCTExtRec[0].startBlock = SWAP_BE16 (fp->ff_extents[0].startBlock);
-	mdb->drCTExtRec[0].blockCount = SWAP_BE16 (fp->ff_extents[0].blockCount);
-	mdb->drCTExtRec[1].startBlock = SWAP_BE16 (fp->ff_extents[1].startBlock);
-	mdb->drCTExtRec[1].blockCount = SWAP_BE16 (fp->ff_extents[1].blockCount);
-	mdb->drCTExtRec[2].startBlock = SWAP_BE16 (fp->ff_extents[2].startBlock);
-	mdb->drCTExtRec[2].blockCount = SWAP_BE16 (fp->ff_extents[2].blockCount);
-	mdb->drCTFlSize	= SWAP_BE32 (fp->ff_blocks * vcb->blockSize);
-	mdb->drCTClpSiz	= SWAP_BE32 (fp->ff_clumpsize);
-	FTOC(fp)->c_flag &= ~C_MODIFIED;
-
-	MarkVCBClean( vcb );
-
-	hfs_unlock_mount (hfsmp);
-
-	/* If requested, flush out the alternate MDB */
-	if (altflush) {
-		struct buf *alt_bp = NULL;
-
-		if (buf_meta_bread(hfsmp->hfs_devvp, hfsmp->hfs_partition_avh_sector, sector_size, NOCRED, &alt_bp) == 0) {
-			bcopy(mdb, (char *)buf_dataptr(alt_bp) + HFS_ALT_OFFSET(sector_size), kMDBSize);
-
-			(void) VNOP_BWRITE(alt_bp);
-		} else if (alt_bp)
-			buf_brelse(alt_bp);
-	}
-
-	if (waitfor != MNT_WAIT)
-		buf_bawrite(bp);
-	else 
-		retval = VNOP_BWRITE(bp);
-
-	return (retval);
-}
-#endif
-
 /*
  *  Flush any dirty in-memory mount data to the on-disk
  *  volume header.
@@ -3782,11 +3539,6 @@ hfs_flushvolumeheader(struct hfsmount *hfsmp,
 	if (hfsmp->hfs_flags & HFS_READ_ONLY) {
 		return(0);
 	}
-#if CONFIG_HFS_STD
-	if (hfsmp->hfs_flags & HFS_STANDARD) {
-		return hfs_flushMDB(hfsmp, ISSET(options, HFS_FVH_WAIT) ? MNT_WAIT : 0, altflush);
-	}
-#endif
 	priIDSector = (daddr64_t)((vcb->hfsPlusIOPosOffset / hfsmp->hfs_logical_block_size) +
 				  HFS_PRI_SECTOR(hfsmp->hfs_logical_block_size));
 
@@ -4259,6 +4011,27 @@ hfs_vfs_getattr(struct mount *mp, struct vfs_attr *fsap, __unused vfs_context_t 
 {
 #define HFS_ATTR_FILE_VALIDMASK (ATTR_FILE_VALIDMASK & ~(ATTR_FILE_FILETYPE | ATTR_FILE_FORKCOUNT | ATTR_FILE_FORKLIST | ATTR_FILE_CLUMPSIZE))
 #define HFS_ATTR_CMN_VOL_VALIDMASK (ATTR_CMN_VALIDMASK & ~(ATTR_CMN_DATA_PROTECT_FLAGS))
+#define HFS_ATTR_VOL_VALIDMASK ATTR_VOL_FSTYPE			| \
+							   ATTR_VOL_SIGNATURE		| \
+							   ATTR_VOL_SIZE			| \
+							   ATTR_VOL_SPACEFREE		| \
+							   ATTR_VOL_SPACEAVAIL		| \
+							   ATTR_VOL_MINALLOCATION	| \
+							   ATTR_VOL_ALLOCATIONCLUMP	| \
+							   ATTR_VOL_IOBLOCKSIZE		| \
+							   ATTR_VOL_OBJCOUNT 		| \
+							   ATTR_VOL_FILECOUNT		| \
+							   ATTR_VOL_DIRCOUNT		| \
+							   ATTR_VOL_MAXOBJCOUNT		| \
+							   ATTR_VOL_MOUNTPOINT		| \
+							   ATTR_VOL_NAME			| \
+							   ATTR_VOL_MOUNTFLAGS		| \
+							   ATTR_VOL_MOUNTEDDEVICE	| \
+							   ATTR_VOL_ENCODINGSUSED	| \
+							   ATTR_VOL_CAPABILITIES	| \
+							   ATTR_VOL_UUID			| \
+							   ATTR_VOL_ATTRIBUTES
+
 
 	ExtendedVCB *vcb = VFSTOVCB(mp);
 	struct hfsmount *hfsmp = VFSTOHFS(mp);
@@ -4349,17 +4122,6 @@ hfs_vfs_getattr(struct mount *mp, struct vfs_attr *fsap, __unused vfs_context_t 
 #endif /* VOL_CAP_FMT_WRITE_GENERATION_COUNT */
 				VOL_CAP_FMT_PATH_FROM_ID;
 		}
-#if CONFIG_HFS_STD
-		else {
-			/* HFS standard */
-			cap->capabilities[VOL_CAPABILITIES_FORMAT] =
-				VOL_CAP_FMT_PERSISTENTOBJECTIDS |
-				VOL_CAP_FMT_CASE_PRESERVING |
-				VOL_CAP_FMT_FAST_STATFS |
-				VOL_CAP_FMT_HIDDEN_FILES |
-				VOL_CAP_FMT_PATH_FROM_ID;
-		}
-#endif
 
 		/*
 		 * The capabilities word in 'cap' tell you whether or not 
@@ -4463,7 +4225,7 @@ hfs_vfs_getattr(struct mount *mp, struct vfs_attr *fsap, __unused vfs_context_t 
         	attrp->validattr.commonattr |= ATTR_CMN_DATA_PROTECT_FLAGS;
 #endif // CONFIG_PROTECT
 
-        	attrp->validattr.volattr = ATTR_VOL_VALIDMASK & ~ATTR_VOL_INFO;
+        	attrp->validattr.volattr = HFS_ATTR_VOL_VALIDMASK;
         	attrp->validattr.dirattr = ATTR_DIR_VALIDMASK;
         	attrp->validattr.fileattr = HFS_ATTR_FILE_VALIDMASK;
         	attrp->validattr.forkattr = 0;
@@ -4473,7 +4235,7 @@ hfs_vfs_getattr(struct mount *mp, struct vfs_attr *fsap, __unused vfs_context_t 
 		attrp->nativeattr.commonattr |= ATTR_CMN_DATA_PROTECT_FLAGS;
 #endif // CONFIG_PROTECT
 		
-       	attrp->nativeattr.volattr = ATTR_VOL_VALIDMASK & ~ATTR_VOL_INFO;
+        	attrp->nativeattr.volattr = HFS_ATTR_VOL_VALIDMASK;
         	attrp->nativeattr.dirattr = ATTR_DIR_VALIDMASK;
         	attrp->nativeattr.fileattr = HFS_ATTR_FILE_VALIDMASK;
         	attrp->nativeattr.forkattr = 0;
@@ -4520,11 +4282,6 @@ hfs_vfs_getattr(struct mount *mp, struct vfs_attr *fsap, __unused vfs_context_t 
 				subtype |= HFS_SUBTYPE_CASESENSITIVE;
 			}
 		}
-#if CONFIG_HFS_STD
-		else {
-			subtype = HFS_SUBTYPE_STANDARDHFS;
-		} 
-#endif
 		fsap->f_fssubtype = subtype;
 		VFSATTR_SET_SUPPORTED(fsap, f_fssubtype);
 	}

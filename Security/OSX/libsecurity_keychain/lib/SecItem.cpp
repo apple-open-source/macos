@@ -53,6 +53,7 @@
 #include <Security/SecCode.h>
 #include <Security/SecCodePriv.h>
 #include <Security/SecRequirement.h>
+#include <Security/oids.h>
 
 #include <login/SessionAgentCom.h>
 #include <login/SessionAgentStatusCom.h>
@@ -385,8 +386,8 @@ static InternalAttributeListInfo gCertificateAttributes[] =
 	{ kSecSerialNumberItemAttr, &kSecAttrSerialNumber, kDataRepresentation },
 	{ kSecPublicKeyHashItemAttr, &kSecAttrPublicKeyHash, kDataRepresentation },
 	{ kSecSubjectKeyIdentifierItemAttr, &kSecAttrSubjectKeyID, kDataRepresentation },
-	{ kSecCertTypeItemAttr, &kSecAttrCertificateType, kDataRepresentation },
-	{ kSecCertEncodingItemAttr, &kSecAttrCertificateEncoding, kDataRepresentation }
+	{ kSecCertTypeItemAttr, &kSecAttrCertificateType, kNumberRepresentation },
+	{ kSecCertEncodingItemAttr, &kSecAttrCertificateEncoding, kNumberRepresentation }
 };
 
 static const int kNumberOfCertificateAttributes = sizeof(gCertificateAttributes) / sizeof(InternalAttributeListInfo);

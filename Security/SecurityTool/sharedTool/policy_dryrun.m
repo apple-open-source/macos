@@ -174,8 +174,10 @@ int policy_dryrun(int argc, char * const *argv) {
         }
 
         TPSyncingPolicy* syncingPolicy = [policy syncingPolicyForModel:@"iPhone"
-                                             syncUserControllableViews:TPPBPeerStableInfo_UserControllableViewStatus_UNKNOWN
+                                             syncUserControllableViews:TPPBPeerStableInfoUserControllableViewStatus_UNKNOWN
+                                                    isInheritedAccount:NO
                                                                  error:&error];
+        
         if(syncingPolicy == nil || error != nil) {
             NSLog(@"syncing policy is nil: %@", error);
             return 1;

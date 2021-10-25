@@ -475,7 +475,7 @@ SecAccessControlRef SecAccessControlCreateFromData(CFAllocatorRef allocator, CFD
     SecAccessControlRef access_control;
     require_quiet(access_control = SecAccessControlCreate(allocator, error), errOut);
 
-    CFPropertyListRef plist;
+    CFPropertyListRef plist = NULL;
     const uint8_t *der = CFDataGetBytePtr(data);
     const uint8_t *der_end = der + CFDataGetLength(data);
     require_quiet(der = der_decode_plist(0, &plist, error, der, der_end), errOut);

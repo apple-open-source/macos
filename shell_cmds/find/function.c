@@ -1,4 +1,6 @@
 /*-
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
  * Copyright (c) 1990, 1993
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -13,7 +15,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -30,14 +32,12 @@
  * SUCH DAMAGE.
  */
 
-#ifndef lint
 #if 0
 static const char sccsid[] = "@(#)function.c	8.10 (Berkeley) 5/4/95";
 #endif
-#endif /* not lint */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/usr.bin/find/function.c,v 1.71 2011/06/13 05:22:07 avatar Exp $");
+__FBSDID("$FreeBSD$");
 
 #include <sys/param.h>
 #include <sys/ucred.h>
@@ -66,9 +66,11 @@ __FBSDID("$FreeBSD: src/usr.bin/find/function.c,v 1.71 2011/06/13 05:22:07 avata
 #include <sys/sysctl.h>
 #include <sys/xattr.h>
 #include <libgen.h>
-#include <get_compat.h>
-#else
-#define COMPAT_MODE(func, mode) 1
+
+#define	st_ctim	st_ctimespec
+#define	st_atim	st_atimespec
+#define	st_mtim	st_mtimespec
+#define	st_birthtim	st_birthtimespec
 #endif
 
 #include "find.h"
@@ -81,7 +83,6 @@ static char *nextarg(OPTION *, char ***);
 extern char **environ;
 
 static PLAN *lastexecplus = NULL;
-int execplus_error;
 
 #define	COMPARE(a, b) do {						\
 	switch (plan->flags & F_ELG_MASK) {				\
@@ -234,7 +235,7 @@ nextarg(OPTION *option, char ***argvp)
 {
 	char *arg;
 
-	if ((arg = **argvp) == 0)
+	if ((arg = **argvp) == NULL)
 		errx(1, "%s: requires additional arguments", option->name);
 	(*argvp)++;
 	return arg;
@@ -248,7 +249,7 @@ nextarg(OPTION *option, char ***argvp)
  */
 #define	TIME_CORRECT(p) \
 	if (((p)->flags & F_ELG_MASK) == F_LESSTHAN) \
-		++((p)->t_data);
+		++((p)->t_data.tv_sec);
 
 /*
  * -[acm]min n functions --
@@ -265,16 +266,18 @@ f_Xmin(PLAN *plan, FTSENT *entry)
 {
 	if (plan->flags & F_TIME_C) {
 		COMPARE((now - entry->fts_statp->st_ctime +
-		    60 - 1) / 60, plan->t_data);
+		    60 - 1) / 60, plan->t_data.tv_sec);
 	} else if (plan->flags & F_TIME_A) {
 		COMPARE((now - entry->fts_statp->st_atime +
-		    60 - 1) / 60, plan->t_data);
+		    60 - 1) / 60, plan->t_data.tv_sec);
+#if HAVE_STRUCT_STAT_ST_BIRTHTIME
 	} else if (plan->flags & F_TIME_B) {
 		COMPARE((now - entry->fts_statp->st_birthtime +
-		    60 - 1) / 60, plan->t_data);
+		    60 - 1) / 60, plan->t_data.tv_sec);
+#endif
 	} else {
 		COMPARE((now - entry->fts_statp->st_mtime +
-		    60 - 1) / 60, plan->t_data);
+		    60 - 1) / 60, plan->t_data.tv_sec);
 	}
 }
 
@@ -288,7 +291,8 @@ c_Xmin(OPTION *option, char ***argvp)
 	ftsoptions &= ~FTS_NOSTAT;
 
 	new = palloc(option);
-	new->t_data = find_parsenum(new, option->name, nmins, NULL);
+	new->t_data.tv_sec = find_parsenum(new, option->name, nmins, NULL);
+	new->t_data.tv_nsec = 0;
 	TIME_CORRECT(new);
 	return new;
 }
@@ -311,17 +315,19 @@ f_Xtime(PLAN *plan, FTSENT *entry)
 
 	if (plan->flags & F_TIME_A)
 		xtime = entry->fts_statp->st_atime;
+#if HAVE_STRUCT_STAT_ST_BIRTHTIME
 	else if (plan->flags & F_TIME_B)
 		xtime = entry->fts_statp->st_birthtime;
+#endif
 	else if (plan->flags & F_TIME_C)
 		xtime = entry->fts_statp->st_ctime;
 	else
 		xtime = entry->fts_statp->st_mtime;
 
 	if (plan->flags & F_EXACTTIME)
-		COMPARE(now - xtime, plan->t_data);
+		COMPARE(now - xtime, plan->t_data.tv_sec);
 	else
-		COMPARE((now - xtime + (COMPAT_MODE("bin/find", "unix2003") ? 0 : 86400 - 1)) / 86400, plan->t_data);
+		COMPARE((now - xtime + (unix2003_compat ? 0 : 86400 - 1)) / 86400, plan->t_data.tv_sec);
 }
 
 PLAN *
@@ -334,8 +340,9 @@ c_Xtime(OPTION *option, char ***argvp)
 	ftsoptions &= ~FTS_NOSTAT;
 
 	new = palloc(option);
-	new->t_data = find_parsetime(new, option->name, value);
-	if (!(new->flags & F_EXACTTIME) && !COMPAT_MODE("bin/find", "unix2003"))
+	new->t_data.tv_sec = find_parsetime(new, option->name, value);
+	new->t_data.tv_nsec = 0;
+	if (!(new->flags & F_EXACTTIME) && !unix2003_compat)
 		TIME_CORRECT(new);
 	return new;
 }
@@ -368,6 +375,7 @@ c_mXXdepth(OPTION *option, char ***argvp)
 	return new;
 }
 
+#if defined(__APPLE__) || defined(ACL_TYPE_NFS4)
 /*
  * -acl function --
  *
@@ -430,7 +438,6 @@ f_acl(PLAN *plan __unused, FTSENT *entry)
 	acl_free(facl);
 	if (ret) {
 		warn("%s", entry->fts_accpath);
-		acl_free(facl);
 		return (0);
 	}
 	if (trivial)
@@ -438,6 +445,7 @@ f_acl(PLAN *plan __unused, FTSENT *entry)
 	return (1);
 }
 #endif /* __APPLE__ */
+#endif /* __APPLE__ || ACL_TYPE_NFS4 */
 
 PLAN *
 c_acl(OPTION *option, char ***argvp __unused)
@@ -501,16 +509,19 @@ f_delete(PLAN *plan __unused, FTSENT *entry)
 		errx(1, "-delete: forbidden when symlinks are followed");
 
 	/* Potentially unsafe - do not accept relative paths whatsoever */
-	if (strchr(entry->fts_accpath, '/') != NULL)
+	if (entry->fts_level > FTS_ROOTLEVEL &&
+	    strchr(entry->fts_accpath, '/') != NULL)
 		errx(1, "-delete: %s: relative path potentially not safe",
 			entry->fts_accpath);
 
+#if HAVE_STRUCT_STAT_ST_FLAGS
 	/* Turn off user immutable bits if running as root */
 	if ((entry->fts_statp->st_flags & (UF_APPEND|UF_IMMUTABLE)) &&
 	    !(entry->fts_statp->st_flags & (SF_APPEND|SF_IMMUTABLE)) &&
 	    geteuid() == 0)
 		lchflags(entry->fts_accpath,
 		       entry->fts_statp->st_flags &= ~(UF_APPEND|UF_IMMUTABLE));
+#endif
 
 	/* rmdir directories, unlink everything else */
 	if (S_ISDIR(entry->fts_statp->st_mode)) {
@@ -532,6 +543,14 @@ c_delete(OPTION *option, char ***argvp __unused)
 	ftsoptions &= ~FTS_NOSTAT;	/* no optimise */
 	isoutput = 1;			/* possible output */
 	isdepth = 1;			/* -depth implied */
+
+	/*
+	 * Try to avoid the confusing error message about relative paths
+	 * being potentially not safe.
+	 */
+	if (ftsoptions & FTS_NOCHDIR)
+		errx(1, "%s: forbidden when the current directory cannot be opened",
+		    "-delete");
 
 	return palloc(option);
 }
@@ -705,7 +724,8 @@ doexec:	if ((plan->flags & F_NEEDOK) && !queryuser(plan->e_argv))
 		/* NOTREACHED */
 	case 0:
 		/* change dir back from where we started */
-		if (!(plan->flags & F_EXECDIR) && fchdir(dotfd)) {
+		if (!(plan->flags & F_EXECDIR) &&
+		    !(ftsoptions & FTS_NOCHDIR) && fchdir(dotfd)) {
 			warn("chdir");
 			_exit(1);
 		}
@@ -720,11 +740,13 @@ doexec:	if ((plan->flags & F_NEEDOK) && !queryuser(plan->e_argv))
 		plan->e_psize = plan->e_pbsize;
 	}
 	pid = waitpid(pid, &status, 0);
-	if (plan->flags & F_EXECPLUS && WIFEXITED(status) && WEXITSTATUS(status) && !execplus_error) {
-		/* Test 140 (8907531, 10656525) */
-		execplus_error = WEXITSTATUS(status);
+	if (pid != -1 && WIFEXITED(status) && !WEXITSTATUS(status))
+		return (1);
+	if (plan->flags & F_EXECPLUS) {
+		exitstatus = 1;
+		return (1);
 	}
-	return (pid != -1 && WIFEXITED(status) && !WEXITSTATUS(status));
+	return (0);
 }
 
 /*
@@ -741,6 +763,11 @@ c_exec(OPTION *option, char ***argvp)
 	long argmax;
 	int cnt, i;
 	char **argv, **ap, **ep, *p;
+
+	/* This would defeat -execdir's intended security. */
+	if (option->flags & F_EXECDIR && ftsoptions & FTS_NOCHDIR)
+		errx(1, "%s: forbidden when the current directory cannot be opened",
+		    "-execdir");
 
 	/* XXX - was in c_execdir, but seems unnecessary!?
 	ftsoptions &= ~FTS_NOSTAT;
@@ -776,7 +803,13 @@ c_exec(OPTION *option, char ***argvp)
 		for (ep = environ; *ep != NULL; ep++)
 			argmax -= strlen(*ep) + 1 + sizeof(*ep);
 		argmax -= 1 + sizeof(*ep);
-		new->e_pnummax = argmax / 16;
+		/*
+		 * Ensure that -execdir ... {} + does not mix files
+		 * from different directories in one invocation.
+		 * Files from the same directory should be handled
+		 * in one invocation but there is no code for it.
+		 */
+		new->e_pnummax = new->flags & F_EXECDIR ? 1 : argmax / 16;
 		argmax -= sizeof(char *) * new->e_pnummax;
 		if (argmax <= 0)
 			errx(1, "no space for arguments");
@@ -841,6 +874,7 @@ finish_execplus(void)
 	}
 }
 
+#if HAVE_STRUCT_STAT_ST_FLAGS
 int
 f_flags(PLAN *plan, FTSENT *entry)
 {
@@ -884,6 +918,7 @@ c_flags(OPTION *option, char ***argvp)
 	new->fl_notflags = notflags;
 	return new;
 }
+#endif
 
 /*
  * -follow functions --
@@ -900,6 +935,7 @@ c_follow(OPTION *option, char ***argvp __unused)
 	return palloc(option);
 }
 
+#if HAVE_STRUCT_STATFS_F_FSTYPENAME
 /*
  * -fstype functions --
  *
@@ -939,8 +975,13 @@ f_fstype(PLAN *plan, FTSENT *entry)
 		} else
 			p = NULL;
 
-		if (statfs(entry->fts_accpath, &sb))
-			err(1, "%s", entry->fts_accpath);
+		if (statfs(entry->fts_accpath, &sb)) {
+			if (!ignore_readdir_race || errno != ENOENT) {
+				warn("statfs: %s", entry->fts_accpath);
+				exitstatus = 1;
+			}
+			return 0;
+		}
 
 		if (p) {
 			p[0] = save[0];
@@ -997,6 +1038,7 @@ c_fstype(OPTION *option, char ***argvp)
 	new->c_data = fsname;
 	return new;
 }
+#endif
 
 /*
  * -group gname functions --
@@ -1040,6 +1082,25 @@ c_group(OPTION *option, char ***argvp)
 }
 
 /*
+ * -ignore_readdir_race functions --
+ *
+ *	Always true. Ignore errors which occur if a file or a directory
+ *	in a starting point gets deleted between reading the name and calling
+ *	stat on it while find is traversing the starting point.
+ */
+
+PLAN *
+c_ignore_readdir_race(OPTION *option, char ***argvp __unused)
+{
+	if (strcmp(option->name, "-ignore_readdir_race") == 0)
+		ignore_readdir_race = 1;
+	else
+		ignore_readdir_race = 0;
+
+	return palloc(option);
+}
+
+/*
  * -inum n functions --
  *
  *	True if the file has inode # n.
@@ -1077,12 +1138,26 @@ c_samefile(OPTION *option, char ***argvp)
 	char *fn;
 	PLAN *new;
 	struct stat sb;
+	int error;
 
 	fn = nextarg(option, argvp);
 	ftsoptions &= ~FTS_NOSTAT;
 
 	new = palloc(option);
-	if (stat(fn, &sb))
+#ifdef __APPLE__
+	/*
+	 * rdar://problem/77588562 - upstream started applying -H/-L/-P to non-path
+	 * operands, which seems to be incompatible with the specification and
+	 * causes failures in the conformance test suite.
+	 */
+	error = stat(fn, &sb);
+#else
+	if (ftsoptions & FTS_PHYSICAL)
+		error = lstat(fn, &sb);
+	else
+		error = stat(fn, &sb);
+#endif
+	if (error != 0)
 		err(1, "%s", fn);
 	new->i_data = sb.st_ino;
 	return new;
@@ -1193,14 +1268,25 @@ c_name(OPTION *option, char ***argvp)
 int
 f_newer(PLAN *plan, FTSENT *entry)
 {
+	struct timespec ft;
+
 	if (plan->flags & F_TIME_C)
-		return entry->fts_statp->st_ctime > plan->t_data;
+		ft = entry->fts_statp->st_ctim;
+	/*
+	 * rdar://problem/77588562 - this segment is covered by
+	 * HAVE_STRUCT_STAT_ST_BIRTHTIME upstream, which is wrong.
+	 */
 	else if (plan->flags & F_TIME_A)
-		return entry->fts_statp->st_atime > plan->t_data;
+		ft = entry->fts_statp->st_atim;
+#if HAVE_STRUCT_STAT_ST_BIRTHTIME
 	else if (plan->flags & F_TIME_B)
-		return entry->fts_statp->st_birthtime > plan->t_data;
+		ft = entry->fts_statp->st_birthtim;
+#endif
 	else
-		return entry->fts_statp->st_mtime > plan->t_data;
+		ft = entry->fts_statp->st_mtim;
+	return (ft.tv_sec > plan->t_data.tv_sec ||
+	    (ft.tv_sec == plan->t_data.tv_sec &&
+	    ft.tv_nsec > plan->t_data.tv_nsec));
 }
 
 PLAN *
@@ -1209,6 +1295,7 @@ c_newer(OPTION *option, char ***argvp)
 	char *fn_or_tspec;
 	PLAN *new;
 	struct stat sb;
+	int error;
 
 	fn_or_tspec = nextarg(option, argvp);
 	ftsoptions &= ~FTS_NOSTAT;
@@ -1216,20 +1303,33 @@ c_newer(OPTION *option, char ***argvp)
 	new = palloc(option);
 	/* compare against what */
 	if (option->flags & F_TIME2_T) {
-		new->t_data = get_date(fn_or_tspec);
-		if (new->t_data == (time_t) -1)
+		new->t_data.tv_sec = get_date(fn_or_tspec);
+		if (new->t_data.tv_sec == (time_t) -1)
 			errx(1, "Can't parse date/time: %s", fn_or_tspec);
+		/* Use the seconds only in the comparison. */
+		new->t_data.tv_nsec = 999999999;
 	} else {
-		if (stat(fn_or_tspec, &sb))
+#ifdef __APPLE__
+		/* rdar://problem/77588562 - see c_samefile() above. */
+		error = stat(fn_or_tspec, &sb);
+#else
+		if (ftsoptions & FTS_PHYSICAL)
+			error = lstat(fn_or_tspec, &sb);
+		else
+			error = stat(fn_or_tspec, &sb);
+#endif
+		if (error != 0)
 			err(1, "%s", fn_or_tspec);
 		if (option->flags & F_TIME2_C)
-			new->t_data = sb.st_ctime;
+			new->t_data = sb.st_ctim;
 		else if (option->flags & F_TIME2_A)
-			new->t_data = sb.st_atime;
+			new->t_data = sb.st_atim;
+#if HAVE_STRUCT_STAT_ST_BIRTHTIME
 		else if (option->flags & F_TIME2_B)
-			new->t_data = sb.st_birthtime;
+			new->t_data = sb.st_birthtim;
+#endif
 		else
-			new->t_data = sb.st_mtime;
+			new->t_data = sb.st_mtim;
 	}
 	return new;
 }
@@ -1522,7 +1622,7 @@ c_size(OPTION *option, char ***argvp)
 			scale = 0x40000000LL;
 			break;
 		case 'T':                       /* terabytes 1<<40 */
-			scale = 0x1000000000LL;
+			scale = 0x10000000000LL;
 			break;
 		case 'P':                       /* petabytes 1<<50 */
 			scale = 0x4000000000000LL;
@@ -1541,6 +1641,29 @@ c_size(OPTION *option, char ***argvp)
 }
 
 /*
+ * -sparse functions --
+ *
+ *      Check if a file is sparse by finding if it occupies fewer blocks
+ *      than we expect based on its size.
+ */
+int
+f_sparse(PLAN *plan __unused, FTSENT *entry)
+{
+	off_t expected_blocks;
+
+	expected_blocks = (entry->fts_statp->st_size + 511) / 512;
+	return entry->fts_statp->st_blocks < expected_blocks;
+}
+
+PLAN *
+c_sparse(OPTION *option, char ***argvp __unused)
+{
+	ftsoptions &= ~FTS_NOSTAT;
+
+	return palloc(option);
+}
+
+/*
  * -type c functions --
  *
  *	True if the type of the file is c, where c is b, c, d, p, f or w
@@ -1550,7 +1673,12 @@ c_size(OPTION *option, char ***argvp)
 int
 f_type(PLAN *plan, FTSENT *entry)
 {
-	return (entry->fts_statp->st_mode & S_IFMT) == plan->m_data;
+	if (plan->m_data == S_IFDIR)
+		return (entry->fts_info == FTS_D || entry->fts_info == FTS_DC ||
+		    entry->fts_info == FTS_DNR || entry->fts_info == FTS_DOT ||
+		    entry->fts_info == FTS_DP);
+	else
+		return (entry->fts_statp->st_mode & S_IFMT) == plan->m_data;
 }
 
 PLAN *
@@ -1561,7 +1689,8 @@ c_type(OPTION *option, char ***argvp)
 	mode_t  mask;
 
 	typestring = nextarg(option, argvp);
-	ftsoptions &= ~FTS_NOSTAT;
+	if (typestring[0] != 'd')
+		ftsoptions &= ~FTS_NOSTAT;
 
 	switch (typestring[0]) {
 	case 'b':
@@ -1585,7 +1714,7 @@ c_type(OPTION *option, char ***argvp)
 	case 's':
 		mask = S_IFSOCK;
 		break;
-#ifdef FTS_WHITEOUT
+#if defined(FTS_WHITEOUT) && defined(S_IFWHT)
 	case 'w':
 		mask = S_IFWHT;
 		ftsoptions |= FTS_WHITEOUT;
@@ -1766,7 +1895,8 @@ f_false(PLAN *plan __unused, FTSENT *entry __unused)
 int
 f_quit(PLAN *plan __unused, FTSENT *entry __unused)
 {
-	exit(0);
+	finish_execplus();
+	exit(exitstatus);
 }
 
 /* c_quit == c_simple */

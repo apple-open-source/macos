@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2012-2018, 2021 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -315,6 +315,15 @@ PRIVATE_EXTERN Boolean
 EAPSIMAKAPersistentStateTemporaryUsernameAvailable(EAPSIMAKAPersistentStateRef persist)
 {
     return (persist->pseudonym || persist->reauth_id);
+}
+
+PRIVATE_EXTERN void
+EAPSIMAKAPersistentStatePurgeTemporaryIDs(EAPSIMAKAPersistentStateRef persist)
+{
+    EAPSIMAKAPersistentStateSetPseudonym(persist, NULL);
+    EAPSIMAKAPersistentStateSetReauthID(persist, NULL);
+    EAPSIMAKAPersistentStateSetReauthIDUsed(persist, FALSE);
+    EAPSIMAKAPersistentStateSave(persist, FALSE);
 }
 
 PRIVATE_EXTERN CFStringRef

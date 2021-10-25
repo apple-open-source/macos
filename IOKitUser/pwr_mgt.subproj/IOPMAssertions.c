@@ -45,15 +45,27 @@
 
 #include <servers/bootstrap.h>
 
+#if !defined(_OPEN_SOURCE_) && !TARGET_OS_IPHONE
+#include <sys/types.h>
+#include <sys/param.h>
+#include <sys/stat.h>
+#include <dlfcn.h>
+Boolean _CSCheckFix(CFStringRef str);
+#endif        // !_OPEN_SOURCE_ && !TARGET_OS_IPHONE
 
 #define kAssertionsArraySize        5
 #define NUM_BT_FRAMES               8
 
+static os_log_t    assertions_log = NULL;
+#define LOG_STREAM  assertions_log
 #define DEBUG 1
 #if DEBUG
 #define DEBUG_LOG(fmt, args...) \
 { \
-    os_log_debug(OS_LOG_DEFAULT, fmt, ##args); \
+    if (assertions_log) \
+    os_log_debug(LOG_STREAM, fmt, ##args); \
+    else \
+    os_log_debug(OS_LOG_DEFAULT, fmt, ##args);\
 }
 #else
 #define DEBUG_LOG(fmt, args...) {}
@@ -61,7 +73,18 @@
 
 #define ERROR_LOG(fmt, args...) \
 {  \
+    if (assertions_log) \
+    os_log_error(LOG_STREAM, fmt, ##args); \
+    else\
     os_log_error(OS_LOG_DEFAULT, fmt, ##args); \
+}
+
+#define INFO_LOG(fmt, args...) \
+{  \
+    if (assertions_log) \
+    os_log(LOG_STREAM, fmt, ##args); \
+    else \
+    os_log(OS_LOG_DEFAULT, fmt, ##args); \
 }
 
 static uint64_t  collectBackTrace = 0;
@@ -170,10 +193,146 @@ static inline void saveBackTrace(CFMutableDictionaryRef props)
 }
 
 
+#if !defined(_OPEN_SOURCE_) && !TARGET_OS_IPHONE
+
+static void * __loadCarbonCore(void) 
+{
+    static void *image = NULL;
+    if (NULL == image) {
+        const char  *framework = "/System/Library/Frameworks/CoreServices.framework/Frameworks/CarbonCore.framework/CarbonCore";
+        struct stat statbuf;
+        const char  *suffix     = getenv("DYLD_IMAGE_SUFFIX");
+        char    path[MAXPATHLEN];
+
+        strlcpy(path, framework, sizeof(path));
+        if (suffix) strlcat(path, suffix, sizeof(path));
+        if (0 <= stat(path, &statbuf)) {
+            image = dlopen(path, RTLD_LAZY | RTLD_LOCAL);
+        } else {
+            image = dlopen(framework, RTLD_LAZY | RTLD_LOCAL);
+        }
+    }
+    return (void *)image;
+}
 
 
+static Boolean __CSCheckFix(CFStringRef str)
+{
+    static typeof (_CSCheckFix) *dyfunc = NULL;
+    if (!dyfunc) {
+        void *image = __loadCarbonCore();
+        if (image) dyfunc = dlsym(image, "_CSCheckFix");
+    }
+    return dyfunc ? dyfunc(str) : TRUE;
+}
+#define _CSCheckFix __CSCheckFix
 
-bool   gAsyncMode = false;
+#endif  // !_OPEN_SOURCE_ && !TARGET_OS_IPHONE
+
+/*************************************************************************************************************
+ Async PowerAssertions
+ *************************************************************************************************************/
+#define kMaxAsyncAssertions         128 // Max number of assertions at a time per process
+#define kMaxAsyncAssertionsLog      16 // Max number of assertions sent to powerd during activity update
+
+// Async assertions uses upper 16-bits to store the idx.
+// Sync assertions uses lower-16 bits to store idx.
+#define ASYNC_ID_FROM_IDX(idx)  (((idx & 0x7fff) | 0x8000) << 16)
+#define ASYNC_IDX_FROM_ID(id)   (((id) >> 16) & 0x7fff)
+#define IS_ASYNC_ID(id) ((id) & (0xffff << 16))
+#define MAKE_UNIQUE_AID(time, id, pid) (((time & 0xffffffff) << 32 ) | ((pid & 0xffff) << 16) | ((id & 0xffff0000) >> 16))
+
+
+static dispatch_source_t            gAssertionsOffloader = 0;
+static CFMutableDictionaryRef       gAssertionsDict = NULL;
+static CFMutableDictionaryRef       gActiveAssertionsDict = NULL; // active - turned on
+static CFMutableDictionaryRef       gInactiveAssertionsDict = NULL; // assertions which have been turned off but not released
+static CFMutableArrayRef            gReleasedAssertionsList = NULL; // released assertions. Kept around for logging
+static CFMutableArrayRef            gTimedAssertionsList = NULL;
+static dispatch_source_t            gAssertionTimer = 0;
+static uint64_t                     nextOffload_ts;
+static xpc_connection_t             gAssertionConnection;
+
+// current local assertion id sent to powerd
+static IOPMAssertionID              gCurrentAssertion = 0;
+
+// current remote assertion id got from powerd. Powerd sends timeout messages with this id
+static IOPMAssertionID              gCurrentRemoteAssertion = 0;
+bool                                gAsyncMode = false;
+
+bool                                gAsyncModeSetupDone = false;
+// create assertion
+bool createAsyncAssertion(CFDictionaryRef AssertionProperties, IOPMAssertionID *id);
+
+// release assertion
+IOReturn releaseAsyncAssertion(IOPMAssertionID id);
+IOReturn _releaseAsycnAssertion(IOPMAssertionID id, bool removeTimed);
+
+// set property
+IOReturn setAsyncAssertionProperties(CFStringRef theProperty, CFTypeRef theValue, IOPMAssertionID AssertionID);
+
+// inital setup
+void initialSetup(void);
+
+// xpc messages to powerd
+IOPMAssertionID sendAsyncAssertionMsg(bool create, CFDictionaryRef dict, IOReturn *rc, CFArrayRef toLog);
+void sendAsyncReleaseMsg(IOPMAssertionID remoteID, bool log);
+void offloadAssertions(bool forced);
+
+// xpc callbacks
+void processRemoteMsg(xpc_object_t msg);
+void processAssertionTimeout(xpc_object_t msg);
+void processCheckAssertionsMsg(xpc_object_t msg);
+
+// assertion timeouts
+void handleAssertionTimeout(void);
+
+// assertion level change
+IOReturn handleAssertionLevel(CFTypeRef value, IOPMAssertionID assertionID);
+
+// helper functions
+void insertIntoTimedList(CFMutableDictionaryRef props);
+void removeFromTimedList(IOPMAssertionID id);
+bool activeAssertions();
+
+void checkFeatureEnabled()
+{
+#if TARGET_OS_IOS
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        dispatch_sync(getPMQueue(), ^{
+            xpc_object_t connection = xpc_connection_create_mach_service(POWERD_XPC_ID, dispatch_get_main_queue(), 0);
+            if (!connection) {
+                ERROR_LOG("Failed to create gAssertionConnection\n");
+            }
+            else {
+                xpc_connection_set_target_queue(connection, getPMQueue());
+                xpc_connection_set_event_handler(connection,
+                                                 ^(xpc_object_t e __unused ) {});
+                xpc_connection_resume(connection);
+
+                // send a message to check feature
+                xpc_object_t msg = xpc_dictionary_create(NULL, NULL, 0);
+                xpc_dictionary_set_bool(msg, kAssertionFeatureSupportKey, true);
+                xpc_connection_send_message_with_reply(connection, msg, getPMQueue(), ^(xpc_object_t resp){
+                    if (xpc_get_type(resp) == XPC_TYPE_DICTIONARY) {
+                        bool feature = xpc_dictionary_get_bool(resp, kAssertionFeatureSupportKey);
+                        INFO_LOG("Assertion feature: setting gAsyncMode to %d", feature);
+                        gAsyncMode = feature;
+                    }
+                });
+                if (msg) {
+                    xpc_release(msg);
+                }
+                if (connection) {
+                    xpc_release(connection);
+                }
+            }
+        });
+    });
+#endif
+}
+
 IOReturn IOPMEnableAsyncAssertions()
 {
     gAsyncMode = true;
@@ -188,23 +347,6 @@ IOReturn IOPMDisableAsyncAssertions()
     return kIOReturnSuccess;
 }
 
-#define kMaxAsyncAssertions         128 // Max number of assertions at a time per process
-#define kDefaultOffloadDelay        0   // Delay (in secs) after which assertions are offloaded to powerd
-
-// Async assertions uses upper 16-bits to store the idx.
-// Sync assertions uses lower-16 bits to store idx.
-#define ASYNC_ID_FROM_IDX(idx)  (((idx & 0x7fff) | 0x8000) << 16)
-#define ASYNC_IDX_FROM_ID(id)   (((id) >> 16) & 0x7fff)
-#define IS_ASYNC_ID(id) ((id) & (0xffff << 16))
-
-
-static dispatch_source_t             offloader = 0;
-static CFMutableDictionaryRef       gAssertionsDict = NULL;
-static uint64_t  nextOffload_ts;
-static xpc_connection_t assertionConnection;
-
-
-
 uint64_t getMonotonicTime( )
 {
     static mach_timebase_info_data_t    timebaseInfo;
@@ -215,291 +357,154 @@ uint64_t getMonotonicTime( )
     return ( (mach_absolute_time( ) * timebaseInfo.numer) / (timebaseInfo.denom * NSEC_PER_SEC));
 }
 
-//
-// Send a create or property update message
-// Returns remote assertion id for create request
-// Returns null for property update message
-//
-IOPMAssertionID sendAsyncAssertionMsg(bool create, CFDictionaryRef dict, IOReturn *rc)
+void setupLogging()
 {
-    xpc_object_t            desc = NULL;
-    xpc_object_t            msg = NULL;
-    xpc_object_t            resp = NULL;
-    IOPMAssertionID         remoteID = kIOPMNullAssertionID;
-
-
-    msg = xpc_dictionary_create(NULL, NULL, 0);
-    if (!msg) {
-        ERROR_LOG("Failed to create xpc msg object\n");
-        return remoteID;
-    }
-
-    desc = _CFXPCCreateXPCMessageWithCFObject(dict);
-    if (!desc) {
-        ERROR_LOG("Failed to convert CF dictionary to xpc object\n");
-        return remoteID;
-    }
-
-    if (create) {
-        xpc_dictionary_set_value(msg, kAssertionCreateMsg, desc);
-
-        resp = xpc_connection_send_message_with_reply_sync(assertionConnection, msg);
-        remoteID = xpc_dictionary_get_uint64(resp, kAssertionIdKey);
-        if (rc) {
-            *rc = xpc_dictionary_get_uint64(resp, kMsgReturnCode);
-        }
-
-    }
-    else {
-        xpc_dictionary_set_value(msg, kAssertionPropertiesMsg, desc);
-        xpc_connection_send_message(assertionConnection, msg);
-    }
-
-    xpc_release(msg);
-    xpc_release(desc);
-
-    return remoteID;
-}
-
-void sendAsyncReleaseMsg(IOPMAssertionID remoteID)
-{
-    xpc_object_t            msg = NULL;
-
-
-    msg = xpc_dictionary_create(NULL, NULL, 0);
-    if (!msg) {
-        ERROR_LOG("Failed to create xpc msg object\n");
-        return;
-    }
-
-    DEBUG_LOG("Sending Assertion release message for assertion Id 0x%x\n", remoteID);
-    xpc_dictionary_set_uint64(msg, kAssertionReleaseMsg, remoteID);
-
-    xpc_connection_send_message(assertionConnection, msg);
-    xpc_release(msg);
-
-    return;
-}
-
-void offloadAssertions(bool clearOldOnes)
-{
-    int idx;
-    IOPMAssertionID remoteID;
-    CFNumberRef remoteIDCf;
-    CFTypeRef   value;
-    IOReturn rc;
-    bool released;
-
-    for (idx=0; idx < kMaxAsyncAssertions; idx++) {
-
-        IOPMAssertionID id = ASYNC_ID_FROM_IDX(idx);
-        if (!CFDictionaryGetValueIfPresent(gAssertionsDict, (uintptr_t)idx, (const void **)&value)) {
-            continue;
-        }
-
-        if (isA_CFNumber(value)) {
-            // This is the remoteID for previously offloaded assertion
-            if (clearOldOnes) {
-                CFDictionaryRemoveValue(gAssertionsDict, (uintptr_t)idx);
-            }
-            continue;
-        }
-        if (!isA_CFDictionary(value)) {
-            ERROR_LOG("Unexpected type in the assertions dictionary with id 0x%x\n", id);
-            continue;
-        }
-
-        released = CFDictionaryContainsKey(value, kIOPMAssertionReleaseDateKey);
-
-        if (!released) {
-            // Not sending the released assertion. But, we may want to send it in future
-            // for logging purposes.
-            rc = kIOReturnSuccess;
-            remoteID = sendAsyncAssertionMsg(true, value, &rc);
-            if (rc != kIOReturnSuccess) {
-                ERROR_LOG("powerd returned err 0x%x to create assertion with id 0x%x. Dropping the assertion\n",
-                          rc, id);
-
-                CFDictionaryRemoveValue(gAssertionsDict, (uintptr_t)idx);
-                continue;
-            }
-            if (remoteID == kIOPMNullAssertionID) {
-                ERROR_LOG("Failed to send the assertion with id 0x%x to remote end\n", id);
-                continue;
-            }
-
-            remoteIDCf = CFNumberCreate(0, kCFNumberIntType, &remoteID);
-            if (!remoteIDCf) {
-                ERROR_LOG("Failed to create the remoteID to CF for id 0x%x\n", id);
-                continue;
-            }
-            DEBUG_LOG("powerd returned assertion id 0x%x for async id 0x%x\n",
-                      remoteID, id);
-
-            CFDictionaryReplaceValue(gAssertionsDict, (uintptr_t)idx, remoteIDCf);
-            CFRelease(remoteIDCf);
-        }
-        else {
-            DEBUG_LOG("Notified powerd about already released async id 0x%x\n", id);
-            CFDictionaryRemoveValue(gAssertionsDict, (uintptr_t)idx);
-        }
-
-    }
-    nextOffload_ts = 0;
-    dispatch_suspend(offloader);
-
-}
-
-void processCheckAssertionsMsg(xpc_object_t msg)
-{
-    uint32_t blockers = 0;
-    CFTypeRef value;
-    CFDictionaryRef props;
-    uint64_t    token = 0;
-    int idx;
-
-    for (idx=0; idx < kMaxAsyncAssertions; idx++) {
-        IOPMAssertionID id = ASYNC_ID_FROM_IDX(idx);
-
-        if (!CFDictionaryGetValueIfPresent(gAssertionsDict, (uintptr_t)idx, (const void **)&value)) {
-            continue;
-        }
-
-        if (isA_CFNumber(value)) {
-            // This is the remoteID for previously offloaded assertion
-            IOPMAssertionID remoteId = kIOPMNullAssertionID;
-            CFNumberGetValue(value, kCFNumberDoubleType, &remoteId);
-            DEBUG_LOG("Received assertion check when offloaded assertion exists(0x%x)\n", remoteId);
-            continue;
-        }
-        if (!isA_CFDictionary(value)) {
-            ERROR_LOG("Unexpected type in the assertions dictionary with id 0x%x\n", id);
-            continue;
-        }
-        props = value;
-
-        CFNumberRef numRef = CFDictionaryGetValue(props, kIOPMAssertionLevelKey);
-        int level = kIOPMAssertionLevelOn;
-        if (isA_CFNumber(numRef)) {
-            CFNumberGetValue(numRef, kCFNumberIntType, &level);
-        }
-        if (level != kIOPMAssertionLevelOn) {
-            blockers++;
-        }
-    }
-
-    xpc_object_t reply = xpc_dictionary_create_reply(msg);
-    if (!reply) {
-        ERROR_LOG("Failed to create xpc reply object\n");
-        return;
-    }
-
-    // Taken the token from incoming message and put it in reply
-    token = xpc_dictionary_get_uint64(msg, kAssertionCheckTokenKey);
-    xpc_dictionary_set_uint64(reply, kAssertionCheckTokenKey, token);
-    xpc_dictionary_set_uint64(reply, kAssertionCheckCountKey, blockers);
-
-    DEBUG_LOG("Replying to assertion check message with count %d token:%llu\n", blockers, token);
-    xpc_connection_t remote = xpc_dictionary_get_remote_connection(msg);
-    xpc_connection_send_message(remote, reply);
-    xpc_release(reply);
-
-}
-
-void processAssertionTimeout(xpc_object_t msg)
-{
-    IOPMAssertionID id;
-    int idx;
-
-    id = xpc_dictionary_get_uint64(msg, kAssertionTimeoutMsg);
-    idx = ASYNC_IDX_FROM_ID(id);
-    CFDictionaryRemoveValue(gAssertionsDict, (uintptr_t)idx);
-
-    DEBUG_LOG("Received assertion timeout message for asyncId 0x%x\n", id);
-}
-
-void processRemoteMsg(xpc_object_t msg)
-{
-    xpc_type_t type = xpc_get_type(msg);
-
-    if (type == XPC_TYPE_DICTIONARY) {
-        if ((xpc_dictionary_get_value(msg, kAssertionCheckMsg))) {
-            processCheckAssertionsMsg(msg);
-        }
-        else if ((xpc_dictionary_get_value(msg, kAssertionTimeoutMsg))) {
-            processAssertionTimeout(msg);
-        }
-        else {
-            ERROR_LOG("Unexpected message from async assertions connections\n");
-        }
-    }
-    else if (type == XPC_TYPE_ERROR) {
-        if (msg == XPC_ERROR_CONNECTION_INTERRUPTED) {
-            // powerd must have crashed
-            dispatch_async(getPMQueue(), ^{offloadAssertions(true);});
-        }
-        else {
-            ERROR_LOG("Irrecoverable error for assertion creation\n");
-            IOPMDisableAsyncAssertions();
-        }
-    }
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        assertions_log = os_log_create("com.apple.iokit", "assertions");
+    });
 }
 
 void initialSetup( )
 {
-    if (gAssertionsDict) {
+    if (gAsyncModeSetupDone) {
         return;
     }
+    setupLogging();
     // Keys into this array integers and doesn't need retain/release
-    // Values are either CFDictionary or CFNumber type objects
-    gAssertionsDict = CFDictionaryCreateMutable(NULL, kMaxAsyncAssertions,
-            NULL, &kCFTypeDictionaryValueCallBacks);
+    // Values are CFDictionary
     if (!gAssertionsDict) {
-        ERROR_LOG("Failed to create gAssertionsDict\n");
-        goto error_exit;
+        gAssertionsDict = CFDictionaryCreateMutable(NULL, kMaxAsyncAssertions,
+                NULL, &kCFTypeDictionaryValueCallBacks);
+        if (!gAssertionsDict) {
+            ERROR_LOG("Failed to create gAssertionsDict");
+            goto error_exit;
+        }
     }
 
-    offloader = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, getPMQueue());
-    if (offloader) {
+    if (!gReleasedAssertionsList) {
+        gReleasedAssertionsList = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks);
+    }
+    if (!gTimedAssertionsList) {
+        gTimedAssertionsList = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks);
+    }
+    if (!gActiveAssertionsDict) {
+        gActiveAssertionsDict = CFDictionaryCreateMutable(kCFAllocatorDefault, kMaxAsyncAssertions, NULL, &kCFTypeDictionaryValueCallBacks);
+    }
+    if (!gInactiveAssertionsDict) {
+        gInactiveAssertionsDict = CFDictionaryCreateMutable(kCFAllocatorDefault, kMaxAsyncAssertions, NULL, &kCFTypeDictionaryValueCallBacks);
+    }
+    if (!gAssertionConnection) {
+        gAssertionConnection = xpc_connection_create_mach_service(POWERD_XPC_ID, dispatch_get_main_queue(), 0);
+        if (!gAssertionConnection) {
+            ERROR_LOG("Failed to create gAssertionConnection\n");
+            goto error_exit;
+        }
+        else {
+            xpc_connection_set_target_queue(gAssertionConnection, getPMQueue());
+            xpc_connection_set_event_handler(gAssertionConnection,
+                                             ^(xpc_object_t msg ) {processRemoteMsg(msg); });
+            xpc_connection_resume(gAssertionConnection);
 
-        dispatch_source_set_event_handler(offloader, ^{ offloadAssertions(false); });
-        dispatch_source_set_cancel_handler(offloader, ^{
-                dispatch_release(offloader);
-                offloader = NULL;
+            // send initial msg
+            xpc_object_t msg = xpc_dictionary_create(NULL, NULL, 0);
+            if (msg) {
+                xpc_dictionary_set_bool(msg, kAssertionInitialConnKey, true);
+                xpc_connection_send_message(gAssertionConnection, msg);
+                INFO_LOG("Sending initial message to powerd for async assertions");
+                xpc_release(msg);
+            } else {
+                goto error_exit;
+            }
+        }
+    }
+
+    if (!gAssertionsOffloader) {
+        gAssertionsOffloader = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, getPMQueue());
+    }
+
+    if (gAssertionsOffloader) {
+        dispatch_source_set_event_handler(gAssertionsOffloader, ^{ offloadAssertions(false); });
+        dispatch_source_set_cancel_handler(gAssertionsOffloader, ^{
+                dispatch_release(gAssertionsOffloader);
+                gAssertionsOffloader = NULL;
                 });
-
-        dispatch_source_set_timer(offloader, dispatch_time(DISPATCH_TIME_NOW, 0), kDefaultOffloadDelay, 0);
     }
-
-    assertionConnection = xpc_connection_create_mach_service(POWERD_XPC_ID, dispatch_get_main_queue(), 0);
-    if (!assertionConnection) {
-        ERROR_LOG("Failed to create assertionConnection\n");
-        goto error_exit;
-    }
-
-    xpc_connection_set_target_queue(assertionConnection, getPMQueue());
-    xpc_connection_set_event_handler(assertionConnection,
-            ^(xpc_object_t msg ) {processRemoteMsg(msg); });
-
-    xpc_connection_resume(assertionConnection);
-
+    gAsyncModeSetupDone = true;
     return;
 
 error_exit:
+    gAsyncModeSetupDone = false;
     if (gAssertionsDict) {
         CFRelease(gAssertionsDict);
         gAssertionsDict = NULL;
     }
-    if (offloader) {
-        dispatch_resume(offloader);
-        dispatch_cancel(offloader);
+    if (gReleasedAssertionsList) {
+        CFRelease(gReleasedAssertionsList);
+        gReleasedAssertionsList = NULL;
     }
-
-    if (assertionConnection) {
-        xpc_connection_cancel(assertionConnection);
+    if (gAssertionsOffloader) {
+        dispatch_resume(gAssertionsOffloader);
+        dispatch_cancel(gAssertionsOffloader);
+    }
+    if (gInactiveAssertionsDict) {
+        CFRelease(gInactiveAssertionsDict);
+        gInactiveAssertionsDict = NULL;
+    }
+    if (gActiveAssertionsDict) {
+        CFRelease(gActiveAssertionsDict);
+        gActiveAssertionsDict = NULL;
+    }
+    if (gAssertionConnection) {
+        xpc_connection_cancel(gAssertionConnection);
     }
 }
 
+void activateAsyncAssertion(IOPMAssertionID id)
+{
+    uint32_t  idx;
+    uint64_t  timeout_secs = 0;
+    uint64_t  timeout_ts = 0;
+    CFNumberRef numRef;
+
+    idx = ASYNC_IDX_FROM_ID(id);
+    CFMutableDictionaryRef assertion = (CFMutableDictionaryRef)CFDictionaryGetValue(gAssertionsDict, idx);
+    if (!assertion) {
+        ERROR_LOG("Assertion 0x%x not found to activate", id);
+        return;
+    }
+    // insert into active assertions
+    CFDictionarySetValue(gActiveAssertionsDict, (uintptr_t)idx, (const void *)assertion);
+
+    // timeout
+    numRef = CFDictionaryGetValue(assertion, kIOPMAssertionTimeoutKey);
+    if (isA_CFNumber(numRef))  {
+        CFNumberGetValue(numRef, kCFNumberSInt64Type, &timeout_secs);
+    }
+    if (timeout_secs) {
+        // There is timeout.
+        timeout_ts = timeout_secs + getMonotonicTime();
+        CFNumberRef cf_timeout_ts = CFNumberCreate(NULL, kCFNumberSInt64Type, &timeout_ts);
+        if (cf_timeout_ts) {
+            CFDictionarySetValue(assertion, kIOPMAsyncAssertionTimeoutTimestamp, cf_timeout_ts);
+            CFRelease(cf_timeout_ts);
+        }
+        insertIntoTimedList(assertion);
+    }
+    if (!timeout_secs || (timeout_secs > kAsyncAssertionsDefaultOffloadDelay)) {
+        timeout_secs = kAsyncAssertionsDefaultOffloadDelay;
+        timeout_ts = getMonotonicTime() + timeout_secs;
+    }
+    if (!gCurrentAssertion && (!nextOffload_ts || (timeout_ts != 0 && timeout_ts < nextOffload_ts))) {
+        INFO_LOG("Setting gAssertionsOffloader timeout to %llu\n", timeout_secs);
+        dispatch_source_set_timer(gAssertionsOffloader,
+                                  dispatch_time(DISPATCH_TIME_NOW, timeout_secs*NSEC_PER_SEC), DISPATCH_TIME_FOREVER, 0);
+        if (!nextOffload_ts) {
+            dispatch_resume(gAssertionsOffloader);
+        }
+        nextOffload_ts = getMonotonicTime() + timeout_secs;
+    }
+}
 
 bool createAsyncAssertion(CFDictionaryRef AssertionProperties, IOPMAssertionID *id)
 {
@@ -508,8 +513,10 @@ bool createAsyncAssertion(CFDictionaryRef AssertionProperties, IOPMAssertionID *
     CFStringRef     assertionTypeString;
 
     if (!gAsyncMode) {
+        checkFeatureEnabled();
         return false;
     }
+
     assertionTypeString = CFDictionaryGetValue(AssertionProperties, kIOPMAssertionTypeKey);
 
     if (!isA_CFString(assertionTypeString) ||
@@ -525,9 +532,6 @@ bool createAsyncAssertion(CFDictionaryRef AssertionProperties, IOPMAssertionID *
     dispatch_sync(pmQ, ^(void){
 
         uint32_t  idx;
-        CFTimeInterval      timeout_secs = kDefaultOffloadDelay;
-        uint64_t            timeout_ts;
-
         CFMutableDictionaryRef  mutableProps;
         CFNumberRef numRef;
 
@@ -542,151 +546,1000 @@ bool createAsyncAssertion(CFDictionaryRef AssertionProperties, IOPMAssertionID *
 
         if (CFDictionaryContainsKey(gAssertionsDict, (uintptr_t)idx) == true) {
             created = false;
+            ERROR_LOG("idx already exists. Returning false 0x%x", idx);
             return;
         }
 
+        mutableProps = CFDictionaryCreateMutableCopy(kCFAllocatorDefault, 0, AssertionProperties);
+        if (!mutableProps) {
+            created = false;
+            return;
+        }
+
+        // start date
         CFDateRef start_date = CFDateCreate(0, CFAbsoluteTimeGetCurrent());
         if (!start_date) {
             created = false;
             return;
         }
-
-        mutableProps = CFDictionaryCreateMutableCopy(NULL, 0, AssertionProperties);
-        if (!mutableProps) {
-            created = false;
-            CFRelease(start_date);
-            return;
-        }
-
         CFDictionarySetValue(mutableProps, kIOPMAssertionCreateDateKey, start_date);
         CFRelease(start_date);
+
+        // add assertion to dictionary
         CFDictionarySetValue(gAssertionsDict, (uintptr_t)idx, (const void *)mutableProps);
+
+        // next assertion id
         gNextAssertionIdx = (idx+1) % kMaxAsyncAssertions;
 
+        // return assertion id to client
         *id = ASYNC_ID_FROM_IDX(idx);
     
         numRef = CFNumberCreate(0, kCFNumberSInt32Type, id);
+        DEBUG_LOG("Setting async client assertion id to 0x%x", *id);
         if (numRef) {
             CFDictionarySetValue(mutableProps, kIOPMAsyncClientAssertionIdKey, numRef);
             CFRelease(numRef);
         }
 
-        numRef = CFDictionaryGetValue(mutableProps, kIOPMAssertionTimeoutKey);
-        if (isA_CFNumber(numRef))  {
-            CFNumberGetValue(numRef, kCFNumberDoubleType, &timeout_secs);
-        }
-        if (!timeout_secs || (timeout_secs > kDefaultOffloadDelay)) {
-            timeout_secs = kDefaultOffloadDelay;
-        }
-        timeout_ts = timeout_secs + getMonotonicTime();
-
-        if (!nextOffload_ts || (timeout_ts < nextOffload_ts)) {
-            dispatch_source_set_timer(offloader,
-                      dispatch_time(DISPATCH_TIME_NOW, timeout_secs*NSEC_PER_SEC), DISPATCH_TIME_FOREVER, 0);
-            if (!nextOffload_ts) {
-                dispatch_resume(offloader);
-            }
-            nextOffload_ts = timeout_ts;
+        // set global unique id
+        uint64_t unique_id = MAKE_UNIQUE_AID(getMonotonicTime(), *id, getpid());
+        CFNumberRef unique_id_cf = CFNumberCreate(0, kCFNumberSInt64Type, &unique_id);
+        if (unique_id_cf) {
+            CFDictionarySetValue(mutableProps, kIOPMAssertionGlobalUniqueIDKey, unique_id_cf);
+            CFRelease(unique_id_cf);
         }
 
+        // is a level set ? Defaults to On
+        uint32_t level = kIOPMAssertionLevelOn;
+        numRef = CFDictionaryGetValue(mutableProps, kIOPMAssertionLevelKey);
+        if (isA_CFNumber(numRef)) {
+            CFNumberGetValue(numRef, kCFNumberSInt32Type, &level);
+        }
+        if (level == kIOPMAssertionLevelOff) {
+            // created assertion with level off
+            // add to gTurnedOffAssertionsList and exit
+            DEBUG_LOG("Initial level is off for 0x%x: %@", *id, mutableProps);
+            CFDictionarySetValue(gInactiveAssertionsDict, (uintptr_t)idx, (const void *)mutableProps);
+        } else {
+            activateAsyncAssertion(*id);
+        }
+
+
+        DEBUG_LOG("Async assertion created with 0x%x, length %ld, %@\n", *id, (long)CFDictionaryGetCount(gActiveAssertionsDict), mutableProps);
         CFRelease(mutableProps);
 
     });
-
     return created;
 }
 
-void releaseAsyncAssertion(IOPMAssertionID AssertionID)
+IOReturn _releaseAsycnAssertion(IOPMAssertionID AssertionID, bool removeTimed)
+{
+    int idx = ASYNC_IDX_FROM_ID(AssertionID);
+    CFTypeRef   value;
+
+    if (!CFDictionaryGetValueIfPresent(gAssertionsDict, (uintptr_t)idx, (const void **)&value)) {
+        ERROR_LOG("_releaseAsyncAssertion: Failed to get the assertion details for id:0x%x\n", AssertionID);
+        return kIOReturnInvalid;
+    }
+
+    CFDateRef release_date = CFDateCreate(0, CFAbsoluteTimeGetCurrent());
+    if (release_date) {
+        CFDictionarySetValue((CFMutableDictionaryRef)value, kIOPMAssertionReleaseDateKey, release_date);
+        CFRelease(release_date);
+    }
+
+    // remove from active or turned off list
+    if (CFDictionaryContainsKey(gActiveAssertionsDict, (uintptr_t)idx)) {
+        CFDictionaryRemoveValue(gActiveAssertionsDict, (uintptr_t)idx);
+        // add to released list
+        if (CFArrayGetCount(gReleasedAssertionsList) < kMaxAsyncAssertions) {
+            CFArrayAppendValue(gReleasedAssertionsList, value);
+        }
+    } else if (CFDictionaryContainsKey(gInactiveAssertionsDict, (uintptr_t)idx)) {
+        CFDictionaryRemoveValue(gInactiveAssertionsDict, (uintptr_t)idx);
+        // not adding to released list because we would have logged the turn off event as
+        // a release
+        // if this assertion was timed out by powerd, let's send a release
+        if (CFDictionaryContainsKey(value, kIOPMAsyncRemoteAssertionIdKey)) {
+
+            CFNumberRef cf_remote_id = CFDictionaryGetValue(value, kIOPMAsyncRemoteAssertionIdKey);
+            int remote_id = 0;
+            CFNumberGetValue(cf_remote_id, kCFNumberSInt32Type, &remote_id);
+            INFO_LOG("Powerd turned off this assertion. let's send a release for %u", (uint32_t)remote_id);
+            sendAsyncReleaseMsg(remote_id, false);
+        }
+    }
+
+    // remove from gAssertionDict
+    CFDictionaryRemoveValue(gAssertionsDict, (uintptr_t)idx);
+
+    if (removeTimed) {
+        // remove from timed list
+        removeFromTimedList(AssertionID);
+    }
+
+    /* If this the last assertion to be released, send the full dictionary
+     */
+    if (!activeAssertions() && gCurrentAssertion) {
+        // No active assertions . Let's send this release to powerd
+        sendAsyncReleaseMsg(gCurrentRemoteAssertion, true);
+        gCurrentAssertion = 0;
+        gCurrentRemoteAssertion = 0;
+        DEBUG_LOG("Released assertion id gCurrentRemoteAssertion: 0x%x: 0x%x.Logging everything to powerd %@ %ld", gCurrentRemoteAssertion, AssertionID, gReleasedAssertionsList, CFArrayGetCount(gReleasedAssertionsList));
+
+    } else {
+        // we haven't sent this to powerd yet
+        DEBUG_LOG("Releasing assertion locally id 0x%x", AssertionID);
+    }
+    return kIOReturnSuccess;
+}
+
+IOReturn releaseAsyncAssertion(IOPMAssertionID AssertionID)
 {
 
+    __block IOReturn ret = kIOReturnSuccess;
     dispatch_queue_t pmQ = getPMQueue();
     if (!pmQ) {
-        return;
+        ret = kIOReturnInternalError;
     }
 
     dispatch_sync(pmQ, ^{
-        int idx = ASYNC_IDX_FROM_ID(AssertionID);
-        IOPMAssertionID remoteID;
-        CFTypeRef   value;
+        ret = _releaseAsycnAssertion(AssertionID, true);
 
-        if (!CFDictionaryGetValueIfPresent(gAssertionsDict, (uintptr_t)idx, (const void **)&value)) {
-            ERROR_LOG("Failed to get the assertion details for id:0x%x\n", AssertionID);
-            return;
-        }
-
-        if (isA_CFNumber(value)) {
-            // Send assertion release message to powerd
-            CFNumberGetValue(value, kCFNumberIntType, &remoteID);
-            sendAsyncReleaseMsg(remoteID);
-
-            CFDictionaryRemoveValue(gAssertionsDict, (uintptr_t)idx);
-            DEBUG_LOG("Releasing assertion id 0x%x asyncId 0x%x\n", remoteID, AssertionID);
-            return;
-        }
-        else if (isA_CFDictionary(value)) {
-
-            CFDateRef release_date = CFDateCreate(0, CFAbsoluteTimeGetCurrent());
-            if (release_date) {
-                CFDictionarySetValue((CFMutableDictionaryRef)value, kIOPMAssertionReleaseDateKey, release_date);
-                CFRelease(release_date);
-            }
-
-            DEBUG_LOG("Releasing assertion asyncId 0x%x\n", AssertionID);
-        }
-        else {
-            ERROR_LOG("Unexpected data type in gAssertionsDict for id:0x%x\n", AssertionID);
-            return;
-        }
     });
+    return  ret;
 
 }
 
-static void updateProperty(const void *key, const void *value, void *context __unused)
-{
-    CFDictionarySetValue(gAssertionsDict, key, value);
-}
 
-
-void setAsyncAssertionProperties(CFMutableDictionaryRef properties, IOPMAssertionID AssertionID)
+IOReturn setAsyncAssertionProperties(CFStringRef theProperty, CFTypeRef theValue, IOPMAssertionID AssertionID)
 {
 
+    __block IOReturn ret = kIOReturnSuccess;
     dispatch_queue_t pmQ = getPMQueue();
     if (!pmQ) {
-        return;
+        ret = kIOReturnInternalError;
+        return ret;
     }
-
+    DEBUG_LOG("setAsyncAssertionProperties for 0x%x %@:%@", AssertionID, theProperty, theValue);
     dispatch_sync(pmQ, ^{
         int idx = ASYNC_IDX_FROM_ID(AssertionID);
         CFTypeRef   value;
         IOReturn rc = kIOReturnSuccess;
-
+        bool level_change = false;
         if (!CFDictionaryGetValueIfPresent(gAssertionsDict, (uintptr_t)idx, (const void **)&value)) {
-            ERROR_LOG("Failed to get the assertion deatils for id:0x%x\n", AssertionID);
-            return;
-        }
-
-        if (isA_CFNumber(value)) {
-            // Send assertion properties update  message to powerd
-            CFDictionarySetValue(properties, kIOPMAssertionIdKey, value);
-            sendAsyncAssertionMsg(false, properties, &rc);
-            if (rc != kIOReturnSuccess) {
-                ERROR_LOG("powerd returned err 0x%x for properties update on id:0x%x\n",
-                             rc, AssertionID);
-            }
-
-            return;
+            ERROR_LOG("setAsyncAssertionProperties: Failed to get the assertion details for id:0x%x\n", AssertionID);
+            ret = kIOReturnInvalid;
         }
         else if (isA_CFDictionary(value)) {
-
-            CFDictionaryApplyFunction(properties, updateProperty, NULL);
+            CFMutableDictionaryRef props = (CFMutableDictionaryRef)value;
+            CFDictionarySetValue(props, theProperty, theValue);
+            if (CFStringCompare((CFStringRef)theProperty, kIOPMAssertionTimeoutKey, 0) == kCFCompareEqualTo) {
+                // is this assertion active
+                if (CFDictionaryContainsKey(gActiveAssertionsDict, (uintptr_t)idx)) {
+                    // timeout was modified
+                    removeFromTimedList(AssertionID);
+                    insertIntoTimedList(props);
+                }
+            } else if (CFStringCompare((CFStringRef)theProperty, kIOPMAssertionLevelKey, 0) == kCFCompareEqualTo) {
+                // assertion level was modified
+                ret = handleAssertionLevel(theValue, AssertionID);
+                level_change = true;
+            }
+            /*
+             Level changes are handled in IOKitUser. Powerd is only sent create and release
+             */
+            if (CFDictionaryContainsKey(props, kIOPMAsyncRemoteAssertionIdKey) && !level_change) {
+                // this assertion has been sent to powerd. Let's send an update
+                CFMutableDictionaryRef updates = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+                CFDictionarySetValue(updates, theProperty, theValue);
+                CFTypeRef remote_id = CFDictionaryGetValue(props, kIOPMAsyncRemoteAssertionIdKey);
+                CFDictionarySetValue(updates, kIOPMAsyncRemoteAssertionIdKey, remote_id);
+                sendAsyncAssertionMsg(false, updates, &rc, NULL);
+                CFRelease(updates);
+            }
         }
         else {
             ERROR_LOG("Unexpected data type in gAssertionsDict for id:0x%x\n", AssertionID);
-            return;
+            ret = kIOReturnInternalError;
         }
     });
+    return ret;
+}
+
+
+
+/*
+ * Send AssertionCreate msg to powerd
+ * Send property update msg to powerd
+ * Send logging information to powerd
+*/
+
+IOPMAssertionID sendAsyncAssertionMsg(bool create, CFDictionaryRef dict, IOReturn *rc, CFArrayRef toLog)
+{
+    xpc_object_t            desc = NULL;
+    xpc_object_t            msg = NULL;
+    xpc_object_t            resp = NULL;
+    IOPMAssertionID         remoteID = kIOPMNullAssertionID;
+    xpc_object_t            data = NULL;
+
+    if (!gAssertionConnection) {
+        initialSetup();
+    }
+
+    msg = xpc_dictionary_create(NULL, NULL, 0);
+    if (!msg) {
+        ERROR_LOG("Failed to create xpc msg object\n");
+        return remoteID;
+    }
+
+    if (!dict && !toLog) {
+        ERROR_LOG("No assertion dictionary or logging data to send");
+        return remoteID;
+    }
+    if (dict) {
+        desc = _CFXPCCreateXPCMessageWithCFObject(dict);
+        if (!desc) {
+            ERROR_LOG("Failed to convert CF dictionary to xpc object\n");
+            return remoteID;
+        }
+    }
+    if (toLog != NULL && CFArrayGetCount(toLog)!= 0) {
+        DEBUG_LOG("Logging all %ld activity to powerd\n", CFArrayGetCount(toLog));
+        data = _CFXPCCreateXPCObjectFromCFObject(toLog);
+        xpc_dictionary_set_value(msg, kAssertionActivityLogKey, data);
+    }
+
+    if (create) {
+        xpc_dictionary_set_value(msg, kAssertionCreateMsg, desc);
+
+        resp = xpc_connection_send_message_with_reply_sync(gAssertionConnection, msg);
+        if (xpc_get_type(resp) == XPC_TYPE_DICTIONARY) {
+            remoteID = xpc_dictionary_get_uint64(resp, kAssertionIdKey);
+            if (rc) {
+                *rc = xpc_dictionary_get_uint64(resp, kMsgReturnCode);
+            }
+        } else if (xpc_get_type(resp) == XPC_TYPE_ERROR) {
+            if (resp == XPC_ERROR_CONNECTION_INTERRUPTED) {
+                ERROR_LOG("sendAsyncAssertionMsg failed: powerd xpc connection interrupted");
+            } else if (resp == XPC_ERROR_CONNECTION_INVALID) {
+                ERROR_LOG("sendAsyncAssertionMsg failed: powerd xpc connection invalid");
+            }
+        }
+
+    }
+    else {
+        if (dict) {
+            xpc_dictionary_set_value(msg, kAssertionPropertiesMsg, desc);
+        }
+        xpc_connection_send_message(gAssertionConnection, msg);
+    }
+    if (desc) {
+        xpc_release(desc);
+    }
+    if (data) {
+        xpc_release(data);
+    }
+    if (resp) {
+        xpc_release(resp);
+    }
+    xpc_release(msg);
+
+
+    return remoteID;
+}
+
+/*
+ * Only called when the last assertion is released
+ */
+void sendAsyncReleaseMsg(IOPMAssertionID remoteID, bool log)
+{
+    xpc_object_t            msg = NULL;
+    xpc_object_t            data = NULL;
+
+    msg = xpc_dictionary_create(NULL, NULL, 0);
+    if (!msg) {
+        ERROR_LOG("Failed to create xpc msg object\n");
+        goto exit;
+    }
+
+    if (!gAssertionConnection) {
+        ERROR_LOG("No connection to powerd");
+        goto exit;
+    }
+
+    DEBUG_LOG("Sending Assertion release message for assertion Id 0x%x\n", remoteID);
+    xpc_dictionary_set_uint64(msg, kAssertionReleaseMsg, remoteID);
+    if (log) {
+        if (gReleasedAssertionsList && CFArrayGetCount(gReleasedAssertionsList) != 0) {
+            DEBUG_LOG("Logging all %ld activity to powerd\n", CFArrayGetCount(gReleasedAssertionsList));
+            data = _CFXPCCreateXPCObjectFromCFObject(gReleasedAssertionsList);
+            xpc_dictionary_set_value(msg, kAssertionActivityLogKey, data);
+        }
+    }
+    xpc_connection_send_message(gAssertionConnection, msg);
+
+    if (log) {
+        // remove assertions from inactive list
+        CFArrayRemoveAllValues(gReleasedAssertionsList);
+    }
+exit:
+    if (data) {
+        xpc_release(data);
+    }
+    if (msg) {
+        xpc_release(msg);
+    }
+
+    return;
+}
+
+/*
+ * If an active assertion exits - send it to powerd
+ * Send any Inactive assertions for logging
+ */
+void offloadAssertions(bool forced)
+{
+    if (!gAsyncMode) {
+        return;
+    }
+
+    int a_id;
+    IOPMAssertionID remoteID;
+    CFNumberRef remoteIDCf;
+    IOReturn rc;
+
+    DEBUG_LOG("offloadAssertions fired");
+    if (!gCurrentAssertion && !activeAssertions()) {
+        // no current assertion. Send all activity till now
+        if (CFArrayGetCount(gReleasedAssertionsList) > 0) {
+            DEBUG_LOG("No current assertion. Sending all activity till now");
+            sendAsyncAssertionMsg(false, NULL, &rc, gReleasedAssertionsList);
+            CFArrayRemoveAllValues(gReleasedAssertionsList);
+            goto exit;
+        }
+    }
+
+    if (gCurrentRemoteAssertion) {
+        ERROR_LOG("offloadAssertions called with gCurrentRemoteAssertion 0x%x", gCurrentRemoteAssertion);
+        goto exit;
+    }
+    for (int idx = 0; idx < kMaxAsyncAssertions; idx++) {
+        CFMutableDictionaryRef assertion;
+        if (!CFDictionaryGetValueIfPresent(gActiveAssertionsDict, (uintptr_t)idx, (const void **)&assertion)) {
+            continue;
+        }
+        if (!isA_CFDictionary(assertion)) {
+            ERROR_LOG("Not a dictinary for 0x%x", idx);
+            continue;
+        }
+        // first active assertion. Let's send this to powerd
+        rc = kIOReturnSuccess;
+        CFNumberRef assertion_id = CFDictionaryGetValue(assertion, kIOPMAsyncClientAssertionIdKey);
+        CFNumberGetValue(assertion_id, kCFNumberSInt32Type, &a_id);
+        DEBUG_LOG("Sending assertion create msg for id 0x%x:%@\n",a_id, assertion);
+        remoteID = sendAsyncAssertionMsg(true, assertion, &rc, gReleasedAssertionsList);
+        CFArrayRemoveAllValues(gReleasedAssertionsList);
+
+        if (rc != kIOReturnSuccess || remoteID == kIOPMNullAssertionID) {
+            ERROR_LOG("powerd returned err 0x%x to create assertion %@. Dropping the assertion\n",
+                      rc, assertion);
+            CFDictionaryRemoveValue(gActiveAssertionsDict, (uintptr_t)idx);
+            CFDictionaryRemoveValue(gAssertionsDict, (uintptr_t)idx);
+            continue;
+        } else {
+            // keep track of the remoteID received from powerd
+            remoteIDCf = CFNumberCreate(0, kCFNumberIntType, &remoteID);
+            if (!remoteIDCf) {
+                ERROR_LOG("Failed to create the remoteID to CF for id %@\n", assertion);
+                continue;
+            }
+            INFO_LOG("powerd returned assertion id 0x%x for async id %@\n",
+                      remoteID, assertion);
+            gCurrentAssertion = a_id;
+            gCurrentRemoteAssertion = remoteID;
+            CFDictionarySetValue(assertion, kIOPMAsyncRemoteAssertionIdKey , remoteIDCf);
+            CFRelease(remoteIDCf);
+            break;
+        }
+    }
+exit:
+    if (!forced) {
+        nextOffload_ts = 0;
+        dispatch_suspend(gAssertionsOffloader);
+    }
+}
+
+void processCheckAssertionsMsg(xpc_object_t msg)
+{
+    uint32_t blockers = 0;
+    uint64_t    token = 0;
+    if (activeAssertions()) {
+        blockers = 1;
+        dispatch_async(getPMQueue(), ^{
+            if (gCurrentRemoteAssertion) {
+                ERROR_LOG("Received processCheckAssertionMsg with active assertion 0x%x", gCurrentRemoteAssertion);
+            }
+            offloadAssertions(true);
+        });
+    }
+
+    xpc_object_t reply = xpc_dictionary_create_reply(msg);
+    if (!reply) {
+        ERROR_LOG("Failed to create xpc reply object\n");
+        return;
+    }
+
+    // Take the token from incoming message and put it in reply
+    token = xpc_dictionary_get_uint64(msg, kAssertionCheckTokenKey);
+    xpc_dictionary_set_uint64(reply, kAssertionCheckTokenKey, token);
+    xpc_dictionary_set_uint64(reply, kAssertionCheckCountKey, blockers);
+
+    INFO_LOG("Replying to assertion check message with count %d token:%llu\n", blockers, token);
+    xpc_connection_t remote = xpc_dictionary_get_remote_connection(msg);
+    xpc_connection_send_message(remote, reply);
+    xpc_release(reply);
 
 }
+
+void processAssertionTimeout(xpc_object_t msg)
+{
+    IOPMAssertionID id;
+    int idx = -1;
+
+    id = xpc_dictionary_get_uint64(msg, kAssertionTimeoutMsg);
+
+    if (id == gCurrentRemoteAssertion) {
+        INFO_LOG("Current assertion has been released by powerd gCurrentRemoteAssertion 0x%x gCurrentAssertion 0x%x", id, gCurrentAssertion);
+        idx = ASYNC_IDX_FROM_ID(gCurrentAssertion);
+        // remove from dict
+        if (idx != -1) {
+            // has this assertion already been released ?
+            CFTypeRef assertion = CFDictionaryGetValue(gAssertionsDict, (uintptr_t)idx);
+            if (!isA_CFDictionary(assertion)) {
+                DEBUG_LOG("Assertion 0x%x has already been released", gCurrentAssertion);
+                // send a release to powerd
+                INFO_LOG("Assertion %u has already been released. Sending a release to powerd", gCurrentRemoteAssertion);
+                sendAsyncReleaseMsg(gCurrentRemoteAssertion, false);
+            } else {
+                // remove from timed list
+                removeFromTimedList(gCurrentAssertion);
+
+                // remove from active list
+                if (CFDictionaryContainsKey(gActiveAssertionsDict, (uintptr_t)idx)) {
+                    DEBUG_LOG("processAssertionTimeout: Removing from gActiveAssertionsDict: 0x%x", id);
+                    CFDictionaryRemoveValue(gActiveAssertionsDict, (uintptr_t)idx);
+                } else {
+                    DEBUG_LOG("processAssertionTimeout: Not found in gActiveAssertionsDict: 0x%x", id);
+                }
+
+                // check assertion timeout action
+                CFStringRef action = kIOPMAssertionTimeoutActionTurnOff;
+                if (CFDictionaryContainsValue(assertion, kIOPMAssertionTimeoutActionKey)) {
+                    action = CFDictionaryGetValue(assertion, kIOPMAssertionTimeoutActionKey);
+                }
+                if (CFStringCompare(action, kIOPMAssertionTimeoutActionRelease, 0) == kCFCompareEqualTo) {
+                    DEBUG_LOG("processAssertionTimeout: Removing idx:%d id:0x%x", idx, id);
+                    CFDictionaryRemoveValue(gAssertionsDict, (uintptr_t)idx);
+
+                } else {
+                    DEBUG_LOG("processAssertionTimeout: Turning off assertion idx:%d id:0x%x", idx, id);
+                    CFDictionarySetValue(gInactiveAssertionsDict, (uintptr_t)idx, assertion);
+                }
+            }
+            gCurrentAssertion = 0;
+            gCurrentRemoteAssertion = 0;
+        }
+    } else {
+        ERROR_LOG("Received a release not for gCurrentRemoteAssertion:0x%x. Received 0x%x", gCurrentRemoteAssertion, id)
+    }
+
+    // offload any assertions
+    dispatch_async(getPMQueue(), ^{
+        offloadAssertions(true);
+    });
+}
+
+void processAssertionUpdateActivity(xpc_object_t msg)
+{
+    INFO_LOG("Powerd has requested assertion activity update");
+    // powerd has requested an update
+    if (!gReleasedAssertionsList && !gActiveAssertionsDict) {
+        // no assertions to update
+        return;
+    }
+    if (!gAssertionConnection) {
+        ERROR_LOG("processAssertionUpdateActivity: No gAssertionConnection");
+        return;
+    }
+
+    xpc_object_t reply = xpc_dictionary_create_reply(msg);
+    xpc_object_t data;
+    if (!reply) {
+        ERROR_LOG("Failed to create xpc reply object");
+        return;
+    }
+
+    CFMutableArrayRef toLog = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks);
+    int count = 0;
+
+    // gActiveAssertionDict
+    for (int idx = 0; idx < kMaxAsyncAssertions; idx++) {
+        if (count == kMaxAsyncAssertionsLog) {
+            break;
+        }
+        CFMutableDictionaryRef assertion;
+        if (!CFDictionaryGetValueIfPresent(gActiveAssertionsDict, (uintptr_t)idx, (const void **)&assertion)) {
+            continue;
+        }
+        if (!isA_CFDictionary(assertion)) {
+            ERROR_LOG("Not a dictiaonry for 0x%x", idx);
+            continue;
+        }
+        if (!CFDictionaryContainsKey(assertion, kIOPMAsyncRemoteAssertionIdKey)) {
+            CFArrayAppendValue(toLog, assertion);
+            count++;
+        } else {
+            DEBUG_LOG("Skipping relogging of active assertion which has a remote id %@", assertion);
+        }
+    }
+    if (count < kMaxAsyncAssertionsLog && isA_CFArray(gReleasedAssertionsList)) {
+        // add gReleasedAssertionsList
+        for (int i = 0; i < CFArrayGetCount(gReleasedAssertionsList); i++) {
+            if (count == kMaxAsyncAssertionsLog) {
+                break;
+            }
+            CFMutableDictionaryRef assertion = (CFMutableDictionaryRef)CFArrayGetValueAtIndex(gReleasedAssertionsList, i);
+            if (isA_CFDictionary(assertion)) {
+                CFArrayAppendValue(toLog, assertion);
+                count++;
+            }
+        }
+    }
+    DEBUG_LOG("processAssertionUpdateActivity count %ld and toLog %@", CFArrayGetCount(toLog), toLog);
+    if (toLog && CFArrayGetCount(toLog) != 0) {
+        data = _CFXPCCreateXPCObjectFromCFObject(toLog);
+        xpc_dictionary_set_value(reply, kAssertionActivityLogKey, data);
+        if (count == kMaxAsyncAssertionsLog) {
+            // set overflow = true.
+            xpc_dictionary_set_bool(reply, kAssertionCopyActivityUpdateOverflowKey, true);
+        }
+    } else {
+        ERROR_LOG("No assertion activity to update");
+        if (toLog) {
+            CFRelease(toLog);
+        }
+        xpc_release(reply);
+        return;
+    }
+
+    xpc_connection_send_message(gAssertionConnection, reply);
+    if (data) {
+        xpc_release(data);
+    }
+    if (reply) {
+        xpc_release(reply);
+    }
+
+    // mark everything in toLog as LoggedCreate
+    uint32_t value = 1;
+    CFNumberRef cf_value = CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt32Type, &value);
+
+    for (int i = 0; i < CFArrayGetCount(toLog); i++) {
+        CFMutableDictionaryRef assertion = (CFMutableDictionaryRef)CFArrayGetValueAtIndex(toLog, i);
+        CFDictionarySetValue(assertion, kIOPMAsyncAssertionLoggedCreate, cf_value);
+    }
+
+    if (cf_value) {
+        CFRelease(cf_value);
+    }
+    // remove gReleasedAssertionsList
+    CFArrayRemoveAllValues(gReleasedAssertionsList);
+    if (toLog) {
+        CFRelease(toLog);
+    }
+}
+
+void processCurrentActiveAssertions(xpc_object_t msg)
+{
+    /*
+     powerd has requested all active async assertions
+     */
+    if (!gAssertionConnection) {
+        ERROR_LOG("processAssertionUpdateActivity: No gAssertionConnection");
+        return;
+    }
+    if (gActiveAssertionsDict && CFDictionaryGetCount(gActiveAssertionsDict) > 0) {
+        xpc_object_t reply = xpc_dictionary_create_reply(msg);
+        if (!reply) {
+            ERROR_LOG("Failed to create xpc reply object");
+            return;
+        }
+        CFMutableArrayRef toLog = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks);
+        for (int idx = 0; idx < kMaxAsyncAssertions; idx++) {
+            CFMutableDictionaryRef assertion;
+            if (!CFDictionaryGetValueIfPresent(gActiveAssertionsDict, (uintptr_t)idx, (const void **)&assertion)) {
+                continue;
+            }
+            if (!isA_CFDictionary(assertion)) {
+                ERROR_LOG("Not a dictianary for 0x%x", idx);
+                continue;
+            }
+            CFArrayAppendValue(toLog, assertion);
+        }
+        xpc_object_t data = _CFXPCCreateXPCObjectFromCFObject(toLog);
+        xpc_dictionary_set_value(reply, kAssertionUpdateActivesMsg, data);
+        xpc_connection_send_message(gAssertionConnection, reply);
+        if (data) {
+            xpc_release(data);
+        }
+        if (reply) {
+            xpc_release(reply);
+        }
+        if (toLog) {
+            CFRelease(toLog);
+        }
+    }
+}
+
+void processRemoteMsg(xpc_object_t msg)
+{
+    xpc_type_t type = xpc_get_type(msg);
+
+    if (type == XPC_TYPE_DICTIONARY) {
+        if ((xpc_dictionary_get_value(msg, kAssertionCheckMsg))) {
+            processCheckAssertionsMsg(msg);
+        }
+        else if ((xpc_dictionary_get_value(msg, kAssertionTimeoutMsg))) {
+            processAssertionTimeout(msg);
+        }
+        else if ((xpc_dictionary_get_value(msg, kAssertionUpdateActivityMsg))) {
+            processAssertionUpdateActivity(msg);
+        }
+        else if ((xpc_dictionary_get_value(msg, kAssertionUpdateActivesMsg))) {
+            processCurrentActiveAssertions(msg);
+        }
+        else {
+            ERROR_LOG("Unexpected message from async assertions connections\n");
+        }
+    }
+    else if (type == XPC_TYPE_ERROR) {
+        if (msg == XPC_ERROR_CONNECTION_INTERRUPTED) {
+            // powerd must have crashed
+            ERROR_LOG("powerd released our connection");
+            if (gAssertionConnection) {
+                xpc_release(gAssertionConnection);
+                gAssertionConnection = NULL;
+                gAsyncModeSetupDone = false;
+                gCurrentRemoteAssertion = 0;
+                gCurrentAssertion = 0;
+            }
+            // resend assertions
+            offloadAssertions(true);
+        }
+        else if (msg == XPC_ERROR_CONNECTION_INVALID) {
+            // powerd released our connection
+            ERROR_LOG("powerd released our connection");
+            if (gAssertionConnection) {
+                xpc_release(gAssertionConnection);
+                gAssertionConnection = NULL;
+                gAsyncModeSetupDone = false;
+            }
+        }
+        else {
+            ERROR_LOG("Irrecoverable error for assertion creation\n");
+            IOPMDisableAsyncAssertions();
+        }
+    }
+}
+
+
+// Assertion timeouts
+void handleAssertionTimeout(void)
+{
+    // look through list and release assertion
+    uint64_t now = getMonotonicTime();
+    uint64_t timeout_ts = 0;
+    int i = 0;
+    for (i = 0; i < CFArrayGetCount(gTimedAssertionsList); i++) {
+        CFMutableDictionaryRef assertion = (CFMutableDictionaryRef)CFArrayGetValueAtIndex(gTimedAssertionsList, i);
+        CFNumberRef cf_timeout = (CFNumberRef)CFDictionaryGetValue(assertion, kIOPMAsyncAssertionTimeoutTimestamp);
+        CFNumberGetValue(cf_timeout, kCFNumberSInt64Type, &timeout_ts);
+        CFNumberRef a_id = CFDictionaryGetValue(assertion, kIOPMAsyncClientAssertionIdKey);
+        uint32_t id = 0;
+        CFNumberGetValue(a_id, kCFNumberSInt32Type, &id);
+        if (timeout_ts <= now) {
+            if (CFDictionaryContainsKey(assertion, kIOPMAsyncRemoteAssertionIdKey)) {
+                CFNumberRef cf_id = CFDictionaryGetValue(assertion, kIOPMAsyncRemoteAssertionIdKey);
+                uint32_t value = 0;
+                CFNumberGetValue(cf_id, kCFNumberSInt32Type, &value);
+                ERROR_LOG("Powerd knows about this assertion 0x%0x. let powerd time it out", value);
+                continue;
+            }
+            DEBUG_LOG("Timeout: assertion id 0x%x with time %llu", id, timeout_ts);
+            /*
+             Check kIOPMAssertionTimeoutActionKey
+             */
+            CFStringRef action = kIOPMAssertionTimeoutActionTurnOff;
+            if (CFDictionaryContainsValue(assertion, kIOPMAssertionTimeoutActionKey)) {
+                action = CFDictionaryGetValue(assertion, kIOPMAssertionTimeoutActionKey);
+            }
+            if (CFStringCompare(action, kIOPMAssertionTimeoutActionRelease, 0) == kCFCompareEqualTo) {
+                IOReturn rc = _releaseAsycnAssertion(id, false);
+                if (rc != kIOReturnSuccess) {
+                    ERROR_LOG("Failed to release assertion 0x%x on timeout", id);
+                }
+            } else {
+                DEBUG_LOG("Turning off assertion 0x%x: %@", id, assertion);
+                // turn off assertion
+                uint32_t level = kIOPMAssertionLevelOff;
+                CFNumberRef cf_level = CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt32Type, &level);
+                handleAssertionLevel(cf_level, id);
+                CFRelease(cf_level);
+            }
+
+        } else {
+            break;
+        }
+    }
+    for (int j = 0; j < i; j++) {
+        CFArrayRemoveValueAtIndex(gTimedAssertionsList, 0);
+    }
+
+    dispatch_suspend(gAssertionTimer);
+    // find the next timeout and arm timer
+    if (CFArrayGetCount(gTimedAssertionsList) != 0) {
+        CFMutableDictionaryRef earliest_assertion = (CFMutableDictionaryRef)CFArrayGetValueAtIndex(gTimedAssertionsList, 0);
+        CFNumberRef nextTimeout = (CFNumberRef)CFDictionaryGetValue(earliest_assertion, kIOPMAsyncAssertionTimeoutTimestamp);
+        CFNumberGetValue(nextTimeout, kCFNumberSInt64Type, &timeout_ts);
+        uint64_t delta = timeout_ts - now;
+        dispatch_source_set_timer(gAssertionTimer, dispatch_time(DISPATCH_TIME_NOW, delta * NSEC_PER_SEC), DISPATCH_TIME_FOREVER, 0);
+        dispatch_resume(gAssertionTimer);
+        DEBUG_LOG("handleAssertionTimeout: Setting assertion timeout to fire in %llu secs", delta);
+    }
+}
+
+static CFComparisonResult compare_assertion(const void *val1, const void *val2, __unused void *context)
+{
+    CFDictionaryRef props1 = (CFDictionaryRef)val1;
+    CFDictionaryRef props2 = (CFDictionaryRef)val2;
+    CFNumberRef t1 = (CFNumberRef)CFDictionaryGetValue(props1, kIOPMAsyncAssertionTimeoutTimestamp);
+    CFNumberRef t2 = (CFNumberRef)CFDictionaryGetValue(props2, kIOPMAsyncAssertionTimeoutTimestamp);
+    return CFNumberCompare(t1, t2, NULL);
+}
+
+void insertIntoTimedList(CFMutableDictionaryRef props)
+{
+    CFArrayAppendValue(gTimedAssertionsList, props);
+    CFArraySortValues(gTimedAssertionsList, CFRangeMake(0, CFArrayGetCount(gTimedAssertionsList)), compare_assertion, NULL);
+
+    // arm a timer
+    if (!gAssertionTimer) {
+        gAssertionTimer = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, getPMQueue());
+        if (gAssertionTimer) {
+            dispatch_source_set_event_handler(gAssertionTimer, ^{
+                handleAssertionTimeout();
+            });
+            dispatch_source_set_cancel_handler(gAssertionTimer, ^{
+                dispatch_release(gAssertionTimer);
+                gAssertionTimer = NULL;
+            });
+        }
+    } else {
+        // suspend the current timer and arm the new one
+        dispatch_suspend(gAssertionTimer);
+    }
+    uint64_t now = getMonotonicTime();
+    uint64_t earliest_timeout = 0;
+    CFMutableDictionaryRef earliestAssertion = (CFMutableDictionaryRef)CFArrayGetValueAtIndex(gTimedAssertionsList, 0);
+    CFNumberRef cf_earliest_timeout = CFDictionaryGetValue(earliestAssertion, kIOPMAsyncAssertionTimeoutTimestamp);
+    CFNumberGetValue(cf_earliest_timeout, kCFNumberSInt64Type, &earliest_timeout);
+    int  delta = earliest_timeout - now;
+    if (delta <= 0) {
+        handleAssertionTimeout();
+    } else {
+        if (gAssertionTimer) {
+            DEBUG_LOG("Setting assertion timeout to fire in %d secs", delta);
+            dispatch_source_set_timer(gAssertionTimer, dispatch_time(DISPATCH_TIME_NOW, delta * NSEC_PER_SEC), DISPATCH_TIME_FOREVER, 0);
+            dispatch_resume(gAssertionTimer);
+        }
+    }
+}
+
+void removeFromTimedList(IOPMAssertionID id)
+{
+    int idx = 0;
+    int found_id = -1;
+    for (idx = 0; idx < CFArrayGetCount(gTimedAssertionsList); idx++) {
+        CFMutableDictionaryRef assertion = (CFMutableDictionaryRef)CFArrayGetValueAtIndex(gTimedAssertionsList, idx);
+        CFNumberRef cf_id;
+        cf_id = (CFNumberRef)CFDictionaryGetValue(assertion, kIOPMAsyncClientAssertionIdKey);
+        uint32_t a_id;
+        CFNumberGetValue(cf_id, kCFNumberSInt32Type, &a_id);
+        if (a_id == id) {
+            found_id = idx;
+            break;
+        }
+    }
+    if (found_id != -1) {
+        DEBUG_LOG("Removing 0x%x from TimedList", (uint32_t)id);
+        CFArrayRemoveValueAtIndex(gTimedAssertionsList, found_id);
+    }
+}
+
+IOReturn handleAssertionLevel(CFTypeRef value, IOPMAssertionID assertionID)
+{
+    uint32_t level;
+    CFNumberGetValue((CFNumberRef)value, kCFNumberSInt32Type, &level);
+
+    uint32_t idx = ASYNC_IDX_FROM_ID(assertionID);
+    CFMutableDictionaryRef assertion =  (CFMutableDictionaryRef)CFDictionaryGetValue(gAssertionsDict, (uintptr_t)idx);
+    if (!assertion) {
+        ERROR_LOG("handleAssertionLevel: unable to find assertion with id 0x%x", assertionID);
+        return kIOReturnBadArgument;
+    }
+    bool is_active = CFDictionaryContainsKey(gActiveAssertionsDict, (uintptr_t)idx);
+    bool is_turned_off = CFDictionaryContainsKey(gInactiveAssertionsDict, (uintptr_t)idx);
+    if (!is_active && !is_turned_off) {
+        // this should never happen
+        ERROR_LOG("Assertion 0x%x is neither active nor turned off", assertionID);
+        return kIOReturnError;
+    }
+
+    if (level == kIOPMAssertionLevelOn) {
+        if (is_turned_off) {
+            // turn on assertion from turned off list
+            // update create time
+            CFDateRef start_date = CFDateCreate(0, CFAbsoluteTimeGetCurrent());
+            if (start_date) {
+                CFDictionarySetValue(assertion, kIOPMAssertionCreateDateKey, start_date);
+                CFRelease(start_date);
+            }
+
+            // clear previous release date
+            if (CFDictionaryContainsKey(assertion, kIOPMAssertionReleaseDateKey)) {
+                CFDictionaryRemoveValue(assertion, kIOPMAssertionReleaseDateKey);
+            }
+            CFDictionaryRemoveValue(gInactiveAssertionsDict, (uintptr_t)idx);
+
+            // activate the assertion
+            activateAsyncAssertion(assertionID);
+        }
+    } else if (level == kIOPMAssertionLevelOff) {
+        if (is_active) {
+            // turn off active
+            CFDateRef turn_off_date = CFDateCreate(0, CFAbsoluteTimeGetCurrent());
+            if (turn_off_date) {
+                CFDictionarySetValue(assertion, kIOPMAssertionReleaseDateKey, turn_off_date);
+                CFRelease(turn_off_date);
+            }
+
+            // make an entry in gReleasedAssertionsList
+            CFArrayAppendValue(gReleasedAssertionsList, (const void *)assertion);
+
+            // move to turned off list
+            CFDictionarySetValue(gInactiveAssertionsDict, (uintptr_t)idx, assertion);
+            CFDictionaryRemoveValue(gActiveAssertionsDict, (uintptr_t)idx);
+
+            // check if this was the last assertion turned off
+            if (!activeAssertions() && gCurrentAssertion) {
+                DEBUG_LOG("handleAssertionTurnOff: Released assertion id 0x%x", gCurrentRemoteAssertion);
+                sendAsyncReleaseMsg(gCurrentRemoteAssertion, true);
+                gCurrentAssertion = 0;
+                gCurrentRemoteAssertion = 0;
+
+            }
+        }
+    }
+    DEBUG_LOG("handleAssertionLevel for 0x%x to %d: %@", assertionID, level, assertion);
+    return kIOReturnSuccess;
+}
+
+bool activeAssertions()
+{
+    int length = (int)CFDictionaryGetCount(gActiveAssertionsDict);
+    if (length > 0) {
+        return true;
+    }
+    return false;
+}
+
+CFDictionaryRef IOPMGetCurrentAsyncActiveAssertions(void)
+{
+    if (gAssertionsDict && CFDictionaryGetCount(gActiveAssertionsDict) > 0) {
+        return gActiveAssertionsDict;
+    }
+    return NULL;
+}
+
+CFArrayRef IOPMGetCurrentAsyncReleasedAssertions(void)
+{
+    if (gReleasedAssertionsList && CFArrayGetCount(gReleasedAssertionsList) > 0) {
+        return gReleasedAssertionsList;
+    }
+    return NULL;
+}
+
+CFDictionaryRef IOPMGetCurrentAsyncInactiveAssertions(void)
+{
+    if (gInactiveAssertionsDict && CFDictionaryGetCount(gInactiveAssertionsDict) > 0) {
+        return gInactiveAssertionsDict;
+    }
+    return NULL;
+}
+
+CFArrayRef IOPMGetCurrentAsyncTimedAssertions(void)
+{
+    if (gTimedAssertionsList && CFArrayGetCount(gTimedAssertionsList) > 0) {
+        return gTimedAssertionsList;
+    }
+    return NULL;
+}
+
+CFDictionaryRef IOPMGetCurrentAsycnRemoteAssertion(void)
+{
+    if (gCurrentAssertion && gCurrentAssertion != kIOPMNullAssertionID) {
+        int idx = ASYNC_IDX_FROM_ID(gCurrentAssertion);
+        CFDictionaryRef props = CFDictionaryGetValue(gAssertionsDict, idx);
+        if (props) {
+            return props;
+        }
+    }
+    return NULL;
+}
+
+/*
+ IOPMCopyActiveAsyncAssertionsByProcess. Used by pmset
+ Send a message to powerd to fetch all active assertions from
+ all processes. This is a blocking call. Intended for use only by pmset
+ */
+CFDictionaryRef IOPMCopyActiveAsyncAssertionsByProcess()
+{
+#if !TARGET_OS_IOS
+    return NULL;
+#endif
+    xpc_object_t connection = NULL;
+    xpc_object_t msg = NULL;
+    connection = xpc_connection_create_mach_service(POWERD_XPC_ID, dispatch_get_main_queue(), 0);
+    if (!connection) {
+        ERROR_LOG("Failed to create connection\n");
+        return NULL;
+    }
+    xpc_connection_set_target_queue(connection, getPMQueue());
+    xpc_connection_set_event_handler(connection,
+                                     ^(xpc_object_t e __unused ) { });
+    xpc_connection_resume(connection);
+    msg = xpc_dictionary_create(NULL, NULL, 0);
+    if (!msg) {
+        ERROR_LOG("Failed to create dictionary to send message");
+        return NULL;
+    }
+    xpc_dictionary_set_bool(msg, kAssertionCopyActiveAsyncAssertionsKey, true);
+    CFDictionaryRef assertions = NULL;
+    xpc_object_t reply = xpc_connection_send_message_with_reply_sync(connection, msg);
+    if (xpc_get_type(reply) == XPC_TYPE_DICTIONARY) {
+        xpc_object_t data = xpc_dictionary_get_value(reply, kAssertionCopyActiveAsyncAssertionsKey);
+        if (data) {
+            assertions = _CFXPCCreateCFObjectFromXPCObject(data);
+            INFO_LOG("Received active assertions from powerd %@", assertions);
+        } else {
+            ERROR_LOG("No assertions by process");
+        }
+    } else {
+        ERROR_LOG("Received an error in response to IOPMCopyActiveAsyncAssertionsByProcess");
+    }
+    if (msg) {
+        xpc_release(msg);
+    }
+    if (reply) {
+        xpc_release(reply);
+    }
+    return assertions;
+}
+
+/********************************************************************
+ End Async PowerAssertions
+ ***********************************************************************/
 
 /******************************************************************************
  * IOPMAssertionCreate
@@ -938,6 +1791,28 @@ IOReturn IOPMAssertionCreateWithProperties(
 
 
 
+#if !defined(_OPEN_SOURCE_) && !TARGET_OS_IPHONE
+
+    if ( isA_CFString(assertionTypeString) && 
+            ( CFEqual(assertionTypeString, kIOPMAssertionTypePreventUserIdleDisplaySleep) ||
+              CFEqual(assertionTypeString, kIOPMAssertionTypeNoDisplaySleep)) ) {
+
+        if (!_CSCheckFix(CFSTR("11136371") )) {
+
+            if (!mutableProps) {
+                mutableProps = CFDictionaryCreateMutableCopy(NULL, 0, AssertionProperties);
+                if (!mutableProps) {
+                    return_code = kIOReturnInternalError;
+                    goto exit;
+                }
+            }
+
+
+            CFDictionarySetValue(mutableProps, kIOPMAssertionTypeKey, kIOPMAssertionUserIsActive);
+        }
+    }
+
+#endif  // !_OPEN_SOURCE_ && !TARGET_OS_IPHONE
 
 #if TARGET_OS_IPHONE
 
@@ -1163,15 +2038,16 @@ IOReturn IOPMAssertionRelease(IOPMAssertionID AssertionID)
         goto exit;
     }
 
+    if (gAssertionsDict && IS_ASYNC_ID(AssertionID)) {
+        asyncMode = true;
+        return_code = releaseAsyncAssertion(AssertionID);
+        goto exit;
+    }
+
     err = pm_connect_init(&pm_server);
     if(kIOReturnSuccess != err) {
         return_code = kIOReturnInternalError;
         goto exit;
-    }
-
-    if (gAssertionsDict && IS_ASYNC_ID(AssertionID)) {
-        asyncMode = true;
-        releaseAsyncAssertion(AssertionID);
     }
 
     if (!asyncMode) {
@@ -1240,6 +2116,12 @@ IOReturn IOPMAssertionSetProperty(IOPMAssertionID theAssertion, CFStringRef theP
         goto exit;
     }
 
+    if (gAssertionsDict && IS_ASYNC_ID(theAssertion)) {
+        asyncMode = true;
+        return_code = setAsyncAssertionProperties(theProperty, theValue, theAssertion);
+        goto exit;
+    }
+
     return_code = pm_connect_init(&pm_server);
 
     if(kIOReturnSuccess != return_code) {
@@ -1271,11 +2153,6 @@ IOReturn IOPMAssertionSetProperty(IOPMAssertionID theAssertion, CFStringRef theP
 
     sendData = CFPropertyListCreateData(0, sendDict, kCFPropertyListBinaryFormat_v1_0, 0, NULL /* error */);
     CFRelease(sendDict);
-
-    if (gAssertionsDict && IS_ASYNC_ID(theAssertion)) {
-        asyncMode = true;
-        setAsyncAssertionProperties(sendDict, theAssertion);
-    }
 
 
 
@@ -1353,14 +2230,14 @@ IOReturn IOPMAssertionSetProcessState(pid_t pid, IOPMAssertionProcessStateType s
     xpc_object_t            msg = NULL;
 
     connection = xpc_connection_create_mach_service(POWERD_XPC_ID,
-                                                    dispatch_get_global_queue(DISPATCH_QUEUE_CONCURRENT, 0), 0);
+                                                    dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), 0);
 
     if (!connection) {
         return kIOReturnError;
     }
 
     xpc_connection_set_target_queue(connection,
-                                    dispatch_get_global_queue(DISPATCH_QUEUE_CONCURRENT, 0));
+                                    dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0));
 
     xpc_connection_set_event_handler(connection,
                                      ^(xpc_object_t e __unused) { });
@@ -1938,6 +2815,7 @@ exit:
     return ret;
 }
 
+
 /******************************************************************************
  * _copyPMServerObject
  *
@@ -2084,6 +2962,80 @@ IOReturn IOPMCopyAssertionActivityUpdate(CFArrayRef *logUpdates, bool *overflow,
     return IOPMCopyAssertionActivityUpdateWithAllocator(logUpdates, overflow,  refCnt, kCFAllocatorDefault);
 }
 
+IOReturn IOPMCopyAssertionActivityUpdateWithCallback(uint32_t *prevRefCnt, dispatch_queue_t queue, void(^inblock)(CFArrayRef logUpdates, bool overflow, CFArrayRef processList))
+{
+    IOReturn rc = kIOReturnSuccess;
+    xpc_object_t connection = NULL;
+    xpc_object_t msg = NULL;
+    if (!prevRefCnt || !queue || !inblock) {
+        rc = kIOReturnBadArgument;
+        goto exit;
+    }
+
+    connection = xpc_connection_create_mach_service(POWERD_XPC_ID, dispatch_get_main_queue(), 0);
+    if (!connection) {
+        ERROR_LOG("Failed to create connection\n");
+        rc = kIOReturnError;
+        goto exit;
+    }
+    xpc_connection_set_target_queue(connection, getPMQueue());
+    xpc_connection_set_event_handler(connection,
+                                     ^(xpc_object_t e __unused ) { });
+    xpc_connection_resume(connection);
+    msg = xpc_dictionary_create(NULL, NULL, 0);
+    if (!msg) {
+        ERROR_LOG("Failed to create dictionary to send message");
+        rc = kIOReturnError;
+        goto exit;
+    }
+    xpc_dictionary_set_bool(msg, kAssertionCopyActivityUpdateMsg, true);
+    xpc_dictionary_set_uint64(msg, kAssertionCopyActivityUpdateRefCntKey, *prevRefCnt);
+
+
+    xpc_connection_send_message_with_reply(connection, msg, getPMQueue(), ^(xpc_object_t reply){
+        if (xpc_get_type(reply) == XPC_TYPE_DICTIONARY) {
+            xpc_object_t data = xpc_dictionary_get_value(reply, kAssertionCopyActivityUpdateDataKey);
+            uint32_t ref_cnt = xpc_dictionary_get_uint64(reply, kAssertionCopyActivityUpdateRefCntKey);
+            bool overflow_value = xpc_dictionary_get_bool(reply, kAssertionCopyActivityUpdateOverflowKey);
+            xpc_object_t processes = xpc_dictionary_get_value(reply, kAssertionCopyActivityUpdateProcessListKey);
+            CFArrayRef data_array = NULL;
+            CFArrayRef process_array = NULL;
+            DEBUG_LOG("Received assertion activity update refcnt %u overflow %d", ref_cnt, overflow_value);
+            if (data) {
+                data_array = _CFXPCCreateCFObjectFromXPCObject(data);
+            } else {
+                DEBUG_LOG("No AssertionActivity in xpc reply");
+            }
+            if (processes) {
+                process_array = _CFXPCCreateCFObjectFromXPCObject(processes);
+            }
+            *prevRefCnt = ref_cnt;
+            dispatch_async(queue, ^{
+                inblock(data_array, overflow_value, process_array);
+                if (data_array) {
+                    CFRelease(data_array);
+                }
+                if (process_array) {
+                    CFRelease(process_array);
+                }
+            });
+        } else {
+            ERROR_LOG("Received an error in response to copy assertion activity");
+        }
+        xpc_connection_cancel(connection);
+    });
+
+exit:
+    if (msg) {
+        xpc_release(msg);
+    }
+    if (connection) {
+        xpc_release(connection);
+    }
+
+    return rc;
+
+}
 /*****************************************************************************/
 IOReturn IOPMSetAssertionActivityLog(bool enable)
 {

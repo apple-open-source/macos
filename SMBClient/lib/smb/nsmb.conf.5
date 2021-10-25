@@ -105,7 +105,9 @@ Possible keywords may include:
 .It Va netBIOS_before_DNS  Ta "+ + +"  Ta "no"     Ta "Try NetBIOS resolution before DNS resolution"
 .It Va mc_on               Ta "+ - -"  Ta "yes"    Ta "Turn on SMB multichannel (allow more than one channel per session)"
 .It Va mc_prefer_wired     Ta "+ - -"  Ta "no"     Ta "Prefer wired NIC's over wireless in multichannel mode"
-"
+.It Va encrypt_cipher_map  Ta "+ - -"  Ta "15"     Ta "Bitmap of SMB 3.1.1 encryption algorithms that are enabled"
+.It Va force_sess_encrypt  Ta "+ - -"  Ta "no"     Ta "Force session encryption for all mounts"
+.It Va force_share_encrypt Ta "+ - -"  Ta "no"     Ta "Force share encryption for all mounts"
 .El
 .Pp
 The minimum authentication level can be one of:
@@ -167,6 +169,18 @@ Signing required for SMB 1/2/3.
 Signing required for SMB 2/3.
 .It Li 4
 Signing required for SMB 3.
+.El
+.Pp
+"Bitmap of SMB 3.1.1 encryption algorithms that are enabled" can be one of:
+.Bl -tag -width ".Li 7"
+.It Li 15 == 1111
+AES-256-GCM/AES-256-CCM/AES-128-GCM/AES-128-CCM should be enabled
+.It Li 7 == 0111
+AES-256-CCM/AES-128-GCM/AES-128-CCM should be enabled
+.It Li 3 == 0011
+AES-128-GCM/AES-128-CCM should be enabled
+.It Li 1 == 0001
+AES-128-CCM should be enabled
 .El
 .Sh FILES
 .Bl -tag -width ".Pa /etc/nsmb.conf"

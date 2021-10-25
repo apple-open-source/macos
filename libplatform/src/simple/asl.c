@@ -50,6 +50,7 @@ OS_ENUM(os_log_type, uint8_t,
 	OS_LOG_TYPE_DEBUG   = 0x02,
 );
 #else // !TARGET_OS_DRIVERKIT
+#include <os/log_simple_private.h>
 
 #define ASL_LOG_PATH _PATH_LOG
 
@@ -81,7 +82,7 @@ static struct asl_context* _simple_asl_get_context(void);
 static void _simple_asl_init_context(void *ctx);
 static int _simple_asl_connect(const char *log_path);
 static void _simple_asl_connect_once(void * __unused arg);
-static int _simple_asl_get_fd(void);
+int _simple_asl_get_fd(void);
 
 /*
  * Simplified ASL log interface; does not use malloc.  Unfortunately, this
@@ -138,7 +139,7 @@ _simple_asl_connect_once(void * __unused once_arg)
 	ctx->asl_fd = _simple_asl_connect(ASL_LOG_PATH);
 }
 
-static int
+int
 _simple_asl_get_fd(void)
 {
 	struct asl_context *ctx = _simple_asl_get_context();
@@ -302,22 +303,11 @@ _simple_asl_send(_SIMPLE_STRING __b)
 void
 _simple_asl_log_prog(int level, const char *facility, const char *message, const char *prog)
 {
+#if !TARGET_OS_DRIVERKIT
+	_os_log_simple_shim(os_log_simple_type_from_asl(level), facility, message);
+#else // TARGET_OS_DRIVERKIT
 	_SIMPLE_STRING b = _simple_asl_msg_new();
 	if (b == NULL) return;
-
-#if !TARGET_OS_DRIVERKIT
-	char lstr[2];
-	if (level < 0) level = 0;
-	if (level > 7) level = 7;
-	lstr[0] = level + '0';
-	lstr[1] = '\0';
-
-	_simple_asl_msg_set(b, "Sender", prog);
-	_simple_asl_msg_set(b, "Level", lstr);
-	_simple_asl_msg_set(b, "Facility", facility);
-	_simple_asl_msg_set(b, "Message", message);
-	_simple_asl_send(b);
-#else // TARGET_OS_DRIVERKIT
 	if (prog) _simple_asl_msg_set(b, "Sender", prog);
 	_simple_asl_msg_set(b, "Facility", facility);
 	_simple_asl_msg_set(b, "Message", message);
@@ -328,8 +318,8 @@ _simple_asl_log_prog(int level, const char *facility, const char *message, const
 	char *cp;
 	cp = _simple_string(b);
 	log_data_as_kernel(0, type, cp, strlen(cp) + 1);
-#endif // TARGET_OS_DRIVERKIT
 	_simple_sfree(b);
+#endif // TARGET_OS_DRIVERKIT
 }
 
 void

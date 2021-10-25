@@ -1,4 +1,5 @@
 /* config.h.  Generated from build/cmake/config.h.in by cmake configure */
+#define __LIBARCHIVE_CONFIG_H_INCLUDED 1
 
 /*
  * Ensure we have C99-style int64_t, etc, all defined.
@@ -680,6 +681,12 @@ typedef uint64_t uintmax_t;
 /* Define to 1 if you have the `bz2' library (-lbz2). */
 #cmakedefine HAVE_LIBBZ2 1
 
+/* Define to 1 if you have the `b2' library (-lb2). */
+#cmakedefine HAVE_LIBB2 1
+
+/* Define to 1 if you have the <blake2.h> header file. */
+#cmakedefine HAVE_BLAKE2_H 1
+
 /* Define to 1 if you have the `charset' library (-lcharset). */
 #cmakedefine HAVE_LIBCHARSET 1
 
@@ -704,6 +711,9 @@ typedef uint64_t uintmax_t;
 /* Define to 1 if you have the `lzo2' library (-llzo2). */
 #cmakedefine HAVE_LIBLZO2 1
 
+/* Define to 1 if you have the `mbedcrypto' library (-lmbedcrypto). */
+#cmakedefine HAVE_LIBMBEDCRYPTO 1
+
 /* Define to 1 if you have the `nettle' library (-lnettle). */
 #cmakedefine HAVE_LIBNETTLE 1
 
@@ -724,6 +734,9 @@ typedef uint64_t uintmax_t;
 
 /* Define to 1 if you have the `z' library (-lz). */
 #cmakedefine HAVE_LIBZ 1
+
+/* Define to 1 if you have the `zstd' library (-lzstd). */
+#cmakedefine HAVE_LIBZSTD 1
 
 /* Define to 1 if you have the <limits.h> header file. */
 #cmakedefine HAVE_LIMITS_H 1
@@ -946,6 +959,9 @@ typedef uint64_t uintmax_t;
 /* Define to 1 if you have the `strchr' function. */
 #cmakedefine HAVE_STRCHR 1
 
+/* Define to 1 if you have the `strnlen' function. */
+#cmakedefine HAVE_STRNLEN 1
+
 /* Define to 1 if you have the `strdup' function. */
 #cmakedefine HAVE_STRDUP 1
 
@@ -1065,6 +1081,10 @@ typedef uint64_t uintmax_t;
 /* Define to 1 if you have the <sys/stat.h> header file. */
 #cmakedefine HAVE_SYS_STAT_H 1
 
+
+/* Define to 1 if you have the <sys/sysmacros.h> header file. */
+#cmakedefine HAVE_SYS_SYSMACROS_H 1
+
 /* Define to 1 if you have the <sys/time.h> header file. */
 #cmakedefine HAVE_SYS_TIME_H 1
 
@@ -1097,6 +1117,9 @@ typedef uint64_t uintmax_t;
 
 /* Define to 1 if you have the <unistd.h> header file. */
 #cmakedefine HAVE_UNISTD_H 1
+
+/* Define to 1 if you have the `unlinkat' function. */
+#cmakedefine HAVE_UNLINKAT 1
 
 /* Define to 1 if you have the `unsetenv' function. */
 #cmakedefine HAVE_UNSETENV 1
@@ -1179,6 +1202,9 @@ typedef uint64_t uintmax_t;
 /* Define to 1 if you have the <zlib.h> header file. */
 #cmakedefine HAVE_ZLIB_H 1
 
+/* Define to 1 if you have the <zstd.h> header file. */
+#cmakedefine HAVE_ZSTD_H 1
+
 /* Define to 1 if you have the `_ctime64_s' function. */
 #cmakedefine HAVE__CTIME64_S 1
 
@@ -1187,6 +1213,9 @@ typedef uint64_t uintmax_t;
 
 /* Define to 1 if you have the `_get_timezone' function. */
 #cmakedefine HAVE__GET_TIMEZONE 1
+
+/* Define to 1 if you have the `_gmtime64_s' function. */
+#cmakedefine HAVE__GMTIME64_S 1
 
 /* Define to 1 if you have the `_localtime64_s' function. */
 #cmakedefine HAVE__LOCALTIME64_S 1

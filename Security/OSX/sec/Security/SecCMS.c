@@ -423,30 +423,9 @@ static OSStatus SecCMSVerifySignedData_internal(CFDataRef message, CFDataRef det
         /* find out about signers */
         int nsigners = SecCmsSignedDataSignerInfoCount(sigd);
         require_quiet(nsigners == 1, out);
-        require_noerr_action_quiet(SecCmsSignedDataVerifySignerInfo(sigd, 0, NULL, policy, trustref), 
+        require_noerr_action_quiet(SecCmsSignedDataVerifySigner(sigd, 0, policy, trustref),
             out, status = errSecAuthFailed);
     }
-    
-#if 0
-    if (nsigners > 1)
-        trustrefs = CFArrayCreateMutable(kCFAllocatorDefault, nsigners, &kCFTypeArrayCallBacks);
-        
-    int j;
-    for (j = 0; j < nsigners; j++)
-    {
-        SecTrustRef trustRef;
-        require_noerr_action_quiet(SecCmsSignedDataVerifySignerInfo(sigd, j, NULL, policy, &trustRef),
-            out, status = errSecAuthFailed);
-        if ((j == 0) && (nsigners == 1))
-            *trustref_or_cfarray_thereof = trustRef;
-        else {
-            CFArrayAppendValue(trustrefs, trustRef);
-            CFRelease(trustRef);
-        }
-    }
-    *trustref_or_cfarray_thereof = trustrefs;
-    trustrefs = NULL;
-#endif
 
     status = errSecSuccess;
 

@@ -13,6 +13,19 @@ Extra_Install_Flags = PREFIX=$(RC_Install_Prefix)
 #include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/Common.make
 
+ifneq ($(SDKROOT),)
+# libpython.tbd exists in /usr/local/lib if python is installed to AppleInternal builds. Otherwise, it's in /usr/lib.
+# Try the internal location first, and then fall back to the standard install.
+# We can follow its symlink to find sys.prefix for the SDK.
+export _LIBPYTHONTBD := $(or $(wildcard $(SDKROOT)/usr/local/lib/libpython.tbd),$(SDKROOT)/usr/lib/libpython.tbd)
+export LIBPYTHONTBD := $(shell python -c "from os.path import realpath; print(realpath('$(_LIBPYTHONTBD)').replace('$(SDKROOT)', ''))")
+export PYPREFIX := $(shell dirname $(LIBPYTHONTBD))
+else
+export PYPREFIX := $(shell python -c "import sys; print(sys.prefix)")
+endif
+TOPDIR = $(shell echo $(PYPREFIX) | cut -d '/' -f2)
+INCLUDEPYTHONVERS = $(PYPREFIX)/Headers
+
 Install_Target      = install
 
 # Automatic Extract & Patch
@@ -112,10 +125,15 @@ else
 	! { unifdef -t -UPY3K -o $(OBJROOT)/$(Project)/pyobjc-framework-Cocoa-*/Lib/PyObjCTools/Conversion.py{,} || \
 	[ $$? -ne 1 ]; }
 endif
+	@set -x && \
+	cd $(OBJROOT)/$(Project) && \
+	for f in `find . -name \*setup.cfg -print0 | xargs -0`; do \
+	    sed -e 's,@SDKROOT@,$(SDKROOT),g' -e 's,@INCLUDEPYTHONVERS@,$(INCLUDEPYTHONVERS),g' $(SRCROOT)/patches/setup.cfg.patch >> "$$f" || exit 1; \
+	done
 
 DOCS=/Developer/Documentation/Python/PyObjC
 EXAMPLES=/Developer/Examples/Python/PyObjC
-EXTRAS:=$(shell python -c "import sys, os;print(os.path.join(sys.prefix, 'Extras'))")
+EXTRAS:=$(PYPREFIX)/Extras
 EXTRASLIBPYTHON=$(EXTRAS)/lib/python
 EXTRASPYOBJC=$(EXTRASLIBPYTHON)/PyObjC
 
@@ -194,6 +212,8 @@ fix_strip:
 fix_bogus_files:
 	@echo '=== fix bogus_files ==='
 	find -d "$(DSTROOT)$(EXAMPLES)" -name '*~.nib' -print -exec rm -rf {} ';'
+	find -d "$(DSTROOT)$(EXAMPLES)" -name '*\.pkg' -print -exec rm -rf {} ';'
+	find -d "$(DSTROOT)$(DOCS)" -name '*\.zip' -print -exec rm -rf {} ';'
 fix_inappropriate_executables:
 	@echo '=== fix inappropriate_executables ==='
 	find "$(DSTROOT)$(EXAMPLES)" -name '*.png' -perm +0111 -print0 | xargs -0 chmod -vv -x

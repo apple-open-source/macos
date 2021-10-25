@@ -40,6 +40,7 @@
 
 #include <Security/SecKey.h>
 #include <Security/SecKeyPriv.h>
+#import <Security/CKKSExternalTLKClient.h>
 #pragma clang diagnostic pop
 
 @interface CloudKitKeychainSyncingMultiZoneTestsBase ()
@@ -55,6 +56,7 @@
 - (NSSet*)managedViewList {
     NSMutableSet* parentSet = [[super managedViewList] mutableCopy];
     [parentSet addObject:@"Passwords"];
+    [parentSet addObject:CKKSSEViewPTA];
     return parentSet;
 }
 
@@ -63,7 +65,11 @@
 {
     NSMutableArray<TPPBPolicyKeyViewMapping*>* rules = [NSMutableArray array];
 
-    for(NSString* viewName in self.managedViewList) {
+    // The SE views do not appear in the policy
+    NSMutableSet<NSString*>* viewList = [[self managedViewList] mutableCopy];
+    [viewList removeObject:CKKSSEViewPTA];
+
+    for(NSString* viewName in viewList) {
         TPPBPolicyKeyViewMapping* mapping = [[TPPBPolicyKeyViewMapping alloc] init];
         mapping.view = viewName;
 
@@ -71,6 +77,9 @@
         if([viewName isEqualToString:@"Passwords"]) {
             mapping.matchingRule = [TPDictionaryMatchingRule fieldMatch:@"agrp"
                                                              fieldRegex:[NSString stringWithFormat:@"^com\\.apple\\.sbd$"]];
+        } else if([viewName isEqualToString:CKKSSEViewPTA]) {
+            // This view should not be part of the policy
+            continue;
         } else {
             mapping.matchingRule = [TPDictionaryMatchingRule fieldMatch:@"vwht"
                                                              fieldRegex:[NSString stringWithFormat:@"^%@$", viewName]];
@@ -79,15 +88,15 @@
         [rules addObject:mapping];
     }
 
-    NSSet<NSString*>* viewList = [self managedViewList];
     TPSyncingPolicy* policy = [[TPSyncingPolicy alloc] initWithModel:@"test-policy"
                                                              version:[[TPPolicyVersion alloc] initWithVersion:1 hash:@"fake-policy-for-views"]
                                                             viewList:viewList
                                                        priorityViews:[NSSet set]
                                                userControllableViews:[NSSet set]
-                                           syncUserControllableViews:TPPBPeerStableInfo_UserControllableViewStatus_ENABLED
+                                           syncUserControllableViews:TPPBPeerStableInfoUserControllableViewStatus_ENABLED
                                                 viewsToPiggybackTLKs:[viewList containsObject:@"Passwords"] ? [NSSet setWithObject:@"Passwords"] : [NSSet set]
-                                                      keyViewMapping:rules];
+                                                      keyViewMapping:rules
+                                                  isInheritedAccount:NO];
 
     return policy;
 }
@@ -104,73 +113,75 @@
 
     self.engramZoneID = [[CKRecordZoneID alloc] initWithZoneName:@"Engram" ownerName:CKCurrentUserDefaultName];
     self.engramZone = [[FakeCKZone alloc] initZone: self.engramZoneID];
-    self.zones[self.engramZoneID] = self.engramZone;
-    self.engramView = [[CKKSViewManager manager] findOrCreateView:@"Engram"];
-    XCTAssertNotNil(self.engramView, "CKKSViewManager created the Engram view");
+    self.engramView = [self.defaultCKKS.operationDependencies viewStateForName:@"Engram"];
+    XCTAssertNotNil(self.engramView, "CKKS created the Engram view");
     [self.ckksViews addObject:self.engramView];
     [self.ckksZones addObject:self.engramZoneID];
 
     self.manateeZoneID = [[CKRecordZoneID alloc] initWithZoneName:@"Manatee" ownerName:CKCurrentUserDefaultName];
     self.manateeZone = [[FakeCKZone alloc] initZone: self.manateeZoneID];
-    self.zones[self.manateeZoneID] = self.manateeZone;
-    self.manateeView = [[CKKSViewManager manager] findOrCreateView:@"Manatee"];
-    XCTAssertNotNil(self.manateeView, "CKKSViewManager created the Manatee view");
+    self.manateeView = [self.defaultCKKS.operationDependencies viewStateForName:@"Manatee"];
+    XCTAssertNotNil(self.manateeView, "CKKS created the Manatee view");
     [self.ckksViews addObject:self.manateeView];
     [self.ckksZones addObject:self.manateeZoneID];
 
     self.autoUnlockZoneID = [[CKRecordZoneID alloc] initWithZoneName:@"AutoUnlock" ownerName:CKCurrentUserDefaultName];
     self.autoUnlockZone = [[FakeCKZone alloc] initZone: self.autoUnlockZoneID];
-    self.zones[self.autoUnlockZoneID] = self.autoUnlockZone;
-    self.autoUnlockView = [[CKKSViewManager manager] findOrCreateView:@"AutoUnlock"];
-    XCTAssertNotNil(self.autoUnlockView, "CKKSViewManager created the AutoUnlock view");
+    self.autoUnlockView = [self.defaultCKKS.operationDependencies viewStateForName:@"AutoUnlock"];
+    XCTAssertNotNil(self.autoUnlockView, "CKKS created the AutoUnlock view");
     [self.ckksViews addObject:self.autoUnlockView];
     [self.ckksZones addObject:self.autoUnlockZoneID];
 
     self.healthZoneID = [[CKRecordZoneID alloc] initWithZoneName:@"Health" ownerName:CKCurrentUserDefaultName];
     self.healthZone = [[FakeCKZone alloc] initZone: self.healthZoneID];
-    self.zones[self.healthZoneID] = self.healthZone;
-    self.healthView = [[CKKSViewManager manager] findOrCreateView:@"Health"];
-    XCTAssertNotNil(self.healthView, "CKKSViewManager created the Health view");
+    self.healthView = [self.defaultCKKS.operationDependencies viewStateForName:@"Health"];
+    XCTAssertNotNil(self.healthView, "CKKS created the Health view");
     [self.ckksViews addObject:self.healthView];
     [self.ckksZones addObject:self.healthZoneID];
 
     self.applepayZoneID = [[CKRecordZoneID alloc] initWithZoneName:@"ApplePay" ownerName:CKCurrentUserDefaultName];
     self.applepayZone = [[FakeCKZone alloc] initZone: self.applepayZoneID];
-    self.zones[self.applepayZoneID] = self.applepayZone;
-    self.applepayView = [[CKKSViewManager manager] findOrCreateView:@"ApplePay"];
-    XCTAssertNotNil(self.applepayView, "CKKSViewManager created the ApplePay view");
+    self.applepayView = [self.defaultCKKS.operationDependencies viewStateForName:@"ApplePay"];
+    XCTAssertNotNil(self.applepayView, "CKKS created the ApplePay view");
     [self.ckksViews addObject:self.applepayView];
     [self.ckksZones addObject:self.applepayZoneID];
 
     self.homeZoneID = [[CKRecordZoneID alloc] initWithZoneName:@"Home" ownerName:CKCurrentUserDefaultName];
     self.homeZone = [[FakeCKZone alloc] initZone: self.homeZoneID];
-    self.zones[self.homeZoneID] = self.homeZone;
-    self.homeView = [[CKKSViewManager manager] findOrCreateView:@"Home"];
-    XCTAssertNotNil(self.homeView, "CKKSViewManager created the Home view");
+    self.homeView = [self.defaultCKKS.operationDependencies viewStateForName:@"Home"];
+    XCTAssertNotNil(self.homeView, "CKKS created the Home view");
     [self.ckksViews addObject:self.homeView];
     [self.ckksZones addObject:self.homeZoneID];
 
+    self.mfiZoneID = [[CKRecordZoneID alloc] initWithZoneName:@"MFi" ownerName:CKCurrentUserDefaultName];
+    self.mfiZone = [[FakeCKZone alloc] initZone:self.mfiZoneID];
+    self.mfiView = [self.defaultCKKS.operationDependencies viewStateForName:@"MFi"];
+    XCTAssertNotNil(self.mfiView, "CKKS created the MFi view");
+    [self.ckksViews addObject:self.mfiView];
+    [self.ckksZones addObject:self.mfiZoneID];
+
     self.limitedZoneID = [[CKRecordZoneID alloc] initWithZoneName:@"LimitedPeersAllowed" ownerName:CKCurrentUserDefaultName];
     self.limitedZone = [[FakeCKZone alloc] initZone: self.limitedZoneID];
-    self.zones[self.limitedZoneID] = self.limitedZone;
-    self.limitedView = [[CKKSViewManager manager] findOrCreateView:@"LimitedPeersAllowed"];
-    XCTAssertNotNil(self.limitedView, "should have a limited ckks view");
-    XCTAssertNotNil(self.limitedView, "CKKSViewManager created the LimitedPeersAllowed view");
+    self.limitedView = [self.defaultCKKS.operationDependencies viewStateForName:@"LimitedPeersAllowed"];
+    XCTAssertNotNil(self.limitedView, "CKKS created the LimitedPeersAllowed view");
     [self.ckksViews addObject:self.limitedView];
     [self.ckksZones addObject:self.limitedZoneID];
 
     self.passwordsZoneID = [[CKRecordZoneID alloc] initWithZoneName:@"Passwords" ownerName:CKCurrentUserDefaultName];
     self.passwordsZone = [[FakeCKZone alloc] initZone: self.passwordsZoneID];
-    self.zones[self.passwordsZoneID] = self.passwordsZone;
-    self.passwordsView = [[CKKSViewManager manager] findOrCreateView:@"Passwords"];
-    XCTAssertNotNil(self.passwordsView, "should have a passwords ckks view");
-    XCTAssertNotNil(self.passwordsView, "CKKSViewManager created the Passwords view");
+    self.passwordsView = [self.defaultCKKS.operationDependencies viewStateForName:@"Passwords"];
+    XCTAssertNotNil(self.passwordsView, "CKKS created the Passwords view");
     [self.ckksViews addObject:self.passwordsView];
     [self.ckksZones addObject:self.passwordsZoneID];
 
-    // These tests, at least, will use the policy codepaths!
-    [self.injectedManager setOverrideCKKSViewsFromPolicy:YES];
-    [self.injectedManager setCurrentSyncingPolicy:self.viewSortingPolicyForManagedViewList];
+    self.ptaZoneID = [[CKRecordZoneID alloc] initWithZoneName:CKKSSEViewPTA ownerName:CKCurrentUserDefaultName];
+    self.ptaZone = [[FakeCKZone alloc] initZone:self.ptaZoneID];
+    self.ptaView = [self.defaultCKKS.operationDependencies viewStateForName:CKKSSEViewPTA];
+    XCTAssertNotNil(self.ptaView, "should have a PTA ckks view");
+    [self.ckksViews addObject:self.ptaView];
+    [self.ckksZones addObject:self.ptaZoneID];
+
+    [self.defaultCKKS setCurrentSyncingPolicy:self.viewSortingPolicyForManagedViewList];
 }
 
 + (void)tearDown {
@@ -184,37 +195,19 @@
     self.accountStatus = CKAccountStatusNoAccount;
     [self startCKKSSubsystem];
 
-    [self.engramView halt];
-    [self.engramView waitUntilAllOperationsAreFinished];
+    [self.defaultCKKS halt];
+    [self.defaultCKKS waitUntilAllOperationsAreFinished];
+
     self.engramView = nil;
-
-    [self.manateeView halt];
-    [self.manateeView waitUntilAllOperationsAreFinished];
     self.manateeView = nil;
-
-    [self.autoUnlockView halt];
-    [self.autoUnlockView waitUntilAllOperationsAreFinished];
     self.autoUnlockView = nil;
-
-    [self.healthView halt];
-    [self.healthView waitUntilAllOperationsAreFinished];
     self.healthView = nil;
-
-    [self.applepayView halt];
-    [self.applepayView waitUntilAllOperationsAreFinished];
     self.applepayView = nil;
-
-    [self.homeView halt];
-    [self.homeView waitUntilAllOperationsAreFinished];
     self.homeView = nil;
-
-    [self.limitedView halt];
-    [self.limitedView waitUntilAllOperationsAreFinished];
+    self.mfiView = nil;
     self.limitedView = nil;
-
-    [self.passwordsView halt];
-    [self.passwordsView waitUntilAllOperationsAreFinished];
     self.passwordsView = nil;
+    self.ptaView = nil;
 
     [super tearDown];
 }
@@ -223,13 +216,124 @@
     return self.keys[self.engramZoneID];
 }
 
+- (FakeCKZone*)engramZone {
+    return self.zones[self.engramZoneID];
+}
+
+- (void)setEngramZone:(FakeCKZone*)zone {
+    self.zones[self.engramZoneID] = zone;
+}
+
 - (ZoneKeys*)manateeZoneKeys {
     return self.keys[self.manateeZoneID];
 }
 
+- (FakeCKZone*)manateeZone {
+    return self.zones[self.manateeZoneID];
+}
+
+- (void)setManateeZone:(FakeCKZone*)zone {
+    self.zones[self.manateeZoneID] = zone;
+}
+
+- (ZoneKeys*)autoUnlockZoneKeys {
+    return self.keys[self.autoUnlockZoneID];
+}
+
+- (FakeCKZone*)autoUnlockZone {
+    return self.zones[self.autoUnlockZoneID];
+}
+
+- (void)setAutoUnlockZone:(FakeCKZone*)zone {
+    self.zones[self.autoUnlockZoneID] = zone;
+}
+
+- (ZoneKeys*)healthZoneKeys {
+    return self.keys[self.healthZoneID];
+}
+
+- (FakeCKZone*)healthZone {
+    return self.zones[self.healthZoneID];
+}
+
+- (void)setHealthZone:(FakeCKZone*)zone {
+    self.zones[self.healthZoneID] = zone;
+}
+
+- (ZoneKeys*)applepayZoneKeys {
+    return self.keys[self.applepayZoneID];
+}
+
+- (FakeCKZone*)applepayZone {
+    return self.zones[self.applepayZoneID];
+}
+
+- (void)setApplepayZone:(FakeCKZone*)zone {
+    self.zones[self.applepayZoneID] = zone;
+}
+
+- (ZoneKeys*)homeZoneKeys {
+    return self.keys[self.homeZoneID];
+}
+
+- (FakeCKZone*)homeZone {
+    return self.zones[self.homeZoneID];
+}
+
+- (void)setHomeZone:(FakeCKZone*)zone {
+    self.zones[self.homeZoneID] = zone;
+}
+
+- (ZoneKeys*)mfiZoneKeys {
+    return self.keys[self.mfiZoneID];
+}
+
+- (FakeCKZone*)mfiZone {
+    return self.zones[self.mfiZoneID];
+}
+
+- (void)setMfiZone:(FakeCKZone*)zone {
+    self.zones[self.mfiZoneID] = zone;
+}
+
+- (ZoneKeys*)limitedZoneKeys {
+    return self.keys[self.limitedZoneID];
+}
+
+- (FakeCKZone*)limitedZone {
+    return self.zones[self.limitedZoneID];
+}
+
+- (void)setLimitedZone:(FakeCKZone*)zone {
+    self.zones[self.limitedZoneID] = zone;
+}
+
+- (ZoneKeys*)passwordsZoneKeys {
+    return self.keys[self.passwordsZoneID];
+}
+
+- (FakeCKZone*)passwordsZone {
+    return self.zones[self.passwordsZoneID];
+}
+
+- (void)setPasswordsZone:(FakeCKZone*)zone {
+    self.zones[self.passwordsZoneID] = zone;
+}
+
+- (FakeCKZone*)ptaZone {
+    return self.zones[self.ptaZoneID];
+}
+
+- (void)setPtaZone:(FakeCKZone*)zone {
+    self.zones[self.ptaZoneID] = zone;
+}
+
+
 - (void)saveFakeKeyHierarchiesToLocalDatabase {
-    for(CKRecordZoneID* zoneID in self.ckksZones) {
-        [self createAndSaveFakeKeyHierarchy: zoneID];
+    for(CKKSKeychainViewState* viewState in self.ckksViews) {
+        if(viewState.ckksManagedView) {
+            [self createAndSaveFakeKeyHierarchy:viewState.zoneID];
+        }
     }
 }
 
@@ -240,6 +344,7 @@
     [self putFakeDeviceStatusInCloudKit: self.healthZoneID];
     [self putFakeDeviceStatusInCloudKit: self.applepayZoneID];
     [self putFakeDeviceStatusInCloudKit: self.homeZoneID];
+    [self putFakeDeviceStatusInCloudKit: self.mfiZoneID];
     [self putFakeDeviceStatusInCloudKit: self.limitedZoneID];
     [self putFakeDeviceStatusInCloudKit: self.passwordsZoneID];
 }
@@ -251,6 +356,7 @@
     [self putFakeKeyHierarchyInCloudKit: self.healthZoneID];
     [self putFakeKeyHierarchyInCloudKit: self.applepayZoneID];
     [self putFakeKeyHierarchyInCloudKit: self.homeZoneID];
+    [self putFakeKeyHierarchyInCloudKit: self.mfiZoneID];
     [self putFakeKeyHierarchyInCloudKit: self.limitedZoneID];
     [self putFakeKeyHierarchyInCloudKit: self.passwordsZoneID];
 }
@@ -262,6 +368,7 @@
     [self saveTLKMaterialToKeychain:self.healthZoneID];
     [self saveTLKMaterialToKeychain:self.applepayZoneID];
     [self saveTLKMaterialToKeychain:self.homeZoneID];
+    [self saveTLKMaterialToKeychain:self.mfiZoneID];
     [self saveTLKMaterialToKeychain:self.limitedZoneID];
     [self saveTLKMaterialToKeychain:self.passwordsZoneID];
 }
@@ -273,26 +380,29 @@
     [self deleteTLKMaterialFromKeychain: self.healthZoneID];
     [self deleteTLKMaterialFromKeychain: self.applepayZoneID];
     [self deleteTLKMaterialFromKeychain: self.homeZoneID];
+    [self deleteTLKMaterialFromKeychain:self.mfiZoneID];
     [self deleteTLKMaterialFromKeychain:self.limitedZoneID];
     [self deleteTLKMaterialFromKeychain:self.passwordsZoneID];
 }
 
 - (void)waitForKeyHierarchyReadinesses {
-    [self.manateeView waitForKeyHierarchyReadiness];
-    [self.engramView waitForKeyHierarchyReadiness];
-    [self.autoUnlockView waitForKeyHierarchyReadiness];
-    [self.healthView waitForKeyHierarchyReadiness];
-    [self.applepayView waitForKeyHierarchyReadiness];
-    [self.homeView waitForKeyHierarchyReadiness];
-    [self.limitedView waitForKeyHierarchyReadiness];
-    [self.passwordsView waitForKeyHierarchyReadiness];
+    XCTAssertEqual([self.manateeView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:30 * NSEC_PER_SEC], 0, "Manatee should enter key state ready");
+    XCTAssertEqual([self.engramView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:30 * NSEC_PER_SEC], 0, "Engram should enter key state ready");
+    XCTAssertEqual([self.autoUnlockView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:30 * NSEC_PER_SEC], 0, "AutoUnlock should enter key state ready");
+    XCTAssertEqual([self.healthView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:30 * NSEC_PER_SEC], 0, "Health should enter key state ready");
+    XCTAssertEqual([self.applepayView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:30 * NSEC_PER_SEC], 0, "ApplePay should enter key state ready");
+    XCTAssertEqual([self.homeView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:30 * NSEC_PER_SEC], 0, "Home should enter key state ready");
+    XCTAssertEqual([self.limitedView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:30 * NSEC_PER_SEC], 0, "LimitedPeersAllowed should enter key state ready");
+    XCTAssertEqual([self.mfiView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:30 * NSEC_PER_SEC], 0, "MFi should enter key state ready");
+    XCTAssertEqual([self.passwordsView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:30 * NSEC_PER_SEC], 0, "Passwords should enter key state ready");
 }
 
 - (void)expectCKKSTLKSelfShareUploads {
-    for(CKRecordZoneID* zoneID in self.ckksZones) {
-        [self expectCKKSTLKSelfShareUpload:zoneID];
+    for(CKKSKeychainViewState* viewState in self.ckksViews) {
+        if(viewState.ckksManagedView) {
+            [self expectCKKSTLKSelfShareUpload:viewState.zoneID];
+        }
     }
-
 }
 
 @end
@@ -316,16 +426,22 @@
 
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
 
-    for(CKKSKeychainView* view in self.ckksViews) {
+    for(CKKSKeychainViewState* view in self.ckksViews) {
         XCTAssertEqual(0, [view.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], "Key state should enter 'ready' for view %@", view);
     }
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:20*NSEC_PER_SEC], "CKKS state machine should enter 'ready'");
 }
 
 - (void)testAllViewsAcceptExistingKeyHierarchies {
-    for(CKRecordZoneID* zoneID in self.ckksZones) {
-        [self putFakeKeyHierarchyInCloudKit:zoneID];
-        [self saveTLKMaterialToKeychain:zoneID];
-        [self expectCKKSTLKSelfShareUpload:zoneID];
+    for(CKKSKeychainViewState* viewState in self.ckksViews) {
+        if(viewState.ckksManagedView) {
+            [self putFakeKeyHierarchyInCloudKit:viewState.zoneID];
+
+            if(viewState.ckksManagedView) {
+                [self saveTLKMaterialToKeychain:viewState.zoneID];
+                [self expectCKKSTLKSelfShareUpload:viewState.zoneID];
+            }
+        }
     }
 
     [self.injectedManager.zoneChangeFetcher.fetchScheduler changeDelays:2*NSEC_PER_SEC continuingDelay:30*NSEC_PER_SEC];
@@ -335,9 +451,10 @@
     [self startCKKSSubsystem];
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
 
-    for(CKKSKeychainView* view in self.ckksViews) {
+    for(CKKSKeychainViewState* view in self.ckksViews) {
         XCTAssertEqual(0, [view.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], "Key state should enter 'ready' for view %@", view);
     }
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:20*NSEC_PER_SEC], "CKKS state machine should enter 'ready'");
 }
 
 - (void)testAddEngramManateeItems {
@@ -527,11 +644,12 @@
     [self waitForCKModifications];
 
     [self waitForKeyHierarchyReadinesses];
-    [self.passwordsView waitForOperationsOfClass:[CKKSIncomingQueueOperation class]];
+    XCTAssertEqual(0, [self.passwordsView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], @"key state should enter 'ready'");
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:20*NSEC_PER_SEC], @"CKKS state machine should enter 'ready'");
 
     // Ensure that we catch up to the newest CK change token so our fake cloudkit will notice the delete at fetch time
     [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
-    [self.passwordsView waitForFetchAndIncomingQueueProcessing];
+    [self.defaultCKKS waitForFetchAndIncomingQueueProcessing];
 
     // Now, the item is deleted. Do we properly remove it?
     CKRecord* itemRecord = nil;
@@ -561,7 +679,7 @@
     [self.passwordsZone deleteCKRecordIDFromZone:itemRecord.recordID];
 
     [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
-    [self.passwordsView waitForFetchAndIncomingQueueProcessing];
+    [self.defaultCKKS waitForFetchAndIncomingQueueProcessing];
 
     XCTAssertEqual(errSecItemNotFound, SecItemCopyMatching((__bridge CFDictionaryRef) query, &item), "item should no longer exist");
     XCTAssertNil((__bridge id)item, "No item should have been found");
@@ -614,6 +732,7 @@
     [self startCKKSSubsystem];
 
     XCTAssertEqual(0, [self.passwordsView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], "CKKS entered ready");
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:20*NSEC_PER_SEC], "CKKS state machine should enter 'ready'");
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
 }
 
@@ -622,7 +741,8 @@
     [self startCKKSSubsystem];
 
     [self waitForKeyHierarchyReadinesses];
-    [self.engramView waitForOperationsOfClass:[CKKSIncomingQueueOperation class]];
+    XCTAssertEqual(0, [self.engramView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], @"key state should enter 'ready'");
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:20*NSEC_PER_SEC], "CKKS state machine should enter 'ready'");
 
     [self findGenericPassword:@"account-delete-me" expecting:errSecItemNotFound];
 
@@ -639,7 +759,7 @@
     [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
 
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
-    [self.engramView waitForFetchAndIncomingQueueProcessing];
+    [self.defaultCKKS waitForFetchAndIncomingQueueProcessing];
 
     [self findGenericPassword:@"account-delete-me" expecting:errSecSuccess];
 
@@ -650,7 +770,6 @@
 - (void)testRecoverFromCloudKitOldChangeTokenInKeyHierarchyFetch {
     [self putFakeKeyHierachiesInCloudKit];
     [self saveTLKsToKeychain];
-
 
     [self expectCKKSTLKSelfShareUploads];
 
@@ -664,6 +783,8 @@
     [self addGenericPassword: @"data" account: @"account-delete-me" viewHint:(id)kSecAttrViewHintManatee];
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
 
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:20*NSEC_PER_SEC], "CKKS state machine should enter 'ready'");
+
     // Delete all old database states, to destroy the change tag validity
     [self.manateeZone.pastDatabases removeAllObjects];
 
@@ -672,12 +793,12 @@
     [self expectCKFetch]; // one to fail with a CKErrorChangeTokenExpired error
     [self expectCKFetch]; // and one to succeed
 
-    [self.manateeView.stateMachine handleFlag:CKKSFlagFetchRequested];
+    [self.defaultCKKS.stateMachine handleFlag:CKKSFlagFetchRequested];
 
     XCTAssertEqual(0, [self.manateeView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], "CKKS should enter 'ready'");
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:20*NSEC_PER_SEC], "CKKS state machine should enter 'ready'");
 
     // Don't cause another fetch, because the machinery might not be ready
-    [self.manateeView waitForOperationsOfClass:[CKKSIncomingQueueOperation class]];
 
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
 
@@ -742,6 +863,78 @@
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
 }
 
+- (void)testResetSingleCloudKitZone {
+    self.suggestTLKUpload = OCMClassMock([CKKSNearFutureScheduler class]);
+    OCMExpect([self.suggestTLKUpload trigger]);
+
+    [self putFakeKeyHierachiesInCloudKit];
+    [self saveTLKsToKeychain];
+    [self expectCKKSTLKSelfShareUploads];
+
+    // Spin up CKKS subsystem.
+    [self startCKKSSubsystem];
+    [self waitForKeyHierarchyReadinesses];
+
+    // We expect a single record to be uploaded
+    [self expectCKModifyItemRecords:1 currentKeyPointerRecords:1 zoneID:self.manateeZoneID checkItem:[self checkClassCBlock:self.manateeZoneID message:@"Object was encrypted under class C key in hierarchy"]];
+    [self addGenericPassword: @"data" account: @"account-delete-me" viewHint:(id)kSecAttrViewHintManatee];
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
+    [self waitForCKModifications];
+
+    // During the reset, Octagon will upload the key hierarchy, and then CKKS will upload the class C item
+
+    [self expectCKModifyItemRecords:1 currentKeyPointerRecords:1 zoneID:self.manateeZoneID checkItem:[self checkClassCBlock:self.manateeZoneID message:@"Object was encrypted under class C key in hierarchy"]];
+
+    // CKKS should issue exactly one deletion for one zone
+    self.silentZoneDeletesAllowed = true;
+
+    self.engramZone.flag = true;
+    self.manateeZone.flag = true;
+    self.autoUnlockZone.flag = true;
+    self.healthZone.flag = true;
+    self.applepayZone.flag = true;
+    self.homeZone.flag = true;
+    self.limitedZone.flag = true;
+    self.passwordsZone.flag = true;
+    self.ptaZone.flag = true;
+
+    XCTestExpectation* resetExpectation = [self expectationWithDescription: @"reset callback occurs"];
+    [self.injectedManager rpcResetCloudKit:self.manateeZoneID.zoneName reason:@"reset-Manatee-test" reply:^(NSError* result) {
+        XCTAssertNil(result, "no error resetting cloudkit");
+        ckksnotice_global("ckks", "Received a resetCloudKit callback");
+        [resetExpectation fulfill];
+    }];
+
+    // Sneak in and perform Octagon's duties
+    OCMVerifyAllWithDelay(self.suggestTLKUpload, 10);
+    [self performOctagonTLKUpload:[self.defaultCKKS.operationDependencies viewStatesByNames:[NSSet setWithObject:@"Manatee"]]];
+
+    [self waitForExpectations:@[resetExpectation] timeout:20];
+
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
+
+    [self expectCKModifyItemRecords:1 currentKeyPointerRecords:1 zoneID:self.manateeZoneID checkItem: [self checkClassABlock:self.manateeZoneID message:@"Object was encrypted under class A key in hierarchy"]];
+    [self addGenericPassword:@"asdf"
+                     account:@"account-class-A"
+                    viewHint:(id)kSecAttrViewHintManatee
+                      access:(id)kSecAttrAccessibleWhenUnlocked
+                   expecting:errSecSuccess
+                     message:@"Adding class A item"];
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
+
+    // Only the manatee zone should have been reset
+    XCTAssertFalse(self.manateeZone.flag, "Should not have a flag set for Manatee");
+
+    XCTAssertTrue(self.engramZone.flag, "Should still have a flag set");
+    XCTAssertTrue(self.autoUnlockZone.flag, "Should still have a flag set");
+    XCTAssertTrue(self.healthZone.flag, "Should still have a flag set");
+    XCTAssertTrue(self.applepayZone.flag, "Should still have a flag set");
+    XCTAssertTrue(self.homeZone.flag, "Should still have a flag set");
+    XCTAssertTrue(self.limitedZone.flag, "Should still have a flag set");
+    XCTAssertTrue(self.passwordsZone.flag, "Should still have a flag set");
+    XCTAssertTrue(self.ptaZone.flag, "Should still have a flag set");
+}
+
 - (void)testResetAllCloudKitZonesWithPartialZonesMissing {
     self.suggestTLKUpload = OCMClassMock([CKKSNearFutureScheduler class]);
     OCMExpect([self.suggestTLKUpload trigger]);
@@ -759,6 +952,9 @@
     [self addGenericPassword: @"data" account: @"account-delete-me" viewHint:(id)kSecAttrViewHintManatee];
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
     [self waitForCKModifications];
+
+    // This reset should _not_ reset the external views. Check that!
+    self.ptaZone.flag = true;
 
     self.zones[self.manateeZoneID] = nil;
     self.keys[self.manateeZoneID] = nil;
@@ -785,6 +981,8 @@
     [self waitForExpectations:@[resetExpectation] timeout:20];
 
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
+
+    XCTAssertTrue(self.ptaZone.flag, "Should still have a flag set for externally-managed PTA zone");
 
     [self expectCKModifyItemRecords:1 currentKeyPointerRecords:1 zoneID:self.manateeZoneID checkItem: [self checkClassABlock:self.manateeZoneID message:@"Object was encrypted under class A key in hierarchy"]];
     [self addGenericPassword:@"asdf"
@@ -813,6 +1011,9 @@
     [self addGenericPassword: @"data" account: @"account-delete-me" viewHint:(id)kSecAttrViewHintManatee];
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
     [self waitForCKModifications];
+
+    // This reset should _not_ reset the external views. Check that!
+    self.ptaZone.flag = true;
 
     self.nextModifyRecordZonesError = [[CKPrettyError alloc] initWithDomain:CKErrorDomain
                                                                        code:CKErrorZoneBusy
@@ -843,6 +1044,7 @@
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
 
     XCTAssertNil(self.nextModifyRecordZonesError, "zone modification error should have been cleared");
+    XCTAssertTrue(self.ptaZone.flag, "Should still have a flag set for externally-managed PTA zone");
 }
 
 - (void)testMultiZoneDeviceStateUploadGood {
@@ -854,12 +1056,14 @@
     [self startCKKSSubsystem];
     [self waitForKeyHierarchyReadinesses];
 
-    for(CKKSKeychainView* view in self.ckksViews) {
-        [self expectCKModifyRecords:@{SecCKRecordDeviceStateType: [NSNumber numberWithInt:1]}
-            deletedRecordTypeCounts:nil
-                             zoneID:view.zoneID
-                checkModifiedRecord:nil
-               runAfterModification:nil];
+    for(CKKSKeychainViewState* view in self.ckksViews) {
+        if(view.ckksManagedView) {
+            [self expectCKModifyRecords:@{SecCKRecordDeviceStateType: [NSNumber numberWithInt:1]}
+                deletedRecordTypeCounts:nil
+                                 zoneID:view.zoneID
+                    checkModifiedRecord:nil
+                   runAfterModification:nil];
+        }
     }
 
     [self.injectedManager xpc24HrNotification];
@@ -888,8 +1092,10 @@
 
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
 
-    [self.manateeView waitForOperationsOfClass:[CKKSIncomingQueueOperation class]];
-    [self.healthView waitForOperationsOfClass:[CKKSIncomingQueueOperation class]];
+    XCTAssertEqual(0, [self.manateeView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], @"key state should enter 'ready'");
+    XCTAssertEqual(0, [self.healthView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], @"key state should enter 'ready'");
+
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:20*NSEC_PER_SEC], "CKKS state machine should enter 'ready'");
 
     [self findGenericPassword:@"manatee0" expecting:errSecSuccess];
     [self findGenericPassword:@"manatee1" expecting:errSecSuccess];
@@ -921,22 +1127,19 @@
 
     self.manateeZone.limitFetchTo = manateeChangeToken1;
 
-    // Attempt to trigger simultaneous key state resyncs. This is a horrible hack...
-    [self.manateeView dispatchSyncWithSQLTransaction:^CKKSDatabaseTransactionResult{
-        self.manateeView.keyStateFullRefetchRequested = YES;
-        [self.manateeView _onqueuePokeKeyStateMachine];
-        return CKKSDatabaseTransactionCommit;
-    }];
-    [self.healthView dispatchSyncWithSQLTransaction:^CKKSDatabaseTransactionResult{
-        self.healthView.keyStateFullRefetchRequested = YES;
-        [self.healthView _onqueuePokeKeyStateMachine];
+    // Trigger full refetches for everything
+    [self.defaultCKKS dispatchSyncWithSQLTransaction:^CKKSDatabaseTransactionResult{
+        self.defaultCKKS.keyStateFullRefetchRequested = YES;
+        [self.defaultCKKS _onqueuePokeKeyStateMachine];
         return CKKSDatabaseTransactionCommit;
     }];
 
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
 
-    [self.manateeView waitForOperationsOfClass:[CKKSIncomingQueueOperation class]];
-    [self.healthView waitForOperationsOfClass:[CKKSIncomingQueueOperation class]];
+    XCTAssertEqual(0, [self.manateeView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], @"key state should enter 'ready'");
+    XCTAssertEqual(0, [self.healthView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], @"key state should enter 'ready'");
+
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:20*NSEC_PER_SEC], "CKKS state machine should enter 'ready'");
 
     // And all items should still exist
     [self findGenericPassword:@"manatee0" expecting:errSecSuccess];

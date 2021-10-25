@@ -112,6 +112,7 @@ DEFINE_TEST(test_write_disk_appledouble)
 	struct archive_entry *ae;
 	struct stat st;
 	acl_t acl;
+    char *acl_text = NULL;
 
 	extract_reference_file(refname);
 
@@ -163,12 +164,14 @@ DEFINE_TEST(test_write_disk_appledouble)
 	failure("'%s' should have decompfs xattr", "file3");
 	assertEqualInt(1, has_xattr("file3", "com.apple.decmpfs"));
 	assert(NULL != (acl = acl_get_file("file3", ACL_TYPE_EXTENDED)));
-	assertEqualString(clean_acl(acl_to_text(acl, NULL)),
+	acl_text = acl_to_text(acl, NULL);
+	assertEqualString(clean_acl(acl_text),
 	    "!#acl 1\n"
 	    "user:FFFFEEEE-DDDD-CCCC-BBBB-AAAA000000C9:::deny:read\n"
 	    "group:ABCDEFAB-CDEF-ABCD-EFAB-CDEF00000050:admin:80:allow:write\n"
 	);
 	if (acl) acl_free(acl);
+	free(acl_text);
 	/* Test ._file3. */
 	failure("'file3' should be merged and removed");
 	assertFileNotExists("._file3");
@@ -222,12 +225,14 @@ DEFINE_TEST(test_write_disk_appledouble)
 	failure("'%s' should not have decmpfs", "file3");
 	assertEqualInt(0, has_xattr("file3", "com.apple.decmpfs"));
 	assert(NULL != (acl = acl_get_file("file3", ACL_TYPE_EXTENDED)));
-	assertEqualString(clean_acl(acl_to_text(acl, NULL)),
+	acl_text = acl_to_text(acl, NULL);
+	assertEqualString(clean_acl(acl_text),
 	    "!#acl 1\n"
 	    "user:FFFFEEEE-DDDD-CCCC-BBBB-AAAA000000C9:::deny:read\n"
 	    "group:ABCDEFAB-CDEF-ABCD-EFAB-CDEF00000050:admin:80:allow:write\n"
 	);
 	if (acl) acl_free(acl);
+	free(acl_text);
 	/* Test ._file3. */
 	failure("'file3' should be merged and removed");
 	assertFileNotExists("._file3");

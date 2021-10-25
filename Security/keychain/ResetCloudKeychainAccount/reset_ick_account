@@ -1,20 +1,27 @@
 #!/usr/local/bin/python3
 
 import sys
-from glob import glob
 import subprocess
-import re
-import os
 import argparse
+import json
+import time
+import getpass
 
 parser = argparse.ArgumentParser(description='Reset your iCloud Keychain account')
-parser.add_argument('icloudpassword', help='iCloud password')
-parser.add_argument('passcode', help='passcode or password of the local device')
-args = vars(parser.parse_args())
+parser.add_argument('--noprompt', action='store_true', help='do not prompt to continue after verifying passwords/passcode')
+parser.add_argument('icloudpassword', nargs='?', help='iCloud password')
+parser.add_argument('passcode', nargs='?', help='passcode or password of the local device')
+args = parser.parse_args()
 
+if not args.icloudpassword:
+    iCloudPassword = getpass.getpass(prompt="iCloud password:")
+else:
+    iCloudPassword = args.icloudpassword
 
-iCloudPassword = args['icloudpassword']
-passcode = args['passcode']
+if not args.passcode:
+    passcode = getpass.getpass(prompt="local device passcode or password:")
+else:
+    passcode = args.passcode
 
 def set_security_mac_cmd():
         return 'security2'
@@ -23,32 +30,213 @@ def set_security_ios_cmd():
         return 'security'
 
 def security_cmd_by_platform():
-        swVers = subprocess.check_output(["sw_vers"])
-        deviceInformation = swVers.decode('utf-8')
-        if "Mac OS X" in deviceInformation or "macOS" in deviceInformation:
-                print("using security2 command on macos")
-                return set_security_mac_cmd()
-        elif "iPhone OS" in deviceInformation:
-                print("using security command on ios")
-                return set_security_ios_cmd()
-        else:
-                print("unsupported platform")
-                sys.exit(1)
+    p = subprocess.run(["sw_vers", "-productName"], encoding='utf-8', capture_output=True, check=True)
+    deviceInformation = p.stdout
+    if "Mac OS X" in deviceInformation or "macOS" in deviceInformation:
+        print("using security2 command on macos")
+        return set_security_mac_cmd()
+    elif "iPhone OS" in deviceInformation:
+        print("using security command on ios")
+        return set_security_ios_cmd()
+    else:
+        print("unsupported platform")
+        sys.exit(1)
 
 security_cmd = security_cmd_by_platform()
 
+
+def get_primary_appleid():
+    try:
+        output = subprocess.run(["accounts_tool","listAccounts","-v"], stdout=subprocess.PIPE, check=True).stdout
+    except:
+        print("Exception caught getting Primary AppleID! Exiting.")
+        print("Exception follows:")
+        raise
+
+    idx = output.find(b'accountClass = primary')
+    if idx == -1:
+        print("Couldn't find primary accountClass to get Primary AppleID! Exiting.")
+        sys.exit(1)
+    idx = output.find(b'appleId = "', idx)
+    if idx == -1:
+        print("Couldn't find appleId to get Primary AppleID! Exiting.")
+        sys.exit(1)
+    qStart = output.find(b'"',idx)
+    if qStart == -1:
+        print("Couldn't find start quote to get Primary AppleID! Exiting.")
+        sys.exit(1)
+    if qStart+1 >= len(output):
+        print("Start quote at end while getting Primary AppleID! Exiting.")
+        sys.exit(1)
+    qEnd = output.find(b'"',qStart+1)
+    if qEnd == -1:
+        print("Couldn't find end quote to get Primary AppleID! Exiting.")
+        sys.exit(1)
+    idBytes = output[qStart+1:qEnd]
+    try:
+        return idBytes.decode()
+    except:
+        print("Couldn't decode Primary AppleID:", idBytes)
+        print("Exception follows:")
+        raise
+
+
+def check_icloud_password(password):
+    id = get_primary_appleid()
+    print("Got Primary AppleID:", id)
+    try:
+        subprocess.run(["aktool","authenticate","-u",id,"-p", password], capture_output=True, check=True)
+    except subprocess.CalledProcessError as e: # handle this exception specially, to not output the password
+        print("Specified iCloud password is incorrect (return code {}). Exiting.".format(e.returncode))
+        sys.exit(1)
+    except:
+        print("Exception caught verifying iCloud password! Exiting.")
+        print("Exception follows:")
+        raise
+
+
+def get_otctl_status():
+    p = subprocess.run(["otctl", "status", "-j"], text=True, capture_output=True)
+    if p.returncode != 0:
+        print("getting otctl status failed: {}".format(p.returncode))
+        sys.exit(1)
+    try:
+        return json.loads(p.stdout)
+    except:
+        print("Couldn't decode otctl status json:")
+        print(p.stdout)
+        print("Exception follows:")
+        raise
+
+
+def get_escrow_requests():
+    return get_otctl_status()["escrowRequest"]
+
+
+def get_octagon_state():
+    return get_otctl_status()["state"]
+
+
+def get_pending_passcode_escrow_request():
+    reqs = get_escrow_requests()
+    for i in reqs:
+        if reqs[i] == "pending_passcode":
+            return i
+    return None
+
+
+ostate = get_octagon_state().lower()
+if ostate == "error":
+    print("Octagon is currently in Error state. Exiting.")
+    sys.exit(1)
+else:
+    print("Current octagon state:", ostate)
+
+
+print("Checking the iCloud password...")
+check_icloud_password(iCloudPassword)
+
+
+print("Checking the device passcode/password...")
+try:
+    subprocess.run(["keystorectl", "unlock", passcode], capture_output=True, check=True)
+except subprocess.CalledProcessError as e: # handle this exception specially, to not output the passcode
+    print("Specified local device passcode/password is incorrect (return code {}). Exiting.".format(e.returncode))
+    sys.exit(1)
+except:
+    print("Exception caught verifying local device passcode/password! Exiting.")
+    print("Exception follows:")
+    raise
+
+
+if not args.noprompt:
+    input("Are you sure you want to reset your account? Press enter to continue (or Ctrl-C to cancel)...")
+
+
+# log a "com.apple.securityd:mark" message to see when this (version of this) script was run
+p = subprocess.run([security_cmd, "synclog", "-M", "reset_ick_account 2021-06-09-0001"], text=True, capture_output=True)
+if p.returncode != 0:
+    print("Could not write log message (return code {}). Exiting.".format(p.returncode))
+    print("stdout follows")
+    print(p.stdout)
+    print("stderr follows")
+    print(p.stderr)
+    sys.exit(1)
+
+
 print("deleting all escrow records")
-subprocess.check_output(["stingrayutil", "--deleteAll", "ReallyDeleteAll"])
+subprocess.run(["stingrayutil", "--deleteAll", "ReallyDeleteAll"], stdout=subprocess.PIPE, check=True)
 
 print("resetting SOS")
-subprocess.check_output([security_cmd, "sync", "-C"])
-subprocess.check_output([security_cmd, "sync", "-P", "$iCloudPassword"])
-subprocess.check_output([security_cmd, "sync", "-O"])
+
+subprocess.run([security_cmd, "sync", "-C"], stdout=subprocess.PIPE, check=True)
+
+try:
+    subprocess.run([security_cmd, "sync", "-P", iCloudPassword], stdout=subprocess.PIPE, check=True)
+except subprocess.CalledProcessError as e: # handle this exception specially, to not output the passcode
+    print("Error providing iCloud password to SOS (return code {}). Exiting.".format(e.returncode))
+    sys.exit(1)
+except:
+    print("Exception caught providing iCloud password to SOS! Exiting.")
+    print("Exception follows:")
+    raise
+
+subprocess.run([security_cmd, "sync", "-O"], stdout=subprocess.PIPE, check=True)
 
 print("resetting octagon")
-subprocess.check_output(["otctl", "resetoctagon"])
+p = subprocess.run(["otctl", "resetoctagon"], text=True, capture_output=True)
+if p.returncode != 0:
+    print("Failed to reset octagon (return code {}). Exiting.".format(p.returncode))
+    print("stdout follows")
+    print(p.stdout)
+    print("stderr follows")
+    print(p.stderr)
+    sys.exit(1)
+
+
+print("Waiting for escrow request...")
+for x in range(0,3):
+    pending_request = get_pending_passcode_escrow_request()
+    if pending_request:
+        break
+    if x == 2:
+        print("Error: Timeout: Escrow request was not created")
+        sys.exit(1)
+    time.sleep(5)
 
 print("creating new escrow record")
-subprocess.check_output(["sbdtool", "passcode_request_trigger"])
-subprocess.check_output(["sbdtool", "passcode_request_provide_passcode", "$passcode"])
+params = ["sbdtool", "passcode_request_provide_passcode"]
+if passcode.isdecimal() and (len(passcode) == 4 or len(passcode) == 6):
+    params.append("--numeric")
+params.append(passcode)
+try:
+    subprocess.run(params, stdout=subprocess.PIPE, check=True)
+except subprocess.CalledProcessError as e: # handle this exception specially, to not output the passcode
+    print("Failed to provide passcode to create new escrow record (return code {}). Exiting.".format(e.returncode))
+    sys.exit(1)
+except:
+    print("Exception caught providing passcode to create new escrow record! Exiting.")
+    print("Exception follows:")
+    raise
 
+print("Waiting for escrow prerecord...")
+got_prerecord = False
+for x in range(0,15):
+    reqs = get_escrow_requests()
+    if pending_request not in reqs:
+        print("Error: Previously created escrow request {} was not found!".format(pending_request))
+        print(reqs)
+        sys.exit(1)
+    if reqs[pending_request] == "complete":
+        break
+    if reqs[pending_request] == "have_prerecord" and not got_prerecord:
+        got_prerecord = True
+        print("Got escrow prerecord.")
+        print("Waiting for escrow record. Please be patient...")
+    if x == 14:
+        print("Error: Timeout: Escrow record was not created")
+        print(pending_request, reqs[pending_request])
+        sys.exit(1)
+    time.sleep(5)
+
+print("Success: Reset Complete. Please resolve CFUs on your other devices.")

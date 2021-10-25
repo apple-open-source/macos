@@ -2,7 +2,7 @@
 
   vm_insnhelper.c - instruction helper functions.
 
-  $Author: naruse $
+  $Author: usa $
 
   Copyright (C) 2007 Koichi Sasada
 
@@ -2161,8 +2161,8 @@ current_method_entry(const rb_execution_context_t *ec, rb_control_frame_t *cfp)
     return cfp;
 }
 
-static VALUE
-find_defined_class_by_owner(VALUE current_class, VALUE target_owner)
+MJIT_FUNC_EXPORTED VALUE
+rb_find_defined_class_by_owner(VALUE current_class, VALUE target_owner)
 {
     VALUE klass = current_class;
 
@@ -2187,7 +2187,7 @@ aliased_callable_method_entry(const rb_callable_method_entry_t *me)
     const rb_callable_method_entry_t *cme;
 
     if (orig_me->defined_class == 0) {
-	VALUE defined_class = find_defined_class_by_owner(me->defined_class, orig_me->owner);
+	VALUE defined_class = rb_find_defined_class_by_owner(me->defined_class, orig_me->owner);
 	VM_ASSERT(RB_TYPE_P(orig_me->owner, T_MODULE));
 	cme = rb_method_entry_complement_defined_class(orig_me, me->called_id, defined_class);
 
@@ -2315,7 +2315,10 @@ vm_call_method_each_type(rb_execution_context_t *ec, rb_control_frame_t *cfp, st
 		    goto no_refinement_dispatch;
 		}
 	    }
-	    cc->me = ref_me;
+            if (cc->me->def->type != VM_METHOD_TYPE_REFINED ||
+                 cc->me->def != ref_me->def) {
+                 cc->me = ref_me;
+            }
 	    if (ref_me->def->type != VM_METHOD_TYPE_REFINED) {
 		return vm_call_method(ec, cfp, calling, ci, cc);
 	    }
@@ -2855,7 +2858,7 @@ vm_defined(rb_execution_context_t *ec, rb_control_frame_t *reg_cfp, rb_num_t op_
 	      case METHOD_VISI_PRIVATE:
 		break;
 	      case METHOD_VISI_PROTECTED:
-		if (!rb_obj_is_kind_of(GET_SELF(), rb_class_real(klass))) {
+		if (!rb_obj_is_kind_of(GET_SELF(), rb_class_real(me->defined_class))) {
 		    break;
 		}
 	      case METHOD_VISI_PUBLIC:

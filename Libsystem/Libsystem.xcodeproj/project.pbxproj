@@ -60,6 +60,7 @@
 			isa = PBXAggregateTarget;
 			buildConfigurationList = E47E9832221DFE23006E312E /* Build configuration list for PBXAggregateTarget "Libsystem" */;
 			buildPhases = (
+				8C1C6CD52655B054001B99C7 /* Install FeatureFlags */,
 			);
 			dependencies = (
 				E47E9835221DFE4A006E312E /* PBXTargetDependency */,
@@ -74,6 +75,7 @@
 
 /* Begin PBXBuildFile section */
 		2B9D8B542402427100E7F338 /* i386.c in Sources */ = {isa = PBXBuildFile; fileRef = 2B9D8B53240239BD00E7F338 /* i386.c */; };
+		8C1C6CD62655B06A001B99C7 /* Libsystem.plist in Install FeatureFlags */ = {isa = PBXBuildFile; fileRef = 8C7F4804264C24F1007076D8 /* Libsystem.plist */; };
 		923662F821276300001FB3E7 /* enable_asan_mode in Copy enable_asan_mode */ = {isa = PBXBuildFile; fileRef = 8C0BF1291F58E51D00706493 /* enable_asan_mode */; };
 		BA2BD900136D282200FF78C0 /* Info.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = BA5511B6136C9D780012B9B5 /* Info.plist */; };
 		BA2FABC5136DBF45004383E5 /* linker_arguments_changed.c in Sources */ = {isa = PBXBuildFile; fileRef = BA2FABC4136DBF45004383E5 /* linker_arguments_changed.c */; };
@@ -135,6 +137,27 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
+		8C1C6CD52655B054001B99C7 /* Install FeatureFlags */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /System/Library/FeatureFlags/Domain;
+			dstSubfolderSpec = 0;
+			files = (
+				8C1C6CD62655B06A001B99C7 /* Libsystem.plist in Install FeatureFlags */,
+			);
+			name = "Install FeatureFlags";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		8C7F4805264C2545007076D8 /* Install FeatureFlags */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /System/Library/FeatureFlags/Domain;
+			dstSubfolderSpec = 0;
+			files = (
+			);
+			name = "Install FeatureFlags";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
 		923662F7212762EA001FB3E7 /* Copy enable_asan_mode */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
@@ -161,6 +184,7 @@
 /* Begin PBXFileReference section */
 		2B9D8B53240239BD00E7F338 /* i386.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = i386.c; sourceTree = "<group>"; };
 		8C0BF1291F58E51D00706493 /* enable_asan_mode */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = enable_asan_mode; sourceTree = "<group>"; };
+		8C7F4804264C24F1007076D8 /* Libsystem.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Libsystem.plist; sourceTree = "<group>"; };
 		923662FC212B442C001FB3E7 /* create_asan_override_file.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = create_asan_override_file.sh; sourceTree = "<group>"; };
 		BA2FABC4136DBF45004383E5 /* linker_arguments_changed.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = linker_arguments_changed.c; sourceTree = BUILT_PRODUCTS_DIR; };
 		BA5511B3136C9D780012B9B5 /* APPLE_LICENSE */ = {isa = PBXFileReference; lastKnownFileType = text; path = APPLE_LICENSE; sourceTree = "<group>"; };
@@ -190,6 +214,14 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		8C7F4803264C24A3007076D8 /* featureflags */ = {
+			isa = PBXGroup;
+			children = (
+				8C7F4804264C24F1007076D8 /* Libsystem.plist */,
+			);
+			path = featureflags;
+			sourceTree = "<group>";
+		};
 		BA2FABC7136DBF6F004383E5 /* Generated Files */ = {
 			isa = PBXGroup;
 			children = (
@@ -213,6 +245,7 @@
 				E43B88B42245778F00215272 /* optionallibs_driverkit */,
 				E43B88B32245778F00215272 /* requiredlibs_driverkit */,
 				8C0BF1291F58E51D00706493 /* enable_asan_mode */,
+				8C7F4803264C24A3007076D8 /* featureflags */,
 				C64EE1D6136F644700676C52 /* xcodescripts */,
 				BA5511C5136C9E2E0012B9B5 /* Products */,
 				BA2FABC7136DBF6F004383E5 /* Generated Files */,
@@ -259,6 +292,7 @@
 				BA5511C0136C9E2E0012B9B5 /* Sources */,
 				BA5511C1136C9E2E0012B9B5 /* Frameworks */,
 				BA5511C2136C9E2E0012B9B5 /* Headers */,
+				8C7F4805264C2545007076D8 /* Install FeatureFlags */,
 			);
 			buildRules = (
 			);

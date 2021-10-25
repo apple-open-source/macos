@@ -1,5 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
-// License & terms of use: http://www.unicode.org/copyright.html#License
+// License & terms of use: http://www.unicode.org/copyright.html
+// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
 pt_PT{
     Ellipsis{
         final{"{0}…"}
@@ -160,6 +161,7 @@ pt_PT{
                 }
             }
             symbols{
+                approximatelySign{"~"}
                 group{" "}
             }
         }
@@ -171,7 +173,6 @@ pt_PT{
         minimumGroupingDigits{"2"}
         native{"latn"}
     }
-    Version{"36.1"}
     calendar{
         buddhist{
             DateTimePatterns{
@@ -310,6 +311,44 @@ pt_PT{
                 yyyyQQQQ{"QQQQ 'de' y G"}
             }
             intervalFormats{
+                Gy{
+                    G{"y G – y G"}
+                    y{"y – y G"}
+                }
+                GyM{
+                    G{"MM/y GGGGG – MM/y GGGGG"}
+                    M{"MM/y – MM/y GGGGG"}
+                    y{"MM/y – MM/y GGGGG"}
+                }
+                GyMEd{
+                    G{"E, d/MM/y GGGGG – E, d/MM/y GGGGG"}
+                    M{"E, d/MM/y – E, d/MM/y GGGGG"}
+                    d{"E, d/MM/y – E, d/MM/y GGGGG"}
+                    y{"E, d/MM/y – E, d/MM/y GGGGG"}
+                }
+                GyMMM{
+                    G{"MMM y G – MMM y G"}
+                    M{"MMM – MMM y G"}
+                    y{"MMM y – MMM y G"}
+                }
+                GyMMMEd{
+                    G{"E, d 'de' MMMM, y G – E, d 'de' MMMM, y G"}
+                    M{"E, d 'de' MMMM – E, d 'de' MMMM, y G"}
+                    d{"E, d 'de' MMMM – E, d 'de' MMMM, y G"}
+                    y{"E, d 'de' MMMM, y – E, d 'de' MMMM, y G"}
+                }
+                GyMMMd{
+                    G{"d 'de' MMMM, y G – d 'de' MMMM, y G"}
+                    M{"d 'de' MMMM – d 'de' MMMM, y G"}
+                    d{"d – d 'de' MMMM, y G"}
+                    y{"d 'de' MMMM, y – d 'de' MMMM, y G"}
+                }
+                GyMd{
+                    G{"d/MM/y GGGGG – d/MM/y GGGGG"}
+                    M{"d/MM/y – d/MM/y GGGGG"}
+                    d{"d/MM/y – d/MM/y GGGGG"}
+                    y{"d/MM/y – d/MM/y GGGGG"}
+                }
                 H{
                     H{"HH–HH"}
                 }
@@ -322,44 +361,44 @@ pt_PT{
                     m{"HH:mm–HH:mm v"}
                 }
                 Hv{
-                    H{"HH – HH v"}
+                    H{"HH – HH v"}
                 }
                 M{
                     M{"MM–MM"}
                 }
                 MEd{
-                    M{"ccc, dd/MM – ccc, dd/MM"}
-                    d{"ccc, dd/MM – ccc, dd/MM"}
+                    M{"ccc, dd/MM – ccc, dd/MM"}
+                    d{"ccc, dd/MM – ccc, dd/MM"}
                 }
                 MMM{
                     M{"MMM–MMM"}
                 }
                 MMMEd{
-                    M{"ccc, dd/MM – ccc, dd/MM"}
-                    d{"ccc, dd/MM – ccc, dd/MM"}
+                    M{"ccc, dd/MM – ccc, dd/MM"}
+                    d{"ccc, dd/MM – ccc, dd/MM"}
                 }
                 MMMMEd{
-                    M{"ccc, d 'de' MMMM – ccc, d 'de' MMMM"}
-                    d{"ccc, d 'de' MMMM – ccc, d 'de' MMMM"}
+                    M{"ccc, d 'de' MMMM – ccc, d 'de' MMMM"}
+                    d{"ccc, d 'de' MMMM – ccc, d 'de' MMMM"}
                 }
                 MMMMd{
-                    M{"d 'de' MMMM – d 'de' MMMM"}
-                    d{"d – d 'de' MMMM"}
+                    M{"d 'de' MMMM – d 'de' MMMM"}
+                    d{"d – d 'de' MMMM"}
                 }
                 MMMd{
-                    M{"dd/MM – dd/MM"}
-                    d{"dd/MM – dd/MM"}
+                    M{"dd/MM – dd/MM"}
+                    d{"dd/MM – dd/MM"}
                 }
                 d{
                     d{"d–d"}
                 }
                 fallback{"{0} - {1}"}
                 h{
-                    a{"h a – h a"}
+                    a{"h a – h a"}
                     h{"h–h a"}
                 }
                 hm{
-                    h{"h:mm – h:mm a"}
+                    h{"h:mm – h:mm a"}
                 }
                 hv{
                     h{"h–h a v"}
@@ -368,44 +407,41 @@ pt_PT{
                     y{"y–y G"}
                 }
                 yM{
-                    M{"MM/y – MM/y G"}
-                    y{"MM/y – MM/y G"}
+                    M{"MM/y – MM/y G"}
+                    y{"MM/y – MM/y G"}
                 }
                 yMEd{
-                    M{"ccc, dd/MM/y – ccc, dd/MM/y G"}
-                    d{"ccc, dd/MM/y – ccc, dd/MM/y G"}
-                    y{"ccc, dd/MM/y – ccc, dd/MM/y G"}
-                }
-                yMMM{
-                    M{"MMM–MMM 'de' y G"}
+                    M{"ccc, dd/MM/y – ccc, dd/MM/y G"}
+                    d{"ccc, dd/MM/y – ccc, dd/MM/y G"}
+                    y{"ccc, dd/MM/y – ccc, dd/MM/y G"}
                 }
                 yMMMEd{
-                    M{"E, dd/MM – E, dd/MM/y G"}
-                    d{"E, dd/MM – E, dd/MM/y G"}
-                    y{"E, dd/MM/y – E, dd/MM/y G"}
+                    M{"E, dd/MM – E, dd/MM/y G"}
+                    d{"E, dd/MM – E, dd/MM/y G"}
+                    y{"E, dd/MM/y – E, dd/MM/y G"}
                 }
                 yMMMM{
-                    M{"MMMM – MMMM 'de' y G"}
+                    M{"MMMM – MMMM 'de' y G"}
                 }
                 yMMMMEd{
-                    M{"E, d 'de' MMMM – E, d 'de' MMMM 'de' y G"}
-                    d{"E, d 'de' MMMM – E, d 'de' MMMM 'de' y G"}
-                    y{"E, d 'de' MMMM 'de' y – E, d 'de' MMMM 'de' y G"}
+                    M{"E, d 'de' MMMM – E, d 'de' MMMM 'de' y G"}
+                    d{"E, d 'de' MMMM – E, d 'de' MMMM 'de' y G"}
+                    y{"E, d 'de' MMMM 'de' y – E, d 'de' MMMM 'de' y G"}
                 }
                 yMMMMd{
-                    M{"d 'de' MMMM – d 'de' MMMM 'de' y G"}
-                    d{"d – d 'de' MMMM 'de' y G"}
-                    y{"d 'de' MMMM 'de' y – d 'de' MMMM 'de' y G"}
+                    M{"d 'de' MMMM – d 'de' MMMM 'de' y G"}
+                    d{"d – d 'de' MMMM 'de' y G"}
+                    y{"d 'de' MMMM 'de' y – d 'de' MMMM 'de' y G"}
                 }
                 yMMMd{
-                    M{"dd/MM – dd/MM/y G"}
-                    d{"dd/MM – dd/MM/y G"}
-                    y{"dd/MM/y – dd/MM/y G"}
+                    M{"dd/MM – dd/MM/y G"}
+                    d{"dd/MM – dd/MM/y G"}
+                    y{"dd/MM/y – dd/MM/y G"}
                 }
                 yMd{
-                    M{"dd/MM/y – dd/MM/y G"}
-                    d{"dd/MM/y – dd/MM/y G"}
-                    y{"dd/MM/y – dd/MM/y G"}
+                    M{"dd/MM/y – dd/MM/y G"}
+                    d{"dd/MM/y – dd/MM/y G"}
+                    y{"dd/MM/y – dd/MM/y G"}
                 }
             }
         }
@@ -493,33 +529,33 @@ pt_PT{
                     M{"M–M"}
                 }
                 MEd{
-                    M{"ccc, dd/MM – ccc, dd/MM"}
-                    d{"ccc, dd/MM – ccc, dd/MM"}
+                    M{"ccc, dd/MM – ccc, dd/MM"}
+                    d{"ccc, dd/MM – ccc, dd/MM"}
                 }
                 MMM{
                     M{"MMM–MMM"}
                 }
                 MMMEd{
-                    M{"ccc, dd/MM – ccc, dd/MM"}
-                    d{"ccc, dd/MM – ccc, dd/MM"}
+                    M{"ccc, dd/MM – ccc, dd/MM"}
+                    d{"ccc, dd/MM – ccc, dd/MM"}
                 }
                 MMMMEd{
-                    M{"ccc, d 'de' MMMM – ccc, d 'de' MMMM"}
-                    d{"ccc, d 'de' MMMM – ccc, d 'de' MMMM"}
+                    M{"ccc, d 'de' MMMM – ccc, d 'de' MMMM"}
+                    d{"ccc, d 'de' MMMM – ccc, d 'de' MMMM"}
                 }
                 MMMMd{
-                    M{"d 'de' MMMM – d 'de' MMMM"}
-                    d{"d – d 'de' MMMM"}
+                    M{"d 'de' MMMM – d 'de' MMMM"}
+                    d{"d – d 'de' MMMM"}
                 }
                 MMMd{
-                    M{"dd/MM – dd/MM"}
-                    d{"dd/MM – dd/MM"}
+                    M{"dd/MM – dd/MM"}
+                    d{"dd/MM – dd/MM"}
                 }
                 d{
                     d{"d–d"}
                 }
                 h{
-                    a{"h a – h a"}
+                    a{"h a – h a"}
                     h{"h–h a"}
                 }
                 hv{
@@ -529,32 +565,32 @@ pt_PT{
                     y{"y–y"}
                 }
                 yMEd{
-                    M{"ccc, dd/MM/y – ccc, dd/MM/y"}
-                    d{"ccc, dd/MM/y – ccc, dd/MM/y"}
-                    y{"ccc, dd/MM/y – ccc, dd/MM/y"}
+                    M{"ccc, dd/MM/y – ccc, dd/MM/y"}
+                    d{"ccc, dd/MM/y – ccc, dd/MM/y"}
+                    y{"ccc, dd/MM/y – ccc, dd/MM/y"}
                 }
                 yMMM{
                     M{"MMM–MMM 'de' y"}
                 }
                 yMMMEd{
-                    M{"E, dd/MM – E, dd/MM/y"}
-                    d{"E, dd/MM – E, dd/MM/y"}
-                    y{"E, dd/MM/y – E, dd/MM/y"}
+                    M{"E, dd/MM – E, dd/MM/y"}
+                    d{"E, dd/MM – E, dd/MM/y"}
+                    y{"E, dd/MM/y – E, dd/MM/y"}
                 }
                 yMMMMEd{
-                    M{"E, d 'de' MMMM – E, d 'de' MMMM 'de' y"}
-                    d{"E, d 'de' MMMM – E, d 'de' MMMM 'de' y"}
-                    y{"E, d 'de' MMMM 'de' y – E, d 'de' MMMM 'de' y"}
+                    M{"E, d 'de' MMMM – E, d 'de' MMMM 'de' y"}
+                    d{"E, d 'de' MMMM – E, d 'de' MMMM 'de' y"}
+                    y{"E, d 'de' MMMM 'de' y – E, d 'de' MMMM 'de' y"}
                 }
                 yMMMMd{
-                    M{"d 'de' MMMM – d 'de' MMMM 'de' y"}
-                    d{"d – d 'de' MMMM 'de' y"}
-                    y{"d 'de' MMMM 'de' y – d 'de' MMMM 'de' y"}
+                    M{"d 'de' MMMM – d 'de' MMMM 'de' y"}
+                    d{"d – d 'de' MMMM 'de' y"}
+                    y{"d 'de' MMMM 'de' y – d 'de' MMMM 'de' y"}
                 }
                 yMMMd{
-                    M{"dd/MM – dd/MM/y"}
-                    d{"dd/MM – dd/MM/y"}
-                    y{"dd/MM/y – dd/MM/y"}
+                    M{"dd/MM – dd/MM/y"}
+                    d{"dd/MM – dd/MM/y"}
+                    y{"dd/MM/y – dd/MM/y"}
                 }
             }
             quarters{
@@ -704,8 +740,8 @@ pt_PT{
                     other{"+{0} dias"}
                 }
                 past{
-                    one{"há {0} dias"}
-                    other{"há {0} dias"}
+                    one{"-{0} dia"}
+                    other{"-{0} dias"}
                 }
             }
         }

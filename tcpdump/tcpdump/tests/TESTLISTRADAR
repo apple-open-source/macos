@@ -10,3 +10,9 @@ radar-31053702		radar-31053702.pcapng	radar-31053702.out	-w `mktemp /tmp/tcpdump
 radar-61850230		radar-61850230.pcapng	radar-61850230.out	-v -K -g tcp
 
 radar-63494669		radar-63494669.pcapng	radar-63494669.out	-k
+
+radar-74957353		radar-74957353.pcapng	radar-74957353.out	tcp
+
+radar-79792659		radar-79792659.pcapng	radar-79792659.out	-k
+
+radar-81131821		radar-81131821.pcapng	radar-81131821.out

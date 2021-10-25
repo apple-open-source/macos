@@ -24,6 +24,7 @@
 #if OCTAGON
 
 #import <Foundation/Foundation.h>
+#import <AppleFeatures/AppleFeatures.h>
 #import "keychain/ckks/CKKSResultOperation.h"
 #import "keychain/ot/OctagonStateMachineHelpers.h"
 
@@ -52,6 +53,11 @@ extern OctagonState* const OctagonStateWaitForClassCUnlock;
 // and has no pending things to do.
 extern OctagonState* const OctagonStateReady;
 
+// 'inherited' indicates that this machine believes it has finished the inheritance flow
+// and has no pending things to do.
+extern OctagonState* const OctagonStateBecomeInherited;
+extern OctagonState* const OctagonStateInherited;
+
 // This state runs any final preparation to enter the Ready state
 extern OctagonState* const OctagonStateBecomeReady;
 
@@ -73,7 +79,10 @@ extern OctagonState* const OctagonStateInitializing;
 extern OctagonState* const OctagonStateWaitingForCloudKitAccount;
 extern OctagonState* const OctagonStateCloudKitNewlyAvailable;
 extern OctagonState* const OctagonStateDetermineCDPState;
+extern OctagonState* const OctagonStateCheckForAccountFixups;
 extern OctagonState* const OctagonStateCheckTrustState;
+
+extern OctagonState* const OctagonStatePerformAccountFixups;
 
 /*Piggybacking and ProximitySetup as Initiator, Octagon only*/
 extern OctagonState* const OctagonStateInitiatorAwaitingVoucher;
@@ -99,6 +108,19 @@ extern OctagonState* const OctagonStateCreateIdentityForRecoveryKey;
 /* used for join with recovery key*/
 extern OctagonState* const OctagonStateVouchWithRecoveryKey;
 
+/* used for join with custodian recovery key */
+extern OctagonState* const OctagonStateCreateIdentityForCustodianRecoveryKey;
+
+/* used for join with custodian recovery key */
+extern OctagonState* const OctagonStateCreateIdentityForInheritanceKey;
+
+/* used for join with custodian recovery key*/
+extern OctagonState* const OctagonStateVouchWithCustodianRecoveryKey;
+extern OctagonState* const OctagonStateJoinSOSAfterCKKSFetch;
+
+/* used inheritance key flow*/
+extern OctagonState* const OctagonStatePrepareAndRecoverTLKSharesForInheritancePeer;
+
 // State flow when performing a full account reset
 extern OctagonState* const OctagonStateResetBecomeUntrusted;
 extern OctagonState* const OctagonStateResetAndEstablish;
@@ -110,6 +132,7 @@ extern OctagonState* const OctagonStateReEnactReadyToEstablish;
 // this last state might loop through:
 extern OctagonState* const OctagonStateEstablishCKKSReset;
 extern OctagonState* const OctagonStateEstablishAfterCKKSReset;
+// End of account reset state flow
 
 /* used for trust health checks */
 extern OctagonState* const OctagonStateHSA2HealthCheck;
@@ -120,7 +143,6 @@ extern OctagonState* const OctagonStateCuttlefishTrustCheck;
 extern OctagonState* const OctagonStatePostRepairCFU;
 extern OctagonState* const OctagonStateHealthCheckReset;
 
-// End of account reset state flow
 
 //Leave Clique
 extern OctagonState* const OctagonStateHealthCheckLeaveClique;
@@ -131,6 +153,9 @@ extern OctagonState* const OctagonStateNoAccountDoReset;
 
 // Used if the local device no longer can talk to the account
 extern OctagonState* const OctagonStateLostAccountAuth;
+
+// Used if Cuttlefish tells us that our peer is gone
+extern OctagonState* const OctagonStatePeerMissingFromServer;
 
 // escrow
 extern OctagonState* const OctagonStateEscrowTriggerUpdate;
@@ -167,16 +192,19 @@ extern OctagonState* const OctagonStateReadyUpdated;
 
 extern OctagonState* const OctagonStateUnimplemented;
 
-NSDictionary<OctagonState*, NSNumber*>* OctagonStateMap(void);
-NSDictionary<NSNumber*, OctagonState*>* OctagonStateInverseMap(void);
+@interface OTStates: NSObject
++ (NSDictionary<OctagonState*, NSNumber*>*) OctagonStateMap;
++ (NSDictionary<NSNumber*, OctagonState*>*) OctagonStateInverseMap;
 
 // Unfortunately, this set contains the 'wait for hsa2' state, which means that many
 // of our state machine RPCs will work in the SA case.
 // <rdar://problem/54094162> Octagon: ensure Octagon operations can't occur on SA accounts
-NSSet<OctagonState*>* OctagonInAccountStates(void);
-NSSet<OctagonState *>* OctagonHealthSourceStates(void);
-NSSet<OctagonFlag *>* AllOctagonFlags(void);
-NSSet<OctagonState*>* OctagonNotInCliqueStates(void);
++ (NSSet<OctagonState*>*) OctagonInAccountStates;
++ (NSSet<OctagonState *>*) OctagonHealthSourceStates;
++ (NSSet<OctagonFlag *>*) AllOctagonFlags;
++ (NSSet<OctagonState*>*) OctagonNotInCliqueStates;
+
+@end
 
 ////// State machine flags
 extern OctagonFlag* const OctagonFlagIDMSLevelChanged;
@@ -205,13 +233,13 @@ extern OctagonFlag* const OctagonFlagAttemptSOSUpdatePreapprovals;
 extern OctagonFlag* const OctagonFlagAttemptSOSConsistency;
 
 extern OctagonFlag* const OctagonFlagEscrowRequestInformCloudServicesOperation;
-extern OctagonFlag* const OctagonFlagWarmEscrowRecordCache;
 
 extern OctagonFlag* const OctagonFlagAttemptBottleTLKExtraction;
 extern OctagonFlag* const OctagonFlagAttemptRecoveryKeyTLKExtraction;
 
 extern OctagonFlag* const OctagonFlagAttemptUserControllableViewStatusUpgrade;
 
+extern OctagonFlag* const OctagonFlagSecureElementIdentityChanged;
 
 NS_ASSUME_NONNULL_END
 

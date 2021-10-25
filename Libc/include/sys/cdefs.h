@@ -106,7 +106,7 @@
 extern int pthread_key_init_np(int, void (*)(void *));
 
 #include <TargetConditionals.h>
-#if TARGET_IPHONE_SIMULATOR
+#if TARGET_OS_SIMULATOR
 /* Simulator keys are offset by 200 */
 #define	__LIBC_PTHREAD_KEY(x)		(210 + (x))
 #else

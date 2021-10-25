@@ -2,8 +2,17 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>BATSConfigVersion</key>
+	<string>0.2.0</string>
 	<key>Project</key>
 	<string>libarchive</string>
+	<key>RadarComponents</key>
+	<dict>
+		<key>Name</key>
+		<string>libarchive</string>
+		<key>Version</key>
+		<string>all</string>
+	</dict>
 	<key>Tests</key>
 	<array>
 		<dict>
@@ -13,7 +22,7 @@
 				<string>test_tar.sh</string>
 			</array>
 			<key>TestName</key>
-			<string>tar</string>
+			<string>libarchive.tar</string>
 			<key>WhenToRun</key>
 			<array>
 				<string>PRESUBMISSION</string>
@@ -21,8 +30,8 @@
 			</array>
 			<key>WorkingDirectory</key>
 			<string>/AppleInternal/Tests/libarchive</string>
-			<key>ShowSubtestResults</key>
-			<true/>
+			<key>Timeout</key>
+			<integer>3600</integer>
 		</dict>
 		<dict>
 			<key>Command</key>
@@ -30,7 +39,7 @@
 				<string>/AppleInternal/Tests/libarchive/libarchive_test</string>
 			</array>
 			<key>TestName</key>
-			<string>libarchive_test</string>
+			<string>libarchive.libarchive_test</string>
 			<key>WhenToRun</key>
 			<array>
 				<string>PRESUBMISSION</string>
@@ -38,15 +47,18 @@
 			</array>
 			<key>WorkingDirectory</key>
 			<string>/AppleInternal/Tests/libarchive</string>
+			<key>Timeout</key>
+			<integer>3600</integer>
 		</dict>
 		<dict>
 			<key>Command</key>
 			<array>
 				<string>/AppleInternal/Tests/libarchive/bsdtar_test</string>
-				<string>-p /usr/bin/bsdtar</string>
+				<string>-p</string>
+				<string>/usr/bin/bsdtar</string>
 			</array>
 			<key>TestName</key>
-			<string>bsdtar_test</string>
+			<string>libarchive.bsdtar_test</string>
 			<key>WhenToRun</key>
 			<array>
 				<string>PRESUBMISSION</string>
@@ -54,15 +66,18 @@
 			</array>
 			<key>WorkingDirectory</key>
 			<string>/AppleInternal/Tests/libarchive</string>
+			<key>Timeout</key>
+			<integer>3600</integer>
 		</dict>
 		<dict>
 			<key>Command</key>
 			<array>
 				<string>/AppleInternal/Tests/libarchive/bsdcpio_test</string>
-				<string>-p /usr/bin/cpio</string>
+				<string>-p</string>
+				<string>/usr/bin/cpio</string>
 			</array>
 			<key>TestName</key>
-			<string>bsdcpio_test</string>
+			<string>libarchive.bsdcpio_test</string>
 			<key>WhenToRun</key>
 			<array>
 				<string>PRESUBMISSION</string>
@@ -70,9 +85,11 @@
 			</array>
 			<key>WorkingDirectory</key>
 			<string>/AppleInternal/Tests/libarchive</string>
+			<key>Timeout</key>
+			<integer>3600</integer>
 		</dict>
 	</array>
 	<key>Timeout</key>
-	<integer>300</integer>
+	<integer>3600</integer>
 </dict>
 </plist>

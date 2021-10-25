@@ -19,22 +19,24 @@ TZCODE = $(firstword $(wildcard ./tzcode*.tar.gz) $(wildcard $(srcdir)/tzcode*.t
 endif
 
 
-PRIMARY_YDATA=	africa antarctica asia australasia \
-		europe northamerica southamerica
-YDATA=		$(PRIMARY_YDATA) pacificnew etcetera factory backward
-NDATA=		systemv
-SDATA=		solar87 solar88 solar89
-#TDATA=		$(YDATA) $(NDATA) $(SDATA)
-TDATA=		$(YDATA) $(NDATA)
-YEARISTYPE=     ./yearistype
+PRIMARY_DATA = africa antarctica asia australasia europe northamerica southamerica
+SUPPLEMENTAL_DATA = etcetera factory backward
+#DEPRECATED_DATA = pacificnew systemv solar87 solar88 solar89
+#TDATA =	$(PRIMARY_DATA) $(SUPPLEMENTAL_DATA) $(DEPRECATED_DATA)
+TDATA =	$(PRIMARY_DATA) $(SUPPLEMENTAL_DATA)
+# Note for Apple ICU: In order to handle tzdata before 2020b we add commands below
+# to process the systemv file if it is in fact present, to get the Rule entries
+# for SystemV which are not present in the pre-2020b versions of icuzones.
 
 TZDIR=zoneinfo
 
-CFLAGS+=-D_POSIX_C_SOURCE=200112L
-CPPFLAGS+= -DTZDIR=\"$(TZDIR)\" 
+# need to override because CXXFLAGS is passed on the command line to this sub-make
+override CFLAGS += -D_POSIX_C_SOURCE=200112L $(TOOLSEXTRAFLAGS)
+override CXXFLAGS += $(TOOLSEXTRAFLAGS)
+override CPPFLAGS += -DTZDIR=\"$(TZDIR)\" 
 
 # more data
-XDATA=zone.tab yearistype.sh leapseconds iso3166.tab
+XDATA=zone.tab leapseconds iso3166.tab
 ICUDATA=ZoneMetaData.java icu_zone.txt tz2icu zoneinfo64.txt zoneinfo.txt
 
 VANGUARD_DIR= ./vanguard
@@ -44,7 +46,7 @@ TZORIG=./tzorig
 TZORIG_TZDIR=./tzorig/tzdir
 TZORIG_ABS := $(shell pwd)/tzorig
 TZORIG_TZDIR_ABS := $(TZORIG_ABS)/tzdir
-TZORIG_OPTS := CFLAGS="-D_POSIX_C_SOURCE $(TZORIG_EXTRA_CFLAGS)" TZDIR=$(TZORIG_TZDIR_ABS)
+TZORIG_OPTS := CFLAGS="-D_POSIX_C_SOURCE $(TZORIG_EXTRA_CFLAGS) $(TOOLSEXTRAFLAGS)" TZDIR=$(TZORIG_TZDIR_ABS)
 
 
 ## Options for building zdumps
@@ -100,14 +102,18 @@ tzorig:	$(TZCODE) $(TZDATA)
 			awk -v DATAFORM=rearguard -f $(TZORIG)/ziguard.awk $(TZORIG)/$$tzfile.bak > $(TZORIG)/$$tzfile; \
 		done; \
 	fi;
+	if test -e $(TZORIG)/systemv; then \
+		mv $(TZORIG)/systemv $(TZORIG)/systemv.bak && \
+		awk -v DATAFORM=rearguard -f $(TZORIG)/ziguard.awk $(TZORIG)/systemv.bak > $(TZORIG)/systemv; \
+	fi;
 	-mv $(TZORIG)/zdump.c $(TZORIG)/zdump.c.orig
 	cp $(srcdir)/zdump.c $(TZORIG)/zdump.c
 	-mv $(TZORIG)/factory $(TZORIG)/factory.orig
 	cat $(TZORIG)/factory.orig $(srcdir)/icuzones > $(TZORIG)/factory
 	-mv $(TZORIG)/zishrink.awk $(TZORIG)/zishrink.awk.orig
 	sed -e '/if (line ~ \/^R SystemV \/) return/s/^/#/' $(TZORIG)/zishrink.awk.orig > $(TZORIG)/zishrink.awk
-	-mv $(TZORIG)/Makefile $(TZORIG)/Makefile.orig
-	sed -e "s/^BACKWARD=.*/BACKWARD= backward pacificnew/" $(TZORIG)/Makefile.orig > $(TZORIG)/Makefile
+#	-mv $(TZORIG)/Makefile $(TZORIG)/Makefile.orig
+#	sed -e "s/^BACKWARD=.*/BACKWARD= backward pacificnew/" $(TZORIG)/Makefile.orig > $(TZORIG)/Makefile
 	$(MAKE) -C $@ $(TZORIG_OPTS) zdump zones
 
 $(ZDUMPOUT): tzorig
@@ -136,7 +142,13 @@ $(ICUZDUMPOUT): $(ICUZDUMPEXEC)
 # create modified CXXFLAGS without -fXXX, -Wxxxx (the settings for these don't work for tz2icu)
 TZCODE_CXXFLAGS=$(patsubst -W%,,$(patsubst -f%,,$(CXXFLAGS)))
 
-$(ZICTARG):		$(ZICOBJECTS) $(TDATA) yearistype $(srcdir)/tz2icu.h
+$(info # tzcode TOOLSEXTRAFLAGS=$(TOOLSEXTRAFLAGS))
+$(info # tzcode CFLAGS=$(CFLAGS))
+$(info # tzcode CXXFLAGS=$(CXXFLAGS))
+$(info # tzcode TZCODE_CXXFLAGS=$(TZCODE_CXXFLAGS))
+$(info # tzcode TZORIG_OPTS=$(TZORIG_OPTS))
+
+$(ZICTARG):		$(ZICOBJECTS) $(TDATA) $(srcdir)/tz2icu.h
 		$(CC) $(CFLAGS) $(TZORIG_EXTRA_CFLAGS) $(LFLAGS) -I$(srcdir) $(ZICOBJECTS) $(LDLIBS) -o $@
 
 $(TZ2ICUOBJ):	$(srcdir)/tz2icu.cpp $(srcdir)/tz2icu.h
@@ -162,16 +174,18 @@ tdatamarker: $(TZDATA)
 			awk -v DATAFORM=rearguard -f ziguard.awk $(VANGUARD_DIR)/$$tzfile > $$tzfile; \
 		done; \
 	fi;
+	if test -e systemv; then \
+		mv systemv $(VANGUARD_DIR)/systemv && \
+		awk -v DATAFORM=rearguard -f ziguard.awk $(VANGUARD_DIR)/systemv > systemv; \
+	fi;
 	touch $@
 
-yearistype.sh: | $(TDATA)
-
-yearistype:	yearistype.sh
-		cp yearistype.sh yearistype
-		chmod +x yearistype
-
 posix_only:	$(ZICEXEC) $(TDATA) $(srcdir)/icuzones
-		$(ZICEXEC) -y $(YEARISTYPE) -d $(TZDIR) -L /dev/null $(TDATA) $(srcdir)/icuzones
+	if test -e systemv; then \
+		$(ZICEXEC) -d $(TZDIR) -L /dev/null $(TDATA) systemv $(srcdir)/icuzones; \
+	else \
+		$(ZICEXEC) -d $(TZDIR) -L /dev/null $(TDATA) $(srcdir)/icuzones; \
+	fi;
 
 
 icu_data:	$(TZ2ICUEXEC) posix_only
@@ -181,7 +195,7 @@ icu_data:	$(TZ2ICUEXEC) posix_only
 tztoolobjs: $(ZICOBJECTS) $(TZ2ICUOBJ) $(ICUZDUMPOBJ)
 
 clean:
-		-rm -f core *.o *.out zdump${EXEEXT} $(ZICTARG) yearistype date $(TZ2ICUTARG)
+		-rm -f core *.o *.out zdump${EXEEXT} $(ZICTARG) date $(TZ2ICUTARG)
 		@echo ICU specific cleanup:
 		-rm -f $(ICUDATA)
 		-rm -rf $(TZDIR)
@@ -195,7 +209,7 @@ endif
 checkclean:
 
 dataclean: clean
-	-rm -f $(TDATA) $(XDATA)
+	-rm -f $(TDATA) systemv $(XDATA)
 
 distclean:	dataclean clean
 	-rm -f Makefile

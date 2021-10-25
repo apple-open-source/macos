@@ -21,11 +21,13 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#include <AssertMacros.h>
 #include <Security/SecInternal.h>
 #include <Security/SecCMS.h>
 #include <Security/SecSCEP.h>
 #include <Security/SecItem.h>
 #include <Security/SecItemPriv.h>
+#include <Security/SecCertificatePriv.h>
 #include <Security/SecIdentityPriv.h>
 #include <utilities/array_size.h>
 
@@ -33,10 +35,9 @@
 #include <CoreFoundation/CoreFoundation.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <AssertMacros.h>
 #include <Foundation/Foundation.h>
 
-#include "Security_regressions.h"
+#include "shared_regressions.h"
 #include "test/testcert.h"
 
 static uint8_t msscep_getcacert[] = {
@@ -1135,7 +1136,7 @@ static void tests(void)
 	CFReleaseSafe(certificates);
 	CFReleaseSafe(bmw_getcacert_blob);
 
-	uint32_t key_size_in_bits = 512;
+	uint32_t key_size_in_bits = 1024;
 	CFNumberRef key_size = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &key_size_in_bits);
 	const void *keygen_keys[] = { kSecAttrKeyType, kSecAttrKeySizeInBits };
 	const void *keygen_vals[] = { kSecAttrKeyTypeRSA, key_size };
@@ -1277,7 +1278,11 @@ static bool test_scep_with_keys_algorithms(SecKeyRef ca_key, SecKeyRef leaf_key,
                        (__bridge NSString*)kSecValueRef : (__bridge id)leaf_key,
                        (__bridge NSString*)kSecAttrApplicationLabel : @"SCEP Leaf Key"
                        };
-    require_noerr(SecItemAdd((__bridge CFDictionaryRef)leaf_item_dict, NULL), out);
+    OSStatus addStatus = SecItemAdd((__bridge CFDictionaryRef)leaf_item_dict, NULL);
+    if (addStatus == errSecDuplicateItem) {
+        leaf_item_dict = nil; // Don't delete the key if we didn't add it
+    }
+    require(addStatus == errSecSuccess || addStatus == errSecDuplicateItem, out);
 
     /* Verify the reply */
     issued_certs = CFBridgingRelease(SecSCEPVerifyReply((__bridge CFDataRef)scep_request, (__bridge CFDataRef)scep_reply, ca_cert, nil));
@@ -1329,9 +1334,9 @@ static void test_SCEP_algs(void) {
     ok(test_scep_with_keys_algorithms(ca_rsa_key, leaf_rsa_key, kSecCMSHashingAlgorithmSHA256),
        "Failed to run scep test with RSA SHA-256");
     ok(test_scep_with_keys_algorithms(ca_rsa_key, leaf_rsa_key, kSecCMSHashingAlgorithmSHA384),
-       "Failed to run scep test with RSA SHA-256");
+       "Failed to run scep test with RSA SHA-384");
     ok(test_scep_with_keys_algorithms(ca_rsa_key, leaf_rsa_key, kSecCMSHashingAlgorithmSHA512),
-       "Failed to run scep test with RSA SHA-256");
+       "Failed to run scep test with RSA SHA-512");
 
     /* Unsupported key algorithms */
     is(test_scep_with_keys_algorithms(ca_ec_key, leaf_ec_key, kSecCMSHashingAlgorithmSHA256), false,
@@ -1340,6 +1345,30 @@ static void test_SCEP_algs(void) {
        "Performed scep with EC ca");
     is(test_scep_with_keys_algorithms(ca_rsa_key, leaf_ec_key, kSecCMSHashingAlgorithmSHA256), false,
        "Performed scep with EC leaf");
+
+#if TARGET_OS_OSX
+    // macOS "helpfully" added the keys we generated to the keychain, delete them now
+    NSDictionary *key_dict = @{
+                       (__bridge NSString*)kSecClass : (__bridge NSString*)kSecClassKey,
+                       (__bridge NSString*)kSecValueRef : (__bridge id)ca_rsa_key,
+                       };
+    SecItemDelete((__bridge CFDictionaryRef)key_dict);
+    key_dict = @{
+                       (__bridge NSString*)kSecClass : (__bridge NSString*)kSecClassKey,
+                       (__bridge NSString*)kSecValueRef : (__bridge id)ca_ec_key,
+                       };
+    SecItemDelete((__bridge CFDictionaryRef)key_dict);
+    key_dict = @{
+                       (__bridge NSString*)kSecClass : (__bridge NSString*)kSecClassKey,
+                       (__bridge NSString*)kSecValueRef : (__bridge id)leaf_rsa_key,
+                       };
+    SecItemDelete((__bridge CFDictionaryRef)key_dict);
+    key_dict = @{
+                       (__bridge NSString*)kSecClass : (__bridge NSString*)kSecClassKey,
+                       (__bridge NSString*)kSecValueRef : (__bridge id)leaf_ec_key,
+                       };
+    SecItemDelete((__bridge CFDictionaryRef)key_dict);
+#endif
 
     CFReleaseNull(ca_rsa_key);
     CFReleaseNull(ca_ec_key);

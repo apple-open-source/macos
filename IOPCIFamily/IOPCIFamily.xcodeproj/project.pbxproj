@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 48;
+	objectVersion = 54;
 	objects = {
 
 /* Begin PBXAggregateTarget section */
@@ -13,7 +13,6 @@
 			buildPhases = (
 			);
 			dependencies = (
-				98EA008824D94E57008486D5 /* PBXTargetDependency */,
 				9874FC43234E74EA00096401 /* PBXTargetDependency */,
 				98F4EC7024ABEF070004B646 /* PBXTargetDependency */,
 			);
@@ -92,6 +91,8 @@
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
+		0A21733826012C8800E93AFA /* AppleVTD.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0A21733726012C8700E93AFA /* AppleVTD.cpp */; };
+		0A21733A26012D1E00E93AFA /* IOPCIBridgeLegacy.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0A21733926012D1E00E93AFA /* IOPCIBridgeLegacy.cpp */; };
 		6AA5ABCA249417180031EF96 /* config in Resources */ = {isa = PBXBuildFile; fileRef = 6AA5ABC9249417180031EF96 /* config */; };
 		9831214723A09E550043A189 /* PEX8733Definitions.h in Headers */ = {isa = PBXBuildFile; fileRef = 9831214623A09E550043A189 /* PEX8733Definitions.h */; };
 		983EB31C24A5BC0600557323 /* ApplePIODMA.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 983EB31B24A5BC0600557323 /* ApplePIODMA.cpp */; };
@@ -199,13 +200,6 @@
 			remoteGlobalIDString = 987ECFBF2368B0C100792271;
 			remoteInfo = PCIDriverKitPEX8733;
 		};
-		98EA008724D94E57008486D5 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 98CFE298234FA1F900E9B02A;
-			remoteInfo = PCIDriverKit;
-		};
 		98F4EC6F24ABEF070004B646 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
@@ -242,6 +236,9 @@
 		03DB1084033AA50A03CA2A5F /* IOAGPDevice.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOAGPDevice.h; sourceTree = "<group>"; };
 		03DB1085033AA50A03CA2A5F /* IOPCIBridge.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOPCIBridge.h; sourceTree = "<group>"; };
 		03DB1086033AA50A03CA2A5F /* IOPCIDevice.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOPCIDevice.h; sourceTree = "<group>"; };
+		0A21733626011ED100E93AFA /* AppleVTD.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AppleVTD.h; sourceTree = "<group>"; };
+		0A21733726012C8700E93AFA /* AppleVTD.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = AppleVTD.cpp; sourceTree = "<group>"; };
+		0A21733926012D1E00E93AFA /* IOPCIBridgeLegacy.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = IOPCIBridgeLegacy.cpp; sourceTree = "<group>"; };
 		1590524609368A190010639A /* IOPCIConfigurator.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IOPCIConfigurator.cpp; sourceTree = "<group>"; };
 		4094C51900CEE7A80ACA2928 /* IOPCIBridge.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IOPCIBridge.cpp; sourceTree = "<group>"; };
 		4094C51A00CEE7A80ACA2928 /* IOPCIDevice.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IOPCIDevice.cpp; sourceTree = "<group>"; };
@@ -380,10 +377,13 @@
 		247142CAFF3F8F9811CA285C /* Source */ = {
 			isa = PBXGroup;
 			children = (
+				0A21733726012C8700E93AFA /* AppleVTD.cpp */,
+				0A21733626011ED100E93AFA /* AppleVTD.h */,
 				B1BA52AB15DF1B1A00C147D3 /* IOPCIMessagedInterruptController.cpp */,
 				1590524609368A190010639A /* IOPCIConfigurator.cpp */,
 				A6849D12126539090033F95C /* IOPCIRange.cpp */,
 				4094C51900CEE7A80ACA2928 /* IOPCIBridge.cpp */,
+				0A21733926012D1E00E93AFA /* IOPCIBridgeLegacy.cpp */,
 				4094C51A00CEE7A80ACA2928 /* IOPCIDevice.cpp */,
 				4094C51B00CEE7A80ACA2928 /* IOPCIDeviceI386.cpp */,
 				A655D6E40E4BB51D00550BCC /* IOPCIDeviceMappedIO.cpp */,
@@ -589,6 +589,7 @@
 				9874FC73234EA77900096401 /* Copy IOKit.framework User Headers */,
 				A613B27E0D46AA65007BA726 /* Resources */,
 				3F2F86AE249AC09800F6E5D5 /* ShellScript */,
+				4BB9F2E5255E008E00EAA1F2 /* Install PCIDriverKit Kernel.framework Headers */,
 				A613B27F0D46AA65007BA726 /* Sources */,
 				A613B2850D46AA65007BA726 /* Frameworks */,
 				A613B2860D46AA65007BA726 /* Rez */,
@@ -745,6 +746,29 @@
 			shellPath = /bin/sh;
 			shellScript = "script=\"${SRCROOT}/config/generate-symbols-plist.sh\";\necho \"${SYMROOT}\"\nif [ -x \"$script\" ]; then\n    . \"$script\" ${SYMROOT}/symbolsets.plist ${SRCROOT}/Info-IOPCIFamily.plist ${SRCROOT}/config/IOPCIFamily.exports\nfi\n";
 		};
+		4BB9F2E5255E008E00EAA1F2 /* Install PCIDriverKit Kernel.framework Headers */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/PCIDriverKit",
+				"$(SRCROOT)/IOKit/pci/IOPCIFamilyDefinitions.h",
+			);
+			name = "Install PCIDriverKit Kernel.framework Headers";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(INSTALL_ROOT)/$(DRIVERKITRUNTIMEROOT)/$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/Versions/A/Headers/PCIDriverKit",
+				"$(INSTALL_ROOT)/$(DRIVERKITRUNTIMEROOT)/$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/Versions/A/Headers/PCIDriverKit/PCIDriverKitPrivate.h",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = "/bin/bash -ex";
+			shellScript = "if [[ ( \"${ACTION}\" == installhdrs || \"${ACTION}\" == installapi || \"${ACTION}\" == install ) ]]; then\n    mkdir -p ${SCRIPT_OUTPUT_FILE_0}\n    \n    # stage .iig and .h files\n    cp ${SCRIPT_INPUT_FILE_0}/*.iig ${SCRIPT_OUTPUT_FILE_0}\n    cp ${SCRIPT_INPUT_FILE_1} ${SCRIPT_OUTPUT_FILE_0}\n\n    # invoke iig to generate .h files (on platforms that need it)\n    if [[ ( \"${PLATFORM_NAME}\" == macosx || \"${PLATFORM_NAME}\" == iphoneos ) ]]; then\n        . ${SRCROOT}/PCIDriverKit/iigKernelFramework.sh ${SCRIPT_INPUT_FILE_0} ${SDK_NAME}\n        \n        # stage iig-generated .h files\n        cp ${SCRIPT_INPUT_FILE_0}/*.h ${SCRIPT_OUTPUT_FILE_0}\n        \n        # remove known private file(s)\n        rm ${SCRIPT_OUTPUT_FILE_1}\n    fi\nfi\n";
+		};
 		9876A98523638FBD000531FC /* Install Kernel.framework Headers */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 8;
@@ -820,7 +844,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = "/bin/bash -ex";
-			shellScript = "if [[ \"${ACTION}\" == installapi ]]; then\n. ${SRCROOT}/PCIDriverKit/iigFramework.sh ${SCRIPT_INPUT_FILE_0} ${SDK_NAME}\nfi\n";
+			shellScript = "if [[ \"${ACTION}\" == installhdrs || \"${ACTION}\" == installapi ]]; then\n. ${SRCROOT}/PCIDriverKit/iigFramework.sh ${SCRIPT_INPUT_FILE_0} ${SDK_NAME}\nfi\n";
 		};
 		A613B27A0D46AA65007BA726 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -894,10 +918,12 @@
 				A613B2800D46AA65007BA726 /* IOPCIBridge.cpp in Sources */,
 				A613B2810D46AA65007BA726 /* IOPCIDevice.cpp in Sources */,
 				984D5C572361662C0073E2CD /* IOPCIDevice.iig in Sources */,
+				0A21733826012C8800E93AFA /* AppleVTD.cpp in Sources */,
 				A613B2820D46AA65007BA726 /* IOPCIDeviceI386.cpp in Sources */,
 				A613B2840D46AA65007BA726 /* IOPCIConfigurator.cpp in Sources */,
 				A655D6E50E4BB51D00550BCC /* IOPCIDeviceMappedIO.cpp in Sources */,
 				A6849D13126539090033F95C /* IOPCIRange.cpp in Sources */,
+				0A21733A26012D1E00E93AFA /* IOPCIBridgeLegacy.cpp in Sources */,
 				B1BA52AC15DF1B1A00C147D3 /* IOPCIMessagedInterruptController.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -949,11 +975,6 @@
 			isa = PBXTargetDependency;
 			target = 987ECFBF2368B0C100792271 /* PCIDriverKitPEX8733 */;
 			targetProxy = 98E0BEF0237C74CA009E695F /* PBXContainerItemProxy */;
-		};
-		98EA008824D94E57008486D5 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 98CFE298234FA1F900E9B02A /* PCIDriverKit */;
-			targetProxy = 98EA008724D94E57008486D5 /* PBXContainerItemProxy */;
 		};
 		98F4EC7024ABEF070004B646 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -1314,7 +1335,6 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				HEADER_SEARCH_PATHS = "$(SDK_DIR)/usr/local/include";
 				INFOPLIST_FILE = ApplePIODMA/Info.plist;
 				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = "a-w,u+w,a+rX";
@@ -1382,7 +1402,6 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				HEADER_SEARCH_PATHS = "$(SDK_DIR)/usr/local/include";
 				INFOPLIST_FILE = ApplePIODMA/Info.plist;
 				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = "a-w,u+w,a+rX";
@@ -1445,7 +1464,6 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				HEADER_SEARCH_PATHS = "$(SDK_DIR)/usr/local/include";
 				INFOPLIST_FILE = ApplePIODMA/Info.plist;
 				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = "a-w,u+w,a+rX";
@@ -1507,7 +1525,6 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				HEADER_SEARCH_PATHS = "$(SDK_DIR)/usr/local/include";
 				INFOPLIST_FILE = ApplePIODMA/Info.plist;
 				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = "a-w,u+w,a+rX";
@@ -1569,7 +1586,6 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				HEADER_SEARCH_PATHS = "$(SDK_DIR)/usr/local/include";
 				INFOPLIST_FILE = ApplePIODMA/Info.plist;
 				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = "a-w,u+w,a+rX";
@@ -1985,7 +2001,28 @@
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
-				OTHER_CFLAGS = "-ftrivial-auto-var-init=pattern";
+				OTHER_CFLAGS = (
+					"-ftrivial-auto-var-init=pattern",
+					"-D_FORTIFY_SOURCE_STRICT=1",
+					"-fstack-protector-strong",
+					"-Werror=array-bounds",
+					"-Werror=array-bounds-pointer-arithmetic",
+					"-Werror=builtin-memcpy-chk-size",
+					"-Werror=conditional-uninitialized",
+					"-Werror=empty-body",
+					"-Werror=format-security",
+					"-Werror=implicit-int-conversion",
+					"-Werror=memset-transposed-args",
+					"-Werror=return-stack-address",
+					"-Werror=shadow",
+					"-Werror=shorten-64-to-32",
+					"-Werror=sign-conversion",
+					"-Werror=sizeof-array-argument",
+					"-Werror=sizeof-array-decay",
+					"-Werror=sizeof-pointer-memaccess",
+					"-Werror=unused-result",
+					"-Werror=vla",
+				);
 				OTHER_IIG_CFLAGS = "-I$(SRCROOT) -I$(SDKROOT)/$(DRIVERKITROOT)/usr/local/include -I$(SDKROOT)/$(DRIVERKITROOT)/usr/include -F$(SDKROOT)/$(DRIVERKITROOT)/System/Library/Frameworks $(inherited)";
 				OTHER_TAPI_FLAGS = "-x c++ -std=gnu++1z";
 				"OTHER_TAPI_FLAGS[sdk=driverkit19.0.internal]" = "-x c++ -std=gnu++1z -fno-rtti";
@@ -2072,7 +2109,28 @@
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
-				OTHER_CFLAGS = "-ftrivial-auto-var-init=pattern";
+				OTHER_CFLAGS = (
+					"-ftrivial-auto-var-init=pattern",
+					"-D_FORTIFY_SOURCE_STRICT=1",
+					"-fstack-protector-strong",
+					"-Werror=array-bounds",
+					"-Werror=array-bounds-pointer-arithmetic",
+					"-Werror=builtin-memcpy-chk-size",
+					"-Werror=conditional-uninitialized",
+					"-Werror=empty-body",
+					"-Werror=format-security",
+					"-Werror=implicit-int-conversion",
+					"-Werror=memset-transposed-args",
+					"-Werror=return-stack-address",
+					"-Werror=shadow",
+					"-Werror=shorten-64-to-32",
+					"-Werror=sign-conversion",
+					"-Werror=sizeof-array-argument",
+					"-Werror=sizeof-array-decay",
+					"-Werror=sizeof-pointer-memaccess",
+					"-Werror=unused-result",
+					"-Werror=vla",
+				);
 				OTHER_IIG_CFLAGS = "-I$(SRCROOT) -I$(SDKROOT)/$(DRIVERKITROOT)/usr/local/include -I$(SDKROOT)/$(DRIVERKITROOT)/usr/include -F$(SDKROOT)/$(DRIVERKITROOT)/System/Library/Frameworks $(inherited)";
 				OTHER_TAPI_FLAGS = "-x c++ -std=gnu++1z";
 				"OTHER_TAPI_FLAGS[sdk=driverkit19.0.internal]" = "-x c++ -std=gnu++1z -fno-rtti";
@@ -2152,7 +2210,28 @@
 				MACOSX_DEPLOYMENT_TARGET = 10.15;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
-				OTHER_CFLAGS = "-ftrivial-auto-var-init=pattern";
+				OTHER_CFLAGS = (
+					"-ftrivial-auto-var-init=pattern",
+					"-D_FORTIFY_SOURCE_STRICT=1",
+					"-fstack-protector-strong",
+					"-Werror=array-bounds",
+					"-Werror=array-bounds-pointer-arithmetic",
+					"-Werror=builtin-memcpy-chk-size",
+					"-Werror=conditional-uninitialized",
+					"-Werror=empty-body",
+					"-Werror=format-security",
+					"-Werror=implicit-int-conversion",
+					"-Werror=memset-transposed-args",
+					"-Werror=return-stack-address",
+					"-Werror=shadow",
+					"-Werror=shorten-64-to-32",
+					"-Werror=sign-conversion",
+					"-Werror=sizeof-array-argument",
+					"-Werror=sizeof-array-decay",
+					"-Werror=sizeof-pointer-memaccess",
+					"-Werror=unused-result",
+					"-Werror=vla",
+				);
 				OTHER_IIG_CFLAGS = "-I$(SRCROOT) -I$(SDKROOT)/$(DRIVERKITROOT)/usr/local/include -I$(SDKROOT)/$(DRIVERKITROOT)/usr/include -F$(SDKROOT)/$(DRIVERKITROOT)/System/Library/Frameworks $(inherited)";
 				OTHER_TAPI_FLAGS = "-x c++ -std=gnu++1z";
 				"OTHER_TAPI_FLAGS[sdk=driverkit19.0.internal]" = "-x c++ -std=gnu++1z -fno-rtti";
@@ -2232,7 +2311,28 @@
 				MACOSX_DEPLOYMENT_TARGET = 10.15;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
-				OTHER_CFLAGS = "-ftrivial-auto-var-init=pattern";
+				OTHER_CFLAGS = (
+					"-ftrivial-auto-var-init=pattern",
+					"-D_FORTIFY_SOURCE_STRICT=1",
+					"-fstack-protector-strong",
+					"-Werror=array-bounds",
+					"-Werror=array-bounds-pointer-arithmetic",
+					"-Werror=builtin-memcpy-chk-size",
+					"-Werror=conditional-uninitialized",
+					"-Werror=empty-body",
+					"-Werror=format-security",
+					"-Werror=implicit-int-conversion",
+					"-Werror=memset-transposed-args",
+					"-Werror=return-stack-address",
+					"-Werror=shadow",
+					"-Werror=shorten-64-to-32",
+					"-Werror=sign-conversion",
+					"-Werror=sizeof-array-argument",
+					"-Werror=sizeof-array-decay",
+					"-Werror=sizeof-pointer-memaccess",
+					"-Werror=unused-result",
+					"-Werror=vla",
+				);
 				OTHER_IIG_CFLAGS = "-I$(SRCROOT) -I$(SDKROOT)/$(DRIVERKITROOT)/usr/local/include -I$(SDKROOT)/$(DRIVERKITROOT)/usr/include -F$(SDKROOT)/$(DRIVERKITROOT)/System/Library/Frameworks $(inherited)";
 				OTHER_TAPI_FLAGS = "-x c++ -std=gnu++1z";
 				"OTHER_TAPI_FLAGS[sdk=driverkit19.0.internal]" = "-x c++ -std=gnu++1z -fno-rtti";
@@ -2312,7 +2412,28 @@
 				MACOSX_DEPLOYMENT_TARGET = 10.15;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
-				OTHER_CFLAGS = "-ftrivial-auto-var-init=pattern";
+				OTHER_CFLAGS = (
+					"-ftrivial-auto-var-init=pattern",
+					"-D_FORTIFY_SOURCE_STRICT=1",
+					"-fstack-protector-strong",
+					"-Werror=array-bounds",
+					"-Werror=array-bounds-pointer-arithmetic",
+					"-Werror=builtin-memcpy-chk-size",
+					"-Werror=conditional-uninitialized",
+					"-Werror=empty-body",
+					"-Werror=format-security",
+					"-Werror=implicit-int-conversion",
+					"-Werror=memset-transposed-args",
+					"-Werror=return-stack-address",
+					"-Werror=shadow",
+					"-Werror=shorten-64-to-32",
+					"-Werror=sign-conversion",
+					"-Werror=sizeof-array-argument",
+					"-Werror=sizeof-array-decay",
+					"-Werror=sizeof-pointer-memaccess",
+					"-Werror=unused-result",
+					"-Werror=vla",
+				);
 				OTHER_IIG_CFLAGS = "-I$(SRCROOT) -I$(SDKROOT)/$(DRIVERKITROOT)/usr/local/include -I$(SDKROOT)/$(DRIVERKITROOT)/usr/include -F$(SDKROOT)/$(DRIVERKITROOT)/System/Library/Frameworks $(inherited)";
 				OTHER_TAPI_FLAGS = "-x c++ -std=gnu++1z";
 				"OTHER_TAPI_FLAGS[sdk=driverkit19.0.internal]" = "-x c++ -std=gnu++1z -fno-rtti";
@@ -2338,6 +2459,7 @@
 				CLANG_WARN_SUSPICIOUS_IMPLICIT_CONVERSION = NO;
 				COPY_PHASE_STRIP = NO;
 				EXCLUDED_SOURCE_FILE_NAMES = "*.iig";
+				"EXCLUDED_SOURCE_FILE_NAMES[sdk=iphoneos*.internal]" = "";
 				"EXCLUDED_SOURCE_FILE_NAMES[sdk=macosx*]" = "";
 				EXPORTED_SYMBOLS_FILE = "";
 				FRAMEWORK_SEARCH_PATHS = "$(SDK_DIR)/System/Library/PrivateFrameworks/";
@@ -2354,6 +2476,7 @@
 				IIG_FRAMEWORK_NAME = PCIDriverKit;
 				INFOPLIST_FILE = "Info-IOPCIFamily.plist";
 				INSTALLHDRS_COPY_PHASE = YES;
+				INSTALLHDRS_SCRIPT_PHASE = YES;
 				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = "a-w,u+w,a+rX";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
@@ -2374,7 +2497,10 @@
 				PRODUCT_NAME = IOPCIFamily;
 				PUBLIC_HEADERS_FOLDER_PATH = "$(KEXT_FRAMEWORK)/Versions/A/Headers/IOKit/pci";
 				SECTORDER_FLAGS = "";
-				SYSTEM_HEADER_SEARCH_PATHS = "PCIDriverKit PCIDriverKit/Headers";
+				SYSTEM_HEADER_SEARCH_PATHS = (
+					PCIDriverKit,
+					PCIDriverKit/Headers,
+				);
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -2397,6 +2523,7 @@
 				CLANG_WARN_SUSPICIOUS_IMPLICIT_CONVERSION = NO;
 				COPY_PHASE_STRIP = YES;
 				EXCLUDED_SOURCE_FILE_NAMES = "*.iig";
+				"EXCLUDED_SOURCE_FILE_NAMES[sdk=iphoneos*.internal]" = "";
 				"EXCLUDED_SOURCE_FILE_NAMES[sdk=macosx*]" = "";
 				EXPORTED_SYMBOLS_FILE = "";
 				FRAMEWORK_SEARCH_PATHS = "$(SDK_DIR)/System/Library/PrivateFrameworks/";
@@ -2410,6 +2537,7 @@
 				IIG_FRAMEWORK_NAME = PCIDriverKit;
 				INFOPLIST_FILE = "Info-IOPCIFamily.plist";
 				INSTALLHDRS_COPY_PHASE = YES;
+				INSTALLHDRS_SCRIPT_PHASE = YES;
 				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = "a-w,u+w,a+rX";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
@@ -2430,7 +2558,10 @@
 				PRODUCT_NAME = IOPCIFamily;
 				PUBLIC_HEADERS_FOLDER_PATH = "$(KEXT_FRAMEWORK)/Versions/A/Headers/IOKit/pci";
 				SECTORDER_FLAGS = "";
-				SYSTEM_HEADER_SEARCH_PATHS = "PCIDriverKit PCIDriverKit/Headers";
+				SYSTEM_HEADER_SEARCH_PATHS = (
+					PCIDriverKit,
+					PCIDriverKit/Headers,
+				);
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -2452,6 +2583,7 @@
 				CLANG_CXX_LANGUAGE_STANDARD = "compiler-default";
 				CLANG_WARN_SUSPICIOUS_IMPLICIT_CONVERSION = NO;
 				EXCLUDED_SOURCE_FILE_NAMES = "*.iig";
+				"EXCLUDED_SOURCE_FILE_NAMES[sdk=iphoneos*.internal]" = "";
 				"EXCLUDED_SOURCE_FILE_NAMES[sdk=macosx*]" = "";
 				EXPORTED_SYMBOLS_FILE = "";
 				FRAMEWORK_SEARCH_PATHS = "$(SDK_DIR)/System/Library/PrivateFrameworks/";
@@ -2464,6 +2596,7 @@
 				IIG_FRAMEWORK_NAME = PCIDriverKit;
 				INFOPLIST_FILE = "Info-IOPCIFamily.plist";
 				INSTALLHDRS_COPY_PHASE = YES;
+				INSTALLHDRS_SCRIPT_PHASE = YES;
 				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = "a-w,u+w,a+rX";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
@@ -2484,7 +2617,10 @@
 				PRODUCT_NAME = IOPCIFamily;
 				PUBLIC_HEADERS_FOLDER_PATH = "$(KEXT_FRAMEWORK)/Versions/A/Headers/IOKit/pci";
 				SECTORDER_FLAGS = "";
-				SYSTEM_HEADER_SEARCH_PATHS = "PCIDriverKit PCIDriverKit/Headers";
+				SYSTEM_HEADER_SEARCH_PATHS = (
+					PCIDriverKit,
+					PCIDriverKit/Headers,
+				);
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -2545,6 +2681,7 @@
 				CLANG_WARN_SUSPICIOUS_IMPLICIT_CONVERSION = NO;
 				COPY_PHASE_STRIP = NO;
 				EXCLUDED_SOURCE_FILE_NAMES = "*.iig";
+				"EXCLUDED_SOURCE_FILE_NAMES[sdk=iphoneos*.internal]" = "";
 				"EXCLUDED_SOURCE_FILE_NAMES[sdk=macosx*]" = "";
 				EXPORTED_SYMBOLS_FILE = "";
 				FRAMEWORK_SEARCH_PATHS = "$(SDK_DIR)/System/Library/PrivateFrameworks/";
@@ -2562,6 +2699,7 @@
 				IIG_FRAMEWORK_NAME = PCIDriverKit;
 				INFOPLIST_FILE = "Info-IOPCIFamily.plist";
 				INSTALLHDRS_COPY_PHASE = YES;
+				INSTALLHDRS_SCRIPT_PHASE = YES;
 				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = "a-w,u+w,a+rX";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
@@ -2582,7 +2720,10 @@
 				PRODUCT_NAME = IOPCIFamily;
 				PUBLIC_HEADERS_FOLDER_PATH = "$(KEXT_FRAMEWORK)/Versions/A/Headers/IOKit/pci";
 				SECTORDER_FLAGS = "";
-				SYSTEM_HEADER_SEARCH_PATHS = "PCIDriverKit PCIDriverKit/Headers";
+				SYSTEM_HEADER_SEARCH_PATHS = (
+					PCIDriverKit,
+					PCIDriverKit/Headers,
+				);
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -2625,6 +2766,7 @@
 				CLANG_CXX_LANGUAGE_STANDARD = "compiler-default";
 				CLANG_WARN_SUSPICIOUS_IMPLICIT_CONVERSION = NO;
 				EXCLUDED_SOURCE_FILE_NAMES = "*.iig";
+				"EXCLUDED_SOURCE_FILE_NAMES[sdk=iphoneos*.internal]" = "";
 				"EXCLUDED_SOURCE_FILE_NAMES[sdk=macosx*]" = "";
 				EXPORTED_SYMBOLS_FILE = "";
 				FRAMEWORK_SEARCH_PATHS = "$(SDK_DIR)/System/Library/PrivateFrameworks/";
@@ -2637,6 +2779,7 @@
 				IIG_FRAMEWORK_NAME = PCIDriverKit;
 				INFOPLIST_FILE = "Info-IOPCIFamily.plist";
 				INSTALLHDRS_COPY_PHASE = YES;
+				INSTALLHDRS_SCRIPT_PHASE = YES;
 				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = "a-w,u+w,a+rX";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
@@ -2657,7 +2800,10 @@
 				PRODUCT_NAME = IOPCIFamily;
 				PUBLIC_HEADERS_FOLDER_PATH = "$(KEXT_FRAMEWORK)/Versions/A/Headers/IOKit/pci";
 				SECTORDER_FLAGS = "";
-				SYSTEM_HEADER_SEARCH_PATHS = "PCIDriverKit PCIDriverKit/Headers";
+				SYSTEM_HEADER_SEARCH_PATHS = (
+					PCIDriverKit,
+					PCIDriverKit/Headers,
+				);
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",

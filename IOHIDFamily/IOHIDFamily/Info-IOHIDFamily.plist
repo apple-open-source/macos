@@ -47,6 +47,8 @@
 			<string>IOHIDEventDriver</string>
 			<key>IOProviderClass</key>
 			<string>IOHIDInterface</string>
+			<key>IOMatchDefer</key>
+			<true/>
 		</dict>
 		<key>IOHIDEventServiceUserClient</key>
 		<dict>

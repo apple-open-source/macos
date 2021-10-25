@@ -32,6 +32,9 @@
 #include <TargetConditionals.h>
 
 #if (TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
+
+#include <stdlib.h>
+
 #define RAMDISK_FS_SPEC         "ramdisk"
 
 /*

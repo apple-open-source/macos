@@ -52,7 +52,7 @@ NS_ASSUME_NONNULL_BEGIN
                        fetchClass:(Class<CKKSFetchRecordZoneChangesOperation>)fetchRecordZoneChangesOperationClass
               reachabilityTracker:(CKKSReachabilityTracker *)reachabilityTracker;
 
-- (void)registerClient:(id<CKKSChangeFetcherClient>)client;
+- (void)registerClient:(id<CKKSChangeFetcherClient>)client zoneID:(CKRecordZoneID*)zoneID;
 
 - (CKKSResultOperation*)requestSuccessfulFetch:(CKKSFetchBecause*)why;
 - (CKKSResultOperation*)requestSuccessfulFetchForManyReasons:(NSSet<CKKSFetchBecause*>*)why;

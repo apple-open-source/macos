@@ -32,6 +32,7 @@
 #import "utilities/debugging.h"
 #include <dlfcn.h>
 #import <Security/SecXPCHelper.h>
+#import <Security/CKKSExternalTLKClient.h>
 
 // Weak-link CloudKit, until we can get ckksctl out of base system
 static void *cloudKit = NULL;
@@ -64,12 +65,18 @@ NSXPCInterface* CKKSSetupControlProtocol(NSXPCInterface* interface) {
 #if OCTAGON
     static NSMutableSet *errClasses;
 
+    static NSSet* tlkShareArrayClasses;
+    static NSSet* tlkArrayClasses;
+
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
         __typeof(CKAcceptableValueClasses) *soft_CKAcceptableValueClasses = NULL;
         getCloudKitSymbol((void **)&soft_CKAcceptableValueClasses, "CKAcceptableValueClasses");
         errClasses = [NSMutableSet setWithSet:soft_CKAcceptableValueClasses()];
         [errClasses unionSet:[SecXPCHelper safeErrorClasses]];
+
+        tlkArrayClasses = [NSSet setWithArray:@[[NSArray class], [CKKSExternalKey class]]];
+        tlkShareArrayClasses = [NSSet setWithArray:@[[NSArray class], [CKKSExternalTLKShare class]]];
     });
 
     @try {
@@ -79,11 +86,21 @@ NSXPCInterface* CKKSSetupControlProtocol(NSXPCInterface* interface) {
         [interface setClasses:errClasses forSelector:@selector(rpcResyncLocal:reply:)                  argumentIndex:0 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(rpcStatus:reply:)                       argumentIndex:1 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(rpcFastStatus:reply:)                   argumentIndex:1 ofReply:YES];
-        [interface setClasses:errClasses forSelector:@selector(rpcFetchAndProcessChanges:reply:)       argumentIndex:0 ofReply:YES];
-        [interface setClasses:errClasses forSelector:@selector(rpcFetchAndProcessClassAChanges:reply:) argumentIndex:0 ofReply:YES];
+        [interface setClasses:errClasses forSelector:@selector(rpcFetchAndProcessChanges:classA:onlyIfNoRecentFetch:reply:) argumentIndex:0 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(rpcPushOutgoingChanges:reply:)          argumentIndex:0 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(rpcGetCKDeviceIDWithReply:)             argumentIndex:0 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(rpcCKMetric:attributes:reply:)          argumentIndex:0 ofReply:YES];
+
+        [interface setClasses:errClasses forSelector:@selector(proposeTLKForSEView:proposedTLK:wrappedOldTLK:tlkShares:reply:) argumentIndex:0 ofReply:YES];
+        [interface setClasses:errClasses forSelector:@selector(fetchSEViewKeyHierarchy:forceFetch:reply:) argumentIndex:3 ofReply:YES];
+        [interface setClasses:errClasses forSelector:@selector(modifyTLKSharesForSEView:adding:deleting:reply:) argumentIndex:0 ofReply:YES];
+        [interface setClasses:errClasses forSelector:@selector(deleteSEView:reply:) argumentIndex:0 ofReply:YES];
+
+        [interface setClasses:tlkShareArrayClasses forSelector:@selector(proposeTLKForSEView:proposedTLK:wrappedOldTLK:tlkShares:reply:) argumentIndex:3 ofReply:NO];
+        [interface setClasses:tlkArrayClasses      forSelector:@selector(fetchSEViewKeyHierarchy:forceFetch:reply:) argumentIndex:1 ofReply:YES];
+        [interface setClasses:tlkShareArrayClasses forSelector:@selector(fetchSEViewKeyHierarchy:forceFetch:reply:) argumentIndex:2 ofReply:YES];
+        [interface setClasses:tlkShareArrayClasses forSelector:@selector(modifyTLKSharesForSEView:adding:deleting:reply:) argumentIndex:1 ofReply:NO];
+        [interface setClasses:tlkShareArrayClasses forSelector:@selector(modifyTLKSharesForSEView:adding:deleting:reply:) argumentIndex:2 ofReply:NO];
     }
 
     @catch(NSException* e) {

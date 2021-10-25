@@ -47,33 +47,35 @@ void			_prefs_AuthorizationFree	(AuthorizationRef authorization);
 Boolean	_prefs_open		(CFStringRef name, const char *path);
 void	_prefs_save		(void);
 void	_prefs_close		(void);
-Boolean	_prefs_commitRequired	(int argc, char **argv, const char *command);
+Boolean	_prefs_commitRequired	(int argc, char * const argv[], const char *command);
 
 int	findPref		(char *pref);
-void	do_getPref		(char *pref, int argc, char **argv);
-void	do_setPref		(char *pref, int argc, char **argv);
+void	do_getPref		(char *pref, int argc, char * const argv[]);
+void	do_setPref		(char *pref, int argc, char * const argv[]);
 
 void	do_prefs_init		(void);
-void	do_prefs_quit		(int argc, char **argv);
+void	do_prefs_quit		(int argc, char * const argv[]);
 
-void	do_prefs_open		(int argc, char **argv);
-void	do_prefs_lock		(int argc, char **argv);
-void	do_prefs_unlock		(int argc, char **argv);
-void	do_prefs_commit		(int argc, char **argv);
-void	do_prefs_apply		(int argc, char **argv);
-void	do_prefs_close		(int argc, char **argv);
-void	do_prefs_synchronize	(int argc, char **argv);
+void	do_prefs_open		(int argc, char * const argv[]);
+void	do_prefs_lock		(int argc, char * const argv[]);
+void	do_prefs_unlock		(int argc, char * const argv[]);
+void	do_prefs_commit		(int argc, char * const argv[]);
+void	do_prefs_apply		(int argc, char * const argv[]);
+void	do_prefs_close		(int argc, char * const argv[]);
+void	do_prefs_synchronize	(int argc, char * const argv[]);
 
-void	do_prefs_list		(int argc, char **argv);
-void	do_prefs_get		(int argc, char **argv);
-void	do_prefs_set		(int argc, char **argv);
-void	do_prefs_remove		(int argc, char **argv);
+void	do_prefs_list		(int argc, char * const argv[]);
+void	do_prefs_get		(int argc, char * const argv[]);
+void	do_prefs_set		(int argc, char * const argv[]);
+void	do_prefs_remove		(int argc, char * const argv[]);
 
-void	do_log			(char *pref, int argc, char **argv);
-void	do_disable_until_needed	(int argc, char **argv);
+void	do_log			(char *pref, int argc, char * const argv[]);
+void	do_disable_until_needed	(int argc, char * const argv[]);
+void	do_disable_private_relay(int argc, char * const argv[]);
+
 
 #if	!TARGET_OS_IPHONE
-void	do_ifnamer		(char *pref, int argc, char **argv);
+void	do_ifnamer		(char *pref, int argc, char * const argv[]);
 #endif	// !TARGET_OS_IPHONE
 
 __END_DECLS

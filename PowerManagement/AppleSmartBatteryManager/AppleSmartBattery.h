@@ -27,14 +27,16 @@
 #include <IOKit/IOService.h>
 #include <IOKit/pwr_mgt/IOPMPowerSource.h>
 #include <IOKit/IOReporter.h>
+
+#include "AppleSmartBatteryManager.h"
+#include "AppleSmartBatteryCommands.h"
+
 #if TARGET_OS_OSX_X86
 #include <IOKit/smbus/IOSMBusController.h>
 #include <IOKit/acpi/IOACPIPlatformDevice.h>
 #endif
 
 
-#include "AppleSmartBatteryCommands.h"
-#include "AppleSmartBatteryManager.h"
 
 #define kBatteryPollingDebugKey     "BatteryPollingPeriodOverride"
 

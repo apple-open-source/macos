@@ -20,8 +20,8 @@ IOHibernateRestoreKernel.o_CFLAGS_ADD += $(CFLAGS_NOLTO_FLAG) -fno-sanitize=addr
 # Stack protector and stack check must be disabled because the stack protector runtime isn't available
 IOHibernateRestoreKernel.o_CFLAGS_ADD += -fno-stack-protector -fno-stack-check
 
-IOHibernateIO.cpo_CFLAGS_ADD += -I$(SRCROOT)/osfmk
-IOHibernateRestoreKernel.o_CFLAGS_ADD += -I$(SRCROOT)/osfmk
+IOHibernateIO.cpo_INCFLAGS += -I$(SRCROOT)/osfmk
+IOHibernateRestoreKernel.o_INCFLAGS += -I$(SRCROOT)/osfmk
 
 ######################################################################
 #END    Machine dependent Makefile fragment for arm

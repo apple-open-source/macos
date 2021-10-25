@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2018, 2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -42,7 +42,7 @@ _SCDynamicStoreCacheIsActive(SCDynamicStoreRef store)
 {
 	SCDynamicStorePrivateRef	storePrivate	= (SCDynamicStorePrivateRef)store;
 
-	if (store == NULL) {
+	if (!isA_SCDynamicStore(store)) {
 		// sorry, you must provide a session
 		_SCErrorSet(kSCStatusNoStoreSession);
 		return FALSE;
@@ -83,7 +83,7 @@ _SCDynamicStoreCacheOpen(SCDynamicStoreRef store)
 {
 	SCDynamicStorePrivateRef	storePrivate	= (SCDynamicStorePrivateRef)store;
 
-	if (store == NULL) {
+	if (!isA_SCDynamicStore(store)) {
 		// sorry, you must provide a session
 		_SCErrorSet(kSCStatusNoStoreSession);
 		return FALSE;
@@ -102,7 +102,7 @@ _SCDynamicStoreCacheCommitChanges(SCDynamicStoreRef store)
 	Boolean				ok		= TRUE;
 	SCDynamicStorePrivateRef	storePrivate	= (SCDynamicStorePrivateRef)store;
 
-	if (store == NULL) {
+	if (!isA_SCDynamicStore(store)) {
 		// sorry, you must provide a session
 		_SCErrorSet(kSCStatusNoStoreSession);
 		return FALSE;
@@ -133,7 +133,7 @@ _SCDynamicStoreCacheClose(SCDynamicStoreRef store)
 {
 	SCDynamicStorePrivateRef	storePrivate	= (SCDynamicStorePrivateRef)store;
 
-	if (store == NULL) {
+	if (!isA_SCDynamicStore(store)) {
 		// sorry, you must provide a session
 		_SCErrorSet(kSCStatusNoStoreSession);
 		return FALSE;

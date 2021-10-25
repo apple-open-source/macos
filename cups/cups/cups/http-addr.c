@@ -145,6 +145,63 @@ httpAddrLength(const http_addr_t *addr)	/* I - Address */
 
 }
 
+#ifdef AF_LOCAL
+
+static int
+af_local_bind(int fd, http_addr_t* addr)
+{
+  int result = 0;
+  struct stat sb;
+
+  if (result == 0 && stat(addr->un.sun_path, &sb) == 0 && S_ISDIR(sb.st_mode)) {
+    DEBUG_printf(("httpAddrListen(AF_LOCAL path \"%s\" is a directory", addr->un.sun_path));
+    result = -1;
+  }
+
+  /*
+   * Try to remove any existing domain socket file...
+   */
+  if (result == 0 && unlink(addr->un.sun_path) != 0 && errno != ENOENT) {
+    DEBUG_printf(("httpAddrListen(AF_LOCAL path \"%s\" not unlinked (%s)", addr->un.sun_path, strerror(errno)));
+    result = -1;
+  }
+
+  if (result == 0) {
+    /*
+     * Save the current umask and set it to 0 so that all users can access
+     * the domain socket...
+     */
+    mode_t oldmask = umask(0);
+
+    /*
+     * Bind the domain socket...
+     */
+    if (bind(fd, (struct sockaddr *)addr, (socklen_t)httpAddrLength(addr)) != 0) {
+      DEBUG_printf(("httpAddrListen(AF_LOCAL path \"%s\" bind failed (%s)", addr->un.sun_path, strerror(errno)));
+      result = -1;
+    }
+
+    /*
+     * Restore the umask no matter what
+     */
+    umask(oldmask);
+  }
+
+  /*
+   * REMINDSMA: This chmod may be a holdover for other platforms.  On Darwin, after bind:
+   * $ stat -r /tmp/cupsdtest.run
+   * 16777221 175369779 0140777 1 501 0 0 0 1623436313 1623436313 1623436313 1623436313 4096 0 0 /tmp/cupsdtest.run
+   * so the subsequent chmod doesn't seem necessary.
+   */
+
+  if (result == 0) {
+    (void) chmod(addr->un.sun_path, 0140777);
+  }
+
+  return result;
+}
+
+#endif /* AF_LOCAL */
 
 /*
  * 'httpAddrListen()' - Create a listening socket bound to the specified
@@ -194,33 +251,7 @@ httpAddrListen(http_addr_t *addr,	/* I - Address to bind to */
 #ifdef AF_LOCAL
   if (addr->addr.sa_family == AF_LOCAL)
   {
-    mode_t	mask;			/* Umask setting */
-
-   /*
-    * Remove any existing domain socket file...
-    */
-
-    unlink(addr->un.sun_path);
-
-   /*
-    * Save the current umask and set it to 0 so that all users can access
-    * the domain socket...
-    */
-
-    mask = umask(0);
-
-   /*
-    * Bind the domain socket...
-    */
-
-    status = bind(fd, (struct sockaddr *)addr, (socklen_t)httpAddrLength(addr));
-
-   /*
-    * Restore the umask and fix permissions...
-    */
-
-    umask(mask);
-    chmod(addr->un.sun_path, 0140777);
+    status = af_local_bind(fd, addr);
   }
   else
 #endif /* AF_LOCAL */

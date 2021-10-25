@@ -147,7 +147,7 @@ int options;
 #define	F_NUMERIC	0x0004
 #define	F_PINGFILLED	0x0008
 #define	F_QUIET		0x0010
-#define	F_RROUTE	0x0020
+/*#define	F_RROUTE	0x0020*/
 #define	F_SO_DEBUG	0x0040
 #define	F_SO_DONTROUTE	0x0080
 #define	F_VERBOSE	0x0100
@@ -291,9 +291,6 @@ main(int argc, char *const *argv)
 	    tos, ttl;
 	char ctrl[CMSG_SPACE(sizeof(struct timeval)) + CMSG_SPACE(sizeof(int))];
 	char hnamebuf[MAXHOSTNAMELEN], snamebuf[MAXHOSTNAMELEN];
-#ifdef IP_OPTIONS
-	char rspace[MAX_IPOPTLEN];	/* record route space */
-#endif
 	unsigned char loop, mttl;
 
 	payload = source = NULL;
@@ -521,7 +518,7 @@ main(int argc, char *const *argv)
 			options |= F_QUIET;
 			break;
 		case 'R':
-			options |= F_RROUTE;
+			/* deprecated, no-op */
 			break;
 		case 'r':
 			options |= F_SO_DONTROUTE;
@@ -626,8 +623,6 @@ main(int argc, char *const *argv)
 		break;
 	}
 	icmp_len = sizeof(struct ip) + ICMP_MINLEN + phdr_len;
-	if (options & F_RROUTE)
-		icmp_len += MAX_IPOPTLEN;
 	maxpayload = IP_MAXPACKET - icmp_len;
 	if (datalen > maxpayload)
 		errx(EX_USAGE, "packet size too large: %d > %d", datalen,
@@ -817,22 +812,6 @@ main(int argc, char *const *argv)
 		ip->ip_src.s_addr = source ? sock_in.sin_addr.s_addr : INADDR_ANY;
 		ip->ip_dst = to->sin_addr;
         }
-	/* record route option */
-	if (options & F_RROUTE) {
-#ifdef IP_OPTIONS
-		bzero(rspace, sizeof(rspace));
-		rspace[IPOPT_OPTVAL] = IPOPT_RR;
-		rspace[IPOPT_OLEN] = sizeof(rspace) - 1;
-		rspace[IPOPT_OFFSET] = IPOPT_MINOFF;
-		rspace[sizeof(rspace) - 1] = IPOPT_EOL;
-		if (setsockopt(s, IPPROTO_IP, IP_OPTIONS, rspace,
-		    sizeof(rspace)) < 0)
-			err(EX_OSERR, "setsockopt IP_OPTIONS");
-#else
-		errx(EX_UNAVAILABLE,
-		    "record route not available in this implementation");
-#endif /* IP_OPTIONS */
-	}
 
 	if (options & F_TTL) {
 		if (setsockopt(s, IPPROTO_IP, IP_TTL, &ttl,
@@ -2128,7 +2107,7 @@ usage(void)
 	(void)fprintf(stderr, "            -b boundif           # bind the socket to the interface\n");
 	(void)fprintf(stderr, "            -k traffic_class     # set traffic class socket option\n");
 	(void)fprintf(stderr, "            -K net_service_type  # set traffic class socket options\n");
-	(void)fprintf(stderr, "            -apple-connect       # call connect(2) in the socket\n");
-	(void)fprintf(stderr, "            -apple-time          # display current time\n");
+	(void)fprintf(stderr, "            --apple-connect       # call connect(2) in the socket\n");
+	(void)fprintf(stderr, "            --apple-time          # display current time\n");
 	exit(EX_USAGE);
 }

@@ -1,5 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
-// License & terms of use: http://www.unicode.org/copyright.html#License
+// License & terms of use: http://www.unicode.org/copyright.html
+// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
 gez{
     AuxExemplarCharacters{
         "[ሇ ሏ ⶀ ሗ ሟ ᎀ ᎁ ᎂ ᎃ ⶁ ሧ ሯ ⶂ ሷ ⶃ ሸ ሹ ሺ ሻ ሼ ሽ ሾ ሿ ⶄ ቇ ቐ ቑ ቒ ቓ ቔ ቕ ቖ ቘ ቚ ቛ ቜ ቝ ቧ"
@@ -25,7 +26,6 @@ gez{
             }
         }
     }
-    Version{"36.1"}
     calendar{
         generic{
             DateTimePatterns{

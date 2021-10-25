@@ -126,6 +126,7 @@
 		B476FACD0A49E68600BCD61F /* signature.c in Sources */ = {isa = PBXBuildFile; fileRef = B476FACC0A49E68600BCD61F /* signature.c */; };
 		B476FACF0A49E68600BCD61F /* signature.c in Sources */ = {isa = PBXBuildFile; fileRef = B476FACC0A49E68600BCD61F /* signature.c */; };
 		B4772CA30A003F7300E4205C /* xar.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = B4772CA20A003F6E00E4205C /* xar.h */; };
+		C03E1E5225E72D3900AC0F53 /* util.c in Sources */ = {isa = PBXBuildFile; fileRef = B41FC09709F6BC2C00006FAE /* util.c */; };
 		E9C0E6741497DDAB00BF8F0F /* ea.h in Headers */ = {isa = PBXBuildFile; fileRef = E9C0E6731497DDAB00BF8F0F /* ea.h */; };
 		E9D786581D260606006D5F7D /* lzmaxar.c in Sources */ = {isa = PBXBuildFile; fileRef = 98665C700EA83E44008193F1 /* lzmaxar.c */; };
 		E9D7865D1D2606F9006D5F7D /* ea.c in Sources */ = {isa = PBXBuildFile; fileRef = 98665C6E0EA83E36008193F1 /* ea.c */; };
@@ -803,6 +804,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				EEEFF3E60EFB700A00DBC955 /* xar-sig.c in Sources */,
+				C03E1E5225E72D3900AC0F53 /* util.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

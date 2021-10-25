@@ -101,7 +101,7 @@ mbuf_setdata(mbuf_t mbuf, void *data, size_t len)
 		return EINVAL;
 	}
 	mbuf->m_data = data;
-	mbuf->m_len = len;
+	mbuf->m_len = (int32_t)len;
 
 	return 0;
 }
@@ -429,7 +429,7 @@ mbuf_copym(const mbuf_t src, size_t offset, size_t len,
     mbuf_how_t how, mbuf_t *new_mbuf)
 {
 	/* Must set *mbuf to NULL in failure case */
-	*new_mbuf = m_copym(src, offset, len, how);
+	*new_mbuf = m_copym(src, (int)offset, (int)len, how);
 
 	return *new_mbuf == NULL ? ENOMEM : 0;
 }
@@ -447,7 +447,7 @@ errno_t
 mbuf_prepend(mbuf_t *orig, size_t len, mbuf_how_t how)
 {
 	/* Must set *orig to NULL in failure case */
-	*orig = m_prepend_2(*orig, len, how, 0);
+	*orig = m_prepend_2(*orig, (int)len, how, 0);
 
 	return *orig == NULL ? ENOMEM : 0;
 }
@@ -457,7 +457,7 @@ mbuf_split(mbuf_t src, size_t offset,
     mbuf_how_t how, mbuf_t *new_mbuf)
 {
 	/* Must set *new_mbuf to NULL in failure case */
-	*new_mbuf = m_split(src, offset, how);
+	*new_mbuf = m_split(src, (int)offset, how);
 
 	return *new_mbuf == NULL ? ENOMEM : 0;
 }
@@ -466,7 +466,7 @@ errno_t
 mbuf_pullup(mbuf_t *mbuf, size_t len)
 {
 	/* Must set *mbuf to NULL in failure case */
-	*mbuf = m_pullup(*mbuf, len);
+	*mbuf = m_pullup(*mbuf, (int)len);
 
 	return *mbuf == NULL ? ENOMEM : 0;
 }
@@ -476,7 +476,7 @@ mbuf_pulldown(mbuf_t src, size_t *offset, size_t len, mbuf_t *location)
 {
 	/* Must set *location to NULL in failure case */
 	int new_offset;
-	*location = m_pulldown(src, *offset, len, &new_offset);
+	*location = m_pulldown(src, (int)*offset, (int)len, &new_offset);
 	*offset = new_offset;
 
 	return *location == NULL ? ENOMEM : 0;
@@ -497,7 +497,7 @@ mbuf_adjustlen(mbuf_t m, int amount)
 {
 	/* Verify m_len will be valid after adding amount */
 	if (amount > 0) {
-		int used = (size_t)mbuf_data(m) - (size_t)mbuf_datastart(m) +
+		size_t used = (size_t)mbuf_data(m) - (size_t)mbuf_datastart(m) +
 		    m->m_len;
 
 		if ((size_t)(amount + used) > mbuf_maxlen(m)) {
@@ -610,7 +610,7 @@ mbuf_len(const mbuf_t mbuf)
 void
 mbuf_setlen(mbuf_t mbuf, size_t len)
 {
-	mbuf->m_len = len;
+	mbuf->m_len = (int32_t)len;
 }
 
 size_t
@@ -666,7 +666,7 @@ mbuf_setflags(mbuf_t mbuf, mbuf_flags_t flags)
 	} else if (flags & ~mbuf_flags_mask) {
 		ret = EINVAL;
 	} else {
-		mbuf->m_flags = flags | (mbuf->m_flags & ~mbuf_flags_mask);
+		mbuf->m_flags = (uint16_t)flags | (mbuf->m_flags & ~mbuf_flags_mask);
 		/*
 		 * If M_PKTHDR bit has changed, we have work to do;
 		 * m_reinit() will take care of setting/clearing the
@@ -691,7 +691,7 @@ mbuf_setflags_mask(mbuf_t mbuf, mbuf_flags_t flags, mbuf_flags_t mask)
 		ret = EINVAL;
 	} else {
 		mbuf_flags_t oflags = mbuf->m_flags;
-		mbuf->m_flags = (flags & mask) | (mbuf->m_flags & ~mask);
+		mbuf->m_flags = (uint16_t)((flags & mask) | (mbuf->m_flags & ~mask));
 		/*
 		 * If M_PKTHDR bit has changed, we have work to do;
 		 * m_reinit() will take care of setting/clearing the
@@ -757,7 +757,7 @@ mbuf_pkthdr_setlen(mbuf_t mbuf, size_t len)
 		len = INT32_MAX;
 	}
 
-	mbuf->m_pkthdr.len = len;
+	mbuf->m_pkthdr.len = (int)len;
 }
 
 void
@@ -809,7 +809,7 @@ mbuf_outbound_finalize(struct mbuf *m, u_int32_t pf, size_t o)
 	/* Generate the packet in software, client needs it */
 	switch (pf) {
 	case PF_INET:
-		(void) in_finalize_cksum(m, o, m->m_pkthdr.csum_flags);
+		(void) in_finalize_cksum(m, (uint32_t)o, m->m_pkthdr.csum_flags);
 		break;
 
 	case PF_INET6:
@@ -818,7 +818,7 @@ mbuf_outbound_finalize(struct mbuf *m, u_int32_t pf, size_t o)
 		 * extension headers exist; indicate that the callee
 		 * should skip such case by setting optlen to -1.
 		 */
-		(void) in6_finalize_cksum(m, o, -1, -1, m->m_pkthdr.csum_flags);
+		(void) in6_finalize_cksum(m, (uint32_t)o, -1, -1, m->m_pkthdr.csum_flags);
 		break;
 
 	default:
@@ -1039,7 +1039,7 @@ mbuf_tag_allocate(
 	}
 
 	/* Allocate an mtag */
-	tag = m_tag_create(id, type, length, how, mbuf);
+	tag = m_tag_create(id, type, (int)length, how, mbuf);
 	if (tag == NULL) {
 		return how == M_WAITOK ? ENOMEM : EWOULDBLOCK;
 	}
@@ -1150,14 +1150,14 @@ mbuf_add_drvaux(mbuf_t mbuf, mbuf_how_t how, u_int32_t family,
 
 	/* Tag is (m_drvaux_tag + module specific data) */
 	if ((tag = m_tag_create(KERNEL_MODULE_TAG_ID, KERNEL_TAG_TYPE_DRVAUX,
-	    sizeof(*p) + length, how, mbuf)) == NULL) {
+	    (int)(sizeof(*p) + length), how, mbuf)) == NULL) {
 		return (how == MBUF_WAITOK) ? ENOMEM : EWOULDBLOCK;
 	}
 
 	p = (struct m_drvaux_tag *)(tag + 1);
 	p->da_family = family;
 	p->da_subfamily = subfamily;
-	p->da_length = length;
+	p->da_length = (int)length;
 
 	/* Associate the tag */
 	m_tag_prepend(mbuf, tag);
@@ -1374,7 +1374,7 @@ mbuf_copyback(
 				result = ENOBUFS;
 				goto out;
 			}
-			n->m_len = MIN(MLEN, len + off);
+			n->m_len = (int32_t)MIN(MLEN, len + off);
 			m->m_next = n;
 		}
 		m = m->m_next;
@@ -1410,7 +1410,7 @@ mbuf_copyback(
 				 */
 				mbuf_mclget(how, m->m_type, &n);
 			}
-			n->m_len = MIN(mbuf_maxlen(n), len);
+			n->m_len = (int32_t)MIN(mbuf_maxlen(n), len);
 			m->m_next = n;
 		}
 		m = m->m_next;

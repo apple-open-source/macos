@@ -66,7 +66,7 @@ setfirstlink(struct hfsmount * hfsmp, cnid_t fileid, cnid_t firstlink)
      * attrData by subtracting the size of all other members of
      * structure HFSPlusAttData from the size of attrdata.
      */
-    (void)snprintf((char *)&dataptr->attrData[0], sizeof(dataptr) - (4 * sizeof(uint32_t)), "%lu", (unsigned long)firstlink);
+    (void)snprintf((char *)&dataptr->attrData[0], sizeof(attrdata) - offsetof(HFSPlusAttrData, attrData), "%lu", (unsigned long)firstlink);
 
     dataptr->attrSize = (u_int32_t)( 1 + strlen((char *)&dataptr->attrData[0]));
 

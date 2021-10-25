@@ -1,15 +1,15 @@
 /*
- * Copyright (c) 2004, 2005, 2009-2011, 2013-2015, 2017 Apple Inc. All rights reserved.
+ * Copyright (c) 2004, 2005, 2009-2011, 2013-2015, 2017, 2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -191,7 +191,7 @@ _find_set(char *match)
 
 __private_extern__
 void
-create_set(int argc, char **argv)
+create_set(int argc, char * const argv[])
 {
 	SCNetworkSetRef	set;
 	CFStringRef	setName;
@@ -270,7 +270,7 @@ create_set(int argc, char **argv)
 
 __private_extern__
 void
-remove_set(int argc, char **argv)
+remove_set(int argc, char * const argv[])
 {
 	SCNetworkSetRef	set	= NULL;
 	CFStringRef	setName;
@@ -339,7 +339,7 @@ remove_set(int argc, char **argv)
 
 __private_extern__
 void
-select_set(int argc, char **argv)
+select_set(int argc, char * const argv[])
 {
 #pragma unused(argc)
 	SCNetworkSetRef	set;
@@ -387,7 +387,7 @@ select_set(int argc, char **argv)
 
 __private_extern__
 void
-set_set(int argc, char **argv)
+set_set(int argc, char * const argv[])
 {
 	Boolean	ok;
 
@@ -516,7 +516,7 @@ set_set(int argc, char **argv)
 
 __private_extern__
 void
-show_set(int argc, char **argv)
+show_set(int argc, char * const argv[])
 {
 	CFArrayRef	interfaces;
 	CFArrayRef	services;
@@ -637,7 +637,7 @@ show_set(int argc, char **argv)
 
 __private_extern__
 void
-show_sets(int argc, char **argv)
+show_sets(int argc, char * const argv[])
 {
 #pragma unused(argc)
 #pragma unused(argv)

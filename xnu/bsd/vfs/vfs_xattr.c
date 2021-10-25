@@ -2502,7 +2502,7 @@ open_xattrfile(vnode_t vp, int fileflags, vnode_t *xvpp, vfs_context_t context)
 	alloc_len = snprintf(filename, sizeof(smallname), "%s%s", ATTR_FILE_PREFIX, basename);
 	if (alloc_len >= sizeof(smallname)) {
 		alloc_len++;  /* snprintf result doesn't include '\0' */
-		filename = kheap_alloc(KHEAP_TEMP, alloc_len, Z_WAITOK);
+		filename = kalloc_data(alloc_len, Z_WAITOK);
 		copy_len = snprintf(filename, alloc_len, "%s%s", ATTR_FILE_PREFIX, basename);
 	}
 	/*
@@ -2514,12 +2514,12 @@ open_xattrfile(vnode_t vp, int fileflags, vnode_t *xvpp, vfs_context_t context)
 	 * file security from the EA must always get access
 	 */
 lookup:
-	nd = kheap_alloc(KHEAP_TEMP, sizeof(struct nameidata), Z_WAITOK);
+	nd = kalloc_type(struct nameidata, Z_WAITOK);
 	NDINIT(nd, LOOKUP, OP_OPEN, LOCKLEAF | NOFOLLOW | USEDVP | DONOTAUTH,
 	    UIO_SYSSPACE, CAST_USER_ADDR_T(filename), context);
 	nd->ni_dvp = dvp;
 
-	va = kheap_alloc(KHEAP_TEMP, sizeof(struct vnode_attr), Z_WAITOK);
+	va = kalloc_type(struct vnode_attr, Z_WAITOK);
 
 	if (fileflags & O_CREAT) {
 		nd->ni_cnd.cn_nameiop = CREATE;
@@ -2684,8 +2684,8 @@ out:
 		}
 	}
 	/* Release resources after error-handling */
-	kheap_free(KHEAP_TEMP, nd, sizeof(struct nameidata));
-	kheap_free(KHEAP_TEMP, va, sizeof(struct vnode_attr));
+	kfree_type(struct nameidata, nd);
+	kfree_type(struct vnode_attr, va);
 	if (dvp && (dvp != vp)) {
 		vnode_put(dvp);
 	}
@@ -2693,7 +2693,7 @@ out:
 		vnode_putname(basename);
 	}
 	if (filename && filename != &smallname[0]) {
-		kheap_free(KHEAP_TEMP, filename, alloc_len);
+		kfree_data(filename, alloc_len);
 	}
 
 	*xvpp = xvp;  /* return a referenced vnode */
@@ -2804,7 +2804,7 @@ get_xattrinfo(vnode_t xvp, int setting, attr_info_t *ainfop, vfs_context_t conte
 	}
 
 	ainfop->iosize = iosize;
-	buffer = kheap_alloc(KHEAP_DATA_BUFFERS, iosize, Z_WAITOK | Z_ZERO);
+	buffer = kalloc_data(iosize, Z_WAITOK | Z_ZERO);
 	if (buffer == NULL) {
 		error = ENOMEM;
 		goto bail;
@@ -3019,7 +3019,7 @@ bail:
 	if (auio != NULL) {
 		uio_free(auio);
 	}
-	kheap_free(KHEAP_DATA_BUFFERS, buffer, iosize);
+	kfree_data(buffer, iosize);
 	return error;
 }
 
@@ -3034,8 +3034,7 @@ create_xattrfile(vnode_t xvp, u_int32_t fileid, vfs_context_t context)
 	int rsrcforksize;
 	int error;
 
-	buffer = kheap_alloc(KHEAP_TEMP, ATTR_BUF_SIZE, Z_WAITOK);
-	bzero(buffer, ATTR_BUF_SIZE);
+	buffer = kalloc_data(ATTR_BUF_SIZE, Z_WAITOK | Z_ZERO);
 
 	xah = (attr_header_t *)buffer;
 	auio = uio_create(1, 0, UIO_SYSSPACE, UIO_WRITE);
@@ -3073,7 +3072,7 @@ create_xattrfile(vnode_t xvp, u_int32_t fileid, vfs_context_t context)
 	}
 
 	uio_free(auio);
-	kheap_free(KHEAP_TEMP, buffer, ATTR_BUF_SIZE);
+	kfree_data(buffer, ATTR_BUF_SIZE);
 
 	return error;
 }
@@ -3097,7 +3096,7 @@ init_empty_resource_fork(rsrcfork_header_t * rsrcforkhdr)
 static void
 rel_xattrinfo(attr_info_t *ainfop)
 {
-	kheap_free_addr(KHEAP_DATA_BUFFERS, ainfop->filehdr);
+	kfree_data_addr(ainfop->filehdr);
 	bzero(ainfop, sizeof(attr_info_t));
 }
 
@@ -3245,8 +3244,8 @@ check_and_swap_attrhdr(attr_header_t *ah, attr_info_t *ainfop)
 			return EINVAL;
 		}
 
-		/* Make sure the variable-length name fits (+1 is for NUL terminator) */
-		if (&ae->name[ae->namelen + 1] > buf_end) {
+		/* Make sure the variable-length name fits */
+		if (&ae->name[ae->namelen] > buf_end) {
 			return EINVAL;
 		}
 

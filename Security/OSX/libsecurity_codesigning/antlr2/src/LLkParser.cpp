@@ -65,7 +65,7 @@ void LLkParser::trace(const char* ee, const char* rname)
 		printf("%s", temp.c_str());
 	}
 
-	printf("\n");;
+	printf("\n");
 }
 
 void LLkParser::traceIn(const char* rname)

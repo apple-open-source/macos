@@ -806,6 +806,26 @@ DADiskRef DADiskCreateFromIOMedia( CFAllocatorRef allocator, io_service_t media 
     if ( object )  CFRelease( object );
 
     /*
+     * Create the disk state -- mount quarantined?
+     */
+
+    object = IORegistryEntrySearchCFProperty( media,
+                                              kIOServicePlane,
+                                              CFSTR( "quarantine" ),
+                                              allocator,
+                                              kIORegistryIterateParents | kIORegistryIterateRecursively );
+
+    if ( object )
+    {
+        if  ( object == kCFBooleanTrue )
+        {
+           disk->_state |= _kDADiskStateMountQuarantined;
+        }
+    }
+
+    if ( object )  CFRelease( object );
+
+    /*
      * Create the disk state -- owner.
      */
 

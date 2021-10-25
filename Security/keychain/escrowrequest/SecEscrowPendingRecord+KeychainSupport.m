@@ -87,7 +87,7 @@
         if(error) {
             *error = [NSError errorWithDomain:NSOSStatusErrorDomain
                                          code:status
-                                  description:[NSString stringWithFormat:@"SecItemAdd: %d", (int)status]];;
+                                  description:[NSString stringWithFormat:@"SecItemAdd: %d", (int)status]];
         }
         return false;
     }

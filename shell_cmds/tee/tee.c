@@ -1,6 +1,6 @@
-/*	$NetBSD: tee.c,v 1.6 1997/10/20 00:37:11 lukem Exp $	*/
-
-/*
+/*-
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
  * Copyright (c) 1988, 1993
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -12,11 +12,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -33,45 +29,50 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/cdefs.h>
 #ifndef lint
-__COPYRIGHT("@(#) Copyright (c) 1988, 1993\n\
-	The Regents of the University of California.  All rights reserved.\n");
+static const char copyright[] =
+"@(#) Copyright (c) 1988, 1993\n\
+	The Regents of the University of California.  All rights reserved.\n";
 #endif /* not lint */
 
 #ifndef lint
 #if 0
 static char sccsid[] = "@(#)tee.c	8.1 (Berkeley) 6/6/93";
 #endif
-__RCSID("$NetBSD: tee.c,v 1.6 1997/10/20 00:37:11 lukem Exp $");
-#endif
+static const char rcsid[] =
+  "$FreeBSD$";
+#endif /* not lint */
 
-#include <sys/types.h>
+#ifndef __APPLE__
+#include <sys/capsicum.h>
+#endif
 #include <sys/stat.h>
-#include <signal.h>
+#include <sys/types.h>
+
+#ifndef __APPLE__
+#include <capsicum_helpers.h>
+#endif
+#include <err.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <unistd.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <locale.h>
-#include <err.h>
+#include <unistd.h>
 
 typedef struct _list {
 	struct _list *next;
 	int fd;
-	char *name;
+	const char *name;
 } LIST;
-LIST *head;
+static LIST *head;
 
-void	add __P((int, char *));
-int	main __P((int, char **));
+static void add(int, const char *);
+static void usage(void);
 
 int
-main(argc, argv)
-	int argc;
-	char *argv[];
+main(int argc, char *argv[])
 {
 	LIST *p;
 	int n, fd, rval, wval;
@@ -79,8 +80,6 @@ main(argc, argv)
 	int append, ch, exitval;
 	char *buf;
 #define	BSIZE (8 * 1024)
-
-	setlocale(LC_ALL, "");
 
 	append = 0;
 	while ((ch = getopt(argc, argv, "ai")) != -1)
@@ -93,14 +92,18 @@ main(argc, argv)
 			break;
 		case '?':
 		default:
-			(void)fprintf(stderr, "usage: tee [-ai] [file ...]\n");
-			exit(1);
+			usage();
 		}
 	argv += optind;
 	argc -= optind;
 
-	if ((buf = malloc((size_t)BSIZE)) == NULL)
+	if ((buf = malloc(BSIZE)) == NULL)
 		err(1, "malloc");
+
+#ifndef __APPLE__
+	if (caph_limit_stdin() == -1 || caph_limit_stderr() == -1)
+		err(EXIT_FAILURE, "unable to limit stdio");
+#endif
 
 	add(STDOUT_FILENO, "stdout");
 
@@ -112,6 +115,10 @@ main(argc, argv)
 		} else
 			add(fd, *argv);
 
+#ifndef __APPLE__
+	if (caph_enter() < 0)
+		err(EXIT_FAILURE, "unable to enter capability mode");
+#endif
 	while ((rval = read(STDIN_FILENO, buf, BSIZE)) > 0)
 		for (p = head; p; p = p->next) {
 			n = rval;
@@ -125,29 +132,36 @@ main(argc, argv)
 				bp += wval;
 			} while (n -= wval);
 		}
-	if (rval < 0) {
-		warn("read");
-		exitval = 1;
-	}
-
-	for (p = head; p; p = p->next) {
-		if (close(p->fd) == -1) {
-			warn("%s", p->name);
-			exitval = 1;
-		}
-	}
-
+	if (rval < 0)
+		err(1, "read");
 	exit(exitval);
 }
 
-void
-add(fd, name)
-	int fd;
-	char *name;
+static void
+usage(void)
+{
+	(void)fprintf(stderr, "usage: tee [-ai] [file ...]\n");
+	exit(1);
+}
+
+static void
+add(int fd, const char *name)
 {
 	LIST *p;
+#ifndef __APPLE__
+	cap_rights_t rights;
 
-	if ((p = malloc((size_t)sizeof(LIST))) == NULL)
+	if (fd == STDOUT_FILENO) {
+		if (caph_limit_stdout() == -1)
+			err(EXIT_FAILURE, "unable to limit stdout");
+	} else {
+		cap_rights_init(&rights, CAP_WRITE, CAP_FSTAT);
+		if (caph_rights_limit(fd, &rights) < 0)
+			err(EXIT_FAILURE, "unable to limit rights");
+	}
+#endif
+
+	if ((p = malloc(sizeof(LIST))) == NULL)
 		err(1, "malloc");
 	p->fd = fd;
 	p->name = name;

@@ -49,6 +49,7 @@ static const char sccsid[] = "@(#)compile.c	8.1 (Berkeley) 6/6/93";
 #include <fcntl.h>
 #include <limits.h>
 #include <regex.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -365,6 +366,51 @@ nonsel:		/* Now parse the command */
 	}
 }
 
+static int
+hex2char(const char *in, char *out, int len)
+{
+	long ord;
+	char *endptr, hexbuf[3];
+
+	hexbuf[0] = in[0];
+	hexbuf[1] = len > 1 ? in[1] : '\0';
+	hexbuf[2] = '\0';
+
+	errno = 0;
+	ord = strtol(hexbuf, &endptr, 16);
+	if (*endptr != '\0' || errno != 0)
+		return (ERANGE);
+	*out = (char)ord;
+	return (0);
+}
+
+static bool
+hexdigit(char c)
+{
+	int lc;
+
+	lc = tolower(c);
+	return isdigit(lc) || (lc >= 'a' && lc <= 'f');
+}
+
+static bool
+dohex(const char *in, char *out, int *len)
+{
+	int tmplen;
+
+	if (!hexdigit(in[0]))
+		return (false);
+	tmplen = 1;
+	if (hexdigit(in[1]))
+		++tmplen;
+	if (hex2char(in, out, tmplen) == 0) {
+		*len = tmplen;
+		return (true);
+	}
+
+	return (false);
+}
+
 /*
  * Get a delimited string.  P points to the delimiter of the string; d points
  * to a buffer area.  Newline and delimiter escapes are processed; other
@@ -377,6 +423,7 @@ nonsel:		/* Now parse the command */
 static char *
 compile_delimited(char *p, char *d, int is_tr)
 {
+	int hexlen;
 	char c;
 
 	c = *p++;
@@ -390,11 +437,19 @@ compile_delimited(char *p, char *d, int is_tr)
 				linenum, fname);
 	while (*p) {
 		if (*p == '[' && *p != c) {
-			if ((d = compile_ccl(&p, d)) == NULL)
-				errx(1, "%lu: %s: unbalanced brackets ([])", linenum, fname);
-			continue;
+			if (!is_tr) {
+				if ((d = compile_ccl(&p, d)) == NULL) {
+					errx(1,
+					    "%lu: %s: unbalanced brackets ([])",
+					    linenum, fname);
+				}
+				continue;
+			}
 		} else if (*p == '\\' && p[1] == '[') {
-			*d++ = *p++;
+			if (is_tr)
+				p++;
+			else
+				*d++ = *p++;
 		} else if (*p == '\\' && p[1] == c) {
 			p++;
 		} else if (*p == '\\' &&
@@ -412,6 +467,12 @@ compile_delimited(char *p, char *d, int is_tr)
 			}
 			p += 2;
 			continue;
+		} else if (*p == '\\' && p[1] == 'x') {
+			if (dohex(&p[2], d, &hexlen)) {
+				++d;
+				p += hexlen + 2;
+				continue;
+			}
 		} else if (*p == '\\' && p[1] == '\\') {
 			if (is_tr)
 				p++;
@@ -431,7 +492,11 @@ compile_delimited(char *p, char *d, int is_tr)
 static char *
 compile_ccl(char **sp, char *t)
 {
+#ifdef __APPLE_
 	int c, d;
+#else
+	int c, d, hexlen;
+#endif
 	char *s = *sp;
 
 	*t++ = *s++;
@@ -445,13 +510,41 @@ compile_ccl(char **sp, char *t)
 			for (c = *s; (*t = *s) != ']' || c != d; s++, t++)
 				if ((c = *s) == '\0')
 					return NULL;
+#ifndef __APPLE__
+		} else if (*s == '\\') {
+			/*
+			 * Apple Note: FreeBSD treats the backslash character as the start
+			 * of several other possible escape sequences here, but this is not
+			 * POSIX-compliant.  See XBD 9.3.3: "The period, left-bracket, and
+			 * backslash shall be special except when used in a bracket
+			 * expression".
+			 *
+			 * The below interpretation of newline is allowed in a sed context,
+			 * according to the POSIX description of "Regular Expressions in
+			 * sed".
+			 */
+			switch (s[1]) {
+			case 'n':
+				*t = '\n';
+				s++;
+				break;
+			case 'r':
+				*t = '\r';
+				s++;
+				break;
+			case 't':
+				*t = '\t';
+				s++;
+				break;
+			case 'x':
+				if (dohex(&s[2], t, &hexlen))
+					s += hexlen + 1;
+				break;
+			default:
+				break;
+			}
+#endif
 		}
-		/*
-		 * Apple Note: FreeBSD treats the backslash character as the start of
-		 * several possible escape sequences here, but this is not POSIX-
-		 * compliant.  See XBD 9.3.3: "The period, left-bracket, and backslash
-		 * shall be special except when used in a bracket expression".
-		 */
 	}
 	return (*s == ']') ? *sp = ++s, ++t : NULL;
 }
@@ -490,7 +583,7 @@ static char *
 compile_subst(char *p, struct s_subst *s)
 {
 	static char lbuf[_POSIX2_LINE_MAX + 1];
-	int asize, size;
+	int asize, hexlen, size;
 	u_char ref;
 	char c, *text, *op, *sp;
 	int more = 1, sawesc = 0;
@@ -553,6 +646,23 @@ compile_subst(char *p, struct s_subst *s)
 						break;
 					case 't':
 						*p = '\t';
+						break;
+					case 'x':
+#define	ADVANCE_N(s, n)					\
+	do {						\
+		char *adv = (s);			\
+		while (*(adv + (n) - 1) != '\0') {	\
+			*adv = *(adv + (n));		\
+			++adv;				\
+		}					\
+		*adv = '\0';				\
+	} while (0);
+						if (dohex(&p[1], p, &hexlen)) {
+							ADVANCE_N(p + 1,
+							    hexlen);
+						}
+						break;
+					default:
 						break;
 					}
 				}

@@ -256,7 +256,7 @@ int main(int argc, char **argv)
     uint32_t phase_detail = 0;
     io_registry_entry_t root_domain = MACH_PORT_NULL;
 
-    root_domain = IORegistryEntryFromPath(kIOMasterPortDefault, kIOPowerPlane ":/IOPowerConnection/IOPMrootDomain");
+    root_domain = IORegistryEntryFromPath(kIOMainPortDefault, kIOPowerPlane ":/IOPowerConnection/IOPMrootDomain");
     CFNumberRef status_code_cf = (CFNumberRef)IORegistryEntryCreateCFProperty(root_domain, CFSTR(kIOPMSleepWakeFailureCodeKey), kCFAllocatorDefault, 0);
     if (status_code_cf) {
 

@@ -3,7 +3,7 @@ VERSION = 0.6.4
 
 
 PYTHON3 := $(shell python -c 'import sys;print("YES" if sys.version_info[0] > 2 else "NO")')
-SETUPARGS = --install-scripts=/usr/bin
+SETUPARGS = --install-scripts=$(BINDIR)
 
 include ../Makefile.inc
 
@@ -21,7 +21,7 @@ else
 endif
 
 postinstall:
+####### rdar://76017541 (Remove /usr/bin/xattr from python_modules)
+	rm -f $(DSTROOT)/usr/bin/xattr
 	cp -f $(DIR)/LICENSE.txt $(OSL)/$(NAME)-$(VERSION).txt
 	cp -f $(NAME).partial $(OSV)/$(NAME)-$(VERSION).partial
-	mkdir -p $(DSTROOT)/usr/share/man/man1
-	cp -f $(NAME).1 $(DSTROOT)/usr/share/man/man1

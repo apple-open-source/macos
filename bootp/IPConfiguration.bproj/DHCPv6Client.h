@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2020 Apple Inc. All rights reserved.
+ * Copyright (c) 2009-2021 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -76,7 +76,8 @@ DHCPv6ClientMode
 DHCPv6ClientGetMode(DHCPv6ClientRef client);
 
 void
-DHCPv6ClientStart(DHCPv6ClientRef client, bool allocate_address);
+DHCPv6ClientStart(DHCPv6ClientRef client, bool allocate_address,
+		  bool privacy_required);
 
 void
 DHCPv6ClientStop(DHCPv6ClientRef client, bool discard_information);
@@ -105,5 +106,9 @@ DHCPv6ClientIsActive(DHCPv6ClientRef client);
 
 bool
 DHCPv6ClientHasDNS(DHCPv6ClientRef client, bool * search_available);
+
+void
+DHCPv6ClientProvideSummary(DHCPv6ClientRef client,
+			   CFMutableDictionaryRef summary);
 
 #endif /* _S_DHCPV6CLIENT_H */

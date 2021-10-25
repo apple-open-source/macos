@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2005, 2008-2015, 2017, 2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2005, 2008-2015, 2017, 2018, 2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -115,7 +115,7 @@ storeCallback(SCDynamicStoreRef store, CFArrayRef changedKeys, void *info)
 
 __private_extern__
 void
-do_notify_list(int argc, char **argv)
+do_notify_list(int argc, char * const argv[])
 {
 #pragma unused(argv)
 	int			i;
@@ -171,7 +171,7 @@ do_notify_list(int argc, char **argv)
 
 __private_extern__
 void
-do_notify_add(int argc, char **argv)
+do_notify_add(int argc, char * const argv[])
 {
 	CFStringRef		key;
 	CFMutableArrayRef	keys;
@@ -207,7 +207,7 @@ do_notify_add(int argc, char **argv)
 
 __private_extern__
 void
-do_notify_remove(int argc, char **argv)
+do_notify_remove(int argc, char * const argv[])
 {
 	CFStringRef		key;
 	CFMutableArrayRef	keys;
@@ -245,7 +245,7 @@ do_notify_remove(int argc, char **argv)
 
 __private_extern__
 void
-do_notify_changes(int argc, char **argv)
+do_notify_changes(int argc, char * const argv[])
 {
 #pragma unused(argc)
 #pragma unused(argv)
@@ -313,7 +313,7 @@ _watcher(void *arg)
 
 __private_extern__
 void
-do_notify_watch(int argc, char **argv)
+do_notify_watch(int argc, char * const argv[])
 {
 #pragma unused(argc)
 #pragma unused(argv)
@@ -338,7 +338,7 @@ do_notify_watch(int argc, char **argv)
 
 __private_extern__
 void
-do_notify_wait(int argc, char **argv)
+do_notify_wait(int argc, char * const argv[])
 {
 #pragma unused(argc)
 #pragma unused(argv)
@@ -353,7 +353,7 @@ do_notify_wait(int argc, char **argv)
 
 __private_extern__
 void
-do_notify_file(int argc, char **argv)
+do_notify_file(int argc, char * const argv[])
 {
 	int32_t		reqID = 0;
 	int		fd;
@@ -418,7 +418,7 @@ do_notify_file(int argc, char **argv)
 
 __private_extern__
 void
-do_notify_cancel(int argc, char **argv)
+do_notify_cancel(int argc, char * const argv[])
 {
 #pragma unused(argc)
 #pragma unused(argv)

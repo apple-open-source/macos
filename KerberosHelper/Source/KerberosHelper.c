@@ -1190,9 +1190,10 @@ OSStatus KRBCopyClientPrincipalInfo (KRBHelperContextRef inKerberosSession,  CFD
         }
     }
 
-    *outClientPrincipalInfo = outInfo;
+    *outClientPrincipalInfo = CFRetain(outInfo);
 
  Error:
+    if (NULL != outInfo)         { CFRelease (outInfo); }
     if (NULL != useClientName)   { CFRelease (useClientName); }
     if (NULL != certificateHash) { CFRelease (certificateHash); }
     if (NULL != inferredLabel)   { CFRelease (inferredLabel); }

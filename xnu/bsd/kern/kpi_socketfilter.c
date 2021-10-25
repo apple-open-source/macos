@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2017 Apple Inc. All rights reserved.
+ * Copyright (c) 2003-2021 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -51,20 +51,19 @@
 
 #include <libkern/libkern.h>
 #include <libkern/OSAtomic.h>
+
+#include <libkern/sysctl.h>
+#include <libkern/OSDebug.h>
+
 #include <os/refcnt.h>
 
 #include <stdbool.h>
 #include <string.h>
 
+
 #define SFEF_ATTACHED           0x1     /* SFE is on socket list */
 #define SFEF_NODETACH           0x2     /* Detach should not be called */
 #define SFEF_NOSOCKET           0x4     /* Socket is gone */
-
-/*
- * If you need accounting for KM_IFADDR consider using
- * KALLOC_HEAP_DEFINE to define a view.
- */
-#define KM_IFADDR       KHEAP_DEFAULT
 
 struct socket_filter_entry {
 	struct socket_filter_entry      *sfe_next_onsocket;
@@ -87,7 +86,10 @@ struct socket_filter {
 	struct protosw                  *sf_proto;
 	struct sflt_filter              sf_filter;
 	struct os_refcnt                sf_refcount;
+	uint32_t                        sf_flags;
 };
+
+#define SFF_INTERNAL    0x1
 
 TAILQ_HEAD(socket_filter_list, socket_filter);
 
@@ -171,7 +173,7 @@ sflt_release_locked(struct socket_filter *filter)
 		}
 
 		/* Free the entry */
-		kheap_free(KM_IFADDR, filter, sizeof(struct socket_filter));
+		kfree_type(struct socket_filter, filter);
 	}
 }
 
@@ -179,7 +181,7 @@ static void
 sflt_entry_retain(struct socket_filter_entry *entry)
 {
 	if (OSIncrementAtomic(&entry->sfe_refcount) <= 0) {
-		panic("sflt_entry_retain - sfe_refcount <= 0\n");
+		panic("sflt_entry_retain - sfe_refcount <= 0");
 		/* NOTREACHED */
 	}
 }
@@ -213,7 +215,7 @@ sflt_entry_release(struct socket_filter_entry *entry)
 		/* Drop the cleanup lock */
 		lck_mtx_unlock(&sock_filter_cleanup_lock);
 	} else if (old <= 0) {
-		panic("sflt_entry_release - sfe_refcount (%d) <= 0\n",
+		panic("sflt_entry_release - sfe_refcount (%d) <= 0",
 		    (int)old);
 		/* NOTREACHED */
 	}
@@ -297,7 +299,7 @@ sflt_cleanup_thread(void *blah, wait_result_t blah2)
 			sflt_release_locked(entry->sfe_filter);
 			entry->sfe_socket = NULL;
 			entry->sfe_filter = NULL;
-			kheap_free(KM_IFADDR, entry, sizeof(struct socket_filter_entry));
+			kfree_type(struct socket_filter_entry, entry);
 		}
 
 		/* Drop the socket filter lock */
@@ -328,11 +330,7 @@ sflt_attach_locked(struct socket *so, struct socket_filter *filter,
 		}
 	}
 	/* allocate the socket filter entry */
-	entry = kheap_alloc(KM_IFADDR, sizeof(struct socket_filter_entry),
-	    Z_WAITOK);
-	if (entry == NULL) {
-		return ENOMEM;
-	}
+	entry = kalloc_type(struct socket_filter_entry, Z_WAITOK | Z_NOFAIL);
 
 	/* Initialize the socket filter entry */
 	entry->sfe_cookie = NULL;
@@ -436,6 +434,13 @@ __private_extern__ void
 sflt_initsock(struct socket *so)
 {
 	/*
+	 * Can only register socket filter for internet protocols
+	 */
+	if (SOCK_DOM(so) != PF_INET && SOCK_DOM(so) != PF_INET6) {
+		return;
+	}
+
+	/*
 	 * Point to the real protosw, as so_proto might have been
 	 * pointed to a modified version.
 	 */
@@ -495,6 +500,13 @@ sflt_initsock(struct socket *so)
 __private_extern__ void
 sflt_termsock(struct socket *so)
 {
+	/*
+	 * Fast path to avoid taking the lock
+	 */
+	if (so->so_filt == NULL) {
+		return;
+	}
+
 	lck_rw_lock_exclusive(&sock_filter_lock);
 
 	struct socket_filter_entry *entry;
@@ -1322,11 +1334,8 @@ sflt_register_common(const struct sflt_filter *filter, int domain, int type,
 	}
 
 	/* Allocate the socket filter */
-	sock_filt = kheap_alloc(KM_IFADDR,
-	    sizeof(struct socket_filter), Z_WAITOK | Z_ZERO);
-	if (sock_filt == NULL) {
-		return ENOBUFS;
-	}
+	sock_filt = kalloc_type(struct socket_filter,
+	    Z_WAITOK | Z_ZERO | Z_NOFAIL);
 
 	/* Legacy sflt_filter length; current structure minus extended */
 	len = sizeof(*filter) - sizeof(struct sflt_filter_ext);
@@ -1368,13 +1377,16 @@ sflt_register_common(const struct sflt_filter *filter, int domain, int type,
 		OSIncrementAtomic64(&net_api_stats.nas_sfltr_register_count);
 		INC_ATOMIC_INT64_LIM(net_api_stats.nas_sfltr_register_total);
 		if (is_internal) {
+			sock_filt->sf_flags |= SFF_INTERNAL;
+			OSIncrementAtomic64(&net_api_stats.nas_sfltr_register_os_count);
 			INC_ATOMIC_INT64_LIM(net_api_stats.nas_sfltr_register_os_total);
 		}
 	}
+
 	lck_rw_unlock_exclusive(&sock_filter_lock);
 
 	if (match != NULL) {
-		kheap_free(KM_IFADDR, sock_filt, sizeof(struct socket_filter));
+		kfree_type(struct socket_filter, sock_filt);
 		return EEXIST;
 	}
 
@@ -1392,7 +1404,7 @@ sflt_register_common(const struct sflt_filter *filter, int domain, int type,
 	solisthead = solist;                                            \
 } while (0)
 	if (protocol == IPPROTO_TCP) {
-		lck_rw_lock_shared(tcbinfo.ipi_lock);
+		lck_rw_lock_shared(&tcbinfo.ipi_lock);
 		LIST_FOREACH(inp, tcbinfo.ipi_listhead, inp_list) {
 			so = inp->inp_socket;
 			if (so == NULL || (so->so_state & SS_DEFUNCT) ||
@@ -1402,15 +1414,15 @@ sflt_register_common(const struct sflt_filter *filter, int domain, int type,
 			    !SOCK_CHECK_TYPE(so, type)) {
 				continue;
 			}
-			solist = kheap_alloc(KHEAP_TEMP, sizeof(struct solist), Z_NOWAIT);
+			solist = kalloc_type(struct solist, Z_NOWAIT);
 			if (!solist) {
 				continue;
 			}
 			SOLIST_ADD(so);
 		}
-		lck_rw_done(tcbinfo.ipi_lock);
+		lck_rw_done(&tcbinfo.ipi_lock);
 	} else if (protocol == IPPROTO_UDP) {
-		lck_rw_lock_shared(udbinfo.ipi_lock);
+		lck_rw_lock_shared(&udbinfo.ipi_lock);
 		LIST_FOREACH(inp, udbinfo.ipi_listhead, inp_list) {
 			so = inp->inp_socket;
 			if (so == NULL || (so->so_state & SS_DEFUNCT) ||
@@ -1420,13 +1432,13 @@ sflt_register_common(const struct sflt_filter *filter, int domain, int type,
 			    !SOCK_CHECK_TYPE(so, type)) {
 				continue;
 			}
-			solist = kheap_alloc(KHEAP_TEMP, sizeof(struct solist), Z_NOWAIT);
+			solist = kalloc_type(struct solist, Z_NOWAIT);
 			if (!solist) {
 				continue;
 			}
 			SOLIST_ADD(so);
 		}
-		lck_rw_done(udbinfo.ipi_lock);
+		lck_rw_done(&udbinfo.ipi_lock);
 	}
 	/* XXX it's possible to walk the raw socket list as well */
 #undef SOLIST_ADD
@@ -1465,7 +1477,7 @@ sflt_register_common(const struct sflt_filter *filter, int domain, int type,
 		sock_release(so);
 		solist = solisthead;
 		solisthead = solisthead->next;
-		kheap_free(KHEAP_TEMP, solist, sizeof(struct solist));
+		kfree_type(struct solist, solist);
 	}
 
 	return error;
@@ -1477,6 +1489,8 @@ sflt_register_internal(const struct sflt_filter *filter, int domain, int type,
 {
 	return sflt_register_common(filter, domain, type, protocol, true);
 }
+
+#define MAX_NUM_FRAMES 5
 
 errno_t
 sflt_register(const struct sflt_filter *filter, int domain, int type,
@@ -1499,6 +1513,9 @@ sflt_unregister(sflt_handle handle)
 	}
 
 	if (filter) {
+		if (filter->sf_flags & SFF_INTERNAL) {
+			VERIFY(OSDecrementAtomic64(&net_api_stats.nas_sfltr_register_os_count) > 0);
+		}
 		VERIFY(OSDecrementAtomic64(&net_api_stats.nas_sfltr_register_count) > 0);
 
 		/* Remove it from the global list */
@@ -1592,6 +1609,7 @@ sock_inject_data_out(socket_t so, const struct sockaddr *to, mbuf_t data,
     mbuf_t control, sflt_data_flag_t flags)
 {
 	int sosendflags = 0;
+	int error = 0;
 
 	/* reject if this is a subflow socket */
 	if (so->so_flags & SOF_MP_SUBFLOW) {
@@ -1601,8 +1619,13 @@ sock_inject_data_out(socket_t so, const struct sockaddr *to, mbuf_t data,
 	if (flags & sock_data_filt_flag_oob) {
 		sosendflags = MSG_OOB;
 	}
-	return sosend(so, (struct sockaddr *)(uintptr_t)to, NULL,
-	           data, control, sosendflags);
+
+
+	error = sosend(so, (struct sockaddr *)(uintptr_t)to, NULL,
+	    data, control, sosendflags);
+
+
+	return error;
 }
 
 sockopt_dir
@@ -1640,3 +1663,4 @@ sockopt_copyout(sockopt_t sopt, void *data, size_t len)
 {
 	return sooptcopyout(sopt, data, len);
 }
+

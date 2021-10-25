@@ -9,7 +9,10 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wquoted-include-in-framework-header"
 #include <sys/sysctl.h>
+#pragma clang diagnostic pop
 #include <mach/mach.h>
 #include <mach/mach_error.h>
 #include <mach_debug/mach_debug.h>
@@ -32,6 +35,7 @@ static void usage(FILE *stream, char **argv);
 static void print_zone_info(const char *name);
 static void get_zone_btrecords(const char *name, int topN);
 static void list_zones_with_zlog_enabled(void);
+static void zlog_specific_zones(const char *zone_log_name, int topN);
 
 static void usage(FILE *stream, char **argv)
 {
@@ -104,25 +108,16 @@ static void get_zone_btrecords(const char *name, int topN)
 	}
 
 	recs = recs_addr;
-	if (topN == 1) {
-		/* Print the backtrace with the highest no. of refs */
-		index = 0;
-		for (i = 0; i < recs_count; i++) {
-			if (recs[i].ref_count > recs[index].ref_count) {
-				index = i;
-			}
-		}
-		recs = recs_addr + index;
-	} else if (topN == 0) {
+	/* Sort the backtracse by number of active refs */
+	qsort(recs, recs_count, sizeof *recs, compare_zone_btrecords);
+	if (topN == 0) {
 		/* Print all backtraces */
 		topN = recs_count;
-	} else {
-		/* Sort the records by no. of refs, and print the top <topN> */
-		qsort(recs, recs_count, sizeof *recs, compare_zone_btrecords);
 	}
 
 	printf("printing top %d (out of %d) allocation backtrace(s) for zone %s\n", topN, recs_count, zname.mzn_name);
 
+    topN = MIN(topN, recs_count);
 	for (i = 0; i < topN; i++) {
 		printf("\nactive refs: %d   operation type: %s\n", recs[i].ref_count,
 			   (recs[i].operation_type == ZOP_ALLOC)? "ALLOC": (recs[i].operation_type == ZOP_FREE)? "FREE": "UNKNOWN");
@@ -181,6 +176,73 @@ static void list_zones_with_zlog_enabled(void)
 			exit(1);
 		}
 	}
+}
+
+static void zlog_specific_zones(const char *zone_log_name, int topN)
+{
+    kern_return_t kr;
+    mach_zone_name_t *name = NULL;
+    unsigned int name_count = 0, i;
+    const char *kalloc_str = "kalloc.", *type_str = "type";
+    const size_t kalloc_str_len = strlen(kalloc_str);
+    const size_t type_str_len = strlen(type_str);
+    size_t log_sizeclass = 0;
+    
+    /*
+     * If requested zone name isn't "kalloc.<sizeclass>" print logs for
+     * that specific zone.
+     */
+    if (strncmp(zone_log_name, kalloc_str, kalloc_str_len) != 0 ||
+        strncmp(&zone_log_name[kalloc_str_len], type_str, type_str_len) == 0) {
+        print_zone_info(zone_log_name);
+        get_zone_btrecords(zone_log_name, topN);
+        return;
+    }
+    
+    log_sizeclass = strtoul(&zone_log_name[kalloc_str_len], NULL, 0);
+    
+    /* Get names for zones that have zone logging enabled */
+    kr = mach_zone_get_zlog_zones(mach_host_self(), &name, &name_count);
+    if (kr != KERN_SUCCESS) {
+        fprintf(stderr,
+                "error: call to mach_zone_get_zlog_zones() failed: %s\n",
+                mach_error_string(kr));
+        exit(1);
+    }
+
+    if (name_count == 0) {
+        printf("zlog not enabled for any zones.\n");
+        return;
+    }
+
+    /*
+     * Print logs for all kalloc zones of the requested size class.
+     */
+    for (i = 0; i < name_count; i++) {
+        const char *zone_name = name[i].mzn_name;
+        if (strstr(zone_name, kalloc_str)) {
+            /*
+             * All kalloc zones end with .<sizeclass>, therefore get the last
+             * '.' to determine the sizeclass
+             */
+            const char *zone_sizep = strrchr(zone_name, '.') + 1;
+            size_t zone_sizeclass = strtoul(zone_sizep, NULL, 0);
+            if (log_sizeclass == zone_sizeclass) {
+                print_zone_info(zone_name);
+                get_zone_btrecords(zone_name, topN);
+            }
+        }
+    }
+
+    if ((name != NULL) && (name_count != 0)) {
+        kr = vm_deallocate(mach_task_self(), (vm_address_t) name,
+                           (vm_size_t) (name_count * sizeof *name));
+        if (kr != KERN_SUCCESS) {
+            fprintf(stderr, "call to vm_deallocate() failed: %s\n",
+                    mach_error_string(kr));
+            exit(1);
+        }
+    }
 }
 
 #define VERSION_STRING	"zlog output version: 1"
@@ -244,8 +306,7 @@ int main(int argc, char *argv[])
 	}
 
 	if (zone_name) {
-		print_zone_info(zone_name);
-		get_zone_btrecords(zone_name, topN);
+        zlog_specific_zones(zone_name, topN);
 	} else {
 		/* -n or -l was specified without -z */
 		if (topN != 0) {

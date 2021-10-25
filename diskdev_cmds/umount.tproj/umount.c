@@ -79,6 +79,7 @@
 #include <pthread.h>
 
 #include "../edt_fstab/edt_fstab.h"
+#include "vfslist.h"
 
 struct syncarg {
     const char *mntname;
@@ -92,16 +93,14 @@ typedef enum { MNTON, MNTFROM } mntwhat;
 int	fake, fflag, vflag;
 char	*nfshost;
 
-int	 checkvfsname(const char *, char **);
 char	*getmntname(const char *, mntwhat, char **);
 int	 getmntfsid(const char *, fsid_t *);
 int	 sysctl_fsid(int, fsid_t *, void *, size_t *, void *, size_t);
 int	 unmount_by_fsid(const char *mntpt, int flag);
-char	**makevfslist(char *);
 int	 selected(int);
 int	 namematch(struct hostent *);
-int	 umountall(char **);
-int	 umountfs(char *, char **);
+int	 umountall(const char **);
+int	 umountfs(char *, const char **);
 void	 usage(void);
 
 static void*
@@ -131,7 +130,7 @@ int
 main(int argc, char *argv[])
 {
 	int all, ch, errs, mnts;
-	char **typelist = NULL;
+	const char **typelist = NULL;
 	struct statfs *mntbuf;
 
 	/*
@@ -231,7 +230,7 @@ main(int argc, char *argv[])
 }
 
 int
-umountall(char **typelist)
+umountall(const char **typelist)
 {
 	struct fstab *fs;
 	int rval;
@@ -278,7 +277,7 @@ umountall(char **typelist)
 }
 
 int
-umountfs(char *name, char **typelist)
+umountfs(char *name, const char **typelist)
 {
 	struct hostent *hp, *hp6;
 	struct stat sb;

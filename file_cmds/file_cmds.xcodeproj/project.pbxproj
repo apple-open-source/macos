@@ -148,6 +148,7 @@
 				FC8A8CBE14B655FD001B97AD /* PBXTargetDependency */,
 				FC8A8CD314B67BFD001B97AD /* PBXTargetDependency */,
 				FC8A8CC014B655FD001B97AD /* PBXTargetDependency */,
+				D364587626782F4E004BF9E0 /* PBXTargetDependency */,
 			);
 			name = executables;
 			productName = executables;
@@ -203,6 +204,7 @@
 				FDFF0C8D1811BA2F00BFC477 /* PBXTargetDependency */,
 				FDFF0C8F1811BA2F00BFC477 /* PBXTargetDependency */,
 				FDFF0C911811BA2F00BFC477 /* PBXTargetDependency */,
+				D364587826782F65004BF9E0 /* PBXTargetDependency */,
 			);
 			name = eOS;
 			productName = executables;
@@ -215,10 +217,19 @@
 		3E966CF01FB2218A0019F7A1 /* chgrp.sh in CopyFiles */ = {isa = PBXBuildFile; fileRef = 3E966CEB1FB2214F0019F7A1 /* chgrp.sh */; };
 		729D06D8230B5E42000716E5 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 729D06D7230B5E42000716E5 /* CoreFoundation.framework */; };
 		7D0A20EA2499364700F0F6D7 /* metrics.c in Sources */ = {isa = PBXBuildFile; fileRef = 7D0A20E92499364700F0F6D7 /* metrics.c */; };
+		D12B667D25A7511B00357CFE /* cp.sh in CopyFiles */ = {isa = PBXBuildFile; fileRef = D1B421D325762E9E003E3A47 /* cp.sh */; };
 		D178BEFB253DAE2A001FC103 /* file_cmds.plist in Copy plist */ = {isa = PBXBuildFile; fileRef = 3E966CEC1FB2214F0019F7A1 /* file_cmds.plist */; };
 		D178BF22253DAE42001FC103 /* chgrp.sh in Copy tests */ = {isa = PBXBuildFile; fileRef = 3E966CEB1FB2214F0019F7A1 /* chgrp.sh */; };
 		D178BF48253DAE45001FC103 /* touch.sh in Copy tests */ = {isa = PBXBuildFile; fileRef = D11B5750253C22BD009A59BF /* touch.sh */; };
+		D18CA12D25A7469400471787 /* pax.sh in Copy tests */ = {isa = PBXBuildFile; fileRef = D18CA12C25A7460C00471787 /* pax.sh */; };
+		D18CA17925A746AD00471787 /* pax.sh in CopyFiles */ = {isa = PBXBuildFile; fileRef = D18CA12C25A7460C00471787 /* pax.sh */; };
+		D18CA1E925A74B2E00471787 /* touch.sh in CopyFiles */ = {isa = PBXBuildFile; fileRef = D11B5750253C22BD009A59BF /* touch.sh */; };
 		D1B4221F25762FC8003E3A47 /* cp.sh in Copy tests */ = {isa = PBXBuildFile; fileRef = D1B421D325762E9E003E3A47 /* cp.sh */; };
+		D3343F552609722E005A89FC /* xattr.c in Sources */ = {isa = PBXBuildFile; fileRef = D3343F542609722E005A89FC /* xattr.c */; };
+		D391925D269E245800F7E564 /* xattr.sh in CopyFiles */ = {isa = PBXBuildFile; fileRef = D391925C269E244800F7E564 /* xattr.sh */; };
+		D391925E269E24A200F7E564 /* xattr.sh in Copy tests */ = {isa = PBXBuildFile; fileRef = D391925C269E244800F7E564 /* xattr.sh */; };
+		D3A3FFE5260C200E00EE3D39 /* xattr.1 in CopyFiles */ = {isa = PBXBuildFile; fileRef = D3343F4D2609720F005A89FC /* xattr.1 */; };
+		E12CCC21264C6AE3009ADFC2 /* libutil.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = E12CCC20264C6AD8009ADFC2 /* libutil.tbd */; };
 		FC8A8A2814B6486E001B97AD /* chflags.c in Sources */ = {isa = PBXBuildFile; fileRef = FCB1BDCC14B6460C0070FACB /* chflags.c */; };
 		FC8A8BE414B6494B001B97AD /* chflags.1 in CopyFiles */ = {isa = PBXBuildFile; fileRef = FCB1BDCB14B6460C0070FACB /* chflags.1 */; };
 		FC8A8BE514B64958001B97AD /* chmod.c in Sources */ = {isa = PBXBuildFile; fileRef = FCB1BDD014B6460C0070FACB /* chmod.c */; };
@@ -336,6 +347,20 @@
 			proxyType = 1;
 			remoteGlobalIDString = FC8A8B8C14B648ED001B97AD;
 			remoteInfo = mtree;
+		};
+		D364587526782F4E004BF9E0 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = FCB1BDAF14B645D00070FACB /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = D3343F512609722E005A89FC;
+			remoteInfo = xattr;
+		};
+		D364587726782F65004BF9E0 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = FCB1BDAF14B645D00070FACB /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = D3343F512609722E005A89FC;
+			remoteInfo = xattr;
 		};
 		FC8A8C4914B64DE1001B97AD /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -853,33 +878,49 @@
 			dstPath = /AppleInternal/Tests/file_cmds;
 			dstSubfolderSpec = 0;
 			files = (
+				D391925D269E245800F7E564 /* xattr.sh in CopyFiles */,
+				D12B667D25A7511B00357CFE /* cp.sh in CopyFiles */,
+				D18CA1E925A74B2E00471787 /* touch.sh in CopyFiles */,
+				D18CA17925A746AD00471787 /* pax.sh in CopyFiles */,
 				3E966CF01FB2218A0019F7A1 /* chgrp.sh in CopyFiles */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		D178BEFA253DAE01001FC103 /* Copy plist */ = {
 			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
+			buildActionMask = 8;
 			dstPath = /AppleInternal/CoreOS/BATS/unit_tests;
 			dstSubfolderSpec = 0;
 			files = (
 				D178BEFB253DAE2A001FC103 /* file_cmds.plist in Copy plist */,
 			);
 			name = "Copy plist";
-			runOnlyForDeploymentPostprocessing = 0;
+			runOnlyForDeploymentPostprocessing = 1;
 		};
 		D178BF21253DAE2E001FC103 /* Copy tests */ = {
 			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
+			buildActionMask = 8;
 			dstPath = /AppleInternal/Tests/file_cmds;
 			dstSubfolderSpec = 0;
 			files = (
+				D391925E269E24A200F7E564 /* xattr.sh in Copy tests */,
 				D1B4221F25762FC8003E3A47 /* cp.sh in Copy tests */,
+				D18CA12D25A7469400471787 /* pax.sh in Copy tests */,
 				D178BF48253DAE45001FC103 /* touch.sh in Copy tests */,
 				D178BF22253DAE42001FC103 /* chgrp.sh in Copy tests */,
 			);
 			name = "Copy tests";
-			runOnlyForDeploymentPostprocessing = 0;
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		D3343F502609722E005A89FC /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = /usr/share/man/man1/;
+			dstSubfolderSpec = 0;
+			files = (
+				D3A3FFE5260C200E00EE3D39 /* xattr.1 in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
 		};
 		FC8A8B0F14B648D7001B97AD /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
@@ -1234,7 +1275,13 @@
 		7D0A20E82499364700F0F6D7 /* metrics.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = metrics.h; sourceTree = "<group>"; };
 		7D0A20E92499364700F0F6D7 /* metrics.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = metrics.c; sourceTree = "<group>"; };
 		D11B5750253C22BD009A59BF /* touch.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = touch.sh; sourceTree = "<group>"; };
+		D18CA12C25A7460C00471787 /* pax.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = pax.sh; sourceTree = "<group>"; };
 		D1B421D325762E9E003E3A47 /* cp.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = cp.sh; sourceTree = "<group>"; };
+		D3343F4D2609720F005A89FC /* xattr.1 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.man; path = xattr.1; sourceTree = "<group>"; };
+		D3343F522609722E005A89FC /* xattr */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = xattr; sourceTree = BUILT_PRODUCTS_DIR; };
+		D3343F542609722E005A89FC /* xattr.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = xattr.c; sourceTree = "<group>"; };
+		D391925C269E244800F7E564 /* xattr.sh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; path = xattr.sh; sourceTree = "<group>"; };
+		E12CCC20264C6AD8009ADFC2 /* libutil.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libutil.tbd; path = usr/lib/libutil.tbd; sourceTree = SDKROOT; };
 		FC8A8B1214B648D7001B97AD /* chmod */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = chmod; sourceTree = BUILT_PRODUCTS_DIR; };
 		FC8A8B1A14B648E0001B97AD /* chown */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = chown; sourceTree = BUILT_PRODUCTS_DIR; };
 		FC8A8B2214B648E3001B97AD /* cksum */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = cksum; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -1426,6 +1473,13 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		D3343F4F2609722E005A89FC /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		FC8A8B0E14B648D7001B97AD /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -1480,6 +1534,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				E12CCC21264C6AE3009ADFC2 /* libutil.tbd in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1625,6 +1680,8 @@
 				3E966CEC1FB2214F0019F7A1 /* file_cmds.plist */,
 				D11B5750253C22BD009A59BF /* touch.sh */,
 				D1B421D325762E9E003E3A47 /* cp.sh */,
+				D18CA12C25A7460C00471787 /* pax.sh */,
+				D391925C269E244800F7E564 /* xattr.sh */,
 			);
 			path = tests;
 			sourceTree = "<group>";
@@ -1632,14 +1689,25 @@
 		729D06D6230B5E42000716E5 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				E12CCC20264C6AD8009ADFC2 /* libutil.tbd */,
 				729D06D7230B5E42000716E5 /* CoreFoundation.framework */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
 		};
+		D3343F532609722E005A89FC /* xattr */ = {
+			isa = PBXGroup;
+			children = (
+				D3343F4D2609720F005A89FC /* xattr.1 */,
+				D3343F542609722E005A89FC /* xattr.c */,
+			);
+			path = xattr;
+			sourceTree = "<group>";
+		};
 		FCB1BDAD14B645D00070FACB = {
 			isa = PBXGroup;
 			children = (
+				D3343F532609722E005A89FC /* xattr */,
 				3E966CEA1FB221330019F7A1 /* tests */,
 				FCB1BDCA14B6460C0070FACB /* chflags */,
 				FCB1BDCE14B6460C0070FACB /* chmod */,
@@ -1708,6 +1776,7 @@
 				FC8A8BCA14B648EF001B97AD /* stat */,
 				FC8A8BD214B648F0001B97AD /* touch */,
 				FDAD94971808BB6D00B4D5A0 /* gzip */,
+				D3343F522609722E005A89FC /* xattr */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -2107,6 +2176,23 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		D3343F512609722E005A89FC /* xattr */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D3343F562609722E005A89FC /* Build configuration list for PBXNativeTarget "xattr" */;
+			buildPhases = (
+				D3343F4E2609722E005A89FC /* Sources */,
+				D3343F4F2609722E005A89FC /* Frameworks */,
+				D3343F502609722E005A89FC /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = xattr;
+			productName = xattr;
+			productReference = D3343F522609722E005A89FC /* xattr */;
+			productType = "com.apple.product-type.tool";
+		};
 		FC8A8B0B14B648D7001B97AD /* chmod */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = FC8A8B1014B648D7001B97AD /* Build configuration list for PBXNativeTarget "chmod" */;
@@ -2559,22 +2645,26 @@
 		FCB1BDAF14B645D00070FACB /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 0610;
+				LastUpgradeCheck = 1300;
 				ORGANIZATIONNAME = "Apple Inc.";
 				TargetAttributes = {
 					3E966CE71FB2211F0019F7A1 = {
 						CreatedOnToolsVersion = 9.2;
 						ProvisioningStyle = Automatic;
 					};
+					D3343F512609722E005A89FC = {
+						CreatedOnToolsVersion = 12.4;
+						ProvisioningStyle = Automatic;
+					};
 				};
 			};
 			buildConfigurationList = FCB1BDB214B645D00070FACB /* Build configuration list for PBXProject "file_cmds" */;
 			compatibilityVersion = "Xcode 3.2";
-			developmentRegion = English;
+			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
-				English,
 				en,
+				Base,
 			);
 			mainGroup = FCB1BDAD14B645D00070FACB;
 			productRefGroup = FCB1BDB914B645D10070FACB /* Products */;
@@ -2618,6 +2708,7 @@
 				FC8A8C5014B650CF001B97AD /* unlink */,
 				3E966CE71FB2211F0019F7A1 /* tests */,
 				729D07252347EC4D000716E5 /* macos_host_tools */,
+				D3343F512609722E005A89FC /* xattr */,
 			);
 		};
 /* End PBXProject section */
@@ -2778,6 +2869,14 @@
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		D3343F4E2609722E005A89FC /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D3343F552609722E005A89FC /* xattr.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		FC8A8B0C14B648D7001B97AD /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -3037,6 +3136,16 @@
 			isa = PBXTargetDependency;
 			target = FC8A8B8C14B648ED001B97AD /* mtree */;
 			targetProxy = 729D074F2347EC4D000716E5 /* PBXContainerItemProxy */;
+		};
+		D364587626782F4E004BF9E0 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = D3343F512609722E005A89FC /* xattr */;
+			targetProxy = D364587526782F4E004BF9E0 /* PBXContainerItemProxy */;
+		};
+		D364587826782F65004BF9E0 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = D3343F512609722E005A89FC /* xattr */;
+			targetProxy = D364587726782F65004BF9E0 /* PBXContainerItemProxy */;
 		};
 		FC8A8C4A14B64DE1001B97AD /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -3399,6 +3508,7 @@
 		3E966CE81FB2211F0019F7A1 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				CODE_SIGN_STYLE = Automatic;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
@@ -3407,14 +3517,45 @@
 		729D07692347EC4D000716E5 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				INSTALL_PATH = /usr/bin;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+		D3343F572609722E005A89FC /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				ENABLE_NS_ASSERTIONS = NO;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				MACOSX_DEPLOYMENT_TARGET = 11.3;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
 			};
 			name = Release;
 		};
 		FC8A8B1114B648D7001B97AD /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				INSTALL_PATH = /bin;
 			};
 			name = Release;
@@ -3422,6 +3563,7 @@
 		FC8A8B1914B648E0001B97AD /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				INSTALL_PATH = /usr/sbin;
 			};
 			name = Release;
@@ -3429,12 +3571,14 @@
 		FC8A8B2114B648E3001B97AD /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 			};
 			name = Release;
 		};
 		FC8A8B2914B648E5001B97AD /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = NO;
 			};
 			name = Release;
@@ -3442,6 +3586,7 @@
 		FC8A8B3114B648E7001B97AD /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				INSTALL_PATH = /bin;
 			};
 			name = Release;
@@ -3449,6 +3594,7 @@
 		FC8A8B3914B648EA001B97AD /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				CODE_SIGN_ENTITLEMENTS = dd/dd.entitlements;
 				"CODE_SIGN_ENTITLEMENTS[sdk=macosx*]" = "";
 				CODE_SIGN_IDENTITY = "-";
@@ -3461,6 +3607,7 @@
 		FC8A8B4114B648EA001B97AD /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				INSTALL_PATH = /bin;
 			};
 			name = Release;
@@ -3468,6 +3615,7 @@
 		FC8A8B4914B648EB001B97AD /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = NO;
 			};
 			name = Release;
@@ -3475,6 +3623,7 @@
 		FC8A8B5114B648EB001B97AD /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = NO;
 			};
 			name = Release;
@@ -3482,12 +3631,14 @@
 		FC8A8B5914B648EB001B97AD /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 			};
 			name = Release;
 		};
 		FC8A8B6114B648EC001B97AD /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				OTHER_CFLAGS = (
 					"-iquote",
 					"$(SDKROOT)/System/Library/Frameworks/Kernel.framework/PrivateHeaders",
@@ -3501,6 +3652,7 @@
 		FC8A8B6914B648EC001B97AD /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				INSTALL_PATH = /bin;
 			};
 			name = Release;
@@ -3508,6 +3660,7 @@
 		FC8A8B7114B648ED001B97AD /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"__FBSDID=__RCSID",
 					_DARWIN_USE_64_BIT_INODE,
@@ -3515,12 +3668,17 @@
 				);
 				GCC_WARN_64_TO_32_BIT_CONVERSION = NO;
 				INSTALL_PATH = /bin;
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-Wundef",
+				);
 			};
 			name = Release;
 		};
 		FC8A8B7914B648ED001B97AD /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				INSTALL_PATH = /bin;
 			};
 			name = Release;
@@ -3528,12 +3686,14 @@
 		FC8A8B8114B648ED001B97AD /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 			};
 			name = Release;
 		};
 		FC8A8B8914B648ED001B97AD /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				INSTALL_PATH = /sbin;
 			};
 			name = Release;
@@ -3541,6 +3701,7 @@
 		FC8A8B9114B648ED001B97AD /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"__FBSDID=__RCSID",
 					_DARWIN_USE_64_BIT_INODE,
@@ -3558,6 +3719,7 @@
 		FC8A8B9914B648EE001B97AD /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				INSTALL_PATH = /bin;
 			};
 			name = Release;
@@ -3565,19 +3727,26 @@
 		FC8A8BA114B648EE001B97AD /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 			};
 			name = Release;
 		};
 		FC8A8BA914B648EE001B97AD /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				INSTALL_PATH = /bin;
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-Wundef",
+				);
 			};
 			name = Release;
 		};
 		FC8A8BB114B648EF001B97AD /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				INSTALL_PATH = /bin;
 			};
 			name = Release;
@@ -3585,6 +3754,7 @@
 		FC8A8BB914B648EF001B97AD /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				INSTALL_PATH = /bin;
 			};
 			name = Release;
@@ -3592,6 +3762,7 @@
 		FC8A8BC914B648EF001B97AD /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"$(inherited)",
 					"HAVE_CONFIG_H=0",
@@ -3602,24 +3773,28 @@
 		FC8A8BD114B648F0001B97AD /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 			};
 			name = Release;
 		};
 		FC8A8C3E14B64A9D001B97AD /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 			};
 			name = Release;
 		};
 		FC8A8C4814B64DCE001B97AD /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 			};
 			name = Release;
 		};
 		FC8A8C5714B650CF001B97AD /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				INSTALL_PATH = /bin;
 			};
 			name = Release;
@@ -3627,18 +3802,21 @@
 		FC8A8C6214B652E1001B97AD /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 			};
 			name = Release;
 		};
 		FC8A8C6E14B6536D001B97AD /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 			};
 			name = Release;
 		};
 		FC8A8C7A14B6554E001B97AD /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				INSTALL_PATH = /bin;
 			};
 			name = Release;
@@ -3646,12 +3824,14 @@
 		FC8A8C8214B655ED001B97AD /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 			};
 			name = Release;
 		};
 		FC8A8CCF14B65F92001B97AD /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 			};
 			name = Release;
 		};
@@ -3659,12 +3839,32 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = YES;
 				CURRENT_PROJECT_VERSION = "$(RC_ProjectSourceVersion)";
 				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				GCC_C_LANGUAGE_STANDARD = gnu99;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
+				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"__FBSDID=__RCSID",
 					_DARWIN_USE_64_BIT_INODE,
@@ -3672,6 +3872,9 @@
 				GCC_WARN_64_TO_32_BIT_CONVERSION = NO;
 				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				INSTALL_PATH = /usr/bin;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -3688,6 +3891,7 @@
 		FCB1BDC414B645D10070FACB /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 			};
 			name = Release;
 		};
@@ -3695,12 +3899,18 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = FDAD94851808BB3A00B4D5A0 /* gzip.xcconfig */;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-Wundef",
+				);
 			};
 			name = Release;
 		};
 		FDFF0C941811BA2F00BFC477 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Release;
@@ -3720,6 +3930,14 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				729D07692347EC4D000716E5 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		D3343F562609722E005A89FC /* Build configuration list for PBXNativeTarget "xattr" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D3343F572609722E005A89FC /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

@@ -28,7 +28,6 @@ public:
                                                  uint64_t    maxSegmentSize);
 
     virtual void free() override;
-    unsigned int maximumCommandsSupported();
 
 protected:
     virtual bool initWithWorkLoop(IOWorkLoop* workLoop,

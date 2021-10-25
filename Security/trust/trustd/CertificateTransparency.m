@@ -108,7 +108,7 @@ SecAsn1Oid *oidForSigAlg(SSL_HashAlgorithm hash, SSL_SignatureAlgorithm alg)
 }
 
 
-static size_t SSLDecodeUint16(const uint8_t *p)
+static uint16_t SSLDecodeUint16(const uint8_t *p)
 {
     return (p[0]<<8 | p[1]);
 }
@@ -144,13 +144,16 @@ uint64_t SSLDecodeUint64(const uint8_t *p)
 static CFDataRef copy_x509_entry_from_chain(SecPVCRef pvc)
 {
     SecCertificateRef leafCert = SecPVCGetCertificateAtIndex(pvc, 0);
+    if (SecCertificateGetLength(leafCert) < 0) {
+        return NULL;
+    }
 
     CFMutableDataRef data = CFDataCreateMutable(kCFAllocatorDefault, 3+SecCertificateGetLength(leafCert));
 
     CFDataSetLength(data, 3+SecCertificateGetLength(leafCert));
 
     uint8_t *q = CFDataGetMutableBytePtr(data);
-    q = SSLEncodeUint24(q, SecCertificateGetLength(leafCert));
+    q = SSLEncodeUint24(q, (size_t)SecCertificateGetLength(leafCert));
     memcpy(q, SecCertificateGetBytePtr(leafCert), SecCertificateGetLength(leafCert));
 
     return data;
@@ -175,13 +178,13 @@ static CFDataRef copy_precert_entry_from_chain(SecPVCRef pvc)
     tbs_precert = SecCertificateCopyPrecertTBS(leafCert);
 
     require(issuerKeyHash, out);
-    require(tbs_precert, out);
+    require(tbs_precert && CFDataGetLength(tbs_precert) > 0, out);
     data = CFDataCreateMutable(kCFAllocatorDefault, CFDataGetLength(issuerKeyHash) + 3 + CFDataGetLength(tbs_precert));
     CFDataSetLength(data, CFDataGetLength(issuerKeyHash) + 3 + CFDataGetLength(tbs_precert));
 
     uint8_t *q = CFDataGetMutableBytePtr(data);
     memcpy(q, CFDataGetBytePtr(issuerKeyHash), CFDataGetLength(issuerKeyHash)); q += CFDataGetLength(issuerKeyHash); // issuer key hash
-    q = SSLEncodeUint24(q, CFDataGetLength(tbs_precert));
+    q = SSLEncodeUint24(q, (size_t)CFDataGetLength(tbs_precert));
     memcpy(q, CFDataGetBytePtr(tbs_precert), CFDataGetLength(tbs_precert));
 
 out:
@@ -202,7 +205,7 @@ uint64_t TimestampFromCFAbsoluteTime(CFAbsoluteTime at)
     return (uint64_t)(at + kCFAbsoluteTimeIntervalSince1970) * 1000;
 }
 
-static bool isSCTValidForLogData(CFDictionaryRef logData, int entry_type, CFAbsoluteTime sct_time, CFAbsoluteTime cert_expiry_date) {
+static bool isSCTValidForLogData(CFDictionaryRef logData, size_t entry_type, CFAbsoluteTime sct_time, CFAbsoluteTime cert_expiry_date) {
     /* only embedded SCTs can be used from retired logs. */
     if(entry_type==kSecCTEntryTypeCert && CFDictionaryContainsKey(logData, kSecCTRetirementDateKey)) {
         return false;
@@ -251,7 +254,7 @@ static bool isSCTValidForLogData(CFDictionaryRef logData, int entry_type, CFAbso
    If an entry for the same log already existing in the dictionary, the entry is replaced only if the timestamp of this SCT is earlier.
 
  */
-static CFDictionaryRef getSCTValidatingLog(CFDataRef sct, int entry_type, CFDataRef entry, uint64_t vt, CFAbsoluteTime cert_expiry_date, CFDictionaryRef trustedLogs, CFAbsoluteTime *sct_at)
+static CFDictionaryRef getSCTValidatingLog(CFDataRef sct, size_t entry_type, CFDataRef entry, uint64_t vt, CFAbsoluteTime cert_expiry_date, CFDictionaryRef trustedLogs, CFAbsoluteTime *sct_at)
 {
     uint8_t version;
     const uint8_t *logID;
@@ -271,9 +274,9 @@ static CFDictionaryRef getSCTValidatingLog(CFDataRef sct, int entry_type, CFData
     CFDictionaryRef result = 0;
 
     const uint8_t *p = CFDataGetBytePtr(sct);
-    size_t len = CFDataGetLength(sct);
+    size_t len = (size_t)CFDataGetLength(sct);
 
-    require(len>=43, out);
+    require(len>=43 && len < LONG_MAX, out);
 
     version = p[0]; p++; len--;
     logID = p; p+=32; len-=32;
@@ -306,7 +309,8 @@ static CFDictionaryRef getSCTValidatingLog(CFDataRef sct, int entry_type, CFData
     uint8_t *q;
 
     /* signed entry */
-    size_t signed_data_len = 12 + CFDataGetLength(entry) + 2 + extensionsLen ;
+    require(CFDataGetLength(entry) > 0, out);
+    size_t signed_data_len = 12 + (size_t)CFDataGetLength(entry) + 2 + extensionsLen ;
     signed_data = malloc(signed_data_len);
     require(signed_data, out);
     q = signed_data;
@@ -660,7 +664,7 @@ static void report_ct_analytics(SecPVCRef pvc, CFDictionaryRef currentLogsValida
     CFArrayRef builderScts = SecPathBuilderCopySignedCertificateTimestamps(pvc->builder);
     CFArrayRef ocspScts = copy_ocsp_scts(pvc);
 
-    uint32_t sctCount = 0;
+    CFIndex sctCount = 0;
     /* Count the total number of SCTs we found and report where we got them */
     if (embeddedScts && CFArrayGetCount(embeddedScts) > 0) {
         analytics->sct_sources |= TA_SCTEmbedded;
@@ -677,7 +681,7 @@ static void report_ct_analytics(SecPVCRef pvc, CFDictionaryRef currentLogsValida
     /* Report how many of those SCTs were once or currently qualified */
     analytics->number_trusted_scts = (uint32_t)trustedSCTCount;
     /* Report how many SCTs we got */
-    analytics->number_scts = sctCount;
+    analytics->number_scts = (uint32_t)sctCount;
     /* Only one current SCT -- close to failure */
     if (CFDictionaryGetCount(currentLogsValidatingScts) == 1) {
         analytics->ct_one_current = true;
@@ -692,9 +696,7 @@ void SecPolicyCheckCT(SecPVCRef pvc)
 {
     CFDictionaryRef trustedLogs = SecPathBuilderCopyTrustedLogs(pvc->builder);
     if (!trustedLogs) {
-        SecOTAPKIRef otapkiref = SecOTAPKICopyCurrentOTAPKIRef();
-        trustedLogs = SecOTAPKICopyTrustedCTLogs(otapkiref);
-        CFReleaseSafe(otapkiref);
+        trustedLogs = SecOTAPKICopyTrustedCTLogs();
     }
 
     CFDictionaryRef currentLogsValidatingScts = NULL;
@@ -721,9 +723,7 @@ bool SecPolicyCheckNonTlsCT(SecPVCRef pvc)
 {
     CFDictionaryRef trustedLogs = SecPathBuilderCopyTrustedLogs(pvc->builder);
     if (!trustedLogs) {
-        SecOTAPKIRef otapkiref = SecOTAPKICopyCurrentOTAPKIRef();
-        trustedLogs = SecOTAPKICopyNonTlsTrustedCTLogs(otapkiref);
-        CFReleaseSafe(otapkiref);
+        trustedLogs = SecOTAPKICopyNonTlsTrustedCTLogs();
     }
 
     CFDictionaryRef currentLogsValidatingScts = NULL;

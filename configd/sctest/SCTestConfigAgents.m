@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, 2017 Apple Inc. All rights reserved.
+ * Copyright (c) 2016, 2017, 2019, 2021 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -27,18 +27,18 @@
 #import <CoreFoundation/CFXPCBridge.h>
 #import <config_agent_info.h>
 
-#define TEST_DOMAIN	"filemaker.com"
-#define PATH_QUIESCE_TIME 1.5 // seconds
+#define TEST_DOMAIN	"apple.biz"
 
 @interface SCTestConfigAgent : SCTest
 @property NSString *serviceID;
 @property NSString *proxyKey;
-@property NSString *dnsKey;
 @property NSArray<NSArray<NSDictionary *> *> *testProxy;
-@property NSArray<NWEndpoint *> *testDNS;
-@property SCDynamicStoreRef store;
 @property (copy) NSArray<NSArray<NSDictionary *> *> *pathProxy;
+@property NSString *dnsKey;
+@property NSArray<NWEndpoint *> *testDNS;
 @property (copy) NSArray<NWEndpoint *> *pathDNS;
+@property (atomic, retain) dispatch_semaphore_t doneOrTimeoutCondition;
+@property (atomic) timerInfo *doneOrTimeoutElapsed;
 @end
 
 @implementation SCTestConfigAgent
@@ -48,10 +48,6 @@
 	self = [super initWithOptions:options];
 	if (self) {
 		_serviceID = @"8F66B505-EAEF-4611-BD4D-C523FD9451F0";
-		_store = SCDynamicStoreCreate(kCFAllocatorDefault,
-						CFSTR("SCTest"),
-						NULL,
-						NULL);
 		_proxyKey = (__bridge_transfer NSString *)[self copyStateKeyWithServiceID:(__bridge CFStringRef)(self.serviceID) forEntity:kSCEntNetProxies];
 		_dnsKey = (__bridge_transfer NSString *)[self copyStateKeyWithServiceID:(__bridge CFStringRef)(self.serviceID) forEntity:kSCEntNetDNS];
 	}
@@ -60,9 +56,8 @@
 
 - (void)dealloc
 {
-	if (self.store != NULL) {
-		CFRelease(self.store);
-		self.store = NULL;
+	if (self.doneOrTimeoutElapsed != nil) {
+		free(self.doneOrTimeoutElapsed);
 	}
 }
 
@@ -101,8 +96,52 @@
 	[self cleanupAndExitWithErrorCode:0];
 }
 
+- (NWPathEvaluator *)pathEvaluatorWithHostname:(nonnull NSString *)hostname
+					  port:(nonnull NSString *)port
+{
+	NWHostEndpoint	*endpoint;
+	NWPathEvaluator	*pathEvaluator;
+
+	endpoint = [NWHostEndpoint endpointWithHostname:hostname port:port];
+	pathEvaluator = [[NWPathEvaluator alloc] initWithEndpoint:endpoint parameters:NULL];
+	[pathEvaluator addObserver:self
+			forKeyPath:@"path"
+			   options:(NSKeyValueObservingOptionInitial | NSKeyValueObservingOptionNew)
+			   context:nil];
+
+	return pathEvaluator;
+}
+
+- (void)startPathChange
+{
+	if (self.doneOrTimeoutCondition == nil) {
+		self.doneOrTimeoutCondition = dispatch_semaphore_create(0);
+	}
+
+	if (self.doneOrTimeoutElapsed == nil) {
+		self.doneOrTimeoutElapsed = malloc(sizeof(timerInfo));
+	}
+	timerStart(self.doneOrTimeoutElapsed);
+}
+
+- (BOOL)waitForPathChange
+{
+	BOOL	changed	= NO;
+	long	status;
+
+	status = dispatch_semaphore_wait(self.doneOrTimeoutCondition,
+					 dispatch_time(DISPATCH_TIME_NOW, (uint64_t)(30 * NSEC_PER_SEC)));
+	if (status == 0) {
+		changed = YES;
+	}
+
+	timerEnd(self.doneOrTimeoutElapsed);
+
+	return changed;
+}
+
 - (CFStringRef)copyStateKeyWithServiceID:(CFStringRef)serviceID
-				 forEntity:(CFStringRef)entity
+			       forEntity:(CFStringRef)entity
 {
 	return SCDynamicStoreKeyCreateNetworkServiceEntity(kCFAllocatorDefault,
 							   kSCDynamicStoreDomainState,
@@ -133,26 +172,26 @@
 			  value:(NSDictionary *)value
 {
 
-	BOOL ok = SCDynamicStoreSetValue(self.store, (__bridge CFStringRef)key, (__bridge CFPropertyListRef _Nonnull)(value));
+	BOOL ok = SCDynamicStoreSetValue(NULL, (__bridge CFStringRef)key, (__bridge CFPropertyListRef _Nonnull)(value));
 	if (!ok) {
 		int error = SCError();
 		if (error == kSCStatusNoKey) {
 			return;
 		}
-		SCTestLog("Could not set in SCDynamicStore: Error: %s", SCErrorString(error));
+		SCTestLog("Could not set SCDynamicStore key: %@, Error: %s", key, SCErrorString(error));
 		return;
 	}
 }
 
 - (void)removeFromSCDynamicStore:(NSString *)key
 {
-	BOOL ok = SCDynamicStoreRemoveValue(self.store, (__bridge CFStringRef)key);
+	BOOL ok = SCDynamicStoreRemoveValue(NULL, (__bridge CFStringRef)key);
 	if (!ok) {
 		int error = SCError();
 		if (error == kSCStatusNoKey) {
 			return;
 		}
-		SCTestLog("Could not remove key: %@, Error: %s", key, SCErrorString(error));
+		SCTestLog("Could not remove SCDynamicStore key: %@, Error: %s", key, SCErrorString(error));
 		return;
 	}
 }
@@ -235,7 +274,6 @@
 
 - (void)cleanupAndExitWithErrorCode:(int)error
 {
-	CFRelease(self.store);
 	[super cleanupAndExitWithErrorCode:error];
 }
 
@@ -266,12 +304,12 @@
 
 - (BOOL)unitTestInstallProxy
 {
+	BOOL changed;
 	BOOL success = NO;
 	SCTestConfigAgent *test;
 	NSDictionary *proxyConfig;
 	NSString *hostname;
 	NSNumber *port;
-	NWHostEndpoint *hostEndpoint;
 	NWPathEvaluator *pathEvaluator;
 	NSMutableDictionary *dict;
 
@@ -288,35 +326,51 @@
 
 	hostname = [[proxyConfig objectForKey:(__bridge NSString *)kSCPropNetProxiesSupplementalMatchDomains] objectAtIndex:0];
 	port = [proxyConfig objectForKey:(__bridge NSString *)kSCPropNetProxiesHTTPPort];
-	hostEndpoint = [NWHostEndpoint endpointWithHostname:hostname port:port.stringValue];
-	pathEvaluator = [[NWPathEvaluator alloc] initWithEndpoint:hostEndpoint parameters:NULL];
-	[pathEvaluator addObserver:test
-			forKeyPath:@"path"
-			   options:NSKeyValueObservingOptionNew
-			   context:nil];
+	pathEvaluator = [test pathEvaluatorWithHostname:hostname port:port.stringValue];
 
 	do {
-		[test publishToSCDynamicStore:test.proxyKey value:proxyConfig];
+		// ==================================================
+
+		[test startPathChange];
+
 		dict = [NSMutableDictionary dictionaryWithDictionary:proxyConfig];
 		[dict removeObjectForKey:(__bridge NSString *)kSCPropNetProxiesSupplementalMatchDomains];
 		test.testProxy = @[@[dict]];
+		[test publishToSCDynamicStore:test.proxyKey value:proxyConfig];
 
-		// Wait for the path changes to quiesce
-		[test waitFor:PATH_QUIESCE_TIME];
-		if (![test.testProxy isEqualToArray:test.pathProxy]) {
-			SCTestLog("test proxy and applied proxy do not match. Test: %@, Applied: %@", test.testProxy, test.pathProxy);
+		changed = [test waitForPathChange];
+		if (!changed) {
+			SCTestLog("timeout, change not applied after %@s. Test: %@",
+				  createUsageStringForTimer(self.doneOrTimeoutElapsed),
+				  test.testProxy);
+			[test removeFromSCDynamicStore:test.dnsKey];
 			break;
 		}
+
+		if (![test.testProxy isEqualToArray:test.pathProxy]) {
+			SCTestLog("test proxy and applied proxy do not match. Test: %@, Applied: %@",
+				  test.testProxy,
+				  test.pathProxy);
+			[test removeFromSCDynamicStore:test.proxyKey];
+			break;
+		}
+
+		// ==================================================
+
+		[test startPathChange];
+
+		[test removeFromSCDynamicStore:test.proxyKey];
+
+		changed = [test waitForPathChange];
+		if (!changed) {
+			SCTestLog("timeout, cleanup not applied after %@s.",
+				  createUsageStringForTimer(self.doneOrTimeoutElapsed));
+			break;
+		}
+
+		// ==================================================
 
 		SCTestLog("Verified the configured proxy is the same as applied proxy");
-		[test removeFromSCDynamicStore:test.proxyKey];
-		test.testProxy = nil;
-		// Wait for the path changes to quiesce
-		[test waitFor:PATH_QUIESCE_TIME];
-		if (test.pathProxy != nil) {
-			SCTestLog("proxy applied when there is no test proxy");
-			break;
-		}
 
 		success = YES;
 	} while(0);
@@ -329,11 +383,11 @@
 
 - (BOOL)unitTestInstallDNS
 {
+	BOOL changed;
 	BOOL success = NO;
 	SCTestConfigAgent *test;
 	NSDictionary *dnsConfig;
 	NSString *hostname;
-	NWHostEndpoint *hostEndpoint;
 	NWPathEvaluator *pathEvaluator;
 
 	test = [[SCTestConfigAgent alloc] initWithOptions:self.options];
@@ -345,29 +399,49 @@
 	}
 
 	hostname = [[dnsConfig objectForKey:(__bridge NSString *)kSCPropNetDNSSupplementalMatchDomains] objectAtIndex:0];
-	hostEndpoint = [NWHostEndpoint endpointWithHostname:hostname port:@"80"];
-	pathEvaluator = [[NWPathEvaluator alloc] initWithEndpoint:hostEndpoint parameters:NULL];
-	[pathEvaluator addObserver:test
-			forKeyPath:@"path"
-			   options:NSKeyValueObservingOptionNew
-			   context:nil];
+	pathEvaluator = [test pathEvaluatorWithHostname:hostname port:@"80"];
 
 	do {
-		[test publishToSCDynamicStore:test.dnsKey value:dnsConfig];
-		test.testDNS = [test createDNSArray:dnsConfig];
+		// ==================================================
 
-		// Wait for the path changes to quiesce
-		[test waitFor:PATH_QUIESCE_TIME];
-		if (![test.testDNS isEqualToArray:test.pathDNS]) {
-			SCTestLog("test DNS and applied DNS do not match. Test: %@, Applied: %@", test.testDNS, test.pathDNS);
+		[test startPathChange];
+
+		test.testDNS = [test createDNSArray:dnsConfig];
+		[test publishToSCDynamicStore:test.dnsKey value:dnsConfig];
+
+		changed = [test waitForPathChange];
+		if (!changed) {
+			SCTestLog("timeout, change not applied after %@s. Test: %@",
+				  createUsageStringForTimer(self.doneOrTimeoutElapsed),
+				  test.testDNS);
+			[test removeFromSCDynamicStore:test.dnsKey];
 			break;
 		}
 
-		[test removeFromSCDynamicStore:test.dnsKey];
-		test.testDNS = nil;
-		[test waitFor:PATH_QUIESCE_TIME];
+		if (![test.testDNS isEqualToArray:test.pathDNS]) {
+			SCTestLog("test DNS and applied DNS do not match. Test: %@, Applied: %@",
+				  test.testDNS,
+				  test.pathDNS);
+			[test removeFromSCDynamicStore:test.dnsKey];
+			break;
+		}
 
-		SCTestLog("Verified that the configured DNS is same as applied DNS for a domain");
+		// ==================================================
+
+		[test startPathChange];
+
+		[test removeFromSCDynamicStore:test.dnsKey];
+
+		changed = [test waitForPathChange];
+		if (!changed) {
+			SCTestLog("timeout, cleanup not applied after %@s.",
+				  createUsageStringForTimer(self.doneOrTimeoutElapsed));
+		}
+
+		// ==================================================
+
+		SCTestLog("Verified that the configured DNS is same as applied DNS");
+
 		success = YES;
 	} while (0);
 
@@ -379,6 +453,7 @@
 
 - (BOOL)unitTestInstallProxyWithLargeConfig
 {
+	BOOL changed;
 	BOOL success = NO;
 	SCTestConfigAgent *test;
 	NSString *str = @"0123456789";
@@ -386,7 +461,6 @@
 	NSDictionary *proxyConfig;
 	NSString *hostname;
 	NSNumber *port;
-	NWHostEndpoint *hostEndpoint;
 	NWPathEvaluator *pathEvaluator;
 	NSMutableDictionary *dict;
 
@@ -407,25 +481,34 @@
 
 	hostname = [[proxyConfig objectForKey:(__bridge NSString *)kSCPropNetProxiesSupplementalMatchDomains] objectAtIndex:0];
 	port = [proxyConfig objectForKey:(__bridge NSString *)kSCPropNetProxiesHTTPPort];
-	hostEndpoint = [NWHostEndpoint endpointWithHostname:hostname port:port.stringValue];
-	pathEvaluator = [[NWPathEvaluator alloc] initWithEndpoint:hostEndpoint parameters:NULL];
-	[pathEvaluator addObserver:test
-			forKeyPath:@"path"
-			   options:NSKeyValueObservingOptionNew
-			   context:nil];
+	pathEvaluator = [test pathEvaluatorWithHostname:hostname port:port.stringValue];
 
 	do {
-		[test publishToSCDynamicStore:test.proxyKey value:proxyConfig];
+		// ==================================================
+
+		[test startPathChange];
+
 		dict = [NSMutableDictionary dictionaryWithDictionary:proxyConfig];
 		[dict removeObjectForKey:(__bridge NSString *)kSCPropNetProxiesSupplementalMatchDomains];
 		test.testProxy = @[@[dict]];
+		[test publishToSCDynamicStore:test.proxyKey value:proxyConfig];
 
-		// Wait for the path changes to quiesce
-		[test waitFor:PATH_QUIESCE_TIME];
-		if ([test.testProxy isEqualToArray:test.pathProxy]) {
-			SCTestLog("applied proxy does not contain Out of Band Agent UUID");
+		changed = [test waitForPathChange];
+		if (!changed) {
+			SCTestLog("timeout, change not applied after %@s. Test: %@",
+				  createUsageStringForTimer(self.doneOrTimeoutElapsed),
+				  test.testProxy);
+			[test removeFromSCDynamicStore:test.dnsKey];
 			break;
 		}
+
+		if ([test.testProxy isEqualToArray:test.pathProxy]) {
+			SCTestLog("applied proxy does not contain Out of Band Agent UUID");
+			[test removeFromSCDynamicStore:test.proxyKey];
+			break;
+		}
+
+		// ==================================================
 
 		// Now we verify that we are able to fetch the proxy configuration from configd
 		for (NSArray<NSDictionary *> *config in test.pathProxy) {
@@ -440,19 +523,26 @@
 
 		if (![test.testProxy isEqualToArray:test.pathProxy]) {
 			SCTestLog("Could not fetch proxy configuration from configd. Test: %@, Applied: %@", test.testProxy, test.pathProxy);
+			[test removeFromSCDynamicStore:test.proxyKey];
 			break;
 		}
 
-		SCTestLog("Verified that the proxy configuration is successfully fetched from configd");
-		test.testProxy = nil;
+		// ==================================================
+
+		[test startPathChange];
+
 		[test removeFromSCDynamicStore:test.proxyKey];
 
-		// Wait for the path changes to quiesce
-		[test waitFor:PATH_QUIESCE_TIME];
-		if (test.pathProxy != nil) {
-			SCTestLog("proxy applied when there is no test proxy");
+		changed = [test waitForPathChange];
+		if (!changed) {
+			SCTestLog("timeout, cleanup not applied after %@s.",
+				  createUsageStringForTimer(self.doneOrTimeoutElapsed));
 			break;
 		}
+
+		// ==================================================
+
+		SCTestLog("Verified that the proxy configuration is successfully fetched from configd");
 
 		success = YES;
 	} while (0);
@@ -465,74 +555,117 @@
 
 - (BOOL)unitTestInstallDNSWithConflictingDomain
 {
+	BOOL changed;
 	BOOL success = NO;
 	SCTestConfigAgent *test;
 	NSDictionary *dnsConfig;
 	NSString *hostname;
-	NWHostEndpoint *hostEndpoint;
 	NWPathEvaluator *pathEvaluator;
 
 	test = [[SCTestConfigAgent alloc] initWithOptions:self.options];
-	dnsConfig = @{	(__bridge NSString *)kSCPropNetDNSServerAddresses:@[@"10.10.10.101", @"10.10.10.102", @"10.10.10.103"],
-			(__bridge NSString *)kSCPropNetDNSSupplementalMatchDomains:@[@TEST_DOMAIN],
-			};
+	dnsConfig = @{(__bridge NSString *)kSCPropNetDNSServerAddresses:@[@"10.10.10.101", @"10.10.10.102", @"10.10.10.103"],
+		      (__bridge NSString *)kSCPropNetDNSSupplementalMatchDomains:@[@TEST_DOMAIN],
+		     };
 
 	hostname = [[dnsConfig objectForKey:(__bridge NSString *)kSCPropNetDNSSupplementalMatchDomains] objectAtIndex:0];
-	hostEndpoint = [NWHostEndpoint endpointWithHostname:hostname port:@"80"];
-	pathEvaluator = [[NWPathEvaluator alloc] initWithEndpoint:hostEndpoint parameters:NULL];
-	[pathEvaluator addObserver:test
-			forKeyPath:@"path"
-			   options:NSKeyValueObservingOptionNew
-			   context:nil];
+	pathEvaluator = [test pathEvaluatorWithHostname:hostname port:@"80"];
 
 	do {
-		NSDictionary *duplicateDnsConfig;
-		NSString *anotherFakeServiceID;
+		NSDictionary *anotherDNSConfig;
 		NSString *anotherDNSKey;
-		NSArray *array;
 		NSSet *testDNSSet;
 		NSSet *pathDNSSet;
 
-		[test publishToSCDynamicStore:test.dnsKey value:dnsConfig];
-		test.testDNS = [test createDNSArray:dnsConfig];
+		// ==================================================
 
-		// Wait for the path changes to quiesce
-		[test waitFor:PATH_QUIESCE_TIME];
-		if (![test.testDNS isEqualToArray:test.pathDNS]) {
-			SCTestLog("test DNS and applied DNS do not match. Test: %@, Applied: %@", test.testDNS, test.pathDNS);
+		[test startPathChange];
+
+		test.testDNS = [test createDNSArray:dnsConfig];
+		[test publishToSCDynamicStore:test.dnsKey value:dnsConfig];
+
+		changed = [test waitForPathChange];
+		if (!changed) {
+			SCTestLog("timeout, change not applied after %@s. Test: %@",
+				  createUsageStringForTimer(self.doneOrTimeoutElapsed),
+				  test.testDNS);
+			[test removeFromSCDynamicStore:test.dnsKey];
 			break;
 		}
 
+		if (![test.testDNS isEqualToArray:test.pathDNS]) {
+			SCTestLog("test DNS and applied DNS for conflicting domains do not match. Test: %@, Applied: %@",
+				  test.testDNS,
+				  test.pathDNS);
+			[test removeFromSCDynamicStore:test.dnsKey];
+			break;
+		}
+
+		// ==================================================
+
+		[test startPathChange];
+
 		// Now install the conflicting DNS configuration
-		duplicateDnsConfig = @{	(__bridge NSString *)kSCPropNetDNSServerAddresses:@[@"10.10.10.104", @"10.10.10.105", @"10.10.10.106"],
-					(__bridge NSString *)kSCPropNetDNSSupplementalMatchDomains:@[@TEST_DOMAIN],
-					};
+		anotherDNSConfig = @{(__bridge NSString *)kSCPropNetDNSServerAddresses:@[@"10.10.10.104", @"10.10.10.105", @"10.10.10.106"],
+				     (__bridge NSString *)kSCPropNetDNSSupplementalMatchDomains:@[@TEST_DOMAIN],
+				    };
 
-		anotherFakeServiceID = [NSUUID UUID].UUIDString;
-		anotherDNSKey = (__bridge_transfer NSString *)[self copyStateKeyWithServiceID:(__bridge CFStringRef)(anotherFakeServiceID) forEntity:kSCEntNetDNS];
+		anotherDNSKey = (__bridge_transfer NSString *)[self copyStateKeyWithServiceID:(__bridge CFStringRef)[NSUUID UUID].UUIDString
+										    forEntity:kSCEntNetDNS];
+		test.testDNS = [test.testDNS arrayByAddingObjectsFromArray:[test createDNSArray:anotherDNSConfig]];
+		[test publishToSCDynamicStore:anotherDNSKey value:anotherDNSConfig];
 
-		[test publishToSCDynamicStore:anotherDNSKey value:duplicateDnsConfig];
-		array = [test.testDNS arrayByAddingObjectsFromArray:[test createDNSArray:duplicateDnsConfig]];
-		test.testDNS = array;
+		changed = [test waitForPathChange];
+		if (!changed) {
+			// if timeout
+			SCTestLog("timeout, change not applied after %@s. Test: %@",
+				  createUsageStringForTimer(self.doneOrTimeoutElapsed),
+				  test.testDNS);
+			[test removeFromSCDynamicStore:anotherDNSKey];
+			[test removeFromSCDynamicStore:test.dnsKey];
+			break;
+		}
 
-		// Wait for the path changes to quiesce
-		[test waitFor:PATH_QUIESCE_TIME];
-
-		// Use NSSet for unordered comparison
+		// compare requested with actual (use NSSet for unordered comparison)
 		testDNSSet = [NSSet setWithArray:test.testDNS];
 		pathDNSSet = [NSSet setWithArray:test.pathDNS];
 		success = [testDNSSet isEqualToSet:pathDNSSet];
-		[test removeFromSCDynamicStore:anotherDNSKey];
 		if (!success) {
-			SCTestLog("test DNS and applied DNS for duplicate domains do not match. Test: %@, Applied: %@", test.testDNS, test.pathDNS);
+			SCTestLog("test DNS and applied DNS for conflicting domains do not match. Test: %@, Applied: %@",
+				  test.testDNS,
+				  test.pathDNS);
+			[test removeFromSCDynamicStore:anotherDNSKey];
+			[test removeFromSCDynamicStore:test.dnsKey];
 			break;
 		}
 
-		[test removeFromSCDynamicStore:test.dnsKey];
-		test.testDNS = nil;
-		[test waitFor:PATH_QUIESCE_TIME];
+		// ==================================================
 
-		SCTestLog("Verified that the configured DNS with duplicate domains is same as applied DNS for a domain");
+		[test startPathChange];
+
+		[test removeFromSCDynamicStore:anotherDNSKey];
+
+		changed = [test waitForPathChange];
+		if (!changed) {
+			SCTestLog("timeout, cleanup (1) not applied after %@s.",
+				  createUsageStringForTimer(self.doneOrTimeoutElapsed));
+		}
+
+		// ==================================================
+
+		[test startPathChange];
+
+		[test removeFromSCDynamicStore:test.dnsKey];
+
+		changed = [test waitForPathChange];
+		if (!changed) {
+			SCTestLog("timeout, cleanup (2) not applied after %@s.",
+				  createUsageStringForTimer(self.doneOrTimeoutElapsed));
+		}
+
+		// ==================================================
+
+		SCTestLog("Verified that the configured DNS with conflicting domains is same as applied DNS");
+
 		success = YES;
 
 	} while (0);
@@ -545,12 +678,12 @@
 
 - (BOOL)unitTestInstallProxyWithConflictingDomain
 {
+	BOOL changed;
 	BOOL success = NO;
 	SCTestConfigAgent *test;
 	NSDictionary *proxyConfig;
 	NSString *hostname;
 	NSNumber *port;
-	NWHostEndpoint *hostEndpoint;
 	NWPathEvaluator *pathEvaluator;
 
 	test = [[SCTestConfigAgent alloc] initWithOptions:self.options];
@@ -562,73 +695,111 @@
 
 	hostname = [[proxyConfig objectForKey:(__bridge NSString *)kSCPropNetProxiesSupplementalMatchDomains] objectAtIndex:0];
 	port = [proxyConfig objectForKey:(__bridge NSString *)kSCPropNetProxiesHTTPPort];
-	hostEndpoint = [NWHostEndpoint endpointWithHostname:hostname port:port.stringValue];
-	pathEvaluator = [[NWPathEvaluator alloc] initWithEndpoint:hostEndpoint parameters:NULL];
-	[pathEvaluator addObserver:test
-			forKeyPath:@"path"
-			   options:NSKeyValueObservingOptionNew
-			   context:nil];
+	pathEvaluator = [test pathEvaluatorWithHostname:hostname port:port.stringValue];
 
 	do {
-		NSMutableDictionary *dict;
+		NSMutableDictionary *dict1;
 		NSMutableDictionary *dict2;
-		NSDictionary *duplicateProxyConfig;
-		NSString *anotherFakeServiceID;
+		NSDictionary *anotherProxyConfig;
 		NSString *anotherProxyKey;
 		NSSet *testProxySet;
 		NSSet *pathProxySet;
 
-		[test publishToSCDynamicStore:test.proxyKey value:proxyConfig];
-		dict = [NSMutableDictionary dictionaryWithDictionary:proxyConfig];
-		[dict removeObjectForKey:(__bridge NSString *)kSCPropNetProxiesSupplementalMatchDomains];
-		test.testProxy = @[@[dict]];
+		// ==================================================
 
-		// Wait for the path changes to quiesce
-		[test waitFor:PATH_QUIESCE_TIME];
-		if (![test.testProxy isEqualToArray:test.pathProxy]) {
-			SCTestLog("test proxy and applied proxy do not match. Test: %@, Applied: %@", test.testProxy, test.pathProxy);
+		[test startPathChange];
+
+		dict1 = [NSMutableDictionary dictionaryWithDictionary:proxyConfig];
+		[dict1 removeObjectForKey:(__bridge NSString *)kSCPropNetProxiesSupplementalMatchDomains];
+		test.testProxy = @[@[dict1]];
+		[test publishToSCDynamicStore:test.proxyKey value:proxyConfig];
+
+		changed = [test waitForPathChange];
+		if (!changed) {
+			SCTestLog("timeout, change not applied after %@s. Test: %@",
+				  createUsageStringForTimer(self.doneOrTimeoutElapsed),
+				  test.testProxy);
+			[test removeFromSCDynamicStore:test.proxyKey];
 			break;
 		}
 
+		if (![test.testProxy isEqualToArray:test.pathProxy]) {
+			SCTestLog("test proxy and applied proxy do not match. Test: %@, Applied: %@",
+				  test.testProxy,
+				  test.pathProxy);
+			[test removeFromSCDynamicStore:test.proxyKey];
+			break;
+		}
+
+		// ==================================================
+
+		[test startPathChange];
+
 		// Now install the conflicting Proxy configuration
-		duplicateProxyConfig = @{(__bridge NSString *)kSCPropNetProxiesHTTPSEnable:@(1),
-							(__bridge NSString *)kSCPropNetProxiesHTTPSPort:@(8080),
-							(__bridge NSString *)kSCPropNetProxiesHTTPSProxy:@"10.10.10.101",
-							(__bridge NSString *)kSCPropNetProxiesSupplementalMatchDomains:@[@TEST_DOMAIN],
-							};
-		anotherFakeServiceID = [NSUUID UUID].UUIDString;
-		anotherProxyKey = (__bridge_transfer NSString *)[self copyStateKeyWithServiceID:(__bridge CFStringRef)(anotherFakeServiceID) forEntity:kSCEntNetProxies];
+		anotherProxyConfig = @{(__bridge NSString *)kSCPropNetProxiesHTTPSEnable:@(1),
+				       (__bridge NSString *)kSCPropNetProxiesHTTPSPort:@(8080),
+				       (__bridge NSString *)kSCPropNetProxiesHTTPSProxy:@"10.10.10.101",
+				       (__bridge NSString *)kSCPropNetProxiesSupplementalMatchDomains:@[@TEST_DOMAIN],
+				      };
+		anotherProxyKey = (__bridge_transfer NSString *)[self copyStateKeyWithServiceID:(__bridge CFStringRef)[NSUUID UUID].UUIDString
+										      forEntity:kSCEntNetProxies];
 
-		[test publishToSCDynamicStore:anotherProxyKey value:duplicateProxyConfig];;
-		dict2 = [NSMutableDictionary dictionaryWithDictionary:duplicateProxyConfig];
+		dict2 = [NSMutableDictionary dictionaryWithDictionary:anotherProxyConfig];
 		[dict2 removeObjectForKey:(__bridge NSString *)kSCPropNetProxiesSupplementalMatchDomains];
-		test.testProxy = @[@[dict],@[dict2]];
+		test.testProxy = @[@[dict1],@[dict2]];
+		[test publishToSCDynamicStore:anotherProxyKey value:anotherProxyConfig];;
 
-		// Wait for the path changes to quiesce
-		[test waitFor:PATH_QUIESCE_TIME];
+		changed = [test waitForPathChange];
+		if (!changed) {
+			SCTestLog("timeout, change not applied after %@s. Test: %@",
+				  createUsageStringForTimer(self.doneOrTimeoutElapsed),
+				  test.testProxy);
+			[test removeFromSCDynamicStore:anotherProxyKey];
+			[test removeFromSCDynamicStore:test.proxyKey];
+			break;
+		}
 
 		// Use NSSet for unordered comparison
 		testProxySet = [NSSet setWithArray:test.testProxy];
 		pathProxySet = [NSSet setWithArray:test.pathProxy];
 		success = [testProxySet isEqualToSet:pathProxySet];
-		[test removeFromSCDynamicStore:anotherProxyKey];
 		if (!success) {
-			SCTestLog("test proxy and applied proxy for duplicate domains do not match. Test: %@, Applied: %@", test.testDNS, test.pathDNS);
+			SCTestLog("test proxy and applied proxy for conflicting domains do not match. Test: %@, Applied: %@", test.testDNS, test.pathDNS);
+			[test removeFromSCDynamicStore:anotherProxyKey];
+			[test removeFromSCDynamicStore:test.proxyKey];
 			break;
 		}
 
-		SCTestLog("Verified the configured proxy with Duplicate domains is the same as applied proxy");
+		// ==================================================
+
+		[test startPathChange];
+
+		test.testProxy = nil;
+		[test removeFromSCDynamicStore:anotherProxyKey];
+
+		changed = [test waitForPathChange];
+		if (!changed) {
+			SCTestLog("timeout, cleanup (1) not applied after %@s.",
+				  createUsageStringForTimer(self.doneOrTimeoutElapsed));
+			break;
+		}
+
+		// ==================================================
+
+		[test startPathChange];
 
 		[test removeFromSCDynamicStore:test.proxyKey];
-		test.testProxy = nil;
 
-		// Wait for the path changes to quiesce
-		[test waitFor:PATH_QUIESCE_TIME];
-
-		if (test.pathProxy != nil) {
-			SCTestLog("proxy applied when there is no test proxy");
+		changed = [test waitForPathChange];
+		if (!changed) {
+			SCTestLog("timeout, cleanup (2) not applied after %@s.",
+				  createUsageStringForTimer(self.doneOrTimeoutElapsed));
 			break;
 		}
+
+		// ==================================================
+
+		SCTestLog("Verified the configured proxy with conflicting domains is the same as applied proxy");
 
 		success = YES;
 
@@ -648,9 +819,9 @@
 }
 
 - (void)observeValueForKeyPath:(NSString *)keyPath
-			ofObject:(id)object
+		      ofObject:(id)object
 			change:(NSDictionary *)change
-		context:(void *)context
+		       context:(void *)context
 {
 #pragma unused(change)
 #pragma unused(context)
@@ -658,6 +829,9 @@
 	if ([keyPath isEqualToString:@"path"]) {
 		self.pathProxy = pathEvaluator.path.proxySettings;
 		self.pathDNS = pathEvaluator.path.dnsServers;
+		if (self.doneOrTimeoutCondition != NULL) {
+			dispatch_semaphore_signal(self.doneOrTimeoutCondition);
+		}
 	}
 }
 

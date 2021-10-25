@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2019 Apple Inc. All rights reserved.
+ * Copyright (c) 2009-2021 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -166,6 +166,110 @@ do_bridgeflag(int sock, const char *ifs, int flag, int set)
 		err(1, "unable to set bridge flags");
 }
 
+#ifdef IFBIF_CHECKSUM_OFFLOAD
+
+static void
+print_bripstats(const char * msg, struct bripstats * stats_p)
+{
+	printf("%s IPv4=%qu IPv6=%qu UDP=%qu TCP=%qu",
+	       msg,
+	       stats_p->bips_ip,
+ 	       stats_p->bips_ip6,
+ 	       stats_p->bips_udp,
+ 	       stats_p->bips_tcp);
+	if (stats_p->bips_bad_ip != 0 || stats_p->bips_bad_ip6 != 0 ||
+	    stats_p->bips_bad_udp != 0 || stats_p->bips_bad_tcp != 0) {
+		printf(" bad IPv4=%qu IPv6=%qu UDP=%qu TCP=%qu",
+		       stats_p->bips_bad_ip,
+		       stats_p->bips_bad_ip6,
+		       stats_p->bips_bad_udp,
+		       stats_p->bips_bad_tcp);
+	}
+	printf("\n");
+}
+
+static void
+print_brcsumstats(const char * pre, struct brcsumstats * stats_p,
+		  const char * post)
+{
+	printf("%s IPv4=%qu UDP=%qu TCP=%qu%s",
+	       pre,
+	       stats_p->brcs_ip_checksum,
+	       stats_p->brcs_udp_checksum,
+	       stats_p->brcs_tcp_checksum,
+	       post);
+}
+
+static void
+show_member_stats(int s, const char * ifs)
+{
+	char *			buf;
+	struct ifbreq 		req;
+	struct ifbrmreq		mreq;
+	struct ifbrmstats *	stats;
+
+	/* check whether checksum offload is enabled */
+	bzero(&req, sizeof(req));
+	strlcpy(req.ifbr_ifsname, ifs, sizeof(req.ifbr_ifsname));
+
+	if (do_cmd(s, BRDGGIFFLGS, &req, sizeof(req), 0) < 0) {
+		err(1, "unable to get bridge flags");
+	}
+	if ((req.ifbr_ifsflags & IFBIF_CHECKSUM_OFFLOAD) == 0) {
+		return;
+	}
+
+	bzero(&mreq, sizeof(mreq));
+	strlcpy(mreq.brmr_ifname, ifs, sizeof(mreq.brmr_ifname));
+	if (do_cmd(s, BRDGGIFSTATS, &mreq, sizeof(mreq), 0) < 0) {
+		warn("unable to get bridge member stats size %s", ifs);
+		return;
+	}
+	if (mreq.brmr_elsize < sizeof(struct ifbrmstats)) {
+		warn("bridge stats incompatible size %d < %lu",
+		     mreq.brmr_elsize, sizeof(struct ifbrmstats));
+		return;
+	}
+	buf = malloc(mreq.brmr_len);
+	if (buf == NULL) {
+		err(1, "unable to allocate bridge stats");
+	}
+	stats = (struct ifbrmstats *)buf;
+	mreq.brmr_buf = buf;
+	if (do_cmd(s, BRDGGIFSTATS, &mreq, sizeof(mreq), 0) < 0) {
+		err(1, "unable to get bridge member stats %s", ifs);
+	}
+	printf("\t\tchecksum stats:\n");
+	print_bripstats("\t\tin:", &stats->brms_in_ip);
+	print_brcsumstats("\t\t\tchecksum offloaded:",
+			  &stats->brms_in_computed_cksum, "\n");
+	print_bripstats("\t\tout:", &stats->brms_out_ip);
+	print_brcsumstats("\t\t\tchecksum good sw:",
+			  &stats->brms_out_cksum_good,
+			  "");
+	print_brcsumstats(" hw:",
+			  &stats->brms_out_cksum_good_hw,
+			  "\n");
+	print_brcsumstats("\t\t\tchecksum bad sw:",
+			  &stats->brms_out_cksum_bad,
+			  "");
+	print_brcsumstats(" hw:",
+			  &stats->brms_out_cksum_bad_hw,
+			  "\n");
+	free(buf);
+}
+
+#else /* IFBIF_CHECKSUM_OFFLOAD */
+
+static void
+show_member_stats(int s, const char * ifs)
+{
+#pragma unused(s)
+#pragma unused(ifs)
+}
+
+#endif /* IFBIF_CHECKSUM_OFFLOAD */
+
 static void
 bridge_interfaces(int s, const char *prefix)
 {
@@ -257,6 +361,7 @@ bridge_interfaces(int s, const char *prefix)
 				ether_ntoa(&ea), inet_ntoa(in));
 			
 			printf("\n");
+			show_member_stats(s, req->ifbr_ifsname);
 		}
 	}
 
@@ -299,7 +404,6 @@ bridge_addresses(int s, const char *prefix)
 	free(inbuf);
 }
 
-#define MAX_IPv6_STR_LEN	INET6_ADDRSTRLEN
 static void
 bridge_mac_nat(int s, const char *prefix)
 {
@@ -933,8 +1037,14 @@ static struct cmd bridge_cmds[] = {
 	DEF_CMD_ARG("macnat",		setbridge_macnat),
 	DEF_CMD_ARG("-macnat",		unsetbridge_macnat),
 };
+
+#define BRIDGE_CLONE_NAME		"bridge"
+#define BRIDGE_CLONE_NAME_LENGTH	(sizeof(BRIDGE_CLONE_NAME) - 1)
+
 static struct afswtch af_bridge = {
 	.af_name	= "af_bridge",
+	.af_clone_name	= BRIDGE_CLONE_NAME,
+	.af_clone_name_length = BRIDGE_CLONE_NAME_LENGTH,
 	.af_af		= AF_UNSPEC,
 	.af_other_status = bridge_status,
 };

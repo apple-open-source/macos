@@ -87,7 +87,7 @@ void Parser::traceIn(const char* rname)
 	traceDepth++;
 
 	for( int i = 0; i < traceDepth; i++ )
-		printf(" ");;
+		printf(" ");
 
 	printf("%s",((ANTLR_USE_NAMESPACE(std)string)"> " + rname
 		+ "; LA(1)==" + LT(1)->getText()
@@ -98,7 +98,7 @@ void Parser::traceIn(const char* rname)
 void Parser::traceOut(const char* rname)
 {
 	for( int i = 0; i < traceDepth; i++ )
-        printf(" ");;
+        printf(" ");
 
 	printf("%s",((ANTLR_USE_NAMESPACE(std)string)"< " + rname
 		+ "; LA(1)==" + LT(1)->getText()

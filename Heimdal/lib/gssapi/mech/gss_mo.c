@@ -406,7 +406,7 @@ gss_inquire_saslname_for_mech(OM_uint32 *__nonnull minor_status,
 GSSAPI_LIB_FUNCTION OM_uint32 GSSAPI_LIB_CALL
 gss_inquire_mech_for_saslname(OM_uint32 *__nonnull minor_status,
 			      __nullable const gss_buffer_t sasl_mech_name,
-			      __nullable gss_OID *__nullable mech_type)
+			      __nullable gss_OID * __nonnull mech_type)
 {
     struct _gss_mech_switch *m;
     gss_buffer_desc name;
@@ -506,7 +506,7 @@ gss_indicate_mechs_by_attrs(OM_uint32 * __nonnull minor_status,
 			    __nullable gss_const_OID_set desired_mech_attrs,
 			    __nullable gss_const_OID_set except_mech_attrs,
 			    __nullable gss_const_OID_set critical_mech_attrs,
-			    __nonnull gss_OID_set * __nullable mechs)
+			    __nullable gss_OID_set * __nonnull mechs)
 {
     struct _gss_mech_switch *ms;
     gss_OID_set mech_attrs = GSS_C_NO_OID_SET;

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2005, 2009-2011, 2013, 2016-2019 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2005, 2009-2011, 2013, 2016-2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -54,24 +54,13 @@ SCDynamicStoreCopyMultiple(SCDynamicStoreRef	store,
 	CFDictionaryRef			expDict		= NULL;	/* dict (un-serialized / expanded) */
 	int				sc_status;
 
-	if (store == NULL) {
-		store = __SCDynamicStoreNullSession();
-		if (store == NULL) {
-			/* sorry, you must provide a session */
-			_SCErrorSet(kSCStatusNoStoreSession);
-			return NULL;
-		}
-	}
-
-	storePrivate = (SCDynamicStorePrivateRef)store;
-	if (storePrivate->server == MACH_PORT_NULL) {
-		_SCErrorSet(kSCStatusNoStoreServer);
-		return NULL;	/* you must have an open session to play */
+	if (!__SCDynamicStoreNormalize(&store, TRUE)) {
+		return NULL;
 	}
 
 	/* serialize the keys */
 	if (keys != NULL) {
-		if (!_SCSerialize(keys, &xmlKeys, (void **)&myKeysRef, &myKeysLen)) {
+		if (!_SCSerialize(keys, &xmlKeys, &myKeysRef, &myKeysLen)) {
 			_SCErrorSet(kSCStatusFailed);
 			return NULL;
 		}
@@ -79,12 +68,14 @@ SCDynamicStoreCopyMultiple(SCDynamicStoreRef	store,
 
 	/* serialize the patterns */
 	if (patterns != NULL) {
-		if (!_SCSerialize(patterns, &xmlPatterns, (void **)&myPatternsRef, &myPatternsLen)) {
+		if (!_SCSerialize(patterns, &xmlPatterns, &myPatternsRef, &myPatternsLen)) {
 			if (xmlKeys != NULL) CFRelease(xmlKeys);
 			_SCErrorSet(kSCStatusFailed);
 			return NULL;
 		}
 	}
+
+	storePrivate = (SCDynamicStorePrivateRef)store;
 
     retry :
 
@@ -146,20 +137,11 @@ SCDynamicStoreCopyValue(SCDynamicStoreRef store, CFStringRef key)
 	int				newInstance;
 	int				sc_status;
 
-	if (store == NULL) {
-		store = __SCDynamicStoreNullSession();
-		if (store == NULL) {
-			/* sorry, you must provide a session */
-			_SCErrorSet(kSCStatusNoStoreSession);
-			return NULL;
-		}
+	if (!__SCDynamicStoreNormalize(&store, TRUE)) {
+		return NULL;
 	}
 
 	storePrivate = (SCDynamicStorePrivateRef)store;
-	if (storePrivate->server == MACH_PORT_NULL) {
-		_SCErrorSet(kSCStatusNoStoreServer);
-		return NULL;	/* you must have an open session to play */
-	}
 
 	if (storePrivate->cache_active) {
 		if ((storePrivate->cached_set != NULL) &&
@@ -185,7 +167,7 @@ SCDynamicStoreCopyValue(SCDynamicStoreRef store, CFStringRef key)
 	}
 
 	/* serialize the key */
-	if (!_SCSerializeString(key, &utfKey, (void **)&myKeyRef, &myKeyLen)) {
+	if (!_SCSerializeString(key, &utfKey, &myKeyRef, &myKeyLen)) {
 		_SCErrorSet(kSCStatusFailed);
 		return NULL;
 	}

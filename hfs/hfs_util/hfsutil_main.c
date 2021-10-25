@@ -815,54 +815,7 @@ DoProbe(char *rawDeviceNamePtr, char *blockDeviceNamePtr)
 	/* get classic HFS volume name (from MDB) */
 	if (OSSwapBigToHostInt16(mdbPtr->drSigWord) == kHFSSigWord &&
 	    OSSwapBigToHostInt16(mdbPtr->drEmbedSigWord) != kHFSPlusSigWord) {
-	    	Boolean cfOK;
-		CFStringRef cfstr;
-		CFStringEncoding encoding;
-
-		/* Some poorly mastered HFS CDs have an empty MDB name field! */
-		if (mdbPtr->drVN[0] == '\0') {
-			strcpy((char *)&mdbPtr->drVN[1], gHFS_FS_NAME_NAME);
-			mdbPtr->drVN[0] = strlen(gHFS_FS_NAME_NAME);
-		}
-
-		/* Check for an encoding hint in the Finder Info (field 4). */
-		encoding = GET_HFS_TEXT_ENCODING(OSSwapBigToHostInt32(mdbPtr->drFndrInfo[4]));
-		if (encoding == kCFStringEncodingInvalidId) {
-			/* Next try the encoding bias in the kernel. */
-			encoding = GetEncodingBias();
-			if (encoding == 0 || encoding == kCFStringEncodingInvalidId)
-				encoding = __CFStringGetDefaultEncodingForHFSUtil();
-		}
-
-		cfstr = CFStringCreateWithPascalString(kCFAllocatorDefault,
-			    mdbPtr->drVN, encoding);
-		if (cfstr == NULL) {
-			result = FSUR_INVAL;
-			goto Return;
-		}
-		cfOK = _CFStringGetFileSystemRepresentation(cfstr, volnameUTF8, NAME_MAX);
-		CFRelease(cfstr);
-
-		if (!cfOK && encoding != kCFStringEncodingMacRoman) {
-
-		    	/* default to MacRoman on conversion errors */
-			cfstr = CFStringCreateWithPascalString(kCFAllocatorDefault,
-				    mdbPtr->drVN, kCFStringEncodingMacRoman);
-			_CFStringGetFileSystemRepresentation(cfstr, volnameUTF8, NAME_MAX);
-			CFRelease(cfstr);
-			encoding = kCFStringEncodingMacRoman;
-		}
- 
- 		/* Preload the encoding converter so mount_hfs can run as an ordinary user. */
- 		if (encoding != kCFStringEncodingMacRoman) {
- 			if (load_encoding(encoding) != FSUR_IO_SUCCESS) {
- 				encoding = kCFStringEncodingMacRoman;
-				cfstr = CFStringCreateWithPascalString(kCFAllocatorDefault, mdbPtr->drVN, encoding);
-				_CFStringGetFileSystemRepresentation(cfstr, volnameUTF8, NAME_MAX);
-				CFRelease(cfstr);
- 			}
- 		}
- 
+        result = FSUR_UNRECOGNIZED;
  	/* get HFS Plus volume name (from Catalog) */
 	} else if ((OSSwapBigToHostInt16(volHdrPtr->signature) == kHFSPlusSigWord)  ||
 	           (OSSwapBigToHostInt16(volHdrPtr->signature) == kHFSXSigWord)  ||

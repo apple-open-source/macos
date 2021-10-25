@@ -78,13 +78,13 @@ extern "C" {
 /*!
  * @function SMBResolveNetBIOSNameEx
  * @abstract Resolve the NetBIOS name to a set of sockaddr structures.
- * @param hostname The NetBIOS name that needs to be resolved
- * @param node_type suffix NetBIOS Name suffix
+ * @param hostName The NetBIOS name that needs to be resolved
+ * @param nodeType suffix NetBIOS Name suffix
  * @param timeout number of seconds to wait, 0 means use default value.
- * @param winserver Optional wins server dns name to use when resolving, if
+ * @param winServer Optional wins server dns name to use when resolving, if
  * null then use the system defined WINS server.
  * @param respAddr Sockaddr of the server that responded to the request.
- * @param count Number of sockaddr returned.
+ * @param outCount Number of sockaddr returned.
  * @result Returns an array of sockaddrs that must be freed with free(3).
  */
 SMBCLIENT_EXPORT
@@ -161,8 +161,8 @@ typedef struct NodeStatusInfo {
 /*!
  * @function SMBGetNodeStatus
  * @abstract Find all names associated using supplied host name.
- * @param hostname The host name of the server
- * @param count Number of node status info returned.
+ * @param hostName The host name of the server
+ * @param outCount Number of node status info returned.
  * @result Returns an array of node status info structures that must be free.
  */
 SMBCLIENT_EXPORT

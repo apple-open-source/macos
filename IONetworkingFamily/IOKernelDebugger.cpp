@@ -506,7 +506,7 @@ bool IOKernelDebugger::init( IOService *                 target,
 
     // Allocate memory for the ExpansionData structure.
 
-    _reserved = IONew( ExpansionData, 1 );
+    _reserved = IOMallocType(ExpansionData);
     if ( _reserved == 0 )
     {
         return false;
@@ -840,7 +840,7 @@ void IOKernelDebugger::free()
 		if ( _interfaceNotifier )
 			_interfaceNotifier->remove();
 
-        IODelete( _reserved, ExpansionData, 1 );
+        IOFreeType(_reserved, ExpansionData);
         _reserved = 0;
     }
 

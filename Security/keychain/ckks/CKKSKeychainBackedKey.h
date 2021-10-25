@@ -49,16 +49,6 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nullable) CKKSAESSIVKey* aessivkey;
 
 - (instancetype)init NS_UNAVAILABLE;
-- (instancetype _Nullable)initSelfWrappedWithAESKey:(CKKSAESSIVKey*)aeskey
-                                               uuid:(NSString*)uuid
-                                           keyclass:(CKKSKeyClass*)keyclass
-                                             zoneID:(CKRecordZoneID*)zoneID;
-
-- (instancetype _Nullable)initWrappedBy:(CKKSKeychainBackedKey*)wrappingKey
-                                 AESKey:(CKKSAESSIVKey*)aessivkey
-                                   uuid:(NSString*)uuid
-                               keyclass:(CKKSKeyClass*)keyclass
-                                 zoneID:(CKRecordZoneID*)zoneID;
 
 - (instancetype)initWithWrappedAESKey:(CKKSWrappedAESSIVKey* _Nullable)wrappedaeskey
                                  uuid:(NSString*)uuid
@@ -78,6 +68,12 @@ NS_ASSUME_NONNULL_BEGIN
 + (instancetype _Nullable)randomKeyWrappedBySelf:(CKRecordZoneID*)zoneID
                                            error:(NSError* __autoreleasing*)error;
 
++ (instancetype _Nullable)keyWrappedBySelf:(CKKSAESSIVKey*)aeskey
+                                      uuid:(NSString*)uuid
+                                  keyclass:(CKKSKeyClass*)keyclass
+                                    zoneID:(CKRecordZoneID*)zoneID
+                                     error:(NSError**)error;
+
 /* Helper functions for persisting key material in the keychain */
 - (BOOL)saveKeyMaterialToKeychain:(NSError* __autoreleasing*)error;
 - (BOOL)saveKeyMaterialToKeychain:(bool)stashTLK
@@ -93,17 +89,11 @@ NS_ASSUME_NONNULL_BEGIN
 + (NSDictionary* _Nullable)queryKeyMaterialInKeychain:(NSDictionary*)query
                                                 error:(NSError* __autoreleasing*)error;
 
-+ (instancetype _Nullable)keyFromKeychain:(NSString*)uuid
-                            parentKeyUUID:(NSString*)parentKeyUUID
-                                 keyclass:(CKKSKeyClass*)keyclass
-                                   zoneID:(CKRecordZoneID*)zoneID
-                                    error:(NSError* __autoreleasing*)error;
-
 /* Returns true if we believe this key wraps itself. */
 - (bool)wrapsSelf;
 
 // Attempts checks if the AES key is already loaded, or attempts to load it from the keychain. Returns nil if it fails.
-- (CKKSAESSIVKey* _Nullable)ensureKeyLoaded:(NSError* __autoreleasing*)error;
+- (CKKSAESSIVKey* _Nullable)ensureKeyLoadedFromKeychain:(NSError* __autoreleasing*)error;
 
 // On a self-wrapped key, determine if this AES-SIV key is the self-wrapped key.
 // If it is, save the key as this CKKSKey's unwrapped key.

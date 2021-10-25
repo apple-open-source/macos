@@ -101,8 +101,7 @@
 
         lastUpdate = [self.deps.stateHolder lastHealthCheckupDate:&accountLoadError];
 
-        CKKSViewManager* viewManager = self.deps.viewManager;
-        if([viewManager.lockStateTracker isLockedError: accountLoadError]) {
+        if([self.deps.lockStateTracker isLockedError:accountLoadError]) {
             secnotice("octagon-health", "device is locked, not performing cuttlefish check");
             [self runBeforeGroupFinished:self.finishOp];
             return;
@@ -135,7 +134,7 @@
         NSError* persistedError = nil;
         BOOL persisted = [self.deps.stateHolder persistLastHealthCheck:now error:&persistedError];
 
-        if([viewManager.lockStateTracker isLockedError: persistedError]) {
+        if([self.deps.lockStateTracker isLockedError:persistedError]) {
             secnotice("octagon-health", "device is locked, not performing cuttlefish check");
             [self runBeforeGroupFinished:self.finishOp];
             return;
@@ -153,7 +152,7 @@
     [self.deps.cuttlefishXPCWrapper requestHealthCheckWithContainer:self.deps.containerName
                                                             context:self.deps.contextID
                                                 requiresEscrowCheck: [self checkIfPasscodeIsSetForDevice]
-                                                              reply:^(BOOL postRepairCFU, BOOL postEscrowCFU, BOOL resetOctagon, BOOL leaveTrust, NSError *error) {
+                                                              reply:^(BOOL postRepairCFU, BOOL postEscrowCFU, BOOL resetOctagon, BOOL leaveTrust, OTEscrowMoveRequestContext *moveRequest, NSError *error) {
             STRONGIFY(self);
             if(error) {
                 secerror("octagon-health: error: %@", error);
@@ -162,21 +161,23 @@
                 [self runBeforeGroupFinished:self.finishOp];
                 return;
             } else {
-                secnotice("octagon-health", "cuttlefish came back with these suggestions\n: post repair? %d\n, post escrow? %d\n, reset octagon? %d\n leave trust? %d\n", postRepairCFU, postEscrowCFU, resetOctagon, leaveTrust);
+                secnotice("octagon-health", "cuttlefish came back with these suggestions: post repair? %d, post escrow? %d, reset octagon? %d, leave trust? %d, move record? %d", postRepairCFU, postEscrowCFU, resetOctagon, leaveTrust, moveRequest != nil);
                 [self handleRepairSuggestions:postRepairCFU
                                 postEscrowCFU:postEscrowCFU
                                  resetOctagon:resetOctagon
-                                   leaveTrust:leaveTrust];
+                                   leaveTrust:leaveTrust
+                                  moveRequest:moveRequest];
             }
         }];
 }
 
-- (void)handleRepairSuggestions:(BOOL)postRepairCFU postEscrowCFU:(BOOL)postEscrowCFU resetOctagon:(BOOL)resetOctagon leaveTrust:(BOOL)leaveTrust
+- (void)handleRepairSuggestions:(BOOL)postRepairCFU postEscrowCFU:(BOOL)postEscrowCFU resetOctagon:(BOOL)resetOctagon leaveTrust:(BOOL)leaveTrust moveRequest:(OTEscrowMoveRequestContext*)moveRequest
 {
     self.postEscrowCFU = postEscrowCFU;
     self.postRepairCFU = postRepairCFU;
     self.resetOctagon = resetOctagon;
     self.leaveTrust = leaveTrust;
+    self.moveRequest = moveRequest;
 
     if (resetOctagon) {
         secnotice("octagon-health", "Resetting Octagon as per Cuttlefish request");

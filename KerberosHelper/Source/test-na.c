@@ -154,7 +154,7 @@ kerberos_classic(CFStringRef hostname,
     CFDictionaryRef negToken;
     CFArrayRef array;
     CFIndex n;
-    NAHRef na;
+    NAHRef na = NULL;
 
     CFShow(CFSTR("test KRBCreateNegTokenLegacyKerberos"));
 
@@ -190,8 +190,11 @@ kerberos_classic(CFStringRef hostname,
 	ret = NAHSelectionAcquireCredential(s, NULL, &error);
 	printf("NAHSelectionAcquireCredential: %s\n", ret ? "yes" : "no");
 	CFShow(s);
-	if (error)
-	    CFShow(error);
+    if (error) {
+        CFShow(error);
+        CFRelease(error);
+        error = NULL;
+    }
 
 	if (ret) {
 	    CFDictionaryRef authinfo = NAHSelectionCopyAuthInfo(s);
@@ -266,20 +269,25 @@ verify_result(bool expect_mech_kerberos,
 				     &kCFTypeDictionaryValueCallBacks);
     
     if (spnego) {
-	negToken = KRBDecodeNegTokenInit(NULL, serverToken);
-	CFRelease(serverToken);
-	if (negToken == NULL)
-	    errx(1, "failed to decode NegTokenInit");
-	
-	CFShow(negToken);
+        negToken = KRBDecodeNegTokenInit(NULL, serverToken);
+        CFRelease(serverToken);
+        serverToken = NULL;
 
-	CFDictionaryAddValue(info, kNAHNegTokenInit, negToken);
-	CFRelease(negToken);
+        if (negToken == NULL)
+            errx(1, "failed to decode NegTokenInit");
+
+        CFShow(negToken);
+
+        CFDictionaryAddValue(info, kNAHNegTokenInit, negToken);
+        CFRelease(negToken);
     } else if (negToken) {
-	CFShow(negToken);
-	CFDictionaryAddValue(info, kNAHNegTokenInit, negToken);
+        CFShow(negToken);
+        CFDictionaryAddValue(info, kNAHNegTokenInit, negToken);
     }
-    CFRelease(serverToken);
+    if (serverToken) {
+        CFRelease(serverToken);
+        serverToken = NULL;
+    }
 
     
     
@@ -402,11 +410,11 @@ main(int argc, char **argv)
     lkdc_wellknown();
     test_ntlm();
 
-    kerberos_classic(CFSTR("host.ads.apple.com"), CFSTR("host"),
-		     CFSTR("ktestuser"), CFSTR("foobar"));
+    kerberos_classic(CFSTR("fs11.cead.apple.com"), CFSTR("host"),
+		     CFSTR("heimdal001@CORP.CEAD.APPLE.COM"), CFSTR("Apple1!"));
 
-    kerberos_classic(CFSTR("host.ads.apple.com"), CFSTR("host"),
-		     CFSTR("ktestuser@ADS.APPLE.COM"), CFSTR("foobar"));
+    kerberos_classic(CFSTR("fs11.cead.apple.com"), CFSTR("host"),
+             CFSTR("heimdal001@CORP.CEAD.APPLE.COM"), CFSTR("Apple1!"));
 
     system("/System/Library/PrivateFrameworks/Heimdal.framework/Helpers/gsstool destroy --all");
 

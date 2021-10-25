@@ -2025,6 +2025,9 @@ clip_get_selection(Clipboard_T *cbd)
 		    && get_y_register(STAR_REGISTER)->y_array != NULL))
 	    return;
 
+	// Avoid triggering autocmds such as TextYankPost.
+	block_autocmds();
+
 	// Get the text between clip_star.start & clip_star.end
 	old_y_previous = get_y_previous();
 	old_y_current = get_y_current();
@@ -2044,6 +2047,8 @@ clip_get_selection(Clipboard_T *cbd)
 	ca.count1 = 1;
 	ca.retval = CA_NO_ADJ_OP_END;
 	do_pending_operator(&ca, 0, TRUE);
+
+	// restore things
 	set_y_previous(old_y_previous);
 	set_y_current(old_y_current);
 	curwin->w_cursor = old_cursor;
@@ -2054,6 +2059,8 @@ clip_get_selection(Clipboard_T *cbd)
 	curbuf->b_op_end = old_op_end;
 	VIsual = old_visual;
 	VIsual_mode = old_visual_mode;
+
+	unblock_autocmds();
     }
     else if (!is_clipboard_needs_update())
     {

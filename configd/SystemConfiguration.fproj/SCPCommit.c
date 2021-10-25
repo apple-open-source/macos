@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2008, 2010-2013, 2015-2020 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2008, 2010-2013, 2015-2021 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -61,7 +61,7 @@ __SCPreferencesCommitChanges_helper(SCPreferencesRef prefs)
 			if (_sc_verbose) {
 				SC_log(LOG_NOTICE, "_SCSerialize() failed");
 				SC_log(LOG_NOTICE, "  prefs = %s",
-				      prefsPrivate->newPath ? prefsPrivate->newPath : prefsPrivate->path);
+				       prefsPrivate->path);
 			}
 			goto error;
 		}
@@ -192,7 +192,7 @@ SCPreferencesCommitChanges(SCPreferencesRef prefs)
 		}
 	}
 
-	path = prefsPrivate->newPath ? prefsPrivate->newPath : prefsPrivate->path;
+	path = prefsPrivate->path;
 	if (save) {
 		int		fd;
 		CFDataRef	newPrefs;
@@ -302,15 +302,6 @@ SCPreferencesCommitChanges(SCPreferencesRef prefs)
 		}
 		CFAllocatorDeallocate(NULL, thePath);
 
-		if (prefsPrivate->newPath) {
-			/* prefs file saved in "new" directory */
-			(void) unlink(prefsPrivate->path);
-			(void) symlink(prefsPrivate->newPath, prefsPrivate->path);
-			CFAllocatorDeallocate(NULL, prefsPrivate->path);
-			prefsPrivate->path = path;
-			prefsPrivate->newPath = NULL;
-		}
-
 		/* grab the new signature */
 		if (stat(path, &statBuf) == -1) {
 			_SCErrorSet(errno);
@@ -334,11 +325,11 @@ SCPreferencesCommitChanges(SCPreferencesRef prefs)
 
 	if (prefsPrivate->changed) {
 		SC_log(LOG_INFO, "SCPreferences() commit: %s, size=%lld",
-		       prefsPrivate->newPath ? prefsPrivate->newPath : prefsPrivate->path,
+		       prefsPrivate->path,
 		       __SCPreferencesPrefsSize(prefs));
 	} else {
 		SC_log(LOG_INFO, "SCPreferences() commit: %s, w/no changes",
-		       prefsPrivate->newPath ? prefsPrivate->newPath : prefsPrivate->path);
+		       prefsPrivate->path);
 	}
 
 	/* post notification */

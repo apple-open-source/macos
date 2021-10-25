@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2012-2018, 2021 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -52,6 +52,9 @@ EAPSIMAKAPersistentStateGetPseudonym(EAPSIMAKAPersistentStateRef persist,
 
 Boolean
 EAPSIMAKAPersistentStateTemporaryUsernameAvailable(EAPSIMAKAPersistentStateRef persist);
+
+void
+EAPSIMAKAPersistentStatePurgeTemporaryIDs(EAPSIMAKAPersistentStateRef persist);
 
 CFStringRef
 EAPSIMAKAPersistentStateGetSSID(EAPSIMAKAPersistentStateRef persist);

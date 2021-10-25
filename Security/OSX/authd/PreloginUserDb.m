@@ -18,6 +18,7 @@
 #import <Security/AuthorizationTagsPriv.h>
 #import <libaks_filevault.h>
 #import "authutilities.h"
+#import <os/boot_mode_private.h>
 
 AUTHD_DEFINE_LOG
 
@@ -133,11 +134,11 @@ OSStatus preloginDb(PreloginUserDb * _Nonnull * _Nonnull _Nonnulldb);
 - (BOOL)loadWithError:(NSError **)err
 {
     // get all preboot volumes
-    NSArray *prebootVolumes = [self allPrebootVolumes];
+    NSArray *prebootVolumes = [self relevantPrebootVolumes];
     if (prebootVolumes.count == 0) {
         os_log_error(AUTHD_LOG, "Failed to get preboot volumes for Prelogin userDB");
         if (err) {
-            *err = [NSError errorWithDomain:@"com.apple.authorization" code:-1000 userInfo:@{ NSLocalizedDescriptionKey : @"Failed to get preboot volumes for Prelogin userDB"}];
+            *err = [NSError errorWithDomain:@"com.apple.authorization" code:-1000 userInfo:@{ NSLocalizedDescriptionKey:@"Failed to get preboot volumes for Prelogin user database"}];
         }
         return NO;
     }
@@ -150,17 +151,12 @@ OSStatus preloginDb(PreloginUserDb * _Nonnull * _Nonnull _Nonnulldb);
         return noErr;
     };
 
-    [self processPrebootVolumes:prebootVolumes currentRecoveryVolumeUUID:uuid worker:volumeWorker];
-
-    if (_dbDataDict.count == 0 && uuid != nil) {
-        os_log(AUTHD_LOG, "No admins found. Try to load all preboot partitions");
-        _dbDataDict = [NSMutableDictionary new];
-        [self processPrebootVolumes:prebootVolumes currentRecoveryVolumeUUID:nil worker:volumeWorker]; // load admins from ALL preboot partitions
-    }
+    [self processPrebootVolumes:prebootVolumes worker:volumeWorker];
 
     if (err) {
         *err = nil;
     }
+    os_log_info(AUTHD_LOG, "AIR initial phase done.");
     return YES;
 }
 
@@ -205,6 +201,55 @@ OSStatus preloginDb(PreloginUserDb * _Nonnull * _Nonnull _Nonnulldb);
     return allUsers;
 }
 
+- (NSString *)sessionVolumeGroup
+{
+    static NSString *retval = nil;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        const char *chosenPath = kIODeviceTreePlane ":/chosen";
+        io_registry_entry_t chosen = IORegistryEntryFromPath(kIOMasterPortDefault, chosenPath);
+        
+        if (chosen != IO_OBJECT_NULL)  {
+            // Get the boot-uuid
+            NSObject *bootUUID = CFBridgingRelease(IORegistryEntryCreateCFProperty(chosen, CFSTR("boot-uuid"), NULL, 0));
+            IOObjectRelease(chosen);
+            
+            // Sanity check the type and convert it to string.
+            if ([bootUUID isKindOfClass:[NSData class]]) {
+                size_t length = strnlen([(NSData *)bootUUID bytes], [(NSData *)bootUUID length]);
+                retval = [[NSString alloc] initWithBytes:[(NSData *)bootUUID bytes] length:length encoding:NSUTF8StringEncoding];
+                os_log(AUTHD_LOG, "Boot UUID data %{public}@", retval);
+            } else if ([bootUUID isKindOfClass:[NSString class]]) {
+                retval = (NSString *)bootUUID;
+                os_log(AUTHD_LOG, "Boot UUID string %{public}@", retval);
+            } else {
+                os_log(AUTHD_LOG, "Boot UUID is missing or not a valid object type.");
+            }
+            
+            if (retval) {
+                // is this UUID a volumeGroup?
+                DMAPFS *dmAPFS = [[getDMAPFSClass() alloc] initWithManager:_diskMgr];
+
+                // first look if the UUID belongs to the volume group
+                NSArray *dataVolumes;
+                DMDiskErrorType diskErr = [dmAPFS disksForVolumeGroup:retval volumeDisks:nil systemVolumeDisks:nil dataVolumeDisks:&dataVolumes userVolumeDisks:nil container:nil];
+                if (!diskErr && dataVolumes.count) {
+                    NSString *uuid;
+                    diskErr = [dmAPFS volumeUUIDForVolume:(__bridge DADiskRef _Nonnull)(dataVolumes[0]) UUID:&uuid];
+                    if (diskErr) {
+                        os_log_error(AUTHD_LOG, "Failed to get UUID for data volume %{public}@: %{public}@", dataVolumes[0], soft_DMUnlocalizedTechnicalErrorString(diskErr));
+                    } else {
+                        retval = uuid;
+                        os_log(AUTHD_LOG, "Using data volume UUID %{public}@", retval);
+                    }
+                }
+            }
+        }
+    });
+
+    return retval;
+}
+
 - (NSDictionary *)globalPrefs:(NSString *)uuid domain:(NSString *)domain
 {
     NSDictionary *volumeGlobalPrefs = _globalPrefs[uuid];
@@ -241,7 +286,9 @@ OSStatus preloginDb(PreloginUserDb * _Nonnull * _Nonnull _Nonnulldb);
 
 - (OSStatus)setEnforcedSmartcardOverride:(NSUUID *)uuid operation:(unsigned char)operation status:(Boolean *)status internal:(Boolean)internal
 {
-    if (!isInFVUnlock()) {
+    os_log_info(AUTHD_LOG, "Enforcement operation %d on %{public}@%s", operation, uuid.UUIDString, internal ? " (internal)":"");
+    
+    if (!isInFVUnlockOrRecovery()) {
         if (operation == kAuthorizationOverrideOperationQuery && !internal) {
             if (status) {
                 *status = scEnforcementOverriden;
@@ -253,11 +300,16 @@ OSStatus preloginDb(PreloginUserDb * _Nonnull * _Nonnull _Nonnulldb);
         }
     }
     
-    NSArray *prebootVolumes = [self allPrebootVolumes];
+    NSArray *prebootVolumes = [self relevantPrebootVolumes];
     __block OSStatus retval = errAuthorizationInternal;
     
     OSStatus (^volumeWorker)(NSUUID *volumeUuid, NSString *mountPoint) = ^OSStatus(NSUUID *volumeUuid, NSString *mountPoint) {
 
+        if (uuid && [volumeUuid isNotEqualTo:uuid]) {
+            os_log_info(AUTHD_LOG, "The preboot volume skipped: %{public}@ (not the expected %{public}@)", volumeUuid, uuid);
+            return errInvalidRange;
+        }
+        
         NSString *usersPath = [NSString stringWithFormat:kUsersFile, mountPoint, volumeUuid.UUIDString];
         if (access(usersPath.UTF8String, F_OK)) {
             os_log_info(AUTHD_LOG, "This preboot volume is not usable for FVUnlock");
@@ -294,8 +346,8 @@ OSStatus preloginDb(PreloginUserDb * _Nonnull * _Nonnull _Nonnulldb);
                     os_log(AUTHD_LOG, "SmartCard enforcement override not active.");
                     retval = errSecNoSuchAttr;
                 } else {
-                    os_log(AUTHD_LOG, "SmartCard enforcement override turned off");
                     retval = (OSStatus)remove(filePath.UTF8String);
+                    os_log(AUTHD_LOG, "SmartCard enforcement override turned off: %d", (int)retval);
                 }
                 break;
             }
@@ -318,27 +370,47 @@ OSStatus preloginDb(PreloginUserDb * _Nonnull * _Nonnull _Nonnulldb);
         return retval;
     };
 
-    [self processPrebootVolumes:prebootVolumes currentRecoveryVolumeUUID:uuid worker:volumeWorker];
+    [self processPrebootVolumes:prebootVolumes worker:volumeWorker];
     
     return retval;
 }
 
 #pragma mark - Private Methods
 
-- (void)processPrebootVolumes:(NSArray*)prebootVolumes currentRecoveryVolumeUUID:(NSUUID *)currentRecoveryVolumeUUID worker:(OSStatus (^)(NSUUID *volumeUuid, NSString *mountPoint))workerBlock
++ (Boolean)fvunlockMode
+{
+    static Boolean result = NO;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        const char *bootMode = NULL;
+        if (os_boot_mode_query(&bootMode) && bootMode != NULL )
+        {
+            // FVUnlock and Migration are the modes where no AIR support is needed
+            result = (strcmp(bootMode, OS_BOOT_MODE_FVUNLOCK) == 0) || (strcmp(bootMode, OS_BOOT_MODE_MIGRATION) == 0);
+            os_log(AUTHD_LOG, "FVUnlock session: %d", result);
+        }
+    });
+    
+    return result;
+}
+
+- (void)processPrebootVolumes:(NSArray*)prebootVolumes worker:(OSStatus (^)(NSUUID *volumeUuid, NSString *mountPoint))workerBlock
 {
     // process each preboot volume
     for (id prebootVolume in prebootVolumes) {
 
-        // mount the preboot volume. If it fails it could be already mounted. Try to get mountPoint anyway.
-        Boolean mounted = [self mountPrebootVolume:prebootVolume];
-
-        // get a mount point of the preboot volume
-        NSString *mountPoint = [self mountPointForPrebootVolume:prebootVolume];
+        BOOL weMountedPreboot = NO;
+        NSString *mountPoint = [_diskMgr mountPointForDisk:(__bridge DADiskRef _Nonnull)(prebootVolume) error:NULL];
         if (!mountPoint) {
-            os_log_info(AUTHD_LOG, "Volume %{public}@ has no mountpoint", prebootVolume);
-            continue;
+            weMountedPreboot = [self mountPrebootVolume:prebootVolume];
+            if (weMountedPreboot) {
+                mountPoint = [_diskMgr mountPointForDisk:(__bridge DADiskRef _Nonnull)(prebootVolume) error:NULL];
+            } else {
+                os_log_error(AUTHD_LOG, "Unable to mount %{public}@", prebootVolume);
+                continue;
+            }
         }
+        os_log_error(AUTHD_LOG, "Preboot %{public}@ mounted at  %{public}@", prebootVolume, mountPoint);
 
         // process the preboot volume
         NSDirectoryEnumerator *dirEnumerator = [[NSFileManager defaultManager] enumeratorAtURL:[NSURL fileURLWithPath:mountPoint isDirectory:YES] includingPropertiesForKeys:nil options:NSDirectoryEnumerationSkipsSubdirectoryDescendants errorHandler:nil];
@@ -356,28 +428,67 @@ OSStatus preloginDb(PreloginUserDb * _Nonnull * _Nonnull _Nonnulldb);
                 continue;
             }
 
-            if (currentRecoveryVolumeUUID && ![currentRecoveryVolumeUUID isEqualTo:volumeUUID]) {
-                os_log_info(AUTHD_LOG, "The preboot volume skipped: %{public}@ (not the currentRecoveryVolumeUUID %{public}@)", url, currentRecoveryVolumeUUID);
-                continue;
-            }
-
             if (workerBlock) {
                 workerBlock(volumeUUID, mountPoint);
             }
         }
 
         // unmount the preboot volume
-        if (mounted) {
+        if (weMountedPreboot) {
             [self unmountPrebootVolume:prebootVolume];
         }
     }
+}
+
+// For FVUnlock or Migration, return just the disks from the current container
+// For all other cases, return all available disks
+- (NSArray *)disksWithPrebootCandidates:(DMAPFS *)dmAPFS
+{
+    NSArray *retval = _diskMgr.disks;
+
+    // For FVUnlock only, we need to ignore all volumes not belonging to the
+    // current container. Only if enumeration fails, use all disks like before
+    if (![PreloginUserDb fvunlockMode]) {
+        return retval;
+    }
+    
+    NSString *dataVolumeUuid = [self sessionVolumeGroup];
+    if (!dataVolumeUuid) {
+        // error, should be set in FVUnlock, we have to parse all volumes
+        os_log_error(AUTHD_LOG, "Unable to get data volume UUID");
+        return retval;
+    }
+    
+    DADiskRef cfDisk;
+    DMDiskErrorType diskErr = [dmAPFS volumeForVolumeUUID:dataVolumeUuid volume:&cfDisk];
+    id systemDiskRef = CFBridgingRelease(cfDisk);
+    if (diskErr) {
+        os_log(AUTHD_LOG, "Failed to determine volume for UUID %{public}@: %{public}@", dataVolumeUuid, soft_DMUnlocalizedTechnicalErrorString(diskErr));
+        return retval;
+    }
+
+    diskErr = [dmAPFS containerForVolume:(__bridge DADiskRef _Nonnull)(systemDiskRef) container:&cfDisk];
+    id container = CFBridgingRelease(cfDisk);
+    if (diskErr) {
+        os_log(AUTHD_LOG, "Failed to determine container for volume %{public}@: %{public}@", systemDiskRef, soft_DMUnlocalizedTechnicalErrorString(diskErr));
+        return retval;
+    }
+    
+    diskErr = [dmAPFS volumesForContainer:(__bridge DADiskRef _Nonnull)(container) volumes:&retval];
+    if (diskErr) {
+        os_log(AUTHD_LOG, "Failed to get volumes for container %{public}@: %{public}@", container, soft_DMUnlocalizedTechnicalErrorString(diskErr));
+        return retval;
+    }
+    
+    // fallback if everything fails, use all disks
+    return retval ? : _diskMgr.disks;
 }
 
 #define kEFISystemVolumeUUIDVariableName "SystemVolumeUUID"
 - (NSUUID *)currentRecoveryVolumeUUID
 {
     NSData *data;
-    NSString * const LANVRAMNamespaceStartupManager = @"5EEB160F-45FB-4CE9-B4E3-610359ABF6F8";
+    NSString *const LANVRAMNamespaceStartupManager = @"5EEB160F-45FB-4CE9-B4E3-610359ABF6F8";
     
     NSString *key = [NSString stringWithFormat:@"%@:%@", LANVRAMNamespaceStartupManager, @kEFISystemVolumeUUIDVariableName];
     
@@ -386,8 +497,7 @@ OSStatus preloginDb(PreloginUserDb * _Nonnull * _Nonnull _Nonnulldb);
         CFTypeRef entry = IORegistryEntryCreateCFProperty(match, (__bridge CFStringRef)key, kCFAllocatorDefault, 0);
         IOObjectRelease(match);
         
-        if (entry)
-        {
+        if (entry) {
             if (CFGetTypeID(entry) == CFDataGetTypeID())
                 data = CFBridgingRelease(entry);
             else
@@ -398,20 +508,20 @@ OSStatus preloginDb(PreloginUserDb * _Nonnull * _Nonnull _Nonnulldb);
     
     if (data) {
         return [[NSUUID alloc] initWithUUIDBytes:data.bytes];
-    } else {
-        return nil;
     }
+    
+    return nil;
 }
 
-- (NSArray *)allPrebootVolumes
+- (NSArray *)relevantPrebootVolumes
 {
-    NSMutableArray* result = [NSMutableArray new];
+    NSMutableArray *result = [NSMutableArray new];
 
-    DMAPFS* dmAPFS = [[getDMAPFSClass() alloc] initWithManager:_diskMgr];
+    DMAPFS *dmAPFS = [[getDMAPFSClass() alloc] initWithManager:_diskMgr];
 
-    for (id tmp in _diskMgr.disks) {
+    
+    for (id tmp in [self disksWithPrebootCandidates:dmAPFS]) {
         DADiskRef diskRef = (__bridge DADiskRef)(tmp);
-        os_log_info(AUTHD_LOG, "Found disk %{public}@", diskRef);
         
         BOOL preboot;
         DMDiskErrorType diskErr = [dmAPFS isPrebootVolume:diskRef prebootRole:&preboot];
@@ -443,25 +553,15 @@ OSStatus preloginDb(PreloginUserDb * _Nonnull * _Nonnull _Nonnulldb);
     AIRDBDACommonCompletionHandler completionHandler = ^(DADissenterRef dissenter) {
         success = (dissenter == NULL);
         if (dissenter != NULL) {
-            os_log(AUTHD_LOG, "Failed to mount preboot volume %{public}@ (status: 0x%x, reason: \"%{public}@\").", preboot, soft_DADissenterGetStatus(dissenter), soft_DADissenterGetStatusString(dissenter));
+            os_log_error(AUTHD_LOG, "Failed to mount preboot volume %{public}@ (status: 0x%x, reason: \"%{public}@\").", preboot, soft_DADissenterGetStatus(dissenter), soft_DADissenterGetStatusString(dissenter));
         }
         dispatch_semaphore_signal(sem);
     };
     soft_DADiskMount((__bridge DADiskRef _Nonnull)(preboot), NULL, kDADiskMountOptionDefault, _commonDACompletionCallback, (__bridge void * _Nullable)(completionHandler));
     dispatch_semaphore_wait(sem, DISPATCH_TIME_FOREVER);
-    return success;
-}
+    os_log_info(AUTHD_LOG, "Mount preboot volume %{public}@ result: %d", preboot, success);
 
-- (NSString *)mountPointForPrebootVolume:(id)preboot
-{
-    DMDiskErrorType diskErr;
-    NSString* result = [_diskMgr mountPointForDisk:(__bridge DADiskRef _Nonnull)(preboot) error:&diskErr];
-    if (result) {
-        os_log_info(AUTHD_LOG, "Mounted preboot partition %{public}@ at %{public}@", preboot, result);
-    } else {
-        os_log_error(AUTHD_LOG, "Failed to get preboot mount point: %{public}@", soft_DMUnlocalizedTechnicalErrorString(diskErr));
-    }
-    return result;
+    return success;
 }
 
 - (void)unmountPrebootVolume:(id)preboot
@@ -483,7 +583,7 @@ OSStatus preloginDb(PreloginUserDb * _Nonnull * _Nonnull _Nonnulldb);
         CFRetain(*diskRef);
     }
     os_log_info(AUTHD_LOG, "Found disk %{public}@ with volume UUID %{public}@", localDiskRef, volumeUuid);
-    NSString* deviceNode = [self deviceNodeForDisk:localDiskRef];
+    NSString *deviceNode = [self deviceNodeForDisk:localDiskRef];
     CFRelease(localDiskRef);
     return deviceNode;
 }
@@ -545,46 +645,68 @@ OSStatus preloginDb(PreloginUserDb * _Nonnull * _Nonnull _Nonnulldb);
 
 - (void)processVolumeData:(NSUUID *)volumeUuid mountPoint:(NSString *)mountPoint
 {
+    // volumeUuid is the name of the folder on a Preboot volume
+    // we need to find out what kind of UUID this is
+    // it can be either
+    // - UUID of the system volume
+    // - UUID of the data volume
+    // - UUID of the volume group
+    
     os_log_info(AUTHD_LOG, "Processing volume data: %{public}@", volumeUuid);
     NSData *vek = [self loadVEKforVolumeWithUUID:volumeUuid mountPoint:mountPoint];
     if (!vek) {
         return;
     }
+    
+    __block NSString *deviceNode = nil;
+    NSArray *systemVolumeDisks = nil;
+    NSArray *dataVolumeDisks = nil;
+    DMAPFS *dmAPFS = [[getDMAPFSClass() alloc] initWithManager:_diskMgr];
 
-    DADiskRef cfDiskRef = NULL;
-    NSString* deviceNode = [self deviceNodeForVolumeWithUUID:volumeUuid diskRef:&cfDiskRef];
-    id diskRef = CFBridgingRelease(cfDiskRef);
-    if (!deviceNode) {
-        return;
-    }
-    NSString *volumeGroupUuid;
-    DMAPFS* dmAPFS = [[getDMAPFSClass() alloc] initWithManager:_diskMgr];
-    DMDiskErrorType diskErr = [dmAPFS volumeGroupForVolume:(__bridge DADiskRef _Nonnull)(diskRef) id:&volumeGroupUuid];
-    if (diskErr != kDiskErrorNoError || volumeGroupUuid == nil) {
-        os_log_error(AUTHD_LOG, "Error %d while trying to get volume group for %{public}@", diskErr, volumeUuid);
+    // first look if the UUID belongs to the volume group
+    DMDiskErrorType diskErr = [dmAPFS disksForVolumeGroup:volumeUuid.UUIDString volumeDisks:nil systemVolumeDisks:&systemVolumeDisks dataVolumeDisks:&dataVolumeDisks userVolumeDisks:nil container:nil];
+    if (diskErr != kDiskErrorNoError) {
+        // not a volumegroup so try to treat it as a single volume
+        DADiskRef cfDiskRef = NULL;
+        deviceNode = [self deviceNodeForVolumeWithUUID:volumeUuid diskRef:&cfDiskRef];
+        CFReleaseNull(cfDiskRef);
+        if (!deviceNode) {
+            // no volume with such UUID and no volume group with such UUID => fail
+            os_log_error(AUTHD_LOG, "Error %d while trying to get volume group disks for %{public}@", diskErr, volumeUuid.UUIDString);
+            return;
+        }
+        os_log_info(AUTHD_LOG, "Direct volume device node %{public}@", deviceNode);
     } else {
-	    if ([volumeUuid.UUIDString isEqualTo:volumeGroupUuid]) {
-		    NSArray *systemVolumeDisks = nil;
-		    diskErr = [dmAPFS disksForVolumeGroup:volumeGroupUuid volumeDisks:nil systemVolumeDisks:&systemVolumeDisks dataVolumeDisks:nil userVolumeDisks:nil container:nil];
-		    if (diskErr != kDiskErrorNoError || systemVolumeDisks == nil) {
-			    os_log_error(AUTHD_LOG, "Error %d while trying to get volume group disks for %{public}@", diskErr, volumeGroupUuid);
-		    } else {
-			    // There should be only one systemVolume, but the API returns an array so we'll process as many as it wants to give us
-			    for (id tmp in systemVolumeDisks) {
-				    DADiskRef systemVolumeDiskRef = (__bridge DADiskRef)(tmp);
-				    NSString *systemVolumeUuid = nil;
-				    diskErr = [dmAPFS volumeUUIDForVolume:systemVolumeDiskRef UUID:&systemVolumeUuid];
-				    if (diskErr != kDiskErrorNoError || systemVolumeUuid == nil) {
-					    os_log_error(AUTHD_LOG, "Error %d while trying to get volume uuid disks for some system volumes of group %{public}@", diskErr, volumeGroupUuid);
-				    } else {
-					    os_log(AUTHD_LOG, "Volume %{public}@ belongs to the group %{public}@", systemVolumeUuid, volumeGroupUuid);
-					    _dbVolumeGroupMap[systemVolumeUuid] = volumeGroupUuid;
-				    }
-			    }
-		    }
-	    }
+        // Volume group was found and now we have to find all the references which might be used when looking
+        // for data on this volume group. We will do a map <data|system volume UUID> - <volume group UUID>
+        
+        // There should be only one systemVolume, but the API returns an array so we'll process as many as it wants to give us
+        void (^volumeWorker)(NSArray *volumes, BOOL systemVolume) = ^void(NSArray *volumes, BOOL systemVolume) {
+            for (id tmp in volumes) {
+                DADiskRef volumeDiskRef = (__bridge DADiskRef)(tmp);
+                NSString *volUuid = nil;
+                DMDiskErrorType dErr = [dmAPFS volumeUUIDForVolume:(__bridge DADiskRef _Nonnull)(tmp) UUID:&volUuid];
+                if (dErr != kDiskErrorNoError || volUuid == nil) {
+                    os_log_error(AUTHD_LOG, "Error %{public}@ while trying to get volume uuid disks for some %{public}s volumes of group %{public}@", soft_DMUnlocalizedTechnicalErrorString(diskErr), systemVolume ? "system":"data", volumeUuid.UUIDString);
+                } else {
+                    if (!systemVolume && !deviceNode) {
+                        deviceNode = [self deviceNodeForDisk:volumeDiskRef];
+                        os_log_info(AUTHD_LOG, "Data volume device node %{public}@", deviceNode);
+                    }
+                    os_log_info(AUTHD_LOG, "Volume %{public}@ belongs to the group %{public}@", volUuid, volumeUuid.UUIDString);
+                    self->_dbVolumeGroupMap[volUuid] = volumeUuid.UUIDString;
+                }
+            }
+        };
+        volumeWorker(systemVolumeDisks, YES);
+        volumeWorker(dataVolumeDisks, NO);
+        if (!deviceNode) {
+            os_log_error(AUTHD_LOG, "No deviceNode was set");
+            return;
+        }
     }
 
+    // try to find usable users on the volume
     NSDictionary *users = [self loadUserDatabaseForVolumeUUID:volumeUuid mountPoint:mountPoint];
     for (NSString *userName in users) {
         NSDictionary *userData = users[userName];
@@ -594,7 +716,7 @@ OSStatus preloginDb(PreloginUserDb * _Nonnull * _Nonnull _Nonnulldb);
             os_log_error(AUTHD_LOG, "Failed to find GUID for user %{public}@", userName);
             continue;
         }
-        NSData* kek = [self loadKEKforUuid:userGuid deviceNode:deviceNode];
+        NSData *kek = [self loadKEKforUuid:userGuid deviceNode:deviceNode];
         if (!kek) {
             os_log_error(AUTHD_LOG, "Failed to find SecureToken for user %{public}@", userName);
             continue;
@@ -659,14 +781,16 @@ OSStatus preloginDb(PreloginUserDb * _Nonnull * _Nonnull _Nonnulldb);
     scEnforcementOverriden = NO;
     [self setEnforcedSmartcardOverride:volumeUuid operation:kAuthorizationOverrideOperationQuery status:&scEnforcementOverriden internal:YES];
     os_log_info(AUTHD_LOG, "SC enforcement override: %d", scEnforcementOverriden);
-
-    if (!isInFVUnlock()) {
-        os_log_debug(AUTHD_LOG, "Not processing prefs");
+    if (!isInFVUnlockOrRecovery()) {
         
         // remove SCenforcement override flag
         if (scEnforcementOverriden) {
             [self setEnforcedSmartcardOverride:volumeUuid operation:kAuthorizationOverrideOperationReset status:nil internal:YES];
         }
+    }
+    
+    if (![PreloginUserDb fvunlockMode]) {
+        os_log_debug(AUTHD_LOG, "Not processing prefs");
         return; // do not process prefs when not in FVUnlock
     }
     

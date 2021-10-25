@@ -19,9 +19,9 @@
 .\"
 .\"@APPLE_LICENSE_HEADER_END@
 .\"
-.Dd Sept 19, 2008
-.Dt asl.conf 5
-.Os "Mac OS X"
+.Dd September 19, 2008
+.Dt ASL.CONF 5
+.Os "macOS"
 .Sh NAME
 .Nm asl.conf
 .Nd configuration file for
@@ -83,7 +83,7 @@ See the QUERY-ACTION RULES section for details.
 Most query-action rules specify output files or ASL-format data stores where matching messages should be saved.
 The optional parameters for those rules can specify a number of options for these outputs.
 As a convenience, these configuration options may be specified on a separate line.
-Output configuration settings in the file begin with a greater-than sign 
+Output configuration settings in the file begin with a greater-than sign
 .Dq >
 followed by a file or ASL directory name and the configuration options for that file or directory.
 These lines generally have the form:
@@ -133,7 +133,7 @@ The limit for a user process is not enforced if a remote-control ASL filter is i
 place for the process.
 See the
 .Xr syslog 1
-manual for enabling a remote-control filter using the 
+manual for enabling a remote-control filter using the
 .Fl c
 option with the
 .Nm syslog
@@ -150,19 +150,19 @@ to perform specific actions when received messages match a specified query patte
 For example, to save certain messages in a file.
 The rules are processed in the order in which they appear in the file.
 This matters because some actions can affect further processing.
-For example, an 
-.Dq ignore 
+For example, an
+.Dq ignore
 action causes
 .Nm syslogd
 to stop processing the rules in a file for messages that match a given query pattern.
 .Pp
 Query-action rules contain three components: a query, an action, and optional parameters specific to that action.
-For example, the following rule matches log messages sent by the 
+For example, the following rule matches log messages sent by the
 .Dq example
 process which have log priority levels in the range emergency to error.
-If a received message matches, 
+If a received message matches,
 .Nm syslogd
-posts a BSD notification for the key 
+posts a BSD notification for the key
 .Dq com.example.log_message .
 .Pp
 .Dl ? [= Sender example] [<= Level error] notify com.example.log_message
@@ -192,8 +192,8 @@ less than or equal to
 .El
 .Pp
 It can also be preceded by one or more modifiers:
-.Bl -tag -width "C   " -compact -offset indent
 .Pp
+.Bl -tag -width "C   " -compact -offset indent
 .It C
 casefold
 .It N
@@ -211,9 +211,9 @@ For example
 .Pp
 .Dl [= Sender example]
 .Pp
-matches any message with value 
+matches any message with value
 .Dq example
-for the 
+for the
 .Dq Sender
 key.
 The query
@@ -232,7 +232,7 @@ The example query above,
 .Pp
 .Dl [= Sender example] [N< Level 3]
 .Pp
-matches any message from 
+matches any message from
 .Dq example
 with a level numerically less than 3
 (string values are converted to integers, and the comparison is done on the integer values).
@@ -282,8 +282,8 @@ The following actions are available.
 Causes
 .Nm syslogd
 to save matching messages in the ASL database.
-Note that if /etc/asl.conf contains no 
-.Dq store 
+Note that if /etc/asl.conf contains no
+.Dq store
 action rules, then
 .Nm syslogd
 will save all messages it receives in the ASL database.
@@ -295,7 +295,7 @@ If the path already exists, it must be a plain file.
 If the file does not exist, it will be created when the first message is written.
 If the pathname specified is not an absolute path,
 .Nm syslogd
-will treat the given path as relative to /var/log (for /etc/asl.conf), 
+will treat the given path as relative to /var/log (for /etc/asl.conf),
 or for other output modules relative to /var/log/module/NAME where NAME is the module name.
 .Pp
 By default, the file's owner will be root, and the file will be readable by the admin group.
@@ -311,7 +311,7 @@ If the path exists, it must be a directory.
 .Pp
 Messages saved to an ASL directory are saved in files that are named
 .Dq yyyy.mm.dd.asl ,
-where 
+where
 .Dq yyyy ,
 .Dq mm ,
 and
@@ -353,7 +353,7 @@ The
 .Dq claim
 action may be followed by the keyword
 .Dq only .
-In this case, only those messages that match the 
+In this case, only those messages that match the
 .Dq claim only
 query will be processed by subsequent rules in the module.
 .Pp
@@ -402,7 +402,7 @@ For example:
 .Dl ? [= Facility example] file example.log format=raw rotate=local compress ttl=3 mode=0640 uid=0 gid=5 gid=20
 .Pp
 As a convenience, a file or directory name and any associated options can be specified on a separate
-output configuration line following a 
+output configuration line following a
 .Dq >
 character:
 .Pp
@@ -435,7 +435,7 @@ Format used by the
 daemon for system log files, e.g. /var/log/system.log.
 .It std
 Standard (default) format.
-Similar to 
+Similar to
 .Dq bsd ,
 but includes the message priority level.
 .It raw
@@ -458,7 +458,7 @@ option.
 .El
 .Pp
 Custom format strings may also be specified.
-Since custom formats often contain white-space characters, 
+Since custom formats often contain white-space characters,
 the entire string may be enclosed in single or double quote characters,
 or each white-space character may be preceded by a backslash escape character.
 Escaped characters are not interpreted.
@@ -474,7 +474,7 @@ or octal value (if preceded by ``0'').
 .Pp
 .It uid=UUU
 Specifies the file's owner.
-If more than one 
+If more than one
 .Dq uid=UUU
 option is given, the first will be used to set ownership,
 and subsequent user IDs will be given read access to in the files POSIX.1e ACLs.
@@ -485,7 +485,7 @@ Unknown UIDs and GIDs will be ignored when setting access controls.
 .Pp
 .It gid=GGG
 Specifies the file's group.
-If more than one 
+If more than one
 .Dq gid=GGG
 option is given, the first will be used to set the file's group,
 and subsequent group IDs will be given read access to in the files POSIX.1e ACLs.
@@ -507,11 +507,11 @@ The default is
 .Dq coalesce=1 .
 The default may be overridden by specifying
 .Dq coalesce=0 .
-The values 
+The values
 .Dq off
-and 
+and
 .Dq false
-may be used in place of 
+may be used in place of
 .Dq 0 .
 .El
 .Pp
@@ -519,7 +519,6 @@ The following options all deal with file rotation and life-cycle management.
 The FILE ROTATION section describes this in detail.
 .Pp
 .Bl -tag -width "rotate=NAME_STYLE" -compact -offset indent
-.Pp
 .It rotate=NAME_STYLE
 Enables log file rotation and specifies the file naming scheme for rotated files.
 This option does not apply to ASL directories.
@@ -538,7 +537,7 @@ or
 .Dq example.log.utc-basic.
 A detailed description of name styles may be found in the FILE ROTATION section below.
 .Pp
-If the option 
+If the option
 .Dq rotate
 appears without a value, the naming style defaults to
 .Dq "sec" .
@@ -565,7 +564,7 @@ will stop saving to a file or ASL directory after 5 consecutive write errors.
 .Pp
 .It compress
 Enables gzip file compression for rotated log files.
-When compressed, the extension 
+When compressed, the extension
 .Dq .gz
 is appended to the file name.
 When the output is an ASL directory, data files are compressed after midnight local time.
@@ -578,15 +577,15 @@ Messages in compressed data files will not be available until the files are un-c
 .Pp
 .It file_max=SIZE
 Limits the size of an active log file.
-SIZE may be an integer number of bytes, or the value may be followed by a single character 
-.Dq k , 
+SIZE may be an integer number of bytes, or the value may be followed by a single character
+.Dq k ,
 .Dq m ,
-or 
+or
 .Dq g
 (upper or lower case),
 to indicate a size limit in multiples of 1024 (kibibyte), 1048576 (mebibyte), or 1073741824 (gibibyte).
 If a file exceeds this limit, it is immediately checkpointed by
-.Nm syslogd 
+.Nm syslogd
 and a new file is opened.
 Note that
 .Dq file_max
@@ -630,7 +629,6 @@ will result in syslogd writing to, e.g.
 and creating a sybolic link from
 .Dq example.log
 to the active file.
-.Pp
 .El
 .Ss FILE ROTATION
 .Nm syslogd
@@ -647,7 +645,7 @@ output configuration option.
 It is typically specificed with a value which specifies the naming sytle for rotated files.
 Name styles may simply be a timestamp format, which is appended to the filename.
 .Pp
-.Bl -tag -width "local-basic" -compact -indent
+.Bl -tag -width "local-basic" -compact -offset indent
 .It sec
 Rotated file names are of the form
 .Dq example.log.T1340607600 .
@@ -705,7 +703,6 @@ style) will initially be checkpointed using a file name containing a timestamp i
 .Nm aslmanager
 will re-sequence the files when it scans for checkpoint files.
 .Pp
-.Pp
 Alternatively, the name style may be have two or three components.
 The first component is the
 .Dq base
@@ -725,7 +722,7 @@ and so on.
 .Pp
 If a file is marked for rotation,
 .Nm syslogd
-will close the file at the start of a new day or when the file exceeds its 
+will close the file at the start of a new day or when the file exceeds its
 .Dq file_max
 size limit.
 At that point,
@@ -742,7 +739,7 @@ might close
 and rename it
 .Dq example.log.T1340521200 ,
 1340521200 being the time that the file was created.
-It would then start a new 
+It would then start a new
 .Dq example.log
 file and use it until midnight, when the cycle would be repeated.
 .Pp
@@ -782,18 +779,18 @@ and it may be run manually.
 .Pp
 .Nm aslmanager
 scans for any checkpointed files created by
-.Nm syslogd 
+.Nm syslogd
 and will rename the files (if required) to match the naming style specified by the
 .Dq rotate=NAME_STYLE
 option.
-If 
+If
 .Dq rotate=seq
 is specified for a file, checkpointed files created by
 .Nm syslogd
 contain a timestamp in seconds.
 These files are renamed so that the file names
 contain a sequence number.
-The most recent version has the number 
+The most recent version has the number
 .Dq 0 ,
 and older versions have higher numbers.
 For example:
@@ -806,22 +803,22 @@ For example:
 As well as renaming files,
 .Nm aslmanager
 may perform other actions.
-If the file has been given a 
+If the file has been given a
 .Dq dest=PATH
 option,
 the rotated versions of the file will be moved to the specified directory.
 Files will be gzip compressed using the
 .Xr zlib 3
-library if the 
+library if the
 .Dq compress
 option has been given.
-If the total size of all the rotated versions of the file exceeds a value given in an 
+If the total size of all the rotated versions of the file exceeds a value given in an
 .Dq all_max
 option, older versions of the rotated file will be deleted to keep the total below the specified limit.
 .Pp
 Although checkpoint and file rotation operations are normally done automatically,
 .Nm aslmanager
-supports an option that will trigger 
+supports an option that will trigger
 .Nm syslogd
 to checkpoint files before
 .Nm aslmanager
@@ -860,13 +857,11 @@ To checkpoint just one file:
     asl_set(ctl, ASL_KEY_OPTION, "control");
     asl_log(NULL, ctl, ASL_LEVEL_NOTICE, "@ %s checkpoint %s", module_name, file_name);
     asl_release(ctl);
-.Pp
 .Ss ASL OUTPUT MODULES
-.Pp
 An ASL output module is created by a configuration file in the directory /etc/asl.
 The file name is used as the module's name.
 The format of the file is generally the same as
-.Nm asl.conf 
+.Nm asl.conf
 with a few exceptions.
 Modules may not have parameter setting lines for the system parameters listed in the
 PARAMETER SETTINGS or ASLMANAGER PARAMETER SETTINGS sections,
@@ -880,7 +875,7 @@ when it starts, and whenever it gets a HUP signal.
 Messages received by
 .Nm syslogd
 are first processed according the the rules found in /etc/asl.conf
-(also known as the 
+(also known as the
 .Dq com.apple.asl
 module), then the message is processed by the
 rules from each module found in /etc/asl.
@@ -898,7 +893,7 @@ The module is still loaded by
 but the module will not save messages to files or directories, and will not post BSD notifications.
 .Pp
 Several mechanisms allow modules to be enabled or disabled dynamically.
-One mechanism allows the setting of the 
+One mechanism allows the setting of the
 .Dq enable
 parameter to be based on the existence of a path in the filesystem,
 or on the value associated with a dictionary key in a property list file.
@@ -926,8 +921,8 @@ If the property list file does not exist, the test will evaluate to zero.
 The file may be in binary or xml format.
 It may only contain a single dictionary object at its top level.
 Only keys and values at the top level of the dictionary may be tested.
-Values must be strings, integer values, doubles, UUIDs, dates, or booleans.  
-Boolean <true/> and <false/> values are converted to 1 and 0 respectively. 
+Values must be strings, integer values, doubles, UUIDs, dates, or booleans.
+Boolean <true/> and <false/> values are converted to 1 and 0 respectively.
 Values are converted into strings,
 and string comparisons are used unless unless an
 .Dq N
@@ -986,7 +981,7 @@ If a message received by syslogd matches the specified query,
 in this case having a Color key with the value Green or Red,
 then the enable parameter is set as specified.
 So in this example, the module would be enabled and disabled
-whenever syslogd received a message containing the appropriate value for the 
+whenever syslogd received a message containing the appropriate value for the
 .Dq Color
 key.
 .Ss ASLMANAGER PARAMETER SETTINGS
@@ -997,9 +992,9 @@ The following parameter-settings are recognized by
 .It aslmanager_debug
 Enables or disables internal debugging output.
 This is probably of little interest to most users.
-The debug parameter requires a value of 
+The debug parameter requires a value of
 .Dq 1
-to enable debug output, or a value of 
+to enable debug output, or a value of
 .Dq 0
 to disable it.
 Debug messages are saved in an auxiliary file attached to an ASL log message.
@@ -1015,7 +1010,7 @@ The default is 150000000 bytes.
 .Pp
 .It archive
 Enables or disables archiving of the ASL database.
-The archive parameter requires a value of 
+The archive parameter requires a value of
 .Dq 1
 to enable archiving, or a value of
 .Dq 0
@@ -1028,7 +1023,7 @@ If enabled, files removed from the ASL database are moved to the archive directo
 The default archive directory path is /var/log/asl.archive.
 .Pp
 .It store_path
-The ASL database path used by 
+The ASL database path used by
 .Nm aslmanager .
 The default is /var/log/asl.
 Note that this parameter is ignored by
@@ -1038,10 +1033,9 @@ Note that this parameter is ignored by
 Files copied to the ASL database archive will be given the specified access mode.
 The default is 0400, so archive files will only be readable by root.
 .El
-.Pp
 .Sh SEE ALSO
+.Xr syslog 1 ,
 .Xr asl 3 ,
 .Xr notify 3 ,
-.Xr syslog 1 ,
 .Xr aslmanager 8 ,
-.Xr syslogd 8 .
+.Xr syslogd 8

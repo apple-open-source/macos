@@ -261,7 +261,7 @@ free_key(gss_krb5_lucid_key_t *key)
 
 GSSAPI_LIB_FUNCTION OM_uint32 GSSAPI_LIB_CALL
 gss_krb5_export_lucid_sec_context(OM_uint32 *__nonnull minor_status,
-				  __nonnull gss_ctx_id_t * __nullable context_handle,
+				  __nullable gss_ctx_id_t * __nonnull context_handle,
 				  OM_uint32 version,
 				  void *__nonnull * __nullable rctx)
 {
@@ -783,7 +783,7 @@ out:
 GSSAPI_LIB_FUNCTION OM_uint32 GSSAPI_LIB_CALL
 gsskrb5_extract_service_keyblock(OM_uint32 *__nonnull minor_status,
 				 __nonnull gss_ctx_id_t context_handle,
-				 struct EncryptionKey *__nonnull* __nullable keyblock)
+				 struct EncryptionKey * __nullable * __nonnull keyblock)
 {
     return gsskrb5_extract_key(minor_status,
 			       context_handle,
@@ -794,7 +794,7 @@ gsskrb5_extract_service_keyblock(OM_uint32 *__nonnull minor_status,
 GSSAPI_LIB_FUNCTION OM_uint32 GSSAPI_LIB_CALL
 gsskrb5_get_initiator_subkey(OM_uint32 *__nonnull minor_status,
 			     __nonnull gss_ctx_id_t context_handle,
-			     struct EncryptionKey *__nonnull* __nullable keyblock)
+			     struct EncryptionKey * __nullable * __nonnull keyblock)
 {
     return gsskrb5_extract_key(minor_status,
 			       context_handle,
@@ -805,7 +805,7 @@ gsskrb5_get_initiator_subkey(OM_uint32 *__nonnull minor_status,
 GSSAPI_LIB_FUNCTION OM_uint32 GSSAPI_LIB_CALL
 gsskrb5_get_subkey(OM_uint32 *__nonnull minor_status,
 		   __nonnull gss_ctx_id_t context_handle,
-		   struct EncryptionKey *__nonnull* __nullable keyblock)
+		   struct EncryptionKey * __nullable * __nonnull keyblock)
 {
     return gsskrb5_extract_key(minor_status,
 			       context_handle,

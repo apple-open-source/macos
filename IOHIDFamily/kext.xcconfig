@@ -1,6 +1,6 @@
-BUILD_VARIANTS[sdk=macosx*] = normal kasan
-BUILD_VARIANTS[sdk=iphoneos*] = normal kasan
+BUILD_VARIANTS = normal development kasan
 CODE_SIGN_IDENTITY = -
+OTHER_CFLAGS_development = $(inherited) -DDEVELOPMENT=1
 OTHER_CFLAGS_kasan = $(KASAN_DEFAULT_CFLAGS)
 OTHER_CFLAGS =  $(inherited) -ftrivial-auto-var-init=pattern
 OTHER_CPLUSPLUSFLAGS = $(inherited) -ftrivial-auto-var-init=pattern

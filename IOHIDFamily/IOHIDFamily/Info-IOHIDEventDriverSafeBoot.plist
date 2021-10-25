@@ -83,6 +83,8 @@
 				<integer>4279500802</integer>
 				<integer>4279500803</integer>
 			</array>
+			<key>IOMatchDefer</key>
+			<true/>
 		</dict>
 		<key>HID Pointing Shim Driver</key>
 		<dict>
@@ -497,6 +499,8 @@
 				<integer>4279500802</integer>
 				<integer>4279500803</integer>
 			</array>
+			<key>IOMatchDefer</key>
+			<true/>
 		</dict>
 		<key>VMWare Legacy Work-around</key>
 		<dict>

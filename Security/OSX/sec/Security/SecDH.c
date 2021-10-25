@@ -112,23 +112,12 @@ OSStatus SecDHCreate(uint32_t g, const uint8_t *p, size_t p_len,
     size_t context_size = SecDH_context_size(p_len);
     void *context = malloc(context_size);
     cc_clear(context_size, context);
+    ccdh_gp_t gp = context;
 
-    ccdh_gp_t gp;
-    gp  = context;
-
-    CCDH_GP_N(gp) = n;
-    CCDH_GP_L(gp) = l;
-
-    if(ccn_read_uint(n, CCDH_GP_PRIME(gp), p_len, p))
-        goto errOut;
-    if(recip) {
-        if(ccn_read_uint(n+1, CCDH_GP_RECIP(gp), recip_len, recip))
-            goto errOut;
-        cczp_init_with_recip(CCDH_GP_ZP(gp), CCDH_GP_RECIP(gp));
-    } else if (cczp_init(CCDH_GP_ZP(gp))) {
+    const uint8_t gb[4] = { g >> 24, g >> 16, g >> 8, g };
+    if (ccdh_init_gp_from_bytes(gp, n, p_len, p, sizeof(gb), gb, 0, NULL, l)) {
         goto errOut;
     }
-    ccn_seti(n, CCDH_GP_G(gp), g);
 
     *pdh = (SecDHContext) context;
 
@@ -214,21 +203,12 @@ OSStatus SecDHCreateFromParameters(const uint8_t *params,
 
     ccdh_gp_t gp = context;
 
-    CCDH_GP_N(gp) = n;
-    CCDH_GP_L(gp) = l;
-
-    if(ccn_read_uint(n, CCDH_GP_PRIME(gp), decodedParams.p.length, decodedParams.p.data))
-        goto errOut;
-    if(decodedParams.recip.length) {
-        if(ccn_read_uint(n+1, CCDH_GP_RECIP(gp), decodedParams.recip.length, decodedParams.recip.data))
-            goto errOut;
-        cczp_init_with_recip(CCDH_GP_ZP(gp), CCDH_GP_RECIP(gp));
-    } else if (cczp_init(CCDH_GP_ZP(gp))) {
+    if (ccdh_init_gp_from_bytes(gp, n, decodedParams.p.length,
+                                       decodedParams.p.data,
+                                       decodedParams.g.length,
+                                       decodedParams.g.data, 0, NULL, l)) {
         goto errOut;
     }
-
-    if(ccn_read_uint(n, CCDH_GP_G(gp), decodedParams.g.length, decodedParams.g.data))
-        goto errOut;
 
     *pdh = (SecDHContext) context;
     return errSecSuccess;

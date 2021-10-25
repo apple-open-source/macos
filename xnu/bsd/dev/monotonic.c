@@ -27,6 +27,7 @@
  */
 
 #include <kern/monotonic.h>
+#include <kern/perfmon.h>
 #include <machine/machine_routines.h>
 #include <machine/monotonic.h>
 #include <pexpert/pexpert.h>
@@ -133,10 +134,16 @@ mt_cdev_open(dev_t devnum, __unused int flags, __unused int devtype,
 	int error = 0;
 
 	mt_device_t dev = mt_get_device(devnum);
+	if (!perfmon_acquire(perfmon_upmu, "monotonic")) {
+		return EBUSY;
+	}
 	mt_device_lock(dev);
 	if (dev->mtd_inuse) {
 		error = EBUSY;
+	} else if (!mt_acquire_counters()) {
+		error = EBUSY;
 	} else {
+		dev->mtd_reset();
 		dev->mtd_inuse = true;
 	}
 	mt_device_unlock(dev);
@@ -150,10 +157,13 @@ mt_cdev_close(dev_t devnum, __unused int flags, __unused int devtype,
 {
 	mt_device_t dev = mt_get_device(devnum);
 
+	perfmon_release(perfmon_upmu, "monotonic");
+
 	mt_device_lock(dev);
 	mt_device_assert_inuse(dev);
 	dev->mtd_inuse = false;
 	dev->mtd_reset();
+	mt_release_counters();
 	mt_device_unlock(dev);
 
 	return 0;

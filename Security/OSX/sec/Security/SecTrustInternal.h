@@ -30,6 +30,7 @@
 #define _SECURITY_SECTRUSTINTERNAL_H_
 
 #include <Security/SecTrust.h>
+#include <Security/SecTrustSettings.h>
 
 __BEGIN_DECLS
 
@@ -45,6 +46,10 @@ __BEGIN_DECLS
 #define kSecTrustVerifyDateKey "verifyDate"
 #define kSecTrustExceptionsKey "exceptions"
 #define kSecTrustRevocationAdditionsKey "revocationCheck"
+#define kSecTrustAuditTokenKey "auditToken"
+#define kSecTrustSettingsAuthExternalForm "auth"
+#define kSecTrustSettingsDomain "domain"
+#define kSecTrustSettingsData "settings"
 
 /* args_out keys. */
 #define kSecTrustDetailsKey "details"
@@ -54,9 +59,20 @@ __BEGIN_DECLS
 
 extern const CFStringRef kSecCertificateDetailSHA1Digest;
 
+bool SecTrustIsTrustResultValid(SecTrustRef trust, CFAbsoluteTime verifyTime);
+
 #if TARGET_OS_OSX
+/* SecTrust functions */
 SecKeyRef SecTrustCopyPublicKey_ios(SecTrustRef trust);
 CFArrayRef SecTrustCopyProperties_ios(SecTrustRef trust);
+#endif
+
+/* SecTrustStore functions */
+CFStringRef SecTrustSettingsDomainName(SecTrustSettingsDomain domain);
+SecTrustSettingsDomain SecTrustSettingsDomainForName(CFStringRef domainName);
+#if TARGET_OS_OSX
+OSStatus SecTrustSettingsXPCRead(CFStringRef domain, CFDataRef *trustSettings);
+OSStatus SecTrustSettingsXPCWrite(CFStringRef domain, CFDataRef auth, CFDataRef trustSettings);
 #endif
 
 #define kSecTrustEventNameKey "eventName"

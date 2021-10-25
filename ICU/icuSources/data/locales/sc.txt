@@ -1,5 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
-// License & terms of use: http://www.unicode.org/copyright.html#License
+// License & terms of use: http://www.unicode.org/copyright.html
+// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
 sc{
     AuxExemplarCharacters{"[ª á â å ä ã æ ç é ê ë í î ï k ñ º ó ô ö õ ø œ q ß ú û ü w x y ÿ]"}
     ExemplarCharacters{"[a à b c d e è f g h i ì j l m n o ò p r s t u ù v z]"}
@@ -173,7 +174,7 @@ sc{
         }
         minimalPairs{
             ordinal{
-                other{"Piga sa {0}a a destra"}
+                other{"Piga sa {0}a a destra."}
             }
             plural{
                 one{"{0} die"}
@@ -181,7 +182,6 @@ sc{
             }
         }
     }
-    Version{"36.1"}
     calendar{
         buddhist{
             eras{
@@ -1018,9 +1018,6 @@ sc{
         }
         indian{
             eras{
-                abbreviated{
-                    "era Saka",
-                }
                 wide{
                     "era Saka",
                 }
@@ -2068,44 +2065,28 @@ sc{
         or{
             2{"{0} o {1}"}
             end{"{0} o {1}"}
-            middle{"{0}, {1}"}
-            start{"{0}, {1}"}
         }
         or-narrow{
             2{"{0} o {1}"}
             end{"{0} o {1}"}
-            middle{"{0} {1}"}
-            start{"{0} {1}"}
         }
         or-short{
             2{"{0} o {1}"}
             end{"{0} o {1}"}
-            middle{"{0}, {1}"}
-            start{"{0}, {1}"}
         }
         standard{
             2{"{0} e {1}"}
             end{"{0} e {1}"}
-            middle{"{0}, {1}"}
-            start{"{0}, {1}"}
         }
         standard-narrow{
-            2{"{0} e {1}"}
             end{"{0} e {1}"}
-            middle{"{0} {1}"}
-            start{"{0} {1}"}
         }
         standard-short{
-            2{"{0} e {1}"}
             end{"{0} e {1}"}
-            middle{"{0}, {1}"}
-            start{"{0}, {1}"}
         }
         unit{
             2{"{0} e {1}"}
             end{"{0} e {1}"}
-            middle{"{0}, {1}"}
-            start{"{0}, {1}"}
         }
         unit-narrow{
             2{"{0} {1}"}
@@ -2116,8 +2097,6 @@ sc{
         unit-short{
             2{"{0} e {1}"}
             end{"{0} e {1}"}
-            middle{"{0}, {1}"}
-            start{"{0}, {1}"}
         }
     }
     measurementSystemNames{

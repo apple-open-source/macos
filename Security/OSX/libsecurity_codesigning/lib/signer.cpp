@@ -45,6 +45,8 @@
 #include <security_utilities/cfmunge.h>
 #include <security_utilities/dispatch.h>
 #include <IOKit/storage/IOStorageDeviceCharacteristics.h>
+#include <CoreEntitlements/CoreEntitlements.h>
+#include <CoreEntitlements/FoundationUtils.h>
 
 namespace Security {
 namespace CodeSigning {
@@ -563,23 +565,6 @@ void SecCodeSigner::Signer::signMachO(Universal *fat, const Requirement::Context
 				MacOSError::throwMe(errSecCSBadLVArch);
 			}
 		}
-		
-		bool generateEntitlementDER = false;
-		if (signingFlags() & kSecCSSignGenerateEntitlementDER) {
-			generateEntitlementDER = true;
-		} else {
-			uint32_t platform = arch.source->platform();
-			switch (platform) {
-				case PLATFORM_WATCHOS:
-				case PLATFORM_BRIDGEOS:
-					generateEntitlementDER = false;
-					break;
-				default:
-					generateEntitlementDER = true;
-					break;
-			}
-		}
-
 		bool mainBinary = arch.source.get()->type() == MH_EXECUTE;
 
 		uint32_t runtimeVersion = 0;
@@ -602,7 +587,7 @@ void SecCodeSigner::Signer::signMachO(Universal *fat, const Requirement::Context
 						 arch.source->offset(), arch.source->signingExtent(),
 						 mainBinary, rep->execSegBase(&(arch.architecture)), rep->execSegLimit(&(arch.architecture)),
 						 unsigned(digestAlgorithms().size()-1),
-						 preEncryptHashMaps[arch.architecture], runtimeVersionToUse, generateEntitlementDER);
+						 preEncryptHashMaps[arch.architecture], runtimeVersionToUse, true);
 			});
 		}
 	
@@ -666,7 +651,7 @@ void SecCodeSigner::Signer::signArchitectureAgnostic(const Requirement::Context 
 	RefPointer<DiskRep::Writer> writer = state.mDetached ?
 		(new DetachedBlobWriter(*this)) : rep->writer();
 
-	if(state.mPreserveAFSC)
+	if (state.mPreserveAFSC)
 		writer->setPreserveAFSC(state.mPreserveAFSC);
 
 	CodeDirectorySet cdSet;
@@ -682,7 +667,7 @@ void SecCodeSigner::Signer::signArchitectureAgnostic(const Requirement::Context 
 				 unsigned(digestAlgorithms().size()-1),
 				 preEncryptHashMaps[preEncryptMainArch], // Only one map, the default.
 				 (cdFlags & kSecCodeSignatureRuntime) ? state.mRuntimeVersionOverride : 0,
-				 signingFlags() & kSecCSSignGenerateEntitlementDER);
+				 true);
 		
 		CodeDirectory *cd = builder.build();
 		if (!state.mDryRun)
@@ -794,8 +779,10 @@ void SecCodeSigner::Signer::populate(CodeDirectory::Builder &builder, DiskRep::W
 #endif
 }
 
-	
+#if TARGET_OS_OSX
+// Secure timestamps are only supported when signing on macOS.
 #include <security_smime/tsaSupport.h>
+#endif
 
 //
 // Generate the CMS signature for a (finished) CodeDirectory.
@@ -847,6 +834,10 @@ CFDataRef SecCodeSigner::Signer::signCodeDirectory(const CodeDirectory *cd,
     // Set up to call Timestamp server if requested
     if (state.mWantTimeStamp)
     {
+#if !TARGET_OS_OSX
+		secerror("Platform does not support signing secure timestamps");
+		MacOSError::throwMe(errSecUnimplemented);
+#else
         CFRef<CFErrorRef> error = NULL;
         defaultTSContext = SecCmsTSAGetDefaultContext(&error.aref());
         if (error)
@@ -860,6 +851,7 @@ CFDataRef SecCodeSigner::Signer::signCodeDirectory(const CodeDirectory *cd,
 		}
             
 		CmsMessageSetTSAContext(cms, defaultTSContext);
+#endif /* !TARGET_OS_OSX */
     }
 	
 	CFDataRef signature;
@@ -960,8 +952,6 @@ void SecCodeSigner::Signer::cookEntitlements(CFDataRef entitlements, bool genera
 		return; // nothing to do.
 	}
 
-	EntitlementDERBlob *derBlob = NULL;
-
 	try {
 		const EntitlementBlob *blob = reinterpret_cast<const EntitlementBlob *>(CFDataGetBytePtr(entitlements));
 
@@ -973,31 +963,16 @@ void SecCodeSigner::Signer::cookEntitlements(CFDataRef entitlements, bool genera
 
 		if (generateDER) {
 			CFRef<CFErrorRef> error = NULL;
-			size_t const der_size = der_sizeof_plist(entDict, &error.aref());
 
-			if (der_size == 0) {
-				secerror("Getting DER size for entitlement plist failed: %@", error.get());
+			CFDataRef serializedDER = NULL;
+			if (CESerializeCFDictionary(CECRuntime, entDict.get(), &serializedDER) != kCENoError) {
+				secerror("Serializing DER entitlements failed");
 				MacOSError::throwMe(errSecCSInvalidEntitlements);
+				
 			}
-
-			derBlob = EntitlementDERBlob::alloc(der_size);
-
-			if (derBlob == NULL) {
-				secerror("Cannot allocate buffer for DER entitlements of size %zu", der_size);
-				MacOSError::throwMe(errSecCSInvalidEntitlements);
-			}
-			uint8_t * const der_end = derBlob->der() + der_size;
-			uint8_t * const der_start = der_encode_plist(entDict, &error.aref(), derBlob->der(), der_end);
-
-			if (der_start != derBlob->der()) {
-				secerror("Entitlement DER start mismatch (%zu)", (size_t)(der_start - derBlob->der()));
-				free(derBlob);
-				MacOSError::throwMe(errSecCSInvalidEntitlements);
-			}
-
-			*entitlementDER = makeCFData(derBlob, derBlob->length());
-			free(derBlob);
-			derBlob = NULL;
+			
+			*entitlementDER = EntitlementDERBlob::blobify(serializedDER);
+			CFRelease(serializedDER);
 		}
 
 		if (execSegFlags != NULL) {
@@ -1015,9 +990,6 @@ void SecCodeSigner::Signer::cookEntitlements(CFDataRef entitlements, bool genera
 		}
 
 	} catch (const CommonError &err) {
-		free(derBlob);
-		// Not fatal if we're not asked to generate DER entitlements.
-
 		secwarning("failed to parse entitlements: %s", err.what());
 		if (generateDER) {
 			throw;
@@ -1151,7 +1123,7 @@ void SecCodeSigner::Signer::prepareForEdit(SecCSFlags flags) {
 void SecCodeSigner::Signer::editMachO(Universal *fat) {
 	// Mach-O executable at the core - perform multi-architecture signature editing
 	RefPointer<DiskRep::Writer> writer = rep->writer();
-	
+
 	if (state.mPreserveAFSC)
 		writer->setPreserveAFSC(state.mPreserveAFSC);
 	
@@ -1212,8 +1184,8 @@ void SecCodeSigner::Signer::editArchitectureAgnostic()
 	}
 	// non-Mach-O executable - single-instance signature editing
 	RefPointer<DiskRep::Writer> writer = rep->writer();
-	
-	if(state.mPreserveAFSC)
+
+	if (state.mPreserveAFSC)
 		writer->setPreserveAFSC(state.mPreserveAFSC);
 	
 	for (auto const &entry : *editComponents[editMainArch]) {

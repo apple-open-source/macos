@@ -266,7 +266,7 @@ typedef const struct pthread_callbacks_s {
 	void *__unused_was_proc_set_dispatchqueue_serialno_offset;
 
 	void *__unused_was_proc_usynch_thread_qos_add_override_for_resource_check_owner;
-	void *__unused_was_proc_set_stack_addr_hint;
+	void (*proc_set_workqueue_quantum_offset)(struct proc *p, uint64_t offset);
 
 	uint32_t (*proc_get_pthread_tsd_offset)(struct proc *p);
 	void (*proc_set_pthread_tsd_offset)(struct proc *p, uint32_t pthread_tsd_offset);
@@ -291,7 +291,8 @@ typedef const struct pthread_callbacks_s {
 	uint16_t (*thread_set_tag)(thread_t thread, uint16_t tag);
 	uint16_t (*thread_get_tag)(thread_t thread);
 
-	kern_return_t (*thread_create_pinned)(task_t parent_task, thread_t *new_thread);
+	void *__unused_was_thread_create_pinned;
+
 	kern_return_t (*thread_terminate_pinned)(thread_t thread);
 	ipc_port_t (*convert_thread_to_port_pinned)(thread_t th);
 

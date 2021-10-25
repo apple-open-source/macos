@@ -125,7 +125,9 @@ where the file system mount is not critical to multiuser operation.
 .Pp
 .It Cm retrycnt Ns = Ns Aq Ar num
 Set the retry count for doing the mount to the specified value.  The
-default is 1 for foreground mounts and 10,000 for background mounts.
+default is 1 for foreground mounts and 10,000 for background mounts. Setting
+.Cm retrycnt
+to 0, in addition to only trying to establish connection once, will case nfs client code to use quick time out value (default 8s) instead of regular mount time out (default 30s) value while establishing initial connection.
 .Pp
 .It Cm udp
 Use UDP transport protocol.
@@ -363,7 +365,7 @@ to 0.
 Disable negative name caching.
 .Pp
 .It Cm locallocks
-Perform all file locking operations locally on the NFS client (in the VFS
+For NFSv2/v3 mounts, perform all file locking operations locally on the NFS client (in the VFS
 layer) instead of on the NFS server.  This option can provide file locking
 support on an NFS file system for which the server does not support file locking.
 However, because the file locking is only performed on the client, the
@@ -381,7 +383,7 @@ or
 .It Cm nolockd
 .It Cm nolock
 .It Cm nonlm
-Do not support NFS file locking operations.  Any attempt to perform file
+For NFSv2/v3 mounts, do not support NFS file locking operations.  Any attempt to perform file
 locking operations on this mount will return the error
 .Er ENOTSUP
 regardless of whether or not the NFS server supports NFS file locking.

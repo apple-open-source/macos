@@ -8,7 +8,7 @@
 #ifndef HIDConnectionIvar_h
 #define HIDConnectionIvar_h
 
-#import "hidobjcbase.h"
+#import <IOKit/hidobjc/hidobjcbase.h>
 #import <CoreFoundation/CoreFoundation.h>
 #import <objc/objc.h> // for objc_object
 #import <os/lock_private.h>
@@ -28,6 +28,7 @@ pid_t                                           pid; \
 dispatch_queue_t                                dispatchQueue; \
 mach_port_t                                     sendPossiblePort; \
 dispatch_source_t                               sendPossibleSource; \
+dispatch_source_t                               replySendPossibleSource; \
 boolean_t                                       sendPossible; \
 CFMutableSetRef                                 propertySet; \
 CFStringRef                                     caller; \
@@ -37,6 +38,7 @@ const char                                      *uuidStr; \
 int                                             type; \
 CFDictionaryRef                                 attributes; \
 task_t                                          task_name_port; \
+audit_token_t                                   audit_token; \
 os_unfair_recursive_lock                        lock; \
 IOHIDEventSystemConnectionEntitlements          *entitlements; \
 boolean_t                                       disableProtectedServices; \

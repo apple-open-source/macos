@@ -3,7 +3,7 @@ SUPPORTS_TEXT_BASED_API = YES
 SUPPORTS_TEXT_BASED_API[sdk=iphonesimulator*] = NO
 TAPI_VERIFY_MODE = Pedantic
 
-TAPI_PREPROCESSOR = -DPTHREAD_LAYOUT_SPI=1 -Dposix_spawnattr_t="void *"
+TAPI_PREPROCESSOR = -DPTHREAD_LAYOUT_SPI=1 -DPTHREAD_WORKGROUP_SPI=1 -Dposix_spawnattr_t="void *"
 TAPI_ADD_PUBLIC_HEADERS = -extra-public-header $(DSTROOT)$(SDK_INSTALL_HEADERS_ROOT)/usr/include/pthread/sched.h -extra-public-header $(DSTROOT)$(SDK_INSTALL_HEADERS_ROOT)/usr/include/sys/qos.h
 TAPI_ADD_PRIVATE_HEADERS = -extra-private-header $(PROJECT_DIR)/src/exports_internal.h
 TAPI_EXCL_PRIVATE_HEADERS = -exclude-private-header $(DSTROOT)$(SDK_INSTALL_HEADERS_ROOT)/usr/local/include/pthread/qos.h -exclude-private-header $(DSTROOT)$(SDK_INSTALL_HEADERS_ROOT)/usr/local/include/pthread/spinlock_private.h

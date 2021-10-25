@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2018 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2021 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -694,6 +694,16 @@ if_link_length(interface_t * if_p)
 }
 
 PRIVATE_EXTERN boolean_t
+if_link_address_is_private(interface_t * if_p)
+{
+    link_addr_t *	addr = &if_p->link_address;
+
+#define LOCAL_ADMIN	0x2
+    return (addr->type == IFT_ETHER && addr->length == ETHER_ADDR_LEN
+	    && (addr->addr[0] & LOCAL_ADMIN) != 0);
+}
+
+PRIVATE_EXTERN boolean_t
 if_is_ethernet(interface_t * if_p)
 {
     return (if_ift_type(if_p) == IFT_ETHER && !if_is_wireless(if_p));
@@ -721,6 +731,47 @@ PRIVATE_EXTERN boolean_t
 if_is_expensive(interface_t * if_p)
 {
     return ((if_p->type_flags & kInterfaceTypeFlagIsExpensive) != 0);
+}
+
+PRIVATE_EXTERN const char *
+if_type_string(interface_t * if_p)
+{
+    const char *	str = NULL;
+
+    if (if_is_awdl(if_p)) {
+	str = "AWDL";
+    }
+    else if (if_is_wireless(if_p)) {
+	str = "WiFi";
+    }
+    else {
+	switch (if_ift_type(if_p)) {
+	case IFT_ETHER:
+	    str = "Ethernet";
+	    break;
+	case IFT_CELLULAR:
+	    str = "Cellular";
+	    break;
+	case IFT_BRIDGE:
+	    str = "Bridge";
+	    break;
+	case IFT_L2VLAN:
+	    str = "VLAN";
+	    break;
+	case IFT_IEEE8023ADLAG:
+	    str = "Link Aggregate";
+	    break;
+	case IFT_IEEE1394:
+	    str = "Firewire";
+	    break;
+	case IFT_STF:
+	    str = "6to4";
+	    break;
+	default:
+	    break;
+	}
+    }
+    return (str);
 }
 
 PRIVATE_EXTERN int
@@ -850,24 +901,226 @@ if_link_status_update(interface_t * if_p)
 
 #ifdef TEST_INTERFACES
 
-#if 0
-void
-sockaddr_dl_print(struct sockaddr_dl * dl_p)
+static const char *
+get_ift_type_string(int ift_type)
 {
-    int i;
+	static char buf[32];
+	const char * str;
 
-    printf("link: len %d index %d family %d type 0x%x nlen %d alen %d"
-	   " slen %d addr ", dl_p->sdl_len, 
-	   dl_p->sdl_index,  dl_p->sdl_family, dl_p->sdl_type,
-	   dl_p->sdl_nlen, dl_p->sdl_alen, dl_p->sdl_slen);
-    for (i = 0; i < dl_p->sdl_alen; i++) 
-	printf("%s%x", i ? ":" : "", 
-	       ((unsigned char *)dl_p->sdl_data + dl_p->sdl_nlen)[i]);
-    printf("\n");
+	switch (ift_type) {
+	case IFT_OTHER:
+		str = "IFT_OTHER";
+		break;
+	case IFT_1822:
+		str = "IFT_1822";
+		break;
+	case IFT_HDH1822:
+		str = "IFT_HDH1822";
+		break;
+	case IFT_X25DDN:
+		str = "IFT_X25DDN";
+		break;
+	case IFT_X25:
+		str = "IFT_X25";
+		break;
+	case IFT_ETHER:
+		str = "IFT_ETHER";
+		break;
+	case IFT_ISO88023:
+		str = "IFT_ISO88023";
+		break;
+	case IFT_ISO88024:
+		str = "IFT_ISO88024";
+		break;
+	case IFT_ISO88025:
+		str = "IFT_ISO88025";
+		break;
+	case IFT_ISO88026:
+		str = "IFT_ISO88026";
+		break;
+	case IFT_STARLAN:
+		str = "IFT_STARLAN";
+		break;
+	case IFT_P10:
+		str = "IFT_P10";
+		break;
+	case IFT_P80:
+		str = "IFT_P80";
+		break;
+	case IFT_HY:
+		str = "IFT_HY";
+		break;
+	case IFT_FDDI:
+		str = "IFT_FDDI";
+		break;
+	case IFT_LAPB:
+		str = "IFT_LAPB";
+		break;
+	case IFT_SDLC:
+		str = "IFT_SDLC";
+		break;
+	case IFT_T1:
+		str = "IFT_T1";
+		break;
+	case IFT_CEPT:
+		str = "IFT_CEPT";
+		break;
+	case IFT_ISDNBASIC:
+		str = "IFT_ISDNBASIC";
+		break;
+	case IFT_ISDNPRIMARY:
+		str = "IFT_ISDNPRIMARY";
+		break;
+	case IFT_PTPSERIAL:
+		str = "IFT_PTPSERIAL";
+		break;
+	case IFT_PPP:
+		str = "IFT_PPP";
+		break;
+	case IFT_LOOP:
+		str = "IFT_LOOP";
+		break;
+	case IFT_EON:
+		str = "IFT_EON";
+		break;
+	case IFT_XETHER:
+		str = "IFT_XETHER";
+		break;
+	case IFT_NSIP:
+		str = "IFT_NSIP";
+		break;
+	case IFT_SLIP:
+		str = "IFT_SLIP";
+		break;
+	case IFT_ULTRA:
+		str = "IFT_ULTRA";
+		break;
+	case IFT_DS3:
+		str = "IFT_DS3";
+		break;
+	case IFT_SIP:
+		str = "IFT_SIP";
+		break;
+	case IFT_FRELAY:
+		str = "IFT_FRELAY";
+		break;
+	case IFT_RS232:
+		str = "IFT_RS232";
+		break;
+	case IFT_PARA:
+		str = "IFT_PARA";
+		break;
+	case IFT_ARCNET:
+		str = "IFT_ARCNET";
+		break;
+	case IFT_ARCNETPLUS:
+		str = "IFT_ARCNETPLUS";
+		break;
+	case IFT_ATM:
+		str = "IFT_ATM";
+		break;
+	case IFT_MIOX25:
+		str = "IFT_MIOX25";
+		break;
+	case IFT_SONET:
+		str = "IFT_SONET";
+		break;
+	case IFT_X25PLE:
+		str = "IFT_X25PLE";
+		break;
+	case IFT_ISO88022LLC:
+		str = "IFT_ISO88022LLC";
+		break;
+	case IFT_LOCALTALK  :
+		str = "IFT_LOCALTALK";
+		break;
+	case IFT_SMDSDXI:
+		str = "IFT_SMDSDXI";
+		break;
+	case IFT_FRELAYDCE:
+		str = "IFT_FRELAYDCE";
+		break;
+	case IFT_V35:
+		str = "IFT_V35";
+		break;
+	case IFT_HSSI:
+		str = "IFT_HSSI";
+		break;
+	case IFT_HIPPI:
+		str = "IFT_HIPPI";
+		break;
+	case IFT_MODEM:
+		str = "IFT_MODEM";
+		break;
+	case IFT_AAL5:
+		str = "IFT_AAL5";
+		break;
+	case IFT_SONETPATH:
+		str = "IFT_SONETPATH";
+		break;
+	case IFT_SONETVT:
+		str = "IFT_SONETVT";
+		break;
+	case IFT_SMDSICIP:
+		str = "IFT_SMDSICIP";
+		break;
+	case IFT_PROPVIRTUAL:
+		str = "IFT_PROPVIRTUAL";
+		break;
+	case IFT_PROPMUX:
+		str = "IFT_PROPMUX";
+		break;
+	case IFT_GIF:
+		str = "IFT_GIF";
+		break;
+	case IFT_FAITH:
+		str = "IFT_FAITH";
+		break;
+	case IFT_STF:
+		str = "IFT_STF";
+		break;
+	case IFT_6LOWPAN:
+		str = "IFT_6LOWPAN";
+		break;
+	case IFT_L2VLAN:
+		str = "IFT_L2VLAN";
+		break;
+	case IFT_IEEE8023ADLAG:
+		str = "IFT_IEEE8023ADLAG";
+		break;
+	case IFT_IEEE1394:
+		str = "IFT_IEEE1394";
+		break;
+	case IFT_BRIDGE:
+		str = "IFT_BRIDGE";
+		break;
+	case IFT_ENC:
+		str = "IFT_ENC";
+		break;
+	case IFT_PFLOG:
+		str = "IFT_PFLOG";
+		break;
+	case IFT_PFSYNC:
+		str = "IFT_PFSYNC";
+		break;
+	case IFT_CARP:
+		str = "IFT_CARP";
+		break;
+	case IFT_PKTAP:
+		str = "IFT_PKTAP";
+		break;
+	case IFT_CELLULAR:
+		str = "IFT_CELLULAR";
+		break;
+	default:
+		snprintf(buf, sizeof(buf), "IFT_(0x%x)", ift_type);
+		str = buf;
+		break;
+	}
+	return (str);
 }
-#endif
 
-void
+static void
 link_addr_print(link_addr_t * link)
 {
     int i;
@@ -894,7 +1147,12 @@ ifl_print(interface_list_t * list_p)
 	if (i > 0)
 	    printf("\n");
 	
-	printf("%s: type %d\n", if_name(if_p), if_ift_type(if_p));
+	printf("%s: type %s (%d) ift_type %s (%d)\n",
+	       if_name(if_p),
+	       get_ift_type_string(if_link_type(if_p)),
+	       if_link_type(if_p),
+	       get_ift_type_string(if_ift_type(if_p)),
+	       if_ift_type(if_p));
 	
 	for (j = 0; j < if_inet_count(if_p); j++) {
 	    inet_addrinfo_t * info = if_inet_addr_at(if_p, j);

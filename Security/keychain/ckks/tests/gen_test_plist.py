@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 #
 # TODO(kirk or SEAR/QA) after radar 53867279 is fixed, please delete this script
 #
@@ -6,6 +6,7 @@
 # this script will not find them and then your new tests will not get executed
 # in BATS!
 #
+from __future__ import print_function
 import sys
 import Foundation
 from glob import glob
@@ -74,5 +75,5 @@ if not os.path.exists(out_dir):
     os.makedirs(out_dir)
 success = test_plist.writeToFile_atomically_(outfile, 1)
 if not success:
-    print "test plist failed to write, error!"
+    print("test plist failed to write, error!")
     sys.exit(1)

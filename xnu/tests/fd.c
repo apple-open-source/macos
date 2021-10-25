@@ -7,9 +7,8 @@
 #include <mach/mach.h>
 
 T_GLOBAL_META(
-	T_META_RUN_CONCURRENTLY(true),
-	T_META_LTEPHASE(LTE_POSTINIT)
-	);
+	T_META_NAMESPACE("xnu.fd"),
+	T_META_RUN_CONCURRENTLY(true));
 
 static void *
 fd_select_close_helper(void *ctx)
@@ -39,6 +38,23 @@ T_DECL(fd_select_close, "Test for 54795873: make sure close breaks out of select
 
 	rc = select(pair[0] + 1, &read_fd, NULL, NULL, NULL);
 	T_EXPECT_POSIX_FAILURE(rc, EBADF, "select broke out with EBADF");
+}
+
+T_DECL(fd_select_ebadf, "Test that select on closed fd returns EBADF")
+{
+	fd_set read_fd;
+	int pair[2], rc;
+
+	rc = socketpair(PF_LOCAL, SOCK_STREAM, 0, pair);
+	T_ASSERT_POSIX_SUCCESS(rc, "socketpair");
+
+	FD_ZERO(&read_fd);
+	FD_SET(pair[0], &read_fd);
+
+	T_ASSERT_POSIX_SUCCESS(close(pair[0]), "close(%d)", pair[0]);
+
+	rc = select(pair[0] + 1, &read_fd, NULL, NULL, NULL);
+	T_EXPECT_POSIX_FAILURE(rc, EBADF, "select returned with EBADF");
 }
 
 static void *
@@ -128,7 +144,7 @@ T_DECL(confined_fileport_race, "test for rdar://69922255")
 		if (fileport_makeport(fd, &p) == 0) {
 			T_QUIET; T_ASSERT_EQ(fcntl(fd, F_GETCONFINED), 0,
 			    "should never get a confined fd: %d", fd);
-			mach_port_destroy(mach_task_self(), p);
+			mach_port_deallocate(mach_task_self(), p);
 		}
 
 		close(fd);

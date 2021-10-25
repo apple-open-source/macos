@@ -68,6 +68,10 @@ T_DECL(data_protection,
 	char rd_buffer[CPT_IO_SIZE];
 	char wr_buffer[CPT_IO_SIZE];
 
+	#if TARGET_OS_OSX && defined(__arm64__)
+	T_SKIP("ASM support not yet implemented (rdar://61591896)");
+	#endif /* TARGET_OS_OSX && defined(__arm64__) */
+
 	setup();
 
 	/*

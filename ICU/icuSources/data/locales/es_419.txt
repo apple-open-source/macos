@@ -1,5 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
-// License & terms of use: http://www.unicode.org/copyright.html#License
+// License & terms of use: http://www.unicode.org/copyright.html
+// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
 es_419{
     NumberElements{
         latn{
@@ -103,6 +104,7 @@ es_419{
                 }
             }
             symbols{
+                approximatelySign{"~"}
                 decimal{"."}
                 group{","}
                 minusSign{"-"}
@@ -111,7 +113,6 @@ es_419{
         }
         minimumGroupingDigits{"1"}
     }
-    Version{"36.1"}
     calendar{
         coptic{
             monthNames{
@@ -779,6 +780,53 @@ es_419{
                 }
             }
         }
+        japanese{
+            DateTimePatterns{
+                "HH:mm:ss zzzz",
+                "HH:mm:ss z",
+                "HH:mm:ss",
+                "HH:mm",
+                "EEEE, d 'de' MMMM 'de' G y",
+                "d 'de' MMMM 'de' G y",
+                "d 'de' MMM 'de' G y",
+                "dd/MM/GGGGGyy",
+                "{1} {0}",
+                "{1}, {0}",
+                "{1}, {0}",
+                "{1} {0}",
+                "{1} {0}",
+            }
+            availableFormats{
+                Ed{"E d"}
+                Gy{"G y"}
+                GyMMM{"MMM 'de' G y"}
+                GyMMMEd{"E, d 'de' MMM 'de' G y"}
+                GyMMMd{"d 'de' MMM 'de' G y"}
+                H{"HH"}
+                Hm{"HH:mm"}
+                Hms{"HH:mm:ss"}
+                MEd{"E, d/M"}
+                MMMEd{"E, d 'de' MMM"}
+                MMMMEd{"E, d 'de' MMMM"}
+                MMMd{"d 'de' MMM"}
+                Md{"d/M"}
+                h{"h a"}
+                hm{"h:mm a"}
+                hms{"h:mm:ss a"}
+                ms{"mm:ss"}
+                y{"G y"}
+                yyyy{"G y"}
+                yyyyM{"M/GGGGGy"}
+                yyyyMEd{"E d/M/GGGGGy"}
+                yyyyMMM{"MMM 'de' G y"}
+                yyyyMMMEd{"EEE, d 'de' MMM 'de' G y"}
+                yyyyMMMM{"MMMM 'de' y"}
+                yyyyMMMMd{"d 'de' MMMM 'de' y"}
+                yyyyMMMd{"d 'de' MMM 'de' G y"}
+                yyyyMd{"d/M/GGGGGy"}
+                yyyyQQQ{"QQQ 'de' G y"}
+            }
+        }
         roc{
             eras{
                 abbreviated{
@@ -922,17 +970,21 @@ es_419{
                     one{"en {0} lunes"}
                     other{"en {0} lunes"}
                 }
+                past{
+                    one{"hace {0} lunes"}
+                    other{"hace {0} lunes"}
+                }
             }
         }
         mon-narrow{
             relativeTime{
                 future{
-                    one{"en {0} lunes"}
-                    other{"en {0} lunes"}
+                    one{"en {0} LU"}
+                    other{"en {0} LU"}
                 }
                 past{
-                    one{"hace {0} lunes"}
-                    other{"hace {0} lunes"}
+                    one{"hace {0} LU"}
+                    other{"hace {0} LU"}
                 }
             }
         }
@@ -943,8 +995,8 @@ es_419{
                     other{"dentro de {0} lun."}
                 }
                 past{
-                    one{"hace {0} lunes"}
-                    other{"hace {0} lunes"}
+                    one{"hace {0} lun."}
+                    other{"hace {0} lun."}
                 }
             }
         }
@@ -954,16 +1006,21 @@ es_419{
                     one{"en {0} sábado"}
                     other{"en {0} sábados"}
                 }
+                past{
+                    one{"hace {0} sábados"}
+                    other{"hace {0} sábados"}
+                }
             }
         }
         sat-narrow{
             relativeTime{
                 future{
                     one{"en {0} SA"}
+                    other{"en {0} SA"}
                 }
                 past{
-                    one{"hace {0} sábados"}
-                    other{"hace {0} sábados"}
+                    one{"hace {0} SA"}
+                    other{"hace {0} SA"}
                 }
             }
         }
@@ -972,6 +1029,10 @@ es_419{
                 future{
                     one{"en {0} domingo"}
                     other{"en {0} domingos"}
+                }
+                past{
+                    one{"hace {0} domingo"}
+                    other{"hace {0} domingos"}
                 }
             }
         }
@@ -982,8 +1043,8 @@ es_419{
                     other{"en {0} DO"}
                 }
                 past{
-                    one{"hace {0} domingo"}
-                    other{"hace {0} domingos"}
+                    one{"hace {0} DO"}
+                    other{"hace {0} DO"}
                 }
             }
         }
@@ -1017,6 +1078,10 @@ es_419{
                     one{"en {0} miércoles"}
                     other{"dentro de {0} miércoles"}
                 }
+                past{
+                    one{"hace {0} miércoles"}
+                    other{"hace {0} miércoles"}
+                }
             }
         }
         wed-narrow{
@@ -1026,8 +1091,8 @@ es_419{
                     other{"en {0} MI"}
                 }
                 past{
-                    one{"hace {0} miércoles"}
-                    other{"hace {0} miércoles"}
+                    one{"hace {0} MI"}
+                    other{"hace {0} MI"}
                 }
             }
         }
@@ -1038,8 +1103,8 @@ es_419{
                     other{"en {0} mié."}
                 }
                 past{
-                    one{"hace {0} miércoles"}
-                    other{"hace {0} miércoles"}
+                    one{"hace {0} mié."}
+                    other{"hace {0} mié."}
                 }
             }
         }
@@ -1050,6 +1115,11 @@ es_419{
             }
         }
         week-narrow{
+            relative{
+                "-1"{"sem. pas."}
+                "0"{"esta sem."}
+                "1"{"próx. sem."}
+            }
             relativePeriod{"la semana del {0}"}
             relativeTime{
                 past{
@@ -1058,6 +1128,11 @@ es_419{
             }
         }
         week-short{
+            relative{
+                "-1"{"sem. pas."}
+                "0"{"esta sem."}
+                "1"{"próx. sem."}
+            }
             relativePeriod{"la semana del {0}"}
         }
         weekOfMonth-narrow{

@@ -748,6 +748,10 @@ int	 usleep(useconds_t) __DARWIN_ALIAS_C(usleep);
 int	 usleep(useconds_t) LIBC_ALIAS_C(usleep);
 #endif /* !LIBC_ALIAS_USLEEP */
 //End-Libc
+
+#if !defined(_POSIX_C_SOURCE)
+__deprecated_msg("Use posix_spawn or fork")
+#endif
 pid_t	 vfork(void) __WATCHOS_PROHIBITED __TVOS_PROHIBITED;
 /* End XSI */
 

@@ -90,7 +90,6 @@
 #include <libkern/crypto/md5.h>
 #include <sys/disk.h>
 #include <mach/boolean.h>
-#include <libkern/OSMalloc.h>
 
 #include "bpb.h"
 #include "direntry.h"

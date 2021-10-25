@@ -31,6 +31,8 @@
 
 #include <Security/SecStaticCode.h>
 
+#include <Security/CSCommonPriv.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif

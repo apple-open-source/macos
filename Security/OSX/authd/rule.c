@@ -281,7 +281,9 @@ rule_create_with_plist(RuleType type, CFStringRef name, CFDictionaryRef plist, a
 			if (_get_cf_bool(CFDictionaryGetValue(plist, CFSTR(kAuthorizationRuleParameterPasswordOnly)), false)) {
 				flags |= RuleFlagPasswordOnly;
 			}
-
+            if (_get_cf_bool(CFDictionaryGetValue(plist, CFSTR(kAuthorizationRuleParameterSecureTokenOnly)), false)) {
+                flags |= RuleFlagSecureTokenOnly;
+            }
             _copy_cf_rule_mechanisms(rule, CFDictionaryGetValue(plist, CFSTR(kAuthorizationRuleParameterMechanisms)), dbconn);
             
             break;
@@ -741,7 +743,7 @@ rule_sql_commit(rule_t rule, authdb_connection_t dbconn, CFAbsoluteTime modified
                     mechanism_sql_fetch(mech, dbconn);
                 }
             }
-            if (!mechanism_exists(mech) && !isInFVUnlock()) {
+            if (!mechanism_exists(mech) && !isInFVUnlockOrRecovery()) {
                 os_log_error(AUTHD_LOG, "Warning mechanism not found on disk %{public}s during import of %{public}s", mechanism_get_string(mech), rule_get_name(rule));
             }
             require_action(mechanism_get_id(mech) != 0, done, os_log_error(AUTHD_LOG, "rule: commit, invalid mechanism %{public}s:%{public}s for %{public}s", mechanism_get_plugin(mech), mechanism_get_param(mech), rule_get_name(rule)));
@@ -964,7 +966,9 @@ rule_copy_to_cfobject(rule_t rule, authdb_connection_t dbconn) {
 			if (rule_get_password_only(rule)) {
 				CFDictionarySetValue(dict, CFSTR(kAuthorizationRuleParameterPasswordOnly), kCFBooleanTrue);
 			}
-
+            if (rule_get_securetokenuser(rule)) {
+                CFDictionarySetValue(dict, CFSTR(kAuthorizationRuleParameterSecureTokenOnly), kCFBooleanTrue);
+            }
             count = CFArrayGetCount(rule->mechanisms);
             if (count) {
                 array = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks);
@@ -1143,7 +1147,7 @@ rule_check_flags(rule_t rule, RuleFlags flags)
 bool
 rule_get_shared(rule_t rule)
 {
-    if (isInFVUnlock()) {
+    if (isInFVUnlockOrRecovery()) {
         return false;
     }
     return rule_check_flags(rule, RuleFlagShared);
@@ -1255,4 +1259,9 @@ rule_log_manipulation(authdb_connection_t dbconn, rule_t rule, RuleOperation ope
         sqlite3_bind_int(stmt, 3, operation);
         sqlite3_bind_int64(stmt, 4, rule_get_version(rule));
     }, NULL);
+}
+
+bool rule_get_securetokenuser(rule_t rule)
+{
+    return rule_check_flags(rule, RuleFlagSecureTokenOnly);
 }

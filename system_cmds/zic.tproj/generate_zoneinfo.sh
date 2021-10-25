@@ -79,21 +79,32 @@ bridge*)
     ;;
 esac
 
-case "$ACTUAL_PLATFORM_NAME" in
-iphone*|appletv*|watch*|bridge*)
+ln_tzinfo_embedded() {
     mkdir -p "${PRIVATEDIR}/var/db"
     mkdir -p -m a+rx "${PRIVATEDIR}/var/db/timezone"
 
     # This link must precisely start with TZDIR followed by a slash. radar:13532660
     ln -hfs "/var/db/timezone/zoneinfo/${LOCALTIME}" "${PRIVATEDIR}/var/db/timezone/localtime"
+}
+
+case "$ACTUAL_PLATFORM_NAME" in
+iphone*|appletv*|watch*|bridge*)
+    ln_tzinfo_embedded
     ;;
 macosx)
     mkdir -p "${PRIVATEDIR}/etc"
     ln -hfs "/var/db/timezone/zoneinfo/${LOCALTIME}" "${PRIVATEDIR}/etc/localtime"
     ;;
 *)
-    echo "Unsupported platform: $ACTUAL_PLATFORM_NAME"
-    exit 1
+    case "$FALLBACK_PLATFORM" in
+        iphone*|appletv*|watch*|bridge*)
+            ln_tzinfo_embedded
+            ;;
+        *)
+            echo "Unsupported platform: $ACTUAL_PLATFORM_NAME"
+            exit 1
+            ;;
+    esac
     ;;
 esac
 

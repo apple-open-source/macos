@@ -10,6 +10,7 @@
 #include "utilities/SecInternalReleasePriv.h"
 #import "utilities/debugging.h"
 
+#import "keychain/ot/ErrorUtils.h"
 #import "keychain/ot/OTClique.h"
 #import "keychain/ot/OT.h"
 #import "keychain/ot/OTConstants.h"
@@ -18,10 +19,14 @@
 #import "keychain/otctl/OTControlCLI.h"
 
 #import "keychain/OctagonTrust/OctagonTrust.h"
+#import <OctagonTrust/OTCustodianRecoveryKey.h>
+#import <OctagonTrust/OTInheritanceKey.h>
 
 #import <AuthKit/AKAppleIDAuthenticationController.h>
 #import <AuthKit/AKAppleIDAuthenticationContext.h>
 #import <AuthKit/AKAppleIDAuthenticationContext_Private.h>
+
+#import <AppleFeatures/AppleFeatures.h>
 
 static NSString * fetch_pet(NSString * appleID, NSString * dsid)
 {
@@ -132,38 +137,40 @@ static void print_json(NSDictionary* dict)
     return self;
 }
 
-- (long)startOctagonStateMachine:(NSString *)container context:(NSString *)contextID {
+enum {NUM_RETRIES = 10};
+
+- (int)startOctagonStateMachine:(NSString* _Nullable)container context:(NSString *)contextID {
 #if OCTAGON
-    __block long ret = -1;
+    __block int ret = 1;
 
     [self.control startOctagonStateMachine:container
                                    context:contextID
                                      reply:^(NSError* _Nullable error) {
                                          if(error) {
-                                             printf("Error starting state machine: %s\n", [[error description] UTF8String]);
-                                             ret = -1;
+                                             fprintf(stderr, "Error starting state machine: %s\n", [[error description] UTF8String]);
                                          } else {
                                              printf("state machine started.\n");
+                                             ret = 0;
                                          }
                                      }];
 
     return ret;
 #else
-    printf("Unimplemented.\n");
-    return -1;
+    fprintf(stderr, "Unimplemented.\n");
+    return 1;
 #endif
 }
 
-- (long)signIn:(NSString *)altDSID container:(NSString * _Nullable)container context:(NSString *)contextID {
+- (int)signIn:(NSString *)altDSID container:(NSString * _Nullable)container context:(NSString *)contextID {
 #if OCTAGON
-    __block long ret = -1;
+    __block int ret = 1;
 
     [self.control signIn:altDSID
                container:container
                  context:contextID
                    reply:^(NSError* _Nullable error) {
                        if(error) {
-                           printf("Error signing in: %s\n", [[error description] UTF8String]);
+                           fprintf(stderr, "Error signing in: %s\n", [[error description] UTF8String]);
                        } else {
                            printf("Sign in complete.\n");
                            ret = 0;
@@ -172,19 +179,19 @@ static void print_json(NSDictionary* dict)
 
     return ret;
 #else
-    printf("Unimplemented.\n");
-    return -1;
+    fprintf(stderr, "Unimplemented.\n");
+    return 1;
 #endif
 }
 
-- (long)signOut:(NSString * _Nullable)container context:(NSString *)contextID {
+- (int)signOut:(NSString * _Nullable)container context:(NSString *)contextID {
 #if OCTAGON
-    __block long ret = -1;
+    __block int ret = 1;
     [self.control signOut:container
                   context:contextID
                     reply:^(NSError* _Nullable error) {
                         if(error) {
-                            printf("Error signing out: %s\n", [[error description] UTF8String]);
+                            fprintf(stderr, "Error signing out: %s\n", [[error description] UTF8String]);
                         } else {
                             printf("Sign out complete.\n");
                             ret = 0;
@@ -192,20 +199,20 @@ static void print_json(NSDictionary* dict)
                     }];
     return ret;
 #else
-    printf("Unimplemented.\n");
-    return -1;
+    fprintf(stderr, "Unimplemented.\n");
+    return 1;
 #endif
 }
 
-- (long)depart:(NSString * _Nullable)container context:(NSString *)contextID {
+- (int)depart:(NSString * _Nullable)container context:(NSString *)contextID {
 #if OCTAGON
-    __block long ret = -1;
+    __block int ret = 1;
 
     [self.control leaveClique:container
                       context:contextID
                         reply:^(NSError* _Nullable error) {
                             if(error) {
-                                printf("Error departing clique: %s\n", [[error description] UTF8String]);
+                                fprintf(stderr, "Error departing clique: %s\n", [[error description] UTF8String]);
                             } else {
                                 printf("Departing clique completed.\n");
                                 ret = 0;
@@ -213,40 +220,52 @@ static void print_json(NSDictionary* dict)
                         }];
     return ret;
 #else
-    printf("Unimplemented.\n");
-    return -1;
+    fprintf(stderr, "Unimplemented.\n");
+    return 1;
 #endif
 }
 
-- (long)resetOctagon:(NSString *)container context:(NSString *)contextID altDSID:(NSString *)altDSID {
+- (int)resetOctagon:(NSString* _Nullable)container context:(NSString *)contextID altDSID:(NSString *)altDSID {
 #if OCTAGON
-    __block long ret = -1;
+    __block int ret = 1;
+    __block int i = 0;
+    __block bool retry;
 
-    [self.control resetAndEstablish:container
-                            context:contextID
-                            altDSID:altDSID
-                        resetReason:CuttlefishResetReasonUserInitiatedReset
-                              reply:^(NSError* _Nullable error) {
-                                  if(error) {
-                                      printf("Error resetting: %s\n", [[error description] UTF8String]);
-                                  } else {
-                                      printf("reset and establish:\n");
-                                      ret = 0;
-                                  }
-                              }];
-
+    do {
+        retry = false;
+        [self.control resetAndEstablish:container
+                                context:contextID
+                                altDSID:altDSID
+                            resetReason:CuttlefishResetReasonUserInitiatedReset
+                                  reply:^(NSError* _Nullable error) {
+                if(error) {
+                    fprintf(stderr, "Error resetting: %s\n", [[error description] UTF8String]);
+                    if (i < NUM_RETRIES && [error isRetryable]) {
+                        retry = true;
+                    }
+                } else {
+                    printf("reset and establish:\n");
+                    ret = 0;
+                }
+                ++i;
+            }];
+    } while(retry);
     return ret;
 #else
-    printf("Unimplemented.\n");
-    return -1;
+    fprintf(stderr, "Unimplemented.\n");
+    return 1;
 #endif
 }
 
 
-- (long)resetProtectedData:(NSString *)container context:(NSString *)contextID altDSID:(NSString *)altDSID appleID:(NSString *)appleID dsid:(NSString *)dsid
+- (int)resetProtectedData:(NSString* _Nullable)container
+                  context:(NSString *)contextID
+                  altDSID:(NSString *)altDSID
+                  appleID:(NSString *_Nullable)appleID
+                     dsid:(NSString *_Nullable)dsid
 {
 #if OCTAGON
-    __block long ret = -1;
+    __block int ret = 1;
 
     NSError* error = nil;
     OTConfigurationContext *data = [[OTConfigurationContext alloc] init];
@@ -258,12 +277,15 @@ static void print_json(NSDictionary* dict)
 
     OTClique* clique = [OTClique resetProtectedData:data error:&error];
     if(clique != nil && error == nil) {
+        printf("resetProtectedData succeeded\n");
         ret = 0;
+    } else {
+        fprintf(stderr, "resetProtectedData failed: %s\n", [[error description] UTF8String]);
     }
     return ret;
 #else
-    printf("Unimplemented.\n");
-    return -1;
+    fprintf(stderr, "Unimplemented.\n");
+    return 1;
 #endif
 }
 
@@ -285,28 +307,45 @@ static void print_json(NSDictionary* dict)
            [epoch intValue]);
 }
 
+- (void)printCRKWithPeer:(NSString*)peerID information:(NSDictionary*)crkInformation prefix:(NSString * _Nullable)prefix {
+    NSString *uuid = crkInformation[@"uuid"];
+    NSString *kind = crkInformation[@"kind"];
+
+    printf("%s%s uuid: %s kind: %s\n",
+           (prefix ? [prefix UTF8String] : ""),
+           [peerID UTF8String],
+           [uuid UTF8String],
+           (kind ? [kind UTF8String] : "-"));
+}
+
 - (void)printPeers:(NSArray<NSString *>*)peerIDs
              egoPeerID:(NSString * _Nullable)egoPeerID
-    informationOnPeers:(NSDictionary<NSString *, NSDictionary*>*)informationOnPeers {
+    informationOnPeers:(NSDictionary<NSString *, NSDictionary*>*)informationOnPeers
+     informationOnCRKs:(NSDictionary<NSString *, NSDictionary*>*)informationOnCRKs
+ {
     for(NSString * peerID in peerIDs) {
         NSDictionary* peerInformation = informationOnPeers[peerID];
 
-        if(!peerInformation) {
-            printf("    Peer:  %s; further information missing\n", [peerID UTF8String]);
-            continue;
-        }
-
-        if([peerID isEqualToString:egoPeerID]) {
-            [self printPeer:peerInformation prefix:@"    Self: "];
+        if (peerInformation != nil) {
+            if([peerID isEqualToString:egoPeerID]) {
+                [self printPeer:peerInformation prefix:@"    Self: "];
+            } else {
+                [self printPeer:peerInformation prefix:@"    Peer: "];
+            }
         } else {
-            [self printPeer:peerInformation prefix:@"    Peer: "];
+            NSDictionary* crkInformation = informationOnCRKs[peerID];
+            if (crkInformation != nil) {
+                [self printCRKWithPeer:peerID information:crkInformation prefix:@"    CRK: "];
+            } else {
+                printf("    Peer:  %s; further information missing\n", [peerID UTF8String]);
+            }
         }
     }
 }
 
-- (long)fetchEscrowRecords:(NSString * _Nullable)container context:(NSString *)contextID {
+- (int)fetchEscrowRecords:(NSString * _Nullable)container context:(NSString *)contextID {
 #if OCTAGON
-    __block long ret = -1;
+    __block int ret = 1;
 
     NSError* error = nil;
     OTConfigurationContext *data = [[OTConfigurationContext alloc] init];
@@ -323,17 +362,19 @@ static void print_json(NSDictionary* dict)
             CFStringRef peerID = SOSPeerInfoGetPeerID(peer);
             printf("fetched record id: %s\n", [(__bridge NSString *)peerID UTF8String]);
         }
+    } else {
+        fprintf(stderr, "fetchEscrowRecords failed: %s\n", [[error description] UTF8String]);
     }
     return ret;
 #else
-    printf("Unimplemented.\n");
-    return -1;
+    fprintf(stderr, "Unimplemented.\n");
+    return 1;
 #endif
 }
 
-- (long)fetchAllEscrowRecords:(NSString* _Nullable)container context:(NSString*)contextID {
+- (int)fetchAllEscrowRecords:(NSString* _Nullable)container context:(NSString*)contextID {
 #if OCTAGON
-    __block long ret = -1;
+    __block int ret = 1;
 
     NSError* error = nil;
     OTConfigurationContext *data = [[OTConfigurationContext alloc] init];
@@ -350,18 +391,20 @@ static void print_json(NSDictionary* dict)
             CFStringRef peerID = SOSPeerInfoGetPeerID(peer);
             printf("fetched record id: %s\n", [(__bridge NSString*)peerID UTF8String]);
         }
+    } else {
+        fprintf(stderr, "fetchAllEscrowRecords failed: %s\n", [[error description] UTF8String]);
     }
     return ret;
 #else
-    printf("Unimplemented.\n");
-    return -1;
+    fprintf(stderr, "Unimplemented.\n");
+    return 1;
 #endif
 }
 
-- (long)performEscrowRecovery:(NSString * _Nullable)container context:(NSString *)contextID recordID:(NSString *)recordID appleID:(NSString *)appleID secret:(NSString *)secret
+- (int)performEscrowRecovery:(NSString * _Nullable)container context:(NSString *)contextID recordID:(NSString *)recordID appleID:(NSString *)appleID secret:(NSString *)secret
 {
 #if OCTAGON
-    __block long ret = -1;
+    __block int ret = 1;
 
     NSError* error = nil;
     OTConfigurationContext *data = [[OTConfigurationContext alloc] init];
@@ -378,8 +421,8 @@ static void print_json(NSDictionary* dict)
     
     NSArray<OTEscrowRecord*>* escrowRecords = [OTClique fetchEscrowRecords:data error:&error];
     if (escrowRecords == nil || error != nil) {
-        printf("Failed to fetch escrow records.\n");
-        ret = -1;
+        fprintf(stderr, "Failed to fetch escrow records: %s\n", [[error description] UTF8String]);
+        return 1;
     }
     OTEscrowRecord* record = nil;
     
@@ -394,8 +437,8 @@ static void print_json(NSDictionary* dict)
         }
     }
     if (record == nil){
-        printf("Failed to find escrow record to restore. \n");
-        return -1;
+        fprintf(stderr, "Failed to find escrow record to restore.\n");
+        return 1;
     }
     
     OTClique* clique = [OTClique performEscrowRecovery:data cdpContext:cdpContext escrowRecord:record error:&error];
@@ -407,14 +450,14 @@ static void print_json(NSDictionary* dict)
     }
     return ret;
 #else
-    printf("Unimplemented.\n");
-    return -1;
+    fprintf(stderr, "Unimplemented.\n");
+    return 1;
 #endif
 }
 
-- (long)performSilentEscrowRecovery:(NSString * _Nullable)container context:(NSString *)contextID appleID:(NSString *)appleID secret:(NSString *)secret {
+- (int)performSilentEscrowRecovery:(NSString * _Nullable)container context:(NSString *)contextID appleID:(NSString *)appleID secret:(NSString *)secret {
 #if OCTAGON
-    __block long ret = -1;
+    __block int ret = 1;
     
     NSError* error = nil;
     OTConfigurationContext *data = [[OTConfigurationContext alloc] init];
@@ -435,27 +478,27 @@ static void print_json(NSDictionary* dict)
 
     NSArray<OTEscrowRecord*>* records = [OTClique fetchEscrowRecords:data error:&error];
     if (records == nil || error != nil) {
-        printf("Failed to fetch escrow records.\n");
-        ret = -1;
-    }
-    OTClique* clique = [OTClique performSilentEscrowRecovery:data cdpContext:cdpContext allRecords:records error:&error];
-    if (clique != nil && error == nil) {
-        printf("Successfully performed escrow recovery.\n");
-        ret = 0;
+        fprintf(stderr, "Failed to fetch escrow records: %s.\n", error.description.UTF8String);
     } else {
-        fprintf(stderr, "Escrow recovery failed: %s\n", error.description.UTF8String);
+        OTClique* clique = [OTClique performSilentEscrowRecovery:data cdpContext:cdpContext allRecords:records error:&error];
+        if (clique != nil && error == nil) {
+            printf("Successfully performed escrow recovery.\n");
+            ret = 0;
+        } else {
+            fprintf(stderr, "Escrow recovery failed: %s\n", error.description.UTF8String);
+        }
     }
     return ret;
 #else
-    printf("Unimplemented.\n");
-    return -1;
+    fprintf(stderr, "Unimplemented.\n");
+    return 1;
 #endif
 }
 
 
-- (long)status:(NSString * _Nullable)container context:(NSString *)contextID json:(bool)json {
+- (int)status:(NSString * _Nullable)container context:(NSString *)contextID json:(bool)json {
 #if OCTAGON
-    __block long ret = 0;
+    __block int ret = 1;
 
     [self.control status:container
                  context:contextID
@@ -464,10 +507,10 @@ static void print_json(NSDictionary* dict)
                            if(json) {
                                print_json(@{@"error" : [error description]});
                            } else {
-                               printf("Error fetching status: %s\n", [[error description] UTF8String]);
+                               fprintf(stderr, "Error fetching status: %s\n", [[error description] UTF8String]);
                            }
-                           ret = -1;
                        } else {
+                           ret = 0;
                            if(json) {
                                print_json(result);
                            } else {
@@ -492,6 +535,14 @@ static void print_json(NSDictionary* dict)
                                    }
                                }
 
+                               NSMutableDictionary<NSString *, NSDictionary*>* crks = [NSMutableDictionary dictionary];
+                               for(NSDictionary* crkInformation in contextDump[@"custodian_recovery_keys"]) {
+                                   NSString * peerID = crkInformation[@"peerID"];
+                                   if (peerID) {
+                                       crks[peerID] = crkInformation;
+                                   }
+                               }
+
                                NSDictionary* egoInformation = contextDump[@"self"];
                                NSString * egoPeerID = egoInformation[@"peerID"];
                                NSDictionary* egoDynamicInfo = egoInformation[@"dynamicInfo"];
@@ -507,7 +558,7 @@ static void print_json(NSDictionary* dict)
                                    NSArray<NSString *>* includedPeers = egoDynamicInfo[@"included"];
                                    printf("Trusted peers (by me):\n");
                                    if(includedPeers && includedPeers.count > 0) {
-                                       [self printPeers:includedPeers egoPeerID:egoPeerID informationOnPeers:peers];
+                                       [self printPeers:includedPeers egoPeerID:egoPeerID informationOnPeers:peers informationOnCRKs:crks];
                                        [otherPeers removeObjectsInArray:includedPeers];
                                    } else {
                                        printf("    No trusted peers.\n");
@@ -517,7 +568,7 @@ static void print_json(NSDictionary* dict)
                                    NSArray<NSString *>* excludedPeers = egoDynamicInfo[@"excluded"];
                                    printf("Excluded peers (by me):\n");
                                    if(excludedPeers && excludedPeers.count > 0) {
-                                       [self printPeers:excludedPeers egoPeerID:egoPeerID informationOnPeers:peers];
+                                       [self printPeers:excludedPeers egoPeerID:egoPeerID informationOnPeers:peers informationOnCRKs:crks];
                                        [otherPeers removeObjectsInArray:excludedPeers];
                                    } else {
                                        printf("    No excluded peers.\n");
@@ -526,7 +577,7 @@ static void print_json(NSDictionary* dict)
 
                                    printf("Other peers (included/excluded by others):\n");
                                    if(otherPeers.count > 0) {
-                                       [self printPeers:otherPeers egoPeerID:egoPeerID informationOnPeers:peers];
+                                       [self printPeers:otherPeers egoPeerID:egoPeerID informationOnPeers:peers informationOnCRKs:crks];
                                    } else {
                                        printf("    No other peers.\n");
                                    }
@@ -537,7 +588,7 @@ static void print_json(NSDictionary* dict)
 
                                    if(allPeerIDs.count > 0) {
                                        printf("All peers currently in this account:\n");
-                                       [self printPeers:allPeerIDs egoPeerID:nil informationOnPeers:peers];
+                                       [self printPeers:allPeerIDs egoPeerID:nil informationOnPeers:peers informationOnCRKs:crks];
                                    } else {
                                        printf("No peers currently exist for this account.\n");
                                    }
@@ -550,18 +601,18 @@ static void print_json(NSDictionary* dict)
 
     return ret;
 #else
-    printf("Unimplemented.\n");
-    return -1;
+    fprintf(stderr, "Unimplemented.\n");
+    return 1;
 #endif
 }
 
-- (long)recoverUsingBottleID:(NSString *)bottleID
+- (int)recoverUsingBottleID:(NSString *)bottleID
                      entropy:(NSData*)entropy
                      altDSID:(NSString *)altDSID
-               containerName:(NSString *)containerName
+               containerName:(NSString* _Nullable)containerName
                      context:(NSString *)context
                      control:(OTControl*)control {
-    __block long ret = 0;
+    __block int ret = 1;
 
 #if OCTAGON
     dispatch_semaphore_t sema = dispatch_semaphore_create(0);
@@ -573,31 +624,31 @@ static void print_json(NSDictionary* dict)
             bottleID:bottleID
                reply:^(NSError* _Nullable error) {
                    if(error) {
-                       ret = -1;
-                       printf("Error recovering: %s\n", [[error description] UTF8String]);
+                       ret = 1;
+                       fprintf(stderr, "Error recovering: %s\n", [[error description] UTF8String]);
                    } else {
                        printf("Succeeded recovering bottled peer %s\n", [[bottleID description] UTF8String]);
+                       ret = 0;
                    }
                    dispatch_semaphore_signal(sema);
                }];
 
     if(dispatch_semaphore_wait(sema, dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC * 60)) != 0) {
-        printf("timed out waiting for restore/recover\n");
-        ret = -1;
+        fprintf(stderr, "timed out waiting for restore/recover\n");
     }
 
     return ret;
 #else
-    ret = -1;
+    ret = 1;
     return ret;
 #endif
 }
 
-- (long)fetchAllBottles:(NSString *)altDSID
-          containerName:(NSString *)containerName
+- (int)fetchAllBottles:(NSString *)altDSID
+          containerName:(NSString* _Nullable)containerName
                 context:(NSString *)context
                 control:(OTControl*)control {
-    __block long ret = 0;
+    __block int ret = 1;
 
 #if OCTAGON
     __block NSError* localError = nil;
@@ -616,6 +667,7 @@ static void print_json(NSDictionary* dict)
                                      secnotice("clique", "findOptimalBottleIDsWithContextData errored: %@\n", controlError);
                                  } else {
                                      secnotice("clique", "findOptimalBottleIDsWithContextData succeeded: %@, %@\n", sortedBottleIDs, sortedPartialBottleIDs);
+                                     ret = 0;
                                  }
                                  localError = controlError;
                                  localViableBottleIDs = sortedBottleIDs;
@@ -625,7 +677,7 @@ static void print_json(NSDictionary* dict)
 
     if(dispatch_semaphore_wait(sema, dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC * 60)) != 0) {
         secnotice("clique", "findOptimalBottleIDsWithContextData failed to fetch bottles\n");
-        return -1;
+        return 1;
     }
 
     [localViableBottleIDs enumerateObjectsUsingBlock:^(NSString * obj, NSUInteger idx, BOOL* stop) {
@@ -638,22 +690,24 @@ static void print_json(NSDictionary* dict)
 
     return ret;
 #else
-    ret = -1;
+    ret = 1;
     return ret;
 #endif
 }
 
-- (long)healthCheck:(NSString * _Nullable)container context:(NSString *)contextID skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
+- (int)healthCheck:(NSString * _Nullable)container
+           context:(NSString *)contextID
+skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
 {
 #if OCTAGON
-    __block long ret = -1;
+    __block int ret = 1;
 
     [self.control healthCheck:container
                       context:contextID
         skipRateLimitingCheck:skipRateLimitingCheck
                         reply:^(NSError* _Nullable error) {
                             if(error) {
-                                printf("Error checking health: %s\n", [[error description] UTF8String]);
+                                fprintf(stderr, "Error checking health: %s\n", [[error description] UTF8String]);
                             } else {
                                 printf("Checking Octagon Health completed.\n");
                                 ret = 0;
@@ -661,44 +715,44 @@ static void print_json(NSDictionary* dict)
                         }];
     return ret;
 #else
-    printf("Unimplemented.\n");
-    return -1;
+    fprintf(stderr, "Unimplemented.\n");
+    return 1;
 #endif
 }
 
-- (long)refetchCKKSPolicy:(NSString *)container context:(NSString *)contextID
+- (int)refetchCKKSPolicy:(NSString* _Nullable)container context:(NSString *)contextID
 {
-    #if OCTAGON
-        __block long ret = 1;
+#if OCTAGON
+    __block int ret = 1;
 
-        [self.control refetchCKKSPolicy:container
-                              contextID:contextID
-                                  reply:^(NSError * _Nullable error) {
+    [self.control refetchCKKSPolicy:container
+                          contextID:contextID
+                              reply:^(NSError * _Nullable error) {
             if(error) {
-                printf("Error refetching CKKS policy: %s\n", [[error description] UTF8String]);
+                fprintf(stderr, "Error refetching CKKS policy: %s\n", [[error description] UTF8String]);
             } else {
                 printf("CKKS refetch completed.\n");
                 ret = 0;
             }
         }];
-        return ret;
-    #else
-        printf("Unimplemented.\n");
-        return 1;
-    #endif
+    return ret;
+#else
+    fprintf(stderr, "Unimplemented.\n");
+    return 1;
+#endif
 }
 
-- (long)tapToRadar:(NSString *)action description:(NSString *)description radar:(NSString *)radar
+- (int)tapToRadar:(NSString *)action description:(NSString *)description radar:(NSString *)radar
 {
 #if OCTAGON
-    __block long ret = 1;
+    __block int ret = 1;
 
     [self.control tapToRadar:action
                  description:description
                        radar:radar
                        reply:^(NSError* _Nullable error) {
         if(error) {
-            printf("Error trigger TTR: %s\n", [[error description] UTF8String]);
+            fprintf(stderr, "Error trigger TTR: %s\n", [[error description] UTF8String]);
         } else {
             printf("Trigger TTR completed.\n");
             ret = 0;
@@ -706,85 +760,648 @@ static void print_json(NSDictionary* dict)
     }];
     return ret;
 #else
-    printf("Unimplemented.\n");
+    fprintf(stderr, "Unimplemented.\n");
     return 1;
 #endif
 }
 
-- (long)setUserControllableViewsSyncStatus:(NSString * _Nullable)containerName
+- (int)setUserControllableViewsSyncStatus:(NSString * _Nullable)containerName
                                  contextID:(NSString *)contextID
                                    enabled:(BOOL)enabled
 {
-    #if OCTAGON
-        __block long ret = 1;
+#if OCTAGON
+    __block int ret = 1;
 
-        [self.control setUserControllableViewsSyncStatus:containerName
-                                               contextID:contextID
-                                                 enabled:enabled
-                                                   reply:^(BOOL nowSyncing, NSError * _Nullable error) {
+    [self.control setUserControllableViewsSyncStatus:containerName
+                                           contextID:contextID
+                                             enabled:enabled
+                                               reply:^(BOOL nowSyncing, NSError * _Nullable error) {
             if(error) {
-                printf("Error setting user controllable views: %s\n", [[error description] UTF8String]);
+                fprintf(stderr, "Error setting user controllable views: %s\n", [[error description] UTF8String]);
             } else {
-                printf("User controllable views are now %s.", [(nowSyncing ? @"enabled" : @"paused") UTF8String]);
+                printf("User controllable views are now %s.\n", [(nowSyncing ? @"enabled" : @"paused") UTF8String]);
                 ret = 0;
             }
         }];
-        return ret;
-    #else
-        printf("Unimplemented.\n");
-        return 1;
-    #endif
+    return ret;
+#else
+    fprintf(stderr, "Unimplemented.\n");
+    return 1;
+#endif
 }
 
-- (long)fetchUserControllableViewsSyncStatus:(NSString * _Nullable)containerName
+- (int)fetchUserControllableViewsSyncStatus:(NSString * _Nullable)containerName
                                    contextID:(NSString *)contextID
 {
-    #if OCTAGON
-        __block long ret = 1;
+#if OCTAGON
+    __block int ret = 1;
 
-        [self.control fetchUserControllableViewsSyncStatus:containerName
-                                                 contextID:contextID
-                                                     reply:^(BOOL nowSyncing, NSError * _Nullable error) {
+    [self.control fetchUserControllableViewsSyncStatus:containerName
+                                             contextID:contextID
+                                                 reply:^(BOOL nowSyncing, NSError * _Nullable error) {
             if(error) {
-                printf("Error setting user controllable views: %s\n", [[error description] UTF8String]);
+                fprintf(stderr, "Error setting user controllable views: %s\n", [[error description] UTF8String]);
             } else {
-                printf("User controllable views are currently %s.", [(nowSyncing ? @"enabled" : @"paused") UTF8String]);
+                printf("User controllable views are currently %s.\n", [(nowSyncing ? @"enabled" : @"paused") UTF8String]);
                 ret = 0;
             }
         }];
-        return ret;
-    #else
-        printf("Unimplemented.\n");
-        return 1;
-    #endif
+    return ret;
+#else
+    fprintf(stderr, "Unimplemented.\n");
+    return 1;
+#endif
 }
 
-- (long)resetAccountCDPContentsWithContainerName:(NSString *)containerName
+- (int)resetAccountCDPContentsWithContainerName:(NSString* _Nullable)containerName
                                        contextID:(NSString *)contextID {
-   __block long ret = 0;
+   __block int ret = 1;
 
 #if OCTAGON
    dispatch_semaphore_t sema = dispatch_semaphore_create(0);
 
     [self.control resetAccountCDPContents:containerName contextID:contextID reply:^(NSError * _Nullable error) {
         if(error) {
-            ret = -1;
-            printf("Error resetting account cdp content: %s\n", [[error description] UTF8String]);
+            fprintf(stderr, "Error resetting account cdp content: %s\n", [[error description] UTF8String]);
         } else {
-            printf("Succeeded resetting account cdp content");
+            printf("Succeeded resetting account cdp content\n");
+            ret = 0;
         }
         dispatch_semaphore_signal(sema);
     }];
 
    if(dispatch_semaphore_wait(sema, dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC * 60)) != 0) {
-       printf("timed out waiting for restore/recover\n");
-       ret = -1;
+       fprintf(stderr, "timed out waiting for restore/recover\n");
+       ret = 1;
    }
 
    return ret;
 #else
-   ret = -1;
+   ret = 1;
    return ret;
 #endif
 }
+
+- (int)createCustodianRecoveryKeyWithContainerName:(NSString* _Nullable)containerName
+                                          contextID:(NSString *)contextID
+                                               json:(bool)json
+{
+#if OCTAGON
+    __block int ret = 1;
+    __block int i = 0;
+    __block bool retry;
+    do {
+        retry = false;
+        [self.control createCustodianRecoveryKey:containerName
+                                       contextID:contextID
+                                            uuid:nil
+                                           reply:^(OTCustodianRecoveryKey *_Nullable crk, NSError *_Nullable error) {
+            if (error) {
+                fprintf(stderr, "createCustodianRecoveryKey failed: %s\n", [[error description] UTF8String]);
+                if (i < NUM_RETRIES && [error isRetryable]) {
+                    retry = true;
+                }
+            } else {
+                ret = 0;
+                if (json) {
+                    NSDictionary *d = @{
+                                        @"uuid": [crk.uuid description],
+                                        @"recoveryString": crk.recoveryString,
+                                        @"wrappingKey": [crk.wrappingKey base64EncodedStringWithOptions:0],
+                                        @"wrappedKey": [crk.wrappedKey base64EncodedStringWithOptions:0],
+                    };
+                    print_json(d);
+                } else {
+                    printf("Created custodian key %s, string: %s, wrapping key: %s, wrapped key: %s\n",
+                           [[crk.uuid description] UTF8String],
+                           [crk.recoveryString UTF8String],
+                           [[crk.wrappingKey base64EncodedStringWithOptions:0] UTF8String],
+                           [[crk.wrappedKey base64EncodedStringWithOptions:0] UTF8String]);
+                }
+            }
+            ++i;
+        }];
+    } while (retry);
+    return ret;
+#else
+    fprintf(stderr, "Unimplemented.\n");
+    return 1;
+#endif
+}
+
+- (int)joinWithCustodianRecoveryKeyWithContainerName:(NSString* _Nullable)containerName
+                                           contextID:(NSString *)contextID
+                                         wrappingKey:(NSString*)wrappingKey
+                                          wrappedKey:(NSString*)wrappedKey
+                                          uuidString:(NSString*)uuidString
+{
+#if OCTAGON
+    __block int ret = 1;
+    __block int i = 0;
+    __block bool retry;
+
+    NSData *wrappingKeyData = [[NSData alloc] initWithBase64EncodedString:wrappingKey options:0];
+    if (wrappingKeyData == nil) {
+        fprintf(stderr, "bad base64 data for wrappingKey\n");
+        return 1;
+    }
+    NSData *wrappedKeyData = [[NSData alloc] initWithBase64EncodedString:wrappedKey options:0];
+    if (wrappedKeyData == nil) {
+        fprintf(stderr, "bad base64 data for wrappedKey\n");
+        return 1;
+    }
+    NSUUID *uuid = [[NSUUID alloc] initWithUUIDString:uuidString];
+    if (uuid == nil) {
+        fprintf(stderr, "bad format for custodianUUID\n");
+        return 1;
+    }
+
+    NSError *initError = nil;
+    OTCustodianRecoveryKey* crk = [[OTCustodianRecoveryKey alloc] initWithWrappedKey:wrappedKeyData
+                                                                         wrappingKey:wrappingKeyData
+                                                                                uuid:uuid
+                                                                               error:&initError];
+    if (crk == nil) {
+        fprintf(stderr, "failed to create OTCustodianRecoveryKey: %s\n", [[initError description] UTF8String]);
+        return 1;
+    }
+
+    do {
+        retry = false;
+        [self.control joinWithCustodianRecoveryKey:containerName
+                                         contextID:contextID
+                              custodianRecoveryKey:crk
+                                             reply:^(NSError* _Nullable error) {
+            if (error) {
+                fprintf(stderr, "joinWithCustodianRecoveryKey failed: %s\n", [[error description] UTF8String]);
+                if (i < NUM_RETRIES && [error isRetryable]) {
+                    retry = true;
+                }
+            } else {
+                printf("successful join from custodian recovery key\n");
+                ret = 0;
+            }
+            ++i;
+        }];
+    } while (retry);
+    return ret;
+#else
+    fprintf(stderr, "Unimplemented.\n");
+    return 1;
+#endif
+}
+
+- (int)preflightJoinWithCustodianRecoveryKeyWithContainerName:(NSString* _Nullable)containerName
+                                                    contextID:(NSString *)contextID
+                                                  wrappingKey:(NSString*)wrappingKey
+                                                   wrappedKey:(NSString*)wrappedKey
+                                                   uuidString:(NSString*)uuidString
+{
+#if OCTAGON
+    __block int ret = 1;
+    __block int i = 0;
+    __block bool retry;
+
+    NSData *wrappingKeyData = [[NSData alloc] initWithBase64EncodedString:wrappingKey options:0];
+    if (wrappingKeyData == nil) {
+        fprintf(stderr, "bad base64 data for wrappingKey\n");
+        return 1;
+    }
+    NSData *wrappedKeyData = [[NSData alloc] initWithBase64EncodedString:wrappedKey options:0];
+    if (wrappedKeyData == nil) {
+        fprintf(stderr, "bad base64 data for wrappedKey\n");
+        return 1;
+    }
+    NSUUID *uuid = [[NSUUID alloc] initWithUUIDString:uuidString];
+    if (uuid == nil) {
+        fprintf(stderr, "bad format for custodianUUID\n");
+        return 1;
+    }
+
+    NSError *initError = nil;
+    OTCustodianRecoveryKey* crk = [[OTCustodianRecoveryKey alloc] initWithWrappedKey:wrappedKeyData
+                                                                         wrappingKey:wrappingKeyData
+                                                                                uuid:uuid
+                                                                               error:&initError];
+    if (crk == nil) {
+        fprintf(stderr, "failed to create OTCustodianRecoveryKey: %s\n", [[initError description] UTF8String]);
+        return 1;
+    }
+
+    do {
+        retry = false;
+        [self.control preflightJoinWithCustodianRecoveryKey:containerName
+                                                  contextID:contextID
+                                       custodianRecoveryKey:crk
+                                                      reply:^(NSError* _Nullable error) {
+                if (error) {
+                    fprintf(stderr, "preflightJoinWithCustodianRecoveryKey failed: %s\n", [[error description] UTF8String]);
+                    if (i < NUM_RETRIES && [error isRetryable]) {
+                        retry = true;
+                    }
+                } else {
+                    printf("successful preflight join from custodian recovery key\n");
+                    ret = 0;
+                }
+                ++i;
+            }];
+    } while (retry);
+    return ret;
+#else
+    fprintf(stderr, "Unimplemented.\n");
+    return 1;
+#endif
+}
+
+- (int)removeCustodianRecoveryKeyWithContainerName:(NSString* _Nullable)containerName
+                                         contextID:(NSString *)contextID
+                                        uuidString:(NSString*)uuidString
+{
+#if OCTAGON
+    __block int ret = 1;
+    __block int i = 0;
+    __block bool retry;
+
+    NSUUID *uuid = [[NSUUID alloc] initWithUUIDString:uuidString];
+    if (uuid == nil) {
+        fprintf(stderr, "bad format for custodianUUID\n");
+        return 1;
+    }
+    do {
+        retry = false;
+        [self.control removeCustodianRecoveryKey:containerName
+                                       contextID:contextID
+                                            uuid:uuid
+                                           reply:^(NSError* _Nullable error) {
+            if (error) {
+                fprintf(stderr, "remove custodian recovery key failed: %s\n", [[error description] UTF8String]);
+                if (i < NUM_RETRIES && [error isRetryable]) {
+                    retry = true;
+                }
+            } else {
+                printf("successful removal of custodian recovery key\n");
+                ret = 0;
+            }
+            ++i;
+        }];
+    } while (retry);
+    return ret;
+#else
+    fprintf(stderr, "Unimplemented.\n");
+    return 1;
+#endif
+}
+
+- (int)createInheritanceKeyWithContainerName:(NSString* _Nullable)containerName
+                                   contextID:(NSString *)contextID
+                                        json:(bool)json
+{
+#if OCTAGON
+    __block int ret = 1;
+    __block int i = 0;
+    __block bool retry;
+    do {
+        retry = false;
+        [self.control createInheritanceKey:containerName
+                                 contextID:contextID
+                                      uuid:nil
+                                     reply:^(OTInheritanceKey *_Nullable ik, NSError *_Nullable error) {
+            if (error) {
+                fprintf(stderr, "createInheritanceKey failed: %s\n", [[error description] UTF8String]);
+                if (i < NUM_RETRIES && [error isRetryable]) {
+                    retry = true;
+                }
+            } else {
+                ret = 0;
+                if (json) {
+                    NSDictionary *d = @{
+                                        @"uuid": [ik.uuid description],
+                                        @"wrappingKeyData": [ik.wrappingKeyData base64EncodedStringWithOptions:0],
+                                        @"wrappingKeyString": ik.wrappingKeyString,
+                                        @"wrappedKeyData": [ik.wrappedKeyData base64EncodedStringWithOptions:0],
+                                        @"wrappedKeyString": ik.wrappedKeyString,
+                                        @"claimTokenData": [ik.claimTokenData base64EncodedStringWithOptions:0],
+                                        @"claimTokenString": ik.claimTokenString,
+                                        @"recoveryKeyData": [ik.recoveryKeyData base64EncodedStringWithOptions:0],
+                    };
+                    print_json(d);
+                } else {
+                    printf("Created inheritance key %s\n"
+                           "\twrappingKeyData: %s\n"
+                           "\twrappingKeyString: %s\n"
+                           "\twrappedKeyData: %s\n"
+                           "\twrappedKeyString: %s\n"
+                           "\tclaimTokenData: %s\n"
+                           "\tclaimTokenString: %s\n"
+                           "\trecoveryKeyData: %s\n",
+                           [[ik.uuid description] UTF8String],
+                           [[ik.wrappingKeyData base64EncodedStringWithOptions:0] UTF8String],
+                           [ik.wrappingKeyString UTF8String],
+                           [[ik.wrappedKeyData base64EncodedStringWithOptions:0] UTF8String],
+                           [ik.wrappedKeyString UTF8String],
+                           [[ik.claimTokenData base64EncodedStringWithOptions:0] UTF8String],
+                           [ik.claimTokenString UTF8String],
+                           [[ik.recoveryKeyData base64EncodedStringWithOptions:0] UTF8String]
+                           );
+                }
+            }
+            ++i;
+        }];
+    } while (retry);
+    return ret;
+#else
+    fprintf(stderr, "Unimplemented.\n");
+    return 1;
+#endif
+}
+
+- (int)generateInheritanceKeyWithContainerName:(NSString* _Nullable)containerName
+                                     contextID:(NSString *)contextID
+                                          json:(bool)json
+{
+#if OCTAGON
+    __block int ret = 1;
+    __block int i = 0;
+    __block bool retry;
+    do {
+        retry = false;
+        [self.control generateInheritanceKey:containerName
+                                 contextID:contextID
+                                      uuid:nil
+                                     reply:^(OTInheritanceKey *_Nullable ik, NSError *_Nullable error) {
+            if (error) {
+                printf("generateInheritanceKey failed: %s\n", [[error description] UTF8String]);
+                if (i < NUM_RETRIES && [error isRetryable]) {
+                    retry = true;
+                }
+            } else {
+                ret = 0;
+                if (json) {
+                    NSDictionary *d = @{
+                                        @"uuid": [ik.uuid description],
+                                        @"wrappingKeyData": [ik.wrappingKeyData base64EncodedStringWithOptions:0],
+                                        @"wrappingKeyString": ik.wrappingKeyString,
+                                        @"wrappedKeyData": [ik.wrappedKeyData base64EncodedStringWithOptions:0],
+                                        @"wrappedKeyString": ik.wrappedKeyString,
+                                        @"claimTokenData": [ik.claimTokenData base64EncodedStringWithOptions:0],
+                                        @"claimTokenString": ik.claimTokenString,
+                                        @"recoveryKeyData": [ik.recoveryKeyData base64EncodedStringWithOptions:0],
+                    };
+                    print_json(d);
+                } else {
+                    printf("Generated inheritance key %s\n"
+                           "\twrappingKeyData: %s\n"
+                           "\twrappingKeyString: %s\n"
+                           "\twrappedKeyData: %s\n"
+                           "\twrappedKeyString: %s\n"
+                           "\tclaimTokenData: %s\n"
+                           "\tclaimTokenString: %s\n"
+                           "\trecoveryKeyData: %s\n",
+                           [[ik.uuid description] UTF8String],
+                           [[ik.wrappingKeyData base64EncodedStringWithOptions:0] UTF8String],
+                           [ik.wrappingKeyString UTF8String],
+                           [[ik.wrappedKeyData base64EncodedStringWithOptions:0] UTF8String],
+                           [ik.wrappedKeyString UTF8String],
+                           [[ik.claimTokenData base64EncodedStringWithOptions:0] UTF8String],
+                           [ik.claimTokenString UTF8String],
+                           [[ik.recoveryKeyData base64EncodedStringWithOptions:0] UTF8String]
+                           );
+                }
+            }
+            ++i;
+        }];
+    } while (retry);
+    return ret;
+#else
+    printf("Unimplemented.\n");
+    return 1;
+#endif
+}
+
+- (int)storeInheritanceKeyWithContainerName:(NSString* _Nullable)containerName
+                                  contextID:(NSString *)contextID
+                                wrappingKey:(NSString*)wrappingKey
+                                 wrappedKey:(NSString*)wrappedKey
+                                 uuidString:(NSString*)uuidString
+{
+#if OCTAGON
+    __block int ret = 1;
+    __block int i = 0;
+    __block bool retry;
+
+    NSData *wrappingKeyData = [[NSData alloc] initWithBase64EncodedString:wrappingKey options:0];
+    if (wrappingKeyData == nil) {
+        printf("bad base64 data for wrappingKey\n");
+        return 1;
+    }
+    NSData *wrappedKeyData = [[NSData alloc] initWithBase64EncodedString:wrappedKey options:0];
+    if (wrappedKeyData == nil) {
+        printf("bad base64 data for wrappedKey\n");
+        return 1;
+    }
+    NSUUID *uuid = [[NSUUID alloc] initWithUUIDString:uuidString];
+    if (uuid == nil) {
+        printf("bad format for inheritanceUUID\n");
+        return 1;
+    }
+
+    NSError *initError = nil;
+    OTInheritanceKey *ik = [[OTInheritanceKey alloc] initWithWrappedKeyData:wrappedKeyData
+                                                            wrappingKeyData:wrappingKeyData
+                                                                       uuid:uuid
+                                                                      error:&initError];
+    if (ik == nil) {
+        printf("failed to create OTInheritanceKey: %s\n", [[initError description] UTF8String]);
+        return 1;
+    }
+
+    do {
+        retry = false;
+        [self.control storeInheritanceKey:containerName
+                                contextID:contextID
+                                       ik:ik
+                                    reply:^(NSError* _Nullable error) {
+            if (error) {
+                printf("storeInheritanceKey failed: %s\n", [[error description] UTF8String]);
+                if (i < NUM_RETRIES && [error isRetryable]) {
+                    retry = true;
+                }
+            } else {
+                printf("successful store of inheritance key\n");
+                ret = 0;
+            }
+            ++i;
+        }];
+    } while (retry);
+    return ret;
+#else
+    printf("Unimplemented.\n");
+    return 1;
+#endif
+}
+
+- (int)joinWithInheritanceKeyWithContainerName:(NSString* _Nullable)containerName
+                                     contextID:(NSString *)contextID
+                                   wrappingKey:(NSString*)wrappingKey
+                                    wrappedKey:(NSString*)wrappedKey
+                                    uuidString:(NSString*)uuidString
+{
+#if OCTAGON
+    __block int ret = 1;
+    __block int i = 0;
+    __block bool retry;
+
+    NSData *wrappingKeyData = [[NSData alloc] initWithBase64EncodedString:wrappingKey options:0];
+    if (wrappingKeyData == nil) {
+        fprintf(stderr, "bad base64 data for wrappingKey\n");
+        return 1;
+    }
+    NSData *wrappedKeyData = [[NSData alloc] initWithBase64EncodedString:wrappedKey options:0];
+    if (wrappedKeyData == nil) {
+        fprintf(stderr, "bad base64 data for wrappedKey\n");
+        return 1;
+    }
+    NSUUID *uuid = [[NSUUID alloc] initWithUUIDString:uuidString];
+    if (uuid == nil) {
+        fprintf(stderr, "bad format for inheritanceUUID\n");
+        return 1;
+    }
+
+    NSError *initError = nil;
+    OTInheritanceKey *ik = [[OTInheritanceKey alloc] initWithWrappedKeyData:wrappedKeyData
+                                                            wrappingKeyData:wrappingKeyData
+                                                                       uuid:uuid
+                                                                      error:&initError];
+    if (ik == nil) {
+        fprintf(stderr, "failed to create OTInheritanceKey: %s\n", [[initError description] UTF8String]);
+        return 1;
+    }
+
+    do {
+        retry = false;
+        [self.control joinWithInheritanceKey:containerName
+                                   contextID:contextID
+                              inheritanceKey:ik
+                                       reply:^(NSError* _Nullable error) {
+            if (error) {
+                fprintf(stderr, "joinWithInheritanceKey failed: %s\n", [[error description] UTF8String]);
+                if (i < NUM_RETRIES && [error isRetryable]) {
+                    retry = true;
+                }
+            } else {
+                printf("successful join from inheritance key\n");
+                ret = 0;
+            }
+            ++i;
+        }];
+    } while (retry);
+    return ret;
+#else
+    fprintf(stderr, "Unimplemented.\n");
+    return 1;
+#endif
+}
+
+- (int)preflightJoinWithInheritanceKeyWithContainerName:(NSString* _Nullable)containerName
+                                              contextID:(NSString *)contextID
+                                            wrappingKey:(NSString*)wrappingKey
+                                             wrappedKey:(NSString*)wrappedKey
+                                             uuidString:(NSString*)uuidString
+{
+#if OCTAGON
+    __block int ret = 1;
+    __block int i = 0;
+    __block bool retry;
+
+    NSData *wrappingKeyData = [[NSData alloc] initWithBase64EncodedString:wrappingKey options:0];
+    if (wrappingKeyData == nil) {
+        fprintf(stderr, "bad base64 data for wrappingKey\n");
+        return 1;
+    }
+    NSData *wrappedKeyData = [[NSData alloc] initWithBase64EncodedString:wrappedKey options:0];
+    if (wrappedKeyData == nil) {
+        fprintf(stderr, "bad base64 data for wrappedKey\n");
+        return 1;
+    }
+    NSUUID *uuid = [[NSUUID alloc] initWithUUIDString:uuidString];
+    if (uuid == nil) {
+        fprintf(stderr, "bad format for inheritanceUUID\n");
+        return 1;
+    }
+
+    NSError *initError = nil;
+    OTInheritanceKey *ik = [[OTInheritanceKey alloc] initWithWrappedKeyData:wrappedKeyData
+                                                            wrappingKeyData:wrappingKeyData
+                                                                       uuid:uuid
+                                                                      error:&initError];
+    if (ik == nil) {
+        fprintf(stderr, "failed to create OTInheritanceKey: %s\n", [[initError description] UTF8String]);
+        return 1;
+    }
+
+    do {
+        retry = false;
+        [self.control preflightJoinWithInheritanceKey:containerName
+                                            contextID:contextID
+                                       inheritanceKey:ik
+                                                reply:^(NSError* _Nullable error) {
+                if (error) {
+                    fprintf(stderr, "preflight joinWithInheritanceKey failed: %s\n", [[error description] UTF8String]);
+                    if (i < NUM_RETRIES && [error isRetryable]) {
+                        retry = true;
+                    }
+                } else {
+                    printf("successful preflight join from inheritance key\n");
+                    ret = 0;
+                }
+                ++i;
+        }];
+    } while (retry);
+    return ret;
+#else
+    fprintf(stderr, "Unimplemented.\n");
+    return 1;
+#endif
+}
+
+- (int)removeInheritanceKeyWithContainerName:(NSString* _Nullable)containerName
+                                   contextID:(NSString *)contextID
+                                  uuidString:(NSString*)uuidString
+{
+#if OCTAGON
+    __block int ret = 1;
+    __block int i = 0;
+    __block bool retry;
+
+    NSUUID *uuid = [[NSUUID alloc] initWithUUIDString:uuidString];
+    if (uuid == nil) {
+        fprintf(stderr, "bad format for inheritanceUUID\n");
+        return 1;
+    }
+    do {
+        retry = false;
+        [self.control removeInheritanceKey:containerName
+                                 contextID:contextID
+                                      uuid:uuid
+                                     reply:^(NSError* _Nullable error) {
+            if (error) {
+                fprintf(stderr, "remove inheritance key failed: %s\n", [[error description] UTF8String]);
+                if (i < NUM_RETRIES && [error isRetryable]) {
+                    retry = true;
+                }
+            } else {
+                printf("successful removal of inheritance key\n");
+                ret = 0;
+            }
+            ++i;
+        }];
+    } while (retry);
+    return ret;
+#else
+    fprintf(stderr, "Unimplemented.\n");
+    return 1;
+#endif
+}
+
+
 @end

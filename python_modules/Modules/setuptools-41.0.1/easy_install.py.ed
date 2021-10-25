@@ -1,0 +1,2 @@
+,s/Python\.framework/@PYFRAMEWORKNAME@/g
+w

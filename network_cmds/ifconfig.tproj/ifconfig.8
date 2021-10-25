@@ -120,6 +120,10 @@
 .Ar interface
 .Cm bondmode
 .Ar lacp | static
+.Nm
+.Fl X
+.Ar pattern
+.Op Ar parameters
 .Sh DESCRIPTION
 The
 .Nm
@@ -1020,6 +1024,17 @@ For bridge interfaces, the list of addresses learned by the bridge is not shown 
 all interfaces except when the 
 .Fl v
 flag is used.
+.Pp
+The
+.Fl X
+flag may be used to list interfaces whose names match the regular expression in the pattern.
+See re_format(7) for more information on regular expressions.
+This flag may be used with the
+.Fl a
+flag
+and the
+.Fl l
+flag to further restrict the set of interfaces to be listed.
 .Pp
 Only the super-user may modify the configuration of a network interface.
 .Sh NOTES

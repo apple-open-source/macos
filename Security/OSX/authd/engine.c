@@ -14,6 +14,7 @@
 #include "authutilities.h"
 #include "ccaudit.h"
 #include "connection.h"
+#include "od.h"
 
 #include <pwd.h>
 #include <Security/checkpw.h>
@@ -65,6 +66,7 @@ struct _engine_s {
     auth_rights_t grantedRights;
     
 	CFTypeRef la_context;
+    bool credentialsProvided;
 
     enum Reason reason;
     int32_t tries;
@@ -156,11 +158,12 @@ engine_create(connection_t conn, auth_token_t auth)
     engine->reason = noReason;
 
 	engine->la_context = NULL;
+    engine->credentialsProvided = false;
     
     engine->now = CFAbsoluteTimeGetCurrent();
     
     session_update(auth_token_get_session(engine->auth));
-    if (isInFVUnlock()) {
+    if (isInFVUnlockOrRecovery()) {
         engine->sessionCredential = credential_create_fvunlock(NULL, true);
     } else {
         engine->sessionCredential = credential_create(session_get_uid(auth_token_get_session(engine->auth)));
@@ -241,6 +244,11 @@ _set_rule_hints(auth_items_t hints, rule_t rule)
     } else {
         auth_items_remove(hints, AGENT_HINT_REQUIRE_USER_IN_GROUP);
     }
+    if (rule_get_securetokenuser(rule)) {
+        auth_items_set_bool(hints, AGENT_HINT_REQUIRE_STOKEN, true);
+    } else {
+        auth_items_remove(hints, AGENT_HINT_REQUIRE_STOKEN);
+    }
 }
 
 static void
@@ -316,7 +324,7 @@ _evaluate_credential_for_rule(engine_t engine, credential_t cred, rule_t rule, b
 
 static bool _is_fvunlock_user_in_group(engine_t engine, rule_t rule)
 {
-    if (!isInFVUnlock()) {
+    if (!isInFVUnlockOrRecovery()) {
         return false;
     }
     
@@ -351,7 +359,7 @@ _evaluate_user_credential_for_rule(engine_t engine, credential_t cred, rule_t ru
         return errAuthorizationDenied;
     }
 
-    if (credential_get_valid(cred) != true && !isInFVUnlock()) {
+    if (credential_get_valid(cred) != true && !isInFVUnlockOrRecovery()) {
         os_log(AUTHD_LOG, "%{public}s %i invalid (does NOT satisfy rule) (engine %lld)", cred_label, credential_get_uid(cred), engine->engine_index);
         if (reason) {  *reason = invalidPassphrase; }
         return errAuthorizationDenied;
@@ -381,6 +389,14 @@ _evaluate_user_credential_for_rule(engine_t engine, credential_t cred, rule_t ru
         if (credential_get_uid(cred) == session_get_uid(auth_token_get_session(engine->auth))) {
             os_log(AUTHD_LOG, "%{public}s %i is session owner (does satisfy rule) (engine %lld)", cred_label, credential_get_uid(cred), engine->engine_index);
             return errAuthorizationSuccess;
+        }
+    }
+    
+    if (!isInFVUnlockOrRecovery() && rule_get_securetokenuser(rule)) {
+        if (!odUserHasSecureToken(credential_get_name(cred))) {
+            os_log(AUTHD_LOG, "%{public}s %i is not a securetoken user (does NOT satisfy rule) (engine %lld)", cred_label, credential_get_uid(cred), engine->engine_index);
+            if (reason) {  *reason = unacceptableUser; }
+            return errAuthorizationDenied;
         }
     }
     
@@ -509,14 +525,14 @@ _evaluate_mechanisms(engine_t engine, CFArrayRef mechanisms)
             os_log_debug(AUTHD_LOG, "engine %lld: running builtin mechanism %{public}s (%li of %li)", engine->engine_index, mechanism_get_string(mech), i+1, count);
             result = _evaluate_builtin_mechanism(engine, mech);
         } else {
-			bool shoud_run_agent = true;     // evaluate comes from sheet -> we may not want to run standard SecurityAgent or authhost
+            bool shoud_run_agent = !(engine->credentialsProvided && strcmp(mechanism_get_string(mech), "builtin:authenticate") == 0);     // evaluate comes from sheet -> we may not want to run standard SecurityAgent or authhost
 			if (engine->la_context) {
 				// sheet variant in progress
 				if (strcmp(mechanism_get_string(mech), "builtin:authenticate") == 0) {
 					// set the UID the same way as SecurityAgent would
 					if (auth_items_exist(engine->context, "sheet-uid")) {
 						os_log_debug(AUTHD_LOG, "engine %lld: setting sheet UID %d to the context", engine->engine_index, auth_items_get_uint(engine->context, "sheet-uid"));
-						auth_items_set_uint(engine->context, "uid", auth_items_get_uint(engine->context, "sheet-uid"));
+						auth_items_set_uint(engine->context, AGENT_CONTEXT_UID, auth_items_get_uint(engine->context, "sheet-uid"));
 					}
 
 					// find out if sheet just provided credentials or did real authentication
@@ -635,13 +651,16 @@ _evaluate_mechanisms(engine_t engine, CFArrayRef mechanisms)
 
 done:
     auth_items_set_flags(context, AGENT_CONTEXT_AP_PAM_SERVICE_NAME, kAuthorizationContextFlagExtractable);
-    if ((result == kAuthorizationResultUserCanceled) || (result == kAuthorizationResultAllow)) {
+    if ((result == kAuthorizationResultUserCanceled) || (result == kAuthorizationResultAllow) || engine->credentialsProvided) {
         // only make non-sticky context values available externally
         auth_items_set_flags(context, kAuthorizationEnvironmentPassword, kAuthorizationContextFlagVolatile);
 		// <rdar://problem/16275827> Takauthorizationenvironmentusername should always be extractable
         auth_items_set_flags(context, kAuthorizationEnvironmentUsername, kAuthorizationContextFlagExtractable);
         auth_items_copy_with_flags(engine->context, context, kAuthorizationContextFlagExtractable | kAuthorizationContextFlagVolatile);
-    } else if (result == kAuthorizationResultDeny) {
+        AuthorizationFlags flags = engine->credentialsProvided ? kAuthorizationContextFlagExtractable | kAuthorizationContextFlagVolatile | kAuthorizationContextFlagSticky : kAuthorizationContextFlagExtractable | kAuthorizationContextFlagVolatile;
+        auth_items_copy_with_flags(engine->context, context, flags);
+    }
+    if (result == kAuthorizationResultDeny) {
         auth_items_clear(engine->sticky_context);
         // save off sticky values in context
         auth_items_copy_with_flags(engine->sticky_context, context, kAuthorizationContextFlagSticky);
@@ -673,13 +692,13 @@ done:
 static OSStatus
 _evaluate_authentication(engine_t engine, rule_t rule)
 {
-    os_log_debug(AUTHD_LOG, "engine %lld: FV mode %d", engine->engine_index, isInFVUnlock());
+    os_log_debug(AUTHD_LOG, "engine %lld: FV mode %d", engine->engine_index, isInFVUnlockOrRecovery());
 
     OSStatus status = errAuthorizationDenied;
     ccaudit_t ccaudit = ccaudit_create(engine->proc, engine->auth, AUE_ssauthint);
-    os_log_debug(AUTHD_LOG, "engine %lld: evaluate authentication", engine->engine_index);
+    os_log_debug(AUTHD_LOG, "engine %lld: evaluate authentication %{public}s", engine->engine_index, rule_get_name(rule));
     _set_rule_hints(engine->hints, rule);
-    if (!isInFVUnlock()) {
+    if (!isInFVUnlockOrRecovery()) {
         // we do not need to set hints in FVUnlock as we do not know which user will be authenticated
         _set_session_hints(engine, rule);
     }
@@ -692,9 +711,9 @@ _evaluate_authentication(engine_t engine, rule_t rule)
     
     int64_t ruleTries = rule_get_tries(rule);
 
-	if (engine->la_context) {
+	if (engine->credentialsProvided) {
 		ruleTries = 1;
-		os_log_debug(AUTHD_LOG, "engine %lld: sheet authentication in progress, one try is enough", engine->engine_index);
+		os_log_debug(AUTHD_LOG, "engine %lld: credentials passed as env, one try is enough", engine->engine_index);
 	}
 
     for (engine->tries = 0; engine->tries < ruleTries; engine->tries++) {
@@ -712,7 +731,7 @@ _evaluate_authentication(engine_t engine, rule_t rule)
             
             credential_t newCred = NULL;
 
-            if (isInFVUnlock() && auth_items_exist(engine->context, kAuthorizationFVAdmin)) {
+            if (isInFVUnlockOrRecovery() && auth_items_exist(engine->context, kAuthorizationFVAdmin)) {
                 os_log_debug(AUTHD_LOG, "Credentials for FV unlock (engine %lld)", engine->engine_index);
                 newCred = credential_create_fvunlock(engine->context, false);
             } else if (auth_items_exist(engine->context, AGENT_CONTEXT_UID)) {
@@ -726,7 +745,7 @@ _evaluate_authentication(engine_t engine, rule_t rule)
             }
             
             if (newCred) {
-                if (credential_get_valid(newCred) || isInFVUnlock()) {
+                if (credential_get_valid(newCred) || isInFVUnlockOrRecovery()) {
                     os_log(AUTHD_LOG, "UID %u authenticated as user %{public}s (UID %i) for right '%{public}s'", auth_token_get_uid(engine->auth), credential_get_name(newCred), credential_get_uid(newCred), engine->currentRightName);
                     ccaudit_log_success(ccaudit, newCred, engine->currentRightName);
                 } else {
@@ -830,7 +849,7 @@ _evaluate_class_user(engine_t engine, rule_t rule)
     }
     
     if (!rule_get_authenticate_user(rule)) {
-        if (!isInFVUnlock()) {
+        if (!isInFVUnlockOrRecovery()) {
             status = _evaluate_user_credential_for_rule(engine, engine->sessionCredential, rule, true, true, NULL);
             
             if (status == errAuthorizationSuccess) {
@@ -893,7 +912,7 @@ _evaluate_class_user(engine_t engine, rule_t rule)
         return errAuthorizationSuccess;
 	}
 
-    if (!(engine->flags & kAuthorizationFlagSheet)) {
+    if (!(engine->credentialsProvided)) {
         if (!(engine->flags & kAuthorizationFlagInteractionAllowed)) {
             os_log_error(AUTHD_LOG, "Fatal: interaction not allowed (kAuthorizationFlagInteractionAllowed not set) (engine %lld)", engine->engine_index);
             return errAuthorizationInteractionNotAllowed;
@@ -1170,14 +1189,36 @@ static void _parse_environment(engine_t engine, auth_items_t environment)
     if (engine->flags & kAuthorizationFlagExtendRights && !(engine->flags & kAuthorizationFlagSheet)) {
         const char * user = auth_items_get_string(environment, kAuthorizationEnvironmentUsername);
         const char * pass = auth_items_get_string(environment, kAuthorizationEnvironmentPassword);
-		const bool password_was_used = auth_items_get_string(environment, AGENT_CONTEXT_AP_PAM_SERVICE_NAME) == nil; // AGENT_CONTEXT_AP_PAM_SERVICE_NAME in the context means alternative PAM was used
-		require(password_was_used == true, done);
+        const char *ahp = auth_items_get_string(environment, AGENT_CONTEXT_AP_PAM_SERVICE_NAME);
+		const bool password_was_used = (ahp == nil || strlen(ahp) == 0); // AGENT_CONTEXT_AP_PAM_SERVICE_NAME in the context means alternative PAM was used
+        if (!password_was_used) {
+            os_log_debug(AUTHD_LOG, "engine %lld: AHP used in environment: %{public}s", engine->engine_index, ahp);
+            if (pass) {
+                auth_items_set_string(engine->context, kAuthorizationEnvironmentPassword, pass);
+            }
+            goto done;
+        }
 
         bool shared = auth_items_exist(environment, kAuthorizationEnvironmentShared);
         require_action(user != NULL, done, os_log_debug(AUTHD_LOG, "engine %lld: user not used password", engine->engine_index));
 
         struct passwd *pw = getpwnam(user);
         require_action(pw != NULL, done, os_log_error(AUTHD_LOG, "User not found %{public}s (engine %lld)", user, engine->engine_index));
+        
+        auth_items_set_string(engine->context, kAuthorizationEnvironmentUsername, user);
+        auth_items_set_string(engine->context, kAuthorizationEnvironmentPassword, pass ? pass : "");
+
+        if (user && pass) {
+            // we will go through authrorizationhost to evaluate the credentials
+            os_log_debug(AUTHD_LOG, "Credentials (%s) passed in the environment (engine %lld)", user, engine->engine_index);
+            engine->credentialsProvided = true;
+        }
+        
+        CFStringRef uname = CFStringCreateWithCString(kCFAllocatorDefault, user, kCFStringEncodingUTF8);
+        require_action(uname != NULL, done, os_log_debug(AUTHD_LOG, "User name cannot be created (engine %lld)", engine->engine_index));
+        int32_t enforced = TKGetSmartcardSettingForUser(kTKEnforceSmartcard, uname);
+        CFReleaseSafe(uname);
+        require_action(enforced == 0, done, os_log_error(AUTHD_LOG, "User needs to use SmartCard (engine %lld)", engine->engine_index));
         
         int checkpw_status = checkpw_internal(pw, pass ? pass : "");
         require_action(checkpw_status == CHECKPW_SUCCESS, done, os_log_error(AUTHD_LOG, "engine %lld: checkpw() returned %d; failed to authenticate user %{public}s (uid %u).", engine->engine_index, checkpw_status, pw->pw_name, pw->pw_uid));
@@ -1186,9 +1227,6 @@ static void _parse_environment(engine_t engine, auth_items_t environment)
         if (credential_get_valid(cred)) {
             os_log_info(AUTHD_LOG, "checkpw() succeeded, creating credential for user %{public}s (engine %lld)", user, engine->engine_index);
             _engine_set_credential(engine, cred, shared);
-            
-            auth_items_set_string(engine->context, kAuthorizationEnvironmentUsername, user);
-            auth_items_set_string(engine->context, kAuthorizationEnvironmentPassword, pass ? pass : "");
         }
         CFReleaseSafe(cred);
     }
@@ -1310,11 +1348,6 @@ OSStatus engine_authorize(engine_t engine, auth_rights_t rights, auth_items_t en
 	}
 
     engine->flags = flags;
-    
-    if (environment) {
-        _parse_environment(engine, environment);
-        auth_items_copy(engine->hints, environment);
-    }
 
     // Restore all context values from the AuthorizationRef
     auth_items_t decrypted_items = auth_items_create();
@@ -1324,11 +1357,65 @@ OSStatus engine_authorize(engine_t engine, auth_rights_t rights, auth_items_t en
     auth_items_copy(engine->context, decrypted_items);
     CFReleaseSafe(decrypted_items);
     
+    // remove all values not relevant for authentication from the context as they are not needed anymore
+    auth_items_remove(engine->context, AGENT_CONTEXT_AP_PAM_SERVICE_NAME);
+    auth_items_remove(engine->context, AGENT_CONTEXT_AP_USER_NAME);
+    auth_items_remove(engine->context, AGENT_CONTEXT_AP_TOKEN);
+    auth_items_remove(engine->context, AGENT_CONTEXT_AP_PAM_ERROR_MESSAGE);
+    auth_items_remove(engine->context, AGENT_CONTEXT_UID);
+    auth_items_remove(engine->context, kAuthorizationEnvironmentUsername);
+    auth_items_remove(engine->context, kAuthorizationEnvironmentPassword);
+    auth_items_remove(engine->context, AGENT_CONTEXT_AUTHENTICATION_FAILURE);
+    auth_items_remove(engine->context, kAuthorizationPamResult);
+    
+    if (environment) {
+        _parse_environment(engine, environment);
+        auth_items_copy(engine->hints, environment);
+    }
+    
+    // move sheet-specific items from hints to context
+    const char *user = environment ? auth_items_get_string(environment, kAuthorizationEnvironmentUsername) : NULL;
+    const char *service = auth_items_get_string(engine->hints, AGENT_CONTEXT_AP_PAM_SERVICE_NAME);
+    if (service) {
+        if (auth_items_exist(engine->hints, AGENT_CONTEXT_AP_USER_NAME)) {
+            auth_items_set_string(engine->context, AGENT_CONTEXT_AP_USER_NAME, auth_items_get_string(engine->hints, AGENT_CONTEXT_AP_USER_NAME));
+            auth_items_remove(engine->hints, AGENT_CONTEXT_AP_USER_NAME);
+        } else if (user) {
+            auth_items_set_string(engine->context, AGENT_CONTEXT_AP_USER_NAME, user);
+        }
+
+        auth_items_set_string(engine->context, AGENT_CONTEXT_AP_PAM_SERVICE_NAME, service);
+        auth_items_remove(engine->hints, AGENT_CONTEXT_AP_PAM_SERVICE_NAME);
+        engine->credentialsProvided = true;
+        os_log_debug(AUTHD_LOG, "Credentials passed in the environment (engine %lld)", engine->engine_index);
+    } else {
+        auth_items_remove(engine->context, AGENT_CONTEXT_AP_PAM_SERVICE_NAME);
+        auth_items_remove(engine->context, AGENT_CONTEXT_AP_USER_NAME);
+    }
+    
+    if (engine->credentialsProvided && !auth_items_exist(engine->context, AGENT_CONTEXT_UID)) {
+        struct passwd *pw = getpwnam(user);
+        if (pw) {
+            auth_items_set_uint(engine->context, AGENT_CONTEXT_UID, pw->pw_uid);
+            os_log_debug(AUTHD_LOG, "Credentials UID %d set.", pw->pw_uid);
+        } else {
+            os_log_error(AUTHD_LOG, "Credentials UID not found for %s", user);
+        }
+    }
+
+    if (environment && auth_items_exist(environment, AGENT_CONTEXT_AP_TOKEN)) {
+        size_t datalen = 0;
+        const void *data = auth_items_get_data(engine->hints, AGENT_CONTEXT_AP_TOKEN, &datalen);
+        if (data) {
+            auth_items_set_data(engine->context, AGENT_CONTEXT_AP_TOKEN, data, datalen);
+        }
+        auth_items_remove(engine->hints, AGENT_CONTEXT_AP_TOKEN);
+    }
+    
 	if (engine->flags & kAuthorizationFlagSheet) {
         // Try to use/update fresh context values from the environment
         require_action(environment, done, os_log_error(AUTHD_LOG, "Missing environment for sheet authorization (engine %lld)", engine->engine_index); status = errAuthorizationDenied);
             
-        const char *user = auth_items_get_string(environment, kAuthorizationEnvironmentUsername);
 		require_action(user, done, os_log_error(AUTHD_LOG, "Missing username (engine %lld)", engine->engine_index); status = errAuthorizationDenied);
 
 		auth_items_set_string(engine->context, kAuthorizationEnvironmentUsername, user);
@@ -1336,31 +1423,10 @@ OSStatus engine_authorize(engine_t engine, auth_rights_t rights, auth_items_t en
 		require_action(pwd, done, os_log_error(AUTHD_LOG, "Invalid username %s (engine %lld)", user, engine->engine_index); status = errAuthorizationDenied);
 		auth_items_set_uint(engine->context, "sheet-uid", pwd->pw_uid);
 
-		// move sheet-specific items from hints to context
-		const char *service = auth_items_get_string(engine->hints, AGENT_CONTEXT_AP_PAM_SERVICE_NAME);
-		if (service) {
-			if (auth_items_exist(engine->hints, AGENT_CONTEXT_AP_USER_NAME)) {
-				auth_items_set_string(engine->context, AGENT_CONTEXT_AP_USER_NAME, auth_items_get_string(engine->hints, AGENT_CONTEXT_AP_USER_NAME));
-				auth_items_remove(engine->hints, AGENT_CONTEXT_AP_USER_NAME);
-			} else {
-				auth_items_set_string(engine->context, AGENT_CONTEXT_AP_USER_NAME, user);
-			}
-
-			auth_items_set_string(engine->context, AGENT_CONTEXT_AP_PAM_SERVICE_NAME, service);
-			auth_items_remove(engine->hints, AGENT_CONTEXT_AP_PAM_SERVICE_NAME);
-		}
-
-		if (auth_items_exist(environment, AGENT_CONTEXT_AP_TOKEN)) {
-			size_t datalen = 0;
-			const void *data = auth_items_get_data(engine->hints, AGENT_CONTEXT_AP_TOKEN, &datalen);
-			if (data) {
-				auth_items_set_data(engine->context, AGENT_CONTEXT_AP_TOKEN, data, datalen);
-			}
-			auth_items_remove(engine->hints, AGENT_CONTEXT_AP_TOKEN);
-		}
-
 		engine_acquire_sheet_data(engine);
 		_extract_password_from_la(engine);
+        engine->credentialsProvided = true;
+        os_log_debug(AUTHD_LOG, "Credentials passed by LACtx (engine %lld)", engine->engine_index);
 	}
     
     engine->dismissed = false;
@@ -1415,8 +1481,10 @@ OSStatus engine_authorize(engine_t engine, auth_rights_t rights, auth_items_t en
         os_log_debug(AUTHD_LOG, "engine %lld: using rule %{public}s", engine->engine_index, rule_name);
 
         _set_right_hints(engine->hints, key); // set authorization right name for authorizationhost as well
+        auth_items_set_int64(engine->hints, kAuthorizationFlags, flags);
+
         // only need the hints & mechanisms if we are going to show ui
-        if (engine->flags & kAuthorizationFlagInteractionAllowed || engine->flags & kAuthorizationFlagSheet) {
+        if (engine->flags & kAuthorizationFlagInteractionAllowed || engine->credentialsProvided) {
             os_log_debug(AUTHD_LOG, "setting hints for UI authorization");
             _set_localization_hints(dbconn, engine->hints, rule);
             if (!engine->authenticateRule) {
@@ -1523,9 +1591,17 @@ OSStatus engine_authorize(engine_t engine, auth_rights_t rights, auth_items_t en
 
     if (status == errAuthorizationSuccess && save_password) {
         auth_items_set_flags(engine->context, kAuthorizationEnvironmentPassword, kAuthorizationContextFlagExtractable);
+    } else if (engine->credentialsProvided) { // for prefilled credentials, errors must be exported as well
+        auth_items_set_flags(engine->context, kAuthorizationEnvironmentUsername, kAuthorizationContextFlagExtractable);
+        auth_items_set_flags(engine->context, kAuthorizationEnvironmentPassword, kAuthorizationContextFlagExtractable);
+        auth_items_set_flags(engine->context, AGENT_CONTEXT_AP_USER_NAME, kAuthorizationContextFlagExtractable);
+        auth_items_set_flags(engine->context, AGENT_CONTEXT_AP_PAM_SERVICE_NAME, kAuthorizationContextFlagExtractable);
+        auth_items_set_flags(engine->context, AGENT_CONTEXT_AUTHENTICATION_FAILURE, kAuthorizationContextFlagExtractable);
+        auth_items_set_flags(engine->context, AGENT_CONTEXT_AP_PAM_ERROR_MESSAGE, kAuthorizationContextFlagExtractable);
+        auth_items_set_flags(engine->context, kAuthorizationPamResult, kAuthorizationContextFlagExtractable);
     }
 
-    if ((status == errAuthorizationSuccess) || (status == errAuthorizationCanceled)) {
+    if ((status == errAuthorizationSuccess) || (status == errAuthorizationCanceled) || (engine->credentialsProvided)) {
 		auth_items_t encrypted_items = auth_items_create();
 		require_action(encrypted_items != NULL, done, os_log_error(AUTHD_LOG, "Unable to create items (engine %lld)", engine->engine_index));
 		auth_items_content_copy_with_flags(encrypted_items, engine->context, kAuthorizationContextFlagExtractable);

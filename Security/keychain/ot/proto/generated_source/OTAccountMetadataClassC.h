@@ -137,10 +137,15 @@ __attribute__((visibility("hidden")))
     OTAccountMetadataClassC_CDPState _cdpState;
     OTAccountMetadataClassC_AccountState _icloudAccountState;
     NSString *_peerID;
+    NSData *_secureElementIdentity;
     NSData *_syncingPolicy;
+    NSMutableArray<NSData *> *_tlkSharesForVouchedIdentitys;
     OTAccountMetadataClassC_TrustState _trustState;
     NSData *_voucher;
     NSData *_voucherSignature;
+    BOOL _isInheritedAccount;
+    BOOL _warmedEscrowCache;
+    BOOL _warnedTooManyPeers;
     struct {
         int epoch:1;
         int lastHealthCheckup:1;
@@ -148,6 +153,9 @@ __attribute__((visibility("hidden")))
         int cdpState:1;
         int icloudAccountState:1;
         int trustState:1;
+        int isInheritedAccount:1;
+        int warmedEscrowCache:1;
+        int warnedTooManyPeers:1;
     } _has;
 }
 
@@ -200,6 +208,34 @@ __attribute__((visibility("hidden")))
 
 @property (nonatomic, readonly) BOOL hasVoucherSignature;
 @property (nonatomic, retain) NSData *voucherSignature;
+
+@property (nonatomic, retain) NSMutableArray<NSData *> *tlkSharesForVouchedIdentitys;
+- (void)clearTlkSharesForVouchedIdentitys;
+- (void)addTlkSharesForVouchedIdentity:(NSData *)i;
+- (NSUInteger)tlkSharesForVouchedIdentitysCount;
+- (NSData *)tlkSharesForVouchedIdentityAtIndex:(NSUInteger)idx;
++ (Class)tlkSharesForVouchedIdentityType;
+
+@property (nonatomic, readonly) BOOL hasSecureElementIdentity;
+/** Intended to be a TPPBSecureElementIdentity, but I can't figure out how to reference that proto from here */
+@property (nonatomic, retain) NSData *secureElementIdentity;
+
+@property (nonatomic) BOOL hasIsInheritedAccount;
+/**
+ * reseved 16;
+ * Used during development
+ * reserved 17;
+ * This is true if the device used inheritance key
+ */
+@property (nonatomic) BOOL isInheritedAccount;
+
+@property (nonatomic) BOOL hasWarmedEscrowCache;
+/** True if we've warmed the escrow record cache for this account */
+@property (nonatomic) BOOL warmedEscrowCache;
+
+@property (nonatomic) BOOL hasWarnedTooManyPeers;
+/** True if we've warned the user about having too many peers */
+@property (nonatomic) BOOL warnedTooManyPeers;
 
 // Performs a shallow copy into other
 - (void)copyTo:(OTAccountMetadataClassC *)other;

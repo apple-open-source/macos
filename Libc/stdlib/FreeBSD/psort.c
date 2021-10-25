@@ -46,6 +46,8 @@ __FBSDID("$FreeBSD: src/lib/libc/stdlib/qsort.c,v 1.15 2008/01/14 09:21:34 das E
 #define __APPLE_API_PRIVATE
 #include <machine/cpu_capabilities.h>
 
+#include "libc_private.h" // for LIBC_ABORT
+
 #ifdef I_AM_PSORT_R
 typedef int		 cmp_t(void *, const void *, const void *);
 #else

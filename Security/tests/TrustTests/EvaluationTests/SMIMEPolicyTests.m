@@ -436,4 +436,17 @@ const CFStringRef emailAddr = CFSTR("test@example.com");
     CFRelease((SecCertificateRef)leaf);
 }
 
+// MARK: Key Size tests
+- (void)test1024Bit
+{
+    id leaf = [self SecCertificateCreateFromResource:@"weak_key" subdirectory:testDir];
+    XCTAssertNotNil(leaf);
+
+    SecPolicyRef policy = SecPolicyCreateSMIME(kSecSignSMIMEUsage, CFSTR("test@apple.com"));
+    XCTAssertFalse([self runTrustEvalForLeaf:leaf policy:policy]);
+
+    CFReleaseNull(policy);
+    CFRelease((SecCertificateRef)leaf);
+}
+
 @end

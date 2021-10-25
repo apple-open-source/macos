@@ -332,7 +332,7 @@ bool SOSCircleVerify(SOSCircleRef circle, SecKeyRef pubKey, CFErrorRef *error) {
     if(!signature) return false;
 
     return SecError(SecKeyRawVerify(pubKey, kSecPaddingNone, hash_result, di->output_size,
-                                    CFDataGetBytePtr(signature), CFDataGetLength(signature)), error, CFSTR("Signature verification failed."));;
+                                    CFDataGetBytePtr(signature), CFDataGetLength(signature)), error, CFSTR("Signature verification failed."));
 }
 
 bool SOSCircleVerifyPeerSignatureExists(SOSCircleRef circle, SOSPeerInfoRef peer) {
@@ -1582,3 +1582,14 @@ void SOSCircleLogState(char *category, SOSCircleRef circle, SecKeyRef pubKey, CF
     CFReleaseNull(genString);
 }
 
+bool SOSCircleIsLegacy(SOSCircleRef circle, SecKeyRef userPubKey) {
+    __block bool retval = false;
+    secnotice("SOSMonitorMode", "Checking if circle %@ is legacy", circle);
+    if(circle && userPubKey) {
+        SOSCircleForEachValidSyncingPeer(circle, userPubKey, ^(SOSPeerInfoRef peer) {
+            retval |= SOSPeerInfoIsLegacy(peer);
+        });
+    }
+    secnotice("SOSMonitorMode", "END: Circle is %s", retval ? "Legacy": "Not Legacy");
+    return retval;
+}

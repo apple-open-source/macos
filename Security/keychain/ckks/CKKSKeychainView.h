@@ -25,7 +25,6 @@
 #import <Foundation/Foundation.h>
 #include <dispatch/dispatch.h>
 
-#import "keychain/analytics/CKKSLaunchSequence.h"
 #import "keychain/ckks/OctagonAPSReceiver.h"
 #import "keychain/ckks/CKKSLockStateTracker.h"
 #import "keychain/ckks/CKKSReachabilityTracker.h"
@@ -35,13 +34,14 @@
 #import "keychain/ot/OctagonStateMachine.h"
 
 #include "keychain/securityd/SecDbItem.h"
-#include <utilities/SecDb.h>
+#include "utilities/SecDb.h"
 
 #import "keychain/ckks/CKKS.h"
 #import "keychain/ckks/CKKSFetchAllRecordZoneChangesOperation.h"
 #import "keychain/ckks/CKKSGroupOperation.h"
 #import "keychain/ckks/CKKSIncomingQueueOperation.h"
 #import "keychain/ckks/CKKSKeychainViewState.h"
+#import "keychain/ckks/CKKSStates.h"
 #import "keychain/ckks/CKKSNearFutureScheduler.h"
 #import "keychain/ckks/CKKSNewTLKOperation.h"
 #import "keychain/ckks/CKKSNotifier.h"
@@ -72,6 +72,7 @@ NS_ASSUME_NONNULL_BEGIN
 @class CKKSOutgoingQueueEntry;
 @class CKKSZoneChangeFetcher;
 @class CKKSCurrentKeySet;
+@class CKKSSecDbAdapter;
 
 @interface CKKSKeychainView : NSObject <CKKSCloudKitAccountStateListener,
                                         CKKSChangeFetcherClient,
@@ -79,20 +80,10 @@ NS_ASSUME_NONNULL_BEGIN
                                         CKKSDatabaseProviderProtocol,
                                         OctagonStateMachineEngine>
 
-// CKKS is in the middle of a transition period, where this class will take ownership
-// of multiple CKKS views and CK zones.
-// The following properties are intended for use in that transition, and should eventually disappear
-@property (readonly) NSString* zoneName;
-@property (readonly) CKRecordZoneID* zoneID;
-@property CKKSKeychainViewState* viewState;
-
-// This will hold every view currently active.
-@property NSSet<CKKSKeychainViewState*>* viewStates;
-
 @property CKKSAccountStatus accountStatus;
 @property (readonly) CKContainer* container;
-@property (weak) CKKSAccountStateTracker* accountTracker;
-@property (weak) CKKSReachabilityTracker* reachabilityTracker;
+@property CKKSAccountStateTracker* accountTracker;
+@property (readonly) CKKSReachabilityTracker* reachabilityTracker;
 @property (readonly) CKKSCloudKitClassDependencies* cloudKitClassDependencies;
 @property (readonly) dispatch_queue_t queue;
 
@@ -101,15 +92,18 @@ NS_ASSUME_NONNULL_BEGIN
 @property CKKSCondition* accountStateKnown;
 
 @property CKKSAccountStatus trustStatus;
-
-@property (nullable) CKKSLaunchSequence *launch;
+@property CKKSCondition* trustStatusKnown;
 
 @property CKKSLockStateTracker* lockStateTracker;
 
-// Is this view currently syncing keychain modifications?
-@property (readonly) BOOL itemSyncingEnabled;
-
 @property (readonly) OctagonStateMachine* stateMachine;
+
+@property (readonly, nullable) TPSyncingPolicy* syncingPolicy;
+
+// Returns the names of the currently active CKKS-managed views. Used mainly in tests.
+@property (readonly) NSSet<NSString*>* viewList;
+
+@property (readonly) NSDate* earliestFetchTime;
 
 // If the key hierarchy isn't coming together, it might be because we're out of sync with cloudkit.
 // Use this to track if we've completed a full refetch, so fix-up operations can be done.
@@ -118,31 +112,28 @@ NS_ASSUME_NONNULL_BEGIN
 // Set this to request a key state refetch (tests only)
 @property bool keyStateFullRefetchRequested;
 
-@property (nullable) CKKSResultOperation* keyStateReadyDependency;
-
 // Full of condition variables, if you'd like to try to wait until the key hierarchy is in some state
-@property (readonly) NSDictionary<CKKSZoneKeyState*, CKKSCondition*>* keyHierarchyConditions;
+@property (readonly) NSDictionary<CKKSState*, CKKSCondition*>* stateConditions;
 
 @property CKKSZoneChangeFetcher* zoneChangeFetcher;
 
 @property (nullable) CKKSNearFutureScheduler* suggestTLKUpload;
-@property (nullable) CKKSNearFutureScheduler* requestPolicyCheck;
 
 /* Used for debugging: just what happened last time we ran this? */
-@property CKKSIncomingQueueOperation* lastIncomingQueueOperation;
-@property CKKSNewTLKOperation* lastNewTLKOperation;
-@property CKKSOutgoingQueueOperation* lastOutgoingQueueOperation;
-@property CKKSProcessReceivedKeysOperation* lastProcessReceivedKeysOperation;
-@property CKKSReencryptOutgoingItemsOperation* lastReencryptOutgoingItemsOperation;
-@property CKKSSynchronizeOperation* lastSynchronizeOperation;
-@property CKKSResultOperation* lastFixupOperation;
+@property (nullable) CKKSIncomingQueueOperation* lastIncomingQueueOperation;
+@property (nullable) CKKSNewTLKOperation* lastNewTLKOperation;
+@property (nullable) CKKSOutgoingQueueOperation* lastOutgoingQueueOperation;
+@property (nullable) CKKSProcessReceivedKeysOperation* lastProcessReceivedKeysOperation;
+@property (nullable) CKKSReencryptOutgoingItemsOperation* lastReencryptOutgoingItemsOperation;
+@property (nullable) CKKSSynchronizeOperation* lastSynchronizeOperation;
+@property (nullable) CKKSResultOperation* lastFixupOperation;
 
 /* Used for testing: pause operation types by adding operations here */
-@property NSOperation* holdReencryptOutgoingItemsOperation;
-@property NSOperation* holdOutgoingQueueOperation;
-@property NSOperation* holdIncomingQueueOperation;
-@property NSOperation* holdLocalSynchronizeOperation;
-@property CKKSResultOperation* holdFixupOperation;
+@property (nullable) NSOperation* holdOutgoingQueueOperation;
+@property (nullable) NSOperation* holdIncomingQueueOperation;
+@property (nullable) NSOperation* holdLocalSynchronizeOperation;
+
+@property (readonly) NSString* zoneName;
 
 /* Used for testing */
 @property BOOL initiatedLocalScan;
@@ -150,7 +141,6 @@ NS_ASSUME_NONNULL_BEGIN
 @property (readonly) CKKSOperationDependencies* operationDependencies;
 
 - (instancetype)initWithContainer:(CKContainer*)container
-                         zoneName:(NSString*)zoneName
                    accountTracker:(CKKSAccountStateTracker*)accountTracker
                  lockStateTracker:(CKKSLockStateTracker*)lockStateTracker
               reachabilityTracker:(CKKSReachabilityTracker*)reachabilityTracker
@@ -176,10 +166,14 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (void)beginCloudKitOperation;
 
-// If this policy indicates that this view should not sync, this view will no longer sync keychain items,
-// but it will continue to particpate in TLK sharing.
-// If policyIsFresh is set, any items discovered that do not match this policy will be moved.
-- (void)setCurrentSyncingPolicy:(TPSyncingPolicy*)syncingPolicy policyIsFresh:(BOOL)policyIsFresh;
+// Call this to set the syncing views+policy that this CKKS instance will use.
+// If beginCloudKitOperationOfAllViews has previously been called, then any new views created
+// as a result of this call will begin CK operation.
+- (BOOL)setCurrentSyncingPolicy:(TPSyncingPolicy* _Nullable)syncingPolicy;
+
+// Similar to above, but please only pass policyIsFresh=YES if Octagon has contacted cuttlefish immediately previously
+// Returns YES if the view set has changed as part of this set
+- (BOOL)setCurrentSyncingPolicy:(TPSyncingPolicy* _Nullable)syncingPolicy policyIsFresh:(BOOL)policyIsFresh;
 
 /* Synchronous operations */
 
@@ -193,42 +187,41 @@ NS_ASSUME_NONNULL_BEGIN
                                 hash:(NSData*)newItemSHA1
                          accessGroup:(NSString*)accessGroup
                           identifier:(NSString*)identifier
+                            viewHint:(NSString*)viewHint
                            replacing:(NSData* _Nullable)oldCurrentItemPersistentRef
                                 hash:(NSData* _Nullable)oldItemSHA1
                             complete:(void (^)(NSError* operror))complete;
 
 - (void)getCurrentItemForAccessGroup:(NSString*)accessGroup
                           identifier:(NSString*)identifier
+                            viewHint:(NSString*)viewHint
                      fetchCloudValue:(bool)fetchCloudValue
                             complete:(void (^)(NSString* uuid, NSError* operror))complete;
 
 - (bool)outgoingQueueEmpty:(NSError* __autoreleasing*)error;
 
-- (CKKSResultOperation<CKKSKeySetProviderOperationProtocol>*)findKeySet:(BOOL)refetchBeforeReturningKeySet;
+- (CKKSResultOperation<CKKSKeySetProviderOperationProtocol>*)findKeySets:(BOOL)refetchBeforeReturningKeySet;
 - (void)receiveTLKUploadRecords:(NSArray<CKRecord*>*)records;
 
 // Returns true if this zone would like a new TLK to be uploaded
-- (BOOL)requiresTLKUpload;
+- (NSSet<CKKSKeychainViewState*>*)viewsRequiringTLKUpload;
 
-- (void)waitForKeyHierarchyReadiness;
 - (void)cancelAllOperations;
 
 /* Asynchronous kickoffs */
 
-- (CKKSOutgoingQueueOperation*)processOutgoingQueue:(CKOperationGroup* _Nullable)ckoperationGroup;
-- (CKKSOutgoingQueueOperation*)processOutgoingQueueAfter:(CKKSResultOperation* _Nullable)after
-                                        ckoperationGroup:(CKOperationGroup* _Nullable)ckoperationGroup;
-- (CKKSOutgoingQueueOperation*)processOutgoingQueueAfter:(CKKSResultOperation* _Nullable)after
-                                           requiredDelay:(uint64_t)requiredDelay
-                                        ckoperationGroup:(CKOperationGroup* _Nullable)ckoperationGroup;
+- (CKKSResultOperation*)rpcProcessOutgoingQueue:(NSSet<NSString*>* _Nullable)viewNames operationGroup:(CKOperationGroup* _Nullable)ckoperationGroup;
 
-- (CKKSIncomingQueueOperation*)processIncomingQueue:(bool)failOnClassA;
-- (CKKSIncomingQueueOperation*)processIncomingQueue:(bool)failOnClassA after:(CKKSResultOperation* _Nullable)after;
+- (CKKSResultOperation*)rpcFetchBecause:(CKKSFetchBecause*)why;
+- (CKKSResultOperation*)rpcFetchAndProcessIncomingQueue:(NSSet<NSString*>* _Nullable)viewNames
+                                                because:(CKKSFetchBecause*)why
+                                   errorOnClassAFailure:(bool)failOnClassA;
 
-- (CKKSScanLocalItemsOperation*)scanLocalItems:(NSString*)name;
+// This will wait for the next incoming queue operation to occur. If the zone is in a bad state, this will time out.
+- (CKKSResultOperation*)rpcProcessIncomingQueue:(NSSet<NSString*>* _Nullable)viewNames
+                           errorOnClassAFailure:(bool)failOnClassA;
 
-// Schedules a process queueoperation to happen after the next device unlock. This may be Immediately, if the device is unlocked.
-- (void)processIncomingQueueAfterNextUnlock;
+- (void)scanLocalItems;
 
 // This operation will complete directly after the next ProcessIncomingQueue, and should supply that IQO's result. Used mainly for testing; otherwise you'd just kick off a IQO directly.
 - (CKKSResultOperation*)resultsOfNextProcessIncomingQueueOperation;
@@ -242,37 +235,29 @@ NS_ASSUME_NONNULL_BEGIN
 - (CKKSSynchronizeOperation*)resyncWithCloud;
 - (CKKSLocalSynchronizeOperation*)resyncLocal;
 
-- (CKKSResultOperation*)resetLocalData;
-- (CKKSResultOperation*)resetCloudKitZone:(CKOperationGroup*)operationGroup;
-
 // Call this to tell the key state machine that you think some new data has arrived that it is interested in
 - (void)keyStateMachineRequestProcess;
 
-// For our serial queue to work with how handleKeychainEventDbConnection is called from the main thread,
-// every block on our queue must have a SecDBConnectionRef available to it before it begins on the queue.
-// Use these helper methods to make sure those exist.
-- (void)dispatchSyncWithSQLTransaction:(CKKSDatabaseTransactionResult (^)(void))block;
-- (void)dispatchSyncWithReadOnlySQLTransaction:(void (^)(void))block;
+/* Client RPC calls */
 
-/* Synchronous operations which must be called from inside a dispatchAsyncWithAccountKeys or dispatchSync block */
-
-- (bool)_onqueueCKWriteFailed:(NSError*)ckerror attemptedRecordsChanged:(NSDictionary<CKRecordID*, CKRecord*>*)savedRecords;
-- (bool)_onqueueCKRecordChanged:(CKRecord*)record resync:(bool)resync;
-- (bool)_onqueueCKRecordDeleted:(CKRecordID*)recordID recordType:(NSString*)recordType resync:(bool)resync;
-
-- (CKKSDeviceStateEntry* _Nullable)_onqueueCurrentDeviceStateEntry:(NSError* __autoreleasing*)error;
-
-// Please don't use these unless you're an Operation in this package
-@property NSHashTable<CKKSIncomingQueueOperation*>* incomingQueueOperations;
-@property NSHashTable<CKKSOutgoingQueueOperation*>* outgoingQueueOperations;
-
-@property NSHashTable<CKKSScanLocalItemsOperation*>* scanLocalItemsOperations;
+- (CKKSResultOperation*)rpcResetLocal:(NSSet<NSString*>* _Nullable)viewNames reply:(void(^)(NSError* _Nullable result))reply;
+- (CKKSResultOperation*)rpcResetCloudKit:(NSSet<NSString*>* _Nullable)viewNames reply:(void(^)(NSError* _Nullable result))reply;
 
 // Returns the current state of this view, fastStatus is the same, but as name promise, no expensive calculations
-- (NSDictionary<NSString*, NSString*>*)status;
-- (NSDictionary<NSString*, NSString*>*)fastStatus;
+
+- (void)rpcStatus:(NSString* _Nullable)viewName
+             fast:(bool)fast
+            reply:(void(^)(NSArray<NSDictionary*>* _Nullable result, NSError* _Nullable error))reply;
+
+- (BOOL)waitUntilReadyForRPCForOperation:(NSString*)opName
+                                    fast:(BOOL)fast
+                errorOnNoCloudKitAccount:(BOOL)errorOnNoCloudKitAccount
+                    errorOnPolicyMissing:(BOOL)errorOnPolicyMissing
+                                   error:(NSError**)error;
 
 - (void)xpc24HrNotification;
+
+- (void)toggleHavoc:(void (^)(BOOL havoc, NSError* _Nullable error))reply;
 
 // NSOperation Helpers
 - (void)scheduleOperation:(NSOperation*)op;
@@ -280,21 +265,30 @@ NS_ASSUME_NONNULL_BEGIN
 
 @interface CKKSKeychainView (Testing)
 
+// If set, any set passed to setCurrentSyncingPolicy will be intersected with this set
+@property (readonly, nullable) NSSet<NSString*>* viewAllowList;
+- (void)setSyncingViewsAllowList:(NSSet<NSString*>* _Nullable)viewNames;
+
+- (CKKSKeychainViewState* _Nullable)viewStateForName:(NSString*)viewName NS_SWIFT_NAME(viewState(name:));
+
 // Call this to just nudge the state machine (without a request)
 // This is used internally, but you should only call it if you're a test.
 - (void)_onqueuePokeKeyStateMachine;
 
 /* NSOperation helpers */
 - (void)cancelAllOperations;
-- (void)waitUntilAllOperationsAreFinished;
+- (BOOL)waitForKeyHierarchyReadiness;
+- (BOOL)waitUntilAllOperationsAreFinished;
 - (void)waitForOperationsOfClass:(Class)operationClass;
 
-- (void)waitForFetchAndIncomingQueueProcessing;
+- (BOOL)waitForFetchAndIncomingQueueProcessing;
 
 - (void)halt;
 
 - (void)handleCKLogout;
 
+
+@property (readonly) CKKSSecDbAdapter* databaseProvider;
 @end
 
 NS_ASSUME_NONNULL_END

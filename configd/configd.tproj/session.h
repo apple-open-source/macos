@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, 2005-2007, 2009-2012, 2014, 2016-2019 Apple Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2003, 2005-2007, 2009-2012, 2014, 2016-2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -39,7 +39,7 @@
 #include <TargetConditionals.h>
 
 #define DISPATCH_MACH_SPI 1
-#import <dispatch/private.h>
+#include <dispatch/private.h>
 
 /*
  * SCDynamicStore write access entitlement
@@ -58,10 +58,6 @@
  *                     each SCDynamicStore key matching the regex pattern(s)
  */
 #define	kSCWriteEntitlementName	CFSTR("com.apple.SystemConfiguration.SCDynamicStore-write-access")
-
-
-typedef	enum { NO = 0, YES, UNKNOWN } lazyBoolean;
-
 
 /* Per client server state */
 typedef struct {
@@ -86,9 +82,6 @@ typedef struct {
 
 	/* Mach security audit trailer for evaluating credentials */
 	audit_token_t		auditToken;
-
-	/* root access credential associated with this "open" session */
-	lazyBoolean		callerRootAccess;
 
 	/*
 	 * write access entitlement associated with this "open" session
@@ -131,9 +124,6 @@ Boolean			hasRootAccess	(serverSessionRef	session);
 Boolean			hasWriteAccess	(serverSessionRef	session,
 					 const char		*op,
 					 CFStringRef		key);
-
-Boolean			hasPathAccess	(serverSessionRef	session,
-					 const char		*path);
 
 __END_DECLS
 

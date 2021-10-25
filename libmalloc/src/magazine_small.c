@@ -933,22 +933,32 @@ small_get_region_from_depot(rack_t *rack, magazine_t *small_mag_ptr, mag_index_t
 	// Appropriate a Depot'd region that can satisfy requested msize.
 	region_trailer_t *node;
 	region_t sparse_region;
+	msize_t try_msize = msize;
 
 	while (1) {
-		sparse_region = small_find_msize_region(rack, depot_ptr, DEPOT_MAGAZINE_INDEX, msize);
+		sparse_region = small_find_msize_region(rack, depot_ptr, DEPOT_MAGAZINE_INDEX, try_msize);
 		if (NULL == sparse_region) { // Depot empty?
 			SZONE_MAGAZINE_PTR_UNLOCK(depot_ptr);
 			return 0;
 		}
 
 		node = REGION_TRAILER_FOR_SMALL_REGION(sparse_region);
-		if (0 >= node->pinned_to_depot) {
+		if (0 == node->pinned_to_depot) {
+			// Found one!
 			break;
 		}
 
-		SZONE_MAGAZINE_PTR_UNLOCK(depot_ptr);
-		yield();
-		SZONE_MAGAZINE_PTR_LOCK(depot_ptr);
+		// Try the next msize up - maybe the head of its free list will be in
+		// a region we can use. Once we get the region we'll still allocate the
+		// original msize.
+		try_msize++;
+
+		if (try_msize > NUM_SMALL_SLOTS) {
+			// Tried all the msizes but couldn't get a usable region. Let's
+			// give up for now and we'll allocate a new region from the kernel.
+			SZONE_MAGAZINE_PTR_UNLOCK(depot_ptr);
+			return 0;
+		}
 	}
 
 	// disconnect node from Depot
@@ -959,7 +969,7 @@ small_get_region_from_depot(rack_t *rack, magazine_t *small_mag_ptr, mag_index_t
 
 	// Transfer ownership of the region
 	MAGAZINE_INDEX_FOR_SMALL_REGION(sparse_region) = mag_index;
-	node->pinned_to_depot = 0;
+	MALLOC_ASSERT(node->pinned_to_depot == 0);
 
 	// Iterate the region putting its free entries on its new (locked) magazine's free list
 	size_t bytes_inplay = small_free_reattach_region(rack, small_mag_ptr, sparse_region);
@@ -1031,6 +1041,11 @@ small_madvise_pressure_relief(rack_t *rack)
 				continue;
 			}
 
+			if (REGION_TRAILER_FOR_SMALL_REGION(small)->pinned_to_depot > 0) {
+				SZONE_MAGAZINE_PTR_UNLOCK(mag_ptr);
+				continue;
+			}
+
 			if (small == mag_ptr->mag_last_region && (mag_ptr->mag_bytes_free_at_end || mag_ptr->mag_bytes_free_at_start)) {
 				small_finalize_region(rack, mag_ptr);
 			}
@@ -1045,7 +1060,7 @@ small_madvise_pressure_relief(rack_t *rack)
 
 			SZONE_MAGAZINE_PTR_LOCK(small_depot_ptr);
 			MAGAZINE_INDEX_FOR_SMALL_REGION(small) = DEPOT_MAGAZINE_INDEX;
-			REGION_TRAILER_FOR_SMALL_REGION(small)->pinned_to_depot = 0;
+			MALLOC_ASSERT(REGION_TRAILER_FOR_SMALL_REGION(small)->pinned_to_depot == 0);
 
 			size_t bytes_inplay = small_free_reattach_region(rack, small_depot_ptr, small);
 

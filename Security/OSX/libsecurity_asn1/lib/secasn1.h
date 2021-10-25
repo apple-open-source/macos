@@ -168,11 +168,11 @@ extern SECStatus SEC_ASN1DecodeInteger(SecAsn1Item *src,
  * We have a length that needs to be encoded; how many bytes will the
  * encoding take?
  */
-extern int SEC_ASN1LengthLength (unsigned long len);
+extern unsigned long SEC_ASN1LengthLength (unsigned long len);
 
 /* encode the length and return the number of bytes we encoded. Buffer
  * must be pre allocated  */
-extern int SEC_ASN1EncodeLength(unsigned char *buf,unsigned long value);
+extern unsigned long SEC_ASN1EncodeLength(unsigned char *buf,unsigned long value);
 
 /*
  * Find the appropriate subtemplate for the given template.

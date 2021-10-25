@@ -74,7 +74,13 @@ extern mach_port_name_t ipc_port_copyout_send(
 extern mach_port_name_t ipc_port_copyout_send_pinned(
 	ipc_port_t      sright,
 	ipc_space_t     space);
-extern task_t port_name_to_task(
+#endif /* _IPC_IPC_PORT_H_ */
+
+#ifndef _KERN_IPC_TT_H_
+
+#define port_name_to_task(name) port_name_to_task_kernel(name)
+
+extern task_t port_name_to_task_kernel(
 	mach_port_name_t name);
 extern task_t port_name_to_task_read(
 	mach_port_name_t name);
@@ -82,7 +88,7 @@ extern task_t port_name_to_task_name(
 	mach_port_name_t name);
 extern void ipc_port_release_send(
 	ipc_port_t      port);
-#endif /* _IPC_IPC_PORT_H_ */
+#endif /* _KERN_IPC_TT_H_ */
 
 extern ipc_space_t  get_task_ipcspace(
 	task_t t);
@@ -93,7 +99,6 @@ extern int max_task_footprint_mb;       /* Per-task limit on physical memory con
 
 /* Some loose-ends VM stuff */
 
-extern vm_map_t         kalloc_map;
 extern vm_size_t        msg_ool_size_small;
 
 extern kern_return_t vm_tests(void);
@@ -153,6 +158,24 @@ extern kern_return_t vm_upl_unmap
 (
 	vm_map_t target_task,
 	upl_t upl
+);
+
+extern kern_return_t vm_upl_map_range
+(
+	vm_map_t target_task,
+	upl_t upl,
+	vm_offset_t offset,
+	vm_size_t size,
+	vm_prot_t prot,
+	vm_address_t *address
+);
+
+extern kern_return_t vm_upl_unmap_range
+(
+	vm_map_t target_task,
+	upl_t upl,
+	vm_offset_t offset,
+	vm_size_t size
 );
 
 extern kern_return_t vm_region_object_create
@@ -578,6 +601,7 @@ extern kern_return_t mach_memory_entry_range_op(
 
 extern void mach_memory_entry_port_release(ipc_port_t port);
 extern void mach_destroy_memory_entry(ipc_port_t port);
+extern vm_named_entry_t mach_memory_entry_from_port(ipc_port_t port);
 extern kern_return_t mach_memory_entry_allocate(
 	struct vm_named_entry **user_entry_p,
 	ipc_port_t *user_handle_p);
@@ -597,17 +621,7 @@ extern unsigned int mach_vm_ctl_page_free_wanted(void);
 
 extern int no_paging_space_action(void);
 
-/*
- * counts updated by revalidate_text_page()
- */
 extern unsigned int vmtc_total;        /* total # of text page corruptions detected */
-extern unsigned int vmtc_undiagnosed;  /* of that what wasn't diagnosed */
-extern unsigned int vmtc_not_eligible; /* failed to correct, due to page attributes */
-extern unsigned int vmtc_copyin_fail;  /* of undiagnosed, copyin failure count */
-extern unsigned int vmtc_not_found;    /* of diagnosed, no error found - code signing error? */
-extern unsigned int vmtc_one_bit_flip; /* of diagnosed, single bit errors */
-#define MAX_TRACK_POWER2 9             /* of diagnosed, counts of 1, 2, 4,... bytes corrupted */
-extern unsigned int vmtc_byte_counts[MAX_TRACK_POWER2 + 1];
 
 extern kern_return_t revalidate_text_page(task_t, vm_map_offset_t);
 
@@ -620,7 +634,6 @@ int vm_toggle_entry_reuse(int, int*);
 #define SWAP_READ               0x00000001      /* Read buffer. */
 #define SWAP_ASYNC              0x00000002      /* Start I/O, do not wait. */
 
-extern void vm_compressor_pager_init(void);
 extern kern_return_t compressor_memory_object_create(
 	memory_object_size_t,
 	memory_object_t *);
@@ -842,6 +855,7 @@ extern const char *debug4k_category_name[];
 #define DEBUG4K_VFS(...)
 
 #endif /* MACH_ASSERT */
+
 
 #endif  /* _VM_VM_PROTOS_H_ */
 

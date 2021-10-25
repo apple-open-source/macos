@@ -27,6 +27,7 @@
 
 #import <ApplePushService/ApplePushService.h>
 #import <Foundation/Foundation.h>
+#import <AppleFeatures/AppleFeatures.h>
 #import <CloudKit/CloudKit.h>
 #import <CloudKit/CloudKit_Private.h>
 
@@ -41,16 +42,17 @@
 #import "keychain/ot/OTFollowup.h"
 #import "keychain/ot/OTSOSAdapter.h"
 #import "keychain/ot/OTAuthKitAdapter.h"
+#import "keychain/ot/OTTooManyPeersAdapter.h"
 #import "keychain/ot/OTDeviceInformationAdapter.h"
 #import "keychain/ot/OTCuttlefishAccountStateHolder.h"
 #import "keychain/ot/OctagonStateMachineHelpers.h"
 #import "keychain/ot/OctagonStateMachine.h"
 #import "keychain/ot/proto/generated_source/OTAccountMetadataClassC.h"
 #import <KeychainCircle/PairingChannel.h>
-#import "keychain/ot/OTJoiningConfiguration.h"
+#import <Security/OTJoiningConfiguration.h>
 #import "keychain/ot/OTOperationDependencies.h"
 #import "keychain/ot/CuttlefishXPCWrapper.h"
-#import "keychain/escrowrequest/Framework/SecEscrowRequest.h"
+#import <Security/SecEscrowRequest.h>
 
 #import <CoreCDP/CDPAccount.h>
 
@@ -58,6 +60,8 @@
 #import "keychain/ckks/CKKSReachabilityTracker.h"
 #import "keychain/ckks/CKKSViewManager.h"
 #import "keychain/ckks/CKKSKeychainView.h"
+#import "keychain/ot/proto/generated_source/OTSecureElementPeerIdentity.h"
+#import "keychain/ot/proto/generated_source/OTCurrentSecureElementIdentities.h"
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -73,7 +77,6 @@ NS_ASSUME_NONNULL_BEGIN
 
 @property (readonly) NSString                               *containerName;
 @property (readonly) NSString                               *contextID;
-@property (readonly) NSString                               *altDSID;
 @property (nonatomic,strong) NSString                       *_Nullable pairingUUID;
 @property (nonatomic, readonly) CKKSLockStateTracker        *lockStateTracker;
 @property (nonatomic, readonly) OTCuttlefishAccountStateHolder* accountMetadataStore;
@@ -81,26 +84,34 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nullable, nonatomic) CKKSNearFutureScheduler* apsRateLimiter;
 @property (nullable, nonatomic) CKKSNearFutureScheduler* sosConsistencyRateLimiter;
 
-@property (readonly, nullable) CKKSViewManager*             viewManager;
+@property (readonly, nullable) CKKSKeychainView*            ckks;
 
 // Dependencies (for injection)
+@property (readonly) id<CKKSCloudKitAccountStateTrackingProvider, CKKSOctagonStatusMemoizer> accountStateTracker;
 @property (readonly) id<OTDeviceInformationAdapter> deviceAdapter;
-@property id<OTAuthKitAdapter> authKitAdapter;
+@property (readonly) id<OTAuthKitAdapter> authKitAdapter;
+@property (readonly) id<OTSOSAdapter> sosAdapter;
+@property (readonly) id<OTTooManyPeersAdapter> tooManyPeersAdapter;
+
+// CKKSConditions (for testing teardowns)
+@property (nullable) CKKSCondition* pendingEscrowCacheWarmup;
 
 @property dispatch_queue_t queue;
 
 - (instancetype)initWithContainerName:(NSString*)containerName
                             contextID:(NSString*)contextID
                            cuttlefish:(id<NSXPCProxyCreating>)cuttlefish
+                      ckksAccountSync:(CKKSKeychainView* _Nullable)ckks
                            sosAdapter:(id<OTSOSAdapter>)sosAdapter
                        authKitAdapter:(id<OTAuthKitAdapter>)authKitAdapter
-                      ckksViewManager:(CKKSViewManager* _Nullable)viewManager
+                  tooManyPeersAdapter:(id<OTTooManyPeersAdapter>)tooManyPeersAdapter
                      lockStateTracker:(CKKSLockStateTracker*)lockStateTracker
                   reachabilityTracker:(CKKSReachabilityTracker*)reachabilityTracker
                   accountStateTracker:(id<CKKSCloudKitAccountStateTrackingProvider, CKKSOctagonStatusMemoizer>)accountStateTracker
              deviceInformationAdapter:(id<OTDeviceInformationAdapter>)deviceInformationAdapter
                    apsConnectionClass:(Class<OctagonAPSConnection>)apsConnectionClass
                    escrowRequestClass:(Class<SecEscrowRequestable>)escrowRequestClass
+                        notifierClass:(Class<CKKSNotifier>)notifierClass
                                  cdpd:(id<OctagonFollowUpControllerProtocol>)cdpd;
 
 // Call one of these when the account state changes. OTCuttlefishContext is responsible for maintaining this state across daemon restarts.
@@ -117,6 +128,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (void)startOctagonStateMachine;
 - (void)handlePairingRestart:(OTJoiningConfiguration*)config;
+- (void)clearPairingUUID;
 
 - (void)rpcPrepareIdentityAsApplicantWithConfiguration:(OTJoiningConfiguration*)config
                                                  epoch:(uint64_t)epoch
@@ -140,13 +152,25 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)rpcLeaveClique:(nonnull void (^)(NSError * _Nullable))reply;
 
 
--(void)joinWithBottle:(NSString*)bottleID
+- (void)joinWithBottle:(NSString*)bottleID
               entropy:(NSData *)entropy
            bottleSalt:(NSString *)bottleSalt
                 reply:(void (^)(NSError * _Nullable error))reply;
 
--(void)joinWithRecoveryKey:(NSString*)recoveryKey
+- (void)joinWithRecoveryKey:(NSString*)recoveryKey
                      reply:(void (^)(NSError * _Nullable error))reply;
+
+- (void)joinWithCustodianRecoveryKey:(OTCustodianRecoveryKey*)crk
+                              reply:(void (^)(NSError * _Nullable error))reply;
+
+- (void)preflightJoinWithCustodianRecoveryKey:(OTCustodianRecoveryKey*)crk
+                                        reply:(void (^)(NSError * _Nullable error))reply;
+
+- (void)joinWithInheritanceKey:(OTInheritanceKey*)ik
+                         reply:(void (^)(NSError * _Nullable error))reply;
+
+- (void)preflightJoinWithInheritanceKey:(OTInheritanceKey*)ik
+                                  reply:(void (^)(NSError * _Nullable error))reply;
 
 - (void)rpcRemoveFriendsInClique:(NSArray<NSString*>*)peerIDs
                            reply:(void (^)(NSError * _Nullable))reply;
@@ -177,22 +201,44 @@ NS_ASSUME_NONNULL_BEGIN
                                       NSData* _Nullable signingPublicKey,
                                       NSError* _Nullable error))reply;
 - (void)rpcSetRecoveryKey:(NSString*)recoveryKey reply:(void (^)(NSError * _Nullable error))reply;
+- (void)rpcCreateCustodianRecoveryKeyWithUUID:(NSUUID *_Nullable)uuid
+                                        reply:(void (^)(OTCustodianRecoveryKey *_Nullable crk, NSError *_Nullable error))reply;
+- (void)rpcCreateInheritanceKeyWithUUID:(NSUUID *_Nullable)uuid
+                                  reply:(void (^)(OTInheritanceKey *_Nullable ik, NSError *_Nullable error))reply;
+- (void)rpcGenerateInheritanceKeyWithUUID:(NSUUID *_Nullable)uuid
+                                  reply:(void (^)(OTInheritanceKey *_Nullable ik, NSError *_Nullable error))reply;
+- (void)rpcStoreInheritanceKeyWithIK:(OTInheritanceKey*)ik
+                                  reply:(void (^)(NSError *_Nullable error))reply;
+- (void)rpcRemoveCustodianRecoveryKeyWithUUID:(NSUUID *)uuid
+                                        reply:(void (^)(NSError *_Nullable error))reply;
+- (void)rpcRemoveInheritanceKeyWithUUID:(NSUUID *)uuid
+                                  reply:(void (^)(NSError *_Nullable error))reply;
 
 - (void)rpcRefetchCKKSPolicy:(void (^)(NSError * _Nullable error))reply;
 
 - (void)rpcFetchUserControllableViewsSyncingStatus:(void (^)(BOOL areSyncing, NSError* _Nullable error))reply;
 - (void)rpcSetUserControllableViewsSyncingStatus:(BOOL)status reply:(void (^)(BOOL areSyncing, NSError* _Nullable error))reply;
 
+- (void)rpcSetLocalSecureElementIdentity:(OTSecureElementPeerIdentity*)secureElementIdentity
+                                reply:(void (^)(NSError* _Nullable))reply;
+- (void)rpcRemoveLocalSecureElementIdentityPeerID:(NSData*)sePeerID
+                                            reply:(void (^)(NSError* _Nullable))reply;
+- (void)rpcFetchTrustedSecureElementIdentities:(void (^)(OTCurrentSecureElementIdentities* _Nullable currentSet,
+                                                         NSError* _Nullable replyError))reply;
+
+
+- (void)rpcWaitForPriorityViewKeychainDataRecovery:(void (^)(NSError* _Nullable replyError))reply NS_SWIFT_NAME(rpcWaitForPriorityViewKeychainDataRecovery(reply:));;
+
 - (void)requestTrustedDeviceListRefresh;
 
 - (OTDeviceInformation*)prepareInformation;
 
 // called when circle changed notification fires
-- (void) moveToCheckTrustedState;
+- (void)moveToCheckTrustedState;
 
 - (OTOperationDependencies*)operationDependencies;
 
-- (void)waitForOctagonUpgrade:(void (^)(NSError* error))reply NS_SWIFT_NAME(waitForOctagonUpgrade(reply:));
+- (void)waitForOctagonUpgrade:(void (^)(NSError* _Nullable error))reply NS_SWIFT_NAME(waitForOctagonUpgrade(reply:));
 
 - (BOOL)waitForReady:(int64_t)timeOffset;
 
@@ -203,7 +249,7 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)checkTrustStatusAndPostRepairCFUIfNecessary:(void (^ _Nullable)(CliqueStatus status, BOOL posted, BOOL hasIdentity, BOOL isLocked, NSError * _Nullable error))reply;
 - (void)rpcResetAccountCDPContents:(void (^)(NSError* _Nullable error))reply;
 
-- (void)clearCKKSViewManager;
+- (void)clearCKKS;
 
 @property (nullable) TPPolicyVersion* policyOverride;
 
@@ -214,6 +260,10 @@ NS_ASSUME_NONNULL_BEGIN
 - (BOOL)machineIDOnMemoizedList:(NSString*)machineID error:(NSError**)error NS_SWIFT_NOTHROW;
 - (TrustedPeersHelperEgoPeerStatus* _Nullable)egoPeerStatus:(NSError**)error;
 
+@end
+
+@interface OTCuttlefishContext (Testing)
+- (void)resetCKKS:(CKKSKeychainView*)view NS_SWIFT_NAME(reset(ckks:));
 @end
 
 NS_ASSUME_NONNULL_END

@@ -92,8 +92,8 @@ static void k2n_table_enter(struct k2n_table_node **table, natural_t kobject, ip
 #pragma mark -
 
 static my_per_task_info_t NOT_FOUND_TASK_INFO = {
-    .task = NULL,
-    .task_kobject = NULL,
+    .task = 0,
+    .task_kobject = 0,
     .pid = -1,
     .info = {0,0,0,0,0,0},
     .table = NULL,
@@ -217,7 +217,7 @@ kern_return_t collect_per_task_info(my_per_task_info_t *taskinfo, task_read_t ta
 
     }
 
-    vm_deallocate(mach_task_self(), threadPorts, taskinfo->threadCount * sizeof(thread_act_t));
+    vm_deallocate(mach_task_self(), (vm_address_t)threadPorts, taskinfo->threadCount * sizeof(thread_act_t));
     threadPorts = NULL;
 
     ret = mach_port_space_info(target_task, &taskinfo->info, &taskinfo->table, &taskinfo->tableCount, &taskinfo->tree, &taskinfo->treeCount);

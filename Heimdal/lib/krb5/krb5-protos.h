@@ -6414,7 +6414,7 @@ krb5_pk_enterprise_cert (
 
 /**
  * Register a plugin symbol name of specific type.
- * @param context a Keberos context
+ * @param context a Kerberos context
  * @param type type of plugin symbol
  * @param name name of plugin symbol
  * @param symbol a pointer to the named symbol
@@ -6430,6 +6430,26 @@ krb5_plugin_register (
 	enum krb5_plugin_type type,
 	const char *name,
 	void *symbol);
+
+/**
+ * Register a plugin symbol name of specific type.
+ * @param context a Kerberos context
+ * @param modulename name of the plugin module
+ * @param type type of plugin symbol
+ * @param name name of plugin symbol
+ * @param symbol a pointer to the named symbol
+ * @return In case of error a non zero error com_err error is returned
+ * and the Kerberos error string is set.
+ *
+ * @ingroup krb5_support
+ */
+
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
+krb5_plugin_register_module(krb5_context context,
+			    const char *modulename,
+			    enum krb5_plugin_type type,
+			    const char *name,
+			    void *symbol);
 
 krb5_error_code
 krb5_plugin_run_f (

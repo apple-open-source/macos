@@ -21,10 +21,14 @@ default_zoneinfo_setup()
     ln -hfs "/usr/share/zoneinfo.default" "${DSTROOT}/private/var/db/timezone/zoneinfo"
 }
 
-case "$ACTUAL_PLATFORM_NAME" in
-iphone*|appletv*|watch*|macosx)
+install_zoneinfo_ios_tv_watch_macos() {
     ditto "${BUILT_PRODUCTS_DIR}/zoneinfo" "${DSTROOT}/usr/share/zoneinfo.default"
     ln -hfs "/var/db/timezone/zoneinfo" "${DSTROOT}/usr/share/zoneinfo"
+}
+
+case "$ACTUAL_PLATFORM_NAME" in
+iphone*|appletv*|watch*|macosx)
+    install_zoneinfo_ios_tv_watch_macos
     case "$ACTUAL_PLATFORM_NAME" in
     macosx)
         default_zoneinfo_setup
@@ -40,8 +44,15 @@ bridge*)
     default_zoneinfo_setup
     ;;
 *)
-    echo "Unsupported platform: $ACTUAL_PLATFORM_NAME"
-    exit 1
+    case "$FALLBACK_PLATFORM" in
+        iphone*|appletv*|watch*|bridge*)
+            install_zoneinfo_ios_tv_watch_macos
+            ;;
+        *)
+            echo "Unsupported platform: $ACTUAL_PLATFORM_NAME"
+            exit 1
+            ;;
+    esac
     ;;
 esac
 

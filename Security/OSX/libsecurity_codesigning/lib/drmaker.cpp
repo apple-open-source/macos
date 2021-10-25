@@ -28,6 +28,7 @@
 #include "csutilities.h"
 #include <Security/oidsbase.h>
 #include <Security/SecCertificatePriv.h>
+#include <libDER/oids.h>
 //#include <Security/cssmapplePriv.h>
 
 namespace Security {
@@ -84,16 +85,24 @@ Requirement *DRMaker::make()
 void DRMaker::nonAppleAnchor()
 {
 	// get the Organization DN element for the leaf
-	CFRef<CFStringRef> leafOrganization;
-	MacOSError::check(SecCertificateCopySubjectComponent(ctx.cert(Requirement::leafCert),
-		&CSSMOID_OrganizationName, &leafOrganization.aref()));
+	CFRef<CFStringRef> leafOrganization = NULL;
+
+	leafOrganization.take(SecCertificateCopySubjectAttributeValue(ctx.cert(Requirement::leafCert), (DERItem *)&oidOrganizationName));
+	if (!leafOrganization) {
+		secinfo("drmaker", "Unable to get OrganizationName from leaf certificate");
+	}
 
 	// now step up the cert chain looking for the first cert with a different one
 	int slot = Requirement::leafCert;						// start at leaf
 	if (leafOrganization) {
 		while (SecCertificateRef ca = ctx.cert(slot+1)) {		// NULL if you over-run the anchor slot
-			CFRef<CFStringRef> caOrganization;
-			MacOSError::check(SecCertificateCopySubjectComponent(ca, &CSSMOID_OrganizationName, &caOrganization.aref()));
+			CFRef<CFStringRef> caOrganization = NULL;
+
+			caOrganization.take(SecCertificateCopySubjectAttributeValue(ca, (DERItem *)&oidOrganizationName));
+			if (!caOrganization) {
+				secinfo("drmaker", "Unable to get OrganizationName from certificate");
+			}
+
 			if (!caOrganization || CFStringCompare(leafOrganization, caOrganization, 0) != kCFCompareEqualTo)
 				break;
 			slot++;
@@ -113,9 +122,12 @@ void DRMaker::appleAnchor()
 {
 	if (isIOSSignature()) {
 		// get the Common Name DN element for the leaf
-		CFRef<CFStringRef> leafCN;
-		MacOSError::check(SecCertificateCopySubjectComponent(ctx.cert(Requirement::leafCert),
-			&CSSMOID_CommonName, &leafCN.aref()));
+		CFRef<CFStringRef> leafCN = NULL;
+
+		leafCN.take(SecCertificateCopySubjectAttributeValue(ctx.cert(Requirement::leafCert), (DERItem *)&oidCommonName));
+		if (!leafCN) {
+			secinfo("drmaker", "Unable to get CommonName from leaf certificate");
+		}
 		
 		// apple anchor generic and ...
 		this->put(opAnd);
@@ -137,9 +149,12 @@ void DRMaker::appleAnchor()
 	
 	if (isDeveloperIDSignature()) {
 		// get the Organizational Unit DN element for the leaf (it contains the TEAMID)
-		CFRef<CFStringRef> teamID;
-		MacOSError::check(SecCertificateCopySubjectComponent(ctx.cert(Requirement::leafCert),
-			&CSSMOID_OrganizationalUnitName, &teamID.aref()));
+		CFRef<CFStringRef> teamID = NULL;
+
+		teamID.take(SecCertificateCopySubjectAttributeValue(ctx.cert(Requirement::leafCert), (DERItem *)&oidOrganizationalUnitName));
+		if (!teamID) {
+			secinfo("drmaker", "Unable to get teamID from leaf certificate");
+		}
 
 		// apple anchor generic and ...
 		this->put(opAnd);
@@ -176,7 +191,7 @@ bool DRMaker::isIOSSignature()
 {
 	if (ctx.certCount() == 3)		// leaf, one intermediate, anchor
 		if (SecCertificateRef intermediate = ctx.cert(1)) // get intermediate
-			if (certificateHasField(intermediate, CssmOid::overlay(adcSdkMarkerOID)))
+			if (certificateHasField(intermediate, adcSdkMarkerOID))
 				return true;
 	return false;
 }
@@ -185,7 +200,7 @@ bool DRMaker::isDeveloperIDSignature()
 {
 	if (ctx.certCount() == 3)		// leaf, one intermediate, anchor
 		if (SecCertificateRef intermediate = ctx.cert(1)) // get intermediate
-			if (certificateHasField(intermediate, CssmOid::overlay(devIdSdkMarkerOID)))
+			if (certificateHasField(intermediate, devIdSdkMarkerOID))
 				return true;
 	return false;
 }

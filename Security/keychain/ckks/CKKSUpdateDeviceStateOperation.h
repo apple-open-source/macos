@@ -26,16 +26,17 @@
 #import <Foundation/Foundation.h>
 #import "keychain/ckks/CKKSDeviceStateEntry.h"
 #import "keychain/ckks/CKKSGroupOperation.h"
+#import "keychain/ckks/CKKSOperationDependencies.h"
 
 NS_ASSUME_NONNULL_BEGIN
 
 @interface CKKSUpdateDeviceStateOperation : CKKSGroupOperation
-@property (weak) CKKSKeychainView* ckks;
+@property CKKSOperationDependencies* deps;
 
 - (instancetype)init NS_UNAVAILABLE;
-- (instancetype)initWithCKKSKeychainView:(CKKSKeychainView*)ckks
-                               rateLimit:(bool)rateLimit
-                        ckoperationGroup:(CKOperationGroup*)group;
+- (instancetype)initWithOperationDependencies:(CKKSOperationDependencies*)operationDependencies
+                                    rateLimit:(bool)rateLimit
+                             ckoperationGroup:(CKOperationGroup*)group;
 @end
 
 NS_ASSUME_NONNULL_END

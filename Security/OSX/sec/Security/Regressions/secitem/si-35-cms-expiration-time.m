@@ -67,7 +67,7 @@ static void SecCMS_positive_tests(void) {
     attrValues = attrs[expirationDateOid];
     is([attrValues count], (size_t)1, "Wrong number of attribute values");
     require_action(unparsedExpirationDate = attrValues[0], exit, fail("Failed to get expiration date attribute value"));
-    uint8_t expectedUTCData[] = { 0x31, 0x39, 0x31, 0x32, 0x33, 0x30, 0x31, 0x32, 0x30, 0x30, 0x30, 0x30, 0x5a };
+    uint8_t expectedUTCData[] = { 0x17, 0x0d, 0x31, 0x39, 0x31, 0x32, 0x33, 0x30, 0x31, 0x32, 0x30, 0x30, 0x30, 0x30, 0x5a };
     is([unparsedExpirationDate isEqualToData:[NSData dataWithBytes:expectedUTCData length:sizeof(expectedUTCData)]], true, "Failed to get correct expiration date");
 
     /* verify we can get the "cooked" expiration data out */
@@ -279,6 +279,134 @@ static void CMSDecoder_tests(void) {
     CMSDecoder_negative_missing_date();
 }
 
+#define GEN_TIME_ENCODE_TEST_COUNT 5
+static void GeneralizedTime_encode(SecIdentityRef identity) {
+    CMSEncoderRef encoder = NULL;
+    CMSDecoderRef decoder = NULL;
+    CFDataRef message = NULL;
+
+    /* Create encoder */
+    require_noerr_action(CMSEncoderCreate(&encoder), exit, fail("Failed to create CMS encoder"));
+    require_noerr_action(CMSEncoderSetSignerAlgorithm(encoder, kCMSEncoderDigestAlgorithmSHA256), exit,
+                         fail("Failed to set digest algorithm to SHA256"));
+
+    /* Set identity as signer */
+    require_noerr_action(CMSEncoderAddSigners(encoder, identity), exit, fail("Failed to add signer identity"));
+
+    /* Add signing time attribute for September 14, 2051 */
+    require_noerr_action(CMSEncoderAddSignedAttributes(encoder, kCMSAttrSigningTime), exit,
+                         fail("Failed to set signing time flag"));
+    require_noerr_action(CMSEncoderSetSigningTime(encoder, 1600000000.0), exit, fail("Failed to set signing time"));
+
+    /* Add expiration date attribute for January 7, 2052 */
+    ok_status(CMSEncoderAddSignedAttributes(encoder, kCMSAttrAppleExpirationTime),
+              "Set expiration date flag");
+    ok_status(CMSEncoderSetAppleExpirationTime(encoder, 1610000000.0), "Set Expiration time");
+
+    /* Load content */
+    require_noerr_action(CMSEncoderSetHasDetachedContent(encoder, true), exit, fail("Failed to set detached content"));
+    require_noerr_action(CMSEncoderUpdateContent(encoder, _css_content, sizeof(_css_content)), exit, fail("Failed to set content"));
+
+    /* output cms message */
+    ok_status(CMSEncoderCopyEncodedContent(encoder, &message), "Finish encoding and output message");
+    isnt(message, NULL, "Encoded message exists");
+
+    /* decode message */
+    require_noerr_action(CMSDecoderCreate(&decoder), exit, fail("Create CMS decoder"));
+    require_noerr_action(CMSDecoderUpdateMessage(decoder, CFDataGetBytePtr(message),
+                                                 CFDataGetLength(message)), exit,
+                         fail("Update decoder with CMS message"));
+    require_noerr_action(CMSDecoderSetDetachedContent(decoder, (__bridge CFDataRef)[NSData dataWithBytes:_css_content
+                                                                                                  length:sizeof(_css_content)]),
+                         exit, fail("Set detached content"));
+    ok_status(CMSDecoderFinalizeMessage(decoder), "Finalize decoder");
+
+exit:
+    CFReleaseNull(encoder);
+    CFReleaseNull(message);
+    CFReleaseNull(decoder);
+}
+
+#define GEN_TIME_SECCMS_TEST_COUNT 5
+static void GeneralizedTime_SecCMS(void) {
+    SecPolicyRef policy = NULL;
+    SecTrustRef trust = NULL;
+    CFDictionaryRef tmpAttrs = NULL;
+    NSDictionary* attrs = nil;
+    NSData *expirationDateOid = nil, *unparsedExpirationDate = nil;
+    NSArray *attrValues = nil;
+    NSDate *expirationDate = nil, *expectedDate = [NSDate dateWithTimeIntervalSinceReferenceDate: 1610000000.0];
+
+    NSData *message = [NSData dataWithBytes:_generalizedTimes length:sizeof(_generalizedTimes)];
+    NSData *content = [NSData dataWithBytes:_css_content length:sizeof(_css_content)];
+    policy = SecPolicyCreateBasicX509();
+
+    /* verify a valid message and copy out attributes */
+    ok_status(SecCMSVerifyCopyDataAndAttributes((__bridge CFDataRef)message, (__bridge CFDataRef)content, policy, &trust, NULL, &tmpAttrs),
+              "Failed to verify valid CMS message and get out attributes");
+    require_action(attrs = CFBridgingRelease(tmpAttrs), exit, fail("Failed to copy attributes"));
+
+    /* verify we can get the parsed expiration date attribute out */
+    uint8_t appleExpirationDateOid[] = { 0x2a, 0x86, 0x48, 0x86, 0xf7, 0x63, 0x64, 0x9, 0x3 };
+    expirationDateOid = [NSData dataWithBytes:appleExpirationDateOid length:sizeof(appleExpirationDateOid)];
+    attrValues = attrs[expirationDateOid];
+    is([attrValues count], (size_t)1, "Wrong number of attribute values");
+    require_action(unparsedExpirationDate = attrValues[0], exit, fail("Failed to get expiration date attribute value"));
+    uint8_t expectedData[] = { 0x18, 0x0f, 0x32, 0x30, 0x35, 0x32, 0x30, 0x31, 0x30, 0x38, 0x30, 0x36, 0x31, 0x33, 0x32, 0x30, 0x5a };
+    is([unparsedExpirationDate isEqualToData:[NSData dataWithBytes:expectedData length:sizeof(expectedData)]], true, "Failed to get correct expiration date");
+
+    /* verify we can get the "cooked" expiration data out */
+    ok(expirationDate = attrs[(__bridge NSString*)kSecCMSExpirationDate], "Failed to get pre-parsed expiration date from attributes");
+    is([expirationDate isEqualToDate:expectedDate], true, "Failed to get correct expiration date");
+
+exit:
+    CFReleaseNull(policy);
+    CFReleaseNull(trust);
+}
+
+#define GEN_TIME_CMSDECODER_TEST_COUNT 5
+static void GeneralizedTime_CMSDecoder(void) {
+    CMSDecoderRef decoder = NULL;
+    SecPolicyRef policy = NULL;
+    SecTrustRef trust = NULL;
+    CMSSignerStatus signerStatus;
+    NSData *_css_contentData = nil;
+    CFAbsoluteTime expirationTime = 0;
+    NSDate *expirationDate = nil, *expectedDate = [NSDate dateWithTimeIntervalSinceReferenceDate: 1610000000.0];
+
+    /* Create decoder and decode */
+    require_noerr_action(CMSDecoderCreate(&decoder), exit, fail("Failed to create CMS decoder"));
+    require_noerr_action(CMSDecoderUpdateMessage(decoder, _generalizedTimes, sizeof(_generalizedTimes)), exit,
+                         fail("Failed to update decoder with CMS message"));
+    _css_contentData = [NSData dataWithBytes:_css_content length:sizeof(_css_content)];
+    require_noerr_action(CMSDecoderSetDetachedContent(decoder, (__bridge CFDataRef)_css_contentData), exit,
+                         fail("Failed to set detached _css_content"));
+    ok_status(CMSDecoderFinalizeMessage(decoder), "Finalize decoder");
+
+    /* Get signer status */
+    require_action(policy = SecPolicyCreateBasicX509(), exit, fail("Failed to Create policy"));
+    ok_status(CMSDecoderCopySignerStatus(decoder, 0, policy, false, &signerStatus, &trust, NULL),
+              "Copy Signer status");
+    is(signerStatus, kCMSSignerValid, "Valid signature");
+
+    /* Get Expiration Time Attribute value */
+    ok_status(CMSDecoderCopySignerAppleExpirationTime(decoder, 0, &expirationTime),
+       "Got expiration time from message with no expiration attribute");
+    expirationDate = [NSDate dateWithTimeIntervalSinceReferenceDate:expirationTime];
+    is([expirationDate isEqualToDate:expectedDate], true, "Got wrong expiration time"); // 31 December 2019 12:00:00 Zulu
+
+exit:
+    CFReleaseNull(decoder);
+    CFReleaseNull(policy);
+    CFReleaseNull(trust);
+}
+
+static void GeneralizedTime_tests(SecIdentityRef identity) {
+    GeneralizedTime_encode(identity);
+    GeneralizedTime_SecCMS();
+    GeneralizedTime_CMSDecoder();
+}
+
 static bool setup_keychain(const uint8_t *p12, size_t p12_len, SecIdentityRef *identity) {
     CFArrayRef tmp_imported_items = NULL;
     NSArray *imported_items = nil;
@@ -313,7 +441,8 @@ static void cleanup_keychain(SecIdentityRef identity) {
 }
 
 int si_35_cms_expiration_time(int argc, char *const *argv) {
-    plan_tests(5+1+3+5+5+3+4+1);
+    plan_tests(5+1+3+5+5+3+4+1+
+               GEN_TIME_ENCODE_TEST_COUNT + GEN_TIME_SECCMS_TEST_COUNT+GEN_TIME_CMSDECODER_TEST_COUNT);
 
     SecIdentityRef identity = NULL;
 
@@ -321,6 +450,7 @@ int si_35_cms_expiration_time(int argc, char *const *argv) {
         SecCMS_tests();
         CMSEncoder_tests(identity);
         CMSDecoder_tests();
+        GeneralizedTime_tests(identity);
         cleanup_keychain(identity);
     }
 

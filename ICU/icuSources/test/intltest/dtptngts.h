@@ -35,6 +35,10 @@ private:
     void testJjMapping();
     void test20640_HourCyclArsEnNH();
     void testFallbackWithDefaultRootLocale();
+    void testGetDefaultHourCycle_OnEmptyInstance();
+    void test_jConsistencyOddLocales();
+    void testHorizontalInheritance();   // Apple rdar://78420184
+    void testBestPattern();
 };
 
 #endif /* #if !UCONFIG_NO_FORMATTING */

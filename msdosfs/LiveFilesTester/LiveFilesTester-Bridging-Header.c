@@ -246,7 +246,9 @@ int brdg_fsops_write(UVFSFSOps* testerFsOps, UVFSFileNode* Node, uint64_t offset
     errnum = (*testerFsOps).fsops_write(*Node, offset, length, buf, p_actuallyWrite);
     clock_gettime(CLOCK_REALTIME, &tm2);
     elapsed_time = timespec_diff_in_ns(&tm1, &tm2);
-    logf("fsops_write() Node=%p offset=%08llX length=%08zX Buf=%08X actuallyWrite=%08zX return %d (%s) \n",*Node,offset,length,(uint32_t)buf,*p_actuallyWrite,errnum, errnum==0?"SUCCESS":strerror(errnum));
+    logf("fsops_write() Node=%p offset=%08llX length=%08zX Buf=%08lX actuallyWrite=%08zX return %d (%s) \n",
+         *Node,offset, length, (unsigned long)buf, *p_actuallyWrite, errnum,
+         errnum == 0 ? "SUCCESS" : strerror(errnum));
     return errnum;
 }
 
@@ -363,7 +365,9 @@ int brdg_fsops_read(UVFSFSOps* testerFsOps, UVFSFileNode *Node, uint64_t offset,
     int errnum;
     assert(*Node);
     errnum = (*testerFsOps).fsops_read(*Node, offset, length, outBuf, p_actuallyRead);
-    logf("fsops_read() Node=%p offset=%08llX length=%08zX outBuf=%08X actuallyRead=%08zX return %d (%s) \n",*Node,offset,length,(uint32_t)outBuf,*p_actuallyRead,errnum,errnum==0?"SUCCESS":strerror(errnum));
+    logf("fsops_read() Node=%p offset=%08llX length=%08zX outBuf=%08lX actuallyRead=%08zX return %d (%s\n",
+         *Node, offset, length, (unsigned long)outBuf, *p_actuallyRead, errnum,
+         errnum == 0 ? "SUCCESS" : strerror(errnum));
     
     return errnum;
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2012-2018, 2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -103,7 +103,7 @@ _handle_entitlement_check_failure(pid_t pid)
 
 
 /*
- * libSystemConfiguraiton_client
+ * libSystemConfiguration_client
  *
  * - all APIs must be called from the same [serial] dispatch queue
  */

@@ -29,6 +29,7 @@
 #include <Security/SecTrustSettingsPriv.h>
 #include <Security/SecTrust.h>
 #include <Security/SecFramework.h>
+#include <Security/SecTrustStore.h>
 
 #include "../TestMacroConversions.h"
 #include "TrustFrameworkTestCase.h"
@@ -48,8 +49,10 @@
 }
 #endif
 
-#if !TARGET_OS_BRIDGE
 - (void)testSetCTExceptions {
+#if TARGET_OS_BRIDGE
+    XCTSkip();
+#endif
     CFErrorRef error = NULL;
     const CFStringRef TrustTestsAppID = CFSTR("com.apple.trusttests");
     CFDictionaryRef copiedExceptions = NULL;
@@ -125,6 +128,9 @@
 }
 
 - (void)testSetTransparentConnections {
+#if TARGET_OS_BRIDGE
+    XCTSkip();
+#endif
     CFErrorRef error = NULL;
     const CFStringRef TrustTestsAppID = CFSTR("com.apple.trusttests");
     CFArrayRef copiedPins = NULL;
@@ -191,11 +197,15 @@
                    "failed to copy all pins: %@", error);
     CFReleaseNull(copiedPins);
 }
-#else // TARGET_OS_BRIDGE
-- (void)testSkipTests
-{
-    XCTAssert(true);
-}
+
+- (void)testTrustStoreRemoveAll {
+#if TARGET_OS_BRIDGE
+    XCTSkip();
+#elif TARGET_OS_OSX
+    XCTAssertEqual(errSecReadOnly, SecTrustStoreRemoveAll(SecTrustStoreForDomain(kSecTrustStoreDomainUser)));
+#else
+    XCTAssertEqual(errSecSuccess, SecTrustStoreRemoveAll(SecTrustStoreForDomain(kSecTrustStoreDomainUser)));
 #endif
+}
 
 @end

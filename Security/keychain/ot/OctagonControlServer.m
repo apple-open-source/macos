@@ -66,6 +66,30 @@
             return;
         }
     }
+    if(sel_isEqual(invocation.selector, @selector(setLocalSecureElementIdentity:contextID:secureElementIdentity:reply:))) {
+        if(![self.entitlementBearer valueForEntitlement:kSecEntitlementPrivateOctagonSecureElement]) {
+            secerror("Client %@ does not have entitlement %@, rejecting rpc", self.entitlementBearer, kSecEntitlementPrivateOctagonSecureElement);
+            [invocation setSelector:@selector(failSetLocalSecureElementIdentity:contextID:secureElementIdentity:reply:)];
+            [invocation invokeWithTarget:self];
+            return;
+        }
+    }
+    if(sel_isEqual(invocation.selector, @selector(removeLocalSecureElementIdentityPeerID:contextID:secureElementIdentityPeerID:reply:))) {
+        if(![self.entitlementBearer valueForEntitlement:kSecEntitlementPrivateOctagonSecureElement]) {
+            secerror("Client %@ does not have entitlement %@, rejecting rpc", self.entitlementBearer, kSecEntitlementPrivateOctagonSecureElement);
+            [invocation setSelector:@selector(failRemoveLocalSecureElementIdentityPeerID:contextID:secureElementIdentityPeerID:reply:)];
+            [invocation invokeWithTarget:self];
+            return;
+        }
+    }
+    if(sel_isEqual(invocation.selector, @selector(fetchTrustedSecureElementIdentities:contextID:reply:))) {
+        if(![self.entitlementBearer valueForEntitlement:kSecEntitlementPrivateOctagonSecureElement]) {
+            secerror("Client %@ does not have entitlement %@, rejecting rpc", self.entitlementBearer, kSecEntitlementPrivateOctagonSecureElement);
+            [invocation setSelector:@selector(failFetchTrustedSecureElementIdentities:contextID:reply:)];
+            [invocation invokeWithTarget:self];
+            return;
+        }
+    }
     [invocation invokeWithTarget:self.manager];
 }
 
@@ -80,6 +104,38 @@
                                              code:errSecMissingEntitlement
                                       description:[NSString stringWithFormat: @"Missing entitlement '%@'", kSecEntitlementPrivateOctagonEscrow]]);
 }
+
+- (void)failSetLocalSecureElementIdentity:(NSString* _Nullable)containerName
+                                contextID:(NSString*)contextID
+                    secureElementIdentity:(OTSecureElementPeerIdentity*)secureElementIdentity
+                                    reply:(void (^)(NSError* _Nullable error))reply
+{
+    reply([NSError errorWithDomain:NSOSStatusErrorDomain
+                              code:errSecMissingEntitlement
+                       description:[NSString stringWithFormat: @"Missing entitlement '%@'", kSecEntitlementPrivateOctagonSecureElement]]);
+}
+
+- (void)failRemoveLocalSecureElementIdentityPeerID:(NSString* _Nullable)containerName
+                                         contextID:(NSString*)contextID
+                       secureElementIdentityPeerID:(NSData*)sePeerID
+                                             reply:(void (^)(NSError* _Nullable error))reply
+{
+    reply([NSError errorWithDomain:NSOSStatusErrorDomain
+                              code:errSecMissingEntitlement
+                       description:[NSString stringWithFormat: @"Missing entitlement '%@'", kSecEntitlementPrivateOctagonSecureElement]]);
+}
+
+- (void)failFetchTrustedSecureElementIdentities:(NSString* _Nullable)containerName
+                                      contextID:(NSString*)contextID
+                                          reply:(void (^)(OTCurrentSecureElementIdentities* currentSet,
+                                                          NSError* replyError))reply
+{
+    reply(nil,
+          [NSError errorWithDomain:NSOSStatusErrorDomain
+                              code:errSecMissingEntitlement
+                       description:[NSString stringWithFormat: @"Missing entitlement '%@'", kSecEntitlementPrivateOctagonSecureElement]]);
+}
+
 
 + (BOOL)conformsToProtocol:(Protocol *)protocol {
     return [[OTManager class] conformsToProtocol:protocol];
@@ -108,14 +164,8 @@
                  [newConnection processIdentifier], kSecEntitlementPrivateOctagon);
         return NO;
     }
-    // In the future, we should consider vending a proxy object that can return a nicer error.
-    if (!OctagonIsEnabled()) {
-        secerror("Octagon: Client pid: %d attempted to use Octagon, but Octagon is not enabled.",
-                 newConnection.processIdentifier);
-        return NO;
-    }
     
-    secinfo("octagon", "received connection from client pid %d", [newConnection processIdentifier]);
+    secinfo("octagon", "received connection from client pid %d (euid %u)", newConnection.processIdentifier, newConnection.effectiveUserIdentifier);
     newConnection.exportedInterface = OTSetupControlProtocol([NSXPCInterface interfaceWithProtocol:@protocol(OTControlProtocol)]);
     newConnection.exportedObject = [OctagonXPCEntitlementChecker createWithManager:[OTManager manager] entitlementBearer:newConnection];
 

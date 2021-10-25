@@ -421,6 +421,9 @@ print_access(FILE *stream, SecAccessRef access, Boolean interactive)
 			const UInt8* bytes;
 			SecTrustedApplicationRef app = (SecTrustedApplicationRef)CFArrayGetValueAtIndex(applicationList, appix);
 			CFDataRef data = NULL;
+			SecRequirementRef req = NULL;
+			CFStringRef reqString = NULL;
+
 			fprintf(stream, "            %lu: ", appix);
 			status = SecTrustedApplicationCopyData(app, &data);
 			if (status)
@@ -442,8 +445,28 @@ print_access(FILE *stream, SecAccessRef access, Boolean interactive)
 				print_cfdata(stream, data);
 				fputc('\n', stream);
 			}
-			if (data)
-				CFRelease(data);
+
+			fprintf(stream, "                requirement: ");
+			status = SecTrustedApplicationCopyRequirement(app, &req);
+			if (status == 0) {
+				if (req) {
+					status = SecRequirementCopyString(req, kSecCSDefaultFlags, &reqString);
+					if (status == 0) {
+						print_cfstring(stream, reqString);
+					} else {
+						fprintf(stream, "SecRequirementCopyString: %d", (int)status);
+					}
+				} else {
+					fprintf(stream, "none");
+				}
+			} else {
+				fprintf(stream, "SecTrustedApplicationCopyRequirement: %d", (int)status);
+			}
+			fprintf(stream, "\n");
+
+			CFReleaseNull(data);
+			CFReleaseNull(req);
+			CFReleaseNull(reqString);
 		}
 
 		if (applicationList)

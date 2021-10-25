@@ -217,7 +217,8 @@ archive_wstring_append(struct archive_wstring *as, const wchar_t *p, size_t s)
 {
 	if (archive_wstring_ensure(as, as->length + s + 1) == NULL)
 		return (NULL);
-	wmemmove(as->s + as->length, p, s);
+	if (s)
+		wmemmove(as->s + as->length, p, s);
 	as->length += s;
 	as->s[as->length] = 0;
 	return (as);
@@ -464,7 +465,7 @@ archive_wstring_append_from_mbs_in_codepage(struct archive_wstring *dest,
 
 	if (from_cp == CP_C_LOCALE) {
 		/*
-		 * "C" locale special process.
+		 * "C" locale special processing.
 		 */
 		wchar_t *ws;
 		const unsigned char *mp;
@@ -597,7 +598,7 @@ archive_wstring_append_from_mbs(struct archive_wstring *dest,
 	 * No single byte will be more than one wide character,
 	 * so this length estimate will always be big enough.
 	 */
-//	size_t wcs_length = len;
+	// size_t wcs_length = len;
 	size_t mbs_length = len;
 	const char *mbs = p;
 	wchar_t *wcs;
@@ -606,11 +607,11 @@ archive_wstring_append_from_mbs(struct archive_wstring *dest,
 
 	memset(&shift_state, 0, sizeof(shift_state));
 #endif
-    /*
-     * As we decided to have wcs_length == mbs_length == len
-     * we can use len here instead of wcs_length
-     */
-    if (NULL == archive_wstring_ensure(dest, dest->length + len + 1))
+	/*
+	 * As we decided to have wcs_length == mbs_length == len
+	 * we can use len here instead of wcs_length
+	 */
+	if (NULL == archive_wstring_ensure(dest, dest->length + len + 1))
 		return (-1);
 	wcs = dest->s + dest->length;
 	/*
@@ -619,12 +620,12 @@ archive_wstring_append_from_mbs(struct archive_wstring *dest,
 	 * multi bytes.
 	 */
 	while (*mbs && mbs_length > 0) {
-        /*
-        * The buffer we allocated is always big enough.
-        * Keep this code path in a comment if we decide to choose
-        * smaller wcs_length in the future
-        */
-        /*
+		/*
+		 * The buffer we allocated is always big enough.
+		 * Keep this code path in a comment if we decide to choose
+		 * smaller wcs_length in the future
+		 */
+/*
 		if (wcs_length == 0) {
 			dest->length = wcs - dest->s;
 			dest->s[dest->length] = L'\0';
@@ -634,7 +635,7 @@ archive_wstring_append_from_mbs(struct archive_wstring *dest,
 				return (-1);
 			wcs = dest->s + dest->length;
 		}
-         */
+*/
 #if HAVE_MBRTOWC
 		r = mbrtowc(wcs, mbs, mbs_length, &shift_state);
 #else
@@ -642,12 +643,12 @@ archive_wstring_append_from_mbs(struct archive_wstring *dest,
 #endif
 		if (r == (size_t)-1 || r == (size_t)-2) {
 			ret_val = -1;
-            break;
+			break;
 		}
 		if (r == 0 || r > mbs_length)
 			break;
 		wcs++;
-//		wcs_length--;
+		// wcs_length--;
 		mbs += r;
 		mbs_length -= r;
 	}
@@ -692,7 +693,7 @@ archive_string_append_from_wcs_in_codepage(struct archive_string *as,
 
 	if (to_cp == CP_C_LOCALE) {
 		/*
-		 * "C" locale special process.
+		 * "C" locale special processing.
 		 */
 		const wchar_t *wp = ws;
 		char *p;
@@ -747,7 +748,8 @@ archive_string_append_from_wcs_in_codepage(struct archive_string *as,
 			else
 				dp = &defchar_used;
 			count = WideCharToMultiByte(to_cp, 0, ws, wslen,
-			    as->s + as->length, (int)as->buffer_length-1, NULL, dp);
+			    as->s + as->length,
+			    (int)as->buffer_length - as->length - 1, NULL, dp);
 			if (count == 0 &&
 			    GetLastError() == ERROR_INSUFFICIENT_BUFFER) {
 				/* Expand the MBS buffer and retry. */
@@ -902,7 +904,7 @@ add_converter(struct archive_string_conv *sc, int (*converter)
      struct archive_string_conv *))
 {
 	if (sc == NULL || sc->nconverter >= 2)
-		__archive_errx(1, "Programing error");
+		__archive_errx(1, "Programming error");
 	sc->converter[sc->nconverter++] = converter;
 }
 
@@ -1525,8 +1527,10 @@ get_current_codepage(void)
 	p = strrchr(locale, '.');
 	if (p == NULL)
 		return (GetACP());
+	if (strcmp(p+1, "utf8") == 0)
+		return CP_UTF8;
 	cp = my_atoi(p+1);
-	if (cp <= 0)
+	if ((int)cp <= 0)
 		return (GetACP());
 	return (cp);
 }
@@ -3014,7 +3018,7 @@ archive_string_normalize_C(struct archive_string *as, const void *_p,
 		while ((n2 = parse(&uc2, s, len)) > 0) {
 			uint32_t ucx[FDC_MAX];
 			int ccx[FDC_MAX];
-            int cl, cx, i, nx = 0, ucx_size;
+			int cl, cx, i, nx = 0, ucx_size;
 			int LIndex,SIndex;
 			uint32_t nfc;
 
@@ -3881,6 +3885,11 @@ archive_mstring_get_utf8(struct archive *a, struct archive_mstring *aes,
 	}
 
 	*p = NULL;
+	/* Try converting WCS to MBS first if MBS does not exist yet. */
+	if ((aes->aes_set & AES_SET_MBS) == 0) {
+		const char *pm; /* unused */
+		archive_mstring_get_mbs(a, aes, &pm); /* ignore errors, we'll handle it later */
+	}
 	if (aes->aes_set & AES_SET_MBS) {
 		sc = archive_string_conversion_to_charset(a, "UTF-8", 1);
 		if (sc == NULL)
@@ -3903,9 +3912,9 @@ int
 archive_mstring_get_mbs(struct archive *a, struct archive_mstring *aes,
     const char **p)
 {
+	struct archive_string_conv *sc;
 	int r, ret = 0;
 
-	(void)a; /* UNUSED */
 	/* If we already have an MBS form, return that immediately. */
 	if (aes->aes_set & AES_SET_MBS) {
 		*p = aes->aes_mbs.s;
@@ -3926,10 +3935,23 @@ archive_mstring_get_mbs(struct archive *a, struct archive_mstring *aes,
 			ret = -1;
 	}
 
-	/*
-	 * Only a UTF-8 form cannot avail because its conversion already
-	 * failed at archive_mstring_update_utf8().
-	 */
+	/* If there's a UTF-8 form, try converting with the native locale. */
+	if (aes->aes_set & AES_SET_UTF8) {
+		archive_string_empty(&(aes->aes_mbs));
+		sc = archive_string_conversion_from_charset(a, "UTF-8", 1);
+		if (sc == NULL)
+			return (-1);/* Couldn't allocate memory for sc. */
+		r = archive_strncpy_l(&(aes->aes_mbs),
+			aes->aes_utf8.s, aes->aes_utf8.length, sc);
+		if (a == NULL)
+			free_sconv_object(sc);
+		*p = aes->aes_mbs.s;
+		if (r == 0) {
+			aes->aes_set |= AES_SET_MBS;
+			ret = 0;/* success; overwrite previous error. */
+		} else
+			ret = -1;/* failure. */
+	}
 	return (ret);
 }
 
@@ -3947,6 +3969,11 @@ archive_mstring_get_wcs(struct archive *a, struct archive_mstring *aes,
 	}
 
 	*wp = NULL;
+	/* Try converting UTF8 to MBS first if MBS does not exist yet. */
+	if ((aes->aes_set & AES_SET_MBS) == 0) {
+		const char *p; /* unused */
+		archive_mstring_get_mbs(a, aes, &p); /* ignore errors, we'll handle it later */
+	}
 	/* Try converting MBS to WCS using native locale. */
 	if (aes->aes_set & AES_SET_MBS) {
 		archive_wstring_empty(&(aes->aes_wcs));
@@ -3962,11 +3989,12 @@ archive_mstring_get_wcs(struct archive *a, struct archive_mstring *aes,
 }
 
 int
-archive_mstring_get_mbs_l(struct archive_mstring *aes,
+archive_mstring_get_mbs_l(struct archive *a, struct archive_mstring *aes,
     const char **p, size_t *length, struct archive_string_conv *sc)
 {
 	int r, ret = 0;
 
+	(void)r; /* UNUSED */
 #if defined(_WIN32) && !defined(__CYGWIN__)
 	/*
 	 * Internationalization programming on Windows must use Wide
@@ -3989,20 +4017,12 @@ archive_mstring_get_mbs_l(struct archive_mstring *aes,
 	}
 #endif
 
-	/* If there is not an MBS form but is a WCS form, try converting
+	/* If there is not an MBS form but there is a WCS or UTF8 form, try converting
 	 * with the native locale to be used for translating it to specified
 	 * character-set. */
-	if ((aes->aes_set & AES_SET_MBS) == 0 &&
-	    (aes->aes_set & AES_SET_WCS) != 0) {
-		archive_string_empty(&(aes->aes_mbs));
-		r = archive_string_append_from_wcs(&(aes->aes_mbs),
-		    aes->aes_wcs.s, aes->aes_wcs.length);
-		if (r == 0)
-			aes->aes_set |= AES_SET_MBS;
-		else if (errno == ENOMEM)
-			return (-1);
-		else
-			ret = -1;
+	if ((aes->aes_set & AES_SET_MBS) == 0) {
+		const char *pm; /* unused */
+		archive_mstring_get_mbs(a, aes, &pm); /* ignore errors, we'll handle it later */
 	}
 	/* If we already have an MBS form, use it to be translated to
 	 * specified character-set. */
@@ -4064,6 +4084,7 @@ archive_mstring_copy_utf8(struct archive_mstring *aes, const char *utf8)
 {
   if (utf8 == NULL) {
     aes->aes_set = 0;
+    return (0);
   }
   aes->aes_set = AES_SET_UTF8;
   archive_string_empty(&(aes->aes_mbs));
@@ -4078,6 +4099,7 @@ archive_mstring_copy_wcs_len(struct archive_mstring *aes, const wchar_t *wcs,
 {
 	if (wcs == NULL) {
 		aes->aes_set = 0;
+		return (0);
 	}
 	aes->aes_set = AES_SET_WCS; /* Only WCS form set. */
 	archive_string_empty(&(aes->aes_mbs));

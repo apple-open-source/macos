@@ -1,0 +1,7 @@
+  tar xfz fuzzing/ipp_corpus.orig.tgz -C /tmp/
+  
+  ( cd fuzzing; xcodebuild -configuration Fuzzing -target All SYMROOT=/tmp/FF DSTROOT=/tmp/FF )
+  
+  ls /tmp/FF/Fuzzing/
+  
+  DYLD_LIBRARY_PATH=/tmp/FF/Fuzzing/ /tmp/FF/Fuzzing/ipp_libfuzzer /tmp/ipp_corpus/

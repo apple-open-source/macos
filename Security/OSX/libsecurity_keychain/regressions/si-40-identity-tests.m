@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2020-2021 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -184,6 +184,29 @@ static void tests() {
     isnt(foundIdentity, NULL, "preferred identity 2 not found after being set");
     CFReleaseNull(foundIdentity);
 
+    // Check that the new API returns our per-app URLs.
+    // We expect to retrieve both of the URLs that we just added.
+    NSArray *urls = CFBridgingRelease(SecIdentityCopyApplicationPreferenceItemURLs());
+    NSInteger foundURLs = 0, urlCount = [urls count];
+    OSStatus spStatus = errSecSuccess;
+    for (NSInteger idx = 0; idx < urlCount; idx++) {
+        NSURL *url = (NSURL*)[urls objectAtIndex:idx];
+        NSString *urlString = [url absoluteString];
+        if ([uriNameOne isEqualToString:urlString]) {
+            // Make sure that we can use the URL to remove the preference by name
+            spStatus = SecIdentitySetPreferred(NULL, (__bridge CFStringRef)urlString, NULL);
+            foundURLs++;
+        }
+        if ([uriNameTwo isEqualToString:urlString]) {
+            // Note that we found this one but don't remove it yet
+            foundURLs++;
+        }
+    }
+    is(foundURLs, 2, "identity URLs not returned after being set");
+    is(spStatus, errSecSuccess, "could not remove preferred identity with url name");
+    NSArray *urlsTwo = CFBridgingRelease(SecIdentityCopyApplicationPreferenceItemURLs());
+    is([urlsTwo count], [urls count]-1, "wrong number of URLs returned after removing one pref");
+
     // Check that the new API deletes all of our per-app URL preference items.
     // We always expect errSecSuccess here, since we know we have items to delete.
     status = SecIdentityDeleteApplicationPreferenceItems();
@@ -223,7 +246,7 @@ static void tests() {
 
 int si_40_identity_tests(int argc, char *const *argv)
 {
-    plan_tests(43);
+    plan_tests(46);
 
     tests();
 

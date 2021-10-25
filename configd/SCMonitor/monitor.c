@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007-2018, 2020 Apple Inc. All rights reserved.
+ * Copyright (c) 2007-2018, 2020, 2021 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -573,7 +573,7 @@ onConsole()
 	io_registry_entry_t	root;
 	uid_t			uid		= geteuid();
 
-	root = IORegistryGetRootEntry(kIOMasterPortDefault);
+	root = IORegistryGetRootEntry(kIOMainPortDefault);
 	console_sessions = IORegistryEntryCreateCFProperty(root,
 							   CFSTR(kIOConsoleUsersKey),
 							   NULL,
@@ -1023,22 +1023,54 @@ add_node_watcher(MyType *myInstance, io_registry_entry_t node, io_registry_entry
 }
 
 
+static Boolean
+isHidden(CFTypeRef hidden)
+{
+	int	val	= 0;
+
+	// looks at the [passed] value of the hidden property
+	if (hidden == NULL) {
+		return FALSE;
+	}
+
+	if (isA_CFBoolean(hidden)) {
+		return CFBooleanGetValue(hidden);
+	} else if (isA_CFNumber(hidden)) {
+		if (CFNumberGetValue(hidden, kCFNumberIntType, (void *)&val) &&
+		    (val == 0)) {
+			return FALSE;
+		}
+	}
+
+	return TRUE;	// if not explicitly FALSE or 0
+}
+
+
 static void
 add_init_watcher(MyType *myInstance, io_registry_entry_t interface)
 {
 	kern_return_t		kr;
 	io_registry_entry_t	node		= interface;
-	CFTypeRef		val		= NULL;
+	CFTypeRef		val;
+
+	val = IORegistryEntrySearchCFProperty(interface,
+					      kIOServicePlane,
+					      kSCNetworkInterfaceHiddenPortKey,
+					      NULL,
+					      kIORegistryIterateRecursively | kIORegistryIterateParents);
+	if (val != NULL) {
+		Boolean	hidden	= isHidden(val);
+
+		CFRelease(val);
+		val = NULL;
+		if (hidden) {
+			// if hidden, no need to watch
+			return;
+		}
+	}
 
 	while (node != MACH_PORT_NULL) {
 		io_registry_entry_t	parent;
-
-		val = IORegistryEntryCreateCFProperty(node, kSCNetworkInterfaceHiddenPortKey, NULL, 0);
-		if (val != NULL) {
-			CFRelease(val);
-			val = NULL;
-			break;
-		}
 
 		val = IORegistryEntryCreateCFProperty(node, kSCNetworkInterfaceInitializingKey, NULL, 0);
 		if (val != NULL) {
@@ -1120,7 +1152,7 @@ watcher_add_serial(MyType *myInstance)
 {
 	kern_return_t	kr;
 
-	myInstance->notifyPort = IONotificationPortCreate(kIOMasterPortDefault);
+	myInstance->notifyPort = IONotificationPortCreate(kIOMainPortDefault);
 	if (myInstance->notifyPort == NULL) {
 		SC_log(LOG_ERR, "IONotificationPortCreate failed");
 		return;
@@ -1396,7 +1428,7 @@ UserEventAgentFactory(CFAllocatorRef allocator, CFUUIDRef typeID)
 
 #ifdef	MAIN
 int
-main(int argc, char **argv)
+main(int argc, char * const argv[])
 {
 	MyType *newOne = (MyType *)malloc(sizeof(MyType));
 

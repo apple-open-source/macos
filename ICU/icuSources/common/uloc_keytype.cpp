@@ -12,6 +12,11 @@
 #include "unicode/unistr.h"
 #include "unicode/uobject.h"
 
+#if U_PLATFORM_IS_DARWIN_BASED
+// Logging for rdar://79807585; include must be after unicode/utypes.h
+#include <os/log.h>
+#endif
+
 #include "charstr.h"
 #include "cmemory.h"
 #include "cstring.h"
@@ -172,7 +177,21 @@ initFromResourceBundle(UErrorCode& sts) {
         LocalUResourceBundlePointer typeMapResByKey(ures_getByKey(typeMapRes.getAlias(), legacyKeyId, NULL, &tmpSts));
         if (U_FAILURE(tmpSts)) {
             // type map for each key must exist
+#if U_PLATFORM_IS_DARWIN_BASED
+            // Should never use UPRV_UNREACHABLE (unconditional abort) in
+            // production code. Instead, write to log, set error status. (rdar://79807585)
+            sts = U_ZERO_ERROR; // we will reset this anyway, OK to use temporarily
+            const char* typeMapResLocale = ures_getLocaleByType(typeMapRes.getAlias(), ULOC_VALID_LOCALE, &sts);
+            const char* typeMapResKey    = ures_getKey(typeMapRes.getAlias());
+            if (typeMapResLocale==nullptr) { typeMapResLocale = "(NULL)"; }
+            if (typeMapResKey==nullptr)    { typeMapResKey = "(NULL)"; }
+            if (legacyKeyId==nullptr)      { legacyKeyId = "(NULL)"; }
+            os_log(OS_LOG_DEFAULT, "# ICU initFromResourceBundle ures_getByKey for typeMapRes locale %s, key %s; legacyKeyId %s: %s",
+                                                                typeMapResLocale, typeMapResKey, legacyKeyId, u_errorName(tmpSts));
+            sts = U_INVALID_TABLE_FORMAT;
+#else
             UPRV_UNREACHABLE;
+#endif
         } else {
             LocalUResourceBundlePointer typeMapEntry;
 

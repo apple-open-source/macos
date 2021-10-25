@@ -47,6 +47,26 @@
 
 static inline void proc_cancel(proc_data_t *pdata);
 
+static uint32_t _notify_internal_register_common_port
+(
+	caddr_t name,
+	int token,
+	audit_token_t audit
+);
+static uint32_t _notify_internal_register_signal_2
+(
+	caddr_t name,
+	int token,
+	int sig,
+	audit_token_t audit
+);
+static uint32_t _notify_internal_register_plain_2
+(
+	caddr_t name,
+	int token,
+	audit_token_t audit
+);
+
 static void
 port_arm_mach_notifications(mach_port_t port)
 {
@@ -396,16 +416,12 @@ register_port(client_t *c, mach_port_t port)
 static void
 register_xpc_event(client_t *c, uint64_t event_token)
 {
-	event_data_t *edata = _nc_table_find_64(&global.notify_state.event_table, event_token);
+	event_data_t *edata = os_map_find(&global.notify_state.event_table, event_token);
 	if (edata != NULL) {
 		NOTIFY_INTERNAL_CRASH(event_token, "Event token is already registered");
 	}
 
-	edata = calloc(1, sizeof(event_data_t));
-	edata->client = c;
-	edata->event_token = event_token;
-
-	_nc_table_insert_64(&global.notify_state.event_table, &edata->event_token);
+	os_map_insert(&global.notify_state.event_table, event_token, c);
 
 	global.notify_state.stat_portproc_alloc++;
 }
@@ -413,15 +429,10 @@ register_xpc_event(client_t *c, uint64_t event_token)
 static client_t *
 cancel_xpc_event(uint64_t event_token)
 {
-	event_data_t *edata = _nc_table_find_64(&global.notify_state.event_table, event_token);
-	if (edata == NULL) {
+	client_t *client  = os_map_delete(&global.notify_state.event_table, event_token);
+	if (client == NULL) {
 		return NULL;
 	}
-
-	client_t *client = edata->client;
-
-	_nc_table_delete_64(&global.notify_state.event_table, event_token);
-	free(edata);
 
 	global.notify_state.stat_portproc_free++;
 
@@ -475,6 +486,10 @@ server_preflight(audit_token_t audit, int token, uid_t *uid, gid_t *gid, pid_t *
 			port_proc_cancel_client(c);
 		}
 	}
+}
+
+static bool check_access_to_post_name(char *name, audit_token_t audit) {
+	return (sandbox_check_by_audit_token(audit, "darwin-notification-post", (enum sandbox_filter_type)SANDBOX_FILTER_NOTIFICATION, name) == 0);
 }
 
 kern_return_t __notify_server_post_3
@@ -600,9 +615,8 @@ kern_return_t __notify_server_post_4
 	return kstatus;
 }
 
-kern_return_t __notify_server_register_plain_2
+static uint32_t _notify_internal_register_plain_2
 (
-	mach_port_t server,
 	caddr_t name,
 	int token,
 	audit_token_t audit
@@ -625,7 +639,7 @@ kern_return_t __notify_server_register_plain_2
 	status = _notify_lib_register_plain(&global.notify_state, name, pid, token, -1, uid, gid, &nid);
 	if (status != NOTIFY_STATUS_OK)
 	{
-		return KERN_SUCCESS;
+		return status;
 	}
 
 	c = _nc_table_find_64(&global.notify_state.client_table, cid);
@@ -634,6 +648,18 @@ kern_return_t __notify_server_register_plain_2
 
 	register_proc(c, pid);
 
+	return NOTIFY_STATUS_OK;
+}
+
+kern_return_t __notify_server_register_plain_2
+(
+	mach_port_t server,
+	caddr_t name,
+	int token,
+	audit_token_t audit
+)
+{
+	(void)_notify_internal_register_plain_2(name, token, audit);
 	return KERN_SUCCESS;
 }
 
@@ -744,9 +770,8 @@ kern_return_t __notify_server_register_check_2
 	return KERN_SUCCESS;
 }
 
-kern_return_t __notify_server_register_signal_2
+static uint32_t _notify_internal_register_signal_2
 (
-	mach_port_t server,
 	caddr_t name,
 	int token,
 	int sig,
@@ -770,7 +795,7 @@ kern_return_t __notify_server_register_signal_2
 	status = _notify_lib_register_signal(&global.notify_state, name, pid, token, sig, uid, gid, &name_id);
 	if (status != NOTIFY_STATUS_OK)
 	{
-		return KERN_SUCCESS;
+		return status;
 	}
 
 	c = _nc_table_find_64(&global.notify_state.client_table, cid);
@@ -779,6 +804,19 @@ kern_return_t __notify_server_register_signal_2
 
 	register_proc(c, pid);
 
+	return NOTIFY_STATUS_OK;
+}
+
+kern_return_t __notify_server_register_signal_2
+(
+	mach_port_t server,
+	caddr_t name,
+	int token,
+	int sig,
+	audit_token_t audit
+)
+{
+	(void)_notify_internal_register_signal_2(name, token, sig, audit);
 	return KERN_SUCCESS;
 }
 
@@ -1166,15 +1204,15 @@ kern_return_t __notify_server_get_state_3
 	return KERN_SUCCESS;
 }
 
-kern_return_t __notify_server_set_state_3
+static inline kern_return_t _internal_notify_server_set_state_3
 (
-	mach_port_t server,
 	int token,
 	uint64_t state,
 	uint64_t *name_id,
 	int *status,
 	boolean_t claim_root_access,
-	audit_token_t audit
+	audit_token_t audit,
+	boolean_t filter_name
 )
 {
 	client_t *c;
@@ -1200,11 +1238,19 @@ kern_return_t __notify_server_set_state_3
 	}
 	else
 	{
-		assert(c->name_info != NULL);
-		*status = _notify_lib_set_state(&global.notify_state, c->name_info->name_id, state, uid, gid);
-		assert(*status == NOTIFY_STATUS_OK || *status == NOTIFY_STATUS_NOT_AUTHORIZED);
+		if (os_unlikely(filter_name) && !check_access_to_post_name(c->name_info->name, audit))
+		{
+			*status = NOTIFY_STATUS_NOT_AUTHORIZED;
+			*name_id = UINT64_MAX;
+		}
+		else
+		{
+			assert(c->name_info != NULL);
+			*status = _notify_lib_set_state(&global.notify_state, c->name_info->name_id, state, uid, gid);
+			assert(*status == NOTIFY_STATUS_OK || *status == NOTIFY_STATUS_NOT_AUTHORIZED);
 
-		*name_id = c->name_info->name_id; 
+			*name_id = c->name_info->name_id;
+		}
 	}
 
 	if (*name_id == UINT64_MAX) log_message(ASL_LEVEL_DEBUG, "__notify_server_set_state_3 %d %d %llu [uid %d%s gid %d]\n", pid, token, state, uid, root_entitlement ? " (entitlement)" : "", gid);
@@ -1213,16 +1259,30 @@ kern_return_t __notify_server_set_state_3
 	return KERN_SUCCESS;
 }
 
-kern_return_t __notify_server_set_state_2
+kern_return_t __notify_server_set_state_3
 (
-	mach_port_t server,
-	uint64_t name_id,
+	__unused mach_port_t server,
+	int token,
 	uint64_t state,
+	uint64_t *name_id,
+	int *status,
 	boolean_t claim_root_access,
 	audit_token_t audit
 )
 {
-	uint32_t status;
+	return _internal_notify_server_set_state_3(token, state, name_id, status, claim_root_access, audit, false);
+}
+
+static kern_return_t _internal_notify_server_set_state_2
+(
+	uint64_t name_id,
+	uint64_t state,
+	boolean_t claim_root_access,
+	audit_token_t audit,
+	boolean_t filter_name
+)
+{
+	uint32_t status = NOTIFY_STATUS_OK;
 	uid_t uid = (uid_t)-1;
 	gid_t gid = (gid_t)-1;
 	pid_t pid = (pid_t)-1;
@@ -1235,7 +1295,24 @@ kern_return_t __notify_server_set_state_2
 	bool root_entitlement = (uid != 0) && claim_root_access && has_root_entitlement(audit);
 	if (root_entitlement) uid = 0;
 
-    status = _notify_lib_set_state(&global.notify_state, name_id, state, uid, gid);
+	bool allow_set_state = true;
+
+	if (os_unlikely(filter_name)) {
+		name_info_t *n = _nc_table_find_64(&global.notify_state.name_id_table, name_id);
+		if (!n) {
+			status = NOTIFY_STATUS_INVALID_NAME;
+			allow_set_state = false;
+		}
+		else if (!check_access_to_post_name(n->name, audit))
+		{
+			status = NOTIFY_STATUS_NOT_AUTHORIZED;
+			allow_set_state = false;
+		}
+	}
+
+	if (os_likely(allow_set_state)) {
+		status = _notify_lib_set_state(&global.notify_state, name_id, state, uid, gid);
+	}
 
 	if(status == NOTIFY_STATUS_OK){
 		log_message(ASL_LEVEL_DEBUG, "__notify_server_set_state_2 %d %llu %llu [uid %d%s gid %d]\n", pid, name_id, state, uid, root_entitlement ? " (entitlement)" : "", gid);
@@ -1245,6 +1322,18 @@ kern_return_t __notify_server_set_state_2
 	       status == NOTIFY_STATUS_INVALID_NAME);
 
 	return KERN_SUCCESS;
+}
+
+kern_return_t __notify_server_set_state_2
+(
+	__unused mach_port_t server,
+	uint64_t name_id,
+	uint64_t state,
+	boolean_t claim_root_access,
+	audit_token_t audit
+)
+{
+	return _internal_notify_server_set_state_2(name_id, state, claim_root_access, audit, false);
 }
 
 kern_return_t __notify_server_monitor_file_2
@@ -1360,17 +1449,17 @@ kern_return_t __notify_server_regenerate
 		}
 		case NOTIFY_TYPE_PLAIN:
 		{
-			(void)__notify_server_register_plain_2(server, name, token, audit);
+			*status = _notify_internal_register_plain_2(name, token, audit);
 			break;
 		}
 		case NOTIFY_TYPE_SIGNAL:
 		{
-			(void)__notify_server_register_signal_2(server, name, token, sig, audit);
+			*status = _notify_internal_register_signal_2(name, token, sig, audit);
 			break;
 		}
 		case NOTIFY_TYPE_COMMON_PORT:
 		{
-			(void)__notify_server_register_common_port(server, name, token, audit);
+			*status = _notify_internal_register_common_port(name, token, audit);
 			break;
 		}
 		case NOTIFY_TYPE_PORT:
@@ -1391,7 +1480,9 @@ kern_return_t __notify_server_regenerate
 	c = _nc_table_find_64(&global.notify_state.client_table, cid);
 	if (c == NULL)
 	{
-		*status = NOTIFY_STATUS_CLIENT_NOT_FOUND;
+		if (*status == NOTIFY_STATUS_OK) {
+			*status = NOTIFY_STATUS_CLIENT_NOT_FOUND;
+		}
 	}
 	else
 	{
@@ -1619,9 +1710,8 @@ kern_return_t __notify_generate_common_port
 	return KERN_SUCCESS;
 }
 
-kern_return_t __notify_server_register_common_port
+static uint32_t _notify_internal_register_common_port
 (
-	mach_port_t server,
 	caddr_t name,
 	int token,
 	audit_token_t audit
@@ -1639,22 +1729,22 @@ kern_return_t __notify_server_register_common_port
 	call_statistics.reg++;
 	call_statistics.reg_common++;
 
-	log_message(ASL_LEVEL_DEBUG, "__notify_server_register_common_port %s %d %d\n", name, pid, token);
+	log_message(ASL_LEVEL_DEBUG, "_notify_internal_register_common_port %s %d %d\n", name, pid, token);
 
 	notify_state_t *ns = &global.notify_state;
 
 	proc_data_t *proc = _nc_table_find_n(&ns->proc_table, pid);
 	if (!proc || !proc->common_port_data) {
 		// Client doesn't have a common port set up
-		log_message(ASL_LEVEL_DEBUG, "_notify_server_register_common_port FAILED %s %d %d\n", name, pid, token);
-		return KERN_SUCCESS;
+		log_message(ASL_LEVEL_DEBUG, "_notify_internal_register_common_port FAILED %s %d %d\n", name, pid, token);
+		return NOTIFY_STATUS_INVALID_PORT_INTERNAL;
 	}
 
 
 	status = _notify_lib_register_common_port(ns, name, pid, token, uid, gid, &name_id);
 	if (status != NOTIFY_STATUS_OK)
 	{
-		return KERN_SUCCESS;
+		return status;
 	}
 
 	c = _nc_table_find_64(&ns->client_table, cid);
@@ -1664,6 +1754,18 @@ kern_return_t __notify_server_register_common_port
 	proc_add_client(proc, c, pid);
 	LIST_INSERT_HEAD(&proc->common_port_data->clients, c, client_port_entry);
 
+	return NOTIFY_STATUS_OK;
+}
+
+kern_return_t __notify_server_register_common_port
+(
+	mach_port_t server,
+	caddr_t name,
+	int token,
+	audit_token_t audit
+)
+{
+	(void)_notify_internal_register_common_port(name, token, audit);
 	return KERN_SUCCESS;
 }
 
@@ -1709,3 +1811,82 @@ kern_return_t __notify_server_register_mach_port_3
 	return KERN_SUCCESS;
 }
 
+kern_return_t __filtered_notify_server_checkin
+(
+	mach_port_t server,
+	uint32_t *version,
+	uint32_t *server_pid,
+	int *status,
+	audit_token_t audit
+)
+{
+	return __notify_server_checkin(server, version, server_pid, status, audit);
+}
+
+kern_return_t __filtered_notify_server_post
+(
+	mach_port_t server,
+	caddr_t name,
+	boolean_t claim_root_access,
+	audit_token_t audit
+)
+{
+	if (!check_access_to_post_name(name, audit)) {
+		return KERN_SUCCESS;
+	}
+	return __notify_server_post_4(server, name, claim_root_access, audit);
+}
+
+
+kern_return_t __filtered_notify_server_regenerate
+ (
+	 mach_port_t server,
+	 caddr_t name,
+	 int token,
+	 uint32_t reg_type,
+	 mach_port_t port,
+	 int sig,
+	 int prev_slot,
+	 uint64_t prev_state,
+	 uint64_t prev_time,
+	 caddr_t path,
+	 mach_msg_type_number_t pathCnt,
+	 int path_flags,
+	 int *new_slot,
+	 uint64_t *new_nid,
+	 int *status,
+	 audit_token_t audit
+ )
+{
+	if (!check_access_to_post_name(name, audit)) {
+		// If caller can't post name - don't honor set_state
+		return __notify_server_regenerate(server, name, token, reg_type, port, sig, prev_slot, 0, 0, path, pathCnt, path_flags, new_slot, new_nid, status, audit);
+	}
+	return __notify_server_regenerate(server, name, token, reg_type, port, sig, prev_slot, prev_state, prev_time, path, pathCnt, path_flags, new_slot, new_nid, status, audit);
+}
+
+kern_return_t __filtered_notify_server_set_state_3
+(
+	__unused mach_port_t server,
+	int token,
+	uint64_t state,
+	uint64_t *name_id,
+	int *status,
+	boolean_t claim_root_access,
+	audit_token_t audit
+)
+{
+	return _internal_notify_server_set_state_3(token, state, name_id, status, claim_root_access, audit, true);
+}
+
+kern_return_t __filtered_notify_server_set_state_2
+(
+	__unused mach_port_t server,
+	uint64_t name_id,
+	uint64_t state,
+	boolean_t claim_root_access,
+	audit_token_t audit
+)
+{
+	return _internal_notify_server_set_state_2(name_id, state, claim_root_access, audit, true);
+}

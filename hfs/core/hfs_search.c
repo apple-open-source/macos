@@ -520,32 +520,6 @@ ComparePartialUnicodeName (register ConstUniCharArrayPtr str, register ItemCount
 	return TRUE;
 }
 
-#if CONFIG_HFS_STD
-static Boolean
-ComparePartialPascalName ( register ConstStr31Param str, register ConstStr31Param find )
-{
-	register u_char s_len = str[0];
-	register u_char f_len = find[0];
-	register u_char *tsp;
-	Str31 tmpstr;
-
-	if (f_len == 0 || s_len == 0)
-		return FALSE;
-
-	bcopy(str, tmpstr, s_len + 1);
-	tsp = &tmpstr[0];
-
-	while (s_len-- >= f_len) {
-		*tsp = f_len;
-
-		if (FastRelString(tsp++, find) == 0)
-			return TRUE;
-	}
-
-	return FALSE;
-}
-#endif
-
 
 /*
  * Check to see if caller has access rights to this item
@@ -557,7 +531,7 @@ CheckAccess(ExtendedVCB *theVCBPtr, u_long searchBits, CatalogKey *theKeyPtr, st
 	Boolean				isHFSPlus;
 	int					myErr;
 	int					myResult; 	
-	HFSCatalogNodeID 	myNodeID;
+	HFSCatalogNodeID 	myNodeID = 0;
 	hfsmount_t *		hfsmp;
 	struct FndrDirInfo	*finfop;
 	struct vnode * 		vp = NULL;
@@ -573,10 +547,6 @@ CheckAccess(ExtendedVCB *theVCBPtr, u_long searchBits, CatalogKey *theKeyPtr, st
 	isHFSPlus = ( theVCBPtr->vcbSigWord == kHFSPlusSigWord );
 	if ( isHFSPlus )
 		myNodeID = theKeyPtr->hfsPlus.parentID;
-#if CONFIG_HFS_STD
-	else
-		myNodeID = theKeyPtr->hfs.parentID;
-#endif
 	
 	while ( myNodeID >= kRootDirID ) {
 		cnode_t *	cp;
@@ -673,23 +643,6 @@ CheckCriteria(	ExtendedVCB *vcb,
 	isHFSPlus = (vcb->vcbSigWord == kHFSPlusSigWord);
 
 	switch (rec->recordType) {
-
-#if CONFIG_HFS_STD
-		case kHFSFolderRecord:
-			if ( (searchBits & SRCHFS_MATCHDIRS) == 0 ) {	/* If we are NOT searching folders */
-				matched = false;
-				goto TestDone;
-			}
-			break;
-
-		case kHFSFileRecord:
-			if ( (searchBits & SRCHFS_MATCHFILES) == 0 ) {	/* If we are NOT searching files */
-				matched = false;
-				goto TestDone;
-			}
-			break;
-#endif
-
 		case kHFSPlusFolderRecord:
 			if ( (searchBits & SRCHFS_MATCHDIRS) == 0 ) {	/* If we are NOT searching folders */
 				matched = false;
@@ -778,16 +731,6 @@ CheckCriteria(	ExtendedVCB *vcb,
 				}
 			}
 		}
-#if CONFIG_HFS_STD
-		else {
-			/* Check for partial/full HFS name match */
-
-			if ( searchBits & SRCHFS_MATCHPARTIALNAMES )
-				matched = ComparePartialPascalName(key->hfs.nodeName, (u_char*)searchInfo1->name);
-			else /* full HFS name match */
-				matched = (FastRelString(key->hfs.nodeName, (u_char*)searchInfo1->name) == 0);
-		}
-#endif
 
 		if ( matched == false || (searchBits & ~SRCHFS_MATCHPARTIALNAMES) == 0 )
 			goto TestDone;	/* no match, or nothing more to compare */
@@ -802,26 +745,6 @@ CheckCriteria(	ExtendedVCB *vcb,
 	    int flags;
 	    
 	    switch (rec->recordType) {
-#if CONFIG_HFS_STD
-			case kHFSFolderRecord:
-				{
-					struct FndrDirInfo *finder_info;
-
-					finder_info = (struct FndrDirInfo *)&c_attr.ca_finderinfo[0];
-					flags = SWAP_BE16(finder_info->frFlags);
-					break;
-				}
-
-			case kHFSFileRecord:
-				{
-					struct FndrFileInfo *finder_info;
-
-					finder_info = (struct FndrFileInfo *)&c_attr.ca_finderinfo[0];
-					flags = SWAP_BE16(finder_info->fdFlags);
-					break;
-				}
-#endif
-
 			case kHFSPlusFolderRecord: 
 				{
 					struct FndrDirInfo *finder_info;
@@ -856,13 +779,7 @@ CheckCriteria(	ExtendedVCB *vcb,
 		    
 
 	/* Now that we have a record worth searching, see if it matches the search attributes */
-#if CONFIG_HFS_STD
-	if (rec->recordType == kHFSFileRecord ||
-	    rec->recordType == kHFSPlusFileRecord) {
-#else
 	if (rec->recordType == kHFSPlusFileRecord) {
-#endif
-
 		if ((attrList->fileattr & ~ATTR_FILE_VALIDMASK) != 0) {	/* attr we do know about  */
 			matched = false;
 			goto TestDone;
@@ -935,12 +852,7 @@ CheckCriteria(	ExtendedVCB *vcb,
 	/*
 	 * Check the directory attributes
 	 */
-#if CONFIG_HFS_STD
-	else if (rec->recordType == kHFSFolderRecord ||
-	         rec->recordType == kHFSPlusFolderRecord) {
-#else
 	else if (rec->recordType == kHFSPlusFolderRecord) {
-#endif
 		if ((attrList->dirattr & ~ATTR_DIR_VALIDMASK) != 0) {	/* attr we do know about  */
 			matched = false;
 			goto TestDone;
@@ -978,14 +890,10 @@ CheckCriteria(	ExtendedVCB *vcb,
 
 		/* Parent ID */
 		if ( searchAttributes & ATTR_CMN_PAROBJID ) {
-			HFSCatalogNodeID parentID;
+			HFSCatalogNodeID parentID = 0;
 			
 			if (isHFSPlus)
 				parentID = key->hfsPlus.parentID;
-#if CONFIG_HFS_STD
-			else
-				parentID = key->hfs.parentID;
-#endif
 				
 			matched = CompareRange(parentID, searchInfo1->parentDirID,
 					searchInfo2->parentDirID );
@@ -1147,10 +1055,6 @@ InsertMatch(struct hfsmount *hfsmp, uio_t a_uio, CatalogRecord *rec,
 		c_desc.cd_cnid = c_attr.ca_fileid;
 		if ((hfsmp->hfs_flags & HFS_STANDARD) == 0) 
 			c_desc.cd_parentcnid = key->hfsPlus.parentID;
-#if CONFIG_HFS_STD
-		else
-			c_desc.cd_parentcnid = key->hfs.parentID;
-#endif
 
 	}
 
@@ -1230,20 +1134,6 @@ UnpackSearchAttributeBlock( struct hfsmount *hfsmp, struct attrlist	*alist,
 						searchInfo->nameLength = 0;
 					}
 				}
-#if CONFIG_HFS_STD
-				else {
-					/* Convert name to pascal string to match HFS (Standard) B-Tree names */
-
-					if (len > 0) {
-						if (utf8_to_hfs(HFSTOVCB(hfsmp), len-1, (u_char *)s, (u_char*)searchInfo->name) != 0)
-							return (EINVAL);
-
-						searchInfo->nameLength = searchInfo->name[0];
-					} else {
-						searchInfo->name[0] = searchInfo->nameLength = 0;
-					}
-				}
-#endif	
 			}
 			attributeBuffer = (attrreference_t*) attributeBuffer +1;
 		}

@@ -74,12 +74,6 @@
 #include "falloc.h"
 #include "giantPortCommon.h"
 
-#ifdef	FEE_DEBUG
-#if (GIANT_LOG2_BITS_PER_DIGIT == 4)
-#warning Compiling with two-byte giantDigits
-#endif
-#endif
-
 #if 0
 #if	FEE_DEBUG
 char printbuf1[200];

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, 2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2015, 2016, 2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -24,7 +24,7 @@
 #ifndef CONFIGAGENTDEFINES_H
 #define CONFIGAGENTDEFINES_H
 
-#import "config_agent_info.h"
+#include "config_agent_info.h"
 
 #define kConfigAgentType                        "AgentType"
 #define kConfigAgentTypeGeneric                 "ConfigAgent"

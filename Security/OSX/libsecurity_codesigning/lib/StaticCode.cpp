@@ -73,6 +73,11 @@
 #include <regex.h>
 #import <utilities/entitlements.h>
 
+#define CORE_ENTITLEMENTS_I_KNOW_WHAT_IM_DOING
+#include <CoreEntitlements/CoreEntitlementsPriv.h>
+#include <CoreEntitlements/EntitlementsPriv.h>
+#import <CoreEntitlements/FoundationUtils.h>
+
 
 namespace Security {
 namespace CodeSigning {
@@ -102,6 +107,7 @@ static inline OSStatus errorForSlot(CodeDirectory::SpecialSlot slot)
 	}
 }
 
+#if TARGET_OS_OSX
 /// Determines if the current process is marked as platform, cached with dispatch_once.
 static bool isCurrentProcessPlatform(void)
 {
@@ -121,6 +127,7 @@ static bool isCurrentProcessPlatform(void)
 
 	return sIsPlatform;
 }
+#endif // TARGET_OS_OSX
 
 /// Determines if the item qualifies for a resource validity exemption based on its filesystem location.
 static bool itemQualifiesForResourceExemption(string &item)
@@ -129,7 +136,11 @@ static bool itemQualifiesForResourceExemption(string &item)
 		return true;
 	}
 	if (os_variant_allows_internal_security_policies("com.apple.security.codesigning")) {
-		if (isPathPrefix("/AppleInternal/", item)) {
+		if (isPathPrefix("/AppleInternal/", item) ||
+			isPathPrefix("/System/Volumes/Data/AppleInternal/", item) ||
+			isPathPrefix("/System/AppleInternal/", item) ||
+			isPathPrefix("/usr/local/", item) ||
+			isPathPrefix("/usr/appleinternal/", item)) {
 			return true;
 		}
 	}
@@ -170,6 +181,7 @@ SecStaticCode::SecStaticCode(DiskRep *rep, uint32_t flags)
 //
 SecStaticCode::~SecStaticCode() _NOEXCEPT
 try {
+	CEReleaseManagedContext(&mCEQueryContext);
 	::free(const_cast<Requirement *>(mDesignatedReq));
 	delete mResourcesValidContext;
 	delete mLimitedAsync;
@@ -404,6 +416,8 @@ void SecStaticCode::resetValidity()
 	mStaplingChecked = false;
 	mNotarizationDate = NAN;
 	mRep->flush();
+	mCEReconstitutedEnts = NULL;
+	CEReleaseManagedContext(&mCEQueryContext);
 
 #if TARGET_OS_OSX
 	// we may just have updated the system database, so check again
@@ -438,9 +452,29 @@ CFDataRef SecStaticCode::component(CodeDirectory::SpecialSlot slot, OSStatus fai
 			if (validated())	// if directory has been validated...
 				if (codeDirectory()->slotIsPresent(-slot)) // ... and the slot is NOT missing
 					MacOSError::throwMe(errorForSlot(slot));	// was supposed to be there
-			cache = CFDataRef(kCFNull);		// white lie
+			if (slot == cdEntitlementDERSlot) {
+				// if we have a regular slot we can fake this one up
+				if (CFDataRef entitlementData = component(cdEntitlementSlot)) {
+					validateComponent(cdEntitlementSlot);
+					const EntitlementBlob *blob = reinterpret_cast<const EntitlementBlob *>(CFDataGetBytePtr(entitlementData));
+					if (blob->validateBlob()) {
+						CFRef<CFDictionaryRef> xmlEnts = blob->entitlements();
+						CFDataRef fakeDER = NULL;
+						if (CE_OK(CESerializeCFDictionary(CECRuntime, (CFDictionaryRef)xmlEnts, &fakeDER))) {
+							// Great success
+							cache.take(EntitlementDERBlob::blobify(fakeDER));
+							CFRelease(fakeDER);
+							goto done;
+						} else {
+							secinfo("staticCode", "%p the XML cannot be converted to valid DER", this);
+						}
+					}
+				}
+			}
+			cache = CFDataRef(kCFNull); // assume null for now, maybe we can transmute
 		}
 	}
+done:
 	return (cache == CFDataRef(kCFNull)) ? NULL : cache.get();
 }
 
@@ -705,16 +739,25 @@ void SecStaticCode::validateTopDirectory()
 		
 		std::vector<uint32_t> foundVector;
 		foundVector.push_back(cdCodeDirectorySlot);	// mandatory
-		for (CodeDirectory::Slot slot = 1; slot <= cdSlotMax; ++slot)
-			if (component(slot))
+		for (CodeDirectory::Slot slot = 1; slot <= cdSlotMax; ++slot) {
+			if (slot == cdEntitlementDERSlot && !codeDirectory()->slotIsPresent(-cdEntitlementDERSlot)) {
+				// The DER entitlement slot is special and gets fabricated from XML entitlements via the component
+				// accessor. For that slot, directly check if its present in the code directory.
+				continue;
+			}
+			if (component(slot)) {
 				foundVector.push_back(slot);
+			}
+		}
 		int alternateCount = int(mCodeDirectories.size() - 1);		// one will go into cdCodeDirectorySlot
-		for (int n = 0; n < alternateCount; n++)
+		for (int n = 0; n < alternateCount; n++) {
 			foundVector.push_back(cdAlternateCodeDirectorySlots + n);
+		}
 		foundVector.push_back(cdSignatureSlot);		// mandatory (may be empty)
 		
-		if (signedVector != foundVector)
+		if (signedVector != foundVector) {
 			MacOSError::throwMe(errSecCSSignatureFailed);
+		}
 	}
 }
 
@@ -777,7 +820,7 @@ bool SecStaticCode::checkfix41082220(OSStatus cssmTrustResult)
 	}
 
 	// not a privileged binary - no TeamID and no entitlements
-	if (component(cdEntitlementSlot) || teamID()) {
+	if (component(cdEntitlementSlot) || teamID() || component(cdEntitlementDERSlot)) {
 		return false;
 	}
 
@@ -1140,9 +1183,7 @@ CFArrayRef SecStaticCode::createVerificationPolicies()
 		return makeCFArray(1, iOSRef.get());
 	}
 
-	CFRef<SecPolicyRef> core;
-	MacOSError::check(SecPolicyCopy(CSSM_CERT_X_509v3,
-									&CSSMOID_APPLE_TP_CODE_SIGNING, &core.aref()));
+	CFRef<SecPolicyRef> core = SecPolicyCreateCodeSigning();
 	if (validationCannotUseNetwork()) {
 		// Skips all revocation since they require network connectivity
 		// therefore annihilates kSecCSEnforceRevocationChecks if present
@@ -1192,21 +1233,7 @@ CFArrayRef SecStaticCode::createTimeStampingAndRevocationPolicies()
 
 CFArrayRef SecStaticCode::copyCertChain(SecTrustRef trust)
 {
-	SecCertificateRef leafCert = SecTrustGetCertificateAtIndex(trust, 0);
-	if (leafCert != NULL) {
-		CFIndex count = SecTrustGetCertificateCount(trust);
-
-		CFMutableArrayRef certs = CFArrayCreateMutable(kCFAllocatorDefault, count,
-													   &kCFTypeArrayCallBacks);
-
-		CFArrayAppendValue(certs, leafCert);
-		for (CFIndex i = 1; i < count; ++i) {
-			CFArrayAppendValue(certs, SecTrustGetCertificateAtIndex(trust, i));
-		}
-
-		return certs;
-	}
-	return NULL;
+	return SecTrustCopyCertificateChain(trust);
 }
 
 
@@ -1600,12 +1627,28 @@ CFDictionaryRef SecStaticCode::entitlements()
 {
 	if (!mEntitlements) {
 		validateDirectory();
-		if (CFDataRef entitlementData = component(cdEntitlementSlot)) {
-			validateComponent(cdEntitlementSlot);
-			const EntitlementBlob *blob = reinterpret_cast<const EntitlementBlob *>(CFDataGetBytePtr(entitlementData));
+		if (CFDataRef derData = component(cdEntitlementDERSlot)) {
+			if (codeDirectory()->slotIsPresent(-cdEntitlementDERSlot)) {
+				validateComponent(cdEntitlementDERSlot);
+			}
+			const EntitlementDERBlob *blob = reinterpret_cast<const EntitlementDERBlob *>(CFDataGetBytePtr(derData));
 			if (blob->validateBlob()) {
-				mEntitlements.take(blob->entitlements());
-				secinfo("staticCode", "%p loaded Entitlements %p", this, mEntitlements.get());
+				secinfo("staticCode", "%p loaded DER blob with length %zu", this, blob->length());
+				if (!mCEQueryContext) {
+					CFRef<CFDataRef> innerData = blob->innerData();
+					secinfo("staticCode", "%p creating new CEQueryContext DER blob with length %lu", this, CFDataGetLength(innerData.get()));
+					if(!CE_OK(CEManagedContextFromCFData(CECRuntime, innerData.get() , &mCEQueryContext))) {
+						mCEQueryContext = nullptr;
+						secerror("%p caused an error during CoreEntitlements parsing", this);
+						MacOSError::throwMe(errSecDecode);
+					}
+				}
+				CFMutableDictionaryRef ceDict;
+				if(!CE_OK(CEQueryContextToCFDictionary(mCEQueryContext, &ceDict))) {
+					secerror("%p caused an error during CoreEntitlements dictionary generation", this);
+					MacOSError::throwMe(errSecDecode);
+				}
+				mEntitlements.take(ceDict);
 			}
 			// we do not consider a different blob type to be an error. We think it's a new format we don't understand
 		}
@@ -1932,8 +1975,10 @@ void SecStaticCode::checkRevocationOnNestedBinary(UnixPlusPlus::FileDesc &fd, CF
 			throw;
 		} else {
 			// Any other errors, but only revocation checks are fatal so just continue.
-			secinfo("staticCode", "Found unexpected error other error validating resource binary: %d, %@", err.error, url);
+			secinfo("staticCode", "Found unexpected MacOS error validating resource binary: %d, %@", err.error, url);
 		}
+	} catch (const UnixError &err) {
+		secinfo("staticCode", "Found unexpected Unix error validating resource binary: %d, %@", err.error, url);
 	}
 #else
 	// This type of resource checking doesn't make sense on embedded devices right now, so just do nothing.
@@ -2301,9 +2346,40 @@ CFDictionaryRef SecStaticCode::signingInformation(SecCSFlags flags)
 #endif
 
 	try {
-		if (CFDataRef ent = this->component(cdEntitlementSlot)) {
-			CFDictionaryAddValue(dict, kSecCodeInfoEntitlements, ent);
+		// This slot might be fake
+		CFDataRef entDER = this->component(cdEntitlementDERSlot);
+		if (entDER) {
 			if (CFDictionaryRef entdict = this->entitlements()) {
+				if (!mCEReconstitutedEnts) {
+					secinfo("staticCode", "%p reconstituting XML entitlements with context %p", this, mCEQueryContext);
+					size_t numElements = 0;
+					if (!CE_OK(CESizeDeserialization(mCEQueryContext, &numElements))) {
+						secerror("%p: couldn't size XML entitlements", this);
+						MacOSError::throwMe(errSecDecode);
+					}
+					secinfo("staticCode", "%p desirialized size: %zu", this, numElements);
+					std::vector<CESerializedElement_t> serializedData;
+					serializedData.resize(numElements);
+					if (!CE_OK(CEDeserialize(mCEQueryContext, serializedData.data(), numElements))) {
+						secerror("%p: couldn't deserialize XML entitlements", this);
+						MacOSError::throwMe(errSecDecode);
+					}
+					size_t xmlSize = 0;
+					if (!CE_OK(CESizeXMLSerialization(serializedData.data(), numElements, &xmlSize))) {
+						secerror("%p: couldn't deserialize XML entitlements", this);
+						MacOSError::throwMe(errSecDecode);
+					}
+					secinfo("staticCode", "%p xml size: %zu", this, xmlSize);
+					std::vector<uint8_t> xmlData;
+					xmlData.resize(xmlSize);
+					if (!CE_OK(CESerializeXML(CECRuntime, serializedData.data(), numElements, xmlData.data(), xmlData.data() + xmlSize))) {
+						secerror("%p: couldn't make up XML", this);
+						MacOSError::throwMe(errSecDecode);
+					}
+					secinfo("staticCode", "%p done serializing %s", this, xmlData.data());
+					mCEReconstitutedEnts.take(EntitlementBlob::blobify(CFTempDataWrap(xmlData.data(), xmlSize)));
+				}
+				CFDictionaryAddValue(dict, kSecCodeInfoEntitlements, mCEReconstitutedEnts.get());
 				if (needsCatalystEntitlementFixup(entdict)) {
 					// If this entitlement dictionary needs catalyst entitlements, make a copy and stick that into the
 					// output dictionary instead.
@@ -2354,6 +2430,12 @@ CFDictionaryRef SecStaticCode::signingInformation(SecCSFlags flags)
 			uint32_t version = this->codeDirectory()->version;
 			CFDictionaryAddValue(dict, kSecCodeInfoSignatureVersion, CFTempNumber(version));
 		}
+		try {
+			CFDataRef derEntitlements = this->component(cdEntitlementDERSlot);
+			if (derEntitlements) {
+				CFDictionaryAddValue(dict, kSecCodeInfoEntitlementsDER, derEntitlements);
+			}
+		} catch (...) { }
 	}
 
 	if (flags & kSecCSCalculateCMSDigest) {
@@ -2541,13 +2623,46 @@ void SecStaticCode::staticValidateResource(string resourcePath, SecCSFlags flags
 	// that we'll need later.
 	string baseResourcePath;
 	string relativePath;
+	bool fullPathsNeedRealpath = false;
 
 	if (this->mainExecutablePath() == resourcePath) {
 		// Nothing to do here, we're just validating the main executable so proceed
 		// to the validation below.
 	} else {
 		baseResourcePath = cfString(resourceBase());
+		if (baseResourcePath.back() == '.') {
+			// Framework paths will end in a `/.` so strip off the trailing '.'
+			baseResourcePath.pop_back();
+		}
 		relativePath = pathRemaining(resourcePath, baseResourcePath);
+
+		// If the resource isn't inside of the bundle's base path, then try realpath'ing to see
+		// if there's a symlink that needs to be followed.  This is common for framework paths
+		// where the default will end up using the Current symlink path, but the caller may have
+		// passed in a realpath'd path.
+		if (relativePath == "") {
+			char resolvedBaseResourcePath[PATH_MAX];
+			if (realpath(baseResourcePath.c_str(), resolvedBaseResourcePath)) {
+				secinfo("staticCode", "Checking resolved path for containment: %s", resolvedBaseResourcePath);
+				relativePath = pathRemaining(resourcePath, resolvedBaseResourcePath);
+				fullPathsNeedRealpath = true;
+			}
+
+			if (relativePath == "") {
+				char resolvedResourcePath[PATH_MAX];
+				if (realpath(resourcePath.c_str(), resolvedResourcePath)) {
+					secinfo("staticCode", "Checking resolved resource path for containment: %s", resolvedResourcePath);
+					relativePath = pathRemaining(resolvedResourcePath, resolvedBaseResourcePath);
+
+					if (relativePath != "") {
+						// If the resolved resource path worked and provided a remaining path, we should just use the new path.
+						resourcePath = resolvedResourcePath;
+						secinfo("staticCode", "Updated resource path: %s", resourcePath.c_str());
+					}
+				}
+			}
+		}
+
 		if (relativePath == "") {
 			// The resource is not a prefix match with the bundle or the arguments are bad.
 			secerror("Requested resource was not within the code object: %s, %s", resourcePath.c_str(), baseResourcePath.c_str());
@@ -2561,8 +2676,18 @@ void SecStaticCode::staticValidateResource(string resourcePath, SecCSFlags flags
 
 	// First special case is the main executable, which means we're about to validate it as part of the
 	// static validation here.
+	bool isMainExecutable = false;
+	if (fullPathsNeedRealpath) {
+		char resolvedMainExecutablePath[PATH_MAX];
+		if (realpath(this->mainExecutablePath().c_str(), resolvedMainExecutablePath)) {
+			isMainExecutable = (strcmp(resolvedMainExecutablePath, resourcePath.c_str()) == 0);
+		}
+	} else {
+		isMainExecutable = (this->mainExecutablePath() == resourcePath);
+	}
+
 	bool needsAdditionalValidation = true;
-	if (this->mainExecutablePath() == resourcePath) {
+	if (isMainExecutable) {
 		needsAdditionalValidation = false;
 
 		// If the caller did not request fast validation of an executable, ensure we clear the 'do
@@ -2625,7 +2750,7 @@ void SecStaticCode::staticValidateResource(string resourcePath, SecCSFlags flags
 	CFTypeRef file = CFDictionaryGetValue(files, CFTempString(relativePath));
 	if (file) {
 		// This item matched a file rule exactly, so just validate it directly with this object.
-		AutoFileDesc fd = AutoFileDesc(resourcePath);
+		AutoFileDesc fd = AutoFileDesc(resourcePath, O_SYMLINK);
 		bool isSymlink = fd.isA(S_IFLNK);
 
 		// Since this is a direct file match, if its for a nested bundle then we want to enable executable
@@ -2651,8 +2776,8 @@ void SecStaticCode::staticValidateResource(string resourcePath, SecCSFlags flags
 		} else {
 			// For other resource types, just a single file resource validation with a ValidationContext that
 			// will immediately throw an error if any issues are encountered.
-			ValidationContext *context = new ValidationContext(*this);
-			validateResource(files, relativePath, isSymlink, *context, flags, version);
+			ValidationContext context(*this);
+			validateResource(files, relativePath, isSymlink, context, flags, version);
 		}
 	} else {
 		// It wasn't a simple file resource within the current code signature, so we're looking for a nested code.
@@ -2664,6 +2789,9 @@ void SecStaticCode::staticValidateResource(string resourcePath, SecCSFlags flags
 			if (file) {
 				itemFound = true;
 
+				CFRef<CFURLRef> itemURL = makeCFURL(subpath, false, resourceBase());
+				string fullPath = cfString(itemURL);
+
 				ResourceSeal seal(file);
 				if (seal.nested()) {
 					CFRef<SecRequirementRef> req;
@@ -2673,11 +2801,17 @@ void SecStaticCode::staticValidateResource(string resourcePath, SecCSFlags flags
 
 					// If the resource seal indicates this is nested code, create a new code object for this
 					// nested code and then validate the resource within that object.
-					CFRef<CFURLRef> itemURL = makeCFURL(subpath, false, resourceBase());
-					string fullPath = cfString(itemURL);
 					SecPointer<SecStaticCode> subcode = new SecStaticCode(DiskRep::bestGuess(fullPath));
 					subcode->initializeFromParent(*this);
 					subcode->staticValidateResource(resourcePath, flags, SecRequirement::required(req));
+				} else if (seal.link()) {
+					// Symlinks are OK to walk through, so validate the symlink directly and then keep
+					// moving on to the next item.
+					ValidationContext *context = new ValidationContext(*this);
+					AutoFileDesc fd = AutoFileDesc(fullPath, O_SYMLINK);
+					bool isSymlink = fd.isA(S_IFLNK);
+					validateResource(files, subpath, isSymlink, *context, flags, version);
+					return false;
 				} else {
 					// Any other type of nested resource is not ok, so just bail.
 					secerror("Unexpected item hit traversing resource: %@", file);

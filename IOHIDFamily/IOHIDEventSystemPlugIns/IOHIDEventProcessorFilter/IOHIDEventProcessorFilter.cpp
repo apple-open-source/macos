@@ -28,7 +28,6 @@
 #include <IOKit/hid/IOHIDPrivateKeys.h>
 #include <IOKit/hid/IOHIDLibPrivate.h>
 #include <IOKit/hid/IOHIDEventData.h>
-#include "IOHIDDebug.h"
 #include "CF.h"
 
 #include <mach/mach.h>

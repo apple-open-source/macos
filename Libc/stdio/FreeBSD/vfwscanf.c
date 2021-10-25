@@ -509,6 +509,8 @@ literal:
 				}
 				if (wi != WEOF)
 					__ungetwc(wi, fp, loc);
+				else if (wi == WEOF && nassigned == 0)
+					goto eof_failure;
 				if (n == 0)
 					goto match_failure;
 				if (!(flags & SUPPRESS)) {
@@ -756,6 +758,8 @@ input_failure:
 	return (nassigned ? nassigned : EOF);
 match_failure:
 	return (nassigned);
+eof_failure:
+	return EOF;
 }
 
 #ifndef NO_FLOATING_POINT

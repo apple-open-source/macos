@@ -1,5 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
-// License & terms of use: http://www.unicode.org/copyright.html#License
+// License & terms of use: http://www.unicode.org/copyright.html
+// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
 dv{
     AuxExemplarCharacters{"[\u200C\u200D ޙ ޚ ޜ ޢ ޣ ޥ ޛ ޘ ޠ ޡ ޤ ޝ ޞ ޟ ޱ]"}
     ExemplarCharacters{
@@ -20,7 +21,6 @@ dv{
         }
         native{"arab"}
     }
-    Version{"36.1"}
     calendar{
         generic{
             DateTimePatterns{

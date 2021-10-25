@@ -116,12 +116,19 @@
 
 - (void)testNewDatabase
 {
+#if TARGET_OS_BRIDGE
+    // OCSP cache not supported on bridgeOS
+    XCTSkip();
+#endif
     [self writeResponse1ToDB];
     XCTAssert([self canReadDB]);
 }
 
 - (void)testNewDatabaseReOpen
 {
+#if TARGET_OS_BRIDGE
+    XCTSkip();
+#endif
     [self writeResponse1ToDB];
     XCTAssert([self canReadDB]);
     SecOCSPCacheCloseDB();
@@ -132,6 +139,9 @@
 
 - (void)testOldDatabaseUpgradeNoContent
 {
+#if TARGET_OS_BRIDGE
+    XCTSkip();
+#endif
     [self createDBFromSQL:_oldDBSchema];
     [self writeResponse1ToDB];
     XCTAssert([self canReadDB]);
@@ -139,6 +149,9 @@
 
 - (void)testOldDatabaseUpgradeWithContent
 {
+#if TARGET_OS_BRIDGE
+    XCTSkip();
+#endif
     [self createDBFromSQL:_oldDBSchemaWithContent];
     XCTAssert([self canReadDB]);
     [self replaceResponse];
@@ -147,6 +160,9 @@
 
 - (void)testUpgradedDatabaseNoContent
 {
+#if TARGET_OS_BRIDGE
+    XCTSkip();
+#endif
     [self createDBFromSQL:_oldDBSchema];
     XCTAssertFalse([self canReadDB]); // should upgrade the DB
     SecOCSPCacheCloseDB();
@@ -156,6 +172,9 @@
 
 - (void)testUpgradedDatabaseWithContent
 {
+#if TARGET_OS_BRIDGE
+    XCTSkip();
+#endif
     [self createDBFromSQL:_oldDBSchemaWithContent];
     XCTAssert([self canReadDB]); // should upgrade the DB
     SecOCSPCacheCloseDB();
@@ -165,6 +184,9 @@
 
 - (void)testGCExpiredResponses
 {
+#if TARGET_OS_BRIDGE
+    XCTSkip();
+#endif
     [self createDBFromSQL:_oldDBSchemaWithContent]; // since this is an old schema, the certStatus will be CS_NotParsed
     /* don't replace response 1, just add response 2 a week after response 1 expired */
     [self writeResponse2ToDB]; // as a side effect, should GC the expired non-revoked response
@@ -174,6 +196,9 @@
 
 - (void)testNoGCExpiredRevokedResponses
 {
+#if TARGET_OS_BRIDGE
+    XCTSkip();
+#endif
     [self writeResponse1ToDB];
     /* don't replace response 1, just add response 2 a week after response 1 expired */
     [self writeResponse2ToDB]; // should not GC the expired revoked response 1

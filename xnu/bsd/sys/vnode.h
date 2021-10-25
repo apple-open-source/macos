@@ -64,12 +64,16 @@
 #ifndef _VNODE_H_
 #define _VNODE_H_
 
+#include <stdint.h>
 #include <sys/appleapiopts.h>
 #include <sys/cdefs.h>
 #ifdef KERNEL
 #include <sys/kernel_types.h>
 #include <sys/param.h>
 #include <sys/signal.h>
+#ifdef KERNEL_PRIVATE
+#include <mach/mach_types.h>
+#endif /* KERNEL_PRIVATE */
 #else
 #include <stdint.h>
 #endif /* KERNEL */
@@ -124,6 +128,7 @@ enum vtagtype   {
 #define VNODE_READ      0x01
 #define VNODE_WRITE     0x02
 #define VNODE_BLOCKMAP_NO_TRACK 0x04 // APFS Fusion: Do not track this request
+#define VNODE_CLUSTER_VERIFY 0x08 // Verification will be performed in the cluster layer
 
 
 /* flags for VNOP_ALLOCATE */
@@ -780,6 +785,7 @@ struct vnode_attr {
 #define VA_64BITOBJIDS          0x100000        /* fileid/linkid/parentid are 64 bit */
 #define VA_REALFSID             0x200000        /* Return real fsid */
 #define VA_USEFSID              0x400000        /* Use fsid from filesystem  */
+#define VA_FILESEC_ACL          0x800000        /* ACL is interior to filesec */
 
 /*
  *  Modes.  Some values same as Ixxx entries from inode.h for now.
@@ -1456,6 +1462,18 @@ kauth_cred_t    vfs_context_ucred(vfs_context_t ctx);
  */
 int     vfs_context_pid(vfs_context_t ctx);
 
+#ifdef KERNEL_PRIVATE
+/*!
+ *  @function vfs_context_copy_audit_token
+ *  @abstract Copy the audit token of the BSD process associated with a vfs_context_t.
+ *  @param ctx Context whose associated process to find.
+ *  @param token Pointer to audit token buffer which will receive a copy of the audit token
+ *  @return 0 on success, non-zero if there was a problem obtaining the token
+ */
+int     vfs_context_copy_audit_token(vfs_context_t ctx, audit_token_t *token);
+
+#endif /* KERNEL_PRIVATE */
+
 /*!
  *  @function vfs_context_issignal
  *  @abstract Get a bitfield of pending signals for the BSD process associated with a vfs_context_t.
@@ -2110,7 +2128,7 @@ int     vn_revoke(vnode_t vp, int flags, vfs_context_t ctx);
  *  @param vpp Destination for vnode pointer.
  *  @param cnp Various data about lookup, e.g. filename and intended operation.
  *  @return ENOENT: the filesystem has previously added a negative entry with cache_enter() to indicate that there is no
- *  file of the given name in "dp."  -1: successfully found a cached vnode (vpp is set).  0: No data in the cache, or operation is CRETE/RENAME.
+ *  file of the given name in "dp."  -1: successfully found a cached vnode (vpp is set).  0: No data in the cache, or operation is CREATE/RENAME.
  */
 int     cache_lookup(vnode_t dvp, vnode_t *vpp, struct componentname *cnp);
 
@@ -2311,6 +2329,22 @@ int bdevvp(dev_t dev, struct vnode **vpp);
  */
 int vnode_getfromfd(vfs_context_t ctx, int fd, vnode_t *vpp);
 
+/*
+ * @function vnode_parent
+ * @abstract Get the parent of a vnode.
+ * @param vp The vnode whose parent to grab.
+ * @return Parent if available, else NULL.
+ */
+vnode_t vnode_parent(vnode_t vp);
+
+/*
+ * @function vfs_context_thread
+ * @abstract Return the Mach thread associated with a vfs_context_t.
+ * @param ctx The context to use.
+ * @return The thread for this context, or NULL, if there is not one.
+ */
+thread_t vfs_context_thread(vfs_context_t ctx);
+
 #endif /* KERNEL_PRIVATE */
 
 #ifdef BSD_KERNEL_PRIVATE
@@ -2344,11 +2378,8 @@ boolean_t vnode_on_reliable_media(vnode_t);
  * VNOP_LOOKUP on this vnode.  Volfs will always ask for it's parent
  * object ID (instead of using the v_parent pointer).
  */
-vnode_t vnode_parent(vnode_t);
 void vnode_setparent(vnode_t, vnode_t);
 void vnode_setname(vnode_t, char *);
-/* XXX temporary until we can arrive at a KPI for NFS, Seatbelt */
-thread_t vfs_context_thread(vfs_context_t);
 #if CONFIG_IOSCHED
 vnode_t vnode_mountdevvp(vnode_t);
 #endif

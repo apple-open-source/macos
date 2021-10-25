@@ -308,7 +308,6 @@ errOut:
     }];
 }
 
-#if !TARGET_OS_BRIDGE
 - (NSData *)random
 {
     uint8_t random[32];
@@ -318,6 +317,9 @@ errOut:
 
 - (void)testSetTransparentConnectionPins
 {
+#if TARGET_OS_BRIDGE // bridgeOS doesn't have Transparent Connections
+    XCTSkip();
+#endif
     CFErrorRef error = NULL;
     const CFStringRef TrustTestsAppID = CFSTR("com.apple.trusttests");
     const CFStringRef AnotherAppID = CFSTR("com.apple.security.not-this-one");
@@ -418,6 +420,10 @@ errOut:
 
 - (void)testSetTransparentConnectionPins_InputValidation
 {
+#if TARGET_OS_BRIDGE // bridgeOS doesn't have Transparent Connections
+    XCTSkip();
+#endif
+
     CFErrorRef error = NULL;
 #define check_errSecParam \
 if (error) { \
@@ -485,6 +491,10 @@ fail("expected failure to set NULL exceptions"); \
 }
 
 - (void)testTransparentConnections {
+#if TARGET_OS_BRIDGE // bridgeOS doesn't have Transparent Connections
+    XCTSkip();
+#endif
+
     SecCertificateRef pallasLeaf = SecCertificateCreateWithBytes(NULL, _pallas_leaf, sizeof(_pallas_leaf));
     SecCertificateRef pallasCA = SecCertificateCreateWithBytes(NULL, _pallas_ca, sizeof(_pallas_ca));
     SecCertificateRef tcLeaf = SecCertificateCreateWithBytes(NULL, _transparent_connection_leaf, sizeof(_transparent_connection_leaf));
@@ -539,7 +549,6 @@ fail("expected failure to set NULL exceptions"); \
     CFReleaseNull(tcCA);
     CFReleaseNull(policy);
 }
-#endif // !TARGET_OS_BRIDGE
 
 static SecTrustResultType test_with_policy_exception(SecPolicyRef CF_CONSUMED policy, bool set_exception)
 {
@@ -683,10 +692,12 @@ static void test_pcs_escrow_with_anchor_roots(CFArrayRef anchors)
 
 }
 
-#if !TARGET_OS_BRIDGE
-/* Bridge OS doesn't have certificates bundle */
 - (void)test_escrow
 {
+#if TARGET_OS_BRIDGE
+    /* Bridge OS doesn't have certificates bundle */
+    XCTSkip();
+#endif
     CFArrayRef anchors = NULL;
     isnt(anchors = SecCertificateCopyEscrowRoots(kSecCertificateProductionEscrowRoot), NULL, "unable to get production anchors");
     test_escrow_with_anchor_roots(anchors);
@@ -695,6 +706,10 @@ static void test_pcs_escrow_with_anchor_roots(CFArrayRef anchors)
 
 - (void)test_pcs_escrow
 {
+#if TARGET_OS_BRIDGE
+    /* Bridge OS doesn't have certificates bundle */
+    XCTSkip();
+#endif
     CFArrayRef anchors = NULL;
     isnt(anchors = SecCertificateCopyEscrowRoots(kSecCertificateProductionPCSEscrowRoot), NULL, "unable to get production PCS roots");
     test_pcs_escrow_with_anchor_roots(anchors);
@@ -703,6 +718,10 @@ static void test_pcs_escrow_with_anchor_roots(CFArrayRef anchors)
 
 - (void)test_escrow_roots
 {
+#if TARGET_OS_BRIDGE
+    /* Bridge OS doesn't have certificates bundle */
+    XCTSkip();
+#endif
     CFArrayRef baselineRoots = NULL;
     isnt(baselineRoots = SecCertificateCopyEscrowRoots(kSecCertificateBaselineEscrowRoot), NULL, "unable to get baseline roots");
     ok(baselineRoots && CFArrayGetCount(baselineRoots) > 0, "baseline roots array empty");
@@ -723,7 +742,6 @@ static void test_pcs_escrow_with_anchor_roots(CFArrayRef anchors)
     ok(productionPCSRoots && CFArrayGetCount(productionPCSRoots) > 0, "production PCS roots array empty");
     CFReleaseSafe(productionPCSRoots);
 }
-#endif // !TARGET_OS_BRIDGE
 
 - (void)testPassbook {
     SecPolicyRef policy;

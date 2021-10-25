@@ -302,16 +302,8 @@ get_if_printer(netdissect_options *ndo, int type)
 	if_printer printer;
 
 	printer = lookup_printer(type);
-	if (printer == NULL) {
-		dltname = pcap_datalink_val_to_name(type);
-		if (dltname != NULL)
-			(*ndo->ndo_error)(ndo,
-					  "packet printing is not supported for link type %s: use -w",
-					  dltname);
-		else
-			(*ndo->ndo_error)(ndo,
-					  "packet printing is not supported for link type %d: use -w", type);
-	}
+	if (printer == NULL)
+		printer = unsupported_if_print;
 	return printer;
 }
 

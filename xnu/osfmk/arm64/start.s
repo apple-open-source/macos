@@ -27,6 +27,7 @@
  */
 #include <arm/proc_reg.h>
 #include <arm64/asm.h>
+#include <arm64/machine_machdep.h>
 #include <arm64/proc_reg.h>
 #include <pexpert/arm64/board_config.h>
 #include <mach_assert.h>
@@ -313,9 +314,13 @@ start_cpu:
 	ldr		x26, [x20, BA_BOOT_FLAGS]			// Get the kernel boot flags
 
 
-	// Set TPIDRRO_EL0 with the CPU number
-	ldr		x0, [x21, CPU_NUMBER_GS]
-	msr		TPIDRRO_EL0, x0
+	// Set TPIDR_EL0 with the CPU number
+	ldrsh	x0, [x21, CPU_NUMBER_GS]
+	msr		TPIDR_EL0, x0
+
+	// Set TPIDRRO_EL0 to 0
+	msr		TPIDRRO_EL0, xzr
+
 
 	// Set the exception stack pointer
 	ldr		x0, [x21, CPU_EXCEPSTACK_TOP]
@@ -471,10 +476,11 @@ LEXT(start_first_cpu)
 	adrp	x25, EXT(bootstrap_pagetables)@page	// Get the start of the page tables
 	ldr		x26, [x20, BA_BOOT_FLAGS]			// Get the kernel boot flags
 
-	// Clear the register that will be used to store the userspace thread pointer and CPU number.
+	// Clear the registers that will be used to store the userspace thread pointer and CPU number.
 	// We may not actually be booting from ordinal CPU 0, so this register will be updated
 	// in ml_parse_cpu_topology(), which happens later in bootstrap.
-	msr		TPIDRRO_EL0, x21
+	msr		TPIDRRO_EL0, xzr
+	msr		TPIDR_EL0, xzr
 
 	// Set up exception stack pointer
 	adrp	x0, EXT(excepstack_top)@page		// Load top of exception stack
@@ -679,11 +685,6 @@ common_start:
 	tlbi	vmalle1
 	dsb		ish
 
-#if defined(APPLEHURRICANE)
-	// <rdar://problem/26726624> Increase Snoop reservation in EDB to reduce starvation risk
-	// Needs to be done before MMU is enabled
-	HID_INSERT_BITS	HID5, ARM64_REG_HID5_CrdEdbSnpRsvd_mask, ARM64_REG_HID5_CrdEdbSnpRsvd_VALUE, x12
-#endif
 
 #if defined(BCM2837)
 	// Setup timer interrupt routing; must be done before MMU is enabled
@@ -735,33 +736,16 @@ common_start:
 1:
 	MSR_VBAR_EL1_X0
 
-1:
-#ifdef HAS_APPLE_PAC
-#if HAS_PARAVIRTUALIZED_PAC
-	mov		x0, #VMAPPLE_PAC_SET_INITIAL_STATE
-	hvc		#0
-#endif /* HAS_PARAVIRTUALIZED_PAC */
+#if HAS_APPLE_PAC
+	PAC_INIT_KEY_STATE tmp=x0, tmp2=x1
+#endif /* HAS_APPLE_PAC */
 
 	// Enable caches, MMU, ROP and JOP
-	MOV64	x0, SCTLR_EL1_DEFAULT
-	orr		x0, x0, #(SCTLR_PACIB_ENABLED) /* IB is ROP */
-
-	MOV64	x1, SCTLR_JOP_KEYS_ENABLED
-	orr 	x0, x0, x1
-#else  /* HAS_APPLE_PAC */
-
-	// Enable caches and MMU
-	MOV64	x0, SCTLR_EL1_DEFAULT
-#endif /* HAS_APPLE_PAC */
+	MOV64   x0, SCTLR_EL1_DEFAULT
 	MSR_SCTLR_EL1_X0
 	isb		sy
 
-	MOV64	x1, SCTLR_EL1_DEFAULT
-#if HAS_APPLE_PAC
-	orr		x1, x1, #(SCTLR_PACIB_ENABLED)
-	MOV64	x2, SCTLR_JOP_KEYS_ENABLED
-	orr		x1, x1, x2
-#endif /* HAS_APPLE_PAC */
+	MOV64   x1, SCTLR_EL1_DEFAULT
 	cmp		x0, x1
 	bne		.
 
@@ -782,21 +766,16 @@ common_start:
 
 
 #if defined(APPLE_ARM64_ARCH_FAMILY)
+	mrs		x12, MDSCR_EL1
+	orr		x12, x12, MDSCR_TDCC
+	msr		MDSCR_EL1, x12
 	// Initialization common to all non-virtual Apple targets
-#if !APPLEVIRTUALPLATFORM
-	ARM64_IS_PCORE x15
-	ARM64_READ_EP_SPR x15, x12, EHID4, HID4
-	orr		x12, x12, ARM64_REG_HID4_DisDcMVAOps
-	orr		x12, x12, ARM64_REG_HID4_DisDcSWL2Ops
-	ARM64_WRITE_EP_SPR x15, x12, EHID4, HID4
-#endif  // !APPLEVIRTUALPLATFORM
 #endif  // APPLE_ARM64_ARCH_FAMILY
 
 	// Read MIDR before start of per-SoC tunables
 	mrs x12, MIDR_EL1
 
-	APPLY_TUNABLES x12, x13
-
+	APPLY_TUNABLES x12, x13, x14
 
 
 #if HAS_CLUSTER
@@ -877,9 +856,6 @@ arm_init_tramp:
 
 
 	mov		x19, lr
-#if defined(HAS_VMSA_LOCK)
-	bl		EXT(vmsa_lock)
-#endif
 	// Convert CPU data PA to VA and set as first argument
 	mov		x0, x21
 	bl		EXT(phystokv)

@@ -73,8 +73,8 @@ const char16_t* utils::getPatternForStyle(const Locale& locale, const char* nsNa
             UPRV_UNREACHABLE;
     }
     LocalUResourceBundlePointer res;
-    if (style == CLDR_PATTERN_STYLE_PERCENT) {
-        // for percent pattern, always use language fallback (see rdar://63758323)
+    if (style == CLDR_PATTERN_STYLE_PERCENT || style == CLDR_PATTERN_STYLE_CURRENCY || style == CLDR_PATTERN_STYLE_ACCOUNTING) {
+        // for percent or currency, always use language fallback (see rdar://63758323 and rdar://68800014)
         res.adoptInstead(ures_open(nullptr, locale.getName(), &status));
     } else {
         // for the other patterns, use country fallback when appropriate
@@ -265,7 +265,10 @@ void DecNum::toString(ByteSink& output, UErrorCode& status) const {
     }
     // "string must be at least dn->digits+14 characters long"
     int32_t minCapacity = fData.getAlias()->digits + 14;
-    MaybeStackArray<char, 30> buffer(minCapacity);
+    MaybeStackArray<char, 30> buffer(minCapacity, status);
+    if (U_FAILURE(status)) {
+        return;
+    }
     uprv_decNumberToString(fData, buffer.getAlias());
     output.Append(buffer.getAlias(), static_cast<int32_t>(uprv_strlen(buffer.getAlias())));
 }

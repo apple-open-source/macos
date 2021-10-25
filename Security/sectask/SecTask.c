@@ -37,7 +37,8 @@
 #include <syslog.h>
 #include <utilities/SecCFWrappers.h>
 #include <xpc/private.h>
-
+#include <CoreEntitlements/CoreEntitlements.h>
+#include <CoreEntitlements/FoundationUtils.h>
 #include <sys/sysctl.h>
 
 #if TARGET_OS_OSX
@@ -237,8 +238,12 @@ static bool SecTaskLoadEntitlements(SecTaskRef task, CFErrorRef *error)
     uint8_t *buffer = NULL;
     uint32_t bufferlen;
     int ret;
-
+    CEQueryContext_t ceCtx = NULL;
+#if TARGET_OS_SIMULATOR
     ret = csops_task(task, CS_OPS_ENTITLEMENTS_BLOB, &header, sizeof(header));
+#else
+    ret = csops_task(task, CS_OPS_DER_ENTITLEMENTS_BLOB, &header, sizeof(header));
+#endif
     /* Any other combination means no entitlements */
     if (ret == -1) {
         if (errno != ERANGE) {
@@ -287,14 +292,38 @@ static bool SecTaskLoadEntitlements(SecTaskRef task, CFErrorRef *error)
             ret = ENOMEM;
             goto out;
         }
+#if TARGET_OS_SIMULATOR
         ret = csops_task(task, CS_OPS_ENTITLEMENTS_BLOB, buffer, bufferlen);
+#else
+        ret = csops_task(task, CS_OPS_DER_ENTITLEMENTS_BLOB, buffer, bufferlen);
+#endif
         if (ret) {
             ret = errno;
             goto out;
         }
 
         CFDataRef data = CFDataCreateWithBytesNoCopy(kCFAllocatorDefault, buffer+8, bufferlen-8, kCFAllocatorNull);
+#if TARGET_OS_SIMULATOR
         entitlements = (CFMutableDictionaryRef) CFPropertyListCreateWithData(kCFAllocatorDefault, data, kCFPropertyListMutableContainers, NULL, error);
+#else
+        if (!CE_OK(CEManagedContextFromCFData(CECRuntime, data, &ceCtx))) {
+            pid_t pid;
+            audit_token_to_au32(task->token, NULL, NULL, NULL, NULL, NULL, &pid, NULL, NULL);
+            secinfo("SecTask", "couldn't create a managed context from csops call %d", pid);
+            CFReleaseNull(data);
+            ret = EDOM;    // don't use EINVAL here; it conflates problems with syscall error returns
+            goto out;
+        }
+        if (!CE_OK(CEQueryContextToCFDictionary(ceCtx, &entitlements))) {
+            pid_t pid;
+            audit_token_to_au32(task->token, NULL, NULL, NULL, NULL, NULL, &pid, NULL, NULL);
+            secinfo("SecTask", "couldn't convert CE to CF %d", pid);
+            CFReleaseNull(data);
+            ret = EDOM;    // don't use EINVAL here; it conflates problems with syscall error returns
+            goto out;
+            
+        }
+#endif
         CFReleaseNull(data);
 
         if ((entitlements==NULL) || (CFGetTypeID(entitlements)!=CFDictionaryGetTypeID())){
@@ -315,10 +344,13 @@ static bool SecTaskLoadEntitlements(SecTaskRef task, CFErrorRef *error)
 
 out:
     CFReleaseNull(entitlements);
-    if(buffer)
+    if(buffer) {
         free(buffer);
-    if (ret && error && *error==NULL)
+    }
+    if (ret && error && *error==NULL) {
         *error = CFErrorCreate(NULL, kCFErrorDomainPOSIX, ret, NULL);
+    }
+    CEReleaseManagedContext(&ceCtx);
     return ret == 0;
 }
 

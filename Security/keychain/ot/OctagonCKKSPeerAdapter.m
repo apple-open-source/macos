@@ -174,7 +174,7 @@
     secnotice("octagon-ckks", "No peer ID; therefore no identity");
     if(error) {
         *error = [NSError errorWithDomain:OctagonErrorDomain
-                                     code:OTErrorNoIdentity
+                                     code:OctagonErrorNoIdentity
                               description:@"no peer ID present"];
     }
     return nil;

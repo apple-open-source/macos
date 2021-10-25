@@ -23,8 +23,12 @@
 
 #import "SecKeybagSupport.h"
 #import "SecDbKeychainItem.h"
+#import "SecDbKeychainItemV7.h"
+#import "SecDbKeychainSerializedItemV7.h"
+#import "SecDbKeychainSerializedSecretData.h"
 #import "SecdTestKeychainUtilities.h"
 #import "CKKS.h"
+#import "SecItemDb.h"
 #import "SecItemPriv.h"
 #import "SecItemServer.h"
 #import "SecItemSchema.h"
@@ -54,6 +58,7 @@
 #import "secdmock_db_version_11_1.h"
 
 #import "mockaksxcbase.h"
+#import "OTConstants.h"
 
 @interface secdmockaks : mockaksxcbase
 @end
@@ -728,6 +733,40 @@
     return data;
 }
 
+- (void)parse_for_ref_key_blob_and_tamper:(CFDataRef) blob
+{
+    uint32_t version = 0;
+
+    size_t blobLen = CFDataGetLength(blob);
+    const uint8_t *cursor = CFDataGetBytePtr(blob);
+
+    version = *((uint32_t *)cursor);
+
+    cursor += sizeof(version);
+    blobLen -= sizeof(version);
+
+    if (version >= 7) {
+        @autoreleasepool {
+            NSError* localError = nil;
+            NSData* encryptedBlob = [NSData dataWithBytes:cursor length:blobLen];
+
+            SecDbKeychainItemV7* item = [[SecDbKeychainItemV7 alloc] initWithData:encryptedBlob decryptionKeybag:0 error:&localError];
+            //look for encrypted blob and wrapped key
+            SecDbKeychainSerializedItemV7* tamperedSerializedItemBlob = [[SecDbKeychainSerializedItemV7 alloc] init];
+            tamperedSerializedItemBlob.encryptedMetadata = item.encryptedMetadataBlob;
+            tamperedSerializedItemBlob.keyclass = 0;
+            SecDbKeychainSerializedSecretData* secretData = [[SecDbKeychainSerializedSecretData alloc] initWithData:item.encryptedSecretDataBlob];
+            //mess with the wrapped key part
+            NSData* refKeyBlob = secretData.wrappedKey;
+            size_t index = arc4random_uniform((uint32_t)(refKeyBlob.length));
+            ((uint8_t *)[refKeyBlob bytes])[index] = 'X';
+            tamperedSerializedItemBlob.encryptedSecretData = secretData.data;
+            NSData* tamperedData = tamperedSerializedItemBlob.data;
+            memcpy((void*)cursor, (void*)(tamperedData.bytes), blobLen);
+        }
+    }
+}
+
 #if !TARGET_OS_WATCH
 /* this should be enabled for watch too, but that causes a crash in the mock aks layer */
 
@@ -848,20 +887,9 @@
 
             NSMutableData *mutatedData = [data mutableCopy];
 
-            // This used to loop over all (~850!) bytes of the data but that's too slow. We now do first 50, last 50 and 20 random bytes
-            if (counter < 50) {
+            if (counter < 10) {
                 mutatedDatabase = true;
-                ((uint8_t *)[mutatedData mutableBytes])[counter] = 'X';
-                ++counter;
-            } else if (counter < 70) {
-                mutatedDatabase = true;
-                size_t idx = 50 + arc4random_uniform((uint32_t)(mutatedData.length - 100));
-                ((uint8_t *)[mutatedData mutableBytes])[idx] = 'X';
-                ++counter;
-            } else if (counter < 120) {
-                mutatedDatabase = true;
-                size_t idx = mutatedData.length - (counter - 70 - 1);
-                ((uint8_t *)[mutatedData mutableBytes])[idx] = 'X';
+                [self parse_for_ref_key_blob_and_tamper:(__bridge CFDataRef)(mutatedData)];
                 ++counter;
             } else {
                 counter = 0;
@@ -1023,6 +1051,291 @@
     CFReleaseNull(output);
 }
 #endif // TARGET_OS_OSX || TARGET_OS_SIMULATOR
+
+- (void)testReadOnlyConnection {
+    __block CFErrorRef connectionError = NULL;
+    bool connectionOk = kc_with_dbt(false, &connectionError, ^bool(SecDbConnectionRef dbconn) {
+        secnotice("secdb", "Doing a simple write!");
+
+        NSDictionary* item = @{
+            (id)kSecClass : (id)kSecClassGenericPassword,
+            (id)kSecValueData : [@"password" dataUsingEncoding:NSUTF8StringEncoding],
+            (id)kSecAttrAccount : [NSString stringWithFormat:@"TestAccount"],
+            (id)kSecAttrService : @"TestService",
+            (id)kSecUseDataProtectionKeychain : @(YES)
+        };
+        OSStatus result = SecItemAdd((__bridge CFDictionaryRef)item, NULL);
+        XCTAssertEqual(result, errSecReadOnly, @"Should fail to add test item to keychain on read-only connection");
+
+        return true;
+    });
+    XCTAssertTrue(connectionOk, "The connection should have been fine overall");
+
+    __block CFErrorRef transactionError = NULL;
+    bool transactionOk = kc_with_dbt(false, &transactionError, ^bool(SecDbConnectionRef dbconn) {
+        bool ret = kc_transaction_type(dbconn, kSecDbNormalTransactionType, &transactionError, ^bool{
+            secnotice("secdb", "Doing a write in a read transaction!");
+
+            NSDictionary* item = @{
+                (id)kSecClass : (id)kSecClassGenericPassword,
+                (id)kSecValueData : [@"password" dataUsingEncoding:NSUTF8StringEncoding],
+                (id)kSecAttrAccount : [NSString stringWithFormat:@"TestAccount"],
+                (id)kSecAttrService : @"TestService",
+                (id)kSecUseDataProtectionKeychain : @(YES)
+            };
+            OSStatus result = SecItemAdd((__bridge CFDictionaryRef)item, NULL);
+            XCTAssertEqual(result, errSecReadOnly, @"Should fail to add test item to keychain in transaction on read-only connection");
+
+            return true;
+        });
+
+        XCTAssertTrue(ret, "Should have a positive result");
+        return ret;
+    });
+
+    XCTAssertTrue(transactionOk, "The connection should have been fine overall");
+}
+
+- (void)testSecdTransactionThreading {
+    dispatch_queue_t asyncQueue = dispatch_queue_create("async", DISPATCH_QUEUE_CONCURRENT_WITH_AUTORELEASE_POOL);
+    dispatch_group_t group = dispatch_group_create();
+    dispatch_queue_t contendedQueue = dispatch_queue_create("contended", DISPATCH_QUEUE_SERIAL_WITH_AUTORELEASE_POOL);
+
+    CFErrorRef cferror = NULL;
+    SecDbRef keychainDb = SecKeychainDbGetDb(&cferror);
+
+    XCTAssertEqual(cferror, NULL, "Should be no error extracting a keychainDb");
+    XCTAssertNotEqual(keychainDb, NULL, "Should have some DB");
+
+    SecDbAddNotifyPhaseBlock(keychainDb, ^(SecDbConnectionRef dbconn, SecDbTransactionPhase phase, SecDbTransactionSource source, CFArrayRef changes) {
+        dispatch_sync(contendedQueue, ^{
+            secnotice("secdb", "On the contended queue as part of a notify!");
+        });
+    });
+
+    // Now, cause a ton of item updates, while also issuing read transactions that contend on the queue
+    for(int i = 0; i < 100; i++) {
+        dispatch_group_async(group, asyncQueue, ^{
+            NSDictionary* item = @{
+                (id)kSecClass : (id)kSecClassGenericPassword,
+                (id)kSecValueData : [@"password" dataUsingEncoding:NSUTF8StringEncoding],
+                (id)kSecAttrAccount : [NSString stringWithFormat:@"TestAccount-%u", i],
+                (id)kSecAttrService : @"TestService",
+                (id)kSecUseDataProtectionKeychain : @(YES)
+            };
+            OSStatus result = SecItemAdd((__bridge CFDictionaryRef)item, NULL);
+            XCTAssertEqual(result, errSecSuccess, @"failed to add test item to keychain: %u", i);
+        });
+
+        dispatch_group_async(group, asyncQueue, ^{
+            __block CFErrorRef transactionError = NULL;
+            kc_with_dbt(false, &transactionError, ^bool(SecDbConnectionRef dbconn) {
+                bool ret = kc_transaction_type(dbconn, kSecDbNormalTransactionType, &transactionError, ^bool{
+                    secnotice("secdb", "Doing a simple read transaction!");
+
+                    return true;
+                });
+
+                XCTAssertTrue(ret, "Should have a positive result");
+            });
+
+        });
+
+        dispatch_group_async(group, contendedQueue, ^{
+            secnotice("secdb", "On the contended queue and planning to take a read transaction!");
+
+            __block CFErrorRef transactionError = NULL;
+            kc_with_dbt(false, &transactionError, ^bool(SecDbConnectionRef dbconn) {
+                bool ret = kc_transaction_type(dbconn, kSecDbNormalTransactionType, &transactionError, ^bool{
+                    return true;
+                });
+
+                XCTAssertTrue(ret, "Should have a positive result");
+            });
+
+            XCTAssertEqual(transactionError, NULL, "Should have been no error in transaction");
+        });
+    }
+
+    XCTAssertEqual(dispatch_group_wait(group, dispatch_time(DISPATCH_TIME_NOW, 5 * 60 * NSEC_PER_SEC)), 0, "Should finish operation within reasonable time");
+}
+
+- (void)testUpgradeClassAWhileLocked
+{
+    SecKeychainSetOverrideStaticPersistentRefsIsEnabled(false);
+
+    // perform a bunch of SecItemAdds without the feature flag enabled so that the keychain has items with a NULL persist ref
+    NSDictionary* addQuery = @{ (id)kSecClass : (id)kSecClassGenericPassword,
+                                (id)kSecValueData : [@"uuid" dataUsingEncoding:NSUTF8StringEncoding],
+                                (id)kSecAttrAccount : @"testKeychainItemUpgradePhase3Account1",
+                                (id)kSecAttrService : @"TestUUIDPersistentRefService",
+                                (id)kSecUseDataProtectionKeychain : @(YES),
+                                (id)kSecAttrAccessible : (id)kSecAttrAccessibleWhenUnlocked,
+                                (id)kSecReturnAttributes : @(YES),
+                                (id)kSecReturnPersistentRef : @(YES)
+    };
+
+    CFTypeRef result = NULL;
+
+    XCTAssertEqual(SecItemAdd((__bridge CFDictionaryRef)addQuery, &result), errSecSuccess, @"Should have succeeded in adding test item to keychain");
+    XCTAssertNotNil((__bridge id)result, @"Should have received a dictionary back from SecItemAdd");
+    XCTAssertTrue(isDictionary(result), "result should be a dictionary");
+    CFDataRef oldStylePersistRef1 = CFRetainSafe(CFDictionaryGetValue(result, kSecValuePersistentRef));
+    XCTAssertNotNil((__bridge id)oldStylePersistRef1, @"oldStylePersistRef should not be nil");
+    XCTAssertTrue(CFDataGetLength(oldStylePersistRef1) == 12, "oldStylePersistRef should be 12 bytes long");
+    CFReleaseNull(result);
+
+    // perform a bunch of SecItemAdds without the feature flag enabled so that the keychain has items with a NULL persist ref
+    addQuery = @{ (id)kSecClass : (id)kSecClassGenericPassword,
+                  (id)kSecValueData : [@"uuid" dataUsingEncoding:NSUTF8StringEncoding],
+                  (id)kSecAttrAccount : @"testKeychainItemUpgradePhase3Account3",
+                  (id)kSecAttrService : @"TestUUIDPersistentRefService",
+                  (id)kSecUseDataProtectionKeychain : @(YES),
+                  (id)kSecAttrAccessible : (id)kSecAttrAccessibleWhenUnlocked,
+                  (id)kSecReturnAttributes : @(YES),
+                  (id)kSecReturnPersistentRef : @(YES)
+    };
+
+    result = NULL;
+
+    XCTAssertEqual(SecItemAdd((__bridge CFDictionaryRef)addQuery, &result), errSecSuccess, @"Should have succeeded in adding test item to keychain");
+    XCTAssertNotNil((__bridge id)result, @"Should have received a dictionary back from SecItemAdd");
+    XCTAssertTrue(isDictionary(result), "result should be a dictionary");
+    CFDataRef oldStylePersistRef3 = CFRetainSafe(CFDictionaryGetValue(result, kSecValuePersistentRef));
+    XCTAssertNotNil((__bridge id)oldStylePersistRef3, @"oldStylePersistRef should not be nil");
+    XCTAssertTrue(CFDataGetLength(oldStylePersistRef3) == 12, "oldStylePersistRef should be 12 bytes long");
+    CFReleaseNull(result);
+
+
+    SecKeychainSetOverrideStaticPersistentRefsIsEnabled(true);
+
+    addQuery = @{ (id)kSecClass : (id)kSecClassGenericPassword,
+                  (id)kSecValueData : [@"uuid" dataUsingEncoding:NSUTF8StringEncoding],
+                  (id)kSecAttrAccount : @"testKeychainItemUpgradePhase3Account2",
+                  (id)kSecAttrService : @"TestUUIDPersistentRefService",
+                  (id)kSecUseDataProtectionKeychain : @(YES),
+                  (id)kSecAttrAccessible : (id)kSecAttrAccessibleWhenUnlocked,
+                  (id)kSecReturnAttributes : @(YES),
+                  (id)kSecReturnPersistentRef : @(YES)
+    };
+
+    result = NULL;
+
+    XCTAssertEqual(SecItemAdd((__bridge CFDictionaryRef)addQuery, &result), errSecSuccess, @"Should have succeeded in adding test item to keychain");
+    XCTAssertNotNil((__bridge id)result, @"Should have received a dictionary back from SecItemAdd");
+    XCTAssertTrue(isDictionary(result), "result should be a dictionary");
+    CFDataRef uuidStylePersistRef = CFRetainSafe(CFDictionaryGetValue(result, kSecValuePersistentRef));
+    XCTAssertNotNil((__bridge id)uuidStylePersistRef, @"uuidStylePersistRef should not be nil");
+    XCTAssertTrue(CFDataGetLength(uuidStylePersistRef) == 20, "uuidStylePersistRef should be 20 bytes long");
+    CFReleaseNull(result);
+
+
+    [SecMockAKS setOperationsUntilUnlock:1];    // The first call is the metadata key unwrap to allow encrypting the item
+    [SecMockAKS lockClassA];
+
+    // now force a phase 3 item upgrade
+    __block CFErrorRef kcError = NULL;
+    kc_with_dbt(true, &kcError, ^(SecDbConnectionRef dbt) {
+        return kc_transaction(dbt, &kcError, ^{
+            CFErrorRef localError = NULL;
+            CFErrorRef phase3Error = NULL;
+            bool inProgress = false;
+            bool ok = UpgradeItemPhase3(dbt, &inProgress, &phase3Error);
+            if (!ok) {
+                SecErrorPropagate(phase3Error, &localError);
+            }
+
+            XCTAssertTrue(inProgress, "inProgress bool should be true");
+            XCTAssertNil((__bridge id)localError, "error should be nil");
+            XCTAssertTrue(ok, "UpgradeItemPhase3 should return true");
+
+            return (bool)true;
+        });
+    });
+
+    [SecMockAKS setOperationsUntilUnlock:1];    // The first call is the metadata key unwrap to allow encrypting the item
+    [SecMockAKS unlockAllClasses];
+    [SecMockAKS setOperationsUntilUnlock:-1];
+    
+    // now force a phase 3 item upgrade
+   kcError = NULL;
+    kc_with_dbt(true, &kcError, ^(SecDbConnectionRef dbt) {
+        return kc_transaction(dbt, &kcError, ^{
+            CFErrorRef localError = NULL;
+            CFErrorRef phase3Error = NULL;
+            bool inProgress = false;
+            bool ok = UpgradeItemPhase3(dbt, &inProgress, &phase3Error);
+            if (!ok) {
+                SecErrorPropagate(phase3Error, &localError);
+            }
+
+            XCTAssertFalse(inProgress, "inProgress bool should be false");
+            XCTAssertNil((__bridge id)localError, "error should be nil");
+            XCTAssertTrue(ok, "UpgradeItemPhase3 should return true");
+
+            return (bool)true;
+        });
+    });
+
+
+    NSDictionary *query = @{ (id)kSecClass : (id)kSecClassGenericPassword,
+                             (id)kSecUseDataProtectionKeychain : @(YES),
+                             (id)kSecReturnAttributes : @(YES),
+                             (id)kSecReturnPersistentRef : @(YES),
+                             (id)kSecMatchLimit : (id)kSecMatchLimitAll,
+    };
+
+    result = NULL;
+    XCTAssertEqual(SecItemCopyMatching((__bridge CFDictionaryRef)query, &result), errSecSuccess, @"Should have succeeded in adding test item to keychain");
+
+    if (isArray(result)) {
+        CFDictionaryRef item1 = CFArrayGetValueAtIndex(result, 0);
+        CFDictionaryRef item2 = CFArrayGetValueAtIndex(result, 1);
+        CFDictionaryRef item3 = CFArrayGetValueAtIndex(result, 2);
+
+        NSString* item1Account = (__bridge id)CFDictionaryGetValue(item1, kSecAttrAccount);
+        NSString* item2Account = (__bridge id)CFDictionaryGetValue(item2, kSecAttrAccount);
+        NSString* item3Account = (__bridge id)CFDictionaryGetValue(item3, kSecAttrAccount);
+
+        NSData* item1PersistRef = (__bridge id)CFDictionaryGetValue(item1, kSecValuePersistentRef);
+        NSData* item2PersistRef = (__bridge id)CFDictionaryGetValue(item2, kSecValuePersistentRef);
+        NSData* item3PersistRef = (__bridge id)CFDictionaryGetValue(item3, kSecValuePersistentRef);
+
+        if ([item1Account isEqualToString:@"testKeychainItemUpgradePhase3Account1"]) {
+            XCTAssertFalse([item1PersistRef isEqualToData:(__bridge NSData*)oldStylePersistRef1], "item update phase 3 should have updated the persistref");
+        } else if ([item2Account isEqualToString:@"testKeychainItemUpgradePhase3Account1"]) {
+            XCTAssertFalse([item2PersistRef isEqualToData:(__bridge NSData*)oldStylePersistRef1], "item update phase 3 should have updated the persistref");
+        } else if ([item3Account isEqualToString:@"testKeychainItemUpgradePhase3Account1"]) {
+            XCTAssertFalse([item3PersistRef isEqualToData:(__bridge NSData*)oldStylePersistRef1], "item update phase 3 should have updated the persistref");
+        }
+        if ([item1Account isEqualToString:@"testKeychainItemUpgradePhase3Account3"]) {
+            XCTAssertFalse([item1PersistRef isEqualToData:(__bridge NSData*)oldStylePersistRef3], "item update phase 3 should have updated the persistref");
+        } else if ([item2Account isEqualToString:@"testKeychainItemUpgradePhase3Account3"]) {
+            XCTAssertFalse([item2PersistRef isEqualToData:(__bridge NSData*)oldStylePersistRef3], "item update phase 3 should have updated the persistref");
+        } else if ([item3Account isEqualToString:@"testKeychainItemUpgradePhase3Account3"]) {
+            XCTAssertFalse([item3PersistRef isEqualToData:(__bridge NSData*)oldStylePersistRef3], "item update phase 3 should have updated the persistref");
+        }
+
+        if ([item1Account isEqualToString:@"testKeychainItemUpgradePhase3Account2"]) {
+            XCTAssertTrue([item1PersistRef isEqualToData:(__bridge NSData*)uuidStylePersistRef], "item update phase 3 should NOT have updated the persistref");
+        } else if ([item2Account isEqualToString:@"testKeychainItemUpgradePhase3Account2"]) {
+            XCTAssertTrue([item2PersistRef isEqualToData:(__bridge NSData*)uuidStylePersistRef], "item update phase 3 should NOT have updated the persistref");
+        } else if ([item3Account isEqualToString:@"testKeychainItemUpgradePhase3Account2"]) {
+            XCTAssertTrue([item3PersistRef isEqualToData:(__bridge NSData*)uuidStylePersistRef], "item update phase 3 should NOT have updated the persistref");
+        }
+    } else {
+        XCTFail("Expected SecItemCopyMatching to return an Array of 3 items, instead returned: %@", result);
+    }
+
+    SecKeychainSetOverrideStaticPersistentRefsIsEnabled(false);
+    CFReleaseNull(oldStylePersistRef1);
+    CFReleaseNull(oldStylePersistRef3);
+    CFReleaseNull(uuidStylePersistRef);
+
+    clearLastRowIDHandledForTests();
+
+}
+
 
 #endif /* USE_KEYSTORE */
 

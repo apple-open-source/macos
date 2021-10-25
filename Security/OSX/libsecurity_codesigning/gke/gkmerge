@@ -1,10 +1,11 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 #
 # gkmerge - merge Gatekeeper whitelist snippets
 #
 # gkmerge [--output name] files...
 #	Takes GKE data from all files, merges it together, and writes it to a new snippet file 'output'.
 #
+from __future__ import print_function
 import sys
 import os
 import signal
@@ -19,7 +20,7 @@ import uuid
 # Usage and fail
 #
 def fail(whatever):
-	print >>sys.stderr, "%s: %s" % (sys.argv[0], whatever)
+	print("%s: %s" % (sys.argv[0], whatever), file=sys.stderr)
 	sys.exit(1)
 
 
@@ -45,6 +46,6 @@ for source in args.source:
 # Write it back out as a snippet file
 #
 plistlib.writePlist(gkedict, args.output)
-print "Wrote %d authority records + %d signatures to %s" % (
+print("Wrote %d authority records + %d signatures to %s" % (
 	len(gkedict["authority"]), len(gkedict["signatures"]), args.output
-)
+))

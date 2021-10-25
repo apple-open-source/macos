@@ -511,7 +511,7 @@ gather_proc_info()
 		     */
 			if (cre != ESRCH) {
 			    (void) snpf(Namech, Namechl, "%s|%s info error: %s",
-				CWD + 1, RTD + 1, strerror(cre));
+				&CWD[1], &RTD[1], strerror(cre));
 			    Namech[Namechl - 1] = '\0';
 			    enter_nm(Namech);
 			    if (Lf->sf)

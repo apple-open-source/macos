@@ -411,7 +411,11 @@ void IOHIDQueueSetDispatchQueue(IOHIDQueueRef queue, dispatch_queue_t dispatchQu
 {
     os_assert(__IOHIDQueueSetupAsyncSupport(queue));
     
-    queue->dispatchQueue = dispatch_queue_create_with_target("IOHIDQueueDispatchQueue", DISPATCH_QUEUE_SERIAL, dispatchQueue);
+    char label[256] = {0};
+    
+    snprintf(label, sizeof (label), "%s.IOHIDQueueRef", dispatch_queue_get_label (dispatchQueue) ? dispatch_queue_get_label (dispatchQueue) : "");
+    
+    queue->dispatchQueue = dispatch_queue_create_with_target(label, DISPATCH_QUEUE_SERIAL, dispatchQueue);
     require(queue->dispatchQueue, exit);
     
     _IOHIDObjectInternalRetain(queue);

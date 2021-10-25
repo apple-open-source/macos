@@ -29,6 +29,8 @@
 #ifndef _SECURITY_SECKEYPROXY_H_
 #define _SECURITY_SECKEYPROXY_H_
 
+#ifdef __OBJC__
+
 #import <Foundation/Foundation.h>
 #include <Security/SecBase.h>
 #include <Security/SecKey.h>
@@ -49,6 +51,10 @@ NS_ASSUME_NONNULL_BEGIN
 // Retrieve endpoint to this proxy instance.  Endpoint can be transferred over NSXPCConnection and passed to +[createKeyFromEndpoint:error:] method.
 @property (readonly, nonatomic) NSXPCListenerEndpoint *endpoint;
 
+// Block which is invoked when any new client connects to this proxy.
+@property (nonatomic, nullable, copy) void (^clientConnectionHandler)(BOOL firstClientConnected);
+@property (nonatomic, nullable, copy) void (^clientDisconnectionHandler)(BOOL lastClientDisconnected);
+
 // Invalidates all connections to this proxy.
 - (void)invalidate;
 
@@ -59,5 +65,7 @@ NS_ASSUME_NONNULL_BEGIN
 @end
 
 NS_ASSUME_NONNULL_END
+
+#endif /* __OBJC__ */
 
 #endif /* !_SECURITY_SECKEYPROXY_H_ */

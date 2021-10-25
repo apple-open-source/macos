@@ -140,6 +140,9 @@ static RESPONSECODE CreateChannelByNameOrChannel(DWORD Lun,
 	else
 		CcidSlots[reader_index].readerName = strdup("no name");
 
+	/* init T=1 structure just in case */
+	t1_init(&CcidSlots[reader_index].t1, reader_index);
+
 	if (lpcDevice)
 		ret = OpenPortByName(reader_index, lpcDevice);
 	else
@@ -147,11 +150,16 @@ static RESPONSECODE CreateChannelByNameOrChannel(DWORD Lun,
 
 	if (ret != STATUS_SUCCESS)
 	{
-		DEBUG_CRITICAL("failed");
 		if (STATUS_NO_SUCH_DEVICE == ret)
+		{
+			DEBUG_INFO1("failed");
 			return_value = IFD_NO_SUCH_DEVICE;
+		}
 		else
+		{
+			DEBUG_CRITICAL("failed");
 			return_value = IFD_COMMUNICATION_ERROR;
+		}
 
 		goto error;
 	}
@@ -723,6 +731,14 @@ EXTERNAL RESPONSECODE IFDHSetProtocolParameters(DWORD Lun, DWORD Protocol,
 		goto end;
 	}
 
+	/* check the protocol is supported by the reader */
+	if (!(Protocol & ccid_desc->dwProtocols))
+	{
+		DEBUG_CRITICAL2("Protocol T=" DWORD_D " not supported by reader",
+			Protocol - SCARD_PROTOCOL_T0);
+		return IFD_ERROR_NOT_SUPPORTED;
+	}
+
 	/* Get ATR of the card */
 	atr_ret = ATR_InitFromArray(&atr, ccid_slot->pcATRBuffer,
 		ccid_slot->nATRLength);
@@ -943,7 +959,8 @@ EXTERNAL RESPONSECODE IFDHSetProtocolParameters(DWORD Lun, DWORD Protocol,
 	}
 
 	/* Now we must set the reader parameters */
-	(void)ATR_GetConvention(&atr, &convention);
+	if (ATR_MALFORMED == ATR_GetConvention(&atr, &convention))
+		return IFD_COMMUNICATION_ERROR;
 
 	/* specific mode and implicit parameters? (b5 of TA2) */
 	if (atr.ib[1][ATR_INTERFACE_BYTE_TA].present
@@ -998,8 +1015,8 @@ EXTERNAL RESPONSECODE IFDHSetProtocolParameters(DWORD Lun, DWORD Protocol,
 						0x00, 0xFF, 0x81, 0x31, 0x80, 0x45, 0x00, 0x31,
 						0xC1, 0x73, 0xC0, 0x01, 0x00, 0x00, 0x90, 0x00, 0xB1 };
 
-					if (0 == memcmp(ccid_slot->pcATRBuffer, openpgp_atr,
-						ccid_slot->nATRLength))
+					if ((ccid_slot->nATRLength == sizeof openpgp_atr)
+						&& (0 == memcmp(ccid_slot->pcATRBuffer, openpgp_atr, ccid_slot->nATRLength)))
 						/* change BWI from 4 to 7 to increase BWT from
 						 * 1.4s to 11s and avoid a timeout during on
 						 * board key generation (bogus card) */

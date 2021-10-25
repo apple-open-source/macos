@@ -2425,11 +2425,11 @@ void readPasswordContentsWithResult(SecKeychainItemRef item, OSStatus expectedRe
     CFMutableArrayRef itemList = (CFMutableArrayRef) CFArrayCreateMutable(kCFAllocatorDefault, 1, &kCFTypeArrayCallBacks);
     CFArrayAppendValue((CFMutableArrayRef)itemList, item);
     CFDictionarySetValue(query, kSecUseItemList, itemList);
+    CFReleaseNull(itemList); // retained by query dict
 
     CFTypeRef results = NULL;
     if(expectedContents) {
         is(SecItemCopyMatching(query, (CFTypeRef*) &results), expectedResult, "%s: readPasswordContents: SecItemCopyMatching", testName);
-        CFReleaseNull(query);
 
         if(results) {
             ok(CFGetTypeID(results) == CFDataGetTypeID(), "%s: result is not a data", testName);
@@ -2448,6 +2448,7 @@ void readPasswordContentsWithResult(SecKeychainItemRef item, OSStatus expectedRe
         pass("Match test numbers");
         pass("Match test numbers");
     }
+    CFReleaseNull(query);
 }
 #define readPasswordContentsWithResultTests 3
 
@@ -2485,6 +2486,7 @@ void deleteItem(SecKeychainItemRef item) {
     CFMutableArrayRef itemList = (CFMutableArrayRef) CFArrayCreateMutable(kCFAllocatorDefault, 1, &kCFTypeArrayCallBacks);
     CFArrayAppendValue((CFMutableArrayRef)itemList, item);
     CFDictionarySetValue(query, kSecUseItemList, itemList);
+    CFReleaseNull(itemList); // retained by query dict
 
     ok_status(SecItemDelete(query), "%s: SecItemDelete single item", testName);
     CFReleaseNull(query);

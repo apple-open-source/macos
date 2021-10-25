@@ -29,8 +29,6 @@
 #import "keychain/ot/OctagonStateMachineHelpers.h"
 #import "keychain/ot/OTOperationDependencies.h"
 
-@class OTCuttlefishContext;
-
 NS_ASSUME_NONNULL_BEGIN
 
 @interface OTSetRecoveryKeyOperation : CKKSGroupOperation
@@ -38,7 +36,6 @@ NS_ASSUME_NONNULL_BEGIN
 - (instancetype)initWithDependencies:(OTOperationDependencies*)dependencies
                          recoveryKey:(NSString*)recoveryKey;
 
-@property (weak) OTCuttlefishContext* cuttlefishContext;
 @property (nonatomic) NSString* salt;
 @property (nonatomic) NSString* recoveryKey;
 

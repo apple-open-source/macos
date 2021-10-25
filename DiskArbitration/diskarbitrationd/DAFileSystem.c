@@ -26,6 +26,8 @@
 #include "DABase.h"
 #include "DACommand.h"
 #include "DAInternal.h"
+#include "DAThread.h"
+#include "DALog.h"
 
 #include <fsproperties.h>
 #include <paths.h>
@@ -52,13 +54,7 @@ struct __DAFileSystem
 
 typedef struct __DAFileSystem __DAFileSystem;
 
-struct __DAFileSystemContext
-{
-    DAFileSystemCallback callback;
-    void *               callbackContext;
-};
 
-typedef struct __DAFileSystemContext __DAFileSystemContext;
 
 struct __DAFileSystemProbeContext
 {
@@ -68,7 +64,7 @@ struct __DAFileSystemProbeContext
     CFStringRef               devicePath;
     CFURLRef                  probeCommand;
     CFURLRef                  repairCommand;
-    CFBooleanRef              volumeClean;
+    int                       cleanStatus;
     CFStringRef               volumeName;
     CFStringRef               volumeType;
     CFUUIDRef                 volumeUUID;
@@ -113,6 +109,7 @@ const CFStringRef kDAFileSystemMountArgumentNoSetUserID = CFSTR( "nosuid"   );
 const CFStringRef kDAFileSystemMountArgumentNoWrite     = CFSTR( "rdonly"   );
 const CFStringRef kDAFileSystemMountArgumentUnion       = CFSTR( "union"    );
 const CFStringRef kDAFileSystemMountArgumentUpdate      = CFSTR( "update"   );
+const CFStringRef kDAFileSystemMountArgumentNoBrowse    = CFSTR( "nobrowse" );
 
 const CFStringRef kDAFileSystemUnmountArgumentForce     = CFSTR( "force" );
 
@@ -209,7 +206,7 @@ static void __DAFileSystemProbeCallback( int status, void * parameter, CFDataRef
         }
         else
         {
-            ( context->callback )( status, context->volumeClean, context->volumeName, context->volumeType, context->volumeUUID, context->callbackContext );
+            ( context->callback )( status, context->cleanStatus, context->volumeName, context->volumeType, context->volumeUUID, context->callbackContext );
         }
     }
 
@@ -218,7 +215,6 @@ static void __DAFileSystemProbeCallback( int status, void * parameter, CFDataRef
     CFRelease( context->probeCommand );
 
     if ( context->repairCommand )  CFRelease( context->repairCommand );
-    if ( context->volumeClean   )  CFRelease( context->volumeClean   );
     if ( context->volumeName    )  CFRelease( context->volumeName    );
     if ( context->volumeType    )  CFRelease( context->volumeType    );
     if ( context->volumeUUID    )  CFRelease( context->volumeUUID    );
@@ -348,7 +344,7 @@ static void __DAFileSystemProbeCallbackStage3( int status, CFDataRef output, voi
 
     __DAFileSystemProbeContext * context = parameter;
 
-    context->volumeClean = CFRetain( ( status == 0 ) ? kCFBooleanTrue : kCFBooleanFalse );
+    context->cleanStatus = status;
 
     context->volumeType = _FSCopyNameForVolumeFormatAtNode( context->devicePath );
 
@@ -384,8 +380,8 @@ CFStringRef _DAFileSystemCopyName( DAFileSystemRef filesystem, CFURLRef mountpoi
         name = CFStringCreateWithCString( kCFAllocatorDefault, ( ( char * ) &attr.data ) + attr.data.attr_dataoffset, kCFStringEncodingUTF8 );
         if ( name && ( CFStringGetLength( name ) == 0 ) )
         {
-             CFRelease(name);
-             name = NULL;
+            CFRelease(name);
+            name = NULL;
         }
     }
 
@@ -493,24 +489,28 @@ void DAFileSystemInitialize( void )
 
 void DAFileSystemMount( DAFileSystemRef      filesystem,
                         CFURLRef             device,
+                        CFStringRef          volumeName,
                         CFURLRef             mountpoint,
                         uid_t                userUID,
                         gid_t                userGID,
                         DAFileSystemCallback callback,
-                        void *               callbackContext )
+                        void *               callbackContext,
+                        Boolean              userFSPreferenceEnabled )
 {
     /*
      * Mount the specified volume.  A status of 0 indicates success.
      */
 
-    DAFileSystemMountWithArguments( filesystem, device, mountpoint, userUID, userGID, callback, callbackContext, NULL );
+    DAFileSystemMountWithArguments( filesystem, device, volumeName, mountpoint, userUID, userGID, userFSPreferenceEnabled, callback, callbackContext, NULL );
 }
 
 void DAFileSystemMountWithArguments( DAFileSystemRef      filesystem,
                                      CFURLRef             device,
+                                     CFStringRef          volumeName,
                                      CFURLRef             mountpoint,
                                      uid_t                userUID,
                                      gid_t                userGID,
+                                     Boolean              userFSPreferenceEnabled,
                                      DAFileSystemCallback callback,
                                      void *               callbackContext,
                                      ... )
@@ -521,19 +521,57 @@ void DAFileSystemMountWithArguments( DAFileSystemRef      filesystem,
      * terminated.
      */
 
-    CFStringRef             argument       = NULL;
+    CFStringRef             argument          = NULL;
     va_list                 arguments;
-    CFURLRef                command        = NULL;
-    __DAFileSystemContext * context        = NULL;
-    CFStringRef             devicePath     = NULL;
-    CFStringRef             mountpointPath = NULL;
-    CFMutableStringRef      options        = NULL;
-    int                     status         = 0;
+    CFURLRef                command           = NULL;
+    __DAFileSystemContext * context           = NULL;
+    CFStringRef             devicePath        = NULL;
+    CFStringRef             mountpointPath    = NULL;
+    CFMutableStringRef      options           = NULL;
+    int                     status            = 0;
+    CFDictionaryRef         personality       = NULL;
+    CFDictionaryRef         personalities     = NULL;
+    CFTypeRef               fsImplementation  = NULL;
+    Boolean                 useUserFS         = FALSE;
 
     /*
      * Prepare to mount the volume.
      */
 
+    /*
+     *  Check for UserFS mount support. If the FS bundle supports UserFS and the preference is enabled
+     *  Use UserFS APIs to do the mount instead of mount command.
+     */
+
+    fsImplementation = CFDictionaryGetValue( filesystem->_properties, CFSTR( "FSImplementation" )  );
+    if ( fsImplementation != NULL )
+    {
+        Boolean                 useKext         = FALSE;
+        if  (CFGetTypeID(fsImplementation) == CFArrayGetTypeID() )
+        {
+            if ( ( ___CFArrayContainsValue( fsImplementation, CFSTR("UserFS") ) == TRUE ) )
+            {
+                useUserFS = TRUE;
+            }
+            if ( ( ___CFArrayContainsValue( fsImplementation, CFSTR("kext") ) == TRUE ) )
+            {
+                useKext = TRUE;
+            }
+                
+            /*
+             * If both kext and userfs are supported, check the preference to choose one.
+             */
+            if ( useUserFS == TRUE && useKext == TRUE)
+            {
+                if (userFSPreferenceEnabled == FALSE)
+                {
+                    useUserFS = FALSE;
+                }
+            }
+        }
+    }
+    
+   
     command = CFURLCreateWithFileSystemPath( kCFAllocatorDefault, CFSTR( "/sbin/mount" ), kCFURLPOSIXPathStyle, FALSE );
     if ( command == NULL )  { status = ENOTSUP; goto DAFileSystemMountErr; }
 
@@ -572,6 +610,39 @@ void DAFileSystemMountWithArguments( DAFileSystemRef      filesystem,
     context->callback        = callback;
     context->callbackContext = callbackContext;
 
+    if ( useUserFS )
+    {
+        CFArrayRef argumentList;
+        
+        // Retrive the device name in diskXsY format (without "/dev/" ).
+        argumentList = CFStringCreateArrayBySeparatingStrings( kCFAllocatorDefault, devicePath, CFSTR( "/" ) );
+        if ( argumentList )
+        {
+            CFStringRef dev = CFArrayGetValueAtIndex( argumentList, CFArrayGetCount( argumentList ) - 1 );
+            context->deviceName = CFRetain(dev);
+            context->fileSystem = CFRetain( DAFileSystemGetKind( filesystem ));
+            context->mountPoint = CFRetain( mountpointPath );
+            if ( volumeName )
+            {
+                context->volumeName = CFRetain( volumeName );
+            }
+            else
+            {
+                context->volumeName = CFSTR( "Untitled" );
+            }
+            DAThreadExecute(__DAMountUserFSVolume, context, __DAMountUserFSVolumeCallback, context);
+            CFRelease( argumentList );
+        }
+        else
+        {
+            status = EINVAL;
+        }
+        goto DAFileSystemMountErr;
+    }
+
+    /*
+     * Use mount command to do the mount here.
+     */
     if ( CFStringGetLength( options ) )
     {
         DACommandExecute( command,
@@ -605,10 +676,10 @@ void DAFileSystemMountWithArguments( DAFileSystemRef      filesystem,
 
 DAFileSystemMountErr:
 
-    if ( command        )  CFRelease( command        );
-    if ( devicePath     )  CFRelease( devicePath     );
-    if ( mountpointPath )  CFRelease( mountpointPath );
-    if ( options        )  CFRelease( options        );
+    if ( command          )  CFRelease( command          );
+    if ( devicePath       )  CFRelease( devicePath       );
+    if ( mountpointPath   )  CFRelease( mountpointPath   );
+    if ( options          )  CFRelease( options          );
 
     if ( status )
     {
@@ -692,7 +763,7 @@ void DAFileSystemProbe( DAFileSystemRef           filesystem,
     context->devicePath      = devicePath;
     context->probeCommand    = probeCommand;
     context->repairCommand   = repairCommand;
-    context->volumeClean     = NULL;
+    context->cleanStatus     = -1;
     context->volumeName      = NULL;
     context->volumeType      = NULL;
     context->volumeUUID      = NULL;
@@ -1017,4 +1088,20 @@ DAFileSystemUnmountErr:
             ( callback )( status, callbackContext );
         }
     }
+}
+
+void __DAMountUserFSVolumeCallback( int status, void * parameter )
+{
+    __DAFileSystemContext * context = parameter;
+
+    if ( context->callback )
+    {
+        ( context->callback )( status, context->callbackContext );
+    }
+
+    if ( context->volumeName )  CFRelease(context->volumeName);
+    if ( context->deviceName )  CFRelease(context->deviceName);
+    if ( context->fileSystem )  CFRelease(context->fileSystem);
+    if ( context->mountPoint )  CFRelease(context->mountPoint);
+    free( context );
 }

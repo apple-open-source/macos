@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2007, 2010, 2011, 2013, 2015-2019 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2007, 2010, 2011, 2013, 2015-2021 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -47,7 +47,6 @@
 #include <IOKit/IOKitLib.h>
 #include <IOKit/network/IONetworkInterface.h>
 #include <IOKit/network/IONetworkController.h>
-#include "dy_framework.h"
 
 
 #pragma mark -
@@ -915,7 +914,7 @@ __getIOMTULimits(char	ifr_name[IFNAMSIZ],
 	/* look for a matching interface in the IORegistry */
 
 	if (masterPort == MACH_PORT_NULL) {
-		kr = IOMasterPort(MACH_PORT_NULL, &masterPort);
+		kr = IOMainPort(MACH_PORT_NULL, &masterPort);
 		if (kr != KERN_SUCCESS) {
 			return FALSE;
 		}
@@ -1088,7 +1087,7 @@ SCNetworkInterfaceCopyMTU(SCNetworkInterfaceRef	interface,
 		}
 
 		if (mtu_min != NULL) {
-#if	IP_MSS > IPV6_MMTU
+#if	defined(IP_MSS) && IP_MSS > IPV6_MMTU
 			if (*mtu_min < IP_MSS) {
 				/* bump up the minimum MTU */
 				*mtu_min = IP_MSS/*576*/;

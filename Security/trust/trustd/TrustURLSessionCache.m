@@ -42,6 +42,7 @@ static NSTimeInterval TrustURLSessionGetResourceTimeout(void) {
 @property TrustURLSessionDelegate *delegate;
 @property NSMutableDictionary <NSData *, NSURLSession *>* _clientSessionMap;
 @property NSMutableArray <NSData *>* _clientLRUList;
+@property _NSHSTSStorage * _sharedHSTSCache;
 @end
 
 @implementation TrustURLSessionCache
@@ -52,6 +53,7 @@ static NSTimeInterval TrustURLSessionGetResourceTimeout(void) {
         self.delegate = delegate;
         self._clientSessionMap = [NSMutableDictionary dictionaryWithCapacity:MAX_CACHED_SESSIONS];
         self._clientLRUList = [NSMutableArray arrayWithCapacity:(MAX_CACHED_SESSIONS + 1)];
+        self._sharedHSTSCache = [[_NSHSTSStorage alloc] initInMemoryStore];
     }
     return self;
 }
@@ -59,6 +61,9 @@ static NSTimeInterval TrustURLSessionGetResourceTimeout(void) {
 - (NSURLSession *)createSessionForAuditToken:(NSData *)auditToken
 {
     NSURLSessionConfiguration *config = [NSURLSessionConfiguration ephemeralSessionConfiguration];
+    config._hstsStorage = self._sharedHSTSCache; // use shared ephemeral HSTS cache
+    config.HTTPCookieStorage = nil; // no cookies
+    config.URLCache = nil; // no resource caching
     config.timeoutIntervalForResource = TrustURLSessionGetResourceTimeout();
     config.HTTPAdditionalHeaders = @{@"User-Agent" : TrustdUserAgent};
     config._sourceApplicationAuditTokenData = auditToken;

@@ -37,8 +37,10 @@ enum {
     RuleFlagEntitledAndGroup    = 1 << 6,
     RuleFlagRequireAppleSigned  = 1 << 7,
     RuleFlagVPNEntitledAndGroup = 1 << 8,
-	RuleFlagPasswordOnly		= 1 << 9
+	RuleFlagPasswordOnly		= 1 << 9,
+    RuleFlagSecureTokenOnly     = 1 << 10
 };
+
 typedef uint32_t RuleFlags;
 
 typedef enum  {
@@ -151,7 +153,10 @@ SecRequirementRef rule_get_requirement(rule_t);
     
 AUTH_NONNULL1 AUTH_NONNULL2
 void rule_log_manipulation(authdb_connection_t dbconn, rule_t rule, RuleOperation operation, process_t source);
-    
+
+AUTH_NONNULL_ALL
+bool rule_get_securetokenuser(rule_t rule);
+
 #if defined(__cplusplus)
 }
 #endif

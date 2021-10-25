@@ -140,7 +140,7 @@ ptrace(struct proc *p, struct ptrace_args *uap, int32_t *retval)
 		if (ISSET(p->p_lflag, P_LTRACED)) {
 			proc_unlock(p);
 			KERNEL_DEBUG_CONSTANT(BSDDBG_CODE(DBG_BSD_PROC, BSD_PROC_FRCEXIT) | DBG_FUNC_NONE,
-			    p->p_pid, W_EXITCODE(ENOTSUP, 0), 4, 0, 0);
+			    proc_getpid(p), W_EXITCODE(ENOTSUP, 0), 4, 0, 0);
 			exit1(p, W_EXITCODE(ENOTSUP, 0), retval);
 
 			thread_exception_return();
@@ -195,7 +195,7 @@ retry_trace_me: ;
 #endif
 		proc_lock(p);
 		/* Make sure the process wasn't re-parented. */
-		if (p->p_ppid != pproc->p_pid) {
+		if (p->p_ppid != proc_getpid(pproc)) {
 			proc_unlock(p);
 			proc_rele(pproc);
 			goto retry_trace_me;
@@ -471,7 +471,7 @@ resume:
 			goto out;
 		}
 		th_act = port_name_to_thread(CAST_MACH_PORT_TO_NAME(uap->addr),
-		    PORT_TO_THREAD_NONE);
+		    PORT_INTRANS_OPTIONS_NONE);
 		if (th_act == THREAD_NULL) {
 			error = ESRCH;
 			goto out;
@@ -514,7 +514,7 @@ cantrace(proc_t cur_procp, kauth_cred_t creds, proc_t traced_procp, int *errp)
 	 * You can't trace a process if:
 	 *	(1) it's the process that's doing the tracing,
 	 */
-	if (traced_procp->p_pid == cur_procp->p_pid) {
+	if (proc_getpid(traced_procp) == proc_getpid(cur_procp)) {
 		*errp = EINVAL;
 		return 0;
 	}

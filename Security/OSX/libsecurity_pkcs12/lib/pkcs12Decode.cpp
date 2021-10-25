@@ -249,7 +249,7 @@ void P12Coder::shroudedKeyBagParse(
 	}
 	
 	/* We'll own the actual CSSM_KEY memory */
-	CSSM_KEY_PTR privKey = (CSSM_KEY_PTR)mCoder.malloc(sizeof(CSSM_KEY));
+	CSSM_KEY_PTR privKey = (CSSM_KEY_PTR)mCoder.alloc(sizeof(CSSM_KEY));
 	memset(privKey, 0, sizeof(CSSM_KEY));
 	
 	CSSM_DATA labelData;

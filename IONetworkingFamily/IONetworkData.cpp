@@ -113,13 +113,10 @@ IONetworkData::init(const char * name,
         (bufferType == kIONetworkDataBufferTypeExternal))
     {
         _buffer = (bufferType == kIONetworkDataBufferTypeInternal) ?
-                  (void *) IOMalloc(bufferSize) : extBuffer;
+                  (void *) IOMallocData(bufferSize) : extBuffer;
 
         if (_buffer == 0)
             return false;
-
-        if (bufferType == kIONetworkDataBufferTypeInternal)
-            bzero(_buffer, bufferSize);
     }
 
     _bufType   = bufferType;
@@ -237,7 +234,7 @@ void IONetworkData::free()
         _key->release();
 
     if (_buffer && (_bufType == kIONetworkDataBufferTypeInternal))
-        IOFree( _buffer, _size);
+        IOFreeData( _buffer, _size);
 
     super::free();
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2020 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2021 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -129,6 +129,27 @@ vm_size_t        upl_offset_to_pagelist = 0;
 #if     VM_CPM
 #include <vm/cpm.h>
 #endif  /* VM_CPM */
+
+static void mach_memory_entry_no_senders(ipc_port_t, mach_port_mscount_t);
+
+kern_return_t
+vm_purgable_control(
+	vm_map_t                map,
+	vm_offset_t             address,
+	vm_purgable_t           control,
+	int                     *state);
+
+kern_return_t
+mach_vm_purgable_control(
+	vm_map_t                map,
+	mach_vm_offset_t        address,
+	vm_purgable_t           control,
+	int                     *state);
+
+IPC_KOBJECT_DEFINE(IKOT_NAMED_ENTRY,
+    .iko_op_stable     = true,
+    .iko_op_no_senders = mach_memory_entry_no_senders,
+    .iko_op_destroy    = mach_destroy_memory_entry);
 
 /*
  *	mach_vm_allocate allocates "zero fill" memory in the specfied
@@ -474,7 +495,11 @@ vm_protect(
 	vm_prot_t               new_protection)
 {
 	if ((map == VM_MAP_NULL) || (start + size < start) ||
-	    (new_protection & ~(VM_PROT_ALL | VM_PROT_COPY))) {
+	    (new_protection & ~VM_VALID_VMPROTECT_FLAGS)
+#if defined(__x86_64__)
+	    || ((new_protection & VM_PROT_UEXEC) && !pmap_supported_feature(map->pmap, PMAP_FEAT_UEXEC))
+#endif
+	    ) {
 		return KERN_INVALID_ARGUMENT;
 	}
 
@@ -1343,6 +1368,11 @@ mach_vm_remap_kernel(
 	    max_protection,    /* IN/OUT */
 	    inheritance);
 	*address = map_addr;
+#if KASAN
+	if (kr == KERN_SUCCESS && target_map->pmap == kernel_pmap) {
+		kasan_notify_address(map_addr, size);
+	}
+#endif
 	return kr;
 }
 
@@ -2133,6 +2163,28 @@ mach_vm_purgable_control(
 }
 
 kern_return_t
+mach_vm_purgable_control_external(
+	mach_port_t             target_tport,
+	mach_vm_offset_t        address,
+	vm_purgable_t           control,
+	int                     *state)
+{
+	vm_map_t map;
+	kern_return_t kr;
+
+	if (control == VM_PURGABLE_GET_STATE) {
+		map = convert_port_to_map_read(target_tport);
+	} else {
+		map = convert_port_to_map(target_tport);
+	}
+
+	kr = mach_vm_purgable_control(map, address, control, state);
+	vm_map_deallocate(map);
+
+	return kr;
+}
+
+kern_return_t
 vm_purgable_control(
 	vm_map_t                map,
 	vm_offset_t             address,
@@ -2152,6 +2204,28 @@ vm_purgable_control(
 	           vm_map_trunc_page(address, VM_MAP_PAGE_MASK(map)),
 	           control,
 	           state);
+}
+
+kern_return_t
+vm_purgable_control_external(
+	mach_port_t             target_tport,
+	vm_offset_t             address,
+	vm_purgable_t           control,
+	int                     *state)
+{
+	vm_map_t map;
+	kern_return_t kr;
+
+	if (control == VM_PURGABLE_GET_STATE) {
+		map = convert_port_to_map_read(target_tport);
+	} else {
+		map = convert_port_to_map(target_tport);
+	}
+
+	kr = vm_purgable_control(map, address, control, state);
+	vm_map_deallocate(map);
+
+	return kr;
 }
 
 
@@ -2255,7 +2329,7 @@ mach_vm_page_range_query(
 	mach_msg_type_number_t  count = 0;
 
 	void                    *info = NULL;
-	void                    *local_disp = NULL;;
+	void                    *local_disp = NULL;
 	vm_map_size_t           info_size = 0, local_disp_size = 0;
 	mach_vm_offset_t        start = 0, end = 0;
 	int                     effective_page_shift, effective_page_size, effective_page_mask;
@@ -2302,10 +2376,10 @@ mach_vm_page_range_query(
 	num_pages = (int) (curr_sz >> effective_page_shift);
 
 	info_size = num_pages * sizeof(vm_page_info_basic_data_t);
-	info = kheap_alloc(KHEAP_TEMP, info_size, Z_WAITOK);
+	info = kalloc_data(info_size, Z_WAITOK);
 
 	local_disp_size = num_pages * sizeof(int);
-	local_disp = kheap_alloc(KHEAP_TEMP, local_disp_size, Z_WAITOK);
+	local_disp = kalloc_data(local_disp_size, Z_WAITOK);
 
 	if (info == NULL || local_disp == NULL) {
 		kr = KERN_RESOURCE_SHORTAGE;
@@ -2362,12 +2436,8 @@ mach_vm_page_range_query(
 	*dispositions_count = disp_buf_total_size / sizeof(int);
 
 out:
-	if (local_disp) {
-		kheap_free(KHEAP_TEMP, local_disp, local_disp_size);
-	}
-	if (info) {
-		kheap_free(KHEAP_TEMP, info, info_size);
-	}
+	kfree_data(local_disp, local_disp_size);
+	kfree_data(info, info_size);
 	return kr;
 }
 
@@ -2418,6 +2488,52 @@ vm_upl_unmap(
 	}
 
 	return vm_map_remove_upl(map, upl);
+}
+
+/* map a part of a upl into an address space with requested protection. */
+kern_return_t
+vm_upl_map_range(
+	vm_map_t                map,
+	upl_t                   upl,
+	vm_offset_t             offset_to_map,
+	vm_size_t               size_to_map,
+	vm_prot_t               prot_to_map,
+	vm_address_t            *dst_addr)
+{
+	vm_map_offset_t         map_addr, aligned_offset_to_map, adjusted_offset;
+	kern_return_t           kr;
+
+	if (VM_MAP_NULL == map) {
+		return KERN_INVALID_ARGUMENT;
+	}
+	aligned_offset_to_map = VM_MAP_TRUNC_PAGE(offset_to_map, VM_MAP_PAGE_MASK(map));
+	adjusted_offset =  offset_to_map - aligned_offset_to_map;
+	size_to_map = VM_MAP_ROUND_PAGE(size_to_map + adjusted_offset, VM_MAP_PAGE_MASK(map));
+
+	kr = vm_map_enter_upl_range(map, upl, aligned_offset_to_map, size_to_map, prot_to_map, &map_addr);
+	*dst_addr = CAST_DOWN(vm_address_t, (map_addr + adjusted_offset));
+	return kr;
+}
+
+/* unmap a part of a upl that was mapped in the address space. */
+kern_return_t
+vm_upl_unmap_range(
+	vm_map_t                map,
+	upl_t                   upl,
+	vm_offset_t             offset_to_unmap,
+	vm_size_t               size_to_unmap)
+{
+	vm_map_offset_t         aligned_offset_to_unmap, page_offset;
+
+	if (VM_MAP_NULL == map) {
+		return KERN_INVALID_ARGUMENT;
+	}
+
+	aligned_offset_to_unmap = VM_MAP_TRUNC_PAGE(offset_to_unmap, VM_MAP_PAGE_MASK(map));
+	page_offset =  offset_to_unmap - aligned_offset_to_unmap;
+	size_to_unmap = VM_MAP_ROUND_PAGE(size_to_unmap + page_offset, VM_MAP_PAGE_MASK(map));
+
+	return vm_map_remove_upl_range(map, upl, aligned_offset_to_unmap, size_to_unmap);
 }
 
 /* Retrieve a upl for an object underlying an address range in a map */
@@ -2541,12 +2657,7 @@ mach_make_memory_entry_internal(
 		return KERN_INVALID_VALUE;
 	}
 
-	if (IP_VALID(parent_handle) &&
-	    ip_kotype(parent_handle) == IKOT_NAMED_ENTRY) {
-		parent_entry = (vm_named_entry_t) ip_get_kobject(parent_handle);
-	} else {
-		parent_entry = NULL;
-	}
+	parent_entry = mach_memory_entry_from_port(parent_handle);
 
 	if (parent_entry && parent_entry->is_copy) {
 		DEBUG4K_MEMENTRY("map %p offset 0x%llx size 0x%llx prot 0x%x -> entry %p kr 0x%x\n", target_map, offset, *size, permission, user_entry, KERN_INVALID_ARGUMENT);
@@ -2963,7 +3074,7 @@ mach_make_memory_entry_internal(
 		if (kr != KERN_SUCCESS) {
 			DEBUG4K_MEMENTRY("map %p offset 0x%llx size 0x%llx prot 0x%x -> entry %p kr 0x%x\n", target_map, offset, *size, permission, user_entry, kr);
 			if (VM_MAP_PAGE_SHIFT(target_map) < PAGE_SHIFT) {
-//				panic("DEBUG4K %s:%d kr 0x%x\n", __FUNCTION__, __LINE__, kr);
+//				panic("DEBUG4K %s:%d kr 0x%x", __FUNCTION__, __LINE__, kr);
 			}
 			return kr;
 		}
@@ -2979,7 +3090,7 @@ mach_make_memory_entry_internal(
 				/* no access at all: fail */
 				DEBUG4K_MEMENTRY("map %p offset 0x%llx size 0x%llx prot 0x%x -> entry %p kr 0x%x\n", target_map, offset, *size, permission, user_entry, KERN_PROTECTION_FAILURE);
 				if (VM_MAP_PAGE_SHIFT(target_map) < PAGE_SHIFT) {
-//					panic("DEBUG4K %s:%d kr 0x%x\n", __FUNCTION__, __LINE__, kr);
+//					panic("DEBUG4K %s:%d kr 0x%x", __FUNCTION__, __LINE__, kr);
 				}
 				vm_map_copy_discard(copy);
 				return KERN_PROTECTION_FAILURE;
@@ -2994,7 +3105,7 @@ mach_make_memory_entry_internal(
 			/* XXX FBDP TODO: no longer needed? */
 			if ((cur_prot & protections) != protections) {
 				if (VM_MAP_PAGE_SHIFT(target_map) < PAGE_SHIFT) {
-//					panic("DEBUG4K %s:%d kr 0x%x\n", __FUNCTION__, __LINE__, KERN_PROTECTION_FAILURE);
+//					panic("DEBUG4K %s:%d kr 0x%x", __FUNCTION__, __LINE__, KERN_PROTECTION_FAILURE);
 				}
 				vm_map_copy_discard(copy);
 				DEBUG4K_MEMENTRY("map %p offset 0x%llx size 0x%llx prot 0x%x -> entry %p kr 0x%x\n", target_map, offset, *size, permission, user_entry, KERN_PROTECTION_FAILURE);
@@ -3048,7 +3159,7 @@ mach_make_memory_entry_internal(
 		kr = mach_memory_entry_allocate(&user_entry, &user_handle);
 		if (kr != KERN_SUCCESS) {
 			if (VM_MAP_PAGE_SHIFT(target_map) < PAGE_SHIFT) {
-//				panic("DEBUG4K %s:%d kr 0x%x\n", __FUNCTION__, __LINE__, kr);
+//				panic("DEBUG4K %s:%d kr 0x%x", __FUNCTION__, __LINE__, kr);
 			}
 			vm_map_copy_discard(copy);
 			DEBUG4K_MEMENTRY("map %p offset 0x%llx size 0x%llx prot 0x%x -> entry %p kr 0x%x\n", target_map, offset, *size, permission, user_entry, KERN_FAILURE);
@@ -3087,7 +3198,7 @@ mach_make_memory_entry_internal(
 	}
 
 	if (parent_entry->is_copy) {
-		panic("parent_entry %p is_copy not supported\n", parent_entry);
+		panic("parent_entry %p is_copy not supported", parent_entry);
 		kr = KERN_INVALID_ARGUMENT;
 		goto make_mem_done;
 	}
@@ -3314,11 +3425,8 @@ mach_memory_entry_allocate(
 	vm_named_entry_t        user_entry;
 	ipc_port_t              user_handle;
 
-	user_entry = (vm_named_entry_t) kalloc(sizeof *user_entry);
-	if (user_entry == NULL) {
-		return KERN_FAILURE;
-	}
-	bzero(user_entry, sizeof(*user_entry));
+	user_entry = kalloc_type(struct vm_named_entry,
+	    Z_WAITOK | Z_ZERO | Z_NOFAIL);
 
 	named_entry_lock_init(user_entry);
 
@@ -3356,6 +3464,12 @@ mach_memory_entry_allocate(
 #endif /* VM_NAMED_ENTRY_LIST */
 
 	return KERN_SUCCESS;
+}
+
+static void
+mach_memory_entry_no_senders(ipc_port_t port, mach_port_mscount_t mscount)
+{
+	ipc_kobject_dealloc_port(port, mscount, IKOT_NAMED_ENTRY);
 }
 
 /*
@@ -3462,10 +3576,11 @@ memory_entry_purgeable_control_internal(
 	vm_named_entry_t        mem_entry;
 	vm_object_t             object;
 
-	if (!IP_VALID(entry_port) ||
-	    ip_kotype(entry_port) != IKOT_NAMED_ENTRY) {
+	mem_entry = mach_memory_entry_from_port(entry_port);
+	if (mem_entry == NULL) {
 		return KERN_INVALID_ARGUMENT;
 	}
+
 	if (control != VM_PURGABLE_SET_STATE &&
 	    control != VM_PURGABLE_GET_STATE &&
 	    control != VM_PURGABLE_SET_STATE_FROM_KERNEL) {
@@ -3478,8 +3593,6 @@ memory_entry_purgeable_control_internal(
 	    ((*state & VM_PURGABLE_STATE_MASK) > VM_PURGABLE_STATE_MASK))) {
 		return KERN_INVALID_ARGUMENT;
 	}
-
-	mem_entry = (vm_named_entry_t) ip_get_kobject(entry_port);
 
 	named_entry_lock(mem_entry);
 
@@ -3538,12 +3651,10 @@ memory_entry_access_tracking_internal(
 	vm_object_t             object;
 	kern_return_t           kr;
 
-	if (!IP_VALID(entry_port) ||
-	    ip_kotype(entry_port) != IKOT_NAMED_ENTRY) {
+	mem_entry = mach_memory_entry_from_port(entry_port);
+	if (mem_entry == NULL) {
 		return KERN_INVALID_ARGUMENT;
 	}
-
-	mem_entry = (vm_named_entry_t) ip_get_kobject(entry_port);
 
 	named_entry_lock(mem_entry);
 
@@ -3578,6 +3689,12 @@ memory_entry_access_tracking_internal(
 	return kr;
 }
 
+#if DEVELOPMENT || DEBUG
+/* For dtrace probe in mach_memory_entry_ownership */
+extern int proc_selfpid(void);
+extern char *proc_name_address(void *p);
+#endif /* DEVELOPMENT || DEBUG */
+
 kern_return_t
 mach_memory_entry_ownership(
 	ipc_port_t      entry_port,
@@ -3589,24 +3706,58 @@ mach_memory_entry_ownership(
 	kern_return_t           kr;
 	vm_named_entry_t        mem_entry;
 	vm_object_t             object;
+#if DEVELOPMENT || DEBUG
+	int                     to_panic = 0;
+	static bool             init_bootarg = false;
+#endif
 
 	cur_task = current_task();
 	if (cur_task != kernel_task &&
 	    (owner != cur_task ||
 	    (ledger_flags & VM_LEDGER_FLAG_NO_FOOTPRINT) ||
+	    (ledger_flags & VM_LEDGER_FLAG_NO_FOOTPRINT_FOR_DEBUG) ||
 	    ledger_tag == VM_LEDGER_TAG_NETWORK)) {
 		/*
 		 * An entitlement is required to:
 		 * + tranfer memory ownership to someone else,
 		 * + request that the memory not count against the footprint,
 		 * + tag as "network" (since that implies "no footprint")
+		 *
+		 * Exception: task with task_no_footprint_for_debug == 1 on internal build
 		 */
 		if (!cur_task->task_can_transfer_memory_ownership &&
-		    IOTaskHasEntitlement(cur_task,
-		    "com.apple.private.memory.ownership_transfer")) {
+		    IOCurrentTaskHasEntitlement("com.apple.private.memory.ownership_transfer")) {
 			cur_task->task_can_transfer_memory_ownership = TRUE;
 		}
 		if (!cur_task->task_can_transfer_memory_ownership) {
+#if DEVELOPMENT || DEBUG
+			if ((ledger_tag == VM_LEDGER_TAG_DEFAULT) &&
+			    (ledger_flags & VM_LEDGER_FLAG_NO_FOOTPRINT_FOR_DEBUG) &&
+			    cur_task->task_no_footprint_for_debug) {
+				/*
+				 * Allow performance tools running on internal builds to hide memory usage from phys_footprint even
+				 * WITHOUT an entitlement. This can be enabled by per task sysctl vm.task_no_footprint_for_debug=1
+				 * with the ledger tag VM_LEDGER_TAG_DEFAULT and flag VM_LEDGER_FLAG_NO_FOOTPRINT_FOR_DEBUG.
+				 *
+				 * If the boot-arg "panic_on_no_footprint_for_debug" is set, the kernel will
+				 * panic here in order to detect any abuse of this feature, which is intended solely for
+				 * memory debugging purpose.
+				 */
+				if (!init_bootarg) {
+					PE_parse_boot_argn("panic_on_no_footprint_for_debug", &to_panic, sizeof(to_panic));
+					init_bootarg = true;
+				}
+				if (to_panic) {
+					panic("%s: panic_on_no_footprint_for_debug is triggered by pid %d procname %s", __func__, proc_selfpid(), cur_task->bsd_info? proc_name_address(cur_task->bsd_info) : "?");
+				}
+
+				/*
+				 * Flushing out user space processes using this interface:
+				 * $ dtrace -n 'task_no_footprint_for_debug {printf("%d[%s]\n", pid, execname); stack(); ustack();}'
+				 */
+				DTRACE_VM(task_no_footprint_for_debug);
+			} else
+#endif /* DEVELOPMENT || DEBUG */
 			return KERN_NO_ACCESS;
 		}
 	}
@@ -3619,11 +3770,10 @@ mach_memory_entry_ownership(
 		return KERN_INVALID_ARGUMENT;
 	}
 
-	if (!IP_VALID(entry_port) ||
-	    ip_kotype(entry_port) != IKOT_NAMED_ENTRY) {
+	mem_entry = mach_memory_entry_from_port(entry_port);
+	if (mem_entry == NULL) {
 		return KERN_INVALID_ARGUMENT;
 	}
-	mem_entry = (vm_named_entry_t) ip_get_kobject(entry_port);
 
 	named_entry_lock(mem_entry);
 
@@ -3673,12 +3823,10 @@ mach_memory_entry_get_page_counts(
 	vm_object_offset_t      offset;
 	vm_object_size_t        size;
 
-	if (!IP_VALID(entry_port) ||
-	    ip_kotype(entry_port) != IKOT_NAMED_ENTRY) {
+	mem_entry = mach_memory_entry_from_port(entry_port);
+	if (mem_entry == NULL) {
 		return KERN_INVALID_ARGUMENT;
 	}
-
-	mem_entry = (vm_named_entry_t) ip_get_kobject(entry_port);
 
 	named_entry_lock(mem_entry);
 
@@ -3721,12 +3869,10 @@ mach_memory_entry_phys_page_offset(
 	vm_object_offset_t      offset;
 	vm_object_offset_t      data_offset;
 
-	if (!IP_VALID(entry_port) ||
-	    ip_kotype(entry_port) != IKOT_NAMED_ENTRY) {
+	mem_entry = mach_memory_entry_from_port(entry_port);
+	if (mem_entry == NULL) {
 		return KERN_INVALID_ARGUMENT;
 	}
-
-	mem_entry = (vm_named_entry_t) ipc_kobject_get(entry_port);
 
 	named_entry_lock(mem_entry);
 
@@ -3767,12 +3913,11 @@ mach_memory_entry_map_size(
 	vm_map_offset_t         overmap_start, overmap_end, trimmed_start;
 	kern_return_t           kr;
 
-	if (!IP_VALID(entry_port) ||
-	    ip_kotype(entry_port) != IKOT_NAMED_ENTRY) {
+	mem_entry = mach_memory_entry_from_port(entry_port);
+	if (mem_entry == NULL) {
 		return KERN_INVALID_ARGUMENT;
 	}
 
-	mem_entry = (vm_named_entry_t) ipc_kobject_get(entry_port);
 	named_entry_lock(mem_entry);
 
 	if (mem_entry->is_sub_map) {
@@ -3803,7 +3948,7 @@ mach_memory_entry_map_size(
 	}
 
 	if (!mem_entry->is_copy) {
-		panic("unsupported type of mem_entry %p\n", mem_entry);
+		panic("unsupported type of mem_entry %p", mem_entry);
 	}
 
 	assert(mem_entry->is_copy);
@@ -3856,6 +4001,15 @@ mach_memory_entry_port_release(
 	ipc_port_release_send(port);
 }
 
+vm_named_entry_t
+mach_memory_entry_from_port(ipc_port_t port)
+{
+	if (IP_VALID(port)) {
+		return ipc_kobject_get_stable(port, IKOT_NAMED_ENTRY);
+	}
+	return NULL;
+}
+
 /*
  * mach_destroy_memory_entry:
  *
@@ -3873,10 +4027,13 @@ mach_destroy_memory_entry(
 	ipc_port_t      port)
 {
 	vm_named_entry_t        named_entry;
-#if MACH_ASSERT
-	assert(ip_kotype(port) == IKOT_NAMED_ENTRY);
-#endif /* MACH_ASSERT */
-	named_entry = (vm_named_entry_t) ip_get_kobject(port);
+
+	/*
+	 * cannot use mach_memory_entry_from_port():
+	 * it returns NULL for inactive ports.
+	 */
+	named_entry = ipc_kobject_get_raw(port, IKOT_NAMED_ENTRY);
+	assert(named_entry != NULL);
 
 	named_entry_lock(named_entry);
 	named_entry->ref_count -= 1;
@@ -3905,7 +4062,7 @@ mach_destroy_memory_entry(
 		lck_mtx_unlock(&vm_named_entry_list_lock_data);
 #endif /* VM_NAMED_ENTRY_LIST */
 
-		kfree(named_entry, sizeof(struct vm_named_entry));
+		kfree_type(struct vm_named_entry, named_entry);
 	} else {
 		named_entry_unlock(named_entry);
 	}
@@ -3926,12 +4083,10 @@ mach_memory_entry_page_op(
 	vm_object_t             object;
 	kern_return_t           kr;
 
-	if (!IP_VALID(entry_port) ||
-	    ip_kotype(entry_port) != IKOT_NAMED_ENTRY) {
+	mem_entry = mach_memory_entry_from_port(entry_port);
+	if (mem_entry == NULL) {
 		return KERN_INVALID_ARGUMENT;
 	}
-
-	mem_entry = (vm_named_entry_t) ip_get_kobject(entry_port);
 
 	named_entry_lock(mem_entry);
 
@@ -3980,12 +4135,10 @@ mach_memory_entry_range_op(
 	vm_object_t             object;
 	kern_return_t           kr;
 
-	if (!IP_VALID(entry_port) ||
-	    ip_kotype(entry_port) != IKOT_NAMED_ENTRY) {
+	mem_entry = mach_memory_entry_from_port(entry_port);
+	if (mem_entry == NULL) {
 		return KERN_INVALID_ARGUMENT;
 	}
-
-	mem_entry = (vm_named_entry_t) ip_get_kobject(entry_port);
 
 	named_entry_lock(mem_entry);
 

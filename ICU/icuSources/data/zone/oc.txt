@@ -1,7 +1,7 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
-// License & terms of use: http://www.unicode.org/copyright.html#License
+// License & terms of use: http://www.unicode.org/copyright.html
+// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
 oc{
-    Version{"36.1"}
     zoneStrings{
         "Atlantic:Azores"{
             ec{"Azores"}
@@ -10,11 +10,11 @@ oc{
             ec{"Amsterdam"}
         }
         "Europe:Andorra"{
-            ec{"Andorra"}
+            ec{"Andòrra"}
         }
         "Europe:Athens"{
             ec{"Atenas"}
         }
-        regionFormat{"Ora de: {0}"}
+        regionFormat{"Ora : {0}"}
     }
 }

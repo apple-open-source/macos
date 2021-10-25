@@ -1,4 +1,6 @@
 /*
+ * SPDX-License-Identifier: BSD-4-Clause
+ *
  * Copyright (c) 1995 Wolfram Schneider <wosch@FreeBSD.org>. Berlin.
  * Copyright (c) 1989, 1993
  *	The Regents of the University of California.  All rights reserved.
@@ -34,7 +36,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $FreeBSD: src/usr.bin/locate/locate/fastfind.c,v 1.14 2005/12/07 12:22:46 des Exp $
+ * $FreeBSD$
  */
 
 
@@ -154,9 +156,6 @@ fastfind
 
 	/* init bigram table */
 #ifdef FF_MMAP
-	if (len < (2*NBG))
-		errx(1, "database too small: %s", database);
-	
 	for (c = 0, p = bigram1, s = bigram2; c < NBG; c++, len-= 2) {
 		p[c] = check_bigram_char(*paddr++);
 		s[c] = check_bigram_char(*paddr++);
@@ -170,7 +169,7 @@ fastfind
 
 	/* find optimal (last) char for searching */
 	for (p = pathpart; *p != '\0'; p++)
-		if (index(LOCATE_REG, *p) != NULL)
+		if (strchr(LOCATE_REG, *p) != NULL)
 			break;
 
 	if (*p == '\0')
@@ -216,14 +215,15 @@ fastfind
 			count += c - OFFSET;
 		}
 
+		if (count < 0 || count > MAXPATHLEN) {
 #ifdef __APPLE__
-		if (count < 0) {
 			errx(1, "Your locate database appears to be corrupt. "
 			    "Run 'sudo /usr/libexec/locate.updatedb' to "
 			    "regenerate the database.");
+#else
+			errx(1, "corrupted database: %s", database);
+#endif
 		}
-#endif /* __APPLE__ */
-
 		/* overlay old path */
 		p = path + count;
 		foundchar = p - 1;

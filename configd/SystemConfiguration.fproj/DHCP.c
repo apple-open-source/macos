@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001, 2003-2005, 2011, 2013, 2015, 2017 Apple Inc. All rights reserved.
+ * Copyright (c) 2001, 2003-2005, 2011, 2013, 2015, 2017, 2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -100,14 +100,15 @@ S_application_path(CFStringRef applicationID)
 }
 
 Boolean
-DHCPClientPreferencesSetApplicationOptions(CFStringRef applicationID,
-					   const UInt8 * options,
-					   CFIndex count)
+DHCPClientPreferencesSetApplicationOptions(CFStringRef	applicationID,
+					   const UInt8	*options,
+					   CFIndex	count)
 {
-    CFMutableDictionaryRef	dict = NULL;
-    CFStringRef			path = NULL;
-    SCPreferencesRef		prefs = NULL;
-    Boolean			success = FALSE;
+    CFDictionaryRef		dict	= NULL;
+    CFMutableDictionaryRef	newDict	= NULL;
+    CFStringRef			path	= NULL;
+    SCPreferencesRef		prefs	= NULL;
+    Boolean			success	= FALSE;
 
     if (applicationID == NULL) {
 	goto done;
@@ -121,16 +122,16 @@ DHCPClientPreferencesSetApplicationOptions(CFStringRef applicationID,
     if (prefs == NULL) {
 	goto done;
     }
-    dict = (CFMutableDictionaryRef)SCPreferencesPathGetValue(prefs, path);
+    dict = SCPreferencesPathGetValue(prefs, path);
     if (dict == NULL) {
-	dict = CFDictionaryCreateMutable(NULL, 0,
-					 &kCFTypeDictionaryKeyCallBacks,
-					 &kCFTypeDictionaryValueCallBacks);
+	newDict = CFDictionaryCreateMutable(NULL, 0,
+					    &kCFTypeDictionaryKeyCallBacks,
+					    &kCFTypeDictionaryValueCallBacks);
     }
     else {
-	dict = CFDictionaryCreateMutableCopy(NULL, 0, dict);
+	newDict = CFDictionaryCreateMutableCopy(NULL, 0, dict);
     }
-    if (dict == NULL) {
+    if (newDict == NULL) {
 	goto done;
     }
     if (options && count > 0) {
@@ -158,15 +159,15 @@ DHCPClientPreferencesSetApplicationOptions(CFStringRef applicationID,
 	    my_CFArrayAppendUniqueValue(array, number);
 	    CFRelease(number);
 	}
-	CFDictionarySetValue(dict, CFSTR(DHCP_REQUESTED_PARAMETER_LIST),
+	CFDictionarySetValue(newDict, CFSTR(DHCP_REQUESTED_PARAMETER_LIST),
 			     array);
 	CFRelease(array);
     }
     else {
-	CFDictionaryRemoveValue(dict, CFSTR(DHCP_REQUESTED_PARAMETER_LIST));
+	CFDictionaryRemoveValue(newDict, CFSTR(DHCP_REQUESTED_PARAMETER_LIST));
     }
     if (SCPreferencesLock(prefs, TRUE)) {
-	success = SCPreferencesPathSetValue(prefs, path, dict);
+	success = SCPreferencesPathSetValue(prefs, path, newDict);
 	if (success) {
 	    success = SCPreferencesCommitChanges(prefs);
 	    if (success) {
@@ -182,8 +183,8 @@ DHCPClientPreferencesSetApplicationOptions(CFStringRef applicationID,
     if (path) {
 	CFRelease(path);
     }
-    if (dict) {
-	CFRelease(dict);
+    if (newDict) {
+	CFRelease(newDict);
     }
     return (success);
 }

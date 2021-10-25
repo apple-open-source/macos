@@ -295,7 +295,7 @@ OSStatus _SecKeychainRestoreSyncable(CFDataRef keybag, CFDataRef password, CFDic
 static bool SecKeychainWithBackupFile(CFStringRef backupName, CFErrorRef *error, void(^with)(FILE *bufile)) {
     int fd = SecItemBackupHandoffFD(backupName, error);
     if (fd < 0) {
-        secdebug("backup", "SecItemBackupHandoffFD returned %d", fd);
+        secnotice("backup", "SecItemBackupHandoffFD returned %d: %@", fd, error ? *error : NULL);
         return false;
     }
 
@@ -307,25 +307,25 @@ static bool SecKeychainWithBackupFile(CFStringRef backupName, CFErrorRef *error,
 
     FILE *backup = fdopen(fd, "r");
     if (!backup) {
-        secdebug("backup", "Receiving file for %@ failed, %d", backupName, errno);
+        secnotice("backup", "Receiving file for %@ failed, %d", backupName, errno);
         SecCheckErrno(!backup, error, CFSTR("fdopen"));
         if (close(fd)) {
-            secdebug("backup", "Encountered error closing file %@: %d", backupName, errno);
+            secnotice("backup", "Encountered error closing file %@: %d", backupName, errno);
             SecCheckErrno(true, error, CFSTR("close"));
         }
         return false;
     } else {
         struct stat sb;
         if (fstat(fd, &sb)) {
-            secdebug("backup", "Unable to get file metadata for %@, fd %d", backupName, fd);
+            secnotice("backup", "Unable to get file metadata for %@, fd %d", backupName, fd);
             SecCheckErrno(true, error, CFSTR("fstat"));
             if (fclose(backup)) {
-                secdebug("backup", "Encountered error closing file %@: %d", backupName, errno);
+                secnotice("backup", "Encountered error closing file %@: %d", backupName, errno);
                 SecCheckErrno(true, error, CFSTR("fclose"));
             }
             return false;
         }
-        secdebug("backup", "Receiving file for %@ with fd %d of size %llu", backupName, fd, sb.st_size);
+        secnotice("backup", "Receiving file for %@ with fd %d of size %llu", backupName, fd, sb.st_size);
     }
 
     with(backup);

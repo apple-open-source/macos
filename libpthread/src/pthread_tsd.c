@@ -138,10 +138,13 @@ static bool
 _pthread_key_get_destructor(pthread_key_t key, void (**destructor)(void *))
 {
 	uintptr_t value = _pthread_keys[key].destructor;
+	if (value == 0) {
+		return false;
+	}
 	if (destructor) {
 		*destructor = (void (*)(void *))(~value);
 	}
-	return (value != 0);
+	return true;
 }
 
 int

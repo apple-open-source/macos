@@ -102,8 +102,7 @@ main(int argc, char *argv[])
 			if (freopen(argv[0], "r", stdin) == NULL) {
 				warn("%s", argv[0]);
 				rval = 1;
-				argc--, argv++;
-				continue;
+				break;
 			}
 			curfile = argv[0];
 			argc--, argv++;

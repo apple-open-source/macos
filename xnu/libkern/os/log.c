@@ -37,7 +37,13 @@
 #include "trace_internal.h"
 
 #include "log_encode.h"
+#include "log_internal.h"
 #include "log_mem.h"
+#include "log_queue.h"
+
+#define OS_LOGMEM_BUF_ORDER 14
+#define OS_LOGMEM_MIN_LOG_ORDER 9
+#define OS_LOGMEM_MAX_LOG_ORDER 10
 
 struct os_log_s {
 	int a;
@@ -45,8 +51,7 @@ struct os_log_s {
 
 struct os_log_s _os_log_default;
 struct os_log_s _os_log_replay;
-
-LOGMEM_STATIC_INIT(os_log_mem, 14, 9, 10);
+struct logmem_s os_log_mem;
 
 extern vm_offset_t kernel_firehose_addr;
 extern firehose_chunk_t firehose_boot_chunk;
@@ -55,17 +60,7 @@ extern bool bsd_log_lock(bool);
 extern void bsd_log_unlock(void);
 extern void logwakeup(struct msgbuf *);
 
-decl_lck_spin_data(extern, oslog_stream_lock);
-#define stream_lock() lck_spin_lock(&oslog_stream_lock)
-#define stream_unlock() lck_spin_unlock(&oslog_stream_lock)
-
-extern void oslog_streamwakeup(void);
-void oslog_streamwrite_locked(firehose_tracepoint_id_u ftid,
-    uint64_t stamp, const void *pubdata, size_t publen);
-extern void oslog_streamwrite_metadata_locked(oslog_stream_buf_entry_t m_entry);
-
-extern int oslog_stream_open;
-
+extern void oslog_stream(bool, firehose_tracepoint_id_u, uint64_t, const void *, size_t);
 extern void *OSKextKextForAddress(const void *);
 
 /* Counters for persistence mode */
@@ -80,35 +75,19 @@ SCALABLE_COUNTER_DEFINE(oslog_p_coprocessor_total_msgcount);
 SCALABLE_COUNTER_DEFINE(oslog_p_coprocessor_dropped_msgcount);
 SCALABLE_COUNTER_DEFINE(oslog_p_unresolved_kc_msgcount);
 
-/* Counters for streaming mode */
-SCALABLE_COUNTER_DEFINE(oslog_s_error_count);
-/* Protected by the stream lock */
-uint32_t oslog_s_total_msgcount;
-uint32_t oslog_s_metadata_msgcount;
-
 /* Counters for msgbuf logging */
 SCALABLE_COUNTER_DEFINE(oslog_msgbuf_msgcount)
 SCALABLE_COUNTER_DEFINE(oslog_msgbuf_dropped_msgcount)
 
 static bool oslog_boot_done = false;
+static bool oslog_disabled = false;
 
 #ifdef XNU_KERNEL_PRIVATE
 bool startup_serial_logging_active = true;
 uint64_t startup_serial_num_procs = 300;
 #endif /* XNU_KERNEL_PRIVATE */
 
-// XXX
-firehose_tracepoint_id_t
-firehose_debug_trace(firehose_stream_t stream, firehose_tracepoint_id_t trace_id,
-    uint64_t timestamp, const char *format, const void *pubdata, size_t publen);
-
-static inline firehose_tracepoint_id_t
-_firehose_trace(firehose_stream_t stream, firehose_tracepoint_id_u ftid,
-    uint64_t stamp, const void *pubdata, size_t publen, bool use_streaming);
-
-static oslog_stream_buf_entry_t
-oslog_stream_create_buf_entry(oslog_stream_link_type_t type, firehose_tracepoint_id_u ftid,
-    uint64_t stamp, const void* pubdata, size_t publen);
+bool os_log_disabled(void);
 
 static void
 _os_log_with_args_internal(os_log_t oslog __unused, os_log_type_t type __unused,
@@ -120,10 +99,52 @@ _os_log_to_msgbuf_internal(const char *format, va_list args, bool safe, bool log
 static void
 _os_log_to_log_internal(os_log_type_t type, const char *format, va_list args, void *addr, void *dso, bool driverKit);
 
+__startup_func
+static void
+oslog_init(void)
+{
+	/*
+	 * Disable kernel logging if ATM_TRACE_DISABLE set. ATM_TRACE_DISABLE
+	 * bit is not supposed to change during a system run but nothing really
+	 * prevents userspace from unintentionally doing so => we stash initial
+	 * value in a dedicated variable for a later reference, just in case.
+	 */
+	oslog_disabled = atm_get_diagnostic_config() & ATM_TRACE_DISABLE;
+}
+STARTUP(OSLOG, STARTUP_RANK_FIRST, oslog_init);
+
+__startup_func
+static void
+oslog_init_logmem(void)
+{
+	if (os_log_disabled()) {
+		printf("Long logs support disabled: Logging disabled by ATM\n");
+		return;
+	}
+
+	const size_t logmem_size = logmem_required_size(OS_LOGMEM_BUF_ORDER, OS_LOGMEM_MIN_LOG_ORDER);
+	vm_offset_t addr;
+
+	if (kmem_alloc(kernel_map, &addr, logmem_size, VM_KERN_MEMORY_LOG) == KERN_SUCCESS) {
+		logmem_init(&os_log_mem, (void *)addr, logmem_size,
+		    OS_LOGMEM_BUF_ORDER, OS_LOGMEM_MIN_LOG_ORDER, OS_LOGMEM_MAX_LOG_ORDER);
+		printf("Long logs support configured: size: %u\n", os_log_mem.lm_cnt_free);
+	} else {
+		printf("Long logs support disabled: Not enough memory\n");
+	}
+}
+STARTUP(OSLOG, STARTUP_RANK_SECOND, oslog_init_logmem);
+
+static bool
+os_log_safe(void)
+{
+	return oslog_is_safe() || startup_phase < STARTUP_SUB_EARLY_BOOT;
+}
+
 static bool
 os_log_turned_off(void)
 {
-	return atm_get_diagnostic_config() & (ATM_TRACE_DISABLE | ATM_TRACE_OFF);
+	return oslog_disabled || (atm_get_diagnostic_config() & ATM_TRACE_OFF);
 }
 
 bool
@@ -138,10 +159,10 @@ os_log_debug_enabled(os_log_t log __unused)
 	return !os_log_turned_off();
 }
 
-static bool
+bool
 os_log_disabled(void)
 {
-	return atm_get_diagnostic_config() & ATM_TRACE_DISABLE;
+	return oslog_disabled;
 }
 
 os_log_t
@@ -195,7 +216,9 @@ _os_log_internal_driverKit(void *dso, os_log_t log, uint8_t type, const char *me
 	task_t self_task = current_task();
 
 	/*
-	 * Only dextis are supposed to use this log path.
+	 * Only dextis are supposed to use this log path. Verified in log_data()
+	 * but worth of another check here in case this function gets called
+	 * directly.
 	 */
 	if (!task_is_driver(self_task)) {
 		return EPERM;
@@ -237,7 +260,7 @@ _os_log_with_args_internal(os_log_t oslog, os_log_type_t type,
 	}
 
 	/* early boot can log to dmesg for later replay (27307943) */
-	bool safe = (startup_phase < STARTUP_SUB_EARLY_BOOT || oslog_is_safe());
+	bool safe = os_log_safe();
 	bool logging = !os_log_turned_off();
 
 	if (oslog != &_os_log_replay) {
@@ -288,7 +311,7 @@ _os_log_to_msgbuf_internal(const char *format, va_list args, bool safe, bool log
 		}
 		bsd_log_unlock();
 		/* Allocate a temporary non-circular buffer */
-		localbuff = kheap_alloc(KHEAP_TEMP, localbuff_size, Z_NOWAIT);
+		localbuff = kalloc_data(localbuff_size, Z_NOWAIT);
 		if (localbuff != NULL) {
 			/* in between here, the log could become bigger, but that's fine */
 			bsd_log_lock(true);
@@ -327,7 +350,7 @@ _os_log_to_msgbuf_internal(const char *format, va_list args, bool safe, bool log
 				next[0] = ch;
 				s = next;
 			}
-			kheap_free(KHEAP_TEMP, localbuff, localbuff_size);
+			kfree_data(localbuff, localbuff_size);
 		}
 		bsd_log_lock(true);
 	}
@@ -358,6 +381,16 @@ firehose_stream(os_log_type_t type)
 }
 
 static void
+log_payload_init(log_payload_t lp, firehose_stream_t stream, firehose_tracepoint_id_u ftid,
+    uint64_t timestamp, size_t data_size)
+{
+	lp->lp_stream = stream;
+	lp->lp_ftid = ftid;
+	lp->lp_timestamp = timestamp;
+	lp->lp_data_size = (uint16_t)data_size;
+}
+
+static void
 _os_log_actual(os_log_type_t type, const char *format, void *dso, void *addr, uint8_t *logdata, size_t logdata_sz,
     firehose_tracepoint_flags_t flags, bool driverKit)
 {
@@ -378,7 +411,12 @@ _os_log_actual(os_log_type_t type, const char *format, void *dso, void *addr, ui
 	}
 
 
-	_firehose_trace(stream, trace_id, timestamp, logdata, logdata_sz, true);
+	log_payload_s log;
+	log_payload_init(&log, stream, trace_id, timestamp, logdata_sz);
+
+	if (!log_queue_log(&log, logdata, true)) {
+		counter_inc(&oslog_p_dropped_msgcount);
+	}
 }
 
 static void *
@@ -449,7 +487,6 @@ os_log_coprocessor(void *buff, uint64_t buff_len, os_log_type_t type,
     const char *uuid, uint64_t timestamp, uint32_t offset, bool stream_log)
 {
 	firehose_tracepoint_id_u trace_id;
-	firehose_tracepoint_id_t return_id = 0;
 	uint8_t                  pubdata[OS_LOG_BUFFER_MAX_SIZE];
 	size_t                   wr_pos = 0;
 
@@ -457,7 +494,13 @@ os_log_coprocessor(void *buff, uint64_t buff_len, os_log_type_t type,
 		return false;
 	}
 
+	if (!os_log_safe()) {
+		counter_inc(&oslog_p_coprocessor_dropped_msgcount);
+		return false;
+	}
+
 	if (buff_len + 16 + sizeof(uint32_t) > OS_LOG_BUFFER_MAX_SIZE) {
+		counter_inc(&oslog_p_coprocessor_dropped_msgcount);
 		return false;
 	}
 
@@ -478,123 +521,96 @@ os_log_coprocessor(void *buff, uint64_t buff_len, os_log_type_t type,
 
 	counter_inc(&oslog_p_coprocessor_total_msgcount);
 
-	// send firehose tracepoint containing os log to firehose buffer
-	return_id = _firehose_trace(stream, trace_id, timestamp, pubdata,
-	    buff_len + wr_pos, stream_log);
+	log_payload_s log;
+	log_payload_init(&log, stream, trace_id, timestamp, buff_len + wr_pos);
 
-	if (return_id == 0) {
+	if (!log_queue_log(&log, pubdata, stream_log)) {
 		counter_inc(&oslog_p_coprocessor_dropped_msgcount);
 		return false;
 	}
+
 	return true;
+}
+
+static firehose_tracepoint_id_t
+_firehose_trace_early_boot(firehose_tracepoint_id_u ftid, uint64_t stamp, const void *pubdata, size_t publen)
+{
+	firehose_chunk_t fbc = firehose_boot_chunk;
+
+	//only stream available during boot is persist
+	long offset = firehose_chunk_tracepoint_try_reserve(fbc, stamp,
+	    firehose_stream_persist, 0, (uint16_t)publen, 0, NULL);
+	if (offset <= 0) {
+		counter_inc(&oslog_p_boot_dropped_msgcount);
+		return 0;
+	}
+
+	firehose_tracepoint_t ft = firehose_chunk_tracepoint_begin(fbc, stamp, (uint16_t)publen,
+	    thread_tid(current_thread()), offset);
+	memcpy(ft->ft_data, pubdata, publen);
+	firehose_chunk_tracepoint_end(fbc, ft, ftid);
+
+	counter_inc(&oslog_p_saved_msgcount);
+
+	return ftid.ftid_value;
 }
 
 static inline firehose_tracepoint_id_t
 _firehose_trace(firehose_stream_t stream, firehose_tracepoint_id_u ftid,
-    uint64_t stamp, const void *pubdata, size_t publen, bool use_streaming)
+    uint64_t stamp, const void *data, size_t datalen)
 {
-	const uint16_t ft_size = offsetof(struct firehose_tracepoint_s, ft_data);
-	const size_t _firehose_chunk_payload_size =
-	    sizeof(((struct firehose_chunk_s *)0)->fc_data);
+	const uint16_t __assert_only ft_size = offsetof(struct firehose_tracepoint_s, ft_data);
+	const size_t __assert_only _firehose_chunk_payload_size = sizeof(((struct firehose_chunk_s *)0)->fc_data);
+	assert((ft_size + datalen) <= _firehose_chunk_payload_size);
 
-	firehose_tracepoint_t ft;
+	firehose_tracepoint_t ft = __firehose_buffer_tracepoint_reserve(stamp, stream, (uint16_t)datalen, 0, NULL);
 
-	if (slowpath(ft_size + publen > _firehose_chunk_payload_size)) {
-		// We'll need to have some handling here. For now - return 0
-		counter_inc(&oslog_p_error_count);
-		return 0;
-	}
+	if (fastpath(ft)) {
+		oslog_boot_done = true;
 
-	if (oslog_stream_open && (stream != firehose_stream_metadata) && use_streaming) {
-		stream_lock();
-		if (!oslog_stream_open) {
-			stream_unlock();
-			goto out;
+		memcpy(ft->ft_data, data, datalen);
+		__firehose_buffer_tracepoint_flush(ft, ftid);
+
+		if (stream == firehose_stream_metadata) {
+			counter_inc(&oslog_p_metadata_saved_msgcount);
+		} else {
+			counter_inc(&oslog_p_saved_msgcount);
 		}
 
-		oslog_s_total_msgcount++;
-		oslog_streamwrite_locked(ftid, stamp, pubdata, publen);
-		stream_unlock();
-		oslog_streamwakeup();
-	}
-
-out:
-	ft = __firehose_buffer_tracepoint_reserve(stamp, stream, (uint16_t)publen, 0, NULL);
-	if (!fastpath(ft)) {
-		if (oslog_boot_done) {
-			if (stream == firehose_stream_metadata) {
-				counter_inc(&oslog_p_metadata_dropped_msgcount);
-			} else {
-				// If we run out of space in the persistence buffer we're
-				// dropping the message.
-				counter_inc(&oslog_p_dropped_msgcount);
-			}
-			return 0;
-		}
-		firehose_chunk_t fbc = firehose_boot_chunk;
-		long offset;
-
-		//only stream available during boot is persist
-		offset = firehose_chunk_tracepoint_try_reserve(fbc, stamp,
-		    firehose_stream_persist, 0, (uint16_t)publen, 0, NULL);
-		if (offset <= 0) {
-			counter_inc(&oslog_p_boot_dropped_msgcount);
-			return 0;
-		}
-
-		ft = firehose_chunk_tracepoint_begin(fbc, stamp, (uint16_t)publen,
-		    thread_tid(current_thread()), offset);
-		memcpy(ft->ft_data, pubdata, publen);
-		firehose_chunk_tracepoint_end(fbc, ft, ftid);
-		counter_inc(&oslog_p_saved_msgcount);
 		return ftid.ftid_value;
 	}
+
 	if (!oslog_boot_done) {
-		oslog_boot_done = true;
-	}
-	memcpy(ft->ft_data, pubdata, publen);
-
-	__firehose_buffer_tracepoint_flush(ft, ftid);
-	if (stream == firehose_stream_metadata) {
-		counter_inc(&oslog_p_metadata_saved_msgcount);
-	} else {
-		counter_inc(&oslog_p_saved_msgcount);
-	}
-	return ftid.ftid_value;
-}
-
-static oslog_stream_buf_entry_t
-oslog_stream_create_buf_entry(oslog_stream_link_type_t type,
-    firehose_tracepoint_id_u ftid, uint64_t stamp,
-    const void* pubdata, size_t publen)
-{
-	const size_t ft_size = sizeof(struct firehose_tracepoint_s) + publen;
-	const size_t m_entry_len = sizeof(struct oslog_stream_buf_entry_s) + ft_size;
-	oslog_stream_buf_entry_t m_entry;
-
-	if (!pubdata || publen > UINT16_MAX || ft_size > UINT16_MAX) {
-		return NULL;
+		return _firehose_trace_early_boot(ftid, stamp, data, datalen);
 	}
 
-	m_entry = kheap_alloc(KHEAP_DEFAULT, m_entry_len, Z_WAITOK);
-	if (!m_entry) {
-		return NULL;
-	}
-	m_entry->type = type;
-	m_entry->timestamp = stamp;
-	m_entry->size = (uint16_t)ft_size;
-
-	firehose_tracepoint_t ft = m_entry->metadata;
-	ft->ft_thread = thread_tid(current_thread());
-	ft->ft_id.ftid_value = ftid.ftid_value;
-	ft->ft_length = (uint16_t)publen;
-	memcpy(ft->ft_data, pubdata, publen);
-
-	return m_entry;
+	return 0;
 }
 
 void
 os_log_coprocessor_register(const char *uuid, const char *file_path, bool copy)
+{
+	// Will be removed after all user code will be updated to use os_log_coprocessor_register_with_type
+	os_log_coprocessor_register_with_type(uuid, file_path, copy ? os_log_coproc_register_memory : os_log_coproc_register_harvest_fs_img4);
+}
+
+static firehose_tracepoint_code_t
+coproc_reg_type_to_firehost_code(os_log_coproc_reg_t reg_type)
+{
+	switch (reg_type) {
+	case os_log_coproc_register_memory:
+		return firehose_tracepoint_code_load_memory;
+	case os_log_coproc_register_harvest_fs_img4:
+		return firehose_tracepoint_code_load_filesystem;
+	case os_log_coproc_register_harvest_fs_ftab:
+		return firehose_tracepoint_code_load_filesystem_ftab;
+	default:
+		return firehose_tracepoint_code_invalid;
+	}
+}
+
+void
+os_log_coprocessor_register_with_type(const char *uuid, const char *file_path, os_log_coproc_reg_t reg_type)
 {
 	uint64_t                 stamp;
 	size_t                   path_size = strlen(file_path) + 1;
@@ -622,7 +638,7 @@ os_log_coprocessor_register(const char *uuid, const char *file_path, bool copy)
 
 	// create tracepoint id
 	trace_id.ftid_value = FIREHOSE_TRACE_ID_MAKE(firehose_tracepoint_namespace_metadata, _firehose_tracepoint_type_metadata_coprocessor,
-	    (firehose_tracepoint_flags_t)0, copy ? firehose_tracepoint_code_load_memory : firehose_tracepoint_code_load_filesystem);
+	    (firehose_tracepoint_flags_t)0, coproc_reg_type_to_firehost_code(reg_type));
 
 	// write path to buffer
 	memcpy(buf.uuid_info.ftui_path, file_path, path_size);
@@ -637,46 +653,35 @@ void
 firehose_trace_metadata(firehose_stream_t stream, firehose_tracepoint_id_u ftid,
     uint64_t stamp, const void *pubdata, size_t publen)
 {
-	oslog_stream_buf_entry_t m_entry = NULL;
-
 	if (os_log_disabled()) {
 		return;
 	}
 
-	// If streaming mode is not on, only log  the metadata
-	// in the persistence buffer
-
-	stream_lock();
-	if (!oslog_stream_open) {
-		stream_unlock();
-		goto finish;
-	}
-	stream_unlock();
-
-	// Setup and write the stream metadata entry
-	m_entry = oslog_stream_create_buf_entry(oslog_stream_link_type_metadata, ftid,
-	    stamp, pubdata, publen);
-	if (!m_entry) {
-		counter_inc(&oslog_s_error_count);
-		goto finish;
+	if (!os_log_safe()) {
+		counter_inc(&oslog_p_metadata_dropped_msgcount);
+		return;
 	}
 
-	stream_lock();
-	if (!oslog_stream_open) {
-		stream_unlock();
-		kheap_free(KHEAP_DEFAULT, m_entry,
-		    sizeof(struct oslog_stream_buf_entry_s) +
-		    sizeof(struct firehose_tracepoint_s) + publen);
-		goto finish;
-	}
-	oslog_s_metadata_msgcount++;
-	oslog_streamwrite_metadata_locked(m_entry);
-	stream_unlock();
+	log_payload_s log;
+	log_payload_init(&log, stream, ftid, stamp, publen);
 
-finish:
-	_firehose_trace(stream, ftid, stamp, pubdata, publen, true);
+	if (!log_queue_log(&log, pubdata, true)) {
+		counter_inc(&oslog_p_metadata_dropped_msgcount);
+	}
 }
 #endif
+
+bool
+log_payload_send(log_payload_t lp, const void *lp_data, bool use_stream)
+{
+	if (use_stream) {
+		bool is_metadata = (lp->lp_stream == firehose_stream_metadata);
+		oslog_stream(is_metadata, lp->lp_ftid, lp->lp_timestamp, lp_data, lp->lp_data_size);
+	}
+
+	return _firehose_trace(lp->lp_stream, lp->lp_ftid, lp->lp_timestamp,
+	           lp_data, lp->lp_data_size);
+}
 
 void
 __firehose_buffer_push_to_logd(firehose_buffer_t fb __unused, bool for_io __unused)

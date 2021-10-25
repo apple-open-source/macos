@@ -205,7 +205,7 @@ public:
         
         require(device_, exit);
         
-        port = IONotificationPortCreate(kIOMasterPortDefault);
+        port = IONotificationPortCreate(kIOMainPortDefault);
         require(port, exit);
         
         IONotificationPortSetDispatchQueue (port, dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0));

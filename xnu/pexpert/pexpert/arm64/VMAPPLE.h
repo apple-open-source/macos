@@ -37,11 +37,11 @@
 
 #define CPU_HAS_APPLE_PAC         1
 #define HAS_PARAVIRTUALIZED_PAC   1
-#define 1
 #define HAS_GIC_V3                1
 
 #define __ARM_PAN_AVAILABLE__     1
 #define __ARM_16K_PG__            1
+#define __ARM_RANGE_TLBI__        1
 
 #define ARM_PARAMETERIZED_PMAP    1
 #define __ARM_MIXED_PAGE_SIZE__   1
@@ -54,13 +54,6 @@
 #define PLATFORM_PANIC_LOG_DISABLED
 #endif /* ! ASSEMBLER */
 
-#ifdef ASSEMBLER
-#define ASPSR_EL1                 S3_6_c15_c8_3
-#define AFPCR_EL0                 S3_6_c15_c2_5
-#else
-#define ASPSR_EL1                 "S3_6_c15_c8_3"
-#define AFPCR_EL0                 "S3_6_c15_c2_5"
-#endif /* ASSEMBLER */
 
 #define GIC_SPURIOUS_IRQ          1023    // IRQ no. for GIC spurious interrupt
 

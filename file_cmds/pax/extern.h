@@ -150,8 +150,8 @@ int chk_same(ARCHD *);
 int node_creat(ARCHD *);
 int unlnk_exist(char *, int);
 int chk_path(char *, uid_t, gid_t, char **);
-void set_ftime(char *fnm, time_t mtime, time_t atime, int frc);
-void fset_ftime(char *fnm, int, time_t mtime, time_t atime, int frc);
+void set_ftime(char *, time_t, time_t, time_t, time_t, int);
+void fset_ftime(char *, int, time_t, time_t, time_t, time_t, int);
 int set_ids(char *, uid_t, gid_t);
 int fset_ids(char *, int, uid_t, gid_t);
 int set_lids(char *, uid_t, gid_t);
@@ -161,6 +161,20 @@ int file_write(int, char *, int, int *, int *, int, char *);
 void file_flush(int, char *, int);
 void rdfile_close(ARCHD *, int *);
 int set_crc(ARCHD *, int);
+/*
+ * for set_ftime() and fset_ftime()
+ */
+#if !defined(_POSIX_C_SOURCE) || defined(_DARWIN_C_SOURCE)
+#define st_atime_sec    st_atimespec.tv_sec
+#define st_atime_nsec   st_atimespec.tv_nsec
+#define st_mtime_sec    st_mtimespec.tv_sec
+#define st_mtime_nsec   st_mtimespec.tv_nsec
+#else
+#define st_atime_sec    st_atime
+#define st_atime_nsec   st_atimensec
+#define st_mtime_sec    st_mtime
+#define st_mtime_nsec   st_mtimensec
+#endif
 
 /*
  * ftree.c
@@ -203,7 +217,7 @@ int opt_add(const char *);
 int bad_opt(void);
 int pax_format_opt_add(char *);
 int pax_opt(void);
-char *chdname;
+extern char *chdname;
 
 /*
  * pat_rep.c
@@ -284,8 +298,8 @@ int add_dev(ARCHD *);
 int map_dev(ARCHD *, u_long, u_long);
 int atdir_start(void);
 void atdir_end(void);
-void add_atdir(char *, dev_t, ino_t, time_t, time_t);
-int get_atdir(dev_t, ino_t, time_t *, time_t *);
+void add_atdir(char *, dev_t, ino_t, time_t, time_t, time_t, time_t);
+int get_atdir(dev_t, ino_t, time_t *, time_t *, time_t *, time_t *);
 int dir_start(void);
 void add_dir(char *, size_t, struct stat *, int);
 void proc_dir(void);

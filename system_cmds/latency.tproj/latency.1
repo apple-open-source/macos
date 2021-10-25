@@ -2,7 +2,7 @@
 .\"
 .Dd March 28, 2000
 .Dt LATENCY 1
-.Os "Mac OS X"
+.Os "macOS"
 .Sh NAME
 .Nm latency
 .Nd monitors scheduling and interrupt latency
@@ -30,7 +30,7 @@ The arguments are as follows:
 .It Fl c Ar code_file
 When the
 .Fl c
-option is specified, it takes a path to a code file 
+option is specified, it takes a path to a code file
 that contains the mappings for the system calls.
 This option overrides the default location of the system call code file,
 which is found in /usr/share/misc/trace.codes.
@@ -91,7 +91,6 @@ The
 utility is also SIGWINCH savvy, so adjusting your window geometry will change
 the list of delay values displayed.
 .Sh SAMPLE USAGE
-.Pp
 latency -p 97 -st 20000 -it 1000 -l /var/tmp/latency.log
 .Pp
 The

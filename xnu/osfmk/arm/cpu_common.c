@@ -219,7 +219,7 @@ cpu_handle_xcall(cpu_data_t *cpu_data_ptr)
 	/* Come back around if cpu_signal_internal is running on another CPU and has just
 	* added SIGPxcall to the pending mask, but hasn't yet assigned the call params.*/
 	if (cpu_data_ptr->cpu_xcall_p0 != NULL && cpu_data_ptr->cpu_xcall_p1 != NULL) {
-		xfunc = cpu_data_ptr->cpu_xcall_p0;
+		xfunc = ptrauth_auth_function(cpu_data_ptr->cpu_xcall_p0, ptrauth_key_function_pointer, cpu_data_ptr);
 		INTERRUPT_MASKED_DEBUG_START(xfunc, DBG_INTR_TYPE_IPI);
 		xparam = cpu_data_ptr->cpu_xcall_p1;
 		cpu_data_ptr->cpu_xcall_p0 = NULL;
@@ -230,7 +230,7 @@ cpu_handle_xcall(cpu_data_t *cpu_data_ptr)
 		INTERRUPT_MASKED_DEBUG_END();
 	}
 	if (cpu_data_ptr->cpu_imm_xcall_p0 != NULL && cpu_data_ptr->cpu_imm_xcall_p1 != NULL) {
-		xfunc = cpu_data_ptr->cpu_imm_xcall_p0;
+		xfunc = ptrauth_auth_function(cpu_data_ptr->cpu_imm_xcall_p0, ptrauth_key_function_pointer, cpu_data_ptr);
 		INTERRUPT_MASKED_DEBUG_START(xfunc, DBG_INTR_TYPE_IPI);
 		xparam = cpu_data_ptr->cpu_imm_xcall_p1;
 		cpu_data_ptr->cpu_imm_xcall_p0 = NULL;
@@ -278,11 +278,10 @@ cpu_broadcast_xcall_internal(unsigned int signal,
 		}
 
 		if ((target_cpu_datap == NULL) ||
-		    KERN_SUCCESS != cpu_signal(target_cpu_datap, signal, (void *)func, parm)) {
+		    KERN_SUCCESS != cpu_signal(target_cpu_datap, signal, ptrauth_nop_cast(void*, ptrauth_auth_and_resign(func, ptrauth_key_function_pointer, ptrauth_type_discriminator(broadcastFunc), ptrauth_key_function_pointer, target_cpu_datap)), parm)) {
 			failsig++;
 		}
 	}
-
 
 	if (self_xcall) {
 		func(parm);
@@ -389,7 +388,7 @@ cpu_xcall_internal(unsigned int signal, int cpu_number, broadcastFunc func, void
 		return KERN_INVALID_ARGUMENT;
 	}
 
-	return cpu_signal(target_cpu_datap, signal, (void*)func, param);
+	return cpu_signal(target_cpu_datap, signal, ptrauth_nop_cast(void*, ptrauth_auth_and_resign(func, ptrauth_key_function_pointer, ptrauth_type_discriminator(broadcastFunc), ptrauth_key_function_pointer, target_cpu_datap)), param);
 }
 
 kern_return_t
@@ -814,6 +813,12 @@ current_percpu_base(void)
 	return current_thread()->machine.pcpu_data_base;
 }
 
+vm_offset_t
+other_percpu_base(int cpu)
+{
+	return (vm_offset_t)cpu_datap(cpu) - __PERCPU_ADDR(cpu_data);
+}
+
 uint64_t
 ml_get_wake_timebase(void)
 {
@@ -834,6 +839,13 @@ ml_cpu_can_exit(__unused int cpu_id)
 		return true;
 	}
 #if HAS_CLUSTER && USE_APPLEARMSMP
+	/*
+	 * Until the feature is known to be stable, guard it with a boot-arg
+	 */
+	extern bool enable_processor_exit;
+	if (!enable_processor_exit) {
+		return false;
+	}
 	/*
 	 * Cyprus and newer chips can disable individual non-boot CPUs. The
 	 * implementation polls cpuX_IMPL_CPU_STS, which differs on older chips.

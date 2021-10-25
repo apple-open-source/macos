@@ -113,6 +113,10 @@ static void display_item(const void *v_item, void *context) {
         } else if (CFDateGetTypeID() == CFGetTypeID(value)) {
             CFDateRef v_d = (CFDateRef)value;
             CFStringAppendFormat(line, NULL, CFSTR("%@"), v_d);
+        } else if (CFGetTypeID(key) == CFStringGetTypeID() && CFStringCompare(key, kSecValuePersistentRef, 0) == 0) {
+            NSData* v_d = (__bridge NSData*)(CFDataRef)value;
+            NSString* b64 = [v_d base64EncodedStringWithOptions:0];
+            CFStringAppendFormat(line, NULL, CFSTR("%@"), (__bridge CFStringRef)b64);
         } else if (CFDataGetTypeID() == CFGetTypeID(value)) {
             CFDataRef v_d = (CFDataRef)value;
             CFStringRef v_s = CFStringCreateFromExternalRepresentation(
@@ -576,6 +580,7 @@ int keychain_item(int argc, char * const *argv) {
     __block int result = 0;
     CFMutableDictionaryRef query, update = NULL;
 	bool get_password = false;
+    bool get_persistent_reference = false;
     bool do_delete = false;
     bool do_add = false;
     bool verbose = false;
@@ -587,7 +592,7 @@ int keychain_item(int argc, char * const *argv) {
     CFDictionarySetValue(query, kSecUseDataProtectionKeychain, kCFBooleanTrue);
 #endif
 
-	while ((ch = getopt(argc, argv, "ad:Df:jgq:u:vl:")) != -1)
+	while ((ch = getopt(argc, argv, "ad:Df:jgpP:q:u:vl:")) != -1)
 	{
 		switch  (ch)
 		{
@@ -626,6 +631,27 @@ int keychain_item(int argc, char * const *argv) {
             case 'g':
                 get_password = true;
                 break;
+            case 'p':
+                get_persistent_reference = true;
+                break;
+            case 'P':
+            {
+                NSString* dataString = CFBridgingRelease(CFStringCreateWithCString(0, optarg, kCFStringEncodingUTF8));
+                if (dataString) {
+                    NSData* data = [[NSData alloc] initWithBase64EncodedString:dataString options:0];
+                    if (data) {
+                        CFDictionarySetValue(query, kSecValuePersistentRef, (__bridge CFDataRef)data);
+                    } else {
+                        result = 1;
+                        printf("-P expects a b64 encoded persistent reference string\n");
+                        goto out;
+                    }
+                } else {
+                    result = 1;
+                    goto out;
+                }
+                break;
+            }
             case 'q':
                 if (!keychain_query_parse_cstring(query, optarg)) {
                 result = 1;
@@ -684,9 +710,11 @@ int keychain_item(int argc, char * const *argv) {
         } else {
             CFDictionarySetValue(query, kSecMatchLimit, kSecMatchLimitAll);
         }
-        if (get_password)
+        if (get_password) {
             CFDictionarySetValue(query, kSecReturnData, kCFBooleanTrue);
+        }
     }
+
 
     if (verbose) {
         if(json) {
@@ -722,6 +750,9 @@ int keychain_item(int argc, char * const *argv) {
             }
         }
         else {
+            if (get_persistent_reference) {
+                CFDictionarySetValue(query, kSecReturnPersistentRef, kCFBooleanTrue);
+            }
             error = SecItemAdd(query, NULL);
             if (error) {
                 sec_perror("SecItemAdd", error);
@@ -804,6 +835,9 @@ int keychain_item(int argc, char * const *argv) {
         else {
             if (!do_delete && CFDictionaryGetValue(query, kSecUseAuthenticationUI) == NULL) {
                 CFDictionarySetValue(query, kSecUseAuthenticationUI, kSecUseAuthenticationUISkip);
+            }
+            if (get_persistent_reference) {
+                CFDictionarySetValue(query, kSecReturnPersistentRef, kCFBooleanTrue);
             }
 
             CFTypeRef results = NULL;

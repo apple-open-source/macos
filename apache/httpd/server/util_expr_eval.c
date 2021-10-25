@@ -23,6 +23,7 @@
 #include "http_core.h"
 #include "http_protocol.h"
 #include "http_request.h"
+#include "http_ssl.h"
 #include "ap_provider.h"
 #include "util_expr_private.h"
 #include "util_md5.h"
@@ -317,7 +318,7 @@ static int ap_expr_eval_comp(ap_expr_eval_ctx_t *ctx, const ap_expr_t *node)
 /* combined string/int comparison for compatibility with ssl_expr */
 static int strcmplex(const char *str1, const char *str2)
 {
-    int i, n1, n2;
+    apr_size_t i, n1, n2;
 
     if (str1 == NULL)
         return -1;
@@ -1075,7 +1076,7 @@ static const char *sha1_func(ap_expr_eval_ctx_t *ctx, const void *data,
     out = apr_palloc(ctx->p, APR_SHA1_DIGESTSIZE*2+1);
 
     apr_sha1_init(&context);
-    apr_sha1_update(&context, arg, strlen(arg));
+    apr_sha1_update(&context, arg, (unsigned int)strlen(arg));
     apr_sha1_final(sha1, &context);
 
     ap_bin2hex(sha1, APR_SHA1_DIGESTSIZE, out);
@@ -1256,9 +1257,6 @@ static int op_file_subr(ap_expr_eval_ctx_t *ctx, const void *data, const char *a
 }
 
 
-APR_DECLARE_OPTIONAL_FN(int, ssl_is_https, (conn_rec *));
-static APR_OPTIONAL_FN_TYPE(ssl_is_https) *is_https = NULL;
-
 APR_DECLARE_OPTIONAL_FN(int, http2_is_h2, (conn_rec *));
 static APR_OPTIONAL_FN_TYPE(http2_is_h2) *is_http2 = NULL;
 
@@ -1280,7 +1278,7 @@ static const char *conn_var_fn(ap_expr_eval_ctx_t *ctx, const void *data)
 
     switch (index) {
     case 0:
-        if (is_https && is_https(c))
+        if (ap_ssl_conn_is_ssl(c))
             return "on";
         else
             return "off";
@@ -1706,7 +1704,7 @@ static int core_expr_lookup(ap_expr_lookup_parms *parms)
             while (prov->func) {
                 const char **name = prov->names;
                 while (*name) {
-                    if (strcasecmp(*name, parms->name) == 0) {
+                    if (ap_cstr_casecmp(*name, parms->name) == 0) {
                         *parms->func = prov->func;
                         *parms->data = name;
                         return OK;
@@ -1739,7 +1737,7 @@ static int core_expr_lookup(ap_expr_lookup_parms *parms)
                 if (parms->type == AP_EXPR_FUNC_OP_UNARY)
                     match = !strcmp(prov->name, parms->name);
                 else
-                    match = !strcasecmp(prov->name, parms->name);
+                    match = !ap_cstr_casecmp(prov->name, parms->name);
                 if (match) {
                     if ((parms->flags & AP_EXPR_FLAG_RESTRICTED)
                         && prov->restricted) {
@@ -1806,10 +1804,7 @@ static int expr_lookup_not_found(ap_expr_lookup_parms *parms)
 static int ap_expr_post_config(apr_pool_t *pconf, apr_pool_t *plog,
                                apr_pool_t *ptemp, server_rec *s)
 {
-    is_https = APR_RETRIEVE_OPTIONAL_FN(ssl_is_https);
     is_http2 = APR_RETRIEVE_OPTIONAL_FN(http2_is_h2);
-    apr_pool_cleanup_register(pconf, &is_https, ap_pool_cleanup_set_null,
-                              apr_pool_cleanup_null);
     return OK;
 }
 

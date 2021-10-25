@@ -42,10 +42,6 @@ IOHIDReportElementQueue *IOHIDReportElementQueue::withCapacity(UInt32 size, IOHI
         size = HID_QUEUE_CAPACITY_MIN;
     }
 
-    if (size > HID_QUEUE_CAPACITY_MAX_ENTITLED) {
-        size = HID_QUEUE_CAPACITY_MAX_ENTITLED;
-    }
-
     if (queue && !queue->initWithCapacity(size)) {
         queue->release();
         queue = NULL;

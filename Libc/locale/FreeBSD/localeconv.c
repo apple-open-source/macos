@@ -38,6 +38,7 @@ __FBSDID("$FreeBSD: src/lib/libc/locale/localeconv.c,v 1.14 2007/12/12 07:43:23 
 
 #include <limits.h>
 #include <locale.h>
+#include <os/assumes.h> // for os_crash
 
 #include "lmonetary.h"
 #include "lnumeric.h"
@@ -117,11 +118,10 @@ localeconv_l(locale_t loc)
 {
     NORMALIZE_LOCALE(loc);
 
+    XL_LOCK(loc);
     if (loc->__mlocale_changed) {
-      XL_LOCK(loc);
-      if (loc->__mlocale_changed) {
 	/* LC_MONETARY part */
-        struct lc_monetary_T * mptr; 
+	struct lc_monetary_T * mptr;
 	struct lconv *lc = &loc->__lc_localeconv;
 
 #define M_ASSIGN_STR(NAME) (lc->NAME = (char*)mptr->NAME)
@@ -150,15 +150,11 @@ localeconv_l(locale_t loc)
 	M_ASSIGN_CHAR(int_p_sign_posn);
 	M_ASSIGN_CHAR(int_n_sign_posn);
 	loc->__mlocale_changed = 0;
-      }
-      XL_UNLOCK(loc);
     }
 
     if (loc->__nlocale_changed) {
-      XL_LOCK(loc);
-      if (loc->__nlocale_changed) {
 	/* LC_NUMERIC part */
-        struct lc_numeric_T * nptr; 
+	struct lc_numeric_T * nptr;
 	struct lconv *lc = &loc->__lc_localeconv;
 
 #define N_ASSIGN_STR(NAME) (lc->NAME = (char*)nptr->NAME)
@@ -168,10 +164,18 @@ localeconv_l(locale_t loc)
 	N_ASSIGN_STR(thousands_sep);
 	N_ASSIGN_STR(grouping);
 	loc->__nlocale_changed = 0;
-      }
-      XL_UNLOCK(loc);
-    }
 
+        // Bear trap rdar://problem/76765046
+        if (loc->__lc_localeconv.decimal_point == NULL) {
+            os_crash("loc->decimal_point is NULL (nlocale changed)");
+        }
+    }
+    XL_UNLOCK(loc);
+
+    // Bear trap rdar://problem/76765046
+    if (loc->__lc_localeconv.decimal_point == NULL) {
+        os_crash("loc->decimal_point is NULL");
+    }
     return &loc->__lc_localeconv;
 }
 

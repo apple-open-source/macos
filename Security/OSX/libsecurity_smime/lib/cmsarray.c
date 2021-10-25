@@ -55,11 +55,12 @@
  *
  * This allocates space for the array of pointers
  */
-void **
-SecCmsArrayAlloc(PRArenaPool *poolp, int n)
+void** SecCmsArrayAlloc(PRArenaPool* poolp, int n)
 {
-    if (n>=(int)(INT_MAX/sizeof(void *))) {return (void **)NULL;} // Prevent under-allocation due to integer overflow
-    return (void **)PORT_ArenaZAlloc(poolp, n * sizeof(void *));
+    if (n < 0 || n >= (int)(INT_MAX / sizeof(void*))) {
+        return (void**)NULL;
+    }  // Prevent under-allocation due to integer overflow
+    return (void**)PORT_ArenaZAlloc(poolp, (size_t)n * sizeof(void*));
 }
 
 /*
@@ -67,39 +68,37 @@ SecCmsArrayAlloc(PRArenaPool *poolp, int n)
  *
  * The array of pointers is either created (if array was empty before) or grown.
  */
-OSStatus
-SecCmsArrayAdd(PRArenaPool *poolp, void ***array, void *obj)
+OSStatus SecCmsArrayAdd(PRArenaPool* poolp, void*** array, void* obj)
 {
-    void **p;
-    int n;
-    void **dest;
+    void** p;
+    unsigned int n;
+    void** dest;
 
     PORT_Assert(array != NULL);
     if (array == NULL)
-	return SECFailure;
+        return SECFailure;
 
     if (*array == NULL) {
-	dest = (void **)PORT_ArenaAlloc(poolp, 2 * sizeof(void *));
-	n = 0;
+        dest = (void**)PORT_ArenaAlloc(poolp, 2 * sizeof(void*));
+        n = 0;
     } else {
-	n = 0; p = *array;
-	while (*p++)
-	    n++;
-	if (n>=(int)((INT_MAX/sizeof(void *))-2)) {
-		// Prevent under-allocation due to integer overflow
-		return SECFailure;
-	}
-	dest = (void **)PORT_ArenaGrow (poolp, 
-			      *array,
-			      (n + 1) * sizeof(void *),
-			      (n + 2) * sizeof(void *));
+        n = 0;
+        p = *array;
+        while (*p++) {
+            n++;
+        }
+        if (n >= (int)((INT_MAX / sizeof(void*)) - 2)) {
+            // Prevent under-allocation due to integer overflow
+            return SECFailure;
+        }
+        dest = (void**)PORT_ArenaGrow(poolp, *array, (n + 1) * sizeof(void*), (n + 2) * sizeof(void*));
     }
 
     if (dest == NULL)
-	return SECFailure;
+        return SECFailure;
 
     dest[n] = obj;
-    dest[n+1] = NULL;
+    dest[n + 1] = NULL;
     *array = dest;
     return SECSuccess;
 }
@@ -107,8 +106,7 @@ SecCmsArrayAdd(PRArenaPool *poolp, void ***array, void *obj)
 /*
  * SecCmsArrayIsEmpty - check if array is empty
  */
-Boolean
-SecCmsArrayIsEmpty(void **array)
+Boolean SecCmsArrayIsEmpty(void** array)
 {
     return (array == NULL || array[0] == NULL);
 }
@@ -116,16 +114,17 @@ SecCmsArrayIsEmpty(void **array)
 /*
  * SecCmsArrayCount - count number of elements in array
  */
-int
-SecCmsArrayCount(void **array)
+int SecCmsArrayCount(void** array)
 {
     int n = 0;
 
-    if (array == NULL)
-	return 0;
+    if (array == NULL) {
+        return 0;
+    }
 
-    while (*array++ != NULL)
-	n++;
+    while (*array++ != NULL) {
+        n++;
+    }
 
     return n;
 }
@@ -142,12 +141,11 @@ SecCmsArrayCount(void **array)
  *  > 0 when the first element is greater than the second
  * to acheive ascending ordering.
  */
-void
-SecCmsArraySort(void **primary, int (*compare)(void *,void *), void **secondary, void **tertiary)
+void SecCmsArraySort(void** primary, int (*compare)(void*, void*), void** secondary, void** tertiary)
 {
     int n, i, limit, lastxchg;
-    void *tmp;
-    int n_2nd=0,n_3rd=0;
+    void* tmp;
+    int n_2nd = 0, n_3rd = 0;
 
     n = SecCmsArrayCount(primary);
 
@@ -161,35 +159,37 @@ SecCmsArraySort(void **primary, int (*compare)(void *,void *), void **secondary,
         n_3rd = SecCmsArrayCount(tertiary);
     }
 
-    if (n <= 1)	/* ordering is fine */
-	return;
-    
+    if (n <= 1) { /* ordering is fine */
+        return;
+    }
+
     /* yes, ladies and gentlemen, it's BUBBLE SORT TIME! */
     limit = n - 1;
     while (1) {
-	lastxchg = 0;
-	for (i = 0; i < limit; i++) {
-	    if ((*compare)(primary[i], primary[i+1]) > 0) {
-		/* exchange the neighbours */
-		tmp = primary[i+1];
-		primary[i+1] = primary[i];
-		primary[i] = tmp;
-		if (secondary && ((i+1)<n_2nd)) {/* secondary array? */
-		    tmp = secondary[i+1];	 /* exchange there as well */
-		    secondary[i+1] = secondary[i];
-		    secondary[i] = tmp;
-		}
-		if (tertiary && ((i+1)<n_3rd)) {/* tertiary array? */
-		    tmp = tertiary[i+1];	/* exchange there as well */
-		    tertiary[i+1] = tertiary[i];
-		    tertiary[i] = tmp;
-		}
-		lastxchg = i+1;	/* index of the last element bubbled up */
-	    }
-	}
-	if (lastxchg == 0)	/* no exchanges, so array is sorted */
-	    break;		/* we're done */
-	limit = lastxchg;	/* array is sorted up to [limit] */
+        lastxchg = 0;
+        for (i = 0; i < limit; i++) {
+            if ((*compare)(primary[i], primary[i + 1]) > 0) {
+                /* exchange the neighbours */
+                tmp = primary[i + 1];
+                primary[i + 1] = primary[i];
+                primary[i] = tmp;
+                if (secondary && ((i + 1) < n_2nd)) { /* secondary array? */
+                    tmp = secondary[i + 1];           /* exchange there as well */
+                    secondary[i + 1] = secondary[i];
+                    secondary[i] = tmp;
+                }
+                if (tertiary && ((i + 1) < n_3rd)) { /* tertiary array? */
+                    tmp = tertiary[i + 1];           /* exchange there as well */
+                    tertiary[i + 1] = tertiary[i];
+                    tertiary[i] = tmp;
+                }
+                lastxchg = i + 1; /* index of the last element bubbled up */
+            }
+        }
+        if (lastxchg == 0) { /* no exchanges, so array is sorted */
+            break;           /* we're done */
+        }
+        limit = lastxchg; /* array is sorted up to [limit] */
     }
 }
 

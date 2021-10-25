@@ -147,8 +147,8 @@ ttyv0	"/usr/X11/bin/xterm -display :0"	xterm	on window="/usr/X11/bin/X :0"
 # the sequence of eight terminals tty00 through tty07
 tty[00-07]     "/usr/libexec/getty std.9600"  vt100      on
 # Network pseudo ttys -- don't enable getty
-ttyp0	none	network 	
-ttyp1	none	network	off	
+ttyp0	none	network
+ttyp1	none	network	off
 # All sixteen of a pseudo tty sequence
 ttyq[0x0-0xf]  none                           network
 .Ed

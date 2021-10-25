@@ -13,7 +13,7 @@
 /* SUPPRESS 288 on yyerrlab *//* Label unused */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/usr.bin/find/getdate.y,v 1.7 2010/02/09 21:24:41 ed Exp $");
+__FBSDID("$FreeBSD$");
 
 #include <stdio.h>
 #include <ctype.h>
@@ -23,22 +23,11 @@ __FBSDID("$FreeBSD: src/usr.bin/find/getdate.y,v 1.7 2010/02/09 21:24:41 ed Exp 
    tricks are need, but defaults to using the gettimeofday system call.
    Include <sys/time.h> if that will be used.  */
 
-#if	defined(vms)
-# include <types.h>
-#else /* defined(vms) */
 # include <sys/types.h>
 # include <sys/time.h>
-#endif	/* !defined(vms) */
 
 #if defined (__STDC__) || defined (USG)
 #include <string.h>
-#endif
-
-/* Some old versions of bison generate parsers that use bcopy.
-   That loses on systems that don't provide the function, so we have
-   to redefine it here.  */
-#if !defined (HAVE_BCOPY) && defined (HAVE_MEMCPY) && !defined (bcopy)
-#define bcopy(from, to, len) memcpy ((to), (from), (len))
 #endif
 
 #if defined (__STDC__)
@@ -60,11 +49,9 @@ __FBSDID("$FreeBSD: src/usr.bin/find/getdate.y,v 1.7 2010/02/09 21:24:41 ed Exp 
 
 #include <time.h>
 
-#define yyparse getdate_yyparse
 #define yylex getdate_yylex
 #define yyerror getdate_yyerror
 
-static int yyparse(void);
 static int yylex(void);
 static int yyerror(const char *);
 

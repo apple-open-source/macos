@@ -98,7 +98,7 @@ static const SingleUnitFormat en_singFmt[] = {
     { UAMEASUNIT_DURATION_MINUTE,           5.25,  "5.25 minutes",              "5 minutes",              "5.25 min",         "5.2 min",        "5m",          "5m",        0,1,    0,1   },
     { UAMEASUNIT_DURATION_DAY,              5.25,  "5.25 days",                 "5 days",                 "5.25 days",        "5.2 days",       "5d",          "5d",        0,1,    0,1   },
     { UAMEASUNIT_DURATION_WEEK,             5.25,  "5.25 weeks",                "5 weeks",                "5.25 wks",         "5.2 wks",        "5w",          "5w",        0,1,    0,1   },
-    { UAMEASUNIT_DURATION_CENTURY,         37.203, "37.20 centuries",           "37 centuries",           "37.203 c",         "37.2 c",         "37 c",        "37 c",      0,2,    0,2   },
+    { UAMEASUNIT_DURATION_CENTURY,         37.203, "37.20 centuries",           "37 centuries",           "37.203 c",         "37.2 c",         "37c",         "37c",       0,2,    0,2   },
     { UAMEASUNIT_LENGTH_CENTIMETER,        37.203, "37.20 centimeters",         "37 centimeters",         "37.203 cm",        "37.2 cm",        "37cm",        "37cm",      0,2,    0,2   },
     { UAMEASUNIT_SPEED_KILOMETER_PER_HOUR, 37.203, "37.20 kilometers per hour", "37 kilometers per hour", "37.203 km/h",      "37.2 km/h",      "37km/h",      "37km/h",    0,2,    0,2   },
     { UAMEASUNIT_TEMPERATURE_CELSIUS,      37.203, "37.20 degrees Celsius",     "37 degrees Celsius",     "37.203\\u00B0C",   "37.2\\u00B0C",   "37\\u00B0C",  "37\\u00B0", 0,2,    0,2   },
@@ -128,8 +128,8 @@ static const SingleUnitFormat en_GB_singFmt[] = {
 
 static const SingleUnitFormat en_AU_singFmt[] = {
 //    unit                                 value   wide_2                       wide_0                    shrt_X              shrt_1            narr_0         numr_0       wide_0  narr_0
-    { UAMEASUNIT_ENERGY_KILOCALORIE,       1.0,    "1.00 Calories",             "1 Calorie",              "1 Cal",            "1.0 Cal",        "1Cal",        "1Cal",      0,1,    0,1   },
-    { UAMEASUNIT_ENERGY_KILOCALORIE,       37.203, "37.20 Calories",            "37 Calories",            "37.203 Cal",       "37.2 Cal",       "37Cal",       "37Cal",     0,2,    0,2   },
+    { UAMEASUNIT_ENERGY_KILOCALORIE,       1.0,    "1.00 kilocalories",         "1 kilocalorie",          "1 kcal",           "1.0 kcal",       "1kcal",       "1kcal",     0,1,    0,1   },
+    { UAMEASUNIT_ENERGY_KILOCALORIE,       37.203, "37.20 kilocalories",        "37 kilocalories",        "37.203 kcal",      "37.2 kcal",      "37kcal",      "37kcal",    0,2,    0,2   },
     { UAMEASUNIT_ENERGY_FOODCALORIE,       1.0,    "1.00 Calories",             "1 Calorie",              "1 Cal",            "1.0 Cal",        "1Cal",        "1Cal",      0,1,    0,1   },
     { UAMEASUNIT_ENERGY_FOODCALORIE,       37.203, "37.20 Calories",            "37 Calories",            "37.203 Cal",       "37.2 Cal",       "37Cal",       "37Cal",     0,2,    0,2   },
     { (UAMeasureUnit)0, 0, NULL, NULL, NULL, NULL, NULL, NULL }
@@ -174,10 +174,10 @@ static const SingleUnitFormat zh_Hant_singFmt[] = {
 
 static const SingleUnitFormat cs_singFmt[] = {
 //    unit                                 value   wide_2                           wide_0                        shrt_X              shrt_1            narr_0         numr_0      wide_0  narr_0
-    { UAMEASUNIT_DURATION_MINUTE,           0.0,   "0,00 minuty",                   "0 minut",                    "0 min",            "0,0 min",        "0 m",         "0 m",      0,1,    0,1   }, // other for integer, else many
-    { UAMEASUNIT_DURATION_MINUTE,           1.0,   "1,00 minuty",                   "1 minuta",                   "1 min",            "1,0 min",        "1 m",         "1 m",      0,1,    0,1   }, // one for integer, else many
-    { UAMEASUNIT_DURATION_MINUTE,           2.0,   "2,00 minuty",                   "2 minuty",                   "2 min",            "2,0 min",        "2 m",         "2 m",      0,1,    0,1   }, // few for integer, else many
-    { UAMEASUNIT_DURATION_MINUTE,           8.5,   "8,50 minuty",                   "8 minut",                    "8,5 min",          "8,5 min",        "8 m",         "8 m",      0,1,    0,1   }, // other for integer, else many
+    { UAMEASUNIT_DURATION_MINUTE,           0.0,   "0,00 minuty",                   "0 minut",                    "0\\u00A0min",  "0,0\\u00A0min",  "0\\u00A0m",   "0\\u00A0m",      0,1,    0,1   }, // other for integer, else many
+    { UAMEASUNIT_DURATION_MINUTE,           1.0,   "1,00 minuty",                   "1 minuta",                   "1\\u00A0min",  "1,0\\u00A0min",  "1\\u00A0m",   "1\\u00A0m",      0,1,    0,1   }, // one for integer, else many
+    { UAMEASUNIT_DURATION_MINUTE,           2.0,   "2,00 minuty",                   "2 minuty",                   "2\\u00A0min",  "2,0\\u00A0min",  "2\\u00A0m",   "2\\u00A0m",      0,1,    0,1   }, // few for integer, else many
+    { UAMEASUNIT_DURATION_MINUTE,           8.5,   "8,50 minuty",                   "8 minut",                  "8,5\\u00A0min",  "8,5\\u00A0min",  "8\\u00A0m",   "8\\u00A0m",      0,1,    0,1   }, // other for integer, else many
     { (UAMeasureUnit)0, 0, NULL, NULL, NULL, NULL, NULL, NULL }
 };
 
@@ -251,7 +251,7 @@ static const SingleUnitName en_singNam[] = {
     { UAMEASUNIT_VOLUME_LITER,             "liters",              "liters",    "liter"     },
     { UAMEASUNIT_ENERGY_FOODCALORIE,       "Calories",            "Cal",       "Cal"       },
     { UAMEASUNIT_ENERGY_JOULE,             "joules",              "joules",    "joule"     },
-    { UAMEASUNIT_DIGITAL_MEGABYTE,         "megabytes",           "MByte",     "MByte"     },
+    { UAMEASUNIT_DIGITAL_MEGABYTE,         "megabytes",           "MByte",     "MB"        },
     { (UAMeasureUnit)0, NULL, NULL, NULL }
 };
 
@@ -261,9 +261,27 @@ static const SingleUnitName en_GB_singNam[] = {
     { UAMEASUNIT_LENGTH_CENTIMETER,        "centimetres",         "cm",        "cm"        },
     { UAMEASUNIT_TEMPERATURE_CELSIUS,      "degrees Celsius",     "deg. C",    "\\u00B0C"  },
     { UAMEASUNIT_TEMPERATURE_FAHRENHEIT,   "degrees Fahrenheit",  "deg. F",    "\\u00B0F"  },
-    { UAMEASUNIT_TEMPERATURE_GENERIC,      "degrees",             "deg.",      "deg."      },
+    { UAMEASUNIT_TEMPERATURE_GENERIC,      "degree",              "deg.",      "deg."      },
     { UAMEASUNIT_VOLUME_LITER,             "litres",              "litres",    "litre"     },
     { UAMEASUNIT_ENERGY_FOODCALORIE,       "Calories",            "Cal",       "Cal"       },
+    { (UAMeasureUnit)0, NULL, NULL, NULL }
+};
+
+static const SingleUnitName zh_singNam[] = {
+//    unit                                 wide                     shrt                     narr
+    { UAMEASUNIT_TEMPERATURE_FAHRENHEIT,   "\\u534E\\u6C0F\\u5EA6", "\\u534E\\u6C0F\\u5EA6", "\\u00B0F"  },
+    { (UAMeasureUnit)0, NULL, NULL, NULL }
+};
+
+static const SingleUnitName zh_Hant_singNam[] = {
+//    unit                                 wide                            shrt              narr
+    { UAMEASUNIT_TEMPERATURE_FAHRENHEIT,   "\\u83EF\\u6C0F\\u5EA6\\u6578", "\\u83EF\\u6C0F", "\\u00B0F"  },
+    { (UAMeasureUnit)0, NULL, NULL, NULL }
+};
+
+static const SingleUnitName zh_Hant_HK_singNam[] = {
+//    unit                                 wide                            shrt              narr
+    { UAMEASUNIT_TEMPERATURE_FAHRENHEIT,   "\\u83EF\\u6C0F\\u5EA6",        "\\u00B0F",       "\\u00B0F"  },
     { (UAMeasureUnit)0, NULL, NULL, NULL }
 };
 
@@ -394,7 +412,7 @@ static const LocaleWidthNumFmtItem lwnItems[] = {
     { "fr",         fr_singFmt,      NULL,            NULL,            NULL            }, // fr: try plural cases for 1, other
     { "fr_CA",      fr_CA_singFmt,   NULL,            NULL,            NULL            },
     { "ja",         NULL,            NULL,            NULL,            ja_multNam      }, // ja: try plural cases for other only
-    { "zh_Hans",    NULL,            NULL,            NULL,            NULL            }, // zh_Hans: try plural cases for other only
+    { "zh_Hans",    NULL,            zh_singNam,      NULL,            NULL            }, // zh_Hans: try plural cases for other only
 
     // ============= TIER 2,3 and sublocales
     { "ar",         NULL,            NULL,            NULL,            NULL            }, // ar: try plural cases for 0, 1, 2, 3, 11, 100
@@ -426,8 +444,8 @@ static const LocaleWidthNumFmtItem lwnItems[] = {
     { "tr",         NULL,            NULL,            NULL,            NULL            }, // tr: try plural cases for 1, other
     { "uk",         uk_singFmt,      NULL,            NULL,            NULL            }, // uk: try plural cases for 1, 2, 5, 8.5
     { "vi",         vi_singFmt,      NULL,            NULL,            NULL            }, // vi: try plural cases for other only
-    { "zh_Hant",    zh_Hant_singFmt, NULL,            NULL,            NULL            }, // zh_Hant: try plural cases for other only
-    { "zh_Hant_HK", NULL,            NULL,            NULL,            NULL            }, 
+    { "zh_Hant",    zh_Hant_singFmt, zh_Hant_singNam, NULL,            NULL            }, // zh_Hant: try plural cases for other only
+    { "zh_Hant_HK", NULL,            zh_Hant_HK_singNam, NULL,         NULL            }, 
 
     // =============TERMINATOR
     { NULL, NULL, NULL, NULL, NULL }
@@ -967,13 +985,13 @@ static const UnitsForUsageItem unitsForUsageItems[] = {
     { "en_US",           "length",  "person",          1, { UAMEASUNIT_LENGTH_INCH } },
     { "en_US",           "length",  "person-informal", 2, { UAMEASUNIT_LENGTH_FOOT, UAMEASUNIT_LENGTH_INCH } },
     { "en_US",           "length",  "person-small",    1, { UAMEASUNIT_LENGTH_INCH } },
-    { "fr_FR",           "length",  "person",          2, { UAMEASUNIT_LENGTH_METER, UAMEASUNIT_LENGTH_CENTIMETER } },
+    { "fr_FR",           "length",  "person",          1, { UAMEASUNIT_LENGTH_CENTIMETER } },
     { "fr_FR",           "length",  "person-informal", 2, { UAMEASUNIT_LENGTH_METER, UAMEASUNIT_LENGTH_CENTIMETER } },
     { "fr_FR",           "length",  "person-small",    1, { UAMEASUNIT_LENGTH_CENTIMETER } },
     { "fr_FR@rg=USZZZZ", "length",  "person",          1, { UAMEASUNIT_LENGTH_INCH } },
     { "fr_FR@rg=USZZZZ", "length",  "person-informal", 2, { UAMEASUNIT_LENGTH_FOOT, UAMEASUNIT_LENGTH_INCH } },
     { "fr_FR@rg=USZZZZ", "length",  "person-small",    1, { UAMEASUNIT_LENGTH_INCH } },
-    { "en_IN",           "pressure","baromtrc",        1, { UAMEASUNIT_PRESSURE_HECTOPASCAL } },
+    { "en_IN",           "pressure","baromtrc",        1, { UAMEASUNIT_PRESSURE_INCH_HG } },
     { "es_MX",           "pressure","baromtrc",        1, { UAMEASUNIT_PRESSURE_MILLIMETER_OF_MERCURY } },
     { "fr_FR",           "pressure","baromtrc",        1, { UAMEASUNIT_PRESSURE_HECTOPASCAL } },
     { "pt"/*BR*/,        "pressure","baromtrc",        1, { UAMEASUNIT_PRESSURE_MILLIBAR } },
@@ -988,7 +1006,7 @@ static const UnitsForUsageItem unitsForUsageItems[] = {
     { "fr_FR",           "energy",  "person-usage",    1, { UAMEASUNIT_ENERGY_KILOCALORIE } },
     { "es_ES",           "energy",  "person-usage",    1, { UAMEASUNIT_ENERGY_KILOCALORIE } },
     { "zh_CN",           "energy",  "person-usage",    1, { UAMEASUNIT_ENERGY_KILOCALORIE } },
-    // <rdar://problem/59634873> kJ: AU NZ 
+    // <rdar://problem/59634873> kJ: AU NZ
     { "en_AU",           "energy",  "person-usage",    1, { UAMEASUNIT_ENERGY_KILOJOULE } },
     { "en_NZ",           "energy",  "person-usage",    1, { UAMEASUNIT_ENERGY_KILOJOULE } },
     // <rdar://problem/59634873> Cal: US CA
@@ -1003,11 +1021,38 @@ static const UnitsForUsageItem unitsForUsageItems[] = {
     // tests for ms=
     { "en_US@ms=metric",   "length", "large",           1, { UAMEASUNIT_LENGTH_KILOMETER } },
     { "fr_FR@ms=ussystem", "length", "large",           1, { UAMEASUNIT_LENGTH_MILE } },
-    { "en_GB@ms=metric",   "concentr", "blood-glucose", 1, { UAMEASUNIT_CONCENTRATION_MILLIMOLE_PER_LITER } },
+    { "en_GB",             "concentr", "blood-glucose", 1, { UAMEASUNIT_CONCENTRATION_MILLIMOLE_PER_LITER } },
+    { "en_GB@ms=metric",   "concentr", "blood-glucose", 1, { UAMEASUNIT_CONCENTRATION_MILLIGRAM_PER_DECILITER } },
     { "en_US@ms=uksystem", "mass",   "person",          2, { UAMEASUNIT_MASS_STONE, UAMEASUNIT_MASS_POUND } },
     { "fr_FR",             "mass",   "person",          1, { UAMEASUNIT_MASS_KILOGRAM } },
     { "fr_FR@rg=USZZZZ",   "mass",   "person",          1, { UAMEASUNIT_MASS_POUND } },
     { "fr_FR@ms=uksystem;rg=USZZZZ", "mass", "person",  2, { UAMEASUNIT_MASS_STONE, UAMEASUNIT_MASS_POUND } },
+    // rdar://73253930 consumption: US GB CA backward compatibility
+    { "en_US",             "consumption", "vehicle-fuel", 1, { UAMEASUNIT_CONSUMPTION_MILE_PER_GALLON } },
+    { "en_GB",             "consumption", "vehicle-fuel", 1, { UAMEASUNIT_CONSUMPTION_MILE_PER_GALLON_IMPERIAL } },
+    { "en_CA",             "consumption", "vehicle-fuel", 1, { UAMEASUNIT_CONSUMPTION_MILE_PER_GALLON_IMPERIAL } },
+    { "fr_FR",             "consumption", "vehicle-fuel", 1, { UAMEASUNIT_CONSUMPTION_LITER_PER_100_KILOMETERs } },
+    { "pt_BR",             "consumption", "vehicle-fuel", 1, { UAMEASUNIT_CONSUMPTION_LITER_PER_KILOMETER } },
+    { "en_US",             "consumption-inverse", "vehicle-fuel", 1, { UAMEASUNIT_CONSUMPTION_MILE_PER_GALLON } },
+    { "en_GB",             "consumption-inverse", "vehicle-fuel", 1, { UAMEASUNIT_CONSUMPTION_MILE_PER_GALLON_IMPERIAL } },
+    { "en_CA",             "consumption-inverse", "vehicle-fuel", 1, { UAMEASUNIT_CONSUMPTION_MILE_PER_GALLON_IMPERIAL } },
+    // rdar://77037602 energy/default and energy/NULL
+    { "en_US",           "energy",  "default",          1, { UAMEASUNIT_ENERGY_KILOWATT_HOUR } },
+    { "en_US",           "energy",  NULL,               1, { UAMEASUNIT_ENERGY_KILOWATT_HOUR } },
+    // rdar://77037877 default va NULL for various quantities
+    { "en_US",           "length",  "default",          1, { UAMEASUNIT_LENGTH_FOOT } },
+    { "en_US",           "length",  NULL,               1, { UAMEASUNIT_LENGTH_FOOT } },
+    { "en_US",           "area",    "default",          1, { UAMEASUNIT_AREA_SQUARE_FOOT } },
+    { "en_US",           "area",    NULL,               1, { UAMEASUNIT_AREA_SQUARE_FOOT } },
+    { "en_US",           "mass",    "default",          1, { UAMEASUNIT_MASS_POUND } },
+    { "en_US",           "mass",    NULL,               1, { UAMEASUNIT_MASS_POUND } },
+    { "en_US",           "power",   "default",          1, { UAMEASUNIT_POWER_WATT } },
+    { "en_US",           "power",   NULL,               1, { UAMEASUNIT_POWER_WATT } },
+    { "en_US",           "volume",  "default",          1, { UAMEASUNIT_VOLUME_GALLON } },
+    { "en_US",           "volume",  NULL,               1, { UAMEASUNIT_VOLUME_GALLON } },
+    // rdar://47001274 ([NanoWeather]: UA: 18E165: Ukrainian would prefer m/s instead of km/h for wind speed)
+    { "uk_UA",           "speed",   NULL,               1, { UAMEASUNIT_SPEED_KILOMETER_PER_HOUR } },
+    { "uk_UA",           "speed",   "wind",             1, { UAMEASUNIT_SPEED_METER_PER_SECOND } },
     // terminator
     { NULL, NULL, NULL, 0, { (UAMeasureUnit)0 } }
 };
@@ -1022,17 +1067,17 @@ static void TestUAGetUnitsForUsage()
                                                         units, kMeasureUnitMax, &status);
         if ( U_FAILURE(status) ) {
             if (itemPtr->unitCount != 0) {
-                log_err("FAIL: uameasfmt_getUnitsForUsage locale %s, category %s-%s, status %s\n",
+                log_err("FAIL: uameasfmt_getUnitsForUsage locale %s, category %s/%s, status %s\n",
                         itemPtr->locale, itemPtr->category, itemPtr->usage, u_errorName(status));
             }
         } else if (itemPtr->unitCount == 0) {
-            log_err("FAIL: uameasfmt_getUnitsForUsage locale %s, category %s-%s, expected failure, got status %s\n",
+            log_err("FAIL: uameasfmt_getUnitsForUsage locale %s, category %s/%s, expected failure, got status %s\n",
                     itemPtr->locale, itemPtr->category, itemPtr->usage, u_errorName(status));
         } else if (unitsCount != itemPtr->unitCount) {
-            log_err("FAIL: uameasfmt_getUnitsForUsage locale %s, category %s-%s, expected count %d, got %d\n",
+            log_err("FAIL: uameasfmt_getUnitsForUsage locale %s, category %s/%s, expected count %d, got %d\n",
                     itemPtr->locale, itemPtr->category, itemPtr->usage, itemPtr->unitCount, unitsCount);
         } else if (units[0] != itemPtr->units[0] || (unitsCount == 2 && units[1] != itemPtr->units[1])) {
-            log_err("FAIL: uameasfmt_getUnitsForUsage locale %s, category %s-%s, expected units x%04X ..., got x%04X ...\n",
+            log_err("FAIL: uameasfmt_getUnitsForUsage locale %s, category %s/%s, expected units x%04X ..., got x%04X ...\n",
                     itemPtr->locale, itemPtr->category, itemPtr->usage, itemPtr->units[0], units[0]);
         }
     }

@@ -335,7 +335,7 @@ void IOAudioDevice::free()
 
 	audioDebugIOLog ( 3, "  did workLoop->removeEventSource ( timerEventSource )\n" );
 	
-	if (reserved->idleTimer) {
+	if (reserved && reserved->idleTimer) {
 		if (workLoop) {
 			reserved->idleTimer->cancelTimeout();			// <rdar://problem/7493627,8426296>
 			workLoop->removeEventSource(reserved->idleTimer);
@@ -346,7 +346,13 @@ void IOAudioDevice::free()
 	}
 
 	audioDebugIOLog ( 3, "  did workLoop->removeEventSource ( reserved->idleTimer )\n" );
-	
+
+    if (reserved) {
+        IOFree (reserved, sizeof(struct ExpansionData));
+    }
+    
+    audioDebugIOLog ( 3, "  did IOFree ()\n" );
+    
     if (commandGate) {
         if (workLoop) {
             workLoop->removeEventSource(commandGate);
@@ -364,12 +370,6 @@ void IOAudioDevice::free()
     }
 
 	audioDebugIOLog ( 3, "  did workLoop->release ()\n" );
-	
-	if (reserved) {
-		IOFree (reserved, sizeof(struct ExpansionData));
-	}
-    
-	audioDebugIOLog ( 3, "  did IOFree ()\n" );
 	
     super::free();
 

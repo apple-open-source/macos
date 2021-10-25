@@ -10,7 +10,13 @@ macosx)
     /usr/libexec/PlistBuddy -c "Add :Disabled bool true" "${SCRIPT_OUTPUT_FILE_0}"
     ;;
 *)
-    echo "Unsupported platform: $PLATFORM_NAME"
-    exit 1
+    case "$FALLBACK_PLATFORM" in
+        iphone*|appletv*|watch*|bridge*)
+            ;;
+        *)
+            echo "Unsupported platform: $ACTUAL_PLATFORM_NAME"
+            exit 1
+            ;;
+    esac
     ;;
 esac

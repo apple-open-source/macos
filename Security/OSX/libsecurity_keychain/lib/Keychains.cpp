@@ -666,7 +666,7 @@ KeychainImpl::changePassphrase(UInt32 oldPasswordLength, const void *oldPassword
 
 	if (oldPassword)
 	{
-		const CssmData &oldPass = *new(allocator) CssmData(const_cast<void *>(oldPassword), oldPasswordLength);
+		const CssmData oldPass(const_cast<void *>(oldPassword), oldPasswordLength);
 		TypedList &oldList = *new(allocator) TypedList(allocator, CSSM_SAMPLE_TYPE_KEYCHAIN_LOCK);
 		oldList.append(new(allocator) ListElement(CSSM_SAMPLE_TYPE_PASSWORD));
 		oldList.append(new(allocator) ListElement(oldPass));
@@ -675,7 +675,7 @@ KeychainImpl::changePassphrase(UInt32 oldPasswordLength, const void *oldPassword
 
 	if (newPassword)
 	{
-		const CssmData &newPass = *new(allocator) CssmData(const_cast<void *>(newPassword), newPasswordLength);
+		const CssmData newPass(const_cast<void *>(newPassword), newPasswordLength);
 		TypedList &newList = *new(allocator) TypedList(allocator, CSSM_SAMPLE_TYPE_KEYCHAIN_CHANGE_LOCK);
 		newList.append(new(allocator) ListElement(CSSM_SAMPLE_TYPE_PASSWORD));
 		newList.append(new(allocator) ListElement(newPass));

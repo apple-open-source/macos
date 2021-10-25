@@ -96,6 +96,16 @@ struct AsyncGateParam {
     UInt32                    completionTimeOutMS;
 };
 
+typedef struct _IOHIDElementOOBValue
+{
+    IOHIDElementCookie  cookie;
+    uint32_t            flags:8;
+    uint32_t            totalSize:24;
+    uint64_t            timestamp;
+    uint32_t            generation;
+    mach_vm_address_t   address;
+} __attribute__((packed)) IOHIDElementOOBValue;
+
 OSDefineMetaClassAndStructors(IOHIDOOBReportDescriptor, IOBufferMemoryDescriptor);
 
 IOHIDOOBReportDescriptor *IOHIDOOBReportDescriptor::inTaskWithBytes(
@@ -687,8 +697,7 @@ void IOHIDLibUserClient::free()
     }
 
     if ( fValidMessage ) {
-        IOFree(fValidMessage, sizeof (struct _notifyMsg));
-        fValidMessage = NULL;
+        IOFreeType(fValidMessage, struct _notifyMsg);
     }
 
     if (fWakePort != MACH_PORT_NULL) {
@@ -756,7 +765,23 @@ IOReturn IOHIDLibUserClient::messageGated(UInt32 type, IOService * provider __un
 
 IOReturn IOHIDLibUserClient::setProperties(OSObject *properties)
 {
-    return fNub ? fNub->setProperties(properties) : kIOReturnOffline;
+    IOReturn ret = kIOReturnOffline;
+    OSDictionary * props = OSDynamicCast(OSDictionary, properties);
+    OSNumber     * num;
+
+    require_quiet(fNub, exit);
+
+    ret = fNub->setProperties(properties);
+
+    if (props && (num = OSDynamicCast(OSNumber, props->getObject(kIOHIDMaxReportBufferCountKey)))) {
+        ret = setProperty(kIOHIDMaxReportBufferCountKey, num);
+    }
+    if (props && (num = OSDynamicCast(OSNumber, props->getObject(kIOHIDReportBufferEntrySizeKey)))) {
+        ret = setProperty(kIOHIDReportBufferEntrySizeKey, num);
+    }
+
+exit:
+    return ret;
 }
 
 IOReturn IOHIDLibUserClient::registerNotificationPort(mach_port_t port, UInt32 type, UInt32 refCon)
@@ -802,11 +827,11 @@ IOReturn IOHIDLibUserClient::registerNotificationPortGated(mach_port_t port, UIn
             } };
             
             if ( fValidMessage ) {
-                IOFree(fValidMessage, sizeof (struct _notifyMsg));
+                IOFreeType(fValidMessage, struct _notifyMsg);
                 fValidMessage = NULL;
             }
                 
-            if ( !(fValidMessage = IOMalloc( sizeof(struct _notifyMsg))) ) {
+            if ( !(fValidMessage = IOMallocType(struct _notifyMsg)) ) {
                 kr = kIOReturnNoMemory;
                 break;
             }
@@ -814,7 +839,7 @@ IOReturn IOHIDLibUserClient::registerNotificationPortGated(mach_port_t port, UIn
             fValidPort = port;
             
             if ( !fValidPort ) {
-                IOFree(fValidMessage, sizeof (struct _notifyMsg));
+                IOFreeType(fValidMessage, struct _notifyMsg);
                 fValidMessage = NULL;
                 break;
             }
@@ -837,7 +862,9 @@ IOReturn IOHIDLibUserClient::registerNotificationPortGated(mach_port_t port, UIn
 
 void IOHIDLibUserClient::setValid(bool state)
 {
-    HIDLibUserClientLogInfo("setValid: from %s to %s", (fValid ? "true" : "false"), (state ? "true" : "false"));
+    if (state != fValid) {
+        HIDLibUserClientLogInfo("setValid: from %s to %s", (fValid ? "true" : "false"), (state ? "true" : "false"));
+    }
     
     if (fValid == state)
         return;
@@ -1080,12 +1107,10 @@ IOReturn IOHIDLibUserClient::getElements(uint32_t elementType, IOMemoryDescripto
         allocationSize = elementLength = (uint32_t)mem->getLength();
         if ( elementLength )
         {
-            elementData = IOMalloc( elementLength );
+            elementData = IOMallocZeroData( elementLength );
             
             if ( elementData )
             {
-                bzero(elementData, elementLength);
-
                 ret = getElements(elementType, elementData, &elementLength);
                 
                 if ( elementBufferSize )
@@ -1097,7 +1122,7 @@ IOReturn IOHIDLibUserClient::getElements(uint32_t elementType, IOMemoryDescripto
                     ret = kIOReturnBadArgument;
                 }
 
-                IOFree( elementData, allocationSize );
+                IOFreeData( elementData, allocationSize );
             }
             else
                 ret = kIOReturnNoMemory;
@@ -1133,14 +1158,14 @@ IOReturn IOHIDLibUserClient::createQueue(uint32_t flags, uint32_t depth, uint64_
     IOReturn    ret                     = kIOReturnError;
     IOHIDReportElementQueue *eventQueue         = NULL;
     
-    reportBufferCount = OSDynamicCast(OSNumber, fNub->copyProperty(kIOHIDMaxReportBufferCountKey));
-    if (reportBufferCount) {
+    if ((reportBufferCount = OSDynamicCast(OSNumber, copyProperty(kIOHIDMaxReportBufferCountKey))) ||
+        (reportBufferCount = OSDynamicCast(OSNumber, fNub->copyProperty(kIOHIDMaxReportBufferCountKey)))) {
         bufferCount = reportBufferCount->unsigned32BitValue();
         OSSafeReleaseNULL(reportBufferCount);
     }
     
-    reportBufferEntrySize = OSDynamicCast(OSNumber, fNub->copyProperty(kIOHIDReportBufferEntrySizeKey));
-    if (reportBufferEntrySize) {
+    if ((reportBufferEntrySize = OSDynamicCast(OSNumber, copyProperty(kIOHIDReportBufferEntrySizeKey))) ||
+        (reportBufferEntrySize = OSDynamicCast(OSNumber, fNub->copyProperty(kIOHIDReportBufferEntrySizeKey)))) {
         bufferEntrySize = reportBufferEntrySize->unsigned32BitValue();
         OSSafeReleaseNULL(reportBufferEntrySize);
     }
@@ -1177,13 +1202,7 @@ IOReturn IOHIDLibUserClient::createQueue(uint32_t flags, uint32_t depth, uint64_
                     (int) numEntries);
         eventQueue = IOHIDReportElementQueue::withCapacity(HID_QUEUE_CAPACITY_MAX, this);
     } else {
-        entrySize += HID_QUEUE_HEADER_SIZE;
-        if (entrySize >= fReportLimit) {
-            // Reports will be out of band, limit capacity since kernel will be allocation the buffers.
-            eventQueue = IOHIDReportElementQueue::withCapacity(HID_QUEUE_CAPACITY_MIN, this);
-        } else {
-            eventQueue = IOHIDReportElementQueue::withCapacity(queueSize, this);
-        }
+        eventQueue = IOHIDReportElementQueue::withCapacity(queueSize, this);
     }
     
     require_action(eventQueue, exit, ret = kIOReturnNoMemory);
@@ -1426,11 +1445,17 @@ IOReturn IOHIDLibUserClient::updateElementValues (const IOHIDElementCookie *lCoo
 
         // Copy the values back to Userland data structs.
         for (uint32_t index = 0; index < cookieCount; ++index) {
-            IOHIDElementPrivate *element = (IOHIDElementPrivate *) elements->getObject(cookies[index]);
-            IOHIDElementValue *elementVal = element->_elementValue;
+            IOHIDElementPrivate *element;
+            IOHIDElementValue *elementVal;
+            uint32_t enqueueSize, neededSize;
+
+            if (!(element = (IOHIDElementPrivate *) elements->getObject(cookies[index])) || !(elementVal = element->_elementValue)) {
+                continue;
+            }
+
             // Align to dword, to make unpacking easier
-            uint32_t enqueueSize = elementVal->totalSize;
-            uint32_t neededSize;
+            enqueueSize = elementVal->totalSize;
+
             // Ensure we have space for the IOHIDElementValue.
             if (os_add_overflow(dataOffset, elementVal->totalSize, &neededSize)) {
                 // space overflow
@@ -1751,7 +1776,6 @@ IOReturn IOHIDLibUserClient::setReport(const void *reportBuffer, uint32_t report
     IOMemoryDescriptor *    mem;
     
     mem = IOBufferMemoryDescriptor::withOptions(kIODirectionOutIn |
-                                                kIOMemoryPageable |
                                                 kIOMemoryKernelUserShared,
                                                 reportBufferSize);
 
@@ -2009,7 +2033,8 @@ IOHIDLibUserClient::processElement(IOHIDElementValue *element, IOHIDEventQueue *
     IOReturn status = kIOReturnNoMemory;
     bool ret;
     mach_vm_address_t reportAddress;
-    UInt32 dataSize;
+    IOHIDElementOOBValue oobElement;
+
 
     UInt32 reportSize = ELEMENT_VALUE_REPORT_SIZE(element);
     if (reportSize < fReportLimit) {
@@ -2030,19 +2055,16 @@ IOHIDLibUserClient::processElement(IOHIDElementValue *element, IOHIDEventQueue *
     queue_enter(&fOOBReports, md, IOHIDOOBReportDescriptor *, qc);
     md->retain();
 
-    bcopy(&reportAddress, &element->value[0], sizeof(reportAddress));
-    element->flags = kIOHIDElementValueOOBReport;
-    dataSize = ELEMENT_VALUE_HEADER_SIZE(element) + sizeof(reportAddress);
-    dataSize = ALIGN_DATA_SIZE(dataSize);
-    ret = queue->enqueue((void*)element, dataSize);
+    memcpy(&oobElement, element, ELEMENT_VALUE_HEADER_SIZE(element));
+    memcpy(&oobElement.address, &reportAddress, sizeof(reportAddress));
+    oobElement.flags |= kIOHIDElementValueOOBReport;
+    ret = queue->enqueue((void*)&oobElement, sizeof(oobElement));
     if (!ret) {
         HIDLibUserClientLogError("Failed to enqueue oversized report.");
         releaseReport(reportAddress);
     } else {
         status = kIOReturnSuccess;
     }
-    // Unset OOB flag, since next element may not be OOB if element is variable sized.
-    element->flags &= ~kIOHIDElementValueOOBReport;
 
 exit:
     OSSafeReleaseNULL(md);

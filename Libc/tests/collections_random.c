@@ -191,3 +191,118 @@ T_DECL(map_random_string,
 
 }
 
+
+#define RUN_PTR_SET_RANDOM(SET, TYPE, KEY_CONV) 				\
+{										\
+	T_LOG("Start run map for " #SET);					\
+										\
+	uint32_t keys[RANDOM_COUNT];						\
+	TYPE vals[RANDOM_COUNT];						\
+										\
+	os_set_init(&SET, NULL);						\
+										\
+	/* Insert random values for sequential keys to the set */		\
+	for (int i = 0; i < RANDOM_COUNT; i++) {				\
+		uint32_t key = random_32_not_in_array(keys, i);			\
+		vals[i] = KEY_CONV(key);					\
+		T_LOG("Inserting 0x%x", key);					\
+		os_set_insert(&SET, &vals[i]);					\
+		keys[i] = key;							\
+	}									\
+										\
+	/* Find all the values */						\
+	for (int i = 0; i < RANDOM_COUNT; i++) {				\
+		uint32_t key = keys[i];						\
+		void *expected_adr = &vals[i];					\
+		void *actual_adr = (void *)os_set_find(&SET, KEY_CONV(key));	\
+		if (expected_adr == actual_adr) {				\
+			T_PASS("Found 0x%x, 0x%llx", key, 			\
+				(unsigned long long)expected_adr);		\
+		} else {							\
+			T_FAIL("Incorrect find for 0x%x, Expected 0x%llx but got 0x%llx", \
+				key, (unsigned long long)expected_adr,		\
+				(unsigned long long)actual_adr);		\
+		}								\
+	}									\
+										\
+	/* Find some nonexistant values */					\
+	for (int i = 0; i < RANDOM_COUNT; i++) {				\
+		uint32_t key =  random_32_not_in_array(keys, RANDOM_COUNT);	\
+		void *adr = (void *)os_set_find(&SET, KEY_CONV(key));		\
+		if (adr == NULL) {						\
+			T_PASS("Did not find value for nonexistant key 0x%x",	\
+				key);						\
+		} else {							\
+			T_FAIL("Found value for nonexistant key 0x%x (0x%llx)", \
+				key, (unsigned long long)adr);			\
+		}								\
+	}									\
+										\
+	/* Remove half of the values */						\
+	for (int i = 0; i < RANDOM_COUNT; i+=2) {				\
+		uint32_t key = keys[i];						\
+		os_set_delete(&SET, KEY_CONV(key));				\
+	}									\
+										\
+	/* Find the half that are still there */				\
+	for (int i = 1; i < RANDOM_COUNT; i+=2) {				\
+		uint32_t key = keys[i];						\
+		void *expected_adr = &vals[i];					\
+		void *actual_adr = (void *)os_set_find(&SET, KEY_CONV(key));	\
+		if (expected_adr == actual_adr) {				\
+			T_PASS("Found 0x%x, 0x%llx", key,			\
+				(unsigned long long)expected_adr);		\
+		} else {							\
+			T_FAIL("Incorrect find for 0x%x, Expected 0x%llx but got 0x%llx", \
+				key, (unsigned long long)expected_adr,		\
+				(unsigned long long)actual_adr);		\
+		}								\
+	}									\
+										\
+	/* Find the half that aren't there */					\
+	for (int i = 0; i < RANDOM_COUNT; i+=2) {				\
+		uint32_t key = keys[i];						\
+		void *adr = (void *)os_set_find(&SET, KEY_CONV(key));		\
+		if (adr == NULL) {						\
+			T_PASS("Did not find value for nonexistant key 0x%x",	\
+				key);						\
+		} else {							\
+			T_FAIL("Found value for nonexistant key 0x%x (0x%llx)",	\
+				key, (unsigned long long)adr);			\
+		}								\
+	}									\
+										\
+	os_set_destroy(&SET);							\
+}
+
+
+
+T_DECL(set_random_64_ptr,
+       "Make sure 64 ptr set works for a bunch of random entries",
+	T_META("owner", "Core Darwin Daemons & Tools"))
+{
+	os_set_64_ptr_t random_64_ptr_set;
+
+	RUN_PTR_SET_RANDOM(random_64_ptr_set, uint64_t, key_conv_32_to_64);
+}
+
+T_DECL(set_random_32_ptr,
+       "Make sure 32 ptr set works for a bunch of random entries",
+	T_META("owner", "Core Darwin Daemons & Tools"))
+{
+	os_set_32_ptr_t random_32_ptr_set;
+
+	RUN_PTR_SET_RANDOM(random_32_ptr_set, uint32_t, key_conv_32_to_32);
+
+}
+
+T_DECL(set_random_str_ptr,
+       "Make sure string set works for a bunch of random entries",
+	T_META("owner", "Core Darwin Daemons & Tools"),
+	T_META_CHECK_LEAKS(false))
+{
+	os_set_str_ptr_t random_s_ptr_set;
+
+	RUN_PTR_SET_RANDOM(random_s_ptr_set, const char *, key_conv_32_to_string);
+
+}

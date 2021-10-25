@@ -252,11 +252,9 @@ bool IOHIPointing::init(OSDictionary * properties)
     * Initialize minimal state.
     */
 
-    _reserved = IONew(ExpansionData, 1);
+    _reserved = IOMallocType(ExpansionData);
 
     if (!_reserved) return false;
-
-    bzero(_reserved, sizeof(ExpansionData));
 
     // Initialize pointer accel items
     _scaleSegments 		= 0;
@@ -278,15 +276,11 @@ bool IOHIPointing::init(OSDictionary * properties)
     // default to right mouse button generating unique events
     _buttonMode = NX_RightButton;
 
-    _scrollWheelInfo = (ScrollAccelInfo *) IOMalloc(sizeof(ScrollAccelInfo));
+    _scrollWheelInfo = IOMallocType(ScrollAccelInfo);
     if (!_scrollWheelInfo) return false;
 
-    bzero(_scrollWheelInfo, sizeof(ScrollAccelInfo));
-
-    _scrollPointerInfo = (ScrollAccelInfo *) IOMalloc(sizeof(ScrollAccelInfo));
+    _scrollPointerInfo = IOMallocType(ScrollAccelInfo);
     if (!_scrollPointerInfo) return false;
-
-    bzero(_scrollPointerInfo, sizeof(ScrollAccelInfo));
 
     _deviceLock = IOLockAlloc();
     if (!_deviceLock)  return false;
@@ -360,30 +354,27 @@ void IOHIPointing::free()
     }
 
     if(_scaleSegments && _scaleSegCount)
-        IODelete( _scaleSegments, CursorDeviceSegment, _scaleSegCount );
+        IODeleteData(_scaleSegments, CursorDeviceSegment, _scaleSegCount);
 
     if ( _scrollWheelInfo )
     {
         UInt32 type;
         for (type=kAccelTypeY; type<=kAccelTypeZ; type++) {
             if(_scrollWheelInfo->axis[type].scaleSegments && _scrollWheelInfo->axis[type].scaleSegCount)
-                IODelete( _scrollWheelInfo->axis[type].scaleSegments, CursorDeviceSegment, _scrollWheelInfo->axis[type].scaleSegCount );
+                IODeleteData(_scrollWheelInfo->axis[type].scaleSegments, CursorDeviceSegment, _scrollWheelInfo->axis[type].scaleSegCount);
         }
 
-        IOFree(_scrollWheelInfo, sizeof(ScrollAccelInfo));
-        _scrollWheelInfo = 0;
+        IOFreeType(_scrollWheelInfo, ScrollAccelInfo);
     }
 
     if ( _paraAccelParams )
     {
-        IOFree(_paraAccelParams, sizeof(IOHIPointing__PAParameters));
-        _paraAccelParams = 0;
+        IOFreeType(_paraAccelParams, IOHIPointing__PAParameters);
     }
 
     if ( _paraAccelSecondaryParams )
     {
-        IOFree(_paraAccelSecondaryParams, sizeof(IOHIPointing__PASecondaryParameters));
-        _paraAccelSecondaryParams = 0;
+        IOFreeType(_paraAccelSecondaryParams, IOHIPointing__PASecondaryParameters);
     }
 
     if ( _scrollPointerInfo )
@@ -391,15 +382,14 @@ void IOHIPointing::free()
         UInt32 type;
         for (type=kAccelTypeY; type<=kAccelTypeZ; type++) {
             if(_scrollPointerInfo->axis[type].scaleSegments && _scrollPointerInfo->axis[type].scaleSegCount)
-                IODelete( _scrollPointerInfo->axis[type].scaleSegments, CursorDeviceSegment, _scrollPointerInfo->axis[type].scaleSegCount );
+                IODeleteData( _scrollPointerInfo->axis[type].scaleSegments, CursorDeviceSegment, _scrollPointerInfo->axis[type].scaleSegCount );
         }
 
-        IOFree(_scrollPointerInfo, sizeof(ScrollAccelInfo));
-        _scrollPointerInfo = 0;
+        IOFreeType(_scrollPointerInfo, ScrollAccelInfo);
     }
 
     if (_reserved) {
-        IODelete(_reserved, ExpansionData, 1);
+        IOFreeType(_reserved, ExpansionData);
     }
 
     super::free();
@@ -757,11 +747,11 @@ void IOHIPointing::setupForAcceleration( IOFixed desired )
     if (OSDynamicCast( OSArray, parametricAccelerationCurves )) {
         if ( !_paraAccelParams )
         {
-            _paraAccelParams = (IOHIPointing__PAParameters*)IOMalloc(sizeof(IOHIPointing__PAParameters));
+            _paraAccelParams = IOMallocType(IOHIPointing__PAParameters);
         }
         if ( !_paraAccelSecondaryParams )
         {
-            _paraAccelSecondaryParams = (IOHIPointing__PASecondaryParameters*)IOMalloc(sizeof(IOHIPointing__PASecondaryParameters));
+            _paraAccelSecondaryParams = IOMallocType(IOHIPointing__PASecondaryParameters);
         }
 
 //      HIDLog("have %p and %p", _paraAccelParams, _paraAccelSecondaryParams);
@@ -796,12 +786,14 @@ void IOHIPointing::setupForAcceleration( IOFixed desired )
     if (!useParametric) {
         OSData *  table         = copyAccelerationTable();
 
-        if (_paraAccelParams)
-            IOFree(_paraAccelParams, sizeof(IOHIPointing__PAParameters));
-        if (_paraAccelSecondaryParams)
-            IOFree(_paraAccelSecondaryParams, sizeof(IOHIPointing__PASecondaryParameters));
-        _paraAccelParams = NULL;
-        _paraAccelSecondaryParams = NULL;
+        if (_paraAccelParams) {
+            IOFreeType(_paraAccelParams, IOHIPointing__PAParameters);
+            _paraAccelParams = NULL;
+        }
+        if (_paraAccelSecondaryParams) {
+            IOFreeType(_paraAccelSecondaryParams, IOHIPointing__PASecondaryParameters);
+            _paraAccelSecondaryParams = NULL;
+        }
 
         if (SetupAcceleration (table, desired, devScale, crsrScale, &_scaleSegments, &_scaleSegCount))
         {
@@ -1003,7 +995,7 @@ void IOHIPointing::dispatchAbsolutePointerEvent(IOGPoint *  newLoc,
                                                 AbsoluteTime	ts)
 {
     int buttons = 0;
-    int dx, dy;
+    int dx = 0, dy = 0;
 
     DEVICE_LOCK;
 
@@ -1328,7 +1320,7 @@ bool IOHIPointing::updateProperties( void )
 
 IOReturn IOHIPointing::setParamProperties( OSDictionary * dict )
 {
-    OSData			*data;
+    OSData			*data             = NULL;
     OSNumber		*number;
     OSString		*pointerAccelKey  = NULL;
     OSString		*scrollAccelKey   = NULL;
@@ -1726,9 +1718,8 @@ bool SetupAcceleration (OSData * data, IOFixed desired, IOFixed devScale, IOFixe
     if( desired < (IOFixed) 0) {
         // disabling mouse scaling
         if(*scaleSegments && *scaleSegCount)
-            IODelete( *scaleSegments,
+            IODeleteData( *scaleSegments,
                         CursorDeviceSegment, *scaleSegCount );
-        *scaleSegments = NULL;
         *scaleSegCount = 0;
         return false;
     }
@@ -1797,7 +1788,7 @@ bool SetupAcceleration (OSData * data, IOFixed desired, IOFixed devScale, IOFixe
     segCount *= 2;
 /*    HIDLog("lowPoints %ld, highPoints %ld, segCount %ld",
             lowPoints, highPoints, segCount); */
-    segments = IONew( CursorDeviceSegment, segCount );
+    segments = IONewData( CursorDeviceSegment, segCount );
     assert( segments );
     segment = segments;
 
@@ -1894,7 +1885,7 @@ bool SetupAcceleration (OSData * data, IOFixed desired, IOFixed devScale, IOFixe
     } while( lowPoints || highPoints );
 
     if( *scaleSegCount && *scaleSegments)
-        IODelete( *scaleSegments,
+        IODeleteData( *scaleSegments,
                     CursorDeviceSegment, *scaleSegCount );
     *scaleSegCount = segCount;
     *scaleSegments = (void *) segments;

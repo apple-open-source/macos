@@ -182,13 +182,13 @@
 
     NSError* error = nil;
 
-    CKKSKey* key =  [[CKKSKey alloc] initSelfWrappedWithAESKey: [[CKKSAESSIVKey alloc] initWithBase64: @"uImdbZ7Zg+6WJXScTnRBfNmoU1UiMkSYxWc+d1Vuq3IFn2RmTRkTdWTe3HmeWo1pAomqy+upK8KHg2PGiRGhqg=="]
-                                                          uuid:@"f5e7f20f-0885-48f9-b75d-9f0cfd2171b6"
-                                                      keyclass:SecCKKSKeyClassC
-                                                         state: SecCKKSProcessedStateLocal
-                                                        zoneID:[[CKRecordZoneID alloc] initWithZoneName:@"testzone" ownerName:CKCurrentUserDefaultName]
-                                               encodedCKRecord: nil
-                                                    currentkey: true];
+    CKKSKeychainBackedKey* key = [CKKSKeychainBackedKey keyWrappedBySelf:[[CKKSAESSIVKey alloc] initWithBase64: @"uImdbZ7Zg+6WJXScTnRBfNmoU1UiMkSYxWc+d1Vuq3IFn2RmTRkTdWTe3HmeWo1pAomqy+upK8KHg2PGiRGhqg=="]
+                                                                    uuid:@"f5e7f20f-0885-48f9-b75d-9f0cfd2171b6"
+                                                                keyclass:SecCKKSKeyClassC
+                                                                  zoneID:[[CKRecordZoneID alloc] initWithZoneName:@"testzone" ownerName:CKCurrentUserDefaultName]
+                                                                   error:&error];
+    XCTAssertNotNil(key, "Should be able to make a key");
+    XCTAssertNil(error, "Should be no error making a key");
 
     NSData* ciphertext = [CKKSItemEncrypter encryptDictionary: plaintext key: key.aessivkey authenticatedData: nil error: &error];
     XCTAssertNil(error, "No error encrypting plaintext");
@@ -351,11 +351,18 @@
     XCTAssertNotNil(extractedkey, "could fetch key again");
     XCTAssertNil(error, "no error fetching key from database");
 
-    CKKSAESSIVKey* extracedaeskey = [extractedkey ensureKeyLoaded:&error];
-    XCTAssertNotNil(extractedkey, "fetched key could unwrap");
+    CKKSKeychainBackedKey* keycore = [extractedkey ensureKeyLoaded:&error];
+    XCTAssertNotNil(keycore, @"Should be able to ensure that a key is loaded");
     XCTAssertNil(error, "no error forcing unwrap on fetched key");
 
-    XCTAssertEqualObjects(level2.aessivkey, extracedaeskey, @"fetched aes key is equal to saved key");
+    CKKSAESSIVKey* extracedaeskey = [keycore ensureKeyLoadedFromKeychain:&error];
+    XCTAssertNotNil(extracedaeskey, "fetched key could unwrap");
+    XCTAssertNil(error, "no error forcing unwrap on fetched key");
+
+    CKKSKeychainBackedKey* kblevel2 = [level2 getKeychainBackedKey:&error];
+    XCTAssertNotNil(kblevel2, "Should have a keychain-backed key for level2");
+    XCTAssertNil(error, "Should have no error getting the keychain-backed key for level2");
+    XCTAssertEqualObjects(kblevel2.aessivkey, extracedaeskey, @"fetched aes key is equal to saved key");
 }
 
 - (void)ensureKeychainSaveLoad: (CKKSKey*) key {
@@ -378,7 +385,14 @@
     XCTAssert([loadedKey loadKeyMaterialFromKeychain:&error], "could load key material back from keychain");
     XCTAssertNil(error, "no error loading key from keychain");
 
-    XCTAssertEqualObjects(loadedKey.aessivkey, key.aessivkey, "Loaded key is identical after save/load");
+    CKKSKeychainBackedKey* kbloadedKey = [loadedKey getKeychainBackedKey:&error];
+    XCTAssertNotNil(kbloadedKey, "Should have a keychain-backed key for loadedKey");
+    XCTAssertNil(error, "Should have no error getting the keychain-backed key for loadedKey");
+
+    CKKSKeychainBackedKey* kbkey = [key getKeychainBackedKey:&error];
+    XCTAssertNotNil(kbkey, "Should have a keychain-backed key for loadedKey");
+    XCTAssertNil(error, "Should have no error getting the keychain-backed key for loadedKey");
+    XCTAssertEqualObjects(kbloadedKey.aessivkey, kbkey.aessivkey, "Loaded key is identical after save/load");
 }
 
 - (void)testKeychainSave {
@@ -413,8 +427,18 @@
     XCTAssertEqualObjects(tlk.uuid, otherKey.uuid, "Should have gotten the same UUID");
     XCTAssertEqualObjects(tlk.keyclass, otherKey.keyclass, "Should have gotten the same key class");
     XCTAssertEqualObjects(tlk.zoneID, otherKey.zoneID, "Should have gotten the same zoneID");
-    XCTAssertEqualObjects(tlk.aessivkey, otherKey.aessivkey, "Should have gotten the same underlying key back");
+
     XCTAssertEqualObjects(tlk, otherKey, "Should have gotten the same key");
+
+    CKKSKeychainBackedKey* kbtlk = [tlk getKeychainBackedKey:&error];
+    XCTAssertNotNil(kbtlk, "Should have a keychain-backed key for tlk");
+    XCTAssertNil(error, "Should have no error getting the keychain-backed key for tlk");
+
+    CKKSKeychainBackedKey* kbotherKey = [otherKey getKeychainBackedKey:&error];
+    XCTAssertNotNil(kbotherKey, "Should have a keychain-backed key for otherKey");
+    XCTAssertNil(error, "Should have no error getting the keychain-backed key for otherKey");
+
+    XCTAssertEqualObjects(kbtlk.aessivkey, kbotherKey.aessivkey, "Loaded key is identical after save/load");
 }
 
 - (BOOL)tryDecryptWithProperAuthData:(CKKSItem*)ciphertext plaintext:(NSDictionary<NSString*, NSData*>*)plaintext {
@@ -547,7 +571,6 @@
 }
 
 - (void)testKeychainPersistence {
-
     NSString* plaintext = @"plaintext is plain";
     NSData* plaintextData = [plaintext dataUsingEncoding: NSUTF8StringEncoding];
 
@@ -555,13 +578,13 @@
 
     NSString* uuid = @"f5e7f20f-0885-48f9-b75d-9f0cfd2171b6";
 
-    CKKSKey* key =  [[CKKSKey alloc] initSelfWrappedWithAESKey: [[CKKSAESSIVKey alloc] initWithBase64: @"uImdbZ7Zg+6WJXScTnRBfNmoU1UiMkSYxWc+d1Vuq3IFn2RmTRkTdWTe3HmeWo1pAomqy+upK8KHg2PGiRGhqg=="]
-                                                           uuid:uuid
-                                                       keyclass:SecCKKSKeyClassA
-                                                          state:SecCKKSProcessedStateLocal
-                                                         zoneID:[[CKRecordZoneID alloc] initWithZoneName:@"testzone" ownerName:CKCurrentUserDefaultName]
-                                                encodedCKRecord: nil
-                                                     currentkey: true];
+    CKKSKeychainBackedKey* key =  [CKKSKeychainBackedKey keyWrappedBySelf:[[CKKSAESSIVKey alloc] initWithBase64: @"uImdbZ7Zg+6WJXScTnRBfNmoU1UiMkSYxWc+d1Vuq3IFn2RmTRkTdWTe3HmeWo1pAomqy+upK8KHg2PGiRGhqg=="]
+                                                                      uuid:uuid
+                                                                  keyclass:SecCKKSKeyClassA
+                                                                    zoneID:[[CKRecordZoneID alloc] initWithZoneName:@"testzone" ownerName:CKCurrentUserDefaultName]
+                                                                    error:&error];
+    XCTAssertNotNil(key, "Should be able to make a key");
+    XCTAssertNil(error, "Should be no error making a key");
 
     NSData* ciphertext = [key encryptData: plaintextData authenticatedData: nil error: &error];
     XCTAssertNil(error, "No error encrypting plaintext");
@@ -572,34 +595,30 @@
     XCTAssertEqualObjects(plaintextData, roundtrip, "roundtripped data matches input");
 
     // Check that there is no key material in the keychain
-    CKKSKey* reloadedKey = [CKKSKey keyFromKeychain:uuid
-                                      parentKeyUUID:uuid
-                                           keyclass:SecCKKSKeyClassA
-                                              state:SecCKKSProcessedStateLocal
-                                             zoneID:[[CKRecordZoneID alloc] initWithZoneName:@"testzone" ownerName:CKCurrentUserDefaultName]
-                                    encodedCKRecord:nil
-                                         currentkey:true
-                                              error:&error];
+    CKKSKeychainBackedKey* reloadedKey = [[CKKSKeychainBackedKey alloc] initWithWrappedAESKey:key.wrappedkey
+                                                                                         uuid:key.uuid
+                                                                                parentKeyUUID:key.parentKeyUUID
+                                                                                     keyclass:key.keyclass
+                                                                                       zoneID:key.zoneID];
+    [reloadedKey loadKeyMaterialFromKeychain:&error];
 
     XCTAssertNotNil(error, "error exists when there's nothing in the keychain");
-    XCTAssertNil(reloadedKey, "no key object when there's nothing in the keychain");
+    XCTAssertNotNil(reloadedKey, "should be able to make a key object, even if it can't load key material");
     error = nil;
 
     [key saveKeyMaterialToKeychain:&error];
     XCTAssertNil(error, "Could save key material to keychain");
 
     // Reload the key material and check that it works
-    reloadedKey = [CKKSKey keyFromKeychain:uuid
-                             parentKeyUUID:uuid
-                                  keyclass:SecCKKSKeyClassA
-                                     state:SecCKKSProcessedStateLocal
-                                    zoneID:[[CKRecordZoneID alloc] initWithZoneName:@"testzone" ownerName:CKCurrentUserDefaultName]
-                           encodedCKRecord:nil
-                                currentkey:true
-                                     error:&error];
+    reloadedKey = [[CKKSKeychainBackedKey alloc] initWithWrappedAESKey:key.wrappedkey
+                                                                  uuid:key.uuid
+                                                         parentKeyUUID:key.parentKeyUUID
+                                                              keyclass:key.keyclass
+                                                                zoneID:key.zoneID];
+    [reloadedKey loadKeyMaterialFromKeychain:&error];
 
     XCTAssertNil(error, "No error loading key from keychain");
-    XCTAssertNotNil(reloadedKey, "Could load key from keychain");
+    XCTAssertNotNil(reloadedKey, "Could create key object");
 
     NSData* ciphertext2 = [reloadedKey encryptData: plaintextData authenticatedData: nil error: &error];
     XCTAssertNil(error, "No error encrypting plaintext");
@@ -617,17 +636,16 @@
     // Check that there is no key material in the keychain
     // Note that TLKs will be stashed (and deleteKeyMaterial won't delete the stash), and so this test would fail for a TLK
 
-    reloadedKey = [CKKSKey keyFromKeychain:uuid
-                             parentKeyUUID:uuid
-                                  keyclass:SecCKKSKeyClassA
-                                     state:SecCKKSProcessedStateLocal
-                                    zoneID:[[CKRecordZoneID alloc] initWithZoneName:@"testzone" ownerName:CKCurrentUserDefaultName]
-                           encodedCKRecord:nil
-                                currentkey:true
-                                     error:&error];
+    reloadedKey = [[CKKSKeychainBackedKey alloc] initWithWrappedAESKey:key.wrappedkey
+                                                                  uuid:key.uuid
+                                                         parentKeyUUID:key.parentKeyUUID
+                                                              keyclass:key.keyclass
+                                                                zoneID:key.zoneID];
+
+    [reloadedKey loadKeyMaterialFromKeychain:&error];
 
     XCTAssertNotNil(error, "error exists when there's nothing in the keychain");
-    XCTAssertNil(reloadedKey, "no key object when there's nothing in the keychain");
+    XCTAssertNotNil(reloadedKey, "should be able to make a key object, even if it can't load key material");
     error = nil;
 }
 
@@ -647,7 +665,7 @@
     XCTAssertNotNil(error, "Error should exist when a key fails to load itself");
     error = nil;
 
-    XCTAssertTrue([receivedTLK trySelfWrappedKeyCandidate:tlk.aessivkey error:&error], "Shouldn't be an error when we give a CKKSKey its key");
+    XCTAssertTrue([receivedTLK trySelfWrappedKeyCandidate:[tlk getKeychainBackedKey:&error].aessivkey error:&error], "Shouldn't be an error when we give a CKKSKey its key");
     XCTAssertNil(error, "Shouldn't be an error giving a CKKSKey its key material");
 
     XCTAssertTrue([receivedTLK ensureKeyLoaded:&error], "Once a CKKSKey has its key material, it doesn't need to load it again");
@@ -689,7 +707,7 @@
     XCTAssertTrue([classC ensureKeyLoaded:&error], "Once a CKKSKey has its key material, it doesn't need to load it again");
     XCTAssertNil(error, "Shouldn't be an error loading a loaded CKKSKey");
 
-    XCTAssertFalse([classC trySelfWrappedKeyCandidate:classC.aessivkey error:&error], "Should be an error when we attempt to trial a key on a non-self-wrapped key");
+    XCTAssertFalse([classC trySelfWrappedKeyCandidate:[classC getKeychainBackedKey:&error].aessivkey error:&error], "Should be an error when we attempt to trial a key on a non-self-wrapped key");
     XCTAssertNotNil(error, "Should be an error giving a CKKSKey the wrong key material");
     XCTAssertEqual(error.code, CKKSKeyNotSelfWrapped, "Should have gotten CKKSKeyNotSelfWrapped as an error");
     error = nil;
@@ -792,14 +810,20 @@
 }
 
 - (BOOL)encryptAndDecryptDictionary:(NSDictionary<NSString*, NSData*>*)data key:(CKKSKey *)key {
+
     NSDictionary<NSString*, NSData*>* roundtrip;
     NSError *error = nil;
-    NSData* ciphertext = [CKKSItemEncrypter encryptDictionary: data key: key.aessivkey authenticatedData: nil error: &error];
+
+    CKKSKeychainBackedKey* kbkey = [key getKeychainBackedKey:&error];
+    XCTAssertNotNil(kbkey, "Should be able to make a key");
+    XCTAssertNil(error, "Should be no error making a key");
+
+    NSData* ciphertext = [CKKSItemEncrypter encryptDictionary:data key:kbkey.aessivkey authenticatedData:nil error:&error];
     XCTAssertNil(error, "No error encrypting plaintext");
     XCTAssertNotNil(ciphertext, "Received a ciphertext");
     // AES-SIV adds 32 bytes, need to subtract them
     XCTAssertTrue((ciphertext.length - 32) % SecCKKSItemPaddingBlockSize == 0, "Ciphertext aligned on %lu-byte boundary", (unsigned long)SecCKKSItemPaddingBlockSize);
-    roundtrip = [CKKSItemEncrypter decryptDictionary: ciphertext key: key.aessivkey authenticatedData: nil error: &error];
+    roundtrip = [CKKSItemEncrypter decryptDictionary:ciphertext key:kbkey.aessivkey authenticatedData:nil error:&error];
     XCTAssertNil(error, "No error decrypting roundtrip");
     XCTAssertNotNil(roundtrip, "Received a plaintext");
     XCTAssertEqualObjects(data, roundtrip, "roundtripped dictionary matches input");
@@ -831,7 +855,8 @@
 
 - (void)testCKKSKeychainBackedKeySerialization {
     NSError* error = nil;
-    CKKSKeychainBackedKey* tlk =  [self fakeTLK:self.testZoneID].keycore;
+    CKKSKeychainBackedKey* tlk = [[self fakeTLK:self.testZoneID] getKeychainBackedKey:&error];
+    XCTAssertNil(error, "Should be no error creating TLK key");
     CKKSKeychainBackedKey* classC = [CKKSKeychainBackedKey randomKeyWrappedByParent:tlk keyclass:SecCKKSKeyClassC error:&error];
     XCTAssertNil(error, "Should be no error creating classC key");
 

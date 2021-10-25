@@ -13,7 +13,7 @@
 #define MAX_ARGV 3
 #define EXC_CODE_SHIFT 32
 #define EXC_GUARD_TYPE_SHIFT 29
-#define MAX_TEST_NUM 13
+#define MAX_TEST_NUM 16
 
 #define TASK_EXC_GUARD_MP_DELIVER 0x10
 
@@ -38,17 +38,40 @@ static exception_type_t exception_taken = 0;
  */
 T_GLOBAL_META(
 	T_META_NAMESPACE("xnu.ipc"),
+	T_META_RADAR_COMPONENT_NAME("xnu"),
+	T_META_RADAR_COMPONENT_VERSION("IPC"),
 	T_META_RUN_CONCURRENTLY(TRUE));
 
-static uint64_t test_exception_code[] = {
-	/* Pinning tests. Currently delivered as soft crash */
+static uint64_t soft_exception_code[] = {
 	EXC_GUARD, // Soft crash delivered as EXC_CORPSE_NOTIFY
 	EXC_GUARD,
 	EXC_GUARD,
 	EXC_GUARD,
 	EXC_GUARD,
+	EXC_GUARD,
+	EXC_GUARD,
 
-	/* Immovable tests. Currently delivered as hard crash */
+	(GUARD_TYPE_MACH_PORT << EXC_GUARD_TYPE_SHIFT) | kGUARD_EXC_IMMOVABLE,
+	(GUARD_TYPE_MACH_PORT << EXC_GUARD_TYPE_SHIFT) | kGUARD_EXC_IMMOVABLE,
+	(GUARD_TYPE_MACH_PORT << EXC_GUARD_TYPE_SHIFT) | kGUARD_EXC_IMMOVABLE,
+	(GUARD_TYPE_MACH_PORT << EXC_GUARD_TYPE_SHIFT) | kGUARD_EXC_IMMOVABLE,
+	(GUARD_TYPE_MACH_PORT << EXC_GUARD_TYPE_SHIFT) | kGUARD_EXC_IMMOVABLE,
+	(GUARD_TYPE_MACH_PORT << EXC_GUARD_TYPE_SHIFT) | kGUARD_EXC_IMMOVABLE,
+	(GUARD_TYPE_MACH_PORT << EXC_GUARD_TYPE_SHIFT) | kGUARD_EXC_IMMOVABLE,
+	(GUARD_TYPE_MACH_PORT << EXC_GUARD_TYPE_SHIFT) | kGUARD_EXC_IMMOVABLE,
+	(GUARD_TYPE_MACH_PORT << EXC_GUARD_TYPE_SHIFT) | kGUARD_EXC_IMMOVABLE,
+};
+
+static uint64_t hard_exception_code[] = {
+	(GUARD_TYPE_MACH_PORT << EXC_GUARD_TYPE_SHIFT) | kGUARD_EXC_MOD_REFS,
+	(GUARD_TYPE_MACH_PORT << EXC_GUARD_TYPE_SHIFT) | kGUARD_EXC_MOD_REFS,
+	(GUARD_TYPE_MACH_PORT << EXC_GUARD_TYPE_SHIFT) | kGUARD_EXC_MOD_REFS,
+	(GUARD_TYPE_MACH_PORT << EXC_GUARD_TYPE_SHIFT) | kGUARD_EXC_MOD_REFS,
+	(GUARD_TYPE_MACH_PORT << EXC_GUARD_TYPE_SHIFT) | kGUARD_EXC_MOD_REFS,
+	(GUARD_TYPE_MACH_PORT << EXC_GUARD_TYPE_SHIFT) | kGUARD_EXC_MOD_REFS,
+	(GUARD_TYPE_MACH_PORT << EXC_GUARD_TYPE_SHIFT) | kGUARD_EXC_MOD_REFS,
+
+	(GUARD_TYPE_MACH_PORT << EXC_GUARD_TYPE_SHIFT) | kGUARD_EXC_IMMOVABLE,
 	(GUARD_TYPE_MACH_PORT << EXC_GUARD_TYPE_SHIFT) | kGUARD_EXC_IMMOVABLE,
 	(GUARD_TYPE_MACH_PORT << EXC_GUARD_TYPE_SHIFT) | kGUARD_EXC_IMMOVABLE,
 	(GUARD_TYPE_MACH_PORT << EXC_GUARD_TYPE_SHIFT) | kGUARD_EXC_IMMOVABLE,
@@ -283,6 +306,7 @@ T_DECL(imm_pinned_control_port, "Test pinned & immovable task and thread control
 	char *child_args[MAX_ARGV];
 	pid_t client_pid = 0;
 	uint32_t opts = 0;
+	uint64_t *test_exception_code;
 	size_t size = sizeof(&opts);
 	mach_port_t exc_port;
 	pthread_t s_exc_thread;
@@ -299,9 +323,18 @@ T_DECL(imm_pinned_control_port, "Test pinned & immovable task and thread control
 	T_LOG("Check if immovable control port has been enabled\n");
 	ret = sysctlbyname("kern.ipc_control_port_options", &opts, &size, NULL, 0);
 
-	if (!ret && (opts & 0x30) == 0) {
-		T_SKIP("immovable control port isn't enabled");
+	if (!ret && (opts & 0x8) != 0x8) {
+		T_SKIP("hard immovable control port isn't enabled");
 	}
+
+	if (!ret && (opts & 0x2)) {
+		T_LOG("Hard pinning enforcement is on.");
+		test_exception_code = hard_exception_code;
+	} else {
+		T_LOG("Hard pinning enforcement is off.");
+		test_exception_code = soft_exception_code;
+	}
+
 
 	/* first, try out comparing various task/thread ports */
 	test_task_thread_port_values();

@@ -359,8 +359,7 @@ int
 next_file(ARCHD *arcn)
 {
 	int cnt;
-	time_t atime;
-	time_t mtime;
+	time_t atime_sec, atime_nsec, mtime_sec, mtime_nsec;
 
 	/*
 	 * ftree_sel() might have set the ftree_skip flag if the user has the
@@ -423,9 +422,12 @@ next_file(ARCHD *arcn)
 			 * directory, not a created directory).
 			 */
 			if (!tflag || (get_atdir(ftent->fts_statp->st_dev,
-			    ftent->fts_statp->st_ino, &mtime, &atime) < 0))
+						 ftent->fts_statp->st_ino,
+						 &mtime_sec, &mtime_nsec,
+						 &atime_sec, &atime_nsec) < 0))
 				continue;
-			set_ftime(ftent->fts_path, mtime, atime, 1);
+			set_ftime(ftent->fts_path, mtime_sec, mtime_nsec,
+				  atime_sec, atime_nsec, 1);
 			continue;
 		case FTS_DC:
 			/*
@@ -474,8 +476,9 @@ next_file(ARCHD *arcn)
 			if (!tflag)
 				break;
 			add_atdir(ftent->fts_path, arcn->sb.st_dev,
-			    arcn->sb.st_ino, arcn->sb.st_mtime,
-			    arcn->sb.st_atime);
+			    arcn->sb.st_ino, arcn->sb.st_mtime_sec,
+			    arcn->sb.st_mtime_nsec, arcn->sb.st_atime_sec,
+			    arcn->sb.st_atime_nsec);
 			break;
 		case S_IFCHR:
 			arcn->type = PAX_CHR;

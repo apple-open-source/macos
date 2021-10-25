@@ -40,6 +40,8 @@
 #include <Security/Authorization.h>
 #include "TokenLogin.h"
 #include "LegacyAPICounts.h"
+#include <dlfcn.h>
+#include <libspindump_priv.h>
 
 extern "C" {
 #include "ctkloginhelper.h"
@@ -1351,11 +1353,49 @@ OSStatus SecKeychainCleanupHandles()
 	   END_SECAPI // which causes the handle cache cleanup routine to run
 }
 
+class SecSpindumpHIDMonitorPauseResumeHelper {
+public:
+    SecSpindumpHIDMonitorPauseResumeHelper(const char *reason) {
+        receipt = loadSpindumpSPIs() ? pauseFnPtr(reason) : NULL;
+    }
+    ~SecSpindumpHIDMonitorPauseResumeHelper() {
+        if (receipt != NULL) {
+            resumeFnPtr(receipt);
+        }
+    }
+private:
+    SecSpindumpHIDMonitorPauseResumeHelper(const SecSpindumpHIDMonitorPauseResumeHelper&) = delete;
+    SecSpindumpHIDMonitorPauseResumeHelper& operator=(const SecSpindumpHIDMonitorPauseResumeHelper&) = delete;
+
+    typedef SPHIDResponsivenessPauseReceipt_t (*__SPPauseMonitoringHIDResponsiveness)(const char *);
+    typedef void (*__SPResumeMonitoringHIDResponsiveness)(SPHIDResponsivenessPauseReceipt_t);
+    static __SPPauseMonitoringHIDResponsiveness pauseFnPtr;
+    static __SPResumeMonitoringHIDResponsiveness resumeFnPtr;
+
+    static bool loadSpindumpSPIs()
+    {
+        static dispatch_once_t onceToken;
+        dispatch_once(&onceToken, ^{
+            void *handle = dlopen("/usr/lib/libspindump.dylib", RTLD_LAZY);
+            if (handle) {
+                pauseFnPtr = (__SPPauseMonitoringHIDResponsiveness)dlsym(handle, "SPPauseMonitoringHIDResponsiveness");
+                resumeFnPtr = (__SPResumeMonitoringHIDResponsiveness)dlsym(handle, "SPResumeMonitoringHIDResponsiveness");
+            }
+        });
+        return (pauseFnPtr != NULL && resumeFnPtr != NULL);
+    }
+
+    SPHIDResponsivenessPauseReceipt_t receipt;
+};
+
+SecSpindumpHIDMonitorPauseResumeHelper::__SPPauseMonitoringHIDResponsiveness SecSpindumpHIDMonitorPauseResumeHelper::pauseFnPtr = NULL;
+SecSpindumpHIDMonitorPauseResumeHelper::__SPResumeMonitoringHIDResponsiveness SecSpindumpHIDMonitorPauseResumeHelper::resumeFnPtr = NULL;
+
 OSStatus SecKeychainVerifyKeyStorePassphrase(uint32_t retries)
 {
+    SecSpindumpHIDMonitorPauseResumeHelper spindumpHIDMonitorPauseResumeHelper(__FUNCTION__);
     BEGIN_SECAPI
-
-	   os_activity_t activity = os_activity_create("SecKeychainVerifyKeyStorePassphrase", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
+    os_activity_t activity = os_activity_create("SecKeychainVerifyKeyStorePassphrase", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
     os_activity_scope(activity);
     os_release(activity);
     SecurityServer::ClientSession().verifyKeyStorePassphrase(retries);
@@ -1616,7 +1656,18 @@ OSStatus SecKeychainStoreUnlockKeyWithPubKeyHash(CFDataRef pubKeyHash, CFStringR
 	OSStatus result;
 
 	if (password == NULL || CFStringGetLength(password) == 0) {
-		AuthorizationRef authorizationRef;
+        Boolean uiEnabled = false;
+        result = SecKeychainGetUserInteractionAllowed(&uiEnabled);
+        if (result != errAuthorizationSuccess) {
+            secnotice("SecKeychain", "UI state failed: %d", result);
+            // do not fail, still worth to try
+        }
+        if (!uiEnabled) {
+            secnotice("SecKeychain", "UI not enabled");
+            return errSecInteractionNotAllowed;
+        }
+        
+        AuthorizationRef authorizationRef;
 		result = AuthorizationCreate(NULL, NULL, kAuthorizationFlagDefaults, &authorizationRef);
 		if (result != errAuthorizationSuccess) {
 			secnotice("SecKeychain", "failed to create authorization");

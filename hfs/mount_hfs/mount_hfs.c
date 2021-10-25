@@ -51,7 +51,21 @@
 #include <hfs/hfs_mount.h>
 #include <hfs/hfs_format.h>
 
+#include <IOKit/IOKitLib.h>
+#include <DiskImages2/DICommon.h>
+
 #include <TargetConditionals.h>
+
+#ifndef HFSIOC_SETBACKINGSTOREINFO
+struct hfs_backingstoreinfo {
+        int  signature;   /* == 3419115 */
+        int  version;     /* version of this struct (1) */
+        int  backingfd;   /* disk image file (on backing fs) */
+        int  bandsize;    /* sparse disk image band size */
+};
+#define HFSIOC_SETBACKINGSTOREINFO  _IOW('h', 7, struct hfs_backingstoreinfo)
+#endif
+#define _PATH_DEV "/dev/"
 
 /* Sensible wrappers over the byte-swapping routines */
 #include "hfs_endian.h"
@@ -442,6 +456,29 @@ load_encoding(struct hfs_mnt_encoding *encp)
 	return (0);
 }
 
+/*
+ * Given the input device pathname, construct likely disk representation; If
+ * it does not conform to expected pattern assume it is a filename and use
+ * as-is.
+ */
+static void
+sanitize_device_name(const char *name, char disk[], const size_t len)
+{
+	size_t p, d;
+	char fmt[32];
+
+	p = strlen(_PATH_DEV);
+	d = snprintf(disk, len, "%sdisk", _PATH_DEV);
+	if (d < len) {
+		snprintf(fmt, sizeof(fmt), "%s%%%zds", disk, len - d);
+		if (sscanf(name, &fmt[0], &disk[d]) == 1 ||
+				sscanf(name, &fmt[p], &disk[d]) == 1) {
+			return;
+		}
+	}
+	strlcpy(disk, name, len);
+}
+
 int
 main(argc, argv)
 	int argc;
@@ -454,6 +491,11 @@ main(argc, argv)
 	struct timeval dummy_timeval; /* gettimeofday() crashes if the first argument is NULL */
 	u_int32_t localCreateTime;
 	struct hfs_mnt_encoding *encp;
+	struct hfs_backingstoreinfo bsinfo = {
+		.signature = 3419155,
+		.version = 1,
+		.backingfd = -1
+	};
 
 	int do_rekey = 0;
 	int tmp_mntflags = 0;
@@ -555,7 +597,7 @@ main(argc, argv)
 			usage();
 		}; /* switch */
 	}
-    
+
 	if ((mntflags & MNT_IGNORE_OWNERSHIP) && !(mntflags & MNT_UPDATE)) {
 		/*
 		 * The defaults to be supplied in lieu of the on-disk permissions
@@ -636,6 +678,89 @@ main(argc, argv)
 
 		if (args.hfs_mask == (mode_t)VNOVAL)
 			args.hfs_mask = sb.st_mode & (S_IRWXU | S_IRWXG | S_IRWXO);
+
+		/*
+		 * If we are doing a fresh (!update) mount of a sparse
+		 * diskimage via DI2, we need to detect and issue
+		 * HFSIOC_SETBACKINGSTOREINFO.
+		 */
+		if (dev) {
+			char *bname;
+			size_t pdevlen = strlen(_PATH_DEV);
+			char device_path[MAXPATHLEN];
+
+			/* Sanitize the passed device path. */
+			sanitize_device_name(dev, device_path, MAXPATHLEN);
+			bname = device_path;
+
+			if (strncmp(bname, _PATH_DEV, pdevlen) == 0) {
+				bname += pdevlen;
+			}
+
+			io_service_t media =
+				IOServiceGetMatchingService(kIOMainPortDefault,
+						IOBSDNameMatching(kIOMainPortDefault,
+							0, bname));
+			while (media) {
+				io_service_t parent;
+				int parentst = IORegistryEntryGetParentEntry(media,
+						kIOServicePlane, &parent);
+				IOObjectRelease(media);
+
+				if (parentst != KERN_SUCCESS) {
+					media = 0;
+					break;
+				}
+
+				if (IOObjectConformsTo(parent, kDIDeviceClass)) {
+					CFMutableDictionaryRef di2props = 0;
+
+					if (IORegistryEntryCreateCFProperties(
+							parent, &di2props,
+							kCFAllocatorDefault,
+							kNilOptions) == KERN_SUCCESS) {
+
+						CFBooleanRef sparse =
+							(CFBooleanRef)CFDictionaryGetValue(di2props,
+									CFSTR(kDISparseBackendKey));
+						if (sparse == kCFBooleanTrue) {
+							CFStringRef img_url_as_str =
+								(CFStringRef)CFDictionaryGetValue(di2props,
+										CFSTR(kDIImageURLKey));
+							if (img_url_as_str) {
+								char backpath[PATH_MAX] = {};
+								CFURLRef img_url = CFURLCreateWithString(kCFAllocatorDefault,
+									img_url_as_str, NULL);
+								if (img_url) {
+									if (!CFURLGetFileSystemRepresentation(img_url,
+											false, (UInt8*)backpath,
+											PATH_MAX)) {
+										err(1, "could not get file system representation from url");
+										/* NOTREACHED */
+									}
+									CFRelease(img_url);
+
+									bsinfo.backingfd = open(backpath, O_RDONLY, 0);
+									if (bsinfo.backingfd < 0) {
+										err(1, "cannot open backing store '%s' for '%s'",
+											backpath, argv[0]);
+										/* NOTREACHED */
+									}
+								}
+							} else {
+								err(1, "missing image path for '%s'", argv[0]);
+								/* NOTREACHED */
+							}
+						}
+						CFRelease(di2props);
+					}
+					IOObjectRelease(parent);
+					media = 0;
+				} else {
+					media = parent;
+				}
+			}
+		}
 	}
 
 #if DEBUG
@@ -679,8 +804,27 @@ main(argc, argv)
     
     if ((mountStatus = mount(HFS_MOUNT_TYPE, dir, mntflags, &args)) < 0) {
 	    printf("mount_hfs: error on mount(): error = %d.\n", mountStatus);
+	    if (bsinfo.backingfd >= 0) {
+		    close(bsinfo.backingfd);
+	    }
 	    err(1, NULL);
     };
+
+    if (bsinfo.backingfd >= 0) {
+	    if (fsctl(dir, HFSIOC_SETBACKINGSTOREINFO, &bsinfo, 0)) {
+		    if (errno != EALREADY) {
+			    warn("cannot propagate backing store information "
+					    "to %s", dir);
+		    }
+	    }
+#if DEBUG
+	    else {
+		    printf("Found sparse disk-image and issued "
+				    "HFSIOC_SETBACKINGSTOREINFO\n");
+	    }
+#endif
+	    close(bsinfo.backingfd);
+    }
     
     /*
      * synchronize the root directory's create date
@@ -901,7 +1045,7 @@ void
 usage()
 {
 	(void)fprintf(stderr,
-               "usage: mount_hfs [-xw] [-u user] [-g group] [-m mask] [-e encoding] [-t tbuffer-size] [-j] [-c] [-o options] special-device filesystem-node\n");
+               "usage: mount_hfs [-u user] [-g group] [-m mask] [-t tbuffer-size] [-j] [-c] [-o options] special-device filesystem-node\n");
 	
 	exit(1);
 }

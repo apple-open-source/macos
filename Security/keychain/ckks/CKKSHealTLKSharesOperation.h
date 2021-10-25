@@ -35,19 +35,21 @@ NS_ASSUME_NONNULL_BEGIN
 
 @interface CKKSHealTLKSharesOperation : CKKSGroupOperation <OctagonStateTransitionOperationProtocol>
 @property CKKSOperationDependencies* deps;
-@property (weak) CKKSKeychainView* ckks;
 
 - (instancetype)init NS_UNAVAILABLE;
-- (instancetype)initWithOperationDependencies:(CKKSOperationDependencies*)operationDependencies
-                                         ckks:(CKKSKeychainView*)ckks;
+- (instancetype)initWithDependencies:(CKKSOperationDependencies*)operationDependencies
+                       intendedState:(CKKSState*)intendedState
+                          errorState:(CKKSState*)errorState;
 
 
 // For this keyset, who doesn't yet have a CKKSTLKShare for its TLK, shared to their current Octagon keys?
 // Note that we really want a record sharing the TLK to ourselves, so this function might return
 // a non-empty set even if all peers have the TLK: it wants us to make a record for ourself.
-// If you pass in a non-empty set in afterUploading, those records will be included in the calculation.
+// If you pass in shares in keyset.pendingTLKShares, those records will be included in the calculation.
+// If you do not pass a databaseProvider, this function will assume that you're already in a transaction.
 + (NSSet<CKKSTLKShareRecord*>* _Nullable)createMissingKeyShares:(CKKSCurrentKeySet*)keyset
                                                     trustStates:(NSArray<CKKSPeerProviderState*>*)trustStates
+                                               databaseProvider:(id<CKKSDatabaseProviderProtocol> _Nullable)databaseProvider
                                                           error:(NSError* __autoreleasing*)errore;
 @end
 

@@ -40,6 +40,7 @@
 #include <CoreFoundation/CFRuntime.h>
 #include <Security/Authorization.h>
 #include <os/log.h>
+#include <libkern/OSAtomic.h>
 
 struct __DASession
 {
@@ -66,6 +67,7 @@ static void        __DASessionDeallocate( CFTypeRef object );
 static Boolean     __DASessionEqual( CFTypeRef object1, CFTypeRef object2 );
 static CFHashCode  __DASessionHash( CFTypeRef object );
 
+
 static const CFRuntimeClass __DASessionClass =
 {
     0,
@@ -84,6 +86,8 @@ static CFTypeID __kDASessionTypeID = _kCFRuntimeNotATypeID;
 static pthread_mutex_t __gDASessionSetAuthorizationLock = PTHREAD_MUTEX_INITIALIZER;
 
 const CFStringRef kDAApprovalRunLoopMode = CFSTR( "kDAApprovalRunLoopMode" );
+
+static uint32_t           sessionCount = 0;
 
 __private_extern__ void _DADispatchCallback( DASessionRef    session,
                                              void *          address,
@@ -141,6 +145,13 @@ static DASessionRef __DASessionCreate( CFAllocatorRef allocator )
         pthread_mutex_init( &session->_registerLock, NULL );
 
         assert( session->_register );
+        
+        uint32_t newSessionCount = OSAtomicIncrement32( &sessionCount );
+        if ( 0 == ( newSessionCount % 1000 ) )
+        {
+            os_log_fault(OS_LOG_DEFAULT,"Now using %d DASessionRef objects", newSessionCount);
+        }
+        
     }
 
     return session;
@@ -158,6 +169,7 @@ static void __DASessionDeallocate( CFTypeRef object )
     if ( session->_name          )  free( session->_name );
     if ( session->_server        )  mach_port_deallocate( mach_task_self( ), session->_server );
     if ( session->_register )       CFRelease( session->_register );
+    OSAtomicDecrement32( &sessionCount );
     pthread_mutex_destroy( &session->_registerLock );
 }
 

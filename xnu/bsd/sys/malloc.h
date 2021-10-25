@@ -122,7 +122,6 @@ ZONE_VIEW_DECLARE(ZV_NAMEI);
 #define M_DEVFS         82
 #define M_UDFNODE       84      /* UDF inodes */
 #define M_UDFMNT        85      /* UDF mount structures */
-#define M_IP6OPT        87      /* IPv6 options management */
 #define M_KQUEUE        94      /* kqueue system */
 #define M_KAUTH         100     /* kauth subsystem */
 #define M_DUMMYNET      101     /* dummynet */
@@ -141,14 +140,9 @@ ZONE_VIEW_DECLARE(ZV_NAMEI);
 #define M_LLTABLE       126     /* Link layer table */
 #define M_NWKWQ         127     /* Network work queue */
 #define M_CFIL          128     /* Content Filter */
+#define M_TRACKER       129     /* Tracker socket management */
 
-#define M_LAST          129     /* Must be last type + 1 */
-
-/*
- * If you need accounting consider using
- * KALLOC_HEAP_DEFINE to define a view.
- */
-#define KM_SHM          KHEAP_DEFAULT
+#define M_LAST          130     /* Must be last type + 1 */
 
 #define MALLOC(space, cast, size, type, flags)                      \
 	({ VM_ALLOC_SITE_STATIC(0, 0);                              \

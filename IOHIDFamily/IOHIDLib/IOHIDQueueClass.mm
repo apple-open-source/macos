@@ -29,7 +29,6 @@
 #import <AssertMacros.h>
 #import "IOHIDLibUserClient.h"
 #import <IOKit/hid/IOHIDLibPrivate.h>
-#import "IOHIDDebug.h"
 #import <IOKit/hid/IOHIDAnalytics.h>
 
 @implementation IOHIDQueueClass

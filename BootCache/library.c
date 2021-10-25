@@ -36,6 +36,9 @@
 #include <IOKit/IOBSD.h>
 #include <APFS/APFS.h>
 
+#import <mach-o/dyld_introspection.h>
+#import <mach-o/dyld_priv.h>
+
 #include <notify.h>
 
 #include "BootCache_private.h"
@@ -63,11 +66,11 @@ FILE* bc_log_stream = NULL;
 
 #endif
 
-#define playlist_entry_format_str "%#-12llx %#-8llx %d 0x%x %#llx"
-#define playlist_entry_format_args(pe) (pe)->pe_offset, (pe)->pe_length, (pe)->pe_batch, (pe)->pe_flags, (pe)->pe_crypto_offset
+#define playlist_entry_format_str "%#-12llx-%#-12llx (%#-8llx) %d 0x%x %#llx"
+#define playlist_entry_format_args(pe) (pe)->pe_offset, (pe)->pe_offset + (pe)->pe_length, (pe)->pe_length, (pe)->pe_batch, (pe)->pe_flags, (pe)->pe_crypto_offset
 
-#define playlist_entry_withmount_format_str "%#-12llx %#-8llx %d 0x%x %#llx mount %d"
-#define playlist_entry_withmount_format_args(pe) (pe)->pe_offset, (pe)->pe_length, (pe)->pe_batch, (pe)->pe_flags, (pe)->pe_crypto_offset, (pe)->pe_mount_idx
+#define playlist_entry_withmount_format_str "%#-12llx-%#-12llx (%#-8llx) %d 0x%x %#llx mount %d"
+#define playlist_entry_withmount_format_args(pe) (pe)->pe_offset, (pe)->pe_offset + (pe)->pe_length, (pe)->pe_length, (pe)->pe_batch, (pe)->pe_flags, (pe)->pe_crypto_offset, (pe)->pe_mount_idx
 
 #define ASSERT(check) \
 do { \
@@ -758,13 +761,6 @@ BC_merge_playlists(struct BC_playlist* pa, const struct BC_playlist* pb)
 
 	int err = BC_verify_playlist(pa);
 	
-#ifdef DEBUG
-	if (err == 0) {
-		DLOG("Merged into playlist:");
-		BC_print_playlist(pa, false);
-	}
-#endif
-	
 	return err;
 }
 
@@ -882,16 +878,28 @@ typedef enum {
 } coalesce_style_t;
 
 #ifdef DEBUG
-#define COALESCING_DEBUG_LOGGING_ENABLED 0
+#define COALESCING_DEBUG_LOGGING_ENABLED 1
+#define COALESCING_EXTRA_DEBUG_LOGGING_ENABLED 0
 #else
 #define COALESCING_DEBUG_LOGGING_ENABLED 0
+#define COALESCING_EXTRA_DEBUG_LOGGING_ENABLED 0
 #endif
 
 #if COALESCING_DEBUG_LOGGING_ENABLED
 #define DLOG_COALESCING(fmt, args...) LOG("Coalescing: "fmt, ## args)
+
+#if COALESCING_EXTRA_DEBUG_LOGGING_ENABLED
+#define DLOG_XCOALESCING(fmt, args...) LOG("Coalescing: "fmt, ## args)
+#else
+#define DLOG_XCOALESCING(fmt, args...)
+#endif
+
 #else
 #define DLOG_COALESCING(fmt, args...)
+#define DLOG_XCOALESCING(fmt, args...)
 #endif
+
+
 
 // Given two adjacent/overlapping entries, how will they be coalesced?
 static coalesce_style_t BC_coalesce_style(const struct BC_playlist_entry* lower_pe, const struct BC_playlist_entry* higher_pe, bool is_encrypted) {
@@ -900,12 +908,12 @@ static coalesce_style_t BC_coalesce_style(const struct BC_playlist_entry* lower_
 	ASSERT(lower_pe->pe_mount_idx == higher_pe->pe_mount_idx);
 	
 	if (lower_pe->pe_offset + lower_pe->pe_length < higher_pe->pe_offset) {
-		DLOG_COALESCING(playlist_entry_withmount_format_str" vs "playlist_entry_withmount_format_str" -> BC_COALESCE_NOT_ADJACENT", playlist_entry_withmount_format_args(lower_pe), playlist_entry_withmount_format_args(higher_pe));
+		DLOG_XCOALESCING(playlist_entry_withmount_format_str" vs "playlist_entry_withmount_format_str" -> BC_COALESCE_NOT_ADJACENT", playlist_entry_withmount_format_args(lower_pe), playlist_entry_withmount_format_args(higher_pe));
 		return BC_COALESCE_NOT_ADJACENT;
 	}
 	
 	if (lower_pe->pe_length == 0 || higher_pe->pe_length == 0) {
-		DLOG_COALESCING(playlist_entry_withmount_format_str" vs "playlist_entry_withmount_format_str" -> BC_COALESCE_NO_CHANGE", playlist_entry_withmount_format_args(lower_pe), playlist_entry_withmount_format_args(higher_pe));
+		DLOG_XCOALESCING(playlist_entry_withmount_format_str" vs "playlist_entry_withmount_format_str" -> BC_COALESCE_NO_CHANGE", playlist_entry_withmount_format_args(lower_pe), playlist_entry_withmount_format_args(higher_pe));
 		return BC_COALESCE_NO_CHANGE;
 	}
 
@@ -930,11 +938,11 @@ static coalesce_style_t BC_coalesce_style(const struct BC_playlist_entry* lower_
 				
 				if (lower_pe->pe_offset == lower_pe->pe_crypto_offset) {
 					DLOG("Entry "playlist_entry_withmount_format_str" mismatch with "playlist_entry_withmount_format_str, playlist_entry_withmount_format_args(lower_pe), playlist_entry_withmount_format_args(higher_pe));
-					DLOG_COALESCING(playlist_entry_withmount_format_str" vs "playlist_entry_withmount_format_str" -> BC_COALESCE_LOWER_REMOVE", playlist_entry_withmount_format_args(lower_pe), playlist_entry_withmount_format_args(higher_pe));
+					DLOG_XCOALESCING(playlist_entry_withmount_format_str" vs "playlist_entry_withmount_format_str" -> BC_COALESCE_LOWER_REMOVE", playlist_entry_withmount_format_args(lower_pe), playlist_entry_withmount_format_args(higher_pe));
 					return BC_COALESCE_LOWER_REMOVE;
 				} else if (higher_pe->pe_offset == higher_pe->pe_crypto_offset) {
 					DLOG("Entry "playlist_entry_withmount_format_str" mismatch with "playlist_entry_withmount_format_str, playlist_entry_withmount_format_args(lower_pe), playlist_entry_withmount_format_args(higher_pe));
-					DLOG_COALESCING(playlist_entry_withmount_format_str" vs "playlist_entry_withmount_format_str" -> BC_COALESCE_HIGHER_REMOVE", playlist_entry_withmount_format_args(lower_pe), playlist_entry_withmount_format_args(higher_pe));
+					DLOG_XCOALESCING(playlist_entry_withmount_format_str" vs "playlist_entry_withmount_format_str" -> BC_COALESCE_HIGHER_REMOVE", playlist_entry_withmount_format_args(lower_pe), playlist_entry_withmount_format_args(higher_pe));
 					return BC_COALESCE_HIGHER_REMOVE;
 				} else {
 					// Both entries have crypto offset != offset, but the deltas don't match?
@@ -944,12 +952,12 @@ static coalesce_style_t BC_coalesce_style(const struct BC_playlist_entry* lower_
 					// Because we're unsure which entry is wrong but return BC_COALESCE_LOWER_REMOVE here, BC_COALESCE_LOWER_REMOVE doesn't necessarily mean lower_pe is actually wrong. We are sure that when we return BC_COALESCE_HIGHER_REMOVE that the higher_pe is wrong, so make sure we prefer to do BC_COALESCE_HIGHER_REMOVE before BC_COALESCE_LOWER_REMOVE
 					static_assert(BC_COALESCE_HIGHER_REMOVE > BC_COALESCE_LOWER_REMOVE, "");
 					
-					DLOG_COALESCING(playlist_entry_withmount_format_str" vs "playlist_entry_withmount_format_str" -> BC_COALESCE_LOWER_REMOVE", playlist_entry_withmount_format_args(lower_pe), playlist_entry_withmount_format_args(higher_pe));
+					DLOG_XCOALESCING(playlist_entry_withmount_format_str" vs "playlist_entry_withmount_format_str" -> BC_COALESCE_LOWER_REMOVE", playlist_entry_withmount_format_args(lower_pe), playlist_entry_withmount_format_args(higher_pe));
 					return BC_COALESCE_LOWER_REMOVE;
 				}
 			} else {
 				// Adjacent. Not a problem, but they cannot be combined
-				DLOG_COALESCING(playlist_entry_withmount_format_str" vs "playlist_entry_withmount_format_str" -> BC_COALESCE_NO_CHANGE due to adjacent nonmatching crypto", playlist_entry_withmount_format_args(lower_pe), playlist_entry_withmount_format_args(higher_pe));
+				DLOG_XCOALESCING(playlist_entry_withmount_format_str" vs "playlist_entry_withmount_format_str" -> BC_COALESCE_NO_CHANGE due to adjacent nonmatching crypto", playlist_entry_withmount_format_args(lower_pe), playlist_entry_withmount_format_args(higher_pe));
 				return BC_COALESCE_NO_CHANGE;
 			}
 		} else {
@@ -969,14 +977,14 @@ static coalesce_style_t BC_coalesce_style(const struct BC_playlist_entry* lower_
 		return BC_COALESCE_MERGE;
 	} else if (!(lower_pe->pe_flags & BC_PE_LOWPRIORITY) && !(higher_pe->pe_flags & BC_PE_LOWPRIORITY)) {
 		// Both high prioirty
-		DLOG_COALESCING(playlist_entry_withmount_format_str" vs "playlist_entry_withmount_format_str" -> BC_COALESCE_MERGE both high priority", playlist_entry_withmount_format_args(lower_pe), playlist_entry_withmount_format_args(higher_pe));
+		DLOG_XCOALESCING(playlist_entry_withmount_format_str" vs "playlist_entry_withmount_format_str" -> BC_COALESCE_MERGE both high priority", playlist_entry_withmount_format_args(lower_pe), playlist_entry_withmount_format_args(higher_pe));
 		return BC_COALESCE_MERGE;
 	} else if (lower_pe->pe_flags & BC_PE_LOWPRIORITY) {
 		// lower_pe is low priority, higher_pe is high priority
 		
 		if (coalesced_length - higher_pe->pe_length < MAX_HIGHPRI_ENTRY_GROWTH_DUE_TO_LOWPRI_COALESCING) {
 			// Adding lower_pe to higher_pe will increase higher's size by less than the max growth size
-			DLOG_COALESCING(playlist_entry_withmount_format_str" vs "playlist_entry_withmount_format_str" -> BC_COALESCE_MERGE higher high priority", playlist_entry_withmount_format_args(lower_pe), playlist_entry_withmount_format_args(higher_pe));
+			DLOG_XCOALESCING(playlist_entry_withmount_format_str" vs "playlist_entry_withmount_format_str" -> BC_COALESCE_MERGE higher high priority", playlist_entry_withmount_format_args(lower_pe), playlist_entry_withmount_format_args(higher_pe));
 			return BC_COALESCE_MERGE;
 		} else {
 			// Adding lower_pe (low priority) to higher_pe (high priority) will increase higher's size by more than the max growth size, don't coalesce them
@@ -986,7 +994,7 @@ static coalesce_style_t BC_coalesce_style(const struct BC_playlist_entry* lower_
 		
 		if (coalesced_length - lower_pe->pe_length < MAX_HIGHPRI_ENTRY_GROWTH_DUE_TO_LOWPRI_COALESCING) {
 			// Adding higher_pe to lower_pe will increase lower's size by less than the max growth size
-			DLOG_COALESCING(playlist_entry_withmount_format_str" vs "playlist_entry_withmount_format_str" -> BC_COALESCE_MERGE lower high priority", playlist_entry_withmount_format_args(lower_pe), playlist_entry_withmount_format_args(higher_pe));
+			DLOG_XCOALESCING(playlist_entry_withmount_format_str" vs "playlist_entry_withmount_format_str" -> BC_COALESCE_MERGE lower high priority", playlist_entry_withmount_format_args(lower_pe), playlist_entry_withmount_format_args(higher_pe));
 			return BC_COALESCE_MERGE;
 		} else {
 			// Adding higher_pe (low priority) to lower_pe (high priority) will increase lower's size by more than the max growth size, don't coalesce them
@@ -998,22 +1006,22 @@ static coalesce_style_t BC_coalesce_style(const struct BC_playlist_entry* lower_
 	
 	if (lower_pe->pe_offset + lower_pe->pe_length == higher_pe->pe_offset) {
 		// No overlap
-		DLOG_COALESCING(playlist_entry_withmount_format_str" vs "playlist_entry_withmount_format_str" -> BC_COALESCE_NO_CHANGE adjacent, not overlapping", playlist_entry_withmount_format_args(lower_pe), playlist_entry_withmount_format_args(higher_pe));
+		DLOG_XCOALESCING(playlist_entry_withmount_format_str" vs "playlist_entry_withmount_format_str" -> BC_COALESCE_NO_CHANGE adjacent, not overlapping", playlist_entry_withmount_format_args(lower_pe), playlist_entry_withmount_format_args(higher_pe));
 		return BC_COALESCE_NO_CHANGE;
 	}
 	
 	if (higher_pe->pe_flags & BC_PE_LOWPRIORITY) {
 		/* lower_pe is high priority and higher_pe is low priority, subtract intersection from higher_pe (because of ordering by offset, we know higher_pe cannot encompass lower_pe thus we don't need to split higher_pe into two entries) */
-		DLOG_COALESCING(playlist_entry_withmount_format_str" vs "playlist_entry_withmount_format_str" -> BC_COALESCE_HIGHER_SHRINKS", playlist_entry_withmount_format_args(lower_pe), playlist_entry_withmount_format_args(higher_pe));
+		DLOG_XCOALESCING(playlist_entry_withmount_format_str" vs "playlist_entry_withmount_format_str" -> BC_COALESCE_HIGHER_SHRINKS", playlist_entry_withmount_format_args(lower_pe), playlist_entry_withmount_format_args(higher_pe));
 		return BC_COALESCE_HIGHER_SHRINKS;
 	} else {
 		/* lower_pe is low priority, higher_pe is high priority, subtract intersection from lower_pe */
 		if ((lower_pe->pe_offset + lower_pe->pe_length) > (higher_pe->pe_offset + higher_pe->pe_length)) {
 			/* lower_pe encompasses higher_pe. In order to subtract the intersection we need to split lower_pe into two entries: one below higher_pe and one below higher_pe */
-			DLOG_COALESCING(playlist_entry_withmount_format_str" vs "playlist_entry_withmount_format_str" -> BC_COALESCE_LOWER_SPLIT", playlist_entry_withmount_format_args(lower_pe), playlist_entry_withmount_format_args(higher_pe));
+			DLOG_XCOALESCING(playlist_entry_withmount_format_str" vs "playlist_entry_withmount_format_str" -> BC_COALESCE_LOWER_SPLIT", playlist_entry_withmount_format_args(lower_pe), playlist_entry_withmount_format_args(higher_pe));
 			return BC_COALESCE_LOWER_SPLIT;
 		} else {
-			DLOG_COALESCING(playlist_entry_withmount_format_str" vs "playlist_entry_withmount_format_str" -> BC_COALESCE_LOWER_SHRINKS", playlist_entry_withmount_format_args(lower_pe), playlist_entry_withmount_format_args(higher_pe));
+			DLOG_XCOALESCING(playlist_entry_withmount_format_str" vs "playlist_entry_withmount_format_str" -> BC_COALESCE_LOWER_SHRINKS", playlist_entry_withmount_format_args(lower_pe), playlist_entry_withmount_format_args(higher_pe));
 			return BC_COALESCE_LOWER_SHRINKS;
 		}
 	}
@@ -1059,7 +1067,7 @@ BC_sort_and_coalesce_playlist_internal(struct BC_playlist *pc)
 	 *            --> higher offset -->
 	 * CCCCCCCCCCD--------------S**^|^||*B^*||^^*|*^+++++++++
 	 *
-	 * In each turn of the scan_idx loop below, we coalesce S with all overlapping/adjacent entry (the entry immediately after it), then move S to D.
+	 * In each turn of the scan_idx loop below, we coalesce S with all overlapping/adjacent entries (the entries immediately after it), then move S to D.
 	 *
 	 * In each turn of the do-while loop inside the scan_idx loop, we pick an adjacent/overlapping entry, B, and coalece it with S. Afterwards, S and B must not overlap and the order of the entire list must be preserved. To keep the ordering, all adjacent/overlapping entries that won't change their offset and will change S's length when coalesced with S, are picked before any that will change their offset based on S's length (this is what the bestmatch loop does).
 	 *
@@ -1080,14 +1088,9 @@ BC_sort_and_coalesce_playlist_internal(struct BC_playlist *pc)
 #endif
 #endif
 	
-#if COALESCING_DEBUG_LOGGING_ENABLED
-//    DLOG_COALESCING("Coalescing %d entries", pc->p_nentries);
-//    BC_print_playlist(pc, true);
-#else
-#ifdef DEBUG
-//	DLOG("Coalescing");
-//	BC_print_playlist(pc, false);
-#endif
+#if COALESCING_EXTRA_DEBUG_LOGGING_ENABLED
+    DLOG_COALESCING("Coalescing %d entries", pc->p_nentries);
+    BC_print_playlist(pc, true);
 #endif
 
 	/* clear the number of entries per mount, to be recalculated as we're coalescing */
@@ -1130,16 +1133,16 @@ BC_sort_and_coalesce_playlist_internal(struct BC_playlist *pc)
 					if (0 != mount_sort_order(pc->p_mounts + scan_pe->pe_mount_idx, pc->p_mounts + lookahead_pe->pe_mount_idx)) {
 						/* Further, since we sort by mount and then offset we know nothing past lookahead_pe will match by mount either, so stop looking ahead */
 						
-						DLOG_COALESCING("%d@"playlist_entry_withmount_format_str" mount %s group %s vs %d@"playlist_entry_withmount_format_str" mount %s group %s: not grouped together", scan_idx, playlist_entry_withmount_format_args(scan_pe), uuid_string(pc->p_mounts[scan_pe->pe_mount_idx].pm_uuid), uuid_string(pc->p_mounts[scan_pe->pe_mount_idx].pm_group_uuid), lookahead_idx, playlist_entry_withmount_format_args(lookahead_pe), uuid_string(pc->p_mounts[lookahead_pe->pe_mount_idx].pm_uuid), uuid_string(pc->p_mounts[lookahead_pe->pe_mount_idx].pm_group_uuid));
+						DLOG_XCOALESCING("%d@"playlist_entry_withmount_format_str" mount %s group %s vs %d@"playlist_entry_withmount_format_str" mount %s group %s: not grouped together", scan_idx, playlist_entry_withmount_format_args(scan_pe), uuid_string(pc->p_mounts[scan_pe->pe_mount_idx].pm_uuid), uuid_string(pc->p_mounts[scan_pe->pe_mount_idx].pm_group_uuid), lookahead_idx, playlist_entry_withmount_format_args(lookahead_pe), uuid_string(pc->p_mounts[lookahead_pe->pe_mount_idx].pm_uuid), uuid_string(pc->p_mounts[lookahead_pe->pe_mount_idx].pm_group_uuid));
 						
 						break;
 					} else {
 						/* lookahead_pe is in a different volume so can't be coalesced with scan_pe, but their volumes are grouped together for sorting purposes, so we need to look further past lookahead_pe for entries that are in scan_pe's volume that we may want to coalesce */
 						
-						DLOG_COALESCING("%d@"playlist_entry_withmount_format_str" mount %s group %s vs %d@"playlist_entry_withmount_format_str" mount %s group %s: not same volume, but grouped together", scan_idx, playlist_entry_withmount_format_args(scan_pe), uuid_string(pc->p_mounts[scan_pe->pe_mount_idx].pm_uuid), uuid_string(pc->p_mounts[scan_pe->pe_mount_idx].pm_group_uuid), lookahead_idx, playlist_entry_withmount_format_args(lookahead_pe), uuid_string(pc->p_mounts[lookahead_pe->pe_mount_idx].pm_uuid), uuid_string(pc->p_mounts[lookahead_pe->pe_mount_idx].pm_group_uuid));
+						DLOG_XCOALESCING("%d@"playlist_entry_withmount_format_str" mount %s group %s vs %d@"playlist_entry_withmount_format_str" mount %s group %s: not same volume, but grouped together", scan_idx, playlist_entry_withmount_format_args(scan_pe), uuid_string(pc->p_mounts[scan_pe->pe_mount_idx].pm_uuid), uuid_string(pc->p_mounts[scan_pe->pe_mount_idx].pm_group_uuid), lookahead_idx, playlist_entry_withmount_format_args(lookahead_pe), uuid_string(pc->p_mounts[lookahead_pe->pe_mount_idx].pm_uuid), uuid_string(pc->p_mounts[lookahead_pe->pe_mount_idx].pm_group_uuid));
 						
 #if COALESCING_DEBUG_LOGGING_ENABLED
-						did_anything = true;
+						// did_anything = true;
 #endif
 
 						/* Cannot fast-path here and break based on non-adjacency. Extents in different mounts may become out of block address order due to HIGHER_SHRINKS merges, therefore we _cannot_ assume that subsequent extents (after lookahead) in this mount (scan_pe->pe_mount_idx) have an equal or higer block address than lookahead's
@@ -1366,7 +1369,7 @@ BC_sort_and_coalesce_playlist_internal(struct BC_playlist *pc)
 			
 #if COALESCING_DEBUG_LOGGING_ENABLED
 			if (did_anything) {
-				DLOG_COALESCING("Saved %d@"playlist_entry_withmount_format_str, dest_idx, playlist_entry_withmount_format_args(pc->p_entries + dest_idx));
+				DLOG_COALESCING("Saved %d@"playlist_entry_withmount_format_str" mount %s group %s", dest_idx, playlist_entry_withmount_format_args(pc->p_entries + dest_idx), uuid_string(pc->p_mounts[dest_idx].pm_uuid), uuid_string(pc->p_mounts[dest_idx].pm_group_uuid));
 			}
 #endif
 			
@@ -1428,6 +1431,28 @@ BC_sort_and_coalesce_playlist_internal(struct BC_playlist *pc)
 
 	pc->p_nomaps = dest_idx;
 	
+	/* Remove any mounts with no entries nor omaps */
+	for (int mount_idx = 0; mount_idx < pc->p_nmounts; mount_idx++) {
+		struct BC_playlist_mount* pm = pc->p_mounts + mount_idx;
+		if (pm->pm_nentries == 0 && pm->pm_nomaps == 0) {
+			pc->p_nmounts--;
+			if (mount_idx < pc->p_nmounts) {
+				memmove(pm, pm + 1, sizeof(*pm) * (pc->p_nmounts - mount_idx));
+				for (struct BC_playlist_entry* pe = pc->p_entries; pe < (pc->p_entries + pc->p_nentries); pe++) {
+					if (pe->pe_mount_idx > mount_idx) {
+						pe->pe_mount_idx--;
+					}
+				}
+				for (struct BC_playlist_omap* po = pc->p_omaps; po < (pc->p_omaps + pc->p_nomaps); po++) {
+					if (po->po_mount_idx > mount_idx) {
+						po->po_mount_idx--;
+					}
+				}
+				mount_idx--;
+			}
+		}
+	}
+
 	
 	// Entries in different mounts but in the same sort group may have moved out of order
 	// Sort the entire playlist to handle any of these cases
@@ -2157,11 +2182,22 @@ BC_playlist_lookup_omaps(struct BC_playlist *pc)
 			pentry->pe_mount_idx = 0; /* The only mount in this temp playlist, pc, we're creating */
 			
 		}
+		
+#ifdef DEBUG
+		DLOG("Omap playlist:");
+		BC_print_playlist(omap_pc, false);
+#endif
+
 
 		/* Merge this mount's metadata playlist with the rest of the playlist entries we're building up */
 		if ((ret = BC_merge_playlists(pc, omap_pc)) != 0) {
 			LOG("Unable to merge playlists");
 			goto error_loop;
+		} else {
+#ifdef DEBUG
+			DLOG("Added omap playlist to root playlist:");
+			BC_print_playlist(pc, false);
+#endif
 		}
 		
 error_loop:
@@ -2190,6 +2226,8 @@ error_loop:
 			pc->p_omaps = NULL;
 		}
 		pc->p_nomaps = 0;
+		
+		ret = BC_sort_and_coalesce_playlist(pc);
 		
 		DLOG("Output playlist with %d mounts, %d entries",
 			  pc->p_nmounts, pc->p_nentries);
@@ -2362,25 +2400,6 @@ BC_convert_history_and_omaps(const struct BC_history *hc, const struct BC_omap_h
 		}
 	}
 
-
-	/* Remove any mounts with no entries nor omaps */
-	for (mount_idx = 0; mount_idx < pc->p_nmounts; mount_idx++) {
-		pm = pc->p_mounts + mount_idx;
-		if (pm->pm_nentries == 0 && pm->pm_nomaps == 0) {
-			pc->p_nmounts--;
-			if (mount_idx < pc->p_nmounts) {
-				memmove(pm, pm + 1, sizeof(*pm) * (pc->p_nmounts - mount_idx));
-				for (pe = pc->p_entries; pe < (pc->p_entries + pc->p_nentries); pe++)
-					if (pe->pe_mount_idx > mount_idx)
-						pe->pe_mount_idx--;
-				for (po = pc->p_omaps; po < (pc->p_omaps + pc->p_nomaps); po++)
-					if (po->po_mount_idx > mount_idx)
-						po->po_mount_idx--;
-				mount_idx--;
-			}
-		}
-	}
-
 	/*
 	 * Sort the playlist into block order and coalesce into the smallest set
 	 * of read operations.
@@ -2419,7 +2438,7 @@ do { \
 		DLOG(" dstream %llu has %d extents", _dstreamDiskMap->dstreamID, _dstreamDiskMap->numExtents); \
 		for (int _diskExtentIndex = 0; _diskExtentIndex < _dstreamDiskMap->numExtents; _diskExtentIndex++) { \
 			struct extent_with_crypto* _diskExtent = _dstreamDiskMap->diskExtents + _diskExtentIndex; \
-			DLOG("  disk extent %#-12llx %#-8llx %#-12llx (file range %#llx-%#llx)", _diskExtent->offset, _diskExtent->length, _diskExtent->cpoff, _dstreamOffset, _dstreamOffset + _diskExtent->length); \
+			DLOG("  disk extent %#-12llx-%#-12llx (%#-8llx) %#-12llx (file range %#llx-%#llx)", _diskExtent->offset, _diskExtent->offset + _diskExtent->length, _diskExtent->length, _diskExtent->cpoff, _dstreamOffset, _dstreamOffset + _diskExtent->length); \
 			_dstreamOffset += _diskExtent->length; \
 		} \
 	} \
@@ -2913,12 +2932,12 @@ BC_mount_copy_file_relative_history(struct BC_history * hc, int hm_index, const 
 						fileRange->length = MIN(he->he_offset + he->he_length, diskExtent->offset + diskExtent->length) - MAX(he->he_offset, diskExtent->offset);
 						
 						overlapBytes += fileRange->length;
-						DLOG_OFT("  entry %d: %#-12llx %#-8llx %#-12llx hit dstream %llu extent %d %#-12llx %#-8llx %#-12llx (file range %d %#8llx-%#-8llx (%#-8llx bytes)) remaining: %#llx",
+						DLOG_OFT("  entry %d: %#-12llx-%#-12llx (%#-8llx) %#-12llx hit dstream %llu extent %d %#-12llx-%#-12llx (%#-8llx) %#-12llx (file range %d %#8llx-%#-8llx (%#-8llx bytes)) remaining: %#llx",
 							 he_index,
-							 he->he_offset, he->he_length, he->he_crypto_offset,
+							 he->he_offset, he->he_offset + he->he_length, he->he_length, he->he_crypto_offset,
 							 dstreamDiskMap->dstreamID,
 							 diskExtentIndex,
-							 diskExtent->offset, diskExtent->length, diskExtent->cpoff,
+							 diskExtent->offset, diskExtent->offset + diskExtent->length, diskExtent->length, diskExtent->cpoff,
 							 dstreamFileMap->numRanges - 1,
 							 fileRange->offset, fileRange->offset + fileRange->length, fileRange->length,
 							 overlapBytes - he->he_length);
@@ -2932,9 +2951,9 @@ BC_mount_copy_file_relative_history(struct BC_history * hc, int hm_index, const 
 			}
 			
 			if (overlapBytes < he->he_length) {
-				DLOG_OFT("  entry %d: %#-12llx %#-8llx %#-12llx missing %#llx bytes in dstream data",
+				DLOG_OFT("  entry %d: %#-12llx-%#-12llx (%#-8llx) %#-12llx missing %#llx bytes in dstream data",
 						 he_index,
-						 he->he_offset, he->he_length, he->he_crypto_offset,
+						 he->he_offset, he->he_offset + he->he_length, he->he_length, he->he_crypto_offset,
 						 he->he_length - overlapBytes);
 			}
 		}
@@ -3230,7 +3249,7 @@ BC_mount_fixup_history_after_optimizations(struct bc_mount_optimization_info *mo
 						if (diskExtent->offset < optimizedRangeStart ||
 							diskExtent->offset + diskExtent->length > optimizedRangeStart + optimizedRangeLength) {
 							
-							DLOG_OFT("inode %llu dstream %llu extent %d not optimized:  %#-12llx %#-8llx", inode, dstreamDiskMap->dstreamID, diskExtentIndex, diskExtent->offset, diskExtent->length);
+							DLOG_OFT("inode %llu dstream %llu extent %d not optimized:  %#-12llx-%#-12llx (%#-8llx)", inode, dstreamDiskMap->dstreamID, diskExtentIndex, diskExtent->offset, diskExtent->offset + diskExtent->length, diskExtent->length);
 						} else {
 							
 							if (lowestOptimizedByteAddress > diskExtent->offset) {
@@ -3344,9 +3363,9 @@ BC_mount_fixup_history_after_optimizations(struct bc_mount_optimization_info *mo
 								optimizedReadBytes += intersectionEnd - intersectionStart;
 							}
 							
-							DLOG_OFT("  entry %d: %#-12llx %#-8llx %#-12llx %5u%s%s from disk %#-12llx file %#-12llx %#-8llx %#-12llx (file range %#llx-%#llx (%#llx bytes) overlap %#llx-%#llx (%#llx bytes))",
+							DLOG_OFT("  entry %d: %#-12llx-%#-12llx (%#-8llx) %#-12llx %5u%s%s from disk %#-12llx file %#-12llx-%#-12llx (%#-8llx) %#-12llx (file range %#llx-%#llx (%#llx bytes) overlap %#llx-%#llx (%#llx bytes))",
 									 he_index,
-									 he->he_offset, he->he_length,
+									 he->he_offset, he->he_offset + he->he_length, he->he_length,
 									 he->he_crypto_offset,
 									 he->he_pid,
 									 he->he_flags & BC_HE_OPTIMIZED ? " optimized" :
@@ -3354,7 +3373,7 @@ BC_mount_fixup_history_after_optimizations(struct bc_mount_optimization_info *mo
 									 he->he_flags & BC_HE_WRITE  ? " write"  :
 									 he->he_flags & BC_HE_TAG	 ? " tag"	 : " miss",
 									 he->he_flags & BC_HE_SHARED ? " shared" : "",
-									 diskExtent->offset, dstreamFileOffsetForDiskExtent, diskExtent->length, diskExtent->cpoff,
+									 diskExtent->offset, dstreamFileOffsetForDiskExtent, dstreamFileOffsetForDiskExtent + diskExtent->length diskExtent->length, diskExtent->cpoff,
 									 fileRange->offset, fileRange->offset + fileRange->length, fileRange->length,
 									 fileRangeStart, fileRangeEnd, fileRangeEnd - fileRangeStart);
 							
@@ -3731,10 +3750,11 @@ BC_optimize_history(struct BC_history * hc, struct bc_optimization_info** optimi
 						int he_index = historyInode->entryIndexes[historyInodeEntryIdx];
 						struct BC_history_entry *he = hc->h_entries + he_index;
 
-						DLOG_OFT("  entry %d: inode %llu %#-12llx %#-8llx %#-12llx %5u%s%s",
+						DLOG_OFT("  entry %d: inode %llu %#-12llx-%#-12llx (%#-8llx) %#-12llx %5u%s%s",
 								 he_index,
 								 he->he_inode,
 								 he->he_offset,
+								 he->he_offset + he->he_length,
 								 he->he_length,
 								 he->he_crypto_offset,
 								 he->he_pid,
@@ -4056,6 +4076,13 @@ _BC_start(const struct BC_playlist *pc, bool record)
 		bc.bc_data2		 = 0;
 		bc.bc_data2_size = 0;
 	}
+	
+#ifdef DEBUG
+	if (bc_log_stream) {
+		fflush(bc_log_stream);
+		fcntl(fileno(bc_log_stream), F_FULLFSYNC);
+	}
+#endif
 	
 	int ret = sysctlbyname(BC_SYSCTL, NULL, NULL, &bc, sizeof(bc));
 	
@@ -4582,13 +4609,13 @@ static int apfs_info_for_bsddisk(const char* bsddisk, uint* fs_flags_out, uuid_t
 	}
 	
 
-	CFMutableDictionaryRef dict = IOBSDNameMatching(kIOMasterPortDefault, 0, bsddisk);
+	CFMutableDictionaryRef dict = IOBSDNameMatching(kIOMainPortDefault, 0, bsddisk);
 	if (!dict) {
 		LOG("Unable to get dict for disk %s", bsddisk);
 		return ENOENT;
 	}
 
-	mount = IOServiceGetMatchingService(kIOMasterPortDefault, dict);
+	mount = IOServiceGetMatchingService(kIOMainPortDefault, dict);
 	if (mount == IO_OBJECT_NULL) {
 		LOG("Unable to get service for disk %s", bsddisk);
 		return ENOENT;
@@ -5100,6 +5127,11 @@ BC_playlist_for_filename(int fd, const char *fname, off_t maxsize, struct BC_pla
 	if (error != 0) {
 		errno = error;
 		LOG_ERRNO("Unable to get playlist for %s", fname ?: "file");
+	} else {
+#ifdef DEBUG
+		DLOG("Created playlist for %s:", fname);
+		BC_print_playlist(*ppc, false);
+#endif
 	}
 	
 out:
@@ -5109,6 +5141,119 @@ out:
 	return (error);
 }
 
+/*
+ *  Return a playlist for the native shared caches
+ *  I.E. the normal shared cache + DriverKit shared cache for the current architecture
+ */
+int BC_playlist_for_native_shared_caches(struct BC_playlist** shared_cache_playlist_out) {
+	*shared_cache_playlist_out = NULL;
+	
+	const char* shared_cache_path = dyld_shared_cache_file_path();
+	if (! shared_cache_path) {
+		LOG("No shared cache path");
+		return ENOENT;
+	}
+	
+	// rdar://78426880 (Include DriverKit shared caches in BootCache)
+	// Include all shared caches for the given architecture (as identified by the filename of the shared cache, i.e. "dyld_shared_cache_x86_64h")
+	char* shared_cache_name = strrchr(shared_cache_path, '/');
+	if (!shared_cache_name) {
+		LOG("Bad shared cache path %s", shared_cache_path);
+		return ENOENT;
+	}
+	shared_cache_name++; // now it is actually the basename, rather than the slash preceeding it
+	DLOG("Shared cache name is %s", shared_cache_name);
+
+	struct BC_playlist *shared_cache_playlist = BC_allocate_playlist(1, 0, 0);
+
+	__block int numFiles = 0;
+	__block int numSuccessfulFiles = 0;
+	dyld_for_each_installed_shared_cache(^(dyld_shared_cache_t cache) {
+		__block bool matchesNative = false;
+		uuid_t sc_uuid;
+		dyld_shared_cache_copy_uuid(cache, &sc_uuid);
+		
+		dyld_shared_cache_for_each_file(cache, ^(const char *shared_cache_file_path) {
+			if (matchesNative) return; // early return if we've already matched
+			
+			const char* basename = strrchr(shared_cache_file_path, '/');
+			if (!basename) {
+				LOG("Bad shared cache file path %s", shared_cache_file_path);
+				return;
+			}
+			
+			if (0 == strcmp(basename + 1, shared_cache_name)) {
+				DLOG("Shared cache match: %s vs %s", shared_cache_file_path, shared_cache_name);
+				matchesNative = true;
+			} else {
+				DLOG("No shared cache match: %s vs %s", shared_cache_file_path, shared_cache_name);
+			}
+		});
+
+		if (!matchesNative) {
+			DLOG("Not including shared cache %s for non-native architecture", uuid_string(sc_uuid));
+			return;
+		}
+		
+		DLOG("Including shared cache %s", uuid_string(sc_uuid));
+		
+		dyld_shared_cache_for_each_file(cache, ^(const char *shared_cache_file_path) {
+			numFiles++;
+			
+			int fd = open(shared_cache_file_path, O_RDONLY);
+			if (fd == -1) {
+				LOG_ERRNO("Unable to open shared cache file %s to add it to the boot cache", shared_cache_file_path);
+				return;
+			}
+			
+			struct BC_playlist *single_file_playlist = NULL;
+			int error = BC_playlist_for_filename(fd, shared_cache_file_path, 0, &single_file_playlist);
+			close(fd);
+			if (single_file_playlist == NULL) {
+				errno = error;
+				LOG_ERRNO("Unable to create playlist for shared cache file %s", shared_cache_file_path);
+				return;
+			}
+			
+			for (int i = 0; i < single_file_playlist->p_nentries; i++) {
+				single_file_playlist->p_entries[i].pe_flags |= BC_PE_SHARED;
+			}
+			
+			error = BC_merge_playlists(shared_cache_playlist, single_file_playlist);
+			if (error) {
+				errno = error;
+				LOG_ERRNO("Unable to merge shared cache playlist for %s", shared_cache_file_path);
+				return;
+			} else {
+#ifdef DEBUG
+				DLOG("Merged shared cache file %s into shared cache playlist:", shared_cache_file_path);
+				BC_print_playlist(shared_cache_playlist, true);
+#endif
+			}
+			
+			numSuccessfulFiles++;
+		});
+	});
+
+	if (numFiles == 0) {
+		LOG("No files for dyld shared cache");
+		PC_FREE_ZERO(shared_cache_playlist);
+		return ENOENT;
+	}
+	
+	if (numSuccessfulFiles < numFiles) {
+		LOG("Failed to add %d out of %d shared cache files", numFiles - numSuccessfulFiles, numFiles);
+	}
+	
+	if (numSuccessfulFiles == 0) {
+		PC_FREE_ZERO(shared_cache_playlist);
+		return ENOENT;
+	}
+	
+	*shared_cache_playlist_out = shared_cache_playlist;
+	
+	return 0;
+}
 
 /*
  * Check for intersection between two playlists
@@ -6038,7 +6183,7 @@ BC_print_playlist(const struct BC_playlist *pc, bool verbose)
 	 */
 	if (verbose) {
 		LOG("Extents:");
-		LOG("Mount                                Offset       Length Batch Flags Crypto offset");
+		LOG("Mount                                Range                   (Length) Batch Flags Crypto offset");
 	}
 	for (i = 0; i < pc->p_nentries; i++) {
 		pe = pc->p_entries + i;
@@ -6113,20 +6258,22 @@ BC_print_history(char *fname, const struct BC_history *hc)
 	if (fp == NULL)
 		return(errno);
 
-	fprintf(fp, "%36s %36s %-12s %-12s %-8s %-12s %5s type shared?\n",
+	fprintf(fp, "%36s %36s %-12s %-25s (%-8s) %-12s %5s type shared?\n",
 			"uuid",
 			"group uuid",
 			"inode",
-			"offset",
+			"range",
 			"length",
 			"crypto off",
 			"pid");
 	for (i = 0; i < hc->h_nentries; i++) {
-		fprintf(fp, "%s %s %-12llu %#-12llx %#-8llx %#-12llx %5u%s%s\n",
+		fprintf(fp, "%s %s %-12llu %#-12llx-%#-12llx (%#-8llx) %#-12llx %5u%s%s\n",
 				uuid_string(hc->h_mounts[hc->h_entries[i].he_mount_idx].hm_uuid),
 				uuid_string(hc->h_mounts[hc->h_entries[i].he_mount_idx].hm_group_uuid),
 				hc->h_entries[i].he_inode,
-				hc->h_entries[i].he_offset, hc->h_entries[i].he_length,
+				hc->h_entries[i].he_offset,
+				hc->h_entries[i].he_offset+ hc->h_entries[i].he_length,
+				hc->h_entries[i].he_length,
 				hc->h_entries[i].he_crypto_offset,
 				hc->h_entries[i].he_pid,
 				hc->h_entries[i].he_flags & BC_HE_OPTIMIZED ? " optimized" :

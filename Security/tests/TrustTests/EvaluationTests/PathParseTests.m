@@ -99,4 +99,19 @@ errOut:
     CFReleaseNull(error);
 }
 
+- (void)testDuplicateExtensions {
+    SecCertificateRef leaf = SecCertificateCreateWithBytes(NULL, _duplicate_extn_leaf, sizeof(_duplicate_extn_leaf));
+
+    TestTrustEvaluation *eval = [[TestTrustEvaluation alloc] initWithCertificates:@[(__bridge id)leaf] policies:nil];
+    [eval setVerifyDate:[NSDate dateWithTimeIntervalSinceReferenceDate:635000000]]; // February 14, 2021 at 4:53:20 AM PST
+    [eval setAnchors:@[(__bridge id)leaf]];
+
+    NSError *error = nil;
+    XCTAssertFalse([eval evaluate:&error]);
+    XCTAssertNotNil(error);
+    XCTAssertEqual(error.code, errSecCertificateDuplicateExtension);
+
+    CFReleaseNull(leaf);
+}
+
 @end

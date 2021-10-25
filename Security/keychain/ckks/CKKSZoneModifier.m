@@ -112,16 +112,23 @@
 
 - (CKKSZoneModifyOperations*)createZone:(CKRecordZone*)zone
 {
+    return [self createZones:@[zone]];
+}
+
+- (CKKSZoneModifyOperations*)createZones:(NSArray<CKRecordZone*>*)zones
+{
     __block CKKSZoneModifyOperations* ops = nil;
 
     dispatch_sync(self.queue, ^{
         [self _onqueueCreatePendingObjects];
         ops = self.pendingOperations;
 
-        [ops.zonesToCreate addObject:zone];
-        CKRecordZoneSubscription* subscription = [[CKRecordZoneSubscription alloc] initWithZoneID:zone.zoneID
-                                                                                   subscriptionID:[@"zone:" stringByAppendingString: zone.zoneID.zoneName]];
-        [ops.subscriptionsToSubscribe addObject:subscription];
+        for(CKRecordZone* zone in zones) {
+            [ops.zonesToCreate addObject:zone];
+            CKRecordZoneSubscription* subscription = [[CKRecordZoneSubscription alloc] initWithZoneID:zone.zoneID
+                                                                                       subscriptionID:[@"zone:" stringByAppendingString: zone.zoneID.zoneName]];
+            [ops.subscriptionsToSubscribe addObject:subscription];
+        }
     });
 
     [self.cloudkitRetryAfter trigger];
@@ -131,13 +138,18 @@
 
 - (CKKSZoneModifyOperations*)deleteZone:(CKRecordZoneID*)zoneID
 {
+    return [self deleteZones:@[zoneID]];
+}
+
+- (CKKSZoneModifyOperations*)deleteZones:(NSArray<CKRecordZoneID*>*)zoneIDs
+{
     __block CKKSZoneModifyOperations* ops = nil;
 
     dispatch_sync(self.queue, ^{
         [self _onqueueCreatePendingObjects];
         ops = self.pendingOperations;
 
-        [ops.zoneIDsToDelete addObject:zoneID];
+        [ops.zoneIDsToDelete addObjectsFromArray:zoneIDs];
     });
 
     [self.cloudkitRetryAfter trigger];
@@ -207,7 +219,7 @@
     zoneModifyOperation.configuration.isCloudKitSupportOperation = YES;
     zoneModifyOperation.database = self.database;
     zoneModifyOperation.name = @"zone-creation-operation";
-    zoneModifyOperation.group = [CKOperationGroup CKKSGroupWithName:@"zone-creation"];;
+    zoneModifyOperation.group = [CKOperationGroup CKKSGroupWithName:@"zone-creation"];
 
     // We will use the zoneCreationOperation operation in ops to signal completion
     WEAKIFY(self);

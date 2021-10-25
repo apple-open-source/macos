@@ -35,7 +35,7 @@
 // is intended to go away very soon.
 extern malloc_zone_t **malloc_zones;
 extern malloc_zone_t* lite_zone;
-extern void malloc_zone_register_while_locked(malloc_zone_t *zone);
+extern void malloc_zone_register_while_locked(malloc_zone_t *zone, bool make_default);
 extern boolean_t has_default_zone0(void);
 
 static szone_t *create_and_insert_msl_lite_zone(const char *name,
@@ -112,9 +112,9 @@ create_and_insert_msl_lite_zone(const char *name,
 	mprotect(szone, sizeof(szone->basic_zone), PROT_READ);
 	
 	// set helper zone
-	szone->helper_zone = (szone_t *)malloc_zones[0];
+	szone->helper_zone = (szone_t *)malloc_zones[0];  // TODO: this is broken
 	
-	malloc_zone_register_while_locked(zone);
+	malloc_zone_register_while_locked(zone, false);
 	malloc_set_zone_name(zone, name);
 	lite_zone = zone;
 

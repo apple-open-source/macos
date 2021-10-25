@@ -58,7 +58,6 @@ IF(ENABLE_TEST)
     test_compat_lzma.c
     test_compat_lzop.c
     test_compat_mac.c
-    test_compat_pax_libarchive_2x.c
     test_compat_perl_archive_tar.c
     test_compat_plexus_archiver_tar.c
     test_compat_solaris_pax_sparse.c
@@ -69,6 +68,7 @@ IF(ENABLE_TEST)
     test_compat_uudecode_large.c
     test_compat_xz.c
     test_compat_zip.c
+    test_compat_zstd.c
     test_empty_write.c
     test_entry.c
     test_entry_strmode.c
@@ -82,6 +82,7 @@ IF(ENABLE_TEST)
     test_open_file.c
     test_open_filename.c
     test_pax_filename_encoding.c
+    test_pax_xattr_header.c
     test_read_data_large.c
     test_read_disk.c
     test_read_disk_directory_traversals.c
@@ -101,6 +102,7 @@ IF(ENABLE_TEST)
     test_read_format_7zip_encryption_header.c
     test_read_format_7zip_encryption_partially.c
     test_read_format_7zip_malformed.c
+    test_read_format_7zip_packinfo_digests.c
     test_read_format_ar.c
     test_read_format_cab.c
     test_read_format_cab_filename.c
@@ -141,6 +143,7 @@ IF(ENABLE_TEST)
     test_read_format_lha.c
     test_read_format_lha_bugfix_0.c
     test_read_format_lha_filename.c
+    test_read_format_lha_filename_utf16.c
     test_read_format_mtree.c
     test_read_format_mtree_crash747.c
     test_read_format_pax_bz2.c
@@ -149,10 +152,12 @@ IF(ENABLE_TEST)
     test_read_format_rar_encryption_header.c
     test_read_format_rar_encryption_partially.c
     test_read_format_rar_invalid1.c
+    test_read_format_rar5.c
     test_read_format_raw.c
     test_read_format_tar.c
     test_read_format_tar_concatenated.c
     test_read_format_tar_empty_filename.c
+    test_read_format_tar_empty_with_gnulabel.c
     test_read_format_tar_empty_pax.c
     test_read_format_tar_filename.c
     test_read_format_tbz.c
@@ -164,10 +169,12 @@ IF(ENABLE_TEST)
     test_read_format_warc.c
     test_read_format_xar.c
     test_read_format_zip.c
+    test_read_format_zip_7075_utf8_paths.c
     test_read_format_zip_comment_stored.c
     test_read_format_zip_encryption_data.c
     test_read_format_zip_encryption_header.c
     test_read_format_zip_encryption_partially.c
+    test_read_format_zip_extra_padding.c
     test_read_format_zip_filename.c
     test_read_format_zip_high_compression.c
     test_read_format_zip_jar.c
@@ -184,7 +191,8 @@ IF(ENABLE_TEST)
     test_read_format_zip_zip64.c
     test_read_format_zip_with_invalid_traditional_eocd.c
     test_read_large.c
-    test_read_pax_schily_xattr.c
+    test_read_pax_xattr_rht_security_selinux.c
+    test_read_pax_xattr_schily.c
     test_read_pax_truncated.c
     test_read_position.c
     test_read_set_format.c
@@ -226,6 +234,7 @@ IF(ENABLE_TEST)
     test_write_filter_program.c
     test_write_filter_uuencode.c
     test_write_filter_xz.c
+    test_write_filter_zstd.c
     test_write_format_7zip.c
     test_write_format_7zip_empty.c
     test_write_format_7zip_large.c

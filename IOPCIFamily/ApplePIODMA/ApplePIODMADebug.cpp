@@ -18,7 +18,7 @@ uint32_t applePIODMAgetDebugLoggingMask(const char* bootArg)
     return localDebugMask;
 }
 
-uint32_t applePIODMAgetDebugLoggingMaskForMetaClass(const OSMetaClass* metaClass, const OSMetaClass* stopClass)
+uint32_t applePIODMAgetDebugLoggingMaskForMetaClass(const OSMetaClass* metaClass, const OSMetaClass* stopClass, const char* location)
 {
     uint32_t result       = 0;
     char     bootArg[256] = { 0 };
@@ -26,7 +26,14 @@ uint32_t applePIODMAgetDebugLoggingMaskForMetaClass(const OSMetaClass* metaClass
     while(   metaClass != NULL
           && metaClass != stopClass)
     {
-        snprintf(bootArg, 256, "%s-debug", metaClass->getClassName());
+        if(location != NULL)
+        {
+            snprintf(bootArg, 256, "%s@%s-debug", metaClass->getClassName(), location);
+        }
+        else
+        {
+            snprintf(bootArg, 256, "%s-debug", metaClass->getClassName());
+        }
 
         result |= applePIODMAgetDebugLoggingMask(bootArg);
 

@@ -104,7 +104,7 @@ uint64_t xctGetUserActivityPostedLevels() {
     return gUserActive.postedLevels;
 }
 
-void xctUserActive_prime() {
+void xctUserActive_prime(void) {
     bzero(&gUserActive, sizeof(UserActiveStruct));
 
     gUserActive.postedLevels = kIOPMUserPresentActive;
@@ -112,6 +112,9 @@ void xctUserActive_prime() {
 }
 #endif
 
+uint64_t getUserActivePostedLevels() {
+    return gUserActive.postedLevels;
+}
 static void userActive_prime(void) {
     bzero(&gUserActive, sizeof(UserActiveStruct));
 
@@ -134,18 +137,18 @@ void userActiveHandleSleep(void)
     gUserActive.rootDomain = false;
 }
 
-void userActiveHandlePowerAssertionsChanged()
+void userActiveHandlePowerAssertionsChanged(void)
 {
     updateUserActivityLevels();
 }
 
-__private_extern__ void resetSessionUserActivity()
+__private_extern__ void resetSessionUserActivity(void)
 {
     gUserActive.sessionUserActivity = false;
     gUserActive.sessionActivityLevels = 0;
 }
 
-__private_extern__ uint32_t getSystemThermalState()
+__private_extern__ uint32_t getSystemThermalState(void)
 {
     return thermalState;
 }
@@ -259,7 +262,6 @@ uint32_t updateUserActivityLevels(void)
         levels |= kIOPMUserNotificationActive;
     }
     DEBUG_LOG("Global levels set to 0x%llx\n", levels);
-
     // Set system activity Level based on the default HID activity timeout(kIOPMDefaultUserActivityTimeout)
     if (0 == token) {
         notify_register_check("com.apple.system.powermanagement.useractivity2",
@@ -295,6 +297,14 @@ uint32_t updateUserActivityLevels(void)
 
         gUserActive.postedLevels = levels;
         gUserActive.sessionActivityLevels |= levels;
+        if (gUserActive.postedLevels == 0) {
+            DEBUG_LOG("UserActivity level : inactive. Starting System Assertion Timer");
+
+            startSystemAssertionTimer();
+        } else {
+            DEBUG_LOG("UserActivity level : active. Cancelling System Assertion Timer");
+            cancelSystemAssertionTimer();
+        }
     }
 
 
@@ -632,7 +642,7 @@ static void evaluateHidIdleNotification()
 
 }
 
-CFDictionaryRef __nonReceivingEventMatching()
+CFDictionaryRef __nonReceivingEventMatching(void)
 {
 
   CFNumberRef keyValue;
@@ -1274,7 +1284,7 @@ void updateUserActivityTimeout(xpc_object_t connection, xpc_object_t msg)
                  client->idleTimeout, client->connection, xpc_connection_get_pid(connection));
 }
 
-__private_extern__ uint32_t getTimeSinceLastTickle( )
+__private_extern__ uint32_t getTimeSinceLastTickle(void)
 {
     __block uint64_t  hidActivity_ts = 0;
 

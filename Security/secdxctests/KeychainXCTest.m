@@ -193,8 +193,8 @@ static KeychainXCTestFailureLogger* _testFailureLoggerVariable;
     [[[self.mockSecDbKeychainItemV7 stub] andCall:@selector(decryptionOperation) onObject:self] decryptionOperation];
 
     self.mockSecAKSObjCWrappers = OCMClassMock([SecAKSObjCWrappers class]);
-    [[[[self.mockSecAKSObjCWrappers stub] andCall:@selector(fakeAKSEncryptWithKeybag:keyclass:plaintext:outKeyclass:ciphertext:error:) onObject:self] ignoringNonObjectArgs] aksEncryptWithKeybag:0 keyclass:0 plaintext:[OCMArg any] outKeyclass:NULL ciphertext:[OCMArg any] error:NULL];
-    [[[[self.mockSecAKSObjCWrappers stub] andCall:@selector(fakeAKSDecryptWithKeybag:keyclass:ciphertext:outKeyclass:plaintext:error:) onObject:self] ignoringNonObjectArgs] aksDecryptWithKeybag:0 keyclass:0 ciphertext:[OCMArg any] outKeyclass:NULL plaintext:[OCMArg any] error:NULL];
+    [[[[self.mockSecAKSObjCWrappers stub] andCall:@selector(fakeAKSEncryptWithKeybag:keyclass:plaintext:outKeyclass:ciphertext:personaId:personaIdLength:error:) onObject:self] ignoringNonObjectArgs] aksEncryptWithKeybag:0 keyclass:0 plaintext:[OCMArg any] outKeyclass:NULL ciphertext:[OCMArg any] personaId:NULL personaIdLength:0 error:NULL];
+    [[[[self.mockSecAKSObjCWrappers stub] andCall:@selector(fakeAKSDecryptWithKeybag:keyclass:ciphertext:outKeyclass:plaintext:personaId:personaIdLength:error:) onObject:self] ignoringNonObjectArgs] aksDecryptWithKeybag:0 keyclass:0 ciphertext:[OCMArg any] outKeyclass:NULL plaintext:[OCMArg any] personaId:NULL personaIdLength:0 error:NULL];
 
     // bring back with <rdar://problem/37523001>
 //    [[[self.mockSecDbKeychainItemV7 stub] andCall:@selector(isKeychainUnlocked) onObject:self] isKeychainUnlocked];
@@ -311,6 +311,8 @@ static KeychainXCTestFailureLogger* _testFailureLoggerVariable;
                        plaintext:(NSData*)plaintext
                      outKeyclass:(keyclass_t*)outKeyclass
                       ciphertext:(NSMutableData*)ciphertextOut
+                       personaId:(const void*)personaId
+                 personaIdLength:(size_t)personaIdLength
                            error:(NSError**)error
 {
     if (self.lockState == LockStateLockedAndDisallowAKS) {
@@ -347,6 +349,8 @@ static KeychainXCTestFailureLogger* _testFailureLoggerVariable;
                       ciphertext:(NSData*)ciphertextIn
                      outKeyclass:(keyclass_t*)outKeyclass
                        plaintext:(NSMutableData*)plaintext
+                       personaId:(const void*)personaId
+                 personaIdLength:(size_t)personaIdLength
                            error:(NSError**)error
 {
     if (self.lockState == LockStateLockedAndDisallowAKS) {

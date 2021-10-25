@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2010, 2013, 2014, 2016, 2017 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2010, 2013, 2014, 2016, 2017, 2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -205,7 +205,7 @@ _find_service(char *match)
 
 __private_extern__
 void
-create_service(int argc, char **argv)
+create_service(int argc, char * const argv[])
 {
 	SCNetworkInterfaceRef	interface;
 	CFStringRef		interfaceName;
@@ -354,7 +354,7 @@ create_service(int argc, char **argv)
 
 __private_extern__
 void
-disable_service(int argc, char **argv)
+disable_service(int argc, char * const argv[])
 {
 	SCNetworkServiceRef	service;
 
@@ -385,7 +385,7 @@ disable_service(int argc, char **argv)
 
 __private_extern__
 void
-enable_service(int argc, char **argv)
+enable_service(int argc, char * const argv[])
 {
 	SCNetworkServiceRef	service;
 
@@ -416,7 +416,7 @@ enable_service(int argc, char **argv)
 
 __private_extern__
 void
-remove_service(int argc, char **argv)
+remove_service(int argc, char * const argv[])
 {
 	SCNetworkServiceRef	service		= NULL;
 	CFStringRef		serviceName;
@@ -488,7 +488,7 @@ remove_service(int argc, char **argv)
 
 __private_extern__
 void
-select_service(int argc, char **argv)
+select_service(int argc, char * const argv[])
 {
 #pragma unused(argc)
 	SCNetworkInterfaceRef	interface;
@@ -556,7 +556,7 @@ select_service(int argc, char **argv)
 
 __private_extern__
 void
-set_service(int argc, char **argv)
+set_service(int argc, char * const argv[])
 {
 	Boolean	ok;
 
@@ -824,7 +824,7 @@ __show_service_protocols(SCNetworkServiceRef service, const char *prefix, Boolea
 
 __private_extern__
 void
-show_service(int argc, char **argv)
+show_service(int argc, char * const argv[])
 {
 	SCNetworkInterfaceRef		interface;
 	CFArrayRef			protocols;
@@ -942,7 +942,7 @@ show_service(int argc, char **argv)
 
 __private_extern__
 void
-show_services(int argc, char **argv)
+show_services(int argc, char * const argv[])
 {
 #pragma unused(argv)
 	CFIndex	i;

@@ -10,10 +10,11 @@
                   octagonAdapter:(id<CKKSPeerProvider> _Nullable)octagonAdapter
                   authKitAdapter:(id<OTAuthKitAdapter>)authKitAdapter
                deviceInfoAdapter:(id<OTDeviceInformationAdapter>)deviceInfoAdapter
-                     viewManager:(CKKSViewManager*)viewManager
+                 ckksAccountSync:(CKKSKeychainView* _Nullable)ckks
                 lockStateTracker:(CKKSLockStateTracker*)lockStateTracker
             cuttlefishXPCWrapper:(CuttlefishXPCWrapper *)cuttlefishXPCWrapper
               escrowRequestClass:(Class<SecEscrowRequestable>)escrowRequestClass
+                   notifierClass:(Class<CKKSNotifier>)notifierClass
 {
     if((self = [super init])) {
         _containerName = containerName;
@@ -24,10 +25,11 @@
         _octagonAdapter = octagonAdapter;
         _authKitAdapter = authKitAdapter;
         _deviceInformationAdapter = deviceInfoAdapter;
-        _viewManager = viewManager;
+        _ckks = ckks;
         _lockStateTracker = lockStateTracker;
         _cuttlefishXPCWrapper = cuttlefishXPCWrapper;
         _escrowRequestClass = escrowRequestClass;
+        _notifierClass = notifierClass;
     }
     return self;
 }

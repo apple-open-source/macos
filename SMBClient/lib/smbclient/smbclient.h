@@ -123,11 +123,13 @@ __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_NA)
 /*! Only connect as guest. */
 #define kSMBOptionUseGuestOnlyAuth		0x00000020
 /*! Only connect as anonymous. */
-#define kSMBOptionUseAnonymousOnlyAuth    0x00000040
+#define kSMBOptionUseAnonymousOnlyAuth  0x00000040
 /*! Requesting hifi mode */
 #define kSMBOptionRequestHiFi           0x00000080
 /*! Create an authenticated session connection, don't tree connect. */
 #define kSMBOptionSessionOnly			0x00010000
+/*! Force Session Encryption */
+#define kSMBOptionSessionEncrypt        0x00000100
 
 #define kSMBOptionOnlyAuthMask			(kSMBOptionUseGuestOnlyAuth | \
 										kSMBOptionUseAnonymousOnlyAuth)
@@ -179,6 +181,8 @@ __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_NA)
 #define kSMBHighFidelityMount           0x00000020
 #define kSMBDataCacheOffMount           0x00000040
 #define kSMBMDataCacheOffMount          0x00000080
+#define kSMBSessionEncryptMount         0x00000100
+#define kSMBShareEncryptMount           0x00000200
 
 /*!
  * @function SMBOpenServerWithMountPoint
@@ -288,6 +292,7 @@ typedef struct SMBShareAttributes
     uint32_t    session_hflags2;
     uint32_t    session_smb1_caps;
     uint32_t    session_smb2_caps;
+    uint32_t    session_encrypt_cipher;
     uint32_t    ss_flags;
     uint32_t    ss_type;
     uint32_t    ss_caps;

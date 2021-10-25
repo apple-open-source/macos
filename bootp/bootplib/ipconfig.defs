@@ -66,7 +66,7 @@ routine ipconfig_if_count(	server : mach_port_t;
 routine ipconfig_get_option(	server : mach_port_t;
 				name : if_name;
 				option_code : int;
-			 out	option_data : dataOut;
+			 out	option_data : dataOut, dealloc;
 			 out	status : ipconfig_status);
 
 routine ipconfig_if_addr(	server : mach_port_t;
@@ -76,7 +76,7 @@ routine ipconfig_if_addr(	server : mach_port_t;
 
 routine ipconfig_get_packet(	server : mach_port_t;
 				name : if_name;
-			 out	packet : dataOut;
+			 out	packet : dataOut, dealloc;
 			 out	status : ipconfig_status);
 
 routine ipconfig_set(		server : mach_port_t;
@@ -132,7 +132,7 @@ routine ipconfig_set_service(	server : mach_port_t;
 
 routine ipconfig_get_v6_packet(	server : mach_port_t;
 				name : if_name;
-			 out	packet : dataOut;
+			 out	packet : dataOut, dealloc;
 			 out	status : ipconfig_status);
 
 routine ipconfig_remove_service_on_interface(
@@ -158,5 +158,14 @@ routine ipconfig_forget_network(
 
 routine ipconfig_get_ra(	server : mach_port_t;
 				name : if_name;
-			 out	ra_data : xmlDataOut;
+			 out	ra_data : xmlDataOut, dealloc;
 			 out	status : ipconfig_status);
+
+routine ipconfig_get_summary(	server : mach_port_t;
+				name : if_name;
+			out	state : xmlDataOut, dealloc;
+			out	status : ipconfig_status);
+
+routine ipconfig_get_interface_list(	server : mach_port_t;
+			out	state : xmlDataOut, dealloc;
+			out	status : ipconfig_status);

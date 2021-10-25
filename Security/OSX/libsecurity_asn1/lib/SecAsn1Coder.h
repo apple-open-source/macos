@@ -43,19 +43,22 @@ extern "C" {
 
 CF_ASSUME_NONNULL_BEGIN
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+
 /*
  * Opaque reference to a SecAsn1Coder object.
  */
-typedef struct SecAsn1Coder *SecAsn1CoderRef;
+typedef struct SecAsn1Coder *SecAsn1CoderRef SEC_ASN1_API_DEPRECATED;
 
 /*
  * Create/destroy SecAsn1Coder object. 
  */
 OSStatus SecAsn1CoderCreate(
-	SecAsn1CoderRef  __nullable * __nonnull coder);
+	SecAsn1CoderRef  __nullable * __nonnull coder) SEC_ASN1_API_DEPRECATED;
 
 OSStatus SecAsn1CoderRelease(
-	SecAsn1CoderRef  coder);
+	SecAsn1CoderRef  coder) SEC_ASN1_API_DEPRECATED;
 
 /*
  * DER decode an untyped item per the specified template array. 
@@ -76,7 +79,7 @@ OSStatus SecAsn1Decode(
 	const void				*src,		// DER-encoded source
 	size_t					len,
 	const SecAsn1Template 	*templates,	
-	void					*dest);
+	void					*dest) SEC_ASN1_API_DEPRECATED;
 
 /* 
  * Convenience routine, decode from a SecAsn1Item.
@@ -85,7 +88,7 @@ OSStatus SecAsn1DecodeData(
 	SecAsn1CoderRef			coder,
 	const SecAsn1Item		*src,
 	const SecAsn1Template 	*templ,	
-	void					*dest);
+	void					*dest) SEC_ASN1_API_DEPRECATED;
 
 /*
  * DER encode. The encoded data (in dest.Data) is allocated in this 
@@ -101,7 +104,7 @@ OSStatus SecAsn1EncodeItem(
 	SecAsn1CoderRef			coder,
 	const void				*src,
 	const SecAsn1Template 	*templates,	
-	SecAsn1Item				*dest);
+	SecAsn1Item				*dest) SEC_ASN1_API_DEPRECATED;
 
 /*
  * Some alloc-related methods which come in handy when using
@@ -118,31 +121,35 @@ OSStatus SecAsn1EncodeItem(
  */
 void *SecAsn1Malloc(
 	SecAsn1CoderRef			coder,
-	size_t					len); 
+	size_t					len) SEC_ASN1_API_DEPRECATED;
 
 /* Allocate item.Data, set item.Length */
 OSStatus SecAsn1AllocItem(
 	SecAsn1CoderRef			coder,
 	SecAsn1Item				*item,
-	size_t					len);
+	size_t					len) SEC_ASN1_API_DEPRECATED;
 
 /* Allocate and copy, various forms */
 OSStatus SecAsn1AllocCopy(
 	SecAsn1CoderRef			coder,
 	const void				*src,		/* memory copied from here */
 	size_t					len,		/* length to allocate & copy */
-	SecAsn1Item				*dest);		/* dest->Data allocated and copied to;
+	SecAsn1Item				*dest)		/* dest->Data allocated and copied to;
 										 *   dest->Length := len */
+    SEC_ASN1_API_DEPRECATED;
 
 OSStatus SecAsn1AllocCopyItem(
 	SecAsn1CoderRef			coder,
 	const SecAsn1Item		*src,		/* src->Length bytes allocated and copied from
 										 *   src->Data */
-	SecAsn1Item				*dest);		/* dest->Data allocated and copied to;
+	SecAsn1Item				*dest)		/* dest->Data allocated and copied to;
 										 *   dest->Length := src->Length */
+    SEC_ASN1_API_DEPRECATED;
 
 /* Compare two decoded OIDs.  Returns true iff they are equivalent. */
-bool SecAsn1OidCompare(const SecAsn1Oid *oid1, const SecAsn1Oid *oid2);
+bool SecAsn1OidCompare(const SecAsn1Oid *oid1, const SecAsn1Oid *oid2) SEC_ASN1_API_DEPRECATED;
+
+#pragma clang diagnostic pop
 
 CF_ASSUME_NONNULL_END
 

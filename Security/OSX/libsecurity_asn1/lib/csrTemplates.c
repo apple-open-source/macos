@@ -23,47 +23,31 @@
  * csrTemplates.cpp - ASN1 templates Cert Signing Requests (per PKCS10).
  */
 
-#include "SecAsn1Templates.h"
-#include <stddef.h>
 #include "csrTemplates.h"
+#include <stddef.h>
+#include "SecAsn1Templates.h"
 #include "keyTemplates.h"
 
 const SecAsn1Template kSecAsn1CertRequestInfoTemplate[] = {
-    { SEC_ASN1_SEQUENCE, 0, NULL, sizeof(NSSCertRequestInfo) },
-    { SEC_ASN1_INTEGER,  offsetof(NSSCertRequestInfo,version) },
-    { SEC_ASN1_INLINE,
-	  offsetof(NSSCertRequestInfo,subject),
-	  kSecAsn1NameTemplate },
-    { SEC_ASN1_INLINE,
-	  offsetof(NSSCertRequestInfo,subjectPublicKeyInfo),
-	  kSecAsn1SubjectPublicKeyInfoTemplate },
-    { SEC_ASN1_CONSTRUCTED | SEC_ASN1_CONTEXT_SPECIFIC | 0,
-	  offsetof(NSSCertRequestInfo,attributes),
-	  kSecAsn1SetOfAttributeTemplate },
-    { 0 }
-};
+    {SEC_ASN1_SEQUENCE, 0, NULL, sizeof(NSSCertRequestInfo)},
+    {SEC_ASN1_INTEGER, offsetof(NSSCertRequestInfo, version)},
+    {SEC_ASN1_INLINE, offsetof(NSSCertRequestInfo, subject), kSecAsn1NameTemplate},
+    {SEC_ASN1_INLINE, offsetof(NSSCertRequestInfo, subjectPublicKeyInfo), kSecAsn1SubjectPublicKeyInfoTemplate},
+    {SEC_ASN1_CONSTRUCTED | SEC_ASN1_CONTEXT_SPECIFIC | 0,
+     offsetof(NSSCertRequestInfo, attributes),
+     kSecAsn1SetOfAttributeTemplate},
+    {0}};
 
 const SecAsn1Template kSecAsn1CertRequestTemplate[] = {
-    { SEC_ASN1_SEQUENCE, 0, NULL, sizeof(NSSCertRequest) },
-    { SEC_ASN1_INLINE,
-	  offsetof(NSSCertRequest,reqInfo),
-	  kSecAsn1CertRequestInfoTemplate },
-    { SEC_ASN1_INLINE,
-	  offsetof(NSSCertRequest,signatureAlgorithm),
-	  kSecAsn1AlgorithmIDTemplate },
-    { SEC_ASN1_BIT_STRING, offsetof(NSSCertRequest,signature) },
-	{ 0 }
-};
+    {SEC_ASN1_SEQUENCE, 0, NULL, sizeof(NSSCertRequest)},
+    {SEC_ASN1_INLINE, offsetof(NSSCertRequest, reqInfo), kSecAsn1CertRequestInfoTemplate},
+    {SEC_ASN1_INLINE, offsetof(NSSCertRequest, signatureAlgorithm), kSecAsn1AlgorithmIDTemplate},
+    {SEC_ASN1_BIT_STRING, offsetof(NSSCertRequest, signature)},
+    {0}};
 
 const SecAsn1Template kSecAsn1SignedCertRequestTemplate[] = {
-    { SEC_ASN1_SEQUENCE, 0, NULL, sizeof(NSS_SignedCertRequest) },
-    { SEC_ASN1_ANY,
-	  offsetof(NSS_SignedCertRequest,certRequestBlob),
-	  kSecAsn1CertRequestInfoTemplate },
-    { SEC_ASN1_INLINE,
-	  offsetof(NSS_SignedCertRequest,signatureAlgorithm),
-	  kSecAsn1AlgorithmIDTemplate },
-    { SEC_ASN1_BIT_STRING, offsetof(NSS_SignedCertRequest,signature) },
-	{ 0 }
-};
-
+    {SEC_ASN1_SEQUENCE, 0, NULL, sizeof(NSS_SignedCertRequest)},
+    {SEC_ASN1_ANY, offsetof(NSS_SignedCertRequest, certRequestBlob), kSecAsn1CertRequestInfoTemplate},
+    {SEC_ASN1_INLINE, offsetof(NSS_SignedCertRequest, signatureAlgorithm), kSecAsn1AlgorithmIDTemplate},
+    {SEC_ASN1_BIT_STRING, offsetof(NSS_SignedCertRequest, signature)},
+    {0}};

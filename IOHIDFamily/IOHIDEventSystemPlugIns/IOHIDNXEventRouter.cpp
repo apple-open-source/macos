@@ -30,7 +30,6 @@
 #include <IOKit/hid/IOHIDServiceKeys.h>
 #include <IOKit/hid/IOHIDKeys.h>
 #include <IOKit/hid/IOHIDLibPrivate.h>
-#include "IOHIDDebug.h"
 
 
 __BEGIN_DECLS

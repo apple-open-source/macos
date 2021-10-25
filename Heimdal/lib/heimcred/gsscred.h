@@ -49,6 +49,7 @@ struct peer {
     xpc_connection_t peer;
     CFStringRef bundleID;
     CFStringRef callingAppBundleID;
+    audit_token_t auditToken;  //the audit token of the calling app or app being impersonated
     struct HeimSession *session;
     bool needsManagedAppCheck;
     bool isManagedApp;
@@ -58,7 +59,7 @@ struct peer {
 
 @protocol ManagedAppProvider <NSObject>
 
-- (BOOL)isManagedApp:(NSString*)bundleId;
+- (BOOL)isManagedApp:(NSString*)bundleId auditToken:(audit_token_t)auditToken;
 
 @end
 
@@ -119,6 +120,7 @@ struct HeimMech {
     HeimCredStatusCallback statusCallback;
     HeimCredAuthCallback authCallback;
     HeimCredNotifyCaches notifyCaches;
+    HeimCredTraceCallback traceCallback;
     bool readRestricted;
     CFArrayRef readOnlyCommands;
 };
@@ -139,6 +141,7 @@ bool hasRenewTillInAttributes(CFDictionaryRef attributes);
 void _HeimCredRegisterGeneric(void);
 
 void _HeimCredRegisterConfiguration(void);
+CFTypeRef GetValidatedValue(CFDictionaryRef object, CFStringRef key, CFTypeID requiredTypeID, CFErrorRef *error);
 
 struct HeimSession * HeimCredCopySession(int sessionID);
 void RemoveSession(au_asid_t asid);
@@ -163,4 +166,6 @@ void do_ReleaseCache(struct peer *peer, xpc_object_t request, xpc_object_t reply
 CFTypeRef KerberosStatusCallback(HeimCredRef cred) CF_RETURNS_RETAINED;
 CFTypeRef KerberosAcquireCredStatusCallback(HeimCredRef cred) CF_RETURNS_RETAINED;
 CFTypeRef ConfigurationStatusCallback(HeimCredRef cred) CF_RETURNS_RETAINED;
+CFDictionaryRef DefaultTraceCallback(CFDictionaryRef attributes) CF_RETURNS_RETAINED;
+
 #endif /* gsscred_h */

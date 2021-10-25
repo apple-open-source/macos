@@ -37,6 +37,7 @@
 
 #include <sys/queue.h>
 #include <sys/cdefs.h>
+#include <sys/types.h>
 
 #ifdef BSD_KERNEL_PRIVATE
 /*

@@ -24,10 +24,10 @@
 /* 
  * siginfoUtils.cpp - private C++ routines for cmssiginfo
  */
- 
+
 #include <Security/SecCmsSignerInfo.h>
 #include <security_utilities/simpleprefs.h>
-#include "cmspriv.h"    /* prototype */
+#include "cmspriv.h" /* prototype */
 
 /*
  * RFC 3278 section section 2.1.1 states that the signatureAlgorithm 
@@ -42,21 +42,21 @@
 
 bool SecCmsMsEcdsaCompatMode()
 {
-	bool msCompat = true;
-	Dictionary *pd = Dictionary::CreateDictionary(kMSCompatibilityDomain, Dictionary::US_User, false);
-	if(pd == NULL) {
-	    pd = Dictionary::CreateDictionary(kMSCompatibilityDomain, Dictionary::US_System, false);
-	}
-	if(pd != NULL) {
-	    /* 
+    bool msCompat = true;
+    Dictionary* pd =
+        Dictionary::CreateDictionary(kMSCompatibilityDomain, Dictionary::US_User, false);
+    if(pd == NULL) {
+        pd = Dictionary::CreateDictionary(kMSCompatibilityDomain, Dictionary::US_System, false);
+    }
+    if(pd != NULL) {
+        /* 
 	     * not present means true, the opposite of getBoolValue(), so we have to see if 
 	     * it's there...
 	     */
-	    if(pd->getValue(kMSCompatibilityMode)) {
-			msCompat = pd->getBoolValue(kMSCompatibilityMode);
-	    }
-	    delete pd;
-	}
-	return msCompat;
+        if(pd->getValue(kMSCompatibilityMode)) {
+            msCompat = pd->getBoolValue(kMSCompatibilityMode);
+        }
+        delete pd;
+    }
+    return msCompat;
 }
-

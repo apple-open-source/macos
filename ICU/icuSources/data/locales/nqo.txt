@@ -1,13 +1,13 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
-// License & terms of use: http://www.unicode.org/copyright.html#License
+// License & terms of use: http://www.unicode.org/copyright.html
+// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
 nqo{
-    ExemplarCharacters{"[ߊ ߋ ߌ ߍ ߎ ߏ ߐ ߒ ߓ ߔ ߕ ߖ ߗ ߘ ߙ ߚ ߛ ߜ ߝ ߞ ߟ ߡ ߢ ߣ ߤ ߥ ߦ]"}
+    ExemplarCharacters{"[ߊ ߋ ߌ ߍ ߎ ߏ ߐ ߒ ߓ ߔ ߕ ߖ ߗ ߘ ߙ ߚ ߛ ߜ ߝ ߞ ߟ ߠ ߡ ߢ ߣ ߤ ߥ ߦ ߧ]"}
     ExemplarCharactersPunctuation{"[߸ ߹ ߷]"}
     NumberElements{
         default{"latn"}
         native{"nkoo"}
     }
-    Version{"36.1"}
     layout{
         characters{"right-to-left"}
         lines{"top-to-bottom"}

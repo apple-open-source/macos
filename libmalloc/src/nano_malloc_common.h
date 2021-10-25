@@ -24,7 +24,7 @@
 #ifndef __NANO_MALLOC_COMMON_H
 #define __NANO_MALLOC_COMMON_H
 
-// Definitions that are common to Nano V1 and Nano V2.
+// Definitions that are common to Nano
 #if TARGET_OS_OSX || TARGET_OS_SIMULATOR || TARGET_OS_DRIVERKIT
 #define NANO_PREALLOCATE_BAND_VM 0
 #else // TARGET_OS_OSX || TARGET_OS_SIMULATOR || TARGET_OS_DRIVERKIT
@@ -33,7 +33,6 @@
 
 typedef enum {
 	NANO_NONE	= 0,
-	NANO_V1 	= 1,
 	NANO_V2		= 2,
 } nano_version_t;
 

@@ -129,6 +129,28 @@ static void		 version(void) __LA_DEAD;
 	(ARCHIVE_EXTRACT_SECURE_SYMLINKS		\
 	 | ARCHIVE_EXTRACT_SECURE_NODOTDOT)
 
+static char const * const vcs_files[] = {
+  /* CVS */
+  "CVS", ".cvsignore",
+  /* RCS */
+  "RCS",
+  /* SCCS */
+  "SCCS",
+  /* SVN */
+  ".svn",
+  /* git */
+  ".git", ".gitignore", ".gitattributes", ".gitmodules",
+  /* Arch */
+  ".arch-ids", "{arch}", "=RELEASE-ID", "=meta-update", "=update",
+  /* Bazaar */
+  ".bzr", ".bzrignore", ".bzrtags",
+  /* Mercurial */
+  ".hg", ".hgignore", ".hgtags",
+  /* darcs */
+  "_darcs",
+  NULL
+};
+
 int
 main(int argc, char **argv)
 {
@@ -137,6 +159,7 @@ main(int argc, char **argv)
 	char			 compression, compression2;
 	const char		*compression_name, *compression2_name;
 	const char		*compress_program;
+	char			*tptr;
 	char			 possible_help_request;
 	char			 buff[16];
 
@@ -276,10 +299,15 @@ main(int argc, char **argv)
 			/* libarchive doesn't need this; just ignore it. */
 			break;
 		case 'b': /* SUSv2 */
-			t = atoi(bsdtar->argument);
-			if (t <= 0 || t > 8192)
-				lafe_errc(1, 0,
-				    "Argument to -b is out of range (1..8192)");
+			errno = 0;
+			tptr = NULL;
+			t = (int)strtol(bsdtar->argument, &tptr, 10);
+			if (errno || t <= 0 || t > 8192 ||
+			    *(bsdtar->argument) == '\0' || tptr == NULL ||
+			    *tptr != '\0') {
+				lafe_errc(1, 0, "Invalid or out of range "
+				    "(1..8192) argument to -b");
+			}
 			bsdtar->bytes_per_block = 512 * t;
 			/* Explicit -b forces last block size. */
 			bsdtar->bytes_in_last_block = bsdtar->bytes_per_block;
@@ -318,6 +346,15 @@ main(int argc, char **argv)
 				lafe_errc(1, 0,
 				    "Couldn't exclude %s\n", bsdtar->argument);
 			break;
+		case OPTION_EXCLUDE_VCS: /* GNU tar */
+			for(t=0; vcs_files[t]; t++) {
+				if (archive_match_exclude_pattern(
+				    bsdtar->matching,
+				    vcs_files[t]) != ARCHIVE_OK)
+					lafe_errc(1, 0, "Couldn't "
+					    "exclude %s\n", vcs_files[t]);
+			}
+			break;
 		case OPTION_FFLAGS:
 			bsdtar->extract_flags |= ARCHIVE_EXTRACT_FFLAGS;
 			bsdtar->readdisk_flags &= ~ARCHIVE_READDISK_NO_FFLAGS;
@@ -330,10 +367,13 @@ main(int argc, char **argv)
 			bsdtar->filename = bsdtar->argument;
 			break;
 		case OPTION_GID: /* cpio */
-			t = atoi(bsdtar->argument);
-			if (t < 0)
-				lafe_errc(1, 0,
-				    "Argument to --gid must be positive");
+			errno = 0;
+			tptr = NULL;
+			t = (int)strtol(bsdtar->argument, &tptr, 10);
+			if (errno || t < 0 || *(bsdtar->argument) == '\0' ||
+			    tptr == NULL || *tptr != '\0') {
+				lafe_errc(1, 0, "Invalid argument to --gid");
+			}
 			bsdtar->gid = t;
 			break;
 		case OPTION_GNAME: /* cpio */
@@ -425,6 +465,7 @@ main(int argc, char **argv)
 		case OPTION_LZIP: /* GNU tar beginning with 1.23 */
 		case OPTION_LZMA: /* GNU tar beginning with 1.20 */
 		case OPTION_LZOP: /* GNU tar beginning with 1.21 */
+		case OPTION_ZSTD:
 			if (compression != '\0')
 				lafe_errc(1, 0,
 				    "Can't specify both -%c and -%c", opt,
@@ -433,9 +474,10 @@ main(int argc, char **argv)
 			switch (opt) {
 			case OPTION_LRZIP: compression_name = "lrzip"; break;
 			case OPTION_LZ4:  compression_name = "lz4"; break;
-			case OPTION_LZIP: compression_name = "lzip"; break; 
-			case OPTION_LZMA: compression_name = "lzma"; break; 
-			case OPTION_LZOP: compression_name = "lzop"; break; 
+			case OPTION_LZIP: compression_name = "lzip"; break;
+			case OPTION_LZMA: compression_name = "lzma"; break;
+			case OPTION_LZOP: compression_name = "lzop"; break;
+			case OPTION_ZSTD: compression_name = "zstd"; break;
 			}
 			break;
 		case 'm': /* SUSv2 */
@@ -505,6 +547,9 @@ main(int argc, char **argv)
 			bsdtar->readdisk_flags &= ~ARCHIVE_READDISK_MAC_COPYFILE;
 			bsdtar->extract_flags &= ~ARCHIVE_EXTRACT_MAC_METADATA;
 			bsdtar->flags |= OPTFLAG_NO_MAC_METADATA;
+			break;
+		case OPTION_NO_SAFE_WRITES:
+			bsdtar->extract_flags &= ~ARCHIVE_EXTRACT_SAFE_WRITES;
 			break;
 		case OPTION_NO_SAME_OWNER: /* GNU tar */
 			bsdtar->extract_flags &= ~ARCHIVE_EXTRACT_OWNER;
@@ -622,17 +667,22 @@ main(int argc, char **argv)
 			usage();
 #endif
 			break;
+		case OPTION_SAFE_WRITES:
+			bsdtar->extract_flags |= ARCHIVE_EXTRACT_SAFE_WRITES;
+			break;
 		case OPTION_SAME_OWNER: /* GNU tar */
 			bsdtar->extract_flags |= ARCHIVE_EXTRACT_OWNER;
 			break;
 		case OPTION_STRIP_COMPONENTS: /* GNU tar 1.15 */
 			errno = 0;
-			bsdtar->strip_components = strtol(bsdtar->argument,
-			    NULL, 0);
-			if (errno)
-				lafe_errc(1, 0,
-				    "Invalid --strip-components argument: %s",
-				    bsdtar->argument);
+			tptr = NULL;
+			t = (int)strtol(bsdtar->argument, &tptr, 10);
+			if (errno || t < 0 || *(bsdtar->argument) == '\0' ||
+			    tptr == NULL || *tptr != '\0') {
+				lafe_errc(1, 0, "Invalid argument to "
+				    "--strip-components");
+			}
+			bsdtar->strip_components = t;
 			break;
 		case 'T': /* GNU tar */
 			bsdtar->names_from_file = bsdtar->argument;
@@ -652,10 +702,13 @@ main(int argc, char **argv)
 			set_mode(bsdtar, opt);
 			break;
 		case OPTION_UID: /* cpio */
-			t = atoi(bsdtar->argument);
-			if (t < 0)
-				lafe_errc(1, 0,
-				    "Argument to --uid must be positive");
+			errno = 0;
+			tptr = NULL;
+			t = (int)strtol(bsdtar->argument, &tptr, 10);
+			if (errno || t < 0 || *(bsdtar->argument) == '\0' ||
+			    tptr == NULL || *tptr != '\0') {
+				lafe_errc(1, 0, "Invalid argument to --uid");
+			}
 			bsdtar->uid = t;
 			break;
 		case OPTION_UNAME: /* cpio */
@@ -798,8 +851,6 @@ main(int argc, char **argv)
 			break;
 		}
 	}
-	if (bsdtar->flags & OPTFLAG_NO_SUBDIRS)
-		only_mode(bsdtar, "-n", "cru");
 	if (bsdtar->flags & OPTFLAG_STDOUT)
 		only_mode(bsdtar, "-O", "xt");
 	if (bsdtar->flags & OPTFLAG_UNLINK_FIRST)
@@ -848,6 +899,16 @@ main(int argc, char **argv)
 		buff[1] = bsdtar->symlink_mode;
 		only_mode(bsdtar, buff, "cru");
 	}
+
+	/*
+	 * When creating an archive from a directory tree, the directory
+	 * walking code will already avoid entering directories when
+	 * recursive inclusion of directory content is disabled, therefore
+	 * changing the matching behavior has no effect for creation modes.
+	 * It is relevant for extraction or listing.
+	 */
+	archive_match_set_inclusion_recursion(bsdtar->matching,
+					      !(bsdtar->flags & OPTFLAG_NO_SUBDIRS));
 
 	/* Filename "-" implies stdio. */
 	if (bsdtar->filename && strcmp(bsdtar->filename, "-") == 0)
@@ -924,7 +985,7 @@ usage(void)
 static void
 version(void)
 {
-	printf("bsdtar %s - %s\n",
+	printf("bsdtar %s - %s \n",
 	    BSDTAR_VERSION_STRING,
 	    archive_version_details());
 	exit(0);

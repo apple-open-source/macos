@@ -1,5 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
-// License & terms of use: http://www.unicode.org/copyright.html#License
+// License & terms of use: http://www.unicode.org/copyright.html
+// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
 syr{
     AuxExemplarCharacters{"[܏\u200C\u200D ܭ ܮ ܯ ݍ ݎ ݏ]"}
     ExemplarCharacters{
@@ -9,7 +10,6 @@ syr{
         " ܐ ܒ ܓ ܔ ܖ ܕ ܗ ܘ ܙ ܚ ܛ ܜ ܝ ܞ ܟ ܠ ܡ ܢ ܣ ܤ ܥ ܦ ܧ ܨ ܩ ܪ ܫ ܬ]"
     }
     ExemplarCharactersIndex{"[ܐ ܒ ܓ ܖ ܕ ܗ ܘ ܙ ܚ ܛ ܝ ܞ ܟ ܠ ܡ ܢ ܣ ܥ ܦ ܨ ܩ ܪ ܫ ܬ]"}
-    Version{"36.1"}
     calendar{
         generic{
             DateTimePatterns{

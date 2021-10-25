@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2020 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2021 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -579,6 +579,35 @@ dhcp_bootp_allocate(char * idstr, char * hwstr, struct dhcp * rq,
     return (TRUE);
 }
 
+static boolean_t
+is_requested_parameter(dhcpol_t * options_p, uint8_t tag)
+{
+    int			i;
+    const uint8_t *	opt;
+    int 		opt_len;
+    const uint8_t * 	param;
+
+    opt = dhcpol_find(options_p,
+		      dhcptag_parameter_request_list_e,
+		      &opt_len, NULL);
+    if (opt != NULL && opt_len > 0) {
+	for (i = 0, param = opt; i < opt_len; i++, param++) {
+	    if (*param == tag) {
+		return (TRUE);
+	    }
+	}
+    }
+    return (FALSE);
+}
+
+static boolean_t
+client_prefers_ipv6_only(interface_t * if_p, dhcpol_t * options_p)
+{
+    return (ipv6_only_preferred(if_p)
+	    && is_requested_parameter(options_p,
+				      dhcptag_ipv6_only_preferred_e));
+}
+
 void
 dhcp_request(request_t * request, dhcp_msgtype_t msgtype,
 	     boolean_t dhcp_allocate)
@@ -772,6 +801,7 @@ dhcp_request(request_t * request, dhcp_msgtype_t msgtype,
     switch (msgtype) {
       case dhcp_msgtype_discover_e: {
 	  struct in_addr	our_ip;
+	  boolean_t		prefers_ipv6_only;
 
 	  state = dhcp_cstate_init_e;
 
@@ -782,15 +812,12 @@ dhcp_request(request_t * request, dhcp_msgtype_t msgtype,
 	      if (hp)
 		  hostfree(&S_pending_hosts, hp);
 	  }
-
+	  prefers_ipv6_only
+	      = client_prefers_ipv6_only(request->if_p, request->options_p);
 	  if (binding != dhcp_binding_none_e) {
 	      /* client is already bound on this subnet */
 	  }
-	  else if (dhcp_allocate == FALSE) {
-	      /* NetBoot 1.0 enabled, but DHCP is not */
-	      goto no_reply;
-	  }
-	  else { /* find an ip address */
+	  else if (dhcp_allocate || prefers_ipv6_only) {
 	      /* allocate a new ip address */
 	      subnet = acquire_ip(rq->dp_giaddr, 
 				  request->if_p, request->time_in_p, &iaddr);
@@ -804,8 +831,16 @@ dhcp_request(request_t * request, dhcp_msgtype_t msgtype,
 		      }
 		  }
 		  if (subnet == NULL) {
-		      my_log(LOG_NOTICE, "no ip addresses");
-		      goto no_reply; /* out of ip addresses */
+		      if (prefers_ipv6_only) {
+			  my_log(LOG_DEBUG, "client IPv6-only preferred");
+			  iaddr.s_addr = 0;
+			  lease = 3600;
+			  goto send_offer;
+		      }
+		      else {
+			  my_log(LOG_NOTICE, "no ip addresses");
+			  goto no_reply; /* out of ip addresses */
+		      }
 		  }
 	      }
 	      max_lease = SubnetGetMaxLease(subnet);
@@ -821,6 +856,10 @@ dhcp_request(request_t * request, dhcp_msgtype_t msgtype,
 		  lease = min_lease;
 	      }
 	  }
+	  else {
+	      /* NetBoot 1.0 enabled, but DHCP is not */
+	      goto no_reply;
+	  }
 	  { /* keep track of this offer in the pending hosts list */
 	      struct hosts *	hp;
 
@@ -831,14 +870,8 @@ dhcp_request(request_t * request, dhcp_msgtype_t msgtype,
 		  goto no_reply;
 	      hp->lease = lease;
 	  }
-	  /*
-	   * allow for drift between server/client clocks by offering
-	   * a lease shorter than the recorded value
-	   */
-	  if (lease == DHCP_INFINITE_LEASE)
-	      lease = dhcp_lease_hton(lease);
-	  else
-	      lease = dhcp_lease_hton(lease_prorate(lease));
+  send_offer:
+	  lease = dhcp_lease_hton(lease);
 
 	  /* form a reply */
 	  our_ip = if_inet_addr_best_match(request->if_p, iaddr);
@@ -1001,6 +1034,19 @@ dhcp_request(request_t * request, dhcp_msgtype_t msgtype,
 		  state = dhcp_cstate_init_reboot_e;
 		  if (binding == dhcp_binding_none_e) {
 		      if (orphan == FALSE) {
+			  boolean_t	prefers_ipv6_only;
+
+			  prefers_ipv6_only
+			      = client_prefers_ipv6_only(request->if_p,
+							 request->options_p);
+			  if (prefers_ipv6_only) {
+			      /* no binding, still send ACK */
+			      iaddr.s_addr = 0;
+			      lease = 3600;
+			      nak = NULL;
+			      my_log(LOG_DEBUG, "client IPv6-only preferred");
+			      goto send_ack_or_nak;
+			  }
 			  my_log(LOG_DEBUG, "dhcpd: INIT-REBOOT host "
 				 "%s binding for %s with another server",
 				 idstr, inet_ntoa(*req_ip));
@@ -1008,12 +1054,12 @@ dhcp_request(request_t * request, dhcp_msgtype_t msgtype,
 		      }
 		      nak = "requested address no longer available";
 		      use_broadcast = TRUE;
-		      goto send_nak;
+		      goto send_ack_or_nak;
 		  }
 		  if (req_ip->s_addr != iaddr.s_addr) {
 		      nak = "requested address incorrect";
 		      use_broadcast = TRUE;
-		      goto send_nak;
+		      goto send_ack_or_nak;
 		  }
 	      } /* init-reboot */
 	      else if (rq->dp_ciaddr.s_addr) { /* renew/rebind */
@@ -1041,7 +1087,7 @@ dhcp_request(request_t * request, dhcp_msgtype_t msgtype,
 		      }
 		      nak = "requested address no longer available";
 		      use_broadcast = TRUE;
-		      goto send_nak;
+		      goto send_ack_or_nak;
 		  }
 		  if (request->dstaddr_p == NULL
 		      || request->dstaddr_p->s_addr == INADDR_BROADCAST
@@ -1104,7 +1150,7 @@ dhcp_request(request_t * request, dhcp_msgtype_t msgtype,
 		      if (request->time_in_p->tv_sec >= lease_time_expiry) {
 			  /* send a nak */
 			  nak = "lease expired";
-			  goto send_nak;
+			  goto send_ack_or_nak;
 		      }
 		      /* give the host the remaining time on the lease */
 		      lease = (dhcp_lease_time_t)
@@ -1119,8 +1165,8 @@ dhcp_request(request_t * request, dhcp_msgtype_t msgtype,
 		  S_set_lease(&entry->pl, lease_time_expiry, &modified);
 	      }
 	  } /* init-reboot/renew/rebind */
-      send_nak:
-	  if (nak) {
+      send_ack_or_nak:
+	  if (nak != NULL) {
 	      reply = make_dhcp_nak((struct dhcp *)txbuf, max_packet,
 				    our_ip,
 				    &reply_msgtype, nak,
@@ -1130,14 +1176,7 @@ dhcp_request(request_t * request, dhcp_msgtype_t msgtype,
 	      }
 	      goto no_reply;
 	  }
-	  /*
-	   * allow for drift between server/client clocks by offering
-	   * a lease shorter than the recorded value
-	   */
-	  if (lease == DHCP_INFINITE_LEASE)
-	      lease = dhcp_lease_hton(lease);
-	  else
-	      lease = dhcp_lease_hton(lease_prorate(lease));
+	  lease = dhcp_lease_hton(lease);
 
 	  reply_msgtype = dhcp_msgtype_ack_e;
 	  reply = make_dhcp_reply((struct dhcp *)txbuf, max_packet,

@@ -36,7 +36,7 @@ gss_acquire_cred(OM_uint32 *__nonnull minor_status,
     OM_uint32 time_req,
     __nullable const gss_OID_set desired_mechs,
     gss_cred_usage_t cred_usage,
-    __nonnull gss_cred_id_t * __nullable output_cred_handle,
+    __nullable gss_cred_id_t * __nonnull output_cred_handle,
     __nullable gss_OID_set * __nullable actual_mechs,
     OM_uint32 * __nullable time_rec)
 {

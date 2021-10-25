@@ -430,9 +430,11 @@ errOut:
     CFReleaseNull(leaf);
 }
 
-#if !TARGET_OS_BRIDGE // bridgeOS doesn't support trust settings
 - (void)testUserTrustRoot_MissingEKU_AfterJul2019
 {
+#if TARGET_OS_BRIDGE // bridgeOS doesn't have trust settings
+    XCTSkip();
+#endif
     SecCertificateRef leaf = SecCertificateCreateWithBytes(NULL, _noEKU_AfterJul2019, sizeof(_noEKU_AfterJul2019));
     SecCertificateRef root = SecCertificateCreateWithBytes(NULL, _EKUTestSSLRoot, sizeof(_EKUTestSSLRoot));
     id persistentRef = [self addTrustSettingsForCert:root];
@@ -448,6 +450,9 @@ errOut:
 
 - (void)testUserTrustRoot_AnyEKU_AfterJul2019
 {
+#if TARGET_OS_BRIDGE // bridgeOS doesn't have trust settings
+    XCTSkip();
+#endif
     SecCertificateRef leaf = SecCertificateCreateWithBytes(NULL, _anyEKU_AfterJul2019, sizeof(_anyEKU_AfterJul2019));
     SecCertificateRef root = SecCertificateCreateWithBytes(NULL, _EKUTestSSLRoot, sizeof(_EKUTestSSLRoot));
     id persistentRef = [self addTrustSettingsForCert:root];
@@ -463,6 +468,9 @@ errOut:
 
 - (void)testUserTrustRoot_ServerAuthEKU_AfterJul2019
 {
+#if TARGET_OS_BRIDGE // bridgeOS doesn't have trust settings
+    XCTSkip();
+#endif
     SecCertificateRef leaf = SecCertificateCreateWithBytes(NULL, _serverEKU_AfterJul2019, sizeof(_serverEKU_AfterJul2019));
     SecCertificateRef root = SecCertificateCreateWithBytes(NULL, _EKUTestSSLRoot, sizeof(_EKUTestSSLRoot));
     id persistentRef = [self addTrustSettingsForCert:root];
@@ -478,6 +486,9 @@ errOut:
 
 - (void)testUserTrustLeaf_MissingEKU_AfterJul2019
 {
+#if TARGET_OS_BRIDGE // bridgeOS doesn't have trust settings
+    XCTSkip();
+#endif
     SecCertificateRef leaf = SecCertificateCreateWithBytes(NULL, _noEKU_AfterJul2019, sizeof(_noEKU_AfterJul2019));
     id persistentRef = [self addTrustSettingsForCert:leaf];
 
@@ -490,6 +501,9 @@ errOut:
 
 - (void)testUserTrustLeaf_AnyEKU_AfterJul2019
 {
+#if TARGET_OS_BRIDGE // bridgeOS doesn't have trust settings
+    XCTSkip();
+#endif
     SecCertificateRef leaf = SecCertificateCreateWithBytes(NULL, _anyEKU_AfterJul2019, sizeof(_anyEKU_AfterJul2019));
     id persistentRef = [self addTrustSettingsForCert:leaf];
 
@@ -502,6 +516,9 @@ errOut:
 
 - (void)testUserTrustLeaf_ServerAuthEKU_AfterJul2019
 {
+#if TARGET_OS_BRIDGE // bridgeOS doesn't have trust settings
+    XCTSkip();
+#endif
     SecCertificateRef leaf = SecCertificateCreateWithBytes(NULL, _serverEKU_AfterJul2019, sizeof(_serverEKU_AfterJul2019));
     id persistentRef = [self addTrustSettingsForCert:leaf];
 
@@ -511,7 +528,6 @@ errOut:
     [self removeTrustSettingsForCert:leaf persistentRef:persistentRef];
     CFReleaseNull(leaf);
 }
-#endif // !TARGET_OS_BRIDGE
 
 - (void)testIPAddressInDNSField
 {
@@ -581,6 +597,59 @@ errOut:
 
     CFReleaseNull(cert);
     CFReleaseNull(policy);
+}
+
+- (void)testKeyUsage {
+    SecCertificateRef no_ku = (__bridge SecCertificateRef)[self SecCertificateCreateFromPEMResource:@"no_ku"
+                                                                                      subdirectory:testDirectory];
+    SecCertificateRef ds_ku = (__bridge SecCertificateRef)[self SecCertificateCreateFromPEMResource:@"ku_ds"
+                                                                                       subdirectory:testDirectory];
+    SecCertificateRef ds_certSign_ku = (__bridge SecCertificateRef)[self SecCertificateCreateFromPEMResource:@"ku_ds_certSign"
+                                                                                                subdirectory:testDirectory];
+    // No KU, passes
+    SecPolicyRef policy = SecPolicyCreateSSLWithKeyUsage(true, CFSTR("example.com"), kSecKeyUsageDigitalSignature);
+    TestTrustEvaluation *eval = [[TestTrustEvaluation alloc] initWithCertificates:@[(__bridge id)no_ku]
+                                                                         policies:@[(__bridge id)policy]];
+    [eval setAnchors:@[(__bridge id)no_ku]];
+    [eval setVerifyDate:[NSDate dateWithTimeIntervalSinceReferenceDate:650000000.0]]; // August 6, 2021 at 8:33:20 PM PDT
+    XCTAssert([eval evaluate:nil]);
+
+    // exact match KU, passes
+    eval = [[TestTrustEvaluation alloc] initWithCertificates:@[(__bridge id)ds_ku]
+                                                    policies:@[(__bridge id)policy]];
+    [eval setAnchors:@[(__bridge id)ds_ku]];
+    [eval setVerifyDate:[NSDate dateWithTimeIntervalSinceReferenceDate:650000000.0]];
+    XCTAssert([eval evaluate:nil]);
+
+    // match KU + extra, passes
+    eval = [[TestTrustEvaluation alloc] initWithCertificates:@[(__bridge id)ds_certSign_ku]
+                                                    policies:@[(__bridge id)policy]];
+    [eval setAnchors:@[(__bridge id)ds_certSign_ku]];
+    [eval setVerifyDate:[NSDate dateWithTimeIntervalSinceReferenceDate:650000000.0]];
+    XCTAssert([eval evaluate:nil]);
+    CFReleaseNull(policy);
+
+    // partial KU match, fails
+    policy = SecPolicyCreateSSLWithKeyUsage(true, CFSTR("example.com"), kSecKeyUsageDigitalSignature | kSecKeyUsageKeyAgreement);
+    eval = [[TestTrustEvaluation alloc] initWithCertificates:@[(__bridge id)ds_certSign_ku]
+                                                    policies:@[(__bridge id)policy]];
+    [eval setAnchors:@[(__bridge id)ds_certSign_ku]];
+    [eval setVerifyDate:[NSDate dateWithTimeIntervalSinceReferenceDate:650000000.0]];
+    XCTAssertFalse([eval evaluate:nil]);
+    CFReleaseNull(policy);
+
+    // no match, fails
+    policy = SecPolicyCreateSSLWithKeyUsage(true, CFSTR("example.com"), kSecKeyUsageKeyEncipherment);
+    eval = [[TestTrustEvaluation alloc] initWithCertificates:@[(__bridge id)ds_certSign_ku]
+                                                    policies:@[(__bridge id)policy]];
+    [eval setAnchors:@[(__bridge id)ds_certSign_ku]];
+    [eval setVerifyDate:[NSDate dateWithTimeIntervalSinceReferenceDate:650000000.0]];
+    XCTAssertFalse([eval evaluate:nil]);
+
+    CFReleaseNull(policy);
+    CFReleaseNull(no_ku);
+    CFReleaseNull(ds_ku);
+    CFReleaseNull(ds_certSign_ku);
 }
 
 @end

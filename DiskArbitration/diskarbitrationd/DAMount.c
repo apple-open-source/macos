@@ -32,6 +32,7 @@
 #include <fstab.h>
 #include <sys/stat.h>
 #include <IOKit/pwr_mgt/IOPMLib.h>
+#include <os/variant_private.h>
 
 struct __DAMountCallbackContext
 {
@@ -164,9 +165,11 @@ static void __DAMountWithArgumentsCallbackStage1( int status, void * parameter )
 
             DAFileSystemMountWithArguments( DADiskGetFileSystem( context->disk ),
                                             DADiskGetDevice( context->disk ),
+                                            DADiskGetDescription( context->disk, kDADiskDescriptionVolumeNameKey ),
                                             context->mountpoint,
                                             DADiskGetUserUID( context->disk ),
                                             DADiskGetUserGID( context->disk ),
+                                            DAMountGetPreference( context->disk, kDAMountPreferenceEnableUserFSMount ),
                                             __DAMountWithArgumentsCallbackStage2,
                                             context,
                                             context->options,
@@ -590,6 +593,41 @@ Boolean DAMountGetPreference( DADiskRef disk, DAMountPreference preference )
 
             break;
         }
+        case kDAMountPreferenceEnableUserFSMount:
+        {
+            /*
+             * Determine whether the media is removable.
+             */
+
+            if ( DADiskGetDescription( disk, kDADiskDescriptionMediaRemovableKey ) == kCFBooleanTrue )
+            {
+                value = CFDictionaryGetValue( gDAPreferenceList, kDAPreferenceEnableUserFSMountRemovableKey );
+
+                value = value ? value : kCFBooleanTrue;
+            }
+            else
+            {
+                /*
+                 * Determine whether the device is internal.
+                 */
+
+                if ( DADiskGetDescription( disk, kDADiskDescriptionDeviceInternalKey ) == kCFBooleanTrue )
+                {
+                    value = CFDictionaryGetValue( gDAPreferenceList, kDAPreferenceEnableUserFSMountInternalKey );
+
+                    value = value ? value : kCFBooleanFalse;
+                }
+                else
+                {
+                    value = CFDictionaryGetValue( gDAPreferenceList, kDAPreferenceEnableUserFSMountExternalKey );
+
+                    value = value ? value : kCFBooleanTrue;
+                }
+            }
+            
+            break;
+            
+        }
 
         default:
         {
@@ -703,6 +741,27 @@ static Boolean DAAPFSCompareVolumeRole(DADiskRef disk, CFStringRef inRole)
     }
 
     return matchesRole;
+}
+
+static Boolean DAAPFSNoVolumeRole(DADiskRef disk)
+{
+    CFTypeRef              roles;
+    Boolean                noRole = TRUE;
+
+    roles = IORegistryEntrySearchCFProperty ( DADiskGetIOMedia( disk ),
+                                            kIOServicePlane,
+                                            CFSTR( "Role" ),
+                                            kCFAllocatorDefault,
+                                            0 );
+
+    if ( roles )
+    {
+
+        noRole = FALSE;
+        CFRelease ( roles );
+    }
+
+    return noRole;
 }
 
 void DAMountWithArguments( DADiskRef disk, CFURLRef mountpoint, DAMountCallback callback, void * callbackContext, ... )
@@ -822,14 +881,35 @@ void DAMountWithArguments( DADiskRef disk, CFURLRef mountpoint, DAMountCallback 
         */
         if ( ( context->automatic == TRUE ) && ( DAUnitGetState( disk, _kDAUnitStateHasAPFS ) ) )
         {
-            if ( DAAPFSCompareVolumeRole ( disk, CFSTR("System") ) == TRUE )
+            Boolean isSystem = ( DAAPFSCompareVolumeRole ( disk, CFSTR("System") ) == TRUE );
+            Boolean noRolePresent =   ( DAAPFSNoVolumeRole ( disk ) == TRUE );
+            if ( isSystem == TRUE )
             {
                 CFStringInsert( options, 0, CFSTR( "," ) );
                 CFStringInsert( options, 0, kDAFileSystemMountArgumentNoWrite );
+
+            }
+            
+            /*
+            * Mount APFS system volumes as nobrowse in base system environment.
+            */
+            if ( os_variant_is_basesystem( "com.apple.diskarbitrationd" ) && ( ( isSystem == TRUE ) || ( noRolePresent == TRUE ) ) )
+            {
+                CFStringInsert( options, 0, CFSTR( "," ) );
+                CFStringInsert( options, 0, kDAFileSystemMountArgumentNoBrowse );
             }
         }
 ///w:stop
 
+    /*
+    * Mount volumes with "quarantine" ioreg property with quarantine flag
+    */
+    if ( ( context->automatic == TRUE ) && ( DADiskGetState( disk, _kDADiskStateMountQuarantined ) ) )
+    {
+        CFStringInsert( options, 0, CFSTR( "," ) );
+        CFStringInsert( options, 0, CFSTR( "quarantine" ) );
+    }
+    
     /*
      * Determine whether the volume is to be updated.
      */

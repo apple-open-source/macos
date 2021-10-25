@@ -100,7 +100,12 @@ public:
 	 * These throw a CssmError in the highly unlikely event of 
 	 * a malloc failure.
 	 */
-	void *malloc(
+	/*
+	 * Don't use the name 'malloc' or the static analyzer may
+	 * falsely flag potential leaks. Per above, the caller never
+	 * has to free memory allocated by this method.
+	 */
+	void *alloc(
 		size_t					len);
 		
 	/* allocate space for num copies of specified type */

@@ -77,6 +77,19 @@ subsystem
 #define PREFIX(NAME) NAME
 #endif
 
+#if	KERNEL_SERVER
+#define KERNEL_SERVER_SUFFIX(NAME) NAME ## _from_user
+#else
+#define KERNEL_SERVER_SUFFIX(NAME) NAME
+#endif
+
+/* If building for Sandbox, keep NAME unchanged */
+#if SANDBOX_COMPILER
+#define KERNEL_SERVER_SUFFIX_SANDBOX(NAME) NAME
+#else
+#define KERNEL_SERVER_SUFFIX_SANDBOX(NAME) KERNEL_SERVER_SUFFIX(NAME)
+#endif
+
 /*
  *	Destroy the target thread.
  *
@@ -86,7 +99,7 @@ subsystem
  *	IDLs and transports, and most of them do not support the notion
  *	of reference ownership transfers (just sharing).
  */
-routine thread_terminate(
+routine KERNEL_SERVER_SUFFIX_SANDBOX(thread_terminate)(
 		target_act	: thread_act_consume_ref_t); 
 
 

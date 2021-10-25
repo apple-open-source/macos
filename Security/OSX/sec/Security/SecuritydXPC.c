@@ -47,6 +47,7 @@ const char *kSecXPCKeyEMCSBackup = "emcsbackup";
 const char *kSecXPCKeyDSID = "dsid";
 const char *kSecXPCKeyQuery = "query";
 const char *kSecXPCKeyAttributesToUpdate = "attributesToUpdate";
+const char *kSecXPCKeyAuthExternalForm = "auth";
 const char *kSecXPCKeyDomain = "domain";
 const char *kSecXPCKeyDigest = "digest";
 const char *kSecXPCKeyCertificate = "cert";
@@ -283,6 +284,12 @@ CFStringRef SOSCCGetOperationDescription(enum SecXPCOperation op)
             return CFSTR("SetTransparentConnectionPins");
         case kSecXPCOpCopyTransparentConnectionPins:
             return CFSTR("CopyTransparentConnectionPins");
+        case sec_trust_settings_set_data_id:
+            return CFSTR("trust_settings_set_data");
+        case sec_trust_settings_copy_data_id:
+            return CFSTR("trust_settings_copy_data");
+        case sec_truststore_remove_all_id:
+            return CFSTR("sec_truststore_remove_all");
         default:
             return CFSTR("Unknown xpc operation");
     }
@@ -311,7 +318,12 @@ bool SecXPCDictionarySetPListWithRepair(xpc_object_t message, const char *key, C
     }
 
     assert(der == der_start);
-    xpc_dictionary_set_data(message, key, der_start, der_end - der_start);
+    if (der_end > der_start) {
+        xpc_dictionary_set_data(message, key, der_start, (size_t)(der_end - der_start));
+    } else {
+        free(der);
+        return false;
+    }
     free(der);
     return true;
 }
@@ -322,10 +334,14 @@ bool SecXPCDictionarySetPListOptional(xpc_object_t message, const char *key, CFT
 
 bool SecXPCDictionarySetData(xpc_object_t message, const char *key, CFDataRef data, CFErrorRef *error)
 {
-    if (!data)
+    if (!data) {
         return SecError(errSecParam, error, CFSTR("data for key %s is NULL"), key);
+    }
+    if (CFDataGetLength(data) < 0) {
+        return SecError(errSecParam, error, CFSTR("no data for key %s"), key);
+    }
 
-    xpc_dictionary_set_data(message, key, CFDataGetBytePtr(data), CFDataGetLength(data));
+    xpc_dictionary_set_data(message, key, CFDataGetBytePtr(data), (size_t)CFDataGetLength(data));
     return true;
 }
 
@@ -420,7 +436,12 @@ CFDataRef SecXPCDictionaryCopyData(xpc_object_t message, const char *key, CFErro
         return NULL;
     }
 
-    data = CFDataCreate(kCFAllocatorDefault, bytes, size);
+    if (size > LONG_MAX) {
+        SecError(errSecParam, error, CFSTR("too large data for key %s"), key);
+        return NULL;
+    }
+
+    data = CFDataCreate(kCFAllocatorDefault, bytes, (CFIndex)size);
     if (!data)
         SecError(errSecParam, error, CFSTR("failed to create data for key %s"), key);
 
@@ -554,8 +575,8 @@ static CFDataRef CFDataCreateWithXPCArrayAtIndex(xpc_object_t xpc_data_array, si
     CFDataRef data = NULL;
     size_t length = 0;
     const uint8_t *bytes = xpc_array_get_data(xpc_data_array, index, &length);
-    if (bytes) {
-        data = CFDataCreate(kCFAllocatorDefault, bytes, length);
+    if (bytes && length < LONG_MAX) {
+        data = CFDataCreate(kCFAllocatorDefault, bytes, (CFIndex)length);
     }
     if (!data)
         SecError(errSecParam, error, CFSTR("data_array[%zu] failed to decode"), index);
@@ -568,7 +589,9 @@ static CFArrayRef CFDataXPCArrayCopyArray(xpc_object_t xpc_data_array, CFErrorRe
     require_action_quiet(xpc_get_type(xpc_data_array) == XPC_TYPE_ARRAY, exit,
                          SecError(errSecParam, error, CFSTR("data_array xpc value is not an array")));
     size_t count = xpc_array_get_count(xpc_data_array);
-    require_action_quiet(data_array = CFArrayCreateMutable(kCFAllocatorDefault, count, &kCFTypeArrayCallBacks), exit,
+    require_action_quiet(count < LONG_MAX, exit,
+                         SecError(errSecAllocate, error, CFSTR("failed to create CFArray of capacity %zu"), count));
+    require_action_quiet(data_array = CFArrayCreateMutable(kCFAllocatorDefault, (CFIndex)count, &kCFTypeArrayCallBacks), exit,
                          SecError(errSecAllocate, error, CFSTR("failed to create CFArray of capacity %zu"), count));
 
     size_t ix;
@@ -578,7 +601,7 @@ static CFArrayRef CFDataXPCArrayCopyArray(xpc_object_t xpc_data_array, CFErrorRe
             CFRelease(data_array);
             return NULL;
         }
-        CFArraySetValueAtIndex(data_array, ix, data);
+        CFArraySetValueAtIndex(data_array, (CFIndex)ix, data);
         CFRelease(data);
     }
 

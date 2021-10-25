@@ -301,7 +301,12 @@ static int nsmb_dev_ioctl(dev_t dev, u_long cmd, caddr_t data, int flag,
             
             struct smbioc_client_interface* client_info = (struct smbioc_client_interface*)data;
             sessionp = sdp->sd_session;
-            error =  smb2_mc_parse_client_interface_array(&sessionp->session_interface_table, client_info);
+            if (sessionp) {
+                error =  smb2_mc_parse_client_interface_array(&sessionp->session_interface_table, client_info);
+            } else {
+                SMBERROR("Invalid sessionp.\n");
+                error = EINVAL;
+            }
             lck_rw_unlock_shared(&sdp->sd_rwlock);
             break;
         }
@@ -336,6 +341,10 @@ static int nsmb_dev_ioctl(dev_t dev, u_long cmd, caddr_t data, int flag,
         case SMBIOC_NOTIFIER_UPDATE_INTERFACES:
         {
             SMB_LOG_MC("SMBIOC_NOTIFIER_UPDATE_INTERFACES received.\n");
+            lck_rw_lock_shared(&sdp->sd_rwlock);
+
+            /* free global lock now since we now have sd_rwlock */
+            lck_rw_unlock_shared(dev_rw_lck);
 
             struct smbioc_client_interface* client_info = (struct smbioc_client_interface*)data;
 
@@ -394,8 +403,7 @@ static int nsmb_dev_ioctl(dev_t dev, u_long cmd, caddr_t data, int flag,
 
             smb_sm_unlock_session_list();
 
-            /* free global lock */
-            lck_rw_unlock_shared(dev_rw_lck);
+            lck_rw_unlock_shared(&sdp->sd_rwlock);
             break;
         }
         case SMBIOC_GET_NOTIFIER_PID:
@@ -814,6 +822,8 @@ static int nsmb_dev_ioctl(dev_t dev, u_long cmd, caddr_t data, int flag,
 		{
 			struct smbioc_session_properties * properties = (struct smbioc_session_properties *)data;
             size_t str_len = 0;
+            struct smb_share *mnt_share, *tshare;
+
 			
 			lck_rw_lock_shared(&sdp->sd_rwlock);
             
@@ -836,6 +846,74 @@ static int nsmb_dev_ioctl(dev_t dev, u_long cmd, caddr_t data, int flag,
 				properties->txmax = sessionp->session_txmax;				
 				properties->rxmax = sessionp->session_rxmax;
                 properties->wxmax = sessionp->session_wxmax;
+                
+                /*
+                 * If we are currently using encryption, then return the
+                 * cipher being used, else return 0.
+                 */
+                properties->encrypt_cipher = 0;
+
+                if (sessionp->session_sopt.sv_sessflags & SMB2_SESSION_FLAG_ENCRYPT_DATA) {
+                    /* Session encryption being used */
+                    properties->encrypt_cipher = sessionp->session_smb3_encrypt_ciper;
+                }
+
+                /* If we have a share, then is share encryption on? */
+                if (sdp->sd_share) {
+                    sharep = sdp->sd_share;
+                    
+                    /* Easy case first of all shares being encrypted */
+                    if (sharep->ss_share_flags & SMB2_SHAREFLAG_ENCRYPT_DATA) {
+                        /* Share encryption being used */
+                        properties->encrypt_cipher = sessionp->session_smb3_encrypt_ciper;
+                    }
+                    else {
+                        /*
+                         * Harder case where mount_smbfs was used to only
+                         * encrypt one specific share.
+                         *
+                         * sdp->sd_share is a new Tree Connect just for this
+                         * ioctl and is also in the list of shares for this
+                         * session. Need to find the actual mounted share info
+                         * in this session to check it to see if encryption is
+                         * on or off
+                         */
+                        if (sharep->ss_name != NULL) {
+                            smb_session_lock(sessionp);
+                            
+                            SMBCO_FOREACH_SAFE(mnt_share, SESSION_TO_CP(sessionp), tshare) {
+                                lck_mtx_lock(&mnt_share->ss_stlock);
+
+                                /*
+                                 * The actual mounted share will have
+                                 * (ss_mount != NULL)
+                                 */
+                                if (!(mnt_share->ss_flags & SMBO_GONE) &&
+                                    (mnt_share->ss_name != NULL) &&
+                                    (mnt_share->ss_mount != NULL)) {
+                                    /*
+                                     * Is it the same share we are looking for?
+                                     */
+                                   if (strcmp(sharep->ss_name, mnt_share->ss_name) == 0) {
+                                        /* Found it, now check its encrypt status */
+                                        if (mnt_share->ss_share_flags & SMB2_SHAREFLAG_ENCRYPT_DATA) {
+                                            /* Share encryption being used */
+                                            properties->encrypt_cipher = sessionp->session_smb3_encrypt_ciper;
+                                        }
+                                       
+                                       lck_mtx_unlock(&(mnt_share)->ss_stlock);
+                                       break;
+                                    }
+                                }
+
+                                lck_mtx_unlock(&(mnt_share)->ss_stlock);
+                            }
+
+                            smb_session_unlock(sessionp);
+                        } /* if (sharep->ss_name != NULL) */
+                    } /* else */
+                } /* if (sdp->sd_share) */
+                
                 memset(properties->model_info, 0, (SMB_MAXFNAMELEN * 2));
                 /* only when we are mac to mac */
                 if (sessionp->session_misc_flags & SMBV_OSX_SERVER) {

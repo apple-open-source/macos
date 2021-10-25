@@ -1,5 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
-// License & terms of use: http://www.unicode.org/copyright.html#License
+// License & terms of use: http://www.unicode.org/copyright.html
+// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
 ve{
     AuxExemplarCharacters{"[c j q]"}
     ExemplarCharacters{"[a b d ḓ e f g h i k l ḽ m n ṅ ṋ o p r s t ṱ u v w x y z]"}
@@ -18,7 +19,6 @@ ve{
             }
         }
     }
-    Version{"36.1"}
     calendar{
         gregorian{
             dayNames{

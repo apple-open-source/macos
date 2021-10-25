@@ -9,12 +9,6 @@ ToolType              = Libraries
 Extra_Configure_Flags = --enable-static=no --with-python=no --with-iconv=no --with-icu=yes
 GnuAfterInstall       = extract-symbols fix-libraries remove-gtk-doc install-plist remove-autom4te-cache
 
-SectOrder_LD_Flags    =
-ifeq ($(shell test -f /usr/local/lib/OrderFiles/libxml2.order && echo yes),yes)
-SectOrder_LD_Flags    = -sectorder __TEXT __text /usr/local/lib/OrderFiles/libxml2.order
-endif
-Extra_LD_Flags        = $(SectOrder_LD_Flags)
-
 # It's a GNU Source project
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make
 

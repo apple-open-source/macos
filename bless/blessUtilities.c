@@ -20,6 +20,7 @@
 #include <APFS/APFS.h>
 #include "bless.h"
 #include "bless_private.h"
+#include "bless2.h"
 #include "protos.h"
 #include <IOKit/IOBSD.h>
 #include <Img4Decode.h>
@@ -42,6 +43,7 @@ static void FreeFileList(char **list, int num);
 static int StringCompare(const void *a, const void *b);
 static int CopyKCFile(BLContextPtr context, const char *from, const char *to);
 static bool StringHasSuffix(const char *str, const char *suffix);
+
 
 
 int BlessPrebootVolume(BLContextPtr context, const char *rootBSD, const char *bootEFISourceLocation,
@@ -73,7 +75,8 @@ int BlessPrebootVolume(BLContextPtr context, const char *rootBSD, const char *bo
 	struct statfs	sfs;
 	char			bridgeSrcVersionPath[MAXPATHLEN];
 	char			bridgeDstVersionPath[MAXPATHLEN];
-    char            prebootDirPath[MAXPATHLEN];
+    char            bootObjsDirPath[MAXPATHLEN];
+    char            rootHashBasePath[64] = kBL_PATH_ROOT_HASH_INTEL;
 	CFDataRef		versionData = NULL;
 	char			*pathEnd;
     char            *pathEnd2;
@@ -88,7 +91,14 @@ int BlessPrebootVolume(BLContextPtr context, const char *rootBSD, const char *bo
     bool            isARV;
     int             vol_fd = -1;
     bool            untagRootSnapshot = false;
-    
+    BLPreBootEnvType    firmwareType;
+
+    ret = BLGetPreBootEnvironmentType(context, &firmwareType);
+    if (ret) {
+        blesscontextprintf(context, kBLLogLevelError,  "Could not determine firmware environment\n");
+        return 1;
+    }
+
     // Is this already a preboot or recovery volume?
     if (APFSVolumeRole(rootBSD, &role, NULL)) {
         ret = 8;
@@ -151,7 +161,7 @@ int BlessPrebootVolume(BLContextPtr context, const char *rootBSD, const char *bo
     }
     
     // Save away the preboot path for later use
-    strlcpy(prebootDirPath, prebootFolderPath, sizeof prebootDirPath);
+    strlcpy(bootObjsDirPath, prebootFolderPath, sizeof bootObjsDirPath);
     
     strlcpy(prebootKCPath, prebootFolderPath, sizeof prebootKCPath);
     strlcat(prebootKCPath, "/boot" kBL_PATH_KERNELCOLLECTIONS, sizeof prebootKCPath);
@@ -210,19 +220,21 @@ int BlessPrebootVolume(BLContextPtr context, const char *rootBSD, const char *bo
         }
         ret = BLIsVolumeARV(context, systemPath, rootBSD, &isARV);
         if (ret) goto exit;
-            
-        snprintf(rootHashPath, sizeof rootHashPath, "%s/usr/standalone/OS.dmg.root_hash", prebootDirPath);
-        
+
+        snprintf(rootHashPath, sizeof rootHashPath, "%s%s", bootObjsDirPath, rootHashBasePath);
+
+
         // if the rootmedia is a snapshot root, mount the corresponding system volume
         if (IOObjectConformsTo(rootMedia, "AppleAPFSSnapshot")) {
-            contextprintf(context, kBLLogLevelVerbose, "Volume %s is mounted from a snapshot.\n", systemPath);
+            blesscontextprintf(context, kBLLogLevelVerbose, "Volume %s is mounted from a snapshot.\n", systemPath);
             bsdCF = IORegistryEntryCreateCFProperty(systemMedia, CFSTR(kIOBSDNameKey), kCFAllocatorDefault, 0);
             if (!bsdCF) {
                 ret = ENOENT;
-                contextprintf(context, kBLLogLevelError, "No BSD name for system volume media\n");
+                blesscontextprintf(context, kBLLogLevelError, "No BSD name for system volume media\n");
                 goto exit;
             }
             CFStringGetCString(bsdCF, systemDev + strlen(_PATH_DEV), sizeof systemDev - strlen(_PATH_DEV), kCFStringEncodingUTF8);
+            CFRelease(bsdCF);
             mntsize = getmntinfo(&mnts, MNT_NOWAIT);
             if (!mntsize) {
                 ret = 5;
@@ -237,7 +249,7 @@ int BlessPrebootVolume(BLContextPtr context, const char *rootBSD, const char *bo
                 // The system volume isn't mounted right now.  We'll have to mount it.
                 ret = BLMountContainerVolume(context, systemDev + strlen(_PATH_DEV), systemPath, sizeof systemPath, false);
                 if (ret) {
-                    contextprintf(context, kBLLogLevelError, "Couldn't mount system volume from %s\n", systemDev);
+                    blesscontextprintf(context, kBLLogLevelError, "Couldn't mount system volume from %s\n", systemDev);
                     goto exit;
                 }
                 mustUnmountSystem = true;
@@ -766,9 +778,10 @@ static int CopyKernelCollectionFiles(BLContextPtr context, const char *systemKCP
 		prebootList = malloc(sizeof(char *));
 		numPrebootFiles = 0;
 		if (numSysFiles > 0) {
-			if (mkdir(prebootKCPath, 0755) < 0) {
-				ret = errno;
-				blesscontextprintf(context, kBLLogLevelError, "Couldn't create kernel collections directory in preboot - %s", strerror(ret));
+			ret = mkpath_np(prebootKCPath, 0755);
+			if (ret) {
+				blesscontextprintf(context, kBLLogLevelError, "Couldn't create kernel collections directory (%s) in preboot - %s\n",
+								   prebootKCPath, strerror(ret));
 				goto exit;
 			}
 		}
@@ -992,3 +1005,6 @@ static bool StringHasSuffix(const char *str, const char *suffix)
 	cmp = str + strLength - suffixLength;
 	return strcmp(cmp, suffix) == 0;
 }
+
+
+

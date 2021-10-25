@@ -396,10 +396,9 @@ bool IOHIDSystem::init(OSDictionary * properties)
     if (!super::init(properties))
         return false;
 
-    _privateData = (ExpansionData*)IOMalloc(sizeof(ExpansionData));
+    _privateData = (ExpansionData*)IOMallocType(ExpansionData);
     if (!_privateData)
         return false;
-    bzero(_privateData, sizeof(ExpansionData));
     _periodicEventNext = kIOHIDSystenDistantFuture;
 
     if (!_cursorHelper.init())
@@ -477,13 +476,11 @@ bool IOHIDSystem::start(IOService * provider)
     _delayedNotificationLock = IOLockAlloc();
     _delayedNotificationArray = OSArray::withCapacity(2);
     
-    evScreenSize = sizeof(EvScreen) * EV_MAX_SCREENS;
-    evScreen = (void *) IOMalloc(evScreenSize);
+    evScreen = IONewZero(EvScreen, EV_MAX_SCREENS);
     savedParameters = OSDictionary::withCapacity(4);
     
     require(evScreen && savedParameters && _delayedNotificationLock && _delayedNotificationArray, exit_early);
     
-    bzero(evScreen, evScreenSize);
     firstWaitCursorFrame = EV_WAITCURSOR;
     maxWaitCursorFrame   = EV_MAXCURSOR;
     createParameters();
@@ -724,7 +721,7 @@ bool IOHIDSystem::handleTerminationNotification(void *target, IOService *newServ
     
     if (graphicsDevice) {
         for (int i = 0; i < EV_MAX_SCREENS; i++) {
-            EvScreen *screen_ptr = &((EvScreen*)self->evScreen)[i];
+            EvScreen *screen_ptr = &(self->evScreen)[i];
             if (screen_ptr->instance == graphicsDevice) {
                 self->unregisterScreen(i+SCREENTOKEN);
                 break;
@@ -744,6 +741,7 @@ exit:
  */
 void IOHIDSystem::free()
 {
+    void * screenMemory = const_cast<_evScreen *>(evScreen);
     if (cmdGate) {
         evClose();
     }
@@ -762,9 +760,7 @@ void IOHIDSystem::free()
         keyboardEQES = 0;
     }
     
-    if (evScreen) IOFree( (void *)evScreen, evScreenSize );
-    evScreen = (void *)0;
-    evScreenSize = 0;
+    IOSafeDeleteNULL(screenMemory, EvScreen, EV_MAX_SCREENS);
 
     if (publishNotify) {
         publishNotify->remove();
@@ -806,8 +802,7 @@ void IOHIDSystem::free()
     
     if (_privateData) {
         _cursorHelper.finalize();
-        IOFree((void*)_privateData, sizeof(ExpansionData));
-        _privateData = NULL;
+        IOFreeType(_privateData, ExpansionData);
     }
     
     OSSafeReleaseNULL(globalMemory);
@@ -909,7 +904,7 @@ IOReturn IOHIDSystem::evCloseGated(void)
     cursorEnabled = false;
 
     // Clear screens registry and related data
-    if ( evScreen != (void *)0 )
+    if ( evScreen != NULL)
     {
         screens = 0;
     }
@@ -1073,7 +1068,7 @@ IOHIDSystem::registerScreenGated(IOGraphicsDevice *io_gd,
 
     // locate next available screen
     for (int i = 0; (i < EV_MAX_SCREENS) && (screen_ptr == NULL); i++) {
-        screen_ptr = &((EvScreen*)evScreen)[i];
+        screen_ptr = &(evScreen)[i];
 
         if (io_gd && (screen_ptr->instance == io_gd)) {
             // Empty slot.
@@ -1221,7 +1216,7 @@ IOReturn IOHIDSystem::unregisterScreenGated(int index)
         result = kIOReturnNoResources;
     }
     else {
-        EvScreen *screen_ptr = ((EvScreen*)evScreen)+index;
+        EvScreen *screen_ptr = evScreen+index;
 
         if (screen_ptr->displayBounds) {
             hideCursor();
@@ -1285,7 +1280,7 @@ IOHIDSystem::setDisplayBoundsGated (UInt32 index, IOGBounds *tempBounds)
         result = kIOReturnNoResources;
     }
     else {
-        EvScreen *screen_ptr = ((EvScreen*)evScreen)+index;
+        EvScreen *screen_ptr = evScreen+index;
 
         if (screen_ptr->instance) {
             HIDLogError("called on an internal device %d", (int)index);
@@ -1847,7 +1842,7 @@ bool IOHIDSystem::resetCursor()
     p = &evg->cursorLoc;
 
     /* Get mask of screens on which the cursor is present */
-    EvScreen *screen = (EvScreen *)evScreen;
+    EvScreen *screen = evScreen;
     for (int i = 0; i < EV_MAX_SCREENS; i++ ) {
         if (!screen[i].desktopBounds)
             continue;
@@ -1865,8 +1860,8 @@ bool IOHIDSystem::resetCursor()
 
     if (!cursorPinned) {
         // reset pin rect
-        if (((EvScreen*)evScreen)[pinScreen].desktopBounds) {
-            cursorPin = *(((EvScreen*)evScreen)[pinScreen].desktopBounds);
+        if ((evScreen)[pinScreen].desktopBounds) {
+            cursorPin = *((evScreen)[pinScreen].desktopBounds);
             cursorPin.maxx--;   /* Make half-open rectangle */
             cursorPin.maxy--;
             cursorPinScreen = pinScreen;
@@ -1986,14 +1981,12 @@ void IOHIDSystem::changeCursor(int frame)
 //
 int IOHIDSystem::pointToScreen(IOGPoint * p)
 {
-    int i;
-    EvScreen *screen = (EvScreen *)evScreen;
-    for (i=EV_MAX_SCREENS-1; --i != -1; ) {
-        if ((screen[i].desktopBounds != 0)
-            && (p->x >= screen[i].desktopBounds->minx)
-            && (p->x < screen[i].desktopBounds->maxx)
-            && (p->y >= screen[i].desktopBounds->miny)
-            && (p->y < screen[i].desktopBounds->maxy))
+    for (int i=EV_MAX_SCREENS-1; --i != -1; ) {
+        if ((evScreen[i].desktopBounds != 0)
+            && (p->x >= evScreen[i].desktopBounds->minx)
+            && (p->x < evScreen[i].desktopBounds->maxx)
+            && (p->y >= evScreen[i].desktopBounds->miny)
+            && (p->y < evScreen[i].desktopBounds->maxy))
         return i;
     }
     return(-1); /* Cursor outside of known screen boundary */
@@ -2145,7 +2138,7 @@ void IOHIDSystem::processKeyboardEQ(IOHIDSystem * self, AbsoluteTime * deadline)
             (*(keyboardEQElement->action))(self, keyboardEQElement);
         OSSafeReleaseNULL(keyboardEQElement->sender); // NOTE: This is the matching release
 
-        IOFree(keyboardEQElement, sizeof(KeyboardEQElement));
+        IOFreeType(keyboardEQElement, KeyboardEQElement);
 
         KEYBOARD_EQ_LOCK;
     }
@@ -2202,12 +2195,10 @@ void IOHIDSystem::keyboardEvent(unsigned   eventType,
          /* atTime */           AbsoluteTime ts,
          /* sender */       OSObject * sender)
 {
-    KeyboardEQElement * keyboardEQElement = (KeyboardEQElement *)IOMalloc(sizeof(KeyboardEQElement));
+    KeyboardEQElement * keyboardEQElement = IOMallocType(KeyboardEQElement);
 
     if ( !keyboardEQElement )
         return;
-
-    bzero(keyboardEQElement, sizeof(KeyboardEQElement));
 
     keyboardEQElement->action   = IOHIDSystem::doKeyboardEvent;
     keyboardEQElement->ts       = ts;
@@ -2355,12 +2346,10 @@ void IOHIDSystem::keyboardSpecialEvent(   unsigned   eventType,
 {
     KeyboardEQElement * keyboardEQElement = NULL;
 
-    keyboardEQElement = (KeyboardEQElement *)IOMalloc(sizeof(KeyboardEQElement));
+    keyboardEQElement = IOMallocType(KeyboardEQElement);
 
     if ( !keyboardEQElement )
         return;
-
-    bzero(keyboardEQElement, sizeof(KeyboardEQElement));
 
     keyboardEQElement->action   = IOHIDSystem::doKeyboardSpecialEvent;
     keyboardEQElement->ts       = ts;
@@ -2477,7 +2466,7 @@ void IOHIDSystem::updateEventFlags(unsigned flags)
 
 void IOHIDSystem::updateEventFlags(unsigned flags, OSObject * sender)
 {
-    KeyboardEQElement * keyboardEQElement = (KeyboardEQElement *)IOMalloc(sizeof(KeyboardEQElement));
+    KeyboardEQElement * keyboardEQElement = IOMallocType(KeyboardEQElement);
 
     if ( !keyboardEQElement )
         return;
@@ -2607,7 +2596,6 @@ void IOHIDSystem::_setCursorPosition(bool external, bool proximityChange, OSObje
     {
         UInt32 newScreens = 0;
         SInt32 pinScreen = -1L;
-        EvScreen *screen = (EvScreen *)evScreen;
 
         bool foundFirstScreen = false;      // T => found first valid screen
         bool foundSecondScreen = false;     // T => found second valid screen
@@ -2627,9 +2615,9 @@ void IOHIDSystem::_setCursorPosition(bool external, bool proximityChange, OSObje
         else {
             /* Get mask of screens on which the cursor is present */
             for (int i = 0; i < EV_MAX_SCREENS; i++ ) {
-                if (!screen[i].desktopBounds)
+                if (!evScreen[i].desktopBounds)
                     continue;
-                if ((screen[i].desktopBounds->maxx - screen[i].desktopBounds->minx) < 128)
+                if ((evScreen[i].desktopBounds->maxx - evScreen[i].desktopBounds->minx) < 128)
                     continue;
                 if (_continuousCursor) {
                     if( !foundFirstScreen ) {
@@ -2647,16 +2635,16 @@ void IOHIDSystem::_setCursorPosition(bool external, bool proximityChange, OSObje
                     }
 
     //                if (screen[i].desktopBounds->minx < screen[leftScreen].desktopBounds->minx) {     // overlaps can torroid
-                    if (screen[i].desktopBounds->maxx <= screen[leftScreen].desktopBounds->minx) {      // non-overlaps torroid
+                    if (evScreen[i].desktopBounds->maxx <= evScreen[leftScreen].desktopBounds->minx) {      // non-overlaps torroid
                         leftScreen = i;
                     }
     //                if (screen[rightScreen].desktopBounds->maxx < screen[i].desktopBounds->maxx )     // overlaps can torroid
-                    if (screen[rightScreen].desktopBounds->maxx <= screen[i].desktopBounds->minx )  // non-overlaps torroid
+                    if (evScreen[rightScreen].desktopBounds->maxx <= evScreen[i].desktopBounds->minx )  // non-overlaps torroid
                     {
                         rightScreen = i;
                     }
                 }
-                if (_cursorHelper.desktopLocation().inRect(*screen[i].desktopBounds)) {
+                if (_cursorHelper.desktopLocation().inRect(*evScreen[i].desktopBounds)) {
                     pinScreen = i;
                     newScreens |= (1 << i);
                 }
@@ -2677,15 +2665,15 @@ void IOHIDSystem::_setCursorPosition(bool external, bool proximityChange, OSObje
             const int64_t       kHackLowerNoWrap = 40;       // Amount of space at the bottom that does not wrap
                                                             // TODO: decide if menubar is special for wrap (and how)
             for (int i = 0; i < EV_MAX_SCREENS; i++ ) {
-                if (!screen[i].desktopBounds)
+                if (!evScreen[i].desktopBounds)
                     continue;
-                if ((screen[i].desktopBounds->maxx - screen[i].desktopBounds->minx) < 128)
+                if ((evScreen[i].desktopBounds->maxx - evScreen[i].desktopBounds->minx) < 128)
                     continue;
-                if (_continuousCursor && (screen[i].desktopBounds->maxy - screen[i].desktopBounds->miny) < 128)
+                if (_continuousCursor && (evScreen[i].desktopBounds->maxy - evScreen[i].desktopBounds->miny) < 128)
                     continue;
 
                 IOFixedPoint64  pinnedLoc = aimLoc;
-                pinnedLoc.clipToRect(*screen[i].desktopBounds);
+                pinnedLoc.clipToRect(*evScreen[i].desktopBounds);
                 dx = (pinnedLoc.xValue() - aimLoc.xValue()).as64();
                 dy = (pinnedLoc.yValue() - aimLoc.yValue()).as64();
                 distance = dx * dx + dy * dy;
@@ -2695,8 +2683,8 @@ void IOHIDSystem::_setCursorPosition(bool external, bool proximityChange, OSObje
                     
                     if (_continuousCursor &&
                         leftScreen != rightScreen &&
-                        screen[i].desktopBounds->miny + kHackUpperNoWrap < pinnedLoc.yValue().as64()  &&
-                        pinnedLoc.yValue().as64() < screen[i].desktopBounds->maxy - kHackLowerNoWrap  &&
+                        evScreen[i].desktopBounds->miny + kHackUpperNoWrap < pinnedLoc.yValue().as64()  &&
+                        pinnedLoc.yValue().as64() < evScreen[i].desktopBounds->maxy - kHackLowerNoWrap  &&
                         kHackMiniumWrapDistance < bestDistance ) {
                         
                         IOFixed64   targetX;
@@ -2704,17 +2692,17 @@ void IOHIDSystem::_setCursorPosition(bool external, bool proximityChange, OSObje
                         int         targetDisplay = i;
                         bool        shouldWrap = true;      // Assume we're wrapping (makes code below shorter)
                         
-                        if (aimLoc.xValue().as64() < screen[leftScreen].desktopBounds->minx ) {
+                        if (aimLoc.xValue().as64() < evScreen[leftScreen].desktopBounds->minx ) {
                             // Wrap to right side of right screen
-                            targetX.fromIntFloor(screen[rightScreen].desktopBounds->maxx);
-                            targetY.fromIntFloor(screen[rightScreen].desktopBounds->maxy - screen[rightScreen].desktopBounds->miny);
+                            targetX.fromIntFloor(evScreen[rightScreen].desktopBounds->maxx);
+                            targetY.fromIntFloor(evScreen[rightScreen].desktopBounds->maxy - evScreen[rightScreen].desktopBounds->miny);
                             targetDisplay = rightScreen;
                             kprintf("IOHIDSystem::_setCursorPosition Wrap to right side of right screen\n");
                        }
-                        else if (screen[rightScreen].desktopBounds->maxx < aimLoc.xValue().as64()) {
+                        else if (evScreen[rightScreen].desktopBounds->maxx < aimLoc.xValue().as64()) {
                             // Wrap to left side of left screen
-                            targetX.fromIntFloor(screen[leftScreen].desktopBounds->minx);
-                            targetY.fromIntFloor(screen[leftScreen].desktopBounds->maxy - screen[leftScreen].desktopBounds->miny);
+                            targetX.fromIntFloor(evScreen[leftScreen].desktopBounds->minx);
+                            targetY.fromIntFloor(evScreen[leftScreen].desktopBounds->maxy - evScreen[leftScreen].desktopBounds->miny);
                             targetDisplay = leftScreen;
                             kprintf("IOHIDSystem::_setCursorPosition Wrap to left side of left screen\n");
                        }
@@ -2726,12 +2714,12 @@ void IOHIDSystem::_setCursorPosition(bool external, bool proximityChange, OSObje
                         if (shouldWrap)
                         {
                             IOFixed64   closestYFraction;
-                            closestYFraction.fromIntFloor(pinnedLoc.yValue().as64() - screen[i].desktopBounds->miny);
-                            closestYFraction /= (screen[i].desktopBounds->maxy - screen[i].desktopBounds->miny);                            
+                            closestYFraction.fromIntFloor(pinnedLoc.yValue().as64() - evScreen[i].desktopBounds->miny);
+                            closestYFraction /= (evScreen[i].desktopBounds->maxy - evScreen[i].desktopBounds->miny);                            
                             targetY *= closestYFraction;
                             
                             pinnedLoc.fromFixed64(targetX, targetY);
-                            pinnedLoc.clipToRect(*screen[targetDisplay].desktopBounds); // SHOULD NOT NEED - makes SURE we hit a screen
+                            pinnedLoc.clipToRect(*evScreen[targetDisplay].desktopBounds); // SHOULD NOT NEED - makes SURE we hit a screen
 
                         }
                     }
@@ -2745,11 +2733,11 @@ void IOHIDSystem::_setCursorPosition(bool external, bool proximityChange, OSObje
 
             /* regenerate mask for new position */
             for (int i = 0; i < EV_MAX_SCREENS; i++ ) {
-                if (!screen[i].desktopBounds)
+                if (!evScreen[i].desktopBounds)
                     continue;
-                if ((screen[i].desktopBounds->maxx - screen[i].desktopBounds->minx) < 128)
+                if ((evScreen[i].desktopBounds->maxx - evScreen[i].desktopBounds->minx) < 128)
                     continue;
-                if (_cursorHelper.desktopLocation().inRect(*screen[i].desktopBounds)) {
+                if (_cursorHelper.desktopLocation().inRect(*evScreen[i].desktopBounds)) {
                     pinScreen = i;
                     newScreens |= (1 << i);
                 }
@@ -2773,7 +2761,7 @@ void IOHIDSystem::_setCursorPosition(bool external, bool proximityChange, OSObje
             evg->desktopCursorFixed.x = _cursorHelper.desktopLocation().xValue().asFixed24x8();
             evg->desktopCursorFixed.y = _cursorHelper.desktopLocation().yValue().asFixed24x8();
             if (pinScreen >= 0) {
-                _cursorHelper.updateScreenLocation(screen[pinScreen].desktopBounds, screen[pinScreen].displayBounds);
+                _cursorHelper.updateScreenLocation(evScreen[pinScreen].desktopBounds, evScreen[pinScreen].displayBounds);
             }
             else {
                 _cursorHelper.updateScreenLocation(NULL, NULL);
@@ -3612,7 +3600,7 @@ bool IOHIDSystem::_displaySerializerCallback(void * target, void * ref __unused,
     }
 
     for(int i = 0; i < self->screens; i++) {
-        EvScreen &esp = ((EvScreen*)(self->evScreen))[i];
+        EvScreen &esp = (self->evScreen)[i];
         OSDictionary    *thisDisplay = OSDictionary::withCapacity(4);
         char            key[256];
 

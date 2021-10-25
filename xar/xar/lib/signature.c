@@ -345,6 +345,7 @@ xar_signature_t xar_signature_unserialize(xar_t x, xmlTextReaderPtr reader)
 		}
 		
 		if (!name) { /* archive corruption */
+			free(ret);
 			return NULL;
 		}
 		
@@ -401,6 +402,7 @@ xar_signature_t xar_signature_unserialize(xar_t x, xmlTextReaderPtr reader)
                                                     xar_signature_add_x509certificate(ret, sig_data, outputLength);
                                                     free(sig_data);
                                                 }else{
+                                                    free(ret);
                                                     ret = NULL;
                                                 }
 												

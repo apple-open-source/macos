@@ -83,33 +83,143 @@ __SCPreferencesSetNetworkConfigurationFlags(SCPreferencesRef prefs, uint32_t nc_
 	return;
 }
 
+#if	TARGET_OS_OSX
+#include <os/boot_mode_private.h>
+#include <limits.h>
+#include <uuid/uuid.h>
+#include <sys/types.h>
+#include <sys/sysctl.h>
+#include <string.h>
+
+static const char *
+get_boot_mode(void)
+{
+	const char *	mode = NULL;
+	bool		success;
+
+	success = os_boot_mode_query(&mode);
+	if (!success) {
+		SC_log(LOG_NOTICE, "os_boot_mode_query failed");
+		return (NULL);
+	}
+	return (mode);
+}
+
+static const char *
+get_preboot_path(void)
+{
+	static dispatch_once_t	once;
+	static char *		path;
+
+#define PREBOOT_SYSCTL		"kern.apfsprebootuuid"
+#define PREBOOT_PATH_FORMAT	"/System/Volumes/Preboot/%s"
+
+	dispatch_once(&once, ^{
+		uuid_string_t	preboot_uuid;
+		int 		result;
+		size_t		size;
+
+		size = sizeof(preboot_uuid);
+		result = sysctlbyname(PREBOOT_SYSCTL,
+				      preboot_uuid, &size, NULL, 0);
+		if (result != 0) {
+			SC_log(LOG_NOTICE, "sysctlbyname(%s) failed %s (%d)",
+			       PREBOOT_SYSCTL, strerror(errno), errno);
+		}
+		else {
+			char	temp[PATH_MAX];
+
+			snprintf(temp, sizeof(temp),
+				 PREBOOT_PATH_FORMAT, preboot_uuid);
+			path = strdup(temp);
+			SC_log(LOG_NOTICE, "Preboot path '%s'", path);
+		}
+	});
+	return (path);
+}
+
+/*
+ * get_preboot_path_prefix
+ * - when in the FVUnlock Preboot environment, retrieve the path to the
+ *   Preboot folder, which contains these two SCPreferences-managed files:
+ *	Library/Preferences/SystemConfiguration/preferences.plist
+ *	Library/Preferences/SystemConfiguration/NetworkInterfaces.plist
+ */
+static const char *
+get_preboot_path_prefix(void)
+{
+	const char *	mode;
+	const char *	path = NULL;
+
+	mode = get_boot_mode();
+	if (mode == NULL) {
+		goto done;
+	}
+	if (strcmp(mode, OS_BOOT_MODE_FVUNLOCK) != 0) {
+		goto done;
+	}
+	path = get_preboot_path();
+ done:
+	return (path);
+}
+
+#else	// TARGET_OS_OSX
+
+static const char *
+get_preboot_path_prefix(void)
+{
+	return (NULL);
+}
+
+#endif 	// TARGET_OS_OSX
 
 __private_extern__ char *
 __SCPreferencesPath(CFAllocatorRef	allocator,
-		    CFStringRef		prefsID,
-		    Boolean		useNewPrefs)
+		    CFStringRef		prefsID)
 {
 	CFStringRef	path		= NULL;
 	char		*pathStr;
 
 	if (prefsID == NULL) {
+		const char *	prefix;
+		const char *	preboot_path;
+
+		preboot_path = get_preboot_path_prefix();
+		prefix = (preboot_path != NULL)? preboot_path : "";
 		/* default preference ID */
 		path = CFStringCreateWithFormat(allocator,
 						NULL,
-						CFSTR("%@/%@"),
-						useNewPrefs ? PREFS_DEFAULT_DIR    : PREFS_DEFAULT_DIR_OLD,
-						useNewPrefs ? PREFS_DEFAULT_CONFIG : PREFS_DEFAULT_CONFIG_OLD);
+						CFSTR("%s%@/%@"),
+						prefix,
+						PREFS_DEFAULT_DIR,
+						PREFS_DEFAULT_CONFIG);
+		if (preboot_path != NULL) {
+			SC_log(LOG_DEBUG,
+			       "SCPreferences using path '%@'",
+			       path);
+		}
 	} else if (CFStringHasPrefix(prefsID, CFSTR("/"))) {
 		/* if absolute path */
 		path = CFStringCreateCopy(allocator, prefsID);
 	} else {
-		/* relative path */
+		/* prefsID using default directory */
+		const char *	prefix;
+		const char *	preboot_path;
+
+		if (CFEqual(prefsID, PREFS_DEFAULT_CONFIG) ||
+		    CFEqual(prefsID, INTERFACES_DEFAULT_CONFIG)) {
+			preboot_path = get_preboot_path_prefix();
+		} else {
+			preboot_path = NULL;
+		}
+		prefix = (preboot_path != NULL)? preboot_path : "";
 		path = CFStringCreateWithFormat(allocator,
 						NULL,
-						CFSTR("%@/%@"),
-						useNewPrefs ? PREFS_DEFAULT_DIR : PREFS_DEFAULT_DIR_OLD,
+						CFSTR("%s%@/%@"),
+						prefix,
+						PREFS_DEFAULT_DIR,
 						prefsID);
-		if (useNewPrefs && CFStringHasSuffix(path, CFSTR(".xml"))) {
+		if (CFStringHasSuffix(prefsID, CFSTR(".xml"))) {
 			CFMutableStringRef	newPath;
 
 			newPath = CFStringCreateMutableCopy(allocator, 0, path);
@@ -118,6 +228,11 @@ __SCPreferencesPath(CFAllocatorRef	allocator,
 					CFSTR(".plist"));
 			CFRelease(path);
 			path = newPath;
+		}
+		if (preboot_path != NULL) {
+			SC_log(LOG_DEBUG,
+			       "SCPreferences using path '%@'",
+			       path);
 		}
 	}
 
@@ -191,13 +306,11 @@ __SCPreferencesUsingDefaultPrefs(SCPreferencesRef prefs)
 		return TRUE;
 	}
 
-	curPath = prefsPrivate->newPath ? prefsPrivate->newPath : prefsPrivate->path;
+	curPath = prefsPrivate->path;
 	if (curPath != NULL) {
 		char*	defPath;
 
-		defPath = __SCPreferencesPath(NULL,
-					      NULL,
-					      (prefsPrivate->newPath == NULL));
+		defPath = __SCPreferencesPath(NULL, NULL);
 		if (defPath != NULL) {
 			if (strcmp(curPath, defPath) == 0) {
 				isDefault = TRUE;
@@ -249,14 +362,14 @@ _SCPNotificationKey(CFAllocatorRef	allocator,
 			return NULL;
 	}
 
-	path = __SCPreferencesPath(allocator, prefsID, TRUE);
+	path = __SCPreferencesPath(allocator, prefsID);
 	if (path == NULL) {
 		return NULL;
 	}
 
 	pathStr = CFStringCreateWithCStringNoCopy(allocator,
 						  path,
-						  kCFStringEncodingASCII,
+						  kCFStringEncodingUTF8,
 						  kCFAllocatorNull);
 
 	storeKey = CFStringCreateWithFormat(allocator,

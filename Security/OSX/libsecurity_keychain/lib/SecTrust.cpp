@@ -303,16 +303,14 @@ out:
 /*
  * We have an iOS-style SecTrustRef, but we need to return a CDSA-based SecKeyRef.
  *
- * If you need a SecKeyRef based of the iOS based SecKey, check certificate chain
- * length, get certificate with SecTrustGetCertificateAtIndex(0), use
- * SecCertificateCopyKey() to get a iOS based key.
+ * If you need a SecKeyRef based of the iOS based SecKey, use SecTrustCopyKey
  */
 SecKeyRef SecTrustCopyPublicKey(SecTrustRef trust)
 {
 	SecKeyRef pubKey = NULL;
-	SecCertificateRef certificate = SecTrustGetCertificateAtIndex(trust, 0);
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
+    SecCertificateRef certificate = SecTrustGetCertificateAtIndex(trust, 0);
 	(void) SecCertificateCopyPublicKey(certificate, &pubKey);
 #pragma clang diagnostic pop
 	return pubKey;
@@ -340,6 +338,7 @@ typedef struct __TSecTrust {
     void*                   _legacy_info_array;
     void*                   _legacy_status_array;
     dispatch_queue_t        _trustQueue;
+    CFDataRef               _auditToken;
 } TSecTrust;
 
 CFArrayRef SecTrustCopyInputCertificates(SecTrustRef trust)
@@ -369,14 +368,10 @@ CFArrayRef SecTrustCopyInputAnchors(SecTrustRef trust)
 //
 CFArrayRef SecTrustCopyConstructedChain(SecTrustRef trust)
 {
-	CFMutableArrayRef certChain = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
-	CFIndex idx, count = SecTrustGetCertificateCount(trust);
-	for (idx=0; idx < count; idx++) {
-		SecCertificateRef certificate = SecTrustGetCertificateAtIndex(trust, idx);
-		if (certificate) {
-			CFArrayAppendValue(certChain, certificate);
-		}
-	}
+    CFArrayRef chain = SecTrustCopyCertificateChain(trust);
+    CFMutableArrayRef certChain = chain ? CFArrayCreateMutableCopy(NULL, 0, chain) : NULL;
+    CFReleaseNull(chain);
+    CFIndex idx = 0, count = certChain ? CFArrayGetCount(certChain) : 0;
 	// <rdar://24393060>
 	// Some callers make the assumption that the certificates in
 	// this chain are pointer-equivalent to ones they passed to the
@@ -441,7 +436,8 @@ SecTrustGetEvidenceInfo(SecTrustRef trust)
 	}
 
 	// Getting the count implicitly evaluates the chain if necessary.
-	CFIndex idx, count = SecTrustGetCertificateCount(trust);
+    CFArrayRef outputCertArray = SecTrustCopyCertificateChain(trust);
+	CFIndex idx, count = outputCertArray ? CFArrayGetCount(outputCertArray) : 0;
 	CFArrayRef inputCertArray = SecTrustCopyInputCertificates(trust);
 	CFArrayRef inputAnchorArray = SecTrustCopyInputAnchors(trust);
 	CFIndex inputCertIdx, inputCertCount = (inputCertArray) ? CFArrayGetCount(inputCertArray) : 0;
@@ -453,7 +449,7 @@ SecTrustGetEvidenceInfo(SecTrustRef trust)
 
 	// Set status codes for each certificate in the constructed chain
 	for (idx=0; idx < count; idx++) {
-		SecCertificateRef cert = SecTrustGetCertificateAtIndex(trust, idx);
+		SecCertificateRef cert = (SecCertificateRef)CFArrayGetValueAtIndex(outputCertArray, idx);
 		if (!cert) {
 			continue;
 		}
@@ -613,13 +609,17 @@ SecTrustGetEvidenceInfo(SecTrustRef trust)
 	if (inputAnchorArray) {
 		CFRelease(inputAnchorArray);
 	}
+    if (outputCertArray) {
+        CFRelease(outputCertArray);
+    }
 
 	return (CSSM_TP_APPLE_EVIDENCE_INFO *)secTrust->_legacy_info_array;
 }
 
 CFArrayRef SecTrustCopyProperties(SecTrustRef trust) {
     /* OS X creates a completely different structure with one dictionary for each certificate */
-    CFIndex ix, count = SecTrustGetCertificateCount(trust);
+    CFArrayRef chain = SecTrustCopyCertificateChain(trust);
+    CFIndex ix, count = chain ? CFArrayGetCount(chain) : 0;
 
     CFMutableArrayRef properties = CFArrayCreateMutable(kCFAllocatorDefault, count,
                                                         &kCFTypeArrayCallBacks);
@@ -628,7 +628,7 @@ CFArrayRef SecTrustCopyProperties(SecTrustRef trust) {
         CFMutableDictionaryRef certDict = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks,
                                                                     &kCFTypeDictionaryValueCallBacks);
         /* Populate the certificate title */
-        SecCertificateRef cert = SecTrustGetCertificateAtIndex(trust, ix);
+        SecCertificateRef cert = (SecCertificateRef)CFArrayGetValueAtIndex(chain, ix);
         if (cert) {
             CFStringRef subjectSummary = SecCertificateCopySubjectSummary(cert);
             if (subjectSummary) {
@@ -668,6 +668,9 @@ CFArrayRef SecTrustCopyProperties(SecTrustRef trust) {
         CFRelease(certDict);
     }
 
+    if (chain) {
+        CFRelease(chain);
+    }
     return properties;
 }
 

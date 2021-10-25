@@ -35,10 +35,7 @@
 /* watchOS and bridgeOS don't support networking in trustd */
 - (void)testRevocation
 {
-    if (!ping_host("ocsp.digicert.com")) {
-        XCTAssert(false, "Unable to contact required network resource");
-        return;
-    }
+    XCTSkipIf(!ping_host("ocsp.digicert.com", "80"), @"Unable to contact required network resource");
 
     SecTrustRef trust;
     SecCertificateRef cert0, cert1;
@@ -135,10 +132,7 @@
 }
 
 - (void)test_always_honor_cached_revoked_responses {
-    if (!ping_host("ocsp.apple.com")) {
-        XCTAssert(false, "Unable to contact required network resource");
-        return;
-    }
+    XCTSkipIf(!ping_host("ocsp2.apple.com", "443"), @"Unable to contact required network resource");
 
     SecTrustRef trust;
     SecCertificateRef rcert0, rcert1;
@@ -225,10 +219,7 @@
 
 - (void) test_require_positive_response
 {
-    if (!ping_host("ocsp.apple.com")) {
-        XCTAssert(false, "Unable to contact required network resource");
-        return;
-    }
+    XCTSkipIf(!ping_host("ocsp2.apple.com", "443"), @"Unable to contact required network resource");
 
     SecCertificateRef leaf = NULL, subCA = NULL, root = NULL;
     SecPolicyRef policy = NULL, revocationPolicy = NULL;
@@ -295,10 +286,7 @@ errOut:
 }
 
 - (void) test_set_fetch_allowed {
-    if (!ping_host("ocsp.apple.com")) {
-        XCTAssert(false, "Unable to contact required network resource");
-        return;
-    }
+    XCTSkipIf(!ping_host("ocsp2.apple.com", "443"), @"Unable to contact required network resource");
 
     SecCertificateRef leaf = NULL, subCA = NULL, root = NULL;
     SecPolicyRef policy = NULL;
@@ -357,10 +345,7 @@ errOut:
 }
 
 - (void) test_check_if_trusted {
-    if (!ping_host("ocsp.apple.com")) {
-        XCTAssert(false, "Unable to contact required network resource");
-        return;
-    }
+    XCTSkipIf(!ping_host("ocsp2.apple.com", "443"), @"Unable to contact required network resource");
 
     SecCertificateRef leaf = NULL, subCA = NULL, root = NULL;
     SecPolicyRef codesigningPolicy = NULL, revocationPolicy = NULL;
@@ -433,10 +418,7 @@ errOut:
 }
 
 - (void) test_cache {
-    if (!ping_host("ocsp.apple.com")) {
-        XCTAssert(false, "Unable to contact required network resource");
-        return;
-    }
+    XCTSkipIf(!ping_host("ocsp2.apple.com", "443"), @"Unable to contact required network resource");
 
     SecCertificateRef leaf = NULL, subCA = NULL, root = NULL;
     SecPolicyRef policy = NULL;
@@ -498,10 +480,7 @@ errOut:
 
 - (void)test_revoked_responses_not_flushed_from_cache
 {
-    if (!ping_host("ocsp.apple.com")) {
-        XCTAssert(false, "Unable to contact required network resource");
-        return;
-    }
+    XCTSkipIf(!ping_host("ocsp2.apple.com", "443"), @"Unable to contact required network resource");
 
     SecCertificateRef leaf = NULL, subCA = NULL, root = NULL;
     SecPolicyRef policy = NULL;
@@ -574,10 +553,7 @@ errOut:
 }
 
 - (void) test_results_dictionary_revocation_checked {
-    if (!ping_host("ocsp.digicert.com")) {
-        XCTAssert(false, "Unable to contact required network resource");
-        return;
-    }
+    XCTSkipIf(!ping_host("ocsp.digicert.com", "80"), @"Unable to contact required network resource");
 
     SecCertificateRef leaf = NULL, subCA = NULL, root = NULL;
     SecPolicyRef sslPolicy = NULL, ocspPolicy = NULL;
@@ -639,10 +615,7 @@ errOut:
 }
 
 - (void) test_revocation_checked_via_cache {
-    if (!ping_host("ocsp.digicert.com")) {
-        XCTAssert(false, "Unable to contact required network resource");
-        return;
-    }
+    XCTSkipIf(!ping_host("ocsp.digicert.com", "80"), @"Unable to contact required network resource");
 
     SecCertificateRef leaf = NULL, subCA = NULL, root = NULL;
     SecPolicyRef sslPolicy = NULL, ocspPolicy = NULL;
@@ -746,8 +719,6 @@ errOut:
 }
 #endif /* !TARGET_OS_WATCH && !TARGET_OS_BRIDGE */
 
-#if !TARGET_OS_BRIDGE
-/* bridgeOS doesn't use Valid */
 - (NSNumber *)runRevocationCheckNoNetwork:(SecCertificateRef)leaf
                                     subCA:(SecCertificateRef)subCA
 {
@@ -792,6 +763,10 @@ errOut:
 }
 
 - (void) test_revocation_checked_via_valid {
+#if TARGET_OS_BRIDGE
+    /* bridgeOS doesn't use Valid */
+    XCTSkip();
+#endif
     SecCertificateRef leaf = NULL, subCA = NULL;
     NSNumber *revocationChecked = NULL;
 
@@ -812,6 +787,10 @@ errOut:
 }
 
 - (void) test_revocation_not_checked_no_network {
+#if TARGET_OS_BRIDGE
+    /* bridgeOS doesn't use Valid */
+    XCTSkip();
+#endif
     /* The intermediate does not have the noCAv2 flag and is "probably not revoked,", so
        kSecTrustRevocationChecked should not be in the results dictionary */
     SecCertificateRef leaf = NULL, subCA = NULL;
@@ -829,7 +808,6 @@ errOut:
     CFReleaseNull(leaf);
     CFReleaseNull(subCA);
 }
-#endif /* !TARGET_OS_BRIDGE */
 
 /* bridgeOS and watchOS do not support networked OCSP but do support stapling */
 - (void) test_stapled_revoked_response {
@@ -869,8 +847,8 @@ errOut:
      * This cert should come back as revoked because of the stapled revoked response. */
     is(SecTrustEvaluateWithError(trust, &error), false, "revoked cert with stapled response succeeded");
     if (error) {
-        is(CFErrorGetCode(error), errSecCertificateRevoked, "got wrong error code for revoked cert, got %ld, expected %d",
-           (long)CFErrorGetCode(error), errSecCertificateRevoked);
+        is(CFErrorGetCode(error), errSecCertificateRevoked, "got wrong error code for revoked cert, got %ld, expected %ld",
+           (long)CFErrorGetCode(error), (long)errSecCertificateRevoked);
     } else {
         fail("expected trust evaluation to fail and it did not.");
     }
@@ -922,8 +900,8 @@ errOut:
      * This cert should come back as revoked. */
     is(SecTrustEvaluateWithError(trust, &error), false, "revoked cert succeeded");
     if (error) {
-        is(CFErrorGetCode(error), errSecCertificateRevoked, "got wrong error code for revoked cert, got %ld, expected %d",
-           (long)CFErrorGetCode(error), errSecCertificateRevoked);
+        is(CFErrorGetCode(error), errSecCertificateRevoked, "got wrong error code for revoked cert, got %ld, expected %ld",
+           (long)CFErrorGetCode(error), (long)errSecCertificateRevoked);
 
         /* Verify that the results dictionary contains all the right keys for a revoked cert */
         CFDictionaryRef result = SecTrustCopyResult(trust);

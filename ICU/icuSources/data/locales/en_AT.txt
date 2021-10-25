@@ -1,5 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
-// License & terms of use: http://www.unicode.org/copyright.html#License
+// License & terms of use: http://www.unicode.org/copyright.html
+// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
 en_AT{
     %%Parent{"en_150"}
     NumberElements{
@@ -16,7 +17,6 @@ en_AT{
             }
         }
     }
-    Version{"36.1"}
     calendar{
         generic{
             DateTimePatterns{
@@ -189,7 +189,7 @@ en_AT{
                 }
                 Md{
                     M{"dd.MM. – dd.MM."}
-                    d{"dd.MM. – dd.MM."}
+                    d{"dd.–dd.MM."}
                 }
                 d{
                     d{"d.–d."}

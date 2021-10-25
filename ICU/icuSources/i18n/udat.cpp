@@ -86,13 +86,15 @@ static UCalendarDateFields gDateFieldMapping[] = {
     UCAL_FIELD_COUNT,          // UDAT_AM_PM_MIDNIGHT_NOON_FIELD=35 (no match)
     UCAL_FIELD_COUNT,          // UDAT_FLEXIBLE_DAY_PERIOD_FIELD=36 (no match)
     UCAL_FIELD_COUNT,          // UDAT_TIME_SEPARATOR_FIELD = 37 (no match)
-                               // UDAT_FIELD_COUNT = 38 as of ICU 66
+                               // UDAT_FIELD_COUNT = 38 as of ICU 67
     // UCAL_IS_LEAP_MONTH is not the target of a mapping
 };
 
 U_CAPI UCalendarDateFields U_EXPORT2
 udat_toCalendarDateField(UDateFormatField field) {
-  return (field >= UDAT_ERA_FIELD && field < UDAT_FIELD_COUNT)? gDateFieldMapping[field]: UCAL_FIELD_COUNT;
+  static_assert(UDAT_FIELD_COUNT == UPRV_LENGTHOF(gDateFieldMapping),
+    "UDateFormatField and gDateFieldMapping should have the same number of entries and be kept in sync.");
+  return (field >= UDAT_ERA_FIELD && field < UPRV_LENGTHOF(gDateFieldMapping))? gDateFieldMapping[field]: UCAL_FIELD_COUNT;
 }
 
 // for Apple <rdar://problem/62136559>
@@ -106,7 +108,7 @@ udat_patternCharToDateFormatField(UChar patternChar) {
 /* For now- one opener. */
 static UDateFormatOpener gOpener = NULL;
 
-U_INTERNAL void U_EXPORT2
+U_CAPI void U_EXPORT2
 udat_registerOpener(UDateFormatOpener opener, UErrorCode *status)
 {
   if(U_FAILURE(*status)) return;
@@ -119,7 +121,7 @@ udat_registerOpener(UDateFormatOpener opener, UErrorCode *status)
   umtx_unlock(NULL);
 }
 
-U_INTERNAL UDateFormatOpener U_EXPORT2
+U_CAPI UDateFormatOpener U_EXPORT2
 udat_unregisterOpener(UDateFormatOpener opener, UErrorCode *status)
 {
   if(U_FAILURE(*status)) return NULL;
@@ -431,7 +433,7 @@ udat_setLenient(    UDateFormat*    fmt,
     ((DateFormat*)fmt)->setLenient(isLenient);
 }
 
-U_DRAFT UBool U_EXPORT2
+U_CAPI UBool U_EXPORT2
 udat_getBooleanAttribute(const UDateFormat* fmt, 
                          UDateFormatBooleanAttribute attr, 
                          UErrorCode* status)
@@ -441,7 +443,7 @@ udat_getBooleanAttribute(const UDateFormat* fmt,
     //return FALSE;
 }
 
-U_DRAFT void U_EXPORT2
+U_CAPI void U_EXPORT2
 udat_setBooleanAttribute(UDateFormat *fmt, 
                          UDateFormatBooleanAttribute attr, 
                          UBool newValue, 
@@ -464,7 +466,7 @@ udat_setCalendar(UDateFormat*    fmt,
     ((DateFormat*)fmt)->setCalendar(*((Calendar*)calendarToSet));
 }
 
-U_DRAFT const UNumberFormat* U_EXPORT2 
+U_CAPI const UNumberFormat* U_EXPORT2 
 udat_getNumberFormatForField(const UDateFormat* fmt, UChar field)
 {
     UErrorCode status = U_ZERO_ERROR;
@@ -479,7 +481,7 @@ udat_getNumberFormat(const UDateFormat* fmt)
     return (const UNumberFormat*) ((DateFormat*)fmt)->getNumberFormat();
 }
 
-U_DRAFT void U_EXPORT2 
+U_CAPI void U_EXPORT2 
 udat_adoptNumberFormatForFields(           UDateFormat*    fmt,
                                     const  UChar*          fields,
                                            UNumberFormat*  numberFormatToSet,
@@ -501,7 +503,7 @@ udat_setNumberFormat(UDateFormat*    fmt,
     ((DateFormat*)fmt)->setNumberFormat(*((NumberFormat*)numberFormatToSet));
 }
 
-U_DRAFT void U_EXPORT2
+U_CAPI void U_EXPORT2
 udat_adoptNumberFormat(      UDateFormat*    fmt,
                              UNumberFormat*  numberFormatToAdopt)
 {
@@ -759,12 +761,20 @@ udat_getSymbols(const   UDateFormat     *fmt,
         res = syms->getQuarters(count, DateFormatSymbols::FORMAT, DateFormatSymbols::ABBREVIATED);
         break;
 
+    case UDAT_NARROW_QUARTERS:
+        res = syms->getQuarters(count, DateFormatSymbols::FORMAT, DateFormatSymbols::NARROW);
+        break;
+
     case UDAT_STANDALONE_QUARTERS:
         res = syms->getQuarters(count, DateFormatSymbols::STANDALONE, DateFormatSymbols::WIDE);
         break;
 
     case UDAT_STANDALONE_SHORT_QUARTERS:
         res = syms->getQuarters(count, DateFormatSymbols::STANDALONE, DateFormatSymbols::ABBREVIATED);
+        break;
+
+    case UDAT_STANDALONE_NARROW_QUARTERS:
+        res = syms->getQuarters(count, DateFormatSymbols::STANDALONE, DateFormatSymbols::NARROW);
         break;
 
     case UDAT_CYCLIC_YEARS_WIDE:
@@ -936,12 +946,20 @@ udat_countSymbols(    const    UDateFormat                *fmt,
         syms->getQuarters(count, DateFormatSymbols::FORMAT, DateFormatSymbols::ABBREVIATED);
         break;
 
+    case UDAT_NARROW_QUARTERS:
+        syms->getQuarters(count, DateFormatSymbols::FORMAT, DateFormatSymbols::NARROW);
+        break;
+
     case UDAT_STANDALONE_QUARTERS:
         syms->getQuarters(count, DateFormatSymbols::STANDALONE, DateFormatSymbols::WIDE);
         break;
 
     case UDAT_STANDALONE_SHORT_QUARTERS:
         syms->getQuarters(count, DateFormatSymbols::STANDALONE, DateFormatSymbols::ABBREVIATED);
+        break;
+
+    case UDAT_STANDALONE_NARROW_QUARTERS:
+        syms->getQuarters(count, DateFormatSymbols::STANDALONE, DateFormatSymbols::NARROW);
         break;
 
     case UDAT_CYCLIC_YEARS_WIDE:
@@ -1147,6 +1165,13 @@ public:
     }
 
     static void
+        setNarrowQuarter(DateFormatSymbols *syms, int32_t index,
+        const UChar *value, int32_t valueLength, UErrorCode &errorCode)
+    {
+        setSymbol(syms->fNarrowQuarters, syms->fNarrowQuartersCount, index, value, valueLength, errorCode);
+    }
+
+    static void
         setStandaloneQuarter(DateFormatSymbols *syms, int32_t index,
         const UChar *value, int32_t valueLength, UErrorCode &errorCode)
     {
@@ -1158,6 +1183,13 @@ public:
         const UChar *value, int32_t valueLength, UErrorCode &errorCode)
     {
         setSymbol(syms->fStandaloneShortQuarters, syms->fStandaloneShortQuartersCount, index, value, valueLength, errorCode);
+    }
+
+    static void
+        setStandaloneNarrowQuarter(DateFormatSymbols *syms, int32_t index,
+        const UChar *value, int32_t valueLength, UErrorCode &errorCode)
+    {
+        setSymbol(syms->fStandaloneNarrowQuarters, syms->fStandaloneNarrowQuartersCount, index, value, valueLength, errorCode);
     }
 
     static void
@@ -1277,12 +1309,20 @@ udat_setSymbols(    UDateFormat             *format,
         DateFormatSymbolsSingleSetter::setShortQuarter(syms, index, value, valueLength, *status);
         break;
 
+    case UDAT_NARROW_QUARTERS:
+        DateFormatSymbolsSingleSetter::setNarrowQuarter(syms, index, value, valueLength, *status);
+        break;
+
     case UDAT_STANDALONE_QUARTERS:
         DateFormatSymbolsSingleSetter::setStandaloneQuarter(syms, index, value, valueLength, *status);
         break;
 
     case UDAT_STANDALONE_SHORT_QUARTERS:
         DateFormatSymbolsSingleSetter::setStandaloneShortQuarter(syms, index, value, valueLength, *status);
+        break;
+
+    case UDAT_STANDALONE_NARROW_QUARTERS:
+        DateFormatSymbolsSingleSetter::setStandaloneNarrowQuarter(syms, index, value, valueLength, *status);
         break;
 
     case UDAT_CYCLIC_YEARS_ABBREVIATED:

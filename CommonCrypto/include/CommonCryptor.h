@@ -46,7 +46,7 @@
                 disposed of via CCCryptorRelease(), or it can be reused (with
                 the same key data as provided to CCCryptorCreate()) by calling
                 CCCryptorReset(). The CCCryptorReset() function only works for
-                the CBC mode. In other block cipher modes, it returns error.
+                the CBC and CTR modes. In other block cipher modes, it returns error.
 
 
                 CCCryptors can be dynamically allocated by this module, or
@@ -529,7 +529,7 @@ API_AVAILABLE(macos(10.4), ios(2.0));
     @function   CCCryptorReset
     @abstract   Reinitializes an existing CCCryptorRef with a (possibly)
                 new initialization vector. The CCCryptorRef's key is
-                unchanged. Use only for CBC mode.
+                unchanged. Use only for CBC and CTR modes.
 
     @param      cryptorRef  A CCCryptorRef created via CCCryptorCreate() or
                             CCCryptorCreateFromData().

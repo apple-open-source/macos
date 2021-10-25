@@ -71,6 +71,8 @@
 #define _NETINET_IN_PCB_H_
 #include <sys/appleapiopts.h>
 
+#include <netinet/in.h>
+#include <sys/socketvar.h>
 #include <sys/types.h>
 #include <sys/queue.h>
 #ifdef BSD_KERNEL_PRIVATE
@@ -134,6 +136,14 @@ struct inp_stat {
 	u_int64_t       txbytes;
 };
 
+struct inp_necp_attributes {
+	char *inp_domain;
+	char *inp_account;
+	char *inp_domain_owner;
+	char *inp_tracker_domain;
+	char *inp_domain_context;
+};
+
 /*
  * struct inpcb captures the network layer state for TCP, UDP and raw IPv6
  * and IPv6 sockets.  In the case of TCP, further per-connection state is
@@ -158,6 +168,8 @@ struct inpcb {
 	u_int32_t inp_flags;            /* generic IP/datagram flags */
 	u_int32_t inp_flags2;           /* generic IP/datagram flags #2 */
 	u_int32_t inp_flow;             /* IPv6 flow information */
+	uint32_t inp_lifscope;          /* IPv6 scope ID of the local address */
+	uint32_t inp_fifscope;          /* IPv6 scope ID of the foreign address */
 
 	u_char  inp_sndinprog_cnt;      /* outstanding send operations */
 	uint32_t inp_sndingprog_waiters;/* waiters for outstanding send */
@@ -213,10 +225,7 @@ struct inpcb {
 	struct inpcbpolicy *inp_sp;     /* for IPsec */
 #endif /* IPSEC */
 #if NECP
-	struct {
-		char *inp_domain;
-		char *inp_account;
-	} inp_necp_attributes;
+	struct inp_necp_attributes inp_necp_attributes;
 	struct necp_inpcb_result inp_policyresult;
 	uuid_t necp_client_uuid;
 	necp_client_flow_cb necp_cb;
@@ -472,6 +481,7 @@ struct  xinpgen {
  */
 #define INP_IPV4        0x1
 #define INP_IPV6        0x2
+#define INP_V4MAPPEDV6  0x4
 #define inp_faddr       inp_dependfaddr.inp46_foreign.ia46_addr4
 #define inp_laddr       inp_dependladdr.inp46_local.ia46_addr4
 #define in6p_faddr      inp_dependfaddr.inp6_foreign
@@ -552,7 +562,7 @@ struct inpcbinfo {
 	/*
 	 * Per-protocol lock protecting pcb list, pcb count, etc.
 	 */
-	lck_rw_t                *ipi_lock;
+	lck_rw_t                ipi_lock;
 
 	/*
 	 * List and count of pcbs on the protocol.
@@ -599,9 +609,8 @@ struct inpcbinfo {
 	/*
 	 * Misc.
 	 */
-	lck_attr_t              *ipi_lock_attr;
+	lck_attr_t              ipi_lock_attr;
 	lck_grp_t               *ipi_lock_grp;
-	lck_grp_attr_t          *ipi_lock_grp_attr;
 
 #define INPCBINFO_UPDATE_MSS    0x1
 #define INPCBINFO_HANDLE_LQM_ABORT      0x2
@@ -797,7 +806,7 @@ extern void inpcb_to_xinpcb64(struct inpcb *, struct xinpcb64 *);
 
 extern int get_pcblist_n(short, struct sysctl_req *, struct inpcbinfo *);
 
-extern void inpcb_get_ports_used(u_int32_t, int, u_int32_t, bitstr_t *,
+extern void inpcb_get_ports_used(ifnet_t, int, u_int32_t, bitstr_t *,
     struct inpcbinfo *);
 #define INPCB_OPPORTUNISTIC_THROTTLEON  0x0001
 #define INPCB_OPPORTUNISTIC_SETCMD      0x0002

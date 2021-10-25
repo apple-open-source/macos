@@ -387,6 +387,7 @@ _SOSCircleVerifyPeerSigned
 _SOSCircleVerifySignatureExists
 _SOSCircleVerifyPeerSignatureExists
 _SOSCircleWithdrawRequest
+_SOSCircleIsLegacy
 _debugDumpCircle
 
 _SOSFullPeerInfoCopyDeviceKey
@@ -489,6 +490,7 @@ _SOSCreateErrorWithFormatAndArguments
 _SOSDateCreate
 _SOSErrorCreate
 _SOSCCCredentialQueue
+_SOSDoWithCredentialsWhileUnlocked
 _SOSVisibleKeychainNotAllowed
 _SOSGenerateDeviceBackupFullKey
 _SOSGetBackupKeyCurveParameters
@@ -504,6 +506,7 @@ _kSOSCountKey
 _SOSPeerGestaltGetAnswer
 _SOSPeerGestaltGetName
 _SOSPeerGetGestalt
+_SOSPeerInfoIsLegacy
 
 _CreateXPCObjectWithCFSetRef
 

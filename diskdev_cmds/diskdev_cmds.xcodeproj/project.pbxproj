@@ -13,6 +13,7 @@
 			buildPhases = (
 			);
 			dependencies = (
+				33AB6D6025D3763100EB50F2 /* PBXTargetDependency */,
 				4D559357153CE4EA009F2584 /* PBXTargetDependency */,
 				4D559472153DC87B009F2584 /* PBXTargetDependency */,
 				4D559359153CE4EC009F2584 /* PBXTargetDependency */,
@@ -82,6 +83,8 @@
 		1A9041022091EE830061D05A /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1A9041012091EE830061D05A /* IOKit.framework */; };
 		1A9041042091EE910061D05A /* APFS.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1A9041032091EE910061D05A /* APFS.framework */; };
 		1A9041062091EE980061D05A /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1A9041052091EE980061D05A /* CoreFoundation.framework */; };
+		33DE5A4C25D34D6800360074 /* dirs_cleaner.c in Sources */ = {isa = PBXBuildFile; fileRef = 33DE5A4B25D34D6800360074 /* dirs_cleaner.c */; };
+		33DE5A4F25D350D500360074 /* dirs_cleaner.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 33DE5A4D25D34FCC00360074 /* dirs_cleaner.8 */; };
 		4D07DD57153CA9DC002B57CB /* dkcksum.c in Sources */ = {isa = PBXBuildFile; fileRef = 4D07DD4D153CA9DC002B57CB /* dkcksum.c */; };
 		4D07DD58153CA9DC002B57CB /* dkdisklabel.c in Sources */ = {isa = PBXBuildFile; fileRef = 4D07DD4E153CA9DC002B57CB /* dkdisklabel.c */; };
 		4D07DD59153CA9DC002B57CB /* dkopen.c in Sources */ = {isa = PBXBuildFile; fileRef = 4D07DD4F153CA9DC002B57CB /* dkopen.c */; };
@@ -144,6 +147,8 @@
 		4D5594E2153DCCAC009F2584 /* fuser.1 in Copy man1 */ = {isa = PBXBuildFile; fileRef = 4D5594E0153DCC92009F2584 /* fuser.1 */; };
 		4D5594E6153DCFFB009F2584 /* fstyp_ntfs.8 in Copy man8 */ = {isa = PBXBuildFile; fileRef = 4D5594A8153DCA19009F2584 /* fstyp_ntfs.8 */; };
 		785314FF227120BD00B25661 /* MediaKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 785314FE227120BD00B25661 /* MediaKit.framework */; };
+		B10B90C6253C4D5D006545C2 /* vfslist.h in Headers */ = {isa = PBXBuildFile; fileRef = B10B90C5253C4D5D006545C2 /* vfslist.h */; };
+		B10B9130253C4EA2006545C2 /* mount_ramdisk.c in Sources */ = {isa = PBXBuildFile; fileRef = B10B912F253C4E91006545C2 /* mount_ramdisk.c */; };
 		B19B239C21C8DF660001F35C /* edt_fstab.c in Sources */ = {isa = PBXBuildFile; fileRef = B19B239A21C8DEF90001F35C /* edt_fstab.c */; };
 		B19B239D21C8DF6E0001F35C /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1A9041012091EE830061D05A /* IOKit.framework */; };
 		B19B239E21C8DF740001F35C /* APFS.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1A9041032091EE910061D05A /* APFS.framework */; };
@@ -169,6 +174,13 @@
 			proxyType = 1;
 			remoteGlobalIDString = 4D559476153DC8FC009F2584;
 			remoteInfo = fstyp;
+		};
+		33AB6D5F25D3763100EB50F2 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 4D07DD2B153CA616002B57CB /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 33DE5A4425D34CC800360074;
+			remoteInfo = dirs_cleaner;
 		};
 		4D559356153CE4EA009F2584 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -348,6 +360,16 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
+		33DE5A4325D34CC800360074 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = /usr/share/man/man8;
+			dstSubfolderSpec = 0;
+			files = (
+				33DE5A4F25D350D500360074 /* dirs_cleaner.8 in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
 		4D559313153CE198009F2584 /* Copy man8 */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
@@ -362,7 +384,7 @@
 		4D55933F153CE41E009F2584 /* Copy man8 */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
-			dstPath = /usr/share/man/man8/;
+			dstPath = /usr/share/man/man8;
 			dstSubfolderSpec = 0;
 			files = (
 				4D55934E153CE4B1009F2584 /* fsck.8 in Copy man8 */,
@@ -597,6 +619,9 @@
 		1A9041012091EE830061D05A /* IOKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOKit.framework; path = System/Library/Frameworks/IOKit.framework; sourceTree = SDKROOT; };
 		1A9041032091EE910061D05A /* APFS.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = APFS.framework; path = System/Library/PrivateFrameworks/APFS.framework; sourceTree = SDKROOT; };
 		1A9041052091EE980061D05A /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = System/Library/Frameworks/CoreFoundation.framework; sourceTree = SDKROOT; };
+		33DE5A4525D34CC800360074 /* dirs_cleaner */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = dirs_cleaner; sourceTree = BUILT_PRODUCTS_DIR; };
+		33DE5A4B25D34D6800360074 /* dirs_cleaner.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = dirs_cleaner.c; sourceTree = "<group>"; };
+		33DE5A4D25D34FCC00360074 /* dirs_cleaner.8 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = dirs_cleaner.8; sourceTree = "<group>"; };
 		4D07DD49153CA9A0002B57CB /* libdisk.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libdisk.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		4D07DD4D153CA9DC002B57CB /* dkcksum.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = dkcksum.c; path = disklib/dkcksum.c; sourceTree = "<group>"; };
 		4D07DD4E153CA9DC002B57CB /* dkdisklabel.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = dkdisklabel.c; path = disklib/dkdisklabel.c; sourceTree = "<group>"; };
@@ -692,11 +717,21 @@
 		4D5594E1153DCC92009F2584 /* fuser.pl */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.perl; name = fuser.pl; path = fuser.tproj/fuser.pl; sourceTree = SOURCE_ROOT; };
 		785314FE227120BD00B25661 /* MediaKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MediaKit.framework; path = System/Library/PrivateFrameworks/MediaKit.framework; sourceTree = SDKROOT; };
 		785315012277BEA700B25661 /* mount.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; name = mount.entitlements; path = mount.tproj/mount.entitlements; sourceTree = SOURCE_ROOT; };
+		B10B90C5253C4D5D006545C2 /* vfslist.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = vfslist.h; path = disklib/vfslist.h; sourceTree = "<group>"; };
+		B10B912E253C4E91006545C2 /* mount_ramdisk.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = mount_ramdisk.h; path = mount.tproj/mount_ramdisk.h; sourceTree = SOURCE_ROOT; };
+		B10B912F253C4E91006545C2 /* mount_ramdisk.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = mount_ramdisk.c; path = mount.tproj/mount_ramdisk.c; sourceTree = SOURCE_ROOT; };
 		B19B239A21C8DEF90001F35C /* edt_fstab.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = edt_fstab.c; sourceTree = "<group>"; };
 		B19B239B21C8DEFA0001F35C /* edt_fstab.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = edt_fstab.h; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		33DE5A4225D34CC800360074 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		4D07DD46153CA9A0002B57CB /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -884,6 +919,15 @@
 			name = Frameworks;
 			sourceTree = "<group>";
 		};
+		33DE5A4625D34CC800360074 /* dirs_cleaner */ = {
+			isa = PBXGroup;
+			children = (
+				33DE5A4D25D34FCC00360074 /* dirs_cleaner.8 */,
+				33DE5A4B25D34D6800360074 /* dirs_cleaner.c */,
+			);
+			path = dirs_cleaner;
+			sourceTree = "<group>";
+		};
 		4D07DD29153CA616002B57CB = {
 			isa = PBXGroup;
 			children = (
@@ -911,6 +955,7 @@
 				4D55940D153DC27A009F2584 /* vndevice */,
 				4D559450153DC634009F2584 /* vsdbutil */,
 				4D559429153DC3F3009F2584 /* Libraries */,
+				33DE5A4625D34CC800360074 /* dirs_cleaner */,
 				4D07DD35153CA616002B57CB /* Products */,
 				1A9041002091EE820061D05A /* Frameworks */,
 			);
@@ -940,6 +985,7 @@
 				4D5594AF153DCA53009F2584 /* fstyp_udf */,
 				4D5594C2153DCAFC009F2584 /* setclass */,
 				4D5594D5153DCC66009F2584 /* fuser */,
+				33DE5A4525D34CC800360074 /* dirs_cleaner */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -947,6 +993,7 @@
 		4D07DD4C153CA9C4002B57CB /* disklib */ = {
 			isa = PBXGroup;
 			children = (
+				B10B90C5253C4D5D006545C2 /* vfslist.h */,
 				4D07DD50153CA9DC002B57CB /* dkopen.h */,
 				4D07DD54153CA9DC002B57CB /* pathnames.h */,
 				4D07DD4D153CA9DC002B57CB /* dkcksum.c */,
@@ -999,6 +1046,8 @@
 		4D559362153CE561009F2584 /* mount */ = {
 			isa = PBXGroup;
 			children = (
+				B10B912F253C4E91006545C2 /* mount_ramdisk.c */,
+				B10B912E253C4E91006545C2 /* mount_ramdisk.h */,
 				4D55936D153CE58E009F2584 /* pathnames.h */,
 				4D55936C153CE58E009F2584 /* mount.c */,
 				4D55936B153CE58E009F2584 /* mount.8 */,
@@ -1188,6 +1237,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				4D07DD5A153CA9DC002B57CB /* dkopen.h in Headers */,
+				B10B90C6253C4D5D006545C2 /* vfslist.h in Headers */,
 				4D07DD5E153CA9DC002B57CB /* pathnames.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -1195,6 +1245,23 @@
 /* End PBXHeadersBuildPhase section */
 
 /* Begin PBXNativeTarget section */
+		33DE5A4425D34CC800360074 /* dirs_cleaner */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 33DE5A4A25D34CC800360074 /* Build configuration list for PBXNativeTarget "dirs_cleaner" */;
+			buildPhases = (
+				33DE5A4125D34CC800360074 /* Sources */,
+				33DE5A4225D34CC800360074 /* Frameworks */,
+				33DE5A4325D34CC800360074 /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = dirs_cleaner;
+			productName = dirs_cleaner;
+			productReference = 33DE5A4525D34CC800360074 /* dirs_cleaner */;
+			productType = "com.apple.product-type.tool";
+		};
 		4D07DD48153CA9A0002B57CB /* libdisk */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 4D07DD4A153CA9A0002B57CB /* Build configuration list for PBXNativeTarget "libdisk" */;
@@ -1565,6 +1632,12 @@
 			attributes = {
 				LastUpgradeCheck = 0440;
 				ORGANIZATIONNAME = "Apple Inc.";
+				TargetAttributes = {
+					33DE5A4425D34CC800360074 = {
+						CreatedOnToolsVersion = 12.5;
+						ProvisioningStyle = Automatic;
+					};
+				};
 			};
 			buildConfigurationList = 4D07DD2E153CA616002B57CB /* Build configuration list for PBXProject "diskdev_cmds" */;
 			compatibilityVersion = "Xcode 3.2";
@@ -1604,6 +1677,7 @@
 				4D55938D153CE7FD009F2584 /* umount */,
 				4D55940A153DC27A009F2584 /* vndevice */,
 				4D55944D153DC634009F2584 /* vsdbutil */,
+				33DE5A4425D34CC800360074 /* dirs_cleaner */,
 			);
 		};
 /* End PBXProject section */
@@ -1647,6 +1721,14 @@
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		33DE5A4125D34CC800360074 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				33DE5A4C25D34D6800360074 /* dirs_cleaner.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		4D07DD45153CA9A0002B57CB /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -1690,6 +1772,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				B10B9130253C4EA2006545C2 /* mount_ramdisk.c in Sources */,
 				B19B23A021C8DFA40001F35C /* edt_fstab.c in Sources */,
 				07CE4C1821906BB800BF11C0 /* mount.c in Sources */,
 				072AAAA62167CE8F004ED4E2 /* mount_flags.c in Sources */,
@@ -1847,6 +1930,11 @@
 			target = 4D559476153DC8FC009F2584 /* fstyp */;
 			targetProxy = 07747AA11DA8511D00ACE020 /* PBXContainerItemProxy */;
 		};
+		33AB6D6025D3763100EB50F2 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 33DE5A4425D34CC800360074 /* dirs_cleaner */;
+			targetProxy = 33AB6D5F25D3763100EB50F2 /* PBXContainerItemProxy */;
+		};
 		4D559357153CE4EA009F2584 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 4D07DD48153CA9A0002B57CB /* libdisk */;
@@ -1975,6 +2063,61 @@
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
+		33DE5A4925D34CC800360074 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = YES;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				INSTALL_PATH = /usr/libexec;
+				MACOSX_DEPLOYMENT_TARGET = 10.15;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				SDKROOT = macosx;
+			};
+			name = Release;
+		};
 		4D07DD3D153CA616002B57CB /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -2012,6 +2155,7 @@
 		4D559349153CE41E009F2584 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CODE_SIGN_IDENTITY = "-";
 				INSTALL_PATH = /sbin;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SYSTEM_FRAMEWORK_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
@@ -2197,6 +2341,14 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		33DE5A4A25D34CC800360074 /* Build configuration list for PBXNativeTarget "dirs_cleaner" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				33DE5A4925D34CC800360074 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		4D07DD2E153CA616002B57CB /* Build configuration list for PBXProject "diskdev_cmds" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (

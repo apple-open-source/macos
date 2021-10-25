@@ -33,6 +33,7 @@
 #include <IOKit/storage/IOBlockStorageDriver.h>
 #include <IOKit/storage/IOMedia.h>
 #include <IOKit/storage/IOBlockStoragePerfControlExports.h>
+#include "IOUserBlockStorageDevice_kext.h"
 #include <kern/energy_perf.h>
 #include <kern/thread_call.h>
 
@@ -97,7 +98,7 @@ bool IOBlockStorageDriver::init(OSDictionary * properties)
 
     // Initialize our state.
 
-    _expansionData = IONew(ExpansionData, 1);
+    _expansionData = IOMallocType(IOBlockStorageDriver::ExpansionData);
     if (_expansionData == 0)  return false;
 
     initMediaState();
@@ -125,6 +126,7 @@ bool IOBlockStorageDriver::init(OSDictionary * properties)
     _contextsCount                   = 0;
     _contextsMaxCount                = 32;
     _perfControlClient               = NULL;
+    _userBlockStorageDevice          = NULL;
 
     if (_contextsLock == 0)
         return false;
@@ -254,7 +256,7 @@ void IOBlockStorageDriver::free()
         if (context->perfControlContext)
             context->perfControlContext->release();
 
-        IODelete(context, Context, 1);
+        IOFreeType(context, IOBlockStorageDriver::Context);
     }
 
     if (_contextsLock)  IOSimpleLockFree(_contextsLock);
@@ -265,13 +267,16 @@ void IOBlockStorageDriver::free()
     for (unsigned index = 0; index < kStatisticsCount; index++)
         if (_statistics[index])  _statistics[index]->release();
 
-    if (_perfControlClient) {
-        _perfControlClient->unregisterDevice(this, this);
-        _perfControlClient->release();
-        _perfControlClient = NULL;
+    if (_userBlockStorageDevice == NULL)
+    {
+        if (_perfControlClient) {
+            _perfControlClient->unregisterDevice(this, this);
+            _perfControlClient->release();
+            _perfControlClient = NULL;
+        }
     }
 
-    if (_expansionData)  IODelete(_expansionData, ExpansionData, 1);
+    if (_expansionData)  IOFreeType(_expansionData, IOBlockStorageDriver::ExpansionData);
 
     super::free();
 }
@@ -567,10 +572,9 @@ IOBlockStorageDriver::Context * IOBlockStorageDriver::allocateContext()
 
     if (context == 0)
     {
-        context = IONew(Context, 1);
+        context = IOMallocType(IOBlockStorageDriver::Context);
         if (context)
         {
-            bzero(context, sizeof(Context));
             if  (_perfControlClient) {
                 context->perfControlContext = _perfControlClient->copyWorkContext();
             }
@@ -614,7 +618,7 @@ void IOBlockStorageDriver::deleteContext(
         if (context->perfControlContext)
             context->perfControlContext->release();
 
-        IODelete(context, Context, 1);
+        IOFreeType(context, IOBlockStorageDriver::Context);
     }
 }
 
@@ -634,6 +638,7 @@ void IOBlockStorageDriver::prepareRequestCompletion(void *   target,
     bool                   isWrite;
     AbsoluteTime           time;
     UInt64                 timeInNanoseconds;
+    IOService *            device = driver;
 
     isWrite = (context->request.buffer->getDirection() == kIODirectionOut);
 
@@ -656,7 +661,12 @@ void IOBlockStorageDriver::prepareRequestCompletion(void *   target,
         IOPerfControlClient::WorkEndArgs end_args;
         end_args.end_time = time;
 
-        perfControlClient->workEndWithContext(driver, context->perfControlContext, &end_args);
+        if (driver->_userBlockStorageDevice)
+        {
+            device = driver->getProvider();
+        }
+
+        perfControlClient->workEndWithContext(device, context->perfControlContext, &end_args);
     }
 
     SUB_ABSOLUTETIME(&time, &context->timeStart);
@@ -1382,12 +1392,21 @@ IOBlockStorageDriver::handleStart(IOService * provider)
     }
 
     /* Set up perfcontrol client to track IO */
-    _perfControlClient = IOPerfControlClient::copyClient(this, 0);
-    if (_perfControlClient ) {
-        IOReturn ret = _perfControlClient->registerDevice(this, this);
-        if ( ret != kIOReturnSuccess ) {
-            _perfControlClient->release();
-            _perfControlClient = NULL;
+    _userBlockStorageDevice = OSDynamicCast(IOUserBlockStorageDevice, provider);
+
+    if (_userBlockStorageDevice) {
+        _perfControlClient = _userBlockStorageDevice->getPerfControlClient();
+        assert(_perfControlClient != NULL);
+    }
+    else {
+        _perfControlClient = IOPerfControlClient::copyClient(this, 0);
+
+        if (_perfControlClient ) {
+            IOReturn ret = _perfControlClient->registerDevice(provider, this);
+            if ( ret != kIOReturnSuccess ) {
+                _perfControlClient->release();
+                _perfControlClient = NULL;
+            }
         }
     }
 
@@ -1614,11 +1633,15 @@ IOBlockStorageDriver::stop(IOService * provider)
         release();
     }
     
-    if (_perfControlClient) {
-        _perfControlClient->unregisterDevice(this, this);
-        _perfControlClient->release();
-        _perfControlClient = NULL;
+    if (_userBlockStorageDevice == NULL)
+    {
+        if (_perfControlClient) {
+            _perfControlClient->unregisterDevice(provider, this);
+            _perfControlClient->release();
+            _perfControlClient = NULL;
+        }
     }
+    
     super::stop(provider);
 }
 
@@ -2851,7 +2874,7 @@ UInt64 IOBreaker::getBreakSize(
 
         if ( segment == 0 )
         {
-            segment = buffer->getPhysicalSegment(bufferOffset, &segmentSize, 0);
+            segment = buffer->getPhysicalSegment(bufferOffset, &segmentSize, kIOMemoryMapperNone);
 
             assert(segment);
             assert(segmentSize);
@@ -2873,7 +2896,7 @@ UInt64 IOBreaker::getBreakSize(
 
             segmentCount++;
         }
-		else if ( chunk + chunkSize == segment )
+		else if ( (chunk + chunkSize == segment) || (IOMapper::gSystem != NULL) )
         {
             breakSize  += segmentSize;
             chunkSize  += segmentSize;
@@ -3420,6 +3443,7 @@ void IOBlockStorageDriver::prepareRequest(UInt64                byteStart,
 
     IOStorageCompletion completionOut;
     Context *           context;
+    IOService *         device = this;
 
     // Determine whether the attributes are valid.
 
@@ -3486,7 +3510,13 @@ void IOBlockStorageDriver::prepareRequest(UInt64                byteStart,
         flags.ioSize = buffer->getLength();
 
         submitArgs.driver_data = reinterpret_cast<void*>(&flags);
-        _perfControlClient->workSubmitAndBeginWithContext(this, context->perfControlContext, &submitArgs, nullptr);
+
+        if (_userBlockStorageDevice)
+        {
+            device = getProvider();
+        }
+
+        _perfControlClient->workSubmitAndBeginWithContext(device, context->perfControlContext, &submitArgs, nullptr);
     }
 
     // Deblock the transfer.

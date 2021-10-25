@@ -1,3 +1,0 @@
-#include "xcconfig/lib_ios.xcconfig"
-
-ARCHS[sdk=macosx*] = $(ARCHS_STANDARD)

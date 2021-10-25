@@ -182,7 +182,7 @@ protected:
     bool suspend(bool now);
     bool updateOnline(void);
     void displaysOnline(bool nowOnline);
-    uint32_t globalConnectionCount(void);
+    uint32_t globalExtConnectionCount(void);
     bool clamshellOfflineShouldChange(bool online);
 
 #if IOFB_DISABLEFB
@@ -210,6 +210,7 @@ protected:
     static void readClamshellState(uint64_t where);
 
     static IOReturn probeAll( IOOptionBits options );
+
 
     IOReturn selectTransform( UInt64 newTransform, bool generateChange );
     void setTransform( UInt64 newTransform, bool generateChange );

@@ -115,6 +115,7 @@ static OSStatus sslVerifyCertChain(
 {
 	OSStatus status;
 	SecTrustRef trust = NULL;
+    CFArrayRef chain = NULL;
 
     /* renegotiate - start with a new SecTrustRef */
     CFReleaseNull(ctx->peerSecTrust);
@@ -169,7 +170,9 @@ static OSStatus sslVerifyCertChain(
 				 * If the caller provided a list of trusted leaf certs, check them here
 				 */
                 if(ctx->trustedLeafCerts) {
-                    if (sslGetMatchingCertInArray(SecTrustGetCertificateAtIndex(trust, 0),
+                    chain = SecTrustCopyCertificateChain(trust);
+                    SecCertificateRef leaf = chain ? (SecCertificateRef)CFArrayGetValueAtIndex(chain, 0) : NULL;
+                    if (sslGetMatchingCertInArray(leaf,
                                                   ctx->trustedLeafCerts)) {
                         status = errSecSuccess;
                         goto errOut;
@@ -193,6 +196,7 @@ static OSStatus sslVerifyCertChain(
 
 errOut:
 	ctx->peerSecTrust = trust;
+    CFReleaseNull(chain);
 
 	return status;
 }

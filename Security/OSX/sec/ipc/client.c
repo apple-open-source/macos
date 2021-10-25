@@ -99,15 +99,18 @@ static CFArrayRef SecServerCopyAccessGroups(void) {
     return accessGroups;
 }
 
+static __thread SecurityClient threadLocalClient;
 static SecurityClient gClient;
 
-#if TARGET_OS_IOS
+#if KEYCHAIN_SUPPORTS_SINGLE_DATABASE_MULTIUSER
 void
 SecSecuritySetMusrMode(bool mode, uid_t uid, int activeUser)
 {
     gClient.inMultiUser = mode;
     gClient.uid = uid;
+#if KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER
     gClient.activeUser = activeUser;
+#endif
 }
 
 void
@@ -127,7 +130,7 @@ SecSecuritySetPersonaMusr(CFStringRef uuid)
         gClient.musr = CFDataCreate(NULL, (const void *)&ubytes, sizeof(ubytes));
     }
 }
-#endif
+#endif // KEYCHAIN_SUPPORTS_SINGLE_DATABASE_MULTIUSER
 
 SecurityClient *
 SecSecurityClientGet(void)
@@ -136,18 +139,30 @@ SecSecurityClientGet(void)
     dispatch_once(&onceToken, ^{
         gClient.task = NULL;
         gClient.accessGroups = SecServerCopyAccessGroups();
+#if KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER
         gClient.allowSystemKeychain = true;
         gClient.allowSyncBubbleKeychain = true;
-        gClient.isNetworkExtension = false;
-#if TARGET_OS_IPHONE
-        gClient.inMultiUser = false;
         gClient.activeUser = 501;
+#endif
+        gClient.isNetworkExtension = false;
+#if KEYCHAIN_SUPPORTS_SINGLE_DATABASE_MULTIUSER
+        gClient.inMultiUser = false;
         gClient.musr = NULL;
 #endif
         gClient.applicationIdentifier = NULL;
         gClient.isAppClip = false;
     });
-    return &gClient;
+    //copy to thread local
+    memcpy(&threadLocalClient, &gClient, sizeof(struct SecurityClient));
+
+#if KEYCHAIN_SUPPORTS_SINGLE_DATABASE_MULTIUSER
+    /* muser needs to be filled out in the context of the thread instead of a global value */
+    if (gSecurityd && gSecurityd->sec_fill_security_client_muser) {
+        gSecurityd->sec_fill_security_client_muser(&threadLocalClient);
+    }
+#endif
+    return &threadLocalClient;
+
 }
 
 CFArrayRef SecAccessGroupsGetCurrent(void) {
@@ -159,29 +174,29 @@ CFArrayRef SecAccessGroupsGetCurrent(void) {
 // Only for testing.
 void SecAccessGroupsSetCurrent(CFArrayRef accessGroups) {
     // Not thread safe at all, but OK because it is meant to be used only by tests.
-    SecurityClient* client = SecSecurityClientGet();
-    CFReleaseNull(client->accessGroups);
-    client->accessGroups = CFRetainSafe(accessGroups);
+    (void)SecSecurityClientGet();
+    CFReleaseNull(gClient.accessGroups);
+    gClient.accessGroups = CFRetainSafe(accessGroups);
 }
 
 // Testing
 void SecSecurityClientRegularToAppClip(void) {
-    SecurityClient* client = SecSecurityClientGet();
-    client->isAppClip = true;
+    (void)SecSecurityClientGet();
+    gClient.isAppClip = true;
 }
 
 // Testing
 void SecSecurityClientAppClipToRegular(void) {
-    SecurityClient* client = SecSecurityClientGet();
-    client->isAppClip = false;
+    (void)SecSecurityClientGet();
+    gClient.isAppClip = false;
 }
 
 // Testing
 void SecSecurityClientSetApplicationIdentifier(CFStringRef identifier) {
-    SecurityClient* client = SecSecurityClientGet();
-    CFReleaseNull(client->applicationIdentifier);
+    (void)SecSecurityClientGet();
+    CFReleaseNull(gClient.applicationIdentifier);
     if (identifier) {
-        client->applicationIdentifier = CFRetain(identifier);
+        gClient.applicationIdentifier = CFRetain(identifier);
     }
 }
 
@@ -263,6 +278,9 @@ static bool is_trust_operation(enum SecXPCOperation op) {
         case kSecXPCOpValidUpdate:
         case kSecXPCOpSetTransparentConnectionPins:
         case kSecXPCOpCopyTransparentConnectionPins:
+        case sec_trust_settings_set_data_id:
+        case sec_trust_settings_copy_data_id:
+        case sec_truststore_remove_all_id:
             return true;
         default:
             break;
@@ -368,10 +386,10 @@ void SecServerSetTrustdMachServiceName(const char *name) {
     // Make sure sSecXPCServer.queue exists.
     trustd_connection();
 
-    xpc_connection_t oldConection = sTrustdConnection;
+    xpc_connection_t oldConnection = sTrustdConnection;
     sTrustdConnection = securityd_create_connection(name, SECURITY_TARGET_UID_UNSET, 0);
-    if (oldConection)
-        xpc_release(oldConection);
+    if (oldConnection)
+        xpc_release(oldConnection);
 }
 
 

@@ -29,6 +29,7 @@
  */
 
 #include "keychain/securityd/SecDbQuery.h"
+#include "keychain/ot/OTConstants.h"
 
 #include "keychain/securityd/SecItemDb.h"
 #include "keychain/securityd/SecItemSchema.h"
@@ -45,6 +46,7 @@
 #include <Security/SecuritydXPC.h>
 #include <CommonCrypto/CommonDigest.h>
 #include <CommonCrypto/CommonDigestSPI.h>
+#include "keychain/securityd/SecItemSchema.h"
 
 #include <pthread/pthread.h>
 
@@ -62,6 +64,7 @@
 #define QUERY_KEY_LIMIT  QUERY_KEY_LIMIT_BASE
 #endif
 
+#if KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER
 
 static const uint8_t systemKeychainUUID[] = "\xF6\x23\xAE\x5C\xCC\x81\x4C\xAC\x8A\xD4\xF0\x01\x3F\x31\x35\x11";
 
@@ -81,6 +84,8 @@ SecMUSRGetSystemKeychainUUID(void)
     });
     return systemKeychainData;
 }
+
+#endif //KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER
 
 CFDataRef
 SecMUSRGetSingleUserKeychainUUID(void)
@@ -118,8 +123,9 @@ SecMUSRIsViewAllViews(CFDataRef musr)
     return CFEqual(musr, SecMUSRGetAllViews());
 }
 
-#if TARGET_OS_IPHONE
+#if KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER
 
+static const uint8_t activeUserUUIDPrefix[12] = "\xA7\x5A\x3A\x35\xA5\x57\x4B\x10\xBE\x2E\x83\x94";
 CFDataRef
 SecMUSRCreateActiveUserUUID(uid_t uid)
 {
@@ -129,6 +135,7 @@ SecMUSRCreateActiveUserUUID(uid_t uid)
     return CFDataCreate(NULL, uuid, sizeof(uuid));
 }
 
+static const uint8_t syncBubbleUserUUIDPrefix[12] = "\x82\x1A\xAB\x9F\xA3\xC8\x4E\x11\xAA\x90\x4C\xE8";
 CFDataRef
 SecMUSRCreateSyncBubbleUserUUID(uid_t uid)
 {
@@ -167,6 +174,20 @@ SecMUSRGetBothUserAndSystemUUID(CFDataRef musr, uid_t *uid)
     return true;
 }
 
+bool
+SecMUSRIsMultiuserKeyDiversified(CFDataRef musr)
+{
+    if (CFDataGetLength(musr) != 16)
+        return false;
+    const uint8_t *uuid = CFDataGetBytePtr(musr);
+    if (memcmp(uuid, systemKeychainUUID, 16) == 0 ||
+        memcmp(uuid, activeUserUUIDPrefix, 12) == 0 ||
+        memcmp(uuid, syncBubbleUserUUIDPrefix, 12) == 0 ||
+        memcmp(uuid, bothUserAndSystemUUID, 12) == 0) {
+        return false;
+    }
+    return true;
+}
 #endif
 
 /* Inline accessors to attr and match values in a query. */
@@ -322,6 +343,11 @@ void query_add_attribute(const void *key, const void *value, Query *q)
 {
     if (CFEqual(key, kSecAttrDeriveSyncIDFromItemAttributes)) {
         q->q_uuid_from_primary_key = CFBooleanGetValue(value);
+        return; /* skip the attribute so it isn't part of the search */
+    }
+
+    if (SecKeychainIsStaticPersistentRefsEnabled() && CFEqual(key, v10itempersistentref.name)) {
+        q->q_uuid_pref = CFRetainSafe(value);
         return; /* skip the attribute so it isn't part of the search */
     }
 
@@ -516,6 +542,7 @@ static bool query_set_class(Query *q, CFStringRef c_name, CFErrorRef *error) {
 
 static const SecDbClass *query_get_class(CFDictionaryRef query, CFErrorRef *error) {
     CFStringRef c_name = NULL;
+
     const void *value = CFDictionaryGetValue(query, kSecClass);
     if (isString(value)) {
         c_name = value;
@@ -523,7 +550,7 @@ static const SecDbClass *query_get_class(CFDictionaryRef query, CFErrorRef *erro
         value = CFDictionaryGetValue(query, kSecValuePersistentRef);
         if (isData(value)) {
             CFDataRef pref = value;
-            _SecItemParsePersistentRef(pref, &c_name, NULL, NULL);
+            _SecItemParsePersistentRef(pref, &c_name, NULL, NULL, NULL);
         }
     }
 
@@ -628,6 +655,7 @@ static void query_add_use(const void *key, const void *value, Query *q)
 #if TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR
         q->q_keybag = KEYBAG_DEVICE;
 #endif
+#if KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER
         q->q_system_keychain = true;
     } else if (CFEqual(key, kSecUseSyncBubbleKeychain)) {
         if (isNumber(value) && CFNumberGetValue(value, kCFNumberSInt32Type, &q->q_sync_bubble) && q->q_sync_bubble > 0) {
@@ -638,7 +666,8 @@ static void query_add_use(const void *key, const void *value, Query *q)
             SecError(errSecItemInvalidValue, &q->q_error, CFSTR("add_use: value %@ for key %@ is not valid uid"), value, key);
             return;
         }
-#endif
+#endif // KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER
+#endif // TARGET_OS_IPHONE
     } else {
         SecError(errSecItemInvalidKey, &q->q_error, CFSTR("add_use: unknown key %@"), key);
         return;
@@ -662,6 +691,19 @@ static void query_set_token_persistent_ref(Query *q, CFDictionaryRef token_persi
     }
 }
 
+static void query_set_uuid_persistent_ref(const void *value, Query *q) {
+    if (!isData(value)) {
+        SecError(errSecItemInvalidValue, &q->q_error, CFSTR("set_uuid_persistent_ref: value %@ is not type data"), value);
+    } else {
+        q->q_uuid_pref = CFRetainSafe(value);
+        if (q->q_item) {
+            CFDataRef persistentRef = _SecItemCreateUUIDBasedPersistentRef(q->q_class->name, value, NULL);
+            CFDictionarySetValue(q->q_item, kSecValuePersistentRef, persistentRef);
+            CFReleaseNull(persistentRef);
+        }
+    }
+}
+
 /* AUDIT[securityd](done):
  key (ok) is a caller provided, string starting with 'u'.
  value (ok) is a caller provided, non NULL CFTypeRef.
@@ -676,11 +718,16 @@ static void query_add_value(const void *key, const void *value, Query *q)
         /* TODO: Add value type sanity checking. */
 #endif
     } else if (CFEqual(key, kSecValuePersistentRef)) {
-        CFStringRef c_name;
+        CFStringRef c_name = NULL;
         CFDictionaryRef token_persistent_ref = NULL;
-        if (_SecItemParsePersistentRef(value, &c_name, &q->q_row_id, &token_persistent_ref)) {
+        CFDataRef uuidData = NULL;
+        if (_SecItemParsePersistentRef(value, &c_name, &q->q_row_id, &uuidData, &token_persistent_ref)) {
             query_set_class(q, c_name, &q->q_error);
             query_set_token_persistent_ref(q, token_persistent_ref);
+            if (SecKeychainIsStaticPersistentRefsEnabled() && uuidData && CFDataGetLength(uuidData) == PERSISTENT_REF_UUID_BYTES_LENGTH) {
+                query_set_uuid_persistent_ref(uuidData, q);
+            }
+            CFReleaseNull(uuidData);
             CFReleaseNull(token_persistent_ref);
         } else
             SecError(errSecItemInvalidValue, &q->q_error, CFSTR("add_value: value %@ is not a valid persitent ref"), value);
@@ -766,12 +813,6 @@ static void query_applier(const void *key, const void *value, void *context)
             /* attributes */
             query_add_attribute(key, value, q);
         } else if (key_len > 1) {
-            // We added a database column named 'persistref', which is returned as an attribute but doesn't comply with
-            // these matching rules. skip it for now, since it isn't filled in anyway.
-            if(CFEqualSafe(key, CFSTR("persistref"))) {
-                return;
-            }
-
             UniChar k_first_char = CFStringGetCharacterAtIndex(key, 0);
             switch (k_first_char)
             {
@@ -853,6 +894,7 @@ bool query_destroy(Query *q, CFErrorRef *error) {
     CFReleaseSafe(q->q_match_valid_on_date);
     CFReleaseSafe(q->q_match_trusted_only);
     CFReleaseSafe(q->q_token_object_id);
+    CFReleaseSafe(q->q_uuid_pref);
 
     free(q);
     return ok;
@@ -964,7 +1006,7 @@ Query *query_create_with_limit(CFDictionaryRef query, CFDataRef musr, CFIndex li
             query_destroy(q, error);
             return NULL;
         }
-        if (!q->q_sync && !q->q_row_id && !q->q_token_object_id) {
+        if (!q->q_sync && !q->q_row_id && (SecKeychainIsStaticPersistentRefsEnabled() && !q->q_uuid_pref) && !q->q_token_object_id) {
             /* query did not specify a kSecAttrSynchronizable attribute,
              * and did not contain a persistent reference. */
             query_add_attribute(kSecAttrSynchronizable, kCFBooleanFalse, q);

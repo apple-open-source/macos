@@ -136,7 +136,7 @@ void IOMedia::free(void)
     {
         IOLockFree(mediaManagementLock);
         mediaProbeList->release();
-        IODelete(_expansionData, ExpansionData, 1);
+        IOFreeType(_expansionData, IOMedia::ExpansionData);
     }
 
     if (_openClients)  _openClients->release();
@@ -1268,10 +1268,8 @@ bool IOMedia::init(UInt64               base,
     if (_expansionData == 0)
     {
 
-        _expansionData = IONew(ExpansionData, 1);
+        _expansionData = IOMallocType(IOMedia::ExpansionData);
         if (_expansionData == 0)  goto error_exit;
-
-        bzero( _expansionData, sizeof( ExpansionData ) );
 
         mediaManagementLock = IOLockAlloc();
         if (mediaManagementLock == NULL) goto error_exit;
@@ -1461,7 +1459,7 @@ error_exit:
     if (_expansionData) {
         if (mediaManagementLock) IOLockFree(mediaManagementLock);
         if (mediaProbeList) mediaProbeList->release();
-        IODelete(_expansionData, ExpansionData, 1);
+        IOFreeType(_expansionData, IOMedia::ExpansionData);
     }
 
     return false;

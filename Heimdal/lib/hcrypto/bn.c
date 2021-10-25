@@ -246,7 +246,7 @@ BN_is_bit_set(const BIGNUM *bn, int bit)
     if (bit < 0)
 	return 0;
 
-    if (((size_t)bit / 8) > hi->length || hi->length == 0)
+    if (((size_t)bit / 8) >= hi->length || hi->length == 0)
 	return 0;
 
     return p[hi->length - 1 - (bit / 8)] & is_set[bit % 8];

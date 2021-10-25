@@ -569,7 +569,7 @@ _nwi_state_store(nwi_state *state)
 #ifdef  MAIN
 
 int
-main(int argc, char **argv)
+main(int argc, char * const argv[])
 {
 	static Boolean verbose = (argc > 1) ? TRUE : FALSE;
 	_sc_log     = kSCLogDestinationFile;

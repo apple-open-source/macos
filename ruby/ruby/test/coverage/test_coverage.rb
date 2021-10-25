@@ -171,8 +171,8 @@ class TestCoverage < Test::Unit::TestCase
     result = {
       :branches => {
         [:"&.", 0, 1, 0, 1, 8] => {
-          [:then, 1, 1, 0, 1, 8] => 1,
-          [:else, 2, 1, 0, 1, 8] => 0,
+          [:then, 1, 1, 0, 1, 8] => 0,
+          [:else, 2, 1, 0, 1, 8] => 1,
         },
       },
     }
@@ -695,5 +695,17 @@ class TestCoverage < Test::Unit::TestCase
         assert_equal([0, 0, 0, nil, 0, nil, nil], Coverage.line_stub("test.rb"))
       }
     }
+  end
+
+  def test_stop_wrong_peephole_optimization
+    result = {
+      :lines => [1, 1, 1, nil]
+    }
+    assert_coverage(<<~"end;", { lines: true }, result)
+      raise if 1 == 2
+      while true
+        break
+      end
+    end;
   end
 end

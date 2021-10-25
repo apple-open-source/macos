@@ -60,6 +60,9 @@ static ListFmtTestEntry listFmtTestEntries[] = {
     // Apple <rdar://problem/60081228>:
     { "cs" ,  5,          "A, Bb, Ccc, Dddd a\\u00A0Eeeee" },
     { "cs" ,  2,          "A a\\u00A0Bb" },
+    // Apple <rdar://problem/74522017>:
+    { "hi" ,  5,          "A, Bb, Ccc, Dddd \\u0914\\u0930 Eeeee" },
+    { "hi" ,  2,          "A \\u0914\\u0930 Bb" },
     { NULL ,  0,          NULL } /* terminator */
     };
 

@@ -33,7 +33,7 @@ else
   CC_PATH = $(shell xcrun -find cc)
 endif
 
-install :: copy-src apply-patches build-postfix install-postfix archive-strip-binaries \
+install :: copy-src apply-patches build-postfix build-setup-utility install-postfix archive-strip-binaries \
 		post-install install-extras
 
 clean : ;
@@ -52,6 +52,7 @@ copy-src :
 	$(_v) /bin/mkdir -p $(BuildDirectory)/$(PROJECT)
 	$(_v) /bin/mkdir -p $(TMPDIR)
 	$(_v) /bin/cp -rpf $(Sources)/$(PROJECT) $(BuildDirectory)
+	$(_v) /bin/cp -rpf $(Sources)/Postfix.ServerSetup/bind_unix_socket.c $(BuildDirectory)
 	@echo "***** copy source complete"
 
 apply-patches :
@@ -82,6 +83,10 @@ build-postfix :
 	@echo "*** building: smtpstone"
 	cd $(BuildDirectory)/postfix/src/smtpstone && make all
 	@echo "***** building $(PROJECT) complete"
+	
+build-setup-utility :
+	@echo "***** building socket bind utility"
+	$(_v) cd $(BuildDirectory); $(CC) $(CFLAGS) bind_unix_socket.c -o bind_unix_socket
 
 install-postfix :
 	@echo "***** installing $(PROJECT)"
@@ -178,6 +183,8 @@ install-extras :
 	install -m 0755 $(SRCROOT)/Postfix.ServerSetup/set_credentials.sh $(DSTROOT)/usr/libexec/postfix/set_credentials.sh
 	install -m 0755 -o 0 -g 0 $(SRCROOT)/Postfix.ServerSetup/mk_postfix_spool.sh $(DSTROOT)/usr/libexec/postfix/mk_postfix_spool.sh
 	install -m 0755 -o 0 -g 0 $(SRCROOT)/Postfix.ServerSetup/postfixsetup $(DSTROOT)/usr/libexec/postfix/postfixsetup
+	install -m 0755 -o 0 -g 0 $(BuildDirectory)/bind_unix_socket $(DSTROOT)/usr/libexec/postfix/bind_unix_socket
+	rm $(BuildDirectory)/bind_unix_socket
 	install -m 0644 -o 0 -g 0 $(SRCROOT)/Postfix.LaunchDaemons/com.apple.postfixsetup.plist $(DSTROOT)/Library/LaunchDaemons/com.apple.postfixsetup.plist
 	@echo "*** Installing smtpstone binaries"
 	install -s -m 0755 $(BuildDirectory)/$(PROJECT)/src/smtpstone/qmqp-sink $(DSTROOT)/usr/libexec/postfix

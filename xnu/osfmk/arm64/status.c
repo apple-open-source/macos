@@ -115,7 +115,7 @@ thread_state64_to_saved_state(const arm_thread_state64_t * ts64,
 {
 	uint32_t i;
 #if __has_feature(ptrauth_calls)
-	boolean_t intr = ml_set_interrupts_enabled(FALSE);
+	uint64_t intr = ml_pac_safe_interrupts_disable();
 #endif /* __has_feature(ptrauth_calls) */
 
 	assert(is_saved_state64(saved_state));
@@ -156,7 +156,7 @@ thread_state64_to_saved_state(const arm_thread_state64_t * ts64,
 	}
 
 #if __has_feature(ptrauth_calls)
-	ml_set_interrupts_enabled(intr);
+	ml_pac_safe_interrupts_restore(intr);
 #endif /* __has_feature(ptrauth_calls) */
 }
 
@@ -1347,9 +1347,25 @@ machine_thread_state_initialize(thread_t thread)
 #if defined(HAS_APPLE_PAC)
 	/* Sign the initial user-space thread state */
 	if (thread->machine.upcb != NULL) {
-		boolean_t intr = ml_set_interrupts_enabled(FALSE);
-		ml_sign_thread_state(thread->machine.upcb, 0, 0, 0, 0, 0);
-		ml_set_interrupts_enabled(intr);
+		uint64_t intr = ml_pac_safe_interrupts_disable();
+		asm volatile (
+                        "mov	x0, %[iss]"             "\n"
+                        "mov	x1, #0"                 "\n"
+                        "mov	x2, #0"                 "\n"
+                        "mov	x3, #0"                 "\n"
+                        "mov	x4, #0"                 "\n"
+                        "mov	x5, #0"                 "\n"
+
+                        "mov	x6, lr"                 "\n"
+                        "msr	SPSel, #1"              "\n"
+                        "bl	_ml_sign_thread_state"  "\n"
+                        "msr	SPSel, #0"              "\n"
+                        "mov	lr, x6"                 "\n"
+                        :
+                        : [iss] "r"(thread->machine.upcb)
+                        : "x0", "x1", "x2", "x3", "x4", "x5", "x6"
+                );
+		ml_pac_safe_interrupts_restore(intr);
 	}
 #endif /* defined(HAS_APPLE_PAC) */
 
@@ -1464,13 +1480,12 @@ find_or_allocate_debug_state64(thread_t thread)
 {
 	arm_debug_state64_t *thread_state = find_debug_state64(thread);
 	if (thread != NULL && thread_state == NULL) {
-		thread->machine.DebugData = zalloc(ads_zone);
-		if (thread->machine.DebugData != NULL) {
-			bzero(thread->machine.DebugData, sizeof *(thread->machine.DebugData));
-			thread->machine.DebugData->dsh.flavor = ARM_DEBUG_STATE64;
-			thread->machine.DebugData->dsh.count = ARM_DEBUG_STATE64_COUNT;
-			thread_state = find_debug_state64(thread);
-		}
+		thread->machine.DebugData = zalloc_flags(ads_zone,
+		    Z_WAITOK | Z_NOFAIL);
+		bzero(thread->machine.DebugData, sizeof *(thread->machine.DebugData));
+		thread->machine.DebugData->dsh.flavor = ARM_DEBUG_STATE64;
+		thread->machine.DebugData->dsh.count = ARM_DEBUG_STATE64_COUNT;
+		thread_state = find_debug_state64(thread);
 	}
 	return thread_state;
 }
@@ -1490,13 +1505,12 @@ find_or_allocate_debug_state32(thread_t thread)
 {
 	arm_debug_state32_t *thread_state = find_debug_state32(thread);
 	if (thread != NULL && thread_state == NULL) {
-		thread->machine.DebugData = zalloc(ads_zone);
-		if (thread->machine.DebugData != NULL) {
-			bzero(thread->machine.DebugData, sizeof *(thread->machine.DebugData));
-			thread->machine.DebugData->dsh.flavor = ARM_DEBUG_STATE32;
-			thread->machine.DebugData->dsh.count = ARM_DEBUG_STATE32_COUNT;
-			thread_state = find_debug_state32(thread);
-		}
+		thread->machine.DebugData = zalloc_flags(ads_zone,
+		    Z_WAITOK | Z_NOFAIL);
+		bzero(thread->machine.DebugData, sizeof *(thread->machine.DebugData));
+		thread->machine.DebugData->dsh.flavor = ARM_DEBUG_STATE32;
+		thread->machine.DebugData->dsh.count = ARM_DEBUG_STATE32_COUNT;
+		thread_state = find_debug_state32(thread);
 	}
 	return thread_state;
 }
@@ -1641,7 +1655,7 @@ thread_adjuserstack(thread_t thread,
 
 	sp = get_saved_state_sp(sv);
 	sp += adjust;
-	set_saved_state_sp(sv, sp);;
+	set_saved_state_sp(sv, sp);
 
 	return sp;
 }
@@ -1780,7 +1794,7 @@ act_thread_csave(void)
 	unsigned int    val;
 	thread_t thread = current_thread();
 
-	ic = (struct arm_act_context *) kalloc(sizeof(struct arm_act_context));
+	ic = kalloc_type(struct arm_act_context, Z_WAITOK);
 	if (ic == (struct arm_act_context *) NULL) {
 		return (void *) 0;
 	}
@@ -1788,7 +1802,7 @@ act_thread_csave(void)
 	val = ARM_UNIFIED_THREAD_STATE_COUNT;
 	kret = machine_thread_get_state(thread, ARM_THREAD_STATE, (thread_state_t)&ic->ss, &val);
 	if (kret != KERN_SUCCESS) {
-		kfree(ic, sizeof(struct arm_act_context));
+		kfree_type(struct arm_act_context, ic);
 		return (void *) 0;
 	}
 
@@ -1807,7 +1821,7 @@ act_thread_csave(void)
 		    &val);
 	}
 	if (kret != KERN_SUCCESS) {
-		kfree(ic, sizeof(struct arm_act_context));
+		kfree_type(struct arm_act_context, ic);
 		return (void *) 0;
 	}
 #endif
@@ -1852,7 +1866,7 @@ act_thread_catt(void * ctx)
 	}
 #endif
 out:
-	kfree(ic, sizeof(struct arm_act_context));
+	kfree_type(struct arm_act_context, ic);
 }
 
 /*
@@ -1862,7 +1876,7 @@ out:
 void
 act_thread_cfree(void *ctx)
 {
-	kfree(ctx, sizeof(struct arm_act_context));
+	kfree_type(struct arm_act_context, ctx);
 }
 
 kern_return_t

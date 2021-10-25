@@ -126,6 +126,7 @@ static void testUpdateKey(CFStringRef expectedHash, CFStringRef expectedHashAfte
     item = checkNCopyFirst(name, query, 1);
     checkIntegrityHash(name, item, expectedHashAfter);
     ok_status(SecKeychainDelete(kc), "%s: SecKeychainDelete", name);
+    CFReleaseNull(item);
     CFReleaseNull(kc);
 }
 #define testUpdateKeyTests (newKeychainTests + makeKeyWithIntegrityTests + checkNTests + 1 + checkNTests + checkIntegrityHashTests + 1)
@@ -160,15 +161,20 @@ static void testKeyPair() {
     SecKeyRef item;
     item = (SecKeyRef) checkNCopyFirst(name, createQueryKeyDictionary(kc, kSecAttrKeyClassPublic), 1);
     checkHashesMatch(name, (SecKeychainItemRef)pub, (SecKeychainItemRef)item);
+    CFReleaseNull(pub);
+    CFReleaseNull(item);
 
     query = createQueryKeyDictionary(kc, kSecAttrKeyClassPublic);
     CFDictionarySetValue(query, kSecAttrLabel, label);
     item = (SecKeyRef) checkNCopyFirst(name, query, 0);
+    CFReleaseNull(item);
 
     query = createQueryKeyDictionary(kc, kSecAttrKeyClassPublic);
     update = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
     CFDictionarySetValue(update, kSecAttrLabel, label);
     ok_status(SecItemUpdate(query, update), "%s: SecItemUpdate (public key)", name);
+    CFReleaseNull(update);
+    CFReleaseNull(query);
 
     query = createQueryKeyDictionary(kc, kSecAttrKeyClassPublic);
     CFDictionarySetValue(query, kSecAttrLabel, label);
@@ -179,15 +185,20 @@ static void testKeyPair() {
 
     item = (SecKeyRef) checkNCopyFirst(name, createQueryKeyDictionary(kc, kSecAttrKeyClassPrivate), 1);
     checkHashesMatch(name, (SecKeychainItemRef)priv, (SecKeychainItemRef)item);
+    CFReleaseNull(priv);
+    CFReleaseNull(item);
 
     query = createQueryKeyDictionary(kc, kSecAttrKeyClassPrivate);
     CFDictionarySetValue(query, kSecAttrLabel, label);
     item = (SecKeyRef) checkNCopyFirst(name, query, 0);
+    CFReleaseNull(item);
 
     query = createQueryKeyDictionary(kc, kSecAttrKeyClassPrivate);
     update = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
     CFDictionarySetValue(update, kSecAttrLabel, label);
     ok_status(SecItemUpdate(query, update), "%s: SecItemUpdate (private key)", name);
+    CFReleaseNull(update);
+    CFReleaseNull(query);
 
     query = createQueryKeyDictionary(kc, kSecAttrKeyClassPrivate);
     CFDictionarySetValue(query, kSecAttrLabel, label);
@@ -269,21 +280,27 @@ static void testExportImportKeyPair() {
     SecKeyRef item;
     item = (SecKeyRef) checkNCopyFirst(name, createQueryKeyDictionary(kc, kSecAttrKeyClassPublic), 1);
     checkHashesMatch(name, (SecKeychainItemRef)pub, (SecKeychainItemRef)item);
+    CFReleaseNull(item);
 
     item = (SecKeyRef) checkNCopyFirst(name, createQueryKeyDictionary(kc, kSecAttrKeyClassPrivate), 1);
     checkHashesMatch(name, (SecKeychainItemRef)priv, (SecKeychainItemRef)item);
+    CFReleaseNull(item);
 
     CFMutableArrayRef applications = (CFMutableArrayRef) CFArrayCreateMutable(kCFAllocatorDefault, 1, &kCFTypeArrayCallBacks);
     SecTrustedApplicationRef app = NULL;
 
     ok_status(SecTrustedApplicationCreateFromPath(NULL, &app), "%s: SecTrustedApplicationCreateFromPath", name);
     CFArrayAppendValue(applications, app);
+    CFReleaseNull(app);
 
     ok_status(SecTrustedApplicationCreateFromPath("/usr/bin/codesign", &app), "%s: SecTrustedApplicationCreateFromPath", name);
     CFArrayAppendValue(applications, app);
+    CFReleaseNull(app);
 
     SecAccessRef accessRef = NULL;
     ok_status(SecAccessCreate(CFSTR("accessDescription"), applications, &accessRef), "%s: SecAccessCreate", name);
+
+    CFReleaseNull(applications);
 
     const SecItemImportExportKeyParameters keyParams =
     {
@@ -298,7 +315,7 @@ static void testExportImportKeyPair() {
 
     CFDataRef keyData = NULL;
     ok_status(SecItemExport(pub, kSecFormatPEMSequence, kSecItemPemArmour, &keyParams, &keyData), "%s: SecItemExport", name);
-    ok_status(SecKeychainItemDelete((SecKeychainItemRef)pub), "%s: SecKeychainItemDelete", name);;
+    ok_status(SecKeychainItemDelete((SecKeychainItemRef)pub), "%s: SecKeychainItemDelete", name);
     CFRelease(pub);
     pub = NULL;
 
@@ -306,9 +323,11 @@ static void testExportImportKeyPair() {
     ok_status(SecItemImport(keyData, NULL, NULL, NULL, kSecItemPemArmour, &keyParams, kc, &items), "%s: SecItemImport", name);
     checkN(name, createQueryKeyDictionary(kc, kSecAttrKeyClassPublic), 1);
 
+    CFReleaseNull(keyData);
+    CFReleaseNull(items);
 
     ok_status(SecItemExport(priv, kSecFormatPEMSequence, kSecItemPemArmour, &keyParams, &keyData), "%s: SecItemExport", name);
-    ok_status(SecKeychainItemDelete((SecKeychainItemRef)priv), "%s: SecKeychainItemDelete", name);;
+    ok_status(SecKeychainItemDelete((SecKeychainItemRef)priv), "%s: SecKeychainItemDelete", name);
     CFRelease(priv);
     priv = NULL;
 
@@ -316,10 +335,14 @@ static void testExportImportKeyPair() {
 
     ok_status(SecItemImport(keyData, NULL, NULL, NULL, kSecItemPemArmour, &keyParams, kc, &items), "%s: SecItemImport", name);
 
+    CFReleaseNull(keyData);
+    CFReleaseNull(accessRef);
+
     checkN(name, createQueryKeyDictionary(kc, kSecAttrKeyClassPrivate), 1);
 
     SecAccessRef newRef = NULL;
     ok_status(SecKeychainItemCopyAccess((SecKeychainItemRef) CFArrayGetValueAtIndex(items, 0), &newRef), "%s:SecKeychainItemCopyAccess", name);
+    CFReleaseNull(newRef);
 
     SecKeyRef importedKey = items && CFArrayGetCount(items) > 0 ? (SecKeyRef)CFArrayGetValueAtIndex(items, 0) : NULL;
     if (importedKey) {
@@ -331,12 +354,17 @@ static void testExportImportKeyPair() {
         CFDictionaryAddValue(attrs, kSecAttrLabel, CFSTR("private key custom label"));
 
         ok_status( SecItemUpdate(query, attrs), "%s: SecItemUpdate", name);
+
+        CFReleaseNull(attrs);
+        CFReleaseNull(query);
     } else {
         fail("%s: Didn't have an item to update", name);
     }
 
     ok_status(SecKeychainItemCopyAccess((SecKeychainItemRef) CFArrayGetValueAtIndex(items, 0), &newRef), "%s:SecKeychainItemCopyAccess", name);
     // TODO: should probably check this AccessRef object to make sure it's simple
+    CFReleaseNull(newRef);
+    CFReleaseNull(items);
 
     checkN(name, createQueryKeyDictionary(kc, kSecAttrKeyClassPrivate), 1);
 

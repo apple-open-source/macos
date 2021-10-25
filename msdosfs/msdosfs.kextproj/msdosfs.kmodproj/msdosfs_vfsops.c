@@ -132,7 +132,6 @@ extern int32_t msdos_secondsWest;	/* In msdosfs_conv.c */
 __private_extern__ lck_grp_attr_t *msdosfs_lck_grp_attr = NULL;
 __private_extern__ lck_grp_t *msdosfs_lck_grp = NULL;
 __private_extern__ lck_attr_t *msdosfs_lck_attr = NULL;
-__private_extern__ OSMallocTag msdosfs_malloc_tag = NULL;
 
 #if DEBUG
 SYSCTL_DECL(_vfs_generic);
@@ -169,8 +168,6 @@ int msdosfs_init(struct vfsconf *vfsp)
 	msdosfs_lck_grp = lck_grp_alloc_init("msdosfs", msdosfs_lck_grp_attr);
 	msdosfs_lck_attr = lck_attr_alloc_init();
 	
-	msdosfs_malloc_tag = OSMalloc_Tagalloc("msdosfs", OSMT_DEFAULT);
-	
 	msdosfs_hash_init();
 	return 0;
 }
@@ -185,13 +182,89 @@ int msdosfs_uninit(void)
 {
 	msdosfs_hash_uninit();
 	
-	OSMalloc_Tagfree(msdosfs_malloc_tag);
-	
 	lck_attr_free(msdosfs_lck_attr);
 	lck_grp_free(msdosfs_lck_grp);
 	lck_grp_attr_free(msdosfs_lck_grp_attr);
 	
 	return 0;
+}
+
+static void msdosfs_shutdown_flush_thread(struct msdosfsmount* pmp)
+{
+    lck_mtx_lock(pmp->pm_flush_lock);
+    pmp->pm_flush_shutdown = true;
+    if (pmp->pm_flush_thread != NULL) {
+        // Wake up the thread
+        wakeup(&pmp->pm_flush_thread);
+
+        // Wait for the thread to stop and respond
+        while (pmp->pm_flush_thread != THREAD_NULL) {
+            msleep(&pmp->pm_flush_thread, pmp->pm_flush_lock, PINOD, "shutdown_msdosfs_flush_thread", NULL);
+        }
+    }
+    lck_mtx_unlock(pmp->pm_flush_lock);
+
+    lck_mtx_free(pmp->pm_flush_lock, msdosfs_lck_grp);
+    pmp->pm_flush_lock = NULL;
+}
+
+static void msdosfs_flush_thread(void *arg, __unused wait_result_t wr)
+{
+    struct msdosfsmount* pmp = arg;
+
+    while (!pmp->pm_flush_shutdown) {
+        OSDecrementAtomic(&pmp->pm_sync_scheduled);
+        msdosfs_meta_flush_internal(pmp, 0);
+        OSDecrementAtomic(&pmp->pm_sync_incomplete);
+        wakeup(&pmp->pm_sync_incomplete);
+
+        // Sleep
+        lck_mtx_lock(pmp->pm_flush_lock);
+        {
+            if ((!pmp->pm_flush_shutdown) && (!pmp->pm_flush_request)) {
+                msleep(&pmp->pm_flush_thread, pmp->pm_flush_lock, PINOD, "msdosfs-flusher-wait", NULL);
+            }
+
+            pmp->pm_flush_request = false;
+        }
+        lck_mtx_unlock(pmp->pm_flush_lock);
+    }
+
+    // Shutdown
+    lck_mtx_lock(pmp->pm_flush_lock);
+    pmp->pm_flush_shutdown = true; // To prevent restart after error
+    pmp->pm_flush_thread = THREAD_NULL;
+    wakeup(&pmp->pm_flush_thread);
+    lck_mtx_unlock(pmp->pm_flush_lock);
+
+    thread_terminate(current_thread());
+    /*NOTREACHED*/
+}
+
+static void msdosfs_meta_sync_callback(void *arg0, __unused void *unused)
+{
+    struct msdosfsmount* pmp = arg0;
+
+    KERNEL_DEBUG_CONSTANT(MSDOSFS_META_SYNC_CALLBACK|DBG_FUNC_START, pmp, 0, 0, 0, 0);
+
+    lck_mtx_lock(pmp->pm_flush_lock);
+    if (!pmp->pm_flush_shutdown) {
+        if (pmp->pm_flush_thread == THREAD_NULL) {
+            thread_t th;
+
+            if (kernel_thread_start(msdosfs_flush_thread, pmp, &th) == KERN_SUCCESS) {
+                thread_deallocate(th);
+                pmp->pm_flush_thread = th;
+            }
+        } else {
+            // Wake up the thread
+            pmp->pm_flush_request = true;
+            wakeup(&pmp->pm_flush_thread);
+        }
+    }
+    lck_mtx_unlock(pmp->pm_flush_lock);
+
+    KERNEL_DEBUG_CONSTANT(MSDOSFS_META_SYNC_CALLBACK|DBG_FUNC_END, 0, 0, 0, 0, 0);
 }
 
 
@@ -429,6 +502,11 @@ int msdosfs_mount(vnode_t devvp, struct mount *mp, vfs_context_t context)
 	if (fat_sectors == 0)
 		fat_sectors = getuint32(b710->bpbBigFATsecs);
 	pmp->pm_label_cluster = CLUST_EOFE;	/* Assume there is no label in the root */
+
+    pmp->pm_flush_lock = lck_mtx_alloc_init(msdosfs_lck_grp, msdosfs_lck_attr);
+    pmp->pm_flush_thread = THREAD_NULL;
+    pmp->pm_flush_shutdown = false;
+    pmp->pm_flush_request = false;
 
 	/*
 	 * Check a few values (could do some more):
@@ -915,6 +993,8 @@ error_exit:
 			thread_call_free(pmp->pm_sync_timer);
 			pmp->pm_sync_timer = NULL;
 		}
+
+        msdosfs_shutdown_flush_thread(pmp);
 		
 		(void) vflush(mp, NULLVP, SKIPSYSTEM|FORCECLOSE);
 		
@@ -984,6 +1064,9 @@ int msdosfs_vfs_unmount(struct mount *mp, int mntflags, vfs_context_t context)
 		thread_call_free(pmp->pm_sync_timer);
 		pmp->pm_sync_timer = NULL;
 		
+        // Kill the flusher thread
+        msdosfs_shutdown_flush_thread(pmp);
+
 		/*
 		 * This waits for all of the callbacks that were entered before
 		 * we did thread_call_cancel above, but have not completed yet.

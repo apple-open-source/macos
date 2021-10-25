@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2019 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2021 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -120,8 +120,7 @@
 #include "bootpdfile.h"
 #include "bootplookup.h"
 
-#define CFGPROP_DHCP_IGNORE_CLIENT_IDENTIFIER	"dhcp_ignore_client_identifier"
-#define CFGPROP_DETECT_OTHER_DHCP_SERVER	"detect_other_dhcp_server"
+/* services */
 #define CFGPROP_BOOTP_ENABLED		"bootp_enabled"
 #define CFGPROP_DHCP_ENABLED		"dhcp_enabled"
 #if NETBOOT_SERVER_SUPPORT
@@ -130,12 +129,17 @@
 #define CFGPROP_USE_OPEN_DIRECTORY	"use_open_directory"
 #endif /* NETBOOT_SERVER_SUPPORT */
 #define CFGPROP_RELAY_ENABLED		"relay_enabled"
+#define CFGPROP_DHCP_IGNORE_CLIENT_IDENTIFIER	"dhcp_ignore_client_identifier"
+#define CFGPROP_DETECT_OTHER_DHCP_SERVER	"detect_other_dhcp_server"
+#define CFGPROP_IGNORE_ALLOW_DENY	"ignore_allow_deny"
+#define CFGPROP_IPV6_ONLY_PREFERRED	"ipv6_only_preferred"
+
 #define CFGPROP_ALLOW			"allow"
 #define CFGPROP_DENY			"deny"
 #define CFGPROP_REPLY_THRESHOLD_SECONDS	"reply_threshold_seconds"
 #define CFGPROP_RELAY_IP_LIST		"relay_ip_list"
 #define CFGPROP_USE_SERVER_CONFIG_FOR_DHCP_OPTIONS "use_server_config_for_dhcp_options"
-#define CFGPROP_IGNORE_ALLOW_DENY	"ignore_allow_deny"
+#define CFGPROP_IPV6_ONLY_WAIT		"ipv6_only_wait"
 #define CFGPROP_VERBOSE			"verbose"
 #define CFGPROP_DEBUG			"debug"
 
@@ -167,6 +171,7 @@
 						 | SERVICE_RELAY)
 #define SERVICE_IGNORE_ALLOW_DENY 		0x00000020
 #define SERVICE_DETECT_OTHER_DHCP_SERVER 	0x00000040
+#define SERVICE_IPV6_ONLY_PREFERRED		0x00000080
 #define SERVICE_DHCP_DISABLED			0x80000000
 
 /* global variables: */
@@ -190,7 +195,8 @@ static int	transmit_buffer_aligned[512];
 char *		transmit_buffer = (char *)transmit_buffer_aligned;
 
 #if USE_OPEN_DIRECTORY
-bool		use_open_directory = TRUE;
+#define USE_OPEN_DIRECTORY_DEFAULT	FALSE
+bool		use_open_directory = USE_OPEN_DIRECTORY_DEFAULT;
 #endif /* USE_OPEN_DIRECTORY */
 
 /* local types */
@@ -209,6 +215,8 @@ static interface_list_t *	S_interfaces;
 static inetroute_list_t *	S_inetroutes = NULL;
 static u_short			S_ipport_client = IPPORT_BOOTPC;
 static u_short			S_ipport_server = IPPORT_BOOTPS;
+#define IPV6_ONLY_WAIT_DEFAULT		0
+static uint32_t			S_ipv6_only_wait;
 static struct timeval		S_lastmsgtime;
 /* ALIGN: S_rxpkt is aligned to at least sizeof(uint32_t) bytes */
 static uint32_t 		S_rxpkt[2048/(sizeof(uint32_t))];/* receive packet buffer */
@@ -642,6 +650,14 @@ detect_other_dhcp_server(interface_t * if_p)
     return ((which & SERVICE_DETECT_OTHER_DHCP_SERVER) != 0);
 }
 
+__private_extern__ boolean_t
+ipv6_only_preferred(interface_t * if_p)
+{
+    u_int32_t 	which = (S_which_services | if_p->user_defined);
+
+    return ((which & SERVICE_IPV6_ONLY_PREFERRED) != 0);
+}
+
 __private_extern__ void
 disable_dhcp_on_interface(interface_t * if_p)
 {
@@ -812,9 +828,39 @@ set_number_from_plist(CFDictionaryRef plist, CFStringRef prop_name_cf,
     return;
 }
 
+#define SET_NUMBER_FROM_PLIST(plist, prop_name, val_p) \
+    set_number_from_plist(plist, CFSTR(prop_name), prop_name, val_p)
+
 static boolean_t
 S_get_plist_boolean(CFDictionaryRef plist, CFStringRef prop_name_cf,
 		    const char * prop_name, boolean_t def_value)
+{
+    boolean_t	ret;
+
+    ret = def_value;
+    if (plist != NULL) {
+	CFBooleanRef	prop = CFDictionaryGetValue(plist, prop_name_cf);
+	uint32_t	val;
+
+	if (prop != NULL) {
+	    if (my_CFTypeToNumber(prop, &val) == FALSE) {
+		my_log(LOG_NOTICE, "Invalid '%s' property",
+		       prop_name);
+	    }
+	    else {
+		ret = (val != 0);
+	    }
+	}
+    }
+    return (ret);
+}
+
+#define GET_PLIST_BOOLEAN(plist, prop_name, def_value)			\
+    S_get_plist_boolean(plist, CFSTR(prop_name), prop_name, def_value)
+
+static uint32_t
+S_get_plist_uint32(CFDictionaryRef plist, CFStringRef prop_name_cf,
+		   const char * prop_name, boolean_t def_value)
 {
     boolean_t	ret;
 
@@ -855,16 +901,23 @@ S_update_services()
     verbose = S_verbose;
     debug = S_debug;
 
+    /* IPv6 only wait time */
+    S_ipv6_only_wait = S_get_plist_uint32(plist,
+					  CFSTR(CFGPROP_IPV6_ONLY_WAIT),
+					  CFGPROP_IPV6_ONLY_WAIT,
+					  IPV6_ONLY_WAIT_DEFAULT);
+    if (S_ipv6_only_wait != 0) {
+	/* put it in network order */
+	S_ipv6_only_wait = htonl(S_ipv6_only_wait);
+    }
     if (plist != NULL) {
 	/* verbose */
-	if (S_get_plist_boolean(plist, CFSTR(CFGPROP_VERBOSE),
-				CFGPROP_VERBOSE, FALSE)) {
+	if (GET_PLIST_BOOLEAN(plist, CFGPROP_VERBOSE, FALSE)) {
 	    verbose = TRUE;
 	}
 
 	/* debug */
-	if (S_get_plist_boolean(plist, CFSTR(CFGPROP_DEBUG),
-				CFGPROP_DEBUG, FALSE)) {
+	if (GET_PLIST_BOOLEAN(plist, CFGPROP_DEBUG, FALSE)) {
 	    debug = TRUE;
 	}
 
@@ -896,21 +949,28 @@ S_update_services()
 	if (isA_CFArray(prop) != NULL) {
 	    S_update_relay_ip_list(prop);
 	}
-	/* Ignore Allow/Deny - not really a service */
+
+	/* pseudo services */
+
+	/* Ignore Allow/Deny */
 	S_service_enable(CFDictionaryGetValue(plist,
 					      CFSTR(CFGPROP_IGNORE_ALLOW_DENY)),
 			 SERVICE_IGNORE_ALLOW_DENY);
-	/* Detect Other DHCP Server - not really a service */
+	/* Detect Other DHCP Server */
 	S_service_enable(CFDictionaryGetValue(plist,
 					      CFSTR(CFGPROP_DETECT_OTHER_DHCP_SERVER)),
 			 SERVICE_DETECT_OTHER_DHCP_SERVER);
+	/* IPv6-Only Preferred */
+	S_service_enable(CFDictionaryGetValue(plist,
+					      CFSTR(CFGPROP_IPV6_ONLY_PREFERRED)),
+			 SERVICE_IPV6_ONLY_PREFERRED);
     }
     /* allow/deny list */
     S_refresh_allow_deny(plist);
 
     /* reply threshold */
     reply_threshold_seconds = 0;
-    set_number_from_plist(plist, CFSTR(CFGPROP_REPLY_THRESHOLD_SECONDS),
+    SET_NUMBER_FROM_PLIST(plist,
 			  CFGPROP_REPLY_THRESHOLD_SECONDS,
 			  &reply_threshold_seconds);
 
@@ -918,7 +978,7 @@ S_update_services()
     /* ignore the DHCP client identifier */
     dhcp_ignore_client_identifier = FALSE;
     num = 0;
-    set_number_from_plist(plist, CFSTR(CFGPROP_DHCP_IGNORE_CLIENT_IDENTIFIER),
+    SET_NUMBER_FROM_PLIST(plist,
 			  CFGPROP_DHCP_IGNORE_CLIENT_IDENTIFIER,
 			  &num);
     if (num != 0) {
@@ -926,22 +986,17 @@ S_update_services()
     }
 #if USE_OPEN_DIRECTORY
     /* use open directory [for bootpent queries] */
-    use_open_directory = TRUE;
-    num = 1;
-    set_number_from_plist(plist, CFSTR(CFGPROP_USE_OPEN_DIRECTORY),
-			  CFGPROP_USE_OPEN_DIRECTORY,
-			  &num);
-    if (num == 0) {
-	use_open_directory = FALSE;
-    }
+    use_open_directory
+	= GET_PLIST_BOOLEAN(plist, CFGPROP_USE_OPEN_DIRECTORY,
+			    USE_OPEN_DIRECTORY_DEFAULT);
+    my_log(LOG_INFO, "use_open_directory is %s",
+	   use_open_directory ? "TRUE" : "FALSE");
 #endif /* USE_OPEN_DIRECTORY */
 
     /* check whether to supply our own configuration for missing dhcp options */
     S_use_server_config_for_dhcp_options
-	= S_get_plist_boolean(plist,
-			      CFSTR(CFGPROP_USE_SERVER_CONFIG_FOR_DHCP_OPTIONS),
-			      CFGPROP_USE_SERVER_CONFIG_FOR_DHCP_OPTIONS,
-			      TRUE);
+	= GET_PLIST_BOOLEAN(plist, CFGPROP_USE_SERVER_CONFIG_FOR_DHCP_OPTIONS,
+			    TRUE);
 
     /* get the new list of subnets */
     SubnetListFree(&subnets);
@@ -1793,7 +1848,7 @@ add_subnet_options(char * hostname,
 		if (dhcpoa_add(options, dhcptag_host_name_e,
 			       (int)strlen(hostname), hostname)
 		    != dhcpoa_success_e) {
-		    my_log(LOG_INFO, "couldn't add hostname: %s",
+		    my_log(LOG_NOTICE, "couldn't add hostname: %s",
 			   dhcpoa_err(options));
 		}
 	    }
@@ -1808,7 +1863,7 @@ add_subnet_options(char * hostname,
 		handled = TRUE;
 		if (dhcpoa_add(options, tags[i], opt_length, opt) 
 		    != dhcpoa_success_e) {
-		    my_log(LOG_INFO, "couldn't add option %d: %s",
+		    my_log(LOG_NOTICE, "couldn't add option %d: %s",
 			   tags[i], dhcpoa_err(options));
 		}
 	    }
@@ -1833,7 +1888,7 @@ add_subnet_options(char * hostname,
 		if (dhcpoa_add(options, dhcptag_subnet_mask_e, 
 			       sizeof(info->mask), &info->mask) 
 		    != dhcpoa_success_e) {
-		    my_log(LOG_INFO, "couldn't add subnet_mask: %s",
+		    my_log(LOG_NOTICE, "couldn't add subnet_mask: %s",
 			   dhcpoa_err(options));
 		    continue;
 		}
@@ -1853,7 +1908,7 @@ add_subnet_options(char * hostname,
 		}
 		if (dhcpoa_add(options, dhcptag_router_e, sizeof(*def_route),
 			       def_route) != dhcpoa_success_e) {
-		    my_log(LOG_INFO, "couldn't add router: %s",
+		    my_log(LOG_NOTICE, "couldn't add router: %s",
 			   dhcpoa_err(options));
 		    continue;
 		}
@@ -1866,24 +1921,22 @@ add_subnet_options(char * hostname,
 		if (dhcpoa_add(options, dhcptag_domain_name_server_e,
 			       S_dns_servers_count * sizeof(*S_dns_servers),
 			       S_dns_servers) != dhcpoa_success_e) {
-		    my_log(LOG_INFO, "couldn't add dns servers: %s",
+		    my_log(LOG_NOTICE, "couldn't add dns servers: %s",
 			   dhcpoa_err(options));
 		    continue;
 		}
-		if (verbose)
-		    my_log(LOG_DEBUG, "default dns servers added");
+		my_log(LOG_DEBUG, "default dns servers added");
 		break;
 	      case dhcptag_domain_name_e:
 		if (S_domain_name) {
 		    if (dhcpoa_add(options, dhcptag_domain_name_e,
 				   (int)strlen(S_domain_name), S_domain_name)
 			!= dhcpoa_success_e) {
-			my_log(LOG_INFO, "couldn't add domain name: %s",
+			my_log(LOG_NOTICE, "couldn't add domain name: %s",
 			       dhcpoa_err(options));
 			continue;
 		    }
-		    if (verbose)
-			my_log(LOG_DEBUG, "default domain name added");
+		    my_log(LOG_DEBUG, "default domain name added");
 		}
 		break;
 	      case dhcptag_domain_search_e:
@@ -1891,15 +1944,35 @@ add_subnet_options(char * hostname,
 		    if (dhcpoa_add(options, dhcptag_domain_search_e,
 				   S_domain_search_size, S_domain_search)
 			!= dhcpoa_success_e) {
-			my_log(LOG_INFO, "couldn't add domain search: %s",
+			my_log(LOG_NOTICE, "couldn't add domain search: %s",
 			       dhcpoa_err(options));
 			continue;
 		    }
-		    if (verbose)
-			my_log(LOG_DEBUG, "domain search added");
+		    my_log(LOG_DEBUG, "domain search added");
 		}
 		break;
 	      default:
+		break;
+	    }
+	}
+	if (handled == FALSE) {
+	    switch (tags[i]) {
+	    case dhcptag_ipv6_only_preferred_e:
+		if (!ipv6_only_preferred(if_p)) {
+		    break;
+		}
+		if (dhcpoa_add(options, dhcptag_ipv6_only_preferred_e,
+			       sizeof(S_ipv6_only_wait), &S_ipv6_only_wait)
+		    != dhcpoa_success_e) {
+		    my_log(LOG_NOTICE, "couldn't add ipv6 only preferred: %s",
+			   dhcpoa_err(options));
+		    continue;
+		}
+		else {
+		    my_log(LOG_INFO, "IPv6-only preferred option added");
+		}
+		break;
+	    default:
 		break;
 	    }
 	}
@@ -1975,7 +2048,7 @@ S_relay_packet(struct bootp * bp, int n, interface_t * if_p)
 			       relay, if_inet_addr(if_p),
 			       S_ipport_server, S_ipport_client,
 			       bp, n) < 0) {
-		my_log(LOG_INFO, "send to %s failed, %m", inet_ntoa(relay));
+		my_log(LOG_NOTICE, "send to %s failed, %m", inet_ntoa(relay));
 	    }
 	    else {
 		my_log(LOG_INFO,

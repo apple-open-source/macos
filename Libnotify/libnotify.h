@@ -200,7 +200,7 @@ typedef struct
 	table_64_t client_table;
 	table_n_t port_table;
 	table_n_t proc_table;
-	table_64_t event_table;
+	os_map_64_t event_table;
 	name_info_t **controlled_name;
 	xpc_event_publisher_t event_publisher;
 	uint32_t flags;

@@ -112,6 +112,11 @@
 {
     return _has.triggerRequestTime != 0;
 }
+- (BOOL)hasSerializedReason
+{
+    return _serializedReason != nil;
+}
+@synthesize serializedReason = _serializedReason;
 
 - (NSString *)description
 {
@@ -156,6 +161,10 @@
     if (self->_has.triggerRequestTime)
     {
         [dict setObject:[NSNumber numberWithUnsignedLongLong:self->_triggerRequestTime] forKey:@"triggerRequestTime"];
+    }
+    if (self->_serializedReason)
+    {
+        [dict setObject:self->_serializedReason forKey:@"serializedReason"];
     }
     return dict;
 }
@@ -228,6 +237,12 @@ BOOL SecEscrowPendingRecordReadFrom(__unsafe_unretained SecEscrowPendingRecord *
             {
                 self->_has.triggerRequestTime = YES;
                 self->_triggerRequestTime = PBReaderReadUint64(reader);
+            }
+            break;
+            case 10 /* serializedReason */:
+            {
+                NSData *new_serializedReason = PBReaderReadData(reader);
+                self->_serializedReason = new_serializedReason;
             }
             break;
             default:
@@ -308,6 +323,13 @@ BOOL SecEscrowPendingRecordReadFrom(__unsafe_unretained SecEscrowPendingRecord *
             PBDataWriterWriteUint64Field(writer, self->_triggerRequestTime, 9);
         }
     }
+    /* serializedReason */
+    {
+        if (self->_serializedReason)
+        {
+            PBDataWriterWriteDataField(writer, self->_serializedReason, 10);
+        }
+    }
 }
 
 - (void)copyTo:(SecEscrowPendingRecord *)other
@@ -354,6 +376,10 @@ BOOL SecEscrowPendingRecordReadFrom(__unsafe_unretained SecEscrowPendingRecord *
         other->_triggerRequestTime = _triggerRequestTime;
         other->_has.triggerRequestTime = YES;
     }
+    if (_serializedReason)
+    {
+        other.serializedReason = _serializedReason;
+    }
 }
 
 - (id)copyWithZone:(NSZone *)zone
@@ -392,6 +418,7 @@ BOOL SecEscrowPendingRecordReadFrom(__unsafe_unretained SecEscrowPendingRecord *
         copy->_triggerRequestTime = _triggerRequestTime;
         copy->_has.triggerRequestTime = YES;
     }
+    copy->_serializedReason = [_serializedReason copyWithZone:zone];
     return copy;
 }
 
@@ -417,6 +444,8 @@ BOOL SecEscrowPendingRecordReadFrom(__unsafe_unretained SecEscrowPendingRecord *
     ((!self->_altDSID && !other->_altDSID) || [self->_altDSID isEqual:other->_altDSID])
     &&
     ((self->_has.triggerRequestTime && other->_has.triggerRequestTime && self->_triggerRequestTime == other->_triggerRequestTime) || (!self->_has.triggerRequestTime && !other->_has.triggerRequestTime))
+    &&
+    ((!self->_serializedReason && !other->_serializedReason) || [self->_serializedReason isEqual:other->_serializedReason])
     ;
 }
 
@@ -441,6 +470,8 @@ BOOL SecEscrowPendingRecordReadFrom(__unsafe_unretained SecEscrowPendingRecord *
     [self->_altDSID hash]
     ^
     (self->_has.triggerRequestTime ? PBHashInt((NSUInteger)self->_triggerRequestTime) : 0)
+    ^
+    [self->_serializedReason hash]
     ;
 }
 
@@ -487,6 +518,10 @@ BOOL SecEscrowPendingRecordReadFrom(__unsafe_unretained SecEscrowPendingRecord *
     {
         self->_triggerRequestTime = other->_triggerRequestTime;
         self->_has.triggerRequestTime = YES;
+    }
+    if (other->_serializedReason)
+    {
+        [self setSerializedReason:other->_serializedReason];
     }
 }
 

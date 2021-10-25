@@ -268,7 +268,7 @@ net_add_domain_old(struct domain_old *odp)
 		 * as the caller would not have been able to handle
 		 * any failures otherwise.
 		 */
-		panic("%s: domain (%d,%s) already exists for %s\n", __func__,
+		panic("%s: domain (%d,%s) already exists for %s", __func__,
 		    dp->dom_family, dp->dom_name, odp->dom_name);
 		/* NOTREACHED */
 	}
@@ -291,17 +291,7 @@ net_add_domain_old(struct domain_old *odp)
 		/* NOTREACHED */
 	}
 
-	dp = kheap_alloc(KHEAP_DEFAULT, sizeof(struct domain), Z_WAITOK | Z_ZERO);
-	if (dp == NULL) {
-		/*
-		 * There is really nothing better than to panic here,
-		 * as the caller would not have been able to handle
-		 * any failures otherwise.
-		 */
-		panic("%s: unable to allocate memory for domain family "
-		    "%d (%s)\n", __func__, odp->dom_family, odp->dom_name);
-		/* NOTREACHED */
-	}
+	dp = kalloc_type(struct domain, Z_WAITOK | Z_ZERO | Z_NOFAIL);
 
 	/* Copy everything but dom_init, dom_mtx, dom_next and dom_refs */
 	dp->dom_family          = odp->dom_family;
@@ -361,15 +351,15 @@ net_del_domain_old(struct domain_old *odp)
 		TAILQ_FOREACH_SAFE(pp1, &dp1->dom_protosw, pr_entry, pp2) {
 			detach_proto(pp1, dp1);
 			if (pp1->pr_usrreqs->pru_flags & PRUF_OLD) {
-				kheap_free(KHEAP_DEFAULT, pp1->pr_usrreqs, sizeof(struct pr_usrreqs));
+				kfree_type(struct pr_usrreqs, pp1->pr_usrreqs);
 			}
 			if (pp1->pr_flags & PR_OLD) {
-				kheap_free(KHEAP_DEFAULT, pp1, sizeof(struct protosw));
+				kfree_type(struct protosw, pp1);
 			}
 		}
 
 		detach_domain(dp1);
-		kheap_free(KHEAP_DEFAULT, dp1, sizeof(struct domain));
+		kfree_type(struct domain, dp1);
 	} else {
 		error = EPFNOSUPPORT;
 	}
@@ -399,13 +389,13 @@ net_add_proto(struct protosw *pp, struct domain *dp, int doinit)
 
 	/* pr_domain is set only after the protocol is attached */
 	if (pp->pr_domain != NULL) {
-		panic("%s: domain (%d,%s), proto %d has non-NULL pr_domain!\n",
+		panic("%s: domain (%d,%s), proto %d has non-NULL pr_domain!",
 		    __func__, dp->dom_family, dp->dom_name, pp->pr_protocol);
 		/* NOTREACHED */
 	}
 
 	if (pp->pr_usrreqs == NULL) {
-		panic("%s: domain (%d,%s), proto %d has no usrreqs!\n",
+		panic("%s: domain (%d,%s), proto %d has no usrreqs!",
 		    __func__, dp->dom_family, dp->dom_name, pp->pr_protocol);
 		/* NOTREACHED */
 	}
@@ -481,17 +471,12 @@ net_add_proto_old(struct protosw_old *opp, struct domain_old *odp)
 	}
 
 	if ((opru = opp->pr_usrreqs) == NULL) {
-		panic("%s: domain (%d,%s), proto %d has no usrreqs!\n",
+		panic("%s: domain (%d,%s), proto %d has no usrreqs!",
 		    __func__, odp->dom_family, odp->dom_name, opp->pr_protocol);
 		/* NOTREACHED */
 	}
 
-	pru = kheap_alloc(KHEAP_DEFAULT, sizeof(struct pr_usrreqs),
-	    Z_WAITOK | Z_ZERO);
-	if (pru == NULL) {
-		error = ENOMEM;
-		goto done;
-	}
+	pru = kalloc_type(struct pr_usrreqs, Z_WAITOK | Z_ZERO | Z_NOFAIL);
 
 	pru->pru_flags          = PRUF_OLD;
 	pru->pru_abort          = opru->pru_abort;
@@ -515,11 +500,7 @@ net_add_proto_old(struct protosw_old *opp, struct domain_old *odp)
 	pru->pru_soreceive      = opru->pru_soreceive;
 	pru->pru_sopoll         = opru->pru_sopoll;
 
-	pp = kheap_alloc(KHEAP_DEFAULT, sizeof(struct protosw), Z_WAITOK | Z_ZERO);
-	if (pp == NULL) {
-		error = ENOMEM;
-		goto done;
-	}
+	pp = kalloc_type(struct protosw, Z_WAITOK | Z_ZERO | Z_NOFAIL);
 
 	/*
 	 * Protocol fast and slow timers are now deprecated.
@@ -561,8 +542,8 @@ done:
 		    "error %d\n", __func__, odp->dom_family,
 		    odp->dom_name, opp->pr_protocol, error);
 
-		kheap_free(KHEAP_DEFAULT, pru, sizeof(struct pr_usrreqs));
-		kheap_free(KHEAP_DEFAULT, pp, sizeof(struct protosw));
+		kfree_type(struct pr_usrreqs, pru);
+		kfree_type(struct protosw, pp);
 	}
 
 	domain_guard_release(guard);
@@ -600,10 +581,10 @@ net_del_proto(int type, int protocol, struct domain *dp)
 
 	detach_proto(pp, dp);
 	if (pp->pr_usrreqs->pru_flags & PRUF_OLD) {
-		kheap_free(KHEAP_DEFAULT, pp->pr_usrreqs, sizeof(struct pr_usrreqs));
+		kfree_type(struct pr_usrreqs, pp->pr_usrreqs);
 	}
 	if (pp->pr_flags & PR_OLD) {
-		kheap_free(KHEAP_DEFAULT, pp, sizeof(struct protosw));
+		kfree_type(struct protosw, pp);
 	}
 
 	return 0;
@@ -651,10 +632,10 @@ net_del_proto_old(int type, int protocol, struct domain_old *odp)
 	}
 	detach_proto(pp, dp);
 	if (pp->pr_usrreqs->pru_flags & PRUF_OLD) {
-		kheap_free(KHEAP_DEFAULT, pp->pr_usrreqs, sizeof(struct pr_usrreqs));
+		kfree_type(struct pr_usrreqs, pp->pr_usrreqs);
 	}
 	if (pp->pr_flags & PR_OLD) {
-		kheap_free(KHEAP_DEFAULT, pp, sizeof(struct protosw));
+		kfree_type(struct protosw, pp);
 	}
 
 done:

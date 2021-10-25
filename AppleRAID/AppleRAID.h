@@ -25,7 +25,6 @@
 
 #ifdef KERNEL
 
-
 #ifdef DEBUG
 
 #define IOASSERT 1   
@@ -102,6 +101,8 @@ private:
     OSDictionary	* raidMembers;
     OSDictionary	* logicalVolumes;
     
+    thread_call_t arStartSetThreadCall;
+    
     void addSet(AppleRAIDSet * set);
     void removeSet(AppleRAIDSet * set);
 
@@ -110,6 +111,7 @@ private:
     AppleRAIDMember * findMember(const OSString * uuid);
 
     void startSet(AppleRAIDSet * set);
+    void startSetThreaded(AppleRAIDSet * set);
 
 public:
 

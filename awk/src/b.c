@@ -31,6 +31,8 @@ THIS SOFTWARE.
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <xlocale.h>
+#include <wchar.h>
 #include "awk.h"
 #include "awkgram.tab.h"
 
@@ -42,9 +44,12 @@ THIS SOFTWARE.
 #define right(v)	(v)->narg[1]
 #define parent(v)	(v)->nnext
 
-#define LEAF	case CCL: case NCCL: case CHAR: case DOT: case FINAL: case ALL:
+#define LEAF	case CCL: case NCCL: case CHAR: case HAT: case DOLLAR: case DOT: case FINAL: case ALL:
 #define ELEAF	case EMPTYRE:		/* empty string in regexp */
 #define UNARY	case STAR: case PLUS: case QUEST:
+
+/* Private libc function - see collate.h */
+void __collate_lookup_l(wchar_t *, int *, int *, int *, locale_t);
 
 /* encoding in tree Nodes:
 	leaf (CCL, NCCL, CHAR, DOT, FINAL, ALL, EMPTYRE):
@@ -60,8 +65,8 @@ int	*tmpset;
 int	maxsetvec = 0;
 
 int	rtok;		/* next token in current re */
-int	rlxval;
-static const uschar	*rlxstr;
+wchar_t	rlxval;
+static const wchar_t	*rlxwcs;
 static const uschar	*prestr;	/* current position in current re */
 static const uschar	*lastre;	/* origin of last re */
 static const uschar	*lastatom;	/* origin of last Atom */
@@ -131,6 +136,12 @@ resize_state(fa *f, int state)
 	f->posns = p;
 
 	for (i = f->state_count; i < new_count; ++i) {
+		/*
+		 * It is impossible to track state transitions for every possible character in a multibyte locale (utf-8).
+		 * Therefore, the gototable will remain capable of tracking transitions for single-byte characters as a fast
+		 * path in the C/POSIX locales (as well as ISO Latin-1 locales), but cgoto will be called for every
+		 * multibyte character in multibyte locales.
+		 */
 		f->gototab[i] = calloc(NCHARS, sizeof(**f->gototab));
 		if (f->gototab[i] == NULL)
 			goto out;
@@ -242,7 +253,7 @@ int makeinit(fa *f, bool anchor)
 		f->out[2] = 1;
 	for (i = 0; i < NCHARS; i++)
 		f->gototab[2][i] = 0;
-	f->curstat = cgoto(f, 2, HAT);
+	f->curstat = cgoto(f, 2, 0, HAT_CTRL);
 	if (anchor) {
 		*f->posns[2] = k-1;	/* leave out position 0 */
 		for (i = 0; i < k; i++) {
@@ -310,6 +321,63 @@ void freetr(Node *p)	/* free parse tree */
 /* in the parsing of regular expressions, metacharacters like . have */
 /* to be seen literally;  \056 is not a metacharacter. */
 
+wchar_t wchexstr(const wchar_t **pp)	/* find and eval hex string at pp, return new p */
+{			/* only pick up one 8-bit byte (2 chars) */
+	const wchar_t *p;
+	int n = 0;
+	int i;
+
+	for (i = 0, p = *pp; i < 2 && isxdigit(*p); i++, p++) {
+		if (isdigit(*p))
+			n = 16 * n + *p - '0';
+		else if (*p >= 'a' && *p <= 'f')
+			n = 16 * n + *p - 'a' + 10;
+		else if (*p >= 'A' && *p <= 'F')
+			n = 16 * n + *p - 'A' + 10;
+	}
+	*pp = p;
+	return n;
+}
+
+#define isoctdigit(c) ((c) >= '0' && (c) <= '7')	/* multiple use of arg */
+wchar_t wcquoted(const wchar_t **pp)	/* pick up next character after a \\ */
+			/* and increment *pp */
+{
+	const wchar_t *p = *pp;
+	int c;
+
+	if ((c = *p++) == 't')
+		c = '\t';
+	else if (c == 'n')
+		c = '\n';
+	else if (c == 'f')
+		c = '\f';
+	else if (c == 'r')
+		c = '\r';
+	else if (c == 'b')
+		c = '\b';
+	else if (c == 'v')
+		c = '\v';
+	else if (c == 'a')
+		c = '\a';
+	else if (c == '\\')
+		c = '\\';
+	else if (c == 'x') {	/* hexadecimal goo follows */
+		c = wchexstr(&p);	/* this adds a null if number is invalid */
+	} else if (isoctdigit(c)) {	/* \d \dd \ddd */
+		int n = c - '0';
+		if (isoctdigit(*p)) {
+			n = 8 * n + *p++ - '0';
+			if (isoctdigit(*p))
+				n = 8 * n + *p++ - '0';
+		}
+		c = n;
+	} /* else */
+		/* c = c; */
+	*pp = p;
+	return c;
+}
+
 int hexstr(const uschar **pp)	/* find and eval hex string at pp, return new p */
 {			/* only pick up one 8-bit byte (2 chars) */
 	const uschar *p;
@@ -328,9 +396,7 @@ int hexstr(const uschar **pp)	/* find and eval hex string at pp, return new p */
 	return n;
 }
 
-#define isoctdigit(c) ((c) >= '0' && (c) <= '7')	/* multiple use of arg */
-
-int quoted(const uschar **pp)	/* pick up next thing after a \\ */
+int quoted(const uschar **pp)	/* pick up next single byte character after a \\ */
 			/* and increment *pp */
 {
 	const uschar *p = *pp;
@@ -368,50 +434,56 @@ int quoted(const uschar **pp)	/* pick up next thing after a \\ */
 	return c;
 }
 
-char *cclenter(const char *argp)	/* add a character class */
+wchar_t *cclenter(const wchar_t *wcs)	/* add a character class */
 {
-	int i, c, c2;
-	const uschar *op, *p = (const uschar *) argp;
-	uschar *bp;
-	static uschar *buf = NULL;
-	static int bufsz = 100;
+	int i;
+	wchar_t wc, wc2;
+	wchar_t *bp;
+	wchar_t *buf = NULL;
+	int bufc = 100;
+	const wchar_t *wcp = wcs;
 
-	op = p;
-	if (buf == NULL && (buf = malloc(bufsz)) == NULL)
-		FATAL("out of space for character class [%.10s...] 1", p);
+	if ((buf = malloc(bufc * sizeof(wchar_t))) == NULL) {
+		FATAL("out of space for character class [%.10ls...] 1", wcp);
+	}
+
 	bp = buf;
-	for (i = 0; (c = *p++) != 0; ) {
-		if (c == '\\') {
-			c = quoted(&p);
-		} else if (c == '-' && i > 0 && bp[-1] != 0) {
-			if (*p != 0) {
-				c = bp[-1];
-				c2 = *p++;
-				if (c2 == '\\')
-					c2 = quoted(&p);
-				if (c > c2) {	/* empty; ignore */
-					bp--;
+	for (i = 0; (wc = *wcp++) != 0; ) {
+		if (wc == '\\') {
+			wc = wcquoted(&wcp);
+		} else if (wc == '-' && i > 0 && bp[-1] != 0) {
+			/* Expand out a-z to abcdef...xyz */
+			if (*wcp != 0) {
+				wc = bp[-1];
+				wc2 = *wcp++;
+				if (wc2 == '\\')
+					wc2 = wcquoted(&wcp);
+				if (wc > wc2) {   /* empty; ignore */
+					bp--; /* erase starting character */
 					i--;
 					continue;
 				}
-				while (c < c2) {
-					if (!adjbuf((char **) &buf, &bufsz, bp-buf+2, 100, (char **) &bp, "cclenter1"))
-						FATAL("out of space for character class [%.10s...] 2", p);
-					*bp++ = ++c;
+				/* WARNING: This could cause buf to become huge */
+				while (wc < wc2) {
+					if (!wcadjbuf(&buf, &bufc, bp-buf+2, 100, &bp, "cclenter1"))
+						FATAL("out of space for character class [%.10ls...] 2", wcp);
+					*bp++ = ++wc;
 					i++;
 				}
 				continue;
 			}
 		}
-		if (!adjbuf((char **) &buf, &bufsz, bp-buf+2, 100, (char **) &bp, "cclenter2"))
-			FATAL("out of space for character class [%.10s...] 3", p);
-		*bp++ = c;
+		if (!wcadjbuf(&buf, &bufc, bp-buf+2, 100,  &bp, "cclenter2"))
+			FATAL("out of space for character class [%.10ls...] 3", wcp);
+		*bp++ = wc;
 		i++;
 	}
-	*bp = 0;
-	DPRINTF("cclenter: in = |%s|, out = |%s|\n", op, buf);
-	xfree(op);
-	return (char *) tostring((char *) buf);
+	*bp++ = L'\0';
+
+	DPRINTF("cclenter   : in = |%ls|, out = |%ls|\n", wcs, buf);
+	xfree(wcs);
+
+	return buf;
 }
 
 void overflo(const char *s)
@@ -534,12 +606,10 @@ void follow(Node *v)	/* collects leaves that can follow v into setvec */
 	}
 }
 
-int member(int c, const char *sarg)	/* is c in s? */
+int member(wchar_t wc, const wchar_t *wcs)	/* is wc in wcs? */
 {
-	const uschar *s = (const uschar *) sarg;
-
-	while (*s)
-		if (c == *s++)
+	while (*wcs)
+		if (wc == *wcs++)
 			return(1);
 	return(0);
 }
@@ -554,15 +624,18 @@ int match(fa *f, const char *p0)	/* shortest match ? */
 
 	if (f->out[s])
 		return(1);
+	int p_len;
 	do {
+		wchar_t p_wc = towc(&p_len, (const char*)p, strlen((const char*)p));
+
 		/* assert(*p < NCHARS); */
-		if ((ns = f->gototab[s][*p]) != 0)
+		if (p_len == 1 && (ns = f->gototab[s][*p]) != 0)
 			s = ns;
 		else
-			s = cgoto(f, s, *p);
+			s = cgoto(f, s, p_wc, 0);
 		if (f->out[s])
 			return(1);
-	} while (*p++ != 0);
+	} while (p += p_len, *(p - p_len) != 0);
 	return(0);
 }
 
@@ -577,37 +650,56 @@ int pmatch(fa *f, const char *p0)	/* longest match, for sub */
 
 	patbeg = (const char *)p;
 	patlen = -1;
+	int p_len;
 	do {
+		wchar_t p_wc = towc(&p_len, (const char*)p, strlen((const char*)p));
+
 		q = p;
+		int q_len;
 		do {
-			if (f->out[s])		/* final state */
+			wchar_t q_wc = towc(&q_len, (const char*)q, strlen((const char*)q));
+
+			/* Lots of debug in here as this is the path awk.ex{69,639,640} take */
+			DPRINTF("pmatch: checking wc: %d\n", q_wc);
+			if (f->out[s]) {		/* final state */
 				patlen = q-p;
+				DPRINTF("pmatch: f->out[s] is %d. patlen: %d\n", f->out[s], patlen);
+			}
+
 			/* assert(*q < NCHARS); */
-			if ((ns = f->gototab[s][*q]) != 0)
+			if (q_len == 1 && (ns = f->gototab[s][*q]) != 0)
 				s = ns;
 			else
-				s = cgoto(f, s, *q);
+				s = cgoto(f, s, q_wc, 0);
 
 			assert(s < f->state_count);
-
 			if (s == 1) {	/* no transition */
 				if (patlen >= 0) {
 					patbeg = (const char *) p;
+					DPRINTF("pmatch: RETURN 1: patlen: %d patbeg: %s\n", patlen, patbeg);
 					return(1);
-				}
-				else
+				} else {
+					DPRINTF("pmatch: nextin\n");
 					goto nextin;	/* no match */
+				}
 			}
-		} while (*q++ != 0);
-		if (f->out[s])
+
+			DPRINTF("pmatch: q: advanced %d: %c\n", q_len, *(q + q_len));
+		} while (q += q_len, *(q - q_len) != 0);;
+
+		DPRINTF("pmatch: out of loop\n");
+		if (f->out[s]) {
+			DPRINTF("pmatch: patlen: f->out[s]: p: %s (%p), q: %s (%p), \n", p, p, q, q);
 			patlen = q-p-1;	/* don't count $ */
+		}
 		if (patlen >= 0) {
+			DPRINTF("pmatch: patlen: %d begin: %s\n", patlen, p);
 			patbeg = (const char *) p;
 			return(1);
 		}
 	nextin:
 		s = 2;
-	} while (*p++);
+	} while (p += p_len, *(p - p_len) != 0);
 	return (0);
 }
 
@@ -622,16 +714,21 @@ int nematch(fa *f, const char *p0)	/* non-empty match, for sub */
 
 	patbeg = (const char *)p;
 	patlen = -1;
+	int p_len;
 	while (*p) {
+		wchar_t p_wc = towc(&p_len, (const char*)p, strlen((const char*)p));
+
 		q = p;
+		int q_len;
 		do {
+			wchar_t q_wc = towc(&q_len, (const char*)q, strlen((const char*)q));
 			if (f->out[s])		/* final state */
 				patlen = q-p;
 			/* assert(*q < NCHARS); */
-			if ((ns = f->gototab[s][*q]) != 0)
+			if (q_len == 1 && (ns = f->gototab[s][*q]) != 0)
 				s = ns;
 			else
-				s = cgoto(f, s, *q);
+				s = cgoto(f, s, q_wc, 0);
 			if (s == 1) {	/* no transition */
 				if (patlen > 0) {
 					patbeg = (const char *) p;
@@ -639,7 +736,7 @@ int nematch(fa *f, const char *p0)	/* non-empty match, for sub */
 				} else
 					goto nnextin;	/* no nonempty match */
 			}
-		} while (*q++ != 0);
+		} while (q += q_len, *(q - q_len) != 0);;
 		if (f->out[s])
 			patlen = q-p-1;	/* don't count $ */
 		if (patlen > 0 ) {
@@ -648,7 +745,7 @@ int nematch(fa *f, const char *p0)	/* non-empty match, for sub */
 		}
 	nnextin:
 		s = 2;
-		p++;
+		p += p_len;
 	}
 	return (0);
 }
@@ -677,7 +774,9 @@ bool fnematch(fa *pfa, FILE *f, char **pbuf, int *pbufsize, int quantum)
 
 	s = pfa->initstat;
 	patlen = 0;
-
+	/* FUTURE: Wide Character Support - we can easily use fgetwc, but we really need to update callers to handle
+	 * a wchar_t pbuf
+	 */
 	/*
 	 * All indices relative to buf.
 	 * i <= j <= k <= bufsize
@@ -702,7 +801,7 @@ bool fnematch(fa *pfa, FILE *f, char **pbuf, int *pbufsize, int quantum)
 			if ((ns = pfa->gototab[s][c]) != 0)
 				s = ns;
 			else
-				s = cgoto(pfa, s, c);
+				s = cgoto(pfa, s, c, 0);
 
 			if (pfa->out[s]) {	/* final state */
 				patlen = j - i + 1;
@@ -791,18 +890,18 @@ Node *primary(void)
 		rtok = relex();
 		return (unary(op2(DOT, NIL, NIL)));
 	case CCL:
-		np = op2(CCL, NIL, (Node*) cclenter((const char *) rlxstr));
+		np = op2(CCL, NIL, (Node*) cclenter(rlxwcs));
 		lastatom = starttok;
 		rtok = relex();
 		return (unary(np));
 	case NCCL:
-		np = op2(NCCL, NIL, (Node *) cclenter((const char *) rlxstr));
+		np = op2(NCCL, NIL, (Node *) cclenter(rlxwcs));
 		lastatom = starttok;
 		rtok = relex();
 		return (unary(np));
 	case '^':
 		rtok = relex();
-		return (unary(op2(CHAR, NIL, itonp(HAT))));
+		return (unary(op2(HAT, NIL, NIL)));
 	case '$':
 		rtok = relex();
 		return (unary(op2(CHAR, NIL, NIL)));
@@ -875,62 +974,6 @@ Node *unary(Node *np)
 	}
 }
 
-/*
- * Character class definitions conformant to the POSIX locale as
- * defined in IEEE P1003.1 draft 7 of June 2001, assuming the source
- * and operating character sets are both ASCII (ISO646) or supersets
- * thereof.
- *
- * Note that to avoid overflowing the temporary buffer used in
- * relex(), the expanded character class (prior to range expansion)
- * must be less than twice the size of their full name.
- */
-
-/* Because isblank doesn't show up in any of the header files on any
- * system i use, it's defined here.  if some other locale has a richer
- * definition of "blank", define HAS_ISBLANK and provide your own
- * version.
- * the parentheses here are an attempt to find a path through the maze
- * of macro definition and/or function and/or version provided.  thanks
- * to nelson beebe for the suggestion; let's see if it works everywhere.
- */
-
-#if defined(__APPLE__)
-#define HAS_ISBLANK
-#endif
-#ifndef HAS_ISBLANK
-
-int (xisblank)(int c)
-{
-	return c==' ' || c=='\t';
-}
-
-#endif
-
-static const struct charclass {
-	const char *cc_name;
-	int cc_namelen;
-	int (*cc_func)(int);
-} charclasses[] = {
-	{ "alnum",	5,	isalnum },
-	{ "alpha",	5,	isalpha },
-#ifndef HAS_ISBLANK
-	{ "blank",	5,	xisblank },
-#else
-	{ "blank",	5,	isblank },
-#endif
-	{ "cntrl",	5,	iscntrl },
-	{ "digit",	5,	isdigit },
-	{ "graph",	5,	isgraph },
-	{ "lower",	5,	islower },
-	{ "print",	5,	isprint },
-	{ "punct",	5,	ispunct },
-	{ "space",	5,	isspace },
-	{ "upper",	5,	isupper },
-	{ "xdigit",	6,	isxdigit },
-	{ NULL,		0,	NULL },
-};
-
 #define REPEAT_SIMPLE		0
 #define REPEAT_PLUS_APPENDED	1
 #define REPEAT_WITH_Q		2
@@ -964,9 +1007,9 @@ replace_repeat(const uschar *reptok, int reptoklen, const uschar *atom,
 	if ((buf = malloc(size + 1)) == NULL)
 		FATAL("out of space in reg expr %.10s..", lastre);
 	if (replogfile) {
-		fprintf(replogfile, "re before: len=%d,%s\n"
+		fprintf(replogfile, "re before: len=%zd,%s\n"
 				    "         : init_q=%d,n_q_reps=%d\n",
-				strlen(basestr),basestr,
+				strlen((char*)basestr),basestr,
 				init_q,n_q_reps);
 		fprintf(replogfile, "re prefix_length=%d,atomlen=%d\n",
 				prefix_length,atomlen);
@@ -1005,7 +1048,7 @@ replace_repeat(const uschar *reptok, int reptoklen, const uschar *atom,
 		buf[size] = '\0';
 	}
 	if (replogfile) {
-		fprintf(replogfile, "re after : len=%d,%s\n",strlen(buf),buf);
+		fprintf(replogfile, "re after : len=%zd,%s\n",strlen((char*)buf),buf);
 		fflush(replogfile);
 	}
 	/* free old basestr */
@@ -1073,14 +1116,205 @@ static int repeat(const uschar *reptok, int reptoklen, const uschar *atom,
 	return 0;
 }
 
+/* Converts a wide character and advances the input string pointer sp */
+static wchar_t wcadvance(int *outlen, const uschar **sp, int max) {
+	wchar_t wc = L'\0';
+	int ret = mbtowc(&wc, (char*)*sp, max);
+
+	if (ret < 0) {
+		FATAL("multibyte conversion failure at %.20s...", *sp);
+	} else {
+		*sp += ret;
+		if (outlen) {
+			*outlen = ret;
+		}
+	}
+	return wc;
+}
+
+static int cclex(void) {
+	int i, len;
+	wchar_t wc;
+	static wchar_t *buf = NULL;
+	static int bufc = 100;
+	wchar_t *bp;
+
+	if (buf == NULL && (buf = malloc(bufc * sizeof(wchar_t))) == NULL)
+		FATAL("out of space in reg expr %.10s..", lastre);
+
+	bp = buf;
+
+	int cflag = 0;
+	if (*prestr == '^') {
+		cflag = 1;
+		prestr++;
+	}
+
+	/* start with a buffer that can hold 2x length of prestr in wchar_ts */
+	int n = 2 * strlen((const char *) prestr)+1;
+	if (!wcadjbuf(&buf, &bufc, n, n, &bp, "relex1"))
+		FATAL("out of space for reg expr %.10s...", lastre);
+
+	for (; ; ) {
+		wc = wcadvance(NULL, &prestr, MB_CUR_MAX);
+		DPRINTF("loop wc: '%c'\n", wc);
+
+		if (wc == L'\\') {
+			*bp++ = L'\\';
+			if ((wc = wcadvance(NULL, &prestr, MB_CUR_MAX)) == '\0')
+				FATAL("nonterminated character class %.20s...", lastre);
+			*bp++ = wc;
+		/* } else if (c == '\n') { */
+		/* 	FATAL("newline in character class %.20s...", lastre); */
+		} else if (wc == L'[' && *prestr == ':') {
+			prestr++;
+
+			/* 9.3.5 RE Bracket Expression specifies that we must support locale
+			 * specific character classes present in the current LC_CTYPE.
+			 * https://pubs.opengroup.org/onlinepubs/9699919799/basedefs/V1_chap09.html#tag_09_03_05 */
+			int ccnamec = 64;
+			char *ccname = malloc(ccnamec);
+			char *ccnamep = ccname;
+
+			/* Read in the character class name */
+			while (*prestr) {
+				if (!adjbuf(&ccname, &ccnamec, ccnamep-ccname+1, 32, &ccnamep, "relex2"))
+					FATAL("out of space for reg expr %.10s...", lastre);
+
+				*ccnamep++ = *prestr++;
+				if (*prestr == ':' && prestr[1] == ']') {
+					prestr += 2;
+					break;
+				}
+			}
+			*ccnamep++ = '\0';
+
+			wctype_t wc_type = wctype(ccname);
+			DPRINTF("character class %s is wctype %d\n", ccname, wc_type);
+			if (wc_type) {
+				/*
+				 * BUG: We begin at 1, instead of 0, since we
+				 * would otherwise prematurely terminate the
+				 * string for classes like [[:cntrl:]]. This
+				 * means that we can't match the NUL character,
+				 * not without first adapting the entire
+				 * program to track each string's length.
+				 */
+				for (i = 1; i <= UCHAR_MAX; i++) {
+					if (!wcadjbuf(&buf, &bufc, bp-buf+2, 100, &bp, "relex2"))
+						FATAL("out of space for reg expr %.10s...", lastre);
+
+					if (iswctype((wchar_t)i, wc_type)) {
+						/* escape backslash */
+						if (i == L'\\') {
+							*bp++ = (wchar_t)i;
+							n++;
+						}
+
+						*bp++ = (wchar_t)i;
+						n++;
+					}
+				}
+			} else {
+				WARNING("unknown character class: %s", ccname);
+				*bp++ = wc;
+			}
+		} else if (wc == '[' && *prestr == '.') {
+			wchar_t collate_char;
+			prestr++;
+			collate_char = wcadvance(NULL, &prestr, MB_LEN_MAX);
+			if (*prestr == '.' && prestr[1] == ']') {
+				prestr += 2;
+				/* Found it: map via locale TBD: for
+				   now, simply return this char.  This
+				   is sufficient to pass conformance
+				   test awk.ex 156
+				 */
+				if (*prestr == ']') {
+					prestr++;
+					rlxval = collate_char;
+					if (replogfile) {
+						fprintf(replogfile,
+							"[..] collate char=%c\n",
+							collate_char);
+						fflush(replogfile);
+					}
+					/* FIXME: this should really be a CCL with 1 character for now, otherwise ^ / NCCL won't work */
+					return CHAR;
+				}
+			}
+		} else if (wc == '[' && *prestr == '=') {
+			/* Read opening '=' */
+			prestr++;
+
+			wchar_t collate_elem = wcadvance(NULL, &prestr, MB_CUR_MAX);
+
+			if (*prestr == '=' && prestr[1] == ']') {
+				wchar_t wc2;
+				int prim1, prim2, sec1, sec2, len;
+
+				len = 1;
+				prestr += 2;
+
+				__collate_lookup_l(&collate_elem, &len, &prim1, &sec1, LC_GLOBAL_LOCALE);
+				DPRINTF("collate_elem: 0x%x p: %d s:%d\n", collate_elem, prim1, sec1);
+
+				/* Lookup all ISO wide characters (0 -> 255) for primary weights */
+				/* FUTURE: like ranges (a-z) we should just store collate_elem and perform lookups in member() */
+				for (wc2 = 1; wc2 < UCHAR_MAX; wc2++) {
+					if (!wcadjbuf(&buf, &bufc, bp-buf+1, 100, &bp, "relex2"))
+						FATAL("out of space for reg expr %.10s...", lastre);
+
+					len = 1;
+					__collate_lookup_l(&wc2, &len, &prim2, &sec2, LC_GLOBAL_LOCALE);
+
+					DPRINTF("compare_char: (0x%x) p: %d s:%d\n", wc2, prim2, sec2);
+					if (prim1 == prim2) {
+						DPRINTF("                -> Primary weights match @ %p\n", bp);
+						if (wc2 == L'\\') {
+							*bp++ = wc2;
+							n++;
+						}
+
+						*bp++ = wc2;
+						n++;
+					}
+				}
+			}
+		} else if (wc == '\0') {
+			FATAL("nonterminated character class %.20s", lastre);
+		} else if (bp == buf) {
+			/* 1st char is special */
+			/* NOTE/BUG: If [:name:], [=a=], or others expand to an empty set,
+			 * the next character will still be considered "first".
+			 */
+			*bp++ = wc;
+		} else if (wc == L']') {
+			*bp++ = L'\0';
+			rlxwcs = wcsdup(buf);
+			if (replogfile) {
+				fprintf(replogfile,
+				"detecting []: cflag=%d, len=%zd,%ls\n",
+					cflag,wcslen(rlxwcs),rlxwcs);
+				fflush(replogfile);
+			}
+			if (cflag == 0)
+				return CCL;
+			else
+				return NCCL;
+		} else {
+			/* just a simple character in the class: [abc] */
+			*bp++ = wc;
+		}
+	}
+}
+
 int relex(void)		/* lexical analyzer for reparse */
 {
 	int c, n;
-	int cflag;
 	static uschar *buf = NULL;
 	static int bufsz = 100;
 	uschar *bp;
-	const struct charclass *cc;
 	int i;
 	int num, m;
 	bool commafound, digitfound;
@@ -1112,147 +1346,20 @@ rescan:
 		rlxval = c;
 		return CHAR;
 	case '\\':
+		/* FUTURE: prestr is not a wchar_t, when it is, use wcquoted() * */
 		rlxval = quoted(&prestr);
 		return CHAR;
 	default:
-		rlxval = c;
-		return CHAR;
-	case '[':
-		if (buf == NULL && (buf = malloc(bufsz)) == NULL)
-			FATAL("out of space in reg expr %.10s..", lastre);
-		bp = buf;
-		if (*prestr == '^') {
-			cflag = 1;
-			prestr++;
-		}
-		else
-			cflag = 0;
-		n = 2 * strlen((const char *) prestr)+1;
-		if (!adjbuf((char **) &buf, &bufsz, n, n, (char **) &bp, "relex1"))
-			FATAL("out of space for reg expr %.10s...", lastre);
-		for (; ; ) {
-			if ((c = *prestr++) == '\\') {
-				*bp++ = '\\';
-				if ((c = *prestr++) == '\0')
-					FATAL("nonterminated character class %.20s...", lastre);
-				*bp++ = c;
-			/* } else if (c == '\n') { */
-			/* 	FATAL("newline in character class %.20s...", lastre); */
-			} else if (c == '[' && *prestr == ':') {
-				/* POSIX char class names, Dag-Erling Smorgrav, des@ofug.org */
-				for (cc = charclasses; cc->cc_name; cc++)
-					if (strncmp((const char *) prestr + 1, (const char *) cc->cc_name, cc->cc_namelen) == 0)
-						break;
-				if (cc->cc_name != NULL && prestr[1 + cc->cc_namelen] == ':' &&
-				    prestr[2 + cc->cc_namelen] == ']') {
-					prestr += cc->cc_namelen + 3;
-					/*
-					 * BUG: We begin at 1, instead of 0, since we
-					 * would otherwise prematurely terminate the
-					 * string for classes like [[:cntrl:]]. This
-					 * means that we can't match the NUL character,
-					 * not without first adapting the entire
-					 * program to track each string's length.
-					 */
-					for (i = 1; i <= UCHAR_MAX; i++) {
-						if (!adjbuf((char **) &buf, &bufsz, bp-buf+1, 100, (char **) &bp, "relex2"))
-						    FATAL("out of space for reg expr %.10s...", lastre);
-						if (cc->cc_func(i)) {
-							/* escape backslash */
-							if (i == '\\') {
-								*bp++ = '\\';
-								n++;
-							}
+		{
+			/* put us back at `c` for a multibyte conversion */
+			prestr--;
 
-							*bp++ = i;
-							n++;
-						}
-					}
-				} else
-					*bp++ = c;
-			} else if (c == '[' && *prestr == '.') {
-				char collate_char;
-				prestr++;
-				collate_char = *prestr++;
-				if (*prestr == '.' && prestr[1] == ']') {
-					prestr += 2;
-					/* Found it: map via locale TBD: for
-					   now, simply return this char.  This
-					   is sufficient to pass conformance
-					   test awk.ex 156
-					 */
-					if (*prestr == ']') {
-						prestr++;
-						rlxval = collate_char;
-						if (replogfile) {
-							fprintf(replogfile,
-								"[..] collate char=%c\n",
-								collate_char);
-							fflush(replogfile);
-						}
-						return CHAR;
-					}
-				}
-			} else if (c == '[' && *prestr == '=') {
-				char equiv_char;
-				prestr++;
-				equiv_char = *prestr++;
-				if (*prestr == '=' && prestr[1] == ']') {
-					prestr += 2;
-					if (Unix2003_compat) {
-						/* Found it: map via locale
-						   TODO: is this still required given the code below?
-						 */
-						char s1[2] = { '\0', '\0' };
-						char s2[2] = { '\0', '\0' };
-						s1[0] = equiv_char;
-						for (i = 0; i < NCHARS; i++) {
-							if (!adjbuf((char **) &buf, &bufsz, bp-buf+1, 100, (char **) &bp, "relex2"))
-								FATAL("out of space for reg expr %.10s...", lastre);
-							s2[0] = (char)i;
-							if (i && strcoll(s1, s2) == 0) {
-								*bp++ = i;
-								n++;
-								if (i == '\\') {
-									*bp++ = i;
-									n++;
-								}
-							}
-						}
-					} else {
-						/* Found it: map via locale TBD: for now
-						   simply return this char. This is
-						   sufficient to pass conformance test
-						   awk.ex 156
-						 */
-						if (*prestr == ']') {
-							prestr++;
-							rlxval = equiv_char;
-							return CHAR;
-						}
-					}
-				}
-			} else if (c == '\0') {
-				FATAL("nonterminated character class %.20s", lastre);
-			} else if (bp == buf) {	/* 1st char is special */
-				*bp++ = c;
-			} else if (c == ']') {
-				*bp++ = 0;
-				rlxstr = (uschar *) tostring((char *) buf);
-				if (replogfile) {
-					fprintf(replogfile,
-					"detecting []: cflag=%d, len=%d,%s\n",
-						cflag,strlen(rlxstr),rlxstr);
-					fflush(replogfile);
-				}
-				if (cflag == 0)
-					return CCL;
-				else
-					return NCCL;
-			} else
-				*bp++ = c;
+			rlxval = wcadvance(NULL, &prestr, MB_CUR_MAX);
+
+			return CHAR;
 		}
-		break;
+	case '[':
+		return cclex();
 	case '{':
 		if (isdigit(*(prestr))) {
 			num = 0;	/* Process as a repetition */
@@ -1326,12 +1433,18 @@ rescan:
 	}
 }
 
-int cgoto(fa *f, int s, int c)
+int cgoto(fa *f, int s, wchar_t wc, int ctrl)
 {
 	int *p, *q;
 	int i, j, k;
 
-	assert(c == HAT || c < NCHARS);
+	DPRINTF("cgoto: wc: %d ctrl: %d\n", wc, ctrl);
+
+	/* The ctrl replaces cases where cgoto was called w/ a special int like HAT to indicate the beginning of input */
+	if (ctrl != 0 && wc != 0) {
+		FATAL("cgoto: non-zero ctrl instruction passed with wc: ctrl: %d wc: %d", ctrl, wc);
+	}
+
 	while (f->accept >= maxsetvec) {	/* guessing here! */
 		resizesetvec(__func__);
 	}
@@ -1343,12 +1456,16 @@ int cgoto(fa *f, int s, int c)
 	p = f->posns[s];
 	for (i = 1; i <= *p; i++) {
 		if ((k = f->re[p[i]].ltype) != FINAL) {
-			if ((k == CHAR && c == ptoi(f->re[p[i]].lval.np))
-			 || (k == DOT && c != 0 && c != HAT)
-			 || (k == ALL && c != 0)
-			 || (k == EMPTYRE && c != 0)
-			 || (k == CCL && member(c, (char *) f->re[p[i]].lval.up))
-			 || (k == NCCL && !member(c, (char *) f->re[p[i]].lval.up) && c != 0 && c != HAT)) {
+			DPRINTF("cgoto: k: %d wc: %d ctrl: %d\n", k, wc, ctrl);
+			if ((k == CHAR && wc == ptoi(f->re[p[i]].lval.np) && ctrl == 0)
+			 || (k == HAT && ctrl == HAT_CTRL)
+			 || (k == DOT && wc != 0)
+			 || (k == ALL && (wc != 0 || ctrl == HAT_CTRL)) /* ALL should match the initial makeinit call */
+			 || (k == EMPTYRE && wc != 0)
+			 || (k == CCL && member(wc, (wchar_t *) f->re[p[i]].lval.up))
+			 || (k == NCCL && wc != 0 && !member(wc, (wchar_t *) f->re[p[i]].lval.up))) {
+				DPRINTF("cgoto: match\n");
+
 				q = f->re[p[i]].lfollow;
 				for (j = 1; j <= *q; j++) {
 					if (q[j] >= maxsetvec) {
@@ -1362,6 +1479,7 @@ int cgoto(fa *f, int s, int c)
 			}
 		}
 	}
+	DPRINTF("cgoto: out loop\n");
 	/* determine if setvec is a previous state */
 	tmpset[0] = setcnt;
 	j = 1;
@@ -1379,8 +1497,10 @@ int cgoto(fa *f, int s, int c)
 			if (tmpset[j] != p[j])
 				goto different;
 		/* setvec is state i */
-		if (c != HAT)
-			f->gototab[s][c] = i;
+		if (ctrl != HAT_CTRL && wc < NCHARS) {
+			f->gototab[s][(int)wc] = i;
+		}
+
 		return i;
 	  different:;
 	}
@@ -1394,8 +1514,10 @@ int cgoto(fa *f, int s, int c)
 	p = intalloc(setcnt + 1, __func__);
 
 	f->posns[f->curstat] = p;
-	if (c != HAT)
-		f->gototab[s][c] = f->curstat;
+	if (ctrl != HAT_CTRL && wc < NCHARS) {
+		f->gototab[s][(int)wc] = f->curstat;
+	}
+
 	for (i = 0; i <= setcnt; i++)
 		p[i] = tmpset[i];
 	if (setvec[f->accept])

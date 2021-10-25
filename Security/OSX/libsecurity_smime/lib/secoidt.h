@@ -48,12 +48,12 @@ typedef enum {
 } SECSupportExtenTag;
 
 struct SECOidDataStr {
-    SECItem            oid;
-    SECOidTag          offset;
-    const char *       desc;
-    CSSM_ALGORITHMS    cssmAlgorithm;
-    SECSupportExtenTag supportedExtension;	
-    				/* only used for x.509 v3 extensions, so
+    SECItem oid;
+    SECOidTag offset;
+    const char* desc;
+    CSSM_ALGORITHMS cssmAlgorithm;
+    SECSupportExtenTag supportedExtension;
+    /* only used for x.509 v3 extensions, so
 				   that we can print the names of those
 				   extensions that we don't even support */
 };

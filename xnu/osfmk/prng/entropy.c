@@ -44,6 +44,14 @@
 // The number of samples we can hold in an entropy buffer.
 #define ENTROPY_MAX_SAMPLE_COUNT (2048)
 
+// The length of a bitmap_t array with one bit per sample of an
+// entropy buffer.
+#define ENTROPY_MAX_FILTER_COUNT (BITMAP_LEN(ENTROPY_MAX_SAMPLE_COUNT))
+
+// The threshold of approximate linearity used in the entropy
+// filter. See the entropy_filter function for more discussion.
+#define ENTROPY_FILTER_THRESHOLD (8)
+
 // The state for a per-CPU entropy buffer.
 typedef struct entropy_cpu_data {
 	// A buffer to hold entropy samples.
@@ -94,6 +102,11 @@ typedef struct entropy_data {
 	// complete.
 	bool sha256_ctx_init;
 
+	// A buffer to hold a bitmap with one bit per sample of an entropy
+	// buffer. We are able to reuse this instance across all the
+	// per-CPU entropy buffers to save space.
+	bitmap_t filter[ENTROPY_MAX_FILTER_COUNT];
+
 	// A total count of entropy samples that have passed through this
 	// structure. It is incremented as new samples are accumulated
 	// from the various per-CPU structures. The "current" count of
@@ -135,6 +148,9 @@ static entropy_cpu_data_t PERCPU_DATA(entropy_cpu_data);
 int entropy_health_startup_done;
 entropy_health_stats_t entropy_health_rct_stats;
 entropy_health_stats_t entropy_health_apt_stats;
+uint64_t entropy_filter_accepted_sample_count;
+uint64_t entropy_filter_rejected_sample_count;
+uint64_t entropy_filter_total_sample_count;
 
 static entropy_data_t entropy_data = {
 	.repetition_count_test = {
@@ -147,19 +163,44 @@ static entropy_data_t entropy_data = {
 	},
 };
 
+#if ENTROPY_ANALYSIS_SUPPORTED
+
+__security_const_late int entropy_analysis_enabled;
 __security_const_late entropy_sample_t *entropy_analysis_buffer;
 __security_const_late uint32_t entropy_analysis_buffer_size;
-static __security_const_late uint32_t entropy_analysis_max_sample_count;
-static uint32_t entropy_analysis_sample_count;
+__security_const_late uint32_t entropy_analysis_filter_size;
+__security_const_late uint32_t entropy_analysis_max_sample_count;
+uint32_t entropy_analysis_sample_count;
 
 __startup_func
 static void
 entropy_analysis_init(uint32_t sample_count)
 {
+	entropy_analysis_enabled = 1;
 	entropy_analysis_max_sample_count = sample_count;
 	entropy_analysis_buffer_size = sample_count * sizeof(entropy_sample_t);
 	entropy_analysis_buffer = zalloc_permanent(entropy_analysis_buffer_size, ZALIGN(entropy_sample_t));
+	entropy_analysis_filter_size = (uint32_t) BITMAP_SIZE(entropy_analysis_max_sample_count);
 }
+
+static void
+entropy_analysis_store(entropy_sample_t sample)
+{
+	uint32_t sample_count;
+	uint32_t next_sample_count;
+
+	os_atomic_rmw_loop(&entropy_analysis_sample_count, sample_count, next_sample_count, relaxed, {
+		if (sample_count >= entropy_analysis_max_sample_count) {
+		        os_atomic_rmw_loop_give_up(return );
+		}
+
+		next_sample_count = sample_count + 1;
+	});
+
+	entropy_analysis_buffer[sample_count] = sample;
+}
+
+#endif  // ENTROPY_ANALYSIS_SUPPORTED
 
 __startup_func
 void
@@ -168,16 +209,14 @@ entropy_init(void)
 	lck_grp_init(&entropy_data.lock_group, "entropy-data", LCK_GRP_ATTR_NULL);
 	lck_mtx_init(&entropy_data.mutex, &entropy_data.lock_group, LCK_ATTR_NULL);
 
+#if ENTROPY_ANALYSIS_SUPPORTED
 	// The below path is used only for testing. This boot arg is used
-	// to collect raw entropy samples for offline analysis. The "ebsz"
-	// name is supported only until dependent tools can be updated to
-	// use the more descriptive "entropy-analysis-sample-count".
+	// to collect raw entropy samples for offline analysis.
 	uint32_t sample_count = 0;
-	if (__improbable(PE_parse_boot_argn("entropy-analysis-sample-count", &sample_count, sizeof(sample_count)))) {
-		entropy_analysis_init(sample_count);
-	} else if (__improbable(PE_parse_boot_argn("ebsz", &sample_count, sizeof(sample_count)))) {
+	if (__improbable(PE_parse_boot_argn(ENTROPY_ANALYSIS_BOOTARG, &sample_count, sizeof(sample_count)))) {
 		entropy_analysis_init(sample_count);
 	}
+#endif  // ENTROPY_ANALYSIS_SUPPORTED
 }
 
 void
@@ -198,12 +237,87 @@ entropy_collect(void)
 		return;
 	}
 
-	e->samples[sample_count] = (entropy_sample_t)ml_get_timebase_entropy();
+	entropy_sample_t sample = (entropy_sample_t)ml_get_timebase_entropy();
+	e->samples[sample_count] = sample;
 
 	// If the consumer has reset the sample count on us, the only
 	// consequence is a dropped sample. We effectively abort the
 	// entropy collection in this case.
 	(void)os_atomic_cmpxchg(&e->sample_count, sample_count, sample_count + 1, release);
+
+#if ENTROPY_ANALYSIS_SUPPORTED
+	// This code path is only used for testing. Its use is governed by
+	// a boot arg; see its initialization above.
+	if (__improbable(entropy_analysis_buffer)) {
+		entropy_analysis_store(sample);
+	}
+#endif  // ENTROPY_ANALYSIS_SUPPORTED
+}
+
+// This filter looks at the 1st differential (differences of subsequent
+// timestamp values) and the 2nd differential (differences of subsequent
+// 1st differentials). This filter will detect sequences of timestamps
+// that are linear (that is, the 2nd differential is close to zero).
+// Timestamps with a 2nd differential above the threshold ENTROPY_FILTER_THRESHOLD
+// will be marked in the filter bitmap. 2nd differentials below the threshold
+// will not be counted nor included in the filter bitmap.
+//
+// For example imagine the following sequence of 8-bit timestamps:
+//
+//  [25, 100, 175, 250, 69, 144, 219, 38, 113, 188]
+//
+// The 1st differential between timestamps is as follows:
+//
+//  [75, 75, 75, 75, 75, 75, 75, 75, 75]
+//
+// The 2nd differential is as follows:
+//
+//  [0, 0, 0, 0, 0, 0, 0, 0]
+//
+// The first two samples of any set of samples are always included as
+// there is no 2nd differential to compare against. Thus all but
+// the first two samples in this example will be removed.
+uint32_t
+entropy_filter(uint32_t sample_count, entropy_sample_t *samples, __assert_only uint32_t filter_count, bitmap_t *filter)
+{
+	assert(filter_count >= BITMAP_LEN(sample_count));
+
+	bitmap_zero(filter, sample_count);
+
+	// We always keep the first one (or two) sample(s) if we have at least one (or more) samples
+	if (sample_count == 0) {
+		return 0;
+	} else if (sample_count == 1) {
+		bitmap_set(filter, 0);
+		return 1;
+	} else if (sample_count == 2) {
+		bitmap_set(filter, 0);
+		bitmap_set(filter, 1);
+		return 2;
+	} else {
+		bitmap_set(filter, 0);
+		bitmap_set(filter, 1);
+	}
+
+	uint32_t filtered_sample_count = 2;
+
+	// We don't care about underflows when computing any differential
+	entropy_sample_t prev_1st_differential = samples[1] - samples[0];
+
+	for (uint i = 2; i < sample_count; i++) {
+		entropy_sample_t curr_1st_differential = samples[i] - samples[i - 1];
+
+		entropy_sample_t curr_2nd_differential = curr_1st_differential - prev_1st_differential;
+
+		if (curr_2nd_differential > ENTROPY_FILTER_THRESHOLD && curr_2nd_differential < ((entropy_sample_t) -ENTROPY_FILTER_THRESHOLD)) {
+			bitmap_set(filter, i);
+			filtered_sample_count += 1;
+		}
+
+		prev_1st_differential = curr_1st_differential;
+	}
+
+	return filtered_sample_count;
 }
 
 // For information on the following tests, see NIST SP 800-90B 4
@@ -252,14 +366,16 @@ reset_test(entropy_health_test_t *t, entropy_sample_t observation)
 //
 // We compute the bound C as:
 //
-// A = 2^-128
+// A = 2^-40
 // H = 1
-// C = 1 + ceil(-log(A, 2) / H) = 129
+// C = 1 + ceil(-log(A, 2) / H) = 41
 //
 // With A the acceptable chance of false positive and H a conservative
-// estimate for the entropy (in bits) of each sample.
+// estimate for the min-entropy (in bits) of each sample.
+//
+// For more information, see tools/entropy_health_test_bounds.py.
 
-#define REPETITION_COUNT_BOUND (129)
+#define REPETITION_COUNT_BOUND (41)
 
 static health_test_result_t
 repetition_count_test(entropy_sample_t observation)
@@ -284,20 +400,21 @@ repetition_count_test(entropy_sample_t observation)
 // sample.)
 //
 // Assuming one bit of entropy, we can compute the binomial cumulative
-// distribution function over 512 trials in SageMath as:
+// distribution function over 512 trials and choose a bound such that
+// the false positive rate is less than our target.
 //
-// k = var('k')
-// f(x) = sum(binomial(512, k), k, x, 512) / 2^512
+// For false positive rate and min-entropy estimate as above:
 //
-// We compute the bound C as the minimal x for which:
+// A = 2^-40
+// H = 1
 //
-// f(x) < 2^-128
+// We have our bound:
 //
-// Is true.
+// C = 336
 //
-// Empirically, we have C = 400.
+// For more information, see tools/entropy_health_test_bounds.py.
 
-#define ADAPTIVE_PROPORTION_BOUND (400)
+#define ADAPTIVE_PROPORTION_BOUND (336)
 #define ADAPTIVE_PROPORTION_WINDOW (512)
 
 // This mask definition requires the window be a power of two.
@@ -325,11 +442,21 @@ adaptive_proportion_test(entropy_sample_t observation, uint32_t offset)
 }
 
 static health_test_result_t
-entropy_health_test(uint32_t sample_count, entropy_sample_t *samples)
+entropy_health_test(uint32_t sample_count, entropy_sample_t *samples, __assert_only uint32_t filter_count, bitmap_t *filter)
 {
 	health_test_result_t result = health_test_success;
 
+	assert(filter_count >= BITMAP_LEN(sample_count));
+
 	for (uint32_t i = 0; i < sample_count; i += 1) {
+		// We use the filter to determine if a given sample "counts"
+		// or not. We skip the health tests on those samples that
+		// failed the filter, since they are not expected to provide
+		// any entropy.
+		if (!bitmap_test(filter, i)) {
+			continue;
+		}
+
 		// We only consider the low bits of each sample, since that is
 		// where we expect the entropy to be concentrated.
 		entropy_sample_t observation = samples[i] & 0xff;
@@ -346,27 +473,12 @@ entropy_health_test(uint32_t sample_count, entropy_sample_t *samples)
 	return result;
 }
 
-static void
-entropy_analysis_store(uint32_t sample_count, entropy_sample_t *samples)
-{
-	lck_mtx_assert(&entropy_data.mutex, LCK_MTX_ASSERT_OWNED);
-
-	sample_count = MIN(sample_count, (entropy_analysis_max_sample_count - entropy_analysis_sample_count));
-	if (sample_count == 0) {
-		return;
-	}
-
-	size_t size = sample_count * sizeof(samples[0]);
-	memcpy(&entropy_analysis_buffer[entropy_analysis_sample_count], samples, size);
-	entropy_analysis_sample_count += sample_count;
-}
-
 int32_t
 entropy_provide(size_t *entropy_size, void *entropy, __unused void *arg)
 {
 #if (DEVELOPMENT || DEBUG)
 	if (*entropy_size < SHA256_DIGEST_LENGTH) {
-		panic("[entropy_provide] recipient entropy buffer is too small\n");
+		panic("[entropy_provide] recipient entropy buffer is too small");
 	}
 #endif
 
@@ -406,23 +518,28 @@ entropy_provide(size_t *entropy_size, void *entropy, __unused void *arg)
 
 		assert(cpu_sample_count <= ENTROPY_MAX_SAMPLE_COUNT);
 
+		// We'll calculate how many samples that we would filter out
+		// and only add that many to the total_sample_count. The bitmap
+		// is not used during this operation.
+		uint32_t filtered_sample_count = entropy_filter(cpu_sample_count, e->samples, ENTROPY_MAX_FILTER_COUNT, entropy_data.filter);
+		assert(filtered_sample_count <= cpu_sample_count);
+
+		entropy_filter_total_sample_count += cpu_sample_count;
+		entropy_filter_accepted_sample_count += filtered_sample_count;
+		entropy_filter_rejected_sample_count += (cpu_sample_count - filtered_sample_count);
+
 		// The health test depends in part on the current state of
 		// the entropy data, so we test the new sample before
 		// accumulating it.
-		if (__improbable(entropy_health_test(cpu_sample_count, e->samples) == health_test_failure)) {
+		health_test_result_t cpu_health_test_result = entropy_health_test(cpu_sample_count, e->samples, ENTROPY_MAX_FILTER_COUNT, entropy_data.filter);
+		if (__improbable(cpu_health_test_result == health_test_failure)) {
 			health_test_result = health_test_failure;
 		}
 
 		// We accumulate the samples regardless of whether the test
-		// failed. It cannot hurt.
-		entropy_data.total_sample_count += cpu_sample_count;
+		// failed or a particular sample was filtered. It cannot hurt.
+		entropy_data.total_sample_count += filtered_sample_count;
 		SHA256_Update(&entropy_data.sha256_ctx, e->samples, cpu_sample_count * sizeof(e->samples[0]));
-
-		// This code path is only used for testing. Its use is governed by
-		// a boot arg; see its initialization above.
-		if (__improbable(entropy_analysis_buffer)) {
-			entropy_analysis_store(cpu_sample_count, e->samples);
-		}
 
 		// "Drain" the per-CPU buffer by resetting its sample count.
 		os_atomic_store(&e->sample_count, 0, relaxed);
@@ -452,9 +569,10 @@ entropy_provide(size_t *entropy_size, void *entropy, __unused void *arg)
 	// The count of new samples from the consumer's perspective.
 	int32_t n = (int32_t)(entropy_data.total_sample_count - entropy_data.read_sample_count);
 
-	// For performance reasons, we require a small threshold of
-	// samples to have built up before we provide any to the PRNG.
-	if (n < 32) {
+	// Assuming one bit of entropy per sample, we buffer at least 256
+	// samples before delivering a high-entropy payload. In theory,
+	// each payload will be a 256-bit seed with full entropy.
+	if (n < 256) {
 		goto out;
 	}
 

@@ -131,6 +131,9 @@ SecCmsDecoderDestroy(SecCmsDecoderRef decoder);
 extern OSStatus
 SecCmsDecoderFinish(SecCmsDecoderRef decoder, SecCmsMessageRef *outMessage);
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+
 /*! @functiongroup One shot interface */
 #if TARGET_OS_OSX
 /*!
@@ -153,8 +156,6 @@ SecCmsDecoderFinish(SecCmsDecoderRef decoder, SecCmsMessageRef *outMessage);
     @discussion decoder is no longer valid after this function is called.
     @availability 10.4 through 10.7
  */
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
 extern OSStatus
 SecCmsMessageDecode(const CSSM_DATA *encodedMessage,
                     SecCmsContentCallback cb, void *cb_arg,
@@ -162,7 +163,6 @@ SecCmsMessageDecode(const CSSM_DATA *encodedMessage,
                     SecCmsGetDecryptKeyCallback decrypt_key_cb, void *decrypt_key_cb_arg,
                     SecCmsMessageRef *outMessage)
     API_AVAILABLE(macos(10.4)) API_UNAVAILABLE(macCatalyst);
-#pragma clang diagnostic pop
 #else // !TARGET_OS_OSX
 /*!
     @function
@@ -192,6 +192,8 @@ SecCmsMessageDecode(const SecAsn1Item *encodedMessage,
                     SecCmsMessageRef *outMessage)
     API_AVAILABLE(ios(2.0), tvos(2.0), watchos(1.0)) API_UNAVAILABLE(macCatalyst);
 #endif // !TARGET_OS_OSX
+
+#pragma clang diagnostic pop
 
 
 __END_DECLS

@@ -1,5 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
-// License & terms of use: http://www.unicode.org/copyright.html#License
+// License & terms of use: http://www.unicode.org/copyright.html
+// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
 co{
     AuxExemplarCharacters{"[â æ ç é ê ë î k ñ ô œ ú ǔ w x y ÿ]"}
     ExemplarCharacters{
@@ -7,7 +8,6 @@ co{
         " v z]"
     }
     ExemplarCharactersIndex{"[A B C {CHJ} D E F G {GHJ} H I J L M N O P Q R S {SC} {SG} T U V Z]"}
-    Version{"36.1"}
     layout{
         characters{"left-to-right"}
         lines{"top-to-bottom"}

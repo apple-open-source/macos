@@ -1,5 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
-// License & terms of use: http://www.unicode.org/copyright.html#License
+// License & terms of use: http://www.unicode.org/copyright.html
+// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
 myv{
     Languages{
         ab{"абхазонь кель"}
@@ -30,7 +31,6 @@ myv{
         Kore{"кореань"}
         Latn{"латинэнь"}
     }
-    Version{"36.1"}
     codePatterns{
         language{"{0}"}
         script{"{0}"}

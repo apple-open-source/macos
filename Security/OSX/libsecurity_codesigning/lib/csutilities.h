@@ -31,6 +31,8 @@
 #define _H_CSUTILITIES
 
 #include <Security/Security.h>
+#include <Security/CSCommon.h>
+#include <Security/SecAsn1Types.h>
 #include <security_utilities/dispatch.h>
 #include <security_utilities/hashing.h>
 #include <security_utilities/unix++.h>
@@ -125,8 +127,9 @@ size_t hashFileData(const char *path, _Hash *hasher)
 // even ones not recognized by the local CL. It does not return any value, only presence.
 //
 
-#if TARGET_OS_OSX
 bool certificateHasField(SecCertificateRef cert, const CSSM_OID &oid);
+
+#if TARGET_OS_OSX
 bool certificateHasPolicy(SecCertificateRef cert, const CSSM_OID &policyOid);
 CFDateRef certificateCopyFieldDate(SecCertificateRef cert, const CSSM_OID &policyOid);
 #endif

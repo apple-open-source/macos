@@ -181,6 +181,8 @@ __private_extern__ void deRegisterUserActivityClient(xpc_object_t peer);
 
 bool getUserActiveAssertionValid(void);
 
+uint64_t getUserActivePostedLevels(void);
+
 #ifdef XCTEST
 void xctSetUserActiveRootDomain(bool active);
 bool xctGetUserActiveRootDomain(void);

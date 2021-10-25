@@ -22,6 +22,7 @@
  */
 
 import Foundation
+import Security_Private.SecRecoveryKey
 import SecurityFoundation
 
 let OT_RECOVERY_SIGNING_HKDF_SIZE = 56
@@ -36,13 +37,12 @@ class RecoveryKeySet: NSObject {
     var encryptionKey: _SFECKeyPair
     var signingKey: _SFECKeyPair
 
-    var secret: Data
-    var recoverySalt: String
+    private init(encryptionKey: _SFECKeyPair, signingKey: _SFECKeyPair) {
+        self.encryptionKey = encryptionKey
+        self.signingKey = signingKey
+    }
 
     init (secret: Data, recoverySalt: String) throws {
-        self.secret = secret
-        self.recoverySalt = recoverySalt
-
         let encryptionKeyData = try RecoveryKeySet.generateRecoveryKey(keyType: RecoveryKeyType.kOTRecoveryKeyEncryption, masterSecret: secret, recoverySalt: recoverySalt)
         self.encryptionKey = _SFECKeyPair.init(secKey: try RecoveryKeySet.createSecKey(keyData: encryptionKeyData))
 
@@ -54,6 +54,19 @@ class RecoveryKeySet: NSObject {
         let RecoverySigningPubKeyHash = RecoveryKeySet.hashRecoveryedSigningPublicKey(keyData: self.signingKey.publicKey().spki())
         _ = try RecoveryKeySet.storeRecoveryedSigningKeyPair(keyData: self.signingKey.keyData, label: RecoverySigningPubKeyHash)
         _ = try RecoveryKeySet.storeRecoveryedEncryptionKeyPair(keyData: self.encryptionKey.keyData, label: RecoverySigningPubKeyHash)
+    }
+
+    class func generateRandomKey() throws -> RecoveryKeySet {
+        let keySpecifier = _SFECKeySpecifier.init(curve: SFEllipticCurve.nistp384)
+        let encryptionKey = _SFECKeyPair.init(randomKeyPairWith: keySpecifier)
+        guard let unwrappedEncryptionKey = encryptionKey else {
+            throw RecoveryKeySetError.failedToGenerateRandomKey
+        }
+        let signingKey = _SFECKeyPair.init(randomKeyPairWith: keySpecifier)
+        guard let unwrappedSigningKey = signingKey else {
+            throw RecoveryKeySetError.failedToGenerateRandomKey
+        }
+        return RecoveryKeySet(encryptionKey: unwrappedEncryptionKey, signingKey: unwrappedSigningKey)
     }
 
     class func generateMasterKeyString() -> (String?) {
@@ -280,6 +293,7 @@ enum RecoveryKeySetError: Error {
     case failedToSaveToKeychain(errorCode: OSStatus)
     case unsupportedKeyType(keyType: String)
     case corecryptoKeyGeneration(corecryptoError: Int32)
+    case failedToGenerateRandomKey
 }
 
 extension RecoveryKeySetError: LocalizedError {
@@ -295,6 +309,8 @@ extension RecoveryKeySetError: LocalizedError {
             return "Unsupported Key Type \(keyType)"
         case .corecryptoKeyGeneration(corecryptoError: let corecryptoError):
             return "Key generation crypto failed \(corecryptoError)"
+        case .failedToGenerateRandomKey:
+            return "Failed to generate random key"
         }
     }
 }
@@ -316,6 +332,8 @@ extension RecoveryKeySetError: CustomNSError {
             return 4
         case .corecryptoKeyGeneration:
             return 5
+        case .failedToGenerateRandomKey:
+            return 6
         }
     }
 

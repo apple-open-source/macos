@@ -31,7 +31,10 @@
 #include "assym.s"
 
 #if XNU_MONITOR
-/* Exit path defines; for controlling PPL -> kernel transitions. */
+/*
+ * Exit path defines; for controlling PPL -> kernel transitions.
+ * These should fit within a 32-bit integer, as the PPL trampoline packs them into a 32-bit field.
+ */
 #define PPL_EXIT_DISPATCH   0 /* This is a clean exit after a PPL request. */
 #define PPL_EXIT_PANIC_CALL 1 /* The PPL has called panic. */
 #define PPL_EXIT_BAD_CALL   2 /* The PPL request failed. */
@@ -42,7 +45,6 @@
 #define KERNEL_MODE_FAR      FAR_GL11
 #define KERNEL_MODE_ESR      ESR_GL11
 #define KERNEL_MODE_SPSR     SPSR_GL11
-#define KERNEL_MODE_ASPSR    ASPSR_GL11
 #define KERNEL_MODE_VBAR     VBAR_GL11
 #define KERNEL_MODE_TPIDR    TPIDR_GL11
 
@@ -50,7 +52,6 @@
 #define GUARDED_MODE_FAR     FAR_EL1
 #define GUARDED_MODE_ESR     ESR_EL1
 #define GUARDED_MODE_SPSR    SPSR_EL1
-#define GUARDED_MODE_ASPSR   ASPSR_EL1
 #define GUARDED_MODE_VBAR    VBAR_EL1
 #define GUARDED_MODE_TPIDR   TPIDR_EL1
 
@@ -202,7 +203,11 @@
 	mov		x3, x20
 	mov		x4, x16
 	mov		x5, x17
+
+	mrs		x19, SPSel
+	msr		SPSel, #1
 	bl		_ml_sign_thread_state
+	msr		SPSel, x19
 	mov		lr, x20
 	mov		x1, x21
 	.endif
@@ -236,45 +241,5 @@
 	ldr		x1, [x1, ACT_CPUDATAP]
 	ldr		x1, [x1, CPU_ISTACKPTR]
 	mov		sp, x1			// Set the stack pointer to the interrupt stack
-.endmacro
-
-/*
- * REENABLE_DAIF
- *
- * Restores the DAIF bits to their original state (well, the AIF bits at least).
- *   arg0 - DAIF bits (read from the DAIF interface) to restore
- */
-.macro REENABLE_DAIF
-	/* AIF enable. */
-	tst		$0, #(DAIF_IRQF | DAIF_FIQF | DAIF_ASYNCF)
-	b.eq		3f
-
-	/* IF enable. */
-	tst		$0, #(DAIF_IRQF | DAIF_FIQF)
-	b.eq		2f
-
-	/* A enable. */
-	tst		$0, #(DAIF_ASYNCF)
-	b.eq		1f
-
-	/* Enable nothing. */
-	b		4f
-
-	/* A enable. */
-1:
-	msr		DAIFClr, #(DAIFSC_ASYNCF)
-	b		4f
-
-	/* IF enable. */
-2:
-	msr		DAIFClr, #(DAIFSC_IRQF | DAIFSC_FIQF)
-	b		4f
-
-	/* AIF enable. */
-3:
-	msr		DAIFClr, #(DAIFSC_IRQF | DAIFSC_FIQF | DAIFSC_ASYNCF)
-
-	/* Done! */
-4:
 .endmacro
 

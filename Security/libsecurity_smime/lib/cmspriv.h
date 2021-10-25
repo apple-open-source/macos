@@ -39,7 +39,7 @@
 #define _CMSPRIV_H_
 
 #include <Security/SecTrust.h>
-#include <security_asn1/seccomon.h> // SEC_BEGIN_PROTOS
+#include <security_asn1/seccomon.h>  // SEC_BEGIN_PROTOS
 #include "cmstpriv.h"
 
 /************************************************************************/
@@ -57,15 +57,13 @@ SEC_BEGIN_PROTOS
  * in lexigraphically ascending order for a SET OF); if reordering is necessary it
  * will be done in place (in objs).
  */
-extern OSStatus
-SecCmsArraySortByDER(void **objs, const SecAsn1Template *objtemplate, void **objs2);
+extern OSStatus SecCmsArraySortByDER(void** objs, const SecAsn1Template* objtemplate, void** objs2);
 
 /*
  * SecCmsUtilDERCompare - for use with SecCmsArraySort to
  *  sort arrays of SecAsn1Items containing DER
  */
-extern int
-SecCmsUtilDERCompare(void *a, void *b);
+extern int SecCmsUtilDERCompare(void* a, void* b);
 
 /*
  * SecCmsAlgArrayGetIndexByAlgID - find a specific algorithm in an array of 
@@ -78,8 +76,7 @@ SecCmsUtilDERCompare(void *a, void *b);
  *  An integer containing the index of the algorithm in the array or -1 if 
  *  algorithm was not found.
  */
-extern int
-SecCmsAlgArrayGetIndexByAlgID(SECAlgorithmID **algorithmArray, SECAlgorithmID *algid);
+extern int SecCmsAlgArrayGetIndexByAlgID(SECAlgorithmID** algorithmArray, SECAlgorithmID* algid);
 
 /*
  * SecCmsAlgArrayGetIndexByAlgID - find a specific algorithm in an array of 
@@ -92,28 +89,22 @@ SecCmsAlgArrayGetIndexByAlgID(SECAlgorithmID **algorithmArray, SECAlgorithmID *a
  *  An integer containing the index of the algorithm in the array or -1 if 
  *  algorithm was not found.
  */
-extern int
-SecCmsAlgArrayGetIndexByAlgTag(SECAlgorithmID **algorithmArray, SECOidTag algtag);
+extern int SecCmsAlgArrayGetIndexByAlgTag(SECAlgorithmID** algorithmArray, SECOidTag algtag);
 
 
-extern void *
-SecCmsUtilGetHashObjByAlgID(SECAlgorithmID *algid);
+extern void* SecCmsUtilGetHashObjByAlgID(SECAlgorithmID* algid);
 
 /*
  * XXX I would *really* like to not have to do this, but the current
  * signing interface gives me little choice.
  */
-extern SECOidTag
-SecCmsUtilMakeSignatureAlgorithm(SECOidTag hashalg, SECOidTag encalg);
+extern SECOidTag SecCmsUtilMakeSignatureAlgorithm(SECOidTag hashalg, SECOidTag encalg);
 
-extern const SecAsn1Template *
-SecCmsUtilGetTemplateByTypeTag(SECOidTag type);
+extern const SecAsn1Template* SecCmsUtilGetTemplateByTypeTag(SECOidTag type);
 
-extern size_t
-SecCmsUtilGetSizeByTypeTag(SECOidTag type);
+extern size_t SecCmsUtilGetSizeByTypeTag(SECOidTag type);
 
-extern SecCmsContentInfoRef
-SecCmsContentGetContentInfo(void *msg, SECOidTag type);
+extern SecCmsContentInfoRef SecCmsContentGetContentInfo(void* msg, SECOidTag type);
 
 /************************************************************************
 * cmsmessage.c - CMS message methods
@@ -131,10 +122,11 @@ SecCmsContentGetContentInfo(void *msg, SECOidTag type);
  @param encrypt_key_cb_arg first argument passed to encrypt_key_cb when it is
  called.
  */
-extern void
-SecCmsMessageSetEncodingParams(SecCmsMessageRef cmsg,
-                               PK11PasswordFunc pwfn, void *pwfn_arg,
-                               SecCmsGetDecryptKeyCallback encrypt_key_cb, void *encrypt_key_cb_arg);
+extern void SecCmsMessageSetEncodingParams(SecCmsMessageRef cmsg,
+                                           PK11PasswordFunc pwfn,
+                                           void* pwfn_arg,
+                                           SecCmsGetDecryptKeyCallback encrypt_key_cb,
+                                           void* encrypt_key_cb_arg);
 
 /************************************************************************
  * cmscinfo.c - CMS contentInfo methods
@@ -144,51 +136,42 @@ SecCmsMessageSetEncodingParams(SecCmsMessageRef cmsg,
     Destroy a CMS contentInfo and all of its sub-pieces.
     @param cinfo The contentInfo object to destroy.
  */
-extern void
-SecCmsContentInfoDestroy(SecCmsContentInfoRef cinfo);
+extern void SecCmsContentInfoDestroy(SecCmsContentInfoRef cinfo);
 
 /*
  * SecCmsContentInfoSetContent - set cinfo's content type & content to CMS object
  */
-extern OSStatus
-SecCmsContentInfoSetContent(SecCmsContentInfoRef cinfo, SECOidTag type, void *ptr);
+extern OSStatus SecCmsContentInfoSetContent(SecCmsContentInfoRef cinfo, SECOidTag type, void* ptr);
 
 
 /************************************************************************
  * cmssigdata.c - CMS signedData methods
  ************************************************************************/
 
-extern OSStatus
-SecCmsSignedDataSetDigestValue(SecCmsSignedDataRef sigd,
-				SECOidTag digestalgtag,
-				SecAsn1Item * digestdata);
+extern OSStatus SecCmsSignedDataSetDigestValue(SecCmsSignedDataRef sigd,
+                                               SECOidTag digestalgtag,
+                                               SecAsn1Item* digestdata);
 
-extern OSStatus
-SecCmsSignedDataAddDigest(PRArenaPool *poolp,
-				SecCmsSignedDataRef sigd,
-				SECOidTag digestalgtag,
-				SecAsn1Item * digest);
+extern OSStatus SecCmsSignedDataAddDigest(PRArenaPool* poolp,
+                                          SecCmsSignedDataRef sigd,
+                                          SECOidTag digestalgtag,
+                                          SecAsn1Item* digest);
 
-extern SecAsn1Item *
-SecCmsSignedDataGetDigestByAlgTag(SecCmsSignedDataRef sigd, SECOidTag algtag);
+extern SecAsn1Item* SecCmsSignedDataGetDigestByAlgTag(SecCmsSignedDataRef sigd, SECOidTag algtag);
 
-extern SecAsn1Item *
-SecCmsSignedDataGetDigestValue(SecCmsSignedDataRef sigd, SECOidTag digestalgtag);
+extern SecAsn1Item* SecCmsSignedDataGetDigestValue(SecCmsSignedDataRef sigd, SECOidTag digestalgtag);
 
 /*!
     @function
  */
-extern OSStatus
-SecCmsSignedDataAddSignerInfo(SecCmsSignedDataRef sigd,
-				SecCmsSignerInfoRef signerinfo);
+extern OSStatus SecCmsSignedDataAddSignerInfo(SecCmsSignedDataRef sigd, SecCmsSignerInfoRef signerinfo);
 
 /*!
 	@function
  */
-extern OSStatus
-SecCmsSignedDataSetDigests(SecCmsSignedDataRef sigd,
-				SECAlgorithmID **digestalgs,
-				SecAsn1Item * *digests);
+extern OSStatus SecCmsSignedDataSetDigests(SecCmsSignedDataRef sigd,
+                                           SECAlgorithmID** digestalgs,
+                                           SecAsn1Item** digests);
 
 /*
  * SecCmsSignedDataEncodeBeforeStart - do all the necessary things to a SignedData
@@ -201,11 +184,9 @@ SecCmsSignedDataSetDigests(SecCmsSignedDataRef sigd,
  *         If we happen to have a pre-set list of algorithms (and digest values!), we
  *         check if we have all the signerinfos' algorithms. If not, this is an error.
  */
-extern OSStatus
-SecCmsSignedDataEncodeBeforeStart(SecCmsSignedDataRef sigd);
+extern OSStatus SecCmsSignedDataEncodeBeforeStart(SecCmsSignedDataRef sigd);
 
-extern OSStatus
-SecCmsSignedDataEncodeBeforeData(SecCmsSignedDataRef sigd);
+extern OSStatus SecCmsSignedDataEncodeBeforeData(SecCmsSignedDataRef sigd);
 
 /*
  * SecCmsSignedDataEncodeAfterData - do all the necessary things to a SignedData
@@ -217,25 +198,21 @@ SecCmsSignedDataEncodeBeforeData(SecCmsSignedDataRef sigd);
  * Please note that nothing is done to the Certificates and CRLs in the message - this
  * is entirely the responsibility of our callers.
  */
-extern OSStatus
-SecCmsSignedDataEncodeAfterData(SecCmsSignedDataRef sigd);
+extern OSStatus SecCmsSignedDataEncodeAfterData(SecCmsSignedDataRef sigd);
 
-extern OSStatus
-SecCmsSignedDataDecodeBeforeData(SecCmsSignedDataRef sigd);
+extern OSStatus SecCmsSignedDataDecodeBeforeData(SecCmsSignedDataRef sigd);
 
 /*
  * SecCmsSignedDataDecodeAfterData - do all the necessary things to a SignedData
  *     after all the encapsulated data was passed through the decoder.
  */
-extern OSStatus
-SecCmsSignedDataDecodeAfterData(SecCmsSignedDataRef sigd);
+extern OSStatus SecCmsSignedDataDecodeAfterData(SecCmsSignedDataRef sigd);
 
 /*
  * SecCmsSignedDataDecodeAfterEnd - do all the necessary things to a SignedData
  *     after all decoding is finished.
  */
-extern OSStatus
-SecCmsSignedDataDecodeAfterEnd(SecCmsSignedDataRef sigd);
+extern OSStatus SecCmsSignedDataDecodeAfterEnd(SecCmsSignedDataRef sigd);
 
 
 /************************************************************************
@@ -246,16 +223,18 @@ SecCmsSignedDataDecodeAfterEnd(SecCmsSignedDataRef sigd);
  * SecCmsSignerInfoSign - sign something
  *
  */
-extern OSStatus
-SecCmsSignerInfoSign(SecCmsSignerInfoRef signerinfo, SecAsn1Item * digest, SecAsn1Item * contentType);
+extern OSStatus SecCmsSignerInfoSign(SecCmsSignerInfoRef signerinfo,
+                                     SecAsn1Item* digest,
+                                     SecAsn1Item* contentType);
 
 /*
  * If trustRef is NULL the cert chain is verified and the VerificationStatus is set accordingly.
  * Otherwise a SecTrust object is returned for the caller to evaluate using SecTrustEvaluate().
  */
-extern OSStatus
-SecCmsSignerInfoVerifyCertificate(SecCmsSignerInfoRef signerinfo, SecKeychainRef keychainOrArray,
-				  CFTypeRef policies, SecTrustRef *trustRef);
+extern OSStatus SecCmsSignerInfoVerifyCertificate(SecCmsSignerInfoRef signerinfo,
+                                                  SecKeychainRef keychainOrArray,
+                                                  CFTypeRef policies,
+                                                  SecTrustRef* trustRef);
 
 /*
  * SecCmsSignerInfoVerify - verify the signature of a single SignerInfo
@@ -263,32 +242,29 @@ SecCmsSignerInfoVerifyCertificate(SecCmsSignerInfoRef signerinfo, SecKeychainRef
  * Just verifies the signature. The assumption is that verification of the certificate
  * is done already.
  */
-extern OSStatus
-SecCmsSignerInfoVerify(SecCmsSignerInfoRef signerinfo, SecAsn1Item * digest, SecAsn1Item * contentType);
+extern OSStatus SecCmsSignerInfoVerify(SecCmsSignerInfoRef signerinfo,
+                                       SecAsn1Item* digest,
+                                       SecAsn1Item* contentType);
 
 /*
  * SecCmsSignerInfoAddAuthAttr - add an attribute to the
  * authenticated (i.e. signed) attributes of "signerinfo". 
  */
-extern OSStatus
-SecCmsSignerInfoAddAuthAttr(SecCmsSignerInfoRef signerinfo, SecCmsAttribute *attr);
+extern OSStatus SecCmsSignerInfoAddAuthAttr(SecCmsSignerInfoRef signerinfo, SecCmsAttribute* attr);
 
 /*
  * SecCmsSignerInfoAddUnauthAttr - add an attribute to the
  * unauthenticated attributes of "signerinfo". 
  */
-extern OSStatus
-SecCmsSignerInfoAddUnauthAttr(SecCmsSignerInfoRef signerinfo, SecCmsAttribute *attr);
+extern OSStatus SecCmsSignerInfoAddUnauthAttr(SecCmsSignerInfoRef signerinfo, SecCmsAttribute* attr);
 
-extern int
-SecCmsSignerInfoGetVersion(SecCmsSignerInfoRef signerinfo);
+extern int SecCmsSignerInfoGetVersion(SecCmsSignerInfoRef signerinfo);
 
 /*!
     @function
     @abstract Destroy a SignerInfo data structure.
  */
-extern void
-SecCmsSignerInfoDestroy(SecCmsSignerInfoRef si);
+extern void SecCmsSignerInfoDestroy(SecCmsSignerInfoRef si);
 
 
 /************************************************************************
@@ -300,8 +276,7 @@ SecCmsSignerInfoDestroy(SecCmsSignerInfoRef si);
     @abstract Add a recipientinfo to the enveloped data msg.
     @discussion Rip must be created on the same pool as edp - this is not enforced, though.
  */
-extern OSStatus
-SecCmsEnvelopedDataAddRecipient(SecCmsEnvelopedDataRef edp, SecCmsRecipientInfoRef rip);
+extern OSStatus SecCmsEnvelopedDataAddRecipient(SecCmsEnvelopedDataRef edp, SecCmsRecipientInfoRef rip);
 
 /*
  * SecCmsEnvelopedDataEncodeBeforeStart - prepare this envelopedData for encoding
@@ -315,67 +290,60 @@ SecCmsEnvelopedDataAddRecipient(SecCmsEnvelopedDataRef edp, SecCmsRecipientInfoR
  * using the proper algorithm for every certificiate.
  * it will finally set the bulk algorithm and key so that the encode step can find it.
  */
-extern OSStatus
-SecCmsEnvelopedDataEncodeBeforeStart(SecCmsEnvelopedDataRef envd);
+extern OSStatus SecCmsEnvelopedDataEncodeBeforeStart(SecCmsEnvelopedDataRef envd);
 
 /*
  * SecCmsEnvelopedDataEncodeBeforeData - set up encryption
  */
-extern OSStatus
-SecCmsEnvelopedDataEncodeBeforeData(SecCmsEnvelopedDataRef envd);
+extern OSStatus SecCmsEnvelopedDataEncodeBeforeData(SecCmsEnvelopedDataRef envd);
 
 /*
  * SecCmsEnvelopedDataEncodeAfterData - finalize this envelopedData for encoding
  */
-extern OSStatus
-SecCmsEnvelopedDataEncodeAfterData(SecCmsEnvelopedDataRef envd);
+extern OSStatus SecCmsEnvelopedDataEncodeAfterData(SecCmsEnvelopedDataRef envd);
 
 /*
  * SecCmsEnvelopedDataDecodeBeforeData - find our recipientinfo, 
  * derive bulk key & set up our contentinfo
  */
-extern OSStatus
-SecCmsEnvelopedDataDecodeBeforeData(SecCmsEnvelopedDataRef envd);
+extern OSStatus SecCmsEnvelopedDataDecodeBeforeData(SecCmsEnvelopedDataRef envd);
 
 /*
  * SecCmsEnvelopedDataDecodeAfterData - finish decrypting this envelopedData's content
  */
-extern OSStatus
-SecCmsEnvelopedDataDecodeAfterData(SecCmsEnvelopedDataRef envd);
+extern OSStatus SecCmsEnvelopedDataDecodeAfterData(SecCmsEnvelopedDataRef envd);
 
 /*
  * SecCmsEnvelopedDataDecodeAfterEnd - finish decoding this envelopedData
  */
-extern OSStatus
-SecCmsEnvelopedDataDecodeAfterEnd(SecCmsEnvelopedDataRef envd);
+extern OSStatus SecCmsEnvelopedDataDecodeAfterEnd(SecCmsEnvelopedDataRef envd);
 
 
 /************************************************************************
  * cmsrecinfo.c - CMS recipientInfo methods
  ************************************************************************/
 
-extern int
-SecCmsRecipientInfoGetVersion(SecCmsRecipientInfoRef ri);
+extern int SecCmsRecipientInfoGetVersion(SecCmsRecipientInfoRef ri);
 
-extern SecAsn1Item *
-SecCmsRecipientInfoGetEncryptedKey(SecCmsRecipientInfoRef ri, int subIndex);
+extern SecAsn1Item* SecCmsRecipientInfoGetEncryptedKey(SecCmsRecipientInfoRef ri, int subIndex);
 
 
-extern SECOidTag
-SecCmsRecipientInfoGetKeyEncryptionAlgorithmTag(SecCmsRecipientInfoRef ri);
+extern SECOidTag SecCmsRecipientInfoGetKeyEncryptionAlgorithmTag(SecCmsRecipientInfoRef ri);
 
-extern OSStatus
-SecCmsRecipientInfoWrapBulkKey(SecCmsRecipientInfoRef ri, SecSymmetricKeyRef bulkkey, SECOidTag bulkalgtag);
+extern OSStatus SecCmsRecipientInfoWrapBulkKey(SecCmsRecipientInfoRef ri,
+                                               SecSymmetricKeyRef bulkkey,
+                                               SECOidTag bulkalgtag);
 
-extern SecSymmetricKeyRef
-SecCmsRecipientInfoUnwrapBulkKey(SecCmsRecipientInfoRef ri, int subIndex,
-		SecCertificateRef cert, SecPrivateKeyRef privkey, SECOidTag bulkalgtag);
+extern SecSymmetricKeyRef SecCmsRecipientInfoUnwrapBulkKey(SecCmsRecipientInfoRef ri,
+                                                           int subIndex,
+                                                           SecCertificateRef cert,
+                                                           SecPrivateKeyRef privkey,
+                                                           SECOidTag bulkalgtag);
 
 /*!
     @function
  */
-extern void
-SecCmsRecipientInfoDestroy(SecCmsRecipientInfoRef ri);
+extern void SecCmsRecipientInfoDestroy(SecCmsRecipientInfoRef ri);
 
 
 /************************************************************************
@@ -390,38 +358,32 @@ SecCmsRecipientInfoDestroy(SecCmsRecipientInfoRef ri);
  *  - set the correct version value.
  *  - get the encryption key
  */
-extern OSStatus
-SecCmsEncryptedDataEncodeBeforeStart(SecCmsEncryptedDataRef encd);
+extern OSStatus SecCmsEncryptedDataEncodeBeforeStart(SecCmsEncryptedDataRef encd);
 
 /*
  * SecCmsEncryptedDataEncodeBeforeData - set up encryption
  */
-extern OSStatus
-SecCmsEncryptedDataEncodeBeforeData(SecCmsEncryptedDataRef encd);
+extern OSStatus SecCmsEncryptedDataEncodeBeforeData(SecCmsEncryptedDataRef encd);
 
 /*
  * SecCmsEncryptedDataEncodeAfterData - finalize this encryptedData for encoding
  */
-extern OSStatus
-SecCmsEncryptedDataEncodeAfterData(SecCmsEncryptedDataRef encd);
+extern OSStatus SecCmsEncryptedDataEncodeAfterData(SecCmsEncryptedDataRef encd);
 
 /*
  * SecCmsEncryptedDataDecodeBeforeData - find bulk key & set up decryption
  */
-extern OSStatus
-SecCmsEncryptedDataDecodeBeforeData(SecCmsEncryptedDataRef encd);
+extern OSStatus SecCmsEncryptedDataDecodeBeforeData(SecCmsEncryptedDataRef encd);
 
 /*
  * SecCmsEncryptedDataDecodeAfterData - finish decrypting this encryptedData's content
  */
-extern OSStatus
-SecCmsEncryptedDataDecodeAfterData(SecCmsEncryptedDataRef encd);
+extern OSStatus SecCmsEncryptedDataDecodeAfterData(SecCmsEncryptedDataRef encd);
 
 /*
  * SecCmsEncryptedDataDecodeAfterEnd - finish decoding this encryptedData
  */
-extern OSStatus
-SecCmsEncryptedDataDecodeAfterEnd(SecCmsEncryptedDataRef encd);
+extern OSStatus SecCmsEncryptedDataDecodeAfterEnd(SecCmsEncryptedDataRef encd);
 
 
 /************************************************************************
@@ -435,8 +397,7 @@ SecCmsEncryptedDataDecodeAfterEnd(SecCmsEncryptedDataRef encd);
  * In particular:
  *  - set the right version number. The contentInfo's content type must be set up already.
  */
-extern OSStatus
-SecCmsDigestedDataEncodeBeforeStart(SecCmsDigestedDataRef digd);
+extern OSStatus SecCmsDigestedDataEncodeBeforeStart(SecCmsDigestedDataRef digd);
 
 /*
  * SecCmsDigestedDataEncodeBeforeData - do all the necessary things to a DigestedData
@@ -445,8 +406,7 @@ SecCmsDigestedDataEncodeBeforeStart(SecCmsDigestedDataRef digd);
  * In detail:
  *  - set up the digests if necessary
  */
-extern OSStatus
-SecCmsDigestedDataEncodeBeforeData(SecCmsDigestedDataRef digd);
+extern OSStatus SecCmsDigestedDataEncodeBeforeData(SecCmsDigestedDataRef digd);
 
 /*
  * SecCmsDigestedDataEncodeAfterData - do all the necessary things to a DigestedData
@@ -455,8 +415,7 @@ SecCmsDigestedDataEncodeBeforeData(SecCmsDigestedDataRef digd);
  * In detail:
  *  - finish the digests
  */
-extern OSStatus
-SecCmsDigestedDataEncodeAfterData(SecCmsDigestedDataRef digd);
+extern OSStatus SecCmsDigestedDataEncodeAfterData(SecCmsDigestedDataRef digd);
 
 /*
  * SecCmsDigestedDataDecodeBeforeData - do all the necessary things to a DigestedData
@@ -465,8 +424,7 @@ SecCmsDigestedDataEncodeAfterData(SecCmsDigestedDataRef digd);
  * In detail:
  *  - set up the digests if necessary
  */
-extern OSStatus
-SecCmsDigestedDataDecodeBeforeData(SecCmsDigestedDataRef digd);
+extern OSStatus SecCmsDigestedDataDecodeBeforeData(SecCmsDigestedDataRef digd);
 
 /*
  * SecCmsDigestedDataDecodeAfterData - do all the necessary things to a DigestedData
@@ -475,8 +433,7 @@ SecCmsDigestedDataDecodeBeforeData(SecCmsDigestedDataRef digd);
  * In detail:
  *  - finish the digests
  */
-extern OSStatus
-SecCmsDigestedDataDecodeAfterData(SecCmsDigestedDataRef digd);
+extern OSStatus SecCmsDigestedDataDecodeAfterData(SecCmsDigestedDataRef digd);
 
 /*
  * SecCmsDigestedDataDecodeAfterEnd - finalize a digestedData.
@@ -484,8 +441,7 @@ SecCmsDigestedDataDecodeAfterData(SecCmsDigestedDataRef digd);
  * In detail:
  *  - check the digests for equality
  */
-extern OSStatus
-SecCmsDigestedDataDecodeAfterEnd(SecCmsDigestedDataRef digd);
+extern OSStatus SecCmsDigestedDataDecodeAfterEnd(SecCmsDigestedDataRef digd);
 
 
 /************************************************************************
@@ -496,16 +452,13 @@ SecCmsDigestedDataDecodeAfterEnd(SecCmsDigestedDataRef digd);
  * SecCmsDigestContextStartSingle - same as SecCmsDigestContextStartMultiple, but
  *  only one algorithm.
  */
-extern SecCmsDigestContextRef
-SecCmsDigestContextStartSingle(SECAlgorithmID *digestalg);
+extern SecCmsDigestContextRef SecCmsDigestContextStartSingle(SECAlgorithmID* digestalg);
 
 /*
  * SecCmsDigestContextFinishSingle - same as SecCmsDigestContextFinishMultiple,
  *  but for one digest.
  */
-extern OSStatus
-SecCmsDigestContextFinishSingle(SecCmsDigestContextRef cmsdigcx,
-			    SecAsn1Item * digest);
+extern OSStatus SecCmsDigestContextFinishSingle(SecCmsDigestContextRef cmsdigcx, SecAsn1Item* digest);
 
 /*!
     @function
@@ -523,10 +476,9 @@ SecCmsDigestContextFinishSingle(SecCmsDigestContextRef cmsdigcx,
 		until SecCmsDigestContextDestroy is called.
     @availability 10.4 and later
  */
-extern OSStatus
-SecCmsDigestContextFinishMultiple(SecCmsDigestContextRef cmsdigcx,
-			    SECAlgorithmID ***digestalgsp,
-			    SecAsn1Item * **digestsp);
+extern OSStatus SecCmsDigestContextFinishMultiple(SecCmsDigestContextRef cmsdigcx,
+                                                  SECAlgorithmID*** digestalgsp,
+                                                  SecAsn1Item*** digestsp);
 
 
 /************************************************************************/

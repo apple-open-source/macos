@@ -40,12 +40,12 @@
 #include <netinet/in.h>
 #include <netsmb/netbios.h>
 
-#define SMBFS_VERMAJ	3
-#define SMBFS_VERMIN	6000
+#define SMBFS_VERMAJ	4
+#define SMBFS_VERMIN	0000
 #define SMBFS_VERSION	(SMBFS_VERMAJ*100000 + SMBFS_VERMIN)
 #define	SMBFS_VFSNAME	"smbfs"
-#define SMBFS_LANMAN	"SMBFS 3.6"	/* Needs to match SMBFS_VERSION */
-#define SMBFS_NATIVEOS	"Mac OS X 11"	/* Needs to match current OS version major number only */
+#define SMBFS_LANMAN	"SMBFS 4.0"	/* Needs to match SMBFS_VERSION */
+#define SMBFS_NATIVEOS	"Mac OS X 12"	/* Needs to match current OS version major number only */
 #define SMBFS_SLASH_TONAME "/Volumes/0x2f"
 
 #define	SMBFS_MAXPATHCOMP	256	/* maximum number of path components */

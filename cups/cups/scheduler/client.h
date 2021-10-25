@@ -37,7 +37,7 @@ struct cupsd_client_s
 					/* Localized URL/URI for GET/PUT */
 			*filename,	/* Filename of output file */
 			*command,	/* Command to run */
-			*options,	/* Options for command */
+			*options,	/* Options for command (already percent decoded) */
 			*query_string;	/* QUERY_STRING environment variable */
   int			file;		/* Input/output file */
   int			file_ready;	/* Input ready on file/pipe? */
@@ -126,7 +126,7 @@ extern int	cupsdProcessIPPRequest(cupsd_client_t *con);
 extern void	cupsdReadClient(cupsd_client_t *con);
 extern void	cupsdResumeListening(void);
 extern int	cupsdSendCommand(cupsd_client_t *con, char *command,
-		                 char *options, int root);
+		                 char *options, int root, int percent_decode);
 extern int	cupsdSendError(cupsd_client_t *con, http_status_t code,
 		               int auth_type);
 extern int	cupsdSendHeader(cupsd_client_t *con, http_status_t code,

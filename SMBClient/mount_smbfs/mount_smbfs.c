@@ -80,6 +80,8 @@ static struct mntopt mopts[] = {
     { "hifi",           0, SMBFS_MNT_HIGH_FIDELITY, 1 },
     { "datacache",      1, SMBFS_MNT_DATACACHE_OFF, 1 }, /* negative flag */
     { "mdatacache",     1, SMBFS_MNT_MDATACACHE_OFF, 1 }, /* negative flag */
+    { "sessionencrypt", 0, SMBFS_MNT_SESSION_ENCRYPT, 1 },
+    { "shareencrypt",   0, SMBFS_MNT_SHARE_ENCRYPT, 1 },
 	{ NULL, 0, 0, 0 }
 };
 
@@ -221,31 +223,47 @@ int main(int argc, char *argv[])
 		/* They told us to turn off named streams */
 		mntOptions |= kSMBMntOptionNoStreams;
 	}
+    
 	if ((altflags & SMBFS_MNT_NOTIFY_OFF) == SMBFS_MNT_NOTIFY_OFF) {
 		/* They told us to turn off remote notifications */
 		mntOptions |= kSMBMntOptionNoNotifcations;
 	}
+    
 	if ((altflags & SMBFS_MNT_SOFT) == SMBFS_MNT_SOFT) {
 		/* Make this a soft mount */
 		mntOptions |= kSMBMntOptionSoftMount;
 	}
+    
     if ((altflags & SMBFS_MNT_TIME_MACHINE) == SMBFS_MNT_TIME_MACHINE) {
         /* Make this a tm mount */
         mntOptions |= kSMBReservedTMMount;
     }
+    
     if ((altflags & SMBFS_MNT_HIGH_FIDELITY) == SMBFS_MNT_HIGH_FIDELITY) {
         /* Make this a high fidelity mount */
         options |= kSMBOptionRequestHiFi;       /* Set Open option */
         mntOptions |= kSMBHighFidelityMount;    /* Set Mount option */
-
     }
+    
     if ((altflags & SMBFS_MNT_DATACACHE_OFF) == SMBFS_MNT_DATACACHE_OFF) {
         /* They told us to turn off data caching */
         mntOptions |= kSMBDataCacheOffMount;
     }
+    
     if ((altflags & SMBFS_MNT_MDATACACHE_OFF) == SMBFS_MNT_MDATACACHE_OFF) {
         /* They told us to turn off meta data caching */
         mntOptions |= kSMBMDataCacheOffMount;
+    }
+    
+    if ((altflags & SMBFS_MNT_SESSION_ENCRYPT) == SMBFS_MNT_SESSION_ENCRYPT) {
+        /* Force session encryption */
+        options |= kSMBOptionSessionEncrypt;       /* Set Open option */
+        mntOptions |= kSMBSessionEncryptMount;
+    }
+    
+    if ((altflags & SMBFS_MNT_SHARE_ENCRYPT) == SMBFS_MNT_SHARE_ENCRYPT) {
+        /* Force share encryption */
+        mntOptions |= kSMBShareEncryptMount;
     }
 
     /*
@@ -322,6 +340,16 @@ int main(int argc, char *argv[])
         CFDictionarySetValue (mOptions, kMDataCacheOffMountKey, kCFBooleanTrue);
     }
 
+    if (mntOptions & kSMBSessionEncryptMount) {
+        /* Force session encryption */
+        CFDictionarySetValue (mOptions, kSessionEncryptionKey, kCFBooleanTrue);
+    }
+    
+    if (mntOptions & kSMBShareEncryptMount) {
+        /* Force share encryption */
+        CFDictionarySetValue (mOptions, kShareEncryptionKey, kCFBooleanTrue);
+    }
+    
     /*
      * Specify permissions that should be assigned to files and directories. The
      * value must be specified as an octal numbers. A value of zero means use the

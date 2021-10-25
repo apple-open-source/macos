@@ -1,5 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
-// License & terms of use: http://www.unicode.org/copyright.html#License
+// License & terms of use: http://www.unicode.org/copyright.html
+// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
 en{
     AuxExemplarCharacters{
         "[á à ă â å ä ã ā æ ç é è ĕ ê ë ē í ì ĭ î ï ī ñ ó ò ŏ ô ö ø ō œ ú ù ŭ û ü ū ÿ"
@@ -205,7 +206,6 @@ en{
             }
         }
     }
-    Version{"36.1"}
     calendar{
         buddhist{
             eras{
@@ -1252,15 +1252,45 @@ en{
                 "h:mm:ss a z",
                 "h:mm:ss a",
                 "h:mm a",
-                "EEEE, MMMM d, y G",
-                "MMMM d, y G",
-                "MMM d, y G",
-                "M/d/y GGGGG",
+                "EEEE, MMMM d, G y",
+                "MMMM d, G y",
+                "MMM d, G y",
+                "M/d/GGGGGy",
                 "{1}, {0}",
                 "{1} 'at' {0}",
                 "{1} 'at' {0}",
                 "{1} 'at' {0}",
                 "{1}, {0}",
+            }
+            availableFormats{
+                Ed{"d E"}
+                Gy{"G y"}
+                GyMMM{"MMM G y"}
+                GyMMMEd{"E, MMM d, G y"}
+                GyMMMd{"MMM d, G y"}
+                H{"HH"}
+                Hm{"HH:mm"}
+                Hms{"HH:mm:ss"}
+                MEd{"E, M/d"}
+                MMMEd{"E, MMM d"}
+                MMMMd{"MMMM d"}
+                MMMd{"MMM d"}
+                Md{"M/d"}
+                h{"h a"}
+                hm{"h:mm a"}
+                hms{"h:mm:ss a"}
+                ms{"mm:ss"}
+                y{"G y"}
+                yyyy{"G y"}
+                yyyyM{"M/GGGGGy"}
+                yyyyMEd{"E, M/d/GGGGGy"}
+                yyyyMMM{"MMM G y"}
+                yyyyMMMEd{"E, MMM d, G y"}
+                yyyyMMMM{"MMMM G y"}
+                yyyyMMMd{"MMM d, G y"}
+                yyyyMd{"M/d/GGGGGy"}
+                yyyyQQQ{"QQQ G y"}
+                yyyyQQQQ{"QQQQ G y"}
             }
         }
         roc{

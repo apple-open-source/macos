@@ -90,6 +90,7 @@ private:
         struct {
             IOHIDElement *      deviceModeElement;
             OSArray *           transducers;
+            OSArray *           transducerStates;
             IOHIDElement *      touchCancelElement;
             bool                native;
             bool                collectionDispatch;

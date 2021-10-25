@@ -125,7 +125,7 @@ public:
 		connectNewProcess,
 		connectNewThread
 	};
-	void setupConnection(ConnectLevel type, Port replyPort, Port taskPort, const audit_token_t &auditToken,
+	void setupConnection(ConnectLevel type, Port replyPort, TaskPort taskPort, Bootstrap bootstrapPort, const audit_token_t &auditToken,
 		const ClientSetupInfo *info = NULL);
 		
 	void endConnection(Port replyPort);

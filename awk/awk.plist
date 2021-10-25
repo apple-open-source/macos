@@ -20,6 +20,8 @@
 		<string>Fix build warnings.</string>
 		<string>53872683: Unix Conformance: FAIL /tset/POSIX.cmd/awk/awk.ex - non-english locale tests</string>
 		<string>62947651: Fix return condition for readrec()</string>
+		<string>57168555: Multibyte support for character classes</string>
+		<string>59291605: Fix mandoc linter errors in man page</string>
 	</array>
 	<key>OpenSourceLicense</key>
 	<string>Other</string>

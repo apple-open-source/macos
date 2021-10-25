@@ -67,7 +67,6 @@ local allocator_env_vars = {
 	-- Note that bmalloc requires MallocNanoZone=1
 	["bmalloc"] = "MallocNanoZone=1",
 	["SystemMalloc"] = "MallocNanoZone=0",
-	["NanoMallocV1"] = "MallocNanoZone=V1",
 	["NanoMallocV2"] = "MallocNanoZone=V2",
 }
 
@@ -111,7 +110,6 @@ Runs a suite of memory allocation and access benchmarks.
 
 Specify \"SystemMalloc\" to test the built-in libc malloc using the system allocators (no NanoMalloc).
 Specify \"NanoMalloc\" to test the built-in libc malloc using the default NanoMalloc allocator.
-Specify \"NanoMallocV1\" to test the built-in libc malloc using the NanoMalloc V1 allocator.
 Specify \"NanoMallocV2\" to test the built-in libc malloc using the NanoMalloc V2 allocator.
 
 Example usage:

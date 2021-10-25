@@ -1,20 +1,18 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <array>
 	<dict>
 		<key>OpenSourceProject</key>
 		<string>python</string>
 		<key>OpenSourceVersion</key>
-		<string>2.7.16</string>
+		<string>2.7.18</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.python.org/</string>
 		<key>OpenSourceURL</key>
-		<string>https://www.python.org/ftp/python/2.7.16/Python-2.7.16.tar.xz</string>
+		<string>https://www.python.org/ftp/python/2.7.18/Python-2.7.18.tar.xz</string>
 		<key>OpenSourceMD5</key>
-		<string>30157d85a2c0479c09ea2cbe61f2aaf5</string>
+		<string>fd6cc8ec0a78c44036f825e739f36e5a</string>
 		<key>OpenSourceImportDate</key>
-		<string>2019-04-23</string>
+		<string>2021-08-30</string>
 		<key>OpenSourceLicense</key>
 		<string>PSFL</string>
 		<key>OpenSourceLicenseFile</key>
@@ -31,13 +29,14 @@
 			<string>initial dtrace probe support</string>
 			<string>diagnostics and usage reporting</string>
 			<string>remove register keyword from headers (46170992)</string>
-			<string>backport REDoS fix in http.cookiejar (57240915)</string>
-			<string>backport fix for CVE-2018-20852 (60022673)</string>
 			<string>support Darwin ABI > 19 (64543229)</string>
 			<string>set SYSTEM_VERSION_COMPAT=1 (68669796, 69461387, 70235207)</string>
 			<string>skip mtime check for bytecode on sealed APFS volumes (69179148)</string>
-			<string>backport fix for CVE-2021-23336</string>
-			<string>backport fix for CVE-2021-3177</string>
+			<string>backport fix for CVE-2020-26116 (59387782)</string>
+			<string>backport fix for CVE-2021-23336 (74382925)</string>
+			<string>backport fix for CVE-2021-3177 (74807671)</string>
+			<string>changes to build in internal configuration</string>
+			<string>add deprecation wrapper prompt</string>
 		</array>
 	</dict>
 </array>

@@ -146,6 +146,17 @@ _mbr_xpc_pipe(bool resetPipe)
 	
 	return pipe;
 }
+
+static void
+_mbr_xpc_pipe_close()
+{
+	pthread_mutex_lock(&mutex);
+	if (__mbr_pipe != NULL) {
+		xpc_release(__mbr_pipe);
+		__mbr_pipe = NULL;
+	}
+	pthread_mutex_unlock(&mutex);
+}
 #endif
 
 static bool
@@ -658,6 +669,19 @@ mbr_reset_cache()
 	return EIO;
 #endif
 }
+
+LIBINFO_EXPORT
+int
+mbr_close_connections()
+{
+#ifdef DS_AVAILABLE
+	_mbr_xpc_pipe_close();
+	return 0;
+#else
+	return EIO;
+#endif
+}
+
 
 LIBINFO_EXPORT
 int

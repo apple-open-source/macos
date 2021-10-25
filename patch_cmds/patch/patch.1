@@ -1,4 +1,4 @@
-.\"	$OpenBSD: patch.1,v 1.25 2009/02/08 17:33:01 jmc Exp $
+.\"-
 .\" Copyright 1986, Larry Wall
 .\"
 .\" Redistribution and use in source and binary forms, with or without
@@ -19,14 +19,16 @@
 .\" OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 .\" SUCH DAMAGE.
 .\"
-.Dd $Mdocdate: February 8 2009 $
+.\" $OpenBSD: patch.1,v 1.27 2014/04/15 06:26:54 jmc Exp $
+.\" $FreeBSD$
+.Dd November 3, 2019
 .Dt PATCH 1
 .Os
 .Sh NAME
 .Nm patch
 .Nd apply a diff file to an original
 .Sh SYNOPSIS
-.Nm patch
+.Nm
 .Bk -words
 .Op Fl bCcEeflNnRstuv
 .Op Fl B Ar backup-prefix
@@ -37,13 +39,13 @@
 .Op Fl o Ar out-file
 .Op Fl p Ar strip-count
 .Op Fl r Ar rej-name
-.Op Fl V Cm t | nil | never
+.Op Fl V Cm t | nil | never | none
 .Op Fl x Ar number
 .Op Fl z Ar backup-ext
 .Op Fl Fl posix
 .Op Ar origfile Op Ar patchfile
 .Ek
-.Nm patch
+.Nm
 .Pf \*(Lt Ar patchfile
 .Sh DESCRIPTION
 .Nm
@@ -105,7 +107,7 @@ This is equivalent to specifying
 This option is currently the default, unless
 .Fl -posix
 is specified.
-.It Fl C , Fl Fl check
+.It Fl C , Fl Fl check , Fl Fl dry-run
 Checks that the patch would apply cleanly, but does not modify anything.
 .It Fl c , Fl Fl context
 Forces
@@ -131,7 +133,7 @@ and the argument.
 Causes
 .Nm
 to interpret the next argument as a directory,
-and change working directory to it before doing anything else.
+and change the working directory to it before doing anything else.
 .It Fl E , Fl Fl remove-empty-files
 Causes
 .Nm
@@ -160,9 +162,9 @@ Forces
 to assume that the user knows exactly what he or she is doing, and to not
 ask any questions.
 It assumes the following:
-skip patches for which a file to patch can't be found;
+skip patches for which a file to patch cannot be found;
 patch files even though they have the wrong version for the
-.Qq Prereq:
+.Qq Prereq :
 line in the patch;
 and assume that patches are not reversed even if they look like they are.
 This option does not suppress commentary; use
@@ -173,7 +175,7 @@ for that.
 .Fl Fl input Ar patchfile
 .Xc
 Causes the next argument to be interpreted as the input file name
-(i.e. a patchfile).
+(i.e., a patchfile).
 This option may be specified multiple times.
 .It Fl l , Fl Fl ignore-whitespace
 Causes the pattern matching to be done loosely, in case the tabs and
@@ -243,7 +245,7 @@ option.
 Tells
 .Nm
 that this patch was created with the old and new files swapped.
-(Yes, I'm afraid that does happen occasionally, human nature being what it
+(Yes, I am afraid that does happen occasionally, human nature being what it
 is.)
 .Nm
 will attempt to swap each hunk around before applying it.
@@ -259,9 +261,9 @@ will reverse the hunk to see if it can be applied that way.
 If it can, you will be asked if you want to have the
 .Fl R
 option set.
-If it can't, the patch will continue to be applied normally.
+If it cannot, the patch will continue to be applied normally.
 (Note: this method cannot detect a reversed patch if it is a normal diff
-and if the first command is an append (i.e. it should have been a delete)
+and if the first command is an append (i.e., it should have been a delete)
 since appends always succeed, due to the fact that a null context will match
 anywhere.
 Luckily, most patches add or change lines rather than delete them, so most
@@ -283,10 +285,10 @@ do its work silently, unless an error occurs.
 Similar to
 .Fl f ,
 in that it suppresses questions, but makes some different assumptions:
-skip patches for which a file to patch can't be found (the same as
+skip patches for which a file to patch cannot be found (the same as
 .Fl f ) ;
 skip patches for which the file has the wrong version for the
-.Qq Prereq:
+.Qq Prereq :
 line in the patch;
 and assume that patches are reversed if they look like they are.
 .It Fl u , Fl Fl unified
@@ -294,8 +296,8 @@ Forces
 .Nm
 to interpret the patch file as a unified context diff (a unidiff).
 .It Xo
-.Fl V Cm t | nil | never ,
-.Fl Fl version-control Cm t | nil | never
+.Fl V Cm t | nil | never | none ,
+.Fl Fl version-control Cm t | nil | never | none
 .Xc
 Causes the next argument to be interpreted as a method for creating
 backup file names.
@@ -326,6 +328,8 @@ Make numbered backups of files that already have them,
 simple backups of the others.
 .It Cm never , simple
 Always make simple backups.
+.It Cm none
+Do not make backups.
 .El
 .It Fl v , Fl Fl version
 Causes
@@ -365,7 +369,7 @@ will try to skip any leading garbage, apply the diff,
 and then skip any trailing garbage.
 Thus you could feed an article or message containing a
 diff listing to
-.Nm patch ,
+.Nm ,
 and it should work.
 If the entire diff is indented by a consistent amount,
 this will be taken into account.
@@ -383,13 +387,13 @@ given in the hunk.
 First
 .Nm
 looks for a place where all lines of the context match.
-If no such place is found, and it's a context diff, and the maximum fuzz factor
+If no such place is found, and it is a context diff, and the maximum fuzz factor
 is set to 1 or more, then another scan takes place ignoring the first and last
 line of context.
 If that fails, and the maximum fuzz factor is set to 2 or more,
 the first two and last two lines of context are ignored,
 and another scan is made.
-.Pq The default maximum fuzz factor is 2.
+.Pq The default maximum fuzz factor is 2 .
 .Pp
 If
 .Nm
@@ -446,7 +450,7 @@ and the
 file is specified in the line beginning with
 .Qq +++ .
 If there is an
-.Qq Index:
+.Qq Index :
 line in the leading garbage (regardless of the diff type),
 .Nm
 will use the file name from that line as the
@@ -478,15 +482,6 @@ file names or, for a non-context diff, the
 .Dq index
 file name, and choose the file name with the fewest path components,
 the shortest basename, and the shortest total file name length (in that order).
-.It
-If no file exists,
-.Nm
-checks for the existence of the files in an SCCS or RCS directory
-(using the appropriate prefix or suffix) using the criteria specified
-above.
-If found,
-.Nm
-will attempt to get or check out the file.
 .It
 If no suitable file was found to patch, the patch file is a context or
 unified diff, and the old file was zero length, the new file name is
@@ -549,13 +544,13 @@ First, you can save people a lot of grief by keeping a
 file which is patched to increment the patch level as the first diff in the
 patch file you send out.
 If you put a
-.Qq Prereq:
-line in with the patch, it won't let them apply
+.Qq Prereq :
+line in with the patch, it will not let them apply
 patches out of order without some warning.
 .Pp
-Second, make sure you've specified the file names right, either in a
+Second, make sure you have specified the file names right, either in a
 context diff header, or with an
-.Qq Index:
+.Qq Index :
 line.
 If you are patching something in a subdirectory, be sure to tell the patch
 user to specify a
@@ -564,8 +559,10 @@ option as needed.
 .Pp
 Third, you can create a file by sending out a diff that compares a
 null file to the file you want to create.
-This will only work if the file you want to create doesn't exist already in
-the target directory.
+If the file you want to create already exists in the target directory when the
+diff is applied, then
+.Nm
+will identify the patch as potentially reversed and offer to reverse the patch.
 .Pp
 Fourth, take care not to send out reversed patches, since it makes people wonder
 whether they already applied the patch.
@@ -603,6 +600,22 @@ used to read input when
 .Nm
 prompts the user
 .El
+.Sh EXIT STATUS
+The
+.Nm
+utility exits with one of the following values:
+.Pp
+.Bl -tag -width Ds -offset indent -compact
+.It 0
+Successful completion.
+.It 1
+One or more lines were written to a reject file.
+.It \*(Gt1
+An error occurred.
+.El
+.Pp
+When applying a set of patches in a loop it behooves you to check this
+exit status so you do not apply a later patch to a partially patched file.
 .Sh DIAGNOSTICS
 Too many to list here, but generally indicative that
 .Nm
@@ -614,22 +627,6 @@ indicates that there is unprocessed text in the patch file and that
 .Nm
 is attempting to intuit whether there is a patch in that text and, if so,
 what kind of patch it is.
-.Pp
-The
-.Nm
-utility exits with one of the following values:
-.Pp
-.Bl -tag -width Ds -compact -offset indent
-.It \&0
-Successful completion.
-.It \&1
-One or more lines were written to a reject file.
-.It \*[Gt]\&1
-An error occurred.
-.El
-.Pp
-When applying a set of patches in a loop it behooves you to check this
-exit status so you don't apply a later patch to a partially patched file.
 .Sh SEE ALSO
 .Xr diff 1
 .Sh STANDARDS
@@ -637,13 +634,10 @@ The
 .Nm
 utility is compliant with the
 .St -p1003.1-2008
-specification
-(except as detailed above for the
+specification,
+except as detailed above for the
 .Fl -posix
-option),
-though the presence of
-.Nm
-itself is optional.
+option.
 .Pp
 The flags
 .Op Fl BCEFfstVvxz
@@ -692,7 +686,7 @@ If code has been duplicated (for instance with #ifdef OLDCODE ... #else ...
 is incapable of patching both versions, and, if it works at all, will likely
 patch the wrong one, and tell you that it succeeded to boot.
 .Pp
-If you apply a patch you've already applied,
+If you apply a patch you have already applied,
 .Nm
 will think it is a reversed patch, and offer to un-apply the patch.
 This could be construed as a feature.

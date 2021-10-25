@@ -1,4 +1,6 @@
 
+#ifdef __OBJC__
+
 #import <Foundation/Foundation.h>
 #import <Security/SecEscrowRequest.h>
 
@@ -10,6 +12,7 @@ NSXPCInterface* SecEscrowRequestSetupControlProtocol(NSXPCInterface* interface);
 @protocol EscrowRequestXPCProtocol <NSObject>
 
 - (void)triggerEscrowUpdate:(NSString*)reason
+                    options:(NSDictionary*)options
                       reply:(void (^)(NSError* _Nullable error))reply;
 
 - (void)cachePrerecord:(NSString*)uuid
@@ -27,6 +30,11 @@ NSXPCInterface* SecEscrowRequestSetupControlProtocol(NSXPCInterface* interface);
 
 - (void)storePrerecordsInEscrow:(void (^)(uint64_t count, NSError* _Nullable error))reply;
 
+- (void)escrowCompletedWithinLastSeconds:(NSTimeInterval)timeInterval
+                                   reply:(void (^)(BOOL escrowCompletedWithin, NSError* _Nullable error))reply;
+
 @end
 
 NS_ASSUME_NONNULL_END
+
+#endif /* __OBJC__ */

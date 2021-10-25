@@ -586,7 +586,10 @@ static CFSetRef copyCertificatePolicies(SecCertificateRef cert) {
     for (policy_ix = 0; policy_ix < policy_count; ++policy_ix) {
         CFDataRef oidData = NULL;
         DERItem *policyOID = &cp->policies[policy_ix].policyIdentifier;
-        oidData = CFDataCreate(kCFAllocatorDefault, policyOID->data, policyOID->length);
+        if (policyOID->length > LONG_MAX) {
+            continue;
+        }
+        oidData = CFDataCreate(kCFAllocatorDefault, policyOID->data, (CFIndex)policyOID->length);
         CFSetAddValue(policies, oidData);
         CFReleaseSafe(oidData);
     }
@@ -695,6 +698,13 @@ bool SecPolicyCheckCertUnparseableExtension(SecCertificateRef cert, CFTypeRef pv
     return true;
 }
 
+bool SecPolicyCheckCertDuplicateExtension(SecCertificateRef cert, CFTypeRef pvcValue) {
+    if (SecCertificateGetDuplicateExtension(cert) != kCFNotFound) {
+        return false;
+    }
+    return true;
+}
+
 bool SecPolicyCheckCertNotCA(SecCertificateRef cert, CFTypeRef pvcValue) {
     if (SecCertificateIsCA(cert)) {
         return false;
@@ -715,7 +725,7 @@ static CFDictionaryRef SecLeafPVCCopyCallbacks(void) {
 #define __PC_ADD_CHECK_O(NAME) CFDictionaryAddValue(leafCallbacks, \
 kSecPolicyCheck##NAME, SecPolicyCheckCert##NAME);
 
-#define POLICYCHECKMACRO(NAME, TRUSTRESULT, SUBTYPE, LEAFCHECK, PATHCHECK, LEAFONLY, CSSMERR, OSSTATUS) \
+#define POLICYCHECKMACRO(NAME, TRUSTRESULT, SUBTYPE, LEAFCHECK, PATHCHECK, LEAFONLY, PROPFAILURE, CSSMERR, OSSTATUS) \
 __PC_ADD_CHECK_##LEAFONLY(NAME)
 #include "SecPolicyChecks.list"
 
@@ -799,7 +809,7 @@ static void SecLeafPVCValidateKey(const void *key, const void *value,
 
     SecPolicyCheckCertFunction fcn = (SecPolicyCheckCertFunction) CFDictionaryGetValue(pvc->callbacks, key);
     if (!fcn) {
-        pvc->result = false;
+        /* This key is not implemented as a leaf-only check. */
         return;
     }
 

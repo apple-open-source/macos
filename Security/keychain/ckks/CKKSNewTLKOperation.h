@@ -33,14 +33,21 @@ NS_ASSUME_NONNULL_BEGIN
 
 @class CKKSKeychainView;
 
-@interface CKKSNewTLKOperation : CKKSGroupOperation <CKKSKeySetContainerProtocol,
-                                                     OctagonStateTransitionOperationProtocol>
-@property CKKSOperationDependencies* deps;
-@property (weak) CKKSKeychainView* ckks;
+// This class will create+return the current key hierchies for all views
+
+@interface CKKSNewTLKOperation : CKKSGroupOperation <OctagonStateTransitionOperationProtocol>
+@property (readonly) CKKSOperationDependencies* deps;
+
+@property (readonly, nullable) NSDictionary<CKRecordZoneID*, CKKSCurrentKeySet*>* keysets;
 
 - (instancetype)init NS_UNAVAILABLE;
+
+// Any non-pending keysets provided to preexistingPendingKeySets will be ignored
 - (instancetype)initWithDependencies:(CKKSOperationDependencies*)dependencies
-                                ckks:(CKKSKeychainView*)ckks;
+                    rollTLKIfPresent:(BOOL)rollTLKIfPresent
+           preexistingPendingKeySets:(NSDictionary<CKRecordZoneID*, CKKSCurrentKeySet*>* _Nullable)previousPendingKeySets
+                       intendedState:(CKKSState *)intendedState
+                          errorState:(CKKSState *)errorState;
 
 @end
 

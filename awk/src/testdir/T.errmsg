@@ -40,6 +40,9 @@ nonterminated character class
 nonterminated character class
 BEGIN { s = "[x"; if (1 ~ s) print "foo"}
 
+unknown character class: abcdef
+/[[:abcdef:]]/
+
 syntax error in regular expression
 BEGIN { if ("x" ~ /$^/) print "ugh" }
 

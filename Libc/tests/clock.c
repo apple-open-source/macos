@@ -245,3 +245,25 @@ T_DECL(clock_settime_other, "clock_settime(CLOCK_*, tp)",
 	T_EXPECT_EQ(clock_settime(CLOCK_THREAD_CPUTIME_ID, &ts), -1, NULL);
 	T_EXPECT_EQ(errno, EINVAL, NULL);
 }
+
+T_DECL(clock_settime_negative, "make sure clock_settime(CLOCK_REALTIME, tp) doesn't allow negative values in any fields",
+	   T_META("as_root", "true"))
+{
+	struct timespec new, old;
+	T_ASSERT_POSIX_ZERO(clock_gettime(CLOCK_REALTIME, &old), NULL);
+
+	new.tv_sec = 1624297339;
+	new.tv_nsec = -28946484;
+	T_EXPECT_EQ(clock_settime(CLOCK_REALTIME, &new), -1, NULL);
+
+	new.tv_sec = -12;
+	new.tv_nsec = 28946484;
+	T_EXPECT_EQ(clock_settime(CLOCK_REALTIME, &new), -1, NULL);
+
+	new.tv_sec = -12;
+	new.tv_nsec = -28946484;
+	T_EXPECT_EQ(clock_settime(CLOCK_REALTIME, &new), -1, NULL);
+
+	// Put things roughly back where they were
+	T_ASSERT_POSIX_ZERO(clock_settime(CLOCK_REALTIME, &old), NULL);
+}

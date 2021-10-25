@@ -19,3 +19,4 @@ _KUNCGetNotificationID
 _KUNCUserNotificationDisplayAlert
 _KUNCUserNotificationDisplayFromBundle
 _KUNCUserNotificationDisplayNotice
+_text_crypter_create_hook_set

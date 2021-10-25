@@ -32,7 +32,7 @@
 
 #include <Security/SecBase.h>
 #include <Security/SecBasePriv.h>
-#include <CoreFoundation/CFBase.h>
+#include <CoreFoundation/CoreFoundation.h>
 
 __BEGIN_DECLS
 
@@ -80,7 +80,25 @@ CSSM_KEYUSE ConvertArrayToKeyUsage(CFArrayRef usage)
     information. Note: currently, deletion is also limited to preference items whose
     name is in URI format.
 */
-OSStatus SecIdentityDeleteApplicationPreferenceItems(void);
+OSStatus SecIdentityDeleteApplicationPreferenceItems(void)
+  __SEC_MAC_ONLY_UNKNOWN;
+  //__OSX_AVAILABLE_STARTING(__MAC_11_3, __IPHONE_NA);
+
+/*!
+    @function SecIdentityCopyApplicationPreferenceItemURLs
+    @abstract Returns an array of URLs that have corresponding identity preferences
+    available to the calling application.
+    @result An array of zero or more CFURLRefs for which identity preferences exist.
+    Caller is responsible for releasing this array.
+    @discussion This function returns an array of CFURLRef instances for all URL
+    format identity preference items created by the caller. Given a URL in this array,
+    your code can obtain the identity associated with that URL by calling
+    SecIdentityCopyPreferred(CFURLGetString(url), NULL, NULL), or delete the preference
+    by calling SecIdentitySetPreferred(NULL, CFURLGetString(url), NULL).
+*/
+CFArrayRef SecIdentityCopyApplicationPreferenceItemURLs(void)
+  __SEC_MAC_ONLY_UNKNOWN;
+  //__OSX_AVAILABLE_STARTING(__MAC_12_0, __IPHONE_NA);
 
 #endif // SEC_OS_OSX
 

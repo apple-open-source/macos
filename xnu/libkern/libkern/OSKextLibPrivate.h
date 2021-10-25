@@ -31,17 +31,16 @@
 
 
 #include <sys/cdefs.h>
-#include <uuid/uuid.h>
 
 __BEGIN_DECLS
-#ifdef KERNEL
+
 #include <libkern/OSTypes.h>
 #include <mach/kmod.h>
+
+#ifdef KERNEL
 #include <mach/vm_types.h>
-#else
-#include <CoreFoundation/CoreFoundation.h>
-#include <mach/kmod.h>
 #endif /* KERNEL */
+
 __END_DECLS
 
 #include <libkern/OSReturn.h>
@@ -987,7 +986,13 @@ extern const vm_allocation_site_t * OSKextGetAllocationSiteForCaller(uintptr_t a
 extern uint32_t                     OSKextGetKmodIDForSite(const vm_allocation_site_t * site,
     char * name, vm_size_t namelen);
 extern void                         OSKextFreeSite(vm_allocation_site_t * site);
+
 extern kern_return_t                OSKextSetReceiptQueried(void);
+
+#if DEVELOPMENT || DEBUG
+extern void                         OSKextGetRefGrpForCaller(uintptr_t address,
+    void (^)(struct os_refgrp *));
+#endif
 
 #if CONFIG_IMAGEBOOT
 extern int OSKextGetUUIDForName(const char *, uuid_t);

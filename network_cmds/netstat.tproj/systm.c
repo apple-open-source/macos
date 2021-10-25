@@ -455,6 +455,9 @@ print_extbkidle_stats(uint32_t off __unused, char *name, int af __unused)
 #undef STATDIFF
 #undef p
 #undef p1a
+
+	if (interval > 0)
+		bcopy(&soextbkidlestat, &psoextbkidlestat, len);
 }
 
 void
@@ -500,4 +503,7 @@ printf(m, STATDIFF(f))
 #undef STATDIFF
 #undef p
 #undef p1a
+
+	if (interval > 0)
+		bcopy(&nstat_stats, &pnstat_stats, len);
 }

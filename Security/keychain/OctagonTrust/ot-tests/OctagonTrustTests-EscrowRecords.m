@@ -327,8 +327,6 @@
 
 - (void)testFetchOneViableEscrowRecord
 {
-    OctagonSetOptimizationEnabled(true);
-
     OTConfigurationContext *cliqueContextConfiguration = [[OTConfigurationContext alloc]init];
     cliqueContextConfiguration.context = OTDefaultContext;
     cliqueContextConfiguration.dsid = @"1234";
@@ -351,8 +349,6 @@
 
 - (void)testFetchTwoPartiallyViableEscrowRecords
 {
-    OctagonSetOptimizationEnabled(true);
-
     OTConfigurationContext *cliqueContextConfiguration = [[OTConfigurationContext alloc]init];
     cliqueContextConfiguration.context = OTDefaultContext;
     cliqueContextConfiguration.dsid = @"1234";
@@ -377,8 +373,6 @@
 
 - (void)testFetchViableAndLegacyEscrowRecords
 {
-    OctagonSetOptimizationEnabled(true);
-
     OTConfigurationContext *cliqueContextConfiguration = [[OTConfigurationContext alloc]init];
     cliqueContextConfiguration.context = OTDefaultContext;
     cliqueContextConfiguration.dsid = @"1234";
@@ -401,8 +395,6 @@
 
 - (void)testFetchLegacyEscrowRecords
 {
-    OctagonSetOptimizationEnabled(true);
-
     OTConfigurationContext *cliqueContextConfiguration = [[OTConfigurationContext alloc]init];
     cliqueContextConfiguration.context = OTDefaultContext;
     cliqueContextConfiguration.dsid = @"1234";
@@ -419,8 +411,6 @@
 
 - (void)testFetchRecordsOctagonViableSOSUnknownViability
 {
-    OctagonSetOptimizationEnabled(true);
-
     OTConfigurationContext *cliqueContextConfiguration = [[OTConfigurationContext alloc]init];
     cliqueContextConfiguration.context = OTDefaultContext;
     cliqueContextConfiguration.dsid = @"1234";
@@ -444,8 +434,6 @@
 
 - (void)testFetchRecordsOctagonViableSOSViable
 {
-    OctagonSetOptimizationEnabled(true);
-
     OTConfigurationContext *cliqueContextConfiguration = [[OTConfigurationContext alloc]init];
     cliqueContextConfiguration.context = OTDefaultContext;
     cliqueContextConfiguration.dsid = @"1234";
@@ -472,8 +460,6 @@
 
 - (void)testFetchRecordsOctagonNotViableSOSViable
 {
-    OctagonSetOptimizationEnabled(true);
-
     OTConfigurationContext *cliqueContextConfiguration = [[OTConfigurationContext alloc]init];
     cliqueContextConfiguration.context = OTDefaultContext;
     cliqueContextConfiguration.dsid = @"1234";
@@ -505,8 +491,6 @@
 
 - (void)testFetchRecordsOctagonNotViableSOSNotViable
 {
-    OctagonSetOptimizationEnabled(true);
-
     OTConfigurationContext *cliqueContextConfiguration = [[OTConfigurationContext alloc]init];
     cliqueContextConfiguration.context = OTDefaultContext;
     cliqueContextConfiguration.dsid = @"1234";
@@ -524,8 +508,6 @@
 
 - (void)testFetchAllRecords
 {
-    OctagonSetOptimizationEnabled(true);
-
     OTConfigurationContext *cliqueContextConfiguration = [[OTConfigurationContext alloc]init];
     cliqueContextConfiguration.context = OTDefaultContext;
     cliqueContextConfiguration.dsid = @"1234";
@@ -539,91 +521,6 @@
     XCTAssertNil(localErrror, "error should be nil");
 
     XCTAssertEqual(escrowRecords.count, 2, "should return 2 records");
-}
-
-- (void)testFetchEscrowRecordOptimizationOff
-{
-    OctagonSetOptimizationEnabled(false);
-
-    OTConfigurationContext *cliqueContextConfiguration = [[OTConfigurationContext alloc]init];
-    cliqueContextConfiguration.context = OTDefaultContext;
-    cliqueContextConfiguration.dsid = @"1234";
-    cliqueContextConfiguration.altDSID = @"altdsid";
-    cliqueContextConfiguration.sbd = [[OTMockSecureBackup alloc]initWithBottleID:@"" entropy:[NSData data]];
-    cliqueContextConfiguration.otControl = self.otControl;
-
-    NSError* localErrror = nil;
-    NSArray* escrowRecords = [OTClique fetchEscrowRecords:cliqueContextConfiguration error:&localErrror];
-    XCTAssertNil(localErrror, "error should be nil");
-    XCTAssertNotNil(escrowRecords, "escrow records should not be nil");
-
-    for (OTEscrowRecord* record in escrowRecords) {
-        XCTAssertEqual(record.creationDate, 1580440060, "escrow record creation date should be 1580440060");
-        XCTAssertNotNil(record.escrowInformationMetadata.backupKeybagDigest, "escrow record backup key bag digest should not be nil");
-        XCTAssertTrue([record.label isEqualToString:@"com.apple.icdp.record"], "escrow record label should be com.apple.icdp.record");
-        XCTAssertEqual(record.recordStatus, OTEscrowRecord_RecordStatus_RECORD_STATUS_VALID, "escrow record record status should be valid");
-        XCTAssertEqual(record.remainingAttempts, 10, "escrow record remaining attempts should be 10");
-        XCTAssertEqual(record.silentAttemptAllowed, 1, "escrow record silent attempted allowed should be true");
-        XCTAssertTrue([record.serialNumber isEqualToString:@"C39V209AJ9L5"], "escrow record serial number should be equal");
-        XCTAssertTrue([record.recordId isEqualToString:@"sNs6voV0N35D/T91SuGmJnGO29"], "escrow record record id should be true");
-        XCTAssertEqual(record.silentAttemptAllowed, 1, "escrow record silent attempted allowed should be true");
-
-        XCTAssertTrue([record.escrowInformationMetadata.clientMetadata.deviceColor isEqualToString: @"1"], "escrow record device color should be 1");
-        XCTAssertTrue([record.escrowInformationMetadata.clientMetadata.deviceEnclosureColor isEqualToString:@"1"], "escrow record ");
-        XCTAssertTrue([record.escrowInformationMetadata.clientMetadata.deviceMid isEqualToString:@"yWnI8vdNg6EWayeW/FP4cDZRse3LMn8Pxg/x/sPzZJIS5cs3RKo4/stOW46nQ98iNlpSHrnR0kfsbR3X"], "escrow record MID should be yWnI8vdNg6EWayeW/FP4cDZRse3LMn8Pxg/x/sPzZJIS5cs3RKo4/stOW46nQ98iNlpSHrnR0kfsbR3X");
-        XCTAssertTrue([record.escrowInformationMetadata.clientMetadata.deviceModel isEqualToString:@"iPhone 8 Plus"], "escrow record device model should be iPhone 8 Plus");
-        XCTAssertTrue([record.escrowInformationMetadata.clientMetadata.deviceModelClass isEqualToString: @"iPhone"], "escrow record model calss should be iPhone");
-        XCTAssertTrue([record.escrowInformationMetadata.clientMetadata.deviceModelVersion isEqualToString:@"iPhone10,5"], "escrow record model version should be iPhone10,5");
-        XCTAssertTrue([record.escrowInformationMetadata.clientMetadata.deviceName isEqualToString:@"iPhone"], "escrow record device name should be iPhone ");
-        XCTAssertEqual(record.escrowInformationMetadata.clientMetadata.secureBackupMetadataTimestamp, 1580440060, "escrow record timestamp should be 1580440060");
-        XCTAssertEqual(record.escrowInformationMetadata.clientMetadata.secureBackupNumericPassphraseLength, 6, "escrow record passphrase length should be 6");
-        XCTAssertEqual(record.escrowInformationMetadata.clientMetadata.secureBackupUsesComplexPassphrase, 1, "escrow record uses complex passphrase should be 1");
-        XCTAssertEqual(record.escrowInformationMetadata.clientMetadata.secureBackupUsesNumericPassphrase, 1, "escrow record uses numeric passphrase should be 1");
-        XCTAssertNotNil(record.escrowInformationMetadata.escrowedSpki, "escrow record escrowed spki should not be nil");
-        XCTAssertNotNil(record.escrowInformationMetadata.peerInfo, "escrow record peer info should be not nil");
-        XCTAssertEqual(record.escrowInformationMetadata.secureBackupTimestamp, 1580440060, "escrow record timestamp should be 1580440060");
-        XCTAssertEqual(record.escrowInformationMetadata.secureBackupUsesMultipleIcscs, 1, "escrow record uses multiple icscs should be 1");
-
-        NSData *testVectorData = [accountInfoWithInfoSample dataUsingEncoding:kCFStringEncodingUTF8];
-        NSPropertyListFormat format;
-        NSDictionary *testVectorPlist = [NSPropertyListSerialization propertyListWithData:testVectorData options: NSPropertyListMutableContainersAndLeaves format:&format error:&localErrror];
-
-        //now translate back to dictionary!
-        NSDictionary *translatedBackToDictionary = [OTEscrowTranslation escrowRecordToDictionary:record];
-        XCTAssertNotNil(translatedBackToDictionary, "should not be nil");
-
-        NSArray *testVectorICDPRecords = testVectorPlist[@"SecureBackupAlliCDPRecords"];
-        XCTAssertNotNil(testVectorICDPRecords, "should not be nil");
-
-        NSDictionary *testVectorRecord = testVectorICDPRecords[0];
-        XCTAssertNotNil(testVectorRecord, "should not be nil");
-        XCTAssertTrue([testVectorRecord[@"SecureBackupEscrowDate"] isEqualToDate: translatedBackToDictionary[@"SecureBackupEscrowDate"]], "should be equal");
-        XCTAssertTrue([testVectorRecord[@"recordStatus"] isEqualToString:translatedBackToDictionary[@"recordStatus"]], "should be equal");
-        XCTAssertTrue([testVectorRecord[@"silentAttemptAllowed"] isEqualToNumber:translatedBackToDictionary[@"silentAttemptAllowed"]], "should be equal");
-
-        XCTAssertTrue([testVectorRecord[@"peerInfoSerialNumber"] isEqualToString:translatedBackToDictionary[@"peerInfoSerialNumber"]], "should be equal");
-        XCTAssertTrue([testVectorRecord[@"recordID"] isEqualToString:translatedBackToDictionary[@"recordID"]], "should be equal");
-
-        NSDictionary *testVectorMetadata = testVectorRecord[@"metadata"];
-        XCTAssertNotNil(testVectorMetadata, "should not be nil");
-
-        NSDictionary *translatedMetadata = translatedBackToDictionary[@"metadata"];
-        XCTAssertNotNil(translatedMetadata, "should not be nil");
-
-        XCTAssertTrue([testVectorMetadata[@"com.apple.securebackup.timestamp"] isEqualToString: translatedMetadata[@"com.apple.securebackup.timestamp"]], "should be equal");
-        XCTAssertTrue([testVectorMetadata[@"bottleID"] isEqualToString:translatedMetadata[@"bottleID"]], "should be equal");
-        XCTAssertTrue([testVectorMetadata[@"escrowedSPKI"] isEqualToData:translatedMetadata[@"escrowedSPKI"]], "should be equal");
-        XCTAssertTrue([testVectorMetadata[@"SecureBackupUsesMultipleiCSCs"] isEqualToNumber: translatedMetadata[@"SecureBackupUsesMultipleiCSCs"]], "should be equal");
-        XCTAssertTrue([testVectorMetadata[@"peerInfo"] isEqualToData:translatedMetadata[@"peerInfo"]], "should be equal");
-        XCTAssertTrue([testVectorMetadata[@"BackupKeybagDigest"] isEqualToData: translatedMetadata[@"BackupKeybagDigest"]], "should be equal");
-
-        NSDictionary *testVectorClientMetadata = testVectorMetadata[@"ClientMetadata"];
-        XCTAssertNotNil(testVectorClientMetadata, "should not be nil");
-        NSDictionary *translatedClientMetadata = translatedMetadata[@"ClientMetadata"];
-        XCTAssertNotNil(translatedClientMetadata, "should not be nil");
-        XCTAssertTrue([testVectorClientMetadata isEqualToDictionary:translatedClientMetadata], "should be equal");
-    }
-
 }
 
 - (void)testCDPRecordContextTranslation

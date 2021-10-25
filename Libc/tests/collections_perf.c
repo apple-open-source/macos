@@ -40,12 +40,13 @@ static inline uint64_t _seq_next(uint64_t prev) {
 	return prev + 11400714819323198485llu;
 }
 
-#define MAPS_COUNT 4096
+#define COLLECTION_COUNT 4096
 #define ACTIONS_PER_MEASUREMENT_COUNT 512
 #define INSERT_TO_FIND_RATIO 64
 #define TOTAL_ITERATIONS 16
 
-#define PERF_OUTPUT_FILENAME "/tmp/libcollection_perf_data.csv"
+#define PERF_MAP_OUTPUT_FILENAME "/tmp/libcollection_map_perf_data.csv"
+#define PERF_SET_OUTPUT_FILENAME "/tmp/libcollection_set_perf_data.csv"
 
 // This is fairly arbitrary, and just makes sure that any value bias is fairly
 // accounted for
@@ -57,7 +58,7 @@ static uint64_t _insert_n_entries_to_maps(os_map_64_t *maps, uint64_t seed) {
 	uint64_t current_seq = seed;
 	for ( int i = 0; i < ACTIONS_PER_MEASUREMENT_COUNT; i++){
 		void *value = (void *)_value_for_key(current_seq);
-		for (int j = 0; j < MAPS_COUNT; j++) {
+		for (int j = 0; j < COLLECTION_COUNT; j++) {
 			os_map_insert(&maps[j], current_seq, value);
 		}
 		current_seq = _seq_next(current_seq);
@@ -68,7 +69,7 @@ static uint64_t _insert_n_entries_to_maps(os_map_64_t *maps, uint64_t seed) {
 static uint64_t _find_n_entries_in_maps(os_map_64_t *maps, uint64_t seed) {
 	uint64_t current_seq = seed;
 	for ( int i = 0; i < ACTIONS_PER_MEASUREMENT_COUNT; i++){
-		for (int j = 0; j < MAPS_COUNT; j++) {
+		for (int j = 0; j < COLLECTION_COUNT; j++) {
 			(void)os_map_find(&maps[j], current_seq);
 		}
 		current_seq = _seq_next(current_seq);
@@ -112,16 +113,16 @@ T_DECL(map_perf, "Test map performance for small hash maps",
 	return;
 #endif
 
-	os_map_64_t perf_maps[MAPS_COUNT];
+	os_map_64_t perf_maps[COLLECTION_COUNT];
 
-	for (int i = 0; i < MAPS_COUNT; i++) {
+	for (int i = 0; i < COLLECTION_COUNT; i++) {
 		os_map_init(&perf_maps[i], NULL);
 	}
 
 	uint64_t current_seq = _seq_next(0);
 
 
-	int output_fd = creat(PERF_OUTPUT_FILENAME, S_IWUSR);
+	int output_fd = creat(PERF_MAP_OUTPUT_FILENAME, S_IWUSR);
 	assert(output_fd);
 	FILE *output_file = fdopen(output_fd, "w");
 	assert(output_file);
@@ -149,7 +150,7 @@ T_DECL(map_perf, "Test map performance for small hash maps",
 		      insert_start_time, insert_end_time);
 
 		uint64_t insert_average_time = ((insert_end_time - insert_start_time)) /
-			(MAPS_COUNT * ACTIONS_PER_MEASUREMENT_COUNT);
+			(COLLECTION_COUNT * ACTIONS_PER_MEASUREMENT_COUNT);
 
 		T_LOG("DATA: INSERTION TIME %llu, %llu", map_size,
 		      insert_average_time);
@@ -167,7 +168,7 @@ T_DECL(map_perf, "Test map performance for small hash maps",
 		      find_start_time, find_end_time);
 
 		uint64_t find_average_time = ((find_end_time - find_start_time)) /
-			(MAPS_COUNT * ACTIONS_PER_MEASUREMENT_COUNT * INSERT_TO_FIND_RATIO);
+			(COLLECTION_COUNT * ACTIONS_PER_MEASUREMENT_COUNT * INSERT_TO_FIND_RATIO);
 
 		T_LOG("DATA: FIND TIME FOR %llu, %llu", map_size,
 		      find_average_time);
@@ -185,7 +186,7 @@ T_DECL(map_perf, "Test map performance for small hash maps",
 		      no_find_start_time, no_find_end_time);
 
 		uint64_t no_find_average_time = ((no_find_end_time - no_find_start_time)) /
-			(MAPS_COUNT * ACTIONS_PER_MEASUREMENT_COUNT * INSERT_TO_FIND_RATIO);
+			(COLLECTION_COUNT * ACTIONS_PER_MEASUREMENT_COUNT * INSERT_TO_FIND_RATIO);
 
 		T_LOG("DATA: NO-FIND TIME FOR %llu, %llu",
 		      map_size, no_find_average_time);
@@ -194,7 +195,7 @@ T_DECL(map_perf, "Test map performance for small hash maps",
 		uint64_t latest_memory_usage = _get_dirtymemory();
 		T_LOG("New memory usage is %llu", latest_memory_usage);
 
-		uint64_t average_memory_usage = latest_memory_usage / MAPS_COUNT;
+		uint64_t average_memory_usage = latest_memory_usage / COLLECTION_COUNT;
 		T_LOG("DATA: MEMORY USAGE FOR %llu, %llu", map_size,
 		      average_memory_usage);
 
@@ -208,5 +209,141 @@ T_DECL(map_perf, "Test map performance for small hash maps",
 	fclose(output_file);
 	close(output_fd);
 
-	T_PASS("Finished, output generated at: " PERF_OUTPUT_FILENAME);
+	T_PASS("Finished, output generated at: " PERF_MAP_OUTPUT_FILENAME);
+}
+
+
+static uint64_t _insert_n_entries_to_sets(os_set_64_ptr_t *sets, uint64_t seed) {
+	// This will get leaked. Leaks must be off for this test
+	uint64_t *storage = malloc(ACTIONS_PER_MEASUREMENT_COUNT * sizeof(uint64_t));
+
+	uint64_t current_seq = seed;
+	for ( int i = 0; i < ACTIONS_PER_MEASUREMENT_COUNT; i++){
+		storage[i] = current_seq;
+		for (int j = 0; j < COLLECTION_COUNT; j++) {
+			os_set_insert(&sets[j], &storage[i]);
+		}
+		current_seq = _seq_next(current_seq);
+	}
+	return current_seq;
+}
+
+static uint64_t _find_n_entries_in_sets(os_set_64_ptr_t *sets, uint64_t seed) {
+	uint64_t current_seq = seed;
+	for ( int i = 0; i < ACTIONS_PER_MEASUREMENT_COUNT; i++){
+		for (int j = 0; j < COLLECTION_COUNT; j++) {
+			(void)os_set_find(&sets[j], current_seq);
+		}
+		current_seq = _seq_next(current_seq);
+	}
+	return current_seq;
+}
+
+T_DECL(set_perf, "Test set performance for small hash sets",
+		T_META("owner", "Core Darwin Daemons & Tools"),
+		T_META_CHECK_LEAKS(false),
+		T_META_ASROOT(true))
+{
+#if !(TARGET_OS_IOS | TARGET_OS_OSX)
+	T_PASS("set_perf doesn't run on this platform");
+	return;
+#endif
+
+	os_set_64_ptr_t perf_sets[COLLECTION_COUNT];
+
+	for (int i = 0; i < COLLECTION_COUNT; i++) {
+		os_set_init(&perf_sets[i], NULL);
+	}
+
+	uint64_t current_seq = _seq_next(0);
+
+
+	int output_fd = creat(PERF_SET_OUTPUT_FILENAME, S_IWUSR);
+	assert(output_fd);
+	FILE *output_file = fdopen(output_fd, "w");
+	assert(output_file);
+
+	fprintf(output_file,
+		"SET_SIZE,INSERT_TIME,FIND_TIME,FIND_MISSING_TIME,MEM_USAGE\n");
+
+	uint64_t baseline_memory_usage = _get_dirtymemory();
+	T_LOG("Baseline memory usage is %llu", baseline_memory_usage);
+
+	for (int i = 0; i < TOTAL_ITERATIONS; i++) {
+		uint64_t set_size = ACTIONS_PER_MEASUREMENT_COUNT * (i + 1);
+		T_LOG("Starting performance testing with set size %llu",
+		      set_size);
+
+		uint64_t insert_start_mach_time = mach_absolute_time();
+		uint64_t next_seq = _insert_n_entries_to_sets(perf_sets,
+							      current_seq);
+		uint64_t insert_end_mach_time = mach_absolute_time();
+
+		uint64_t insert_start_time = absoluteTimeFromMachTime(insert_start_mach_time);
+		uint64_t insert_end_time = absoluteTimeFromMachTime(insert_end_mach_time);
+
+		T_LOG("Insertions complete, with start time %llu, end time %llu",
+		      insert_start_time, insert_end_time);
+
+		uint64_t insert_average_time = ((insert_end_time - insert_start_time)) /
+			(COLLECTION_COUNT * ACTIONS_PER_MEASUREMENT_COUNT);
+
+		T_LOG("DATA: INSERTION TIME %llu, %llu", set_size,
+		      insert_average_time);
+
+		uint64_t find_start_mach_time = mach_absolute_time();
+		for (int j = 0; j < INSERT_TO_FIND_RATIO; j++) {
+			_find_n_entries_in_sets(perf_sets, current_seq);
+		}
+		uint64_t find_end_mach_time = mach_absolute_time();
+
+		uint64_t find_start_time = absoluteTimeFromMachTime(find_start_mach_time);
+		uint64_t find_end_time = absoluteTimeFromMachTime(find_end_mach_time);
+
+		T_LOG("Finds complete, with start time %llu, end time %llu",
+		      find_start_time, find_end_time);
+
+		uint64_t find_average_time = ((find_end_time - find_start_time)) /
+			(COLLECTION_COUNT * ACTIONS_PER_MEASUREMENT_COUNT * INSERT_TO_FIND_RATIO);
+
+		T_LOG("DATA: FIND TIME FOR %llu, %llu", set_size,
+		      find_average_time);
+
+		uint64_t no_find_start_mach_time = mach_absolute_time();
+		for (int j = 0; j < INSERT_TO_FIND_RATIO; j++) {
+			_find_n_entries_in_sets(perf_sets, next_seq);
+		}
+		uint64_t no_find_end_mach_time = mach_absolute_time();
+
+		uint64_t no_find_start_time = absoluteTimeFromMachTime(no_find_start_mach_time);
+		uint64_t no_find_end_time = absoluteTimeFromMachTime(no_find_end_mach_time);
+
+		T_LOG("Find not present complete, with start time %llu, end time %llu",
+		      no_find_start_time, no_find_end_time);
+
+		uint64_t no_find_average_time = ((no_find_end_time - no_find_start_time)) /
+			(COLLECTION_COUNT * ACTIONS_PER_MEASUREMENT_COUNT * INSERT_TO_FIND_RATIO);
+
+		T_LOG("DATA: NO-FIND TIME FOR %llu, %llu",
+		      set_size, no_find_average_time);
+
+
+		uint64_t latest_memory_usage = _get_dirtymemory();
+		T_LOG("New memory usage is %llu", latest_memory_usage);
+
+		uint64_t average_memory_usage = latest_memory_usage / COLLECTION_COUNT;
+		T_LOG("DATA: MEMORY USAGE FOR %llu, %llu", set_size,
+		      average_memory_usage);
+
+		fprintf(output_file, "%llu,%llu,%llu,%llu,%llu\n", set_size,
+			insert_average_time, find_average_time,
+			no_find_average_time, average_memory_usage);
+
+		current_seq = next_seq;
+	}
+
+	fclose(output_file);
+	close(output_fd);
+
+	T_PASS("Finished, output generated at: " PERF_SET_OUTPUT_FILENAME);
 }

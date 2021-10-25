@@ -3,7 +3,7 @@
 //  libmalloc
 //
 //  Simple and repeatable performance tests for malloc/free, running tests
-// 	on the regular, Nanov1 and Nanov2 allocators.
+// 	on the regular and Nanov2 allocators.
 //
 #include <darwintest.h>
 #include <dispatch/dispatch.h>
@@ -69,7 +69,7 @@ run_test(void (^test)(size_t), bool singlethreaded)
 }
 
 // Test content. Each of the functions is called from six different test cases,
-// with singlethreaded true and false and MallocNanoZone set to 0, V1 and V2.
+// with singlethreaded true and false and MallocNanoZone set to 0 and V2.
 // The test content is biased towards the implementation of Nanov2.
 
 static void
@@ -174,10 +174,8 @@ basic_perf_malloc_free_by_size_class_offset(bool singlethreaded)
 
 // The tests that follow are grouped as follows:
 // 	- single-thread non-Nano version
-//  - single-threaded NanoV1 version
 //	- single-threaded NanoV2 version
 // 	- parallel non-Nano version
-//  - parallel NanoV1 version
 //	- parallel NanoV2 version
 // Each group probably could be built with a macro, but that would be harder
 // to debug when there is a problem.
@@ -191,18 +189,6 @@ T_DECL(basic_perf_serial_8_bytes, "Malloc/Free 8 bytes single-threaded",
 	   T_META_ENVVAR("MallocNanoZone=0"))
 {
 	basic_perf_malloc_free_8_bytes(true);
-}
-
-T_DECL(basic_perf_serial_8_bytes_V1, "Malloc/Free 8 bytes single-threaded on V1",
-	   T_META_TAG_PERF, T_META_ALL_VALID_ARCHS(NO),
-	   T_META_LTEPHASE(LTE_POSTINIT), T_META_CHECK_LEAKS(false),
-	   T_META_ENVVAR("MallocNanoZone=V1"))
-{
-#if CONFIG_NANOZONE
-	basic_perf_malloc_free_8_bytes(true);
-#else // CONFIG_NANOZONE
-	T_SKIP("Nano allocator not configured");
-#endif // CONFIG_NANOZONE
 }
 
 T_DECL(basic_perf_serial_8_bytes_V2, "Malloc/Free 8 bytes single-threaded on V2",
@@ -223,18 +209,6 @@ T_DECL(basic_perf_parallel_8_bytes, "Malloc/Free 8 bytes parallel",
 	   T_META_ENVVAR("MallocNanoZone=0"))
 {
 	basic_perf_malloc_free_8_bytes(false);
-}
-
-T_DECL(basic_perf_parallel_8_bytes_V1, "Malloc/Free 8 bytes parallel on V1",
-	   T_META_TAG_PERF, T_META_ALL_VALID_ARCHS(NO),
-	   T_META_LTEPHASE(LTE_POSTINIT), T_META_CHECK_LEAKS(false),
-	   T_META_ENVVAR("MallocNanoZone=V1"))
-{
-#if CONFIG_NANOZONE
-	basic_perf_malloc_free_8_bytes(false);
-#else // CONFIG_NANOZONE
-	T_SKIP("Nano allocator not configured");
-#endif // CONFIG_NANOZONE
 }
 
 T_DECL(basic_perf_parallel_8_bytes_V2, "Malloc/Free 8 bytes single-threaded on V2",
@@ -261,19 +235,6 @@ T_DECL(basic_perf_serial_8_bytes_multi_block_default_scan_policy,
 	basic_perf_malloc_free_8_bytes_multi_block(true);
 }
 
-T_DECL(basic_perf_serial_8_bytes_multi_block_default_scan_policy_V1,
-	   	"Malloc/Free 8 bytes single-threaded with block overflow, default scan policy on V1",
-	   T_META_TAG_PERF, T_META_ALL_VALID_ARCHS(NO),
-	   T_META_LTEPHASE(LTE_POSTINIT), T_META_CHECK_LEAKS(false),
-	   T_META_ENVVAR("MallocNanoZone=V1"))
-{
-#if CONFIG_NANOZONE
-	basic_perf_malloc_free_8_bytes_multi_block(true);
-#else // CONFIG_NANOZONE
-	T_SKIP("Nano allocator not configured");
-#endif // CONFIG_NANOZONE
-}
-
 T_DECL(basic_perf_serial_8_bytes_multi_block_default_scan_policy_V2,
 	   	"Malloc/Free 8 bytes single-threaded with block overflow, default scan policy on V2",
 	   T_META_TAG_PERF, T_META_ALL_VALID_ARCHS(NO),
@@ -294,19 +255,6 @@ T_DECL(basic_perf_parallel_8_bytes_multi_block_default_scan_policy,
 	   T_META_ENVVAR("MallocNanoZone=0"))
 {
 	basic_perf_malloc_free_8_bytes_multi_block(false);
-}
-
-T_DECL(basic_perf_parallel_8_bytes_multi_block_default_scan_policy_V1,
-	   	"Malloc/Free 8 bytes parallel with block overflow, default scan policy on V1",
-	   T_META_TAG_PERF, T_META_ALL_VALID_ARCHS(NO),
-	   T_META_LTEPHASE(LTE_POSTINIT), T_META_CHECK_LEAKS(false),
-	   T_META_ENVVAR("MallocNanoZone=V1"))
-{
-#if CONFIG_NANOZONE
-	basic_perf_malloc_free_8_bytes_multi_block(false);
-#else // CONFIG_NANOZONE
-	T_SKIP("Nano allocator not configured");
-#endif // CONFIG_NANOZONE
 }
 
 T_DECL(basic_perf_parallel_8_bytes_multi_block_default_scan_policy_V2,
@@ -366,19 +314,6 @@ T_DECL(basic_perf_serial_different_size_classes,
 	basic_perf_malloc_free_different_size_classes(false);
 }
 
-T_DECL(basic_perf_serial_different_size_classes_V1,
-	   "Malloc/Free in different size classes single-threaded on V1",
-	   T_META_TAG_PERF, T_META_ALL_VALID_ARCHS(NO),
-	   T_META_LTEPHASE(LTE_POSTINIT),
-	   T_META_ENVVAR("MallocNanoZone=V1"))
-{
-#if CONFIG_NANOZONE
-	basic_perf_malloc_free_different_size_classes(false);
-#else // CONFIG_NANOZONE
-	T_SKIP("Nano allocator not configured");
-#endif // CONFIG_NANOZONE
-}
-
 T_DECL(basic_perf_serial_different_size_classes_V2,
 	   "Malloc/Free in different size classes single-threaded on V2",
 	   T_META_TAG_PERF, T_META_ALL_VALID_ARCHS(NO),
@@ -399,19 +334,6 @@ T_DECL(basic_perf_parallel_different_size_classes,
 	   T_META_ENVVAR("MallocNanoZone=0"))
 {
 	basic_perf_malloc_free_different_size_classes(false);
-}
-
-T_DECL(basic_perf_parallel_different_size_classes_V1,
-	   "Malloc/Free in different size classes parallel on V1",
-	   T_META_TAG_PERF, T_META_ALL_VALID_ARCHS(NO),
-	   T_META_LTEPHASE(LTE_POSTINIT),
-	   T_META_ENVVAR("MallocNanoZone=V1"))
-{
-#if CONFIG_NANOZONE
-	basic_perf_malloc_free_different_size_classes(false);
-#else // CONFIG_NANOZONE
-	T_SKIP("Nano allocator not configured");
-#endif // CONFIG_NANOZONE
 }
 
 T_DECL(basic_perf_parallel_different_size_classes_V2,
@@ -439,19 +361,6 @@ T_DECL(basic_perf_serial_by_size_class,
 	basic_perf_malloc_free_by_size_class(true);
 }
 
-T_DECL(basic_perf_serial_by_size_class_V1,
-	   "Malloc/Free by size class single-threaded on V1",
-	   T_META_TAG_PERF, T_META_ALL_VALID_ARCHS(NO),
-	   T_META_LTEPHASE(LTE_POSTINIT),
-	   T_META_ENVVAR("MallocNanoZone=V1"))
-{
-#if CONFIG_NANOZONE
-	basic_perf_malloc_free_by_size_class(true);
-#else // CONFIG_NANOZONE
-	T_SKIP("Nano allocator not configured");
-#endif // CONFIG_NANOZONE
-}
-
 T_DECL(basic_perf_serial_by_size_class_V2,
 	   "Malloc/Free by size class single-threaded on V2",
 	   T_META_TAG_PERF, T_META_ALL_VALID_ARCHS(NO),
@@ -472,19 +381,6 @@ T_DECL(basic_perf_parallel_by_size_class,
 	   T_META_ENVVAR("MallocNanoZone=0"))
 {
 	basic_perf_malloc_free_by_size_class(false);
-}
-
-T_DECL(basic_perf_parallel_by_size_class_V1,
-	   "Malloc/Free by size class parallel on V1",
-	   T_META_TAG_PERF, T_META_ALL_VALID_ARCHS(NO),
-	   T_META_LTEPHASE(LTE_POSTINIT),
-	   T_META_ENVVAR("MallocNanoZone=V1"))
-{
-#if CONFIG_NANOZONE
-	basic_perf_malloc_free_by_size_class(false);
-#else // CONFIG_NANOZONE
-	T_SKIP("Nano allocator not configured");
-#endif // CONFIG_NANOZONE
 }
 
 T_DECL(basic_perf_parallel_by_size_class_V2,
@@ -512,19 +408,6 @@ T_DECL(basic_perf_serial_by_size_class_offset,
 	basic_perf_malloc_free_by_size_class_offset(true);
 }
 
-T_DECL(basic_perf_serial_by_size_class_offset_V1,
-	   	"Malloc/Free by size class with offset single-threaded on V1",
-	   T_META_TAG_PERF, T_META_ALL_VALID_ARCHS(NO),
-	   T_META_LTEPHASE(LTE_POSTINIT),
-	   T_META_ENVVAR("MallocNanoZone=V1"))
-{
-#if CONFIG_NANOZONE
-	basic_perf_malloc_free_by_size_class_offset(true);
-#else // CONFIG_NANOZONE
-	T_SKIP("Nano allocator not configured");
-#endif // CONFIG_NANOZONE
-}
-
 T_DECL(basic_perf_serial_by_size_class_offset_V2,
 	   	"Malloc/Free by size class with offset single-threaded on V2",
 	   T_META_TAG_PERF, T_META_ALL_VALID_ARCHS(NO),
@@ -545,19 +428,6 @@ T_DECL(basic_perf_parallel_by_size_class_offset,
 	   T_META_ENVVAR("MallocNanoZone=0"))
 {
 	basic_perf_malloc_free_by_size_class_offset(false);
-}
-
-T_DECL(basic_perf_parallel_by_size_class_offset_V1,
-	   	"Malloc/Free by size class with offset parallel on V1",
-	   T_META_TAG_PERF, T_META_ALL_VALID_ARCHS(NO),
-	   T_META_LTEPHASE(LTE_POSTINIT),
-	   T_META_ENVVAR("MallocNanoZone=V1"))
-{
-#if CONFIG_NANOZONE
-	basic_perf_malloc_free_by_size_class_offset(false);
-#else // CONFIG_NANOZONE
-	T_SKIP("Nano allocator not configured");
-#endif // CONFIG_NANOZONE
 }
 
 T_DECL(basic_perf_parallel_by_size_class_offset_V2,

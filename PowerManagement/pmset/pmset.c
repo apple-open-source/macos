@@ -125,8 +125,14 @@
 #define ARG_DARKWAKES       "darkwakes"
 #define ARG_POWERNAP        "powernap"
 #define ARG_RESTOREDEFAULTS "restoredefaults"
+
 #if TARGET_OS_OSX
 #define ARG_VACT            "vactdisabled"
+#define ARG_LOWPOWERMODE    "lowpowermode"
+#if !RC_HIDE_J316
+#define ARG_HIGHPOWERMODE   "highpowermode"
+#endif // !RC_HIDE_J316
+#define ARG_CUSTOMPOWERMODE "powermode"
 #endif // TARGET_OS_OSX
 
 // Scheduling options
@@ -218,11 +224,12 @@
 #define ARG_CLAMSHELL       "clamshell"
 #define ARG_ACATTACH        "acattach"
 #define ARG_SET_DESKTOPMODE  "desktopmode"
+#define ARG_SYSTEM_ASSERTION_TIMEOUT    "systemassertiontimeout"
 // special system
 #define ARG_DISABLESLEEP    "disablesleep"
 #define ARG_DISABLEFDEKEYSTORE  "destroyfvkeyonstandby"
 
-#define kProcNameBufLen                 (2*MAXCOMLEN)
+#define kProcNameBufLen 64
 
 // return values for parseArgs
 #define kParseSuccess                   0       // success
@@ -318,6 +325,10 @@ PMFeature all_features[] =
     { kIOPMProximityDarkWakeKey,    ARG_PROXIMITYWAKE },
 #if TARGET_OS_OSX
     { kIOPMVact,                    ARG_VACT },
+    { kIOPMLowPowerModeKey,         ARG_LOWPOWERMODE},
+#if !RC_HIDE_J316
+    { kIOPMHighPowerModeKey,        ARG_HIGHPOWERMODE},
+#endif // !RC_HIDE_J316
 #endif // TARGET_OS_OSX
 };
 
@@ -434,6 +445,7 @@ static void set_new_power_bookmark(void);
 static void set_debugFlags(char **argv);
 static void set_btInterval(char **argv);
 static void set_dwlInterval(char **argv);
+static void set_systemAssertionTimeout(char **argv);
 static void set_saaFlags(char **argv);
 static void show_details_for_UUID(char **UUID_string);
 static void show_root_domain_user_clients(void);
@@ -501,6 +513,16 @@ static int checkAndSetIntValue(
         CFMutableDictionaryRef ac,
         CFMutableDictionaryRef batt,
         CFMutableDictionaryRef ups);
+
+#if TARGET_OS_OSX
+static int checkAndSetPowerModeIntValue(
+        char *valstr,
+        CFStringRef settingKey,
+        int apply,
+        CFMutableDictionaryRef ac,
+        CFMutableDictionaryRef batt);
+#endif //TARGET_OS_OSX
+
 static int setUPSValue(
         char *valstr,
         CFStringRef    whichUPS,
@@ -903,7 +925,7 @@ io_registry_entry_t _getRootDomain(void)
     static io_registry_entry_t gRoot = MACH_PORT_NULL;
 
     if (MACH_PORT_NULL == gRoot)
-        gRoot = IORegistryEntryFromPath( kIOMasterPortDefault,
+        gRoot = IORegistryEntryFromPath(kIOMainPortDefault,
                 kIOPowerPlane ":/IOPowerConnection/IOPMrootDomain");
 
     return gRoot;
@@ -961,7 +983,7 @@ static void displaySleepNow()
     kern_return_t kr;
 
     disp_wrangler = IORegistryEntryFromPath(
-                            kIOMasterPortDefault,
+                            kIOMainPortDefault,
                             kIOServicePlane ":/IOResources/IODisplayWrangler");
     if(disp_wrangler == IO_OBJECT_NULL)
         return ;
@@ -1103,6 +1125,22 @@ static void show_pm_settings_dict(
             if(show_overrides) {
                 show_override_type = _kIOPMAssertionSystemOn;
             }
+#if TARGET_OS_OSX
+#if !RC_HIDE_J316
+        } else if (strcmp(ps, kIOPMHighPowerModeKey) == 0) {
+            // While displaying settings we either show a tri-state "powermode [0,1,2]" where 0 is OFF,
+            // 1 is LPM, 2 is HPM. OR if HPM isn't supported, we show "lowpowermode [0,1]"
+            // Ignore the key reported by dictionary which is only useful to know if the feature is supported
+            continue;
+#endif // !RC_HIDE_J316
+        } else if (strcmp(ps, kIOPMLowPowerModeKey) == 0) {
+#if !RC_HIDE_J316
+            if (IOPMFeatureIsAvailable(CFSTR(kIOPMHighPowerModeKey), activeps)) {
+                printf(" %-20s ", ARG_CUSTOMPOWERMODE);
+            } else
+#endif // !RC_HIDE_J316
+                printf(" %-20s ", ARG_LOWPOWERMODE);
+#endif // TARGET_OS_OSX
         } else {
             for(j=0; j<kNUM_PM_FEATURES; j++) {
                 if (!strncmp(ps, all_features[j].name, kMaxArgStringLength)) {
@@ -2537,10 +2575,10 @@ bail:
 }
 
 static void show_assertions_individually(CFDictionaryRef assertions_info, void (^printer)(
-                                   char *pname, char *assertionType, char *assertionName, int createdSince))
+                                   char *pname, char *assertionType, char *assertionName, int createdSince), bool pid_as_string)
 {
     CFArrayRef              *assertions = NULL;
-    CFNumberRef             *pids = NULL;
+    CFTypeRef               *pids = NULL;
 
 //    printf("\nListed by owning process:\n");
     if (!printer) printf("Listed by owning process:\n");
@@ -2552,7 +2590,11 @@ static void show_assertions_individually(CFDictionaryRef assertions_info, void (
         int                     i;
 
         process_count = CFDictionaryGetCount(assertions_info);
-        pids = malloc(sizeof(CFNumberRef)*process_count);
+        if (pid_as_string) {
+            pids = malloc(sizeof(CFStringRef)*process_count);
+        } else {
+            pids = malloc(sizeof(CFNumberRef)*process_count);
+        }
         assertions = (CFArrayRef *)malloc(sizeof(CFArrayRef)*process_count);
         CFDictionaryGetKeysAndValues(assertions_info,
                                      (const void **)pids,
@@ -2561,9 +2603,15 @@ static void show_assertions_individually(CFDictionaryRef assertions_info, void (
         for(i=0; i<process_count; i++)
         {
             int the_pid;
+            char the_pid_string[64];
             int j;
 
-            CFNumberGetValue(pids[i], kCFNumberIntType, &the_pid);
+            if (!pid_as_string) {
+                CFNumberGetValue(pids[i], kCFNumberIntType, &the_pid);
+            } else {
+                CFStringGetCString(pids[i], the_pid_string, 40, kCFStringEncodingUTF8);
+                the_pid = atoi(the_pid_string);
+            }
 
             for(j=0; j<CFArrayGetCount(assertions[i]); j++)
             {
@@ -2635,6 +2683,8 @@ static void show_assertions_individually(CFDictionaryRef assertions_info, void (
                 if ((pidName = CFDictionaryGetValue(tmp_dict, kIOPMAssertionProcessNameKey)))
                 {
                     CFStringGetCString(pidName, pid_name_buf, sizeof(pid_name_buf), kCFStringEncodingUTF8);
+                } else {
+                    proc_name(the_pid, pid_name_buf, sizeof(pid_name_buf));
                 }
 
                 isSuspendedRef = CFDictionaryGetValue(tmp_dict, kIOPMAssertionIsStateSuspendedKey);
@@ -2643,7 +2693,7 @@ static void show_assertions_individually(CFDictionaryRef assertions_info, void (
                 }
 
                 if (!printer) printf("   pid %d(%s): [0x%016llx] %s%s named: \"%s\" %s %s\n",
-                       the_pid, pidName?pid_name_buf:"?",
+                       the_pid, pid_name_buf,
                        uniqueID_int,
                        createdDate ? ageString:"",
                        assertionType,
@@ -3051,7 +3101,7 @@ static void show_assertions_in_kernel(void)
                 if (registryEntryID && CFNumberGetValue(registryEntryID, kCFNumberSInt64Type, &val64))
                 {
                     io_service_t match = IO_OBJECT_NULL;
-                    match = IOServiceGetMatchingService(kIOMasterPortDefault, IORegistryEntryIDMatching(val64));
+                    match = IOServiceGetMatchingService(kIOMainPortDefault, IORegistryEntryIDMatching(val64));
                     if (match) {
                         IORegistryEntryGetName(match, serviceNameBuf);
                         printf("owner=%s", serviceNameBuf);
@@ -3129,7 +3179,7 @@ static void show_assertions(char **argv, const char *decorate)
 
     ret = IOPMCopyAssertionsByProcess(&assertions_info);
     if ((kIOReturnSuccess == ret) && isA_CFDictionary(assertions_info)) {
-        show_assertions_individually(assertions_info, NULL);
+        show_assertions_individually(assertions_info, NULL, false);
     }
     if (assertions_info) {
         CFRelease(assertions_info);
@@ -3143,7 +3193,7 @@ static void show_assertions(char **argv, const char *decorate)
         ret = IOPMCopyInactiveAssertionsByProcess(&assertions_info);
         if ((kIOReturnSuccess == ret) && isA_CFDictionary(assertions_info)) {
             printf("Inactive assertions- ");
-            show_assertions_individually(assertions_info, NULL);
+            show_assertions_individually(assertions_info, NULL, false);
             CFRelease(assertions_info);
         }
     }
@@ -3578,7 +3628,7 @@ static void print_raw_battery_state(io_registry_entry_t b_reg)
     }
 
     if (IO_OBJECT_NULL == b_reg) {
-        b_reg = IOServiceGetMatchingService(kIOMasterPortDefault, IOServiceMatching("AppleSmartBattery"));
+        b_reg = IOServiceGetMatchingService(kIOMainPortDefault, IOServiceMatching("AppleSmartBattery"));
     }
 
     ret = IORegistryEntryCreateCFProperties(b_reg, &prop, 0, 0);
@@ -4315,6 +4365,100 @@ static int checkAndSetIntValue(
     return 0;
 }
 
+#if TARGET_OS_OSX
+static int checkAndSetPowerModeIntValue(
+    char *valstr,
+    CFStringRef settingKey,
+    int apply,
+    CFMutableDictionaryRef ac,
+    CFMutableDictionaryRef batt)
+{
+    CFNumberRef     cfnum;
+    char            *endptr = NULL;
+    long            val;
+    int32_t         val32;
+
+    if(!valstr) return -1;
+
+    val = strtol(valstr, &endptr, 0);
+
+    if(0 != *endptr)
+    {
+        // the string contained some non-numerical characters - bail
+        return -1;
+    }
+
+    // Only 0/1/2 valid
+    if(val < 0 || val > 2) {
+        printf("Unsupported mode %ld\n", val);
+        return -1;
+    }
+
+    val32 = (int32_t)val;
+    cfnum = CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt32Type, &val32);
+    if(!cfnum)
+        return -1;
+
+    int ret = 0;
+    if(apply & kApplyToBattery) {
+        switch(val) {
+            case 1:
+                if (!IOPMFeatureIsAvailable(CFSTR(kIOPMLowPowerModeKey), CFSTR(kIOPMBatteryPowerKey))) {
+                    ret = -1;
+                    printf("%s not supported on %s\n", kIOPMLowPowerModeKey, kIOPMBatteryPowerKey);
+                    goto exit;
+                }
+                break;
+#if !RC_HIDE_J316
+            case 2:
+                if (!IOPMFeatureIsAvailable(CFSTR(kIOPMHighPowerModeKey), CFSTR(kIOPMBatteryPowerKey))) {
+                    ret = -1;
+                    printf("%s not supported on %s\n", kIOPMHighPowerModeKey, kIOPMBatteryPowerKey);
+                    goto exit;
+                }
+                break;
+#endif
+            default:
+                break;
+        }
+    }
+
+    if(apply & kApplyToCharger) {
+        switch(val) {
+            case 1:
+                if (!IOPMFeatureIsAvailable(CFSTR(kIOPMLowPowerModeKey), CFSTR(kIOPMACPowerKey))) {
+                    ret = -1;
+                    printf("%s not supported on %s\n", kIOPMLowPowerModeKey, kIOPMACPowerKey);
+                    goto exit;
+                }
+                break;
+#if !RC_HIDE_J316
+            case 2:
+                if (!IOPMFeatureIsAvailable(CFSTR(kIOPMHighPowerModeKey), CFSTR(kIOPMACPowerKey))) {
+                    ret = -1;
+                    printf("%s not supported on %s\n", kIOPMHighPowerModeKey, kIOPMACPowerKey);
+                    goto exit;
+                }
+                break;
+#endif
+            default:
+                break;
+        }
+    }
+
+    // Apply only after all checks pass in case the user used -a
+    if(apply & kApplyToBattery) {
+        CFDictionarySetValue(batt, settingKey, cfnum);
+    }
+    if(apply & kApplyToCharger) {
+        CFDictionarySetValue(ac, settingKey, cfnum);
+    }
+
+exit:
+    CFRelease(cfnum);
+    return ret;
+}
+#endif // TARGET_OS_OSX
 
 /* Check if the input Hibernate mode is supported/valid or not */
  static int checkSupportedHibernateMode(char *valstr)
@@ -5226,7 +5370,16 @@ static int parseArgs(int argc,
                   printf("Failed to enable assertions with err code 0x%x\n", kr);
               goto exit;
 
-          } else if (0 == strncmp(argv[i], ARG_MT2BOOK, kMaxArgStringLength))
+          } else if (0 == strncmp(argv[i], ARG_SYSTEM_ASSERTION_TIMEOUT, kMaxArgStringLength))
+          {
+              if (argc <= 2) {
+                printf("Error: timeout is missing\n");
+                goto exit;
+              }
+              set_systemAssertionTimeout(&argv[i+1]);
+              goto exit;
+          }
+          else if (0 == strncmp(argv[i], ARG_MT2BOOK, kMaxArgStringLength))
           {
               mt2bookmark();
               goto exit;
@@ -5303,6 +5456,10 @@ static int parseArgs(int argc,
                 goto exit;
             } else if(0 == strncmp(argv[1], ARG_SET_DESKTOPMODE, kMaxArgStringLength))
             {
+                if ((getuid() != 0) && (geteuid() != 0)) {
+                    fprintf(stderr, "pmset: Must be run as root.\n");
+                    goto exit;
+                }
                 // Tell PMRD new desktopmode value
                 if(argc <= 2) {
                     printf("Error: DesktopMode value should be specified. 0 for detach and 1 for attach\n");
@@ -7184,6 +7341,11 @@ static void set_dwlInterval(char **argv)
         printf("Failed to change DarkWake linger interval. err=0x%x\n", err);
 }
 
+static void set_systemAssertionTimeout(char **argv)
+{
+    printf("Not supported\n");
+}
+
 static void set_saaFlags(char **argv)
 {
     uint32_t newFlags, oldFlags;
@@ -7388,7 +7550,7 @@ static void show_uuid(bool keep_running)
     IONotificationPortRef   notify = NULL;
     io_object_t             notification_ref = IO_OBJECT_NULL;
 
-    notify = IONotificationPortCreate(kIOMasterPortDefault);
+    notify = IONotificationPortCreate(kIOMainPortDefault);
     IONotificationPortSetDispatchQueue(notify, dispatch_get_main_queue());
 
     IOServiceAddInterestNotification(notify, rd,
@@ -7483,7 +7645,7 @@ static bool is_display_dim_captured(void)
     bool ret                          = false;
 
     disp_wrangler = IORegistryEntryFromPath(
-                            kIOMasterPortDefault,
+                            kIOMainPortDefault,
                             kIOServicePlane ":/IOResources/IODisplayWrangler");
     if(!disp_wrangler)
         return false;
@@ -7768,7 +7930,7 @@ static void show_power_state(char **argv)
         } while ((object = argv[i++]) != NULL);
         if (cnt == 0) goto exit;
     }
-    else if ((service = IORegistryGetRootEntry(kIOMasterPortDefault)) != 0) {
+    else if ((service = IORegistryGetRootEntry(kIOMainPortDefault)) != 0) {
         scan_powerplane(service);
         IOObjectRelease(service);
         goto exit;
@@ -8283,7 +8445,7 @@ static void print_fba(char **argv)
                 {
                 printf("\t\"%s_%s_%s\" : \"%d\",\n",
                     assertionName, assertionType, pname, createdSince);
-                });
+                }, false);
     }
     printf("}\n");
 
@@ -8297,6 +8459,11 @@ static void show_everything(char **argv)
 	    if (the_getters[i].actionType == kActionGetOnceNoArgs) {
             printf("\nINVOKE: pmset -g %s\n", the_getters[i].arg);
             the_getters[i].action(argv);
+            if (0 == strcmp(the_getters[i].arg, ARG_PS)) {
+                printf("\nINVOKE: pmset -g %s -xml\n", the_getters[i].arg);
+                argv[0] = "-xml";
+                the_getters[i].action(argv);
+            }
         }
     }
 }

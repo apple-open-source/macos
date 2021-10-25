@@ -102,8 +102,11 @@ static bool SOSAccountSyncWithKVSPeers(SOSAccountTransaction* txn, CFSetRef peer
 }
 
 bool SOSAccountSyncWithKVSPeerWithMessage(SOSAccountTransaction* txn, CFStringRef peerid, CFDataRef message, CFErrorRef *error) {
-    //murfxx protect
     SOSAccount* account = txn.account;
+    if(![account sosIsEnabled]) {
+        secdebug("circleOps", "SOS is currently not supported or enabled");
+        return false;
+    }
     bool result = false;
     CFErrorRef localError = NULL;
     CFDictionaryRef encapsulatedMessage = NULL;

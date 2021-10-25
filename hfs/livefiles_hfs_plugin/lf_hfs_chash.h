@@ -25,6 +25,5 @@ int hfs_chashremove(struct hfsmount *hfsmp, struct cnode *cp);
 void hfs_chash_mark_in_transit(struct hfsmount *hfsmp, struct cnode *cp);
 void hfs_chash_lower_OpenLookupCounter(struct cnode *cp);
 void hfs_chash_raise_OpenLookupCounter(struct cnode *cp);
-void hfs_chash_wait(struct hfsmount *hfsmp, struct cnode  *cp);
 
 #endif /* lf_hfs_chash_h */

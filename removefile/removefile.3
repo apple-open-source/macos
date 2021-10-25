@@ -1,4 +1,4 @@
-.\" Copyright (c) 2015 Apple Inc.
+.\" Copyright (c) 2015-21 Apple Inc.
 .\" All rights reserved.
 .\"
 .\" Redistribution and use in source and binary forms, with or without
@@ -24,7 +24,7 @@
 .\" (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
 .\" THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 .\"
-.Dd April 1, 2020
+.Dd March 30, 2021
 .Dt REMOVEFILE 3
 .Os
 .Sh NAME
@@ -136,6 +136,16 @@ Overwrite the file twice with random bytes, and then with 0xAA.
 Overwrite with a single pass of random data.
 .It Dv REMOVEFILE_SECURE_1_PASS_ZERO
 Overwrite with a single pass of zeroes.
+.It Dv REMOVEFILE_ALLOW_LONG_PATHS
+Allow the
+.Va path
+location to exceed the PATH_MAX constant.
+This requires changing the working directory of the process that has called into
+.Fn removefile
+temporarily.
+This does not remove the requirement that no component of the
+.Va path
+location exceeds NAME_MAX characters.
 .El
 .Pp
 The
@@ -229,7 +239,12 @@ The
 .Va path
 location refers to a symbolic link.
 .It Bq Er ENAMETOOLONG
-The resource fork name of the file exceeds the maximum allowed length.
+A component of the
+.Va path
+location exceeds NAME_MAX characters, or the entire
+.Va path
+location
+exceeds PATH_MAX characters (and REMOVEFILE_ALLOW_LONG_PATHS is not passed).
 .It Bq Er ENOMEM
 A memory allocation failed.
 .It Bq Er ENOTEMPTY

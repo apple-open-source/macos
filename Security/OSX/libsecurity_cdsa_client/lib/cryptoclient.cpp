@@ -111,9 +111,30 @@ CSSM_SIZE
 Decrypt::decrypt(const CssmData *in, uint32 inCount,
 	CssmData *out, uint32 outCount, CssmData &remData)
 {
+    // So we can free any memory the underlying layers may have allocated before
+    // throwing, that way all such callers need not free in the error case.
+    // Allocation can happen if either `*out` or `remData` wraps NULL.
+    // The underlying Writer will only allocate for the first CssmData in the
+    // array, so we only have to worry about that one.
+    // Note: A lower layer will throw if `out` is NULL, but we don't want to crash here.
+    bool mightAllocateOut = out != NULL && out->data() == NULL;
+    bool mightAllocateRem = remData.data() == NULL;
+
 	unstaged();
 	CSSM_SIZE total;
-	check(CSSM_DecryptData(handle(), in, inCount, out, outCount, &total, &remData));
+    try {
+        check(CSSM_DecryptData(handle(), in, inCount, out, outCount, &total, &remData));
+    } catch (...) {
+        if (mightAllocateOut && out->data() != NULL) {
+            Allocator::standard().free(out->data());
+            out->clear();
+        }
+        if (mightAllocateRem && remData.data() != NULL) {
+            Allocator::standard().free(remData.data());
+            remData.clear();
+        }
+        throw;
+    }
 	return total;
 }
 

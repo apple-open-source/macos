@@ -8,7 +8,7 @@
 #ifndef HIDServiceIvar_h
 #define HIDServiceIvar_h
 
-#import "hidobjcbase.h"
+#import <IOKit/hidobjc/hidobjcbase.h>
 #import <CoreFoundation/CoreFoundation.h>
 #import <objc/objc.h> // for objc_object
 #include <os/lock.h>

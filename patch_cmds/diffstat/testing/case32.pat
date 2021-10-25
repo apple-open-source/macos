@@ -1,7 +1,7 @@
 --- README	2001-10-10 20:23:46.000000000 -0400
 +++ README.new	2009-08-31 05:24:30.000000000 -0400
 @@ -1,7 +1,7 @@
- $Id: case32.pat,v 1.1 2009/08/31 09:24:46 tom Exp $
+ $Id: README,v 1.5 2001/10/11 00:23:46 tom Exp $
  
 -Readme file for DiffStat.
 +Readme file for dIFFsTAT.

@@ -54,7 +54,7 @@
 #include <machine/machine_routines.h>
 
 static ZONE_DECLARE(thread_call_zone, "thread_call",
-    sizeof(thread_call_data_t), ZC_NOENCRYPT);
+    sizeof(thread_call_data_t), ZC_ZFREE_CLEARMEM);
 
 typedef enum {
 	TCF_ABSOLUTE    = 0,
@@ -507,7 +507,8 @@ thread_call_thread_create(
  *	Initialize this module, called
  *	early during system initialization.
  */
-void
+__startup_func
+static void
 thread_call_initialize(void)
 {
 	nanotime_to_absolutetime(0, THREAD_CALL_DEALLOC_INTERVAL_NS, &thread_call_dealloc_interval_abs);
@@ -530,6 +531,7 @@ thread_call_initialize(void)
 
 	thread_deallocate(thread);
 }
+STARTUP(THREAD_CALL, STARTUP_RANK_FIRST, thread_call_initialize);
 
 void
 thread_call_setup_with_options(
@@ -1084,7 +1086,7 @@ thread_call_free(
 
 	int32_t refs = --call->tc_refs;
 	if (refs < 0) {
-		panic("Refcount negative: %d\n", refs);
+		panic("Refcount negative: %d", refs);
 	}
 
 	if ((THREAD_CALL_SIGNAL | THREAD_CALL_RUNNING)
@@ -1552,7 +1554,7 @@ thread_call_finish(thread_call_t call, thread_call_group_t group, spl_t *s)
 
 	if (!signal && alloc && call->tc_refs == 0) {
 		if ((old_flags & THREAD_CALL_WAIT) != 0) {
-			panic("Someone waiting on a thread call that is scheduled for free: %p\n", call->tc_func);
+			panic("Someone waiting on a thread call that is scheduled for free: %p", call->tc_func);
 		}
 
 		assert(call->tc_finish_count == call->tc_submit_count);

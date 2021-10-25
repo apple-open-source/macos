@@ -533,8 +533,7 @@ void IOHIDElementPrivate::free()
     
     if (_oldArraySelectors)
     {
-        IOFree (_oldArraySelectors, sizeof(UInt32) * _reportCount);
-        _oldArraySelectors = 0;
+        IODeleteData(_oldArraySelectors, UInt32, _reportCount);
     }
 
     if (_colArrayReportHandlers)
@@ -677,12 +676,10 @@ IOHIDElementPrivate * IOHIDElementPrivate::arrayHandlerElement(
     // RY: Allocate a buffer that will contain the old Array selector.
     // This needed to compare the old report to the new report to
     // deterine which array items need to be turned on/off.
-    element->_oldArraySelectors = (UInt32 *)IOMalloc(sizeof(UInt32) * element->_reportCount);
+    element->_oldArraySelectors = (UInt32 *)IONewZeroData(UInt32, element->_reportCount);
     
     if (element->_oldArraySelectors == NULL)
         goto ARRAY_HANDLER_ELEMENT_RELEASE;
-
-    bzero ( element->_oldArraySelectors, sizeof(UInt32) * element->_reportCount);
     
     if (element->_reportCount > 1)
     {
@@ -1144,7 +1141,7 @@ bool IOHIDElementPrivate::processReport(
         // Ignore report that does not match our report ID.
         if ( _reportID != reportID )
             break;
-      
+
         if (_variableSize & kIOHIDElementVariableSizeElement) {
             if (_reportStartBit >= reportBits) {
                 break;
@@ -1635,6 +1632,13 @@ void IOHIDElementPrivate::setArrayElementValue(UInt32 index, UInt32 value)
     
     if (!element) 
         return;
+
+    // Avoid setting the same element value twice in the same report.
+    // Prevents accidentally overwriting the previous value if 2 array
+    // indicies were reporting the same element, and are now both zero.
+    if (CMP_ABSOLUTETIME(&element->_elementValue->timestamp, &_elementValue->timestamp) == 0) {
+        return;
+    }
 
     // Bump the generation count.  An odd value tells us
     // that the information is incomplete and should not

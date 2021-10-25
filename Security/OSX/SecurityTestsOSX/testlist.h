@@ -4,3 +4,4 @@
 #include <libsecurity_cms/regressions/cms_regressions.h>
 #include <libsecurity_transform/regressions/transform_regressions.h>
 #include <shared_regressions/shared_regressions.h>
+#include "keychain/SecureObjectSync/Regressions/SOSCircle_regressions.h"

@@ -45,6 +45,8 @@
  * CommonCryptor's portion of a CCCryptorRef. 
  */
 
+#define MAX_BLOCK_SIZE kCCBlockSizeAES128
+
 static inline uint32_t ccGetCipherBlockSize(CCCryptor *ref) {
     switch(ref->cipher) {
         case kCCAlgorithmAES128:    return kCCBlockSizeAES128;
@@ -187,22 +189,25 @@ static int check_algorithm_keysize(CCAlgorithm alg, size_t keysize)
 static inline CCCryptorStatus ccInitCryptor(CCCryptor *ref, const void *key, unsigned long key_len, const void *tweak_key, const void *iv)
 {
     int ccrc = CCERR_OK;
-    if( check_algorithm_keysize(ref->cipher, key_len) <0 )
+    if (check_algorithm_keysize(ref->cipher, key_len) < 0) {
         return kCCKeySizeError;
+    }
 
-    size_t blocksize = ccGetCipherBlockSize(ref);
-    uint8_t defaultIV[blocksize];
-    
-    if(iv == NULL) {
-        cc_clear(blocksize, defaultIV);
+    if (MAX_BLOCK_SIZE < ccGetCipherBlockSize(ref)) {
+        return kCCParamError;
+    }
+
+    uint8_t defaultIV[MAX_BLOCK_SIZE] = { 0 };
+
+    if (iv == NULL) {
         iv = defaultIV;
     }
-     
+
     CCOperation op = ref->op;
-    
+
     // This will create both sides of the context/mode pairs for now.
     if(ref->mode == kCCModeXTS || ref->mode == kCCModeECB || ref->mode == kCCModeCBC) op = kCCBoth;
-    
+
     switch(op) {
         case kCCEncrypt:
         case kCCDecrypt:
@@ -727,10 +732,9 @@ CCCryptorStatus CCCryptorFinal(
     
 	CCCryptorStatus	retval;
     int encrypting = (cryptor->op == kCCEncrypt);
-	uint32_t blocksize = ccGetCipherBlockSize(cryptor);
     
     size_t moved;
-	char tmpbuf[blocksize*2];
+	char tmpbuf[MAX_BLOCK_SIZE * 2];
 
 	if(dataOutMoved) *dataOutMoved = 0;
 
@@ -797,8 +801,7 @@ CCCryptorStatus CCCryptorReset_binary_compatibility(
     if(iv) {
         retval = ccSetIV(cryptor, iv, ccGetCipherBlockSize(cryptor));
     } else {
-        uint8_t ivzero[ccGetCipherBlockSize(cryptor)];
-        cc_clear(ccGetCipherBlockSize(cryptor), ivzero);
+        uint8_t ivzero[MAX_BLOCK_SIZE] = { 0 };
         retval = ccSetIV(cryptor, ivzero, ccGetCipherBlockSize(cryptor));
     }
     if(retval == kCCParamError) return kCCSuccess; //that is for when reset is unimplemented
@@ -813,7 +816,7 @@ CCCryptorStatus CCCryptorReset(CCCryptorRef cryptorRef, const void *iv)
         return CCCryptorReset_binary_compatibility(cryptorRef, iv);
 #pragma clang diagnostic pop
     
-    //continue with the new behavior: can only be called for CBC
+    //continue with the new behavior: can only be called for CBC and CTR mode
     CC_DEBUG_LOG("Entering\n");
     CCCryptor *cryptor = getRealCryptor(cryptorRef, 1);
     if(!cryptor) return kCCParamError;
@@ -838,8 +841,7 @@ CCCryptorStatus CCCryptorReset(CCCryptorRef cryptorRef, const void *iv)
     if(iv) {
         retval = ccSetIV(cryptor, iv, ccGetCipherBlockSize(cryptor));
     } else {
-        uint8_t ivzero[ccGetCipherBlockSize(cryptor)];
-        cc_clear(ccGetCipherBlockSize(cryptor), ivzero);
+        uint8_t ivzero[MAX_BLOCK_SIZE] = { 0 };
         retval = ccSetIV(cryptor, ivzero, ccGetCipherBlockSize(cryptor));
     }
     

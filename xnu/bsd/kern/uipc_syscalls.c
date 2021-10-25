@@ -100,7 +100,10 @@
 #include <net/route.h>
 #include <netinet/in_pcb.h>
 
+#include <os/log.h>
 #include <os/ptrtools.h>
+
+#include <os/log.h>
 
 #if CONFIG_MACF_SOCKET_SUBSET
 #include <security/mac_framework.h>
@@ -179,6 +182,10 @@ SYSCTL_UINT(_kern_ipc, OID_AUTO, maxsendmsgx,
 static u_int somaxrecvmsgx = 100;
 SYSCTL_UINT(_kern_ipc, OID_AUTO, maxrecvmsgx,
     CTLFLAG_RW | CTLFLAG_LOCKED, &somaxrecvmsgx, 0, "");
+
+static u_int missingpktinfo = 0;
+SYSCTL_UINT(_kern_ipc, OID_AUTO, missingpktinfo,
+    CTLFLAG_RD | CTLFLAG_LOCKED, &missingpktinfo, 0, "");
 
 /*
  * System call interface to the socket abstraction.
@@ -337,7 +344,7 @@ bind(__unused proc_t p, struct bind_args *uap, __unused int32_t *retval)
 	error = sobindlock(so, sa, 1);          /* will lock socket */
 #endif /* MAC_SOCKET_SUBSET */
 	if (want_free) {
-		FREE(sa, M_SONAME);
+		free_sockaddr(sa);
 	}
 out:
 	file_drop(uap->s);
@@ -471,13 +478,13 @@ check_again:
 			break;
 		}
 		if (head->so_usecount < 1) {
-			panic("accept: head=%p refcount=%d\n", head,
+			panic("accept: head=%p refcount=%d", head,
 			    head->so_usecount);
 		}
 		error = msleep((caddr_t)&head->so_timeo, mutex_held,
 		    PSOCK | PCATCH, "accept", 0);
 		if (head->so_usecount < 1) {
-			panic("accept: 2 head=%p refcount=%d\n", head,
+			panic("accept: 2 head=%p refcount=%d", head,
 			    head->so_usecount);
 		}
 		if ((head->so_state & SS_DRAINING)) {
@@ -620,7 +627,7 @@ gotnoname:
 		error = copyout((caddr_t)&namelen, uap->anamelen,
 		    sizeof(socklen_t));
 	}
-	FREE(sa, M_SONAME);
+	free_sockaddr(sa);
 
 releasefd:
 	/*
@@ -733,7 +740,7 @@ connect_nocancel(proc_t p, struct connect_nocancel_args *uap, int32_t *retval)
 	error = connectit(so, sa);
 
 	if (sa != NULL && sa != SA(&ss)) {
-		FREE(sa, M_SONAME);
+		free_sockaddr(sa);
 	}
 	if (error == ERESTART) {
 		error = EINTR;
@@ -914,10 +921,10 @@ out:
 		uio_free(auio);
 	}
 	if (src != NULL && src != SA(&ss)) {
-		FREE(src, M_SONAME);
+		free_sockaddr(src);
 	}
 	if (dst != NULL && dst != SA(&sd)) {
-		FREE(dst, M_SONAME);
+		free_sockaddr(dst);
 	}
 	return error;
 }
@@ -1308,7 +1315,7 @@ sendit(struct proc *p, struct socket *so, struct user_msghdr *mp, uio_t uiop,
 	}
 bad:
 	if (want_free) {
-		FREE(to, M_SONAME);
+		free_sockaddr(to);
 	}
 out:
 	KERNEL_DEBUG(DBG_FNC_SENDIT | DBG_FUNC_END, error, 0, 0, 0, 0);
@@ -1419,6 +1426,8 @@ sendmsg_nocancel(struct proc *p, struct sendmsg_nocancel_args *uap,
 	struct user_iovec *iovp;
 	struct socket *so;
 
+	const bool is_p_64bit_process = IS_64BIT_PROCESS(p);
+
 	KERNEL_DEBUG(DBG_FNC_SENDMSG | DBG_FUNC_START, 0, 0, 0, 0, 0);
 	AUDIT_ARG(fd, uap->s);
 
@@ -1427,7 +1436,7 @@ sendmsg_nocancel(struct proc *p, struct sendmsg_nocancel_args *uap,
 		goto done;
 	}
 
-	if (IS_64BIT_PROCESS(p)) {
+	if (is_p_64bit_process) {
 		msghdrp = (caddr_t)&msg64;
 		size_of_msghdr = sizeof(msg64);
 	} else {
@@ -1440,7 +1449,7 @@ sendmsg_nocancel(struct proc *p, struct sendmsg_nocancel_args *uap,
 		return error;
 	}
 
-	if (IS_64BIT_PROCESS(p)) {
+	if (is_p_64bit_process) {
 		user_msg.msg_flags = msg64.msg_flags;
 		user_msg.msg_controllen = msg64.msg_controllen;
 		user_msg.msg_control = (user_addr_t)msg64.msg_control;
@@ -1466,7 +1475,7 @@ sendmsg_nocancel(struct proc *p, struct sendmsg_nocancel_args *uap,
 
 	/* allocate a uio large enough to hold the number of iovecs passed */
 	auio = uio_create(user_msg.msg_iovlen, 0,
-	    (IS_64BIT_PROCESS(p) ? UIO_USERSPACE64 : UIO_USERSPACE32),
+	    (is_p_64bit_process ? UIO_USERSPACE64 : UIO_USERSPACE32),
 	    UIO_WRITE);
 	if (auio == NULL) {
 		error = ENOBUFS;
@@ -1484,7 +1493,7 @@ sendmsg_nocancel(struct proc *p, struct sendmsg_nocancel_args *uap,
 			goto done;
 		}
 		error = copyin_user_iovec_array(user_msg.msg_iov,
-		    IS_64BIT_PROCESS(p) ? UIO_USERSPACE64 : UIO_USERSPACE32,
+		    is_p_64bit_process ? UIO_USERSPACE64 : UIO_USERSPACE32,
 		    user_msg.msg_iovlen, iovp);
 		if (error) {
 			goto done;
@@ -1572,25 +1581,23 @@ sendmsg_x(struct proc *p, struct sendmsg_x_args *uap, user_ssize_t *retval)
 		uap->cnt = somaxsendmsgx;
 	}
 
-	user_msg_x = kheap_alloc(KHEAP_TEMP,
-	    uap->cnt * sizeof(struct user_msghdr_x), Z_WAITOK | Z_ZERO);
+	user_msg_x = kalloc_data(uap->cnt * sizeof(struct user_msghdr_x),
+	    Z_WAITOK | Z_ZERO);
 	if (user_msg_x == NULL) {
-		DBG_PRINTF("%s kheap_alloc user_msg_x failed\n", __func__);
+		DBG_PRINTF("%s user_msg_x alloc failed\n", __func__);
 		error = ENOMEM;
 		goto out;
 	}
-	uiop = kheap_alloc(KHEAP_TEMP,
-	    uap->cnt * sizeof(struct uio *), Z_WAITOK | Z_ZERO);
+	uiop = kalloc_type(struct uio *, uap->cnt, Z_WAITOK | Z_ZERO);
 	if (uiop == NULL) {
-		DBG_PRINTF("%s kheap_alloc uiop failed\n", __func__);
+		DBG_PRINTF("%s uiop alloc failed\n", __func__);
 		error = ENOMEM;
 		goto out;
 	}
 
-	umsgp = kheap_alloc(KHEAP_TEMP,
-	    uap->cnt * size_of_msghdr, Z_WAITOK | Z_ZERO);
+	umsgp = kalloc_data(uap->cnt * size_of_msghdr, Z_WAITOK | Z_ZERO);
 	if (umsgp == NULL) {
-		printf("%s kheap_alloc user_msg_x failed\n", __func__);
+		printf("%s user_msg_x alloc failed\n", __func__);
 		error = ENOMEM;
 		goto out;
 	}
@@ -1720,14 +1727,12 @@ out:
 	if (need_drop) {
 		file_drop(uap->s);
 	}
-	kheap_free(KHEAP_TEMP, umsgp, uap->cnt * size_of_msghdr);
+	kfree_data(umsgp, uap->cnt * size_of_msghdr);
 	if (uiop != NULL) {
 		free_uio_array(uiop, uap->cnt);
-		kheap_free(KHEAP_TEMP, uiop,
-		    uap->cnt * sizeof(struct uio *));
+		kfree_type(struct uio *, uap->cnt, uiop);
 	}
-	kheap_free(KHEAP_TEMP, user_msg_x,
-	    uap->cnt * sizeof(struct user_msghdr_x));
+	kfree_data(user_msg_x, uap->cnt * sizeof(struct user_msghdr_x));
 
 	KERNEL_DEBUG(DBG_FNC_SENDMSG_X | DBG_FUNC_END, error, 0, 0, 0, 0);
 
@@ -1768,7 +1773,14 @@ copyout_control(struct proc *p, struct mbuf *m, user_addr_t control,
 	int error = 0;
 	socklen_t len;
 	user_addr_t ctlbuf;
-	struct inpcb *inp = so ? sotoinpcb(so) : NULL;
+	struct inpcb *inp = NULL;
+	bool want_pktinfo = false;
+	bool seen_pktinfo = false;
+
+	if (so != NULL && (SOCK_DOM(so) == PF_INET6 || SOCK_DOM(so) == PF_INET)) {
+		inp = sotoinpcb(so);
+		want_pktinfo = (inp->inp_flags & IN6P_PKTINFO) != 0;
+	}
 
 	len = *controllen;
 	*controllen = 0;
@@ -1825,7 +1837,7 @@ copyout_control(struct proc *p, struct mbuf *m, user_addr_t control,
 #if CONTENT_FILTER
 				/* If socket is attached to Content Filter and socket did not request address, ignore it */
 				if ((so != NULL) && (so->so_cfil_db != NULL) &&
-				    ((cp->cmsg_level == IPPROTO_IP && cp->cmsg_type == IP_RECVDSTADDR && inp &&
+				    ((cp->cmsg_level == IPPROTO_IP && cp->cmsg_type == IP_RECVDSTADDR && inp != NULL &&
 				    !(inp->inp_flags & INP_RECVDSTADDR)) ||
 				    (cp->cmsg_level == IPPROTO_IPV6 && (cp->cmsg_type == IPV6_PKTINFO || cp->cmsg_type == IPV6_2292PKTINFO) && inp &&
 				    !(inp->inp_flags & IN6P_PKTINFO)))) {
@@ -1847,6 +1859,10 @@ copyout_control(struct proc *p, struct mbuf *m, user_addr_t control,
 					if (error) {
 						goto out;
 					}
+					if (want_pktinfo && cp->cmsg_level == IPPROTO_IPV6 &&
+					    (cp->cmsg_type == IPV6_PKTINFO || cp->cmsg_type == IPV6_2292PKTINFO)) {
+						seen_pktinfo = true;
+					}
 				}
 			}
 
@@ -1863,6 +1879,28 @@ copyout_control(struct proc *p, struct mbuf *m, user_addr_t control,
 	}
 	*controllen = (socklen_t)(ctlbuf - control);
 out:
+	if (want_pktinfo && !seen_pktinfo) {
+		missingpktinfo += 1;
+#if (DEBUG || DEVELOPMENT)
+		char pname[MAXCOMLEN];
+		char local[MAX_IPv6_STR_LEN + 6];
+		char remote[MAX_IPv6_STR_LEN + 6];
+
+		proc_name(so->last_pid, pname, sizeof(MAXCOMLEN));
+		if (inp->inp_vflag & INP_IPV6) {
+			inet_ntop(AF_INET6, &inp->in6p_laddr.s6_addr, local, sizeof(local));
+			inet_ntop(AF_INET6, &inp->in6p_faddr.s6_addr, remote, sizeof(local));
+		} else {
+			inet_ntop(AF_INET, &inp->inp_laddr.s_addr, local, sizeof(local));
+			inet_ntop(AF_INET, &inp->inp_faddr.s_addr, remote, sizeof(local));
+		}
+
+		os_log(OS_LOG_DEFAULT,
+		    "cmsg IPV6_PKTINFO missing for %s:%u > %s:%u proc %s.%u error %d\n",
+		    local, ntohs(inp->inp_lport), remote, ntohs(inp->inp_fport),
+		    pname, so->last_pid, error);
+#endif /* (DEBUG || DEVELOPMENT) */
+	}
 	return error;
 }
 
@@ -1963,7 +2001,7 @@ recvit(struct proc *p, int s, struct user_msghdr *mp, uio_t uiop,
 		    &mp->msg_controllen, &mp->msg_flags, so);
 	}
 out:
-	FREE(fromsa, M_SONAME);
+	free_sockaddr(fromsa);
 	if (control) {
 		m_freem(control);
 	}
@@ -2074,9 +2112,11 @@ recvmsg_nocancel(struct proc *p, struct recvmsg_nocancel_args *uap,
 	uio_t auio = NULL;
 	struct user_iovec *iovp;
 
+	const bool is_p_64bit_process = IS_64BIT_PROCESS(p);
+
 	KERNEL_DEBUG(DBG_FNC_RECVMSG | DBG_FUNC_START, 0, 0, 0, 0, 0);
 	AUDIT_ARG(fd, uap->s);
-	if (IS_64BIT_PROCESS(p)) {
+	if (is_p_64bit_process) {
 		msghdrp = (caddr_t)&msg64;
 		size_of_msghdr = sizeof(msg64);
 	} else {
@@ -2090,7 +2130,7 @@ recvmsg_nocancel(struct proc *p, struct recvmsg_nocancel_args *uap,
 	}
 
 	/* only need to copy if user process is not 64-bit */
-	if (IS_64BIT_PROCESS(p)) {
+	if (is_p_64bit_process) {
 		user_msg.msg_flags = msg64.msg_flags;
 		user_msg.msg_controllen = msg64.msg_controllen;
 		user_msg.msg_control = (user_addr_t)msg64.msg_control;
@@ -2118,7 +2158,7 @@ recvmsg_nocancel(struct proc *p, struct recvmsg_nocancel_args *uap,
 
 	/* allocate a uio large enough to hold the number of iovecs passed */
 	auio = uio_create(user_msg.msg_iovlen, 0,
-	    (IS_64BIT_PROCESS(p) ? UIO_USERSPACE64 : UIO_USERSPACE32),
+	    (is_p_64bit_process ? UIO_USERSPACE64 : UIO_USERSPACE32),
 	    UIO_READ);
 	if (auio == NULL) {
 		error = ENOMEM;
@@ -2137,7 +2177,7 @@ recvmsg_nocancel(struct proc *p, struct recvmsg_nocancel_args *uap,
 	uiov = user_msg.msg_iov;
 	user_msg.msg_iov = CAST_USER_ADDR_T(iovp);
 	error = copyin_user_iovec_array(uiov,
-	    IS_64BIT_PROCESS(p) ? UIO_USERSPACE64 : UIO_USERSPACE32,
+	    is_p_64bit_process ? UIO_USERSPACE64 : UIO_USERSPACE32,
 	    user_msg.msg_iovlen, iovp);
 	if (error) {
 		goto done;
@@ -2152,7 +2192,7 @@ recvmsg_nocancel(struct proc *p, struct recvmsg_nocancel_args *uap,
 	error = recvit(p, uap->s, &user_msg, auio, 0, retval);
 	if (!error) {
 		user_msg.msg_iov = uiov;
-		if (IS_64BIT_PROCESS(p)) {
+		if (is_p_64bit_process) {
 			msg64.msg_flags = user_msg.msg_flags;
 			msg64.msg_controllen = user_msg.msg_controllen;
 			msg64.msg_control = user_msg.msg_control;
@@ -2193,9 +2233,11 @@ recvmsg_x(struct proc *p, struct recvmsg_x_args *uap, user_ssize_t *retval)
 	u_int i;
 	u_int uiocnt;
 
+	const bool is_p_64bit_process = IS_64BIT_PROCESS(p);
+
 	KERNEL_DEBUG(DBG_FNC_RECVMSG_X | DBG_FUNC_START, 0, 0, 0, 0, 0);
 
-	size_of_msghdr = IS_64BIT_PROCESS(p) ?
+	size_of_msghdr = is_p_64bit_process ?
 	    sizeof(struct user64_msghdr_x) : sizeof(struct user32_msghdr_x);
 
 	error = file_socket(uap->s, &so);
@@ -2224,10 +2266,10 @@ recvmsg_x(struct proc *p, struct recvmsg_x_args *uap, user_ssize_t *retval)
 		uap->cnt = somaxrecvmsgx;
 	}
 
-	user_msg_x = kheap_alloc(KHEAP_TEMP,
-	    uap->cnt * sizeof(struct user_msghdr_x), Z_WAITOK | Z_ZERO);
+	user_msg_x = kalloc_data(uap->cnt * sizeof(struct user_msghdr_x),
+	    Z_WAITOK | Z_ZERO);
 	if (user_msg_x == NULL) {
-		DBG_PRINTF("%s kheap_alloc user_msg_x failed\n", __func__);
+		DBG_PRINTF("%s user_msg_x alloc failed\n", __func__);
 		error = ENOMEM;
 		goto out;
 	}
@@ -2238,10 +2280,9 @@ recvmsg_x(struct proc *p, struct recvmsg_x_args *uap, user_ssize_t *retval)
 		goto out;
 	}
 
-	umsgp = kheap_alloc(KHEAP_TEMP,
-	    uap->cnt * size_of_msghdr, Z_WAITOK | Z_ZERO);
+	umsgp = kalloc_data(uap->cnt * size_of_msghdr, Z_WAITOK | Z_ZERO);
 	if (umsgp == NULL) {
-		DBG_PRINTF("%s kheap_alloc umsgp failed\n", __func__);
+		DBG_PRINTF("%s umsgp alloc failed\n", __func__);
 		error = ENOMEM;
 		goto out;
 	}
@@ -2251,7 +2292,7 @@ recvmsg_x(struct proc *p, struct recvmsg_x_args *uap, user_ssize_t *retval)
 		goto out;
 	}
 	error = internalize_recv_msghdr_array(umsgp,
-	    IS_64BIT_PROCESS(p) ? UIO_USERSPACE64 : UIO_USERSPACE32,
+	    is_p_64bit_process ? UIO_USERSPACE64 : UIO_USERSPACE32,
 	    UIO_READ, uap->cnt, user_msg_x, recv_msg_array);
 	if (error) {
 		DBG_PRINTF("%s copyin_user_msghdr_array() failed\n", __func__);
@@ -2372,10 +2413,9 @@ out:
 	if (need_drop) {
 		file_drop(uap->s);
 	}
-	kheap_free(KHEAP_TEMP, umsgp, uap->cnt * size_of_msghdr);
+	kfree_data(umsgp, uap->cnt * size_of_msghdr);
 	free_recv_msg_array(recv_msg_array, uap->cnt);
-	kheap_free(KHEAP_TEMP, user_msg_x,
-	    uap->cnt * sizeof(struct user_msghdr_x));
+	kfree_data(user_msg_x, uap->cnt * sizeof(struct user_msghdr_x));
 
 	KERNEL_DEBUG(DBG_FNC_RECVMSG_X | DBG_FUNC_END, error, 0, 0, 0, 0);
 
@@ -2614,7 +2654,7 @@ getsockname(__unused struct proc *p, struct getsockname_args *uap,
 gotnothing:
 	error = copyout((caddr_t)&len, uap->alen, sizeof(socklen_t));
 bad:
-	FREE(sa, M_SONAME);
+	free_sockaddr(sa);
 out:
 	file_drop(uap->fdes);
 	return error;
@@ -2701,7 +2741,7 @@ getpeername(__unused struct proc *p, struct getpeername_args *uap,
 gotnothing:
 	error = copyout((caddr_t)&len, uap->alen, sizeof(socklen_t));
 bad:
-	FREE(sa, M_SONAME);
+	free_sockaddr(sa);
 out:
 	file_drop(uap->fdes);
 	return error;
@@ -2718,7 +2758,11 @@ sockargs(struct mbuf **mp, user_addr_t data, socklen_t buflen, int type)
 	if (buflen > INT_MAX / 2) {
 		return EINVAL;
 	}
-	if (type == MT_SONAME && buflen > SOCK_MAXADDRLEN) {
+	if (type == MT_SONAME && (buflen > SOCK_MAXADDRLEN ||
+	    buflen < offsetof(struct sockaddr, sa_data[0]))) {
+		return EINVAL;
+	}
+	if (type == MT_CONTROL && buflen < sizeof(struct cmsghdr)) {
 		return EINVAL;
 	}
 
@@ -2794,13 +2838,11 @@ getsockaddr(struct socket *so, struct sockaddr **namp, user_addr_t uaddr,
 		return EINVAL;
 	}
 
-	MALLOC(sa, struct sockaddr *, len, M_SONAME, M_WAITOK | M_ZERO);
-	if (sa == NULL) {
-		return ENOMEM;
-	}
+	sa = (struct sockaddr *)alloc_sockaddr(len, Z_WAITOK | Z_NOFAIL);
+
 	error = copyin(uaddr, (caddr_t)sa, len);
 	if (error) {
-		FREE(sa, M_SONAME);
+		free_sockaddr(sa);
 	} else {
 		/*
 		 * Force sa_family to AF_INET on AF_INET sockets to handle
@@ -3190,8 +3232,7 @@ uio_array_is_valid(struct uio **uiop, u_int count)
 struct recv_msg_elem *
 alloc_recv_msg_array(u_int count)
 {
-	return kheap_alloc(KHEAP_TEMP,
-	           count * sizeof(struct recv_msg_elem), Z_WAITOK | Z_ZERO);
+	return kalloc_type(struct recv_msg_elem, count, Z_WAITOK | Z_ZERO);
 }
 
 void
@@ -3206,13 +3247,12 @@ free_recv_msg_array(struct recv_msg_elem *recv_msg_array, u_int count)
 		if (recv_msg_elem->uio != NULL) {
 			uio_free(recv_msg_elem->uio);
 		}
-		_FREE(recv_msg_elem->psa, M_TEMP);
+		free_sockaddr(recv_msg_elem->psa);
 		if (recv_msg_elem->controlp != NULL) {
 			m_freem(recv_msg_elem->controlp);
 		}
 	}
-	kheap_free(KHEAP_TEMP, recv_msg_array,
-	    count * sizeof(struct recv_msg_elem));
+	kfree_type(struct recv_msg_elem, count, recv_msg_array);
 }
 
 
@@ -3283,7 +3323,7 @@ alloc_sendpkt(int how, size_t pktlen, unsigned int *maxchunks,
 	unsigned int needed;
 
 	if (pktlen == 0) {
-		panic("%s: pktlen (%ld) must be non-zero\n", __func__, pktlen);
+		panic("%s: pktlen (%ld) must be non-zero", __func__, pktlen);
 	}
 
 	/*
@@ -3312,7 +3352,7 @@ alloc_sendpkt(int how, size_t pktlen, unsigned int *maxchunks,
 		*m = m_getpackets_internal(&needed, 1, M_WAIT, 1, MBIGCLBYTES);
 	}
 	if (*m == NULL) {
-		panic("%s: blocking allocation returned NULL\n", __func__);
+		panic("%s: blocking allocation returned NULL", __func__);
 	}
 
 	*maxchunks = needed;
@@ -3345,6 +3385,8 @@ sendfile(struct proc *p, struct sendfile_args *uap, __unused int *retval)
 	size_t sizeof_hdtr;
 	off_t file_size;
 	struct vfs_context context = *vfs_context_current();
+
+	const bool is_p_64bit_process = IS_64BIT_PROCESS(p);
 
 	KERNEL_DEBUG_CONSTANT((DBG_FNC_SENDFILE | DBG_FUNC_START), uap->s,
 	    0, 0, 0, 0);
@@ -3423,7 +3465,7 @@ sendfile(struct proc *p, struct sendfile_args *uap, __unused int *retval)
 		caddr_t hdtrp;
 
 		bzero(&user_hdtr, sizeof(user_hdtr));
-		if (IS_64BIT_PROCESS(p)) {
+		if (is_p_64bit_process) {
 			hdtrp = (caddr_t)&user64_hdtr;
 			sizeof_hdtr = sizeof(user64_hdtr);
 		} else {
@@ -3434,7 +3476,7 @@ sendfile(struct proc *p, struct sendfile_args *uap, __unused int *retval)
 		if (error) {
 			goto done2;
 		}
-		if (IS_64BIT_PROCESS(p)) {
+		if (is_p_64bit_process) {
 			user_hdtr.headers = user64_hdtr.headers;
 			user_hdtr.hdr_cnt = user64_hdtr.hdr_cnt;
 			user_hdtr.trailers = user64_hdtr.trailers;
@@ -3486,7 +3528,7 @@ sendfile(struct proc *p, struct sendfile_args *uap, __unused int *retval)
 		mbuf_t  m0 = NULL, m;
 		unsigned int    nbufs = SFUIOBUFS, i;
 		uio_t   auio;
-		char    uio_buf[UIO_SIZEOF(SFUIOBUFS)]; /* 1 KB !!! */
+		uio_stackbuf_t    uio_buf[UIO_SIZEOF(SFUIOBUFS)]; /* 1 KB !!! */
 		size_t  uiolen;
 		user_ssize_t    rlen;
 		off_t   pgoff;

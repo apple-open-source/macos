@@ -35,38 +35,35 @@
 
 #include "cryptohi.h"
 
-#include "secoid.h"
-#include "cmspriv.h"
-#include <security_asn1/secerr.h>
-#include <Security/cssmapi.h>
-#include <Security/cssmapi.h>
 #include <Security/SecKeyPriv.h>
+#include <Security/cssmapi.h>
 #include <Security/cssmapple.h>
+#include <security_asn1/secerr.h>
+#include "cmspriv.h"
+#include "secoid.h"
+#include <utilities/SecCFWrappers.h>
 
 #if !USE_CDSA_CRYPTO
 #include <Security/SecItem.h>
 #endif
 
-#ifdef	NDEBUG
+#ifdef NDEBUG
 #define CSSM_PERROR(f, r)
 #define dprintf(args...)
 #else
-#define CSSM_PERROR(f, r)   cssmPerror(f, r)
-#define dprintf(args...)    fprintf(stderr, args)
+#define CSSM_PERROR(f, r) cssmPerror(f, r)
+#define dprintf(args...) fprintf(stderr, args)
 #endif
 
 static CSSM_CSP_HANDLE gCsp = 0;
 static char gCssmInitialized = 0;
 
 /* @@@ Ugly hack casting, but the extra argument at the end will be ignored. */
-static CSSM_API_MEMORY_FUNCS memFuncs =
-{
-    (CSSM_MALLOC)malloc,
-    (CSSM_FREE)free,
-    (CSSM_REALLOC)realloc,
-    (CSSM_CALLOC)calloc,
-    NULL
-};
+static CSSM_API_MEMORY_FUNCS memFuncs = {(CSSM_MALLOC)malloc,
+                                         (CSSM_FREE)free,
+                                         (CSSM_REALLOC)realloc,
+                                         (CSSM_CALLOC)calloc,
+                                         NULL};
 
 /*
  *
@@ -77,54 +74,54 @@ static CSSM_API_MEMORY_FUNCS memFuncs =
 CSSM_CSP_HANDLE
 SecCspHandleForAlgorithm(CSSM_ALGORITHMS algorithm)
 {
+    if (!gCsp) {
+        CSSM_VERSION version = {2, 0};
+        CSSM_RETURN rv;
 
-    if (!gCsp)
-    {
-	CSSM_VERSION version = { 2, 0 };
-	CSSM_RETURN rv;
+        if (!gCssmInitialized) {
+            CSSM_GUID myGuid = {0xFADE, 0, 0, {1, 2, 3, 4, 5, 6, 7, 0}};
+            CSSM_PVC_MODE pvcPolicy = CSSM_PVC_NONE;
 
-	if (!gCssmInitialized)
-	{
-	    CSSM_GUID myGuid = { 0xFADE, 0, 0, { 1, 2, 3, 4, 5, 6, 7, 0 } };
-	    CSSM_PVC_MODE pvcPolicy = CSSM_PVC_NONE;
-    
-	    rv = CSSM_Init (&version, CSSM_PRIVILEGE_SCOPE_NONE, &myGuid, CSSM_KEY_HIERARCHY_NONE, &pvcPolicy, NULL);
-	    if (rv)
-		goto loser;
-	    gCssmInitialized = 1;
-	}
+            rv = CSSM_Init(
+                &version, CSSM_PRIVILEGE_SCOPE_NONE, &myGuid, CSSM_KEY_HIERARCHY_NONE, &pvcPolicy, NULL);
+            if (rv) {
+                goto loser;
+            }
+            gCssmInitialized = 1;
+        }
 
-	rv = CSSM_ModuleLoad(&gGuidAppleCSP, CSSM_KEY_HIERARCHY_NONE, NULL, NULL);
-	if (rv)
-	    goto loser;
-	rv = CSSM_ModuleAttach(&gGuidAppleCSP, &version, &memFuncs, 0, CSSM_SERVICE_CSP, 0, CSSM_KEY_HIERARCHY_NONE, NULL, 0, NULL, &gCsp);
+        rv = CSSM_ModuleLoad(&gGuidAppleCSP, CSSM_KEY_HIERARCHY_NONE, NULL, NULL);
+        if (rv) {
+            goto loser;
+        }
+        rv = CSSM_ModuleAttach(
+            &gGuidAppleCSP, &version, &memFuncs, 0, CSSM_SERVICE_CSP, 0, CSSM_KEY_HIERARCHY_NONE, NULL, 0, NULL, &gCsp);
     }
 
 loser:
     return gCsp;
 }
 
-OSStatus cmsNullWrapKey(SecKeyRef refKey,
-                               CSSM_KEY_PTR rawKey)
+OSStatus cmsNullWrapKey(SecKeyRef refKey, CSSM_KEY_PTR rawKey)
 {
     CSSM_DATA descData = {0, 0};
     CSSM_RETURN crtn;
     CSSM_CC_HANDLE ccHand;
     CSSM_ACCESS_CREDENTIALS creds;
     CSSM_CSP_HANDLE refCspHand = CSSM_INVALID_HANDLE;
-    const CSSM_KEY *cssmKey = NULL;
+    const CSSM_KEY* cssmKey = NULL;
     uint32 keyAttr;
 
     memset(&creds, 0, sizeof(CSSM_ACCESS_CREDENTIALS));
     memset(rawKey, 0, sizeof(CSSM_KEY));
 
     crtn = SecKeyGetCSSMKey(refKey, &cssmKey);
-    if(crtn) {
+    if (crtn) {
         CSSM_PERROR("SecKeyGetCSSMKey", crtn);
         goto loser;
     }
     crtn = SecKeyGetCSPHandle(refKey, &refCspHand);
-    if(crtn) {
+    if (crtn) {
         CSSM_PERROR("SecKeyGetCSPHandle", crtn);
         goto loser;
     }
@@ -133,26 +130,21 @@ OSStatus cmsNullWrapKey(SecKeyRef refKey,
                                            CSSM_ALGID_NONE,
                                            CSSM_ALGMODE_NONE,
                                            &creds,
-                                           NULL,			// unwrappingKey
-                                           NULL,			// initVector
+                                           NULL,  // unwrappingKey
+                                           NULL,  // initVector
                                            CSSM_PADDING_NONE,
-                                           0,				// Params
+                                           0,  // Params
                                            &ccHand);
-    if(crtn) {
+    if (crtn) {
         CSSM_PERROR("CSSM_CSP_CreateSymmetricContext", crtn);
         return crtn;
     }
 
     keyAttr = rawKey->KeyHeader.KeyAttr;
-    keyAttr &= ~(CSSM_KEYATTR_ALWAYS_SENSITIVE | CSSM_KEYATTR_NEVER_EXTRACTABLE |
-                 CSSM_KEYATTR_MODIFIABLE);
+    keyAttr &= (uint32)~(CSSM_KEYATTR_ALWAYS_SENSITIVE | CSSM_KEYATTR_NEVER_EXTRACTABLE | CSSM_KEYATTR_MODIFIABLE);
     keyAttr |= CSSM_KEYATTR_RETURN_DATA | CSSM_KEYATTR_EXTRACTABLE;
-    crtn = CSSM_WrapKey(ccHand,
-                        &creds,
-                        cssmKey,
-                        &descData,
-                        rawKey);
-    if(crtn != CSSM_OK) {
+    crtn = CSSM_WrapKey(ccHand, &creds, cssmKey, &descData, rawKey);
+    if (crtn != CSSM_OK) {
         CSSM_PERROR("CSSM_WrapKey", crtn);
     }
     CSSM_DeleteContext(ccHand);
@@ -164,116 +156,118 @@ loser:
 CSSM_ALGORITHMS
 SECOID_FindyCssmAlgorithmByTag(SECOidTag algTag)
 {
-    const SECOidData *oidData = SECOID_FindOIDByTag(algTag);
+    const SECOidData* oidData = SECOID_FindOIDByTag(algTag);
     return oidData ? oidData->cssmAlgorithm : CSSM_ALGID_NONE;
 }
 
 
-static void SEC_PrintCFError(CFErrorRef CF_RELEASES_ARGUMENT error) {
+static void SEC_PrintCFError(CFErrorRef CF_RELEASES_ARGUMENT error)
+{
     if (error) {
-    CFStringRef errorDesc = CFErrorCopyDescription(error);
-    dprintf("SecKey API returned: %ld, %s", CFErrorGetCode(error),
-            errorDesc ? CFStringGetCStringPtr(errorDesc, kCFStringEncodingUTF8) : "");
-    CFRelease(error);
-    if (errorDesc) { CFRelease(errorDesc); }
+        CFStringRef errorDesc = CFErrorCopyDescription(error);
+        dprintf("SecKey API returned: %ld, %s",
+                CFErrorGetCode(error),
+                errorDesc ? CFStringGetCStringPtr(errorDesc, kCFStringEncodingUTF8) : "");
+        CFReleaseNull(error);
+        CFReleaseNull(errorDesc);
     }
-
 }
 
 /* The new SecKey API has made this very painful */
-static SecKeyAlgorithm SECOID_FindSecKeyAlgorithmByTags(SECOidTag sigAlgTag, SECOidTag digAlgTag, bool isDigest) {
-    switch(sigAlgTag) {
-        case(SEC_OID_PKCS1_MD5_WITH_RSA_ENCRYPTION):
+static SecKeyAlgorithm SECOID_FindSecKeyAlgorithmByTags(SECOidTag sigAlgTag, SECOidTag digAlgTag, bool isDigest)
+{
+    switch (sigAlgTag) {
+        case (SEC_OID_PKCS1_MD5_WITH_RSA_ENCRYPTION):
             if (digAlgTag == SEC_OID_MD5) {
-                return ((isDigest) ? kSecKeyAlgorithmRSASignatureDigestPKCS1v15MD5 :
-                        kSecKeyAlgorithmRSASignatureMessagePKCS1v15MD5);
+                return ((isDigest) ? kSecKeyAlgorithmRSASignatureDigestPKCS1v15MD5
+                                   : kSecKeyAlgorithmRSASignatureMessagePKCS1v15MD5);
             }
             break;
-        case(SEC_OID_PKCS1_SHA1_WITH_RSA_ENCRYPTION):
+        case (SEC_OID_PKCS1_SHA1_WITH_RSA_ENCRYPTION):
             if (digAlgTag == SEC_OID_SHA1) {
                 return ((isDigest) ? kSecKeyAlgorithmRSASignatureDigestPKCS1v15SHA1
-                        : kSecKeyAlgorithmRSASignatureMessagePKCS1v15SHA1);
+                                   : kSecKeyAlgorithmRSASignatureMessagePKCS1v15SHA1);
             }
             break;
-        case(SEC_OID_PKCS1_SHA256_WITH_RSA_ENCRYPTION):
+        case (SEC_OID_PKCS1_SHA256_WITH_RSA_ENCRYPTION):
             if (digAlgTag == SEC_OID_SHA256) {
                 return ((isDigest) ? kSecKeyAlgorithmRSASignatureDigestPKCS1v15SHA256
-                        : kSecKeyAlgorithmRSASignatureMessagePKCS1v15SHA256);
+                                   : kSecKeyAlgorithmRSASignatureMessagePKCS1v15SHA256);
             }
             break;
-        case(SEC_OID_PKCS1_SHA384_WITH_RSA_ENCRYPTION):
+        case (SEC_OID_PKCS1_SHA384_WITH_RSA_ENCRYPTION):
             if (digAlgTag == SEC_OID_SHA384) {
                 return ((isDigest) ? kSecKeyAlgorithmRSASignatureDigestPKCS1v15SHA384
-                        : kSecKeyAlgorithmRSASignatureMessagePKCS1v15SHA384);
+                                   : kSecKeyAlgorithmRSASignatureMessagePKCS1v15SHA384);
             }
             break;
-        case(SEC_OID_PKCS1_SHA512_WITH_RSA_ENCRYPTION):
+        case (SEC_OID_PKCS1_SHA512_WITH_RSA_ENCRYPTION):
             if (digAlgTag == SEC_OID_SHA512) {
                 return ((isDigest) ? kSecKeyAlgorithmRSASignatureDigestPKCS1v15SHA512
-                        : kSecKeyAlgorithmRSASignatureMessagePKCS1v15SHA512);
+                                   : kSecKeyAlgorithmRSASignatureMessagePKCS1v15SHA512);
             }
             break;
-        case(SEC_OID_PKCS1_RSA_ENCRYPTION):
+        case (SEC_OID_PKCS1_RSA_ENCRYPTION):
             switch (digAlgTag) {
                 case (SEC_OID_MD5):
-                    return ((isDigest) ? kSecKeyAlgorithmRSASignatureDigestPKCS1v15MD5 :
-                            kSecKeyAlgorithmRSASignatureMessagePKCS1v15MD5);
-                case(SEC_OID_SHA1):
+                    return ((isDigest) ? kSecKeyAlgorithmRSASignatureDigestPKCS1v15MD5
+                                       : kSecKeyAlgorithmRSASignatureMessagePKCS1v15MD5);
+                case (SEC_OID_SHA1):
                     return ((isDigest) ? kSecKeyAlgorithmRSASignatureDigestPKCS1v15SHA1
-                            : kSecKeyAlgorithmRSASignatureMessagePKCS1v15SHA1);
-                case(SEC_OID_SHA256):
+                                       : kSecKeyAlgorithmRSASignatureMessagePKCS1v15SHA1);
+                case (SEC_OID_SHA256):
                     return ((isDigest) ? kSecKeyAlgorithmRSASignatureDigestPKCS1v15SHA256
-                            : kSecKeyAlgorithmRSASignatureMessagePKCS1v15SHA256);
-                case(SEC_OID_SHA384):
+                                       : kSecKeyAlgorithmRSASignatureMessagePKCS1v15SHA256);
+                case (SEC_OID_SHA384):
                     return ((isDigest) ? kSecKeyAlgorithmRSASignatureDigestPKCS1v15SHA384
-                            : kSecKeyAlgorithmRSASignatureMessagePKCS1v15SHA384);
-                case(SEC_OID_SHA512):
+                                       : kSecKeyAlgorithmRSASignatureMessagePKCS1v15SHA384);
+                case (SEC_OID_SHA512):
                     return ((isDigest) ? kSecKeyAlgorithmRSASignatureDigestPKCS1v15SHA512
-                            : kSecKeyAlgorithmRSASignatureMessagePKCS1v15SHA512);
+                                       : kSecKeyAlgorithmRSASignatureMessagePKCS1v15SHA512);
                 default:
                     return NULL;
             }
-        case(SEC_OID_ECDSA_WithSHA1):
+        case (SEC_OID_ECDSA_WithSHA1):
             if (digAlgTag == SEC_OID_SHA1) {
                 return ((isDigest) ? kSecKeyAlgorithmECDSASignatureDigestX962
-                        : kSecKeyAlgorithmECDSASignatureMessageX962SHA1);
+                                   : kSecKeyAlgorithmECDSASignatureMessageX962SHA1);
             }
             break;
-        case(SEC_OID_ECDSA_WITH_SHA256):
+        case (SEC_OID_ECDSA_WITH_SHA256):
             if (digAlgTag == SEC_OID_SHA256) {
                 return ((isDigest) ? kSecKeyAlgorithmECDSASignatureDigestX962
-                        : kSecKeyAlgorithmECDSASignatureMessageX962SHA256);
+                                   : kSecKeyAlgorithmECDSASignatureMessageX962SHA256);
             }
             break;
-        case(SEC_OID_ECDSA_WITH_SHA384):
+        case (SEC_OID_ECDSA_WITH_SHA384):
             if (digAlgTag == SEC_OID_SHA384) {
                 return ((isDigest) ? kSecKeyAlgorithmECDSASignatureDigestX962
-                        : kSecKeyAlgorithmECDSASignatureMessageX962SHA384);
+                                   : kSecKeyAlgorithmECDSASignatureMessageX962SHA384);
             }
             break;
-        case(SEC_OID_ECDSA_WITH_SHA512):
+        case (SEC_OID_ECDSA_WITH_SHA512):
             if (digAlgTag == SEC_OID_SHA512) {
                 return ((isDigest) ? kSecKeyAlgorithmECDSASignatureDigestX962
-                        : kSecKeyAlgorithmECDSASignatureMessageX962SHA512);
+                                   : kSecKeyAlgorithmECDSASignatureMessageX962SHA512);
             }
             break;
-        case(SEC_OID_EC_PUBLIC_KEY):
-        case(SEC_OID_SECP_256_R1):
-        case(SEC_OID_SECP_384_R1):
-        case(SEC_OID_SECP_521_R1):
+        case (SEC_OID_EC_PUBLIC_KEY):
+        case (SEC_OID_SECP_256_R1):
+        case (SEC_OID_SECP_384_R1):
+        case (SEC_OID_SECP_521_R1):
             switch (digAlgTag) {
-                case(SEC_OID_SHA1):
+                case (SEC_OID_SHA1):
                     return ((isDigest) ? kSecKeyAlgorithmECDSASignatureDigestX962
-                            : kSecKeyAlgorithmECDSASignatureMessageX962SHA1);
-                case(SEC_OID_SHA256):
+                                       : kSecKeyAlgorithmECDSASignatureMessageX962SHA1);
+                case (SEC_OID_SHA256):
                     return ((isDigest) ? kSecKeyAlgorithmECDSASignatureDigestX962
-                            : kSecKeyAlgorithmECDSASignatureMessageX962SHA256);
-                case(SEC_OID_SHA384):
+                                       : kSecKeyAlgorithmECDSASignatureMessageX962SHA256);
+                case (SEC_OID_SHA384):
                     return ((isDigest) ? kSecKeyAlgorithmECDSASignatureDigestX962
-                            : kSecKeyAlgorithmECDSASignatureMessageX962SHA384);
-                case(SEC_OID_SHA512):
+                                       : kSecKeyAlgorithmECDSASignatureMessageX962SHA384);
+                case (SEC_OID_SHA512):
                     return ((isDigest) ? kSecKeyAlgorithmECDSASignatureDigestX962
-                            : kSecKeyAlgorithmECDSASignatureMessageX962SHA512);
+                                       : kSecKeyAlgorithmECDSASignatureMessageX962SHA512);
                 default:
                     return NULL;
             }
@@ -283,37 +277,38 @@ static SecKeyAlgorithm SECOID_FindSecKeyAlgorithmByTags(SECOidTag sigAlgTag, SEC
     return NULL;
 }
 
-CFStringRef SECOID_CopyKeyTypeByTag(SECOidTag tag) {
+CFStringRef SECOID_CopyKeyTypeByTag(SECOidTag tag)
+{
     CFStringRef keyType = NULL;
 
-    switch(tag) {
-        case(SEC_OID_RC2_CBC):
-        case(SEC_OID_CMS_RC2_KEY_WRAP):
+    switch (tag) {
+        case (SEC_OID_RC2_CBC):
+        case (SEC_OID_CMS_RC2_KEY_WRAP):
             keyType = kSecAttrKeyTypeRC2;
             break;
-        case(SEC_OID_RC4):
+        case (SEC_OID_RC4):
             keyType = kSecAttrKeyTypeRC4;
             break;
-        case(SEC_OID_DES_ECB):
-        case(SEC_OID_DES_CBC):
-        case(SEC_OID_DES_OFB):
-        case(SEC_OID_DES_CFB):
+        case (SEC_OID_DES_ECB):
+        case (SEC_OID_DES_CBC):
+        case (SEC_OID_DES_OFB):
+        case (SEC_OID_DES_CFB):
             keyType = kSecAttrKeyTypeDES;
             break;
-        case(SEC_OID_DES_EDE):
-        case(SEC_OID_DES_EDE3_CBC):
-        case(SEC_OID_CMS_3DES_KEY_WRAP):
+        case (SEC_OID_DES_EDE):
+        case (SEC_OID_DES_EDE3_CBC):
+        case (SEC_OID_CMS_3DES_KEY_WRAP):
             keyType = kSecAttrKeyType3DES;
             break;
-        case(SEC_OID_AES_128_ECB):
-        case(SEC_OID_AES_128_CBC):
-        case(SEC_OID_AES_192_ECB):
-        case(SEC_OID_AES_192_CBC):
-        case(SEC_OID_AES_256_ECB):
-        case(SEC_OID_AES_256_CBC):
-        case(SEC_OID_AES_128_KEY_WRAP):
-        case(SEC_OID_AES_192_KEY_WRAP):
-        case(SEC_OID_AES_256_KEY_WRAP):
+        case (SEC_OID_AES_128_ECB):
+        case (SEC_OID_AES_128_CBC):
+        case (SEC_OID_AES_192_ECB):
+        case (SEC_OID_AES_192_CBC):
+        case (SEC_OID_AES_256_ECB):
+        case (SEC_OID_AES_256_CBC):
+        case (SEC_OID_AES_128_KEY_WRAP):
+        case (SEC_OID_AES_192_KEY_WRAP):
+        case (SEC_OID_AES_256_KEY_WRAP):
             keyType = kSecAttrKeyTypeAES;
             break;
         default:
@@ -323,11 +318,15 @@ CFStringRef SECOID_CopyKeyTypeByTag(SECOidTag tag) {
     return keyType;
 }
 
-static SECStatus SGN_SignAll(uint8_t *buf, size_t len,
-                             SecPrivateKeyRef pk, SECItem *resultSignature,
-                             SECOidTag digAlgTag, SECOidTag sigAlgTag,
-                             bool isDigest) {
-    OSStatus rv  = SECFailure;
+static SECStatus SGN_SignAll(uint8_t* buf,
+                             size_t len,
+                             SecPrivateKeyRef pk,
+                             SECItem* resultSignature,
+                             SECOidTag digAlgTag,
+                             SECOidTag sigAlgTag,
+                             bool isDigest)
+{
+    OSStatus rv = SECFailure;
     CFDataRef signature = NULL, dataToSign = NULL;
     CFErrorRef error = NULL;
     SecKeyAlgorithm keyAlg = NULL;
@@ -347,7 +346,10 @@ static SECStatus SGN_SignAll(uint8_t *buf, size_t len,
         goto out;
     }
 
-    dataToSign = CFDataCreate(NULL, buf, len);
+    if (len > LONG_MAX) {
+        goto out;
+    }
+    dataToSign = CFDataCreate(NULL, buf, (CFIndex)len);
     if (!dataToSign) {
         goto out;
     }
@@ -361,18 +363,18 @@ static SECStatus SGN_SignAll(uint8_t *buf, size_t len,
     if (signatureLength < 0 || signatureLength > 1024) {
         goto out;
     }
-    resultSignature->Data = (uint8_t *)malloc(signatureLength);
+    resultSignature->Data = (uint8_t*)malloc((size_t)signatureLength);
     if (!resultSignature->Data) {
         goto out;
     }
 
-    memcpy(resultSignature->Data, CFDataGetBytePtr(signature), signatureLength);
-    resultSignature->Length = signatureLength;
+    memcpy(resultSignature->Data, CFDataGetBytePtr(signature), (size_t)signatureLength);
+    resultSignature->Length = (size_t)signatureLength;
     rv = SECSuccess;
 
 out:
-    if (signature) { CFRelease(signature); }
-    if (dataToSign) {CFRelease(dataToSign); }
+    CFReleaseNull(signature);
+    CFReleaseNull(dataToSign);
     SEC_PrintCFError(error);
     if (rv) {
         PORT_SetError(rv);
@@ -380,30 +382,34 @@ out:
     return rv;
 }
 
-SECStatus
-SEC_SignData(SECItem *result, unsigned char *buf, int len,
-	    SecPrivateKeyRef pk, SECOidTag digAlgTag, SECOidTag sigAlgTag)
+SECStatus SEC_SignData(SECItem* result, unsigned char* buf, int len, SecPrivateKeyRef pk, SECOidTag digAlgTag, SECOidTag sigAlgTag)
 {
-    return SGN_SignAll(buf, len, pk, result, digAlgTag, sigAlgTag, false);
+    if (len < 0) {
+        PORT_SetError(SEC_ERROR_NO_MEMORY);
+        return SECFailure;
+    }
+    return SGN_SignAll(buf, (size_t)len, pk, result, digAlgTag, sigAlgTag, false);
 }
 
-SECStatus
-SGN_Digest(SecPrivateKeyRef pk, SECOidTag digAlgTag, SECOidTag sigAlgTag, SECItem *result, SECItem *digest)
+SECStatus SGN_Digest(SecPrivateKeyRef pk, SECOidTag digAlgTag, SECOidTag sigAlgTag, SECItem* result, SECItem* digest)
 {
     return SGN_SignAll(digest->Data, digest->Length, pk, result, digAlgTag, sigAlgTag, true);
 }
 
-static SECStatus VFY_VerifyAll(uint8_t *buf, size_t len,
-                     SecPublicKeyRef pk, SECItem *sig,
-                     SECOidTag digAlgTag, SECOidTag sigAlgTag,
-                     bool isDigest) {
+static SECStatus
+VFY_VerifyAll(uint8_t* buf, size_t len, SecPublicKeyRef pk, SECItem* sig, SECOidTag digAlgTag, SECOidTag sigAlgTag, bool isDigest)
+{
     OSStatus rv = SECFailure;
     CFDataRef signature = NULL, data = NULL;
     CFErrorRef error = NULL;
     SecKeyAlgorithm keyAlg = NULL;
 
-    signature = CFDataCreate(NULL, sig->Data, sig->Length);
-    data = CFDataCreate(NULL, buf, len);
+    if (sig->Length > LONG_MAX || len > LONG_MAX) {
+        rv = SEC_ERROR_NO_MEMORY;
+        goto out;
+    }
+    signature = CFDataCreate(NULL, sig->Data, (CFIndex)sig->Length);
+    data = CFDataCreate(NULL, buf, (CFIndex)len);
     if (!signature || !data) {
         goto out;
     }
@@ -414,13 +420,13 @@ static SECStatus VFY_VerifyAll(uint8_t *buf, size_t len,
         goto out;
     }
 
-    if(SecKeyVerifySignature(pk, keyAlg, data, signature, &error)) {
+    if (SecKeyVerifySignature(pk, keyAlg, data, signature, &error)) {
         rv = SECSuccess;
     }
 
 out:
-    if (signature) { CFRelease(signature); }
-    if (data) { CFRelease(data); }
+    CFReleaseNull(signature);
+    CFReleaseNull(data);
     SEC_PrintCFError(error);
     if (rv) {
         PORT_SetError(rv);
@@ -428,27 +434,32 @@ out:
     return rv;
 }
 
-SECStatus
-VFY_VerifyData(unsigned char *buf, int len,
-		SecPublicKeyRef pk, SECItem *sig,
-		SECOidTag digAlgTag, SECOidTag sigAlgTag, void *wincx)
+SECStatus VFY_VerifyData(unsigned char* buf,
+                         int len,
+                         SecPublicKeyRef pk,
+                         SECItem* sig,
+                         SECOidTag digAlgTag,
+                         SECOidTag sigAlgTag,
+                         void* wincx)
 {
-    return VFY_VerifyAll(buf, len, pk, sig,
-                         digAlgTag, sigAlgTag, false);
+    if (len < 0) {
+        PORT_SetError(SEC_ERROR_NO_MEMORY);
+        return SECFailure;
+    }
+    return VFY_VerifyAll(buf, (size_t)len, pk, sig, digAlgTag, sigAlgTag, false);
 }
 
-SECStatus
-VFY_VerifyDigest(SECItem *digest, SecPublicKeyRef pk,
-		SECItem *sig, SECOidTag digAlgTag, SECOidTag sigAlgTag, void *wincx)
+SECStatus VFY_VerifyDigest(SECItem* digest,
+                           SecPublicKeyRef pk,
+                           SECItem* sig,
+                           SECOidTag digAlgTag,
+                           SECOidTag sigAlgTag,
+                           void* wincx)
 {
-    return VFY_VerifyAll(digest->Data, digest->Length, pk, sig,
-                         digAlgTag, sigAlgTag, true);
+    return VFY_VerifyAll(digest->Data, digest->Length, pk, sig, digAlgTag, sigAlgTag, true);
 }
 
-SECStatus
-WRAP_PubWrapSymKey(SecPublicKeyRef publickey,
-		   SecSymmetricKeyRef bulkkey,
-		   CSSM_DATA_PTR encKey)
+SECStatus WRAP_PubWrapSymKey(SecPublicKeyRef publickey, SecSymmetricKeyRef bulkkey, CSSM_DATA_PTR encKey)
 {
     OSStatus rv;
     CSSM_KEY bk;
@@ -458,14 +469,16 @@ WRAP_PubWrapSymKey(SecPublicKeyRef publickey,
         return rv;
     }
 
-    return SecKeyEncrypt(publickey, kSecPaddingPKCS1,
-                         bk.KeyData.Data, bk.KeyData.Length,
-                         encKey->Data, &encKey->Length);
+    return SecKeyEncrypt(publickey,
+                         kSecPaddingPKCS1,
+                         bk.KeyData.Data,
+                         bk.KeyData.Length,
+                         encKey->Data,
+                         &encKey->Length);
 }
 
 
-SecSymmetricKeyRef
-WRAP_PubUnwrapSymKey(SecPrivateKeyRef privkey, CSSM_DATA_PTR encKey, SECOidTag bulkalgtag)
+SecSymmetricKeyRef WRAP_PubUnwrapSymKey(SecPrivateKeyRef privkey, CSSM_DATA_PTR encKey, SECOidTag bulkalgtag)
 {
     CFDataRef encryptedKey = NULL, bulkkey = NULL;
     CFMutableDictionaryRef keyparams = NULL;
@@ -474,12 +487,16 @@ WRAP_PubUnwrapSymKey(SecPrivateKeyRef privkey, CSSM_DATA_PTR encKey, SECOidTag b
     SecSymmetricKeyRef bk = NULL;
 
     /* decrypt the key */
-    encryptedKey = CFDataCreate(NULL, encKey->Data, encKey->Length);
+    if (encKey->Length > LONG_MAX) {
+        goto out;
+    }
+    encryptedKey = CFDataCreate(NULL, encKey->Data, (CFIndex)encKey->Length);
     if (!encryptedKey) {
         goto out;
     }
 
-    bulkkey = SecKeyCreateDecryptedData(privkey, kSecKeyAlgorithmRSAEncryptionPKCS1, encryptedKey, &error);
+    bulkkey = SecKeyCreateDecryptedData(
+        privkey, kSecKeyAlgorithmRSAEncryptionPKCS1, encryptedKey, &error);
     if (!bulkkey) {
         goto out;
     }
@@ -490,9 +507,8 @@ WRAP_PubUnwrapSymKey(SecPrivateKeyRef privkey, CSSM_DATA_PTR encKey, SECOidTag b
         goto out;
     }
 
-    keyparams = CFDictionaryCreateMutable(NULL, 1,
-                                          &kCFTypeDictionaryKeyCallBacks,
-                                          &kCFTypeDictionaryValueCallBacks);
+    keyparams = CFDictionaryCreateMutable(
+        NULL, 1, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
     if (!keyparams) {
         goto out;
     }
@@ -501,10 +517,10 @@ WRAP_PubUnwrapSymKey(SecPrivateKeyRef privkey, CSSM_DATA_PTR encKey, SECOidTag b
     bk = SecKeyCreateFromData(keyparams, bulkkey, NULL);
 
 out:
-    if (encryptedKey) { CFRelease(encryptedKey); }
-    if (bulkkey) { CFRelease(bulkkey); }
-    if (keyparams) { CFRelease(keyparams); }
-    if (keyType) { CFRelease(keyType); }
+    CFReleaseNull(encryptedKey);
+    CFReleaseNull(bulkkey);
+    CFReleaseNull(keyparams);
+    CFReleaseNull(keyType);
     SEC_PrintCFError(error);
     return bk;
 }

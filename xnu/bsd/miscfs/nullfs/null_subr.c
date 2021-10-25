@@ -244,12 +244,10 @@ null_nodecreate(struct vnode * lowervp)
 {
 	struct null_node * xp;
 
-	MALLOC(xp, struct null_node *, sizeof(struct null_node), M_TEMP, M_WAITOK | M_ZERO);
-	if (xp != NULL) {
-		if (lowervp) {
-			xp->null_lowervp  = lowervp;
-			xp->null_lowervid = vnode_vid(lowervp);
-		}
+	xp = kalloc_type(struct null_node, Z_WAITOK | Z_ZERO | Z_NOFAIL);
+	if (lowervp) {
+		xp->null_lowervp  = lowervp;
+		xp->null_lowervid = vnode_vid(lowervp);
 	}
 	return xp;
 }
@@ -291,7 +289,7 @@ null_getnewvnode(
 		xp->null_myvid = vnode_vid(*vpp);
 		vnode_settag(*vpp, VT_NULL);
 	} else {
-		FREE(xp, M_TEMP);
+		kfree_type(struct null_node, xp);
 	}
 	return error;
 }

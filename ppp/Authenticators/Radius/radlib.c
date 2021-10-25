@@ -202,7 +202,7 @@ is_valid_response(struct rad_handle *h, int srv,
 	MD5_CTX ctx;
 	unsigned char md5[MD5_DIGEST_LENGTH];
 	const struct rad_server *srvp;
-	int len;
+	int alen, len;
 	CCHmacContext hctx;
 	u_char resp[MSGSIZE], md[CC_MD5_DIGEST_LENGTH];
 	int pos;
@@ -218,8 +218,8 @@ is_valid_response(struct rad_handle *h, int srv,
 	/* Check the message length */
 	if (h->resp_len < POS_ATTRS)
 		return 0;
-	len = h->response[POS_LENGTH] << 8 | h->response[POS_LENGTH+1];
-	if (len > h->resp_len)
+	len = (h->response[POS_LENGTH] << 8) | h->response[POS_LENGTH+1];
+	if (len < POS_ATTRS || len > h->resp_len)
 		return 0;
 
 	/* Check the response authenticator */
@@ -243,9 +243,12 @@ is_valid_response(struct rad_handle *h, int srv,
 
 		/* Search and verify the Message-Authenticator */
 		while (pos < len - 2) {
-
 			if (h->response[pos] == RAD_MESSAGE_AUTHENTIC) {
-				/* zero fill the Message-Authenticator */
+				if (h->response[pos + 1] != MD5_DIGEST_LENGTH + 2)
+					return 0;
+				if (len - pos < MD5_DIGEST_LENGTH + 2)
+					return 0;
+
 				memset(&resp[pos + 2], 0, MD5_DIGEST_LENGTH);
 
 				CCHmacInit(&hctx, kCCHmacAlgMD5, srvp->secret,
@@ -262,7 +265,10 @@ is_valid_response(struct rad_handle *h, int srv,
 					return 0;
 				break;
 			}
-			pos += h->response[pos + 1];
+			alen = h->response[pos + 1];
+			if (alen < 2)
+				return 0;
+			pos += alen;
 		}
 	}
 	return 1;

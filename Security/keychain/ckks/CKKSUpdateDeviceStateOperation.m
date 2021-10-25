@@ -33,16 +33,18 @@
 #import "keychain/ot/ObjCImprovements.h"
 
 @interface CKKSUpdateDeviceStateOperation ()
-@property CKModifyRecordsOperation* modifyRecordsOperation;
 @property CKOperationGroup* group;
 @property bool rateLimit;
 @end
 
 @implementation CKKSUpdateDeviceStateOperation
 
-- (instancetype)initWithCKKSKeychainView:(CKKSKeychainView*)ckks rateLimit:(bool)rateLimit ckoperationGroup:(CKOperationGroup*)group {
+- (instancetype)initWithOperationDependencies:(CKKSOperationDependencies*)operationDependencies
+                                    rateLimit:(bool)rateLimit
+                             ckoperationGroup:(CKOperationGroup*)group
+{
     if((self = [super init])) {
-        _ckks = ckks;
+        _deps = operationDependencies;
         _group = group;
         _rateLimit = rateLimit;
     }
@@ -50,17 +52,10 @@
 }
 
 - (void)groupStart {
-    CKKSKeychainView* ckks = self.ckks;
-    if(!ckks) {
-        ckkserror("ckksdevice", ckks, "no CKKS object");
-        self.error = [NSError errorWithDomain:@"securityd" code:errSecInternalError userInfo:@{NSLocalizedDescriptionKey: @"no CKKS object"}];
-        return;
-    }
-
-    CKKSAccountStateTracker* accountTracker = ckks.accountTracker;
+    CKKSAccountStateTracker* accountTracker = self.deps.accountStateTracker;
     if(!accountTracker) {
-        ckkserror("ckksdevice", ckks, "no AccountTracker object");
-        self.error = [NSError errorWithDomain:@"securityd" code:errSecInternalError userInfo:@{NSLocalizedDescriptionKey: @"no AccountTracker object"}];
+        ckkserror_global("ckksdevice", "no AccountTracker object");
+        self.error = [NSError errorWithDomain:CKKSErrorDomain code:CKKSErrorUnexpectedNil userInfo:@{NSLocalizedDescriptionKey: @"no AccountTracker object"}];
         return;
     }
 
@@ -68,126 +63,125 @@
 
     // We must have the ck device ID to run this operation.
     if([accountTracker.ckdeviceIDInitialized wait:200*NSEC_PER_SEC]) {
-        ckkserror("ckksdevice", ckks, "CK device ID not initialized, quitting");
-        self.error = [NSError errorWithDomain:@"securityd" code:errSecInternalError userInfo:@{NSLocalizedDescriptionKey: @"CK device ID not initialized"}];
-        return;
+        ckkserror_global("ckksdevice", "CK device ID not initialized, likely quitting");
     }
 
     NSString* ckdeviceID = accountTracker.ckdeviceID;
     if(!ckdeviceID) {
-        ckkserror("ckksdevice", ckks, "CK device ID not initialized, quitting");
-        self.error = [NSError errorWithDomain:@"securityd"
-                                         code:errSecInternalError
-                                     userInfo:@{NSLocalizedDescriptionKey: @"CK device ID null", NSUnderlyingErrorKey:CKKSNilToNSNull(accountTracker.ckdeviceIDError)}];
+        ckkserror_global("ckksdevice", "CK device ID not initialized, quitting");
+        self.error = [NSError errorWithDomain:CKKSErrorDomain
+                                         code:CKKSNoCloudKitDeviceID
+                                     userInfo:@{NSLocalizedDescriptionKey: @"CK device ID missing", NSUnderlyingErrorKey:CKKSNilToNSNull(accountTracker.ckdeviceIDError)}];
         return;
     }
 
     // We'd also really like to know the HSA2-ness of the world
     if([accountTracker.hsa2iCloudAccountInitialized wait:500*NSEC_PER_MSEC]) {
-        ckkserror("ckksdevice", ckks, "Not quite sure if the account isa HSA2 or not. Probably will quit?");
+        ckkserror_global("ckksdevice", "Not quite sure if the account is HSA2 or not. Probably will quit?");
     }
 
-    [ckks dispatchSyncWithSQLTransaction:^CKKSDatabaseTransactionResult{
-        NSError* error = nil;
+    NSHashTable<CKDatabaseOperation*>* ckOperations = [NSHashTable weakObjectsHashTable];
 
-        CKKSDeviceStateEntry* cdse = [ckks _onqueueCurrentDeviceStateEntry:&error];
-        if(error || !cdse) {
-            ckkserror("ckksdevice", ckks, "Error creating device state entry; quitting: %@", error);
-            return CKKSDatabaseTransactionRollback;
-        }
+    id<CKKSDatabaseProviderProtocol> databaseProvider = self.deps.databaseProvider;
 
-        if(self.rateLimit) {
-            NSDate* lastUpdate = cdse.storedCKRecord.modificationDate;
+    for(CKKSKeychainViewState* viewState in self.deps.activeManagedViews) {
+        [databaseProvider dispatchSyncWithSQLTransaction:^CKKSDatabaseTransactionResult{
+            NSError* error = nil;
 
-            // Only upload this every 3 days (1 day for internal installs)
-            NSDate* now = [NSDate date];
-            NSDateComponents* offset = [[NSDateComponents alloc] init];
-            if(SecIsInternalRelease()) {
-                [offset setHour:-23];
-            } else {
-                [offset setHour:-3*24];
-            }
-            NSDate* deadline = [[NSCalendar currentCalendar] dateByAddingComponents:offset toDate:now options:0];
-
-            if(lastUpdate == nil || [lastUpdate compare: deadline] == NSOrderedAscending) {
-                ckksnotice("ckksdevice", ckks, "Not rate-limiting: last updated %@ vs %@", lastUpdate, deadline);
-            } else {
-                ckksnotice("ckksdevice", ckks, "Last update is within 3 days (%@); rate-limiting this operation", lastUpdate);
-                self.error =  [NSError errorWithDomain:@"securityd"
-                                                  code:errSecInternalError
-                                              userInfo:@{NSLocalizedDescriptionKey: @"Rate-limited the CKKSUpdateDeviceStateOperation"}];
+            CKKSDeviceStateEntry* cdse = [CKKSDeviceStateEntry intransactionCreateDeviceStateForView:viewState
+                                                                                      accountTracker:self.deps.accountStateTracker
+                                                                                    lockStateTracker:self.deps.lockStateTracker
+                                                                                               error:&error];
+            if(error || !cdse) {
+                ckkserror("ckksdevice", viewState.zoneID, "Error creating device state entry; quitting: %@", error);
+                self.error = error;
                 return CKKSDatabaseTransactionRollback;
             }
-        }
 
-        ckksnotice("ckksdevice", ckks, "Saving new device state %@", cdse);
+            if(self.rateLimit) {
+                NSDate* lastUpdate = cdse.storedCKRecord.modificationDate;
 
-        NSArray* recordsToSave = @[[cdse CKRecordWithZoneID:ckks.zoneID]];
+                // Only upload this every 3 days (1 day for internal installs)
+                NSDate* now = [NSDate date];
+                NSDateComponents* offset = [[NSDateComponents alloc] init];
+                if(SecIsInternalRelease()) {
+                    [offset setHour:-23];
+                } else {
+                    [offset setHour:-3*24];
+                }
+                NSDate* deadline = [[NSCalendar currentCalendar] dateByAddingComponents:offset toDate:now options:0];
 
-        // Start a CKModifyRecordsOperation to save this new/updated record.
-        NSBlockOperation* modifyComplete = [[NSBlockOperation alloc] init];
-        modifyComplete.name = @"updateDeviceState-modifyRecordsComplete";
-        [self dependOnBeforeGroupFinished: modifyComplete];
-
-        self.modifyRecordsOperation = [[CKModifyRecordsOperation alloc] initWithRecordsToSave:recordsToSave recordIDsToDelete:nil];
-        self.modifyRecordsOperation.atomic = TRUE;
-        self.modifyRecordsOperation.qualityOfService = NSQualityOfServiceUtility;
-        self.modifyRecordsOperation.savePolicy = CKRecordSaveAllKeys; // Overwrite anything in CloudKit: this is our state now
-        self.modifyRecordsOperation.group = self.group;
-
-        self.modifyRecordsOperation.perRecordCompletionBlock = ^(CKRecord *record, NSError * _Nullable error) {
-            STRONGIFY(self);
-            CKKSKeychainView* blockCKKS = self.ckks;
-
-            if(!error) {
-                ckksnotice("ckksdevice", blockCKKS, "Device state record upload successful for %@: %@", record.recordID.recordName, record);
-            } else {
-                ckkserror("ckksdevice", blockCKKS, "error on row: %@ %@", error, record);
-            }
-        };
-
-        self.modifyRecordsOperation.modifyRecordsCompletionBlock = ^(NSArray<CKRecord *> *savedRecords, NSArray<CKRecordID *> *deletedRecordIDs, NSError *ckerror) {
-            STRONGIFY(self);
-            CKKSKeychainView* strongCKKS = self.ckks;
-            if(!self || !strongCKKS) {
-                ckkserror("ckksdevice", strongCKKS, "received callback for released object");
-                self.error = [NSError errorWithDomain:@"securityd" code:errSecInternalError userInfo:@{NSLocalizedDescriptionKey: @"no CKKS object"}];
-                [self runBeforeGroupFinished:modifyComplete];
-                return;
+                if(lastUpdate == nil || [lastUpdate compare: deadline] == NSOrderedAscending) {
+                    ckksnotice("ckksdevice", viewState.zoneID, "Not rate-limiting: last updated %@ vs %@", lastUpdate, deadline);
+                } else {
+                    ckksnotice("ckksdevice", viewState.zoneID, "Last update is within 3 days (%@); rate-limiting this operation", lastUpdate);
+                    self.error =  [NSError errorWithDomain:CKKSErrorDomain
+                                                      code:CKKSErrorRateLimited
+                                                  userInfo:@{NSLocalizedDescriptionKey: @"Rate-limited the CKKSUpdateDeviceStateOperation"}];
+                    return CKKSDatabaseTransactionRollback;
+                }
             }
 
-            if(ckerror) {
-                ckkserror("ckksdevice", strongCKKS, "CloudKit returned an error: %@", ckerror);
-                self.error = ckerror;
-                [self runBeforeGroupFinished:modifyComplete];
-                return;
-            }
+            ckksnotice("ckksdevice", viewState.zoneID, "Saving new device state %@", cdse);
 
-            __block NSError* error = nil;
+            NSArray* recordsToSave = @[[cdse CKRecordWithZoneID:viewState.zoneID]];
 
-            [strongCKKS dispatchSyncWithSQLTransaction:^CKKSDatabaseTransactionResult{
-                for(CKRecord* record in savedRecords) {
-                    // Save the item records
-                    if([record.recordType isEqualToString: SecCKRecordDeviceStateType]) {
-                        CKKSDeviceStateEntry* newcdse = [[CKKSDeviceStateEntry alloc] initWithCKRecord:record];
-                        [newcdse saveToDatabase:&error];
-                        if(error) {
-                            ckkserror("ckksdevice", strongCKKS, "Couldn't save new device state(%@) to database: %@", newcdse, error);
+            // Start a CKModifyRecordsOperation to save this new/updated record.
+            NSBlockOperation* modifyComplete = [[NSBlockOperation alloc] init];
+            modifyComplete.name = @"updateDeviceState-modifyRecordsComplete";
+            [self dependOnBeforeGroupFinished: modifyComplete];
+
+            CKModifyRecordsOperation* zoneModifyRecordsOperation = [[CKModifyRecordsOperation alloc] initWithRecordsToSave:recordsToSave recordIDsToDelete:nil];
+            zoneModifyRecordsOperation.atomic = TRUE;
+            zoneModifyRecordsOperation.qualityOfService = NSQualityOfServiceUtility;
+            zoneModifyRecordsOperation.savePolicy = CKRecordSaveAllKeys; // Overwrite anything in CloudKit: this is our state now
+            zoneModifyRecordsOperation.group = self.group;
+
+            zoneModifyRecordsOperation.perRecordCompletionBlock = ^(CKRecord *record, NSError * _Nullable error) {
+                if(!error) {
+                    ckksnotice("ckksdevice", viewState.zoneID, "Device state record upload successful for %@: %@", record.recordID.recordName, record);
+                } else {
+                    ckkserror("ckksdevice", viewState.zoneID, "error on row: %@ %@", error, record);
+                }
+            };
+
+            zoneModifyRecordsOperation.modifyRecordsCompletionBlock = ^(NSArray<CKRecord *> *savedRecords, NSArray<CKRecordID *> *deletedRecordIDs, NSError *ckerror) {
+                STRONGIFY(self);
+
+                if(ckerror) {
+                    ckkserror("ckksdevice", viewState.zoneID, "CloudKit returned an error: %@", ckerror);
+                    self.error = ckerror;
+                    [self runBeforeGroupFinished:modifyComplete];
+                    return;
+                }
+
+                __block NSError* error = nil;
+
+                [self.deps.databaseProvider dispatchSyncWithSQLTransaction:^CKKSDatabaseTransactionResult{
+                    for(CKRecord* record in savedRecords) {
+                        // Save the item records
+                        if([record.recordType isEqualToString: SecCKRecordDeviceStateType]) {
+                            CKKSDeviceStateEntry* newcdse = [[CKKSDeviceStateEntry alloc] initWithCKRecord:record];
+                            [newcdse saveToDatabase:&error];
+                            if(error) {
+                                ckkserror("ckksdevice", viewState.zoneID, "Couldn't save new device state(%@) to database: %@", newcdse, error);
+                            }
                         }
                     }
-                }
-                return CKKSDatabaseTransactionCommit;
-            }];
+                    return CKKSDatabaseTransactionCommit;
+                }];
 
-            self.error = error;
-            [self runBeforeGroupFinished:modifyComplete];
-        };
+                self.error = error;
+                [self runBeforeGroupFinished:modifyComplete];
+            };
 
-        [self dependOnBeforeGroupFinished: self.modifyRecordsOperation];
-        [ckks.operationDependencies.ckdatabase addOperation:self.modifyRecordsOperation];
+            [zoneModifyRecordsOperation linearDependencies:ckOperations];
+            [self dependOnBeforeGroupFinished:zoneModifyRecordsOperation];
+            [self.deps.ckdatabase addOperation:zoneModifyRecordsOperation];
 
-        return CKKSDatabaseTransactionCommit;
-    }];
+            return CKKSDatabaseTransactionCommit;
+        }];
+    }
 }
 
 @end

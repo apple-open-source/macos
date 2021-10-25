@@ -1,7 +1,7 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
-// License & terms of use: http://www.unicode.org/copyright.html#License
+// License & terms of use: http://www.unicode.org/copyright.html
+// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
 hr_BA{
-    Version{"36.1"}
     calendar{
         gregorian{
             DateTimePatterns{
@@ -11,7 +11,7 @@ hr_BA{
                 "HH:mm",
                 "EEEE, d. MMMM y.",
                 "d. MMMM y.",
-                "d. MMM y.",
+                "dd.MM.y.",
                 "d. M. yy.",
                 "{1} {0}",
                 "{1} 'u' {0}",

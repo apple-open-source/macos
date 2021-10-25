@@ -22,7 +22,7 @@
     return self;
 }
 
-- (long)trigger
+- (int)trigger
 {
     NSError* error = nil;
     [self.escrowRequest triggerEscrowUpdate:@"cli" error:&error];
@@ -37,7 +37,7 @@
     return 0;
 }
 
-- (long)status
+- (int)status
 {
     NSError* error = nil;
     NSDictionary* statuses = [self.escrowRequest fetchStatuses:&error];
@@ -59,7 +59,7 @@
     return 0;
 }
 
-- (long)reset
+- (int)reset
 {
     NSError* error = nil;
     [self.escrowRequest resetAllRequests:&error];
@@ -73,7 +73,7 @@
     return 0;
 }
 
-- (long)storePrerecordsInEscrow
+- (int)storePrerecordsInEscrow
 {
     NSError* error = nil;
     uint64_t recordsWritten = [self.escrowRequest storePrerecordsInEscrow:&error];

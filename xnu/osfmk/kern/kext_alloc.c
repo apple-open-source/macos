@@ -110,11 +110,11 @@ kext_alloc_init(void)
 	    VM_MAP_KERNEL_FLAGS_NONE, VM_KERN_MEMORY_KEXT,
 	    &g_kext_map);
 	if (rval != KERN_SUCCESS) {
-		panic("kext_alloc_init: kmem_suballoc failed 0x%x\n", rval);
+		panic("kext_alloc_init: kmem_suballoc failed 0x%x", rval);
 	}
 
 	if ((kext_alloc_base + kext_alloc_size) > kext_alloc_max) {
-		panic("kext_alloc_init: failed to get first 2GB\n");
+		panic("kext_alloc_init: failed to get first 2GB");
 	}
 
 	if (kernel_map->min_offset > kext_alloc_base) {

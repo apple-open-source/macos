@@ -37,13 +37,15 @@ void TestGregorianChange(void);
 void TestFieldDifference(void);
 void TestAddRollEra0AndEraBounds(void);
 void TestGetTZTransition(void);
-
 void TestGetWindowsTimeZoneID(void);
 void TestGetTimeZoneIDByWindowsID(void);
 void TestJpnCalAddSetNextEra(void);
+void TestUcalOpenBufferRead(void);
+void TestGetTimeZoneOffsetFromLocal(void);
 void TestClear(void); /* Apple-specific */
 void TestPersianCalOverflow(void); /* Apple-specific */
 void TestGetDayPeriods(void); /* Apple-specific */
+void TestWeekOfYear(void); /* Apple-specific */
 
 void addCalTest(TestNode** root);
 
@@ -67,9 +69,12 @@ void addCalTest(TestNode** root)
     addTest(root, &TestGetWindowsTimeZoneID, "tsformat/ccaltst/TestGetWindowsTimeZoneID");
     addTest(root, &TestGetTimeZoneIDByWindowsID, "tsformat/ccaltst/TestGetTimeZoneIDByWindowsID");
     addTest(root, &TestJpnCalAddSetNextEra, "tsformat/ccaltst/TestJpnCalAddSetNextEra");
+    addTest(root, &TestUcalOpenBufferRead, "tsformat/ccaltst/TestUcalOpenBufferRead");
+    addTest(root, &TestGetTimeZoneOffsetFromLocal, "tsformat/ccaltst/TestGetTimeZoneOffsetFromLocal");
     addTest(root, &TestClear, "tsformat/ccaltst/TestClear");
     addTest(root, &TestPersianCalOverflow, "tsformat/ccaltst/TestPersianCalOverflow");
     addTest(root, &TestGetDayPeriods, "tsformat/ccaltst/TestGetDayPeriods"); /* Apple-specific */
+    addTest(root, &TestWeekOfYear, "tsformat/ccaltst/TestWeekOfYear"); /* Apple-specific */
 }
 
 /* "GMT" */
@@ -1032,7 +1037,7 @@ static void TestAddRollExtensive()
     checkDate(cal, y, m, d);
     ucal_roll(cal, (UCalendarDateFields)-1, 10, &status);
     if(status==U_ILLEGAL_ARGUMENT_ERROR)
-        log_verbose("Pass: illegal arguement error as expected\n");
+        log_verbose("Pass: illegal argument error as expected\n");
     else{
         log_err("Fail: no illegal argument error got..: %s\n", u_errorName(status));
         return;
@@ -2567,6 +2572,231 @@ void TestJpnCalAddSetNextEra() {
     }
 }
 
+void TestUcalOpenBufferRead() {
+    // ICU-21004: The issue shows under valgrind or as an Address Sanitizer failure.
+    UErrorCode status = U_ZERO_ERROR;
+    // string length: 157 + 1 + 100 = 258
+    const char *localeID = "x-privatebutreallylongtagfoobarfoobarfoobarfoobarfoobarfoobarfoobarfoobarfoobarfoobarfoobarfoobarfoobarfoobarfoobarfoobarfoobarfoobarfoobarfoobarfoobarfoobar-foobarfoobarfoobarfoobarfoobarfoobarfoobarfoobarfoobarfoobarfoobarfoobarfoobarfoobarfoorbarfoobarfoo";
+    UCalendar *cal = ucal_open(NULL, 0, localeID, UCAL_GREGORIAN, &status);
+    ucal_close(cal);
+}
+
+
+/*
+ * Testing ucal_getTimeZoneOffsetFromLocal
+ */
+void
+TestGetTimeZoneOffsetFromLocal() {
+    static const UChar utc[] = u"Etc/GMT";
+
+    const int32_t HOUR = 60*60*1000;
+    const int32_t MINUTE = 60*1000;
+
+    const int32_t DATES[][6] = {
+        {2006, UCAL_APRIL, 2, 1, 30, 1*HOUR+30*MINUTE},
+        {2006, UCAL_APRIL, 2, 2, 00, 2*HOUR},
+        {2006, UCAL_APRIL, 2, 2, 30, 2*HOUR+30*MINUTE},
+        {2006, UCAL_APRIL, 2, 3, 00, 3*HOUR},
+        {2006, UCAL_APRIL, 2, 3, 30, 3*HOUR+30*MINUTE},
+        {2006, UCAL_OCTOBER, 29, 0, 30, 0*HOUR+30*MINUTE},
+        {2006, UCAL_OCTOBER, 29, 1, 00, 1*HOUR},
+        {2006, UCAL_OCTOBER, 29, 1, 30, 1*HOUR+30*MINUTE},
+        {2006, UCAL_OCTOBER, 29, 2, 00, 2*HOUR},
+        {2006, UCAL_OCTOBER, 29, 2, 30, 2*HOUR+30*MINUTE},
+    };
+
+    // Expected offsets by
+    // void U_ucal_getTimeZoneOffsetFromLocal(
+    //   const UCalendar* cal,
+    //   UTimeZoneLocalOption nonExistingTimeOpt,
+    //   UTimeZoneLocalOption duplicatedTimeOpt,
+    //   int32_t* rawOffset, int32_t* dstOffset, UErrorCode* status);
+    // with nonExistingTimeOpt=UCAL_TZ_LOCAL_STANDARD and
+    // duplicatedTimeOpt=UCAL_TZ_LOCAL_STANDARD
+    const int32_t OFFSETS2[][2] = {
+        // April 2, 2006
+        {-8*HOUR, 0},
+        {-8*HOUR, 0},
+        {-8*HOUR, 0},
+        {-8*HOUR, 1*HOUR},
+        {-8*HOUR, 1*HOUR},
+
+        // Oct 29, 2006
+        {-8*HOUR, 1*HOUR},
+        {-8*HOUR, 0},
+        {-8*HOUR, 0},
+        {-8*HOUR, 0},
+        {-8*HOUR, 0},
+    };
+
+    // Expected offsets by
+    // void U_ucal_getTimeZoneOffsetFromLocal(
+    //   const UCalendar* cal,
+    //   UTimeZoneLocalOption nonExistingTimeOpt,
+    //   UTimeZoneLocalOption duplicatedTimeOpt,
+    //   int32_t* rawOffset, int32_t* dstOffset, UErrorCode* status);
+    // with nonExistingTimeOpt=UCAL_TZ_LOCAL_DAYLIGHT and
+    // duplicatedTimeOpt=UCAL_TZ_LOCAL_DAYLIGHT
+    const int32_t OFFSETS3[][2] = {
+        // April 2, 2006
+        {-8*HOUR, 0},
+        {-8*HOUR, 1*HOUR},
+        {-8*HOUR, 1*HOUR},
+        {-8*HOUR, 1*HOUR},
+        {-8*HOUR, 1*HOUR},
+
+        // October 29, 2006
+        {-8*HOUR, 1*HOUR},
+        {-8*HOUR, 1*HOUR},
+        {-8*HOUR, 1*HOUR},
+        {-8*HOUR, 0},
+        {-8*HOUR, 0},
+    };
+
+    UErrorCode status = U_ZERO_ERROR;
+
+    int32_t rawOffset, dstOffset;
+    UCalendar *cal = ucal_open(utc, -1, "en", UCAL_GREGORIAN, &status);
+    if (U_FAILURE(status)) {
+        log_data_err("ucal_open: %s", u_errorName(status));
+        return;
+    }
+
+    // Calculate millis
+    UDate MILLIS[UPRV_LENGTHOF(DATES)];
+    for (int32_t i = 0; i < UPRV_LENGTHOF(DATES); i++) {
+        ucal_setDateTime(cal, DATES[i][0], DATES[i][1], DATES[i][2],
+                         DATES[i][3], DATES[i][4], 0, &status);
+        MILLIS[i] = ucal_getMillis(cal, &status);
+        if (U_FAILURE(status)) {
+            log_data_err("ucal_getMillis failed");
+            return;
+        }
+    }
+    ucal_setTimeZone(cal, AMERICA_LOS_ANGELES, -1, &status);
+
+    // Test void ucal_getTimeZoneOffsetFromLocal(
+    // const UCalendar* cal,
+    // UTimeZoneLocalOption nonExistingTimeOpt,
+    // UTimeZoneLocalOption duplicatedTimeOpt,
+    // int32_t* rawOffset, int32_t* dstOffset, UErrorCode* status);
+    // with nonExistingTimeOpt=UCAL_TZ_LOCAL_STANDARD and
+    // duplicatedTimeOpt=UCAL_TZ_LOCAL_STANDARD
+    for (int m = 0; m < UPRV_LENGTHOF(DATES); m++) {
+        status = U_ZERO_ERROR;
+        ucal_setMillis(cal, MILLIS[m], &status);
+        if (U_FAILURE(status)) {
+            log_data_err("ucal_setMillis: %s\n", u_errorName(status));
+        }
+
+        ucal_getTimeZoneOffsetFromLocal(cal, UCAL_TZ_LOCAL_STANDARD_FORMER, UCAL_TZ_LOCAL_STANDARD_LATTER,
+            &rawOffset, &dstOffset, &status);
+        if (U_FAILURE(status)) {
+            log_err("ERROR: ucal_getTimeZoneOffsetFromLocal((%d-%d-%d %d:%d:0),"
+                    "UCAL_TZ_LOCAL_STANDARD_FORMER, UCAL_TZ_LOCAL_STANDARD_LATTER: %s\n",
+                    DATES[m][0], DATES[m][1], DATES[m][2], DATES[m][3], DATES[m][4],
+                    u_errorName(status));
+        } else if (rawOffset != OFFSETS2[m][0] || dstOffset != OFFSETS2[m][1]) {
+            log_err("Bad offset returned at (%d-%d-%d %d:%d:0) "
+                    "(wall/UCAL_TZ_LOCAL_STANDARD_FORMER/UCAL_TZ_LOCAL_STANDARD_LATTER) \n- Got: %d / %d "
+                    " Expected %d / %d\n",
+                    DATES[m][0], DATES[m][1], DATES[m][2], DATES[m][3], DATES[m][4],
+                    rawOffset, dstOffset, OFFSETS2[m][0], OFFSETS2[m][1]);
+        }
+    }
+
+    // Test void ucal_getTimeZoneOffsetFromLocal(
+    // const UCalendar* cal,
+    // UTimeZoneLocalOption nonExistingTimeOpt,
+    // UTimeZoneLocalOption duplicatedTimeOpt,
+    // int32_t* rawOffset, int32_t* dstOffset, UErrorCode* status);
+    // with nonExistingTimeOpt=UCAL_TZ_LOCAL_DAYLIGHT and
+    // duplicatedTimeOpt=UCAL_TZ_LOCAL_DAYLIGHT
+    for (int m = 0; m < UPRV_LENGTHOF(DATES); m++) {
+        status = U_ZERO_ERROR;
+        ucal_setMillis(cal, MILLIS[m], &status);
+        if (U_FAILURE(status)) {
+            log_data_err("ucal_setMillis: %s\n", u_errorName(status));
+        }
+
+        ucal_getTimeZoneOffsetFromLocal(cal, UCAL_TZ_LOCAL_DAYLIGHT_LATTER, UCAL_TZ_LOCAL_DAYLIGHT_FORMER,
+            &rawOffset, &dstOffset, &status);
+        if (U_FAILURE(status)) {
+            log_err("ERROR: ucal_getTimeZoneOffsetFromLocal((%d-%d-%d %d:%d:0),"
+                    "UCAL_TZ_LOCAL_DAYLIGHT_LATTER, UCAL_TZ_LOCAL_DAYLIGHT_FORMER: %s\n",
+                    DATES[m][0], DATES[m][1], DATES[m][2], DATES[m][3], DATES[m][4],
+                    u_errorName(status));
+        } else if (rawOffset != OFFSETS3[m][0] || dstOffset != OFFSETS3[m][1]) {
+            log_err("Bad offset returned at (%d-%d-%d %d:%d:0) "
+                    "(wall/UCAL_TZ_LOCAL_DAYLIGHT_LATTER/UCAL_TZ_LOCAL_DAYLIGHT_FORMER) \n- Got: %d / %d "
+                    " Expected %d / %d\n",
+                    DATES[m][0], DATES[m][1], DATES[m][2], DATES[m][3], DATES[m][4],
+                    rawOffset, dstOffset, OFFSETS3[m][0], OFFSETS3[m][1]);
+        }
+    }
+
+    // Test void ucal_getTimeZoneOffsetFromLocal(
+    // const UCalendar* cal,
+    // UTimeZoneLocalOption nonExistingTimeOpt,
+    // UTimeZoneLocalOption duplicatedTimeOpt,
+    // int32_t* rawOffset, int32_t* dstOffset, UErrorCode* status);
+    // with nonExistingTimeOpt=UCAL_TZ_LOCAL_FORMER and
+    // duplicatedTimeOpt=UCAL_TZ_LOCAL_LATTER
+    for (int m = 0; m < UPRV_LENGTHOF(DATES); m++) {
+        status = U_ZERO_ERROR;
+        ucal_setMillis(cal, MILLIS[m], &status);
+        if (U_FAILURE(status)) {
+            log_data_err("ucal_setMillis: %s\n", u_errorName(status));
+        }
+
+        ucal_getTimeZoneOffsetFromLocal(cal, UCAL_TZ_LOCAL_FORMER, UCAL_TZ_LOCAL_LATTER,
+            &rawOffset, &dstOffset, &status);
+        if (U_FAILURE(status)) {
+            log_err("ERROR: ucal_getTimeZoneOffsetFromLocal((%d-%d-%d %d:%d:0),"
+                    "UCAL_TZ_LOCAL_FORMER, UCAL_TZ_LOCAL_LATTER: %s\n",
+                    DATES[m][0], DATES[m][1], DATES[m][2], DATES[m][3], DATES[m][4],
+                    u_errorName(status));
+        } else if (rawOffset != OFFSETS2[m][0] || dstOffset != OFFSETS2[m][1]) {
+            log_err("Bad offset returned at (%d-%d-%d %d:%d:0) "
+                    "(wall/UCAL_TZ_LOCAL_FORMER/UCAL_TZ_LOCAL_LATTER) \n- Got: %d / %d "
+                    " Expected %d / %d\n",
+                    DATES[m][0], DATES[m][1], DATES[m][2], DATES[m][3], DATES[m][4],
+                    rawOffset, dstOffset, OFFSETS2[m][0], OFFSETS2[m][1]);
+        }
+    }
+
+    // Test void ucal_getTimeZoneOffsetFromLocal(
+    // const UCalendar* cal,
+    // UTimeZoneLocalOption nonExistingTimeOpt,
+    // UTimeZoneLocalOption duplicatedTimeOpt,
+    // int32_t* rawOffset, int32_t* dstOffset, UErrorCode* status);
+    // with nonExistingTimeOpt=UCAL_TZ_LOCAL_LATTER and
+    // duplicatedTimeOpt=UCAL_TZ_LOCAL_FORMER
+    for (int m = 0; m < UPRV_LENGTHOF(DATES); m++) {
+        status = U_ZERO_ERROR;
+        ucal_setMillis(cal, MILLIS[m], &status);
+        if (U_FAILURE(status)) {
+            log_data_err("ucal_setMillis: %s\n", u_errorName(status));
+        }
+
+        ucal_getTimeZoneOffsetFromLocal(cal, UCAL_TZ_LOCAL_LATTER, UCAL_TZ_LOCAL_FORMER,
+            &rawOffset, &dstOffset, &status);
+        if (U_FAILURE(status)) {
+            log_err("ERROR: ucal_getTimeZoneOffsetFromLocal((%d-%d-%d %d:%d:0),"
+                    "UCAL_TZ_LOCAL_LATTER, UCAL_TZ_LOCAL_FORMER: %s\n",
+                    DATES[m][0], DATES[m][1], DATES[m][2], DATES[m][3], DATES[m][4],
+                    u_errorName(status));
+        } else if (rawOffset != OFFSETS3[m][0] || dstOffset != OFFSETS3[m][1]) {
+            log_err("Bad offset returned at (%d-%d-%d %d:%d:0) "
+                    "(wall/UCAL_TZ_LOCAL_LATTER/UCAL_TZ_LOCAL_FORMER) \n- Got: %d / %d "
+                    " Expected %d / %d\n",
+                    DATES[m][0], DATES[m][1], DATES[m][2], DATES[m][3], DATES[m][4],
+                    rawOffset, dstOffset, OFFSETS3[m][0], OFFSETS3[m][1]);
+        }
+    }
+    ucal_close(cal);
+}
+
 typedef struct {
     const char * localeWithCal;
     UDate        clearDate;
@@ -2663,6 +2893,8 @@ static const DayPeriodTestItem dpItems[] = {
                      UADAYPERIOD_AFTERNOON1, UADAYPERIOD_AFTERNOON2, UADAYPERIOD_EVENING1, UADAYPERIOD_EVENING2, UADAYPERIOD_EVENING2, UADAYPERIOD_NIGHT1 } },
     { "es", FALSE, { UADAYPERIOD_MORNING1, UADAYPERIOD_MORNING1, UADAYPERIOD_MORNING1, UADAYPERIOD_MORNING2, UADAYPERIOD_MORNING2, UADAYPERIOD_MORNING2,
                      UADAYPERIOD_AFTERNOON1, UADAYPERIOD_AFTERNOON1, UADAYPERIOD_AFTERNOON1, UADAYPERIOD_AFTERNOON1, UADAYPERIOD_NIGHT1, UADAYPERIOD_NIGHT1 } }, // rdar://67865806
+    { "ru", FALSE, { UADAYPERIOD_NIGHT1, UADAYPERIOD_NIGHT1, UADAYPERIOD_MORNING1, UADAYPERIOD_MORNING1, UADAYPERIOD_MORNING1, UADAYPERIOD_MORNING1,
+                     UADAYPERIOD_AFTERNOON1, UADAYPERIOD_AFTERNOON1, UADAYPERIOD_AFTERNOON1, UADAYPERIOD_EVENING1, UADAYPERIOD_EVENING1, UADAYPERIOD_NIGHT1 } }, // rdar://73179599
     // test fallback for languages with no data. Should be to root, but that is broken in the data, so to en for now.
     { "tlh", FALSE, { UADAYPERIOD_NIGHT1, UADAYPERIOD_NIGHT1, UADAYPERIOD_NIGHT1, UADAYPERIOD_MORNING1, UADAYPERIOD_MORNING1, UADAYPERIOD_MORNING1,
                      UADAYPERIOD_AFTERNOON1, UADAYPERIOD_AFTERNOON1, UADAYPERIOD_AFTERNOON1, UADAYPERIOD_EVENING1, UADAYPERIOD_EVENING1, UADAYPERIOD_NIGHT1 } },
@@ -2683,6 +2915,128 @@ void TestGetDayPeriods() {
                 log_err("FAIL: uacal_getDayPeriod, locale %s, hour %d, formatStyle %d, expected dp %d, got %d\n",
                         dpItemPtr->locale, hourIndex*2, dpItemPtr->formatStyle, dpItemPtr->expected[hourIndex], dp); 
             }
+        }
+    }
+}
+
+#define WOY_TEST_DAY_COUNT 21
+
+typedef struct {
+    const char* locale;
+    const int32_t firstDay;
+    const int32_t minDays;
+    const int32_t (*yearWeeks)[WOY_TEST_DAY_COUNT][2];
+} LocaleYearWeeks;
+
+void TestWeekOfYear() {
+    static const int32_t yearWeekUS[WOY_TEST_DAY_COUNT][2] = {
+        //   Y  ww             y MMM dd, EEE
+        { 2020, 52}, // 00: 2020 Dec 20, Sun
+        { 2020, 52}, // 01: 2020 Dec 21, Mon
+        { 2020, 52}, // 02: 2020 Dec 22, Tue
+        { 2020, 52}, // 03: 2020 Dec 23, Wed
+        { 2020, 52}, // 04: 2020 Dec 24, Thu
+        { 2020, 52}, // 05: 2021 Dec 25, Fri
+        { 2020, 52}, // 06: 2021 Dec 26, Sat
+        { 2021, 01}, // 07: 2020 Dec 27, Sun
+        { 2021, 01}, // 08: 2020 Dec 28, Mon
+        { 2021, 01}, // 09: 2020 Dec 29, Tue
+        { 2021, 01}, // 10: 2020 Dec 30, Wed
+        { 2021, 01}, // 11: 2020 Dec 31, Thu
+        { 2021, 01}, // 12: 2021 Jan 01, Fri
+        { 2021, 01}, // 13: 2021 Jan 02, Sat
+        { 2021, 02}, // 14: 2021 Jan 03, Sun
+        { 2021, 02}, // 15: 2021 Jan 04, Mon
+        { 2021, 02}, // 16: 2021 Jan 05, Tue
+        { 2021, 02}, // 17: 2021 Jan 06, Wed
+        { 2021, 02}, // 18: 2021 Jan 07, Thu
+        { 2021, 02}, // 19: 2021 Jan 08, Fri
+        { 2021, 02}, // 20: 2021 Jan 09, Sat
+    };
+    static const int32_t yearWeekISO[WOY_TEST_DAY_COUNT][2] = {
+        //   Y  ww             y MMM dd, EEE
+        { 2020, 51}, // 00: 2020 Dec 20, Sun
+        { 2020, 52}, // 01: 2020 Dec 21, Mon
+        { 2020, 52}, // 02: 2020 Dec 22, Tue
+        { 2020, 52}, // 03: 2020 Dec 23, Wed
+        { 2020, 52}, // 04: 2020 Dec 24, Thu
+        { 2020, 52}, // 05: 2021 Dec 25, Fri
+        { 2020, 52}, // 06: 2021 Dec 26, Sat
+        { 2020, 52}, // 07: 2020 Dec 27, Sun
+        { 2020, 53}, // 08: 2020 Dec 28, Mon
+        { 2020, 53}, // 09: 2020 Dec 29, Tue
+        { 2020, 53}, // 10: 2020 Dec 30, Wed
+        { 2020, 53}, // 11: 2020 Dec 31, Thu
+        { 2020, 53}, // 12: 2021 Jan 01, Fri
+        { 2020, 53}, // 13: 2021 Jan 02, Sat
+        { 2020, 53}, // 14: 2021 Jan 03, Sun
+        { 2021, 01}, // 15: 2021 Jan 04, Mon
+        { 2021, 01}, // 16: 2021 Jan 05, Tue
+        { 2021, 01}, // 17: 2021 Jan 06, Wed
+        { 2021, 01}, // 18: 2021 Jan 07, Thu
+        { 2021, 01}, // 19: 2021 Jan 08, Fri
+        { 2021, 01}, // 20: 2021 Jan 09, Sat
+    };
+    static const int32_t yearWeekCN[WOY_TEST_DAY_COUNT][2] = {
+        //   Y  ww             y MMM dd, EEE
+        { 2020, 51}, // 00: 2020 Dec 20, Sun
+        { 2020, 51}, // 01: 2020 Dec 21, Mon
+        { 2020, 51}, // 02: 2020 Dec 22, Tue
+        { 2020, 51}, // 03: 2020 Dec 23, Wed
+        { 2020, 51}, // 04: 2020 Dec 24, Thu
+        { 2020, 51}, // 05: 2021 Dec 25, Fri
+        { 2020, 51}, // 06: 2021 Dec 26, Sat
+        { 2020, 52}, // 07: 2020 Dec 27, Sun
+        { 2020, 52}, // 08: 2020 Dec 28, Mon
+        { 2020, 52}, // 09: 2020 Dec 29, Tue
+        { 2020, 52}, // 10: 2020 Dec 30, Wed
+        { 2020, 52}, // 11: 2020 Dec 31, Thu
+        { 2020, 52}, // 12: 2021 Jan 01, Fri
+        { 2020, 52}, // 13: 2021 Jan 02, Sat
+        { 2021, 01}, // 14: 2021 Jan 03, Sun
+        { 2021, 01}, // 15: 2021 Jan 04, Mon
+        { 2021, 01}, // 16: 2021 Jan 05, Tue
+        { 2021, 01}, // 17: 2021 Jan 06, Wed
+        { 2021, 01}, // 18: 2021 Jan 07, Thu
+        { 2021, 01}, // 19: 2021 Jan 08, Fri
+        { 2021, 01}, // 20: 2021 Jan 09, Sat
+    };
+    static const LocaleYearWeeks locYrWks[] = {
+        { "en_US",                  1, 1, &yearWeekUS },
+        { "en_US@calendar=iso8601", 2, 4, &yearWeekISO },
+        { "zh_CN",                  1, 5, &yearWeekCN },
+        { NULL, 0, 0, NULL }
+    };
+    const LocaleYearWeeks* locYrWksPtr;
+    for (locYrWksPtr = locYrWks; locYrWksPtr->locale != NULL; locYrWksPtr++) {
+        UErrorCode status = U_ZERO_ERROR;
+        UCalendar* cal = ucal_open(u"UTC", 3, locYrWksPtr->locale, UCAL_DEFAULT, &status);
+        if ( U_FAILURE(status) ) {
+            log_data_err("FAIL: ucal_open for locale %s, status %s\n", locYrWksPtr->locale, u_errorName(status));
+        } else {
+            int32_t firstDay = ucal_getAttribute(cal, UCAL_FIRST_DAY_OF_WEEK);
+            int32_t minDays  = ucal_getAttribute(cal, UCAL_MINIMAL_DAYS_IN_FIRST_WEEK);
+            if (firstDay != locYrWksPtr->firstDay || minDays != locYrWksPtr->minDays) {
+                log_err("ERR: locale %s, expected firstDay:minDays %d:%d, got %d:%d\n", locYrWksPtr->locale,
+                        locYrWksPtr->firstDay, locYrWksPtr->minDays, firstDay, minDays);
+            }
+            ucal_setDateTime(cal, 2020, UCAL_DECEMBER, 20, 12, 0, 0, &status);
+            if ( U_FAILURE(status) ) {
+                log_err("FAIL: ucal_setDateTime to 2020 Dec 20 for locale %s, status %s\n", locYrWksPtr->locale, u_errorName(status));
+            } else {
+                for (int count = 0; count < WOY_TEST_DAY_COUNT; count++) {
+                    int32_t yearForWOY = ucal_get(cal, UCAL_YEAR_WOY, &status);
+                    int32_t weekOfYear = ucal_get(cal, UCAL_WEEK_OF_YEAR, &status);
+                    ucal_add(cal, UCAL_DATE, 1, &status);
+                    if ( U_FAILURE(status) ) {
+                        log_err("FAIL: ucal_get/ucal_add for locale %s, status %s\n", locYrWksPtr->locale, u_errorName(status));
+                    } else if (yearForWOY != (*locYrWksPtr->yearWeeks)[count][0] || weekOfYear != (*locYrWksPtr->yearWeeks)[count][1]) {
+                        log_err("ERR: locale %s, count %d, expected Y:ww %d:%02d, got %d:%02d\n", locYrWksPtr->locale, count,
+                                (*locYrWksPtr->yearWeeks)[count][0], (*locYrWksPtr->yearWeeks)[count][1], yearForWOY, weekOfYear);
+                    }
+                }
+            }
+            ucal_close(cal);
         }
     }
 }

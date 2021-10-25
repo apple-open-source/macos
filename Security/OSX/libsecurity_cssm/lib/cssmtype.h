@@ -28,6 +28,7 @@
 
 #include <Security/cssmconfig.h>
 #include <Security/SecAsn1Types.h>
+#include <Availability.h>
 
 /* ==========================================================================
 	W A R N I N G : CDSA has been deprecated starting with 10.7.  While the
@@ -883,8 +884,10 @@ enum {
 	CSSM_ALGID_ConcatDataAndBase =		CSSM_ALGID_NONE + 59,
 	CSSM_ALGID_XORBaseAndData =			CSSM_ALGID_NONE + 60,
 	CSSM_ALGID_ExtractFromKey =			CSSM_ALGID_NONE + 61,
-	CSSM_ALGID_SSL3PreMasterGen =		CSSM_ALGID_NONE + 62,
-	CSSM_ALGID_SSL3MasterDerive =		CSSM_ALGID_NONE + 63,
+    CSSM_ALGID_SSL3PrePrimaryGen =      CSSM_ALGID_NONE + 62,
+    CSSM_ALGID_SSL3PreMasterGen API_DEPRECATED_WITH_REPLACEMENT("CSSM_ALGID_SSL3PrePrimaryGen",macos(10.0, 12.0)) = CSSM_ALGID_SSL3PrePrimaryGen,
+    CSSM_ALGID_SSL3PrimaryDerive =      CSSM_ALGID_NONE + 63,
+    CSSM_ALGID_SSL3MasterDerive API_DEPRECATED_WITH_REPLACEMENT("CSSM_ALGID_SSL3PrimaryDerive",macos(10.0, 12.0))  = CSSM_ALGID_SSL3PrimaryDerive,
 	CSSM_ALGID_SSL3KeyAndMacDerive =	CSSM_ALGID_NONE + 64,
 	CSSM_ALGID_SSL3MD5_MAC =			CSSM_ALGID_NONE + 65,
 	CSSM_ALGID_SSL3SHA1_MAC =			CSSM_ALGID_NONE + 66,
@@ -931,7 +934,7 @@ enum {
    part of the CSSM specification should be defined relative
    to CSSM_ALGID_VENDOR_DEFINED. */
 	CSSM_ALGID_VENDOR_DEFINED =			CSSM_ALGID_NONE + 0x80000000
-};
+} API_AVAILABLE(macos(10.0));
 
 typedef uint32 CSSM_ENCRYPT_MODE;
 enum {

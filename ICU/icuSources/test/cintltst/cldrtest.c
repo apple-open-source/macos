@@ -555,21 +555,20 @@ TestLocaleStructure(void) {
             ures_close(currentLocale);
             continue;
         }
-        ures_getStringByKey(currentLocale, "Version", NULL, &errorCode);
-        if(errorCode != U_ZERO_ERROR) {
+        const UChar *version = ures_getStringByKey(currentLocale, "Version", NULL, &errorCode);
+        if(U_FAILURE(errorCode)) {
             log_err("No version information is available for locale %s, and it should be!\n",
                 currLoc);
         }
-        else if (ures_getStringByKey(currentLocale, "Version", NULL, &errorCode)[0] == (UChar)(0x78)) {
-            log_verbose("WARNING: The locale %s is experimental! It shouldn't be listed as an installed locale.\n",
-                currLoc);
+        else if (version[0] == u'x') {
+            log_verbose("WARNING: The locale %s is experimental! "
+                        "It shouldn't be listed as an installed locale.\n",
+                        currLoc);
         }
         resolvedLoc = ures_getLocaleByType(currentLocale, ULOC_ACTUAL_LOCALE, &errorCode);
         if (strcmp(resolvedLoc, currLoc) != 0 && strcmp(currLoc, "ars") != 0 && strcmp(currLoc, "wuu") != 0 // /* ars,wuu are aliased locales */
                 && strcmp(currLoc, "ur_Arab_IN") != 0 && strcmp(currLoc, "ur_Aran_IN") != 0 /* so are ur_Ara?_IN <rdar://problem/47494884> */
                 && strcmp(currLoc, "pa_Aran") != 0) { /* and pa_Aran <rdar://problem/51418203> */
-            /* All locales have at least a Version resource.
-               If it's absolutely empty, then the previous test will fail too.*/
             log_err("Locale resolves to different locale. Is %s an alias of %s?\n",
                 currLoc, resolvedLoc);
         }
@@ -986,9 +985,11 @@ static void VerifyTranslation(void) {
                     uprv_strcmp(currLoc,"cv") == 0 || uprv_strncmp(currLoc,"cv_",3) == 0 ||
                     uprv_strcmp(currLoc,"dv") == 0 || uprv_strncmp(currLoc,"dv_",3) == 0 ||
                     uprv_strcmp(currLoc,"sa") == 0 || uprv_strncmp(currLoc,"sa_",3) == 0 ||
+                    uprv_strcmp(currLoc,"nv") == 0 || uprv_strncmp(currLoc,"nv_",3) == 0 ||
                     uprv_strncmp(currLoc,"kaj",3) == 0 || uprv_strncmp(currLoc,"kpe",3) == 0 ||
                     uprv_strncmp(currLoc,"nqo",3) == 0 || uprv_strncmp(currLoc,"sat",3) == 0 ||
-                    uprv_strncmp(currLoc,"syr",3) == 0 ||
+                    uprv_strncmp(currLoc,"syr",3) == 0 || uprv_strncmp(currLoc,"ain",3) == 0 ||
+                    uprv_strncmp(currLoc,"rhg",3) == 0 ||
                     uprv_strncmp(currLoc,"ks_Deva",7) == 0 || uprv_strncmp(currLoc,"mni_Mtei",8) == 0 ||
                     uprv_strncmp(currLoc,"sd_Deva",7) == 0 ) {
                 log_verbose("skipping day/month tests for %s, missing some translated names\n", currLoc);
@@ -1106,11 +1107,11 @@ static void VerifyTranslation(void) {
                if (U_FAILURE(errorCode)) {
                    log_err("ulocdata_getMeasurementSystem failed for locale %s with error: %s \n", currLoc, u_errorName(errorCode));
                } else {
-                   if ( strstr(fullLoc, "_US")!=NULL || strstr(fullLoc, "_MM")!=NULL || strstr(fullLoc, "_LR")!=NULL ) {
+                   if ( strstr(fullLoc, "_US")!=NULL || strstr(fullLoc, "_LR")!=NULL ) {
                        if(measurementSystem != UMS_US){
                             log_err("ulocdata_getMeasurementSystem did not return expected data for locale %s \n", currLoc);
                        }
-                   } else if ( strstr(fullLoc, "_GB")!=NULL ) {
+                   } else if ( strstr(fullLoc, "_GB")!=NULL || strstr(fullLoc, "_MM")!=NULL ) {
                        if(measurementSystem != UMS_UK){
                             log_err("ulocdata_getMeasurementSystem did not return expected data for locale %s \n", currLoc);
                        }
@@ -1249,8 +1250,10 @@ static void TestExemplarSet(void){
                 log_err("ExemplarSet containment failed for locale : %s\n", locale);
             }
         }
-        assertTrue("case-folded is a superset",
+        if (uprv_strncmp(locale,"ain",3) != 0) { // ain exemplars do not satisfy the case-fold test
+            assertTrue("case-folded is a superset",
                    uset_containsAll(exemplarSets[1], exemplarSets[0]));
+        }
         if (uset_equals(exemplarSets[1], exemplarSets[0])) {
             ++equalCount;
         }
@@ -1348,7 +1351,7 @@ static void TestCoverage(void){
         status = U_ZERO_ERROR;
         ulocdata_getDelimiter(uld, types[i], result, 32, &status);
         if (U_FAILURE(status)){
-            log_err("ulocdata_getgetDelimiter error with type %d", types[i]);
+            log_err("ulocdata_getDelimiter error with type %d", types[i]);
         }
     }
 
@@ -1356,6 +1359,67 @@ static void TestCoverage(void){
     ulocdata_setNoSubstitute(uld,sub);
     ulocdata_close(uld);
 }
+
+typedef struct {
+    const char*  locale;
+    const UChar* quoteStart;
+    const UChar* quoteEnd;
+    const UChar* altQuoteStart;
+    const UChar* altQuoteEnd;
+} TestDelimitersItem;
+
+static const TestDelimitersItem testDelimsItems[] = {
+    { "en",    u"“", u"”", u"‘", u"’"},
+    { "es",    u"«", u"»", u"“", u"”"},
+    { "fr_CA", u"«", u"»", u"”", u"“" },  // Apple data change
+    { "de_CH", u"„", u"“", u"‚", u"‘" },  // inherited from de
+    { "es_MX", u"“", u"”", u"‘", u"’"}, // inherited from es_419
+    { "es_US", u"“", u"”", u"‘", u"’"}, // rdar://75095012 (Apple data change)
+    { "ja",    u"「", u"」", u"『", u"』"},
+    { NULL,NULL,NULL,NULL,NULL }
+};
+
+enum { kUDelimMax = 8, kBDelimMax = 16 };
+static void TestDelimiters(void){
+    const TestDelimitersItem* itemPtr = testDelimsItems;
+    for (; itemPtr->locale != NULL; itemPtr++) {
+        UErrorCode status = U_ZERO_ERROR;
+        ULocaleData  *uld = ulocdata_open(itemPtr->locale, &status);
+        if (U_FAILURE(status)) {
+            log_data_err("ulocdata_open for locale %s fails: %s\n", itemPtr->locale, u_errorName(status));
+        } else {
+            UChar quoteStart[kUDelimMax], quoteEnd[kUDelimMax], altQuoteStart[kUDelimMax], altQuoteEnd[kUDelimMax];
+            (void)ulocdata_getDelimiter(uld, ULOCDATA_QUOTATION_START,     quoteStart,    kUDelimMax, &status);
+            (void)ulocdata_getDelimiter(uld, ULOCDATA_QUOTATION_END,       quoteEnd,      kUDelimMax, &status);
+            (void)ulocdata_getDelimiter(uld, ULOCDATA_ALT_QUOTATION_START, altQuoteStart, kUDelimMax, &status);
+            (void)ulocdata_getDelimiter(uld, ULOCDATA_ALT_QUOTATION_END,   altQuoteEnd,   kUDelimMax, &status);
+            if (U_FAILURE(status)) {
+                log_err("ulocdata_getDelimiter ULOCDATA[_ALT]_QUOTATION_START/END for locale %s fails: %s\n", itemPtr->locale, u_errorName(status));
+            } else {
+                if (u_strcmp(quoteStart,itemPtr->quoteStart)!=0 || u_strcmp(quoteEnd,itemPtr->quoteEnd)!=0) {
+                    char expStart[kBDelimMax], expEnd[kBDelimMax], getStart[kBDelimMax], getEnd[kBDelimMax];
+                    u_austrcpy(expStart, itemPtr->quoteStart);
+                    u_austrcpy(expEnd, itemPtr->quoteEnd);
+                    u_austrcpy(getStart, quoteStart);
+                    u_austrcpy(getEnd, quoteEnd);
+                    log_err("ulocdata_getDelimiter ULOCDATA_QUOTATION_START/END for locale %s, expect %s..%s, get %s..%s\n",
+                            itemPtr->locale, expStart, expEnd, getStart, getEnd);
+                }
+                if (u_strcmp(altQuoteStart,itemPtr->altQuoteStart)!=0 || u_strcmp(altQuoteEnd,itemPtr->altQuoteEnd)!=0) {
+                    char expStart[kBDelimMax], expEnd[kBDelimMax], getStart[kBDelimMax], getEnd[kBDelimMax];
+                    u_austrcpy(expStart, itemPtr->altQuoteStart);
+                    u_austrcpy(expEnd, itemPtr->altQuoteEnd);
+                    u_austrcpy(getStart, altQuoteStart);
+                    u_austrcpy(getEnd, altQuoteEnd);
+                    log_err("ulocdata_getDelimiter ULOCDATA_ALT_QUOTATION_START/END for locale %s, expect %s..%s, get %s..%s\n",
+                            itemPtr->locale, expStart, expEnd, getStart, getEnd);
+                }
+            }
+            ulocdata_close(uld);
+        }
+    }
+}
+
 
 static void TestIndexChars(void) {
     /* Very basic test of ULOCDATA_ES_INDEX.
@@ -1531,56 +1595,6 @@ static void TestAvailableIsoCodes(void){
 #endif
 }
 
-// Apple-specific
-typedef struct {
-    const char* locale;
-    const UChar* quoteStart;
-    const UChar* quoteEnd;
-    const UChar* altQuoteStart;
-    const UChar* altQuoteEnd;
-} DelimItem;
-static const DelimItem delimItems[] = {
-    { "en",    u"“", u"”", u"‘", u"’"},
-    { "es",    u"«", u"»", u"“", u"”"},
-    { "es_MX", u"“", u"”", u"‘", u"’"},
-    { "ja",    u"「", u"」", u"『", u"』"},
-    { NULL,NULL,NULL,NULL,NULL }
-};
-enum {kMaxDelimLen = 8};
-
-static void TestDelimiters(void){
-    const DelimItem* itemPtr;
-    for (itemPtr = delimItems; itemPtr->locale != NULL; itemPtr++) {
-        UErrorCode status = U_ZERO_ERROR;
-        ULocaleData* uldat = ulocdata_open(itemPtr->locale, &status);
-        if (U_FAILURE(status)) {
-            log_data_err("FAIL: ulocdata_open fails for locale %s: %s\n", itemPtr->locale, u_errorName(status));
-        } else {
-            UChar quoteStart[kMaxDelimLen+1];
-            UChar quoteEnd[kMaxDelimLen+1];
-            UChar altQuoteStart[kMaxDelimLen+1];
-            UChar altQuoteEnd[kMaxDelimLen+1];
-
-            ulocdata_getDelimiter(uldat, ULOCDATA_QUOTATION_START, quoteStart, kMaxDelimLen, &status);
-            quoteStart[kMaxDelimLen] = 0;
-            ulocdata_getDelimiter(uldat, ULOCDATA_QUOTATION_END, quoteEnd, kMaxDelimLen, &status);
-            quoteEnd[kMaxDelimLen] = 0;
-            ulocdata_getDelimiter(uldat, ULOCDATA_ALT_QUOTATION_START, altQuoteStart, kMaxDelimLen, &status);
-            altQuoteStart[kMaxDelimLen] = 0;
-            ulocdata_getDelimiter(uldat, ULOCDATA_ALT_QUOTATION_END, altQuoteEnd, kMaxDelimLen, &status);
-            altQuoteEnd[kMaxDelimLen] = 0;
-            if (U_FAILURE(status)) {
-                log_err("FAIL: ulocdata_getDelimiter fails for locale %s: %s\n", itemPtr->locale, u_errorName(status));
-            } else if (u_strcmp(quoteStart, itemPtr->quoteStart) != 0 || u_strcmp(quoteEnd, itemPtr->quoteEnd) != 0 ||
-                       u_strcmp(altQuoteStart, itemPtr->altQuoteStart) != 0 || u_strcmp(altQuoteEnd, itemPtr->altQuoteEnd) != 0) {
-                log_err("FAIL: ulocdata_getDelimiter error for locale %s, one or more delimiters not as expected\n", itemPtr->locale);
-            }
-            ulocdata_close(uldat);
-        }
-    }
-}
-
-
 #define TESTCASE(name) addTest(root, &name, "tsutil/cldrtest/" #name)
 
 void addCLDRTest(TestNode** root);
@@ -1596,8 +1610,8 @@ void addCLDRTest(TestNode** root)
     TESTCASE(TestExemplarSet);
     TESTCASE(TestLocaleDisplayPattern);
     TESTCASE(TestCoverage);
+    TESTCASE(TestDelimiters);
     TESTCASE(TestIndexChars);
     TESTCASE(TestAvailableIsoCodes);
-    TESTCASE(TestDelimiters);
 }
 

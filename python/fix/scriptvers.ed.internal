@@ -1,0 +1,6 @@
+1g,/.*python[^ ]*,s,,/AppleInternal/Library/Frameworks/PythonLegacy.framework/Versions/@VERSION@/Resources/Python.app/Contents/MacOS/PythonLegacy,
+1a
+import sys
+sys.argv[0] = sys.argv[0].replace('@SEP@@VERSION@', '')
+.
+w

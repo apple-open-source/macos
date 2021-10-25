@@ -444,6 +444,7 @@ funcs/err.D_PROTO_LEN.copyoutstrbadarg.d
 funcs/err.D_PROTO_LEN.copyoutstrtoofew.d
 funcs/err.D_PROTO_LEN.copyouttoofew.d
 funcs/err.D_PROTO_LEN.copyouttoomany.d
+funcs/err.D_PROTO_LEN.livedump.d
 funcs/err.D_PROTO_LEN.mtonstoofew.d
 funcs/err.D_PROTO_LEN.mtonstoomany.d
 funcs/err.D_PROTO_LEN.panicbadarg.d

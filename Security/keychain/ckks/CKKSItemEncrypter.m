@@ -83,7 +83,7 @@
                     keyCache:(CKKSMemoryKeyCache* _Nullable)keyCache
                        error:(NSError * __autoreleasing *) error
 {
-    CKKSKey *itemkey = nil;
+    CKKSKeychainBackedKey *itemkey = nil;
 
     // If we're updating a CKKSItem, extract its dictionary and overlay our new one on top
     if(olditem) {
@@ -99,8 +99,13 @@
         dict = oldDictionary;
     }
 
+    CKKSKeychainBackedKey* parentBackedKey = [parentkey getKeychainBackedKey:error];
+    if(parentBackedKey == nil) {
+        return nil;
+    }
+
     // generate a new key and wrap it
-    itemkey = [CKKSKey randomKeyWrappedByParent: parentkey error:error];
+    itemkey = [CKKSKeychainBackedKey randomKeyWrappedByParent:parentBackedKey error:error];
     if(!itemkey) {
         return nil;
     }

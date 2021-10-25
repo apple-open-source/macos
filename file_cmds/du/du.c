@@ -1,4 +1,6 @@
-/*
+/*-
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
  * Copyright (c) 1989, 1993, 1994
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -13,11 +15,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -46,8 +44,6 @@ __used static const char copyright[] =
 static const char sccsid[] = "@(#)du.c	8.5 (Berkeley) 5/4/95";
 #endif
 #endif /* not lint */
-#include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/usr.bin/du/du.c,v 1.38 2005/04/09 14:31:40 stefanf Exp $");
 
 #include <sys/mount.h>
 #include <sys/param.h>
@@ -59,8 +55,9 @@ __FBSDID("$FreeBSD: src/usr.bin/du/du.c,v 1.38 2005/04/09 14:31:40 stefanf Exp $
 #include <errno.h>
 #include <fnmatch.h>
 #include <fts.h>
+#include <getopt.h>
+#include <libutil.h>
 #include <locale.h>
-#include <math.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -71,37 +68,56 @@ __FBSDID("$FreeBSD: src/usr.bin/du/du.c,v 1.38 2005/04/09 14:31:40 stefanf Exp $
 #ifdef __APPLE__
 #include <get_compat.h>
 #include <sys/sysctl.h>
+#include <TargetConditionals.h>
 #else
 #define COMPAT_MODE(func, mode) (1)
 #endif
 
-#define	KILO_SZ(n) (n)
-#define	MEGA_SZ(n) ((n) * (n))
-#define	GIGA_SZ(n) ((n) * (n) * (n))
-#define	TERA_SZ(n) ((n) * (n) * (n) * (n))
-#define	PETA_SZ(n) ((n) * (n) * (n) * (n) * (n))
+#define SI_OPT	(CHAR_MAX + 1)
 
-#define	KILO_2_SZ (KILO_SZ(1024ULL))
-#define	MEGA_2_SZ (MEGA_SZ(1024ULL))
-#define	GIGA_2_SZ (GIGA_SZ(1024ULL))
-#define	TERA_2_SZ (TERA_SZ(1024ULL))
-#define	PETA_2_SZ (PETA_SZ(1024ULL))
+#define UNITS_2		1
+#define UNITS_SI	2
 
-#define	KILO_SI_SZ (KILO_SZ(1000ULL))
-#define	MEGA_SI_SZ (MEGA_SZ(1000ULL))
-#define	GIGA_SI_SZ (GIGA_SZ(1000ULL))
-#define	TERA_SI_SZ (TERA_SZ(1000ULL))
-#define	PETA_SI_SZ (PETA_SZ(1000ULL))
+typedef struct _compat_ftsent {
+	struct _ftsent *fts_cycle;	/* cycle node */
+	struct _ftsent *fts_parent;	/* parent directory */
+	struct _ftsent *fts_link;	/* next file in directory */
+        union {
+                struct {
+                        long __fts_number;      /* local numeric value */
+                        void *__fts_pointer;    /* local address value */
+                } __struct_ftsent;
+// rdar://78464191
+#if TARGET_OS_WATCH
+                int32_t __fts_bignum;
+#else
+                int64_t __fts_bignum;
+#endif
+        } __union_ftsent;
+#define fts_number      __union_ftsent.__struct_ftsent.__fts_number
+#define fts_pointer     __union_ftsent.__struct_ftsent.__fts_pointer
+#define fts_bignum      __union_ftsent.__fts_bignum
+	char *fts_accpath;		/* access path */
+	char *fts_path;			/* root path */
+	int fts_errno;			/* errno for this node */
+	int fts_symfd;			/* fd for symlink or chdir */
+	unsigned short fts_pathlen;	/* strlen(fts_path) */
+	unsigned short fts_namelen;	/* strlen(fts_name) */
 
-unsigned long long vals_si [] = {1, KILO_SI_SZ, MEGA_SI_SZ, GIGA_SI_SZ, TERA_SI_SZ, PETA_SI_SZ};
-unsigned long long vals_base2[] = {1, KILO_2_SZ, MEGA_2_SZ, GIGA_2_SZ, TERA_2_SZ, PETA_2_SZ};
-unsigned long long *valp;
+	ino_t fts_ino;			/* inode */
+	dev_t fts_dev;			/* device */
+	nlink_t fts_nlink;		/* link count */
+	short fts_level;		/* depth (-1 to N) */
+	unsigned short fts_info;	/* user flags for FTSENT structure */
+	unsigned short fts_flags;	/* private flags for FTSENT structure */
+	unsigned short fts_instr;	/* fts_set() instructions */
+	struct stat *fts_statp;		/* stat(2) information */
+	char fts_name[1];		/* file name */
+} COMPATFTSENT;
 
-typedef enum { NONE, KILO, MEGA, GIGA, TERA, PETA, UNIT_MAX } unit_t;
+#define	COMPAT_FTS_BIGNUM(p)	((COMPATFTSENT *)p)->fts_bignum
 
-int unitp [] = { NONE, KILO, MEGA, GIGA, TERA, PETA };
-
-SLIST_HEAD(ignhead, ignentry) ignores;
+static SLIST_HEAD(ignhead, ignentry) ignores;
 struct ignentry {
 	char			*mask;
 	SLIST_ENTRY(ignentry)	next;
@@ -110,99 +126,147 @@ struct ignentry {
 static int	linkchk(FTSENT *);
 static int	dirlinkchk(FTSENT *);
 static void	usage(void);
-void		prthumanval(double);
-unit_t		unit_adjust(double *);
-void		ignoreadd(const char *);
-void		ignoreclean(void);
-int		ignorep(FTSENT *);
+static void	prthumanval(int64_t);
+static void	ignoreadd(const char *);
+static void	ignoreclean(void);
+static int	ignorep(FTSENT *);
+static void	siginfo(int __unused);
+
+static int	nodumpflag = 0;
+static int	Aflag, hflag;
+static long	blocksize, cblocksize;
+static volatile sig_atomic_t info;
+
+static const struct option long_options[] =
+{
+	{ "si", no_argument, NULL, SI_OPT },
+	{ NULL, no_argument, NULL, 0 },
+};
 
 int
 main(int argc, char *argv[])
 {
 	FTS		*fts;
 	FTSENT		*p;
-	off_t		savednumber = 0;
-	long		blocksize;
+	off_t		savednumber, curblocks;
+	uint64_t	threshold, threshold_sign;
 	int		ftsoptions;
-	int		listall;
 	int		depth;
-	int		Hflag, Lflag, Pflag, aflag, sflag, dflag, cflag, hflag, ch, notused, rval;
+	int		Hflag, Lflag, aflag, sflag, dflag, cflag;
+	int		lflag, ch, notused, rval;
 	char 		**save;
 	static char	dot[] = ".";
-	off_t           *ftsnum, *ftsparnum;
 
 	setlocale(LC_ALL, "");
 
-	Hflag = Lflag = Pflag = aflag = sflag = dflag = cflag = hflag = 0;
+	Hflag = Lflag = aflag = sflag = dflag = cflag = lflag = hflag = Aflag = 0;
 
 	save = argv;
-	ftsoptions = FTS_NOCHDIR;
+	ftsoptions = FTS_PHYSICAL;
+#ifdef __APPLE__
+	// rdar://4924219
+	ftsoptions |= FTS_NOCHDIR;
+#endif
+	savednumber = 0;
+	threshold = 0;
+	threshold_sign = 1;
+	cblocksize = DEV_BSIZE;
+	blocksize = 0;
 	depth = INT_MAX;
 	SLIST_INIT(&ignores);
 
-	while ((ch = getopt(argc, argv, "HI:LPasd:cghkmrx")) != -1)
+	while ((ch = getopt_long(argc, argv, "+AB:HI:LPasd:cghklmnrt:x",
+	    long_options, NULL)) != -1)
 		switch (ch) {
-			case 'H':
-				Lflag = Pflag = 0;
-				Hflag = 1;
-				break;
-			case 'I':
-				ignoreadd(optarg);
-				break;
-			case 'L':
-				Hflag = Pflag = 0;
-				Lflag = 1;
-				break;
-			case 'P':
-				Hflag = Lflag = 0;
-				Pflag = 1;
-				break;
-			case 'a':
-				aflag = 1;
-				break;
-			case 's':
-				sflag = 1;
-				break;
-			case 'd':
-				dflag = 1;
-				errno = 0;
-				depth = atoi(optarg);
-				if (errno == ERANGE || depth < 0) {
-					warnx("invalid argument to option d: %s", optarg);
-					usage();
-				}
-				break;
-			case 'c':
-				cflag = 1;
-				break;
-			case 'h':
-				putenv("BLOCKSIZE=512");
-				hflag = 1;
-				valp = vals_base2;
-				break;
-			case 'k':
-				hflag = 0;
-				putenv("BLOCKSIZE=1024");
-				break;
-			case 'm':
-				hflag = 0;
-				putenv("BLOCKSIZE=1048576");
-				break;
-			case 'g':
-				hflag = 0;
-				putenv("BLOCKSIZE=1g");
-				break;
-			case 'r':		 /* Compatibility. */
-				break;
-			case 'x':
-				ftsoptions |= FTS_XDEV;
-				break;
-			case '?':
-			default:
+		case 'A':
+			Aflag = 1;
+			break;
+		case 'B':
+			errno = 0;
+			cblocksize = atoi(optarg);
+			if (errno == ERANGE || cblocksize <= 0) {
+				warnx("invalid argument to option B: %s",
+				    optarg);
 				usage();
+			}
+			break;
+		case 'H':
+			Hflag = 1;
+			Lflag = 0;
+			break;
+		case 'I':
+			ignoreadd(optarg);
+			break;
+		case 'L':
+			Lflag = 1;
+			Hflag = 0;
+			break;
+		case 'P':
+			Hflag = Lflag = 0;
+			break;
+		case 'a':
+			aflag = 1;
+			break;
+		case 's':
+			sflag = 1;
+			break;
+		case 'd':
+			dflag = 1;
+			errno = 0;
+			depth = atoi(optarg);
+			if (errno == ERANGE || depth < 0) {
+				warnx("invalid argument to option d: %s",
+				    optarg);
+				usage();
+			}
+			break;
+		case 'c':
+			cflag = 1;
+			break;
+		case 'g':
+			hflag = 0;
+			blocksize = 1073741824;
+			break;
+		case 'h':
+			hflag = UNITS_2;
+			break;
+		case 'k':
+			hflag = 0;
+			blocksize = 1024;
+			break;
+		case 'l':
+			lflag = 1;
+			break;
+		case 'm':
+			hflag = 0;
+			blocksize = 1048576;
+			break;
+		case 'n':
+			nodumpflag = 1;
+			break;
+		case 'r':		 /* Compatibility. */
+			break;
+		case 't' :
+			if (expand_number(optarg, &threshold) != 0 ||
+			    threshold == 0) {
+				warnx("invalid threshold: %s", optarg);
+				usage();
+			} else if (threshold < 0)
+				threshold_sign = -1;
+			break;
+		case 'x':
+			ftsoptions |= FTS_XDEV;
+			break;
+		case SI_OPT:
+			hflag = UNITS_SI;
+			break;
+		case '?':
+		default:
+			usage();
+			/* NOTREACHED */
 		}
 
-//	argc -= optind;
+	argc -= optind;
 	argv += optind;
 
 	/*
@@ -218,32 +282,20 @@ main(int argc, char *argv[])
 	 * the man page, so it's a feature.
 	 */
 
-	if (Hflag + Lflag + Pflag > 1)
-		usage();
-
-	if (Hflag + Lflag + Pflag == 0)
-		Pflag = 1;			/* -P (physical) is default */
-
 	if (Hflag)
 		ftsoptions |= FTS_COMFOLLOW;
-
-	if (Lflag)
+	if (Lflag) {
+		ftsoptions &= ~FTS_PHYSICAL;
 		ftsoptions |= FTS_LOGICAL;
-
-	if (Pflag)
-		ftsoptions |= FTS_PHYSICAL;
-
-	listall = 0;
-
-	if (aflag) {
-		if (sflag || dflag)
-			usage();
-		listall = 1;
-	} else if (sflag) {
-		if (dflag)
-			usage();
-		depth = 0;
 	}
+
+	if (!Aflag && (cblocksize % DEV_BSIZE) != 0)
+		cblocksize = howmany(cblocksize, DEV_BSIZE) * DEV_BSIZE;
+
+	if (aflag + dflag + sflag > 1)
+		usage();
+	if (sflag)
+		depth = 0;
 
 	if (!*argv) {
 		argv = save;
@@ -251,10 +303,20 @@ main(int argc, char *argv[])
 		argv[1] = NULL;
 	}
 
-	(void) getbsize(&notused, &blocksize);
-	blocksize /= 512;
+	if (blocksize == 0)
+		(void)getbsize(&notused, &blocksize);
+
+	if (!Aflag) {
+		cblocksize /= DEV_BSIZE;
+		blocksize /= DEV_BSIZE;
+	}
+
+	if (threshold != 0)
+		threshold = howmany(threshold / DEV_BSIZE * cblocksize,
+		    blocksize);
 
 #ifdef __APPLE__
+	// rdar://44903941
 	// "du" should not have any side effect on disk usage,
 	// so prevent materializing dataless directories upon traversal
 	rval = 1;
@@ -263,87 +325,102 @@ main(int argc, char *argv[])
 
 	rval = 0;
 
+	(void)signal(SIGINFO, siginfo);
+
 	if ((fts = fts_open(argv, ftsoptions, NULL)) == NULL)
 		err(1, "fts_open");
 
-	while ((p = fts_read(fts)) != NULL) {
+	while ((void)(errno = 0), (p = fts_read(fts)) != NULL) {
 		switch (p->fts_info) {
-			case FTS_D:
-				if (ignorep(p) || dirlinkchk(p))
-					fts_set(fts, p, FTS_SKIP);
+		case FTS_D:			/* Ignore. */
+			if (ignorep(p) || dirlinkchk(p))
+				fts_set(fts, p, FTS_SKIP);
+			break;
+		case FTS_DP:
+			if (ignorep(p))
 				break;
-			case FTS_DP:
-				if (ignorep(p))
-					break;
 
-				ftsparnum = (off_t *)&p->fts_parent->fts_number;
-				ftsnum = (off_t *)&p->fts_number;
-				ftsparnum[0] += ftsnum[0] += p->fts_statp->st_blocks;
+			curblocks = Aflag ?
+			    howmany(p->fts_statp->st_size, cblocksize) :
+			    howmany(p->fts_statp->st_blocks, cblocksize);
+			COMPAT_FTS_BIGNUM(p->fts_parent) += COMPAT_FTS_BIGNUM(p) += curblocks;
 
-				if (p->fts_level <= depth) {
-					if (hflag) {
-						(void) prthumanval(howmany(*ftsnum, blocksize));
-						(void) printf("\t%s\n", p->fts_path);
-					} else {
-					(void) printf("%jd\t%s\n",
-					    (intmax_t)howmany(*ftsnum, blocksize),
+			if (p->fts_level <= depth && threshold <=
+			    threshold_sign * howmany(COMPAT_FTS_BIGNUM(p) *
+			    cblocksize, blocksize)) {
+				if (hflag > 0) {
+					prthumanval(COMPAT_FTS_BIGNUM(p));
+					(void)printf("\t%s\n", p->fts_path);
+				} else {
+					(void)printf("%jd\t%s\n",
+					    (intmax_t)howmany(COMPAT_FTS_BIGNUM(p) *
+					    cblocksize, blocksize),
 					    p->fts_path);
-					}
 				}
+			}
+			if (info) {
+				info = 0;
+				(void)printf("\t%s\n", p->fts_path);
+			}
+			break;
+		case FTS_DC:			/* Ignore. */
+			if (COMPAT_MODE("bin/du", "unix2003")) {
+				errx(1, "Can't follow symlink cycle from %s to %s", p->fts_path, p->fts_cycle->fts_path);
+			}
+			break;
+		case FTS_DNR:			/* Warn, continue. */
+		case FTS_ERR:
+		case FTS_NS:
+			warnx("%s: %s", p->fts_path, strerror(p->fts_errno));
+			rval = 1;
+			break;
+		case FTS_SLNONE:
+			if (COMPAT_MODE("bin/du", "unix2003")) {
+				struct stat sb;
+				int rc = stat(p->fts_path, &sb);
+				if (rc < 0 && errno == ELOOP) {
+					errx(1, "Too many symlinks at %s", p->fts_path);
+				}
+			}
+		default:
+			if (ignorep(p))
 				break;
-			case FTS_DC:			/* Ignore. */
-				if (COMPAT_MODE("bin/du", "unix2003")) {
-					errx(1, "Can't follow symlink cycle from %s to %s", p->fts_path, p->fts_cycle->fts_path);
-				}
+
+			if (lflag == 0 && p->fts_statp->st_nlink > 1 &&
+			    linkchk(p))
 				break;
-			case FTS_DNR:			/* Warn, continue. */
-			case FTS_ERR:
-			case FTS_NS:
-				warnx("%s: %s", p->fts_path, strerror(p->fts_errno));
-				rval = 1;
-				break;
-			case FTS_SLNONE:
-				if (COMPAT_MODE("bin/du", "unix2003")) {
-					struct stat sb;
-					int rc = stat(p->fts_path, &sb);
-					if (rc < 0 && errno == ELOOP) {
-						errx(1, "Too many symlinks at %s", p->fts_path);
-					}
+
+			curblocks = Aflag ?
+			    howmany(p->fts_statp->st_size, cblocksize) :
+			    howmany(p->fts_statp->st_blocks, cblocksize);
+
+			if (aflag || p->fts_level == 0) {
+				if (hflag > 0) {
+					prthumanval(curblocks);
+					(void)printf("\t%s\n", p->fts_path);
+				} else {
+					(void)printf("%jd\t%s\n",
+					    (intmax_t)howmany(curblocks *
+					    cblocksize, blocksize),
+					    p->fts_path);
 				}
-			default:
-				if (ignorep(p))
-					break;
+			}
 
-				if (p->fts_statp->st_nlink > 1 && linkchk(p))
-					break;
-
-				if (listall || p->fts_level == 0) {
-					if (hflag) {
-						(void) prthumanval(howmany(p->fts_statp->st_blocks,
-							blocksize));
-						(void) printf("\t%s\n", p->fts_path);
-					} else {
-						(void) printf("%jd\t%s\n",
-							(intmax_t)howmany(p->fts_statp->st_blocks, blocksize),
-							p->fts_path);
-					}
-				}
-
-				ftsparnum = (off_t *)&p->fts_parent->fts_number;
-				ftsparnum[0] += p->fts_statp->st_blocks;
+			COMPAT_FTS_BIGNUM(p->fts_parent) += curblocks;
 		}
-		savednumber = ((off_t *)&p->fts_parent->fts_number)[0];
+		savednumber = COMPAT_FTS_BIGNUM(p->fts_parent);
 	}
 
 	if (errno)
 		err(1, "fts_read");
 
 	if (cflag) {
-		if (hflag) {
-			(void) prthumanval(howmany(savednumber, blocksize));
-			(void) printf("\ttotal\n");
+		if (hflag > 0) {
+			prthumanval(savednumber);
+			(void)printf("\ttotal\n");
 		} else {
-			(void) printf("%jd\ttotal\n", (intmax_t)howmany(savednumber, blocksize));
+			(void)printf("%jd\ttotal\n", (intmax_t)howmany(
+			    savednumber * cblocksize, blocksize));
 		}
 	}
 
@@ -387,7 +464,7 @@ linkchk(FTSENT *p)
 	/* If the hash table is getting too full, enlarge it. */
 	if (number_entries > number_buckets * 10 && !stop_allocating) {
 		new_size = number_buckets * 2;
-		new_buckets = malloc(new_size * sizeof(struct links_entry *));
+		new_buckets = calloc(new_size, sizeof(struct links_entry *));
 
 		/* Try releasing the free list to see if that helps. */
 		if (new_buckets == NULL && free_list != NULL) {
@@ -396,15 +473,13 @@ linkchk(FTSENT *p)
 				free_list = le->next;
 				free(le);
 			}
-			new_buckets = malloc(new_size * sizeof(new_buckets[0]));
+			new_buckets = calloc(new_size, sizeof(new_buckets[0]));
 		}
 
 		if (new_buckets == NULL) {
 			stop_allocating = 1;
 			warnx("No more memory for tracking hard links");
 		} else {
-			memset(new_buckets, 0,
-			    new_size * sizeof(struct links_entry *));
 			for (i = 0; i < number_buckets; i++) {
 				while (buckets[i] != NULL) {
 					/* Remove entry from old bucket. */
@@ -434,7 +509,7 @@ linkchk(FTSENT *p)
 		if (le->dev == st->st_dev && le->ino == st->st_ino) {
 			/*
 			 * Save memory by releasing an entry when we've seen
-			 * all of it's links.
+			 * all of its links.
 			 */
 			if (--le->links <= 0) {
 				if (le->previous != NULL)
@@ -532,7 +607,7 @@ dirlinkchk(FTSENT *p)
 	/* If the hash table is getting too full, enlarge it. */
 	if (number_entries > number_buckets * 10 && !stop_allocating) {
 		new_size = number_buckets * 2;
-		new_buckets = malloc(new_size * sizeof(struct links_entry *));
+		new_buckets = calloc(new_size, sizeof(struct links_entry *));
 
 		/* Try releasing the free list to see if that helps. */
 		if (new_buckets == NULL && free_list != NULL) {
@@ -541,15 +616,13 @@ dirlinkchk(FTSENT *p)
 				free_list = le->next;
 				free(le);
 			}
-			new_buckets = malloc(new_size * sizeof(new_buckets[0]));
+			new_buckets = calloc(new_size, sizeof(new_buckets[0]));
 		}
 
 		if (new_buckets == NULL) {
 			stop_allocating = 1;
 			warnx("No more memory for tracking directory hard links");
 		} else {
-			memset(new_buckets, 0,
-			    new_size * sizeof(struct links_entry *));
 			for (i = 0; i < number_buckets; i++) {
 				while (buckets[i] != NULL) {
 					/* Remove entry from old bucket. */
@@ -579,7 +652,7 @@ dirlinkchk(FTSENT *p)
 		if (le->dev == st->st_dev && le->ino == st->st_ino) {
 			/*
 			 * Save memory by releasing an entry when we've seen
-			 * all of it's links.
+			 * all of its links.
 			 */
 			if (--le->links <= 0) {
 				if (le->previous != NULL)
@@ -603,6 +676,7 @@ dirlinkchk(FTSENT *p)
 
 	if (stop_allocating)
 		return (0);
+
 	/* Add this entry to the links cache. */
 	if (free_list != NULL) {
 		/* Pull a node from the free list if we can. */
@@ -628,58 +702,35 @@ dirlinkchk(FTSENT *p)
 	return (0);
 }
 
-/*
- * Output in "human-readable" format.  Uses 3 digits max and puts
- * unit suffixes at the end.  Makes output compact and easy to read,
- * especially on huge disks.
- *
- */
-unit_t
-unit_adjust(double *val)
+static void
+prthumanval(int64_t bytes)
 {
-	double abval;
-	unit_t unit;
-	unsigned int unit_sz;
+	char buf[5];
+	int flags;
 
-	abval = fabs(*val);
+	bytes *= cblocksize;
+	flags = HN_B | HN_NOSPACE | HN_DECIMAL;
+	if (!Aflag)
+		bytes *= DEV_BSIZE;
+	if (hflag == UNITS_SI)
+		flags |= HN_DIVISOR_1000;
 
-	unit_sz = abval ? ilogb(abval) / 10 : 0;
+	humanize_number(buf, sizeof(buf), bytes, "", HN_AUTOSCALE, flags);
 
-	if (unit_sz >= UNIT_MAX) {
-		unit = NONE;
-	} else {
-		unit = unitp[unit_sz];
-		*val /= (double)valp[unit_sz];
-	}
-
-	return (unit);
-}
-
-void
-prthumanval(double bytes)
-{
-	unit_t unit;
-
-	bytes *= 512;
-	unit = unit_adjust(&bytes);
-
-	if (bytes == 0)
-		(void)printf("  0B");
-	else if (bytes > 10)
-		(void)printf("%3.0f%c", bytes, "BKMGTPE"[unit]);
-	else
-		(void)printf("%3.1f%c", bytes, "BKMGTPE"[unit]);
+	(void)printf("%4s", buf);
 }
 
 static void
 usage(void)
 {
 	(void)fprintf(stderr,
-		"usage: du [-H | -L | -P] [-a | -s | -d depth] [-c] [-h | -k | -m | -g] [-x] [-I mask] [file ...]\n");
+		"usage: du [-Aclnx] [-H | -L | -P] [-g | -h | -k | -m] "
+		"[-a | -s | -d depth] [-B blocksize] [-I mask] "
+		"[-t threshold] [file ...]\n");
 	exit(EX_USAGE);
 }
 
-void
+static void
 ignoreadd(const char *mask)
 {
 	struct ignentry *ign;
@@ -693,11 +744,11 @@ ignoreadd(const char *mask)
 	SLIST_INSERT_HEAD(&ignores, ign, next);
 }
 
-void
+static void
 ignoreclean(void)
 {
 	struct ignentry *ign;
-	
+
 	while (!SLIST_EMPTY(&ignores)) {
 		ign = SLIST_FIRST(&ignores);
 		SLIST_REMOVE_HEAD(&ignores, next);
@@ -706,7 +757,7 @@ ignoreclean(void)
 	}
 }
 
-int
+static int
 ignorep(FTSENT *ent)
 {
 	struct ignentry *ign;
@@ -723,8 +774,17 @@ ignorep(FTSENT *ent)
 		}
 	}
 #endif /* __APPLE__ */
+	if (nodumpflag && (ent->fts_statp->st_flags & UF_NODUMP))
+		return 1;
 	SLIST_FOREACH(ign, &ignores, next)
 		if (fnmatch(ign->mask, ent->fts_name, 0) != FNM_NOMATCH)
 			return 1;
 	return 0;
+}
+
+static void
+siginfo(int sig __unused)
+{
+
+	info = 1;
 }

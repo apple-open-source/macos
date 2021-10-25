@@ -35,7 +35,7 @@ extern "C" {
 
 typedef void ( *DAProbeCallback )( int             status,
                                    DAFileSystemRef filesystem,
-                                   CFBooleanRef    clean,
+                                   int             cleanStatus,
                                    CFStringRef     name,
                                    CFStringRef     type,
                                    CFUUIDRef       uuid,

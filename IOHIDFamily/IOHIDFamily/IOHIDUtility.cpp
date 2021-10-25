@@ -30,8 +30,51 @@ bool Key::isModifier() const {
     if ((usagePage() == kHIDPage_KeyboardOrKeypad) &&
         (((usage() >= kHIDUsage_KeyboardLeftControl) && (usage() <= kHIDUsage_KeyboardRightGUI)) || (usage() == kHIDUsage_KeyboardCapsLock))) {
         result = true;
-    } else if ((usagePage() == kHIDPage_AppleVendorTopCase) && (usage() == kHIDUsage_AV_TopCase_KeyboardFn)) {
+    } else if (((usagePage() == kHIDPage_AppleVendorTopCase) && (usage() == kHIDUsage_AV_TopCase_KeyboardFn)) ||
+    			((usagePage() == kHIDPage_AppleVendorKeyboard) && (usage() == kHIDUsage_AppleVendorKeyboard_Function))) {
         result = true;
     }
     return result;
 };
+
+uint32_t Key::modifierMask() const {
+	if (!isModifier()) {
+		return 0;
+	}
+
+	switch(usagePage()) {
+		case kHIDPage_KeyboardOrKeypad:
+			switch(usage()) {
+				case kHIDUsage_KeyboardLeftControl:
+				case kHIDUsage_KeyboardRightControl:
+					return kKeyMaskCtrl;
+				case kHIDUsage_KeyboardLeftAlt:
+				case kHIDUsage_KeyboardRightAlt:
+					return kKeyMaskAlt;
+				case kHIDUsage_KeyboardLeftGUI:
+					return kKeyMaskLeftCommand;
+				case kHIDUsage_KeyboardRightGUI:
+					return kKeyMaskRightCommand;
+				case kHIDUsage_KeyboardLeftShift:
+				case kHIDUsage_KeyboardRightShift:
+					return kKeyMaskShift;
+				default:
+					return 0;
+			};
+		case kHIDPage_AppleVendorTopCase:
+			if (usage() == kHIDUsage_AV_TopCase_KeyboardFn) {
+				return kKeyMaskFn;
+			} else {
+				return 0;
+			}
+		case kHIDPage_AppleVendorKeyboard:
+			if (usage() == kHIDUsage_AppleVendorKeyboard_Function) {
+				return kKeyMaskFn;
+			} else {
+				return 0;
+			}
+		default:
+			return 0;
+	};
+
+}

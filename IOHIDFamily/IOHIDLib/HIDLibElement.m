@@ -43,7 +43,11 @@
     if (!self) {
         return self;
     }
-    
+
+    if (!elementRef) {
+        return nil;
+    }
+
     CFRetain(elementRef);
     _element = elementRef;
     
@@ -59,18 +63,22 @@
     if (!self) {
         return self;
     }
-    
+
+    _element = NULL;
+
     CFDataRef dummyData = CFDataCreateMutable(kCFAllocatorDefault, 1);
     
     bcopy(elementStruct, &_elementStruct, sizeof(IOHIDElementStruct));
     
-    _element = _IOHIDElementCreateWithParentAndData(kCFAllocatorDefault,
-                                                    parent,
-                                                    dummyData,
-                                                    &_elementStruct,
-                                                    index);
-    
-    CFRelease(dummyData);
+    if (dummyData) {
+        _element = _IOHIDElementCreateWithParentAndData(kCFAllocatorDefault,
+                                                        parent,
+                                                        dummyData,
+                                                        &_elementStruct,
+                                                        index);
+        
+        CFRelease(dummyData);
+    }
     
     if (!_element) {
         return nil;
@@ -131,10 +139,18 @@
 
 - (void)setElementRef:(IOHIDElementRef)elementRef
 {
+    if (_element == elementRef) {
+        return;
+    }
+
     if (_element) {
         CFRelease(_element);
     }
-    
+
+    if (elementRef) {
+        CFRetain(elementRef);
+    }
+
     _element = elementRef;
 }
 
@@ -159,7 +175,7 @@
         _value = NULL;
     }
     
-    if (valueRef) {
+    if (valueRef && _element) {
         _value = _IOHIDValueCreateWithValue(kCFAllocatorDefault,
                                             valueRef,
                                             _element);
@@ -201,7 +217,9 @@
                                                            mach_absolute_time(),
                                                            integerValue);
     self.valueRef = value;
-    CFRelease(value);
+    if (value) {
+        CFRelease(value);
+    }
 }
 
 - (nullable NSData *)dataValue
@@ -219,7 +237,9 @@
                                                     [dataValue bytes],
                                                     [dataValue length]);
     self.valueRef = value;
-    CFRelease(value);
+    if (value) {
+        CFRelease(value);
+    }
 }
 
 - (uint64_t)timestamp
@@ -229,12 +249,12 @@
 
 - (NSInteger)length
 {
-    return _IOHIDElementGetLength(_element);
+    return _element ? _IOHIDElementGetLength(_element) : 0;
 }
 
 - (uint32_t)elementCookie
 {
-    return (uint32_t)IOHIDElementGetCookie(_element);
+    return _element ? (uint32_t)IOHIDElementGetCookie(_element) : 0;
 }
 
 - (uint32_t)collectionCookie
@@ -244,32 +264,32 @@
 
 - (IOHIDElementType)type
 {
-    return IOHIDElementGetType(_element);
+    return _element ? IOHIDElementGetType(_element) : 0;
 }
 
 - (uint32_t)usage
 {
-    return IOHIDElementGetUsage(_element);
+    return _element ? IOHIDElementGetUsage(_element) : 0;
 }
 
 - (uint32_t)usagePage
 {
-    return IOHIDElementGetUsagePage(_element);
+    return _element ? IOHIDElementGetUsagePage(_element) : 0;
 }
 
 - (uint32_t)unit
 {
-    return IOHIDElementGetUnit(_element);
+    return _element ? IOHIDElementGetUnit(_element) : 0;
 }
 
 - (uint8_t)unitExponent
 {
-    return IOHIDElementGetUnitExponent(_element);
+    return _element ? IOHIDElementGetUnitExponent(_element) : 0;
 }
 
 - (uint8_t)reportID
 {
-    return IOHIDElementGetReportID(_element);
+    return _element ? IOHIDElementGetReportID(_element) : 0;
 }
 
 - (uint32_t)usageMin
@@ -284,7 +304,7 @@
 
 - (IOHIDElementCollectionType)collectionType
 {
-    return IOHIDElementGetCollectionType(_element);
+    return _element ? IOHIDElementGetCollectionType(_element) : 0;
 }
 
 @end

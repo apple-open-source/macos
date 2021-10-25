@@ -12,6 +12,11 @@
 		<key>Enabled</key>
 		<true/>
 	</dict>
+	<key>ProbGuardStrictAlignment</key>
+	<dict>
+		<key>Enabled</key>
+		<false/>
+	</dict>
 	<key>ProbGuardAllProcesses</key>
 	<dict>
 		<key>Enabled</key>

@@ -24,7 +24,7 @@
 #if OCTAGON
 
 #include "keychain/securityd/SecDbItem.h"
-#include <utilities/SecDb.h>
+#include "utilities/SecDb.h"
 #import "CKKSItem.h"
 #import "CKKSSQLDatabaseObject.h"
 
@@ -51,6 +51,8 @@ NS_ASSUME_NONNULL_BEGIN
 
 + (instancetype)fromDatabase:(NSString*)uuid zoneID:(CKRecordZoneID*)zoneID error:(NSError* __autoreleasing*)error;
 + (instancetype)tryFromDatabase:(NSString*)uuid zoneID:(CKRecordZoneID*)zoneID error:(NSError* __autoreleasing*)error;
+
++ (NSArray<CKKSMirrorEntry*>*)allWithUUID:(NSString*)uuid error:(NSError**)error;
 
 + (NSDictionary<NSString*, NSNumber*>*)countsByParentKey:(CKRecordZoneID*)zoneID error:(NSError* __autoreleasing*)error;
 + (NSNumber* _Nullable)counts:(CKRecordZoneID*)zoneID error: (NSError * __autoreleasing *) error;

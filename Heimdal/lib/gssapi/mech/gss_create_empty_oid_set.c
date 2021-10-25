@@ -30,7 +30,7 @@
 
 GSSAPI_LIB_FUNCTION OM_uint32 GSSAPI_LIB_CALL
 gss_create_empty_oid_set(OM_uint32 *__nonnull minor_status,
-    __nonnull gss_OID_set *__nullable oid_set)
+    __nullable gss_OID_set *__nonnull oid_set)
 {
 	gss_OID_set set;
 

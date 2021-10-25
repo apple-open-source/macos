@@ -794,7 +794,7 @@ OSStatus SecCertificateSetPreference(
     CFRelease(labelStr);
 
 	// service attribute (name provided by the caller)
-	CFIndex serviceUTF8Len = CFStringGetMaximumSizeForEncoding(CFStringGetLength(name), kCFStringEncodingUTF8) + 1;;
+	CFIndex serviceUTF8Len = CFStringGetMaximumSizeForEncoding(CFStringGetLength(name), kCFStringEncodingUTF8) + 1;
 	char *serviceUTF8 = (char *)malloc(serviceUTF8Len);
 	if (!serviceUTF8) {
 		MacOSError::throwMe(errSecMemoryError);

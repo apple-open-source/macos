@@ -1,4 +1,3 @@
-#define PRIVATE
 #include <darwintest.h>
 
 #include <errno.h>
@@ -19,7 +18,6 @@
 #include <unistd.h>
 #include <signal.h>
 #include <libproc.h>
-#undef PRIVATE
 
 #include <mach-o/dyld.h>
 #include <mach-o/dyld_priv.h>
@@ -40,7 +38,7 @@
 
 T_GLOBAL_META(T_META_RUN_CONCURRENTLY(true));
 
-#if     (__arm64e__ && TARGET_OS_IPHONE)
+#if (__arm64e__) && (TARGET_OS_IOS || TARGET_OS_OSX)
 static void *
 get_current_slide_address(bool reslide)
 {
@@ -176,13 +174,13 @@ cleanup_sysctl(void)
 		T_QUIET; T_EXPECT_POSIX_SUCCESS(ret, "set shared region resliding back off");
 	}
 }
-#endif  /* __arm64e && TARGET_OS_IPHONE */
+#endif  /* arm64e && (TARGET_OS_IOS || TARGET_OS_OSX) */
 
 T_DECL(reslide_sharedcache, "crash induced reslide of the shared cache",
     T_META_CHECK_LEAKS(false), T_META_IGNORECRASHES(".*shared_cache_reslide_test.*"),
     T_META_ASROOT(true))
 {
-#if (__arm64e__ && TARGET_OS_IOS)
+#if (__arm64e__) && (TARGET_OS_IOS || TARGET_OS_OSX)
 	void *system_address;
 	void *reslide_address;
 	void *confirm_address;
@@ -232,7 +230,7 @@ T_DECL(reslide_sharedcache, "crash induced reslide of the shared cache",
 	reslide_address = get_current_slide_address(true);
 	T_ASSERT_NE_PTR(system_address, reslide_address, "system and reslide should diverge (after crash, TBI test) %p %p", system_address, reslide_address);
 	T_ASSERT_NE_PTR(confirm_address, reslide_address, "reslide and another reslide should diverge (after crash, TBI test) %p %p", confirm_address, reslide_address);
-#else   /* __arm64e__ && TARGET_OS_IPHONE */
-	T_SKIP("shared cache reslide is currently only supported on arm64e iPhones");
-#endif /* __arm64e__ && TARGET_OS_IPHONE */
+#else   /* __arm64e__ && (TARGET_OS_IOS || TARGET_OS_OSX) */
+	T_SKIP("shared cache reslide is currently only supported on arm64e iPhones and Apple Silicon Macs");
+#endif /* __arm64e__ && (TARGET_OS_IOS || TARGET_OS_OSX) */
 }

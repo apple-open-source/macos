@@ -24,9 +24,9 @@
 import CloudKit
 import CloudKit_Private
 import CloudKitCode
-import CloudKitCodeProtobuf
 import CoreData
 import Foundation
+import InternalSwiftProtobuf
 
 // TODO: merge into CodeConnection
 
@@ -35,6 +35,7 @@ let CuttlefishPushTopicBundleIdentifier = "com.apple.security.cuttlefish"
 struct CKInternalErrorMatcher {
     let code: Int
     let internalCode: Int
+    let noL3Error: Bool
 }
 
 // Match a CKError/CKInternalError
@@ -46,8 +47,14 @@ func ~= (pattern: CKInternalErrorMatcher, value: Error?) -> Bool {
     guard let underlyingError = error.userInfo[NSUnderlyingErrorKey] as? NSError else {
         return false
     }
-    return error.domain == CKErrorDomain && error.code == pattern.code &&
-        underlyingError.domain == CKInternalErrorDomain && underlyingError.code == pattern.internalCode
+    guard error.domain == CKErrorDomain && error.code == pattern.code &&
+        underlyingError.domain == CKInternalErrorDomain && underlyingError.code == pattern.internalCode else {
+        return false
+    }
+    guard pattern.noL3Error else {
+        return true
+    }
+    return underlyingError.userInfo[NSUnderlyingErrorKey] == nil
 }
 
 struct CKErrorMatcher {
@@ -76,11 +83,14 @@ func ~= (pattern: NSURLErrorMatcher, value: Error?) -> Bool {
     return error.domain == NSURLErrorDomain && error.code == pattern.code
 }
 
-public class RetryingInvocable: CloudKitCode.Invocable {
-    private let underlyingInvocable: CloudKitCode.Invocable
+public class RetryingCKCodeService: CuttlefishAPIAsync {
 
-    internal init(retry: CloudKitCode.Invocable) {
-        self.underlyingInvocable = retry
+    private let underlyingCKOperationRunner: CKOperationRunner
+    private let queue: DispatchQueue
+
+    internal init(retry: CKOperationRunner) {
+        self.underlyingCKOperationRunner = retry
+        self.queue = DispatchQueue(label: "RetryingCKCodeService", qos: .userInitiated)
     }
 
     public class func retryableError(error: Error?) -> Bool {
@@ -89,7 +99,9 @@ public class RetryingInvocable: CloudKitCode.Invocable {
             return true
         case CKErrorMatcher(code: CKError.networkFailure.rawValue):
             return true
-        case CKInternalErrorMatcher(code: CKError.serverRejectedRequest.rawValue, internalCode: CKInternalErrorCode.errorInternalServerInternalError.rawValue):
+        case CKInternalErrorMatcher(code: CKError.serverRejectedRequest.rawValue, internalCode: CKInternalErrorCode.errorInternalServerInternalError.rawValue, noL3Error: false):
+            return true
+        case CKInternalErrorMatcher(code: CKError.serverRejectedRequest.rawValue, internalCode: CKInternalErrorCode.errorInternalPluginError.rawValue, noL3Error: true):
             return true
         case CuttlefishErrorMatcher(code: CuttlefishErrorCode.retryableServerFailure):
             return true
@@ -100,141 +112,221 @@ public class RetryingInvocable: CloudKitCode.Invocable {
         }
     }
 
-    public func invoke<RequestType, ResponseType>(function: String,
-                                                  request: RequestType,
-                                                  completion: @escaping (ResponseType?, Error?) -> Void) where RequestType: Message, ResponseType: Message {
+    public func invokeRetry<RequestType, ResponseType>(deadline: Date, minimumDelay: TimeInterval, functionName: String,
+                                                       operationCreator: @escaping () -> CloudKitCode.CKCodeOperation<RequestType, ResponseType>,
+                                                       completion: @escaping (Swift.Result<ResponseType, Swift.Error>) -> Swift.Void) {
+        let op = operationCreator()
+
+        op.configuration.discretionaryNetworkBehavior = .nonDiscretionary
+        op.configuration.automaticallyRetryNetworkFailures = false
+        op.configuration.isCloudKitSupportOperation = true
+        op.configuration.setApplicationBundleIdentifierOverride(CuttlefishPushTopicBundleIdentifier)
+
+        let requestCompletion = { (requestInfo: CKRequestInfo?) -> Void in
+            if let requestUUID = requestInfo?.requestUUID {
+                os_log("ckoperation request finished: %{public}@ %{public}@", log: tplogDebug, functionName, requestUUID)
+            }
+        }
+        op.requestCompletedBlock = requestCompletion
+
+        op.codeOperationResultBlock = { response in
+            switch response {
+            case .success:
+                completion(response)
+            case .failure(let error):
+                if RetryingCKCodeService.retryableError(error: error) {
+                    let now = Date()
+                    // Check cuttlefish and CKError retry afters.
+                    let cuttlefishDelay = CuttlefishRetryAfter(error: error)
+                    let ckDelay = CKRetryAfterSecondsForError(error)
+                    let delay = max(minimumDelay, cuttlefishDelay, ckDelay)
+                    let cutoff = Date(timeInterval: delay, since: now)
+                    guard cutoff.compare(deadline) == ComparisonResult.orderedDescending else {
+                        Thread.sleep(forTimeInterval: delay)
+                        os_log("%{public}@ error: %{public}@ (retrying, now=%{public}@, deadline=%{public}@)", log: tplogDebug,
+                               functionName,
+                               "\(String(describing: error))",
+                               "\(String(describing: now))",
+                               "\(String(describing: deadline))")
+
+                        self.invokeRetry(deadline: deadline, minimumDelay: minimumDelay, functionName: functionName, operationCreator: operationCreator, completion: completion)
+                        return
+                    }
+                }
+                completion(.failure(error))
+                return
+            }
+        }
+
+        // Hack to fool CloudKit into allowing us to use QoS UserInitiated to get our requests off-device in a reasonable amount of time, real solution is tracked in <rdar://problem/49086080>
+        self.queue.async {
+            op.qualityOfService = .userInitiated
+            self.underlyingCKOperationRunner.add(op)
+        }
+    }
+
+    public func retry<RequestType, ResponseType>(functionName: String, operationCreator: @escaping () -> CloudKitCode.CKCodeOperation<RequestType, ResponseType>, completion: @escaping (Swift.Result<ResponseType, Swift.Error>) -> Swift.Void) {
         let now = Date()
         let deadline = Date(timeInterval: 30, since: now)
-        let delay = TimeInterval(5)
-
-        self.invokeRetry(function: function,
-                         request: request,
-                         deadline: deadline,
-                         minimumDelay: delay,
-                         completion: completion)
+        let minimumDelay = TimeInterval(5)
+        invokeRetry(deadline: deadline, minimumDelay: minimumDelay, functionName: functionName, operationCreator: operationCreator, completion: completion)
     }
 
-    private func invokeRetry<RequestType: Message, ResponseType: Message>(
-        function: String,
-        request: RequestType,
-        deadline: Date,
-        minimumDelay: TimeInterval,
-        completion: @escaping (ResponseType?, Error?) -> Void) {
-        self.underlyingInvocable.invoke(function: function,
-                                        request: request) { (response: ResponseType?, error: Error?) in
-                                            if let error = error, RetryingInvocable.retryableError(error: error) {
-                                                let now = Date()
-
-                                                // Check cuttlefish and CKError retry afters.
-                                                let cuttlefishDelay = CuttlefishRetryAfter(error: error)
-                                                let ckDelay = CKRetryAfterSecondsForError(error)
-                                                let delay = max(minimumDelay, cuttlefishDelay, ckDelay)
-                                                let cutoff = Date(timeInterval: delay, since: now)
-
-                                                guard cutoff.compare(deadline) == ComparisonResult.orderedDescending else {
-                                                    Thread.sleep(forTimeInterval: delay)
-                                                    os_log("%{public}@ error: %{public}@ (retrying, now=%{public}@, deadline=%{public}@)", log: tplogDebug,
-                                                           function,
-                                                           "\(String(describing: error))",
-                                                        "\(String(describing: now))",
-                                                        "\(String(describing: deadline))")
-                                                    self.invokeRetry(function: function,
-                                                                     request: request,
-                                                                     deadline: deadline,
-                                                                     minimumDelay: minimumDelay,
-                                                                     completion: completion)
-                                                    return
-                                                }
-                                            }
-                                            completion(response, error)
-        }
+    public func reset( _ request: ResetRequest, completion: @escaping (Swift.Result<ResetResponse, Swift.Error>) -> Swift.Void) {
+        retry(functionName: #function, operationCreator: {
+            return CuttlefishAPI.ResetOperation(request: request)
+        }, completion: completion)
+    }
+    public func establish(
+      _ request: EstablishRequest,
+      completion: @escaping (Swift.Result<EstablishResponse, Swift.Error>) -> Swift.Void) {
+        retry(functionName: #function, operationCreator: {
+            return CuttlefishAPI.EstablishOperation(request: request)
+        }, completion: completion)
+    }
+    public func joinWithVoucher(
+      _ request: JoinWithVoucherRequest,
+      completion: @escaping (Swift.Result<JoinWithVoucherResponse, Swift.Error>) -> Swift.Void) {
+        retry(functionName: #function, operationCreator: {
+            return CuttlefishAPI.JoinWithVoucherOperation(request: request)
+        }, completion: completion)
+    }
+    public func updateTrust(
+      _ request: UpdateTrustRequest,
+      completion: @escaping (Swift.Result<UpdateTrustResponse, Swift.Error>) -> Swift.Void) {
+        retry(functionName: #function, operationCreator: {
+            return CuttlefishAPI.UpdateTrustOperation(request: request)
+        }, completion: completion)
+    }
+    public func setRecoveryKey(
+      _ request: SetRecoveryKeyRequest,
+      completion: @escaping (Swift.Result<SetRecoveryKeyResponse, Swift.Error>) -> Swift.Void) {
+        retry(functionName: #function, operationCreator: {
+            return CuttlefishAPI.SetRecoveryKeyOperation(request: request)
+        }, completion: completion)
+    }
+    public func fetchChanges(
+      _ request: FetchChangesRequest,
+      completion: @escaping (Swift.Result<FetchChangesResponse, Swift.Error>) -> Swift.Void) {
+        retry(functionName: #function, operationCreator: {
+            return CuttlefishAPI.FetchChangesOperation(request: request)
+        }, completion: completion)
+    }
+    public func fetchViableBottles(
+      _ request: FetchViableBottlesRequest,
+      completion: @escaping (Swift.Result<FetchViableBottlesResponse, Swift.Error>) -> Swift.Void) {
+        retry(functionName: #function, operationCreator: {
+            return CuttlefishAPI.FetchViableBottlesOperation(request: request)
+        }, completion: completion)
+    }
+    public func fetchPolicyDocuments(
+      _ request: FetchPolicyDocumentsRequest,
+      completion: @escaping (Swift.Result<FetchPolicyDocumentsResponse, Swift.Error>) -> Swift.Void) {
+        retry(functionName: #function, operationCreator: {
+            return CuttlefishAPI.FetchPolicyDocumentsOperation(request: request)
+        }, completion: completion)
+    }
+    public func validatePeers(
+      _ request: ValidatePeersRequest,
+      completion: @escaping (Swift.Result<ValidatePeersResponse, Swift.Error>) -> Swift.Void) {
+        retry(functionName: #function, operationCreator: {
+            return CuttlefishAPI.ValidatePeersOperation(request: request)
+        }, completion: completion)
+    }
+    public func reportHealth(
+      _ request: ReportHealthRequest,
+      completion: @escaping (Swift.Result<ReportHealthResponse, Swift.Error>) -> Swift.Void) {
+        retry(functionName: #function, operationCreator: {
+            return CuttlefishAPI.ReportHealthOperation(request: request)
+        }, completion: completion)
+    }
+    public func pushHealthInquiry(
+      _ request: PushHealthInquiryRequest,
+      completion: @escaping (Swift.Result<PushHealthInquiryResponse, Swift.Error>) -> Swift.Void) {
+        retry(functionName: #function, operationCreator: {
+            return CuttlefishAPI.PushHealthInquiryOperation(request: request)
+        }, completion: completion)
+    }
+    public func getRepairAction(
+      _ request: GetRepairActionRequest,
+      completion: @escaping (Swift.Result<GetRepairActionResponse, Swift.Error>) -> Swift.Void) {
+        retry(functionName: #function, operationCreator: {
+            return CuttlefishAPI.GetRepairActionOperation(request: request)
+        }, completion: completion)
+    }
+    public func getSupportAppInfo(
+      _ request: GetSupportAppInfoRequest,
+      completion: @escaping (Swift.Result<GetSupportAppInfoResponse, Swift.Error>) -> Swift.Void) {
+        retry(functionName: #function, operationCreator: {
+            return CuttlefishAPI.GetSupportAppInfoOperation(request: request)
+        }, completion: completion)
+    }
+    public func getClubCertificates(
+      _ request: GetClubCertificatesRequest,
+      completion: @escaping (Swift.Result<GetClubCertificatesResponse, Swift.Error>) -> Swift.Void) {
+        retry(functionName: #function, operationCreator: {
+            return CuttlefishAPI.GetClubCertificatesOperation(request: request)
+        }, completion: completion)
+    }
+    public func fetchSosiCloudIdentity(
+      _ request: FetchSOSiCloudIdentityRequest,
+      completion: @escaping (Swift.Result<FetchSOSiCloudIdentityResponse, Swift.Error>) -> Swift.Void) {
+        retry(functionName: #function, operationCreator: {
+            return CuttlefishAPI.FetchSosiCloudIdentityOperation(request: request)
+        }, completion: completion)
+    }
+    public func resetAccountCdpcontents(
+      _ request: ResetAccountCDPContentsRequest,
+      completion: @escaping (Swift.Result<ResetAccountCDPContentsResponse, Swift.Error>) -> Swift.Void) {
+        retry(functionName: #function, operationCreator: {
+            return CuttlefishAPI.ResetAccountCdpcontentsOperation(request: request)
+        }, completion: completion)
+    }
+    public func addCustodianRecoveryKey(
+        _ request: AddCustodianRecoveryKeyRequest,
+        completion: @escaping (Result<AddCustodianRecoveryKeyResponse, Error>) -> Void) {
+        retry(functionName: #function, operationCreator: {
+            return CuttlefishAPI.AddCustodianRecoveryKeyOperation(request: request)
+        }, completion: completion)
+    }
+    public func fetchRecoverableTlkshares(
+        _ request: FetchRecoverableTLKSharesRequest,
+        completion: @escaping (Result<FetchRecoverableTLKSharesResponse, Error>) -> Void) {
+        retry(functionName: #function, operationCreator: {
+            return CuttlefishAPI.FetchRecoverableTlksharesOperation(request: request)
+        }, completion: completion)
     }
 }
 
-public class MyCodeConnection: CloudKitCode.Invocable {
-    private let serviceName: String
-    private let container: CKContainer
-    private let databaseScope: CKDatabase.Scope
-    private let local: Bool
-    private let queue: DispatchQueue
-
-    internal init(service: String, container: CKContainer, databaseScope: CKDatabase.Scope, local: Bool) {
-        self.serviceName = service
-        self.container = container
-        self.databaseScope = databaseScope
-        self.local = local
-        self.queue = DispatchQueue(label: "MyCodeConnection", qos: .userInitiated)
-    }
-
-    /// Temporary stand-in until xcinverness moves to a swift-grpc plugin.
-    /// Intended to be used by protoc-generated code only
-    public func invoke<RequestType: Message, ResponseType: Message>(
-        function: String, request: RequestType,
-        completion: @escaping (ResponseType?, Error?) -> Void) {
-        // Hack to fool CloudKit, real solution is tracked in <rdar://problem/49086080>
-        self.queue.async {
-            let operation = CodeOperation<RequestType, ResponseType>(
-                service: self.serviceName,
-                functionName: function,
-                request: request,
-                destinationServer: self.local ? .local : .default)
-
-            // As each UUID finishes, log it.
-            let requestCompletion = { (requestInfo: CKRequestInfo?) -> Void in
-                if let requestUUID = requestInfo?.requestUUID {
-                    os_log("ckoperation request finished: %{public}@ %{public}@", log: tplogDebug, function, requestUUID)
-                }
-            }
-            operation.requestCompletedBlock = requestCompletion
-
-            let loggingCompletion = { (response: ResponseType?, error: Error?) -> Void in
-                os_log("%{public}@(%{public}@): %{public}@, error: %{public}@",
-                       log: tplogDebug,
-                       function,
-                       "\(String(describing: request))",
-                       "\(String(describing: response))",
-                       "\(String(describing: error))")
-                completion(response, error)
-            }
-            operation.codeOperationCompletionBlock = loggingCompletion
-
-            /* Same convenience API properties that we specify in CKContainer / CKDatabase */
-            operation.queuePriority = .low
-
-            // One alternative here would be to not set any QoS and trust the
-            // QoS propagation to do what's right. But there is also some benefit in
-            // just using a lower CPU QoS because it should be hard to measure for the
-            // casual adopter.
-            operation.qualityOfService = .userInitiated
-
-            operation.configuration.discretionaryNetworkBehavior = .nonDiscretionary
-            operation.configuration.automaticallyRetryNetworkFailures = false
-            operation.configuration.isCloudKitSupportOperation = true
-            operation.configuration.setApplicationBundleIdentifierOverride(CuttlefishPushTopicBundleIdentifier)
-
-            let database = self.container.database(with: self.databaseScope)
-
-            database.add(operation)
-        }
-    }
+protocol CKOperationRunner {
+    func add<RequestType, ResponseType>(_ operation: CloudKitCode.CKCodeOperation<RequestType, ResponseType>) where RequestType: InternalSwiftProtobuf.Message, ResponseType: InternalSwiftProtobuf.Message
 }
 
-protocol ContainerNameToCuttlefishInvocable {
-    func client(container: String) -> CloudKitCode.Invocable
-}
+class CuttlefishCKCodeOperationRunner: CKOperationRunner {
+    private let underlyingCodeService: CKCodeService
 
-class CKCodeCuttlefishInvocableCreator: ContainerNameToCuttlefishInvocable {
-    func client(container: String) -> CloudKitCode.Invocable {
-        // Set up Cuttlefish client connection
+    init(container: String) {
         let ckContainer = CKContainer(identifier: container)
-
         // Cuttlefish is using its own push topic.
         // To register for this push topic, we need to issue CK operations with a specific bundle identifier
         ckContainer.options.setApplicationBundleIdentifierOverride(CuttlefishPushTopicBundleIdentifier)
 
         let ckDatabase = ckContainer.privateCloudDatabase
-        return MyCodeConnection(service: "Cuttlefish", container: ckContainer,
-                                databaseScope: ckDatabase.databaseScope, local: false)
+        self.underlyingCodeService = ckContainer.codeService(named: "Cuttlefish", databaseScope: ckDatabase.databaseScope)
+    }
+
+    func add<RequestType, ResponseType>(_ operation: CKCodeOperation<RequestType, ResponseType>) where RequestType: Message, ResponseType: Message {
+        self.underlyingCodeService.add(operation)
+    }
+}
+
+protocol ContainerNameToCKOperationRunner {
+    func client(container: String) -> CKOperationRunner
+}
+
+class CuttlefishCKOperationRunnerCreator: ContainerNameToCKOperationRunner {
+    func client(container: String) -> CKOperationRunner {
+        return CuttlefishCKCodeOperationRunner(container: container)
     }
 }
 
@@ -244,12 +336,14 @@ class CKCodeCuttlefishInvocableCreator: ContainerNameToCuttlefishInvocable {
 class ContainerMap {
     private let queue = DispatchQueue(label: "com.apple.security.TrustedPeersHelper.ContainerMap")
 
-    let invocableCreator: ContainerNameToCuttlefishInvocable
+    let ckCodeOperationRunnerCreator: ContainerNameToCKOperationRunner
+    let darwinNotifier: CKKSNotifier.Type
 
-    init(invocableCreator: ContainerNameToCuttlefishInvocable) {
-        self.invocableCreator = invocableCreator
+    init (ckCodeOperationRunnerCreator: ContainerNameToCKOperationRunner,
+          darwinNotifier: CKKSNotifier.Type) {
+        self.ckCodeOperationRunnerCreator = ckCodeOperationRunnerCreator
+        self.darwinNotifier = darwinNotifier
     }
-
     // Only access containers while executing on queue
     private var containers: [ContainerName: Container] = [:]
 
@@ -263,12 +357,13 @@ class ContainerMap {
                 let description = NSPersistentStoreDescription(url: persistentStoreURL)
 
                 // Wrap whatever we're given in a magically-retrying layer
-                let cuttlefishInvocable = self.invocableCreator.client(container: name.container)
-                let retryingInvocable = RetryingInvocable(retry: cuttlefishInvocable)
-                let cuttlefish = CuttlefishAPIAsyncClient(invocable: retryingInvocable)
+                let ckCodeOperationRunner = self.ckCodeOperationRunnerCreator.client(container: name.container)
+                let retryingCuttlefish = RetryingCKCodeService(retry: ckCodeOperationRunner)
 
-                let container = try Container(name: name, persistentStoreDescription: description,
-                                              cuttlefish: cuttlefish)
+                let container = try Container(name: name,
+                                              persistentStoreDescription: description,
+                                              darwinNotifier: self.darwinNotifier,
+                                              cuttlefish: retryingCuttlefish)
                 self.containers[name] = container
                 return container
             }
@@ -284,6 +379,12 @@ class ContainerMap {
     func removeAllContainers() {
         queue.sync {
             self.containers.removeAll()
+        }
+    }
+
+    func removeContainer(name: ContainerName) {
+        _ = queue.sync {
+            self.containers.removeValue(forKey: name)
         }
     }
 

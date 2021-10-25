@@ -1469,7 +1469,7 @@ Specify SSL host name for the ssl policy. (This option is deprecated; use -n ins
 .It Fl q
 Quiet, no stdout or stderr.
 .It Fl R Ar revCheckOption
-Specify a revocation checking option for this evaluation (ocsp, crl, require, offline). Can be specified multiple times; e.g. to enable revocation checking via either OCSP or CRL methods and require a positive response, use "-R ocsp -R crl -R require". The offline option will consult previously cached responses, but will not make a request to a revocation server.
+Specify a revocation checking option for this evaluation (ocsp, require, offline). Can be specified multiple times; e.g. to enable revocation checking via the OCSP method and require a positive response, use "-R ocsp -R require". The offline option will consult previously cached responses, but will not make a request to a revocation server.
 .It Fl P
 Output the constructed certificate chain in PEM format.
 .It Fl t

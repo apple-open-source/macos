@@ -1,4 +1,6 @@
 /*
+ * SPDX-License-Identifier: BSD-4-Clause
+ *
  * Copyright (c) 1995 Wolfram Schneider <wosch@FreeBSD.org>. Berlin.
  * Copyright (c) 1989, 1993
  *      The Regents of the University of California.  All rights reserved.
@@ -35,19 +37,18 @@
  * SUCH DAMAGE.
  */
 
+#include <sys/cdefs.h>
 #ifndef lint
-static const char copyright[] =
-"@(#) Copyright (c) 1995-1996 Wolfram Schneider, Berlin.\n\
+__COPYRIGHT("@(#) Copyright (c) 1995-1996 Wolfram Schneider, Berlin.\n\
 @(#) Copyright (c) 1989, 1993\n\
-        The Regents of the University of California.  All rights reserved.\n";
+        The Regents of the University of California.  All rights reserved.\n");
 #endif /* not lint */
 
 #ifndef lint
 #if 0
-static char sccsid[] = "@(#)locate.c    8.1 (Berkeley) 6/6/93";
+__SCCSID("@(#)locate.c    8.1 (Berkeley) 6/6/93");
 #endif
-static const char rcsid[] =
-  "$FreeBSD: src/usr.bin/locate/locate/locate.c,v 1.17 2006/06/11 17:40:25 maxim Exp $";
+__FBSDID("$FreeBSD$");
 #endif /* not lint */
 
 /*
@@ -116,10 +117,8 @@ int f_silent;           /* suppress output, show only count of matches */
 int f_limit;            /* limit number of output lines, 0 == infinite */
 u_int counter;          /* counter for matches [-c] */
 char separator='\n';	/* line separator */
-#ifdef __APPLE__
-u_char myctype[UCHAR_MAX + 1];
-#endif /* __APPLE__ */
 
+u_char myctype[UCHAR_MAX + 1];
 
 void    usage(void);
 void    statistic(FILE *, char *);
@@ -140,9 +139,7 @@ extern int	check_bigram_char(int);
 extern char 	*patprep(char *);
 
 int
-main(argc, argv)
-        int argc;
-        char **argv;
+main(int argc, char **argv)
 {
         register int ch;
         char **dbv = NULL;
@@ -194,7 +191,7 @@ main(argc, argv)
 
         /* no (valid) database as argument */
         if (dbv == NULL || *dbv == NULL) {
-                /* try to read database from enviroment */
+                /* try to read database from environment */
                 if ((path_fcodes = getenv("LOCATE_PATH")) == NULL ||
 		     *path_fcodes == '\0')
                         /* use default database */
@@ -231,10 +228,13 @@ main(argc, argv)
 }
 
 
+/*
+ * Arguments:
+ * db	database
+ * s	search strings
+ */
 void
-search_fopen(db, s)
-	char *db; /* database */
-	char **s; /* search strings */
+search_fopen(char *db, char **s)
 {
 	FILE *fp;
 #ifdef DEBUG
@@ -300,10 +300,13 @@ search_fopen(db, s)
 } 
 
 #ifdef MMAP
+/*
+ * Arguments:
+ * db	database
+ * s	search strings
+ */
 void
-search_mmap(db, s)
-	char *db; /* database */
-	char **s; /* search strings */
+search_mmap(char *db, char **s)
 {
         struct stat sb;
         int fd;
@@ -316,6 +319,10 @@ search_mmap(db, s)
 	    fstat(fd, &sb) == -1)
 		err(1, "`%s'", db);
 	len = sb.st_size;
+	if (len < (2*NBG))
+		errx(1,
+		    "database too small: %s\nRun /usr/libexec/locate.updatedb",
+		    db);
 
 	if ((p = mmap((caddr_t)0, (size_t)len,
 		      PROT_READ, MAP_SHARED,
@@ -350,7 +357,7 @@ cputime ()
 {
 	struct rusage rus;
 
-	getrusage(0, &rus);
+	getrusage(RUSAGE_SELF, &rus);
 	return(rus.ru_utime.tv_sec * 1000 + rus.ru_utime.tv_usec / 1000);
 }
 #endif /* DEBUG */

@@ -3,7 +3,7 @@ bzip2(1)                                                 bzip2(1)
 
 
 NNAAMMEE
-       bzip2, bunzip2 − a block‐sorting file compressor, v1.0.6
+       bzip2, bunzip2 − a block‐sorting file compressor, v1.0.8
        bzcat − decompresses files to stdout
        bzip2recover − recovers data from damaged bzip2 files
 
@@ -348,7 +348,7 @@ CCAAVVEEAATTSS
        but  the  details  of  what  the problem is sometimes seem
        rather misleading.
 
-       This manual page pertains to version 1.0.6 of _b_z_i_p_2_.  Com­
+       This manual page pertains to version 1.0.8 of _b_z_i_p_2_.  Com­
        pressed  data created by this version is entirely forwards
        and  backwards  compatible  with   the   previous   public
        releases,  versions  0.1pl2,  0.9.0,  0.9.5, 1.0.0, 1.0.1, 
@@ -372,9 +372,9 @@ CCAAVVEEAATTSS
 
 
 AAUUTTHHOORR
-       Julian Seward, jsewardbzip.org.
+       Julian Seward, jseward@acm.org.
 
-       http://www.bzip.org
+       https://sourceware.org/bzip2/
 
        The ideas embodied in _b_z_i_p_2 are due to (at least) the fol­
        lowing  people: Michael Burrows and David Wheeler (for the

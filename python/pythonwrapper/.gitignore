@@ -1,0 +1,8 @@
+# /
+.DS_Store
+/build
+
+# /pythonwrapper.xcodeproj/
+/pythonwrapper.xcodeproj/project.xcworkspace
+/pythonwrapper.xcodeproj/xcuserdata
+/pythonwrapper.xcodeproj/xcshareddata

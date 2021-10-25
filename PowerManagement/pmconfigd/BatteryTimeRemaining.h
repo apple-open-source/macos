@@ -71,6 +71,47 @@
 
 #endif // TARGET_OS_IPHONE || POWERD_IOS_XCTEST
 
+#if TARGET_OS_OSX || BHUI_XCTEST
+
+enum vactMode {
+    vactModeDisabled = 0,
+    vactModeEnabled,
+    vactModesCount,
+};
+
+struct capacitySample {
+    // inputs
+    int fcc;    // Scaled FCC as returned by SMC
+
+    // persistent variable
+    int fccDaySampleAvg;
+    // persistent output
+    int ncc;
+    int nccpMonotonic;
+};
+
+struct nominalCapacityParams {
+    // inputs
+    int current;        // BISS or B0AC
+    int temperature;    // TB0T
+    int designCapacity;
+    int fcc;            // FCC as returned by the gauge
+    // substruct
+    struct capacitySample sample[vactModesCount];
+    // persistent variables
+    unsigned int fccDaySampleCount;
+    unsigned int fccAvgHistoryCount;
+    // parameters
+    int gamma;
+    // output
+    unsigned int significantChange;
+    unsigned int error;
+    unsigned int debug;
+    int cycleCount;
+    uint64_t ts;
+};
+#endif
+
 __private_extern__ IOPMBattery **_batteries(void);
 __private_extern__ int _batteryCount(void);
 __private_extern__ void BatteryTimeRemaining_prime(void);

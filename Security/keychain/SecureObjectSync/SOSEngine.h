@@ -37,23 +37,45 @@
 
 __BEGIN_DECLS
 
+
+
 typedef void (^SOSEnginePeerMessageSentBlock)(bool success);
 
-typedef struct {
-    __unsafe_unretained SOSEnginePeerMessageSentBlock block;
-    SOSEngineRef engine;
-    SOSPeerRef peer;
-    SOSCoderRef coder;
-    SOSManifestRef local;
-    SOSManifestRef proposed;
-    SOSManifestRef confirmed;
-    SOSMessageRef message;
-} SOSEnginePeerMessageSentCallback;
-void SOSEngineMessageCallCallback(SOSEnginePeerMessageSentCallback *sent, bool ok);
+#if __OBJC2__
+
+@interface SOSEnginePeerMessageCallBackInfo : NSObject <NSCopying>
+
+@property   (nonatomic, copy)     SOSEnginePeerMessageSentBlock callbackBlock;
+@property   (nonatomic)     SOSEngineRef engine;
+@property   (nonatomic)     SOSPeerRef peer;
+@property   (nonatomic)     SOSCoderRef coder;
+@property   (nonatomic)     SOSManifestRef local;
+@property   (nonatomic)     SOSManifestRef proposed;
+@property   (nonatomic)     SOSManifestRef confirmed;
+@property   (nonatomic)     SOSMessageRef message;
+
+- (id) initWithEngine:(SOSEngineRef) engine peer: (SOSPeerRef) peer localManifest: (SOSManifestRef) local proposedManifest: (SOSManifestRef) proposed confirmedManifest: (SOSManifestRef) confirmed andMessage: (SOSMessageRef) message;
+- (void) callCallback: (bool) ok;
+- (void) setCallback: (SOSEnginePeerMessageSentBlock) block;
+
+@end
+
+void SOSEngineMessageCallCallback(SOSEnginePeerMessageCallBackInfo *sent, bool ok);
 
 // Must always be in C or obj-c; splitting is unwise
-void SOSEngineMessageCallbackSetCallback(SOSEnginePeerMessageSentCallback *sent, SOSEnginePeerMessageSentBlock block);
+void SOSEngineMessageCallbackSetCallback(SOSEnginePeerMessageCallBackInfo *sent, SOSEnginePeerMessageSentBlock block);
+CFDataRef SOSEngineCreateMessage_locked(SOSEngineRef engine, SOSTransactionRef txn, SOSPeerRef peer,
+                                        CFMutableArrayRef *attributeList, CFErrorRef *error, SOSEnginePeerMessageCallBackInfo **sentCallback);
 
+// When you're done with the *sent parameter from SOSEngineCreateMessage_locked, you must call this on the returned object
+void SOSEngineFreeMessageCallback(SOSEnginePeerMessageCallBackInfo* sentCallback);
+// Return a message to be sent for the current state.  Returns NULL on errors,
+// return a zero length CFDataRef if there is nothing to send.
+// If *ProposedManifest is set the caller is responsible for updating their
+// proposed manifest upon successful transmission of the message.
+CFDataRef SOSEngineCreateMessageToSyncToPeer(SOSEngineRef engine, CFStringRef peerID, CFMutableArrayRef *attributeList, SOSEnginePeerMessageCallBackInfo **sentBlock, CFErrorRef *error);
+
+#endif
 
 // Return a new engine instance for a given data source.
 SOSEngineRef SOSEngineCreate(SOSDataSourceRef dataSource, CFErrorRef *error);
@@ -107,11 +129,6 @@ CF_RETURNS_RETAINED CFSetRef SOSEngineSyncWithBackupPeers(SOSEngineRef engine, C
 bool SOSEngineHandleMessage_locked(SOSEngineRef engine, CFStringRef peerID, SOSMessageRef message,
                                    SOSTransactionRef txn, bool *commit, bool *somethingChanged, CFErrorRef *error);
 
-CFDataRef SOSEngineCreateMessage_locked(SOSEngineRef engine, SOSTransactionRef txn, SOSPeerRef peer,
-                                        CFMutableArrayRef *attributeList, CFErrorRef *error, SOSEnginePeerMessageSentCallback **sentCallback);
-
-// When you're done with the *sent parameter from SOSEngineCreateMessage_locked, you must call this on the returned object
-void SOSEngineFreeMessageCallback(SOSEnginePeerMessageSentCallback* sentCallback);
 
 // Return a SOSPeerRef for a given peer_id.
 SOSPeerRef SOSEngineCopyPeerWithID(SOSEngineRef engine, CFStringRef peer_id, CFErrorRef *error);
@@ -124,11 +141,6 @@ bool SOSEngineWithPeerID(SOSEngineRef engine, CFStringRef peer_id, CFErrorRef *e
 
 bool SOSEngineInitializePeerCoder(SOSEngineRef engine, SOSFullPeerInfoRef myPeerInfo, SOSPeerInfoRef peerInfo, CFErrorRef *error);
 
-// Return a message to be sent for the current state.  Returns NULL on errors,
-// return a zero length CFDataRef if there is nothing to send.
-// If *ProposedManifest is set the caller is responsible for updating their
-// proposed manifest upon successful transmission of the message.
-CFDataRef SOSEngineCreateMessageToSyncToPeer(SOSEngineRef engine, CFStringRef peerID, CFMutableArrayRef *attributeList, SOSEnginePeerMessageSentCallback **sentBlock, CFErrorRef *error);
 
 CFStringRef SOSEngineGetMyID(SOSEngineRef engine);
 bool SOSEnginePeerDidConnect(SOSEngineRef engine, CFStringRef peerID, CFErrorRef *error);

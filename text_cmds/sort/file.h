@@ -1,6 +1,8 @@
 /*	$FreeBSD$	*/
 
 /*-
+ * SPDX-License-Identifier: BSD-2-Clause-FreeBSD
+ *
  * Copyright (C) 2009 Gabor Kovesdan <gabor@FreeBSD.org>
  * Copyright (C) 2012 Oleg Moskalenko <mom040267@gmail.com>
  * All rights reserved.
@@ -64,7 +66,7 @@ struct file_reader;
  */
 struct file_list
 {
-	char			**fns;
+	const char *		*fns;
 	size_t			 count;
 	size_t			 sz;
 	bool			 tmp;
@@ -106,7 +108,7 @@ char *new_tmp_file_name(void);
 void tmp_file_atexit(const char *tmp_file);
 
 void file_list_init(struct file_list *fl, bool tmp);
-void file_list_add(struct file_list *fl, char *fn, bool allocate);
+void file_list_add(struct file_list *fl, const char *fn, bool allocate);
 void file_list_populate(struct file_list *fl, int argc, char **argv, bool allocate);
 void file_list_clean(struct file_list *fl);
 
@@ -122,5 +124,19 @@ void sort_list_clean(struct sort_list *l);
 void sort_list_dump(struct sort_list *l, const char *fn);
 
 void sort_list_to_file(struct sort_list *list, const char *outfile);
+
+#ifdef __APPLE__
+#include <mach/semaphore.h>
+
+/* Compat shims */
+int sem_init(semaphore_t *sem, int pshared __unused, unsigned int value);
+int sem_destroy(semaphore_t *sem);
+
+#define	sem_wait(sp)	semaphore_wait(*(sp))
+#define	sem_post(sp)	semaphore_signal(*(sp))
+
+#define	PTHREAD_DETACHED	PTHREAD_CREATE_DETACHED
+#define	pthread_yield		sched_yield
+#endif
 
 #endif /* __SORT_FILE_H__ */

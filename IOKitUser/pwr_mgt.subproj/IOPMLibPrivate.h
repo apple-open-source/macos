@@ -552,6 +552,7 @@ IOReturn IOPMRequestSysWake(CFDictionaryRef request);
 #define kPMASLAssertionActionNameChange         "NameChange"
 #define kPMASLAssertionActionSuspend            "Suspended"
 #define kPMASLAssertionActionResume             "Resumed"
+#define kPMASLAssertionActionSystemTimeout      "SystemTimeOutExpired"
 
 #pragma mark Private Assertion Dictionary Keys
 /*
@@ -600,6 +601,11 @@ IOReturn IOPMRequestSysWake(CFDictionaryRef request);
  *  @abstract The owning process's PID.
  */
 #define kIOPMAssertionPIDKey                                CFSTR("AssertPID")
+
+/*! @constant kIOPMAssertionProcessKey
+ *  @abstract The owning process name.
+ */
+#define kIOPMAssertionProcessKey                             CFSTR("AssertProcess")
 
 /*! @constant   kIOPMAssertionGlobalIDKey
  *  @abstract   A uint64_t integer that can uniuely identify an assertion system-wide.
@@ -728,6 +734,7 @@ IOReturn IOPMRequestSysWake(CFDictionaryRef request);
 #define kIOPMAssertionResourceGPS                           CFSTR("GPS")
 #define kIOPMAssertionResourceBaseband                      CFSTR("baseband")
 #define kIOPMAssertionResourceBluetooth                     CFSTR("bluetooth")
+#define kIOPMAssertionResourceActuator                      CFSTR("Actuator")
 
 /*!
  * @define          kIOPMAssertionResourcesName
@@ -834,6 +841,24 @@ IOReturn IOPMRequestSysWake(CFDictionaryRef request);
  * @abstract Holds the assertionId returned to client on creation
  */
 #define kIOPMAsyncClientAssertionIdKey          CFSTR("AsyncClientAssertionId")
+
+/*!
+ * @constant kIOPMAsyncRemoteAssertionIdKey
+ * @abstract Holds the assertionId returned to client by powerd
+ */
+#define kIOPMAsyncRemoteAssertionIdKey          CFSTR("AsyncRemoteAssertionId")
+
+/*!
+ * @constant kIOPMAsyncAssertionTimeoutTimestamp
+ * @abstract Absolute time stamp of assertion timeout
+ */
+#define kIOPMAsyncAssertionTimeoutTimestamp          CFSTR("TimeoutTimeStamp")
+
+/*
+ * @constant kIOPMAsyncAssertionLoggedCreate
+ * @abstract This key is set when the assertion has already been logged to powerd
+ */
+#define kIOPMAsyncAssertionLoggedCreate         CFSTR("AsyncAssertionLoggedCreate")
 
 /*!
  * @constant        kIOPMAssertionIsStateSuspendedKey
@@ -1143,6 +1168,7 @@ IOReturn IOPMCopyAssertionActivityLogWithAllocator(CFArrayRef *assertionLog, boo
  *                                                        'Retain', 'Release', 'ClientDeath', 'Timeout', 
  *                                                        'Turnoff', 'Turnon'
  *                  kIOPMAssertionPIDKey                : CFNumberRef, PID of the creating process
+ *                  kIOPMAssertionProcessKey            : CFStringRef, name of the creating process
  *
  *                  kIOPMAssertionRetainCountKey        : CFNumberRef, Retain count of this assertion
  *                  kIOPMAssertionGlobalUniqueIDKey     : CFNumberRef, Unique Id of the assertion
@@ -1161,11 +1187,37 @@ IOReturn IOPMCopyAssertionActivityLogWithAllocator(CFArrayRef *assertionLog, boo
  *  @param  prevRefCnt      Caller should set this to UINT_MAX on first call. Ons subsequent calls, caller should set this
  *                          to value returned in previous call. This field is used by IOKit as reference index of 
  *                          last entry returned on previous call.
+ *  @deprecated             Deprecated in favor of <code>@link IOPMCopyAssertionActivityUpdateWithCallback@/link</code>
  *
  *  @result                 Return kIOReturnSuccess on success.
  */
 IOReturn IOPMCopyAssertionActivityUpdate(CFArrayRef *logUpdates, bool *overflow, uint32_t *prevRefCnt);
 IOReturn IOPMCopyAssertionActivityUpdateWithAllocator(CFArrayRef *logUpdates, bool *overflow, uint32_t *prevRefCnt, CFAllocatorRef allocator);
+
+
+/*!
+ *  @function           IOPMCopyAssertionActivityUpdateWithCallback
+ *  @abstract           Returns all assertions related activity since last time this function is called.
+ *                      If this is called for first time, all available activity is returned. Depending on the
+ *                      frequency of assertion activity and any resets to the activity log, some of the activity
+ *                      entries may be lost.
+ *
+ *  @param  prevRefCnt     Caller should set this to UINT_MAX on first call. On subsequent calls, caller should set this
+ *                      This field is used by IOKit as reference index of last entry returned on previous call.
+ *
+ *  @param  inblock           Caller's block which will be executed on receiving assertion activity from powerd. The block takes
+ *                      two parameters
+ *                      @param logUpdates will point to an array of dictionaries. Each dictionary
+ *                      representing an assertion activity. Can be NULL if there are no entries to report.
+ *                      @param overflow Set to true if some of the old assertion activity entries are lost between last call
+ *                      to this function and this call.
+ *                      @param processList List of processes which did not respond in time to powerd's request to update assertion
+ *                      activity. Can be NULL.
+ *  @discussion         This function behaves similar to IOPMCopyAssertionActivityUpdate.
+ *
+ *  @result             Return kIOReturnSucess on success
+ */
+IOReturn IOPMCopyAssertionActivityUpdateWithCallback(uint32_t *prevRefCnt, dispatch_queue_t queue, void(^inblock)(CFArrayRef logUpdates, bool overflow, CFArrayRef processList));
 
 /*!
  * @function            IOPMCopyAssertionsByProcessWithAllocator
@@ -1458,8 +1510,15 @@ void IOPMUnregisterExceptionNotification(IOPMNotificationHandle handle);
 #define kIOPMTCPKeepAlivePrefKey                        "TCPKeepAlivePref"
 // units - CFNumber 0/1
 #define kIOPMProximityDarkWakeKey                       "ProximityDarkWake"
-// units - CFNumber 0/1
-#define kIOPMProModeKey                                 "ProMode"
+// Feature availability
+#define kIOPMLowPowerModeKey                            "LowPowerMode"
+// Feature availability
+#if !RC_HIDE_J316
+#define kIOPMHighPowerModeKey                           "HighPowerMode"
+#endif
+// units - CFNumber 0(Auto) / 1(LowPowerMode) / 2(HighPowerMode)
+// Alias for clients that already use LPM key for setting tri-state 0/1/2 values
+#define kIOPMCustomPowerModeKey                          kIOPMLowPowerModeKey
 
 #define kIOPMUpdateDarkWakeBGSettingKey                 "Update DarkWakeBG Setting"
 #define kIOPMDarkWakeLingerDurationKey                  "DarkWake Linger Duration"
@@ -1476,19 +1535,17 @@ void IOPMUnregisterExceptionNotification(IOPMNotificationHandle handle);
 // Deprecated in 10.8. Do not use.
 #define kIOPMRestartOnKernelPanicKey                    "RestartAfterKernelPanic"
 
-/*!
- * @constant    kIOPMSystemProModeEnaged
- * @abstract    Notify(3) string that PM fires every time the system enters ProMode.
+/*
+ * Pro mode deprecated, DO NOT USE
  */
-#define kIOPMSystemProModeEngaged						"com.apple.system.promode.engaged"
-
-/*!
- * @constant    kIOPMSystemProModeDisengaged
- * @abstract    Notify(3) string that PM fires every time the system exits ProMode
- */
-#define kIOPMSystemProModeDisengaged					"com.apple.system.promode.disengaged"
-
-
+// Alias for clients that already use ProMode key for HPM
+#if !RC_HIDE_J316
+#define kIOPMProModeKey                                 kIOPMHighPowerModeKey
+#else
+#define kIOPMProModeKey                                 "ProMode"
+#endif
+#define kIOPMSystemProModeEngaged						""
+#define kIOPMSystemProModeDisengaged					""
 // See xnu/iokit/IOKit/pwr_mgt/IOPM.h for other PM Settings keys:
 //  kIOPMDeepSleepEnabledKey 
 //  kIOPMDeepSleepDelayKey 
@@ -3574,6 +3631,62 @@ void IOPMAssertionSetBTCollection(bool enable);
 
 IOReturn IOPMEnableAsyncAssertions();
 IOReturn IOPMDisableAsyncAssertions();
+
+// Async assertions default offload delay
+#define kAsyncAssertionsDefaultOffloadDelay 1 // Delay (in secs) after which assertions are offloaded to powerd
+
+// Functions to return internal state of async assertions
+// TO BE USED FOR TESTING AND DEBUGGING ONLY
+
+/*!
+ *  @function   IOPMGetCurrentAsyncActiveAssertions
+ *  @abstract   Return current active async assertions of this process
+ *
+ *  @result     CFDictionary containing assertions with id as key. NULL if no assertions are present.
+ */
+CFDictionaryRef IOPMGetCurrentAsyncActiveAssertions(void);
+
+/*!
+ *  @function   IOPMGetCurrentAsyncReleasedAssertions
+ *  @abstract   Return current released async assertions of this process. List of assertions which have been released but have
+ *              not been offloaded to powerd
+ *
+ *  @result     CFArray containing list of assertions. NULL if no assertions are present.
+ */
+CFArrayRef IOPMGetCurrentAsyncReleasedAssertions(void);
+
+/*!
+ *  @function   IOPMGetCurrentAsyncTimedAssertions
+ *  @abstract   Return current timed async assertions of this process
+ *
+ *  @result     CFArray containing list of assertions. NULL if no assertions are present.
+ */
+CFArrayRef IOPMGetCurrentAsyncTimedAssertions(void);
+
+/*!
+ *  @function   IOPMGetCurrentAsycnRemoteAssertion
+ *  @abstract   Return current assertion active with powerd
+ *
+ *  @result     CFDictionary with all the properties of the assertion. NULL if no assertion is present
+ */
+CFDictionaryRef IOPMGetCurrentAsycnRemoteAssertion(void);
+
+/*!
+ *  @function   IOPMGetCurrentAsyncInactiveAssertions
+ *  @abstract   Return current turned off async assertions of this process
+ *
+ *  @result     CFDictionary with all the properties of the assertion. NULL if no assertion is present
+ */
+CFDictionaryRef IOPMGetCurrentAsyncInactiveAssertions(void);
+
+/*!
+ * @function    IOPMCopyActiveAsyncAssertionsByProcess
+ * @abstract    Return active async assertions held by all processes. The resulting CFDictionary has assertions
+ *              grouped by process. This is a blocking call and should be used only by command line tools such
+ *              as pmset for diagnostic purposes
+ * @result      CFDictionary - the top level key is a CFString of the pid. Each entry is a CFArray of assertions
+ */
+CFDictionaryRef IOPMCopyActiveAsyncAssertionsByProcess(void);
 
 
 __END_DECLS

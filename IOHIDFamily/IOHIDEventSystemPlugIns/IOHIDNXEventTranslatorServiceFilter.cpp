@@ -21,6 +21,7 @@
 #include <IOKit/hid/AppleHIDUsageTables.h>
 #include <IOKit/hid/IOHIDUsageTables.h>
 #include <IOKit/hid/IOHIDKeys.h>
+#include <IOKit/hid/IOHIDLibPrivate.h>
 #include <IOKit/hid/IOHIDServiceKeys.h>
 #include "IOHIDParameter.h"
 #include "IOHIDEventData.h"
@@ -31,7 +32,6 @@
 #include <fcntl.h>
 #include <mach/mach.h>
 #include <mach/mach_time.h>
-#include "IOHIDDebug.h"
 #include "CF.h"
 #include "IOHIDevicePrivateKeys.h"
 

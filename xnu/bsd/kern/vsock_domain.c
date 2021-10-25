@@ -251,13 +251,9 @@ vsock_new_sockaddr(struct vsock_address *address)
 	}
 
 	struct sockaddr_vm *addr;
-	MALLOC(addr, struct sockaddr_vm *, sizeof(*addr), M_SONAME,
-	    M_WAITOK | M_ZERO);
-	if (!addr) {
-		return NULL;
-	}
+	addr = (struct sockaddr_vm *)alloc_sockaddr(sizeof(*addr),
+	    Z_WAITOK | Z_NOFAIL);
 
-	addr->svm_len = sizeof(*addr);
 	addr->svm_family = AF_VSOCK;
 	addr->svm_port = address->port;
 	addr->svm_cid = address->cid;
@@ -474,7 +470,8 @@ vsock_put_message_connected(struct vsockpcb *pcb, enum vsock_operation op, mbuf_
 
 	switch (op) {
 	case VSOCK_SHUTDOWN:
-		error = vsock_disconnect_pcb(pcb);
+		socantsendmore(pcb->so);
+		socantrcvmore(pcb->so);
 		break;
 	case VSOCK_SHUTDOWN_RECEIVE:
 		socantsendmore(pcb->so);
@@ -863,11 +860,7 @@ vsock_attach(struct socket *so, int proto, struct proc *p)
 	}
 
 	// Initialize the vsock protocol control block.
-	pcb = zalloc(vsockpcb_zone);
-	if (pcb == NULL) {
-		return ENOBUFS;
-	}
-	bzero(pcb, sizeof(*pcb));
+	pcb = zalloc_flags(vsockpcb_zone, Z_WAITOK | Z_ZERO | Z_NOFAIL);
 	pcb->so = so;
 	pcb->transport = transport;
 	pcb->local_address = (struct vsock_address) {

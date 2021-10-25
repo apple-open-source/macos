@@ -25,6 +25,72 @@ THIS SOFTWARE.
 This file lists all bug fixes, changes, etc., made since the AWK book
 was sent to the printers in August, 1987.
 
+February 16, 2021:
+	Multibyte support to conform to POSIX / UNIX03 awk{69,639,640} in a UTF-8
+	locale. awk passed these tests in a Latin-1 ISO8859-1 locale because
+	non-english characters are still just 1 byte long.
+
+	This is NOT a complete multibyte implementation for awk, there are still
+	many edge cases that will need to be addressed.
+
+	Errors:
+		MULTIBYTE ERRORS:
+		Passing invalid multibyte data to awk (via script or input) while
+		awk is running in a multibyte locale (the default on Darwin) will
+		result in a FATAL multibyte conversion error. If awk'ing binary data,
+		a user will need to set LC_ALL=C prior to their awk invocation.
+			message: "towc: multibyte conversion failure on: '<bad>'"
+
+	Awk now performs char -> wchar_t conversions at select points in its
+	evaluation of regular expressions. This is not a complete fix, and will
+	require some additional work to advance the char -> wchar_t barrier. It is
+	important to note that awk has several routines that leverage the
+	assumption that a character's maximum value is 255 which makes this
+	conversion trickier than just replacing char with wchar_t.
+
+	Notable changes:
+		relex():
+			- The CHAR token's value is now a wchar_t instead of a char stored
+			  as an int
+			- Character class processing has been pulled out into cclex()
+			- The CCL and NCCL tokens will store a wchar_t string
+			- HAT and DOLLAR tokens have been added to the yacc file to
+			  disambiguate the special values that were previously stored in a
+			  CHAR token. DOLLAR is not yet implemented and is a future task.
+		cgoto():
+			- Now accepts a wchar_t and a separate control argument. See notes.
+		match()/pmatch()/nematch()/etc:
+			- Now operate on their input strings by nibbling wchar_t's out and
+			  passing them to cgoto(). The second most notable change here is
+			  bypassing of f->gototab when a wchar_t's value exceeds UCHAR_MAX.
+
+	cgoto() has changed signature to disambiguate an input character c from the
+	special control character HAT (now CGOTO_HAT) which is called by makeinit()
+	to generate the initial state. Now that c is a wchar_t, the value of c can
+	be any integer, including the special value of HAT which would cause c to
+	be ambiguous.
+
+	There are duplicate implementations of quoted and hexstr for char & wchar_t
+	because relex() uses quoted to handle '\\' and prestr is not (yet) a 
+	wchar_t string.
+
+	Character classes are now stored as wchar_t strings instead of char strings
+
+	FUTURE:
+	Character class evaluation should be performed in member() to prevent the
+	possibility of absurdly huge character classes (resulting in memory
+	exhaustion) such as [A-<emoji>].
+
+	An overall improvement to cclenter would be to store the character class
+	definition as a struct of literal characters, ranges, and collating
+	elements instead of just a string. cclenter() could then evaluate all
+	quoted chars (\...) ahead of time, and optimize the character class;
+	perhaps by contracting sequences of characters that are matched literally
+	([abcdewxyz]) down to a list of ranges ([a-ew-z]). The ability to store
+	collating elements ([=a=]) would also greatly simplify the job of
+	cclex() which currently performs a limited check for equivalent characters
+	by walking wchar_t 0-255, which is marginally sufficient.
+
 August 16, 2020:
 	Additional fixes for DJGPP. Thanks to Eli Zaretskii for
 	the testing.

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008-2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2008-2021 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -95,7 +95,7 @@
 #include <libkern/OSAtomic.h>
 #include <netinet/in.h>
 #include <ctype.h>
-#include <dns_sd.h>
+#include <dns_sd_private.h>
 #include <dnsinfo.h>
 #include <errno.h>
 #include <ifaddrs.h>
@@ -983,6 +983,7 @@ _mdns_init(void)
 			if ((c[i] == 'e') || (c[i] == 'E')) _mdns_debug |= MDNS_DEBUG_STDERR;
 			if ((c[i] == 'a') || (c[i] == 'A')) _mdns_debug |= MDNS_DEBUG_ASL;
 		}
+		close(fd);
 	}
 }
 
@@ -1316,7 +1317,11 @@ _mdns_query_start(mdns_query_context_t *ctx, mdns_reply_t *reply, uint8_t *answe
 
 	_mdns_debug_message(";; mdns query %s type %d class %d ifindex %d [ctx %p]\n", qname, type, class, (int)iface, ctx);
 
+#if _DNS_SD_H >= 15030000
+	status = DNSServiceQueryRecordEx(&ctx->sd, flags, iface, qname, type, class, &kDNSServiceQueryAttrAllowFailover, _mdns_query_callback, ctx);
+#else
 	status = DNSServiceQueryRecord(&ctx->sd, flags, iface, qname, type, class, _mdns_query_callback, ctx);
+#endif
 	if (qname != name) free(qname);
 
 	/* keep a linked list of all in-flight queries */

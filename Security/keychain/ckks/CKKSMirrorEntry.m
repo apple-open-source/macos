@@ -95,6 +95,11 @@
     return [self tryFromDatabaseWhere: @{@"UUID": CKKSNilToNSNull(uuid), @"ckzone":CKKSNilToNSNull(zoneID.zoneName)} error: error];
 }
 
++ (NSArray<CKKSMirrorEntry*>*)allWithUUID:(NSString*)uuid error:(NSError**)error
+{
+    return [self allWhere:@{@"UUID": CKKSNilToNSNull(uuid)} error:error];
+}
+
 #pragma mark - Property access to underlying CKKSItem
 
 -(NSString*)uuid {

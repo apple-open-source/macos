@@ -49,6 +49,8 @@
 #include <machine/monotonic.h>
 #endif /* MONOTONIC */
 
+#include <san/kcov_data.h>
+
 #define NSEC_PER_HZ     (NSEC_PER_SEC / 100)
 
 typedef struct reset_handler_data {
@@ -116,7 +118,7 @@ typedef struct {
 } cpu_stat_t;
 
 typedef struct cpu_data {
-	unsigned short                  cpu_number;
+	short                           cpu_number;
 	unsigned short                  cpu_flags;
 	int                             cpu_type;
 	int                             cpu_subtype;
@@ -182,8 +184,6 @@ typedef struct cpu_data {
 
 	void                            *cpu_tbd_hardware_addr;
 	void                            *cpu_tbd_hardware_val;
-
-	void                            *cpu_console_buf;
 
 	processor_idle_t                cpu_idle_notify;
 	uint64_t                        cpu_idle_latency;
@@ -284,6 +284,9 @@ typedef struct cpu_data {
 	uint64_t                        wfe_count;
 	uint64_t                        wfe_deadline_checks;
 	uint64_t                        wfe_terminations;
+#endif
+#if CONFIG_KCOV
+	kcov_cpu_data_t                 cpu_kcov_data;
 #endif
 #if __arm64__
 	/**

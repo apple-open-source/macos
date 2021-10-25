@@ -124,6 +124,30 @@ _muser_xpc_pipe_disabled(xpc_pipe_t pipe)
 	return disabled;
 }
 
+static void
+_muser_fork_child(void)
+{
+	if (__muser_pipe != NULL) {
+		xpc_pipe_invalidate(__muser_pipe);
+		/* disable release due to 10649340, it will cause a minor leak for each fork without exec */
+		// xpc_release(__muser_pipe);
+		__muser_pipe = NULL;
+	}
+	pthread_mutex_unlock(&mutex);
+}
+
+static void
+_muser_fork_prepare(void)
+{
+	pthread_mutex_lock(&mutex);
+}
+
+static void
+_muser_fork_parent(void)
+{
+	pthread_mutex_unlock(&mutex);
+}
+
 XPC_RETURNS_RETAINED
 static xpc_pipe_t
 _muser_xpc_pipe(bool reset)
@@ -149,6 +173,8 @@ _muser_xpc_pipe(bool reset)
 			_si_muser_disabled = 1;
 			return;
 		}
+
+		pthread_atfork(_muser_fork_prepare, _muser_fork_parent, _muser_fork_child);
 	});
 
 	if (_si_muser_disabled == 1) {

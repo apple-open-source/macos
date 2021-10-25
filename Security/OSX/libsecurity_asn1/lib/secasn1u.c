@@ -48,16 +48,15 @@
  * entire encoding); everything else takes one plus the number of bytes
  * in the length.
  */
-int
-SEC_ASN1LengthLength (unsigned long len)
+unsigned long SEC_ASN1LengthLength(unsigned long len)
 {
-    int lenlen = 1;
+    unsigned long lenlen = 1;
 
     if (len > 0x7f) {
-	do {
-	    lenlen++;
-	    len >>= 8;
-	} while (len);
+        do {
+            lenlen++;
+            len >>= 8;
+        } while (len);
     }
 
     return lenlen;
@@ -81,36 +80,34 @@ SEC_ASN1LengthLength (unsigned long len)
  * "encoding", when true, means that we are in the process of encoding
  *	(as opposed to in the process of decoding)
  */
-const SecAsn1Template *
-SEC_ASN1GetSubtemplate (
-	const SecAsn1Template *theTemplate, 
-	void *thing,
-	PRBool encoding
-	#ifdef	__APPLE__
-	,
-	const char *buf,			// for decode only
-	size_t len
-	#endif
-	)
+const SecAsn1Template* SEC_ASN1GetSubtemplate(const SecAsn1Template* theTemplate,
+                                              void* thing,
+                                              PRBool encoding
+#ifdef __APPLE__
+                                              ,
+                                              const char* buf,  // for decode only
+                                              size_t len
+#endif
+)
 {
-    const SecAsn1Template *subt = NULL;
+    const SecAsn1Template* subt = NULL;
 
-    PORT_Assert (theTemplate->sub != NULL);
+    PORT_Assert(theTemplate->sub != NULL);
     if (theTemplate->sub != NULL) {
-	if (theTemplate->kind & SEC_ASN1_DYNAMIC) {
-	    SecAsn1TemplateChooserPtr chooserp;
+        if (theTemplate->kind & SEC_ASN1_DYNAMIC) {
+            SecAsn1TemplateChooserPtr chooserp;
 
-	    chooserp = *(SecAsn1TemplateChooserPtr *) theTemplate->sub;
-	    if (chooserp) {
-			void *dest = thing;
-			if (thing != NULL) {
-				thing = (char *)thing - theTemplate->offset;
-			}
-			subt = (* chooserp)(thing, encoding, buf, len, dest);
-	    }
-	} else {
-	    subt = (SecAsn1Template*)theTemplate->sub;
-	}
+            chooserp = *(SecAsn1TemplateChooserPtr*)theTemplate->sub;
+            if (chooserp) {
+                void* dest = thing;
+                if (thing != NULL) {
+                    thing = (char*)thing - theTemplate->offset;
+                }
+                subt = (*chooserp)(thing, encoding, buf, len, dest);
+            }
+        } else {
+            subt = (SecAsn1Template*)theTemplate->sub;
+        }
     }
     return subt;
 }

@@ -28,7 +28,6 @@
 
 #include <machine/asm.h>
 #include <arm64/proc_reg.h>
-#include <pexpert/arm64/board_config.h>
 #include <arm/pmap.h>
 #include <sys/errno.h>
 #include "assym.s"
@@ -48,7 +47,6 @@ LEXT(invalidate_mmu_icache)
 	ic		ialluis								// Invalidate icache
 	dsb		sy
 	isb		sy
-L_imi_done:
 	ret
 
 /*
@@ -77,7 +75,6 @@ L_ipui_loop:
 	b.pl	L_ipui_loop							// Loop in counter not null
 	dsb		sy
 	isb		sy
-L_ipui_done:
 #else
 	bl		EXT(InvalidatePoU_Icache)
 #endif
@@ -248,30 +245,24 @@ L_cpudr_loop:
 	.text
 	.align 2
 LEXT(CleanPoC_DcacheRegion_internal)
-	mov x10, #(MMU_CLINE)
+	#define CLINE_FLUSH_STRIDE MMU_CLINE
 
-	/* Stash (1 << cache_line_size) in x11 for easy access. */
-	mov x11, #1
-	lsl x11, x11, x10
-
-	sub		x9, x11, #1
+	mov		x9, #((1<<CLINE_FLUSH_STRIDE)-1)
 	and		x2, x0, x9
 	bic		x0, x0, x9							// Cached aligned
 	add		x1, x1, x2
 	sub		x1, x1, #1
-	lsr		x1, x1, x10							// Set cache line counter
-	dsb		sy	
+	lsr		x1, x1, #(CLINE_FLUSH_STRIDE)		// Set cache line counter
+	dsb		sy
 L_cpcdr_loop:
 #if defined(APPLE_ARM64_ARCH_FAMILY)
-	// It may be tempting to clean the cache (dc cvac), 
-	// but see Cyclone UM 5.3.8.3 -- it's always a NOP on Cyclone.
-	//
-	// Clean & Invalidate, however, will work as long as HID4.DisDCMvaOps isn't set.
+	// It may be tempting to clean the cache (dc cvac), but it's always a NOP on
+	// Apple hardware.
 	dc		civac, x0							// Clean & Invalidate dcache line to PoC
-#else
+#else /* defined(APPLE_ARM64_ARCH_FAMILY) */
 	dc		cvac, x0 							// Clean dcache line to PoC
-#endif
-	add		x0, x0, x11							// Get next cache aligned addr
+#endif /* defined(APPLE_ARM64_ARCH_FAMILY) */
+	add		x0, x0, #(1<<CLINE_FLUSH_STRIDE)	// Get next cache aligned addr
 	subs	x1, x1, #1							// Decrementer cache line counter
 	b.pl	L_cpcdr_loop						// Loop in counter not null
 	dsb		sy
@@ -294,29 +285,6 @@ LEXT(CleanPoC_DcacheRegion)
 	b EXT(CleanPoC_DcacheRegion_internal)
 #endif /* defined(APPLE_ARM64_ARCH_FAMILY) */
 
-	.text
-	.align 2
-	.globl EXT(CleanPoC_DcacheRegion_Force_nopreempt)
-LEXT(CleanPoC_DcacheRegion_Force_nopreempt)
-#if defined(APPLE_ARM64_ARCH_FAMILY) && !APPLEVIRTUALPLATFORM
-	ARM64_STACK_PROLOG
-	PUSH_FRAME
-	isb		sy
-	ARM64_IS_PCORE x15
-	ARM64_READ_EP_SPR x15, x14, EHID4, HID4
-	and		x14, x14, (~ARM64_REG_HID4_DisDcMVAOps)
-	ARM64_WRITE_EP_SPR x15, x14, EHID4, HID4
-	isb		sy
-	bl		EXT(CleanPoC_DcacheRegion_internal)
-	isb		sy
-	orr		x14, x14, ARM64_REG_HID4_DisDcMVAOps
-	ARM64_WRITE_EP_SPR x15, x14, EHID4, HID4
-	isb		sy
-	POP_FRAME
-	ARM64_STACK_EPILOG
-#else
-	b		EXT(CleanPoC_DcacheRegion_internal)
-#endif // APPLE_ARM64_ARCH_FAMILY
 
 /*
  *	void CleanPoC_DcacheRegion_Force(vm_offset_t va, size_t length)

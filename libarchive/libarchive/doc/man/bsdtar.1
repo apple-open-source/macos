@@ -1,4 +1,4 @@
-.TH TAR 1 "February 25, 2017" ""
+.TH TAR 1 "January 31, 2020" ""
 .SH NAME
 .ad l
 \fB\%tar\fP
@@ -170,12 +170,14 @@ restricted pax format and bzip2 compression.
 .TP
 \fB\-Fl\fP acls
 (c, r, u, x modes only)
-Archive or extract POSIX.1e or NFSv4 ACLs. This is the reverse of
+Archive or extract POSIX.1e or NFSv4 ACLs.
+This is the reverse of
 \fB\-Fl\fP no-acls
 and the default behavior in c, r, and u modes (except on Mac OS X) or if
 \fB\%tar\fP
-is run in x mode as root. On Mac OS X this option translates extended ACLs
-to NFSv4 ACLs. To store extended ACLs the
+is run in x mode as root.
+On Mac OS X this option translates extended ACLs to NFSv4 ACLs.
+To store extended ACLs the
 \fB\-Fl\fP mac-metadata
 option is preferred.
 .TP
@@ -206,7 +208,7 @@ options and before extracting any files.
 \fB\-Fl\fP clear-nochange-fflags
 (x mode only)
 Before removing file system objects to replace them, clear platform-specific
-file flags that might prevent removal.
+file attributes or file flags that might prevent removal.
 .TP
 \fB\-Fl\fP exclude \fIpattern\fP
 Do not process files or directories that match the
@@ -214,9 +216,24 @@ specified pattern.
 Note that exclusions take precedence over patterns or filenames
 specified on the command line.
 .TP
+\fB\-Fl\fP exclude-vcs
+Do not process files or directories internally used by the
+version control systems
+Sq Arch,
+Sq Bazaar,
+Sq CVS,
+Sq Darcs,
+Sq Mercurial,
+Sq RCS,
+Sq SCCS,
+Sq SVN
+and
+Sq git.
+.TP
 \fB\-Fl\fP fflags
 (c, r, u, x modes only)
-Archive or extract file flags. This is the reverse of
+Archive or extract platform-specific file attributes or file flags.
+This is the reverse of
 \fB\-Fl\fP no-fflags
 and the default behavior in c, r, and u modes or if
 \fB\%tar\fP
@@ -326,20 +343,19 @@ Sq foo.
 Compress the resulting archive with
 \fBxz\fP(1).
 In extract or list modes, this option is ignored.
-Note that, unlike other
+Note that this
 \fB\%tar\fP
-implementations, this implementation recognizes XZ compression
-automatically when reading archives.
+implementation recognizes XZ compression automatically when reading archives.
 .TP
 \fB\-j\fP, \fB\-Fl\fP bzip, \fB\-Fl\fP bzip2, \fB\-Fl\fP bunzip2
 (c mode only)
 Compress the resulting archive with
 \fBbzip2\fP(1).
 In extract or list modes, this option is ignored.
-Note that, unlike other
+Note that this
 \fB\%tar\fP
-implementations, this implementation recognizes bzip2 compression
-automatically when reading archives.
+implementation recognizes bzip2 compression automatically when reading
+archives.
 .TP
 \fB\-k\fP, \fB\-Fl\fP keep-old-files
 (x mode only)
@@ -367,28 +383,45 @@ Issue a warning message unless all links to each file are archived.
 Compress the resulting archive with
 \fBlrzip\fP(1).
 In extract or list modes, this option is ignored.
+Note that this
+\fB\%tar\fP
+implementation recognizes lrzip compression automatically when reading
+archives.
 .TP
 \fB\-Fl\fP lz4
 (c mode only)
 Compress the archive with lz4-compatible compression before writing it.
-In input mode, this option is ignored; lz4 compression is recognized
-automatically on input.
+In extract or list modes, this option is ignored.
+Note that this
+\fB\%tar\fP
+implementation recognizes lz4 compression automatically when reading archives.
+.TP
+\fB\-Fl\fP zstd
+(c mode only)
+Compress the archive with zstd-compatible compression before writing it.
+In extract or list modes, this option is ignored.
+Note that this
+\fB\%tar\fP
+implementation recognizes zstd compression automatically when reading archives.
 .TP
 \fB\-Fl\fP lzma
 (c mode only) Compress the resulting archive with the original LZMA algorithm.
+In extract or list modes, this option is ignored.
 Use of this option is discouraged and new archives should be created with
 \fB\-Fl\fP xz
 instead.
-Note that, unlike other
+Note that this
 \fB\%tar\fP
-implementations, this implementation recognizes LZMA compression
-automatically when reading archives.
+implementation recognizes LZMA compression automatically when reading archives.
 .TP
 \fB\-Fl\fP lzop
 (c mode only)
 Compress the resulting archive with
 \fBlzop\fP(1).
 In extract or list modes, this option is ignored.
+Note that this
+\fB\%tar\fP
+implementation recognizes LZO compression automatically when reading archives.
 .TP
 \fB\-m\fP, \fB\-Fl\fP modification-time
 (x mode only)
@@ -397,18 +430,19 @@ By default, the modification time is set to the time stored in the archive.
 .TP
 \fB\-Fl\fP mac-metadata
 (c, r, u and x mode only)
-Mac OS X specific. Archive or extract extended ACLs and extended attributes
-using
+Mac OS X specific.
+Archive or extract extended ACLs and extended file
+attributes using
 \fBcopyfile\fP(3)
-in AppleDouble format. This is the reverse of
+in AppleDouble format.
+This is the reverse of
 \fB\-Fl\fP no-mac-metadata.
 and the default behavior in c, r, and u modes or if
 \fB\%tar\fP
 is run in x mode as root.
 .TP
 \fB\-n\fP, \fB\-Fl\fP norecurse, \fB\-Fl\fP no-recursion
-(c, r, u modes only)
-Do not recursively archive the contents of directories.
+Do not operate recursively on the content of directories.
 .TP
 \fB\-Fl\fP newer \fIdate\fP
 (c, r, u modes only)
@@ -456,7 +490,8 @@ option to
 .TP
 \fB\-Fl\fP no-acls
 (c, r, u, x modes only)
-Do not archive or extract POSIX.1e or NFSv4 ACLs. This is the reverse of
+Do not archive or extract POSIX.1e or NFSv4 ACLs.
+This is the reverse of
 \fB\-Fl\fP acls
 and the default behavior if
 \fB\%tar\fP
@@ -464,7 +499,8 @@ is run as non-root in x mode (on Mac OS X as any user in c, r, u and x modes).
 .TP
 \fB\-Fl\fP no-fflags
 (c, r, u, x modes only)
-Do not archive or extract file flags. This is the reverse of
+Do not archive or extract file attributes or file flags.
+This is the reverse of
 \fB\-Fl\fP fflags
 and the default behavior if
 \fB\%tar\fP
@@ -472,15 +508,24 @@ is run as non-root in x mode.
 .TP
 \fB\-Fl\fP no-mac-metadata
 (x mode only)
-Mac OS X specific. Do not archive or extract ACLs and extended attributes using
+Mac OS X specific.
+Do not archive or extract ACLs and extended file attributes
+using
 \fBcopyfile\fP(3)
-in AppleDouble format. This is the reverse of
+in AppleDouble format.
+This is the reverse of
 \fB\-Fl\fP mac-metadata.
 and the default behavior if
 \fB\%tar\fP
 is run as non-root in x mode.
 .TP
-\fB\-n\fP, \fB\-Fl\fP norecurse, \fB\-Fl\fP no-recursion
+\fB\-Fl\fP no-safe-writes
+(x mode only)
+Do not create temporary files and use
+\fBrename\fP(2)
+to replace the original ones.
+This is the reverse of
+\fB\-Fl\fP safe-writes.
 .TP
 \fB\-Fl\fP no-same-owner
 (x mode only)
@@ -493,8 +538,8 @@ is run as non-root.
 .TP
 \fB\-Fl\fP no-same-permissions
 (x mode only)
-Do not extract full permissions (SGID, SUID, sticky bit, ACLs,
-extended attributes or extended file flags).
+Do not extract full permissions (SGID, SUID, sticky bit,
+file attributes or file flags, extended file attributes and ACLs).
 This is the reverse of
 \fB\-p\fP
 and the default behavior if
@@ -503,7 +548,8 @@ is run as non-root.
 .TP
 \fB\-Fl\fP no-xattrs
 (c, r, u, x modes only)
-Do not archive or extract extended attributes. This is the reverse of
+Do not archive or extract extended file attributes.
+This is the reverse of
 \fB\-Fl\fP xattrs
 and the default behavior if
 \fB\%tar\fP
@@ -595,7 +641,14 @@ As above, but the corresponding key and value will be provided
 only to modules whose name matches
 \fImodule\fP.
 .RE
-The currently supported modules and keys are:
+.PP
+The complete list of supported modules and keys
+for create and append modes is in
+\fBarchive_write_set_options\fP(3)
+and for extract and list modes in
+\fBarchive_read_set_options\fP(3).
+.PP
+Examples of supported options:
 .RS 5
 .TP
 \fBiso9660:joliet\fP
@@ -618,7 +671,8 @@ to disable.
 A decimal integer from 1 to 9 specifying the gzip compression level.
 .TP
 \fBgzip:timestamp\fP
-Store timestamp. This is enabled by default, use
+Store timestamp.
+This is enabled by default, use
 \fB!timestamp\fP
 or
 \fBgzip:!timestamp\fP
@@ -638,7 +692,8 @@ A decimal integer from 1 to 9 specifying the lrzip compression level.
 A decimal integer from 1 to 9 specifying the lzop compression level.
 .TP
 \fBlz4:stream-checksum\fP
-Enable stream checksum. This is by default, use
+Enable stream checksum.
+This is by default, use
 \fBlz4:!stream-checksum\fP
 to disable.
 .TP
@@ -652,6 +707,10 @@ A decimal integer from 4 to 7 specifying the lz4 compression block size
 \fBlz4:block-dependence\fP
 Use the previous block of the block being compressed for
 a compression dictionary to improve compression ratio.
+.TP
+\fBzstd:compression-level\fP
+A decimal integer specifying the zstd compression level. Supported values depend
+on the library version, common values are from 1 to 22.
 .TP
 \fBlzop:compression-level\fP
 A decimal integer from 1 to 9 specifying the lzop compression level.
@@ -702,9 +761,10 @@ aes128 (WinZip AES-128 encryption) and aes256 (WinZip AES-256 encryption).
 .TP
 \fBread_concatenated_archives\fP
 Ignore zeroed blocks in the archive, which occurs when multiple tar archives
-have been concatenated together.  Without this option, only the contents of
-the first concatenated archive would be read.  This option is comparable to
-the
+have been concatenated together.
+Without this option, only the contents of
+the first concatenated archive would be read.
+This option is comparable to the
 \fB\-i\fP, \fB\-Fl\fP ignore-zeros
 option of GNU tar.
 .RE
@@ -726,13 +786,15 @@ This option suppresses these behaviors.
 \fB\-p\fP, \fB\-Fl\fP insecure, \fB\-Fl\fP preserve-permissions
 (x mode only)
 Preserve file permissions.
-Attempt to restore the full permissions, including owner, file modes, ACLs,
-extended attributes and extended file flags, if available, for each item
-extracted from the archive. This is te reverse of
+Attempt to restore the full permissions, including file modes, file attributes
+or file flags, extended file attributes and ACLs, if available, for each item
+extracted from the archive.
+This is the reverse of
 \fB\-Fl\fP no-same-permissions
 and the default if
 \fB\%tar\fP
-is being run by root and can be partially overridden by also specifying
+is being run as root.
+It can be partially overridden by also specifying
 \fB\-Fl\fP no-acls,
 \fB\-Fl\fP no-fflags,
 \fB\-Fl\fP no-mac-metadata
@@ -805,6 +867,27 @@ The default is
 \fIhrs\fP
 which applies substitutions to all names.
 In particular, it is never necessary to specify h, r, or s.
+.TP
+\fB\-Fl\fP safe-writes
+(x mode only)
+Extract files atomically.
+By default
+\fB\%tar\fP
+unlinks the original file with the same name as the extracted file (if it
+exists), and then creates it immediately under the same name and writes to
+it.
+For a short period of time, applications trying to access the file might
+not find it, or see incomplete results.
+If
+\fB\-Fl\fP safe-writes
+is enabled,
+\fB\%tar\fP
+first creates a unique temporary file, then writes the new contents to
+the temporary file, and finally renames the temporary file to its final
+name atomically using
+\fBrename\fP(2).
+This guarantees that an application accessing the file, will either see
+the old contents or the new contents at all times.
 .TP
 \fB\-Fl\fP same-owner
 (x mode only)
@@ -921,7 +1004,8 @@ for more information about the handling of exclusions.
 .TP
 \fB\-Fl\fP xattrs
 (c, r, u, x modes only)
-Archive or extract extended attributes. This is the reverse of
+Archive or extract extended file attributes.
+This is the reverse of
 \fB\-Fl\fP no-xattrs
 and the default behavior in c, r, and u modes or if
 \fB\%tar\fP
@@ -932,30 +1016,30 @@ is run in x mode as root.
 Compress the resulting archive with
 \fBbzip2\fP(1).
 In extract or list modes, this option is ignored.
-Note that, unlike other
+Note that this
 \fB\%tar\fP
-implementations, this implementation recognizes bzip2 compression
-automatically when reading archives.
+implementation recognizes bzip2 compression automatically when reading
+archives.
 .TP
 \fB\-Z\fP, \fB\-Fl\fP compress, \fB\-Fl\fP uncompress
 (c mode only)
 Compress the resulting archive with
 \fBcompress\fP(1).
 In extract or list modes, this option is ignored.
-Note that, unlike other
+Note that this
 \fB\%tar\fP
-implementations, this implementation recognizes compress compression
-automatically when reading archives.
+implementation recognizes compress compression automatically when reading
+archives.
 .TP
 \fB\-z\fP, \fB\-Fl\fP gunzip, \fB\-Fl\fP gzip
 (c mode only)
 Compress the resulting archive with
 \fBgzip\fP(1).
 In extract or list modes, this option is ignored.
-Note that, unlike other
+Note that this
 \fB\%tar\fP
-implementations, this implementation recognizes gzip compression
-automatically when reading archives.
+implementation recognizes gzip compression automatically when reading
+archives.
 .RE
 .SH ENVIRONMENT
 .ad l
@@ -1033,11 +1117,11 @@ To move file hierarchies, invoke
 \fB\%tar\fP
 as
 .RS 4
-\fB\%tar\fP \fB\-cf\fP \fI-\fP \fB\-C\fP \fIsrcdir\\fP. | \fB\%tar\fP \fB\-xpf\fP \fI-\fP \fB\-C\fP \fIdestdir\fP
+\fB\%tar\fP \fB\-cf\fP \fI-\fP \fB\-C\fP \fIsrcdir\fP \&. | \fB\%tar\fP \fB\-xpf\fP \fI-\fP \fB\-C\fP \fIdestdir\fP
 .RE
 or more traditionally
 .RS 4
-cd srcdir \&; \fB\%tar\fP \fB\-cf\fP \fI-\\fP. | (cd destdir \&; \fB\%tar\fP \fB\-xpf\fP \fI-\fP)
+cd srcdir \&; \fB\%tar\fP \fB\-cf\fP \fI-\fP \&. | (cd destdir \&; \fB\%tar\fP \fB\-xpf\fP \fI-\fP)
 .RE
 .PP
 In create mode, the list of files and directories to be archived
@@ -1068,7 +1152,6 @@ An input file in
 \fBmtree\fP(5)
 format can be used to create an output archive with arbitrary ownership,
 permissions, or names that differ from existing data on disk:
-.PP
 .RS 4
 .nf
 $ cat input.mtree

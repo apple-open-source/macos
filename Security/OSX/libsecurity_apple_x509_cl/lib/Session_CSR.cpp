@@ -75,20 +75,20 @@ void AppleX509CLSession::generateCsr(
  	 * as a printable string */
 	if(csrReq->challengeString) {
 		/* alloc a NULL_terminated array of NSS_Attribute pointers */
-		reqInfo.attributes = (NSS_Attribute **)coder.malloc(2 * sizeof(NSS_Attribute *));
+		reqInfo.attributes = (NSS_Attribute **)coder.alloc(2 * sizeof(NSS_Attribute *));
 		reqInfo.attributes[1] = NULL;
 		
 		/* alloc one NSS_Attribute */
-		reqInfo.attributes[0] = (NSS_Attribute *)coder.malloc(sizeof(NSS_Attribute));
+		reqInfo.attributes[0] = (NSS_Attribute *)coder.alloc(sizeof(NSS_Attribute));
 		NSS_Attribute *attr = reqInfo.attributes[0];
 		memset(attr, 0, sizeof(NSS_Attribute));
 		
 		 /* NULL_terminated array of attrValues */
-		attr->attrValue = (CSSM_DATA **)coder.malloc(2 * sizeof(CSSM_DATA *));
+		attr->attrValue = (CSSM_DATA **)coder.alloc(2 * sizeof(CSSM_DATA *));
 		attr->attrValue[1] = NULL;
 		
 		/* one value - we're almost there */
-		attr->attrValue[0] = (CSSM_DATA *)coder.malloc(sizeof(CSSM_DATA));
+		attr->attrValue[0] = (CSSM_DATA *)coder.alloc(sizeof(CSSM_DATA));
 		
 		/* attrType is an OID, temp, use static OID */
 		attr->attrType = CSSMOID_ChallengePassword;

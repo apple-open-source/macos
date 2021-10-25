@@ -19,7 +19,7 @@
 		<string>-D</string>
 		<string>FOREGROUND</string>
 	</array>
-	<key>OnDemand</key>
-	<false/>
+	<key>KeepAlive</key>
+	<true/>
 </dict>
 </plist>

@@ -37,13 +37,8 @@ NS_ASSUME_NONNULL_BEGIN
 
 @interface OTRamp : NSObject
 
-@property (nonatomic, readonly) NSString* featureName;
-@property (nonatomic, readonly) CKKSAccountStateTracker *accountTracker;
-@property (nonatomic, readonly) CKKSLockStateTracker      *lockStateTracker;
-@property (nonatomic, readonly) CKKSReachabilityTracker   *reachabilityTracker;
-
 -(instancetype)initWithRecordName:(NSString *) recordName
-                 localSettingName:(NSString*) featureName
+                 localSettingName:(NSString*) localSettingName
                          container:(CKContainer*) container
                           database:(CKDatabase*) database
                             zoneID:(CKRecordZoneID*) zoneID

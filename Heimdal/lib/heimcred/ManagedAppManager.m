@@ -29,13 +29,18 @@
 
 #import "ManagedAppManager.h"
 
-#if TARGET_OS_IOS
-#include <ManagedConfiguration/ManagedConfiguration.h>
 #import <SoftLinking/SoftLinking.h>
+
+#if TARGET_OS_IOS
+#import <ManagedConfiguration/ManagedConfiguration.h>
 SOFT_LINK_FRAMEWORK(PrivateFrameworks, ManagedConfiguration)
 SOFT_LINK_CLASS(ManagedConfiguration, MCProfileConnection)
 SOFT_LINK_CONSTANT(ManagedConfiguration, MCManagedAppsChangedNotification, NSString *)
-
+#elif TARGET_OS_OSX
+#import <ConfigurationProfiles/ConfigurationProfiles.h>
+#import <libproc.h>
+SOFT_LINK_FRAMEWORK(PrivateFrameworks, ConfigurationProfiles)
+SOFT_LINK_FUNCTION(ConfigurationProfiles, CP_ManagedAppsIsAppManagedAtURL, __CP_ManagedAppsIsAppManagedAtURL, BOOL, (NSURL* appURL, NSString* bundleID), (appURL, bundleID));
 #endif
 
 @interface ManagedAppManager ()
@@ -61,7 +66,7 @@ SOFT_LINK_CONSTANT(ManagedConfiguration, MCManagedAppsChangedNotification, NSStr
     [[NSNotificationCenter defaultCenter] removeObserver:self];
 }
 
-- (BOOL)isManagedApp:(NSString*)bundleId
+- (BOOL)isManagedApp:(NSString*)bundleId auditToken:(audit_token_t)auditToken
 {
 #if TARGET_OS_IOS
     static dispatch_once_t onceToken;
@@ -73,6 +78,28 @@ SOFT_LINK_CONSTANT(ManagedConfiguration, MCManagedAppsChangedNotification, NSStr
     @synchronized (self) {
 	return [self.managedApps containsObject:bundleId];
     }
+#elif TARGET_OS_OSX
+    NSURL *appURL = nil;
+    char buffer[PROC_PIDPATHINFO_MAXSIZE] = {};
+    int size = 0;
+    size = proc_pidpath_audittoken(&auditToken, buffer, sizeof(buffer));
+    if (size <= 0) {
+	os_log_error(GSSOSLog(), "isManagedApp: proc_pidpath_audittoken failed for %{public}@", @(audit_token_to_pid(auditToken)));
+	return false;
+    }
+    NSString *path = [NSString stringWithCString:buffer encoding:NSUTF8StringEncoding];
+    os_log_debug(GSSOSLog(), "isManagedApp: %{public}@: %{public}@", @(audit_token_to_pid(auditToken)), path);
+    if (!path) {
+	os_log_error(GSSOSLog(), "isManagedApp: path not found for %{public}@", @(audit_token_to_pid(auditToken)));
+	return false;
+    }
+
+    appURL = CFBridgingRelease(CFURLCreateWithFileSystemPath(kCFAllocatorDefault, (__bridge CFStringRef)path, kCFURLPOSIXPathStyle, FALSE));
+    os_log_debug(GSSOSLog(), "isManagedApp: CFURLCreateWithFileSystemPath: %{public}@", appURL);
+
+
+    BOOL managed = appURL ? __CP_ManagedAppsIsAppManagedAtURL(appURL, bundleId) : NO;
+    return managed;
 #else
     return false;
 #endif

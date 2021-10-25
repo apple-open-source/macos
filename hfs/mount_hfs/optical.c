@@ -64,7 +64,7 @@ __io_media_create_from_bsd_name(const char *name)
     if (!strncmp(_PATH_DEV, name, strlen(_PATH_DEV)))
         name += strlen(_PATH_DEV);
 
-    return IOServiceGetMatchingService(kIOMasterPortDefault, IOBSDNameMatching(kIOMasterPortDefault, 0, name));
+    return IOServiceGetMatchingService(kIOMainPortDefault, IOBSDNameMatching(kIOMainPortDefault, 0, name));
 }
 
 static int

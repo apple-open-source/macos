@@ -17,6 +17,7 @@ NS_ASSUME_NONNULL_BEGIN
                        intendedState:(OctagonState*)intendedState
                     peerUnknownState:(OctagonState*)peerUnknownState
                           errorState:(OctagonState*)errorState
+                        forceRefetch:(BOOL)forceRefetch
                            retryFlag:(OctagonFlag* _Nullable)retryFlag;
 @end
 

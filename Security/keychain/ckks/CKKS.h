@@ -184,7 +184,7 @@ extern CKKSZoneKeyState* const SecCKKSZoneKeyStateBecomeReady;
 // Everything is ready and waiting for input.
 extern CKKSZoneKeyState* const SecCKKSZoneKeyStateReady;
 
-// We're presumably ready, but we'd like to do one or two more checks after we unlock.
+// No longer used in the local state machine, but might be relevant for other devices.
 extern CKKSZoneKeyState* const SecCKKSZoneKeyStateReadyPendingUnlock;
 
 // A key hierarchy fetch will now begin
@@ -225,15 +225,22 @@ extern CKKSZoneKeyState* const SecCKKSZoneKeyStateNewTLKsFailed;
 extern CKKSZoneKeyState* const SecCKKSZoneKeyStateHealTLKShares;
 // Something has gone wrong fixing TLK shares.
 extern CKKSZoneKeyState* const SecCKKSZoneKeyStateHealTLKSharesFailed;
-// The key hierarchy state machine needs to wait for the fixup operation to complete
-extern CKKSZoneKeyState* const SecCKKSZoneKeyStateWaitForFixupOperation;
 // The key hierarchy state machine is responding to a key state reprocess request
 extern CKKSZoneKeyState* const SecCKKSZoneKeyStateProcess;
+
+extern CKKSZoneKeyState* const CKKSZoneKeyStateCheckTLKShares;
 
 // CKKS is resetting the remote zone, due to key hierarchy reasons. Will not proceed until the local reset occurs.
 extern CKKSZoneKeyState* const SecCKKSZoneKeyStateResettingZone;
 // CKKS is resetting the local data, likely to do a cloudkit reset or a rpc.
 extern CKKSZoneKeyState* const SecCKKSZoneKeyStateResettingLocalData;
+
+// States to fix up data on-disk that's in a bad state
+extern CKKSZoneKeyState* const CKKSZoneKeyStateFixupRefetchCurrentItemPointers;
+extern CKKSZoneKeyState* const CKKSZoneKeyStateFixupFetchTLKShares;
+extern CKKSZoneKeyState* const CKKSZoneKeyStateFixupLocalReload;
+extern CKKSZoneKeyState* const CKKSZoneKeyStateFixupResaveDeviceStateEntries;
+extern CKKSZoneKeyState* const CKKSZoneKeyStateFixupDeleteAllCKKSTombstones;
 
 // Fatal error. Will not proceed unless fixed from outside class.
 extern CKKSZoneKeyState* const SecCKKSZoneKeyStateError;
@@ -243,6 +250,10 @@ NSDictionary<CKKSZoneKeyState*, NSNumber*>* CKKSZoneKeyStateMap(void);
 NSDictionary<NSNumber*, CKKSZoneKeyState*>* CKKSZoneKeyStateInverseMap(void);
 NSNumber* CKKSZoneKeyToNumber(CKKSZoneKeyState* state);
 CKKSZoneKeyState* CKKSZoneKeyRecover(NSNumber* stateNumber);
+
+// We no longer use all of the above states, but we keep them around to fill out the State Map above.
+// This is the set of valid states.
+NSSet<CKKSZoneKeyState*>* CKKSKeyStateValidStates(void);
 
 // Use this to determine if CKKS believes the current state is "transient": that is, should resolve itself with further local processing
 // or 'nontransient': further local processing won't progress. Either we're ready, or waiting for the user to unlock, or a remote device to do something.
@@ -321,6 +332,9 @@ void SecCKKSTestSetDisableKeyNotifications(bool set);
 bool SecCKKSTestSkipScan(void);
 bool SecCKKSSetTestSkipScan(bool value);
 
+bool SecCKKSTestSkipTLKHealing(void);
+bool SecCKKSSetTestSkipTLKShareHealing(bool value);
+
 // TODO: handle errors better
 typedef CF_ENUM(CFIndex, CKKSErrorCode) {
     CKKSNotInitialized = 9,
@@ -366,6 +380,15 @@ typedef CF_ENUM(CFIndex, CKKSErrorCode) {
 
     CKKSErrorUnexpectedNil = 57,
     CKKSErrorGenerationCountMismatch = 58,
+
+    CKKSNoCloudKitDeviceID = 59,
+    CKKSErrorRateLimited = 60,
+    CKKSErrorTLKMismatch = 61,
+    CKKSErrorViewNotExternallyManaged = 62,
+    CKKSErrorViewIsExternallyManaged = 63,
+
+    CKKSErrorAccountStatusUnknown = 64,
+    CKKSErrorNotSupported = 65,
 };
 
 typedef CF_ENUM(CFIndex, CKKSResultDescriptionErrorCode) {

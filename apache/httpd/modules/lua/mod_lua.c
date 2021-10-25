@@ -24,7 +24,6 @@
 #include "lua_apr.h"
 #include "lua_config.h"
 #include "apr_optional.h"
-#include "mod_ssl.h"
 #include "mod_auth.h"
 #include "util_mutex.h"
 
@@ -53,8 +52,6 @@ APR_IMPLEMENT_OPTIONAL_HOOK_RUN_ALL(ap_lua, AP_LUA, int, lua_open,
 APR_IMPLEMENT_OPTIONAL_HOOK_RUN_ALL(ap_lua, AP_LUA, int, lua_request,
                                     (lua_State *L, request_rec *r),
                                     (L, r), OK, DECLINED)
-static APR_OPTIONAL_FN_TYPE(ssl_var_lookup) *lua_ssl_val = NULL;
-static APR_OPTIONAL_FN_TYPE(ssl_is_https) *lua_ssl_is_https = NULL;
 
 module AP_MODULE_DECLARE_DATA lua_module;
 
@@ -342,7 +339,7 @@ static apr_status_t lua_setup_filter_ctx(ap_filter_t* f, request_rec* r, lua_fil
 {
     apr_pool_t *pool;
     ap_lua_vm_spec *spec;
-    int n, rc;
+    int n, rc, nres;
     lua_State *L;
     lua_filter_ctx *ctx;    
     ap_lua_server_cfg *server_cfg = ap_get_module_config(r->server->module_config,
@@ -410,7 +407,7 @@ static apr_status_t lua_setup_filter_ctx(ap_filter_t* f, request_rec* r, lua_fil
             /* If a Lua filter is interested in filtering a request, it must first do a yield, 
              * otherwise we'll assume that it's not interested and pretend we didn't find it.
              */
-            rc = lua_resume(L, 1);
+            rc = lua_resume(L, 1, &nres);
             if (rc == LUA_YIELD) {
                 if (f->frec->providers == NULL) { 
                     /* Not wired by mod_filter */
@@ -432,7 +429,7 @@ static apr_status_t lua_setup_filter_ctx(ap_filter_t* f, request_rec* r, lua_fil
 static apr_status_t lua_output_filter_handle(ap_filter_t *f, apr_bucket_brigade *pbbIn)
 {
     request_rec *r = f->r;
-    int rc;
+    int rc, nres;
     lua_State *L;
     lua_filter_ctx* ctx;
     conn_rec *c = r->connection;
@@ -492,7 +489,7 @@ static apr_status_t lua_output_filter_handle(ap_filter_t *f, apr_bucket_brigade 
             lua_setglobal(L, "bucket");
             
             /* If Lua yielded, it means we have something to pass on */
-            if (lua_resume(L, 0) == LUA_YIELD) {
+            if (lua_resume(L, 0, &nres) == LUA_YIELD && nres == 1) {
                 size_t olen;
                 const char* output = lua_tolstring(L, 1, &olen);
                 if (olen > 0) { 
@@ -524,7 +521,7 @@ static apr_status_t lua_output_filter_handle(ap_filter_t *f, apr_bucket_brigade 
             apr_bucket *pbktEOS;
             lua_pushnil(L);
             lua_setglobal(L, "bucket");
-            if (lua_resume(L, 0) == LUA_YIELD) {
+            if (lua_resume(L, 0, &nres) == LUA_YIELD && nres == 1) {
                 apr_bucket *pbktOut;
                 size_t olen;
                 const char* output = lua_tolstring(L, 1, &olen);
@@ -558,7 +555,7 @@ static apr_status_t lua_input_filter_handle(ap_filter_t *f,
                                        apr_off_t nBytes) 
 {
     request_rec *r = f->r;
-    int rc, lastCall = 0;
+    int rc, lastCall = 0, nres;
     lua_State *L;
     lua_filter_ctx* ctx;
     conn_rec *c = r->connection;
@@ -621,7 +618,7 @@ static apr_status_t lua_input_filter_handle(ap_filter_t *f,
             lua_setglobal(L, "bucket");
             
             /* If Lua yielded, it means we have something to pass on */
-            if (lua_resume(L, 0) == LUA_YIELD) {
+            if (lua_resume(L, 0, &nres) == LUA_YIELD && nres == 1) {
                 size_t olen;
                 const char* output = lua_tolstring(L, 1, &olen);
                 pbktOut = apr_bucket_heap_create(output, olen, 0, c->bucket_alloc);
@@ -643,7 +640,7 @@ static apr_status_t lua_input_filter_handle(ap_filter_t *f,
             apr_bucket *pbktEOS = apr_bucket_eos_create(c->bucket_alloc);
             lua_pushnil(L);
             lua_setglobal(L, "bucket");
-            if (lua_resume(L, 0) == LUA_YIELD) {
+            if (lua_resume(L, 0, &nres) == LUA_YIELD && nres == 1) {
                 apr_bucket *pbktOut;
                 size_t olen;
                 const char* output = lua_tolstring(L, 1, &olen);
@@ -1633,7 +1630,7 @@ static const char *register_lua_scope(cmd_parms *cmd,
         return apr_psprintf(cmd->pool,
                             "Scope type of '%s' cannot be used because this "
                             "server does not have threading support "
-                            "(APR_HAS_THREADS)" 
+                            "(APR_HAS_THREADS)",
                             scope);
 #endif
         cfg->vm_scope = AP_LUA_SCOPE_THREAD;
@@ -1644,7 +1641,7 @@ static const char *register_lua_scope(cmd_parms *cmd,
         return apr_psprintf(cmd->pool,
                             "Scope type of '%s' cannot be used because this "
                             "server does not have threading support "
-                            "(APR_HAS_THREADS)" 
+                            "(APR_HAS_THREADS)",
                             scope);
 #endif
         cfg->vm_scope = AP_LUA_SCOPE_SERVER;
@@ -1688,15 +1685,12 @@ static const char *register_lua_root(cmd_parms *cmd, void *_cfg,
 const char *ap_lua_ssl_val(apr_pool_t *p, server_rec *s, conn_rec *c,
                            request_rec *r, const char *var)
 {
-    if (lua_ssl_val) { 
-        return (const char *)lua_ssl_val(p, s, c, r, (char *)var);
-    }
-    return NULL;
+    return ap_ssl_var_lookup(p, s, c, r, var);
 }
 
 int ap_lua_ssl_is_https(conn_rec *c)
 {
-    return lua_ssl_is_https ? lua_ssl_is_https(c) : 0;
+    return ap_ssl_conn_is_ssl(c);
 }
 
 /*******************************/
@@ -1834,7 +1828,7 @@ static const char *register_authz_provider(cmd_parms *cmd, void *_cfg,
 }
 
 
-command_rec lua_commands[] = {
+static const command_rec lua_commands[] = {
 
     AP_INIT_TAKE1("LuaRoot", register_lua_root, NULL, OR_ALL,
                   "Specify the base path for resolving relative paths for mod_lua directives"),
@@ -2002,9 +1996,6 @@ static int lua_post_config(apr_pool_t *pconf, apr_pool_t *plog,
     apr_pool_t **pool;
     apr_status_t rs;
 
-    lua_ssl_val = APR_RETRIEVE_OPTIONAL_FN(ssl_var_lookup);
-    lua_ssl_is_https = APR_RETRIEVE_OPTIONAL_FN(ssl_is_https);
-    
     if (ap_state_query(AP_SQ_MAIN_STATE) == AP_SQ_MS_CREATE_PRE_CONFIG)
         return OK;
 

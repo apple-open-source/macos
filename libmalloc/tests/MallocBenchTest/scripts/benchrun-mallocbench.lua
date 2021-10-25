@@ -12,7 +12,7 @@ under "Options" below, are passed to run-malloc-benchmarks.
 
 Example usage:
 
-	benchrun-mallocbench /BUILD/MallocBench SystemMalloc:/BUILD/MallocBench/libmbmalloc.dylib NanoMallocV1:/BUILD/libmbmalloc.dylib
+	benchrun-mallocbench /BUILD/MallocBench SystemMalloc:/BUILD/MallocBench/libmbmalloc.dylib
 	benchrun-mallocbench /BUILD/MallocBench bmalloc:/BUILD/bmalloc/libmbmalloc.dylib
 	benchrun-mallocbench --benchmark churn SystemMalloc:/BUILD/MallocBench/libmbmalloc.dylib bmalloc:/BUILD/bmalloc/libmbmalloc.dylib
 

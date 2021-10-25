@@ -32,12 +32,12 @@ static uint32_t GetUInt32(unsigned char*& finger)
 {
 	uint32 result = 0;
 	unsigned i;
-	
+    
 	for (i = 0; i < sizeof(uint32); ++i)
 	{
 		result = (result << 8) | *finger++;
 	}
-	
+    
 	return result;
 }
 
@@ -67,13 +67,23 @@ NameValuePair::NameValuePair (uint32 name, const CssmData &value) : mName (name)
 
 NameValuePair::NameValuePair (const CssmData &data)
 {
+    size_t actualLength = data.length();
+    
+    if (actualLength < (2 * sizeof(uint32_t))) {
+        CssmError::throwMe(CSSM_ERRCODE_INTERNAL_ERROR);
+    }
+    
 	// the first four bytes are the name
 	unsigned char* finger = (unsigned char*) data.data ();
 	mName = GetUInt32(finger);
-	uint32 length = GetUInt32(finger);
-	
+	uint32 computedLength = GetUInt32(finger);
+    
+    if (actualLength != ((2 * sizeof(uint32_t)) + computedLength)) {
+        CssmError::throwMe(CSSM_ERRCODE_INTERNAL_ERROR);
+    }
+        
 	// what's left is the data
-	mValue = CloneData (CssmData (finger, length));
+	mValue = CloneData (CssmData (finger, computedLength));
 }
 
 
@@ -146,7 +156,13 @@ void NameValueDictionary::MakeFromData(const CssmData &data)
 	// reconstruct a name value dictionary from a series of exported NameValuePair blobs
 	unsigned char* finger = (unsigned char*) data.data ();
 	unsigned char* target = finger + data.length ();
-
+    size_t running_length_total = 0;
+    
+    // rdar://76759018
+    if (data.length() < (2 * sizeof (uint32))) {
+        return;
+    }
+    
 	bool done = false;
 
 	do
@@ -154,19 +170,23 @@ void NameValueDictionary::MakeFromData(const CssmData &data)
 		// compute the length of data blob
 		unsigned int i;
 		uint32 length = 0;
-		for (i = sizeof (uint32); i < 2 * sizeof (uint32); ++i)
-		{
+		for (i = sizeof (uint32); i < 2 * sizeof (uint32); ++i) {
 			length = (length << 8) | finger[i];
 		}
 		
-		if (length > data.length())
-		{
+		if (length > data.length() || ((running_length_total + length) > data.length())) {
 			break;
 		}
 		
 		// add the length of the "header"
 		length += 2 * sizeof (uint32);
-		
+
+        if (length > data.length() || ((running_length_total + length) > data.length())) {
+            break;
+        }
+
+        running_length_total += length;
+
 		// do some sanity checking on the data.
 		uint32 itemLength = 0;
 		unsigned char* fingerX = finger;
@@ -174,7 +194,7 @@ void NameValueDictionary::MakeFromData(const CssmData &data)
 		// extract the name in a printable format
 		char nameBuff[5];
 		char* nameFinger = nameBuff;
-		
+
 		// work around a bug with invalid lengths coming from securityd
 		if (fingerX + sizeof(uint32) < target)
 		{
@@ -188,11 +208,11 @@ void NameValueDictionary::MakeFromData(const CssmData &data)
 			
 			if (fingerX + itemLength > target) // this is the bug
 			{
-				done = true;
+                done = true;
 			}
 		}
-		
-		// This shouldn't crash any more...
+          
+        // This shouldn't crash any more...
 		Insert (new NameValuePair (CssmData (finger, length)));
 		
 		// skip to the next data

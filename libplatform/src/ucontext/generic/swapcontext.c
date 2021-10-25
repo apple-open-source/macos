@@ -57,7 +57,7 @@
  * required by the standard */
 #define CONFORMANCE_SPECIFIC_HACK 1
 
-#if TARGET_OS_OSX || TARGET_OS_DRIVERKIT
+#if ((TARGET_OS_OSX || TARGET_OS_DRIVERKIT) && (defined(__LP64__) || defined(__i386__)))
 
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
 

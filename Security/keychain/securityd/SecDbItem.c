@@ -51,6 +51,9 @@
 #include "keychain/securityd/SecItemSchema.h"
 
 #include <keychain/ckks/CKKS.h>
+#include <keychain/ot/OTConstants.h>
+
+#define PERSISTENT_REF_UUID_BYTES_LENGTH (sizeof(uuid_t))
 
 // MARK: type converters
 
@@ -943,7 +946,7 @@ bool SecItemPreserveAttribute(SecDbItemRef target, SecDbItemRef source, const Se
     if(!v || CFEqualSafe(v, kCFNull)) {
         return true;
     }
-    secnotice("secitem", "Preserving existing data for %@", attr->name);
+    secinfo("secitem", "Preserving existing data for %@", attr->name);
     SecDbItemSetValue(target, attr, v, &cferror);
     if(cferror) {
         secnotice("secitem", "Unable to set attribute (%@) : %@", attr->name, cferror);
@@ -1168,7 +1171,7 @@ bool SecDbItemIsEngineInternalState(SecDbItemRef itemObject) {
     }
     const SecDbAttr *agrp = SecDbAttrWithKey(SecDbItemGetClass(itemObject), kSecAttrAccessGroup, NULL);
     CFTypeRef cfval = SecDbItemGetValue(itemObject, agrp, NULL);
-    return cfval && CFStringCompareSafe(cfval, kSOSInternalAccessGroup, NULL) == kCFCompareEqualTo;
+    return isString(cfval) && CFStringCompare(cfval, kSOSInternalAccessGroup, 0) == kCFCompareEqualTo;
 }
 
 
@@ -1280,6 +1283,38 @@ static bool SecDbItemInsertBind(SecDbItemRef item, sqlite3_stmt *stmt, CFErrorRe
     return ok;
 }
 
+CFDataRef SecDbItemGetPersistentRef(SecDbItemRef item, CFErrorRef *error) {
+    CFDataRef uuidData = NULL;
+    const SecDbAttr *attr = SecDbClassAttrWithKind(item->class, kSecDbUUIDAttr, error);
+    if (attr) {
+        uuidData = SecDbItemGetValue(item, attr, error);
+        if (!uuidData || !isData(uuidData)) {
+            SecDbError(SQLITE_ERROR, error, CFSTR("persistent ref %@ is not a data"), uuidData);
+        }
+    }
+
+    return uuidData;
+}
+                              
+bool SecDbItemSetPersistentRef(SecDbItemRef item, CFDataRef uuidData, CFErrorRef *error) {
+    bool ok = true;
+    const SecDbAttr *attr = SecDbClassAttrWithKind(item->class, kSecDbUUIDAttr, error);
+    if (attr && uuidData) {
+        ok = SecDbItemSetValue(item, attr, uuidData, error);
+    }
+    return ok;
+}
+
+bool SecDbItemClearPersistentRef(SecDbItemRef item, CFErrorRef *error) {
+    bool ok = true;
+    const SecDbAttr *attr = SecDbClassAttrWithKind(item->class, kSecDbUUIDAttr, error);
+    if (attr) {
+        CFDictionaryRemoveValue(item->attributes, attr->name);
+    }
+    return ok;
+}
+
+
 sqlite3_int64 SecDbItemGetRowId(SecDbItemRef item, CFErrorRef *error) {
     sqlite3_int64 row_id = 0;
     const SecDbAttr *attr = SecDbClassAttrWithKind(item->class, kSecDbRowIdAttr, error);
@@ -1346,6 +1381,17 @@ bool SecDbItemIsSyncable(SecDbItemRef item) {
 bool SecDbItemSetSyncable(SecDbItemRef item, bool sync, CFErrorRef *error)
 {
     return SecDbItemSetValue(item, SecDbClassAttrWithKind(item->class, kSecDbSyncAttr, error), sync ? kCFBooleanTrue : kCFBooleanFalse, error);
+}
+
+bool SecDbItemIsPrimaryUserItem(SecDbItemRef item) {
+    CFDataRef musrUUID = SecDbItemGetValue(item, &v8musr, NULL);
+
+    if(musrUUID == NULL) {
+        // Strictly speaking, this is an invalid item. But, we might have items like this from the distant past.
+        return true;
+    }
+
+    return CFEqualSafe(musrUUID, SecMUSRGetSingleUserKeychainUUID());
 }
 
 bool SecDbItemIsTombstone(SecDbItemRef item) {
@@ -1545,10 +1591,73 @@ bool SecDbItemInsertOrReplace(SecDbItemRef item, SecDbConnectionRef dbconn, CFEr
     return ok & SecErrorPropagate(localError, error); // Don't use && here!
 }
 
-bool SecDbItemInsert(SecDbItemRef item, SecDbConnectionRef dbconn, bool always_use_uuid_from_new_item, CFErrorRef *error) {
+// Return the newest object (conflict resolver)
+static SecDbItemRef SecDbItemCopyMergedItem(SecDbItemRef item1, SecDbItemRef item2, CFErrorRef *error) {
+    CFErrorRef localError = NULL;
+    SecDbItemRef result = NULL;
+    CFDateRef m1, m2;
+    const SecDbAttr *desc = SecDbAttrWithKey(SecDbItemGetClass(item1), kSecAttrModificationDate, error);
+    m1 = SecDbItemGetValue(item1, desc, &localError);
+    m2 = SecDbItemGetValue(item2, desc, &localError);
+    if (m1 && m2) switch (CFDateCompare(m1, m2, NULL)) {
+        case kCFCompareGreaterThan:
+            result = item1;
+            break;
+        case kCFCompareLessThan:
+            result = item2;
+            break;
+        case kCFCompareEqualTo:
+        {
+            // Return the item with the smallest digest.
+            CFDataRef digest1 = SecDbItemGetSHA1(item1, &localError);
+            CFDataRef digest2 = SecDbItemGetSHA1(item2, &localError);
+            if (digest1 && digest2) switch (CFDataCompareDERData(digest1, digest2)) {
+                case kCFCompareGreaterThan:
+                case kCFCompareEqualTo:
+                    result = item2;
+                    break;
+                case kCFCompareLessThan:
+                    result = item1;
+                    break;
+            } else if (SecErrorGetOSStatus(localError) == errSecDecode) {
+                if (digest1) result = item1;
+                if (digest2) result = item2;
+            }
+            break;
+        }
+    } else if (SecErrorGetOSStatus(localError) == errSecDecode) {
+        // If one of the two objects has an unparsable date,
+        // the object with the parsable date wins.
+        if (m1) result = item1;
+        if (m2) result = item2;
+    }
+
+    if (localError) {
+        if (!result && error && !*error) {
+            *error = localError;
+        }
+        else {
+            CFReleaseNull(localError);
+        }
+    }
+
+    // Note, we need to preserve the persistent ref from the keychain backup.
+    // so let's copy the persistent ref from item1 into whatever 'replace' ends up becoming
+    if (result && item1) {
+        SecDbForEachAttr(SecDbItemGetClass(result), attr) {
+            if(SecKeychainIsStaticPersistentRefsEnabled() && CFEqualSafe(attr->name, v10itempersistentref.name)) {
+                SecItemPreserveAttribute(result, item1, attr);
+            }
+        }
+    }
+
+    return CFRetainSafe(result);
+}
+
+bool SecDbItemInsert(SecDbItemRef item, SecDbConnectionRef dbconn, bool always_use_uuid_from_new_item, bool always_use_persistentref_from_backup, CFErrorRef *error) {
     return SecDbItemInsertOrReplace(item, dbconn, error, ^(SecDbItemRef old_item, SecDbItemRef *replace) {
         if (SecDbItemIsTombstone(old_item)) {
-            CFRetain(item);
+            CFRetainSafe(item);
             *replace = item;
 
             // If the caller doesn't care about the UUID, then use old_item's UUID
@@ -1557,9 +1666,39 @@ bool SecDbItemInsert(SecDbItemRef item, SecDbConnectionRef dbconn, bool always_u
                 SecDbForEachAttr(SecDbItemGetClass(item), attr) {
                     if(CFEqual(attr->name, v10itemuuid.name)) {
                         SecItemPreserveAttribute(item, old_item, attr);
+                    } else if (SecKeychainIsStaticPersistentRefsEnabled() && CFEqual(attr->name, v10itempersistentref.name)) {
+                        SecItemPreserveAttribute(item, old_item, attr);
                     }
                 }
             }
+        } else if (SecKeychainIsStaticPersistentRefsEnabled() && always_use_persistentref_from_backup && replace && *replace == nil) {
+            //compare Mdat's between item and old_item, and if old_item wins we need to preserve the static persistent ref
+            CFErrorRef mergeError = NULL;
+            SecDbItemRef mergedItem = SecDbItemCopyMergedItem(item, old_item, &mergeError);
+            if (!mergedItem) {
+                secerror("insert: failed to created a merged item: %@", mergeError);
+                //we failed to create a merged object, let's take the one from the backup
+                if (replace) {
+                    secnotice("insert", "failed to create a merged item so we will choose the item from the backup");
+                    *replace = CFRetainSafe(item);
+                }
+                return;
+            }
+            if (replace && mergedItem) {
+                *replace = CFRetainSafe(mergedItem);
+            }
+            if (CFEqualSafe(mergedItem, old_item)) {
+                secnotice("insert", "Conflict resolver chose my (local) item: %@", old_item);
+            } else {
+                if (CFEqualSafe(mergedItem, item)) {
+                    // Conflict resolver chose the backup's item
+                    secnotice("insert", "Conflict resolver chose item from the backup: %@", item);
+                } else {
+                    // Conflict resolver merged the items
+                    secnotice("insert", "Conflict resolver created a new item; return it to our caller: %@", mergedItem);
+                }
+            }
+            CFReleaseSafe(mergedItem);
         }
     });
 }
@@ -1827,6 +1966,11 @@ CFStringRef SecDbItemCopySelectSQL(SecDbQueryRef query,
             SecDbAppendElement(sql, attr->name, &needComma);
     }
 
+    // Append SQL for UUID based persistentRefs
+    if (SecKeychainIsStaticPersistentRefsEnabled() && (query->q_return_type & kSecReturnPersistentRefMask)) {
+        SecDbAppendElement(sql, v10itempersistentref.name, &needComma);
+    }
+
     // From which table?
     CFStringAppend(sql, CFSTR(" FROM "));
     CFStringAppend(sql, query->q_class->name);
@@ -1853,8 +1997,10 @@ CFStringRef SecDbItemCopySelectSQL(SecDbQueryRef query,
         }
     }
     // Append SQL for access groups and limits.
-    if (add_where_sql)
+    if (add_where_sql) {
         add_where_sql(sql, &needWhere);
+    }
+
 
     return sql;
 }
@@ -1918,7 +2064,7 @@ bool SecDbItemSelect(SecDbQueryRef query, SecDbConnectionRef dbconn, CFErrorRef 
     __block bool ok = true;
     if (return_attr == NULL) {
         return_attr = ^bool (const SecDbAttr * attr) {
-            return attr->kind == kSecDbRowIdAttr || attr->kind == kSecDbEncryptedDataAttr || attr->kind == kSecDbSHA1Attr;
+            return attr->kind == kSecDbRowIdAttr || attr->kind == kSecDbEncryptedDataAttr || attr->kind == kSecDbSHA1Attr || (SecKeychainIsStaticPersistentRefsEnabled() ? attr->kind == kSecDbUUIDAttr : 0);
         };
     }
     if (use_attr_in_where == NULL) {

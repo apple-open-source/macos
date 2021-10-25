@@ -951,7 +951,7 @@ static void mbuf_drain_locked(boolean_t);
 	(m)->m_data = (m)->m_ext.ext_buf = (buf);                       \
 	(m)->m_flags |= M_EXT;                                          \
 	m_set_ext((m), (rfa), (free), (arg));                           \
-	(m)->m_ext.ext_size = (size);                                   \
+	(m)->m_ext.ext_size = (u_int)(size);                                   \
 	MEXT_MINREF(m) = (min);                                         \
 	MEXT_REF(m) = (ref);                                            \
 	MEXT_PREF(m) = (pref);                                          \
@@ -3874,7 +3874,7 @@ m_free(struct mbuf *m)
 
 __private_extern__ struct mbuf *
 m_clattach(struct mbuf *m, int type, caddr_t extbuf,
-    void (*extfree)(caddr_t, u_int, caddr_t), u_int extsize, caddr_t extarg,
+    void (*extfree)(caddr_t, u_int, caddr_t), size_t extsize, caddr_t extarg,
     int wait, int pair)
 {
 	struct ext_ref *rfa = NULL;
@@ -4242,6 +4242,7 @@ m_copy_classifier(struct mbuf *to, struct mbuf *from)
 	to->m_pkthdr.pkt_flowsrc = from->m_pkthdr.pkt_flowsrc;
 	to->m_pkthdr.pkt_flowid = from->m_pkthdr.pkt_flowid;
 	to->m_pkthdr.pkt_flags = from->m_pkthdr.pkt_flags;
+	to->m_pkthdr.pkt_ext_flags = from->m_pkthdr.pkt_ext_flags;
 	(void) m_set_service_class(to, from->m_pkthdr.pkt_svc);
 	to->m_pkthdr.pkt_ifainfo  = from->m_pkthdr.pkt_ifainfo;
 }
@@ -6848,6 +6849,10 @@ mbuf_watchdog_defunct(thread_call_param_t arg0, thread_call_param_t arg1)
 	 * Defunct all sockets from this app.
 	 */
 	if (args.top_app != NULL) {
+		/* Restart the watchdog count. */
+		lck_mtx_lock(mbuf_mlock);
+		microuptime(&mb_wdtstart);
+		lck_mtx_unlock(mbuf_mlock);
 		os_log(OS_LOG_DEFAULT, "%s: defuncting all sockets from %s.%d",
 		    __func__,
 		    proc_name_address(args.top_app),
@@ -6898,6 +6903,18 @@ mbuf_watchdog(void)
 	microuptime(&now);
 	since = now.tv_sec - mb_wdtstart.tv_sec;
 
+	if (mbuf_watchdog_defunct_active) {
+		/*
+		 * Don't panic the system while we are trying
+		 * to find sockets to defunct.
+		 */
+		return;
+	}
+	if (since >= MB_WDT_MAXTIME) {
+		panic_plain("%s: %d waiters stuck for %u secs\n%s", __func__,
+		    mb_waiters, since, mbuf_dump());
+		/* NOTREACHED */
+	}
 	/*
 	 * Check if we are about to panic the system due
 	 * to lack of mbufs and start defuncting sockets
@@ -6906,7 +6923,7 @@ mbuf_watchdog(void)
 	 * We're always called with the mbuf_mlock held,
 	 * so that also protects mbuf_watchdog_defunct_active.
 	 */
-	if (since >= MB_WDT_MAXTIME / 2 && !mbuf_watchdog_defunct_active) {
+	if (since >= MB_WDT_MAXTIME / 2) {
 		/*
 		 * Start a thread to defunct sockets
 		 * from apps that are over-using their socket
@@ -6923,11 +6940,6 @@ mbuf_watchdog(void)
 			mbuf_watchdog_defunct_active = true;
 			thread_call_enter(defunct_tcall);
 		}
-	}
-	if (since >= MB_WDT_MAXTIME) {
-		panic_plain("%s: %d waiters stuck for %u secs\n%s", __func__,
-		    mb_waiters, since, mbuf_dump());
-		/* NOTREACHED */
 	}
 }
 
@@ -7596,7 +7608,7 @@ mcl_audit_mcheck_panic(struct mbuf *m)
 	MRANGE(m);
 	mca = mcl_audit_buf2mca(MC_MBUF, (mcache_obj_t *)m);
 
-	panic("mcl_audit: freed mbuf %p with type 0x%x (instead of 0x%x)\n%s\n",
+	panic("mcl_audit: freed mbuf %p with type 0x%x (instead of 0x%x)\n%s",
 	    m, (u_int16_t)m->m_type, MT_FREE, mcache_dump_mca(buf, mca));
 	/* NOTREACHED */
 }
@@ -7670,7 +7682,7 @@ mleak_logger(u_int32_t num, mcache_obj_t *addr, boolean_t alloc)
 
 	if ((temp % mleak_table.mleak_sample_factor) == 0 && addr != NULL) {
 		uintptr_t bt[MLEAK_STACK_DEPTH];
-		int logged = backtrace(bt, MLEAK_STACK_DEPTH, NULL);
+		unsigned int logged = backtrace(bt, MLEAK_STACK_DEPTH, NULL, NULL);
 		mleak_log(bt, addr, logged, num);
 	}
 }
@@ -8222,9 +8234,9 @@ m_reinit(struct mbuf *m, int hdr)
 			    "m_data %llx (expected %llx), "
 			    "m_len %d (expected 0)\n",
 			    __func__,
-			    (uint64_t)VM_KERNEL_ADDRPERM(m),
-			    (uint64_t)VM_KERNEL_ADDRPERM(m->m_data),
-			    (uint64_t)VM_KERNEL_ADDRPERM(m->m_dat), m->m_len);
+			    (uint64_t)VM_KERNEL_ADDRPERM((uintptr_t)m),
+			    (uint64_t)VM_KERNEL_ADDRPERM((uintptr_t)m->m_data),
+			    (uint64_t)VM_KERNEL_ADDRPERM((uintptr_t)(m->m_dat)), m->m_len);
 			ret = EBUSY;
 		} else {
 			VERIFY((m->m_flags & M_EXT) || m->m_data == m->m_dat);
@@ -8825,7 +8837,7 @@ _mbwdog_logger(const char *func, const int line, const char *fmt, ...)
 	len = scnprintf(str, sizeof(str),
 	    "\n%ld.%d (%d/%llx) %s:%d %s",
 	    now.tv_sec, now.tv_usec,
-	    current_proc()->p_pid,
+	    proc_getpid(current_proc()),
 	    (uint64_t)VM_KERNEL_ADDRPERM(current_thread()),
 	    func, line, p);
 	if (len < 0) {
@@ -8862,7 +8874,7 @@ mtracelarge_register(size_t size)
 	uintptr_t bt[MLEAK_STACK_DEPTH];
 	unsigned int depth;
 
-	depth = backtrace(bt, MLEAK_STACK_DEPTH, NULL);
+	depth = backtrace(bt, MLEAK_STACK_DEPTH, NULL, NULL);
 	/* Check if this entry is already on the list. */
 	for (i = 0; i < MTRACELARGE_NUM_TRACES; i++) {
 		trace = &mtracelarge_table[i];

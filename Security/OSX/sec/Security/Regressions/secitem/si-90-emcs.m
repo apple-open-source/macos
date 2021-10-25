@@ -1,5 +1,3 @@
-#define __KEYCHAINCORE__ 1
-
 #include <Foundation/Foundation.h>
 #include <Security/Security.h>
 

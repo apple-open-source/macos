@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2002-2021 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -38,6 +38,8 @@
 #define USE_LEGACYINTS          1
 #endif
 
+class IOPCIHostBridge;
+
 #include <IOKit/pci/IOPCIDevice.h>
 #include <IOKit/IORangeAllocator.h>
 #include <IOKit/IOInterruptController.h>
@@ -45,6 +47,25 @@
 #include <IOKit/IOUserClient.h>
 #include <IOKit/pci/IOPCIConfigurator.h>
 #include <IOKit/IODeviceMemory.h>
+
+enum
+{
+	kIOPCIClassBridge           = 0x06,
+	kIOPCIClassNetwork          = 0x02,
+	kIOPCIClassGraphics         = 0x03,
+	kIOPCIClassMultimedia       = 0x04,
+
+	kIOPCISubClassBridgeHost    = 0x00,
+	kIOPCISubClassBridgeISA     = 0x01,
+	kIOPCISubClassBridgeEISA    = 0x02,
+	kIOPCISubClassBridgeMCA     = 0x03,
+	kIOPCISubClassBridgePCI     = 0x04,
+	kIOPCISubClassBridgePCMCIA  = 0x05,
+	kIOPCISubClassBridgeNuBus   = 0x06,
+	kIOPCISubClassBridgeCardBus = 0x07,
+	kIOPCISubClassBridgeRaceWay = 0x08,
+	kIOPCISubClassBridgeOther   = 0x80,
+};
 
 struct IOPCIDeviceExpansionData
 {
@@ -79,6 +100,8 @@ struct IOPCIDeviceExpansionData
     uint16_t acsCapability;
     uint16_t acsCaps;
 
+    uint16_t ptmCapability;
+
     uint8_t  headerType;
     uint8_t  rootPort;
 
@@ -94,7 +117,7 @@ struct IOPCIDeviceExpansionData
     uint8_t  dead;
     uint8_t  pmHibernated;
 
-	IOLock * lock;
+	IORecursiveLock * lock;
     struct IOPCIConfigEntry * configEntry;
 
 	IOOptionBits sessionOptions;
@@ -113,6 +136,8 @@ struct IOPCIDeviceExpansionData
 
 	IODeviceMemory* deviceMemory[kIOPCIRangeExpansionROM + 1];
 	IOMemoryMap*    deviceMemoryMap[kIOPCIRangeExpansionROM + 1];
+
+	uint8_t       interruptVectorsResolved;
 };
 
 enum
@@ -176,6 +201,9 @@ struct IOPCIConfigSave
 	uint32_t				 savedFPBControl1;    // 0x08
 	uint32_t				 savedFPBControl2;    // 0x0C
 	uint32_t				 savedFPBRIDVector0;   // 0x20
+
+	// ptm save
+	uint32_t				 savedPTMControl;     // 0x08
 };
 
 struct IOPCIConfigShadow
@@ -358,6 +386,7 @@ extern const OSSymbol *           gIOPCIPSMethods[kIOPCIDevicePowerStateCount];
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 #if ACPI_SUPPORT
+void InitSharedBridgeData(void);
 __exported_push
 extern IOReturn IOPCIPlatformInitialize(void);
 extern IOReturn IOPCISetMSIInterrupt(uint32_t vector, uint32_t count, uint32_t * msiData);
@@ -530,6 +559,74 @@ struct IOPCIDiagnosticsParameters
     }                             address;
 };
 typedef struct IOPCIDiagnosticsParameters IOPCIDiagnosticsParameters;
+
+enum {
+    kIOPCIMapperSelectionSystem             = 0,
+    kIOPCIMapperSelectionChanged            = 1 << 0,
+    kIOPCIMapperSelectionDeviceBootArg      = 1 << 1,
+    kIOPCIMapperSelectionBundleBootArg      = 1 << 2,
+    kIOPCIMapperSelectionConfiguratorFlag   = 1 << 3,
+    kIOPCIMapperSelectionBundlePlist        = 1 << 4
+};
+
+__exported_push
+class IOPCIHostBridgeData : public IOService
+{
+    OSDeclareDefaultStructors(IOPCIHostBridgeData);
+public:
+    virtual bool init(void) override;
+    virtual void free(void) override;
+
+    queue_head_t        _allPCIDeviceRestoreQ;
+    uint32_t            _tunnelSleep;
+    uint32_t            _tunnelWait;
+
+    IOWorkLoop *        _configWorkLoop;
+    IOPCIConfigurator * _configurator;
+
+    OSSet *             _waitingPauseSet;
+    OSSet *             _pausedSet;
+    OSSet *             _probeSet;
+
+    IOSimpleLock *      _eventSourceLock;
+    queue_head_t        _eventSourceQueue;
+
+    IOSimpleLock *      _allPCI2PCIBridgesLock;
+    uint32_t            _allPCI2PCIBridgeState;
+    uint64_t            _wakeCount;
+    bool                _isUSBCSystem;
+#if ACPI_SUPPORT
+    bool                _vtdInterruptsInstalled;
+#endif
+
+    void lockWakeReasonLock(void);
+    void unlockWakeReasonLock(void);
+
+    void tunnelSleepIncrement(const char * deviceName, bool increment);
+    void tunnelsWait(IOPCIDevice * device);
+private:
+    IOLock *           _wakeReasonLock;
+
+    IOReturn finishMachineState(IOOptionBits options);
+    static IOReturn systemPowerChange(void * target, void * refCon,
+                                      UInt32 messageType, IOService * service,
+                                      void * messageArgument, vm_size_t argSize);
+};
+
+class IOPCIHostBridge : public IOPCIBridge
+{
+    OSDeclareDefaultStructors(IOPCIHostBridge);
+public:
+    virtual void free(void) override;
+
+    virtual IOService *probe(IOService * provider, SInt32 *score) override;
+    virtual bool configure(IOService * provider) override;
+
+    // Host bridge data is shared, when bridges have shared resources, i.e. PCIe config space (legacy systems).
+    // They must be unique, if bridge has no resources to share (Apple Silicone).
+    IOPCIHostBridgeData *bridgeData;
+};
+__exported_pop
 
 #endif /* ! _IOKIT_IOPCIPRIVATE_H */
 

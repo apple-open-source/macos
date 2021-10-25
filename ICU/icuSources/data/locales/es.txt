@@ -1,5 +1,6 @@
-﻿// © 2016 and later: Unicode, Inc. and others.
-// License & terms of use: http://www.unicode.org/copyright.html#License
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html
+// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
 es{
     AuxExemplarCharacters{"[ª à ă â å ä ã ā æ ç è ĕ ê ë ē ì ĭ î ï ī º ò ŏ ô ö ø ō œ ù ŭ û ū ý ÿ]"}
     Ellipsis{
@@ -215,7 +216,6 @@ es{
         minimumGroupingDigits{"2"}
         native{"latn"}
     }
-    Version{"36.1"}
     calendar{
         buddhist{
             eras{
@@ -728,12 +728,12 @@ es{
         }
         gregorian{
             AmPmMarkers{
-                "a. m.",
-                "p. m.",
+                "a. m.",
+                "p. m.",
             }
             AmPmMarkersAbbr{
-                "a. m.",
-                "p. m.",
+                "a. m.",
+                "p. m.",
             }
             AmPmMarkersNarrow{
                 "a.m.",
@@ -937,30 +937,30 @@ es{
                 stand-alone{
                     abbreviated{
                         afternoon1{"tarde"}
-                        am{"a. m."}
+                        am{"a. m."}
                         morning1{"madrugada"}
                         morning2{"mañana"}
                         night1{"noche"}
                         noon{"mediodía"}
-                        pm{"p. m."}
+                        pm{"p. m."}
                     }
                     narrow{
                         afternoon1{"tarde"}
-                        am{"a. m."}
+                        am{"a.m."}
                         morning1{"madrugada"}
                         morning2{"mañana"}
                         night1{"noche"}
                         noon{"mediodía"}
-                        pm{"p. m."}
+                        pm{"p.m."}
                     }
                     wide{
                         afternoon1{"tarde"}
-                        am{"a. m."}
+                        am{"a. m."}
                         morning1{"madrugada"}
                         morning2{"mañana"}
                         night1{"noche"}
                         noon{"mediodía"}
-                        pm{"p. m."}
+                        pm{"p. m."}
                     }
                 }
             }
@@ -1594,6 +1594,59 @@ es{
                         "dhuʻl-hijjah",
                     }
                 }
+            }
+        }
+        japanese{
+            DateTimePatterns{
+                "H:mm:ss (zzzz)",
+                "H:mm:ss z",
+                "H:mm:ss",
+                "H:mm",
+                "EEEE, d 'de' MMMM 'de' G y",
+                "d 'de' MMMM 'de' G y",
+                "d/M/G y",
+                "d/M/yy G",
+                "{1} {0}",
+                "{1}, {0}",
+                "{1}, {0}",
+                "{1} {0}",
+                "{1} {0}",
+            }
+            availableFormats{
+                Ed{"E d"}
+                Gy{"G y"}
+                GyMMM{"MMM G y"}
+                GyMMMEd{"E, d MMM G y"}
+                GyMMMM{"MMMM 'de' G y"}
+                GyMMMMEd{"E, d 'de' MMMM 'de' G y"}
+                GyMMMMd{"d 'de' MMMM 'de' G y"}
+                GyMMMd{"d MMM G y"}
+                H{"HH"}
+                Hm{"HH:mm"}
+                Hms{"HH:mm:ss"}
+                MEd{"E, d/M"}
+                MMMEd{"E, d MMM"}
+                MMMMEd{"E, d 'de' MMMM"}
+                MMMMd{"d 'de' MMMM"}
+                MMMd{"d MMM"}
+                Md{"d/M"}
+                h{"h a"}
+                hm{"h:mm a"}
+                hms{"h:mm:ss a"}
+                ms{"mm:ss"}
+                y{"G y"}
+                yyyy{"G y"}
+                yyyyM{"M/GGGGGy"}
+                yyyyMEd{"E, d/M/GGGGGy"}
+                yyyyMMM{"MMM G y"}
+                yyyyMMMEd{"EEE, d MMM G y"}
+                yyyyMMMM{"MMMM 'de' G y"}
+                yyyyMMMMEd{"EEE, d 'de' MMMM 'de' G y"}
+                yyyyMMMMd{"d 'de' MMMM 'de' G y"}
+                yyyyMMMd{"d MMM G y"}
+                yyyyMd{"d/M/GGGGGy"}
+                yyyyQQQ{"QQQ G y"}
+                yyyyQQQQ{"QQQQ 'de' G y"}
             }
         }
         persian{

@@ -260,6 +260,9 @@
 		E4F449CA1E82D03500A7FB9A /* spinlock_private.h in Headers */ = {isa = PBXBuildFile; fileRef = C9A325F715B7513200270056 /* spinlock_private.h */; };
 		E4F449CB1E82D03500A7FB9A /* workqueue_private.h in Headers */ = {isa = PBXBuildFile; fileRef = C9A325F915B7513200270056 /* workqueue_private.h */; };
 		E4F449CC1E82D03500A7FB9A /* private.h in Headers */ = {isa = PBXBuildFile; fileRef = C9153095167ACC22006BB094 /* private.h */; };
+		F7329B6A2627BD6F00329091 /* workgroup_private.h in Headers */ = {isa = PBXBuildFile; fileRef = F7329B692627BD6F00329091 /* workgroup_private.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		F7329B6B2627BD6F00329091 /* workgroup_private.h in Headers */ = {isa = PBXBuildFile; fileRef = F7329B692627BD6F00329091 /* workgroup_private.h */; };
+		F7329B6C2627BD6F00329091 /* workgroup_private.h in Headers */ = {isa = PBXBuildFile; fileRef = F7329B692627BD6F00329091 /* workgroup_private.h */; };
 		F744601D25E8C35C00ED1ED9 /* jit_private.h in Headers */ = {isa = PBXBuildFile; fileRef = F744601C25E8C34900ED1ED9 /* jit_private.h */; settings = {ATTRIBUTES = (Private, ); }; };
 /* End PBXBuildFile section */
 
@@ -492,6 +495,7 @@
 		E4F449A01E82C1F000A7FB9A /* libpthread_armv81.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libpthread_armv81.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		E4F449A31E82CF0100A7FB9A /* resolver.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = resolver.xcconfig; sourceTree = "<group>"; };
 		E4F449D41E82D03500A7FB9A /* libsystem_pthread.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libsystem_pthread.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
+		F7329B692627BD6F00329091 /* workgroup_private.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = workgroup_private.h; sourceTree = "<group>"; };
 		F744601C25E8C34900ED1ED9 /* jit_private.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = jit_private.h; sourceTree = "<group>"; };
 		FC30E28D16A747AD00A25B5F /* synch_internal.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = synch_internal.h; sourceTree = "<group>"; };
 		FC5A372417CEB3D6008C323E /* _pthread_attr_t.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = _pthread_attr_t.h; sourceTree = "<group>"; };
@@ -565,6 +569,7 @@
 		6E8C8C2E22BDC9DE00136359 /* pthread */ = {
 			isa = PBXGroup;
 			children = (
+				F7329B692627BD6F00329091 /* workgroup_private.h */,
 				F744601C25E8C34900ED1ED9 /* jit_private.h */,
 				6E5869C620C8FE8300F1CB75 /* dependency_private.h */,
 				E4657D4017284F7B007D1847 /* introspection_private.h */,
@@ -880,6 +885,7 @@
 				6E8C16781B14F08A00C8987C /* private.h in Headers */,
 				6ED6E66522BFF81F00CE82C2 /* inline_internal.h in Headers */,
 				6E8C16691B14F08A00C8987C /* qos.h in Headers */,
+				F7329B6C2627BD6F00329091 /* workgroup_private.h in Headers */,
 				6E8C166A1B14F08A00C8987C /* pthread.h in Headers */,
 				6E8C166B1B14F08A00C8987C /* pthread_impl.h in Headers */,
 				6E8C166D1B14F08A00C8987C /* pthread_spis.h in Headers */,
@@ -932,6 +938,7 @@
 				C9BB478D15E6ADF700F135B7 /* tsd_private.h in Headers */,
 				6ED6E66122BFF81D00CE82C2 /* inline_internal.h in Headers */,
 				C99AD87B15DEC4BC0009A6F8 /* posix_sched.h in Headers */,
+				F7329B6A2627BD6F00329091 /* workgroup_private.h in Headers */,
 				F744601D25E8C35C00ED1ED9 /* jit_private.h in Headers */,
 				C9CCFB9D18B6D0910060CAAE /* qos_private.h in Headers */,
 				C98C95D918FF1F4E005654FB /* spawn.h in Headers */,
@@ -971,6 +978,7 @@
 				E4F449C61E82D03500A7FB9A /* tsd_private.h in Headers */,
 				6ED6E66322BFF81E00CE82C2 /* inline_internal.h in Headers */,
 				E4F449C71E82D03500A7FB9A /* posix_sched.h in Headers */,
+				F7329B6B2627BD6F00329091 /* workgroup_private.h in Headers */,
 				E4F449C81E82D03500A7FB9A /* qos_private.h in Headers */,
 				E4F449C91E82D03500A7FB9A /* spawn.h in Headers */,
 				E4F449CA1E82D03500A7FB9A /* spinlock_private.h in Headers */,
@@ -1285,9 +1293,12 @@
 			files = (
 			);
 			inputPaths = (
+				"$(SRCROOT)/lldbmacros/init.py",
 			);
 			name = "Install lldbmacros";
 			outputPaths = (
+				"$(DWARF_DSYM_FOLDER_PATH)/$(DWARF_DSYM_FILE_NAME)/Contents/Resources/Python/init.py",
+				"$(DWARF_DSYM_FOLDER_PATH)/$(DWARF_DSYM_FILE_NAME)/Contents/Resources/Python/pthread.py",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = "/bin/bash -e -x";

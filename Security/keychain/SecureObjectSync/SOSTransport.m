@@ -8,11 +8,14 @@
 #include "keychain/SecureObjectSync/SOSTransportMessageKVS.h"
 #include "keychain/SecureObjectSync/SOSTransportMessage.h"
 #include "keychain/SecureObjectSync/SOSRing.h"
+#include <keychain/SecureObjectSync/SOSDictionaryUpdate.h>
+
 
 #include "keychain/SecureObjectSync/CKBridge/SOSCloudKeychainClient.h"
 #include <utilities/debugging.h>
 #include <utilities/SecCFWrappers.h>
 #include <CoreFoundation/CFBase.h>
+
 
 CFStringRef kKeyParameter = CFSTR("KeyParameter");
 CFStringRef kCircle = CFSTR("Circle");
@@ -101,14 +104,18 @@ void SOSUnregisterAllTransportKeyParameters() {
 //
 // Should we be dispatching back to our queue to handle later
 //
-
-
 void SOSUpdateKeyInterest(SOSAccount* account)
 {
     CFMutableArrayRef alwaysKeys = CFArrayCreateMutableForCFTypes(kCFAllocatorDefault);
     CFMutableArrayRef afterFirstUnlockKeys = CFArrayCreateMutableForCFTypes(kCFAllocatorDefault);
     CFMutableArrayRef whenUnlockedKeys = CFArrayCreateMutableForCFTypes(kCFAllocatorDefault);
     CFMutableDictionaryRef keyDict = CFDictionaryCreateMutableForCFTypes (kCFAllocatorDefault);
+    static SOSDictionaryUpdate *keyDictStatus = NULL;
+    static dispatch_once_t onceToken;
+    
+    dispatch_once(&onceToken, ^{
+        keyDictStatus = [SOSDictionaryUpdate new];
+    });
 
     NSMutableArray *temp = (__bridge NSMutableArray *)(SOSGetTransportKeyParameters());
 
@@ -119,10 +126,11 @@ void SOSUpdateKeyInterest(SOSAccount* account)
             CFErrorRef localError = NULL;
 
             if (![tkvs SOSTransportKeyParameterKVSAppendKeyInterests:tkvs ak:alwaysKeys firstUnLock:afterFirstUnlockKeys unlocked:whenUnlockedKeys err:&localError]) {
-                secerror("Error getting key parameters interests %@", localError);
+                secnotice("key-interests", "Error getting key parameters interests %@", localError);
             }
             CFReleaseNull(localError);
         }
+
     }];
     
     CFMutableDictionaryRef keyParamsDict = CFDictionaryCreateMutableForCFTypes(kCFAllocatorDefault);
@@ -145,13 +153,13 @@ void SOSUpdateKeyInterest(SOSAccount* account)
             CFErrorRef localError = NULL;
 
             if(! [tkvs kvsAppendKeyInterest:alwaysKeys firstUnlock:afterFirstUnlockKeys unlocked:whenUnlockedKeys err:&localError]){
-                secerror("Error getting circle interests %@", localError);
+                secnotice("key-interests", "Error getting circle interests %@", localError);
             }
             if(![tkvs kvsAppendRingKeyInterest:alwaysKeys firstUnlock:afterFirstUnlockKeys unlocked:whenUnlockedKeys err:&localError]){
-                secerror("Error getting ring interests %@", localError);
+                secnotice("key-interests", "Error getting ring interests %@", localError);
             }
             if(![tkvs kvsAppendDebugKeyInterest:alwaysKeys firstUnlock:afterFirstUnlockKeys unlocked:whenUnlockedKeys err:&localError]) {
-                secerror("Error getting debug key interests %@", localError);
+                secnotice("key-interests", "Error getting debug key interests %@", localError);
             }
             
             CFReleaseNull(localError);
@@ -177,7 +185,7 @@ void SOSUpdateKeyInterest(SOSAccount* account)
             CFErrorRef localError = NULL;
             SOSMessageKVS* tks = (__bridge SOSMessageKVS*)value;
             if(![tks SOSTransportMessageKVSAppendKeyInterest:tks ak:alwaysKeys firstUnlock:afterFirstUnlockKeys unlocked:whenUnlockedKeys err:&localError]){
-                secerror("Error getting message interests %@", localError);
+                secnotice("key-interests", "Error getting message interests %@", localError);
             }
             CFReleaseNull(localError);
         }
@@ -188,33 +196,42 @@ void SOSUpdateKeyInterest(SOSAccount* account)
     CFDictionarySetValue(messageDict, kFirstUnlocked, afterFirstUnlockKeys);
     CFDictionarySetValue(messageDict, kUnlocked, whenUnlockedKeys);
     CFDictionarySetValue(keyDict, kMessage, messageDict);
-    
-    //
-    // Log what we are about to do.
-    //
-    NSUInteger itemCount = 0;
-    for (NSString *subsystem in @[(__bridge id)kMessage, (__bridge id)kCircle, (__bridge id)kKeyParameter]) {
-        secnotice("key-interests", "Updating interests: %@", subsystem);
-        for (NSString *lockState in @[(__bridge id)kAlwaysKeys, (__bridge id)kFirstUnlocked, (__bridge id)kUnlocked]) {
-            NSArray *items = ((__bridge NSDictionary *)keyDict)[subsystem][lockState];
-            itemCount += items.count;
-            for (NSString *item in items) {
-                secnotice("key-interests", " key-intrest: %@->%@: %@", subsystem, lockState, item);
+
+    bool pushInterests = [keyDictStatus hasChanged:keyDict];
+
+    secnotice("key-interests", "Calculating interests done: %s", pushInterests ? "Registering with CKP": "No Change, Ignoring");
+
+    if(pushInterests) {
+        //
+        // Log what we are about to do.
+        //
+        NSUInteger itemCount = 0;
+        for (NSString *subsystem in @[(__bridge id)kMessage, (__bridge id)kCircle, (__bridge id)kKeyParameter]) {
+            secnotice("key-interests", "Updating interests: %@", subsystem);
+            for (NSString *lockState in @[(__bridge id)kAlwaysKeys, (__bridge id)kFirstUnlocked, (__bridge id)kUnlocked]) {
+                NSArray *items = ((__bridge NSDictionary *)keyDict)[subsystem][lockState];
+                itemCount += items.count;
+                for (NSString *item in items) {
+                    secnotice("key-interests", " key-intrest: %@->%@: %@", subsystem, lockState, item);
+                }
             }
         }
-    }
-    secnotice("key-interests", "Updating interests done: %lu", (unsigned long)itemCount);
+        secnotice("key-interests", "Pushing %lu interests to CKP", (unsigned long)itemCount);
 
-    CFStringRef uuid = SOSAccountCopyUUID(account);
-    SOSCloudKeychainUpdateKeys(keyDict, uuid, dispatch_get_global_queue(SOS_TRANSPORT_PRIORITY, 0), ^(CFDictionaryRef returnedValues, CFErrorRef error) {
-        if (error) {
-            secerror("Error updating keys: %@", error);
-            account.key_interests_need_updating = true;
-        } else {
-            account.key_interests_need_updating = false;
-        }
-    });
-    CFReleaseNull(uuid);
+        CFStringRef uuid = SOSAccountCopyUUID(account);
+        SOSCloudKeychainUpdateKeys(keyDict, uuid, dispatch_get_global_queue(SOS_TRANSPORT_PRIORITY, 0), ^(CFDictionaryRef returnedValues, CFErrorRef error) {
+            if (error) {
+                secnotice("key-interests", "Error updating keys: %@", error);
+                account.key_interests_need_updating = true;
+                [keyDictStatus reset];
+            } else {
+                account.key_interests_need_updating = false;
+            }
+        });
+        CFReleaseNull(uuid);
+    } else { // no change detected, no failure, so no need to retry
+        account.key_interests_need_updating = false;
+    }
 
     CFReleaseNull(alwaysKeys);
     CFReleaseNull(afterFirstUnlockKeys);
@@ -250,6 +267,14 @@ static void showWhatWasHandled(CFDictionaryRef updates, CFMutableArrayRef handle
 
 #define KVS_STATE_INTERVAL 50
 
+static bool sosDisabledRingException(CFStringRef ringName) {
+    bool retval = false;
+    if(CFEqual(ringName, CFSTR("iCloudIdentity-tomb")) || CFEqual(ringName, CFSTR("PCS-MasterKey-tomb")) || CFEqual(ringName, kSOSRecoveryRing)) {
+        retval = true;
+    }
+    return retval;
+}
+
 CF_RETURNS_RETAINED
 CFMutableArrayRef SOSTransportDispatchMessages(SOSAccountTransaction* txn, CFDictionaryRef updates, CFErrorRef *error){
     __block SOSAccount* account = txn.account;
@@ -277,13 +302,13 @@ CFMutableArrayRef SOSTransportDispatchMessages(SOSAccountTransaction* txn, CFDic
             CFStringRef accountDSID = (CFStringRef)SOSAccountGetValue(account, kSOSDSIDKey, error);
             
             if(accountDSID == NULL){
+                secnotice("dsid", "Setting account to new because a new DSID is in KVS");
                 [tempTransport SOSTransportKeyParameterHandleNewAccount:tempTransport acct:account];
                 SOSAccountSetValue(account, kSOSDSIDKey, dsid, error);
-                secdebug("dsid", "Assigning new DSID: %@", dsid);
             } else if(accountDSID != NULL && CFStringCompare(accountDSID, dsid, 0) != 0 ) {
+                secnotice("dsid", "Setting account to new because a new DSID is in KVS");
                 [tempTransport SOSTransportKeyParameterHandleNewAccount:tempTransport acct:account];
                 SOSAccountSetValue(account, kSOSDSIDKey, dsid, error);
-                secdebug("dsid", "Assigning new DSID: %@", dsid);
             } else {
                 secdebug("dsid", "DSIDs are the same!");
             }
@@ -308,6 +333,7 @@ CFMutableArrayRef SOSTransportDispatchMessages(SOSAccountTransaction* txn, CFDic
     __block CFDataRef newParameters = NULL;
     __block bool initial_sync = false;
     __block bool new_account = false;
+    bool sosIsEnabled = [account sosIsEnabled];
     
     CFDictionaryForEach(updates, ^(const void *key, const void *value) {
         CFStringRef circle_name = NULL;
@@ -318,12 +344,16 @@ CFMutableArrayRef SOSTransportDispatchMessages(SOSAccountTransaction* txn, CFDic
         CFStringRef backup_name = NULL;
         
         require_quiet(isString(key), errOut);
+        
+        // if SOS is disabled only listen for account change, key parameter and circle changes. and recovery ring and icloud identity ring
         switch (SOSKVSKeyGetKeyTypeAndParse(key, &circle_name, &peer_info_name, &ring_name, &backup_name, &from_name, &to_name)) {
             case kCircleKey:
                 CFDictionarySetValue(circle_circle_messages_table, circle_name, value);
                 break;
             case kInitialSyncKey:
-                initial_sync = true;
+                if(sosIsEnabled) {
+                    initial_sync = true;
+                }
                 break;
             case kParametersKey:
                 if (isData(value)) {
@@ -331,24 +361,33 @@ CFMutableArrayRef SOSTransportDispatchMessages(SOSAccountTransaction* txn, CFDic
                 }
                 break;
             case kMessageKey: {
-                CFMutableDictionaryRef circle_messages = CFDictionaryEnsureCFDictionaryAndGetCurrentValue(circle_peer_messages_table, circle_name);
-                CFDictionarySetValue(circle_messages, from_name, value);
+                if(sosIsEnabled) {
+                    CFMutableDictionaryRef circle_messages = CFDictionaryEnsureCFDictionaryAndGetCurrentValue(circle_peer_messages_table, circle_name);
+                    CFDictionarySetValue(circle_messages, from_name, value);
+                }
                 break;
             }
             case kRetirementKey: {
-                CFMutableDictionaryRef circle_retirements = CFDictionaryEnsureCFDictionaryAndGetCurrentValue(circle_retirement_messages_table, circle_name);
-                CFDictionarySetValue(circle_retirements, from_name, value);
+                if(sosIsEnabled) {
+                    CFMutableDictionaryRef circle_retirements = CFDictionaryEnsureCFDictionaryAndGetCurrentValue(circle_retirement_messages_table, circle_name);
+                    CFDictionarySetValue(circle_retirements, from_name, value);
+                }
                 break;
             }
             case kAccountChangedKey:
                 new_account = true;
                 break;
             case kRingKey:
-                if(isString(ring_name))
-                    CFDictionarySetValue(ring_update_message_table, ring_name, value);
+                if(isString(ring_name)) {
+                    if(sosIsEnabled || sosDisabledRingException(ring_name)) { // listen for recovery ring and icloud identity ring
+                        CFDictionarySetValue(ring_update_message_table, ring_name, value);
+                    }
+                }
                 break;
             case kDebugInfoKey:
-                CFDictionarySetValue(debug_info_message_table, peer_info_name, value);
+                if(sosIsEnabled) {
+                    CFDictionarySetValue(debug_info_message_table, peer_info_name, value);
+                }
                 break;
             case kLastCircleKey:
             case kLastKeyParameterKey:

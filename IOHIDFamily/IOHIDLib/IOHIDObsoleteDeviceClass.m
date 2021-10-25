@@ -27,7 +27,6 @@
 #import "IOHIDQueueClass.h"
 #import "HIDLibElement.h"
 #import <IOKit/hid/IOHIDLibPrivate.h>
-#import "IOHIDDebug.h"
 #import <AssertMacros.h>
 #import "IOHIDTransactionClass.h"
 
@@ -195,11 +194,13 @@ static IOReturn _getElementValue(void *iunknown,
         return kIOReturnBadArgument;
     }
     
-    IOReturn ret = kIOReturnError;
+    IOReturn ret = kIOReturnBadArgument;
     IOHIDElementRef elementRef = [super getElement:(uint32_t)elementCookie];
     HIDLibElement *element;
     IOHIDValueRef value;
     uint32_t length;
+
+    require(elementRef, exit);
     
     ret = [super getValue:elementRef
                     value:&value
@@ -516,7 +517,7 @@ static IOReturn _setInterruptReportHandlerCallback(void *iunknown,
         .setInterruptReportHandlerCallback = _setInterruptReportHandlerCallback
     };
     
-    _notifyPort = IONotificationPortCreate(kIOMasterPortDefault);
+    _notifyPort = IONotificationPortCreate(kIOMainPortDefault);
     IONotificationPortSetDispatchQueue(_notifyPort, dispatch_get_main_queue());
     
     return self;

@@ -48,7 +48,7 @@ posix_openpt(int flags)
 /*
  * grantpt call for cloning pty implementation.
  *
- * Change UID and GID of slave pty associated with master pty whose
+ * Change UID and GID of replica pty associated with primary pty whose
  * fd is provided, to the real UID and real GID of the calling thread.
  */
 int
@@ -137,7 +137,7 @@ ptsname_r(int fd, char *buffer, size_t buflen)
 /*
  * unlockpt call for cloning pty implementation.
  *
- * Unlock the slave pty associated with the master to which fd refers.
+ * Unlock the replica pty associated with the primary to which fd refers.
  */
 int
 unlockpt(int fd)

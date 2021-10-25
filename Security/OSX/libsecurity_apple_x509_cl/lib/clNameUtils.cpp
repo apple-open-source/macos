@@ -124,12 +124,12 @@ void CL_cssmRdnToNss(
 	/* alloc NULL-terminated array of ATV pointers */
 	unsigned numAtvs = cssmObj.numberOfPairs;
 	unsigned size = (numAtvs + 1) * sizeof(void *);
-	nssObj.atvs = (NSS_ATV **)coder.malloc(size);
+	nssObj.atvs = (NSS_ATV **)coder.alloc(size);
 	memset(nssObj.atvs, 0, size);
 	
 	/* grind thru the elements */
 	for(unsigned atvDex=0; atvDex<numAtvs; atvDex++) {
-		nssObj.atvs[atvDex] = (NSS_ATV *)coder.malloc(sizeof(NSS_ATV));
+		nssObj.atvs[atvDex] = (NSS_ATV *)coder.alloc(sizeof(NSS_ATV));
 		CL_cssmAtvToNss(cssmObj.AttributeTypeAndValue[atvDex],
 			*nssObj.atvs[atvDex], coder);
 	}
@@ -149,7 +149,7 @@ void CL_cssmNameToNss(
 	
 	/* grind thru the elements */
 	for(unsigned rdnDex=0; rdnDex<numRdns; rdnDex++) {
-		nssObj.rdns[rdnDex] = (NSS_RDN *)coder.malloc(sizeof(NSS_RDN));
+		nssObj.rdns[rdnDex] = (NSS_RDN *)coder.alloc(sizeof(NSS_RDN));
 		CL_cssmRdnToNss(cssmObj.RelativeDistinguishedName[rdnDex],
 			*nssObj.rdns[rdnDex], coder);
 	}
@@ -304,7 +304,7 @@ void CL_nssGeneralNameToCssm(
 			
 			/* decode to coder memory */
 			CE_OtherName *nssOther = 
-				(CE_OtherName *)coder.malloc(sizeof(CE_OtherName));
+				(CE_OtherName *)coder.alloc(sizeof(CE_OtherName));
 			memset(nssOther, 0, sizeof(CE_OtherName));
 			prtn = coder.decodeItem(nssObj.item, 
 				kSecAsn1GenNameOtherNameTemplate, 
@@ -337,7 +337,7 @@ void CL_nssGeneralNameToCssm(
 			cdsaTag = GNT_DirectoryName;
 			
 			/* Decode to coder memory */
-			NSS_Name *nssName = (NSS_Name *)coder.malloc(sizeof(NSS_Name));
+			NSS_Name *nssName = (NSS_Name *)coder.alloc(sizeof(NSS_Name));
 			memset(nssName, 0, sizeof(NSS_Name));
 			prtn = coder.decodeItem(nssObj.item, kSecAsn1NameTemplate, nssName);
 			if(prtn) {
@@ -393,26 +393,23 @@ void CL_nssGeneralNamesToCssm(
 	/*
 	 * Decode each name element, currently a raw ASN_ANY blob.
 	 * Then convert each result into CDSA form.
-	 * This array of (NSS_GeneralName)s is temporary, it doesn't
-	 * persist outside of this routine other than the fact that it's
-	 * mallocd by the coder arena pool. 
 	 */
-	NSS_GeneralName *names = 
-		(NSS_GeneralName *)coder.malloc(sizeof(NSS_GeneralName) * numNames);
-	memset(names, 0, sizeof(NSS_GeneralName) * numNames);
+	NSS_GeneralName *name =
+		(NSS_GeneralName *)coder.alloc(sizeof(NSS_GeneralName));
 	cdsaObj.generalName = (CE_GeneralName *)alloc.malloc(
 		sizeof(CE_GeneralName) * numNames);
 	cdsaObj.numNames = numNames;
 	
 	for(unsigned dex=0; dex<numNames; dex++) {
+		memset(name, 0, sizeof(NSS_GeneralName));
 		if(coder.decodeItem(*nssObj.names[dex], kSecAsn1GeneralNameTemplate,
-				&names[dex])) {
+				name)) {
 			clErrorLog("***CL_nssGeneralNamesToCssm: Error decoding "
 				"General.name\n");
 			CssmError::throwMe(CSSMERR_CL_UNKNOWN_FORMAT);
 		}
 		
-		CL_nssGeneralNameToCssm(names[dex],
+		CL_nssGeneralNameToCssm(*name,
 			cdsaObj.generalName[dex],
 			coder, alloc);
 	}
@@ -556,20 +553,16 @@ void CL_cssmGeneralNamesToNss(
 	/* 
 	 * Convert each element in cdsaObj to NSS form, encode, drop into
 	 * the ASN_ANY array.
-	 *
-	 * This array of (NSS_GeneralName)s is temporary, it doesn't
-	 * persist outside of this routine other than the fact that it's
-	 * mallocd by the coder arena pool. 
 	 */
-	NSS_GeneralName *names = 
-		(NSS_GeneralName *)coder.malloc(sizeof(NSS_GeneralName) * numNames);
-	memset(names, 0, sizeof(NSS_GeneralName) * numNames);
+	NSS_GeneralName *name =
+		(NSS_GeneralName *)coder.alloc(sizeof(NSS_GeneralName));
 	for(unsigned dex=0; dex<cdsaObj.numNames; dex++) {
-		nssObj.names[dex] = (CSSM_DATA_PTR)coder.malloc(sizeof(CSSM_DATA));
+		memset(name, 0, sizeof(NSS_GeneralName));
+		nssObj.names[dex] = (CSSM_DATA_PTR)coder.alloc(sizeof(CSSM_DATA));
 		memset(nssObj.names[dex], 0, sizeof(CSSM_DATA));
 		CL_cssmGeneralNameToNss(cdsaObj.generalName[dex],
-			names[dex], coder);
-		if(coder.encodeItem(&names[dex], kSecAsn1GeneralNameTemplate,
+			*name, coder);
+		if(coder.encodeItem(name, kSecAsn1GeneralNameTemplate,
 				*nssObj.names[dex])) {
 			clErrorLog("***Error encoding General.name\n");
 			CssmError::throwMe(CSSMERR_CL_MEMORY_ERROR);

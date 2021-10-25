@@ -239,7 +239,7 @@ static const char *dso_load(cmd_parms *cmd, apr_dso_handle_t **modhandlep,
         ap_log_perror(APLOG_MARK, APLOG_WARNING, 0, cmd->pool, APLOGNO(06660)
                 "csops for CS_OPS_SET_STATUS failed; may not be able to manage code signatures.");
     *used_filename = fullname;
-    if (apr_dso_load(modhandlep, fullname, cmd->pool) == APR_SUCCESS) {
+    if (fullname && apr_dso_load(modhandlep, fullname, cmd->pool) == APR_SUCCESS) {
         return NULL;
     }
     if (retry) {
@@ -261,28 +261,30 @@ static const char *dso_load(cmd_parms *cmd, apr_dso_handle_t **modhandlep,
                  *used_filename, authority_name);
         }
         else {
-            ap_log_perror(APLOG_MARK, APLOG_WARNING, 0, cmd->pool, APLOGNO(06663)
+            ap_log_perror(APLOG_MARK, APLOG_ERR, 0, cmd->pool, APLOGNO(06663)
                 "Unable to find code signature authority on module at %s that matches authority "
-                "name \"%s\" configured on LoadModule directive. Proceeding with loading "
-                "process, but this will be an error condition in a future version of macOS.",
+                "name \"%s\" configured on LoadModule directive.",
                  *used_filename, authority_name);
+            return apr_psprintf(cmd->temp_pool, "Code signing error - not loading module at: %s",
+                            *used_filename);
         }
     }
     else {
-               ap_log_perror(APLOG_MARK, APLOG_WARNING, 0, cmd->pool, APLOGNO(06665)
+        ap_log_perror(APLOG_MARK, APLOG_ERR, 0, cmd->pool, APLOGNO(06665)
                        "No code signing authority for module at %s specified in LoadModule "
-                       "directive. Proceeding with loading process, but this will be an "
-                       "error condition in a future version of macOS.",
+                       "directive.",
                        *used_filename);
-    }
-       if (csops(getpid(), CS_OPS_CLEAR_LV, NULL, 0))
-               ap_log_perror(APLOG_MARK, APLOG_WARNING, 0, cmd->pool, APLOGNO(06666)
-                       "csops for CS_OPS_CLEAR_LV failed; httpd has unexpected entitlements and "
-                       "may not be able to load custom modules.");
-       if (apr_dso_load(modhandlep, *used_filename, cmd->pool) == APR_SUCCESS) {
-               return NULL;
-       }
-       // Failure to load not related to code signing.
+        return apr_psprintf(cmd->temp_pool, "Code signing absent - not loading module at: %s",
+                            *used_filename);
+	}
+	if (csops(getpid(), CS_OPS_CLEAR_LV, NULL, 0))
+		ap_log_perror(APLOG_MARK, APLOG_WARNING, 0, cmd->pool, APLOGNO(06666)
+				   "csops for CS_OPS_CLEAR_LV failed; httpd has unexpected entitlements and "
+				   "may not be able to load custom modules.");
+	if (apr_dso_load(modhandlep, *used_filename, cmd->pool) == APR_SUCCESS) {
+		return NULL;
+	}
+	// Failure to load not related to code signing.
     return apr_pstrcat(cmd->temp_pool, "Cannot load ", filename,
                         " into server: ",
                         apr_dso_error(*modhandlep, my_error, sizeof(my_error)),

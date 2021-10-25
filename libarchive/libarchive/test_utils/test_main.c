@@ -172,6 +172,32 @@ static int	 my_CreateHardLinkA(const char *, const char *);
 static int	 my_GetFileInformationByName(const char *,
 		     BY_HANDLE_FILE_INFORMATION *);
 
+typedef struct _REPARSE_DATA_BUFFER {
+	ULONG	ReparseTag;
+	USHORT ReparseDataLength;
+	USHORT	Reserved;
+	union {
+		struct {
+			USHORT	SubstituteNameOffset;
+			USHORT	SubstituteNameLength;
+			USHORT	PrintNameOffset;
+			USHORT	PrintNameLength;
+			ULONG	Flags;
+			WCHAR	PathBuffer[1];
+		} SymbolicLinkReparseBuffer;
+		struct {
+			USHORT	SubstituteNameOffset;
+			USHORT	SubstituteNameLength;
+			USHORT	PrintNameOffset;
+			USHORT	PrintNameLength;
+			WCHAR	PathBuffer[1];
+		} MountPointReparseBuffer;
+		struct {
+			UCHAR	DataBuffer[1];
+		} GenericReparseBuffer;
+	} DUMMYUNIONNAME;
+} REPARSE_DATA_BUFFER, *PREPARSE_DATA_BUFFER;
+
 static void *
 GetFunctionKernel32(const char *name)
 {
@@ -189,15 +215,101 @@ GetFunctionKernel32(const char *name)
 }
 
 static int
-my_CreateSymbolicLinkA(const char *linkname, const char *target, int flags)
+my_CreateSymbolicLinkA(const char *linkname, const char *target,
+    int targetIsDir)
 {
 	static BOOLEAN (WINAPI *f)(LPCSTR, LPCSTR, DWORD);
+	DWORD attrs;
 	static int set;
+	int ret, tmpflags, llen, tlen;
+	int flags = 0;
+	char *src, *tgt, *p;
 	if (!set) {
 		set = 1;
 		f = GetFunctionKernel32("CreateSymbolicLinkA");
 	}
-	return f == NULL ? 0 : (*f)(linkname, target, flags);
+	if (f == NULL)
+		return (0);
+
+	tlen = strlen(target);
+	llen = strlen(linkname);
+
+	if (tlen == 0 || llen == 0)
+		return (0);
+
+	tgt = malloc((tlen + 1) * sizeof(char));
+	if (tgt == NULL)
+		return (0);
+	src = malloc((llen + 1) * sizeof(char));
+	if (src == NULL) {
+		free(tgt);
+		return (0);
+	}
+
+	/*
+	 * Translate slashes to backslashes
+	 */
+	p = src;
+	while(*linkname != '\0') {
+		if (*linkname == '/')
+			*p = '\\';
+		else
+			*p = *linkname;
+		linkname++;
+		p++;
+	}
+	*p = '\0';
+
+	p = tgt;
+	while(*target != '\0') {
+		if (*target == '/')
+			*p = '\\';
+		else
+			*p = *target;
+		target++;
+		p++;
+	}
+	*p = '\0';
+
+	/*
+	 * Each test has to specify if a file or a directory symlink
+	 * should be created.
+	 */
+	if (targetIsDir) {
+#if defined(SYMBOLIC_LINK_FLAG_DIRECTORY)
+		flags |= SYMBOLIC_LINK_FLAG_DIRECTORY;
+#else
+		flags |= 0x1;
+#endif
+	}
+
+#if defined(SYMBOLIC_LINK_FLAG_ALLOW_UNPRIVILEGED_CREATE)
+	tmpflags = flags | SYMBOLIC_LINK_FLAG_ALLOW_UNPRIVILEGED_CREATE;
+#else
+	tmpflags = flags | 0x2;
+#endif
+	/*
+	 * Windows won't overwrite existing links
+	 */
+	attrs = GetFileAttributesA(linkname);
+	if (attrs != INVALID_FILE_ATTRIBUTES) {
+		if (attrs & FILE_ATTRIBUTE_DIRECTORY)
+			RemoveDirectoryA(linkname);
+		else
+			DeleteFileA(linkname);
+	}
+
+	ret = (*f)(src, tgt, tmpflags);
+	/*
+	 * Prior to Windows 10 the SYMBOLIC_LINK_FLAG_ALLOW_UNPRIVILEGED_CREATE
+	 * is not understood
+	 */
+	if (!ret)
+		ret = (*f)(src, tgt, flags);
+
+	free(src);
+	free(tgt);
+	return (ret);
 }
 
 static int
@@ -280,7 +392,7 @@ static const char *refdir;
  */
 static int log_console = 0;
 static FILE *logfile;
-static void
+static void __LA_PRINTFLIKE(1, 0)
 vlogprintf(const char *fmt, va_list ap)
 {
 #ifdef va_copy
@@ -298,7 +410,7 @@ vlogprintf(const char *fmt, va_list ap)
 #endif
 }
 
-static void
+static void __LA_PRINTFLIKE(1, 2)
 logprintf(const char *fmt, ...)
 {
 	va_list ap;
@@ -367,10 +479,10 @@ static struct line {
 	int count;
 	int skip;
 }  failed_lines[10000];
-const char *failed_filename;
+static const char *failed_filename;
 
 /* Count this failure, setup up log destination and handle initial report. */
-static void
+static void __LA_PRINTFLIKE(3, 4)
 failure_start(const char *filename, int line, const char *fmt, ...)
 {
 	va_list ap;
@@ -484,6 +596,19 @@ assertion_chdir(const char *file, int line, const char *pathname)
 	if (chdir(pathname) == 0)
 		return (1);
 	failure_start(file, line, "chdir(\"%s\")", pathname);
+	failure_finish(NULL);
+	return (0);
+
+}
+
+/* change file/directory permissions and errors if it fails */
+int
+assertion_chmod(const char *file, int line, const char *pathname, int mode)
+{
+	assertion_count(file, line);
+	if (chmod(pathname, mode) == 0)
+		return (1);
+	failure_start(file, line, "chmod(\"%s\", %4.o)", pathname, mode);
 	failure_finish(NULL);
 	return (0);
 
@@ -643,7 +768,7 @@ static void strdump(const char *e, const char *p, int ewidth, int utf8)
 		logprintf("]");
 		logprintf(" (count %d", cnt);
 		if (n < 0) {
-			logprintf(",unknown %d bytes", len);
+			logprintf(",unknown %zu bytes", len);
 		}
 		logprintf(")");
 
@@ -1059,7 +1184,7 @@ assertion_text_file_contents(const char *filename, int line, const char *buff, c
 	logprintf("  file=\"%s\"\n", fn);
 	if (n > 0) {
 		hexdump(contents, buff, n, 0);
-		logprintf("  expected\n", fn);
+		logprintf("  expected\n");
 		hexdump(buff, contents, s, 0);
 	} else {
 		logprintf("  File empty, contents should be:\n");
@@ -1389,7 +1514,7 @@ assertion_file_time(const char *file, int line,
 		}
 	} else if (filet != t || filet_nsec != nsec) {
 		failure_start(file, line,
-		    "File %s has %ctime %lld.%09lld, expected %lld.%09lld",
+		    "File %s has %ctime %lld.%09lld, expected %ld.%09ld",
 		    pathname, type, filet, filet_nsec, t, nsec);
 		failure_finish(NULL);
 		return (0);
@@ -1485,8 +1610,8 @@ assertion_file_nlinks(const char *file, int line,
 	r = my_GetFileInformationByName(pathname, &bhfi);
 	if (r != 0 && bhfi.nNumberOfLinks == (DWORD)nlinks)
 		return (1);
-	failure_start(file, line, "File %s has %d links, expected %d",
-	    pathname, bhfi.nNumberOfLinks, nlinks);
+	failure_start(file, line, "File %s has %jd links, expected %d",
+	    pathname, (intmax_t)bhfi.nNumberOfLinks, nlinks);
 	failure_finish(NULL);
 	return (0);
 #else
@@ -1497,8 +1622,8 @@ assertion_file_nlinks(const char *file, int line,
 	r = lstat(pathname, &st);
 	if (r == 0 && (int)st.st_nlink == nlinks)
 		return (1);
-	failure_start(file, line, "File %s has %d links, expected %d",
-	    pathname, st.st_nlink, nlinks);
+	failure_start(file, line, "File %s has %jd links, expected %d",
+	    pathname, (intmax_t)st.st_nlink, nlinks);
 	failure_finish(NULL);
 	return (0);
 #endif
@@ -1603,26 +1728,146 @@ assertion_is_reg(const char *file, int line, const char *pathname, int mode)
 	return (1);
 }
 
-/* Check whether 'pathname' is a symbolic link.  If 'contents' is
- * non-NULL, verify that the symlink has those contents. */
+/*
+ * Check whether 'pathname' is a symbolic link.  If 'contents' is
+ * non-NULL, verify that the symlink has those contents.
+ *
+ * On platforms with directory symlinks, set isdir to 0 to test for a file
+ * symlink and to 1 to test for a directory symlink. On other platforms
+ * the variable is ignored.
+ */
 static int
 is_symlink(const char *file, int line,
-    const char *pathname, const char *contents)
+    const char *pathname, const char *contents, int isdir)
 {
 #if defined(_WIN32) && !defined(__CYGWIN__)
-	(void)pathname; /* UNUSED */
-	(void)contents; /* UNUSED */
-	assertion_count(file, line);
-	/* Windows sort-of has real symlinks, but they're only usable
-	 * by privileged users and are crippled even then, so there's
-	 * really not much point in bothering with this. */
-	return (0);
+	HANDLE h;
+	DWORD inbytes;
+	REPARSE_DATA_BUFFER *buf;
+	BY_HANDLE_FILE_INFORMATION st;
+	size_t len, len2;
+	wchar_t *linknamew, *contentsw;
+	const char *p;
+	char *s, *pn;
+	int ret = 0;
+	BYTE *indata;
+	const DWORD flag = FILE_FLAG_BACKUP_SEMANTICS |
+	    FILE_FLAG_OPEN_REPARSE_POINT;
+
+	/* Replace slashes with backslashes in pathname */
+	pn = malloc((strlen(pathname) + 1) * sizeof(char));
+	p = pathname;
+	s = pn;
+	while(*p != '\0') {
+		if(*p == '/')
+			*s = '\\';
+		else
+			*s = *p;
+		p++;
+		s++;
+	}
+	*s = '\0';
+
+	h = CreateFileA(pn, 0, FILE_SHARE_READ, NULL, OPEN_EXISTING,
+	    flag, NULL);
+	free(pn);
+	if (h == INVALID_HANDLE_VALUE) {
+		failure_start(file, line, "Can't access %s\n", pathname);
+		failure_finish(NULL);
+		return (0);
+	}
+	ret = GetFileInformationByHandle(h, &st);
+	if (ret == 0) {
+		failure_start(file, line,
+		    "Can't stat: %s", pathname);
+		failure_finish(NULL);
+	} else if ((st.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT) == 0) {
+		failure_start(file, line,
+		    "Not a symlink: %s", pathname);
+		failure_finish(NULL);
+		ret = 0;
+	}
+	if (isdir && ((st.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) == 0)) {
+		failure_start(file, line,
+		    "Not a directory symlink: %s", pathname);
+		failure_finish(NULL);
+		ret = 0;
+	}
+	if (!isdir &&
+	    ((st.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0)) {
+		failure_start(file, line,
+		    "Not a file symlink: %s", pathname);
+		failure_finish(NULL);
+		ret = 0;
+	}
+	if (ret == 0) {
+		CloseHandle(h);
+		return (0);
+	}
+
+	indata = malloc(MAXIMUM_REPARSE_DATA_BUFFER_SIZE);
+	ret = DeviceIoControl(h, FSCTL_GET_REPARSE_POINT, NULL, 0, indata,
+	    1024, &inbytes, NULL);
+	CloseHandle(h);
+	if (ret == 0) {
+		free(indata);
+		failure_start(file, line,
+		    "Could not retrieve symlink target: %s", pathname);
+		failure_finish(NULL);
+		return (0);
+	}
+
+	buf = (REPARSE_DATA_BUFFER *) indata;
+	if (buf->ReparseTag != IO_REPARSE_TAG_SYMLINK) {
+		free(indata);
+		/* File is not a symbolic link */
+		failure_start(file, line,
+		    "Not a symlink: %s", pathname);
+		failure_finish(NULL);
+		return (0);
+	}
+
+	if (contents == NULL) {
+		free(indata);
+		return (1);
+	}
+
+	len = buf->SymbolicLinkReparseBuffer.SubstituteNameLength;
+
+	linknamew = malloc(len + sizeof(wchar_t));
+	if (linknamew == NULL) {
+		free(indata);
+		return (0);
+	}
+
+	memcpy(linknamew, &((BYTE *)buf->SymbolicLinkReparseBuffer.PathBuffer)
+	    [buf->SymbolicLinkReparseBuffer.SubstituteNameOffset], len);
+	free(indata);
+
+	linknamew[len / sizeof(wchar_t)] = L'\0';
+
+	contentsw = malloc(len + sizeof(wchar_t));
+	if (contentsw == NULL) {
+		free(linknamew);
+		return (0);
+	}
+
+	len2 = mbsrtowcs(contentsw, &contents, (len + sizeof(wchar_t)
+	    / sizeof(wchar_t)), NULL);
+
+	if (len2 > 0 && wcscmp(linknamew, contentsw) != 0)
+		ret = 1;
+
+	free(linknamew);
+	free(contentsw);
+	return (ret);
 #else
 	char buff[300];
 	struct stat st;
 	ssize_t linklen;
 	int r;
 
+	(void)isdir; /* UNUSED */
 	assertion_count(file, line);
 	r = lstat(pathname, &st);
 	if (r != 0) {
@@ -1635,7 +1880,7 @@ is_symlink(const char *file, int line,
 		return (0);
 	if (contents == NULL)
 		return (1);
-	linklen = readlink(pathname, buff, sizeof(buff));
+	linklen = readlink(pathname, buff, sizeof(buff) - 1);
 	if (linklen < 0) {
 		failure_start(file, line, "Can't read symlink %s", pathname);
 		failure_finish(NULL);
@@ -1651,9 +1896,9 @@ is_symlink(const char *file, int line,
 /* Assert that path is a symlink that (optionally) contains contents. */
 int
 assertion_is_symlink(const char *file, int line,
-    const char *path, const char *contents)
+    const char *path, const char *contents, int isdir)
 {
-	if (is_symlink(file, line, path, contents))
+	if (is_symlink(file, line, path, contents, isdir))
 		return (1);
 	if (contents)
 		failure_start(file, line, "File %s is not a symlink to %s",
@@ -1781,20 +2026,26 @@ assertion_make_hardlink(const char *file, int line,
 	return(0);
 }
 
-/* Create a symlink and report any failures. */
+/*
+ * Create a symlink and report any failures.
+ *
+ * Windows symlinks need to know if the target is a directory.
+ */
 int
 assertion_make_symlink(const char *file, int line,
-    const char *newpath, const char *linkto)
+    const char *newpath, const char *linkto, int targetIsDir)
 {
 #if defined(_WIN32) && !defined(__CYGWIN__)
-	int targetIsDir = 0;  /* TODO: Fix this */
 	assertion_count(file, line);
 	if (my_CreateSymbolicLinkA(newpath, linkto, targetIsDir))
 		return (1);
 #elif HAVE_SYMLINK
+	(void)targetIsDir; /* UNUSED */
 	assertion_count(file, line);
 	if (0 == symlink(linkto, newpath))
 		return (1);
+#else
+	(void)targetIsDir; /* UNUSED */
 #endif
 	failure_start(file, line, "Could not create symlink");
 	logprintf("   New link: %s\n", newpath);
@@ -2119,7 +2370,7 @@ void assertVersion(const char *prog, const char *base)
 	int r;
 	char *p, *q;
 	size_t s;
-	unsigned int prog_len = strlen(base);
+	size_t prog_len = strlen(base);
 
 	r = systemf("%s --version >version.stdout 2>version.stderr", prog);
 	if (r != 0)
@@ -2170,7 +2421,7 @@ void assertVersion(const char *prog, const char *base)
 
 	/* Skip arbitrary third-party version numbers. */
 	while (s > 0 && (*q == ' ' || *q == '-' || *q == '/' || *q == '.' ||
-	    isalnum(*q))) {
+	    isalnum((unsigned char)*q))) {
 		++q;
 		--s;
 	}
@@ -2221,10 +2472,12 @@ canSymlink(void)
 	 * use the Win32 CreateSymbolicLink() function. */
 #if defined(_WIN32) && !defined(__CYGWIN__)
 	value = my_CreateSymbolicLinkA("canSymlink.1", "canSymlink.0", 0)
-	    && is_symlink(__FILE__, __LINE__, "canSymlink.1", "canSymlink.0");
+	    && is_symlink(__FILE__, __LINE__, "canSymlink.1", "canSymlink.0",
+	    0);
 #elif HAVE_SYMLINK
 	value = (0 == symlink("canSymlink.0", "canSymlink.1"))
-	    && is_symlink(__FILE__, __LINE__, "canSymlink.1","canSymlink.0");
+	    && is_symlink(__FILE__, __LINE__, "canSymlink.1","canSymlink.0",
+	    0);
 #endif
 	return (value);
 }
@@ -2244,7 +2497,7 @@ canBzip2(void)
 	static int tested = 0, value = 0;
 	if (!tested) {
 		tested = 1;
-		if (systemf("bzip2 -d -V %s", redirectArgs) == 0)
+		if (systemf("bzip2 --help %s", redirectArgs) == 0)
 			value = 1;
 	}
 	return (value);
@@ -2274,7 +2527,7 @@ canGzip(void)
 	static int tested = 0, value = 0;
 	if (!tested) {
 		tested = 1;
-		if (systemf("gzip -V %s", redirectArgs) == 0)
+		if (systemf("gzip --help %s", redirectArgs) == 0)
 			value = 1;
 	}
 	return (value);
@@ -2316,7 +2569,22 @@ canLz4(void)
 	static int tested = 0, value = 0;
 	if (!tested) {
 		tested = 1;
-		if (systemf("lz4 -V %s", redirectArgs) == 0)
+		if (systemf("lz4 --help %s", redirectArgs) == 0)
+			value = 1;
+	}
+	return (value);
+}
+
+/*
+ * Can this platform run the zstd program?
+ */
+int
+canZstd(void)
+{
+	static int tested = 0, value = 0;
+	if (!tested) {
+		tested = 1;
+		if (systemf("zstd --help %s", redirectArgs) == 0)
 			value = 1;
 	}
 	return (value);
@@ -2331,7 +2599,7 @@ canLzip(void)
 	static int tested = 0, value = 0;
 	if (!tested) {
 		tested = 1;
-		if (systemf("lzip -V %s", redirectArgs) == 0)
+		if (systemf("lzip --help %s", redirectArgs) == 0)
 			value = 1;
 	}
 	return (value);
@@ -2346,7 +2614,7 @@ canLzma(void)
 	static int tested = 0, value = 0;
 	if (!tested) {
 		tested = 1;
-		if (systemf("lzma -V %s", redirectArgs) == 0)
+		if (systemf("lzma %s", redirectArgs) == 0)
 			value = 1;
 	}
 	return (value);
@@ -2361,7 +2629,7 @@ canLzop(void)
 	static int tested = 0, value = 0;
 	if (!tested) {
 		tested = 1;
-		if (systemf("lzop -V %s", redirectArgs) == 0)
+		if (systemf("lzop --help %s", redirectArgs) == 0)
 			value = 1;
 	}
 	return (value);
@@ -2376,7 +2644,7 @@ canXz(void)
 	static int tested = 0, value = 0;
 	if (!tested) {
 		tested = 1;
-		if (systemf("xz -V %s", redirectArgs) == 0)
+		if (systemf("xz --help %s", redirectArgs) == 0)
 			value = 1;
 	}
 	return (value);
@@ -2579,10 +2847,8 @@ sunacl_get(int cmd, int *aclcnt, int fd, const char *path)
 					cnt = facl(fd, cmd, cnt, aclp);
 			}
 		} else {
-			if (aclp != NULL) {
-				free(aclp);
-				aclp = NULL;
-			}
+			free(aclp);
+			aclp = NULL;
 			break;
 		}
 	}
@@ -3037,7 +3303,7 @@ assertion_entry_set_acls(const char *file, int line, struct archive_entry *ae,
 		    acls[i].qual, acls[i].name);
 		if (r != 0) {
 			ret = 1;
-			failure_start(file, line, "type=%#010x, ",
+			failure_start(file, line, "type=%#010x, "
 			    "permset=%#010x, tag=%d, qual=%d name=%s",
 			    acls[i].type, acls[i].permset, acls[i].tag,
 			    acls[i].qual, acls[i].name);
@@ -3224,7 +3490,7 @@ assertion_entry_compare_acls(const char *file, int line,
 /* Use "list.h" to create a list of all tests (functions and names). */
 #undef DEFINE_TEST
 #define	DEFINE_TEST(n) { n, #n, 0 },
-struct test_list_t tests[] = {
+static struct test_list_t tests[] = {
 	#include "list.h"
 };
 
@@ -3264,7 +3530,11 @@ test_summarize(int failed, int skips_num)
 static int
 test_run(int i, const char *tmpdir)
 {
-	char workdir[1024];
+#ifdef PATH_MAX
+	char workdir[PATH_MAX * 2];
+#else
+	char workdir[1024 * 2];
+#endif
 	char logfilename[64];
 	int failures_before = failures;
 	int skips_before = skips;
@@ -3513,8 +3783,13 @@ main(int argc, char **argv)
 	const char *progname;
 	char **saved_argv;
 	const char *tmp, *option_arg, *p;
-	char tmpdir[256], *pwd, *testprogdir, *tmp2 = NULL, *vlevel = NULL;
-	char tmpdir_timestamp[256];
+#ifdef PATH_MAX
+	char tmpdir[PATH_MAX];
+#else
+	char tmpdir[256];
+#endif
+	char *pwd, *testprogdir, *tmp2 = NULL, *vlevel = NULL;
+	char tmpdir_timestamp[32];
 
 	(void)argc; /* UNUSED */
 
@@ -3738,8 +4013,15 @@ main(int argc, char **argv)
 		strftime(tmpdir_timestamp, sizeof(tmpdir_timestamp),
 		    "%Y-%m-%dT%H.%M.%S",
 		    localtime(&now));
-		sprintf(tmpdir, "%s/%s.%s-%03d", tmp, progname,
-		    tmpdir_timestamp, i);
+		if ((strlen(tmp) + 1 + strlen(progname) + 1 +
+		    strlen(tmpdir_timestamp) + 1 + 3) >
+		    (sizeof(tmpdir) / sizeof(char))) {
+			fprintf(stderr,
+			    "ERROR: Temp directory pathname too long\n");
+			exit(1);
+		}
+		snprintf(tmpdir, sizeof(tmpdir), "%s/%s.%s-%03d", tmp,
+		    progname, tmpdir_timestamp, i);
 		if (assertMakeDir(tmpdir,0755))
 			break;
 		if (i >= 999) {

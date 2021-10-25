@@ -2,7 +2,7 @@
 
 mkdir -p "${HEIMDAL_TMPDIR}"
 
-function exportfile() {
+exportfile() {
 	output="$1" ; shift
 	input="$@"
 

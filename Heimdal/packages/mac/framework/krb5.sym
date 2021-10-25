@@ -434,6 +434,7 @@ krb5_parse_name_flags
 krb5_parse_nametype
 krb5_passwd_result_to_string
 krb5_plugin_register
+krb5_plugin_register_module
 krb5_prepend_config_files
 krb5_prepend_config_files_default
 krb5_principal_compare

@@ -836,7 +836,7 @@ static void testcreatewithdata(unsigned long keySizeInBits)
     CFReleaseNull(kgp);
 
     CFMutableDictionaryRef kcwd = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks,
-                                                            &kCFTypeDictionaryValueCallBacks);;
+                                                            &kCFTypeDictionaryValueCallBacks);
     CFDictionarySetValue(kcwd, kSecAttrKeyType, kSecAttrKeyTypeRSA);
     CFDictionarySetValue(kcwd, kSecAttrKeySizeInBits, kzib);
     CFDictionarySetValue(kcwd, kSecAttrIsPermanent, kCFBooleanFalse);

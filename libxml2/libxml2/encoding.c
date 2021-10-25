@@ -737,38 +737,39 @@ UTF16BEToUTF8(unsigned char* out, int *outlen,
 {
     unsigned char* outstart = out;
     const unsigned char* processed = inb;
-    unsigned char* outend = out + *outlen;
+    unsigned char* outend;
     unsigned short* in = (unsigned short*) inb;
     unsigned short* inend;
     unsigned int c, d, inlen;
     unsigned char *tmp;
     int bits;
 
+    if (*outlen == 0) {
+        *inlenb = 0;
+        return(0);
+    }
+    outend = out + *outlen;
     if ((*inlenb % 2) == 1)
         (*inlenb)--;
     inlen = *inlenb / 2;
     inend= in + inlen;
-    while (in < inend) {
+    while ((in < inend) && (out - outstart + 5 < *outlen)) {
 	if (xmlLittleEndian) {
 	    tmp = (unsigned char *) in;
 	    c = *tmp++;
-	    c = c << 8;
-	    c = c | (unsigned int) *tmp;
+	    c = (c << 8) | (unsigned int) *tmp;
 	    in++;
 	} else {
 	    c= *in++;
 	}
         if ((c & 0xFC00) == 0xD800) {    /* surrogates */
 	    if (in >= inend) {           /* (in > inend) shouldn't happens */
-		*outlen = out - outstart;
-		*inlenb = processed - inb;
-	        return(-2);
+                break;
 	    }
 	    if (xmlLittleEndian) {
 		tmp = (unsigned char *) in;
 		d = *tmp++;
-		d = d << 8;
-		d = d | (unsigned int) *tmp;
+		d = (d << 8) | (unsigned int) *tmp;
 		in++;
 	    } else {
 		d= *in++;
@@ -2078,7 +2079,7 @@ xmlCharEncFirstLineInput(xmlParserInputBufferPtr input, int len)
     toconv = xmlBufUse(in);
     if (toconv == 0)
         return (0);
-    written = xmlBufAvail(out) - 1; /* count '\0' */
+    written = xmlBufAvail(out);
     /*
      * echo '<?xml version="1.0" encoding="UCS4"?>' | wc -c => 38
      * 45 chars should be sufficient to reach the end of the encoding
@@ -2096,7 +2097,7 @@ xmlCharEncFirstLineInput(xmlParserInputBufferPtr input, int len)
     }
     if (toconv * 2 >= written) {
         xmlBufGrow(out, toconv * 2);
-        written = xmlBufAvail(out) - 1;
+        written = xmlBufAvail(out);
     }
     if (written > 360)
         written = 360;
@@ -2207,13 +2208,9 @@ xmlCharEncInput(xmlParserInputBufferPtr input, int flush)
     if ((toconv > 64 * 1024) && (flush == 0))
         toconv = 64 * 1024;
     written = xmlBufAvail(out);
-    if (written > 0)
-        written--; /* count '\0' */
     if (toconv * 2 >= written) {
         xmlBufGrow(out, toconv * 2);
         written = xmlBufAvail(out);
-        if (written > 0)
-            written--; /* count '\0' */
     }
     if ((written > 128 * 1024) && (flush == 0))
         written = 128 * 1024;
@@ -2436,8 +2433,6 @@ xmlCharEncOutput(xmlOutputBufferPtr output, int init)
 retry:
 
     written = xmlBufAvail(out);
-    if (written > 0)
-        written--; /* count '\0' */
 
     /*
      * First specific handling of the initialization call
@@ -2482,7 +2477,7 @@ retry:
         toconv = 64 * 1024;
     if (toconv * 4 >= written) {
         xmlBufGrow(out, toconv * 4);
-        written = xmlBufAvail(out) - 1;
+        written = xmlBufAvail(out);
     }
     if (written > 256 * 1024)
         written = 256 * 1024;

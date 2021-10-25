@@ -3673,7 +3673,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "/usr/local/bin/iconcompiler -i NetworkConnect -r $PROJECT_DIR/Controller/NetworkConnectIcons -o $BUILT_PRODUCTS_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH  || exit 1\n";
+			shellScript = "/usr/local/bin/iconcompiler -i NetworkConnect -r \"$PROJECT_DIR/Controller/NetworkConnectIcons\" -o \"$BUILT_PRODUCTS_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH\"  || exit 1\n";
 		};
 		7240E46A15261821001F555F /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -3686,7 +3686,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "/usr/local/bin/iconcompiler -i NetworkConnect -r $PROJECT_DIR/Controller/NetworkConnectIcons -o $BUILT_PRODUCTS_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH  || exit 1\n";
+			shellScript = "/usr/local/bin/iconcompiler -i NetworkConnect -r \"$PROJECT_DIR/Controller/NetworkConnectIcons\" -o \"$BUILT_PRODUCTS_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH\"  || exit 1\n";
 		};
 		7290FED80D3318CC0027CEAD /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -3695,7 +3695,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
-			shellScript = "/bin/mkdir -m 755 -p $DSTROOT/private/var/log/ppp";
+			shellScript = "/bin/mkdir -m 755 -p $DSTROOT/private/var/log/ppp\n";
 		};
 		72C265C20D412932003A6CE8 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -3717,7 +3717,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "/usr/local/bin/iconcompiler -i NetworkConnect -r $PROJECT_DIR/Controller/NetworkConnectIcons -o $BUILT_PRODUCTS_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH  || exit 1\n";
+			shellScript = "/usr/local/bin/iconcompiler -i NetworkConnect -r \"$PROJECT_DIR/Controller/NetworkConnectIcons\" -o \"$BUILT_PRODUCTS_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH\"  || exit 1\n";
 		};
 		72FDE4730D4124C4007C4F13 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -4418,7 +4418,6 @@
 				GCC_WARN_ABOUT_POINTER_SIGNEDNESS = NO;
 				HEADER_SEARCH_PATHS = "";
 				LIBRARY_SEARCH_PATHS = "";
-				MACOSX_DEPLOYMENT_TARGET = 10.6;
 				OTHER_CFLAGS = (
 					"-include",
 					TargetConditionals.h,
@@ -4446,7 +4445,6 @@
 				GCC_WARN_ABOUT_POINTER_SIGNEDNESS = NO;
 				HEADER_SEARCH_PATHS = "";
 				LIBRARY_SEARCH_PATHS = "";
-				MACOSX_DEPLOYMENT_TARGET = 10.6;
 				OTHER_CFLAGS = (
 					"-include",
 					TargetConditionals.h,
@@ -4820,7 +4818,6 @@
 				GCC_WARN_ABOUT_POINTER_SIGNEDNESS = NO;
 				HEADER_SEARCH_PATHS = "";
 				LIBRARY_SEARCH_PATHS = "";
-				MACOSX_DEPLOYMENT_TARGET = 10.6;
 				OTHER_CFLAGS = (
 					"-include",
 					TargetConditionals.h,
@@ -4848,7 +4845,6 @@
 				GCC_WARN_ABOUT_POINTER_SIGNEDNESS = NO;
 				HEADER_SEARCH_PATHS = "";
 				LIBRARY_SEARCH_PATHS = "";
-				MACOSX_DEPLOYMENT_TARGET = 10.6;
 				OTHER_CFLAGS = (
 					"-include",
 					TargetConditionals.h,

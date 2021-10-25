@@ -30,65 +30,99 @@
 
 - (void)groupStart
 {
+    __block NSMutableArray<CKRecordZoneID*>* zonesNeedingDeletion = [NSMutableArray array];
 
-    ckksnotice("ckkszone", self.deps.zoneID, "Deleting CloudKit zone '%@'", self.deps.zoneID);
-    CKKSZoneModifyOperations* zoneOps = [self.deps.zoneModifier deleteZone:self.deps.zoneID];
+    for(CKKSKeychainViewState* viewState in self.deps.views) {
+        [zonesNeedingDeletion addObject:viewState.zoneID];
+    }
 
+    if(zonesNeedingDeletion.count == 0) {
+        ckksnotice_global("ckkszone", "No zones to delete");
+        self.nextState = self.intendedState;
+        return;
+    }
+
+    ckksnotice_global("ckkszone", "Deleting CloudKit zones: %@", zonesNeedingDeletion);
+    CKKSZoneModifyOperations* zoneOps = [self.deps.zoneModifier deleteZones:zonesNeedingDeletion];
 
     WEAKIFY(self);
 
     CKKSResultOperation* handleModificationsOperation = [CKKSResultOperation named:@"handle-modification" withBlock:^{
         STRONGIFY(self);
 
-        bool fatalError = false;
+        __block bool anyFatalError = NO;
 
-        NSError* operationError = zoneOps.zoneModificationOperation.error;
-        bool removed = [zoneOps.deletedRecordZoneIDs containsObject:self.deps.zoneID];
+        [self.deps.databaseProvider dispatchSyncWithSQLTransaction:^CKKSDatabaseTransactionResult{
+            for(CKKSKeychainViewState* viewState in self.deps.views) {
+                CKRecordZoneID* zoneID = nil;
 
-        if(!removed && operationError) {
-            // Okay, but if this error is either 'ZoneNotFound' or 'UserDeletedZone', that's fine by us: the zone is deleted.
-            NSDictionary* partialErrors = operationError.userInfo[CKPartialErrorsByItemIDKey];
-            if([operationError.domain isEqualToString:CKErrorDomain] && operationError.code == CKErrorPartialFailure && partialErrors) {
-                for(CKRecordZoneID* errorZoneID in partialErrors.allKeys) {
-                    NSError* errorZone = partialErrors[errorZoneID];
-
-                    if(errorZone && [errorZone.domain isEqualToString:CKErrorDomain] &&
-                       (errorZone.code == CKErrorZoneNotFound || errorZone.code == CKErrorUserDeletedZone)) {
-                        ckksnotice("ckkszone", self.deps.zoneID, "Attempted to delete zone %@, but it's already missing. This is okay: %@", errorZoneID, errorZone);
-                    } else {
-                        fatalError = true;
+                for(CKRecordZoneID* possibleZoneID in zonesNeedingDeletion) {
+                    if([possibleZoneID isEqual:viewState.zoneID]) {
+                        zoneID = possibleZoneID;
+                        break;
                     }
                 }
 
-            } else {
-                fatalError = true;
+                if(zoneID == nil) {
+                    // We weren't intending to delete this zone! skip!
+                    continue;
+                }
+
+                bool fatalError = false;
+
+                NSError* operationError = zoneOps.zoneModificationOperation.error;
+                bool removed = [zoneOps.deletedRecordZoneIDs containsObject:viewState.zoneID];
+
+                if(!removed && operationError) {
+                    // Okay, but if this error is either 'ZoneNotFound' or 'UserDeletedZone', that's fine by us: the zone is deleted.
+                    NSDictionary* partialErrors = operationError.userInfo[CKPartialErrorsByItemIDKey];
+                    if([operationError.domain isEqualToString:CKErrorDomain] && operationError.code == CKErrorPartialFailure && partialErrors) {
+                        for(CKRecordZoneID* errorZoneID in partialErrors.allKeys) {
+                            NSError* errorZone = partialErrors[errorZoneID];
+
+                            if(errorZone && [errorZone.domain isEqualToString:CKErrorDomain] &&
+                               (errorZone.code == CKErrorZoneNotFound || errorZone.code == CKErrorUserDeletedZone)) {
+                                ckksnotice("ckkszone", viewState.zoneID, "Attempted to delete zone %@, but it's already missing. This is okay: %@", errorZoneID, errorZone);
+                            } else {
+                                fatalError = true;
+                            }
+                        }
+
+                    } else {
+                        fatalError = true;
+                    }
+
+                    ckksnotice("ckkszone", viewState.zoneID, "deletion of record zone %@ completed with error: %@", viewState.zoneID, operationError);
+
+                    if(fatalError) {
+                        // Early-exit
+                        self.error = operationError;
+                        anyFatalError |= true;
+                        continue;
+                    }
+                }
+
+                ckksnotice("ckkszone", viewState.zoneID, "deletion of record zone %@ completed successfully", viewState.zoneID);
+
+                NSError* error = nil;
+                CKKSZoneStateEntry* ckse = [CKKSZoneStateEntry state:viewState.zoneID.zoneName];
+                ckse.ckzonecreated = NO;
+                ckse.ckzonesubscribed = NO;
+
+                [ckse saveToDatabase:&error];
+                if(error) {
+                    ckkserror("ckks", viewState.zoneID, "couldn't save zone creation status for %@: %@", viewState.zoneID, error);
+                }
+
             }
-
-            ckksnotice("ckkszone", self.deps.zoneID, "deletion of record zone %@ completed with error: %@", self.deps.zoneID, operationError);
-
-            if(fatalError) {
-                // Early-exit
-                self.error = operationError;
-                return;
-            }
-        }
-
-        ckksnotice("ckkszone", self.deps.zoneID, "deletion of record zone %@ completed successfully", self.deps.zoneID);
-
-        [self.deps.databaseProvider dispatchSyncWithSQLTransaction:^CKKSDatabaseTransactionResult{
-            NSError* error = nil;
-            CKKSZoneStateEntry* ckse = [CKKSZoneStateEntry state:self.deps.zoneID.zoneName];
-            ckse.ckzonecreated = NO;
-            ckse.ckzonesubscribed = NO;
-
-            [ckse saveToDatabase:&error];
-            if(error) {
-                ckkserror("ckks", self.deps.zoneID, "couldn't save zone creation status for %@: %@", self.deps.zoneID, error);
-            }
-
-            self.nextState = self.intendedState;
             return CKKSDatabaseTransactionCommit;
+
         }];
+
+        if(!anyFatalError) {
+            self.nextState = self.intendedState;
+        }
+        // Otherwise, stay in the error state
     }];
 
     [handleModificationsOperation addNullableDependency:zoneOps.zoneModificationOperation];

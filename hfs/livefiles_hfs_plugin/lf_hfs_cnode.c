@@ -1734,7 +1734,21 @@ hfs_cnode_teardown (struct vnode *vp, int reclaim)
             //          otherwise someone could go to sleep on the cnode and not
             //          be woken up until this vnode gets recycled which could be
             //          a very long time...
-            hfs_chashremove(hfsmp, cp);
+            /*
+             * XXXJRT RED ALERT
+             * hfs_chashremove() can fail with EBUSY if the CNode is in the middle
+             * of a hfs_chash_getcnode() -- there is a case where the chash must
+             * be unlocked in order to acquire the CNode lock, and in that case,
+             * hfs_chashremove() bails out.
+             *
+             * I don't see any negative side effects of simply allowing the CNode
+             * to remain in the table if that happens here, but I want to leave a
+             * breadcrumb in the logs just in case we ever have to debug this again.
+             */
+            if (hfs_chashremove(hfsmp, cp) != 0) {
+                LFHFS_LOG(LEVEL_ERROR,
+                          "hfs_cnode_teardown: hfs_chashremove() failed; this not necessarily a bug, but here is a breadcrumb...");
+            }
 
             cp->c_flag |= C_NOEXISTS;   // XXXdbg
             cp->c_rdev = 0;

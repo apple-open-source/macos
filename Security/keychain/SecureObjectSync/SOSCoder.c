@@ -47,7 +47,6 @@
 #include <utilities/der_plist_internal.h>
 
 #include <corecrypto/ccder.h>
-#include <utilities/iCloudKeychainTrace.h>
 
 #include "AssertMacros.h"
 

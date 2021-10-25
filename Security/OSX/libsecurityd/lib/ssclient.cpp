@@ -112,10 +112,21 @@ void ClientSession::activate()
 	Global &global = mGlobal();
     Thread &thread = global.thread();
     if (!thread) {
-		// first time for this thread - use abbreviated registration
-		task_id_token_t token = self_token_create();
-		IPCN(ucsp_client_setupThread(UCSP_ARGS, token));
-		self_token_deallocate(token);
+        // first time for this thread - use abbreviated registration
+        try {
+            mach_port_t bsport = MACH_PORT_NULL;
+            (void)os_assumes_zero(task_get_bootstrap_port(mach_task_self(), &bsport));
+            IPCN(ucsp_client_setupThreadWithBootstrap(UCSP_ARGS, bsport));
+            (void)os_assumes_zero(mach_port_deallocate(mach_task_self(), bsport));
+        } catch (const MachPlusPlus::Error &err) {
+            if (err.error != MIG_BAD_ID) {
+                throw;
+            }
+
+            task_id_token_t token = self_token_create();
+            IPCN(ucsp_client_setupThread(UCSP_ARGS, token));
+            self_token_deallocate(token);
+        }
         thread.registered = true;
         secinfo("SSclnt", "Thread registered with %s", mContactName);
 	}
@@ -162,11 +173,23 @@ ClientSession::Global::Global()
 	
     // cannot use UCSP_ARGS here because it uses mGlobal() -> deadlock
     Thread &thread = this->thread();
-	
-	task_id_token_t token = self_token_create();
-	IPCBASIC(ucsp_client_setup(serverPort, thread.replyPort, &securitydCreds, &rcode,
-		token, info, extForm));
-	self_token_deallocate(token);
+
+    try {
+        mach_port_t bsport = MACH_PORT_NULL;
+        (void)os_assumes_zero(task_get_bootstrap_port(mach_task_self(), &bsport));
+        IPCBASIC(ucsp_client_setupWithBootstrap(serverPort, thread.replyPort, &securitydCreds, &rcode,
+            bsport, info, extForm));
+        (void)os_assumes_zero(mach_port_deallocate(mach_task_self(), bsport));
+    } catch (const MachPlusPlus::Error &err) {
+        if (err.error != MIG_BAD_ID) {
+            throw;
+        }
+
+        task_id_token_t token = self_token_create();
+        IPCBASIC(ucsp_client_setup(serverPort, thread.replyPort, &securitydCreds, &rcode,
+            token, info, extForm));
+        self_token_deallocate(token);
+    }
     thread.registered = true;	// as a side-effect of setup call above
 	IFDEBUG(serverPort.requestNotify(thread.replyPort));
 	secinfo("SSclnt", "contact with %s established", mContactName);

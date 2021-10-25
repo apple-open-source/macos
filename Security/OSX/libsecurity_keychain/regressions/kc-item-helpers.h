@@ -41,14 +41,14 @@ static CFMutableDictionaryRef makeBaseDictionary(CFStringRef itemclass) {
     return query;
 }
 
-static CFMutableDictionaryRef convertToQuery(CFMutableDictionaryRef query, SecKeychainRef kc) {
+static void convertToQuery(CFMutableDictionaryRef query, SecKeychainRef kc) {
     CFMutableArrayRef searchList = (CFMutableArrayRef) CFArrayCreateMutable(kCFAllocatorDefault, 1, &kCFTypeArrayCallBacks);
     CFArrayAppendValue((CFMutableArrayRef)searchList, kc);
     CFDictionarySetValue(query, kSecMatchSearchList, searchList);
 
     CFDictionarySetValue(query, kSecMatchLimit, kSecMatchLimitAll);
 
-    return query;
+    CFReleaseNull(searchList); // retained by query dict
 }
 
 static CFMutableDictionaryRef addLabel(CFMutableDictionaryRef query, CFStringRef label) {
@@ -70,14 +70,18 @@ static CFMutableDictionaryRef createBaseItemDictionary(CFStringRef itemclass, CF
 }
 
 static CFMutableDictionaryRef createQueryItemDictionaryWithService(SecKeychainRef kc, CFStringRef itemclass, CFStringRef service) {
-    return convertToQuery(createBaseItemDictionary(itemclass, service), kc);
+    CFMutableDictionaryRef ret = createBaseItemDictionary(itemclass, service);
+    convertToQuery(ret, kc);
+    return ret;
 }
 static CFMutableDictionaryRef createQueryItemDictionary(SecKeychainRef kc, CFStringRef itemclass) {
     return createQueryItemDictionaryWithService(kc, itemclass, NULL);
 }
 
 static CFMutableDictionaryRef makeBaseQueryDictionary(SecKeychainRef kc, CFStringRef itemclass) {
-    return convertToQuery(makeBaseDictionary(itemclass), kc);
+    CFMutableDictionaryRef ret = makeBaseDictionary(itemclass);
+    convertToQuery(ret, kc);
+    return ret;
 }
 
 static CFMutableDictionaryRef createQueryCustomItemDictionaryWithService(SecKeychainRef kc, CFStringRef itemclass, CFStringRef label, CFStringRef service) {
@@ -117,16 +121,15 @@ static SecKeychainItemRef createCustomItem(const char* name, SecKeychainRef kc, 
     SecKeychainItemRef item = (SecKeychainItemRef) result;
     ok(item != NULL, "%s: Couldn't convert into SecKeychainItemRef", name);
 
+    CFReleaseNull(addDictionary); // param attribute says we'll consume a refCount
+
     return item;
 }
 #define createCustomItemTests 3
 
 static SecKeychainItemRef makeItem(const char* name, SecKeychainRef kc, CFStringRef itemclass, CFStringRef label) {
     CFMutableDictionaryRef query = createAddItemDictionary(kc, itemclass, label);
-
-    SecKeychainItemRef item = createCustomItem(name, kc, query);
-
-    CFReleaseNull(query);
+    SecKeychainItemRef item = createCustomItem(name, kc, query); // Note: query is consumed
     return item;
 }
 #define makeItemTests createCustomItemTests

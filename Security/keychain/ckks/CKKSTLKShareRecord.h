@@ -51,15 +51,18 @@ NS_ASSUME_NONNULL_BEGIN
 @property (readonly, nullable) NSData* signature;
 
 - (instancetype)init NS_UNAVAILABLE;
+- (instancetype)initWithShare:(CKKSTLKShare*)share
+                       zoneID:(CKRecordZoneID*)zoneID
+              encodedCKRecord:(NSData* _Nullable)encodedCKRecord;
 
-- (CKKSKey* _Nullable)recoverTLK:(id<CKKSSelfPeer>)recoverer trustedPeers:(NSSet<id<CKKSPeer>>*)peers error:(NSError**)error;
+- (CKKSKeychainBackedKey* _Nullable)recoverTLK:(id<CKKSSelfPeer>)recoverer trustedPeers:(NSSet<id<CKKSPeer>>*)peers error:(NSError**)error;
 
-+ (CKKSTLKShareRecord* _Nullable)share:(CKKSKey*)key
-                              as:(id<CKKSSelfPeer>)sender
-                              to:(id<CKKSPeer>)receiver
-                           epoch:(NSInteger)epoch
-                        poisoned:(NSInteger)poisoned
-                           error:(NSError**)error;
++ (CKKSTLKShareRecord* _Nullable)share:(CKKSKeychainBackedKey*)key
+                                    as:(id<CKKSSelfPeer>)sender
+                                    to:(id<CKKSPeer>)receiver
+                                 epoch:(NSInteger)epoch
+                              poisoned:(NSInteger)poisoned
+                                 error:(NSError**)error;
 
 - (bool)signatureVerifiesWithPeerSet:(NSSet<id<CKKSPeer>>*)peerSet error:(NSError**)error;
 
@@ -93,7 +96,6 @@ NS_ASSUME_NONNULL_BEGIN
 + (NSNumber* _Nullable)counts:(CKRecordZoneID*)zoneID error:(NSError * __autoreleasing *)error;
 
 // For tests
-- (CKKSKey* _Nullable)unwrapUsing:(id<CKKSSelfPeer>)localPeer error:(NSError**)error;
 - (NSData* _Nullable)signRecord:(SFECKeyPair*)signingKey error:(NSError**)error;
 - (bool)verifySignature:(NSData*)signature verifyingPeer:(id<CKKSPeer>)peer error:(NSError**)error;
 @end

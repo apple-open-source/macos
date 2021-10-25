@@ -136,6 +136,13 @@ The maximum number of times per second that an NFS client will send a
 system information.  Requests for this information that occur faster
 than this rate will receive cached values.  The default value is 10
 times per second.  A value of zero means no limit.
+.It Cm nfs.client.mount_timeout
+Set the initial NFS mount connection timeout to the specified value.  The default value is 30 seconds.
+.It Cm nfs.client.mount_quick_timeout
+Set the initial NFS quick mount connection timeout to the specified value.  The default value is 8 seconds. Quick mount timeout will be used for
+.Cm autofs
+mounts if mounted using zero
+.Cm retrycnt .
 .It Cm nfs.client.is_mobile
 This option specifies if an NFS client is on a mobile machine. On a mobile machine, hard mounted file systems can be automatically forcibly unmounted if the following is met:
 .Bl -bullet -compact
@@ -237,6 +244,10 @@ available to service NFS requests.  The default value is 8.
 .It Cm nfs.server.port
 This option can be used to specify a port that the NFS service (nfsd)
 should be available on.  The default value is 2049.
+.It Cm nfs.server.materialize_dataless_files
+This option specifies whether the NFS server should support materialization of non-local files (dataless).
+dataless is a state supported by APFS in which a file or directory is a placeholder. Its children (for a directory) or content (for a file) will be fetched when the user tries to read it.
+The default is 0 (off).
 .It Cm nfs.server.reqcache_size
 This option specifies the size of the NFS server request cache.  The
 default value is 64.

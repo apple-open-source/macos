@@ -34,7 +34,7 @@ T_DECL(map_basic_64, "Make sure 64 bit map basics work",
 {
 	os_map_64_t basic_64_map;
 	__block bool got_cafebabe = false;
-	__block bool got_deadbeaf = false;
+	__block bool got_deadbeef = false;
 	uint64_t value;
 
 	T_LOG("Start");
@@ -61,7 +61,7 @@ T_DECL(map_basic_64, "Make sure 64 bit map basics work",
 		} else if (key == 0xDEADDEAD) {
 			T_ASSERT_EQ(value, (void *)0xDEADBEEF,
 				    "Callback expec 0xDEADBEEF");
-			got_deadbeaf = true;
+			got_deadbeef = true;
 		} else {
 			T_FAIL("Got unexpected callback 0x%llx, 0x%llx",
 			       (unsigned long long)key,
@@ -70,7 +70,7 @@ T_DECL(map_basic_64, "Make sure 64 bit map basics work",
 		return true;
 	});
 
-	if (!got_cafebabe || !got_deadbeaf) {
+	if (!got_cafebabe || !got_deadbeef) {
 		T_FAIL("Failed to get callback");
 	}
 
@@ -114,7 +114,7 @@ T_DECL(map_basic_32, "Make sure 32 bit map basics work",
 {
 	os_map_32_t basic_32_map;
 	__block bool got_cafebabe = false;
-	__block bool got_deadbeaf = false;
+	__block bool got_deadbeef = false;
 	uint64_t value;
 
 	T_LOG("Start");
@@ -139,7 +139,7 @@ T_DECL(map_basic_32, "Make sure 32 bit map basics work",
 		} else if (key == 0xDEADDEAD) {
 			T_ASSERT_EQ(value, (void *)0xDEADBEEF,
 				    "Callback expec 0xDEADBEEF");
-			got_deadbeaf = true;
+			got_deadbeef = true;
 		} else {
 			T_FAIL("Got unexpected callback 0x%llx, 0x%llx",
 			       (unsigned long long)key,
@@ -148,7 +148,7 @@ T_DECL(map_basic_32, "Make sure 32 bit map basics work",
 		return true;
 	});
 
-	if (!got_cafebabe || !got_deadbeaf) {
+	if (!got_cafebabe || !got_deadbeef) {
 		T_FAIL("Failed to get callback");
 	}
 
@@ -191,7 +191,7 @@ T_DECL(map_basic_string, "Make sure string map basics work",
 {
 	os_map_str_t basic_string_map;
 	__block bool got_cafebabe = false;
-	__block bool got_deadbeaf = false;
+	__block bool got_deadbeef = false;
 	uint64_t value;
 
 	T_LOG("Start");
@@ -217,7 +217,7 @@ T_DECL(map_basic_string, "Make sure string map basics work",
 		} else if (strcmp("0xDEADDEAD", key) == 0) {
 			T_ASSERT_EQ(value, (void *)0xDEADBEEF,
 				    "Callback expec 0xDEADBEEF");
-			got_deadbeaf = true;
+			got_deadbeef = true;
 		} else {
 			T_FAIL("Got unexpected callback 0x%llx, 0x%llx",
 			       (unsigned long long)key,
@@ -226,7 +226,7 @@ T_DECL(map_basic_string, "Make sure string map basics work",
 		return true;
 	});
 
-	if (!got_cafebabe || !got_deadbeaf) {
+	if (!got_cafebabe || !got_deadbeef) {
 		T_FAIL("Failed to get callback");
 	}
 
@@ -316,7 +316,7 @@ T_DECL(map_basic_128, "Make sure 64 bit map basics work",
 {
     os_map_128_t basic_128_map;
     __block bool got_cafebabe = false;
-    __block bool got_deadbeaf = false;
+    __block bool got_deadbeef = false;
     uint64_t value;
 
     T_LOG("Start");
@@ -349,7 +349,7 @@ T_DECL(map_basic_128, "Make sure 64 bit map basics work",
             got_cafebabe = true;
         } else if (key.x[0] == 0xDEADDEAD && key.x[1] == 0xBEEFBEEF) {
             T_ASSERT_EQ(value, (void *)0xDEADBEEF, "Callback expec 0xDEADBEEF");
-            got_deadbeaf = true;
+            got_deadbeef = true;
         } else {
             T_FAIL("Got unexpected callback 0x%llx:0x%llx, 0x%llx",
 		   (unsigned long long)key.x[0], (unsigned long long)key.x[1],
@@ -358,7 +358,7 @@ T_DECL(map_basic_128, "Make sure 64 bit map basics work",
         return true;
     });
 
-    if (!got_cafebabe || !got_deadbeaf) {
+    if (!got_cafebabe || !got_deadbeef) {
         T_FAIL("Failed to get callback");
     }
 
@@ -421,4 +421,230 @@ T_DECL(map_basic_128, "Make sure 64 bit map basics work",
     T_ASSERT_EQ(value, (uint64_t)0x0, "After-delete find 4");
 
     os_map_destroy(&basic_128_map);
+}
+
+
+T_DECL(set_basic_64_ptr, "Make sure 64 ptr set basics work",
+        T_META("owner", "Core Darwin Daemons & Tools"))
+{
+    os_set_64_ptr_t basic_64_ptr_set;
+    __block bool got_cafebabe = false;
+    __block bool got_deadbeef = false;
+    uint64_t cafebabe_holder = 0xCAFEBABE;
+    void *cafebabe_holder_adr = &cafebabe_holder;
+    T_LOG("Storing cafebabe in 0x%llx", (unsigned long long)cafebabe_holder_adr);
+    uint64_t deadbeef_holder = 0xDEADBEEFDEADFA11;
+    void *deadbeef_holder_adr = &deadbeef_holder;
+    T_LOG("Storing deadbeaf in 0x%llx", (unsigned long long)deadbeef_holder_adr);
+    uint64_t *fetch_pointer = NULL;
+
+    T_LOG("Start");
+
+    // *** BASIC 64 ptr testing ***
+
+    os_set_init(&basic_64_ptr_set, NULL);
+
+    T_ASSERT_EQ(os_set_count(&basic_64_ptr_set), 0, NULL);
+
+    os_set_insert(&basic_64_ptr_set, &cafebabe_holder);
+    T_ASSERT_EQ(os_set_count(&basic_64_ptr_set), 1, NULL);
+
+    os_set_insert(&basic_64_ptr_set, &deadbeef_holder);
+    T_ASSERT_EQ(os_set_count(&basic_64_ptr_set), 2, NULL);
+
+    os_set_foreach(&basic_64_ptr_set, ^bool (uint64_t *iter_pointer){
+        T_LOG("Foreach called for 0x%llx (val:0x%llx)",
+              (unsigned long long)iter_pointer, (unsigned long long)*iter_pointer);
+        if (*iter_pointer == 0xCAFEBABE) {
+            got_cafebabe = true;
+            T_ASSERT_EQ(iter_pointer, cafebabe_holder_adr, NULL);
+        } else if (*iter_pointer  == 0xDEADBEEFDEADFA11) {
+            got_deadbeef = true;
+            T_ASSERT_EQ(iter_pointer, deadbeef_holder_adr, NULL);
+        } else {
+            T_FAIL("Got unexpected callback 0x%llx, 0x%llx",
+                   (unsigned long long)iter_pointer,
+                   (unsigned long long)*iter_pointer);
+        }
+        return true;
+    });
+
+    if (!got_cafebabe || !got_deadbeef) {
+        T_FAIL("Failed to get callback");
+    }
+
+    fetch_pointer = os_set_find(&basic_64_ptr_set, 0xDEADBEEFDEADFA11);
+    T_ASSERT_EQ(fetch_pointer, &deadbeef_holder, "Find 1");
+
+    fetch_pointer = os_set_find(&basic_64_ptr_set, 0xCAFEBABE);
+    T_ASSERT_EQ(fetch_pointer, &cafebabe_holder, "Find 2");
+
+    fetch_pointer = os_set_find(&basic_64_ptr_set, 0xFF00F0F0);
+    T_ASSERT_EQ(fetch_pointer, NULL, "Find 3");
+
+
+    os_set_delete(&basic_64_ptr_set, 0xDEADBEEFDEADFA11);
+    T_ASSERT_EQ(os_set_count(&basic_64_ptr_set), 1, NULL);
+
+    fetch_pointer = os_set_find(&basic_64_ptr_set, 0xDEADBEEFDEADFA11);
+    T_ASSERT_EQ(fetch_pointer, NULL, "After-delete Find 1");
+
+    fetch_pointer = os_set_find(&basic_64_ptr_set, 0xCAFEBABE);
+    T_ASSERT_EQ(fetch_pointer, &cafebabe_holder, "After-delete find 2");
+
+
+    T_ASSERT_EQ(os_set_delete(&basic_64_ptr_set, 0xCAFEBABE), &cafebabe_holder, NULL);
+    T_ASSERT_EQ(os_set_count(&basic_64_ptr_set), 0, NULL);
+
+
+    fetch_pointer = os_set_find(&basic_64_ptr_set, 0xDEADBEEFDEADFA11);
+    T_ASSERT_EQ(fetch_pointer, NULL, "After-delete Find 3");
+
+    fetch_pointer = os_set_find(&basic_64_ptr_set, 0xCAFEBABE);
+    T_ASSERT_EQ(fetch_pointer, NULL, "After-delete Find 4");
+
+    os_set_destroy(&basic_64_ptr_set);
+}
+
+T_DECL(set_basic_32_ptr, "Make sure 32 ptr set basics work",
+        T_META("owner", "Core Darwin Daemons & Tools"))
+{
+    os_set_32_ptr_t basic_32_ptr_set;
+    __block bool got_cafebabe = false;
+    __block bool got_deadbeef = false;
+    uint32_t cafebabe_holder = 0xCAFEBABE;
+    T_LOG("Storing cafebabe in 0x%llx", (unsigned long long)&cafebabe_holder);
+    uint32_t deadbeef_holder = 0xDEADBEEF;
+    T_LOG("Storing deadbeaf in 0x%llx", (unsigned long long)&deadbeef_holder);
+    uint32_t *fetch_pointer = NULL;
+
+    T_LOG("Start");
+
+    // *** BASIC 32 ptr testing ***
+
+    os_set_init(&basic_32_ptr_set, NULL);
+
+    os_set_insert(&basic_32_ptr_set, &cafebabe_holder);
+    os_set_insert(&basic_32_ptr_set, &deadbeef_holder);
+
+    os_set_foreach(&basic_32_ptr_set, ^bool (uint32_t *iter_pointer){
+        T_LOG("Foreach called for 0x%llx (val:0x%lx)",
+              (unsigned long long)iter_pointer, (unsigned long)*iter_pointer);
+        if (*iter_pointer == 0xCAFEBABE) {
+            got_cafebabe = true;
+        } else if (*iter_pointer  == 0xDEADBEEF) {
+            got_deadbeef = true;
+        } else {
+            T_FAIL("Got unexpected callback 0x%llx, 0x%llx",
+                   (unsigned long long)iter_pointer,
+                   (unsigned long long)*iter_pointer);
+        }
+        return true;
+    });
+
+    if (!got_cafebabe || !got_deadbeef) {
+        T_FAIL("Failed to get callback");
+    }
+
+    fetch_pointer = os_set_find(&basic_32_ptr_set, 0xDEADBEEF);
+    T_ASSERT_EQ(fetch_pointer, &deadbeef_holder, "Find 1");
+
+    fetch_pointer = os_set_find(&basic_32_ptr_set, 0xCAFEBABE);
+    T_ASSERT_EQ(fetch_pointer, &cafebabe_holder, "Find 2");
+
+    fetch_pointer = os_set_find(&basic_32_ptr_set, 0xFF00F0F0);
+    T_ASSERT_EQ(fetch_pointer, NULL, "Find 3");
+
+
+    os_set_delete(&basic_32_ptr_set, 0xDEADBEEF);
+
+    fetch_pointer = os_set_find(&basic_32_ptr_set, 0xDEADBEEF);
+    T_ASSERT_EQ(fetch_pointer, NULL, "After-delete Find 1");
+
+    fetch_pointer = os_set_find(&basic_32_ptr_set, 0xCAFEBABE);
+    T_ASSERT_EQ(fetch_pointer, &cafebabe_holder, "After-delete find 2");
+
+
+    os_set_delete(&basic_32_ptr_set, 0xCAFEBABE);
+
+
+    fetch_pointer = os_set_find(&basic_32_ptr_set, 0xDEADBEEF);
+    T_ASSERT_EQ(fetch_pointer, NULL, "After-delete Find 3");
+
+    fetch_pointer = os_set_find(&basic_32_ptr_set, 0xCAFEBABE);
+    T_ASSERT_EQ(fetch_pointer, NULL, "After-delete Find 4");
+
+    os_set_destroy(&basic_32_ptr_set);
+}
+
+T_DECL(set_basic_str_ptr, "Make sure str ptr set basics work",
+        T_META("owner", "Core Darwin Daemons & Tools"))
+{
+    os_set_str_ptr_t basic_str_ptr_set;
+    __block bool got_cafebabe = false;
+    __block bool got_deadbeef = false;
+    const char *cafebabe_holder = "0xCAFEBABE";
+    T_LOG("Storing cafebabe in 0x%llx", (unsigned long long)&cafebabe_holder);
+    const char *deadbeef_holder = "0xDEADBEEF";
+    T_LOG("Storing deadbeaf in 0x%llx", (unsigned long long)&deadbeef_holder);
+    const char **fetch_pointer = NULL;
+
+    T_LOG("Start");
+
+    // *** BASIC str ptr testing ***
+
+    os_set_init(&basic_str_ptr_set, NULL);
+
+    os_set_insert(&basic_str_ptr_set, &cafebabe_holder);
+    os_set_insert(&basic_str_ptr_set, &deadbeef_holder);
+
+
+    os_set_foreach(&basic_str_ptr_set, ^bool (const char **iter_pointer){
+        T_LOG("Foreach called for 0x%llx (val:%s)",
+              (unsigned long long)iter_pointer, *iter_pointer);
+        if (strcmp(*iter_pointer, "0xCAFEBABE") == 0) {
+            got_cafebabe = true;
+        } else if (strcmp(*iter_pointer, "0xDEADBEEF") == 0) {
+            got_deadbeef = true;
+        } else {
+            T_FAIL("Got unexpected callback 0x%llx, %s",
+                   (unsigned long long)iter_pointer,
+                   *iter_pointer);
+        }
+        return true;
+    });
+
+    if (!got_cafebabe || !got_deadbeef) {
+        T_FAIL("Failed to get callback");
+    }
+
+    fetch_pointer = os_set_find(&basic_str_ptr_set, "0xDEADBEEF");
+    T_ASSERT_EQ(fetch_pointer, &deadbeef_holder, "Find 1");
+
+    fetch_pointer = os_set_find(&basic_str_ptr_set, "0xCAFEBABE");
+    T_ASSERT_EQ(fetch_pointer, &cafebabe_holder, "Find 2");
+
+    fetch_pointer = os_set_find(&basic_str_ptr_set, "0xFF00F0F0");
+    T_ASSERT_EQ(fetch_pointer, NULL, "Find 3");
+
+
+    os_set_delete(&basic_str_ptr_set, "0xDEADBEEF");
+
+    fetch_pointer = os_set_find(&basic_str_ptr_set, "0xDEADBEEF");
+    T_ASSERT_EQ(fetch_pointer, NULL, "After-delete Find 1");
+
+    fetch_pointer = os_set_find(&basic_str_ptr_set, "0xCAFEBABE");
+    T_ASSERT_EQ(fetch_pointer, &cafebabe_holder, "After-delete find 2");
+
+
+    os_set_delete(&basic_str_ptr_set, "0xCAFEBABE");
+
+
+    fetch_pointer = os_set_find(&basic_str_ptr_set, "0xDEADBEEF");
+    T_ASSERT_EQ(fetch_pointer, NULL, "After-delete Find 3");
+
+    fetch_pointer = os_set_find(&basic_str_ptr_set, "0xCAFEBABE");
+    T_ASSERT_EQ(fetch_pointer, NULL, "After-delete Find 4");
+
+    os_set_destroy(&basic_str_ptr_set);
 }

@@ -6,7 +6,12 @@ osfmk/vm/vm_apple_protect.c	 standard
 
 osfmk/arm/hi_res_clock_map.c 	optional hi_res_clock
 
-osfmk/arm/pmap.c		standard
+osfmk/arm/pmap.c			standard
+osfmk/arm/pmap/pmap_cs.c		standard
+osfmk/arm/pmap/pmap_data.c		standard
+osfmk/arm/pmap/pmap_iommu.c		standard
+osfmk/arm/pmap/pmap_misc.c		standard
+osfmk/arm/pmap/pmap_ppl_interface.c	standard
 
 osfmk/arm/bsd_arm.c		optional mach_bsd
 osfmk/arm/machdep_call.c	optional mach_bsd

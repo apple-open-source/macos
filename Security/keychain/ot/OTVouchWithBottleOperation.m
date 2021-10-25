@@ -23,7 +23,8 @@
 
 #if OCTAGON
 
-#import <utilities/debugging.h>
+#import "utilities/debugging.h"
+#import <os/feature_private.h>
 
 #import "keychain/ot/OTVouchWithBottleOperation.h"
 #import "keychain/ot/OTClientStateMachine.h"
@@ -74,7 +75,7 @@
 
     if(self.bottleSalt != nil) {
         secnotice("octagon", "using passed in altdsid, altdsid is: %@", self.bottleSalt);
-    } else{
+    } else {
         NSError *error = nil;
 
         NSString* altDSID = [self.deps.authKitAdapter primaryiCloudAccountAltDSID:&error];
@@ -84,16 +85,20 @@
         }
         else {
             secnotice("octagon", "authkit doesn't know about the altdsid, using stored value: %@", error);
-
             NSError* accountError = nil;
             OTAccountMetadataClassC* account = [self.deps.stateHolder loadOrCreateAccountMetadata:&accountError];
 
             if(account && !accountError) {
                 secnotice("octagon", "retrieved account, altdsid is: %@", account.altDSID);
                 self.bottleSalt = account.altDSID;
-            }
-            if(accountError || !account){
-                secerror("failed to rerieve account object: %@", accountError);
+            } else {
+                if (accountError == nil) {
+                    accountError = [NSError errorWithDomain:(__bridge NSString *)kSecErrorDomain code:errSecInternalError userInfo:nil];
+                }
+                secerror("failed to retrieve account object: %@", accountError);
+                self.error = accountError;
+                [self runBeforeGroupFinished:self.finishedOp];
+                return;
             }
         }
     }
@@ -122,7 +127,7 @@
 
         // Tell CKKS to spin up the new views and policy
         // But, do not persist this view set! We'll do that when we actually manager to join
-        [self.deps.viewManager setCurrentSyncingPolicy:peerSyncingPolicy];
+        [self.deps.ckks setCurrentSyncingPolicy:peerSyncingPolicy];
 
         [self proceedWithPeerID:peerID refetchWasNeeded:refetchWasNeeded];
     }];
@@ -132,53 +137,30 @@
 {
     WEAKIFY(self);
 
-    // After a vouch, we also want to acquire all TLKs that the bottled peer might have had
-    OTFetchCKKSKeysOperation* fetchKeysOp = [[OTFetchCKKSKeysOperation alloc] initWithDependencies:self.deps
-                                                                                     refetchNeeded:refetchWasNeeded];
-    [self runBeforeGroupFinished:fetchKeysOp];
-
-    CKKSResultOperation* proceedWithKeys = [CKKSResultOperation named:@"bottle-tlks"
-                                                            withBlock:^{
+    [self.deps.cuttlefishXPCWrapper fetchRecoverableTLKSharesWithContainer:self.deps.containerName
+                                                                   context:self.deps.contextID
+                                                                    peerID:peerID
+                                                                     reply:^(NSArray<CKRecord *> * _Nullable keyHierarchyRecords, NSError * _Nullable error) {
         STRONGIFY(self);
 
+        if(error) {
+            secerror("octagon: Error fetching TLKShares to recover: %@", error);
+            // recovering these is best-effort, so fall through.
+        }
+
         NSMutableArray<CKKSTLKShare*>* filteredTLKShares = [NSMutableArray array];
-        for(CKKSTLKShare* share in fetchKeysOp.tlkShares) {
-            // If we didn't get a peerID, just pass every tlkshare and hope for the best
-            if(peerID == nil || [share.receiverPeerID isEqualToString:peerID]) {
-                [filteredTLKShares addObject:share];
+        for(CKRecord* record in keyHierarchyRecords) {
+            if([record.recordType isEqual:SecCKRecordTLKShareType]) {
+                CKKSTLKShareRecord* tlkShare = [[CKKSTLKShareRecord alloc] initWithCKRecord:record];
+                [filteredTLKShares addObject:tlkShare.share];
             }
         }
 
-        if(fetchKeysOp.viewsTimedOutWithoutKeysets.count > 0) {
-            // At least one view failed to find a keyset in time.
-            // Set up a retry with this bottle, once CKKS is done fetching
-            secnotice("octagon", "Timed out fetching key hierarchy for CKKS views; marking for TLK recovery follow up: %@", fetchKeysOp.viewsTimedOutWithoutKeysets);
-            OctagonPendingFlag* flag = [[OctagonPendingFlag alloc] initWithFlag:OctagonFlagAttemptBottleTLKExtraction
-                                                                          after:self.deps.viewManager.zoneChangeFetcher.inflightFetch];
-            [self.deps.flagHandler handlePendingFlag:flag];
-        }
-
-        [self proceedWithKeys:fetchKeysOp.viewKeySets filteredTLKShares:filteredTLKShares];
+        [self proceedWithFilteredTLKShares:filteredTLKShares];
     }];
-
-    [proceedWithKeys addDependency:fetchKeysOp];
-    [self runBeforeGroupFinished:proceedWithKeys];
 }
 
-
-- (void)noteMetric:(NSString*)metric count:(int64_t)count
-{
-    NSString* metricName = [NSString stringWithFormat:@"%@%lld", metric, count];
-
-    [[CKKSAnalytics logger] logResultForEvent:metricName
-                                  hardFailure:NO
-                                       result:nil];
-
-    [[CKKSAnalytics logger] setDateProperty:[NSDate date] forKey:metricName];
-    [[CKKSAnalytics logger] setNumberProperty:[[NSNumber alloc]initWithLong:count] forKey:metric];
-}
-
-- (void)proceedWithKeys:(NSArray<CKKSKeychainBackedKeySet*>*)viewKeySets filteredTLKShares:(NSArray<CKKSTLKShare*>*)tlkShares
+- (void)proceedWithFilteredTLKShares:(NSArray<CKKSTLKShare*>*)tlkShares
 {
     WEAKIFY(self);
 
@@ -190,59 +172,50 @@
                                                        tlkShares:tlkShares
                                                            reply:^(NSData * _Nullable voucher,
                                                                    NSData * _Nullable voucherSig,
-                                                                   int64_t uniqueTLKsRecovered,
-                                                                   int64_t totalTLKSharesRecovered,
+                                                                   NSArray<CKKSTLKShare*>* _Nullable newTLKShares,
+                                                                   TrustedPeersHelperTLKRecoveryResult* _Nullable tlkRecoveryResults,
                                                                    NSError * _Nullable error) {
-            STRONGIFY(self);
-            [[CKKSAnalytics logger] logResultForEvent:OctagonEventVoucherWithBottle hardFailure:true result:error];
+        STRONGIFY(self);
+        [[CKKSAnalytics logger] logResultForEvent:OctagonEventVoucherWithBottle hardFailure:true result:error];
 
-            if(error){
-                secerror("octagon: Error preparing voucher using bottle: %@", error);
-                self.error = error;
+        if(error){
+            secerror("octagon: Error preparing voucher using bottle: %@", error);
+            self.error = error;
+            [self runBeforeGroupFinished:self.finishedOp];
+            return;
+        }
+
+        [[CKKSAnalytics logger] recordRecoveredTLKMetrics:tlkShares
+                                       tlkRecoveryResults:tlkRecoveryResults
+                                 uniqueTLKsRecoveredEvent:OctagonAnalyticsBottledUniqueTLKsRecovered
+                                totalSharesRecoveredEvent:OctagonAnalyticsBottledTotalTLKSharesRecovered
+                           totalRecoverableTLKSharesEvent:OctagonAnalyticsBottledTotalTLKShares
+                                totalRecoverableTLKsEvent:OctagonAnalyticsBottledUniqueTLKsWithSharesCount
+                                totalViewsWithSharesEvent:OctagonAnalyticsBottledTLKUniqueViewCount];
+
+        self.voucher = voucher;
+        self.voucherSig = voucherSig;
+
+        if(self.saveVoucher) {
+            secnotice("octagon", "Saving voucher for later use...");
+            NSError* saveError = nil;
+            [self.deps.stateHolder persistAccountChanges:^OTAccountMetadataClassC * _Nullable(OTAccountMetadataClassC * _Nonnull metadata) {
+                metadata.voucher = voucher;
+                metadata.voucherSignature = voucherSig;
+                [metadata setTLKSharesPairedWithVoucher:newTLKShares];
+                return metadata;
+            } error:&saveError];
+            if(saveError) {
+                secnotice("octagon", "unable to save voucher: %@", saveError);
                 [self runBeforeGroupFinished:self.finishedOp];
                 return;
             }
+        }
 
-            //collect TLK count metrics
-            [self noteMetric:OctagonAnalyticsBottledUniqueTLKsRecovered count:uniqueTLKsRecovered];
-            [self noteMetric:OctagonAnalyticsBottledTotalTLKSharesRecovered count:totalTLKSharesRecovered];
-            [self noteMetric:OctagonAnalyticsBottledTotalTLKShares count:tlkShares.count];
-
-            NSMutableSet<NSString*>* uniqueTLKsWithShares = [NSMutableSet set];
-            for (CKKSTLKShare* share in tlkShares) {
-                [uniqueTLKsWithShares addObject:share.tlkUUID];
-            }
-
-            [self noteMetric:OctagonAnalyticsBottledUniqueTLKsWithSharesCount count:uniqueTLKsWithShares.count];
-
-            NSMutableDictionary *views = [NSMutableDictionary dictionary];
-            for (CKKSTLKShare *share in tlkShares) {
-                views[share.zoneID] = share.zoneID;
-            }
-            [self noteMetric:OctagonAnalyticsBottledTLKUniqueViewCount count:views.count];
-
-            self.voucher = voucher;
-            self.voucherSig = voucherSig;
-
-            if(self.saveVoucher) {
-                secnotice("octagon", "Saving voucher for later use...");
-                NSError* saveError = nil;
-                [self.deps.stateHolder persistAccountChanges:^OTAccountMetadataClassC * _Nullable(OTAccountMetadataClassC * _Nonnull metadata) {
-                    metadata.voucher = voucher;
-                    metadata.voucherSignature = voucherSig;
-                    return metadata;
-                } error:&saveError];
-                if(saveError) {
-                    secnotice("octagon", "unable to save voucher: %@", saveError);
-                    [self runBeforeGroupFinished:self.finishedOp];
-                    return;
-                }
-            }
-
-            secnotice("octagon", "Successfully vouched with a bottle: %@, %@", voucher, voucherSig);
-            self.nextState = self.intendedState;
-            [self runBeforeGroupFinished:self.finishedOp];
-        }];
+        secnotice("octagon", "Successfully vouched with a bottle: %@, %@", voucher, voucherSig);
+        self.nextState = self.intendedState;
+        [self runBeforeGroupFinished:self.finishedOp];
+    }];
 }
 
 @end

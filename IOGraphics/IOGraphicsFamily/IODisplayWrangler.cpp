@@ -40,6 +40,8 @@
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
+#ifdef TARGET_CPU_X86_64
+
 namespace {
 
 enum {
@@ -893,3 +895,6 @@ IODisplayWrangler::builtinPanelPowerNotify(bool state)
             &details, sizeof(details));
     }
 }
+
+
+#endif // TARGET_CPU_X86_64

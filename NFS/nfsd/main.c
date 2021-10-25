@@ -92,6 +92,7 @@
 #include <oncrpc/rpc.h>
 #include <oncrpc/rpcb.h>
 #include <nfs/rpcv2.h>
+#include <nfs/nfs.h>
 #include <nfs/nfsproto.h>
 
 #include <CoreFoundation/CoreFoundation.h>
@@ -120,6 +121,7 @@ const struct nfs_conf_server config_defaults =
 	1,		/* mount_require_resv_port */
 	8,		/* nfsd_threads */
 	NFS_PORT,	/* port */
+	0,		/* materialize_dataless_files */
 	64,		/* reqcache_size */
 	128,		/* request_queue_length */
 	0,		/* require_resv_port */
@@ -596,6 +598,9 @@ config_read(struct nfs_conf_server *conf)
 		} else if (!strcmp(key, "nfs.server.port")) {
 			if (value && val)
 				conf->port = val;
+		} else if (!strcmp(key, "nfs.server.materialize_dataless_files")) {
+			if (value && val)
+				conf->materialize_dataless_files = val;
 		} else if (!strcmp(key, "nfs.server.reqcache_size")) {
 			if (value && val)
 				conf->reqcache_size = val;
@@ -1330,6 +1335,16 @@ nfsd_load(void)
 static int
 nfsd_unload(void)
 {
+    int error;
+    struct nfs_export_args nxa;
+
+    /* Delete all exports that are in the kernel. */
+    bzero(&nxa, sizeof(nxa));
+    nxa.nxa_flags = NXA_DELETE_ALL;
+    error = nfssvc(NFSSVC_EXPORT, &nxa);
+    if (error && (errno != ENOENT))
+        log(LOG_ERR, "Can't delete all exports: %s (%d)", strerror(errno), errno);
+
 	const char *const args[] = { _PATH_LAUNCHCTL, "unload", _PATH_NFSD_PLIST, NULL };
 	return safe_exec((char *const*)args, 0);
 }

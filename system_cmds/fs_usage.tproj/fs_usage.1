@@ -2,13 +2,20 @@
 .\"
 .Dd November 7, 2002
 .Dt FS_USAGE 1
-.Os "Mac OS X"
+.Os "macOS"
 .Sh NAME
 .Nm fs_usage
 .Nd report system calls and page faults related to filesystem activity in
 real-time
 .Sh SYNOPSIS
-.Nm fs_usage [-e] [-w] [-f mode] [-b] [-t seconds] [-R rawfile [-S start_time] [-E end_time]] [pid | cmd [pid | cmd] ...]
+.Nm
+.Op Fl e
+.Op Fl w
+.Op Fl f Ar mode
+.Op Fl b
+.Op Fl t Ar seconds
+.Op Fl R Ar rawfile Op Fl S Ar start_time Fl E Ar end_time
+.Op Ar pid | cmd Op Ar pid | cmd Op ...
 .Sh DESCRIPTION
 The
 .Nm fs_usage
@@ -62,22 +69,22 @@ Multiple filtering options can be specified.
 By default, no output filtering occurs.
 The supported modes are:
 .Pp
-.Pa  network	
+.Pa  network
 Network-related events are displayed.
 .Pp
-.Pa filesys	
+.Pa filesys
 Filesystem-related events are displayed.
 .Pp
-.Pa pathname	
+.Pa pathname
 Pathname-related events are displayed.
 .Pp
-.Pa exec		
+.Pa exec
 Exec and spawn events are displayed.
 .Pp
-.Pa diskio	
+.Pa diskio
 Disk I/O events are displayed.
 .Pp
-.Pa cachehit	
+.Pa cachehit
 In addition, show cache hits.
 .\" ==========
 .It Fl b
@@ -86,7 +93,7 @@ Specifying the
 option annotates disk I/O events with BootCache info (if available).
 .\" ==========
 .It Fl t Ar seconds
-Specifies a run timeout in seconds.  
+Specifies a run timeout in seconds.
 .Nm fs_usage
 will run for no longer than the timeout specified.
 .\" ==========
@@ -94,19 +101,19 @@ will run for no longer than the timeout specified.
 Specifies a raw trace file to process.
 .\" ==========
 .It Fl S Ar start_time
-If 
+If
 .Fl R
 is selected, specifies the start time in microseconds to
-begin processing entries from the raw trace file. Entries
-with timestamps before the specified start time will be
+begin processing entries from the raw trace file.
+Entries with timestamps before the specified start time will be
 skipped.
 .\" ==========
 .It Fl E Ar end_time
-If 
+If
 .Fl R
 is selected, specifies the ending time in microseconds to
-stop processing entries from the raw trace file.  Entries
-with timestamps beyond the specified ending time will be
+stop processing entries from the raw trace file.
+Entries with timestamps beyond the specified ending time will be
 skipped.
 .\" ==========
 .It  pid | cmd
@@ -121,7 +128,6 @@ of process IDs or commands.
 .Pp
 The data columns displayed are as follows:
 .Bl -tag -width Ds
-.Pp
 .It TIMESTAMP
 TOD when call occurred.
 Wide mode will have microsecond granularity.
@@ -145,28 +151,27 @@ where 0xnnnnnnnn is the address being faulted.
 Of the form D=0xnnnnnnnn,
 where 0xnnnnnnnn is the block number
 of the physical disk block being read or written.
-.It OFFSET    
+.It OFFSET
 Of the form O=0xnnnnnnnn, where 0xnnnnnnnn is a file offset.
 .It SELECT RETURN
 Of the form S=x, x is the number of ready descriptors returned
-by the select() system call.
+by the
+.Xr select 2
+system call.
 If S=0, the time limit expired.
 .It TIME INTERVAL(W)
 The elapsed time spent in the system call.
-A 
+A
 .Sq Li W
 after the elapsed time indicates the process was scheduled out
 during this file activity.
 In this case, the elapsed time includes the wait time.
 .It PROCESS NAME
-The process that made the system call.  Wide mode will append the
-thread id to the process name (i.e Mail.nnn).
+The process that made the system call.
+Wide mode will append the thread id to the process name (i.e Mail.nnn).
 .El
-.Pp
 .Sh SAMPLE USAGE
-.Pp
 fs_usage -w -f filesys Mail
-.Pp
 .Nm fs_usage
 will display file system related data
 for all instances of processes named Mail.

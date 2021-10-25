@@ -41,8 +41,8 @@ typedef struct resultmap_entry_s resultmap_entry_t;
 
 const resultmap_entry_t resultmap[] = {
 #undef POLICYCHECKMACRO
-#define POLICYCHECKMACRO(NAME, TRUSTRESULT, SUBTYPE, LEAFCHECK, PATHCHECK, LEAFONLY, CSSMERR, OSSTATUS) \
-{ CFSTR(#NAME), CSSMERR },
+#define POLICYCHECKMACRO(NAME, TRUSTRESULT, SUBTYPE, LEAFCHECK, PATHCHECK, LEAFONLY, PROPFAILURE, CSSMERR, OSSTATUS) \
+{ CFSTR(#NAME), (int32_t)CSSMERR },
 #include "SecPolicyChecks.list"
 };
 
@@ -80,6 +80,7 @@ static bool SecTrustIsDevelopmentUpdateSigning(SecTrustRef trust)
     bool result = false;
     CFArrayRef policies = NULL; /* must release */
     SecPolicyRef policy = NULL; /* must release */
+    CFArrayRef chain = NULL; /* must release */
     SecCertificateRef cert = NULL;
     CFArrayRef ekus = NULL; /* must release */
     CFDataRef eku = NULL; /* must release */
@@ -93,9 +94,12 @@ static bool SecTrustIsDevelopmentUpdateSigning(SecTrustRef trust)
     }
 
     /* Apple Code Signing Dev EKU check */
-    if (((cert = SecTrustGetCertificateAtIndex(trust, 0)) == NULL) ||
+    chain = SecTrustCopyCertificateChain(trust);
+    if ((chain == NULL) ||
+        ((cert = (SecCertificateRef)CFArrayGetValueAtIndex(chain, 0)) == NULL) ||
         ((ekus = SecCertificateCopyExtendedKeyUsage(cert)) == NULL) ||
-        ((eku = CFDataCreate(kCFAllocatorDefault, oid->data, oid->length)) == NULL) ||
+        (oid->length > LONG_MAX) ||
+        ((eku = CFDataCreate(kCFAllocatorDefault, oid->data, (CFIndex)oid->length)) == NULL) ||
         (!CFArrayContainsValue(ekus, CFRangeMake(0, CFArrayGetCount(ekus)), eku))) {
         goto exit;
     }
@@ -107,6 +111,7 @@ exit:
     CFReleaseSafe(ekus);
     CFReleaseSafe(policies);
     CFReleaseSafe(policy);
+    CFReleaseSafe(chain);
     return result;
 }
 
@@ -135,11 +140,15 @@ SInt32 *SecTrustCopyStatusCodes(SecTrustRef trust,
     }
     CFDictionaryRef detail = (CFDictionaryRef)CFArrayGetValueAtIndex(details, index);
     CFIndex ix, detailCount = CFDictionaryGetCount(detail);
+    if (detailCount < 0 || detailCount >= (long)((LONG_MAX / sizeof(SInt32)) - 1)) {
+        CFReleaseSafe(details);
+        return NULL;
+    }
     *numStatusCodes = (unsigned int)detailCount;
 
     // Allocate one more entry than we need; this is used to store a CrlReason
     // at the end of the array.
-    SInt32 *statusCodes = (SInt32*)malloc((detailCount+1) * sizeof(SInt32));
+    SInt32 *statusCodes = (SInt32*)malloc((size_t)(detailCount+1) * sizeof(SInt32));
     statusCodes[*numStatusCodes] = 0;
 
     const unsigned int resultmaplen = sizeof(resultmap) / sizeof(resultmap_entry_t);

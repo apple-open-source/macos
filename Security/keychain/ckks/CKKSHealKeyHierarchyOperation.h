@@ -30,16 +30,15 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
-@class CKKSKeychainView;
-
 @interface CKKSHealKeyHierarchyOperation : CKKSGroupOperation <OctagonStateTransitionOperationProtocol>
 @property CKKSOperationDependencies* deps;
-@property (weak) CKKSKeychainView* ckks;
 @property OctagonState* nextState;
 
 - (instancetype)init NS_UNAVAILABLE;
+
+// If allowFullRefetchResult is TRUE, this operation might end in a 'full refetch needed' state.
 - (instancetype)initWithDependencies:(CKKSOperationDependencies*)dependencies
-                                ckks:(CKKSKeychainView*)ckks
+              allowFullRefetchResult:(BOOL)allowFullRefetchResult
                            intending:(OctagonState*)intendedState
                           errorState:(OctagonState*)errorState;
 @end

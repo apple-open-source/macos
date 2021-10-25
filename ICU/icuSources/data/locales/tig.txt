@@ -1,5 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
-// License & terms of use: http://www.unicode.org/copyright.html#License
+// License & terms of use: http://www.unicode.org/copyright.html
+// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
 tig{
     ExemplarCharacters{
         "[\u135F ፡ ፣-፧ ። ፠ ፨ ᎐-᎙ ፲-፼ ሀ-ሏ ⶀ ሐ-ሟ ᎀ-ᎃ ⶁ ሠ-ሯ ⶂ ሰ-ሷ ⶃ ሸ-ሿ ⶄ ቀ-ቈ ቊ-ቍ ቐ-ቖ ቘ "
@@ -22,7 +23,6 @@ tig{
         native{"latn"}
         traditional{"ethi"}
     }
-    Version{"36.1"}
     calendar{
         generic{
             DateTimePatterns{

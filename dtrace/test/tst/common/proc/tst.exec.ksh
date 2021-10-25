@@ -38,12 +38,12 @@ script()
 	proc:::exec
 	/curpsinfo->pr_ppid == $child && args[0] == "/bin/sleep"/
 	{
-		pids[curproc->p_pid] = 1;
+		pids[curpsinfo->pr_pid] = 1;
 		trace("proc:::exec\n");
 	}
 
 	proc:::exec-success
-	/pids[curproc->p_pid]/
+	/pids[curpsinfo->pr_pid]/
 	{
 		exit(0);
 	}

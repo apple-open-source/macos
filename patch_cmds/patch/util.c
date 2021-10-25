@@ -1,8 +1,4 @@
-/*	$OpenBSD: util.c,v 1.33 2009/10/27 23:59:41 deraadt Exp $	*/
-
-/*
- * patch - a program to apply diffs to original files
- * 
+/*-
  * Copyright 1986, Larry Wall
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -22,17 +18,22 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  * 
+ * patch - a program to apply diffs to original files
+ *
  * -C option added in 1998, original code by Marc Espie, based on FreeBSD
  * behaviour
+ *
+ * $OpenBSD: util.c,v 1.35 2010/07/24 01:10:12 ray Exp $
+ * $FreeBSD$
  */
 
-#include <sys/param.h>
 #include <sys/stat.h>
 
 #include <ctype.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <libgen.h>
+#include <limits.h>
 #include <paths.h>
 #include <signal.h>
 #include <stdarg.h>
@@ -64,7 +65,7 @@ move_file(const char *from, const char *to)
 		fromfd = open(from, O_RDONLY);
 		if (fromfd < 0)
 			pfatal("internal error, can't reopen %s", from);
-		while ((i = read(fromfd, buf, sizeof buf)) > 0)
+		while ((i = read(fromfd, buf, buf_size)) > 0)
 			if (write(STDOUT_FILENO, buf, i) != i)
 				pfatal("write failed");
 		close(fromfd);
@@ -95,12 +96,21 @@ int
 backup_file(const char *orig)
 {
 	struct stat	filestat;
-	char		bakname[MAXPATHLEN], *s, *simplename;
+	char		bakname[PATH_MAX], *s, *simplename;
 	dev_t		orig_device;
 	ino_t		orig_inode;
 
 	if (backup_type == none || stat(orig, &filestat) != 0)
 		return 0;			/* nothing to do */
+	/*
+	 * If the user used zero prefixes or suffixes, then
+	 * he doesn't want backups.  Yet we have to remove
+	 * orig to break possible hardlinks.
+	 */
+	if ((origprae && *origprae == 0) || *simple_backup_suffix == 0) {
+		unlink(orig);
+		return 0;
+	}
 	orig_device = filestat.st_dev;
 	orig_inode = filestat.st_ino;
 
@@ -129,10 +139,10 @@ backup_file(const char *orig)
 	while (stat(bakname, &filestat) == 0 &&
 	    orig_device == filestat.st_dev && orig_inode == filestat.st_ino) {
 		/* Skip initial non-lowercase chars.  */
-		for (s = simplename; *s && !islower(*s); s++)
+		for (s = simplename; *s && !islower((unsigned char)*s); s++)
 			;
 		if (*s)
-			*s = toupper(*s);
+			*s = toupper((unsigned char)*s);
 		else
 			memmove(simplename, simplename + 1,
 			    strlen(simplename + 1) + 1);
@@ -163,7 +173,7 @@ copy_file(const char *from, const char *to)
 	fromfd = open(from, O_RDONLY, 0);
 	if (fromfd < 0)
 		pfatal("internal error, can't reopen %s", from);
-	while ((i = read(fromfd, buf, sizeof buf)) > 0)
+	while ((i = read(fromfd, buf, buf_size)) > 0)
 		if (write(tofd, buf, i) != i)
 			pfatal("write to %s failed", to);
 	close(fromfd);
@@ -192,6 +202,22 @@ savestr(const char *s)
 }
 
 /*
+ * Allocate a unique area for a string.  Call fatal if out of memory.
+ */
+char *
+xstrdup(const char *s)
+{
+	char	*rv;
+
+	if (!s)
+		s = "Oops";
+	rv = strdup(s);
+	if (rv == NULL)
+		fatal("out of memory\n");
+	return rv;
+}
+
+/*
  * Vanilla terminal output (buffered).
  */
 void
@@ -200,9 +226,9 @@ say(const char *fmt, ...)
 	va_list	ap;
 
 	va_start(ap, fmt);
-	vfprintf(stderr, fmt, ap);
+	vfprintf(stdout, fmt, ap);
 	va_end(ap);
-	fflush(stderr);
+	fflush(stdout);
 }
 
 /*
@@ -244,7 +270,7 @@ void
 ask(const char *fmt, ...)
 {
 	va_list	ap;
-	ssize_t	nr;
+	ssize_t	nr = 0;
 	static	int ttyfd = -1;
 
 	va_start(ap, fmt);
@@ -254,7 +280,7 @@ ask(const char *fmt, ...)
 	if (ttyfd < 0)
 		ttyfd = open(_PATH_TTY, O_RDONLY);
 	if (ttyfd >= 0) {
-		if ((nr = read(ttyfd, buf, sizeof(buf))) > 0 &&
+		if ((nr = read(ttyfd, buf, buf_size)) > 0 &&
 		    buf[nr - 1] == '\n')
 			buf[nr - 1] = '\0';
 	}
@@ -276,10 +302,10 @@ set_signals(int reset)
 	if (!reset) {
 		hupval = signal(SIGHUP, SIG_IGN);
 		if (hupval != SIG_IGN)
-			hupval = (sig_t) my_exit;
+			hupval = my_exit;
 		intval = signal(SIGINT, SIG_IGN);
 		if (intval != SIG_IGN)
-			intval = (sig_t) my_exit;
+			intval = my_exit;
 	}
 	signal(SIGHUP, hupval);
 	signal(SIGINT, intval);
@@ -310,8 +336,10 @@ makedirs(const char *filename, bool striplast)
 
 	if (striplast) {
 		char	*s = strrchr(tmpbuf, '/');
-		if (s == NULL)
+		if (s == NULL) {
+			free(tmpbuf);
 			return;	/* nothing to be done */
+		}
 		*s = '\0';
 	}
 	if (mkpath(tmpbuf) != 0)
@@ -331,21 +359,23 @@ fetchname(const char *at, bool *exists, int strip_leading)
 
 	if (at == NULL || *at == '\0')
 		return NULL;
-	while (isspace(*at))
+	while (isspace((unsigned char)*at))
 		at++;
 #ifdef DEBUGGING
 	if (debug & 128)
 		say("fetchname %s %d\n", at, strip_leading);
 #endif
 	/* So files can be created by diffing against /dev/null.  */
-	if (strnEQ(at, _PATH_DEVNULL, sizeof(_PATH_DEVNULL) - 1))
+	if (strnEQ(at, _PATH_DEVNULL, sizeof(_PATH_DEVNULL) - 1)) {
+		*exists = true;
 		return NULL;
+	}
 	name = fullname = t = savestr(at);
 
 	tab = strchr(t, '\t') != NULL;
 	/* Strip off up to `strip_leading' path components and NUL terminate. */
 	for (sleading = strip_leading; *t != '\0' && ((tab && *t != '\t') ||
-	    !isspace(*t)); t++) {
+	    !isspace((unsigned char)*t)); t++) {
 		if (t[0] == '/' && t[1] != '/' && t[1] != '\0')
 			if (--sleading >= 0)
 				name = t + 1;
@@ -371,36 +401,10 @@ fetchname(const char *at, bool *exists, int strip_leading)
 	return name;
 }
 
-/*
- * Takes the name returned by fetchname and looks in RCS/SCCS directories
- * for a checked in version.
- */
-char *
-checked_in(char *file)
-{
-	char		*filebase, *filedir, tmpbuf[MAXPATHLEN];
-	struct stat	filestat;
-
-	filebase = basename(file);
-	filedir = dirname(file);
-
-#define try(f, a1, a2, a3) \
-(snprintf(tmpbuf, sizeof tmpbuf, f, a1, a2, a3), stat(tmpbuf, &filestat) == 0)
-
-	if (try("%s/RCS/%s%s", filedir, filebase, RCSSUFFIX) ||
-	    try("%s/RCS/%s%s", filedir, filebase, "") ||
-	    try("%s/%s%s", filedir, filebase, RCSSUFFIX) ||
-	    try("%s/SCCS/%s%s", filedir, SCCSPREFIX, filebase) ||
-	    try("%s/%s%s", filedir, SCCSPREFIX, filebase))
-		return file;
-
-	return NULL;
-}
-
 void
 version(void)
 {
-	fprintf(stderr, "Patch version 2.0-12u8-Apple\n");
+	printf("patch 2.0-12u11-Apple\n");
 	my_exit(EXIT_SUCCESS);
 }
 

@@ -83,7 +83,7 @@ void bnToCssmData(
 {
 	assert(bn != NULL);
 	unsigned numBytes = BN_num_bytes(bn);
-	cdata.Data = (uint8 *)coder.malloc(numBytes);
+	cdata.Data = (uint8 *)coder.alloc(numBytes);
 	if(cdata.Data == NULL) {
 		CssmError::throwMe(CSSMERR_CSP_MEMORY_ERROR);
 	}
@@ -136,7 +136,7 @@ void intToCssmData(
 	else {
 		len = 4;
 	}
-	cdata.Data = (uint8 *)coder.malloc(len);
+	cdata.Data = (uint8 *)coder.alloc(len);
 	cdata.Length = len;
 	uint8 *cp = &cdata.Data[len - 1];
 	for(unsigned i=0; i<len; i++) {

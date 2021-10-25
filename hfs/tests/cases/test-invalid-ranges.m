@@ -164,8 +164,8 @@ int run_invalid_ranges(__unused test_ctx_t *ctx)
 	assert(spos);
 	*spos = 0;
 
-	io_service_t obj = IOServiceGetMatchingService(kIOMasterPortDefault,
-												   IOBSDNameMatching(kIOMasterPortDefault, 0, dev_device));
+	io_service_t obj = IOServiceGetMatchingService(kIOMainPortDefault,
+												   IOBSDNameMatching(kIOMainPortDefault, 0, dev_device));
 
     assert(obj);
 
@@ -280,8 +280,8 @@ int run_invalid_ranges(__unused test_ctx_t *ctx)
 	// So now we have a hole that should be zeroed at <block_size, block_size>
 
 	// Touch every page in that hole
-	for (int i = 0; i < block_size / 4096; ++i)
-		check_io(pwrite(fd, "hello", 5, block_size + i * 4096 + 1000), 5);
+	for (int i = 0; i < block_size / ps; ++i)
+		check_io(pwrite(fd, "hello", 5, block_size + i * ps + 1000), 5);
 
 	// Check what we have in the cache
 	check_io(pread(fd, buf, ps, block_size), ps);

@@ -564,7 +564,7 @@ public:
      * BreakIterator::createXXXInstance to avoid undefined behavior.
      * @param key the registry key returned by a previous call to registerInstance
      * @param status the in/out status code, no special meanings are assigned
-     * @return TRUE if the iterator for the key was successfully unregistered
+     * @return true if the iterator for the key was successfully unregistered
      * @stable ICU 2.4
      */
     static UBool U_EXPORT2 unregister(URegistryKey key, UErrorCode& status);
@@ -670,7 +670,7 @@ inline void BreakIterator::setLineWordOpts(ULineWordOptions lineWordOpts)
 
 inline UBool BreakIterator::isBufferClone()
 {
-    return FALSE;
+    return false;
 }
 
 #endif /* U_HIDE_DEPRECATED_API */

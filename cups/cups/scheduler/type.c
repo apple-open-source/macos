@@ -15,7 +15,7 @@
 #include <cups/string-private.h>
 #include <locale.h>
 #include "mime.h"
-
+#include "mime-private.h"
 
 /*
  * Debug macros that used to be private API...
@@ -679,6 +679,114 @@ mimeFileType(mime_t     *mime,		/* I - MIME database */
   cupsFileClose(fb.fp);
 
   DEBUG_printf(("1mimeFileType: Returning %p(%s/%s).", best,
+                best ? best->super : "???", best ? best->type : "???"));
+  return (best);
+}
+
+/* Variant of mimeFileType that takes an open file */
+mime_type_t *				/* O - Type of file */
+mimeFileTypeFD(mime_t   *mime,	/* I - MIME database */
+             int        fd,             /* I - open file; the position is preserved (but should be at start of file */
+	     const char *filename)	/* I - last segment of the filename */
+{
+  _mime_filebuf_t	fb;		/* File buffer */
+  const char		*base;		/* Base filename of file */
+  mime_type_t		*type,		/* File type */
+			*best;		/* Best match */
+  int                    fd_new;        /* Dup the input fd to this so we can wrap it in a cupsFile */
+  off_t                 save_pos;       /* For restoring our position in the original file... */
+
+  DEBUG_printf(("mimeFileType(mime=%p, filename=\"%s\")", mime, filename));
+
+ /*
+  * Range check input parameters...
+  */
+
+  if (!mime || !filename || (fd == -1))
+  {
+    DEBUG_puts("1mimeFileType: Returning NULL.");
+    return (NULL);
+  }
+
+  /*
+   * Dup the fd so we can wrap it
+   */
+  save_pos = lseek(fd, 0, SEEK_CUR);
+  if (save_pos == -1) {
+    DEBUG_printf(("1mimeFileTypeFD can't seek in fd %d - %s", fd, strerror(errno)));
+    DEBUG_puts("1mimeFileTypeFD: Returning NULL.");
+    return NULL;
+  }
+
+  fd_new = dup(fd);
+  if (fd_new == -1) {
+    DEBUG_printf(("1mimeFileTypeFD can't dup fd %d - %s", fd, strerror(errno)));
+    DEBUG_puts("1mimeFileTypeFD: Returning NULL.");
+    return NULL;
+  }
+
+ /*
+  * Try to open the file...
+  * the cupsFile object will close fd_new
+  */
+
+  if ((fb.fp = cupsFileOpenFd(fd_new, "r")) == NULL)
+  {
+    lseek(fd, save_pos, SEEK_SET);
+
+    DEBUG_puts("1mimeFileTypeFD: Returning NULL.");
+    return (NULL);
+  }
+
+ /*
+  * Then preload the first MIME_MAX_BUFFER bytes of the file into the file
+  * buffer, returning an error if we can't read anything...
+  */
+
+  fb.offset = 0;
+  fb.length = (int)cupsFileRead(fb.fp, (char *)fb.buffer, MIME_MAX_BUFFER);
+
+  if (fb.length <= 0)
+  {
+    DEBUG_puts("1mimeFileTypeFD: Returning NULL.");
+
+    cupsFileClose(fb.fp);
+    lseek(fd, save_pos, SEEK_SET);
+
+    return (NULL);
+  }
+
+ /*
+  * Figure out the base filename (without directory portion)...
+  * (This has likely already been done...)
+  */
+
+  if ((base = strrchr(filename, '/')) != NULL)
+    base ++;
+  else
+    base = filename;
+
+ /*
+  * Then check it against all known types...
+  */
+
+  for (type = (mime_type_t *)cupsArrayFirst(mime->types), best = NULL;
+       type;
+       type = (mime_type_t *)cupsArrayNext(mime->types))
+    if (mime_check_rules(base, &fb, type->rules))
+    {
+      if (!best || type->priority > best->priority)
+        best = type;
+    }
+
+ /*
+  * Finally, close the file and return a match (if any)...
+  */
+
+  cupsFileClose(fb.fp);
+  lseek(fd, save_pos, SEEK_SET);
+
+  DEBUG_printf(("1mimeFileTypeFD: Returning %p(%s/%s).", best,
                 best ? best->super : "???", best ? best->type : "???"));
   return (best);
 }

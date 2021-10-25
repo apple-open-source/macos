@@ -242,7 +242,7 @@
             self.result.error = attempt.error;
         } else {
             self.result.error = [NSError errorWithDomain:OctagonErrorDomain
-                                                    code:OTErrorUnexpectedStateTransition
+                                                    code:OctagonErrorUnexpectedStateTransition
                                              description:[NSString stringWithFormat:@"state became %@, was expecting %@", attempt.nextState, self.remainingPath]];
         }
         [[CKKSAnalytics logger] logUnrecoverableError:self.result.error

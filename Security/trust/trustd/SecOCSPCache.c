@@ -30,6 +30,7 @@
 #include "trust/trustd/SecOCSPCache.h"
 #include "trust/trustd/SecTrustLoggingServer.h"
 #include "trust/trustd/trustdFileLocations.h"
+#include "trust/trustd/trustdVariants.h"
 #include <utilities/debugging.h>
 #include <Security/SecCertificateInternal.h>
 #include <Security/SecFramework.h>
@@ -195,6 +196,9 @@ static SecOCSPCacheRef kSecOCSPCache = NULL;
 static os_unfair_lock cacheLock = OS_UNFAIR_LOCK_INIT;
 
 void SecOCSPCacheCloseDB(void) {
+    if (!TrustdVariantAllowsFileWrite()) {
+        return;
+    }
     os_unfair_lock_lock(&cacheLock);
     if (kSecOCSPCache) {
         // Release the DB
@@ -209,6 +213,9 @@ void SecOCSPCacheCloseDB(void) {
 }
 
 void SecOCSPCacheDeleteCache(void) {
+    if (!TrustdVariantAllowsFileWrite()) {
+        return;
+    }
     os_unfair_lock_lock(&cacheLock);
     if (kSecOCSPCache) {
         // Release the DB
@@ -230,6 +237,9 @@ void SecOCSPCacheDeleteCache(void) {
 }
 
 static void SecOCSPCacheWith(void(^cacheJob)(SecOCSPCacheRef cache)) {
+    if (!TrustdVariantAllowsFileWrite()) {
+        return;
+    }
     os_unfair_lock_lock(&cacheLock);
     if (!kSecOCSPCache) {
         CFStringRef dbPath = SecOCSPCacheCopyPath();
@@ -269,6 +279,9 @@ static void _SecOCSPCacheReplaceResponse(SecOCSPCacheRef this,
     // In addition whenever we run though here, check to see if "now" is more than past
     // the nextCacheExpireDate and expire the cache if it is.
     CFDataRef responseData = SecOCSPResponseGetData(ocspResponse);
+    if (CFDataGetLength(responseData) < 0) {
+        return;
+    }
     __block CFErrorRef localError = NULL;
     __block bool ok = true;
     ok &= SecDbPerformWrite(this->db, &localError, ^(SecDbConnectionRef dbconn) {
@@ -286,7 +299,7 @@ static void _SecOCSPCacheReplaceResponse(SecOCSPCacheRef this,
             ok &= SecDbWithSQL(dbconn, insertResponseSQL, &localError, ^bool(sqlite3_stmt *insertResponse) {
                 ok &= SecDbBindBlob(insertResponse, 1,
                                     CFDataGetBytePtr(responseData),
-                                    CFDataGetLength(responseData),
+                                    (size_t)CFDataGetLength(responseData),
                                     SQLITE_TRANSIENT, &localError);
 
                 /* responses.responderURI */
@@ -296,13 +309,13 @@ static void _SecOCSPCacheReplaceResponse(SecOCSPCacheRef this,
                         uriData = CFURLCreateData(kCFAllocatorDefault, localResponderURI,
                                                   kCFStringEncodingUTF8, false);
                     }
-                    if (uriData) {
+                    if (uriData && CFDataGetLength(uriData) > 0) {
                         ok = SecDbBindBlob(insertResponse, 2,
                                            CFDataGetBytePtr(uriData),
-                                           CFDataGetLength(uriData),
+                                           (size_t) CFDataGetLength(uriData),
                                            SQLITE_TRANSIENT, &localError);
-                        CFRelease(uriData);
                     }
+                    CFReleaseNull(uriData);
                 }
                 /* responses.expires */
                 ok &= SecDbBindDouble(insertResponse, 3,
@@ -345,7 +358,7 @@ static void _SecOCSPCacheReplaceResponse(SecOCSPCacheRef this,
                                         certId->serialNumber.Length,
                                         SQLITE_TRANSIENT, &localError);
                     ok &= SecDbBindInt64(insertLink, 5, responseId, &localError);
-                    ok &= SecDbBindInt(insertLink, 6, certStatus, &localError);
+                    ok &= SecDbBindInt(insertLink, 6, (int)certStatus, &localError);
 
                     /* Execute the insert statement. */
                     ok &= SecDbStep(dbconn, insertLink, &localError, NULL);
@@ -382,33 +395,39 @@ static SecOCSPResponseRef _SecOCSPCacheCopyMatching(SecOCSPCacheRef this,
     require(publicKey = SecCertificateGetPublicKeyData(request->issuer), errOut);
     require(issuer = SecCertificateCopyIssuerSequence(request->certificate), errOut);
     require(serial = SecCertificateCopySerialNumberData(request->certificate, NULL), errOut);
+    require(CFDataGetLength(serial) > 0 && publicKey->length < LONG_MAX, errOut);
 
     ok &= SecDbPerformRead(this->db, &localError, ^(SecDbConnectionRef dbconn) {
         ok &= SecDbWithSQL(dbconn, selectHashAlgorithmSQL, &localError, ^bool(sqlite3_stmt *selectHash) {
-            ok = SecDbBindBlob(selectHash, 1, CFDataGetBytePtr(serial), CFDataGetLength(serial), SQLITE_TRANSIENT, &localError);
+            ok = SecDbBindBlob(selectHash, 1, CFDataGetBytePtr(serial), (size_t)CFDataGetLength(serial), SQLITE_TRANSIENT, &localError);
             ok &= SecDbStep(dbconn, selectHash, &localError, ^(bool *stopHash) {
+                if (sqlite3_column_bytes(selectHash, 0) < 0) {
+                    return;
+                }
                 SecAsn1Oid algorithm;
                 algorithm.Data = (uint8_t *)sqlite3_column_blob(selectHash, 0);
-                algorithm.Length = sqlite3_column_bytes(selectHash, 0);
+                algorithm.Length = (size_t)sqlite3_column_bytes(selectHash, 0);
 
                 /* Calculate the issuerKey and issuerName digests using the returned
                  hashAlgorithm. */
                 CFDataRef issuerNameHash = SecDigestCreate(kCFAllocatorDefault,
                                                            &algorithm, NULL, CFDataGetBytePtr(issuer), CFDataGetLength(issuer));
                 CFDataRef issuerPubKeyHash = SecDigestCreate(kCFAllocatorDefault,
-                                                             &algorithm, NULL, publicKey->data, publicKey->length);
+                                                             &algorithm, NULL, publicKey->data, (CFIndex)publicKey->length);
 
-                if (issuerNameHash && issuerPubKeyHash && ok) {
+                if (issuerNameHash && CFDataGetLength(issuerNameHash) > 0 &&
+                    issuerPubKeyHash && CFDataGetLength(issuerPubKeyHash) > 0 &&
+                    ok) {
                     ok &= SecDbWithSQL(dbconn, selectResponseSQL, &localError, ^bool(sqlite3_stmt *selectResponse) {
                         /* Now we have the serial, algorithm, issuerNameHash and
                          issuerPubKeyHash so let's lookup the db entry. */
                         ok &= SecDbBindDouble(selectResponse, 1, minInsertTime, &localError);
                         ok &= SecDbBindBlob(selectResponse, 2, CFDataGetBytePtr(issuerNameHash),
-                                            CFDataGetLength(issuerNameHash), SQLITE_TRANSIENT, &localError);
+                                            (size_t)CFDataGetLength(issuerNameHash), SQLITE_TRANSIENT, &localError);
                         ok &= SecDbBindBlob(selectResponse, 3, CFDataGetBytePtr(issuerPubKeyHash),
-                                            CFDataGetLength(issuerPubKeyHash), SQLITE_TRANSIENT, &localError);
+                                            (size_t)CFDataGetLength(issuerPubKeyHash), SQLITE_TRANSIENT, &localError);
                         ok &= SecDbBindBlob(selectResponse, 4, CFDataGetBytePtr(serial),
-                                            CFDataGetLength(serial), SQLITE_TRANSIENT, &localError);
+                                            (size_t)CFDataGetLength(serial), SQLITE_TRANSIENT, &localError);
                         ok &= SecDbBindBlob(selectResponse, 5, algorithm.Data,
                                             algorithm.Length, SQLITE_TRANSIENT, &localError);
                         ok &= SecDbStep(dbconn, selectResponse, &localError, ^(bool *stopResponse) {

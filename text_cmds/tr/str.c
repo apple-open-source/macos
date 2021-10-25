@@ -1,4 +1,6 @@
 /*-
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
  * Copyright (c) 1991, 1993
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -10,11 +12,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -33,13 +31,15 @@
 
 #include <sys/cdefs.h>
 
-__FBSDID("$FreeBSD: src/usr.bin/tr/str.c,v 1.24 2004/11/14 05:15:25 jkh Exp $");
+__FBSDID("$FreeBSD$");
 
 #ifndef lint
 static const char sccsid[] = "@(#)str.c	8.2 (Berkeley) 4/28/95";
 #endif
 
+#ifdef __APPLE__
 #include <sys/cdefs.h>
+#endif
 #include <sys/types.h>
 
 #include <ctype.h>
@@ -51,7 +51,9 @@ static const char sccsid[] = "@(#)str.c	8.2 (Berkeley) 4/28/95";
 #include <string.h>
 #include <wchar.h>
 #include <wctype.h>
+#ifdef __APPLE__
 #include <xlocale.h>
+#endif
 
 #include "extern.h"
 
@@ -62,6 +64,7 @@ static void	genequiv(STR *);
 static int      genrange(STR *, int);
 static void	genseq(STR *);
 
+#ifdef __APPLE__
 /*
  * Using libc internal function __collate_lookup_l for character
  * equivalence
@@ -74,10 +77,10 @@ locale_t);
  */
 int collation_weight_cache[NCHARS_SB];
 int is_weight_cached = 0;
+#endif /* __APPLE__ */
 
 wint_t
-next(s)
-	STR *s;
+next(STR *s)
 {
 	int is_octal;
 	wint_t ch;
@@ -165,8 +168,7 @@ next(s)
 }
 
 static int
-bracket(s)
-	STR *s;
+bracket(STR *s)
 {
 	char *p;
 
@@ -182,7 +184,7 @@ bracket(s)
 		s->str = p + 1;
 		return (1);
 	case '=':				/* "[=equiv=]" */
-		if ((p = strchr(s->str + 2, ']')) == NULL)
+		if (s->str[2] == '\0' || (p = strchr(s->str + 3, ']')) == NULL)
 			return (0);
 		if (*(p - 1) != '=' || p - s->str < 4)
 			goto repeat;
@@ -193,7 +195,7 @@ bracket(s)
 	repeat:
 		if ((p = strpbrk(s->str + 2, "*]")) == NULL)
 			return (0);
-		if (p[0] != '*' || index(p, ']') == NULL)
+		if (p[0] != '*' || strchr(p, ']') == NULL)
 			return (0);
 		s->str += 1;
 		genseq(s);
@@ -203,8 +205,7 @@ bracket(s)
 }
 
 static void
-genclass(s)
-	STR *s;
+genclass(STR *s)
 {
 
 	if ((s->cclass = wctype(s->str)) == 0)
@@ -220,10 +221,14 @@ genclass(s)
 }
 
 static void
-genequiv(s)
-	STR *s;
+genequiv(STR *s)
 {
+#ifdef __APPLE__
 	int i, p;
+#else
+	int i, p, pri;
+	char src[2], dst[3];
+#endif
 	size_t clen;
 	wchar_t wc;
 
@@ -242,6 +247,7 @@ genequiv(s)
 		s->str += clen + 2;
 	}
 
+#ifdef __APPLE__
     /*
      * Partially supporting multi-byte locales; only finds equivalent
      * characters within the first NCHARS_SB entries of the
@@ -290,6 +296,29 @@ genequiv(s)
             is_weight_cached = 1;
         }
     }
+#else /* !__APPLE__ */
+	/*
+	 * Calculate the set of all characters in the same equivalence class
+	 * as the specified character (they will have the same primary
+	 * collation weights).
+	 * XXX Knows too much about how strxfrm() is implemented. Assumes
+	 * it fills the string with primary collation weight bytes. Only one-
+	 * to-one mappings are supported.
+	 * XXX Equivalence classes not supported in multibyte locales.
+	 */
+	src[0] = (char)s->equiv[0];
+	src[1] = '\0';
+	if (MB_CUR_MAX == 1 && strxfrm(dst, src, sizeof(dst)) == 1) {
+		pri = (unsigned char)*dst;
+		for (p = 1, i = 1; i < NCHARS_SB; i++) {
+			*src = i;
+			if (strxfrm(dst, src, sizeof(dst)) == 1 && pri &&
+			    pri == (unsigned char)*dst)
+				s->equiv[p++] = i;
+		}
+		s->equiv[p] = OOBCH;
+	}
+#endif /* !__APPLE__ */
 
 	s->cnt = 0;
 	s->state = SET;
@@ -351,8 +380,7 @@ genrange(STR *s, int was_octal)
 }
 
 static void
-genseq(s)
-	STR *s;
+genseq(STR *s)
 {
 	char *ep;
 	wchar_t wc;

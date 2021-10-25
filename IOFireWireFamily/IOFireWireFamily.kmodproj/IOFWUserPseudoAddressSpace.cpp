@@ -449,7 +449,6 @@ IOFWUserPseudoAddressSpace::completeInit( IOFireWireUserClient* userclient, Addr
 		// init the easy vars
 		fLastReadHeader 			= new IOFWPacketHeader ;
 		fLastWrittenHeader			= fLastReadHeader ;
-		bzero(fLastWrittenHeader, sizeof(IOFWPacketHeader));
 		
 		// get a lock for the packet queue
 		fLock = IOLockAlloc() ;

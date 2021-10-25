@@ -35,17 +35,13 @@
 
 #if XNU_KERNEL_PRIVATE
 /*
- * Only include this when building for XNU. CoreTrust will include its
- * local copy of the header.
+ * Only include this when building for XNU. CoreTrust will include its local copy
+ * of the header.
  */
 #include <coretrust/CTEvaluate.h>
 #endif
 
-/*
- * We add more definitions as the need for them arises. Please refer
- * to <coretrust/CTEvaluate.h> for more information.
- */
-
+#define XNU_SUPPORTS_CORETRUST_AMFI 1
 typedef int (*coretrust_CTEvaluateAMFICodeSignatureCMS_t)(
 	const uint8_t *cms_data,
 	size_t cms_data_length,
@@ -61,11 +57,70 @@ typedef int (*coretrust_CTEvaluateAMFICodeSignatureCMS_t)(
 	size_t *digest_length
 	);
 
+#define XNU_SUPPORTS_CORETRUST_LOCAL_SIGNING 1
+typedef int (*coretrust_CTEvaluateAMFICodeSignatureCMSPubKey_t)(
+	const uint8_t *cms_data,
+	size_t cms_data_length,
+	const uint8_t *detached_data,
+	size_t detached_data_length,
+	const uint8_t *anchor_public_key,
+	size_t anchor_public_key_length,
+	CoreTrustDigestType *cms_digest_type,
+	CoreTrustDigestType *hash_agility_digest_type,
+	const uint8_t **digest_data,
+	size_t *digest_length
+	);
+
+#define XNU_SUPPORTS_CORETRUST_PROVISIONING_PROFILE 1
+typedef int (*coretrust_CTEvaluateProvisioningProfile_t)(
+	const uint8_t *provisioning_profile_data,
+	size_t provisioning_profile_length,
+	bool allow_test_roots,
+	const uint8_t **profile_content,
+	size_t *profile_content_length
+	);
+
 typedef struct _coretrust {
 	coretrust_CTEvaluateAMFICodeSignatureCMS_t CTEvaluateAMFICodeSignatureCMS;
+	coretrust_CTEvaluateAMFICodeSignatureCMSPubKey_t CTEvaluateAMFICodeSignatureCMSPubKey;
+	coretrust_CTEvaluateProvisioningProfile_t CTEvaluateProvisioningProfile;
 } coretrust_t;
 
 __BEGIN_DECLS
+
+/*!
+ * @const coretrust_appstore_policy
+ * The CoreTrust policy flags which collectively map an applications
+ * signature to the App Store certificate chain.
+ */
+static const CoreTrustPolicyFlags coretrust_appstore_policy =
+    CORETRUST_POLICY_IPHONE_APP_PROD  | CORETRUST_POLICY_IPHONE_APP_DEV |
+    CORETRUST_POLICY_TVOS_APP_PROD    | CORETRUST_POLICY_TVOS_APP_DEV   |
+    CORETRUST_POLICY_TEST_FLIGHT_PROD | CORETRUST_POLICY_TEST_FLIGHT_DEV;
+
+/*!
+ * @const coretrust_profile_validated_policy
+ * The CoreTrust policy flags which collectively map an applications
+ * signature to the profile validated certificate chain.
+ */
+static const CoreTrustPolicyFlags coretrust_profile_validated_policy =
+    CORETRUST_POLICY_IPHONE_DEVELOPER | CORETRUST_POLICY_IPHONE_DISTRIBUTION;
+
+/*!
+ * @const coretrust_local_signing_policy
+ * The CoreTrust policy which maps an application's signature to the locally
+ * signed key.
+ */
+static const CoreTrustPolicyFlags coretrust_local_signing_policy =
+    CORETRUST_POLICY_BASIC;
+
+/*!
+ * @const coretrust_provisioning_profile_policy
+ * The CoreTrust policy which maps a profile's signature to the provisioning
+ * profile WWDR certificate chain.
+ */
+static const CoreTrustPolicyFlags coretrust_provisioning_profile_policy =
+    CORETRUST_POLICY_PROVISIONING_PROFILE;
 
 /*!
  * @const coretrust

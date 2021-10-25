@@ -33,10 +33,10 @@ enum SOSCoderUnwrapStatus{
     SOSCoderUnwrapHandled = 2
 };
 
-bool SOSPeerCoderSendMessageIfNeeded(SOSAccount* account, SOSEngineRef engine, SOSTransactionRef txn, SOSPeerRef peer, SOSCoderRef coder, CFDataRef *message_to_send, CFStringRef peer_id, CFMutableArrayRef *attributeList, SOSEnginePeerMessageSentCallback **sentCallback, CFErrorRef *error);
+bool SOSPeerCoderSendMessageIfNeeded(SOSAccount* account, SOSEngineRef engine, SOSTransactionRef txn, SOSPeerRef peer, SOSCoderRef coder, CFDataRef *message_to_send, CFStringRef peer_id, CFMutableArrayRef *attributeList, SOSEnginePeerMessageCallBackInfo **sentCallback, CFErrorRef *error);
 
 enum SOSCoderUnwrapStatus SOSPeerHandleCoderMessage(SOSPeerRef peer, SOSCoderRef coder, CFStringRef peer_id, CFDataRef codedMessage, CFDataRef *decodedMessage, bool *forceSave, CFErrorRef *error);
 
-bool SOSPeerSendMessageIfNeeded(SOSPeerRef peer, CFDataRef *message, CFDataRef *message_to_send, SOSCoderRef *coder, CFStringRef circle_id, CFStringRef peer_id, SOSEnginePeerMessageSentCallback **sentCallback, CFErrorRef *error);
+bool SOSPeerSendMessageIfNeeded(SOSPeerRef peer, CFDataRef *message, CFDataRef *message_to_send, SOSCoderRef *coder, CFStringRef circle_id, CFStringRef peer_id, SOSEnginePeerMessageCallBackInfo **sentCallback, CFErrorRef *error);
 
 #endif

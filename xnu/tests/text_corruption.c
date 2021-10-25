@@ -4,6 +4,10 @@
 #include <darwintest.h>
 #include <darwintest_utils.h>
 
+/*
+ * We're going to corrupt shared library text, so don't
+ * run with other tests.
+ */
 T_GLOBAL_META(T_META_RUN_CONCURRENTLY(false));
 
 /*

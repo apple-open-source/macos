@@ -212,6 +212,7 @@ void MachO::validateStructure()
 			seg = (struct segment_command *)cmd;
 			if (strncmp(seg->segname, SEG_LINKEDIT, sizeof(seg->segname)) == 0) {
 				isValid = flip(seg->fileoff) + flip(seg->filesize) == this->length();
+				secinfo("macho", "32-bit linkedit is%s valid", isValid ?"":" NOT");
 				break;
 			}
 		} else if (cmd_type == LC_SEGMENT_64) {
@@ -221,6 +222,7 @@ void MachO::validateStructure()
 			seg64 = (struct segment_command_64 *)cmd;
 			if (strncmp(seg64->segname, SEG_LINKEDIT, sizeof(seg64->segname)) == 0) {
 				isValid = flip(seg64->fileoff) + flip(seg64->filesize) == this->length();
+				secinfo("macho", "64-bit linkedit is%s valid", isValid ?"":" NOT");
 				break;
 			}
 		/* PPC binaries have a SYMTAB section */
@@ -230,12 +232,15 @@ void MachO::validateStructure()
 			}
 			symtab = (struct symtab_command *)cmd;
 			isValid = flip(symtab->stroff) + flip(symtab->strsize) == this->length();
+			secinfo("macho", "symtab is%s valid", isValid ?"":" NOT");
 			break;
 		}
 	}
 
-	if (!isValid)
+	if (!isValid) {
+		secerror("STRICT VALIDATION ERROR: invalid structure");
 		mSuspicious = true;
+	}
 }
 
 MachO::~MachO()
@@ -606,6 +611,7 @@ Universal::Universal(FileDesc fd, size_t offset /* = 0 */, size_t length /* = 0 
 				auto ret = mSizes.insert(std::pair<size_t, size_t>((*iterator)->offset, (*iterator)->size));
 				if (ret.second == false) {
 					::free(mArchList);
+					secerror("Error processing fat file: Two architectures have the same size");
 					MacOSError::throwMe(errSecInternalError); // Something is wrong if the same size was encountered twice
 				}
 
@@ -614,6 +620,7 @@ Universal::Universal(FileDesc fd, size_t offset /* = 0 */, size_t length /* = 0 
 				/* The size of the padding after the universal cannot be calculated to a fixed size */
 				if (prevHeaderEnd != universalHeaderEnd) {
 					if (((*iterator)->align > MAX_ALIGN) || gapSize >= (1 << (*iterator)->align)) {
+						secerror("STRICT VALIDATION ERROR: the size of the padding after the universal cannot be calculated to a fixed size");
 						mSuspicious = true;
 						break;
 					}
@@ -626,23 +633,29 @@ Universal::Universal(FileDesc fd, size_t offset /* = 0 */, size_t length /* = 0 
 					size_t want = min(gapSize - off, (size_t)PAGE_SIZE);
 					size_t got = fd.read(gapBytes, want, prevHeaderEnd + off);
 					if (got == 0) {
+						secerror("STRICT VALIDATION ERROR: failed to read expected gap bytes");
 						mSuspicious = true;
 						break;
 					}
 					off += got;
 					for (size_t x = 0; x < got; x++) {
 						if (gapBytes[x] != 0) {
+							secerror("STRICT VALIDATION ERROR: non-zero gap byte found");
 							mSuspicious = true;
 							break;
 						}
 					}
-					if (mSuspicious)
+					if (mSuspicious) {
 						break;
+					}
 				}
-				if (off != gapSize)
+				if (off != gapSize) {
+					secerror("STRICT VALIDATION ERROR: gap size does not match expected (%zu != %zu)", off, gapSize);
 					mSuspicious = true;
-				if (mSuspicious)
+				}
+				if (mSuspicious) {
 					break;
+				}
 
 				prevHeaderEnd = (*iterator)->offset + (*iterator)->size;
 				prevArchSize = (*iterator)->size;
@@ -650,8 +663,10 @@ Universal::Universal(FileDesc fd, size_t offset /* = 0 */, size_t length /* = 0 
 			}
 
 			/* If there is anything extra at the end of the file, reject this */
-			if (!mSuspicious && (prevArchStart + prevArchSize != fd.fileSize()))
+			if (!mSuspicious && (prevArchStart + prevArchSize != fd.fileSize())) {
+				secerror("STRICT VALIDATION ERROR: Extra data after the last slice in a universal file (expected %zu found %zu)", prevArchStart+prevArchSize, fd.fileSize());
 				mSuspicious = true;
+			}
 
 			break;
 		}

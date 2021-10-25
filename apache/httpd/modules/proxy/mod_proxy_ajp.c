@@ -35,7 +35,7 @@ static int proxy_ajp_canon(request_rec *r, char *url)
     apr_port_t port, def_port;
 
     /* ap_port_of_scheme() */
-    if (strncasecmp(url, "ajp:", 4) == 0) {
+    if (ap_cstr_casecmpn(url, "ajp:", 4) == 0) {
         url += 4;
     }
     else {
@@ -246,7 +246,7 @@ static int ap_proxy_ajp_request(apr_pool_t *p, request_rec *r,
     /* read the first block of data */
     input_brigade = apr_brigade_create(p, r->connection->bucket_alloc);
     tenc = apr_table_get(r->headers_in, "Transfer-Encoding");
-    if (tenc && (strcasecmp(tenc, "chunked") == 0)) {
+    if (tenc && (ap_cstr_casecmp(tenc, "chunked") == 0)) {
         /* The AJP protocol does not want body data yet */
         ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(00870) "request is chunked");
     } else {
@@ -349,7 +349,8 @@ static int ap_proxy_ajp_request(apr_pool_t *p, request_rec *r,
          * we assume it is a request that cause a back-end timeout,
          * but doesn't affect the whole worker.
          */
-        if (APR_STATUS_IS_TIMEUP(status) && conn->worker->s->ping_timeout_set) {
+        if (APR_STATUS_IS_TIMEUP(status) &&
+                conn->worker->s->ping_timeout_set) {
             return HTTP_GATEWAY_TIME_OUT;
         }
 
@@ -475,7 +476,7 @@ static int ap_proxy_ajp_request(apr_pool_t *p, request_rec *r,
                     /* If we are overriding the errors, we can't put the content
                      * of the page into the brigade.
                      */
-                    if (!conf->error_override || !ap_is_HTTP_ERROR(r->status)) {
+                    if (!ap_proxy_should_override(conf, r->status)) {
                         /* AJP13_SEND_BODY_CHUNK with zero length
                          * is explicit flush message
                          */
@@ -498,8 +499,7 @@ static int ap_proxy_ajp_request(apr_pool_t *p, request_rec *r,
                              * error status so that an underlying error (eg HTTP_NOT_FOUND)
                              * doesn't become an HTTP_OK.
                              */
-                            if (conf->error_override && !ap_is_HTTP_ERROR(r->status)
-                                    && ap_is_HTTP_ERROR(original_status)) {
+                            if (ap_proxy_should_override(conf, original_status)) {
                                 r->status = original_status;
                                 r->status_line = original_status_line;
                             }
@@ -548,7 +548,7 @@ static int ap_proxy_ajp_request(apr_pool_t *p, request_rec *r,
                 if (status != APR_SUCCESS) {
                     backend_failed = 1;
                 }
-                if (!conf->error_override || !ap_is_HTTP_ERROR(r->status)) {
+                if (!ap_proxy_should_override(conf, r->status)) {
                     e = apr_bucket_eos_create(r->connection->bucket_alloc);
                     APR_BRIGADE_INSERT_TAIL(output_brigade, e);
                     if (ap_pass_brigade(r->output_filters,
@@ -643,7 +643,7 @@ static int ap_proxy_ajp_request(apr_pool_t *p, request_rec *r,
                       conn->worker->cp->addr,
                       conn->worker->s->hostname_ex);
 
-        if (conf->error_override && ap_is_HTTP_ERROR(r->status)) {
+        if (ap_proxy_should_override(conf, r->status)) {
             /* clear r->status for override error, otherwise ErrorDocument
              * thinks that this is a recursive error, and doesn't find the
              * custom error page
@@ -681,7 +681,18 @@ static int ap_proxy_ajp_request(apr_pool_t *p, request_rec *r,
              */
             rv = HTTP_SERVICE_UNAVAILABLE;
         } else {
-            rv = HTTP_INTERNAL_SERVER_ERROR;
+            /* If we had a successful cping/cpong and then a timeout
+             * we assume it is a request that cause a back-end timeout,
+             * but doesn't affect the whole worker.
+             */
+            if (APR_STATUS_IS_TIMEUP(status) &&
+                    conn->worker->s->ping_timeout_set) {
+                apr_table_setn(r->notes, "proxy_timedout", "1");
+                rv = HTTP_GATEWAY_TIME_OUT;
+            }
+            else {
+                rv = HTTP_INTERNAL_SERVER_ERROR;
+            }
         }
     }
     else if (client_failed) {
@@ -740,7 +751,7 @@ static int proxy_ajp_handler(request_rec *r, proxy_worker *worker,
     apr_pool_t *p = r->pool;
     apr_uri_t *uri;
 
-    if (strncasecmp(url, "ajp:", 4) != 0) {
+    if (ap_cstr_casecmpn(url, "ajp:", 4) != 0) {
         ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(00894) "declining URL %s", url);
         return DECLINED;
     }

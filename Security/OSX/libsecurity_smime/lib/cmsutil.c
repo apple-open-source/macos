@@ -39,16 +39,16 @@
 #include <Security/SecCmsSignerInfo.h>
 #include "cmslocal.h"
 
+#include "cryptohi.h"
 #include "secitem.h"
 #include "secoid.h"
-#include "cryptohi.h"
 
-#include <security_asn1/secasn1.h>
-#include <security_asn1/secerr.h>
+#include <CommonCrypto/CommonDigest.h>
+#include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacErrors.h>
 #include <Security/cssmapi.h>
 #include <Security/cssmapple.h>
-#include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacErrors.h>
-#include <CommonCrypto/CommonDigest.h>
+#include <security_asn1/secasn1.h>
+#include <security_asn1/secerr.h>
 
 
 /*
@@ -58,53 +58,54 @@
  * in lexigraphically ascending order for a SET OF); if reordering is necessary it
  * will be done in place (in objs).
  */
-OSStatus
-SecCmsArraySortByDER(void **objs, const SecAsn1Template *objtemplate, void **objs2)
+OSStatus SecCmsArraySortByDER(void** objs, const SecAsn1Template* objtemplate, void** objs2)
 {
-    PRArenaPool *poolp;
+    PRArenaPool* poolp;
     int num_objs;
-    CSSM_DATA_PTR *enc_objs;
+    CSSM_DATA_PTR* enc_objs;
     OSStatus rv = SECFailure;
     int i;
 
-    if (objs == NULL)					/* already sorted */
-	return SECSuccess;
+    if (objs == NULL) /* already sorted */
+        return SECSuccess;
 
-    num_objs = SecCmsArrayCount((void **)objs);
-    if (num_objs == 0 || num_objs == 1)		/* already sorted. */
-	return SECSuccess;
+    num_objs = SecCmsArrayCount((void**)objs);
+    if (num_objs == 0 || num_objs == 1) /* already sorted. */
+        return SECSuccess;
 
-    poolp = PORT_NewArena (1024);	/* arena for temporaries */
+    poolp = PORT_NewArena(1024); /* arena for temporaries */
     if (poolp == NULL)
-	return SECFailure;		/* no memory; nothing we can do... */
+        return SECFailure; /* no memory; nothing we can do... */
 
     /*
      * Allocate arrays to hold the individual encodings which we will use
      * for comparisons and the reordered attributes as they are sorted.
      */
     // Security check to prevent under-allocation
-    if (num_objs<0 || num_objs>=(int)((INT_MAX/sizeof(CSSM_DATA_PTR))-1)) {
+    if (num_objs < 0 || num_objs >= (int)((INT_MAX / sizeof(CSSM_DATA_PTR)) - 1)) {
         goto loser;
     }
-    enc_objs = (CSSM_DATA_PTR *)PORT_ArenaZAlloc(poolp, (num_objs + 1) * sizeof(CSSM_DATA_PTR));
-    if (enc_objs == NULL)
-	goto loser;
+    enc_objs = (CSSM_DATA_PTR*)PORT_ArenaZAlloc(poolp, (size_t)(num_objs + 1) * sizeof(CSSM_DATA_PTR));
+    if (enc_objs == NULL) {
+        goto loser;
+    }
 
     /* DER encode each individual object. */
     for (i = 0; i < num_objs; i++) {
-	enc_objs[i] = SEC_ASN1EncodeItem(poolp, NULL, objs[i], objtemplate);
-	if (enc_objs[i] == NULL)
-	    goto loser;
+        enc_objs[i] = SEC_ASN1EncodeItem(poolp, NULL, objs[i], objtemplate);
+        if (enc_objs[i] == NULL) {
+            goto loser;
+        }
     }
     enc_objs[num_objs] = NULL;
 
     /* now compare and sort objs by the order of enc_objs */
-    SecCmsArraySort((void **)enc_objs, SecCmsUtilDERCompare, objs, objs2);
+    SecCmsArraySort((void**)enc_objs, SecCmsUtilDERCompare, objs, objs2);
 
     rv = SECSuccess;
 
 loser:
-    PORT_FreeArena (poolp, PR_FALSE);
+    PORT_FreeArena(poolp, PR_FALSE);
     return rv;
 }
 
@@ -112,8 +113,7 @@ loser:
  * SecCmsUtilDERCompare - for use with SecCmsArraySort to
  *  sort arrays of CSSM_DATAs containing DER
  */
-int
-SecCmsUtilDERCompare(void *a, void *b)
+int SecCmsUtilDERCompare(void* a, void* b)
 {
     CSSM_DATA_PTR der1 = (CSSM_DATA_PTR)a;
     CSSM_DATA_PTR der2 = (CSSM_DATA_PTR)b;
@@ -130,13 +130,15 @@ SecCmsUtilDERCompare(void *a, void *b)
      * same length need to be compared byte by byte until a mismatch
      * is found.
      */
-    if (der1->Length != der2->Length)
-	return (der1->Length < der2->Length) ? -1 : 1;
+    if (der1->Length != der2->Length) {
+        return (der1->Length < der2->Length) ? -1 : 1;
+    }
 
     for (j = 0; j < der1->Length; j++) {
-	if (der1->Data[j] == der2->Data[j])
-	    continue;
-	return (der1->Data[j] < der2->Data[j]) ? -1 : 1;
+        if (der1->Data[j] == der2->Data[j]) {
+            continue;
+        }
+        return (der1->Data[j] < der2->Data[j]) ? -1 : 1;
     }
     return 0;
 }
@@ -152,21 +154,20 @@ SecCmsUtilDERCompare(void *a, void *b)
  *  An integer containing the index of the algorithm in the array or -1 if 
  *  algorithm was not found.
  */
-int
-SecCmsAlgArrayGetIndexByAlgID(SECAlgorithmID **algorithmArray, SECAlgorithmID *algid)
+int SecCmsAlgArrayGetIndexByAlgID(SECAlgorithmID** algorithmArray, SECAlgorithmID* algid)
 {
     int i;
 
     if (algorithmArray == NULL || algorithmArray[0] == NULL)
-	return -1;
+        return -1;
 
     for (i = 0; algorithmArray[i] != NULL; i++) {
-	if (SECOID_CompareAlgorithmID(algorithmArray[i], algid) == SECEqual)
-	    break;	/* bingo */
+        if (SECOID_CompareAlgorithmID(algorithmArray[i], algid) == SECEqual)
+            break; /* bingo */
     }
 
     if (algorithmArray[i] == NULL)
-	return -1;	/* not found */
+        return -1; /* not found */
 
     return i;
 }
@@ -182,45 +183,41 @@ SecCmsAlgArrayGetIndexByAlgID(SECAlgorithmID **algorithmArray, SECAlgorithmID *a
  *  An integer containing the index of the algorithm in the array or -1 if 
  *  algorithm was not found.
  */
-int
-SecCmsAlgArrayGetIndexByAlgTag(SECAlgorithmID **algorithmArray, 
-                                 SECOidTag algtag)
+int SecCmsAlgArrayGetIndexByAlgTag(SECAlgorithmID** algorithmArray, SECOidTag algtag)
 {
-    SECOidData *algid;
+    SECOidData* algid;
     int i = -1;
 
     if (algorithmArray == NULL || algorithmArray[0] == NULL)
-	return i;
+        return i;
 
 #ifdef ORDER_N_SQUARED
     for (i = 0; algorithmArray[i] != NULL; i++) {
-	algid = SECOID_FindOID(&(algorithmArray[i]->algorithm));
-	if (algid->offset == algtag)
-	    break;	/* bingo */
+        algid = SECOID_FindOID(&(algorithmArray[i]->algorithm));
+        if (algid->offset == algtag)
+            break; /* bingo */
     }
 #else
     algid = SECOID_FindOIDByTag(algtag);
-    if (!algid) 
-    	return i;
+    if (!algid)
+        return i;
     for (i = 0; algorithmArray[i] != NULL; i++) {
-	if (SECITEM_ItemsAreEqual(&algorithmArray[i]->algorithm, &algid->oid))
-	    break;	/* bingo */
+        if (SECITEM_ItemsAreEqual(&algorithmArray[i]->algorithm, &algid->oid))
+            break; /* bingo */
     }
 #endif
 
     if (algorithmArray[i] == NULL)
-	return -1;	/* not found */
+        return -1; /* not found */
 
     return i;
 }
 
-void *
-SecCmsUtilGetHashObjByAlgID(SECAlgorithmID *algid)
+void* SecCmsUtilGetHashObjByAlgID(SECAlgorithmID* algid)
 {
-    SECOidData *oidData = SECOID_FindOID(&(algid->algorithm));
-    if (oidData)
-    {
-        void *digobj = NULL;
+    SECOidData* oidData = SECOID_FindOID(&(algid->algorithm));
+    if (oidData) {
+        void* digobj = NULL;
         switch (oidData->offset) {
             case SEC_OID_SHA1:
                 digobj = calloc(1, sizeof(CC_SHA1_CTX));
@@ -259,166 +256,172 @@ SecCmsUtilGetHashObjByAlgID(SECAlgorithmID *algid)
  * XXX I would *really* like to not have to do this, but the current
  * signing interface gives me little choice.
  */
-SECOidTag
-SecCmsUtilMakeSignatureAlgorithm(SECOidTag hashalg, SECOidTag encalg)
+SECOidTag SecCmsUtilMakeSignatureAlgorithm(SECOidTag hashalg, SECOidTag encalg)
 {
     switch (encalg) {
-      case SEC_OID_PKCS1_RSA_ENCRYPTION:
-	switch (hashalg) {
-	  case SEC_OID_MD2:
-	    return SEC_OID_PKCS1_MD2_WITH_RSA_ENCRYPTION;
-	  case SEC_OID_MD5:
-	    return SEC_OID_PKCS1_MD5_WITH_RSA_ENCRYPTION;
-	  case SEC_OID_SHA1:
-	    return SEC_OID_PKCS1_SHA1_WITH_RSA_ENCRYPTION;
-	  case SEC_OID_SHA256:
-	    return SEC_OID_PKCS1_SHA256_WITH_RSA_ENCRYPTION;
-	  case SEC_OID_SHA384:
-	    return SEC_OID_PKCS1_SHA384_WITH_RSA_ENCRYPTION;
-	  case SEC_OID_SHA512:
-	    return SEC_OID_PKCS1_SHA512_WITH_RSA_ENCRYPTION;
-	  default:
-	    return SEC_OID_UNKNOWN;
-	}
-      case SEC_OID_ANSIX9_DSA_SIGNATURE:
-      case SEC_OID_MISSI_KEA_DSS:
-      case SEC_OID_MISSI_DSS:
-	switch (hashalg) {
-	  case SEC_OID_SHA1:
-	    return SEC_OID_ANSIX9_DSA_SIGNATURE_WITH_SHA1_DIGEST;
-	  default:
-	    return SEC_OID_UNKNOWN;
-	}
-      case SEC_OID_EC_PUBLIC_KEY:
-	switch(hashalg) {
-	  /*
+        case SEC_OID_PKCS1_RSA_ENCRYPTION:
+            switch (hashalg) {
+                case SEC_OID_MD2:
+                    return SEC_OID_PKCS1_MD2_WITH_RSA_ENCRYPTION;
+                case SEC_OID_MD5:
+                    return SEC_OID_PKCS1_MD5_WITH_RSA_ENCRYPTION;
+                case SEC_OID_SHA1:
+                    return SEC_OID_PKCS1_SHA1_WITH_RSA_ENCRYPTION;
+                case SEC_OID_SHA256:
+                    return SEC_OID_PKCS1_SHA256_WITH_RSA_ENCRYPTION;
+                case SEC_OID_SHA384:
+                    return SEC_OID_PKCS1_SHA384_WITH_RSA_ENCRYPTION;
+                case SEC_OID_SHA512:
+                    return SEC_OID_PKCS1_SHA512_WITH_RSA_ENCRYPTION;
+                default:
+                    return SEC_OID_UNKNOWN;
+            }
+        case SEC_OID_ANSIX9_DSA_SIGNATURE:
+        case SEC_OID_MISSI_KEA_DSS:
+        case SEC_OID_MISSI_DSS:
+            switch (hashalg) {
+                case SEC_OID_SHA1:
+                    return SEC_OID_ANSIX9_DSA_SIGNATURE_WITH_SHA1_DIGEST;
+                default:
+                    return SEC_OID_UNKNOWN;
+            }
+        case SEC_OID_EC_PUBLIC_KEY:
+            switch (hashalg) {
+                /*
 	   * Note this is only used when signing and verifying signed attributes,
 	   * In which case we really do want the combined ECDSA_WithSHA1 alg...
 	   */
-	  case SEC_OID_SHA1:
-	    return SEC_OID_ECDSA_WithSHA1;
-	  case SEC_OID_SHA256:
-	    return SEC_OID_ECDSA_WITH_SHA256;
-	  case SEC_OID_SHA384:
-	    return SEC_OID_ECDSA_WITH_SHA384;
-	  case SEC_OID_SHA512:
-	    return SEC_OID_ECDSA_WITH_SHA512;
-	  default:
-	    return SEC_OID_UNKNOWN;
-	}
-      default:
-	break;
+                case SEC_OID_SHA1:
+                    return SEC_OID_ECDSA_WithSHA1;
+                case SEC_OID_SHA256:
+                    return SEC_OID_ECDSA_WITH_SHA256;
+                case SEC_OID_SHA384:
+                    return SEC_OID_ECDSA_WITH_SHA384;
+                case SEC_OID_SHA512:
+                    return SEC_OID_ECDSA_WITH_SHA512;
+                default:
+                    return SEC_OID_UNKNOWN;
+            }
+        default:
+            break;
     }
 
-    return encalg;		/* maybe it is already the right algid */
+    return encalg; /* maybe it is already the right algid */
 }
 
-const SecAsn1Template *
-SecCmsUtilGetTemplateByTypeTag(SECOidTag type)
+const SecAsn1Template* SecCmsUtilGetTemplateByTypeTag(SECOidTag type)
 {
-    const SecAsn1Template *template;
+    const SecAsn1Template* template;
     extern const SecAsn1Template SecCmsSignedDataTemplate[];
     extern const SecAsn1Template SecCmsEnvelopedDataTemplate[];
     extern const SecAsn1Template SecCmsEncryptedDataTemplate[];
     extern const SecAsn1Template SecCmsDigestedDataTemplate[];
 
     switch (type) {
-    case SEC_OID_PKCS7_SIGNED_DATA:
-	template = SecCmsSignedDataTemplate;
-	break;
-    case SEC_OID_PKCS7_ENVELOPED_DATA:
-	template = SecCmsEnvelopedDataTemplate;
-	break;
-    case SEC_OID_PKCS7_ENCRYPTED_DATA:
-	template = SecCmsEncryptedDataTemplate;
-	break;
-    case SEC_OID_PKCS7_DIGESTED_DATA:
-	template = SecCmsDigestedDataTemplate;
-	break;
-    default:
-    case SEC_OID_PKCS7_DATA:
-    case SEC_OID_OTHER:
-	template = NULL;
-	break;
+        case SEC_OID_PKCS7_SIGNED_DATA:
+            template = SecCmsSignedDataTemplate;
+            break;
+        case SEC_OID_PKCS7_ENVELOPED_DATA:
+            template = SecCmsEnvelopedDataTemplate;
+            break;
+        case SEC_OID_PKCS7_ENCRYPTED_DATA:
+            template = SecCmsEncryptedDataTemplate;
+            break;
+        case SEC_OID_PKCS7_DIGESTED_DATA:
+            template = SecCmsDigestedDataTemplate;
+            break;
+        default:
+        case SEC_OID_PKCS7_DATA:
+        case SEC_OID_OTHER:
+            template = NULL;
+            break;
     }
     return template;
 }
 
-size_t
-SecCmsUtilGetSizeByTypeTag(SECOidTag type)
+size_t SecCmsUtilGetSizeByTypeTag(SECOidTag type)
 {
     size_t size;
 
     switch (type) {
-    case SEC_OID_PKCS7_SIGNED_DATA:
-	size = sizeof(SecCmsSignedData);
-	break;
-    case SEC_OID_PKCS7_ENVELOPED_DATA:
-	size = sizeof(SecCmsEnvelopedData);
-	break;
-    case SEC_OID_PKCS7_ENCRYPTED_DATA:
-	size = sizeof(SecCmsEncryptedData);
-	break;
-    case SEC_OID_PKCS7_DIGESTED_DATA:
-	size = sizeof(SecCmsDigestedData);
-	break;
-    default:
-    case SEC_OID_PKCS7_DATA:
-	size = 0;
-	break;
+        case SEC_OID_PKCS7_SIGNED_DATA:
+            size = sizeof(SecCmsSignedData);
+            break;
+        case SEC_OID_PKCS7_ENVELOPED_DATA:
+            size = sizeof(SecCmsEnvelopedData);
+            break;
+        case SEC_OID_PKCS7_ENCRYPTED_DATA:
+            size = sizeof(SecCmsEncryptedData);
+            break;
+        case SEC_OID_PKCS7_DIGESTED_DATA:
+            size = sizeof(SecCmsDigestedData);
+            break;
+        default:
+        case SEC_OID_PKCS7_DATA:
+            size = 0;
+            break;
     }
     return size;
 }
 
-SecCmsContentInfoRef
-SecCmsContentGetContentInfo(void *msg, SECOidTag type)
+SecCmsContentInfoRef SecCmsContentGetContentInfo(void* msg, SECOidTag type)
 {
     SecCmsContent c;
     SecCmsContentInfoRef cinfo;
 
-    if (!msg)
-	return NULL;
+    if (!msg) {
+        return NULL;
+    }
     c.pointer = msg;
     switch (type) {
-    case SEC_OID_PKCS7_SIGNED_DATA:
-	cinfo = &(c.signedData->contentInfo);
-	break;
-    case SEC_OID_PKCS7_ENVELOPED_DATA:
-	cinfo = &(c.envelopedData->contentInfo);
-	break;
-    case SEC_OID_PKCS7_ENCRYPTED_DATA:
-	cinfo = &(c.encryptedData->contentInfo);
-	break;
-    case SEC_OID_PKCS7_DIGESTED_DATA:
-	cinfo = &(c.digestedData->contentInfo);
-	break;
-    default:
-	cinfo = NULL;
+        case SEC_OID_PKCS7_SIGNED_DATA:
+            cinfo = &(c.signedData->contentInfo);
+            break;
+        case SEC_OID_PKCS7_ENVELOPED_DATA:
+            cinfo = &(c.envelopedData->contentInfo);
+            break;
+        case SEC_OID_PKCS7_ENCRYPTED_DATA:
+            cinfo = &(c.encryptedData->contentInfo);
+            break;
+        case SEC_OID_PKCS7_DIGESTED_DATA:
+            cinfo = &(c.digestedData->contentInfo);
+            break;
+        default:
+            cinfo = NULL;
     }
     return cinfo;
 }
 
 // @@@ Return CFStringRef and do localization.
-const char *
-SecCmsUtilVerificationStatusToString(SecCmsVerificationStatus vs)
+const char* SecCmsUtilVerificationStatusToString(SecCmsVerificationStatus vs)
 {
     switch (vs) {
-    case SecCmsVSUnverified:			return "Unverified";
-    case SecCmsVSGoodSignature:			return "GoodSignature";
-    case SecCmsVSBadSignature:			return "BadSignature";
-    case SecCmsVSDigestMismatch:		return "DigestMismatch";
-    case SecCmsVSSigningCertNotFound:		return "SigningCertNotFound";
-    case SecCmsVSSigningCertNotTrusted:		return "SigningCertNotTrusted";
-    case SecCmsVSSignatureAlgorithmUnknown:	return "SignatureAlgorithmUnknown";
-    case SecCmsVSSignatureAlgorithmUnsupported: return "SignatureAlgorithmUnsupported";
-    case SecCmsVSMalformedSignature:		return "MalformedSignature";
-    case SecCmsVSProcessingError:		return "ProcessingError";
-    default:					return "Unknown";
+        case SecCmsVSUnverified:
+            return "Unverified";
+        case SecCmsVSGoodSignature:
+            return "GoodSignature";
+        case SecCmsVSBadSignature:
+            return "BadSignature";
+        case SecCmsVSDigestMismatch:
+            return "DigestMismatch";
+        case SecCmsVSSigningCertNotFound:
+            return "SigningCertNotFound";
+        case SecCmsVSSigningCertNotTrusted:
+            return "SigningCertNotTrusted";
+        case SecCmsVSSignatureAlgorithmUnknown:
+            return "SignatureAlgorithmUnknown";
+        case SecCmsVSSignatureAlgorithmUnsupported:
+            return "SignatureAlgorithmUnsupported";
+        case SecCmsVSMalformedSignature:
+            return "MalformedSignature";
+        case SecCmsVSProcessingError:
+            return "ProcessingError";
+        default:
+            return "Unknown";
     }
 }
 
-OSStatus
-SecArenaPoolCreate(size_t chunksize, SecArenaPoolRef *outArena)
+OSStatus SecArenaPoolCreate(size_t chunksize, SecArenaPoolRef* outArena)
 {
     OSStatus status;
 
@@ -437,8 +440,7 @@ loser:
     return status;
 }
 
-void
-SecArenaPoolFree(SecArenaPoolRef arena, Boolean zero)
+void SecArenaPoolFree(SecArenaPoolRef arena, Boolean zero)
 {
-    PORT_FreeArena((PLArenaPool *)arena, zero);
+    PORT_FreeArena((PLArenaPool*)arena, zero);
 }

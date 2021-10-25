@@ -393,8 +393,6 @@ struct thread_call {
 
 typedef struct thread_call thread_call_data_t;
 
-extern void             thread_call_initialize(void);
-
 extern void             thread_call_setup(
 	thread_call_t                   call,
 	thread_call_func_t              func,

@@ -351,7 +351,7 @@ void
 log_stack_execution_failure(addr64_t vaddr, vm_prot_t prot)
 {
 	printf("Data/Stack execution not permitted: %s[pid %d] at virtual address 0x%qx, protections were %s\n",
-	    current_proc()->p_comm, current_proc()->p_pid, vaddr, prot_values[prot & VM_PROT_ALL]);
+	    current_proc()->p_comm, proc_getpid(current_proc()), vaddr, prot_values[prot & VM_PROT_ALL]);
 }
 
 /*
@@ -389,6 +389,8 @@ static int scdir_enforce = 0;
 static char scdir_path[] = "/System/Library/Caches/com.apple.dyld/";
 
 #endif /* XNU_TARGET_OS_OSX */
+
+static char driverkit_scdir_path[] = "/System/DriverKit/System/Library/dyld/";
 
 #ifndef SECURE_KERNEL
 static int sysctl_scdir_enforce SYSCTL_HANDLER_ARGS
@@ -453,7 +455,7 @@ log_unnest_badness(
 	    vm_map_offset_t, s,
 	    vm_map_offset_t, e,
 	    vm_map_offset_t, lowest_unnestable_addr);
-	printf("%s[%d] triggered unnest of range 0x%qx->0x%qx of DYLD shared region in VM map %p. While not abnormal for debuggers, this increases system memory footprint until the target exits.\n", current_proc()->p_comm, current_proc()->p_pid, (uint64_t)s, (uint64_t)e, (void *) VM_KERNEL_ADDRPERM(m));
+	printf("%s[%d] triggered unnest of range 0x%qx->0x%qx of DYLD shared region in VM map %p. While not abnormal for debuggers, this increases system memory footprint until the target exits.\n", current_proc()->p_comm, proc_getpid(current_proc()), (uint64_t)s, (uint64_t)e, (void *) VM_KERNEL_ADDRPERM(m));
 }
 
 int
@@ -1376,7 +1378,7 @@ pid_suspend(struct proc *p __unused, struct pid_suspend_args *args, int *ret)
 	}
 
 	if (!task_for_pid_posix_check(targetproc) &&
-	    !IOTaskHasEntitlement(current_task(), PROCESS_RESUME_SUSPEND_ENTITLEMENT)) {
+	    !IOCurrentTaskHasEntitlement(PROCESS_RESUME_SUSPEND_ENTITLEMENT)) {
 		error = EPERM;
 		goto out;
 	}
@@ -1512,7 +1514,7 @@ debug_control_port_for_pid(struct debug_control_port_for_pid_args *args)
 	proc_rele(p);
 	p = PROC_NULL;
 
-	if (!IOTaskHasEntitlement(current_task(), DEBUG_PORT_ENTITLEMENT)) {
+	if (!IOCurrentTaskHasEntitlement(DEBUG_PORT_ENTITLEMENT)) {
 #if CONFIG_MACF
 		error = mac_proc_check_get_task(kauth_cred_get(), &pident, TASK_FLAVOR_CONTROL);
 		if (error) {
@@ -1603,7 +1605,7 @@ pid_resume(struct proc *p __unused, struct pid_resume_args *args, int *ret)
 	}
 
 	if (!task_for_pid_posix_check(targetproc) &&
-	    !IOTaskHasEntitlement(current_task(), PROCESS_RESUME_SUSPEND_ENTITLEMENT)) {
+	    !IOCurrentTaskHasEntitlement(PROCESS_RESUME_SUSPEND_ENTITLEMENT)) {
 		error = EPERM;
 		goto out;
 	}
@@ -1800,7 +1802,7 @@ networking_defunct_callout(proc_t p, void *arg)
 		switch (FILEGLOB_DTYPE(fg)) {
 		case DTYPE_SOCKET: {
 			struct socket *so = (struct socket *)fg->fg_data;
-			if (p->p_pid == pid || so->last_pid == pid ||
+			if (proc_getpid(p) == pid || so->last_pid == pid ||
 			    ((so->so_flags & SOF_DELEGATED) && so->e_pid == pid)) {
 				/* Call networking stack with socket and level */
 				(void)socket_defunct(p, so, level);
@@ -1810,7 +1812,7 @@ networking_defunct_callout(proc_t p, void *arg)
 #if NECP
 		case DTYPE_NETPOLICY:
 			/* first pass: defunct necp and get stats for ntstat */
-			if (p->p_pid == pid) {
+			if (proc_getpid(p) == pid) {
 				necp_fd_defunct(p,
 				    (struct necp_fd_data *)fg->fg_data);
 			}
@@ -1847,7 +1849,7 @@ pid_shutdown_sockets(struct proc *p __unused, struct pid_shutdown_sockets_args *
 	}
 
 	if (!task_for_pid_posix_check(targetproc) &&
-	    !IOTaskHasEntitlement(current_task(), PROCESS_RESUME_SUSPEND_ENTITLEMENT)) {
+	    !IOCurrentTaskHasEntitlement(PROCESS_RESUME_SUSPEND_ENTITLEMENT)) {
 		error = EPERM;
 		goto out;
 	}
@@ -1942,6 +1944,9 @@ SYSCTL_INT(_vm, OID_AUTO, shared_region_persistence, CTLFLAG_RW | CTLFLAG_LOCKED
  * If it doesn't match, dyld will unmap the shared region and map the shared
  * cache into the process's address space via mmap().
  *
+ * A NULL pointer argument can be used by dyld to indicate it has unmapped
+ * the shared region. We will remove the shared_region reference from the task.
+ *
  * ERROR VALUES
  * EINVAL	no shared region
  * ENOMEM	shared region is empty
@@ -1962,42 +1967,50 @@ shared_region_check_np(
 	SHARED_REGION_TRACE_DEBUG(
 		("shared_region: %p [%d(%s)] -> check_np(0x%llx)\n",
 		(void *)VM_KERNEL_ADDRPERM(current_thread()),
-		p->p_pid, p->p_comm,
+		proc_getpid(p), p->p_comm,
 		(uint64_t)uap->start_address));
 
 	/* retrieve the current tasks's shared region */
 	shared_region = vm_shared_region_get(task);
 	if (shared_region != NULL) {
-		/* retrieve address of its first mapping... */
-		kr = vm_shared_region_start_address(shared_region, &start_address, task);
-		if (kr != KERN_SUCCESS) {
-			error = ENOMEM;
+		/*
+		 * A NULL argument is used by dyld to indicate the task
+		 * has unmapped its shared region.
+		 */
+		if (uap->start_address == 0) {
+			vm_shared_region_set(task, NULL);
 		} else {
-#if __has_feature(ptrauth_calls)
-			/*
-			 * Remap any section of the shared library that
-			 * has authenticated pointers into private memory.
-			 */
-			if (vm_shared_region_auth_remap(shared_region) != KERN_SUCCESS) {
+			/* retrieve address of its first mapping... */
+			kr = vm_shared_region_start_address(shared_region, &start_address, task);
+			if (kr != KERN_SUCCESS) {
 				error = ENOMEM;
-			}
+			} else {
+#if __has_feature(ptrauth_calls)
+				/*
+				 * Remap any section of the shared library that
+				 * has authenticated pointers into private memory.
+				 */
+				if (vm_shared_region_auth_remap(shared_region) != KERN_SUCCESS) {
+					error = ENOMEM;
+				}
 #endif /* __has_feature(ptrauth_calls) */
 
-			/* ... and give it to the caller */
-			if (error == 0) {
-				error = copyout(&start_address,
-				    (user_addr_t) uap->start_address,
-				    sizeof(start_address));
-			}
-			if (error != 0) {
-				SHARED_REGION_TRACE_ERROR(
-					("shared_region: %p [%d(%s)] "
-					"check_np(0x%llx) "
-					"copyout(0x%llx) error %d\n",
-					(void *)VM_KERNEL_ADDRPERM(current_thread()),
-					p->p_pid, p->p_comm,
-					(uint64_t)uap->start_address, (uint64_t)start_address,
-					error));
+				/* ... and give it to the caller */
+				if (error == 0) {
+					error = copyout(&start_address,
+					    (user_addr_t) uap->start_address,
+					    sizeof(start_address));
+				}
+				if (error != 0) {
+					SHARED_REGION_TRACE_ERROR(
+						("shared_region: %p [%d(%s)] "
+						"check_np(0x%llx) "
+						"copyout(0x%llx) error %d\n",
+						(void *)VM_KERNEL_ADDRPERM(current_thread()),
+						proc_getpid(p), p->p_comm,
+						(uint64_t)uap->start_address, (uint64_t)start_address,
+						error));
+				}
 			}
 		}
 		vm_shared_region_deallocate(shared_region);
@@ -2009,7 +2022,7 @@ shared_region_check_np(
 	SHARED_REGION_TRACE_DEBUG(
 		("shared_region: %p [%d(%s)] check_np(0x%llx) <- 0x%llx %d\n",
 		(void *)VM_KERNEL_ADDRPERM(current_thread()),
-		p->p_pid, p->p_comm,
+		proc_getpid(p), p->p_comm,
 		(uint64_t)uap->start_address, (uint64_t)start_address, error));
 
 	return error;
@@ -2033,13 +2046,16 @@ shared_region_copyin(
 			("shared_region: %p [%d(%s)] map(): "
 			"copyin(0x%llx, %ld) failed (error=%d)\n",
 			(void *)VM_KERNEL_ADDRPERM(current_thread()),
-			p->p_pid, p->p_comm,
+			proc_getpid(p), p->p_comm,
 			(uint64_t)user_addr, (long)size, error));
 	}
 	return error;
 }
 
-#define _SR_FILE_MAPPINGS_MAX_FILES 2
+/*
+ * A reasonable upper limit to prevent overflow of allocation/copyin.
+ */
+#define _SR_FILE_MAPPINGS_MAX_FILES 256
 
 /* forward declaration */
 __attribute__((noinline))
@@ -2077,12 +2093,14 @@ shared_region_map_and_slide_setup(
 	vm_prot_t                       maxprot = VM_PROT_ALL;
 #endif
 	uint32_t                        i;
-	struct vm_shared_region         *shared_region;
+	struct vm_shared_region         *shared_region = NULL;
+	boolean_t                       is_driverkit = task_is_driver(current_task());
+	const char                      *expected_scdir_path = is_driverkit ? driverkit_scdir_path : scdir_path;
 
 	SHARED_REGION_TRACE_DEBUG(
 		("shared_region: %p [%d(%s)] -> map\n",
 		(void *)VM_KERNEL_ADDRPERM(current_thread()),
-		p->p_pid, p->p_comm));
+		proc_getpid(p), p->p_comm));
 
 	if (files_count > _SR_FILE_MAPPINGS_MAX_FILES) {
 		error = E2BIG;
@@ -2092,12 +2110,12 @@ shared_region_map_and_slide_setup(
 		error = EINVAL;
 		goto done;
 	}
-	*sr_file_mappings = kheap_alloc(KHEAP_TEMP, files_count * sizeof(struct _sr_file_mappings), Z_WAITOK);
+	*sr_file_mappings = kalloc_type(struct _sr_file_mappings, files_count,
+	    Z_WAITOK | Z_ZERO);
 	if (*sr_file_mappings == NULL) {
 		error = ENOMEM;
 		goto done;
 	}
-	bzero(*sr_file_mappings, files_count * sizeof(struct _sr_file_mappings));
 	mappings_next = 0;
 	for (i = 0; i < files_count; i++) {
 		srfmp = &(*sr_file_mappings)[i];
@@ -2113,15 +2131,15 @@ shared_region_map_and_slide_setup(
 	}
 
 	if (scdir_enforce) {
-		/* get vnode for scdir_path */
-		error = vnode_lookup(scdir_path, 0, scdir_vp, vfs_context_current());
+		/* get vnode for expected_scdir_path */
+		error = vnode_lookup(expected_scdir_path, 0, scdir_vp, vfs_context_current());
 		if (error) {
 			SHARED_REGION_TRACE_ERROR(
 				("shared_region: %p [%d(%s)]: "
 				"vnode_lookup(%s) failed (error=%d)\n",
 				(void *)VM_KERNEL_ADDRPERM(current_thread()),
-				p->p_pid, p->p_comm,
-				scdir_path, error));
+				proc_getpid(p), p->p_comm,
+				expected_scdir_path, error));
 			goto done;
 		}
 	}
@@ -2134,7 +2152,7 @@ shared_region_map_and_slide_setup(
 			("shared_region: %p [%d(%s)] map(): "
 			"no shared region\n",
 			(void *)VM_KERNEL_ADDRPERM(current_thread()),
-			p->p_pid, p->p_comm));
+			proc_getpid(p), p->p_comm));
 		error = EINVAL;
 		goto done;
 	}
@@ -2170,7 +2188,7 @@ shared_region_map_and_slide_setup(
 				("shared_region: %p [%d(%s)] map: "
 				"fd=%d lookup failed (error=%d)\n",
 				(void *)VM_KERNEL_ADDRPERM(current_thread()),
-				p->p_pid, p->p_comm, srfmp->fd, error));
+				proc_getpid(p), p->p_comm, srfmp->fd, error));
 			goto done;
 		}
 
@@ -2180,7 +2198,7 @@ shared_region_map_and_slide_setup(
 				("shared_region: %p [%d(%s)] map: "
 				"fd=%d not readable\n",
 				(void *)VM_KERNEL_ADDRPERM(current_thread()),
-				p->p_pid, p->p_comm, srfmp->fd));
+				proc_getpid(p), p->p_comm, srfmp->fd));
 			error = EPERM;
 			goto done;
 		}
@@ -2192,7 +2210,7 @@ shared_region_map_and_slide_setup(
 				("shared_region: %p [%d(%s)] map: "
 				"fd=%d getwithref failed (error=%d)\n",
 				(void *)VM_KERNEL_ADDRPERM(current_thread()),
-				p->p_pid, p->p_comm, srfmp->fd, error));
+				proc_getpid(p), p->p_comm, srfmp->fd, error));
 			goto done;
 		}
 		srfmp->vp = (struct vnode *) srfmp->fp->fp_glob->fg_data;
@@ -2203,7 +2221,7 @@ shared_region_map_and_slide_setup(
 				("shared_region: %p [%d(%s)] map(%p:'%s'): "
 				"not a file (type=%d)\n",
 				(void *)VM_KERNEL_ADDRPERM(current_thread()),
-				p->p_pid, p->p_comm,
+				proc_getpid(p), p->p_comm,
 				(void *)VM_KERNEL_ADDRPERM(srfmp->vp),
 				srfmp->vp->v_name, srfmp->vp->v_type));
 			error = EINVAL;
@@ -2240,7 +2258,7 @@ shared_region_map_and_slide_setup(
 				("shared_region: %p [%d(%s)] map(%p:'%s'): "
 				"missing CS blob\n",
 				(void *)VM_KERNEL_ADDRPERM(current_thread()),
-				p->p_pid, p->p_comm,
+				proc_getpid(p), p->p_comm,
 				(void *)VM_KERNEL_ADDRPERM(srfmp->vp),
 				srfmp->vp->v_name));
 			goto root_check;
@@ -2251,7 +2269,7 @@ shared_region_map_and_slide_setup(
 				("shared_region: %p [%d(%s)] map(%p:'%s'): "
 				"missing cdhash\n",
 				(void *)VM_KERNEL_ADDRPERM(current_thread()),
-				p->p_pid, p->p_comm,
+				proc_getpid(p), p->p_comm,
 				(void *)VM_KERNEL_ADDRPERM(srfmp->vp),
 				srfmp->vp->v_name));
 			goto root_check;
@@ -2263,7 +2281,7 @@ shared_region_map_and_slide_setup(
 				("shared_region: %p [%d(%s)] map(%p:'%s'): "
 				"not in trust cache\n",
 				(void *)VM_KERNEL_ADDRPERM(current_thread()),
-				p->p_pid, p->p_comm,
+				proc_getpid(p), p->p_comm,
 				(void *)VM_KERNEL_ADDRPERM(srfmp->vp),
 				srfmp->vp->v_name));
 			goto root_check;
@@ -2281,7 +2299,7 @@ root_check:
 				("shared_region: %p [%d(%s)] map(%p:'%s'): "
 				"vnode_getattr(%p) failed (error=%d)\n",
 				(void *)VM_KERNEL_ADDRPERM(current_thread()),
-				p->p_pid, p->p_comm,
+				proc_getpid(p), p->p_comm,
 				(void *)VM_KERNEL_ADDRPERM(srfmp->vp),
 				srfmp->vp->v_name,
 				(void *)VM_KERNEL_ADDRPERM(srfmp->vp),
@@ -2293,7 +2311,7 @@ root_check:
 				("shared_region: %p [%d(%s)] map(%p:'%s'): "
 				"owned by uid=%d instead of 0\n",
 				(void *)VM_KERNEL_ADDRPERM(current_thread()),
-				p->p_pid, p->p_comm,
+				proc_getpid(p), p->p_comm,
 				(void *)VM_KERNEL_ADDRPERM(srfmp->vp),
 				srfmp->vp->v_name, va.va_uid));
 			error = EPERM;
@@ -2314,7 +2332,7 @@ after_root_check:
 					("shared_region: %p [%d(%s)] map(%p:'%s'): "
 					"vnode_getattr(%p) failed (error=%d)\n",
 					(void *)VM_KERNEL_ADDRPERM(current_thread()),
-					p->p_pid, p->p_comm,
+					proc_getpid(p), p->p_comm,
 					(void *)VM_KERNEL_ADDRPERM(srfmp->vp),
 					srfmp->vp->v_name,
 					(void *)VM_KERNEL_ADDRPERM(srfmp->vp),
@@ -2332,7 +2350,7 @@ after_root_check:
 					("shared_region: %p [%d(%s)] map(%p:'%s'), "
 					"vnode is not SIP-protected. \n",
 					(void *)VM_KERNEL_ADDRPERM(current_thread()),
-					p->p_pid, p->p_comm,
+					proc_getpid(p), p->p_comm,
 					(void *)VM_KERNEL_ADDRPERM(srfmp->vp),
 					srfmp->vp->v_name));
 				error = EPERM;
@@ -2348,7 +2366,7 @@ after_root_check:
 				("shared_region: %p [%d(%s)] map(%p:'%s'): "
 				"not on process's root volume\n",
 				(void *)VM_KERNEL_ADDRPERM(current_thread()),
-				p->p_pid, p->p_comm,
+				proc_getpid(p), p->p_comm,
 				(void *)VM_KERNEL_ADDRPERM(srfmp->vp),
 				srfmp->vp->v_name));
 			error = EPERM;
@@ -2364,9 +2382,9 @@ after_root_check:
 					("shared_region: %p [%d(%s)] map(%p:'%s'): "
 					"shared cache file not in %s\n",
 					(void *)VM_KERNEL_ADDRPERM(current_thread()),
-					p->p_pid, p->p_comm,
+					proc_getpid(p), p->p_comm,
 					(void *)VM_KERNEL_ADDRPERM(srfmp->vp),
-					srfmp->vp->v_name, scdir_path));
+					srfmp->vp->v_name, expected_scdir_path));
 				error = EPERM;
 				goto done;
 			}
@@ -2379,7 +2397,7 @@ after_root_check:
 				("shared_region: %p [%d(%s)] map(%p:'%s'): "
 				"vnode_size(%p) failed (error=%d)\n",
 				(void *)VM_KERNEL_ADDRPERM(current_thread()),
-				p->p_pid, p->p_comm,
+				proc_getpid(p), p->p_comm,
 				(void *)VM_KERNEL_ADDRPERM(srfmp->vp),
 				srfmp->vp->v_name,
 				(void *)VM_KERNEL_ADDRPERM(srfmp->vp), error));
@@ -2394,7 +2412,7 @@ after_root_check:
 				("shared_region: %p [%d(%s)] map(%p:'%s'): "
 				"no memory object\n",
 				(void *)VM_KERNEL_ADDRPERM(current_thread()),
-				p->p_pid, p->p_comm,
+				proc_getpid(p), p->p_comm,
 				(void *)VM_KERNEL_ADDRPERM(srfmp->vp),
 				srfmp->vp->v_name));
 			error = EINVAL;
@@ -2421,7 +2439,7 @@ after_root_check:
 					"mapping #%d/%d [0x%llx:0x%llx:0x%llx:0x%x:0x%x] "
 					"is not code-signed\n",
 					(void *)VM_KERNEL_ADDRPERM(current_thread()),
-					p->p_pid, p->p_comm,
+					proc_getpid(p), p->p_comm,
 					(void *)VM_KERNEL_ADDRPERM(srfmp->vp),
 					srfmp->vp->v_name,
 					i, srfmp->mappings_count,
@@ -2475,7 +2493,7 @@ _shared_region_map_and_slide(
 	 * Need this to prevent racing with chroot.
 	 */
 	proc_fdlock(p);
-	rdir_vp = p->p_fd->fd_rdir;
+	rdir_vp = p->p_fd.fd_rdir;
 	if (rdir_vp == NULL) {
 		rdir_vp = rootvnode;
 	}
@@ -2500,7 +2518,7 @@ _shared_region_map_and_slide(
 		SHARED_REGION_TRACE_ERROR(("shared_region: %p [%d(%s)] map(): "
 		    "vm_shared_region_map_file() failed kr=0x%x\n",
 		    (void *)VM_KERNEL_ADDRPERM(current_thread()),
-		    p->p_pid, p->p_comm, kr));
+		    proc_getpid(p), p->p_comm, kr));
 	}
 
 	/* convert kern_return_t to errno */
@@ -2537,7 +2555,7 @@ _shared_region_map_and_slide(
 	SHARED_REGION_TRACE_DEBUG(
 		("shared_region: %p [%d(%s)] <- map\n",
 		(void *)VM_KERNEL_ADDRPERM(current_thread()),
-		p->p_pid, p->p_comm));
+		proc_getpid(p), p->p_comm));
 
 	return error;
 }
@@ -2605,7 +2623,7 @@ shared_region_map_and_slide_cleanup(
 				srfmp->fp = NULL;
 			}
 		}
-		kheap_free(KHEAP_TEMP, sr_file_mappings, files_count * sizeof(*sr_file_mappings));
+		kfree_type(struct _sr_file_mappings, files_count, sr_file_mappings);
 	}
 
 	if (scdir_vp != NULL) {
@@ -2619,13 +2637,17 @@ shared_region_map_and_slide_cleanup(
 }
 
 
-#define SFM_MAX       1024    /* max mapping structs allowed to pass in */
+/*
+ * For each file mapped, we may have mappings for:
+ *    TEXT, EXECUTE, LINKEDIT, DATA_CONST, __AUTH, DATA
+ * so let's round up to 8 mappings per file.
+ */
+#define SFM_MAX       (_SR_FILE_MAPPINGS_MAX_FILES * 8)     /* max mapping structs allowed to pass in */
 
 /*
- * This interface is used by dyld to map shared caches which are
- * for any architecture which doesn't have run time support of pointer
- * authentication. Note dyld could also use the new ...map_and_slide_2_np()
- * call for this case, however, it just doesn't do that yet.
+ * This is the older interface that dyld uses to map in the shared
+ * library. dyld is slowly moving to the new shared_region_map_and_slide_2_np()
+ * call as needed.
  */
 int
 shared_region_map_and_slide_np(
@@ -2658,12 +2680,11 @@ shared_region_map_and_slide_np(
 			("shared_region: %p [%d(%s)] map(): "
 			"no mappings\n",
 			(void *)VM_KERNEL_ADDRPERM(current_thread()),
-			p->p_pid, p->p_comm));
+			proc_getpid(p), p->p_comm));
 		kr = 0; /* no mappings: we're done ! */
 		goto done;
 	} else if (mappings_count <= SFM_MAX) {
-		mappings = kheap_alloc(KHEAP_TEMP,
-		    mappings_count * sizeof(mappings[0]), Z_WAITOK);
+		mappings = kalloc_data(mappings_count * sizeof(mappings[0]), Z_WAITOK);
 		if (mappings == NULL) {
 			kr = KERN_RESOURCE_SHORTAGE;
 			goto done;
@@ -2673,7 +2694,7 @@ shared_region_map_and_slide_np(
 			("shared_region: %p [%d(%s)] map(): "
 			"too many mappings (%d) max %d\n",
 			(void *)VM_KERNEL_ADDRPERM(current_thread()),
-			p->p_pid, p->p_comm,
+			proc_getpid(p), p->p_comm,
 			mappings_count, SFM_MAX));
 		kr = KERN_FAILURE;
 		goto done;
@@ -2709,17 +2730,12 @@ shared_region_map_and_slide_np(
 	    mappings);
 
 done:
-	if (mappings != NULL) {
-		kheap_free(KHEAP_TEMP, mappings, mappings_count * sizeof(mappings[0]));
-		mappings = NULL;
-	}
+	kfree_data(mappings, mappings_count * sizeof(mappings[0]));
 	return kr;
 }
 
 /*
- * This interface for setting up shared region mappings is what dyld
- * uses for shared caches that have __AUTH sections. All other shared
- * caches use the non _2 version.
+ * This is the new interface for setting up shared region mappings.
  *
  * The slide used for shared regions setup using this interface is done differently
  * from the old interface. The slide value passed in the shared_files_np represents
@@ -2743,23 +2759,20 @@ shared_region_map_and_slide_2_np(
 	unsigned int                  mappings_count;
 	struct shared_file_mapping_slide_np *mappings = NULL;
 	kern_return_t                 kr = KERN_SUCCESS;
-	boolean_t                     should_slide_mappings = TRUE;
 
 	files_count = uap->files_count;
 	mappings_count = uap->mappings_count;
-
 
 	if (files_count == 0) {
 		SHARED_REGION_TRACE_INFO(
 			("shared_region: %p [%d(%s)] map(): "
 			"no files\n",
 			(void *)VM_KERNEL_ADDRPERM(current_thread()),
-			p->p_pid, p->p_comm));
+			proc_getpid(p), p->p_comm));
 		kr = 0; /* no files to map: we're done ! */
 		goto done;
 	} else if (files_count <= _SR_FILE_MAPPINGS_MAX_FILES) {
-		shared_files = kheap_alloc(KHEAP_TEMP,
-		    files_count * sizeof(shared_files[0]), Z_WAITOK);
+		shared_files = kalloc_data(files_count * sizeof(shared_files[0]), Z_WAITOK);
 		if (shared_files == NULL) {
 			kr = KERN_RESOURCE_SHORTAGE;
 			goto done;
@@ -2769,7 +2782,7 @@ shared_region_map_and_slide_2_np(
 			("shared_region: %p [%d(%s)] map(): "
 			"too many files (%d) max %d\n",
 			(void *)VM_KERNEL_ADDRPERM(current_thread()),
-			p->p_pid, p->p_comm,
+			proc_getpid(p), p->p_comm,
 			files_count, _SR_FILE_MAPPINGS_MAX_FILES));
 		kr = KERN_FAILURE;
 		goto done;
@@ -2780,12 +2793,11 @@ shared_region_map_and_slide_2_np(
 			("shared_region: %p [%d(%s)] map(): "
 			"no mappings\n",
 			(void *)VM_KERNEL_ADDRPERM(current_thread()),
-			p->p_pid, p->p_comm));
+			proc_getpid(p), p->p_comm));
 		kr = 0; /* no mappings: we're done ! */
 		goto done;
 	} else if (mappings_count <= SFM_MAX) {
-		mappings = kheap_alloc(KHEAP_TEMP,
-		    mappings_count * sizeof(mappings[0]), Z_WAITOK);
+		mappings = kalloc_data(mappings_count * sizeof(mappings[0]), Z_WAITOK);
 		if (mappings == NULL) {
 			kr = KERN_RESOURCE_SHORTAGE;
 			goto done;
@@ -2795,7 +2807,7 @@ shared_region_map_and_slide_2_np(
 			("shared_region: %p [%d(%s)] map(): "
 			"too many mappings (%d) max %d\n",
 			(void *)VM_KERNEL_ADDRPERM(current_thread()),
-			p->p_pid, p->p_comm,
+			proc_getpid(p), p->p_comm,
 			mappings_count, SFM_MAX));
 		kr = KERN_FAILURE;
 		goto done;
@@ -2811,53 +2823,52 @@ shared_region_map_and_slide_2_np(
 		goto done;
 	}
 
-	if (should_slide_mappings) {
-		uint32_t max_slide = shared_files[0].sf_slide;
-		uint32_t random_val;
-		uint32_t slide_amount;
+	uint32_t max_slide = shared_files[0].sf_slide;
+	uint32_t random_val;
+	uint32_t slide_amount;
 
-		if (max_slide != 0) {
-			read_random(&random_val, sizeof random_val);
-			slide_amount = ((random_val % max_slide) & SLIDE_AMOUNT_MASK);
-		} else {
-			slide_amount = 0;
-		}
+	if (max_slide != 0) {
+		read_random(&random_val, sizeof random_val);
+		slide_amount = ((random_val % max_slide) & SLIDE_AMOUNT_MASK);
+	} else {
+		slide_amount = 0;
+	}
+#if DEVELOPMENT || DEBUG
+	extern bool bootarg_disable_aslr;
+	if (bootarg_disable_aslr) {
+		slide_amount = 0;
+	}
+#endif /* DEVELOPMENT || DEBUG */
 
-		/*
-		 * Fix up the mappings to reflect the desired slide.
-		 */
-		unsigned int f;
-		unsigned int m = 0;
-		unsigned int i;
-		for (f = 0; f < files_count; ++f) {
-			shared_files[f].sf_slide = slide_amount;
-			for (i = 0; i < shared_files[f].sf_mappings_count; ++i, ++m) {
-				if (m >= mappings_count) {
-					SHARED_REGION_TRACE_ERROR(
-						("shared_region: %p [%d(%s)] map(): "
-						"mapping count argument was too small\n",
-						(void *)VM_KERNEL_ADDRPERM(current_thread()),
-						p->p_pid, p->p_comm));
-					kr = KERN_FAILURE;
-					goto done;
-				}
-				mappings[m].sms_address += slide_amount;
-				if (mappings[m].sms_slide_size != 0) {
-					mappings[m].sms_slide_start += slide_amount;
-				}
+	/*
+	 * Fix up the mappings to reflect the desired slide.
+	 */
+	unsigned int f;
+	unsigned int m = 0;
+	unsigned int i;
+	for (f = 0; f < files_count; ++f) {
+		shared_files[f].sf_slide = slide_amount;
+		for (i = 0; i < shared_files[f].sf_mappings_count; ++i, ++m) {
+			if (m >= mappings_count) {
+				SHARED_REGION_TRACE_ERROR(
+					("shared_region: %p [%d(%s)] map(): "
+					"mapping count argument was too small\n",
+					(void *)VM_KERNEL_ADDRPERM(current_thread()),
+					proc_getpid(p), p->p_comm));
+				kr = KERN_FAILURE;
+				goto done;
+			}
+			mappings[m].sms_address += slide_amount;
+			if (mappings[m].sms_slide_size != 0) {
+				mappings[m].sms_slide_start += slide_amount;
 			}
 		}
 	}
+
 	kr = _shared_region_map_and_slide(p, files_count, shared_files, mappings_count, mappings);
 done:
-	if (shared_files != NULL) {
-		kheap_free(KHEAP_TEMP, shared_files, files_count * sizeof(shared_files[0]));
-		shared_files = NULL;
-	}
-	if (mappings != NULL) {
-		kheap_free(KHEAP_TEMP, mappings, mappings_count * sizeof(mappings[0]));
-		mappings = NULL;
-	}
+	kfree_data(shared_files, files_count * sizeof(shared_files[0]));
+	kfree_data(mappings, mappings_count * sizeof(mappings[0]));
 	return kr;
 }
 
@@ -3193,7 +3204,7 @@ kas_info(struct proc *p,
 			return EINVAL;
 		}
 
-		bases = kheap_alloc(KHEAP_TEMP, rsize, Z_WAITOK | Z_ZERO);
+		bases = kalloc_data(rsize, Z_WAITOK | Z_ZERO);
 
 		for (i = 0; i < mh->ncmds; i++) {
 			if (cmd->cmd == LC_SEGMENT_KERNEL) {
@@ -3205,7 +3216,7 @@ kas_info(struct proc *p,
 
 		error = copyout(bases, valuep, rsize);
 
-		kheap_free(KHEAP_TEMP, bases, rsize);
+		kfree_data(bases, rsize);
 
 		if (error) {
 			return error;
@@ -3434,6 +3445,42 @@ extern int debug4k_panic_on_misaligned_sharing;
 SYSCTL_INT(_vm, OID_AUTO, debug4k_panic_on_misaligned_sharing, CTLFLAG_RW | CTLFLAG_LOCKED, &debug4k_panic_on_misaligned_sharing, 0, "");
 #endif /* MACH_ASSERT */
 
+extern uint64_t vm_map_set_size_limit_count;
+extern uint64_t vm_map_set_data_limit_count;
+extern uint64_t vm_map_enter_RLIMIT_AS_count;
+extern uint64_t vm_map_enter_RLIMIT_DATA_count;
+SYSCTL_QUAD(_vm, OID_AUTO, map_set_size_limit_count, CTLFLAG_RD | CTLFLAG_LOCKED, &vm_map_set_size_limit_count, "");
+SYSCTL_QUAD(_vm, OID_AUTO, map_set_data_limit_count, CTLFLAG_RD | CTLFLAG_LOCKED, &vm_map_set_data_limit_count, "");
+SYSCTL_QUAD(_vm, OID_AUTO, map_enter_RLIMIT_AS_count, CTLFLAG_RD | CTLFLAG_LOCKED, &vm_map_enter_RLIMIT_AS_count, "");
+SYSCTL_QUAD(_vm, OID_AUTO, map_enter_RLIMIT_DATA_count, CTLFLAG_RD | CTLFLAG_LOCKED, &vm_map_enter_RLIMIT_DATA_count, "");
+
+extern uint64_t vm_fault_resilient_media_initiate;
+extern uint64_t vm_fault_resilient_media_retry;
+extern uint64_t vm_fault_resilient_media_proceed;
+extern uint64_t vm_fault_resilient_media_release;
+extern uint64_t vm_fault_resilient_media_abort1;
+extern uint64_t vm_fault_resilient_media_abort2;
+SYSCTL_QUAD(_vm, OID_AUTO, fault_resilient_media_initiate, CTLFLAG_RD | CTLFLAG_LOCKED, &vm_fault_resilient_media_initiate, "");
+SYSCTL_QUAD(_vm, OID_AUTO, fault_resilient_media_retry, CTLFLAG_RD | CTLFLAG_LOCKED, &vm_fault_resilient_media_retry, "");
+SYSCTL_QUAD(_vm, OID_AUTO, fault_resilient_media_proceed, CTLFLAG_RD | CTLFLAG_LOCKED, &vm_fault_resilient_media_proceed, "");
+SYSCTL_QUAD(_vm, OID_AUTO, fault_resilient_media_release, CTLFLAG_RD | CTLFLAG_LOCKED, &vm_fault_resilient_media_release, "");
+SYSCTL_QUAD(_vm, OID_AUTO, fault_resilient_media_abort1, CTLFLAG_RD | CTLFLAG_LOCKED, &vm_fault_resilient_media_abort1, "");
+SYSCTL_QUAD(_vm, OID_AUTO, fault_resilient_media_abort2, CTLFLAG_RD | CTLFLAG_LOCKED, &vm_fault_resilient_media_abort2, "");
+#if MACH_ASSERT
+extern int vm_fault_resilient_media_inject_error1_rate;
+extern int vm_fault_resilient_media_inject_error1;
+extern int vm_fault_resilient_media_inject_error2_rate;
+extern int vm_fault_resilient_media_inject_error2;
+extern int vm_fault_resilient_media_inject_error3_rate;
+extern int vm_fault_resilient_media_inject_error3;
+SYSCTL_INT(_vm, OID_AUTO, fault_resilient_media_inject_error1_rate, CTLFLAG_RW | CTLFLAG_LOCKED, &vm_fault_resilient_media_inject_error1_rate, 0, "");
+SYSCTL_INT(_vm, OID_AUTO, fault_resilient_media_inject_error1, CTLFLAG_RD | CTLFLAG_LOCKED, &vm_fault_resilient_media_inject_error1, 0, "");
+SYSCTL_INT(_vm, OID_AUTO, fault_resilient_media_inject_error2_rate, CTLFLAG_RW | CTLFLAG_LOCKED, &vm_fault_resilient_media_inject_error2_rate, 0, "");
+SYSCTL_INT(_vm, OID_AUTO, fault_resilient_media_inject_error2, CTLFLAG_RD | CTLFLAG_LOCKED, &vm_fault_resilient_media_inject_error2, 0, "");
+SYSCTL_INT(_vm, OID_AUTO, fault_resilient_media_inject_error3_rate, CTLFLAG_RW | CTLFLAG_LOCKED, &vm_fault_resilient_media_inject_error3_rate, 0, "");
+SYSCTL_INT(_vm, OID_AUTO, fault_resilient_media_inject_error3, CTLFLAG_RD | CTLFLAG_LOCKED, &vm_fault_resilient_media_inject_error3, 0, "");
+#endif /* MACH_ASSERT */
+
 /*
  * A sysctl which causes all existing shared regions to become stale. They
  * will no longer be used by anything new and will be torn down as soon as
@@ -3462,6 +3509,9 @@ SYSCTL_PROC(_vm, OID_AUTO, shared_region_pivot,
     CTLTYPE_INT | CTLFLAG_WR | CTLFLAG_LOCKED,
     0, 0, shared_region_pivot, "I", "");
 
+SYSCTL_INT(_vm, OID_AUTO, vmtc_total, CTLFLAG_RD | CTLFLAG_LOCKED,
+    &vmtc_total, 0, "total text page corruptions detected");
+
 /*
  * sysctl to return the number of pages on retired_pages_object
  */
@@ -3476,46 +3526,6 @@ retired_pages_count SYSCTL_HANDLER_ARGS
 }
 SYSCTL_PROC(_vm, OID_AUTO, retired_pages_count, CTLTYPE_INT | CTLFLAG_RD | CTLFLAG_LOCKED,
     0, 0, &retired_pages_count, "I", "");
-
-SYSCTL_INT(_vm, OID_AUTO, vmtc_total, CTLFLAG_RD | CTLFLAG_LOCKED,
-    &vmtc_total, 0, "total text page corruptions detected");
-SYSCTL_INT(_vm, OID_AUTO, vmtc_undiagnosed, CTLFLAG_RD | CTLFLAG_LOCKED,
-    &vmtc_undiagnosed, 0, "undiagnosed text page corruptions");
-SYSCTL_INT(_vm, OID_AUTO, vmtc_not_eligible, CTLFLAG_RD | CTLFLAG_LOCKED,
-    &vmtc_not_eligible, 0, "text page corruptions not eligible for correction");
-SYSCTL_INT(_vm, OID_AUTO, vmtc_copyin_fail, CTLFLAG_RD | CTLFLAG_LOCKED,
-    &vmtc_copyin_fail, 0, "undiagnosed text page corruptions due to copyin failure");
-SYSCTL_INT(_vm, OID_AUTO, vmtc_not_found, CTLFLAG_RD | CTLFLAG_LOCKED,
-    &vmtc_not_found, 0, "text page corruptions but no diff found");
-SYSCTL_INT(_vm, OID_AUTO, vmtc_one_bit_flip, CTLFLAG_RD | CTLFLAG_LOCKED,
-    &vmtc_one_bit_flip, 0, "text page corruptions that had a single bit flip");
-
-SYSCTL_INT(_vm, OID_AUTO, vmtc_1_byte, CTLFLAG_RD | CTLFLAG_LOCKED,
-    &vmtc_byte_counts[0], 0, "text page corruptions with 1 changed byte");
-
-SYSCTL_INT(_vm, OID_AUTO, vmtc_2_byte, CTLFLAG_RD | CTLFLAG_LOCKED,
-    &vmtc_byte_counts[1], 0, "text page corruptions with 2 changed bytes");
-
-SYSCTL_INT(_vm, OID_AUTO, vmtc_4_byte, CTLFLAG_RD | CTLFLAG_LOCKED,
-    &vmtc_byte_counts[2], 0, "text page corruptions with 3 to 4 changed bytes");
-
-SYSCTL_INT(_vm, OID_AUTO, vmtc_8_byte, CTLFLAG_RD | CTLFLAG_LOCKED,
-    &vmtc_byte_counts[3], 0, "text page corruptions with 5 to 8 changed bytes");
-
-SYSCTL_INT(_vm, OID_AUTO, vmtc_16_byte, CTLFLAG_RD | CTLFLAG_LOCKED,
-    &vmtc_byte_counts[4], 0, "text page corruptions with 9 to 16 changed bytes");
-
-SYSCTL_INT(_vm, OID_AUTO, vmtc_32_byte, CTLFLAG_RD | CTLFLAG_LOCKED,
-    &vmtc_byte_counts[5], 0, "text page corruptions with 17 to 32 changed bytes");
-
-SYSCTL_INT(_vm, OID_AUTO, vmtc_64_byte, CTLFLAG_RD | CTLFLAG_LOCKED,
-    &vmtc_byte_counts[6], 0, "text page corruptions with 33 to 64 changed bytes");
-
-SYSCTL_INT(_vm, OID_AUTO, vmtc_128byte, CTLFLAG_RD | CTLFLAG_LOCKED,
-    &vmtc_byte_counts[7], 0, "text page corruptions with 65 to 128 changed bytes");
-
-SYSCTL_INT(_vm, OID_AUTO, vmtc_256_byte, CTLFLAG_RD | CTLFLAG_LOCKED,
-    &vmtc_byte_counts[8], 0, "text page corruptions with >128 changed bytes");
 
 #if DEBUG || DEVELOPMENT
 /*

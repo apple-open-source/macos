@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>BATSConfigVersion</key>
+	<string>0.1.0</string>
+	<key>Project</key>
+	<string>libpthread.workqueue.tests</string>
+	<key>Tests</key>
+	<array>
+		<dict>
+			<key>Command</key>
+			<array>
+				<string>/AppleInternal/Tests/libpthread/wq_cooperative</string>
+			</array>
+			<key>TestName</key>
+			<string>libpthread.workqueue.wq_cooperative</string>
+			<key>AsRoot</key>
+			<false/>
+			<key>WorkingDirectory</key>
+			<string>/AppleInternal/Tests/libpthread</string>
+		</dict>
+	</array>
+</dict>
+</plist>

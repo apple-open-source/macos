@@ -111,6 +111,7 @@
 #include <libkern/OSDebug.h>
 #include <i386/cpu_threads.h>
 #include <machine/pal_routines.h>
+#include <i386/lbr.h>
 
 extern void throttle_lowpri_io(int);
 extern void kprint_state(x86_saved_state64_t *saved_state);
@@ -355,6 +356,7 @@ interrupt(x86_saved_state_t *state)
 	int             itype = DBG_INTR_TYPE_UNKNOWN;
 	int             handled;
 
+
 	x86_saved_state64_t     *state64 = saved_state64(state);
 	rip = state64->isf.rip;
 	rsp = state64->isf.rsp;
@@ -418,7 +420,7 @@ interrupt(x86_saved_state_t *state)
 	}
 
 	if (__improbable(get_preemption_level() != ipl)) {
-		panic("Preemption level altered by interrupt vector 0x%x: initial 0x%x, final: 0x%x\n", interrupt_num, ipl, get_preemption_level());
+		panic("Preemption level altered by interrupt vector 0x%x: initial 0x%x, final: 0x%x", interrupt_num, ipl, get_preemption_level());
 	}
 
 
@@ -675,6 +677,10 @@ kernel_trap(
 		goto debugger_entry;
 
 	case T_DEBUG:
+		/*
+		 * Re-enable LBR tracing for core/panic files if necessary. i386_lbr_enable confirms LBR should be re-enabled.
+		 */
+		i386_lbr_enable();
 		if ((saved_state->isf.rflags & EFL_TF) == 0 && NO_WATCHPOINTS) {
 			/* We've somehow encountered a debug
 			 * register match that does not belong
@@ -1193,7 +1199,7 @@ user_trap(
 			cs = saved_state32(saved_state)->cs;
 		}
 
-		if (last_branch_support_enabled) {
+		if (last_branch_enabled_modes == LBR_ENABLED_USERMODE) {
 			intrs = ml_set_interrupts_enabled(FALSE);
 			/*
 			 * This is a bit racy (it's possible for this thread to migrate to another CPU, then
@@ -1312,7 +1318,7 @@ copy_instruction_stream(thread_t thread, uint64_t rip, int __unused trap_code
 		enable_preemption();
 
 		if (pcb->insn_state == 0) {
-			pcb->insn_state = kalloc(sizeof(x86_instruction_state_t));
+			pcb->insn_state = kalloc_data(sizeof(x86_instruction_state_t), Z_WAITOK);
 		}
 
 		if (pcb->insn_state != 0) {
@@ -1399,7 +1405,7 @@ copy_instruction_stream(thread_t thread, uint64_t rip, int __unused trap_code
 		pcb->insn_state_copyin_failure_errorcode = copyin_err;
 #if DEVELOPMENT || DEBUG
 		if (inspect_cacheline && pcb->insn_state == 0) {
-			pcb->insn_state = kalloc(sizeof(x86_instruction_state_t));
+			pcb->insn_state = kalloc_data(sizeof(x86_instruction_state_t), Z_WAITOK);
 		}
 		if (pcb->insn_state != 0) {
 			pcb->insn_state->insn_stream_valid_bytes = 0;

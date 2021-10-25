@@ -18,6 +18,7 @@
 
 #include "keychain/ckks/CKKS.h"
 #include "keychain/ckks/CKKSLockStateTracker.h"
+#import "keychain/ckks/tests/CKKSMockLockStateProvider.h"
 #include "keychain/securityd/SecItemServer.h"
 #include "keychain/securityd/spi.h"
 #include "utilities/SecFileLocations.h"
@@ -27,6 +28,7 @@
 @interface SecEscrowRequestTests : XCTestCase
 @property SecEscrowRequest* escrowRequest;
 @property EscrowRequestServer* escrowServer;
+@property CKKSMockLockStateProvider* lockStateProvider;
 @property CKKSLockStateTracker* lockStateTracker;
 
 @property id escrowRequestServerClassMock;
@@ -60,7 +62,8 @@
     self.escrowRequestInformCloudServicesOperationMock = OCMClassMock([EscrowRequestInformCloudServicesOperation class]);
     self.escrowRequestPerformEscrowEnrollOperationMock = OCMClassMock([EscrowRequestPerformEscrowEnrollOperation class]);
 
-    self.lockStateTracker = [[CKKSLockStateTracker alloc] init];
+    self.lockStateProvider = [[CKKSMockLockStateProvider alloc] initWithCurrentLockStatus:NO];
+    self.lockStateTracker = [[CKKSLockStateTracker alloc] initWithProvider:self.lockStateProvider];
     self.escrowServer = [[EscrowRequestServer alloc] initWithLockStateTracker:self.lockStateTracker];
 
     id mockConnection = OCMPartialMock([[NSXPCConnection alloc] init]);
@@ -571,6 +574,10 @@
     for(id key in statuses.keyEnumerator) {
         XCTAssertEqualObjects(statuses[key], @"complete", "Record should be in 'complete' state");
     }
+
+    NSData* d2 = [self.escrowRequest fetchPrerecord:pendingUUID
+                                              error:&error];
+    XCTAssertNil(d2);
 }
 
 - (void)testEscrowUploadViaStateMachineAfterFailureDueToLockState {

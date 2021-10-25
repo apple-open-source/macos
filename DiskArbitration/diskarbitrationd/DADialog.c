@@ -25,9 +25,10 @@
 
 #include "DAAgent.h"
 #include "DAMain.h"
+#include "DASupport.h"
 
 #include <xpc/private.h>
-#include <os/log.h>
+#include "DALog.h"
 
 static void __DADialogShow( CFMutableArrayRef diskinfoarray, _DAAgentAction action )
 {
@@ -80,25 +81,48 @@ static void __DADialogShow( CFMutableArrayRef diskinfoarray, _DAAgentAction acti
     }
 }
 
+static CFBooleanRef IsNotificationDisabled( CFStringRef preference)
+{
+    CFBooleanRef value = CFDictionaryGetValue( gDAPreferenceList, preference );
+
+    value = value ? value : kCFBooleanFalse;
+    
+    return value;
+    
+}
+
 void DADialogShowDeviceRemoval( CFMutableArrayRef diskinfoarray )
 {
-    __DADialogShow( diskinfoarray, _kDAAgentActionShowDeviceRemoval );
+    if ( kCFBooleanFalse == IsNotificationDisabled ( kDAPreferenceDisableEjectNotificationKey ) )
+    {
+        __DADialogShow( diskinfoarray, _kDAAgentActionShowDeviceRemoval );
+    }
 }
 
 void DADialogShowDeviceUnreadable( DADiskRef disk )
 {
-    CFMutableArrayRef diskInfoArray = CFArrayCreateMutable( kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks );
-    CFDataRef serialization = DADiskGetSerialization( disk );
-    CFArrayAppendValue( diskInfoArray, serialization );
-    __DADialogShow( diskInfoArray, _kDAAgentActionShowDeviceUnreadable );
-    CFRelease( diskInfoArray );
+    
+    if ( kCFBooleanFalse == IsNotificationDisabled ( kDAPreferenceDisableUnreadableNotificationKey ) )
+    {
+        CFMutableArrayRef diskInfoArray = CFArrayCreateMutable( kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks );
+        CFDataRef serialization = DADiskGetSerialization( disk );
+        CFArrayAppendValue( diskInfoArray, serialization );
+        __DADialogShow( diskInfoArray, _kDAAgentActionShowDeviceUnreadable );
+        CFRelease( diskInfoArray );
+    }
+    DALogError( "disk is not readable %@", disk);
 }
 
 void DADialogShowDeviceUnrepairable( DADiskRef disk )
 {
-    CFMutableArrayRef diskInfoArray = CFArrayCreateMutable( kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks );
-    CFDataRef serialization = DADiskGetSerialization( disk );
-    CFArrayAppendValue( diskInfoArray, serialization );
-    __DADialogShow( diskInfoArray, _kDAAgentActionShowDeviceUnrepairable );
-    CFRelease( diskInfoArray );
+    if ( kCFBooleanFalse == IsNotificationDisabled ( kDAPreferenceDisableUnrepairableNotificationKey ) )
+    {
+        CFMutableArrayRef diskInfoArray = CFArrayCreateMutable( kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks );
+        CFDataRef serialization = DADiskGetSerialization( disk );
+        CFArrayAppendValue( diskInfoArray, serialization );
+        __DADialogShow( diskInfoArray, _kDAAgentActionShowDeviceUnrepairable );
+        CFRelease( diskInfoArray );
+    }
+    DALogError( "disk is not repairable %@", disk);
 }
+

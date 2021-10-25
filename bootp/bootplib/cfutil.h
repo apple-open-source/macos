@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2020 Apple Inc. All rights reserved.
+ * Copyright (c) 2003-2021 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -214,6 +214,17 @@ my_CFUUIDStringCreate(CFAllocatorRef alloc);
 
 CFStringRef
 my_CFStringCreateWithBytes(const uint8_t * bytes, int bytes_length);
+
+CFStringRef
+my_CFStringCreateWithData(CFDataRef data);
+
+/*
+ * my_CFStringEqual
+ * - returns TRUE if strings 'str1' and 'str2' are both
+ *   non-NULL and equal
+ */
+Boolean
+my_CFStringEqual(CFStringRef str1, CFStringRef str2);
 
 CFPropertyListRef
 my_CFPropertyListCreateWithBytePtrAndLength(const void * data, int data_len);

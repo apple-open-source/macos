@@ -152,7 +152,7 @@
 		</dict>
 		<dict>
 			<key>TestName</key>
-			<string>testFileCreate</string>
+			<string>testFileCreateSMBv1</string>
 			<key>Command</key>
 			<array>
 				<string>/AppleInternal/CoreOS/tests/SMBClient/smbclient_test</string>
@@ -163,7 +163,7 @@
 				<string>-3</string>
 				<string>cifs://smbtest2:storageSW2@netfs-13.apple.com/SMBBasic</string>
 				<string>-l</string>
-				<string>testFileCreate</string>
+				<string>testFileCreateSMBv1</string>
 			</array>
 			<key>Timeout</key>
 			<integer>600</integer>
@@ -270,6 +270,150 @@
 			</array>
 			<key>Timeout</key>
 			<integer>1200</integer>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>testURLToDictToURL</string>
+			<key>Command</key>
+			<array>
+				<string>/AppleInternal/CoreOS/tests/SMBClient/smbclient_test</string>
+				<string>-1</string>
+				<string>smb://smbtest:storageSW0@netfs-13.apple.com/SMBBasic</string>
+				<string>-2</string>
+				<string>smb://smbtest2:storageSW2@netfs-13.apple.com/SMBBasic</string>
+				<string>-3</string>
+				<string>cifs://smbtest2:storageSW2@netfs-13.apple.com/SMBBasic</string>
+				<string>-l</string>
+				<string>testURLToDictToURL</string>
+			</array>
+			<key>Timeout</key>
+			<integer>600</integer>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>testURLToDict</string>
+			<key>Command</key>
+			<array>
+				<string>/AppleInternal/CoreOS/tests/SMBClient/smbclient_test</string>
+				<string>-1</string>
+				<string>smb://smbtest:storageSW0@netfs-13.apple.com/SMBBasic</string>
+				<string>-2</string>
+				<string>smb://smbtest2:storageSW2@netfs-13.apple.com/SMBBasic</string>
+				<string>-3</string>
+				<string>cifs://smbtest2:storageSW2@netfs-13.apple.com/SMBBasic</string>
+				<string>-l</string>
+				<string>testURLToDict</string>
+			</array>
+			<key>Timeout</key>
+			<integer>600</integer>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>testListSharesOnce</string>
+			<key>Command</key>
+			<array>
+				<string>/AppleInternal/CoreOS/tests/SMBClient/smbclient_test</string>
+				<string>-1</string>
+				<string>smb://smbtest:storageSW0@netfs-13.apple.com/SMBBasic</string>
+				<string>-2</string>
+				<string>smb://smbtest2:storageSW2@netfs-13.apple.com/SMBBasic</string>
+				<string>-3</string>
+				<string>cifs://smbtest2:storageSW2@netfs-13.apple.com/SMBBasic</string>
+				<string>-l</string>
+				<string>testListSharesOnce</string>
+			</array>
+			<key>Timeout</key>
+			<integer>600</integer>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>testNameConversion</string>
+			<key>Command</key>
+			<array>
+				<string>/AppleInternal/CoreOS/tests/SMBClient/smbclient_test</string>
+				<string>-1</string>
+				<string>smb://smbtest:storageSW0@netfs-13.apple.com/SMBBasic</string>
+				<string>-2</string>
+				<string>smb://smbtest2:storageSW2@netfs-13.apple.com/SMBBasic</string>
+				<string>-3</string>
+				<string>cifs://smbtest2:storageSW2@netfs-13.apple.com/SMBBasic</string>
+				<string>-l</string>
+				<string>testNameConversion</string>
+			</array>
+			<key>Timeout</key>
+			<integer>600</integer>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>testSMBOpenServerWithMountPoint</string>
+			<key>Command</key>
+			<array>
+				<string>/AppleInternal/CoreOS/tests/SMBClient/smbclient_test</string>
+				<string>-1</string>
+				<string>smb://smbtest:storageSW0@netfs-13.apple.com/SMBBasic</string>
+				<string>-2</string>
+				<string>smb://smbtest2:storageSW2@netfs-13.apple.com/SMBBasic</string>
+				<string>-3</string>
+				<string>cifs://smbtest2:storageSW2@netfs-13.apple.com/SMBBasic</string>
+				<string>-l</string>
+				<string>testSMBOpenServerWithMountPoint</string>
+			</array>
+			<key>Timeout</key>
+			<integer>600</integer>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>testAccountNameSID</string>
+			<key>Command</key>
+			<array>
+				<string>/AppleInternal/CoreOS/tests/SMBClient/smbclient_test</string>
+				<string>-1</string>
+				<string>smb://smbtest:storageSW0@netfs-13.apple.com/SMBBasic</string>
+				<string>-2</string>
+				<string>smb://smbtest2:storageSW2@netfs-13.apple.com/SMBBasic</string>
+				<string>-3</string>
+				<string>cifs://smbtest2:storageSW2@netfs-13.apple.com/SMBBasic</string>
+				<string>-l</string>
+				<string>testAccountNameSID</string>
+			</array>
+			<key>Timeout</key>
+			<integer>600</integer>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>testMountExists</string>
+			<key>Command</key>
+			<array>
+				<string>/AppleInternal/CoreOS/tests/SMBClient/smbclient_test</string>
+				<string>-1</string>
+				<string>smb://smbtest:storageSW0@netfs-13.apple.com/SMBBasic</string>
+				<string>-2</string>
+				<string>smb://smbtest2:storageSW2@netfs-13.apple.com/SMBBasic</string>
+				<string>-3</string>
+				<string>cifs://smbtest2:storageSW2@netfs-13.apple.com/SMBBasic</string>
+				<string>-l</string>
+				<string>testMountExists</string>
+			</array>
+			<key>Timeout</key>
+			<integer>600</integer>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>testNetBIOSNameConversion</string>
+			<key>Command</key>
+			<array>
+				<string>/AppleInternal/CoreOS/tests/SMBClient/smbclient_test</string>
+				<string>-1</string>
+				<string>smb://smbtest:storageSW0@netfs-13.apple.com/SMBBasic</string>
+				<string>-2</string>
+				<string>smb://smbtest2:storageSW2@netfs-13.apple.com/SMBBasic</string>
+				<string>-3</string>
+				<string>cifs://smbtest2:storageSW2@netfs-13.apple.com/SMBBasic</string>
+				<string>-l</string>
+				<string>testNetBIOSNameConversion</string>
+			</array>
+			<key>Timeout</key>
+			<integer>600</integer>
 		</dict>
 	</array>
 </dict>

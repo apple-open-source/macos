@@ -28,6 +28,7 @@
 #include <Security/SecCodePriv.h>
 #include <Security/oidsattr.h>
 #include <Security/SecCertificatePriv.h>
+#include <CrashReporterClient.h>
 
 
 //
@@ -177,13 +178,24 @@ std::string ClientIdentification::partitionIdForProcess(SecStaticCodeRef code)
 	static SecRequirementRef apple;
 	static SecRequirementRef mas;
 	static SecRequirementRef developmentOrDevID;
-	static dispatch_once_t onceToken;
-	dispatch_once(&onceToken, ^{
-		if (noErr != SecRequirementCreateWithString(appleReq, kSecCSDefaultFlags, &apple)
-			|| noErr != SecRequirementCreateWithString(masReq, kSecCSDefaultFlags, &mas)
-			|| noErr != SecRequirementCreateWithString(developmentOrDevIDReq, kSecCSDefaultFlags, &developmentOrDevID))
-			abort();
-	});
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        if (noErr != SecRequirementCreateWithString(appleReq, kSecCSDefaultFlags, &apple)) {
+            secerror("Unable to create SecRequirement for 'anchor apple'");
+            CRSetCrashLogMessage("Unable to create SecRequirement for 'anchor apple'");
+            abort();
+        }
+        if(noErr != SecRequirementCreateWithString(masReq, kSecCSDefaultFlags, &mas)) {
+            secerror("Unable to create SecRequirement for mac app store");
+            CRSetCrashLogMessage("Unable to create SecRequirement for mac app store");
+            abort();
+        }
+        if(noErr != SecRequirementCreateWithString(developmentOrDevIDReq, kSecCSDefaultFlags, &developmentOrDevID)) {
+            secerror("Unable to create SecRequirement for development or dev ID");
+            CRSetCrashLogMessage("Unable to create SecRequirement for development or dev ID");
+            abort();
+        }
+    });
 
 	OSStatus rc;
 	switch (rc = SecStaticCodeCheckValidity(code, kSecCSBasicValidateOnly, apple)) {

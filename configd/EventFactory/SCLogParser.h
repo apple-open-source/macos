@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2018, 2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -46,5 +46,5 @@ os_log_t __log_Spectacles(void);
 - (sa_family_t)getAddressFamilyOfAddress:(NSString *)addressString;
 @property (readonly) EFLogEventParser *eventParser;
 @property (readonly) NSString *category;
-@property (class, readonly) NSMutableDictionary<NSString *, NSArray<NSString *> *> *interfaceMap;
+@property (class, readonly, atomic) NSMutableDictionary<NSString *, NSArray<NSString *> *> *interfaceMap;
 @end

@@ -362,6 +362,15 @@ SecSCEPCertifyRequest(CFDataRef request, SecIdentityRef ca_identity, CFDataRef s
     return SecSCEPCertifyRequestWithAlgorithms(request, ca_identity, serialno, pend_request, NULL, NULL);
 }
 
+static SecCertificateRef copySignerCert(SecTrustRef trust) {
+    CFArrayRef chain = SecTrustCopyCertificateChain(trust);
+    if (!chain) {
+        return NULL;
+    }
+    SecCertificateRef leaf = (SecCertificateRef)CFRetainSafe(CFArrayGetValueAtIndex(chain, 0));
+    CFReleaseNull(chain);
+    return leaf;
+}
 
 CFDataRef
 SecSCEPCertifyRequestWithAlgorithms(CFDataRef request, SecIdentityRef ca_identity, CFDataRef serialno, bool pend_request,
@@ -398,7 +407,7 @@ SecSCEPCertifyRequestWithAlgorithms(CFDataRef request, SecIdentityRef ca_identit
     /* remember signer: is signer certified by us, then re-certify, no challenge needed */
     SecTrustResultType result;
     require_noerr(SecTrustEvaluate(trust, &result), out);
-    require (signer_cert = SecTrustGetCertificateAtIndex(trust, 0), out);
+    require (signer_cert = copySignerCert(trust), out);
     bool recertify = !SecCertificateIsSignedBy(signer_cert, ca_public_key);
         
     /* msgType should be certreq msg */
@@ -502,6 +511,7 @@ out:
     CFReleaseSafe(simple_attr);
     CFReleaseSafe(recipient);
     CFReleaseSafe(parameters);
+    CFReleaseSafe(signer_cert);
     
     return signed_reply;
 }
@@ -538,7 +548,6 @@ SecSCEPVerifyReply(CFDataRef request, CFDataRef reply, CFTypeRef ca_certificates
     CFErrorRef *server_error)
 {
     SecKeyRef ca_public_key = NULL;
-    SecCertificateRef cert = NULL;
     SecPolicyRef policy = NULL;
     CFDataRef cert_msg = NULL;    
     CFMutableDataRef enc_cert_msg = NULL;
@@ -583,7 +592,7 @@ SecSCEPVerifyReply(CFDataRef request, CFDataRef reply, CFTypeRef ca_certificates
     /* response should be signed by ra */
     SecTrustResultType result;
     require_noerr(SecTrustEvaluate(trust, &result), out);
-    require(signer_cert = SecTrustGetCertificateAtIndex(trust, 0), out);
+    require(signer_cert = copySignerCert(trust), out);
     require(CFEqual(reply_signer, signer_cert), out);
 
     /* msgType should be certreq msg */
@@ -636,7 +645,6 @@ SecSCEPVerifyReply(CFDataRef request, CFDataRef reply, CFTypeRef ca_certificates
 
 out:
     CFReleaseSafe(ca_public_key);
-    CFReleaseSafe(cert);
     CFReleaseSafe(cert_msg);    
     CFReleaseSafe(enc_cert_msg);
     CFReleaseSafe(trust);
@@ -647,6 +655,7 @@ out:
     CFReleaseSafe(msg_type);
     CFReleaseSafe(pki_status);
     CFReleaseSafe(attributes);
+    CFReleaseSafe(signer_cert);
     
     return certificates;
 }
@@ -666,8 +675,10 @@ OSStatus SecSCEPValidateCACertMessage(CFArrayRef certs,
     CFMutableArrayRef chain = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks);
     SecPolicyRef policy = SecPolicyCreateBasicX509();
     SecTrustRef trust = NULL;
+    CFArrayRef resultChain = NULL;
     require(chain, out);
     for (j=0; j<count; j++) {
+        CFReleaseNull(resultChain);
         const void *candidate_leaf = CFArrayGetValueAtIndex(certs, j);
         CFArrayRemoveAllValues(chain);
         CFArraySetValueAtIndex(chain, 0, candidate_leaf);
@@ -677,11 +688,12 @@ OSStatus SecSCEPValidateCACertMessage(CFArrayRef certs,
             policy, &trust), out);
         SecTrustResultType trust_result;
         SecTrustEvaluate(trust, &trust_result);
-        CFIndex chain_count = SecTrustGetCertificateCount(trust);
+        resultChain = SecTrustCopyCertificateChain(trust);
+        CFIndex chain_count = resultChain ? CFArrayGetCount(resultChain) : 0;
         secdebug("scep", "candidate leaf: %@ forms chain of length %" PRIdCFIndex, candidate_leaf, chain_count);
         if (chain_count > 1) {
-            SecCertificateRef leaf = SecTrustGetCertificateAtIndex(trust, 0);
-            SecCertificateRef ca_leaf = SecTrustGetCertificateAtIndex(trust, chain_count - 1);
+            SecCertificateRef leaf = (SecCertificateRef)CFArrayGetValueAtIndex(resultChain, 0);
+            SecCertificateRef ca_leaf = (SecCertificateRef)CFArrayGetValueAtIndex(resultChain, chain_count - 1);
             if (!_ca_certificate) {
                 if (ca_fingerprint) {
                     secdebug("scep", "checking ca %@ against fingerprint %@", ca_leaf, ca_fingerprint);
@@ -775,6 +787,7 @@ out:
     CFReleaseSafe(policy);
     CFReleaseSafe(trust);
     CFReleaseSafe(chain);
+    CFReleaseNull(resultChain);
     return status;
 
 }

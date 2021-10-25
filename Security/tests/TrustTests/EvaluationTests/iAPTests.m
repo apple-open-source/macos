@@ -320,26 +320,72 @@ trustFail:
 }
 
 - (void) testComponentTypeCerts {
-    SecCertificateRef batteryCA = NULL, nonComponent = NULL;
+    SecCertificateRef batteryCA = NULL, batteryLeaf = NULL, utf8ComponentCert = NULL, nonComponent = NULL, propertiesComponentCert = NULL;
     isnt(batteryCA = SecCertificateCreateWithBytes(NULL, _componentCABattery, sizeof(_componentCABattery)),
          NULL, "create battery component CA cert");
+    isnt(batteryLeaf = SecCertificateCreateWithBytes(NULL, _batteryLeaf, sizeof(_batteryLeaf)), NULL);
+    isnt(utf8ComponentCert = SecCertificateCreateWithBytes(NULL, _component_leaf_UTF8String, sizeof(_component_leaf_UTF8String)), NULL);
     isnt(nonComponent = SecCertificateCreateWithBytes(NULL, _iAP2CA, sizeof(_iAP2CA)),
          NULL, "create non-component cert");
+    isnt(propertiesComponentCert = SecCertificateCreateWithBytes(NULL, _component_leaf_properties, sizeof(_component_leaf_properties)), NULL, "create component cert with properties");
 
     CFStringRef componentType = NULL;
     isnt(componentType = SecCertificateCopyComponentType(batteryCA), NULL, "Get component type");
     ok(CFEqual(componentType, CFSTR("Battery")), "Got correct component type");
     CFReleaseNull(componentType);
 
+    isnt(componentType = SecCertificateCopyComponentType(batteryLeaf), NULL, "Get component type");
+    ok(CFEqual(componentType, CFSTR("Battery")), "Got correct component type");
+    CFReleaseNull(componentType);
+
+    isnt(componentType = SecCertificateCopyComponentType(utf8ComponentCert), NULL, "Get component type");
+    ok(CFEqual(componentType, CFSTR("Watch MLB")), "Got correct component type");
+    CFReleaseNull(componentType);
+
     is(componentType = SecCertificateCopyComponentType(nonComponent), NULL, "Get component type");
 
+    isnt(componentType = SecCertificateCopyComponentType(propertiesComponentCert), NULL, "Get component type");
+    ok(CFEqual(componentType, CFSTR("Battery")), "Got correct component type");
+    CFReleaseNull(componentType);
+
     CFReleaseNull(batteryCA);
+    CFReleaseNull(batteryLeaf);
+    CFReleaseNull(utf8ComponentCert);
     CFReleaseNull(nonComponent);
+    CFReleaseNull(propertiesComponentCert);
+}
+
+- (void)testCopyComponentAttributes {
+    SecCertificateRef batteryLeaf = NULL, propertiesComponentCert = NULL, prodComponentCert = NULL, devComponentCert = NULL;
+    isnt(batteryLeaf = SecCertificateCreateWithBytes(NULL, _batteryLeaf, sizeof(_batteryLeaf)), NULL);
+    isnt(propertiesComponentCert = SecCertificateCreateWithBytes(NULL, _component_leaf_properties, sizeof(_component_leaf_properties)), NULL, "create component cert with properties");
+    isnt(prodComponentCert = SecCertificateCreateWithBytes(NULL, _component_leaf_properties_prod, sizeof(_component_leaf_properties_prod)), NULL);
+    isnt(devComponentCert = SecCertificateCreateWithBytes(NULL, _component_leaf_properties_dev, sizeof(_component_leaf_properties_dev)), NULL);
+
+    CFDictionaryRef attributes = NULL;
+    is(attributes = SecCertificateCopyComponentAttributes(batteryLeaf), NULL, "Found attributes where none present");
+    isnt(attributes = SecCertificateCopyComponentAttributes(propertiesComponentCert), NULL, "Failed to find attributes");
+    NSDictionary *attrs = CFBridgingRelease(attributes);
+    XCTAssertEqual(attrs.count, 1);
+    XCTAssertEqual([attrs objectForKey:@(1001)], @NO);
+
+    attrs = CFBridgingRelease(SecCertificateCopyComponentAttributes(prodComponentCert));
+    XCTAssertEqual(attrs.count, 1);
+    XCTAssertEqual([attrs objectForKey:@(1001)], @YES);
+
+    attrs = CFBridgingRelease(SecCertificateCopyComponentAttributes(devComponentCert));
+    XCTAssertEqual(attrs.count, 1);
+    XCTAssertEqual([attrs objectForKey:@(1001)], @NO);
+
+    CFReleaseNull(batteryLeaf);
+    CFReleaseNull(propertiesComponentCert);
+    CFReleaseNull(prodComponentCert);
+    CFReleaseNull(devComponentCert);
 }
 
 - (void)testComponentTypeTrust {
-    SecCertificateRef leaf = NULL, subCA = NULL, root = NULL;
-    SecPolicyRef policy = NULL;
+    SecCertificateRef leaf = NULL, prodLeaf = NULL, devLeaf = NULL, subCA = NULL, root = NULL;
+    SecPolicyRef policy = SecPolicyCreateAppleComponentCertificate(NULL);
     SecTrustRef trust = NULL;
     CFMutableArrayRef certs = NULL;
     CFArrayRef anchors = NULL;
@@ -352,13 +398,30 @@ trustFail:
          NULL, "create battery subCA");
     isnt(root = SecCertificateCreateWithBytes(NULL, _componentRoot, sizeof(_componentRoot)),
          NULL, "create component root");
+    isnt(prodLeaf = SecCertificateCreateWithBytes(NULL, _component_leaf_properties_prod, sizeof(_component_leaf_properties_prod)),
+         NULL);
+    isnt(devLeaf = SecCertificateCreateWithBytes(NULL, _component_leaf_properties_dev, sizeof(_component_leaf_properties_dev)),
+         NULL);
+
+    NSArray *testChain = @[(__bridge id)prodLeaf, (__bridge id)subCA];
+    TestTrustEvaluation *eval = [[TestTrustEvaluation alloc] initWithCertificates:testChain
+                                                                         policies:@[(__bridge id)policy]];
+    [eval setAnchors:@[(__bridge id)root]];
+    [eval setVerifyDate:[NSDate dateWithTimeIntervalSinceReferenceDate:648000000.0]]; // July 14, 2021 at 5:00:00 PM PDT
+    XCTAssertTrue([eval evaluate:nil]);
+
+    testChain = @[(__bridge id)devLeaf, (__bridge id)subCA];
+    eval = [[TestTrustEvaluation alloc] initWithCertificates:testChain
+                                                    policies:@[(__bridge id)policy]];
+    [eval setAnchors:@[(__bridge id)root]];
+    [eval setVerifyDate:[NSDate dateWithTimeIntervalSinceReferenceDate:648000000.0]]; // July 14, 2021 at 5:00:00 PM PDT
+    XCTAssertTrue([eval evaluate:nil]);
 
     /* Test Battery component certs meet component policy */
     certs = CFArrayCreateMutable(NULL, 2, &kCFTypeArrayCallBacks);
     CFArrayAppendValue(certs, leaf);
     CFArrayAppendValue(certs, subCA);
     anchors = CFArrayCreate(NULL, (const void **)&root, 1, &kCFTypeArrayCallBacks);
-    policy = SecPolicyCreateAppleComponentCertificate(NULL);
     require_noerr(SecTrustCreateWithCertificates(certs, policy, &trust), trustFail);
     require_noerr(SecTrustSetAnchorCertificates(trust, anchors), trustFail);
     require(date = CFDateCreate(NULL, 576000000.0), trustFail);  /* April 3, 2019 at 9:00:00 AM PDT */
@@ -373,6 +436,204 @@ trustFail:
     CFReleaseNull(date);
     CFReleaseNull(policy);
     CFReleaseNull(trust);
+    CFReleaseNull(prodLeaf);
+    CFReleaseNull(devLeaf);
+}
+
+- (void)testMFIv4Certs {
+    SecCertificateRef chip_leaf = SecCertificateCreateWithBytes(NULL, _test_mfi4_accessory_leaf, sizeof(_test_mfi4_accessory_leaf));
+    SecCertificateRef chip_ca = SecCertificateCreateWithBytes(NULL, _test_mfi4_accessory_subca, sizeof(_test_mfi4_accessory_subca));
+    SecCertificateRef baa_leaf = SecCertificateCreateWithBytes(NULL, _test_mfi4_attestation_leaf, sizeof(_test_mfi4_attestation_leaf));
+    SecCertificateRef baa_ca = SecCertificateCreateWithBytes(NULL, _test_mfi4_attestation_subca, sizeof(_test_mfi4_attestation_subca));
+    SecCertificateRef provisioning_leaf = SecCertificateCreateWithBytes(NULL, _test_mfi4_provisioning_leaf, sizeof(_test_mfi4_provisioning_leaf));
+    SecCertificateRef provisioning_ca = SecCertificateCreateWithBytes(NULL, _test_mfi4_provisioning_subca, sizeof(_test_mfi4_provisioning_subca));
+
+    XCTAssertEqual(kSeciAuthVersion4, SecCertificateGetiAuthVersion(chip_leaf));
+    XCTAssertEqual(kSeciAuthInvalid, SecCertificateGetiAuthVersion(chip_ca));
+    XCTAssertEqual(kSeciAuthVersion4, SecCertificateGetiAuthVersion(baa_leaf));
+    XCTAssertEqual(kSeciAuthInvalid, SecCertificateGetiAuthVersion(baa_ca));
+    XCTAssertEqual(kSeciAuthInvalid, SecCertificateGetiAuthVersion(provisioning_leaf));
+    XCTAssertEqual(kSeciAuthInvalid, SecCertificateGetiAuthVersion(provisioning_ca));
+
+    const uint8_t _test_expected_capabilities_chip[] = {
+        0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+        0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x02,0x01
+    };
+    NSData *expectedCapabilities = [NSData dataWithBytes:_test_expected_capabilities_chip length:sizeof(_test_expected_capabilities_chip)];
+
+    NSData *capabilities = CFBridgingRelease(SecCertificateCopyiAPAuthCapabilities(chip_leaf));
+    XCTAssertNotNil(capabilities);
+    XCTAssertEqualObjects(capabilities, expectedCapabilities);
+
+    const uint8_t _test_expected_capabilities_baa[] = {
+        0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+        0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x02,0x03
+    };
+    expectedCapabilities = [NSData dataWithBytes:_test_expected_capabilities_baa length:sizeof(_test_expected_capabilities_baa)];
+
+    capabilities = CFBridgingRelease(SecCertificateCopyiAPAuthCapabilities(baa_leaf));
+    XCTAssertNotNil(capabilities);
+    XCTAssertEqualObjects(capabilities, expectedCapabilities);
+
+    capabilities = CFBridgingRelease(SecCertificateCopyiAPAuthCapabilities(chip_ca));
+    XCTAssertNil(capabilities);
+
+    capabilities = CFBridgingRelease(SecCertificateCopyiAPAuthCapabilities(baa_ca));
+    XCTAssertNil(capabilities);
+
+    capabilities = CFBridgingRelease(SecCertificateCopyiAPAuthCapabilities(provisioning_leaf));
+    XCTAssertNil(capabilities);
+
+    capabilities = CFBridgingRelease(SecCertificateCopyiAPAuthCapabilities(provisioning_ca));
+    XCTAssertNil(capabilities);
+
+    CFReleaseNull(chip_leaf);
+    CFReleaseNull(chip_ca);
+    CFReleaseNull(baa_leaf);
+    CFReleaseNull(baa_ca);
+    CFReleaseNull(provisioning_leaf);
+    CFReleaseNull(provisioning_ca);
+}
+
+- (void)testMFIv4Trust {
+    SecCertificateRef chip_leaf = SecCertificateCreateWithBytes(NULL, _test_mfi4_accessory_leaf, sizeof(_test_mfi4_accessory_leaf));
+    SecCertificateRef chip_ca = SecCertificateCreateWithBytes(NULL, _test_mfi4_accessory_subca, sizeof(_test_mfi4_accessory_subca));
+    SecCertificateRef baa_leaf = SecCertificateCreateWithBytes(NULL, _test_mfi4_attestation_leaf, sizeof(_test_mfi4_attestation_leaf));
+    SecCertificateRef baa_ca = SecCertificateCreateWithBytes(NULL, _test_mfi4_attestation_subca, sizeof(_test_mfi4_attestation_subca));
+    SecCertificateRef provisioning_leaf = SecCertificateCreateWithBytes(NULL, _test_mfi4_provisioning_leaf, sizeof(_test_mfi4_provisioning_leaf));
+    SecCertificateRef provisioning_ca = SecCertificateCreateWithBytes(NULL, _test_mfi4_provisioning_subca, sizeof(_test_mfi4_provisioning_subca));
+    SecCertificateRef root = SecCertificateCreateWithBytes(NULL, _test_mfi4_root, sizeof(_test_mfi4_root));
+
+    NSArray *chipCerts = @[ (__bridge id)chip_leaf, (__bridge id)chip_ca ];
+    NSArray *baaCerts = @[ (__bridge id)baa_leaf, (__bridge id)baa_ca ];
+    NSArray *provisioningCerts = @[ (__bridge id)provisioning_leaf, (__bridge id)provisioning_ca ];
+    SecPolicyRef iAPPolicy = SecPolicyCreateiAP();
+
+    TestTrustEvaluation *eval = [[TestTrustEvaluation alloc] initWithCertificates:chipCerts
+                                                                         policies:@[(__bridge id)iAPPolicy]];
+    [eval setAnchors:@[(__bridge id)root]];
+    XCTAssert([eval evaluate:nil]);
+
+    eval = [[TestTrustEvaluation alloc] initWithCertificates:baaCerts
+                                                    policies:@[(__bridge id)iAPPolicy]];
+    [eval setAnchors:@[(__bridge id)root]];
+    XCTAssertFalse([eval evaluate:nil]);
+
+    eval = [[TestTrustEvaluation alloc] initWithCertificates:provisioningCerts
+                                                    policies:@[(__bridge id)iAPPolicy]];
+    [eval setAnchors:@[(__bridge id)root]];
+    XCTAssertFalse([eval evaluate:nil]);
+
+    CFReleaseNull(chip_leaf);
+    CFReleaseNull(chip_ca);
+    CFReleaseNull(baa_leaf);
+    CFReleaseNull(baa_ca);
+    CFReleaseNull(provisioning_leaf);
+    CFReleaseNull(provisioning_ca);
+    CFReleaseNull(root);
+}
+
+- (void)testMFIv4Compression {
+    SecCertificateRef chip_leaf = SecCertificateCreateWithBytes(NULL, _test_mfi4_accessory_leaf, sizeof(_test_mfi4_accessory_leaf));
+    SecCertificateRef chip_ca = SecCertificateCreateWithBytes(NULL, _test_mfi4_accessory_subca, sizeof(_test_mfi4_accessory_subca));
+    SecCertificateRef baa_leaf = SecCertificateCreateWithBytes(NULL, _test_mfi4_attestation_leaf, sizeof(_test_mfi4_attestation_leaf));
+    SecCertificateRef baa_ca = SecCertificateCreateWithBytes(NULL, _test_mfi4_attestation_subca, sizeof(_test_mfi4_attestation_subca));
+    SecCertificateRef provisioning_leaf = SecCertificateCreateWithBytes(NULL, _test_mfi4_provisioning_leaf, sizeof(_test_mfi4_provisioning_leaf));
+    SecCertificateRef provisioning_ca = SecCertificateCreateWithBytes(NULL, _test_mfi4_provisioning_subca, sizeof(_test_mfi4_provisioning_subca));
+    SecCertificateRef root = SecCertificateCreateWithBytes(NULL, _test_mfi4_root, sizeof(_test_mfi4_root));
+
+    // CoreTrust tests that the input/outputs are "correct", so we just want to test that the wrappers work
+    NSData *compressedChipLeaf = CFBridgingRelease(SecCertificateCopyCompressedMFiCert(chip_leaf));
+    NSData *compressedChipCA = CFBridgingRelease(SecCertificateCopyCompressedMFiCert(chip_ca));
+    NSData *compressedBAALeaf = CFBridgingRelease(SecCertificateCopyCompressedMFiCert(baa_leaf));
+    NSData *compressedBAACA = CFBridgingRelease(SecCertificateCopyCompressedMFiCert(baa_ca));
+    NSData *compressedProvisioningLeaf = CFBridgingRelease(SecCertificateCopyCompressedMFiCert(provisioning_leaf));
+    NSData *compressedProvisioningCA = CFBridgingRelease(SecCertificateCopyCompressedMFiCert(provisioning_ca));
+    NSData *compressedRoot = CFBridgingRelease(SecCertificateCopyCompressedMFiCert(root));
+
+    XCTAssertNotNil(compressedChipLeaf);
+    XCTAssertNotNil(compressedChipCA);
+    XCTAssertNotNil(compressedBAALeaf);
+    XCTAssertNotNil(compressedBAACA);
+    XCTAssertNil(compressedProvisioningLeaf);
+    XCTAssertNil(compressedProvisioningCA);
+    XCTAssertNil(compressedRoot);
+
+    SecCertificateRef decompressedChipLeaf = SecCertificateCreateWithCompressedMFiCert((__bridge CFDataRef)compressedChipLeaf);
+    SecCertificateRef decompressedChipCA = SecCertificateCreateWithCompressedMFiCert((__bridge CFDataRef)compressedChipCA);
+    SecCertificateRef decompressedBAALeaf = SecCertificateCreateWithCompressedMFiCert((__bridge CFDataRef)compressedBAALeaf);
+    SecCertificateRef decompressedBAACA = SecCertificateCreateWithCompressedMFiCert((__bridge CFDataRef)compressedBAACA);
+    SecCertificateRef nullInput = SecCertificateCreateWithCompressedMFiCert((__bridge CFDataRef)compressedRoot);
+    SecCertificateRef invalidInput = SecCertificateCreateWithCompressedMFiCert((__bridge CFDataRef)[NSData dataWithBytes:_test_mfi4_root length:sizeof(_test_mfi4_root)]);
+
+    XCTAssertNotEqual(decompressedChipLeaf, NULL);
+    XCTAssertNotEqual(decompressedChipCA, NULL);
+    XCTAssertNotEqual(decompressedBAALeaf, NULL);
+    XCTAssertNotEqual(decompressedBAACA, NULL);
+    XCTAssertEqual(nullInput, NULL);
+    XCTAssertEqual(invalidInput, NULL);
+
+    XCTAssert(CFEqualSafe(chip_leaf, decompressedChipLeaf));
+    XCTAssert(CFEqualSafe(chip_ca, decompressedChipCA));
+    XCTAssert(CFEqualSafe(baa_leaf, decompressedBAALeaf));
+    XCTAssert(CFEqualSafe(baa_ca, decompressedBAACA));
+
+    CFReleaseNull(chip_leaf);
+    CFReleaseNull(chip_ca);
+    CFReleaseNull(baa_leaf);
+    CFReleaseNull(baa_ca);
+    CFReleaseNull(provisioning_leaf);
+    CFReleaseNull(provisioning_ca);
+    CFReleaseNull(root);
+    CFReleaseNull(decompressedChipLeaf);
+    CFReleaseNull(decompressedChipCA);
+    CFReleaseNull(decompressedBAALeaf);
+    CFReleaseNull(decompressedBAACA);
+}
+
+- (void)testMFIv4Chaining {
+    SecCertificateRef chip_leaf = SecCertificateCreateWithBytes(NULL, _test_mfi4_accessory_leaf, sizeof(_test_mfi4_accessory_leaf));
+    SecCertificateRef chip_ca = SecCertificateCreateWithBytes(NULL, _test_mfi4_accessory_subca, sizeof(_test_mfi4_accessory_subca));
+    SecCertificateRef baa_leaf = SecCertificateCreateWithBytes(NULL, _test_mfi4_attestation_leaf, sizeof(_test_mfi4_attestation_leaf));
+    SecCertificateRef baa_ca = SecCertificateCreateWithBytes(NULL, _test_mfi4_attestation_subca, sizeof(_test_mfi4_attestation_subca));
+    SecCertificateRef provisioning_leaf = SecCertificateCreateWithBytes(NULL, _test_mfi4_provisioning_leaf, sizeof(_test_mfi4_provisioning_leaf));
+    SecCertificateRef provisioning_ca = SecCertificateCreateWithBytes(NULL, _test_mfi4_provisioning_subca, sizeof(_test_mfi4_provisioning_subca));
+    SecCertificateRef root = SecCertificateCreateWithBytes(NULL, _test_mfi4_root, sizeof(_test_mfi4_root));
+
+    XCTAssertNotEqual(NULL, SecCertificateGetAuthorityKeyID(chip_leaf));
+    XCTAssertNotEqual(NULL, SecCertificateGetSubjectKeyID(chip_ca));
+    XCTAssertEqualObjects((__bridge NSData*)SecCertificateGetAuthorityKeyID(chip_leaf),
+                          (__bridge NSData*)SecCertificateGetSubjectKeyID(chip_ca));
+    XCTAssertNotEqual(NULL, SecCertificateGetAuthorityKeyID(chip_ca));
+    XCTAssertNotEqual(NULL, SecCertificateGetSubjectKeyID(root));
+    XCTAssertEqualObjects((__bridge NSData*)SecCertificateGetAuthorityKeyID(chip_ca),
+                          (__bridge NSData*)SecCertificateGetSubjectKeyID(root));
+
+    XCTAssertNotEqual(NULL, SecCertificateGetAuthorityKeyID(baa_leaf));
+    XCTAssertNotEqual(NULL, SecCertificateGetSubjectKeyID(baa_ca));
+    XCTAssertEqualObjects((__bridge NSData*)SecCertificateGetAuthorityKeyID(baa_leaf),
+                          (__bridge NSData*)SecCertificateGetSubjectKeyID(baa_ca));
+    XCTAssertNotEqual(NULL, SecCertificateGetAuthorityKeyID(baa_ca));
+    XCTAssertNotEqual(NULL, SecCertificateGetSubjectKeyID(root));
+    XCTAssertEqualObjects((__bridge NSData*)SecCertificateGetAuthorityKeyID(baa_ca),
+                          (__bridge NSData*)SecCertificateGetSubjectKeyID(root));
+
+    XCTAssertNotEqual(NULL, SecCertificateGetAuthorityKeyID(provisioning_leaf));
+    XCTAssertNotEqual(NULL, SecCertificateGetSubjectKeyID(provisioning_ca));
+    XCTAssertEqualObjects((__bridge NSData*)SecCertificateGetAuthorityKeyID(provisioning_leaf),
+                          (__bridge NSData*)SecCertificateGetSubjectKeyID(provisioning_ca));
+    XCTAssertNotEqual(NULL, SecCertificateGetAuthorityKeyID(provisioning_ca));
+    XCTAssertNotEqual(NULL, SecCertificateGetSubjectKeyID(root));
+    XCTAssertEqualObjects((__bridge NSData*)SecCertificateGetAuthorityKeyID(provisioning_ca),
+                          (__bridge NSData*)SecCertificateGetSubjectKeyID(root));
+
+    CFReleaseNull(chip_leaf);
+    CFReleaseNull(chip_ca);
+    CFReleaseNull(baa_leaf);
+    CFReleaseNull(baa_ca);
+    CFReleaseNull(provisioning_leaf);
+    CFReleaseNull(provisioning_ca);
+    CFReleaseNull(root);
 }
 
 @end

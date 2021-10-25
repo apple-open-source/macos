@@ -141,6 +141,7 @@ extern const char *kSecXPCKeyPeerInfo;
 extern const char *kSecXPCLimitInMinutes;
 extern const char *kSecXPCKeyQuery;
 extern const char *kSecXPCKeyAttributesToUpdate;
+extern const char *kSecXPCKeyAuthExternalForm; // AuthorizationExternalForm
 extern const char *kSecXPCKeyDomain;
 extern const char *kSecXPCKeyDigest;
 extern const char *kSecXPCKeyCertificate;
@@ -292,9 +293,16 @@ enum SecXPCOperation {
     kSecXPCOpCopyCARevocationAdditions,
     kSecXPCOpValidUpdate,
     kSecXPCOpSetTransparentConnectionPins,
-    kSecXPCOpCopyTransparentConnectionPins
+    kSecXPCOpCopyTransparentConnectionPins,
+    sec_trust_settings_set_data_id,
+    sec_trust_settings_copy_data_id,
+    sec_truststore_remove_all_id,
 };
 
+#define KEYCHAIN_SUPPORTS_PERSONA_MULTIUSER (TARGET_OS_IOS || TARGET_OS_TV || TARGET_OS_OSX)
+#define KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER (TARGET_OS_IOS)
+
+#define KEYCHAIN_SUPPORTS_SINGLE_DATABASE_MULTIUSER (KEYCHAIN_SUPPORTS_PERSONA_MULTIUSER || KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER)
 
 typedef struct SecurityClient {
     SecTaskRef task;
@@ -308,8 +316,10 @@ typedef struct SecurityClient {
 #if (TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR) && TARGET_HAS_KEYSTORE
     keybag_handle_t keybag;
 #endif
-#if TARGET_OS_IPHONE
+#if KEYCHAIN_SUPPORTS_SINGLE_DATABASE_MULTIUSER
     bool inMultiUser;
+#endif
+#if KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER
     int activeUser;
 #endif
     bool isAppClip;
@@ -318,7 +328,7 @@ typedef struct SecurityClient {
 
 
 extern SecurityClient * SecSecurityClientGet(void);
-#if TARGET_OS_IOS
+#if KEYCHAIN_SUPPORTS_SINGLE_DATABASE_MULTIUSER
 void SecSecuritySetMusrMode(bool mode, uid_t uid, int activeUser);
 void SecSecuritySetPersonaMusr(CFStringRef uuid);
 #endif
@@ -409,6 +419,7 @@ struct securityd {
     bool (*soscc_SOSCCMessageFromPeerIsPending)(SOSPeerInfoRef peer, CFErrorRef* error);
     bool (*soscc_SOSCCSendToPeerIsPending)(SOSPeerInfoRef peer, CFErrorRef* error);
     CFTypeRef (*soscc_status)(void);
+    bool (*sec_fill_security_client_muser)(SecurityClient *client);
     /* otherstuff */
     CFTypeRef secd_xpc_server;
 };
@@ -421,7 +432,7 @@ struct trustd {
     bool (*sec_trust_store_set_trust_settings)(SecTrustStoreRef ts, SecCertificateRef certificate, CFTypeRef trustSettingsDictOrArray, CFErrorRef* error);
     bool (*sec_trust_store_remove_certificate)(SecTrustStoreRef ts, SecCertificateRef certificate, CFErrorRef* error);
     bool (*sec_truststore_remove_all)(SecTrustStoreRef ts, CFErrorRef* error);
-    SecTrustResultType (*sec_trust_evaluate)(CFArrayRef certificates, CFArrayRef anchors, bool anchorsOnly, bool keychainsAllowed, CFArrayRef policies, CFArrayRef responses, CFArrayRef SCTs, CFArrayRef trustedLogs, CFAbsoluteTime verifyTime, __unused CFArrayRef accessGroups, CFArrayRef exceptions, CFArrayRef *details, CFDictionaryRef *info, CFArrayRef *chain, CFErrorRef *error);
+    SecTrustResultType (*sec_trust_evaluate)(CFArrayRef certificates, CFArrayRef anchors, bool anchorsOnly, bool keychainsAllowed, CFArrayRef policies, CFArrayRef responses, CFArrayRef SCTs, CFArrayRef trustedLogs, CFAbsoluteTime verifyTime, __unused CFArrayRef accessGroups, CFArrayRef exceptions, CFDataRef auditToken, CFArrayRef *details, CFDictionaryRef *info, CFArrayRef *chain, CFErrorRef *error);
     uint64_t (*sec_ota_pki_trust_store_version)(CFErrorRef* error);
     uint64_t (*sec_ota_pki_asset_version)(CFErrorRef* error);
     CFArrayRef (*ota_CopyEscrowCertificates)(uint32_t escrowRootType, CFErrorRef* error);
@@ -443,6 +454,8 @@ struct trustd {
     bool (*sec_valid_update)(CFErrorRef *error);
     bool (*sec_trust_store_set_transparent_connection_pins)(CFStringRef appID, CFArrayRef exceptions, CFErrorRef *error);
     CFArrayRef (*sec_trust_store_copy_transparent_connection_pins)(CFStringRef appID, CFErrorRef *error);
+    bool (*sec_trust_settings_set_data)(uid_t uid, CFStringRef domain, CFDataRef auth, CFDataRef trustSettings, CFErrorRef* error);
+    bool (*sec_trust_settings_copy_data)(uid_t uid, CFStringRef domain, CFDataRef *trustSettings, CFErrorRef* error);
 };
 
 extern struct trustd *gTrustd;

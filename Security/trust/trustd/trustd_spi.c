@@ -30,6 +30,7 @@
 #include "../sec/ipc/securityd_client.h"
 #include "trust/trustd/SecPolicyServer.h"
 #include "trust/trustd/SecTrustServer.h"
+#include "trust/trustd/SecTrustSettingsServer.h"
 #include "trust/trustd/SecTrustStoreServer.h"
 #include "trust/trustd/SecOCSPCache.h"
 #include "trust/trustd/OTATrustUtilities.h"
@@ -37,6 +38,7 @@
 #include "trust/trustd/SecRevocationDb.h"
 #include "trust/trustd/SecPinningDb.h"
 #include "trust/trustd/SecTrustExceptionResetCount.h"
+#include "trust/trustd/trustdVariants.h"
 #include "trustd_spi.h"
 
 #if TARGET_OS_OSX
@@ -74,6 +76,8 @@ struct trustd trustd_spi = {
     .sec_valid_update = SecRevocationDbUpdate,
     .sec_trust_store_set_transparent_connection_pins = _SecTrustStoreSetTransparentConnectionPins,
     .sec_trust_store_copy_transparent_connection_pins = _SecTrustStoreCopyTransparentConnectionPins,
+    .sec_trust_settings_set_data            = SecTrustSettingsSetData,
+    .sec_trust_settings_copy_data           = SecTrustSettingsCopyData,
 };
 #endif
 
@@ -87,15 +91,19 @@ void trustd_init(CFURLRef home_path) {
 void trustd_init_server(void) {
     gTrustd = &trustd_spi;
 #ifdef LIBTRUSTD
-    _SecTrustStoreMigrateConfigurations();
-    SecTrustServerMigrateExceptionsResetCount();
+    if (TrustdVariantAllowsFileWrite()) {
+        // Migrate files to DataVault
+        _SecTrustStoreMigrateConfigurations();
+        _SecTrustStoreMigrateTrustSettings();
+        SecTrustServerMigrateExceptionsResetCount();
 #if TARGET_OS_IPHONE
-    CFErrorRef error = NULL;
-    if (!_SecTrustStoreMigrateUserStore(&error)) {
-        secerror("failed to migrate user trust store; new trust store will be empty: %@", error);
-    }
-    CFReleaseNull(error);
+        CFErrorRef error = NULL;
+        if (!_SecTrustStoreMigrateUserStore(&error)) {
+            secerror("failed to migrate user trust store; new trust store will be empty: %@", error);
+        }
+        CFReleaseNull(error);
 #endif
+    }
 
     SecPolicyServerInitialize();    // set up callbacks for policy checks
     SecRevocationDbInitialize();    // set up revocation database if it doesn't already exist, or needs to be replaced

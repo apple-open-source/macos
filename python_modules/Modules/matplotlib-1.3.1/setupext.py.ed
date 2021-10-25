@@ -5,6 +5,6 @@
             if sdkroot is None:
                 sdkroot = '/'
 .
-/'\/System\/Library\/Frameworks\/'/s||join(sdkroot, 'System/Library/Frameworks')|
+/'\/System\/Library\/Frameworks\/'/s||join(sdkroot, '@TOPDIR@/Library/Frameworks')|
 /ext\.extra_compile_args\.extend(frameworks)/s/^/#/
 w

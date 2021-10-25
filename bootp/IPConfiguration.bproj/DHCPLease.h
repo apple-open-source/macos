@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2021 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -61,6 +61,7 @@ typedef struct {
     uint8_t			router_hwaddr[MAX_LINK_ADDR_LEN];
     int				router_hwaddr_length;
     CFStringRef			ssid;
+    CFStringRef			networkID;
     int				pkt_length;
     uint8_t			pkt[1];
 } DHCPLease, * DHCPLeaseRef;
@@ -96,10 +97,11 @@ DHCPLeaseListUpdateLease(DHCPLeaseListRef list_p,
 			 absolute_time_t lease_start,
 			 dhcp_lease_time_t lease_length,
 			 const uint8_t * pkt, int pkt_length,
-			 CFStringRef ssid);
+			 CFStringRef ssid, CFStringRef networkID);
 arp_address_info_t *
 DHCPLeaseListCopyARPAddressInfo(DHCPLeaseListRef list_p,
 				CFStringRef ssid,
+				CFStringRef networkID,
 				absolute_time_t * start_threshold_p,
 				bool tentative_ok,
 				int * ret_count);
@@ -120,10 +122,12 @@ DHCPLeaseListFindLease(DHCPLeaseListRef list_p, struct in_addr our_ip,
 		       const uint8_t * router_hwaddr, int router_hwaddr_length);
 
 int
-DHCPLeaseListFindLeaseWithSSID(DHCPLeaseListRef list_p, CFStringRef ssid);
+DHCPLeaseListFindLeaseForWiFi(DHCPLeaseListRef list_p, CFStringRef ssid,
+			      CFStringRef networkID);
 
 void
-DHCPLeaseListRemoveLeaseWithSSID(DHCPLeaseListRef list_p, CFStringRef ssid);
+DHCPLeaseListRemoveLeaseForWiFi(DHCPLeaseListRef list_p, CFStringRef ssid,
+				CFStringRef networkID);
 
 static __inline__ int
 DHCPLeaseListCount(DHCPLeaseListRef list_p)

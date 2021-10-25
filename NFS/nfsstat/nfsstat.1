@@ -87,6 +87,10 @@ Show NFS server exported directory statistics.
 Show NFS mount information.
 .It Fl s
 Show NFS server statistics.
+.It Fl 3
+Print only NFS v3 statistics.
+.It Fl 4
+Print only NFS v4 statistics.
 .It Fl u
 Show NFS server active user statistics.
 .It Fl f Ar JSON
@@ -109,12 +113,27 @@ The data fields that
 displays for each set of statistics are:
 .Bl -tag -width "xx"
 .\" ========
-.It Cm Client Information:
-Statistics for NFS file system mounts.
+.It Cm NFSv3 Client Information:
+Statistics for NFSv3 file system mounts.
 .Bl -tag -width "xx"
 .It RPC Counts
-Counts of the RPC calls made to each of the NFS protocol
+Counts of the RPC calls made to each of the NFSv3 protocol
 procedures.
+.El
+.\" ========
+.It Cm NFSv4 Client Information:
+Statistics for NFSv4 file system mounts.
+.Bl -tag -width "xx"
+.It RPC Counts
+Counts of the RPC calls made to each of the NFSv4 protocol
+procedures.
+.It Operations Counts
+Counts of the operations calls made by the client within the compound procedure.
+.El
+.\" ========
+.It Cm Common Client Information:
+Common statistics for NFS file system mounts.
+.Bl -tag -width "xx"
 .It RPC Info
 Statistics for NFS RPC calls:
 .Bl -tag -width "xxx"
@@ -147,10 +166,12 @@ Performance of directory cache.
 .It DirE Hits/Misses
 Performance of directory offset cache.
 .El
+.It Paging Info
+Counts both pagein and pageout operations.
 .El
 .\" ========
-.It Cm Server Information:
-Statistics for the NFS server.
+.It Cm NFSv3 Server Information:
+Statistics for the NFSv3 server.
 .Bl -tag -width "xx"
 .It RPC Counts
 Counts of RPC calls on each of the NFS server's procedures are recorded here.

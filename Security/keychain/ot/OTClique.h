@@ -55,14 +55,17 @@ NSString* OTCliqueStatusToString(CliqueStatus status);
 CliqueStatus OTCliqueStatusFromString(NSString* str);
 NSString* OTCDPStatusToString(OTCDPStatus status);
 
-@class KCPairingChannelContext;
+@class CKKSControl;
 @class KCPairingChannel;
+@class KCPairingChannelContext;
+@class OTControl;
+@class OTCustodianRecoveryKey;
+@class OTInheritanceKey;
 @class OTPairingChannel;
 @class OTPairingChannelContext;
-@class OTControl;
-@class CKKSControl;
 
 extern NSString* kSecEntitlementPrivateOctagonEscrow;
+extern NSString* kSecEntitlementPrivateOctagonSecureElement;
 
 @interface OTConfigurationContext : NSObject
 @property (nonatomic, copy) NSString* context;
@@ -105,8 +108,10 @@ extern OTCliqueCDPContextType OTCliqueCDPContextTypeNone;
 extern OTCliqueCDPContextType OTCliqueCDPContextTypeSignIn;
 extern OTCliqueCDPContextType OTCliqueCDPContextTypeRepair;
 extern OTCliqueCDPContextType OTCliqueCDPContextTypeFinishPasscodeChange;
-extern OTCliqueCDPContextType OTCliqueCDPContextTypeRecoveryKeyGenerate;
-extern OTCliqueCDPContextType OTCliqueCDPContextTypeRecoveryKeyNew;
+
+// These next two should be marked unavailable once CDP no longer uses them
+extern OTCliqueCDPContextType OTCliqueCDPContextTypeRecoveryKeyGenerate; // API_UNAVAILABLE(watchos, tvos);
+extern OTCliqueCDPContextType OTCliqueCDPContextTypeRecoveryKeyNew; // API_UNAVAILABLE(watchos, tvos);
 extern OTCliqueCDPContextType OTCliqueCDPContextTypeUpdatePasscode;
 extern OTCliqueCDPContextType OTCliqueCDPContextTypeConfirmPasscodeCyrus;
 
@@ -118,6 +123,7 @@ extern OTCliqueCDPContextType OTCliqueCDPContextTypeConfirmPasscodeCyrus;
 + (BOOL)platformSupportsSOS;
 
 @property (nonatomic, readonly, nullable) NSString* cliqueMemberIdentifier;
+@property (nonatomic, readonly, strong) OTConfigurationContext *ctx;
 
 - (instancetype) init NS_UNAVAILABLE;
 
@@ -290,12 +296,12 @@ API_DEPRECATED_WITH_REPLACEMENT("setUserControllableViewsSyncStatus",macos(10.15
 
 
 - (BOOL)setUserCredentialsAndDSID:(NSString*)userLabel
-                              password:(NSData*)userPassword
-                                 error:(NSError *__autoreleasing*)error;
+                         password:(NSData*)userPassword
+                            error:(NSError *__autoreleasing*)error;
 
 - (BOOL)tryUserCredentialsAndDSID:(NSString*)userLabel
-                                        password:(NSData*)userPassword
-                                        error:(NSError *__autoreleasing*)error;
+                         password:(NSData*)userPassword
+                            error:(NSError *__autoreleasing*)error;
 
 - (NSArray* _Nullable)copyPeerPeerInfo:(NSError *__autoreleasing*)error;
 
@@ -304,11 +310,6 @@ API_DEPRECATED_WITH_REPLACEMENT("setUserControllableViewsSyncStatus",macos(10.15
 - (BOOL)requestToJoinCircle:(NSError *__autoreleasing*)error;
 
 - (BOOL)accountUserKeyAvailable;
-
-/* test only */
-- (void)setPairingDefault:(BOOL)defaults;
-- (void)removePairingDefault;
-/* Internal/sbd only */
 
 
 /*
@@ -348,6 +349,56 @@ API_DEPRECATED_WITH_REPLACEMENT("setUserControllableViewsSyncStatus",macos(10.15
                     recoveryKey:(NSString*)recoveryKey
                           reply:(void(^)(NSError* _Nullable error))reply;
 
+
+// Create a new custodian recovery key.
++ (void)createCustodianRecoveryKey:(OTConfigurationContext *)ctx
+                              uuid:(NSUUID *_Nullable)uuid
+                             reply:(void (^)(OTCustodianRecoveryKey *_Nullable crk, NSError *_Nullable error))reply;
+
+// Recover using a custodian recovery key.
++ (void)recoverOctagonUsingCustodianRecoveryKey:(OTConfigurationContext *)ctx
+                           custodianRecoveryKey:(OTCustodianRecoveryKey *)crk
+                                          reply:(void(^)(NSError* _Nullable error)) reply;
+
+// Preflight (dry-run) recover using a custodian recovery key.
++ (void)preflightRecoverOctagonUsingCustodianRecoveryKey:(OTConfigurationContext *)ctx
+                                    custodianRecoveryKey:(OTCustodianRecoveryKey *)crk
+                                                   reply:(void(^)(NSError* _Nullable error)) reply;
+
+// Remove a custodian recovery key.
++ (void)removeCustodianRecoveryKey:(OTConfigurationContext *)ctx
+          custodianRecoveryKeyUUID:(NSUUID *)uuid
+                             reply:(void (^)(NSError *_Nullable error))reply;
+
+// Create a new inheritance key.
++ (void)createInheritanceKey:(OTConfigurationContext *)ctx
+                        uuid:(NSUUID *_Nullable)uuid
+                       reply:(void (^)(OTInheritanceKey *_Nullable ik, NSError *_Nullable error)) reply;
+
+// Generate a new inheritance key (populate structure only, but nothing stored in Octagon).
++ (void)generateInheritanceKey:(OTConfigurationContext *)ctx
+                          uuid:(NSUUID *_Nullable)uuid
+                         reply:(void (^)(OTInheritanceKey *_Nullable ik, NSError *_Nullable error)) reply;
+
+// Store inheritance key in Octagon.
++ (void)storeInheritanceKey:(OTConfigurationContext *)ctx
+                         ik:(OTInheritanceKey *)ik
+                      reply:(void (^)(NSError *_Nullable error)) reply;
+
+// Join using an inheritance key.
++ (void)recoverOctagonUsingInheritanceKey:(OTConfigurationContext *)ctx
+                           inheritanceKey:(OTInheritanceKey *)ik
+                                    reply:(void(^)(NSError* _Nullable error)) reply;
+
+// Preflight (dry-run) join using an inheritance key.
++ (void)preflightRecoverOctagonUsingInheritanceKey:(OTConfigurationContext *)ctx
+                                    inheritanceKey:(OTInheritanceKey *)ik
+                                             reply:(void(^)(NSError* _Nullable error)) reply;
+
+// Remove an inheritance key.
++ (void)removeInheritanceKey:(OTConfigurationContext *)ctx
+          inheritanceKeyUUID:(NSUUID *)uuid
+                       reply:(void (^)(NSError *_Nullable error))reply;
 
 // CoreCDP will call this function when they failed to complete a successful CDP state machine run.
 // Errors provided may be propagated from layers beneath CoreCDP, or contain the CoreCDP cause of failure.

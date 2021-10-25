@@ -1172,7 +1172,7 @@ cab_checksum_finish(struct archive_read *a)
 	    cfdata->memimage + CFDATA_cbData, l, cfdata->sum_calculated);
 	if (cfdata->sum_calculated != cfdata->sum) {
 		archive_set_error(&a->archive, ARCHIVE_ERRNO_FILE_FORMAT,
-		    "Checksum error CFDATA[%d] %x:%x in %d bytes",
+		    "Checksum error CFDATA[%d] %" PRIx32 ":%" PRIx32 " in %d bytes",
 		    cab->entry_cffolder->cfdata_index -1,
 		    cfdata->sum, cfdata->sum_calculated,
 		    cfdata->compressed_size);
@@ -1509,8 +1509,8 @@ cab_read_ahead_cfdata_deflate(struct archive_read *a, ssize_t *avail)
 			}
 			if (mszip == 1 && cab->stream.next_in[0] != 0x4b)
 				goto nomszip;
-			else if (cab->stream.next_in[0] != 0x43 ||
-			    cab->stream.next_in[1] != 0x4b)
+			else if (mszip == 2 && (cab->stream.next_in[0] != 0x43 ||
+			    cab->stream.next_in[1] != 0x4b))
 				goto nomszip;
 			cab->stream.next_in += mszip;
 			cab->stream.avail_in -= mszip;

@@ -1,5 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
-// License & terms of use: http://www.unicode.org/copyright.html#License
+// License & terms of use: http://www.unicode.org/copyright.html
+// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
 es_CA{
     %%Parent{"es_419"}
     NumberElements{
@@ -25,7 +26,6 @@ es_CA{
             }
         }
     }
-    Version{"36.1"}
     calendar{
         generic{
             DateTimePatterns{
@@ -281,6 +281,49 @@ es_CA{
                     d{"y-MM-dd – y-MM-dd"}
                     y{"y-MM-dd – y-MM-dd"}
                 }
+            }
+        }
+        japanese{
+            DateTimePatterns{
+                "h:mm:ss a zzzz",
+                "h:mm:ss a z",
+                "h:mm:ss a",
+                "h:mm a",
+                "EEEE, d 'de' MMMM 'de' G y",
+                "d 'de' MMMM 'de' G y",
+                "MMM d, G y",
+                "GGGGGy-MM-dd",
+                "{1} {0}",
+                "{1}, {0}",
+                "{1}, {0}",
+                "{1} {0}",
+                "{1} {0}",
+            }
+            availableFormats{
+                GyMMM{"MMM G y"}
+                GyMMMEd{"E, MMM d, G y"}
+                GyMMMM{"MMMM 'de' G y"}
+                GyMMMMEd{"E, d 'de' MMMM 'de' G y"}
+                GyMMMMd{"d 'de' MMMM 'de' G y"}
+                GyMMMd{"MMM d, G y"}
+                H{"HH"}
+                Hm{"HH:mm"}
+                Hms{"HH:mm:ss"}
+                MEd{"E, MM-dd"}
+                MMMEd{"E, MMM d"}
+                MMMMEd{"E, d 'de' MMMM"}
+                MMMMd{"d 'de' MMMM"}
+                MMMd{"MMM d"}
+                Md{"MM-dd"}
+                yyyyM{"GGGGGy-MM"}
+                yyyyMEd{"E, GGGGGy-MM-dd"}
+                yyyyMMM{"MMM G y"}
+                yyyyMMMEd{"E, MMM d, G y"}
+                yyyyMMMM{"MMMM 'de' G y"}
+                yyyyMMMMEd{"E, d 'de' MMMM 'de' G y"}
+                yyyyMMMMd{"d 'de' MMMM 'de' G y"}
+                yyyyMMMd{"MMM d, G y"}
+                yyyyMd{"GGGGGy-MM-dd"}
             }
         }
     }

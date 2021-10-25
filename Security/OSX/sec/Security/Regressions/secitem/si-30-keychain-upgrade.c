@@ -102,7 +102,7 @@ static void tests(void)
     free(keychain_name);
 
     is(sqlite3_close_v2(db), SQLITE_OK,
-       "Should be able to close db");;
+       "Should be able to close db");
 
     SecKeychainDbReset(NULL);
 

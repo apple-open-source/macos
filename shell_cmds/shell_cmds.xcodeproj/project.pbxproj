@@ -130,6 +130,7 @@
 /* Begin PBXBuildFile section */
 		C686857A154725700025D623 /* systime.c in Sources */ = {isa = PBXBuildFile; fileRef = C6868579154725700025D623 /* systime.c */; };
 		C686857C154725700025D623 /* systime.1 in CopyFiles */ = {isa = PBXBuildFile; fileRef = C686857B154725700025D623 /* systime.1 */; };
+		D39B190C25B1218100C43A96 /* regress.bwidth.out in CopyFiles */ = {isa = PBXBuildFile; fileRef = D39B190B25B1216000C43A96 /* regress.bwidth.out */; };
 		FC2B5BFB14B3CCC600ECF511 /* uname.c in Sources */ = {isa = PBXBuildFile; fileRef = FCBA140914A141A300AA698B /* uname.c */; };
 		FC2B5BFD14B3CCD200ECF511 /* uname.1 in CopyFiles */ = {isa = PBXBuildFile; fileRef = FCBA140814A141A300AA698B /* uname.1 */; };
 		FC2B5BFE14B3CCD700ECF511 /* true.c in Sources */ = {isa = PBXBuildFile; fileRef = FCBA140414A141A300AA698B /* true.c */; };
@@ -1521,6 +1522,7 @@
 			dstPath = /AppleInternal/Tests/shell_cmds/printf;
 			dstSubfolderSpec = 0;
 			files = (
+				D39B190C25B1218100C43A96 /* regress.bwidth.out in CopyFiles */,
 				FD155C891D6E38C0005A53CA /* legacy_test.sh in CopyFiles */,
 				FD155C8A1D6E38C0005A53CA /* regress.b.out in CopyFiles */,
 				FD155C8B1D6E38C0005A53CA /* regress.d.out in CopyFiles */,
@@ -1550,6 +1552,7 @@
 		CE799E6224B3982200E73238 /* install-files.sh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; path = "install-files.sh"; sourceTree = "<group>"; };
 		CE799E6324B3982200E73238 /* builtins.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = builtins.txt; sourceTree = "<group>"; };
 		CE799E6424B3982200E73238 /* builtins-manpages.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "builtins-manpages.txt"; sourceTree = "<group>"; };
+		D39B190B25B1216000C43A96 /* regress.bwidth.out */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = regress.bwidth.out; sourceTree = "<group>"; };
 		FC5D636814B9808E00123E48 /* conv.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = conv.c; sourceTree = "<group>"; };
 		FC5D636914B9808E00123E48 /* display.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = display.c; sourceTree = "<group>"; };
 		FC5D636A14B9808E00123E48 /* hexdump.1 */ = {isa = PBXFileReference; lastKnownFileType = text.man; path = hexdump.1; sourceTree = "<group>"; };
@@ -1570,7 +1573,7 @@
 		FCBA134714A141A300AA698B /* apply.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = apply.c; sourceTree = "<group>"; };
 		FCBA134A14A141A300AA698B /* basename.1 */ = {isa = PBXFileReference; lastKnownFileType = text.man; path = basename.1; sourceTree = "<group>"; };
 		FCBA134B14A141A300AA698B /* basename.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = basename.c; sourceTree = "<group>"; };
-		FCBA134C14A141A300AA698B /* dirname.1 */ = {isa = PBXFileReference; lastKnownFileType = text.man; name = dirname.1; path = ../basename/dirname.1; sourceTree = "<group>"; };
+		FCBA134C14A141A300AA698B /* dirname.1 */ = {isa = PBXFileReference; lastKnownFileType = text.man; name = dirname.1; path = dirname.1; sourceTree = "<group>"; };
 		FCBA134F14A141A300AA698B /* chroot.8 */ = {isa = PBXFileReference; lastKnownFileType = text; path = chroot.8; sourceTree = "<group>"; };
 		FCBA135014A141A300AA698B /* chroot.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = chroot.c; sourceTree = "<group>"; };
 		FCBA135314A141A300AA698B /* date.1 */ = {isa = PBXFileReference; lastKnownFileType = text.man; path = date.1; sourceTree = "<group>"; };
@@ -2859,6 +2862,7 @@
 				FD155C851D6E3847005A53CA /* regress.s.out */,
 				FD155C861D6E3847005A53CA /* regress.sh */,
 				FD155C871D6E3847005A53CA /* regress.zero.out */,
+				D39B190B25B1216000C43A96 /* regress.bwidth.out */,
 			);
 			path = tests;
 			sourceTree = "<group>";

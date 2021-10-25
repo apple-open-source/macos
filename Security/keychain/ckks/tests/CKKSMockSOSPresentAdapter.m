@@ -29,6 +29,12 @@
 
         _selfPeer = selfPeer;
         _trustedPeers = [trustedPeers mutableCopy];
+        
+        _joinAfterRestoreResult = false;
+        _resetToOfferingResult = false;
+
+        _joinAfterRestoreCircleStatusOverride = false;
+        _resetToOfferingCircleStatusOverride = false;
     }
     return self;
 }
@@ -167,6 +173,31 @@
 - (BOOL)preloadOctagonKeySetOnAccount:(nonnull id<CKKSSelfPeer>)currentSelfPeer error:(NSError *__autoreleasing  _Nullable * _Nullable)error {
     // No-op
     return YES;
+}
+
+- (bool)joinAfterRestore:(NSError * _Nullable __autoreleasing * _Nullable)error
+{
+    if (self.joinAfterRestoreCircleStatusOverride == false) {
+        if(!self.joinAfterRestoreResult) {
+            self.circleStatus = kSOSCCNotInCircle;
+        } else {
+            self.circleStatus = kSOSCCInCircle;
+        }
+    }
+    return self.joinAfterRestoreResult;
+}
+
+- (bool)resetToOffering:(NSError * _Nullable __autoreleasing * _Nullable)error
+{
+    if (self.resetToOfferingCircleStatusOverride == false) {
+        if(!self.resetToOfferingResult) {
+            self.circleStatus = kSOSCCNotInCircle;
+        } else {
+            self.circleStatus = kSOSCCInCircle;
+        }
+    }
+    
+    return self.resetToOfferingResult;
 }
 
 @end

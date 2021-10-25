@@ -492,8 +492,10 @@ can_unload_buffer(buf_T *buf)
  * supposed to close the window but autocommands close all other windows.
  *
  * When "ignore_abort" is TRUE don't abort even when aborting() returns TRUE.
+ *
+ * Return TRUE when we got to the end and b_nwindows was decremented.
  */
-    void
+    int
 close_buffer(
     win_T	*win,		// if not NULL, set b_last_cursor
     buf_T	*buf,
@@ -540,7 +542,7 @@ close_buffer(
 	    if (wipe_buf || unload_buf)
 	    {
 		if (!can_unload_buffer(buf))
-		    return;
+		    return FALSE;
 
 		// Wiping out or unloading a terminal buffer kills the job.
 		free_terminal(buf);
@@ -551,6 +553,11 @@ close_buffer(
 		del_buf = FALSE;
 		unload_buf = FALSE;
 	    }
+	}
+	else if (buf->b_p_bh[0] == 'h' && !del_buf)
+	{
+	    // Hide a terminal buffer.
+	    unload_buf = FALSE;
 	}
 	else
 	{
@@ -566,7 +573,7 @@ close_buffer(
     // Disallow deleting the buffer when it is locked (already being closed or
     // halfway a command that relies on it). Unloading is allowed.
     if ((del_buf || wipe_buf) && !can_unload_buffer(buf))
-	return;
+	return FALSE;
 
     // check no autocommands closed the window
     if (win != NULL && win_valid_any_tab(win))
@@ -588,6 +595,7 @@ close_buffer(
     if (buf->b_nwindows == 1)
     {
 	++buf->b_locked;
+	++buf->b_locked_split;
 	if (apply_autocmds(EVENT_BUFWINLEAVE, buf->b_fname, buf->b_fname,
 								  FALSE, buf)
 		&& !bufref_valid(&bufref))
@@ -595,9 +603,10 @@ close_buffer(
 	    // Autocommands deleted the buffer.
 aucmd_abort:
 	    emsg(_(e_auabort));
-	    return;
+	    return FALSE;
 	}
 	--buf->b_locked;
+	--buf->b_locked_split;
 	if (abort_if_last && one_window())
 	    // Autocommands made this the only window.
 	    goto aucmd_abort;
@@ -607,12 +616,14 @@ aucmd_abort:
 	if (!unload_buf)
 	{
 	    ++buf->b_locked;
+	    ++buf->b_locked_split;
 	    if (apply_autocmds(EVENT_BUFHIDDEN, buf->b_fname, buf->b_fname,
 								  FALSE, buf)
 		    && !bufref_valid(&bufref))
 		// Autocommands deleted the buffer.
 		goto aucmd_abort;
 	    --buf->b_locked;
+	    --buf->b_locked_split;
 	    if (abort_if_last && one_window())
 		// Autocommands made this the only window.
 		goto aucmd_abort;
@@ -620,7 +631,7 @@ aucmd_abort:
 #ifdef FEAT_EVAL
 	// autocmds may abort script processing
 	if (!ignore_abort && aborting())
-	    return;
+	    return FALSE;
 #endif
     }
 
@@ -648,7 +659,7 @@ aucmd_abort:
     // Return when a window is displaying the buffer or when it's not
     // unloaded.
     if (buf->b_nwindows > 0 || !unload_buf)
-	return;
+	return FALSE;
 
     // Always remove the buffer when there is no file name.
     if (buf->b_ffname == NULL)
@@ -678,11 +689,11 @@ aucmd_abort:
 
     // Autocommands may have deleted the buffer.
     if (!bufref_valid(&bufref))
-	return;
+	return FALSE;
 #ifdef FEAT_EVAL
     // autocmds may abort script processing
     if (!ignore_abort && aborting())
-	return;
+	return FALSE;
 #endif
 
     /*
@@ -693,7 +704,7 @@ aucmd_abort:
      * deleted buffer.
      */
     if (buf == curbuf && !is_curbuf)
-	return;
+	return FALSE;
 
     if (win_valid_any_tab(win) && win->w_buffer == buf)
 	win->w_buffer = NULL;  // make sure we don't use the buffer now
@@ -750,6 +761,7 @@ aucmd_abort:
 	    buf->b_p_bl = FALSE;
     }
     // NOTE: at this point "curbuf" may be invalid!
+    return TRUE;
 }
 
 /*
@@ -792,6 +804,7 @@ buf_freeall(buf_T *buf, int flags)
 
     // Make sure the buffer isn't closed by autocommands.
     ++buf->b_locked;
+    ++buf->b_locked_split;
     set_bufref(&bufref, buf);
     if (buf->b_ml.ml_mfp != NULL)
     {
@@ -818,6 +831,7 @@ buf_freeall(buf_T *buf, int flags)
 	    return;
     }
     --buf->b_locked;
+    --buf->b_locked_split;
 
     // If the buffer was in curwin and the window has changed, go back to that
     // window, if it still exists.  This avoids that ":edit x" triggering a
@@ -1710,8 +1724,8 @@ set_curbuf(buf_T *buf, int action)
     set_bufref(&prevbufref, prevbuf);
     set_bufref(&newbufref, buf);
 
-    // Autocommands may delete the current buffer and/or the buffer we want to go
-    // to.  In those cases don't close the buffer.
+    // Autocommands may delete the current buffer and/or the buffer we want to
+    // go to.  In those cases don't close the buffer.
     if (!apply_autocmds(EVENT_BUFLEAVE, NULL, NULL, FALSE, curbuf)
 	    || (bufref_valid(&prevbufref)
 		&& bufref_valid(&newbufref)
@@ -2556,12 +2570,15 @@ buflist_findpat(
     char_u	*p;
     int		toggledollar;
 
-    if (pattern_end == pattern + 1 && (*pattern == '%' || *pattern == '#'))
+    // "%" is current file, "%%" or "#" is alternate file
+    if ((pattern_end == pattern + 1 && (*pattern == '%' || *pattern == '#'))
+	    || (in_vim9script() && pattern_end == pattern + 2
+				    && pattern[0] == '%' && pattern[1] == '%'))
     {
-	if (*pattern == '%')
-	    match = curbuf->b_fnum;
-	else
+	if (*pattern == '#' || pattern_end == pattern + 2)
 	    match = curwin->w_alt_fnum;
+	else
+	    match = curbuf->b_fnum;
 #ifdef FEAT_DIFF
 	if (diffmode && !diff_mode_buf(buflist_findnr(match)))
 	    match = -1;
@@ -2600,7 +2617,7 @@ buflist_findpat(
 		p = pat;
 		if (*p == '^' && !(attempt & 1))	 // add/remove '^'
 		    ++p;
-		regmatch.regprog = vim_regcomp(p, p_magic ? RE_MAGIC : 0);
+		regmatch.regprog = vim_regcomp(p, magic_isset() ? RE_MAGIC : 0);
 		if (regmatch.regprog == NULL)
 		{
 		    vim_free(pat);
@@ -4140,9 +4157,6 @@ build_stl_str_hl(
 
     if (fillchar == 0)
 	fillchar = ' ';
-    // Can't handle a multi-byte fill character yet.
-    else if (mb_char2len(fillchar) > 1)
-	fillchar = '-';
 
     // The cursor in windows other than the current one isn't always
     // up-to-date, esp. because of autocommands and timers.
@@ -4318,7 +4332,7 @@ build_stl_str_hl(
 
 		// Fill up space left over by half a double-wide char.
 		while (++l < stl_items[stl_groupitem[groupdepth]].stl_minwid)
-		    *p++ = fillchar;
+		    MB_CHAR2BYTES(fillchar, p);
 
 		// correct the start of the items for the truncation
 		for (l = stl_groupitem[groupdepth] + 1; l < curitem; l++)
@@ -4337,20 +4351,20 @@ build_stl_str_hl(
 		    // fill by appending characters
 		    n = 0 - n;
 		    while (l++ < n && p + 1 < out + outlen)
-			*p++ = fillchar;
+			MB_CHAR2BYTES(fillchar, p);
 		}
 		else
 		{
 		    // fill by inserting characters
-		    mch_memmove(t + n - l, t, (size_t)(p - t));
-		    l = n - l;
+		    l = (n - l) * MB_CHAR2LEN(fillchar);
+		    mch_memmove(t + l, t, (size_t)(p - t));
 		    if (p + l >= out + outlen)
 			l = (long)((out + outlen) - p - 1);
 		    p += l;
 		    for (n = stl_groupitem[groupdepth] + 1; n < curitem; n++)
 			stl_items[n].stl_start += l;
 		    for ( ; l > 0; l--)
-			*t++ = fillchar;
+			MB_CHAR2BYTES(fillchar, t);
 		}
 	    }
 	    continue;
@@ -4532,7 +4546,7 @@ build_stl_str_hl(
 	case STL_VIRTCOL_ALT:
 	    // In list mode virtcol needs to be recomputed
 	    virtcol = wp->w_virtcol;
-	    if (wp->w_p_list && lcs_tab1 == NUL)
+	    if (wp->w_p_list && wp->w_lcs_chars.tab1 == NUL)
 	    {
 		wp->w_p_list = FALSE;
 		getvcol(wp, &wp->w_cursor, NULL, &virtcol, NULL);
@@ -4729,23 +4743,24 @@ build_stl_str_hl(
 		    if (l + 1 == minwid && fillchar == '-' && VIM_ISDIGIT(*t))
 			*p++ = ' ';
 		    else
-			*p++ = fillchar;
+			MB_CHAR2BYTES(fillchar, p);
 		}
 		minwid = 0;
 	    }
 	    else
 		minwid *= -1;
-	    while (*t && p + 1 < out + outlen)
+	    for (; *t && p + 1 < out + outlen; t++)
 	    {
-		*p++ = *t++;
 		// Change a space by fillchar, unless fillchar is '-' and a
 		// digit follows.
-		if (fillable && p[-1] == ' '
-				     && (!VIM_ISDIGIT(*t) || fillchar != '-'))
-		    p[-1] = fillchar;
+		if (fillable && *t == ' '
+				&& (!VIM_ISDIGIT(*(t + 1)) || fillchar != '-'))
+		    MB_CHAR2BYTES(fillchar, p);
+		else
+		    *p++ = *t;
 	    }
 	    for (; l < minwid && p + 1 < out + outlen; l++)
-		*p++ = fillchar;
+		MB_CHAR2BYTES(fillchar, p);
 	}
 	else if (num >= 0)
 	{
@@ -4848,7 +4863,7 @@ build_stl_str_hl(
 		}
 		// Fill up for half a double-wide character.
 		while (++width < maxwidth)
-		    *s++ = fillchar;
+		    MB_CHAR2BYTES(fillchar, s);
 	    }
 	    else
 		s = out + maxwidth - 1;
@@ -4880,7 +4895,7 @@ build_stl_str_hl(
 	    while (++width < maxwidth)
 	    {
 		s = s + STRLEN(s);
-		*s++ = fillchar;
+		MB_CHAR2BYTES(fillchar, s);
 		*s = NUL;
 	    }
 
@@ -4903,12 +4918,13 @@ build_stl_str_hl(
 		break;
 	if (l < itemcnt)
 	{
-	    p = stl_items[l].stl_start + maxwidth - width;
+	    int middlelength = (maxwidth - width) * MB_CHAR2LEN(fillchar);
+	    p = stl_items[l].stl_start + middlelength;
 	    STRMOVE(p, stl_items[l].stl_start);
-	    for (s = stl_items[l].stl_start; s < p; s++)
-		*s = fillchar;
+	    for (s = stl_items[l].stl_start; s < p;)
+		MB_CHAR2BYTES(fillchar, s);
 	    for (l++; l < itemcnt; l++)
-		stl_items[l].stl_start += maxwidth - width;
+		stl_items[l].stl_start += middlelength;
 	    width = maxwidth;
 	}
     }
@@ -5366,9 +5382,8 @@ chk_modeline(
     int		vers;
     int		end;
     int		retval = OK;
-#ifdef FEAT_EVAL
     sctx_T	save_current_sctx;
-#endif
+
     ESTACK_CHECK_DECLARATION
 
     prev = -1;
@@ -5452,22 +5467,22 @@ chk_modeline(
 	    if (*s != NUL)		// skip over an empty "::"
 	    {
 		int secure_save = secure;
-#ifdef FEAT_EVAL
+
 		save_current_sctx = current_sctx;
+		current_sctx.sc_version = 1;
+#ifdef FEAT_EVAL
 		current_sctx.sc_sid = SID_MODELINE;
 		current_sctx.sc_seq = 0;
 		current_sctx.sc_lnum = lnum;
-		current_sctx.sc_version = 1;
 #endif
+
 		// Make sure no risky things are executed as a side effect.
 		secure = 1;
 
 		retval = do_set(s, OPT_MODELINE | OPT_LOCAL | flags);
 
 		secure = secure_save;
-#ifdef FEAT_EVAL
 		current_sctx = save_current_sctx;
-#endif
 		if (retval == FAIL)		// stop if error found
 		    break;
 	    }

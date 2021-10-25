@@ -7,18 +7,29 @@
 
 (version 1)
 (deny default)
+(deny file-map-executable process-info* nvram*)
+(deny dynamic-code-generation)
 (import "system.sb")
+
+(allow system-audit)
+(allow process-info-dirtycontrol (target self))
 
 ;; Allow files to be read
 (allow file-read*)
 
 ;; Allow debug status files to be written
-(allow file-write*
-	(regex #"^/private/var/run/notifyd")
-)
+(allow file-read* file-write*
+       (literal "/private/var/log/notifyd.log")
+       (prefix "/private/var/run/notifyd_"))
 
-;; Allow UNIX signals
+;; Allow needed utilities
 (allow signal)
-
-;; Allow shared memory
+(allow ipc-posix-shm-read* ipc-posix-shm-write*
+       (ipc-posix-name "apple.shm.notification_center"))
 (allow ipc-posix-shm)
+(allow process-info-codesignature)
+(allow process-info-pidinfo)
+(allow sysctl-read
+       (sysctl-name "hw.ephemeral_storage"
+                    "kern.osbuildconfig"))
+

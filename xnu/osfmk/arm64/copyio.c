@@ -152,8 +152,10 @@ copy_validate(const user_addr_t user_addr, uintptr_t kernel_addr,
 			    (void *)user_addr, (void *)kernel_addr, nbytes);
 		}
 
-		bool in_kva = (kernel_addr >= VM_MIN_KERNEL_ADDRESS) && (kernel_addr_last <= VM_MAX_KERNEL_ADDRESS);
-		bool in_physmap = (kernel_addr >= physmap_base) && (kernel_addr_last <= physmap_end);
+		bool in_kva = (VM_KERNEL_STRIP_UPTR(kernel_addr) >= VM_MIN_KERNEL_ADDRESS) &&
+		    (VM_KERNEL_STRIP_UPTR(kernel_addr_last) <= VM_MAX_KERNEL_ADDRESS);
+		bool in_physmap = (VM_KERNEL_STRIP_UPTR(kernel_addr) >= physmap_base) &&
+		    (VM_KERNEL_STRIP_UPTR(kernel_addr_last) <= physmap_end);
 
 		if (__improbable(!(in_kva || in_physmap))) {
 			panic("%s(%p, %p, %lu) - kaddr not in kernel", __func__,
@@ -193,7 +195,6 @@ copy_validate(const user_addr_t user_addr, uintptr_t kernel_addr,
 			__asan_storeN(kernel_addr, nbytes);
 		} else {
 			__asan_loadN(kernel_addr, nbytes);
-			kasan_check_uninitialized((vm_address_t)kernel_addr, nbytes);
 		}
 #endif
 	}
@@ -372,3 +373,15 @@ copyoutstr_prevalidate(const void *__unused kaddr, user_addr_t __unused uaddr, s
 
 	return 0;
 }
+
+#if (DEBUG || DEVELOPMENT)
+int
+verify_write(const void *source, void *dst, size_t size)
+{
+	int rc;
+	disable_preemption();
+	rc = _bcopyout((const char*)source, (char*)dst, size);
+	enable_preemption();
+	return rc;
+}
+#endif

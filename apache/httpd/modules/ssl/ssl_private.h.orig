@@ -36,6 +36,7 @@
 #include "http_connection.h"
 #include "http_request.h"
 #include "http_protocol.h"
+#include "http_ssl.h"
 #include "http_vhost.h"
 #include "util_script.h"
 #include "util_filter.h"
@@ -642,10 +643,13 @@ typedef struct {
     const char  *cert_file;
     const char  *cert_path;
     const char  *ca_cert_file;
-    STACK_OF(X509_INFO) *certs; /* Contains End Entity certs */
-    STACK_OF(X509) **ca_certs; /* Contains ONLY chain certs for
-                                * each item in certs.
-                                * (ptr to array of ptrs) */
+    /* certs is a stack of configured cert, key pairs. */
+    STACK_OF(X509_INFO) *certs;
+    /* ca_certs contains ONLY chain certs for each item in certs.
+     * ca_certs[n] is a pointer to the (STACK_OF(X509) *) stack which
+     * holds the cert chain for the 'n'th cert in the certs stack, or
+     * NULL if no chain is configured. */
+    STACK_OF(X509) **ca_certs;
 } modssl_pk_proxy_t;
 
 /** stuff related to authentication that can also be per-dir */
@@ -1119,7 +1123,8 @@ DH *modssl_get_dh_params(unsigned keylen);
 int modssl_request_is_tls(const request_rec *r, SSLConnRec **sslconn);
 
 int ssl_is_challenge(conn_rec *c, const char *servername, 
-                     X509 **pcert, EVP_PKEY **pkey);
+                     X509 **pcert, EVP_PKEY **pkey,
+                    const char **pcert_file, const char **pkey_file);
 
 /* Returns non-zero if the cert/key filename should be handled through
  * the configured ENGINE. */

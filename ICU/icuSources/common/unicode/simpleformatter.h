@@ -96,7 +96,7 @@ public:
      */
     SimpleFormatter(const UnicodeString& pattern, int32_t min, int32_t max,
                     UErrorCode &errorCode) {
-        applyPatternMinMaxArguments(pattern, min, max, FALSE, errorCode);
+        applyPatternMinMaxArguments(pattern, min, max, false, errorCode);
     }
 
 #ifndef U_HIDE_INTERNAL_API
@@ -108,10 +108,10 @@ public:
      * @param pattern The pattern string.
      * @param min The pattern must have at least this many arguments.
      * @param max The pattern must have at most this many arguments.
-     * @param removeSingleQuotes If TRUE, single quotes are treated as syntax characters even
+     * @param removeSingleQuotes If true, single quotes are treated as syntax characters even
      *                          when they don't appear adjacent to other syntax characters
      *                          (The old default UMSGPAT_APOS_DOUBLE_REQUIRED behavior.)
-     *                          If FALSE, single quotes not adjacent to syntax characters are treated
+     *                          If false, single quotes not adjacent to syntax characters are treated
      *                          as literal text (the current default).
      * @param errorCode ICU error code in/out parameter.
      *                  Must fulfill U_SUCCESS before the function call.
@@ -151,11 +151,11 @@ public:
      * @param errorCode ICU error code in/out parameter.
      *                  Must fulfill U_SUCCESS before the function call.
      *                  Set to U_ILLEGAL_ARGUMENT_ERROR for bad argument syntax.
-     * @return TRUE if U_SUCCESS(errorCode).
+     * @return true if U_SUCCESS(errorCode).
      * @stable ICU 57
      */
     UBool applyPattern(const UnicodeString &pattern, UErrorCode &errorCode) {
-        return applyPatternMinMaxArguments(pattern, 0, INT32_MAX, FALSE, errorCode);
+        return applyPatternMinMaxArguments(pattern, 0, INT32_MAX, false, errorCode);
     }
 
     /**
@@ -170,12 +170,12 @@ public:
      *                  Must fulfill U_SUCCESS before the function call.
      *                  Set to U_ILLEGAL_ARGUMENT_ERROR for bad argument syntax and
      *                  too few or too many arguments.
-     * @return TRUE if U_SUCCESS(errorCode).
+     * @return true if U_SUCCESS(errorCode).
      * @stable ICU 57
      */
     UBool applyPatternMinMaxArguments(const UnicodeString &pattern,
                                       int32_t min, int32_t max, UErrorCode &errorCode) {
-        return applyPatternMinMaxArguments(pattern, min, max, FALSE, errorCode);
+        return applyPatternMinMaxArguments(pattern, min, max, false, errorCode);
     }
 
 #ifndef U_HIDE_INTERNAL_API
@@ -187,16 +187,16 @@ public:
      * @param pattern The pattern string.
      * @param min The pattern must have at least this many arguments.
      * @param max The pattern must have at most this many arguments.
-     * @param removeSingleQuotes If TRUE, single quotes are treated as syntax characters even
+     * @param removeSingleQuotes If true, single quotes are treated as syntax characters even
      *                          when they don't appear adjacent to other syntax characters
      *                          (The old default UMSGPAT_APOS_DOUBLE_REQUIRED behavior.)
-     *                          If FALSE, single quotes not adjacent to syntax characters are treated
+     *                          If false, single quotes not adjacent to syntax characters are treated
      *                          as literal text (the current default).
      * @param errorCode ICU error code in/out parameter.
      *                  Must fulfill U_SUCCESS before the function call.
      *                  Set to U_ILLEGAL_ARGUMENT_ERROR for bad argument syntax and
      *                  too few or too many arguments.
-     * @return TRUE if U_SUCCESS(errorCode).
+     * @return true if U_SUCCESS(errorCode).
      * @internal Apple only
      */
     UBool applyPatternMinMaxArguments(const UnicodeString &pattern,

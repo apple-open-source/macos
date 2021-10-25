@@ -41,7 +41,7 @@ struct __DAProbeCallbackContext
 
 typedef struct __DAProbeCallbackContext __DAProbeCallbackContext;
 
-static void __DAProbeCallback( int status, CFBooleanRef clean, CFStringRef name, CFStringRef type, CFUUIDRef uuid, void * parameter )
+static void __DAProbeCallback( int status, int cleanStatus, CFStringRef name, CFStringRef type, CFUUIDRef uuid, void * parameter )
 {
     /*
      * Process the probe command's completion.
@@ -153,7 +153,7 @@ static void __DAProbeCallback( int status, CFBooleanRef clean, CFStringRef name,
 
     if ( context->callback )
     {
-        ( context->callback )( status, context->filesystem, clean, name, type, uuid, context->callbackContext );
+        ( context->callback )( status, context->filesystem, cleanStatus, name, type, uuid, context->callbackContext );
     }
 
     CFRelease( context->candidates );
@@ -245,7 +245,7 @@ DAProbeErr:
 
         if ( callback )
         {
-            ( callback )( status, NULL, NULL, NULL, NULL, NULL, callbackContext );
+            ( callback )( status, -1, NULL, NULL, NULL, NULL, callbackContext );
         }
     }
 }

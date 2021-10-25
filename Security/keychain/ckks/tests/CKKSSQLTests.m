@@ -440,15 +440,19 @@
     XCTAssertNotNil(error, "error exists when things go wrong");
     error = nil;
 
-    key = [[CKKSKey alloc] initWithWrappedAESKey: wrappedkey
-                                            uuid: testUUID
-                                   parentKeyUUID:testParentUUID
-                                        keyclass:SecCKKSKeyClassA
-                                           state: SecCKKSProcessedStateLocal
-                                          zoneID:self.testZoneID
-                                 encodedCKRecord:testCKRecord
-                                      currentkey:true];
+    key = [[CKKSKey alloc] initWithWrappedKeyData:wrappedkey.wrappedData
+                                             uuid:testUUID
+                                    parentKeyUUID:testParentUUID
+                                         keyclass:SecCKKSKeyClassA
+                                            state:SecCKKSProcessedStateLocal
+                                           zoneID:self.testZoneID
+                                  encodedCKRecord:testCKRecord
+                                       currentkey:true];
     XCTAssertNotNil(key, "could create key");
+
+    CKKSKeychainBackedKey* kbkey = [key getKeychainBackedKey:&error];
+    XCTAssertNotNil(kbkey, "Should be able to extract a CKKSKeychainBackedKey from a just-created CKKS key");
+    XCTAssertNil(error, "Should be no error extracting a keychain-backed key");
 
     [CKKSSQLDatabaseObject performCKKSTransaction:^CKKSDatabaseTransactionResult {
         NSError* saveError = nil;
@@ -462,12 +466,19 @@
     XCTAssertNil(error, "no error exists when loading key");
     XCTAssertNotNil(key2, "key was fetched properly");
 
+    CKKSKeychainBackedKey* kbkey2 = [key getKeychainBackedKey:&error];
+    XCTAssertNotNil(kbkey2, "Should be able to extract a CKKSKeychainBackedKey from a just-loaded CKKS key");
+    XCTAssertNil(error, "Should be no error extracting a keychain-backed key");
+
     XCTAssertEqualObjects(key.uuid, key2.uuid, "key uuids match");
     XCTAssertEqualObjects(key.parentKeyUUID, key2.parentKeyUUID, "parent key uuids match");
     XCTAssertEqualObjects(key.state, key2.state, "key states match");
     XCTAssertEqualObjects(key.encodedCKRecord, key2.encodedCKRecord, "encodedCKRecord match");
-    XCTAssertEqualObjects(key.wrappedkey, key2.wrappedkey, "wrapped keys match");
+    XCTAssertEqualObjects(key.wrappedKeyData, key2.wrappedKeyData, "wrappedKeyData matches");
     XCTAssertEqual(key.currentkey, key2.currentkey, "currentkey match");
+
+    XCTAssertEqualObjects(kbkey.wrappedkey, kbkey2.wrappedkey, "wrapped keys match");
+    XCTAssertEqualObjects(kbkey, kbkey2, "keychain-backed keys match");
 }
 
 - (void)testWhere {
@@ -490,14 +501,10 @@
         return CKKSDatabaseTransactionCommit;
     }];
 
-    CKKSKey* wrappedKey = [[CKKSKey alloc] initWrappedBy: tlk
-                                                  AESKey:[CKKSAESSIVKey randomKey:&error]
-                                                    uuid:@"157A3171-0677-451B-9EAE-0DDC4D4315B0"
-                                                keyclass:SecCKKSKeyClassC
-                                                   state: SecCKKSProcessedStateLocal
-                                                  zoneID:self.testZoneID
-                                         encodedCKRecord:testCKRecord
-                                              currentkey:true];
+    CKKSKey* wrappedKey = [CKKSKey randomKeyWrappedByParent:tlk keyclass:SecCKKSKeyClassC error:&error];
+    // All CKKSKey objects must have some CK record associated with them
+    wrappedKey.encodedCKRecord = testCKRecord;
+
     [CKKSSQLDatabaseObject performCKKSTransaction:^CKKSDatabaseTransactionResult {
         NSError* saveError = nil;
         [wrappedKey saveToDatabase:&saveError];
@@ -550,8 +557,15 @@
     NSArray<CKKSKey*>* whereFound = [CKKSKey allWhere: @{@"uuid": [[CKKSSQLWhereIn alloc] initWithValues:@[tlk.uuid, wrappedKey.uuid,  @"not-found"]]} error:&error];
     XCTAssertNil(error, "no error back from search");
     XCTAssertEqual([whereFound count], 2ul, "Should have received two rows");
-    XCTAssertEqualObjects([whereFound[1] uuid], tlk.uuid, "Should received TLK UUID");
-    XCTAssertEqualObjects([whereFound[0] uuid], wrappedKey.uuid, "Should received wrapped key UUID");
+
+    // Depending on the random UUID created for warppedKey, the two records may come back in either order
+    if([tlk.uuid compare:wrappedKey.uuid] == NSOrderedAscending) {
+        XCTAssertEqualObjects([whereFound[0] uuid], tlk.uuid, "Should received TLK UUID");
+        XCTAssertEqualObjects([whereFound[1] uuid], wrappedKey.uuid, "Should received wrapped key UUID");
+    } else {
+        XCTAssertEqualObjects([whereFound[1] uuid], tlk.uuid, "Should received TLK UUID");
+        XCTAssertEqualObjects([whereFound[0] uuid], wrappedKey.uuid, "Should received wrapped key UUID");
+    }
 }
 
 - (void)testGroupBy {

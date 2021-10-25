@@ -537,7 +537,7 @@ TimeZoneTest::TestGetAvailableIDsNew()
     const UnicodeString *id1, *id2;
     UnicodeString canonicalID;
     UBool isSystemID;
-    char region[4];
+    char region[4] = {0};
     int32_t zoneCount;
 
     any = canonical = canonicalLoc = any_US = canonical_US = canonicalLoc_US = any_W5 = any_CA_W5 = any_US_E14 = NULL;
@@ -2074,6 +2074,8 @@ void TimeZoneTest::TestCanonicalID() {
         {"Asia/Vientiane", "Asia/Bangkok"},
         {"Atlantic/Jan_Mayen", "Europe/Oslo"},
         {"Atlantic/St_Helena", "Africa/Abidjan"},
+        {"Australia/Currie", "Australia/Hobart"},
+        {"Australia/Tasmania", "Australia/Hobart"},
         {"Europe/Bratislava", "Europe/Prague"},
         {"Europe/Busingen", "Europe/Zurich"},
         {"Europe/Guernsey", "Europe/London"},
@@ -2275,6 +2277,12 @@ static struct   {
       // by Ticket#6644
       {"Europe/London",       "en", TRUE, TimeZone::SHORT, "GMT+1" /*"BST"*/},
       {"Europe/London",       "en", TRUE, TimeZone::LONG,  "British Summer Time"},
+
+      // Apple rdar://70740351
+      {"America/Whitehorse",  "en", FALSE, TimeZone::SHORT, "YST"},
+      {"America/Whitehorse",  "en", FALSE, TimeZone::LONG,  "Yukon Standard Time"},
+      {"America/Whitehorse",  "fr", FALSE, TimeZone::SHORT, "YST"},
+      {"America/Whitehorse",  "fr", FALSE, TimeZone::LONG,  "heure normale de Yukon"},
 
       {NULL, NULL, FALSE, TimeZone::SHORT, NULL}   // NULL values terminate list
     };

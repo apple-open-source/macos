@@ -10,7 +10,7 @@
 
 #if __OBJC__
 
-#import "HIDElementIvar.h"
+#import <IOKit/hidobjc/HIDElementIvar.h>
 #import <CoreFoundation/CoreFoundation.h>
 #import <objc/NSObject.h>
 

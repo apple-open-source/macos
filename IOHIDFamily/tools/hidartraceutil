@@ -1,8 +1,10 @@
 #!/usr/bin/python
 
-import sys, getopt, collections, subprocess, argparse
+import sys, getopt, collections, subprocess, argparse, math
 from operator import itemgetter
+import json 
 
+# colors
 
 class color:
    PURPLE = '\033[95m'
@@ -16,63 +18,28 @@ class color:
    UNDERLINE = '\033[4m'
    END = '\033[0m'
 
-event_type_string = [
-    "kIOHIDEventTypeNULL",
-    "kIOHIDEventTypeVendorDefined",
-    "kIOHIDEventTypeButton",
-    "kIOHIDEventTypeKeyboard",
-    "kIOHIDEventTypeTranslation",
-    "kIOHIDEventTypeRotation",
-    "kIOHIDEventTypeScroll",
-    "kIOHIDEventTypeScale",
-    "kIOHIDEventTypeZoom",
-    "kIOHIDEventTypeVelocity",
-    "kIOHIDEventTypeOrientation",
-    "kIOHIDEventTypeDigitizer",
-    "kIOHIDEventTypeAmbientLightSensor",
-    "kIOHIDEventTypeAccelerometer",
-    "kIOHIDEventTypeProximity",
-    "kIOHIDEventTypeTemperature",
-    "kIOHIDEventTypeNavigationSwipe",
-    "kIOHIDEventTypePointer",
-    "kIOHIDEventTypeProgress",
-    "kIOHIDEventTypeMultiAxisPointer",
-    "kIOHIDEventTypeGyro",
-    "kIOHIDEventTypeCompass",
-    "kIOHIDEventTypeZoomToggle",
-    "kIOHIDEventTypeDockSwipe",
-    "kIOHIDEventTypeSymbolicHotKey",
-    "kIOHIDEventTypePower",
-    "kIOHIDEventTypeLED",
-    "kIOHIDEventTypeFluidTouchGesture",
-    "kIOHIDEventTypeBoundaryScroll",
-    "kIOHIDEventTypeBiometric",
-    "kIOHIDEventTypeUnicode",
-    "kIOHIDEventTypeAtmosphericPressure",
-    "kIOHIDEventTypeForce",
-    "kIOHIDEventTypeMotionActivity",
-    "kIOHIDEventTypeMotionGesture",
-    "kIOHIDEventTypeGameController",
-    "kIOHIDEventTypeHumidity",
-    "kIOHIDEventTypeCollection",
-    "kIOHIDEventTypeBrightness",
-    "kIOHIDEventTypeGenericGesture"]
+def print_bold (s):
+    print color.BOLD + s + color.END
+
+def to_bold (s):
+    return color.BOLD + s + color.END
+
 
 # Debug code
+DBG_FUNC_END                        = 0x2
 
 kIOHIDDebugCode_DispatchHIDEvent    = 0x5230048
-kIOHIDDebugCode_HandleReport   	  	= 0x523003C
-kHIDDK_Dev_InputReport   			= 0x523C008
-
-kHID_ES_Service_Callback			= 0x5238100
+kIOHIDDebugCode_HandleReport        = 0x523003C
+kHIDDK_Dev_InputReport              = 0x523C008
+kHID_ES_Service_Callback            = 0x5238100
 kHID_ES_Client_QueueCallback        = 0x5238080
-
 kHID_ES_ClientsEnqueue              = 0x523804c
+kHID_ES_ClientsEnqueueEnd           = (0x523804c | DBG_FUNC_END)
 
-DBG_FUNC_END						= 0x2
+traceTimeDelta = 0
 
-EventTypeToStr = [
- 	'kIOHIDEventTypeNULL',
+HIDEventTypeToStr = [
+    'kIOHIDEventTypeNULL',
     'kIOHIDEventTypeVendorDefined',
     'kIOHIDEventTypeButton',                  
     'kIOHIDEventTypeKeyboard',                     
@@ -114,284 +81,375 @@ EventTypeToStr = [
     'kIOHIDEventTypeGenericGesture',
 ]
 
+HIDTraceCodes = [
+     kIOHIDDebugCode_DispatchHIDEvent,
+     kIOHIDDebugCode_HandleReport,
+     kHID_ES_Service_Callback,
+     kHID_ES_ClientsEnqueueEnd,
+     kHID_ES_Client_QueueCallback
+]
 
-# event / report metadata
-event_tarce = collections.OrderedDict()
-dk_handle_report = collections.OrderedDict()
-kernel_handle_report  = collections.OrderedDict()
-kernel_dispatch_event = collections.OrderedDict()
-verboseLog = False
+verbose    = False
+eventTrace = collections.OrderedDict()
 
-filter_trace = []
+def  log (data):
+    if  verbose:
+        sys.stderr.write(data+"\n")
 
-def print_bold (s):
-	print color.BOLD + s + color.END
+def  extract_trace (trace):
+    log ("Exracting trace")
+    hidTrace = []
+    for probe in trace:
+        try:
+            entry = json.loads(probe)
+        except:
+            log ("unable to parse: %s" % probe)
+            continue
+        if (entry["debugid"] >> 16) != 0x0523:
+            continue
+        if entry["debugid"] in HIDTraceCodes:
+            hidTrace.append(entry)
+    return hidTrace
 
-def process_event (filter, line, trace_line):
-	code = int (trace_line[2], 16)
-	if (code >> 16) != 0x0523:
-		return
-	arg0 = int (trace_line[3], 16)
-	if filter == arg0:
-		filter_trace.append(line)
-	if code == kHIDDK_Dev_InputReport and filter == int (trace_line[4], 16) :
-		filter_trace.append(line)
-		 
+def  process_trace (trace):
+    events = collections.OrderedDict()
+    reports = collections.OrderedDict()
+    for probe in trace:
+        if probe["debugid"] == kIOHIDDebugCode_HandleReport:
+            timestamp = probe["args"][1]
+            reports[timestamp] = probe
+        else:
+            timestamp = int (probe["args"][0])
+            event = []
+            if timestamp in events.keys():
+                event = events[timestamp]
+            event.append(probe)
+            events[timestamp] = event
+    for  timestamp in events.keys():
+        if timestamp in reports.keys():
+            events[timestamp].append(reports[timestamp])
 
+    return events   
 
-def  process_all (trace_line, clients):
-	code = int (trace_line[2], 16)
+def  process_events (eventsDict):
+    events = []
+    for  timestamp in eventsDict.keys():
+        event = Event.createEvent(timestamp, eventsDict[timestamp])
+        if event: 
+            events.append(event)
+    return events
 
-	if (code >> 16) != 0x0523:
-		return
+    events = collections.OrderedDict()
+    reports = ollections.OrderedDict()
+    for probe in trace:
+        if probe["debugid"] == kIOHIDDebugCode_HandleReport:
+            timestamp = probe["args"][1]
+            reports[timestamp] = probe
+        else:
+            timestamp = int (probe["args"][0])
+            event = []
+            if events[timestamp]:
+                event = events[timestamp]
+            event.append(probe)
+            events[timestamp] = event
+    for  timestamp in events.keys():
+        if reports[timestamp]:
+            events[timestamp].append(reports[timestamp])
 
-	arg0 = int (trace_line[3], 16)
-	ts   = float (trace_line[0])   
+    for  timestamp in events.keys():
+        if reports[timestamp]:
+            events[timestamp].append(reports[timestamp])
+    return events   
 
-	if code == kHIDDK_Dev_InputReport:
-		dk_report_timestamp = int (trace_line[4], 16)
-		dk_handle_report[dk_report_timestamp] =  ts
-		return 
+class Event(object):
+    
+    @classmethod
+    def createEvent(cls, timestamp, probes):
+        instance =  cls(timestamp, probes);    
+        if instance.userTime and instance.finalTime:
+            return instance 
+        return None
 
-	if code == kIOHIDDebugCode_HandleReport:
-		kernel_report_timestamp = int (trace_line[4], 16)
-		kernel_handle_report[kernel_report_timestamp] =  ts
-		return
+    def __init__(self, timestamp, probes):
+        global traceTimeDelta
+        self.timestamp = timestamp
+        self.probes = probes
+        self.reportTime = None
+        self.userTime = None
+        self.kernelTime = None
+        self.finalTime = None
+        self.type = None
+        self.service = None
+        self.clients = []
+        self.startTime = 0
+        for probe in self.probes:
+            if probe["debugid"] == kIOHIDDebugCode_HandleReport:
+                self.reportTime = int(probe["timestampns"])
+            elif probe["debugid"] == kIOHIDDebugCode_DispatchHIDEvent:
+                self.kernelTime = int(probe["timestampns"])
+            elif probe["debugid"] == kHID_ES_Service_Callback:
+                self.userTime = int(probe["timestampns"])
+                self.type = int(probe["args"][2])
+                self.service = int(probe["args"][1])
+            elif probe["debugid"] == kHID_ES_ClientsEnqueueEnd:
+                self.finalTime = int(probe["timestampns"]) 
+            elif probe["debugid"] == kHID_ES_Client_QueueCallback and "execname" in probe.keys():
+                self.clients.append(probe["execname"])
 
-	if code == kIOHIDDebugCode_DispatchHIDEvent:
-		kernel_dispatch_event[arg0] = ts
-		return
-	
-	if code == kHID_ES_Service_Callback and arg0 not in event_tarce:
-		service = int (trace_line[4], 16)
-		event_type = int (trace_line[5], 16)
-		event_tarce [arg0] = [event_type, service, ts, 0, 0, trace_line[0], 0, set()]
-		return
+        if self.userTime:
+            self.startTime = self.userTime
+        if self.kernelTime:
+            self.startTime = self.kernelTime
+        if self.reportTime:
+            self.startTime = self.reportTime
 
-	if code == (kHID_ES_ClientsEnqueue | DBG_FUNC_END) and arg0 in event_tarce:
-		(event_tarce [arg0])[3] = ts
-		return
+    def service(self):
+        return self.service
 
-	if code == kHID_ES_Client_QueueCallback and arg0 in event_tarce:
-		client = trace_line[9]
-		((event_tarce[arg0])[7]).add(client)
-		if len(clients) > 0:
-			if client not in clients:
-				return	
-		if (event_tarce[arg0])[4] < ts:
-			(event_tarce [arg0])[4] = ts
+    def type(self):
+        return self.type
 
-def  print_summary ():
-	eventTypeSummary = {}
-	eventLatencies  = []
-	for  key in event_tarce.keys():
-		event = event_tarce[key]
-		if event[4] == 0 or event[3] == 0:
-			continue
-		eventType =  event[0]
+    def typeAsString(self):
+        return HIDEventTypeToStr[self.type]
+                     
+    def timestamp(self):
+        return self.timestamp
 
-		if eventType in eventTypeSummary.keys():
-			eventTypeSummary[eventType] += 1
-		else:
-			eventTypeSummary[eventType] = 1	  
+    def reportTime(self):
+        return self.reportTime  
 
-		eventLatencies.append (event[3] - event[2])
-	
-	print "Summary"
-	print "Events:"
-	for  key in eventTypeSummary.keys():
-		print "  type:%d(%s) count:%d" % (key, EventTypeToStr[key], eventTypeSummary[key])
+    def kernelTime(self):
+        return self.kernelTime 
+        
+    def userTime(self):
+        return self.userTime 
 
-	print "  total:%d" % (len(event_tarce))
-	print "Latency:"
-	eventLatencies.sort()
-	minLatecy="" 
-	for i in range (0,5):
-		minLatecy += "%.1f " % (eventLatencies[i])
-	print "  min:%s" % (minLatecy)
-	maxLatecy="" 
-	for i in range (len(eventLatencies) - 5, len(eventLatencies)):
-		maxLatecy += "%.1f " % (eventLatencies[i])
-	print "  max:%s" % (maxLatecy)
-	latecyAvg=0 
-	for i in range (0, (len(eventLatencies) * 95) / 100):
-		latecyAvg += eventLatencies[i]
-	latecyAvg = latecyAvg / ((len(eventLatencies) * 95) / 100)
-	print "  average:%.1f " % (latecyAvg)
+    def finalTime(self):
+        return self.finalTime
 
-def  print_all ():
-	for  key in event_tarce.keys():
-		event = event_tarce[key]
-		if event[4] == 0 or event[3] == 0:
-			continue
+    def timeDeltaToClient(self, client):
+        for probe in self.probes:
+            if probe["debugid"] == kHID_ES_Client_QueueCallback and "execname" in probe.keys(): 
+                if client == probe['execname'] :
+                   return (int(probe["timestampns"]) - self.startTime) / 1000 
 
-		event_log_str =  "event:0x%x(%d) type:0x%02x service:0x%x thidd-total:%.1f thidd-to-client:%.1f thidd-event:%s" % (key, key, event[0], event[1],  event[3] - event[2],  event[4] - event[2],  event[5])
+    def startTime(self):
+        return startTime
 
-		treport = 0
-		tbegin = float(event[5])
-		tend = event[4]
+    def timeDelta(self, type):
+        if 'touser' in type:
+            return (self.userTime - self.startTime)  / 1000
+        if 'inuser' in type:
+            return (self.finalTime - self.userTime)  / 1000
+        if 'total' in type:
+            return (self.finalTime - self.startTime) / 1000   
+        return None
 
-		if  key in kernel_dispatch_event:
-			event_time = kernel_dispatch_event[key]
-			event_log_str = "%s tkern-event:%.1f" % (event_log_str, event_time)
-			tbegin = event_time
-		
-		if  key in dk_handle_report:
-			treport = dk_handle_report[key]
-		elif key in kernel_handle_report:
-			treport = kernel_handle_report[key]
+    def description(self):
+        return ("0x%016x  0x%02x  0x%016x  %-8d  %-8d  %-8d" % (self.timestamp , self.type, self.service, 
+            self.timeDelta('touser'), self.timeDelta('inuser'), self.timeDelta('total')))
 
-		if  treport:
-			event_log_str = "%s treport:%.1f" % (event_log_str, treport)
-			tbegin = treport
+    def clients(self):
+        return self.clients
 
-		event_log_str = "%s ttotal:%.1f" % (event_log_str, tend - tbegin)
+def process_interval_stats (entervals):
+    entervals.sort()
+    minStr = "  min(us): "
+    for i in range (0, min(5,len(entervals))):
+        minStr +=  "%8.1f " % (entervals[i])
 
-		print  event_log_str
+    print minStr
 
-def  print_trace (trace):
-	for  line in trace:
-		print  line.rstrip("\r\n")
+    maxStr = "  max(us): " 
+    for i in range (len(entervals) - min(len(entervals),5), len(entervals)):
+        maxStr += "%8.1f " % (entervals[i])
 
+    print maxStr
 
-def print_report ():
-	eventLatency = []
-	eventType = {}
-	eventTypeForClients = {}
-	for  key in event_tarce.keys():
-		event = event_tarce[key]
-		if event[4] == 0 or event[3] == 0:
-			continue
-		eventLatency.append (event[3] - event[2])
-		clients = event[7]
-		for client in clients:
-			eventTypeForClient = {}
-			if eventTypeForClients.get(client) == None:
-				eventTypeForClients [client] = eventTypeForClient
-			else:
-				eventTypeForClient = eventTypeForClients[client]
+    averageStr = "  average: " 
 
-			if eventTypeForClient.get(event[0]) == None:
-				eventTypeForClient[event[0]] = 1
-			else:
-				eventTypeForClient[event[0]] += 1
+    average = 0;
+    if len (entervals) < 10:
+        for i in range (0,len (entervals)):
+            average += entervals[i]
+        averageStr += "100%%: %0.1f " % (average / len (entervals))
+    else:
+        for i in range (0,(len(entervals) * 95) / 100):
+            average += entervals[i]
+        averageStr += "95%%: %0.1f " % (average / ((len(entervals) * 95) / 100))
 
-		if event[0] in eventType.keys():
-			eventType[event[0]] += 1
-		else:
-			eventType[event[0]] = 1
-			
-	print_bold("Events:")
-	for key in eventType.keys():
-		print "  type: %2d count: %8d (%s)" % (key, eventType[key], event_type_string[key]) 
-	
-	print_bold("Latencies:")
-	
-	eventLatency.sort();
-
-	print_bold("  min:") 
-	for i in range (0, 5):
-		print  "    %0.1f" % (eventLatency[i])
-
-	print_bold("  max:") 
-	for i in range (len(eventLatency) - 5, len(eventLatency)):
-		print  "    %0.1f" % (eventLatency[i])
-
-	average = 0;
-
-	print_bold("  average:") 
-
-	for i in range (0,(len(eventLatency) * 95) / 100):
-		average += eventLatency[i]
-	print "    95%%: %0.1f" % (average / ((len(eventLatency) * 95) / 100))
-
-	average = 0;
-	for i in range (0,(len(eventLatency) * 50) / 100):
-		average += eventLatency[i]
-	print "    50%%: %0.1f" % (average / ((len(eventLatency) * 50) / 100))
-
-	for client in eventTypeForClients.keys():
-		print_bold("Events received by %s:" % client)
-		eventType = eventTypeForClients[client]
-		for key in eventType.keys():
-			print "  type: %2d count: %8d (%s)" % (key, eventType[key], event_type_string[key]) 
+        average = 0;
+        for i in range (0,(len(entervals) * 50) / 100):
+            average += entervals[i]
+        averageStr += "50%%: %0.1f " % (average / ((len(entervals) * 50) / 100))
+    print averageStr
 
 
+def process_client_event_stats (events, filter, client):
+    filerEvent = False
+    eventTypes = {}
+    total  = []
+    log ("Process client event stats (client:%s)" % client)
+    for event in events:
+        if filter:
+             filerEvent = eval(filter)
+        if filerEvent:
+            continue 
+        if client not in event.clients:
+            continue
+        # determine all event type
+        count = 1
+        if event.type in eventTypes.keys():
+            count = eventTypes[event.type] + 1;
+        eventTypes[event.type] = count
+
+        # determine all event time intervals
+        total.append(event.timeDeltaToClient(client)) 
+ 
+    print_bold ("\nProcess: %s" % client)
+    print ("Events:")
+    for key in eventTypes.keys():
+        print "  type: %2d count: %8d (%s)" % (key, eventTypes[key], HIDEventTypeToStr[key]) 
+    print("Time interval (Kernel to Client):")
+    process_interval_stats(total)
+
+def process_event_stats (events, filter):
+    filerEvent = False
+    eventTypes = {}
+    touser = []
+    inuser = []
+    total  = []
+    clients = []
+    log ("Process system event stats (len:%d)" % len(events))
+    for event in events:
+        if filter:
+             filerEvent = eval(filter)
+        if filerEvent:
+            continue 
+
+        # determine all event type
+        count = 1
+        if event.type in eventTypes.keys():
+            count = eventTypes[event.type] + 1;
+        eventTypes[event.type] = count
+
+        # determine all event time intervals
+        touser.append(event.timeDelta('touser'))
+        inuser.append(event.timeDelta('inuser')) 
+        total.append(event.timeDelta('total')) 
+
+        clients.extend(event.clients)
+
+    print_bold("Events System Host Process:")
+    print("Events:")
+    for key in eventTypes.keys():
+        print "  type: %2d count: %8d (%s)" % (key, eventTypes[key], HIDEventTypeToStr[key]) 
+    
+    print("Time interval (Kernel to User):")
+    process_interval_stats(touser)
+    print("Time interval (Event System):")
+    process_interval_stats(inuser)
+    print("Time interval (Kernel to Clients):")
+    process_interval_stats(total)
+
+    for client in set(clients):
+        process_client_event_stats (events, filter, client)
+ 
 def  main (argv):
-	global verboseLog
-	oevent = 0
-	osummary = False
-	oclients = []
-	oreport = False
-	opts, args = getopt.getopt(argv, "c:e:hvr", ["clients=", "event=", "help", "verbose", "report"])
-	for opt, arg in opts:
-		if opt in ("-e", "--event"):
-			oevent = int (arg, 16) 
-		if opt in ("-c", "--clients"):
-			oclients = arg.split(",") 
-		if opt in ("-v", "--verbose"):
-			verboseLog = True
-		if opt in ("-r", "--report"):
-			oreport = True
-		if opt in ("-h", "--help"):
-			print "Extract HID events info from  artrace/tailspin/ktrace"
-			print "Usage:"
-			print "     hidartraceutil [-e event_timestamp] [-c client_process_name,...] [-h] [-r]\n"
-			print "Flags:"
-			print "  	-c,--clients  client process or string of comma separated client process names (-c  hidutil or -c  hidutil,hidEventSystemMonitor)"
-			print "  	-r,--report   print summary report for event types count latencies"
-			print "  	-e,--event    print print trace points for event with specific timestamp\n"
-			print "Examples:"
-			print "  	hidartraceutil /tmp/trace001.artrace"
-			print "  	hidartraceutil -r /tmp/trace001.artrace"
-			print "  	hidartraceutil -c hidutil /tmp/trace001.artrace"
-			print "  	hidartraceutil -e 0x71d1755621c24 /tmp/trace001.artrace\n"
-			print "Other:"
-			print "		artrace  --trace-ktrace-class 5 (collect HID trace point used by hidartraceutil)"
 
-			return
+    global verbose
+    extract = False
+    process = True
+    filter = None
+    stats = None
+    client = None
+    opts, args = getopt.getopt(argv, "f:vesc:h", ["extract", "help", "verbose", "filter", "stats", "client"])
+    for opt, arg in opts:
+        if opt in ("-e", "--extract"):
+            extract = True
+        if opt in ("-v", "--verbose"):
+            verbose = True
+        if opt in ("-s", "--stats"):
+            stats = True
+        if opt in ("-c", "--client"):
+            client = arg
+        if opt in ("-f", "--filter"):
+            filter = arg
+        if opt in ("-h", "--help"):
+            print "Extract HID events info from  artrace/tailspin/ktrace"
+            print "Usage:"
+            print "     hidartraceutil [-e event_timestamp] [-c client_process_name,...] [-h] [-r]\n"
+            print "Flags:"
+            print "     -e,--extract  extract IOHID trace probes"
+            print "     -c,--client   print time of event delivery to specific client process"
+            print "     -s,--stats    print summary of event types/count/latencies"
+            print "     -f,--filter   filter out predciate\n"
+            print "Examples:"
+            print "     hidartraceutil /tmp/trace001.artrace"
+            print "     hidartraceutil -s /tmp/trace001.artrace"
+            print "     hidartraceutil -e /tmp/trace001.artrace > /tmp/trace001.ndson"
+            print "     cat /tmp/trace001.ndson | hidartraceutil"
+            print "     cat /tmp/trace001.ndson | hidartraceutil -s"
+            print "     cat /tmp/trace001.ndson | hidartraceutil -f \'event.type != 0x3\'"
+            print "     cat /tmp/trace001.ndson | hidartraceutil -f \'event.timeDeltaToClient(client) < 1000\'"
+            print "Filter predicate:"
+            print "     Filter predicate is an expression that determine if event should be included in results."
+            print "     if filter predicate return True - event filtered out, if Flase - included in results"
+            print "     Filter predicate usually evaluate \"event\" object"
+            print "     event.type                       numeric value of IOHIDEventType"
+            print "     event.typeAsString               String representation of event type"
+            print "     event.timestamp                  event timestamp"
+            print "     event.clients                    list of the client processes to which event was delivered"
+            print "     event.timeDeltaToClient(client)  event time delivery to the \"client\"  in us"
+            print "Other:"
+            print "     artrace  --trace-ktrace-class 5 (collect HID trace point used by hidartraceutil)"
 
-	trace_data = sys.stdin
+            return
 
-	if args:
-		if verboseLog:
-			print "Loading trace: file:%s" % (args[0])
+    traceData = None
+    if args:
+        log ("Loading trace (file:%s)" % (args[0]))
 
-		if "tailspin" in args[0]:
-			trace_data = subprocess.check_output("ktrace trace -A -N -R \"%s\"" % (args[0]), shell=True, universal_newlines=True).splitlines()		
-
-		if "artrace" in args[0]:
-			trace_data = subprocess.check_output("artrace_tool dumptrace --nocodefile \"%s\"" % (args[0]), shell=True, universal_newlines=True).splitlines()		
+        if "tailspin" in args[0] or "artrace" in args[0] :
+            traceData = subprocess.check_output("ktrace trace  --json-64 --ndjson -t -N -R \"%s\"" % (args[0]), shell=True, universal_newlines=True).splitlines()      
 
 
-	if verboseLog:
-		if trace_data == sys.stdin:
-			length = 0
-		else:
-			length = len(trace_data)
-		print "Process trace: length:%d event:%x clients:%s" % (length, oevent, oclients)
+    if  not traceData :
+        traceData = sys.stdin
 
-	for line in trace_data:
-		trace_line = line.split()
-		if not (trace_line and trace_line[0].replace('.','1').isdigit()):
-			continue
-		if oevent != 0:
-			process_event (oevent, line, trace_line)
-		else:
-			process_all (trace_line, oclients)
+    if extract:
+        hidTrace = extract_trace (traceData);
+        log ("Print trace (lenght:%d)" % len(hidTrace))
+        for probe in hidTrace:
+            print json.dumps(probe);
+        return
 
-	if oevent != 0:
-		print "Filter trace for event 0x%x" % (oevent)
-		print_trace (filter_trace)
-	else:
-		print "Events:"
-		print_all ()
+    hidTrace = extract_trace (traceData);
+    events = process_events (process_trace (hidTrace))
 
-	if oreport:
-		print_report ()
+    if stats:
+        process_event_stats (events, filter)
+        return 
+
+    header = "%-18s  %-4s  %-18s  %-8s  %-8s  %-8s" % ('timestamp','type','service', 'touser','inuser','total')
+    if client: 
+        header +=  "  %-8s" % ('client(%s)' % (client)) 
+    
+
+    print (header)
+    for event in events:
+        filerEvent = False
+        if filter:
+            filerEvent = eval(filter)
+        if not filerEvent:
+            eventStr = "0x%016x  0x%02x  0x%016x  %-8d  %-8d  %-8d" % (event.timestamp , event.type, event.service, 
+                event.timeDelta('touser'), event.timeDelta('inuser'), event.timeDelta('total'))
+            if client and client in event.clients:
+                eventStr +="  %-8d" % event.timeDeltaToClient(client) 
+            print eventStr
 
 
 if __name__ == "__main__":
-	main (sys.argv[1:])
+    main (sys.argv[1:])
 
 

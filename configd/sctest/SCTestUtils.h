@@ -58,6 +58,6 @@ NSString * createUsageStringForCPU(CPUUsageInfo *cpu);
 
 NSArray<NSString *> *getTestClasses(void);
 NSArray<NSString *> *getUnitTestListForClass(Class base);
-NSDictionary *getOptionsDictionary(int argc, const char **argv);
+NSDictionary *getOptionsDictionary(int argc, const char * const argv[]);
 
 #endif /* SCTestUtils_h */

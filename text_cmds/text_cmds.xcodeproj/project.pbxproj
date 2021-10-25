@@ -156,7 +156,6 @@
 		FDF2836B1DAED0C000CF8C36 /* mem.c in Sources */ = {isa = PBXBuildFile; fileRef = FDF2835D1DAED0C000CF8C36 /* mem.c */; };
 		FDF2836C1DAED0C000CF8C36 /* radixsort.c in Sources */ = {isa = PBXBuildFile; fileRef = FDF283621DAED0C000CF8C36 /* radixsort.c */; };
 		FDF2836D1DAED0C000CF8C36 /* vsort.c in Sources */ = {isa = PBXBuildFile; fileRef = FDF283661DAED0C000CF8C36 /* vsort.c */; };
-		FDF283711DAED7C700CF8C36 /* commoncrypto.c in Sources */ = {isa = PBXBuildFile; fileRef = FDF2836F1DAED7C700CF8C36 /* commoncrypto.c */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -2955,7 +2954,6 @@
 			files = (
 				FDF283681DAED0C000CF8C36 /* bwstring.c in Sources */,
 				FDF283691DAED0C000CF8C36 /* coll.c in Sources */,
-				FDF283711DAED7C700CF8C36 /* commoncrypto.c in Sources */,
 				FDF2836A1DAED0C000CF8C36 /* file.c in Sources */,
 				FDF2836B1DAED0C000CF8C36 /* mem.c in Sources */,
 				FDF2836C1DAED0C000CF8C36 /* radixsort.c in Sources */,

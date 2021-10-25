@@ -229,4 +229,3 @@ T_DECL(map_edge_32, "Make sure 32 bit map edge cases work",
 
 	os_map_destroy(&edge_32_map);
 }
-

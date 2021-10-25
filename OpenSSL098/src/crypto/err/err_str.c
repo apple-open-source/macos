@@ -120,12 +120,7 @@
 #include <openssl/err.h>
 
 #ifndef OPENSSL_NO_ERR
-#if __APPLE__
-#define CONST_DATA const // we want to mark these items const on OSX                                        
-#else
-#define CONST_DATA       // but not on Windows                                                              
-#endif
-CONST_DATA static ERR_STRING_DATA ERR_str_libraries[]=
+static ERR_STRING_DATA ERR_str_libraries[]=
 	{
 {ERR_PACK(ERR_LIB_NONE,0,0)		,"unknown library"},
 {ERR_PACK(ERR_LIB_SYS,0,0)		,"system library"},
@@ -157,7 +152,7 @@ CONST_DATA static ERR_STRING_DATA ERR_str_libraries[]=
 {0,NULL},
 	};
 
-CONST_DATA static ERR_STRING_DATA ERR_str_functs[]=
+static ERR_STRING_DATA ERR_str_functs[]=
 	{
 	{ERR_PACK(0,SYS_F_FOPEN,0),     	"fopen"},
 	{ERR_PACK(0,SYS_F_CONNECT,0),		"connect"},
@@ -175,7 +170,7 @@ CONST_DATA static ERR_STRING_DATA ERR_str_functs[]=
 	{0,NULL},
 	};
 
-CONST_DATA static ERR_STRING_DATA ERR_str_reasons[]=
+static ERR_STRING_DATA ERR_str_reasons[]=
 	{
 {ERR_R_SYS_LIB				,"system lib"},
 {ERR_R_BN_LIB				,"BN lib"},

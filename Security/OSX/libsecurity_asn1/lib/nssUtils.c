@@ -29,40 +29,33 @@
 /*
  * Compare two SecAsn1Items (or two SecAsn1Oids), return true if identical.
  */
-int nssCompareSecAsn1Items(
-	const SecAsn1Item *data1,
-	const SecAsn1Item *data2)
-{	
-	if((data1 == NULL) || (data1->Data == NULL) || 
-	   (data2 == NULL) || (data2->Data == NULL) ||
-	   (data1->Length != data2->Length)) {
-		return 0;
-	}
-	if(data1->Length != data2->Length) {
-		return 0;
-	}
-	return memcmp(data1->Data, data2->Data, data1->Length) == 0;
+int nssCompareSecAsn1Items(const SecAsn1Item* data1, const SecAsn1Item* data2)
+{
+    if ((data1 == NULL) || (data1->Data == NULL) || (data2 == NULL) ||
+        (data2->Data == NULL) || (data1->Length != data2->Length)) {
+        return 0;
+    }
+    if (data1->Length != data2->Length) {
+        return 0;
+    }
+    return memcmp(data1->Data, data2->Data, data1->Length) == 0;
 }
 
-int nssCompareCssmData(
-    const SecAsn1Item *data1,
-    const SecAsn1Item *data2)
+int nssCompareCssmData(const SecAsn1Item* data1, const SecAsn1Item* data2)
 {
-    return nssCompareSecAsn1Items(data1,data2);
+    return nssCompareSecAsn1Items(data1, data2);
 }
 
 /*
  * How many items in a NULL-terminated array of pointers?
  */
-unsigned nssArraySize(
-	const void **array)
+unsigned nssArraySize(const void** array)
 {
     unsigned count = 0;
     if (array) {
-		while (*array++) {
-			count++;
-		}
+        while (*array++) {
+            count++;
+        }
     }
     return count;
 }
-

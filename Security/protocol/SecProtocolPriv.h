@@ -46,6 +46,8 @@ SEC_ASSUME_NONNULL_BEGIN
 SEC_OBJECT_DECL(sec_array);
 #endif // !SEC_OBJECT_IMPL
 
+#define SEC_PROTOCOL_HAS_QUIC_CODEPOINT_TOGGLE 1
+
 struct sec_protocol_options_content;
 typedef struct sec_protocol_options_content *sec_protocol_options_content_t;
 
@@ -114,6 +116,41 @@ sec_protocol_options_access_handle(sec_protocol_options_t options, sec_access_bl
 API_AVAILABLE(macos(10.15), ios(13.0), watchos(6.0), tvos(13.0))
 bool
 sec_protocol_options_contents_are_equal(sec_protocol_options_content_t contentA, sec_protocol_options_content_t contentB);
+
+#define SECURITY_HAS_PROTOCOL_OPTIONS_COMPARE 1
+
+/*
+ * Comparison modes for protocol options. Matches modes in <nw/private.h>.
+ */
+typedef CF_ENUM(uint8_t, sec_protocol_options_compare_mode_t) {
+    sec_protocol_options_compare_mode_equal = 0, // Full equality
+    sec_protocol_options_compare_mode_association = 1, // Should protocol caches and other stored data be shared?
+    sec_protocol_options_compare_mode_joining = 2, // Should one connection be allowed to join another?
+    sec_protocol_options_compare_mode_joining_proxy = 3, // Should one connection be allowed to share a connection to a proxy with another?
+};
+
+/*!
+ * @function sec_protocol_options_contents_compare
+ *
+ * @abstract
+ *      Compare two `sec_protocol_options_content_t` structs.
+ *
+ * @param contentA
+ *      A `sec_protocol_options_t` instance.
+ *
+ * @param contentB
+ *      A `sec_protocol_options_t` instance.
+ *
+ * @param compare_mode
+ *      The comparison mode to use.
+ *
+ * @return True if considered equal based on the comparison mode, and false otherwise.
+ */
+SPI_AVAILABLE(macos(12.0), ios(15.0), watchos(8.0), tvos(15.0))
+bool
+sec_protocol_options_contents_compare(sec_protocol_options_content_t contentA,
+                                      sec_protocol_options_content_t contentB,
+                                      sec_protocol_options_compare_mode_t compare_mode);
 
 /*!
  * @function sec_protocol_options_set_tls_early_data_enabled
@@ -232,6 +269,20 @@ void
 sec_protocol_options_set_quic_transport_parameters(sec_protocol_options_t options, dispatch_data_t transport_parameters);
 
 /*!
+ * @function sec_protocol_options_clear_tls_application_protocols
+ *
+ * @abstract
+ *      Clear all application protocols supported by clients of this protocol instance.
+ *
+ * @param options
+ *      A `sec_protocol_options_t` instance.
+ */
+#define SEC_PROTOCOL_HAS_CLEAR_TLS_APPLICATION_PROTOCOLS 1
+SPI_AVAILABLE(macos(12.0), ios(15.0), tvos(15.0), watchos(8.0))
+void
+sec_protocol_options_clear_tls_application_protocols(sec_protocol_options_t options);
+
+/*!
  * @enum sec_protocol_transport_t
  *
  * @abstract An enumeration of the different transport protocols that can have specific security options.
@@ -241,8 +292,6 @@ typedef enum {
     sec_protocol_transport_tcp,
     sec_protocol_transport_quic,
 } sec_protocol_transport_t;
-
-#define SEC_PROTOCOL_HAS_TRANSPORT_SPECIFIC_ALPN 1
 
 /*!
  * @function sec_protocol_options_add_transport_specific_application_protocol
@@ -365,7 +414,6 @@ typedef void (^sec_protocol_tls_encryption_level_update_t)(sec_protocol_tls_encr
  * @params update_queue
  *      A `dispatch_queue_t` on which the update block should be called.
  */
-#define SEC_PROTOCOL_HAS_TLS_ENCRYPTION_LEVEL_UPDATE_BLOCK 1 /* rdar://problem/63986462 */
 SPI_AVAILABLE(macos(10.16), ios(14.0), watchos(7.0), tvos(14.0))
 void
 sec_protocol_options_set_tls_encryption_level_update_block(sec_protocol_options_t options,
@@ -449,7 +497,7 @@ sec_protocol_options_set_private_key_blocks(sec_protocol_options_t options,
  *      A `sec_protocol_options_t` instance.
  *
  * @param certificates
- *      A `sec_array_t` instance of `sec_certifiate_t` instances.
+ *      A `sec_array_t` instance of `sec_certificate_t` instances.
  */
 API_AVAILABLE(macos(10.15), ios(13.0), watchos(6.0), tvos(13.0))
 void
@@ -459,9 +507,9 @@ sec_protocol_options_set_local_certificates(sec_protocol_options_t options, sec_
  * @block sec_protocol_options_set_tls_certificate_compression_enabled
  *
  * @abstract
- *      Enable or disable TLS 1.3 certificate compression.
+ *      Enable or disable TLS 1.3 certificate compression. Enabled by default.
  *
- *      See: https://tools.ietf.org/html/draft-ietf-tls-certificate-compression-04
+ *      See: https://www.rfc-editor.org/rfc/rfc8879.pdf
  *
  * @param options
  *      A `sec_protocol_options_t` instance.
@@ -663,7 +711,6 @@ sec_protocol_options_set_allow_unknown_alpn_protos(sec_protocol_options_t option
  * @param experiment_identifier
  *      The identifier for a secure connection experiment.
  */
-#define SEC_PROTOCOL_HAS_EXPERIMENT_IDENTIFIER 1
 API_AVAILABLE(macos(10.15), ios(13.0), watchos(6.0), tvos(13.0))
 void
 sec_protocol_options_set_experiment_identifier(sec_protocol_options_t options, const char *experiment_identifier);
@@ -695,7 +742,6 @@ sec_protocol_options_set_connection_id(sec_protocol_options_t options, uuid_t _N
  *
  * @return A `xpc_object_t` instance carrying a configuration, or nil on failure.
  */
-#define SEC_PROTOCOL_HAS_EXPERIMENT_HOOKS 1
 API_AVAILABLE(macos(10.15), ios(13.0), watchos(6.0), tvos(13.0))
 SEC_RETURNS_RETAINED __nullable xpc_object_t
 sec_protocol_options_create_config(sec_protocol_options_t options);
@@ -928,7 +974,7 @@ sec_protocol_metadata_serialize_with_options(sec_protocol_metadata_t metadata, s
  * @abstract
  *      Determine if certificate compression was used for a given connection.
  *
- *      See: https://tools.ietf.org/html/draft-ietf-tls-certificate-compression-04
+ *      See: https://www.rfc-editor.org/rfc/rfc8879.pdf
  *
  * @param metadata
  *      A `sec_protocol_metadata_t` instance.
@@ -946,7 +992,7 @@ sec_protocol_metadata_get_tls_certificate_compression_used(sec_protocol_metadata
  *      Return the certificate compression algorithm used. This will return 0
  *      if `sec_protocol_metadata_get_tls_certificate_compression_used` is false.
  *
- *      See: https://tools.ietf.org/html/draft-ietf-tls-certificate-compression-04
+ *      See: https://www.rfc-editor.org/rfc/rfc8879.pdf
  *
  * @param metadata
  *      A `sec_protocol_metadata_t` instance.
@@ -985,7 +1031,6 @@ sec_protocol_metadata_copy_quic_transport_parameters(sec_protocol_metadata_t met
  * @return A millisecond measurement of the TLS handshake time from start to finish.
  */
 API_AVAILABLE(macos(10.15), ios(13.0), watchos(6.0), tvos(13.0))
-#define SEC_PROTOCOL_HAS_METRIC_SPI_V1
 uint64_t
 sec_protocol_metadata_get_handshake_time_ms(sec_protocol_metadata_t metadata);
 
@@ -1215,7 +1260,6 @@ typedef void *_Nullable(^sec_protocol_output_handler_access_block_t)(sec_protoco
  * @abstract
  *      Set a block used to access output handler instances identified by encryption level.
  */
-#define SEC_PROTOCOL_HAS_QUIC_OUTPUT_HANDLER_ACCESS_BLOCK 1
 API_AVAILABLE(macos(10.15), ios(13.0), watchos(6.0), tvos(13.0))
 void
 sec_protocol_options_set_output_handler_access_block(sec_protocol_options_t options,
@@ -1325,7 +1369,59 @@ API_AVAILABLE(macos(10.16), ios(14.0), watchos(7.0), tvos(14.0))
 const char * __nullable
 sec_protocol_helper_get_ciphersuite_name(tls_ciphersuite_t ciphersuite);
 
-#define SEC_PROTOCOL_HAS_MULTI_PSK_SUPPORT 1
+/*!
+ * @function sec_protocol_options_set_server_raw_public_key_certificates
+ *
+ * @abstract
+ *      For clients, sets the raw public key certificates expected from servers.
+ *      For servers, sets the raw public key certificate to present to clients.
+ *
+ * @param options
+ *      A `sec_protocol_options_t` instance.
+ *
+ * @param certificates
+ *      An array of one or more CFData objects.
+ *
+ * @discussion Each certificate is an ASN.1-encoded public key, usually found
+ *             in the SubjectPublicKeyInfo field of X.509 certificates. Clients
+ *             will accept any key within the configured set to successfully
+ *             verify the server.
+ *
+ */
+#define SEC_PROTOCOL_HAS_RAW_PUBLIC_KEY_CERTIFICATES 1
+SPI_AVAILABLE(macos(12.0), ios(15.0), watchos(8.0), tvos(15.0))
+void
+sec_protocol_options_set_server_raw_public_key_certificates(sec_protocol_options_t options, CFArrayRef certificates);
+
+#define SEC_PROTOCOL_HAS_RAW_PUBLIC_KEY_CERTIFICATE 1 /* rdar://problem/72185915 */
+SPI_AVAILABLE(macos(10.16), ios(14.0), watchos(7.0), tvos(14.0))
+void
+sec_protocol_options_add_server_raw_public_key_certificate(sec_protocol_options_t options,
+                                                            uint8_t *data, size_t len);
+
+/*!
+ * @function sec_protocol_options_set_client_raw_public_key_certificates
+ *
+ * @abstract
+ *      For clients, sets the raw public key certificate to present to servers.
+ *      For servers, sets the raw public key certificates expected from clients.
+ *
+ * @param options
+ *      A `sec_protocol_options_t` instance.
+ *
+ * @param certificates
+ *      An array of one or more CFData objects.
+ *
+ * @discussion Each certificate is an ASN.1-encoded public key, usually found
+ *             in the SubjectPublicKeyInfo field of X.509 certificates. Servers
+ *             will accept any key within the configured set to successfully
+ *             verify the client.
+ *
+ */
+#define SEC_PROTOCOL_HAS_CLIENT_RAW_PUBLIC_KEY_CERTIFICATES 1
+SPI_AVAILABLE(macos(12.0), ios(15.0), watchos(8.0), tvos(15.0))
+void
+sec_protocol_options_set_client_raw_public_key_certificates(sec_protocol_options_t options, CFArrayRef certificates);
 
 struct sec_protocol_options_content {
     SSLProtocol min_version;
@@ -1335,7 +1431,7 @@ struct sec_protocol_options_content {
     char *experiment_identifier;
     uuid_t connection_id;
     __nullable xpc_object_t ciphersuites;
-    xpc_object_t application_protocols;
+    __nullable xpc_object_t application_protocols;
     sec_identity_t identity;
     sec_array_t certificates;
     xpc_object_t pre_shared_keys;
@@ -1363,6 +1459,11 @@ struct sec_protocol_options_content {
     dispatch_queue_t handshake_message_callback_queue;
     sec_protocol_pre_shared_key_selection_t psk_selection_block;
     dispatch_queue_t psk_selection_queue;
+#if SEC_PROTOCOL_HAS_RAW_PUBLIC_KEY_CERTIFICATE
+    dispatch_data_t server_raw_public_key_certificate;
+#endif
+    CFArrayRef _Nullable server_raw_public_key_certificates;
+    CFArrayRef _Nullable client_raw_public_key_certificates;
 
     // ATS minimums
     size_t minimum_rsa_key_size;
@@ -1406,11 +1507,14 @@ struct sec_protocol_options_content {
     unsigned peer_authentication_optional : 1;
     unsigned peer_authentication_override : 1;
     unsigned certificate_compression_enabled : 1;
+    unsigned certificate_compression_enabled_override : 1;
     unsigned eddsa_enabled : 1;
     unsigned tls_delegated_credentials_enabled : 1;
     unsigned tls_grease_enabled : 1;
     unsigned allow_unknown_alpn_protos : 1;
     unsigned allow_unknown_alpn_protos_override : 1;
+    unsigned quic_use_legacy_codepoint : 1;
+    unsigned quic_use_legacy_codepoint_override : 1;
 
     sec_protocol_block_length_padding_t tls_block_length_padding;
 };
@@ -1423,8 +1527,8 @@ struct sec_protocol_metadata_content {
 
     SSLProtocol negotiated_protocol_version;
     SSLCipherSuite negotiated_ciphersuite;
-    const char *negotiated_protocol;
-    const char *server_name;
+    const char * _Nullable negotiated_protocol;
+    const char * _Nullable server_name;
     const char *experiment_identifier;
     uuid_t connection_id;
 
@@ -1440,7 +1544,7 @@ struct sec_protocol_metadata_content {
     dispatch_data_t quic_transport_parameters;
     sec_identity_t identity;
     sec_trust_t trust_ref;
-    const char *negotiated_curve;
+    const char * _Nullable negotiated_curve;
     const char *peer_public_key_type;
     const char *certificate_request_type;
     uint64_t ticket_lifetime;

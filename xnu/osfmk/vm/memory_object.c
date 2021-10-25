@@ -165,6 +165,10 @@ memory_object_lock_page(
 	boolean_t               should_flush,
 	vm_prot_t               prot)
 {
+	if (prot == VM_PROT_NO_CHANGE_LEGACY) {
+		prot = VM_PROT_NO_CHANGE;
+	}
+
 	if (m->vmp_busy || m->vmp_cleaning) {
 		return MEMORY_OBJECT_LOCK_RESULT_MUST_BLOCK;
 	}
@@ -307,6 +311,10 @@ memory_object_lock_request(
 {
 	vm_object_t     object;
 
+	if (prot == VM_PROT_NO_CHANGE_LEGACY) {
+		prot = VM_PROT_NO_CHANGE;
+	}
+
 	/*
 	 *	Check for bogus arguments.
 	 */
@@ -315,7 +323,7 @@ memory_object_lock_request(
 		return KERN_INVALID_ARGUMENT;
 	}
 
-	if ((prot & ~VM_PROT_ALL) != 0 && prot != VM_PROT_NO_CHANGE) {
+	if ((prot & ~(VM_PROT_ALL | VM_PROT_ALLEXEC)) != 0 && prot != VM_PROT_NO_CHANGE) {
 		return KERN_INVALID_ARGUMENT;
 	}
 
@@ -1114,7 +1122,7 @@ memory_object_synchronize_completed(
 	__unused    memory_object_offset_t  offset,
 	__unused    memory_object_size_t    length)
 {
-	panic("memory_object_synchronize_completed no longer supported\n");
+	panic("memory_object_synchronize_completed no longer supported");
 	return KERN_FAILURE;
 }
 
@@ -1401,6 +1409,7 @@ memory_object_iopl_request(
 	vm_object_t             object;
 	kern_return_t           ret;
 	upl_control_flags_t     caller_flags;
+	vm_named_entry_t        named_entry;
 
 	caller_flags = *flags;
 
@@ -1412,10 +1421,8 @@ memory_object_iopl_request(
 		return KERN_INVALID_VALUE;
 	}
 
-	if (ip_kotype(port) == IKOT_NAMED_ENTRY) {
-		vm_named_entry_t        named_entry;
-
-		named_entry = (vm_named_entry_t) ip_get_kobject(port);
+	named_entry = mach_memory_entry_from_port(port);
+	if (named_entry != NULL) {
 		/* a few checks to make sure user is obeying rules */
 		if (*upl_size == 0) {
 			if (offset >= named_entry->size) {
@@ -2235,7 +2242,7 @@ memory_object_synchronize
 	vm_sync_t sync_flags
 )
 {
-	panic("memory_object_syncrhonize no longer supported\n");
+	panic("memory_object_syncrhonize no longer supported");
 
 	return (memory_object->mo_pager_ops->memory_object_synchronize)(
 		memory_object,
@@ -2323,21 +2330,9 @@ memory_object_backing_object
 
 upl_t
 convert_port_to_upl(
-	ipc_port_t      port)
+	__unused ipc_port_t      port)
 {
-	upl_t upl;
-
-	ip_lock(port);
-	if (!ip_active(port) || (ip_kotype(port) != IKOT_UPL)) {
-		ip_unlock(port);
-		return (upl_t)NULL;
-	}
-	upl = (upl_t) ip_get_kobject(port);
-	ip_unlock(port);
-	upl_lock(upl);
-	upl->ref_count += 1;
-	upl_unlock(upl);
-	return upl;
+	return NULL;
 }
 
 mach_port_t
@@ -2345,12 +2340,4 @@ convert_upl_to_port(
 	__unused upl_t          upl)
 {
 	return MACH_PORT_NULL;
-}
-
-__private_extern__ void
-upl_no_senders(
-	__unused ipc_port_t                             port,
-	__unused mach_port_mscount_t    mscount)
-{
-	return;
 }

@@ -26,24 +26,24 @@
 
 #include <security_asn1/secasn1.h>
 
-#include <Security/SecCmsBase.h>
-#include <Security/SecCmsMessage.h>
-#include <Security/SecCmsSignedData.h>
-#include <Security/SecCmsContentInfo.h>
-#include <Security/SecCmsSignerInfo.h>
 #include <Security/SecCertificate.h>
 #include <Security/SecCertificatePriv.h>
+#include <Security/SecCmsBase.h>
+#include <Security/SecCmsContentInfo.h>
 #include <Security/SecCmsDecoder.h>
-#include <Security/SecCmsEncoder.h>
 #include <Security/SecCmsDigestContext.h>
+#include <Security/SecCmsEncoder.h>
 #include <Security/SecCmsEnvelopedData.h>
+#include <Security/SecCmsMessage.h>
 #include <Security/SecCmsRecipientInfo.h>
-#include <utilities/SecCFRelease.h>
-#include <secitem.h>
+#include <Security/SecCmsSignedData.h>
+#include <Security/SecCmsSignerInfo.h>
 #include <cmslocal.h>
+#include <secitem.h>
+#include <utilities/SecCFWrappers.h>
 
-#include "cmstpriv.h"
 #include "cmspriv.h"
+#include "cmstpriv.h"
 
 #include <Security/SecCMS.h>
 
@@ -70,13 +70,13 @@ CFTypeRef kSecCMSHashingAlgorithmSHA256 = CFSTR("kSecCMSHashingAlgorithmSHA256")
 CFTypeRef kSecCMSHashingAlgorithmSHA384 = CFSTR("kSecCMSHashingAlgorithmSHA384");
 CFTypeRef kSecCMSHashingAlgorithmSHA512 = CFSTR("kSecCMSHashingAlgorithmSHA512");
 
-static SecCmsAttribute *
-make_attr(PLArenaPool *poolp, SecAsn1Item *type, SecAsn1Item *value, bool encoded)
+static SecCmsAttribute* make_attr(PLArenaPool* poolp, SecAsn1Item* type, SecAsn1Item* value, bool encoded)
 {
-    SecAsn1Item * copiedvalue;
-    SecCmsAttribute *attr = (SecCmsAttribute *)PORT_ArenaZAlloc(poolp, sizeof(SecCmsAttribute));
-    if (attr == NULL)
+    SecAsn1Item* copiedvalue;
+    SecCmsAttribute* attr = (SecCmsAttribute*)PORT_ArenaZAlloc(poolp, sizeof(SecCmsAttribute));
+    if (attr == NULL) {
         goto loser;
+    }
 
     if (SECITEM_CopyItem(poolp, &(attr->type), type) != SECSuccess)
         goto loser;
@@ -88,7 +88,7 @@ make_attr(PLArenaPool *poolp, SecAsn1Item *type, SecAsn1Item *value, bool encode
         if (SECITEM_CopyItem(poolp, copiedvalue, value) != SECSuccess)
             goto loser;
 
-        if (SecCmsArrayAdd(poolp, (void ***)&(attr->values), (void *)copiedvalue) != SECSuccess)
+        if (SecCmsArrayAdd(poolp, (void***)&(attr->values), (void*)copiedvalue) != SECSuccess)
             goto loser;
     }
 
@@ -98,45 +98,55 @@ loser:
     return attr;
 }
 
-static void
-signerinfo_add_auth_attr(SecCmsSignerInfoRef signerinfo, /*SECOidTag oidtag*/
-                         SecAsn1Item *oid, SecAsn1Item *value, bool encoded)
+static void signerinfo_add_auth_attr(SecCmsSignerInfoRef signerinfo, /*SECOidTag oidtag*/
+                                     SecAsn1Item* oid,
+                                     SecAsn1Item* value,
+                                     bool encoded)
 {
-    PLArenaPool *poolp  = signerinfo->cmsg->poolp;
-    PORT_Assert (poolp != NULL);
-    void *mark = PORT_ArenaMark (poolp);
+    PLArenaPool* poolp = signerinfo->cmsg->poolp;
+    PORT_Assert(poolp != NULL);
+    void* mark = PORT_ArenaMark(poolp);
 
-    SecCmsAttribute *attr = make_attr(poolp, oid, value, encoded);
+    SecCmsAttribute* attr = make_attr(poolp, oid, value, encoded);
     if (!attr || SecCmsAttributeArrayAddAttr(poolp, &(signerinfo->authAttr), attr) != SECSuccess)
         goto loser;
 
-    PORT_ArenaUnmark (poolp, mark);
+    PORT_ArenaUnmark(poolp, mark);
     return;
 
 loser:
-    PORT_Assert (mark != NULL);
-    PORT_ArenaRelease (poolp, mark);
+    PORT_Assert(mark != NULL);
+    PORT_ArenaRelease(poolp, mark);
     return;
 }
 
-static void sign_all_attributes(const void *key, const void *value, void *context)
+static void sign_all_attributes(const void* key, const void* value, void* context)
 {
-    SecAsn1Item oid = { CFDataGetLength(key), (uint8_t*)CFDataGetBytePtr(key) },
-    oid_value = { CFDataGetLength(value), (uint8_t*)CFDataGetBytePtr(value) };
+    if (!isData(key) || CFDataGetLength(key) < 0 || !isData(value) || CFDataGetLength(value) < 0) {
+        return;
+    }
+    SecAsn1Item oid = {(size_t)CFDataGetLength(key), (uint8_t*)CFDataGetBytePtr(key)},
+                oid_value = {(size_t)CFDataGetLength(value), (uint8_t*)CFDataGetBytePtr(value)};
 
     signerinfo_add_auth_attr((SecCmsSignerInfoRef)context, &oid, &oid_value, true);
 }
 
 static OSStatus SecCMSSignDataOrDigestAndAttributes(SecIdentityRef identity,
-                                                    CFDataRef data, bool detached, bool data_is_digest, SECOidTag sign_algorithm,
-                                                    CFMutableDataRef signed_data, CFDictionaryRef signed_attributes, SecCmsCertChainMode chainMode, CFArrayRef additional_certs)
+                                                    CFDataRef data,
+                                                    bool detached,
+                                                    bool data_is_digest,
+                                                    SECOidTag sign_algorithm,
+                                                    CFMutableDataRef signed_data,
+                                                    CFDictionaryRef signed_attributes,
+                                                    SecCmsCertChainMode chainMode,
+                                                    CFArrayRef additional_certs)
 {
     SecCmsMessageRef cmsg = NULL;
     SecCmsContentInfoRef cinfo;
     SecCmsSignedDataRef sigd = NULL;
     SecCmsSignerInfoRef signerinfo;
     OSStatus status = errSecParam;
-    PLArenaPool *arena = NULL;
+    PLArenaPool* arena = NULL;
 
     require(!data_is_digest || detached /* if digest, must be detached */, out);
 
@@ -158,8 +168,8 @@ static OSStatus SecCMSSignDataOrDigestAndAttributes(SecIdentityRef identity,
     require_noerr(SecCmsSignedDataAddSignerInfo(sigd, signerinfo), out);
 
     SecAsn1Item input = {};
-    if (data) {
-        input.Length = CFDataGetLength(data);
+    if (data && CFDataGetLength(data) > 0) {
+        input.Length = (size_t)CFDataGetLength(data);
         input.Data = (uint8_t*)CFDataGetBytePtr(data);
     }
 
@@ -171,38 +181,47 @@ static OSStatus SecCMSSignDataOrDigestAndAttributes(SecIdentityRef identity,
     if (data_is_digest) {
         require_noerr(SecCmsSignedDataSetDigestValue(sigd, sign_algorithm, &input), out);
         require_noerr(SecCmsMessageEncode(cmsg, NULL, (SecArenaPoolRef)arena, &cssm_signed_data), out);
+    } else {
+        require_noerr(SecCmsMessageEncode(cmsg, (data && input.Length) ? &input : NULL, (SecArenaPoolRef)arena, &cssm_signed_data),
+     out);
     }
-    else
-        require_noerr(SecCmsMessageEncode(cmsg,(data && input.Length) ? &input : NULL,
-                                          (SecArenaPoolRef)arena, &cssm_signed_data), out);
 
-    if (signed_data && cssm_signed_data.Data) {
-        CFDataAppendBytes(signed_data, cssm_signed_data.Data, cssm_signed_data.Length);
+    if (signed_data && cssm_signed_data.Data && cssm_signed_data.Length < LONG_MAX) {
+        CFDataAppendBytes(signed_data, cssm_signed_data.Data, (CFIndex)cssm_signed_data.Length);
     }
 
     status = errSecSuccess;
 out:
-    if (arena) PORT_FreeArena(arena, PR_FALSE);
-    if (cmsg) SecCmsMessageDestroy(cmsg);
+    if (arena)
+        PORT_FreeArena(arena, PR_FALSE);
+    if (cmsg)
+        SecCmsMessageDestroy(cmsg);
     return status;
 }
 
-OSStatus SecCMSSignDataAndAttributes(SecIdentityRef identity, CFDataRef data, bool detached,
-                                     CFMutableDataRef signed_data, CFDictionaryRef signed_attributes)
+OSStatus SecCMSSignDataAndAttributes(SecIdentityRef identity,
+                                     CFDataRef data,
+                                     bool detached,
+                                     CFMutableDataRef signed_data,
+                                     CFDictionaryRef signed_attributes)
 {
-    return SecCMSSignDataOrDigestAndAttributes(identity, data, detached, false, SEC_OID_SHA1,
-                                               signed_data, signed_attributes, SecCmsCMCertChain, NULL);
+    return SecCMSSignDataOrDigestAndAttributes(
+        identity, data, detached, false, SEC_OID_SHA1, signed_data, signed_attributes, SecCmsCMCertChain, NULL);
 }
 
-OSStatus SecCMSSignDigestAndAttributes(SecIdentityRef identity, CFDataRef digest,
-                                       CFMutableDataRef signed_data, CFDictionaryRef signed_attributes)
+OSStatus SecCMSSignDigestAndAttributes(SecIdentityRef identity,
+                                       CFDataRef digest,
+                                       CFMutableDataRef signed_data,
+                                       CFDictionaryRef signed_attributes)
 {
-    return SecCMSSignDataOrDigestAndAttributes(identity, digest, true, true, SEC_OID_SHA1,
-                                               signed_data, signed_attributes, SecCmsCMCertChain, NULL);
+    return SecCMSSignDataOrDigestAndAttributes(
+        identity, digest, true, true, SEC_OID_SHA1, signed_data, signed_attributes, SecCmsCMCertChain, NULL);
 }
 
-OSStatus SecCMSCreateSignedData(SecIdentityRef identity, CFDataRef data,
-                                CFDictionaryRef parameters, CFDictionaryRef signed_attributes,
+OSStatus SecCMSCreateSignedData(SecIdentityRef identity,
+                                CFDataRef data,
+                                CFDictionaryRef parameters,
+                                CFDictionaryRef signed_attributes,
                                 CFMutableDataRef signed_data)
 {
     bool is_digest = false, is_detached = false;
@@ -211,20 +230,20 @@ OSStatus SecCMSCreateSignedData(SecIdentityRef identity, CFDataRef data,
     CFArrayRef additional_certs = NULL;
 
     if (parameters) {
-        is_digest = CFDictionaryGetValueIfPresent(parameters,
-                                                  kSecCMSSignDigest, NULL);
-        is_detached = CFDictionaryGetValueIfPresent(parameters,
-                                                    kSecCMSSignDetached, NULL);
-        algorithm_name = CFDictionaryGetValue(parameters,
-                                              kSecCMSSignHashAlgorithm);
+        is_digest = CFDictionaryGetValueIfPresent(parameters, kSecCMSSignDigest, NULL);
+        is_detached = CFDictionaryGetValueIfPresent(parameters, kSecCMSSignDetached, NULL);
+        algorithm_name = CFDictionaryGetValue(parameters, kSecCMSSignHashAlgorithm);
 
         CFTypeRef chain_mode_param = CFDictionaryGetValue(parameters, kSecCMSCertChainMode);
-        if (chain_mode_param && (CFGetTypeID(chain_mode_param) == CFStringGetTypeID()))
-            chain_mode = CFStringGetIntValue(chain_mode_param);
+        if (chain_mode_param && (CFGetTypeID(chain_mode_param) == CFStringGetTypeID()) &&
+            CFStringGetIntValue(chain_mode_param) >= 0) {
+            chain_mode = (SecCmsCertChainMode)CFStringGetIntValue(chain_mode_param);
+        }
 
         CFTypeRef additional_certs_param = CFDictionaryGetValue(parameters, kSecCMSAdditionalCerts);
-        if (additional_certs_param && (CFGetTypeID(additional_certs_param) == CFArrayGetTypeID()))
+        if (additional_certs_param && (CFGetTypeID(additional_certs_param) == CFArrayGetTypeID())) {
             additional_certs = (CFArrayRef)additional_certs_param;
+        }
     }
 
     SECOidTag algorithm = SEC_OID_SHA1;
@@ -243,18 +262,15 @@ OSStatus SecCMSCreateSignedData(SecIdentityRef identity, CFDataRef data,
         }
     }
 
-    return SecCMSSignDataOrDigestAndAttributes(identity, data,
-                                               is_detached, is_digest, algorithm,
-                                               signed_data, signed_attributes, chain_mode, additional_certs);
+    return SecCMSSignDataOrDigestAndAttributes(
+        identity, data, is_detached, is_digest, algorithm, signed_data, signed_attributes, chain_mode, additional_certs);
 }
 
-static OSStatus
-SecCmsSignedDataSetDigestContext(SecCmsSignedDataRef sigd,
-                                 SecCmsDigestContextRef digestContext)
+static OSStatus SecCmsSignedDataSetDigestContext(SecCmsSignedDataRef sigd, SecCmsDigestContextRef digestContext)
 {
-    SecAsn1Item * *digests;
+    SecAsn1Item** digests;
 
-    PLArenaPool *arena = NULL;
+    PLArenaPool* arena = NULL;
 
     if ((arena = PORT_NewArena(1024)) == NULL)
         goto loser;
@@ -262,8 +278,8 @@ SecCmsSignedDataSetDigestContext(SecCmsSignedDataRef sigd,
     if (SecCmsDigestContextFinishMultiple(digestContext, (SecArenaPoolRef)arena, &digests) != SECSuccess)
         goto loser;
 
-    SECAlgorithmID **digestAlgorithms = SecCmsSignedDataGetDigestAlgs(sigd);
-    if(digestAlgorithms == NULL) {
+    SECAlgorithmID** digestAlgorithms = SecCmsSignedDataGetDigestAlgs(sigd);
+    if (digestAlgorithms == NULL) {
         goto loser;
     }
 
@@ -280,45 +296,55 @@ loser:
     return PORT_GetError();
 }
 
-static CFMutableArrayRef copy_signed_attribute_values(SecCmsAttribute *attr)
+static CFMutableArrayRef copy_signed_attribute_values(SecCmsAttribute* attr)
 {
     CFMutableArrayRef array = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks);
-    SecAsn1Item **item = attr->values;
-    if (item) while (*item) {
-        CFDataRef asn1data = CFDataCreate(kCFAllocatorDefault, (*item)->Data, (*item)->Length);
-        if (asn1data) {
-            CFArrayAppendValue(array, asn1data);
-            CFRelease(asn1data);
+    SecAsn1Item** item = attr->values;
+    if (item) {
+        while (*item) {
+            if ((*item)->Length < LONG_MAX) {
+                CFDataRef asn1data = CFDataCreate(kCFAllocatorDefault, (*item)->Data, (CFIndex)(*item)->Length);
+                if (asn1data) {
+                    CFArrayAppendValue(array, asn1data);
+                    CFReleaseNull(asn1data);
+                }
+            }
+            item++;
         }
-        item++;
     }
     return array;
 }
 
-static OSStatus SecCMSVerifySignedData_internal(CFDataRef message, CFDataRef detached_contents,
-                                                CFTypeRef policy, SecTrustRef *trustref, CFArrayRef additional_certs,
-                                                CFDataRef *attached_contents, CFDictionaryRef *signed_attributes)
+static OSStatus SecCMSVerifySignedData_internal(CFDataRef message,
+                                                CFDataRef detached_contents,
+                                                CFTypeRef policy,
+                                                SecTrustRef* trustref,
+                                                CFArrayRef additional_certs,
+                                                CFDataRef* attached_contents,
+                                                CFDictionaryRef* signed_attributes)
 {
     SecCmsMessageRef cmsg = NULL;
     SecCmsContentInfoRef cinfo;
     SecCmsSignedDataRef sigd = NULL;
     OSStatus status = errSecParam;
 
-    require(message, out);
-    SecAsn1Item encoded_message = { CFDataGetLength(message), (uint8_t*)CFDataGetBytePtr(message) };
-    require_noerr_action_quiet(SecCmsMessageDecode(&encoded_message, NULL, NULL, NULL, NULL, NULL, NULL, &cmsg),
-                               out, status = errSecDecode);
+    require(message && CFDataGetLength(message) > 0, out);
+    SecAsn1Item encoded_message = {(size_t)CFDataGetLength(message), (uint8_t*)CFDataGetBytePtr(message)};
+    require_noerr_action_quiet(
+        SecCmsMessageDecode(&encoded_message, NULL, NULL, NULL, NULL, NULL, NULL, &cmsg),
+        out,
+        status = errSecDecode);
     /* expected to be a signed data message at the top level */
     require_quiet(cinfo = SecCmsMessageContentLevel(cmsg, 0), out);
     require_quiet(SecCmsContentInfoGetContentTypeTag(cinfo) == SEC_OID_PKCS7_SIGNED_DATA, out);
     require_quiet(sigd = (SecCmsSignedDataRef)SecCmsContentInfoGetContent(cinfo), out);
 
-    if (detached_contents)
-    {
+    if (detached_contents && CFDataGetLength(detached_contents) > 0) {
         require_quiet(!SecCmsSignedDataHasDigests(sigd), out);
-        SECAlgorithmID **digestalgs = SecCmsSignedDataGetDigestAlgs(sigd);
+        SECAlgorithmID** digestalgs = SecCmsSignedDataGetDigestAlgs(sigd);
         SecCmsDigestContextRef digcx = SecCmsDigestContextStartMultiple(digestalgs);
-        SecCmsDigestContextUpdate(digcx, CFDataGetBytePtr(detached_contents), CFDataGetLength(detached_contents));
+        SecCmsDigestContextUpdate(
+            digcx, CFDataGetBytePtr(detached_contents), (size_t)CFDataGetLength(detached_contents));
         SecCmsSignedDataSetDigestContext(sigd, digcx);
     }
 
@@ -329,55 +355,68 @@ static OSStatus SecCMSVerifySignedData_internal(CFDataRef message, CFDataRef det
         /* find out about signers */
         int nsigners = SecCmsSignedDataSignerInfoCount(sigd);
         require_quiet(nsigners == 1, out);
-        require_noerr_action_quiet(SecCmsSignedDataVerifySignerInfo(sigd, 0, NULL, policy, trustref),
-                                   out, status = errSecAuthFailed);
+        require_noerr_action_quiet(
+            SecCmsSignedDataVerifySigner(sigd, 0, policy, trustref), out, status = errSecAuthFailed);
     }
 
     status = errSecSuccess;
 
     if (attached_contents) {
-        const SecAsn1Item *content = SecCmsMessageGetContent(cmsg);
-        if (content)
-            *attached_contents = CFDataCreate(kCFAllocatorDefault, content->Data, content->Length);
-        else
+        const SecAsn1Item* content = SecCmsMessageGetContent(cmsg);
+        if (content && content->Length < LONG_MAX) {
+            *attached_contents = CFDataCreate(kCFAllocatorDefault, content->Data, (CFIndex)content->Length);
+        } else {
             *attached_contents = NULL;
+        }
     }
 
     if (signed_attributes) {
-        CFMutableDictionaryRef attrs = CFDictionaryCreateMutable(kCFAllocatorDefault,
-                                                                 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+        CFMutableDictionaryRef attrs = CFDictionaryCreateMutable(
+            kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
         require_quiet(attrs, out);
-        SecCmsAttribute **signed_attrs = sigd->signerInfos[0]->authAttr;
-        if (signed_attrs) while (*signed_attrs) {
-            CFDataRef type = CFDataCreate(kCFAllocatorDefault, (*signed_attrs)->type.Data, (*signed_attrs)->type.Length);
-            if (type) {
-                CFMutableArrayRef attr = copy_signed_attribute_values(*signed_attrs);
-                if (attr) {
-                    CFMutableArrayRef existing_attrs = (CFMutableArrayRef)CFDictionaryGetValue(attrs, type);
-                    if (existing_attrs) {
-                        CFIndex count = CFArrayGetCount(attr);
-                        if (count)
-                            CFArrayAppendArray(existing_attrs, attr, CFRangeMake(0, count));
-                    } else
-                        CFDictionarySetValue(attrs, type, attr);
-                    CFRelease(attr);
+        SecCmsAttribute** signed_attrs = sigd->signerInfos[0]->authAttr;
+        if (signed_attrs) {
+            while (*signed_attrs) {
+                if ((*signed_attrs)->type.Length < LONG_MAX) {
+                    CFDataRef type = CFDataCreate(kCFAllocatorDefault, (*signed_attrs)->type.Data, (CFIndex)(*signed_attrs)->type.Length);
+                    if (type) {
+                        CFMutableArrayRef attr = copy_signed_attribute_values(*signed_attrs);
+                        if (attr) {
+                            CFMutableArrayRef existing_attrs =
+                            (CFMutableArrayRef)CFDictionaryGetValue(attrs, type);
+                            if (existing_attrs) {
+                                CFIndex count = CFArrayGetCount(attr);
+                                if (count) {
+                                    CFArrayAppendArray(existing_attrs, attr, CFRangeMake(0, count));
+                                }
+                            } else {
+                                CFDictionarySetValue(attrs, type, attr);
+                            }
+                            CFReleaseNull(attr);
+                        }
+                        CFReleaseNull(type);
+                    }
                 }
-                CFRelease(type);
+                signed_attrs++;
             }
-            signed_attrs++;
         }
         CFMutableArrayRef certs = NULL;
 
-        SecAsn1Item **cert_datas = SecCmsSignedDataGetCertificateList(sigd);
+        SecAsn1Item** cert_datas = SecCmsSignedDataGetCertificateList(sigd);
         certs = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks);
-        SecAsn1Item *cert_data;
-        if (cert_datas) while ((cert_data = *cert_datas) != NULL) {
-            SecCertificateRef cert = SecCertificateCreateWithBytes(NULL, cert_data->Data, cert_data->Length);
-            if (cert) {
-                CFArrayAppendValue(certs, cert);
-                CFRelease(cert);
+        SecAsn1Item* cert_data;
+        if (cert_datas) {
+            while ((cert_data = *cert_datas) != NULL) {
+                if (cert_data->Length < LONG_MAX) {
+                    SecCertificateRef cert =
+                    SecCertificateCreateWithBytes(NULL, cert_data->Data, (CFIndex)cert_data->Length);
+                    if (cert) {
+                        CFArrayAppendValue(certs, cert);
+                        CFReleaseNull(cert);
+                    }
+                }
+                cert_datas++;
             }
-            cert_datas++;
         }
 
         CFDictionaryAddValue(attrs, kSecCMSAllCerts, certs);
@@ -386,87 +425,112 @@ static OSStatus SecCMSVerifySignedData_internal(CFDataRef message, CFDataRef det
         CFAbsoluteTime signing_time;
         if (errSecSuccess == SecCmsSignerInfoGetSigningTime(sigd->signerInfos[0], &signing_time)) {
             CFDateRef signing_date = CFDateCreate(kCFAllocatorDefault, signing_time);
-            if (signing_date){
+            if (signing_date) {
                 CFDictionarySetValue(attrs, kSecCMSSignDate, signing_date);
-                if (signing_date) CFRelease(signing_date);
+                CFReleaseNull(signing_date);
             }
         }
 
         CFDataRef hash_agility_value = NULL;
-        if (errSecSuccess == SecCmsSignerInfoGetAppleCodesigningHashAgility(sigd->signerInfos[0], &hash_agility_value)) {
+        if (errSecSuccess == SecCmsSignerInfoGetAppleCodesigningHashAgility(
+                                 sigd->signerInfos[0], &hash_agility_value)) {
             if (hash_agility_value) {
                 CFDictionarySetValue(attrs, kSecCMSHashAgility, hash_agility_value);
             }
         }
 
         CFDictionaryRef hash_agility_values = NULL;
-        if (errSecSuccess == SecCmsSignerInfoGetAppleCodesigningHashAgilityV2(sigd->signerInfos[0], &hash_agility_values)) {
+        if (errSecSuccess == SecCmsSignerInfoGetAppleCodesigningHashAgilityV2(
+                                 sigd->signerInfos[0], &hash_agility_values)) {
             if (hash_agility_values) {
                 CFDictionarySetValue(attrs, kSecCMSHashAgilityV2, hash_agility_values);
             }
         }
 
         CFAbsoluteTime expiration_time;
-        if (errSecSuccess == SecCmsSignerInfoGetAppleExpirationTime(sigd->signerInfos[0], &expiration_time)) {
+        if (errSecSuccess ==
+            SecCmsSignerInfoGetAppleExpirationTime(sigd->signerInfos[0], &expiration_time)) {
             CFDateRef expiration_date = CFDateCreate(NULL, expiration_time);
             if (expiration_date) {
                 CFDictionarySetValue(attrs, kSecCMSExpirationDate, expiration_date);
                 CFReleaseSafe(expiration_date);
             }
         }
-        
+
         *signed_attributes = attrs;
-        if (certs) CFRelease(certs);
+        CFReleaseNull(certs);
     }
 
 
 out:
-    if (cmsg) SecCmsMessageDestroy(cmsg);
+    if (cmsg) {
+        SecCmsMessageDestroy(cmsg);
+    }
     return status;
 }
 
-OSStatus SecCMSVerifyCopyDataAndAttributes(CFDataRef message, CFDataRef detached_contents,
-                                           CFTypeRef policy, SecTrustRef *trustref,
-                                           CFDataRef *attached_contents, CFDictionaryRef *signed_attributes)
+OSStatus SecCMSVerifyCopyDataAndAttributes(CFDataRef message,
+                                           CFDataRef detached_contents,
+                                           CFTypeRef policy,
+                                           SecTrustRef* trustref,
+                                           CFDataRef* attached_contents,
+                                           CFDictionaryRef* signed_attributes)
 {
-    OSStatus status = SecCMSVerifySignedData_internal(message, detached_contents, policy, trustref, NULL, attached_contents, signed_attributes);
+    OSStatus status = SecCMSVerifySignedData_internal(
+        message, detached_contents, policy, trustref, NULL, attached_contents, signed_attributes);
 
     return status;
 }
 
-OSStatus SecCMSVerifySignedData(CFDataRef message, CFDataRef detached_contents,
-                                CFTypeRef policy, SecTrustRef *trustref, CFArrayRef additional_certificates,
-                                CFDataRef *attached_contents, CFDictionaryRef *message_attributes)
+OSStatus SecCMSVerifySignedData(CFDataRef message,
+                                CFDataRef detached_contents,
+                                CFTypeRef policy,
+                                SecTrustRef* trustref,
+                                CFArrayRef additional_certificates,
+                                CFDataRef* attached_contents,
+                                CFDictionaryRef* message_attributes)
 {
     CFDictionaryRef signed_attributes = NULL;
-    OSStatus status = SecCMSVerifySignedData_internal(message, detached_contents, policy, trustref, additional_certificates, attached_contents, &signed_attributes);
+    OSStatus status = SecCMSVerifySignedData_internal(
+        message, detached_contents, policy, trustref, additional_certificates, attached_contents, &signed_attributes);
     if (!status && signed_attributes && message_attributes) {
-        *message_attributes = CFDictionaryCreate(kCFAllocatorDefault, &kSecCMSSignedAttributes, (const void **)&signed_attributes, 1, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+        *message_attributes = CFDictionaryCreate(kCFAllocatorDefault,
+                                                 &kSecCMSSignedAttributes,
+                                                 (const void**)&signed_attributes,
+                                                 1,
+                                                 &kCFTypeDictionaryKeyCallBacks,
+                                                 &kCFTypeDictionaryValueCallBacks);
     }
-    if (signed_attributes) CFRelease(signed_attributes);
+    CFReleaseNull(signed_attributes);
 
     return status;
 }
 
-OSStatus SecCMSVerify(CFDataRef message, CFDataRef detached_contents,
-                      CFTypeRef policy, SecTrustRef *trustref,
-                      CFDataRef *attached_contents) {
-    return SecCMSVerifySignedData_internal(message, detached_contents, policy, trustref, NULL, attached_contents, NULL);
+OSStatus SecCMSVerify(CFDataRef message,
+                      CFDataRef detached_contents,
+                      CFTypeRef policy,
+                      SecTrustRef* trustref,
+                      CFDataRef* attached_contents)
+{
+    return SecCMSVerifySignedData_internal(
+        message, detached_contents, policy, trustref, NULL, attached_contents, NULL);
 }
 
 /*  Designed to match the sec submodule implementation available for iOS */
-CFArrayRef SecCMSCertificatesOnlyMessageCopyCertificates(CFDataRef message) {
+CFArrayRef SecCMSCertificatesOnlyMessageCopyCertificates(CFDataRef message)
+{
     SecCmsMessageRef cmsg = NULL;
     SecCmsContentInfoRef cinfo;
     SecCmsSignedDataRef sigd = NULL;
     CFMutableArrayRef certs = NULL;
 
-    if (!message) {
+    if (!message || CFDataGetLength(message) < 0) {
         return NULL;
     }
 
-    CSSM_DATA encoded_message = { CFDataGetLength(message), (uint8_t*)CFDataGetBytePtr(message) };
-    require_noerr_quiet(SecCmsMessageDecode(&encoded_message, NULL, NULL, NULL, NULL, NULL, NULL, &cmsg), out);
+    CSSM_DATA encoded_message = {(size_t)CFDataGetLength(message), (uint8_t*)CFDataGetBytePtr(message)};
+    require_noerr_quiet(
+        SecCmsMessageDecode(&encoded_message, NULL, NULL, NULL, NULL, NULL, NULL, &cmsg), out);
     /* expected to be a signed data message at the top level */
     require(cinfo = SecCmsMessageContentLevel(cmsg, 0), out);
     require(SecCmsContentInfoGetContentTypeTag(cinfo) == SEC_OID_PKCS7_SIGNED_DATA, out);
@@ -476,20 +540,27 @@ CFArrayRef SecCMSCertificatesOnlyMessageCopyCertificates(CFDataRef message) {
     int nsigners = SecCmsSignedDataSignerInfoCount(sigd);
     require(nsigners == 0, out);
 
-    CSSM_DATA_PTR *cert_datas = SecCmsSignedDataGetCertificateList(sigd);
+    CSSM_DATA_PTR* cert_datas = SecCmsSignedDataGetCertificateList(sigd);
     certs = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks);
     CSSM_DATA_PTR cert_data;
-    if (cert_datas) while ((cert_data = *cert_datas) != NULL) {
-        SecCertificateRef cert = SecCertificateCreateWithBytes(NULL, cert_data->Data, cert_data->Length);
-        if (cert) {
-            CFArrayAppendValue(certs, cert);
-            CFRelease(cert);
+    if (cert_datas) {
+        while ((cert_data = *cert_datas) != NULL) {
+            if (cert_data->Length < LONG_MAX) {
+                SecCertificateRef cert =
+                SecCertificateCreateWithBytes(NULL, cert_data->Data, (CFIndex)cert_data->Length);
+                if (cert) {
+                    CFArrayAppendValue(certs, cert);
+                    CFReleaseNull(cert);
+                }
+            }
+            cert_datas++;
         }
-        cert_datas++;
     }
 
 out:
-    if (cmsg) { SecCmsMessageDestroy(cmsg); }
+    if (cmsg) {
+        SecCmsMessageDestroy(cmsg);
+    }
     if (certs && CFArrayGetCount(certs) < 1) {
         CFReleaseNull(certs);
     }
@@ -500,7 +571,8 @@ out:
 
 extern const SecAsn1Template SecCmsMessageTemplate[];
 
-CFDataRef SecCMSCreateCertificatesOnlyMessage(CFTypeRef cert_or_array_thereof) {
+CFDataRef SecCMSCreateCertificatesOnlyMessage(CFTypeRef cert_or_array_thereof)
+{
     OSStatus status = errSecParam;
     SecCmsMessageRef cmsg = NULL;
     SecCmsContentInfoRef cinfo;
@@ -528,61 +600,62 @@ CFDataRef SecCMSCreateCertificatesOnlyMessage(CFTypeRef cert_or_array_thereof) {
 
     require(cert_array, out);
     cert_array_count = CFArrayGetCount(cert_array);
-    require(cert_array_count > 0, out);
+    require(cert_array_count > 0 && cert_array_count < (long)((LONG_MAX / sizeof(SecAsn1Item*)) - 1), out);
 
-    sigd->rawCerts = (SecAsn1Item * *)PORT_ArenaAlloc(cmsg->poolp, (cert_array_count + 1) * sizeof(SecAsn1Item *));
+    sigd->rawCerts = (SecAsn1Item**)PORT_ArenaAlloc(
+        cmsg->poolp, (size_t)(cert_array_count + 1) * sizeof(SecAsn1Item*));
     require(sigd->rawCerts, out);
     CFIndex ix;
     for (ix = 0; ix < cert_array_count; ix++) {
         cert = (SecCertificateRef)CFArrayGetValueAtIndex(cert_array, ix);
-        require(cert, out);
+        require(cert && SecCertificateGetLength(cert) > 0, out);
 
         sigd->rawCerts[ix] = PORT_ArenaZAlloc(cmsg->poolp, sizeof(SecAsn1Item));
-        SecAsn1Item cert_data = { SecCertificateGetLength(cert),
-            (uint8_t *)SecCertificateGetBytePtr(cert) };
+        SecAsn1Item cert_data = {(size_t)SecCertificateGetLength(cert),
+                                 (uint8_t*)SecCertificateGetBytePtr(cert)};
         *(sigd->rawCerts[ix]) = cert_data;
     }
     sigd->rawCerts[ix] = NULL;
 
     /* this is a SET OF, so we need to sort them guys - we have the DER already, though */
     if (cert_array_count > 1)
-        SecCmsArraySort((void **)sigd->rawCerts, SecCmsUtilDERCompare, NULL, NULL);
+        SecCmsArraySort((void**)sigd->rawCerts, SecCmsUtilDERCompare, NULL, NULL);
 
     cert_only_signed_data = CFDataCreateMutable(kCFAllocatorDefault, 0);
     SecAsn1Item cert_only_signed_data_item = {};
-    require_quiet(SEC_ASN1EncodeItem(cmsg->poolp, &cert_only_signed_data_item,
-                                     cmsg, SecCmsMessageTemplate), out);
-    CFDataAppendBytes(cert_only_signed_data, cert_only_signed_data_item.Data,
-                      cert_only_signed_data_item.Length);
+    require_quiet(SEC_ASN1EncodeItem(cmsg->poolp, &cert_only_signed_data_item, cmsg, SecCmsMessageTemplate),
+                  out);
+    require_quiet(cert_only_signed_data_item.Length < LONG_MAX, out);
+    CFDataAppendBytes(
+        cert_only_signed_data, cert_only_signed_data_item.Data, (CFIndex)cert_only_signed_data_item.Length);
 
     status = errSecSuccess;
 out:
-    if (cert_array) { CFRelease(cert_array); }
-    if (status && cert_only_signed_data) { CFRelease(cert_only_signed_data); }
-    if (cmsg) SecCmsMessageDestroy(cmsg);
+    CFReleaseNull(cert_array);
+    if (status) {
+        CFReleaseNull(cert_only_signed_data);
+    }
+    if (cmsg) {
+        SecCmsMessageDestroy(cmsg);
+    }
     return cert_only_signed_data;
 }
 
 CFDataRef SecCMSCreateCertificatesOnlyMessageIAP(SecCertificateRef cert)
 {
     static const uint8_t header[] = {
-        0x30, 0x82, 0x03, 0x6d, 0x06, 0x09, 0x2a, 0x86,
-        0x48, 0x86, 0xf7, 0x0d, 0x01, 0x07, 0x02, 0xa0,
-        0x82, 0x03, 0x5e, 0x30, 0x82, 0x03, 0x5a, 0x02,
-        0x01, 0x01, 0x31, 0x00, 0x30, 0x0b, 0x06, 0x09,
-        0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x07,
-        0x01, 0xa0, 0x82, 0x03, 0x40
-    };
+        0x30, 0x82, 0x03, 0x6d, 0x06, 0x09, 0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d,
+        0x01, 0x07, 0x02, 0xa0, 0x82, 0x03, 0x5e, 0x30, 0x82, 0x03, 0x5a, 0x02,
+        0x01, 0x01, 0x31, 0x00, 0x30, 0x0b, 0x06, 0x09, 0x2a, 0x86, 0x48, 0x86,
+        0xf7, 0x0d, 0x01, 0x07, 0x01, 0xa0, 0x82, 0x03, 0x40};
 
-    static const uint8_t trailer[] = {
-        0xa1, 0x00, 0x31, 0x00
-    };
+    static const uint8_t trailer[] = {0xa1, 0x00, 0x31, 0x00};
 
     CFMutableDataRef message = NULL;
     CFDataRef certdata;
-    const uint8_t *certbytes;
+    const uint8_t* certbytes;
     CFIndex certlen;
-    uint8_t *messagebytes;
+    uint8_t* messagebytes;
     uint16_t messagelen;
 
     certdata = SecCertificateCopyData(cert);
@@ -620,15 +693,14 @@ CFDataRef SecCMSCreateCertificatesOnlyMessageIAP(SecCertificateRef cert)
     messagebytes[44] = messagelen & 0xFF;
 
 out:
-    if (certdata != NULL)
-    {
-        CFRelease(certdata);
-    }
+    CFReleaseNull(certdata);
     return message;
 }
 
 OSStatus SecCMSCreateEnvelopedData(CFTypeRef recipient_or_cfarray_thereof,
-                                   CFDictionaryRef params, CFDataRef data, CFMutableDataRef enveloped_data)
+                                   CFDictionaryRef params,
+                                   CFDataRef data,
+                                   CFMutableDataRef enveloped_data)
 {
     SecCmsMessageRef cmsg = NULL;
     SecCmsContentInfoRef cinfo;
@@ -636,7 +708,7 @@ OSStatus SecCMSCreateEnvelopedData(CFTypeRef recipient_or_cfarray_thereof,
     SECOidTag algorithmTag = SEC_OID_DES_EDE3_CBC;
     int keySize = 192;
     OSStatus status = errSecParam;
-    PLArenaPool *arena = NULL;
+    PLArenaPool* arena = NULL;
 
     if (params) {
         CFStringRef algorithm_name = CFDictionaryGetValue(params, kSecCMSBulkEncryptionAlgorithm);
@@ -661,23 +733,25 @@ OSStatus SecCMSCreateEnvelopedData(CFTypeRef recipient_or_cfarray_thereof,
 
     if (CFGetTypeID(recipient_or_cfarray_thereof) == CFArrayGetTypeID()) {
         CFIndex dex, numCerts = CFArrayGetCount(recipient_or_cfarray_thereof);
-        for(dex=0; dex<numCerts; dex++) {
+        for (dex = 0; dex < numCerts; dex++) {
             SecCertificateRef recip =
-            (SecCertificateRef)CFArrayGetValueAtIndex(recipient_or_cfarray_thereof, dex);
+                (SecCertificateRef)CFArrayGetValueAtIndex(recipient_or_cfarray_thereof, dex);
             SecCmsRecipientInfoRef rinfo;
             require(rinfo = SecCmsRecipientInfoCreate(cmsg, recip), out);
             require_noerr(SecCmsEnvelopedDataAddRecipient(envd, rinfo), out);
         }
     } else if (CFGetTypeID(recipient_or_cfarray_thereof) == SecCertificateGetTypeID()) {
         SecCmsRecipientInfoRef rinfo;
-        require(rinfo = SecCmsRecipientInfoCreate(cmsg, (SecCertificateRef)recipient_or_cfarray_thereof), out);
+        require(rinfo = SecCmsRecipientInfoCreate(cmsg, (SecCertificateRef)recipient_or_cfarray_thereof),
+                out);
         require_noerr(SecCmsEnvelopedDataAddRecipient(envd, rinfo), out);
-    } else
+    } else {
         goto out;
+    }
 
     SecAsn1Item input = {};
-    if (data) {
-        input.Length = CFDataGetLength(data);
+    if (data && CFDataGetLength(data) > 0) {
+        input.Length = (size_t)CFDataGetLength(data);
         input.Data = (uint8_t*)CFDataGetBytePtr(data);
     }
 
@@ -686,20 +760,23 @@ OSStatus SecCMSCreateEnvelopedData(CFTypeRef recipient_or_cfarray_thereof,
     if ((arena = PORT_NewArena(1024)) == NULL) {
         goto out;
     }
-    require_noerr(SecCmsMessageEncode(cmsg, (data && input.Length) ? &input : NULL, (SecArenaPoolRef)arena, &cssm_enveloped_data), out);
-    if (enveloped_data && cssm_enveloped_data.Data) {
-        CFDataAppendBytes(enveloped_data, cssm_enveloped_data.Data, cssm_enveloped_data.Length);
+    require_noerr(SecCmsMessageEncode(
+                      cmsg, (data && input.Length) ? &input : NULL, (SecArenaPoolRef)arena, &cssm_enveloped_data),
+                  out);
+    if (enveloped_data && cssm_enveloped_data.Data && cssm_enveloped_data.Length < LONG_MAX) {
+        CFDataAppendBytes(enveloped_data, cssm_enveloped_data.Data, (CFIndex)cssm_enveloped_data.Length);
     }
 
     status = errSecSuccess;
 out:
-    if (arena) PORT_FreeArena(arena, PR_FALSE);
-    if (cmsg) SecCmsMessageDestroy(cmsg);
+    if (arena)
+        PORT_FreeArena(arena, PR_FALSE);
+    if (cmsg)
+        SecCmsMessageDestroy(cmsg);
     return status;
 }
 
-OSStatus SecCMSDecryptEnvelopedData(CFDataRef message,
-                                    CFMutableDataRef data, SecCertificateRef *recipient)
+OSStatus SecCMSDecryptEnvelopedData(CFDataRef message, CFMutableDataRef data, SecCertificateRef* recipient)
 {
     SecCmsMessageRef cmsg = NULL;
     SecCmsContentInfoRef cinfo;
@@ -707,13 +784,17 @@ OSStatus SecCMSDecryptEnvelopedData(CFDataRef message,
     SecCertificateRef used_recipient = NULL;
     OSStatus status = errSecParam;
 
-    SecAsn1Item encoded_message = { CFDataGetLength(message), (uint8_t*)CFDataGetBytePtr(message) };
-    require_noerr_action_quiet(SecCmsMessageDecode(&encoded_message, NULL, NULL, NULL, NULL, NULL, NULL, &cmsg),
-                               out, status = errSecDecode);
+    require(message && CFDataGetLength(message) > 0, out);
+
+    SecAsn1Item encoded_message = {(size_t)CFDataGetLength(message), (uint8_t*)CFDataGetBytePtr(message)};
+    require_noerr_action_quiet(
+        SecCmsMessageDecode(&encoded_message, NULL, NULL, NULL, NULL, NULL, NULL, &cmsg),
+        out,
+        status = errSecDecode);
     require_quiet(cinfo = SecCmsMessageContentLevel(cmsg, 0), out);
     require_quiet(SecCmsContentInfoGetContentTypeTag(cinfo) == SEC_OID_PKCS7_ENVELOPED_DATA, out);
     require_quiet(envd = (SecCmsEnvelopedDataRef)SecCmsContentInfoGetContent(cinfo), out);
-    SecCmsRecipientInfoRef *rinfo = envd->recipientInfos;
+    SecCmsRecipientInfoRef* rinfo = envd->recipientInfos;
     while (!used_recipient && *rinfo) {
         used_recipient = (*rinfo)->cert;
         rinfo++;
@@ -721,15 +802,17 @@ OSStatus SecCMSDecryptEnvelopedData(CFDataRef message,
     require_quiet(2 == SecCmsMessageContentLevelCount(cmsg), out);
     require_quiet(cinfo = SecCmsMessageContentLevel(cmsg, 1), out);
     require_quiet(SecCmsContentInfoGetContentTypeTag(cinfo) == SEC_OID_PKCS7_DATA, out);
-    const SecAsn1Item *content = SecCmsMessageGetContent(cmsg);
-    if (content)
-        CFDataAppendBytes(data, content->Data, content->Length);
+    const SecAsn1Item* content = SecCmsMessageGetContent(cmsg);
+    if (content && content->Length < LONG_MAX) {
+        CFDataAppendBytes(data, content->Data, (CFIndex)content->Length);
+    }
     if (recipient) {
         CFRetainSafe(used_recipient);
         *recipient = used_recipient;
     }
     status = errSecSuccess;
 out:
-    if (cmsg) SecCmsMessageDestroy(cmsg);
+    if (cmsg)
+        SecCmsMessageDestroy(cmsg);
     return status;
 }

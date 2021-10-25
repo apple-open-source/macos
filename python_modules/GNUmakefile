@@ -25,6 +25,25 @@ TMPPREFIX = $(OBJROOT)/Root
 
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/Common.make
 
+ifneq ($(SDKROOT),)
+# libpython.tbd exists in /usr/local/lib if python is installed to AppleInternal builds. Otherwise, it's in /usr/lib.
+# Try the internal location first, and then fall back to the standard install.
+# We can follow its symlink to find sys.prefix for the SDK.
+_LIBPYTHONTBD := $(or $(wildcard $(SDKROOT)/usr/local/lib/libpython.tbd),$(SDKROOT)/usr/lib/libpython.tbd)
+LIBPYTHONTBD := $(shell python -c "from os.path import realpath; print(realpath('$(_LIBPYTHONTBD)').replace('$(SDKROOT)', ''))")
+export PYPREFIX := $(shell dirname $(LIBPYTHONTBD))
+else
+export PYPREFIX := $(shell python -c "import sys; print(sys.prefix)")
+endif
+
+export TOPDIR = $(shell echo $(PYPREFIX) | cut -d '/' -f2)
+ifeq ($(TOPDIR),AppleInternal)
+export INSTALLPREFIX = /usr/local
+else
+export INSTALLPREFIX = /usr
+endif
+export BINDIR = $(INSTALLPREFIX)/bin
+
 installsrc: afterinstallsrc
 
 afterinstallsrc:
@@ -83,13 +102,13 @@ build::
 	echo '</array>' && \
 	echo '</plist>') > $(DSTROOT)/usr/local/$(OSV)/$(Project).plist
 
-#merge: mergebegin mergedefault mergeversions mergebin mergeman
-merge: mergebegin mergeversions mergebin mergeman
+#merge: mergebegin mergedefault mergeversions mergebin
+merge: mergebegin mergeversions mergebin
 
 mergebegin:
 	@echo ####### Merging #######
 
-MERGEBIN = /usr/bin
+MERGEBIN = $(BINDIR)
 
 # This causes us to replace the versioner stub with the default version of perl.
 # Since we are now only shipping one version (5.18) and one slice (x86_64), there
@@ -107,7 +126,7 @@ mergebin:
 	        ln $(DSTROOT)$(MERGEBIN)/$$fv $(DSTROOT)$(MERGEBIN)/$$f; \
 	    fi || exit 1; \
 	done && \
-	cd $(DSTROOT)/System/Library/Frameworks/Python.framework/Versions/$(DEFAULT)/Extras/bin && \
+	cd $(DSTROOT)$(PYPREFIX)/../$(DEFAULT)/Extras/bin && \
 	for f in *; do \
 	    sed -e '/^1a/,/^\./d' -e "s/@VERSION@/$(DEFAULT)/g" $(FIX)/scriptvers.ed | ed - $$f || exit 1; \
 	done
@@ -127,7 +146,7 @@ mergebin:
 		    ln -f $(DSTROOT)$(MERGEBIN)/$(DUMMY) $(DSTROOT)$(MERGEBIN)/$$f; \
 		fi || exit 1; \
 	    done && \
-	    cd $(DSTROOT)/System/Library/Frameworks/Python.framework/Versions/$$vers/Extras/bin && \
+	    cd $(DSTROOT)$(PYPREFIX)/../$$vers/Extras/bin && \
 	    for f in *; do \
 		sed -e '/^1a/,/^\./d' -e "s/@VERSION@/$$vers/g" $(FIX)/scriptvers.ed | ed - $$f || exit 1; \
 	    done || exit 1; \
@@ -135,15 +154,11 @@ mergebin:
 	rm -f $(DSTROOT)$(MERGEBIN)/$(DUMMY)
 endif
 
-
+MERGEVERSIONS = $(TOPDIR)
 mergeversions:
 	@set -x && \
 	for vers in $(VERSIONS); do \
 	    cd $(OBJROOT)/$$vers/DSTROOT && \
-	    rsync -Ra System $(DSTROOT) || exit 1; \
+	    rsync -Ra $(MERGEVERSIONS) $(DSTROOT) || exit 1; \
 	    rsync -Ra AppleInternal/Library/Python $(DSTROOT) || exit 1; \
 	done
-
-MERGEMAN = usr/share/man
-mergeman:
-	cd $(OBJROOT)/$(DEFAULT)/DSTROOT && rsync -Ra $(MERGEMAN) $(DSTROOT)

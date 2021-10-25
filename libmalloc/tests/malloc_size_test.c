@@ -43,12 +43,6 @@ T_DECL(malloc_size_valid, "Test malloc_size() on valid pointers, non-Nano",
 	test_malloc_size_valid(8192, 65536, 1024);
 }
 
-T_DECL(malloc_size_valid_nanov1, "Test malloc_size() on valid pointers for Nanov1",
-	   T_META_ENVVAR("MallocNanoZone=V1"))
-{
-	test_malloc_size_valid(2, 256, 16);
-}
-
 T_DECL(malloc_size_valid_nanov2, "Test malloc_size() on valid pointers for Nanov2",
 	   T_META_ENVVAR("MallocNanoZone=V2"))
 {
@@ -62,12 +56,6 @@ T_DECL(malloc_size_invalid, "Test malloc_size() on invalid pointers, non-Nano",
 	test_malloc_size_invalid(2, 256, 16);
 	test_malloc_size_invalid(512, 8192, 256);
 	test_malloc_size_invalid(8192, 32768, 1024);
-}
-
-T_DECL(malloc_size_invalid_nanov1, "Test malloc_size() on valid pointers for Nanov1",
-	   T_META_ENVVAR("MallocNanoZone=V1"))
-{
-	test_malloc_size_invalid(2, 256, 16);
 }
 
 T_DECL(malloc_size_invalid_nanov2, "Test malloc_size() on valid pointers for Nanov2",

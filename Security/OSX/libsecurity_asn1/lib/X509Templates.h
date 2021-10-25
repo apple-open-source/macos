@@ -42,6 +42,9 @@
 extern "C" {
 #endif
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+
 // MARK: --- X509 Validity support ---
 
 /* 
@@ -55,14 +58,16 @@ extern "C" {
  * The low-level time values are eitehr Generalized Time 
  * (SEC_ASN1_GENERALIZED_TIME) or UTC time (SEC_ASN1_UTC_TIME).
  */
-typedef NSS_TaggedItem	NSS_Time;
+typedef NSS_TaggedItem	NSS_Time SEC_ASN1_API_DEPRECATED;
 
-typedef struct  {
+extern const SecAsn1Template kSecAsn1TimeTemplate[] SEC_ASN1_API_DEPRECATED;
+
+typedef struct  SEC_ASN1_API_DEPRECATED {
     NSS_Time notBefore;	
     NSS_Time notAfter;		
-} NSS_Validity;
+} NSS_Validity SEC_ASN1_API_DEPRECATED;
 
-extern const SecAsn1Template kSecAsn1ValidityTemplate[];
+extern const SecAsn1Template kSecAsn1ValidityTemplate[] SEC_ASN1_API_DEPRECATED;
 
 // MARK: --- Certificate ---
 
@@ -74,18 +79,15 @@ extern const SecAsn1Template kSecAsn1ValidityTemplate[];
  * With a nontrivial amount of extension-specific processing,
  * this maps to a CSSM_X509_EXTENSION.
  */
-typedef struct {
+typedef struct SEC_ASN1_API_DEPRECATED {
     SecAsn1Item extnId;
     SecAsn1Item critical;		// optional, default = false
     SecAsn1Item value;		// OCTET string whose decoded value is
 							// an id-specific DER-encoded thing
-} NSS_CertExtension;
+} NSS_CertExtension SEC_ASN1_API_DEPRECATED;
 
-extern const SecAsn1Template kSecAsn1CertExtensionTemplate[];
-extern const SecAsn1Template kSecAsn1SequenceOfCertExtensionTemplate[];
-
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+extern const SecAsn1Template kSecAsn1CertExtensionTemplate[] SEC_ASN1_API_DEPRECATED;
+extern const SecAsn1Template kSecAsn1SequenceOfCertExtensionTemplate[] SEC_ASN1_API_DEPRECATED;
 
 /*
  * X.509 certificate object (the unsigned form)
@@ -93,7 +95,7 @@ extern const SecAsn1Template kSecAsn1SequenceOfCertExtensionTemplate[];
  * ASN class : TBSCertificate
  * C struct  : NSS_TBSCertificate
  */
-typedef struct  {
+typedef struct SEC_ASN1_API_DEPRECATED {
     SecAsn1Item 							version;			// optional
     SecAsn1Item 							serialNumber;
     SecAsn1AlgId 		signature;
@@ -111,9 +113,9 @@ typedef struct  {
 	 */
 	SecAsn1Item							derIssuer;
 	SecAsn1Item							derSubject;	
-} NSS_TBSCertificate;
+} NSS_TBSCertificate SEC_ASN1_API_DEPRECATED;
 
-extern const SecAsn1Template kSecAsn1TBSCertificateTemplate[];
+extern const SecAsn1Template kSecAsn1TBSCertificateTemplate[] SEC_ASN1_API_DEPRECATED;
 
 /*
  * Fully specified signed certificate.
@@ -121,13 +123,13 @@ extern const SecAsn1Template kSecAsn1TBSCertificateTemplate[];
  * ASN class : Certificate
  * C struct  : NSS_Certificate
  */
-typedef struct {
+typedef struct SEC_ASN1_API_DEPRECATED {
 	NSS_TBSCertificate				tbs;
     SecAsn1AlgId 	signatureAlgorithm;
     SecAsn1Item 						signature;// BIT STRING, length in bits	
-} NSS_Certificate;
+} NSS_Certificate SEC_ASN1_API_DEPRECATED;
 
-extern const SecAsn1Template kSecAsn1SignedCertTemplate[];
+extern const SecAsn1Template kSecAsn1SignedCertTemplate[] SEC_ASN1_API_DEPRECATED;
 
 // MARK: --- CRL ---
 
@@ -135,21 +137,21 @@ extern const SecAsn1Template kSecAsn1SignedCertTemplate[];
  * ASN class : revokedCertificate
  * C struct  : NSS_RevokedCert
  */
-typedef struct {
+typedef struct SEC_ASN1_API_DEPRECATED {
 	SecAsn1Item			userCertificate;	// serial number
 	NSS_Time			revocationDate;
     NSS_CertExtension 	**extensions;		// optional
-} NSS_RevokedCert;
+} NSS_RevokedCert SEC_ASN1_API_DEPRECATED;
 
-extern const SecAsn1Template kSecAsn1RevokedCertTemplate[];
-extern const SecAsn1Template kSecAsn1SequenceOfRevokedCertTemplate[];
+extern const SecAsn1Template kSecAsn1RevokedCertTemplate[] SEC_ASN1_API_DEPRECATED;
+extern const SecAsn1Template kSecAsn1SequenceOfRevokedCertTemplate[] SEC_ASN1_API_DEPRECATED;
 
 /*
  * X509 Cert Revocation List (the unsigned form)
  * ASN class : TBSCertList
  * C struct  : NSS_TBSCrl
  */
-typedef struct {
+typedef struct SEC_ASN1_API_DEPRECATED {
     SecAsn1Item 							version;		// optional
     SecAsn1AlgId 		signature;
     NSS_Name 							issuer;
@@ -164,9 +166,9 @@ typedef struct {
 	 */
 	SecAsn1Item							derIssuer;
 	
-} NSS_TBSCrl;
+} NSS_TBSCrl SEC_ASN1_API_DEPRECATED;
 
-extern const SecAsn1Template kSecAsn1TBSCrlTemplate[];
+extern const SecAsn1Template kSecAsn1TBSCrlTemplate[] SEC_ASN1_API_DEPRECATED;
 
 /*
  * Fully specified signed CRL.
@@ -174,26 +176,26 @@ extern const SecAsn1Template kSecAsn1TBSCrlTemplate[];
  * ASN class : CertificateList
  * C struct  : NSS_CRL
  */
-typedef struct {
+typedef struct SEC_ASN1_API_DEPRECATED {
 	NSS_TBSCrl						tbs;
     SecAsn1AlgId 	signatureAlgorithm;
     SecAsn1Item 						signature;// BIT STRING, length in bits	
-} NSS_Crl;
+} NSS_Crl SEC_ASN1_API_DEPRECATED;
 
-extern const SecAsn1Template kSecAsn1SignedCrlTemplate[];
+extern const SecAsn1Template kSecAsn1SignedCrlTemplate[] SEC_ASN1_API_DEPRECATED;
 
 /* 
  * signed data - top-level view of a signed Cert or CRL, for
  * signing and verifying only. Treats the TBS and AlgId portions 
  * as opaque ASN_ANY blobs.
  */
-typedef struct {
+typedef struct SEC_ASN1_API_DEPRECATED {
     SecAsn1Item 						tbsBlob;  // ANY, DER encoded cert or CRL
     SecAsn1Item 						signatureAlgorithm;
     SecAsn1Item 						signature;// BIT STRING, length in bits	
-} NSS_SignedCertOrCRL;
+} NSS_SignedCertOrCRL SEC_ASN1_API_DEPRECATED;
 
-extern const SecAsn1Template kSecAsn1SignedCertOrCRLTemplate[];
+extern const SecAsn1Template kSecAsn1SignedCertOrCRLTemplate[] SEC_ASN1_API_DEPRECATED;
 
 #pragma clang diagnostic pop
 

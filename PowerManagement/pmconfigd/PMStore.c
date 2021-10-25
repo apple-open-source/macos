@@ -34,7 +34,7 @@ __private_extern__ void dynamicStoreNotifyCallBack(
     void                *info);
 
 
-void PMStoreLoad()
+void PMStoreLoad(void)
 {
     gPMStore = CFDictionaryCreateMutable(0, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
 

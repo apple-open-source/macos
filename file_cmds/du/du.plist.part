@@ -1,0 +1,19 @@
+	<dict>
+		<key>OpenSourceImportDate</key>
+		<string>2021-05-13</string>
+		<key>OpenSourceLicense</key>
+		<string>bsd</string>
+		<key>OpenSourceModifications</key>
+		<array>
+			<string>du.c, du.1: sync with upstream FreeBSD (72901501)</string>
+			<string>du.c: set NOCHDIR (4924219)</string>
+			<string>du.c: prevent materializing dataless directories upon traversal (44903941)</string>
+			<string>du.c: don't cd in /dev/fd/</string>
+		</array>
+		<key>OpenSourceProject</key>
+		<string>du</string>
+		<key>OpenSourceVersion</key>
+		<string>2021-02-03</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>https://cgit.freebsd.org/src/tree/usr.bin/du/</string>
+	</dict>

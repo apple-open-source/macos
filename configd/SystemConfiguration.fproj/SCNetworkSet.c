@@ -214,8 +214,25 @@ _serviceOrder_clear(CFMutableArrayRef order, CFStringRef serviceID)
 }
 
 
+static CFIndex
+_serviceOrder_count(CFArrayRef order, CFStringRef serviceID)
+{
+	CFIndex	f	= 0;	// # of serviceID's found
+
+	for (CFIndex i = 0, n = CFArrayGetCount(order); i < n; i++) {
+		CFStringRef	thisServiceID	= CFArrayGetValueAtIndex(order, i);
+
+		if (CFEqual(thisServiceID, serviceID)) {
+			f++;
+		}
+	}
+
+	return f;
+}
+
+
 static void
-_serviceOrder_add(SCNetworkSetRef set, SCNetworkServiceRef service)
+_serviceOrder_add(SCNetworkSetRef set, SCNetworkServiceRef service, Boolean update)
 {
 	CFIndex			n;
 	CFMutableArrayRef	newOrder;
@@ -233,12 +250,43 @@ _serviceOrder_add(SCNetworkSetRef set, SCNetworkServiceRef service)
 	}
 	assert(newOrder != NULL);
 
-	n = _serviceOrder_clear(newOrder, serviceID);
-	if (n > 0) {
-		SC_log(LOG_ERR, "SCNetworkSetAddService() w/service already in ServiceOrder\n  service = %@\n  matched = %ld",
-		       service,
-		       n);
-		_SC_crash_once("SCNetworkSetAddService() w/service already in ServiceOrder", NULL, NULL);
+	n = _serviceOrder_count(newOrder, serviceID);
+	switch (n) {
+	    case 0 :
+		if (!update) {
+			// we're simply adding a new service
+		} else {
+			// we're updating a service that is not currently (but should be) referenced in the service order.
+			SC_log(LOG_ERR, "SCNetworkSetAddService() w/updated service not in ServiceOrder\n  service = %@",
+			       service);
+			_SC_crash_once("SCNetworkSetAddService() w/updated service not in ServiceOrder", NULL, NULL);
+		}
+		break;
+	    case 1 :
+		// Here, we have one of two cases :
+		//
+		// 1. if we're adding a service then the expectation is that it will not be referenced in the
+		//    service order.  With a single reference the likelihood is that the link was removed and
+		//    is simply being restored.  Let's just keep the ordering (and not complain).
+		//
+		// 2. if we're updating a network service and there is exactly one existing reference in the
+		//    service order then we're good.
+		//
+		CFRelease(newOrder);
+		return;
+	    default :
+		// if the service is being added (or updated) then the expectation is that it will have 0 (or exactly 1)
+		// reference in the service order.  Multiple references to the same service indicates an issue with the
+		// configuration.
+		SC_log(LOG_ERR, "SCNetworkSetAddService() %sservice w/multiple ServiceOrder references (x%ld)\n  service = %@",
+		       update ? "" : "new ",
+		       n,
+		       service);
+		_SC_crash_once("SCNetworkSetAddService() w/multiple ServiceOrder references", NULL, NULL);
+
+		// clear all references (and start fresh)
+		(void) _serviceOrder_clear(newOrder, serviceID);
+		break;
 	}
 
 	newSlot = 0;
@@ -474,6 +522,7 @@ SCNetworkSetAddService(SCNetworkSetRef set, SCNetworkServiceRef service)
 	CFStringRef			path;
 	SCNetworkServicePrivateRef	servicePrivate		= (SCNetworkServicePrivateRef)service;
 	SCNetworkSetPrivateRef		setPrivate		= (SCNetworkSetPrivateRef)set;
+	Boolean				update			= FALSE;
 
 	if (!isA_SCNetworkSet(set)) {
 		_SCErrorSet(kSCStatusInvalidArgument);
@@ -551,11 +600,18 @@ SCNetworkSetAddService(SCNetworkSetRef set, SCNetworkServiceRef service)
 		interface_config = __SCNetworkInterfaceCopyDeepConfiguration(set, interface);
 	}
 
-	// create the link between "set" and the "service"
+	// check to see if we are adding (or replacing) the service
 	path = SCPreferencesPathKeyCreateSetNetworkServiceEntity(NULL,				// allocator
 								 setPrivate->setID,		// set
 								 servicePrivate->serviceID,     // service
 								 NULL);				// entity
+	link = SCPreferencesPathGetLink(setPrivate->prefs, path);
+	if (link != NULL) {
+		// if we're really updating/replacing an existing service
+		update = TRUE;
+	}
+
+	// create the link between "set" and the "service"
 	link = SCPreferencesPathKeyCreateNetworkServiceEntity(NULL,				// allocator
 							      servicePrivate->serviceID,	// service
 							      NULL);				// entity
@@ -587,7 +643,7 @@ SCNetworkSetAddService(SCNetworkSetRef set, SCNetworkServiceRef service)
 	}
 
 	// add service to ServiceOrder
-	_serviceOrder_add(set, service);
+	_serviceOrder_add(set, service, update);
 
 	// mark set as no longer "new"
 	setPrivate->established = TRUE;
@@ -935,8 +991,7 @@ SCNetworkSetCreate(SCPreferencesRef prefs)
 	SCNetworkSetPrivateRef	setPrivate;
 
 	prefix = SCPreferencesPathKeyCreateSets(NULL);
-	path = __SCPreferencesPathCreateUniqueChild_WithMoreSCFCompatibility(prefs, prefix);
-	if (path == NULL) path = SCPreferencesPathCreateUniqueChild(prefs, prefix);
+	path = SCPreferencesPathCreateUniqueChild(prefs, prefix);
 	CFRelease(prefix);
 	if (path == NULL) {
 		return NULL;
@@ -1208,12 +1263,39 @@ SCNetworkSetRemove(SCNetworkSetRef set)
 }
 
 
+static Boolean
+hasServiceWithInterface(SCNetworkSetRef set, SCNetworkInterfaceRef interface)
+{
+	Boolean		found	= FALSE;
+	CFArrayRef	services;
+
+	services = SCNetworkSetCopyServices(set);
+	if (services != NULL) {
+		for (CFIndex i = 0, n = CFArrayGetCount(services); i < n; i++) {
+			SCNetworkServiceRef	service;
+			SCNetworkInterfaceRef	service_interface;
+
+			service = CFArrayGetValueAtIndex(services, i);
+			service_interface = SCNetworkServiceGetInterface(service);
+			if (CFEqual(interface, service_interface)) {
+				found = TRUE;
+				break;
+			}
+
+		}
+
+		CFRelease(services);
+	}
+
+	return found;
+}
+
+
 Boolean
 SCNetworkSetRemoveService(SCNetworkSetRef set, SCNetworkServiceRef service)
 {
-	SCNetworkInterfaceRef		interface;
-	CFArrayRef			interface_config	= NULL;
-	Boolean				ok;
+	CFStringRef			link;
+	Boolean				ok			= TRUE;
 	CFStringRef			path;
 	int				sc_status		= kSCStatusOK;
 	SCNetworkServicePrivateRef	servicePrivate		= (SCNetworkServicePrivateRef)service;
@@ -1250,32 +1332,83 @@ SCNetworkSetRemoveService(SCNetworkSetRef set, SCNetworkServiceRef service)
 	// remove service from ServiceOrder
 	_serviceOrder_remove(set, service);
 
-	// get the [deep] interface configuration settings
-	interface = SCNetworkServiceGetInterface(service);
-	if (interface != NULL) {
-		interface_config = __SCNetworkInterfaceCopyDeepConfiguration(set, interface);
-		if (interface_config != NULL) {
-			// remove the interface configuration from all sets which contain this service.
-			__SCNetworkInterfaceSetDeepConfiguration(set, interface, NULL);
-		}
-	}
-
-	// remove the link between "set" and the "service"
+	// check if the service is a member of the set
 	path = SCPreferencesPathKeyCreateSetNetworkServiceEntity(NULL,
 								 setPrivate->setID,
 								 servicePrivate->serviceID,
 								 NULL);
-	ok = SCPreferencesPathRemoveValue(setPrivate->prefs, path);
-	if (!ok) {
-		sc_status = SCError();	// preserve the error
+	link = SCPreferencesPathGetLink(setPrivate->prefs, path);
+	if (link != NULL) {
+		SCNetworkInterfaceRef	interface;
+		CFArrayRef		interface_config		= NULL;
+		CFTypeRef		interface_DisablePrivateRelay	= NULL;
+		CFTypeRef		interface_DisableUntilNeeded	= NULL;
+
+		// get the [deep] interface configuration
+		interface = SCNetworkServiceGetInterface(service);
+		if (interface != NULL) {
+			// get per-set interface configuration
+			interface_config = __SCNetworkInterfaceCopyDeepConfiguration(set, interface);
+			if (interface_config != NULL) {
+				__SCNetworkInterfaceSetDeepConfiguration(set, interface, NULL);
+			}
+
+			// get [per-set] DisablePrivateRelay configuration
+			interface_DisablePrivateRelay = __SCNetworkInterfaceGetDisablePrivateRelayValue(interface);
+			if (interface_DisablePrivateRelay != NULL) {
+				CFRetain(interface_DisablePrivateRelay);
+				__SCNetworkInterfaceSetDisablePrivateRelayValue(interface, NULL);
+			}
+
+			// get [per-set] DisableUntilNeeded configuration
+			interface_DisableUntilNeeded = __SCNetworkInterfaceGetDisableUntilNeededValue(interface);
+			if (interface_DisableUntilNeeded != NULL) {
+				CFRetain(interface_DisableUntilNeeded);
+				__SCNetworkInterfaceSetDisableUntilNeededValue(interface, NULL);
+			}
+		}
+
+		// remove the service [link]
+		ok = SCPreferencesPathRemoveValue(setPrivate->prefs, path);
+		if (!ok) {
+			sc_status = SCError();	// preserve the error
+		}
+
+		// if we have an interface configuration AND the set still
+		// contains a service referencing the same interface then
+		// we need to push back the interface configuration; else
+		// we should set (restore) the default configuration.
+		if ((interface_config != NULL) ||
+		    (interface_DisablePrivateRelay != NULL) ||
+		    (interface_DisableUntilNeeded != NULL)) {
+			Boolean	retain;
+
+			retain = hasServiceWithInterface(set, interface);
+
+			if (interface_config != NULL) {
+				// update per-set interface configuration
+				__SCNetworkInterfaceSetDeepConfiguration(set,
+									 interface,
+									 retain ? interface_config : NULL);
+				CFRelease(interface_config);
+			}
+
+			if (interface_DisablePrivateRelay != NULL) {
+				// update [per-set] DisablePrivateRelay configuration
+				__SCNetworkInterfaceSetDisablePrivateRelayValue(interface,
+										retain ? interface_DisablePrivateRelay : NULL);
+				CFRelease(interface_DisablePrivateRelay);
+			}
+
+			if (interface_DisableUntilNeeded != NULL) {
+				// update [per-set] DisableUntilNeeded configuration
+				__SCNetworkInterfaceSetDisableUntilNeededValue(interface,
+									       retain ? interface_DisableUntilNeeded : NULL);
+				CFRelease(interface_DisableUntilNeeded);
+			}
+		}
 	}
 	CFRelease(path);
-
-	// push the [deep] interface configuration [back] into all sets which contain the service.
-	if (interface_config != NULL) {
-		__SCNetworkInterfaceSetDeepConfiguration(set, interface, interface_config);
-		CFRelease(interface_config);
-	}
 
 	if (ok) {
 		SC_log(LOG_DEBUG, "SCNetworkSetRemoveService(): %@, %@", set, service);
@@ -1542,10 +1675,18 @@ SCNetworkSetSetServiceOrder(SCNetworkSetRef set, CFArrayRef newOrder)
 			SC_log(LOG_ERR, "SCNetworkSetSetServiceOrder() found duplicate serviceID: removed %@\n", serviceID);
 		}
 	}
-	CFDictionarySetValue(newDict, kSCPropNetServiceOrder, cleanOrder);
+	if (CFArrayGetCount(cleanOrder) > 0) {
+		CFDictionarySetValue(newDict, kSCPropNetServiceOrder, cleanOrder);
+	} else {
+		CFDictionaryRemoveValue(newDict, kSCPropNetServiceOrder);
+	}
 	CFRelease(cleanOrder);
 
-	ok = SCPreferencesPathSetValue(setPrivate->prefs, path, newDict);
+	if (CFDictionaryGetCount(newDict) > 0) {
+		ok = SCPreferencesPathSetValue(setPrivate->prefs, path, newDict);
+	} else {
+		ok = SCPreferencesPathRemoveValue(setPrivate->prefs, path);
+	}
 	CFRelease(newDict);
 	CFRelease(path);
 

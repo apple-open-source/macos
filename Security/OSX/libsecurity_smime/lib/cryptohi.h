@@ -36,8 +36,8 @@
 #ifndef _CRYPTOHI_H_
 #define _CRYPTOHI_H_
 
-#include <security_asn1/seccomon.h>
 #include <Security/SecCmsBase.h>
+#include <security_asn1/seccomon.h>
 
 
 SEC_BEGIN_PROTOS
@@ -81,8 +81,8 @@ extern CSSM_ALGORITHMS SECOID_FindyCssmAlgorithmByTag(SECOidTag algTag);
 **	"algid" the signature/hash algorithm to sign with 
 **		(must be compatible with the key type).
 */
-extern SECStatus SEC_SignData(SECItem *result, unsigned char *buf, int len,
-			     SecPrivateKeyRef pk, SECOidTag digAlgTag, SECOidTag sigAlgTag);
+extern SECStatus
+SEC_SignData(SECItem* result, unsigned char* buf, int len, SecPrivateKeyRef pk, SECOidTag digAlgTag, SECOidTag sigAlgTag);
 
 /*
 ** Sign a pre-digested block of data using private key encryption, encoding
@@ -92,8 +92,8 @@ extern SECStatus SEC_SignData(SECItem *result, unsigned char *buf, int len,
 **	"pk" the private key to encrypt with
 **	"algtag" The algorithm tag to encode (need for RSA only)
 */
-extern SECStatus SGN_Digest(SecPrivateKeyRef privKey,
-                SECOidTag digAlgTag, SECOidTag sigAlgTag, SECItem *result, SECItem *digest);
+extern SECStatus
+SGN_Digest(SecPrivateKeyRef privKey, SECOidTag digAlgTag, SECOidTag sigAlgTag, SECItem* result, SECItem* digest);
 
 /****************************************/
 /*
@@ -111,8 +111,12 @@ extern SECStatus SGN_Digest(SecPrivateKeyRef privKey,
 **	"algid" specifies the signing algorithm to use.  This must match
 **	    the key type.
 **/
-extern SECStatus VFY_VerifyDigest(SECItem *dig, SecPublicKeyRef key,
-				  SECItem *sig, SECOidTag digAlgTag, SECOidTag sigAlgTag, void *wincx);
+extern SECStatus VFY_VerifyDigest(SECItem* dig,
+                                  SecPublicKeyRef key,
+                                  SECItem* sig,
+                                  SECOidTag digAlgTag,
+                                  SECOidTag sigAlgTag,
+                                  void* wincx);
 
 /*
 ** Verify the signature on a block of data. The signature data is an RSA
@@ -124,18 +128,20 @@ extern SECStatus VFY_VerifyDigest(SECItem *dig, SecPublicKeyRef key,
 **	"algid" specifies the signing algorithm to use.  This must match
 **	    the key type.
 */
-extern SECStatus VFY_VerifyData(unsigned char *buf, int len,
-				SecPublicKeyRef key, SECItem *sig,
-				SECOidTag digAlgTag, SECOidTag sigAlgTag, void *wincx);
+extern SECStatus VFY_VerifyData(unsigned char* buf,
+                                int len,
+                                SecPublicKeyRef key,
+                                SECItem* sig,
+                                SECOidTag digAlgTag,
+                                SECOidTag sigAlgTag,
+                                void* wincx);
 
 
-
-extern SECStatus WRAP_PubWrapSymKey(SecPublicKeyRef publickey,
-				    SecSymmetricKeyRef bulkkey,
-				    CSSM_DATA_PTR encKey);
+extern SECStatus WRAP_PubWrapSymKey(SecPublicKeyRef publickey, SecSymmetricKeyRef bulkkey, CSSM_DATA_PTR encKey);
 
 
-extern SecSymmetricKeyRef WRAP_PubUnwrapSymKey(SecPrivateKeyRef privkey, CSSM_DATA_PTR encKey, SECOidTag bulkalgtag);
+extern SecSymmetricKeyRef
+WRAP_PubUnwrapSymKey(SecPrivateKeyRef privkey, CSSM_DATA_PTR encKey, SECOidTag bulkalgtag);
 
 CFStringRef SECOID_CopyKeyTypeByTag(SECOidTag tag);
 

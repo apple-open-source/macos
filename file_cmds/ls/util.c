@@ -1,4 +1,6 @@
 /*-
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
  * Copyright (c) 1989, 1993, 1994
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -13,7 +15,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -36,7 +38,7 @@ static char sccsid[] = "@(#)util.c	8.3 (Berkeley) 4/2/94";
 #endif /* not lint */
 #endif
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/bin/ls/util.c,v 1.38 2005/06/03 11:05:58 dd Exp $");
+__FBSDID("$FreeBSD$");
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -132,7 +134,7 @@ prn_printable(const char *s)
  * to fix this as an efficient fix would involve a lookup table. Same goes
  * for the rather inelegant code in prn_octal.
  *
- *                                              DES 1998/04/23
+ *						DES 1998/04/23
  */
 
 size_t
@@ -175,7 +177,7 @@ prn_octal(const char *s)
 	size_t clen;
 	unsigned char ch;
 	int goodchar, i, len, prtlen;
-	
+
 	memset(&mbs, 0, sizeof(mbs));
 	len = 0;
 	while ((clen = mbrtowc(&wc, s, MB_LEN_MAX, &mbs)) != 0) {
@@ -184,7 +186,10 @@ prn_octal(const char *s)
 			for (i = 0; i < (int)clen; i++)
 				putchar((unsigned char)s[i]);
 			len += wcwidth(wc);
-		} else if (goodchar && f_octal_escape && wc >= 0 &&
+		} else if (goodchar && f_octal_escape &&
+#if WCHAR_MIN < 0
+                    wc >= 0 &&
+#endif
 		    wc <= (wchar_t)UCHAR_MAX &&
 		    (p = strchr(esc, (char)wc)) != NULL) {
 			putchar('\\');
@@ -200,9 +205,9 @@ prn_octal(const char *s)
 			for (i = 0; i < prtlen; i++) {
 				ch = (unsigned char)s[i];
 				putchar('\\');
-		                putchar('0' + (ch >> 6));
-		                putchar('0' + ((ch >> 3) & 7));
-		                putchar('0' + (ch & 7));
+				putchar('0' + (ch >> 6));
+				putchar('0' + ((ch >> 3) & 7));
+				putchar('0' + (ch & 7));
 				len += 4;
 			}
 		}
@@ -222,9 +227,9 @@ usage(void)
 {
 	(void)fprintf(stderr,
 #ifdef COLORLS
-	"usage: ls [-@ABCFGHLOPRSTUWabcdefghiklmnopqrstuwx1%%]"
+	"usage: ls [-@ABCFGHILOPRSTUWabcdefghiklmnopqrstuvwxy1%%,] [--color=when] [-D format]"
 #else
-	"usage: ls [-@ABCFHLOPRSTUWabcdefghiklmnopqrstuwx1%%]"
+	"usage: ls [-@ABCFHILOPRSTUWabcdefghiklmnopqrstuvwxy1%%,] [-D format]"
 #endif
 		      " [file ...]\n");
 	exit(1);

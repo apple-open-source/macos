@@ -187,12 +187,15 @@ out:
 
 static bool nc_compare_DNSNames(const DERItem *certName, const DERItem *subtreeName) {
     bool result = false;
-    CFStringRef certName_str = CFStringCreateWithBytes(kCFAllocatorDefault,
-                                                       certName->data, certName->length,
-                                                       kCFStringEncodingUTF8, FALSE);
-    CFStringRef subtreeName_str = CFStringCreateWithBytes(kCFAllocatorDefault,
-                                                          subtreeName->data, subtreeName->length,
-                                                          kCFStringEncodingUTF8, FALSE);
+    CFStringRef certName_str = NULL, subtreeName_str = NULL;
+    require_quiet(certName->length < LONG_MAX, out);
+    require_quiet(subtreeName->length < LONG_MAX, out);
+    certName_str = CFStringCreateWithBytes(kCFAllocatorDefault,
+                                           certName->data, (CFIndex)certName->length,
+                                           kCFStringEncodingUTF8, FALSE);
+    subtreeName_str = CFStringCreateWithBytes(kCFAllocatorDefault,
+                                              subtreeName->data, (CFIndex)subtreeName->length,
+                                              kCFStringEncodingUTF8, FALSE);
     require_quiet(certName_str, out);
     require_quiet(subtreeName_str, out);
 
@@ -208,12 +211,15 @@ out:
 
 static bool nc_compare_URIs(const DERItem *certName, const DERItem *subtreeName) {
     bool result = false;
-    CFStringRef certName_str = CFStringCreateWithBytes(kCFAllocatorDefault,
-                                                       certName->data, certName->length,
-                                                       kCFStringEncodingUTF8, FALSE);
-    CFStringRef subtreeName_str = CFStringCreateWithBytes(kCFAllocatorDefault,
-                                                          subtreeName->data, subtreeName->length,
-                                                          kCFStringEncodingUTF8, FALSE);
+    CFStringRef certName_str = NULL, subtreeName_str = NULL;
+    require_quiet(certName->length < LONG_MAX, out);
+    require_quiet(subtreeName->length < LONG_MAX, out);
+    certName_str = CFStringCreateWithBytes(kCFAllocatorDefault,
+                                           certName->data, (CFIndex)certName->length,
+                                           kCFStringEncodingUTF8, FALSE);
+    subtreeName_str = CFStringCreateWithBytes(kCFAllocatorDefault,
+                                              subtreeName->data, (CFIndex)subtreeName->length,
+                                              kCFStringEncodingUTF8, FALSE);
     require_quiet(certName_str, out);
     require_quiet(subtreeName_str, out);
     
@@ -229,12 +235,15 @@ out:
 
 static bool nc_compare_RFC822Names(const DERItem *certName, const DERItem *subtreeName) {
     bool result = false;
-    CFStringRef certName_str = CFStringCreateWithBytes(kCFAllocatorDefault,
-                                                       certName->data, certName->length,
-                                                       kCFStringEncodingUTF8, FALSE);
-    CFStringRef subtreeName_str = CFStringCreateWithBytes(kCFAllocatorDefault,
-                                                          subtreeName->data, subtreeName->length,
-                                                          kCFStringEncodingUTF8, FALSE);
+    CFStringRef certName_str = NULL, subtreeName_str = NULL;
+    require_quiet(certName->length < LONG_MAX, out);
+    require_quiet(subtreeName->length < LONG_MAX, out);
+    certName_str = CFStringCreateWithBytes(kCFAllocatorDefault,
+                                           certName->data, (CFIndex)certName->length,
+                                           kCFStringEncodingUTF8, FALSE);
+    subtreeName_str = CFStringCreateWithBytes(kCFAllocatorDefault,
+                                              subtreeName->data, (CFIndex)subtreeName->length,
+                                              kCFStringEncodingUTF8, FALSE);
     require_quiet(certName_str, out);
     require_quiet(subtreeName_str, out);
     
@@ -331,9 +340,9 @@ static OSStatus nc_compare_subtree(void *context, SecCEGeneralNameType gnType, c
 static void nc_decode_and_compare_subtree(const void *value, void *context) {
     CFDataRef subtree = value;
     nc_match_context_t *match_context = context;
-    if (subtree) {
+    if (subtree && CFDataGetLength(subtree) > 0) {
         /* convert subtree to DERItem */
-        const DERItem general_name = { (unsigned char *)CFDataGetBytePtr(subtree), CFDataGetLength(subtree) };
+        const DERItem general_name = { (unsigned char *)CFDataGetBytePtr(subtree), (size_t)CFDataGetLength(subtree) };
         DERDecodedInfo general_name_content;
         require_noerr_quiet(DERDecodeItem(&general_name, &general_name_content),out);
         
@@ -350,7 +359,8 @@ out:
 }
 
 static bool isEmptySubject(CFDataRef subject) {
-    const DERItem subject_der = { (unsigned char *)CFDataGetBytePtr(subject), CFDataGetLength(subject) };
+    require_quiet(CFDataGetLength(subject) > 0, out);
+    const DERItem subject_der = { (unsigned char *)CFDataGetBytePtr(subject), (size_t)CFDataGetLength(subject) };
     
     /* Get content of certificate name */
     DERDecodedInfo subject_content;
@@ -395,8 +405,7 @@ static void nc_compare_RFC822Name_to_subtrees(const void *value, void *context) 
         match_t match = { false, false };
         rfc822NameString = CFStringToCString(rfc822Name);
         if (!rfc822NameString) { return; }
-        const DERItem addr = { (unsigned char *)rfc822NameString,
-                              CFStringGetLength(rfc822Name) };
+        const DERItem addr = { (unsigned char *)rfc822NameString, strlen(rfc822NameString)};
         nc_match_context_t match_context = {GNT_RFC822Name, &addr, &match};
         CFArrayApplyFunction(subtrees, range, nc_decode_and_compare_subtree, &match_context);
         free(rfc822NameString);
@@ -410,7 +419,7 @@ static void nc_compare_subject_to_subtrees(SecCertificateRef certificate, CFArra
                                            bool permit, match_t *match) {
     CFDataRef subject = SecCertificateCopySubjectSequence(certificate);
     /* An empty subject name is considered not present */
-    if (!subject || isEmptySubject(subject)) {
+    if (!subject || CFDataGetLength(subject) < 0 || isEmptySubject(subject)) {
         CFReleaseNull(subject);
         return;
     }
@@ -419,7 +428,7 @@ static void nc_compare_subject_to_subtrees(SecCertificateRef certificate, CFArra
     CFIndex num_trees = CFArrayGetCount(subtrees);
     CFRange range = { 0, num_trees };
     match_t x500_match = { false, false };
-    const DERItem subject_der = { (unsigned char *)CFDataGetBytePtr(subject), CFDataGetLength(subject) };
+    const DERItem subject_der = { (unsigned char *)CFDataGetBytePtr(subject), (size_t)CFDataGetLength(subject) };
     nc_match_context_t context = {GNT_DirectoryName, &subject_der, &x500_match};
     CFArrayApplyFunction(subtrees, range, nc_decode_and_compare_subtree, &context);
     CFReleaseNull(subject);
@@ -567,10 +576,12 @@ static void nc_intersect_tree_with_subtrees (const void *value, void *context) {
     CFMutableArrayRef existing_subtrees = intersect_context->existing_trees;
     CFMutableArrayRef trees_to_append = intersect_context->trees_to_add;
 
-    if (!new_subtree || !existing_subtrees) return;
+    if (!new_subtree || CFDataGetLength(new_subtree) < 0 || !existing_subtrees) {
+        return;
+    }
 
     /* convert new subtree to DERItem */
-    const DERItem general_name = { (unsigned char *)CFDataGetBytePtr(new_subtree), CFDataGetLength(new_subtree) };
+    const DERItem general_name = { (unsigned char *)CFDataGetBytePtr(new_subtree), (size_t)CFDataGetLength(new_subtree) };
     DERDecodedInfo general_name_content;
     if(DR_Success != DERDecodeItem(&general_name, &general_name_content)) return;
 
@@ -590,8 +601,9 @@ static void nc_intersect_tree_with_subtrees (const void *value, void *context) {
     nc_match_context_t match_context = { gnType, new_subtree_item, &match};
     for (subtreeIX = 0; subtreeIX < num_existing_subtrees; subtreeIX++) {
         CFDataRef candidate_subtree = CFArrayGetValueAtIndex(existing_subtrees, subtreeIX);
+        if (CFDataGetLength(candidate_subtree) < 0) { continue; }
         /* Convert candidate subtree to DERItem */
-        const DERItem candidate = { (unsigned char *)CFDataGetBytePtr(candidate_subtree), CFDataGetLength(candidate_subtree) };
+        const DERItem candidate = { (unsigned char *)CFDataGetBytePtr(candidate_subtree), (size_t)CFDataGetLength(candidate_subtree) };
         DERDecodedInfo candidate_content;
         /* We could probably just delete any subtrees in the array that don't decode */
         if(DR_Success != DERDecodeItem(&candidate, &candidate_content)) continue;

@@ -738,12 +738,27 @@ _sec_protocol_test_metadata_session_exporter(void *handle)
 
 - (void)test_sec_protocol_options_set_tls_certificate_compression_enabled {
     sec_protocol_options_t options = [self create_sec_protocol_options];
-
+    (void)sec_protocol_options_access_handle(options, ^bool(void *handle) {
+        sec_protocol_options_content_t content = (sec_protocol_options_content_t)handle;
+        SEC_PROTOCOL_OPTIONS_VALIDATE(content, false);
+        XCTAssertFalse(content->certificate_compression_enabled);
+        XCTAssertFalse(content->certificate_compression_enabled_override);
+        return true;
+    });
+    sec_protocol_options_set_tls_certificate_compression_enabled(options, false);
+    (void)sec_protocol_options_access_handle(options, ^bool(void *handle) {
+        sec_protocol_options_content_t content = (sec_protocol_options_content_t)handle;
+        SEC_PROTOCOL_OPTIONS_VALIDATE(content, false);
+        XCTAssertFalse(content->certificate_compression_enabled);
+        XCTAssertTrue(content->certificate_compression_enabled_override);
+        return true;
+    });
     sec_protocol_options_set_tls_certificate_compression_enabled(options, true);
     (void)sec_protocol_options_access_handle(options, ^bool(void *handle) {
         sec_protocol_options_content_t content = (sec_protocol_options_content_t)handle;
         SEC_PROTOCOL_OPTIONS_VALIDATE(content, false);
         XCTAssertTrue(content->certificate_compression_enabled);
+        XCTAssertTrue(content->certificate_compression_enabled_override);
         return true;
     });
 }
@@ -915,9 +930,105 @@ _sec_protocol_test_metadata_session_exporter(void *handle)
 																	 sec_protocol_transport_quic);
     XCTAssertTrue(sec_protocol_options_are_equal(optionsA, optionsB));
 
+    sec_protocol_options_set_quic_use_legacy_codepoint(optionsA, true);
+    XCTAssertTrue(sec_protocol_options_are_equal(optionsA, optionsB));
+    sec_protocol_options_set_quic_use_legacy_codepoint(optionsA, false);
+    XCTAssertFalse(sec_protocol_options_are_equal(optionsA, optionsB));
+    sec_protocol_options_set_quic_use_legacy_codepoint(optionsB, false);
+    XCTAssertTrue(sec_protocol_options_are_equal(optionsA, optionsB));
+    sec_protocol_options_set_quic_use_legacy_codepoint(optionsA, true);
+    sec_protocol_options_set_quic_use_legacy_codepoint(optionsB, true);
+    XCTAssertTrue(sec_protocol_options_are_equal(optionsA, optionsB));
 
     sec_protocol_options_append_tls_ciphersuite(optionsB, 7331);
     XCTAssertFalse(sec_protocol_options_are_equal(optionsA, optionsB));
+}
+
+- (void)test_sec_protocol_options_tls_application_protocols {
+    sec_protocol_options_t options = [self create_sec_protocol_options];
+    XCTAssertNotNil(options);
+
+    // We should be able to add an application protocol
+    sec_protocol_options_add_tls_application_protocol(options, "h2");
+
+    (void)sec_protocol_options_access_handle(options, ^bool(void * _Nonnull handle) {
+        sec_protocol_options_content_t content = (sec_protocol_options_content_t)handle;
+        SEC_PROTOCOL_OPTIONS_VALIDATE(content, false);
+
+        XCTAssertNotNil(content->application_protocols);
+        XCTAssertTrue(xpc_get_type(content->application_protocols) == XPC_TYPE_ARRAY);
+        XCTAssertTrue(xpc_array_get_count(content->application_protocols) == 1);
+
+        xpc_array_apply(content->application_protocols, ^bool(size_t index, xpc_object_t  _Nonnull value) {
+            XCTAssertTrue(index == 0);
+            XCTAssertNotNil(value);
+            XCTAssertTrue(xpc_get_type(value) == XPC_TYPE_STRING);
+
+            const char *alpn_string = xpc_string_get_string_ptr(value);
+            XCTAssertTrue(strncmp("h2", alpn_string, sizeof("h2")) == 0, @"ALPN string is not correct");
+            return true;
+        });
+    });
+
+    // Adding a second value should give us two values, in the correct order
+    sec_protocol_options_add_tls_application_protocol(options, "h3");
+
+    (void)sec_protocol_options_access_handle(options, ^bool(void * _Nonnull handle) {
+        sec_protocol_options_content_t content = (sec_protocol_options_content_t)handle;
+        SEC_PROTOCOL_OPTIONS_VALIDATE(content, false);
+
+        XCTAssertNotNil(content->application_protocols);
+        XCTAssertTrue(xpc_get_type(content->application_protocols) == XPC_TYPE_ARRAY);
+        XCTAssertTrue(xpc_array_get_count(content->application_protocols) == 2);
+
+        xpc_array_apply(content->application_protocols, ^bool(size_t index, xpc_object_t  _Nonnull value) {
+            XCTAssertTrue(index == 0 || index == 1);
+            XCTAssertNotNil(value);
+            XCTAssertTrue(xpc_get_type(value) == XPC_TYPE_STRING);
+
+            const char *alpn_string = xpc_string_get_string_ptr(value);
+
+            if (index == 0) {
+                XCTAssertTrue(strncmp("h2", alpn_string, sizeof("h2")) == 0, @"ALPN string for h2 is not correct");
+            } else if (index == 1) {
+                XCTAssertTrue(strncmp("h3", alpn_string, sizeof("h3")) == 0, @"ALPN string for h3 is not correct");
+            }
+
+            return true;
+        });
+    });
+
+    // There should be no array present at all after we clear it
+    sec_protocol_options_clear_tls_application_protocols(options);
+
+    (void)sec_protocol_options_access_handle(options, ^bool(void * _Nonnull handle) {
+        sec_protocol_options_content_t content = (sec_protocol_options_content_t)handle;
+        SEC_PROTOCOL_OPTIONS_VALIDATE(content, false);
+
+        XCTAssertNil(content->application_protocols);
+    });
+
+    // And we should be able to add another one after clearing it
+    sec_protocol_options_add_tls_application_protocol(options, "h4");
+
+    (void)sec_protocol_options_access_handle(options, ^bool(void * _Nonnull handle) {
+        sec_protocol_options_content_t content = (sec_protocol_options_content_t)handle;
+        SEC_PROTOCOL_OPTIONS_VALIDATE(content, false);
+
+        XCTAssertNotNil(content->application_protocols);
+        XCTAssertTrue(xpc_get_type(content->application_protocols) == XPC_TYPE_ARRAY);
+        XCTAssertTrue(xpc_array_get_count(content->application_protocols) == 1);
+
+        xpc_array_apply(content->application_protocols, ^bool(size_t index, xpc_object_t  _Nonnull value) {
+            XCTAssertTrue(index == 0);
+            XCTAssertNotNil(value);
+            XCTAssertTrue(xpc_get_type(value) == XPC_TYPE_STRING);
+
+            const char *alpn_string = xpc_string_get_string_ptr(value);
+            XCTAssertTrue(strncmp("h4", alpn_string, sizeof("h4")) == 0, @"ALPN string for h4 is not correct");
+            return true;
+        });
+    });
 }
 
 - (void)test_sec_protocol_options_copy_transport_specific_application_protocol {
@@ -1025,6 +1136,7 @@ _sec_protocol_test_metadata_session_exporter(void *handle)
 
     sec_protocol_options_set_min_tls_protocol_version(options, tls_protocol_version_TLSv13);
     sec_protocol_options_set_tls_early_data_enabled(options, true);
+    sec_protocol_options_set_quic_use_legacy_codepoint(options, false);
     xpc_object_t config = sec_protocol_options_create_config(options);
     XCTAssertTrue(config != NULL);
     if (config != NULL) {
@@ -1109,20 +1221,32 @@ _sec_protocol_test_metadata_session_exporter(void *handle)
 }
 
 - (void)test_default_protocol_versions {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     XCTAssertTrue(sec_protocol_options_get_default_max_tls_protocol_version() == tls_protocol_version_TLSv13);
     XCTAssertTrue(sec_protocol_options_get_default_min_tls_protocol_version() == tls_protocol_version_TLSv10);
     XCTAssertTrue(sec_protocol_options_get_default_max_dtls_protocol_version() == tls_protocol_version_DTLSv12);
     XCTAssertTrue(sec_protocol_options_get_default_min_dtls_protocol_version() == tls_protocol_version_DTLSv10);
+#pragma clang diagnostic pop
 }
 
 - (void)test_enable_ech {
-    XCTAssertFalse(sec_protocol_options_get_enable_encrypted_client_hello(nil), "ECH enabled even with no sec_protocol_options");
     sec_protocol_options_t options = [self create_sec_protocol_options];
     XCTAssertFalse(sec_protocol_options_get_enable_encrypted_client_hello(options), "enable_ech initialized to true");
     sec_protocol_options_set_enable_encrypted_client_hello(options, true);
     XCTAssertTrue(sec_protocol_options_get_enable_encrypted_client_hello(options), "ECH still disabled after set to true");
     sec_protocol_options_set_enable_encrypted_client_hello(options, false);
     XCTAssertFalse(sec_protocol_options_get_enable_encrypted_client_hello(options), "ECH still enabled after changed back to false");
+}
+
+- (void)test_quic_use_legacy_codepoint {
+    sec_protocol_options_t options = [self create_sec_protocol_options];
+    XCTAssertTrue(sec_protocol_options_get_quic_use_legacy_codepoint(options), "quic_use_legacy_codepoint default set to false");
+    sec_protocol_options_set_quic_use_legacy_codepoint(options, false);
+    XCTAssertFalse(sec_protocol_options_get_quic_use_legacy_codepoint(options), "quic_use_legacy_codepoint still true after changed to false");
+    sec_protocol_options_set_quic_use_legacy_codepoint(options, true);
+    XCTAssertTrue(sec_protocol_options_get_quic_use_legacy_codepoint(options), "quic_use_legacy_codepoint still false after set to true");
+
 }
 
 - (void)test_sec_protocol_options_set_psk_hint {

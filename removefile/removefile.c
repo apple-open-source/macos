@@ -4,7 +4,7 @@
 #include <TargetConditionals.h>
 
 removefile_state_t
-removefile_state_alloc() {
+removefile_state_alloc(void) {
 	removefile_state_t state = (removefile_state_t)calloc(1, sizeof(struct _removefile_state));
 	if (state != NULL)
 		state->urand_file = -1;

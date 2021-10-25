@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2021 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  * 
@@ -1898,13 +1898,6 @@ static OSErr ReadBitmapBlock(ExtendedVCB		*vcb,
 	if (vcb->vcbSigWord != kHFSSigWord) {
 		vp = vcb->hfs_allocation_vp;	/* use allocation file vnode */
 	} 
-#if CONFIG_HFS_STD
-	else {
-		/* HFS Standard */	
-		vp = VCBTOHFS(vcb)->hfs_devvp;	/* use device I/O vnode */
-		block += vcb->vcbVBMSt;			/* map to physical block */
-	}
-#endif
 
 	err = (int)buf_meta_bread(vp, block, blockSize, NOCRED, &bp);
 
@@ -5102,12 +5095,8 @@ static int hfs_alloc_scan_range(struct hfsmount *hfsmp, u_int32_t startbit,
  */
 static int hfs_scan_range_size (struct hfsmount *hfsmp, uint32_t bitmap_st, uint32_t *iosize) {
 
-	/* 
-	 * The maximum bitmap size is 512MB regardless of ABN size, so we can get away
-	 * with 32 bit math in this function.
-	 */
-
 	uint32_t bitmap_len;
+	uint64_t bitmap64;
 	uint32_t remaining_bitmap;
 	uint32_t target_iosize;
 	uint32_t bitmap_off; 
@@ -5149,22 +5138,37 @@ static int hfs_scan_range_size (struct hfsmount *hfsmp, uint32_t bitmap_st, uint
 	}
 
 	/* 
-	 * Generate the total bitmap file length in bytes, then round up
-	 * that value to the end of the last allocation block, if needed (It 
-	 * will probably be needed).  We won't scan past the last actual 
-	 * allocation block.  
+	 * Round the total useable bitmap to the nearest allocation block
+	 * boundary (in bits).  Then convert that value to bytes.  Normally,
+	 * the bitmap file will be less than its maximum (512MB), and so we
+	 * want to ensure that the end is rounded to an even allocation block
+	 * boundary, so that I/Os are in neat block-aligned units.
+	 * We won't scan past the last actual allocation block in the bitmap.
 	 *
 	 * Unless we're completing the bitmap scan (or bitmap < 1MB), we
-	 * have to complete the I/O on VBMIOSize boundaries, but we can only read
-	 * up until the end of the bitmap file.
+	 * have to complete the I/O on VBMIOSize boundaries, but we can
+	 * only read up until the end of the bitmap file.
+	 *
+	 * NOTE: We upcast to a 64-bit type temporarily to avoid integer
+	 * overflow with the roundup on large blocksize HFS.
 	 */
-	bitmap_len = roundup(hfsmp->totalBlocks, hfsmp->blockSize * 8) / 8;
+	bitmap64 = roundup((uint64_t)hfsmp->totalBlocks, (uint64_t)hfsmp->blockSize * 8);
+   	bitmap64 = bitmap64 / 8; // convert to bytes.
 
+	if (bitmap64 >= (512 * 1024 * 1024)){
+		/*
+		 * cap it -- the bitmap file should never have more than 512Mb
+		 * of content, which represents 2^32-1 bits
+		 */
+		bitmap64 = (512 * 1024 * 1024);
+	}
+	bitmap_len = (uint32_t)bitmap64;
 	remaining_bitmap = bitmap_len - bitmap_off;
 
 	/* 
 	 * io size is the MIN of the maximum I/O we can generate or the
-	 * remaining amount of bitmap.
+	 * remaining amount of bitmap. Note that due to rounding, we expect
+	 * that the bitmap will likely be rounded to at least the next 4K.
 	 */
 	target_iosize = MIN((MAXBSIZE), remaining_bitmap);
 	*iosize = target_iosize;

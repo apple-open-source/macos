@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2020 Apple Inc. All rights reserved.
+ * Copyright (c) 2001-2021 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -105,6 +105,10 @@
 #include <IOKit/network/IONetworkInterface.h>
 #include <IOKit/network/IONetworkStack.h>
 #include <IOKit/usb/USB.h>
+#if TARGET_OS_OSX
+#define IFNAMER_SUBSYSTEM	"com.apple.SystemConfiguration.InterfaceNamer"
+#include <os/variant_private.h>
+#endif /* TARGET_OS_OSX */
 
 #ifdef kIONetworkStackUserCommandKey
 #define	USE_REGISTRY_ENTRY_ID
@@ -385,10 +389,9 @@ writeInterfaceList(CFArrayRef if_list)
 	    // save the interface list that was created on "other" hardware
 	    writeInterfaceListForModel(ni_prefs, old_model);
 	}
-
-	SCPreferencesSetValue(ni_prefs, MODEL, new_model);
     }
 
+    SCPreferencesSetValue(ni_prefs, MODEL, new_model);
     SCPreferencesSetValue(ni_prefs, INTERFACES, if_list);
 
     if (cur_list == NULL) {
@@ -1038,9 +1041,9 @@ interfaceExists(CFStringRef prefix, CFNumberRef unit)
     kern_return_t	kr;
     mach_port_t		masterPort	= MACH_PORT_NULL;
 
-    kr = IOMasterPort(bootstrap_port, &masterPort);
+    kr = IOMainPort(bootstrap_port, &masterPort);
     if (kr != KERN_SUCCESS) {
-	SC_log(LOG_ERR, "IOMasterPort returned 0x%x", kr);
+	SC_log(LOG_ERR, "IOMainPort returned 0x%x", kr);
 	goto error;
     }
 
@@ -1458,9 +1461,9 @@ copyInterfaceForIORegistryEntryID(uint64_t entryID)
     kern_return_t		kr;
     mach_port_t			masterPort	= MACH_PORT_NULL;
 
-    kr = IOMasterPort(bootstrap_port, &masterPort);
+    kr = IOMainPort(bootstrap_port, &masterPort);
     if (kr != KERN_SUCCESS) {
-	SC_log(LOG_ERR, "IOMasterPort returned 0x%x", kr);
+	SC_log(LOG_ERR, "IOMainPort returned 0x%x", kr);
 	goto error;
     }
 
@@ -1544,9 +1547,9 @@ copyInterfaceForIOKitPath(CFStringRef if_path)
     mach_port_t			masterPort	= MACH_PORT_NULL;
     io_string_t			path;
 
-    kr = IOMasterPort(bootstrap_port, &masterPort);
+    kr = IOMainPort(bootstrap_port, &masterPort);
     if (kr != KERN_SUCCESS) {
-	SC_log(LOG_ERR, "IOMasterPort returned 0x%x", kr);
+	SC_log(LOG_ERR, "IOMainPort returned 0x%x", kr);
 	goto error;
     }
     _SC_cfstring_to_cstring(if_path, path, sizeof(path), kCFStringEncodingASCII);
@@ -1805,7 +1808,6 @@ static void
 updateWatchedInterface(void *refCon, io_service_t service, natural_t messageType, void *messageArgument)
 {
 #pragma unused(service)
-#pragma unused(messageArgument)
     switch (messageType) {
 	case kIOMessageServiceIsTerminated : {		// if [watched] interface yanked
 	    SCNetworkInterfaceRef	remove;
@@ -1875,7 +1877,7 @@ watcherCreate(SCNetworkInterfaceRef interface, InterfaceUpdateCallBack callback)
     // get the IORegistry node
     entryID = _SCNetworkInterfaceGetIORegistryEntryID(interface);
     matching = IORegistryEntryIDMatching(entryID);
-    interface_node = IOServiceGetMatchingService(kIOMasterPortDefault, matching);
+    interface_node = IOServiceGetMatchingService(kIOMainPortDefault, matching);
     if (interface_node == MACH_PORT_NULL) {
 	// interface no longer present
 	return NULL;
@@ -2025,7 +2027,7 @@ isConsoleLocked()
     boolean_t		locked		    = FALSE;
     io_registry_entry_t	root;
 
-    root = IORegistryGetRootEntry(kIOMasterPortDefault);
+    root = IORegistryGetRootEntry(kIOMainPortDefault);
     console_sessions = IORegistryEntryCreateCFProperty(root,
 						       CFSTR(kIOConsoleUsersKey),
 						       NULL,
@@ -3086,30 +3088,8 @@ nameInterfaces(CFMutableArrayRef if_list)
     return;
 }
 
-#if	!TARGET_OS_IPHONE
 
-#define INSTALL_ENVIRONMENT	"__OSINSTALL_ENVIRONMENT"
-
-static Boolean
-isRecoveryOS()
-{
-    static Boolean	    isRecovery	= FALSE;
-    static dispatch_once_t  once;
-
-    /*
-     * We check to see if the __OSINSTALL_ENVIRONMENT env var is present.  If
-     * so, then we are most likely booted into the Recovery OS with no [Aqua]
-     * "SCMonitor" [UserEventAgent] plugin.
-     */
-    dispatch_once(&once, ^{
-	if (getenv(INSTALL_ENVIRONMENT) != NULL) {
-	    isRecovery = TRUE;
-	}
-
-    });
-
-    return isRecovery;
-}
+#if TARGET_OS_OSX
 
 static void
 updateNetworkConfiguration(CFArrayRef if_list)
@@ -3139,10 +3119,16 @@ updateNetworkConfiguration(CFArrayRef if_list)
     n = (if_list != NULL) ? CFArrayGetCount(if_list) : 0;
     for (i = 0; i < n; i++) {
 	SCNetworkInterfaceRef	interface;
+	Boolean			is_hidden;
 
 	interface = CFArrayGetValueAtIndex(if_list, i);
-	if (SCNetworkSetEstablishDefaultInterfaceConfiguration(set, interface)) {
-	    SC_log(LOG_INFO, "adding default configuration for %@",
+	is_hidden = _SCNetworkInterfaceIsHiddenInterface(interface);
+	if (is_hidden) {
+	    SC_log(LOG_NOTICE, "InterfaceNamer %@: ignoring hidden interface",
+		   SCNetworkInterfaceGetBSDName(interface));
+	}
+	else if (SCNetworkSetEstablishDefaultInterfaceConfiguration(set, interface)) {
+	    SC_log(LOG_INFO, "added default configuration for %@",
 		   SCNetworkInterfaceGetBSDName(interface));
 	    do_commit = TRUE;
 	}
@@ -3178,10 +3164,10 @@ updateNetworkConfiguration(CFArrayRef if_list)
 
     return;
 }
-#endif	// !TARGET_OS_IPHONE
+#endif	// TARGET_OS_OSX
 
 static void
-upgradeNetworkConfiguration()
+upgradeNetworkConfigurationOnce(void)
 {
     static dispatch_once_t	once;
 
@@ -3196,13 +3182,27 @@ upgradeNetworkConfiguration()
 
     dispatch_once(&once, ^{
 	SCPreferencesRef	ni_prefs;
+	CFStringRef		option_keys[]	= { kSCPreferencesOptionAvoidDeadlock };
+	CFPropertyListRef	option_vals[]	= { kCFBooleanFalse };
+	CFDictionaryRef		options;
 	Boolean			updated;
 
 	// save the [current] DB with the interfaces that have been named
 	writeInterfaceList(S_dblist);
 
 	// upgrade the configuration
-	ni_prefs = SCPreferencesCreate(NULL, CFSTR(MY_PLUGIN_NAME ":upgradeNetworkConfiguration"), INTERFACES_DEFAULT_CONFIG);
+	options = CFDictionaryCreate(NULL,
+				     (const void **)option_keys,
+				     (const void **)option_vals,
+				     sizeof(option_keys) / sizeof(option_keys[0]),
+				     &kCFTypeDictionaryKeyCallBacks,
+				     &kCFTypeDictionaryValueCallBacks);
+	ni_prefs = SCPreferencesCreateWithOptions(NULL,
+						  CFSTR(MY_PLUGIN_NAME ":upgradeNetworkConfiguration"),
+						  INTERFACES_DEFAULT_CONFIG,
+						  NULL,	// authorization
+						  options);
+	CFRelease(options);
 	if (ni_prefs == NULL) {
 	    SC_log(LOG_NOTICE, "SCPreferencesCreate() failed: %s", SCErrorString(SCError()));
 	    return;
@@ -3224,6 +3224,18 @@ upgradeNetworkConfiguration()
     });
 
     return;
+}
+
+static void
+upgradeNetworkConfiguration(void)
+{
+#if TARGET_OS_OSX
+    if (os_variant_is_basesystem(IFNAMER_SUBSYSTEM)) {
+	/* don't bother trying to upgrade on a base system */
+	return;
+    }
+#endif /* TARGET_OS_OSX */
+    upgradeNetworkConfigurationOnce();
 }
 
 static void
@@ -3400,16 +3412,16 @@ updateInterfaces(void)
 	// update the VLAN/BOND configuration
 	updateVirtualNetworkInterfaceConfiguration(NULL, kSCPreferencesNotificationApply, NULL);
 
-#if	!TARGET_OS_IPHONE
-	if (isRecoveryOS()) {
+#if TARGET_OS_OSX
+	if (os_variant_is_basesystem(IFNAMER_SUBSYSTEM)) {
 	    /*
-	     * We are most likely booted into the Recovery OS with no "SCMonitor"
-	     * UserEventAgent plugin running so let's make sure we update the
-	     * network configuration for new interfaces.
+	     * We're booted in a BaseSystem variant of the OS. In that environment,
+	     * the UserEventAgent "SCMonitor" is not launched. Configure new network
+	     * interfaces here.
 	     */
 	    updateNetworkConfiguration(S_iflist);
 	}
-#endif	// !TARGET_OS_IPHONE
+#endif /* TARGET_OS_OSX */
 
 	// tell everyone that we've finished (at least for now)
 	updateStore();
@@ -3676,7 +3688,7 @@ captureBusy()
     io_iterator_t	iterator	= MACH_PORT_NULL;
     kern_return_t	kr;
 
-    kr = IORegistryCreateIterator(kIOMasterPortDefault,
+    kr = IORegistryCreateIterator(kIOMainPortDefault,
 				  kIOServicePlane,
 				  0,
 				  &iterator);
@@ -3740,9 +3752,9 @@ setup_IOKit(CFBundleRef bundle)
 
     // Creates and returns a notification object for receiving IOKit
     // notifications of new devices or state changes.
-    kr = IOMasterPort(bootstrap_port, &masterPort);
+    kr = IOMainPort(bootstrap_port, &masterPort);
     if (kr != KERN_SUCCESS) {
-	SC_log(LOG_ERR, "IOMasterPort returned 0x%x", kr);
+	SC_log(LOG_ERR, "IOMainPort returned 0x%x", kr);
 	goto done;
     }
 

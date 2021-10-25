@@ -4,5 +4,7 @@
 <dict>
     <key>com.apple.private.kernel.get-kext-info</key>
     <true/>
+    <key>com.apple.private.memoryinfo</key>
+    <true/>
 </dict>
 </plist>

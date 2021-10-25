@@ -26,6 +26,7 @@
 #if OCTAGON
 
 #import "keychain/ckks/CKKS.h"
+#import "keychain/ckks/CKKSStates.h"
 #import "keychain/ckks/CKKSGroupOperation.h"
 
 NS_ASSUME_NONNULL_BEGIN
@@ -34,12 +35,10 @@ NS_ASSUME_NONNULL_BEGIN
 
 @interface CKKSProcessReceivedKeysOperation : CKKSResultOperation <OctagonStateTransitionOperationProtocol>
 @property CKKSOperationDependencies* deps;
-@property (weak) CKKSKeychainView* ckks;
-
-@property CKKSZoneKeyState* nextState;
 
 - (instancetype)init NS_UNAVAILABLE;
 - (instancetype)initWithDependencies:(CKKSOperationDependencies*)dependencies
+              allowFullRefetchResult:(BOOL)allowFullRefetchResult
                        intendedState:(OctagonState*)intendedState
                           errorState:(OctagonState*)errorState;
 @end

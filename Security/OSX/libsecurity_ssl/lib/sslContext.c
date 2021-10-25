@@ -2103,16 +2103,10 @@ SSLCopyPeerCertificates	(SSLContextRef ctx, CFArrayRef *certs)
 		return errSecBadReq;
 	}
 
-    CFIndex count = SecTrustGetCertificateCount(ctx->peerSecTrust);
-    CFMutableArrayRef ca = CFArrayCreateMutable(kCFAllocatorDefault, count, &kCFTypeArrayCallBacks);
+    CFArrayRef ca = SecTrustCopyCertificateChain(ctx->peerSecTrust);
     if (ca == NULL) {
         return errSecAllocate;
     }
-
-    for (CFIndex ix = 0; ix < count; ++ix) {
-        CFArrayAppendValue(ca, SecTrustGetCertificateAtIndex(ctx->peerSecTrust, ix));
-    }
-
     *certs = ca;
     
 	return errSecSuccess;

@@ -40,6 +40,7 @@ extern vm_offset_t end_kern;
 /* The lowest address in the kernelcache. */
 extern vm_offset_t segLOWEST;
 
+
 extern void machine_startup(__unused boot_args *args) __attribute__((noinline));
 
 
@@ -49,7 +50,11 @@ extern void arm_vm_init(uint64_t memory_size, boot_args *args);
 extern void arm_vm_prot_init(boot_args *args);
 extern void arm_vm_prot_finalize(boot_args *args);
 
-extern kern_return_t DebuggerXCallEnter(boolean_t);
+#if __arm64__
+extern void arm_set_kernel_tbi(void);
+#endif /* __arm64__ */
+
+extern kern_return_t DebuggerXCallEnter(boolean_t, bool);
 extern void DebuggerXCallReturn(void);
 
 #if __arm64__ && DEBUG
@@ -115,10 +120,6 @@ extern int copyio_check_user_addr(user_addr_t user_addr, vm_size_t nbytes);
  * page's virtual address.
  */
 extern int apply_func_phys(addr64_t src64, vm_size_t bytes, int (*func)(void * buffer, vm_size_t bytes, void * arg), void * arg);
-
-/* Top-Byte-Ignore */
-#define TBI_MASK           0xff00000000000000
-#define tbi_clear(addr)    ((addr) & ~(TBI_MASK))
 
 #else /* !defined(__arm__) && !defined(__arm64__) */
 #error Unknown architecture.

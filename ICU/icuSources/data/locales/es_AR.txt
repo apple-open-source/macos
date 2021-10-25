@@ -1,5 +1,6 @@
-﻿// © 2016 and later: Unicode, Inc. and others.
-// License & terms of use: http://www.unicode.org/copyright.html#License
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html
+// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
 es_AR{
     %%Parent{"es_419"}
     NumberElements{
@@ -14,7 +15,6 @@ es_AR{
             }
         }
     }
-    Version{"36.1"}
     calendar{
         generic{
             availableFormats{
@@ -27,7 +27,44 @@ es_AR{
                 hms{"h:mm:ss a"}
                 ms{"mm:ss"}
                 yyyyM{"M-y G"}
-            }
+                 
+                // The following are all copied over from es_419.txt to work around the horizontal-inheritance
+                // problem and to address rdar://78420184 and should be removed when the horizontal inheritance
+                // bug is fixed.
+                Bh{"h B"}
+                Bhm{"h:mm B"}
+                Bhms{"h:mm:ss B"}
+                E{"ccc"}
+                EBhm{"E h:mm B"}
+                EBhms{"E h:mm:ss B"}
+                EHm{"E, HH:mm"}
+                EHms{"E, HH:mm:ss"}
+                Ed{"E d"}
+                Ehm{"E h:mm a"}
+                Ehms{"E h:mm:ss a"}
+                Gy{"y G"}
+                GyMMM{"MMM 'de' y G"}
+                GyMMMEd{"E, d 'de' MMM 'de' y G"}
+                GyMMMd{"d 'de' MMM 'de' y G"}
+                Hmsv{"H:mm:ss v"}
+                MMM{"LLL"}
+                MMMEd{"E, d 'de' MMM"}
+                MMMMEd{"E, d 'de' MMMM"}
+                MMMd{"d 'de' MMM"}
+                Md{"d/M"}
+                hmsv{"h:mm:ss a v"}
+                hmv{"h:mm a v"}
+                y{"y G"}
+                yyyy{"y G"}
+                yyyyMEd{"E d/M/y GGGGG"}
+                yyyyMMM{"MMM 'de' y G"}
+                yyyyMMMEd{"EEE, d 'de' MMM 'de' y G"}
+                yyyyMMMM{"MMMM 'de' y"}
+                yyyyMMMMd{"d 'de' MMMM 'de' y"}
+                yyyyMMMd{"d 'de' MMM 'de' y G"}
+                yyyyMd{"d/M/y GGGGG"}
+                yyyyQQQ{"QQQ 'de' y G"}
+           }
         }
         gregorian{
             AmPmMarkers{

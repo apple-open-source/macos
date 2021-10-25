@@ -1139,14 +1139,14 @@ void IOPMClaimSystemWakeEvent(
     char                    str[255];
 
     connection = xpc_connection_create_mach_service(POWERD_XPC_ID,
-                            dispatch_get_global_queue(DISPATCH_QUEUE_CONCURRENT, 0), 0);
+                            dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), 0);
     
     if (!connection) {
         goto exit;
     }
     
     xpc_connection_set_target_queue(connection,
-                            dispatch_get_global_queue(DISPATCH_QUEUE_CONCURRENT, 0));
+                            dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0));
     
     xpc_connection_set_event_handler(connection,
                                      ^(xpc_object_t e __unused) { });

@@ -69,8 +69,8 @@
 #import "keychain/ckks/CKKSHealTLKSharesOperation.h"
 #import "keychain/ckks/CKKSLocalSynchronizeOperation.h"
 #import "keychain/ckks/CKKSPeerProvider.h"
-#import "keychain/ckks/CKKSCheckKeyHierarchyOperation.h"
 #import "keychain/ckks/CKKSViewManager.h"
+#import "keychain/ckks/CKKSSecDbAdapter.h"
 #import "keychain/categories/NSError+UsefulConstructors.h"
 
 #import "keychain/ckks/CKKSLocalResetOperation.h"
@@ -90,37 +90,44 @@
 #include <Security/SecItemPriv.h>
 #include "keychain/SecureObjectSync/SOSAccountTransaction.h"
 #include <utilities/SecPLWrappers.h>
-#include <os/transaction_private.h>
 
 #import "keychain/trust/TrustedPeers/TPSyncingPolicy.h"
 #import <Security/SecItemInternal.h>
+#import <Security/CKKSExternalTLKClient.h>
 
 #if OCTAGON
 
 @interface CKKSKeychainView()
 
+@property CKKSCondition* policyLoaded;
+
+@property BOOL itemModificationsBeforePolicyLoaded;
+
 // Slows down all outgoing queue operations
 @property CKKSNearFutureScheduler* outgoingQueueOperationScheduler;
 
-@property CKKSResultOperation* processIncomingQueueAfterNextUnlockOperation;
 @property CKKSResultOperation* resultsOfNextIncomingQueueOperationOperation;
 
-// An extra queue for semaphore-waiting-based NSOperations
-@property NSOperationQueue* waitingQueue;
+// Please don't use these unless you're an Operation in this package
+@property NSHashTable<CKKSOutgoingQueueOperation*>* outgoingQueueOperations;
 
 // Scratch space for resyncs
 @property (nullable) NSMutableSet<NSString*>* resyncRecordsSeen;
 
-
+@property CKKSSecDbAdapter* databaseProvider;
 
 @property NSOperationQueue* operationQueue;
 @property CKKSResultOperation* accountLoggedInDependency;
+
 @property BOOL halted;
 
 // Make these readwrite
 @property NSArray<CKKSPeerProviderState*>* currentTrustStates;
 
-@property NSMutableSet<CKKSFetchBecause*>* currentFetchReasons;
+// For testing
+@property (nullable) NSSet<NSString*>* viewAllowList;
+
+@property BOOL havoc;
 @end
 #endif
 
@@ -128,7 +135,6 @@
 #if OCTAGON
 
 - (instancetype)initWithContainer:(CKContainer*)container
-                         zoneName:(NSString*)zoneName
                    accountTracker:(CKKSAccountStateTracker*)accountTracker
                  lockStateTracker:(CKKSLockStateTracker*)lockStateTracker
               reachabilityTracker:(CKKSReachabilityTracker*)reachabilityTracker
@@ -137,26 +143,25 @@
                  savedTLKNotifier:(CKKSNearFutureScheduler*)savedTLKNotifier
         cloudKitClassDependencies:(CKKSCloudKitClassDependencies*)cloudKitClassDependencies
 {
-
     if((self = [super init])) {
-        WEAKIFY(self);
-
         _container = container;
         _accountTracker = accountTracker;
         _reachabilityTracker = reachabilityTracker;
         _lockStateTracker = lockStateTracker;
         _cloudKitClassDependencies = cloudKitClassDependencies;
 
+        _zoneName = @"all";
+
+        _havoc = NO;
         _halted = NO;
 
         _accountStatus = CKKSAccountStatusUnknown;
         _accountLoggedInDependency = [self createAccountLoggedInDependency:@"CloudKit account logged in."];
 
-        _queue = dispatch_queue_create([[NSString stringWithFormat:@"CKKSQueue.%@.zone.%@", container.containerIdentifier, zoneName] UTF8String], DISPATCH_QUEUE_SERIAL_WITH_AUTORELEASE_POOL);
+        _queue = dispatch_queue_create([[NSString stringWithFormat:@"CKKSQueue.%@", container.containerIdentifier] UTF8String], DISPATCH_QUEUE_SERIAL_WITH_AUTORELEASE_POOL);
         _operationQueue = [[NSOperationQueue alloc] init];
-        _waitingQueue = [[NSOperationQueue alloc] init];
-        _waitingQueue.maxConcurrentOperationCount = 5;
 
+        _databaseProvider = [[CKKSSecDbAdapter alloc] initWithQueue:_queue];
 
         _loggedIn = [[CKKSCondition alloc] init];
         _loggedOut = [[CKKSCondition alloc] init];
@@ -165,98 +170,52 @@
         _initiatedLocalScan = NO;
 
         _trustStatus = CKKSAccountStatusUnknown;
+        _trustStatusKnown = [[CKKSCondition alloc] init];
 
-        _incomingQueueOperations = [NSHashTable weakObjectsHashTable];
         _outgoingQueueOperations = [NSHashTable weakObjectsHashTable];
-        _scanLocalItemsOperations = [NSHashTable weakObjectsHashTable];
 
         _currentTrustStates = @[];
 
-        _currentFetchReasons = [NSMutableSet set];
-
-        _launch = [[CKKSLaunchSequence alloc] initWithRocketName:@"com.apple.security.ckks.launch"];
-        [_launch addAttribute:@"view" value:zoneName];
-
         _resyncRecordsSeen = nil;
 
-        CKKSNearFutureScheduler* notifyViewChangedScheduler = [[CKKSNearFutureScheduler alloc] initWithName:[NSString stringWithFormat: @"ckks-%@-notify-scheduler", zoneName]
-                                                                                               initialDelay:250*NSEC_PER_MSEC
-                                                                                            continuingDelay:1*NSEC_PER_SEC
-                                                                                           keepProcessAlive:true
-                                                                                  dependencyDescriptionCode:CKKSResultDescriptionPendingViewChangedScheduling
-                                                                                                      block:^{
-            STRONGIFY(self);
-            [self.cloudKitClassDependencies.notifierClass post:[NSString stringWithFormat:@"com.apple.security.view-change.%@", zoneName]];
-            [self.cloudKitClassDependencies.notifierClass post:[NSString stringWithUTF8String:kSecServerKeychainChangedNotification]];
-
-            // Ugly, but: the Manatee and Engram views need to send a fake 'PCS' view change.
-            // TODO: make this data-driven somehow
-            if([zoneName isEqualToString:@"Manatee"] ||
-               [zoneName isEqualToString:@"Engram"] ||
-               [zoneName isEqualToString:@"ApplePay"] ||
-               [zoneName isEqualToString:@"Home"] ||
-               [zoneName isEqualToString:@"LimitedPeersAllowed"]) {
-                [self.cloudKitClassDependencies.notifierClass post:@"com.apple.security.view-change.PCS"];
-            }
-        }];
-
-        CKKSNearFutureScheduler* notifyViewReadyScheduler = [[CKKSNearFutureScheduler alloc] initWithName:[NSString stringWithFormat: @"%@-ready-scheduler", zoneName]
-                                                                                             initialDelay:250*NSEC_PER_MSEC
-                                                                                          continuingDelay:120*NSEC_PER_SEC
-                                                                                         keepProcessAlive:true
-                                                                                dependencyDescriptionCode:CKKSResultDescriptionPendingViewChangedScheduling
-                                                                                                    block:^{
-            STRONGIFY(self);
-            NSDistributedNotificationCenter *center = [self.cloudKitClassDependencies.nsdistributednotificationCenterClass defaultCenter];
-
-            [center postNotificationName:@"com.apple.security.view-become-ready"
-                                  object:nil
-                                userInfo:@{ @"view" : zoneName ?: @"unknown" }
-                                 options:0];
-        }];
-
-        _stateMachine = [[OctagonStateMachine alloc] initWithName:[NSString stringWithFormat:@"ckks-%@", zoneName]
-                                                           states:[NSSet setWithArray:[CKKSZoneKeyStateMap() allKeys]]
+        _stateMachine = [[OctagonStateMachine alloc] initWithName:@"ckks"
+                                                           states:CKKSAllStates()
                                                             flags:CKKSAllStateFlags()
-                                                     initialState:SecCKKSZoneKeyStateWaitForCloudKitAccountStatus
+                                                     initialState:CKKSStateWaitForCloudKitAccountStatus
                                                             queue:self.queue
                                                       stateEngine:self
                                                  lockStateTracker:lockStateTracker
                                               reachabilityTracker:reachabilityTracker];
 
-        _viewState = [[CKKSKeychainViewState alloc] initWithZoneID:[[CKRecordZoneID alloc] initWithZoneName:zoneName ownerName:CKCurrentUserDefaultName]
-                                                  viewStateMachine:self.stateMachine
-                                        notifyViewChangedScheduler:notifyViewChangedScheduler
-                                          notifyViewReadyScheduler:notifyViewReadyScheduler];
-        _viewStates = [NSSet setWithObject:_viewState];
-
-        _keyStateReadyDependency = [self createKeyStateReadyDependency: @"Key state has become ready for the first time."];
+        WEAKIFY(self);
 
         dispatch_time_t initialOutgoingQueueDelay = SecCKKSReduceRateLimiting() ? NSEC_PER_MSEC * 200 : NSEC_PER_SEC * 1;
         dispatch_time_t continuingOutgoingQueueDelay = SecCKKSReduceRateLimiting() ? NSEC_PER_MSEC * 200 : NSEC_PER_SEC * 30;
-        _outgoingQueueOperationScheduler = [[CKKSNearFutureScheduler alloc] initWithName:[NSString stringWithFormat: @"%@-outgoing-queue-scheduler", zoneName]
+        _outgoingQueueOperationScheduler = [[CKKSNearFutureScheduler alloc] initWithName:[NSString stringWithFormat: @"outgoing-queue-scheduler"]
                                                                             initialDelay:initialOutgoingQueueDelay
                                                                          continuingDelay:continuingOutgoingQueueDelay
                                                                         keepProcessAlive:false
                                                                dependencyDescriptionCode:CKKSResultDescriptionPendingOutgoingQueueScheduling
-                                                                                   block:^{}];
+                                                                                   block:^{
+            STRONGIFY(self);
+            [self.stateMachine handleFlag:CKKSFlagOutgoingQueueOperationRateToken];
+        }];
 
-        _operationDependencies = [[CKKSOperationDependencies alloc] initWithViewState:_viewState
-                                                                         zoneModifier:zoneModifier
-                                                                           ckdatabase:[_container privateCloudDatabase]
-                                                                     ckoperationGroup:nil
-                                                                          flagHandler:_stateMachine
-                                                                       launchSequence:_launch
-                                                                  accountStateTracker:accountTracker
-                                                                     lockStateTracker:_lockStateTracker
-                                                                  reachabilityTracker:reachabilityTracker
-                                                                        peerProviders:@[]
-                                                                     databaseProvider:self
-                                                           notifyViewChangedScheduler:_viewState.notifyViewChangedScheduler
-                                                                     savedTLKNotifier:savedTLKNotifier];
+        _policyLoaded = [[CKKSCondition alloc] init];
+        _operationDependencies = [[CKKSOperationDependencies alloc] initWithViewStates:[NSSet set]
+                                                                          zoneModifier:zoneModifier
+                                                                            ckdatabase:[_container privateCloudDatabase]
+                                                             cloudKitClassDependencies:_cloudKitClassDependencies
+                                                                      ckoperationGroup:nil
+                                                                           flagHandler:_stateMachine
+                                                                   accountStateTracker:accountTracker
+                                                                      lockStateTracker:_lockStateTracker
+                                                                   reachabilityTracker:reachabilityTracker
+                                                                         peerProviders:@[]
+                                                                     databaseProvider:_databaseProvider
+                                                                      savedTLKNotifier:savedTLKNotifier];
 
         _zoneChangeFetcher = fetcher;
-        [fetcher registerClient:self];
 
         [_stateMachine startOperation];
     }
@@ -264,58 +223,54 @@
 }
 
 - (NSString*)description {
-    return [NSString stringWithFormat:@"<%@: %@ (%@)>", NSStringFromClass([self class]), self.zoneName, self.keyHierarchyState];
+    return [NSString stringWithFormat:@"<%@: %@ %@>", NSStringFromClass([self class]),
+            self.stateMachine.currentState,
+            self.operationDependencies.views];
 }
 
 - (NSString*)debugDescription {
-    return [NSString stringWithFormat:@"<%@: %@ (%@) %p>", NSStringFromClass([self class]), self.zoneName, self.keyHierarchyState, self];
+    return [NSString stringWithFormat:@"<%@: %@ %@ %p>", NSStringFromClass([self class]),
+            self.stateMachine.currentState,
+            self.operationDependencies.views,
+            self];
 }
 
-- (CKKSZoneKeyState*)keyHierarchyState {
-    return self.stateMachine.currentState;
-}
-
-- (NSDictionary<CKKSZoneKeyState*, CKKSCondition*>*)keyHierarchyConditions
+- (NSDictionary<CKKSState*, CKKSCondition*>*)stateConditions
 {
     return self.stateMachine.stateConditions;
-}
-
-- (NSString*)zoneName
-{
-    return self.viewState.zoneName;
-}
-
-- (CKRecordZoneID*)zoneID
-{
-    return self.viewState.zoneID;
-}
-
-- (void)ensureKeyStateReadyDependency:(NSString*)resetMessage {
-    NSOperation* oldKSRD = self.keyStateReadyDependency;
-    self.keyStateReadyDependency = [self createKeyStateReadyDependency:resetMessage];
-    if(oldKSRD) {
-        [oldKSRD addDependency:self.keyStateReadyDependency];
-        [self.waitingQueue addOperation:oldKSRD];
-    }
 }
 
 - (CKKSResultOperation<OctagonStateTransitionOperationProtocol>*)performInitializedOperation
 {
     WEAKIFY(self);
     return [OctagonStateTransitionOperation named:@"ckks-initialized-operation"
-                                        intending:SecCKKSZoneKeyStateBecomeReady
-                                       errorState:SecCKKSZoneKeyStateError
+                                        intending:CKKSStateBecomeReady
+                                       errorState:CKKSStateError
                               withBlockTakingSelf:^(OctagonStateTransitionOperation * _Nonnull op) {
         STRONGIFY(self);
         [self dispatchSyncWithSQLTransaction:^CKKSDatabaseTransactionResult{
-            CKKSOutgoingQueueOperation* outgoingOperation = nil;
-            CKKSIncomingQueueOperation* initialProcess = nil;
-            CKKSScanLocalItemsOperation* initialScan = nil;
 
-            CKKSZoneStateEntry* ckse = [CKKSZoneStateEntry state:self.zoneName];
+            NSMutableArray<CKKSZoneStateEntry*>* ckses = [NSMutableArray array];
+            for(CKKSKeychainViewState* viewState in self.operationDependencies.views) {
+                CKKSZoneStateEntry* ckse = [CKKSZoneStateEntry state:viewState.zoneID.zoneName];
+                [ckses addObject:ckse];
+            }
 
-            // Check if we believe we've synced this zone before.
-            if(ckse.changeToken == nil) {
+            // Check if we believe we've synced all zones before.
+            bool needInitialFetch = false;
+            bool moreComing = false;
+            for(CKKSZoneStateEntry* ckse in ckses) {
+                if(ckse.changeToken == nil) {
+                    needInitialFetch = true;
+                }
+
+                if(ckse.moreRecordsInCloudKit) {
+                    ckksnotice("ckks", self, "CloudKit reports there's more records to fetch!");
+                    moreComing = true;
+                }
+            }
+
+            if(needInitialFetch) {
                 self.operationDependencies.ckoperationGroup = [CKOperationGroup CKKSGroupWithName:@"initial-setup"];
 
                 ckksnotice("ckks", self, "No existing change token; going to try to match local items with CloudKit ones.");
@@ -324,26 +279,24 @@
                 // But, there might be items in The Cloud that correspond to these items, with UUIDs that we don't know yet.
                 // First, fetch all remote items.
 
-                [self.currentFetchReasons addObject:CKKSFetchBecauseInitialStart];
-                op.nextState = SecCKKSZoneKeyStateBeginFetch;
-
-                // Next, try to process them (replacing local entries). This will wait for the key state to be ready.
-                initialProcess = [self processIncomingQueue:true after:nil];
-
-                // If all that succeeds, iterate through all keychain items and find the ones which need to be uploaded
-                initialScan = [self scanLocalItems:@"initial-scan-operation"
-                                  ckoperationGroup:self.operationDependencies.ckoperationGroup
-                                             after:initialProcess];
+                [self.operationDependencies.currentFetchReasons addObject:CKKSFetchBecauseInitialStart];
+                op.nextState = CKKSStateBeginFetch;
 
             } else {
                 // Likely a restart of securityd!
 
+                CKKSFixup minimumFixup = CKKSCurrentFixupNumber;
+                for(CKKSZoneStateEntry* ckse in ckses) {
+                    if(ckse.lastFixup < minimumFixup) {
+                        minimumFixup = ckse.lastFixup;
+                    }
+                }
+
                 // Are there any fixups to run first?
-                self.lastFixupOperation = [CKKSFixups fixup:ckse.lastFixup for:self];
-                if(self.lastFixupOperation) {
+                CKKSState* fixup = [CKKSFixups fixupOperation:minimumFixup];
+                if(fixup != nil) {
                     ckksnotice("ckksfixup", self, "We have a fixup to perform: %@", self.lastFixupOperation);
-                    [self scheduleOperation:self.lastFixupOperation];
-                    op.nextState = SecCKKSZoneKeyStateWaitForFixupOperation;
+                    op.nextState = fixup;
                     return CKKSDatabaseTransactionCommit;
                 }
 
@@ -355,150 +308,137 @@
                     ckkserror("ckks", self, "Couldn't reset in-flight OQEs, bad behavior ahead: %@", error);
                 }
 
-                // Are there any entries waiting for reencryption? If so, set the flag.
-                error = nil;
-                NSArray<CKKSOutgoingQueueEntry*>* reencryptOQEs = [CKKSOutgoingQueueEntry allInState:SecCKKSStateReencrypt
-                                                                                              zoneID:self.zoneID
-                                                                                               error:&error];
-                if(error) {
-                    ckkserror("ckks", self, "Couldn't load reencrypt OQEs, bad behavior ahead: %@", error);
-                }
-                if(reencryptOQEs.count > 0) {
-                    [self.stateMachine _onqueueHandleFlag:CKKSFlagItemReencryptionNeeded];
-                }
-
                 self.operationDependencies.ckoperationGroup = [CKOperationGroup CKKSGroupWithName:@"restart-setup"];
+                self.operationDependencies.currentOutgoingQueueOperationGroup = [CKOperationGroup CKKSGroupWithName:@"restart-setup"];
 
-                // If it's been more than 24 hours since the last fetch, fetch and process everything.
-                // Or, if we think we were interrupted in the middle of fetching, fetch some more.
-                // Otherwise, just kick off the local queue processing.
+                // If we have a known key hierachy, don't do anything. Otherwise, refetch.
 
-                NSDate* now = [NSDate date];
-                NSDateComponents* offset = [[NSDateComponents alloc] init];
-                [offset setHour:-24];
-                NSDate* deadline = [[NSCalendar currentCalendar] dateByAddingComponents:offset toDate:now options:0];
+                bool needRefetch = false;
 
-                if(ckse.lastFetchTime == nil ||
-                   [ckse.lastFetchTime compare: deadline] == NSOrderedAscending ||
-                   ckse.moreRecordsInCloudKit) {
+                for(CKKSKeychainViewState* viewState in self.operationDependencies.activeManagedViews) {
+                    CKKSCurrentKeySet* keyset = [CKKSCurrentKeySet loadForZone:viewState.zoneID];
 
-                    op.nextState = SecCKKSZoneKeyStateBeginFetch;
-
-                } else {
-                    // Check if we have an existing key hierarchy in keyset
-                    CKKSCurrentKeySet* keyset = [CKKSCurrentKeySet loadForZone:self.zoneID];
                     if(keyset.error && !([keyset.error.domain isEqual: @"securityd"] && keyset.error.code == errSecItemNotFound)) {
                         ckkserror("ckkskey", self, "Error examining existing key hierarchy: %@", keyset.error);
                     }
-
-                    if(keyset.tlk && keyset.classA && keyset.classC && !keyset.error) {
-                        // This is likely a restart of securityd, and we think we're ready. Double check.
-                        op.nextState = SecCKKSZoneKeyStateBecomeReady;
-
-                    } else {
-                        ckksnotice("ckkskey", self, "No existing key hierarchy for %@. Check if there's one in CloudKit...", self.zoneID.zoneName);
-                        op.nextState = SecCKKSZoneKeyStateBeginFetch;
+                    if(!(keyset.tlk && keyset.classA && keyset.classC && !keyset.error)) {
+                        // We don't have the TLK, or one doesn't exist.
+                        ckksnotice("ckkskey", viewState.zoneID, "No existing key hierarchy for %@. Check if there's one in CloudKit...", viewState.zoneID);
+                        needRefetch = true;
                     }
                 }
 
-                if(ckse.lastLocalKeychainScanTime == nil || [ckse.lastLocalKeychainScanTime compare:deadline] == NSOrderedAscending) {
-                    // TODO handle with a state flow
-                    ckksnotice("ckksscan", self, "CKKS scan last occurred at %@; beginning a new one", ckse.lastLocalKeychainScanTime);
-                    initialScan = [self scanLocalItems:ckse.lastLocalKeychainScanTime == nil ? @"initial-scan-operation" : @"24-hr-scan-operation"
-                                      ckoperationGroup:self.operationDependencies.ckoperationGroup
-                                                 after:nil];
-                }
+                if(needRefetch || moreComing) {
+                    if(moreComing) {
+                        [self.operationDependencies.currentFetchReasons addObject:CKKSFetchBecauseMoreComing];
+                    }
+                    if(needRefetch) {
+                        [self.operationDependencies.currentFetchReasons addObject:CKKSFetchBecausePeriodicRefetch];
+                    }
+                    op.nextState = CKKSStateBeginFetch;
 
-                // Process outgoing queue after re-start
-                outgoingOperation = [self processOutgoingQueueAfter:nil ckoperationGroup:self.operationDependencies.ckoperationGroup];
+                } else {
+                    // This is likely a restart of securityd, and we think we're ready. Double check.
+                    op.nextState = CKKSStateProcessReceivedKeys;
+                }
             }
-
-            /*
-             * Launch time is determined by when the zone have:
-             *  1. keystate have become ready
-             *  2. scan local items (if needed)
-             *  3. processed all outgoing item (if needed)
-             * TODO: this should move, once queue processing becomes part of the state machine
-             */
-
-            WEAKIFY(self);
-            NSBlockOperation *seemReady = [NSBlockOperation named:[NSString stringWithFormat:@"seemsReadyForSyncing-%@", self.zoneName] withBlock:^void{
-                STRONGIFY(self);
-                NSError *error = nil;
-                ckksnotice("launch", self, "Launch complete");
-                NSNumber *zoneSize = [CKKSMirrorEntry counts:self.zoneID error:&error];
-                if (zoneSize) {
-                    zoneSize = @(SecBucket1Significant([zoneSize longValue]));
-                    [self.launch addAttribute:@"zonesize" value:zoneSize];
-                }
-                [self.launch launch];
-
-                /*
-                 * Since we think we are ready, signal to CK that its to check for PCS identities again, and create the
-                 * since before we completed this operation, we would probably have failed with a timeout because
-                 * we where busy downloading items from CloudKit and then processing them.
-                 */
-                [self.viewState.notifyViewReadyScheduler trigger];
-            }];
-
-            [seemReady addNullableDependency:self.keyStateReadyDependency];
-            [seemReady addNullableDependency:outgoingOperation];
-            [seemReady addNullableDependency:initialScan];
-            [seemReady addNullableDependency:initialProcess];
-            [self scheduleOperation:seemReady];
 
             return CKKSDatabaseTransactionCommit;
         }];
     }];
 }
 
-- (CKKSResultOperation*)resetLocalData {
+- (CKKSResultOperation*)rpcResetLocal:(NSSet<NSString*>* _Nullable)viewNames reply:(void(^)(NSError* _Nullable result))reply
+{
+    WEAKIFY(self);
+
     ckksnotice("ckksreset", self, "Requesting local data reset");
 
-    return [self.stateMachine doWatchedStateMachineRPC:@"ckks-local-reset"
-                                   sourceStates:[NSSet setWithArray:@[
-                                       // TODO: possibly every state?
-                                       SecCKKSZoneKeyStateReady,
-                                       SecCKKSZoneKeyStateWaitForTLK,
-                                       SecCKKSZoneKeyStateWaitForTrust,
-                                       SecCKKSZoneKeyStateWaitForTLKUpload,
-                                       SecCKKSZoneKeyStateLoggedOut,
-                                   ]]
-                                           path:[OctagonStateTransitionPath pathFromDictionary:@{
-                                               SecCKKSZoneKeyStateResettingLocalData: @{
-                                                   SecCKKSZoneKeyStateInitializing: @{
-                                                       SecCKKSZoneKeyStateInitialized: [OctagonStateTransitionPathStep success],
-                                                       SecCKKSZoneKeyStateLoggedOut: [OctagonStateTransitionPathStep success],
-                                                   }
-                                               }
-                                           }]
-                                                 reply:^(NSError * _Nonnull error) {}];
+    OctagonStateTransitionOperation* setZonesOp = [OctagonStateTransitionOperation named:@"set-zones"
+                                                                               intending:CKKSStateResettingLocalData
+                                                                              errorState:CKKSStateError
+                                                                     withBlockTakingSelf:^(OctagonStateTransitionOperation* op) {
+        STRONGIFY(self);
+
+        if(viewNames) {
+            ckksnotice("ckksreset", self, "Restricting local data reset to a view subset %@", viewNames);
+            NSSet<CKKSKeychainViewState*>* viewStates = [self.operationDependencies viewStatesByNames:viewNames];
+            [self.operationDependencies operateOnSelectViews:viewStates];
+        };
+
+        ckksnotice("ckksreset", self, "Beginning local data reset for %@", self.operationDependencies.views);
+
+        op.nextState = op.intendedState;
+    }];
+
+    return [self.stateMachine doWatchedStateMachineRPC:@"local-reset"
+                                          sourceStates:[NSSet setWithArray:@[
+                                              // TODO: possibly every state?
+                                              CKKSStateReady,
+                                              CKKSStateInitialized,
+                                              CKKSStateFetchComplete,
+                                              CKKSStateProcessReceivedKeys,
+                                              CKKSStateWaitForTrust,
+                                              CKKSStateLoggedOut,
+                                              CKKSStateError,
+                                          ]]
+                                                  path:[OctagonStateTransitionPath pathFromDictionary:@{
+                                                      CKKSStateResettingLocalData: @{
+                                                              CKKSStateInitializing: @{
+                                                                      CKKSStateInitialized: [OctagonStateTransitionPathStep success],
+                                                                      CKKSStateLoggedOut: [OctagonStateTransitionPathStep success],
+                                                              }
+                                                      }
+                                                  }]
+                                          transitionOp:setZonesOp
+                                                 reply:reply];
 }
 
-- (CKKSResultOperation*)resetCloudKitZone:(CKOperationGroup*)operationGroup
+- (CKKSResultOperation*)rpcResetCloudKit:(NSSet<NSString*>* _Nullable)viewNames reply:(void(^)(NSError* _Nullable result))reply
 {
-    [self.accountStateKnown wait:(SecCKKSTestsEnabled() ? 1*NSEC_PER_SEC : 10*NSEC_PER_SEC)];
-
-    // Not overly thread-safe, but a single read is okay
-    if(self.accountStatus != CKKSAccountStatusAvailable) {
-        // No CK account? goodbye!
-        ckksnotice("ckksreset", self, "Requesting reset of CK zone, but no CK account exists");
-        CKKSResultOperation* errorOp = [CKKSResultOperation named:@"fail" withBlockTakingSelf:^(CKKSResultOperation * _Nonnull op) {
-            op.error = [NSError errorWithDomain:CKKSErrorDomain
-                                          code:CKKSNotLoggedIn
-                                   description:@"User is not signed into iCloud."];
+    NSError* error = nil;
+    if(![self waitUntilReadyForRPCForOperation:@"reset-cloudkit"
+                                          fast:NO
+                      errorOnNoCloudKitAccount:YES
+                          errorOnPolicyMissing:YES
+                                         error:&error]) {
+        reply(error);
+        CKKSResultOperation* failOp = [CKKSResultOperation named:@"fail" withBlockTakingSelf:^(CKKSResultOperation * _Nonnull op) {
+            op.error = error;
         }];
-
-        [self scheduleOperationWithoutDependencies:errorOp];
-        return errorOp;
+        [self.operationQueue addOperation:failOp];
+        return failOp;
     }
+
+    WEAKIFY(self);
 
     ckksnotice("ckksreset", self, "Requesting reset of CK zone (logged in)");
 
+    OctagonStateTransitionOperation* setZonesOp = [OctagonStateTransitionOperation named:@"set-zones"
+                                                                               intending:CKKSStateResettingZone
+                                                                              errorState:CKKSStateError
+                                                                     withBlockTakingSelf:^(OctagonStateTransitionOperation* op) {
+        STRONGIFY(self);
+
+        if(viewNames) {
+            ckksnotice("ckksreset", self, "Restricting cloudkit zone reset to a view subset %@", viewNames);
+            NSSet<CKKSKeychainViewState*>* viewStates = [self.operationDependencies viewStatesByNames:viewNames];
+            [self.operationDependencies operateOnSelectViews:viewStates];
+        } else {
+            NSSet<CKKSKeychainViewState*>* viewStates = self.operationDependencies.activeManagedViews;
+            ckksnotice("ckksreset", self, "Restricting cloudkit zone reset to active CKKS-managed subset %@", viewStates);
+            [self.operationDependencies operateOnSelectViews:viewStates];
+        }
+
+        ckksnotice("ckksreset", self, "Beginning cloudkit zone reset for %@", self.operationDependencies.views);
+
+        op.nextState = op.intendedState;
+    }];
+
     NSDictionary* localResetPath = @{
-        SecCKKSZoneKeyStateInitializing: @{
-            SecCKKSZoneKeyStateInitialized: [OctagonStateTransitionPathStep success],
-            SecCKKSZoneKeyStateLoggedOut: [OctagonStateTransitionPathStep success],
+        CKKSStateInitializing: @{
+            CKKSStateInitialized: [OctagonStateTransitionPathStep success],
+            CKKSStateLoggedOut: [OctagonStateTransitionPathStep success],
         },
     };
 
@@ -507,41 +447,31 @@
     return [self.stateMachine doWatchedStateMachineRPC:@"ckks-cloud-reset"
                                           sourceStates:[NSSet setWithArray:@[
                                               // TODO: possibly every state?
-                                              SecCKKSZoneKeyStateReady,
-                                              SecCKKSZoneKeyStateInitialized,
-                                              SecCKKSZoneKeyStateFetchComplete,
-                                              SecCKKSZoneKeyStateWaitForTLK,
-                                              SecCKKSZoneKeyStateWaitForTrust,
-                                              SecCKKSZoneKeyStateWaitForTLKUpload,
-                                              SecCKKSZoneKeyStateLoggedOut,
+                                              CKKSStateReady,
+                                              CKKSStateInitialized,
+                                              CKKSStateFetchComplete,
+                                              CKKSStateProcessReceivedKeys,
+                                              CKKSStateWaitForTrust,
+                                              CKKSStateLoggedOut,
+                                              CKKSStateError,
                                           ]]
                                                   path:[OctagonStateTransitionPath pathFromDictionary:@{
-                                                      SecCKKSZoneKeyStateResettingZone: @{
-                                                          SecCKKSZoneKeyStateResettingLocalData: localResetPath,
-                                                          SecCKKSZoneKeyStateResettingZone: @{
-                                                              SecCKKSZoneKeyStateResettingLocalData: localResetPath,
-                                                              SecCKKSZoneKeyStateResettingZone: @{
-                                                                 SecCKKSZoneKeyStateResettingLocalData: localResetPath,
+                                                      CKKSStateResettingZone: @{
+                                                              CKKSStateResettingLocalData: localResetPath,
+                                                              CKKSStateResettingZone: @{
+                                                                      CKKSStateResettingLocalData: localResetPath,
+                                                                      CKKSStateResettingZone: @{
+                                                                              CKKSStateResettingLocalData: localResetPath,
+                                                                      }
                                                               }
-                                                          }
                                                       }
                                                   }]
-                                                 reply:^(NSError * _Nonnull error) {}];
+                                          transitionOp:setZonesOp
+                                                 reply:reply];
 }
 
 - (void)keyStateMachineRequestProcess {
     [self.stateMachine handleFlag:CKKSFlagKeyStateProcessRequested];
-}
-
-- (CKKSResultOperation*)createKeyStateReadyDependency:(NSString*)message {
-    WEAKIFY(self);
-    CKKSResultOperation* keyStateReadyDependency = [CKKSResultOperation operationWithBlock:^{
-        STRONGIFY(self);
-        ckksnotice("ckkskey", self, "CKKS became ready: %@", message);
-    }];
-    keyStateReadyDependency.name = [NSString stringWithFormat: @"%@-key-state-ready", self.zoneName];
-    keyStateReadyDependency.descriptionErrorCode = CKKSResultDescriptionPendingKeyReady;
-    return keyStateReadyDependency;
 }
 
 - (void)_onqueuePokeKeyStateMachine
@@ -561,38 +491,44 @@
         [flags _onqueueRemoveFlag:CKKSFlagCloudKitLoggedOut];
         ckksnotice("ckkskey", self, "CK account is not present");
 
-        [self ensureKeyStateReadyDependency:@"cloudkit-account-not-present"];
+        [self.operationDependencies setStateForActiveZones:SecCKKSZoneKeyStateLoggedOut];
         return [[CKKSLocalResetOperation alloc] initWithDependencies:self.operationDependencies
-                                                       intendedState:SecCKKSZoneKeyStateLoggedOut
-                                                          errorState:SecCKKSZoneKeyStateError];
+                                                       intendedState:CKKSStateLoggedOut
+                                                          errorState:CKKSStateError];
     }
 
     if([flags _onqueueContains:CKKSFlagCloudKitZoneMissing]) {
         [flags _onqueueRemoveFlag:CKKSFlagCloudKitZoneMissing];
 
-        [self ensureKeyStateReadyDependency:@"cloudkit-zone-missing"];
+        // The zone state is 'initializing' because we're going to throw away all knowledge of what's in it
+        [self.operationDependencies setStateForActiveZones:SecCKKSZoneKeyStateInitializing];
+
         // The zone is gone! Let's reset our local state, which will feed into recreating the zone
         return [OctagonStateTransitionOperation named:@"ck-zone-missing"
-                                             entering:SecCKKSZoneKeyStateResettingLocalData];
+                                             entering:CKKSStateResettingLocalData];
     }
 
     if([flags _onqueueContains:CKKSFlagChangeTokenExpired]) {
         [flags _onqueueRemoveFlag:CKKSFlagChangeTokenExpired];
 
-        [self ensureKeyStateReadyDependency:@"cloudkit-change-token-expired"];
+        // The zone state is 'initializing' because we're going to throw away all knowledge of what's in t
+        [self.operationDependencies setStateForActiveZones:SecCKKSZoneKeyStateInitializing];
+
         // Our change token is invalid! We'll have to refetch the world, so let's delete everything locally.
         return [OctagonStateTransitionOperation named:@"ck-token-expired"
-                                             entering:SecCKKSZoneKeyStateResettingLocalData];
+                                             entering:CKKSStateResettingLocalData];
     }
 
-    if([currentState isEqualToString:SecCKKSZoneKeyStateLoggedOut]) {
+    if([currentState isEqualToString:CKKSStateLoggedOut]) {
         if([flags _onqueueContains:CKKSFlagCloudKitLoggedIn] || self.accountStatus == CKKSAccountStatusAvailable) {
             [flags _onqueueRemoveFlag:CKKSFlagCloudKitLoggedIn];
 
             ckksnotice("ckkskey", self, "CloudKit account now present");
             return [OctagonStateTransitionOperation named:@"ck-sign-in"
-                                                 entering:SecCKKSZoneKeyStateInitializing];
+                                                 entering:CKKSStateInitializing];
         }
+
+        [self.operationDependencies setStateForAllViews:SecCKKSZoneKeyStateLoggedOut];
 
         if([flags _onqueueContains:CKKSFlag24hrNotification]) {
             [flags _onqueueRemoveFlag:CKKSFlag24hrNotification];
@@ -600,13 +536,13 @@
         return nil;
     }
 
-    if([currentState isEqualToString: SecCKKSZoneKeyStateWaitForCloudKitAccountStatus]) {
+    if([currentState isEqualToString: CKKSStateWaitForCloudKitAccountStatus]) {
         if([flags _onqueueContains:CKKSFlagCloudKitLoggedIn] || self.accountStatus == CKKSAccountStatusAvailable) {
             [flags _onqueueRemoveFlag:CKKSFlagCloudKitLoggedIn];
 
             ckksnotice("ckkskey", self, "CloudKit account now present");
             return [OctagonStateTransitionOperation named:@"ck-sign-in"
-                                                 entering:SecCKKSZoneKeyStateInitializing];
+                                                 entering:CKKSStateInitializing];
         }
 
         if([flags _onqueueContains:CKKSFlagCloudKitLoggedOut]) {
@@ -614,81 +550,114 @@
             ckksnotice("ckkskey", self, "No account available");
 
             return [[CKKSLocalResetOperation alloc] initWithDependencies:self.operationDependencies
-                                                           intendedState:SecCKKSZoneKeyStateLoggedOut
-                                                              errorState:SecCKKSZoneKeyStateError];
+                                                           intendedState:CKKSStateLoggedOut
+                                                              errorState:CKKSStateError];
         }
         return nil;
     }
 
-    [self.launch addEvent:currentState];
-
-    if([currentState isEqual:SecCKKSZoneKeyStateInitializing]) {
+    if([currentState isEqual:CKKSStateInitializing]) {
         if(self.accountStatus == CKKSAccountStatusNoAccount) {
             ckksnotice("ckkskey", self, "CloudKit account is missing. Departing!");
             return [[CKKSLocalResetOperation alloc] initWithDependencies:self.operationDependencies
-                                                           intendedState:SecCKKSZoneKeyStateLoggedOut
-                                                              errorState:SecCKKSZoneKeyStateError];
+                                                           intendedState:CKKSStateLoggedOut
+                                                              errorState:CKKSStateError];
         }
+
+        // Initializing means resetting to original states.
+        [self.operationDependencies operateOnAllViews];
+        [self.operationDependencies setStateForAllViews:SecCKKSZoneKeyStateInitializing];
 
         // Begin zone creation, but rate-limit it
         CKKSCreateCKZoneOperation* pendingInitializeOp = [[CKKSCreateCKZoneOperation alloc] initWithDependencies:self.operationDependencies
-                                                                                                   intendedState:SecCKKSZoneKeyStateInitialized
-                                                                                                      errorState:SecCKKSZoneKeyStateZoneCreationFailed];
+                                                                                                   intendedState:CKKSStateInitialized
+                                                                                                      errorState:CKKSStateZoneCreationFailed];
         [pendingInitializeOp addNullableDependency:self.operationDependencies.zoneModifier.cloudkitRetryAfter.operationDependency];
         [self.operationDependencies.zoneModifier.cloudkitRetryAfter trigger];
 
         return pendingInitializeOp;
     }
 
-    if([currentState isEqualToString:SecCKKSZoneKeyStateWaitForFixupOperation]) {
-        // TODO: fixup operations should become part of the state machine
-        ckksnotice("ckkskey", self, "Waiting for the fixup operation: %@", self.lastFixupOperation);
-        OctagonStateTransitionOperation* op = [OctagonStateTransitionOperation named:@"wait-for-fixup" entering:SecCKKSZoneKeyStateInitialized];
-        [op addNullableDependency:self.lastFixupOperation];
-        return op;
-    }
-
-    if([currentState isEqualToString:SecCKKSZoneKeyStateInitialized]) {
-        // We're initialized and CloudKit is ready. If we're trusted, see what needs done. Otherwise, wait.
+    if([currentState isEqualToString:CKKSStateInitialized]) {
+        // We're initialized and all CloudKit zones are created.
+        [self.operationDependencies setStateForAllViews:SecCKKSZoneKeyStateInitialized];
         return [self performInitializedOperation];
     }
 
     // In error? You probably aren't getting out.
-    if([currentState isEqualToString:SecCKKSZoneKeyStateError]) {
+    if([currentState isEqualToString:CKKSStateError]) {
         if([flags _onqueueContains:CKKSFlagCloudKitLoggedIn]) {
             [flags _onqueueRemoveFlag:CKKSFlagCloudKitLoggedIn];
 
             // Worth one last shot. Reset everything locally, and try again.
             return [[CKKSLocalResetOperation alloc] initWithDependencies:self.operationDependencies
-                                                           intendedState:SecCKKSZoneKeyStateInitializing
-                                                              errorState:SecCKKSZoneKeyStateError];
+                                                           intendedState:CKKSStateInitializing
+                                                              errorState:CKKSStateError];
         }
 
         ckkserror("ckkskey", self, "Staying in error state %@", currentState);
         return nil;
     }
 
-    if([currentState isEqualToString:SecCKKSZoneKeyStateResettingZone]) {
-        ckksnotice("ckkskey", self, "Deleting the CloudKit Zone");
+    if([currentState isEqualToString:CKKSStateFixupRefetchCurrentItemPointers]) {
+        CKKSResultOperation<OctagonStateTransitionOperationProtocol>* op = [[CKKSFixupRefetchAllCurrentItemPointers alloc] initWithOperationDependencies:self.operationDependencies
+                                                                                                                                        ckoperationGroup:[CKOperationGroup CKKSGroupWithName:@"fixup"]];
+        self.lastFixupOperation = op;
+        return op;
+    }
 
-        [self ensureKeyStateReadyDependency:@"ck-zone-reset"];
+    if([currentState isEqualToString:CKKSStateFixupFetchTLKShares]) {
+        CKKSResultOperation<OctagonStateTransitionOperationProtocol>* op = [[CKKSFixupFetchAllTLKShares alloc] initWithOperationDependencies:self.operationDependencies
+                                                                                                                            ckoperationGroup:[CKOperationGroup CKKSGroupWithName:@"fixup"]];
+        self.lastFixupOperation = op;
+        return op;
+    }
+    if([currentState isEqualToString:CKKSStateFixupLocalReload]) {
+        CKKSResultOperation<OctagonStateTransitionOperationProtocol>* op = [[CKKSFixupLocalReloadOperation alloc] initWithOperationDependencies:self.operationDependencies
+                                                                                                                                    fixupNumber:CKKSFixupLocalReload
+                                                                                                                               ckoperationGroup:[CKOperationGroup CKKSGroupWithName:@"fixup"]
+                                                                                                                                       entering:CKKSStateFixupResaveDeviceStateEntries];
+        self.lastFixupOperation = op;
+        return op;
+    }
+    if([currentState isEqualToString:CKKSStateFixupResaveDeviceStateEntries]) {
+        CKKSResultOperation<OctagonStateTransitionOperationProtocol>* op = [[CKKSFixupResaveDeviceStateEntriesOperation alloc] initWithOperationDependencies:self.operationDependencies];
+        self.lastFixupOperation = op;
+        return op;
+    }
+    if([currentState isEqualToString:CKKSStateFixupDeleteAllCKKSTombstones]) {
+        CKKSResultOperation<OctagonStateTransitionOperationProtocol>* op = [[CKKSFixupLocalReloadOperation alloc] initWithOperationDependencies:self.operationDependencies
+                                                                                                                                    fixupNumber:CKKSFixupDeleteAllCKKSTombstones
+                                                                                                                               ckoperationGroup:[CKOperationGroup CKKSGroupWithName:@"fixup"]
+                                                                                                                                       entering:CKKSStateInitialized];
+        self.lastFixupOperation = op;
+        return op;
+    }
+
+    if([currentState isEqualToString:CKKSStateResettingZone]) {
+        ckksnotice("ckkskey", self, "Deleting the CloudKit Zones for %@", self.operationDependencies.views);
+
+        [self.operationDependencies setStateForActiveZones:SecCKKSZoneKeyStateResettingZone];
         return [[CKKSDeleteCKZoneOperation alloc] initWithDependencies:self.operationDependencies
-                                                         intendedState:SecCKKSZoneKeyStateResettingLocalData
-                                                            errorState:SecCKKSZoneKeyStateResettingZone];
+                                                         intendedState:CKKSStateResettingLocalData
+                                                            errorState:CKKSStateResettingZone];
     }
 
-    if([currentState isEqualToString:SecCKKSZoneKeyStateResettingLocalData]) {
-        ckksnotice("ckkskey", self, "Resetting local data");
+    if([currentState isEqualToString:CKKSStateResettingLocalData]) {
+        ckksnotice("ckkskey", self, "Resetting local data for %@", self.operationDependencies.views);
 
-        [self ensureKeyStateReadyDependency:@"local-data-reset"];
+        // Probably a layering violation: if we're resetting the local data, also drop any pending keysets we created
+        self.lastNewTLKOperation = nil;
+
+        [self.operationDependencies setStateForActiveZones:SecCKKSZoneKeyStateInitializing];
         return [[CKKSLocalResetOperation alloc] initWithDependencies:self.operationDependencies
-                                                       intendedState:SecCKKSZoneKeyStateInitializing
-                                                          errorState:SecCKKSZoneKeyStateError];
+                                                       intendedState:CKKSStateInitializing
+                                                          errorState:CKKSStateError];
     }
 
-    if([currentState isEqualToString:SecCKKSZoneKeyStateZoneCreationFailed]) {
+    if([currentState isEqualToString:CKKSStateZoneCreationFailed]) {
         //Prepare to go back into initializing, as soon as the cloudkitRetryAfter is happy
-        OctagonStateTransitionOperation* op = [OctagonStateTransitionOperation named:@"recover-from-cloudkit-failure" entering:SecCKKSZoneKeyStateInitializing];
+        OctagonStateTransitionOperation* op = [OctagonStateTransitionOperation named:@"recover-from-cloudkit-failure" entering:CKKSStateInitializing];
 
         [op addNullableDependency:self.operationDependencies.zoneModifier.cloudkitRetryAfter.operationDependency];
         [self.operationDependencies.zoneModifier.cloudkitRetryAfter trigger];
@@ -696,39 +665,35 @@
         return op;
     }
 
-    if([currentState isEqualToString:SecCKKSZoneKeyStateLoseTrust]) {
+    if([currentState isEqualToString:CKKSStateLoseTrust]) {
         if([flags _onqueueContains:CKKSFlagBeginTrustedOperation]) {
             [flags _onqueueRemoveFlag:CKKSFlagBeginTrustedOperation];
             // This was likely a race between some operation and the beginTrustedOperation call! Skip changing state and try again.
-            return [OctagonStateTransitionOperation named:@"begin-trusted-operation" entering:SecCKKSZoneKeyStateInitialized];
+            return [OctagonStateTransitionOperation named:@"begin-trusted-operation" entering:CKKSStateInitialized];
         }
 
-        // If our current state is "trusted", fall out
-        if(self.trustStatus == CKKSAccountStatusAvailable) {
-            self.trustStatus = CKKSAccountStatusUnknown;
-        }
-        return [OctagonStateTransitionOperation named:@"trust-loss" entering:SecCKKSZoneKeyStateWaitForTrust];
+        return [self loseTrustOperation:CKKSStateWaitForTrust];
     }
 
-    if([currentState isEqualToString:SecCKKSZoneKeyStateWaitForTrust]) {
+    if([currentState isEqualToString:CKKSStateWaitForTrust]) {
         if(self.trustStatus == CKKSAccountStatusAvailable) {
             ckksnotice("ckkskey", self, "Beginning trusted state machine operation");
-            return [OctagonStateTransitionOperation named:@"begin-trusted-operation" entering:SecCKKSZoneKeyStateInitialized];
+            return [OctagonStateTransitionOperation named:@"begin-trusted-operation" entering:CKKSStateInitialized];
         }
 
         if([flags _onqueueContains:CKKSFlagFetchRequested]) {
             [flags _onqueueRemoveFlag:CKKSFlagFetchRequested];
-            return [OctagonStateTransitionOperation named:@"fetch-requested" entering:SecCKKSZoneKeyStateBeginFetch];
+            return [OctagonStateTransitionOperation named:@"fetch-requested" entering:CKKSStateBeginFetch];
         }
 
         if([flags _onqueueContains:CKKSFlagKeyStateProcessRequested]) {
             [flags _onqueueRemoveFlag:CKKSFlagKeyStateProcessRequested];
-            return [OctagonStateTransitionOperation named:@"begin-trusted-operation" entering:SecCKKSZoneKeyStateProcess];
+            return [OctagonStateTransitionOperation named:@"begin-trusted-operation" entering:CKKSStateProcessReceivedKeys];
         }
 
         if([flags _onqueueContains:CKKSFlagKeySetRequested]) {
             [flags _onqueueRemoveFlag:CKKSFlagKeySetRequested];
-            return [OctagonStateTransitionOperation named:@"process" entering:SecCKKSZoneKeyStateProcess];
+            return [OctagonStateTransitionOperation named:@"provide-key-set" entering:CKKSStateProvideKeyHierarchyUntrusted];
         }
 
         if([flags _onqueueContains:CKKSFlag24hrNotification]) {
@@ -738,54 +703,85 @@
         return nil;
     }
 
-    if([currentState isEqualToString:SecCKKSZoneKeyStateBecomeReady]) {
-        return [[CKKSCheckKeyHierarchyOperation alloc] initWithDependencies:self.operationDependencies
-                                                              intendedState:SecCKKSZoneKeyStateReady
-                                                                 errorState:SecCKKSZoneKeyStateError];
+    if([currentState isEqualToString:CKKSStateProvideKeyHierarchy]) {
+        CKKSNewTLKOperation* op = [[CKKSNewTLKOperation alloc] initWithDependencies:self.operationDependencies
+                                                                   rollTLKIfPresent:NO
+                                                          preexistingPendingKeySets:self.lastNewTLKOperation.keysets
+                                                                      intendedState:CKKSStateBecomeReady
+                                                                         errorState:CKKSStateError];
+        self.lastNewTLKOperation = op;
+        return op;
     }
 
-    if([currentState isEqualToString:SecCKKSZoneKeyStateReady]) {
+    if([currentState isEqualToString:CKKSStateProvideKeyHierarchyUntrusted]) {
+        CKKSNewTLKOperation* op = [[CKKSNewTLKOperation alloc] initWithDependencies:self.operationDependencies
+                                                                   rollTLKIfPresent:NO
+                                                          preexistingPendingKeySets:self.lastNewTLKOperation.keysets
+                                                                      intendedState:CKKSStateWaitForTrust
+                                                                         errorState:CKKSStateError];
+        self.lastNewTLKOperation = op;
+        return op;
+    }
+
+    if([currentState isEqualToString:CKKSStateBecomeReady]) {
+        return [self becomeReadyOperation:CKKSStateReady];
+    }
+
+    if([currentState isEqualToString:CKKSStateReady]) {
         // If we're ready, we can ignore the begin trusted flag
         [flags _onqueueRemoveFlag:CKKSFlagBeginTrustedOperation];
+
+        if(SecCKKSTestsEnabled()) {
+            NSAssert([self.operationDependencies.allViews isSubsetOfSet:self.operationDependencies.views], @"When entering ready, CKKS should be operating on all of its zones");
+        }
+
+        // This flag indicates that something failed to occur due to lock state. Now that the device is unlocked, re-initialize!
+        if([flags _onqueueContains:CKKSFlagDeviceUnlocked]) {
+            [flags _onqueueRemoveFlag:CKKSFlagDeviceUnlocked];
+            return [OctagonStateTransitionOperation named:@"key-state-after-unlock" entering:SecCKKSZoneKeyStateInitialized];
+        }
 
         if(self.keyStateFullRefetchRequested) {
             // In ready, but something has requested a full refetch.
             ckksnotice("ckkskey", self, "Kicking off a full key refetch based on request:%d", self.keyStateFullRefetchRequested);
-            [self ensureKeyStateReadyDependency:@"key-state-full-refetch"];
-            return [OctagonStateTransitionOperation named:@"full-refetch" entering:SecCKKSZoneKeyStateNeedFullRefetch];
+            [self.operationDependencies setStateForActiveZones:SecCKKSZoneKeyStateFetch];
+            return [OctagonStateTransitionOperation named:@"full-refetch" entering:CKKSStateNeedFullRefetch];
         }
 
         if([flags _onqueueContains:CKKSFlagFetchRequested]) {
             [flags _onqueueRemoveFlag:CKKSFlagFetchRequested];
             ckksnotice("ckkskey", self, "Kicking off a key refetch based on request");
-            [self ensureKeyStateReadyDependency:@"key-state-fetch"];
-            return [OctagonStateTransitionOperation named:@"fetch-requested" entering:SecCKKSZoneKeyStateBeginFetch];
+            return [OctagonStateTransitionOperation named:@"fetch-requested" entering:CKKSStateBeginFetch];
         }
 
         if([flags _onqueueContains:CKKSFlagKeyStateProcessRequested]) {
             [flags _onqueueRemoveFlag:CKKSFlagKeyStateProcessRequested];
             ckksnotice("ckkskey", self, "Kicking off a key reprocess based on request");
-            [self ensureKeyStateReadyDependency:@"key-state-process"];
-            return [OctagonStateTransitionOperation named:@"key-process" entering:SecCKKSZoneKeyStateProcess];
+            [self.operationDependencies setStateForActiveCKKSManagedViews:SecCKKSZoneKeyStateProcess];
+            return [OctagonStateTransitionOperation named:@"key-process" entering:CKKSStateProcessReceivedKeys];
         }
 
         if([flags _onqueueContains:CKKSFlagKeySetRequested]) {
             [flags _onqueueRemoveFlag:CKKSFlagKeySetRequested];
-            [self ensureKeyStateReadyDependency:@"key-state-process"];
-            return [OctagonStateTransitionOperation named:@"provide-key-set" entering:SecCKKSZoneKeyStateProcess];
+            return [OctagonStateTransitionOperation named:@"provide-key-set" entering:CKKSStateProvideKeyHierarchy];
         }
 
         if(self.trustStatus != CKKSAccountStatusAvailable) {
             ckksnotice("ckkskey", self, "In ready, but there's no trust; going into waitfortrust");
-            [self ensureKeyStateReadyDependency:@"trust loss"];
-            return [OctagonStateTransitionOperation named:@"trust-gone" entering:SecCKKSZoneKeyStateLoseTrust];
+            // Allow the losetrust operation to handle setting keystates; it's tricky
+            return [OctagonStateTransitionOperation named:@"trust-gone" entering:CKKSStateLoseTrust];
         }
 
         if([flags _onqueueContains:CKKSFlagTrustedPeersSetChanged]) {
             [flags _onqueueRemoveFlag:CKKSFlagTrustedPeersSetChanged];
             ckksnotice("ckkskey", self, "Received a nudge that the trusted peers set might have changed! Reprocessing.");
-            [self ensureKeyStateReadyDependency:@"Peer set changed"];
-            return [OctagonStateTransitionOperation named:@"trusted-peers-changed" entering:SecCKKSZoneKeyStateProcess];
+            [self.operationDependencies setStateForActiveCKKSManagedViews:SecCKKSZoneKeyStateProcess];
+            return [OctagonStateTransitionOperation named:@"trusted-peers-changed" entering:CKKSStateProcessReceivedKeys];
+        }
+
+        if([flags _onqueueContains:CKKSFlagCheckQueues]) {
+            [flags _onqueueRemoveFlag:CKKSFlagCheckQueues];
+            return [OctagonStateTransitionOperation named:@"check-queues" entering:CKKSStateBecomeReady];
         }
 
         if([flags _onqueueContains:CKKSFlag24hrNotification]) {
@@ -793,100 +789,59 @@
 
             // We'd like to trigger our 24-hr backup fetch and scan.
             // That's currently part of the Initialized state, so head that way
-            return [OctagonStateTransitionOperation named:@"24-hr-check" entering:SecCKKSZoneKeyStateInitialized];
+            return [OctagonStateTransitionOperation named:@"24-hr-check" entering:CKKSStateInitialized];
         }
 
         if([flags _onqueueContains:CKKSFlagItemReencryptionNeeded]) {
             [flags _onqueueRemoveFlag:CKKSFlagItemReencryptionNeeded];
 
-            // TODO: this should be part of the state machine
-            CKKSReencryptOutgoingItemsOperation* op = [[CKKSReencryptOutgoingItemsOperation alloc] initWithDependencies:self.operationDependencies
-                                                                                                                   ckks:self
-                                                                                                          intendedState:SecCKKSZoneKeyStateReady
-                                                                                                             errorState:SecCKKSZoneKeyStateError];
-            [self scheduleOperation:op];
-            // fall through.
+            return [OctagonStateTransitionOperation named:@"reencrypt" entering:CKKSStateReencryptOutgoingItems];
         }
 
         if([flags _onqueueContains:CKKSFlagProcessIncomingQueue]) {
             [flags _onqueueRemoveFlag:CKKSFlagProcessIncomingQueue];
-            // TODO: this should be part of the state machine
-
-            [self processIncomingQueue:true];
-            //return [OctagonStateTransitionOperation named:@"process-outgoing" entering:SecCKKSZoneKeyStateProcessIncomingQueue];
+            return [OctagonStateTransitionOperation named:@"process-incoming" entering:CKKSStateProcessIncomingQueue];
         }
 
         if([flags _onqueueContains:CKKSFlagScanLocalItems]) {
             [flags _onqueueRemoveFlag:CKKSFlagScanLocalItems];
             ckksnotice("ckkskey", self, "Launching a scan operation to find dropped items");
 
-            // TODO: this should be a state flow
-            [self scanLocalItems:@"per-request"];
-            // fall through
+            return [OctagonStateTransitionOperation named:@"scan"
+                                                 entering:CKKSStateScanLocalItems];
         }
 
         if([flags _onqueueContains:CKKSFlagProcessOutgoingQueue]) {
-            [flags _onqueueRemoveFlag:CKKSFlagProcessOutgoingQueue];
+            // We only want to launch the OQO once the scheduler has given us a token.
+            if([flags _onqueueContains:CKKSFlagOutgoingQueueOperationRateToken]) {
+                [flags _onqueueRemoveFlag:CKKSFlagProcessOutgoingQueue];
+                [flags _onqueueRemoveFlag:CKKSFlagOutgoingQueueOperationRateToken];
 
-            [self processOutgoingQueue:nil];
-            // TODO: this should be a state flow.
-            //return [OctagonStateTransitionOperation named:@"process-outgoing" entering:SecCKKSZoneKeyStateProcessOutgoingQueue];
-            // fall through
+                return [OctagonStateTransitionOperation named:@"oqo" entering:CKKSStateProcessOutgoingQueue];
+
+            } else {
+                [self.outgoingQueueOperationScheduler trigger];
+            }
         }
 
         // TODO: kick off a key roll if one has been requested
 
-
         // If we reach this point, we're in ready, and will stay there.
-        // Tell the launch and the viewReadyScheduler about that.
-
-        [self.launch launch];
-
-        [[CKKSAnalytics logger] setDateProperty:[NSDate date] forKey:CKKSAnalyticsLastKeystateReady zoneName:self.zoneName];
-        if(self.keyStateReadyDependency) {
-            [self scheduleOperation:self.keyStateReadyDependency];
-            self.keyStateReadyDependency = nil;
+        // Launch any view states that would like to!
+        for(CKKSKeychainViewState* viewState in self.operationDependencies.views) {
+            [viewState launchComplete];
         }
 
         return nil;
     }
 
-    if([currentState isEqualToString:SecCKKSZoneKeyStateReadyPendingUnlock]) {
-        if([flags _onqueueContains:CKKSFlagDeviceUnlocked]) {
-            [flags _onqueueRemoveFlag:CKKSFlagDeviceUnlocked];
-            [self ensureKeyStateReadyDependency:@"Device unlocked"];
-            return [OctagonStateTransitionOperation named:@"key-state-ready-after-unlock" entering:SecCKKSZoneKeyStateBecomeReady];
-        }
-
-        if([flags _onqueueContains:CKKSFlagProcessOutgoingQueue]) {
-            [flags _onqueueRemoveFlag:CKKSFlagProcessOutgoingQueue];
-            [self processOutgoingQueue:nil];
-            // TODO: this should become part of the key state hierarchy
-        }
-
-        // Ready enough!
-
-        [[CKKSAnalytics logger] setDateProperty:[NSDate date] forKey:CKKSAnalyticsLastKeystateReady zoneName:self.zoneName];
-        if(self.keyStateReadyDependency) {
-            [self scheduleOperation:self.keyStateReadyDependency];
-            self.keyStateReadyDependency = nil;
-        }
-
-        OctagonPendingFlag* unlocked = [[OctagonPendingFlag alloc] initWithFlag:CKKSFlagDeviceUnlocked
-                                                                     conditions:OctagonPendingConditionsDeviceUnlocked];
-        [pendingFlagHandler _onqueueHandlePendingFlag:unlocked];
-        return nil;
-    }
-
-    if([currentState isEqualToString:SecCKKSZoneKeyStateBeginFetch]) {
-        ckksnotice("ckkskey", self, "Starting a key hierarchy fetch");
+    if([currentState isEqualToString:CKKSStateBeginFetch]) {
         [flags _onqueueRemoveFlag:CKKSFlagFetchComplete];
 
         WEAKIFY(self);
 
-        NSSet<CKKSFetchBecause*>* fetchReasons = self.currentFetchReasons ?
-            [self.currentFetchReasons setByAddingObject:CKKSFetchBecauseKeyHierarchy] :
-            [NSSet setWithObject:CKKSFetchBecauseKeyHierarchy];
+        NSSet<CKKSFetchBecause*>* fetchReasons = [self.operationDependencies.currentFetchReasons copy];
+        [self.operationDependencies.currentFetchReasons removeAllObjects];
 
         CKKSResultOperation* fetchOp = [self.zoneChangeFetcher requestSuccessfulFetchForManyReasons:fetchReasons];
         CKKSResultOperation* flagOp = [CKKSResultOperation named:@"post-fetch"
@@ -897,250 +852,561 @@
         [flagOp addDependency:fetchOp];
         [self scheduleOperation:flagOp];
 
-        return [OctagonStateTransitionOperation named:@"waiting-for-fetch" entering:SecCKKSZoneKeyStateFetch];
-    }
-
-    if([currentState isEqualToString:SecCKKSZoneKeyStateFetch]) {
-        if([flags _onqueueContains:CKKSFlagFetchComplete]) {
-            [flags _onqueueRemoveFlag:CKKSFlagFetchComplete];
-            return [OctagonStateTransitionOperation named:@"fetch-complete" entering:SecCKKSZoneKeyStateFetchComplete];
+        // If this is a key hierarchy fetch, or if the zones aren't in ready, set them to fetch!
+        // This should leave views that are in 'ready' in ready.
+        BOOL keyHierarchyFetch = [self.operationDependencies.currentFetchReasons containsObject:CKKSFetchBecauseKeyHierarchy];
+        for(CKKSKeychainViewState* viewState in self.operationDependencies.views) {
+            ckksnotice("fetch", viewState, "Current state is %@, khf: %d", viewState, (int)keyHierarchyFetch);
+            if(keyHierarchyFetch || ![viewState.viewKeyHierarchyState isEqualToString:SecCKKSZoneKeyStateReady]) {
+                viewState.viewKeyHierarchyState = SecCKKSZoneKeyStateFetch;
+            }
         }
 
-        // The flags CKKSFlagCloudKitZoneMissing and CKKSFlagChangeTokenOutdated are both handled at the top of this function
+        return [OctagonStateTransitionOperation named:@"waiting-for-fetch" entering:CKKSStateFetch];
+    }
+
+    if([currentState isEqualToString:CKKSStateFetch]) {
+        if([flags _onqueueContains:CKKSFlagFetchComplete]) {
+            [flags _onqueueRemoveFlag:CKKSFlagFetchComplete];
+            return [OctagonStateTransitionOperation named:@"fetch-complete" entering:CKKSStateFetchComplete];
+        }
+
+        // The flags CKKSFlagCloudKitZoneMissing and CKKSFlagChangeTokenExpired are both handled at the top of this function
         // So, we don't need to handle them here.
 
         return nil;
     }
 
-    if([currentState isEqualToString:SecCKKSZoneKeyStateNeedFullRefetch]) {
-         ckksnotice("ckkskey", self, "Starting a key hierarchy full refetch");
-
-         //TODO use states here instead of flags
-         self.keyStateMachineRefetched = true;
-         self.keyStateFullRefetchRequested = false;
-
-         return [OctagonStateTransitionOperation named:@"fetch-complete" entering:SecCKKSZoneKeyStateResettingLocalData];
+    if([currentState isEqualToString:CKKSStateFetchComplete]) {
+        return [OctagonStateTransitionOperation named:@"post-fetch-process" entering:CKKSStateProcessReceivedKeys];
     }
 
-    if([currentState isEqualToString:SecCKKSZoneKeyStateFetchComplete]) {
-        [self.launch addEvent:@"fetch-complete"];
-        [self.currentFetchReasons removeAllObjects];
-
-        return [OctagonStateTransitionOperation named:@"post-fetch-process" entering:SecCKKSZoneKeyStateProcess];
-    }
-
-    if([currentState isEqualToString:SecCKKSZoneKeyStateWaitForTLKCreation]) {
-        if([flags _onqueueContains:CKKSFlagKeyStateProcessRequested]) {
-            [flags _onqueueRemoveFlag:CKKSFlagKeyStateProcessRequested];
-            ckksnotice("ckkskey", self, "We believe we need to create TLKs but we also received a key nudge; moving to key state Process.");
-            return [OctagonStateTransitionOperation named:@"wait-for-tlk-creation-process" entering:SecCKKSZoneKeyStateProcess];
-
-        } else if([flags _onqueueContains:CKKSFlagFetchRequested]) {
+    if([currentState isEqualToString:CKKSStateProcessReceivedKeys]) {
+        // If we've received a fetch request, make that happen first
+        if([flags _onqueueContains:CKKSFlagFetchRequested]) {
             [flags _onqueueRemoveFlag:CKKSFlagFetchRequested];
-            return [OctagonStateTransitionOperation named:@"fetch-requested" entering:SecCKKSZoneKeyStateBeginFetch];
+            ckksnotice_global("ckkskey", "Kicking off a fetch based on request");
+            return [OctagonStateTransitionOperation named:@"fetch-requested" entering:CKKSStateBeginFetch];
+        }
 
-        } else if([flags _onqueueContains:CKKSFlagTLKCreationRequested]) {
-            [flags _onqueueRemoveFlag:CKKSFlagTLKCreationRequested];
+        [flags _onqueueRemoveFlag:CKKSFlagKeyStateProcessRequested];
 
-            // It's very likely that we're already untrusted at this point. But, sometimes we will be trusted right now, and can lose trust while waiting for the upload.
-            // This probably should be handled by a state increase.
-            [flags _onqueueRemoveFlag:CKKSFlagEndTrustedOperation];
+        [self.operationDependencies setStateForActiveCKKSManagedViews:SecCKKSZoneKeyStateProcess];
+        [self.operationDependencies setStateForActiveExternallyManagedViews:SecCKKSZoneKeyStateReady];
 
-            ckksnotice("ckkskey", self, "TLK creation requested; kicking off operation");
-            return [[CKKSNewTLKOperation alloc] initWithDependencies:self.operationDependencies
-                                                                ckks:self];
-        } else if(self.lastNewTLKOperation.keyset) {
-            // This means that we _have_ created new TLKs, and should wait for them to be uploaded. This is ugly and should probably be done with more states.
-            return [OctagonStateTransitionOperation named:@"" entering:SecCKKSZoneKeyStateWaitForTLKUpload];
+        return [[CKKSProcessReceivedKeysOperation alloc] initWithDependencies:self.operationDependencies
+                                                       allowFullRefetchResult:!self.keyStateMachineRefetched
+                                                                intendedState:CKKSStateCheckZoneHierarchies
+                                                                   errorState:CKKSStateError];
+    }
 
-        } else {
-            ckksnotice("ckkskey", self, "We believe we need to create TLKs; waiting for Octagon (via %@)", self.suggestTLKUpload);
+    if([currentState isEqualToString:CKKSStateCheckZoneHierarchies]) {
+        // This is an odd state: our next step will depend on the states of each zone we're currently operating on, and not the current state.
+        // The Objective-C type system isn't flexible enough to integrate N states into the state machine.
+
+        if([self anyViewsInState:SecCKKSZoneKeyStateUnhealthy]) {
+            return [OctagonStateTransitionOperation named:@"unhealthy"
+                                                 entering:CKKSStateUnhealthy];
+        }
+
+        if([self anyViewsInState:SecCKKSZoneKeyStateTLKMissing]) {
+            return [OctagonStateTransitionOperation named:@"tlk-missing"
+                                                 entering:CKKSStateTLKMissing];
+        }
+
+        if([self anyViewsInState:SecCKKSZoneKeyStateNewTLKsFailed]) {
+            [self.operationDependencies.currentFetchReasons addObject:CKKSFetchBecauseResolvingConflict];
+            return [OctagonStateTransitionOperation named:@"newtlks-failed"
+                                                 entering:CKKSStateBeginFetch];
+        }
+
+        if([self anyViewsInState:SecCKKSZoneKeyStateWaitForTrust]) {
+            return [OctagonStateTransitionOperation named:@"no-trust"
+                                                 entering:CKKSStateLoseTrust];
+        }
+
+        if([self anyViewsInState:SecCKKSZoneKeyStateNeedFullRefetch]) {
+            NSSet<CKKSKeychainViewState*>* viewsToReset = [self viewsInState:SecCKKSZoneKeyStateNeedFullRefetch];
+            [self.operationDependencies operateOnSelectViews:viewsToReset];
+
+            return [OctagonStateTransitionOperation named:@"reset-views"
+                                                 entering:CKKSStateNeedFullRefetch];
+        }
+
+        // Now that we're here, there's nothing more to be done for the zones.
+        if([self anyViewsInState:SecCKKSZoneKeyStateWaitForUnlock]) {
+            OctagonPendingFlag* unlocked = [[OctagonPendingFlag alloc] initWithFlag:CKKSFlagDeviceUnlocked
+                                                                         conditions:OctagonPendingConditionsDeviceUnlocked];
+            [pendingFlagHandler _onqueueHandlePendingFlagLater:unlocked];
+        }
+
+        if([self anyViewsInState:SecCKKSZoneKeyStateWaitForTLKCreation]) {
+            ckksnotice_global("ckkskey", "Requesting TLK upload");
             [self.suggestTLKUpload trigger];
         }
-    }
 
-    if([currentState isEqualToString:SecCKKSZoneKeyStateWaitForTLKUpload]) {
-        ckksnotice("ckkskey", self, "We believe we have TLKs that need uploading");
-
-        if([flags _onqueueContains:CKKSFlagFetchRequested]) {
-            ckksnotice("ckkskey", self, "Received a nudge to refetch CKKS");
-            return [OctagonStateTransitionOperation named:@"tlk-upload-refetch" entering:SecCKKSZoneKeyStateBeginFetch];
+        NSMutableSet<CKKSZoneKeyState*>* keyStates = [NSMutableSet set];
+        for(CKKSKeychainViewState* viewState in self.operationDependencies.views) {
+            [keyStates addObject:viewState.viewKeyHierarchyState];
         }
 
-        if([flags _onqueueContains:CKKSFlagKeyStateTLKsUploaded]) {
-            [flags _onqueueRemoveFlag:CKKSFlagKeyStateTLKsUploaded];
-
-            return [OctagonStateTransitionOperation named:@"wait-for-tlk-upload-process" entering:SecCKKSZoneKeyStateProcess];
+        if(![keyStates isSubsetOfSet:CKKSKeyStateNonTransientStates()]) {
+            ckksnotice_global("ckks", "Misbehaving key states: %@", keyStates);
         }
 
-        if([flags _onqueueContains:CKKSFlagEndTrustedOperation]) {
-            [flags _onqueueRemoveFlag:CKKSFlagEndTrustedOperation];
-
-            return [OctagonStateTransitionOperation named:@"trust-loss" entering:SecCKKSZoneKeyStateLoseTrust];
+        if(SecCKKSTestsEnabled()) {
+            NSAssert([keyStates isSubsetOfSet:CKKSKeyStateNonTransientStates()], @"All view states should be nontransient before proceeding");
         }
 
-        if([flags _onqueueContains:CKKSFlagKeyStateProcessRequested]) {
-            return [OctagonStateTransitionOperation named:@"wait-for-tlk-fetch-process" entering:SecCKKSZoneKeyStateProcess];
-        }
-
-        // This is quite the hack, but it'll do for now.
-        [flags _onqueueRemoveFlag:CKKSFlagKeySetRequested];
-        [self.operationDependencies provideKeySet:self.lastNewTLKOperation.keyset];
-
-        ckksnotice("ckkskey", self, "Notifying Octagon again, just in case");
-        [self.suggestTLKUpload trigger];
-    }
-
-    if([currentState isEqualToString:SecCKKSZoneKeyStateTLKMissing]) {
-        if([flags _onqueueContains:CKKSFlagKeyStateProcessRequested]) {
-            [flags _onqueueRemoveFlag:CKKSFlagKeyStateProcessRequested];
-            return [OctagonStateTransitionOperation named:@"wait-for-tlk-process" entering:SecCKKSZoneKeyStateProcess];
-        }
-
-        return [self tlkMissingOperation:SecCKKSZoneKeyStateWaitForTLK];
-    }
-
-    if([currentState isEqualToString:SecCKKSZoneKeyStateWaitForTLK]) {
-        // We're in a hold state: waiting for the TLK bytes to arrive.
-
-        if([flags _onqueueContains:CKKSFlagKeyStateProcessRequested]) {
-            [flags _onqueueRemoveFlag:CKKSFlagKeyStateProcessRequested];
-            // Someone has requsted a reprocess! Go to the correct state.
-            ckksnotice("ckkskey", self, "Received a nudge that our TLK might be here! Reprocessing.");
-            return [OctagonStateTransitionOperation named:@"wait-for-tlk-process" entering:SecCKKSZoneKeyStateProcess];
-
-        } else if([flags _onqueueContains:CKKSFlagTrustedPeersSetChanged]) {
-            [flags _onqueueRemoveFlag:CKKSFlagTrustedPeersSetChanged];
-
-            // Hmm, maybe this trust set change will cause us to recover this TLK (due to a previously-untrusted share becoming trusted). Worth a shot!
-            ckksnotice("ckkskey", self, "Received a nudge that the trusted peers set might have changed! Reprocessing.");
-            return [OctagonStateTransitionOperation named:@"wait-for-tlk-peers" entering:SecCKKSZoneKeyStateProcess];
-        }
-
+        // If someone has requested the key hierarchies, return those, then return to processing the key sets
         if([flags _onqueueContains:CKKSFlagKeySetRequested]) {
             [flags _onqueueRemoveFlag:CKKSFlagKeySetRequested];
-            return [OctagonStateTransitionOperation named:@"provide-key-set" entering:SecCKKSZoneKeyStateProcess];
+            CKKSNewTLKOperation* op = [[CKKSNewTLKOperation alloc] initWithDependencies:self.operationDependencies
+                                                                       rollTLKIfPresent:NO
+                                                              preexistingPendingKeySets:self.lastNewTLKOperation.keysets
+                                                                          intendedState:CKKSStateCheckZoneHierarchies
+                                                                             errorState:CKKSStateError];
+            self.lastNewTLKOperation = op;
+            return op;
         }
 
-        return nil;
+        return [OctagonStateTransitionOperation named:@"heal-tlk-shares"
+                                             entering:CKKSStateHealTLKShares];
     }
 
-    if([currentState isEqualToString:SecCKKSZoneKeyStateWaitForUnlock]) {
-        ckksnotice("ckkskey", self, "Requested to enter waitforunlock");
-
-        if([flags _onqueueContains:CKKSFlagDeviceUnlocked ]) {
-            [flags _onqueueRemoveFlag:CKKSFlagDeviceUnlocked];
-            return [OctagonStateTransitionOperation named:@"key-state-after-unlock" entering:SecCKKSZoneKeyStateInitialized];
-        }
-
-        OctagonPendingFlag* unlocked = [[OctagonPendingFlag alloc] initWithFlag:CKKSFlagDeviceUnlocked
-                                                                     conditions:OctagonPendingConditionsDeviceUnlocked];
-        [pendingFlagHandler _onqueueHandlePendingFlag:unlocked];
-
-        return nil;
+    if([currentState isEqualToString:CKKSStateTLKMissing]) {
+        return [self tlkMissingOperation:CKKSStateCheckZoneHierarchies];
     }
 
-    if([currentState isEqualToString:SecCKKSZoneKeyStateBadCurrentPointers]) {
-        // The current key pointers are broken, but we're not sure why.
-        ckksnotice("ckkskey", self, "Our current key pointers are reported broken. Attempting a fix!");
-        return [[CKKSHealKeyHierarchyOperation alloc] initWithDependencies:self.operationDependencies
-                                                                      ckks:self
-                                                                 intending:SecCKKSZoneKeyStateBecomeReady
-                                                                errorState:SecCKKSZoneKeyStateError];
+    if([currentState isEqualToString:CKKSStateHealTLKShares]) {
+        return [[CKKSHealTLKSharesOperation alloc] initWithDependencies:self.operationDependencies
+                                                          intendedState:CKKSStateProcessIncomingQueue
+                                                             errorState:CKKSStateHealTLKSharesFailed];
     }
 
-    if([currentState isEqualToString:SecCKKSZoneKeyStateNewTLKsFailed]) {
-        ckksnotice("ckkskey", self, "Creating new TLKs didn't work. Attempting to refetch!");
-        return [OctagonStateTransitionOperation named:@"new-tlks-failed" entering:SecCKKSZoneKeyStateBeginFetch];
+    if([currentState isEqualToString:CKKSStateNeedFullRefetch]) {
+        ckksnotice("ckkskey", self, "Starting a key hierarchy full refetch");
+
+        //TODO use states here instead of flags
+        self.keyStateMachineRefetched = true;
+        self.keyStateFullRefetchRequested = false;
+
+        return [OctagonStateTransitionOperation named:@"fetch-complete" entering:CKKSStateResettingLocalData];
     }
 
-    if([currentState isEqualToString:SecCKKSZoneKeyStateHealTLKSharesFailed]) {
+    if([currentState isEqualToString:CKKSStateHealTLKSharesFailed]) {
         ckksnotice("ckkskey", self, "Creating new TLK shares didn't work. Attempting to refetch!");
-        return [OctagonStateTransitionOperation named:@"heal-tlks-failed" entering:SecCKKSZoneKeyStateBeginFetch];
+        [self.operationDependencies.currentFetchReasons addObject:CKKSFetchBecauseResolvingConflict];
+        return [OctagonStateTransitionOperation named:@"heal-tlks-failed" entering:CKKSStateBeginFetch];
     }
 
-    if([currentState isEqualToString:SecCKKSZoneKeyStateUnhealthy]) {
+    if([currentState isEqualToString:CKKSStateUnhealthy]) {
         if(self.trustStatus != CKKSAccountStatusAvailable) {
             ckksnotice("ckkskey", self, "Looks like the key hierarchy is unhealthy, but we're untrusted.");
-            return [OctagonStateTransitionOperation named:@"unhealthy-lacking-trust" entering:SecCKKSZoneKeyStateLoseTrust];
+            return [OctagonStateTransitionOperation named:@"unhealthy-lacking-trust" entering:CKKSStateLoseTrust];
 
         } else {
             ckksnotice("ckkskey", self, "Looks like the key hierarchy is unhealthy. Launching fix.");
             return [[CKKSHealKeyHierarchyOperation alloc] initWithDependencies:self.operationDependencies
-                                                                          ckks:self
-                                                                     intending:SecCKKSZoneKeyStateBecomeReady
-                                                                    errorState:SecCKKSZoneKeyStateError];
+                                                        allowFullRefetchResult:!self.keyStateMachineRefetched
+                                                                     intending:CKKSStateCheckZoneHierarchies
+                                                                    errorState:CKKSStateError];
         }
     }
 
-    if([currentState isEqualToString:SecCKKSZoneKeyStateHealTLKShares]) {
-        ckksnotice("ckksshare", self, "Key hierarchy is okay, but not shared appropriately. Launching fix.");
-        return [[CKKSHealTLKSharesOperation alloc] initWithOperationDependencies:self.operationDependencies
-                                                                            ckks:self];
+    if([currentState isEqualToString:CKKSStateProcessIncomingQueue]) {
+        [flags _onqueueRemoveFlag:CKKSFlagProcessIncomingQueue];
+
+        BOOL mismatchedViewItems = [flags _onqueueContains:CKKSFlagProcessIncomingQueueWithFreshPolicy];
+        [flags _onqueueRemoveFlag:CKKSFlagProcessIncomingQueueWithFreshPolicy];
+
+        if(mismatchedViewItems) {
+            ckksnotice_global("ckksincoming", "Going to process the incoming queue with a fresh policy");
+        }
+
+        CKKSIncomingQueueOperation* op = [[CKKSIncomingQueueOperation alloc] initWithDependencies:self.operationDependencies
+                                                                                        intending:CKKSStateBecomeReady
+                                                                 pendingClassAItemsRemainingState:CKKSStateRemainingClassAIncomingItems
+                                                                                       errorState:CKKSStateBecomeReady
+                                                                        handleMismatchedViewItems:mismatchedViewItems];
+
+        if(self.resultsOfNextIncomingQueueOperationOperation) {
+            [self.resultsOfNextIncomingQueueOperationOperation addSuccessDependency:op];
+            [self scheduleOperation:self.resultsOfNextIncomingQueueOperationOperation];
+            self.resultsOfNextIncomingQueueOperationOperation = nil;
+        }
+
+        self.lastIncomingQueueOperation = op;
+        [op addNullableDependency:self.holdIncomingQueueOperation];
+        return op;
     }
 
-    if([currentState isEqualToString:SecCKKSZoneKeyStateProcess]) {
-        [flags _onqueueRemoveFlag:CKKSFlagKeyStateProcessRequested];
+    if([currentState isEqualToString:CKKSStateRemainingClassAIncomingItems]) {
+        return [OctagonStateTransitionOperation named:@"iqo-errored"
+                                             entering:SecCKKSZoneKeyStateBecomeReady];
+    }
 
-        ckksnotice("ckksshare", self, "Launching key state process");
-        return [[CKKSProcessReceivedKeysOperation alloc] initWithDependencies:self.operationDependencies
-                                                                intendedState:SecCKKSZoneKeyStateBecomeReady
-                                                                   errorState:SecCKKSZoneKeyStateError];
+    if([currentState isEqualToString:CKKSStateScanLocalItems]) {
+        [flags _onqueueRemoveFlag:CKKSFlagScanLocalItems];
+
+        CKKSScanLocalItemsOperation* op = [[CKKSScanLocalItemsOperation alloc] initWithDependencies:self.operationDependencies
+                                                                                          intending:CKKSStateBecomeReady
+                                                                                         errorState:CKKSStateError
+                                                                                   ckoperationGroup:nil];
+        self.initiatedLocalScan = true;
+        return op;
+    }
+
+    if([currentState isEqualToString:CKKSStateReencryptOutgoingItems]) {
+        CKKSReencryptOutgoingItemsOperation* op = [[CKKSReencryptOutgoingItemsOperation alloc] initWithDependencies:self.operationDependencies
+                                                                                                      intendedState:CKKSStateBecomeReady
+                                                                                                         errorState:CKKSStateError
+                                                                                                      holdOperation:nil];
+        self.lastReencryptOutgoingItemsOperation = op;
+        return op;
+    }
+
+    if([currentState isEqualToString:CKKSStateProcessOutgoingQueue]) {
+        [flags _onqueueRemoveFlag:CKKSFlagProcessOutgoingQueue];
+
+        CKKSOutgoingQueueOperation* op = [[CKKSOutgoingQueueOperation alloc] initWithDependencies:self.operationDependencies
+                                                                                        intending:CKKSStateBecomeReady
+                                                                                     ckErrorState:CKKSStateOutgoingQueueOperationFailed
+                                                                                       errorState:CKKSStateInitialized];
+        [op addNullableDependency:self.holdOutgoingQueueOperation];
+        [op linearDependencies:self.outgoingQueueOperations];
+        self.lastOutgoingQueueOperation = op;
+        return op;
+    }
+
+    if([currentState isEqualToString:CKKSStateOutgoingQueueOperationFailed]) {
+        return [OctagonStateTransitionOperation named:@"oqo-failure" entering:CKKSStateBecomeReady];
     }
 
     return nil;
 }
 
-- (OctagonStateTransitionOperation*)tlkMissingOperation:(CKKSZoneKeyState*)newState
+- (OctagonStateTransitionOperation*)becomeReadyOperation:(CKKSState*)newState
+{
+    WEAKIFY(self);
+    return [OctagonStateTransitionOperation named:@"become-ready"
+                                        intending:newState
+                                       errorState:CKKSStateError
+                              withBlockTakingSelf:^(OctagonStateTransitionOperation * _Nonnull op) {
+        STRONGIFY(self);
+
+        [self dispatchSyncWithReadOnlySQLTransaction:^{
+            NSSet<CKKSKeychainViewState*>* viewsOfInterest = [self.operationDependencies readyAndSyncingViews];
+
+            for(CKKSKeychainViewState* viewState in self.operationDependencies.views) {
+                CKKSZoneStateEntry* ckse = [CKKSZoneStateEntry state:viewState.zoneName];
+                if(!ckse.ckzonecreated || !ckse.ckzonesubscribed) {
+                    ckksnotice("ckkszone", viewState.zoneID, "Zone does not yet exist: %@ %@", viewState, ckse);
+                    op.nextState = CKKSStateInitializing;
+                    return;
+                }
+            }
+
+            for(CKKSKeychainViewState* viewState in viewsOfInterest) {
+                NSError* iqeCountError = nil;
+                NSDictionary<NSString*, NSNumber*>* iqeCounts = [CKKSIncomingQueueEntry countNewEntriesByKeyInZone:viewState.zoneID error:&iqeCountError];
+
+                if(iqeCounts.count > 0) {
+                    ckksnotice("ckksincoming", viewState.zoneID, "Incoming Queue item counts: %@", iqeCounts);
+                }
+
+                for(NSString* keyUUID in iqeCounts) {
+                    NSError* keyError = nil;
+                    CKKSKey* key = [CKKSKey fromDatabase:keyUUID zoneID:viewState.zoneID error:&keyError];
+
+                    if(!key || keyError) {
+                        ckkserror("ckksincoming", viewState.zoneID, "Unable to load key for %@: %@", keyUUID, keyError);
+                        continue;
+                    }
+
+                    if([key.keyclass isEqualToString:SecCKKSKeyClassA] && self.lockStateTracker.isLocked) {
+                        ckksnotice("ckksincoming", viewState.zoneID, "Have pending classA items for view, but device is locked");
+                        OctagonPendingFlag* pending = [[OctagonPendingFlag alloc] initWithFlag:CKKSFlagCheckQueues
+                                                                                    conditions:OctagonPendingConditionsDeviceUnlocked];
+
+                        [self.stateMachine _onqueueHandlePendingFlagLater:pending];
+                    } else {
+                        op.nextState = CKKSStateProcessIncomingQueue;
+                        return;
+                    }
+                }
+
+                NSError* cipCountError = nil;
+                NSInteger cipCount = [CKKSCurrentItemPointer countByState:SecCKKSStateNew zone:viewState.zoneID error:&cipCountError];
+                if(cipCount > 0) {
+                    ckksnotice("ckksincoming", viewState.zoneID, "Incoming Queue CIP count: %d", (int)cipCount);
+                    op.nextState = CKKSStateProcessIncomingQueue;
+                    return;
+                }
+
+                if(cipCountError != nil) {
+                    ckkserror("ckksincoming", viewState.zoneID, "Unable to count CIPs: %@", cipCountError);
+                }
+            }
+
+            for(CKKSKeychainViewState* viewState in viewsOfInterest) {
+                // Are there any entries waiting for reencryption? If so, set the flag.
+                NSError* reencryptOQEError = nil;
+                NSInteger reencryptOQEcount = [CKKSOutgoingQueueEntry countByState:SecCKKSStateReencrypt
+                                                                              zone:viewState.zoneID
+                                                                             error:&reencryptOQEError];
+                if(reencryptOQEError) {
+                    ckkserror("ckks", viewState.zoneID, "Couldn't count reencrypt OQEs, bad behavior ahead: %@", reencryptOQEError);
+                }
+
+                if(![viewState.viewKeyHierarchyState isEqualToString:SecCKKSZoneKeyStateReady]) {
+                    ckksnotice("ckksincoming", viewState.zoneID, "Zone not ready (%@): skipping reencryption", viewState);
+                    continue;
+                }
+
+                if(![self.operationDependencies.syncingPolicy isSyncingEnabledForView:viewState.zoneID.zoneName]) {
+                    ckksnotice("ckksincoming", viewState.zoneID, "Syncing disabled for (%@): skipping incoming queue processing", viewState);
+                    continue;
+                }
+
+                if(reencryptOQEcount > 0) {
+                    op.nextState = CKKSStateReencryptOutgoingItems;
+                    return;
+                }
+            }
+
+            NSDate* now = [NSDate date];
+            NSDateComponents* offset = [[NSDateComponents alloc] init];
+            [offset setHour:-24];
+            NSDate* oneDayDeadline = [[NSCalendar currentCalendar] dateByAddingComponents:offset toDate:now options:0];
+
+            NSDate* earliestFetchTime = nil;
+            CKKSKeychainViewState* earliestFetchedView = nil;
+
+            for(CKKSKeychainViewState* viewState in self.operationDependencies.views) {
+                CKKSZoneStateEntry* ckse = [CKKSZoneStateEntry state:viewState.zoneName];
+
+                if(ckse.lastFetchTime == nil ||
+                   [ckse.lastFetchTime compare:oneDayDeadline] == NSOrderedAscending ||
+                   ckse.moreRecordsInCloudKit) {
+
+                    if(ckse.lastFetchTime == nil) {
+                        [self.operationDependencies.currentFetchReasons addObject:CKKSFetchBecauseInitialStart];
+                    } else if(ckse.moreRecordsInCloudKit) {
+                        [self.operationDependencies.currentFetchReasons addObject:CKKSFetchBecauseMoreComing];
+                    } else {
+                        [self.operationDependencies.currentFetchReasons addObject:CKKSFetchBecausePeriodicRefetch];
+                    }
+
+                    ckksnotice("ckksfetch", viewState.zoneID, "Fetch last occurred at %@ (%@); beginning a new one", ckse.lastFetchTime, ckse.moreRecordsInCloudKit ? @"more coming" : @"complete");
+
+                    op.nextState = CKKSStateBeginFetch;
+                    return;
+                }
+
+                if(earliestFetchTime == nil || [earliestFetchTime compare:ckse.lastFetchTime] == NSOrderedDescending) {
+                    earliestFetchTime = ckse.lastFetchTime;
+                    earliestFetchedView = viewState;
+                }
+            }
+
+            ckksnotice_global("ckksfetch", "Fetch last occurred at %@ (for %@)", earliestFetchTime, earliestFetchedView);
+
+            NSDate* earliestScanTime = nil;
+            CKKSKeychainViewState* earliestScannedView = nil;
+
+            for(CKKSKeychainViewState* viewState in viewsOfInterest) {
+                CKKSZoneStateEntry* ckse = [CKKSZoneStateEntry state:viewState.zoneName];
+
+                if(ckse.lastLocalKeychainScanTime == nil || [ckse.lastLocalKeychainScanTime compare:oneDayDeadline] == NSOrderedAscending) {
+                    ckksnotice("ckksscan", viewState.zoneID, "CKKS scan last occurred at %@; beginning a new one", ckse.lastLocalKeychainScanTime);
+
+                    if(!SecCKKSTestSkipScan()) {
+                        op.nextState = CKKSStateScanLocalItems;
+                        return;
+                    }
+                }
+
+                if(earliestScanTime == nil || [earliestScanTime compare:ckse.lastLocalKeychainScanTime] == NSOrderedDescending) {
+                    earliestScanTime = ckse.lastLocalKeychainScanTime;
+                    earliestScannedView = viewState;
+                }
+            }
+
+            ckksnotice_global("ckksscan", "CKKS scan last occurred at %@ (for %@)", earliestScanTime, earliestScannedView);
+
+            for(CKKSKeychainViewState* viewState in viewsOfInterest) {
+                NSError* oqeCountError = nil;
+                NSInteger oqeCount = [CKKSOutgoingQueueEntry countByState:SecCKKSStateNew zone:viewState.zoneID error:&oqeCountError];
+
+                if(oqeCount > 0) {
+                    ckksnotice("ckksoutgoing", viewState.zoneID, "Have %d outgoing items; scheduling upload", (int)oqeCount);
+                    // Allow the state machine to control when this occurs, to handle rate-limiting
+                    OctagonPendingFlag* pending = [[OctagonPendingFlag alloc] initWithFlag:CKKSFlagProcessOutgoingQueue
+                                                                                conditions:OctagonPendingConditionsNetworkReachable];
+                    [self.stateMachine _onqueueHandlePendingFlagLater:pending];
+                    [self.outgoingQueueOperationScheduler trigger];
+
+                } else if(oqeCountError != nil) {
+                    ckksnotice("ckksoutgoing", viewState.zoneID, "Error checking outgoing queue: %@", oqeCountError);
+                }
+            }
+
+            for(CKKSKeychainViewState* viewState in self.operationDependencies.allCKKSManagedViews) {
+                if(!viewState.launch.launched) {
+                    NSError* error = nil;
+                    NSNumber *zoneSize = [CKKSMirrorEntry counts:viewState.zoneID error:&error];
+
+                    if(error) {
+                        ckkserror("launch", viewState.zoneID, "Unable to count mirror entries: %@", error);
+                    }
+                    if (zoneSize) {
+                        zoneSize = @(SecBucket1Significant([zoneSize longValue]));
+                        [viewState.launch addAttribute:@"zonesize" value:zoneSize];
+                    }
+                }
+            }
+
+            op.nextState = newState;
+        }];
+    }];
+}
+
+- (OctagonStateTransitionOperation*)loseTrustOperation:(CKKSState*)intendedState
+{
+    WEAKIFY(self);
+    return [OctagonStateTransitionOperation named:@"lose-trust"
+                                        intending:intendedState
+                                       errorState:CKKSStateError
+                              withBlockTakingSelf:^(OctagonStateTransitionOperation * _Nonnull op) {
+        STRONGIFY(self);
+
+        // If our current state is "trusted", fall out
+        if(self.trustStatus == CKKSAccountStatusAvailable) {
+            self.trustStatus = CKKSAccountStatusUnknown;
+            self.trustStatusKnown = [[CKKSCondition alloc] init];
+        }
+
+        for(CKKSKeychainViewState* viewState in self.operationDependencies.views) {
+            if([viewState.viewKeyHierarchyState isEqualToString:SecCKKSZoneKeyStateReady]) {
+                // If we had a healthy key hierarchy, it's no longer one.
+                viewState.viewKeyHierarchyState = SecCKKSZoneKeyStateWaitForTrust;
+            }
+        }
+
+        op.nextState = intendedState;
+    }];
+}
+
+- (BOOL)anyViewsInState:(CKKSZoneKeyState*)state
+{
+    for(CKKSKeychainViewState* viewState in self.operationDependencies.views) {
+        if([viewState.viewKeyHierarchyState isEqualToString:state]) {
+            return YES;
+        }
+    }
+
+    return NO;
+}
+
+- (NSSet<CKKSKeychainViewState*>*)viewsInState:(CKKSZoneKeyState*)state
+{
+    return [self.operationDependencies viewsInState:state];
+}
+
+- (NSSet<NSString*>*)viewList
+{
+    NSMutableSet<NSString*>* set = [NSMutableSet set];
+
+    for(CKKSKeychainViewState* viewState in self.operationDependencies.activeManagedViews) {
+        [set addObject:viewState.zoneID.zoneName];
+    }
+
+    return set;
+}
+
+- (NSDate*)earliestFetchTime
+{
+    NSDate* earliestFetchTime = nil;
+
+    for(CKKSKeychainViewState* viewState in self.operationDependencies.views) {
+        CKKSZoneStateEntry* zse = [CKKSZoneStateEntry state:viewState.zoneName];
+
+        if(zse.lastFetchTime == nil) {
+            earliestFetchTime = [NSDate distantPast];
+            break;
+        }
+
+        if(earliestFetchTime == nil || [earliestFetchTime compare:zse.lastFetchTime] == NSOrderedDescending) {
+            earliestFetchTime = zse.lastFetchTime;
+        }
+    }
+
+    return earliestFetchTime ?: [NSDate distantPast];
+}
+
+- (OctagonStateTransitionOperation*)tlkMissingOperation:(CKKSState*)newState
 {
     WEAKIFY(self);
     return [OctagonStateTransitionOperation named:@"tlk-missing"
                                         intending:newState
-                                       errorState:SecCKKSZoneKeyStateError
+                                       errorState:CKKSStateError
                               withBlockTakingSelf:^(OctagonStateTransitionOperation * _Nonnull op) {
         STRONGIFY(self);
 
         NSArray<CKKSPeerProviderState*>* trustStates = self.operationDependencies.currentTrustStates;
+        NSMutableSet<CKKSKeychainViewState*>* viewsToReset = [NSMutableSet set];
 
         [self.operationDependencies.databaseProvider dispatchSyncWithReadOnlySQLTransaction:^{
-            CKKSCurrentKeySet* keyset = [CKKSCurrentKeySet loadForZone:self.zoneID];
+            for(CKKSKeychainViewState* viewState in self.operationDependencies.activeManagedViews) {
+                // Ignore all views which aren't in the right state
+                if(![viewState.viewKeyHierarchyState isEqualToString:SecCKKSZoneKeyStateTLKMissing]) {
+                    continue;
+                }
 
-            if(keyset.error) {
-                ckkserror("ckkskey", self, "Unable to load keyset: %@", keyset.error);
-                op.nextState = newState;
+                CKKSCurrentKeySet* keyset = [CKKSCurrentKeySet loadForZone:viewState.zoneID];
 
-                [self.operationDependencies provideKeySet:keyset];
-                return;
-            }
+                if(keyset.error) {
+                    ckkserror("ckkskey", viewState.zoneID, "Unable to load keyset: %@", keyset.error);
+                    viewState.viewKeyHierarchyState = SecCKKSZoneKeyStateError;
+                    continue;
+                }
 
-            if(!keyset.currentTLKPointer.currentKeyUUID) {
-                // In this case, there's no current TLK at all. Go into "wait for tlkcreation";
-                op.nextState = SecCKKSZoneKeyStateWaitForTLKCreation;
-                [self.operationDependencies provideKeySet:keyset];
-                return;
-            }
+                if(!keyset.currentTLKPointer.currentKeyUUID) {
+                    // In this case, there's no current TLK at all. Go into "wait for tlkcreation";
+                    viewState.viewKeyHierarchyState = SecCKKSZoneKeyStateWaitForTLKCreation;
+                    continue;
+                }
 
-            if(self.trustStatus != CKKSAccountStatusAvailable) {
-                ckksnotice("ckkskey", self, "TLK is missing, but no trust is present.");
-                op.nextState = SecCKKSZoneKeyStateLoseTrust;
+                if(self.trustStatus != CKKSAccountStatusAvailable) {
+                    ckksnotice("ckkskey", viewState.zoneID, "TLK is missing, but no trust is present.");
+                    viewState.viewKeyHierarchyState = SecCKKSZoneKeyStateWaitForTrust;
+                    continue;
+                }
 
-                [self.operationDependencies provideKeySet:keyset];
-                return;
-            }
+                bool otherDevicesPresent = [self _onqueueOtherDevicesReportHavingTLKs:keyset
+                                                                          trustStates:trustStates];
+                if(otherDevicesPresent) {
+                    // We expect this keyset to continue to exist. Send it to our listeners.
+                    viewState.viewKeyHierarchyState = SecCKKSZoneKeyStateWaitForTLK;
+                } else {
+                    ckksnotice("ckkskey", viewState.zoneID, "No other devices claim to have the TLK. Resetting zone...");
+                    [viewsToReset addObject:viewState];
 
-            bool otherDevicesPresent = [self _onqueueOtherDevicesReportHavingTLKs:keyset
-                                                                      trustStates:trustStates];
-            if(otherDevicesPresent) {
-                // We expect this keyset to continue to exist. Send it to our listeners.
-                [self.operationDependencies provideKeySet:keyset];
-
-                op.nextState = newState;
-            } else {
-                ckksnotice("ckkskey", self, "No other devices claim to have the TLK. Resetting zone...");
-                op.nextState = SecCKKSZoneKeyStateResettingZone;
+                    viewState.viewKeyHierarchyState = SecCKKSZoneKeyStateResettingZone;
+                }
             }
             return;
         }];
+
+        if(viewsToReset.count > 0) {
+            ckksnotice_global("ckkskey", "Resetting zones due to missing TLKs: %@", viewsToReset);
+            [self.operationDependencies operateOnSelectViews:viewsToReset];
+
+            op.nextState = CKKSStateResettingZone;
+        } else {
+            op.nextState = newState;
+        }
     }];
 }
 
@@ -1179,7 +1445,7 @@
         NSString* sosPeerID = device.circlePeerID ? [CKKSSOSPeerPrefix stringByAppendingString:device.circlePeerID] : nil;
 
         if([trustedPeerIDs containsObject:device.circlePeerID] ||
-           [trustedPeerIDs containsObject:sosPeerID] ||
+           (sosPeerID != nil && [trustedPeerIDs containsObject:sosPeerID]) ||
            [trustedPeerIDs containsObject:device.octagonPeerID]) {
             // Is this a recent DSE? If it's older than the deadline, skip it
             if([device.storedCKRecord.modificationDate compare:trustedDeadline] == NSOrderedAscending) {
@@ -1242,14 +1508,91 @@
         return;
     }
 
+    SecDbItemRef modified = added ? added : deleted;
+
+    NSString* keyViewName = [CKKSKey isItemKeyForKeychainView:modified];
+
+    if(keyViewName) {
+        if(!SecCKKSTestDisableKeyNotifications()) {
+            ckksnotice("ckks", self, "Potential new key material from %@ (source %lu)",
+                       keyViewName, (unsigned long)txionSource);
+
+            [self.stateMachine handleFlag:CKKSFlagKeyStateProcessRequested];
+        } else {
+            ckksnotice("ckks", self, "Ignoring potential new key material from %@ (source %lu)",
+                       keyViewName, (unsigned long)txionSource);
+        }
+        return;
+    }
+
+    bool addedSync   = added   && SecDbItemIsSyncable(added);
+    bool deletedSync = deleted && SecDbItemIsSyncable(deleted);
+
+    if(!addedSync && !deletedSync) {
+        // Local-only change. Skip with prejudice.
+        ckksinfo_global("ckks", "skipping sync of non-sync item (%d, %d)", addedSync, deletedSync);
+        return;
+    }
+
+    if(!SecDbItemIsPrimaryUserItem(modified)) {
+        ckksnotice_global("ckks", "Ignoring syncable keychain item for non-primary account");
+        return;
+    }
+
+    __block bool havePolicy = false;
+    dispatch_sync(self.queue, ^{
+        if(!self.operationDependencies.syncingPolicy) {
+            ckkserror_global("ckks", "No policy configured. Skipping item: %@", modified);
+            self.itemModificationsBeforePolicyLoaded = YES;
+
+            return;
+        } else {
+            havePolicy = true;
+        }
+    });
+
+    if(!havePolicy) {
+        return;
+    }
+
+    NSString* viewName = [self.operationDependencies viewNameForItem:modified];
+
+    if(!viewName) {
+        ckksnotice_global("ckks", "No intended CKKS view for item; skipping: %@", modified);
+        return;
+    }
+
+    CKKSKeychainViewState* viewState = nil;
+
+    // Explicitly use allCKKSManagedViews here. If the zone isn't ready, we can mark it as needing a scan later.
+    for(CKKSKeychainViewState* vs in self.operationDependencies.allCKKSManagedViews) {
+        if([vs.zoneID.zoneName isEqualToString:viewName]) {
+            viewState = vs;
+            break;
+        }
+    }
+
+    if(!viewState) {
+        ckksnotice_global("ckks", "No CKKS view for %@, skipping: %@", viewName, modified);
+
+        NSString* uuid = (__bridge NSString*)SecDbItemGetValue(modified, &v10itemuuid, NULL);
+        SecBoolNSErrorCallback syncCallback = [[CKKSViewManager manager] claimCallbackForUUID:uuid];
+
+        if(syncCallback) {
+            syncCallback(false, [NSError errorWithDomain:CKKSErrorDomain
+                                                    code:CKKSNoSuchView
+                                                userInfo:@{NSLocalizedDescriptionKey: [NSString stringWithFormat: @"No syncing view for '%@'", viewName]}]);
+        }
+        return;
+    }
+
+    ckksnotice("ckks", viewState.zoneID, "Routing item to zone %@: %@", viewName, modified);
+
     __block NSError* error = nil;
 
     // Tombstones come in as item modifications or item adds. Handle modifications here.
     bool addedTombstone   = added   && SecDbItemIsTombstone(added);
     bool deletedTombstone = deleted && SecDbItemIsTombstone(deleted);
-
-    bool addedSync   = added   && SecDbItemIsSyncable(added);
-    bool deletedSync = deleted && SecDbItemIsSyncable(deleted);
 
     bool isTombstoneModification = addedTombstone && deletedTombstone;
     bool isAdd    = ( added && !deleted) || (added && deleted && !addedTombstone &&  deletedTombstone) || (added && deleted &&  addedSync && !deletedSync);
@@ -1271,12 +1614,12 @@
     bool proceed = addedSync || deletedSync;
 
     if(!proceed) {
-        ckksnotice("ckks", self, "skipping sync of non-sync item (%d, %d)", addedSync, deletedSync);
+        ckksnotice("ckks", viewState.zoneID, "skipping sync of non-sync item (%d, %d)", addedSync, deletedSync);
         return;
     }
 
     if(isTombstoneModification) {
-        ckksnotice("ckks", self, "skipping syncing update of tombstone item (%d, %d)", addedTombstone, deletedTombstone);
+        ckksnotice("ckks", viewState.zoneID, "skipping syncing update of tombstone item (%d, %d)", addedTombstone, deletedTombstone);
         return;
     }
 
@@ -1284,7 +1627,7 @@
     // This is arguably a bug, as it generates an out-of-sync state, but it is in the API contract.
     // CKKS should ignore these, but log very upset messages.
     if(isDelete && !addedTombstone) {
-        ckksnotice("ckks", self, "Client has asked for an item deletion to not sync. Keychain is now out of sync with account");
+        ckksnotice("ckks", viewState.zoneID, "Client has asked for an item deletion to not sync. Keychain is now out of sync with account");
         return;
     }
 
@@ -1299,23 +1642,34 @@
 
     if(txionSource == kSecDbSOSTransaction) {
         NSString* addedUUID = (__bridge NSString*)SecDbItemGetValue(added, &v10itemuuid, NULL);
-        ckksnotice("ckks", self, "Received an incoming %@ from SOS (%@)",
+        ckksnotice("ckks", viewState.zoneID, "Received an incoming %@ from SOS (%@)",
                    isAdd ? @"addition" : (isModify ? @"modification" : @"deletion"),
                    addedUUID);
     }
 
     // Our caller gave us a database connection. We must get on the local queue to ensure atomicity
     // Note that we're at the mercy of the surrounding db transaction, so don't try to rollback here
-    [self dispatchSyncWithConnection:dbconn
-                      readWriteTxion:YES
-                               block:^CKKSDatabaseTransactionResult {
+    [self.databaseProvider dispatchSyncWithConnection:dbconn
+                                       readWriteTxion:YES
+                                                block:^CKKSDatabaseTransactionResult
+     {
+#if TARGET_OS_IOS
+        NSUUID* preexistingMusrUUID = nil;
+        if(SecCKKSTestsEnabled()) {
+            // CKKS will use the SecItem APIs to do its work. But, in real operation, the musr set by the xpc client won't affect securityd's musr.
+            NSData* musrUUIDData = [((__bridge NSData*)SecSecurityClientGet()->musr) copy];
+            preexistingMusrUUID = musrUUIDData ? [[NSUUID alloc] initWithUUIDBytes:musrUUIDData.bytes] : nil;
+            SecSecuritySetPersonaMusr(NULL);
+        }
+#endif
+
         // Schedule a "view changed" notification
-        [self.viewState.notifyViewChangedScheduler trigger];
+        [viewState.notifyViewChangedScheduler trigger];
 
         if(self.accountStatus == CKKSAccountStatusNoAccount) {
             // No account; CKKS shouldn't attempt anything.
             [self.stateMachine _onqueueHandleFlag:CKKSFlagScanLocalItems];
-            ckksnotice("ckks", self, "Dropping sync item modification due to CK account state; will scan to find changes later");
+            ckksnotice("ckks", viewState.zoneID, "Dropping sync item modification due to CK account state; will scan to find changes later");
 
             // We're positively not logged into CloudKit, and therefore don't expect this item to be synced anytime particularly soon.
             NSString* uuid = (__bridge NSString*)SecDbItemGetValue(added ? added : deleted, &v10itemuuid, NULL);
@@ -1325,6 +1679,11 @@
                 [CKKSViewManager callSyncCallbackWithErrorNoAccount: syncCallback];
             }
 
+#if TARGET_OS_IOS
+            if(SecCKKSTestsEnabled() && preexistingMusrUUID != nil) {
+                SecSecuritySetPersonaMusr((__bridge CFStringRef)preexistingMusrUUID.UUIDString);
+            }
+#endif
             return CKKSDatabaseTransactionCommit;
         }
 
@@ -1332,17 +1691,23 @@
 
         CKKSOutgoingQueueEntry* oqe = nil;
         if       (isAdd) {
-            oqe = [CKKSOutgoingQueueEntry withItem: added   action: SecCKKSActionAdd    zoneID:self.zoneID keyCache:keyCache error: &error];
+            oqe = [CKKSOutgoingQueueEntry withItem: added   action: SecCKKSActionAdd    zoneID:viewState.zoneID keyCache:keyCache error: &error];
         } else if(isDelete) {
-            oqe = [CKKSOutgoingQueueEntry withItem: deleted action: SecCKKSActionDelete zoneID:self.zoneID keyCache:keyCache error: &error];
+            oqe = [CKKSOutgoingQueueEntry withItem: deleted action: SecCKKSActionDelete zoneID:viewState.zoneID keyCache:keyCache error: &error];
         } else if(isModify) {
-            oqe = [CKKSOutgoingQueueEntry withItem: added   action: SecCKKSActionModify zoneID:self.zoneID keyCache:keyCache error: &error];
+            oqe = [CKKSOutgoingQueueEntry withItem: added   action: SecCKKSActionModify zoneID:viewState.zoneID keyCache:keyCache error: &error];
         } else {
-            ckkserror("ckks", self, "processKeychainEventItemAdded given garbage: %@ %@", added, deleted);
+            ckkserror("ckks", viewState.zoneID, "processKeychainEventItemAdded given garbage: %@ %@", added, deleted);
+
+#if TARGET_OS_IOS
+            if(SecCKKSTestsEnabled() && preexistingMusrUUID != nil) {
+                SecSecuritySetPersonaMusr((__bridge CFStringRef)preexistingMusrUUID.UUIDString);
+            }
+#endif
             return CKKSDatabaseTransactionCommit;
         }
 
-        if(!self.itemSyncingEnabled) {
+        if(![self.operationDependencies.syncingPolicy isSyncingEnabledForView:viewState.zoneID.zoneName]) {
             // Call any callback now; they're not likely to get the sync they wanted
             SecBoolNSErrorCallback syncCallback = [[CKKSViewManager manager] claimCallbackForUUID:oqe.uuid];
             if(syncCallback) {
@@ -1357,7 +1722,7 @@
             : [CKOperationGroup CKKSGroupWithName:@"keychain-api-use"];
 
         if(error) {
-            ckkserror("ckks", self, "Couldn't create outgoing queue entry: %@", error);
+            ckkserror("ckks", viewState.zoneID, "Couldn't create outgoing queue entry: %@", error);
             [self.stateMachine _onqueueHandleFlag:CKKSFlagScanLocalItems];
 
             // If the problem is 'couldn't load key', tell the key hierarchy state machine to fix it
@@ -1365,9 +1730,21 @@
                 [self.stateMachine _onqueueHandleFlag:CKKSFlagKeyStateProcessRequested];
             }
 
+#if TARGET_OS_IOS
+            if(SecCKKSTestsEnabled() && preexistingMusrUUID != nil) {
+                SecSecuritySetPersonaMusr((__bridge CFStringRef)preexistingMusrUUID.UUIDString);
+            }
+#endif
+
             return CKKSDatabaseTransactionCommit;
         } else if(!oqe) {
-            ckkserror("ckks", self, "Decided that no operation needs to occur for %@", error);
+            ckkserror("ckks", viewState.zoneID, "Decided that no operation needs to occur for %@", error);
+
+#if TARGET_OS_IOS
+            if(SecCKKSTestsEnabled() && preexistingMusrUUID != nil) {
+                SecSecuritySetPersonaMusr((__bridge CFStringRef)preexistingMusrUUID.UUIDString);
+            }
+#endif
             return CKKSDatabaseTransactionCommit;
         }
 
@@ -1382,58 +1759,78 @@
 
         [oqe saveToDatabaseWithConnection: dbconn error: &error];
         if(error) {
-            ckkserror("ckks", self, "Couldn't save outgoing queue entry to database: %@", error);
+            ckkserror("ckks", viewState.zoneID, "Couldn't save outgoing queue entry to database: %@", error);
+
+#if TARGET_OS_IOS
+            if(SecCKKSTestsEnabled() && preexistingMusrUUID != nil) {
+                SecSecuritySetPersonaMusr((__bridge CFStringRef)preexistingMusrUUID.UUIDString);
+            }
+#endif
             return CKKSDatabaseTransactionCommit;
         } else {
-            ckksnotice("ckks", self, "Saved %@ to outgoing queue", oqe);
+            ckksnotice("ckks", viewState.zoneID, "Saved %@ to outgoing queue", oqe);
         }
 
         // This update supercedes all other local modifications to this item (_except_ those in-flight).
         // Delete all items in reencrypt or error.
         NSArray<CKKSOutgoingQueueEntry*>* siblings = [CKKSOutgoingQueueEntry allWithUUID:oqe.uuid
                                                                                   states:@[SecCKKSStateReencrypt, SecCKKSStateError]
-                                                                                  zoneID:self.zoneID
+                                                                                  zoneID:viewState.zoneID
                                                                                    error:&error];
         if(error) {
-            ckkserror("ckks", self, "Couldn't load OQE siblings for %@: %@", oqe, error);
+            ckkserror("ckks", viewState.zoneID, "Couldn't load OQE siblings for %@: %@", oqe, error);
         }
 
         for(CKKSOutgoingQueueEntry* oqeSibling in siblings) {
             NSError* deletionError = nil;
             [oqeSibling deleteFromDatabase:&deletionError];
             if(deletionError) {
-                ckkserror("ckks", self, "Couldn't delete OQE sibling(%@) for %@: %@", oqeSibling, oqe.uuid, deletionError);
+                ckkserror("ckks", viewState.zoneID, "Couldn't delete OQE sibling(%@) for %@: %@", oqeSibling, oqe.uuid, deletionError);
             }
         }
 
         // This update also supercedes any remote changes that are pending.
         NSError* iqeError = nil;
-        CKKSIncomingQueueEntry* iqe = [CKKSIncomingQueueEntry tryFromDatabase:oqe.uuid zoneID:self.zoneID error:&iqeError];
+        CKKSIncomingQueueEntry* iqe = [CKKSIncomingQueueEntry tryFromDatabase:oqe.uuid zoneID:viewState.zoneID error:&iqeError];
         if(iqeError) {
-            ckkserror("ckks", self, "Couldn't find IQE matching %@: %@", oqe.uuid, error);
+            ckkserror("ckks", viewState.zoneID, "Couldn't find IQE matching %@: %@", oqe.uuid, error);
         } else if(iqe) {
             [iqe deleteFromDatabase:&iqeError];
             if(iqeError) {
-                ckkserror("ckks", self, "Couldn't delete IQE matching %@: %@", oqe.uuid, error);
+                ckkserror("ckks", viewState.zoneID, "Couldn't delete IQE matching %@: %@", oqe.uuid, error);
             } else {
-                ckksnotice("ckks", self, "Deleted IQE matching changed item %@", oqe.uuid);
+                ckksnotice("ckks", viewState.zoneID, "Deleted IQE matching changed item %@", oqe.uuid);
             }
         }
 
-        [self processOutgoingQueue:operationGroup];
+        [self _onqueueProcessOutgoingQueue:operationGroup];
 
+#if TARGET_OS_IOS
+            if(SecCKKSTestsEnabled() && preexistingMusrUUID != nil) {
+                SecSecuritySetPersonaMusr((__bridge CFStringRef)preexistingMusrUUID.UUIDString);
+            }
+#endif
         return CKKSDatabaseTransactionCommit;
     }];
 }
 
--(void)setCurrentItemForAccessGroup:(NSData* _Nonnull)newItemPersistentRef
-                               hash:(NSData*)newItemSHA1
-                        accessGroup:(NSString*)accessGroup
-                         identifier:(NSString*)identifier
-                          replacing:(NSData* _Nullable)oldCurrentItemPersistentRef
-                               hash:(NSData*)oldItemSHA1
-                           complete:(void (^) (NSError* operror)) complete
+- (void)setCurrentItemForAccessGroup:(NSData* _Nonnull)newItemPersistentRef
+                                hash:(NSData*)newItemSHA1
+                         accessGroup:(NSString*)accessGroup
+                          identifier:(NSString*)identifier
+                            viewHint:(NSString*)viewHint
+                           replacing:(NSData* _Nullable)oldCurrentItemPersistentRef
+                                hash:(NSData*)oldItemSHA1
+                            complete:(void (^) (NSError* operror)) complete
 {
+    NSError* viewError = nil;
+    CKKSKeychainViewState* viewState = [self policyDependentViewStateForName:viewHint
+                                                                       error:&viewError];
+    if(!viewState) {
+        complete(viewError);
+        return;
+    }
+
     if(accessGroup == nil || identifier == nil) {
         NSError* error = [NSError errorWithDomain:CKKSErrorDomain
                                              code:errSecParam
@@ -1447,33 +1844,41 @@
     // But, wait a good long while for the CloudKit account state to be known (in the case of daemon startup)
     [self.accountStateKnown wait:(SecCKKSTestsEnabled() ? 1*NSEC_PER_SEC : 30*NSEC_PER_SEC)];
 
-    if(self.accountStatus != CKKSAccountStatusAvailable) {
-        NSError* error = [NSError errorWithDomain:CKKSErrorDomain
+    CKKSAccountStatus accountStatus = self.accountStatus;
+    if(accountStatus != CKKSAccountStatusAvailable) {
+        NSError* localError = nil;
+        if(accountStatus == CKKSAccountStatusUnknown) {
+            localError = [NSError errorWithDomain:CKKSErrorDomain
+                                             code:CKKSErrorAccountStatusUnknown
+                                      description:@"iCloud account status unknown."];
+        } else {
+            localError = [NSError errorWithDomain:CKKSErrorDomain
                                              code:CKKSNotLoggedIn
                                       description:@"User is not signed into iCloud."];
-        ckksnotice("ckkscurrent", self, "Rejecting current item pointer set since we don't have an iCloud account.");
-        complete(error);
+        }
+
+        ckksnotice("ckkscurrent", self, "Rejecting current item pointer set since we don't have an iCloud account: %@", localError);
+        complete(localError);
         return;
     }
 
     ckksnotice("ckkscurrent", self, "Starting change current pointer operation for %@-%@", accessGroup, identifier);
-    CKKSUpdateCurrentItemPointerOperation* ucipo = [[CKKSUpdateCurrentItemPointerOperation alloc] initWithCKKSKeychainView:self
-                                                                                                                   newItem:newItemPersistentRef
-                                                                                                                      hash:newItemSHA1
-                                                                                                               accessGroup:accessGroup
-                                                                                                                identifier:identifier
-                                                                                                                 replacing:oldCurrentItemPersistentRef
-                                                                                                                      hash:oldItemSHA1
-                                                                                                          ckoperationGroup:[CKOperationGroup CKKSGroupWithName:@"currentitem-api"]];
+    CKKSUpdateCurrentItemPointerOperation* ucipo = [[CKKSUpdateCurrentItemPointerOperation alloc] initWithCKKSOperationDependencies:self.operationDependencies
+                                                                                                                          viewState:viewState
+                                                                                                                            newItem:newItemPersistentRef
+                                                                                                                               hash:newItemSHA1
+                                                                                                                        accessGroup:accessGroup
+                                                                                                                         identifier:identifier
+                                                                                                                          replacing:oldCurrentItemPersistentRef
+                                                                                                                               hash:oldItemSHA1
+                                                                                                                   ckoperationGroup:[CKOperationGroup CKKSGroupWithName:@"currentitem-api"]];
 
-    WEAKIFY(self);
+
     CKKSResultOperation* returnCallback = [CKKSResultOperation operationWithBlock:^{
-        STRONGIFY(self);
-
         if(ucipo.error) {
-            ckkserror("ckkscurrent", self, "Failed setting a current item pointer for %@ with %@", ucipo.currentPointerIdentifier, ucipo.error);
+            ckkserror("ckkscurrent", viewState.zoneID, "Failed setting a current item pointer for %@ with %@", ucipo.currentPointerIdentifier, ucipo.error);
         } else {
-            ckksnotice("ckkscurrent", self, "Finished setting a current item pointer for %@", ucipo.currentPointerIdentifier);
+            ckksnotice("ckkscurrent", viewState.zoneID, "Finished setting a current item pointer for %@", ucipo.currentPointerIdentifier);
         }
         complete(ucipo.error);
     }];
@@ -1492,11 +1897,20 @@
     return;
 }
 
--(void)getCurrentItemForAccessGroup:(NSString*)accessGroup
-                         identifier:(NSString*)identifier
-                    fetchCloudValue:(bool)fetchCloudValue
-                           complete:(void (^) (NSString* uuid, NSError* operror)) complete
+- (void)getCurrentItemForAccessGroup:(NSString*)accessGroup
+                          identifier:(NSString*)identifier
+                            viewHint:(NSString*)viewHint
+                     fetchCloudValue:(bool)fetchCloudValue
+                            complete:(void (^) (NSString* uuid, NSError* operror)) complete
 {
+    NSError* viewError = nil;
+    CKKSKeychainViewState* viewState = [self policyDependentViewStateForName:viewHint
+                                                                       error:&viewError];
+    if(!viewState) {
+        complete(nil, viewError);
+        return;
+    }
+
     if(accessGroup == nil || identifier == nil) {
         ckksnotice("ckkscurrent", self, "Rejecting current item pointer get since no access group(%@) or identifier(%@) given", accessGroup, identifier);
         complete(NULL, [NSError errorWithDomain:CKKSErrorDomain
@@ -1509,17 +1923,29 @@
     // But, wait a good long while for the CloudKit account state to be known (in the case of daemon startup)
     [self.accountStateKnown wait:(SecCKKSTestsEnabled() ? 1*NSEC_PER_SEC : 30*NSEC_PER_SEC)];
 
-    if(self.accountStatus != CKKSAccountStatusAvailable) {
-        ckksnotice("ckkscurrent", self, "Rejecting current item pointer get since we don't have an iCloud account.");
-        complete(NULL, [NSError errorWithDomain:CKKSErrorDomain
-                                           code:CKKSNotLoggedIn
-                                    description:@"User is not signed into iCloud."]);
+    CKKSAccountStatus accountStatus = self.accountStatus;
+    if(accountStatus != CKKSAccountStatusAvailable) {
+        NSError* localError = nil;
+        if(accountStatus == CKKSAccountStatusUnknown) {
+            localError = [NSError errorWithDomain:CKKSErrorDomain
+                                             code:CKKSErrorAccountStatusUnknown
+                                      description:@"iCloud account status unknown."];
+        } else {
+            localError = [NSError errorWithDomain:CKKSErrorDomain
+                                             code:CKKSNotLoggedIn
+                                      description:@"User is not signed into iCloud."];
+        }
+
+        ckksnotice("ckkscurrent", self, "Rejecting current item pointer get since we don't have an iCloud account: %@", localError);
+        complete(NULL, localError);
         return;
     }
 
     CKKSResultOperation* fetchAndProcess = nil;
     if(fetchCloudValue) {
-        fetchAndProcess = [self fetchAndProcessCKChanges:CKKSFetchBecauseCurrentItemFetchRequest];
+        fetchAndProcess = [self rpcFetchAndProcessIncomingQueue:[NSSet setWithObject:viewHint]
+                                                        because:CKKSFetchBecauseCurrentItemFetchRequest
+                                           errorOnClassAFailure:false];
     }
 
     WEAKIFY(self);
@@ -1538,7 +1964,7 @@
 
             CKKSCurrentItemPointer* cip = [CKKSCurrentItemPointer fromDatabase:currentIdentifier
                                                                          state:SecCKKSProcessedStateLocal
-                                                                        zoneID:self.zoneID
+                                                                        zoneID:viewState.zoneID
                                                                          error:&error];
             if(!cip || error) {
                 if([error.domain isEqualToString:@"securityd"] && error.code == errSecItemNotFound) {
@@ -1570,45 +1996,54 @@
     [self scheduleOperation: getCurrentItem];
 }
 
-- (CKKSResultOperation<CKKSKeySetProviderOperationProtocol>*)findKeySet:(BOOL)refetchBeforeReturningKeySet
+- (CKKSResultOperation<CKKSKeySetProviderOperationProtocol>*)findKeySets:(BOOL)refetchBeforeReturningKeySet
 {
+    if(refetchBeforeReturningKeySet) {
+        [self.operationDependencies.currentFetchReasons addObject:CKKSFetchBecauseKeySetFetchRequest];
+        [self.stateMachine handleFlag:CKKSFlagFetchRequested];
+    }
+
     __block CKKSResultOperation<CKKSKeySetProviderOperationProtocol>* keysetOp = nil;
 
     [self dispatchSyncWithReadOnlySQLTransaction:^{
         keysetOp = (CKKSProvideKeySetOperation*)[self findFirstPendingOperation:self.operationDependencies.keysetProviderOperations];
         if(!keysetOp) {
-            keysetOp = [[CKKSProvideKeySetOperation alloc] initWithZoneName:self.zoneName];
+            NSMutableSet<CKRecordZoneID*>* allZoneIDs = [NSMutableSet set];
+            for(CKKSKeychainViewState* viewState in self.operationDependencies.allCKKSManagedViews) {
+                [allZoneIDs addObject:viewState.zoneID];
+            }
+
+            keysetOp = [[CKKSProvideKeySetOperation alloc] initWithIntendedZoneIDs:allZoneIDs];
             [self.operationDependencies.keysetProviderOperations addObject:keysetOp];
 
             // This is an abuse of operations: they should generally run when added to a queue, not wait, but this allows recipients to set timeouts
             [self scheduleOperationWithoutDependencies:keysetOp];
         }
 
-        if(refetchBeforeReturningKeySet) {
-            ckksnotice("ckks", self, "Refetch requested before returning key set!");
+        NSMutableDictionary<CKRecordZoneID*, CKKSCurrentKeySet*>* currentKeysets = [NSMutableDictionary dictionary];
+        BOOL needStateMachineHelpForView = NO;
 
-            [self.stateMachine _onqueueHandleFlag:CKKSFlagFetchRequested];
-            [self.stateMachine _onqueueHandleFlag:CKKSFlagTLKCreationRequested];
-            [self.stateMachine _onqueueHandleFlag:CKKSFlagKeySetRequested];
+        for(CKKSKeychainViewState* viewState in self.operationDependencies.allCKKSManagedViews) {
+            CKKSCurrentKeySet* keyset = [CKKSCurrentKeySet loadForZone:viewState.zoneID];
+            if(keyset.currentTLKPointer.currentKeyUUID &&
+               (keyset.tlk.uuid ||
+                [viewState.viewKeyHierarchyState isEqualToString:SecCKKSZoneKeyStateWaitForTrust] ||
+                [viewState.viewKeyHierarchyState isEqualToString:SecCKKSZoneKeyStateWaitForTLK])) {
+                ckksnotice("ckks", viewState.zoneID, "Already have keyset %@", keyset);
 
-            return;
+                currentKeysets[viewState.zoneID] = keyset;
+            } else {
+                ckksnotice("ckks", viewState.zoneID, "No current keyset for %@ (%@)", viewState.zoneID, keyset);
+                needStateMachineHelpForView = true;
+                break;
+            }
         }
 
-        CKKSCurrentKeySet* keyset = [CKKSCurrentKeySet loadForZone:self.zoneID];
-        if(keyset.currentTLKPointer.currentKeyUUID &&
-           (keyset.tlk.uuid ||
-            [self.stateMachine.currentState isEqualToString:SecCKKSZoneKeyStateWaitForTrust] ||
-            [self.stateMachine.currentState isEqualToString:SecCKKSZoneKeyStateWaitForTLK])) {
-            ckksnotice("ckks", self, "Already have keyset %@", keyset);
-
-            [keysetOp provideKeySet:keyset];
-            return;
-
-        } else {
-            // The key state machine will know what to do.
-            [self.stateMachine _onqueueHandleFlag:CKKSFlagTLKCreationRequested];
+        if(needStateMachineHelpForView) {
             [self.stateMachine _onqueueHandleFlag:CKKSFlagKeySetRequested];
-        };
+        } else {
+            [keysetOp provideKeySets:currentKeysets];
+        }
     }];
 
     return keysetOp;
@@ -1616,40 +2051,29 @@
 
 - (void)receiveTLKUploadRecords:(NSArray<CKRecord*>*)records
 {
-    // First, filter for records matching this zone
-    NSMutableArray<CKRecord*>* zoneRecords = [NSMutableArray array];
-    for(CKRecord* record in records) {
-        if([record.recordID.zoneID isEqual:self.zoneID]) {
-            [zoneRecords addObject:record];
-        }
-    }
+    ckksnotice("ckkskey", self, "Received a set of %lu TLK upload records", (unsigned long)records.count);
 
-    ckksnotice("ckkskey", self, "Received a set of %lu TLK upload records", (unsigned long)zoneRecords.count);
-
-    if(!zoneRecords || zoneRecords.count == 0) {
+    if(!records || records.count == 0) {
         return;
     }
 
     [self dispatchSyncWithSQLTransaction:^CKKSDatabaseTransactionResult{
-        for(CKRecord* record in zoneRecords) {
-            [self _onqueueCKRecordChanged:record resync:false];
+        for(CKRecord* record in records) {
+            [self.operationDependencies intransactionCKRecordChanged:record resync:false];
         }
 
-        [self.stateMachine _onqueueHandleFlag:CKKSFlagKeyStateTLKsUploaded];
+        [self.stateMachine _onqueueHandleFlag:CKKSFlagKeyStateProcessRequested];
 
         return CKKSDatabaseTransactionCommit;
     }];
 }
 
-- (BOOL)requiresTLKUpload
+- (NSSet<CKKSKeychainViewState*>*)viewsRequiringTLKUpload
 {
-    __block BOOL requiresUpload = NO;
+    __block NSSet<CKKSKeychainViewState*>* requiresUpload = nil;
+
     dispatch_sync(self.queue, ^{
-        // We want to return true only if we're in a state that immediately requires an upload.
-        if(([self.keyHierarchyState isEqualToString:SecCKKSZoneKeyStateWaitForTLKUpload] ||
-            [self.keyHierarchyState isEqualToString:SecCKKSZoneKeyStateWaitForTLKCreation])) {
-            requiresUpload = YES;
-        }
+        requiresUpload = [self.operationDependencies viewsInState:SecCKKSZoneKeyStateWaitForTLKCreation];
     });
 
     return requiresUpload;
@@ -1672,19 +2096,84 @@
     }
 }
 
-- (CKKSOutgoingQueueOperation*)processOutgoingQueue:(CKOperationGroup* _Nullable)ckoperationGroup {
-    return [self processOutgoingQueueAfter:nil ckoperationGroup:ckoperationGroup];
-}
-
-- (CKKSOutgoingQueueOperation*)processOutgoingQueueAfter:(CKKSResultOperation* _Nullable)after
-                                        ckoperationGroup:(CKOperationGroup* _Nullable)ckoperationGroup {
-    return [self processOutgoingQueueAfter:after requiredDelay:DISPATCH_TIME_FOREVER ckoperationGroup:ckoperationGroup];
-}
-
-- (CKKSOutgoingQueueOperation*)processOutgoingQueueAfter:(CKKSResultOperation* _Nullable)after
-                                           requiredDelay:(uint64_t)requiredDelay
-                                        ckoperationGroup:(CKOperationGroup* _Nullable)ckoperationGroup
+- (CKKSResultOperation*)rpcProcessOutgoingQueue:(NSSet<NSString*>* _Nullable)viewNames
+                                 operationGroup:(CKOperationGroup* _Nullable)ckoperationGroup
 {
+    __block CKKSResultOperation* failOp = nil;
+
+    dispatch_sync(self.queue, ^{
+        if([self.stateMachine.currentState isEqualToString:CKKSStateLoggedOut]) {
+            failOp = [CKKSResultOperation named:@"fail" withBlockTakingSelf:^(CKKSResultOperation * _Nonnull op) {
+                op.error = [NSError errorWithDomain:CKKSErrorDomain
+                                               code:CKKSNotLoggedIn
+                                        description:@"No CloudKit account; push will not succeed."];
+            }];
+        }
+
+        NSSet<NSString*>* viewNamesToIterate = viewNames ?: self.viewList;
+
+        for(NSString* viewName in viewNamesToIterate) {
+            CKKSKeychainViewState* viewState = [self viewStateForName:viewName];
+
+            if([viewState.viewKeyHierarchyState isEqualToString:SecCKKSZoneKeyStateWaitForTLK]) {
+                failOp = [CKKSResultOperation named:@"fail" withBlockTakingSelf:^(CKKSResultOperation * _Nonnull op) {
+                    op.error = [NSError errorWithDomain:CKKSErrorDomain
+                                                   code:CKKSKeysMissing
+                                            description:@"No TLKs for this view; push will not succeed."];
+                }];
+                break;
+            }
+
+            if([viewState.viewKeyHierarchyState isEqualToString:SecCKKSZoneKeyStateWaitForTrust]) {
+                failOp = [CKKSResultOperation named:@"fail" withBlockTakingSelf:^(CKKSResultOperation * _Nonnull op) {
+                    op.error = [NSError errorWithDomain:CKKSErrorDomain
+                                                   code:CKKSLackingTrust
+                                            description:@"No trust; push will not succeed."];
+                }];
+                break;
+            }
+
+            if(!viewState.ckksManagedView) {
+                failOp = [CKKSResultOperation named:@"fail" withBlockTakingSelf:^(CKKSResultOperation * _Nonnull op) {
+                    op.error = [NSError errorWithDomain:CKKSErrorDomain
+                                                   code:CKKSErrorViewIsExternallyManaged
+                                            description:[NSString stringWithFormat:@"Cannot push view %@; is externally managed", viewState.zoneName]];
+                }];
+                break;
+            }
+        }
+    });
+
+    if(failOp) {
+        [self scheduleOperation:failOp];
+        return failOp;
+    }
+
+    NSDictionary<OctagonState*, id>* pathDict =  @{
+        CKKSStateProcessOutgoingQueue: @{
+            CKKSStateBecomeReady: [OctagonStateTransitionPathStep success],
+        },
+    };
+
+    OctagonStateTransitionPath* path = [OctagonStateTransitionPath pathFromDictionary:pathDict];
+    OctagonStateTransitionWatcher* watcher = [[OctagonStateTransitionWatcher alloc] initNamed:@"push"
+                                                                                  serialQueue:self.queue
+                                                                                         path:path
+                                                                               initialRequest:nil];
+    [watcher timeout:300*NSEC_PER_SEC];
+    [self.stateMachine registerStateTransitionWatcher:watcher];
+
+    dispatch_sync(self.queue, ^{
+        [self _onqueueProcessOutgoingQueue:ckoperationGroup];
+    });
+
+    return watcher.result;
+}
+
+- (void)_onqueueProcessOutgoingQueue:(CKOperationGroup* _Nullable)ckoperationGroup
+{
+    dispatch_assert_queue(self.queue);
+
     if(ckoperationGroup) {
         if(self.operationDependencies.currentOutgoingQueueOperationGroup) {
             ckkserror("ckks", self, "Throwing away CKOperationGroup(%@) in favor of (%@)", ckoperationGroup.name, self.operationDependencies.ckoperationGroup.name);
@@ -1693,69 +2182,8 @@
         }
     }
 
-    CKKSOutgoingQueueOperation* outgoingop =
-            (CKKSOutgoingQueueOperation*) [self findFirstPendingOperation:self.outgoingQueueOperations
-                                                                  ofClass:[CKKSOutgoingQueueOperation class]];
-    if(outgoingop) {
-        if(after) {
-            [outgoingop addDependency: after];
-        }
-        if([outgoingop isPending]) {
-            // Will log any pending dependencies as well
-            ckksinfo("ckksoutgoing", self, "Returning existing %@", outgoingop);
-
-            // Shouldn't be necessary, but can't hurt
-            [self.outgoingQueueOperationScheduler triggerAt:requiredDelay];
-            return outgoingop;
-        }
-    }
-
-    CKKSOutgoingQueueOperation* op = [[CKKSOutgoingQueueOperation alloc] initWithDependencies:self.operationDependencies
-                                                                                    intending:SecCKKSZoneKeyStateReady
-                                                                                   errorState:SecCKKSZoneKeyStateUnhealthy];
-
-    [op addNullableDependency:self.holdOutgoingQueueOperation];
-    [op addNullableDependency:self.keyStateReadyDependency];
-    [op linearDependencies:self.outgoingQueueOperations];
-
-    op.name = @"outgoing-queue-operation";
-    [op addNullableDependency:after];
-    [op addNullableDependency:self.outgoingQueueOperationScheduler.operationDependency];
-
-    [self.outgoingQueueOperationScheduler triggerAt:requiredDelay];
-
-    [self scheduleOperation: op];
-    ckksnotice("ckksoutgoing", self, "Scheduled %@", op);
-
-    WEAKIFY(self);
-    CKKSResultOperation* bookkeeping = [CKKSResultOperation named:@"bookkeping-oqo" withBlock:^{
-        STRONGIFY(self);
-        self.lastOutgoingQueueOperation = op;
-    }];
-
-    [bookkeeping addDependency:op];
-    [self scheduleOperation:bookkeeping];
-
-    return op;
-}
-
-- (void)processIncomingQueueAfterNextUnlock {
-    // Thread races aren't so important here; we might end up with two or three copies of this operation, but that's okay.
-    if(![self.processIncomingQueueAfterNextUnlockOperation isPending]) {
-        WEAKIFY(self);
-
-        CKKSResultOperation* restartIncomingQueueOperation = [CKKSResultOperation operationWithBlock:^{
-            STRONGIFY(self);
-            // This IQO shouldn't error if the keybag has locked again. It will simply try again later.
-            [self processIncomingQueue:false];
-        }];
-
-        restartIncomingQueueOperation.name = @"reprocess-incoming-queue-after-unlock";
-        self.processIncomingQueueAfterNextUnlockOperation = restartIncomingQueueOperation;
-
-        [restartIncomingQueueOperation addNullableDependency:self.lockStateTracker.unlockDependency];
-        [self scheduleOperation: restartIncomingQueueOperation];
-    }
+    [self.stateMachine _onqueueHandleFlag:CKKSFlagProcessOutgoingQueue];
+    [self.outgoingQueueOperationScheduler trigger];
 }
 
 - (CKKSResultOperation*)resultsOfNextProcessIncomingQueueOperation {
@@ -1764,116 +2192,208 @@
     }
 
     // Else, make a new one.
-    self.resultsOfNextIncomingQueueOperationOperation = [CKKSResultOperation named:[NSString stringWithFormat:@"wait-for-next-incoming-queue-operation-%@", self.zoneName] withBlock:^{}];
+    self.resultsOfNextIncomingQueueOperationOperation = [CKKSResultOperation named:[NSString stringWithFormat:@"wait-for-next-incoming-queue-operation"] withBlock:^{}];
     return self.resultsOfNextIncomingQueueOperationOperation;
 }
 
-- (CKKSIncomingQueueOperation*)processIncomingQueue:(bool)failOnClassA {
-    return [self processIncomingQueue:failOnClassA after: nil];
-}
-
-- (CKKSIncomingQueueOperation*) processIncomingQueue:(bool)failOnClassA after: (CKKSResultOperation*) after {
-    return [self processIncomingQueue:failOnClassA after:after policyConsideredAuthoritative:false];
-}
-
-- (CKKSIncomingQueueOperation*)processIncomingQueue:(bool)failOnClassA
-                                              after:(CKKSResultOperation*)after
-                      policyConsideredAuthoritative:(bool)policyConsideredAuthoritative
+- (CKKSResultOperation*)rpcFetchBecause:(CKKSFetchBecause*)why
 {
-    CKKSIncomingQueueOperation* incomingop = (CKKSIncomingQueueOperation*) [self findFirstPendingOperation:self.incomingQueueOperations];
-    if(incomingop) {
-        ckksinfo("ckks", self, "Skipping processIncomingQueue due to at least one pending instance");
-        if(after) {
-            [incomingop addNullableDependency: after];
+    NSError* policyError = nil;
+    if(![self waitForPolicy:5*NSEC_PER_SEC error:&policyError]) {
+        CKKSResultOperation* failOp = [CKKSResultOperation named:@"fail" withBlockTakingSelf:^(CKKSResultOperation * _Nonnull op) {
+            op.error = policyError;
+        }];
+        [self.operationQueue addOperation:failOp];
+        return failOp;
+    }
+
+    OctagonStateTransitionPath* path = [OctagonStateTransitionPath pathFromDictionary:@{
+        CKKSStateBeginFetch: @{
+            CKKSStateFetch: @{
+                CKKSStateFetchComplete: [OctagonStateTransitionPathStep success],
+                CKKSStateResettingLocalData: @{
+                    CKKSStateInitializing: @{
+                        CKKSStateInitialized: @{
+                            CKKSStateBeginFetch: @{
+                                CKKSStateFetch: @{
+                                    CKKSStateFetchComplete: [OctagonStateTransitionPathStep success],
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+        },
+    }];
+    OctagonStateTransitionWatcher* watcher = [[OctagonStateTransitionWatcher alloc] initNamed:@"rpc-fetch"
+                                                                                  serialQueue:self.queue
+                                                                                         path:path
+                                                                               initialRequest:nil];
+    [watcher timeout:300*NSEC_PER_SEC];
+    [self.stateMachine registerStateTransitionWatcher:watcher];
+
+    [self.operationDependencies.currentFetchReasons addObject:why];
+    [self.stateMachine handleFlag:CKKSFlagFetchRequested];
+
+    CKKSResultOperation* resultOp = [CKKSResultOperation named:@"check-keys" withBlockTakingSelf:^(CKKSResultOperation * _Nonnull op) {
+        NSError* resultError = watcher.result.error;
+        if(resultError) {
+            ckksnotice_global("ckksrpc", "rpcFetch failed: %@", resultError);
+            op.error = resultError;
+            return;
         }
 
-        // check (again) for race condition; if the op has started we need to add another (for the dependency)
-        if([incomingop isPending]) {
-            incomingop.errorOnClassAFailure |= failOnClassA;
-            incomingop.handleMismatchedViewItems |= policyConsideredAuthoritative;
-            return incomingop;
-        }
-    }
-
-    CKKSIncomingQueueOperation* op = [[CKKSIncomingQueueOperation alloc] initWithDependencies:self.operationDependencies
-                                                                                    intending:SecCKKSZoneKeyStateReady
-                                                                                   errorState:SecCKKSZoneKeyStateUnhealthy
-                                                                         errorOnClassAFailure:failOnClassA
-                                                                        handleMismatchedViewItems:policyConsideredAuthoritative];
-    op.name = @"incoming-queue-operation";
-
-    // Can't process unless we have a reasonable key hierarchy.
-    [op addNullableDependency:self.keyStateReadyDependency];
-    [op addNullableDependency:self.holdIncomingQueueOperation];
-    [op linearDependencies:self.incomingQueueOperations];
-
-    if(after != nil) {
-        [op addSuccessDependency: after];
-    }
-
-    if(self.resultsOfNextIncomingQueueOperationOperation) {
-        [self.resultsOfNextIncomingQueueOperationOperation addSuccessDependency:op];
-        [self scheduleOperation:self.resultsOfNextIncomingQueueOperationOperation];
-        self.resultsOfNextIncomingQueueOperationOperation = nil;
-    }
-
-    [self scheduleOperation: op];
-
-    WEAKIFY(self);
-    CKKSResultOperation* bookkeeping = [CKKSResultOperation named:@"bookkeping-oqo" withBlock:^{
-        STRONGIFY(self);
-        self.lastIncomingQueueOperation = op;
+        ckksnotice_global("ckksrpc", "rpcFetch succeeded");
     }];
 
-    [bookkeeping addDependency:op];
-    [self scheduleOperation:bookkeeping];
-    return op;
+    [resultOp addDependency:watcher.result];
+    [self.operationQueue addOperation:resultOp];
+
+    return resultOp;
 }
 
-- (CKKSScanLocalItemsOperation*)scanLocalItems:(NSString*)operationName {
-    return [self scanLocalItems:operationName ckoperationGroup:nil after:nil];
-}
-
-- (CKKSScanLocalItemsOperation*)scanLocalItems:(NSString*)operationName
-                              ckoperationGroup:(CKOperationGroup*)operationGroup
-                                         after:(NSOperation*)after
+- (CKKSResultOperation*)rpcFetchAndProcessIncomingQueue:(NSSet<NSString*>* _Nullable)viewNames
+                                                because:(CKKSFetchBecause*)why
+                                   errorOnClassAFailure:(bool)failOnClassA
 {
-    CKKSScanLocalItemsOperation* scanOperation = (CKKSScanLocalItemsOperation*)[self findFirstPendingOperation:self.scanLocalItemsOperations];
-
-    if(scanOperation) {
-        [scanOperation addNullableDependency:after];
-
-        // check (again) for race condition; if the op has started we need to add another (for the dependency)
-        if([scanOperation isPending]) {
-            if(operationGroup) {
-                scanOperation.ckoperationGroup = operationGroup;
-            }
-
-            scanOperation.name = [NSString stringWithFormat:@"%@::%@", scanOperation.name, operationName];
-            return scanOperation;
-        }
+    NSError* policyError = nil;
+    if(![self waitForPolicy:5*NSEC_PER_SEC error:&policyError]) {
+        CKKSResultOperation* failOp = [CKKSResultOperation named:@"fail" withBlockTakingSelf:^(CKKSResultOperation * _Nonnull op) {
+            op.error = policyError;
+        }];
+        [self.operationQueue addOperation:failOp];
+        return failOp;
     }
 
-    scanOperation = [[CKKSScanLocalItemsOperation alloc] initWithDependencies:self.operationDependencies
-                                                                         ckks:self
-                                                                    intending:SecCKKSZoneKeyStateReady
-                                                                   errorState:SecCKKSZoneKeyStateError
-                                                             ckoperationGroup:operationGroup];
-    scanOperation.name = operationName;
+    // Are we okay with leaving class A items around?
 
-    [scanOperation addNullableDependency:self.lastFixupOperation];
-    [scanOperation addNullableDependency:self.lockStateTracker.unlockDependency];
-    [scanOperation addNullableDependency:self.keyStateReadyDependency];
-    [scanOperation addNullableDependency:after];
+    NSDictionary<OctagonState*, id>* incomingQueuePaths = nil;
 
-    [scanOperation linearDependencies:self.scanLocalItemsOperations];
+    if(failOnClassA) {
+        incomingQueuePaths = @{
+            CKKSStateBecomeReady: [OctagonStateTransitionPathStep success],
+        };
+    } else {
+        incomingQueuePaths = @{
+            CKKSStateBecomeReady: [OctagonStateTransitionPathStep success],
+            CKKSStateRemainingClassAIncomingItems: @{
+                CKKSStateBecomeReady: [OctagonStateTransitionPathStep success],
+            },
+        };
+    }
 
-    // This might generate items for upload. Make sure that any uploads wait until the scan is complete, so we know what to upload
-    [scanOperation linearDependencies:self.outgoingQueueOperations];
+    NSDictionary<OctagonState*, id>* pathDict =  @{
+        CKKSStateBeginFetch: @{
+            CKKSStateFetch: @{
+                CKKSStateFetchComplete: @{
+                    CKKSStateProcessReceivedKeys: @{
+                        CKKSStateCheckZoneHierarchies: @{
+                            CKKSStateHealTLKShares: @{
+                                CKKSStateProcessIncomingQueue: incomingQueuePaths,
+                            },
+                            CKKSStateTLKMissing: @{
+                                CKKSStateCheckZoneHierarchies: @{
+                                    CKKSStateHealTLKShares: @{
+                                       CKKSStateProcessIncomingQueue: incomingQueuePaths,
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+        },
+    };
 
-    [self scheduleOperation:scanOperation];
-    self.initiatedLocalScan = YES;
-    return scanOperation;
+    OctagonStateTransitionPath* path = [OctagonStateTransitionPath pathFromDictionary:pathDict];
+    OctagonStateTransitionWatcher* watcher = [[OctagonStateTransitionWatcher alloc] initNamed:@"fetch-and-process"
+                                                                                  serialQueue:self.queue
+                                                                                         path:path
+                                                                               initialRequest:nil];
+    [watcher timeout:300*NSEC_PER_SEC];
+    [self.stateMachine registerStateTransitionWatcher:watcher];
+
+    [self.operationDependencies.currentFetchReasons addObject:why];
+    [self.stateMachine handleFlag:CKKSFlagFetchRequested];
+
+    // But if, after all of that, the views of interest are not in a good state, we should error
+    WEAKIFY(self);
+
+    CKKSResultOperation* resultOp = [CKKSResultOperation named:@"check-keys" withBlockTakingSelf:^(CKKSResultOperation * _Nonnull op) {
+        STRONGIFY(self);
+
+        NSError* resultError = watcher.result.error;
+        if(resultError) {
+            ckksnotice_global("ckksrpc", "rpcFetchAndProcess failed: %@", resultError);
+            op.error = resultError;
+            return;
+        }
+
+        [self dispatchSyncWithReadOnlySQLTransaction:^{
+            NSSet<NSString*>* requestedViewNames = viewNames ?: self.viewList;
+
+            for(NSString* viewName in requestedViewNames) {
+                CKKSKeychainViewState* viewState = [self viewStateForName:viewName];
+
+                CKKSCurrentKeySet* keyset = [CKKSCurrentKeySet loadForZone:viewState.zoneID];
+                if(!keyset.tlk) {
+                    ckksnotice("ckks", self, "No local TLKs for %@; failing a fetch rpc", viewState);
+                    op.error = [NSError errorWithDomain:CKKSErrorDomain
+                                                   code:CKKSKeysMissing
+                                            description:[NSString stringWithFormat:@"No local keys for %@; processing queue will fail", viewState]];
+                    break;
+                }
+            }
+        }];
+    }];
+
+    [resultOp addDependency:watcher.result];
+    [self.operationQueue addOperation:resultOp];
+
+    return resultOp;
+}
+
+- (CKKSResultOperation*)rpcProcessIncomingQueue:(NSSet<NSString*>*)viewNames
+                           errorOnClassAFailure:(bool)failOnClassA
+{
+    // Are we okay with leaving class A items around?
+    // TODO: viewNames?
+
+    NSDictionary<OctagonState*, id>* incomingQueuePaths = nil;
+
+    if(failOnClassA) {
+        incomingQueuePaths = @{
+            CKKSStateBecomeReady: [OctagonStateTransitionPathStep success],
+        };
+    } else {
+        incomingQueuePaths = @{
+            CKKSStateBecomeReady: [OctagonStateTransitionPathStep success],
+            CKKSStateRemainingClassAIncomingItems: @{
+                CKKSStateBecomeReady: [OctagonStateTransitionPathStep success],
+            },
+        };
+    }
+
+    NSDictionary<OctagonState*, id>* pathDict =  @{
+        CKKSStateProcessIncomingQueue: incomingQueuePaths,
+    };
+
+    OctagonStateTransitionPath* path = [OctagonStateTransitionPath pathFromDictionary:pathDict];
+    OctagonStateTransitionWatcher* watcher = [[OctagonStateTransitionWatcher alloc] initNamed:@"process-incoming-queue"
+                                                                                  serialQueue:self.queue
+                                                                                         path:path
+                                                                               initialRequest:nil];
+    [watcher timeout:300*NSEC_PER_SEC];
+    [self.stateMachine registerStateTransitionWatcher:watcher];
+
+    [self.stateMachine handleFlag:CKKSFlagProcessIncomingQueue];
+
+    return watcher.result;
+}
+
+- (void)scanLocalItems
+{
+    [self.stateMachine handleFlag:CKKSFlagScanLocalItems];
 }
 
 - (CKKSUpdateDeviceStateOperation*)updateDeviceState:(bool)rateLimit
@@ -1886,7 +2406,9 @@
     [waitForTransient timeout:timeout];
     [self.stateMachine registerMultiStateArrivalWatcher:waitForTransient];
 
-    CKKSUpdateDeviceStateOperation* op = [[CKKSUpdateDeviceStateOperation alloc] initWithCKKSKeychainView:self rateLimit:rateLimit ckoperationGroup:ckoperationGroup];
+    CKKSUpdateDeviceStateOperation* op = [[CKKSUpdateDeviceStateOperation alloc] initWithOperationDependencies:self.operationDependencies
+                                                                                                     rateLimit:rateLimit
+                                                                                              ckoperationGroup:ckoperationGroup];
     op.name = @"device-state-operation";
 
     [op addDependency:waitForTransient.result];
@@ -1902,18 +2424,21 @@
     return op;
 }
 
+- (void)toggleHavoc:(void (^)(BOOL havoc, NSError* _Nullable error))reply
+{
+    __block BOOL ret = NO;
+    dispatch_sync(self.queue, ^{
+        self.havoc = !self.havoc;
+        ret = self.havoc;
+        ckksnotice_global("havoc", "Havoc is now %@", self.havoc ? @"ON" : @"OFF");
+    });
+    reply(ret, nil);
+}
+
 - (void)xpc24HrNotification
 {
     // Called roughly once every 24hrs
     [self.stateMachine handleFlag:CKKSFlag24hrNotification];
-}
-
-// There are some errors which won't be reported but will be reflected in the CDSE; any error coming out of here is fatal
-- (CKKSDeviceStateEntry*)_onqueueCurrentDeviceStateEntry: (NSError* __autoreleasing*)error {
-    return [CKKSDeviceStateEntry intransactionCreateDeviceStateForView:self.viewState
-                                                        accountTracker:self.accountTracker
-                                                      lockStateTracker:self.lockStateTracker
-                                                                 error:error];
 }
 
 - (CKKSSynchronizeOperation*) resyncWithCloud {
@@ -1928,63 +2453,40 @@
     return op;
 }
 
-- (CKKSResultOperation*)fetchAndProcessCKChanges:(CKKSFetchBecause*)because
-{
-     if(!SecCKKSIsEnabled()) {
-        ckksinfo("ckks", self, "Skipping fetchAndProcessCKChanges due to disabled CKKS");
-        return nil;
-    }
-
-     // We fetched some changes; try to process them!
-    return [self processIncomingQueue:false after:[self.zoneChangeFetcher requestSuccessfulFetch:because]];
-}
-
-- (bool)_onqueueCKWriteFailed:(NSError*)ckerror attemptedRecordsChanged:(NSDictionary<CKRecordID*, CKRecord*>*)savedRecords
-{
-    return [self.operationDependencies intransactionCKWriteFailed:ckerror attemptedRecordsChanged:savedRecords];
-}
-
-- (bool)_onqueueCKRecordChanged:(CKRecord*)record resync:(bool)resync
-{
-    return [self.operationDependencies intransactionCKRecordChanged:record resync:resync];
-}
-
-- (bool)_onqueueCKRecordDeleted:(CKRecordID*)recordID recordType:(NSString*)recordType resync:(bool)resync
-{
-    return [self.operationDependencies intransactionCKRecordDeleted:recordID recordType:recordType resync:resync];
-}
-
 - (bool)_onqueueResetAllInflightOQE:(NSError**)error {
     dispatch_assert_queue(self.queue);
-    NSError* localError = nil;
 
-    while(true) {
-        NSArray<CKKSOutgoingQueueEntry*> * inflightQueueEntries = [CKKSOutgoingQueueEntry fetch:SecCKKSOutgoingQueueItemsAtOnce
-                                                                                          state:SecCKKSStateInFlight
-                                                                                         zoneID:self.zoneID
-                                                                                          error:&localError];
+    for(CKKSKeychainViewState* viewState in self.operationDependencies.allCKKSManagedViews) {
+        NSError* localError = nil;
 
-        if(localError != nil) {
-            ckkserror("ckks", self, "Error finding inflight outgoing queue records: %@", localError);
-            if(error) {
-                *error = localError;
-            }
-            return false;
-        }
+        while(true) {
+            NSArray<CKKSOutgoingQueueEntry*> * inflightQueueEntries = [CKKSOutgoingQueueEntry fetch:SecCKKSOutgoingQueueItemsAtOnce
+                                                                                              state:SecCKKSStateInFlight
+                                                                                             zoneID:viewState.zoneID
+                                                                                              error:&localError];
 
-        if([inflightQueueEntries count] == 0u) {
-            break;
-        }
-
-        for(CKKSOutgoingQueueEntry* oqe in inflightQueueEntries) {
-            [oqe intransactionMoveToState:SecCKKSStateNew viewState:self.viewState error:&localError];
-
-            if(localError) {
-                ckkserror("ckks", self, "Error fixing up inflight OQE(%@): %@", oqe, localError);
+            if(localError != nil) {
+                ckkserror("ckks", self, "Error finding inflight outgoing queue records: %@", localError);
                 if(error) {
                     *error = localError;
                 }
                 return false;
+            }
+
+            if([inflightQueueEntries count] == 0u) {
+                break;
+            }
+
+            for(CKKSOutgoingQueueEntry* oqe in inflightQueueEntries) {
+                [oqe intransactionMoveToState:SecCKKSStateNew viewState:viewState error:&localError];
+
+                if(localError) {
+                    ckkserror("ckks", self, "Error fixing up inflight OQE(%@): %@", oqe, localError);
+                    if(error) {
+                        *error = localError;
+                    }
+                    return false;
+                }
             }
         }
     }
@@ -1992,103 +2494,19 @@
     return true;
 }
 
-- (bool)dispatchSyncWithConnection:(SecDbConnectionRef _Nonnull)dbconn
-                    readWriteTxion:(BOOL)readWriteTxion
-                             block:(CKKSDatabaseTransactionResult (^)(void))block
-{
-    CFErrorRef cferror = NULL;
-
-    // Take the DB transaction, then get on the local queue.
-    // In the case of exclusive DB transactions, we don't really _need_ the local queue, but, it's here for future use.
-
-    SecDbTransactionType txtionType = readWriteTxion ? kSecDbExclusiveRemoteCKKSTransactionType : kSecDbNormalTransactionType;
-    bool ret = kc_transaction_type(dbconn, txtionType, &cferror, ^bool{
-        __block CKKSDatabaseTransactionResult result = CKKSDatabaseTransactionRollback;
-
-        CKKSSQLInTransaction = true;
-        if(readWriteTxion) {
-            CKKSSQLInWriteTransaction = true;
-        }
-
-        dispatch_sync(self.queue, ^{
-            result = block();
-        });
-
-        if(readWriteTxion) {
-            CKKSSQLInWriteTransaction = false;
-        }
-        CKKSSQLInTransaction = false;
-        return result == CKKSDatabaseTransactionCommit;
-    });
-
-    if(cferror) {
-        ckkserror("ckks", self, "error doing database transaction, major problems ahead: %@", cferror);
-    }
-    return ret;
-}
-
 - (void)dispatchSyncWithSQLTransaction:(CKKSDatabaseTransactionResult (^)(void))block
 {
-    // important enough to block this thread. Must get a connection first, though!
-
-    // Please don't jetsam us...
-    os_transaction_t transaction = os_transaction_create([[NSString stringWithFormat:@"com.apple.securityd.ckks.%@", self.zoneName] UTF8String]);
-
-    CFErrorRef cferror = NULL;
-    kc_with_dbt(true, &cferror, ^bool (SecDbConnectionRef dbt) {
-        return [self dispatchSyncWithConnection:dbt
-                                 readWriteTxion:YES
-                                          block:block];
-
-    });
-    if(cferror) {
-        ckkserror("ckks", self, "error getting database connection, major problems ahead: %@", cferror);
-    }
-
-    (void)transaction;
+    [self.operationDependencies.databaseProvider dispatchSyncWithSQLTransaction:block];
 }
 
 - (void)dispatchSyncWithReadOnlySQLTransaction:(void (^)(void))block
 {
-    // Please don't jetsam us...
-    os_transaction_t transaction = os_transaction_create([[NSString stringWithFormat:@"com.apple.securityd.ckks.%@", self.zoneName] UTF8String]);
-
-    CFErrorRef cferror = NULL;
-
-    // Note: we are lying to kc_with_dbt here about whether we're read-and-write or read-only.
-    // This is because the SOS engine's queue are broken: SOSEngineSetNotifyPhaseBlock attempts
-    // to take the SOS engine's queue while a SecDb transaction is still ongoing. But, in
-    // SOSEngineCopyPeerConfirmedDigests, SOS takes the engine queue, then calls dsCopyManifestWithViewNameSet()
-    // which attempts to get a read-only SecDb connection.
-    //
-    // The issue manifests when many CKKS read-only transactions are in-flight, and starve out
-    // the pool of read-only connections. Then, a deadlock forms.
-    //
-    // By claiming to be a read-write connection here, we'll contend on the pool of writer threads,
-    // and shouldn't starve SOS of its read thread.
-    //
-    // But, since we pass NO to readWriteTxion, the SQLite transaction will be of type
-    // kSecDbNormalTransactionType, which won't block other readers.
-
-    kc_with_dbt(true, &cferror, ^bool (SecDbConnectionRef dbt) {
-        return [self dispatchSyncWithConnection:dbt
-                                 readWriteTxion:NO
-                                          block:^CKKSDatabaseTransactionResult {
-            block();
-            return CKKSDatabaseTransactionCommit;
-        }];
-
-    });
-    if(cferror) {
-        ckkserror("ckks", self, "error getting database connection, major problems ahead: %@", cferror);
-    }
-
-    (void)transaction;
+    [self.operationDependencies.databaseProvider dispatchSyncWithReadOnlySQLTransaction:block];
 }
 
 - (BOOL)insideSQLTransaction
 {
-    return CKKSSQLInTransaction;
+    return [self.operationDependencies.databaseProvider insideSQLTransaction];
 }
 
 #pragma mark - CKKSZone operations
@@ -2126,8 +2544,7 @@
 
 - (void)cloudkitAccountStateChange:(CKAccountInfo* _Nullable)oldAccountInfo to:(CKAccountInfo*)currentAccountInfo
 {
-    ckksnotice("ckkszone", self, "%@ Received notification of CloudKit account status change, moving from %@ to %@",
-               self.zoneID.zoneName,
+    ckksnotice("ckkszone", self, "Received notification of CloudKit account status change, moving from %@ to %@",
                oldAccountInfo,
                currentAccountInfo);
 
@@ -2165,7 +2582,7 @@
 
         case CKKSAccountStatusUnknown: {
             // We really don't expect to receive this as a notification, but, okay!
-            ckksnotice("ckkszone", self, "Account status has become undetermined. Pausing for %@", self.zoneID.zoneName);
+            ckksnotice("ckkszone", self, "Account status has become undetermined. Pausing!");
 
             if(!self.accountLoggedInDependency) {
                 self.accountLoggedInDependency = [self createAccountLoggedInDependency:@"CloudKit account logged in again."];
@@ -2224,8 +2641,6 @@
         [peerProvider registerForPeerChangeUpdates:self];
     }
 
-    [self.launch addEvent:@"beginTrusted"];
-
     dispatch_sync(self.queue, ^{
         ckksnotice("ckkstrust", self, "Beginning trusted operation");
         self.operationDependencies.peerProviders = peerProviders;
@@ -2236,6 +2651,7 @@
         self.suggestTLKUpload = suggestTLKUpload;
 
         self.trustStatus = CKKSAccountStatusAvailable;
+        [self.trustStatusKnown fulfill];
         [self.stateMachine _onqueueHandleFlag:CKKSFlagBeginTrustedOperation];
 
         // Re-process the key hierarchy, just in case the answer is now different
@@ -2252,8 +2668,6 @@
 
 - (void)endTrustedOperation
 {
-    [self.launch addEvent:@"endTrusted"];
-
     dispatch_sync(self.queue, ^{
         ckksnotice("ckkstrust", self, "Ending trusted operation");
 
@@ -2262,53 +2676,216 @@
         self.suggestTLKUpload = nil;
 
         self.trustStatus = CKKSAccountStatusNoAccount;
+        [self.trustStatusKnown fulfill];
         [self.stateMachine _onqueueHandleFlag:CKKSFlagEndTrustedOperation];
     });
 }
 
-- (BOOL)itemSyncingEnabled
+- (TPSyncingPolicy* _Nullable)syncingPolicy
 {
-    if(!self.operationDependencies.syncingPolicy) {
-        ckksnotice("ckks", self, "No syncing policy loaded; item syncing is disabled");
-        return NO;
-    } else {
-        return [self.operationDependencies.syncingPolicy isSyncingEnabledForView:self.zoneName];
-    }
+    return self.operationDependencies.syncingPolicy;
 }
 
-- (void)setCurrentSyncingPolicy:(TPSyncingPolicy*)syncingPolicy policyIsFresh:(BOOL)policyIsFresh
+- (BOOL)setCurrentSyncingPolicy:(TPSyncingPolicy* _Nullable)syncingPolicy
 {
-    dispatch_sync(self.queue, ^{
-        BOOL oldEnabled = [self itemSyncingEnabled];
+    return [self setCurrentSyncingPolicy:syncingPolicy policyIsFresh:NO];
+}
 
-        self.operationDependencies.syncingPolicy = syncingPolicy;
+- (BOOL)setCurrentSyncingPolicy:(TPSyncingPolicy*)syncingPolicy policyIsFresh:(BOOL)policyIsFresh
+{
+    if(syncingPolicy == nil) {
+        ckksnotice_global("ckks-policy", "Nil syncing policy presented; ignoring");
+        return NO;
+    }
 
-        BOOL enabled = [self itemSyncingEnabled];
-        if(enabled != oldEnabled) {
-            ckksnotice("ckks", self, "Syncing for this view is now %@ (policy: %@)", enabled ? @"enabled" : @"paused", self.operationDependencies.syncingPolicy);
+    NSSet<NSString*>* viewNames = syncingPolicy.viewList;
+    ckksnotice_global("ckks-policy", "New syncing policy: %@ (%@) views: %@", syncingPolicy,
+                      policyIsFresh ? @"fresh" : @"cached",
+                      viewNames);
+
+    // The externally managed views are not set by policy, but are limited by the current OS
+    NSSet<NSString*>* externallyManagedViewNames = [NSSet setWithArray:@[CKKSSEViewPTA, CKKSSEViewPTC]];
+
+    if(self.viewAllowList) {
+        ckksnotice_global("ckks-policy", "Intersecting view list with allow list: %@", self.viewAllowList);
+        NSMutableSet<NSString*>* set = [viewNames mutableCopy];
+        [set intersectSet:self.viewAllowList];
+
+        viewNames = set;
+        ckksnotice_global("ckks-policy", "Final list: %@", viewNames);
+
+        set = [externallyManagedViewNames mutableCopy];
+        [set intersectSet:self.viewAllowList];
+        externallyManagedViewNames = set;
+
+        ckksnotice_global("ckks-policy", "Final list of externally-managed view names: %@", externallyManagedViewNames);
+    }
+
+    __block BOOL newViews = NO;
+    __block BOOL disappearedViews = NO;
+
+    [self.operationDependencies.databaseProvider dispatchSyncWithReadOnlySQLTransaction:^{
+        TPSyncingPolicy* oldPolicy = self.operationDependencies.syncingPolicy;
+
+        NSMutableSet<CKKSKeychainViewState*>* viewStates = [self.operationDependencies.allViews mutableCopy];
+        NSMutableSet<CKKSKeychainViewState*>* viewStatesToRemove = [NSMutableSet set];
+
+        for(CKKSKeychainViewState* viewState in viewStates) {
+            if([viewNames containsObject:viewState.zoneID.zoneName]) {
+
+                BOOL oldEnabled = [oldPolicy isSyncingEnabledForView:viewState.zoneID.zoneName];
+                BOOL enabled = [syncingPolicy isSyncingEnabledForView:viewState.zoneID.zoneName];
+
+                ckksnotice("ckks", viewState.zoneID, "Syncing for %@ is now %@ (used to be %@) (policy: %@)",
+                           viewState.zoneID.zoneName,
+                           enabled ? @"enabled" : @"paused",
+                           oldEnabled ? @"enabled" : @"paused",
+                           syncingPolicy);
+            } else if([externallyManagedViewNames containsObject:viewState.zoneID.zoneName]) {
+                // Ignore externally-managed views.
+            } else {
+                ckksnotice_global("ckks-policy", "Stopping old view %@", viewState.zoneID.zoneName);
+                [viewStatesToRemove addObject:viewState];
+                disappearedViews = YES;
+            }
         }
 
-        if(enabled) {
-            CKKSResultOperation* incomingOp = [self processIncomingQueue:false after:nil policyConsideredAuthoritative:policyIsFresh];
-            [self processOutgoingQueueAfter:incomingOp ckoperationGroup:nil];
+        [viewStates minusSet:viewStatesToRemove];
+
+        NSSet<NSString*>* allViewNames = [viewNames setByAddingObjectsFromSet:externallyManagedViewNames];
+
+        for(NSString* viewName in allViewNames) {
+            CKKSKeychainViewState* viewState = nil;
+
+            for(CKKSKeychainViewState* vs in viewStates) {
+                if([vs.zoneID.zoneName isEqualToString:viewName]) {
+                    viewState = vs;
+                    break;
+                }
+            }
+
+            if(viewState != nil) {
+                continue;
+            }
+
+            CKKSZoneStateEntry* ckse = [CKKSZoneStateEntry state:viewName];
+
+            bool ckksManaged = [viewNames containsObject:viewName];
+
+            viewState = [self createViewState:viewName zoneIsNew:ckse.changeToken == nil ckksManagedView:ckksManaged];
+            [viewStates addObject:viewState];
+
+            ckksnotice("ckks", viewState.zoneID, "Created %@ view %@", ckksManaged ? @"CKKS" : @"externally-managed", viewState);
+
+            newViews = YES;
         }
-    });
+
+        [self.operationDependencies applyNewSyncingPolicy:syncingPolicy
+                                               viewStates:viewStates];
+        [self.stateMachine _onqueueHandleFlag:CKKSFlagCheckQueues];
+
+        for(CKKSKeychainViewState* viewState in viewStates) {
+            [self.zoneChangeFetcher registerClient:self zoneID:viewState.zoneID];
+        }
+    }];
+
+    if(policyIsFresh) {
+        [self.stateMachine handleFlag:CKKSFlagProcessIncomingQueueWithFreshPolicy];
+        [self.stateMachine handleFlag:CKKSFlagProcessIncomingQueue];
+    }
+
+    if(self.itemModificationsBeforePolicyLoaded) {
+        ckksnotice_global("ckks-policy", "Issuing scan suggestions to handle missed items");
+        self.itemModificationsBeforePolicyLoaded = NO;
+        [self .stateMachine handleFlag:CKKSFlagScanLocalItems];
+    }
+
+    // Retrigger the analytics setup, so that our views will report status
+    [[CKKSViewManager manager] setupAnalytics];
+
+    // The policy is considered loaded once the views have been created
+    [self.policyLoaded fulfill];
+    return newViews || disappearedViews;
+}
+
+- (CKKSKeychainViewState*)createViewState:(NSString*)zoneName
+                                zoneIsNew:(BOOL)zoneIsNew
+                          ckksManagedView:(BOOL)ckksManagedView
+{
+    WEAKIFY(self);
+
+    CKKSNearFutureScheduler* notifyViewChangedScheduler = [[CKKSNearFutureScheduler alloc] initWithName:[NSString stringWithFormat: @"ckks-%@-notify-scheduler", zoneName]
+                                                                                           initialDelay:250*NSEC_PER_MSEC
+                                                                                        continuingDelay:1*NSEC_PER_SEC
+                                                                                       keepProcessAlive:true
+                                                                              dependencyDescriptionCode:CKKSResultDescriptionPendingViewChangedScheduling
+                                                                                                  block:^{
+        STRONGIFY(self);
+        [self.cloudKitClassDependencies.notifierClass post:[NSString stringWithFormat:@"com.apple.security.view-change.%@", zoneName]];
+        [self.cloudKitClassDependencies.notifierClass post:[NSString stringWithUTF8String:kSecServerKeychainChangedNotification]];
+
+        // Ugly, but: the Manatee and Engram views need to send a fake 'PCS' view change.
+        // TODO: make this data-driven somehow
+        if([zoneName isEqualToString:@"Manatee"] ||
+           [zoneName isEqualToString:@"Engram"] ||
+           [zoneName isEqualToString:@"ApplePay"] ||
+           [zoneName isEqualToString:@"Home"] ||
+           [zoneName isEqualToString:@"LimitedPeersAllowed"]) {
+            [self.cloudKitClassDependencies.notifierClass post:@"com.apple.security.view-change.PCS"];
+        }
+    }];
+
+    CKKSNearFutureScheduler* notifyViewReadyScheduler = [[CKKSNearFutureScheduler alloc] initWithName:[NSString stringWithFormat: @"%@-ready-scheduler", zoneName]
+                                                                                         initialDelay:250*NSEC_PER_MSEC
+                                                                                      continuingDelay:SecCKKSTestsEnabled() ? 3 * NSEC_PER_SEC : 120*NSEC_PER_SEC
+                                                                                     keepProcessAlive:true
+                                                                            dependencyDescriptionCode:CKKSResultDescriptionPendingViewChangedScheduling
+                                                                                                block:^{
+        STRONGIFY(self);
+        NSDistributedNotificationCenter *center = [self.cloudKitClassDependencies.nsdistributednotificationCenterClass defaultCenter];
+
+        [center postNotificationName:@"com.apple.security.view-become-ready"
+                              object:nil
+                            userInfo:@{ @"view" : zoneName ?: @"unknown" }
+                             options:0];
+
+        [self.cloudKitClassDependencies.notifierClass post:[NSString stringWithFormat:@"com.apple.security.view-ready.%@", zoneName]];
+    }];
+
+    CKKSKeychainViewState* state = [[CKKSKeychainViewState alloc] initWithZoneID:[[CKRecordZoneID alloc] initWithZoneName:zoneName ownerName:CKCurrentUserDefaultName]
+                                                                 ckksManagedView:ckksManagedView
+                                                      notifyViewChangedScheduler:notifyViewChangedScheduler
+                                                        notifyViewReadyScheduler:notifyViewReadyScheduler];
+    if(zoneIsNew) {
+        state.launch.firstLaunch = true;
+    }
+    return state;
+}
+
+- (void)setSyncingViewsAllowList:(NSSet<NSString*>*)viewNames
+{
+    self.viewAllowList = viewNames;
+}
+
+- (CKKSKeychainViewState* _Nullable)viewStateForName:(NSString*)viewName
+{
+    return [self.operationDependencies viewStateForName:viewName];
 }
 
 #pragma mark - CKKSChangeFetcherClient
 
-- (BOOL)zoneIsReadyForFetching
+- (BOOL)zoneIsReadyForFetching:(CKRecordZoneID*)zoneID
 {
     __block BOOL ready = NO;
 
     [self dispatchSyncWithReadOnlySQLTransaction:^{
-        ready = (bool)[self _onQueueZoneIsReadyForFetching];
+        ready = (bool)[self _onQueueZoneIsReadyForFetching:zoneID];
     }];
 
     return ready;
 }
 
-- (BOOL)_onQueueZoneIsReadyForFetching
+- (BOOL)_onQueueZoneIsReadyForFetching:(CKRecordZoneID*)zoneID
 {
     dispatch_assert_queue(self.queue);
     if(self.accountStatus != CKKSAccountStatusAvailable) {
@@ -2316,84 +2893,57 @@
         return NO;
     }
 
-    CKKSZoneStateEntry* ckse = [CKKSZoneStateEntry state:self.operationDependencies.zoneID.zoneName];
+    CKKSZoneStateEntry* ckse = [CKKSZoneStateEntry state:zoneID.zoneName];
 
     if(!ckse.ckzonecreated) {
-        ckksnotice("ckksfetch", self, "Not participating in fetch: zone not created yet");
+        ckksnotice("ckksfetch", zoneID, "Not participating in fetch: zone not created yet");
         return NO;
     }
     return YES;
 }
 
-- (CKKSCloudKitFetchRequest*)participateInFetch
+- (CKKSCloudKitFetchRequest*)participateInFetch:(CKRecordZoneID*)zoneID
 {
     __block CKKSCloudKitFetchRequest* request = [[CKKSCloudKitFetchRequest alloc] init];
 
     [self dispatchSyncWithReadOnlySQLTransaction:^{
-        if (![self _onQueueZoneIsReadyForFetching]) {
+        if (![self _onQueueZoneIsReadyForFetching:zoneID]) {
             ckksnotice("ckksfetch", self, "skipping fetch since zones are not ready");
             return;
         }
 
         request.participateInFetch = true;
-        [self.launch addEvent:@"fetch"];
 
-        if([self.keyHierarchyState isEqualToString:SecCKKSZoneKeyStateNeedFullRefetch]) {
-            // We want to return a nil change tag (to force a resync)
-            ckksnotice("ckksfetch", self, "Beginning refetch");
-            request.changeToken = nil;
-            request.resync = true;
-        } else {
-            CKKSZoneStateEntry* ckse = [CKKSZoneStateEntry state:self.zoneName];
-            if(!ckse) {
-                ckkserror("ckksfetch", self, "couldn't fetch zone change token for %@", self.zoneName);
-                return;
-            }
-            request.changeToken = ckse.changeToken;
+        CKKSZoneStateEntry* ckse = [CKKSZoneStateEntry state:zoneID.zoneName];
+        if(!ckse) {
+            ckkserror("ckksfetch", self, "couldn't fetch zone change token for %@", zoneID.zoneName);
+            return;
         }
+        request.changeToken = ckse.changeToken;
     }];
-
-    if (request.changeToken == nil) {
-        self.launch.firstLaunch = true;
-    }
 
     return request;
 }
 
 - (void)changesFetched:(NSArray<CKRecord*>*)changedRecords
       deletedRecordIDs:(NSArray<CKKSCloudKitDeletion*>*)deletedRecords
+                zoneID:(CKRecordZoneID*)zoneID
         newChangeToken:(CKServerChangeToken*)newChangeToken
             moreComing:(BOOL)moreComing
                 resync:(BOOL)resync
 {
-    [self.launch addEvent:@"changes-fetched"];
-
-    if(changedRecords.count == 0 && deletedRecords.count == 0 && !moreComing && !resync) {
-        // Early-exit, so we don't pick up the account keys or kick off an IncomingQueue operation for no changes
-        [self dispatchSyncWithSQLTransaction:^CKKSDatabaseTransactionResult{
-            ckksinfo("ckksfetch", self, "No record changes in this fetch");
-
-            NSError* error = nil;
-            CKKSZoneStateEntry* state = [CKKSZoneStateEntry state:self.zoneName];
-            state.lastFetchTime = [NSDate date]; // The last fetch happened right now!
-            state.changeToken = newChangeToken;
-            state.moreRecordsInCloudKit = moreComing;
-            [state saveToDatabase:&error];
-            if(error) {
-                ckkserror("ckksfetch", self, "Couldn't save new server change token: %@", error);
-            }
-            return CKKSDatabaseTransactionCommit;
-        }];
-        return;
-    }
-
     [self dispatchSyncWithSQLTransaction:^CKKSDatabaseTransactionResult{
+        if(self.halted) {
+            ckksnotice("ckksfetch", zoneID, "Dropping fetch due to halted operation");
+            return CKKSDatabaseTransactionRollback;
+        }
+
         for (CKRecord* record in changedRecords) {
-            [self _onqueueCKRecordChanged:record resync:resync];
+            [self.operationDependencies intransactionCKRecordChanged:record resync:resync];
         }
 
         for (CKKSCloudKitDeletion* deletion in deletedRecords) {
-            [self _onqueueCKRecordDeleted:deletion.recordID recordType:deletion.recordType resync:resync];
+            [self.operationDependencies intransactionCKRecordDeleted:deletion.recordID recordType:deletion.recordType resync:resync];
         }
 
         NSError* error = nil;
@@ -2414,29 +2964,29 @@
 
             // Is there More Coming? If not, self.resyncRecordsSeen contains everything in CloudKit. Inspect for anything extra!
             if(moreComing) {
-                ckksnotice("ckksresync", self, "In a resync, but there's More Coming. Waiting to scan for extra items.");
+                ckksnotice("ckksresync", zoneID, "In a resync, but there's More Coming. Waiting to scan for extra items.");
 
             } else {
                 // Scan through all CKMirrorEntries and determine if any exist that CloudKit didn't tell us about
-                ckksnotice("ckksresync", self, "Comparing local UUIDs against the CloudKit list");
-                NSMutableArray<NSString*>* uuids = [[CKKSMirrorEntry allUUIDs:self.zoneID error:&error] mutableCopy];
+                ckksnotice("ckksresync", zoneID, "Comparing local UUIDs against the CloudKit list");
+                NSMutableArray<NSString*>* uuids = [[CKKSMirrorEntry allUUIDs:zoneID error:&error] mutableCopy];
 
                 for(NSString* uuid in uuids) {
                     if([self.resyncRecordsSeen containsObject:uuid]) {
-                        ckksnotice("ckksresync", self, "UUID %@ is still in CloudKit; carry on.", uuid);
+                        ckksnotice("ckksresync", zoneID, "UUID %@ is still in CloudKit; carry on.", uuid);
                     } else {
-                        CKKSMirrorEntry* ckme = [CKKSMirrorEntry tryFromDatabase:uuid zoneID:self.zoneID error:&error];
+                        CKKSMirrorEntry* ckme = [CKKSMirrorEntry tryFromDatabase:uuid zoneID:zoneID error:&error];
                         if(error != nil) {
-                            ckkserror("ckksresync", self, "Couldn't read an item from the database, but it used to be there: %@ %@", uuid, error);
+                            ckkserror("ckksresync", zoneID, "Couldn't read an item from the database, but it used to be there: %@ %@", uuid, error);
                             continue;
                         }
                         if(!ckme) {
-                            ckkserror("ckksresync", self, "Couldn't read ckme(%@) from database; continuing", uuid);
+                            ckkserror("ckksresync", zoneID, "Couldn't read ckme(%@) from database; continuing", uuid);
                             continue;
                         }
 
-                        ckkserror("ckksresync", self, "BUG: Local item %@ not found in CloudKit, deleting", uuid);
-                        [self _onqueueCKRecordDeleted:ckme.item.storedCKRecord.recordID recordType:ckme.item.storedCKRecord.recordType resync:resync];
+                        ckkserror("ckksresync", zoneID, "BUG: Local item %@ not found in CloudKit, deleting", uuid);
+                        [self.operationDependencies intransactionCKRecordDeleted:ckme.item.storedCKRecord.recordID recordType:ckme.item.storedCKRecord.recordType resync:resync];
                     }
                 }
 
@@ -2445,35 +2995,60 @@
             }
         }
 
-        CKKSZoneStateEntry* state = [CKKSZoneStateEntry state:self.zoneName];
+        CKKSZoneStateEntry* state = [CKKSZoneStateEntry state:zoneID.zoneName];
         state.lastFetchTime = [NSDate date]; // The last fetch happened right now!
         state.changeToken = newChangeToken;
         state.moreRecordsInCloudKit = moreComing;
         [state saveToDatabase:&error];
         if(error) {
-            ckkserror("ckksfetch", self, "Couldn't save new server change token: %@", error);
+            ckkserror("ckksfetch", zoneID, "Couldn't save new server change token: %@", error);
         }
 
-        if(!moreComing) {
-            // Might as well kick off a IQO!
-            [self processIncomingQueue:false];
-            ckksnotice("ckksfetch", self, "Beginning incoming processing for %@", self.zoneID);
+        if(changedRecords.count == 0 && deletedRecords.count == 0 && !moreComing && !resync) {
+            ckksinfo("ckksfetch", zoneID, "No record changes in this fetch");
+        } else {
+            if(!moreComing) {
+                ckksnotice("ckksfetch", self, "Beginning incoming processing for %@", zoneID);
+                [self.stateMachine _onqueueHandleFlag:CKKSFlagProcessIncomingQueue];
+                // TODO: likely can be removed, once fetching no longer is a complicated upcall dance
+            }
         }
 
-        ckksnotice("ckksfetch", self, "Finished processing changes for %@", self.zoneID);
+        ckksnotice("ckksfetch", zoneID, "Finished processing changes for %@", zoneID);
 
         return CKKSDatabaseTransactionCommit;
     }];
+
+    // Now that we've committed the transaction, should we send any notifications?
+    CKKSKeychainViewState* viewState = [self.operationDependencies viewStateForName:zoneID.zoneName];
+
+    if(deletedRecords.count > 0) {
+        // Not strictly true, but will properly send notifications for deleted CIPs
+        [viewState.notifyViewChangedScheduler trigger];
+    }
+
+    if(!viewState.ckksManagedView) {
+        if(changedRecords.count > 0 || deletedRecords.count > 0) {
+            [viewState.notifyViewChangedScheduler trigger];
+        }
+
+        if(!moreComing) {
+            // We've downloaded all there is for this view. Let the client know about it.
+            [viewState launchComplete];
+        }
+    }
 }
 
-- (bool)ckErrorOrPartialError:(NSError *)error isError:(CKErrorCode)errorCode
+- (bool)ckErrorOrPartialError:(NSError *)error
+                      isError:(CKErrorCode)errorCode
+                       zoneID:(CKRecordZoneID*)zoneID
 {
     if((error.code == errorCode) && [error.domain isEqualToString:CKErrorDomain]) {
         return true;
     } else if((error.code == CKErrorPartialFailure) && [error.domain isEqualToString:CKErrorDomain]) {
         NSDictionary* partialErrors = error.userInfo[CKPartialErrorsByItemIDKey];
 
-        NSError* partialError = partialErrors[self.zoneID];
+        NSError* partialError = partialErrors[zoneID];
         if ((partialError.code == errorCode) && [partialError.domain isEqualToString:CKErrorDomain]) {
             return true;
         }
@@ -2481,26 +3056,31 @@
     return false;
 }
 
-- (bool)shouldRetryAfterFetchError:(NSError*)error {
-
-    bool isChangeTokenExpiredError = [self ckErrorOrPartialError:error isError:CKErrorChangeTokenExpired];
+- (bool)shouldRetryAfterFetchError:(NSError*)error
+                            zoneID:(CKRecordZoneID*)zoneID
+{
+    bool isChangeTokenExpiredError = [self ckErrorOrPartialError:error
+                                                         isError:CKErrorChangeTokenExpired
+                                                          zoneID:zoneID];
     if(isChangeTokenExpiredError) {
-        ckkserror("ckks", self, "Received notice that our change token is out of date (for %@). Resetting local data...", self.zoneID);
+        ckkserror("ckks", zoneID, "Received notice that our change token is out of date (for %@). Resetting local data...", zoneID);
 
         [self.stateMachine handleFlag:CKKSFlagChangeTokenExpired];
         return true;
     }
 
-    bool isDeletedZoneError = [self ckErrorOrPartialError:error isError:CKErrorZoneNotFound];
+    bool isDeletedZoneError = [self ckErrorOrPartialError:error
+                                                  isError:CKErrorZoneNotFound
+                                                   zoneID:zoneID];
     if(isDeletedZoneError) {
-        ckkserror("ckks", self, "Received notice that our zone(%@) does not exist. Resetting local data.", self.zoneID);
+        ckkserror("ckks", zoneID, "Received notice that our zone(%@) does not exist. Resetting local data.", zoneID);
 
         [self.stateMachine handleFlag:CKKSFlagCloudKitZoneMissing];
         return false;
     }
 
     if([error.domain isEqualToString:CKErrorDomain] && (error.code == CKErrorBadContainer)) {
-        ckkserror("ckks", self, "Received notice that our container does not exist. Nothing to do.");
+        ckkserror("ckks", zoneID, "Received notice that our container does not exist. Nothing to do.");
         return false;
     }
 
@@ -2537,16 +3117,30 @@
     return ret;
 }
 
-- (void)waitForFetchAndIncomingQueueProcessing
+- (BOOL)waitForFetchAndIncomingQueueProcessing
 {
-    [[self.zoneChangeFetcher inflightFetch] waitUntilFinished];
-    [self waitForOperationsOfClass:[CKKSIncomingQueueOperation class]];
+    CKKSCondition* fetchComplete = self.stateMachine.stateConditions[CKKSStateFetchComplete];
+
+    NSOperation* op = [self.zoneChangeFetcher inflightFetch];
+    if(op) {
+        [op waitUntilFinished];
+        [fetchComplete wait:5*NSEC_PER_SEC];
+    }
+
+    // If that fetch did anything to the state machine, wait for it to shake out. 109 chosen as a long time that isn't used elsewhere.
+    BOOL ret = 0 == [self.stateMachine.paused wait:109 * NSEC_PER_SEC];
+    return ret;
 }
 
-- (void)waitForKeyHierarchyReadiness {
-    if(self.keyStateReadyDependency) {
-        [self.keyStateReadyDependency waitUntilFinished];
+- (BOOL)waitForKeyHierarchyReadiness {
+    BOOL allSuccess = YES;
+    for(CKKSKeychainViewState* viewState in self.operationDependencies.allCKKSManagedViews) {
+        if(0 != [viewState.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:300 * NSEC_PER_SEC]) {
+            allSuccess = NO;
+        }
     }
+
+    return allSuccess;
 }
 
 #pragma mark - NSOperation assistance
@@ -2574,9 +3168,9 @@
     return true;
 }
 
-- (void)waitUntilAllOperationsAreFinished
+- (BOOL)waitUntilAllOperationsAreFinished
 {
-    [self.operationQueue waitUntilAllOperationsAreFinished];
+    return 0 == [self.stateMachine.paused wait:189 * NSEC_PER_SEC];
 }
 
 - (void)waitForOperationsOfClass:(Class)operationClass
@@ -2596,26 +3190,10 @@
         }
         [self.outgoingQueueOperations removeAllObjects];
     }
-
-    @synchronized(self.incomingQueueOperations) {
-        for(NSOperation* op in self.incomingQueueOperations) {
-            [op cancel];
-        }
-        [self.incomingQueueOperations removeAllObjects];
-    }
-
-    @synchronized(self.scanLocalItemsOperations) {
-        for(NSOperation* op in self.scanLocalItemsOperations) {
-            [op cancel];
-        }
-        [self.scanLocalItemsOperations removeAllObjects];
-    }
 }
 
 - (void)cancelAllOperations {
-    [self.keyStateReadyDependency cancel];
     // We don't own the zoneChangeFetcher, so don't cancel it
-    [self.viewState.notifyViewChangedScheduler cancel];
 
     [self cancelPendingOperations];
     [self.operationQueue cancelAllOperations];
@@ -2640,93 +3218,297 @@
     }
 
     // Don't send any more notifications, either
-    [self.viewState.notifyViewChangedScheduler cancel];
-    [self.viewState.notifyViewReadyScheduler cancel];
+    for(CKKSKeychainViewState* viewState in self.operationDependencies.allViews) {
+        [viewState.notifyViewChangedScheduler cancel];
+        [viewState.notifyViewReadyScheduler cancel];
+    }
 }
 
-- (NSDictionary*)status {
-#define stringify(obj) CKKSNilToNSNull([obj description])
-#define boolstr(obj) (!!(obj) ? @"yes" : @"no")
-    __block NSMutableDictionary* ret = nil;
-    __block NSError* error = nil;
+#pragma mark - RPCs and RPC helpers
 
-    ret = [[self fastStatus] mutableCopy];
-
-    [self dispatchSyncWithReadOnlySQLTransaction:^{
-        CKKSCurrentKeySet* keyset = [CKKSCurrentKeySet loadForZone:self.zoneID];
-        if(keyset.error) {
-            error = keyset.error;
-        }
+- (BOOL)waitForPolicy:(uint64_t)timeout error:(NSError**)error
+{
+    if([self.policyLoaded wait:timeout] != 0) {
+        ckkserror_global("ckks", "Haven't yet received a syncing policy");
 
         if(error) {
-            ckkserror("ckks", self, "error during status: %@", error);
+            *error = [NSError errorWithDomain:CKKSErrorDomain
+                                         code:CKKSErrorPolicyNotLoaded
+                                     userInfo:@{NSLocalizedDescriptionKey: [NSString stringWithFormat: @"CKKS syncing policy not yet loaded"]}];
+
         }
-        // We actually don't care about this error, especially if it's "no current key pointers"...
-        error = nil;
+        return NO;
+    }
 
-        // Map deviceStates to strings to avoid NSXPC issues. Obj-c, why is this so hard?
-        NSArray* deviceStates = [CKKSDeviceStateEntry allInZone:self.zoneID error:&error];
-        NSMutableArray<NSString*>* mutDeviceStates = [[NSMutableArray alloc] init];
-        [deviceStates enumerateObjectsUsingBlock:^(id  _Nonnull obj, NSUInteger idx, BOOL * _Nonnull stop) {
-            [mutDeviceStates addObject: [obj description]];
-        }];
-
-        NSArray* tlkShares = [CKKSTLKShareRecord allForUUID:keyset.currentTLKPointer.currentKeyUUID zoneID:self.zoneID error:&error];
-        NSMutableArray<NSString*>* mutTLKShares = [[NSMutableArray alloc] init];
-        [tlkShares enumerateObjectsUsingBlock:^(id  _Nonnull obj, NSUInteger idx, BOOL * _Nonnull stop) {
-            [mutTLKShares addObject: [obj description]];
-        }];
-
-        [ret addEntriesFromDictionary:@{
-                 @"statusError":         stringify(error),
-                 @"oqe":                 CKKSNilToNSNull([CKKSOutgoingQueueEntry countsByStateInZone:self.zoneID error:&error]),
-                 @"iqe":                 CKKSNilToNSNull([CKKSIncomingQueueEntry countsByStateInZone:self.zoneID error:&error]),
-                 @"ckmirror":            CKKSNilToNSNull([CKKSMirrorEntry        countsByParentKey:self.zoneID error:&error]),
-                 @"devicestates":        CKKSNilToNSNull(mutDeviceStates),
-                 @"tlkshares":           CKKSNilToNSNull(mutTLKShares),
-                 @"keys":                CKKSNilToNSNull([CKKSKey countsByClass:self.zoneID error:&error]),
-                 @"currentTLK":          CKKSNilToNSNull(keyset.tlk.uuid),
-                 @"currentClassA":       CKKSNilToNSNull(keyset.classA.uuid),
-                 @"currentClassC":       CKKSNilToNSNull(keyset.classC.uuid),
-                 @"currentTLKPtr":       CKKSNilToNSNull(keyset.currentTLKPointer.currentKeyUUID),
-                 @"currentClassAPtr":    CKKSNilToNSNull(keyset.currentClassAPointer.currentKeyUUID),
-                 @"currentClassCPtr":    CKKSNilToNSNull(keyset.currentClassCPointer.currentKeyUUID),
-                 @"itemsyncing":         self.itemSyncingEnabled ? @"enabled" : @"paused",
-            }];
-    }];
-    return ret;
+    return YES;
 }
 
-- (NSDictionary*)fastStatus {
+- (CKKSKeychainViewState* _Nullable)policyDependentViewStateForName:(NSString*)name
+                                                              error:(NSError**)error
+{
+    if(![self waitForPolicy:5*NSEC_PER_SEC error:error]) {
+        return nil;
+    }
 
-    __block NSDictionary* ret = nil;
+    __block CKKSKeychainViewState* viewState = nil;
 
-    [self dispatchSyncWithReadOnlySQLTransaction:^{
-        CKKSZoneStateEntry* ckse = [CKKSZoneStateEntry state:self.zoneName];
+    dispatch_sync(self.queue, ^{
+        for(CKKSKeychainViewState* vs in self.operationDependencies.allCKKSManagedViews) {
+            if([vs.zoneID.zoneName isEqualToString:name]) {
+                viewState = vs;
+                break;
+            }
+        }
+    });
 
-        ret = @{
-            @"view":                CKKSNilToNSNull(self.zoneName),
-            @"ckaccountstatus":     self.accountStatus == CKAccountStatusCouldNotDetermine ? @"could not determine" :
-                self.accountStatus == CKAccountStatusAvailable         ? @"logged in" :
-                self.accountStatus == CKAccountStatusRestricted        ? @"restricted" :
-                self.accountStatus == CKAccountStatusNoAccount         ? @"logged out" : @"unknown",
-            @"accounttracker":      stringify(self.accountTracker),
-            @"fetcher":             stringify(self.zoneChangeFetcher),
-            @"zoneCreated":         boolstr(ckse.ckzonecreated),
-            @"zoneSubscribed":      boolstr(ckse.ckzonesubscribed),
-            @"keystate":            CKKSNilToNSNull(self.keyHierarchyState),
-            @"statusError":         [NSNull null],
-            @"launchSequence":      CKKSNilToNSNull([self.launch eventsByTime]),
+    if(!viewState) {
+        if(error) {
+            *error = [NSError errorWithDomain:CKKSErrorDomain
+                                         code:CKKSNoSuchView
+                                     userInfo:@{NSLocalizedDescriptionKey: [NSString stringWithFormat: @"No syncing view for '%@'", name]}];
+        }
+        return nil;
+    }
 
-            @"lastIncomingQueueOperation":         stringify(self.lastIncomingQueueOperation),
-            @"lastNewTLKOperation":                stringify(self.lastNewTLKOperation),
-            @"lastOutgoingQueueOperation":         stringify(self.lastOutgoingQueueOperation),
-            @"lastProcessReceivedKeysOperation":   stringify(self.lastProcessReceivedKeysOperation),
-            @"lastReencryptOutgoingItemsOperation":stringify(self.lastReencryptOutgoingItemsOperation),
-        };
+    if(!viewState.ckksManagedView) {
+        if(error) {
+            *error = [NSError errorWithDomain:CKKSErrorDomain
+                                         code:CKKSErrorViewIsExternallyManaged
+                                  description:[NSString stringWithFormat:@"Cannot get view %@; is externally managed", viewState.zoneName]];
+        }
+        return nil;
+    }
+
+    return viewState;
+}
+
+- (BOOL)waitUntilReadyForRPCForOperation:(NSString*)opName
+                                    fast:(BOOL)fast
+                errorOnNoCloudKitAccount:(BOOL)errorOnNoCloudKitAccount
+                    errorOnPolicyMissing:(BOOL)errorOnPolicyMissing
+                                   error:(NSError**)error
+{
+    // Ensure we've actually set up, but don't wait too long. Clients get impatient.
+    if([[CKKSViewManager manager].completedSecCKKSInitialize wait:5*NSEC_PER_SEC]) {
+        ckkserror_global("ckks", "Haven't yet initialized SecDb; expect failure");
+    }
+
+    // Not being in a CloudKit account is an automatic failure.
+    // But, wait a good long while for the CloudKit account state to be known (in the case of daemon startup)
+    [self.accountStateKnown wait:((SecCKKSTestsEnabled() || fast) ? 500 * NSEC_PER_MSEC : 2*NSEC_PER_SEC)];
+
+    CKKSAccountStatus accountStatus = self.accountStatus;
+    if(errorOnNoCloudKitAccount && accountStatus != CKKSAccountStatusAvailable) {
+        NSError* localError = nil;
+
+        if(accountStatus == CKKSAccountStatusUnknown) {
+            localError = [NSError errorWithDomain:CKKSErrorDomain
+                                             code:CKKSErrorAccountStatusUnknown
+                                      description:@"iCloud account status unknown."];
+        } else {
+            localError = [NSError errorWithDomain:CKKSErrorDomain
+                                             code:CKKSNotLoggedIn
+                                      description:@"User is not signed into iCloud."];
+        }
+
+        ckksnotice("ckkscurrent", self, "Rejecting %@ RPC since we don't have an iCloud account: %@", opName, localError);
+        if(error) {
+            *error = localError;
+        }
+        return NO;
+    }
+
+    // If the caller doesn't mind if the policy is missing, wait some, but not the full 5s
+    if(errorOnPolicyMissing) {
+        if(![self waitForPolicy:5*NSEC_PER_SEC error:error]) {
+            ckkserror_global("ckks", "Haven't yet received a policy; failing %@", opName);
+            return NO;
+        }
+    } else {
+        if(![self waitForPolicy:0.5*NSEC_PER_SEC error:nil]) {
+            ckkserror_global("ckks", "Haven't yet received a policy; expect failure later doing %@", opName);
+        }
+    }
+
+    return YES;
+}
+
+- (void)rpcStatus:(NSString* _Nullable)viewName
+             fast:(bool)fast
+            reply:(void(^)(NSArray<NSDictionary*>* result, NSError* error))reply
+{
+    // Now, query the views about their status. Don't wait for the policy to be loaded
+    NSError* error = nil;
+
+    BOOL readyForRPC = [self waitUntilReadyForRPCForOperation:@"status"
+                                                         fast:fast
+                                     errorOnNoCloudKitAccount:NO
+                                         errorOnPolicyMissing:NO
+                                                        error:&error];
+
+    if(!readyForRPC) {
+        reply(nil, error);
+        return;
+    }
+
+    OctagonStateMultiStateArrivalWatcher* waitForTransient = [[OctagonStateMultiStateArrivalWatcher alloc] initNamed:@"rpc-watcher"
+                                                                                                         serialQueue:self.queue
+                                                                                                              states:[NSSet setWithArray:@[
+                                                                                                                  CKKSStateLoggedOut,
+                                                                                                                  CKKSStateReady,
+                                                                                                                  CKKSStateError,
+                                                                                                                  CKKSStateWaitForTrust,
+                                                                                                                  OctagonStateMachineHalted,
+                                                                                                              ]]];
+    [waitForTransient timeout:1*NSEC_PER_SEC];
+    [self.stateMachine registerMultiStateArrivalWatcher:waitForTransient];
+
+    WEAKIFY(self);
+    CKKSResultOperation* statusOp = [CKKSResultOperation named:@"status-rpc" withBlock:^{
+        STRONGIFY(self);
+        NSMutableArray* result = [NSMutableArray array];
+
+        if (fast == false) {
+            // Get account state, even wait for it a little
+            [self.accountTracker.ckdeviceIDInitialized wait:1*NSEC_PER_SEC];
+
+            NSString *deviceID = self.accountTracker.ckdeviceID;
+            NSError *deviceIDError = self.accountTracker.ckdeviceIDError;
+            NSDate *lastCKKSPush = [[CKKSAnalytics logger] datePropertyForKey:CKKSAnalyticsLastCKKSPush];
+
+#define stringify(obj) CKKSNilToNSNull([obj description])
+            NSDictionary* global = @{
+                @"view":                @"global",
+                @"reachability":        self.reachabilityTracker.currentReachability ? @"network" : @"no-network",
+                @"ckdeviceID":          CKKSNilToNSNull(deviceID),
+                @"ckdeviceIDError":     CKKSNilToNSNull(deviceIDError),
+                @"lockstatetracker":    stringify(self.lockStateTracker),
+                @"cloudkitRetryAfter":  stringify(self.operationDependencies.zoneModifier.cloudkitRetryAfter),
+                @"lastCKKSPush":        CKKSNilToNSNull(lastCKKSPush),
+                @"policy":              stringify(self.syncingPolicy),
+                @"viewsFromPolicy":     @"yes",
+                @"ckaccountstatus":     self.accountStatus == CKAccountStatusCouldNotDetermine ? @"could not determine" :
+                    self.accountStatus == CKAccountStatusAvailable         ? @"logged in" :
+                    self.accountStatus == CKAccountStatusRestricted        ? @"restricted" :
+                    self.accountStatus == CKAccountStatusNoAccount         ? @"logged out" : @"unknown",
+
+                @"accounttracker":      stringify(self.accountTracker),
+                @"fetcher":             stringify(self.zoneChangeFetcher),
+                @"ckksstate":           CKKSNilToNSNull(self.stateMachine.currentState),
+
+                @"lastIncomingQueueOperation":         stringify(self.lastIncomingQueueOperation),
+                @"lastNewTLKOperation":                stringify(self.lastNewTLKOperation),
+                @"lastOutgoingQueueOperation":         stringify(self.lastOutgoingQueueOperation),
+                @"lastProcessReceivedKeysOperation":   stringify(self.lastProcessReceivedKeysOperation),
+                @"lastReencryptOutgoingItemsOperation":stringify(self.lastReencryptOutgoingItemsOperation),
+            };
+            [result addObject:global];
+        }
+
+        [self dispatchSyncWithReadOnlySQLTransaction:^{
+            NSMutableArray<CKKSKeychainViewState*>* viewsToStatus = [NSMutableArray array];
+            for(CKKSKeychainViewState* viewState in self.operationDependencies.allViews) {
+                if(viewName == nil || [viewName isEqualToString:viewState.zoneName]) {
+                    [viewsToStatus addObject:viewState];
+                }
+            }
+
+            NSArray<CKKSKeychainViewState*>* sortedViewsToStatus = [viewsToStatus sortedArrayUsingDescriptors:@[[NSSortDescriptor sortDescriptorWithKey:@"zoneName" ascending:YES]]];
+
+            for(CKKSKeychainViewState* viewState in sortedViewsToStatus) {
+                ckksnotice("ckks", viewState.zoneID, "Building status for %@", viewState);
+
+                CKKSZoneStateEntry* ckse = [CKKSZoneStateEntry state:viewState.zoneName];
+                NSDictionary* status = [self fastStatus:viewState zoneStateEntry:ckse];
+
+                if(!fast) {
+                    NSDictionary* slowStatus = [self intransactionSlowStatus:viewState];
+
+                    NSMutableDictionary* merged = [status mutableCopy];
+                    [merged addEntriesFromDictionary:slowStatus];
+                    status = merged;
+                }
+                ckksinfo("ckks", viewState, "Status is %@", status);
+                if(status) {
+                    [result addObject:status];
+                }
+            }
+        }];
+
+        reply(result, nil);
     }];
 
-    return ret;
+    [statusOp addDependency:waitForTransient.result];
+    [self.operationQueue addOperation:statusOp];
+    return;
+
+}
+
+- (NSDictionary*)intransactionSlowStatus:(CKKSKeychainViewState*)viewState
+{
+#define stringify(obj) CKKSNilToNSNull([obj description])
+#define boolstr(obj) (!!(obj) ? @"yes" : @"no")
+    NSError* error = nil;
+
+    CKKSCurrentKeySet* keyset = [CKKSCurrentKeySet loadForZone:viewState.zoneID];
+    if(keyset.error) {
+        ckkserror("ckks", viewState.zoneID, "error loading keyset: %@", keyset.error);
+    }
+
+    // Map deviceStates to strings to avoid NSXPC issues. Obj-c, why is this so hard?
+    NSMutableArray<NSString*>* mutDeviceStates = [[NSMutableArray alloc] init];
+    NSMutableArray<NSString*>* mutTLKShares = [[NSMutableArray alloc] init];
+
+    @autoreleasepool {
+        NSArray* deviceStates = [CKKSDeviceStateEntry allInZone:viewState.zoneID error:&error];
+        [deviceStates enumerateObjectsUsingBlock:^(id _Nonnull obj, NSUInteger idx, BOOL * _Nonnull stop) {
+            [mutDeviceStates addObject:[obj description]];
+        }];
+
+        NSArray* tlkShares = [CKKSTLKShareRecord allForUUID:keyset.currentTLKPointer.currentKeyUUID zoneID:viewState.zoneID error:&error];
+        [tlkShares enumerateObjectsUsingBlock:^(id _Nonnull obj, NSUInteger idx, BOOL * _Nonnull stop) {
+            [mutTLKShares addObject:[obj description]];
+        }];
+    }
+
+    if(viewState.ckksManagedView) {
+        return @{
+            @"statusError":         stringify(error),
+            @"oqe":                 CKKSNilToNSNull([CKKSOutgoingQueueEntry countsByStateInZone:viewState.zoneID error:&error]),
+            @"iqe":                 CKKSNilToNSNull([CKKSIncomingQueueEntry countsByStateInZone:viewState.zoneID error:&error]),
+            @"ckmirror":            CKKSNilToNSNull([CKKSMirrorEntry        countsByParentKey:viewState.zoneID error:&error]),
+            @"devicestates":        CKKSNilToNSNull(mutDeviceStates),
+            @"tlkshares":           CKKSNilToNSNull(mutTLKShares),
+            @"keys":                CKKSNilToNSNull([CKKSKey countsByClass:viewState.zoneID error:&error]),
+            @"currentTLK":          CKKSNilToNSNull(keyset.tlk.uuid),
+            @"currentClassA":       CKKSNilToNSNull(keyset.classA.uuid),
+            @"currentClassC":       CKKSNilToNSNull(keyset.classC.uuid),
+            @"currentTLKPtr":       CKKSNilToNSNull(keyset.currentTLKPointer.currentKeyUUID),
+            @"currentClassAPtr":    CKKSNilToNSNull(keyset.currentClassAPointer.currentKeyUUID),
+            @"currentClassCPtr":    CKKSNilToNSNull(keyset.currentClassCPointer.currentKeyUUID),
+            @"itemsyncing":         [self.operationDependencies.syncingPolicy isSyncingEnabledForView:viewState.zoneID.zoneName] ? @"enabled" : @"paused",
+        };
+    } else {
+        return @{
+            @"statusError":         stringify(error),
+            @"tlkshares":           CKKSNilToNSNull(mutTLKShares),
+            @"currentTLK":          CKKSNilToNSNull(keyset.tlk.uuid),
+            @"currentTLKPtr":       CKKSNilToNSNull(keyset.currentTLKPointer.currentKeyUUID),
+        };
+    }
+}
+
+- (NSDictionary*)fastStatus:(CKKSKeychainViewState*)viewState zoneStateEntry:(CKKSZoneStateEntry*)ckse
+{
+    return @{
+            @"view":                CKKSNilToNSNull(viewState.zoneName),
+            @"zoneCreated":         boolstr(ckse.ckzonecreated),
+            @"zoneSubscribed":      boolstr(ckse.ckzonesubscribed),
+            @"keystate":            CKKSNilToNSNull(viewState.viewKeyHierarchyState),
+            @"ckksManaged":         boolstr(viewState.ckksManagedView),
+            @"statusError":         [NSNull null],
+            @"launchSequence":      CKKSNilToNSNull([viewState.launch eventsByTime]),
+        };
 }
 
 #endif /* OCTAGON */

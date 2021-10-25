@@ -17,6 +17,7 @@ _securityd:*:64:64::0:0:securityd:/var/empty:/usr/bin/false
 _mdnsresponder:*:65:65::0:0:mDNSResponder:/var/empty:/usr/bin/false
 _sshd:*:75:75::0:0:sshd Privilege separation:/var/empty:/usr/bin/false
 _unknown:*:99:99::0:0:Unknown User:/var/empty:/usr/bin/false
+_usbmuxd:*:213:213::0:0:iPhone OS Device Helper:/var/db/lockdown:/usr/bin/false
 _distnote:*:241:241::0:0:Distributed Notifications:/var/empty:/usr/bin/false
 _astris:*:245:245::0:0:Astris Services:/var/db/astris:/usr/bin/false
 _ondemand:*:249:249::0:0:On Demand Resource Daemon:/var/db/ondemand:/usr/bin/false
@@ -27,10 +28,15 @@ _analyticsd:*:263:263::0:0:Analytics Daemon:/var/db/analyticsd:/usr/bin/false
 _timed:*:266:266::0:0:Time Sync Daemon:/var/db/timed:/usr/bin/false
 _gpsd:*:267:267::0:0:GPS Daemon:/var/db/gpsd:/usr/bin/false
 _reportmemoryexception:*:269:269::0:0:ReportMemoryException:/var/empty:/usr/bin/false
+_driverkit:*:270:270::0:0:DriverKit:/var/empty:/usr/bin/false
 _diskimagesiod:*:271:271::0:0:DiskImages IO Daemon:/var/db/diskimagesiod:/usr/bin/false
 _logd:*:272:272::0:0:Log Daemon:/var/db/diagnostics:/usr/bin/false
 _iconservices:*:276:276::0:0:Icon services:/var/empty:/usr/bin/false
-_fud:*:278:278::0:0:Firmware Update Daemon:/var/db/fud:/usr/bin/false
+_accessoryupdater:*:278:278::0:0:Accessory Update Daemon:/var/db/accessoryupdater:/usr/bin/false
 _knowledgegraphd:*:279:279::0:0:Knowledge Graph Daemon:/var/db/knowledgegraphd:/usr/bin/false
 _coreml:*:280:280::0:0:CoreML Services:/var/empty:/usr/bin/false
+_sntpd:*:281:281::0:0:SNTP Server Daemon:/var/empty:/usr/bin/false
 _trustd:*:282:282::0:0:trustd:/var/empty:/usr/bin/false
+_mmaintenanced:*:283:283::0:0:mmaintenanced:/var/db/mmaintenanced:/usr/bin/false
+_darwindaemon:*:284:284::0:0:Darwin Daemon:/var/db/darwindaemon:/usr/bin/false
+_notification_proxy:*:285:285::0:0:Notification Proxy:/var/empty:/usr/bin/false

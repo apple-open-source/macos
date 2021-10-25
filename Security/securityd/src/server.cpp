@@ -207,8 +207,8 @@ boolean_t Server::handle(mach_msg_header_t *in, mach_msg_header_t *out)
 // Everything at and below that level is constructed. This is straight-forward except
 // in the case of session re-initialization (see below).
 //
-void Server::setupConnection(ConnectLevel type, Port replyPort, Port taskPort,
-    const audit_token_t &auditToken, const ClientSetupInfo *info)
+void Server::setupConnection(ConnectLevel type, Port replyPort, TaskPort taskPort,
+    Bootstrap bootstrapPort, const audit_token_t &auditToken, const ClientSetupInfo *info)
 {
 	Security::CommonCriteria::AuditToken audit(auditToken);
 	
@@ -227,7 +227,7 @@ void Server::setupConnection(ConnectLevel type, Port replyPort, Port taskPort,
 		if (type == connectNewThread)	// client error (or attack)
 			CssmError::throwMe(CSSM_ERRCODE_INTERNAL_ERROR);
 		assert(info);
-		proc = new Process(taskPort, info, audit);
+		proc = new Process(taskPort, bootstrapPort, info, audit);
 		notifyIfDead(taskPort);
 		mPids[proc->pid()] = proc;
 	}

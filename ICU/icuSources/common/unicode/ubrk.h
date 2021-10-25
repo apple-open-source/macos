@@ -13,7 +13,10 @@
 #include "unicode/utypes.h"
 #include "unicode/uloc.h"
 #include "unicode/utext.h"
+
+#if U_SHOW_CPLUSPLUS_API
 #include "unicode/localpointer.h"
+#endif   // U_SHOW_CPLUSPLUS_API
 
 /**
  * A text-break iterator.
@@ -257,7 +260,7 @@ typedef enum ULineWordOptions {
  * @see ubrk_openRules
  * @stable ICU 2.0
  */
-U_STABLE UBreakIterator* U_EXPORT2
+U_CAPI UBreakIterator* U_EXPORT2
 ubrk_open(UBreakIteratorType type,
       const char *locale,
       const UChar *text,
@@ -279,7 +282,7 @@ ubrk_open(UBreakIteratorType type,
  * @see ubrk_open
  * @stable ICU 2.2
  */
-U_STABLE UBreakIterator* U_EXPORT2
+U_CAPI UBreakIterator* U_EXPORT2
 ubrk_openRules(const UChar     *rules,
                int32_t         rulesLength,
                const UChar     *text,
@@ -307,7 +310,7 @@ ubrk_openRules(const UChar     *rules,
  * @see ubrk_getBinaryRules
  * @stable ICU 59
  */
-U_STABLE UBreakIterator* U_EXPORT2
+U_CAPI UBreakIterator* U_EXPORT2
 ubrk_openBinaryRules(const uint8_t *binaryRules, int32_t rulesLength,
                      const UChar *  text, int32_t textLength,
                      UErrorCode *   status);
@@ -330,7 +333,7 @@ ubrk_openBinaryRules(const uint8_t *binaryRules, int32_t rulesLength,
  * @return pointer to the new clone
  * @stable ICU 2.0
  */
-U_STABLE UBreakIterator * U_EXPORT2
+U_CAPI UBreakIterator * U_EXPORT2
 ubrk_safeClone(
           const UBreakIterator *bi,
           void *stackBuffer,
@@ -353,7 +356,7 @@ ubrk_safeClone(
 * @param bi The break iterator to close.
  * @stable ICU 2.0
 */
-U_STABLE void U_EXPORT2
+U_CAPI void U_EXPORT2
 ubrk_close(UBreakIterator *bi);
 
 #if U_SHOW_CPLUSPLUS_API
@@ -401,7 +404,7 @@ ubrk_setLineWordOpts(UBreakIterator* bi,
  * @param status The error code
  * @stable ICU 2.0
  */
-U_STABLE void U_EXPORT2
+U_CAPI void U_EXPORT2
 ubrk_setText(UBreakIterator* bi,
              const UChar*    text,
              int32_t         textLength,
@@ -425,7 +428,7 @@ ubrk_setText(UBreakIterator* bi,
  * @param status The error code
  * @stable ICU 3.4
  */
-U_STABLE void U_EXPORT2
+U_CAPI void U_EXPORT2
 ubrk_setUText(UBreakIterator* bi,
              UText*          text,
              UErrorCode*     status);
@@ -440,7 +443,7 @@ ubrk_setUText(UBreakIterator* bi,
  * \ref ubrk_first, or \ref ubrk_last.
  * @stable ICU 2.0
  */
-U_STABLE int32_t U_EXPORT2
+U_CAPI int32_t U_EXPORT2
 ubrk_current(const UBreakIterator *bi);
 
 /**
@@ -452,7 +455,7 @@ ubrk_current(const UBreakIterator *bi);
  * @see ubrk_previous
  * @stable ICU 2.0
  */
-U_STABLE int32_t U_EXPORT2
+U_CAPI int32_t U_EXPORT2
 ubrk_next(UBreakIterator *bi);
 
 /**
@@ -464,7 +467,7 @@ ubrk_next(UBreakIterator *bi);
  * @see ubrk_next
  * @stable ICU 2.0
  */
-U_STABLE int32_t U_EXPORT2
+U_CAPI int32_t U_EXPORT2
 ubrk_previous(UBreakIterator *bi);
 
 /**
@@ -474,7 +477,7 @@ ubrk_previous(UBreakIterator *bi);
  * @see ubrk_last
  * @stable ICU 2.0
  */
-U_STABLE int32_t U_EXPORT2
+U_CAPI int32_t U_EXPORT2
 ubrk_first(UBreakIterator *bi);
 
 /**
@@ -486,7 +489,7 @@ ubrk_first(UBreakIterator *bi);
  * @see ubrk_first
  * @stable ICU 2.0
  */
-U_STABLE int32_t U_EXPORT2
+U_CAPI int32_t U_EXPORT2
 ubrk_last(UBreakIterator *bi);
 
 /**
@@ -498,7 +501,7 @@ ubrk_last(UBreakIterator *bi);
  * @see ubrk_following
  * @stable ICU 2.0
  */
-U_STABLE int32_t U_EXPORT2
+U_CAPI int32_t U_EXPORT2
 ubrk_preceding(UBreakIterator *bi,
            int32_t offset);
 
@@ -511,7 +514,7 @@ ubrk_preceding(UBreakIterator *bi,
  * @see ubrk_preceding
  * @stable ICU 2.0
  */
-U_STABLE int32_t U_EXPORT2
+U_CAPI int32_t U_EXPORT2
 ubrk_following(UBreakIterator *bi,
            int32_t offset);
 
@@ -524,7 +527,7 @@ ubrk_following(UBreakIterator *bi,
 * @see ubrk_countAvailable
 * @stable ICU 2.0
 */
-U_STABLE const char* U_EXPORT2
+U_CAPI const char* U_EXPORT2
 ubrk_getAvailable(int32_t index);
 
 /**
@@ -535,7 +538,7 @@ ubrk_getAvailable(int32_t index);
 * @see ubrk_getAvailable
 * @stable ICU 2.0
 */
-U_STABLE int32_t U_EXPORT2
+U_CAPI int32_t U_EXPORT2
 ubrk_countAvailable(void);
 
 
@@ -548,7 +551,7 @@ ubrk_countAvailable(void);
 * @return True if "offset" is a boundary position.
 * @stable ICU 2.0
 */
-U_STABLE  UBool U_EXPORT2
+U_CAPI  UBool U_EXPORT2
 ubrk_isBoundary(UBreakIterator *bi, int32_t offset);
 
 /**
@@ -560,7 +563,7 @@ ubrk_isBoundary(UBreakIterator *bi, int32_t offset);
  * For word break iterators, the possible values are defined in enum UWordBreak.
  * @stable ICU 2.2
  */
-U_STABLE  int32_t U_EXPORT2
+U_CAPI  int32_t U_EXPORT2
 ubrk_getRuleStatus(UBreakIterator *bi);
 
 /**
@@ -580,7 +583,7 @@ ubrk_getRuleStatus(UBreakIterator *bi);
  *                  the most recent boundary returned by the break iterator.
  * @stable ICU 3.0
  */
-U_STABLE  int32_t U_EXPORT2
+U_CAPI  int32_t U_EXPORT2
 ubrk_getRuleStatusVec(UBreakIterator *bi, int32_t *fillInVec, int32_t capacity, UErrorCode *status);
 
 /**
@@ -592,7 +595,7 @@ ubrk_getRuleStatusVec(UBreakIterator *bi, int32_t *fillInVec, int32_t capacity, 
  * @return locale string
  * @stable ICU 2.8
  */
-U_STABLE const char* U_EXPORT2
+U_CAPI const char* U_EXPORT2
 ubrk_getLocaleByType(const UBreakIterator *bi, ULocDataLocaleType type, UErrorCode* status);
 
 /**
@@ -620,7 +623,7 @@ ubrk_getLocaleByType(const UBreakIterator *bi, ULocDataLocaleType type, UErrorCo
   *
   * @stable ICU 49
   */
-U_STABLE void U_EXPORT2
+U_CAPI void U_EXPORT2
 ubrk_refreshUText(UBreakIterator *bi,
                        UText          *text,
                        UErrorCode     *status);
@@ -651,7 +654,7 @@ ubrk_refreshUText(UBreakIterator *bi,
  * @see ubrk_openBinaryRules
  * @stable ICU 59
  */
-U_STABLE int32_t U_EXPORT2
+U_CAPI int32_t U_EXPORT2
 ubrk_getBinaryRules(UBreakIterator *bi,
                     uint8_t *       binaryRules, int32_t rulesCapacity,
                     UErrorCode *    status);

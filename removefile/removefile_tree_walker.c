@@ -1,6 +1,6 @@
 /* srm */
 /* Copyright (c) 2000 Matthew D. Gauthier
- * Portions copyright (c) 2015 Apple Inc.  All rights reserved.
+ * Portions copyright (c) 2015-21 Apple Inc.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -43,7 +43,7 @@
 static int
 __removefile_process_file(FTS* stream, FTSENT* current_file, removefile_state_t state) {
 	int res = 0;
-	char* path = current_file->fts_path;
+	char* path = current_file->fts_accpath;
 
 	int recursive = state->unlink_flags & REMOVEFILE_RECURSIVE;
 	int keep_parent = state->unlink_flags & REMOVEFILE_KEEP_PARENT;
@@ -84,18 +84,18 @@ __removefile_process_file(FTS* stream, FTSENT* current_file, removefile_state_t 
 						res = -1;
 					} else {
 #if __APPLE__
-                        int is_dataless = (current_file->fts_statp->st_flags & SF_DATALESS) != 0;
-                        if (is_dataless) {
-                            int iopolicy = getiopolicy_np(IOPOL_TYPE_VFS_MATERIALIZE_DATALESS_FILES, IOPOL_SCOPE_THREAD);
-                            int non_materializing = iopolicy == IOPOL_MATERIALIZE_DATALESS_FILES_OFF;
-                            if (non_materializing || state->confirm_callback == NULL) {
-                                res = unlinkat(AT_FDCWD, path, AT_REMOVEDIR_DATALESS);
-                            } else {
-                                res = rmdir(path);
-                            }
-                        } else {
-                            res = rmdir(path);
-                        }
+						int is_dataless = (current_file->fts_statp->st_flags & SF_DATALESS) != 0;
+						if (is_dataless) {
+							// This call is unsafe on iOS.
+							int iopolicy = getiopolicy_np(IOPOL_TYPE_VFS_MATERIALIZE_DATALESS_FILES, IOPOL_SCOPE_THREAD);
+							if (iopolicy == IOPOL_MATERIALIZE_DATALESS_FILES_OFF || state->confirm_callback == NULL) {
+								res = unlinkat(AT_FDCWD, path, AT_REMOVEDIR_DATALESS);
+							} else {
+								res = rmdir(path);
+							}
+						} else {
+							res = rmdir(path);
+						}
 #else
 						res = rmdir(path);
 #endif
@@ -144,6 +144,14 @@ __removefile_tree_walker(char **trees, removefile_state_t state) {
 	cb_error = state->error_callback;
 
 	open_flags = FTS_PHYSICAL | FTS_NOCHDIR | FTS_XDEV;
+
+	/*
+	 * If support of long paths is desired,
+	 * we have to let FTS(3) change our working directory.
+	 */
+	if ((REMOVEFILE_ALLOW_LONG_PATHS & state->unlink_flags) != 0) {
+		open_flags &= ~FTS_NOCHDIR;
+	}
 
 	/*
 	 * Don't cross a mount point when deleting recursively by default.

@@ -1,6 +1,6 @@
-#include <TargetConditionals.h>
 #include <darwintest.h>
 #include <dlfcn.h>
+#include <malloc/malloc.h>
 #include <setjmp.h>
 #include <stdlib.h>
 #include "sanitizer/asan_interface.h"
@@ -75,4 +75,32 @@ T_DECL(asan_heap_buffer_overflow, "ASan Detects heap-buffer-overflow", T_META_CH
 
 	T_EXPECT_EQ(asan_report_hit, true, "asan finds heap-buffer-overflow");
 	T_EXPECT_NOTNULL(strstr(asan_report, "AddressSanitizer: heap-buffer-overflow"), "asan header");
+}
+
+static malloc_zone_t *
+call_malloc_zone_from_ptr(void)
+{
+	void *ptr = malloc(5);
+	malloc_zone_t *zone = malloc_zone_from_ptr(ptr);
+	free(ptr);
+	return zone;
+}
+
+extern int32_t malloc_num_zones;
+extern malloc_zone_t **malloc_zones;
+T_DECL(asan_zone0, "Ensure we return the real zone 0 (not the virtual zone)")
+{
+	malloc_zone_t *zone0 = malloc_zones[0];
+	T_EXPECT_EQ(malloc_default_zone(), zone0, NULL);
+	T_EXPECT_EQ(call_malloc_zone_from_ptr(), zone0, NULL);
+}
+
+T_DECL(pgm_interaction, "Ensure we never enable PGM together with ASan",
+		T_META_ENVVAR("MallocProbGuard=1"))
+{
+	for (uint32_t i = 0; i < malloc_num_zones; i++) {
+		const char *zone_name = malloc_get_zone_name(malloc_zones[i]);
+		T_QUIET; T_EXPECT_NE_STR(zone_name, "ProbGuardMallocZone", NULL);
+	}
+	T_PASS("No PGM zone installed");
 }

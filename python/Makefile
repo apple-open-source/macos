@@ -14,10 +14,6 @@ OTHERVERSIONS = $(filter-out $(DEFAULT),$(VERSIONS))
 ORDEREDVERS := $(DEFAULT) $(OTHERVERSIONS)
 REVERSEVERS := $(OTHERVERSIONS) $(DEFAULT)
 
-PYFRAMEWORK = /System/Library/Frameworks/Python.framework
-PYFRAMEWORKVERSIONS = $(PYFRAMEWORK)/Versions
-VERSIONERFLAGS = -std=gnu99 -Wall -mdynamic-no-pic -I$(DSTROOT)$(VERSIONERDIR)/$(Project) -I$(FIX) -framework CoreFoundation
-
 RSYNC = rsync -rlpt
 PWD = $(shell pwd)
 
@@ -81,11 +77,42 @@ TESTOK := -f $(shell echo $(foreach vers,$(VERSIONS),$(OBJROOT)/$(vers)/.ok) | s
 
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/Common.make
 
+# Per option 1 of Python migration plan, disable internal install for now
+ifeq ($(TRAIN), JiffyBag) 
+#export INTERNALINSTALL = YES
+endif
+
+ifeq ($(INTERNALINSTALL), YES) 
+$(info Installing for internal users only)
+export USRPREFIX = /usr/local
+export INSTALLPREFIX = /AppleInternal
+export LIBRARYPREFIX = /AppleInternal/Library
+export TOPBACKSTR = ../../..
+export PYFRAMEWORKNAME = PythonLegacy
+export OLDPYFRAMEWORKNAME = Python
+export PATCHEXT = .internal
+else
+$(info Installing for all users)
+export INTERNALINSTALL = NO
+export USRPREFIX = /usr
+export INSTALLPREFIX = /System
+export LIBRARYPREFIX = /Library
+export TOPBACKSTR = ../..
+export PYFRAMEWORKNAME = Python
+export PATCHEXT =
+endif
+
+PYFRAMEWORK = $(INSTALLPREFIX)/Library/Frameworks/$(PYFRAMEWORKNAME).framework
+PYFRAMEWORKVERSIONS = $(PYFRAMEWORK)/Versions
+MODULEMAP = $(PYFRAMEWORK)/Modules/module.modulemap
+VERSIONERFLAGS = -std=gnu99 -Wall -mdynamic-no-pic -I$(DSTROOT)$(VERSIONERDIR)/$(Project) -I$(FIX) -framework CoreFoundation
+
 VERSIONVERSIONS = $(VERSIONERDIR)/$(Project)/versions
 VERSIONHEADER = $(VERSIONERDIR)/$(Project)/versions.h
 VERSIONBINLIST = $(VERSIONERDIR)/$(Project)/usr-bin.list
 VERSIONMANLIST = $(VERSIONERDIR)/$(Project)/usr-share-man.list
 VERSIONERFIX = dummy.py scriptvers.ed
+
 build::
 	$(RSYNC) '$(SRCROOT)/' '$(OBJROOT)'
 	@set -x && \
@@ -108,13 +135,14 @@ build::
 	wait && \
 	install -d $(DSTROOT)$(VERSIONERDIR)/$(Project)/fix && \
 	(cd $(FIX) && rsync -pt $(VERSIONERFIX) $(DSTROOT)$(VERSIONERDIR)/$(Project)/fix) && \
+	(cd $(FIX) && rsync -pt scriptvers.ed$(PATCHEXT) $(DSTROOT)$(VERSIONERDIR)/$(Project)/fix/scriptvers.ed) && \
 	for a in $(VERSIONERFIX); do \
 		chmod g-w "$(DSTROOT)$(VERSIONERDIR)/$(Project)/fix/$${a}"; \
 	done && \
 	echo DEFAULT = $(DEFAULT) > $(DSTROOT)$(VERSIONVERSIONS) && \
 	for vers in $(KNOWNVERSIONS); do \
-	    mkdir -p $(DSTROOT)/Library/Python/$$vers/site-packages; \
-	    install $(SRCROOT)/$$vers/fix/Extras.pth $(DSTROOT)/Library/Python/$$vers/site-packages/Extras.pth; \
+	    mkdir -p $(DSTROOT)$(LIBRARYPREFIX)/Python/$$vers/site-packages; \
+	    install $(SRCROOT)/$$vers/fix/Extras.pth$(PATCHEXT) $(DSTROOT)$(LIBRARYPREFIX)/Python/$$vers/site-packages/Extras.pth; \
 	    echo $$vers >> $(DSTROOT)$(VERSIONVERSIONS) || exit 1; \
 	done && \
 	for vers in $(VERSIONS); do \
@@ -128,14 +156,15 @@ build::
 	    exit 1; \
 	fi
 	mkdir -p $(DSTROOT)$(PYFRAMEWORK)/Modules
-	install $(SRCROOT)/module.modulemap $(DSTROOT)$(PYFRAMEWORK)/Modules/module.modulemap
+	install $(SRCROOT)/module.modulemap $(DSTROOT)$(MODULEMAP)
+	sed 's/@PYFRAMEWORKNAME@/$(PYFRAMEWORKNAME)/' $(FIX)/module.modulemap.ed | ed - $(DSTROOT)$(MODULEMAP)
 
-merge: mergebegin mergedefault mergeversions mergeplist mergebin mergeman fixsmptd legacySymLinks
+merge: mergebegin mergedefault mergeversions mergeplist mergebin mergeman fixsmptd legacySymLinks installbinwrappers
 
 mergebegin:
 	@echo ####### Merging #######
 
-MERGEBIN = /usr/bin
+MERGEBIN = $(USRPREFIX)/bin
 
 # This causes us to replace the versioner stub with the default version of perl.
 # Since we are now only shipping one version (2.7) and one slice (x86_64), there
@@ -153,13 +182,13 @@ mergebin:
 	fi && \
 	for f in `find . -type f | sed 's,^\./,,'`; do \
 	    f0=`echo $$f | sed "s/$(DEFAULT)//"` && \
-	    ln -sf ../..$$pbin/$$f $(DSTROOT)$(MERGEBIN)/$$f && \
-	    ln -sf ../..$$pbin/$$f $(DSTROOT)$(MERGEBIN)/$$f0 && \
+	    ln -sf $(TOPBACKSTR)$$pbin/$$f $(DSTROOT)$(MERGEBIN)/$$f && \
+	    ln -sf $(TOPBACKSTR)$$pbin/$$f $(DSTROOT)$(MERGEBIN)/$$f0 && \
 	    if file $$f | head -1 | fgrep -q script; then \
 	        sed -e 's/@SEP@//g' -e "s/@VERSION@/$(DEFAULT)/g" $(FIX)/scriptvers.ed | ed - $$f; \
             fi || exit 1; \
     done; \
-    ln -sf ../..$$pbin/python2.7 $(DSTROOT)$(MERGEBIN)/python2
+    ln -sf $(TOPBACKSTR)$$pbin/python2.7 $(DSTROOT)$(MERGEBIN)/python2
 $(OBJROOT)/wrappers:
 	touch $(OBJROOT)/wrappers
 else
@@ -189,7 +218,7 @@ $(OBJROOT)/wrappers:
 	    fi && \
 	    for f in `find . -type f | sed 's,^\./,,'`; do \
 		f0=`echo $$f | sed "s/$$vers//"` && \
-		ln -sf ../..$$pbin/$$f $(DSTROOT)$(MERGEBIN)/$$f && \
+		ln -sf $(TOPBACKSTR)$$pbin/$$f $(DSTROOT)$(MERGEBIN)/$$f && \
 		if file $$f | head -1 | fgrep -q script; then \
 		    sed -e 's/@SEP@//g' -e "s/@VERSION@/$$vers/g" $(FIX)/scriptvers.ed | ed - $$f && \
 		    if [ ! -e $(DSTROOT)$(MERGEBIN)/$$f0 ]; then \
@@ -224,7 +253,7 @@ MERGEDEFAULT = \
 mergedefault:
 	cd $(OBJROOT)/$(DEFAULT)/DSTROOT && rsync -Ra $(MERGEDEFAULT) $(DSTROOT)
 
-MERGEMAN = /usr/share/man
+MERGEMAN = $(USRPREFIX)/share/man
 mergeman: domergeman listman
 
 # When merging man pages from the multiple versions, allow the man pages
@@ -269,6 +298,8 @@ OPENSOURCEVERSIONS = /usr/local/OpenSourceVersions
 PLIST = $(OPENSOURCEVERSIONS)/$(Project).plist
 mergeplist:
 	mkdir -p $(DSTROOT)/$(OPENSOURCEVERSIONS)
+	echo '<?xml version="1.0" encoding="UTF-8"?>' > $(DSTROOT)/$(PLIST)
+	echo '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">' > $(DSTROOT)/$(PLIST)
 	echo '<plist version="1.0">' > $(DSTROOT)/$(PLIST)
 	echo '<array>' >> $(DSTROOT)/$(PLIST)
 	@set -x && \
@@ -282,16 +313,16 @@ mergeplist:
 MERGEVERSIONSCONDITIONAL = \
     Developer/Applications
 MERGEVERSIONS = \
-    Library \
-    usr/include \
-    usr/lib
+    $(LIBRARYPREFIX) \
+    $(USRPREFIX)/include \
+    $(USRPREFIX)/lib
 MERGEREVERSEVERSIONS = \
-    System
+    $(INSTALLPREFIX)
 mergeversions:
 	@set -x && \
 	for vers in $(VERSIONS); do \
 	    cd $(OBJROOT)/$$vers/DSTROOT && \
-	    rsync -Ra $(MERGEVERSIONS) $(DSTROOT) && \
+	    (MERGEVERSIONS=($(MERGEVERSIONS)) && rsync -Ra $${MERGEVERSIONS[@]/#/.} $(DSTROOT)) && \
 	    for c in $(MERGEVERSIONSCONDITIONAL); do \
 		if [ -e "$$c" ]; then \
 		    rsync -Ra "$$c" $(DSTROOT); \
@@ -300,12 +331,12 @@ mergeversions:
 	done
 	for vers in $(REVERSEVERS); do \
 	    cd $(OBJROOT)/$$vers/DSTROOT && \
-	    rsync -Ra $(MERGEREVERSEVERSIONS) $(DSTROOT) || exit 1; \
+	    rsync -Ra .$(MERGEREVERSEVERSIONS) $(DSTROOT) || exit 1; \
 	done
 
 fixsmptd:
 	set -x && \
-	cd $(DSTROOT)/usr/bin && \
+	cd $(DSTROOT)$(USRPREFIX)/bin && \
 	mv -f smtpd.py smtpd.py.bak && \
 	cp -pf smtpd.py.bak smtpd.py && \
 	rm -f smtpd.py.bak && \
@@ -323,3 +354,49 @@ legacySymLinks:
 	ln -s 2.7 2.5 && \
 	ln -s 2.7 2.6 && \
 	set +x
+ifeq ($(INTERNALINSTALL), YES)
+	@set -x && \
+	cd $(DSTROOT)$(PYFRAMEWORK) && \
+	ln -s $(PYFRAMEWORKNAME) $(OLDPYFRAMEWORKNAME) 
+endif
+
+SYSPYFRAMEWORKVERSIONS=/System/Library/Frameworks/Python.framework/Versions/$(DEFAULT)
+SYSPYBIN=$(SYSPYFRAMEWORKVERSIONS)/bin
+SYSPYUNWRAPPED=$(SYSPYBIN)/unwrapped
+PYBIN=$(PYFRAMEWORKVERSIONS)/$(DEFAULT)/bin
+OBJROOTPYBIN=$(OBJROOT)/$(DEFAULT)/DSTROOT$(PYBIN)
+USRBIN=/usr/bin
+USRLOCALBIN=/usr/local/bin
+OBACK=../../../../../../..
+FINDCMD=find . -type f -o -type l | sed 's,^\./,,' | grep -v pythonwrapper
+installbinwrappers:
+ifeq ($(INTERNALINSTALL), YES)
+	@set -x && \
+	mkdir -p $(DSTROOT)$(USRBIN) && \
+	mkdir -p $(DSTROOT)$(SYSPYBIN) && \
+	cd "$(OBJROOTPYBIN)" && \
+	for wb in `$(FINDCMD)`; do \
+		ln -s ../..$(PYBIN)/pythonwrapper $(DSTROOT)$(USRBIN)/$$wb; \
+		ln -s $(OBACK)$(PYBIN)/pythonwrapper $(DSTROOT)$(SYSPYBIN)/$$wb; \
+	done && \
+	ln -s $(OBACK)$(PYBIN)/pythonwrapper $(DSTROOT)$(SYSPYBIN)/2to3$(DEFAULT)
+else
+	@set -x && \
+	mkdir -p $(DSTROOT)$(SYSPYUNWRAPPED) && \
+	mkdir -p $(DSTROOT)$(USRBIN) && \
+	mkdir -p $(DSTROOT)$(USRLOCALBIN) && \
+	cd "$(DSTROOT)$(SYSPYBIN)" && \
+	for wb in `$(FINDCMD)`; do \
+		mv $$wb unwrapped/$$wb; \
+		ln -s pythonwrapper $$wb; \
+	done && \
+	cd "$(DSTROOT)$(USRBIN)" && \
+	for wb in `$(FINDCMD)`; do \
+		if [ -L $$wb ]; then \
+			ln -s ../../..$(SYSPYUNWRAPPED)/$$(basename $$(readlink $$wb)) $(DSTROOT)$(USRLOCALBIN)/$$wb; \
+		else \
+			ln -s ../../..$(SYSPYUNWRAPPED)/$$wb $(DSTROOT)$(USRLOCALBIN)/$$wb; \
+		fi \
+	done
+endif
+

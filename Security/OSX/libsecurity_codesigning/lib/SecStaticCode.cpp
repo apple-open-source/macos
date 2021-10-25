@@ -365,6 +365,19 @@ CFDataRef SecCodeCopyComponent(SecCodeRef codeRef, int slot, CFDataRef hash)
 }
 
 //
+//  Check if a special slot exists
+//
+CFBooleanRef SecCodeSpecialSlotIsPresent(SecStaticCodeRef codeRef, int slot)
+{
+	BEGIN_CSAPI
+	
+	SecStaticCode* code = SecStaticCode::requiredStatic(codeRef);
+	return code->codeDirectory()->slotIsPresent(-slot) ? kCFBooleanTrue : kCFBooleanFalse ;
+	
+	END_CSAPI1(kCFBooleanFalse)
+}
+
+//
 // Updates the flags to indicate whether this object wants to enable online notarization checks.
 //
 OSStatus SecStaticCodeEnableOnlineNotarizationCheck(SecStaticCodeRef codeRef, Boolean enable)

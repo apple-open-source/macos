@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2018 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2021 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -167,6 +167,7 @@ int			if_link_length(interface_t * if_p);
 boolean_t		if_link_update(interface_t * if_p);
 void			if_link_copy(interface_t * dest, 
 				     const interface_t * source);
+boolean_t		if_link_address_is_private(interface_t * if_p);
 boolean_t		if_is_wireless(interface_t * if_p);
 boolean_t		if_is_expensive(interface_t * if_p);
 boolean_t		if_is_ethernet(interface_t * if_p);
@@ -175,6 +176,7 @@ link_status_t		if_link_status_update(interface_t * if_p);
 link_status_t		if_get_link_status(interface_t * if_p);
 boolean_t		if_is_awdl(interface_t * if_p);
 boolean_t		if_is_tethered(interface_t * if_p);
+const char *		if_type_string(interface_t * if_p);
 
 static __inline__ int
 dl_to_arp_hwtype(int dltype)

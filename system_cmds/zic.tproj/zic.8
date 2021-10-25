@@ -386,32 +386,50 @@ input, intended to illustrate many of its features.
 .br
 .ne 22
 .nf
-.in +2m
+.ti +2m
 .ta \w'# Rule\0\0'u +\w'NAME\0\0'u +\w'FROM\0\0'u +\w'1973\0\0'u +\w'TYPE\0\0'u +\w'Apr\0\0'u +\w'lastSun\0\0'u +\w'2:00\0\0'u +\w'SAVE\0\0'u
 .sp
+.ti +2m
 # Rule	NAME	FROM	TO	TYPE	IN	ON	AT	SAVE	LETTER/S
+.ti +2m
 Rule	Swiss	1940	only	-	Nov	2	0:00	1:00	S
+.ti +2m
 Rule	Swiss	1940	only	-	Dec	31	0:00	0	-
+.ti +2m
 Rule	Swiss	1941	1942	-	May	Sun>=1	2:00	1:00	S
+.ti +2m
 Rule	Swiss	1941	1942	-	Oct	Sun>=1	0:00	0
 .sp .5
+.ti +2m
 Rule	EU	1977	1980	-	Apr	Sun>=1	1:00u	1:00	S
+.ti +2m
 Rule	EU	1977	only	-	Sep	lastSun	1:00u	0	-
+.ti +2m
 Rule	EU	1978	only	-	Oct	 1	1:00u	0	-
+.ti +2m
 Rule	EU	1979	1995	-	Sep	lastSun	1:00u	0	-
+.ti +2m
 Rule	EU	1981	max	-	Mar	lastSun	1:00u	1:00	S
+.ti +2m
 Rule	EU	1996	max	-	Oct	lastSun	1:00u	0	-
 .sp
+.ti +2m
 .ta \w'# Zone\0\0'u +\w'Europe/Zurich\0\0'u +\w'0:34:08\0\0'u +\w'RULES/SAVE\0\0'u +\w'FORMAT\0\0'u
+.ti +2m
 # Zone	NAME	GMTOFF	RULES	FORMAT	UNTIL
+.ti +2m
 Zone	Europe/Zurich	0:34:08	-	LMT	1848 Sep 12
+.ti +2m
 		0:29:44	-	BMT	1894 Jun
+.ti +2m
 		1:00	Swiss	CE%sT	1981
+.ti +2m
 		1:00	EU	CE%sT
+.ti +2m
 .sp
+.ti +2m
 Link	Europe/Zurich	Switzerland
 .sp
-.in
 .fi
 In this example, the zone is named Europe/Zurich but it has an alias
 as Switzerland.

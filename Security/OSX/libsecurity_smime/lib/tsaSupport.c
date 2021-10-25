@@ -30,35 +30,35 @@
 #include <security_asn1/secerr.h>
 */
 
-#include <security_utilities/debugging.h>
 #include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacErrors.h>
+#include <security_utilities/debugging.h>
 
+#include <AssertMacros.h>
+#include <Security/SecAsn1Coder.h>
+#include <Security/SecBasePriv.h>
+#include <Security/SecCertificatePriv.h>
+#include <Security/SecCmsContentInfo.h>
 #include <Security/SecCmsDecoder.h>
 #include <Security/SecCmsMessage.h>
-#include <Security/SecCmsContentInfo.h>
 #include <Security/SecCmsSignedData.h>
 #include <Security/SecCmsSignerInfo.h>
-#include "tsaTemplates.h"
-#include <Security/SecAsn1Coder.h>
-#include <AssertMacros.h>
-#include <Security/SecBasePriv.h>
+#include <Security/SecImportExport.h>
 #include <Security/SecPolicy.h>
 #include <Security/SecTrustPriv.h>
-#include <Security/SecImportExport.h>
-#include <Security/SecCertificatePriv.h>
 #include <utilities/SecCFRelease.h>
 #include <utilities/SecDispatchRelease.h>
 #include <utilities/debugging.h>
+#include "tsaTemplates.h"
 
+#include "cert.h"
+#include "cmslocal.h"
 #include "tsaSupport.h"
 #include "tsaSupportPriv.h"
 #include "tsaTemplates.h"
-#include "cmslocal.h"
-#include "cert.h"
 
-#include "secoid.h"
-#include "secitem.h"
 #include <fcntl.h>
+#include "secitem.h"
+#include "secoid.h"
 
 const CFStringRef kTSAContextKeyURL = CFSTR("ServerURL");
 const CFStringRef kTSAContextKeyNoCerts = CFSTR("NoCerts");
@@ -67,130 +67,128 @@ const CFStringRef kTSADebugContextKeyBadNonce = CFSTR("DebugBadNonce");
 
 extern const SecAsn1Template kSecAsn1TSATSTInfoTemplate[];
 
-extern OSStatus impExpImportCertCommon(
-	const CSSM_DATA		*cdata,
-	SecKeychainRef		importKeychain, // optional
-	CFMutableArrayRef	outArray);		// optional, append here
+extern OSStatus impExpImportCertCommon(const CSSM_DATA* cdata,
+                                       SecKeychainRef importKeychain,  // optional
+                                       CFMutableArrayRef outArray);  // optional, append here
 
-#pragma mark ----- Debug Logs -----
+#pragma mark----- Debug Logs -----
 
 #ifndef NDEBUG
 #define TSA_USE_SYSLOG 1
 #endif
 
 #if TSA_USE_SYSLOG
+#include <sys/time.h>
 #include <syslog.h>
-    #include <time.h>
-    #include <sys/time.h>
-    #define tsaDebug(fmt, ...) \
-        do { if (true) { \
-            char buf[64];   \
-            struct timeval time_now;   \
-            gettimeofday(&time_now, NULL);  \
-            struct tm* time_info = localtime(&time_now.tv_sec);    \
-            strftime(buf, sizeof(buf), "[%Y-%m-%d %H:%M:%S]", time_info);   \
-                    fprintf(stderr, "%s " fmt, buf, ## __VA_ARGS__); \
-                    syslog(LOG_ERR, " " fmt, ## __VA_ARGS__); \
-                    } } while (0)
-    #define tsa_secinfo(scope, format...) \
-    { \
-        syslog(LOG_NOTICE, format); \
-        secinfo(scope, format); \
-        printf(format); \
+#include <time.h>
+#define tsaDebug(fmt, ...)                                                \
+    do {                                                                  \
+        if (true) {                                                       \
+            char debugBuf[64];                                            \
+            struct timeval time_now;                                      \
+            gettimeofday(&time_now, NULL);                                \
+            struct tm* time_info = localtime(&time_now.tv_sec);           \
+            strftime(debugBuf, sizeof(debugBuf), "[%Y-%m-%d %H:%M:%S]", time_info); \
+            fprintf(stderr, "%s " fmt, debugBuf, ##__VA_ARGS__);               \
+            syslog(LOG_ERR, " " fmt, ##__VA_ARGS__);                      \
+        }                                                                 \
+    } while (0)
+#define tsa_secinfo(scope, format...) \
+    {                                 \
+        syslog(LOG_NOTICE, format);   \
+        secinfo(scope, format);       \
+        printf(format);               \
     }
 #else
-    #define tsaDebug(args...)			tsa_secinfo("tsa", ## args)
-#define tsa_secinfo(scope, format...) \
-        secinfo(scope, format)
+#define tsaDebug(args...) tsa_secinfo("tsa", ##args)
+#define tsa_secinfo(scope, format...) secinfo(scope, format)
 #endif
 
 #ifndef NDEBUG
-#define TSTINFO_DEBUG	1   //jch
+#define TSTINFO_DEBUG 1  //jch
 #endif
 
-#if	TSTINFO_DEBUG
-#define dtprintf(args...)    tsaDebug(args)
+#if TSTINFO_DEBUG
+#define dtprintf(args...) tsaDebug(args)
 #else
 #define dtprintf(args...)
 #endif
 
-#define kHTTPResponseCodeContinue               100
-#define kHTTPResponseCodeOK                     200
-#define kHTTPResponseCodeNoContent              204
-#define kHTTPResponseCodeBadRequest             400
-#define kHTTPResponseCodeUnauthorized           401
-#define kHTTPResponseCodeForbidden              403
-#define kHTTPResponseCodeNotFound               404
-#define kHTTPResponseCodeConflict               409
-#define kHTTPResponseCodeExpectationFailed      417
-#define kHTTPResponseCodeServFail               500
-#define kHTTPResponseCodeServiceUnavailable     503
-#define kHTTPResponseCodeInsufficientStorage    507
+#define kHTTPResponseCodeContinue 100
+#define kHTTPResponseCodeOK 200
+#define kHTTPResponseCodeNoContent 204
+#define kHTTPResponseCodeBadRequest 400
+#define kHTTPResponseCodeUnauthorized 401
+#define kHTTPResponseCodeForbidden 403
+#define kHTTPResponseCodeNotFound 404
+#define kHTTPResponseCodeConflict 409
+#define kHTTPResponseCodeExpectationFailed 417
+#define kHTTPResponseCodeServFail 500
+#define kHTTPResponseCodeServiceUnavailable 503
+#define kHTTPResponseCodeInsufficientStorage 507
 
-#pragma mark ----- Debug/Utilities -----
+#pragma mark----- Debug/Utilities -----
 
 static OSStatus remapHTTPErrorCodes(OSStatus status)
 {
-    switch (status)
-    {
-    case kHTTPResponseCodeOK:
-    case kHTTPResponseCodeContinue:
-        return noErr;
-    case kHTTPResponseCodeBadRequest:
-        return errSecTimestampBadRequest;
-    case kHTTPResponseCodeNoContent:
-    case kHTTPResponseCodeUnauthorized:
-    case kHTTPResponseCodeForbidden:
-    case kHTTPResponseCodeNotFound:
-    case kHTTPResponseCodeConflict:
-    case kHTTPResponseCodeExpectationFailed:
-    case kHTTPResponseCodeServFail:
-    case kHTTPResponseCodeInsufficientStorage:
-    case kHTTPResponseCodeServiceUnavailable:
-        return errSecTimestampServiceNotAvailable;
-    default:
-        return status;
+    switch (status) {
+        case kHTTPResponseCodeOK:
+        case kHTTPResponseCodeContinue:
+            return noErr;
+        case kHTTPResponseCodeBadRequest:
+            return errSecTimestampBadRequest;
+        case kHTTPResponseCodeNoContent:
+        case kHTTPResponseCodeUnauthorized:
+        case kHTTPResponseCodeForbidden:
+        case kHTTPResponseCodeNotFound:
+        case kHTTPResponseCodeConflict:
+        case kHTTPResponseCodeExpectationFailed:
+        case kHTTPResponseCodeServFail:
+        case kHTTPResponseCodeInsufficientStorage:
+        case kHTTPResponseCodeServiceUnavailable:
+            return errSecTimestampServiceNotAvailable;
+        default:
+            return status;
     }
     return status;
-
 }
 
-static void printDataAsHex(const char *title, const CSSM_DATA *d, unsigned maxToPrint) // 0 means print it all
+static void printDataAsHex(const char* title, const CSSM_DATA* d, unsigned maxToPrint)  // 0 means print it all
 {
 #ifndef NDEBUG
     unsigned i;
     bool more = false;
     uint32 len = (uint32)d->Length;
-    uint8 *cp = d->Data;
-    char *buffer = NULL;
+    uint8* cp = d->Data;
+    char* buffer = NULL;
     size_t bufferSize;
     int offset, sz = 0;
-    const int wrapwid = 24;     // large enough so SHA-1 hashes fit on one line...
+    const int wrapwid = 24;  // large enough so SHA-1 hashes fit on one line...
 
     if ((maxToPrint != 0) && (len > maxToPrint)) {
         len = maxToPrint;
         more = true;
     }
 
-    bufferSize = wrapwid+3*len;
-    buffer = (char *)malloc(bufferSize);
+    bufferSize = wrapwid + 3 * len;
+    buffer = (char*)malloc(bufferSize);
 
     offset = sprintf(buffer, "%s [len = %u]\n", title, len);
     dtprintf("%s", buffer);
     offset = 0;
 
-    for (i=0; (i < len) && (offset+3 < bufferSize); i++, offset += sz) {
+    for (i = 0; (i < len) && (offset + 3 < bufferSize); i++, offset += sz) {
         sz = sprintf(buffer + offset, " %02x", (unsigned int)cp[i] & 0xff);
-        if ((i % wrapwid) == (wrapwid-1)) {
+        if ((i % wrapwid) == (wrapwid - 1)) {
             dtprintf("%s\n", buffer);
             offset = 0;
             sz = 0;
         }
     }
 
-    sz=sprintf(buffer + offset, more?" ...\n":"\n");
+    sz = sprintf(buffer + offset, more ? " ...\n" : "\n");
     offset += sz;
-    buffer[offset+1]=0;
+    buffer[offset + 1] = 0;
 
     dtprintf("%s", buffer);
 
@@ -199,7 +197,7 @@ static void printDataAsHex(const char *title, const CSSM_DATA *d, unsigned maxTo
 }
 
 #ifndef NDEBUG
-int tsaWriteFileX(const char *fileName, const unsigned char *bytes, size_t numBytes)
+int tsaWriteFileX(const char* fileName, const unsigned char* bytes, size_t numBytes)
 {
     int rtn;
     int fd;
@@ -210,109 +208,109 @@ int tsaWriteFileX(const char *fileName, const unsigned char *bytes, size_t numBy
     }
 
     rtn = (int)write(fd, bytes, numBytes);
-    if(rtn != (int)numBytes)
-    {
-        if (rtn >= 0)
+    if (rtn != (int)numBytes) {
+        if (rtn >= 0) {
             fprintf(stderr, "writeFile: short write\n");
+        }
         rtn = EIO;
-    }
-    else
+    } else {
         rtn = 0;
+    }
 
     close(fd);
     return rtn;
 }
 #endif
 
-char *cfStringToChar(CFStringRef inStr)
+char* cfStringToChar(CFStringRef inStr)
 {
     // Caller must free
-    char *result = NULL;
-    const char *str = NULL;
+    char* result = NULL;
+    const char* str = NULL;
 
-	if (!inStr)
-        return strdup("");     // return a null string
+    if (!inStr) {
+        return strdup("");  // return a null string
+    }
 
-	// quick path first
-	if ((str = CFStringGetCStringPtr(inStr, kCFStringEncodingUTF8))) {
+    // quick path first
+    if ((str = CFStringGetCStringPtr(inStr, kCFStringEncodingUTF8))) {
         result = strdup(str);
-	} else {
+    } else {
         // need to extract into buffer
         CFIndex length = CFStringGetLength(inStr);  // in 16-bit character units
         CFIndex bytesToAllocate = CFStringGetMaximumSizeForEncoding(length, kCFStringEncodingUTF8) + 1;
-        result = malloc(bytesToAllocate);
-        if (!CFStringGetCString(inStr, result, bytesToAllocate, kCFStringEncodingUTF8))
+        result = malloc((size_t)bytesToAllocate);
+        if (!CFStringGetCString(inStr, result, bytesToAllocate, kCFStringEncodingUTF8)) {
             result[0] = 0;
+        }
     }
-    
-	return result;
+
+    return result;
 }
 
 /* Oids longer than this are considered invalid. */
-#define MAX_OID_SIZE				32
+#define MAX_OID_SIZE 32
 
 #ifndef NDEBUG
 /* FIXME: There are other versions of this in SecCertifcate.c and SecCertificateP.c */
-static CFStringRef SecDERItemCopyOIDDecimalRepresentation(CFAllocatorRef allocator, const CSSM_OID *oid)
+static CFStringRef SecDERItemCopyOIDDecimalRepresentation(CFAllocatorRef allocator, const CSSM_OID* oid)
 {
-	if (oid->Length == 0)
+    if (oid->Length == 0) {
         return CFSTR("<NULL>");
+    }
 
-	if (oid->Length > MAX_OID_SIZE)
+    if (oid->Length > MAX_OID_SIZE) {
         return CFSTR("Oid too long");
+    }
 
     CFMutableStringRef result = CFStringCreateMutable(allocator, 0);
 
-	// The first two levels are encoded into one byte, since the root levelq
-	// has only 3 nodes (40*x + y).  However if x = joint-iso-itu-t(2) then
-	// y may be > 39, so we have to add special-case handling for this.
-	uint32_t x = oid->Data[0] / 40;
-	uint32_t y = oid->Data[0] % 40;
-	if (x > 2)
-	{
-		// Handle special case for large y if x = 2
-		y += (x - 2) * 40;
-		x = 2;
-	}
+    // The first two levels are encoded into one byte, since the root levelq
+    // has only 3 nodes (40*x + y).  However if x = joint-iso-itu-t(2) then
+    // y may be > 39, so we have to add special-case handling for this.
+    uint32_t x = oid->Data[0] / 40;
+    uint32_t y = oid->Data[0] % 40;
+    if (x > 2) {
+        // Handle special case for large y if x = 2
+        y += (x - 2) * 40;
+        x = 2;
+    }
     CFStringAppendFormat(result, NULL, CFSTR("%u.%u"), x, y);
 
-	uint32_t value = 0;
-	for (x = 1; x < oid->Length; ++x)
-	{
-		value = (value << 7) | (oid->Data[x] & 0x7F);
+    uint32_t value = 0;
+    for (x = 1; x < oid->Length; ++x) {
+        value = (value << 7) | (oid->Data[x] & 0x7F);
         /* @@@ value may not span more than 4 bytes. */
         /* A max number of 20 values is allowed. */
-		if (!(oid->Data[x] & 0x80))
-		{
+        if (!(oid->Data[x] & 0x80)) {
             CFStringAppendFormat(result, NULL, CFSTR(".%lu"), (unsigned long)value);
-			value = 0;
-		}
-	}
-	return result;
+            value = 0;
+        }
+    }
+    return result;
 }
 #endif
 
-static void debugSaveCertificates(CSSM_DATA **outCerts)
+static void debugSaveCertificates(CSSM_DATA** outCerts)
 {
 #ifndef NDEBUG
-    if (outCerts)
-    {
-        CSSM_DATA_PTR *certp;
+    if (outCerts) {
+        CSSM_DATA_PTR* certp;
         unsigned jx = 0;
-        const char *certNameBase = "/tmp/tsa-resp-cert-";
+        const char* certNameBase = "/tmp/tsa-resp-cert-";
         char fname[PATH_MAX];
-        unsigned certCount = SecCmsArrayCount((void **)outCerts);
-        dtprintf("Found %d certs\n",certCount);
+        int certCount = SecCmsArrayCount((void**)outCerts);
+        dtprintf("Found %d certs\n", certCount);
 
-        for (certp=outCerts;*certp;certp++, ++jx)
-        {
+        for (certp = outCerts; *certp; certp++, ++jx) {
             char numstr[32];
-            strncpy(fname, certNameBase, strlen(certNameBase)+1);
-            sprintf(numstr,"%u", jx);
-            strcat(fname,numstr);
+            strncpy(fname, certNameBase, strlen(certNameBase) + 1);
+            sprintf(numstr, "%u", jx);
+            strcat(fname, numstr);
             tsaWriteFileX(fname, (*certp)->Data, (*certp)->Length);
-            if (jx > 5)
+            if (jx > 5) {
                 break;  //something wrong
+            }
         }
     }
 #endif
@@ -321,27 +319,25 @@ static void debugSaveCertificates(CSSM_DATA **outCerts)
 static void debugShowSignerInfo(SecCmsSignedDataRef signedData)
 {
 #ifndef NDEBUG
-    int numberOfSigners = SecCmsSignedDataSignerInfoCount (signedData);
+    int numberOfSigners = SecCmsSignedDataSignerInfoCount(signedData);
     dtprintf("numberOfSigners : %d\n", numberOfSigners);
     int ix;
-    for (ix=0;ix < numberOfSigners;ix++)
-    {
-        SecCmsSignerInfoRef sigi = SecCmsSignedDataGetSignerInfo(signedData,ix);
-        if (sigi)
-        {
+    for (ix = 0; ix < numberOfSigners; ix++) {
+        SecCmsSignerInfoRef sigi = SecCmsSignedDataGetSignerInfo(signedData, ix);
+        if (sigi) {
             CFStringRef commonName = SecCmsSignerInfoGetSignerCommonName(sigi);
-            const char *signerhdr = "      signer    : ";
-            if (commonName)
-            {
-                char *cn = cfStringToChar(commonName);
+            const char* signerhdr = "      signer    : ";
+            if (commonName) {
+                char* cn = cfStringToChar(commonName);
                 dtprintf("%s%s\n", signerhdr, cn);
-                if (cn)
+                if (cn) {
                     free(cn);
+                }
                 CFReleaseNull(commonName);
-            }
-            else
+            } else {
                 dtprintf("%s<NULL>\n", signerhdr);
-         }
+            }
+        }
     }
 #endif
 }
@@ -350,91 +346,84 @@ static void debugShowContentTypeOID(SecCmsContentInfoRef contentInfo)
 {
 #ifndef NDEBUG
 
-    CSSM_OID *typeOID = SecCmsContentInfoGetContentTypeOID(contentInfo);
-    if (typeOID)
-    {
+    CSSM_OID* typeOID = SecCmsContentInfoGetContentTypeOID(contentInfo);
+    if (typeOID) {
         CFStringRef oidCFStr = SecDERItemCopyOIDDecimalRepresentation(kCFAllocatorDefault, typeOID);
-        char *oidstr = cfStringToChar(oidCFStr);
+        char* oidstr = cfStringToChar(oidCFStr);
         printDataAsHex("oid:", typeOID, (unsigned int)typeOID->Length);
         dtprintf("\toid: %s\n", oidstr);
-        if (oidCFStr)
-            CFRelease(oidCFStr);
-        if (oidstr)
-            free(oidstr);
+        CFReleaseNull(oidCFStr);
+        free(oidstr);
     }
 #endif
 }
 
-uint64_t tsaDER_ToInt(const CSSM_DATA *DER_Data)
+uint64_t tsaDER_ToInt(const CSSM_DATA* DER_Data)
 {
-	uint64_t    rtn = 0;
-	unsigned	i = 0;
+    uint64_t rtn = 0;
+    unsigned i = 0;
 
-	while(i < DER_Data->Length) {
-		rtn |= DER_Data->Data[i];
-		if(++i == DER_Data->Length) {
-			break;
-		}
-		rtn <<= 8;
-	}
-	return rtn;
+    while (i < DER_Data->Length) {
+        rtn |= DER_Data->Data[i];
+        if (++i == DER_Data->Length) {
+            break;
+        }
+        rtn <<= 8;
+    }
+    return rtn;
 }
 
-void displayTSTInfo(SecAsn1TSATSTInfo *tstInfo)
+void displayTSTInfo(SecAsn1TSATSTInfo* tstInfo)
 {
 #ifndef NDEBUG
     dtprintf("--- TSTInfo ---\n");
-    if (!tstInfo)
+    if (!tstInfo) {
         return;
+    }
 
-    if (tstInfo->version.Data)
-    {
+    if (tstInfo->version.Data) {
         uint64_t vers = tsaDER_ToInt(&tstInfo->version);
         dtprintf("Version:\t\t%u\n", (int)vers);
     }
 
-    if (tstInfo->serialNumber.Data)
-    {
+    if (tstInfo->serialNumber.Data) {
         uint64_t sn = tsaDER_ToInt(&tstInfo->serialNumber);
         dtprintf("SerialNumber:\t%llu\n", sn);
     }
 
-    if (tstInfo->ordering.Data)
-    {
+    if (tstInfo->ordering.Data) {
         uint64_t ord = tsaDER_ToInt(&tstInfo->ordering);
-        dtprintf("Ordering:\t\t%s\n", ord?"yes":"no");
+        dtprintf("Ordering:\t\t%s\n", ord ? "yes" : "no");
     }
 
-    if (tstInfo->nonce.Data)
-    {
+    if (tstInfo->nonce.Data) {
         uint64_t nonce = tsaDER_ToInt(&tstInfo->nonce);
         dtprintf("Nonce:\t\t%llu\n", nonce);
-    }
-    else
+    } else {
         dtprintf("Nonce:\t\tnot specified\n");
+    }
 
-    if (tstInfo->genTime.Data)
-    {
-        char buf[tstInfo->genTime.Length+1];
-        memcpy(buf, (const char *)tstInfo->genTime.Data, tstInfo->genTime.Length);
-        buf[tstInfo->genTime.Length]=0;
+    if (tstInfo->genTime.Data) {
+        char buf[tstInfo->genTime.Length + 1];
+        memcpy(buf, (const char*)tstInfo->genTime.Data, tstInfo->genTime.Length);
+        buf[tstInfo->genTime.Length] = 0;
         dtprintf("GenTime:\t\t%s\n", buf);
     }
 
     dtprintf("-- MessageImprint --\n");
-    if (true)   // SecAsn1TSAMessageImprint
+    if (true)  // SecAsn1TSAMessageImprint
     {
-        printDataAsHex(" Algorithm:",&tstInfo->messageImprint.hashAlgorithm.algorithm, 0);
-        printDataAsHex(" Message  :", &tstInfo->messageImprint.hashedMessage, 0);//tstInfo->messageImprint.hashedMessage.Length);
+        printDataAsHex(" Algorithm:", &tstInfo->messageImprint.hashAlgorithm.algorithm, 0);
+        printDataAsHex(" Message  :", &tstInfo->messageImprint.hashedMessage, 0);  //tstInfo->messageImprint.hashedMessage.Length);
     }
 #endif
 }
 
-#pragma mark ----- TimeStamp Response using XPC -----
+#pragma mark----- TimeStamp Response using XPC -----
 
 #include <xpc/private.h>
 
-static OSStatus checkForNonDERResponse(const unsigned char *resp, size_t respLen)
+static OSStatus checkForNonDERResponse(const unsigned char* resp, size_t respLen)
 {
     /*
         Good start is something like 30 82 0c 03 30 15 02 01  00 30 10 0c 0e 4f 70 65
@@ -450,181 +439,196 @@ static OSStatus checkForNonDERResponse(const unsigned char *resp, size_t respLen
     */
 
     OSStatus status = noErr;
-    const char ader[2] = { 0x30, 0x82 };
-    char *respStr = NULL;
+    const char ader[2] = {0x30, (char)0x82};
+    char* respStr = NULL;
     size_t maxlen = 0;
     size_t badResponseCount;
 
-    const char *badResponses[] =
-    {
-        "<!DOCTYPE html>",
-        "Http/1.1 Service Unavailable",
-        "blank"
-    };
+    const char* badResponses[] = {"<!DOCTYPE html>", "Http/1.1 Service Unavailable", "blank"};
 
     require_action(resp && respLen, xit, status = errSecTimestampServiceNotAvailable);
 
     // This is usual case
-    if ((respLen > 1) && (memcmp(resp, ader, 2)==0))    // might be good; pass on to DER decoder
+    if ((respLen > 1) && (memcmp(resp, ader, 2) == 0)) {  // might be good; pass on to DER decoder
         return noErr;
+    }
 
-    badResponseCount = sizeof(badResponses)/sizeof(char *);
+    badResponseCount = sizeof(badResponses) / sizeof(char*);
     int ix;
-    for (ix = 0; ix < badResponseCount; ++ix)
-        if (strlen(badResponses[ix]) > maxlen)
+    for (ix = 0; ix < badResponseCount; ++ix) {
+        if (strlen(badResponses[ix]) > maxlen) {
             maxlen = strlen(badResponses[ix]);
+        }
+    }
 
     // Prevent a large response from allocating a ton of memory
-    if (respLen > maxlen)
+    if (respLen > maxlen) {
         respLen = maxlen;
+    }
 
-    respStr = (char *)malloc(respLen+1);
-    strlcpy(respStr, (const char *)resp, respLen);
+    respStr = (char*)malloc(respLen + 1);
+    strlcpy(respStr, (const char*)resp, respLen);
 
-    for (ix = 0; ix < badResponseCount; ++ix)
-        if (strcmp(respStr, badResponses[ix])==0) {
-            if(respStr) {
+    for (ix = 0; ix < badResponseCount; ++ix) {
+        if (strcmp(respStr, badResponses[ix]) == 0) {
+            if (respStr) {
                 free(respStr);
             }
             return errSecTimestampServiceNotAvailable;
         }
+    }
 
 xit:
-    if (respStr)
-        free((void *)respStr);
+    if (respStr) {
+        free((void*)respStr);
+    }
 
     return status;
 }
 
-static OSStatus sendTSARequestWithXPC(const unsigned char *tsaReq, size_t tsaReqLength, const unsigned char *tsaURL, unsigned char **tsaResp, size_t *tsaRespLength)
+static OSStatus sendTSARequestWithXPC(const unsigned char* tsaReq,
+                                      size_t tsaReqLength,
+                                      const unsigned char* tsaURL,
+                                      unsigned char** tsaResp,
+                                      size_t* tsaRespLength)
 {
     __block OSStatus result = noErr;
-    int timeoutInSeconds = 15;
-    extern xpc_object_t xpc_create_with_format(const char * format, ...);
+    int64_t timeoutInSeconds = 15;
+    extern xpc_object_t xpc_create_with_format(const char* format, ...);
 
-	dispatch_queue_t xpc_queue = dispatch_queue_create("com.apple.security.XPCTimeStampingService", DISPATCH_QUEUE_SERIAL);
+    dispatch_queue_t xpc_queue =
+        dispatch_queue_create("com.apple.security.XPCTimeStampingService", DISPATCH_QUEUE_SERIAL);
     __block dispatch_semaphore_t waitSemaphore = dispatch_semaphore_create(0);
-    dispatch_time_t finishTime = dispatch_time(DISPATCH_TIME_NOW, timeoutInSeconds * NSEC_PER_SEC);
+    dispatch_time_t finishTime = dispatch_time(DISPATCH_TIME_NOW, timeoutInSeconds * (int64_t)NSEC_PER_SEC);
 
-    xpc_connection_t con = xpc_connection_create("com.apple.security.XPCTimeStampingService", xpc_queue);
+    xpc_connection_t con =
+        xpc_connection_create("com.apple.security.XPCTimeStampingService", xpc_queue);
 
     xpc_connection_set_event_handler(con, ^(xpc_object_t event) {
         xpc_type_t xtype = xpc_get_type(event);
-        if (XPC_TYPE_ERROR == xtype)
-        {    tsaDebug("default: connection error: %s\n", xpc_dictionary_get_string(event, XPC_ERROR_KEY_DESCRIPTION)); }
-        else
-         {   tsaDebug("default: unexpected connection event %p\n", event); }
+        if (XPC_TYPE_ERROR == xtype) {
+            tsaDebug("default: connection error: %s\n",
+                     xpc_dictionary_get_string(event, XPC_ERROR_KEY_DESCRIPTION));
+        } else {
+            tsaDebug("default: unexpected connection event %p\n", event);
+        }
     });
 
     xpc_connection_resume(con);
 
     xpc_object_t tsaReqData = xpc_data_create(tsaReq, tsaReqLength);
-    const char *urlstr = (tsaURL?(const char *)tsaURL:"");
+    const char* urlstr = (tsaURL ? (const char*)tsaURL : "");
     xpc_object_t url_as_xpc_string = xpc_string_create(urlstr);
 
-    xpc_object_t message = xpc_create_with_format("{operation: TimeStampRequest, ServerURL: %value, TimeStampRequest: %value}", url_as_xpc_string, tsaReqData);
+    xpc_object_t message = xpc_create_with_format(
+        "{operation: TimeStampRequest, ServerURL: %value, TimeStampRequest: %value}",
+        url_as_xpc_string,
+        tsaReqData);
 
-    xpc_connection_send_message_with_reply(con, message, xpc_queue, ^(xpc_object_t reply)
-    {
+    xpc_connection_send_message_with_reply(con, message, xpc_queue, ^(xpc_object_t reply) {
         tsaDebug("xpc_connection_send_message_with_reply handler called back\n");
         dispatch_retain_safe(waitSemaphore);
 
         xpc_type_t xtype = xpc_get_type(reply);
-        if (XPC_TYPE_ERROR == xtype)
-            {   tsaDebug("message error: %s\n", xpc_dictionary_get_string(reply, XPC_ERROR_KEY_DESCRIPTION)); }
-        else if (XPC_TYPE_CONNECTION == xtype)
-            { tsaDebug("received connection\n"); }
-        else if (XPC_TYPE_DICTIONARY == xtype)
-    {
+        if (XPC_TYPE_ERROR == xtype) {
+            tsaDebug("message error: %s\n", xpc_dictionary_get_string(reply, XPC_ERROR_KEY_DESCRIPTION));
+        } else if (XPC_TYPE_CONNECTION == xtype) {
+            tsaDebug("received connection\n");
+        } else if (XPC_TYPE_DICTIONARY == xtype) {
 #ifndef NDEBUG
-        /*
+            /*
          // This is useful for debugging.
         char *debug = xpc_copy_description(reply);
         tsaDebug("DEBUG %s\n", debug);
         free(debug);
          */
 #endif
+            xpc_object_t xpcTimeStampReply = xpc_dictionary_get_value(reply, "TimeStampReply");
+            size_t xpcTSRLength = 0;
+            if (xpcTimeStampReply) {
+                xpcTSRLength = xpc_data_get_length(xpcTimeStampReply);
+            }
+            tsaDebug("xpcTSRLength: %ld bytes of response\n", xpcTSRLength);
 
-        xpc_object_t xpcTimeStampReply = xpc_dictionary_get_value(reply, "TimeStampReply");
-        size_t xpcTSRLength = xpc_data_get_length(xpcTimeStampReply);
-        tsaDebug("xpcTSRLength: %ld bytes of response\n", xpcTSRLength);
+            xpc_object_t xpcTimeStampError = xpc_dictionary_get_value(reply, "TimeStampError");
+            xpc_object_t xpcTimeStampStatus = xpc_dictionary_get_value(reply, "TimeStampStatus");
 
-        xpc_object_t xpcTimeStampError = xpc_dictionary_get_value(reply, "TimeStampError");
-        xpc_object_t xpcTimeStampStatus = xpc_dictionary_get_value(reply, "TimeStampStatus");
-
-        if (xpcTimeStampError || xpcTimeStampStatus)
-        {
+            if (xpcTimeStampError || xpcTimeStampStatus) {
 #ifndef NDEBUG
-            if (xpcTimeStampError)
-            {
-                size_t len = xpc_string_get_length(xpcTimeStampError);
-                char *buf = (char *)malloc(len);
-                strlcpy(buf, xpc_string_get_string_ptr(xpcTimeStampError), len+1);
-                tsaDebug("xpcTimeStampError: %s\n", buf);
-                if (buf)
-                    free(buf);
-            }
+                if (xpcTimeStampError) {
+                    size_t len = xpc_string_get_length(xpcTimeStampError);
+                    char* buf = (char*)malloc(len);
+                    strlcpy(buf, xpc_string_get_string_ptr(xpcTimeStampError), len + 1);
+                    tsaDebug("xpcTimeStampError: %s\n", buf);
+                    if (buf)
+                        free(buf);
+                }
 #endif
-            if (xpcTimeStampStatus)
-            {
-                result = (OSStatus)xpc_int64_get_value(xpcTimeStampStatus);
-                tsaDebug("xpcTimeStampStatus: %d\n", (int)result);
+                if (xpcTimeStampStatus) {
+                    result = (OSStatus)xpc_int64_get_value(xpcTimeStampStatus);
+                    tsaDebug("xpcTimeStampStatus: %d\n", (int)result);
+                }
             }
+
+            result = remapHTTPErrorCodes(result);
+
+            if ((result == noErr) && tsaResp && tsaRespLength) {
+                *tsaRespLength = xpcTSRLength;
+                *tsaResp = (unsigned char*)malloc(xpcTSRLength);
+
+                size_t bytesCopied = 0;
+                if (xpcTimeStampReply) {
+                    bytesCopied = xpc_data_get_bytes(xpcTimeStampReply, *tsaResp, 0, xpcTSRLength);
+                }
+                if (bytesCopied != xpcTSRLength) {
+                    tsaDebug("length mismatch: copied: %ld, xpc: %ld\n", bytesCopied, xpcTSRLength);
+                } else if ((result = checkForNonDERResponse(*tsaResp, bytesCopied))) {
+                    tsaDebug("received non-DER response from timestamp server\n");
+                } else {
+                    result = noErr;
+                    tsaDebug("copied: %ld bytes of response\n", bytesCopied);
+                }
+            }
+            tsaDebug("releasing connection\n");
+            xpc_release(con);
+        } else {
+            tsaDebug("unexpected message reply type %p\n", xtype);
         }
-
-        result = remapHTTPErrorCodes(result);
-
-        if ((result == noErr) && tsaResp && tsaRespLength)
-        {
-            *tsaRespLength = xpcTSRLength;
-            *tsaResp = (unsigned char *)malloc(xpcTSRLength);
-
-            size_t bytesCopied = xpc_data_get_bytes(xpcTimeStampReply, *tsaResp, 0, xpcTSRLength);
-            if (bytesCopied != xpcTSRLength)
-            {    tsaDebug("length mismatch: copied: %ld, xpc: %ld\n", bytesCopied, xpcTSRLength); }
-            else
-            if ((result = checkForNonDERResponse(*tsaResp,bytesCopied)))
-            {
-                tsaDebug("received non-DER response from timestamp server\n");
-            }
-            else
-            {
-                result = noErr;
-                tsaDebug("copied: %ld bytes of response\n", bytesCopied);
-            }
+        if (waitSemaphore) {
+            dispatch_semaphore_signal(waitSemaphore);
         }
-        tsaDebug("releasing connection\n");
-        xpc_release(con);
-    }
-    else
-        { tsaDebug("unexpected message reply type %p\n", xtype); }
-        if (waitSemaphore) { dispatch_semaphore_signal(waitSemaphore); }
         dispatch_release_null(waitSemaphore);
     });
-    { tsaDebug("waiting up to %d seconds for response from XPC\n", timeoutInSeconds); }
-    if (waitSemaphore) { dispatch_semaphore_wait(waitSemaphore, finishTime); }
+    {
+        tsaDebug("waiting up to %lld seconds for response from XPC\n", timeoutInSeconds);
+    }
+    if (waitSemaphore) {
+        dispatch_semaphore_wait(waitSemaphore, finishTime);
+    }
 
     dispatch_release_null(waitSemaphore);
     xpc_release(tsaReqData);
     xpc_release(message);
 
-    { tsaDebug("sendTSARequestWithXPC exit\n"); }
+    {
+        tsaDebug("sendTSARequestWithXPC exit\n");
+    }
 
     return result;
 }
 
-#pragma mark ----- TimeStamp request -----
+#pragma mark----- TimeStamp request -----
 
-#include "tsaTemplates.h"
-#include <security_asn1/SecAsn1Coder.h>
-#include <Security/oidsalg.h>
 #include <AssertMacros.h>
+#include <Security/oidsalg.h>
 #include <libkern/OSByteOrder.h>
+#include <security_asn1/SecAsn1Coder.h>
+#include "tsaTemplates.h"
 
 extern const SecAsn1Template kSecAsn1TSATimeStampReqTemplate;
 extern const SecAsn1Template kSecAsn1TSATimeStampRespTemplateDER;
 
-CFMutableDictionaryRef SecCmsTSAGetDefaultContext(CFErrorRef *error)
+CFMutableDictionaryRef SecCmsTSAGetDefaultContext(CFErrorRef* error)
 {
     // Caller responsible for retain/release
     // <rdar://problem/11077440> Update SecCmsTSAGetDefaultContext with actual URL for Apple Timestamp server
@@ -640,58 +644,64 @@ CFMutableDictionaryRef SecCmsTSAGetDefaultContext(CFErrorRef *error)
     CFPropertyListFormat format = 0;
     OSStatus status = noErr;
 
-    require_action(secFWbundle = CFBundleGetBundleWithIdentifier(CFSTR("com.apple.security")), xit, status = errSecInternalError);
+    require_action(secFWbundle = CFBundleGetBundleWithIdentifier(CFSTR("com.apple.security")),
+                   xit,
+                   status = errSecInternalError);
     CFRetain(secFWbundle);
 
-    require_action(resourceURL = CFBundleCopyResourceURL(secFWbundle, CFSTR("TimeStampingPrefs"), CFSTR("plist"), NULL),
-        xit, status = errSecInvalidPrefsDomain);
+    require_action(resourceURL = CFBundleCopyResourceURL(
+                       secFWbundle, CFSTR("TimeStampingPrefs"), CFSTR("plist"), NULL),
+                   xit,
+                   status = errSecInvalidPrefsDomain);
 
-    require(CFURLCreateDataAndPropertiesFromResource(kCFAllocatorDefault, resourceURL, &resourceData,
-        NULL, NULL, &errorCode), xit);
+    require(CFURLCreateDataAndPropertiesFromResource(
+                kCFAllocatorDefault, resourceURL, &resourceData, NULL, NULL, &errorCode),
+            xit);
     require_action(resourceData, xit, status = errSecDataNotAvailable);
 
     prefs = CFPropertyListCreateWithData(kCFAllocatorDefault, resourceData, options, &format, error);
-    require_action(prefs && (CFGetTypeID(prefs)==CFDictionaryGetTypeID()), xit, status = errSecInvalidPrefsDomain);
+    require_action(prefs && (CFGetTypeID(prefs) == CFDictionaryGetTypeID()), xit, status = errSecInvalidPrefsDomain);
 
     contextDict = CFDictionaryCreateMutableCopy(kCFAllocatorDefault, 0, prefs);
 
-    if (error)
+    if (error) {
         *error = NULL;
+    }
 xit:
-    if (errorCode)
+    if (errorCode) {
         status = errorCode;
-    if (error && status)
+    }
+    if (error && status) {
         *error = CFErrorCreate(kCFAllocatorDefault, kCFErrorDomainOSStatus, status, NULL);
-    if (secFWbundle)
-        CFRelease(secFWbundle);
-    if (resourceURL)
-        CFRelease(resourceURL);
-    if (resourceData)
-        CFRelease(resourceData);
-    if (prefs)
-        CFRelease(prefs);
+    }
+    CFReleaseNull(secFWbundle);
+    CFReleaseNull(resourceURL);
+    CFReleaseNull(resourceData);
+    CFReleaseNull(prefs);
 
     return contextDict;
 }
 
-static CFDataRef _SecTSARequestCopyDEREncoding(SecAsn1TSAMessageImprint *messageImprint, bool noCerts, uint64_t nonce)
+static CFDataRef _SecTSARequestCopyDEREncoding(SecAsn1TSAMessageImprint* messageImprint,
+                                               bool noCerts,
+                                               uint64_t nonce)
 {
     // Returns DER encoded TimeStampReq
     // Modeled on _SecOCSPRequestCopyDEREncoding
     // The Timestamp Authority supports 64 bit nonces (or more possibly)
 
-    SecAsn1CoderRef             coder = NULL;
-    uint8_t                     version = 1;
-    SecAsn1Item                 vers = {1, &version};
-    uint8_t                     creq = noCerts?0:1;
-    SecAsn1Item                 certReq = {1, &creq};   //jch - to request or not?
-    SecAsn1TSATimeStampReq      tsreq = {};
-    CFDataRef                   der = NULL;
-    uint64_t                    nonceVal = OSSwapHostToBigConstInt64(nonce);
-    SecAsn1Item                 nonceItem = {sizeof(uint64_t), (unsigned char *)&nonceVal};
+    SecAsn1CoderRef coder = NULL;
+    uint8_t version = 1;
+    SecAsn1Item vers = {1, &version};
+    uint8_t creq = noCerts ? 0 : 1;
+    SecAsn1Item certReq = {1, &creq};  //jch - to request or not?
+    SecAsn1TSATimeStampReq tsreq = {};
+    CFDataRef der = NULL;
+    uint64_t nonceVal = OSSwapHostToBigConstInt64(nonce);
+    SecAsn1Item nonceItem = {sizeof(uint64_t), (unsigned char*)&nonceVal};
 
-    uint8_t OID_FakePolicy_Data[] = { 0x2A, 0x03, 0x04, 0x05, 0x06};
-    const CSSM_OID fakePolicyOID = {sizeof(OID_FakePolicy_Data),OID_FakePolicy_Data};
+    uint8_t OID_FakePolicy_Data[] = {0x2A, 0x03, 0x04, 0x05, 0x06};
+    const CSSM_OID fakePolicyOID = {sizeof(OID_FakePolicy_Data), OID_FakePolicy_Data};
 
     tsreq.version = vers;
 
@@ -699,7 +709,7 @@ static CFDataRef _SecTSARequestCopyDEREncoding(SecAsn1TSAMessageImprint *message
     tsreq.certReq = certReq;
 
     // skip reqPolicy, extensions for now - FAKES - jch
-    tsreq.reqPolicy = fakePolicyOID;    //policyID;
+    tsreq.reqPolicy = fakePolicyOID;  //policyID;
 
     tsreq.nonce = nonceItem;
 
@@ -707,26 +717,28 @@ static CFDataRef _SecTSARequestCopyDEREncoding(SecAsn1TSAMessageImprint *message
     require_noerr(SecAsn1CoderCreate(&coder), errOut);
 
     SecAsn1Item encoded;
-    require_noerr(SecAsn1EncodeItem(coder, &tsreq,
-        &kSecAsn1TSATimeStampReqTemplate, &encoded), errOut);
-    der = CFDataCreate(kCFAllocatorDefault, encoded.Data,
-        encoded.Length);
+    require_noerr(SecAsn1EncodeItem(coder, &tsreq, &kSecAsn1TSATimeStampReqTemplate, &encoded), errOut);
+    require(encoded.Length < LONG_MAX, errOut);
+    der = CFDataCreate(kCFAllocatorDefault, encoded.Data, (CFIndex)encoded.Length);
 
 errOut:
-    if (coder)
+    if (coder) {
         SecAsn1CoderRelease(coder);
+    }
 
     return der;
 }
 
-OSStatus SecTSAResponseCopyDEREncoding(SecAsn1CoderRef coder, const CSSM_DATA *tsaResponse, SecAsn1TimeStampRespDER *respDER)
+OSStatus SecTSAResponseCopyDEREncoding(SecAsn1CoderRef coder,
+                                       const CSSM_DATA* tsaResponse,
+                                       SecAsn1TimeStampRespDER* respDER)
 {
     // Partially decode the response
     OSStatus status = paramErr;
 
     require(tsaResponse && respDER, errOut);
-    require_noerr(SecAsn1DecodeData(coder, tsaResponse,
-        &kSecAsn1TSATimeStampRespTemplateDER, respDER), errOut);
+    require_noerr(SecAsn1DecodeData(coder, tsaResponse, &kSecAsn1TSATimeStampRespTemplateDER, respDER),
+                  errOut);
     status = noErr;
 
 errOut:
@@ -734,46 +746,47 @@ errOut:
     return status;
 }
 
-#pragma mark ----- TS Callback -----
+#pragma mark----- TS Callback -----
 
-OSStatus SecCmsTSADefaultCallback(CFTypeRef context, void *messageImprintV, uint64_t nonce, CSSM_DATA *signedDERBlob)
+OSStatus SecCmsTSADefaultCallback(CFTypeRef context, void* messageImprintV, uint64_t nonce, CSSM_DATA* signedDERBlob)
 {
     OSStatus result = paramErr;
-    const unsigned char *tsaReq = NULL;
+    const unsigned char* tsaReq = NULL;
     size_t tsaReqLength = 0;
     CFDataRef cfreq = NULL;
-    unsigned char *tsaURL = NULL;
+    unsigned char* tsaURL = NULL;
     bool noCerts = false;
 
-    if (!context || CFGetTypeID(context)!=CFDictionaryGetTypeID())
+    if (!context || CFGetTypeID(context) != CFDictionaryGetTypeID()) {
         return paramErr;
+    }
 
-    SecAsn1TSAMessageImprint *messageImprint = (SecAsn1TSAMessageImprint *)messageImprintV;
-    if (!messageImprint || !signedDERBlob)
+    SecAsn1TSAMessageImprint* messageImprint = (SecAsn1TSAMessageImprint*)messageImprintV;
+    if (!messageImprint || !signedDERBlob) {
         return paramErr;
+    }
 
-    CFBooleanRef cfnocerts = (CFBooleanRef)CFDictionaryGetValue((CFDictionaryRef)context, kTSAContextKeyNoCerts);
-    if (cfnocerts != NULL)
-    {
+    CFBooleanRef cfnocerts =
+        (CFBooleanRef)CFDictionaryGetValue((CFDictionaryRef)context, kTSAContextKeyNoCerts);
+    if (cfnocerts != NULL) {
         tsaDebug("[TSA] Request noCerts\n");
         noCerts = CFBooleanGetValue(cfnocerts);
     }
 
     // We must spoof the nonce here, before sending the request.
     // If we tried to alter the reply, then the signature would break instead.
-    CFBooleanRef cfBadNonce = (CFBooleanRef)CFDictionaryGetValue((CFDictionaryRef)context, kTSADebugContextKeyBadNonce);
-    if (cfBadNonce && CFBooleanGetValue(cfBadNonce))
-    {
+    CFBooleanRef cfBadNonce =
+        (CFBooleanRef)CFDictionaryGetValue((CFDictionaryRef)context, kTSADebugContextKeyBadNonce);
+    if (cfBadNonce && CFBooleanGetValue(cfBadNonce)) {
         tsaDebug("[TSA] Forcing bad TS Request by changing nonce\n");
         nonce++;
     }
 
-    printDataAsHex("[TSA] hashToTimeStamp:", &messageImprint->hashedMessage,128);
+    printDataAsHex("[TSA] hashToTimeStamp:", &messageImprint->hashedMessage, 128);
     cfreq = _SecTSARequestCopyDEREncoding(messageImprint, noCerts, nonce);
-    if (cfreq)
-    {
+    if (cfreq && CFDataGetLength(cfreq) > 0) {
         tsaReq = CFDataGetBytePtr(cfreq);
-        tsaReqLength = CFDataGetLength(cfreq);
+        tsaReqLength = (size_t)CFDataGetLength(cfreq);
 
 #ifndef NDEBUG
         CFShow(cfreq);
@@ -782,8 +795,7 @@ OSStatus SecCmsTSADefaultCallback(CFTypeRef context, void *messageImprintV, uint
     }
 
     CFTypeRef url = CFDictionaryGetValue((CFDictionaryRef)context, kTSAContextKeyURL);
-    if (!url)
-    {
+    if (!url) {
         tsaDebug("[TSA] missing URL for TSA (key: %s)\n", "kTSAContextKeyURL");
         goto xit;
     }
@@ -801,26 +813,31 @@ OSStatus SecCmsTSADefaultCallback(CFTypeRef context, void *messageImprintV, uint
         If debugging, look at special values in the context to mess things up
     */
 
-    CFBooleanRef cfBadReq = (CFBooleanRef)CFDictionaryGetValue((CFDictionaryRef)context, kTSADebugContextKeyBadReq);
-    if (cfBadReq && CFBooleanGetValue(cfBadReq))
-    {
-        tsaDebug("[TSA] Forcing bad TS Request by truncating length from %ld to %ld\n", tsaReqLength, (tsaReqLength-4));
+    CFBooleanRef cfBadReq =
+        (CFBooleanRef)CFDictionaryGetValue((CFDictionaryRef)context, kTSADebugContextKeyBadReq);
+    if (cfBadReq && CFBooleanGetValue(cfBadReq)) {
+        tsaDebug("[TSA] Forcing bad TS Request by truncating length from %ld to %ld\n",
+                 tsaReqLength,
+                 (tsaReqLength - 4));
         tsaReqLength -= 4;
     }
 
     // need to extract into buffer
-    CFIndex length = CFStringGetLength(urlStr);        // in 16-bit character units
-    tsaURL = malloc(6 * length + 1);                // pessimistic
-    if (!CFStringGetCString(urlStr, (char *)tsaURL, 6 * length + 1, kCFStringEncodingUTF8))
+    CFIndex length = CFStringGetLength(urlStr);  // in 16-bit character units
+    CFIndex encoded_length = CFStringGetMaximumSizeForEncoding(length, kCFStringEncodingUTF8) + 1;
+    tsaURL = malloc((size_t)encoded_length);             // pessimistic
+    if (!CFStringGetCString(urlStr, (char*)tsaURL, encoded_length, kCFStringEncodingUTF8)) {
         goto xit;
+    }
 
     tsaDebug("[TSA] URL for timestamp server: %s\n", tsaURL);
 
-    unsigned char *tsaResp = NULL;
+    unsigned char* tsaResp = NULL;
     size_t tsaRespLength = 0;
     tsaDebug("calling sendTSARequestWithXPC with %ld bytes of request\n", tsaReqLength);
 
-    require_noerr(result = sendTSARequestWithXPC(tsaReq, tsaReqLength, tsaURL, &tsaResp, &tsaRespLength), xit);
+    require_noerr(result = sendTSARequestWithXPC(tsaReq, tsaReqLength, tsaURL, &tsaResp, &tsaRespLength),
+                  xit);
 
     tsaDebug("sendTSARequestWithXPC copied: %ld bytes of response\n", tsaRespLength);
 
@@ -830,17 +847,15 @@ OSStatus SecCmsTSADefaultCallback(CFTypeRef context, void *messageImprintV, uint
     result = noErr;
 
 xit:
-    if (tsaURL)
-        free((void *)tsaURL);
-    if (cfreq)
-        CFRelease(cfreq);
+    free((void*)tsaURL);
+    CFReleaseNull(cfreq);
 
     return result;
 }
 
-#pragma mark ----- TimeStamp Verification -----
+#pragma mark----- TimeStamp Verification -----
 
-static OSStatus convertGeneralizedTimeToCFAbsoluteTime(const char *timeStr, CFAbsoluteTime *ptime)
+static OSStatus convertGeneralizedTimeToCFAbsoluteTime(const char* timeStr, CFAbsoluteTime* ptime)
 {
     /*
         See http://userguide.icu-project.org/formatparse/datetime for date/time format.
@@ -853,56 +868,67 @@ static OSStatus convertGeneralizedTimeToCFAbsoluteTime(const char *timeStr, CFAb
     CFStringRef time_string = NULL;
     CFTimeZoneRef gmt = NULL;
     CFLocaleRef locale = NULL;
-    CFRange *rangep = NULL;
+    CFRange* rangep = NULL;
 
     require(timeStr && timeStr[0] && ptime, xit);
-    require(formatter = CFDateFormatterCreate(kCFAllocatorDefault, locale, kCFDateFormatterNoStyle, kCFDateFormatterNoStyle), xit);
-//    CFRetain(formatter);
-    CFDateFormatterSetFormat(formatter, CFSTR("yyyyMMddHHmmss'Z'"));    // GeneralizedTime
+    require(formatter = CFDateFormatterCreate(
+                kCFAllocatorDefault, locale, kCFDateFormatterNoStyle, kCFDateFormatterNoStyle),
+            xit);
+    //    CFRetain(formatter);
+    CFDateFormatterSetFormat(formatter, CFSTR("yyyyMMddHHmmss'Z'"));  // GeneralizedTime
     gmt = CFTimeZoneCreateWithTimeIntervalFromGMT(NULL, 0);
-	CFDateFormatterSetProperty(formatter, kCFDateFormatterTimeZone, gmt);
+    CFDateFormatterSetProperty(formatter, kCFDateFormatterTimeZone, gmt);
 
     time_string = CFStringCreateWithCString(kCFAllocatorDefault, timeStr, kCFStringEncodingUTF8);
-    if (!time_string || !CFDateFormatterGetAbsoluteTimeFromString(formatter, time_string, rangep, ptime))
-    {
+    if (!time_string ||
+        !CFDateFormatterGetAbsoluteTimeFromString(formatter, time_string, rangep, ptime)) {
         dtprintf("%s is not a valid date\n", timeStr);
         result = 1;
     }
 
 xit:
-    if (formatter)
-        CFRelease(formatter);
-    if (time_string)
-        CFRelease(time_string);
-    if (gmt)
-        CFRelease(gmt);
+    CFReleaseNull(formatter);
+    CFReleaseNull(time_string);
+    CFReleaseNull(gmt);
 
     return result;
 }
 
-static OSStatus SecTSAValidateTimestamp(const SecAsn1TSATSTInfo *tstInfo, SecCertificateRef signerCert, CFAbsoluteTime *timestampTime)
+static OSStatus SecTSAValidateTimestamp(const SecAsn1TSATSTInfo* tstInfo,
+                                        SecCertificateRef signerCert,
+                                        CFAbsoluteTime* timestampTime)
 {
     // See <rdar://problem/11077708> Properly handle revocation information of timestamping certificate
     OSStatus result = paramErr;
     CFAbsoluteTime genTime = 0;
-    char timeStr[32] = {0,};
+    char timeStr[32] = {
+        0,
+    };
 
-    require(tstInfo && signerCert && (tstInfo->genTime.Length < 16), xit);;
+    require(tstInfo && signerCert && (tstInfo->genTime.Length < 16), xit);
+    ;
 
     memcpy(timeStr, tstInfo->genTime.Data, tstInfo->genTime.Length);
     timeStr[tstInfo->genTime.Length] = 0;
     require_noerr(convertGeneralizedTimeToCFAbsoluteTime(timeStr, &genTime), xit);
-    if (SecCertificateIsValidX(signerCert, genTime)) // iOS?
+    if (SecCertificateIsValidX(signerCert, genTime)) {  // iOS?
         result = noErr;
-    else
+    } else {
         result = errSecTimestampInvalid;
-    if (timestampTime)
+    }
+    if (timestampTime) {
         *timestampTime = genTime;
+    }
 xit:
     return result;
 }
 
-static OSStatus verifyTSTInfo(const CSSM_DATA_PTR content, SecCmsSignerInfoRef signerinfo, SecAsn1TSATSTInfo *tstInfo, CFAbsoluteTime *timestampTime, uint64_t expectedNonce, CSSM_DATA_PTR encDigest)
+static OSStatus verifyTSTInfo(const CSSM_DATA_PTR content,
+                              SecCmsSignerInfoRef signerinfo,
+                              SecAsn1TSATSTInfo* tstInfo,
+                              CFAbsoluteTime* timestampTime,
+                              uint64_t expectedNonce,
+                              CSSM_DATA_PTR encDigest)
 {
     OSStatus status = paramErr;
     SecAsn1CoderRef coder = NULL;
@@ -914,17 +940,16 @@ static OSStatus verifyTSTInfo(const CSSM_DATA_PTR content, SecCmsSignerInfoRef s
     SecAsn1TSAMessageImprint expectedMessageImprint;
 
     require_noerr(SecAsn1CoderCreate(&coder), xit);
-    require_noerr(SecAsn1Decode(coder, content->Data, content->Length,
-		kSecAsn1TSATSTInfoTemplate, tstInfo), xit);
+    require_noerr(SecAsn1Decode(coder, content->Data, content->Length, kSecAsn1TSATSTInfoTemplate, tstInfo),
+                  xit);
     displayTSTInfo(tstInfo);
 
     // Check the nonce
-    if (tstInfo->nonce.Data && expectedNonce!=0)
-    {
+    if (tstInfo->nonce.Data && expectedNonce != 0) {
         uint64_t nonce = tsaDER_ToInt(&tstInfo->nonce);
-     //   if (expectedNonce!=nonce)
-            dtprintf("verifyTSTInfo nonce: actual: %lld, expected: %lld\n", nonce, expectedNonce);
-        require_action(expectedNonce==nonce, xit, status = errSecTimestampRejection);
+        //   if (expectedNonce!=nonce)
+        dtprintf("verifyTSTInfo nonce: actual: %lld, expected: %lld\n", nonce, expectedNonce);
+        require_action(expectedNonce == nonce, xit, status = errSecTimestampRejection);
     }
 
     // Check the times in the timestamp
@@ -934,97 +959,104 @@ static OSStatus verifyTSTInfo(const CSSM_DATA_PTR content, SecCmsSignerInfoRef s
     // Check the message imprint against the encDigest from the signerInfo containing this timestamp
     SECOidTag hashAlg = SECOID_GetAlgorithmTag(&tstInfo->messageImprint.hashAlgorithm);
     require_action(hashAlg == SEC_OID_SHA256 || hashAlg == SEC_OID_SHA1, xit, status = errSecInvalidDigestAlgorithm);
-    require_noerr(status = createTSAMessageImprint(signerinfo, &tstInfo->messageImprint.hashAlgorithm,
-                                                   encDigest, &expectedMessageImprint), xit);
-    require_action(CERT_CompareCssmData(&expectedMessageImprint.hashedMessage, &tstInfo->messageImprint.hashedMessage), xit,
-                   status = errSecTimestampInvalid; secerror("Timestamp MessageImprint did not match the signature's hash"));
+    require_noerr(status = createTSAMessageImprint(
+                      signerinfo, &tstInfo->messageImprint.hashAlgorithm, encDigest, &expectedMessageImprint),
+                  xit);
+    require_action(CERT_CompareCssmData(&expectedMessageImprint.hashedMessage,
+                                        &tstInfo->messageImprint.hashedMessage),
+                   xit,
+                   status = errSecTimestampInvalid;
+                   secerror("Timestamp MessageImprint did not match the signature's hash"));
 
 xit:
-    if (coder)
+    if (coder) {
         SecAsn1CoderRelease(coder);
+    }
     return status;
 }
 
 static void debugShowExtendedTrustResult(int index, CFDictionaryRef extendedResult)
 {
 #ifndef NDEBUG
-    if (extendedResult)
-    {
-        CFStringRef xresStr = CFStringCreateWithFormat(kCFAllocatorDefault, NULL,
-        CFSTR("Extended trust result for signer #%d : %@"), index, extendedResult);
-        if (xresStr)
-        {
+    if (extendedResult) {
+        CFStringRef xresStr = CFStringCreateWithFormat(
+            kCFAllocatorDefault, NULL, CFSTR("Extended trust result for signer #%d : %@"), index, extendedResult);
+        if (xresStr) {
             CFShow(xresStr);
-            CFRelease(xresStr);
+            CFReleaseNull(xresStr);
         }
     }
 #endif
 }
 
 #ifndef NDEBUG
-extern const char *cssmErrorString(CSSM_RETURN error);
+extern const char* cssmErrorString(CSSM_RETURN error);
 
-static void statusBitTest(CSSM_TP_APPLE_CERT_STATUS certStatus, uint32 bit, const char *str)
+static void statusBitTest(CSSM_TP_APPLE_CERT_STATUS certStatus, uint32 bit, const char* str)
 {
-	if (certStatus & bit)
-		dtprintf("%s  ", str);
+    if (certStatus & bit) {
+        dtprintf("%s  ", str);
+    }
 }
 #endif
 
-static void debugShowCertEvidenceInfo(uint16_t certCount, const CSSM_TP_APPLE_EVIDENCE_INFO *info)
+static void debugShowCertEvidenceInfo(uint16_t certCount, const CSSM_TP_APPLE_EVIDENCE_INFO* info)
 {
 #ifndef NDEBUG
-	CSSM_TP_APPLE_CERT_STATUS cs;
-//	const CSSM_TP_APPLE_EVIDENCE_INFO *pinfo = info;
+    CSSM_TP_APPLE_CERT_STATUS cs;
+    //	const CSSM_TP_APPLE_EVIDENCE_INFO *pinfo = info;
     uint16_t ix;
-	for (ix=0; info && (ix<certCount); ix++, ++info)
-    {
-		cs = info->StatusBits;
-		dtprintf("   cert %u:\n", ix);
-		dtprintf("      StatusBits     : 0x%x", (unsigned)cs);
-		if (cs)
-        {
-			dtprintf(" ( ");
-			statusBitTest(cs, CSSM_CERT_STATUS_EXPIRED, "EXPIRED");
-			statusBitTest(cs, CSSM_CERT_STATUS_NOT_VALID_YET,
-				"NOT_VALID_YET");
-			statusBitTest(cs, CSSM_CERT_STATUS_IS_IN_INPUT_CERTS,
-				"IS_IN_INPUT_CERTS");
-			statusBitTest(cs, CSSM_CERT_STATUS_IS_IN_ANCHORS,
-				"IS_IN_ANCHORS");
-			statusBitTest(cs, CSSM_CERT_STATUS_IS_ROOT, "IS_ROOT");
-			statusBitTest(cs, CSSM_CERT_STATUS_IS_FROM_NET, "IS_FROM_NET");
-			dtprintf(")\n");
-		}
-		else
+    for (ix = 0; info && (ix < certCount); ix++, ++info) {
+        cs = info->StatusBits;
+        dtprintf("   cert %u:\n", ix);
+        dtprintf("      StatusBits     : 0x%x", (unsigned)cs);
+        if (cs) {
+            dtprintf(" ( ");
+            statusBitTest(cs, CSSM_CERT_STATUS_EXPIRED, "EXPIRED");
+            statusBitTest(cs, CSSM_CERT_STATUS_NOT_VALID_YET, "NOT_VALID_YET");
+            statusBitTest(cs, CSSM_CERT_STATUS_IS_IN_INPUT_CERTS, "IS_IN_INPUT_CERTS");
+            statusBitTest(cs, CSSM_CERT_STATUS_IS_IN_ANCHORS, "IS_IN_ANCHORS");
+            statusBitTest(cs, CSSM_CERT_STATUS_IS_ROOT, "IS_ROOT");
+            statusBitTest(cs, CSSM_CERT_STATUS_IS_FROM_NET, "IS_FROM_NET");
+            dtprintf(")\n");
+        } else {
             dtprintf("\n");
+        }
 
-		dtprintf("      NumStatusCodes : %u ", info->NumStatusCodes);
-        CSSM_RETURN *pstatuscode = info->StatusCodes;
-		uint16_t jx;
-        for (jx=0; pstatuscode && (jx<info->NumStatusCodes); jx++, ++pstatuscode)
+        dtprintf("      NumStatusCodes : %u ", info->NumStatusCodes);
+        CSSM_RETURN* pstatuscode = info->StatusCodes;
+        uint16_t jx;
+        for (jx = 0; pstatuscode && (jx < info->NumStatusCodes); jx++, ++pstatuscode) {
             dtprintf("%s  ", cssmErrorString(*pstatuscode));
+        }
 
-		dtprintf("\n");
-		dtprintf("      Index: %u\n", info->Index);
-	}
+        dtprintf("\n");
+        dtprintf("      Index: %u\n", info->Index);
+    }
 
 #endif
 }
 
 #ifndef NDEBUG
-static const char *trustResultTypeString(SecTrustResultType trustResultType)
+static const char* trustResultTypeString(SecTrustResultType trustResultType)
 {
-    switch (trustResultType)
-    {
-    case kSecTrustResultProceed:                    return "TrustResultProceed";
-    case kSecTrustResultUnspecified:                return "TrustResultUnspecified";
-    case kSecTrustResultDeny:                       return "TrustResultDeny";   // user reject
-    case kSecTrustResultInvalid:                    return "TrustResultInvalid";
-    case kSecTrustResultRecoverableTrustFailure:    return "TrustResultRecoverableTrustFailure";
-    case kSecTrustResultFatalTrustFailure:          return "TrustResultUnspecified";
-    case kSecTrustResultOtherError:                 return "TrustResultOtherError";
-    default:                                        return "TrustResultUnknown";
+    switch (trustResultType) {
+        case kSecTrustResultProceed:
+            return "TrustResultProceed";
+        case kSecTrustResultUnspecified:
+            return "TrustResultUnspecified";
+        case kSecTrustResultDeny:
+            return "TrustResultDeny";  // user reject
+        case kSecTrustResultInvalid:
+            return "TrustResultInvalid";
+        case kSecTrustResultRecoverableTrustFailure:
+            return "TrustResultRecoverableTrustFailure";
+        case kSecTrustResultFatalTrustFailure:
+            return "TrustResultUnspecified";
+        case kSecTrustResultOtherError:
+            return "TrustResultOtherError";
+        default:
+            return "TrustResultUnknown";
     }
     return "";
 }
@@ -1037,7 +1069,7 @@ static OSStatus verifySigners(SecCmsSignedDataRef signedData, int numberOfSigner
 
     SecTrustRef trustRef = NULL;
     CFTypeRef policy = CFRetainSafe(timeStampPolicy);
-    int result=errSecInternalError;
+    int result = errSecInternalError;
     int rx;
 
     if (!policy) {
@@ -1045,44 +1077,44 @@ static OSStatus verifySigners(SecCmsSignedDataRef signedData, int numberOfSigner
     }
 
     int jx;
-    for (jx = 0; jx < numberOfSigners; ++jx)
-    {
+    for (jx = 0; jx < numberOfSigners; ++jx) {
         SecTrustResultType trustResultType;
         CFDictionaryRef extendedResult = NULL;
         CFArrayRef certChain = NULL;
         uint16_t certCount = 0;
 
-        CSSM_TP_APPLE_EVIDENCE_INFO *statusChain = NULL;
+        CSSM_TP_APPLE_EVIDENCE_INFO* statusChain = NULL;
 
-        // SecCmsSignedDataVerifySignerInfo returns trustRef, which we can call SecTrustEvaluate on
+        // SecCmsSignedDataVerifySigner returns trustRef, which we can call SecTrustEvaluate on
         // usually (always?) if result is noErr, the SecTrust*Result calls will return errSecTrustNotAvailable
-        result = SecCmsSignedDataVerifySignerInfo (signedData, jx, NULL, policy, &trustRef);
-        dtprintf("[%s] SecCmsSignedDataVerifySignerInfo: result: %d, signer: %d\n",
-            __FUNCTION__, result, jx);
-         require_noerr(result, xit);
+        result = SecCmsSignedDataVerifySigner(signedData, jx, policy, &trustRef);
+        dtprintf("[%s] SecCmsSignedDataVerifySigner: result: %d, signer: %d\n", __FUNCTION__, result, jx);
+        require_noerr(result, xit);
 
-        result = SecTrustEvaluate (trustRef, &trustResultType);
+        result = SecTrustEvaluate(trustRef, &trustResultType);
         dtprintf("[%s] SecTrustEvaluate: result: %d, trustResult: %s (%d)\n",
-            __FUNCTION__, result, trustResultTypeString(trustResultType), trustResultType);
-        if (result)
+                 __FUNCTION__,
+                 result,
+                 trustResultTypeString(trustResultType),
+                 trustResultType);
+        if (result) {
             goto xit;
-        switch (trustResultType)
-        {
-		case kSecTrustResultProceed:
-		case kSecTrustResultUnspecified:
-			break;                                  // success
-		case kSecTrustResultDeny:                   // user reject
-			result = errSecTimestampNotTrusted;     // SecCmsVSTimestampNotTrusted ?
-            break;
-		case kSecTrustResultInvalid:
-			assert(false);                          // should never happen
-			result = errSecTimestampNotTrusted;     // SecCmsVSTimestampNotTrusted ?
-            break;
-        case kSecTrustResultRecoverableTrustFailure:
-        case kSecTrustResultFatalTrustFailure:
-        case kSecTrustResultOtherError:
-		default:
-			{
+        }
+        switch (trustResultType) {
+            case kSecTrustResultProceed:
+            case kSecTrustResultUnspecified:
+                break;                               // success
+            case kSecTrustResultDeny:                // user reject
+                result = errSecTimestampNotTrusted;  // SecCmsVSTimestampNotTrusted ?
+                break;
+            case kSecTrustResultInvalid:
+                assert(false);                       // should never happen
+                result = errSecTimestampNotTrusted;  // SecCmsVSTimestampNotTrusted ?
+                break;
+            case kSecTrustResultRecoverableTrustFailure:
+            case kSecTrustResultFatalTrustFailure:
+            case kSecTrustResultOtherError:
+            default: {
                 /*
                     There are two "errors" that need to be resolved externally:
                     CSSMERR_TP_CERT_EXPIRED can be OK if the timestamp was made
@@ -1091,126 +1123,131 @@ static OSStatus verifySigners(SecCmsSignedDataRef signedData, int numberOfSigner
                     We don't want to prevent them using apps automatically, so
                     return noErr and let codesign or whover decide.
                 */
-				OSStatus resultCode;
-				require_action(SecTrustGetCssmResultCode(trustRef, &resultCode)==noErr, xit, result = errSecTimestampNotTrusted);
-				result = (resultCode == CSSMERR_TP_CERT_EXPIRED || resultCode == CSSMERR_TP_CERT_NOT_VALID_YET)?noErr:errSecTimestampNotTrusted;
-			}
-            break;
-		}
+                OSStatus resultCode;
+                require_action(SecTrustGetCssmResultCode(trustRef, &resultCode) == noErr,
+                               xit,
+                               result = errSecTimestampNotTrusted);
+                result = (resultCode == CSSMERR_TP_CERT_EXPIRED || resultCode == CSSMERR_TP_CERT_NOT_VALID_YET)
+                             ? noErr
+                             : errSecTimestampNotTrusted;
+            } break;
+        }
 
         rx = SecTrustGetResult(trustRef, &trustResultType, &certChain, &statusChain);
-        dtprintf("[%s] SecTrustGetResult: result: %d, type: %d\n", __FUNCTION__,rx, trustResultType);
-        certCount = certChain?CFArrayGetCount(certChain):0;
+        dtprintf("[%s] SecTrustGetResult: result: %d, type: %d\n", __FUNCTION__, rx, trustResultType);
+        certCount = certChain ? CFArrayGetCount(certChain) : 0;
         debugShowCertEvidenceInfo(certCount, statusChain);
         CFReleaseNull(certChain);
 
         rx = SecTrustCopyExtendedResult(trustRef, &extendedResult);
         dtprintf("[%s] SecTrustCopyExtendedResult: result: %d\n", __FUNCTION__, rx);
-        if (extendedResult)
-        {
+        if (extendedResult) {
             debugShowExtendedTrustResult(jx, extendedResult);
-            CFRelease(extendedResult);
+            CFReleaseNull(extendedResult);
         }
 
-        if (trustRef)
-            CFReleaseNull(trustRef);
-     }
+        CFReleaseNull(trustRef);
+    }
 
 xit:
-    if (trustRef)
-        CFReleaseNull(trustRef);
-    if (policy)
-        CFRelease(policy);
+    CFReleaseNull(trustRef);
+    CFReleaseNull(policy);
     return result;
 }
 
-static OSStatus impExpImportCertUnCommon(
-	const CSSM_DATA		*cdata,
-	SecKeychainRef		importKeychain, // optional
-	CFMutableArrayRef	outArray)		// optional, append here
+static OSStatus impExpImportCertUnCommon(const CSSM_DATA* cdata,
+                                         SecKeychainRef importKeychain,  // optional
+                                         CFMutableArrayRef outArray)  // optional, append here
 {
     // The only difference between this and impExpImportCertCommon is that we append to outArray
     // before attempting to add to the keychain
-	OSStatus status = noErr;
-	SecCertificateRef certRef = NULL;
+    OSStatus status = noErr;
+    SecCertificateRef certRef = NULL;
 
     require_action(cdata, xit, status = errSecUnsupportedFormat);
 
-	/* Pass kCFAllocatorNull as bytesDeallocator to assure the bytes aren't freed */
-	CFDataRef data = CFDataCreateWithBytesNoCopy(kCFAllocatorDefault, (const UInt8 *)cdata->Data, (CFIndex)cdata->Length, kCFAllocatorNull);
+    /* Pass kCFAllocatorNull as bytesDeallocator to assure the bytes aren't freed */
+    CFDataRef data = CFDataCreateWithBytesNoCopy(
+        kCFAllocatorDefault, (const UInt8*)cdata->Data, (CFIndex)cdata->Length, kCFAllocatorNull);
     require_action(data, xit, status = errSecUnsupportedFormat);
 
-	certRef = SecCertificateCreateWithData(kCFAllocatorDefault, data);
-	CFRelease(data); /* certRef has its own copy of the data now */
-	if(!certRef) {
-		dtprintf("impExpHandleCert error\n");
-		return errSecUnsupportedFormat;
-	}
+    certRef = SecCertificateCreateWithData(kCFAllocatorDefault, data);
+    CFReleaseNull(data); /* certRef has its own copy of the data now */
+    if (!certRef) {
+        dtprintf("impExpHandleCert error\n");
+        return errSecUnsupportedFormat;
+    }
 
-	if (outArray)
-		CFArrayAppendValue(outArray, certRef);
+    if (outArray) {
+        CFArrayAppendValue(outArray, certRef);
+    }
 
-	if (importKeychain)
-    {
-		status = SecCertificateAddToKeychain(certRef, importKeychain);
-		if (status!=noErr && status!=errSecDuplicateItem)
-            { dtprintf("SecCertificateAddToKeychain error: %ld\n", (long)status); }
-	}
+    if (importKeychain) {
+        status = SecCertificateAddToKeychain(certRef, importKeychain);
+        if (status != noErr && status != errSecDuplicateItem) {
+            dtprintf("SecCertificateAddToKeychain error: %ld\n", (long)status);
+        }
+    }
 
 xit:
-    if (certRef) {
-        CFRelease(certRef);
-    }
+    CFReleaseNull(certRef);
     return status;
 }
 
-static void saveTSACertificates(CSSM_DATA **signingCerts, CFMutableArrayRef	outArray)
+static void saveTSACertificates(CSSM_DATA** signingCerts, CFMutableArrayRef outArray)
 {
     SecKeychainRef defaultKeychain = NULL;
     // Don't save certificates in keychain to avoid securityd issues
-//  if (SecKeychainCopyDefault(&defaultKeychain))
-//     defaultKeychain = NULL;
+    //  if (SecKeychainCopyDefault(&defaultKeychain))
+    //     defaultKeychain = NULL;
 
-    unsigned certCount = SecCmsArrayCount((void **)signingCerts);
-    unsigned dex;
-    for (dex=0; dex<certCount; dex++)
-    {
+    int certCount = SecCmsArrayCount((void**)signingCerts);
+    int dex;
+    for (dex = 0; dex < certCount; dex++) {
         OSStatus rx = impExpImportCertUnCommon(signingCerts[dex], defaultKeychain, outArray);
-        if (rx!=noErr && rx!=errSecDuplicateItem)
+        if (rx != noErr && rx != errSecDuplicateItem) {
             dtprintf("impExpImportCertCommon failed: %ld\n", (long)rx);
+        }
     }
-    if (defaultKeychain)
-        CFRelease(defaultKeychain);
+    CFReleaseNull(defaultKeychain);
 }
 
-static const char *cfabsoluteTimeToString(CFAbsoluteTime abstime)
+static const char* cfabsoluteTimeToString(CFAbsoluteTime abstime)
 {
     CFGregorianDate greg = CFAbsoluteTimeGetGregorianDate(abstime, NULL);
     char str[20];
-    if (19 != snprintf(str, 20, "%4.4d-%2.2d-%2.2d_%2.2d:%2.2d:%2.2d",
-        (int)greg.year, greg.month, greg.day, greg.hour, greg.minute, (int)greg.second))
-        str[0]=0;
-    char *data = (char *)malloc(20);
+    if (19 != snprintf(str,
+                       20,
+                       "%4.4d-%2.2d-%2.2d_%2.2d:%2.2d:%2.2d",
+                       (int)greg.year,
+                       greg.month,
+                       greg.day,
+                       greg.hour,
+                       greg.minute,
+                       (int)greg.second)) {
+        str[0] = 0;
+    }
+    char* data = (char*)malloc(20);
     strncpy(data, str, 20);
     return data;
 }
 
 static OSStatus setTSALeafValidityDates(SecCmsSignerInfoRef signerinfo)
 {
-    SecCertificateRef tsaLeaf = SecCmsSignerInfoGetSigningCertificate(signerinfo, NULL);
+    SecCertificateRef tsaLeaf = SecCmsSignerInfoGetSigningCert(signerinfo);
 
     if (!tsaLeaf)
         return SecCmsVSSigningCertNotFound;
 
     signerinfo->tsaLeafNotBefore = SecCertificateNotValidBefore(tsaLeaf); /* Start date for Timestamp Authority leaf */
-    signerinfo->tsaLeafNotAfter = SecCertificateNotValidAfter(tsaLeaf);   /* Expiration date for Timestamp Authority leaf */
+    signerinfo->tsaLeafNotAfter = SecCertificateNotValidAfter(tsaLeaf); /* Expiration date for Timestamp Authority leaf */
 
-    const char *nbefore = cfabsoluteTimeToString(signerinfo->tsaLeafNotBefore);
-    const char *nafter = cfabsoluteTimeToString(signerinfo->tsaLeafNotAfter);
-    if (nbefore && nafter)
-    {
+    const char* nbefore = cfabsoluteTimeToString(signerinfo->tsaLeafNotBefore);
+    const char* nafter = cfabsoluteTimeToString(signerinfo->tsaLeafNotAfter);
+    if (nbefore && nafter) {
         dtprintf("Timestamp Authority leaf valid from %s to %s\n", nbefore, nafter);
-        free((void *)nbefore);free((void *)nafter);
+        free((void*)nbefore);
+        free((void*)nafter);
     }
 
     return errSecSuccess;
@@ -1246,12 +1283,19 @@ static OSStatus setTSALeafValidityDates(SecCmsSignerInfoRef signerinfo)
 
 */
 
-OSStatus decodeTimeStampToken(SecCmsSignerInfoRef signerinfo, CSSM_DATA_PTR inData, CSSM_DATA_PTR encDigest, uint64_t expectedNonce)
+OSStatus decodeTimeStampToken(SecCmsSignerInfoRef signerinfo,
+                              CSSM_DATA_PTR inData,
+                              CSSM_DATA_PTR encDigest,
+                              uint64_t expectedNonce)
 {
     return decodeTimeStampTokenWithPolicy(signerinfo, NULL, inData, encDigest, expectedNonce);
 }
 
-OSStatus decodeTimeStampTokenWithPolicy(SecCmsSignerInfoRef signerinfo, CFTypeRef timeStampPolicy, CSSM_DATA_PTR inData, CSSM_DATA_PTR encDigest, uint64_t expectedNonce)
+OSStatus decodeTimeStampTokenWithPolicy(SecCmsSignerInfoRef signerinfo,
+                                        CFTypeRef timeStampPolicy,
+                                        CSSM_DATA_PTR inData,
+                                        CSSM_DATA_PTR encDigest,
+                                        uint64_t expectedNonce)
 {
     /*
      We update signerinfo with timestamp and tsa certificate chain.
@@ -1264,22 +1308,24 @@ OSStatus decodeTimeStampTokenWithPolicy(SecCmsSignerInfoRef signerinfo, CFTypeRe
         timestampCert
      */
 
-    SecCmsDecoderRef        decoderContext = NULL;
-    SecCmsMessageRef        cmsMessage = NULL;
-    SecCmsContentInfoRef    contentInfo;
-    SecCmsSignedDataRef     signedData;
-    SECOidTag               contentTypeTag;
-    int                     contentLevelCount;
-    int                     ix;
-    OSStatus                result = errSecUnknownFormat;
-    CSSM_DATA               **signingCerts = NULL;
+    SecCmsDecoderRef decoderContext = NULL;
+    SecCmsMessageRef cmsMessage = NULL;
+    SecCmsContentInfoRef contentInfo;
+    SecCmsSignedDataRef signedData;
+    SECOidTag contentTypeTag;
+    int contentLevelCount;
+    int ix;
+    OSStatus result = errSecUnknownFormat;
+    CSSM_DATA** signingCerts = NULL;
 
     dtprintf("decodeTimeStampToken top: PORT_GetError() %d -----\n", PORT_GetError());
     PORT_SetError(0);
 
     /* decode the message */
-    require_noerr(result = SecCmsDecoderCreate (NULL, NULL, NULL, NULL, NULL, NULL, NULL, &decoderContext), xit);
-    result = SecCmsDecoderUpdate(decoderContext, inData->Data, inData->Length);
+    require_noerr(result = SecCmsDecoderCreate(NULL, NULL, NULL, NULL, NULL, NULL, NULL, &decoderContext),
+                  xit);
+    require(inData->Length < LONG_MAX, xit);
+    result = SecCmsDecoderUpdate(decoderContext, inData->Data, (CFIndex)inData->Length);
     if (result) {
         result = errSecTimestampInvalid;
         SecCmsDecoderDestroy(decoderContext);
@@ -1292,14 +1338,14 @@ OSStatus decodeTimeStampTokenWithPolicy(SecCmsSignerInfoRef signerinfo, CFTypeRe
     contentLevelCount = SecCmsMessageContentLevelCount(cmsMessage);
 
     if (encDigest) {
-        printDataAsHex("encDigest",encDigest, 0);
+        printDataAsHex("encDigest", encDigest, 0);
     }
 
     for (ix = 0; ix < contentLevelCount; ++ix) {
         dtprintf("\n----- Content Level %d -----\n", ix);
         // get content information
-        contentInfo = SecCmsMessageContentLevel (cmsMessage, ix);
-        contentTypeTag = SecCmsContentInfoGetContentTypeTag (contentInfo);
+        contentInfo = SecCmsMessageContentLevel(cmsMessage, ix);
+        contentTypeTag = SecCmsContentInfoGetContentTypeTag(contentInfo);
 
         // After 2nd round, contentInfo.content.data is the TSTInfo
 
@@ -1307,35 +1353,44 @@ OSStatus decodeTimeStampTokenWithPolicy(SecCmsSignerInfoRef signerinfo, CFTypeRe
 
         switch (contentTypeTag) {
             case SEC_OID_PKCS7_SIGNED_DATA: {
-                require((signedData = (SecCmsSignedDataRef)SecCmsContentInfoGetContent(contentInfo)) != NULL, xit);
+                require((signedData = (SecCmsSignedDataRef)SecCmsContentInfoGetContent(contentInfo)) != NULL,
+                        xit);
 
                 debugShowSignerInfo(signedData);
 
-                SECAlgorithmID **digestAlgorithms = SecCmsSignedDataGetDigestAlgs(signedData);
-                unsigned digestAlgCount = SecCmsArrayCount((void **)digestAlgorithms);
+                SECAlgorithmID** digestAlgorithms = SecCmsSignedDataGetDigestAlgs(signedData);
+                int digestAlgCount = SecCmsArrayCount((void**)digestAlgorithms);
                 dtprintf("digestAlgCount: %d\n", digestAlgCount);
                 if (signedData->digests) {
                     int jx;
                     char buffer[128];
-                    for (jx=0;jx < digestAlgCount;jx++) {
+                    for (jx = 0; jx < digestAlgCount; jx++) {
                         sprintf(buffer, " digest[%u]", jx);
-                        printDataAsHex(buffer,signedData->digests[jx], 0);
+                        printDataAsHex(buffer, signedData->digests[jx], 0);
                     }
                 } else {
                     dtprintf("digests not yet computed\n");
                     CSSM_DATA_PTR innerContent = SecCmsContentInfoGetInnerContent(contentInfo);
-                    if (innerContent)
-                    {
+                    if (innerContent) {
                         dtprintf("inner content length: %ld\n", innerContent->Length);
-                        SecAsn1TSAMessageImprint fakeMessageImprint = {{{0}},};
-                        SecCmsSignerInfoRef tsaSigner = SecCmsSignedDataGetSignerInfo(signedData, 0);
-                        OSStatus status = createTSAMessageImprint(tsaSigner, &tsaSigner->digestAlg, innerContent, &fakeMessageImprint);
-                        require_noerr_action(status, xit, dtprintf("createTSAMessageImprint status: %d\n", (int)status); result = status);
-                        printDataAsHex("inner content hash",&fakeMessageImprint.hashedMessage, 0);
+                        SecAsn1TSAMessageImprint fakeMessageImprint = {
+                            {{0}},
+                        };
+                        SecCmsSignerInfoRef tsaSigner =
+                            SecCmsSignedDataGetSignerInfo(signedData, 0);
+                        OSStatus status = createTSAMessageImprint(
+                            tsaSigner, &tsaSigner->digestAlg, innerContent, &fakeMessageImprint);
+                        require_noerr_action(
+                            status, xit, dtprintf("createTSAMessageImprint status: %d\n", (int)status);
+                            result = status);
+                        printDataAsHex("inner content hash", &fakeMessageImprint.hashedMessage, 0);
                         CSSM_DATA_PTR digestdata = &fakeMessageImprint.hashedMessage;
                         CSSM_DATA_PTR digests[2] = {digestdata, NULL};
-                        status = SecCmsSignedDataSetDigests(signedData, digestAlgorithms, (CSSM_DATA_PTR *)&digests);
-                        require_noerr_action(status, xit, dtprintf("createTSAMessageImprint status: %d\n", (int)status); result = status);
+                        status = SecCmsSignedDataSetDigests(
+                            signedData, digestAlgorithms, (CSSM_DATA_PTR*)&digests);
+                        require_noerr_action(
+                            status, xit, dtprintf("createTSAMessageImprint status: %d\n", (int)status);
+                            result = status);
                     } else {
                         dtprintf("no inner content\n");
                     }
@@ -1350,24 +1405,26 @@ OSStatus decodeTimeStampTokenWithPolicy(SecCmsSignerInfoRef signerinfo, CFTypeRe
                     dtprintf("SecCmsSignedDataGetCertificateList returned NULL\n");
                 } else {
                     if (!signerinfo->timestampCertList) {
-                        signerinfo->timestampCertList = CFArrayCreateMutable(kCFAllocatorDefault, 10, &kCFTypeArrayCallBacks);
+                        signerinfo->timestampCertList =
+                            CFArrayCreateMutable(kCFAllocatorDefault, 10, &kCFTypeArrayCallBacks);
                     }
                     saveTSACertificates(signingCerts, signerinfo->timestampCertList);
                     require_noerr(result = setTSALeafValidityDates(signerinfo), xit);
                     debugSaveCertificates(signingCerts);
                 }
 
-                int numberOfSigners = SecCmsSignedDataSignerInfoCount (signedData);
+                int numberOfSigners = SecCmsSignedDataSignerInfoCount(signedData);
 
                 if (numberOfSigners > 0) {
                     /* @@@ assume there's only one signer since SecCms can't handle multiple signers anyway */
-                    signerinfo->timestampCert = CFRetainSafe(SecCmsSignerInfoGetSigningCertificate(signedData->signerInfos[0], NULL));
+                    signerinfo->timestampCert = CFRetainSafe(
+                        SecCmsSignerInfoGetSigningCert(signedData->signerInfos[0]));
                 }
 
                 result = verifySigners(signedData, numberOfSigners, timeStampPolicy);
                 if (result) {
-                    dtprintf("verifySigners failed: %ld\n", (long)result);   // warning
-                    goto xit; // remap to SecCmsVSTimestampNotTrusted ?
+                    dtprintf("verifySigners failed: %ld\n", (long)result);  // warning
+                    goto xit;  // remap to SecCmsVSTimestampNotTrusted ?
                 }
 
                 break;
@@ -1377,19 +1434,22 @@ OSStatus decodeTimeStampTokenWithPolicy(SecCmsSignerInfoRef signerinfo, CFTypeRe
                 break;
             }
             case SEC_OID_PKCS9_ID_CT_TSTInfo: {
-                SecAsn1TSATSTInfo tstInfo = {{0},};
-                result = verifyTSTInfo(contentInfo->rawContent, signerinfo, &tstInfo, &signerinfo->timestampTime, expectedNonce, encDigest);
+                SecAsn1TSATSTInfo tstInfo = {
+                    {0},
+                };
+                result = verifyTSTInfo(
+                    contentInfo->rawContent, signerinfo, &tstInfo, &signerinfo->timestampTime, expectedNonce, encDigest);
                 if (signerinfo->timestampTime) {
-                    const char *tstamp = cfabsoluteTimeToString(signerinfo->timestampTime);
+                    const char* tstamp = cfabsoluteTimeToString(signerinfo->timestampTime);
                     if (tstamp) {
                         dtprintf("Timestamp Authority timestamp: %s\n", tstamp);
-                        free((void *)tstamp);
+                        free((void*)tstamp);
                     }
                 }
                 break;
             }
             case SEC_OID_OTHER: {
-                dtprintf("otherContent : %p\n", (char *)SecCmsContentInfoGetContent (contentInfo));
+                dtprintf("otherContent : %p\n", (char*)SecCmsContentInfoGetContent(contentInfo));
                 break;
             }
             default:
@@ -1404,5 +1464,3 @@ xit:
 
     return result;
 }
-
-

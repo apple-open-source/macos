@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011, 2016-2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2011, 2016-2018, 2021 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -31,8 +31,9 @@
 
 
 typedef struct {
-	int			_sc_error;
-	SCDynamicStoreRef	_sc_store;
+	int			_sc_error;		// SCError
+	CFMutableDictionaryRef	_sc_interface_cache;	// SCNetworkInterface (cache)
+	SCDynamicStoreRef	_sc_store;		// SCDynamicStore (null session)
 } __SCThreadSpecificData, *__SCThreadSpecificDataRef;
 
 

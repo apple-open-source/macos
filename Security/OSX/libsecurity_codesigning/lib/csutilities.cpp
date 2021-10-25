@@ -106,7 +106,6 @@ bool verifyHash(SecCertificateRef cert, const Hashing::Byte *digest)
 	return !memcmp(dig, digest, SHA1::digestLength);
 }
 
-#if TARGET_OS_OSX
 //
 // Check to see if a certificate contains a particular field, by OID. This works for extensions,
 // even ones not recognized by the local CL. It does not return any value, only presence.
@@ -138,7 +137,7 @@ out:
 	return matched;
 }
 
-
+#if TARGET_OS_OSX
 //
 // Retrieve X.509 policy extension OIDs, if any.
 // This currently ignores policy qualifiers.

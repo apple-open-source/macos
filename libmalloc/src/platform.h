@@ -70,6 +70,15 @@
 // enable nano checking for corrupt free list
 #define NANO_FREE_DEQUEUE_DILIGENCE 1
 
+// Conditional behaviour depends on MallocSpaceEfficient being set by
+// JetsamProperties which isn't true on iOS
+#if MALLOC_TARGET_IOS || TARGET_OS_DRIVERKIT
+#define NANOV2_DEFAULT_MODE NANO_ENABLED
+#else
+#define NANOV2_DEFAULT_MODE NANO_CONDITIONAL
+#endif
+
+
 // This governs a last-free cache of 1 that bypasses the free-list for each region size
 #define CONFIG_TINY_CACHE 1
 #define CONFIG_SMALL_CACHE 1
@@ -117,6 +126,13 @@
 #define CONFIG_FEATUREFLAGS_SIMPLE 1
 #else
 #define CONFIG_FEATUREFLAGS_SIMPLE 0
+#endif
+
+// Quarantine zone, only useful on macOS (+ DriverKit, 64-bit simulators).
+#if (TARGET_OS_OSX || TARGET_OS_DRIVERKIT || TARGET_OS_SIMULATOR) && MALLOC_TARGET_64BIT
+#define CONFIG_QUARANTINE 1
+#else
+#define CONFIG_QUARANTINE 0
 #endif
 
 // presence of commpage memsize

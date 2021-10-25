@@ -27,6 +27,11 @@
 // For <rdar://problem/63880069>
 #include "uresimp.h"
 
+#include <algorithm>
+#include <vector>
+
+using namespace icu;
+
 // The numeric values in territoryInfo are in "IntF" format from LDML2ICUConverter.
 // From its docs (adapted): [IntF is] a special integer that represents the number in
 // normalized scientific notation.
@@ -229,15 +234,169 @@ ualoc_getLanguagesForRegion(const char *regionID, double minimumFraction,
     return entryCount;
 }
 
+/**
+ * Internal function used by ualoc_getRegionsForLanguage().  This is split out both to clarify the logic
+ * below and because we might actually want to expose this in the API at some point.  This takes a language
+ * ID, converts it into canonical form, strips off any extraneous junk other than language and script code, and
+ * also removes the script code if it's the default script for the specified language.  (For example, "zh_Hant"
+ * is returned unchanged, but "zh_Hans" turns into "zh".  "zh_CN" turns into "zh", and "zh_TW" turns into "zh_Hant".)
+ * @param languageID The language ID to convert into canonical form.
+ * @param canonicalizedLanguageID A pointer to the memory where the result is to be written.  This function
+ * assumes the caller has allocated enough space for the result (it assumes ULOC_FULLNAME_CAPACITY, although
+ * @param err Pointer to the error code.
+ * in practice it'll never use that much space).
+ */
+static void canonicalizeLanguageID(const char* languageID, char* canonicalizedLanguageID, UErrorCode* err) {
+    char tempLanguageID[ULOC_FULLNAME_CAPACITY];
+    // convert the input language ID to canonical form-- this normalizes capitalization and delimiters,
+    // strips off parameters, and resolves aliases
+    ualoc_canonicalForm(languageID, canonicalizedLanguageID, ULOC_FULLNAME_CAPACITY, err);
+    
+    // if the input language has a variant code, strip that off too
+    UErrorCode tempErr = U_ZERO_ERROR;
+    if (uloc_getVariant(canonicalizedLanguageID, NULL, 0, &tempErr) > 0) {
+        *(uprv_strrchr(canonicalizedLanguageID, '_')) = '\0';
+    }
+    
+    // expand both the original language ID and just its language code with their likely subtags
+    uloc_getLanguage(canonicalizedLanguageID, tempLanguageID, ULOC_FULLNAME_CAPACITY, err);
+    uloc_addLikelySubtags(canonicalizedLanguageID, canonicalizedLanguageID, ULOC_FULLNAME_CAPACITY, err);
+    uloc_addLikelySubtags(tempLanguageID, tempLanguageID, ULOC_FULLNAME_CAPACITY, err);
+    
+    // if they actually expanded, lop off the region codes from both (everything from the last _ to the end)
+    if (U_SUCCESS(*err) && uprv_strrchr(canonicalizedLanguageID, '_') != nullptr) {
+        *(uprv_strrchr(canonicalizedLanguageID, '_')) = '\0';
+        *(uprv_strrchr(tempLanguageID, '_')) = '\0';
+
+        // if they're equal, it means we're using the default script code, so lop that off too
+        if (uprv_strcmp(canonicalizedLanguageID, tempLanguageID) == 0) {
+            *(uprv_strrchr(canonicalizedLanguageID, '_')) = '\0';
+        }
+    }
+}
+
+U_CAPI int32_t U_EXPORT2
+ualoc_getRegionsForLanguage(const char *languageID, double minimumFraction,
+                            UARegionEntry *entries, int32_t entriesCapacity,
+                            UErrorCode *err)
+{
+    if (U_FAILURE(*err)) {
+        return 0;
+    }
+    
+    int32_t entryCount = 0;
+    std::vector<UARegionEntry> tempEntries;
+    
+    // canonicalize the input language ID
+    char canonicalizedLanguageID[ULOC_FULLNAME_CAPACITY];
+    canonicalizeLanguageID(languageID, canonicalizedLanguageID, err);
+    
+    // open the supplementalData/territoryInfo resource
+    LocalUResourceBundlePointer supplementalData(ures_openDirect(NULL, "supplementalData", err));
+    LocalUResourceBundlePointer territoryInfo(ures_getByKey(supplementalData.getAlias(), "territoryInfo", NULL, err));
+    
+    // iterate over all the regions in the territoryInfo resource
+    LocalUResourceBundlePointer regionInfo, languageInfo, populationShareRB;
+    while (U_SUCCESS(*err) && ures_hasNext(territoryInfo.getAlias())) {
+        regionInfo.adoptInstead(ures_getNextResource(territoryInfo.getAlias(), regionInfo.orphan(), err));
+        if (U_SUCCESS(*err)) {
+            
+            // does this region have a resource for the language the caller requested?
+            UErrorCode localErr = U_ZERO_ERROR;
+            if (uprv_strcmp(ures_getKey(regionInfo.getAlias()), "US") == 0 && uprv_strcmp(canonicalizedLanguageID, "zh") == 0) {
+                // this is a KLUDGE to work around the fact that the entry for Simplified Chinese in the US section of
+                // territoryInfo uses "zh_Hans" as its language ID instead of just "zh" (we don't want to change
+                // supplementalData.txt in case other people are depending on this)
+                languageInfo.adoptInstead(ures_getByKey(regionInfo.getAlias(), "zh_Hans", languageInfo.orphan(), &localErr));
+            } else {
+                languageInfo.adoptInstead(ures_getByKey(regionInfo.getAlias(), canonicalizedLanguageID, languageInfo.orphan(), &localErr));
+            }
+            if (U_SUCCESS(localErr)) {
+                
+                // fetch the populationShareF resource from the language resource
+                double populationShare = 0.0;
+                populationShareRB.adoptInstead(ures_getByKey(languageInfo.getAlias(), "populationShareF", populationShareRB.orphan(), &localErr));
+                if (U_SUCCESS(localErr)) {
+                    int32_t populationShareAsInt = ures_getInt(populationShareRB.getAlias(), &localErr);
+                    if (U_SUCCESS(localErr)) {
+                        populationShare = doubleFromIntF(populationShareAsInt);
+                    }
+                }
+                
+                // if it meets the specified threshold, add a record to the result list
+                if (populationShare >= minimumFraction) {
+                    if (entries == NULL) {
+                        // if we're preflighting, just bump the entry count; don't both building a result list
+                        ++entryCount;
+                    } else {
+                        UARegionEntry tempEntry;
+                        uprv_strcpy(tempEntry.regionCode, ures_getKey(regionInfo.getAlias()));
+                        tempEntry.userFraction = populationShare;
+                        tempEntry.status = UALANGSTATUS_UNSPECIFIED;
+                        
+                        // fetch the officialStatus resource from the language resource and add it to the result record
+                        localErr = U_ZERO_ERROR;
+                        const UChar* officialStatus = ures_getStringByKey(languageInfo.getAlias(), "officialStatus", NULL, &localErr);
+                        if (U_SUCCESS(localErr) && officialStatus != NULL) {
+                            if (u_strcmp(officialStatus, u"official") == 0) {
+                                tempEntry.status = UALANGSTATUS_OFFICIAL;
+                            } else if (u_strcmp(officialStatus, u"official_regional") == 0) {
+                                tempEntry.status = UALANGSTATUS_REGIONAL_OFFICIAL;
+                            } else if (u_strcmp(officialStatus, u"de_facto_official") == 0) {
+                                tempEntry.status = UALANGSTATUS_DEFACTO_OFFICIAL;
+                            }
+                            // otherwise, leave it as UALANGSTATUS_UNSPECIFIED
+                        }
+                        
+                        tempEntries.push_back(tempEntry);
+                    }
+                }
+            }
+        }
+    }
+    
+    if (entries == NULL) {
+        // if we're preflighting, just return the entry count
+        return entryCount;
+    } else {
+        // otherwise, sort our temporary result list in descending order by population share and copy the top
+        // `entriesCapacity` entries into `entries`
+        std::sort(tempEntries.begin(), tempEntries.end(), [](const UARegionEntry& a, const UARegionEntry& b) {
+            return a.userFraction > b.userFraction || (a.userFraction == b.userFraction && uprv_strcmp(a.regionCode, b.regionCode) < 0);
+        });
+        
+        entryCount = std::min(entriesCapacity, (int32_t)tempEntries.size());
+        std::copy_n(tempEntries.begin(), entryCount, entries);
+        return entryCount;
+    }
+}
+
 static const char * forceParent[] = { // Not used by ualoc_localizationsToUse
     "en_150",  "en_GB",  // en for Europe
+    "en_AI",   "en_GB",
     "en_AU",   "en_GB",
+    "en_BB",   "en_GB",
     "en_BD",   "en_GB",  // en for Bangladesh
     "en_BE",   "en_150", // en for Belgium goes to en for Europe
+    "en_BM",   "en_GB",
+    "en_BN",   "en_GB",
+    "en_BS",   "en_GB",
+    "en_BW",   "en_GB",
+    "en_BZ",   "en_GB",
+    "en_CC",   "en_AU",
+    "en_CK",   "en_AU",
+    "en_CX",   "en_AU",
+    "en_CY",   "en_150",    // Apple locale addition
     "en_DG",   "en_GB",
+    "en_DM",   "en_GB",
+    "en_FJ",   "en_GB",
     "en_FK",   "en_GB",
+    "en_GD",   "en_GB",
     "en_GG",   "en_GB",
+    "en_GH",   "en_GB",
     "en_GI",   "en_GB",
+    "en_GM",   "en_GB",
+    "en_GY",   "en_GB",
     "en_HK",   "en_GB",  // en for Hong Kong
     "en_IE",   "en_GB",
     "en_IM",   "en_GB",
@@ -245,17 +404,49 @@ static const char * forceParent[] = { // Not used by ualoc_localizationsToUse
     "en_IO",   "en_GB",
     "en_JE",   "en_GB",
     "en_JM",   "en_GB",
+    "en_KE",   "en_GB",
+    "en_KI",   "en_GB",
+    "en_KN",   "en_GB",
+    "en_KY",   "en_GB",
+    "en_LC",   "en_GB",
     "en_LK",   "en_GB",
+    "en_LS",   "en_GB",
     "en_MO",   "en_GB",
+    "en_MS",   "en_GB",
     "en_MT",   "en_GB",
+    "en_MU",   "en_GB",
     "en_MV",   "en_GB",  // for Maldives
+    "en_MW",   "en_GB",
     "en_MY",   "en_GB",  // en for Malaysia
+    "en_NA",   "en_GB",
+    "en_NF",   "en_AU",
+    "en_NG",   "en_GB",
+    "en_NR",   "en_AU",
+    "en_NU",   "en_AU",
     "en_NZ",   "en_AU",
     "en_PK",   "en_GB",  // en for Pakistan
+    "en_SB",   "en_GB",
+    "en_SC",   "en_GB",
+    "en_SD",   "en_GB",
     "en_SG",   "en_GB",
     "en_SH",   "en_GB",
+    "en_SL",   "en_GB",
+    "en_SS",   "en_GB",
+    "en_SZ",   "en_GB",
+    "en_TC",   "en_GB",
+    "en_TO",   "en_GB",
+    "en_TT",   "en_GB",
+    "en_TV",   "en_GB",
+    "en_TZ",   "en_GB",
+    "en_UG",   "en_GB",
+    "en_VC",   "en_GB",
     "en_VG",   "en_GB",
-    "yue",     "yue_CN", // yue_CN has 71M users (5.2% of 1.37G), yue_HK has 6.5M (90% of 7.17M)
+    "en_VU",   "en_GB",
+    "en_WS",   "en_AU",
+    "en_ZA",   "en_GB",
+    "en_ZM",   "en_GB",
+    "en_ZW",   "en_GB",
+    "yue",     "yue_HK",
     "yue_CN",  "root",  // should this change to e.g. "zh_Hans_CN" for <rdar://problem/30671866>?
     "yue_HK",  "root",  // should this change to e.g. "zh_Hant_HK" for <rdar://problem/30671866>?
     "yue_Hans","yue_CN",
@@ -301,7 +492,7 @@ ualoc_getAppleParent(const char* localeID,
         *foundDoubleUnderscore = 0; /* terminate at the __ */
         len = uprv_strlen(locbuf);
     }
-    if (len >= 2 && (uprv_strncmp(locbuf, "en", 2) == 0 || uprv_strncmp(locbuf, "zh", 2) == 0)) {
+    if ((len >= 2 && (uprv_strncmp(locbuf, "en", 2) == 0 || uprv_strncmp(locbuf, "zh", 2) == 0)) || (len >= 3 && uprv_strncmp(locbuf, "yue", 3) == 0)) {
         const char ** forceParentPtr = forceParent;
         const char * testCurLoc;
         while ( (testCurLoc = *forceParentPtr++) != NULL ) {
@@ -424,6 +615,15 @@ static const char * appleAliasMap[][2] = {
     { "swedish",    "sv"      },    // T2
     { "thai",       "th"      },    // T2
     { "turkish",    "tr"      },    // T2
+    // all of the following were originally in ICU's metadata.txt as "legacy" mappings, but have been removed
+    // as of ICU 68
+    { "yue_CN",     "yue_Hans_CN" },
+    { "yue_HK",     "yue_Hant_HK" },
+    { "zh_CN",      "zh_Hans_CN"  },
+    { "zh_HK",      "zh_Hant_HK"  },
+    { "zh_MO",      "zh_Hant_MO"  },
+    { "zh_SG",      "zh_Hans_SG"  },
+    { "zh_TW",      "zh_Hant_TW"  }
 };
 enum { kAppleAliasMapCount = UPRV_LENGTHOF(appleAliasMap) };
 
@@ -434,92 +634,96 @@ enum { kAppleAliasMapCount = UPRV_LENGTHOF(appleAliasMap) };
 // the hashmap of parentLocales data, we add a few important entries
 // from parentLocales data for lookup efficiency.
 static const char * appleParentMap[][2] = {
-    { "ars",        "ar"      },    // rdar://64497611
-    { "en_150",     "en_GB"   },    // Apple custom parent
-    { "en_AG",      "en_GB"   },    // Antigua & Barbuda
-    { "en_AI",      "en_GB"   },    // Anguilla
-    { "en_AU",      "en_GB"   },    // Apple custom parent
-    { "en_BB",      "en_GB"   },    // Barbados
-    { "en_BD",      "en_GB"   },    // Apple custom parent
-    { "en_BM",      "en_GB"   },    // Bermuda
-    { "en_BN",      "en_GB"   },    // Brunei
-    { "en_BS",      "en_GB"   },    // Bahamas
-    { "en_BW",      "en_GB"   },    // Botswana
-    { "en_BZ",      "en_GB"   },    // Belize
-    { "en_CC",      "en_AU"   },    // Cocos (Keeling) Islands
-    { "en_CK",      "en_AU"   },    // Cook Islands (maybe to en_NZ instead?)
-    { "en_CX",      "en_AU"   },    // Christmas Island
-    { "en_CY",      "en_150"  },    // Apple locale addition
-    { "en_DG",      "en_GB"   },
-    { "en_DM",      "en_GB"   },    // Dominica
-    { "en_FJ",      "en_GB"   },    // Fiji
-    { "en_FK",      "en_GB"   },
-    { "en_GB",      "en_001"  },    // from parentLocales, added here for efficiency
-    { "en_GD",      "en_GB"   },    // Grenada
-    { "en_GG",      "en_GB"   },
-    { "en_GH",      "en_GB"   },    // Ghana
-    { "en_GI",      "en_GB"   },
-    { "en_GM",      "en_GB"   },    // Gambia
-    { "en_GY",      "en_GB"   },    // Guyana
-    { "en_HK",      "en_GB"   },    // Apple custom parent
-    { "en_IE",      "en_GB"   },
-    { "en_IM",      "en_GB"   },
-    { "en_IN",      "en_GB"   },    // Apple custom parent
-    { "en_IO",      "en_GB"   },
-    { "en_JE",      "en_GB"   },
-    { "en_JM",      "en_GB"   },
-    { "en_KE",      "en_GB"   },    // Kenya
-    { "en_KI",      "en_GB"   },    // Kiribati
-    { "en_KN",      "en_GB"   },    // St. Kitts & Nevis
-    { "en_KY",      "en_GB"   },    // Cayman Islands
-    { "en_LC",      "en_GB"   },    // St. Lucia
-    { "en_LK",      "en_GB"   },    // Apple custom parent
-    { "en_LS",      "en_GB"   },    // Lesotho
-    { "en_MO",      "en_GB"   },
-    { "en_MS",      "en_GB"   },    // Montserrat
-    { "en_MT",      "en_GB"   },
-    { "en_MU",      "en_GB"   },    // Mauritius
-    { "en_MV",      "en_GB"   },
-    { "en_MW",      "en_GB"   },    // Malawi
-    { "en_MY",      "en_GB"   },    // Apple custom parent
-    { "en_NA",      "en_GB"   },    // Namibia
-    { "en_NF",      "en_AU"   },    // Norfolk Island
-    { "en_NG",      "en_GB"   },    // Nigeria
-    { "en_NR",      "en_AU"   },    // Nauru
-    { "en_NU",      "en_AU"   },    // Niue (maybe to en_NZ instead?)
-    { "en_NZ",      "en_AU"   },
-    { "en_PG",      "en_AU"   },    // Papua New Guinea
-    { "en_PK",      "en_GB"   },    // Apple custom parent
-    { "en_PN",      "en_GB"   },    // Pitcairn Islands
-    { "en_SB",      "en_GB"   },    // Solomon Islands
-    { "en_SC",      "en_GB"   },    // Seychelles
-    { "en_SD",      "en_GB"   },    // Sudan
-    { "en_SG",      "en_GB"   },
-    { "en_SH",      "en_GB"   },
-    { "en_SL",      "en_GB"   },    // Sierra Leone
-    { "en_SS",      "en_GB"   },    // South Sudan
-    { "en_SZ",      "en_GB"   },    // Swaziland
-    { "en_TC",      "en_GB"   },    // Tristan da Cunha
-    { "en_TO",      "en_GB"   },    // Tonga
-    { "en_TT",      "en_GB"   },    // Trinidad & Tobago
-    { "en_TV",      "en_GB"   },    // Tuvalu
-    { "en_TZ",      "en_GB"   },    // Tanzania
-    { "en_UG",      "en_GB"   },    // Uganda
-    { "en_VC",      "en_GB"   },    // St. Vincent & Grenadines
-    { "en_VG",      "en_GB"   },
-    { "en_VU",      "en_GB"   },    // Vanuatu
-    { "en_WS",      "en_AU"   },    // Samoa (maybe to en_NZ instead?)
-    { "en_ZA",      "en_GB"   },    // South Africa
-    { "en_ZM",      "en_GB"   },    // Zambia
-    { "en_ZW",      "en_GB"   },    // Zimbabwe
-    { "es_MX",      "es_419"  },    // from parentLocales, added here for efficiency
-    { "wuu",        "wuu_Hans"},    // rdar://64497611
-    { "wuu_Hans",   "zh_Hans" },    // rdar://64497611
-    { "wuu_Hant",   "zh_Hant" },    // rdar://64497611
-    { "yue",        "yue_Hant"},
-    { "yue_Hans",   "zh_Hans" },    // <rdar://problem/30671866>
-    { "yue_Hant",   "zh_Hant" },    // <rdar://problem/30671866>
-    { "zh_Hant",    "root"    },    // from parentLocales, added here for efficiency
+    { "ars",         "ar"      },    // rdar://64497611
+    { "en_150",      "en_GB"   },    // Apple custom parent
+    { "en_AG",       "en_GB"   },    // Antigua & Barbuda
+    { "en_AI",       "en_GB"   },    // Anguilla
+    { "en_AU",       "en_GB"   },    // Apple custom parent
+    { "en_BB",       "en_GB"   },    // Barbados
+    { "en_BD",       "en_GB"   },    // Apple custom parent
+    { "en_BM",       "en_GB"   },    // Bermuda
+    { "en_BN",       "en_GB"   },    // Brunei
+    { "en_BS",       "en_GB"   },    // Bahamas
+    { "en_BW",       "en_GB"   },    // Botswana
+    { "en_BZ",       "en_GB"   },    // Belize
+    { "en_CC",       "en_AU"   },    // Cocos (Keeling) Islands
+    { "en_CK",       "en_AU"   },    // Cook Islands (maybe to en_NZ instead?)
+    { "en_CX",       "en_AU"   },    // Christmas Island
+    { "en_CY",       "en_150"  },    // Apple locale addition
+    { "en_DG",       "en_GB"   },
+    { "en_DM",       "en_GB"   },    // Dominica
+    { "en_FJ",       "en_GB"   },    // Fiji
+    { "en_FK",       "en_GB"   },
+    { "en_GB",       "en_001"  },    // from parentLocales, added here for efficiency
+    { "en_GD",       "en_GB"   },    // Grenada
+    { "en_GG",       "en_GB"   },
+    { "en_GH",       "en_GB"   },    // Ghana
+    { "en_GI",       "en_GB"   },
+    { "en_GM",       "en_GB"   },    // Gambia
+    { "en_GY",       "en_GB"   },    // Guyana
+    { "en_HK",       "en_GB"   },    // Apple custom parent
+    { "en_IE",       "en_GB"   },
+    { "en_IM",       "en_GB"   },
+    { "en_IN",       "en_GB"   },    // Apple custom parent
+    { "en_IO",       "en_GB"   },
+    { "en_JE",       "en_GB"   },
+    { "en_JM",       "en_GB"   },
+    { "en_KE",       "en_GB"   },    // Kenya
+    { "en_KI",       "en_GB"   },    // Kiribati
+    { "en_KN",       "en_GB"   },    // St. Kitts & Nevis
+    { "en_KY",       "en_GB"   },    // Cayman Islands
+    { "en_LC",       "en_GB"   },    // St. Lucia
+    { "en_LK",       "en_GB"   },    // Apple custom parent
+    { "en_LS",       "en_GB"   },    // Lesotho
+    { "en_MO",       "en_GB"   },
+    { "en_MS",       "en_GB"   },    // Montserrat
+    { "en_MT",       "en_GB"   },
+    { "en_MU",       "en_GB"   },    // Mauritius
+    { "en_MV",       "en_GB"   },
+    { "en_MW",       "en_GB"   },    // Malawi
+    { "en_MY",       "en_GB"   },    // Apple custom parent
+    { "en_NA",       "en_GB"   },    // Namibia
+    { "en_NF",       "en_AU"   },    // Norfolk Island
+    { "en_NG",       "en_GB"   },    // Nigeria
+    { "en_NR",       "en_AU"   },    // Nauru
+    { "en_NU",       "en_AU"   },    // Niue (maybe to en_NZ instead?)
+    { "en_NZ",       "en_AU"   },
+    { "en_PG",       "en_AU"   },    // Papua New Guinea
+    { "en_PK",       "en_GB"   },    // Apple custom parent
+    { "en_PN",       "en_GB"   },    // Pitcairn Islands
+    { "en_SB",       "en_GB"   },    // Solomon Islands
+    { "en_SC",       "en_GB"   },    // Seychelles
+    { "en_SD",       "en_GB"   },    // Sudan
+    { "en_SG",       "en_GB"   },
+    { "en_SH",       "en_GB"   },
+    { "en_SL",       "en_GB"   },    // Sierra Leone
+    { "en_SS",       "en_GB"   },    // South Sudan
+    { "en_SZ",       "en_GB"   },    // Swaziland
+    { "en_TC",       "en_GB"   },    // Tristan da Cunha
+    { "en_TO",       "en_GB"   },    // Tonga
+    { "en_TT",       "en_GB"   },    // Trinidad & Tobago
+    { "en_TV",       "en_GB"   },    // Tuvalu
+    { "en_TZ",       "en_GB"   },    // Tanzania
+    { "en_UG",       "en_GB"   },    // Uganda
+    { "en_VC",       "en_GB"   },    // St. Vincent & Grenadines
+    { "en_VG",       "en_GB"   },
+    { "en_VU",       "en_GB"   },    // Vanuatu
+    { "en_WS",       "en_AU"   },    // Samoa (maybe to en_NZ instead?)
+    { "en_ZA",       "en_GB"   },    // South Africa
+    { "en_ZM",       "en_GB"   },    // Zambia
+    { "en_ZW",       "en_GB"   },    // Zimbabwe
+    { "es_MX",       "es_419"  },    // from parentLocales, added here for efficiency
+    { "wuu",         "wuu_Hans"},    // rdar://64497611
+    { "wuu_Hans",    "zh_Hans" },    // rdar://64497611
+    { "wuu_Hant",    "zh_Hant" },    // rdar://64497611
+    { "yue",         "yue_Hant"},
+    { "yue_HK",      "zh_Hant_HK" }, // rdar://67469388
+    { "yue_Hans",    "zh_Hans" },    // rdar://30671866
+    { "yue_Hant",    "yue_HK"  },    // rdar://67469388
+    { "zh_HK",       "zh_Hant" },
+    { "zh_Hant",     "zh_TW"   },
+    { "zh_Hant_HK",  "zh_HK",  },
+    { "zh_TW",       "root"    },
 };
 enum { kAppleParentMapCount = UPRV_LENGTHOF(appleParentMap) };
 
@@ -597,12 +801,46 @@ static void ualoc_normalize(const char *locale, char *normalized, int32_t normal
     } else if (icu::gMapDataState > 0) {
         // check in gLanguageAliasesBundle
         UErrorCode localStatus = U_ZERO_ERROR;
+        bool strippedScriptAndRegion = false;
         UResourceBundle * aliasMapBundle = ures_getByKey(icu::gLanguageAliasesBundle, locale, NULL, &localStatus);
+        if (U_FAILURE(localStatus) && uprv_strchr(locale, '_') != NULL) {
+            // if we didn't get a resource and the locale we started with has more than just a language code,
+            // try again with just the language code and if we succeed, append the script and region codes
+            // from the original locale to the end of the normalized one
+            char languageOnly[ULOC_FULLNAME_CAPACITY];
+            uprv_strcpy(languageOnly, locale);
+            *uprv_strchr(languageOnly, '_') = '\0';
+            localStatus = U_ZERO_ERROR;
+            aliasMapBundle = ures_getByKey(icu::gLanguageAliasesBundle, languageOnly, NULL, &localStatus);
+            strippedScriptAndRegion = true;
+        }
+        
         if (U_SUCCESS(localStatus) && aliasMapBundle != NULL) {
             len = normalizedCapacity;
             ures_getUTF8StringByKey(aliasMapBundle, "replacement", normalized, &len, TRUE, status);
             if (U_SUCCESS(*status) && len >= normalizedCapacity) {
                 *status = U_BUFFER_OVERFLOW_ERROR; // treat unterminated as error
+            }
+            if (strippedScriptAndRegion) {
+                // If we stripped off the script and region codes to find an entry for the locale in the alias
+                // resource, restore them here.
+                // But this is complicated, because the alias table may gives us back a locale ID that itself has
+                // a script or region code in it, and we don't want to stomp or duplicate them.
+                if (uprv_strchr(normalized, '_') == NULL) {
+                    // if the alias entry was just a language code, just add the script and/or region from the original
+                    // locale (if there were any) back onto the end
+                    uprv_strcat(normalized, uprv_strchr(locale, '_'));
+                } else {
+                    // if the alias entry ends with a script code (four characters after the last _ mark), append
+                    // the region code from the original locale; otherwise, just use the alias entry unchanged
+                    int32_t normalizedLength = uprv_strlen(normalized);
+                    if (normalizedLength > 5 && normalized[normalizedLength - 5] == '_') {
+                        const char* localeRegion = uprv_strrchr(locale, '_');
+                        if (uprv_strlen(localeRegion) <= 4) {
+                            uprv_strcat(normalized, localeRegion);
+                        }
+                    }
+                }
             }
             ures_close(aliasMapBundle);
             return;
@@ -647,7 +885,7 @@ static void ualoc_getParent(const char *locale, char *parent, int32_t parentCapa
 enum { kLangScriptRegMaxLen = ULOC_LANG_CAPACITY + ULOC_SCRIPT_CAPACITY + ULOC_COUNTRY_CAPACITY }; // currently 22
 
 const int32_t kMaxLocaleIDLength = 58;  // ULOC_FULLNAME_CAPACITY - ULOC_KEYWORD_AND_VALUES_CAPACITY: locales without variants should never be more than 24 chars, the excess is just to cover variant codes (+1 for null termination)
-const int32_t kMaxParentChainLength = 7;
+const int32_t kMaxParentChainLength = 8;
 const int32_t kCharStorageBlockSize = 650; // very few of the unit tests used more than 650 bytes of character storage
 
 struct LocIDCharStorage {
@@ -746,6 +984,7 @@ void LocaleIDInfo::initBaseNames(const char *originalID, LocIDCharStorage& charS
         // language codes that need to be considered equivalent for comparison purposes.
         static const char* likeLanguages[] = {
             "ars", "ar",
+            "hi",  "en",    // Hindi and English obviously aren't in the same group; we do this because hi_Latn falls back to en_IN
             "no",  "nb",
             "wuu", "zh",
             "yue", "zh"
@@ -795,7 +1034,7 @@ void LocaleIDInfo::calcParentChain(LocIDCharStorage& charStorage, UBool penalize
                 dummyErr = U_ZERO_ERROR;
                 char minimizedLocale[kLocBaseNameMax];
                 uloc_minimizeSubtags(normalized, minimizedLocale, kLocBaseNameMax, &dummyErr);
-                if (uloc_getCountry(minimizedLocale, NULL, 0, &dummyErr)) {
+                if (uloc_getCountry(minimizedLocale, NULL, 0, &dummyErr) > 0) {
                     parentChain[++index] = normalized;
                 }
             }

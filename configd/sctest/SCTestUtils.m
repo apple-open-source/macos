@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2016, 2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -93,7 +93,7 @@ getUnitTestListForClass(Class base)
 }
 
 NSDictionary *
-getOptionsDictionary(int argc, const char **argv)
+getOptionsDictionary(int argc, const char * const argv[])
 {
 	NSMutableDictionary *options;
 	NSNumberFormatter *numberFormatter;

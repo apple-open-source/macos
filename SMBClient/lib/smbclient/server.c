@@ -146,6 +146,14 @@ SMBCreateDefaultOptions( uint64_t options)
         CFDictionarySetValue(optionDict, kHighFidelityMountKey, kCFBooleanFalse);
     }
 
+    if (options & kSMBOptionSessionEncrypt) {
+        /* Requesting to force session level encryption */
+        CFDictionarySetValue (optionDict, kSessionEncryptionKey, kCFBooleanTrue);
+    } else {
+        /* Not requesting forcing session encryption */
+        CFDictionarySetValue(optionDict, kSessionEncryptionKey, kCFBooleanFalse);
+    }
+
     return optionDict;
 }
 
@@ -379,6 +387,16 @@ SMBMountShareEx(
     if (mountOptions & kSMBMDataCacheOffMount) {
         /* Disable meta data caching */
         CFDictionarySetValue (mOptions, kMDataCacheOffMountKey, kCFBooleanTrue);
+    }
+
+    if (mountOptions & kSMBSessionEncryptMount) {
+        /* Force session encryption */
+        CFDictionarySetValue (mOptions, kSessionEncryptionKey, kCFBooleanTrue);
+    }
+    
+    if (mountOptions & kSMBShareEncryptMount) {
+        /* Force share encryption */
+        CFDictionarySetValue (mOptions, kShareEncryptionKey, kCFBooleanTrue);
     }
 
     /*
@@ -982,6 +1000,7 @@ SMBGetShareAttributes(SMBHANDLE inConnection, void *outAttrs)
         sattrs->session_misc_flags = session_prop.misc_flags;
         sattrs->session_hflags = session_prop.hflags;
         sattrs->session_hflags2 = session_prop.hflags2;
+        sattrs->session_encrypt_cipher = session_prop.encrypt_cipher;
 
         if (sattrs->session_misc_flags & SMBV_MNT_SNAPSHOT) {
             strlcpy(sattrs->snapshot_time, session_prop.snapshot_time,

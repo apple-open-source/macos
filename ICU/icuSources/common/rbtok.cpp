@@ -34,8 +34,8 @@ int32_t RuleBasedTokenizer::tokenize(int32_t maxTokens, RuleBasedTokenRange *out
     int32_t             state;
     uint16_t            category = 0;
 
-    const RBBIStateTableRow  *row;
-    const RBBIStateTableRow  *const startRow = fStartRow;
+    const RBBIStateTableRow57  *row;
+    const RBBIStateTableRow57  *const startRow = fStartRow;
 
     int32_t             lastAcceptingState = 0;
     UChar32             c = 0;
@@ -126,11 +126,11 @@ int32_t RuleBasedTokenizer::tokenize(int32_t maxTokens, RuleBasedTokenRange *out
             //
 
             // Note: fNextState is defined as uint16_t[2], but we are casting
-            // a generated RBBI table to RBBIStateTableRow and some tables
+            // a generated RBBI table to RBBIStateTableRow57 and some tables
             // actually have more than 2 categories.
             U_ASSERT(category<fData->fHeader->fCatCount);
             state = row->fNextState[category];
-            row = (const RBBIStateTableRow *) (tableData + tableRowLen * state);
+            row = (const RBBIStateTableRow57 *) (tableData + tableRowLen * state);
 
             if (row->fAccepting == -1) {
                 // Match found, common case.
@@ -208,9 +208,9 @@ exitTokenizer:
 void
 RuleBasedTokenizer::init()
 {
-    const RBBIStateTable *statetable = fData->fForwardTable;
+    const RBBIStateTable57 *statetable = fData->fForwardTable;
     setBreakType(UBRK_WORD);
-    fStartRow = (const RBBIStateTableRow *)
+    fStartRow = (const RBBIStateTableRow57 *)
         (statetable->fTableData + (statetable->fRowLen * START_STATE));
     UChar i;
     const UTrie         *trie = &fData->fTrie;
@@ -225,7 +225,7 @@ RuleBasedTokenizer::init()
     fStateFlags = new int32_t[statetable->fNumStates];
     for (i = 0; i < statetable->fNumStates; ++i)
     {
-        const RBBIStateTableRow *row = (const RBBIStateTableRow *)
+        const RBBIStateTableRow57 *row = (const RBBIStateTableRow57 *)
             (statetable->fTableData + (statetable->fRowLen * i));
         int32_t flags = 0;
         if (row->fAccepting == -1 && row->fTagIdx != 0)
@@ -256,7 +256,9 @@ RuleBasedTokenizer::init()
 }
 
 RuleBasedTokenizer::RuleBasedTokenizer(const UnicodeString &rules, UParseError &parseErr, UErrorCode &err)
-    : RuleBasedBreakIterator57(rules, parseErr, err)
+:   RuleBasedBreakIterator57(rules, parseErr, err),
+    fStateFlags(NULL),
+    fLatin1Cat(NULL)
 {
     if (U_SUCCESS(err)) {
         init();
@@ -264,7 +266,9 @@ RuleBasedTokenizer::RuleBasedTokenizer(const UnicodeString &rules, UParseError &
 }
 
 RuleBasedTokenizer::RuleBasedTokenizer(uint8_t *data, UErrorCode &status)
-    : RuleBasedBreakIterator57((RBBIDataHeader57 *)data, status)
+:   RuleBasedBreakIterator57((RBBIDataHeader57 *)data, status),
+    fStateFlags(NULL),
+    fLatin1Cat(NULL)
 {
     if (U_SUCCESS(status)) {
         init();
@@ -272,7 +276,9 @@ RuleBasedTokenizer::RuleBasedTokenizer(uint8_t *data, UErrorCode &status)
 }
 
 RuleBasedTokenizer::RuleBasedTokenizer(const uint8_t *data, enum EDontAdopt, UErrorCode &status)
-    : RuleBasedBreakIterator57((const RBBIDataHeader57 *)data, RuleBasedBreakIterator57::kDontAdopt, status)
+:   RuleBasedBreakIterator57((const RBBIDataHeader57 *)data, RuleBasedBreakIterator57::kDontAdopt, status),
+    fStateFlags(NULL),
+    fLatin1Cat(NULL)
 {
     if (U_SUCCESS(status)) {
         init();

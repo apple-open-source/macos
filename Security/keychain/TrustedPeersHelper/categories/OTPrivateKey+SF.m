@@ -53,7 +53,7 @@
 {
     if (self.keyType != OTPrivateKey_KeyType_EC_NIST_CURVES) {
         if(error){
-            *error = [NSError errorWithDomain:OctagonErrorDomain code:OTErrorNotSupported userInfo:nil];
+            *error = [NSError errorWithDomain:OctagonErrorDomain code:OctagonErrorNotSupported userInfo:nil];
         }
         return nil;
     }

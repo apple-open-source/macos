@@ -54,9 +54,9 @@ static bool test_trust_ok(const uint8_t *cert_data, size_t cert_len,
     CFDateRef date = NULL;
     bool result = false;
     CFErrorRef error = NULL;
-    require_string(cert = SecCertificateCreateWithBytes(NULL, cert_data, cert_len),
+    require_string(cert = SecCertificateCreateWithBytes(NULL, cert_data, (CFIndex)cert_len),
                    errOut, "create cert");
-    require_string(root = SecCertificateCreateWithBytes(NULL, root_data, root_len),
+    require_string(root = SecCertificateCreateWithBytes(NULL, root_data, (CFIndex)root_len),
                    errOut, "create root");
     
     policy = SecPolicyCreateSSL(false, NULL);

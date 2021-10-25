@@ -21,17 +21,6 @@
 #ifndef _CRYPTKIT_GIANT_PORT_COMMON_H_
 #define _CRYPTKIT_GIANT_PORT_COMMON_H_
 
-#if  	defined(__i386__) && defined(__GNUC__)
-/* Mac OS X, Intel, Gnu compiler */
-/* This module doesn't compile yet, punt and use the 
- * inline C functions */
 #include "giantPort_Generic.h"
-
-#else
-
-/* Others */
-#include "giantPort_Generic.h"
-
-#endif
 
 #endif	/* _CRYPTKIT_GIANT_PORT_COMMON_H_ */

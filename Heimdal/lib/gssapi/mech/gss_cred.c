@@ -124,7 +124,7 @@ gss_export_cred(OM_uint32 * __nonnull minor_status,
 GSSAPI_LIB_FUNCTION OM_uint32 GSSAPI_LIB_CALL
 gss_import_cred(OM_uint32 * __nonnull minor_status,
 		__nonnull gss_buffer_t token,
-		__nonnull gss_cred_id_t * __nullable cred_handle)
+		__nullable gss_cred_id_t * __nonnull cred_handle)
 {
     gssapi_mech_interface m;
     krb5_error_code ret;

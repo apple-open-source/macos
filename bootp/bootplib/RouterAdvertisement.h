@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020 Apple Inc. All rights reserved.
+ * Copyright (c) 2020-2021 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -121,6 +121,16 @@ RouterAdvertisementGetDNSExpirationTime(RouterAdvertisementRef ra,
 
 CFStringRef
 RouterAdvertisementCopyCaptivePortal(RouterAdvertisementRef ra);
+
+bool
+RouterAdvertisementGetPREF64(RouterAdvertisementRef ra,
+			     struct in6_addr * ret_prefix,
+			     uint8_t * ret_prefix_length,
+			     uint16_t * ret_prefix_lifetime);
+
+CFStringRef
+RouterAdvertisementCopyPREF64PrefixAndLifetime(RouterAdvertisementRef ra,
+					       uint16_t * ret_prefix_lifetime);
 
 RouterAdvertisementRef
 RouterAdvertisementCreateWithDictionary(CFDictionaryRef dict);

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2019 Apple Inc. All rights reserved.
+ * Copyright (c) 2011-2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -74,6 +74,9 @@ kIPConfigurationServiceOptionIPv6LinkLocalAddress = CFSTR("IPv6LinkLocalAddress"
 
 const CFStringRef
 kIPConfigurationServiceOptionAPNName = _kIPConfigurationServiceOptionAPNName;
+
+const CFStringRef
+kIPConfigurationServiceOptionIPv4Entity = _kIPConfigurationServiceOptionIPv4Entity;
 
 #ifndef kSCPropNetIPv6LinkLocalAddress
 STATIC const CFStringRef kSCPropNetIPv6LinkLocalAddress = CFSTR("LinkLocalAddress");
@@ -151,6 +154,7 @@ struct __IPConfigurationService {
     CFStringRef			store_key;
     ObjectWrapperRef		wrapper;
     CFDictionaryRef		config_dict;
+    Boolean			is_ipv6;
     Boolean			need_reconnect;
 };
 
@@ -284,121 +288,242 @@ __IPConfigurationServiceAllocate(CFAllocatorRef allocator)
 /**
  ** Utility functions
  **/
-STATIC CFDictionaryRef
-config_dict_create(CFStringRef serviceID,
-		   CFDictionaryRef requested_ipv6_config,
-		   CFBooleanRef no_publish,
-		   CFNumberRef mtu, CFBooleanRef perform_nud,
-		   CFStringRef ipv6_ll, CFBooleanRef enable_dad,
-		   CFStringRef apn_name, CFBooleanRef enable_clat46)
+typedef struct {
+    CFDictionaryRef 		ipv6_entity;
+    CFBooleanRef		perform_nud;
+    CFStringRef			ll_addr;
+    CFBooleanRef		enable_dad;
+    CFBooleanRef		enable_clat46;
+} IPv6Config, * IPv6ConfigRef;
+
+typedef struct {
+    CFDictionaryRef 		ipv4_entity;
+} IPv4Config, * IPv4ConfigRef;
+
+typedef struct {
+    CFBooleanRef 		no_publish;
+    CFNumberRef 		mtu;
+    CFStringRef			apn_name;
+    Boolean			is_ipv6;
+    union {
+	IPv4Config		v4;
+	IPv6Config		v6;
+    };
+} ConfigParams, * ConfigParamsRef;
+
+STATIC Boolean
+plist_validate_array(CFDictionaryRef plist,
+		     CFStringRef prop,
+		     CFIndex count,
+		     CFArrayRef * ret_array)
 {
-#define N_KEYS_VALUES	9
-    int			count;
-    CFDictionaryRef	config_dict;
-    CFDictionaryRef 	ipv6_dict;
-    const void *	keys[N_KEYS_VALUES];
-    CFDictionaryRef	options;
-    const void *	values[N_KEYS_VALUES];
+    CFArrayRef		array;
+    Boolean		is_valid = FALSE;
 
-    /* monitor pid */    
-    count = 0;
-    keys[count] = _kIPConfigurationServiceOptionMonitorPID;
-    values[count] = kCFBooleanTrue;
-    count++;
+    *ret_array = NULL;
+    array = CFDictionaryGetValue(plist, prop);
+    if (array != NULL) {
+	CFIndex		array_count;
 
-    /* no publish */
-    if (no_publish == NULL) {
-	no_publish = kCFBooleanTrue;
+	if (isA_CFArray(array) == NULL) {
+	    IPConfigLog(LOG_NOTICE, "%@ invalid", prop);
+	    goto done;
+	}
+	array_count = CFArrayGetCount(array);
+	if (count != array_count) {
+	    IPConfigLog(LOG_NOTICE, "%@ array size %ld != %ld",
+			prop, array_count, count);
+	    goto done;
+	}
     }
-    keys[count] = _kIPConfigurationServiceOptionNoPublish;
-    values[count] = no_publish;
-    count++;
+    is_valid = TRUE;
+    *ret_array = array;
 
-    /* mtu */
-    if (mtu != NULL) {
-	keys[count] = kIPConfigurationServiceOptionMTU;
-	values[count] = mtu;
-	count++;
+ done:
+    return (is_valid);
+}
+
+STATIC Boolean
+plist_validate_bool(CFDictionaryRef plist,
+		    CFStringRef prop,
+		    CFBooleanRef * ret_bool)
+{
+    CFBooleanRef	bool_val;
+    Boolean		is_valid = FALSE;
+
+    *ret_bool = NULL;
+    bool_val = CFDictionaryGetValue(plist, prop);
+    if (bool_val != NULL) {
+	if (isA_CFBoolean(bool_val) == NULL) {
+	    IPConfigLog(LOG_NOTICE, "%@' invalid", prop);
+	    goto done;
+	}
     }
-    
-    /* perform NUD */
-    if (perform_nud != NULL) {
-	keys[count] = kIPConfigurationServiceOptionPerformNUD;
-	values[count] = perform_nud;
-	count++;
-    }
+    is_valid = TRUE;
+    *ret_bool = bool_val;
 
-    /* enable DAD */
-    if (enable_dad != NULL) {
-	keys[count] = kIPConfigurationServiceOptionEnableDAD;
-	values[count] = enable_dad;
-	count++;
-    }
+ done:
+    return (is_valid);
+}
 
-    /* enable CLAT46 */
-    if (enable_clat46 != NULL) {
-	keys[count] = kIPConfigurationServiceOptionEnableCLAT46;
-	values[count] = enable_clat46;
-	count++;
-    }
+STATIC CFDictionaryRef
+createIPv6Entity(IPv6ConfigRef v6)
+{
+    CFDictionaryRef	dict;
 
-    /* serviceID */
-    keys[count] = _kIPConfigurationServiceOptionServiceID;
-    values[count] = serviceID;
-    count++;
-
-    /* clear state */
-    keys[count] = _kIPConfigurationServiceOptionClearState;
-    values[count] = kCFBooleanTrue;
-    count++;
-
-    /* APN name */
-    if (apn_name != NULL) {
-	keys[count] = kIPConfigurationServiceOptionAPNName;
-	values[count] = apn_name;
-	count++;
-    }
-
-    options
-	= CFDictionaryCreate(NULL, keys, values, count,
-			     &kCFTypeDictionaryKeyCallBacks,
-			     &kCFTypeDictionaryValueCallBacks);
-
-    if (requested_ipv6_config != NULL) {
-	if (ipv6_ll != NULL
-	    && !CFDictionaryContainsKey(requested_ipv6_config,
+    if (v6->ipv6_entity != NULL) {
+	if (v6->ll_addr != NULL
+	    && !CFDictionaryContainsKey(v6->ipv6_entity,
 					kSCPropNetIPv6LinkLocalAddress)) {
 	    CFMutableDictionaryRef	temp;
 
 	    temp = CFDictionaryCreateMutableCopy(NULL, 0,
-						 requested_ipv6_config);
+						 v6->ipv6_entity);
 	    CFDictionarySetValue(temp,
 				 kSCPropNetIPv6LinkLocalAddress,
-				 ipv6_ll);
-	    ipv6_dict = temp;
+				 v6->ll_addr);
+	    dict = temp;
 	}
 	else {
-	    ipv6_dict = requested_ipv6_config;
+	    dict = CFRetain(v6->ipv6_entity);
 	}
     }
     else {
+	int		count;
+	const void *	keys[2];
+	const void *	values[2];
+
 	count = 0;
 	keys[count] = kSCPropNetIPv6ConfigMethod;
 	values[count] = kSCValNetIPv6ConfigMethodAutomatic;
 	count++;
 
 	/* add the IPv6 link-local address if specified */
-	if (ipv6_ll != NULL) {
+	if (v6->ll_addr != NULL) {
 	    keys[count] = kSCPropNetIPv6LinkLocalAddress;
-	    values[count] = ipv6_ll;
+	    values[count] = v6->ll_addr;
+	    count++;
+	}
+	/* create the default IPv6 dictionary */
+	dict = CFDictionaryCreate(NULL, keys, values, count,
+				  &kCFTypeDictionaryKeyCallBacks,
+				  &kCFTypeDictionaryValueCallBacks);
+    }
+    return (dict);
+}
+
+STATIC CFDictionaryRef
+createIPv4Entity(IPv4ConfigRef v4)
+{
+    CFDictionaryRef	dict;
+
+    if (v4->ipv4_entity != NULL) {
+	dict = CFRetain(v4->ipv4_entity);
+    }
+    else {
+	/* create the default IPv4 dictionary */
+	dict = CFDictionaryCreate(NULL,
+				  (const void * *)&kSCPropNetIPv4ConfigMethod,
+				  (const void * *)&kSCValNetIPv4ConfigMethodDHCP,
+				  1,
+				  &kCFTypeDictionaryKeyCallBacks,
+				  &kCFTypeDictionaryValueCallBacks);
+    }
+    return (dict);
+}
+
+
+STATIC CFDictionaryRef
+config_dict_create(CFStringRef serviceID, ConfigParamsRef params)
+{
+#define N_KEYS_VALUES	9
+    int			count;
+    CFDictionaryRef	config_dict;
+    CFDictionaryRef 	proto_dict;
+    CFStringRef 	proto_key;
+    const void *	keys[N_KEYS_VALUES];
+    CFDictionaryRef	options;
+    const void *	values[N_KEYS_VALUES];
+
+    /* 0 */
+    /* monitor pid */    
+    count = 0;
+    keys[count] = _kIPConfigurationServiceOptionMonitorPID;
+    values[count] = kCFBooleanTrue;
+    count++;
+
+    /* 1 */
+    /* no publish */
+    if (params->no_publish == NULL) {
+	params->no_publish = kCFBooleanTrue;
+    }
+    keys[count] = _kIPConfigurationServiceOptionNoPublish;
+    values[count] = params->no_publish;
+    count++;
+
+    /* 2 */
+    /* mtu */
+    if (params->mtu != NULL) {
+	keys[count] = kIPConfigurationServiceOptionMTU;
+	values[count] = params->mtu;
+	count++;
+    }
+
+    /* 3 */
+    /* serviceID */
+    keys[count] = _kIPConfigurationServiceOptionServiceID;
+    values[count] = serviceID;
+    count++;
+
+    /* 4 */
+    /* clear state */
+    keys[count] = _kIPConfigurationServiceOptionClearState;
+    values[count] = kCFBooleanTrue;
+    count++;
+
+    /* 5 */
+    /* APN name */
+    if (params->apn_name != NULL) {
+	keys[count] = kIPConfigurationServiceOptionAPNName;
+	values[count] = params->apn_name;
+	count++;
+    }
+    if (params->is_ipv6) {
+	/* 6 */
+	/* perform NUD */
+	if (params->v6.perform_nud != NULL) {
+	    keys[count] = kIPConfigurationServiceOptionPerformNUD;
+	    values[count] = params->v6.perform_nud;
 	    count++;
 	}
 
-	/* create the default IPv6 dictionary */
-	ipv6_dict
-	    = CFDictionaryCreate(NULL, keys, values, count,
-				 &kCFTypeDictionaryKeyCallBacks,
-				 &kCFTypeDictionaryValueCallBacks);
+	/* 7 */
+	/* enable DAD */
+	if (params->v6.enable_dad != NULL) {
+	    keys[count] = kIPConfigurationServiceOptionEnableDAD;
+	    values[count] = params->v6.enable_dad;
+	    count++;
+	}
+
+	/* 8 */
+	/* enable CLAT46 */
+	if (params->v6.enable_clat46 != NULL) {
+	    keys[count] = kIPConfigurationServiceOptionEnableCLAT46;
+	    values[count] = params->v6.enable_clat46;
+	    count++;
+	}
+    }
+    options
+	= CFDictionaryCreate(NULL, keys, values, count,
+			     &kCFTypeDictionaryKeyCallBacks,
+			     &kCFTypeDictionaryValueCallBacks);
+    if (params->is_ipv6) {
+	proto_dict = createIPv6Entity(&params->v6);
+	proto_key = kSCEntNetIPv6;
+    }
+    else {
+	proto_dict = createIPv4Entity(&params->v4);
+	proto_key = kSCEntNetIPv4;
     }
 
     count = 0;
@@ -406,8 +531,8 @@ config_dict_create(CFStringRef serviceID,
     values[count] = options;
     count++;
 
-    keys[count] = kSCEntNetIPv6;
-    values[count] = ipv6_dict;
+    keys[count] = proto_key;
+    values[count] = proto_dict;
     count++;
 
     config_dict
@@ -415,15 +540,106 @@ config_dict_create(CFStringRef serviceID,
 			     &kCFTypeDictionaryKeyCallBacks,
 			     &kCFTypeDictionaryValueCallBacks);
     CFRelease(options);
-    if (ipv6_dict != requested_ipv6_config) {
-	CFRelease(ipv6_dict);
-    }
+    CFRelease(proto_dict);
     return (config_dict);
+}
+
+STATIC Boolean
+ipv4_config_is_valid(CFDictionaryRef config)
+{
+    CFIndex		config_count;
+    CFStringRef		config_method;
+    Boolean		is_valid = FALSE;
+
+    config_method = CFDictionaryGetValue(config, kSCPropNetIPv4ConfigMethod);
+    if (isA_CFString(config_method) == NULL) {
+	goto done;
+    }
+    config_count = 1;
+    if (CFEqual(config_method, kSCValNetIPv4ConfigMethodManual)) {
+	CFArrayRef	addresses;
+	CFIndex		count;
+	CFArrayRef	dest_addresses;
+	CFStringRef	router;
+	CFArrayRef	subnet_masks;
+	Boolean		valid;
+
+	/* Addresses is required */
+	addresses = CFDictionaryGetValue(config, kSCPropNetIPv4Addresses);
+	if (isA_CFArray(addresses) == NULL) {
+	    IPConfigLog(LOG_NOTICE, "%@ missing/invalid",
+			kSCPropNetIPv4Addresses);
+	    goto done;
+	}
+	count = CFArrayGetCount(addresses);
+	if (count == 0) {
+	    IPConfigLog(LOG_NOTICE, "%@ empty array",
+			kSCPropNetIPv4Addresses);
+	    goto done;
+	}
+	config_count++;
+	valid = plist_validate_array(config, kSCPropNetIPv4SubnetMasks, count,
+				     &subnet_masks);
+	if (!valid) {
+	    goto done;
+	}
+	valid = plist_validate_array(config, kSCPropNetIPv4DestAddresses, count,
+				     &dest_addresses);
+	if (!valid) {
+	    goto done;
+	}
+	if (subnet_masks != NULL) {
+	    config_count++;
+	}
+	if (dest_addresses != NULL) {
+	    config_count++;
+	}
+	router = CFDictionaryGetValue(config, kSCPropNetIPv4Router);
+	if (router != NULL) {
+	    if (isA_CFString(router) == NULL) {
+		IPConfigLog(LOG_NOTICE, "%@ invalid",
+			    kSCPropNetIPv4Router);
+		goto done;
+	    }
+	    config_count++;
+	}
+    }
+    else if (CFEqual(config_method, kSCValNetIPv4ConfigMethodDHCP)) {
+	CFStringRef	clientID;
+
+	clientID = CFDictionaryGetValue(config, kSCPropNetIPv4DHCPClientID);
+	if (clientID != NULL) {
+	    if (isA_CFString(clientID) == NULL) {
+		IPConfigLog(LOG_NOTICE,
+			    "invalid %@",
+			    kSCPropNetIPv4DHCPClientID);
+		goto done;
+	    }
+	    config_count++;
+	}
+    }
+    else if (CFEqual(config_method, kSCValNetIPv4ConfigMethodLinkLocal)) {
+	/* no other properties required/allowed */
+    }
+    else {
+	goto done;
+    }
+    if (config_count != CFDictionaryGetCount(config)) {
+	IPConfigLog(LOG_NOTICE,
+		    "IPv4 entity %@ contains extra properties",
+		    config);
+	goto done;
+    }
+    is_valid = TRUE;
+
+ done:
+    return (is_valid);
 }
 
 STATIC Boolean
 ipv6_config_is_valid(CFDictionaryRef config)
 {
+    CFIndex		config_count;
     CFStringRef		config_method;
     Boolean		is_valid = FALSE;
 
@@ -431,10 +647,12 @@ ipv6_config_is_valid(CFDictionaryRef config)
     if (isA_CFString(config_method) == NULL) {
 	goto done;
     }
+    config_count = 1;
     if (CFEqual(config_method, kSCValNetIPv6ConfigMethodManual)) {
 	CFArrayRef	addresses;
 	CFIndex		count;
 	CFArrayRef	prefix_lengths;
+	CFStringRef	router;
 
 	/* must contain Addresses, PrefixLength */
 	addresses = CFDictionaryGetValue(config, kSCPropNetIPv6Addresses);
@@ -442,19 +660,122 @@ ipv6_config_is_valid(CFDictionaryRef config)
 					      kSCPropNetIPv6PrefixLength);
 	if (isA_CFArray(addresses) == NULL
 	    || isA_CFArray(prefix_lengths) == NULL) {
+	    IPConfigLog(LOG_NOTICE,
+			"IPv6 entity contains invalid %@ or %@",
+			kSCPropNetIPv6Addresses,
+			kSCPropNetIPv6PrefixLength);
 	    goto done;
 	}
 	count = CFArrayGetCount(addresses);
-	if (count == 0 || count != CFArrayGetCount(prefix_lengths)) {
+	if (count == 0) {
+	    IPConfigLog(LOG_NOTICE,
+			"IPv6 entity contains empty %@",
+			kSCPropNetIPv6Addresses);
 	    goto done;
+	}
+	if (count != CFArrayGetCount(prefix_lengths)) {
+	    IPConfigLog(LOG_NOTICE,
+			"IPv6 %@ and %@ are different sizes",
+			kSCPropNetIPv6Addresses,
+			kSCPropNetIPv6PrefixLength);
+	    goto done;
+	}
+	config_count += 2;
+	router = CFDictionaryGetValue(config, kSCPropNetIPv6Router);
+	if (router != NULL) {
+	    if (isA_CFString(router) == NULL) {
+		IPConfigLog(LOG_NOTICE, "%@ invalid",
+			    kSCPropNetIPv6Router);
+		goto done;
+	    }
+	    config_count++;
 	}
     }
     else if (CFEqual(config_method, kSCValNetIPv6ConfigMethodAutomatic)
 	     || CFEqual(config_method, kSCValNetIPv6ConfigMethodLinkLocal)) {
-	/* no other parameters are required */
+	/* no other properties required/allowed */
     }
     else {
 	goto done;
+    }
+    if (CFDictionaryGetCount(config) != config_count) {
+	IPConfigLog(LOG_NOTICE,
+		    "IPv6 entity %@ contains extra properties",
+		    config);
+	goto done;
+    }
+    is_valid = TRUE;
+
+ done:
+    return (is_valid);
+}
+
+STATIC Boolean
+init_ipv6_params(CFDictionaryRef options, IPv6ConfigRef v6)
+{
+    struct in6_addr	ip;
+    CFDictionaryRef	ip_dict;
+    CFStringRef		ipv6_ll;
+    Boolean		is_valid = FALSE;
+
+    if (!plist_validate_bool(options,
+			     kIPConfigurationServiceOptionPerformNUD,
+			     &v6->perform_nud)) {
+	goto done;
+    }
+    if (!plist_validate_bool(options,
+			     kIPConfigurationServiceOptionEnableDAD,
+			     &v6->enable_dad)) {
+	goto done;
+    }
+    if (!plist_validate_bool(options,
+			     kIPConfigurationServiceOptionEnableCLAT46,
+			     &v6->enable_clat46)) {
+	goto done;
+    }
+    ip_dict = CFDictionaryGetValue(options,
+				   kIPConfigurationServiceOptionIPv6Entity);
+    if (ip_dict != NULL) {
+	if (!ipv6_config_is_valid(ip_dict)) {
+	    IPConfigLog(LOG_NOTICE, "invalid '%@' option",
+			kIPConfigurationServiceOptionIPv6Entity);
+	    goto done;
+	}
+	v6->ipv6_entity = ip_dict;
+    }
+    ipv6_ll
+	= CFDictionaryGetValue(options,
+			       kIPConfigurationServiceOptionIPv6LinkLocalAddress);
+    if (ipv6_ll != NULL) {
+	if (my_CFStringToIPv6Address(ipv6_ll, &ip) == FALSE
+	    || IN6_IS_ADDR_LINKLOCAL(&ip) == FALSE) {
+	    IPConfigLogFL(LOG_NOTICE, "invalid '%@' option",
+			  kIPConfigurationServiceOptionIPv6LinkLocalAddress);
+	    goto done;
+	}
+	v6->ll_addr = ipv6_ll;
+    }
+    is_valid = TRUE;
+
+ done:
+    return (is_valid);
+}
+
+STATIC Boolean
+init_ipv4_params(CFDictionaryRef options, IPv4ConfigRef v4)
+{
+    CFDictionaryRef	ip_dict;
+    Boolean		is_valid = FALSE;
+
+    ip_dict = CFDictionaryGetValue(options,
+				   kIPConfigurationServiceOptionIPv4Entity);
+    if (ip_dict != NULL) {
+	if (!ipv4_config_is_valid(ip_dict)) {
+	    IPConfigLog(LOG_NOTICE, "invalid '%@' option",
+			kIPConfigurationServiceOptionIPv4Entity);
+	    goto done;
+	}
+	v4->ipv4_entity = ip_dict;
     }
     is_valid = TRUE;
 
@@ -620,17 +941,22 @@ store_init(IPConfigurationServiceRef service, dispatch_queue_t queue)
 STATIC void
 IPConfigurationServiceSetServiceID(IPConfigurationServiceRef service,
 				   CFStringRef serviceID,
+				   Boolean is_ipv6,
 				   Boolean no_publish)
 {
+    service->is_ipv6 = is_ipv6;
     if (no_publish) {
 	service->store_key = IPConfigurationServiceKey(serviceID);
     }
     else {
+	CFStringRef		entity;
+
+	entity = is_ipv6 ? kSCEntNetIPv6 : kSCEntNetIPv4;
 	service->store_key =
 	    SCDynamicStoreKeyCreateNetworkServiceEntity(NULL,
 							kSCDynamicStoreDomainState,
 							serviceID,
-							kSCEntNetIPv6);
+							entity);
     }
     ServiceIDInitWithCFString(service->service_id, serviceID);
     return;
@@ -664,20 +990,13 @@ IPConfigurationServiceRef
 IPConfigurationServiceCreate(CFStringRef interface_name, 
 			     CFDictionaryRef options)
 {
-    CFStringRef			apn_name = NULL;
-    CFStringRef			ipv6_ll = NULL;
-    CFBooleanRef		enable_dad = NULL;
-    CFBooleanRef		enable_clat46 = NULL;
     kern_return_t		kret;
-    CFNumberRef			mtu = NULL;
     Boolean			no_publish = TRUE;
-    CFBooleanRef		no_publish_cf = NULL;
-    CFBooleanRef		perform_nud = NULL;
-    CFDictionaryRef		requested_ipv6_config = NULL;
+    ConfigParams		params;
     mach_port_t			server = MACH_PORT_NULL;
     IPConfigurationServiceRef	ret_service = NULL;
     IPConfigurationServiceRef	service;
-    CFStringRef			serviceID;
+    CFStringRef			serviceID = NULL;
     ipconfig_status_t		status = ipconfig_status_success_e;
 
     init_log();
@@ -689,6 +1008,55 @@ IPConfigurationServiceCreate(CFStringRef interface_name,
 	return (NULL);
     }
 
+    bzero(&params, sizeof(params));
+
+    /* create the configuration, encapsulated as XML plist data */
+    if (options != NULL) {
+	/* common options */
+	params.no_publish
+	    = CFDictionaryGetValue(options,
+				   _kIPConfigurationServiceOptionNoPublish);
+	if (params.no_publish != NULL) {
+	    if (isA_CFBoolean(params.no_publish) == NULL) {
+		IPConfigLog(LOG_NOTICE, "invalid '%@' option",
+			    _kIPConfigurationServiceOptionNoPublish);
+		goto done;
+	    }
+	    no_publish = CFBooleanGetValue(params.no_publish);
+	}
+	params.mtu = CFDictionaryGetValue(options,
+					  kIPConfigurationServiceOptionMTU);
+	if (params.mtu != NULL && isA_CFNumber(params.mtu) == NULL) {
+	    IPConfigLog(LOG_NOTICE, "invalid '%@' option",
+			kIPConfigurationServiceOptionMTU);
+	    goto done;
+	}
+	params.apn_name
+	    = CFDictionaryGetValue(options,
+				   kIPConfigurationServiceOptionAPNName);
+	if (params.apn_name != NULL
+	    && isA_CFString(params.apn_name) == NULL) {
+	    IPConfigLogFL(LOG_NOTICE, "invalid '%@' option",
+			  kIPConfigurationServiceOptionAPNName);
+	    goto done;
+	}
+
+	/* IPv4 */
+	if (CFDictionaryContainsKey(options,
+				    kIPConfigurationServiceOptionIPv4Entity)) {
+	    if (!init_ipv4_params(options, &params.v4)) {
+		/* invalid configuration */
+		goto done;
+	    }
+	}
+	else {
+	    params.is_ipv6 = TRUE;
+	    if (!init_ipv6_params(options, &params.v6)) {
+		/* invalid configuration */
+		goto done;
+	    }
+	}
+    }
     /* allocate/return an IPConfigurationServiceRef */
     service = __IPConfigurationServiceAllocate(NULL);
     if (service == NULL) {
@@ -699,90 +1067,9 @@ IPConfigurationServiceCreate(CFStringRef interface_name,
     /* remember the interface name */
     InterfaceNameInitWithCFString(service->ifname, interface_name);
 
-    /* create the configuration, encapsulated as XML plist data */
-    if (options != NULL) {
-	struct in6_addr		ip;
-
-	no_publish_cf
-	    = CFDictionaryGetValue(options,
-				   _kIPConfigurationServiceOptionNoPublish);
-	if (no_publish_cf != NULL) {
-	    if (isA_CFBoolean(no_publish_cf) == NULL) {
-		IPConfigLogFL(LOG_NOTICE, "ignoring invalid '%@' option",
-			      _kIPConfigurationServiceOptionNoPublish);
-		no_publish_cf = NULL;
-	    }
-	    else {
-		no_publish = CFBooleanGetValue(no_publish_cf);
-	    }
-	}
-	mtu = CFDictionaryGetValue(options,
-				   kIPConfigurationServiceOptionMTU);
-	if (mtu != NULL && isA_CFNumber(mtu) == NULL) {
-	    IPConfigLogFL(LOG_NOTICE, "ignoring invalid '%@' option",
-			  kIPConfigurationServiceOptionMTU);
-	    mtu = NULL;
-	}
-	perform_nud 
-	    = CFDictionaryGetValue(options,
-				   kIPConfigurationServiceOptionPerformNUD);
-	if (perform_nud != NULL && isA_CFBoolean(perform_nud) == NULL) {
-	    IPConfigLogFL(LOG_NOTICE, "ignoring invalid '%@' option",
-			  kIPConfigurationServiceOptionPerformNUD);
-	    perform_nud = NULL;
-	}
-	enable_dad
-	    = CFDictionaryGetValue(options,
-				   kIPConfigurationServiceOptionEnableDAD);
-	if (enable_dad != NULL && isA_CFBoolean(enable_dad) == NULL) {
-	    IPConfigLogFL(LOG_NOTICE, "ignoring invalid '%@' option",
-			  kIPConfigurationServiceOptionEnableDAD);
-	    enable_dad = NULL;
-	}
-
-	enable_clat46
-	    = CFDictionaryGetValue(options,
-				   kIPConfigurationServiceOptionEnableCLAT46);
-	if (enable_clat46 != NULL && isA_CFBoolean(enable_clat46) == NULL) {
-	    IPConfigLogFL(LOG_NOTICE, "ignoring invalid '%@' option",
-			  kIPConfigurationServiceOptionEnableCLAT46);
-	    enable_clat46 = NULL;
-	}
-
-	requested_ipv6_config
-	    = CFDictionaryGetValue(options,
-				   kIPConfigurationServiceOptionIPv6Entity);
-	if (requested_ipv6_config != NULL
-	    && ipv6_config_is_valid(requested_ipv6_config) == FALSE) {
-	    IPConfigLogFL(LOG_NOTICE, "ignoring invalid '%@' option",
-			  kIPConfigurationServiceOptionIPv6Entity);
-	    requested_ipv6_config = NULL;
-	}
-	ipv6_ll
-	    = CFDictionaryGetValue(options,
-				   kIPConfigurationServiceOptionIPv6LinkLocalAddress);
-	if (ipv6_ll != NULL
-	    && (my_CFStringToIPv6Address(ipv6_ll, &ip) == FALSE
-		|| IN6_IS_ADDR_LINKLOCAL(&ip) == FALSE)) {
-	    IPConfigLogFL(LOG_NOTICE, "ignoring invalid '%@' option",
-			  kIPConfigurationServiceOptionIPv6LinkLocalAddress);
-	    ipv6_ll = NULL;
-	}
-	apn_name = CFDictionaryGetValue(options,
-					kIPConfigurationServiceOptionAPNName);
-	if (apn_name != NULL
-	    && isA_CFString(apn_name) == NULL) {
-	    IPConfigLogFL(LOG_NOTICE, "ignoring invalid '%@' option",
-			  kIPConfigurationServiceOptionAPNName);
-	    apn_name = NULL;
-	}
-    }
     serviceID = my_CFUUIDStringCreate(NULL);
-    service->config_dict = config_dict_create(serviceID,
-					      requested_ipv6_config,
-					      no_publish_cf,
-					      mtu, perform_nud, ipv6_ll,
-					      enable_dad, apn_name, enable_clat46);
+    service->config_dict = config_dict_create(serviceID, &params);
+
 
     /* monitor for configd restart */
     service->queue = dispatch_queue_create("IPConfigurationService", NULL);
@@ -800,7 +1087,8 @@ IPConfigurationServiceCreate(CFStringRef interface_name,
     if (status != ipconfig_status_success_e) {
 	goto done;
     }
-    IPConfigurationServiceSetServiceID(service, serviceID, no_publish);
+    IPConfigurationServiceSetServiceID(service, serviceID,
+				       params.is_ipv6, no_publish);
     dispatch_sync(service->queue,
 		  ^{
 		      service->server = server;

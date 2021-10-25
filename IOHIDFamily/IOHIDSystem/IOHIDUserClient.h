@@ -66,7 +66,7 @@ public:
                         IOService ** targetP, UInt32 index ) APPLE_KEXT_OVERRIDE;
 
     // others
-    virtual bool initWithTask(task_t owningTask, void * /* security_id */, UInt32 /* type */);
+    virtual bool initWithTask(task_t owningTask, void * /* security_id */, UInt32 /* type */) APPLE_KEXT_OVERRIDE;
     virtual bool start( IOService * provider ) APPLE_KEXT_OVERRIDE;
     virtual void stop( IOService * provider ) APPLE_KEXT_OVERRIDE;
     virtual IOReturn close( void );

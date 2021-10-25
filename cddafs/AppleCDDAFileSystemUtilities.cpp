@@ -132,7 +132,7 @@ DisposeBufferFromIORegistry ( QTOCDataFormat10Ptr TOCDataPtr )
 	// Free the correct number of bytes. The TOCData has a length word
 	// for its first field, so we free the number of bytes specified by
 	// the length word, plus the length word itself.
-	IOFree ( TOCDataPtr,
+	IOFreeData ( TOCDataPtr,
 			( OSSwapBigToHostInt16 ( TOCDataPtr->TOCDataLength ) + sizeof ( TOCDataPtr->TOCDataLength ) ) );
 	
 	DebugLog ( ( "DisposeBufferFromIORegistry: Exiting...\n" ) );
@@ -171,7 +171,7 @@ CreateBufferFromData ( OSData * theData )
 	}
 	
 	bufferLength = theData->getLength ( );
-	buffer		 = ( QTOCDataFormat10Ptr ) IOMalloc ( bufferLength );
+	buffer		 = ( QTOCDataFormat10Ptr ) IOMallocData ( bufferLength );
 		
 	if ( buffer != NULL )
 	{

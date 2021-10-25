@@ -97,6 +97,8 @@ extern char **environ;
 
 #include "IOKit/graphics/GTraceTypes.hpp"
 
+#ifdef TARGET_CPU_X86_64
+
 #define kFILENAME_LENGTH                64
 
 using std::string;
@@ -585,3 +587,5 @@ int main(int argc, char * argv[])
     dumpGTraceReport(report, gtraces, bDumpToFile);
     return EXIT_SUCCESS;
 }
+
+#endif //TARGET_CPU_X86_64

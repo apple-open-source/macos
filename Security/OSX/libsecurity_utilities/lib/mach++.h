@@ -166,16 +166,11 @@ public:
     Bootstrap() { check(task_get_bootstrap_port(mach_task_self(), &mPort)); }
     Bootstrap(mach_port_t bootp) : Port(bootp) { }
 
-	mach_port_t checkIn(const char *name) const;
 	mach_port_t checkInOptional(const char *name) const;
     
 	void registerAs(mach_port_t port, const char *name) const;
     
-	mach_port_t lookup(const char *name) const;
 	mach_port_t lookup2(const char *name) const;
-    mach_port_t lookupOptional(const char *name) const;
-    
-    Bootstrap subset(Port requestor);
 
     IFDUMP(void dump());
 	
@@ -190,20 +185,14 @@ protected:
 
 
 //
-// Ports that are Task Ports
+// Ports that are Task Ports or Task Name Ports
+// The only added functionality is pid_for_task, which works on either.
 //
 class TaskPort : public Port {
 public:
     TaskPort() { mPort = self(); }
-	TaskPort(mach_port_t p) : Port(p) { }
-    TaskPort(const Port &p) : Port(p) { }
-	TaskPort(pid_t pid);
+    TaskPort(mach_port_t p) : Port(p) { }
     
-    Bootstrap bootstrap() const
-    { mach_port_t boot; check(task_get_bootstrap_port(mPort, &boot)); return boot; }
-    void bootstrap(Bootstrap boot)
-    { check(task_set_bootstrap_port(mPort, boot)); }
-
     pid_t pid() const;
 };
 
@@ -216,26 +205,6 @@ public:
 	ReceivePort()	{ allocate(); }
 	ReceivePort(const char *name, const Bootstrap &bootstrap, bool tryCheckin = true);
 	~ReceivePort()	{ modRefs(MACH_PORT_RIGHT_RECEIVE, -1); }
-};
-
-
-//
-// A little stack utility for temporarily switching your bootstrap around.
-// Essentially, it restores your bootstrap port when it dies. Since the
-// "current bootstrap port" is a process-global item, this uses a global
-// zone of exclusion (aka critical region). There's no protection against
-// someone else calling the underlying system service, of course.
-//
-class StBootstrap {
-public:
-    StBootstrap(const Bootstrap &boot, const TaskPort &task = TaskPort());
-    ~StBootstrap();
-    
-private:
-    Bootstrap mOldBoot;
-    TaskPort mTask;
-    StLock<Mutex> locker;
-    static ModuleNexus<Mutex> critical; // critical region guard (of a sort)
 };
 
 

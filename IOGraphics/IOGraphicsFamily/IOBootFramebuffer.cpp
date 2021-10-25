@@ -26,6 +26,8 @@
 #include "IOBootFramebuffer.h"
 #include "IOGraphicsKTrace.h"
 
+#ifdef TARGET_CPU_X86_64
+
 enum { kTheDisplayMode  = 10 };
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -262,3 +264,5 @@ IOReturn IOBootFramebuffer::setCLUTWithEntries(
     IOBFB_END(setCLUTWithEntries,kIOReturnSuccess,0,0);
     return (kIOReturnSuccess);
 }
+
+#endif // TARGET_CPU_X86_64

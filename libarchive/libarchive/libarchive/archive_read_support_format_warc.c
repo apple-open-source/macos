@@ -127,7 +127,7 @@ static int _warc_skip(struct archive_read *a);
 static int _warc_rdhdr(struct archive_read *a, struct archive_entry *e);
 
 /* private routines */
-static unsigned int _warc_rdver(const char buf[10], size_t bsz);
+static unsigned int _warc_rdver(const char *buf, size_t bsz);
 static unsigned int _warc_rdtyp(const char *buf, size_t bsz);
 static warc_string_t _warc_rduri(const char *buf, size_t bsz);
 static ssize_t _warc_rdlen(const char *buf, size_t bsz);
@@ -337,6 +337,14 @@ start_over:
 			mtime = rtime;
 		}
 		break;
+	case WT_NONE:
+	case WT_INFO:
+	case WT_META:
+	case WT_REQ:
+	case WT_RVIS:
+	case WT_CONV:
+	case WT_CONT:
+	case LAST_WT:
 	default:
 		fnam.len = 0U;
 		fnam.str = NULL;
@@ -361,6 +369,14 @@ start_over:
 			break;
 		}
 		/* FALLTHROUGH */
+	case WT_NONE:
+	case WT_INFO:
+	case WT_META:
+	case WT_REQ:
+	case WT_RVIS:
+	case WT_CONV:
+	case WT_CONT:
+	case LAST_WT:
 	default:
 		/* consume the content and start over */
 		_warc_skip(a);
@@ -384,6 +400,11 @@ _warc_read(struct archive_read *a, const void **buf, size_t *bsz, int64_t *off)
 		*off = w->cntoff + 4U/*for \r\n\r\n separator*/;
 		w->unconsumed = 0U;
 		return (ARCHIVE_EOF);
+	}
+
+	if (w->unconsumed) {
+		__archive_read_consume(a, w->unconsumed);
+		w->unconsumed = 0U;
 	}
 
 	rab = __archive_read_ahead(a, 1U, &nrd);
@@ -422,7 +443,7 @@ _warc_skip(struct archive_read *a)
 static void*
 deconst(const void *c)
 {
-	return (char *)0x1 + (((const char *)c) - (const char *)0x1);
+	return (void *)(uintptr_t)c;
 }
 
 static char*
@@ -621,7 +642,8 @@ _warc_rdver(const char *buf, size_t bsz)
 		if (ver >= 1200U) {
 			if (memcmp(c, "\r\n", 2U) != 0)
 				ver = 0U;
-		} else if (ver < 1200U) {
+		} else {
+			/* ver < 1200U */
 			if (*c != ' ' && *c != '\t')
 				ver = 0U;
 		}
@@ -739,8 +761,9 @@ _warc_rdlen(const char *buf, size_t bsz)
 	/* there must be at least one digit */
 	if (!isdigit((unsigned char)*val))
 		return -1;
+	errno = 0;
 	len = strtol(val, &on, 10);
-	if (on != eol) {
+	if (errno != 0 || on != eol) {
 		/* line must end here */
 		return -1;
 	}

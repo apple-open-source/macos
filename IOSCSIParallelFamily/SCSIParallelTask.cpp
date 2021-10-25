@@ -31,7 +31,6 @@
 
 // General IOKit includes
 #include <IOKit/IOLib.h>
-#include <IOKit/IOBufferMemoryDescriptor.h>
 #include <IOKit/IODMACommand.h>
 
 
@@ -226,6 +225,7 @@ SCSIParallelTask::ResetForNewTask ( void )
 	fRealizedTransferCount		= 0;
 	fTaskRetryCount				= 0;
 	fTaskSubmitted				= false;
+	fDextDataBuffer				= NULL;
 	
 	fSCSIParallelFeatureRequestCount		= 0;
 	fSCSIParallelFeatureRequestResultCount	= 0;

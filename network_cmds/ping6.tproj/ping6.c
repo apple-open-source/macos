@@ -3333,8 +3333,8 @@ usage(void)
 	(void)fprintf(stderr, "            -b boundif           # bind the socket to the interface\n");
 	(void)fprintf(stderr, "            -k traffic_class     # set traffic class socket option\n");
 	(void)fprintf(stderr, "            -K net_service_type  # set traffic class socket options\n");
-	(void)fprintf(stderr, "            -apple-connect       # call connect(2) in the socket\n");
-	(void)fprintf(stderr, "            -apple-time          # display current time\n");
-	(void)fprintf(stderr, "            -apple-progress      # show progress for debugging\n");
+	(void)fprintf(stderr, "            --apple-connect      # call connect(2) in the socket\n");
+	(void)fprintf(stderr, "            --apple-time         # display current time\n");
+	(void)fprintf(stderr, "            -=apple-progress     # show progress for debugging\n");
 	exit(1);
 }

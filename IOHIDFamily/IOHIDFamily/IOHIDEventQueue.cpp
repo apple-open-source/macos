@@ -55,9 +55,6 @@ IOHIDEventQueue *IOHIDEventQueue::withEntries(UInt32 numEntries, UInt32 entrySiz
         size = HID_QUEUE_CAPACITY_MIN;
     }
     
-    if (size > HID_QUEUE_CAPACITY_MAX_ENTITLED) {
-        size = HID_QUEUE_CAPACITY_MAX_ENTITLED;
-    }
     
     queue = IOHIDEventQueue::withCapacity(size);
     if (queue) {

@@ -454,7 +454,7 @@ DecimalFormat::DecimalFormat(const DecimalFormat& source) : NumberFormat(source)
         return; // no way to report an error.
     }
     UErrorCode status = U_ZERO_ERROR;
-    fields->symbols.adoptInsteadAndCheckErrorCode(new DecimalFormatSymbols(*source.fields->symbols), status);
+    fields->symbols.adoptInsteadAndCheckErrorCode(new DecimalFormatSymbols(*source.getDecimalFormatSymbols()), status);
     // In order to simplify error handling logic in the various getters/setters/etc, we do not allow
     // any partially populated DecimalFormatFields object. We must have a fully complete fields object
     // or else we set it to nullptr.
@@ -478,7 +478,7 @@ DecimalFormat& DecimalFormat::operator=(const DecimalFormat& rhs) {
     fields->properties = rhs.fields->properties;
     fields->exportedProperties.clear();
     UErrorCode status = U_ZERO_ERROR;
-    LocalPointer<DecimalFormatSymbols> dfs(new DecimalFormatSymbols(*rhs.fields->symbols), status);
+    LocalPointer<DecimalFormatSymbols> dfs(new DecimalFormatSymbols(*rhs.getDecimalFormatSymbols()), status);
     if (U_FAILURE(status)) {
         // We failed to allocate DecimalFormatSymbols, release fields and its members.
         // We must have a fully complete fields object, we cannot have partially populated members.
@@ -522,7 +522,7 @@ UBool DecimalFormat::operator==(const Format& other) const {
     if (fields == nullptr || otherDF->fields == nullptr) {
         return false;
     }
-    return fields->properties == otherDF->fields->properties && *fields->symbols == *otherDF->fields->symbols;
+    return fields->properties == otherDF->fields->properties && *getDecimalFormatSymbols() == *otherDF->getDecimalFormatSymbols();
 }
 
 UnicodeString& DecimalFormat::format(double number, UnicodeString& appendTo, FieldPosition& pos) const {
@@ -534,7 +534,9 @@ UnicodeString& DecimalFormat::format(double number, UnicodeString& appendTo, Fie
         return appendTo;
     }
     UErrorCode localStatus = U_ZERO_ERROR;
-    FormattedNumber output = fields->formatter.formatDouble(number, localStatus);
+    UFormattedNumberData output;
+    output.quantity.setToDouble(number);
+    fields->formatter.formatImpl(&output, localStatus);
     fieldPositionHelper(output, pos, appendTo.length(), localStatus);
     auto appendable = UnicodeStringAppendable(appendTo);
     output.appendTo(appendable, localStatus);
@@ -555,7 +557,9 @@ UnicodeString& DecimalFormat::format(double number, UnicodeString& appendTo, Fie
     if (pos.getField() == FieldPosition::DONT_CARE && fastFormatDouble(number, appendTo)) {
         return appendTo;
     }
-    FormattedNumber output = fields->formatter.formatDouble(number, status);
+    UFormattedNumberData output;
+    output.quantity.setToDouble(number);
+    fields->formatter.formatImpl(&output, status);
     fieldPositionHelper(output, pos, appendTo.length(), status);
     auto appendable = UnicodeStringAppendable(appendTo);
     output.appendTo(appendable, status);
@@ -577,7 +581,9 @@ DecimalFormat::format(double number, UnicodeString& appendTo, FieldPositionItera
     if (posIter == nullptr && fastFormatDouble(number, appendTo)) {
         return appendTo;
     }
-    FormattedNumber output = fields->formatter.formatDouble(number, status);
+    UFormattedNumberData output;
+    output.quantity.setToDouble(number);
+    fields->formatter.formatImpl(&output, status);
     fieldPositionIteratorHelper(output, posIter, appendTo.length(), status);
     auto appendable = UnicodeStringAppendable(appendTo);
     output.appendTo(appendable, status);
@@ -608,7 +614,9 @@ UnicodeString& DecimalFormat::format(int64_t number, UnicodeString& appendTo, Fi
         return appendTo;
     }
     UErrorCode localStatus = U_ZERO_ERROR;
-    FormattedNumber output = fields->formatter.formatInt(number, localStatus);
+    UFormattedNumberData output;
+    output.quantity.setToLong(number);
+    fields->formatter.formatImpl(&output, localStatus);
     fieldPositionHelper(output, pos, appendTo.length(), localStatus);
     auto appendable = UnicodeStringAppendable(appendTo);
     output.appendTo(appendable, localStatus);
@@ -629,7 +637,9 @@ UnicodeString& DecimalFormat::format(int64_t number, UnicodeString& appendTo, Fi
     if (pos.getField() == FieldPosition::DONT_CARE && fastFormatInt64(number, appendTo)) {
         return appendTo;
     }
-    FormattedNumber output = fields->formatter.formatInt(number, status);
+    UFormattedNumberData output;
+    output.quantity.setToLong(number);
+    fields->formatter.formatImpl(&output, status);
     fieldPositionHelper(output, pos, appendTo.length(), status);
     auto appendable = UnicodeStringAppendable(appendTo);
     output.appendTo(appendable, status);
@@ -651,7 +661,9 @@ DecimalFormat::format(int64_t number, UnicodeString& appendTo, FieldPositionIter
     if (posIter == nullptr && fastFormatInt64(number, appendTo)) {
         return appendTo;
     }
-    FormattedNumber output = fields->formatter.formatInt(number, status);
+    UFormattedNumberData output;
+    output.quantity.setToLong(number);
+    fields->formatter.formatImpl(&output, status);
     fieldPositionIteratorHelper(output, posIter, appendTo.length(), status);
     auto appendable = UnicodeStringAppendable(appendTo);
     output.appendTo(appendable, status);
@@ -670,7 +682,9 @@ DecimalFormat::format(StringPiece number, UnicodeString& appendTo, FieldPosition
         appendTo.setToBogus();
         return appendTo;
     }
-    FormattedNumber output = fields->formatter.formatDecimal(number, status);
+    UFormattedNumberData output;
+    output.quantity.setToDecNumber(number, status);
+    fields->formatter.formatImpl(&output, status);
     fieldPositionIteratorHelper(output, posIter, appendTo.length(), status);
     auto appendable = UnicodeStringAppendable(appendTo);
     output.appendTo(appendable, status);
@@ -688,7 +702,9 @@ UnicodeString& DecimalFormat::format(const DecimalQuantity& number, UnicodeStrin
         appendTo.setToBogus();
         return appendTo;
     }
-    FormattedNumber output = fields->formatter.formatDecimalQuantity(number, status);
+    UFormattedNumberData output;
+    output.quantity = number;
+    fields->formatter.formatImpl(&output, status);
     fieldPositionIteratorHelper(output, posIter, appendTo.length(), status);
     auto appendable = UnicodeStringAppendable(appendTo);
     output.appendTo(appendable, status);
@@ -707,7 +723,9 @@ DecimalFormat::format(const DecimalQuantity& number, UnicodeString& appendTo, Fi
         appendTo.setToBogus();
         return appendTo;
     }
-    FormattedNumber output = fields->formatter.formatDecimalQuantity(number, status);
+    UFormattedNumberData output;
+    output.quantity = number;
+    fields->formatter.formatImpl(&output, status);
     fieldPositionHelper(output, pos, appendTo.length(), status);
     auto appendable = UnicodeStringAppendable(appendTo);
     output.appendTo(appendable, status);
@@ -791,7 +809,11 @@ const DecimalFormatSymbols* DecimalFormat::getDecimalFormatSymbols(void) const {
     if (fields == nullptr) {
         return nullptr;
     }
-    return fields->symbols.getAlias();
+    if (!fields->symbols.isNull()) {
+        return fields->symbols.getAlias();
+    } else {
+        return fields->formatter.getDecimalFormatSymbols();
+    }
 }
 
 void DecimalFormat::adoptDecimalFormatSymbols(DecimalFormatSymbols* symbolsToAdopt) {
@@ -1336,7 +1358,7 @@ UnicodeString& DecimalFormat::toLocalizedPattern(UnicodeString& result) const {
     }
     ErrorCode localStatus;
     result = toPattern(result);
-    result = PatternStringUtils::convertLocalized(result, *fields->symbols, true, localStatus);
+    result = PatternStringUtils::convertLocalized(result, *getDecimalFormatSymbols(), true, localStatus);
     return result;
 }
 
@@ -1372,7 +1394,7 @@ void DecimalFormat::applyLocalizedPattern(const UnicodeString& localizedPattern,
         return;
     }
     UnicodeString pattern = PatternStringUtils::convertLocalized(
-            localizedPattern, *fields->symbols, false, status);
+            localizedPattern, *getDecimalFormatSymbols(), false, status);
     applyPattern(pattern, status);
 }
 
@@ -1553,7 +1575,7 @@ void DecimalFormat::setCurrency(const char16_t* theCurrency, UErrorCode& ec) {
     UChar localeCurr[4];
     if (theCurrency==nullptr || theCurrency[0]==0) {
         UErrorCode getCurrStatus = U_ZERO_ERROR;
-        int32_t currLen = ucurr_forLocale(fields->symbols->getLocale().getName(), localeCurr, UPRV_LENGTHOF(localeCurr), &getCurrStatus);
+        int32_t currLen = ucurr_forLocale(getDecimalFormatSymbols()->getLocale().getName(), localeCurr, UPRV_LENGTHOF(localeCurr), &getCurrStatus);
         if (U_SUCCESS(getCurrStatus) && currLen==3) {
             localeCurr[3] = 0;
             theCurrency = localeCurr;
@@ -1567,8 +1589,11 @@ void DecimalFormat::setCurrency(const char16_t* theCurrency, UErrorCode& ec) {
     }
     NumberFormat::setCurrency(theCurrency, ec); // to set field for compatibility
     fields->properties.currency = currencyUnit;
-    // TODO: Set values in fields->symbols, too?
-    touchNoError();
+    // In Java, the DecimalFormatSymbols is mutable. Why not in C++?
+    LocalPointer<DecimalFormatSymbols> newSymbols(new DecimalFormatSymbols(*getDecimalFormatSymbols()), ec);
+    newSymbols->setCurrency(currencyUnit.getISOCurrency(), ec);
+    fields->symbols.adoptInsteadAndCheckErrorCode(newSymbols.orphan(), ec);
+    touch(ec);
 }
 
 void DecimalFormat::setCurrency(const char16_t* theCurrency) {
@@ -1660,7 +1685,8 @@ void DecimalFormat::touch(UErrorCode& status) {
     }
 
     // In C++, fields->symbols is the source of truth for the locale.
-    Locale locale = fields->symbols->getLocale();
+    const DecimalFormatSymbols* symbols = getDecimalFormatSymbols();
+    Locale locale = symbols->getLocale();
 
     // Note: The formatter is relatively cheap to create, and we need it to populate fields->exportedProperties,
     // so automatically recompute it here. The parser is a bit more expensive and is not needed until the
@@ -1670,8 +1696,9 @@ void DecimalFormat::touch(UErrorCode& status) {
     // Since memory has already been allocated for the formatter, we can move assign a stack-allocated object
     // and don't need to call new. (Which is slower and could possibly fail).
     fields->formatter = NumberPropertyMapper::create(
-        fields->properties, *fields->symbols, fields->warehouse, fields->exportedProperties, status
+        fields->properties, *symbols, fields->warehouse, fields->exportedProperties, status
     ).locale(locale);
+    fields->symbols.adoptInstead(nullptr); // the fields->symbols property is only temporary, until we can copy it into a new LocalizedNumberFormatter
 
     // Do this after fields->exportedProperties are set up
     setupFastFormat();
@@ -1733,7 +1760,7 @@ const numparse::impl::NumberParserImpl* DecimalFormat::getParser(UErrorCode& sta
     }
 
     // Try computing the parser on our own
-    auto* temp = NumberParserImpl::createParserFromProperties(fields->properties, *fields->symbols, false, status);
+    auto* temp = NumberParserImpl::createParserFromProperties(fields->properties, *getDecimalFormatSymbols(), false, status);
     if (U_FAILURE(status)) {
         return nullptr;
     }
@@ -1766,7 +1793,7 @@ const numparse::impl::NumberParserImpl* DecimalFormat::getCurrencyParser(UErrorC
     }
 
     // Try computing the parser on our own
-    auto* temp = NumberParserImpl::createParserFromProperties(fields->properties, *fields->symbols, true, status);
+    auto* temp = NumberParserImpl::createParserFromProperties(fields->properties, *getDecimalFormatSymbols(), true, status);
     if (temp == nullptr) {
         status = U_MEMORY_ALLOCATION_ERROR;
         // although we may still dereference, call sites should be guarded
@@ -1786,8 +1813,11 @@ const numparse::impl::NumberParserImpl* DecimalFormat::getCurrencyParser(UErrorC
 }
 
 void
-DecimalFormat::fieldPositionHelper(const number::FormattedNumber& formatted, FieldPosition& fieldPosition,
-                                   int32_t offset, UErrorCode& status) {
+DecimalFormat::fieldPositionHelper(
+        const UFormattedNumberData& formatted,
+        FieldPosition& fieldPosition,
+        int32_t offset,
+        UErrorCode& status) {
     if (U_FAILURE(status)) { return; }
     // always return first occurrence:
     fieldPosition.setBeginIndex(0);
@@ -1800,12 +1830,15 @@ DecimalFormat::fieldPositionHelper(const number::FormattedNumber& formatted, Fie
 }
 
 void
-DecimalFormat::fieldPositionIteratorHelper(const number::FormattedNumber& formatted, FieldPositionIterator* fpi,
-                                           int32_t offset, UErrorCode& status) {
+DecimalFormat::fieldPositionIteratorHelper(
+        const UFormattedNumberData& formatted,
+        FieldPositionIterator* fpi,
+        int32_t offset,
+        UErrorCode& status) {
     if (U_SUCCESS(status) && (fpi != nullptr)) {
         FieldPositionIteratorHandler fpih(fpi, status);
         fpih.setShift(offset);
-        formatted.getAllFieldPositionsImpl(fpih, status);
+        formatted.getAllFieldPositions(fpih, status);
     }
 }
 
@@ -1834,11 +1867,13 @@ void DecimalFormat::setupFastFormat() {
         return;
     }
 
+    const DecimalFormatSymbols* symbols = getDecimalFormatSymbols();
+    
     // Grouping (secondary grouping is forbidden in equalsDefaultExceptFastFormat):
     bool groupingUsed = fields->properties.groupingUsed;
     int32_t groupingSize = fields->properties.groupingSize;
     bool unusualGroupingSize = groupingSize > 0 && groupingSize != 3;
-    const UnicodeString& groupingString = fields->symbols->getConstSymbol(DecimalFormatSymbols::kGroupingSeparatorSymbol);
+    const UnicodeString& groupingString = symbols->getConstSymbol(DecimalFormatSymbols::kGroupingSeparatorSymbol);
     if (groupingUsed && (unusualGroupingSize || groupingString.length() != 1)) {
         trace("no fast format: grouping\n");
         fields->canUseFastFormat = false;
@@ -1864,8 +1899,8 @@ void DecimalFormat::setupFastFormat() {
     }
 
     // Other symbols:
-    const UnicodeString& minusSignString = fields->symbols->getConstSymbol(DecimalFormatSymbols::kMinusSignSymbol);
-    UChar32 codePointZero = fields->symbols->getCodePointZero();
+    const UnicodeString& minusSignString = symbols->getConstSymbol(DecimalFormatSymbols::kMinusSignSymbol);
+    UChar32 codePointZero = symbols->getCodePointZero();
     if (minusSignString.length() != 1 || U16_LENGTH(codePointZero) != 1) {
         trace("no fast format: symbols\n");
         fields->canUseFastFormat = false;
@@ -1887,7 +1922,7 @@ bool DecimalFormat::fastFormatDouble(double input, UnicodeString& output) const 
         return false;
     }
     if (std::isnan(input)
-            || std::trunc(input) != input
+            || uprv_trunc(input) != input
             || input <= INT32_MIN
             || input > INT32_MAX) {
         return false;
@@ -1920,7 +1955,7 @@ void DecimalFormat::doFastFormatInt32(int32_t input, bool isNegative, UnicodeStr
     char16_t localBuffer[localCapacity];
     char16_t* ptr = localBuffer + localCapacity;
     int8_t group = 0;
-    int8_t minInt = (fields->fastData.minInt < 1)? 1: fields->fastData.minInt; // rdar://54569257
+    int8_t minInt = (fields->fastData.minInt < 1)? 1: fields->fastData.minInt;
     for (int8_t i = 0; i < fields->fastData.maxInt && (input != 0 || i < minInt); i++) {
         if (group++ == 3 && fields->fastData.cpGroupingSeparator != 0) {
             *(--ptr) = fields->fastData.cpGroupingSeparator;

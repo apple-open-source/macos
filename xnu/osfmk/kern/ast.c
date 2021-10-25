@@ -91,6 +91,18 @@ thread_preempted(__unused void* parameter, __unused wait_result_t result)
 }
 
 /*
+ * Create a dedicated frame to clarify that this thread has been preempted
+ * while running in kernel space.
+ */
+static void __attribute__((noinline, disable_tail_calls))
+thread_preempted_in_kernel(ast_t urgent_reason)
+{
+	thread_block_reason(THREAD_CONTINUE_NULL, NULL, urgent_reason);
+
+	assert(ml_get_interrupts_enabled() == FALSE);
+}
+
+/*
  * AST_URGENT was detected while in kernel mode
  * Called with interrupts disabled, returns the same way
  * Must return to caller
@@ -132,9 +144,8 @@ ast_taken_kernel(void)
 
 	assert(urgent_reason & AST_PREEMPT);
 
-	thread_block_reason(THREAD_CONTINUE_NULL, NULL, urgent_reason);
-
-	assert(ml_get_interrupts_enabled() == FALSE);
+	/* We've decided to try context switching */
+	thread_preempted_in_kernel(urgent_reason);
 }
 
 /*
@@ -260,11 +271,26 @@ ast_taken_user(void)
 		}
 	}
 
+	if (reasons & AST_PROC_RESOURCE) {
+		thread_ast_clear(thread, AST_PROC_RESOURCE);
+		task_port_space_ast(thread->task);
+#if MACH_BSD
+		proc_filedesc_ast(thread->task);
+#endif /* MACH_BSD */
+	}
+
 #if CONFIG_TELEMETRY
 	if (reasons & AST_TELEMETRY_ALL) {
 		ast_t telemetry_reasons = reasons & AST_TELEMETRY_ALL;
 		thread_ast_clear(thread, AST_TELEMETRY_ALL);
 		telemetry_ast(thread, telemetry_reasons);
+	}
+#endif
+
+#if MACH_ASSERT
+	if (reasons & AST_DEBUG_ASSERT) {
+		thread_ast_clear(thread, AST_DEBUG_ASSERT);
+		thread_debug_return_to_user_ast(thread);
 	}
 #endif
 
@@ -327,15 +353,16 @@ ast_taken_user(void)
 	 * Here's a good place to put assertions of things which must be true
 	 * upon return to userspace.
 	 */
+	assert(thread->kern_promotion_schedpri == 0);
+	assert(thread->rwlock_count == 0);
+	assert(thread->priority_floor_count == 0);
+
 	assert((thread->sched_flags & TH_SFLAG_WAITQ_PROMOTED) == 0);
 	assert((thread->sched_flags & TH_SFLAG_RW_PROMOTED) == 0);
 	assert((thread->sched_flags & TH_SFLAG_EXEC_PROMOTED) == 0);
+	assert((thread->sched_flags & TH_SFLAG_FLOOR_PROMOTED) == 0);
 	assert((thread->sched_flags & TH_SFLAG_PROMOTED) == 0);
 	assert((thread->sched_flags & TH_SFLAG_DEPRESS) == 0);
-
-	assert(thread->kern_promotion_schedpri == 0);
-	assert(thread->waiting_for_mutex == NULL);
-	assert(thread->rwlock_count == 0);
 }
 
 /*

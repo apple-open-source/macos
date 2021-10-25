@@ -399,7 +399,10 @@ find_cred(krb5_context context,
 
     krb5_cc_clear_mcred(&mcreds);
     mcreds.server = server;
-    ret = krb5_cc_retrieve_cred(context, id, KRB5_TC_DONT_MATCH_REALM,
+    krb5_timeofday(context, &mcreds.times.endtime);
+    ret = krb5_cc_retrieve_cred(context, id,
+				KRB5_TC_DONT_MATCH_REALM |
+				KRB5_TC_MATCH_TIMES,
 				&mcreds, out_creds);
     if(ret == 0)
 	return 0;
@@ -721,7 +724,9 @@ get_cred_kdc_referral(krb5_context context,
 	if (impersonate_principal == NULL || flags.b.constrained_delegation) {
 	    krb5_cc_clear_mcred(&mcreds);
 	    mcreds.server = referral.server;
-	    ret = krb5_cc_retrieve_cred(context, ccache, 0, &mcreds, &ticket);
+	    krb5_timeofday(context, &mcreds.times.endtime);
+	    ret = krb5_cc_retrieve_cred(context, ccache, KRB5_TC_MATCH_TIMES,
+					&mcreds, &ticket);
 	} else
 	    ret = EINVAL;
 

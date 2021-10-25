@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2020 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2021 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -139,9 +139,7 @@ manual_cancel_pending_events(ServiceRef service_p)
     if (manual->timer) {
 	timer_cancel(manual->timer);
     }
-    if (manual->arp) {
-	arp_client_cancel(manual->arp);
-    }
+    service_resolve_router_cancel(service_p, manual->arp);
     return;
 }
 
@@ -176,7 +174,7 @@ manual_start(ServiceRef service_p, IFEventID_t evid, void * event_data)
 	      (void)service_set_address(service_p,
 					service_requested_ip_addr(service_p),
 					service_requested_ip_mask(service_p),
-					G_ip_zeroes);
+					service_requested_ip_dest(service_p));
 	      ServicePublishSuccessIPv4(service_p, NULL);
 	      break;
 	  }
@@ -244,7 +242,7 @@ manual_start(ServiceRef service_p, IFEventID_t evid, void * event_data)
 	  (void)service_set_address(service_p,
 				    service_requested_ip_addr(service_p),
 				    service_requested_ip_mask(service_p),
-				    G_ip_zeroes);
+				    service_requested_ip_dest(service_p));
 	  ServiceRemoveAddressConflict(service_p);
 	  if (service_router_is_iaddr_valid(service_p)
 	      && service_resolve_router(service_p, manual->arp,
@@ -290,12 +288,13 @@ manual_thread(ServiceRef service_p, IFEventID_t evid, void * event_data)
 	  manual->ignore_link_status = method_data->manual.ignore_link_status;
 	  service_set_requested_ip_addr(service_p, method_data->manual.addr);
 	  service_set_requested_ip_mask(service_p, method_data->manual.mask);
-	  if (if_flags(if_p) & IFF_LOOPBACK) {
+	  service_set_requested_ip_dest(service_p, method_data->manual.dest);
+	  if ((if_flags(if_p) & (IFF_LOOPBACK | IFF_POINTOPOINT)) != 0) {
 	      /* set the new address */
 	      (void)service_set_address(service_p, 
 					service_requested_ip_addr(service_p),
 					service_requested_ip_mask(service_p),
-					G_ip_zeroes);
+					service_requested_ip_dest(service_p));
 	      ServicePublishSuccessIPv4(service_p, NULL);
 	      break;
 	  }
@@ -369,14 +368,18 @@ manual_thread(ServiceRef service_p, IFEventID_t evid, void * event_data)
 		  != manual->ignore_link_status)) {
 	      change_event->needs_stop = TRUE;
 	  }
-	  else if (method_data->manual.mask.s_addr
-		   != service_requested_ip_mask(service_p).s_addr) {
+	  else if ((method_data->manual.mask.s_addr
+		    != service_requested_ip_mask(service_p).s_addr)
+		   || (method_data->manual.dest.s_addr
+		       != service_requested_ip_dest(service_p).s_addr)) {
 	      service_set_requested_ip_mask(service_p,
 					    method_data->manual.mask);
+	      service_set_requested_ip_dest(service_p,
+					    method_data->manual.dest);
 	      (void)service_set_address(service_p, 
 					method_data->manual.addr,
 					method_data->manual.mask,
-					G_ip_zeroes);
+					method_data->manual.dest);
 	      /* publish new mask */
 	      ServicePublishSuccessIPv4(service_p, NULL);
 	  }

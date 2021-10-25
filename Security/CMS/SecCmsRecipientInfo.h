@@ -63,15 +63,14 @@ SecCmsRecipientInfoCreate(SecCmsEnvelopedDataRef envd, SecCertificateRef cert)
 #endif // !TARGET_OS_OSX
 
 
-#if TARGET_OS_OSX
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
+#if TARGET_OS_OSX
 extern SecCmsRecipientInfoRef
 SecCmsRecipientInfoCreateWithSubjKeyID(SecCmsMessageRef cmsg,
                                        CSSM_DATA_PTR subjKeyID,
                                        SecPublicKeyRef pubKey)
     API_AVAILABLE(macos(10.4)) API_UNAVAILABLE(macCatalyst);
-#pragma clang diagnostic pop
 #else // !TARGET_OS_OSX
 extern SecCmsRecipientInfoRef
 SecCmsRecipientInfoCreateWithSubjKeyID(SecCmsEnvelopedDataRef envd,
@@ -79,7 +78,7 @@ SecCmsRecipientInfoCreateWithSubjKeyID(SecCmsEnvelopedDataRef envd,
                                        SecPublicKeyRef pubKey)
     API_AVAILABLE(ios(2.0), tvos(2.0), watchos(1.0)) API_UNAVAILABLE(macCatalyst);
 #endif // !TARGET_OS_OSX
-
+#pragma clang diagnostic pop
 
 #if TARGET_OS_OSX
 extern SecCmsRecipientInfoRef

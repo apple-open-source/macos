@@ -39,6 +39,10 @@
 
 __BEGIN_DECLS
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+// rdar://56649059 (SecOCSPRequest and SecOCSPResponse should use libDER instead of libASN1)
+
 typedef enum {
 	kSecOCSPBad = -2,
 	kSecOCSPUnknown = -1,
@@ -100,6 +104,8 @@ struct __SecOCSPSingleResponse {
     SecRevocationReason crlReason;
     CFArrayRef scts;                /* This is parsed from an extension */
 };
+
+#pragma clang diagnostic pop
 
 /*!
 	@function SecOCSPResponseCreate

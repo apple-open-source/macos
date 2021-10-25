@@ -58,8 +58,9 @@ T_DECL(malloc_zone_unregister_establish_custom_default_zone,
 
   // Check that the custom zone is the default zone
   void *ptr2 = malloc(7);
-  T_EXPECT_EQ(malloc_zone_from_ptr(ptr2), custom_zone, "can find custom zone for allocation");
-  T_EXPECT_TRUE(malloc_claimed_address(ptr2), "ptr from custom zone is claimed");
+  T_EXPECT_EQ(malloc_zones[0], custom_zone, "custom zone is zone 0");
+  T_EXPECT_EQ(malloc_zone_from_ptr(ptr2), malloc_default_zone(), "we lookup the virtual zone for the custom zone");
+  T_EXPECT_TRUE(malloc_zone_claimed_address(custom_zone, ptr2), "custom zone claims ptr");
 
   free(ptr2);
   free(ptr);

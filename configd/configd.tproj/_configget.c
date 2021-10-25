@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2006, 2008, 2011, 2013-2016, 2019 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2006, 2008, 2011, 2013-2016, 2019, 2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -80,7 +80,7 @@ _configget(mach_port_t			server,
 	*newInstance = 0;
 
 	/* un-serialize the key */
-	if (!_SCUnserializeString(&key, NULL, (void *)keyRef, keyLen)) {
+	if (!_SCUnserializeString(&key, NULL, keyRef, keyLen)) {
 		*sc_status = kSCStatusFailed;
 		goto done;
 	}
@@ -106,7 +106,7 @@ _configget(mach_port_t			server,
 	}
 
 	/* serialize the data */
-	ok = _SCSerializeData(value, (void **)dataRef, &len);
+	ok = _SCSerializeData(value, dataRef, &len);
 	*dataLen = (mach_msg_type_number_t)len;
 	CFRelease(value);
 	if (!ok) {
@@ -237,14 +237,14 @@ _configget_m(mach_port_t		server,
 
 	if (keysRef && (keysLen > 0)) {
 		/* un-serialize the keys */
-		if (!_SCUnserialize((CFPropertyListRef *)&keys, NULL, (void *)keysRef, keysLen)) {
+		if (!_SCUnserialize((CFPropertyListRef *)&keys, NULL, keysRef, keysLen)) {
 			*sc_status = kSCStatusFailed;
 		}
 	}
 
 	if (patternsRef && (patternsLen > 0)) {
 		/* un-serialize the patterns */
-		if (!_SCUnserialize((CFPropertyListRef *)&patterns, NULL, (void *)patternsRef, patternsLen)) {
+		if (!_SCUnserialize((CFPropertyListRef *)&patterns, NULL, patternsRef, patternsLen)) {
 			*sc_status = kSCStatusFailed;
 		}
 	}
@@ -277,7 +277,7 @@ _configget_m(mach_port_t		server,
 	*sc_status = __SCDynamicStoreCopyMultiple(mySession->store, keys, patterns, &dict);
 
 	/* serialize the dictionary of matching keys/patterns */
-	ok = _SCSerialize(dict, NULL, (void **)dataRef, &len);
+	ok = _SCSerialize(dict, NULL, dataRef, &len);
 	*dataLen = (mach_msg_type_number_t)len;
 	CFRelease(dict);
 	if (!ok) {

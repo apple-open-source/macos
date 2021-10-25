@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, 2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2017, 2018, 2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -169,9 +169,7 @@ _nwi_ifstate_rank_str(Rank rank)
 static __inline__ void
 _nwi_ifstate_log(nwi_ifstate_t ifstate, boolean_t debug, my_log_context_type my_log_context_name)
 {
-#if	defined(MY_LOG_CONTEXT_TYPE_DEFINED_LOCALLY) && defined(MY_LOG_CONTEXT_NAME_DEFINED_LOCALLY)
 #pragma	unused(my_log_context_name)
-#endif
 	union {
 		const void		*bytes;
 		const struct in_addr	*ia;
@@ -265,9 +263,7 @@ _nwi_ifstate_log(nwi_ifstate_t ifstate, boolean_t debug, my_log_context_type my_
 static __inline__ void
 _nwi_state_reachability_log(nwi_state_t state, boolean_t debug, int af, my_log_context_type my_log_context_name)
 {
-#if	defined(MY_LOG_CONTEXT_TYPE_DEFINED_LOCALLY) && defined(MY_LOG_CONTEXT_NAME_DEFINED_LOCALLY)
 #pragma	unused(my_log_context_name)
-#endif
 	uint32_t	flags;
 	char		flags_str[100];
 
@@ -284,9 +280,6 @@ _nwi_state_reachability_log(nwi_state_t state, boolean_t debug, int af, my_log_c
 static __inline__ void
 _nwi_state_log(nwi_state_t state, boolean_t debug, my_log_context_type my_log_context_name)
 {
-#if	defined(MY_LOG_CONTEXT_TYPE_DEFINED_LOCALLY) && defined(MY_LOG_CONTEXT_NAME_DEFINED_LOCALLY)
-#pragma	unused(my_log_context_name)
-#endif
 	unsigned int	count;
 	nwi_ifindex_t	i;
 	nwi_ifstate_t	ifstate;

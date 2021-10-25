@@ -215,7 +215,6 @@ parse(const char *string)
 		while (isspace(*cp))
 			cp++;
 		newval = cp;
-		newsize = strlen(cp);
 	}
 	len = name2oid(bufp, mib);
 
@@ -257,12 +256,7 @@ parse(const char *string)
 			errx(1, "oid '%s' isn't a leaf node", bufp);
 
 		if (!(kind & CTLFLAG_WR)) {
-			if (kind & CTLFLAG_TUN) {
-				warnx("oid '%s' is a read only tunable", bufp);
-				errx(1, "Tunable values are set in /boot/loader.conf");
-			} else {
-				errx(1, "oid '%s' is read only", bufp);
-			}
+			errx(1, "oid '%s' is read only", bufp);
 		}
 
 		if ((kind & CTLTYPE) == CTLTYPE_INT ||
@@ -318,6 +312,8 @@ parse(const char *string)
 				newsize = sizeof(ulongval);
 				break;
 			case CTLTYPE_STRING:
+				/* One extra byte for the NUL terminator */
+				newsize = strlen(newval) + 1;
 				break;
 			case CTLTYPE_S64:
 				i64val = strtoimax(newval, &endptr, 0);
@@ -561,7 +557,7 @@ S_quads(int len, void *p)
 		printf("%llu", i);
 		if (len > size) {
 			len -= size;
-			p = (uintptr_t)p + size;
+			p += size;
 			printf(" ");
 		} else {
 			break;
@@ -929,7 +925,6 @@ show_var(int *oid, int nlen)
 		free(oval);
 		return (0);
 	}
-	free(oval);
 	return (1);
 }
 

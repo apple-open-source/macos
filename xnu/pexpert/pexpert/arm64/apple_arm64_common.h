@@ -45,7 +45,6 @@
 
 #define APPLE_ARM64_ARCH_FAMILY              1
 #define ARM_ARCH_TIMER
-#define ARM_BOARD_WFE_TIMEOUT_NS             1000
 
 #if defined(HAS_CTRR)
 #define KERNEL_INTEGRITY_CTRR                1
@@ -63,9 +62,7 @@
 #include <pexpert/arm64/AIC.h>
 
 #ifndef ASSEMBLER
-#ifndef APPLEVIRTUALPLATFORM
-#include <pexpert/arm/S3cUART.h>
-#endif
+#include <pexpert/arm/apple_uart_regs.h>
 
 #if !defined(APPLETYPHOON) && !defined(APPLETWISTER) && !defined(APPLEVIRTUALPLATFORM)
 #include <pexpert/arm/dockchannel.h>

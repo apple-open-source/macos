@@ -30,6 +30,8 @@ SECURITY_COMMAND("item", keychain_item,
                  "-u Update item in keychain (require query to match)\n"
                  "-D Delete item from keychain\n"
                  "-j When printing results, print JSON\n"
+                 "-p Get persistent reference\n"
+                 "-P Find an item based on a persistent reference\n"
                  "Add, query, update or delete items from the keychain.  Extra attr=value pairs after options always apply to the query\n"
                  "class=[genp|inet|cert|keys] is required for the query\n"
                  "To search the synchronizable items (not searched by default) use sync=1 as an attr=value pair.\n"

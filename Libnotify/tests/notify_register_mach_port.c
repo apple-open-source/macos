@@ -13,6 +13,7 @@
 #include <darwintest.h>
 #include <signal.h>
 #include "../libnotify.h"
+#include "notify_private.h"
 
 static bool has_port_been_notified_1, has_port_been_notified_2;
 static int key_1_token, key_2_token;
@@ -45,9 +46,7 @@ static void port_handler(mach_port_t port)
 	}
 }
 
-T_DECL(notify_register_mach_port, "Make sure mach port registrations works",
-		T_META("owner", "Core Darwin Daemons & Tools"),
-		T_META_ASROOT(YES))
+static void run_test()
 {
 	const char *KEY1 = "com.apple.notify.test.mach_port.1";
 	const char *KEY2 = "com.apple.notify.test.mach_port.2";
@@ -91,4 +90,20 @@ T_DECL(notify_register_mach_port, "Make sure mach port registrations works",
 
 	dispatch_release(port_src);
 
+}
+
+T_DECL(notify_register_mach_port, "Make sure mach port registrations works",
+		T_META("owner", "Core Darwin Daemons & Tools"),
+       T_META_ASROOT(YES))
+{
+	run_test();
+}
+
+T_DECL(notify_register_mach_port_filtered, "Make sure mach port registrations works",
+		T_META("owner", "Core Darwin Daemons & Tools"),
+       T_META_ASROOT(YES))
+{
+	notify_set_options(NOTIFY_OPT_DISPATCH | NOTIFY_OPT_REGEN | NOTIFY_OPT_FILTERED);
+
+	run_test();
 }

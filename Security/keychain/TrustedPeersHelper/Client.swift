@@ -56,6 +56,7 @@ extension NSError {
 }
 
 class Client: TrustedPeersHelperProtocol {
+
     let endpoint: NSXPCListenerEndpoint?
     let containerMap: ContainerMap
 
@@ -272,7 +273,8 @@ class Client: TrustedPeersHelperProtocol {
                  osVersion: String,
                  policyVersion: TPPolicyVersion?,
                  policySecrets: [String: Data]?,
-                 syncUserControllableViews: TPPBPeerStableInfo_UserControllableViewStatus,
+                 syncUserControllableViews: TPPBPeerStableInfoUserControllableViewStatus,
+                 secureElementIdentity: TPPBSecureElementIdentity?,
                  signingPrivKeyPersistentRef: Data?,
                  encPrivKeyPersistentRef: Data?,
                  reply: @escaping (String?, Data?, Data?, Data?, Data?, TPSyncingPolicy?, Error?) -> Void) {
@@ -291,6 +293,7 @@ class Client: TrustedPeersHelperProtocol {
                               policyVersion: policyVersion,
                               policySecrets: policySecrets,
                               syncUserControllableViews: syncUserControllableViews,
+                              secureElementIdentity: secureElementIdentity,
                               signingPrivateKeyPersistentRef: signingPrivKeyPersistentRef,
                               encryptionPrivateKeyPersistentRef: encPrivKeyPersistentRef) { peerID, permanentInfo, permanentInfoSig, stableInfo, stableInfoSig, policy, error in
                                 self.logComplete(function: "Prepare", container: container.name, error: error)
@@ -299,6 +302,52 @@ class Client: TrustedPeersHelperProtocol {
         } catch {
             os_log("Prepare failed for (%{public}@, %{public}@): %{public}@", log: tplogDebug, type: .default, container, context, error as CVarArg)
             reply(nil, nil, nil, nil, nil, nil, error.sanitizeForClientXPC())
+        }
+    }
+
+    func prepareInheritancePeer(withContainer container: String,
+                                context: String,
+                                epoch: UInt64,
+                                machineID: String,
+                                bottleSalt: String,
+                                bottleID: String,
+                                modelID: String,
+                                deviceName: String?,
+                                serialNumber: String?,
+                                osVersion: String,
+                                policyVersion: TPPolicyVersion?,
+                                policySecrets: [String: Data]?,
+                                syncUserControllableViews: TPPBPeerStableInfoUserControllableViewStatus,
+                                secureElementIdentity: TPPBSecureElementIdentity?,
+                                signingPrivKeyPersistentRef: Data?,
+                                encPrivKeyPersistentRef: Data?,
+                                crk: TrustedPeersHelperCustodianRecoveryKey,
+                                reply: @escaping (String?, Data?, Data?, Data?, Data?, TPSyncingPolicy?, String?, [CKRecord]?, Error?) -> Void) {
+        do {
+            let containerName = ContainerName(container: container, context: context)
+            os_log("Preparing new identity for inheritance peer %{public}@", log: tplogDebug, type: .default, containerName.description)
+            let container = try self.containerMap.findOrCreate(name: containerName)
+            container.prepareInheritancePeer(epoch: epoch,
+                                             machineID: machineID,
+                                             bottleSalt: bottleSalt,
+                                             bottleID: bottleID,
+                                             modelID: modelID,
+                                             deviceName: deviceName,
+                                             serialNumber: serialNumber,
+                                             osVersion: osVersion,
+                                             policyVersion: policyVersion,
+                                             policySecrets: policySecrets,
+                                             syncUserControllableViews: syncUserControllableViews,
+                                             secureElementIdentity: secureElementIdentity,
+                                             signingPrivateKeyPersistentRef: signingPrivKeyPersistentRef,
+                                             encryptionPrivateKeyPersistentRef: encPrivKeyPersistentRef,
+                                             crk: crk) { peerID, permanentInfo, permanentInfoSig, stableInfo, stableInfoSig, policy, recoveryKeyID, tlkShares, error in
+                self.logComplete(function: "prepareInheritancePeer", container: container.name, error: error)
+                reply(peerID, permanentInfo, permanentInfoSig, stableInfo, stableInfoSig, policy, recoveryKeyID, tlkShares, error?.sanitizeForClientXPC())
+            }
+        } catch {
+            os_log("prepareInheritancePeer failed for (%{public}@, %{public}@): %{public}@", log: tplogDebug, type: .default, container, context, error as CVarArg)
+            reply(nil, nil, nil, nil, nil, nil, nil, nil, error.sanitizeForClientXPC())
         }
     }
 
@@ -373,17 +422,17 @@ class Client: TrustedPeersHelperProtocol {
                          entropy: Data,
                          bottleSalt: String,
                          tlkShares: [CKKSTLKShare],
-                         reply: @escaping (Data?, Data?, Int64, Int64, Error?) -> Void) {
+                         reply: @escaping (Data?, Data?, [CKKSTLKShare]?, TrustedPeersHelperTLKRecoveryResult?, Error?) -> Void) {
         do {
             let containerName = ContainerName(container: container, context: context)
             os_log("Vouching With Bottle %{public}@", log: tplogDebug, type: .default, containerName.description)
             let container = try self.containerMap.findOrCreate(name: containerName)
-            container.vouchWithBottle(bottleID: bottleID, entropy: entropy, bottleSalt: bottleSalt, tlkShares: tlkShares) { voucher, voucherSig, uniqueTLKsRecovered, totalTLKSharesRecovered, error in
+            container.vouchWithBottle(bottleID: bottleID, entropy: entropy, bottleSalt: bottleSalt, tlkShares: tlkShares) { voucher, voucherSig, newTLKShares, recoveryResult, error in
                 self.logComplete(function: "Vouching With Bottle", container: container.name, error: error)
-                reply(voucher, voucherSig, uniqueTLKsRecovered, totalTLKSharesRecovered, error?.sanitizeForClientXPC()) }
+                reply(voucher, voucherSig, newTLKShares, recoveryResult, error?.sanitizeForClientXPC()) }
         } catch {
             os_log("Vouching with Bottle failed for (%{public}@, %{public}@): %{public}@", log: tplogDebug, type: .default, container, context, error as CVarArg)
-            reply(nil, nil, 0, 0, error.sanitizeForClientXPC())
+            reply(nil, nil, nil, nil, error.sanitizeForClientXPC())
         }
     }
 
@@ -405,22 +454,75 @@ class Client: TrustedPeersHelperProtocol {
         }
     }
 
+    func preflightVouchWithCustodianRecoveryKey(withContainer container: String,
+                                                context: String,
+                                                crk: TrustedPeersHelperCustodianRecoveryKey,
+                                                reply: @escaping (String?, TPSyncingPolicy?, Error?) -> Void) {
+        do {
+            let containerName = ContainerName(container: container, context: context)
+            os_log("Preflight Vouch With CustodianRecoveryKey %{public}@", log: tplogDebug, type: .default, containerName.description)
+            let container = try self.containerMap.findOrCreate(name: containerName)
+            container.preflightVouchWithCustodianRecoveryKey(crk: crk) { peerID, policy, error in
+                self.logComplete(function: "Preflight Vouch With CustodianRecoveryKey", container: container.name, error: error)
+                reply(peerID, policy, error?.sanitizeForClientXPC()) }
+        } catch {
+            os_log("Preflighting Vouch With CustodianRecoveryKey failed for (%{public}@, %{public}@): %{public}@", log: tplogDebug, type: .default, container, context, error as CVarArg)
+            reply(nil, nil, error.sanitizeForClientXPC())
+        }
+    }
+
     func vouchWithRecoveryKey(withContainer container: String,
                               context: String,
                               recoveryKey: String,
                               salt: String,
                               tlkShares: [CKKSTLKShare],
-                              reply: @escaping (Data?, Data?, Error?) -> Void) {
+                              reply: @escaping (Data?, Data?, [CKKSTLKShare]?, TrustedPeersHelperTLKRecoveryResult?, Error?) -> Void) {
         do {
             let containerName = ContainerName(container: container, context: context)
             os_log("Vouching With Recovery Key %{public}@", log: tplogDebug, type: .default, containerName.description)
             let container = try self.containerMap.findOrCreate(name: containerName)
-            container.vouchWithRecoveryKey(recoveryKey: recoveryKey, salt: salt, tlkShares: tlkShares) { voucher, voucherSig, error in
+            container.vouchWithRecoveryKey(recoveryKey: recoveryKey, salt: salt, tlkShares: tlkShares) { voucher, voucherSig, newTLKShares, recoveryResult, error in
                 self.logComplete(function: "Vouching With Recovery Key", container: container.name, error: error)
-                reply(voucher, voucherSig, error?.sanitizeForClientXPC()) }
+                reply(voucher, voucherSig, newTLKShares, recoveryResult, error?.sanitizeForClientXPC()) }
         } catch {
             os_log("Vouching with Recovery Key failed for (%{public}@, %{public}@): %{public}@", log: tplogDebug, type: .default, container, context, error as CVarArg)
+            reply(nil, nil, nil, nil, error.sanitizeForClientXPC())
+        }
+    }
+
+    func recoverTLKSharesForInheritor(withContainer container: String,
+                                      context: String,
+                                      crk: TrustedPeersHelperCustodianRecoveryKey,
+                                      tlkShares: [CKKSTLKShare],
+                                      reply: @escaping ([CKKSTLKShare]?, TrustedPeersHelperTLKRecoveryResult?, Error?) -> Void) {
+        do {
+            let containerName = ContainerName(container: container, context: context)
+            os_log("Recovering TLKShares for Inheritor %{public}@", log: tplogDebug, type: .default, containerName.description)
+            let container = try self.containerMap.findOrCreate(name: containerName)
+            container.recoverTLKSharesForInheritor(crk: crk, tlkShares: tlkShares) { newTLKShares, recoveryResult, error in
+                self.logComplete(function: "Recovering TLKShares for Inheritor", container: container.name, error: error)
+                reply(newTLKShares, recoveryResult, error?.sanitizeForClientXPC()) }
+        } catch {
+            os_log("Recovering TLKShares for Inheritor failed for (%{public}@, %{public}@): %{public}@", log: tplogDebug, type: .default, container, context, error as CVarArg)
             reply(nil, nil, error.sanitizeForClientXPC())
+        }
+    }
+
+    func vouchWithCustodianRecoveryKey(withContainer container: String,
+                                       context: String,
+                                       crk: TrustedPeersHelperCustodianRecoveryKey,
+                                       tlkShares: [CKKSTLKShare],
+                                       reply: @escaping (Data?, Data?, [CKKSTLKShare]?, TrustedPeersHelperTLKRecoveryResult?, Error?) -> Void) {
+        do {
+            let containerName = ContainerName(container: container, context: context)
+            os_log("Vouching With Custodian Recovery Key %{public}@", log: tplogDebug, type: .default, containerName.description)
+            let container = try self.containerMap.findOrCreate(name: containerName)
+            container.vouchWithCustodianRecoveryKey(crk: crk, tlkShares: tlkShares) { voucher, voucherSig, newTLKShares, recoveryResult, error in
+                self.logComplete(function: "Vouching With Custodian Recovery Key", container: container.name, error: error)
+                reply(voucher, voucherSig, newTLKShares, recoveryResult, error?.sanitizeForClientXPC()) }
+        } catch {
+            os_log("Vouching with Custodian Recovery Key failed for (%{public}@, %{public}@): %{public}@", log: tplogDebug, type: .default, container, context, error as CVarArg)
+            reply(nil, nil, nil, nil, error.sanitizeForClientXPC())
         }
     }
 
@@ -484,28 +586,33 @@ class Client: TrustedPeersHelperProtocol {
         }
     }
 
+#if !__OPEN_SOURCE__ && APPLE_FEATURE_WALRUS_UI
     func update(withContainer container: String,
                 context: String,
+                forceRefetch: Bool,
                 deviceName: String?,
                 serialNumber: String?,
                 osVersion: String?,
                 policyVersion: NSNumber?,
                 policySecrets: [String: Data]?,
                 syncUserControllableViews: NSNumber?,
+                secureElementIdentity: TrustedPeersHelperIntendedTPPBSecureElementIdentity?,
+                walrusSetting: TPPBPeerStableInfoSetting?,
+                webAccess: TPPBPeerStableInfoSetting?,
                 reply: @escaping (TrustedPeersHelperPeerState?, TPSyncingPolicy?, Error?) -> Void) {
         do {
             let containerName = ContainerName(container: container, context: context)
             os_log("Updating %{public}@", log: tplogDebug, type: .default, containerName.description)
             let container = try self.containerMap.findOrCreate(name: containerName)
 
-            let syncUserControllableSetting: TPPBPeerStableInfo_UserControllableViewStatus?
+            let syncUserControllableSetting: TPPBPeerStableInfoUserControllableViewStatus?
             if let value = syncUserControllableViews?.int32Value {
                 switch value {
-                case TPPBPeerStableInfo_UserControllableViewStatus.ENABLED.rawValue:
+                case TPPBPeerStableInfoUserControllableViewStatus.ENABLED.rawValue:
                     syncUserControllableSetting = .ENABLED
-                case TPPBPeerStableInfo_UserControllableViewStatus.DISABLED.rawValue:
+                case TPPBPeerStableInfoUserControllableViewStatus.DISABLED.rawValue:
                     syncUserControllableSetting = .DISABLED
-                case TPPBPeerStableInfo_UserControllableViewStatus.FOLLOWING.rawValue:
+                case TPPBPeerStableInfoUserControllableViewStatus.FOLLOWING.rawValue:
                     syncUserControllableSetting = .FOLLOWING
                 default:
                     throw ContainerError.unknownSyncUserControllableViewsValue(value: value)
@@ -514,17 +621,71 @@ class Client: TrustedPeersHelperProtocol {
                 syncUserControllableSetting = nil
             }
 
-            container.update(deviceName: deviceName,
+            container.update(forceRefetch: forceRefetch,
+                             deviceName: deviceName,
                              serialNumber: serialNumber,
                              osVersion: osVersion,
                              policyVersion: policyVersion?.uint64Value,
                              policySecrets: policySecrets,
-                             syncUserControllableViews: syncUserControllableSetting) { state, policy, error in reply(state, policy, error?.sanitizeForClientXPC()) }
+                             syncUserControllableViews: syncUserControllableSetting,
+                             secureElementIdentity: secureElementIdentity,
+                             walrusSetting: walrusSetting,
+                             webAccess: webAccess
+                             ) { state, policy, error in reply(state, policy, error?.sanitizeForClientXPC()) }
         } catch {
             os_log("update failed for (%{public}@, %{public}@): %{public}@", log: tplogDebug, type: .default, container, context, error as CVarArg)
             reply(nil, nil, error.sanitizeForClientXPC())
         }
     }
+
+#else
+    func update(withContainer container: String,
+                context: String,
+                forceRefetch: Bool,
+                deviceName: String?,
+                serialNumber: String?,
+                osVersion: String?,
+                policyVersion: NSNumber?,
+                policySecrets: [String: Data]?,
+                syncUserControllableViews: NSNumber?,
+                secureElementIdentity: TrustedPeersHelperIntendedTPPBSecureElementIdentity?,
+                reply: @escaping (TrustedPeersHelperPeerState?, TPSyncingPolicy?, Error?) -> Void) {
+        do {
+            let containerName = ContainerName(container: container, context: context)
+            os_log("Updating %{public}@", log: tplogDebug, type: .default, containerName.description)
+            let container = try self.containerMap.findOrCreate(name: containerName)
+
+            let syncUserControllableSetting: TPPBPeerStableInfoUserControllableViewStatus?
+            if let value = syncUserControllableViews?.int32Value {
+                switch value {
+                case TPPBPeerStableInfoUserControllableViewStatus.ENABLED.rawValue:
+                    syncUserControllableSetting = .ENABLED
+                case TPPBPeerStableInfoUserControllableViewStatus.DISABLED.rawValue:
+                    syncUserControllableSetting = .DISABLED
+                case TPPBPeerStableInfoUserControllableViewStatus.FOLLOWING.rawValue:
+                    syncUserControllableSetting = .FOLLOWING
+                default:
+                    throw ContainerError.unknownSyncUserControllableViewsValue(value: value)
+                }
+            } else {
+                syncUserControllableSetting = nil
+            }
+
+            container.update(forceRefetch: forceRefetch,
+                             deviceName: deviceName,
+                             serialNumber: serialNumber,
+                             osVersion: osVersion,
+                             policyVersion: policyVersion?.uint64Value,
+                             policySecrets: policySecrets,
+                             syncUserControllableViews: syncUserControllableSetting,
+                             secureElementIdentity: secureElementIdentity
+                             ) { state, policy, error in reply(state, policy, error?.sanitizeForClientXPC()) }
+        } catch {
+            os_log("update failed for (%{public}@, %{public}@): %{public}@", log: tplogDebug, type: .default, container, context, error as CVarArg)
+            reply(nil, nil, error.sanitizeForClientXPC())
+        }
+    }
+#endif /* APPLE_FEATURE_WALRUS_UI */
 
     func setPreapprovedKeysWithContainer(_ container: String,
                                          context: String,
@@ -637,12 +798,13 @@ class Client: TrustedPeersHelperProtocol {
     func fetchCurrentPolicy(withContainer container: String,
                             context: String,
                             modelIDOverride: String?,
-                            reply: @escaping (TPSyncingPolicy?, TPPBPeerStableInfo_UserControllableViewStatus, Error?) -> Void) {
+                            isInheritedAccount: Bool,
+                            reply: @escaping (TPSyncingPolicy?, TPPBPeerStableInfoUserControllableViewStatus, Error?) -> Void) {
         do {
             let containerName = ContainerName(container: container, context: context)
             os_log("Fetching policy+views for %{public}@", log: tplogDebug, type: .default, containerName.description)
             let container = try self.containerMap.findOrCreate(name: containerName)
-            container.fetchCurrentPolicy(modelIDOverride: modelIDOverride) { policy, peersOpinion, error in
+            container.fetchCurrentPolicy(modelIDOverride: modelIDOverride, isInheritedAccount: isInheritedAccount) { policy, peersOpinion, error in
                 reply(policy, peersOpinion, error?.sanitizeForClientXPC())
             }
         } catch {
@@ -664,6 +826,24 @@ class Client: TrustedPeersHelperProtocol {
             }
         } catch {
             os_log("fetchPolicyDocuments failed for (%{public}@, %{public}@): %{public}@", log: tplogDebug, type: .default, container, context, error as CVarArg)
+            reply(nil, error.sanitizeForClientXPC())
+        }
+    }
+
+    func fetchRecoverableTLKShares(withContainer container: String,
+                                   context: String,
+                                   peerID: String?,
+                                   reply: @escaping ([CKRecord]?, Error?) -> Void) {
+        do {
+            let containerName = ContainerName(container: container, context: context)
+            os_log("Fetching recoverable TLKShares %{public}@ with peerID filter: %{public}@", log: tplogDebug, type: .default, containerName.description, String(describing: peerID))
+            let container = try self.containerMap.findOrCreate(name: containerName)
+
+            container.fetchRecoverableTLKShares(peerID: peerID) { records, error in
+                reply(records, error?.sanitizeForClientXPC())
+            }
+        } catch {
+            os_log("fetchRecoverableTLKShares failed for (%{public}@, %{public}@): %{public}@", log: tplogDebug, type: .default, container, context, error as CVarArg)
             reply(nil, error.sanitizeForClientXPC())
         }
     }
@@ -704,6 +884,46 @@ class Client: TrustedPeersHelperProtocol {
         }
     }
 
+    func createCustodianRecoveryKey(withContainer container: String,
+                                    context: String,
+                                    recoveryKey: String,
+                                    salt: String,
+                                    ckksKeys: [CKKSKeychainBackedKeySet],
+                                    uuid: UUID,
+                                    kind: TPPBCustodianRecoveryKey_Kind,
+                                    reply: @escaping ([CKRecord]?, TrustedPeersHelperCustodianRecoveryKey?, Error?) -> Void) {
+        do {
+            let containerName = ContainerName(container: container, context: context)
+            os_log("CreateCustodianRecoveryKey for %{public}@", log: tplogDebug, type: .default, containerName.description)
+            let container = try self.containerMap.findOrCreate(name: containerName)
+            container.createCustodianRecoveryKey(recoveryKey: recoveryKey, salt: salt, ckksKeys: ckksKeys, uuid: uuid, kind: kind) { records, custodianRecoveryKey, error in
+                self.logComplete(function: "createCustodianRecoveryKey", container: container.name, error: error)
+                reply(records, custodianRecoveryKey, error?.sanitizeForClientXPC())
+            }
+        } catch {
+            os_log("CreateCustodianRecoveryKey failed for (%{public}@, %{public}@): %{public}@", log: tplogDebug, type: .default, container, context, error as CVarArg)
+            reply(nil, nil, error.sanitizeForClientXPC())
+        }
+    }
+
+    func removeCustodianRecoveryKey(withContainer container: String,
+                                    context: String,
+                                    uuid: UUID,
+                                    reply: @escaping (Error?) -> Void) {
+        do {
+            let containerName = ContainerName(container: container, context: context)
+            os_log("RemoveCustodianRecoveryKey for %{public}@", log: tplogDebug, type: .default, containerName.description)
+            let container = try self.containerMap.findOrCreate(name: containerName)
+            container.removeCustodianRecoveryKey(uuid: uuid) { error in
+                self.logComplete(function: "removeCustodianRecoveryKey", container: container.name, error: error)
+                reply(error?.sanitizeForClientXPC())
+            }
+        } catch {
+            os_log("RemoveCustodianRecoveryKey failed for (%{public}@, %{public}@): %{public}@", log: tplogDebug, type: .default, container, context, error as CVarArg)
+            reply(error.sanitizeForClientXPC())
+        }
+    }
+
     func reportHealth(withContainer container: String, context: String, stateMachineState: String, trustState: String, reply: @escaping (Error?) -> Void) {
         do {
             let containerName = ContainerName(container: container, context: context)
@@ -737,17 +957,17 @@ class Client: TrustedPeersHelperProtocol {
         }
     }
 
-    func requestHealthCheck(withContainer container: String, context: String, requiresEscrowCheck: Bool, reply: @escaping (Bool, Bool, Bool, Bool, Error?) -> Void) {
+    func requestHealthCheck(withContainer container: String, context: String, requiresEscrowCheck: Bool, reply: @escaping (Bool, Bool, Bool, Bool, OTEscrowMoveRequestContext?, Error?) -> Void) {
         do {
             let containerName = ContainerName(container: container, context: context)
             os_log("Health Check! requiring escrow check? %d for %{public}@", log: tplogDebug, type: .default, requiresEscrowCheck, containerName.description)
             let container = try self.containerMap.findOrCreate(name: containerName)
-            container.requestHealthCheck(requiresEscrowCheck: requiresEscrowCheck) { postRepair, postEscrow, postReset, leaveTrust, error in
-                reply(postRepair, postEscrow, postReset, leaveTrust, error?.sanitizeForClientXPC())
+            container.requestHealthCheck(requiresEscrowCheck: requiresEscrowCheck) { postRepair, postEscrow, postReset, leaveTrust, moveRequest, error in
+                reply(postRepair, postEscrow, postReset, leaveTrust, moveRequest, error?.sanitizeForClientXPC())
             }
         } catch {
             os_log("Health Check! failed for (%{public}@, %{public}@): %{public}@", log: tplogDebug, type: .default, container, context, error as CVarArg)
-            reply(false, false, false, false, error.sanitizeForClientXPC())
+            reply(false, false, false, false, nil, error.sanitizeForClientXPC())
         }
     }
 
@@ -782,12 +1002,25 @@ class Client: TrustedPeersHelperProtocol {
             let containerName = ContainerName(container: container, context: context)
             os_log("resetAccountCDPContents for %{public}@", log: tplogDebug, type: .default, containerName.description)
             let container = try self.containerMap.findOrCreate(name: containerName)
-            container.resetCDPAccountData{ error in
+            container.resetCDPAccountData { error in
                 reply(error?.sanitizeForClientXPC())
             }
         } catch {
             os_log("resetAccountCDPContents failed for (%{public}@, %{public}@): %{public}@", log: tplogDebug, type: .default, container, context, error as CVarArg)
             reply(error.sanitizeForClientXPC())
+        }
+    }
+    func fetchAccountSettings(withContainer container: String, context: String, reply: @escaping ([String: TPPBPeerStableInfoSetting]?, Error?) -> Void) {
+        do {
+            let containerName = ContainerName(container: container, context: context)
+            os_log("fetchAccountSettings for %{public}@", log: tplogDebug, type: .default, containerName.description)
+            let container = try self.containerMap.findOrCreate(name: containerName)
+            container.fetchAccountSettings { settings, error in
+                reply(settings, error?.sanitizeForClientXPC())
+            }
+        } catch {
+            os_log("fetchAccountSettings failed for (%{public}@, %{public}@): %{public}@", log: tplogDebug, type: .default, container, context, error as CVarArg)
+            reply(nil, error.sanitizeForClientXPC())
         }
     }
 }

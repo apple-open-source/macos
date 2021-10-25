@@ -98,7 +98,7 @@ _malloc_put(uint32_t flags, const char *msg)
 	if ((b = _simple_salloc()) == NULL) {
 		if (WRITE_TO_DEBUG_FILE(flags)) {
 			if (!(flags & MALLOC_REPORT_NOPREFIX)) {
-				void *self = _os_tsd_get_direct(__TSD_THREAD_SELF);
+				void *self = _pthread_self_direct();
 				_simple_dprintf(malloc_debug_file, "%s(%d,%p) malloc: ", getprogname(), getpid(), self);
 			}
 			write(malloc_debug_file, msg, strlen(msg));
@@ -106,7 +106,7 @@ _malloc_put(uint32_t flags, const char *msg)
 		return;
 	}
 	if (!(flags & MALLOC_REPORT_NOPREFIX)) {
-		void *self = _os_tsd_get_direct(__TSD_THREAD_SELF);
+		void *self = _pthread_self_direct();
 		_simple_sprintf(b, "%s(%d,%p) malloc: ", getprogname(), getpid(), self);
 	}
 
@@ -132,7 +132,7 @@ malloc_vreport(uint32_t flags, unsigned sleep_time, const char *prefix_msg,
 	if ((b = _simple_salloc()) == NULL) {
 		if (WRITE_TO_DEBUG_FILE(flags)) {
 			if (!(flags & MALLOC_REPORT_NOPREFIX)) {
-				void *self = _os_tsd_get_direct(__TSD_THREAD_SELF);
+				void *self = _pthread_self_direct();
 				_simple_dprintf(malloc_debug_file, "%s(%d,%p) malloc: ", getprogname(), getpid(), self);
 			}
 			if (prefix_msg) {
@@ -145,7 +145,7 @@ malloc_vreport(uint32_t flags, unsigned sleep_time, const char *prefix_msg,
 		}
 	} else {
 		if (!(flags & MALLOC_REPORT_NOPREFIX)) {
-			void *self = _os_tsd_get_direct(__TSD_THREAD_SELF);
+			void *self = _pthread_self_direct();
 			_simple_sprintf(b, "%s(%d,%p) malloc: ", getprogname(), getpid(), self);
 		}
 		if (prefix_msg) {

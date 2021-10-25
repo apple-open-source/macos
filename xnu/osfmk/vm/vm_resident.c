@@ -223,8 +223,8 @@ SECURITY_READ_ONLY_LATE(unsigned int)       vm_page_bucket_lock_count = 0;  /* H
 #ifndef VM_TAG_ACTIVE_UPDATE
 #error VM_TAG_ACTIVE_UPDATE
 #endif
-#ifndef VM_MAX_TAG_ZONES
-#error VM_MAX_TAG_ZONES
+#ifndef VM_TAG_SIZECLASSES
+#error VM_TAG_SIZECLASSES
 #endif
 
 /* for debugging */
@@ -233,9 +233,9 @@ SECURITY_READ_ONLY_LATE(lck_spin_t *) vm_page_bucket_locks;
 
 vm_allocation_site_t            vm_allocation_sites_static[VM_KERN_MEMORY_FIRST_DYNAMIC + 1];
 vm_allocation_site_t *          vm_allocation_sites[VM_MAX_TAG_VALUE];
-#if VM_MAX_TAG_ZONES
+#if VM_TAG_SIZECLASSES
 static vm_allocation_zone_total_t **vm_allocation_zone_totals;
-#endif /* VM_MAX_TAG_ZONES */
+#endif /* VM_TAG_SIZECLASSES */
 
 vm_tag_t vm_allocation_tag_highest;
 
@@ -1278,7 +1278,7 @@ pmap_steal_memory_internal(
 #endif
 
 		if (!pmap_next_page_hi(&phys_page, might_free)) {
-			panic("pmap_steal_memory() size: 0x%llx\n", (uint64_t)size);
+			panic("pmap_steal_memory() size: 0x%llx", (uint64_t)size);
 		}
 
 #if defined(__x86_64__)
@@ -1640,7 +1640,7 @@ static void
 vm_page_module_init_delayed(void)
 {
 	(void)zone_create_ext("vm pages array", sizeof(struct vm_page),
-	    ZC_NOGZALLOC, ZONE_ID_ANY, ^(zone_t z) {
+	    ZC_NOGZALLOC, ZONE_ID_VM_PAGES, ^(zone_t z) {
 		uint64_t vm_page_zone_pages, vm_page_array_zone_data_size;
 
 		zone_set_exhaustible(z, 0);
@@ -1652,7 +1652,7 @@ vm_page_module_init_delayed(void)
 		z->z_elems_free = z->z_elems_avail - vm_pages_count;
 		zpercpu_get_cpu(z->z_stats, 0)->zs_mem_allocated =
 		vm_pages_count * sizeof(struct vm_page);
-		vm_page_array_zone_data_size = (uintptr_t)((void *)vm_page_array_ending_addr - (void *)vm_pages);
+		vm_page_array_zone_data_size = (uint64_t)vm_page_array_ending_addr - (uint64_t)vm_pages;
 		vm_page_zone_pages = atop(round_page((vm_offset_t)vm_page_array_zone_data_size));
 		z->z_wired_cur += vm_page_zone_pages;
 		z->z_wired_hwm = z->z_wired_cur;
@@ -1683,10 +1683,8 @@ vm_page_module_init(void)
 	    ~(VM_PAGE_PACKED_PTR_ALIGNMENT - 1);
 
 	vm_page_zone = zone_create_ext("vm pages", vm_page_with_ppnum_size,
-	    ZC_NOGZALLOC | ZC_ALIGNMENT_REQUIRED, ZONE_ID_ANY, ^(zone_t z) {
-#if defined(__LP64__)
-		zone_set_submap_idx(z, Z_SUBMAP_IDX_VA_RESTRICTED);
-#endif
+	    ZC_NOGZALLOC | ZC_ALIGNMENT_REQUIRED | ZC_VM_LP64 | ZC_NOTBITAG,
+	    ZONE_ID_ANY, ^(zone_t z) {
 		/*
 		 * The number "10" is a small number that is larger than the number
 		 * of fictitious pages that any single caller will attempt to allocate
@@ -2425,6 +2423,13 @@ vm_page_lookup(
 
 	OSAddAtomic64(1, &vm_page_lookup_stats.vpl_total);
 #endif
+
+#if CONFIG_KERNEL_TBI
+	if (VM_KERNEL_ADDRESS(offset)) {
+		offset = VM_KERNEL_STRIP_UPTR(offset);
+	}
+#endif /* CONFIG_KERNEL_TBI */
+
 	vm_object_lock_assert_held(object);
 	assertf(page_aligned(offset), "offset 0x%llx\n", offset);
 
@@ -2658,7 +2663,7 @@ vm_page_init(
 #if DEBUG
 	if ((phys_page != vm_page_fictitious_addr) && (phys_page != vm_page_guard_addr)) {
 		if (!(pmap_valid_page(phys_page))) {
-			panic("vm_page_init: non-DRAM phys_page 0x%x\n", phys_page);
+			panic("vm_page_init: non-DRAM phys_page 0x%x", phys_page);
 		}
 	}
 #endif /* DEBUG */
@@ -3745,7 +3750,18 @@ vm_page_release(
 		if (vps_dynamic_priority_enabled == TRUE) {
 			thread_t thread_woken = NULL;
 			wakeup_one_with_inheritor((event_t) wakeup_event, THREAD_AWAKENED, LCK_WAKE_DO_NOT_TRANSFER_PUSH, &thread_woken);
-			thread_deallocate(thread_woken);
+			/*
+			 * (80947592) if this is the last reference on this
+			 * thread, calling thread_deallocate() here
+			 * might take the tasks_threads_lock,
+			 * sadly thread_create_internal is doing several
+			 * allocations under this lock, which can result in
+			 * deadlocks with the pageout scan daemon.
+			 *
+			 * FIXME: we should disallow allocations under the
+			 * task_thread_locks, but that is a larger fix to make.
+			 */
+			thread_deallocate_safe(thread_woken);
 		} else {
 			thread_wakeup_one((event_t) wakeup_event);
 		}
@@ -5268,7 +5284,7 @@ vm_page_reactivate_local(uint32_t lid, boolean_t force, boolean_t nolocks)
 			count++;
 		}
 		if (count != lq->vpl_count) {
-			panic("vm_page_reactivate_local: count = %d, vm_page_local_count = %d\n", count, lq->vpl_count);
+			panic("vm_page_reactivate_local: count = %d, vm_page_local_count = %d", count, lq->vpl_count);
 		}
 
 		/*
@@ -5573,25 +5589,25 @@ vm_page_verify_free_list(
 			found_page = TRUE;
 		}
 		if ((vm_page_t)VM_PAGE_UNPACK_PTR(m->vmp_pageq.prev) != prev_m) {
-			panic("vm_page_verify_free_list(color=%u, npages=%u): page %p corrupted prev ptr %p instead of %p\n",
+			panic("vm_page_verify_free_list(color=%u, npages=%u): page %p corrupted prev ptr %p instead of %p",
 			    color, npages, m, (vm_page_t)VM_PAGE_UNPACK_PTR(m->vmp_pageq.prev), prev_m);
 		}
 		if (!m->vmp_busy) {
-			panic("vm_page_verify_free_list(color=%u, npages=%u): page %p not busy\n",
+			panic("vm_page_verify_free_list(color=%u, npages=%u): page %p not busy",
 			    color, npages, m);
 		}
 		if (color != (unsigned int) -1) {
 			if (VM_PAGE_GET_COLOR(m) != color) {
-				panic("vm_page_verify_free_list(color=%u, npages=%u): page %p wrong color %u instead of %u\n",
+				panic("vm_page_verify_free_list(color=%u, npages=%u): page %p wrong color %u instead of %u",
 				    color, npages, m, VM_PAGE_GET_COLOR(m), color);
 			}
 			if (m->vmp_q_state != VM_PAGE_ON_FREE_Q) {
-				panic("vm_page_verify_free_list(color=%u, npages=%u): page %p - expecting q_state == VM_PAGE_ON_FREE_Q, found %d\n",
+				panic("vm_page_verify_free_list(color=%u, npages=%u): page %p - expecting q_state == VM_PAGE_ON_FREE_Q, found %d",
 				    color, npages, m, m->vmp_q_state);
 			}
 		} else {
 			if (m->vmp_q_state != VM_PAGE_ON_FREE_LOCAL_Q) {
-				panic("vm_page_verify_free_list(npages=%u): local page %p - expecting q_state == VM_PAGE_ON_FREE_LOCAL_Q, found %d\n",
+				panic("vm_page_verify_free_list(npages=%u): local page %p - expecting q_state == VM_PAGE_ON_FREE_LOCAL_Q, found %d",
 				    npages, m, m->vmp_q_state);
 			}
 		}
@@ -5618,7 +5634,7 @@ vm_page_verify_free_list(
 				vm_page_verify_free_list(&vm_lopage_queue_free,
 				    (unsigned int) -1, look_for_page, FALSE);
 			}
-			panic("vm_page_verify_free_list(color=%u)\n", color);
+			panic("vm_page_verify_free_list(color=%u)", color);
 		}
 		if (!expect_page && found_page) {
 			printf("vm_page_verify_free_list(color=%u, npages=%u): page %p found phys=%u\n",
@@ -8096,7 +8112,7 @@ hibernate_lookup_paddr(unsigned int indx)
 		}
 	}
 	if (ppnm == NULL) {
-		panic("hibernate_lookup_paddr of %d failed\n", indx);
+		panic("hibernate_lookup_paddr of %d failed", indx);
 	}
 done:
 	return ppnm->ppnm_base_paddr + (indx - ppnm->ppnm_sindx);
@@ -8703,7 +8719,7 @@ vm_page_queues_remove(vm_page_t mem, boolean_t __unused remove_from_backgroundq)
 		 *	we also don't expect to encounter VM_PAGE_ON_FREE_Q, VM_PAGE_ON_FREE_LOCAL_Q, VM_PAGE_ON_FREE_LOPAGE_Q
 		 *	or any of the undefined states
 		 */
-		panic("vm_page_queues_remove - bad page q_state (%p, %d)\n", mem, mem->vmp_q_state);
+		panic("vm_page_queues_remove - bad page q_state (%p, %d)", mem, mem->vmp_q_state);
 		break;
 	}
 	}
@@ -9121,7 +9137,7 @@ kern_allocation_update_size(kern_allocation_name_t allocation, int64_t delta)
 	}
 }
 
-#if VM_MAX_TAG_ZONES
+#if VM_TAG_SIZECLASSES
 
 void
 vm_allocation_zones_init(void)
@@ -9131,7 +9147,7 @@ vm_allocation_zones_init(void)
 	vm_size_t     size;
 
 	size = VM_MAX_TAG_VALUE * sizeof(vm_allocation_zone_total_t * *)
-	    + 2 * VM_MAX_TAG_ZONES * sizeof(vm_allocation_zone_total_t);
+	    + 4 * VM_TAG_SIZECLASSES * sizeof(vm_allocation_zone_total_t);
 
 	ret = kernel_memory_allocate(kernel_map,
 	    &addr, round_page(size), 0,
@@ -9144,8 +9160,12 @@ vm_allocation_zones_init(void)
 	// prepopulate VM_KERN_MEMORY_DIAG & VM_KERN_MEMORY_KALLOC so allocations
 	// in vm_tag_update_zone_size() won't recurse
 	vm_allocation_zone_totals[VM_KERN_MEMORY_DIAG]   = (vm_allocation_zone_total_t *) addr;
-	addr += VM_MAX_TAG_ZONES * sizeof(vm_allocation_zone_total_t);
+	addr += VM_TAG_SIZECLASSES * sizeof(vm_allocation_zone_total_t);
 	vm_allocation_zone_totals[VM_KERN_MEMORY_KALLOC] = (vm_allocation_zone_total_t *) addr;
+	addr += VM_TAG_SIZECLASSES * sizeof(vm_allocation_zone_total_t);
+	vm_allocation_zone_totals[VM_KERN_MEMORY_KALLOC_DATA] = (vm_allocation_zone_total_t *) addr;
+	addr += VM_TAG_SIZECLASSES * sizeof(vm_allocation_zone_total_t);
+	vm_allocation_zone_totals[VM_KERN_MEMORY_KALLOC_TYPE] = (vm_allocation_zone_total_t *) addr;
 }
 
 __attribute__((noinline))
@@ -9153,15 +9173,15 @@ static vm_tag_t
 vm_tag_zone_stats_alloc(vm_tag_t tag, zalloc_flags_t flags)
 {
 	vm_allocation_zone_total_t *stats;
-	vm_size_t size = sizeof(*stats) * VM_MAX_TAG_ZONES;
+	vm_size_t size = sizeof(*stats) * VM_TAG_SIZECLASSES;
 
-	stats = kheap_alloc(KHEAP_DATA_BUFFERS, size,
+	stats = kalloc_data(size,
 	    Z_VM_TAG(VM_KERN_MEMORY_DIAG) | Z_ZERO | flags);
 	if (!stats) {
 		return VM_KERN_MEMORY_NONE;
 	}
 	if (!os_atomic_cmpxchg(&vm_allocation_zone_totals[tag], NULL, stats, release)) {
-		kheap_free(KHEAP_DATA_BUFFERS, stats, size);
+		kfree_data(stats, size);
 	}
 	return tag;
 }
@@ -9172,7 +9192,7 @@ vm_tag_will_update_zone(vm_tag_t tag, uint32_t zidx, uint32_t zflags)
 	assert(VM_KERN_MEMORY_NONE != tag);
 	assert(tag < VM_MAX_TAG_VALUE);
 
-	if (zidx >= VM_MAX_TAG_ZONES) {
+	if (zidx >= VM_TAG_SIZECLASSES) {
 		return VM_KERN_MEMORY_NONE;
 	}
 
@@ -9191,7 +9211,7 @@ vm_tag_update_zone_size(vm_tag_t tag, uint32_t zidx, long delta)
 	assert(VM_KERN_MEMORY_NONE != tag);
 	assert(tag < VM_MAX_TAG_VALUE);
 
-	if (zidx >= VM_MAX_TAG_ZONES) {
+	if (zidx >= VM_TAG_SIZECLASSES) {
 		return;
 	}
 
@@ -9208,7 +9228,7 @@ vm_tag_update_zone_size(vm_tag_t tag, uint32_t zidx, long delta)
 	}
 }
 
-#endif /* VM_MAX_TAG_ZONES */
+#endif /* VM_TAG_SIZECLASSES */
 
 void
 kern_allocation_update_subtotal(kern_allocation_name_t allocation, uint32_t subtag, int64_t delta)
@@ -9256,15 +9276,12 @@ kern_allocation_get_name(kern_allocation_name_t allocation)
 kern_allocation_name_t
 kern_allocation_name_allocate(const char * name, uint16_t subtotalscount)
 {
+	kern_allocation_name_t allocation;
 	uint16_t namelen;
 
 	namelen = (uint16_t)strnlen(name, MACH_MEMORY_INFO_NAME_MAX_LEN - 1);
 
-	kern_allocation_name_t allocation;
-	allocation = kheap_alloc(KHEAP_DATA_BUFFERS,
-	    KA_SIZE(namelen, subtotalscount), Z_WAITOK);
-	bzero(allocation, KA_SIZE(namelen, subtotalscount));
-
+	allocation = kalloc_data(KA_SIZE(namelen, subtotalscount), Z_WAITOK | Z_ZERO);
 	allocation->refcount       = 1;
 	allocation->subtotalscount = subtotalscount;
 	allocation->flags          = (uint16_t)(namelen << VM_TAG_NAME_LEN_SHIFT);
@@ -9278,7 +9295,7 @@ kern_allocation_name_release(kern_allocation_name_t allocation)
 {
 	assert(allocation->refcount > 0);
 	if (1 == OSAddAtomic16(-1, &allocation->refcount)) {
-		kheap_free(KHEAP_DATA_BUFFERS, allocation,
+		kfree_data(allocation,
 		    KA_SIZE(KA_NAME_LEN(allocation), allocation->subtotalscount));
 	}
 }
@@ -9400,29 +9417,29 @@ process_account(mach_memory_info_t * info, unsigned int num_info,
 		if (!site) {
 			continue;
 		}
-#if VM_MAX_TAG_ZONES
+#if VM_TAG_SIZECLASSES
 		vm_allocation_zone_total_t * zone;
 		unsigned int                 zidx;
-		vm_size_t                    elem_size;
 
 		if (vm_allocation_zone_totals
 		    && (zone = vm_allocation_zone_totals[idx])
 		    && (nextinfo < num_info)) {
-			for (zidx = 0; zidx < VM_MAX_TAG_ZONES; zidx++) {
+			for (zidx = 0; zidx < VM_TAG_SIZECLASSES; zidx++) {
 				if (!zone[zidx].vazt_peak) {
 					continue;
 				}
 				info[nextinfo]        = info[idx];
-				info[nextinfo].zone   = (uint16_t)zone_index_from_tag_index(zidx, &elem_size);
+				info[nextinfo].zone   = (uint16_t)zone_index_from_tag_index(zidx);
 				info[nextinfo].flags  &= ~VM_KERN_SITE_WIRED;
 				info[nextinfo].flags  |= VM_KERN_SITE_ZONE;
+				info[nextinfo].flags  |= VM_KERN_SITE_KALLOC;
 				info[nextinfo].size   = zone[zidx].vazt_total;
 				info[nextinfo].peak   = zone[zidx].vazt_peak;
 				info[nextinfo].mapped = 0;
 				nextinfo++;
 			}
 		}
-#endif /* VM_MAX_TAG_ZONES */
+#endif /* VM_TAG_SIZECLASSES */
 		if (site->subtotalscount) {
 			uint64_t mapped, mapcost, take;
 			uint32_t sub;
@@ -9472,14 +9489,14 @@ vm_page_diagnose_estimate(void)
 			continue;
 		}
 		count++;
-#if VM_MAX_TAG_ZONES
+#if VM_TAG_SIZECLASSES
 		if (vm_allocation_zone_totals) {
 			vm_allocation_zone_total_t * zone;
 			zone = vm_allocation_zone_totals[idx];
 			if (!zone) {
 				continue;
 			}
-			for (uint32_t zidx = 0; zidx < VM_MAX_TAG_ZONES; zidx++) {
+			for (uint32_t zidx = 0; zidx < VM_TAG_SIZECLASSES; zidx++) {
 				count += (zone[zidx].vazt_peak != 0);
 			}
 		}
@@ -9595,11 +9612,17 @@ vm_page_diagnose(mach_memory_info_t * info, unsigned int num_info, uint64_t zone
 	vm_map_sizes(kernel_map, &map_size, &map_free, &map_largest);
 	SET_MAP(VM_KERN_COUNT_MAP_KERNEL, map_size, map_free, map_largest);
 
+	vm_map_sizes(kalloc_large_map_get(), &map_size, &map_free, &map_largest);
+	SET_MAP(VM_KERN_COUNT_MAP_KALLOC_LARGE, map_size, map_free, map_largest);
+
+	vm_map_sizes(kernel_data_map_get(), &map_size, &map_free, &map_largest);
+	SET_MAP(VM_KERN_COUNT_MAP_KERNEL_DATA, map_size, map_free, map_largest);
+
+	vm_map_sizes(kalloc_large_data_map_get(), &map_size, &map_free, &map_largest);
+	SET_MAP(VM_KERN_COUNT_MAP_KALLOC_LARGE_DATA, map_size, map_free, map_largest);
+
 	zone_map_sizes(&map_size, &map_free, &map_largest);
 	SET_MAP(VM_KERN_COUNT_MAP_ZONE, map_size, map_free, map_largest);
-
-	vm_map_sizes(kalloc_map, &map_size, &map_free, &map_largest);
-	SET_MAP(VM_KERN_COUNT_MAP_KALLOC, map_size, map_free, map_largest);
 
 	assert(num_info >= zone_view_count);
 	num_info -= zone_view_count;
@@ -9617,23 +9640,40 @@ vm_page_diagnose(mach_memory_info_t * info, unsigned int num_info, uint64_t zone
 
 	zone_index_foreach(zidx) {
 		zone_t z = &zone_array[zidx];
+		zone_security_flags_t zsflags = zone_security_array[zidx];
 		zone_view_t zv = z->z_views;
 
 		if (zv == NULL) {
 			continue;
 		}
 
-		if (z->kalloc_heap == KHEAP_ID_NONE) {
-			vm_page_diagnose_zone(counts + i, z);
-			i++;
-			assert(i <= zone_view_count);
-		}
+		zone_stats_t zv_stats_head = z->z_stats;
+		bool has_raw_view = false;
 
 		for (; zv; zv = zv->zv_next) {
+			/*
+			 * kalloc_types that allocate from the same zone are linked
+			 * as views. Only print the ones that have their own stats.
+			 */
+			if (zv->zv_stats == zv_stats_head) {
+				continue;
+			}
+			has_raw_view = true;
 			vm_page_diagnose_zone_stats(counts + i, zv->zv_stats,
 			    z->z_percpu);
 			snprintf(counts[i].name, sizeof(counts[i].name), "%s%s[%s]",
 			    zone_heap_name(z), z->z_name, zv->zv_name);
+			i++;
+			assert(i <= zone_view_count);
+		}
+
+		/*
+		 * Print raw views for non kalloc or kalloc_type zones
+		 */
+		bool kalloc_type = zsflags.z_kalloc_type;
+		if ((zsflags.z_kheap_id == KHEAP_ID_NONE && !kalloc_type) ||
+		    (kalloc_type && has_raw_view)) {
+			vm_page_diagnose_zone(counts + i, z);
 			i++;
 			assert(i <= zone_view_count);
 		}
@@ -9851,3 +9891,4 @@ vm_retired_pages_count(void)
 {
 	return retired_pages_object->resident_page_count;
 }
+

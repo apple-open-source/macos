@@ -1,18 +1,11 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
-// License & terms of use: http://www.unicode.org/copyright.html#License
+// License & terms of use: http://www.unicode.org/copyright.html
+// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
 hi_Latn{
     %%Parent{"en_IN"}
-    Languages{
-        en{"English"}
-        hi{"Hindi"}
-    }
     Scripts{
         Arab{"Arabi"}
-        Aran{"Nastaliq"}
-        Deva{"Devanagari"}
-        Latn{"Latin"}
     }
-    Version{"36.1"}
     codePatterns{
         language{"Bhasha: {0}"}
         script{"Lipi: {0}"}

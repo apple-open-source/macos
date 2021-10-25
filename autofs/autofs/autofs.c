@@ -297,9 +297,21 @@ autofs_start(kmod_info_t * ki, void *d)
 		return (KERN_FAILURE);
 }
 
+void unlock_autofs_locks(void)
+{
+    lck_mtx_unlock(autofs_control_isopen_lock);
+    lck_rw_unlock_exclusive(autofs_homedirmounter_processes_rwlock);
+    lck_rw_unlock_exclusive(autofs_notrigger_processes_rwlock);
+    lck_rw_unlock_exclusive(autofs_nowait_processes_rwlock);
+    lck_rw_unlock_exclusive(autofs_automounter_pid_rwlock);
+    lck_mtx_unlock(autofs_nodeid_lock);
+    lck_mtx_unlock(autofs_global_lock);
+}
+
 kern_return_t autofs_stop(kmod_info_t *ki, void *d)
 {
 	struct autofs_globals *fngp;
+    kern_return_t ret = KERN_SUCCESS;
 	int error;
 
 	lck_mtx_lock(autofs_global_lock);
@@ -311,68 +323,32 @@ kern_return_t autofs_stop(kmod_info_t *ki, void *d)
 	lck_mtx_lock(autofs_control_isopen_lock);
 	if (autofs_mounts != 0) {
 		AUTOFS_DPRINT((2, "auto_module_stop: Can't remove, still %u mounts active\n", autofs_mounts));
-		lck_mtx_unlock(autofs_control_isopen_lock);
-		lck_rw_unlock_exclusive(autofs_homedirmounter_processes_rwlock);
-		lck_rw_unlock_exclusive(autofs_notrigger_processes_rwlock);
-		lck_rw_unlock_exclusive(autofs_nowait_processes_rwlock);
-		lck_rw_unlock_exclusive(autofs_automounter_pid_rwlock);
-		lck_mtx_unlock(autofs_nodeid_lock);
-		lck_mtx_unlock(autofs_global_lock);
+        unlock_autofs_locks();
 		return (KERN_NO_ACCESS);
 	}
 	if (automounter_pid != 0) {
 		AUTOFS_DPRINT((2, "auto_module_stop: Can't remove, automounter still running\n"));
-		lck_mtx_unlock(autofs_control_isopen_lock);
-		lck_rw_unlock_exclusive(autofs_homedirmounter_processes_rwlock);
-		lck_rw_unlock_exclusive(autofs_notrigger_processes_rwlock);
-		lck_rw_unlock_exclusive(autofs_nowait_processes_rwlock);
-		lck_rw_unlock_exclusive(autofs_automounter_pid_rwlock);
-		lck_mtx_unlock(autofs_nodeid_lock);
-		lck_mtx_unlock(autofs_global_lock);
+        unlock_autofs_locks();
 		return (KERN_NO_ACCESS);
 	}
 	if (!LIST_EMPTY(&nowait_processes)) {
 		AUTOFS_DPRINT((2, "auto_module_stop: Can't remove, still nowait processes running\n"));
-		lck_mtx_unlock(autofs_control_isopen_lock);
-		lck_rw_unlock_exclusive(autofs_homedirmounter_processes_rwlock);
-		lck_rw_unlock_exclusive(autofs_notrigger_processes_rwlock);
-		lck_rw_unlock_exclusive(autofs_nowait_processes_rwlock);
-		lck_rw_unlock_exclusive(autofs_automounter_pid_rwlock);
-		lck_mtx_unlock(autofs_nodeid_lock);
-		lck_mtx_unlock(autofs_global_lock);
+        unlock_autofs_locks();
 		return (KERN_NO_ACCESS);
 	}
 	if (!LIST_EMPTY(&notrigger_processes)) {
 		AUTOFS_DPRINT((2, "auto_module_stop: Can't remove, still notrigger processes running\n"));
-		lck_mtx_unlock(autofs_control_isopen_lock);
-		lck_rw_unlock_exclusive(autofs_homedirmounter_processes_rwlock);
-		lck_rw_unlock_exclusive(autofs_notrigger_processes_rwlock);
-		lck_rw_unlock_exclusive(autofs_nowait_processes_rwlock);
-		lck_rw_unlock_exclusive(autofs_automounter_pid_rwlock);
-		lck_mtx_unlock(autofs_nodeid_lock);
-		lck_mtx_unlock(autofs_global_lock);
+        unlock_autofs_locks();
 		return (KERN_NO_ACCESS);
 	}
 	if (!LIST_EMPTY(&homedirmounter_processes)) {
 		AUTOFS_DPRINT((2, "auto_module_stop: Can't remove, still homedirmounter processes running\n"));
-		lck_mtx_unlock(autofs_control_isopen_lock);
-		lck_rw_unlock_exclusive(autofs_homedirmounter_processes_rwlock);
-		lck_rw_unlock_exclusive(autofs_notrigger_processes_rwlock);
-		lck_rw_unlock_exclusive(autofs_nowait_processes_rwlock);
-		lck_rw_unlock_exclusive(autofs_automounter_pid_rwlock);
-		lck_mtx_unlock(autofs_nodeid_lock);
-		lck_mtx_unlock(autofs_global_lock);
+        unlock_autofs_locks();
 		return (KERN_NO_ACCESS);
 	}
 	if (autofs_control_isopen) {
 		AUTOFS_DPRINT((2, "auto_module_stop: Can't remove, automount command is running\n"));
-		lck_mtx_unlock(autofs_control_isopen_lock);
-		lck_rw_unlock_exclusive(autofs_homedirmounter_processes_rwlock);
-		lck_rw_unlock_exclusive(autofs_notrigger_processes_rwlock);
-		lck_rw_unlock_exclusive(autofs_nowait_processes_rwlock);
-		lck_rw_unlock_exclusive(autofs_automounter_pid_rwlock);
-		lck_mtx_unlock(autofs_nodeid_lock);
-		lck_mtx_unlock(autofs_global_lock);
+        unlock_autofs_locks();
 		return (KERN_NO_ACCESS);
 	}
 	AUTOFS_DPRINT((10, "auto_module_stop: removing autofs from vfs conf. list...\n"));
@@ -384,10 +360,14 @@ kern_return_t autofs_stop(kmod_info_t *ki, void *d)
 
 	error = vfs_fsremove(auto_vfsconf);
 	if (error) {
-		IOLog("auto_module_stop: Error %d from vfs_remove\n",
-		    error);
-		return (KERN_FAILURE);
-	}
+        if (error == EBUSY) {
+            IOLog("auto_module_stop: mounts are still present, can't remove filesystem.\n");
+            unlock_autofs_locks();
+            return KERN_FAILURE;
+        } else if (error == ESRCH) {
+            panic("auto_module_stop: vtable not found on vfsconf list\n");
+        }
+    }
 
 	devfs_remove(autofs_devfs);
 	autofs_devfs = NULL;
@@ -433,24 +413,18 @@ kern_return_t autofs_stop(kmod_info_t *ki, void *d)
                 FREE(fngp, M_AUTOFS);
         }
 
-	lck_mtx_unlock(autofs_nodeid_lock);
+    unlock_autofs_locks();
 	lck_mtx_free(autofs_nodeid_lock, autofs_lck_grp);
-	lck_mtx_unlock(autofs_global_lock);
 	lck_mtx_free(autofs_global_lock, autofs_lck_grp);
-	lck_rw_unlock_exclusive(autofs_automounter_pid_rwlock);
 	lck_rw_free(autofs_automounter_pid_rwlock, autofs_lck_grp);
-	lck_rw_unlock_exclusive(autofs_nowait_processes_rwlock);
 	lck_rw_free(autofs_nowait_processes_rwlock, autofs_lck_grp);
-	lck_rw_unlock_exclusive(autofs_notrigger_processes_rwlock);
 	lck_rw_free(autofs_notrigger_processes_rwlock, autofs_lck_grp);
-	lck_rw_unlock_exclusive(autofs_homedirmounter_processes_rwlock);
 	lck_rw_free(autofs_homedirmounter_processes_rwlock, autofs_lck_grp);
-	lck_mtx_unlock(autofs_control_isopen_lock);
 	lck_mtx_free(autofs_control_isopen_lock, autofs_lck_grp);
 	lck_grp_free(autofs_lck_grp);
 
 	sysctl_unregister_oid(&sysctl__vfs_generic_autofs_vnode_recycle_on_inactive);
 	sysctl_unregister_oid(&sysctl__vfs_generic_autofs);
 
-	return (KERN_SUCCESS);
+	return ret;
 }

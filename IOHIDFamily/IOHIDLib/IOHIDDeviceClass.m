@@ -33,10 +33,10 @@
 #import <mach/mach_port.h>
 #import <IOKit/hid/IOHIDLibPrivate.h>
 #import <IOKit/hid/IOHIDPrivateKeys.h>
-#import "IOHIDDebug.h"
 #import "IOHIDDescriptorParser.h"
 #import "IOHIDDescriptorParserPrivate.h"
 #import <IOKit/hidsystem/IOHIDLib.h>
+#import "IOHIDFamilyPrivate.h"
 #import "IOHIDFamilyProbe.h"
 #if __has_include(<Rosetta/Rosetta.h>)
 #  include <Rosetta/Rosetta.h>
@@ -523,8 +523,10 @@ static IOReturn _setProperty(void *iunknown,
 {
     // Force a copy of the key and property to avoid the client from courrpting the storage.
     // CFPropertyList is used to do a deep copy. Only types that are supported by Property Lists are valid then.
+    kern_return_t ret = kIOReturnSuccess;
     NSString* keyCopy = [key mutableCopy];
     id propertyCopy = property ? (__bridge_transfer id)CFPropertyListCreateDeepCopy(kCFAllocatorDefault, (__bridge CFTypeRef)property, kCFPropertyListMutableContainersAndLeaves) : nil;
+
     if ([key isEqualToString:@(kIOHIDDeviceSuspendKey)]) {
         require(_queue, exit);
         
@@ -533,12 +535,14 @@ static IOReturn _setProperty(void *iunknown,
         } else {
             [_queue start];
         }
+    } else if ([key isEqualToString:@kIOHIDMaxReportBufferCountKey] || [key isEqualToString:@kIOHIDReportBufferEntrySizeKey]) {
+        ret = IOConnectSetCFProperty(_connect, (__bridge CFStringRef)key, (__bridge CFTypeRef)property);
     }
     
 exit:
     _properties[keyCopy] = propertyCopy;
 
-    return kIOReturnSuccess;
+    return ret;
 }
 
 static IOReturn _getAsyncEventSource(void *iunknown, CFTypeRef *pSource)
@@ -768,6 +772,7 @@ static IOReturn _setValue(void *iunknown,
     uint32_t inputSize = 0;
     uint64_t input = 0;
     NSUInteger elementIndex;
+    CFIndex valueLength = 0;
     
     require_action(_opened, exit, ret = kIOReturnNotOpen);
     
@@ -794,7 +799,10 @@ static IOReturn _setValue(void *iunknown,
                    ret = kIOReturnSuccess);
 
     // Send the value to the kernel.
-    inputSize = (uint32_t)(sizeof(IOHIDElementValueHeader) + IOHIDValueGetLength(value));
+    valueLength = IOHIDValueGetLength(value);
+    require_action(valueLength>=0, exit, ret = kIOReturnError);
+
+    inputSize = (uint32_t)(sizeof(IOHIDElementValueHeader) + valueLength);
     inputStruct = malloc(inputSize);
     _IOHIDValueCopyToElementValueHeader(value, inputStruct);
 
@@ -972,6 +980,11 @@ static void _valueAvailableCallback(void *context,
         
         if (IOHIDValueGetBytePtr(value) && IOHIDValueGetLength(value)) {
             size = min(_inputReportBufferLength, IOHIDValueGetLength(value));
+            if (size < 0) {
+                CFRelease(value);
+                continue;
+            }
+            
             bcopy(IOHIDValueGetBytePtr(value), _inputReportBuffer, size);
         }
         

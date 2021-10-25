@@ -796,6 +796,8 @@ int modeFolder(BLContextPtr context, struct clarg actargs[klast]) {
 				if (!ret) {
 					blesscontextprintf(context, kBLLogLevelVerbose, "Volume %s will boot from snapshot %s",
 									   sb.f_mntonname, snapshotName);
+				} else {
+					return ret;
 				}
 			}
 			
@@ -803,7 +805,9 @@ int modeFolder(BLContextPtr context, struct clarg actargs[klast]) {
     }
 	
 	if (actargs[kpersonalize].present) {
-		ret = PersonalizeOSVolume(context, actargs[kmount].argument, NULL, true);
+        // If --allowUI was passed, then don't suppress the UI prompt for AppleConnect.
+        // This is internal-only, so it's not mentioned in the man page.
+		ret = PersonalizeOSVolume(context, actargs[kmount].argument, NULL, !actargs[kallowui].present);
 		if (ret) {
 			blesscontextprintf(context, kBLLogLevelError, "Couldn't personalize volume %s\n", actargs[kmount].argument);
 			return ret;

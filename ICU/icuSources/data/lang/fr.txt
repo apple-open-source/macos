@@ -1,5 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
-// License & terms of use: http://www.unicode.org/copyright.html#License
+// License & terms of use: http://www.unicode.org/copyright.html
+// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
 fr{
     Keys{
         calendar{"calendrier"}
@@ -59,11 +60,12 @@ fr{
         asa{"asu"}
         ase{"langue des signes américaine"}
         ast{"asturien"}
+        atj{"atikamekw"}
         av{"avar"}
         avk{"kotava"}
         awa{"awadhi"}
         ay{"aymara"}
-        az{"azéri"}
+        az{"azerbaïdjanais"}
         ba{"bachkir"}
         bal{"baloutchi"}
         ban{"balinais"}
@@ -76,7 +78,7 @@ fr{
         bej{"bedja"}
         bem{"bemba"}
         bew{"betawi"}
-        bez{"béna"}
+        bez{"bena"}
         bfd{"bafut"}
         bfq{"badaga"}
         bg{"bulgare"}
@@ -124,16 +126,25 @@ fr{
         chr{"cherokee"}
         chy{"cheyenne"}
         ckb{"kurde sorani"}
+        clc{"tsilhqot’in"}
         co{"corse"}
         cop{"copte"}
         cps{"capiznon"}
         cr{"cree"}
+        crg{"métchif"}
         crh{"turc de Crimée"}
+        crj{"cree de l'Est du sud"}
+        crk{"cree des plaines"}
+        crl{"cree de l'Est du nord"}
+        crm{"cree de Moose"}
+        crr{"algonquin de Caroline"}
         crs{"créole seychellois"}
         cs{"tchèque"}
         csb{"kachoube"}
+        csw{"cree des marécages"}
         cu{"slavon d’église"}
         cv{"tchouvache"}
+        cwd{"cree des bois"}
         cy{"gallois"}
         da{"danois"}
         dak{"dakota"}
@@ -157,7 +168,7 @@ fr{
         dyu{"dioula"}
         dz{"dzongkha"}
         dzg{"dazaga"}
-        ebu{"embou"}
+        ebu{"embu"}
         ee{"éwé"}
         efi{"éfik"}
         egl{"émilien"}
@@ -182,6 +193,7 @@ fr{
         ewo{"éwondo"}
         ext{"estrémègne"}
         fa{"persan"}
+        fa_AF{"dari"}
         fan{"fang"}
         fat{"fanti"}
         ff{"peul"}
@@ -224,16 +236,18 @@ fr{
         grb{"grebo"}
         grc{"grec ancien"}
         gsw{"suisse allemand"}
-        gu{"goudjerati"}
+        gu{"goudjarati"}
         guc{"wayuu"}
         gur{"gurenne"}
         guz{"gusii"}
         gv{"mannois"}
         gwi{"gwichʼin"}
         ha{"haoussa"}
-        hai{"haida"}
+        hai{"haïda"}
         hak{"hakka"}
         haw{"hawaïen"}
+        hax{"haïda du Sud"}
+        hdn{"haïda du Nord"}
         he{"hébreu"}
         hi{"hindi"}
         hif{"hindi fidjien"}
@@ -247,6 +261,7 @@ fr{
         ht{"créole haïtien"}
         hu{"hongrois"}
         hup{"hupa"}
+        hur{"halkomelem"}
         hy{"arménien"}
         hz{"héréro"}
         ia{"interlingua"}
@@ -257,6 +272,8 @@ fr{
         ig{"igbo"}
         ii{"yi du Sichuan"}
         ik{"inupiaq"}
+        ike{"inuktitut de l'Est canadien"}
+        ikt{"inuktitut de l'Ouest canadien"}
         ilo{"ilocano"}
         inh{"ingouche"}
         io{"ido"}
@@ -318,12 +335,13 @@ fr{
         ks_Arab{"cachemiri (naskh)"}
         ksb{"shambala"}
         ksf{"bafia"}
-        ksh{"francique ripuaire"}
+        ksh{"kölsch"}
         ku{"kurde"}
         kum{"koumyk"}
         kut{"kutenai"}
         kv{"komi"}
         kw{"cornique"}
+        kwk{"kwak'wala"}
         ky{"kirghize"}
         la{"latin"}
         lad{"ladino"}
@@ -336,6 +354,7 @@ fr{
         lg{"ganda"}
         li{"limbourgeois"}
         lij{"ligure"}
+        lil{"lillooet"}
         liv{"livonien"}
         lkt{"lakota"}
         lmo{"lombard"}
@@ -345,6 +364,7 @@ fr{
         lou{"créole louisianais"}
         loz{"lozi"}
         lrc{"lori du Nord"}
+        lsm{"saamia"}
         lt{"lituanien"}
         ltg{"latgalien"}
         lu{"luba-katanga (kiluba)"}
@@ -383,6 +403,7 @@ fr{
         mn{"mongol"}
         mnc{"mandchou"}
         mni{"manipuri"}
+        moe{"innu-aimun"}
         moh{"mohawk"}
         mos{"moré"}
         mr{"marathi"}
@@ -435,6 +456,12 @@ fr{
         nzi{"nzema"}
         oc{"occitan"}
         oj{"ojibwa"}
+        ojb{"ojibwa du Nord-ouest"}
+        ojc{"ojibwa central"}
+        ojg{"ojibwa de l'Est"}
+        ojs{"oji-cree"}
+        ojw{"ojibwa de l'Ouest"}
+        oka{"nsilxcín"}
         om{"oromo"}
         or{"odia"}
         os{"ossète"}
@@ -459,6 +486,7 @@ fr{
         pms{"piémontais"}
         pnt{"pontique"}
         pon{"pohnpei"}
+        pqm{"malécite-passamaquoddy"}
         prg{"prussien"}
         pro{"provençal ancien"}
         ps{"pachto"}
@@ -472,6 +500,7 @@ fr{
         rap{"rapanui"}
         rar{"rarotongien"}
         rgn{"romagnol"}
+        rhg{"rohingya"}
         rif{"rifain"}
         rm{"romanche"}
         rn{"roundi"}
@@ -520,6 +549,7 @@ fr{
         sid{"sidamo"}
         sk{"slovaque"}
         sl{"slovène"}
+        slh{"lushootseed du Sud"}
         sli{"bas-silésien"}
         sly{"sélayar"}
         sm{"samoan"}
@@ -539,6 +569,7 @@ fr{
         ssy{"saho"}
         st{"sotho du Sud"}
         stq{"saterlandais"}
+        str{"salish côtier du Nord"}
         su{"soundanais"}
         suk{"soukouma"}
         sus{"soussou"}
@@ -548,9 +579,10 @@ fr{
         sw_CD{"swahili du Congo"}
         swb{"comorien"}
         syc{"syriaque classique"}
-        syr{"syriaque"}
+        syr{"soureth"}
         szl{"silésien"}
         ta{"tamoul"}
+        tce{"tutchone du Sud"}
         tcy{"toulou"}
         te{"télougou"}
         tem{"timné"}
@@ -558,7 +590,9 @@ fr{
         ter{"tereno"}
         tet{"tétoum"}
         tg{"tadjik"}
+        tgx{"tagish"}
         th{"thaï"}
+        tht{"tahltan"}
         ti{"tigrigna"}
         tig{"tigré"}
         tiv{"tiv"}
@@ -581,6 +615,7 @@ fr{
         tsd{"tsakonien"}
         tsi{"tsimshian"}
         tt{"tatar"}
+        ttm{"tutchone du Nord"}
         ttt{"tati caucasien"}
         tum{"tumbuka"}
         tvl{"tuvalu"}
@@ -659,6 +694,7 @@ fr{
         ug{"ouïgour"}
     }
     Scripts{
+        Adlm{"adlam"}
         Arab{"arabe"}
         Aran{"nastaliq"}
         Armi{"araméen impérial"}
@@ -758,6 +794,7 @@ fr{
         Prti{"parthe des inscriptions"}
         Qaag{"zawgyi"}
         Rjng{"rejang"}
+        Rohg{"hanifi du Rohingya"}
         Roro{"rongorongo"}
         Runr{"runique"}
         Samr{"samaritain"}
@@ -988,7 +1025,6 @@ fr{
         VALENCIA{"valencien"}
         WADEGILE{"Wade-Giles"}
     }
-    Version{"36.1"}
     characterLabelPattern{
         all{"{0} — tout"}
         category-list{"{0} : {1}"}
@@ -1003,6 +1039,8 @@ fr{
             one{"{0} trait"}
             other{"{0} traits"}
         }
+        subscript{"indice {0}"}
+        superscript{"exposant {0}"}
     }
     codePatterns{
         language{"langue : {0}"}

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2020 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2021 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -723,6 +723,39 @@ my_CFStringCreateWithBytes(const uint8_t * bytes, int bytes_length)
 	str = NULL;
     }
     return (str);
+}
+
+PRIVATE_EXTERN CFStringRef
+my_CFStringCreateWithData(CFDataRef data)
+{
+    static const CFStringEncoding	encodings[]
+	    = {
+	       kCFStringEncodingUTF8,
+	       kCFStringEncodingMacRoman
+    };
+    CFStringRef	str = NULL;
+
+    for (int i = 0; i < countof(encodings); i++) {
+	str = CFStringCreateWithBytes(NULL,
+				      CFDataGetBytePtr(data),
+				      CFDataGetLength(data),
+				      encodings[i],
+				      FALSE);
+	if (str != NULL) {
+	    break;
+	}
+    }
+    return (str);
+}
+
+PRIVATE_EXTERN Boolean
+my_CFStringEqual(CFStringRef str1, CFStringRef str2)
+{
+    if (str1 == NULL || str2 == NULL) {
+	/* if either are NULL, they are not equal */
+	return (FALSE);
+    }
+    return (CFEqual(str1, str2));
 }
 
 PRIVATE_EXTERN vm_address_t

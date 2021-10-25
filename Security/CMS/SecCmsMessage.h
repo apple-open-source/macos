@@ -108,6 +108,9 @@ SecCmsMessageGetArena(SecCmsMessageRef cmsg);
 extern SecCmsContentInfoRef
 SecCmsMessageGetContentInfo(SecCmsMessageRef cmsg);
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+
 #if TARGET_OS_OSX
 /*!
      @function
@@ -115,12 +118,9 @@ SecCmsMessageGetContentInfo(SecCmsMessageRef cmsg);
      @discussion In the case of those types which are encrypted, this returns the *plain* content.
      In case of nested contentInfos, this descends and retrieves the innermost content.
  */
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
 extern CSSM_DATA_PTR
 SecCmsMessageGetContent(SecCmsMessageRef cmsg)
     API_AVAILABLE(macos(10.4)) API_UNAVAILABLE(macCatalyst);
-#pragma clang diagnostic pop
 #else // !TARGET_OS_OSX
 /*!
     @function
@@ -132,6 +132,8 @@ extern const SecAsn1Item *
 SecCmsMessageGetContent(SecCmsMessageRef cmsg)
     API_AVAILABLE(ios(2.0), tvos(2.0), watchos(1.0)) API_UNAVAILABLE(macCatalyst);
 #endif // !TARGET_OS_OSX
+
+#pragma clang diagnostic pop
 
 /*!
     @function

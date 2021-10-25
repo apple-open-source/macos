@@ -104,6 +104,7 @@ protected:
 
     virtual bool pauseSet(bool whenIdle);
     virtual void unpauseSet(void);
+    virtual void waitForPause(void);
     
  public:
 

@@ -69,7 +69,11 @@ RuleBasedBreakIterator57::RuleBasedBreakIterator57(RBBIDataHeader57* data, UErro
 {
     init();
     fData = new RBBIDataWrapper57(data, status); // status checked in constructor
-    if (U_FAILURE(status)) {return;}
+    if (U_FAILURE(status)) {
+        delete fData;
+        fData = NULL;
+        return;
+    }
     if(fData == 0) {
         status = U_MEMORY_ALLOCATION_ERROR;
         return;
@@ -83,7 +87,11 @@ RuleBasedBreakIterator57::RuleBasedBreakIterator57(const RBBIDataHeader57* data,
 {
     init();
     fData = new RBBIDataWrapper57(data, RBBIDataWrapper57::kDontAdopt, status); // status checked in constructor
-    if (U_FAILURE(status)) {return;}
+    if (U_FAILURE(status)) {
+        delete fData;
+        fData = NULL;
+        return;
+    }
     if(fData == 0) {
         status = U_MEMORY_ALLOCATION_ERROR;
         return;
@@ -1080,12 +1088,12 @@ struct LookAheadResults {
 //     value every time the state machine passes through an accepting state.
 //
 //-----------------------------------------------------------------------------------
-int32_t RuleBasedBreakIterator57::handleNext(const RBBIStateTable *statetable) {
+int32_t RuleBasedBreakIterator57::handleNext(const RBBIStateTable57 *statetable) {
     int32_t             state;
     uint16_t            category        = 0;
     RBBIRunMode         mode;
     
-    RBBIStateTableRow  *row;
+    RBBIStateTableRow57  *row;
     UChar32             c;
     LookAheadResults    lookAheadMatches;
     int32_t             result             = 0;
@@ -1113,7 +1121,7 @@ int32_t RuleBasedBreakIterator57::handleNext(const RBBIStateTable *statetable) {
 
     //  Set the initial state for the state machine
     state = START_STATE;
-    row = (RBBIStateTableRow *)
+    row = (RBBIStateTableRow57 *)
             //(statetable->fTableData + (statetable->fRowLen * state));
             (tableData + tableRowLen * state);
             
@@ -1182,11 +1190,11 @@ int32_t RuleBasedBreakIterator57::handleNext(const RBBIStateTable *statetable) {
         //
 
         // Note: fNextState is defined as uint16_t[2], but we are casting
-        // a generated RBBI table to RBBIStateTableRow and some tables
+        // a generated RBBI table to RBBIStateTableRow57 and some tables
         // actually have more than 2 categories.
         U_ASSERT(category<fData->fHeader->fCatCount);
         state = row->fNextState[category];  /*Not accessing beyond memory*/
-        row = (RBBIStateTableRow *)
+        row = (RBBIStateTableRow57 *)
             // (statetable->fTableData + (statetable->fRowLen * state));
             (tableData + tableRowLen * state);
 
@@ -1271,11 +1279,11 @@ int32_t RuleBasedBreakIterator57::handleNext(const RBBIStateTable *statetable) {
 //      The logic of this function is very similar to handleNext(), above.
 //
 //-----------------------------------------------------------------------------------
-int32_t RuleBasedBreakIterator57::handlePrevious(const RBBIStateTable *statetable) {
+int32_t RuleBasedBreakIterator57::handlePrevious(const RBBIStateTable57 *statetable) {
     int32_t             state;
     uint16_t            category        = 0;
     RBBIRunMode         mode;
-    RBBIStateTableRow  *row;
+    RBBIStateTableRow57  *row;
     UChar32             c;
     LookAheadResults    lookAheadMatches;
     int32_t             result          = 0;
@@ -1306,7 +1314,7 @@ int32_t RuleBasedBreakIterator57::handlePrevious(const RBBIStateTable *statetabl
 
     //  Set the initial state for the state machine
     state = START_STATE;
-    row = (RBBIStateTableRow *)
+    row = (RBBIStateTableRow57 *)
             (statetable->fTableData + (statetable->fRowLen * state));
     category = 3;
     mode     = RBBI_RUN;
@@ -1379,11 +1387,11 @@ int32_t RuleBasedBreakIterator57::handlePrevious(const RBBIStateTable *statetabl
         //
 
         // Note: fNextState is defined as uint16_t[2], but we are casting
-        // a generated RBBI table to RBBIStateTableRow and some tables
+        // a generated RBBI table to RBBIStateTableRow57 and some tables
         // actually have more than 2 categories.
         U_ASSERT(category<fData->fHeader->fCatCount);
         state = row->fNextState[category];  /*Not accessing beyond memory*/
-        row = (RBBIStateTableRow *)
+        row = (RBBIStateTableRow57 *)
             (statetable->fTableData + (statetable->fRowLen * state));
 
         if (row->fAccepting == -1) {

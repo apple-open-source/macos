@@ -1014,6 +1014,31 @@ See remaining rules for examples.
 			<key>version</key>
 			<integer>1</integer>
 		</dict>
+		<key>system.login.screensaver.unlock</key>
+		<dict>
+			<key>class</key>
+			<string>evaluate-mechanisms</string>
+			<key>comment</key>
+			<string>Do not modify. Performs unlock operations for screensaver.</string>
+			<key>mechanisms</key>
+			<array>
+				<string>CryptoTokenKit:login</string>
+				<string>builtin:kcunlock</string>
+			</array>
+		</dict>
+		<key>system.login.screensaver.new</key>
+		<dict>
+			<key>class</key>
+			<string>rule</string>
+            <key>comment</key>
+            <string>This right may be modified by a 3rd parties.</string>
+			<key>rule</key>
+			<array>
+				<string>authenticate-session-owner</string>
+			</array>
+			<key>version</key>
+			<integer>2</integer>
+		</dict>
 		<key>system.login.tty</key>
 		<dict>
 			<key>class</key>

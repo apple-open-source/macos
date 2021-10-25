@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004, 2006, 2008, 2010, 2011, 2014-2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2004, 2006, 2008, 2010, 2011, 2014-2016, 2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -149,7 +149,7 @@ _notifyadd(mach_port_t 			server,
 	serverSessionRef	mySession;
 
 	/* un-serialize the key */
-	if (!_SCUnserializeString(&key, NULL, (void *)keyRef, keyLen)) {
+	if (!_SCUnserializeString(&key, NULL, keyRef, keyLen)) {
 		*sc_status = kSCStatusFailed;
 		goto done;
 	}
@@ -305,14 +305,14 @@ _notifyset(mach_port_t 			server,
 
 	if ((keysRef != NULL) && (keysLen > 0)) {
 		/* un-serialize the keys */
-		if (!_SCUnserialize((CFPropertyListRef *)&keys, NULL, (void *)keysRef, keysLen)) {
+		if (!_SCUnserialize((CFPropertyListRef *)&keys, NULL, keysRef, keysLen)) {
 			*sc_status = kSCStatusFailed;
 		}
 	}
 
 	if ((patternsRef != NULL) && (patternsLen > 0)) {
 		/* un-serialize the patterns */
-		if (!_SCUnserialize((CFPropertyListRef *)&patterns, NULL, (void *)patternsRef, patternsLen)) {
+		if (!_SCUnserialize((CFPropertyListRef *)&patterns, NULL, patternsRef, patternsLen)) {
 			*sc_status = kSCStatusFailed;
 		}
 	}

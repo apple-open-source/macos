@@ -861,6 +861,7 @@ LYNX_PATH
 RANLIB
 LN_S
 AWK
+SVN
 RSYNC
 PKGCONFIG
 RM
@@ -2051,7 +2052,7 @@ Optional Packages:
   --with-z=PATH           use a specific zlib library
   --with-libxml2=PATH     location for libxml2
   --with-brotli=PATH      Brotli installation directory
-  --with-lua=PATH         Path to the Lua 5.3/5.2/5.1 prefix
+  --with-lua=PATH         Path to the Lua installation prefix
   --with-ssl=PATH         OpenSSL installation directory
   --with-nghttp2=PATH     nghttp2 installation directory
   --with-jansson=PATH     jansson installation directory
@@ -6666,6 +6667,46 @@ RSYNC=$ac_cv_path_RSYNC
 if test -n "$RSYNC"; then
   { $as_echo "$as_me:${as_lineno-$LINENO}: result: $RSYNC" >&5
 $as_echo "$RSYNC" >&6; }
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+fi
+
+
+# Extract the first word of "svn", so it can be a program name with args.
+set dummy svn; ac_word=$2
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
+$as_echo_n "checking for $ac_word... " >&6; }
+if ${ac_cv_path_SVN+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  case $SVN in
+  [\\/]* | ?:[\\/]*)
+  ac_cv_path_SVN="$SVN" # Let the user override the test with a path.
+  ;;
+  *)
+  as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
+for as_dir in $PATH
+do
+  IFS=$as_save_IFS
+  test -z "$as_dir" && as_dir=.
+    for ac_exec_ext in '' $ac_executable_extensions; do
+  if as_fn_executable_p "$as_dir/$ac_word$ac_exec_ext"; then
+    ac_cv_path_SVN="$as_dir/$ac_word$ac_exec_ext"
+    $as_echo "$as_me:${as_lineno-$LINENO}: found $as_dir/$ac_word$ac_exec_ext" >&5
+    break 2
+  fi
+done
+  done
+IFS=$as_save_IFS
+
+  ;;
+esac
+fi
+SVN=$ac_cv_path_SVN
+if test -n "$SVN"; then
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: $SVN" >&5
+$as_echo "$SVN" >&6; }
 else
   { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
 $as_echo "no" >&6; }
@@ -20790,14 +20831,19 @@ else
     test_paths="${lua_path}"
 fi
 
-if test -n "$PKGCONFIG" -a -z "$lua_path" \
-   && $PKGCONFIG --atleast-version=5.1 lua; then
-  LUA_LIBS="`$PKGCONFIG --libs lua`"
-  LUA_CFLAGS="`$PKGCONFIG --cflags lua`"
-  LUA_VERSION="`$PKGCONFIG --modversion lua`"
-  { $as_echo "$as_me:${as_lineno-$LINENO}: using Lua $LUA_VERSION configuration from pkg-config" >&5
+for pklua in lua lua5.4 lua5.3 lua5.2 lua5.1; do
+  if test -n "$PKGCONFIG" -a -z "$lua_path" \
+     && $PKGCONFIG --atleast-version=5.1 $pklua; then
+    LUA_LIBS="`$PKGCONFIG --libs $pklua`"
+    LUA_CFLAGS="`$PKGCONFIG --cflags $pklua`"
+    LUA_VERSION="`$PKGCONFIG --modversion $pklua`"
+    { $as_echo "$as_me:${as_lineno-$LINENO}: using Lua $LUA_VERSION configuration from pkg-config" >&5
 $as_echo "$as_me: using Lua $LUA_VERSION configuration from pkg-config" >&6;}
-else
+    break
+  fi
+done
+
+if test -z "$LUA_VERSION"; then
   { $as_echo "$as_me:${as_lineno-$LINENO}: checking for pow in -lm" >&5
 $as_echo_n "checking for pow in -lm... " >&6; }
 if ${ac_cv_lib_m_pow+:} false; then :
@@ -20879,6 +20925,265 @@ if test "x$ac_cv_lib_m_sqrt" = xyes; then :
 fi
 
   for x in $test_paths ; do
+        { $as_echo "$as_me:${as_lineno-$LINENO}: checking for lua.h in ${x}/include/lua-5.4" >&5
+$as_echo_n "checking for lua.h in ${x}/include/lua-5.4... " >&6; }
+    if test -f ${x}/include/lua-5.4/lua.h; then
+        { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+$as_echo "yes" >&6; }
+        save_CFLAGS=$CFLAGS
+        save_LDFLAGS=$LDFLAGS
+        CFLAGS="$CFLAGS"
+        LDFLAGS="-L${x}/lib/lua-5.4 $LDFLAGS $lib_m"
+        { $as_echo "$as_me:${as_lineno-$LINENO}: checking for luaL_newstate in -llua-5.4" >&5
+$as_echo_n "checking for luaL_newstate in -llua-5.4... " >&6; }
+if ${ac_cv_lib_lua_5_4_luaL_newstate+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  ac_check_lib_save_LIBS=$LIBS
+LIBS="-llua-5.4  $LIBS"
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+/* Override any GCC internal prototype to avoid an error.
+   Use char because int might match the return type of a GCC
+   builtin and then its argument prototype would still apply.  */
+#ifdef __cplusplus
+extern "C"
+#endif
+char luaL_newstate ();
+int
+main ()
+{
+return luaL_newstate ();
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_link "$LINENO"; then :
+  ac_cv_lib_lua_5_4_luaL_newstate=yes
+else
+  ac_cv_lib_lua_5_4_luaL_newstate=no
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_lua_5_4_luaL_newstate" >&5
+$as_echo "$ac_cv_lib_lua_5_4_luaL_newstate" >&6; }
+if test "x$ac_cv_lib_lua_5_4_luaL_newstate" = xyes; then :
+
+            LUA_LIBS="-L${x}/lib/lua-5.4 -llua-5.4 $lib_m"
+            if test "x$ap_platform_runtime_link_flag" != "x"; then
+
+  if test "x$LUA_LIBS" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting LUA_LIBS to \"$ap_platform_runtime_link_flag${x}/lib/lua-5.4\""
+    LUA_LIBS="$ap_platform_runtime_link_flag${x}/lib/lua-5.4"
+  else
+    apr_addto_bugger="$ap_platform_runtime_link_flag${x}/lib/lua-5.4"
+    for i in $apr_addto_bugger; do
+      apr_addto_duplicate="0"
+      for j in $LUA_LIBS; do
+        if test "x$i" = "x$j"; then
+          apr_addto_duplicate="1"
+          break
+        fi
+      done
+      if test $apr_addto_duplicate = "0"; then
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to LUA_LIBS"
+        LUA_LIBS="$LUA_LIBS $i"
+      fi
+    done
+  fi
+
+            fi
+            LUA_CFLAGS="-I${x}/include/lua-5.4"
+
+fi
+
+        CFLAGS=$save_CFLAGS
+        LDFLAGS=$save_LDFLAGS
+
+        if test -n "${LUA_LIBS}"; then
+            break
+        fi
+    else
+        { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+    fi
+
+        { $as_echo "$as_me:${as_lineno-$LINENO}: checking for lua.h in ${x}/include/lua5.4" >&5
+$as_echo_n "checking for lua.h in ${x}/include/lua5.4... " >&6; }
+    if test -f ${x}/include/lua5.4/lua.h; then
+        { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+$as_echo "yes" >&6; }
+        save_CFLAGS=$CFLAGS
+        save_LDFLAGS=$LDFLAGS
+        CFLAGS="$CFLAGS"
+        LDFLAGS="-L${x}/lib $LDFLAGS $lib_m"
+        { $as_echo "$as_me:${as_lineno-$LINENO}: checking for luaL_newstate in -llua5.4" >&5
+$as_echo_n "checking for luaL_newstate in -llua5.4... " >&6; }
+if ${ac_cv_lib_lua5_4_luaL_newstate+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  ac_check_lib_save_LIBS=$LIBS
+LIBS="-llua5.4  $LIBS"
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+/* Override any GCC internal prototype to avoid an error.
+   Use char because int might match the return type of a GCC
+   builtin and then its argument prototype would still apply.  */
+#ifdef __cplusplus
+extern "C"
+#endif
+char luaL_newstate ();
+int
+main ()
+{
+return luaL_newstate ();
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_link "$LINENO"; then :
+  ac_cv_lib_lua5_4_luaL_newstate=yes
+else
+  ac_cv_lib_lua5_4_luaL_newstate=no
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_lua5_4_luaL_newstate" >&5
+$as_echo "$ac_cv_lib_lua5_4_luaL_newstate" >&6; }
+if test "x$ac_cv_lib_lua5_4_luaL_newstate" = xyes; then :
+
+            LUA_LIBS="-L${x}/lib -llua5.4 $lib_m"
+            if test "x$ap_platform_runtime_link_flag" != "x"; then
+
+  if test "x$LUA_LIBS" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting LUA_LIBS to \"$ap_platform_runtime_link_flag${x}/lib\""
+    LUA_LIBS="$ap_platform_runtime_link_flag${x}/lib"
+  else
+    apr_addto_bugger="$ap_platform_runtime_link_flag${x}/lib"
+    for i in $apr_addto_bugger; do
+      apr_addto_duplicate="0"
+      for j in $LUA_LIBS; do
+        if test "x$i" = "x$j"; then
+          apr_addto_duplicate="1"
+          break
+        fi
+      done
+      if test $apr_addto_duplicate = "0"; then
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to LUA_LIBS"
+        LUA_LIBS="$LUA_LIBS $i"
+      fi
+    done
+  fi
+
+            fi
+            LUA_CFLAGS="-I${x}/include/lua5.4"
+
+fi
+
+        CFLAGS=$save_CFLAGS
+        LDFLAGS=$save_LDFLAGS
+
+        if test -n "${LUA_LIBS}"; then
+            break
+        fi
+    else
+        { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+    fi
+
+        { $as_echo "$as_me:${as_lineno-$LINENO}: checking for lua.h in ${x}/include/lua54" >&5
+$as_echo_n "checking for lua.h in ${x}/include/lua54... " >&6; }
+    if test -f ${x}/include/lua54/lua.h; then
+        { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+$as_echo "yes" >&6; }
+        save_CFLAGS=$CFLAGS
+        save_LDFLAGS=$LDFLAGS
+        CFLAGS="$CFLAGS"
+        LDFLAGS="-L${x}/lib/lua54 $LDFLAGS $lib_m"
+        { $as_echo "$as_me:${as_lineno-$LINENO}: checking for luaL_newstate in -llua" >&5
+$as_echo_n "checking for luaL_newstate in -llua... " >&6; }
+if ${ac_cv_lib_lua_luaL_newstate+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  ac_check_lib_save_LIBS=$LIBS
+LIBS="-llua  $LIBS"
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+/* Override any GCC internal prototype to avoid an error.
+   Use char because int might match the return type of a GCC
+   builtin and then its argument prototype would still apply.  */
+#ifdef __cplusplus
+extern "C"
+#endif
+char luaL_newstate ();
+int
+main ()
+{
+return luaL_newstate ();
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_link "$LINENO"; then :
+  ac_cv_lib_lua_luaL_newstate=yes
+else
+  ac_cv_lib_lua_luaL_newstate=no
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_lua_luaL_newstate" >&5
+$as_echo "$ac_cv_lib_lua_luaL_newstate" >&6; }
+if test "x$ac_cv_lib_lua_luaL_newstate" = xyes; then :
+
+            LUA_LIBS="-L${x}/lib/lua54 -llua $lib_m"
+            if test "x$ap_platform_runtime_link_flag" != "x"; then
+
+  if test "x$LUA_LIBS" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting LUA_LIBS to \"$ap_platform_runtime_link_flag${x}/lib/lua54\""
+    LUA_LIBS="$ap_platform_runtime_link_flag${x}/lib/lua54"
+  else
+    apr_addto_bugger="$ap_platform_runtime_link_flag${x}/lib/lua54"
+    for i in $apr_addto_bugger; do
+      apr_addto_duplicate="0"
+      for j in $LUA_LIBS; do
+        if test "x$i" = "x$j"; then
+          apr_addto_duplicate="1"
+          break
+        fi
+      done
+      if test $apr_addto_duplicate = "0"; then
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to LUA_LIBS"
+        LUA_LIBS="$LUA_LIBS $i"
+      fi
+    done
+  fi
+
+            fi
+            LUA_CFLAGS="-I${x}/include/lua54"
+
+fi
+
+        CFLAGS=$save_CFLAGS
+        LDFLAGS=$save_LDFLAGS
+
+        if test -n "${LUA_LIBS}"; then
+            break
+        fi
+    else
+        { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+    fi
+
+
         { $as_echo "$as_me:${as_lineno-$LINENO}: checking for lua.h in ${x}/include/lua-5.3" >&5
 $as_echo_n "checking for lua.h in ${x}/include/lua-5.3... " >&6; }
     if test -f ${x}/include/lua-5.3/lua.h; then
@@ -21749,14 +22054,14 @@ fi
 
 
 if test -z "${LUA_LIBS}"; then
-  { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: *** Lua 5.3 5.2 or 5.1 library not found." >&5
-$as_echo "$as_me: WARNING: *** Lua 5.3 5.2 or 5.1 library not found." >&2;}
+  { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: *** Lua 5.4 5.3 5.2 or 5.1 library not found." >&5
+$as_echo "$as_me: WARNING: *** Lua 5.4 5.3 5.2 or 5.1 library not found." >&2;}
   enable_lua="no"
     if test -z "${lua_path}"; then
-        { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: Lua 5.3 5.2 or 5.1 library is required" >&5
-$as_echo "$as_me: WARNING: Lua 5.3 5.2 or 5.1 library is required" >&2;}
+        { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: Lua 5.4 5.3 5.2 or 5.1 library is required" >&5
+$as_echo "$as_me: WARNING: Lua 5.4 5.3 5.2 or 5.1 library is required" >&2;}
     else
-        as_fn_error $? "Lua 5.3 5.2 or 5.1 library is required" "$LINENO" 5
+        as_fn_error $? "Lua 5.4 5.3 5.2 or 5.1 library is required" "$LINENO" 5
     fi
 else
   { $as_echo "$as_me:${as_lineno-$LINENO}: using '${LUA_LIBS}' for Lua Library" >&5
@@ -31878,7 +32183,7 @@ EOF
   > $modpath_current/modules.mk
 
 
-md_objs="md_acme.lo md_acme_acct.lo md_acme_authz.lo md_acme_drive.lo md_acmev1_drive.lo md_acmev2_drive.lo md_acme_order.lo md_core.lo md_curl.lo md_crypt.lo md_http.lo md_json.lo md_jws.lo md_log.lo md_ocsp.lo md_result.lo md_reg.lo md_status.lo md_store.lo md_store_fs.lo md_time.lo md_util.lo mod_md.lo mod_md_config.lo mod_md_drive.lo mod_md_ocsp.lo mod_md_os.lo mod_md_status.lo "
+md_objs="md_acme.lo md_acme_acct.lo md_acme_authz.lo md_acme_drive.lo md_acmev2_drive.lo md_acme_order.lo md_core.lo md_curl.lo md_crypt.lo md_event.lo md_http.lo md_json.lo md_jws.lo md_log.lo md_ocsp.lo md_result.lo md_reg.lo md_status.lo md_store.lo md_store_fs.lo md_time.lo md_util.lo mod_md.lo mod_md_config.lo mod_md_drive.lo mod_md_ocsp.lo mod_md_os.lo mod_md_status.lo "
 
 # Ensure that other modules can pick up mod_md.h
 
@@ -33289,8 +33594,8 @@ fi
 done
 
 
-    { $as_echo "$as_me:${as_lineno-$LINENO}: checking for curl version >= 7.50" >&5
-$as_echo_n "checking for curl version >= 7.50... " >&6; }
+    { $as_echo "$as_me:${as_lineno-$LINENO}: checking for curl version >= 7.29" >&5
+$as_echo_n "checking for curl version >= 7.29... " >&6; }
     cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 #include <curl/curlver.h>
@@ -33304,7 +33609,7 @@ main ()
 #if LIBCURL_VERSION_MAJOR < 7
 #error "Unsupported libcurl version " LIBCURL_VERSION
 #endif
-#if LIBCURL_VERSION_MAJOR == 7 && LIBCURL_VERSION_MINOR < 50
+#if LIBCURL_VERSION_MAJOR == 7 && LIBCURL_VERSION_MINOR < 29
 #error "Unsupported libcurl version " LIBCURL_VERSION
 #endif
   ;
@@ -39904,6 +40209,10 @@ $as_echo "$as_me: " >&6;}
 
 
   APACHE_VAR_SUBST="$APACHE_VAR_SUBST RSYNC"
+
+
+
+  APACHE_VAR_SUBST="$APACHE_VAR_SUBST SVN"
 
 
 

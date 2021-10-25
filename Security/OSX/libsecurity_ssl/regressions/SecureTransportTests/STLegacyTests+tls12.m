@@ -149,8 +149,9 @@ static OSStatus SocketWrite(SSLConnectionRef conn, const void *data, size_t *len
         if (ret > 0) {
             len -= ret;
             ptr += ret;
-        }
-        else {
+        } else if (ret == ECONNRESET) {
+            return errSSLClosedAbort;
+        } else {
             return -36;
         }
     } while (len > 0);
@@ -174,8 +175,9 @@ static OSStatus SocketRead(SSLConnectionRef conn, void *data, size_t *length)
         if (ret > 0) {
             len -= ret;
             ptr += ret;
-        }
-        else {
+        } else if (ret == ECONNRESET) {
+            return errSSLClosedAbort;
+        } else {
             return -36;
         }
     } while (len > 0);
@@ -233,11 +235,12 @@ static OSStatus securetransport(ssl_test_handle * ssl)
         }
     } while (ortn == errSSLWouldBlock
              || ortn == errSSLServerAuthCompleted);
-    require_noerr_action_quiet(ortn, out,
+    require_action((ortn == errSecSuccess || ortn == errSSLClosedAbort), out,
                                fprintf(stderr, "Fell out of SSLHandshake with error: %d\n", (int)ortn));
 
-    require_string(got_server_auth, out, "never got server auth");
-
+    if (ortn == errSecSuccess) {
+        require_string(got_server_auth, out, "never got server auth");
+    }
     SSLProtocol proto = kSSLProtocolUnknown;
     require_noerr_quiet(SSLGetNegotiatedProtocolVersion(ctx, &proto), out);
 
@@ -300,7 +303,7 @@ struct s_server servers[] = {
     // This server went offline as of May 2016 -- {"vpp.visa.co.uk", 443, kTLSProtocol12 }, // Doesnt like SSL 3.0 in initial record layer version
     {"imap.softbank.jp",993, kTLSProtocol12 },   // softbank imap server, there are multiple servers behind this, one of them is not able to handle downgrading to TLS 1.2 properly (126.240.66.17).
     {"mobile.charter.net",993, kTLSProtocol12 }, // Support 1.2 but fail to negotiate properly
-    {"mybill.vodafone.com.au", 443, kTLSProtocol1 }, /* 2056 bit server key */
+    {"mybill.vodafone.com.au", 443, kTLSProtocol12 }, /* 2056 bit server key */
 };
 
 #define NSERVERS (int)(sizeof(servers)/sizeof(servers[0]))

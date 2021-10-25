@@ -80,7 +80,7 @@
 
 - (void)testKeyWrapAndUnwrap {
     NSError* error = nil;
-    CKKSTLKShareRecord* share = [CKKSTLKShareRecord share:self.tlk
+    CKKSTLKShareRecord* share = [CKKSTLKShareRecord share:[self.tlk getKeychainBackedKey:&error]
                                            as:self.localPeer
                                            to:self.remotePeer
                                         epoch:-1
@@ -90,14 +90,19 @@
 
     XCTAssertEqual(self.tlk.uuid, share.tlkUUID, "TLK shares should know which key they hold");
 
-    CKKSKey* unwrappedKey = [share unwrapUsing:self.remotePeer error:&error];
-    XCTAssertNil(error, "Should have been no error unwrapping a CKKSKey");
-    XCTAssertEqualObjects(self.tlk, unwrappedKey, "CKKSKeys should be identical after wrapping/unwrapping through a TLK Share record");
+    CKKSKeychainBackedKey* unwrappedKey = [share.share unwrapUsing:self.remotePeer error:&error];
+    XCTAssertNil(error, "Should have been no error unwrapping a CKKSKeychainBackedKey");
+
+    CKKSKeychainBackedKey* kbtlk = [self.tlk getKeychainBackedKey:&error];
+    XCTAssertNotNil(kbtlk, "Should have a keychain-backed key for tlk");
+    XCTAssertNil(error, "Should have no error getting the keychain-backed key for tlk");
+
+    XCTAssertEqualObjects(kbtlk, unwrappedKey, "CKKSKeys should be identical after wrapping/unwrapping through a TLK Share record");
 }
 
 - (void)testTLKShareSignAndVerify {
     NSError* error = nil;
-    CKKSTLKShareRecord* share = [CKKSTLKShareRecord share:self.tlk
+    CKKSTLKShareRecord* share = [CKKSTLKShareRecord share:[self.tlk getKeychainBackedKey:&error]
                                            as:self.localPeer
                                            to:self.remotePeer
                                         epoch:-1
@@ -114,7 +119,7 @@
 
 - (void)testTLKShareSignAndFailVerify {
     NSError* error = nil;
-    CKKSTLKShareRecord* share = [CKKSTLKShareRecord share:self.tlk
+    CKKSTLKShareRecord* share = [CKKSTLKShareRecord share:[self.tlk getKeychainBackedKey:&error]
                                            as:self.localPeer
                                            to:self.remotePeer
                                         epoch:-1
@@ -153,24 +158,26 @@
 
 - (void)testKeyShareAndRecover {
     NSError* error = nil;
-    CKKSTLKShareRecord* share = [CKKSTLKShareRecord share:self.tlk
-                                           as:self.localPeer
-                                           to:self.remotePeer
-                                        epoch:-1
-                                     poisoned:0
-                                        error:&error];
+
+    CKKSKeychainBackedKey* keychainBackedTLK = [self.tlk getKeychainBackedKey:&error];
+    CKKSTLKShareRecord* share = [CKKSTLKShareRecord share:keychainBackedTLK
+                                                       as:self.localPeer
+                                                       to:self.remotePeer
+                                                    epoch:-1
+                                                 poisoned:0
+                                                    error:&error];
     XCTAssertNil(error, "Should have been no error sharing a CKKSKey");
 
     NSSet* peers = [NSSet setWithObject:self.localPeer];
-    CKKSKey* key = [share recoverTLK:self.remotePeer trustedPeers:peers error:&error];
+    CKKSKeychainBackedKey* key = [share recoverTLK:self.remotePeer trustedPeers:peers error:&error];
     XCTAssertNil(error, "Should have been no error unwrapping a CKKSKey");
-    XCTAssertEqualObjects(self.tlk, key, "CKKSKeys should be identical after wrapping/unwrapping through a TLK Share record");
+    XCTAssertEqualObjects(keychainBackedTLK, key, "CKKSKeys should be identical after wrapping/unwrapping through a TLK Share record");
 }
 
 - (void)testKeyShareAndFailRecovery {
     NSError* error = nil;
-    CKKSKey* key = nil;
-    CKKSTLKShareRecord* share = [CKKSTLKShareRecord share:self.tlk
+    CKKSKeychainBackedKey* key = nil;
+    CKKSTLKShareRecord* share = [CKKSTLKShareRecord share:[self.tlk getKeychainBackedKey:&error]
                                            as:self.localPeer
                                            to:self.remotePeer
                                         epoch:-1
@@ -207,7 +214,7 @@
 
 - (void)testKeyShareSaveAndLoad {
     NSError* error = nil;
-    CKKSTLKShareRecord* share = [CKKSTLKShareRecord share:self.tlk
+    CKKSTLKShareRecord* share = [CKKSTLKShareRecord share:[self.tlk getKeychainBackedKey:&error]
                                            as:self.localPeer
                                            to:self.remotePeer
                                         epoch:-1
@@ -244,7 +251,7 @@
 
 - (void)testKeyExtractFromTrustState {
     NSError* error = nil;
-    CKKSTLKShareRecord* share = [CKKSTLKShareRecord share:self.tlk
+    CKKSTLKShareRecord* share = [CKKSTLKShareRecord share:[self.tlk getKeychainBackedKey:&error]
                                            as:self.remotePeer
                                            to:self.localPeer
                                         epoch:-1
@@ -263,9 +270,9 @@
                                                                                      self.remotePeer2,
                                                                                  ]]
                                                                             trustedPeersError:nil];
-    CKKSKey* shareExtraction = [share recoverTLK:self.localPeer
-                                    trustedPeers:trustState.currentTrustedPeers
-                                           error:&error];
+    CKKSKeychainBackedKey* shareExtraction = [share recoverTLK:self.localPeer
+                                                  trustedPeers:trustState.currentTrustedPeers
+                                                         error:&error];
     XCTAssertNotNil(shareExtraction, "Should be able to recover the share from the currently trusted peers");
     XCTAssertNil(error, "Should be no error extracting TLK");
 
@@ -296,7 +303,7 @@
 
 - (void)testKeyShareSignExtraFieldsInCKRecord {
     NSError* error = nil;
-    CKKSTLKShareRecord* share = [CKKSTLKShareRecord share:self.tlk
+    CKKSTLKShareRecord* share = [CKKSTLKShareRecord share:[self.tlk getKeychainBackedKey:&error]
                                            as:self.localPeer
                                            to:self.remotePeer
                                         epoch:-1

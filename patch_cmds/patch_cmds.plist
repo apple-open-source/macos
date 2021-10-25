@@ -6,15 +6,15 @@
 		<key>OpenSourceProject</key>
 		<string>diffstat</string>
 		<key>OpenSourceVersion</key>
-		<string>1.55</string>
+		<string>1.64</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://invisible-island.net/diffstat/</string>
 		<key>OpenSourceURL</key>
-		<string>ftp://invisible-island.net/diffstat/diffstat-1.55.tgz</string>
+		<string>ftp://invisible-island.net/diffstat/diffstat.tgz</string>
 		<key>OpenSourceSHA1</key>
-		<string>625650a9f1a27edbb98316adb3013e57c8e2e23a</string>
+		<string>15f36ede82c4d3e3a36de769011a8a2c240548b3</string>
 		<key>OpenSourceImportDate</key>
-		<string>2012-11-29</string>
+		<string>2021-01-26</string>
 		<key>OpenSourceModifications</key>
 		<array>
 			<string>Added manually-generated config.h file.</string>
@@ -29,21 +29,18 @@
 		<key>OpenSourceProject</key>
 		<string>patch</string>
 		<key>OpenSourceVersion</key>
-		<string>2009-10-27</string>
+		<string>2020-12-19</string>
 		<key>OpenSourceWebsiteURL</key>
-		<string>http://www.openbsd.org/cgi-bin/cvsweb/src/usr.bin/patch/</string>
-		<key>OpenSourceCVS</key>
-		<string>cvs -d anoncvs@anoncvs1.usa.openbsd.org:/cvs co src/usr.bin/patch</string>
+		<string>https://cgit.freebsd.org/src/tree/usr.bin/patch</string>
 		<key>OpenSourceImportDate</key>
-		<string>2009-11-05</string>
+		<string>2021-01-26</string>
 		<key>OpenSourceModifications</key>
 		<array>
-			<string>Correctly cast some arguments to basename/dirname.</string>
 			<string>Disable verbose mode by default, add --verbose option.</string>
 			<string>Print &quot;patching file&quot; message when not in verbose mode.</string>
 			<string>Change version output to Apple.</string>
 			<string>Add --binary option (ignored).</string>
-			<string>Add --dry-run option as an alias for -C/--check.</string>
+			<string>Switch red(1) to ed(1).</string>
 		</array>
 		<key>OpenSourceLicense</key>
 		<string>BSD</string>

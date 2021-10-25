@@ -123,4 +123,12 @@ enum {
 
 #define kIOServiceLegacyMatchingRegistryIDKey "IOServiceLegacyMatchingRegistryID"
 
+#define kIOServiceMatchDeferredKey      "IOServiceMatchDeferred"
+
+#define kIOMatchedAtBootKey                                     "IOMatchedAtBoot"
+
+#define kIOPrimaryDriverTerminateOptionsKey "IOPrimaryDriverTerminateOptions"
+
+#define kIOServiceNotificationUserKey   "IOServiceNotificationUser"
+
 #endif /* ! _IOKIT_IOKITKEYSPRIVATE_H */

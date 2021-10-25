@@ -1,5 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
-// License & terms of use: http://www.unicode.org/copyright.html#License
+// License & terms of use: http://www.unicode.org/copyright.html
+// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
 ckb{
     AuxExemplarCharacters{
         "[\u200E\u200F \u064B \u064C \u064D \u064E \u064F \u0650 \u0651 \u0652 ء آ أ "
@@ -58,7 +59,6 @@ ckb{
         minimumGroupingDigits{"1"}
         native{"arab"}
     }
-    Version{"36.1"}
     calendar{
         generic{
             DateTimePatterns{
@@ -604,10 +604,16 @@ ckb{
         day{
             dn{"ڕۆژ"}
             relative{
-                "-1"{"yesterday"}
+                "-1"{"دوێنێ"}
                 "0"{"ئەمڕۆ"}
                 "1"{"سبەی"}
             }
+        }
+        dayperiod{
+            dn{"پ.ن/د.ن"}
+        }
+        era{
+            dn{"دەم"}
         }
         hour{
             dn{"کاتژمێر"}
@@ -617,25 +623,51 @@ ckb{
         }
         month{
             dn{"مانگ"}
+            relative{
+                "-1"{"مانگی پێشوو"}
+                "0"{"ئەم مانگە"}
+                "1"{"مانگی داهاتوو"}
+            }
+        }
+        month-short{
+            relative{
+                "-1"{"مانگی پێشوو"}
+                "0"{"ئەم مانگە"}
+                "1"{"مانگی داهاتوو"}
+            }
+        }
+        quarter{
+            dn{"چارەگ"}
         }
         second{
             dn{"چرکە"}
         }
         week{
             dn{"ھەفتە"}
+            relative{
+                "-1"{"هەفتەی پێشوو"}
+                "0"{"ئەم هەفتەیە"}
+                "1"{"هەفتەی داهاتوو"}
+            }
+            relativePeriod{"هەفتەی {0}"}
         }
         weekday{
             dn{"ڕۆژی ھەفتە"}
         }
         year{
             dn{"ساڵ"}
+            relative{
+                "-1"{"ساڵێ پێسوو"}
+                "0"{"ئەم ساڵ"}
+                "1"{"ساڵی داهاتوو"}
+            }
         }
     }
     layout{
         characters{"right-to-left"}
     }
     measurementSystemNames{
-        UK{"بریتانی"}
+        UK{"بەڕیتانی"}
         US{"ئەمەریکی"}
         metric{"مەتریک"}
     }

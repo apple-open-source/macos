@@ -333,9 +333,11 @@ errOut:
     CFReleaseNull(leaf);
 }
 
-#if !TARGET_OS_BRIDGE // bridgeOS doesn't have trust settings
 - (void)testUserTrustRoot_MoreThan825Days_AfterJul2019
 {
+#if TARGET_OS_BRIDGE // bridgeOS doesn't have trust settings
+    XCTSkip();
+#endif
     SecCertificateRef root = SecCertificateCreateWithBytes(NULL, _testValidityPeriodsRoot, sizeof(_testValidityPeriodsRoot));
     SecCertificateRef leaf = SecCertificateCreateWithBytes(NULL, _testLeaf_3Years, sizeof(_testLeaf_3Years));
     id persistentRef = [self addTrustSettingsForCert:root];
@@ -352,6 +354,9 @@ errOut:
 
 - (void)testUserTrustRoot_MoreThan825Days_BeforeJul2019
 {
+#if TARGET_OS_BRIDGE // bridgeOS doesn't have trust settings
+    XCTSkip();
+#endif
     SecCertificateRef root = SecCertificateCreateWithBytes(NULL, _testValidityPeriodsRoot, sizeof(_testValidityPeriodsRoot));
     SecCertificateRef leaf = SecCertificateCreateWithBytes(NULL, _testLeaf_66Months, sizeof(_testLeaf_66Months));
     id persistentRef = [self addTrustSettingsForCert:root];
@@ -368,6 +373,9 @@ errOut:
 
 - (void)testUserTrustRoot_LessThan825Days_AfterJul2019
 {
+#if TARGET_OS_BRIDGE // bridgeOS doesn't have trust settings
+    XCTSkip();
+#endif
     SecCertificateRef root = SecCertificateCreateWithBytes(NULL, _testValidityPeriodsRoot, sizeof(_testValidityPeriodsRoot));
     SecCertificateRef leaf = SecCertificateCreateWithBytes(NULL, _testLeaf_825Days, sizeof(_testLeaf_825Days));
     id persistentRef = [self addTrustSettingsForCert:root];
@@ -384,6 +392,9 @@ errOut:
 
 - (void)testUserTrustLeaf_MoreThan825Days_AfterJul2019
 {
+#if TARGET_OS_BRIDGE // bridgeOS doesn't have trust settings
+    XCTSkip();
+#endif
     SecCertificateRef leaf = SecCertificateCreateWithBytes(NULL, _testLeaf_3Years, sizeof(_testLeaf_3Years));
     id persistentRef = [self addTrustSettingsForCert:leaf];
 
@@ -397,6 +408,9 @@ errOut:
 
 - (void)testUserTrustLeaf_MoreThan825Days_BeforeJul2019
 {
+#if TARGET_OS_BRIDGE // bridgeOS doesn't have trust settings
+    XCTSkip();
+#endif
     SecCertificateRef leaf = SecCertificateCreateWithBytes(NULL, _testLeaf_66Months, sizeof(_testLeaf_66Months));
     id persistentRef = [self addTrustSettingsForCert:leaf];
 
@@ -410,6 +424,9 @@ errOut:
 
 - (void)testUserTrustLeaf_LessThan825Days_AfterJul2019
 {
+#if TARGET_OS_BRIDGE // bridgeOS doesn't have trust settings
+    XCTSkip();
+#endif
     SecCertificateRef leaf = SecCertificateCreateWithBytes(NULL, _testLeaf_825Days, sizeof(_testLeaf_825Days));
     id persistentRef = [self addTrustSettingsForCert:leaf];
 
@@ -423,6 +440,9 @@ errOut:
 
 - (void)testUserDistrustLeaf_MoreThan825Days_AfterJul2019
 {
+#if TARGET_OS_BRIDGE // bridgeOS doesn't have trust settings
+    XCTSkip();
+#endif
     SecCertificateRef leaf = SecCertificateCreateWithBytes(NULL, _testLeaf_3Years, sizeof(_testLeaf_3Years));
     id persistentRef = [self addTrustSettingsForCert:leaf trustSettings: @{ (__bridge NSString*)kSecTrustSettingsResult: @(kSecTrustSettingsResultDeny)}];
 
@@ -436,6 +456,9 @@ errOut:
 
 - (void)testUserUnspecifiedLeaf_MoreThan825Days_AfterJul2019
 {
+#if TARGET_OS_BRIDGE // bridgeOS doesn't have trust settings
+    XCTSkip();
+#endif
     SecCertificateRef root = SecCertificateCreateWithBytes(NULL, _testValidityPeriodsRoot, sizeof(_testValidityPeriodsRoot));
     SecCertificateRef leaf = SecCertificateCreateWithBytes(NULL, _testLeaf_3Years, sizeof(_testLeaf_3Years));
     id persistentRef = [self addTrustSettingsForCert:leaf trustSettings: @{ (__bridge NSString*)kSecTrustSettingsResult: @(kSecTrustSettingsResultUnspecified)}];
@@ -448,6 +471,5 @@ errOut:
     CFReleaseNull(leaf);
     CFReleaseNull(root);
 }
-#endif // !TARGET_OS_BRIDGE
 
 @end

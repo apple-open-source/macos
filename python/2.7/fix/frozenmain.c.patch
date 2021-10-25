@@ -1,0 +1,19 @@
+--- frozenmain.c.orig	2021-06-07 12:39:34.000000000 -0700
++++ frozenmain.c	2021-06-07 14:18:28.000000000 -0700
+@@ -8,6 +8,7 @@
+ extern void PyWinFreeze_ExeTerm(void);
+ extern int PyInitFrozenExtensions(void);
+ #endif
++extern void Py_InitializeWithoutMetrics(void);
+ 
+ /* Main program */
+ 
+@@ -37,7 +38,7 @@
+ #endif /* MS_WINDOWS */
+     if (argc >= 1)
+         Py_SetProgramName(argv[0]);
+-    Py_Initialize();
++    Py_InitializeWithoutMetrics();
+ #ifdef MS_WINDOWS
+     PyWinFreeze_ExeInit();
+ #endif

@@ -70,6 +70,10 @@ struct argument {
     int*   flag;
     int    flagval;
     char*  description;
+    bool   internal_only;
+
+    char *** argument_array;
+    size_t* argument_array_count;
 };
 
 struct arguments {

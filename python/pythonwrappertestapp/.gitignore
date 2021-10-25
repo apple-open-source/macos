@@ -1,0 +1,4 @@
+*.pbxuser
+*.xcuserstate
+xcuserdata/
+xcshareddata/

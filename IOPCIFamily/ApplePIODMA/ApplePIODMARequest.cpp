@@ -163,7 +163,6 @@ tApplePIODMAGenericPacketDeviceType ApplePIODMARequest::deviceType(tApplePIODMAR
     return result;
 }
 
-// TODO: support BAR selection and greater than 36bit addresses
 // TODO: support multiple packets in 1 command (linked list / multi-segments)
 IOReturn ApplePIODMARequest::prepareGenericPacket(IOMemoryDescriptor*                 bufferBase,
                                                   IOByteCount                         bufferOffset,
@@ -358,7 +357,9 @@ IOReturn ApplePIODMARequest::prepareGenericPacket(void*                         
                                 bufferType,
                                 targetType,
                                 transferSize,
-                                commandType);
+                                commandType,
+                                bufferBaseAddressSelect,
+                                targetBaseAddressSelect);
 }
 
 IOReturn ApplePIODMARequest::prepareGenericPacket(IOMemoryDescriptor*                 bufferBase,
@@ -388,7 +389,9 @@ IOReturn ApplePIODMARequest::prepareGenericPacket(IOMemoryDescriptor*           
                                 bufferType,
                                 targetType,
                                 transferSize,
-                                commandType);
+                                commandType,
+                                bufferBaseAddressSelect,
+                                targetBaseAddressSelect);
 }
 
 IOReturn ApplePIODMARequest::prepareGenericPacket(void*                               buffer,
@@ -422,7 +425,9 @@ IOReturn ApplePIODMARequest::prepareGenericPacket(void*                         
                                 bufferType,
                                 targetType,
                                 transferSize,
-                                commandType);
+                                commandType,
+                                bufferBaseAddressSelect,
+                                targetBaseAddressSelect);
 }
 
 void ApplePIODMARequest::setCommandTag(uint8_t commandTag)

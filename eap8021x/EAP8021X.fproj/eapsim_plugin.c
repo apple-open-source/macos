@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008-2020 Apple Inc. All rights reserved.
+ * Copyright (c) 2008-2021 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -1031,17 +1031,36 @@ eapsim_start(EAPSIMContextRef context,
 	    /* Wi-Fi calling case */
 	    identity_data = CFRetain(context->plugin->encryptedEAPIdentity);
 	} else if (context->encrypted_identity_info != NULL &&
+		   context->encrypted_identity_info->encrypted_identity != NULL &&
 		   (EAPSIMAKAPersistentStateTemporaryUsernameAvailable(context->persist) == FALSE ||
 		    identity_req_type == kAT_PERMANENT_ID_REQ)) {
-	    if (context->encrypted_identity_info->oob_pseudonym) {
-		/* oob pseudonym for carrier Wi-Fi hotspots */
-		CFStringRef identity = context->encrypted_identity_info->oob_pseudonym;
-		identity_data = CFStringCreateExternalRepresentation(NULL, identity,
-								     kCFStringEncodingUTF8, 0);
-	    } else {
-		/* encrypted IMSI for carrier Wi-Fi hotspots */
-		identity_data = CFRetain(context->encrypted_identity_info->encrypted_identity);
+	    /* encrypted IMSI for carrier Wi-Fi hotspots */
+	    identity_data = CFRetain(context->encrypted_identity_info->encrypted_identity);
+	    EAPSIMContextSetLastIdentity(context, identity_data);
+	} else if (context->encrypted_identity_info != NULL &&
+		   context->encrypted_identity_info->oob_pseudonym != NULL &&
+		   identity_req_type == kAT_PERMANENT_ID_REQ) {
+	    /* unable to send permanent id as the client is providing identity privacy
+	     * using out-of-band pseudonym
+	     */
+	    *client_status = kEAPClientStatusProtocolError;
+	    if (EAPSIMAKAPersistentStateTemporaryUsernameAvailable(context->persist)) {
+		/* purge the temporary ids from the persistent store */
+		EAPLOG(LOG_NOTICE, "eapsim: purging all the temporary identities");
+		EAPSIMAKAPersistentStatePurgeTemporaryIDs(context->persist);
 	    }
+	    /* request CT to refresh the out-of-band pseudonym */
+	    EAPLOG(LOG_NOTICE, "eapsim: requesting out-of-band psuedonym");
+	    SIMReportDecryptionError(NULL);
+	    pkt = NULL;
+	    goto done;
+	} else if (context->encrypted_identity_info != NULL &&
+		   context->encrypted_identity_info->oob_pseudonym != NULL &&
+		   EAPSIMAKAPersistentStateTemporaryUsernameAvailable(context->persist) == FALSE) {
+	    /* send out-of-band pseudonym for any other type of identity request */
+	    CFStringRef identity = context->encrypted_identity_info->oob_pseudonym;
+	    identity_data = CFStringCreateExternalRepresentation(NULL, identity,
+							  kCFStringEncodingUTF8, 0);
 	    EAPSIMContextSetLastIdentity(context, identity_data);
 	} else {
 	    /* legacy */

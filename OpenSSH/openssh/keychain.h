@@ -34,3 +34,4 @@ void	store_in_keychain(const char *filename, const char *passphrase);
 void	remove_from_keychain(const char *filename);
 char	*keychain_read_passphrase(const char *filename);
 int 	load_identities_from_keychain(int (^add_identity)(const char *identity));
+void	warn_keychain_option(void);

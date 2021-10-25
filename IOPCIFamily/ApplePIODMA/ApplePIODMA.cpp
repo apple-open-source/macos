@@ -16,22 +16,21 @@ OSDefineMetaClassAndAbstractStructors(ApplePIODMA, super)
 
 bool ApplePIODMA::start(IOService* provider)
 {
-    _debugLoggingMask = applePIODMAgetDebugLoggingMaskForMetaClass(getMetaClass(), super::metaClass);
 
     OSData* piodmaIDData = OSDynamicCast(OSData, getProperty(kApplePIODMAID, gIOServicePlane));
 
-    if(piodmaIDData == NULL)
+    if(piodmaIDData != NULL)
     {
-        debug(kApplePIODMADebugLoggingAlways, "unable to get APIODMA ID\n");
-        return false;
+        setProperty(kApplePIODMAID, piodmaIDData);
+        uint32_t piodmaID           = *reinterpret_cast<const uint32_t*>(piodmaIDData->getBytesNoCopy());
+        char     locationString[32] = { 0 };
+
+        snprintf(locationString, sizeof(locationString), "%x", piodmaID);
+        setLocation(locationString);
     }
 
-    setProperty(kApplePIODMAID, piodmaIDData);
-    uint32_t piodmaID           = *reinterpret_cast<const uint32_t*>(piodmaIDData->getBytesNoCopy());
-    char     locationString[32] = { 0 };
-
-    snprintf(locationString, sizeof(locationString), "%x", piodmaID);
-    setLocation(locationString);
+    _debugLoggingMask |= applePIODMAgetDebugLoggingMaskForMetaClass(getMetaClass(), super::metaClass);
+    _debugLoggingMask |= applePIODMAgetDebugLoggingMaskForMetaClass(getMetaClass(), super::metaClass, getLocation());
 
     if(super::start(provider) != true)
     {
@@ -87,14 +86,70 @@ bool ApplePIODMA::start(IOService* provider)
         return false;
     }
 
-    _requestPool = allocateRequestPool();
+    uint32_t piodmaFIFOSize               = kApplePIODMADefaultFIFOSize;
+    uint32_t piodmaCommandByteAlignment   = kApplePIODMARequestDefaultCommandDMASpecificationByteAlignment;
+    uint32_t piodmaCommandAddressBits     = kApplePIODMARequestDefaultCommandDMASpecificationAddressBits;
+    uint32_t piodmaCommandMaxTransferSize = kApplePIODMARequestDefaultCommandDMASpecificationMaxTransfersize;
+    uint32_t piodmaCommandMaxSegmentSize  = kApplePIODMARequestDefaultCommandDMASpecificationMaxSegmentSize;
+    OSData*  propertyData                 = NULL;
+
+    if((propertyData = OSDynamicCast(OSData, getProperty(kApplePIODMAFIFOSize, gIOServicePlane))) != NULL)
+    {
+        piodmaFIFOSize   = *reinterpret_cast<const uint32_t*>(propertyData->getBytesNoCopy());
+        propertyData     = NULL;
+    }
+
+    if((propertyData = OSDynamicCast(OSData, getProperty(kApplePIODMAByteAlignment, gIOServicePlane))) != NULL)
+    {
+        piodmaCommandByteAlignment = *reinterpret_cast<const uint32_t*>(propertyData->getBytesNoCopy());
+        propertyData               = NULL;
+    }
+
+    if((propertyData = OSDynamicCast(OSData, getProperty(kApplePIODMANumAddressBits, gIOServicePlane))) != NULL)
+    {
+        piodmaCommandAddressBits = *reinterpret_cast<const uint32_t*>(propertyData->getBytesNoCopy());
+        propertyData             = NULL;
+    }
+
+    if((propertyData = OSDynamicCast(OSData, getProperty(kApplePIODMAMaxTransferSize, gIOServicePlane))) != NULL)
+    {
+        piodmaCommandMaxTransferSize = *reinterpret_cast<const uint32_t*>(propertyData->getBytesNoCopy());
+        propertyData                 = NULL;
+    }
+
+    if((propertyData = OSDynamicCast(OSData, getProperty(kApplePIODMAMaxSegmentSize, gIOServicePlane))) != NULL)
+    {
+        piodmaCommandMaxSegmentSize = *reinterpret_cast<const uint32_t*>(propertyData->getBytesNoCopy());
+        propertyData                = NULL;
+    }
+
+    _requestPool = ApplePIODMARequestPool::withWorkLoop(_workLoop,
+                                                        _memoryMapper,
+                                                        piodmaFIFOSize,
+                                                        piodmaCommandByteAlignment,
+                                                        piodmaCommandAddressBits,
+                                                        piodmaCommandMaxTransferSize,
+                                                        piodmaCommandMaxSegmentSize);
+
+    if((propertyData = OSDynamicCast(OSData, getProperty(kApplePIODMABaseAddresses, gIOServicePlane))) != NULL)
+    {
+        const uint64_t* baseAddressOffsets = reinterpret_cast<const uint64_t*>(propertyData->getBytesNoCopy());
+        _numBaseAddressOffsets             = propertyData->getLength() / sizeof(uint64_t);
+        _baseAddressOffsets = reinterpret_cast<uint64_t*>(IOMallocZero(sizeof(uint64_t) * _numBaseAddressOffsets));
+
+        for(int offset = 0; offset < _numBaseAddressOffsets; ++offset)
+        {
+            _baseAddressOffsets[offset] = baseAddressOffsets[offset];
+        }
+    }
+
     if(_requestPool == NULL)
     {
         debug(kApplePIODMADebugLoggingAlways, "couldn't create request pool\n");
         stop(provider);
         return false;
     }
-    _completionQueueSize = _requestPool->maximumCommandsSupported();
+    _completionQueueSize = piodmaFIFOSize;
 
     _completionQueue = reinterpret_cast<ApplePIODMARequest**>(IOMallocZero(_completionQueueSize * sizeof(ApplePIODMARequest*)));
     if(_completionQueue == NULL)
@@ -159,6 +214,13 @@ void ApplePIODMA::stop(IOService* provider)
     {
         IORWLockFree(_stateLock);
         _stateLock = NULL;
+    }
+
+    if(_baseAddressOffsets != NULL)
+    {
+        IOFree(_baseAddressOffsets, sizeof(uint64_t) * _numBaseAddressOffsets);
+        _baseAddressOffsets    = NULL;
+        _numBaseAddressOffsets = 0;
     }
 
     super::stop(provider);

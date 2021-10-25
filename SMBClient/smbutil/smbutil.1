@@ -76,6 +76,7 @@ List resources available on the specified
 .Ar server
 for the 
 .Ar user . 
+.Pp
 The options are as follows:
 .Bl -tag -width indent
 .It Fl A 
@@ -119,9 +120,11 @@ Display the Dfs referrals for this
 for the authenticated session.
 .It Xo
 .Cm statshares
-.Op Fl m Ar mount_path
+.Oo Fl m Ar mount_path
 |
-.Op Fl a
+.Fl a
+.Oc
+.Op Fl f Ar format
 .Xc
 If
 .Fl m
@@ -134,6 +137,78 @@ is specified, it prints the attributes of all mounted shares. You can not specif
 and
 .Fl a
 together since they are mutually exclusive.
+.Fl f
+controls the output
+.Ar format .
+If
+.Fl f
+is not specified then human readable format is used. Supported formats are: Json.
+.It Xo
+.Cm multichannel
+.Oo Fl m Ar mount_path
+|
+.Fl a
+.Oc
+.Op Fl Ar options
+.Op Fl f Ar format
+.Xc
+If
+.Fl m
+is specified, it prints the multichannel attributes of the share mounted at
+.Ar mount_path .
+If
+.Fl a
+is specified, it prints the multichannel attributes of all mounted shares. You can not specify both
+.Fl m
+and
+.Fl a
+together since they are mutually exclusive.
+.Fl f
+controls the output
+.Ar format .
+If
+.Fl f
+is not specified then human readable format is used. Supported formats are: Json.
+.Pp
+The options are as follows:
+.Bl -tag -width indent
+.It Fl i
+print information about the session.
+.It Fl c
+print information about the client's interfaces.
+.It Fl s
+print information about the server's interfaces.
+.It Fl x
+print information about the established connection.
+.El
+.Pp
+If no option is given, then all options will be shown.
+.It Xo
+.Cm snapshot
+.Oo Fl m Ar mount_path
+|
+.Fl a
+.Oc
+.Op Fl f Ar format
+.Xc
+If
+.Fl m
+is specified, it prints out a list of snapshots for the item at the path of
+.Ar mount_path .
+If
+.Fl a
+is specified, it prints the snapshots of all mounted shares. You can not specify both
+.Fl m
+and
+.Fl a
+together since they are mutually exclusive.
+.Fl f
+controls the output
+.Ar format .
+If
+.Fl f
+is not specified then human readable format is used. Supported formats are: Json.
+.Pp
 .El
 .Sh FILES
 .Bl -tag -width ".Pa nsmb.conf" -compact

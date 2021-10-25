@@ -694,7 +694,7 @@ nsiiops 	261/tcp     # IIOP Name Service over TLS/SSL
 #                          Jeff Stewart <jstewart@netscape.com>
 arcisdms	262/udp	    # Arcisdms
 arcisdms	262/tcp     # Arcisdms
-#			   Russell Crook (rmc@sni.ca>
+#			   Russell Crook <rmc@sni.ca>
 hdap		263/udp     # HDAP
 hdap		263/tcp     # HDAP
 #			   Troy Gau <troy@zyxel.com>
@@ -1179,7 +1179,7 @@ iafserver       479/udp     # iafserver
 iafserver       479/tcp     # iafserver
 iafdbase        480/udp     # iafdbase
 iafdbase        480/tcp     # iafdbase
-#                          ricky@solect.com <Rick Yazwinski>
+#                          Rick Yazwinski <ricky@solect.com>
 ph              481/udp     # Ph service
 ph              481/tcp     # Ph service
 #                          Roland Hedberg <Roland.Hedberg@umdac.umu.se>
@@ -1856,11 +1856,11 @@ netviewdm2      730/udp     # IBM NetView DM/6000 send/tcp
 netviewdm2      730/tcp     # IBM NetView DM/6000 send/tcp
 netviewdm3      731/udp     # IBM NetView DM/6000 receive/tcp
 netviewdm3      731/tcp     # IBM NetView DM/6000 receive/tcp
-#                          Philippe Binet  (phbinet@vnet.IBM.COM)
+#                          Philippe Binet  <phbinet@vnet.IBM.COM>
 #               732-740    Unassigned           
 netgw           741/udp     # netGW
 netgw           741/tcp     # netGW
-#                          Oliver Korfmacher (okorf@netcs.com)
+#                          Oliver Korfmacher <okorf@netcs.com>
 netrcs          742/udp     # Network based Rev. Cont. Sys.
 netrcs          742/tcp     # Network based Rev. Cont. Sys.
 #                          Gordon C. Galligher <gorpong@ping.chi.il.us>
@@ -2232,10 +2232,10 @@ asprovatalk     1079/tcp    # ASPROVATalk
 #                          Chiew Farn Chung <cfchung@asprova.com>
 socks           1080/udp    # Socks    
 socks           1080/tcp    # Socks    
-#                          Ying-Da Lee <ylee@syl.dl.nec.com
+#                          Ying-Da Lee <ylee@syl.dl.nec.com>
 pvuniwien       1081/udp    # PVUNIWIEN
 pvuniwien       1081/tcp    # PVUNIWIEN
-#                          Peter Lipp >Peter.Lipp@iaik.at>
+#                          Peter Lipp <Peter.Lipp@iaik.at>
 amt-esd-prot    1082/udp    # AMT-ESD-PROT 
 amt-esd-prot    1082/tcp    # AMT-ESD-PROT
 #                          AMTEC S.p.A <sp.amtec@interbusiness.it>
@@ -3231,7 +3231,7 @@ genie-lm        1453/tcp    # Genie License Manager
 #                          Paul Applegate <p.applegate2@genie.geis.com>
 interhdl_elmd   1454/udp    # interHDL License Manager      
 interhdl_elmd   1454/tcp    # interHDL License Manager      
-#                          Eli Sternheim eli@interhdl.com
+#                          Eli Sternheim <eli@interhdl.com>
 esl-lm          1455/udp    # ESL License Manager           
 esl-lm          1455/tcp    # ESL License Manager           
 #                          Abel Chou <abel@willy.esl.com>
@@ -3377,7 +3377,7 @@ imtc-mcs        1503/tcp     # Databeam
 #                           Jim Johnston <jjohnston@databeam.com>
 evb-elm         1504/udp     # EVB Software Engineering License Manager
 evb-elm         1504/tcp     # EVB Software Engineering License Manager
-#                           B.G. Mahesh < mahesh@sett.com>
+#                           B.G. Mahesh <mahesh@sett.com>
 funkproxy       1505/udp     # Funk Software, Inc.
 funkproxy       1505/tcp     # Funk Software, Inc.
 #                           Robert D. Vincent <bert@willowpond.com>
@@ -3520,7 +3520,7 @@ caci-lm         1554/tcp     # CACI Products Company License Manager
 #                           Erik Blume <erikb@caciasl.com>
 livelan         1555/udp     # livelan
 livelan         1555/tcp     # livelan
-#                           khedayat@roadrunner.pictel.com <Kaynam Hedayat>
+#                           Kaynam Hedayat <khedayat@roadrunner.pictel.com>
 ashwin          1556/udp     # AshWin CI Tecnologies
 ashwin          1556/tcp     # AshWin CI Tecnologies
 #                           Dave Neal <daven@ashwin.com>
@@ -3930,10 +3930,10 @@ l2f             1701/tcp     l2tp # l2f
 #                           Andy Valencia <vandys@vandys-lap.cisco.com>
 deskshare       1702/udp     # deskshare
 deskshare       1702/tcp     # deskshare
-#                           Sarah Thompson <sarah@telergy.com
+#                           Sarah Thompson <sarah@telergy.com>
 hb-engine       1703/udp     # hb-engine
 hb-engine       1703/tcp     # hb-engine
-#                           Charles C.L. Chou >cchou@zoom.com>
+#                           Charles C.L. Chou <cchou@zoom.com>
 bcs-broker      1704/udp     # bcs-broker
 bcs-broker      1704/tcp     # bcs-broker
 #                           Andy Warner <andyw@knoware.nl>
@@ -4005,10 +4005,10 @@ winddx          1727/tcp     # winddx
 #                           Bill Andrews <billa@vnd.tek.com>
 telindus        1728/udp     # TELINDUS
 telindus        1728/tcp     # TELINDUS
-#                           Paul Pyck <papy@telindus.be
+#                           Paul Pyck <papy@telindus.be>
 citynl          1729/udp     # CityNL License Management
 citynl          1729/tcp     # CityNL License Management
-#                           CityDisc >citydisc@euronet.nl>
+#                           CityDisc <citydisc@euronet.nl>
 roketz          1730/udp     # roketz
 roketz          1730/tcp     # roketz
 #                           Ahti Heinla <ahti@ahti.bluemoon.ee>
@@ -4232,7 +4232,7 @@ musiconline	1806/tcp     # Musiconline
 #			    Craig Weeks <cweeks@syspace.co.uk>
 fhsp		1807/udp     # Fujitsu Hot Standby Protocol
 fhsp		1807/tcp     # Fujitsu Hot Standby Protocol
-#			    Eiki Iwata (eiki@nd.net.fujitsu.co.jp>
+#			    Eiki Iwata <eiki@nd.net.fujitsu.co.jp>
 oracle-vp2	1808/udp     # Oracle-VP2
 oracle-vp2	1808/tcp     # Oracle-VP2
 #                           Craig Fowler <cfowler@us.oracle.com>
@@ -11492,7 +11492,7 @@ s-openmail      5767/udp    # OpenMail Suer Agent Layer (Secure)
 s-openmail      5767/tcp    # OpenMail Suer Agent Layer (Secure)
 openmailpxy	5768/udp    # OpenMail CMTS Server
 openmailpxy	5768/tcp    # OpenMail CMTS Server
-#                          OpenMail Encyclopedia >opencyc@hpopd.pwd.hp.com>
+#                          OpenMail Encyclopedia <opencyc@hpopd.pwd.hp.com>
 #                          Don Loughry <DON_LOUGHRY@hp-cupertino-om4.om.hp.com>
 spramsca        5769/tcp    # x509solutions Internal CA
 spramsca        5769/udp    # x509solutions Internal CA
@@ -13506,11 +13506,11 @@ optohost004     22005/udp   # Opto Host Port 5
 #               22006-22272 Unassigned
 wnn6            22273/udp  # wnn6
 wnn6            22273/tcp  # wnn6
-#                         Yasunari Gon Yamasita <yamasita@omronsoft.co.jp
+#                         Yasunari Gon Yamasita <yamasita@omronsoft.co.jp>
 #               22274-22554 Unassigned
 vocaltec-phone  22555/udp  # Vocaltec Internet Phone
 vocaltec-wconf  22555/tcp  # Vocaltec Web Conference
-#                         Scott Petrack >Scott_Petrack@vocaltec.com>
+#                         Scott Petrack <Scott_Petrack@vocaltec.com>
 #               22556-22799 Unassigned
 talikaserver    22763/tcp   # Talika Main Server
 talikaserver    22763/udp   # Talika Main Server

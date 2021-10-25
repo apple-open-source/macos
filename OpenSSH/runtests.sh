@@ -62,6 +62,7 @@ export OBJ=`pwd`
 
 echo "running test from ${OBJ}"
 
+export TEST_SSH_UNSAFE_PERMISSIONS=1
 # The OpenSSH test suite relies heavily on /var/run, which is group-writable on OS X.
 # Temporarily disable group writing so that auth_secure_path() does not fail when running unit tests.
 umask 022

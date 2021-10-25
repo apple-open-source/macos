@@ -24,7 +24,7 @@
 #import <Foundation/Foundation.h>
 
 #if OCTAGON
-#import "Analytics/SFAnalytics.h"
+#include <Security/SFAnalytics.h>
 
 extern NSString* const CKKSAnalyticsInCircle;
 extern NSString* const CKKSAnalyticsHasTLKs;
@@ -83,6 +83,24 @@ extern NSString* const OctagonAnalyticsBottledTotalTLKSharesRecovered;
 extern NSString* const OctagonAnalyticsBottledUniqueTLKsWithSharesCount;
 extern NSString* const OctagonAnalyticsBottledTLKUniqueViewCount;
 
+extern NSString* const OctagonAnalyticsRKUniqueTLKsRecovered;
+extern NSString* const OctagonAnalyticsRKTotalTLKShares;
+extern NSString* const OctagonAnalyticsRKTotalTLKSharesRecovered;
+extern NSString* const OctagonAnalyticsRKUniqueTLKsWithSharesCount;
+extern NSString* const OctagonAnalyticsRKTLKUniqueViewCount;
+
+extern NSString* const OctagonAnalyticsCustodianUniqueTLKsRecovered;
+extern NSString* const OctagonAnalyticsCustodianTotalTLKShares;
+extern NSString* const OctagonAnalyticsCustodianTotalTLKSharesRecovered;
+extern NSString* const OctagonAnalyticsCustodianUniqueTLKsWithSharesCount;
+extern NSString* const OctagonAnalyticsCustodianTLKUniqueViewCount;
+
+extern NSString* const OctagonAnalyticsInheritanceUniqueTLKsRecovered;
+extern NSString* const OctagonAnalyticsInheritanceTotalTLKShares;
+extern NSString* const OctagonAnalyticsInheritanceTotalTLKSharesRecovered;
+extern NSString* const OctagonAnalyticsInheritanceUniqueTLKsWithSharesCount;
+extern NSString* const OctagonAnalyticsInheritanceTLKUniqueViewCount;
+
 @protocol CKKSAnalyticsFailableEvent <NSObject>
 @end
 typedef NSString<CKKSAnalyticsFailableEvent> CKKSAnalyticsFailableEvent;
@@ -125,6 +143,10 @@ extern CKKSAnalyticsFailableEvent* const OctagonEventEstablish;
 extern CKKSAnalyticsFailableEvent* const OctagonEventLeaveClique;
 extern CKKSAnalyticsFailableEvent* const OctagonEventRemoveFriendsInClique;
 extern CKKSAnalyticsFailableEvent* const OctagonEventRecoveryKey;
+extern CKKSAnalyticsFailableEvent* const OctagonEventCustodianRecoveryKey;
+extern CKKSAnalyticsFailableEvent* const OctagonEventPreflightCustodianRecoveryKey;
+extern CKKSAnalyticsFailableEvent* const OctagonEventInheritanceKey;
+extern CKKSAnalyticsFailableEvent* const OctagonEventPreflightInheritanceKey;
 
 /* Inner calls as seen by TPH and securityd */
 /* inner: Upgrade */
@@ -147,14 +169,26 @@ extern CKKSAnalyticsFailableEvent* const OctagonEventVoucherWithBottle;
 extern CKKSAnalyticsFailableEvent* const OctagonEventPreflightVouchWithRecoveryKey;
 extern CKKSAnalyticsFailableEvent* const OctagonEventVoucherWithRecoveryKey;
 extern CKKSAnalyticsFailableEvent* const OctagonEventJoinRecoveryKeyValidationFailed;
+extern CKKSAnalyticsFailableEvent* const OctagonEventJoinRecoveryKey;
 extern CKKSAnalyticsFailableEvent* const OctagonEventJoinRecoveryKeyFailed;
 extern CKKSAnalyticsFailableEvent* const OctagonEventJoinRecoveryKeyCircleReset;
 extern CKKSAnalyticsFailableEvent* const OctagonEventJoinRecoveryKeyCircleResetFailed;
 extern CKKSAnalyticsFailableEvent* const OctagonEventJoinRecoveryKeyEnrollFailed;
 
+/* inner: join with custodian recovery key */
+extern CKKSAnalyticsFailableEvent* const OctagonEventPreflightVouchWithCustodianRecoveryKey;
+extern CKKSAnalyticsFailableEvent* const OctagonEventVoucherWithCustodianRecoveryKey;
+
+/* inner: join with inheritance key */
+extern CKKSAnalyticsFailableEvent* const OctagonEventPreflightVouchWithInheritanceKey;
+extern CKKSAnalyticsFailableEvent* const OctagonEventVoucherWithInheritanceKey;
+
 /* inner: set recovery key */
 extern CKKSAnalyticsFailableEvent* const OctagonEventSetRecoveryKey;
 extern CKKSAnalyticsFailableEvent* const OctagonEventSetRecoveryKeyValidationFailed;
+
+/* inner: create custodian recovery key */
+extern CKKSAnalyticsFailableEvent* const OctagonEventCreateCustodianRecoveryKey;
 
 /* inner: reset */
 extern CKKSAnalyticsFailableEvent* const OctagonEventReset;
@@ -181,6 +215,11 @@ extern CKKSAnalyticsFailableEvent* const OctagonEventCompanionPairing;
 extern CKKSAnalyticsFailableEvent* const OctagonEventTPHHealthCheckStatus;
 
 extern CKKSAnalyticsFailableEvent* const OctagonEventAuthKitDeviceList;
+
+/* escrow move via cuttlefish */
+extern CKKSAnalyticsFailableEvent* const OctagonEventEscrowMoveTriggered;
+extern CKKSAnalyticsFailableEvent* const OctagonEventEscrowMoveRateLimited;
+extern CKKSAnalyticsFailableEvent* const OctagonEventEscrowMoveTermsNeeded;
 
 @protocol CKKSAnalyticsSignpostEvent <NSObject>
 @end
@@ -209,11 +248,23 @@ extern CKKSAnalyticsActivity* const OctagonActivityFetchAllViableBottles;
 extern CKKSAnalyticsActivity* const OctagonActivityFetchEscrowContents;
 extern CKKSAnalyticsActivity* const OctagonActivityBottledPeerRestore;
 extern CKKSAnalyticsActivity* const OctagonActivitySetRecoveryKey;
+extern CKKSAnalyticsActivity* const OctagonActivityCreateCustodianRecoveryKey;
 extern CKKSAnalyticsActivity* const OctagonActivityLeaveClique;
 extern CKKSAnalyticsActivity* const OctagonActivityRemoveFriendsInClique;
 extern CKKSAnalyticsActivity* const OctagonActivityJoinWithRecoveryKey;
+extern CKKSAnalyticsActivity* const OctagonActivityJoinWithCustodianRecoveryKey;
+extern CKKSAnalyticsActivity* const OctagonActivityPreflightJoinWithCustodianRecoveryKey;
+extern CKKSAnalyticsActivity* const OctagonActivityRemoveCustodianRecoveryKey;
 extern CKKSAnalyticsActivity* const OctagonSOSAdapterUpdateKeys;
+extern CKKSAnalyticsActivity* const OctagonActivityCreateInheritanceKey;
+extern CKKSAnalyticsActivity* const OctagonActivityGenerateInheritanceKey;
+extern CKKSAnalyticsActivity* const OctagonActivityStoreInheritanceKey;
+extern CKKSAnalyticsActivity* const OctagonActivityJoinWithInheritanceKey;
+extern CKKSAnalyticsActivity* const OctagonActivityPreflightJoinWithInheritanceKey;
+extern CKKSAnalyticsActivity* const OctagonActivityRemoveInheritanceKey;
 
+@class TrustedPeersHelperTLKRecoveryResult;
+@class CKKSTLKShare;
 
 @interface CKKSAnalytics : SFAnalytics
 
@@ -244,6 +295,13 @@ extern CKKSAnalyticsActivity* const OctagonSOSAdapterUpdateKeys;
 - (void)setDateProperty:(NSDate*)date forKey:(NSString*)key zoneName:(NSString*)zoneName;
 - (NSDate *)datePropertyForKey:(NSString *)key zoneName:(NSString*)zoneName;
 
+- (void)recordRecoveredTLKMetrics:(NSArray<CKKSTLKShare*>*)possibleTLKShares
+               tlkRecoveryResults:(TrustedPeersHelperTLKRecoveryResult*)tlkRecoveryResults
+         uniqueTLKsRecoveredEvent:(NSString*)uniqueTLKsRecoveredEvent
+        totalSharesRecoveredEvent:(NSString*)totalSharesRecoveredEvent
+   totalRecoverableTLKSharesEvent:(NSString*)totalRecoverableTLKSharesEvent
+        totalRecoverableTLKsEvent:(NSString*)totalRecoverableTLKsEvent
+        totalViewsWithSharesEvent:(NSString*)totalViewsWithSharesEvent;
 @end
 
 @interface CKKSAnalytics (UnitTesting)

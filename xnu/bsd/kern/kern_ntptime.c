@@ -350,7 +350,7 @@ ntp_adjtime(struct proc *p, struct ntp_adjtime_args *uap, int32_t *retval)
 	modes = ntv.modes;
 	if (modes) {
 		/* Check that this task is entitled to set the time or it is root */
-		if (!IOTaskHasEntitlement(current_task(), SETTIME_ENTITLEMENT)) {
+		if (!IOCurrentTaskHasEntitlement(SETTIME_ENTITLEMENT)) {
 #if CONFIG_MACF
 			error = mac_system_check_settime(kauth_cred_get());
 			if (error) {
@@ -710,7 +710,7 @@ adjtime(struct proc *p, struct adjtime_args *uap, __unused int32_t *retval)
 	int error;
 
 	/* Check that this task is entitled to set the time or it is root */
-	if (!IOTaskHasEntitlement(current_task(), SETTIME_ENTITLEMENT)) {
+	if (!IOCurrentTaskHasEntitlement(SETTIME_ENTITLEMENT)) {
 #if CONFIG_MACF
 		error = mac_system_check_settime(kauth_cred_get());
 		if (error) {

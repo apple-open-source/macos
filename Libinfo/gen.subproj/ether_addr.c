@@ -69,21 +69,22 @@ ether_line(const char *s, struct ether_addr *e, char *hostname)
 /*
  * Converts a 48 bit ethernet number to its string representation.
  */
-#define EI(i) (unsigned int)(e->ether_addr_octet[(i)])
+#define EI(i) (uint8_t)(e->ether_addr_octet[(i)])
 LIBINFO_EXPORT
 char *
 ether_ntoa(const struct ether_addr *e)
 {
 	static char *s;
+    const size_t slen = 18;
 
 	if (s == 0)
 	{
-		s = (char *)malloc(18);
+		s = (char *)malloc(slen);
 		if (s == 0) return NULL;
 	}
 
 	s[0] = 0;
-	sprintf(s, "%x:%x:%x:%x:%x:%x", EI(0), EI(1), EI(2), EI(3), EI(4), EI(5));
+	snprintf(s, slen, "%x:%x:%x:%x:%x:%x", EI(0), EI(1), EI(2), EI(3), EI(4), EI(5));
 	return s;
 }
 

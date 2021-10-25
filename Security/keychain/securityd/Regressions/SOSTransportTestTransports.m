@@ -457,7 +457,7 @@ static bool sendToPeer(SOSMessageKVSTest* transport, CFStringRef circleName, CFS
 
         if (peerID) {
             SOSEngineWithPeerID((SOSEngineRef)transport.engine, peerID, error, ^(SOSPeerRef peer, SOSCoderRef coder, SOSDataSourceRef dataSource, SOSTransactionRef txn, bool *forceSaveState) {
-                SOSEnginePeerMessageSentCallback* sentCallback = NULL;
+                SOSEnginePeerMessageCallBackInfo* sentCallback = nil;
                 CFDataRef message_to_send = NULL;
                 bool ok = SOSPeerCoderSendMessageIfNeeded([transport SOSTransportMessageGetAccount], (SOSEngineRef)transport.engine, txn, peer, coder, &message_to_send, peerID, false, &sentCallback, error);
                 if (message_to_send)    {
@@ -467,7 +467,7 @@ static bool sendToPeer(SOSMessageKVSTest* transport, CFStringRef circleName, CFS
                     CFReleaseSafe(peer_dict);
                 }
 
-                SOSEngineFreeMessageCallback(sentCallback);
+                sentCallback = nil;
                 CFReleaseSafe(message_to_send);
             });
          }
@@ -539,6 +539,8 @@ static CF_RETURNS_RETAINED SOSCircleRef SOSAccountEnsureCircleTest(SOSAccount* a
     }
 
     CFReleaseNull(localError);
+    [account sosEvaluateIfNeeded];
+
     return circle;
 }
 

@@ -76,3 +76,9 @@ SECURITY_COMMAND("verify-backup-integrity", verify_backup_integrity,
                  "[-l]\n"
                  "    -l Lightweight. Only verify backup infrastructure without verifying all keychain items.\n",
                  "Verify integrity of keychain backup key material.")
+
+#if !TARGET_OS_BRIDGE
+SECURITY_COMMAND("keychain-diversify-test", keychain_diversify_test,
+                 "",
+                 "Run key diversifcation tests")
+#endif

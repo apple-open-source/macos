@@ -7,10 +7,11 @@
 #import <Security/SecKeyPriv.h>
 #import <CloudKit/CloudKit_Private.h>
 
-#import "keychain/ot/ObjCImprovements.h"
-#import "keychain/ot/OTSOSUpdatePreapprovalsOperation.h"
-#import "keychain/ot/OTOperationDependencies.h"
+#import "keychain/ot/ErrorUtils.h"
 #import "keychain/ot/OTCuttlefishAccountStateHolder.h"
+#import "keychain/ot/OTOperationDependencies.h"
+#import "keychain/ot/OTSOSUpdatePreapprovalsOperation.h"
+#import "keychain/ot/ObjCImprovements.h"
 #import "keychain/TrustedPeersHelper/TrustedPeersHelperProtocol.h"
 #import "keychain/ot/categories/OTAccountMetadataClassC+KeychainSupport.h"
 #import "keychain/ckks/CKKSAnalytics.h"
@@ -55,7 +56,7 @@
         STRONGIFY(self);
 
         if(self.error) {
-            if ([self.error retryableCuttlefishError]) {
+            if ([self.error isRetryable]) {
                 NSTimeInterval delay = [self.error overallCuttlefishRetry];
                 secnotice("octagon-sos", "SOS update preapproval error is not fatal: requesting retry in %0.2fs: %@", delay, self.error);
                 [self.deps.flagHandler handlePendingFlag:[[OctagonPendingFlag alloc] initWithFlag:OctagonFlagAttemptSOSUpdatePreapprovals

@@ -154,10 +154,10 @@ system_override_callouts(uint64_t flags, boolean_t enable_override)
 	case SYS_OVERRIDE_IO_THROTTLE:
 		if (enable_override) {
 			KERNEL_DEBUG_CONSTANT(FSDBG_CODE(DBG_THROTTLE, IO_THROTTLE_DISABLE) | DBG_FUNC_START,
-			    current_proc()->p_pid, 0, 0, 0, 0);
+			    proc_getpid(current_proc()), 0, 0, 0, 0);
 		} else {
 			KERNEL_DEBUG_CONSTANT(FSDBG_CODE(DBG_THROTTLE, IO_THROTTLE_DISABLE) | DBG_FUNC_END,
-			    current_proc()->p_pid, 0, 0, 0, 0);
+			    proc_getpid(current_proc()), 0, 0, 0, 0);
 		}
 		sys_override_io_throttle(enable_override);
 		break;
@@ -165,10 +165,10 @@ system_override_callouts(uint64_t flags, boolean_t enable_override)
 	case SYS_OVERRIDE_CPU_THROTTLE:
 		if (enable_override) {
 			KERNEL_DEBUG_CONSTANT(MACHDBG_CODE(DBG_MACH_SCHED, MACH_CPU_THROTTLE_DISABLE) | DBG_FUNC_START,
-			    current_proc()->p_pid, 0, 0, 0, 0);
+			    proc_getpid(current_proc()), 0, 0, 0, 0);
 		} else {
 			KERNEL_DEBUG_CONSTANT(MACHDBG_CODE(DBG_MACH_SCHED, MACH_CPU_THROTTLE_DISABLE) | DBG_FUNC_END,
-			    current_proc()->p_pid, 0, 0, 0, 0);
+			    proc_getpid(current_proc()), 0, 0, 0, 0);
 		}
 		sys_override_cpu_throttle(enable_override);
 		break;
@@ -176,10 +176,10 @@ system_override_callouts(uint64_t flags, boolean_t enable_override)
 	case SYS_OVERRIDE_FAST_JETSAM:
 		if (enable_override) {
 			KERNEL_DEBUG_CONSTANT(BSDDBG_CODE(DBG_BSD_MEMSTAT, BSD_MEMSTAT_FAST_JETSAM) | DBG_FUNC_START,
-			    current_proc()->p_pid, 0, 0, 0, 0);
+			    proc_getpid(current_proc()), 0, 0, 0, 0);
 		} else {
 			KERNEL_DEBUG_CONSTANT(BSDDBG_CODE(DBG_BSD_MEMSTAT, BSD_MEMSTAT_FAST_JETSAM) | DBG_FUNC_END,
-			    current_proc()->p_pid, 0, 0, 0, 0);
+			    proc_getpid(current_proc()), 0, 0, 0, 0);
 		}
 #if CONFIG_JETSAM
 		memorystatus_fast_jetsam_override(enable_override);
@@ -187,7 +187,7 @@ system_override_callouts(uint64_t flags, boolean_t enable_override)
 		break;
 
 	default:
-		panic("Unknown option to system_override_callouts(): %llu\n", flags);
+		panic("Unknown option to system_override_callouts(): %llu", flags);
 	}
 }
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, 2011, 2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2003, 2011, 2017, 2018, 2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -40,15 +40,15 @@
 
 __BEGIN_DECLS
 
-void	do_block		(int argc, char **argv);
+void	do_block		(int argc, char * const argv[]);
 
-void	do_list			(int argc, char **argv);
-void	do_add			(int argc, char **argv);
-void	do_get			(int argc, char **argv);
-void	do_set			(int argc, char **argv);
-void	do_show			(int argc, char **argv);
-void	do_remove		(int argc, char **argv);
-void	do_notify		(int argc, char **argv);
+void	do_list			(int argc, char * const argv[]);
+void	do_add			(int argc, char * const argv[]);
+void	do_get			(int argc, char * const argv[]);
+void	do_set			(int argc, char * const argv[]);
+void	do_show			(int argc, char * const argv[]);
+void	do_remove		(int argc, char * const argv[]);
+void	do_notify		(int argc, char * const argv[]);
 
 __END_DECLS
 

@@ -50,10 +50,12 @@ NS_ASSUME_NONNULL_BEGIN
              cloudkitDependencies:(CKKSCloudKitClassDependencies*)_cloudKitClassDependencies;
 
 - (CKKSZoneModifyOperations*)createZone:(CKRecordZone*)zone;
+- (CKKSZoneModifyOperations*)createZones:(NSArray<CKRecordZone*>*)zones;
 
 // Note that on a zone delete, we do not run the subscription operation
 // It may or may not run, depending on if any other zone creations have been requested
 - (CKKSZoneModifyOperations*)deleteZone:(CKRecordZoneID*)zoneID;
+- (CKKSZoneModifyOperations*)deleteZones:(NSArray<CKRecordZoneID*>*)zoneIDs;
 
 // For tests only
 - (void)halt;

@@ -4,6 +4,8 @@
 
 #import <Security/OTClique.h>
 
+#if __OBJC2__
+
 NS_ASSUME_NONNULL_BEGIN
 
 @interface OTClique(Private)
@@ -20,5 +22,7 @@ NS_ASSUME_NONNULL_BEGIN
 @end
 
 NS_ASSUME_NONNULL_END
+
+#endif /* OBJC2 */
 
 #endif /* OTClique_Private_h */

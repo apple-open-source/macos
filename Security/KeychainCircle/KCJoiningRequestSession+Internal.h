@@ -27,8 +27,8 @@
 #define KCJoiningRequestSession_Internal_h
 
 #import <Foundation/Foundation.h>
-#import "keychain/ot/OTControl.h"
-#import "KCJoiningSession.h"
+#import <Security/OTControl.h>
+#import <KeychainCircle/KCJoiningSession.h>
 
 @interface KCJoiningRequestSecretSession (Internal)
 - (void)setControlObject:(OTControl*)control;

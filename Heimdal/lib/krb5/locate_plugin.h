@@ -43,6 +43,7 @@
 #define KRB5_PLUGIN_LOCATE_VERSION_0 0
 #define KRB5_PLUGIN_LOCATE_VERSION_1 1
 #define KRB5_PLUGIN_LOCATE_VERSION_2 2
+#define KRB5_PLUGIN_LOCATE_VERSION_3 3
 
 enum locate_service_type {
     locate_service_kdc = 1,
@@ -56,6 +57,12 @@ typedef krb5_error_code
 (*krb5plugin_service_locate_lookup) (void *, unsigned long, enum locate_service_type,
 				     const char *, int, int,
 				     int (*)(void *,int,struct sockaddr *),
+				     void *);
+
+typedef krb5_error_code
+(*krb5plugin_service_locate_lookup_host_string) (void *, unsigned long, enum locate_service_type,
+				     const char *, int, int,
+				     int (*)(void *,const char *),
 				     void *);
 
 #define KRB5_PLF_ALLOW_HOMEDIR	    1
@@ -73,6 +80,7 @@ typedef struct krb5plugin_service_locate_ftable {
     void		(*fini)(void *);
     krb5plugin_service_locate_lookup_old old_lookup;
     krb5plugin_service_locate_lookup lookup; /* version 2 */
+    krb5plugin_service_locate_lookup_host_string lookup_host_string; /* version 3 */
 } krb5plugin_service_locate_ftable;
 
 #endif /* HEIMDAL_KRB5_LOCATE_PLUGIN_H */

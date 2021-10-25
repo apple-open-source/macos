@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, 2020 Apple Inc. All rights reserved.
+ * Copyright (c) 2019-2021 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -589,6 +589,18 @@ __SCNetworkConfigurationCleanHiddenInterfaces(SCPreferencesRef prefs, SCPreferen
 			const char		*thin	= NULL;
 
 			service = CFArrayGetValueAtIndex(services, i);
+
+			if (!SCNetworkServiceGetEnabled(service)) {
+				// if service not enabled
+				if (logDetails) {
+					SC_log(LOG_INFO,
+					       "skipping service : %@ : %@ (not enabled)",
+					       SCNetworkServiceGetServiceID(service),
+					       SCNetworkServiceGetName(service));
+				}
+				continue;
+			}
+
 			interface = SCNetworkServiceGetInterface(service);
 			bsdName = SCNetworkInterfaceGetBSDName(interface);
 

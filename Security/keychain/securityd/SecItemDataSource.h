@@ -31,7 +31,7 @@
 #define _SECURITYD_SECITEMDATASOURCE_H_
 
 #include "keychain/SecureObjectSync/SOSDataSource.h"
-#include <utilities/SecDb.h>
+#include "utilities/SecDb.h"
 
 __BEGIN_DECLS
 
@@ -46,6 +46,9 @@ void SecItemServerAppendItemDescription(CFMutableStringRef desc, CFDictionaryRef
 
 // Are you a test? Call this to drop all data sources.
 void SecItemDataSourceFactoryReleaseAll(void);
+
+//exposed for testing
+SOSMergeResult dsMergeObject(SOSTransactionRef txn, SOSObjectRef peersObject, SOSObjectRef *mergedObject, CFErrorRef *error);
 
 __END_DECLS
 

@@ -120,7 +120,7 @@ UInt64 IOHIDevice::getGUID()
 SInt32 IOHIDevice::GenerateKey(OSObject *object)
 {
     if ( !object )
-        return NULL;
+        return 0;
     IORegistryEntry* temp = (IORegistryEntry*)(object);
     return (SInt32)temp->getRegistryEntryID(); // Get unique key for this object;
 }

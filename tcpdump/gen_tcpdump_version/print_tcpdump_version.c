@@ -1,9 +1,5 @@
 //
-//  main.c
-//  gen_tcpdump_version.sh
-//
-//  Created by Vincent Lubet on 2/7/17.
-//
+//  print_tcpdump_version.c
 //
 
 #include <stdio.h>

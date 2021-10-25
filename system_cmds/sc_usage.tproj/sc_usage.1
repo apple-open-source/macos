@@ -2,7 +2,7 @@
 .\"
 .Dd October 28, 2002
 .Dt SC_USAGE 1
-.Os "Mac OS X"
+.Os "macOS"
 .Sh NAME
 .Nm sc_usage
 .Nd show system call usage statistics
@@ -12,7 +12,7 @@
 .Op Fl e
 .Op Fl l
 .Op Fl s Ar interval
-pid | cmd | 
+pid | cmd |
 .Fl E
 execute
 .Sh DESCRIPTION
@@ -41,8 +41,8 @@ The arguments are as follows:
 .It Fl c
 When the
 .Fl c
-option is specified, it expects a path to a 
-.Ar codefile 
+option is specified, it expects a path to a
+.Ar codefile
 that
 contains the mappings for the system calls.
 This option overrides the default location of the system call codefile which
@@ -81,8 +81,8 @@ arguments and display system call usage date for that executable.
 .El
 .Pp
 The data columns displayed are as follows:
-.Bl -tag -width LAST_PATHNAME_WAITED_FOR -compact
 .Pp
+.Bl -tag -width LAST_PATHNAME_WAITED_FOR -compact
 .It TYPE
 the system call type
 .It NUMBER
@@ -121,7 +121,6 @@ will cause sc_usage to exit immediately.
 Typing any other character will cause sc_usage to reset its counters and the
 display.
 .Sh SAMPLE USAGE
-.Pp
 sc_usage Finder -e -s2
 .Pp
 .Nm sc_usage

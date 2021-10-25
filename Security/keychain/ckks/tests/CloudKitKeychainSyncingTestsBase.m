@@ -62,8 +62,11 @@
         // Wait for the ViewManager to be brought up
         XCTAssertEqual(0, [self.injectedManager.completedSecCKKSInitialize wait:20*NSEC_PER_SEC], "No timeout waiting for SecCKKSInitialize");
 
-        self.keychainView = [[CKKSViewManager manager] findView:@"keychain"];
-        XCTAssertNotNil(self.keychainView, "CKKSViewManager created the keychain view");
+        self.defaultCKKS = [[CKKSViewManager manager] ckksAccountSyncForContainer:SecCKKSContainerName
+                                                                        contextID:OTDefaultContext];
+
+        self.keychainView = [self.defaultCKKS.operationDependencies viewStateForName:@"keychain"];
+        XCTAssertNotNil(self.keychainView, "CKKS knows about the keychain view");
         [self.ckksViews addObject:self.keychainView];
     }
 
@@ -80,16 +83,25 @@
 
 - (void)tearDown {
     // Fetch status, to make sure we can
-    NSDictionary* status = [self.keychainView status];
-    (void)status;
 
-    [self.keychainView halt];
-    [self.keychainView waitUntilAllOperationsAreFinished];
+    // Can only fetch status from the default persona.
+    self.mockPersonaAdapter.isDefaultPersona = YES;
+
+    XCTestExpectation* statusCompletes = [self expectationWithDescription:@"status completes"];
+    [self.defaultCKKS rpcStatus:nil
+                           fast:NO
+                          reply:^(NSArray<NSDictionary*>* _Nullable status, NSError* _Nullable error) {
+        XCTAssertNotNil(status, "Should have some statuses");
+        XCTAssertNil(error, "Should have no error fetching status");
+        [statusCompletes fulfill];
+    }];
+    [self waitForExpectations:@[statusCompletes] timeout:20];
+
+    [self.defaultCKKS halt];
+    [self.defaultCKKS waitUntilAllOperationsAreFinished];
 
     self.keychainView = nil;
     self.keychainZoneID = nil;
-
-    [self.injectedManager haltAll];
 
     [super tearDown];
 } 

@@ -1,5 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
-// License & terms of use: http://www.unicode.org/copyright.html#License
+// License & terms of use: http://www.unicode.org/copyright.html
+// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
 sc{
     Keys{
         calendar{"calendàriu"}
@@ -50,6 +51,7 @@ sc{
         de_AT{"tedescu austrìacu"}
         de_CH{"tedescu artu isvìtzeru"}
         dje{"zarma"}
+        doi{"dogri"}
         dsb{"sòrabu bassu"}
         dua{"duala"}
         dyo{"jola-fonyi"}
@@ -63,10 +65,15 @@ sc{
         en_GB{"inglesu britànnicu"}
         en_US{"inglesu americanu"}
         eo{"esperanto"}
+        es{"ispagnolu"}
+        es_419{"ispagnolu latinoamericanu"}
+        es_ES{"ispagnolu europeu"}
+        es_MX{"ispagnolu messicanu"}
         et{"èstone"}
         eu{"bascu"}
         ewo{"ewondo"}
         fa{"persianu"}
+        fa_AF{"dari"}
         ff{"fulah"}
         fi{"finlandesu"}
         fil{"filipinu"}
@@ -140,6 +147,7 @@ sc{
         luo{"luo"}
         luy{"luyia"}
         lv{"lètone"}
+        mai{"maithili"}
         mas{"masai"}
         mer{"meru"}
         mfe{"crèolu mauritzianu"}
@@ -150,6 +158,7 @@ sc{
         mk{"matzèdone"}
         ml{"malayalam"}
         mn{"mòngolu"}
+        mni{"manipuri"}
         mr{"marathi"}
         ms{"malesu"}
         mt{"maltesu"}
@@ -169,26 +178,34 @@ sc{
         nn{"norvegesu nynorsk"}
         nnh{"ngiemboon"}
         nus{"nuer"}
+        nv{"navajo"}
         ny{"nyanja"}
         nyn{"nyankole"}
         om{"oromo"}
         or{"odia"}
         os{"ossèticu"}
         pa{"punjabi"}
+        pcm{"pidgin nigerianu"}
+        pl{"polacu"}
         prg{"prussianu"}
         ps{"pashto"}
+        pt{"portoghesu"}
+        pt_BR{"portoghesu brasilianu"}
+        pt_PT{"portoghesu europeu"}
         qu{"quechua"}
         rm{"romànciu"}
         rn{"rundi"}
         ro{"rumenu"}
         ro_MD{"moldavu"}
         rof{"rombo"}
-        root{"root"}
+        root{"raighina"}
+        ru{"russu"}
         rw{"kinyarwanda"}
         rwk{"rwa"}
         sa{"sànscritu"}
         sah{"yakut"}
         saq{"samburu"}
+        sat{"santali"}
         sbp{"sangu"}
         sc{"Sardu"}
         sd{"sindhi"}
@@ -228,6 +245,7 @@ sc{
         und{"limba disconnota"}
         ur{"urdu"}
         uz{"uzbecu"}
+        vai{"vai"}
         vi{"vietnamita"}
         vo{"volapük"}
         vun{"vunjo"}
@@ -251,6 +269,7 @@ sc{
         zh_Hant{"tzinesu mandarinu traditzionale"}
     }
     Languages%menu{
+        ckb{"curdu, tzentrale"}
         yue{"tzinesu, cantonesu"}
         zh{"tzinesu, mandarinu"}
     }
@@ -258,11 +277,15 @@ sc{
         az{"azeru"}
         en_US{"inglesu (USA)"}
     }
+    Languages%variant{
+        ckb{"curdu, sorani"}
+    }
     Scripts{
         Adlm{"adlam"}
         Aghb{"albanesu caucàsicu"}
         Ahom{"ahom"}
         Arab{"àrabu"}
+        Aran{"nastaʿlīq"}
         Armi{"aramàicu imperiale"}
         Armn{"armenu"}
         Avst{"avèsticu"}
@@ -282,10 +305,12 @@ sc{
         Cari{"carian"}
         Cham{"cham"}
         Cher{"cherokee"}
+        Chrs{"coràsmiu"}
         Copt{"coptu"}
         Cprt{"tzipriotu"}
         Cyrl{"tzirìllicu"}
         Deva{"devanagari"}
+        Diak{"dives akuru"}
         Dogr{"dogra"}
         Dsrt{"deseret"}
         Dupl{"istenografia duployan"}
@@ -325,6 +350,7 @@ sc{
         Khar{"kharoshthi"}
         Khmr{"khmer"}
         Khoj{"khojki"}
+        Kits{"iscritura khitan minore"}
         Knda{"kannada"}
         Kore{"coreanu"}
         Kthi{"kaithi"}
@@ -415,6 +441,7 @@ sc{
         Wcho{"wancho"}
         Xpeo{"persianu antigu"}
         Xsux{"cuneiforme sumero-acàdicu"}
+        Yezi{"yezidi"}
         Yiii{"yi"}
         Zanb{"zanabar cuadradu"}
         Zinh{"eredadu"}
@@ -502,6 +529,7 @@ sc{
             cham{"tzifras cham"}
             cyrl{"tzifras tzirìllicas"}
             deva{"tzifras devanagari"}
+            diak{"tzifras dhives akuru"}
             ethi{"nùmeros etìopes"}
             fullwide{"tzifras a largària intrea"}
             geor{"nùmeros georgianos"}
@@ -594,6 +622,7 @@ sc{
         BISKE{"dialetu de Santu Giorghi/Bila"}
         BOHORIC{"alfabetu Bohorič"}
         BOONT{"boontling"}
+        BORNHOLM{"bornholmesu"}
         CISAUP{"cisalpinu"}
         COLB1945{"cunventzione ortogràfica portoghesa-brasiliana de su 1945"}
         CORNU{"còrnicu"}
@@ -672,7 +701,6 @@ sc{
         WADEGILE{"romanizatzione Wale-Giles"}
         XSISTEMO{"sistema ortogràficu X de s’esperanto"}
     }
-    Version{"36.1"}
     characterLabelPattern{
         all{"{0} — totu"}
         compatibility{"{0} — compatibilidade"}
@@ -686,6 +714,8 @@ sc{
             one{"{0} tratu"}
             other{"{0} tratos"}
         }
+        subscript{"subra-iscritura {0}"}
+        superscript{"suta-iscritura {0}"}
     }
     codePatterns{
         language{"Limba: {0}"}

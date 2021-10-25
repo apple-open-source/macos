@@ -7,7 +7,6 @@
 #import "keychain/ot/OctagonCheckTrustStateOperation.h"
 #import "keychain/ot/OctagonCKKSPeerAdapter.h"
 #import "keychain/ot/OTCuttlefishAccountStateHolder.h"
-#import "keychain/ot/OTFetchCKKSKeysOperation.h"
 #import "keychain/ot/OTStates.h"
 #import "keychain/ckks/CKKSCurrentKeyPointer.h"
 #import "keychain/ckks/CKKSKeychainView.h"
@@ -181,8 +180,7 @@
         self.nextState = OctagonStateEnsureConsistency;
 
     } else if(self.deps.sosAdapter.sosEnabled &&
-              currentAccountMetadata.trustState != OTAccountMetadataClassC_TrustState_TRUSTED &&
-              OctagonPerformSOSUpgrade()) {
+              currentAccountMetadata.trustState != OTAccountMetadataClassC_TrustState_TRUSTED) {
         secnotice("octagon", "Have iCloud account but not trusted in Octagon yet: %@; attempting SOS upgrade",
                   [currentAccountMetadata trustStateAsString:currentAccountMetadata.trustState]);
 

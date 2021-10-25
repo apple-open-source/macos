@@ -58,7 +58,7 @@ void setFieldKeyUsage(
 	
 	/* Alloc an NSS-style key usage in cert.coder's memory */
 	SecNssCoder &coder = cert.coder();
-	CSSM_DATA *nssObj = (CSSM_DATA *)coder.malloc(sizeof(CSSM_DATA));
+	CSSM_DATA *nssObj = (CSSM_DATA *)coder.alloc(sizeof(CSSM_DATA));
 	coder.allocItem(*nssObj, 2);
 	
 	/* cdsaObj --> nssObj */
@@ -134,7 +134,7 @@ void setFieldBasicConstraints(
 	/* Alloc an NSS-style BasicConstraints in cert.coder's memory */
 	SecNssCoder &coder = cert.coder();
 	NSS_BasicConstraints *nssObj = 
-		(NSS_BasicConstraints *)coder.malloc(sizeof(NSS_BasicConstraints));
+		(NSS_BasicConstraints *)coder.alloc(sizeof(NSS_BasicConstraints));
 	memset(nssObj, 0, sizeof(*nssObj));
 	
 	/* cdsaObj --> nssObj */
@@ -213,7 +213,7 @@ void setFieldExtKeyUsage(
 	
 	SecNssCoder &coder = cert.coder();
 	NSS_ExtKeyUsage *nssObj = 
-		(NSS_ExtKeyUsage *)coder.malloc(sizeof(NSS_ExtKeyUsage));
+		(NSS_ExtKeyUsage *)coder.alloc(sizeof(NSS_ExtKeyUsage));
 	memset(nssObj, 0, sizeof(*nssObj));
 	if(cdsaObj->numPurposes != 0) {
 		nssObj->purposes = 
@@ -222,7 +222,7 @@ void setFieldExtKeyUsage(
 	
 	/* cdsaObj --> nssObj, one 'purpose' (OID) at a time */
 	for(unsigned dex=0; dex<cdsaObj->numPurposes; dex++) {
-		nssObj->purposes[dex] = (CSSM_OID *)coder.malloc(sizeof(CSSM_OID));
+		nssObj->purposes[dex] = (CSSM_OID *)coder.alloc(sizeof(CSSM_OID));
 		coder.allocCopyItem(cdsaObj->purposes[dex],
 			*nssObj->purposes[dex]);
 	}
@@ -301,7 +301,7 @@ void setFieldSubjectKeyId(
 		false);
 	CE_SubjectKeyID *cdsaObj = (CE_SubjectKeyID *)cssmExt->value.parsedValue;
 	SecNssCoder &coder = cert.coder();
-	CSSM_DATA *nssObj = (CSSM_DATA *)coder.malloc(sizeof(CSSM_DATA));
+	CSSM_DATA *nssObj = (CSSM_DATA *)coder.alloc(sizeof(CSSM_DATA));
 	coder.allocCopyItem(*cdsaObj, *nssObj);
 	
 	/* add to mExtensions */
@@ -370,7 +370,7 @@ void setFieldAuthorityKeyId(
 	/* Alloc an NSS-style AuthorityKeyId in cert.coder's memory */
 	SecNssCoder &coder = cert.coder();
 	NSS_AuthorityKeyId *nssObj = 
-		(NSS_AuthorityKeyId *)coder.malloc(sizeof(NSS_AuthorityKeyId));
+		(NSS_AuthorityKeyId *)coder.alloc(sizeof(NSS_AuthorityKeyId));
 	memset(nssObj, 0, sizeof(*nssObj));
 	
 	/* convert caller's CDSA-style CE_AuthorityKeyID to NSS */
@@ -440,7 +440,7 @@ void setFieldSubjIssuerAltName(
 	/* Alloc an NSS-style GeneralNames in cert.coder's memory */
 	SecNssCoder &coder = cert.coder();
 	NSS_GeneralNames *nssObj = 
-		(NSS_GeneralNames *)coder.malloc(sizeof(NSS_GeneralNames));
+		(NSS_GeneralNames *)coder.alloc(sizeof(NSS_GeneralNames));
 	memset(nssObj, 0, sizeof(*nssObj));
 	
 	/* cdsaObj --> nssObj */
@@ -534,7 +534,7 @@ void setFieldCertPolicies(
 		verifySetFreeExtension(fieldValue, false);
 	SecNssCoder &coder = cert.coder();
 	NSS_CertPolicies *nssObj = 
-		(NSS_CertPolicies *)coder.malloc(sizeof(NSS_CertPolicies));
+		(NSS_CertPolicies *)coder.alloc(sizeof(NSS_CertPolicies));
 	memset(nssObj, 0, sizeof(NSS_CertPolicies));
 	CE_CertPolicies *cdsaObj = 
 		(CE_CertPolicies *)cssmExt->value.parsedValue;
@@ -547,7 +547,7 @@ void setFieldCertPolicies(
 	for(unsigned polDex=0; polDex<cdsaObj->numPolicies; polDex++) {
 		CE_PolicyInformation *cPolInfo = &cdsaObj->policies[polDex];
 		NSS_PolicyInformation *nPolInfo = (NSS_PolicyInformation *)
-			coder.malloc(sizeof(NSS_PolicyInformation));
+			coder.alloc(sizeof(NSS_PolicyInformation));
 		memset(nPolInfo, 0, sizeof(*nPolInfo));
 		nssObj->policies[polDex] = nPolInfo;
 		
@@ -563,7 +563,7 @@ void setFieldCertPolicies(
 			CE_PolicyQualifierInfo *cQualInfo = 
 				&cPolInfo->policyQualifiers[qualDex];
 			NSS_PolicyQualifierInfo *nQualInfo = 
-				(NSS_PolicyQualifierInfo *)coder.malloc(
+				(NSS_PolicyQualifierInfo *)coder.alloc(
 					sizeof(NSS_PolicyQualifierInfo));
 			memset(nQualInfo, 0, sizeof(NSS_PolicyQualifierInfo));
 			nPolInfo->policyQualifiers[qualDex] = nQualInfo;
@@ -726,7 +726,7 @@ void setFieldNetscapeCertType(
 	
 	/* Alloc an NSS-style key usage in cert.coder's memory */
 	SecNssCoder &coder = cert.coder();
-	CSSM_DATA *nssObj = (CSSM_DATA *)coder.malloc(sizeof(CSSM_DATA));
+	CSSM_DATA *nssObj = (CSSM_DATA *)coder.alloc(sizeof(CSSM_DATA));
 	coder.allocItem(*nssObj, 2);
 	
 	/* cdsaObj --> nssObj */
@@ -798,7 +798,7 @@ void setFieldCrlDistPoints(
 		(CE_CRLDistPointsSyntax *)cssmExt->value.parsedValue;
 	SecNssCoder &coder = cert.coder();
 	NSS_CRLDistributionPoints *nssObj = 
-		(NSS_CRLDistributionPoints *)coder.malloc(
+		(NSS_CRLDistributionPoints *)coder.alloc(
 				sizeof(NSS_CRLDistributionPoints));
 		
 	CL_cssmDistPointsToNss(*cdsaObj, *nssObj, coder);
@@ -864,7 +864,7 @@ void setFieldAuthInfoAccess(
 		(CE_AuthorityInfoAccess *)cssmExt->value.parsedValue;
 	SecNssCoder &coder = cert.coder();
 	NSS_AuthorityInfoAccess *nssObj = 
-		(NSS_AuthorityInfoAccess *)coder.malloc(
+		(NSS_AuthorityInfoAccess *)coder.alloc(
 				sizeof(NSS_AuthorityInfoAccess));
 		
 	CL_cssmInfoAccessToNss(*cdsaObj, *nssObj, coder);
@@ -961,7 +961,7 @@ void setFieldQualCertStatements(
 		(CE_QC_Statements *)cssmExt->value.parsedValue;
 	SecNssCoder &coder = cert.coder();
 	NSS_QC_Statements *nssObj = 
-		(NSS_QC_Statements *)coder.malloc(
+		(NSS_QC_Statements *)coder.alloc(
 				sizeof(NSS_QC_Statements));
 		
 	CL_cssmQualCertStatementsToNss(*cdsaObj, *nssObj, coder);
@@ -1026,7 +1026,7 @@ void setFieldNameConstraints(
 		(CE_NameConstraints *)cssmExt->value.parsedValue;
 	SecNssCoder &coder = cert.coder();
 	NSS_NameConstraints *nssObj = 
-		(NSS_NameConstraints *)coder.malloc(
+		(NSS_NameConstraints *)coder.alloc(
 				sizeof(NSS_NameConstraints));
 	CL_cssmNameConstraintsToNss(*cdsaObj, *nssObj, coder);
 	cert.addExtension(nssObj, cssmExt->extnId, cssmExt->critical, false,
@@ -1090,7 +1090,7 @@ void setFieldPolicyMappings(
 		(CE_PolicyMappings *)cssmExt->value.parsedValue;
 	SecNssCoder &coder = cert.coder();
 	NSS_PolicyMappings *nssObj = 
-		(NSS_PolicyMappings *)coder.malloc(
+		(NSS_PolicyMappings *)coder.alloc(
 				sizeof(NSS_PolicyMappings));
 	CL_cssmPolicyMappingsToNss(*cdsaObj, *nssObj, coder);
 	cert.addExtension(nssObj, cssmExt->extnId, cssmExt->critical, false,
@@ -1154,7 +1154,7 @@ void setFieldPolicyConstraints(
 		(CE_PolicyConstraints *)cssmExt->value.parsedValue;
 	SecNssCoder &coder = cert.coder();
 	NSS_PolicyConstraints *nssObj = 
-		(NSS_PolicyConstraints *)coder.malloc(
+		(NSS_PolicyConstraints *)coder.alloc(
 				sizeof(NSS_PolicyConstraints));
 	CL_cssmPolicyConstraintsToNss(cdsaObj, nssObj, coder);
 	cert.addExtension(nssObj, cssmExt->extnId, cssmExt->critical, false,
@@ -1219,7 +1219,7 @@ void setFieldInhibitAnyPolicy(
 	
 	/* Alloc in cert.coder's memory */
 	SecNssCoder &coder = cert.coder();
-	CSSM_DATA *nssObj = (CSSM_DATA *)coder.malloc(sizeof(CSSM_DATA));
+	CSSM_DATA *nssObj = (CSSM_DATA *)coder.alloc(sizeof(CSSM_DATA));
 	coder.allocItem(*nssObj, sizeof(uint32));
 	
 	/* cdsaObj --> nssObj */

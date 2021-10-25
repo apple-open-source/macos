@@ -22,8 +22,6 @@
 #include <mach/vm_param.h>
 #include <pthread.h>
 
-#include <pthread/jit_private.h>
-
 #if __has_include(<ptrauth.h>)
 #include <ptrauth.h>
 #endif

@@ -80,21 +80,23 @@ static CFAbsoluteTime
 boottime(void)
 {
 	static CFAbsoluteTime	bt	= 0;
+	static dispatch_once_t	once;
 
-	if (bt == 0) {
+	dispatch_once(&once, ^{
 		int		mib[2]	= { CTL_KERN, KERN_BOOTTIME };
 		struct timeval	tv;
 		size_t		tv_len	= sizeof(tv);
 
 		if (sysctl(mib, sizeof(mib) / sizeof(mib[0]), &tv, &tv_len, NULL, 0) == -1) {
 			my_log(LOG_ERR, "sysctl() CTL_KERN/KERN_BOOTTIME failed: %s", strerror(errno));
-			return kCFAbsoluteTimeIntervalSince1970;
+			bt = kCFAbsoluteTimeIntervalSince1970;
+			return;
 		}
 
 		// Note: we need to convert from Unix time to CF time.
 		bt = (CFTimeInterval)tv.tv_sec - kCFAbsoluteTimeIntervalSince1970;
 		bt += (1.0E-6 * (CFTimeInterval)tv.tv_usec);
-	}
+	});
 
 	return bt;
 }
@@ -877,7 +879,7 @@ load_smb_configuration(Boolean verbose)
 
 #ifdef	MAIN
 int
-main(int argc, char **argv)
+main(int argc, char * const argv[])
 {
 
 #ifdef	DEBUG

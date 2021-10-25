@@ -56,8 +56,10 @@
 #include <sys/time.h>
 #include <sys/types.h>
 
-#import <mach/clock_types.h>
-#import <mach/mach_time.h>
+#include <mach/clock_types.h>
+#include <mach/mach_time.h>
+
+#include <mach-o/dyld_cache_format.h>
 
 /*
  * MAXCOLS controls when extra data kicks in.
@@ -726,7 +728,7 @@ exit_usage(void)
 
 static void fs_usage_cleanup(const char *message)
 {
-	if (s){
+	if (s) {
 		ktrace_session_destroy(s);
 	}
 
@@ -946,7 +948,7 @@ main(int argc, char *argv[])
 		meta_delete_all();
 	});
 
-	ktrace_set_default_event_names_enabled(KTRACE_FEATURE_DISABLED);
+	ktrace_session_set_default_event_names_enabled(s, KTRACE_FEATURE_DISABLED);
 	ktrace_set_execnames_enabled(s, KTRACE_FEATURE_LAZY);
 	ktrace_set_vnode_paths_enabled(s, true);
 	/* no need to symbolicate addresses */
@@ -3536,21 +3538,22 @@ read_shared_cache_map(const char *path, struct library_range *lr, char *linkedit
 	return 1;
 }
 
-#define DYLD_SHARED_CACHE_LOCATION "/System/Library/dyld/"
 
 void
 init_shared_cache_mapping(void)
 {
+#define MACOSX_DYLD_SHARED_CACHE_PREFIX_TMP MACOSX_MRM_DYLD_SHARED_CACHE_DIR""DYLD_SHARED_CACHE_BASE_NAME
 #if TARGET_OS_OSX
 #if TARGET_CPU_ARM64
-	read_shared_cache_map(DYLD_SHARED_CACHE_LOCATION"dyld_shared_cache_arm64e.map", &frameworkArm64e, DYLD_SHARED_CACHE_LOCATION"dyld_shared_cache_arm64e");
+	read_shared_cache_map(MACOSX_DYLD_SHARED_CACHE_PREFIX_TMP"arm64e.map", &frameworkArm64e, MACOSX_DYLD_SHARED_CACHE_PREFIX_TMP"arm64e");
 #else //!TARGET_CPU_ARM64
-	if (0 == read_shared_cache_map(DYLD_SHARED_CACHE_LOCATION"dyld_shared_cache_x86_64h.map", &framework64h, DYLD_SHARED_CACHE_LOCATION"dyld_shared_cache_x86_64h")) {
-		read_shared_cache_map(DYLD_SHARED_CACHE_LOCATION"dyld_shared_cache_x86_64.map", &framework64, DYLD_SHARED_CACHE_LOCATION"dyld_shared_cache_x86_64");
+	if (0 == read_shared_cache_map(MACOSX_DYLD_SHARED_CACHE_PREFIX_TMP"x86_64h.map", &framework64h, MACOSX_DYLD_SHARED_CACHE_PREFIX_TMP"x86_64h")) {
+		read_shared_cache_map(MACOSX_DYLD_SHARED_CACHE_PREFIX_TMP"x86_64.map", &framework64, MACOSX_DYLD_SHARED_CACHE_PREFIX_TMP"x86_64");
 	}
 #endif //TARGET_CPU_ARM64
 	sort_library_addresses();
 #endif //TARGET_OS_OSX
+#undef MACOSX_DYLD_SHARED_CACHE_PREFIX_TMP
 }
 
 void

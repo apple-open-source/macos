@@ -66,6 +66,12 @@
 .Fa "void** array"
 .Fa "int size"
 .Fc
+.Ft size_t
+.Fo backtrace_async
+.Fa "void** array"
+.Fa "size_t size"
+.Fa "uint32_t* task_id"
+.Fc
 .Sh DESCRIPTION
 These routines provide a mechanism to examine the current thread's call stack.
 .Pp
@@ -113,6 +119,27 @@ length.
 .Pp
 .Fn backtrace_from_fp
 takes a backtrace of frames starting from the given frame pointer.
+.Pp
+.Fn backtrace_async
+behaves exactly like
+.Fn backtrace
+unless it is invoked from a Swift async context.  In that case, instead of
+writing the return addresses of the OS call stack, the continuation addresses
+of the async invocations that led to the current state are provided.  If
+unwinding an async stack rather than an OS stack, the value pointed to by
+.Fa task_id
+will be set to a non-zero identifier that for the current process uniquely
+identifies the async task currently running.  Otherwise, 0 is stored.
+.Pp
+Note that the continuation addresses provided by
+.Fn backtrace_async
+have an offset of 1 added to them.  Most symbolication engines will substract
+1 from the call stack return addresses in order to symbolicate the call site
+rather than the return location.  With a Swift async continuation, substracting
+1 from its address would result in an address in a different function.  This
+offset allows the returned addresses to be handled correctly by most existing
+symbolication engines.
+.Pp
 .Sh EXAMPLE
 .Pp
     #include <execinfo.h>
@@ -137,6 +164,8 @@ first appeared in Mac OS X 10.5.
 and
 .Fn backtrace_from_fp
 first appeared macOS 10.14 and iOS 12.
+.Fn backtrace_async
+first appeared in macOS 12.
 .Sh SEE ALSO
 .Xr dladdr 3 ,
 .Xr malloc 3

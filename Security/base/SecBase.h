@@ -27,6 +27,7 @@
 #include <TargetConditionals.h>
 #include <CoreFoundation/CFBase.h>
 #include <Availability.h>
+#include <sys/cdefs.h>
 
 // Truth table for following declarations:
 //
@@ -59,10 +60,6 @@
 
     #define SEC_OS_OSX TARGET_OS_OSX
     #define SEC_OS_OSX_INCLUDES TARGET_OS_OSX
-#endif
-
-#if SEC_OS_IPHONE
-#include <sys/cdefs.h>
 #endif
 
 #if defined(__clang__)
@@ -630,7 +627,8 @@ CF_ENUM(OSStatus)
     errSecInvalidAuthority                   = -67824,    /* The authority was not valid. */
     errSecVerifyActionFailed                 = -67825,    /* A verify action has failed. */
     errSecInvalidCertAuthority               = -67826,    /* The certificate authority was not valid. */
-    errSecInvaldCRLAuthority                 = -67827,    /* The CRL authority was not valid. */
+    errSecInvalidCRLAuthority                = -67827,    /* The CRL authority was not valid. */
+    errSecInvaldCRLAuthority  API_DEPRECATED_WITH_REPLACEMENT("errSecInvalidCRLAuthority", macos(10.11, 12.0), ios(4, 15)) = errSecInvalidCRLAuthority,
     errSecInvalidCRLEncoding                 = -67828,    /* The CRL encoding was not valid. */
     errSecInvalidCRLType                     = -67829,    /* The CRL type was not valid. */
     errSecInvalidCRL                         = -67830,    /* The CRL was not valid. */
@@ -655,7 +653,8 @@ CF_ENUM(OSStatus)
     errSecUnsupportedService                 = -67849,    /* The service is not supported. */
     errSecInvalidTupleGroup                  = -67850,    /* The tuple group was not valid. */
     errSecInvalidBaseACLs                    = -67851,    /* The base ACLs are not valid. */
-    errSecInvalidTupleCredendtials           = -67852,    /* The tuple credentials are not valid. */
+    errSecInvalidTupleCredentials            = -67852,    /* The tuple credentials are not valid. */
+    errSecInvalidTupleCredendtials API_DEPRECATED_WITH_REPLACEMENT("errSecInvalidTupleCredentials", macos(10.11, 12.0), ios(4, 15)) = errSecInvalidTupleCredentials,
     errSecInvalidEncoding                    = -67853,    /* The encoding was not valid. */
     errSecInvalidValidityPeriod              = -67854,    /* The validity period was not valid. */
     errSecInvalidRequestor                   = -67855,    /* The requestor was not valid. */
@@ -706,6 +705,7 @@ CF_ENUM(OSStatus)
     errSecCertificateNameNotAllowed          = -67900,    /* The requested name is not allowed for this certificate. */
     errSecCertificateValidityPeriodTooLong   = -67901,    /* The validity period in the certificate exceeds the maximum allowed. */
     errSecCertificateIsCA                    = -67902,    /* The verified certificate is a CA rather than an end-entity */
+    errSecCertificateDuplicateExtension      = -67903,    /* The certificate contains multiple extensions with the same extension ID. */
 };
 
 

@@ -9,6 +9,7 @@
 #import <utilities/SecCFWrappers.h>
 #import <utilities/SecFileLocations.h>
 #import "trust/trustd/trustdFileLocations.h"
+#import "trust/trustd/trustdVariants.h"
 
 static NSString *kExceptionResetCountKey = @"ExceptionResetCount";
 static NSString *exceptionResetCounterFile = @"com.apple.security.exception_reset_counter.plist";
@@ -69,7 +70,7 @@ static bool WriteExceptionsCounterToUrl(uint64_t exceptionResetCount, NSURL *url
             return status;
         }
         dataToSave[@"Version"] = [NSNumber numberWithUnsignedInteger:1];
-        dataToSave[kExceptionResetCountKey] = [NSNumber numberWithUnsignedInteger:exceptionResetCount];
+        dataToSave[kExceptionResetCountKey] = [NSNumber numberWithUnsignedLongLong:exceptionResetCount];
 
         NSError *nserror = nil;
         status = [dataToSave writeToClassDURL:url permissions:0600 error:&nserror];
@@ -87,6 +88,10 @@ static bool WriteExceptionsCounterToUrl(uint64_t exceptionResetCount, NSURL *url
 }
 
 uint64_t SecTrustServerGetExceptionResetCount(CFErrorRef *error) {
+    if (!TrustdVariantAllowsFileWrite()) {
+        // Not an error
+        return 0;
+    }
     CFErrorRef localError = NULL;
     uint64_t exceptionResetCount = ReadExceptionsCountFromUrl(ExceptionsResetCounterUrl(), &localError);
     if (localError) {
@@ -102,6 +107,10 @@ uint64_t SecTrustServerGetExceptionResetCount(CFErrorRef *error) {
 
 bool SecTrustServerIncrementExceptionResetCount(CFErrorRef *error) {
     bool status = false;
+    if (!TrustdVariantAllowsFileWrite()) {
+        SecError(errSecUnimplemented, error, CFSTR("exception counter not implemented in this environment"));
+        return status;
+    }
 
     uint64_t currentExceptionResetCount = SecTrustServerGetExceptionResetCount(error);
     if (error && *error) {

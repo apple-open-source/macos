@@ -106,7 +106,6 @@ bool SOSFullPeerInfoUpdate(SOSFullPeerInfoRef fullPeerInfo, CFErrorRef *error, S
     
 fail:
     CFReleaseNull(device_key);
-    CFReleaseNull(newPeer);
     return result;
 }
 

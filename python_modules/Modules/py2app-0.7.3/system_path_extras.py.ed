@@ -1,0 +1,3 @@
+/site.addsitedir/s,System,@TOPDIR@,
+,s/Python\.framework/@PYFRAMEWORKNAME@/g
+w

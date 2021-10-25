@@ -180,6 +180,49 @@ static void test_key_proxy_crypto_ops_EC() {
 }
 static const int TestKeyCryptoOpsECCount = 2 + TestKeyCryptoSignCount * 2 + TestKeyCryptoEncryptCount * 2 + TestKeyCryptoKeyExchange * 1;
 
+static void test_key_proxy_connection_handlers(void) {
+    NSError *error;
+    id serverKey = CFBridgingRelease(SecKeyCreateRandomKey((CFDictionaryRef)@{(id)kSecAttrKeyType: (id)kSecAttrKeyTypeECSECPrimeRandom, (id)kSecAttrKeySizeInBits: @(256)}, (void *)&error));
+    ok(serverKey != NULL, "generated local ec256 keypair: %@", error);
+    SecKeyProxy *keyProxy = [[SecKeyProxy alloc] initWithKey:(SecKeyRef)serverKey];
+    __block int connectCalled = 0;
+    __block int disconnectCalled = 0;
+    keyProxy.clientConnectionHandler = ^(BOOL firstClientConnected) {
+        connectCalled = firstClientConnected ? 2 : 1;
+    };
+    keyProxy.clientDisconnectionHandler = ^(BOOL lastClientDisconnected) {
+        disconnectCalled = lastClientDisconnected ? 2 : 1;
+    };
+    
+    @autoreleasepool {
+        id localKey1 = CFBridgingRelease([SecKeyProxy createKeyFromEndpoint:keyProxy.endpoint error:&error]);
+        isnt(localKey1, NULL,  "connected to remote key, error %@", error);
+        is(connectCalled, 2, "connection handler was not invoked as expected");
+        is(disconnectCalled, 0, "disconnection handler was unexpectedly invoked");
+        connectCalled = disconnectCalled = 0;
+    
+        @autoreleasepool {
+            id localKey2 = CFBridgingRelease([SecKeyProxy createKeyFromEndpoint:keyProxy.endpoint error:&error]);
+            isnt(localKey2, NULL,  "connected to remote key, error %@", error);
+            is(connectCalled, 1, "connection handler was not invoked as expected");
+            is(disconnectCalled, 0, "disconnection handler was unexpectedly invoked");
+            connectCalled = disconnectCalled = 0;
+        }
+
+        // Notifications are asynchronous, so give them a bit of time to deliver.
+        [NSThread sleepForTimeInterval:0.5];
+        is(connectCalled, 0, "connection handler was unexpectedly invoked");
+        is(disconnectCalled, 1, "disconnection handler was not invoked as expected");
+    }
+
+    [NSThread sleepForTimeInterval:0.5];
+    is(connectCalled, 0, "connection handler was unexpectedly invoked");
+    is(disconnectCalled, 2, "disconnection handler was not invoked as expected");
+
+    keyProxy = nil;
+}
+static const int TestKeyProxyConnectionHandlersCount = 11;
+
 /*
  Bag Attributes
  friendlyName: uranusLeaf
@@ -479,6 +522,7 @@ TestKeyProxyConnectCount +
 TestKeyProxySimpleOpsCount +
 TestKeyCryptoOpsRSACount +
 TestKeyCryptoOpsECCount +
+TestKeyProxyConnectionHandlersCount +
 TestKeyProxyIdentityCount;
 
 int si_44_seckey_proxy(int argc, char *const *argv) {
@@ -489,6 +533,7 @@ int si_44_seckey_proxy(int argc, char *const *argv) {
         test_key_proxy_simple_ops();
         test_key_proxy_crypto_ops_RSA();
         test_key_proxy_crypto_ops_EC();
+        test_key_proxy_connection_handlers();
         test_key_proxy_identity();
     }
 

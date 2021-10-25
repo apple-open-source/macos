@@ -84,6 +84,7 @@ bool CompareProperty( IOService * owner, OSDictionary * matching, const char * k
     OSObject *  value;
     OSObject *  property;
     bool        matches = true;
+
     
     value = matching->getObject( key );
 
@@ -388,12 +389,13 @@ bool MatchPropertyTable(IOService * owner, OSDictionary * table, SInt32 * score)
     bool    trans2Match     = CompareProperty(owner, table, kIOHIDLocationIDKey, &trans2Score, kHIDTransport2ScoreIncrement);
     bool    venIDMatch      = CompareProperty(owner, table, kIOHIDVendorIDKey, &ven1Score, kHIDVendor1ScoreIncrement);
     bool    prodIDMatch     = CompareProductID(owner, table, &ven2Score);
+    bool    modelMatch      = CompareProperty(owner, table, kIOHIDModelNumberKey, &ven2Score, kHIDVendor2ScoreIncrement);
     bool    versNumMatch    = CompareProperty(owner, table, kIOHIDVersionNumberKey, &ven3Score, kHIDVendor3ScoreIncrement);
     bool    manMatch        = CompareProperty(owner, table, kIOHIDManufacturerKey, &ven3Score, kHIDVendor3ScoreIncrement);
     bool    serialMatch     = CompareProperty(owner, table, kIOHIDSerialNumberKey, &ven3Score, kHIDVendor3ScoreIncrement);
     bool    phisicalDeviceUniqueID = CompareProperty(owner, table, kIOHIDPhysicalDeviceUniqueIDKey, &ven3Score, kHIDVendor3ScoreIncrement);
     bool    bootPMatch      = CompareProperty(owner, table, "BootProtocol", score);
-    // Compare properties.
+   // Compare properties.
     if (!pUPMatch ||
         !pUMatch ||
         !useMatch ||
@@ -402,6 +404,7 @@ bool MatchPropertyTable(IOService * owner, OSDictionary * table, SInt32 * score)
         !trans2Match ||
         !venIDMatch ||
         !prodIDMatch ||
+        !modelMatch ||
         !versNumMatch ||
         !manMatch ||
         !serialMatch ||

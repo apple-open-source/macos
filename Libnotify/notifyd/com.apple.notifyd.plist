@@ -26,5 +26,7 @@
 	</array>
 	<key>POSIXSpawnType</key>
 	<string>Interactive</string>
+	<key>LimitLoadToSessionType</key>
+	<string>System</string>
 </dict>
 </plist>

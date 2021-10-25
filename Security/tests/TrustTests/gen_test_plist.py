@@ -1,4 +1,5 @@
-#!/usr/bin/python
+#!/usr/bin/python3
+from __future__ import print_function
 import sys
 import Foundation
 from glob import glob
@@ -10,6 +11,7 @@ outfile = sys.argv[2]
 
 test_plist = Foundation.NSMutableDictionary.dictionary()
 test_plist['Project'] = 'Security'
+test_plist['RequiresWiFi'] = True
 test_list = Foundation.NSMutableArray.array()
 
 test_files = glob(test_dir + '/*/*.m')
@@ -22,7 +24,7 @@ for filename in test_files:
             regex_string = test_dir + '/([a-zA-Z0-9_]+/)'
             test_dir_match = re.search(regex_string, filename)
             if not test_dir_match:
-                print 'failed to find test dir name for ' + filename + " with regex " + regex_string
+                print('failed to find test dir name for ' + filename + " with regex " + regex_string)
                 sys.exit(1)
             test_dictionary = Foundation.NSMutableDictionary.dictionary()
             test_dictionary['TestName'] = test_dir_match.group(1) + match.group(1)
@@ -49,5 +51,5 @@ if not os.path.exists(out_dir):
     os.makedirs(out_dir)
 success = test_plist.writeToFile_atomically_(outfile, 1)
 if not success:
-    print "test plist failed to write, error!"
+    print("test plist failed to write, error!")
     sys.exit(1)

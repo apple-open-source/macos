@@ -80,10 +80,13 @@ __FBSDID("$FreeBSD: src/usr.sbin/mtree/compare.c,v 1.34 2005/03/29 11:44:17 tobe
 	}
 
 extern CFMutableDictionaryRef dict;
+static struct timespec r_birth_time;
 
 // max/min times apfs can store on disk
 #define APFS_MAX_TIME 0x7fffffffffffffffLL
 #define APFS_MIN_TIME (-0x7fffffffffffffffLL-1)
+
+#define ROOT_DIR_INO_NUM 2
 
 static uint64_t
 timespec_to_apfs_timestamp(struct timespec *ts)
@@ -179,6 +182,9 @@ compare(char *name __unused, NODE *s, FTSENT *p)
 		if (!S_ISDIR(p->fts_statp->st_mode)) {
 			RECORD_FAILURE(4, EINVAL);
 			goto typeerr;
+		}
+		if (s->st_ino == ROOT_DIR_INO_NUM) {
+			r_birth_time = s->st_birthtimespec;
 		}
 		break;
 	case F_FIFO:
@@ -280,37 +286,42 @@ typeerr:		LABEL;
 		    (intmax_t)s->st_size, (intmax_t)p->fts_statp->st_size);
 		tab = "\t";
 	}
-	if ((s->flags & F_TIME) &&
-	     ((s->st_mtimespec.tv_sec != p->fts_statp->st_mtimespec.tv_sec) ||
-	     (s->st_mtimespec.tv_nsec != p->fts_statp->st_mtimespec.tv_nsec))) {
-		if (!mflag) {
-			LABEL;
-			(void)printf("%smodification time expected %.24s.%09ld ",
-				     tab, ctime(&s->st_mtimespec.tv_sec), s->st_mtimespec.tv_nsec);
-			(void)printf("found %.24s.%09ld",
-				     ctime(&p->fts_statp->st_mtimespec.tv_sec), p->fts_statp->st_mtimespec.tv_nsec);
-			if (uflag) {
-				tv[0].tv_sec = s->st_mtimespec.tv_sec;
-				tv[0].tv_usec = s->st_mtimespec.tv_nsec / 1000;
-				tv[1] = tv[0];
-				if (utimes(p->fts_accpath, tv)) {
-					error = errno;
-					RECORD_FAILURE(12, error);
-					(void)printf(" not modified: %s\n",
-						     strerror(error));
+	if ((s->flags & F_TIME) || (mflag && !insert_mod)) {
+		struct timespec *source_ts = (s->flags & F_TIME) ? &s->st_mtimespec : &r_birth_time;
+		if ((source_ts->tv_sec != p->fts_statp->st_mtimespec.tv_sec) ||
+		    (source_ts->tv_nsec != p->fts_statp->st_mtimespec.tv_nsec)) {
+			if (!mflag) {
+				LABEL;
+				(void)printf("%smodification time expected %.24s.%09ld ", tab,
+					     ctime(&s->st_mtimespec.tv_sec),
+					     s->st_mtimespec.tv_nsec);
+				(void)printf("found %.24s.%09ld",
+					     ctime(&p->fts_statp->st_mtimespec.tv_sec),
+					     p->fts_statp->st_mtimespec.tv_nsec);
+				if (uflag) {
+					tv[0].tv_sec = s->st_mtimespec.tv_sec;
+					tv[0].tv_usec = s->st_mtimespec.tv_nsec / 1000;
+					tv[1] = tv[0];
+					if (utimes(p->fts_accpath, tv)) {
+						error = errno;
+						RECORD_FAILURE(12, error);
+						(void)printf(" not modified: %s\n",
+							     strerror(error));
+					} else {
+						(void)printf(" modified\n");
+					}
 				} else {
-					(void)printf(" modified\n");
+					(void)printf("\n");
 				}
+				tab = "\t";
 			} else {
-				(void)printf("\n");
+				uint64_t s_mod_time = timespec_to_apfs_timestamp(source_ts);
+				if (s_mod_time) {
+					char *mod_string = "MODIFICATION";
+					set_key_value_pair(mod_string, &s_mod_time, true);
+					insert_mod = 1;
+				}
 			}
-			tab = "\t";
-		}
-		if (!insert_mod && mflag) {
-			uint64_t s_mod_time = timespec_to_apfs_timestamp(&s->st_mtimespec);
-			char *mod_string = "MODIFICATION";
-			set_key_value_pair(mod_string, &s_mod_time, true);
-			insert_mod = 1;
 		}
 	}
 	if (s->flags & F_CKSUM) {
@@ -475,63 +486,78 @@ typeerr:		LABEL;
 		(void)printf("%slink_ref expected %s found %s\n",
 		      tab, s->slink, cp);
 	}
-	if ((s->flags & F_BTIME) &&
-	    ((s->st_birthtimespec.tv_sec != p->fts_statp->st_birthtimespec.tv_sec) ||
-	     (s->st_birthtimespec.tv_nsec != p->fts_statp->st_birthtimespec.tv_nsec))) {
-		    if (!mflag) {
-			    LABEL;
-			    (void)printf("%sbirth time expected %.24s.%09ld ",
-					 tab, ctime(&s->st_birthtimespec.tv_sec), s->st_birthtimespec.tv_nsec);
-			    (void)printf("found %.24s.%09ld\n",
-					 ctime(&p->fts_statp->st_birthtimespec.tv_sec), p->fts_statp->st_birthtimespec.tv_nsec);
-			    tab = "\t";
-		    }
-		    if (!insert_birth && mflag) {
-			    uint64_t s_create_time = timespec_to_apfs_timestamp(&s->st_birthtimespec);
-			    char *birth_string = "BIRTH";
-			    set_key_value_pair(birth_string, &s_create_time, true);
-			    insert_birth = 1;
-		    }
-	    }
-	if ((s->flags & F_ATIME) &&
-	    ((s->st_atimespec.tv_sec != p->fts_statp->st_atimespec.tv_sec) ||
-	     (s->st_atimespec.tv_nsec != p->fts_statp->st_atimespec.tv_nsec))) {
-		    if (!mflag) {
-			    LABEL;
-			    (void)printf("%saccess time expected %.24s.%09ld ",
-					 tab, ctime(&s->st_atimespec.tv_sec), s->st_atimespec.tv_nsec);
-			    (void)printf("found %.24s.%09ld\n",
-					 ctime(&p->fts_statp->st_atimespec.tv_sec), p->fts_statp->st_atimespec.tv_nsec);
-			    tab = "\t";
-		    }
-		    if (!insert_access && mflag) {
-			    uint64_t s_access_time = timespec_to_apfs_timestamp(&s->st_atimespec);
-			    char *access_string = "ACCESS";
-			    set_key_value_pair(access_string, &s_access_time, true);
-			    insert_access = 1;
-
-		    }
-	    }
-	if ((s->flags & F_CTIME) &&
-	    ((s->st_ctimespec.tv_sec != p->fts_statp->st_ctimespec.tv_sec) ||
-	     (s->st_ctimespec.tv_nsec != p->fts_statp->st_ctimespec.tv_nsec))) {
-		    if (!mflag) {
-			    LABEL;
-			    (void)printf("%smetadata modification time expected %.24s.%09ld ",
-					 tab, ctime(&s->st_ctimespec.tv_sec), s->st_ctimespec.tv_nsec);
-			    (void)printf("found %.24s.%09ld\n",
-					 ctime(&p->fts_statp->st_ctimespec.tv_sec), p->fts_statp->st_ctimespec.tv_nsec);
-			    tab = "\t";
-		    }
-		    if (!insert_change && mflag) {
-			    uint64_t s_mod_time = timespec_to_apfs_timestamp(&s->st_ctimespec);
-			    char *change_string = "CHANGE";
-			    set_key_value_pair(change_string, &s_mod_time, true);
-			    insert_change = 1;
-		    }
-	    }
-	if (s->flags & F_PTIME) {
+	if ((s->flags & F_BTIME) || (mflag && !insert_birth)) {
+		struct timespec *source_ts = (s->flags & F_BTIME) ? &s->st_birthtimespec : &r_birth_time;
+		if ((source_ts->tv_sec != p->fts_statp->st_birthtimespec.tv_sec) ||
+		    (source_ts->tv_nsec != p->fts_statp->st_birthtimespec.tv_nsec)) {
+			if (!mflag) {
+				LABEL;
+				(void)printf("%sbirth time expected %.24s.%09ld ", tab,
+					     ctime(&s->st_birthtimespec.tv_sec),
+					     s->st_birthtimespec.tv_nsec);
+				(void)printf("found %.24s.%09ld\n",
+					     ctime(&p->fts_statp->st_birthtimespec.tv_sec),
+					     p->fts_statp->st_birthtimespec.tv_nsec);
+				tab = "\t";
+			} else {
+				uint64_t s_create_time = timespec_to_apfs_timestamp(source_ts);
+				if (s_create_time) {
+					char *birth_string = "BIRTH";
+					set_key_value_pair(birth_string, &s_create_time, true);
+					insert_birth = 1;
+				}
+			}
+		}
+	}
+	if ((s->flags & F_ATIME) || (mflag && !insert_access)) {
+		struct timespec *source_ts = (s->flags & F_ATIME) ? &s->st_atimespec : &r_birth_time;
+		if ((source_ts->tv_sec != p->fts_statp->st_atimespec.tv_sec) ||
+		    (source_ts->tv_nsec != p->fts_statp->st_atimespec.tv_nsec)) {
+			if (!mflag) {
+				LABEL;
+				(void)printf("%saccess time expected %.24s.%09ld ", tab,
+					     ctime(&s->st_atimespec.tv_sec),
+					     s->st_atimespec.tv_nsec);
+				(void)printf("found %.24s.%09ld\n",
+					     ctime(&p->fts_statp->st_atimespec.tv_sec),
+					     p->fts_statp->st_atimespec.tv_nsec);
+				tab = "\t";
+			} else {
+				uint64_t s_access_time = timespec_to_apfs_timestamp(source_ts);
+				if (s_access_time) {
+					char *access_string = "ACCESS";
+					set_key_value_pair(access_string, &s_access_time, true);
+					insert_access = 1;
+				}
+			}
+		}
+	}
+	if ((s->flags & F_CTIME) || (mflag && !insert_change)) {
+		struct timespec *source_ts = (s->flags & F_CTIME) ? &s->st_ctimespec : &r_birth_time;
+		if ((source_ts->tv_sec != p->fts_statp->st_ctimespec.tv_sec) ||
+		    (source_ts->tv_nsec != p->fts_statp->st_ctimespec.tv_nsec)) {
+			if (!mflag) {
+				LABEL;
+				(void)printf("%smetadata modification time expected %.24s.%09ld ", tab,
+					     ctime(&s->st_ctimespec.tv_sec),
+					     s->st_ctimespec.tv_nsec);
+				(void)printf("found %.24s.%09ld\n",
+					     ctime(&p->fts_statp->st_ctimespec.tv_sec),
+					     p->fts_statp->st_ctimespec.tv_nsec);
+				tab = "\t";
+			} else {
+				uint64_t s_mod_time = timespec_to_apfs_timestamp(source_ts);
+				if (s_mod_time) {
+					char *change_string = "CHANGE";
+					set_key_value_pair(change_string, &s_mod_time, true);
+					insert_change = 1;
+				}
+			}
+		}
+	}
+	if (s->flags & F_PTIME || (mflag && !insert_parent)) {
 		int supported;
+		struct timespec *source_ts = (s->flags & F_PTIME) ? &s->st_ptimespec : &r_birth_time;
 		struct timespec ptimespec = ptime(p->fts_accpath, &supported);
 		if (!supported) {
 			if (mflag) {
@@ -545,8 +571,9 @@ typeerr:		LABEL;
 				tab = "\t";
 			}
 		}
-		if (supported && ((s->st_ptimespec.tv_sec != ptimespec.tv_sec) ||
-			   (s->st_ptimespec.tv_nsec != ptimespec.tv_nsec))) {
+		if (supported &&
+		    ((source_ts->tv_sec != ptimespec.tv_sec) ||
+		     (source_ts->tv_nsec != ptimespec.tv_nsec))) {
 			if (!mflag) {
 				LABEL;
 				(void)printf("%stime added to parent folder expected %.24s.%09ld ",
@@ -554,11 +581,13 @@ typeerr:		LABEL;
 				(void)printf("found %.24s.%09ld\n",
 					      ctime(&ptimespec.tv_sec), ptimespec.tv_nsec);
 				tab = "\t";
-			} else if (!insert_parent && mflag) {
-				uint64_t s_added_time = timespec_to_apfs_timestamp(&s->st_ptimespec);
-				char *added_string = "DATEADDED";
-				set_key_value_pair(added_string, &s_added_time, true);
-				insert_parent = 1;
+			} else if (!insert_parent) {
+				uint64_t s_added_time = timespec_to_apfs_timestamp(source_ts);
+				if (s_added_time) {
+					char *added_string = "DATEADDED";
+					set_key_value_pair(added_string, &s_added_time, true);
+					insert_parent = 1;
+				}
 			}
 		}
 	}
@@ -614,7 +643,12 @@ typeerr:		LABEL;
 	if (s->flags & F_SIBLINGID) {
 		uint64_t new_sibling_id = get_sibling_id(p->fts_accpath);
 		new_sibling_id = (new_sibling_id != p->fts_statp->st_ino) ? new_sibling_id : 0;
-		if (new_sibling_id != s->sibling_id) {
+		if ((s->sibling_id == 0) != (new_sibling_id == 0)) {
+			LABEL;
+			(void)printf("%sinvalid sibling id(original sibling id: %llu and the new sibling id: %llu)\n",
+				     tab, s->sibling_id, new_sibling_id);
+			tab = "\t";
+		} else if (new_sibling_id != s->sibling_id) {
 			if (!mflag) {
 				LABEL;
 				(void)printf("%ssibling id expected %llu found %llu\n",

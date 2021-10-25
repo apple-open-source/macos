@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004, 2006, 2008, 2010-2012, 2015, 2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2004, 2006, 2008, 2010-2012, 2015, 2016, 2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -123,7 +123,7 @@ _notifyremove(mach_port_t		server,
 	serverSessionRef	mySession;
 
 	/* un-serialize the key */
-	if (!_SCUnserializeString(&key, NULL, (void *)keyRef, keyLen)) {
+	if (!_SCUnserializeString(&key, NULL, keyRef, keyLen)) {
 		*sc_status = kSCStatusFailed;
 		goto done;
 	}

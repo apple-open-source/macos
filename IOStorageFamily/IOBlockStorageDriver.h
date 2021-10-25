@@ -250,6 +250,7 @@ typedef UInt32 IOMediaState;
  */
 
 class IOPerfControlClient;
+class IOUserBlockStorageDevice;
 
 #include <IOKit/storage/IOBlockStorageDevice.h>
 #include <IOKit/storage/IOMedia.h>
@@ -361,6 +362,7 @@ protected:
         UInt32         contextsCount;
         UInt32         contextsMaxCount;
         IOPerfControlClient * perfControlClient;
+        IOUserBlockStorageDevice * userBlockStorageDevice;
     };
     ExpansionData * _expansionData;
 
@@ -393,7 +395,9 @@ protected:
     #define _contextsMaxCount                \
               IOBlockStorageDriver::_expansionData->contextsMaxCount
     #define _perfControlClient                \
-                 IOBlockStorageDriver::_expansionData->perfControlClient
+              IOBlockStorageDriver::_expansionData->perfControlClient
+    #define _userBlockStorageDevice           \
+              IOBlockStorageDriver::_expansionData->userBlockStorageDevice
 
     OSSet *         _openClients;
     OSNumber *      _statistics[kStatisticsCount];

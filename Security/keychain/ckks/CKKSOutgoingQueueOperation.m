@@ -34,7 +34,6 @@
 #import "keychain/ckks/CKKSManifest.h"
 #import "keychain/ckks/CKKSOutgoingQueueEntry.h"
 #import "keychain/ckks/CKKSOutgoingQueueOperation.h"
-#import "keychain/ckks/CKKSReencryptOutgoingItemsOperation.h"
 #import "keychain/ckks/CKKSStates.h"
 #import "keychain/ckks/CKKSViewManager.h"
 #import "keychain/ckks/CloudKitCategories.h"
@@ -46,12 +45,17 @@
 #import "CKKSPowerCollection.h"
 #import "utilities/SecCoreAnalytics.h"
 
+@interface CKKSOutgoingQueueOperation ()
+@property OctagonState* ckErrorState;
+@end
+
 @implementation CKKSOutgoingQueueOperation
 @synthesize nextState = _nextState;
 @synthesize intendedState = _intendedState;
 
 - (instancetype)initWithDependencies:(CKKSOperationDependencies*)dependencies
                            intending:(OctagonState*)intending
+                        ckErrorState:(OctagonState*)ckErrorState
                           errorState:(OctagonState*)errorState
 {
     if(self = [super init]) {
@@ -59,6 +63,7 @@
 
         _nextState = errorState;
         _intendedState = intending;
+        _ckErrorState = ckErrorState;
     }
     return self;
 }
@@ -128,12 +133,12 @@
 
     NSHashTable<CKModifyRecordsOperation*>* ckWriteOperations = [NSHashTable weakObjectsHashTable];
 
-    for(CKKSKeychainViewState* viewState in self.deps.zones) {
-        if(![self.deps.syncingPolicy isSyncingEnabledForView:viewState.zoneID.zoneName]) {
+    for(CKKSKeychainViewState* viewState in self.deps.activeManagedViews) {
+        if (self.deps.syncingPolicy.isInheritedAccount || ![self.deps.syncingPolicy isSyncingEnabledForView:viewState.zoneID.zoneName]) {
             ckkserror("ckksoutgoing", viewState, "Item syncing for this view is disabled");
             continue;
         }
-
+        
         // Each zone should get its own transaction, in case errors cause us to roll back queue modifications after marking entries as in-flight
         [databaseProvider dispatchSyncWithSQLTransaction:^CKKSDatabaseTransactionResult{
             NSError* error = nil;
@@ -279,9 +284,11 @@
                 // Nothing to do! exit.
                 ckksnotice("ckksoutgoing", viewState.zoneID, "Nothing in outgoing queue to process");
                 if(self.deps.currentOutgoingQueueOperationGroup) {
-                    ckksinfo("ckksoutgoing", self.deps.zoneID, "End of operation group: %@", self.deps.currentOutgoingQueueOperationGroup);
+                    ckksinfo("ckksoutgoing", viewState.zoneID, "End of operation group: %@", self.deps.currentOutgoingQueueOperationGroup);
                     self.deps.currentOutgoingQueueOperationGroup = nil;
                 }
+
+                self.nextState = self.intendedState;
                 return true;
             }
 
@@ -360,7 +367,7 @@
                                 savedRecords:savedRecords
                             deletedRecordIDs:deletedRecordIDs
                                      ckerror:ckerror];
-            };;
+            };
             [self dependOnBeforeGroupFinished:modifyRecordsOperation];
             [self.deps.ckdatabase addOperation:modifyRecordsOperation];
 
@@ -478,7 +485,8 @@
         }
 
         ckksnotice("ckksoutgoing", viewState.zoneID, "Completed processing outgoing queue (%d modifications, %d deletions)", (int)savedRecords.count, (int)deletedRecordIDs.count);
-        NSError* error = NULL;
+        NSError* localError = NULL;
+        NSError* viewError = NULL;
         CKKSPowerCollection *plstats = [[CKKSPowerCollection alloc] init];
 
         for(CKRecord* record in savedRecords) {
@@ -487,18 +495,18 @@
                 CKKSOutgoingQueueEntry* oqe = [CKKSOutgoingQueueEntry fromDatabase:record.recordID.recordName
                                                                              state:SecCKKSStateInFlight
                                                                             zoneID:viewState.zoneID
-                                                                             error:&error];
-                [oqe intransactionMoveToState:SecCKKSStateDeleted viewState:viewState error:&error];
-                if(error) {
-                    ckkserror("ckksoutgoing", viewState.zoneID, "Couldn't update %@ in outgoingqueue: %@", record.recordID.recordName, error);
-                    self.error = error;
+                                                                             error:&localError];
+                [oqe intransactionMoveToState:SecCKKSStateDeleted viewState:viewState error:&localError];
+                if(localError) {
+                    ckkserror("ckksoutgoing", viewState.zoneID, "Couldn't update %@ in outgoingqueue: %@", record.recordID.recordName, localError);
+                    self.error = viewError = localError;
                 }
-                error = nil;
+                localError = nil;
                 CKKSMirrorEntry* ckme = [[CKKSMirrorEntry alloc] initWithCKRecord: record];
-                [ckme saveToDatabase: &error];
-                if(error) {
-                    ckkserror("ckksoutgoing", viewState.zoneID, "Couldn't save %@ to ckmirror: %@", record.recordID.recordName, error);
-                    self.error = error;
+                [ckme saveToDatabase: &localError];
+                if(localError) {
+                    ckkserror("ckksoutgoing", viewState.zoneID, "Couldn't save %@ to ckmirror: %@", record.recordID.recordName, localError);
+                    self.error = viewError = localError;
                 }
 
                 [plstats storedOQE:oqe];
@@ -506,18 +514,18 @@
                 // And the CKCurrentKeyRecords (do we need to do this? Will the server update the change tag on a save which saves nothing?)
             } else if([record.recordType isEqualToString: SecCKRecordCurrentKeyType]) {
                 CKKSCurrentKeyPointer* currentkey = [[CKKSCurrentKeyPointer alloc] initWithCKRecord: record];
-                [currentkey saveToDatabase: &error];
-                if(error) {
-                    ckkserror("ckksoutgoing", viewState.zoneID, "Couldn't save %@ to currentkey: %@", record.recordID.recordName, error);
-                    self.error = error;
+                [currentkey saveToDatabase: &localError];
+                if(localError) {
+                    ckkserror("ckksoutgoing", viewState.zoneID, "Couldn't save %@ to currentkey: %@", record.recordID.recordName, localError);
+                    self.error = viewError = localError;
                 }
 
             } else if ([record.recordType isEqualToString:SecCKRecordDeviceStateType]) {
                 CKKSDeviceStateEntry* newcdse = [[CKKSDeviceStateEntry alloc] initWithCKRecord:record];
-                [newcdse saveToDatabase:&error];
-                if(error) {
-                    ckkserror("ckksoutgoing", viewState.zoneID, "Couldn't save %@ to ckdevicestate: %@", record.recordID.recordName, error);
-                    self.error = error;
+                [newcdse saveToDatabase:&localError];
+                if(localError) {
+                    ckkserror("ckksoutgoing", viewState.zoneID, "Couldn't save %@ to ckdevicestate: %@", record.recordID.recordName, localError);
+                    self.error = viewError = localError;
                 }
 
             } else if ([record.recordType isEqualToString:SecCKRecordManifestType]) {
@@ -526,26 +534,26 @@
                 ckkserror("ckksoutgoing", viewState.zoneID, "unknown record type in results: %@", record);
             }
         }
+        localError = nil;
 
         // Delete the deleted record IDs
         for(CKRecordID* ckrecordID in deletedRecordIDs) {
 
-            NSError* error = nil;
             CKKSOutgoingQueueEntry* oqe = [CKKSOutgoingQueueEntry fromDatabase:ckrecordID.recordName
                                                                          state:SecCKKSStateInFlight
                                                                         zoneID:viewState.zoneID
-                                                                         error:&error];
-            [oqe intransactionMoveToState:SecCKKSStateDeleted viewState:viewState error:&error];
-            if(error) {
-                ckkserror("ckksoutgoing", viewState.zoneID, "Couldn't delete %@ from outgoingqueue: %@", ckrecordID.recordName, error);
-                self.error = error;
+                                                                         error:&localError];
+            [oqe intransactionMoveToState:SecCKKSStateDeleted viewState:viewState error:&localError];
+            if(localError) {
+                ckkserror("ckksoutgoing", viewState.zoneID, "Couldn't delete %@ from outgoingqueue: %@", ckrecordID.recordName, localError);
+                self.error = viewError = localError;
             }
-            error = nil;
-            CKKSMirrorEntry* ckme = [CKKSMirrorEntry tryFromDatabase: ckrecordID.recordName zoneID:viewState.zoneID error:&error];
-            [ckme deleteFromDatabase: &error];
-            if(error) {
-                ckkserror("ckksoutgoing", viewState.zoneID, "Couldn't delete %@ from ckmirror: %@", ckrecordID.recordName, error);
-                self.error = error;
+            localError = nil;
+            CKKSMirrorEntry* ckme = [CKKSMirrorEntry tryFromDatabase: ckrecordID.recordName zoneID:viewState.zoneID error:&localError];
+            [ckme deleteFromDatabase: &localError];
+            if(localError) {
+                ckkserror("ckksoutgoing", viewState.zoneID, "Couldn't delete %@ from ckmirror: %@", ckrecordID.recordName, localError);
+                self.error = viewError = localError;
             }
 
             [plstats deletedOQE:oqe];
@@ -553,7 +561,7 @@
 
         [plstats commit];
 
-        if(self.error) {
+        if(viewError) {
             ckkserror("ckksoutgoing", viewState.zoneID, "Operation failed; rolling back: %@", self.error);
             [logger logRecoverableError:self.error
                                forEvent:CKKSEventProcessOutgoingQueue
@@ -566,7 +574,11 @@
         return CKKSDatabaseTransactionCommit;
     }];
 
-    self.nextState = self.intendedState;
+    if(ckerror) {
+        self.nextState = self.ckErrorState;
+    } else {
+        self.nextState = self.intendedState;
+    }
     [self.operationQueue addOperation:modifyComplete];
 
     // If this was a "full upload", or we errored in any way, then kick off another queue process. There might be more items to send!
@@ -635,7 +647,7 @@
     }
 
     if([state isEqualToString:SecCKKSStateReencrypt]) {
-        [SecCoreAnalytics sendEvent:SecCKKSAggdItemReencryption event:@{SecCoreAnalyticsValue: [NSNumber numberWithUnsignedInteger:count]}];
+        [SecCoreAnalytics sendEvent:SecCKKSAggdItemReencryption event:@{SecCoreAnalyticsValue: [NSNumber numberWithUnsignedInteger:(NSUInteger)count]}];
     }
 }
 

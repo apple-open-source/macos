@@ -72,8 +72,8 @@ build::
 
 install:: $(core) install-plist
 
-install1:: build $(core)
-install2:: install-plist
+install1:: build $(core) addentitlements
+install2:: install-plist 
 
 ext:
 	$(_v) $(MAKE) $(ext) $(EXT_MAKE_ARGS) \
@@ -111,6 +111,12 @@ ext_puretcl:
 
 install-plist: install-license
 	$(_v) $(MKDIR) $(DSTROOT)$(OSV) && $(INSTALL_FILE) $(PLIST) $(DSTROOT)$(OSV)/$(Project).plist
+
+CODESIGN_ALLOCATE=$(DT_TOOLCHAIN_DIR)/usr/bin/codesign_allocate
+addentitlements:
+	CODESIGN_ALLOCATE=$(CODESIGN_ALLOCATE) /usr/bin/codesign --force --sign - --entitlements $(SRCROOT)/entitlements.plist --timestamp=none $(DSTROOT)/System/Library/Frameworks/Tcl.framework/Versions/$(TCL_VERSION)/tclsh$(TCL_VERSION)
+	CODESIGN_ALLOCATE=$(CODESIGN_ALLOCATE) /usr/bin/codesign --force --sign - --entitlements $(SRCROOT)/entitlements.plist --timestamp=none $(DSTROOT)/System/Library/Frameworks/Tk.framework/Versions/$(TCL_VERSION)/Resources/Wish.app/Contents/MacOS/Wish
+	CODESIGN_ALLOCATE=$(CODESIGN_ALLOCATE) /usr/bin/codesign --force --sign - --entitlements $(SRCROOT)/entitlements.plist --timestamp=none $(DSTROOT)/System/Library/Frameworks/Tk.framework/Versions/$(TCL_VERSION)/Resources/Wish.app/Contents/MacOS/Wish\ Shell
 
 extract::
 	$(_v) $(FIND) "$(SRCROOT)" $(Find_Cruft) -depth -exec $(RMDIR) "{}" \;

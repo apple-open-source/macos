@@ -54,12 +54,13 @@ SEC_OBJECT_DECL(sec_certificate);
  * @constant tls_protocol_version_DTLSv10 DTLS 1.0 [https://tools.ietf.org/html/rfc4347]
  * @constant tls_protocol_version_DTLSv12 DTLS 1.2 [https://tools.ietf.org/html/rfc6347]
  */
+CF_AVAILABLE(10_15, 13_0)
 typedef CF_ENUM(uint16_t, tls_protocol_version_t) {
-    tls_protocol_version_TLSv10 CF_SWIFT_NAME(TLSv10) = 0x0301,
-    tls_protocol_version_TLSv11 CF_SWIFT_NAME(TLSv11) = 0x0302,
+    tls_protocol_version_TLSv10 CF_SWIFT_NAME(TLSv10) API_DEPRECATED("Use tls_protocol_version_TLSv12 or tls_protocol_version_TLSv13 instead.", ios(13.0, 15.0), macos(10.15, 12.0)) = 0x0301,
+    tls_protocol_version_TLSv11 CF_SWIFT_NAME(TLSv11) API_DEPRECATED("Use tls_protocol_version_TLSv12 or tls_protocol_version_TLSv13 instead.", ios(13.0, 15.0), macos(10.15, 12.0)) = 0x0302,
     tls_protocol_version_TLSv12 CF_SWIFT_NAME(TLSv12) = 0x0303,
     tls_protocol_version_TLSv13 CF_SWIFT_NAME(TLSv13) = 0x0304,
-    tls_protocol_version_DTLSv10 CF_SWIFT_NAME(DTLSv10) = 0xfeff,
+    tls_protocol_version_DTLSv10 CF_SWIFT_NAME(DTLSv10) API_DEPRECATED("Use tls_protocol_version_DTLSv12 instead.", ios(13.0, 15.0), macos(10.15, 12.0)) = 0xfeff,
     tls_protocol_version_DTLSv12 CF_SWIFT_NAME(DTLSv12) = 0xfefd,
 };
 

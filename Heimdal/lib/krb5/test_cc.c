@@ -629,6 +629,7 @@ test_cache_iter_all(krb5_context context)
 static void
 test_copy(krb5_context context, const char *from, const char *to)
 {
+    krb5_log(context, context->debug_dest, 20, "test_copy: %s, %s", from, to);
     krb5_ccache fromid, toid;
     krb5_error_code ret;
     krb5_principal p, p2;
@@ -672,6 +673,7 @@ test_copy(krb5_context context, const char *from, const char *to)
 static void
 test_copy_to_new_xcache(krb5_context context, const char *from)
 {
+    krb5_log(context, context->debug_dest, 20, "test_copy_to_new_xcache: %s", from);
     krb5_ccache fromid, toid;
     krb5_error_code ret;
     krb5_principal p, p2;
@@ -760,6 +762,7 @@ test_copy_to_new_xcache(krb5_context context, const char *from)
 static void
 test_move_to_memory(krb5_context context, const char *from, const char *to)
 {
+    krb5_log(context, context->debug_dest, 20, "test_move_to_memory: %s, %s", from, to);
     krb5_ccache fromid, toid;
     krb5_error_code ret;
     krb5_principal p, p2;
@@ -853,6 +856,7 @@ test_move_to_memory(krb5_context context, const char *from, const char *to)
 static void
 test_move(krb5_context context, const char *type)
 {
+    krb5_log(context, context->debug_dest, 20, "test_move: %s", type);
     const krb5_cc_ops *ops;
     krb5_ccache fromid, toid;
     krb5_error_code ret;
@@ -1012,6 +1016,7 @@ test_cc_config(krb5_context context)
 static void
 test_cc_config_threaded(krb5_context context, uint count, const char *type, const char *cachename, bool destroy)
 {
+    krb5_log(context, context->debug_dest, 20, "test_cc_config_threaded: %s, %s", type, cachename);
     krb5_error_code ret;
     krb5_principal p = NULL;
     krb5_ccache id = NULL;
@@ -1029,7 +1034,7 @@ test_cc_config_threaded(krb5_context context, uint count, const char *type, cons
 		ret = krb5_parse_name(context, "lha@SU.SE", &p);
 		if (ret)
 		    krb5_err(context, 1, ret, "krb5_parse_name");
-
+		
 		ret = krb5_cc_initialize(context, id, p);
 		if (ret)
 		    krb5_err(context, 1, ret, "krb5_cc_initialize");
@@ -1049,8 +1054,6 @@ test_cc_config_threaded(krb5_context context, uint count, const char *type, cons
 	if (ret)
 	    krb5_err(context, 1, ret, "krb5_cc_initialize");
     }
-
-
 
     for (i = 0; i < count; i++) {
 	krb5_data data, data2, pwdata;
@@ -1086,7 +1089,7 @@ test_cc_config_threaded(krb5_context context, uint count, const char *type, cons
 
 	ret = krb5_cc_get_config(context, id, NULL, "password", &data2);
 	// this should always fail from this test app
-	if (ret == 0) {
+	if (ret == 0 && id->ops != &krb5_mcc_ops) {
 	    krb5_errx(context, 1, "krb5_cc_get_config: password, should not work");
 	}
 	krb5_data_free(&data2);
@@ -1121,6 +1124,7 @@ test_cc_config_threaded(krb5_context context, uint count, const char *type, cons
 static void
 test_label(krb5_context context, const char *type)
 {
+    krb5_log(context, context->debug_dest, 20, "test_label: %s", type);
     krb5_error_code ret;
     krb5_ccache id, id2;
     krb5_principal p;
@@ -1206,6 +1210,7 @@ test_label(krb5_context context, const char *type)
 static void
 test_threaded(krb5_context context, const char *type)
 {
+    krb5_log(context, context->debug_dest, 20, "test_threaded: %s", type);
     dispatch_semaphore_t sema;
     dispatch_queue_t q;
     dispatch_group_t group;
@@ -1295,6 +1300,7 @@ test_threaded(krb5_context context, const char *type)
 static void
 test_threaded_config(krb5_context context, int config_iters, bool destroy_cache, const char *type, const char *name)
 {
+    krb5_log(context, context->debug_dest, 20, "test_threaded_config: %s, %s", type, name);
     dispatch_semaphore_t sema;
     dispatch_queue_t q;
     dispatch_group_t group;
@@ -1381,7 +1387,7 @@ test_threaded_config(krb5_context context, int config_iters, bool destroy_cache,
 	dispatch_release(inner);
 	dispatch_semaphore_signal(sema);
     });
-
+  
     dispatch_group_wait(group, DISPATCH_TIME_FOREVER);
     dispatch_release(group);
     dispatch_release(sema);
@@ -1570,8 +1576,11 @@ main(int argc, char **argv)
     test_label(context, "XCACHE");
 
 #ifdef HAVE_DISPATCH_DISPATCH_H
+    krb5_log(context, context->debug_dest, 20, "threaded API cache tests");
 
     test_threaded(context, "API");
+
+    krb5_log(context, context->debug_dest, 20, "threaded KCM cache tests");
 
     test_threaded(context, "KCM");
 
@@ -1590,6 +1599,38 @@ main(int argc, char **argv)
 
     //stress test multiple threads hitting the same cache
     test_threaded_config(context, 20, 0, "KCM", "lha@SU.SE");
+
+    krb5_log(context, context->debug_dest, 20, "threaded XCACHE cache tests");
+
+    //clear the cache, if it exists
+    krb5_cc_resolve(context, "XCACHE:68ADE5C1-C1FF-4088-8AA2-8AF815CDCC5A", &id1);
+    if (id1) krb5_cc_destroy(context, id1);
+    else krb5_cc_close(context, id1);
+
+    //stress test the xcache for loading and saving config
+    test_cc_config_threaded(context, 100, "XCACHE", "68ADE5C1-C1FF-4088-8AA2-8AF815CDCC5A", 1);
+
+    //clear the cache, if it exists
+    krb5_cc_resolve(context, "XCACHE:68ADE5C1-C1FF-4088-8AA2-8AF815CDCC5A", &id1);
+    if (id1) krb5_cc_destroy(context, id1);
+    else krb5_cc_close(context, id1);
+
+    //stress test multiple threads hiting the same cache
+    test_threaded_config(context, 4, 1, "XCACHE", "68ADE5C1-C1FF-4088-8AA2-8AF815CDCC5A");
+
+    krb5_cc_resolve(context, "XCACHE:68ADE5C1-C1FF-4088-8AA2-8AF815CDCC5A", &id1);
+    if (id1) krb5_cc_destroy(context, id1);
+    else krb5_cc_close(context, id1);
+
+    krb5_log(context, context->debug_dest, 20, "threaded memory cache tests");
+
+    test_threaded(context, "MEMORY");
+    
+    //stress test multiple threads hitting multiple memory caches
+    test_threaded_config(context, 20, 1, "MEMORY", NULL);
+    
+    //stress test multiple threads hitting the same memory cache
+    test_threaded_config(context, 20, 0, "MEMORY", "bar");
 
 #endif
 

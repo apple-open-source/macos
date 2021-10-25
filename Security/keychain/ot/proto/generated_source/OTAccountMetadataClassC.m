@@ -170,6 +170,78 @@
     return _voucherSignature != nil;
 }
 @synthesize voucherSignature = _voucherSignature;
+@synthesize tlkSharesForVouchedIdentitys = _tlkSharesForVouchedIdentitys;
+- (void)clearTlkSharesForVouchedIdentitys
+{
+    [_tlkSharesForVouchedIdentitys removeAllObjects];
+}
+- (void)addTlkSharesForVouchedIdentity:(NSData *)i
+{
+    if (!_tlkSharesForVouchedIdentitys)
+    {
+        _tlkSharesForVouchedIdentitys = [[NSMutableArray alloc] init];
+    }
+    [_tlkSharesForVouchedIdentitys addObject:i];
+}
+- (NSUInteger)tlkSharesForVouchedIdentitysCount
+{
+    return [_tlkSharesForVouchedIdentitys count];
+}
+- (NSData *)tlkSharesForVouchedIdentityAtIndex:(NSUInteger)idx
+{
+    return [_tlkSharesForVouchedIdentitys objectAtIndex:idx];
+}
++ (Class)tlkSharesForVouchedIdentityType
+{
+    return [NSData class];
+}
+- (BOOL)hasSecureElementIdentity
+{
+    return _secureElementIdentity != nil;
+}
+@synthesize secureElementIdentity = _secureElementIdentity;
+@synthesize isInheritedAccount = _isInheritedAccount;
+- (void)setIsInheritedAccount:(BOOL)v
+{
+    _has.isInheritedAccount = YES;
+    _isInheritedAccount = v;
+}
+- (void)setHasIsInheritedAccount:(BOOL)f
+{
+    _has.isInheritedAccount = f;
+}
+- (BOOL)hasIsInheritedAccount
+{
+    return _has.isInheritedAccount != 0;
+}
+@synthesize warmedEscrowCache = _warmedEscrowCache;
+- (void)setWarmedEscrowCache:(BOOL)v
+{
+    _has.warmedEscrowCache = YES;
+    _warmedEscrowCache = v;
+}
+- (void)setHasWarmedEscrowCache:(BOOL)f
+{
+    _has.warmedEscrowCache = f;
+}
+- (BOOL)hasWarmedEscrowCache
+{
+    return _has.warmedEscrowCache != 0;
+}
+@synthesize warnedTooManyPeers = _warnedTooManyPeers;
+- (void)setWarnedTooManyPeers:(BOOL)v
+{
+    _has.warnedTooManyPeers = YES;
+    _warnedTooManyPeers = v;
+}
+- (void)setHasWarnedTooManyPeers:(BOOL)f
+{
+    _has.warnedTooManyPeers = f;
+}
+- (BOOL)hasWarnedTooManyPeers
+{
+    return _has.warnedTooManyPeers != 0;
+}
 
 - (NSString *)description
 {
@@ -222,6 +294,26 @@
     if (self->_voucherSignature)
     {
         [dict setObject:self->_voucherSignature forKey:@"voucherSignature"];
+    }
+    if (self->_tlkSharesForVouchedIdentitys)
+    {
+        [dict setObject:self->_tlkSharesForVouchedIdentitys forKey:@"tlkSharesForVouchedIdentity"];
+    }
+    if (self->_secureElementIdentity)
+    {
+        [dict setObject:self->_secureElementIdentity forKey:@"secureElementIdentity"];
+    }
+    if (self->_has.isInheritedAccount)
+    {
+        [dict setObject:[NSNumber numberWithBool:self->_isInheritedAccount] forKey:@"isInheritedAccount"];
+    }
+    if (self->_has.warmedEscrowCache)
+    {
+        [dict setObject:[NSNumber numberWithBool:self->_warmedEscrowCache] forKey:@"warmedEscrowCache"];
+    }
+    if (self->_has.warnedTooManyPeers)
+    {
+        [dict setObject:[NSNumber numberWithBool:self->_warnedTooManyPeers] forKey:@"warnedTooManyPeers"];
     }
     return dict;
 }
@@ -306,6 +398,39 @@ BOOL OTAccountMetadataClassCReadFrom(__unsafe_unretained OTAccountMetadataClassC
             {
                 NSData *new_voucherSignature = PBReaderReadData(reader);
                 self->_voucherSignature = new_voucherSignature;
+            }
+            break;
+            case 14 /* tlkSharesForVouchedIdentitys */:
+            {
+                NSData *new_tlkSharesForVouchedIdentitys = PBReaderReadData(reader);
+                if (new_tlkSharesForVouchedIdentitys)
+                {
+                    [self addTlkSharesForVouchedIdentity:new_tlkSharesForVouchedIdentitys];
+                }
+            }
+            break;
+            case 15 /* secureElementIdentity */:
+            {
+                NSData *new_secureElementIdentity = PBReaderReadData(reader);
+                self->_secureElementIdentity = new_secureElementIdentity;
+            }
+            break;
+            case 18 /* isInheritedAccount */:
+            {
+                self->_has.isInheritedAccount = YES;
+                self->_isInheritedAccount = PBReaderReadBOOL(reader);
+            }
+            break;
+            case 19 /* warmedEscrowCache */:
+            {
+                self->_has.warmedEscrowCache = YES;
+                self->_warmedEscrowCache = PBReaderReadBOOL(reader);
+            }
+            break;
+            case 20 /* warnedTooManyPeers */:
+            {
+                self->_has.warnedTooManyPeers = YES;
+                self->_warnedTooManyPeers = PBReaderReadBOOL(reader);
             }
             break;
             default:
@@ -400,6 +525,41 @@ BOOL OTAccountMetadataClassCReadFrom(__unsafe_unretained OTAccountMetadataClassC
             PBDataWriterWriteDataField(writer, self->_voucherSignature, 13);
         }
     }
+    /* tlkSharesForVouchedIdentitys */
+    {
+        for (NSData *s_tlkSharesForVouchedIdentitys in self->_tlkSharesForVouchedIdentitys)
+        {
+            PBDataWriterWriteDataField(writer, s_tlkSharesForVouchedIdentitys, 14);
+        }
+    }
+    /* secureElementIdentity */
+    {
+        if (self->_secureElementIdentity)
+        {
+            PBDataWriterWriteDataField(writer, self->_secureElementIdentity, 15);
+        }
+    }
+    /* isInheritedAccount */
+    {
+        if (self->_has.isInheritedAccount)
+        {
+            PBDataWriterWriteBOOLField(writer, self->_isInheritedAccount, 18);
+        }
+    }
+    /* warmedEscrowCache */
+    {
+        if (self->_has.warmedEscrowCache)
+        {
+            PBDataWriterWriteBOOLField(writer, self->_warmedEscrowCache, 19);
+        }
+    }
+    /* warnedTooManyPeers */
+    {
+        if (self->_has.warnedTooManyPeers)
+        {
+            PBDataWriterWriteBOOLField(writer, self->_warnedTooManyPeers, 20);
+        }
+    }
 }
 
 - (void)copyTo:(OTAccountMetadataClassC *)other
@@ -454,6 +614,34 @@ BOOL OTAccountMetadataClassCReadFrom(__unsafe_unretained OTAccountMetadataClassC
     {
         other.voucherSignature = _voucherSignature;
     }
+    if ([self tlkSharesForVouchedIdentitysCount])
+    {
+        [other clearTlkSharesForVouchedIdentitys];
+        NSUInteger tlkSharesForVouchedIdentitysCnt = [self tlkSharesForVouchedIdentitysCount];
+        for (NSUInteger i = 0; i < tlkSharesForVouchedIdentitysCnt; i++)
+        {
+            [other addTlkSharesForVouchedIdentity:[self tlkSharesForVouchedIdentityAtIndex:i]];
+        }
+    }
+    if (_secureElementIdentity)
+    {
+        other.secureElementIdentity = _secureElementIdentity;
+    }
+    if (self->_has.isInheritedAccount)
+    {
+        other->_isInheritedAccount = _isInheritedAccount;
+        other->_has.isInheritedAccount = YES;
+    }
+    if (self->_has.warmedEscrowCache)
+    {
+        other->_warmedEscrowCache = _warmedEscrowCache;
+        other->_has.warmedEscrowCache = YES;
+    }
+    if (self->_has.warnedTooManyPeers)
+    {
+        other->_warnedTooManyPeers = _warnedTooManyPeers;
+        other->_has.warnedTooManyPeers = YES;
+    }
 }
 
 - (id)copyWithZone:(NSZone *)zone
@@ -494,6 +682,27 @@ BOOL OTAccountMetadataClassCReadFrom(__unsafe_unretained OTAccountMetadataClassC
     copy->_syncingPolicy = [_syncingPolicy copyWithZone:zone];
     copy->_voucher = [_voucher copyWithZone:zone];
     copy->_voucherSignature = [_voucherSignature copyWithZone:zone];
+    for (NSData *v in _tlkSharesForVouchedIdentitys)
+    {
+        NSData *vCopy = [v copyWithZone:zone];
+        [copy addTlkSharesForVouchedIdentity:vCopy];
+    }
+    copy->_secureElementIdentity = [_secureElementIdentity copyWithZone:zone];
+    if (self->_has.isInheritedAccount)
+    {
+        copy->_isInheritedAccount = _isInheritedAccount;
+        copy->_has.isInheritedAccount = YES;
+    }
+    if (self->_has.warmedEscrowCache)
+    {
+        copy->_warmedEscrowCache = _warmedEscrowCache;
+        copy->_has.warmedEscrowCache = YES;
+    }
+    if (self->_has.warnedTooManyPeers)
+    {
+        copy->_warnedTooManyPeers = _warnedTooManyPeers;
+        copy->_has.warnedTooManyPeers = YES;
+    }
     return copy;
 }
 
@@ -523,6 +732,16 @@ BOOL OTAccountMetadataClassCReadFrom(__unsafe_unretained OTAccountMetadataClassC
     ((!self->_voucher && !other->_voucher) || [self->_voucher isEqual:other->_voucher])
     &&
     ((!self->_voucherSignature && !other->_voucherSignature) || [self->_voucherSignature isEqual:other->_voucherSignature])
+    &&
+    ((!self->_tlkSharesForVouchedIdentitys && !other->_tlkSharesForVouchedIdentitys) || [self->_tlkSharesForVouchedIdentitys isEqual:other->_tlkSharesForVouchedIdentitys])
+    &&
+    ((!self->_secureElementIdentity && !other->_secureElementIdentity) || [self->_secureElementIdentity isEqual:other->_secureElementIdentity])
+    &&
+    ((self->_has.isInheritedAccount && other->_has.isInheritedAccount && ((self->_isInheritedAccount && other->_isInheritedAccount) || (!self->_isInheritedAccount && !other->_isInheritedAccount))) || (!self->_has.isInheritedAccount && !other->_has.isInheritedAccount))
+    &&
+    ((self->_has.warmedEscrowCache && other->_has.warmedEscrowCache && ((self->_warmedEscrowCache && other->_warmedEscrowCache) || (!self->_warmedEscrowCache && !other->_warmedEscrowCache))) || (!self->_has.warmedEscrowCache && !other->_has.warmedEscrowCache))
+    &&
+    ((self->_has.warnedTooManyPeers && other->_has.warnedTooManyPeers && ((self->_warnedTooManyPeers && other->_warnedTooManyPeers) || (!self->_warnedTooManyPeers && !other->_warnedTooManyPeers))) || (!self->_has.warnedTooManyPeers && !other->_has.warnedTooManyPeers))
     ;
 }
 
@@ -551,6 +770,16 @@ BOOL OTAccountMetadataClassCReadFrom(__unsafe_unretained OTAccountMetadataClassC
     [self->_voucher hash]
     ^
     [self->_voucherSignature hash]
+    ^
+    [self->_tlkSharesForVouchedIdentitys hash]
+    ^
+    [self->_secureElementIdentity hash]
+    ^
+    (self->_has.isInheritedAccount ? PBHashInt((NSUInteger)self->_isInheritedAccount) : 0)
+    ^
+    (self->_has.warmedEscrowCache ? PBHashInt((NSUInteger)self->_warmedEscrowCache) : 0)
+    ^
+    (self->_has.warnedTooManyPeers ? PBHashInt((NSUInteger)self->_warnedTooManyPeers) : 0)
     ;
 }
 
@@ -605,6 +834,29 @@ BOOL OTAccountMetadataClassCReadFrom(__unsafe_unretained OTAccountMetadataClassC
     if (other->_voucherSignature)
     {
         [self setVoucherSignature:other->_voucherSignature];
+    }
+    for (NSData *iter_tlkSharesForVouchedIdentitys in other->_tlkSharesForVouchedIdentitys)
+    {
+        [self addTlkSharesForVouchedIdentity:iter_tlkSharesForVouchedIdentitys];
+    }
+    if (other->_secureElementIdentity)
+    {
+        [self setSecureElementIdentity:other->_secureElementIdentity];
+    }
+    if (other->_has.isInheritedAccount)
+    {
+        self->_isInheritedAccount = other->_isInheritedAccount;
+        self->_has.isInheritedAccount = YES;
+    }
+    if (other->_has.warmedEscrowCache)
+    {
+        self->_warmedEscrowCache = other->_warmedEscrowCache;
+        self->_has.warmedEscrowCache = YES;
+    }
+    if (other->_has.warnedTooManyPeers)
+    {
+        self->_warnedTooManyPeers = other->_warnedTooManyPeers;
+        self->_has.warnedTooManyPeers = YES;
     }
 }
 

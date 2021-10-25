@@ -215,6 +215,32 @@
 			<key>Disabled</key>
 			<string>BATS_UTD_Disabled_SecLegacyCodeRegressions</string>
 		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>SecCodeSignerAPITest</string>
+			<key>Command</key>
+			<array>
+				<string>/AppleInternal/CoreOS/tests/Security/secseccodesignerapitest</string>
+			</array>
+			<key>Disabled</key>
+			<string>BATS_UTD_Disabled_SecCodeSignerAPITest</string>
+			<key>ShowSubtestResults</key>
+			<true/>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>SecurityUnitTests</string>
+			<key>ShowSubtestResults</key>
+			<true/>
+			<key>Command</key>
+			<array>
+				<string>/AppleInternal/CoreOS/tests/Security/KeychainEntitledTestRunner</string>
+				<string>-t</string>
+				<string>SecurityUnitTests</string>
+			</array>
+			<key>Disabled</key>
+			<string>BATS_UTD_Disabled_SecurityUnitTests</string>
+		</dict>
 	</array>
 </dict>
 </plist>

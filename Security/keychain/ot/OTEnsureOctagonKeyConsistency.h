@@ -29,8 +29,6 @@
 #import "keychain/ot/OctagonStateMachineHelpers.h"
 #import "keychain/ot/OTOperationDependencies.h"
 
-@class OTCuttlefishContext;
-
 NS_ASSUME_NONNULL_BEGIN
 
 @interface OTEnsureOctagonKeyConsistency : CKKSGroupOperation <OctagonStateTransitionOperationProtocol>
@@ -39,8 +37,6 @@ NS_ASSUME_NONNULL_BEGIN
 - (instancetype)initWithDependencies:(OTOperationDependencies*)dependencies
                        intendedState:(OctagonState*)intendedState
                           errorState:(OctagonState*)errorState;
-
-@property (weak) OTCuttlefishContext* cuttlefishContext;
 @end
 
 NS_ASSUME_NONNULL_END

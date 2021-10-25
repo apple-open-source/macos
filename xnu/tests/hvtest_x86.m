@@ -17,8 +17,64 @@
 T_GLOBAL_META(
 	T_META_NAMESPACE("xnu.intel.hv"),
 	T_META_RUN_CONCURRENTLY(true),
-	T_META_REQUIRES_SYSCTL_NE("hw.optional.arm64", 1) // Don't run translated.
+	T_META_REQUIRES_SYSCTL_NE("hw.optional.arm64", 1), // Don't run translated.
+	T_META_RADAR_COMPONENT_NAME("xnu"),
+	T_META_RADAR_COMPONENT_VERSION("intel"),
+	T_META_OWNER("joster")
 	);
+
+/*
+ * We want every hypervisor test to run multiple times:
+ *   - Using hv_vcpu_run()
+ *   - Using hv_vcpu_run_until()
+ *   - using hv_vcpu_run_until() with HV_VM_ACCEL_APIC
+ *
+ * darwintest has no means to run tests multiple
+ * times with slightly different configuration,
+ * so we have to bake it ourselves. (This can
+ * be extended for other config variants of
+ * course.)
+ */
+static bool hv_use_run_until;
+static bool hv_use_accel_apic;
+#define T_DECL_HV(name, ...)                         \
+    static void hv_test_##name (void);               \
+    T_DECL(name##_run, __VA_ARGS__) {                \
+        hv_use_run_until = false;                    \
+        hv_use_accel_apic = false;                   \
+        hv_test_##name();                            \
+    }                                                \
+    T_DECL(name##_run_until, __VA_ARGS__) {          \
+        hv_use_run_until = true;                     \
+        hv_use_accel_apic = false;                   \
+        hv_test_##name();                            \
+    }                                                \
+    T_DECL(name##_run_until_accel, __VA_ARGS__) {    \
+        hv_use_run_until = true;                     \
+        hv_use_accel_apic = true;                    \
+        hv_test_##name();                            \
+    }                                                \
+    static void hv_test_##name (void)
+
+static void
+create_vm(hv_vm_options_t flags)
+{
+	if (hv_use_accel_apic) {
+		flags |= HV_VM_ACCEL_APIC;
+	}
+
+	T_ASSERT_EQ(hv_vm_create(flags), HV_SUCCESS, "created vm");
+}
+
+static void
+run_vcpu(hv_vcpuid_t vcpu)
+{
+	if (hv_use_run_until) {
+		T_QUIET; T_ASSERT_EQ(hv_vcpu_run_until(vcpu, ~(uint64_t)0), HV_SUCCESS, "hv_vcpu_run_until");
+	} else {
+		T_QUIET; T_ASSERT_EQ(hv_vcpu_run(vcpu), HV_SUCCESS, "hv_vcpu_run");
+	}
+}
 
 static bool
 hv_support()
@@ -74,7 +130,7 @@ static uint64_t get_cap(uint32_t field)
 
 static NSMutableDictionary *page_cache;
 static NSMutableSet *allocated_phys_pages;
-static pthread_mutex_t page_cache_lock = PTHREAD_MUTEX_INITIALIZER;
+static pthread_mutex_t page_table_lock = PTHREAD_MUTEX_INITIALIZER;
 
 static uint64_t next_phys = 0x4000000;
 
@@ -83,11 +139,8 @@ static uint64_t next_phys = 0x4000000;
  * page.  If *host_uva is NULL, a new host user page is allocated.
  */
 static hv_gpaddr_t
-map_guest_phys(void **host_uva)
+map_guest_phys_locked(void **host_uva)
 {
-	T_QUIET; T_ASSERT_POSIX_SUCCESS(pthread_mutex_lock(&page_cache_lock),
-	    "acquire page lock");
-
     hv_gpaddr_t gpa = next_phys;
     next_phys += vm_page_size;
 
@@ -101,8 +154,18 @@ map_guest_phys(void **host_uva)
 
     [page_cache setObject:@((uintptr_t)*host_uva) forKey:@(gpa)];
 
+    return gpa;
+}
 
-	T_QUIET; T_ASSERT_POSIX_SUCCESS(pthread_mutex_unlock(&page_cache_lock),
+static hv_gpaddr_t
+map_guest_phys(void **host_uva)
+{
+	T_QUIET; T_ASSERT_POSIX_SUCCESS(pthread_mutex_lock(&page_table_lock),
+	    "acquire page lock");
+
+    hv_gpaddr_t gpa = map_guest_phys_locked(host_uva);
+
+	T_QUIET; T_ASSERT_POSIX_SUCCESS(pthread_mutex_unlock(&page_table_lock),
 	    "release page lock");
 
     return gpa;
@@ -124,7 +187,7 @@ static hv_gpaddr_t pml4_gpa;
  * Helper for fault_in_page.
  */
 static void *
-enter_level(uint64_t *table, void *host_va, void *va, int hi, int lo) {
+enter_level_locked(uint64_t *table, void *host_va, void *va, int hi, int lo) {
     uint64_t * const te = &table[bits(va, hi, lo)];
 
     const uint64_t present = 1;
@@ -133,7 +196,7 @@ enter_level(uint64_t *table, void *host_va, void *va, int hi, int lo) {
     const uint64_t addr_mask = mask(47-12) << 12;
 
     if (!(*te & present)) {
-        hv_gpaddr_t gpa = map_guest_phys(&host_va);
+        hv_gpaddr_t gpa = map_guest_phys_locked(&host_va);
         *te = (gpa & addr_mask) | rw | present;
     } else {
         NSNumber *num = [page_cache objectForKey:@(*te & addr_mask)];
@@ -156,10 +219,20 @@ enter_level(uint64_t *table, void *host_va, void *va, int hi, int lo) {
  */
 static void *
 map_page(void *host_va, void *va) {
-    uint64_t *pdpt = enter_level(pml4, NULL, va, 47, 39);
-    uint64_t *pd = enter_level(pdpt, NULL, va, 38, 30);
-    uint64_t *pt = enter_level(pd, NULL, va, 29, 21);
-    return enter_level(pt, host_va, va, 20, 12);
+	void *result;
+
+	T_QUIET; T_ASSERT_POSIX_SUCCESS(pthread_mutex_lock(&page_table_lock),
+	    "acquire page lock");
+
+    uint64_t *pdpt = enter_level_locked(pml4, NULL, va, 47, 39);
+    uint64_t *pd = enter_level_locked(pdpt, NULL, va, 38, 30);
+    uint64_t *pt = enter_level_locked(pd, NULL, va, 29, 21);
+    result = enter_level_locked(pt, host_va, va, 20, 12);
+
+	T_QUIET; T_ASSERT_POSIX_SUCCESS(pthread_mutex_unlock(&page_table_lock),
+	    "release page lock");
+
+	return result;
 }
 
 static void
@@ -169,7 +242,7 @@ fault_in_page(void *va) {
 
 static void free_page_cache(void)
 {
-	T_QUIET; T_ASSERT_POSIX_SUCCESS(pthread_mutex_lock(&page_cache_lock),
+	T_QUIET; T_ASSERT_POSIX_SUCCESS(pthread_mutex_lock(&page_table_lock),
 	    "acquire page lock");
 
 	for (NSNumber *uvaNumber in allocated_phys_pages) {
@@ -179,7 +252,7 @@ static void free_page_cache(void)
 	[page_cache release];
     [allocated_phys_pages release];
 
-	T_QUIET; T_ASSERT_POSIX_SUCCESS(pthread_mutex_unlock(&page_cache_lock),
+	T_QUIET; T_ASSERT_POSIX_SUCCESS(pthread_mutex_unlock(&page_table_lock),
 	    "release page lock");
 }
 
@@ -188,12 +261,13 @@ run_to_next_vm_fault(hv_vcpuid_t vcpu, bool on_demand_paging)
 {
 	bool retry;
     uint64_t exit_reason, qual, gpa, gla, info, vector_info, error_code;
+	uint64_t last_spurious_qual = 0, last_spurious_gpa = 0, last_spurious_gla = 0;
+	int spurious_ept_count = 0;
 	do {
         retry = false;
 		do {
-            T_QUIET; T_ASSERT_EQ(hv_vcpu_run_until(vcpu, ~(uint64_t)0), HV_SUCCESS, "run VCPU");
-            exit_reason = get_vmcs(vcpu, VMCS_RO_EXIT_REASON);
-
+			run_vcpu(vcpu);
+			exit_reason = get_vmcs(vcpu, VMCS_RO_EXIT_REASON);
 		} while (exit_reason == VMX_REASON_IRQ);
 
         qual = get_vmcs(vcpu, VMCS_RO_EXIT_QUALIFIC);
@@ -228,6 +302,39 @@ run_to_next_vm_fault(hv_vcpuid_t vcpu, bool on_demand_paging)
                 }
             }
         }
+
+		if (!hv_use_run_until && !retry && exit_reason == VMX_REASON_EPT_VIOLATION &&
+			spurious_ept_count++ < 128) {
+			/*
+			 * When using hv_vcpu_run() instead of
+			 * hv_vcpu_run_until(), the Hypervisor kext bubbles up
+			 * spurious EPT violations that it actually handled
+			 * itself.
+			 *
+			 * It is hard to assess whether the EPT violation is
+			 * spurious or not (a good reason never to use this
+			 * interface in practice) without knowledge of the
+			 * specific test, so we just retry here, unless we
+			 * encounter what seems to be the same fault again.
+			 *
+			 * To guard against cycling faults that we do not detect
+			 * here, we also put a maximum on the number of
+			 * retries. Yes, this is all very shoddy, but so is
+			 * hv_vcpu_run().
+			 *
+			 * Every test will also be run with hv_vcpu_run_until()
+			 * which employs no such hackery, so this should not mask
+			 * any unexpected EPT violations.
+			 */
+
+			retry = !((last_spurious_qual == qual) && (last_spurious_gpa == gpa) && (last_spurious_gla == gla));
+
+			if (retry) {
+				last_spurious_qual = qual;
+				last_spurious_gpa = gpa;
+				last_spurious_gla = gla;
+			}
+		}
 	} while (retry);
 
     // printf("reason: %lld, qualification: %llx\n", exit_reason, qual);
@@ -554,8 +661,7 @@ vm_setup()
 	page_cache = [[NSMutableDictionary alloc] init];
 	allocated_phys_pages = [[NSMutableSet alloc] init];
 
-	T_ASSERT_EQ(hv_vm_create(HV_VM_DEFAULT), HV_SUCCESS, "Created vm");
-
+	create_vm(HV_VM_DEFAULT);
 
     // Set up root paging structures for long mode,
     // where paging is mandatory.
@@ -615,7 +721,7 @@ multikill_vcpu_thread_function(void __unused *arg)
 	return NULL;
 }
 
-T_DECL(regression_55524541,
+T_DECL_HV(regression_55524541,
 	"kill task with multiple VCPU threads waiting for lock")
 {
 	if (!hv_support()) {
@@ -629,7 +735,7 @@ T_DECL(regression_55524541,
 	if (child == 0) {
 		const uint32_t vcpu_count = 8;
 		pthread_t vcpu_threads[8];
-		T_ASSERT_EQ(hv_vm_create(HV_VM_DEFAULT), HV_SUCCESS, "created vm");
+		create_vm(HV_VM_DEFAULT);
 		vcpus_initializing = vcpu_count;
 		for (uint32_t i = 0; i < vcpu_count; i++) {
             hv_vcpuid_t vcpu;
@@ -677,7 +783,7 @@ simple_long_mode_monitor(void *arg __unused, hv_vcpuid_t vcpu)
     return NULL;
 }
 
-T_DECL(simple_long_mode_guest, "simple long mode guest")
+T_DECL_HV(simple_long_mode_guest, "simple long mode guest")
 {
     vm_setup();
 
@@ -696,7 +802,7 @@ smp_test_monitor(void *arg __unused, hv_vcpuid_t vcpu)
 	return (void *)(uintptr_t)value;
 }
 
-T_DECL(smp_sanity, "Multiple VCPUs in the same VM")
+T_DECL_HV(smp_sanity, "Multiple VCPUs in the same VM")
 {
 	vm_setup();
 
@@ -755,7 +861,7 @@ simple_protected_mode_test_monitor(void *arg __unused, hv_vcpuid_t vcpu)
     return NULL;
 }
 
-T_DECL(simple_protected_mode_guest, "simple protected mode guest")
+T_DECL_HV(simple_protected_mode_guest, "simple protected mode guest")
 {
     vm_setup();
 
@@ -791,7 +897,7 @@ simple_real_mode_monitor(void *arg __unused, hv_vcpuid_t vcpu)
     return NULL;
 }
 
-T_DECL(simple_real_mode_guest, "simple real mode guest")
+T_DECL_HV(simple_real_mode_guest, "simple real mode guest")
 {
     vm_setup();
 
@@ -914,7 +1020,7 @@ radar61961809_monitor(void *gpaddr, hv_vcpuid_t vcpu)
     return NULL;
 }
 
-T_DECL(radar61961809_guest,
+T_DECL_HV(radar61961809_guest,
 	"rdar://61961809 (Unexpected guest faults with hv_vcpu_run_until, dropping out of long mode)")
 {
     vm_setup();
@@ -965,7 +1071,7 @@ superpage_2mb_backed_guest_monitor(void *arg __unused, hv_vcpuid_t vcpu)
     return NULL;
 }
 
-T_DECL(superpage_2mb_backed_guest, "guest backed by a 2MB superpage",
+T_DECL_HV(superpage_2mb_backed_guest, "guest backed by a 2MB superpage",
        T_META_REQUIRES_REBOOT(true)) // Helps actually getting a superpage
 {
     vm_setup();
@@ -1051,7 +1157,7 @@ save_restore_regs_monitor(void *arg __unused, hv_vcpuid_t vcpu)
     return NULL;
 }
 
-T_DECL(save_restore_regs, "check if general purpose and segment registers are properly saved and restored")
+T_DECL_HV(save_restore_regs, "check if general purpose and segment registers are properly saved and restored")
 {
     vm_setup();
 
@@ -1083,7 +1189,7 @@ save_restore_debug_regs_monitor(void *arg __unused, hv_vcpuid_t vcpu)
     set_reg(vcpu, HV_X86_DR6, (0x5555555555555555ULL | dr6_force_set) & ~(dr6_force_clear));
     set_reg(vcpu, HV_X86_DR7, (0x5555555555555555ULL | dr7_force_set) & ~(dr7_force_clear));
 
-    expect_vmcall_with_value(vcpu, 0x0101010101010101LL, true);
+    expect_vmcall_with_value(vcpu, ~0x0101010101010101ULL, true);
 
     T_ASSERT_EQ(get_reg(vcpu, HV_X86_DR0), (uint64_t)~0x1111111111111111LL, "check if DR0 negated");
     T_ASSERT_EQ(get_reg(vcpu, HV_X86_DR1), (uint64_t)~0x2222222222222222LL, "check if DR1 negated");
@@ -1098,8 +1204,7 @@ save_restore_debug_regs_monitor(void *arg __unused, hv_vcpuid_t vcpu)
     return NULL;
 }
 
-T_DECL(save_restore_debug_regs, "check if debug registers are properly saved and restored",
-       T_META_EXPECTFAIL("rdar://57433961 (SEED: Web: Writes to debug registers (DR0 etc.) are not saved)"))
+T_DECL_HV(save_restore_debug_regs, "check if debug registers are properly saved and restored")
 {
     vm_setup();
 
@@ -1142,7 +1247,7 @@ native_msr_monitor(void *arg __unused, hv_vcpuid_t vcpu)
     return NULL;
 }
 
-T_DECL(native_msr_clobber, "enable and clobber native MSRs in the guest")
+T_DECL_HV(native_msr_clobber, "enable and clobber native MSRs in the guest")
 {
     vm_setup();
 
@@ -1205,7 +1310,7 @@ radar60691363_monitor(void *arg __unused, hv_vcpuid_t vcpu)
     return NULL;
 }
 
-T_DECL(radar60691363, "rdar://60691363 (SEED: Web: Allow shadowing of read only VMCS fields)")
+T_DECL_HV(radar60691363, "rdar://60691363 (SEED: Web: Allow shadowing of read only VMCS fields)")
 {
 	vm_setup();
 
@@ -1221,7 +1326,8 @@ T_DECL(radar60691363, "rdar://60691363 (SEED: Web: Allow shadowing of read only 
 	vm_cleanup();
 }
 
-T_DECL(radar63641279, "rdar://63641279 (Evaluate \"no SMT\" scheduling option/sidechannel security mitigation for Hypervisor.framework VMs)")
+T_DECL_HV(radar63641279, "rdar://63641279 (Evaluate \"no SMT\" scheduling option/sidechannel security mitigation for Hypervisor.framework VMs)",
+    T_META_OWNER("mphalan"))
 {
 	const uint64_t ALL_MITIGATIONS =
 	    HV_VM_MITIGATION_A_ENABLE |
@@ -1237,8 +1343,7 @@ T_DECL(radar63641279, "rdar://63641279 (Evaluate \"no SMT\" scheduling option/si
 		return;
 	}
 
-	T_ASSERT_EQ(hv_vm_create( HV_VM_SPECIFY_MITIGATIONS | ALL_MITIGATIONS),
-	    HV_SUCCESS, "Created vm");
+	create_vm(HV_VM_SPECIFY_MITIGATIONS | ALL_MITIGATIONS);
 
 	T_SETUPEND;
 
@@ -1300,14 +1405,18 @@ pio_monitor(void *arg, hv_vcpuid_t vcpu)
 	    "map guest memory");
 
 	while (true) {
-	    T_QUIET; T_ASSERT_EQ(hv_vcpu_run_until(vcpu, ~(uint64_t)0), HV_SUCCESS, "run VCPU");
-	    exit_reason = get_vmcs(vcpu, VMCS_RO_EXIT_REASON);
+		run_vcpu(vcpu);
+		exit_reason = get_vmcs(vcpu, VMCS_RO_EXIT_REASON);
 
 		if (exit_reason == VMX_REASON_VMCALL) {
 			break;
 		}
 
 		if (exit_reason == VMX_REASON_IRQ) {
+			continue;
+		}
+
+		if (exit_reason == VMX_REASON_EPT_VIOLATION && !hv_use_run_until) {
 			continue;
 		}
 
@@ -1343,7 +1452,7 @@ pio_monitor(void *arg, hv_vcpuid_t vcpu)
 	return NULL;
 }
 
-T_DECL(pio_notifier_arguments, "test adding and removing port IO notifiers")
+T_DECL_HV(pio_notifier_arguments, "test adding and removing port IO notifiers", T_META_OWNER("mphalan"))
 {
 	mach_port_t notify_port = MACH_PORT_NULL;
 	kern_return_t kret = KERN_FAILURE;
@@ -1426,7 +1535,8 @@ T_DECL(pio_notifier_arguments, "test adding and removing port IO notifiers")
 	mach_port_mod_refs(mach_task_self(), notify_port, MACH_PORT_RIGHT_RECEIVE, -1);
 }
 
-T_DECL(pio_notifier_bad_port, "test port IO notifiers when the port is destroyed/deallocated/has no receive right")
+T_DECL_HV(pio_notifier_bad_port, "test port IO notifiers when the port is destroyed/deallocated/has no receive right",
+    T_META_OWNER("mphalan"))
 {
 	pthread_t vcpu_thread;
 	mach_port_t notify_port = MACH_PORT_NULL;
@@ -1556,7 +1666,7 @@ T_DECL(pio_notifier_bad_port, "test port IO notifiers when the port is destroyed
 	vm_cleanup();
 }
 
-T_DECL(pio_notifier, "test port IO notifiers")
+T_DECL_HV(pio_notifier, "test port IO notifiers", T_META_OWNER("mphalan"))
 {
 	#define MACH_PORT_COUNT 4
 	mach_port_t notify_port[MACH_PORT_COUNT] = { MACH_PORT_NULL };

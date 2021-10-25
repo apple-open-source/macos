@@ -2,7 +2,6 @@
 //  SOSIntervalEvent.m
 //  Security_ios
 //
-//  Created by murf on 9/12/19.
 //
 
 #import <Foundation/Foundation.h>

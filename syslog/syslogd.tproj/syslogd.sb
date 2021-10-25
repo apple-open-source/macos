@@ -21,8 +21,7 @@
 ;;; Allow syslogd specific files
 
 (allow file-write* file-read-data file-read-metadata
-    (regex #"^(/private)?/var/run/syslog$"
-           #"^(/private)?/var/run/syslog\.pid$"
+    (regex #"^(/private)?/var/run/syslog\.pid$"
            #"^(/private)?/var/run/asl_input$"))
 
 (allow file-write* file-read-data file-read-metadata

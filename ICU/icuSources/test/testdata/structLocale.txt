@@ -6,11 +6,10 @@
 // * Corporation and others.  All Rights Reserved.
 // *
 // ***************************************************************************
-// This is a pristine locale structure.
+// This is a pristine locale structure. It is manually maintained.
 // This is used to validate all keys and general structure is correct.
 // Since ICU doesn't follow the traditional fallback model where all keys fallback to root,
 // root can't be used to validate the structure.
-// This file was generated from en.txt, and all ".*" were replaced with "".
 structLocale:table(nofallback){
     %%Parent{""}
     BreakDictionaryData:bin {00}
@@ -1364,6 +1363,10 @@ structLocale:table(nofallback){
             "",
         }
         UYU{
+            "",
+            "",
+        }
+        UYW{
             "",
             "",
         }
@@ -3687,6 +3690,14 @@ structLocale:table(nofallback){
             many{""}
             other{""}
         }
+        UYW{
+            zero{""}
+            one{""}
+            two{""}
+            few{""}
+            many{""}
+            other{""}
+        }
         UZS{
             zero{""}
             one{""}
@@ -5817,7 +5828,6 @@ structLocale:table(nofallback){
         mn{""}
         mnc{""}
         mni{""}
-        mo{""}
         moh{""}
         mos{""}
         mr{""}
@@ -5873,6 +5883,8 @@ structLocale:table(nofallback){
         os{""}
         osa{""}
         ota{""}
+        otk{""}
+        oui{""}
         pa{""}
         pag{""}
         pal{""}
@@ -5880,6 +5892,7 @@ structLocale:table(nofallback){
         pap{""}
         pau{""}
         pcd{""}
+        pcm{""}
         pdc{""}
         pdt{""}
         peo{""}
@@ -5901,6 +5914,7 @@ structLocale:table(nofallback){
         rap{""}
         rar{""}
         rgn{""}
+        rhg{""}
         rif{""}
         rm{""}
         rn{""}
@@ -5974,7 +5988,6 @@ structLocale:table(nofallback){
         sv{""}
         sw{""}
         swb{""}
-        swc{""}
         syc{""}
         syr{""}
         szl{""}
@@ -5993,7 +6006,6 @@ structLocale:table(nofallback){
         tk{""}
         tkl{""}
         tkr{""}
-        tl{""}
         tlh{""}
         tli{""}
         tly{""}
@@ -6098,7 +6110,7 @@ structLocale:table(nofallback){
     MeasurementSystem:int{0}
     MoreInformation{""}
     NumberElements{
-        arab{
+        adlm{
             miscPatterns{
                 approximately{""}
                 atLeast{""}
@@ -6115,6 +6127,7 @@ structLocale:table(nofallback){
             patternsLong{
                 decimalFormat{
                     1000{
+                        1{""}
                         zero{""}
                         one{""}
                         two{""}
@@ -6411,6 +6424,338 @@ structLocale:table(nofallback){
                 }
             }
             symbols{
+                approximatelySign{""}
+                decimal{""}
+                exponential{""}
+                group{""}
+                infinity{""}
+                list{""}
+                minusSign{""}
+                nan{""}
+                perMille{""}
+                percentSign{""}
+                plusSign{""}
+                currencyDecimal{""}
+                currencyGroup{""}
+                superscriptingExponent{""}
+                timeSeparator{""}
+            }
+        }
+        arab{
+            miscPatterns{
+                approximately{""}
+                atLeast{""}
+                atMost{""}
+                range{""}
+            }
+            patterns{
+                accountingFormat{""}
+                currencyFormat{""}
+                decimalFormat{""}
+                percentFormat{""}
+                scientificFormat{""}
+            }
+            patternsLong{
+                decimalFormat{
+                    1000{
+                        1{""}
+                        zero{""}
+                        one{""}
+                        two{""}
+                        few{""}
+                        many{""}
+                        other{""}
+                    }
+                    10000{
+                        zero{""}
+                        one{""}
+                        two{""}
+                        few{""}
+                        many{""}
+                        other{""}
+                    }
+                    100000{
+                        zero{""}
+                        one{""}
+                        two{""}
+                        few{""}
+                        many{""}
+                        other{""}
+                    }
+                    1000000{
+                        zero{""}
+                        one{""}
+                        two{""}
+                        few{""}
+                        many{""}
+                        other{""}
+                    }
+                    10000000{
+                        zero{""}
+                        one{""}
+                        two{""}
+                        few{""}
+                        many{""}
+                        other{""}
+                    }
+                    100000000{
+                        zero{""}
+                        one{""}
+                        two{""}
+                        few{""}
+                        many{""}
+                        other{""}
+                    }
+                    1000000000{
+                        zero{""}
+                        one{""}
+                        two{""}
+                        few{""}
+                        many{""}
+                        other{""}
+                    }
+                    10000000000{
+                        zero{""}
+                        one{""}
+                        two{""}
+                        few{""}
+                        many{""}
+                        other{""}
+                    }
+                    100000000000{
+                        zero{""}
+                        one{""}
+                        two{""}
+                        few{""}
+                        many{""}
+                        other{""}
+                    }
+                    1000000000000{
+                        zero{""}
+                        one{""}
+                        two{""}
+                        few{""}
+                        many{""}
+                        other{""}
+                    }
+                    10000000000000{
+                        zero{""}
+                        one{""}
+                        two{""}
+                        few{""}
+                        many{""}
+                        other{""}
+                    }
+                    100000000000000{
+                        zero{""}
+                        one{""}
+                        two{""}
+                        few{""}
+                        many{""}
+                        other{""}
+                    }
+                }
+            }
+            patternsShort{
+                currencyFormat{
+                    1000{
+                        zero{""}
+                        one{""}
+                        two{""}
+                        few{""}
+                        many{""}
+                        other{""}
+                    }
+                    10000{
+                        zero{""}
+                        one{""}
+                        two{""}
+                        few{""}
+                        many{""}
+                        other{""}
+                    }
+                    100000{
+                        zero{""}
+                        one{""}
+                        two{""}
+                        few{""}
+                        many{""}
+                        other{""}
+                    }
+                    1000000{
+                        zero{""}
+                        one{""}
+                        two{""}
+                        few{""}
+                        many{""}
+                        other{""}
+                    }
+                    10000000{
+                        zero{""}
+                        one{""}
+                        two{""}
+                        few{""}
+                        many{""}
+                        other{""}
+                    }
+                    100000000{
+                        zero{""}
+                        one{""}
+                        two{""}
+                        few{""}
+                        many{""}
+                        other{""}
+                    }
+                    1000000000{
+                        zero{""}
+                        one{""}
+                        two{""}
+                        few{""}
+                        many{""}
+                        other{""}
+                    }
+                    10000000000{
+                        zero{""}
+                        one{""}
+                        two{""}
+                        few{""}
+                        many{""}
+                        other{""}
+                    }
+                    100000000000{
+                        zero{""}
+                        one{""}
+                        two{""}
+                        few{""}
+                        many{""}
+                        other{""}
+                    }
+                    1000000000000{
+                        zero{""}
+                        one{""}
+                        two{""}
+                        few{""}
+                        many{""}
+                        other{""}
+                    }
+                    10000000000000{
+                        zero{""}
+                        one{""}
+                        two{""}
+                        few{""}
+                        many{""}
+                        other{""}
+                    }
+                    100000000000000{
+                        zero{""}
+                        one{""}
+                        two{""}
+                        few{""}
+                        many{""}
+                        other{""}
+                    }
+                }
+                decimalFormat{
+                    1000{
+                        zero{""}
+                        one{""}
+                        two{""}
+                        few{""}
+                        many{""}
+                        other{""}
+                    }
+                    10000{
+                        zero{""}
+                        one{""}
+                        two{""}
+                        few{""}
+                        many{""}
+                        other{""}
+                    }
+                    100000{
+                        zero{""}
+                        one{""}
+                        two{""}
+                        few{""}
+                        many{""}
+                        other{""}
+                    }
+                    1000000{
+                        zero{""}
+                        one{""}
+                        two{""}
+                        few{""}
+                        many{""}
+                        other{""}
+                    }
+                    10000000{
+                        zero{""}
+                        one{""}
+                        two{""}
+                        few{""}
+                        many{""}
+                        other{""}
+                    }
+                    100000000{
+                        zero{""}
+                        one{""}
+                        two{""}
+                        few{""}
+                        many{""}
+                        other{""}
+                    }
+                    1000000000{
+                        zero{""}
+                        one{""}
+                        two{""}
+                        few{""}
+                        many{""}
+                        other{""}
+                    }
+                    10000000000{
+                        zero{""}
+                        one{""}
+                        two{""}
+                        few{""}
+                        many{""}
+                        other{""}
+                    }
+                    100000000000{
+                        zero{""}
+                        one{""}
+                        two{""}
+                        few{""}
+                        many{""}
+                        other{""}
+                    }
+                    1000000000000{
+                        zero{""}
+                        one{""}
+                        two{""}
+                        few{""}
+                        many{""}
+                        other{""}
+                    }
+                    10000000000000{
+                        zero{""}
+                        one{""}
+                        two{""}
+                        few{""}
+                        many{""}
+                        other{""}
+                    }
+                    100000000000000{
+                        zero{""}
+                        one{""}
+                        two{""}
+                        few{""}
+                        many{""}
+                        other{""}
+                    }
+                }
+            }
+            symbols{
+                approximatelySign{""}
                 decimal{""}
                 exponential{""}
                 group{""}
@@ -6444,6 +6789,7 @@ structLocale:table(nofallback){
             patternsLong{
                 decimalFormat{
                     1000{
+                        1{""}
                         zero{""}
                         one{""}
                         two{""}
@@ -6740,6 +7086,7 @@ structLocale:table(nofallback){
                 }
             }
             symbols{
+                approximatelySign{""}
                 decimal{""}
                 exponential{""}
                 group{""}
@@ -6773,6 +7120,7 @@ structLocale:table(nofallback){
             patternsLong{
                 decimalFormat{
                     1000{
+                        1{""}
                         zero{""}
                         one{""}
                         two{""}
@@ -7069,6 +7417,7 @@ structLocale:table(nofallback){
                 }
             }
             symbols{
+                approximatelySign{""}
                 decimal{""}
                 exponential{""}
                 group{""}
@@ -7102,6 +7451,7 @@ structLocale:table(nofallback){
             patternsLong{
                 decimalFormat{
                     1000{
+                        1{""}
                         zero{""}
                         one{""}
                         two{""}
@@ -7398,6 +7748,7 @@ structLocale:table(nofallback){
                 }
             }
             symbols{
+                approximatelySign{""}
                 decimal{""}
                 exponential{""}
                 group{""}
@@ -7431,6 +7782,7 @@ structLocale:table(nofallback){
             patternsLong{
                 decimalFormat{
                     1000{
+                        1{""}
                         zero{""}
                         one{""}
                         two{""}
@@ -7727,6 +8079,7 @@ structLocale:table(nofallback){
                 }
             }
             symbols{
+                approximatelySign{""}
                 decimal{""}
                 exponential{""}
                 group{""}
@@ -7760,6 +8113,7 @@ structLocale:table(nofallback){
             patternsLong{
                 decimalFormat{
                     1000{
+                        1{""}
                         zero{""}
                         one{""}
                         two{""}
@@ -8056,6 +8410,7 @@ structLocale:table(nofallback){
                 }
             }
             symbols{
+                approximatelySign{""}
                 decimal{""}
                 exponential{""}
                 group{""}
@@ -8089,6 +8444,7 @@ structLocale:table(nofallback){
             patternsLong{
                 decimalFormat{
                     1000{
+                        1{""}
                         zero{""}
                         one{""}
                         two{""}
@@ -8385,6 +8741,7 @@ structLocale:table(nofallback){
                 }
             }
             symbols{
+                approximatelySign{""}
                 decimal{""}
                 exponential{""}
                 group{""}
@@ -8420,6 +8777,7 @@ structLocale:table(nofallback){
             patternsLong{
                 decimalFormat{
                     1000{
+                        1{""}
                         zero{""}
                         one{""}
                         two{""}
@@ -8716,6 +9074,7 @@ structLocale:table(nofallback){
                 }
             }
             symbols{
+                approximatelySign{""}
                 decimal{""}
                 exponential{""}
                 group{""}
@@ -8750,6 +9109,7 @@ structLocale:table(nofallback){
             patternsLong{
                 decimalFormat{
                     1000{
+                        1{""}
                         zero{""}
                         one{""}
                         two{""}
@@ -9046,6 +9406,7 @@ structLocale:table(nofallback){
                 }
             }
             symbols{
+                approximatelySign{""}
                 decimal{""}
                 exponential{""}
                 group{""}
@@ -9079,6 +9440,7 @@ structLocale:table(nofallback){
             patternsLong{
                 decimalFormat{
                     1000{
+                        1{""}
                         zero{""}
                         one{""}
                         two{""}
@@ -9375,6 +9737,7 @@ structLocale:table(nofallback){
                 }
             }
             symbols{
+                approximatelySign{""}
                 decimal{""}
                 exponential{""}
                 group{""}
@@ -9408,6 +9771,7 @@ structLocale:table(nofallback){
             patternsLong{
                 decimalFormat{
                     1000{
+                        1{""}
                         zero{""}
                         one{""}
                         two{""}
@@ -9704,6 +10068,7 @@ structLocale:table(nofallback){
                 }
             }
             symbols{
+                approximatelySign{""}
                 decimal{""}
                 exponential{""}
                 group{""}
@@ -9737,6 +10102,7 @@ structLocale:table(nofallback){
             patternsLong{
                 decimalFormat{
                     1000{
+                        1{""}
                         zero{""}
                         one{""}
                         two{""}
@@ -10033,6 +10399,7 @@ structLocale:table(nofallback){
                 }
             }
             symbols{
+                approximatelySign{""}
                 decimal{""}
                 exponential{""}
                 group{""}
@@ -10066,6 +10433,7 @@ structLocale:table(nofallback){
             patternsLong{
                 decimalFormat{
                     1000{
+                        1{""}
                         zero{""}
                         one{""}
                         two{""}
@@ -10362,6 +10730,7 @@ structLocale:table(nofallback){
                 }
             }
             symbols{
+                approximatelySign{""}
                 decimal{""}
                 exponential{""}
                 group{""}
@@ -10395,6 +10764,7 @@ structLocale:table(nofallback){
             patternsLong{
                 decimalFormat{
                     1000{
+                        1{""}
                         zero{""}
                         one{""}
                         two{""}
@@ -10691,6 +11061,7 @@ structLocale:table(nofallback){
                 }
             }
             symbols{
+                approximatelySign{""}
                 decimal{""}
                 exponential{""}
                 group{""}
@@ -10724,6 +11095,7 @@ structLocale:table(nofallback){
             patternsLong{
                 decimalFormat{
                     1000{
+                        1{""}
                         zero{""}
                         one{""}
                         two{""}
@@ -11020,6 +11392,7 @@ structLocale:table(nofallback){
                 }
             }
             symbols{
+                approximatelySign{""}
                 decimal{""}
                 exponential{""}
                 group{""}
@@ -11053,6 +11426,7 @@ structLocale:table(nofallback){
             patternsLong{
                 decimalFormat{
                     1000{
+                        1{""}
                         zero{""}
                         one{""}
                         two{""}
@@ -11349,6 +11723,7 @@ structLocale:table(nofallback){
                 }
             }
             symbols{
+                approximatelySign{""}
                 decimal{""}
                 exponential{""}
                 group{""}
@@ -11382,6 +11757,7 @@ structLocale:table(nofallback){
             patternsLong{
                 decimalFormat{
                     1000{
+                        1{""}
                         zero{""}
                         one{""}
                         two{""}
@@ -11678,6 +12054,7 @@ structLocale:table(nofallback){
                 }
             }
             symbols{
+                approximatelySign{""}
                 decimal{""}
                 exponential{""}
                 group{""}
@@ -11711,6 +12088,7 @@ structLocale:table(nofallback){
             patternsLong{
                 decimalFormat{
                     1000{
+                        1{""}
                         zero{""}
                         one{""}
                         two{""}
@@ -12007,6 +12385,7 @@ structLocale:table(nofallback){
                 }
             }
             symbols{
+                approximatelySign{""}
                 decimal{""}
                 exponential{""}
                 group{""}
@@ -12040,6 +12419,7 @@ structLocale:table(nofallback){
             patternsLong{
                 decimalFormat{
                     1000{
+                        1{""}
                         zero{""}
                         one{""}
                         two{""}
@@ -12336,6 +12716,7 @@ structLocale:table(nofallback){
                 }
             }
             symbols{
+                approximatelySign{""}
                 decimal{""}
                 exponential{""}
                 group{""}
@@ -12369,6 +12750,7 @@ structLocale:table(nofallback){
             patternsLong{
                 decimalFormat{
                     1000{
+                        1{""}
                         zero{""}
                         one{""}
                         two{""}
@@ -12665,6 +13047,7 @@ structLocale:table(nofallback){
                 }
             }
             symbols{
+                approximatelySign{""}
                 decimal{""}
                 exponential{""}
                 group{""}
@@ -12698,6 +13081,7 @@ structLocale:table(nofallback){
             patternsLong{
                 decimalFormat{
                     1000{
+                        1{""}
                         zero{""}
                         one{""}
                         two{""}
@@ -12994,6 +13378,7 @@ structLocale:table(nofallback){
                 }
             }
             symbols{
+                approximatelySign{""}
                 decimal{""}
                 exponential{""}
                 group{""}
@@ -13027,6 +13412,7 @@ structLocale:table(nofallback){
             patternsLong{
                 decimalFormat{
                     1000{
+                        1{""}
                         zero{""}
                         one{""}
                         two{""}
@@ -13323,6 +13709,7 @@ structLocale:table(nofallback){
                 }
             }
             symbols{
+                approximatelySign{""}
                 decimal{""}
                 exponential{""}
                 group{""}
@@ -13356,6 +13743,7 @@ structLocale:table(nofallback){
             patternsLong{
                 decimalFormat{
                     1000{
+                        1{""}
                         zero{""}
                         one{""}
                         two{""}
@@ -13652,6 +14040,7 @@ structLocale:table(nofallback){
                 }
             }
             symbols{
+                approximatelySign{""}
                 decimal{""}
                 exponential{""}
                 group{""}
@@ -13685,6 +14074,7 @@ structLocale:table(nofallback){
             patternsLong{
                 decimalFormat{
                     1000{
+                        1{""}
                         zero{""}
                         one{""}
                         two{""}
@@ -13981,6 +14371,7 @@ structLocale:table(nofallback){
                 }
             }
             symbols{
+                approximatelySign{""}
                 decimal{""}
                 exponential{""}
                 group{""}
@@ -14032,6 +14423,7 @@ structLocale:table(nofallback){
             patternsLong{
                 decimalFormat{
                     1000{
+                        1{""}
                         zero{""}
                         one{""}
                         two{""}
@@ -14328,6 +14720,7 @@ structLocale:table(nofallback){
                 }
             }
             symbols{
+                approximatelySign{""}
                 decimal{""}
                 exponential{""}
                 group{""}
@@ -14361,6 +14754,7 @@ structLocale:table(nofallback){
             patternsLong{
                 decimalFormat{
                     1000{
+                        1{""}
                         zero{""}
                         one{""}
                         two{""}
@@ -14657,6 +15051,7 @@ structLocale:table(nofallback){
                 }
             }
             symbols{
+                approximatelySign{""}
                 decimal{""}
                 exponential{""}
                 group{""}
@@ -14690,6 +15085,7 @@ structLocale:table(nofallback){
             patternsLong{
                 decimalFormat{
                     1000{
+                        1{""}
                         zero{""}
                         one{""}
                         two{""}
@@ -14986,6 +15382,7 @@ structLocale:table(nofallback){
                 }
             }
             symbols{
+                approximatelySign{""}
                 decimal{""}
                 exponential{""}
                 group{""}
@@ -15019,6 +15416,7 @@ structLocale:table(nofallback){
             patternsLong{
                 decimalFormat{
                     1000{
+                        1{""}
                         zero{""}
                         one{""}
                         two{""}
@@ -15315,6 +15713,7 @@ structLocale:table(nofallback){
                 }
             }
             symbols{
+                approximatelySign{""}
                 decimal{""}
                 exponential{""}
                 group{""}
@@ -15348,6 +15747,7 @@ structLocale:table(nofallback){
             patternsLong{
                 decimalFormat{
                     1000{
+                        1{""}
                         zero{""}
                         one{""}
                         two{""}
@@ -15644,6 +16044,7 @@ structLocale:table(nofallback){
                 }
             }
             symbols{
+                approximatelySign{""}
                 decimal{""}
                 exponential{""}
                 group{""}
@@ -15679,6 +16080,7 @@ structLocale:table(nofallback){
             patternsLong{
                 decimalFormat{
                     1000{
+                        1{""}
                         zero{""}
                         one{""}
                         two{""}
@@ -15975,6 +16377,7 @@ structLocale:table(nofallback){
                 }
             }
             symbols{
+                approximatelySign{""}
                 decimal{""}
                 exponential{""}
                 group{""}
@@ -16008,6 +16411,7 @@ structLocale:table(nofallback){
             patternsLong{
                 decimalFormat{
                     1000{
+                        1{""}
                         zero{""}
                         one{""}
                         two{""}
@@ -16304,6 +16708,7 @@ structLocale:table(nofallback){
                 }
             }
             symbols{
+                approximatelySign{""}
                 decimal{""}
                 exponential{""}
                 group{""}
@@ -16337,6 +16742,7 @@ structLocale:table(nofallback){
             patternsLong{
                 decimalFormat{
                     1000{
+                        1{""}
                         zero{""}
                         one{""}
                         two{""}
@@ -16633,6 +17039,7 @@ structLocale:table(nofallback){
                 }
             }
             symbols{
+                approximatelySign{""}
                 decimal{""}
                 exponential{""}
                 group{""}
@@ -16666,6 +17073,7 @@ structLocale:table(nofallback){
             patternsLong{
                 decimalFormat{
                     1000{
+                        1{""}
                         zero{""}
                         one{""}
                         two{""}
@@ -16962,6 +17370,7 @@ structLocale:table(nofallback){
                 }
             }
             symbols{
+                approximatelySign{""}
                 decimal{""}
                 exponential{""}
                 group{""}
@@ -16995,6 +17404,7 @@ structLocale:table(nofallback){
             patternsLong{
                 decimalFormat{
                     1000{
+                        1{""}
                         zero{""}
                         one{""}
                         two{""}
@@ -17291,6 +17701,7 @@ structLocale:table(nofallback){
                 }
             }
             symbols{
+                approximatelySign{""}
                 decimal{""}
                 exponential{""}
                 group{""}
@@ -17324,6 +17735,7 @@ structLocale:table(nofallback){
             patternsLong{
                 decimalFormat{
                     1000{
+                        1{""}
                         zero{""}
                         one{""}
                         two{""}
@@ -17620,6 +18032,7 @@ structLocale:table(nofallback){
                 }
             }
             symbols{
+                approximatelySign{""}
                 decimal{""}
                 exponential{""}
                 group{""}
@@ -17653,6 +18066,7 @@ structLocale:table(nofallback){
             patternsLong{
                 decimalFormat{
                     1000{
+                        1{""}
                         zero{""}
                         one{""}
                         two{""}
@@ -17949,6 +18363,7 @@ structLocale:table(nofallback){
                 }
             }
             symbols{
+                approximatelySign{""}
                 decimal{""}
                 exponential{""}
                 group{""}
@@ -17982,6 +18397,7 @@ structLocale:table(nofallback){
             patternsLong{
                 decimalFormat{
                     1000{
+                        1{""}
                         zero{""}
                         one{""}
                         two{""}
@@ -18278,6 +18694,7 @@ structLocale:table(nofallback){
                 }
             }
             symbols{
+                approximatelySign{""}
                 decimal{""}
                 exponential{""}
                 group{""}
@@ -18311,6 +18728,7 @@ structLocale:table(nofallback){
             patternsLong{
                 decimalFormat{
                     1000{
+                        1{""}
                         zero{""}
                         one{""}
                         two{""}
@@ -18607,6 +19025,7 @@ structLocale:table(nofallback){
                 }
             }
             symbols{
+                approximatelySign{""}
                 decimal{""}
                 exponential{""}
                 group{""}
@@ -18640,6 +19059,7 @@ structLocale:table(nofallback){
             patternsLong{
                 decimalFormat{
                     1000{
+                        1{""}
                         zero{""}
                         one{""}
                         two{""}
@@ -18936,6 +19356,7 @@ structLocale:table(nofallback){
                 }
             }
             symbols{
+                approximatelySign{""}
                 decimal{""}
                 exponential{""}
                 group{""}
@@ -18969,6 +19390,7 @@ structLocale:table(nofallback){
             patternsLong{
                 decimalFormat{
                     1000{
+                        1{""}
                         zero{""}
                         one{""}
                         two{""}
@@ -19265,6 +19687,7 @@ structLocale:table(nofallback){
                 }
             }
             symbols{
+                approximatelySign{""}
                 decimal{""}
                 exponential{""}
                 group{""}
@@ -19298,6 +19721,7 @@ structLocale:table(nofallback){
             patternsLong{
                 decimalFormat{
                     1000{
+                        1{""}
                         zero{""}
                         one{""}
                         two{""}
@@ -19594,6 +20018,7 @@ structLocale:table(nofallback){
                 }
             }
             symbols{
+                approximatelySign{""}
                 decimal{""}
                 exponential{""}
                 group{""}
@@ -19627,6 +20052,7 @@ structLocale:table(nofallback){
             patternsLong{
                 decimalFormat{
                     1000{
+                        1{""}
                         zero{""}
                         one{""}
                         two{""}
@@ -19923,6 +20349,7 @@ structLocale:table(nofallback){
                 }
             }
             symbols{
+                approximatelySign{""}
                 decimal{""}
                 exponential{""}
                 group{""}
@@ -19956,6 +20383,7 @@ structLocale:table(nofallback){
             patternsLong{
                 decimalFormat{
                     1000{
+                        1{""}
                         zero{""}
                         one{""}
                         two{""}
@@ -20252,6 +20680,7 @@ structLocale:table(nofallback){
                 }
             }
             symbols{
+                approximatelySign{""}
                 decimal{""}
                 exponential{""}
                 group{""}
@@ -20285,6 +20714,7 @@ structLocale:table(nofallback){
             patternsLong{
                 decimalFormat{
                     1000{
+                        1{""}
                         zero{""}
                         one{""}
                         two{""}
@@ -20581,6 +21011,7 @@ structLocale:table(nofallback){
                 }
             }
             symbols{
+                approximatelySign{""}
                 decimal{""}
                 exponential{""}
                 group{""}
@@ -20615,6 +21046,7 @@ structLocale:table(nofallback){
             patternsLong{
                 decimalFormat{
                     1000{
+                        1{""}
                         zero{""}
                         one{""}
                         two{""}
@@ -20911,6 +21343,7 @@ structLocale:table(nofallback){
                 }
             }
             symbols{
+                approximatelySign{""}
                 decimal{""}
                 exponential{""}
                 group{""}
@@ -28400,7 +28833,7 @@ structLocale:table(nofallback){
                 many{""}
                 other{""}
             }
-            meter-per-second-squared{
+            meter-per-square-second{
                 dnam{""}
                 zero{""}
                 one{""}
@@ -29340,7 +29773,7 @@ structLocale:table(nofallback){
                 many{""}
                 other{""}
             }
-            inch-hg{
+            inch-ofhg{
                 dnam{""}
                 zero{""}
                 one{""}
@@ -29358,7 +29791,7 @@ structLocale:table(nofallback){
                 many{""}
                 other{""}
             }
-            millimeter-of-mercury{
+            millimeter-ofhg{
                 dnam{""}
                 zero{""}
                 one{""}
@@ -29367,7 +29800,7 @@ structLocale:table(nofallback){
                 many{""}
                 other{""}
             }
-            pound-per-square-inch{
+            pound-force-per-square-inch{
                 dnam{""}
                 zero{""}
                 one{""}
@@ -29658,7 +30091,7 @@ structLocale:table(nofallback){
                 many{""}
                 other{""}
             }
-            meter-per-second-squared{
+            meter-per-square-second{
                 dnam{""}
                 zero{""}
                 one{""}
@@ -30598,7 +31031,7 @@ structLocale:table(nofallback){
                 many{""}
                 other{""}
             }
-            inch-hg{
+            inch-ofhg{
                 dnam{""}
                 zero{""}
                 one{""}
@@ -30616,7 +31049,7 @@ structLocale:table(nofallback){
                 many{""}
                 other{""}
             }
-            millimeter-of-mercury{
+            millimeter-ofhg{
                 dnam{""}
                 zero{""}
                 one{""}
@@ -30625,7 +31058,7 @@ structLocale:table(nofallback){
                 many{""}
                 other{""}
             }
-            pound-per-square-inch{
+            pound-force-per-square-inch{
                 dnam{""}
                 zero{""}
                 one{""}
@@ -30916,7 +31349,7 @@ structLocale:table(nofallback){
                 many{""}
                 other{""}
             }
-            meter-per-second-squared{
+            meter-per-square-second{
                 dnam{""}
                 zero{""}
                 one{""}
@@ -31856,7 +32289,7 @@ structLocale:table(nofallback){
                 many{""}
                 other{""}
             }
-            inch-hg{
+            inch-ofhg{
                 dnam{""}
                 zero{""}
                 one{""}
@@ -31874,7 +32307,7 @@ structLocale:table(nofallback){
                 many{""}
                 other{""}
             }
-            millimeter-of-mercury{
+            millimeter-ofhg{
                 dnam{""}
                 zero{""}
                 one{""}
@@ -31883,7 +32316,7 @@ structLocale:table(nofallback){
                 many{""}
                 other{""}
             }
-            pound-per-square-inch{
+            pound-force-per-square-inch{
                 dnam{""}
                 zero{""}
                 one{""}

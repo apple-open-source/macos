@@ -64,13 +64,19 @@ extern const CFStringRef kDAMountMapProbeKindKey;      /* ( CFString  ) */
 extern void DAMountMapListRefresh1( void );
 extern void DAMountMapListRefresh2( void );
 
-extern const CFStringRef kDAPreferenceMountDeferExternalKey;  /* ( CFBoolean ) */
-extern const CFStringRef kDAPreferenceMountDeferInternalKey;  /* ( CFBoolean ) */
-extern const CFStringRef kDAPreferenceMountDeferRemovableKey; /* ( CFBoolean ) */
-extern const CFStringRef kDAPreferenceMountTrustExternalKey;  /* ( CFBoolean ) */
-extern const CFStringRef kDAPreferenceMountTrustInternalKey;  /* ( CFBoolean ) */
-extern const CFStringRef kDAPreferenceMountTrustRemovableKey; /* ( CFBoolean ) */
-extern const CFStringRef kDAPreferenceAutoMountDisableKey;    /* ( CFBoolean ) */
+extern const CFStringRef kDAPreferenceMountDeferExternalKey;         /* ( CFBoolean ) */
+extern const CFStringRef kDAPreferenceMountDeferInternalKey;         /* ( CFBoolean ) */
+extern const CFStringRef kDAPreferenceMountDeferRemovableKey;        /* ( CFBoolean ) */
+extern const CFStringRef kDAPreferenceMountTrustExternalKey;         /* ( CFBoolean ) */
+extern const CFStringRef kDAPreferenceMountTrustInternalKey;         /* ( CFBoolean ) */
+extern const CFStringRef kDAPreferenceMountTrustRemovableKey;        /* ( CFBoolean ) */
+extern const CFStringRef kDAPreferenceAutoMountDisableKey;           /* ( CFBoolean ) */
+extern const CFStringRef kDAPreferenceEnableUserFSMountExternalKey;  /* ( CFBoolean ) */
+extern const CFStringRef kDAPreferenceEnableUserFSMountInternalKey;  /* ( CFBoolean ) */
+extern const CFStringRef kDAPreferenceEnableUserFSMountRemovableKey; /* ( CFBoolean ) */
+extern const CFStringRef kDAPreferenceDisableEjectNotificationKey;   /* ( CFBoolean ) */
+extern const CFStringRef kDAPreferenceDisableUnreadableNotificationKey; /* ( CFBoolean ) */
+extern const CFStringRef kDAPreferenceDisableUnrepairableNotificationKey; /* ( CFBoolean ) */
 
 extern void DAPreferenceListRefresh( void );
 

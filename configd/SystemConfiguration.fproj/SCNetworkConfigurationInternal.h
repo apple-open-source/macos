@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2020 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2021 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -38,6 +38,7 @@
 #include "IPMonitorControl.h"
 #include <IOKit/IOKitLib.h>
 #include <IOKit/IOBSD.h>
+#include <IOKit/network/IONetworkInterface.h>
 
 
 #define	NETWORK_CONFIGURATION_VERSION	20191120
@@ -291,13 +292,14 @@ CFArrayRef
 __SCNetworkInterfaceCopyDeepConfiguration       (SCNetworkSetRef	set,
 						 SCNetworkInterfaceRef	interface);
 
-#if	!TARGET_OS_IPHONE
 CFStringRef
-__SCNetworkInterfaceCopyXLocalizedDisplayName	(SCNetworkInterfaceRef	interface);
+__SCNetworkInterfaceCopyOldLocalizedDisplayName	(SCNetworkInterfaceRef	interface,
+						 CFStringRef		key_prefix);
 
 CFStringRef
-__SCNetworkInterfaceCopyXNonLocalizedDisplayName(SCNetworkInterfaceRef	interface);
-#endif	// !TARGET_OS_IPHONE
+__SCNetworkInterfaceCopyOldNonLocalizedDisplayName
+						(SCNetworkInterfaceRef	interface,
+						 CFStringRef		key_prefix);
 
 CFStringRef
 __SCNetworkInterfaceGetDefaultConfigurationType	(SCNetworkInterfaceRef	interface);
@@ -564,11 +566,6 @@ __createInterface				(int			s,
 Boolean
 __destroyInterface				(int			s,
 						 CFStringRef		interface);
-
-CFStringRef
-__SCPreferencesPathCreateUniqueChild_WithMoreSCFCompatibility
-						(SCPreferencesRef	prefs,
-						 CFStringRef		prefix);
 
 Boolean
 __extract_password				(SCPreferencesRef	prefs,

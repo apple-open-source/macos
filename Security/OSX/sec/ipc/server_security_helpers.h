@@ -35,6 +35,8 @@ void SecCreateSecuritydXPCServer(void);
 bool fill_security_client(SecurityClient * client, const uid_t uid, audit_token_t auditToken);
 CFArrayRef SecTaskCopyAccessGroups(SecTaskRef task);
 
+bool SecFillSecurityClientMuser(SecurityClient *client);
+
 /*!
  @function SecTaskIsEligiblePlatformBinary
  @abstract Determine whether task belongs to valid platform binary and optionally has one of the allowed identifiers.

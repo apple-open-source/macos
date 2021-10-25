@@ -32,5 +32,7 @@ T_DECL(parallel_register_cancel,
 		assert(notify_post("self.example.test") == NOTIFY_STATUS_OK);
 	});
 
+	dispatch_release(noteQueue);
+
 	T_PASS("Success");
 }

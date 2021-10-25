@@ -464,7 +464,7 @@ fasttrap_tracepoint_retire(proc_t *p, fasttrap_tracepoint_t *tp)
 		return;
 	lck_mtx_lock(&fasttrap_retired_mtx);
 	fasttrap_tracepoint_spec_t *s = &fasttrap_retired_spec[fasttrap_cur_retired++];
-	s->fttps_pid = p->p_pid;
+	s->fttps_pid = proc_getpid(p);
 	s->fttps_pc = tp->ftt_pc;
 
 	if (fasttrap_cur_retired == fasttrap_retired_size) {
@@ -570,7 +570,7 @@ fasttrap_setdebug(proc_t *p)
 	 * when the process text is modified, so register the intent
 	 * to allow invalid access beforehand.
 	 */
-	if ((p->p_csflags & (CS_KILL|CS_HARD))) {
+	if ((proc_getcsflags(p) & (CS_KILL|CS_HARD))) {
 		proc_unlock(p);
 		for (int i = 0; i < DTRACE_NCLIENTS; i++) {
 			dtrace_state_t *state = dtrace_state_get(i);
@@ -621,7 +621,7 @@ fasttrap_setdebug(proc_t *p)
 static void
 fasttrap_fork(proc_t *p, proc_t *cp)
 {
-	pid_t ppid = p->p_pid;
+	pid_t ppid = proc_getpid(p);
 	unsigned int i;
 
 	ASSERT(current_proc() == p);
@@ -643,8 +643,8 @@ fasttrap_fork(proc_t *p, proc_t *cp)
 	 * We don't have to worry about the child process disappearing
 	 * because we're in fork().
 	 */
-	if (cp != sprlock(cp->p_pid)) {
-		printf("fasttrap_fork: sprlock(%d) returned a different proc\n", cp->p_pid);
+	if (cp != sprlock(proc_getpid(cp))) {
+		printf("fasttrap_fork: sprlock(%d) returned a different proc\n", proc_getpid(cp));
 		return;
 	}
 
@@ -1594,7 +1594,7 @@ static fasttrap_provider_t *
 fasttrap_provider_lookup(proc_t *p, fasttrap_provider_type_t provider_type, const char *name,
     const dtrace_pattr_t *pattr)
 {
-	pid_t pid = p->p_pid;
+	pid_t pid = proc_getpid(p);
 	fasttrap_provider_t *fp, *new_fp = NULL;
 	fasttrap_bucket_t *bucket;
 	char provname[DTRACE_PROVNAMELEN];
@@ -1631,7 +1631,13 @@ fasttrap_provider_lookup(proc_t *p, fasttrap_provider_type_t provider_type, cons
 	 * of a vfork(2), and isn't a zombie (but may be in fork).
 	 */
 	proc_lock(p);
-	if (p->p_lflag & (P_LINVFORK | P_LEXIT)) {
+#if CONFIG_VFORK
+	if (p->p_lflag & P_LINVFORK) {
+		proc_unlock(p);
+		return (NULL);
+	}
+#endif /* CONFIG_VFORK */
+	if (p->p_lflag & P_LEXIT) {
 		proc_unlock(p);
 		return (NULL);
 	}
@@ -1654,7 +1660,7 @@ fasttrap_provider_lookup(proc_t *p, fasttrap_provider_type_t provider_type, cons
 
 	new_fp = kmem_zalloc(sizeof (fasttrap_provider_t), KM_SLEEP);
 	ASSERT(new_fp != NULL);
-	new_fp->ftp_pid = p->p_pid;
+	new_fp->ftp_pid = proc_getpid(p);
 	new_fp->ftp_proc = fasttrap_proc_lookup(pid);
 	new_fp->ftp_provider_type = provider_type;
 
@@ -1776,11 +1782,11 @@ fasttrap_provider_retire(proc_t *p, const char *name, int mprov)
 	dtrace_provider_id_t provid;
 	ASSERT(strlen(name) < sizeof (fp->ftp_name));
 
-	bucket = &fasttrap_provs.fth_table[FASTTRAP_PROVS_INDEX(p->p_pid, name)];
+	bucket = &fasttrap_provs.fth_table[FASTTRAP_PROVS_INDEX(proc_getpid(p), name)];
 	lck_mtx_lock(&bucket->ftb_mtx);
 
 	for (fp = bucket->ftb_data; fp != NULL; fp = fp->ftp_next) {
-		if (fp->ftp_pid == p->p_pid && strncmp(fp->ftp_name, name, sizeof(fp->ftp_name)) == 0 &&
+		if (fp->ftp_pid == proc_getpid(p) && strncmp(fp->ftp_name, name, sizeof(fp->ftp_name)) == 0 &&
 		    !fp->ftp_retired)
 			break;
 	}
@@ -1947,8 +1953,7 @@ fasttrap_add_probe(fasttrap_probe_spec_t *pdata)
 			}
 			provider->ftp_pcount++;
 
-			pp = zalloc(fasttrap_probe_t_zones[1]);
-			bzero(pp, sizeof (fasttrap_probe_t));
+			pp = zalloc_flags(fasttrap_probe_t_zones[1], Z_WAITOK | Z_ZERO);
 
 			pp->ftp_prov = provider;
 			pp->ftp_faddr = pdata->ftps_pc;
@@ -1956,8 +1961,7 @@ fasttrap_add_probe(fasttrap_probe_spec_t *pdata)
 			pp->ftp_pid = pdata->ftps_pid;
 			pp->ftp_ntps = 1;
 
-			tp = zalloc(fasttrap_tracepoint_t_zone);
-			bzero(tp, sizeof (fasttrap_tracepoint_t));
+			tp = zalloc_flags(fasttrap_tracepoint_t_zone, Z_WAITOK | Z_ZERO);
 
 			tp->ftt_proc = provider->ftp_proc;
 			tp->ftt_pc = pdata->ftps_offs[i] + pdata->ftps_pc;
@@ -2007,8 +2011,8 @@ fasttrap_add_probe(fasttrap_probe_spec_t *pdata)
 		provider->ftp_pcount += pdata->ftps_noffs;
 		ASSERT(pdata->ftps_noffs > 0);
 		if (pdata->ftps_noffs < FASTTRAP_PROBE_T_ZONE_MAX_TRACEPOINTS) {
-			pp = zalloc(fasttrap_probe_t_zones[pdata->ftps_noffs]);
-			bzero(pp, offsetof(fasttrap_probe_t, ftp_tps[pdata->ftps_noffs]));
+			pp = zalloc_flags(fasttrap_probe_t_zones[pdata->ftps_noffs],
+			    Z_WAITOK | Z_ZERO);
 		} else {
 			pp = kmem_zalloc(offsetof(fasttrap_probe_t, ftp_tps[pdata->ftps_noffs]), KM_SLEEP);
 		}
@@ -2020,8 +2024,7 @@ fasttrap_add_probe(fasttrap_probe_spec_t *pdata)
 		pp->ftp_ntps = pdata->ftps_noffs;
 
 		for (i = 0; i < pdata->ftps_noffs; i++) {
-			tp = zalloc(fasttrap_tracepoint_t_zone);
-			bzero(tp, sizeof (fasttrap_tracepoint_t));
+			tp = zalloc_flags(fasttrap_tracepoint_t_zone, Z_WAITOK | Z_ZERO);
 			tp->ftt_proc = provider->ftp_proc;
 			tp->ftt_pc = pdata->ftps_offs[i] + pdata->ftps_pc;
 			tp->ftt_pid = pdata->ftps_pid;
@@ -2144,7 +2147,7 @@ fasttrap_meta_provide(void *arg, dtrace_helper_provdesc_t *dhpv, proc_t *p)
 	if ((provider = fasttrap_provider_lookup(p, DTFTP_PROVIDER_USDT, dhpv->dthpv_provname,
 	    &dhpv->dthpv_pattr)) == NULL) {
 		cmn_err(CE_WARN, "failed to instantiate provider %s for "
-		    "process %u",  dhpv->dthpv_provname, (uint_t)p->p_pid);
+		    "process %u",  dhpv->dthpv_provname, (uint_t)proc_getpid(p));
 		return (NULL);
 	}
 
@@ -2250,8 +2253,7 @@ fasttrap_meta_create_probe(void *arg, void *parg,
 	provider->ftp_pcount += ntps;
 
 	if (ntps < FASTTRAP_PROBE_T_ZONE_MAX_TRACEPOINTS) {
-		pp = zalloc(fasttrap_probe_t_zones[ntps]);
-		bzero(pp, offsetof(fasttrap_probe_t, ftp_tps[ntps]));
+		pp = zalloc_flags(fasttrap_probe_t_zones[ntps], Z_WAITOK | Z_ZERO);
 	} else {
 		pp = kmem_zalloc(offsetof(fasttrap_probe_t, ftp_tps[ntps]), KM_SLEEP);
 	}
@@ -2267,8 +2269,7 @@ fasttrap_meta_create_probe(void *arg, void *parg,
 	 * First create a tracepoint for each actual point of interest.
 	 */
 	for (i = 0; i < dhpb->dthpb_noffs; i++) {
-		tp = zalloc(fasttrap_tracepoint_t_zone);
-		bzero(tp, sizeof (fasttrap_tracepoint_t));
+		tp = zalloc_flags(fasttrap_tracepoint_t_zone, Z_WAITOK | Z_ZERO);
 
 		tp->ftt_proc = provider->ftp_proc;
 
@@ -2305,8 +2306,7 @@ fasttrap_meta_create_probe(void *arg, void *parg,
 	 * Then create a tracepoint for each is-enabled point.
 	 */
 	for (j = 0; i < ntps; i++, j++) {
-		tp = zalloc(fasttrap_tracepoint_t_zone);
-		bzero(tp, sizeof (fasttrap_tracepoint_t));
+		tp = zalloc_flags(fasttrap_tracepoint_t_zone, Z_WAITOK | Z_ZERO);
 
 		tp->ftt_proc = provider->ftp_proc;
 

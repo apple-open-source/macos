@@ -14,7 +14,13 @@
 #define APIODMABitRange64(start, end)    (~(((uint64_t)(1) << start) - 1) & (((uint64_t)(1) << end) | (((uint64_t)(1) << end) - 1)))
 #define APIODMABitRangePhase(start, end) (start)
 
-#define  kApplePIODMAID "piodma-id"
+#define kApplePIODMAID              "piodma-id"
+#define kApplePIODMAFIFOSize        "piodma-fifo-size"
+#define kApplePIODMAByteAlignment   "piodma-byte-alignment"
+#define kApplePIODMANumAddressBits  "piodma-num-address-bits"
+#define kApplePIODMAMaxTransferSize "piodma-max-transfer-size"
+#define kApplePIODMAMaxSegmentSize  "piodma-max-segment-size"
+#define kApplePIODMABaseAddresses   "piodma-base-address"
 
 // Table 2.4. Next Pointer Packet Header, Revision 2.2.15
 enum tApplePIODMANextPointerPacketHeader
@@ -102,8 +108,5 @@ typedef struct ApplePIODMAGenericPacket
     uint32_t word2;
     uint32_t word3;
 } __attribute__((packed)) ApplePIODMAGenericPacket;
-
-
-
 
 #endif /* _IOKIT_ApplePIODMADefinitions_H */

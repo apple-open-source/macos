@@ -73,10 +73,10 @@ static int testNumber = 0;
 
     // "Disable" evaluation analytics (by making the sampling rate as low as possible)
     NSUserDefaults *defaults = [[NSUserDefaults alloc] initWithSuiteName:@"com.apple.security"];
-    [defaults setInteger:UINT32_MAX forKey:@"TrustEvaluationEventAnalyticsRate"];
-    [defaults setInteger:UINT32_MAX forKey:@"PinningEventAnalyticsRate"];
-    [defaults setInteger:UINT32_MAX forKey:@"SystemRootUsageEventAnalyticsRate"];
-    [defaults setInteger:UINT32_MAX forKey:@"TrustFailureEventAnalyticsRate"];
+    [defaults setInteger:INT32_MAX forKey:@"TrustEvaluationEventAnalyticsRate"];
+    [defaults setInteger:INT32_MAX forKey:@"PinningEventAnalyticsRate"];
+    [defaults setInteger:INT32_MAX forKey:@"SystemRootUsageEventAnalyticsRate"];
+    [defaults setInteger:INT32_MAX forKey:@"TrustFailureEventAnalyticsRate"];
 }
 
 @end

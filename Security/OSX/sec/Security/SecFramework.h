@@ -53,11 +53,16 @@ CFDataRef SecSHA256DigestCreate(CFAllocatorRef allocator,
 
 CFDataRef SecSHA256DigestCreateFromData(CFAllocatorRef allocator, CFDataRef data);
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+
 /* Return the digest of a chunk of data as newly allocated CFDataRef, the
    algorithm is selected based on the algorithm and params passed in. */
 CFDataRef SecDigestCreate(CFAllocatorRef allocator,
     const SecAsn1Oid *algorithm, const SecAsn1Item *params,
 	const UInt8 *data, CFIndex length);
+
+#pragma clang diagnostic pop
 
 // Wrapper to provide a CFErrorRef for legacy API.
 OSStatus SecOSStatusWith(bool (^perform)(CFErrorRef *error));

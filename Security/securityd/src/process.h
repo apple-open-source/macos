@@ -39,6 +39,7 @@
 
 using MachPlusPlus::Port;
 using MachPlusPlus::TaskPort;
+using MachPlusPlus::Bootstrap;
 
 class Session;
 class LocalDatabase;
@@ -58,7 +59,7 @@ class AuthorizationToken;
 class Process : public PerProcess,
 				public ClientIdentification{
 public:
-	Process(TaskPort tPort, const ClientSetupInfo *info, const CommonCriteria::AuditToken &audit);
+	Process(TaskPort tPort, Bootstrap bootstrapPort, const ClientSetupInfo *info, const CommonCriteria::AuditToken &audit);
 	virtual ~Process();
 	
 	void reset(TaskPort tPort, const ClientSetupInfo *info, const CommonCriteria::AuditToken &audit);
@@ -68,6 +69,7 @@ public:
     pid_t pid() const			{ return mPid; }
     Security::CommonCriteria::AuditToken const &audit_token() const { return mAudit; }
     TaskPort taskPort() const	{ return mTaskPort; }
+    Bootstrap bootstrap() const	{ return mBootstrap; }
 	bool byteFlipped() const	{ return mByteFlipped; }
 	
 	using PerProcess::kill;
@@ -93,7 +95,8 @@ private:
 	
 private:
 	// peer state: established during connection startup; fixed thereafter
-    TaskPort mTaskPort;					// task port
+    TaskPort mTaskPort;					// task name port
+    Bootstrap mBootstrap;				// bootstrap port
 	bool mByteFlipped;					// client's byte order is reverse of ours
     pid_t mPid;							// process id
     uid_t mUid;							// UNIX uid credential

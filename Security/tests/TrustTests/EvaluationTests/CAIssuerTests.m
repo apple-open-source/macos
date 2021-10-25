@@ -26,11 +26,7 @@
 #if !TARGET_OS_WATCH && !TARGET_OS_BRIDGE
 - (void) test_aia
 {
-    if (!ping_host("crt.comodoca.com")) {
-        XCTAssert(false, "Unable to contact required network resource");
-        return;
-    }
-
+    XCTSkipIf(!ping_host("crt.comodoca.com", "80"), @"Unable to contact required network resource");
     SecCertificateRef ovh = NULL, comodo_ev = NULL, comodo_aia = NULL;
     CFMutableArrayRef certs = NULL, policies = NULL;
     SecPolicyRef sslPolicy = NULL, revPolicy = NULL;

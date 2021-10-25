@@ -187,10 +187,10 @@ static void test_pss_sign_run(SecKeyRef privateKey, SecKeyAlgorithm algorithm, S
     int err = ccrsa_import_pub(ccpub, pubData.length, pubData.bytes);
     is(err, 0, "ccrsa_import_pub(key=%@) failed", publicKey);
 
-    bool valid = false;
-    err = ccrsa_verify_pss(ccpub, di, di, di->output_size, digest.bytes, signature.length, signature.bytes, di->output_size, &valid);
-    is(err, 0, "ccrsa_verify_pss(%@) failed", algorithm);
-    ok(valid, "ccrsa verify signature (alg %@)", algorithm);
+    uint8_t fault_canary[sizeof(CCRSA_PSS_FAULT_CANARY)];
+    err = ccrsa_verify_pss_digest(ccpub, di, di, di->output_size, digest.bytes, signature.length, signature.bytes, di->output_size, fault_canary);
+    is(err, CCERR_VALID_SIGNATURE, "ccrsa_verify_pss_digest(%@) failed", algorithm);
+    is(memcmp(fault_canary, CCRSA_PSS_FAULT_CANARY, sizeof(CCRSA_PSS_FAULT_CANARY)), 0, "ccrsa verify signature fault canary (alg %@)", algorithm);
 
     // Calculate signature of the digest using CC
     error = nil;

@@ -149,8 +149,10 @@ typedef struct atdir {
 	char *name;	/* name of directory to reset */
 	dev_t dev;	/* dev and inode for fast lookup */
 	ino_t ino;
-	time_t mtime;	/* access and mod time to reset to */
-	time_t atime;
+	time_t mtime_sec;	/* access and mod time to reset to */
+	time_t mtime_nsec;
+	time_t atime_sec;
+	time_t atime_nsec;
 	struct atdir *fow;
 } ATDIR;
 
@@ -166,8 +168,10 @@ typedef struct atdir {
 
 typedef struct dirdata {
 	char *name;	/* file name */
-	time_t mtime;	/* mtime to set */
-	time_t atime;	/* atime to set */
+	time_t mtime_sec;	/* mtime to set (seconds component) */
+	time_t mtime_nsec;	/* mtime to set (nanoseconds component) */
+	time_t atime_sec;	/* atime to set (seconds component) */
+	time_t atime_nsec;	/* atime to set (nanoseconds component) */
 	u_int16_t mode;	/* file mode to restore */
 	u_int16_t frc_mode;	/* do we force mode settings? */
 } DIRDATA;

@@ -71,25 +71,3 @@ void *ModuleNexusCommon::create(void *(*make)())
     
     return pointer;
 }
-
-
-//
-// Process nexus operation
-//
-ProcessNexusBase::ProcessNexusBase(const char *identifier)
-{
-	const char *env = getenv(identifier);
-	if (env == NULL) {	// perhaps we're first...
-		unique_ptr<Store> store(new Store);
-		char form[2*sizeof(Store *) + 2];
-		sprintf(form, "*%p", &store);
-		setenv(identifier, form, 0);	// do NOT overwrite...
-		env = getenv(identifier);		// ... and refetch to resolve races
-		if (sscanf(env, "*%p", &mStore) != 1)
-			throw std::runtime_error("environment communication failed");
-		if (mStore == store.get())		// we won the race...
-			store.release();			// ... so keep the store
-	} else
-		if (sscanf(env, "*%p", &mStore) != 1)
-			throw std::runtime_error("environment communication failed");
-}

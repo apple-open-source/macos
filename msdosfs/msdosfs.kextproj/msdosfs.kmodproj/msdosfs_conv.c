@@ -108,11 +108,6 @@ static uint16_t leapyear[] = {
  * Variables used to remember parts of the last time conversion.  Maybe we
  * can avoid a full conversion.
  */
-static uint32_t  lasttime;
-static uint32_t  lastday;
-static uint16_t lastddate;
-static uint16_t lastdtime;
-
 /*
  * This variable contains the number of seconds that local time is west of GMT
  * It is updated every time an msdosfs volume is mounted.  This value is
@@ -141,56 +136,52 @@ void msdosfs_unix2dostime(struct timespec *tsp, u_int16_t *ddp, u_int16_t *dtp, 
 	uint32_t year;
 	uint32_t month;
 	uint16_t *months;
-
+    uint16_t ddate;
+    uint16_t dtime;
 	/*
 	 * If the time from the last conversion is the same as now, then
 	 * skip the computations and use the saved result.
 	 */
 	t = (uint32_t)(tsp->tv_sec - msdos_secondsWest);
 	t &= ~1;	/* Round down to multiple of 2 seconds */
-	if (lasttime != t) {
-		lasttime = t;
-		lastdtime = (((t / 2) % 30) << DT_2SECONDS_SHIFT)
-		    + (((t / 60) % 60) << DT_MINUTES_SHIFT)
-		    + (((t / 3600) % 24) << DT_HOURS_SHIFT);
+    dtime = (((t / 2) % 30) << DT_2SECONDS_SHIFT)
+        + (((t / 60) % 60) << DT_MINUTES_SHIFT)
+        + (((t / 3600) % 24) << DT_HOURS_SHIFT);
 
-		/*
-		 * If the number of days since 1970 is the same as the last
-		 * time we did the computation then skip all this leap year
-		 * and month stuff.
-		 */
-		days = t / (24 * 60 * 60);
-		if (days != lastday) {
-			lastday = days;
-			for (year = 1970;; year++) {
-				inc = year & 0x03 ? 365 : 366;
-				if (days < inc)
-					break;
-				days -= inc;
-			}
-			months = year & 0x03 ? regyear : leapyear;
-			for (month = 0; days >= months[month]; month++)
-				;
-			if (month > 0)
-				days -= months[month - 1];
-			lastddate = ((days + 1) << DD_DAY_SHIFT)
-			    + ((month + 1) << DD_MONTH_SHIFT);
-			/*
-			 * Remember dos's idea of time is relative to 1980.
-			 * unix's is relative to 1970.  If somehow we get a
-			 * time before 1980 then don't give totally crazy
-			 * results.
-			 */
-			if (year > 1980)
-				lastddate += (year - 1980) << DD_YEAR_SHIFT;
-		}
-	}
+    /*
+     * If the number of days since 1970 is the same as the last
+     * time we did the computation then skip all this leap year
+     * and month stuff.
+     */
+    days = t / (24 * 60 * 60);
+    for (year = 1970;; year++) {
+        inc = year & 0x03 ? 365 : 366;
+        if (days < inc)
+            break;
+        days -= inc;
+    }
+    months = year & 0x03 ? regyear : leapyear;
+    for (month = 0; days >= months[month]; month++)
+        ;
+    if (month > 0)
+        days -= months[month - 1];
+    ddate = ((days + 1) << DD_DAY_SHIFT)
+        + ((month + 1) << DD_MONTH_SHIFT);
+    /*
+     * Remember dos's idea of time is relative to 1980.
+     * unix's is relative to 1970.  If somehow we get a
+     * time before 1980 then don't give totally crazy
+     * results.
+     */
+    if (year > 1980)
+        ddate += (year - 1980) << DD_YEAR_SHIFT;
+
 	if (dtp)
-		*dtp = lastdtime;
+		*dtp = dtime;
 	if (dhp)
 		*dhp = (tsp->tv_sec & 1) * 100 + tsp->tv_nsec / 10000000;
 
-	*ddp = lastddate;
+	*ddp = ddate;
 }
 
 /*
@@ -198,9 +189,6 @@ void msdosfs_unix2dostime(struct timespec *tsp, u_int16_t *ddp, u_int16_t *dtp, 
  * interval there were 8 regular years and 2 leap years.
  */
 #define	SECONDSTO1980	(((8 * 365) + (2 * 366)) * (24 * 60 * 60))
-
-static uint16_t lastdosdate;
-static uint32_t  lastseconds;
 
 /*
  * Convert from dos' idea of time to unix'. This will probably only be
@@ -231,24 +219,22 @@ void msdosfs_dos2unixtime(u_int dd, u_int dt, u_int dh, struct timespec *tsp)
 	 * If the year, month, and day from the last conversion are the
 	 * same then use the saved value.
 	 */
-	if (lastdosdate != dd) {
-		lastdosdate = dd;
-		year = (dd & DD_YEAR_MASK) >> DD_YEAR_SHIFT;
-		days = year * 365;
-		days += year / 4 + 1;	/* add in leap days */
-		if ((year & 0x03) == 0)
-			days--;		/* if year is a leap year */
-		months = year & 0x03 ? regyear : leapyear;
-		month = (dd & DD_MONTH_MASK) >> DD_MONTH_SHIFT;
-		if (month < 1 || month > 12) {
-			month = 1;
-		}
-		if (month > 1)
-			days += months[month - 2];
-		days += ((dd & DD_DAY_MASK) >> DD_DAY_SHIFT) - 1;
-		lastseconds = (days * 24 * 60 * 60) + SECONDSTO1980;
-	}
-	tsp->tv_sec = seconds + lastseconds + msdos_secondsWest;
+
+    year = (dd & DD_YEAR_MASK) >> DD_YEAR_SHIFT;
+    days = year * 365;
+    days += year / 4 + 1;	/* add in leap days */
+    if ((year & 0x03) == 0)
+        days--;		/* if year is a leap year */
+    months = year & 0x03 ? regyear : leapyear;
+    month = (dd & DD_MONTH_MASK) >> DD_MONTH_SHIFT;
+    if (month < 1 || month > 12) {
+        month = 1;
+    }
+    if (month > 1)
+        days += months[month - 2];
+    days += ((dd & DD_DAY_MASK) >> DD_DAY_SHIFT) - 1;
+    uint32_t days_in_seconds = (days * 24 * 60 * 60) + SECONDSTO1980;
+	tsp->tv_sec = seconds + days_in_seconds + msdos_secondsWest;
 	tsp->tv_nsec = (dh % 100) * 10000000;
 }
 

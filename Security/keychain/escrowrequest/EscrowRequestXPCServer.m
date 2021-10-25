@@ -46,7 +46,7 @@
         return NO;
     }
 
-    secnotice("escrowrequest", "received connection from client pid %d", [newConnection processIdentifier]);
+    secnotice("escrowrequest", "received connection from client pid %d (euid %u)", newConnection.processIdentifier, newConnection.effectiveUserIdentifier);
     newConnection.exportedInterface = SecEscrowRequestSetupControlProtocol([NSXPCInterface interfaceWithProtocol:@protocol(EscrowRequestXPCProtocol)]);
 
     newConnection.exportedObject = [EscrowRequestServer server];

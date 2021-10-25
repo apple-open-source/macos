@@ -89,10 +89,6 @@ UPLINK_LDFLAGS = -Wl,-upward-lsystem_c
 
 INTERPOSE_LDFLAGS = -Wl,-interposable_list,$(SRCROOT)/xcodeconfig/interposable.list
 
-ORDER_FILE = $(SDKROOT)/$(APPLE_INTERNAL_DIR)/OrderFiles/$(PRODUCT_NAME).order
-ORDER_FILE[sdk=*simulator*] =
-ORDER_FILE[sdk=driverkit*] =
-
 DYLIB_CURRENT_VERSION = $(CURRENT_PROJECT_VERSION)
 
 

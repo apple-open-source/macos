@@ -2,13 +2,6 @@
 //  Copyright 2016 Apple. All rights reserved.
 //
 
-/*
- * This is to fool os services to not provide the Keychain manager
- * interface tht doens't work since we don't have unified headers
- * between iOS and OS X. rdar://23405418/
- */
-#define __KEYCHAINCORE__ 1
-
 #include <Foundation/Foundation.h>
 #include <Security/Security.h>
 #include <Security/SecItemPriv.h>
@@ -727,6 +720,57 @@ CheckItemPerformance(void)
     printf("[PASS] %s\n", __FUNCTION__);
 }
 
+#if TARGET_OS_OSX
+// This is specifically a test for legacy keychain, only on macos
+static Boolean IsAttributeNumber(const NSDictionary* attributes, const NSString* whichAttr) {
+    id theAttr = attributes[whichAttr];
+    if (theAttr == nil) {
+        fail("attributes dict does not contain key: %s", [whichAttr UTF8String]);
+        return NO;
+    }
+    if (![theAttr isKindOfClass:[NSNumber class]]) {
+        printf("%s attribute is not an NSNumber: %s\n", [whichAttr UTF8String], [[theAttr description] UTF8String]);
+        return NO;
+    }
+    return YES;
+}
+
+static void
+LegacyItemCopyMatchingCertificateTypeAndEncoding(void)
+{
+    OSStatus status;
+
+    printf("[BEGIN] %s\n", __FUNCTION__);
+
+    // Look up any cert
+    NSDictionary* lookup = @{
+        (id)kSecClass : (id)kSecClassCertificate,
+        (id)kSecReturnAttributes : (id)kCFBooleanTrue,
+        (id)kSecMatchLimit : (id)kSecMatchLimitOne,
+    };
+    CFTypeRef cfref = NULL;
+    status = SecItemCopyMatching((__bridge CFDictionaryRef)lookup, &cfref);
+    if (status != errSecSuccess) {
+        printf("[SKIP] %s\n", __FUNCTION__);
+        return;
+    }
+    id checkResult = CFBridgingRelease(cfref);
+    if (![checkResult isKindOfClass:[NSDictionary class]]) {
+        fail("didn't get a dict");
+    }
+    NSDictionary* attributes = (NSDictionary*)checkResult;
+
+    Boolean bothAreNumbers = IsAttributeNumber(attributes, (NSString *)kSecAttrCertificateType);
+    // Don't short circuit on boolean logic, we want to know if both fail
+    bothAreNumbers = IsAttributeNumber(attributes, (NSString *)kSecAttrCertificateEncoding) && bothAreNumbers;
+    if (!bothAreNumbers) {
+        fail("At least one of type & encoding is not an NSNumber");
+    }
+
+    printf("[PASS] %s\n", __FUNCTION__);
+}
+#endif //TARGET_OS_OSX
+
 int
 main(int argc, const char ** argv)
 {
@@ -740,7 +784,9 @@ main(int argc, const char ** argv)
     CheckItemAddDeleteNoData();
     CheckItemUpdateAccessGroupGENP();
     CheckItemUpdateAccessGroupIdentity();
-
+#if TARGET_OS_OSX
+    LegacyItemCopyMatchingCertificateTypeAndEncoding();
+#endif //TARGET_OS_OSX
     printf("[SUMMARY]\n");
     printf("test completed\n");
 

@@ -26,8 +26,8 @@
 #ifndef libsecurity_smime_tsaSupport_h
 #define libsecurity_smime_tsaSupport_h
 
-#include <Security/SecCmsBase.h>
 #include <CoreFoundation/CoreFoundation.h>
+#include <Security/SecCmsBase.h>
 
 #if defined(__cplusplus)
 extern "C" {
@@ -37,18 +37,19 @@ extern "C" {
  *   Time stamping Authority calls
  */
 
-extern const CFStringRef kTSAContextKeyURL;         // CFURLRef
-extern const CFStringRef kTSAContextKeyNoCerts;     // CFBooleanRef
+extern const CFStringRef kTSAContextKeyURL;      // CFURLRef
+extern const CFStringRef kTSAContextKeyNoCerts;  // CFBooleanRef
 
-OSStatus SecCmsTSADefaultCallback(CFTypeRef context, void  *messageImprint, uint64_t nonce, CSSM_DATA *signedDERBlob) DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
+OSStatus SecCmsTSADefaultCallback(CFTypeRef context,
+                                  void* messageImprint,
+                                  uint64_t nonce,
+                                  CSSM_DATA* signedDERBlob) DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
-CF_RETURNS_RETAINED CFMutableDictionaryRef SecCmsTSAGetDefaultContext(CFErrorRef *error);
+CF_RETURNS_RETAINED CFMutableDictionaryRef SecCmsTSAGetDefaultContext(CFErrorRef* error);
 void SecCmsMessageSetTSAContext(SecCmsMessageRef cmsg, CFTypeRef tsaContext);
 
 #if defined(__cplusplus)
 }
 #endif
 
-#endif  /* libsecurity_smime_tsaSupport_h */
-
-
+#endif /* libsecurity_smime_tsaSupport_h */

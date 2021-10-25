@@ -659,7 +659,7 @@ load_hostname(Boolean verbose)
 
 #ifdef	MAIN
 int
-main(int argc, char **argv)
+main(int argc, char * const argv[])
 {
 
 #ifdef	DEBUG

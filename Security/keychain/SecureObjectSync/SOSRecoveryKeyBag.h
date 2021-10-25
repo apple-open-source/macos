@@ -42,7 +42,7 @@ CFDataRef SOSRecoveryKeyBagCopyEncoded(SOSRecoveryKeyBagRef RecoveryKeyBag, CFEr
 SOSRecoveryKeyBagRef SOSRecoveryKeyBagCreateFromData(CFAllocatorRef allocator, CFDataRef data, CFErrorRef *error);
 CFDataRef SOSRecoveryKeyBagGetKeyData(SOSRecoveryKeyBagRef rkbg, CFErrorRef *error);
 
-bool SOSRecoveryKeyBagDSIDIs(SOSRecoveryKeyBagRef rkbg, CFStringRef dsid);;
+bool SOSRecoveryKeyBagDSIDIs(SOSRecoveryKeyBagRef rkbg, CFStringRef dsid);
 
 // Der encoding
 const uint8_t* der_decode_RecoveryKeyBag(CFAllocatorRef allocator,

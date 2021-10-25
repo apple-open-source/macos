@@ -136,10 +136,6 @@ static const SecAsn1Template * NSS_P7_ContentInfoChooser(
 		templ = NSS_P7_PtrToDigestedDataTemplate;
 		type = CT_DigestData;
 	}
-	/* add more here when we implement them */
-	else {
-		return kSecAsn1PointerToAnyTemplate;
-	}
 	if(!enc) {
 		dci->type = type;
 	}

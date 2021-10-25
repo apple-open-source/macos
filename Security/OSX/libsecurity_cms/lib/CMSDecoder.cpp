@@ -25,6 +25,8 @@
  * CMSDecoder.cpp - Interface for decoding CMS messages.
  */
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wsign-conversion"
 #include <Security/CMSDecoder.h>
 #include <Security/CMSPrivate.h>
 #include "CMSUtils.h"
@@ -46,6 +48,7 @@
 #include <pthread.h>
 #include <syslog.h>
 #include <AssertMacros.h>
+#pragma clang diagnostic pop
 
 #pragma mark --- Private types and definitions ---
 
@@ -204,7 +207,7 @@ OSStatus CMSDecoderCreate(
 {
 	CMSDecoderRef cmsDecoder = NULL;
     
-	uint32_t extra = sizeof(*cmsDecoder) - sizeof(cmsDecoder->base);
+	CFIndex extra = sizeof(*cmsDecoder) - sizeof(cmsDecoder->base);
 	cmsDecoder = (CMSDecoderRef)_CFRuntimeCreateInstance(NULL, CMSDecoderGetTypeID(),
                                                          extra, NULL);
 	if(cmsDecoder == NULL) {
@@ -460,19 +463,18 @@ OSStatus CMSDecoderCopySignerStatus(
 	
 	/*
 	 * OK, we should be able to verify this signerInfo.
-	 * I think we have to do the SecCmsSignedDataVerifySignerInfo first
+	 * I think we have to do the SecCmsSignedDataVerifySigner first
 	 * in order get all the cert pieces into place before returning them
 	 * to the caller.
 	 */
-	SecTrustRef theTrust = NULL;
-	OSStatus vfyRtn = SecCmsSignedDataVerifySignerInfo(cmsDecoder->signedData,
-                                                       (int)signerIndex,
-                                                       NULL,
-                                                       policyOrArray,
-                                                       &theTrust);
+    SecTrustRef theTrust = NULL;
+    OSStatus vfyRtn = SecCmsSignedDataVerifySigner(cmsDecoder->signedData,
+                                                   (int)signerIndex,
+                                                   policyOrArray,
+                                                   &theTrust);
 
 #if SECTRUST_VERBOSE_DEBUG
-	syslog(LOG_ERR, "CMSDecoderCopySignerStatus: SecCmsSignedDataVerifySignerInfo returned %d", (int)vfyRtn);
+	syslog(LOG_ERR, "CMSDecoderCopySignerStatus: SecCmsSignedDataVerifySigner returned %d", (int)vfyRtn);
 	if (policyOrArray) CFShow(policyOrArray);
 	if (theTrust) CFShow(theTrust);
 #endif
@@ -626,7 +628,7 @@ OSStatus CMSDecoderCopySignerCert(
 		dprintf("CMSDecoderCopySignerCertificate: no signerInfo\n");
 		return errSecInternalComponent;
 	}
-	*signerCert = SecCmsSignerInfoGetSigningCertificate(signerInfo, NULL);
+	*signerCert = SecCmsSignerInfoGetSigningCert(signerInfo);
 	/* libsecurity_smime does NOT retain that */
 	if(*signerCert == NULL) {
 		/* should never happen */
@@ -718,12 +720,12 @@ OSStatus CMSDecoderCopyAllCerts(
                                             CSSM_CERT_X_509v3, CSSM_CERT_ENCODING_DER,
                                             &cfCert);
 		if(ortn) {
-			CFRelease(allCerts);
+			CFReleaseNull(allCerts);
 			return ortn;
 		}
 		CFArrayAppendValue(allCerts, cfCert);
 		/* the array holds the only needed refcount */
-		CFRelease(cfCert);
+		CFReleaseNull(cfCert);
 	}
 	*certs = allCerts;
 	return errSecSuccess;
@@ -973,7 +975,7 @@ OSStatus CMSDecoderCopySignerTimestampCertificates(
                         }
                         
                         *certificateRefs = CFArrayCreateCopy(kCFAllocatorDefault, certs);
-                        CFRelease(certs);
+                        CFReleaseNull(certs);
                         status = errSecSuccess;
                     }
                     break;

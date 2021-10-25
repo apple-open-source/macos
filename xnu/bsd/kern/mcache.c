@@ -141,8 +141,10 @@ static unsigned int mcache_slab_alloc(void *, mcache_obj_t ***,
 static void mcache_slab_free(void *, mcache_obj_t *, boolean_t);
 static void mcache_slab_audit(void *, mcache_obj_t *, boolean_t);
 static void mcache_cpu_refill(mcache_cpu_t *, mcache_bkt_t *, int);
-static mcache_bkt_t *mcache_bkt_alloc(mcache_t *, mcache_bktlist_t *);
-static void mcache_bkt_free(mcache_t *, mcache_bktlist_t *, mcache_bkt_t *);
+static void mcache_cpu_batch_refill(mcache_cpu_t *, mcache_bkt_t *, int);
+static uint32_t mcache_bkt_batch_alloc(mcache_t *, mcache_bktlist_t *,
+    mcache_bkt_t **, uint32_t);
+static void mcache_bkt_batch_free(mcache_t *, mcache_bktlist_t *, mcache_bkt_t *);
 static void mcache_cache_bkt_enable(mcache_t *);
 static void mcache_bkt_purge(mcache_t *);
 static void mcache_bkt_destroy(mcache_t *, mcache_bkt_t *, int);
@@ -284,10 +286,7 @@ mcache_create_common(const char *name, size_t bufsize, size_t align,
 	unsigned int c;
 	char lck_name[64];
 
-	buf = zalloc_flags(mcache_zone, Z_WAITOK | Z_ZERO);
-	if (buf == NULL) {
-		goto fail;
-	}
+	buf = zalloc_flags(mcache_zone, Z_WAITOK | Z_ZERO | Z_NOFAIL);
 
 	/*
 	 * In case we didn't get a cache-aligned memory, round it up
@@ -408,12 +407,6 @@ mcache_create_common(const char *name, size_t bufsize, size_t align,
 		    arg, bufsize, cp->mc_align, chunksize, btp->bt_bktsize);
 	}
 	return cp;
-
-fail:
-	if (buf != NULL) {
-		zfree(mcache_zone, buf);
-	}
-	return NULL;
 }
 
 /*
@@ -503,17 +496,42 @@ retry_alloc:
 		}
 
 		/*
-		 * Both of the CPU's buckets are empty; try to get a full
-		 * bucket from the bucket layer.  Upon success, refill this
-		 * CPU and place any empty bucket into the empty list.
+		 * Both of the CPU's buckets are empty; try to get full
+		 * bucket(s) from the bucket layer.  Upon success, refill
+		 * this CPU and place any empty bucket into the empty list.
+		 * To prevent potential thrashing, replace both empty buckets
+		 * only if the requested count exceeds a bucket's worth of
+		 * objects.
 		 */
-		bkt = mcache_bkt_alloc(cp, &cp->mc_full);
+		(void) mcache_bkt_batch_alloc(cp, &cp->mc_full,
+		    &bkt, (need <= ccp->cc_bktsize) ? 1 : 2);
 		if (bkt != NULL) {
+			mcache_bkt_t *bkt_list = NULL;
+
 			if (ccp->cc_pfilled != NULL) {
-				mcache_bkt_free(cp, &cp->mc_empty,
-				    ccp->cc_pfilled);
+				ccp->cc_pfilled->bkt_next = bkt_list;
+				bkt_list = ccp->cc_pfilled;
 			}
-			mcache_cpu_refill(ccp, bkt, ccp->cc_bktsize);
+			if (bkt->bkt_next == NULL) {
+				/*
+				 * Bucket layer allocation returns only 1
+				 * magazine; retain current empty magazine.
+				 */
+				mcache_cpu_refill(ccp, bkt, ccp->cc_bktsize);
+			} else {
+				/*
+				 * We got 2 full buckets from the bucket
+				 * layer; release the current empty bucket
+				 * back to the bucket layer.
+				 */
+				if (ccp->cc_filled != NULL) {
+					ccp->cc_filled->bkt_next = bkt_list;
+					bkt_list = ccp->cc_filled;
+				}
+				mcache_cpu_batch_refill(ccp, bkt,
+				    ccp->cc_bktsize);
+			}
+			mcache_bkt_batch_free(cp, &cp->mc_empty, bkt_list);
 			continue;
 		}
 
@@ -767,17 +785,44 @@ mcache_free_ext(mcache_t *cp, mcache_obj_t *list)
 		}
 
 		/*
-		 * Both of the CPU's buckets are full; try to get an empty
-		 * bucket from the bucket layer.  Upon success, empty this
+		 * Both of the CPU's buckets are full; try to get empty
+		 * buckets from the bucket layer.  Upon success, empty this
 		 * CPU and place any full bucket into the full list.
+		 *
+		 * TODO: Because the caller currently doesn't indicate
+		 * the number of objects in the list, we choose the more
+		 * conservative approach of allocating only 1 empty
+		 * bucket (to prevent potential thrashing).  Once we
+		 * have the object count, we can replace 1 with similar
+		 * logic as used in mcache_alloc_ext().
 		 */
-		bkt = mcache_bkt_alloc(cp, &cp->mc_empty);
+		(void) mcache_bkt_batch_alloc(cp, &cp->mc_empty, &bkt, 1);
 		if (bkt != NULL) {
+			mcache_bkt_t *bkt_list = NULL;
+
 			if (ccp->cc_pfilled != NULL) {
-				mcache_bkt_free(cp, &cp->mc_full,
-				    ccp->cc_pfilled);
+				ccp->cc_pfilled->bkt_next = bkt_list;
+				bkt_list = ccp->cc_pfilled;
 			}
-			mcache_cpu_refill(ccp, bkt, 0);
+			if (bkt->bkt_next == NULL) {
+				/*
+				 * Bucket layer allocation returns only 1
+				 * bucket; retain current full bucket.
+				 */
+				mcache_cpu_refill(ccp, bkt, 0);
+			} else {
+				/*
+				 * We got 2 empty buckets from the bucket
+				 * layer; release the current full bucket
+				 * back to the bucket layer.
+				 */
+				if (ccp->cc_filled != NULL) {
+					ccp->cc_filled->bkt_next = bkt_list;
+					bkt_list = ccp->cc_filled;
+				}
+				mcache_cpu_batch_refill(ccp, bkt, 0);
+			}
+			mcache_bkt_batch_free(cp, &cp->mc_full, bkt_list);
 			continue;
 		}
 		btp = cp->cache_bkttype;
@@ -818,7 +863,8 @@ mcache_free_ext(mcache_t *cp, mcache_obj_t *list)
 			 * We have an empty bucket of the right size;
 			 * add it to the bucket layer and try again.
 			 */
-			mcache_bkt_free(cp, &cp->mc_empty, bkt);
+			ASSERT(bkt->bkt_next == NULL);
+			mcache_bkt_batch_free(cp, &cp->mc_empty, bkt);
 			continue;
 		}
 
@@ -903,10 +949,7 @@ mcache_slab_alloc(void *arg, mcache_obj_t ***plist, unsigned int num,
 	*list = NULL;
 
 	for (;;) {
-		buf = zalloc(cp->mc_slab_zone);
-		if (buf == NULL) {
-			break;
-		}
+		buf = zalloc_flags(cp->mc_slab_zone, Z_WAITOK | Z_NOFAIL);
 
 		/* Get the aligned base address for this object */
 		base = (void *)P2ROUNDUP((intptr_t)buf + sizeof(u_int64_t),
@@ -1025,6 +1068,29 @@ mcache_slab_audit(void *arg, mcache_obj_t *list, boolean_t alloc)
 }
 
 /*
+ * Refill the CPU's buckets with bkt and its follower (if any).
+ */
+static void
+mcache_cpu_batch_refill(mcache_cpu_t *ccp, mcache_bkt_t *bkt, int objs)
+{
+	ASSERT((ccp->cc_filled == NULL && ccp->cc_objs == -1) ||
+	    (ccp->cc_filled && ccp->cc_objs + objs == ccp->cc_bktsize));
+	ASSERT(ccp->cc_bktsize > 0);
+
+	ccp->cc_filled = bkt;
+	ccp->cc_objs = objs;
+	if (__probable(bkt->bkt_next != NULL)) {
+		ccp->cc_pfilled = bkt->bkt_next;
+		ccp->cc_pobjs = objs;
+		bkt->bkt_next = NULL;
+	} else {
+		ASSERT(bkt->bkt_next == NULL);
+		ccp->cc_pfilled = NULL;
+		ccp->cc_pobjs = -1;
+	}
+}
+
+/*
  * Refill the CPU's filled bucket with bkt and save the previous one.
  */
 static void
@@ -1041,12 +1107,17 @@ mcache_cpu_refill(mcache_cpu_t *ccp, mcache_bkt_t *bkt, int objs)
 }
 
 /*
- * Allocate a bucket from the bucket layer.
+ * Get one or more buckets from the bucket layer.
  */
-static mcache_bkt_t *
-mcache_bkt_alloc(mcache_t *cp, mcache_bktlist_t *blp)
+static uint32_t
+mcache_bkt_batch_alloc(mcache_t *cp, mcache_bktlist_t *blp, mcache_bkt_t **list,
+    uint32_t num)
 {
+	mcache_bkt_t *bkt_list = NULL;
 	mcache_bkt_t *bkt;
+	uint32_t need = num;
+
+	ASSERT(list != NULL && need > 0);
 
 	if (!MCACHE_LOCK_TRY(&cp->mc_bkt_lock)) {
 		/*
@@ -1058,31 +1129,42 @@ mcache_bkt_alloc(mcache_t *cp, mcache_bktlist_t *blp)
 		cp->mc_bkt_contention++;
 	}
 
-	if ((bkt = blp->bl_list) != NULL) {
+	while ((bkt = blp->bl_list) != NULL) {
 		blp->bl_list = bkt->bkt_next;
+		bkt->bkt_next = bkt_list;
+		bkt_list = bkt;
 		if (--blp->bl_total < blp->bl_min) {
 			blp->bl_min = blp->bl_total;
 		}
 		blp->bl_alloc++;
+		if (--need == 0) {
+			break;
+		}
 	}
 
 	MCACHE_UNLOCK(&cp->mc_bkt_lock);
 
-	return bkt;
+	*list = bkt_list;
+
+	return num - need;
 }
 
 /*
- * Free a bucket to the bucket layer.
+ * Return one or more buckets to the bucket layer.
  */
 static void
-mcache_bkt_free(mcache_t *cp, mcache_bktlist_t *blp, mcache_bkt_t *bkt)
+mcache_bkt_batch_free(mcache_t *cp, mcache_bktlist_t *blp, mcache_bkt_t *bkt)
 {
+	mcache_bkt_t *nbkt;
+
 	MCACHE_LOCK(&cp->mc_bkt_lock);
-
-	bkt->bkt_next = blp->bl_list;
-	blp->bl_list = bkt;
-	blp->bl_total++;
-
+	while (bkt != NULL) {
+		nbkt = bkt->bkt_next;
+		bkt->bkt_next = blp->bl_list;
+		blp->bl_list = bkt;
+		blp->bl_total++;
+		bkt = nbkt;
+	}
 	MCACHE_UNLOCK(&cp->mc_bkt_lock);
 }
 
@@ -1225,19 +1307,29 @@ mcache_bkt_ws_zero(mcache_t *cp)
 static void
 mcache_bkt_ws_reap(mcache_t *cp)
 {
-	long reap;
-	mcache_bkt_t *bkt;
+	mcache_bkt_t *bkt, *nbkt;
+	uint32_t reap;
 
 	reap = MIN(cp->mc_full.bl_reaplimit, cp->mc_full.bl_min);
-	while (reap-- &&
-	    (bkt = mcache_bkt_alloc(cp, &cp->mc_full)) != NULL) {
-		mcache_bkt_destroy(cp, bkt, bkt->bkt_type->bt_bktsize);
+	if (reap != 0) {
+		(void) mcache_bkt_batch_alloc(cp, &cp->mc_full, &bkt, reap);
+		while (bkt != NULL) {
+			nbkt = bkt->bkt_next;
+			bkt->bkt_next = NULL;
+			mcache_bkt_destroy(cp, bkt, bkt->bkt_type->bt_bktsize);
+			bkt = nbkt;
+		}
 	}
 
 	reap = MIN(cp->mc_empty.bl_reaplimit, cp->mc_empty.bl_min);
-	while (reap-- &&
-	    (bkt = mcache_bkt_alloc(cp, &cp->mc_empty)) != NULL) {
-		mcache_bkt_destroy(cp, bkt, 0);
+	if (reap != 0) {
+		(void) mcache_bkt_batch_alloc(cp, &cp->mc_empty, &bkt, reap);
+		while (bkt != NULL) {
+			nbkt = bkt->bkt_next;
+			bkt->bkt_next = NULL;
+			mcache_bkt_destroy(cp, bkt, 0);
+			bkt = nbkt;
+		}
 	}
 }
 

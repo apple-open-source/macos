@@ -25,7 +25,7 @@
 #define OTDefines_h
 #if OCTAGON
 #include <Foundation/Foundation.h>
-#include <utilities/debugging.h>
+#include "utilities/debugging.h"
 #import "keychain/ot/OTConstants.h"
 
 NS_ASSUME_NONNULL_BEGIN
@@ -38,58 +38,6 @@ extern NSString* OTCKContainerName;
 extern NSString* const CuttlefishTrustZone;
 extern NSString* const TrustedPeersHelperErrorDomain;
 
-/* Octagon Errors */
-typedef NS_ERROR_ENUM(OctagonErrorDomain, OctagonError) {
-    //OTErrorNoColumn                         = 1,
-    //OTErrorKeyGeneration                    = 2,
-    //OTErrorEmptySecret                      = 3,
-    //OTErrorEmptyDSID                        = 4,
-    OTErrorNoIdentity                       = 5,
-    //OTErrorRestoreFailed                    = 6,
-    //OTErrorRestoredPeerEncryptionKeyFailure = 7,
-    //OTErrorRestoredPeerSigningKeyFailure    = 8,
-    //OTErrorEntropyCreationFailure           = 9,
-    OTErrorDeserializationFailure           = 10,
-    //OTErrorDecryptFailure                   = 11,
-    //OTErrorPrivateKeyFailure                = 12,
-    //OTErrorEscrowSigningSPKI                = 13,
-    //OTErrorBottleID                         = 14,
-    //OTErrorOTLocalStore                     = 15,
-    //OTErrorOTCloudStore                     = 16,
-    //OTErrorEmptyEscrowRecordID              = 17,
-    //OTErrorNoBottlePeerRecords              = 18,
-    //OTErrorCoreFollowUp                     = 19,
-    OTErrorFeatureNotEnabled                = 20,
-    OTErrorCKCallback                       = 21,
-    //OTErrorRampInit                         = 22,
-    OTErrorCKTimeOut                        = 23,
-    OTErrorNoNetwork                        = 24,
-    OTErrorNotSignedIn                      = 25,
-    OTErrorRecordNotFound                   = 26,
-    //OTErrorNoEscrowKeys                     = 27,
-    //OTErrorBottleUpdate                     = 28,
-    OTErrorNotSupported                     = 29,
-    OTErrorUnexpectedStateTransition        = 30,
-    OTErrorNoSuchContext                    = 31,
-    //OTErrorTimeout                          = 32,
-    //OTErrorMasterKey                        = 33,
-    //OTErrorNotTrusted                       = 34,
-    OTErrorLimitedPeer                      = 35,
-    //OTErrorNoOctagonKeysInSOS               = 36,
-    //OTErrorNeedsAuthentication              = 37,
-    OTErrorOctagonAdapter                   = 38,
-    OTErrorSOSAdapter                       = 39,
-    //OctagonErrorNoAccount                   = 40,
-    OTErrorRecoveryKeyMalformed             = 41,
-    OTAuthKitNoAltDSID                      = 42,
-    OTAuthKitAKDeviceListRequestContextClass = 43,
-    OTAuthKitNoPrimaryAccount               = 44,
-    OTAuthKitNoAuthenticationController     = 45,
-    OTAuthKitMachineIDMissing               = 46,
-    OTAuthKitPrimaryAccountHaveNoDSID       = 47,
-    OTErrorFailedToLeaveClique              = 48,
-    OTErrorSyncPolicyMissing                = 49,
-};
 
 #define OTMasterSecretLength 72
 
@@ -133,6 +81,7 @@ typedef NS_ENUM(NSInteger, CuttlefishErrorCode) {
     CuttlefishErrorEscrowProxyFailure = 1038,
     CuttlefishErrorResetFailed = 1039,
     CuttlefishErrorViewZoneDeletionFailed = 1040,
+    CuttlefishErrorAddCustodianRecoveryKeyFailed = 1041,
 
     // For testing error handling. Never returned from actual cuttlefish.
     // Should not be retried.

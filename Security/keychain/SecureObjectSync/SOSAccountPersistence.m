@@ -473,6 +473,7 @@ static SOSAccount* SOSAccountCreateFromDER(CFAllocatorRef allocator,
     }];
 
     SOSAccountEnsureUUID(account);
+    [account sosEvaluateIfNeeded];
 
     return account;
 }

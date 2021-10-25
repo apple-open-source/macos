@@ -57,6 +57,18 @@ tables, ... Available hooks are:
 - Rank 1: `TUNABLE`, `TUNABLE_WRITEABLE`
 - Middle: globals that require complex initialization (e.g. SFI classes).
 
+`STARTUP_SUB_TIMEOUTS`
+----------------------
+
+## Description
+
+Initializes machine timeouts, which are device-tree/boot-args
+configurable timeouts for low level machine code.
+
+See the comments for the MACHINE_TIMEOUT macro on how they are used in
+detail.
+
+- Rank 1: `MACHINE_TIMEOUT`
 
 `STARTUP_SUB_LOCKS_EARLY`
 -------------------------
@@ -232,7 +244,7 @@ Initializes the `os_log` facilities.
 
 
 `STARTUP_SUB_MACH_IPC`
--------------------
+----------------------
 
 ### Description
 
@@ -244,8 +256,21 @@ Initializes the Mach IPC subsystem.
 - Rank last: Final IPC initialization.
 
 
-`STARTUP_SUB_SYSCTL`
+`STARTUP_SUB_THREAD_CALL`
 -------------------------
+
+### Description
+
+Initializes the Thread call subsystem (and dependent subsystems).
+
+### Rank usage
+
+- Rank 1: Initiailizes the thread call subsystem
+- Rank Middle: Initialize modules needing thread calls
+
+
+`STARTUP_SUB_SYSCTL`
+--------------------
 
 ### Description
 
@@ -269,7 +294,8 @@ interrupts or preemption enabled may begin enforcement.
 
 ### Rank usage
 
-N/A.
+- Rank 1: Initialize some BSD globals
+- Middle: Initialize some early BSD subsystems
 
 
 `STARTUP_SUB_LOCKDOWN`

@@ -73,6 +73,7 @@
 #include "trust/trustd/OTATrustUtilities.h"
 #include "trust/trustd/personalization.h"
 #include "trust/trustd/CertificateTransparency.h"
+#include "trust/trustd/trustdVariants.h"
 
 #if !TARGET_OS_IPHONE
 #include <Security/SecTaskPriv.h>
@@ -267,6 +268,32 @@ static void SecPolicyCheckCriticalExtensions(SecPVCRef pvc,
 	CFStringRef key) {
 }
 
+static void SecPolicyCheckUnparseableExtension(SecPVCRef pvc, CFStringRef key) {
+    CFIndex ix, count = SecPVCGetCertificateCount(pvc);
+    SecPolicyRef policy = SecPVCGetPolicy(pvc);
+    CFTypeRef pvcValue = CFDictionaryGetValue(policy->_options, key);
+    for (ix = 0; ix < count; ++ix) {
+        SecCertificateRef cert = SecPVCGetCertificateAtIndex(pvc, ix);
+        if (!SecPolicyCheckCertUnparseableExtension(cert, pvcValue)) {
+            if (!SecPVCSetResult(pvc, key, ix, kCFBooleanFalse))
+                return;
+        }
+    }
+}
+
+static void SecPolicyCheckDuplicateExtension(SecPVCRef pvc, CFStringRef key) {
+    CFIndex ix, count = SecPVCGetCertificateCount(pvc);
+    SecPolicyRef policy = SecPVCGetPolicy(pvc);
+    CFTypeRef pvcValue = CFDictionaryGetValue(policy->_options, key);
+    for (ix = 0; ix < count; ++ix) {
+        SecCertificateRef cert = SecPVCGetCertificateAtIndex(pvc, ix);
+        if (!SecPolicyCheckCertDuplicateExtension(cert, pvcValue)) {
+            if (!SecPVCSetResult(pvc, key, ix, kCFBooleanFalse))
+                return;
+        }
+    }
+}
+
 static void SecPolicyCheckIdLinkage(SecPVCRef pvc,
 	CFStringRef key) {
 	CFIndex ix, count = SecPVCGetCertificateCount(pvc);
@@ -300,17 +327,6 @@ static void SecPolicyCheckKeyUsage(SecPVCRef pvc,
     CFTypeRef xku = CFDictionaryGetValue(policy->_options, key);
     if (!SecPolicyCheckCertKeyUsage(leaf, xku)) {
         SecPVCSetResult(pvc, key, 0, kCFBooleanFalse);
-    }
-}
-
-static void SecPolicyCheckKeyUsageReportOnly(SecPVCRef pvc, CFStringRef key)
-{
-    SecCertificateRef leaf = SecPVCGetCertificateAtIndex(pvc, 0);
-    SecPolicyRef policy = SecPVCGetPolicy(pvc);
-    CFTypeRef xku = CFDictionaryGetValue(policy->_options, key);
-    TrustAnalyticsBuilder *analytics = SecPathBuilderGetAnalyticsData(pvc->builder);
-    if (analytics && !SecPolicyCheckCertKeyUsage(leaf, xku)) {
-        analytics->tls_invalid_ku = true;
     }
 }
 
@@ -1012,11 +1028,10 @@ static void SecPolicyCheckBasicCertificateProcessing(SecPVCRef pvc,
 	CFStringRef key) {
     /* Inputs */
     //cert_path_t path;
-    CFIndex count = SecPVCGetCertificateCount(pvc);
+    CFIndex count = SecPVCGetCertificateCount(pvc), n = count;
     SecCertificatePathVCRef path = SecPathBuilderGetPath(pvc->builder);
     /* 64 bits cast: worst case here is we truncate the number of cert, and the validation may fail */
     assert((unsigned long)count<=UINT32_MAX); /* Debug check. Correct as long as CFIndex is long */
-    uint32_t n = (uint32_t)count;
 
     bool is_anchored = SecPathBuilderIsAnchored(pvc->builder);
     bool is_anchor_trusted = false;
@@ -1094,23 +1109,22 @@ static void SecPolicyCheckBasicCertificateProcessing(SecPVCRef pvc,
         }
     }
 
-#if 0
-    /* Path builder ensures we only get cert chains with proper issuer
-       chaining with valid signatures along the way. */
-    algorithm_id_t working_public_key_algorithm = anchor->public_key_algorithm;
-    SecKeyRef working_public_key = anchor->public_key;
-    x500_name_t working_issuer_name = anchor->issuer_name;
-#endif
-    uint32_t i, max_path_length = n;
+    /* Set the initial max path length to the trusted anchor's path length constraint, if present and less than the
+     * number of certs in the path. */
+    uint32_t max_path_length = (uint32_t)n;
+    const SecCEBasicConstraints *anchor_bc = SecCertificateGetBasicConstraints(anchor);
+    if (is_anchor_trusted && anchor_bc && anchor_bc->pathLenConstraintPresent
+        && anchor_bc->pathLenConstraint < max_path_length) {
+        max_path_length = anchor_bc->pathLenConstraint;
+    }
+
     SecCertificateRef cert = NULL;
-    for (i = 1; i <= n; ++i) {
+    for (CFIndex i = 1; i <= n; ++i) {
         /* Process Cert */
         cert = SecPVCGetCertificateAtIndex(pvc, n - i);
         bool is_self_issued = SecCertificatePathVCIsCertificateAtIndexSelfIssued(SecPathBuilderGetPath(pvc->builder), n - i);
 
         /* (a) Verify the basic certificate information. */
-        /* @@@ Ensure that cert was signed with working_public_key_algorithm
-           using the working_public_key and the working_public_key_parameters. */
 
         /* Already done by chain builder. */
         if (!SecCertificateIsValid(cert, verify_time)) {
@@ -1210,13 +1224,6 @@ static void SecPolicyCheckBasicCertificateProcessing(SecPVCRef pvc,
             }
 		}
 
-        if (SecCertificateGetUnparseableKnownExtension(cert) != kCFNotFound) {
-            /* Certificate contains one or more known exensions where parsing failed. */
-            if (!SecPVCSetResultForced(pvc, kSecPolicyCheckUnparseableExtension, n-i, kCFBooleanFalse, true)) {
-                goto errOut;
-            }
-        }
-
     } /* end loop over certs in path */
     /* Wrap up */
     /* (a) (b) done by SecCertificatePathVCVerifyPolicyTree */
@@ -1233,12 +1240,6 @@ working_public_key_algorithm are different, set the working_public_key_parameter
         }
     }
 
-    if (SecCertificateGetUnparseableKnownExtension(cert) != kCFNotFound) {
-        /* Certificate contains one or more known exensions where parsing failed. */
-        if (!SecPVCSetResultForced(pvc, kSecPolicyCheckUnparseableExtension, 0, kCFBooleanFalse, true)) {
-            goto errOut;
-        }
-    }
     /* (g) done by SecCertificatePathVCVerifyPolicyTree */
 
 errOut:
@@ -1711,15 +1712,18 @@ static bool has_ct_excepted_key(SecCertificatePathVCRef path, CFDictionaryRef ex
             /* Constrained CAs have to have a Distinguished Name permitted subtree with an Organization attribute */
             CFArrayForEach(SecCertificateGetPermittedSubtrees(ca), ^(const void *value) {
                 CFDataRef subtree = (CFDataRef)value;
-                const DERItem general_name = { (unsigned char *)CFDataGetBytePtr(subtree), CFDataGetLength(subtree) };
-                DERDecodedInfo general_name_content;
-                if (DR_Success == DERDecodeItem(&general_name, &general_name_content)) {
-                    OSStatus status = SecCertificateParseGeneralNameContentProperty(general_name_content.tag,
-                                                                                    &general_name_content.content,
-                                                                                    NULL,
-                                                                                    is_subtree_dn_with_org);
-                    if (status == errSecSuccess) {
-                        result = true;
+                if (CFDataGetLength(subtree) > 0) {
+                    const DERItem general_name = { (unsigned char *)CFDataGetBytePtr(subtree),
+                                                   (size_t)CFDataGetLength(subtree) };
+                    DERDecodedInfo general_name_content;
+                    if (DR_Success == DERDecodeItem(&general_name, &general_name_content)) {
+                        OSStatus status = SecCertificateParseGeneralNameContentProperty(general_name_content.tag,
+                                                                                        &general_name_content.content,
+                                                                                        NULL,
+                                                                                        is_subtree_dn_with_org);
+                        if (status == errSecSuccess) {
+                            result = true;
+                        }
                     }
                 }
             });
@@ -1809,7 +1813,6 @@ static bool is_ct_allowlisted_cert(SecCertificateRef leaf) {
 
 static void SecPolicyCheckSystemTrustedCTRequired(SecPVCRef pvc) {
     SecCertificateSourceRef appleAnchorSource = NULL;
-    SecOTAPKIRef otaref = SecOTAPKICopyCurrentOTAPKIRef();
     SecCertificatePathVCRef path = SecPathBuilderGetPath(pvc->builder);
     CFDictionaryRef trustedLogs = SecPathBuilderCopyTrustedLogs(pvc->builder);
 
@@ -1818,7 +1821,7 @@ static void SecPolicyCheckSystemTrustedCTRequired(SecPVCRef pvc) {
 
     /* We only enforce this check when all of the following are true:
      * 0. Kill Switch not enabled */
-    require_quiet(!SecOTAPKIKillSwitchEnabled(otaref, kOTAPKIKillSwitchCT), out);
+    require_quiet(!SecOTAPKIKillSwitchEnabled(kOTAPKIKillSwitchCT), out);
 
     /*  1. Not a pinning policy */
     SecPolicyRef policy = SecPVCGetPolicy(pvc);
@@ -1826,7 +1829,7 @@ static void SecPolicyCheckSystemTrustedCTRequired(SecPVCRef pvc) {
 
     /*  2. Device has checked in to MobileAsset for a current log list within the last 60 days.
      *     Or the caller passed in the trusted log list. */
-    require_quiet(SecOTAPKIAssetStalenessLessThanSeconds(otaref, kSecOTAPKIAssetStalenessDisable) || trustedLogs, out);
+    require_quiet(SecOTAPKIAssetStalenessLessThanSeconds(kSecOTAPKIAssetStalenessDisable) || trustedLogs, out);
 
     /*  3. Leaf issuance date is on or after 16 Oct 2018 at 00:00:00 AM UTC and not expired. */
     SecCertificateRef leaf = SecPVCGetCertificateAtIndex(pvc, 0);
@@ -1852,7 +1855,6 @@ static void SecPolicyCheckSystemTrustedCTRequired(SecPVCRef pvc) {
 
 out:
     CFReleaseNull(trustedLogs);
-    CFReleaseNull(otaref);
     if (appleAnchorSource) {
         SecMemoryCertificateSourceDestroy(appleAnchorSource);
     }
@@ -2011,17 +2013,22 @@ static void SecPolicyCheckNotCA(SecPVCRef pvc, CFStringRef key) {
 
 static void SecPolicyCheckNonTlsCTRequired(SecPVCRef pvc, CFStringRef key) {
     // Skip if kill switch enabled or log list not updated
-    SecOTAPKIRef otaref = SecOTAPKICopyCurrentOTAPKIRef();
     CFDictionaryRef trustedLogs = SecPathBuilderCopyTrustedLogs(pvc->builder);
-    if (!SecOTAPKIKillSwitchEnabled(otaref, kOTAPKIKillSwitchNonTLSCT) &&
-        (SecOTAPKIAssetStalenessLessThanSeconds(otaref, kSecOTAPKIAssetStalenessDisable) || trustedLogs)) {
+    if (!SecOTAPKIKillSwitchEnabled(kOTAPKIKillSwitchNonTLSCT) &&
+        (SecOTAPKIAssetStalenessLessThanSeconds(kSecOTAPKIAssetStalenessDisable) || trustedLogs)) {
         // Check CT against the non-TLS log list
         if (!SecPolicyCheckNonTlsCT(pvc)) {
             SecPVCSetResult(pvc, key, 0, kCFBooleanFalse);
         }
     }
-    CFReleaseNull(otaref);
     CFReleaseNull(trustedLogs);
+}
+
+static void SecPolicyCheckBasicConstraintsCA(SecPVCRef pvc, CFStringRef key) {
+    SecCertificateRef leaf = SecPVCGetCertificateAtIndex(pvc, 0);
+    if (SecCertificateVersion(leaf) < 3 || !SecCertificateIsCA(leaf)) {
+        SecPVCSetResult(pvc, key, 0, kCFBooleanFalse);
+    }
 }
 
 void SecPolicyServerInitialize(void) {
@@ -2035,7 +2042,7 @@ void SecPolicyServerInitialize(void) {
 #define __PC_ADD_CHECK_L(NAME) CFDictionaryAddValue(gSecPolicyLeafCallbacks, kSecPolicyCheck##NAME, SecPolicyCheck##NAME);
 #define __PC_ADD_CHECK_A(NAME) CFDictionaryAddValue(gSecPolicyPathCallbacks, kSecPolicyCheck##NAME, SecPolicyCheck##NAME);
 
-#define POLICYCHECKMACRO(NAME, TRUSTRESULT, SUBTYPE, LEAFCHECK, PATHCHECK, LEAFONLY, CSSMERR, OSSTATUS) \
+#define POLICYCHECKMACRO(NAME, TRUSTRESULT, SUBTYPE, LEAFCHECK, PATHCHECK, LEAFONLY, PROPFAILURE, CSSMERR, OSSTATUS) \
 __PC_ADD_CHECK_##LEAFCHECK(NAME) \
 __PC_ADD_CHECK_##PATHCHECK(NAME)
 #include "OSX/sec/Security/SecPolicyChecks.list"
@@ -2279,7 +2286,7 @@ static SecTrustResultType trust_result_for_key(CFStringRef key) {
 #define __TRUSTRESULT_D kSecTrustResultDeny
 #define __TRUSTRESULT_R kSecTrustResultRecoverableTrustFailure
 
-#define POLICYCHECKMACRO(NAME, TRUSTRESULT, SUBTYPE, LEAFCHECK, PATHCHECK, LEAFONLY, CSSMERR, OSSTATUS) \
+#define POLICYCHECKMACRO(NAME, TRUSTRESULT, SUBTYPE, LEAFCHECK, PATHCHECK, LEAFONLY, PROPFAILURE, CSSMERR, OSSTATUS) \
 if (__PC_TYPE_MEMBER_##TRUSTRESULT && CFEqual(key,CFSTR(#NAME))) { \
     result = __TRUSTRESULT_##TRUSTRESULT; \
 }
@@ -2826,7 +2833,7 @@ out:
     CFReleaseNull(stringRequirement);
     return result;
 }
-#endif
+#endif // TARGET_OS_OSX
 
 static bool SecPVCContainsTrustSettingsPolicyOption(SecPVCRef pvc, CFDictionaryRef options) {
     if (!isDictionary(options)) {
@@ -3084,32 +3091,30 @@ static void SecPVCCheckIssuerDateConstraints(SecPVCRef pvc) {
 }
 
 static bool SecPVCPolicyPermitsCTRequired(SecPVCRef pvc) {
-#if TARGET_OS_BRIDGE
+    if (TrustdVariantAllowsMobileAsset()) {
+        if (!pvc || !pvc->policies) {
+            return false;
+        }
+        SecPolicyRef policy = (SecPolicyRef)CFArrayGetValueAtIndex(pvc->policies, 0);
+        if (!policy) {
+            return false;
+        }
+        // SSL policy
+        CFStringRef policyName = SecPolicyGetName(policy);
+        if (CFEqualSafe(policyName, kSecPolicyNameSSLServer)) {
+            return true;
+        }
+        // SSL policy by another name
+        CFDictionaryRef options = policy->_options;
+        if (options && CFDictionaryGetValue(options, kSecPolicyCheckSSLHostname)) {
+            return true;
+        }
+        // Policy explicitly requires CT
+        if (options && CFDictionaryGetValue(options, kSecPolicyCheckCTRequired)) {
+            return true;
+        }
+    }
     return false;
-#else // !TARGET_OS_BRIDGE
-    if (!pvc || !pvc->policies) {
-        return false;
-    }
-    SecPolicyRef policy = (SecPolicyRef)CFArrayGetValueAtIndex(pvc->policies, 0);
-    if (!policy) {
-        return false;
-    }
-    // SSL policy
-    CFStringRef policyName = SecPolicyGetName(policy);
-    if (CFEqualSafe(policyName, kSecPolicyNameSSLServer)) {
-        return true;
-    }
-    // SSL policy by another name
-    CFDictionaryRef options = policy->_options;
-    if (options && CFDictionaryGetValue(options, kSecPolicyCheckSSLHostname)) {
-        return true;
-    }
-    // Policy explicitly requires CT
-    if (options && CFDictionaryGetValue(options, kSecPolicyCheckCTRequired)) {
-        return true;
-    }
-    return false;
-#endif // !TARGET_OS_BRIDGE
 }
 
 /* ASSUMPTIONS:
@@ -3169,10 +3174,9 @@ static void SecPVCCheckRequireCTConstraints(SecPVCRef pvc) {
 
     /* We need to have a recent log list or the CT check may have failed due to the list being out of date.
      * Also, honor the CT kill switch. */
-    SecOTAPKIRef otaref = SecOTAPKICopyCurrentOTAPKIRef();
     CFDictionaryRef trustedLogs = SecPathBuilderCopyTrustedLogs(pvc->builder);
-    if (!SecOTAPKIKillSwitchEnabled(otaref, kOTAPKIKillSwitchCT) &&
-        (SecOTAPKIAssetStalenessLessThanSeconds(otaref, kSecOTAPKIAssetStalenessDisable) || trustedLogs)) {
+    if (!SecOTAPKIKillSwitchEnabled(kOTAPKIKillSwitchCT) &&
+        (SecOTAPKIAssetStalenessLessThanSeconds(kSecOTAPKIAssetStalenessDisable) || trustedLogs)) {
         /* CT was required. Error is always set on leaf certificate. */
         if (ctp != kSecPathCTRequiredOverridable) {
             /* Normally kSecPolicyCheckCTRequired is recoverable */
@@ -3182,7 +3186,6 @@ static void SecPVCCheckRequireCTConstraints(SecPVCRef pvc) {
             SecPVCSetResultForced(pvc, kSecPolicyCheckCTRequired, 0, kCFBooleanFalse, true);
         }
     }
-    CFReleaseNull(otaref);
     CFReleaseNull(trustedLogs);
 }
 
@@ -3259,12 +3262,10 @@ void SecPVCPathChecks(SecPVCRef pvc) {
         SecPolicyCheckCT(pvc);
 
         /* Certs are only EV if they are also CT verified (when the Kill Switch isn't enabled and against a recent log list) */
-        SecOTAPKIRef otaref = SecOTAPKICopyCurrentOTAPKIRef();
-        if (ev_check_ok && (SecCertificatePathVCIsCT(path) || SecOTAPKIKillSwitchEnabled(otaref, kOTAPKIKillSwitchCT) ||
-                            !SecOTAPKIAssetStalenessLessThanSeconds(otaref, kSecOTAPKIAssetStalenessDisable))) {
+        if (ev_check_ok && (SecCertificatePathVCIsCT(path) || SecOTAPKIKillSwitchEnabled(kOTAPKIKillSwitchCT) ||
+                            !SecOTAPKIAssetStalenessLessThanSeconds(kSecOTAPKIAssetStalenessDisable))) {
             SecCertificatePathVCSetIsEV(path, true);
         }
-        CFReleaseNull(otaref);
     }
 
     /* Say that we did the expensive path checks (that we want to skip on the second call) */
@@ -3284,13 +3285,8 @@ void SecPVCPathChecks(SecPVCRef pvc) {
 }
 
 void SecPVCPathCheckRevocationResponsesReceived(SecPVCRef pvc) {
-#if TARGET_OS_WATCH
-     /* Since we don't currently allow networking on watchOS,
-      * don't enforce the revocation-required check here. (32728029) */
-    bool required = false;
-#else
-    bool required = true;
-#endif
+     /* Since we don't currently allow networking, don't enforce the revocation-required check here. */
+    bool required = TrustdVariantAllowsNetwork();
     SecCertificatePathVCRef path = SecPathBuilderGetPath(pvc->builder);
     CFIndex ix, certCount = SecCertificatePathVCGetCount(path);
     for (ix = 0; ix < certCount; ix++) {

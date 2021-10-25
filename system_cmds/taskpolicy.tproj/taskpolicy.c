@@ -55,12 +55,13 @@ int main(int argc, char * argv[])
 	pid_t pid = 0;
     posix_spawnattr_t attr;
     extern char **environ;
-	bool flagx = false, flagX = false, flagb = false, flagB = false, flaga = false;
+	bool flagx = false, flagX = false, flagb = false, flagB = false, flaga = false, flag_s = false;
 	int flagd = -1, flagg = -1;
+	short spawn_flags = POSIX_SPAWN_SETEXEC;
 	struct task_qos_policy qosinfo = { LATENCY_QOS_TIER_UNSPECIFIED, THROUGHPUT_QOS_TIER_UNSPECIFIED };
     uint64_t qos_clamp = POSIX_SPAWN_PROC_CLAMP_NONE;
 
-	while ((ch = getopt(argc, argv, "xXbBd:g:c:t:l:p:a")) != -1) {
+	while ((ch = getopt(argc, argv, "xXbBd:g:c:t:l:p:as")) != -1) {
 		switch (ch) {
 			case 'x':
 				flagx = true;
@@ -119,6 +120,9 @@ int main(int argc, char * argv[])
 			case 'a':
 				flaga = true;
 				break;
+			case 's':
+				flag_s = true;
+				break;
 			case '?':
 			default:
 				usage();
@@ -131,7 +135,7 @@ int main(int argc, char * argv[])
 		usage();
 	}
 
-	if (pid != 0 && (flagx || flagX || flagg != -1 || flagd != -1)) {
+	if (pid != 0 && (flagx || flagX || flagg != -1 || flagd != -1 || flag_s)) {
 		warnx("Incompatible option(s) used with -p");
 		usage();
 	}
@@ -214,16 +218,20 @@ int main(int argc, char * argv[])
 	if (pid != 0)
 		return 0;
 
-    ret = posix_spawnattr_init(&attr);
-    if (ret != 0) errc(EX_NOINPUT, ret, "posix_spawnattr_init");
+	ret = posix_spawnattr_init(&attr);
+	if (ret != 0) errc(EX_NOINPUT, ret, "posix_spawnattr_init");
 
-    ret = posix_spawnattr_setflags(&attr, POSIX_SPAWN_SETEXEC);
-    if (ret != 0) errc(EX_NOINPUT, ret, "posix_spawnattr_setflags");
+	if (flag_s) {
+		spawn_flags |= POSIX_SPAWN_START_SUSPENDED;
+	}
 
-    if (qos_clamp != POSIX_SPAWN_PROC_CLAMP_NONE) {
-        ret = posix_spawnattr_set_qos_clamp_np(&attr, qos_clamp);
-        if (ret != 0) errc(EX_NOINPUT, ret, "posix_spawnattr_set_qos_clamp_np");
-    }
+	ret = posix_spawnattr_setflags(&attr, spawn_flags);
+	if (ret != 0) errc(EX_NOINPUT, ret, "posix_spawnattr_setflags");
+
+	if (qos_clamp != POSIX_SPAWN_PROC_CLAMP_NONE) {
+		ret = posix_spawnattr_set_qos_clamp_np(&attr, qos_clamp);
+		if (ret != 0) errc(EX_NOINPUT, ret, "posix_spawnattr_set_qos_clamp_np");
+	}
 
 	if (flaga) {
 		ret = posix_spawnattr_setprocesstype_np(&attr, POSIX_SPAWN_PROC_TYPE_APP_DEFAULT);
@@ -233,8 +241,8 @@ int main(int argc, char * argv[])
 		if (ret != 0) errc(EX_NOINPUT, ret, "posix_spawnattr_set_darwin_role_np");
 	}
 
-    ret = posix_spawnp(&pid, argv[0], NULL, &attr, argv, environ);
-    if (ret != 0) errc(EX_NOINPUT, ret, "posix_spawn");
+	ret = posix_spawnp(&pid, argv[0], NULL, &attr, argv, environ);
+	if (ret != 0) errc(EX_NOINPUT, ret, "posix_spawn");
 
 	return EX_OSERR;
 }
@@ -242,7 +250,7 @@ int main(int argc, char * argv[])
 static void usage(void)
 {
 	fprintf(stderr, "Usage: %s [-x|-X] [-d <policy>] [-g policy] [-c clamp] [-b] [-t <tier>]\n"
-                    "                  [-l <tier>] [-a] <program> [<pargs> [...]]\n", getprogname());
+                    "                  [-l <tier>] [-a] [-s] <program> [<pargs> [...]]\n", getprogname());
 	fprintf(stderr, "       %s [-b|-B] [-t <tier>] [-l <tier>] -p pid\n", getprogname());
 	exit(EX_USAGE);
 }

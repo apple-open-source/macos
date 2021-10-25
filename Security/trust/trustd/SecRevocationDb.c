@@ -31,6 +31,7 @@
 #include "trust/trustd/SecRevocationNetworking.h"
 #include "trust/trustd/SecTrustLoggingServer.h"
 #include "trust/trustd/trustdFileLocations.h"
+#include "trust/trustd/trustdVariants.h"
 #include <Security/SecCertificateInternal.h>
 #include <Security/SecCMS.h>
 #include <Security/CMSDecoder.h>
@@ -97,8 +98,8 @@ static int compareCFStrings(const void *p, const void *q) {
 }
 
 static bool hashData(CFDataRef data, CC_SHA256_CTX* hash_ctx) {
-    if (!isData(data)) { return false; }
-    uint32_t length = (uint32_t)(CFDataGetLength(data) & 0xFFFFFFFF);
+    if (!isData(data) || CFDataGetLength(data) < 0) { return false; }
+    uint32_t length = ((uint32_t)CFDataGetLength(data) & 0xFFFFFFFF);
     uint32_t n = OSSwapInt32(length);
     CC_SHA256_Update(hash_ctx, &n, sizeof(uint32_t));
     const uint8_t *p = (uint8_t*)CFDataGetBytePtr(data);
@@ -139,9 +140,9 @@ static bool hashBoolean(CFBooleanRef value, CC_SHA256_CTX* hash_ctx) {
 }
 
 static bool hashArray(CFArrayRef array, CC_SHA256_CTX* hash_ctx) {
-    if (!isArray(array)) { return false; }
+    if (!isArray(array) || CFArrayGetCount(array) < 0) { return false; }
     CFIndex count = CFArrayGetCount(array);
-    uint32_t n = OSSwapInt32(count & 0xFFFFFFFF);
+    uint32_t n = OSSwapInt32((uint32_t)count & 0xFFFFFFFF);
     CC_SHA256_Update(hash_ctx, &n, sizeof(uint32_t));
     __block bool ok = true;
     CFArrayForEach(array, ^(const void *thing) {
@@ -153,13 +154,16 @@ static bool hashArray(CFArrayRef array, CC_SHA256_CTX* hash_ctx) {
 static bool hashDictionary(CFDictionaryRef dictionary, CC_SHA256_CTX* hash_ctx) {
     if (!isDictionary(dictionary)) { return false; }
     CFIndex count = CFDictionaryGetCount(dictionary);
-    const void **keys = (const void **)malloc(sizeof(void*) * count);
-    const void **vals = (const void **)malloc(sizeof(void*) * count);
+    if (count < 0 || count >= (long)(LONG_MAX / sizeof(void*))) {
+        return false;
+    }
+    const void **keys = (const void **)malloc(sizeof(void*) * (size_t)count);
+    const void **vals = (const void **)malloc(sizeof(void*) * (size_t)count);
     bool ok = (keys && vals);
     if (ok) {
         CFDictionaryGetKeysAndValues(dictionary, keys, vals);
-        qsort(keys, count, sizeof(CFStringRef), compareCFStrings);
-        uint32_t n = OSSwapInt32(count & 0xFFFFFFFF);
+        qsort(keys, (size_t)count, sizeof(CFStringRef), compareCFStrings);
+        uint32_t n = OSSwapInt32((uint32_t)count & 0xFFFFFFFF);
         CC_SHA256_Update(hash_ctx, &n, sizeof(uint32_t));
     }
     for (CFIndex idx = 0; ok && idx < count; idx++) {
@@ -368,7 +372,7 @@ static CFDataRef copyInflatedData(CFDataRef data) {
     if (!outData) {
         return NULL;
     }
-    CFIndex buf_sz = malloc_good_size(zs.avail_in ? zs.avail_in : 1024 * 4);
+    size_t buf_sz = malloc_good_size(zs.avail_in ? zs.avail_in : 1024 * 4);
     unsigned char *buf = malloc(buf_sz);
     int rc;
     do {
@@ -406,7 +410,7 @@ static CFDataRef copyDeflatedData(CFDataRef data) {
     if (!outData) {
         return NULL;
     }
-    CFIndex buf_sz = malloc_good_size(zs.avail_in ? zs.avail_in : 1024 * 4);
+    size_t buf_sz = malloc_good_size(zs.avail_in ? zs.avail_in : 1024 * 4);
     unsigned char *buf = malloc(buf_sz);
     int rc = Z_BUF_ERROR;
     do {
@@ -415,8 +419,12 @@ static CFDataRef copyDeflatedData(CFDataRef data) {
         rc = deflate(&zs, Z_FINISH);
 
         if (rc == Z_OK || rc == Z_STREAM_END) {
-            CFIndex buf_used = buf_sz - zs.avail_out;
-            CFDataAppendBytes(outData, (const UInt8*)buf, buf_used);
+            size_t buf_used = buf_sz - zs.avail_out;
+            if (buf_used > LONG_MAX) {
+                CFReleaseSafe(outData);
+                return NULL;
+            }
+            CFDataAppendBytes(outData, (const UInt8*)buf, (CFIndex)buf_used);
         }
         else if (rc == Z_BUF_ERROR) {
             free(buf);
@@ -457,13 +465,13 @@ int readValidFile(const char *fileName,
     size = (size_t)sb.st_size;
 
     buf = mmap(NULL, size, PROT_READ, MAP_PRIVATE, fd, 0);
-    if (!buf || buf == MAP_FAILED) {
+    if (!buf || buf == MAP_FAILED || size > LONG_MAX) {
         rtn = errno;
         secerror("unable to map %s (errno %d)", fileName, rtn);
         goto errOut;
     }
 
-    *bytes = CFDataCreateWithBytesNoCopy(NULL, buf, size, kCFAllocatorNull);
+    *bytes = CFDataCreateWithBytesNoCopy(NULL, buf, (CFIndex)size, kCFAllocatorNull);
 
 errOut:
     close(fd);
@@ -510,7 +518,7 @@ static CFDataRef CF_RETURNS_RETAINED createPoliciesData(CFArrayRef policies) {
         return NULL; /* either no constraints, or far more than we expect. */
     }
     CFDataRef data = NULL;
-    CFIndex length = 1 + (sizeof(int8_t) * count);
+    size_t length = 1 + (sizeof(int8_t) * (size_t)count);
     int8_t *bytes = malloc(length);
     if (bytes) {
         int8_t *p = bytes;
@@ -523,7 +531,7 @@ static CFDataRef CF_RETURNS_RETAINED createPoliciesData(CFArrayRef policies) {
             }
             *p++ = pval;
         }
-        data = CFDataCreate(kCFAllocatorDefault, (const UInt8*)bytes, length);
+        data = CFDataCreate(kCFAllocatorDefault, (const UInt8*)bytes, (CFIndex)length);
     }
     free(bytes);
     return data;
@@ -666,8 +674,8 @@ static bool SecValidUpdateProcessData(SecRevocationDbConnectionRef dbc, CFIndex 
         --plistCount;
         ++plistProcessed;
 
-        if (plistLength <= bytesRemaining) {
-            CFDataRef data = CFDataCreateWithBytesNoCopy(NULL, p, plistLength, kCFAllocatorNull);
+        if (plistLength <= bytesRemaining && plistLength < INT_MAX) {
+            CFDataRef data = CFDataCreateWithBytesNoCopy(NULL, p, (CFIndex)plistLength, kCFAllocatorNull);
             propertyList = CFPropertyListCreateWithData(NULL, data, kCFPropertyListImmutable, NULL, NULL);
             CFReleaseNull(data);
         }
@@ -927,32 +935,31 @@ static bool SecValidUpdateSchedule(bool updateEnabled, CFStringRef server, CFInd
         return false;
     }
 
-#if !TARGET_OS_BRIDGE
+
     /* Schedule as a maintenance task */
-    secdebug("validupdate", "will fetch v%lu from \"%@\"", (unsigned long)version, server);
-    return SecValidUpdateRequest(SecRevocationDbGetUpdateQueue(), server, version);
-#else
+    if (TrustdVariantAllowsNetwork()) {
+        secdebug("validupdate", "will fetch v%lu from \"%@\"", (unsigned long)version, server);
+        return SecValidUpdateRequest(SecRevocationDbGetUpdateQueue(), server, version);
+    }
     return false;
-#endif
 }
 
 static CFStringRef SecRevocationDbGetDefaultServer(void) {
-#if !TARGET_OS_WATCH && !TARGET_OS_BRIDGE
-    #if RC_SEED_BUILD
-        CFStringRef defaultServer = kValidUpdateSeedServer;
-    #else // !RC_SEED_BUILD
-        CFStringRef defaultServer = kValidUpdateProdServer;
-    #endif // !RC_SEED_BUILD
-        if (os_variant_has_internal_diagnostics("com.apple.security")) {
-            defaultServer = kValidUpdateCarryServer;
-        }
-        return defaultServer;
-#else // TARGET_OS_WATCH || TARGET_OS_BRIDGE
-    /* Because watchOS and bridgeOS can't update over the air, we should
-     * always use the prod server so that the valid database built into the
-     * image is used. */
-    return kValidUpdateProdServer;
-#endif
+    if (!TrustdVariantAllowsNetwork()) {
+        /* For devices that can't update over the air, we should
+         * always use the prod server so that the valid database built into the
+         * image is used. */
+        return kValidUpdateProdServer;
+    }
+#if RC_SEED_BUILD
+    CFStringRef defaultServer = kValidUpdateSeedServer;
+#else // !RC_SEED_BUILD
+    CFStringRef defaultServer = kValidUpdateProdServer;
+#endif // !RC_SEED_BUILD
+    if (os_variant_has_internal_diagnostics("com.apple.security")) {
+        defaultServer = kValidUpdateCarryServer;
+    }
+    return defaultServer;
 }
 
 static CF_RETURNS_RETAINED CFStringRef SecRevocationDbCopyServer(void) {
@@ -972,7 +979,7 @@ static CF_RETURNS_RETAINED CFStringRef SecRevocationDbCopyServer(void) {
 }
 
 void SecRevocationDbInitialize() {
-    if (!isDbOwner()) { return; }
+    if (!isDbOwner() || !TrustdVariantAllowsFileWrite()) { return; }
     os_transaction_t transaction = os_transaction_create("com.apple.trustd.valid.initialize");
     __block bool initializeDb = false;
 
@@ -1019,11 +1026,9 @@ void SecRevocationDbInitialize() {
     CFStringRef server = SecRevocationDbCopyServer();
     CFIndex version = 0;
     secnotice("validupdate", "initializing database");
-    if (!SecValidUpdateSatisfiedLocally(server, version, true)) {
-#if !TARGET_OS_BRIDGE
+    if (!SecValidUpdateSatisfiedLocally(server, version, true) && TrustdVariantAllowsNetwork()) {
         /* Schedule full update as a maintenance task */
         (void)SecValidUpdateRequest(SecRevocationDbGetUpdateQueue(), server, version);
-#endif
     }
     CFReleaseSafe(server);
     os_release(transaction);
@@ -1182,14 +1187,10 @@ static CFIndex _SecRevocationDbGetUpdateVersion(CFStringRef server) {
 static bool _SecRevocationDbIsUpdateEnabled(void) {
     CFTypeRef value = NULL;
     // determine whether update fetching is enabled
-#if !TARGET_OS_WATCH && !TARGET_OS_BRIDGE
-    // Valid update fetching was initially enabled on macOS 10.13 and iOS 11.0.
-    // This conditional has been changed to include every platform and version
-    // except for those where the db should not be updated over the air.
     bool updateEnabled = true;
-#else
-    bool updateEnabled = false;
-#endif
+    if (!TrustdVariantAllowsNetwork()) {
+        updateEnabled = false;
+    }
     value = (CFBooleanRef)CFPreferencesCopyValue(kUpdateEnabledKey, kSecPrefsDomain, kCFPreferencesAnyUser, kCFPreferencesCurrentHost);
     if (isBoolean(value)) {
         updateEnabled = CFBooleanGetValue((CFBooleanRef)value);
@@ -1418,7 +1419,7 @@ CFAbsoluteTime SecRevocationDbComputeNextUpdateTime(CFIndex updateInterval) {
     }
 
     // compute randomization factor, between 0 and 50% of the interval
-    CFIndex fuzz = arc4random() % (long)(interval/2.0);
+    CFIndex fuzz = (long)arc4random() % (long)(interval/2.0);
     CFAbsoluteTime nextUpdate =  CFAbsoluteTimeGetCurrent() + interval + fuzz;
     secdebug("validupdate", "next update in %ld seconds", (long)(interval + fuzz));
     return nextUpdate;
@@ -1940,9 +1941,9 @@ static CFArrayRef _SecRevocationDbCopyHashes(SecRevocationDbConnectionRef dbc, C
     ok = ok && SecDbWithSQL(dbc->dbconn, selectDbHashSQL, &localError, ^bool(sqlite3_stmt *selectDbHash) {
         ok = ok && SecDbStep(dbc->dbconn, selectDbHash, &localError, ^void(bool *stop) {
             uint8_t *p = (uint8_t *)sqlite3_column_blob(selectDbHash, 0);
-            uint64_t len = sqlite3_column_bytes(selectDbHash, 0);
+            int len = sqlite3_column_bytes(selectDbHash, 0);
             CFIndex hashLen = CC_SHA256_DIGEST_LENGTH;
-            while (p && len >= (uint64_t)hashLen) {
+            while (p && len >= hashLen) {
                 CFDataRef hash = CFDataCreate(kCFAllocatorDefault, (const UInt8 *)p, hashLen);
                 if (hash) {
                     CFArrayAppendValue(hashes, hash);
@@ -1969,7 +1970,11 @@ static bool _SecRevocationDbSetHashes(SecRevocationDbConnectionRef dbc, CFArrayR
 
     ok = ok && SecDbWithSQL(dbc->dbconn, insertAdminRecordSQL, &localError, ^bool(sqlite3_stmt *insertHashes) {
         CFIndex count = CFArrayGetCount(hashes);
-        CFIndex hashLen = CC_SHA256_DIGEST_LENGTH, dataLen = hashLen * count;
+        if (count < 0) {
+            return false;
+        }
+        CFIndex hashLen = CC_SHA256_DIGEST_LENGTH;
+        size_t dataLen = (size_t)hashLen * (size_t)count;
         uint8_t *dataPtr = (uint8_t *)calloc(dataLen, 1);
         uint8_t *p = dataPtr;
         for (CFIndex idx = 0; idx < count && p; idx++) {
@@ -2070,8 +2075,8 @@ static int64_t _SecRevocationDbGetSchemaVersion(SecRevocationDbRef rdb, SecRevoc
         if (dbc) {
             atomic_init(&gSchemaVersion, _SecRevocationDbReadSchemaVersionFromDb(dbc, error));
         } else {
-            (void) SecRevocationDbPerformRead(rdb, error, ^bool(SecRevocationDbConnectionRef dbc, CFErrorRef *blockError) {
-                atomic_init(&gSchemaVersion, _SecRevocationDbReadSchemaVersionFromDb(dbc, blockError));
+            (void) SecRevocationDbPerformRead(rdb, error, ^bool(SecRevocationDbConnectionRef blockDbc, CFErrorRef *blockError) {
+                atomic_init(&gSchemaVersion, _SecRevocationDbReadSchemaVersionFromDb(blockDbc, blockError));
                 return true;
             });
         }
@@ -2081,8 +2086,8 @@ static int64_t _SecRevocationDbGetSchemaVersion(SecRevocationDbRef rdb, SecRevoc
         if (dbc) {
             atomic_store(&gSchemaVersion, _SecRevocationDbReadSchemaVersionFromDb(dbc, error));
         } else {
-            (void) SecRevocationDbPerformRead(rdb, error, ^bool(SecRevocationDbConnectionRef dbc, CFErrorRef *blockError) {
-                atomic_store(&gSchemaVersion, _SecRevocationDbReadSchemaVersionFromDb(dbc, blockError));
+            (void) SecRevocationDbPerformRead(rdb, error, ^bool(SecRevocationDbConnectionRef blockDbc, CFErrorRef *blockError) {
+                atomic_store(&gSchemaVersion, _SecRevocationDbReadSchemaVersionFromDb(blockDbc, blockError));
                 return true;
             });
         }
@@ -2421,13 +2426,13 @@ static bool _SecRevocationDbUpdateIssuers(SecRevocationDbConnectionRef dbc, int6
         CFIndex issuerIX, issuerCount = CFArrayGetCount(issuers);
         for (issuerIX=0; issuerIX<issuerCount && ok; issuerIX++) {
             CFDataRef hash = (CFDataRef)CFArrayGetValueAtIndex(issuers, issuerIX);
-            if (!hash) { continue; }
+            if (!hash || CFDataGetLength(hash) < 0) { continue; }
             ok = ok && SecDbWithSQL(dbc->dbconn, insertIssuerRecordSQL, &localError, ^bool(sqlite3_stmt *insertIssuer) {
                 ok = ok && SecDbBindInt64(insertIssuer, 1,
                                      groupId, &localError);
                 ok = ok && SecDbBindBlob(insertIssuer, 2,
                                     CFDataGetBytePtr(hash),
-                                    CFDataGetLength(hash),
+                                    (size_t)CFDataGetLength(hash),
                                     SQLITE_TRANSIENT, &localError);
                 /* Execute the insert statement for this issuer record. */
                 ok = ok && SecDbStep(dbc->dbconn, insertIssuer, &localError, NULL);
@@ -2496,12 +2501,15 @@ static bool _SecRevocationDbUpdateIssuerData(SecRevocationDbConnectionRef dbc, i
             ok = ok && SecDbWithSQL(dbc->dbconn, sql, &localError, ^bool(sqlite3_stmt *deleteIdentifier) {
                 /* (groupid,serial|sha256) */
                 CFDataRef hexData = cfToHexData(identifierData, true);
-                if (!hexData) { return false; }
+                if (!hexData || CFDataGetLength(hexData) < 0) {
+                    CFReleaseNull(hexData);
+                    return false;
+                }
                 ok = ok && SecDbBindInt64(deleteIdentifier, 1,
                                      groupId, &localError);
                 ok = ok && SecDbBindBlob(deleteIdentifier, 2,
                                     CFDataGetBytePtr(hexData),
-                                    CFDataGetLength(hexData),
+                                    (size_t)CFDataGetLength(hexData),
                                     SQLITE_TRANSIENT, &localError);
                 /* Execute the delete statement for the identifier record. */
                 ok = ok && SecDbStep(dbc->dbconn, deleteIdentifier, &localError, NULL);
@@ -2522,7 +2530,7 @@ static bool _SecRevocationDbUpdateIssuerData(SecRevocationDbConnectionRef dbc, i
         CFIndex processed=0, identifierIX, identifierCount = CFArrayGetCount(addArray);
         for (identifierIX=0; identifierIX<identifierCount; identifierIX++) {
             CFDataRef identifierData = (CFDataRef)CFArrayGetValueAtIndex(addArray, identifierIX);
-            if (!identifierData) { continue; }
+            if (!identifierData || CFDataGetLength(identifierData) < 0) { continue; }
             if (format == kSecValidInfoFormatUnknown) {
                 format = _SecRevocationDbGetGroupFormatForData(dbc, groupId, identifierData);
             }
@@ -2541,7 +2549,7 @@ static bool _SecRevocationDbUpdateIssuerData(SecRevocationDbConnectionRef dbc, i
                                      groupId, &localError);
                 ok = ok && SecDbBindBlob(insertIdentifier, 2,
                                     CFDataGetBytePtr(identifierData),
-                                    CFDataGetLength(identifierData),
+                                    (size_t)CFDataGetLength(identifierData),
                                     SQLITE_TRANSIENT, &localError);
                 /* Execute the insert statement for the identifier record. */
                 ok = ok && SecDbStep(dbc->dbconn, insertIdentifier, &localError, NULL);
@@ -2694,11 +2702,12 @@ static bool _SecRevocationDbUpdatePolicyConstraints(SecRevocationDbConnectionRef
     }
 
     __block CFDataRef data = createPoliciesData(policies);
-    ok = data && SecDbWithSQL(dbc->dbconn, updateGroupPoliciesSQL, &localError, ^bool(sqlite3_stmt *updatePolicies) {
+    ok = data && (CFDataGetLength(data) >= 0);
+    ok = ok && SecDbWithSQL(dbc->dbconn, updateGroupPoliciesSQL, &localError, ^bool(sqlite3_stmt *updatePolicies) {
         /* (policies,groupid) */
         ok = ok && SecDbBindBlob(updatePolicies, 1,
                                  CFDataGetBytePtr(data),
-                                 CFDataGetLength(data),
+                                 (size_t)CFDataGetLength(data),
                                  SQLITE_TRANSIENT, &localError);
         ok = ok && SecDbBindInt64(updatePolicies, 2, groupId, &localError);
         ok = ok && SecDbStep(dbc->dbconn, updatePolicies, &localError, NULL);
@@ -3077,10 +3086,10 @@ static int64_t _SecRevocationDbUpdateGroup(SecRevocationDbConnectionRef dbc, int
                 if (_SecRevocationDbUpdateFilter(dict, data, &xmlData)) {
                     dataValue = xmlData; /* use updated data */
                 }
-                if (dataValue) {
+                if (dataValue && CFDataGetLength(dataValue) >= 0) {
                     ok = SecDbBindBlob(insertGroup, 4,
                                        CFDataGetBytePtr(dataValue),
-                                       CFDataGetLength(dataValue),
+                                       (size_t)CFDataGetLength(dataValue),
                                        SQLITE_TRANSIENT, &localError);
                 }
                 if (!ok) {
@@ -3098,10 +3107,10 @@ static int64_t _SecRevocationDbUpdateGroup(SecRevocationDbConnectionRef dbc, int
             if (newPoliciesData) {
                 policiesValue = newPoliciesData; /* use updated policies */
             }
-            if (policiesValue) {
+            if (policiesValue && CFDataGetLength(policiesValue) >= 0) {
                 ok = SecDbBindBlob(insertGroup, 5,
                                    CFDataGetBytePtr(policiesValue),
-                                   CFDataGetLength(policiesValue),
+                                   (size_t)CFDataGetLength(policiesValue),
                                    SQLITE_TRANSIENT, &localError);
             }
             /* else there is no policy data, so NULL is implicitly bound to column 5 */
@@ -3150,7 +3159,7 @@ static int64_t _SecRevocationDbGroupIdForIssuerHash(SecRevocationDbConnectionRef
     if (!hash) {
         secdebug("validupdate", "failed to get hash (%@)", hash);
     }
-    require(hash && dbc, errOut);
+    require(dbc && hash && CFDataGetLength(hash) > 0, errOut);
 
     /* This is the starting point for any lookup; find a group id for the given issuer hash.
        Before we do that, need to verify the current db_version. We cannot use results from a
@@ -3171,7 +3180,7 @@ static int64_t _SecRevocationDbGroupIdForIssuerHash(SecRevocationDbConnectionRef
     /* Look up provided issuer_hash in the issuers table.
     */
     ok = ok && SecDbWithSQL(dbc->dbconn, selectGroupIdSQL, &localError, ^bool(sqlite3_stmt *selectGroupId) {
-        ok &= SecDbBindBlob(selectGroupId, 1, CFDataGetBytePtr(hash), CFDataGetLength(hash), SQLITE_TRANSIENT, &localError);
+        ok &= SecDbBindBlob(selectGroupId, 1, CFDataGetBytePtr(hash), (size_t)CFDataGetLength(hash), SQLITE_TRANSIENT, &localError);
         ok &= SecDbStep(dbc->dbconn, selectGroupId, &localError, ^(bool *stopGroupId) {
             groupId = sqlite3_column_int64(selectGroupId, 0);
         });
@@ -3361,11 +3370,11 @@ static bool _SecRevocationDbSerialInGroup(SecRevocationDbConnectionRef dbc,
     __block bool result = false;
     __block bool ok = true;
     __block CFErrorRef localError = NULL;
-    require(dbc && serial, errOut);
+    require(dbc && serial && CFDataGetLength(serial) > 0, errOut);
     ok &= SecDbWithSQL(dbc->dbconn, selectSerialRecordSQL, &localError, ^bool(sqlite3_stmt *selectSerial) {
         ok &= SecDbBindInt64(selectSerial, 1, groupId, &localError);
         ok &= SecDbBindBlob(selectSerial, 2, CFDataGetBytePtr(serial),
-                            CFDataGetLength(serial), SQLITE_TRANSIENT, &localError);
+                            (size_t)CFDataGetLength(serial), SQLITE_TRANSIENT, &localError);
         ok &= SecDbStep(dbc->dbconn, selectSerial, &localError, ^(bool *stop) {
             int64_t foundRowId = (int64_t)sqlite3_column_int64(selectSerial, 0);
             result = (foundRowId > 0);
@@ -3390,11 +3399,11 @@ static bool _SecRevocationDbCertHashInGroup(SecRevocationDbConnectionRef dbc,
     __block bool result = false;
     __block bool ok = true;
     __block CFErrorRef localError = NULL;
-    require(dbc && certHash, errOut);
+    require(dbc && certHash && CFDataGetLength(certHash) > 0, errOut);
     ok &= SecDbWithSQL(dbc->dbconn, selectHashRecordSQL, &localError, ^bool(sqlite3_stmt *selectHash) {
         ok &= SecDbBindInt64(selectHash, 1, groupId, &localError);
         ok = SecDbBindBlob(selectHash, 2, CFDataGetBytePtr(certHash),
-                           CFDataGetLength(certHash), SQLITE_TRANSIENT, &localError);
+                           (size_t)CFDataGetLength(certHash), SQLITE_TRANSIENT, &localError);
         ok &= SecDbStep(dbc->dbconn, selectHash, &localError, ^(bool *stop) {
             int64_t foundRowId = (int64_t)sqlite3_column_int64(selectHash, 0);
             result = (foundRowId > 0);
@@ -3437,11 +3446,11 @@ static bool _SecRevocationDbSerialInFilter(SecRevocationDbConnectionRef dbc,
         params = (CFArrayRef)CFDictionaryGetValue((CFDictionaryRef)nto1, CFSTR("params"));
     }
     uint8_t *hash = (xor) ? (uint8_t*)CFDataGetBytePtr(xor) : NULL;
-    CFIndex hashLen = (hash) ? CFDataGetLength(xor) : 0;
+    CFIndex hashLen = (hash && CFDataGetLength(xor) > 0) ? CFDataGetLength(xor) : 0;
     uint8_t *serial = (serialData) ? (uint8_t*)CFDataGetBytePtr(serialData) : NULL;
     CFIndex serialLen = (serial) ? CFDataGetLength(serialData) : 0;
 
-    require(hash && serial && params, errOut);
+    require(hash && hashLen > 0 && serial && params, errOut);
 
     const uint32_t FNV_OFFSET_BASIS = 2166136261;
     const uint32_t FNV_PRIME = 16777619;
@@ -3451,17 +3460,18 @@ static bool _SecRevocationDbSerialInFilter(SecRevocationDbConnectionRef dbc,
         int32_t param;
         CFNumberRef cfnum = (CFNumberRef)CFArrayGetValueAtIndex(params, ix);
         if (!isNumber(cfnum) ||
-            !CFNumberGetValue(cfnum, kCFNumberSInt32Type, &param)) {
+            !CFNumberGetValue(cfnum, kCFNumberSInt32Type, &param) ||
+            param < 0) {
             secinfo("validupdate", "error processing filter params at index %ld", (long)ix);
             continue;
         }
         /* process one param */
-        uint32_t hval = FNV_OFFSET_BASIS ^ param;
+        uint32_t hval = FNV_OFFSET_BASIS ^ (uint32_t)param;
         CFIndex i = serialLen;
         while (i > 0) {
             hval = ((hval ^ (serial[--i])) * FNV_PRIME) & 0xFFFFFFFF;
         }
-        hval = hval % (hashLen * 8);
+        hval = hval % ((unsigned long)hashLen * 8);
         if ((hash[hval/8] & (1 << (hval % 8))) == 0) {
             notInHash = true; /* definitely not in hash */
             break;
@@ -3692,6 +3702,11 @@ bool SecRevocationDbContainsIssuer(SecCertificateRef issuer) {
     return result;
 }
 
+/* Return true if the serial number data is matched in the provided filter. */
+bool SecRevocationDbSerialInFilter(CFDataRef serialData, CFDataRef xmlData) {
+    return _SecRevocationDbSerialInFilter(NULL, serialData, xmlData);
+}
+
 /* Return the current version of the revocation database.
    A version of 0 indicates an empty database which must be populated.
    If the version cannot be obtained, -1 is returned.
@@ -3810,9 +3825,9 @@ static CF_RETURNS_RETAINED CFArrayRef SecRevocationDbComputeFullContentDigests(S
                     // hash its length (item count) followed by the data of each issuer_hash.
                     ok = ok && SecDbWithSQL(dbc->dbconn, CFSTR("SELECT count(*) FROM issuers WHERE groupid=?"), &localError, ^bool(sqlite3_stmt *selectIssuersCount) {
                         ok = ok && SecDbBindInt64(selectIssuersCount, 1, groupId, &localError);
-                        ok = ok && SecDbStep(dbc->dbconn, selectIssuersCount, &localError, ^void(bool *stop) {
+                        ok = ok && SecDbStep(dbc->dbconn, selectIssuersCount, &localError, ^void(bool *selectIssuersStop) {
                             count = sqlite3_column_int64(selectIssuersCount, 0);
-                            *stop = true;
+                            *selectIssuersStop = true;
                         });
                         return ok;
                     });
@@ -3826,7 +3841,7 @@ static CF_RETURNS_RETAINED CFArrayRef SecRevocationDbComputeFullContentDigests(S
                     // process issuer_hash entries for this group
                     ok = ok && SecDbWithSQL(dbc->dbconn, CFSTR("SELECT issuer_hash FROM issuers WHERE groupid=? ORDER BY issuer_hash ASC"), &localError, ^bool(sqlite3_stmt *selectIssuerHash) {
                         ok = ok && SecDbBindInt64(selectIssuerHash, 1, groupId, &localError);
-                        ok = ok && SecDbForEach(dbc->dbconn, selectIssuerHash, &localError, ^bool(int row_index) {
+                        ok = ok && SecDbForEach(dbc->dbconn, selectIssuerHash, &localError, ^bool(int issuer_row_index) {
                             uint8_t *p = (uint8_t *)sqlite3_column_blob(selectIssuerHash, 0);
                             CFDataRef data = NULL;
                             if (p != NULL) {
@@ -3889,9 +3904,9 @@ static CF_RETURNS_RETAINED CFArrayRef SecRevocationDbComputeFullContentDigests(S
                     if (arrayCountSql) {
                         ok = ok && SecDbWithSQL(dbc->dbconn, arrayCountSql, &localError, ^bool(sqlite3_stmt *selectAddCount) {
                             ok = ok && SecDbBindInt64(selectAddCount, 1, groupId, &localError);
-                            ok = ok && SecDbStep(dbc->dbconn, selectAddCount, &localError, ^void(bool *stop) {
+                            ok = ok && SecDbStep(dbc->dbconn, selectAddCount, &localError, ^void(bool *select_add_stop) {
                                 count = sqlite3_column_int64(selectAddCount, 0);
-                                *stop = true;
+                                *select_add_stop = true;
                             });
                             return ok;
                         });
@@ -3908,7 +3923,7 @@ static CF_RETURNS_RETAINED CFArrayRef SecRevocationDbComputeFullContentDigests(S
                     if (arrayDataSql) {
                         ok = ok && SecDbWithSQL(dbc->dbconn, arrayDataSql, &localError, ^bool(sqlite3_stmt *selectAddData) {
                             ok = ok && SecDbBindInt64(selectAddData, 1, groupId, &localError);
-                            ok = ok && SecDbForEach(dbc->dbconn, selectAddData, &localError, ^bool(int row_index) {
+                            ok = ok && SecDbForEach(dbc->dbconn, selectAddData, &localError, ^bool(int select_add_row_index) {
                                 uint8_t *p = (uint8_t *)sqlite3_column_blob(selectAddData, 0);
                                 CFDataRef data = NULL;
                                 if (p != NULL) {

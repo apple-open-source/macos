@@ -541,6 +541,8 @@ set_topline(win_T *wp, linenr_T lnum)
 #endif
     // Approximate the value of w_botline
     wp->w_botline += lnum - wp->w_topline;
+    if (wp->w_botline > wp->w_buffer->b_ml.ml_line_count + 1)
+	wp->w_botline = wp->w_buffer->b_ml.ml_line_count + 1;
     wp->w_topline = lnum;
     wp->w_topline_was_set = TRUE;
 #ifdef FEAT_DIFF
@@ -595,8 +597,17 @@ changed_line_abv_curs_win(win_T *wp)
     void
 validate_botline(void)
 {
-    if (!(curwin->w_valid & VALID_BOTLINE))
-	comp_botline(curwin);
+    validate_botline_win(curwin);
+}
+
+/*
+ * Make sure the value of wp->w_botline is valid.
+ */
+    void
+validate_botline_win(win_T *wp)
+{
+    if (!(wp->w_valid & VALID_BOTLINE))
+	comp_botline(wp);
 }
 
 /*
@@ -1114,10 +1125,10 @@ curs_columns(
 	    n = curwin->w_wrow + so;
 	else
 	    n = p_lines;
-	if ((colnr_T)n >= curwin->w_height + curwin->w_skipcol / width)
+	if ((colnr_T)n >= curwin->w_height + curwin->w_skipcol / width - so)
 	    extra += 2;
 
-	if (extra == 3 || p_lines < so * 2)
+	if (extra == 3 || p_lines <= so * 2)
 	{
 	    // not enough room for 'scrolloff', put cursor in the middle
 	    n = curwin->w_virtcol / width;
@@ -1247,7 +1258,7 @@ textpos2screenpos(
 	    // character is left or right of the window
 	    row = scol = ccol = ecol = 0;
     }
-    *rowp = wp->w_winrow + row + rowoff;
+    *rowp = W_WINROW(wp) + row + rowoff;
     *scolp = scol + coloff;
     *ccolp = ccol + coloff;
     *ecolp = ecol + coloff;

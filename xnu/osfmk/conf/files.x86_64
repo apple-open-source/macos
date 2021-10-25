@@ -94,7 +94,7 @@ osfmk/i386/ucode.c				standard
 
 osfmk/i386/vmx/vmx_cpu.c			optional config_vmx
 osfmk/i386/vmx/vmx_shims.c			optional config_vmx
-osfmk/i386/x86_hypercall.c			optional development
+osfmk/i386/x86_hypercall.c			standard
 
 osfmk/kern/hv_support_kext.c			optional hypervisor
 osfmk/kern/hv_io_notifier.c			optional hypervisor

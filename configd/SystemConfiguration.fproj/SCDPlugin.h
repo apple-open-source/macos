@@ -1,15 +1,15 @@
 /*
- * Copyright (c) 2000-2004, 2006, 2017 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2004, 2006, 2017, 2020 Apple, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,13 +17,14 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
 #ifndef _SCDPLUGIN_H
 #define _SCDPLUGIN_H
 
+#include <spawn.h>
 #include <sys/cdefs.h>
 #include <sys/types.h>
 #include <sys/time.h>
@@ -140,6 +141,23 @@ typedef	void	(*SCDPluginExecSetup)			(pid_t		pid,
 							 void		*setupContext);
 
 
+#define SCDPluginSpawnCallBack	SCDPluginExecCallBack
+
+
+/*!
+	@typedef SCDPluginSpawnSetup
+	@discussion Type of the setup function used when a child process
+		is being started.
+	@param actions The posix_spawn(2) file actions
+	@param attr The posix_spawn(2) attributes
+	@param setupContext The setup argument specified on the call
+		to _SCDPluginSpawnCommand().
+ */
+typedef	void	(*SCDPluginSpawnSetup)			(posix_spawn_file_actions_t	*actions,
+							 posix_spawnattr_t		*attr,
+							 void				*setupContext);
+
+
 __BEGIN_DECLS
 
 /*!
@@ -168,7 +186,7 @@ _SCDPluginExecCommand		(
 
 /*!
 	@function _SCDPluginExecCommand2
-	@discussion Starts a child process.
+	@discussion Starts a child process with fork(2)/execv(3)
 	@param callout The function to be called when the child
 		process exits.  A NULL value can be specified if no
 		callouts are desired.
@@ -206,6 +224,36 @@ _SCDPluginExecCommand2		(
 				void			*setupContext
 				);
 
+/*!
+	@function _SCDPluginSpawnCommand
+	@discussion Starts a child process using posix_spawn(2)
+	@param callout The function to be called when the child
+		process exits.  A NULL value can be specified if no
+		callouts are desired.
+	@param context An argument which will be passed
+		to the callout function.
+	@param path The command to be executed.
+	@param argv The arguments to be passed to the child process.
+	@param setup A pointer to a function which, if specified, will
+		be called before the call to posix_spawn(2).
+
+		Note: the setup function is responsibile for establishing
+		(and closing) all file descriptors that are (not) needed
+		by the child process.
+	@param setupContext An argument which will be passed
+		to the setup function.
+	@result The process ID of the child.
+ */
+pid_t
+_SCDPluginSpawnCommand		(
+				SCDPluginSpawnCallBack	callout,
+				void			*context,
+				const char		*path,
+				char * const 		argv[],
+				SCDPluginSpawnSetup	setup,
+				void			*setupContext
+				);
+
 __END_DECLS
 
-#endif /* _SCDPLUGIN_H */
+#endif	/* _SCDPLUGIN_H */

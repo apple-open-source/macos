@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999, 2020 Apple Inc. All rights reserved.
+ * Copyright (c) 1999, 2021 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -100,8 +100,10 @@ dhcp_msgtype_names(dhcp_msgtype_t type)
 	"RELEASE",
 	"INFORM",
     };
-    if (type >= dhcp_msgtype_none_e && type <= dhcp_msgtype_inform_e)
+    const unsigned int names_count = sizeof(names) / sizeof(names[0]);
+    if (type >= dhcp_msgtype_none_e && type < names_count) {
 	return (names[type]);
+    }
     return ("<unknown>");
 }
 
@@ -121,6 +123,10 @@ typedef uint32_t		dhcp_lease_time_t;
 #define DHCP_INFINITE_LEASE	((dhcp_lease_time_t)-1)
 
 #define DHCP_FLAGS_BROADCAST	((u_short)0x8000)
+
+/* RFC 8925: IPv6-Only Preferred Option for DHCPv4 */
+#define DHCP_DEFAULT_V6ONLY_WAIT	((uint32_t)1800)
+#define DHCP_MIN_V6ONLY_WAIT		((uint32_t)300)
 
 typedef enum {
     dhcp_cstate_inactive_e 	= 0,

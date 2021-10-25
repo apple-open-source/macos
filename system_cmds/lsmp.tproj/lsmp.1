@@ -1,8 +1,8 @@
 .\" Copyright (c) 2012, Apple Inc.  All rights reserved.
 .\"
-.Dd Jul 24, 2012
+.Dd July 24, 2012
 .Dt LSMP 1
-.Os "Mac OS X"
+.Os "macOS"
 .Sh NAME
 .Nm lsmp
 .Nd Display mach port information for processes on the system
@@ -16,7 +16,8 @@ Show mach port usage for <pid>. Run with root privileges to see detailed info ab
 .Pp
 .Nm lsmp
 .Ar -v
-Show information in detail for Kernel object based ports. Including thread ports and special ports attached to it.
+Show information in detail for Kernel object based ports.
+Including thread ports and special ports attached to it.
 .Pp
 .Nm lsmp
 .Ar -a
@@ -28,8 +29,8 @@ Save output as JSON to <path>.
 .Sh DESCRIPTION
 The
 .Nm lsmp
- command prints information about every active right in a task's port space, giving a view into the inter-process communication behavior of that task.
-.P
+command prints information about every active right in a task's port space, giving a view into the inter-process communication behavior of that task.
+.Pp
 .nf
 Following is an explanation of each symbol and values from the output.
 name        : Task unique name for a port. A "-" signifies that this is a member of a port-set
@@ -57,5 +58,5 @@ context     : Mach port context value.
 identifier  : A unique identifier for a kernel object or task's name for this right. This field is described by the type column.
 .fi
 .Sh SEE ALSO
-.Xr ddt 1
-.Xr top 1 
+.Xr ddt 1 ,
+.Xr top 1

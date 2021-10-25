@@ -48,6 +48,12 @@ extern "C" {
 #include <stdint.h>
 #include <sys/stat.h>
 
+#ifdef __APPLE__
+#import <os/availability.h>
+#else
+#define API_DEPRECATED(...)
+#endif
+
 #pragma pack(4)
 
 struct xar_header {
@@ -149,8 +155,8 @@ typedef void (*xar_progress_callback)(xar_t x, xar_file_t f, size_t sizeread);
 #define XAR_ERR_ARCHIVE_CREATION   1
 #define XAR_ERR_ARCHIVE_EXTRACTION 2
 
-xar_t xar_open(const char *file, int32_t flags);
-xar_t xar_open_digest_verify(const char *file, int32_t flags, void *expected_toc_digest, size_t expected_toc_digest_len);
+xar_t xar_open(const char *file, int32_t flags) API_DEPRECATED("xar is a deprecated file format and should not be used.", macos(10.4,12.0));
+xar_t xar_open_digest_verify(const char *file, int32_t flags, void *expected_toc_digest, size_t expected_toc_digest_len) API_DEPRECATED("xar is a deprecated file format and should not be used.", macos(10.4,12.0));
 int xar_close(xar_t x);
 
 xar_header_t xar_header_get(xar_t x);
@@ -257,7 +263,8 @@ void xar_err_new(xar_t x);
 int32_t xar_err_callback(xar_t x, int32_t sev, int32_t err);
 
 void xar_serialize(xar_t x, const char *file);
-char *xar_get_path(xar_file_t f);
+char *xar_get_path(xar_file_t f) API_DEPRECATED("Use xar_get_safe_path instead", macos(10.4,12.0));
+char *xar_get_safe_path(xar_file_t f);
 off_t	xar_get_heap_offset(xar_t x);
 uint64_t xar_ntoh64(uint64_t num);
 

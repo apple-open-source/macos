@@ -494,6 +494,7 @@ struct rt_addrinfo {
  * For scoped routing; a zero interface scope value means nil/no scope.
  */
 #define IFSCOPE_NONE    0
+#define IFSCOPE_UNKNOWN IFSCOPE_NONE
 #endif /* PRIVATE */
 
 #ifdef BSD_KERNEL_PRIVATE
@@ -572,7 +573,8 @@ extern void ctrace_record(ctrace_t *);
 
 extern unsigned int rt_verbose;
 extern struct radix_node_head *rt_tables[AF_MAX + 1];
-extern lck_mtx_t *rnh_lock;
+extern lck_mtx_t rnh_lock_data;
+#define rnh_lock (&rnh_lock_data)
 extern uint32_t route_genid_inet;       /* INET route generation count */
 extern uint32_t route_genid_inet6;      /* INET6 route generation count */
 extern int rttrash;
@@ -616,8 +618,8 @@ extern void rtref(struct rtentry *);
  */
 extern int rtunref(struct rtentry *);
 extern void rtsetifa(struct rtentry *, struct ifaddr *);
-extern int rtinit(struct ifaddr *, int, int);
-extern int rtinit_locked(struct ifaddr *, int, int);
+extern int rtinit(struct ifaddr *, uint8_t, int);
+extern int rtinit_locked(struct ifaddr *, uint8_t, int);
 extern int rtioctl(unsigned long, caddr_t, struct proc *);
 extern void rtredirect(struct ifnet *, struct sockaddr *, struct sockaddr *,
     struct sockaddr *, int, struct sockaddr *, struct rtentry **);

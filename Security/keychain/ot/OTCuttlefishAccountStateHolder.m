@@ -62,6 +62,7 @@
             // That's okay, this is the first time we're saving this.
             current = [[OTAccountMetadataClassC alloc] init];
             current.attemptedJoin = OTAccountMetadataClassC_AttemptedAJoinState_NOTATTEMPTED;
+
         } else {
             // No good.
             if(error) {
@@ -137,6 +138,7 @@
     __block NSError* localError = nil;
     __block OTAccountMetadataClassC* newState = nil;
     __block OTAccountMetadataClassC* oldState = nil;
+    __block BOOL success = NO;
 
     dispatch_sync(self.queue, ^void {
         oldState = [self _onqueueLoadOrCreateAccountMetadata:&localError];
@@ -145,7 +147,17 @@
         }
 
         newState = makeChanges([oldState copy]);
-        if(newState && ![newState saveToKeychainForContainer:self.containerName contextID:self.contextID error:&localError]) {
+        if(newState == nil) {
+            // not making any changes is still a success!
+            success = YES;
+            return;
+        }
+
+        if([newState saveToKeychainForContainer:self.containerName contextID:self.contextID error:&localError]) {
+            success = YES;
+        } else {
+            success = NO;
+            // Don't notify about this new state
             newState = nil;
         }
     });
@@ -156,10 +168,9 @@
 
     if (newState) {
         [self asyncNotifyAccountStateChanges:newState from:oldState];
-        return YES;
-    } else {
-        return NO;
     }
+
+    return success;
 }
 
 - (BOOL)persistLastHealthCheck:(NSDate*)lastCheck

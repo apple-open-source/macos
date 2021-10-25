@@ -608,6 +608,7 @@ static int cgid_server(void *data)
     apr_status_t rv;
 
     apr_pool_create(&ptrans, pcgi);
+    apr_pool_tag(ptrans, "cgid_ptrans");
 
     apr_signal(SIGCHLD, SIG_IGN);
     apr_signal(SIGHUP, daemon_signal_handler);
@@ -625,6 +626,9 @@ static int cgid_server(void *data)
                      "Couldn't create unix domain socket");
         return errno;
     }
+
+    apr_pool_cleanup_register(pcgi, (void *)((long)sd),
+                              close_unix_socket, close_unix_socket);
 
     omask = umask(0077); /* so that only Apache can use socket */
     rc = bind(sd, (struct sockaddr *)server_addr, server_addr_len);
@@ -659,9 +663,6 @@ static int cgid_server(void *data)
             return errno;
         }
     }
-
-    apr_pool_cleanup_register(pcgi, (void *)((long)sd),
-                              close_unix_socket, close_unix_socket);
 
     /* if running as root, switch to configured user/group */
     if ((rc = ap_run_drop_privileges(pcgi, ap_server_conf)) != 0) {
@@ -879,6 +880,7 @@ static int cgid_start(apr_pool_t *p, server_rec *main_server,
     else if (daemon_pid == 0) {
         if (pcgi == NULL) {
             apr_pool_create(&pcgi, p);
+            apr_pool_tag(pcgi, "cgid_pcgi");
         }
         exit(cgid_server(main_server) > 0 ? DAEMON_STARTUP_ERROR : -1);
     }

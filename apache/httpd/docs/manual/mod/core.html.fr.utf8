@@ -33,8 +33,6 @@
 <a href="../ja/mod/core.html" hreflang="ja" rel="alternate" title="Japanese">&nbsp;ja&nbsp;</a> |
 <a href="../tr/mod/core.html" hreflang="tr" rel="alternate" title="Türkçe">&nbsp;tr&nbsp;</a></p>
 </div>
-<div class="outofdate">Cette traduction peut être périmée. Vérifiez la version
-            anglaise pour les changements récents.</div>
 <table class="module"><tr><th><a href="module-dict.html#Description">Description:</a></th><td>Fonctionnalités de base du serveur HTTP Apache toujours
 disponibles</td></tr>
 <tr><th><a href="module-dict.html#Status">Statut:</a></th><td>Noyau httpd</td></tr></table>
@@ -70,6 +68,8 @@ disponibles</td></tr>
 <li><img alt="" src="../images/down.gif" /> <a href="#fileetag">FileETag</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#files">&lt;Files&gt;</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#filesmatch">&lt;FilesMatch&gt;</a></li>
+<li><img alt="" src="../images/down.gif" /> <a href="#flushmaxpipelined">FlushMaxPipelined</a></li>
+<li><img alt="" src="../images/down.gif" /> <a href="#flushmaxthreshold">FlushMaxThreshold</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#forcetype">ForceType</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#gprofdir">GprofDir</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#hostnamelookups">HostnameLookups</a></li>
@@ -108,6 +108,7 @@ disponibles</td></tr>
 <li><img alt="" src="../images/down.gif" /> <a href="#protocols">Protocols</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#protocolshonororder">ProtocolsHonorOrder</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#qualifyredirecturl">QualifyRedirectURL</a></li>
+<li><img alt="" src="../images/down.gif" /> <a href="#readbuffersize">ReadBufferSize</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#regexdefaultoptions">RegexDefaultOptions</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#registerhttpmethod">RegisterHttpMethod</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#rlimitcpu">RLimitCPU</a></li>
@@ -1573,10 +1574,6 @@ ErrorLog syslog:user:httpd.srv1
 ErrorLog syslog::httpd.srv2</pre>
 
 
-    <p>Des modules supplémentaires peuvent fournir leurs propres
-    fournisseurs ErrorLog. La syntaxe est similaire à celle de
-    l'exemple <code>syslog</code> ci-dessus.</p>
-
     <p>SECURITE : Voir le document <a href="../misc/security_tips.html#serverroot">conseils à propos de
     sécurité</a> pour des détails sur les raisons pour lesquelles votre
     sécurité peut être compromise si le répertoire contenant les
@@ -1844,7 +1841,7 @@ dans les versions 2.3.14 et antérieures.</td></tr>
     La directive <code class="directive">FileETag</code> définit les
     caractéristiques de fichier utilisées lors de la génération de
     l'en-tête de réponse HTTP <code>ETag</code> (entity tag) quand le
-    document est contenu dans un fichier statique(la valeur de
+    document est contenu dans un fichier statique (la valeur de
     <code>ETag</code>
     est utilisée dans le cadre de la gestion du cache pour préserver la
     bande passante réseau). La directive
@@ -1867,13 +1864,16 @@ dans les versions 2.3.14 et antérieures.</td></tr>
      est équivalente à : 
      <pre class="prettyprint lang-config">FileETag INode MTime Size</pre>
 </dd>
+     <dt><strong>Digest</strong></dt>
+     <dd>Si un document est à base de fichier, le champ <code>ETag</code> sera
+     généré à partir du condensé du fichier.</dd>
      <dt><strong>None</strong></dt>
      <dd>Si le document se compose d'un fichier, aucun champ
      <code>ETag</code> ne sera inclus dans la réponse</dd>
     </dl>
 
-    <p>Les mots-clés <code>INode</code>, <code>MTime</code>, et
-    <code>Size</code> peuvent être préfixés par <code>+</code> ou
+    <p>Les mots-clés <code>INode</code>, <code>MTime</code>, 
+    <code>Size</code> et <code>Digest</code> peuvent être préfixés par <code>+</code> ou
     <code>-</code>, ce qui permet de modifier les valeurs par défaut
     héritées d'un niveau de configuration plus général. Tout mot-clé
     apparaissant sans aucun préfixe annule entièrement et immédiatement
@@ -1885,21 +1885,10 @@ dans les versions 2.3.14 et antérieures.</td></tr>
     configuration de ce sous-répertoire (qui sera propagée vers tout
     sous-répertoire qui ne la supplante pas), sera équivalente à
     <code>FileETag&nbsp;MTime&nbsp;Size</code>.</p>
-    <div class="warning"><h3>Avertissement</h3>
-    Ne modifiez pas les valeurs par défaut pour les répertoires ou
-    localisations où WebDAV est activé et qui utilisent
-    <code class="module"><a href="../mod/mod_dav_fs.html">mod_dav_fs</a></code> comme fournisseur de stockage.
-    <code class="module"><a href="../mod/mod_dav_fs.html">mod_dav_fs</a></code> utilise
-    <code>MTime&nbsp;Size</code> comme format fixe pour les
-    comparaisons de champs <code>ETag</code> dans les requêtes
-    conditionnelles. Ces requêtes conditionnelles échoueront si le
-    format <code>ETag</code> est modifié via la directive
-    <code class="directive">FileETag</code>.
-    </div>
     <div class="note"><h3>Inclusions côté serveur</h3>
     Aucun champ ETag n'est généré pour les réponses interprétées par
     <code class="module"><a href="../mod/mod_include.html">mod_include</a></code>, car l'entité de la réponse peut
-    changer sans modification de l'INode, du MTime, ou de la taille du
+    changer sans modification de l'INode, MTime, Size ou Digest du
     fichier statique contenant les directives SSI.
     </div>
 
@@ -2025,6 +2014,56 @@ spécifiés sous la forme d'expressions rationnelles</td></tr>
 explication de la manière dont ces différentes sections se combinent
 entre elles à la réception d'une requête</li>
 </ul>
+</div>
+<div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
+<div class="directive-section"><h2><a name="flushmaxpipelined" id="flushmaxpipelined">Directive</a> <a name="FlushMaxPipelined" id="FlushMaxPipelined">FlushMaxPipelined</a></h2>
+<table class="directive">
+<tr><th><a href="directive-dict.html#Description">Description:</a></th><td>Nombre maximal de réponses en attente (pipelined) au-delà duquel
+elles sont envoyées sur le réseau</td></tr>
+<tr><th><a href="directive-dict.html#Syntax">Syntaxe:</a></th><td><code>FlushMaxPipelined <var>number</var></code></td></tr>
+<tr><th><a href="directive-dict.html#Default">Défaut:</a></th><td><code>FlushMaxPipelined 5</code></td></tr>
+<tr><th><a href="directive-dict.html#Context">Contexte:</a></th><td>configuration globale, serveur virtuel</td></tr>
+<tr><th><a href="directive-dict.html#Status">Statut:</a></th><td>Noyau httpd</td></tr>
+<tr><th><a href="directive-dict.html#Module">Module:</a></th><td>core</td></tr>
+<tr><th><a href="directive-dict.html#Compatibility">Compatibilité:</a></th><td>Disponible à partir de la version 2.4.47 du serveur HTTP Apache</td></tr>
+</table>
+    <p>Cette directive permet de définir le nombre maximal de réponses
+    "pipelinées" qui restent en attente tant que des requêtes "pipelinées" sont
+    reçues. Lorsque cette limite est dépassée, l'envoi des réponses sur le
+    réseau est forcé en mode bloqué jusqu'à ce que leur nombre repasse en
+    dessous de la limite.</p>
+
+    <p>La directive <code class="directive">FlushMaxPipelined</code> permet de limiter
+    la consommation de mémoire. Lorsqu'elle est définie à <var>0</var>, le
+    pipelining est désactivé, et lorsqu'elle est définie à <var>-1</var>, il n'y
+    a plus de limite (mais la directive <code class="directive">FlushMaxThreshold</code>
+    s'applique quand-même).</p>
+
+</div>
+<div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
+<div class="directive-section"><h2><a name="flushmaxthreshold" id="flushmaxthreshold">Directive</a> <a name="FlushMaxThreshold" id="FlushMaxThreshold">FlushMaxThreshold</a></h2>
+<table class="directive">
+<tr><th><a href="directive-dict.html#Description">Description:</a></th><td>Seuil au-delà duquel les données en attente sont envoyées sur le
+réseau</td></tr>
+<tr><th><a href="directive-dict.html#Syntax">Syntaxe:</a></th><td><code>FlushMaxThreshold<var>number-of-bytes</var></code></td></tr>
+<tr><th><a href="directive-dict.html#Default">Défaut:</a></th><td><code>FlushMaxThreshold 65536</code></td></tr>
+<tr><th><a href="directive-dict.html#Context">Contexte:</a></th><td>configuration globale, serveur virtuel</td></tr>
+<tr><th><a href="directive-dict.html#Status">Statut:</a></th><td>Noyau httpd</td></tr>
+<tr><th><a href="directive-dict.html#Module">Module:</a></th><td>core</td></tr>
+<tr><th><a href="directive-dict.html#Compatibility">Compatibilité:</a></th><td>Disponible à partir de la version 2.4.47 du serveur HTTP Apache</td></tr>
+</table>
+    <p>Cette directive permet de définir le seuil maximal de données en attente
+    d'envoi (en octets). Lorsque cette limite est dépassée, l'envoi des données sur le
+    réseau est forcé en mode bloqué jusqu'à ce que leur quantité repasse en
+    dessous du seuil spécifié.</p>
+
+    <p>La directive <code class="directive">FlushMaxThreshold</code> permet de limiter
+    la consommation de mémoire. Lorsqu'elle est définie à <var>0</var> ou à une
+    valeur trop petite, aucune donnée n'est mise en attente, mais dans le cas
+    des MPMs threadés, il peut alors y avoir plus de threads occupés en attente du
+    réseau, ce qui diminue d'autant le nombre de threads disponibles pour
+    traiter les autres connexions simultanées.</p>
+
 </div>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
 <div class="directive-section"><h2><a name="forcetype" id="forcetype">Directive</a> <a name="ForceType" id="ForceType">ForceType</a></h2>
@@ -2162,7 +2201,7 @@ clients</td></tr>
 
     <p>Enfin, si vous avez des <a href="mod_authz_host.html#reqhost">directives Require à base de
     nom</a>, une recherche de nom d'hôte sera effectuée quelle que soit
-    la définition de la directive <code>HostnameLookups</code>.</p>
+    la définition de la directive <code class="directive">HostnameLookups</code>.</p>
 
 </div>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
@@ -2989,9 +3028,9 @@ requête HTTP</td></tr>
 <tr><th><a href="directive-dict.html#Status">Statut:</a></th><td>Noyau httpd</td></tr>
 <tr><th><a href="directive-dict.html#Module">Module:</a></th><td>core</td></tr>
 </table>
-    <p><var>nombre</var> est un entier de 0 (nombre de champs illimité)
-    à 32767. La valeur par défaut est définie à la compilation par la
-    constante <code>DEFAULT_LIMIT_REQUEST_FIELDS</code> (100 selon la
+    <p><var>nombre</var> est un entier de 0 à 32767. La valeur 0 signifie un
+    nombre de champs illimité. La valeur par défaut est définie à la compilation
+    par la constante <code>DEFAULT_LIMIT_REQUEST_FIELDS</code> (100 selon la
     distribution).</p>
 
     <p>La directive <code class="directive">LimitRequestFields</code> permet à
@@ -3052,12 +3091,12 @@ requête HTTP</td></tr>
     contenu détaillée. Les en-têtes d'authentification SPNEGO peuvent
     atteindre une taille de 12392 octets.</p>
 
-    <p>&gt;L'administrateur du serveur peut utiliser cette directive pour
+    <p>L'administrateur du serveur peut utiliser cette directive pour
     contrôler plus efficacement les comportements anormaux des requêtes
     des clients, ce qui lui permettra de prévenir certaines formes
     d'attaques par déni de service.</p>
 
-    <p>Par exemple ::</p>
+    <p>Par exemple :</p>
 
     <pre class="prettyprint lang-config">LimitRequestFieldSize 4094</pre>
 
@@ -4230,10 +4269,12 @@ seulement depuis la version 2.3.3 sous Windows.</td></tr>
     spécifiques au protocole via la directive
     <code class="directive">AcceptFilter</code>.</p>
 
-    <p>Vous ne devez définir le protocole que si vous travaillez avec
-    des ports non standards ; dans le cas général, le protocole
-    <code>http</code> est associé au port 80 et le protocole
-    <code>https</code> au port 443.</p>
+    <p>Dans la plupart des configurations, cette directive n'est pas nécessaire.
+    Si elle n'est pas définie, le protocole par défaut pour le port 443 est
+    <code>https</code> et <code>http</code> pour tous les autres ports. La
+    connaissance du protocole permet de déterminer quel module doit traiter la
+    requête, et d'appliquer les optimisations spécifiques au protocole via la
+    directive <code class="directive"><a href="#acceptfilter">AcceptFilter</a></code>.</p>
 
     <p>Par exemple, si vous travaillez avec le protocole
     <code>https</code> sur un port non standard, spécifiez le protocole
@@ -4362,6 +4403,26 @@ comme si la directive QualifyRedirectURL était définie à On.</td></tr>
     soumise avec une URL pleinement qualifiée, la variable REDIRECT_URL
     contiendra quand-même une URL pleinement qualifiée.
     </p>
+
+</div>
+<div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
+<div class="directive-section"><h2><a name="readbuffersize" id="readbuffersize">Directive</a> <a name="ReadBufferSize" id="ReadBufferSize">ReadBufferSize</a></h2>
+<table class="directive">
+<tr><th><a href="directive-dict.html#Description">Description:</a></th><td>Taille des tampons utilisés pour lire les données</td></tr>
+<tr><th><a href="directive-dict.html#Syntax">Syntaxe:</a></th><td><code>ReadBufferSize <var>bytes</var></code></td></tr>
+<tr><th><a href="directive-dict.html#Default">Défaut:</a></th><td><code>ReadBufferSize 8192</code></td></tr>
+<tr><th><a href="directive-dict.html#Context">Contexte:</a></th><td>configuration globale, serveur virtuel, répertoire</td></tr>
+<tr><th><a href="directive-dict.html#Status">Statut:</a></th><td>Noyau httpd</td></tr>
+<tr><th><a href="directive-dict.html#Module">Module:</a></th><td>core</td></tr>
+<tr><th><a href="directive-dict.html#Compatibility">Compatibilité:</a></th><td>Disponible à partir de la version 2.5 du serveur HTTP
+Apache.</td></tr>
+</table>
+    <p>Cette directive permet de définir la taille (en octets) du tampon mémoire
+    utilisé pour lire des données depuis le réseau ou un fichier.</p>
+
+    <p>Un tampon de grande taille peut améliorer les performances pour les
+    grandes quantités de données, mais consomme d'avantage de mémoire par
+    connexion. La taille minimale du tampon est de <var>1024</var> octets.</p>
 
 </div>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
@@ -5237,9 +5298,16 @@ du serveur</td></tr>
     section <code class="directive"><a href="#ifdefine">&lt;IfDefine&gt;</a></code>
     sans avoir à modifier les arguments <code>-D</code> dans les scripts
     de démarrage.</p>
-    <p>Si cette directive est définie au sein d'un bloc VirtualHost, les
-    changements qu'elle induit sont visibles de toute directive
-    ultérieure, au delà de tout bloc VirtualHost.</p>
+    
+    <p>Afin d'éviter tout risque de collision avec la syntaxe de la directive
+    <code class="directive"><a href="../mod/mod_rewrite.html#rewritemap">RewriteMap</a></code>, les noms de
+    variables ne doivent pas contenir de caractère ":".</p>
+
+    <div class="note"><h3>Piège de la portée de cette directive</h3>
+      <p>Si cette directive est définie au sein d'un bloc VirtualHost, les
+      changements qu'elle induit sont visibles de toute directive
+      ultérieure, au delà de tout bloc VirtualHost.</p>
+    </div>    
 
 <h3>Voir aussi</h3>
 <ul>
@@ -5522,7 +5590,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/mod/core.html';
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2020 The Apache Software Foundation.<br />Autorisé sous <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2021 The Apache Software Foundation.<br />Autorisé sous <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossaire</a> | <a href="../sitemap.html">Plan du site</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

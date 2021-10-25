@@ -60,7 +60,7 @@ struct fns {
 #define	ALLOW_LDOT	0x00004
 };
 
-enum vtype {
+enum variant_type {
 	ROCKRIDGE,
 	JOLIET,
 	ISO9660
@@ -70,7 +70,7 @@ enum vtype {
  * Verify file
  */
 static void
-verify_file(struct archive *a, enum vtype type, struct fns *fns)
+verify_file(struct archive *a, enum variant_type type, struct fns *fns)
 {
 	struct archive_entry *ae;
 	int i;
@@ -138,7 +138,7 @@ verify_file(struct archive *a, enum vtype type, struct fns *fns)
 }
 
 static void
-verify(unsigned char *buff, size_t used, enum vtype type, struct fns *fns)
+verify(unsigned char *buff, size_t used, enum variant_type type, struct fns *fns)
 {
 	struct archive *a;
 	struct archive_entry *ae;

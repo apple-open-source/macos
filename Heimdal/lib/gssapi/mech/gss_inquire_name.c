@@ -36,7 +36,7 @@ GSSAPI_LIB_FUNCTION OM_uint32 GSSAPI_LIB_CALL
 gss_inquire_name(OM_uint32 *__nonnull minor_status,
 		 __nonnull gss_name_t input_name,
 		 int *__nonnull name_is_MN,
-		 __nullable gss_OID *__nullable MN_mech,
+		 __nullable gss_OID * __nullable MN_mech,
 		 __nullable gss_buffer_set_t * __nullable attrs)
 {
     OM_uint32 major_status = GSS_S_UNAVAILABLE;

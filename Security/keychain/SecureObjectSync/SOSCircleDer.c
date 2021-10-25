@@ -64,11 +64,13 @@ SOSCircleRef SOSCircleCreateFromDER(CFAllocatorRef allocator, CFErrorRef* error,
     
     CFDictionaryRef tmp = NULL;
     *der_p = der_decode_dictionary(allocator, &tmp, error, *der_p, sequence_end);
+    require_action_quiet(tmp != NULL, fail, SOSCreateError(kSOSErrorBadFormat, CFSTR("Bad Circle DER1"), (error != NULL) ? *error : NULL, error));
+    
     cir->signatures = CFDictionaryCreateMutableCopy(kCFAllocatorDefault, 0, tmp);
     CFReleaseNull(tmp);
     
     require_action_quiet(*der_p == sequence_end, fail,
-                         SOSCreateError(kSOSErrorBadFormat, CFSTR("Bad Circle DER"), (error != NULL) ? *error : NULL, error));
+                         SOSCreateError(kSOSErrorBadFormat, CFSTR("Bad Circle DER2"), (error != NULL) ? *error : NULL, error));
     
     return cir;
     

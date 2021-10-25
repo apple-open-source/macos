@@ -46,6 +46,8 @@
 #include <CommonCrypto/CommonCryptorSPI.h>
 
 #include "OSX/utilities/SecAKSWrappers.h"
+#include <os/feature_private.h>
+#include <utilities/der_plist.h>
 
 /* g_keychain_handle is the keybag handle used for encrypting item in the keychain.
  For testing purposes, it can be set to something other than the default, with SecItemServerSetKeychainKeybag */
@@ -62,6 +64,9 @@ keybag_handle_t g_keychain_keybag = 0; /* 0 == device_keybag_handle, constant di
 const CFStringRef kSecKSKeyData1 = CFSTR("d1");
 const CFStringRef kSecKSKeyData2 = CFSTR("d2");
 
+static bool KeyDiversificationEnabledOverrideSet = false;
+static bool KeyDiversificationEnabledOverride = false;
+
 void SecItemServerSetKeychainKeybag(int32_t keybag)
 {
     g_keychain_keybag=keybag;
@@ -77,6 +82,178 @@ void SecItemServerResetKeychainKeybag(void)
 #endif
 #else /* !USE_KEYSTORE */
     g_keychain_keybag = 0; /* 0 == device_keybag_handle, constant dictated by AKS */
+#endif /* USE_KEYSTORE */
+}
+
+static bool merge_der_in_to_data(const void *ed_blob, size_t ed_blob_len, const void *key_blob, size_t key_blob_len, CFMutableDataRef mergedData)
+{
+    bool ok = false;
+    CFDataRef ed_data = CFDataCreateWithBytesNoCopy(kCFAllocatorDefault, ed_blob, ed_blob_len, kCFAllocatorNull);
+    CFDataRef key_data = CFDataCreateWithBytesNoCopy(kCFAllocatorDefault, key_blob, key_blob_len, kCFAllocatorNull);
+
+    if (ed_data && key_data) {
+        CFDictionaryRef result_dict = CFDictionaryCreateForCFTypes(kCFAllocatorDefault, kSecKSKeyData1, ed_data, kSecKSKeyData2, key_data, NULL);
+
+        CFDataSetLength(mergedData, 0);
+        CFDataRef der_data = CFPropertyListCreateDERData(kCFAllocatorDefault, result_dict, NULL);
+        if (der_data) {
+            CFDataAppend(mergedData, der_data);
+            CFRelease(der_data);
+            ok = CFDataGetLength(mergedData) > 0;
+        }
+        CFRelease(result_dict);
+    }
+
+    CFReleaseSafe(ed_data);
+    CFReleaseSafe(key_data);
+    return ok;
+}
+
+static bool encrypted_data_from_blob(keybag_handle_t keybag, const void *blob_data, size_t blob_data_len, aks_ref_key_t *ref_key, CFDataRef *encrypted_data, CFErrorRef *error)
+{
+    CFDictionaryRef blob_dict = NULL;
+    CFDataRef key_data = NULL;
+    CFDataRef ed = NULL;
+    bool ok = false;
+    int aks_return = kAKSReturnSuccess;
+    const uint8_t *der_end = blob_data_len + blob_data;
+
+    blob_data = der_decode_plist(NULL, (CFPropertyListRef*)&blob_dict, NULL, blob_data, der_end);
+    if (blob_data == NULL || blob_data != der_end) {
+        SecError(errSecDecode, error, CFSTR("encrypted_data_from_blob: NULL 'blob data'"));
+        goto out;
+    }
+    if (CFGetTypeID(blob_dict) != CFDictionaryGetTypeID()) {
+        CFStringRef description = CFCopyTypeIDDescription(CFGetTypeID(blob_dict));
+        CFStringRef reason = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("encrypted_data_from_blob: Bad object type %@ for 'blob data'"), description);
+        SecError(errSecInternal, error, CFSTR("%@"), reason);
+        __security_simulatecrash(reason, __sec_exception_code_CorruptItem);
+        CFReleaseSafe(description);
+        CFReleaseSafe(reason);
+        goto out;
+    }
+    if (!ks_separate_data_and_key(blob_dict, &ed, &key_data)) {
+        ed = CFDataCreate(kCFAllocatorDefault, blob_data, blob_data_len);
+        key_data = CFRetain(ed);
+    }
+    require_action_quiet(ed, out, SecError(errSecDecode, error, CFSTR("encrypted_data_from_blob: failed to decode 'encrypted data'")));
+    require_action_quiet(key_data, out, SecError(errSecDecode, error, CFSTR("encrypted_data_from_blob: failed to decode 'key data'")));
+    require_noerr_action_quiet(aks_return = aks_ref_key_create_with_blob(keybag, CFDataGetBytePtr(key_data), CFDataGetLength(key_data), ref_key), out, SecError(errSecDecode, error, CFSTR("aks_ref_key: failed to create ref key with blob: %x (bag: %"PRId32")"), aks_return, keybag));
+
+    if (encrypted_data)
+        *encrypted_data = CFRetain(ed);
+    ok = true;
+
+out:
+    CFReleaseSafe(blob_dict);
+    CFReleaseSafe(key_data);
+    CFReleaseSafe(ed);
+
+    return ok;
+}
+
+bool ks_crypt_diversify(CFTypeRef operation, keybag_handle_t keybag,
+              keyclass_t keyclass, uint32_t textLength, const uint8_t *source, keyclass_t *actual_class, CFMutableDataRef dest, const void *personaId, size_t personaIdLength, CFErrorRef *error) {
+#if USE_KEYSTORE
+    aks_params_t aks_params = NULL;
+    aks_params = aks_params_create(NULL, 0);
+    aks_ref_key_t refKey = NULL;
+    CFDataRef ed_data = NULL;
+    int aksResult = kAKSReturnBadArgument;
+    bool result = false;
+    uint8_t *der_params = NULL;
+    size_t der_params_len = 0;
+
+    if (!aks_params) {
+        return SecError(errSecAllocate, error, CFSTR("ks_crypt_diversify: failed to create aks_params"));
+    }
+    aks_params_set_data(aks_params, aks_params_key_persona_uuid, personaId, personaIdLength);
+    aks_params_get_der(aks_params, &der_params, &der_params_len);
+
+    size_t outDerLen = 0;
+    void *outDer = NULL;
+
+    if (CFEqual(operation, kAKSKeyOpEncrypt)) {
+        require_noerr_quiet(aksResult = aks_ref_key_create(keybag, keyclass, key_type_sym, der_params, der_params_len, &refKey), out);
+        require_noerr_quiet(aksResult = aks_ref_key_wrap(refKey, der_params, der_params_len, source, textLength, &outDer, &outDerLen), out);
+
+        size_t key_blob_len;
+        const void *key_blob = aks_ref_key_get_blob(refKey, &key_blob_len);
+        require_quiet(key_blob, out);
+
+        result = merge_der_in_to_data(outDer, outDerLen, key_blob, key_blob_len, dest);
+        if (!result) {
+            if (der_params)
+                free(der_params);
+            aks_params_free(&aks_params);
+            return SecError(errSecDecode, error, CFSTR("ks_crypt_diversify: failed to '%s' item (class %"PRId32", bag: %"PRId32") Item can't be encrypted due to merge failed, so drop the item."), "encrypt", keyclass, keybag);
+        }
+        *actual_class = keyclass;
+    } else if (CFEqual(operation, kAKSKeyOpDecrypt) || CFEqual(operation, kAKSKeyOpDelete)) {
+        result = encrypted_data_from_blob(keybag, source, textLength, &refKey, &ed_data, error);
+        if (!result) {
+            if(der_params)
+                free(der_params);
+            aks_params_free(&aks_params);
+            return SecError(errSecDecode, error, CFSTR("ks_crypt_diversify: failed to create ref key with blob because bad data (bag: %"PRId32")"), keybag);
+        }
+        require_noerr_quiet(aksResult = aks_ref_key_unwrap(refKey, der_params, der_params_len, CFDataGetBytePtr(ed_data), CFDataGetLength(ed_data), &outDer, &outDerLen), out);
+        CFPropertyListRef unwrappedKeyData = NULL;
+        der_decode_plist(NULL, &unwrappedKeyData, error, outDer, outDer + outDerLen);
+        if (CFGetTypeID(unwrappedKeyData) == CFDataGetTypeID()) {
+            CFDataSetLength(dest, 0);
+            CFDataAppend(dest, unwrappedKeyData);
+        }
+        CFReleaseSafe(unwrappedKeyData);
+    }
+out:
+    if (der_params) {
+        free(der_params);
+    }
+    if (aks_params) {
+        aks_params_free(&aks_params);
+    }
+    CFReleaseSafe(ed_data);
+    if (aksResult != kAKSReturnSuccess) {
+        if ((aksResult == kAKSReturnNoPermission) || (aksResult == kAKSReturnNotPrivileged)) {
+            const char *substatus = "";
+            if (keyclass == key_class_ck || keyclass == key_class_cku)
+                substatus = " (hibernation?)";
+            /* Access to item attempted while keychain is locked. */
+            return SecError(errSecInteractionNotAllowed, error, CFSTR("ks_crypt_diversify: %x failed to '%@' item (class %"PRId32", bag: %"PRId32") Access to item attempted while keychain is locked%s."),
+                            aksResult, operation, keyclass, keybag, substatus);
+        } else if (aksResult == kAKSReturnNotFound) {
+            return SecError(errSecNotAvailable, error, CFSTR("ks_crypt_diversify: %x failed to '%@' item (class %"PRId32", bag: %"PRId32") No key available for class."), aksResult, operation, keyclass, keybag);
+        } else if (aksResult == kAKSReturnError || aksResult == kAKSReturnDecodeError) {
+            /* Item can't be decrypted on this device, ever, so drop the item. */
+            return SecError(errSecDecode, error, CFSTR("ks_crypt_diversify: %x failed to '%@' item (class %"PRId32", bag: %"PRId32") Item can't be decrypted on this device, ever, so drop the item."),
+                            aksResult, operation, keyclass, keybag);
+        } else {
+            return SecError(errSecNotAvailable, error, CFSTR("ks_crypt_diversify: %x failed to '%@' item (class %"PRId32", bag: %"PRId32")"),
+                            aksResult, operation, keyclass, keybag);
+        }
+    }
+    return true;
+#else /* !USE_KEYSTORE */
+
+    uint32_t dest_len = (uint32_t)CFDataGetLength(dest);
+    if (CFEqual(operation, kAKSKeyOpEncrypt)) {
+        /* The no encryption case. */
+        if (dest_len >= textLength + 8) {
+            memcpy(CFDataGetMutableBytePtr(dest), source, textLength);
+            memset(CFDataGetMutableBytePtr(dest) + textLength, 8, 8);
+            CFDataSetLength(dest, textLength + 8);
+            *actual_class = keyclass;
+        } else
+            return SecError(errSecNotAvailable, error, CFSTR("ks_crypt: failed to wrap item (class %"PRId32")"), keyclass);
+    } else if (CFEqual(operation, kAKSKeyOpDecrypt) || CFEqual(operation, kAKSKeyOpDelete)) {
+        if (dest_len + 8 >= textLength) {
+            memcpy(CFDataGetMutableBytePtr(dest), source, textLength - 8);
+            CFDataSetLength(dest, textLength - 8);
+        } else
+            return SecError(errSecNotAvailable, error, CFSTR("ks_crypt: failed to unwrap item (class %"PRId32")"), keyclass);
+    }
+    return true;
 #endif /* USE_KEYSTORE */
 }
 
@@ -113,12 +290,25 @@ bool ks_crypt(CFTypeRef operation, keybag_handle_t keybag,
             return SecError(errSecDecode, error, CFSTR("ks_crypt: %x failed to '%@' item (class %"PRId32", bag: %"PRId32") Item can't be decrypted on this device, ever, so drop the item."),
                             kernResult, operation, keyclass, keybag);
         } else {
+            /* Check if it is v8 item with a valid ref key in this logic */
+            if (CFEqual(operation, kAKSKeyOpDecrypt) || CFEqual(operation, kAKSKeyOpDelete)) {
+                aks_ref_key_t refKey = NULL;
+                CFDataRef ed_data = NULL;
+                bool result = encrypted_data_from_blob(keybag, source, textLength, &refKey, &ed_data, error);
+                CFReleaseSafe(ed_data);
+                aks_ref_key_free(&refKey);
+                if (result) {
+                    /* this is a persona based blob and is incorrectly being processed by ks_crypt */
+                    return SecError(errSecDecode, error, CFSTR("ks_crypt: %x failed to '%@' item (class %"PRId32", bag: %"PRId32") Item can't be decrypted on this device, ever, so drop the item."),
+                                    kernResult, operation, keyclass, keybag);
+                }
+            }
             return SecError(errSecNotAvailable, error, CFSTR("ks_crypt: %x failed to '%@' item (class %"PRId32", bag: %"PRId32")"),
                             kernResult, operation, keyclass, keybag);
         }
     }
     else
-        CFDataSetLength(dest, dest_len);    
+        CFDataSetLength(dest, dest_len);
     return true;
 #else /* !USE_KEYSTORE */
 
@@ -190,30 +380,6 @@ bool ks_access_control_needed_error(CFErrorRef *error, CFDataRef access_control_
     return false;
 }
 
-static bool merge_der_in_to_data(const void *ed_blob, size_t ed_blob_len, const void *key_blob, size_t key_blob_len, CFMutableDataRef mergedData)
-{
-    bool ok = false;
-    CFDataRef ed_data = CFDataCreateWithBytesNoCopy(kCFAllocatorDefault, ed_blob, ed_blob_len, kCFAllocatorNull);
-    CFDataRef key_data = CFDataCreateWithBytesNoCopy(kCFAllocatorDefault, key_blob, key_blob_len, kCFAllocatorNull);
-
-    if (ed_data && key_data) {
-        CFDictionaryRef result_dict = CFDictionaryCreateForCFTypes(kCFAllocatorDefault, kSecKSKeyData1, ed_data, kSecKSKeyData2, key_data, NULL);
-
-        CFDataSetLength(mergedData, 0);
-        CFDataRef der_data = CFPropertyListCreateDERData(kCFAllocatorDefault, result_dict, NULL);
-        if (der_data) {
-            CFDataAppend(mergedData, der_data);
-            CFRelease(der_data);
-            ok = CFDataGetLength(mergedData) > 0;
-        }
-        CFRelease(result_dict);
-    }
-
-    CFReleaseSafe(ed_data);
-    CFReleaseSafe(key_data);
-    return ok;
-}
-
 bool ks_separate_data_and_key(CFDictionaryRef blob_dict, CFDataRef *ed_data, CFDataRef *key_data)
 {
     bool ok = false;
@@ -248,11 +414,13 @@ bool create_cferror_from_aks(int aks_return, CFTypeRef operation, keybag_handle_
                            aks_return, operation_string, keyclass, keybag);
     } else if (aks_return == kAKSReturnPolicyError || aks_return == kAKSReturnBadPassword) {
         if (aks_return == kAKSReturnBadPassword) {
-            ACMContextRef acm_context_ref = NULL;
-            acm_context_ref = ACMContextCreateWithExternalForm(CFDataGetBytePtr(acm_context_data), CFDataGetLength(acm_context_data));
-            if (acm_context_ref) {
-                ACMContextRemovePassphraseCredentialsByPurposeAndScope(acm_context_ref, kACMPassphrasePurposeGeneral, kACMScopeContext);
-                ACMContextDelete(acm_context_ref, false);
+            if (acm_context_data) {
+                ACMContextRef acm_context_ref = NULL;
+                acm_context_ref = ACMContextCreateWithExternalForm(CFDataGetBytePtr(acm_context_data), CFDataGetLength(acm_context_data));
+                if (acm_context_ref) {
+                    ACMContextRemovePassphraseCredentialsByPurposeAndScope(acm_context_ref, kACMPassphrasePurposeGeneral, kACMScopeContext);
+                    ACMContextDelete(acm_context_ref, false);
+                }
             }
         }
 
@@ -457,3 +625,25 @@ bool ks_close_keybag(keybag_handle_t keybag, CFErrorRef *error) {
     return true;
 }
 
+bool ks_is_key_diversification_enabled(void)
+{
+    if(KeyDiversificationEnabledOverrideSet) {
+        secinfo("aks", "Key Diversification is %s (overridden)", KeyDiversificationEnabledOverride ? "enabled" : "disabled");
+        return KeyDiversificationEnabledOverride;
+    }
+
+    static bool isKeyDiversificationEnabled = false;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        isKeyDiversificationEnabled = os_feature_enabled(Security, KeychainKeyDiversification);
+        secinfo("aks", "Key Diversification is %s (via feature flags)", isKeyDiversificationEnabled ? "enabled" : "disabled");
+    });
+
+    return isKeyDiversificationEnabled;
+}
+
+void ks_key_diversification_set_is_enabled(bool value)
+{
+    KeyDiversificationEnabledOverrideSet = true;
+    KeyDiversificationEnabledOverride = value;
+}

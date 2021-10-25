@@ -91,15 +91,6 @@ LocateCatalogNodeByKey(const ExtendedVCB *volume, u_int32_t hint, CatalogKey *ke
 	// if we got a thread record, then go look up real record
 	switch ( dataPtr->recordType )
 	{
-
-#if CONFIG_HFS_STD
-		case kHFSFileThreadRecord:
-		case kHFSFolderThreadRecord:
-			threadParentID = dataPtr->hfsThread.parentID;
-			nodeName = (CatalogName *) &dataPtr->hfsThread.nodeName;
-			break;
-#endif
-
 		case kHFSPlusFileThreadRecord:
 		case kHFSPlusFolderThreadRecord:
 			threadParentID = dataPtr->hfsPlusThread.parentID;
@@ -184,20 +175,6 @@ BuildCatalogKey(HFSCatalogNodeID parentID, const CatalogName *cName, Boolean isH
 			key->hfsPlus.keyLength += sizeof(UniChar) * cName->ustr.length;	// add CName size to key length
 		}
 	}
-#if CONFIG_HFS_STD
-	else
-	{
-		key->hfs.keyLength		= kHFSCatalogKeyMinimumLength;	// initial key length (1 + 4 + 1)
-		key->hfs.reserved		= 0;				// clear unused byte
-		key->hfs.parentID		= parentID;			// set parent ID
-		key->hfs.nodeName[0]	= 0;				// null CName length
-		if ( cName != NULL )
-		{
-			UpdateCatalogName(cName->pstr, key->hfs.nodeName);
-			key->hfs.keyLength += key->hfs.nodeName[0];		// add CName size to key length
-		}
-	}
-#endif
 
 }
 
@@ -225,25 +202,6 @@ BuildCatalogKeyUTF8(ExtendedVCB *volume, HFSCatalogNodeID parentID, const unsign
 			key->hfsPlus.keyLength += unicodeBytes;
 		}
 	}
-#if CONFIG_HFS_STD
-	else {
-		key->hfs.keyLength		= kHFSCatalogKeyMinimumLength;	// initial key length (1 + 4 + 1)
-		key->hfs.reserved		= 0;				// clear unused byte
-		key->hfs.parentID		= parentID;			// set parent ID
-		key->hfs.nodeName[0]	= 0;				// null CName length
-		if ( nameLength > 0 ) {
-			err = utf8_to_hfs(volume, nameLength, name, &key->hfs.nodeName[0]);
-			/*
-			 * Retry with MacRoman in case that's how it was exported.
-			 * When textEncoding != NULL we know that this is a create
-			 * or rename call and can skip the retry (ugly but it works).
-			 */
-			if (err)
-				err = utf8_to_mac_roman(nameLength, name, &key->hfs.nodeName[0]);
-			key->hfs.keyLength += key->hfs.nodeName[0];		// add CName size to key length
-		}
-	}
-#endif
 
 	if (err) {
 		if (err == ENAMETOOLONG)
@@ -329,11 +287,6 @@ CopyCatalogName(const CatalogName *srcName, CatalogName *dstName, Boolean isHFSP
 	if (isHFSPlus) {
 		length = sizeof(UniChar) * (srcName->ustr.length + 1);
 	}
-#if CONFIG_HFS_STD
-	else {
-		length = sizeof(u_int8_t) + srcName->pstr[0];
-	}
-#endif
 
 	if ( length > 1 )
 		BlockMoveData(srcName, dstName, length);

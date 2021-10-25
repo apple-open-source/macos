@@ -16,7 +16,6 @@
 #include <ostream>
 #include <iomanip>
 #include "CF.h"
-#include "IOHIDDebug.h"
 
 #define FIXED_TO_DOUBLE(x) ((x)/65536.0)
 #define DOUBLE_TO_FIXED(x) (uint64_t)((x)*65536.0)
@@ -53,7 +52,7 @@ class IOHIDParametricAcceleration : public  IOHIDAccelerationAlgorithm {
 
 public:
 
-    typedef struct {
+    typedef struct ACCELL_CURVE {
         double  Index;
         double  GainLinear;
         double  GainParabolic;

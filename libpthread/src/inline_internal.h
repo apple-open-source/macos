@@ -238,12 +238,22 @@ _pthread_is_valid(pthread_t thread, mach_port_t *portp)
 	return valid;
 }
 
+static void
+_pthread_globals_init(pthread_globals_t globals)
+{
+	for (thread_qos_t qos = 0; qos < THREAD_QOS_LAST; qos++) {
+		globals->qmp_logical[qos] = QOS_PARALLELISM_NOT_QUERIED;
+		globals->qmp_physical[qos] = QOS_PARALLELISM_NOT_QUERIED;
+		globals->cluster_physical[qos] = QOS_PARALLELISM_NOT_QUERIED;
+	}
+}
+
 OS_ALWAYS_INLINE OS_CONST
 static inline pthread_globals_t
 _pthread_globals(void)
 {
 	return os_alloc_once(OS_ALLOC_ONCE_KEY_LIBSYSTEM_PTHREAD,
-			sizeof(struct pthread_globals_s), NULL);
+			sizeof(struct pthread_globals_s), _pthread_globals_init);
 }
 
 #endif // __LIBPTHREAD_INLINE_INTERNAL_H__

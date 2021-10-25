@@ -10,7 +10,7 @@ Install_Target = install
 
 # Automatic Extract & Patch
 AEP_Project    = libusb
-AEP_Version    = 1.0.9
+AEP_Version    = 1.0.24
 AEP_ProjVers   = $(AEP_Project)-$(AEP_Version)
 AEP_Filename   = $(AEP_ProjVers).tar.bz2
 AEP_ExtractDir = $(AEP_ProjVers)

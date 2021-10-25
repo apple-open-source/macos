@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2005, 2007-2009, 2011, 2012, 2017-2020 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2005, 2007-2009, 2011, 2012, 2017-2021 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -37,25 +37,42 @@
  */
 
 /*!
+	@defined kSCPreferencesOptionAllowModelConflict
+	@abstract The SCPreferences "option" used to indicate that "Model"
+		property conflicts (in the default preferences configuration) should
+		not be ignored.  Without this option a configuration having a
+		model conflict wll be viewed as an empty.
+ */
+#define kSCPreferencesOptionAllowModelConflict		CFSTR("allow-model-conflict")	// CFBooleanRef
+
+/*!
+	@defined kSCPreferencesOptionAvoidDeadlock
+	@abstract The SCPreferences "option" used to enable/disable
+		deadlock avoidance for the default preferences configuration.
+		Deadlocks will be avoided If TRUE or if not provided.
+ */
+#define kSCPreferencesOptionAvoidDeadlock		CFSTR("avoid-deadlock")		// CFBooleanRef
+
+/*!
 	@defined kSCPreferencesOptionChangeNetworkSet
 	@abstract The SCPreferences "option" used to indicate that only the
 		current network set (location) is being changed.
  */
-#define kSCPreferencesOptionChangeNetworkSet	CFSTR("change-network-set")	// CFBooleanRef
+#define kSCPreferencesOptionChangeNetworkSet		CFSTR("change-network-set")	// CFBooleanRef
 
 /*!
 	@defined kSCPreferencesOptionProtectionClass
 	@abstract The SCPreferences "option" used to indicate the file
 		 protection class of the .plist.
  */
-#define kSCPreferencesOptionProtectionClass	CFSTR("ProtectionClass")	// CFStringRef["A"-"F"]
+#define kSCPreferencesOptionProtectionClass		CFSTR("ProtectionClass")	// CFStringRef["A"-"F"]
 
 /*!
 	@defined kSCPreferencesOptionRemoveWhenEmpty
 	@abstract The SCPreferences "option" used to indicate that the .plist
 		file should be removed when/if all keys have been removed.
  */
-#define kSCPreferencesOptionRemoveWhenEmpty	CFSTR("remove-when-empty")	// CFBooleanRef
+#define kSCPreferencesOptionRemoveWhenEmpty		CFSTR("remove-when-empty")	// CFBooleanRef
 
 /*!
 	@defined kSCPreferencesAuthorizationRight_network_set

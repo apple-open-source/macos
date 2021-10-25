@@ -2,16 +2,15 @@
 		<key>OpenSourceProject</key>
 		<string>kill</string>
 		<key>OpenSourceVersion</key>
-		<string>2015-03-01</string>
+		<string>2017-11-20</string>
 		<key>OpenSourceWebsiteURL</key>
-		<string>http://svnweb.freebsd.org/base/head/bin/kill/</string>
-		<key>OpenSourceSCM</key>
-		<string>svn co http://svn.freebsd.org/base/head/bin/kill/</string>
+		<string>https://cgit.freebsd.org/src/tree/bin/kill?id=8a16b7a18f5d0b031f09832fd7752fba717e2a97</string>
 		<key>OpenSourceImportDate</key>
-		<string>2015-07-24</string>
+		<string>2021-03-28</string>
 		<key>OpenSourceModifications</key>
 		<array>
 		    <string>kill.c: sys_nsig</string>
+		    <string>kill.c: print_signum (66070176)</string>
 		</array>
 		<key>OpenSourceLicense</key>
 		<string>bsd</string>

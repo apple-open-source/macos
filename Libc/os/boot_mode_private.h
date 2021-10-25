@@ -32,6 +32,7 @@ __BEGIN_DECLS
 #define OS_BOOT_MODE_KCGEN "kcgen"
 #define OS_BOOT_MODE_DIAGNOSTICS "diagnostics"
 #define OS_BOOT_MODE_MIGRATION "migration"
+#define OS_BOOT_MODE_EACS "eacs"
 
 /*!
  * @function os_boot_mode_query
@@ -48,8 +49,8 @@ __BEGIN_DECLS
  * - this is not guaranteed to succeed when called from boot tasks (we may not
  *   have figured out our boot mode yet)
  * - though the boot mode can in principle be an arbitrary string, this can
- *   currently only be used to query for the "fvunlock", "kcgen",  "diagnostics",
- *   and "migration" boot modes
+ *   currently only be used to query for the "fvunlock", "kcgen", "eacs",
+ *   "diagnostics" and "migration" boot modes.
  *
  * @result
  * true if the query succeeds, with boot_mode_out set to the boot mode string

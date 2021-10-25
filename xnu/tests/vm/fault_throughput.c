@@ -90,6 +90,7 @@ typedef struct test_globals {
 	size_t tg_iterations_completed;
 	unsigned int tg_num_threads;
 	test_variant_t tg_variant;
+	bool pin_threads;
 	/*
 	 * An array of memory objects to fault in.
 	 * This is basically a workqueue of
@@ -110,14 +111,23 @@ typedef struct test_globals {
 	//_Atomic size_t tg_next_fault_buffer_index;
 } test_globals_t;
 
+typedef struct {
+	void *test_globals;
+	uint32_t cpu_id;
+} faulting_thread_args_t;
+
+static faulting_thread_args_t *faulting_thread_args;
+
 static const char* kSeparateObjectsArgument = "separate-objects";
 static const char* kShareObjectsArgument = "share-objects";
 
 /* Arguments parsed from the command line */
 typedef struct test_args {
 	uint32_t n_threads;
+	uint32_t first_cpu;
 	uint64_t duration_seconds;
 	test_variant_t variant;
+	bool pin_threads;
 	bool verbose;
 } test_args_t;
 
@@ -227,9 +237,16 @@ main(int argc, char **argv)
 static void*
 faulting_thread(void* arg)
 {
-	test_globals_t* globals = arg;
+	test_globals_t* globals = ((faulting_thread_args_t *)arg)->test_globals;
 	uint64_t on_cpu_time_faulting = 0;
 	size_t current_iteration = 1;
+
+	if (globals->pin_threads) {
+		uint32_t cpu_id = ((faulting_thread_args_t *)arg)->cpu_id;
+		int err = sysctlbyname("kern.sched_thread_bind_cpu", NULL, 0, &cpu_id, sizeof(cpu_id));
+		assert(err == 0);
+	}
+
 	while (true) {
 		bool should_continue = worker_thread_iteration_setup(current_iteration, globals);
 		if (!should_continue) {
@@ -476,6 +493,7 @@ init_globals(test_globals_t *globals, const test_args_t *args)
 
 	globals->tg_num_threads = args->n_threads;
 	globals->tg_variant = args->variant;
+	globals->pin_threads = args->pin_threads;
 }
 
 static void
@@ -501,18 +519,23 @@ init_fault_buffer_arr(test_globals_t *globals, const test_args_t *args, size_t m
 }
 
 static pthread_t *
-spawn_worker_threads(test_globals_t *globals, unsigned int num_threads)
+spawn_worker_threads(test_globals_t *globals, unsigned int num_threads, unsigned int first_cpu)
 {
 	int ret;
 	pthread_attr_t pthread_attrs;
 	globals->tg_num_threads = num_threads;
 	pthread_t* threads = malloc(sizeof(pthread_t) * num_threads);
+	faulting_thread_args = malloc(sizeof(faulting_thread_args_t) * num_threads);
 	assert(threads);
 	ret = pthread_attr_init(&pthread_attrs);
 	assert(ret == 0);
 	// Spawn the background threads
 	for (unsigned int i = 0; i < num_threads; i++) {
-		ret = pthread_create(threads + i, &pthread_attrs, faulting_thread, globals);
+		if (globals->pin_threads) {
+			faulting_thread_args[i].cpu_id = (i + first_cpu) % get_ncpu();
+		}
+		faulting_thread_args[i].test_globals = globals;
+		ret = pthread_create(threads + i, &pthread_attrs, faulting_thread, &faulting_thread_args[i]);
 		assert(ret == 0);
 	}
 	ret = pthread_attr_destroy(&pthread_attrs);
@@ -526,7 +549,7 @@ setup_test(test_globals_t *globals, const test_args_t *args, size_t memory_size,
 	init_globals(globals, args);
 	init_fault_buffer_arr(globals, args, memory_size);
 	benchmark_log(verbose, "Initialized global data structures.\n");
-	pthread_t *workers = spawn_worker_threads(globals, args->n_threads);
+	pthread_t *workers = spawn_worker_threads(globals, args->n_threads, args->first_cpu);
 	benchmark_log(verbose, "Spawned workers.\n");
 	return workers;
 }
@@ -553,6 +576,7 @@ join_background_threads(test_globals_t *globals, pthread_t *threads)
 		total_cputime_spent_faulting += cputime_spent_faulting;
 	}
 	free(threads);
+	free(faulting_thread_args);
 	return total_cputime_spent_faulting;
 }
 
@@ -637,6 +661,15 @@ parse_arguments(int argc, char** argv, test_args_t *args)
 		print_help(argv);
 		exit(1);
 	}
+	if (current_argument < argc) {
+		long first_cpu = strtol(argv[current_argument++], NULL, 10);
+		assert(first_cpu >= 0 && first_cpu < get_ncpu());
+		args->pin_threads = true;
+		args->first_cpu = (unsigned int) first_cpu;
+	} else {
+		args->pin_threads = false;
+	}
+
 	assert(num_cores > 0 && num_cores <= get_ncpu());
 	args->n_threads = (unsigned int) num_cores;
 	args->duration_seconds = (unsigned long) duration;

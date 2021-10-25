@@ -36,7 +36,7 @@
 #import <SecurityFoundation/SFEncryptionOperation.h>
 #import <SecurityFoundation/SFKey_Private.h>
 #import <SecurityFoundation/SFCryptoServicesErrors.h>
-
+#import <Security/SecItemPriv.h>
 #import <Foundation/NSKeyedArchiver_Private.h>
 
 #if USE_KEYSTORE && __has_include(<Kernel/IOKit/crypto/AppleKeyStoreDefs.h>)
@@ -45,6 +45,9 @@
 
 #import "SecDbKeychainMetadataKeyStore.h"
 #import "SecDbBackupManager.h"
+#if __has_include(<UserManagement/UserManagement.h>)
+#import <UserManagement/UserManagement.h>
+#endif
 
 #define KEYCHAIN_ITEM_PADDING_MODULUS 20
 
@@ -462,10 +465,10 @@ typedef NS_ENUM(uint32_t, SecDbKeychainAKSWrappedKeyType) {
     return _metadataAttributes;
 }
 
-- (NSDictionary*)secretAttributesWithAcmContext:(NSData*)acmContext accessControl:(SecAccessControlRef)accessControl callerAccessGroups:(NSArray*)callerAccessGroups error:(NSError**)error
+- (NSDictionary*)secretAttributesWithAcmContext:(NSData*)acmContext accessControl:(SecAccessControlRef)accessControl callerAccessGroups:(NSArray*)callerAccessGroups keyDiversify:(bool)keyDiversify error:(NSError**)error
 {
     if (!_secretAttributes) {
-        SFAESKey* key = [self unwrapFromAKS:_encryptedSecretData.wrappedKey accessControl:accessControl acmContext:acmContext callerAccessGroups:callerAccessGroups delete:NO error:error];
+        SFAESKey* key = [self unwrapFromAKS:_encryptedSecretData.wrappedKey accessControl:accessControl acmContext:acmContext callerAccessGroups:callerAccessGroups delete:NO keyDiversify:keyDiversify error:error];
         if (key) {
             NSError* localError = nil;
             NSData* secretDataWithPadding = [[self.class decryptionOperation] decrypt:_encryptedSecretData.ciphertext withKey:key error:&localError];
@@ -496,10 +499,19 @@ typedef NS_ENUM(uint32_t, SecDbKeychainAKSWrappedKeyType) {
     return _secretAttributes;
 }
 
-- (BOOL)deleteWithAcmContext:(NSData*)acmContext accessControl:(SecAccessControlRef)accessControl callerAccessGroups:(NSArray*)callerAccessGroups error:(NSError**)error
+- (BOOL)deleteWithAcmContext:(NSData*)acmContext accessControl:(SecAccessControlRef)accessControl callerAccessGroups:(NSArray*)callerAccessGroups keyDiversify:(bool)keyDiversify error:(NSError**)error
 {
     NSError* localError = nil;
-    (void)[self unwrapFromAKS:_encryptedSecretData.wrappedKey accessControl:accessControl acmContext:acmContext callerAccessGroups:callerAccessGroups delete:YES error:&localError];
+#if USE_KEYSTORE
+    /*
+     * rdar://19662234 Evaluate constraint for delete operation to properly
+     * evaluate items protected with password
+     */
+    if (SecAccessControlGetConstraint(accessControl, kAKSKeyOpDelete) == kCFBooleanTrue) {
+        return YES;
+    }
+#endif
+    (void)[self unwrapFromAKS:_encryptedSecretData.wrappedKey accessControl:accessControl acmContext:acmContext callerAccessGroups:callerAccessGroups delete:YES keyDiversify:keyDiversify error:&localError];
     if (localError) {
         secerror("SecDbKeychainItemV7: failed to delete item secret key from aks");
         if (error) {
@@ -643,6 +655,24 @@ typedef NS_ENUM(uint32_t, SecDbKeychainAKSWrappedKeyType) {
 
 #if USE_KEYSTORE
     NSDictionary* constraints = (__bridge NSDictionary*)SecAccessControlGetConstraints(accessControl);
+    uint8_t *persona_uuid = NULL;
+    size_t persona_uuid_length = 0;
+#if KEYCHAIN_SUPPORTS_PERSONA_MULTIUSER
+    if (ks_is_key_diversification_enabled()){
+        NSData *musr = _metadataAttributes[(__bridge NSString *)kSecAttrMultiUser];
+        if (musr && (musr.length == sizeof(uuid_t))) {
+#if KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER
+            if (SecMUSRIsMultiuserKeyDiversified((__bridge CFDataRef)(musr))) {
+#endif
+                persona_uuid = (uint8_t*)musr.bytes;
+                persona_uuid_length = musr.length;
+                secinfo("KeyDiversify", "wrapToAKS: Key diversification feature persona(musr) %@ is data separated", musr);
+#if KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER
+            }
+#endif
+        }
+    }
+#endif
     if (constraints) {
         aks_ref_key_t refKey = NULL;
         CFErrorRef cfError = NULL;
@@ -660,33 +690,48 @@ typedef NS_ENUM(uint32_t, SecDbKeychainAKSWrappedKeyType) {
             return nil;
         }
 
-        void* aksParams = NULL;
-        size_t aksParamsLength = 0;
-        aks_operation_optional_params(0, 0, authData.bytes, authData.length, acmContext.bytes, (int)acmContext.length, &aksParams, &aksParamsLength);
+        uint8_t* aksParamsDERData = NULL;
+        size_t aksParamsDERLength = 0;
+        aks_params_t aks_params = NULL;
+        aks_params = aks_params_create(NULL, 0);
+        if (!aks_params) {
+            return nil;
+        }
+        if (persona_uuid) {
+            aks_params_set_data(aks_params, aks_params_key_persona_uuid, (const void *)persona_uuid, persona_uuid_length);
+        }
+        aks_params_set_data(aks_params, aks_params_key_external_data, authData.bytes, authData.length);
+        aks_params_set_data(aks_params, aks_params_key_acm_handle, acmContext.bytes, (int)acmContext.length);
+        aks_params_get_der(aks_params, &aksParamsDERData, &aksParamsDERLength);
 
-        int aksResult = aks_ref_key_create(keybag, _keyclass, key_type_sym, aksParams, aksParamsLength, &refKey);
+        int aksResult = aks_ref_key_create(keybag, _keyclass, key_type_sym, aksParamsDERData, aksParamsDERLength, &refKey);
         if (aksResult != 0) {
             CFDataRef accessControlData = SecAccessControlCopyData(accessControl);
             create_cferror_from_aks(aksResult, kAKSKeyOpEncrypt, keybag, _keyclass, accessControlData, (__bridge CFDataRef)acmContext, &cfError);
             CFReleaseNull(accessControlData);
-            free(aksParams);
+            free(aksParamsDERData);
+            aksParamsDERData = NULL;
+            aks_params_free(&aks_params);
             BridgeCFErrorToNSErrorOut(error, cfError);
             return nil;
         }
 
         size_t wrappedKeySize = 0;
         void* wrappedKeyBytes = NULL;
-        aksResult = aks_ref_key_encrypt(refKey, aksParams, aksParamsLength, keyData.bytes, keyData.length, &wrappedKeyBytes, &wrappedKeySize);
+        aksResult = aks_ref_key_encrypt(refKey, aksParamsDERData, aksParamsDERLength, keyData.bytes, keyData.length, &wrappedKeyBytes, &wrappedKeySize);
         if (aksResult != 0) {
             CFDataRef accessControlData = SecAccessControlCopyData(accessControl);
             create_cferror_from_aks(aksResult, kAKSKeyOpEncrypt, keybag, _keyclass, accessControlData, (__bridge CFDataRef)acmContext, &cfError);
             CFReleaseNull(accessControlData);
-            free(aksParams);
+            free(aksParamsDERData);
+            aksParamsDERData = NULL;
             aks_ref_key_free(&refKey);
+            aks_params_free(&aks_params);
             BridgeCFErrorToNSErrorOut(error, cfError);
             return nil;
         }
-        free(aksParams);
+        free(aksParamsDERData);
+        aksParamsDERData = NULL;
 
         BridgeCFErrorToNSErrorOut(error, cfError);
 
@@ -695,28 +740,51 @@ typedef NS_ENUM(uint32_t, SecDbKeychainAKSWrappedKeyType) {
         size_t refKeyBlobLength = 0;
         const void* refKeyBlobBytes = aks_ref_key_get_blob(refKey, &refKeyBlobLength);
         NSData* refKeyBlob = [[NSData alloc] initWithBytes:(void*)refKeyBlobBytes length:refKeyBlobLength];
+        aks_params_free(&aks_params);
         aks_ref_key_free(&refKey);
         return [[SecDbKeychainAKSWrappedKey alloc] initRefKeyWrappedKeyWithData:wrappedKey refKeyBlob:refKeyBlob];
     }
+    /* if no constraints this uses ks_crypt */
     else {
         NSMutableData* wrappedKey = [[NSMutableData alloc] initWithLength:APPLE_KEYSTORE_MAX_SYM_WRAPPED_KEY_LEN];
-        bool success = [SecAKSObjCWrappers aksEncryptWithKeybag:keybag keyclass:_keyclass plaintext:keyData outKeyclass:&_keyclass ciphertext:wrappedKey error:error];
+        bool success = [SecAKSObjCWrappers aksEncryptWithKeybag:keybag keyclass:_keyclass plaintext:keyData outKeyclass:&_keyclass ciphertext:wrappedKey personaId:persona_uuid personaIdLength:persona_uuid_length error:error];
         return success ? [[SecDbKeychainAKSWrappedKey alloc] initRegularWrappedKeyWithData:wrappedKey] : nil;
     }
 #else
     NSMutableData* wrappedKey = [[NSMutableData alloc] initWithLength:APPLE_KEYSTORE_MAX_SYM_WRAPPED_KEY_LEN];
-    bool success = [SecAKSObjCWrappers aksEncryptWithKeybag:keybag keyclass:_keyclass plaintext:keyData outKeyclass:&_keyclass ciphertext:wrappedKey error:error];
+    bool success = [SecAKSObjCWrappers aksEncryptWithKeybag:keybag keyclass:_keyclass plaintext:keyData outKeyclass:&_keyclass ciphertext:wrappedKey personaId:NULL personaIdLength:0 error:error];
     return success ? [[SecDbKeychainAKSWrappedKey alloc] initRegularWrappedKeyWithData:wrappedKey] : nil;
 #endif
 }
 
-- (SFAESKey*)unwrapFromAKS:(SecDbKeychainAKSWrappedKey*)wrappedKey accessControl:(SecAccessControlRef)accessControl acmContext:(NSData*)acmContext callerAccessGroups:(NSArray*)callerAccessGroups delete:(BOOL)delete error:(NSError**)error
+- (SFAESKey*)unwrapFromAKS:(SecDbKeychainAKSWrappedKey*)wrappedKey accessControl:(SecAccessControlRef)accessControl acmContext:(NSData*)acmContext callerAccessGroups:(NSArray*)callerAccessGroups delete:(BOOL)delete keyDiversify:(bool)keyDiversify error:(NSError**)error
 {
     NSData* wrappedKeyData = wrappedKey.wrappedKey;
+    uint8_t *persona_uuid = NULL;
+    size_t persona_uuid_length = 0;
+
+    if (keyDiversify) {
+#if KEYCHAIN_SUPPORTS_PERSONA_MULTIUSER
+        if (ks_is_key_diversification_enabled()){
+            NSData *musr = _metadataAttributes[(__bridge NSString *)kSecAttrMultiUser];
+            if (musr && (musr.length == sizeof(uuid_t))) {
+#if KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER
+                if (SecMUSRIsMultiuserKeyDiversified((__bridge CFDataRef)(musr))) {
+#endif
+                    persona_uuid = (uint8_t*)musr.bytes;
+                    persona_uuid_length = musr.length;
+                    secinfo("KeyDiversify", "unwrapFromAKS: Key diversification feature persona(musr) %@ is data separated", musr);
+#if KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER
+                }
+#endif
+            }
+        }
+#endif
+    }
 
     if (wrappedKey.type == SecDbKeychainAKSWrappedKeyTypeRegular) {
         NSMutableData* unwrappedKey = [NSMutableData dataWithLength:APPLE_KEYSTORE_MAX_KEY_LEN];
-        bool result = [SecAKSObjCWrappers aksDecryptWithKeybag:_keybag keyclass:_keyclass ciphertext:wrappedKeyData outKeyclass:&_keyclass plaintext:unwrappedKey error:error];
+        bool result = [SecAKSObjCWrappers aksDecryptWithKeybag:_keybag keyclass:_keyclass ciphertext:wrappedKeyData outKeyclass:&_keyclass plaintext:unwrappedKey personaId:persona_uuid personaIdLength:persona_uuid_length error:error];
         if (result) {
             return [[SFAESKey alloc] initWithData:unwrappedKey specifier:[self.class keySpecifier] error:error];
         }
@@ -727,7 +795,9 @@ typedef NS_ENUM(uint32_t, SecDbKeychainAKSWrappedKeyType) {
 #if USE_KEYSTORE
     else if (wrappedKey.type == SecDbKeychainAKSWrappedKeyTypeRefKey) {
         aks_ref_key_t refKey = NULL;
-        aks_ref_key_create_with_blob(_keybag, wrappedKey.refKeyBlob.bytes, wrappedKey.refKeyBlob.length, &refKey);
+        if (aks_ref_key_create_with_blob(_keybag, wrappedKey.refKeyBlob.bytes, wrappedKey.refKeyBlob.length, &refKey) != kAKSReturnSuccess) {
+            return nil;
+        }
 
         CFErrorRef cfError = NULL;
         size_t refKeyExternalDataLength = 0;
@@ -741,34 +811,51 @@ typedef NS_ENUM(uint32_t, SecDbKeychainAKSWrappedKeyType) {
         if (!aclDict) {
             SecError(errSecDecode, &cfError, CFSTR("SecDbKeychainItemV7: failed to decode acl dict"));
         }
-        SecAccessControlSetConstraints(accessControl, (__bridge CFDictionaryRef)aclDict);
-        if (!SecAccessControlGetConstraint(accessControl, kAKSKeyOpEncrypt)) {
-            SecAccessControlAddConstraintForOperation(accessControl, kAKSKeyOpEncrypt, kCFBooleanTrue, &cfError);
+        CFDictionaryRef constraints = CFDictionaryGetValue((__bridge CFDictionaryRef)aclDict, kAKSKeyAcl);
+        SecAccessControlSetConstraints(accessControl, constraints);
+
+        size_t derPlistLength = 0;
+        NSMutableData* accessGroupDERData = NULL;
+        if (callerAccessGroups) {
+            derPlistLength = der_sizeof_plist((__bridge CFPropertyListRef)callerAccessGroups, &cfError);
+            accessGroupDERData = [[NSMutableData alloc] initWithLength:derPlistLength];
+            der_encode_plist((__bridge CFPropertyListRef)callerAccessGroups, &cfError, accessGroupDERData.mutableBytes, accessGroupDERData.mutableBytes + derPlistLength);
+        }
+        uint8_t* aksParamsDERData = NULL;
+        size_t aksParamsDERLength = 0;
+        aks_params_t aks_params = NULL;
+        aks_params = aks_params_create(NULL, 0);
+        if (!aks_params) {
+            return nil;
         }
 
-        size_t derPlistLength = der_sizeof_plist((__bridge CFPropertyListRef)callerAccessGroups, &cfError);
-        NSMutableData* accessGroupDERData = [[NSMutableData alloc] initWithLength:derPlistLength];
-        der_encode_plist((__bridge CFPropertyListRef)callerAccessGroups, &cfError, accessGroupDERData.mutableBytes, accessGroupDERData.mutableBytes + derPlistLength);
-        void* aksParams = NULL;
-        size_t aksParamsLength = 0;
-        aks_operation_optional_params(accessGroupDERData.bytes, derPlistLength, NULL, 0, acmContext.bytes, (int)acmContext.length, &aksParams, &aksParamsLength);
+        if (persona_uuid) {
+            aks_params_set_data(aks_params, aks_params_key_persona_uuid, persona_uuid, persona_uuid_length);
+        }
+        aks_params_set_data(aks_params, aks_params_key_access_groups, accessGroupDERData.bytes, derPlistLength);
+        aks_params_set_data(aks_params, aks_params_key_acm_handle, acmContext.bytes, (int)acmContext.length);
+        aks_params_get_der(aks_params, &aksParamsDERData, &aksParamsDERLength);
 
         void* unwrappedKeyDERData = NULL;
         size_t unwrappedKeyDERLength = 0;
-        int aksResult = aks_ref_key_decrypt(refKey, aksParams, aksParamsLength, wrappedKeyData.bytes, wrappedKeyData.length, &unwrappedKeyDERData, &unwrappedKeyDERLength);
+        int aksResult = aks_ref_key_decrypt(refKey, aksParamsDERData, aksParamsDERLength, wrappedKeyData.bytes, wrappedKeyData.length, &unwrappedKeyDERData, &unwrappedKeyDERLength);
         if (aksResult != 0) {
             CFDataRef accessControlData = SecAccessControlCopyData(accessControl);
             create_cferror_from_aks(aksResult, kAKSKeyOpDecrypt, 0, 0, accessControlData, (__bridge CFDataRef)acmContext, &cfError);
             CFReleaseNull(accessControlData);
             aks_ref_key_free(&refKey);
-            free(aksParams);
+            free(aksParamsDERData);
+            aksParamsDERData = NULL;
+            aks_params_free(&aks_params);
             BridgeCFErrorToNSErrorOut(error, cfError);
             return nil;
         }
         if (!unwrappedKeyDERData) {
             SecError(errSecDecode, &cfError, CFSTR("SecDbKeychainItemV7: failed to decrypt item, Item can't be decrypted due to failed decode der, so drop the item."));
             aks_ref_key_free(&refKey);
-            free(aksParams);
+            free(aksParamsDERData);
+            aksParamsDERData = NULL;
+            aks_params_free(&aks_params);
             BridgeCFErrorToNSErrorOut(error, cfError);
             return nil;
         }
@@ -784,21 +871,27 @@ typedef NS_ENUM(uint32_t, SecDbKeychainAKSWrappedKeyType) {
             SecError(errSecDecode, &cfError, CFSTR("SecDbKeychainItemV7: failed to decrypt item, Item can't be decrypted due to failed decode der, so drop the item."));
             CFReleaseNull(unwrappedKeyData);
             aks_ref_key_free(&refKey);
-            free(aksParams);
+            free(aksParamsDERData);
+            aksParamsDERData = NULL;
             free(unwrappedKeyDERData);
+            unwrappedKeyDERData = NULL;
+            aks_params_free(&aks_params);
             BridgeCFErrorToNSErrorOut(error, cfError);
             return nil;
         }
 
         if (delete) {
-            aksResult = aks_ref_key_delete(refKey, aksParams, aksParamsLength);
+            aksResult = aks_ref_key_delete(refKey, aksParamsDERData, aksParamsDERLength);
             if (aksResult != 0) {
                 CFDataRef accessControlData = SecAccessControlCopyData(accessControl);
                 create_cferror_from_aks(aksResult, kAKSKeyOpDelete, 0, 0, accessControlData, (__bridge CFDataRef)acmContext, &cfError);
                 CFReleaseNull(accessControlData);
                 aks_ref_key_free(&refKey);
-                free(aksParams);
+                free(aksParamsDERData);
+                aksParamsDERData = NULL;
                 free(unwrappedKeyDERData);
+                unwrappedKeyDERData = NULL;
+                aks_params_free(&aks_params);
                 BridgeCFErrorToNSErrorOut(error, cfError);
                 return nil;
             }
@@ -806,8 +899,11 @@ typedef NS_ENUM(uint32_t, SecDbKeychainAKSWrappedKeyType) {
 
         BridgeCFErrorToNSErrorOut(error, cfError);
         aks_ref_key_free(&refKey);
-        free(aksParams);
+        free(aksParamsDERData);
+        aksParamsDERData = NULL;
         free(unwrappedKeyDERData);
+        unwrappedKeyDERData = NULL;
+        aks_params_free(&aks_params);
         return result;
     }
 #endif

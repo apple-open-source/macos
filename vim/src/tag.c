@@ -1271,7 +1271,7 @@ prepare_pats(pat_T *pats, int has_re)
 	else
 	    for (pats->headlen = 0; pats->head[pats->headlen] != NUL;
 							      ++pats->headlen)
-		if (vim_strchr((char_u *)(p_magic ? ".[~*\\$" : "\\$"),
+		if (vim_strchr((char_u *)(magic_isset() ? ".[~*\\$" : "\\$"),
 					   pats->head[pats->headlen]) != NULL)
 		    break;
 	if (p_tl != 0 && pats->headlen > p_tl)	// adjust for 'taglength'
@@ -1279,7 +1279,8 @@ prepare_pats(pat_T *pats, int has_re)
     }
 
     if (has_re)
-	pats->regmatch.regprog = vim_regcomp(pats->pat, p_magic ? RE_MAGIC : 0);
+	pats->regmatch.regprog = vim_regcomp(pats->pat,
+						 magic_isset() ? RE_MAGIC : 0);
     else
 	pats->regmatch.regprog = NULL;
 }
@@ -1307,7 +1308,7 @@ find_tagfunc_tags(
     int         result = FAIL;
     typval_T	args[4];
     typval_T	rettv;
-    char_u      flagString[3];
+    char_u      flagString[4];
     dict_T	*d;
     taggy_T	*tag = &curwin->w_tagstack[curwin->w_tagstackidx];
 
@@ -1334,9 +1335,10 @@ find_tagfunc_tags(
     args[3].v_type = VAR_UNKNOWN;
 
     vim_snprintf((char *)flagString, sizeof(flagString),
-		 "%s%s",
+		 "%s%s%s",
 		 g_tag_at_cursor      ? "c": "",
-		 flags & TAG_INS_COMP ? "i": "");
+		 flags & TAG_INS_COMP ? "i": "",
+		 flags & TAG_REGEXP   ? "r": "");
 
     save_pos = curwin->w_cursor;
     result = call_vim_function(curbuf->b_p_tfu, 3, args, &rettv);
@@ -3311,7 +3313,7 @@ jumpto_tag(
     int		keep_help)	// keep help flag (FALSE for cscope)
 {
     int		save_secure;
-    int		save_magic;
+    optmagic_T	save_magic_overruled;
     int		save_p_ws, save_p_scs, save_p_ic;
     linenr_T	save_lnum;
     char_u	*str;
@@ -3503,11 +3505,16 @@ jumpto_tag(
 #ifdef HAVE_SANDBOX
 	++sandbox;
 #endif
-	save_magic = p_magic;
-	p_magic = FALSE;	// always execute with 'nomagic'
+	save_magic_overruled = magic_overruled;
+	magic_overruled = OPTION_MAGIC_OFF;	// always execute with 'nomagic'
 #ifdef FEAT_SEARCH_EXTRA
 	// Save value of no_hlsearch, jumping to a tag is not a real search
 	save_no_hlsearch = no_hlsearch;
+#endif
+#ifdef FEAT_PROP_POPUP
+	// getfile() may have cleared options, apply 'previewpopup' again.
+	if (g_do_tagpreview != 0 && *p_pvp != NUL)
+	    parse_previewpopup(curwin);
 #endif
 
 	/*
@@ -3626,7 +3633,7 @@ jumpto_tag(
 	if (secure == 2)
 	    wait_return(TRUE);
 	secure = save_secure;
-	p_magic = save_magic;
+	magic_overruled = save_magic_overruled;
 #ifdef HAVE_SANDBOX
 	--sandbox;
 #endif
@@ -4200,7 +4207,7 @@ tagstack_push_items(win_T *wp, list_T *l)
 	// parse 'from' for the cursor position before the tag jump
 	if ((di = dict_find(itemdict, (char_u *)"from", -1)) == NULL)
 	    continue;
-	if (list2fpos(&di->di_tv, &mark, &fnum, NULL) != OK)
+	if (list2fpos(&di->di_tv, &mark, &fnum, NULL, FALSE) != OK)
 	    continue;
 	if ((tagname =
 		dict_get_string(itemdict, (char_u *)"tagname", TRUE)) == NULL)

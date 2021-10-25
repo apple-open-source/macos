@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, 2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2017, 2018, 2020, 2021 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -60,9 +60,7 @@ __BEGIN_DECLS
 static __inline__ void
 _dns_resolver_log(uint32_t version, dns_resolver_t *resolver, int index, Boolean debug, my_log_context_type my_log_context_name)
 {
-#if	defined(MY_LOG_CONTEXT_TYPE_DEFINED_LOCALLY) && defined(MY_LOG_CONTEXT_NAME_DEFINED_LOCALLY)
 #pragma	unused(my_log_context_name)
-#endif
 	int			i;
 	uint32_t		flags;
 	char			reach_str[100];
@@ -80,9 +78,39 @@ _dns_resolver_log(uint32_t version, dns_resolver_t *resolver, int index, Boolean
 	}
 
 	for (i = 0; i < resolver->n_nameserver; i++) {
-		char	buf[128];
+		union {
+			const struct sockaddr		*sa;
+			const struct sockaddr_in	*sin;
+			const struct sockaddr_in6	*sin6;
+			const struct sockaddr_dl	*sdl;
+		} addr;
+		char			buf[128];
 
-		_SC_sockaddr_to_string(resolver->nameserver[i], buf, sizeof(buf));
+		addr.sa = resolver->nameserver[i];
+		_SC_sockaddr_to_string(addr.sa, buf, sizeof(buf));
+		if ((addr.sa->sa_family == AF_INET6) &&
+		    (addr.sin6->sin6_scope_id != 0) &&
+		    (resolver->if_name != NULL)) {
+			size_t	n;
+			char	*p;
+
+			/*
+			 * unless we are logging the live configuration we
+			 * can't trust the result of if_indextoname() using
+			 * the sin6_scope_id embedded in the address.  Here,
+			 * we report the numeric index.
+			 */
+			p = strrchr(buf, '%');
+			if (p != NULL) {
+				*p = 0;	// remove the [likely] incorrect name
+			}
+
+			n = strlen(buf);
+			snprintf(&buf[n],
+				 sizeof(buf) - n,
+				 "%%%ud",
+				 addr.sin6->sin6_scope_id);
+		}
 		my_log(LOG_INFO, "  nameserver[%d] : %s", i, buf);
 	}
 
@@ -187,9 +215,6 @@ _dns_resolver_log(uint32_t version, dns_resolver_t *resolver, int index, Boolean
 static __inline__ void
 _dns_configuration_log(dns_config_t *dns_config, Boolean debug, my_log_context_type my_log_context_name)
 {
-#if	defined(MY_LOG_CONTEXT_TYPE_DEFINED_LOCALLY) && defined(MY_LOG_CONTEXT_NAME_DEFINED_LOCALLY)
-#pragma	unused(my_log_context_name)
-#endif
 	int	i;
 
 	my_log(LOG_INFO, "%s", "DNS configuration");

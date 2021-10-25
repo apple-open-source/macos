@@ -284,15 +284,10 @@ hfs_lookup(struct vnode *dvp, struct vnode **vpp, struct componentname *cnp, int
 		/*
 		 * Insert name into the name cache (as non-existent).
 		 */
-#if CONFIG_HFS_STD
-		if ((hfsmp->hfs_flags & HFS_STANDARD) == 0)
-#endif
-		{
-			if ((cnp->cn_flags & MAKEENTRY) &&
-				(nameiop != CREATE)) {
-				cache_enter(dvp, NULL, cnp);
-				dcp->c_flag |= C_NEG_ENTRIES;
-			}
+		if ((cnp->cn_flags & MAKEENTRY) &&
+			(nameiop != CREATE)) {
+			cache_enter(dvp, NULL, cnp);
+			dcp->c_flag |= C_NEG_ENTRIES;
 		}
 		goto exit;
 	}

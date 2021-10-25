@@ -124,6 +124,18 @@ NSString* CKKSAccountStatusToString(CKKSAccountStatus status)
                 }
             });
         }
+
+        _fetchCKAccountStatusScheduler = [[CKKSNearFutureScheduler alloc] initWithName:@"ckstatus-refetch"
+                                                                          initialDelay:5 * NSEC_PER_SEC
+                                                                      expontialBackoff:1.1
+                                                                          maximumDelay:600 * NSEC_PER_SEC
+                                                                      keepProcessAlive:false
+                                                             dependencyDescriptionCode:0
+                                                                                 block:^{
+            ckksinfo_global("ckksaccount", "Retrying CK account state fetch");
+            STRONGIFY(self);
+            [self notifyCKAccountStatusChange:nil];
+        }];
     }
     return self;
 }
@@ -217,6 +229,7 @@ NSString* CKKSAccountStatusToString(CKKSAccountStatus status)
 
         if(error) {
             ckkserror_global("ckksaccount", "error getting account info: %@", error);
+            [self.fetchCKAccountStatusScheduler trigger];
             dispatch_semaphore_signal(finishedSema);
             return;
         }
@@ -278,7 +291,7 @@ NSString* CKKSAccountStatusToString(CKKSAccountStatus status)
     SOSAccountStatus* sosstatus = [CKKSAccountStateTracker getCircleStatus];
     dispatch_sync(self.queue, ^{
         if(self.currentCircleStatus == nil || ![self.currentCircleStatus isEqual:sosstatus]) {
-            ckksnotice_global("ckksaccount", "moving to circle status: %@", sosstatus);
+            ckksnotice_global("ckks-sos", "moving to circle status: %@", sosstatus);
             self.currentCircleStatus = sosstatus;
 
             if (sosstatus.status == kSOSCCInCircle) {
@@ -314,7 +327,7 @@ NSString* CKKSAccountStatusToString(CKKSAccountStatus status)
         [CKKSAccountStateTracker fetchCirclePeerID:^(NSString* peerID, NSError* error) {
             STRONGIFY(self);
             if(!self) {
-                ckkserror_global("ckksaccount", "Received fetchCirclePeerID callback with null AccountStateTracker");
+                ckkserror_global("ckks-sos", "Received fetchCirclePeerID callback with null AccountStateTracker");
                 return;
             }
 
@@ -322,13 +335,13 @@ NSString* CKKSAccountStatusToString(CKKSAccountStatus status)
                 STRONGIFY(self);
 
                 if(self.currentCircleStatus && self.currentCircleStatus.status == kSOSCCInCircle) {
-                    ckksnotice_global("ckksaccount", "Circle peerID is: %@ %@", peerID, error);
+                    ckksnotice_global("ckks-sos", "Circle peerID is: %@ %@", peerID, error);
                     // Still in circle. Proceed.
                     self.accountCirclePeerID = peerID;
                     self.accountCirclePeerIDError = error;
                     [self.accountCirclePeerIDInitialized fulfill];
                 } else {
-                    ckkserror_global("ckksaccount", "Out of circle but still received a fetchCirclePeerID callback");
+                    ckkserror_global("ckks-sos", "Out of circle but still received a fetchCirclePeerID callback");
                     // Not in-circle. Throw away circle id.
                     self.accountCirclePeerID = nil;
                     self.accountCirclePeerIDError = nil;
@@ -338,7 +351,7 @@ NSString* CKKSAccountStatusToString(CKKSAccountStatus status)
         }];
     } else {
         // Not in-circle, reset circle ID
-        ckksnotice_global("ckksaccount", "out of circle(%@): resetting peer ID", sosstatus);
+        ckksnotice_global("ckks-sos", "out of circle(%@): resetting peer ID", sosstatus);
         self.accountCirclePeerID = nil;
         self.accountCirclePeerIDError = nil;
         self.accountCirclePeerIDInitialized = [[CKKSCondition alloc] init];
@@ -423,6 +436,12 @@ NSString* CKKSAccountStatusToString(CKKSAccountStatus status)
     }
 }
 
+
+- (void)recheckCKAccountStatus
+{
+    [self.fetchCKAccountStatusScheduler trigger];
+}
+
 - (BOOL)notifyCKAccountStatusChangeAndWait:(dispatch_time_t)timeout
 {
     return dispatch_semaphore_wait([self notifyCKAccountStatusChange:nil], dispatch_time(DISPATCH_TIME_NOW, timeout)) == 0;
@@ -471,7 +490,7 @@ NSString* CKKSAccountStatusToString(CKKSAccountStatus status)
 
     SOSCCStatus status = SOSCCThisDeviceIsInCircle(&cferror);
     if(cferror) {
-        ckkserror_global("ckksaccount", "error getting circle status: %@", cferror);
+        ckkserror_global("ckks-sos", "error getting circle status: %@", cferror);
         return [[SOSAccountStatus alloc] init:kSOSCCError error:CFBridgingRelease(cferror)];
     }
 

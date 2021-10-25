@@ -29,7 +29,7 @@
 #include "reqparser.h"
 #include "reqmaker.h"
 #include "reqdumper.h"
-#include <Security/SecCertificate.h>
+#include <Security/SecCertificatePriv.h>
 #include <security_utilities/cfutilities.h>
 
 using namespace CodeSigning;

@@ -38,7 +38,7 @@
  * argument for tputs().
  */
 # ifdef VMS
-#  define TPUTSFUNCAST
+#  define TPUTSFUNCAST (void (*)(unsigned int))
 # else
 #  ifdef HAVE_OUTFUNTYPE
 #   define TPUTSFUNCAST (outfuntype)
@@ -195,6 +195,11 @@ static char_u *vim_tgetstr(char *s, char_u **pp);
 #endif // HAVE_TGETENT
 
 static int  detected_8bit = FALSE;	// detected 8-bit terminal
+
+#if (defined(UNIX) || defined(VMS))
+static int focus_mode = FALSE; // xterm's "focus reporting" availability
+static int focus_state = FALSE; // TRUE if the terminal window gains focus
+#endif
 
 #ifdef FEAT_TERMRESPONSE
 // When the cursor shape was detected these values are used:
@@ -908,16 +913,20 @@ static struct builtin_term builtin_termcaps[] =
     {(int)KS_CRT,	IF_EB("\033[23;2t", ESC_STR "[23;2t")},
     {(int)KS_SSI,	IF_EB("\033[22;1t", ESC_STR "[22;1t")},
     {(int)KS_SRI,	IF_EB("\033[23;1t", ESC_STR "[23;1t")},
+#  if (defined(UNIX) || defined(VMS))
+    {(int)KS_FD,	IF_EB("\033[?1004l", ESC_STR "[?1004l")},
+    {(int)KS_FE,	IF_EB("\033[?1004h", ESC_STR "[?1004h")},
+#  endif
 
     {K_UP,		IF_EB("\033O*A", ESC_STR "O*A")},
     {K_DOWN,		IF_EB("\033O*B", ESC_STR "O*B")},
     {K_RIGHT,		IF_EB("\033O*C", ESC_STR "O*C")},
     {K_LEFT,		IF_EB("\033O*D", ESC_STR "O*D")},
     // An extra set of cursor keys for vt100 mode
-    {K_XUP,		IF_EB("\033[1;*A", ESC_STR "[1;*A")},
-    {K_XDOWN,		IF_EB("\033[1;*B", ESC_STR "[1;*B")},
-    {K_XRIGHT,		IF_EB("\033[1;*C", ESC_STR "[1;*C")},
-    {K_XLEFT,		IF_EB("\033[1;*D", ESC_STR "[1;*D")},
+    {K_XUP,		IF_EB("\033[@;*A", ESC_STR "[@;*A")},
+    {K_XDOWN,		IF_EB("\033[@;*B", ESC_STR "[@;*B")},
+    {K_XRIGHT,		IF_EB("\033[@;*C", ESC_STR "[@;*C")},
+    {K_XLEFT,		IF_EB("\033[@;*D", ESC_STR "[@;*D")},
     // An extra set of function keys for vt100 mode
     {K_XF1,		IF_EB("\033O*P", ESC_STR "O*P")},
     {K_XF2,		IF_EB("\033O*Q", ESC_STR "O*Q")},
@@ -2044,6 +2053,28 @@ set_termname(char_u *term)
     set_mouse_termcode(KS_MOUSE, (char_u *)"\233M");
 #endif
 
+#ifdef FEAT_MOUSE_XTERM
+    // focus reporting is supported by xterm compatible terminals and tmux.
+    if (use_xterm_like_mouse(term))
+    {
+	char_u name[3];
+
+	// handle focus in event
+	name[0] = KS_EXTRA;
+	name[1] = KE_FOCUSGAINED;
+	name[2] = NUL;
+	add_termcode(name, (char_u *)"\033[I", FALSE);
+
+	// handle focus out event
+	name[1] = KE_FOCUSLOST;
+	add_termcode(name, (char_u *)"\033[O", FALSE);
+
+	focus_mode = TRUE;
+	focus_state = TRUE;
+	need_gather = TRUE;
+    }
+#endif
+
 #ifdef USE_TERM_CONSOLE
     // DEFAULT_TERM indicates that it is the machine console.
     if (STRCMP(term, DEFAULT_TERM) != 0)
@@ -2514,12 +2545,17 @@ out_flush(void)
 	// set out_pos to 0 before ui_write, to avoid recursiveness
 	len = out_pos;
 	out_pos = 0;
-	ui_write(out_buf, len);
+	ui_write(out_buf, len, FALSE);
 #ifdef FEAT_JOB_CHANNEL
 	if (ch_log_output)
 	{
 	    out_buf[len] = NUL;
-	    ch_log(NULL, "raw terminal output: \"%s\"", out_buf);
+	    ch_log(NULL, "raw %s output: \"%s\"",
+# ifdef FEAT_GUI
+			(gui.in_use && !gui.dying && !gui.starting) ? "GUI" :
+# endif
+			"terminal",
+			out_buf);
 	    ch_log_output = FALSE;
 	}
 #endif
@@ -2678,7 +2714,7 @@ out_str_cf(char_u *s)
 		else
 		{
 		    ++p;
-		    do_sleep(duration);
+		    do_sleep(duration, FALSE);
 		}
 # else
 		// Rely on the terminal library to sleep.
@@ -3329,8 +3365,9 @@ win_new_shellsize(void)
 	ui_new_shellsize();
     if (old_Rows != Rows)
     {
-	// if 'window' uses the whole screen, keep it using that
-	if (p_window == old_Rows - 1 || old_Rows == 0)
+	// If 'window' uses the whole screen, keep it using that.
+	// Don't change it when set with "-w size" on the command line.
+	if (p_window == old_Rows - 1 || (old_Rows == 0 && p_window == 0))
 	    p_window = Rows - 1;
 	old_Rows = Rows;
 	shell_new_rows();	// update window sizes
@@ -3411,9 +3448,10 @@ set_shellsize(int width, int height, int mustset)
 	return;
 
     // curwin->w_buffer can be NULL when we are closing a window and the
-    // buffer has already been closed and removing a scrollbar causes a resize
-    // event. Don't resize then, it will happen after entering another buffer.
-    if (curwin->w_buffer == NULL)
+    // buffer (or window) has already been closed and removing a scrollbar
+    // causes a resize event. Don't resize then, it will happen after entering
+    // another buffer.
+    if (curwin->w_buffer == NULL || curwin->w_lines == NULL)
 	return;
 
     ++busy;
@@ -3581,6 +3619,13 @@ starttermcap(void)
 	out_str(T_CTI);			// start "raw" mode
 	out_str(T_KS);			// start "keypad transmit" mode
 	out_str(T_BE);			// enable bracketed paste mode
+
+#if defined(UNIX) || defined(VMS)
+	// Enable xterm's focus reporting mode when 'esckeys' is set.
+	if (focus_mode && p_ek && *T_FE != NUL)
+	    out_str(T_FE);
+#endif
+
 	out_flush();
 	termcap_active = TRUE;
 	screen_start();			// don't know where cursor is now
@@ -3632,6 +3677,13 @@ stoptermcap(void)
 #ifdef FEAT_JOB_CHANNEL
 	ch_log_output = TRUE;
 #endif
+
+#if defined(UNIX) || defined(VMS)
+	// Disable xterm's focus reporting mode if 'esckeys' is set.
+	if (focus_mode && p_ek && *T_FD != NUL)
+	    out_str(T_FD);
+#endif
+
 	out_str(T_BD);			// disable bracketed paste mode
 	out_str(T_KE);			// stop "keypad transmit" mode
 	out_flush();
@@ -3744,7 +3796,7 @@ check_terminal_behavior(void)
 #endif
 	LOG_TR(("Sending xterm compatibility test sequence."));
 	// Do this in the third row.  Second row is used by ambiguous
-	// chararacter width check.
+	// character width check.
 	term_windgoto(2, 0);
 	// send the test DCS string.
 	out_str((char_u *)"\033Pzz\033\\");
@@ -4230,7 +4282,12 @@ add_termcode(char_u *name, char_u *string, int flags)
     termcodes[i].modlen = 0;
     j = termcode_star(s, len);
     if (j > 0)
+    {
 	termcodes[i].modlen = len - 1 - j;
+	// For "CSI[@;X" the "@" is not included in "modlen".
+	if (termcodes[i].code[termcodes[i].modlen - 1] == '@')
+	    --termcodes[i].modlen;
+    }
     ++tc_len;
 }
 
@@ -4242,7 +4299,7 @@ add_termcode(char_u *name, char_u *string, int flags)
     static int
 termcode_star(char_u *code, int len)
 {
-    // Shortest is <M-O>*X.  With ; shortest is <CSI>1;*X
+    // Shortest is <M-O>*X.  With ; shortest is <CSI>@;*X
     if (len >= 3 && code[len - 2] == '*')
     {
 	if (len >= 5 && code[len - 3] == ';')
@@ -4531,7 +4588,7 @@ handle_u7_response(int *arg, char_u *tp UNUSED, int csi_len UNUSED)
 
 /*
  * Handle a response to T_CRV: {lead}{first}{x};{vers};{y}c
- * Xterm and alikes use '>' for {first}.
+ * Xterm and alike use '>' for {first}.
  * Rxvt sends "{lead}?1;2c".
  */
     static void
@@ -5284,6 +5341,8 @@ check_termcode(
 	else
 #endif // FEAT_GUI
 	{
+	    int  mouse_index_found = -1;
+
 	    for (idx = 0; idx < tc_len; ++idx)
 	    {
 		/*
@@ -5321,23 +5380,42 @@ check_termcode(
 			    }
 		    }
 
-		    key_name[0] = termcodes[idx].name[0];
-		    key_name[1] = termcodes[idx].name[1];
-		    break;
+		    // The mouse termcode "ESC [" is also the prefix of
+		    // "ESC [ I" (focus gained).  Only use it when there is
+		    // no other match.  Do use it when a digit is following to
+		    // avoid waiting for more bytes.
+		    if (slen == 2 && len > 2
+			    && termcodes[idx].code[0] == ESC
+			    && termcodes[idx].code[1] == '['
+			    && !isdigit(tp[2]))
+		    {
+			if (mouse_index_found < 0)
+			    mouse_index_found = idx;
+		    }
+		    else
+		    {
+			key_name[0] = termcodes[idx].name[0];
+			key_name[1] = termcodes[idx].name[1];
+			break;
+		    }
 		}
 
 		/*
 		 * Check for code with modifier, like xterm uses:
 		 * <Esc>[123;*X  (modslen == slen - 3)
+		 * <Esc>[@;*X    (matches <Esc>[X and <Esc>[1;9X )
 		 * Also <Esc>O*X and <M-O>*X (modslen == slen - 2).
 		 * When there is a modifier the * matches a number.
 		 * When there is no modifier the ;* or * is omitted.
 		 */
-		if (termcodes[idx].modlen > 0)
+		if (termcodes[idx].modlen > 0 && mouse_index_found < 0)
 		{
+		    int at_code;
+
 		    modslen = termcodes[idx].modlen;
 		    if (cpo_koffset && offset && len < modslen)
 			continue;
+		    at_code = termcodes[idx].code[modslen] == '@';
 		    if (STRNCMP(termcodes[idx].code, tp,
 				(size_t)(modslen > len ? len : modslen)) == 0)
 		    {
@@ -5347,9 +5425,14 @@ check_termcode(
 			    return -1;		// need to get more chars
 
 			if (tp[modslen] == termcodes[idx].code[slen - 1])
-			    slen = modslen + 1;	// no modifiers
+			    // no modifiers
+			    slen = modslen + 1;
 			else if (tp[modslen] != ';' && modslen == slen - 3)
-			    continue;	// no match
+			    // no match for "code;*X" with "code;"
+			    continue;
+			else if (at_code && tp[modslen] != '1')
+			    // no match for "<Esc>[@" with "<Esc>[1"
+			    continue;
 			else
 			{
 			    // Skip over the digits, the final char must
@@ -5377,6 +5460,11 @@ check_termcode(
 			break;
 		    }
 		}
+	    }
+	    if (idx == tc_len && mouse_index_found >= 0)
+	    {
+		key_name[0] = termcodes[mouse_index_found].name[0];
+		key_name[1] = termcodes[mouse_index_found].name[1];
 	    }
 	}
 
@@ -5631,6 +5719,41 @@ check_termcode(
 	}
 # endif // !USE_ON_FLY_SCROLL
 #endif // FEAT_GUI
+
+#if (defined(UNIX) || defined(VMS))
+	/*
+	 * Handle FocusIn/FocusOut event sequences reported by XTerm.
+	 * (CSI I/CSI O)
+	 */
+	if (focus_mode
+# ifdef FEAT_GUI
+		&& !gui.in_use
+# endif
+		&& key_name[0] == KS_EXTRA
+	    )
+	{
+	    if (key_name[1] == KE_FOCUSGAINED)
+	    {
+		if (!focus_state)
+		{
+		    ui_focus_change(TRUE);
+		    did_cursorhold = TRUE;
+		    focus_state = TRUE;
+		}
+		key_name[1] = (int)KE_IGNORE;
+	    }
+	    else if (key_name[1] == KE_FOCUSLOST)
+	    {
+		if (focus_state)
+		{
+		    ui_focus_change(FALSE);
+		    did_cursorhold = TRUE;
+		    focus_state = FALSE;
+		}
+		key_name[1] = (int)KE_IGNORE;
+	    }
+	}
+#endif
 
 	/*
 	 * Change <xHome> to <Home>, <xUp> to <Up>, etc.

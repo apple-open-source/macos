@@ -33,6 +33,9 @@
 extern "C" {
 #endif
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+
 /*
  * ASN class : CertificationRequestInfo
  * C struct  : NSSCertRequestInfo
@@ -44,7 +47,7 @@ typedef struct DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER {
 	NSS_Attribute						**attributes;
 } NSSCertRequestInfo DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
-extern const SecAsn1Template kSecAsn1CertRequestInfoTemplate[];
+extern const SecAsn1Template kSecAsn1CertRequestInfoTemplate[] SEC_ASN1_API_DEPRECATED;
 
 /* 
  * ASN class : CertificationRequest
@@ -56,7 +59,7 @@ typedef struct DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER {
     SecAsn1Item 						signature;// BIT STRING, length in bits	
 } NSSCertRequest DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
-extern const SecAsn1Template kSecAsn1CertRequestTemplate[];
+extern const SecAsn1Template kSecAsn1CertRequestTemplate[] SEC_ASN1_API_DEPRECATED;
 
 /*
  * This is what we use use to avoid unnecessary setup and teardown of 
@@ -68,7 +71,9 @@ typedef struct DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER {
     SecAsn1Item 						signature;// BIT STRING, length in bits	
 } NSS_SignedCertRequest DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
-extern const SecAsn1Template kSecAsn1SignedCertRequestTemplate[];
+extern const SecAsn1Template kSecAsn1SignedCertRequestTemplate[] SEC_ASN1_API_DEPRECATED;
+
+#pragma clang diagnostic pop
 
 #ifdef  __cplusplus
 }

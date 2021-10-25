@@ -2103,7 +2103,7 @@ bool AppleRAIDSet::recover()
     // wait for outstanding i/o
     arSetCommandGate->runAction(OSMemberFunctionCast(IOCommandGate::Action, this, &AppleRAIDSet::recoverWait));
 
-    IOLog1("AppleRAID::recover wait for requests complete.\n");
+    IOLog1("AppleRAIDSet::recover wait for requests complete.\n");
 
     // at this point, the set should be paused and not allowing any new i/o
     // and there should be no active i/o outstanding other than the failed i/o
@@ -2111,9 +2111,7 @@ bool AppleRAIDSet::recover()
     // thread_call_enter() allows multiple threads to run at once
     // the first one that gets out of sleep will then do most of the work
     IOSleep(100);
-
     // remove any bad members from the set and reconfigure memory descriptors
-
     gAppleRAIDGlobals.lock();
 
     assert(arSetIsPaused);
@@ -2171,4 +2169,9 @@ bool AppleRAIDSet::recover()
 
     IOLog1("AppleRAID::recover finished\n");
     return stillAlive;
+}
+
+void AppleRAIDSet::waitForPause(void)
+{
+    arSetCommandGate->commandSleep(&arSetIsPaused, THREAD_UNINT);
 }

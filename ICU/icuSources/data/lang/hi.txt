@@ -1,5 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
-// License & terms of use: http://www.unicode.org/copyright.html#License
+// License & terms of use: http://www.unicode.org/copyright.html
+// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
 hi{
     Keys{
         calendar{"कैलेंडर"}
@@ -152,6 +153,7 @@ hi{
         eu{"बास्क"}
         ewo{"इवोन्डो"}
         fa{"फ़ारसी"}
+        fa_AF{"दारी"}
         fan{"फैन्ग"}
         fat{"फन्टी"}
         ff{"फुलाह"}
@@ -337,7 +339,7 @@ hi{
         myv{"एर्ज़या"}
         mzn{"माज़न्देरानी"}
         na{"नाउरू"}
-        nan{"nan"}
+        nan{"मिन नान"}
         nap{"नीपोलिटन"}
         naq{"नामा"}
         nb{"नॉर्वेजियाई बोकमाल"}
@@ -399,6 +401,7 @@ hi{
         raj{"राजस्थानी"}
         rap{"रापानुई"}
         rar{"रारोतोंगन"}
+        rhg{"रोहिंग्या"}
         rm{"रोमान्श"}
         rn{"रुन्दी"}
         ro{"रोमानियाई"}
@@ -559,8 +562,9 @@ hi{
         ps{"पुश्तो"}
     }
     Scripts{
+        Adlm{"अदलाम"}
         Arab{"अरबी"}
-        Aran{"नसतालीक़"}
+        Aran{"नस्तालीक़"}
         Armi{"इम्पिरियल आर्मेनिक"}
         Armn{"आर्मेनियाई"}
         Avst{"अवेस्तन"}
@@ -656,6 +660,7 @@ hi{
         Prti{"इंस्क्रिपश्नल पार्थियन"}
         Qaag{"ज़ौजी"}
         Rjng{"रीजांग"}
+        Rohg{"हनिफ़ी रोहिंग्या"}
         Roro{"रोन्गोरोन्गो"}
         Runr{"रूनिक"}
         Samr{"समरिटन"}
@@ -850,11 +855,12 @@ hi{
         AREVELA{"पूर्वी अर्मेनियाई"}
         MONOTON{"एकस्वरीय"}
         NJIVA{"जीवा बोली"}
+        PINYIN{"पिनयिन रोमनाइज़ेशन"}
         POLYTON{"बहुस्वरीय"}
         POSIX{"कम्प्यूटर"}
         REVISED{"संशोधित वर्तनी"}
+        WADEGILE{"वेड-जाइल्स रोमनाइज़ेशन"}
     }
-    Version{"36.1"}
     characterLabelPattern{
         all{"{0} — सभी"}
         category-list{"{0}: {1}"}
@@ -869,6 +875,8 @@ hi{
             one{"{0} स्ट्रोक"}
             other{"{0} स्ट्रोक"}
         }
+        subscript{"सबस्क्रिप्ट {0}"}
+        superscript{"सुपरस्क्रिप्ट {0}"}
     }
     codePatterns{
         language{"भाषा: {0}"}

@@ -47,6 +47,7 @@ __FBSDID("$FreeBSD: src/lib/libc/stdlib/abort.c,v 1.11 2007/01/09 00:28:09 imp E
 #include "un-namespace.h"
 
 #include "libc_private.h"
+#include "stdio/FreeBSD/local.h" // for __cleanup
 
 #if __has_include(<CrashReporterClient.h>)
 #include <CrashReporterClient.h>
@@ -56,7 +57,6 @@ __FBSDID("$FreeBSD: src/lib/libc/stdlib/abort.c,v 1.11 2007/01/09 00:28:09 imp E
 #endif
 #include "_simple.h"
 
-extern void (*__cleanup)();
 extern void __abort(void) __cold __dead2;
 
 #define TIMEOUT	10000	/* 10 milliseconds */

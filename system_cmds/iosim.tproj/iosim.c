@@ -210,7 +210,7 @@ void setup_qos_device(void)
 
 	printf ( "*** setup_qos_device *** \n" );
 
-	status = IOServiceGetMatchingServices ( kIOMasterPortDefault, IOServiceMatching ( kIONVMeANS2ControllerString ), &iterator );
+	status = IOServiceGetMatchingServices ( kIOMainPortDefault, IOServiceMatching ( kIONVMeANS2ControllerString ), &iterator );
 
 	if ( status != kIOReturnSuccess )
 		return;
@@ -221,7 +221,7 @@ void setup_qos_device(void)
 		return;
 	}
 
-	status = IOServiceGetMatchingServices ( kIOMasterPortDefault, IOServiceMatching ( kIONVMeANS2EmbeddedControllerString ), &iterator );
+	status = IOServiceGetMatchingServices ( kIOMainPortDefault, IOServiceMatching ( kIONVMeANS2EmbeddedControllerString ), &iterator );
 
 	if ( status != kIOReturnSuccess )
 		return;
@@ -232,7 +232,7 @@ void setup_qos_device(void)
 		return;
 	}
 
-	status= IOServiceGetMatchingServices ( kIOMasterPortDefault, IOServiceMatching ( kIONVMeControllerString ), &iterator );
+	status= IOServiceGetMatchingServices ( kIOMainPortDefault, IOServiceMatching ( kIONVMeControllerString ), &iterator );
 
 	if ( status != kIOReturnSuccess )
 		return;
@@ -342,7 +342,6 @@ void *sync_routine(void *arg)
 		usleep(sync_frequency_ms * 1000);
 		sync();
 	}
-	pthread_exit(NULL);
 }
 
 void *calculate_throughput(void *arg)
@@ -356,6 +355,9 @@ void *calculate_throughput(void *arg)
 		throughput_histogram[throughput_index] = size;
 		prev_total_io_size = total_io_size;
 		throughput_index++;
+		if (throughput_index >= MAX_ITERATIONS) {
+			break;
+		}
 	}
 	pthread_exit(NULL);
 }
@@ -448,10 +450,6 @@ void *io_routine(void *arg)
 		else
 			usleep(inter_burst_duration * 1000);
 	}
-
-	free(data);
-	close(fd);
-	pthread_exit(NULL);
 }
 
 void validate_option(int value, int min, int max, char *option, char *units)
@@ -500,7 +498,8 @@ iopol_error:
 
 int main(int argc, char *argv[])
 {
-	int i, option = 0;
+	long i;
+	int option = 0;
 	pthread_t thread_list[MAX_THREADS];
 	pthread_t sync_thread;
 	pthread_t throughput_thread;
@@ -595,7 +594,7 @@ int main(int argc, char *argv[])
 	if (user_specified_file == 0) {
 		char dd_command[MAX_CMD_SIZE];
 		for (i=0; i < thread_count; i++) {
-			snprintf(fname, MAX_FILENAME, "iosim-%d-%d", (int)getpid(), i);
+			snprintf(fname, MAX_FILENAME, "iosim-%d-%ld", (int)getpid(), i);
 			snprintf(dd_command, MAX_CMD_SIZE, "dd if=/dev/urandom of=%s bs=4096 count=%d", fname, file_size);
 			printf("Creating file %s of size %lld...\n", fname, ((int64_t)file_size * 4096));
 			system_cmd(dd_command);
@@ -615,7 +614,7 @@ int main(int argc, char *argv[])
 	signal(SIGALRM, signalHandler);
 
 	for(i=0; i < thread_count; i++) {
-		if (pthread_create(&thread_list[i], NULL, io_routine, i) < 0) {
+		if (pthread_create(&thread_list[i], NULL, io_routine, (void *)i) < 0) {
 			perror("Could not create I/O thread!\n");
 			exit(1);
 		}

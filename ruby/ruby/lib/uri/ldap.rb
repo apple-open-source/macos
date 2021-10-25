@@ -7,7 +7,7 @@
 # License::
 #   URI::LDAP is copyrighted free software by Takaaki Tateishi and Akira Yamada.
 #   You can redistribute it and/or modify it under the same term as Ruby.
-# Revision:: $Id: ldap.rb 65505 2018-11-02 17:52:33Z marcandre $
+# Revision:: $Id: ldap.rb 67914 2021-04-04 22:27:35Z usa $
 #
 # See URI for general documentation
 #
@@ -119,6 +119,7 @@ module URI
 
     # Private method to cleanup +dn+ from using the +path+ component attribute.
     def parse_dn
+      raise InvalidURIError, 'bad LDAP URL' unless @path
       @dn = @path[1..-1]
     end
     private :parse_dn

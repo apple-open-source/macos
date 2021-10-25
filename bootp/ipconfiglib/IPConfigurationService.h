@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2011-2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -54,15 +54,27 @@ IPConfigurationServiceGetTypeID(void);
 extern const CFStringRef	kIPConfigurationServiceOptionMTU; /* number */
 
 /*
- * kIPConfigurationServiceOptionPerformNUD (CFBooleanRef, default TRUE)
- * - specify whether to perform Neighbor Unreachability Detection
+ * kIPConfigurationServiceOptionAPNName (CFStringRef)
+ * - specify the APN name
  */
-extern const CFStringRef	kIPConfigurationServiceOptionPerformNUD; /* boolean */
+extern const CFStringRef	kIPConfigurationServiceOptionAPNName; /* string */
+
+/*
+ * kIPConfigurationServiceOptionIPv4Entity (CFDictionaryRef)
+ */
+extern const CFStringRef	kIPConfigurationServiceOptionIPv4Entity; /* dictionary */
 
 /*
  * kIPConfigurationServiceOptionIPv6Entity (CFDictionaryRef)
  */
 extern const CFStringRef	kIPConfigurationServiceOptionIPv6Entity; /* dictionary */
+
+/*
+ * kIPConfigurationServiceOptionPerformNUD (CFBooleanRef, default TRUE)
+ * - specify whether to perform Neighbor Unreachability Detection
+ * - applies to IPv6 service only
+ */
+extern const CFStringRef	kIPConfigurationServiceOptionPerformNUD; /* boolean */
 
 /*
  * kIPConfigurationServiceOptionIPv6LinkLocalAddress (CFStringRef)
@@ -73,18 +85,14 @@ extern const CFStringRef	kIPConfigurationServiceOptionIPv6LinkLocalAddress; /* s
 /*
  * kIPConfigurationServiceOptionEnableDAD (CFBooleanRef, default TRUE)
  * - specify whether to do DAD (Duplicate Address Detection)
+ * - applies to IPv6 service only
  */
 extern const CFStringRef	kIPConfigurationServiceOptionEnableDAD; /* boolean */
 
 /*
- * kIPConfigurationServiceOptionAPNName (CFStringRef)
- * - specify the APN name
- */
-extern const CFStringRef	kIPConfigurationServiceOptionAPNName; /* string */
-
-/*
  * kIPConfigurationServiceOptionEnableCLAT46 (CFBooleanRef, default FALSE)
  * - specify whether to enable CLAT46 translation or not
+ * - applies to IPv6 Automatic service only
  */
 extern const CFStringRef	kIPConfigurationServiceOptionEnableCLAT46; /* boolean */
 
@@ -92,15 +100,23 @@ extern const CFStringRef	kIPConfigurationServiceOptionEnableCLAT46; /* boolean *
  * Function: IPConfigurationServiceCreate
  *
  * Purpose:
- *   Instantiate a new service over the specified interface that is managed
- *   and maintained by the IPConfiguration server.
+ *   Instantiate an IPv4 or IPv6 network service over the specified
+ *   interface. The service is managed and maintained within the context
+ *   of the IPConfiguration agent.
  *
- *   Supports creating an IPv6 Manual or Automatic service, depending on 
- *   whether or not kIPConfigurationServiceOptionIPv6Entity is specified in the
- *   'options' dictionary. If the property is missing, an Automatic service
- *   is created.  If kIPConfigurationServiceOptionIPv6Entity is specified, 
- *   it must represent a valid Manual or Automatic service, using the IPv6
- *   schema defined in <SystemConfiguration/SCSchemaDefinitions.h>.
+ *   To create an IPv4 service, the 'options' dictionary must contain the
+ *   kIPConfigurationServiceOptionIPv4Entity dictionary.  The dictionary
+ *   must be populated with appropriate IPv4 service properties as defined
+ *   in <SystemConfiguration/SCSchemaDefinitions.h>.  See also
+ *   "Supported Configurations" below.
+ *
+ *   To create an IPv6 service, the 'options' dictionary can be NULL, or
+ *   if non-NULL may contain the kIPConfigurationServiceOptionIPv6Entity
+ *   property. If 'options' is NULL, an Automatic service is created.
+ *   If the kIPConfigurationServiceOptionIPv6Entity dictionary is
+ *   specified, it must be populated with appropriate IPv6 service properties
+ *   as defined in <SystemConfiguration/SCSchemaDefinitions.h>.
+ *   See also "Supported Configurations" below.
  *
  *   The resulting service that gets instantiated is ineligible to become
  *   primary. The caller is responsible for publishing
@@ -131,6 +147,31 @@ extern const CFStringRef	kIPConfigurationServiceOptionEnableCLAT46; /* boolean *
  *   type for the specified interface.
  * - If the process that invokes this function terminates, the 
  *   service will be terminated by IPConfiguration.
+ *
+ *
+ * Supported configurations:
+ *   (R) = Required property
+ *   (O) = Optional property
+ *
+ * IPv6
+ *  Automatic
+ *   (R) kSCPropNetIPv6ConfigMethod = kSCValNetIPv6ConfigMethodAutomatic
+ *  Manual
+ *   (R) kSCPropNetIPv6ConfigMethod = kSCValNetIPv6ConfigMethodManual
+ *   (R) kSCPropNetIPv6Addresses
+ *   (R) kSCPropNetIPv6PrefixLength
+ *   (O) kSCPropNetIPv6Router
+ *
+ * IPv4
+ *  DHCP
+ *   (R) kSCPropNetIPv4ConfigMethod = kSCValNetIPv4ConfigMethodDHCP
+ *   (O) kSCPropNetIPv4DHCPClientID
+ *  Manual
+ *   (R) kSCPropNetIPv4ConfigMethod = kSCValNetIPv4ConfigMethodManual
+ *   (R) kSCPropNetIPv4Addresses
+ *   (O) kSCPropNetIPv4SubnetMasks
+ *   (O) kSCPropNetIPv4DestAddresses
+ *   (O) kSCPropNetIPv4Router
  */
 IPConfigurationServiceRef
 IPConfigurationServiceCreate(CFStringRef interface_name, 

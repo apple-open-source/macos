@@ -1,9 +1,5 @@
-
-#ifndef _S_DHCPD_H
-#define _S_DHCPD_H
-
 /*
- * Copyright (c) 2000 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2021 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -29,6 +25,10 @@
  * - DHCP server definitions
  */
 
+#ifndef _S_DHCPD_H
+#define _S_DHCPD_H
+
+
 #include "dhcplib.h"
 #include "bootpd.h"
 
@@ -50,16 +50,6 @@ dhcp_bootp_allocate(char * idstr, char * hwstr, struct dhcp * rq,
 #define DHCP_PENDING_SECS		60
 
 #define DHCP_DECLINE_WAIT_SECS (60 * 10)		/* 10 minutes */
-
-#define TIME_DRIFT_PERCENT		0.99
-
-static __inline__ u_long
-lease_prorate(u_long lease_time)
-{
-    double d = lease_time * TIME_DRIFT_PERCENT;
-
-    return ((u_long)d);
-}
 
 struct dhcp * 
 make_dhcp_reply(struct dhcp * reply, int pkt_size, 

@@ -392,11 +392,9 @@
     
     //stop event processing until we load it up with work
     suspend_event_work_queue();
-#if TARGET_OS_OSX
-    uint testInterations = 500;
-#else
-    uint testInterations = 200;  //ios is slower
-#endif
+
+    uint testInterations = 200;
+
     XCTestExpectation *expectation = [[XCTestExpectation alloc] initWithDescription:@"There should be one notification for each cred (in this test)"];
     expectation.expectedFulfillmentCount = testInterations;
     _notifyExpectation = expectation;
@@ -570,6 +568,8 @@
     [[NSRunLoop currentRunLoop] runUntilDate:[NSDate dateWithTimeIntervalSinceNow:1]];
 
     XCTAssertEqual([GSSCredTestUtil itemCount:self.peer], testInterations, "There should be one parent cache remaining each cred");
+
+    
 }
 #endif
 

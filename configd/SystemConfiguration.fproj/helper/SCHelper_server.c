@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005-2019 Apple Inc. All rights reserved.
+ * Copyright (c) 2005-2021 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -260,7 +260,7 @@ __SCHelperSessionSetThreadName(SCHelperSessionRef session)
 							 kCFStringEncodingUTF8);
 		}
 
-		path = (prefsPrivate->newPath != NULL) ? prefsPrivate->newPath : prefsPrivate->path;
+		path = prefsPrivate->path;
 		if (path != NULL) {
 			path_s = strrchr(path, '/');
 			if (path_s != NULL) {
@@ -387,7 +387,7 @@ __SCHelperSessionLog(const void *value, void *context)
 		       session,
 		       (void *)(uintptr_t)CFMachPortGetPort(sessionPrivate->mp),
 		       prefsPrivate->name,
-		       prefsPrivate->newPath ? prefsPrivate->newPath : prefsPrivate->path,
+		       prefsPrivate->path,
 		       prefsPrivate->locked ? ", locked" : "");
 
 		if ((sessionPrivate->backtraces != NULL) &&
@@ -603,7 +603,7 @@ __SCHelperSessionAddBacktrace(SCHelperSessionRef session, CFStringRef backtrace,
 	logEntry = CFStringCreateWithFormat(NULL, NULL,
 					    CFSTR("%@ [%s]: %s\n\n%@"),
 					    prefsPrivate->name,
-					    prefsPrivate->newPath ? prefsPrivate->newPath : prefsPrivate->path,
+					    prefsPrivate->path,
 					    command,
 					    backtrace);
 
@@ -1205,8 +1205,8 @@ do_prefs_Commit(SCHelperSessionRef session, void *info, CFDataRef data, uint32_t
 	SCPreferencesRef	prefs			= __SCHelperSessionGetPreferences(session);
 	CFPropertyListRef	prefsData		= NULL;
 	SCPreferencesPrivateRef	prefsPrivate		= (SCPreferencesPrivateRef)prefs;
-	Boolean			saveAccessed;
-	Boolean			saveChanged;
+	Boolean			saveAccessed		= FALSE;
+	Boolean			saveChanged		= FALSE;
 	CFMutableDictionaryRef	savePrefs		= NULL;
 	Boolean			saveValid		= FALSE;
 	Boolean			useSetFilter;
@@ -1329,14 +1329,14 @@ do_prefs_Commit(SCHelperSessionRef session, void *info, CFDataRef data, uint32_t
 	 restore them IFF the commit fails. Pretend as if the
 	 commit never happened!
 	 */
-	savePrefs = prefsPrivate->prefs;
-	saveAccessed = prefsPrivate->accessed;
-	saveChanged = prefsPrivate->changed;
+	savePrefs	= prefsPrivate->prefs;
+	saveAccessed	= prefsPrivate->accessed;
+	saveChanged	= prefsPrivate->changed;
+	saveValid	= TRUE;
 
 	prefsPrivate->prefs	= CFDictionaryCreateMutableCopy(NULL, 0, prefsData);
 	prefsPrivate->accessed	= TRUE;
 	prefsPrivate->changed	= TRUE;
-	saveValid		= TRUE;
 
     commit :
 
@@ -1354,9 +1354,9 @@ do_prefs_Commit(SCHelperSessionRef session, void *info, CFDataRef data, uint32_t
 				CFRelease(prefsPrivate->prefs);
 			}
 
-			prefsPrivate->prefs = savePrefs;
-			prefsPrivate->accessed = saveAccessed;
-			prefsPrivate->changed = saveChanged;
+			prefsPrivate->prefs	= savePrefs;
+			prefsPrivate->accessed	= saveAccessed;
+			prefsPrivate->changed	= saveChanged;
 		}
 		*status = SCError();
 	}
@@ -2225,7 +2225,7 @@ _helperexec(mach_port_t			server,
 	}
 
 	if ((traceRef != NULL) && (traceLen > 0)) {
-		if (!_SCUnserializeString(&backtrace, NULL, (void *)traceRef, traceLen)) {
+		if (!_SCUnserializeString(&backtrace, NULL, traceRef, traceLen)) {
 			*status = SCError();
 		}
 	}
@@ -2279,7 +2279,7 @@ _helperexec(mach_port_t			server,
 		if (reply != NULL) {
 			CFIndex		len;
 
-			ok = _SCSerializeData(reply, (void **)replyRef, &len);
+			ok = _SCSerializeData(reply, replyRef, &len);
 			*replyLen = (mach_msg_type_number_t)len;
 			if (!ok) {
 				*status = SCError();
@@ -2353,7 +2353,7 @@ static const struct option longopts[] = {
 
 
 int
-main(int argc, char **argv)
+main(int argc, char * const argv[])
 {
 	Boolean			done		= FALSE;
 	int			err		= 0;

@@ -94,7 +94,7 @@ static int32_t err_callback(int32_t sev, int32_t err, xar_errctx_t ctx, void *us
 static void print_file(xar_t x, xar_file_t f) {
 	if( List && Verbose ) {
 		char *size = xar_get_size(x, f);
-		char *path = xar_get_path(f);
+		char *path = xar_get_safe_path(f);
 		char *type = xar_get_type(x, f);
 		char *mode = xar_get_mode(x, f);
 		char *user = xar_get_owner(x, f);
@@ -109,7 +109,7 @@ static void print_file(xar_t x, xar_file_t f) {
 		free(group);
 		free(mtime);
 	} else if( List || Verbose ) {
-		char *path = xar_get_path(f);
+		char *path = xar_get_safe_path(f);
 		
 		if (xar_path_issane(path) == 0) 
 			printf("Warning, archive contains invalid path: %s\n", path);
@@ -395,7 +395,8 @@ static int extract(const char *filename, int arglen, char *args[]) {
 		int exclude_match = 1;
 		struct lnode *i;
 
-		char *path = xar_get_path(f);
+		char *path = xar_get_safe_path(f);
+		char *unsafe_path = xar_get_path(f); // To not break anyone, also match our regex on the bogus path.
 		
 		// Check to see if this file is a symlink
 		const char* type = NULL;
@@ -405,6 +406,7 @@ static int extract(const char *filename, int arglen, char *args[]) {
 			if (Verbose)
 				printf("Warning, not extracting file \"%s\" because we can't get it's type.\n", path);
 			free(path);
+			free(unsafe_path);
 			continue;
 		}
 		
@@ -426,6 +428,7 @@ static int extract(const char *filename, int arglen, char *args[]) {
 			if (Verbose)
 				printf("Warning, not extracting file \"%s\" because it's path is invalid.\n", path);
 			free(path);
+			free(unsafe_path);
 			continue;
 		}
 		
@@ -434,6 +437,13 @@ static int extract(const char *filename, int arglen, char *args[]) {
 				int extract_match = 1;
 
 				extract_match = regexec(&i->reg, path, 0, NULL, 0);
+				if( !extract_match ) {
+					matched = 1;
+					break;
+				}
+				
+				// Compat with broken archives.
+				extract_match = regexec(&i->reg, unsafe_path, 0, NULL, 0);
 				if( !extract_match ) {
 					matched = 1;
 					break;
@@ -447,11 +457,16 @@ static int extract(const char *filename, int arglen, char *args[]) {
 			exclude_match = regexec(&i->reg, path, 0, NULL, 0);
 			if( !exclude_match )
 				break;
+			
+			exclude_match = regexec(&i->reg, unsafe_path, 0, NULL, 0);
+			if( !exclude_match )
+				break;
 		}
 		if( !exclude_match ) {
 			if( Verbose )
 				printf("Excluding %s\n", path);
 			free(path);
+			free(unsafe_path);
 			continue;
 		}
 		
@@ -479,6 +494,7 @@ static int extract(const char *filename, int arglen, char *args[]) {
 			}
 		}
 		free(path);
+		free(unsafe_path);
 	}
 	for(lnodei = dirs; lnodei; lnodei = lnodei->next) {
 		files_extracted++;
@@ -576,7 +592,8 @@ static int list(const char *filename, int arglen, char *args[]) {
 		int matched = 0;
 
 		if( args[0] ) {
-			char *path = xar_get_path(f);
+			char *path = xar_get_safe_path(f);
+			char *unsafe_path = xar_get_path(f);
 			
 			if (xar_path_issane(path) == 0) {
 				fprintf(stderr, "Warning, archive contains invalid path: %s\n", path);
@@ -592,8 +609,15 @@ static int list(const char *filename, int arglen, char *args[]) {
 					matched = 1;
 					break;
 				}
+				
+				list_match = regexec(&lnodei->reg, unsafe_path, 0, NULL, 0);
+				if( !list_match ) {
+					matched = 1;
+					break;
+				}
 			}
 			free(path);
+			free(unsafe_path);
 		} else {
 			matched = 1;
 		}
@@ -783,7 +807,7 @@ static int32_t err_callback(int32_t sev, int32_t err, xar_errctx_t ctx, void *us
 		if( err == XAR_ERR_ARCHIVE_EXTRACTION ) printf("extracting");
 		printf(" archive");
 		if( f ) {
-			const char *file = xar_get_path(f);
+			const char *file = xar_get_safe_path(f);
 			if( file ) printf(":(%s)", file);
 			free((char *)file);
 		}
@@ -1197,7 +1221,7 @@ int main(int argc, char *argv[]) {
 				usage(argv[0]);
 				exit(1);
 			}
-			return dumptoc(filename, tocfile);
+			return dumptoc(filename, tocfile); 
 		case 20:
 			if( !required_dash_f ) {
 				usage(argv[0]);

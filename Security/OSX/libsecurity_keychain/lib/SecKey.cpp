@@ -106,6 +106,12 @@ SecCDSAKeyDestroy(SecKeyRef keyRef) {
     (void) kc; // Tell the compiler we're actually using this variable. At destruction time, it'll release the keychain.
 }
 
+static CFStringRef
+SecCDSAKeyCopyDescription(SecKeyRef key) {
+    const CssmKey::Header header = CDSASecKey::keyItem(key)->unverifiedKeyHeader();
+    return CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR( "<SecCDSAKeyRef %p: algorithm id: %lu, class=%x, algorithm=%x, usage=%x attrs=%x>"), key, SecKeyGetAlgorithmId(key), (unsigned)header.keyClass(), (unsigned)header.algorithm(), (unsigned)header.usage(), (unsigned)header.attributes());
+}
+
 static size_t
 SecCDSAKeyGetBlockSize(SecKeyRef key) {
 
@@ -172,7 +178,8 @@ SecCDSAKeyGetAlgorithmId(SecKeyRef key) {
             result = kSecECDSAAlgorithmID;
             break;
         default:
-            assert(0); /* other algorithms TBA */
+            result = kSecNullAlgorithmID;
+            break;
     }
 
     END_SECKEYAPI
@@ -808,6 +815,7 @@ const SecKeyDescriptor kSecCDSAKeyDescriptor = {
 
     .init = SecCDSAKeyInit,
     .destroy = SecCDSAKeyDestroy,
+    .describe = SecCDSAKeyCopyDescription,
     .blockSize = SecCDSAKeyGetBlockSize,
     .copyDictionary = SecCDSAKeyCopyAttributeDictionary,
     .getAlgorithmID = SecCDSAKeyGetAlgorithmId,

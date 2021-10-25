@@ -910,13 +910,19 @@ case $LSOF_TGT in	# {
       18.*)			# macOS 10.14 (Mojave)
  	LSOF_VERS=1800
  	;;
-      19.*)			# Next? macOS
+      19.*)			# macOS 10.15 (Catalina)
  	LSOF_VERS=1900
+ 	;;
+      20.*)			# macOS 11.0 (Big Sur)
+ 	LSOF_VERS=2000
+ 	;;
+      21.*)			# Next? macOS
+ 	LSOF_VERS=2100
  	;;
       *)
 	echo Unknown Darwin release: `uname -r`
 	echo Assuming Darwin 18.0
-	LSOF_VERS=1800
+	LSOF_VERS=2000
 	;;
       esac	# }
     fi	# }
@@ -955,13 +961,13 @@ case $LSOF_TGT in	# {
         LSOF_CFGF="$LSOF_CFGF -DNEEDS_MACH_PORT_T"
       fi	# }
       ;;
-    1700|1800)
+    1700|1800|1900|2000)
       LSOF_CFGF="$LSOF_CFGF -DHASIPv6 -fno-common"
       LSOF_TMP1=""
       LSOF_UNSUP=""
       LSOF_TSTBIGF=" "			# enable LTbigf test
       ;;
-    1900)
+    2100)
       LSOF_CFGF="$LSOF_CFGF -DHASIPv6 -fno-common"
       LSOF_TMP1=""
       ;;

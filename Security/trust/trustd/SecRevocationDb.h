@@ -131,6 +131,15 @@ SecValidInfoRef SecRevocationDbCopyMatching(SecCertificateRef certificate,
 bool SecRevocationDbContainsIssuer(SecCertificateRef issuer);
 
 /*!
+ @function SecRevocationDbSerialInFilter
+ @abstract Returns true if the serial number is matched in the provided filter.
+ @param serialData The serial number being checked.
+ @param xmlData Contents of the data column for the issuing CA in the Valid database.
+ @result If serial is matched in the filter, returns true, otherwise false.
+*/
+bool SecRevocationDbSerialInFilter(CFDataRef serialData, CFDataRef xmlData);
+
+/*!
 	@function SecRevocationDbGetVersion
 	@abstract Returns a CFIndex containing the version number of the database.
 	@result On success, the returned version will be a value greater than or equal to zero. A version of 0 indicates an empty database which has yet to be populated. If the version cannot be obtained, -1 is returned.

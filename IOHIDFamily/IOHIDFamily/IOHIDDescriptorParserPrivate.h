@@ -59,7 +59,8 @@ enum {
 	kHIDDataConstant			= 0x01
 };
 
-//#if KERNEL
+/* the following constants are from the USB HID Specification (www.usb.org)*/
+
 /*------------------------------------------------------------------------------*/
 /*																				*/
 /* HID Header																	*/
@@ -157,10 +158,15 @@ enum {
 /*																				*/
 /*------------------------------------------------------------------------------*/
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wfour-char-constants"
+
 enum
 {	
 	kHIDOSType			=	'hid '
 };
+
+#pragma clang diagnostic pop
 
 struct HIDItem
 {

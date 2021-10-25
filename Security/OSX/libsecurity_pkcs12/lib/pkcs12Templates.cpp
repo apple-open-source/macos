@@ -120,10 +120,6 @@ static const SecAsn1Template * NSS_P12_CertBagChooser(
 		templ = kSecAsn1IA5StringTemplate;
 		type = CT_SDSI;
 	}
-	else {
-		/* punt */
-		templ = kSecAsn1AnyTemplate;
-	}
 	if(!enc) {
 		bag->type = type;
 	}
@@ -169,10 +165,6 @@ static const SecAsn1Template * NSS_P12_CrlBagChooser(
 	if(nssCompareCssmData(oid, &CSSMOID_PKCS9_X509Crl)) {
 		templ = kSecAsn1OctetStringTemplate;
 		type = CRT_X509;
-	}
-	else {
-		/* punt */
-		templ = kSecAsn1AnyTemplate;
 	}
 	if(!enc) {
 		bag->type = type;
@@ -246,10 +238,6 @@ static const SecAsn1Template * NSS_P12_SafeBagChooser(
 	else if(nssCompareCssmData(oid, &CSSMOID_PKCS12_safeContentsBag)) {
 		templ = NSS_P12_PtrToSafeContentsBagTemplate;
 		type = BT_SafeContentsBag;
-	}
-	/* add more here when we implement them */
-	else {
-		templ = kSecAsn1PointerToAnyTemplate;
 	}
 	if(!enc) {
 		bag->type = type;

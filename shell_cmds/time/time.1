@@ -1,5 +1,3 @@
-.\"	$NetBSD: time.1,v 1.7 1997/10/20 03:28:20 lukem Exp $
-.\"
 .\" Copyright (c) 1980, 1991, 1993
 .\"	The Regents of the University of California.  All rights reserved.
 .\"
@@ -11,11 +9,7 @@
 .\" 2. Redistributions in binary form must reproduce the above copyright
 .\"    notice, this list of conditions and the following disclaimer in the
 .\"    documentation and/or other materials provided with the distribution.
-.\" 3. All advertising materials mentioning features or use of this software
-.\"    must display the following acknowledgement:
-.\"	This product includes software developed by the University of
-.\"	California, Berkeley and its contributors.
-.\" 4. Neither the name of the University nor the names of its contributors
+.\" 3. Neither the name of the University nor the names of its contributors
 .\"    may be used to endorse or promote products derived from this software
 .\"    without specific prior written permission.
 .\"
@@ -32,8 +26,9 @@
 .\" SUCH DAMAGE.
 .\"
 .\"     @(#)time.1	8.1 (Berkeley) 6/6/93
+.\" $FreeBSD$
 .\"
-.Dd June 6, 1993
+.Dd January 15, 2021
 .Dt TIME 1
 .Os
 .Sh NAME
@@ -41,35 +36,57 @@
 .Nd time command execution
 .Sh SYNOPSIS
 .Nm
-.Op Fl lp
-.Ar utility
+.Op Fl al
+.Op Fl h | Fl p
+.Op Fl o Ar file
+.Ar utility Op Ar argument ...
 .Sh DESCRIPTION
 The
 .Nm
 utility
 executes and
-times
+times the specified
 .Ar utility .
 After the
 .Ar utility
 finishes,
 .Nm
-writes the total time elapsed,
-the time consumed by system overhead,
-and the time used to execute 
-.Ar utility 
-to the standard error stream.
-Times are reported in seconds.
+writes to the standard error stream,
+(in seconds):
+the total time elapsed,
+the time used to execute the
+.Ar utility
+process and the time consumed by system overhead.
 .Pp
-Available options:
-.Bl -tag -width Ds
+The following options are available:
+.Bl -tag -width indent
+.It Fl a
+If the
+.Fl o
+flag is used, append to the specified file rather than overwriting
+it.
+Otherwise, this option has no effect.
+.It Fl h
+Print times in a human friendly format.
+Times are printed in minutes, hours,
+etc.\& as appropriate.
 .It Fl l
 The contents of the
 .Em rusage
-structure are printed.
+structure are printed as well.
+.It Fl o Ar file
+Write the output to
+.Ar file
+instead of stderr.
+If
+.Ar file
+exists and the
+.Fl a
+flag is not specified, the file will be overwritten.
 .It Fl p
-The output is formatted as specified by
-.St -p1003.2-92 .
+Makes
+.Nm
+output POSIX.2 compliant (each time is printed on its own line).
 .El
 .Pp
 Some shells may provide a builtin
@@ -78,39 +95,110 @@ command which is similar or identical to this utility.
 Consult the
 .Xr builtin 1
 manual page.
-.Sh DIAGNOSTICS
-The
-.Nm
-utility shall exit with one of the following values:
-.Bl -tag -width indent
-.It 1-125
-An error occurred in the 
-.Nm
-utility.
-.It 126
-The 
-.Ar utility
-was found but could not be invoked.
-.It 127
-The 
-.Ar utility
-could not be found.
-.El
 .Pp
-Otherwise, the exit status of 
+If
 .Nm
-shall be that of 
-.Ar utility .
+receives a
+.Dv SIGINFO
+(see the status argument for
+.Xr stty 1 )
+signal, the current time the given command is running will be written to the
+standard output.
+.Sh ENVIRONMENT
+The
+.Ev PATH
+environment variable is used to locate the requested
+.Ar utility
+if the name contains no
+.Ql /
+characters.
+.Sh EXIT STATUS
+If
+.Ar utility
+could be timed successfully, its exit status is returned.
+If
+.Ar utility
+terminated abnormally, a warning message is output to stderr.
+If the
+.Ar utility
+was found but could not be run, the exit status is 126.
+If no
+.Ar utility
+could be found at all, the exit status is 127.
+If
+.Nm
+encounters any other error, the exit status is between 1 and 125
+included.
+.Sh EXAMPLES
+Time the execution of
+.Xr ls 1
+on an empty directory:
+.Bd -literal -offset indent
+$ /usr/bin/time ls
+        0.00 real         0.00 user         0.00 sys
+.Ed
+.Pp
+Time the execution of the
+.Xr cp 1
+command and store the result in the
+.Pa times.txt
+file.
+Then execute the command again to make a new copy and add the result to the same
+file:
+.Bd -literal -offset indent
+$ /usr/bin/time -o times.txt cp FreeBSD-12.1-RELEASE-amd64-bootonly.iso copy1.iso
+$ /usr/bin/time -a -o times.txt cp FreeBSD-12.1-RELEASE-amd64-bootonly.iso copy2.iso
+.Ed
+.Pp
+The
+.Pa times.txt
+file will contain the times of both commands:
+.Bd -literal -offset indent
+$ cat times.txt
+        0.68 real         0.00 user         0.22 sys
+        0.67 real         0.00 user         0.21 sys
+.Ed
+.Pp
+Time the
+.Xr sleep 1
+command and show the results in a human friendly format.
+Show the contents of the
+.Em rusage
+structure too:
+.Bd -literal -offset indent
+$ /usr/bin/time -l -h -p sleep 5
+real 5.01
+user 0.00
+sys 0.00
+         0  maximum resident set size
+         0  average shared memory size
+         0  average unshared data size
+         0  average unshared stack size
+        80  page reclaims
+         0  page faults
+         0  swaps
+         1  block input operations
+         0  block output operations
+         0  messages sent
+         0  messages received
+         0  signals received
+         3  voluntary context switches
+         0  involuntary context switches
+   2054316  instructions retired
+   2445544  cycles elapsed
+    241664  peak memory footprint
+.Ed
 .Sh SEE ALSO
 .Xr builtin 1 ,
 .Xr csh 1 ,
-.Xr getrusage 2
-.Sh FILES
-.Bl -tag -width /usr/include/sys/resource.h -compact
-.It Pa /usr/include/sys/resource.h
-.El
+.Xr getrusage 2 ,
+.Xr wait 2
 .Sh STANDARDS
 The
 .Nm
-utility conforms to 
-.St -p1003.2-92 .
+utility is expected to conform to ISO/IEC 9945-2:1993 (``POSIX'').
+.Sh HISTORY
+A
+.Nm
+utility appeared in
+.At v3 .

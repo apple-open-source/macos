@@ -1,0 +1,12 @@
+syntax = "proto2";
+
+option objc_class_naming = "extended";
+
+package OT;
+
+// From Cuttlefish.proto - EscrowProxyFederationMoveRecordRequest
+message EscrowMoveRequestContext {
+    optional string escrowRecordLabel = 1;
+    optional string currentFederation = 2;
+    optional string intendedFederation = 3;
+}

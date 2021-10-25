@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010-2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2010-2021 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -451,8 +451,9 @@ start_service(mach_port_t service_port)
     CFMachPortRef	mp;
     CFRunLoopSourceRef	rls;
     
-    mp = CFMachPortCreateWithPort(NULL, service_port, server_handle_request,
-				  NULL, NULL);
+    mp = _SC_CFMachPortCreateWithPort("eapolcfg_auth",
+				      service_port, server_handle_request,
+				      NULL);
     rls = CFMachPortCreateRunLoopSource(NULL, mp, 0);
     CFRunLoopAddSource(CFRunLoopGetCurrent(), rls, kCFRunLoopDefaultMode);
     CFRelease(mp);

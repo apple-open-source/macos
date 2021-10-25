@@ -51,6 +51,10 @@ static const char rcsid[] =
 #include <sys/sysctl.h>
 #include <sys/cdefs.h>
 
+#ifdef __APPLE__
+#include <System/sys/persona.h>
+#endif /* __APPLE__ */
+
 #if FIXME
 #include <vm/vm.h>
 #endif /* FIXME */
@@ -1223,3 +1227,23 @@ wq(KINFO *k, VARENT *ve)
 	} else
 		printf("%*s", v->width, "-");
 }
+
+#ifdef __APPLE__
+void
+persona(KINFO *k, VARENT *ve)
+{
+	VAR *v;
+	struct kpersona_info info = { 0 };
+	int ret = 0;
+
+    v = ve->var;
+
+	info.persona_info_version = PERSONA_INFO_V1;
+	ret = kpersona_pidinfo(KI_PROC(k)->p_pid, &info);
+	if (ret == 0) {
+		printf("%*u", v->width, info.persona_id);
+	} else {
+		printf("%*s", v->width, "-");
+	}
+}
+#endif /* __APPLE__ */

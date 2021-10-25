@@ -1,9 +1,10 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 #
 # gkclear - clear system state for Gatekeeper recording sessions
 #
 # This removes DetachedSignatures, resets SystemPolicy, and removes existing gke files.
 #
+from __future__ import print_function
 import sys
 import os
 import signal
@@ -16,11 +17,11 @@ import shutil
 # Usage and fail
 #
 def usage():
-	print >>sys.stderr, "Usage: %s" % sys.argv[0]
+	print("Usage: %s" % sys.argv[0], file=sys.stderr)
 	sys.exit(2)
 
 def fail(whatever):
-	print >>sys.stderr, "%s: %s" % (sys.argv[0], whatever)
+	print("%s: %s" % (sys.argv[0], whatever), file=sys.stderr)
 	sys.exit(1)
 
 
@@ -59,7 +60,7 @@ subprocess.check_call(["/usr/sbin/spctl", "--master-disable"])
 for file in [detachedsignatures, gkeauth, gkesigs]:
 	try:
 		os.remove(file)
-	except OSError, e:
+	except OSError as e:
 		if e[0] != errno.ENOENT:
 			raise
 
@@ -80,5 +81,5 @@ subprocess.call(["/usr/bin/killall", "syspolicyd"], stderr=null)
 #
 # Done
 #
-print "System state has been reset."
+print("System state has been reset.")
 sys.exit(0)

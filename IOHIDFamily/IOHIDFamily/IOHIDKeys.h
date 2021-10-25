@@ -320,7 +320,39 @@ typedef uint32_t IOHIDStandardType;
  */
 #define kIOHIDDeviceSuspendKey              "IOHIDDeviceSuspend"
 
+/*!
+ * @define     kIOHIDMaxReportBufferCountKey
+ * @abstract   Number property published for an IOHIDDevice that contains the
+ *             report buffer count.
+ * @discussion IOHIDLibUserClient connections to an IOHIDDevice created
+ *             using IOKit/hid/IOHIDDevice.h/IOHIDDeviceCreate have a report
+ *             buffer, where reports can be enqueued and dispatched in quick succession.
+ *             A report buffer count can be published to help determine the
+ *             correct queue size that will be able to handle incoming report
+ *             rates. The queue size is determined by report buffer count
+ *             multiplied by the report buffer's entry size, this total size is
+ *             limited to 131072 bytes. This property can be set in the
+ *             IOHIDDevice's IOKit property table, or on the individual
+ *             IOHIDLibUserClient connection using IOHIDDeviceSetProperty.
+ *             (See kIOHIDReportBufferEntrySizeKey).
+ */
+#define kIOHIDMaxReportBufferCountKey "MaxReportBufferCount"
 
+/*!
+ * @define     kIOHIDReportBufferEntrySizeKey
+ * @abstract   Number property published on an IOHIDDevice that contains
+ *             the report buffer's entry size.
+ * @discussion This key describes the entry size of the reports (in bytes)
+ *             in the report buffer between an IOHIDLibUserClient and its
+ *             associated IOHIDDevice. The queue size is determined by the
+ *             report buffer's report count multiplied by the entry size. The
+ *             buffer entry size is currently limited to 8167 bytes, exceeding
+ *             this value will result in a minimum queue size. This property
+ *             can be set in the IOHIDDevice's IOKit property table, or on the individual
+ *             IOHIDLibUserClient connection using IOHIDDeviceSetProperty.
+ *             (See kIOHIDMaxReportBufferCountKey).
+ */
+#define kIOHIDReportBufferEntrySizeKey "ReportBufferEntrySize"
 
 /*!
     @defined    kIOHIDSensorPropertyReportIntervalKey

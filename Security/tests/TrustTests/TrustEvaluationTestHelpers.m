@@ -16,14 +16,8 @@
 #include <Security/SecPolicyPriv.h>
 #include <Security/SecTrust.h>
 #include <Security/SecTrustPriv.h>
-#include <stdlib.h>
-#include <sys/socket.h>
-#include <sys/types.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <netdb.h>
-#include <unistd.h>
-#include <string.h>
+#include <Network/Network.h>
+#include <Network/Network_Private.h>
 
 #include "TrustEvaluationTestHelpers.h"
 
@@ -563,44 +557,37 @@ errOut:
 
 @end
 
-int ping_host(char *host_name)
+int ping_host(char *host_name, char *port)
 {
-    struct sockaddr_in pin;
-    struct hostent *nlp_host;
-    struct in_addr addr;
-    int sd = 0;
-    int port = 80;
-    int retries = 5; // we try 5 times, then give up
-    char **h_addr_list = NULL;
+    nw_endpoint_t endpoint = nw_endpoint_create_host(host_name, port);
+    nw_parameters_t parameters = nw_parameters_create_legacy_tcp_socket(NW_PARAMETERS_DEFAULT_CONFIGURATION);
+    nw_connection_t connection = nw_connection_create(endpoint, parameters);
 
-    while ((nlp_host=gethostbyname(host_name)) == 0 && retries--) {
-        printf("Resolve Error! (%s) %d\n", host_name, h_errno);
-        sleep(1);
-    }
-    if (nlp_host == 0) {
-        return 0;
-    }
+    dispatch_semaphore_t done = dispatch_semaphore_create(0);
+    __block bool successful_connection = false;
 
-    bzero(&pin,sizeof(pin));
-    pin.sin_family=AF_INET;
-    pin.sin_addr.s_addr=htonl(INADDR_ANY);
-    h_addr_list = malloc(nlp_host->h_length * sizeof(char *));
-    memcpy(h_addr_list, nlp_host->h_addr_list, nlp_host->h_length * sizeof(char *));
-    memcpy(&addr, h_addr_list[0], sizeof(struct in_addr));
-    pin.sin_addr.s_addr=addr.s_addr;
-    pin.sin_port=htons(port);
+    nw_connection_set_queue(connection, dispatch_queue_create("com.apple.TrustTests", DISPATCH_QUEUE_SERIAL_WITH_AUTORELEASE_POOL));
+    nw_connection_set_state_changed_handler(connection, ^(nw_connection_state_t state, nw_error_t error) {
+        errno = error ? nw_error_get_error_code(error) : 0;
+        // note: this code does not handle or expect nw_connection_state_waiting,
+        // since the connection parameters specified a definite connection.
+        if (state == nw_connection_state_failed) {
+            // Cancel the connection, so we go to nw_connection_state_cancelled
+            nw_connection_cancel(connection);
+        } else if (state == nw_connection_state_ready) {
+            successful_connection = true;
+            nw_connection_cancel(connection);
+        } else if (state == nw_connection_state_cancelled) {
+            nw_connection_cancel(connection); // cancel to be safe (should be a no-op)
+            dispatch_semaphore_signal(done);
+        }
+    });
 
-    sd=socket(AF_INET,SOCK_STREAM,0);
+    nw_connection_start(connection);
 
-    if (connect(sd,(struct sockaddr*)&pin,sizeof(pin)) == -1) {
-        printf("connect error! (%s) %d\n", host_name, errno);
-        close(sd);
-        free(h_addr_list);
-        return 0;
-    }
-    close(sd);
-    free(h_addr_list);
-    return 1;
+    dispatch_semaphore_wait(done, dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC * 5));
+    nw_connection_cancel(connection);
+    return successful_connection;
 }
 
 static int current_dir = -1;

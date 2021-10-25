@@ -45,6 +45,8 @@ __FBSDID("$FreeBSD: src/lib/libc/db/mpool/mpool.c,v 1.16 2009/03/28 04:00:46 del
 #include <unistd.h>
 #include "un-namespace.h"
 
+#include "libc_private.h" // for LIBC_ABORT
+
 #include <db.h>
 
 #define	__MPOOLINTERFACE_PRIVATE

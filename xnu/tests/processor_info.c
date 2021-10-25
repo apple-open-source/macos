@@ -12,7 +12,10 @@ T_GLOBAL_META(T_META_ASROOT(true),
 
 T_DECL(processor_cpu_stat64,
     "ensure 64-bit processor statistics are reported correctly",
-    T_META_NAMESPACE("xnu.arm"))
+    T_META_NAMESPACE("xnu.arm"),
+    T_META_RADAR_COMPONENT_NAME("xnu"),
+    T_META_RADAR_COMPONENT_VERSION("arm"),
+    T_META_OWNER("mwm"))
 {
 #if !__arm64__
 	T_SKIP("processor statistics only available on ARM");

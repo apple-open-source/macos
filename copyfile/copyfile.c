@@ -46,6 +46,7 @@
 #include <fts.h>
 #include <libgen.h>
 #include <sys/clonefile.h>
+#include <System/sys/fsctl.h>
 #include <System/sys/content_protection.h>
 
 #ifdef VOL_CAP_FMT_DECMPFS_COMPRESSION
@@ -1258,12 +1259,22 @@ int copyfile(const char *src, const char *dst, copyfile_state_t state, copyfile_
 
 	if (s->flags & (COPYFILE_CLONE_FORCE | COPYFILE_CLONE))
 	{
-		ret = copyfile_clone(s);
-		if (ret == 0) {
-			goto exit;
-		} else if (s->flags & COPYFILE_CLONE_FORCE) {
+		// clonefile(3) clones every xattr, which may not line up
+		// with the copy intent we're provided with.
+		if (!s->copyIntent) {
+			ret = copyfile_clone(s);
+			if (ret == 0) {
+				goto exit;
+			}
+		}
+
+		if (s->flags & COPYFILE_CLONE_FORCE) {
+			if (!s->err) {
+				s->err = ENOTSUP;
+			}
 			goto error_exit;
 		}
+
 		// cloning failed. Inherit clonefile flags required for
 		// falling back to copyfile.
 		s->flags |= (COPYFILE_ACL | COPYFILE_EXCL | COPYFILE_NOFOLLOW_SRC |
@@ -2165,6 +2176,48 @@ static copyfile_flags_t copyfile_check(copyfile_state_t s)
 	return ret;
 }
 
+static bool copyfile_set_bsdflags(copyfile_state_t s, uint32_t new_flags)
+{
+	struct fsioc_cas_bsdflags cas;
+	struct stat dst_sb;
+	bool used_fsctl = false;
+	int ret, i;
+
+	/*
+	 * Before falling back to fchflags(), try to atomically set BSD flags using
+	 * fsctl(FSIOC_CAS_BSDFLAGS), which is required on filesystems that support it.
+	 */
+#define MAX_CAS_BSDFLAGS_LOOPS	4
+	for (i = 0; i < MAX_CAS_BSDFLAGS_LOOPS; i++) {
+		// Grab the set of flags currently set on the destination.
+		if (fstat(s->dst_fd, &dst_sb) != 0) {
+			break;
+		}
+
+		cas.expected_flags = dst_sb.st_flags;
+		cas.new_flags = new_flags;
+		cas.actual_flags = ~0;
+		errno = 0;
+
+		ret = ffsctl(s->dst_fd, FSIOC_CAS_BSDFLAGS, &cas, 0);
+		if (ret == 0 && dst_sb.st_flags == cas.actual_flags) {
+			used_fsctl = true;
+			break;
+		} else if (ret < 0 &&
+			(errno != EAGAIN || i == (MAX_CAS_BSDFLAGS_LOOPS - 1))) {
+			// FSIOC_CAS_BSDFLAGS isn't supported, another error occured,
+			// or we've lost our race a few times, so just use fchflags() and exit.
+			break;
+		}
+	}
+
+	if (!used_fsctl)
+		(void)fchflags(s->dst_fd, new_flags);
+
+	errno = 0;
+	return used_fsctl;
+}
+
 /*
  * Attempt to copy the data section of a file sparsely.
  * Requires that the source and destination file systems support sparse files.
@@ -2485,9 +2538,8 @@ static int copyfile_data(copyfile_state_t s)
 	if (s->internal_flags & cfSawDecmpEA) {
 		if (s->sb.st_flags & UF_COMPRESSED) {
 			if ((s->flags & COPYFILE_STAT) == 0) {
-				if (fchflags(s->dst_fd, UF_COMPRESSED) == 0) {
-					goto exit;
-				}
+				(void)copyfile_set_bsdflags(s, UF_COMPRESSED);
+				goto exit;
 			}
 		}
 	}
@@ -2897,7 +2949,13 @@ static int copyfile_stat(copyfile_state_t s)
 
 	/* Copy file flags, masking out any we don't want to preserve */
 	dst_flags = (s->sb.st_flags & ~COPYFILE_OMIT_FLAGS) | added_flags;
-	(void)fchflags(s->dst_fd, dst_flags);
+
+	/*
+	 * We need to first attempt changing flags using FSIOC_CAS_BSDFLAGS,
+	 * as some bits like UF_COMPRESSED are only manipulable via that interface.
+	 */
+	bool used_cas_bsdflags = copyfile_set_bsdflags(s, dst_flags);
+	copyfile_debug(6, "set bsdflags using FSIOC_CAS_BSDFLAGS: %d\n", used_cas_bsdflags);
 
 	return 0;
 }
@@ -3161,6 +3219,9 @@ get_restart:
 
 				case 11: /* LZFSE-compressed data in xattr */
 				case 12: /* 64k chunked LZFSE-compressed data in resource fork */
+
+				case 13: /* LZBITMAP-compressed data in xattr */
+				case 14: /* 64k chunked LZBITMAP-compressed data in resource fork */
 
 					/* valid compression type, we want to copy. */
 					break;

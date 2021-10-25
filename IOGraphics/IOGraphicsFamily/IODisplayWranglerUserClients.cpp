@@ -39,10 +39,16 @@
 #include "IOGraphicsKTrace.h"
 #include "GMetric.hpp"
 
+#define IOKIT_ENABLE_SHARED_PTR
+
+#ifdef TARGET_CPU_X86_64
+
 using iog::LockGuard;
 
 #define COUNT_OF(x) \
     ((sizeof(x)/sizeof(0[x])) / ((size_t)(!(sizeof(x) % sizeof(0[x])))))
+
+extern atomic_uint_fast64_t gIOGDebugFlags;
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 #pragma mark - IOAccelerator -
@@ -398,6 +404,8 @@ IOReturn IOAccelerationUserClient::extDestroy(
     return kIOReturnBadMessageID;
 }
 
+#endif // TARGET_CPU_X86_64
+
 IOReturn
 IOAccelerator::createAccelID(IOOptionBits options, IOAccelID *idOutP)
 {
@@ -425,3 +433,8 @@ IOAccelerator::releaseAccelID(IOOptionBits /* options */, IOAccelID id)
         sIDState.releaseID(/* taskOwned */ false, id);
     return ret;
 }
+
+#ifdef TARGET_CPU_X86_64
+
+
+#endif // TARGET_CPU_X86_64

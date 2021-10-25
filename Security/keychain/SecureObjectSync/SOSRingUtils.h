@@ -11,7 +11,7 @@
 
 #include <CoreFoundation/CFRuntime.h>
 #include <CoreFoundation/CoreFoundation.h>
-#include <utilities/SecCFWrappers.h>
+#include "utilities/SecCFWrappers.h"
 #include "keychain/SecureObjectSync/SOSGenCount.h"
 #include "SOSRing.h"
 

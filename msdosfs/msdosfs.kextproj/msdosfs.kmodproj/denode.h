@@ -173,6 +173,8 @@ struct denode {
 	uint32_t de_cluster_count;	/* Size of cached extent, in clusters; 0 => no cached extent */
 };
 
+typedef struct denode denode_t;
+
 /*
  * Values for the de_flag field of the denode.
  */

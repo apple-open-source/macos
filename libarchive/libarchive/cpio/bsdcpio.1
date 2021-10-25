@@ -75,7 +75,6 @@ Pass-through.
 Read a list of filenames from standard input and copy the files to the
 specified directory.
 .El
-.Pp
 .Sh OPTIONS
 Unless specifically stated otherwise, options are applicable in
 all operating modes.
@@ -186,6 +185,11 @@ In input mode, this option is ignored.
 (o mode only)
 Compress the archive with lz4-compatible compression before writing it.
 In input mode, this option is ignored; lz4 compression is recognized
+automatically on input.
+.It Fl Fl zstd
+(o mode only)
+Compress the archive with zstd-compatible compression before writing it.
+In input mode, this option is ignored; zstd compression is recognized
 automatically on input.
 .It Fl Fl lzma
 (o mode only)
@@ -380,10 +384,10 @@ For best compatibility, scripts should limit themselves to the
 standard syntax.
 .Sh SEE ALSO
 .Xr bzip2 1 ,
-.Xr tar 1 ,
 .Xr gzip 1 ,
 .Xr mt 1 ,
 .Xr pax 1 ,
+.Xr tar 1 ,
 .Xr libarchive 3 ,
 .Xr cpio 5 ,
 .Xr libarchive-formats 5 ,

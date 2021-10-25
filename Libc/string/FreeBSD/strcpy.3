@@ -50,6 +50,16 @@
 .Fn strcpy "char * dst" "const char * src"
 .Ft char *
 .Fn strncpy "char * dst" "const char * src" "size_t len"
+.Sh ADMONISHMENT
+.Pp
+.ti +8
+.Pp
+YOU SHOULD ALMOST CERTAINLY USE
+.Fn strlcpy
+INSTEAD.
+.ti +8
+.Pp
+See "Examples" below.
 .Sh DESCRIPTION
 The
 .Fn stpcpy

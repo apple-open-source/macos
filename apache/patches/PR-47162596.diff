@@ -10,7 +10,7 @@
  module AP_MODULE_DECLARE_DATA so_module;
  
  
-@@ -143,12 +146,84 @@ static apr_status_t unload_module(void *data)
+@@ -143,12 +146,84 @@
      return APR_SUCCESS;
  }
  
@@ -96,7 +96,7 @@
      if (filename != NULL && ap_strchr_c(filename, '/') == NULL) {
          /* retry on error without path to use dlopen()'s search path */
          retry = 1;
-@@ -158,6 +233,11 @@ static const char *dso_load(cmd_parms *cmd, apr_dso_handle_t **modhandlep,
+@@ -158,6 +233,11 @@
          return apr_psprintf(cmd->temp_pool, "Invalid %s path %s",
                              cmd->cmd->name, filename);
      }
@@ -106,9 +106,9 @@
 +        ap_log_perror(APLOG_MARK, APLOG_WARNING, 0, cmd->pool, APLOGNO(06660)
 +                "csops for CS_OPS_SET_STATUS failed; may not be able to manage code signatures.");
      *used_filename = fullname;
-     if (apr_dso_load(modhandlep, fullname, cmd->pool) == APR_SUCCESS) {
+     if (fullname && apr_dso_load(modhandlep, fullname, cmd->pool) == APR_SUCCESS) {
          return NULL;
-@@ -167,20 +247,56 @@ static const char *dso_load(cmd_parms *cmd, apr_dso_handle_t **modhandlep,
+@@ -167,20 +247,58 @@
          if (apr_dso_load(modhandlep, filename, cmd->pool) == APR_SUCCESS)
              return NULL;
      }
@@ -127,28 +127,30 @@
 +                 *used_filename, authority_name);
 +        }
 +        else {
-+            ap_log_perror(APLOG_MARK, APLOG_WARNING, 0, cmd->pool, APLOGNO(06663)
++            ap_log_perror(APLOG_MARK, APLOG_ERR, 0, cmd->pool, APLOGNO(06663)
 +                "Unable to find code signature authority on module at %s that matches authority "
-+                "name \"%s\" configured on LoadModule directive. Proceeding with loading "
-+                "process, but this will be an error condition in a future version of macOS.",
++                "name \"%s\" configured on LoadModule directive.",
 +                 *used_filename, authority_name);
++            return apr_psprintf(cmd->temp_pool, "Code signing error - not loading module at: %s",
++                            *used_filename);
 +        }
 +    }
 +    else {
-+               ap_log_perror(APLOG_MARK, APLOG_WARNING, 0, cmd->pool, APLOGNO(06665)
++        ap_log_perror(APLOG_MARK, APLOG_ERR, 0, cmd->pool, APLOGNO(06665)
 +                       "No code signing authority for module at %s specified in LoadModule "
-+                       "directive. Proceeding with loading process, but this will be an "
-+                       "error condition in a future version of macOS.",
++                       "directive.",
 +                       *used_filename);
-+    }
-+       if (csops(getpid(), CS_OPS_CLEAR_LV, NULL, 0))
-+               ap_log_perror(APLOG_MARK, APLOG_WARNING, 0, cmd->pool, APLOGNO(06666)
-+                       "csops for CS_OPS_CLEAR_LV failed; httpd has unexpected entitlements and "
-+                       "may not be able to load custom modules.");
-+       if (apr_dso_load(modhandlep, *used_filename, cmd->pool) == APR_SUCCESS) {
-+               return NULL;
-+       }
-+       // Failure to load not related to code signing.
++        return apr_psprintf(cmd->temp_pool, "Code signing absent - not loading module at: %s",
++                            *used_filename);
++	}
++	if (csops(getpid(), CS_OPS_CLEAR_LV, NULL, 0))
++		ap_log_perror(APLOG_MARK, APLOG_WARNING, 0, cmd->pool, APLOGNO(06666)
++				   "csops for CS_OPS_CLEAR_LV failed; httpd has unexpected entitlements and "
++				   "may not be able to load custom modules.");
++	if (apr_dso_load(modhandlep, *used_filename, cmd->pool) == APR_SUCCESS) {
++		return NULL;
++	}
++	// Failure to load not related to code signing.
      return apr_pstrcat(cmd->temp_pool, "Cannot load ", filename,
                          " into server: ",
                          apr_dso_error(*modhandlep, my_error, sizeof(my_error)),
@@ -167,7 +169,7 @@
  {
      apr_dso_handle_t *modhandle;
      apr_dso_handle_sym_t modsym;
-@@ -192,6 +308,7 @@ static const char *load_module(cmd_parms *cmd, void *dummy,
+@@ -192,6 +310,7 @@
      int i;
      const char *error;
  
@@ -175,7 +177,7 @@
      /* we need to setup this value for dummy to make sure that we don't try
       * to add a non-existent tree into the build when we return to
       * execute_now.
-@@ -260,7 +377,7 @@ static const char *load_module(cmd_parms *cmd, void *dummy,
+@@ -260,7 +379,7 @@
      /*
       * Load the file into the Apache address space
       */
@@ -184,7 +186,7 @@
      if (error)
          return error;
      ap_log_perror(APLOG_MARK, APLOG_DEBUG, 0, cmd->pool, APLOGNO(01575)
-@@ -329,7 +446,7 @@ static const char *load_file(cmd_parms *cmd, void *dummy, const char *filename)
+@@ -329,7 +448,7 @@
      apr_dso_handle_t *handle;
      const char *used_file, *error;
  
@@ -193,7 +195,7 @@
      if (error)
          return error;
  
-@@ -406,7 +523,7 @@ static const char *load_file(cmd_parms *cmd, void *dummy, const char *filename)
+@@ -406,7 +525,7 @@
  }
  
  static const char *load_module(cmd_parms *cmd, void *dummy,
@@ -202,7 +204,7 @@
  {
      ap_log_perror(APLOG_MARK, APLOG_STARTUP, 0, cmd->pool, APLOGNO(01578)
                   "WARNING: LoadModule not supported on this platform");
-@@ -424,8 +541,8 @@ static void register_hooks(apr_pool_t *p)
+@@ -424,8 +543,8 @@
  }
  
  static const command_rec so_cmds[] = {
@@ -213,4 +215,5 @@
      AP_INIT_ITERATE("LoadFile", load_file, NULL, RSRC_CONF  | EXEC_ON_READ,
        "shared object file or library to load into the server at runtime"),
      { NULL }
+admin@al4 core %  
 

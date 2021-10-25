@@ -275,12 +275,12 @@ static bool SOSCircleHasUpdatedPeerInfoWithOctagonKey(SOSCircleRef oldCircle, SO
     
     // If this is a remote circle, check to see if this is our first opportunity to trust a circle where we
     // sponsored the only signer.
-    if(!writeUpdate && [ self checkForSponsorshipTrust: prospective_circle ]){
+    if(!writeUpdate && [self checkForSponsorshipTrust: prospective_circle]){
         SOSCCEnsurePeerRegistration();
         secnotice("circleop", "Setting key_interests_need_updating to true in handleUpdateCircle");
         account.key_interests_need_updating = true;
+        [account sosEvaluateIfNeeded];
         return true;
-        
     }
 
     CFStringRef newCircleName = SOSCircleGetName(prospective_circle);
@@ -452,11 +452,11 @@ static bool SOSCircleHasUpdatedPeerInfoWithOctagonKey(SOSCircleRef oldCircle, SO
             notify_post(kSOSCCCircleOctagonKeysChangedNotification);
         }
         if (me && SOSCircleHasActivePeer(oldCircle, me, NULL) && !SOSCircleHasPeer(newCircle, me, NULL)) {
-            //  Don't destroy evidence of other code determining reason for leaving.
+            //  Don't destroy evidence of other code determining reason for leaving.  Log circles for comparison.
             if(![self hasLeft]) self.departureCode = kSOSMembershipRevoked;
             secnotice("circleOps", "Member of old circle but not of new circle (%d)", self.departureCode);
-            debugDumpCircle(CFSTR("oldCircle"), oldCircle);
-            debugDumpCircle(CFSTR("newCircle"), newCircle);
+            SOSCircleLogState("circleOps-Old", oldCircle, account.accountKey, myPeerID);
+            SOSCircleLogState("circleOps-New", newCircle, account.accountKey, myPeerID);
         }
         
         if (me
@@ -509,6 +509,7 @@ static bool SOSCircleHasUpdatedPeerInfoWithOctagonKey(SOSCircleRef oldCircle, SO
         secnotice("signing", "%@, Accepting new circle", concStr);
         if (circle_action == accept) {
             [self setTrustedCircle:newCircle];
+            [account sosEvaluateIfNeeded];
         }
         
         if (me && account.accountKeyIsTrusted
@@ -549,6 +550,7 @@ static bool SOSCircleHasUpdatedPeerInfoWithOctagonKey(SOSCircleRef oldCircle, SO
             secnotice("signing", "%@, Rejecting new circle, re-publishing old circle", concStr);
             circleToPush = oldCircle;
             [self setTrustedCircle:oldCircle];
+            [account sosEvaluateIfNeeded];
         } else {
             secnotice("canary", "%@, Rejecting: new circle Have no old circle - would reset", concStr);
         }
@@ -578,6 +580,9 @@ static bool SOSCircleHasUpdatedPeerInfoWithOctagonKey(SOSCircleRef oldCircle, SO
         CFReleaseNull(*error);
     }
     
+    // Determine if we can disable full SOS (are there any legacy peers remaining)
+    [account sosEvaluateIfNeeded];
+
     return success;
 }
 

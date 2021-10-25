@@ -179,9 +179,11 @@ IOReturn IOApplePartitionScheme::requestProbe(IOOptionBits options)
     // Request that the provider media be re-scanned for partitions.
     //
 
-    OSSet * partitions    = 0;
-    OSSet * partitionsNew;
-    SInt32  score         = 0;
+    OSSet *         partitions    = 0;
+    OSSet *         partitionsNew;
+    OSIterator *    partitionLockingIterator;
+    OSArray *       partitionsLocked;
+    SInt32          score         = 0;
 
     // Scan the provider media for partitions.
     if ( ( _partitionSchemeState & kIOPartitionScheme_partition_valid ) == 0 )
@@ -193,21 +195,93 @@ IOReturn IOApplePartitionScheme::requestProbe(IOOptionBits options)
 
     if ( partitionsNew )
     {
-        if ( lockForArbitration( false ) )
+
+        if ( lockForArbitration( false ) )  // Attempt to lock ourself before attempting to lock the partitions
         {
-            partitions = juxtaposeMediaObjects( _partitions, partitionsNew );
 
-            if ( partitions )
+            // Allocate an array to record which child partitions we have locked for arbitration
+            partitionsLocked = OSArray::withCapacity( _partitions->getCount( ) );
+
+            if ( partitionsLocked )
             {
-                _partitions->release( );
 
-                _partitions = partitions;
+                // Create an iterator over our current partiitons
+                partitionLockingIterator = OSCollectionIterator::withCollection( _partitions );
+
+                if ( partitionLockingIterator )
+                {
+
+                    do
+                    {  // do-while to break out of if we fail to lock any children
+
+                        // Attempt to lock each of the existing partitions before juxtaposing them
+                        IOMedia *   partitionToLock;
+                        bool        lockSuccess = false;
+
+                        while ( ( partitionToLock = (IOMedia *) partitionLockingIterator->getNextObject( ) ) )
+                        {
+                            lockSuccess = partitionToLock->lockForArbitration( false );
+                            if ( lockSuccess )
+                            {
+                                // Place successfully locked partitions in an OSArray so that we can iterate through
+                                // and unlock them without risking an OSCollectionIterator failing to allocate
+                                if ( !partitionsLocked->setObject( partitionToLock ) )
+                                {
+                                    // Our lock was successful, but we failed to record it, so we have to back out
+                                    lockSuccess = false;
+                                    partitionToLock->unlockForArbitration( );
+                                    break;
+                                }
+                            }
+                            else
+                            {
+                                break;  // We failed to lock this partition, skip other partitions
+                            }
+                        }
+                        if ( !lockSuccess )
+                        {
+                            break;  // One of the partitions failed to lock, abort the juxtaposition and release the locks that we managed to get
+                        }
+
+                        // Everything was successully locked, continue to rearrage the partitions
+                        partitions = juxtaposeMediaObjects( _partitions, partitionsNew );
+
+                        if ( partitions )
+                        {
+                            _partitions->release( );
+
+                            _partitions = partitions;
+                        }
+
+                    } while ( 0 );  // Break to here if we fail to lock any child partitions
+
+                    partitionLockingIterator->release( );
+
+                    // Unlock only the partitions which we were able to lock successfully in the reverse order of how we acquired them
+                    IOMedia *   partitionToUnlock;
+                    unsigned int lockedParitionsCount;
+
+                    while ( ( lockedParitionsCount = partitionsLocked->getCount( ) ) > 0 )
+                    {
+
+                        partitionToUnlock = (IOMedia *) partitionsLocked->getObject( lockedParitionsCount - 1 );
+                        partitionToUnlock->unlockForArbitration( );
+                        partitionsLocked->removeObject( lockedParitionsCount - 1 );
+
+                    }
+
+                }
+
+                partitionsLocked->release( );
+
             }
 
             unlockForArbitration( );
+
         }
 
         partitionsNew->release( );
+
     }
 
     return partitions ? kIOReturnSuccess : kIOReturnError;

@@ -1,5 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
-// License & terms of use: http://www.unicode.org/copyright.html#License
+// License & terms of use: http://www.unicode.org/copyright.html
+// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
 sat_Deva{
     %%Parent{"root"}
     Languages{
@@ -9,7 +10,6 @@ sat_Deva{
         Deva{"देवानागारी"}
         Olck{"अल चीकी"}
     }
-    Version{"36.1"}
     localeDisplayPattern{
         keyTypePattern{"{0}: {1}"}
         pattern{"{0} ({1})"}

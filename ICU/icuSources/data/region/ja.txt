@@ -1,5 +1,6 @@
-﻿// © 2016 and later: Unicode, Inc. and others.
-// License & terms of use: http://www.unicode.org/copyright.html#License
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html
+// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
 ja{
     Countries{
         001{"世界"}
@@ -298,7 +299,6 @@ ja{
         ZZ{"不明な地域"}
     }
     Countries%short{
-        GB{"英国"}
         PS{"パレスチナ"}
         UN{"国連"}
         US{"アメリカ"}
@@ -312,5 +312,4 @@ ja{
         SZ{"スワジランド"}
         TL{"東チモール"}
     }
-    Version{"36.1"}
 }

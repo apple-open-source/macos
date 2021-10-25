@@ -136,19 +136,30 @@ void SOSAccountSetUnTrustedUserPublicKey(SOSAccount* account, SecKeyRef publicKe
 
 
 static void SOSAccountSetPrivateCredential(SOSAccount* account, SecKeyRef private, CFDataRef password) {
-    if (!private)
-        return SOSAccountPurgePrivateCredential(account);
+    if (!private) {
+        secnotice("circleOps", "Purging private entities for userKey");
+        SOSAccountPurgePrivateCredential(account);
+    }
     
-    secnotice("circleOps", "setting new private credential");
-
-    account.accountPrivateKey = private;
+    if (!private && !password) {
+        secnotice("circleOps", "SOSAccountSetPrivateCredential nothing to save");
+        return;
+    }
+    
+    if(private) {
+        secnotice("circleOps", "setting new private userKey");
+        account.accountPrivateKey = private;
+    }
 
     if (password) {
+        secnotice("circleOps", "temporarily caching userKey password");
         account._password_tmp = [[NSData alloc] initWithData:(__bridge NSData * _Nonnull)(password)];
     } else {
+        secnotice("circleOps", "no userKey password to save");
         account._password_tmp = NULL;
     }
 
+    // Setup the purge timeout
     bool resume_timer = false;
     if (!account.user_private_timer) {
         xpc_transaction_begin();
@@ -186,6 +197,7 @@ void SOSAccountRestartPrivateCredentialTimer(SOSAccount*  account)
     if (account.user_private_timer) {
         // (Re)set the timer's fire time to now + 10 minutes with a 5 second fuzz factor.
         dispatch_time_t purgeTime = dispatch_time(DISPATCH_TIME_NOW, (int64_t)(10 * 60 * NSEC_PER_SEC));
+        secnotice("keygen", "Setting private credential purge time to %llu minutes", purgeTime/(60*NSEC_PER_SEC));
         dispatch_source_set_timer(account.user_private_timer, purgeTime, DISPATCH_TIME_FOREVER, (int64_t)(5 * NSEC_PER_SEC));
     }
 }
@@ -341,6 +353,8 @@ static bool sosAccountValidatePasswordOrFail(SOSAccount* account, CFDataRef user
             CFReleaseNull(pbkdfParams);
         }
         SOSCreateError(kSOSErrorWrongPassword, CFSTR("Could not create correct key with password."), NULL, error);
+        secnotice("circleOps", "Failed to create correct key with password.  Caching for use with KeyParam refreshes");
+        SOSAccountSetPrivateCredential(account, NULL, user_password);
         return false;
     }
     sosAccountSetTrustedCredentials(account, user_password, privKey, account.accountKeyIsTrusted);

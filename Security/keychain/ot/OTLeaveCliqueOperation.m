@@ -26,6 +26,7 @@
 #import "keychain/ot/OTOperationDependencies.h"
 #import "keychain/ot/ObjCImprovements.h"
 #import "keychain/TrustedPeersHelper/TrustedPeersHelperProtocol.h"
+#import "keychain/ot/OTStates.h"
 
 @interface OTLeaveCliqueOperation ()
 @property OTOperationDependencies* deps;
@@ -63,8 +64,13 @@
                                                                    reply:^(NSError * _Nullable error) {
             STRONGIFY(self);
             if(error) {
-                secnotice("octagon", "Unable to depart for (%@,%@): %@", self.deps.containerName, self.deps.contextID, error);
                 self.error = error;
+                if([self.deps.lockStateTracker isLockedError:error]) {
+                    secnotice("octagon", "Departing failed due to lock state: %@", error);
+                    self.nextState = OctagonStateWaitForUnlock;
+                } else {
+                    secnotice("octagon", "Unable to depart for (%@,%@): %@", self.deps.containerName, self.deps.contextID, error);
+                }
             } else {
                 NSError* localError = nil;
                 BOOL persisted = [self.deps.stateHolder persistNewTrustState:OTAccountMetadataClassC_TrustState_UNTRUSTED

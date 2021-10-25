@@ -376,6 +376,7 @@ private:
      */
     void TestHansHant(void);
 
+    void TestBasicTransliteratorEvenWithoutData(void);
     //======================================================================
     // Support methods
     //======================================================================

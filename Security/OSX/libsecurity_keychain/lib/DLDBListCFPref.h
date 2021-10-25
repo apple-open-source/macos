@@ -128,6 +128,7 @@ protected:
 
 private:
 	CFAbsoluteTime mPrefsTimeStamp;
+    bool mForceReloadEmptyFile;
 	struct timespec mTimespec;
 	CFMutableDictionaryRef mPropertyList;
 

@@ -86,6 +86,8 @@ typedef struct Query
     CFTypeRef q_ref;
     sqlite_int64 q_row_id;
 
+    CFDataRef q_uuid_pref;
+    
     CFArrayRef q_use_item_list;
     CFBooleanRef q_use_tomb;
 
@@ -137,8 +139,11 @@ typedef struct Query
 
     /* Caller acces groups for AKS */
     CFArrayRef q_caller_access_groups;
+
+#if KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER
     bool q_system_keychain;
     int32_t q_sync_bubble;
+#endif
     bool q_spindump_on_failure;
 
     //policy for filtering certs and identities
@@ -175,11 +180,14 @@ void query_set_policy(Query *q, SecPolicyRef policy);
 void query_set_valid_on_date(Query *q, CFDateRef policy);
 void query_set_trusted_only(Query *q, CFBooleanRef trusted_only);
 
+#if KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER
 CFDataRef
 SecMUSRCopySystemKeychainUUID(void);
 
 CFDataRef
 SecMUSRGetSystemKeychainUUID(void);
+
+#endif  // KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER
 
 CFDataRef
 SecMUSRGetSingleUserKeychainUUID(void);
@@ -193,7 +201,7 @@ SecMUSRGetAllViews(void);
 bool
 SecMUSRIsViewAllViews(CFDataRef musr);
 
-#if TARGET_OS_IPHONE
+#if KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER
 CFDataRef
 SecMUSRCreateActiveUserUUID(uid_t uid);
 
@@ -206,6 +214,8 @@ SecMUSRCreateBothUserAndSystemUUID(uid_t uid);
 bool
 SecMUSRGetBothUserAndSystemUUID(CFDataRef musr, uid_t *uid);
 
+bool
+SecMUSRIsMultiuserKeyDiversified(CFDataRef musr);
 #endif
 
 

@@ -343,6 +343,7 @@ const NSTimeInterval SFAnalyticsSamplerIntervalOncePerReport = -1.0;
         __strong __typeof(self) strongSelf = weakSelf;
         if (strongSelf) {
             [strongSelf.database close];
+            [strongSelf.database remove];
             strongSelf->_database = nil;
         }
     });

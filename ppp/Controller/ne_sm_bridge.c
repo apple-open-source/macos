@@ -12,7 +12,6 @@
 #include <netinet/in_var.h>
 #include <xpc/private.h>
 #include <SystemConfiguration/SystemConfiguration.h>
-#include <SystemConfiguration/SNHelperPrivate.h>
 #include <SystemConfiguration/SCPrivate.h>
 
 #include "ne_sm_bridge_private.h"

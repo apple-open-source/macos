@@ -1,4 +1,5 @@
-#!/usr/bin/python
+#!/usr/bin/python3
+from __future__ import print_function
 import sys
 import Foundation
 
@@ -22,10 +23,10 @@ my_dict['key'] = my_data
 
 my_array.append(my_dict)
 
-print my_array
+print(my_array)
 
 success = my_array.writeToFile_atomically_(plist, 1)
 if not success:
-  print "plist failed to write!"
+  print("plist failed to write!")
   sys.exit(1)
 

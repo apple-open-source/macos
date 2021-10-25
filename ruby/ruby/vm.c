@@ -2,7 +2,7 @@
 
   vm.c -
 
-  $Author: ko1 $
+  $Author: usa $
 
   Copyright (C) 2004-2007 Koichi Sasada
 
@@ -2216,6 +2216,7 @@ rb_vm_mark(void *ptr)
 	rb_gc_mark(vm->loaded_features);
 	rb_gc_mark(vm->loaded_features_snapshot);
 	rb_gc_mark(vm->top_self);
+        rb_gc_mark(vm->orig_progname);
 	RUBY_MARK_UNLESS_NULL(vm->coverages);
 	rb_gc_mark(vm->defined_module_hash);
 
@@ -2262,6 +2263,8 @@ free_loading_table_entry(st_data_t key, st_data_t value, st_data_t arg)
     return ST_DELETE;
 }
 
+extern void rb_native_mutex_destroy(rb_nativethread_lock_t *lock);
+
 int
 ruby_vm_destruct(rb_vm_t *vm)
 {
@@ -2291,6 +2294,8 @@ ruby_vm_destruct(rb_vm_t *vm)
 	if (objspace) {
 	    rb_objspace_free(objspace);
 	}
+        rb_native_mutex_destroy(&vm->waitpid_lock);
+        rb_native_mutex_destroy(&vm->workqueue_lock);
 	/* after freeing objspace, you *can't* use ruby_xfree() */
 	ruby_mimfree(vm);
 	ruby_current_vm_ptr = NULL;
@@ -2483,7 +2488,7 @@ rb_execution_context_mark(const rb_execution_context_t *ec)
 	rb_gc_mark_machine_stack(ec);
 	rb_gc_mark_locations((VALUE *)&ec->machine.regs,
 			     (VALUE *)(&ec->machine.regs) +
-			     sizeof(ec->machine.regs) / sizeof(VALUE));
+			     sizeof(ec->machine.regs) / (sizeof(VALUE)));
     }
 
     RUBY_MARK_UNLESS_NULL(ec->errinfo);

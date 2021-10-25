@@ -38,20 +38,19 @@ void ListFormatterTest::runIndexedTest(int32_t index, UBool exec,
     TESTCASE_AUTO(TestEnglishGB);
     TESTCASE_AUTO(TestNynorsk);
     TESTCASE_AUTO(TestChineseTradHK);
-    TESTCASE_AUTO(TestFieldPositionIteratorWontCrash);
     TESTCASE_AUTO(TestFieldPositionIteratorWith1Item);
-    TESTCASE_AUTO(TestFieldPositionIteratorWith1ItemAndDataBefore);
     TESTCASE_AUTO(TestFieldPositionIteratorWith2Items);
-    TESTCASE_AUTO(TestFieldPositionIteratorWith2ItemsAndDataBefore);
     TESTCASE_AUTO(TestFieldPositionIteratorWith2ItemsPatternShift);
     TESTCASE_AUTO(TestFieldPositionIteratorWith3Items);
-    TESTCASE_AUTO(TestFieldPositionIteratorWith3ItemsAndDataBefore);
     TESTCASE_AUTO(TestFieldPositionIteratorWith3ItemsPatternShift);
     TESTCASE_AUTO(TestFormattedValue);
     TESTCASE_AUTO(TestDifferentStyles);
     TESTCASE_AUTO(TestBadStylesFail);
     TESTCASE_AUTO(TestCreateStyled);
     TESTCASE_AUTO(TestContextual);
+    TESTCASE_AUTO(TestNextPosition);
+    TESTCASE_AUTO(TestInt32Overflow);
+    TESTCASE_AUTO(TestBidi);
     TESTCASE_AUTO_END;
 }
 
@@ -65,10 +64,14 @@ const char* attrString(int32_t attrId) {
 }
 }  // namespace
 
-void ListFormatterTest::ExpectPositions(FieldPositionIterator& iter,
-                                        int32_t *values, int32_t tupleCount) {
+void ListFormatterTest::ExpectPositions(
+        const FormattedList& iter,
+        int32_t *values,
+        int32_t tupleCount,
+        UErrorCode& status) {
     UBool found[10];
-    FieldPosition fp;
+    ConstrainedFieldPosition cfp;
+    cfp.constrainCategory(UFIELD_CATEGORY_LIST);
     if (tupleCount > 10) {
       assertTrue("internal error, tupleCount too large", FALSE);
     } else {
@@ -76,11 +79,11 @@ void ListFormatterTest::ExpectPositions(FieldPositionIterator& iter,
             found[i] = FALSE;
         }
     }
-    while (iter.next(fp)) {
+    while (iter.nextPosition(cfp, status)) {
         UBool ok = FALSE;
-        int32_t id = fp.getField();
-        int32_t start = fp.getBeginIndex();
-        int32_t limit = fp.getEndIndex();
+        int32_t id = cfp.getField();
+        int32_t start = cfp.getStart();
+        int32_t limit = cfp.getLimit();
         char buf[128];
         sprintf(buf, "%24s %3d %3d %3d", attrString(id), id, start, limit);
         logln(buf);
@@ -249,53 +252,29 @@ void ListFormatterTest::TestEnglishGB() {
     CheckFourCases("en_GB", one, two, three, four, results, "TestEnglishGB()");
 }
 
-void ListFormatterTest::TestFieldPositionIteratorWontCrash() {
-    IcuTestErrorCode errorCode(*this, "TestFieldPositionIteratorWontCrash()");
-    LocalPointer<ListFormatter> formatter(
-        ListFormatter::createInstance(Locale("en"), errorCode));
-    if (U_FAILURE(errorCode)) {
-        dataerrln(
-            "ListFormatter::createInstance(Locale(\"en\"), errorCode) failed in "
-            "TestFieldPositionIteratorWontCrash: %s",
-            u_errorName(errorCode));
-        return;
-    }
-    UnicodeString data[3] = {"a", "bbb", "cc"};
-    UnicodeString actualResult;
-     // make sure NULL as FieldPositionIterator won't caused crash.
-    formatter->format(data, 3, actualResult, nullptr, errorCode);
-    if (U_FAILURE(errorCode)) {
-        dataerrln(
-            "ListFormatter::format(data, 3, nullptr, errorCode) "
-            "failed in TestFieldPositionIteratorWontCrash: %s",
-            u_errorName(errorCode));
-        return;
-    }
-}
-
 void ListFormatterTest::RunTestFieldPositionIteratorWithFormatter(
         ListFormatter* formatter,
         UnicodeString data[], int32_t n, int32_t expected[], int32_t tupleCount,
-        UnicodeString& appendTo, const char16_t *expectedFormatted,
+        const char16_t *expectedFormatted,
         const char* testName) {
     IcuTestErrorCode errorCode(*this, testName);
-    FieldPositionIterator iter;
-    formatter->format(data, n, appendTo, &iter, errorCode);
+    FormattedList fl = formatter->formatStringsToValue(data, n, errorCode);
+    UnicodeString actual = fl.toString(errorCode);
     if (U_FAILURE(errorCode)) {
         dataerrln(
             "ListFormatter::format(data, %d, &iter, errorCode) "
             "failed in %s: %s", n, testName, u_errorName(errorCode));
         return;
     }
-    if (appendTo != expectedFormatted) {
-        errln(UnicodeString("Expected: |") + expectedFormatted +  "|, Actual: |" + appendTo + "|");
+    if (actual != expectedFormatted) {
+        errln(UnicodeString("Expected: |") + expectedFormatted +  "|, Actual: |" + actual + "|");
     }
-    ExpectPositions(iter, expected, tupleCount);
+    ExpectPositions(fl, expected, tupleCount, errorCode);
 }
 
 void ListFormatterTest::RunTestFieldPositionIteratorWithNItemsPatternShift(
         UnicodeString data[], int32_t n, int32_t expected[], int32_t tupleCount,
-        UnicodeString& appendTo, const char16_t *expectedFormatted,
+        const char16_t *expectedFormatted,
         const char* testName) {
     IcuTestErrorCode errorCode(*this, testName);
     LocalPointer<ListFormatter> formatter(
@@ -308,12 +287,12 @@ void ListFormatterTest::RunTestFieldPositionIteratorWithNItemsPatternShift(
     }
     RunTestFieldPositionIteratorWithFormatter(
         formatter.getAlias(),
-        data, n, expected, tupleCount, appendTo, expectedFormatted, testName);
+        data, n, expected, tupleCount, expectedFormatted, testName);
 }
 
 void ListFormatterTest::RunTestFieldPositionIteratorWithNItems(
         UnicodeString data[], int32_t n, int32_t expected[], int32_t tupleCount,
-        UnicodeString& appendTo, const char16_t *expectedFormatted,
+        const char16_t *expectedFormatted,
         const char* testName) {
     IcuTestErrorCode errorCode(*this, testName);
     LocalPointer<ListFormatter> formatter(
@@ -326,27 +305,7 @@ void ListFormatterTest::RunTestFieldPositionIteratorWithNItems(
     }
     RunTestFieldPositionIteratorWithFormatter(
         formatter.getAlias(),
-        data, n, expected, tupleCount, appendTo, expectedFormatted, testName);
-}
-
-void ListFormatterTest::TestFieldPositionIteratorWith3ItemsAndDataBefore() {
-    //  0         1         2
-    //  0123456789012345678901234567
-    // "Hello World: a, bbb, and cc"
-    UnicodeString data[3] = {"a", "bbb", "cc"};
-    int32_t expected[] = {
-        ULISTFMT_ELEMENT_FIELD, 13, 14,
-        ULISTFMT_LITERAL_FIELD, 14, 16,
-        ULISTFMT_ELEMENT_FIELD, 16, 19,
-        ULISTFMT_LITERAL_FIELD, 19, 25,
-        ULISTFMT_ELEMENT_FIELD, 25, 27
-    };
-    int32_t tupleCount = sizeof(expected)/(3 * sizeof(*expected));
-    UnicodeString appendTo(u"Hello World: ");
-    RunTestFieldPositionIteratorWithNItems(
-        data, 3, expected, tupleCount, appendTo,
-        u"Hello World: a, bbb, and cc",
-        "TestFieldPositionIteratorWith3ItemsAndDataBefore");
+        data, n, expected, tupleCount, expectedFormatted, testName);
 }
 
 void ListFormatterTest::TestFieldPositionIteratorWith3Items() {
@@ -362,9 +321,8 @@ void ListFormatterTest::TestFieldPositionIteratorWith3Items() {
         ULISTFMT_ELEMENT_FIELD, 12, 14
     };
     int32_t tupleCount = sizeof(expected)/(3 * sizeof(*expected));
-    UnicodeString appendTo;
     RunTestFieldPositionIteratorWithNItems(
-        data, 3, expected, tupleCount, appendTo,
+        data, 3, expected, tupleCount,
         u"a, bbb, and cc",
         "TestFieldPositionIteratorWith3Items");
 }
@@ -375,36 +333,17 @@ void ListFormatterTest::TestFieldPositionIteratorWith3ItemsPatternShift() {
     // "cc bbb a"
     UnicodeString data[3] = {"a", "bbb", "cc"};
     int32_t expected[] = {
-        ULISTFMT_ELEMENT_FIELD, 7, 8,
-        ULISTFMT_LITERAL_FIELD, 6, 7,
-        ULISTFMT_ELEMENT_FIELD, 3, 6,
-        ULISTFMT_LITERAL_FIELD, 2, 3,
-        ULISTFMT_ELEMENT_FIELD, 0, 2
+        ULISTFMT_ELEMENT_FIELD, 11, 14,
+        ULISTFMT_LITERAL_FIELD, 10, 11,
+        ULISTFMT_ELEMENT_FIELD, 5, 10,
+        ULISTFMT_LITERAL_FIELD, 4, 5,
+        ULISTFMT_ELEMENT_FIELD, 0, 4
     };
     int32_t tupleCount = sizeof(expected)/(3 * sizeof(*expected));
-    UnicodeString appendTo;
     RunTestFieldPositionIteratorWithNItemsPatternShift(
-        data, 3, expected, tupleCount, appendTo,
-        u"cc bbb a",
+        data, 3, expected, tupleCount,
+        u"\u2068cc\u2069 \u2068bbb\u2069 \u2068a\u2069",
         "TestFieldPositionIteratorWith3ItemsPatternShift");
-}
-
-void ListFormatterTest::TestFieldPositionIteratorWith2ItemsAndDataBefore() {
-    //  0         1
-    //  0123456789012345
-    // "Foo: bbb and cc"
-    UnicodeString data[2] = {"bbb", "cc"};
-    int32_t expected[] = {
-        ULISTFMT_ELEMENT_FIELD, 5, 8,
-        ULISTFMT_LITERAL_FIELD, 8, 13,
-        ULISTFMT_ELEMENT_FIELD, 13, 15
-    };
-    int32_t tupleCount = sizeof(expected)/(3 * sizeof(*expected));
-    UnicodeString appendTo("Foo: ");
-    RunTestFieldPositionIteratorWithNItems(
-        data, 2, expected, tupleCount, appendTo,
-        u"Foo: bbb and cc",
-        "TestFieldPositionIteratorWith2ItemsAndDataBefore");
 }
 
 void ListFormatterTest::TestFieldPositionIteratorWith2Items() {
@@ -418,9 +357,8 @@ void ListFormatterTest::TestFieldPositionIteratorWith2Items() {
         ULISTFMT_ELEMENT_FIELD, 8, 10
     };
     int32_t tupleCount = sizeof(expected)/(3 * sizeof(*expected));
-    UnicodeString appendTo;
     RunTestFieldPositionIteratorWithNItems(
-        data, 2, expected, tupleCount, appendTo,
+        data, 2, expected, tupleCount,
         u"bbb and cc",
         "TestFieldPositionIteratorWith2Items");
 }
@@ -431,31 +369,15 @@ void ListFormatterTest::TestFieldPositionIteratorWith2ItemsPatternShift() {
     // "cc bbb"
     UnicodeString data[2] = {"bbb", "cc"};
     int32_t expected[] = {
-        ULISTFMT_ELEMENT_FIELD, 3, 6,
-        ULISTFMT_LITERAL_FIELD, 2, 3,
-        ULISTFMT_ELEMENT_FIELD, 0, 2
+        ULISTFMT_ELEMENT_FIELD, 5, 10,
+        ULISTFMT_LITERAL_FIELD, 4, 5,
+        ULISTFMT_ELEMENT_FIELD, 0, 4
     };
     int32_t tupleCount = sizeof(expected)/(3 * sizeof(*expected));
-    UnicodeString appendTo;
     RunTestFieldPositionIteratorWithNItemsPatternShift(
-        data, 2, expected, tupleCount, appendTo,
-        u"cc bbb",
+        data, 2, expected, tupleCount,
+        u"\u2068cc\u2069 \u2068bbb\u2069",
         "TestFieldPositionIteratorWith2ItemsPatternShift");
-}
-
-void ListFormatterTest::TestFieldPositionIteratorWith1ItemAndDataBefore() {
-    //  012345678
-    // "Hello cc"
-    UnicodeString data[1] = {"cc"};
-    int32_t expected[] = {
-        ULISTFMT_ELEMENT_FIELD, 6, 8
-    };
-    int32_t tupleCount = sizeof(expected)/(3 * sizeof(*expected));
-    UnicodeString appendTo("Hello ");
-    RunTestFieldPositionIteratorWithNItems(
-        data, 1, expected, tupleCount, appendTo,
-        u"Hello cc",
-        "TestFieldPositionIteratorWith1ItemAndDataBefore");
 }
 
 void ListFormatterTest::TestFieldPositionIteratorWith1Item() {
@@ -466,9 +388,8 @@ void ListFormatterTest::TestFieldPositionIteratorWith1Item() {
         ULISTFMT_ELEMENT_FIELD, 0, 2
     };
     int32_t tupleCount = sizeof(expected)/(3 * sizeof(*expected));
-    UnicodeString appendTo;
     RunTestFieldPositionIteratorWithNItems(
-        data, 1, expected, tupleCount, appendTo,
+        data, 1, expected, tupleCount,
         u"cc",
         "TestFieldPositionIteratorWith1Item");
 }
@@ -576,10 +497,10 @@ void ListFormatterTest::TestOutOfOrderPatterns() {
 
 void ListFormatterTest::TestFormattedValue() {
     IcuTestErrorCode status(*this, "TestFormattedValue");
-    LocalPointer<ListFormatter> fmt(ListFormatter::createInstance("en", status));
-    if (status.errIfFailureAndReset()) { return; }
 
     {
+        LocalPointer<ListFormatter> fmt(ListFormatter::createInstance("en", status));
+        if (status.errIfFailureAndReset()) { return; }
         const char16_t* message = u"Field position test 1";
         const char16_t* expectedString = u"hello, wonderful, and world";
         const UnicodeString inputs[] = {
@@ -598,6 +519,87 @@ void ListFormatterTest::TestFormattedValue() {
             {UFIELD_CATEGORY_LIST, ULISTFMT_LITERAL_FIELD, 16, 22},
             {UFIELD_CATEGORY_LIST_SPAN, 2, 22, 27},
             {UFIELD_CATEGORY_LIST, ULISTFMT_ELEMENT_FIELD, 22, 27}};
+        checkMixedFormattedValue(
+            message,
+            result,
+            expectedString,
+            expectedFieldPositions,
+            UPRV_LENGTHOF(expectedFieldPositions));
+    }
+
+    {
+        LocalPointer<ListFormatter> fmt(ListFormatter::createInstance("zh", ULISTFMT_TYPE_UNITS, ULISTFMT_WIDTH_SHORT, status));
+        if (status.errIfFailureAndReset()) { return; }
+        const char16_t* message = u"Field position test 2 (ICU-21340)";
+        const char16_t* expectedString = u"aabbbbbbbccc";
+        const UnicodeString inputs[] = {
+            u"aa",
+            u"bbbbbbb",
+            u"ccc"
+        };
+        FormattedList result = fmt->formatStringsToValue(inputs, UPRV_LENGTHOF(inputs), status);
+        static const UFieldPositionWithCategory expectedFieldPositions[] = {
+            // field, begin index, end index
+            {UFIELD_CATEGORY_LIST_SPAN, 0, 0, 2},
+            {UFIELD_CATEGORY_LIST, ULISTFMT_ELEMENT_FIELD, 0, 2},
+            {UFIELD_CATEGORY_LIST_SPAN, 1, 2, 9},
+            {UFIELD_CATEGORY_LIST, ULISTFMT_ELEMENT_FIELD, 2, 9},
+            {UFIELD_CATEGORY_LIST_SPAN, 2, 9, 12},
+            {UFIELD_CATEGORY_LIST, ULISTFMT_ELEMENT_FIELD, 9, 12}};
+        checkMixedFormattedValue(
+            message,
+            result,
+            expectedString,
+            expectedFieldPositions,
+            UPRV_LENGTHOF(expectedFieldPositions));
+    }
+
+    {
+        LocalPointer<ListFormatter> fmt(ListFormatter::createInstance("en", ULISTFMT_TYPE_UNITS, ULISTFMT_WIDTH_SHORT, status));
+        if (status.errIfFailureAndReset()) { return; }
+        const char16_t* message = u"ICU-21383 Long list";
+        const char16_t* expectedString = u"a, b, c, d, e, f, g, h, i";
+        const UnicodeString inputs[] = {
+            u"a",
+            u"b",
+            u"c",
+            u"d",
+            u"e",
+            u"f",
+            u"g",
+            u"h",
+            u"i",
+        };
+        FormattedList result = fmt->formatStringsToValue(inputs, UPRV_LENGTHOF(inputs), status);
+        static const UFieldPositionWithCategory expectedFieldPositions[] = {
+            // field, begin index, end index
+            {UFIELD_CATEGORY_LIST_SPAN, 0, 0, 1},
+            {UFIELD_CATEGORY_LIST, ULISTFMT_ELEMENT_FIELD, 0, 1},
+            {UFIELD_CATEGORY_LIST, ULISTFMT_LITERAL_FIELD, 1, 3},
+            {UFIELD_CATEGORY_LIST_SPAN, 1, 3, 4},
+            {UFIELD_CATEGORY_LIST, ULISTFMT_ELEMENT_FIELD, 3, 4},
+            {UFIELD_CATEGORY_LIST, ULISTFMT_LITERAL_FIELD, 4, 6},
+            {UFIELD_CATEGORY_LIST_SPAN, 2, 6, 7},
+            {UFIELD_CATEGORY_LIST, ULISTFMT_ELEMENT_FIELD, 6, 7},
+            {UFIELD_CATEGORY_LIST, ULISTFMT_LITERAL_FIELD, 7, 9},
+            {UFIELD_CATEGORY_LIST_SPAN, 3, 9, 10},
+            {UFIELD_CATEGORY_LIST, ULISTFMT_ELEMENT_FIELD, 9, 10},
+            {UFIELD_CATEGORY_LIST, ULISTFMT_LITERAL_FIELD, 10, 12},
+            {UFIELD_CATEGORY_LIST_SPAN, 4, 12, 13},
+            {UFIELD_CATEGORY_LIST, ULISTFMT_ELEMENT_FIELD, 12, 13},
+            {UFIELD_CATEGORY_LIST, ULISTFMT_LITERAL_FIELD, 13, 15},
+            {UFIELD_CATEGORY_LIST_SPAN, 5, 15, 16},
+            {UFIELD_CATEGORY_LIST, ULISTFMT_ELEMENT_FIELD, 15, 16},
+            {UFIELD_CATEGORY_LIST, ULISTFMT_LITERAL_FIELD, 16, 18},
+            {UFIELD_CATEGORY_LIST_SPAN, 6, 18, 19},
+            {UFIELD_CATEGORY_LIST, ULISTFMT_ELEMENT_FIELD, 18, 19},
+            {UFIELD_CATEGORY_LIST, ULISTFMT_LITERAL_FIELD, 19, 21},
+            {UFIELD_CATEGORY_LIST_SPAN, 7, 21, 22},
+            {UFIELD_CATEGORY_LIST, ULISTFMT_ELEMENT_FIELD, 21, 22},
+            {UFIELD_CATEGORY_LIST, ULISTFMT_LITERAL_FIELD, 22, 24},
+            {UFIELD_CATEGORY_LIST_SPAN, 8, 24, 25},
+            {UFIELD_CATEGORY_LIST, ULISTFMT_ELEMENT_FIELD, 24, 25},
+            };
         checkMixedFormattedValue(
             message,
             result,
@@ -749,13 +751,13 @@ void ListFormatterTest::TestContextual() {
         { es, ULISTFMT_TYPE_OR, u"10 o 11.2",                u"10",       u"11.2",        nullptr },
         { es, ULISTFMT_TYPE_OR, u"9, 10 u 11",               u"9",        u"10",          u"11" },
 
-        { he, ULISTFMT_TYPE_AND, u"a, b ו-c",               u"a",      u"b",      u"c" },
-        { he, ULISTFMT_TYPE_AND, u"a ו-b",                  u"a",      u"b",      nullptr },
+        { he, ULISTFMT_TYPE_AND, u"\u2068a\u2069, \u2068b\u2069 ו-\u2068c\u2069", u"a", u"b", u"c" },
+        { he, ULISTFMT_TYPE_AND, u"\u2068a\u2069 ו-\u2068b\u2069",                u"a", u"b", nullptr },
         { he, ULISTFMT_TYPE_AND, u"1, 2 ו-3",               u"1",      u"2",      u"3" },
         { he, ULISTFMT_TYPE_AND, u"1 ו-2",                  u"1",      u"2",      nullptr },
         { he, ULISTFMT_TYPE_AND, u"אהבה ומקווה",            u"אהבה",   u"מקווה",  nullptr },
         { he, ULISTFMT_TYPE_AND, u"אהבה, מקווה ואמונה",     u"אהבה",   u"מקווה",  u"אמונה" },
-        
+
         // rdar://64483589
         { th, ULISTFMT_TYPE_AND, u"ข้อความธรรมดาและ 1 ภาพ",                    u"ข้อความธรรมดา",  u"1 ภาพ",        nullptr },
         { th, ULISTFMT_TYPE_AND, u"ข้อความธรรมดาและข้อความธรรมดา",               u"ข้อความธรรมดา", u"ข้อความธรรมดา",  nullptr },
@@ -776,7 +778,7 @@ void ListFormatterTest::TestContextual() {
                     // work the same way as the "and" formats)
                     continue;
                 }
-                
+
                 LocalPointer<ListFormatter> fmt(
                     ListFormatter::createInstance(locale.c_str(), cas.type, width, status),
                     status);
@@ -799,6 +801,134 @@ void ListFormatterTest::TestContextual() {
             }
         }
     }
+}
+
+void ListFormatterTest::TestNextPosition() {
+    IcuTestErrorCode status(*this, "TestNextPosition");
+    std::vector<std::string> locales = { "en", "es", "zh", "ja" };
+    UListFormatterWidth widths [] = {
+        ULISTFMT_WIDTH_WIDE, ULISTFMT_WIDTH_SHORT, ULISTFMT_WIDTH_NARROW
+    };
+    const char* widthStr [] = {"wide", "short", "narrow"};
+    UListFormatterType types [] = {
+        ULISTFMT_TYPE_AND, ULISTFMT_TYPE_OR, ULISTFMT_TYPE_UNITS
+    };
+    const char* typeStr [] = {"and", "or", "units"};
+    const UnicodeString inputs[] = { u"A1", u"B2", u"C3", u"D4" };
+    for (auto width : widths) {
+        for (auto type : types) {
+            for (auto locale : locales) {
+                LocalPointer<ListFormatter> fmt(
+                        ListFormatter::createInstance(locale.c_str(), type, width, status),
+                    status);
+                if (status.errIfFailureAndReset()) {
+                    continue;
+                }
+                for (int32_t n = 1; n <= UPRV_LENGTHOF(inputs); n++) {
+                    FormattedList result = fmt->formatStringsToValue(
+                        inputs, n, status);
+                    int32_t elements = 0;
+                    icu::ConstrainedFieldPosition cfpos;
+                    cfpos.constrainCategory(UFIELD_CATEGORY_LIST);
+                    while (result.nextPosition(cfpos, status) && U_SUCCESS(status)) {
+                        if (cfpos.getField() == ULISTFMT_ELEMENT_FIELD) {
+                            elements++;
+                        }
+                    }
+                    std::string msg = locale;
+                    // Test that if there are n elements (n=1..4) in the input, then the
+                    // nextPosition() should iterate through exactly n times
+                    // with field == ULISTFMT_ELEMENT_FIELD.
+                    assertEquals((msg
+                                  .append(" w=").append(widthStr[width])
+                                  .append(" t=").append(typeStr[type])).c_str(),
+                                 n, elements);
+                }
+            }
+        }
+    }
+}
+
+void ListFormatterTest::TestInt32Overflow() {
+    if (quick) {
+        return;
+    }
+    IcuTestErrorCode status(*this, "TestInt32Overflow");
+    LocalPointer<ListFormatter> fmt(ListFormatter::createInstance("en", status), status);
+    std::vector<UnicodeString> inputs;
+    UnicodeString input(0xAAAFF00, 0x00000042, 0xAAAFF00);
+    for (int32_t i = 0; i < 16; i++) {
+      inputs.push_back(input);
+    }
+    FormattedList result = fmt->formatStringsToValue(
+        inputs.data(), static_cast<int32_t>(inputs.size()), status);
+    status.expectErrorAndReset(U_INPUT_TOO_LONG_ERROR);
+}
+
+// Apple rdar://80868095
+void ListFormatterTest::TestBidi() {
+    UnicodeString arabicOne(u"ببب");
+    UnicodeString arabicTwo(u"للل");
+    UnicodeString arabicThree(u"ححح");
+    UnicodeString arabicFour(u"ممم");
+
+    // if the items in the list have the same directionality as the overall list (the high-runner case), we can
+    // do normal list formatting
+    
+    UnicodeString englishResults[4] = {
+        one,
+        one + " and " + two,
+        one + ", " + two + ", and " + three,
+        one + ", " + two + ", " + three + ", and " + four
+    };
+    CheckFourCases("en", one, two, three, four, englishResults, "TestBidi(en)");
+
+    UnicodeString arabicResults[4] = {
+        arabicOne,
+        arabicOne + u" \u0648" + arabicTwo,
+        arabicOne + u" \u0648" + arabicTwo + u" \u0648" + arabicThree,
+        arabicOne + u" \u0648" + arabicTwo + u" \u0648" + arabicThree + u" \u0648" + arabicFour
+    };
+    CheckFourCases("ar", arabicOne, arabicTwo, arabicThree, arabicFour, arabicResults, "TestBidi(ar)");
+
+    // if we're inserting LTR items into an RTL string or RTL items into a LTR string, we surround the individual
+    // items with bidi-isolate characters to make sure they don't mess up the layout of the list.  Each item
+    // has U+2968 FIRST STRONG ISOLATE before it and U+2069 POP DIRECTIONAL ISOLATE after it.
+    
+    UnicodeString englishInArabicResults[4] = {
+        u"\u2068" + one + u"\u2069",
+        u"\u2068" + one + u"\u2069 \u0648\u2068" + two + u"\u2069",
+        u"\u2068" + one + u"\u2069 \u0648\u2068" + two + u"\u2069 \u0648\u2068" + three + u"\u2069",
+        u"\u2068" + one + u"\u2069 \u0648\u2068" + two + u"\u2069 \u0648\u2068" + three + u"\u2069 \u0648\u2068" + four + u"\u2069"
+    };
+    CheckFourCases("ar", one, two, three, four, englishInArabicResults, "TestBidi(en in ar)");
+
+    UnicodeString arabicInEnglishResults[4] = {
+        u"\u2068" + arabicOne + u"\u2069",
+        u"\u2068" + arabicOne + u"\u2069 and \u2068" + arabicTwo + u"\u2069",
+        u"\u2068" + arabicOne + u"\u2069, \u2068" + arabicTwo + u"\u2069, and \u2068" + arabicThree + u"\u2069",
+        u"\u2068" + arabicOne + u"\u2069, \u2068" + arabicTwo + u"\u2069, \u2068" + arabicThree + u"\u2069, and \u2068" + arabicFour + u"\u2069"
+    };
+    CheckFourCases("en", arabicOne, arabicTwo, arabicThree, arabicFour, arabicInEnglishResults, "TestBidi(ar in en)");
+
+    // if only SOME of the items in the list have wrong-directionality characters in them, only THOSE items
+    // have FSI/PDI around them, not ALL of the items
+    
+    UnicodeString mixedInArabicResults[4] = {
+        u"\u2068" + one + u"\u2069",
+        u"\u2068" + one + u"\u2069 \u0648" + arabicTwo,
+        u"\u2068" + one + u"\u2069 \u0648" + arabicTwo + u" \u0648\u2068" + three + u"\u2069",
+        u"\u2068" + one + u"\u2069 \u0648" + arabicTwo + u" \u0648\u2068" + three + u"\u2069 \u0648" + arabicFour
+    };
+    CheckFourCases("ar", one, arabicTwo, three, arabicFour, mixedInArabicResults, "TestBidi(mixed in ar)");
+
+    UnicodeString mixedInEnglishResults[4] = {
+        u"\u2068" + arabicOne + u"\u2069",
+        u"\u2068" + arabicOne + u"\u2069 and " + two,
+        u"\u2068" + arabicOne + u"\u2069, " + two + u", and \u2068" + arabicThree + u"\u2069",
+        u"\u2068" + arabicOne + u"\u2069, " + two + u", \u2068" + arabicThree + u"\u2069, and " + four
+    };
+    CheckFourCases("en", arabicOne, two, arabicThree, four, mixedInEnglishResults, "TestBidi(mixed in en)");
 }
 
 #endif /* #if !UCONFIG_NO_FORMATTING */

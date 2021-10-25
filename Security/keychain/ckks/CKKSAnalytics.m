@@ -32,6 +32,8 @@
 #import "keychain/ckks/CKKS.h"
 #import "keychain/ckks/CKKSViewManager.h"
 #import "keychain/ckks/CKKSKeychainView.h"
+#import "keychain/ckks/CKKSTLKShare.h"
+#import "keychain/TrustedPeersHelper/TrustedPeersHelperProtocol.h"
 #include <utilities/SecFileLocations.h>
 #include <sys/stat.h>
 
@@ -74,6 +76,24 @@ NSString* const OctagonAnalyticsBottledTotalTLKShares = @"OABottledTotalTLKShare
 NSString* const OctagonAnalyticsBottledTotalTLKSharesRecovered = @"OABottledTotalTLKSharesRecoveredCount";
 NSString* const OctagonAnalyticsBottledUniqueTLKsWithSharesCount = @"OABottledUniqueTLKsWithSharesCount";
 NSString* const OctagonAnalyticsBottledTLKUniqueViewCount = @"OABottledTLKUniqueViewCount";
+
+NSString* const OctagonAnalyticsRKUniqueTLKsRecovered = @"OARKUniqueTLKsRecoveredCount";
+NSString* const OctagonAnalyticsRKTotalTLKShares = @"OARKTotalTLKSharesCount";
+NSString* const OctagonAnalyticsRKTotalTLKSharesRecovered = @"OARKTotalTLKSharesRecoveredCount";
+NSString* const OctagonAnalyticsRKUniqueTLKsWithSharesCount = @"OARKUniqueTLKsWithSharesCount";
+NSString* const OctagonAnalyticsRKTLKUniqueViewCount = @"OARKTLKUniqueViewCount";
+
+NSString* const OctagonAnalyticsCustodianUniqueTLKsRecovered = @"OACustodianUniqueTLKsRecoveredCount";
+NSString* const OctagonAnalyticsCustodianTotalTLKShares = @"OACustodianTotalTLKSharesCount";
+NSString* const OctagonAnalyticsCustodianTotalTLKSharesRecovered = @"OACustodianTotalTLKSharesRecoveredCount";
+NSString* const OctagonAnalyticsCustodianUniqueTLKsWithSharesCount = @"OACustodianUniqueTLKsWithSharesCount";
+NSString* const OctagonAnalyticsCustodianTLKUniqueViewCount = @"OACustodianTLKUniqueViewCount";
+
+NSString* const OctagonAnalyticsInheritanceUniqueTLKsRecovered = @"OAInheritanceUniqueTLKsRecoveredCount";
+NSString* const OctagonAnalyticsInheritanceTotalTLKShares = @"OAInheritanceTotalTLKSharesCount";
+NSString* const OctagonAnalyticsInheritanceTotalTLKSharesRecovered = @"OAInheritanceTotalTLKSharesRecoveredCount";
+NSString* const OctagonAnalyticsInheritanceUniqueTLKsWithSharesCount = @"OAInheritanceUniqueTLKsWithSharesCount";
+NSString* const OctagonAnalyticsInheritanceTLKUniqueViewCount = @"OAInheritanceTLKUniqueViewCount";
 
 NSString* const OctagonAnalyticsHaveMachineID = @"OAMIDPresent";
 NSString* const OctagonAnalyticsMIDOnMemoizedList = @"OAMIDOnList";
@@ -125,6 +145,10 @@ CKKSAnalyticsFailableEvent* const OctagonEventCheckTrustState = (CKKSAnalyticsFa
 
 CKKSAnalyticsFailableEvent* const OctagonEventBottledPeerRestore = (CKKSAnalyticsFailableEvent*)@"OctagonEventBottledPeerRestore";
 CKKSAnalyticsFailableEvent* const OctagonEventRecoveryKey = (CKKSAnalyticsFailableEvent*)@"OctagonEventRecoveryKey";
+CKKSAnalyticsFailableEvent* const OctagonEventCustodianRecoveryKey = (CKKSAnalyticsFailableEvent*)@"OctagonEventCustodianRecoveryKey";
+CKKSAnalyticsFailableEvent* const OctagonEventPreflightCustodianRecoveryKey = (CKKSAnalyticsFailableEvent*)@"OctagonEventPreflightCustodianRecoveryKey";
+CKKSAnalyticsFailableEvent* const OctagonEventInheritanceKey = (CKKSAnalyticsFailableEvent*)@"OctagonEventInheritanceKey";
+CKKSAnalyticsFailableEvent* const OctagonEventPreflightInheritanceKey = (CKKSAnalyticsFailableEvent*)@"OctagonEventPreflightInheritanceKey";
 
 CKKSAnalyticsFailableEvent* const OctagonEventFetchAllBottles = (CKKSAnalyticsFailableEvent*)@"OctagonEventFetchAllBottles";
 CKKSAnalyticsFailableEvent* const OctagonEventFetchEscrowContents = (CKKSAnalyticsFailableEvent*)@"OctagonEventFetchEscrowContents";
@@ -146,10 +170,17 @@ CKKSAnalyticsFailableEvent* const OctagonEventJoinWithVoucher = (CKKSAnalyticsFa
 CKKSAnalyticsFailableEvent* const OctagonEventPreflightVouchWithBottle = (CKKSAnalyticsFailableEvent*)@"OctagonEventPreflightVouchWithBottle";
 CKKSAnalyticsFailableEvent* const OctagonEventVoucherWithBottle = (CKKSAnalyticsFailableEvent*)@"OctagonEventVoucherWithBottle";
 
-CKKSAnalyticsFailableEvent* const OctagonEventPreflightVouchWithRecoveryKey = (CKKSAnalyticsFailableEvent*)@"OctagonEventPreflightVouchWithRecoveryKey";;
+CKKSAnalyticsFailableEvent* const OctagonEventPreflightVouchWithRecoveryKey = (CKKSAnalyticsFailableEvent*)@"OctagonEventPreflightVouchWithRecoveryKey";
 CKKSAnalyticsFailableEvent* const OctagonEventVoucherWithRecoveryKey = (CKKSAnalyticsFailableEvent*)@"OctagonEventVoucherWithRecoveryKey";
 
+CKKSAnalyticsFailableEvent* const OctagonEventPreflightVouchWithCustodianRecoveryKey = (CKKSAnalyticsFailableEvent*)@"OctagonEventPreflightVouchWithCustodianRecoveryKey";
+CKKSAnalyticsFailableEvent* const OctagonEventVoucherWithCustodianRecoveryKey = (CKKSAnalyticsFailableEvent*)@"OctagonEventVoucherWithCustodianRecoveryKey";
+
+CKKSAnalyticsFailableEvent* const OctagonEventPreflightVouchWithInheritanceKey = (CKKSAnalyticsFailableEvent*)@"OctagonEventPreflightVouchWithInheritanceKey";
+CKKSAnalyticsFailableEvent* const OctagonEventVoucherWithInheritanceKey = (CKKSAnalyticsFailableEvent*)@"OctagonEventVoucherWithInheritanceKey";
+
 CKKSAnalyticsFailableEvent* const OctagonEventSetRecoveryKey = (CKKSAnalyticsFailableEvent*)@"OctagonEventSetRecoveryKey";
+CKKSAnalyticsFailableEvent* const OctagonEventCreateCustodianRecoveryKey = (CKKSAnalyticsFailableEvent*)@"OctagonEventCreateCustodianRecoveryKey";
 
 CKKSAnalyticsFailableEvent* const OctagonEventSetRecoveryKeyValidationFailed = (CKKSAnalyticsFailableEvent*)@"OctagonEventSetRecoveryKeyValidationFailed";
 CKKSAnalyticsFailableEvent* const OctagonEventJoinRecoveryKeyValidationFailed = (CKKSAnalyticsFailableEvent*)@"OctagonEventJoinRecoveryKeyValidationFailed";
@@ -157,6 +188,7 @@ CKKSAnalyticsFailableEvent* const OctagonEventJoinRecoveryKeyCircleReset = (CKKS
 CKKSAnalyticsFailableEvent* const OctagonEventJoinRecoveryKeyCircleResetFailed = (CKKSAnalyticsFailableEvent*)@"OctagonEventJoinRecoveryKeyCircleResetFailed";
 CKKSAnalyticsFailableEvent* const OctagonEventJoinRecoveryKeyEnrollFailed = (CKKSAnalyticsFailableEvent*)@"OctagonEventJoinRecoveryKeyEnrollFailed";
 CKKSAnalyticsFailableEvent* const OctagonEventJoinRecoveryKeyFailed = (CKKSAnalyticsFailableEvent*)@"OctagonEventJoinRecoveryKeyFailed";
+CKKSAnalyticsFailableEvent* const OctagonEventJoinRecoveryKey = (CKKSAnalyticsFailableEvent*)@"OctagonEventJoinRecoveryKey";
 
 CKKSAnalyticsFailableEvent* const OctagonEventReset = (CKKSAnalyticsFailableEvent*)@"OctagonEventReset";
 
@@ -180,6 +212,10 @@ CKKSAnalyticsFailableEvent* const OctagonEventTPHHealthCheckStatus = (CKKSAnalyt
 
 CKKSAnalyticsFailableEvent* const OctagonEventAuthKitDeviceList = (CKKSAnalyticsFailableEvent *)@"OctagonEventAuthKitDeviceList";
 
+CKKSAnalyticsFailableEvent* const OctagonEventEscrowMoveTriggered = (CKKSAnalyticsFailableEvent *)@"OctagonEventEscrowMoveTriggered";
+CKKSAnalyticsFailableEvent* const OctagonEventEscrowMoveRateLimited = (CKKSAnalyticsFailableEvent *)@"OctagonEventEscrowMoveRateLimited";
+CKKSAnalyticsFailableEvent* const OctagonEventEscrowMoveTermsNeeded = (CKKSAnalyticsFailableEvent *)@"OctagonEventEscrowMoveTermsNeeded";
+
 CKKSAnalyticsActivity* const CKKSActivityOTFetchRampState = (CKKSAnalyticsActivity *)@"CKKSActivityOTFetchRampState";
 CKKSAnalyticsActivity* const CKKSActivityOctagonPreflightBottle = (CKKSAnalyticsActivity *)@"CKKSActivityOctagonPreflightBottle";
 CKKSAnalyticsActivity* const CKKSActivityOctagonLaunchBottle = (CKKSAnalyticsActivity *)@"CKKSActivityOctagonLaunchBottle";
@@ -198,7 +234,18 @@ CKKSAnalyticsActivity* const OctagonActivityFetchAllViableBottles = (CKKSAnalyti
 CKKSAnalyticsActivity* const OctagonActivityFetchEscrowContents = (CKKSAnalyticsActivity *)@"OctagonActivityFetchEscrowContents";
 CKKSAnalyticsActivity* const OctagonActivityBottledPeerRestore = (CKKSAnalyticsActivity *)@"OctagonActivityBottledPeerRestore";
 CKKSAnalyticsActivity* const OctagonActivitySetRecoveryKey = (CKKSAnalyticsActivity *)@"OctagonActivitySetRecoveryKey";
+CKKSAnalyticsActivity* const OctagonActivityCreateCustodianRecoveryKey = (CKKSAnalyticsActivity *)@"OctagonActivityCreateCustodianRecoveryKey";
 CKKSAnalyticsActivity* const OctagonActivityJoinWithRecoveryKey = (CKKSAnalyticsActivity *)@"OctagonActivityJoinWithRecoveryKey";
+CKKSAnalyticsActivity* const OctagonActivityJoinWithCustodianRecoveryKey = (CKKSAnalyticsActivity *)@"OctagonActivityJoinWithCustodianRecoveryKey";
+CKKSAnalyticsActivity* const OctagonActivityPreflightJoinWithCustodianRecoveryKey = (CKKSAnalyticsActivity *)@"OctagonActivityPreflightJoinWithCustodianRecoveryKey";
+CKKSAnalyticsActivity* const OctagonActivityRemoveCustodianRecoveryKey = (CKKSAnalyticsActivity *)@"OctagonActivityRemoveCustodianRecoveryKey";
+
+CKKSAnalyticsActivity* const OctagonActivityCreateInheritanceKey = (CKKSAnalyticsActivity *)@"OctagonActivityCreateInheritanceKey";
+CKKSAnalyticsActivity* const OctagonActivityGenerateInheritanceKey = (CKKSAnalyticsActivity *)@"OctagonActivityGenerateInheritanceKey";
+CKKSAnalyticsActivity* const OctagonActivityStoreInheritanceKey = (CKKSAnalyticsActivity *)@"OctagonActivityStoreInheritanceKey";
+CKKSAnalyticsActivity* const OctagonActivityJoinWithInheritanceKey = (CKKSAnalyticsActivity*)@"OctagonActivityJoinWithInheritanceKey";
+CKKSAnalyticsActivity* const OctagonActivityPreflightJoinWithInheritanceKey = (CKKSAnalyticsActivity*)@"OctagonActivityPreflightJoinWithInheritanceKey";
+CKKSAnalyticsActivity* const OctagonActivityRemoveInheritanceKey = (CKKSAnalyticsActivity *)@"OctagonActivityRemoveInheritanceKey";
 
 CKKSAnalyticsActivity* const OctagonActivityLeaveClique = (CKKSAnalyticsActivity *)@"OctagonActivityLeaveClique";
 CKKSAnalyticsActivity* const OctagonActivityRemoveFriendsInClique = (CKKSAnalyticsActivity *)@"OctagonActivityRemoveFriendsInClique";
@@ -433,6 +480,47 @@ CKKSAnalyticsActivity* const OctagonActivityRemoveFriendsInClique = (CKKSAnalyti
 - (NSDate *)datePropertyForKey:(NSString *)key zoneName:(NSString*)zoneName
 {
     return [self datePropertyForKey:[NSString stringWithFormat:@"%@-%@", key, zoneName]];
+}
+
+#pragma mark - Helper methods for clients
+
+- (void)noteMetric:(NSString*)metric count:(int64_t)count
+{
+    NSString* metricName = [NSString stringWithFormat:@"%@%lld", metric, count];
+
+    [self logResultForEvent:metricName
+                hardFailure:NO
+                     result:nil];
+
+    [self setDateProperty:[NSDate date] forKey:metricName];
+    [self setNumberProperty:[[NSNumber alloc]initWithLong:(long)count] forKey:metric];
+}
+
+- (void)recordRecoveredTLKMetrics:(NSArray<CKKSTLKShare*>*)possibleTLKShares
+               tlkRecoveryResults:(TrustedPeersHelperTLKRecoveryResult*)tlkRecoveryResults
+         uniqueTLKsRecoveredEvent:(NSString*)uniqueTLKsRecoveredEvent
+        totalSharesRecoveredEvent:(NSString*)totalSharesRecoveredEvent
+   totalRecoverableTLKSharesEvent:(NSString*)totalRecoverableTLKSharesEvent
+        totalRecoverableTLKsEvent:(NSString*)totalRecoverableTLKsEvent
+        totalViewsWithSharesEvent:(NSString*)totalViewsWithSharesEvent
+{
+    [self noteMetric:uniqueTLKsRecoveredEvent count:tlkRecoveryResults.successfulKeysRecovered.count];
+    [self noteMetric:totalSharesRecoveredEvent count:tlkRecoveryResults.totalTLKSharesRecovered];
+
+    [self noteMetric:totalRecoverableTLKsEvent count:possibleTLKShares.count];
+
+    NSMutableSet<NSString*>* uniqueTLKsWithShares = [NSMutableSet set];
+    for (CKKSTLKShare* share in possibleTLKShares) {
+        [uniqueTLKsWithShares addObject:share.tlkUUID];
+    }
+
+    [self noteMetric:totalRecoverableTLKsEvent count:uniqueTLKsWithShares.count];
+
+    NSMutableDictionary *views = [NSMutableDictionary dictionary];
+    for (CKKSTLKShare *share in possibleTLKShares) {
+        views[share.zoneID] = share.zoneID;
+    }
+    [self noteMetric:totalViewsWithSharesEvent count:views.count];
 }
 
 @end

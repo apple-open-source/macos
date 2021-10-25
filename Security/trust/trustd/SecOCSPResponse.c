@@ -331,6 +331,7 @@ SecOCSPResponseRef SecOCSPResponseCreateWithID(CFDataRef ocspResponse, int64_t r
     SecOCSPResponseRef this = NULL;
 
     require(ocspResponse, errOut);
+    require(CFDataGetLength(ocspResponse) > 0, errOut);
     require(this = (SecOCSPResponseRef)calloc(1, sizeof(struct __SecOCSPResponse)),
         errOut);
     require_noerr(SecAsn1CoderCreate(&this->coder), errOut);
@@ -340,7 +341,7 @@ SecOCSPResponseRef SecOCSPResponseCreateWithID(CFDataRef ocspResponse, int64_t r
     CFRetain(ocspResponse);
 
     SecAsn1Item resp;
-    resp.Length = CFDataGetLength(ocspResponse);
+    resp.Length = (size_t)CFDataGetLength(ocspResponse);
     resp.Data = (uint8_t *)CFDataGetBytePtr(ocspResponse);
 	if (SecAsn1DecodeData(this->coder, &resp, kSecAsn1OCSPResponseTemplate,
         &topResp)) {
@@ -477,7 +478,8 @@ CFArrayRef SecOCSPResponseCopySigners(SecOCSPResponseRef this) {
     SecAsn1Item **certs;
     for (certs = this->basicResponse.certs; certs && *certs; ++certs) {
         SecCertificateRef cert = NULL;
-        cert = SecCertificateCreateWithBytes(kCFAllocatorDefault, (*certs)->Data, (*certs)->Length);
+        if ((*certs)->Length > LONG_MAX) { continue; }
+        cert = SecCertificateCreateWithBytes(kCFAllocatorDefault, (*certs)->Data, (CFIndex)(*certs)->Length);
         if (cert) {
             CFArrayAppendValue(result, cert);
             CFReleaseNull(cert);
@@ -529,8 +531,9 @@ SecOCSPSingleResponseRef SecOCSPResponseCopySingleResponse(
     SecOCSPSingleResponseRef sr = NULL;
 
     if (!request) { return sr; }
-    CFDataRef issuer = SecCertificateCopyIssuerSequence(request->certificate);
     const DERItem *publicKey = SecCertificateGetPublicKeyData(request->issuer);
+    if (publicKey->length > LONG_MAX) { return sr; }
+    CFDataRef issuer = SecCertificateCopyIssuerSequence(request->certificate);
     CFDataRef serial = SecCertificateCopySerialNumberData(request->certificate, NULL);
     CFDataRef issuerNameHash = NULL;
     CFDataRef issuerPubKeyHash = NULL;
@@ -561,7 +564,7 @@ SecOCSPSingleResponseRef SecOCSPResponseCopySingleResponse(
             issuerNameHash = SecDigestCreate(kCFAllocatorDefault, algorithm,
                 parameters, CFDataGetBytePtr(issuer), CFDataGetLength(issuer));
             issuerPubKeyHash = SecDigestCreate(kCFAllocatorDefault, algorithm,
-                parameters, publicKey->data, publicKey->length);
+                parameters, publicKey->data, (CFIndex)publicKey->length);
         }
 
         if (!issuerNameHash || !issuerPubKeyHash) {
@@ -667,8 +670,8 @@ SecCertificateRef SecOCSPResponseCopySigner(SecOCSPResponseRef this, SecCertific
      * which one signed the response. */
     SecAsn1Item **certs;
     for (certs = this->basicResponse.certs; certs && *certs; ++certs) {
-        SecCertificateRef cert = SecCertificateCreateWithBytes(
-                                    kCFAllocatorDefault, (*certs)->Data, (*certs)->Length);
+        if ((*certs)->Length > LONG_MAX) { continue; }
+        SecCertificateRef cert = SecCertificateCreateWithBytes(kCFAllocatorDefault, (*certs)->Data, (CFIndex)(*certs)->Length);
         if (cert) {
             if (SecOCSPResponseIsIssuer(this, cert)) {
                 return cert;

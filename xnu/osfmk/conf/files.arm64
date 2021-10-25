@@ -7,7 +7,12 @@ osfmk/vm/vm_fourk_pager.c	 standard
 
 osfmk/arm64/hi_res_clock_map.c 	optional hi_res_clock
 
-osfmk/arm/pmap.c		optional nos_arm_pmap
+osfmk/arm/pmap.c			optional nos_arm_pmap
+osfmk/arm/pmap/pmap_cs.c		optional nos_arm_pmap
+osfmk/arm/pmap/pmap_data.c		optional nos_arm_pmap
+osfmk/arm/pmap/pmap_iommu.c		optional nos_arm_pmap
+osfmk/arm/pmap/pmap_misc.c		optional nos_arm_pmap
+osfmk/arm/pmap/pmap_ppl_interface.c	optional nos_arm_pmap
 
 osfmk/arm64/bsd_arm64.c		optional mach_bsd
 osfmk/arm/machdep_call.c	optional mach_bsd
@@ -23,7 +28,7 @@ osfmk/arm64/amcc_rorgn.c optional nos_arm_asm
 osfmk/arm64/bcopy.s standard
 osfmk/arm64/bzero.s standard
 osfmk/arm/caches.c		standard
-osfmk/arm64/caches_asm.s		standard
+osfmk/arm64/caches_asm.s		optional nos_arm_asm
 osfmk/arm64/copyio.c	standard
 osfmk/arm64/cpu.c		standard
 osfmk/arm/cpu_common.c		standard
@@ -82,8 +87,8 @@ osfmk/OPTIONS/ec		optional ec
 osfmk/OPTIONS/hi_res_clock	optional hi_res_clock
 
 # Kernel performance monitoring
-osfmk/arm64/kpc.c		optional kpc
-
+osfmk/arm64/perfmon_arm64.c optional config_perfmon
+osfmk/arm64/kpc.c		optional kpc nos_arm_asm
 osfmk/arm64/monotonic_arm64.c optional monotonic
 
 osfmk/arm64/platform_tests.c			optional config_xnupost
@@ -92,8 +97,6 @@ osfmk/arm64/platform_tests_asm.s		optional config_xnupost
 osfmk/arm64/alternate_debugger.c		optional alternate_debugger
 osfmk/arm64/alternate_debugger_asm.s		optional alternate_debugger
 
-osfmk/arm64/pgtrace.c           standard
-osfmk/arm64/pgtrace_decoder.c   optional config_pgtrace_nonkext
 osfmk/arm64/machine_remote_time.c optional config_mach_bridge_recv_time
 osfmk/arm64/corecrypto/sha256_compress_arm64.s	standard
 

@@ -59,7 +59,7 @@ NSDictionary<CKKSZoneKeyState*, NSNumber*>* CKKSZoneKeyStateMap(void) {
           SecCKKSZoneKeyStateNeedFullRefetch:    @11U,
           SecCKKSZoneKeyStateHealTLKShares:      @12U,
           SecCKKSZoneKeyStateHealTLKSharesFailed:@13U,
-          SecCKKSZoneKeyStateWaitForFixupOperation:@14U,
+          //SecCKKSZoneKeyStateWaitForFixupOperation:@14U, No longer used
           SecCKKSZoneKeyStateReadyPendingUnlock: @15U,
           SecCKKSZoneKeyStateFetch:              @16U,
           SecCKKSZoneKeyStateResettingZone:      @17U,
@@ -75,6 +75,14 @@ NSDictionary<CKKSZoneKeyState*, NSNumber*>* CKKSZoneKeyStateMap(void) {
           SecCKKSZoneKeyStateTLKMissing:         @27U,
           SecCKKSZoneKeyStateWaitForCloudKitAccountStatus:@28U,
           SecCKKSZoneKeyStateBeginFetch:         @29U,
+
+          CKKSZoneKeyStateFixupRefetchCurrentItemPointers:   @30U,
+          CKKSZoneKeyStateFixupFetchTLKShares:               @31U,
+          CKKSZoneKeyStateFixupLocalReload:                  @32U,
+          CKKSZoneKeyStateFixupResaveDeviceStateEntries:     @33U,
+          CKKSZoneKeyStateFixupDeleteAllCKKSTombstones:      @34U,
+
+          CKKSZoneKeyStateCheckTLKShares:        @35U,
         };
     });
     return map;
@@ -111,6 +119,47 @@ CKKSZoneKeyState* CKKSZoneKeyRecover(NSNumber* stateNumber) {
     return SecCKKSZoneKeyStateError;
 }
 
+NSSet<CKKSZoneKeyState*>* CKKSKeyStateValidStates(void)
+{
+    static NSSet<CKKSZoneKeyState*>* states = nil;
+
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        states = [NSSet setWithArray:@[
+            SecCKKSZoneKeyStateLoggedOut,
+
+            SecCKKSZoneKeyStateResettingZone,
+            SecCKKSZoneKeyStateResettingLocalData,
+            SecCKKSZoneKeyStateInitializing,
+            SecCKKSZoneKeyStateInitialized,
+
+            SecCKKSZoneKeyStateZoneCreationFailed,
+
+            SecCKKSZoneKeyStateReady,
+
+            SecCKKSZoneKeyStateFetch,
+            SecCKKSZoneKeyStateProcess,
+
+            SecCKKSZoneKeyStateNeedFullRefetch,
+
+            SecCKKSZoneKeyStateTLKMissing,
+
+            SecCKKSZoneKeyStateWaitForTLK,
+            SecCKKSZoneKeyStateWaitForTLKCreation,
+            SecCKKSZoneKeyStateWaitForUnlock,
+            SecCKKSZoneKeyStateWaitForTrust,
+
+            SecCKKSZoneKeyStateUnhealthy,
+            SecCKKSZoneKeyStateNewTLKsFailed,
+
+            SecCKKSZoneKeyStateError,
+
+        ]];
+    });
+
+    return states;
+}
+
 NSSet<CKKSZoneKeyState*>* CKKSKeyStateNonTransientStates()
 {
     static NSSet<CKKSZoneKeyState*>* states = nil;
@@ -118,11 +167,9 @@ NSSet<CKKSZoneKeyState*>* CKKSKeyStateNonTransientStates()
     dispatch_once(&onceToken, ^{
         states = [NSSet setWithArray:@[
              SecCKKSZoneKeyStateReady,
-             SecCKKSZoneKeyStateReadyPendingUnlock,
              SecCKKSZoneKeyStateWaitForTrust,
              SecCKKSZoneKeyStateWaitForTLK,
              SecCKKSZoneKeyStateWaitForTLKCreation,
-             SecCKKSZoneKeyStateWaitForTLKUpload,
              SecCKKSZoneKeyStateWaitForUnlock,
              SecCKKSZoneKeyStateError,
              SecCKKSZoneKeyStateLoggedOut,
@@ -301,11 +348,21 @@ bool SecCKKSSetTestSkipScan(bool value) {
     return CKKSSkipScan;
 }
 
+static bool CKKSSkipTLShareKHealing = false;
+bool SecCKKSTestSkipTLKHealing(void) {
+    return CKKSSkipTLShareKHealing;
+}
+bool SecCKKSSetTestSkipTLKShareHealing(bool value) {
+    CKKSSkipTLShareKHealing = value;
+    return CKKSSkipTLShareKHealing;
+}
+
 void SecCKKSTestResetFlags(void) {
     SecCKKSTestSetDisableAutomaticUUID(false);
     SecCKKSTestSetDisableSOS(false);
     SecCKKSTestSetDisableKeyNotifications(false);
     SecCKKSSetTestSkipScan(false);
+    SecCKKSSetTestSkipTLKShareHealing(false);
 }
 
 #else /* NO OCTAGON */
@@ -335,7 +392,6 @@ void SecCKKSInitialize(SecDbRef db) {
 #if OCTAGON
     @autoreleasepool {
         CKKSViewManager* manager = [CKKSViewManager manager];
-        [manager createViews];
         [manager setupAnalytics];
 
         SecDbAddNotifyPhaseBlock(db, ^(SecDbConnectionRef dbconn, SecDbTransactionPhase phase, SecDbTransactionSource source, CFArrayRef changes) {

@@ -15,7 +15,8 @@
 NS_ASSUME_NONNULL_BEGIN
 
 @protocol OctagonStateOnqueuePendingFlagHandler
-- (void)_onqueueHandlePendingFlag:(OctagonPendingFlag*)pendingFlag;
+// Delivering this flag will require re-entering the state machine logic. So, it will necessarily not happen until you depart the current queue.
+- (void)_onqueueHandlePendingFlagLater:(OctagonPendingFlag*)pendingFlag;
 @end
 
 // A State Machine Engine provides the actual implementation of a state machine.
@@ -98,6 +99,12 @@ NS_ASSUME_NONNULL_BEGIN
                                     sourceStates:(NSSet<OctagonState*>*)sourceStates
                                             path:(OctagonStateTransitionPath*)path
                                            reply:(nonnull void (^)(NSError *error))reply;
+
+- (CKKSResultOperation*)doWatchedStateMachineRPC:(NSString*)name
+                                    sourceStates:(NSSet<OctagonState*>*)sourceStates
+                                            path:(OctagonStateTransitionPath*)path
+                                    transitionOp:(CKKSResultOperation<OctagonStateTransitionOperationProtocol>*)initialTransitionOp
+                                           reply:(nonnull void (^)(NSError * _Nullable error))reply;
 - (void)setWatcherTimeout:(uint64_t)timeout;
 - (BOOL)isPaused;
 

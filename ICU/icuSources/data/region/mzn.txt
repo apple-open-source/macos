@@ -1,5 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
-// License & terms of use: http://www.unicode.org/copyright.html#License
+// License & terms of use: http://www.unicode.org/copyright.html
+// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
 mzn{
     Countries{
         001{"جهون"}
@@ -292,7 +293,6 @@ mzn{
         ZZ{"نامَیِّن منطقه"}
     }
     Countries%short{
-        GB{"بریتانیا"}
         HK{"هونگ کونگ"}
         PS{"فلسطین"}
         US{"آمریکا متحده ایالات"}
@@ -304,5 +304,4 @@ mzn{
         FK{"فالکلند (مالویناس)"}
         TL{"شرقی تیمور"}
     }
-    Version{"36.1"}
 }

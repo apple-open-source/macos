@@ -56,11 +56,7 @@ DRIVERKITRUNTIMEROOT[sdk=driverkit*] = $(DRIVERKITROOT)/Runtime
 
 IIG_FRAMEWORK_NAME = HIDDriverKit
 OTHER_IIG_FLAGS = --framework $(IIG_FRAMEWORK_NAME) $(inherited)
-OTHER_IIG_CFLAGS[sdk=macos*] = -I$(SRCROOT) -std=gnu++1z
-OTHER_IIG_CFLAGS[sdk=iphoneos*] = -I$(SRCROOT) -std=gnu++1z -isysroot $(SDKROOT)
-OTHER_IIG_CFLAGS[sdk=watchos*] = -I$(SRCROOT) -std=gnu++1z -isysroot $(SDKROOT)
-OTHER_IIG_CFLAGS[sdk=appletvos*] = -I$(SRCROOT) -std=gnu++1z -isysroot $(SDKROOT)
-OTHER_IIG_CFLAGS[sdk=bridgeos*] = -I$(SRCROOT) -std=gnu++1z -isysroot $(SDKROOT)
+OTHER_IIG_CFLAGS = -I$(SRCROOT) -std=gnu++1z -isysroot $(SDKROOT) -I $(SDKROOT)/System/Library/Frameworks/Kernel.framework/Headers
 
 ALWAYS_SEARCH_USER_PATHS = NO
 
@@ -96,3 +92,5 @@ MODULE_VERSION = $(IOHIDFAMILY_VERSION)
 
 DEPLOYMENT_LOCATION = YES
 USE_HIERARCHICAL_LAYOUT_FOR_COPIED_ASIDE_PRODUCTS = YES
+
+EXCLUDED_SOURCE_FILE_NAMES[sdk=watch*][arch=*] = IOHIDEventDummyService*

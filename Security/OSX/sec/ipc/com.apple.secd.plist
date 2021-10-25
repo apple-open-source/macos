@@ -16,6 +16,8 @@
 	<dict>
 		<key>com.apple.security.octagon</key>
 		<true/>
+		<key>com.apple.security.tribeca</key>
+		<true/>
 		<key>com.apple.secd</key>
 		<true/>
 		<key>com.apple.securityd.xpc</key>
@@ -68,8 +70,8 @@
 				<string>Maintenance</string>
 				<key>Interval</key>
 				<real>3600</real>
-                <key>RequiresClassC</key>
-                <false/>
+				<key>RequiresClassC</key>
+				<false/>
 			</dict>
 		</dict>
 	</dict>

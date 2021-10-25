@@ -53,6 +53,8 @@
        (global-name "com.apple.security.agent.login")
        (global-name "com.apple.security.KeychainStasher"))
 
+(allow mach-task-name)
+
 (allow ipc-posix-shm 
     (ipc-posix-name "com.apple.AppleDatabaseChanged")
     (ipc-posix-name "apple.cfprefs.daemonv1"))

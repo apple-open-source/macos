@@ -9,6 +9,7 @@
 #import <Security/SecAccessControlPriv.h>
 #import <libaks_acl_cf_keys.h>
 #import "MobileGestalt.h"
+#import <CryptoTokenKit/CryptoTokenKit_Private.h>
 
 #import "shared_regressions.h"
 
@@ -43,9 +44,9 @@ static void secKeySepTest(BOOL testPKA) {
         ok(privateKey, "failed to create key '%@'", keyType);
         id publicKey = (__bridge_transfer id)SecKeyCopyPublicKey((SecKeyRef)privateKey);
 
-        NSArray *attestaionKeyTypes = @[@(kSecKeyAttestationKeyTypeSIK), @(kSecKeyAttestationKeyTypeGID)];
+        NSArray *attestaionKeyTypes = @[@(kSecKeySystemKeyTypeSIK), @(kSecKeySystemKeyTypeGID)];
         for (NSNumber *attestationKeyType in attestaionKeyTypes) {
-            id attestationKey = (__bridge_transfer id)SecKeyCopyAttestationKey([attestationKeyType unsignedIntValue], NULL);
+            id attestationKey = (__bridge_transfer id)SecKeyCopySystemKey([attestationKeyType unsignedIntValue], NULL);
             ok(attestationKey, "failed to create attestaion key '%@'", attestationKeyType);
             NSError *error;
             if (![keyType isEqual:(id)kSecAttrKeyTypeSecureEnclaveAttestation]) {
@@ -92,7 +93,7 @@ static void attestationTest(CFStringRef protection, BOOL withACL) {
     NSError *error;
     id privKey = generateKey((id)kSecAttrKeyTypeECSECPrimeRandom, protection, withACL);
     id uik = generateKey((id)kSecAttrKeyTypeSecureEnclaveAttestation, protection, withACL);
-    id sik = CFBridgingRelease(SecKeyCopyAttestationKey(kSecKeyAttestationKeyTypeSIK, (void *)&error));
+    id sik = CFBridgingRelease(SecKeyCopySystemKey(kSecKeySystemKeyTypeSIK, (void *)&error));
     ok(sik != nil, "get SIK key: %@", error);
 
     error = nil;
@@ -115,23 +116,23 @@ static void attestationTest(CFStringRef protection, BOOL withACL) {
     ok(attUIKNonce != nil, "SIK attesting UIK, with nonce: %@", error);
 }
 
-static void sysKeyAttestationTest(CFStringRef protection, BOOL withACL, const char *name, SecKeyAttestationKeyType committed, SecKeyAttestationKeyType proposed, BOOL canAttest) {
+static void sysKeyAttestationTest(CFStringRef protection, BOOL withACL, const char *name, SecKeySystemKeyType committed, SecKeySystemKeyType proposed, BOOL canAttest) {
     NSError *error;
     id privKey = generateKey((id)kSecAttrKeyTypeECSECPrimeRandom, protection, withACL);
-    id sik = CFBridgingRelease(SecKeyCopyAttestationKey(kSecKeyAttestationKeyTypeSIK, (void *)&error));
+    id sik = CFBridgingRelease(SecKeyCopySystemKey(kSecKeySystemKeyTypeSIK, (void *)&error));
     ok(sik != nil, "get SIK key: %@", error);
 
     id pubSIK = CFBridgingRelease(SecKeyCopyPublicKey((__bridge SecKeyRef)sik));
     ok(pubSIK != nil, "get SIK pubkey");
 
-    id sysKeyC = CFBridgingRelease(SecKeyCopyAttestationKey(committed, (void *)&error));
+    id sysKeyC = CFBridgingRelease(SecKeyCopySystemKey(committed, (void *)&error));
     if (sysKeyC == nil) {
         diag("skipping attestation test, platform does not support key %s-committed", name);
         return;
     }
 
     error = nil;
-    id sysKeyP = CFBridgingRelease(SecKeyCopyAttestationKey(proposed, (void *)&error));
+    id sysKeyP = CFBridgingRelease(SecKeyCopySystemKey(proposed, (void *)&error));
     ok(sysKeyP != nil, "unable to get proposed key, but successfully got committed key");
 
     if (canAttest) {
@@ -151,6 +152,10 @@ static void sysKeyAttestationTest(CFStringRef protection, BOOL withACL, const ch
 
     BOOL res = SecKeyControlLifetime((__bridge SecKeyRef)sysKeyC, kSecKeyControlLifetimeTypeBump, (void *)&error);
     ok(res, "bumping %s: %@", name, error);
+    sysKeyP = CFBridgingRelease(SecKeyCopySystemKey(proposed, (void *)&error));
+    ok(sysKeyP != nil, "unable to get %s-proposed after bump: %@", name, error);
+    id pubSysKeyPN = CFBridgingRelease(SecKeyCopyPublicKey((__bridge SecKeyRef)sysKeyP));
+    ok(pubSysKeyPN != nil, "%s-proposed copy public key", name);
 
     if (canAttest) {
         error = nil;
@@ -162,12 +167,14 @@ static void sysKeyAttestationTest(CFStringRef protection, BOOL withACL, const ch
         ok(attSysKeyPN != nil, "%s-proposed attesting privKey: %@", name, error);
     }
 
-    id pubSysKeyPN = CFBridgingRelease(SecKeyCopyPublicKey((__bridge SecKeyRef)sysKeyP));
-    ok(pubSysKeyPN != nil, "%s-proposed copy public key", name);
     ok(![pubSysKeyPN isEqual:pubSysKeyC], "%s proposed and committed differ after bump", name);
 
     res = SecKeyControlLifetime((__bridge SecKeyRef)sysKeyP, kSecKeyControlLifetimeTypeCommit, (void *)&error);
     ok(res, "committing %s: %@", name, error);
+    sysKeyC = CFBridgingRelease(SecKeyCopySystemKey(committed, (void *)&error));
+    ok(sysKeyC != nil, "unable to get %s-committed after commit: %@", name, error);
+    id pubSysKeyCN = CFBridgingRelease(SecKeyCopyPublicKey((__bridge SecKeyRef)sysKeyC));
+    ok(pubSysKeyCN != nil, "%s-committed copy public key", name);
 
     if (canAttest) {
         error = nil;
@@ -179,8 +186,6 @@ static void sysKeyAttestationTest(CFStringRef protection, BOOL withACL, const ch
         ok(attSysKeyPNN != nil, "%s-proposed attesting privKey: %@", name, error);
     }
 
-    id pubSysKeyCN = CFBridgingRelease(SecKeyCopyPublicKey((__bridge SecKeyRef)sysKeyC));
-    ok(pubSysKeyCN != nil, "%s-committed copy public key", name);
     ok([pubSysKeyPN isEqual:pubSysKeyCN], "%s proposed and committed same after commit", name);
 
     // Attest system key with SIK
@@ -497,6 +502,29 @@ static void secAccessControlDescriptionTest(void) {
     ok([desc isEqualToString:@"<SecAccessControlRef: ak;od(kofn(2))>"], "unexpected desc: %@", desc);
 }
 
+static void sysKeySignTest(SecKeySystemKeyType keyType, SecKeyAlgorithm algorithm, NSInteger keySizeInBits, const char *name) {
+    NSError *error;
+    id privKey = CFBridgingRelease(SecKeyCopySystemKey(keyType, (void *)&error));
+    if (privKey == nil) {
+        // This key is not supported on this platform.
+        return;
+    }
+    ok(privKey, "getting key type %s failed: %@", name, error);
+
+    is((keySizeInBits + 7) / 8, (NSInteger)SecKeyGetBlockSize((SecKeyRef)privKey), "unexpected key size of private key %s", name);
+
+    NSData *message = [@"message" dataUsingEncoding:NSUTF8StringEncoding];
+    NSData *signature = CFBridgingRelease(SecKeyCreateSignature((SecKeyRef)privKey, algorithm, (CFDataRef)message, (void *)&error));
+    ok(signature, "signing with key %s failed: %@", name, error);
+
+    id pubKey = CFBridgingRelease(SecKeyCopyPublicKey((SecKeyRef)privKey));
+    ok(pubKey, "getting public key of %s failed", name);
+
+    is((keySizeInBits + 7) / 8, (NSInteger)SecKeyGetBlockSize((SecKeyRef)pubKey), "unexpected key size of public key %s", name);
+
+    ok(SecKeyVerifySignature((SecKeyRef)pubKey, algorithm, (CFDataRef)message, (CFDataRef)signature, (void *)&error), "signature verification with key %s failed: %@", name, error);
+}
+
 int si_44_seckey_aks(int argc, char *const *argv) {
     @autoreleasepool {
         NSNumber *hasSEP = CFBridgingRelease(MGCopyAnswer(kMGQHasSEP, NULL));
@@ -516,27 +544,31 @@ int si_44_seckey_aks(int argc, char *const *argv) {
         attestationTest(kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly, YES);
         attestationTest(kSecAttrAccessibleUntilReboot, NO);
 
-        sysKeyAttestationTest(kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly, YES, "SysUIK", kSecKeyAttestationKeyTypeUIKCommitted, kSecKeyAttestationKeyTypeUIKProposed, YES);
-        sysKeyAttestationTest(kSecAttrAccessibleUntilReboot, NO, "SysUIK", kSecKeyAttestationKeyTypeUIKCommitted, kSecKeyAttestationKeyTypeUIKProposed, YES);
+        sysKeyAttestationTest(kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly, YES, "SysUIK", kSecKeySystemKeyTypeUIKCommitted, kSecKeySystemKeyTypeUIKProposed, YES);
+        sysKeyAttestationTest(kSecAttrAccessibleUntilReboot, NO, "SysUIK", kSecKeySystemKeyTypeUIKCommitted, kSecKeySystemKeyTypeUIKProposed, YES);
 
         // OIK is too weird to be usable directly, just skip is testing for now.
 #if 0
-        sysKeyAttestationTest(kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly, YES, "OIK", kSecKeyAttestationKeyTypeOIKCommitted, kSecKeyAttestationKeyTypeOIKProposed, NO);
-        sysKeyAttestationTest(kSecAttrAccessibleUntilReboot, NO, "OIK", kSecKeyAttestationKeyTypeOIKCommitted, kSecKeyAttestationKeyTypeOIKProposed, NO);
+        sysKeyAttestationTest(kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly, YES, "OIK", kSecKeySystemKeyTypeOIKCommitted, kSecKeySystemKeyTypeOIKProposed, NO);
+        sysKeyAttestationTest(kSecAttrAccessibleUntilReboot, NO, "OIK", kSecKeySystemKeyTypeOIKCommitted, kSecKeySystemKeyTypeOIKProposed, NO);
 #endif
 
-        sysKeyAttestationTest(kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly, YES, "DAK", kSecKeyAttestationKeyTypeDAKCommitted, kSecKeyAttestationKeyTypeDAKProposed, YES);
-        sysKeyAttestationTest(kSecAttrAccessibleUntilReboot, NO, "DAK", kSecKeyAttestationKeyTypeDAKCommitted, kSecKeyAttestationKeyTypeDAKProposed, YES);
+        sysKeyAttestationTest(kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly, YES, "DAK", kSecKeySystemKeyTypeDAKCommitted, kSecKeySystemKeyTypeDAKProposed, YES);
+        sysKeyAttestationTest(kSecAttrAccessibleUntilReboot, NO, "DAK", kSecKeySystemKeyTypeDAKCommitted, kSecKeySystemKeyTypeDAKProposed, YES);
 
         keyFromBlobTest();
         keychainTest();
 
         if (hasPKA.boolValue) {
-            // Put SEP keys into test-keybag mode. Available only when running in direct-mode, not with extension.
-            SecKeySetParameter(NULL, kSecAttrTokenIDAppleKeyStore, kCFBooleanTrue, NULL);
+            // Put SEP keys into test-keybag mode. Available only when running in direct-mode, not with remote SEPKey.
+            [TKSEPKey setupKeybagForTesting:YES];
             rewrapTest();
-            SecKeySetParameter(NULL, kSecAttrTokenIDAppleKeyStore, kCFBooleanFalse, NULL);
+            [TKSEPKey setupKeybagForTesting:NO];
         }
+
+        // Test signing with haven keys.
+        sysKeySignTest(kSecKeySystemKeyTypeHavenCommitted, kSecKeyAlgorithmECDSASignatureMessageX962SHA384, 384, "Haven-C");
+        sysKeySignTest(kSecKeySystemKeyTypeHavenProposed, kSecKeyAlgorithmECDSASignatureMessageX962SHA384, 384, "Haven-P");
 
         return 0;
     }

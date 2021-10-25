@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2016, 2018, 2020 Apple Inc. All rights reserved.
+ * Copyright (c) 2013-2016, 2018, 2020, 2021 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -32,19 +32,17 @@
 #include "eventmon.h"
 #include "ev_extra.h"
 
+#include <CoreWiFi/CoreWiFi.h>
 
 
-#if	TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR
 static Boolean
-haveMobileWiFi()
+haveCoreWiFiFramework()
 {
-	void * volatile	fn_WeakFunction = (void *)&(WiFiManagerClientCreate);
-	Boolean		haveFramework;
+	Boolean	haveFramework;
 
-	haveFramework = (fn_WeakFunction != NULL) ? TRUE : FALSE;
+	haveFramework = ([CWFInterface class] != nil);
 	return haveFramework;
 }
-#endif	// TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR
 
 
 static CFBooleanRef
@@ -72,6 +70,26 @@ is_expensive(SCNetworkInterfaceRef _Nonnull interface)
 	} else if (_SCNetworkInterfaceIsBluetoothPAN(interface)) {
 		// if BT-PAN interface
 		expensive = kCFBooleanTrue;
+	} else if (CFEqual(interfaceType, kSCNetworkInterfaceTypeIEEE80211)) {
+		// assume WiFi is not expensive
+		expensive = kCFBooleanFalse;
+
+		if (haveCoreWiFiFramework()) {
+			@autoreleasepool
+			{
+				CWFScanResult	*currentNetwork;
+				CWFInterface	*interface;
+
+				interface = [[CWFInterface alloc] init];
+				[interface activate];
+				currentNetwork = [interface currentScanResult];
+				if (currentNetwork.isMetered) {
+					expensive = kCFBooleanTrue;
+				}
+				[interface invalidate];
+				[interface release];
+			}
+		}
 	} else if (CFEqual(interfaceType, kSCNetworkInterfaceTypeWWAN)) {
 		// if WWAN [Ethernet] interface
 		expensive = kCFBooleanTrue;
@@ -163,7 +181,7 @@ dgram_socket(int domain)
 }
 
 int
-main(int argc, char **argv)
+main(int argc, char * const argv[])
 {
 	CFBooleanRef	expensive;
 

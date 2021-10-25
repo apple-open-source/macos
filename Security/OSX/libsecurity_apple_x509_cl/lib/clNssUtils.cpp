@@ -40,7 +40,7 @@
 void *ArenaAllocator::malloc(size_t len)
 {
 	try {
-		return mCoder.malloc(len);
+		return mCoder.alloc(len);
 	}
 	catch (...) {
 		throw std::bad_alloc();
@@ -277,7 +277,7 @@ void **clNssNullArray(
 	SecNssCoder &coder)
 {
 	unsigned len = (num + 1) * sizeof(void *);
-	void **p = (void **)coder.malloc(len);
+	void **p = (void **)coder.alloc(len);
 	memset(p, 0, len);
 	return p;
 }
@@ -644,7 +644,7 @@ void CL_cssmAuthorityKeyIdToNss(
 {
 	memset(&nssObj, 0, sizeof(nssObj));
 	if(cdsaObj.keyIdentifierPresent) {
-		nssObj.keyIdentifier = (CSSM_DATA_PTR)coder.malloc(sizeof(CSSM_DATA));
+		nssObj.keyIdentifier = (CSSM_DATA_PTR)coder.alloc(sizeof(CSSM_DATA));
 		coder.allocCopyItem(cdsaObj.keyIdentifier, *nssObj.keyIdentifier);
 	}
 	if(cdsaObj.generalNamesPresent ) {
@@ -773,7 +773,7 @@ void CL_cssmQualCertStatementsToNss(
 		(NSS_QC_Statement **)clNssNullArray(numQcs, coder);
 	for(uint32 dex=0; dex<numQcs; dex++) {
 		nssObj.qcStatements[dex] = (NSS_QC_Statement *)
-			coder.malloc(sizeof(NSS_QC_Statement));
+			coder.alloc(sizeof(NSS_QC_Statement));
 		NSS_QC_Statement *dst = nssObj.qcStatements[dex];
 		CE_QC_Statement *src = &cdsaObj.qcStatements[dex];
 		memset(dst, 0, sizeof(*dst));
@@ -789,13 +789,13 @@ void CL_cssmQualCertStatementsToNss(
 			NSS_SemanticsInformation dstSI;
 			memset(&dstSI, 0, sizeof(dstSI));
 			if(srcSI->semanticsIdentifier) {
-				dstSI.semanticsIdentifier = (CSSM_DATA_PTR)coder.malloc(sizeof(CSSM_DATA));
+				dstSI.semanticsIdentifier = (CSSM_DATA_PTR)coder.alloc(sizeof(CSSM_DATA));
 				coder.allocCopyItem(*srcSI->semanticsIdentifier, 
 					*dstSI.semanticsIdentifier);
 			}
 			if(srcSI->nameRegistrationAuthorities) {
 				dstSI.nameRegistrationAuthorities = 
-					(NSS_GeneralNames *)coder.malloc(sizeof(NSS_GeneralNames));
+					(NSS_GeneralNames *)coder.alloc(sizeof(NSS_GeneralNames));
 				CL_cssmGeneralNamesToNss(*srcSI->nameRegistrationAuthorities,
 					*dstSI.nameRegistrationAuthorities, coder);
 			}
@@ -1022,7 +1022,7 @@ void CL_cssmDistPointsToNss(
 		(NSS_DistributionPoint **)clNssNullArray(numPoints, coder);
 	for(unsigned dex=0; dex<numPoints; dex++) {
 		nssObj.distPoints[dex] = (NSS_DistributionPoint *)
-			coder.malloc(sizeof(NSS_DistributionPoint));
+			coder.alloc(sizeof(NSS_DistributionPoint));
 		NSS_DistributionPoint *npoint = nssObj.distPoints[dex];
 		memset(npoint, 0, sizeof(NSS_DistributionPoint));
 		CE_CRLDistributionPoint *cpoint = &cdsaObj.distPoints[dex];
@@ -1031,7 +1031,7 @@ void CL_cssmDistPointsToNss(
 		if(cpoint->distPointName) {
 			/* encode and drop into ASN_ANY slot */
 			npoint->distPointName = (CSSM_DATA *)
-				coder.malloc(sizeof(CSSM_DATA));
+				coder.alloc(sizeof(CSSM_DATA));
 			CL_encodeDistributionPointName(*cpoint->distPointName,
 				*npoint->distPointName, coder);
 			

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, 2017 Apple Inc. All rights reserved.
+ * Copyright (c) 2016, 2017, 2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -237,7 +237,7 @@
 	return YES;
 }
 
-void
+static void
 myTestCallback(SCDynamicStoreRef store, CFArrayRef changedKeys, void *ctx)
 {
 #pragma unused(store)
@@ -315,7 +315,7 @@ myTestCallback(SCDynamicStoreRef store, CFArrayRef changedKeys, void *ctx)
 	int expectedCallbackCount = 0;
 	BOOL ok;
 	dispatch_queue_t callbackQ;
-	uint8_t waitTime = 1; // second
+	const uint8_t waitTime = 1; // second
 
 	test = [[SCTestDynamicStore alloc] initWithOptions:self.options];
 	if (test.store != NULL) {

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, 2003, 2005, 2007, 2013, 2015, 2018-2020 Apple Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2003, 2005-2008, 2013, 2015, 2018-2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -54,11 +54,11 @@
  * Input arguments: serialized key's, list delimiters, ...
  *	(sent as out-of-line data in a message)
  */
-typedef const char * xmlData_t;
+typedef const void * xmlData_t;
 
 /* Output arguments: serialized data, lists, ...
  *	(sent as out-of-line data in a message)
  */
-typedef char * xmlDataOut_t;
+typedef const void * xmlDataOut_t;
 
 #endif	/* !_CONFIG_TYPES_H */

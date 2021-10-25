@@ -396,6 +396,7 @@ typedef CF_ENUM(uint32_t, SeciAuthVersion) {
     kSeciAuthVersion2 = 2,
     kSeciAuthVersion3 = 3,
     kSeciAuthVersionSW = 4,
+    kSeciAuthVersion4 = 5,
 } __OSX_AVAILABLE_STARTING(__MAC_10_12, __IPHONE_10_0);
 
 /* Return the iAuth version indicated by the certificate. This function does
@@ -471,6 +472,19 @@ CFStringRef SecCertificateCopySubjectAttributeValue(SecCertificateRef cert, DERI
 /* Return the external roots (for use with SecTrustSetAnchorCertificates) */
 CFArrayRef SecCertificateCopyAppleExternalRoots(void)
     API_AVAILABLE(macos(10.16), ios(14.0), watchos(7.0), tvos(14.0));
+
+/* Convert between SecCertificateRefs and MFiv4's compressed form */
+CFDataRef SecCertificateCopyCompressedMFiCert(SecCertificateRef certificate)
+    API_AVAILABLE(macos(12.0), ios(15.0), watchos(8.0), tvos(15.0));
+SecCertificateRef SecCertificateCreateWithCompressedMFiCert(CFDataRef compressedCert)
+    API_AVAILABLE(macos(12.0), ios(15.0), watchos(8.0), tvos(15.0));
+
+CFDataRef SecCertificateGetAuthorityKeyID(SecCertificateRef certificate);
+
+/* Returns a dictionary representing the Component certificate attributes extension.
+ * The key for each attribute is the CFNumberRef representing the tag. The value
+ * is a CFTypeRef determined by the ASN1 tag of the attribute. */
+CFDictionaryRef SecCertificateCopyComponentAttributes(SecCertificateRef certificate);
 
 /*
  * Legacy functions (OS X only)

@@ -263,6 +263,7 @@
 		D4CE8BD6201C15FF00E342E6 /* AnalyticsSamplingRates.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = AnalyticsSamplingRates.plist; path = TrustSupplementalsAsset/AnalyticsSamplingRates.plist; sourceTree = "<group>"; };
 		D4CE8BD9201C161F00E342E6 /* AppleCertificateAuthorities.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = AppleCertificateAuthorities.plist; path = TrustSupplementalsAsset/AppleCertificateAuthorities.plist; sourceTree = "<group>"; };
 		D4D71DC81E26F51C009CF310 /* CertificatePinning.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = CertificatePinning.plist; path = Pinning/CertificatePinning.plist; sourceTree = "<group>"; };
+		D4E565A226A76A03003226B9 /* .open_source_exclude */ = {isa = PBXFileReference; lastKnownFileType = text; name = .open_source_exclude; path = TrustSupplementalsAsset/.open_source_exclude; sourceTree = "<group>"; };
 		D4F8CF341E5FEF8700ECC040 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = Info.plist; path = Pinning/Info.plist; sourceTree = "<group>"; };
 		D4F8CF371E5FF18200ECC040 /* com.apple.MobileAsset.AssetTypeDescriptor.CertificatePinning.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = com.apple.MobileAsset.AssetTypeDescriptor.CertificatePinning.plist; path = Pinning/com.apple.MobileAsset.AssetTypeDescriptor.CertificatePinning.plist; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -384,6 +385,7 @@
 		D4AE942A1FD6428D002FE721 /* TrustSupplementalsAsset */ = {
 			isa = PBXGroup;
 			children = (
+				D4E565A226A76A03003226B9 /* .open_source_exclude */,
 				D4CE8BD6201C15FF00E342E6 /* AnalyticsSamplingRates.plist */,
 				D4CE8BD9201C161F00E342E6 /* AppleCertificateAuthorities.plist */,
 				D4AE94271FD64257002FE721 /* com.apple.MobileAsset.AssetTypeDescriptor.PKITrustSupplementals.plist */,

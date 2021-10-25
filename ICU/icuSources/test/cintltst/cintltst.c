@@ -41,6 +41,9 @@
 #ifdef XP_MAC_CONSOLE
 #   include <console.h>
 #endif
+#if U_PLATFORM_IS_DARWIN_BASED
+#include <unistd.h> /* For Apple sleep option */
+#endif
 
 #define CTST_MAX_ALLOC 8192
 /* Array used as a queue */
@@ -250,6 +253,10 @@ int main(int argc, const char* const argv[])
         (int)((diffTime%U_MILLIS_PER_HOUR)/U_MILLIS_PER_MINUTE),
         (int)((diffTime%U_MILLIS_PER_MINUTE)/U_MILLIS_PER_SECOND),
         (int)(diffTime%U_MILLIS_PER_SECOND));
+#if U_PLATFORM_IS_DARWIN_BASED
+	printf("Sleeping 8 sec to check leaks\n");
+	sleep(8);
+#endif
 
     return nerrors ? 1 : 0;
 }
@@ -701,6 +708,12 @@ U_CFUNC UBool assertTrue(const char* msg, int /*not UBool*/ condition) {
 
 U_CFUNC UBool assertEquals(const char* message, const char* expected,
                            const char* actual) {
+    if (expected == NULL) {
+        expected = "(null)";
+    }
+    if (actual == NULL) {
+        actual = "(null)";
+    }
     if (uprv_strcmp(expected, actual) != 0) {
         log_err("FAIL: %s; got \"%s\"; expected \"%s\"\n",
                 message, actual, expected);
@@ -716,6 +729,12 @@ U_CFUNC UBool assertEquals(const char* message, const char* expected,
 
 U_CFUNC UBool assertUEquals(const char* message, const UChar* expected,
                             const UChar* actual) {
+    if (expected == NULL) {
+        expected = u"(null)";
+    }
+    if (actual == NULL) {
+        actual = u"(null)";
+    }
     for (int32_t i=0;; i++) {
         if (expected[i] != actual[i]) {
             log_err("FAIL: %s; got \"%s\"; expected \"%s\"\n",

@@ -48,6 +48,7 @@ krb5_build_ap_req (krb5_context context,
   ap.pvno = 5;
   ap.msg_type = krb_ap_req;
 
+  memset(&ap.ap_options, 0, sizeof(ap.ap_options));
   ap.ap_options.use_session_key = (ap_options & AP_OPTS_USE_SESSION_KEY) > 0;
   ap.ap_options.mutual_required = (ap_options & AP_OPTS_MUTUAL_REQUIRED) > 0;
 

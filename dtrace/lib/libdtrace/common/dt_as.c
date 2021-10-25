@@ -326,8 +326,13 @@ dt_as(dt_pcb_t *pcb)
 			if (DIF_INSTR_SUBR(instr) == DIF_SUBR_COPYOUT ||
 			    DIF_INSTR_SUBR(instr) == DIF_SUBR_COPYOUTSTR ||
 			    DIF_INSTR_SUBR(instr) == DIF_SUBR_KDEBUG_TRACE ||
-			    DIF_INSTR_SUBR(instr) == DIF_SUBR_KDEBUG_TRACE_STRING)
+			    DIF_INSTR_SUBR(instr) == DIF_SUBR_KDEBUG_TRACE_STRING
+#if defined(DIF_SUBR_LIVEDUMP)
+			    || DIF_INSTR_SUBR(instr) == DIF_SUBR_LIVEDUMP
+#endif /* defined(DIF_SUBR_LIVEDUMP) */
+			    ) {
 				dp->dtdo_destructive = 1;
+			}
 			continue;
 		}
 

@@ -1,8 +1,8 @@
 .\" Copyright (c) 2016, Apple Inc.  All rights reserved.
 .\"
-.Dd 2 May 2016
+.Dd May 2, 2016
 .Dt ZPRINT 1
-.Os "Mac OS X"
+.Os "macOS"
 .Sh NAME
 .Nm zprint
 .Nd show information about kernel zones
@@ -12,9 +12,11 @@
 .Op Ar name
 .Sh DESCRIPTION
 .Nm
-displays data about Mach zones (allocation buckets).  By default,
+displays data about Mach zones (allocation buckets).
+By default,
 .Nm
-will print out information about all Mach zones.  If the optional
+will print out information about all Mach zones.
+If the optional
 .Ar name
 is specified,
 .Nm
@@ -24,35 +26,37 @@ is a substring of the zone's name.
 .Pp
 .Nm
 interprets the following options:
-.Pp
 .Bl -tag -width "disable -"
 .\" -c
 .It Fl c
 (Default)
 .Nm
-prints zone info in columns. Long zone names are truncated with
+prints zone info in columns.
+Long zone names are truncated with
 .Ql \&$ ,
 and spaces are replaced with
 .Ql \&. ,
-to allow for sorting by column.  Pageable and collectible zones are shown with
+to allow for sorting by column.
+Pageable and collectible zones are shown with
 .Ql \&P
 and
 .Ql \&C
-on the far right, respectively.  Zones with preposterously large maximum sizes
-are shown with
+on the far right, respectively.
+Zones with preposterously large maximum sizes are shown with
 .Ql ----
 in the max size and max num elts fields.
 .\" -d
 .It Fl d
 Display deltas over time, showing any zones that have achieved a new maximum
-current allocation size during the interval.  If the total allocation sizes are
-being displayed for the zones in question, it will also display the deltas if
-the total allocations have doubled.
+current allocation size during the interval.
+If the total allocation sizes are being displayed for the zones in question,
+it will also display the deltas if the total allocations have doubled.
 .\" -h
 .It Fl h
 (Default) Shows headings for the columns printed with the
 .Fl c
-option.  It may be useful to override this option when sorting by column.
+option.
+It may be useful to override this option when sorting by column.
 .\" -l
 .It Fl l
 (Default) Show all wired memory information after the zone information.
@@ -86,5 +90,5 @@ overrides the default option
 .Ex -std
 .Sh SEE ALSO
 .Xr ioclasscount 1 ,
-.Xr lsmp 1 ,
 .Xr lskq 1 ,
+.Xr lsmp 1

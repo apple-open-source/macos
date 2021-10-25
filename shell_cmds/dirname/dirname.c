@@ -1,4 +1,6 @@
 /*-
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
  * Copyright (c) 1991, 1993, 1994
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -10,11 +12,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -41,8 +39,11 @@ static const char copyright[] =
 static const char sccsid[] = "@(#)dirname.c	8.4 (Berkeley) 5/4/95";
 #endif /* not lint */
 #include <sys/cdefs.h>
-__RCSID("$FreeBSD: src/usr.bin/dirname/dirname.c,v 1.11 2002/07/28 15:43:56 dwmalone Exp $");
+__FBSDID("$FreeBSD$");
 
+#ifndef __APPLE__
+#include <capsicum_helpers.h>
+#endif
 #include <err.h>
 #include <libgen.h>
 #include <stdio.h>
@@ -57,6 +58,11 @@ main(int argc, char **argv)
 	char *p;
 	int ch;
 
+#ifndef __APPLE__
+	if (caph_limit_stdio() < 0 || caph_enter() < 0)
+		err(1, "capsicum");
+#endif
+
 	while ((ch = getopt(argc, argv, "")) != -1)
 		switch(ch) {
 		case '?':
@@ -66,12 +72,15 @@ main(int argc, char **argv)
 	argc -= optind;
 	argv += optind;
 
-	if (argc != 1)
+	if (argc < 1)
 		usage();
 
-	if ((p = dirname(*argv)) == NULL)
-		err(1, "%s", *argv);
-	(void)printf("%s\n", p);
+	while (argc--) {
+		if ((p = dirname(*argv)) == NULL)
+			err(1, "%s", *argv);
+		argv++;
+		(void)printf("%s\n", p);
+	}
 	exit(0);
 }
 
@@ -79,6 +88,6 @@ void
 usage(void)
 {
 
-	(void)fprintf(stderr, "usage: dirname path\n");
+	(void)fprintf(stderr, "usage: dirname string [...]\n");
 	exit(1);
 }

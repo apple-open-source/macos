@@ -81,7 +81,7 @@ exit:
     return;
 }
 
-__private_extern__ CFTimeInterval getTcpkaTurnOffTime( )
+__private_extern__ CFTimeInterval getTcpkaTurnOffTime(void)
 {
 
     if ((!gTCPKeepAlive) || (gTCPKeepAlive->state != kActive) ||
@@ -93,13 +93,13 @@ __private_extern__ CFTimeInterval getTcpkaTurnOffTime( )
     return (gTCPKeepAlive->ts_turnoff + 60);
 }
 
-__private_extern__ void cancelTCPKeepAliveExpTimer( )
+__private_extern__ void cancelTCPKeepAliveExpTimer(void)
 {
 
     if (gTCPKeepAlive && gTCPKeepAlive->expiration)
         dispatch_source_cancel(gTCPKeepAlive->expiration);
 }
-__private_extern__ void startTCPKeepAliveExpTimer( )
+__private_extern__ void startTCPKeepAliveExpTimer(void)
 {
     if ((!gTCPKeepAlive) || (gTCPKeepAlive->state != kActive) ||
             (userPrefForTcpka() == false)) return;
@@ -196,7 +196,7 @@ static bool userPrefForTcpka()
     }
 }
 
-__private_extern__ long getTCPKeepAliveOverrideSec( )
+__private_extern__ long getTCPKeepAliveOverrideSec(void)
 {
     if (gTCPKeepAlive)
         return gTCPKeepAlive->overrideSec;
@@ -213,7 +213,7 @@ __private_extern__ void setTCPKeepAliveOverrideSec(long value)
 
 }
 
-__private_extern__ void enableTCPKeepAlive()
+__private_extern__ void enableTCPKeepAlive(void)
 {
     if (!gTCPKeepAlive || (gTCPKeepAlive->state == kNotSupported))
         return;
@@ -226,7 +226,7 @@ __private_extern__ void enableTCPKeepAlive()
 }
 
 
-__private_extern__ void disableTCPKeepAlive()
+__private_extern__ void disableTCPKeepAlive(void)
 {
     if (!gTCPKeepAlive || (gTCPKeepAlive->state == kNotSupported))
         return;
@@ -276,7 +276,7 @@ __private_extern__ void setPushConnectionState(bool active)
     pushConnectionActive = active;
 }
 
-__private_extern__ bool getPushConnectionState()
+__private_extern__ bool getPushConnectionState(void)
 {
     return pushConnectionActive;
 }
@@ -284,7 +284,7 @@ __private_extern__ bool getPushConnectionState()
  * Returns if WakeOnLan feature is allowed(true/false).
  * Checks if user has enabled it and also if thermal state allows it.
  */
-__private_extern__ bool getWakeOnLanState()
+__private_extern__ bool getWakeOnLanState(void)
 {
     uint32_t thermalState = getSystemThermalState();
     int64_t value = 0;

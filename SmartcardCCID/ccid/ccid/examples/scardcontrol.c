@@ -251,7 +251,7 @@ int main(int argc, char *argv[])
 	/* table for bEntryValidationCondition
 	 * 0x01: Max size reached
 	 * 0x02: Validation key pressed
-	 * 0x04: Timeout occured
+	 * 0x04: Timeout occurred
 	 */
 	int bEntryValidationCondition = 7;
 
@@ -848,7 +848,7 @@ int main(int argc, char *argv[])
 		error = TRUE;
 
 	printf(error ? RED : GREEN);
-	printf(" card response [%d bytes]:", length);
+	printf(" card response [%"LF"d bytes]:", length);
 	for (i=0; i<length; i++)
 		printf(" %02X", bRecvBuffer[i]);
 	printf(": %s", pinpad_return_codes(length, bRecvBuffer));

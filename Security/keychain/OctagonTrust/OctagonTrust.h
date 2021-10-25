@@ -23,7 +23,11 @@
 
 #if __OBJC2__
 
+#ifndef OCTAGONTRUST_H
+#define OCTAGONTRUST_H
+
 #import <Foundation/Foundation.h>
+#import <AppleFeatures/AppleFeatures.h>
 #import <Security/OTClique.h>
 #import <OctagonTrust/OTEscrowRecord.h>
 #import <OctagonTrust/OTEscrowTranslation.h>
@@ -32,7 +36,9 @@
 #import <OctagonTrust/OTICDPRecordSilentContext.h>
 #import <OctagonTrust/OTEscrowRecordMetadata.h>
 #import <OctagonTrust/OTEscrowRecordMetadataClientMetadata.h>
-
+#import <OctagonTrust/OTSecureElementPeerIdentity.h>
+#import <OctagonTrust/OTCurrentSecureElementIdentities.h>
+#import <OctagonTrust/OTNotifications.h>
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -41,8 +47,6 @@ FOUNDATION_EXPORT double OctagonTrustVersionNumber;
 
 //! Project version string for OctagonTrust.
 FOUNDATION_EXPORT const unsigned char OctagonTrustVersionString[];
-
-extern NSString* OTCKContainerName;
 
 @interface OTConfigurationContext(Framework)
 @property (nonatomic, copy, nullable) OTEscrowAuthenticationInformation* escrowAuth;
@@ -102,8 +106,56 @@ extern NSString* OTCKContainerName;
 
 + (BOOL) invalidateEscrowCache:(OTConfigurationContext*)data error:(NSError**)error;
 
+/* *
+ * @abstract Set the local SecureElement Identity for the given clique.
+ *     This call can be done at any time, even if there is not valid or trusted clique present.
+ *     When possible, Octagon will update the on-server state with this new identity.
+ *     Your binary will need the entitlement 'com.apple.private.octagon.secureelement' set to YES.
+ *
+ * @param secureElementIdentity a peerID and SE identity blob-of-bytes
+ * @param error An error parameter
+ *
+ * @return YES on success.
+ */
+- (BOOL)setLocalSecureElementIdentity:(OTSecureElementPeerIdentity*)secureElementIdentity
+                                error:(NSError**)error;
+
+/* *
+ * @abstract Remove the local SecureElement Identity for the given clique.
+ *     This call can be done at any time, even if there is not valid or trusted clique present.
+ *     When possible, Octagon will update the on-server state with this new identity.
+ *     Your binary will need the entitlement 'com.apple.private.octagon.secureelement' set to YES.
+ *
+ * @param sePeerID the peer ID to remove. If this is not the currently persisted local peer ID, this function will error.
+ * @param error An error parameter
+ *
+ * @return YES on success.
+ */
+- (BOOL)removeLocalSecureElementIdentityPeerID:(NSData*)sePeerID
+                                         error:(NSError**)error;
+
+/* *
+ * @abstract Fetches the current set of trusted SecureElementIdentities for the current clique.
+ *     For the local peer's identity, this function returns what we believe the current value to be in the account,
+ *     and will not take unwritten, pending changes from setLocalSecureElementIdentity/removeLocalSecureElementIdentityPeerID
+ *     into account.
+ *
+ *     If the local device believes itself untrusted in Octagon, no identities will be returned.
+ */
+- (OTCurrentSecureElementIdentities* _Nullable)fetchTrustedSecureElementIdentities:(NSError**)error;
+
+
+/* *
+ * @abstract        Wait for the download and recovery of 'priority' keychain items.
+ *     This is intended to be called soon after successfully joining into this clique.
+ * @param error     An error parameter: filled in if the call times out, or recovery was unsuccessful
+ * @return BOOL     Whether or not the wait was successful
+ */
+- (BOOL)waitForPriorityViewKeychainDataRecovery:(NSError**)error;
+
 @end
 
 NS_ASSUME_NONNULL_END
 
+#endif // OCTAGONTRUST_H
 #endif

@@ -50,10 +50,7 @@ CFDictionaryRef _Nullable SecPinningDbCopyMatching(CFDictionaryRef _Nonnull quer
 void SecPinningDbInitialize(void);
 
 #if __OBJC__
-#if !TARGET_OS_BRIDGE
-/* Updating the pinning DB isn't supported on BridgeOS because we treat the disk as read-only. */
 bool SecPinningDbUpdateFromURL(NSURL *url, NSError **error);
-#endif
 
 @interface SecPinningDb : NSObject
 @property (assign) SecDbRef db;

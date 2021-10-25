@@ -39,7 +39,7 @@ _gss_acquire_mech_cred(OM_uint32 *__nonnull minor_status,
 		       OM_uint32 time_req,
 		       gss_const_OID __nullable desired_mech,
 		       gss_cred_usage_t cred_usage,
-		       struct _gss_mechanism_cred *__nonnull* __nullable output_cred_handle)
+		       struct _gss_mechanism_cred * __nullable * __nonnull output_cred_handle)
 {
     OM_uint32 major_status;
     struct _gss_mechanism_cred *mc;

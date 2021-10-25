@@ -73,6 +73,9 @@ void	 nlisterr(struct nlist *);
 void	 p_rssize(KINFO *, VARENT *);
 void	 pagein(KINFO *, VARENT *);
 void	 parsefmt(const char *, int);
+#ifdef __APPLE__
+void	 persona(KINFO *, VARENT *);
+#endif /* __APPLE__ */
 void	 pcpu(KINFO *, VARENT *);
 void	 pmem(KINFO *, VARENT *);
 void	 pri(KINFO *, VARENT *);

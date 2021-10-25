@@ -69,6 +69,10 @@
 #include "StandbyTimer.h"
 #include "pmconfigd.h"
 
+#if (TARGET_OS_OSX)
+#import "PMPowerModeHandler.h"
+#endif
+
 /************************************************************************************/
 
 
@@ -385,7 +389,7 @@ bool                            gMachineStateRevertible = true;
  * PMConnection_prime
  */
 __private_extern__
-void PMConnection_prime()
+void PMConnection_prime(void)
 {
     io_object_t                 sleepWakeCallbackHandle = IO_OBJECT_NULL;
     IONotificationPortRef       notify = NULL;
@@ -1004,7 +1008,7 @@ exit:
     return KERN_SUCCESS;
 }
 
-int getBTWakeInterval()
+int getBTWakeInterval(void)
 {
     return kPMSleepDurationForBT;
 }
@@ -1385,7 +1389,7 @@ static void updateCapabilitiesToAllowBackgroundTasks()
     }
 }
 
-void cancelDarkWakeCapabilitiesTimer()
+void cancelDarkWakeCapabilitiesTimer(void)
 {
     // cancel update capabilities timer once in full wake
     if (gDarkWakeCapabilitiesCheckTimer) {
@@ -1525,13 +1529,13 @@ void xctSetPowerState(uint32_t powerState)
 }
 #endif
 
-__private_extern__ bool isA_SleepState()
+__private_extern__ bool isA_SleepState(void)
 {
    if (gPowerState & kSleepState)
        return true;
    return false;
 }
-__private_extern__ bool isA_DarkWakeState()
+__private_extern__ bool isA_DarkWakeState(void)
 {
    if (gPowerState & kDarkWakeState)
       return true;
@@ -1539,7 +1543,7 @@ __private_extern__ bool isA_DarkWakeState()
    return false;
 
 }
-__private_extern__ bool isA_BTMtnceWake()
+__private_extern__ bool isA_BTMtnceWake(void)
 {
 
    if (gPowerState & kDarkWakeForBTState)
@@ -1548,22 +1552,22 @@ __private_extern__ bool isA_BTMtnceWake()
    return false;
 }
 
-__private_extern__ void set_SleepSrvcWake()
+__private_extern__ void set_SleepSrvcWake(void)
 {
    gPowerState |= kDarkWakeForSSState;
 }
 
-__private_extern__ void set_NotificationDisplayWake()
+__private_extern__ void set_NotificationDisplayWake(void)
 {
    gPowerState |= kNotificationDisplayWakeState;
 }
 
-__private_extern__ void cancel_NotificationDisplayWake()
+__private_extern__ void cancel_NotificationDisplayWake(void)
 {
    gPowerState &= ~kNotificationDisplayWakeState;
 }
 
-__private_extern__ bool isA_NotificationDisplayWake()
+__private_extern__ bool isA_NotificationDisplayWake(void)
 {
 
    if (gPowerState & kNotificationDisplayWakeState)
@@ -1572,7 +1576,7 @@ __private_extern__ bool isA_NotificationDisplayWake()
    return false;
 }
 
-__private_extern__ bool isA_SleepSrvcWake()
+__private_extern__ bool isA_SleepSrvcWake(void)
 {
 
    if (gPowerState & kDarkWakeForSSState)
@@ -1581,7 +1585,7 @@ __private_extern__ bool isA_SleepSrvcWake()
    return false;
 }
 
-__private_extern__ bool isA_FullWake()
+__private_extern__ bool isA_FullWake(void)
 {
    if (gPowerState & kFullWakeState)
       return true;
@@ -1590,12 +1594,12 @@ __private_extern__ bool isA_FullWake()
 
 }
 
-__private_extern__ bool isCapabilityChangeDone()
+__private_extern__ bool isCapabilityChangeDone(void)
 {
     return gCapabilityChangeDone;
 }
 
-__private_extern__ void cancelPowerNapStates( )
+__private_extern__ void cancelPowerNapStates(void)
 {
 
     if (isA_SleepSrvcWake()) {
@@ -1698,7 +1702,7 @@ static void startAutoPowerOffSleep( )
     cancelPowerNapStates( );
 }
 
-void cancelAutoPowerOffTimer()
+void cancelAutoPowerOffTimer(void)
 {
 
     if (gApoDispatch)
@@ -1794,7 +1798,7 @@ void setAutoPowerOffTimer(bool initialCall, CFAbsoluteTime  postponeAfter)
 }
 
 /* Evaulate for Power source change */
-void evalForPSChange( )
+void evalForPSChange(void)
 {
     int         pwrSrc;
     static int  prevPwrSrc = -1;
@@ -2064,7 +2068,7 @@ void setVMDarkwakeMode(bool darkwakeMode)
 }
 
 
-void updateWakeTime()
+void updateWakeTime(void)
 {
     if (gCapabilityChangeDone == true) {
         if (gWakeFromDarkWake && gCurrentWakeTime == 0) {
@@ -2181,17 +2185,6 @@ static void PMConnectionPowerCallBack(
                        ^{handleSleepPreventersMsg(inMessageType, messageData);});
         return;
     }
-    else if (inMessageType == kIOPMMessageProModeStateChange)
-    {
-		if ((int)messageData)
-			notify_post(kIOPMSystemProModeEngaged);
-		else
-			notify_post(kIOPMSystemProModeDisengaged);
-
-        INFO_LOG("Notified clients of ProMode state change to %d\n", (int)messageData);
-
-        return;
-    }
     else if (inMessageType == kIOPMMessageRequestUserActive)
     {
         char *reason = (char *)messageData;
@@ -2243,13 +2236,10 @@ static void PMConnectionPowerCallBack(
         // <rdar://problem/70694092> [GGC] powerd changes to support hibernating after the boot policy file has changed
         // on Apple Silicon, we need to inform the BootPolicy library that we're hibernating so that it can
         // update the SEP state needed to generate the hibernation encryption key
-        uint32_t sleepType = kIOPMSleepTypeInvalid;
-        getPlatformSleepType(&sleepType, NULL);
-        if (sleepType == kIOPMSleepTypeHibernate) {
-            bootpolicy_error_t err = bootpolicy_prepare_for_hibernation(BOOTPOLICY_DEFAULT_POLICY_VOLUME_PATH);
-            if (err != BOOTPOLICY_SUCCESS) {
-                ERROR_LOG("bootpolicy_prepare_for_hibernation failed (%x)\n", err);
-            }
+        // rdar://76695866 - Getting sleeptype is not reliable. Let's call bootpolicy on every sleep
+        bootpolicy_error_t err = bootpolicy_prepare_for_hibernation(BOOTPOLICY_DEFAULT_POLICY_VOLUME_PATH);
+        if (err != BOOTPOLICY_SUCCESS) {
+            ERROR_LOG("bootpolicy_prepare_for_hibernation failed (%x)\n", err);
         }
 #endif
 
@@ -2490,7 +2480,16 @@ static void PMConnectionPowerCallBack(
                     kIOPMCapabilityCPU | kIOPMCapabilityDisk | kIOPMCapabilityNetwork;
 
             // kDarkWakeForSSState bit is removed when the SS session is closed.
+#if (TARGET_OS_OSX && TARGET_CPU_ARM64)
+            // Preserve notification wake if set
+            if (isA_NotificationDisplayWake()) {
+                gPowerState &= ~(kPowerStateMask ^ kDarkWakeForSSState ^ kNotificationDisplayWakeState);
+            } else {
+                gPowerState &= ~(kPowerStateMask ^ kDarkWakeForSSState);
+            }
+#else
             gPowerState &= ~(kPowerStateMask ^ kDarkWakeForSSState);
+#endif
             gPowerState |= kDarkWakeState;
             
             _ProxyAssertions(capArgs);
@@ -2623,6 +2622,16 @@ static void PMConnectionPowerCallBack(
             logASLMessageAppStats(appStats, kPMASLDomainKernelClientStats);
             CFRelease(appStats);
         }
+
+#if TARGET_OS_OSX
+        if (getLastSleepType() == kIOPMSleepTypeHibernate) {
+            PMPowerModeHandler *pmh = [PMPowerModeHandler sharedInstance];
+            if (pmh != nil) {
+                [pmh handleEventWakeAfterHibernate];
+            }
+        }
+#endif
+
         return;
     }
     else if (SYSTEM_WILL_WAKE(capArgs) )
@@ -3713,7 +3722,7 @@ __private_extern__ IOReturn _unclamp_silent_running(bool sendNewCapBits)
     }
 }
 
-__private_extern__ bool isInSilentRunningMode()
+__private_extern__ bool isInSilentRunningMode(void)
 {
     return (gCurrentSilentRunningState == kSilentRunningOn);
 }
@@ -3755,7 +3764,7 @@ __private_extern__ bool _can_revert_sleep(void)
 }
 
 
-__private_extern__ io_connect_t getRootDomainConnect()
+__private_extern__ io_connect_t getRootDomainConnect(void)
 {
    return gRootDomainConnect;
 }
@@ -3764,7 +3773,7 @@ __private_extern__ io_connect_t getRootDomainConnect()
  * Returns the per-platform sleep service cap timeout for the current power
  * source in milliseconds
  */
-__private_extern__ int getCurrentSleepServiceCapTimeout()
+__private_extern__ int getCurrentSleepServiceCapTimeout(void)
 {
     static int acCapTimeout     = -1;
     static int battCapTimeout   = -1;

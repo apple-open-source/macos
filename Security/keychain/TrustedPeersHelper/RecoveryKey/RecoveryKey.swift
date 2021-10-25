@@ -25,18 +25,18 @@ import Foundation
 import SecurityFoundation
 
 class RecoveryKey: NSObject {
-    internal var recoveryKeys: RecoveryKeySet
-    internal var secret: Data
-
     internal var peerKeys: OctagonSelfPeerKeys
 
-    internal init(recoveryKeyString: String, recoverySalt: String) throws {
-        self.secret = Data(bytes: Array(recoveryKeyString.utf8), count: recoveryKeyString.utf8.count)
-        self.recoveryKeys = try RecoveryKeySet(secret: self.secret, recoverySalt: recoverySalt)
+    internal init(recoveryKeySet: RecoveryKeySet) throws {
+        let peerID = RecoveryKey.PeerID(signingPublicKeyData: recoveryKeySet.signingKey.publicKey.keyData)
 
-        let peerID = RecoveryKey.PeerID(signingPublicKeyData: self.recoveryKeys.signingKey.publicKey.keyData)
+        try self.peerKeys = OctagonSelfPeerKeys(peerID: peerID, signingKey: recoveryKeySet.signingKey, encryptionKey: recoveryKeySet.encryptionKey)
+    }
 
-        try self.peerKeys = OctagonSelfPeerKeys(peerID: peerID, signingKey: self.recoveryKeys.signingKey, encryptionKey: self.recoveryKeys.encryptionKey)
+    internal convenience init(recoveryKeyString: String, recoverySalt: String) throws {
+        let secret = Data(bytes: Array(recoveryKeyString.utf8), count: recoveryKeyString.utf8.count)
+        let recoveryKeys = try RecoveryKeySet(secret: secret, recoverySalt: recoverySalt)
+        try self.init(recoveryKeySet: recoveryKeys)
     }
 
     static func PeerID(signingPublicKeyData: Data) -> String {
@@ -51,10 +51,99 @@ class RecoveryKey: NSObject {
         return key.encodeSubjectPublicKeyInfo()
     }
 
-    public static func asPeer(recoveryKeys: TPRecoveryKeyPair, viewList: Set<String>) throws -> TrustedPeersHelperPeer {
+    static func asPeer(recoveryKeys: TPRecoveryKeyPair, viewList: Set<String>) throws -> TrustedPeersHelperPeer {
         return TrustedPeersHelperPeer(peerID: self.PeerID(signingPublicKeyData: recoveryKeys.signingKeyData),
                                       signingSPKI: try self.spki(publicKeyData: recoveryKeys.signingKeyData),
                                       encryptionSPKI: try self.spki(publicKeyData: recoveryKeys.encryptionKeyData),
+                                      secureElementIdentity: nil,
+                                      viewList: viewList)
+    }
+}
+
+class CustodianRecoveryKey {
+    internal var peerKeys: OctagonSelfPeerKeys
+    internal var tpCustodian: TPCustodianRecoveryKey
+
+    var peerID: String {
+        return self.tpCustodian.peerID
+    }
+
+    internal init(uuid: UUID, recoveryKeySet: RecoveryKeySet, kind: TPPBCustodianRecoveryKey_Kind = .UNKNOWN) throws {
+        self.tpCustodian = try TPCustodianRecoveryKey(uuid: uuid,
+                                                      signing: recoveryKeySet.signingKey.publicKey(),
+                                                      encryptionPublicKey: recoveryKeySet.encryptionKey.publicKey(),
+                                                      signing: recoveryKeySet.signingKey,
+                                                      kind: kind)
+
+        self.peerKeys = try OctagonSelfPeerKeys(peerID: self.tpCustodian.peerID, signingKey: recoveryKeySet.signingKey, encryptionKey: recoveryKeySet.encryptionKey)
+    }
+
+    internal convenience init(uuid: UUID, recoveryKeyString: String, recoverySalt: String, kind: TPPBCustodianRecoveryKey_Kind = .UNKNOWN) throws {
+        let secret = Data(bytes: Array(recoveryKeyString.utf8), count: recoveryKeyString.utf8.count)
+        let recoveryKeys = try RecoveryKeySet(secret: secret, recoverySalt: recoverySalt)
+        try self.init(uuid: uuid, recoveryKeySet: recoveryKeys, kind: kind)
+    }
+
+    internal init(tpCustodian: TPCustodianRecoveryKey, recoveryKeyString: String, recoverySalt: String) throws {
+        let secret = Data(bytes: Array(recoveryKeyString.utf8), count: recoveryKeyString.utf8.count)
+        let recoveryKeys = try RecoveryKeySet(secret: secret, recoverySalt: recoverySalt)
+
+        guard recoveryKeys.signingKey.publicKey().spki() == tpCustodian.signingPublicKey.spki() &&
+          recoveryKeys.encryptionKey.publicKey().spki() == tpCustodian.encryptionPublicKey.spki() else {
+            throw RecoveryKey.Error.OTErrorEntropyKeyMismatch
+        }
+
+        self.tpCustodian = tpCustodian
+        self.peerKeys = try OctagonSelfPeerKeys(peerID: self.tpCustodian.peerID, signingKey: recoveryKeys.signingKey, encryptionKey: recoveryKeys.encryptionKey)
+    }
+}
+
+class InheritanceKey {
+    internal var peerKeys: OctagonSelfPeerKeys
+    internal var tpInheritance: TPCustodianRecoveryKey
+
+    var peerID: String {
+        return self.tpInheritance.peerID
+    }
+
+    internal init(uuid: UUID, recoveryKeySet: RecoveryKeySet) throws {
+        self.tpInheritance = try TPCustodianRecoveryKey(uuid: uuid,
+                                                        signing: recoveryKeySet.signingKey.publicKey(),
+                                                        encryptionPublicKey: recoveryKeySet.encryptionKey.publicKey(),
+                                                        signing: recoveryKeySet.signingKey,
+                                                        kind: .INHERITANCE_KEY)
+
+        self.peerKeys = try OctagonSelfPeerKeys(peerID: self.tpInheritance.peerID, signingKey: recoveryKeySet.signingKey, encryptionKey: recoveryKeySet.encryptionKey)
+    }
+
+    internal convenience init(uuid: UUID, recoveryKeyData: Data, recoverySalt: String) throws {
+        let recoveryKeyString = recoveryKeyData.base64EncodedString()
+        let secret = Data(bytes: Array(recoveryKeyString.utf8), count: recoveryKeyString.utf8.count)
+        let recoveryKeys = try RecoveryKeySet(secret: secret, recoverySalt: recoverySalt)
+        try self.init(uuid: uuid, recoveryKeySet: recoveryKeys)
+    }
+
+    internal init(tpInheritance: TPCustodianRecoveryKey, recoveryKeyData: Data, recoverySalt: String) throws {
+        let recoveryKeyString = recoveryKeyData.base64EncodedString()
+        let secret = Data(bytes: Array(recoveryKeyString.utf8), count: recoveryKeyString.utf8.count)
+        let recoveryKeys = try RecoveryKeySet(secret: secret, recoverySalt: recoverySalt)
+
+        guard recoveryKeys.signingKey.publicKey().spki() == tpInheritance.signingPublicKey.spki() &&
+        recoveryKeys.encryptionKey.publicKey().spki() == tpInheritance.encryptionPublicKey.spki() else {
+            throw RecoveryKey.Error.OTErrorEntropyKeyMismatch
+        }
+
+        self.tpInheritance = tpInheritance
+        self.peerKeys = try OctagonSelfPeerKeys(peerID: self.tpInheritance.peerID, signingKey: recoveryKeys.signingKey, encryptionKey: recoveryKeys.encryptionKey)
+    }
+}
+
+extension TPCustodianRecoveryKey {
+    func asCustodianPeer(viewList: Set<String>) throws -> TrustedPeersHelperPeer {
+        return TrustedPeersHelperPeer(peerID: self.peerID,
+                                      signingSPKI: self.signingPublicKey.spki(),
+                                      encryptionSPKI: self.encryptionPublicKey.spki(),
+                                      secureElementIdentity: nil,
                                       viewList: viewList)
     }
 }

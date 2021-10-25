@@ -71,6 +71,7 @@ _installer:*:96:
 _atsserver:*:97:
 _lpadmin:*:98:
 _unknown:*:99:
+_usbmuxd:*:213:
 _distnote:*:241:
 _astris:*:245:
 _ondemand:*:249:
@@ -82,12 +83,17 @@ _analyticsd:*:263:
 _timed:*:266:
 _gpsd:*:267:
 _reportmemoryexception:*:269:
+_driverkit:*:270:_driverkit
 _diskimagesiod:*:271:
 _logd:*:272:
 _iconservices:*:276:
-_fud:*:278:
+_accessoryupdater:*:278:
 _knowledgegraphd:*:279:
 _coreml:*:280:
+_sntpd:*:281:_sntpd,_timed
 _trustd:*:282:_trustd
-systemusers:*:299:mobile,_ifccd,_networkd,_wireless,_installd,_securityd,_reportmemoryexception,_analyticsd,_timed,_iconservices,_trustd
+_mmaintenanced:*:283:_mmaintenanced
+_darwindaemon:*:284:_darwindaemon
+_notification_proxy:*:285:_notification_proxy
+systemusers:*:299:mobile,_ifccd,_networkd,_wireless,_installd,_securityd,_reportmemoryexception,_analyticsd,_timed,_iconservices,_trustd,_darwindaemon,_accessoryupdater
 mobile:*:501:mobile

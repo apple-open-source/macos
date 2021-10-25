@@ -476,7 +476,7 @@ unsigned char TestIdentity_p12[2697] = {
   0xa3, 0x2a, 0xbd, 0x3f, 0xce, 0x3d, 0x02, 0x01, 0x01
 };
 
-int verbose = 0;
+int cert_sign_verbose = 0;
 
 static int TestSignAndVerifyDataWithIdentity(SecIdentityRef identity)
 {
@@ -556,7 +556,7 @@ static int TestSignAndVerifyDataWithIdentity(SecIdentityRef identity)
 		return (++result);
 	}
 
-	if (verbose) {
+	if (cert_sign_verbose) {
 		fprintf(stdout, "Signer status: %d\n", (int)signerStatus);
 	}
 
@@ -657,14 +657,14 @@ static int Test()
 		privateKey = (SecKeyRef)results;
 		if (status || !results) {
 			fprintf(stderr, "Unable to find private key: error %d\n", (int)status);
-		} else if (verbose) {
+		} else if (cert_sign_verbose) {
 			fprintf(stdout, "Private key found in search: %p\n", privateKey);
 		}
 	}
 	else {
 		identity=(SecIdentityRef)CFArrayGetValueAtIndex(items,0);
 		if (identity) CFRetain(identity);
-		if (verbose) {
+		if (cert_sign_verbose) {
 			fprintf(stdout, "Identity was imported: %p\n", identity);
 		}
 	}
@@ -675,7 +675,7 @@ static int Test()
     ok_status(status, "%s: SecItentityCopyPrivateKey", testName);
 
 	/* Case 1: good leaf certificate, expected to always succeed */
-	if (verbose) {
+	if (cert_sign_verbose) {
 		fprintf(stdout, "### cert 1 ###\n");
 	}
     CFReleaseNull(identity);
@@ -694,7 +694,7 @@ static int Test()
 	if (identity) CFRelease(identity);
 
 	/* Case 2: bad leaf certificate, expected to succeed with the fix for rdar://17159227, but fail without it */
-	if (verbose) {
+	if (cert_sign_verbose) {
 		fprintf(stdout, "### cert 2 ###\n");
 	}
 	identity = SecIdentityCreate(kCFAllocatorDefault, badLeaf, privateKey);
@@ -731,7 +731,7 @@ int kc_28_cert_sign(int argc, char *const *argv)
     plan_tests(32);
     initializeKeychainTests(__FUNCTION__);
 
-    verbose = test_verbose;
+    cert_sign_verbose = test_verbose;
 
     Test();
 

@@ -380,6 +380,7 @@ const char *sslGetClientCertStateString(SSLClientCertificateState state)
  * pair. A real world server would probably search a keychain for a SecIdentity 
  * matching some specific criteria. 
  */
+CF_RETURNS_RETAINED
 CFArrayRef getSslCerts( 
 	const char			*kcName,				// may be NULL, i.e., use default
 	bool                encryptOnly,
@@ -415,7 +416,8 @@ CFArrayRef getSslCerts(
 #else
 	SecCertificateRef cert = NULL;
 	SecIdentityRef identity = NULL;
-	CFMutableArrayRef certificates = NULL, result = NULL;
+    CFMutableArrayRef certificates = NULL;
+    CFArrayRef result = NULL;
 	CFMutableDictionaryRef certQuery = NULL, keyQuery = NULL, keyResult = NULL;
 	SecTrustRef trust = NULL;
 	SecKeyRef key = NULL;
@@ -452,26 +454,7 @@ CFArrayRef getSslCerts(
 	CFArrayAppendValue(certificates, cert);
 	require_noerr(SecTrustCreateWithCertificates(certificates, NULL, &trust),
 		errOut);
-
-	CFIndex certCount, ix;
-	// We need at least 1 certificate
-    // SecTrustGetCertificateCount implicitly does a trust evaluation to determine
-    // the number of certs in the chain.
-	require(certCount = SecTrustGetCertificateCount(trust), errOut);
-
-	// Build a result where element 0 is the identity and the other elements
-	// are the certs in the chain starting at the first intermediate up to the
-	// anchor, if we found one, or as far as we were able to build the chain
-	// if not.
-	require(result = CFArrayCreateMutable(NULL, certCount, &kCFTypeArrayCallBacks),
-		errOut);
-
-	// We are commited to returning a result now, so do not use require below
-	// this line without setting result to NULL again.
-	CFArrayAppendValue(result, identity);
-	for (ix = 1; ix < certCount; ++ix) {
-		CFArrayAppendValue(result, SecTrustGetCertificateAtIndex(trust, ix));
-	}
+    require(result = SecTrustCopyCertificateChain(trust), errOut);
 
 errOut:
 	CFReleaseSafe(trust);

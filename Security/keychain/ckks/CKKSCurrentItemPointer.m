@@ -163,6 +163,23 @@
                                              encodedCKRecord:row[@"ckrecord"].asBase64DecodedData];
 }
 
++ (NSInteger)countByState:(CKKSItemState *)state zone:(CKRecordZoneID*)zoneID error:(NSError * __autoreleasing *)error
+{
+    __block NSInteger result = -1;
+
+    [CKKSSQLDatabaseObject queryDatabaseTable:[[self class] sqlTable]
+                                        where:@{@"ckzone": CKKSNilToNSNull(zoneID.zoneName), @"state": state }
+                                      columns:@[@"count(*)"]
+                                      groupBy:nil
+                                      orderBy:nil
+                                        limit:-1
+                                   processRow:^(NSDictionary<NSString*, CKKSSQLResult*>* row) {
+                                       result = row[@"count(*)"].asNSInteger;
+                                   }
+                                        error: error];
+    return result;
+}
+
 + (BOOL)intransactionRecordChanged:(CKRecord*)record resync:(BOOL)resync error:(NSError**)error
 {
     if(resync) {

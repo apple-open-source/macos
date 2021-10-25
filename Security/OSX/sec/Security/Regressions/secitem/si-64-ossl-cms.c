@@ -155,13 +155,7 @@ static void tests(void)
 	CFReleaseNull(trust);
 	ok_status(SecCMSVerifyCopyDataAndAttributes(detached_signed_data, detached_data, policy, &trust, NULL, NULL), "verify detached data");
 	CFReleaseNull(trust);
-#if TARGET_OS_IPHONE
-    /* iOS supports empty data */
     ok_status(SecCMSVerifyCopyDataAndAttributes(attached_no_data_signed_data, NULL, policy, &trust, NULL, NULL), "verify attached no data");
-#else
-    /* macOS does not */
-    is_status(SecCMSVerifyCopyDataAndAttributes(attached_no_data_signed_data, NULL, policy, &trust, NULL, NULL), errSecAuthFailed, "verify attached no data");
-#endif
 	CFReleaseNull(trust);
 	ok_status(SecCMSVerifyCopyDataAndAttributes(attached_no_data_signed_data, no_data, policy, &trust, NULL, NULL), "verify attached no data");
 	CFReleaseNull(trust);
@@ -191,13 +185,7 @@ static void tests(void)
 	CFReleaseNull(detached_cms_dict);
 	//write_data("/var/tmp/detached", cms_data);
 	CFDataSetLength(cms_data, 0);
-#if TARGET_OS_IPHONE
-    /* iOS supports empty data */
     ok_status(SecCMSCreateSignedData(identity, NULL, NULL, NULL, cms_data), "create attached data");
-#else
-    /* macOS does not */
-    is_status(SecCMSCreateSignedData(identity, NULL, NULL, NULL, cms_data), errSecParam, "create attached data");
-#endif
 
 	//write_data("/var/tmp/empty_attached", cms_data);
 

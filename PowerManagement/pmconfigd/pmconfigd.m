@@ -21,7 +21,13 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#import <AppleFeatures/AppleFeatures.h>
+
 #include "pmconfigd.h"
+
+#if   (TARGET_OS_OSX)
+#import "PMPowerModeHandler.h"
+#endif
 #include "prefs.h"
 /* load
  *
@@ -105,6 +111,9 @@ static void xpc_register(void);
 
 static dispatch_mach_t gListener;
 
+#if   (TARGET_OS_OSX)
+static PMPowerModeHandler *_gPowerModeHandler = nil;
+#endif
 
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 
@@ -191,6 +200,11 @@ powerd_init(void *__unused context)
 
 
     BatteryTimeRemaining_finish();
+
+#if   (TARGET_OS_OSX)
+    _gPowerModeHandler = [PMPowerModeHandler sharedInstance];
+#endif
+
 }
 
 int main(int argc __unused, char *argv[] __unused)
@@ -307,13 +321,13 @@ void sendSleepNotificationResponse(void *acknowledgementToken, bool allow)
         IOAllowPowerChange(_pm_ack_port, (long)acknowledgementToken);
     }
     else {
-        os_log_debug(OS_LOG_DEFAULT, "Cancelling sleep due to async assertions\n");
+        INFO_LOG("Cancelling sleep due to async assertions\n");
         IOCancelPowerChange(_pm_ack_port, (long)acknowledgementToken);
     }
 
 }
 
-void handleSoftwareSleep()
+void handleSoftwareSleep(void)
 {
 #if (TARGET_OS_OSX && TARGET_CPU_ARM64)
     if (lastSleepWakeMsg == kIOMessageCanSystemSleep) {
@@ -368,6 +382,8 @@ SleepWakeCallback(
 #endif
             IOAllowPowerChange(_pm_ack_port, (long)acknowledgementToken);
             handleSoftwareSleep();
+            INFO_LOG("Cancelling system assertion timer on sleep");
+            cancelSystemAssertionTimer();
             break;
 
         case kIOMessageCanSystemSleep:
@@ -702,7 +718,6 @@ static void handle_xpc_error(xpc_connection_t peer, xpc_object_t error)
             errStr, peer, xpc_connection_get_pid(peer));
 
     deRegisterUserActivityClient(peer);
-    releaseConnectionAssertions(peer);
 }
 static void incoming_XPC_connection(xpc_connection_t peer)
 {
@@ -734,6 +749,18 @@ static void incoming_XPC_connection(xpc_connection_t peer)
                      else if (xpc_dictionary_get_value(event, kAssertionPropertiesMsg)) {
                         asyncAssertionProperties(peer, event);
                      }
+                     else if (xpc_dictionary_get_value(event, kAssertionActivityLogKey)) {
+                         asyncAssertionLogging(peer, event);
+                     }
+                     else if (xpc_dictionary_get_value(event, kAssertionInitialConnKey)) {
+                         asyncAssertionInitialConnection(peer, event);
+                     }
+                     else if (xpc_dictionary_get_value(event, kAssertionFeatureSupportKey)) {
+                         asyncAssertionFeatureSupport(peer, event);
+                     }
+                     else if (xpc_dictionary_get_value(event, kAssertionCopyActivityUpdateMsg)) {
+                         copyAssertionActivityUpdate(peer, event);
+                     }
                      else if (xpc_dictionary_get_value(event, kPSAdapterDetails)) {
                          sendAdapterDetails(peer, event);
                      }
@@ -741,6 +768,7 @@ static void incoming_XPC_connection(xpc_connection_t peer)
                      else if (xpc_dictionary_get_value(event, kReadPersistentBHData)) {
                          getBatteryHealthPersistentData(peer, event);
                      }
+
                      else if (xpc_dictionary_get_value(event, kSetPermFaultStatus)) {
                         setPermFaultStatus(peer, event);
                      }
@@ -760,6 +788,9 @@ static void incoming_XPC_connection(xpc_connection_t peer)
 #if TARGET_OS_IOS || TARGET_OS_WATCH || TARGET_OS_OSX
                      else if (xpc_dictionary_get_value(event, kSetBHUpdateTimeDelta)) {
                          setBHUpdateTimeDelta(peer, event);
+                     }
+                     else if (xpc_dictionary_get_value(event, kBDCCXPCopyDefaults)) {
+                         bdcCopyDefaults(peer, event);
                      }
 #endif // TARGET_OS_IOS || TARGET_OS_WATCH || TARGET_OS_OSX
                      else if (xpc_dictionary_get_value(event, kInactivityWindowKey)) {
@@ -1497,7 +1528,7 @@ initializeRootDomainInterestNotifications(void)
     io_object_t                 notification_object = MACH_PORT_NULL;
     IOReturn                    ret;
 
-    root_domain = IORegistryEntryFromPath(kIOMasterPortDefault,
+    root_domain = IORegistryEntryFromPath(kIOMainPortDefault,
                             kIOPowerPlane ":/IOPowerConnection/IOPMrootDomain");
 
     if(!root_domain) return;

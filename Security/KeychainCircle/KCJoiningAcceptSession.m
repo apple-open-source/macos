@@ -125,7 +125,7 @@ typedef enum {
 
 #if OCTAGON
         self->_otControl = [OTControl controlObject:true error:error];
-        self->_piggy_version = KCJoiningOctagonPiggybackingEnabled()? kPiggyV2 : kPiggyV1;
+        self->_piggy_version = kPiggyV2;
         self->_joiningConfiguration = [[OTJoiningConfiguration alloc]initWithProtocolType:@"OctagonPiggybacking"
                                                                            uniqueDeviceID:@"acceptor-deviceid"
                                                                            uniqueClientID:@"requester-deviceid"
@@ -209,7 +209,7 @@ typedef enum {
         return nil;
     }
 #if OCTAGON
-    if(version == kPiggyV2 && KCJoiningOctagonPiggybackingEnabled()){
+    if(version == kPiggyV2){
         /* before we go ahead with octagon, let see if we are an octagon peer */
 
         if (![self shouldAcceptOctagonRequests]) {
@@ -234,7 +234,7 @@ typedef enum {
     NSString* piggyVersionMessage = [[NSString alloc]initWithData:self.octagon encoding:NSUTF8StringEncoding];
     __block NSError *captureError = nil;
 
-    if(version == kPiggyV2 && KCJoiningOctagonPiggybackingEnabled() && piggyVersionMessage && [piggyVersionMessage isEqualToString:@"o"]) {
+    if(version == kPiggyV2 && piggyVersionMessage && [piggyVersionMessage isEqualToString:@"o"]) {
         __block NSData* next = nil;
         dispatch_semaphore_t sema = dispatch_semaphore_create(0);
 
@@ -370,12 +370,14 @@ typedef enum {
         //grab iCloud Identities, TLKs
         NSError *localISVError = nil;
         NSData* initialSyncData = [circleDelegate circleGetInitialSyncViews:flags error:&localISVError];
-        if(initialSyncData == NULL){
-            secnotice("piggy", "PB threw an error: %@", localISVError);
-        }
 
         NSMutableData* growPacket = [[NSMutableData alloc] initWithData:joinData];
-        [growPacket appendData:initialSyncData];
+
+        if(initialSyncData == nil){
+            secnotice("piggy", "PB threw an error: %@", localISVError);
+        } else {
+            [growPacket appendData:initialSyncData];
+        }
         joinData = growPacket;
 
     }
@@ -442,7 +444,7 @@ typedef enum {
 {
     BOOL shouldProcess = YES;
 
-    if (OctagonPlatformSupportsSOS() == NO) {
+    if (OctagonPlatformSupportsSOS() == false) {
         secnotice("joining", "platform does not support SOS");
         shouldProcess = NO;
     } else if (message.secondData == nil) {
@@ -468,7 +470,7 @@ typedef enum {
         return nil;
     }
 #if OCTAGON
-    if(self.piggy_version == kPiggyV2 && KCJoiningOctagonPiggybackingEnabled()){
+    if(self.piggy_version == kPiggyV2){
         __block NSData* next = nil;
         __block NSError* localError = nil;
         dispatch_semaphore_t sema = dispatch_semaphore_create(0);

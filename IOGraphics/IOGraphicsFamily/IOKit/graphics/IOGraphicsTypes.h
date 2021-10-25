@@ -31,7 +31,7 @@
 extern "C" {
 #endif
 
-#define IOGRAPHICSTYPES_REV     72
+#define IOGRAPHICSTYPES_REV     76
 
 typedef SInt32  IOIndex;
 typedef UInt32  IOSelect;
@@ -457,6 +457,8 @@ typedef struct IODetailedTimingInformationV1 IODetailedTimingInformationV1;
  * @field dscCompressedBitsPerPixel 2018 Timing Features - ERS 2-63 (6.3.1)
  * @field dscSliceHeight 2018 Timing Features - ERS 2-63 (6.3.1)
  * @field dscSliceWidth 2018 Timing Features - ERS 2-63 (6.3.1)
+ * @field verticalBlankingMaxStretchPerFrame Max stretch time used for VRR refresh rate ramps
+ * @field verticalBlankingMaxShrinkPerFrame Max shrink time used for VRR refresh rate ramps
  * @field __reservedB Reserved set to zero.
  */
 
@@ -509,7 +511,11 @@ struct IODetailedTimingInformationV2 {
     UInt16      dscCompressedBitsPerPixel;
     UInt16      dscSliceHeight;
     UInt16      dscSliceWidth;
-    UInt16      __reservedB[5];                 // Init to 0
+
+    UInt16      verticalBlankingMaxStretchPerFrame;
+    UInt16      verticalBlankingMaxShrinkPerFrame;
+
+    UInt16      __reservedB[3];                 // Init to 0
 };
 typedef struct IODetailedTimingInformationV2 IODetailedTimingInformationV2;
 typedef struct IODetailedTimingInformationV2 IODetailedTimingInformation;
@@ -611,6 +617,7 @@ typedef struct IOFBDisplayModeDescription IOFBDisplayModeDescription;
  *    kIORangeSupportsSyncOnGreen - sync on green.<br>
  *    kIORangeSupportsCompositeSync - composite sync.<br>
  *    kIORangeSupportsVSyncSerration - vertical sync has serration and equalization pulses.<br>
+ *    kIORangeSupportsVRR - variable refresh rate. <br>
  * @field supportedSignalLevels mask of possible signal levels. The following are defined:<br>
  *    kIORangeSupportsSignal_0700_0300 0.700 - 0.300 V p-p.<br>
  *    kIORangeSupportsSignal_0714_0286 0.714 - 0.286 V p-p.<br>
@@ -953,12 +960,14 @@ enum {
     kIORangeSupportsSeparateSyncs        = 0x00000001,
     kIORangeSupportsSyncOnGreen          = 0x00000002,
     kIORangeSupportsCompositeSync        = 0x00000004,
-    kIORangeSupportsVSyncSerration       = 0x00000008
+    kIORangeSupportsVSyncSerration       = 0x00000008,
+    kIORangeSupportsVRR                  = 0x00000010   // since IOGRAPHICSTYPES_REV 76
 };
 enum {
     // supportedSignalConfigs
     kIORangeSupportsInterlacedCEATiming            = 0x00000004,
-    kIORangeSupportsInterlacedCEATimingWithConfirm = 0x00000008
+    kIORangeSupportsInterlacedCEATimingWithConfirm = 0x00000008,
+    kIORangeSupportsMultiAlignedTiming             = 0x00000040     // since IOGRAPHICSTYPES_REV 75
 };
 
 enum {
@@ -969,6 +978,7 @@ enum {
     kIONTSCTiming             = 0x00000008,
     kIOPALTiming              = 0x00000010,
     kIODSCBlockPredEnable     = 0x00000020,
+    kIOMultiAlignedTiming     = 0x00000040, // since IOGRAPHICSTYPES_REV 73
 };
 
 enum {

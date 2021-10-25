@@ -145,6 +145,27 @@ AP_DECLARE(const char *) ap_make_content_type(request_rec *r,
  */
 AP_DECLARE(void) ap_setup_make_content_type(apr_pool_t *pool);
 
+/** A structure with the ingredients for a file based etag */
+typedef struct etag_rec etag_rec;
+
+/**
+ * @brief A structure with the ingredients for a file based etag
+ */
+struct etag_rec {
+    /** Optional vary list validator */
+    const char *vlist_validator;
+    /** Time when the request started */
+    apr_time_t request_time;
+    /** finfo.protection (st_mode) set to zero if no such file */
+    apr_finfo_t *finfo;
+    /** File pathname used when generating a digest */
+    const char *pathname;
+    /** File descriptor used when generating a digest */
+    apr_file_t *fd;
+    /** Force a non-digest etag to be weak */
+    int force_weak;
+};
+
 /**
  * Construct an entity tag from the resource information.  If it's a real
  * file, build in some of the file characteristics.
@@ -156,10 +177,25 @@ AP_DECLARE(void) ap_setup_make_content_type(apr_pool_t *pool);
 AP_DECLARE(char *) ap_make_etag(request_rec *r, int force_weak);
 
 /**
+ * Construct an entity tag from information provided in the etag_rec
+ * structure.
+ * @param r The current request
+ * @param er The etag record, containing ingredients for the etag.
+ */
+AP_DECLARE(char *) ap_make_etag_ex(request_rec *r, etag_rec *er);
+
+/**
  * Set the E-tag outgoing header
  * @param r The current request
  */
 AP_DECLARE(void) ap_set_etag(request_rec *r);
+
+/**
+ * Set the E-tag outgoing header, with the option of forcing a strong ETag.
+ * @param r The current request
+ * @param fd The file descriptor
+ */
+AP_DECLARE(void) ap_set_etag_fd(request_rec *r, apr_file_t *fd);
 
 /**
  * Set the last modified time for the file being sent
@@ -466,6 +502,17 @@ AP_DECLARE(int) ap_index_of_response(int status);
  */
 AP_DECLARE(const char *) ap_get_status_line(int status);
 
+/**
+ * Return the Status-Line for a given status code (excluding the
+ * HTTP-Version field). If an invalid status code is passed,
+ * "500 Internal Server Error" will be returned, whereas an unknown
+ * status will be returned like "xxx Status xxx".
+ * @param p The pool to allocate from when status is unknown
+ * @param status The HTTP status code
+ * @return The Status-Line
+ */
+AP_DECLARE(const char *) ap_get_status_line_ex(apr_pool_t *p, int status);
+
 /* Reading a block of data from the client connection (e.g., POST arg) */
 
 /**
@@ -733,7 +780,7 @@ AP_DECLARE_HOOK(const char *,http_scheme,(const request_rec *r))
 AP_DECLARE_HOOK(apr_port_t,default_port,(const request_rec *r))
 
 
-#define AP_PROTOCOL_HTTP1		"http/1.1"
+#define AP_PROTOCOL_HTTP1        "http/1.1"
 
 /**
  * Determine the list of protocols available for a connection/request. This may
@@ -1013,6 +1060,8 @@ AP_DECLARE(void) ap_finalize_sub_req_protocol(request_rec *sub_r);
  * @param send_headers Whether to send&clear headers in r->headers_out
  */
 AP_DECLARE(void) ap_send_interim_response(request_rec *r, int send_headers);
+
+
 
 #ifdef __cplusplus
 }

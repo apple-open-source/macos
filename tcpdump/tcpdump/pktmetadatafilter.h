@@ -48,4 +48,8 @@ void print_expression(node_t *);
 int evaluate_expression(node_t *, struct pkt_meta_data *);
 void free_expression(node_t *);
 
+#ifdef DEBUG
+void set_parse_verbose(int val);
+#endif /* DEBUG */
+
 #endif

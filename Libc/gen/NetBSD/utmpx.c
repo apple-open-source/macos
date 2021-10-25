@@ -56,6 +56,8 @@ __RCSID("$NetBSD: utmpx.c,v 1.25 2008/04/28 20:22:59 martin Exp $");
 #include <vis.h>
 #include <notify.h>
 
+#include "libc_private.h" // for LIBC_ABORT
+
 static struct _utmpx *__utx__ = NULL;
 
 static void

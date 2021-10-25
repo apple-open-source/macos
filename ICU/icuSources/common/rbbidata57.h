@@ -90,10 +90,41 @@ struct RBBIDataHeader57 {
 
 
 
-// struct  RBBIStateTableRow: standard one from rbbidata.h
+struct  RBBIStateTableRow57 {
+    int16_t          fAccepting;    /*  Non-zero if this row is for an accepting state.   */
+                                    /*  Value 0: not an accepting state.                  */
+                                    /*       -1: Unconditional Accepting state.           */
+                                    /*    positive:  Look-ahead match has completed.      */
+                                    /*           Actual boundary position happened earlier */
+                                    /*           Value here == fLookAhead in earlier      */
+                                    /*              state, at actual boundary pos.        */
+    int16_t          fLookAhead;    /*  Non-zero if this row is for a state that          */
+                                    /*    corresponds to a '/' in the rule source.        */
+                                    /*    Value is the same as the fAccepting             */
+                                    /*      value for the rule (which will appear         */
+                                    /*      in a different state.                         */
+    int16_t          fTagIdx;       /*  Non-zero if this row covers a {tagged} position   */
+                                    /*     from a rule.  Value is the index in the        */
+                                    /*     StatusTable of the set of matching             */
+                                    /*     tags (rule status values)                      */
+    int16_t          fReserved;
+    uint16_t         fNextState[2]; /*  Next State, indexed by char category.             */
+                                    /*  This array does not have two elements             */
+                                    /*    Array Size is actually fData->fHeader->fCatCount         */
+                                    /*    CAUTION:  see RBBITableBuilder::getTableSize()  */
+                                    /*              before changing anything here.        */
+};
 
 
-// struct RBBIStateTable: standard one from rbbidata.h
+struct RBBIStateTable57 {
+    uint32_t         fNumStates;    /*  Number of states.                                 */
+    uint32_t         fRowLen;       /*  Length of a state table row, in bytes.            */
+    uint32_t         fFlags;        /*  Option Flags for this state table                 */
+    uint32_t         fReserved;     /*  reserved                                          */
+    char             fTableData[4]; /*  First RBBIStateTableRow begins here.              */
+                                    /*    (making it char[] simplifies ugly address       */
+                                    /*     arithmetic for indexing variable length rows.) */
+};
 
 /*                                        */
 /*   The reference counting wrapper class */
@@ -127,10 +158,10 @@ public:
     /*   Pointers to items within the data */
     /*                                     */
     const RBBIDataHeader57   *fHeader;
-    const RBBIStateTable     *fForwardTable;
-    const RBBIStateTable     *fReverseTable;
-    const RBBIStateTable     *fSafeFwdTable;
-    const RBBIStateTable     *fSafeRevTable;
+    const RBBIStateTable57   *fForwardTable;
+    const RBBIStateTable57   *fReverseTable;
+    const RBBIStateTable57   *fSafeFwdTable;
+    const RBBIStateTable57   *fSafeRevTable;
     const UChar              *fRuleSource;
     const int32_t            *fRuleStatusTable; 
 

@@ -50,7 +50,7 @@
     [self createAndSaveFakeKeyHierarchy: self.keychainZoneID]; // Make life easy for this test.
 
     [self startCKKSSubsystem];
-    [self.keychainView waitForKeyHierarchyReadiness];
+    [self.defaultCKKS waitForKeyHierarchyReadiness];
 
     __weak __typeof(self) weakSelf = self;
     [self expectCKModifyRecords: @{SecCKRecordDeviceStateType: [NSNumber numberWithInt:1]}
@@ -88,7 +88,7 @@
           inspectOperationGroup:nil
            runAfterModification:nil];
 
-    [self.keychainView updateDeviceState:false waitForKeyHierarchyInitialization:2*NSEC_PER_SEC ckoperationGroup:nil];
+    [self.defaultCKKS updateDeviceState:false waitForKeyHierarchyInitialization:2*NSEC_PER_SEC ckoperationGroup:nil];
 
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
 }
@@ -97,7 +97,7 @@
     [self createAndSaveFakeKeyHierarchy: self.keychainZoneID]; // Make life easy for this test.
 
     [self startCKKSSubsystem];
-    [self.keychainView waitForKeyHierarchyReadiness];
+    [self.defaultCKKS waitForKeyHierarchyReadiness];
 
     __weak __typeof(self) weakSelf = self;
     [self expectCKModifyRecords: @{SecCKRecordDeviceStateType: [NSNumber numberWithInt:1]}
@@ -135,12 +135,12 @@
           inspectOperationGroup:nil
            runAfterModification:nil];
 
-    CKKSUpdateDeviceStateOperation* op = [self.keychainView updateDeviceState:true waitForKeyHierarchyInitialization:2*NSEC_PER_SEC ckoperationGroup:nil];
+    CKKSUpdateDeviceStateOperation* op = [self.defaultCKKS updateDeviceState:true waitForKeyHierarchyInitialization:2*NSEC_PER_SEC ckoperationGroup:nil];
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
     [op waitUntilFinished];
 
     // Check that an immediate rate-limited retry doesn't upload anything
-    op = [self.keychainView updateDeviceState:true waitForKeyHierarchyInitialization:2*NSEC_PER_SEC ckoperationGroup:nil];
+    op = [self.defaultCKKS updateDeviceState:true waitForKeyHierarchyInitialization:2*NSEC_PER_SEC ckoperationGroup:nil];
     [op waitUntilFinished];
 
     // But not rate-limiting works just fine!
@@ -149,12 +149,12 @@
                          zoneID:self.keychainZoneID
             checkModifiedRecord:nil
            runAfterModification:nil];
-    op = [self.keychainView updateDeviceState:false waitForKeyHierarchyInitialization:2*NSEC_PER_SEC ckoperationGroup:nil];
+    op = [self.defaultCKKS updateDeviceState:false waitForKeyHierarchyInitialization:2*NSEC_PER_SEC ckoperationGroup:nil];
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
     [op waitUntilFinished];
 
     // And now, if the update is old enough, that'll work too
-    [self.keychainView dispatchSyncWithSQLTransaction:^CKKSDatabaseTransactionResult{
+    [self.defaultCKKS dispatchSyncWithSQLTransaction:^CKKSDatabaseTransactionResult{
         NSError* error = nil;
         CKKSDeviceStateEntry* cdse = [CKKSDeviceStateEntry fromDatabase:self.accountStateTracker.ckdeviceID zoneID:self.keychainZoneID error:&error];
         XCTAssertNil(error, "No error fetching device state entry");
@@ -187,7 +187,7 @@
                          zoneID:self.keychainZoneID
             checkModifiedRecord:nil
            runAfterModification:nil];
-    op = [self.keychainView updateDeviceState:true waitForKeyHierarchyInitialization:2*NSEC_PER_SEC ckoperationGroup:nil];
+    op = [self.defaultCKKS updateDeviceState:true waitForKeyHierarchyInitialization:2*NSEC_PER_SEC ckoperationGroup:nil];
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
     [op waitUntilFinished];
 }
@@ -196,7 +196,7 @@
     [self createAndSaveFakeKeyHierarchy: self.keychainZoneID]; // Make life easy for this test.
 
     [self startCKKSSubsystem];
-    [self.keychainView waitForKeyHierarchyReadiness];
+    [self.defaultCKKS waitForKeyHierarchyReadiness];
 
     [self expectCKModifyRecords:@{SecCKRecordDeviceStateType: @1}
         deletedRecordTypeCounts:nil
@@ -206,7 +206,7 @@
             }
            runAfterModification:nil];
 
-    CKKSUpdateDeviceStateOperation* op = [self.keychainView updateDeviceState:false waitForKeyHierarchyInitialization:2*NSEC_PER_SEC ckoperationGroup:nil];
+    CKKSUpdateDeviceStateOperation* op = [self.defaultCKKS updateDeviceState:false waitForKeyHierarchyInitialization:2*NSEC_PER_SEC ckoperationGroup:nil];
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
     [op waitUntilFinished];
 
@@ -214,7 +214,7 @@
     NSString* oldDeviceID = self.accountStateTracker.ckdeviceID;
     self.accountStateTracker.ckdeviceID = nil;
 
-    [self.keychainView dispatchSyncWithReadOnlySQLTransaction:^{
+    [self.defaultCKKS dispatchSyncWithReadOnlySQLTransaction:^{
         NSError* error = nil;
         CKKSDeviceStateEntry* cdse = [CKKSDeviceStateEntry fromDatabase:oldDeviceID zoneID:self.keychainZoneID error:&error];
         XCTAssertNil(error, "No error fetching device state entry");
@@ -227,7 +227,7 @@
     }];
 
     // It shouldn't try to upload a new CDSE; there's no device ID
-    op = [self.keychainView updateDeviceState:false waitForKeyHierarchyInitialization:2*NSEC_PER_SEC ckoperationGroup:nil];
+    op = [self.defaultCKKS updateDeviceState:false waitForKeyHierarchyInitialization:2*NSEC_PER_SEC ckoperationGroup:nil];
     [op waitUntilFinished];
 
     // And add a new keychain item, and expect it to sync, but without a device state
@@ -250,7 +250,7 @@
     [self createAndSaveFakeKeyHierarchy: self.keychainZoneID]; // Make life easy for this test.
 
     [self startCKKSSubsystem];
-    [self.keychainView waitForKeyHierarchyReadiness];
+    [self.defaultCKKS waitForKeyHierarchyReadiness];
 
     [self expectCKModifyRecords:@{SecCKRecordDeviceStateType: @1}
         deletedRecordTypeCounts:nil
@@ -260,7 +260,7 @@
             }
            runAfterModification:nil];
 
-    CKKSUpdateDeviceStateOperation* op = [self.keychainView updateDeviceState:false waitForKeyHierarchyInitialization:2*NSEC_PER_SEC ckoperationGroup:nil];
+    CKKSUpdateDeviceStateOperation* op = [self.defaultCKKS updateDeviceState:false waitForKeyHierarchyInitialization:2*NSEC_PER_SEC ckoperationGroup:nil];
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
     [op waitUntilFinished];
 
@@ -270,7 +270,7 @@
     [self.accountStateTracker setHSA2iCloudAccountStatus:self.fakeHSA2AccountStatus];
 
     // It shouldn't try to upload a new CDSE; the account is SA
-    op = [self.keychainView updateDeviceState:false waitForKeyHierarchyInitialization:2*NSEC_PER_SEC ckoperationGroup:nil];
+    op = [self.defaultCKKS updateDeviceState:false waitForKeyHierarchyInitialization:2*NSEC_PER_SEC ckoperationGroup:nil];
     [op waitUntilFinished];
 
     // And add a new keychain item, and expect it to sync, but without a device state
@@ -292,14 +292,14 @@
     [self createAndSaveFakeKeyHierarchy: self.keychainZoneID]; // Make life easy for this test.
 
     [self startCKKSSubsystem];
-    [self.keychainView waitForKeyHierarchyReadiness];
+    [self.defaultCKKS waitForKeyHierarchyReadiness];
 
     [self expectCKModifyItemRecords: 1 currentKeyPointerRecords: 1 zoneID:self.keychainZoneID];
     [self addGenericPassword:@"password" account:@"account-delete-me"];
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
 
     // Check that an immediate rate-limited retry doesn't upload anything
-    CKKSUpdateDeviceStateOperation* op = [self.keychainView updateDeviceState:true waitForKeyHierarchyInitialization:2*NSEC_PER_SEC ckoperationGroup:nil];
+    CKKSUpdateDeviceStateOperation* op = [self.defaultCKKS updateDeviceState:true waitForKeyHierarchyInitialization:2*NSEC_PER_SEC ckoperationGroup:nil];
     [op waitUntilFinished];
 }
 
@@ -307,7 +307,7 @@
     [self createAndSaveFakeKeyHierarchy: self.keychainZoneID]; // Make life easy for this test.
 
     // Ask to wait for quite a while if we don't become ready
-    [self.keychainView updateDeviceState:false waitForKeyHierarchyInitialization:20*NSEC_PER_SEC ckoperationGroup:nil];
+    [self.defaultCKKS updateDeviceState:false waitForKeyHierarchyInitialization:20*NSEC_PER_SEC ckoperationGroup:nil];
 
     __weak __typeof(self) weakSelf = self;
     // Expect a ready upload
@@ -355,7 +355,7 @@
     [self putFakeDeviceStatusInCloudKit:self.keychainZoneID];
 
     // Ask to wait for the key state to enter a state if we don't become ready
-    [self.keychainView updateDeviceState:false waitForKeyHierarchyInitialization:20*NSEC_PER_SEC ckoperationGroup:nil];
+    [self.defaultCKKS updateDeviceState:false waitForKeyHierarchyInitialization:20*NSEC_PER_SEC ckoperationGroup:nil];
 
     __weak __typeof(self) weakSelf = self;
     // Expect a waitfortlk upload
@@ -395,6 +395,7 @@
     // And allow the key state to progress
     [self startCKKSSubsystem];
     XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateWaitForTLK] wait:20*NSEC_PER_SEC], "CKKS entered waitfortlk");
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:20*NSEC_PER_SEC], "CKKS state machine should enter ready");
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
 }
 
@@ -405,7 +406,7 @@
     XCTAssertNotNil(zoneKeys, "Have zone keys for %@", self.keychainZoneID);
 
     [self startCKKSSubsystem];
-    [self.keychainView waitForKeyHierarchyReadiness];
+    [self.defaultCKKS waitForKeyHierarchyReadiness];
 
     NSDate* date = [[NSCalendar currentCalendar] startOfDayForDate:[NSDate date]];
     CKKSDeviceStateEntry* cdse = [[CKKSDeviceStateEntry alloc] initForDevice:@"otherdevice"
@@ -456,9 +457,9 @@
 
     // Trigger a notification (with hilariously fake data)
     [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
-    [self.keychainView waitForFetchAndIncomingQueueProcessing];
+    [self.defaultCKKS waitForFetchAndIncomingQueueProcessing];
 
-    [self.keychainView dispatchSyncWithReadOnlySQLTransaction:^{
+    [self.defaultCKKS dispatchSyncWithReadOnlySQLTransaction:^{
         NSError* error = nil;
         NSArray<CKKSDeviceStateEntry*>* cdses = [CKKSDeviceStateEntry allInZone:self.keychainZoneID error:&error];
         XCTAssertNil(error, "No error fetching CDSEs");
@@ -531,6 +532,7 @@
 
     [self startCKKSSubsystem];
     XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateWaitForTLK] wait:20*NSEC_PER_SEC], "CKKS entered waitfortlk");
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:20*NSEC_PER_SEC], "CKKS state machine should enter ready");
 
     __weak __typeof(self) weakSelf = self;
     [self expectCKModifyRecords: @{SecCKRecordDeviceStateType: [NSNumber numberWithInt:1]}
@@ -560,7 +562,7 @@
             }
            runAfterModification:nil];
 
-    [self.keychainView updateDeviceState:false waitForKeyHierarchyInitialization:500*NSEC_PER_MSEC ckoperationGroup:nil];
+    [self.defaultCKKS updateDeviceState:false waitForKeyHierarchyInitialization:500*NSEC_PER_MSEC ckoperationGroup:nil];
 
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
 }
@@ -585,6 +587,7 @@
 
     [self startCKKSSubsystem];
     XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateWaitForUnlock] wait:20*NSEC_PER_SEC], "CKKS entered waitforunlock");
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:20*NSEC_PER_SEC], "CKKS state machine should enter ready");
 
     __weak __typeof(self) weakSelf = self;
     [self expectCKModifyRecords: @{SecCKRecordDeviceStateType: [NSNumber numberWithInt:1]}
@@ -614,7 +617,7 @@
             }
            runAfterModification:nil];
 
-    [self.keychainView updateDeviceState:false waitForKeyHierarchyInitialization:500*NSEC_PER_MSEC ckoperationGroup:nil];
+    [self.defaultCKKS updateDeviceState:false waitForKeyHierarchyInitialization:500*NSEC_PER_MSEC ckoperationGroup:nil];
 
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
 }
@@ -626,11 +629,15 @@
 
     [self startCKKSSubsystem];
     XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateWaitForTLK] wait:20*NSEC_PER_SEC], "CKKS entered waitfortlk");
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:20*NSEC_PER_SEC], "CKKS state machine should enter ready");
 
     // And restart CKKS...
-    self.keychainView = [[CKKSViewManager manager] restartZone: self.keychainZoneID.zoneName];
-    [self beginSOSTrustedViewOperation:self.keychainView];
+    self.defaultCKKS = [self.injectedManager restartCKKSAccountSync:self.defaultCKKS];
+    self.keychainView = [self.defaultCKKS.operationDependencies viewStateForName:self.keychainZoneID.zoneName];
+
+    [self beginSOSTrustedViewOperation:self.defaultCKKS];
     XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateWaitForTLK] wait:20*NSEC_PER_SEC], "CKKS entered waitfortlk");
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:20*NSEC_PER_SEC], "CKKS state machine should enter ready");
 
     __weak __typeof(self) weakSelf = self;
     [self expectCKModifyRecords: @{SecCKRecordDeviceStateType: [NSNumber numberWithInt:1]}
@@ -660,7 +667,7 @@
             }
            runAfterModification:nil];
 
-    [self.keychainView updateDeviceState:false waitForKeyHierarchyInitialization:500*NSEC_PER_MSEC ckoperationGroup:nil];
+    [self.defaultCKKS updateDeviceState:false waitForKeyHierarchyInitialization:500*NSEC_PER_MSEC ckoperationGroup:nil];
 
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
 }
@@ -678,6 +685,7 @@
     [self startCKKSSubsystem];
 
     XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateWaitForTrust] wait:20*NSEC_PER_SEC], "CKKS entered waitfortrust");
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateWaitForTrust] wait:20*NSEC_PER_SEC], "CKKS state machine should enter waitfortrust");
 
     __weak __typeof(self) weakSelf = self;
     [self expectCKModifyRecords: @{SecCKRecordDeviceStateType: [NSNumber numberWithInt:1]}
@@ -707,7 +715,7 @@
             }
            runAfterModification:nil];
 
-    CKKSUpdateDeviceStateOperation* op = [self.keychainView updateDeviceState:false waitForKeyHierarchyInitialization:500*NSEC_PER_MSEC ckoperationGroup:nil];
+    CKKSUpdateDeviceStateOperation* op = [self.defaultCKKS updateDeviceState:false waitForKeyHierarchyInitialization:500*NSEC_PER_MSEC ckoperationGroup:nil];
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
 
     [op waitUntilFinished];
@@ -730,6 +738,7 @@
 
     // we should be stuck in fetch
     XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateFetch] wait:20*NSEC_PER_SEC], "Key state should become fetch");
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateFetch] wait:20*NSEC_PER_SEC], "CKKS state machine should enter fetch");
 
     __weak __typeof(self) weakSelf = self;
     [self expectCKModifyRecords: @{SecCKRecordDeviceStateType: [NSNumber numberWithInt:1]}
@@ -763,10 +772,11 @@
            runAfterModification:nil];
 
 
-    [self.keychainView updateDeviceState:false waitForKeyHierarchyInitialization:8*NSEC_PER_SEC ckoperationGroup:nil];
+    [self.defaultCKKS updateDeviceState:false waitForKeyHierarchyInitialization:8*NSEC_PER_SEC ckoperationGroup:nil];
 
 
     XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateFetch] wait:20*NSEC_PER_SEC], "Key state should become fetch");
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateFetch] wait:20*NSEC_PER_SEC], "CKKS state machine should enter fetch");
     [self releaseCloudKitFetchHold];
 
     OCMVerifyAllWithDelay(self.mockDatabase, 20);

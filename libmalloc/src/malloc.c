@@ -53,12 +53,14 @@ malloc_logger_t *malloc_logger = NULL;
 static uint32_t initial_num_zones;
 static malloc_zone_t *initial_scalable_zone;
 static malloc_zone_t *initial_nano_zone;
-static malloc_zone_t *initial_default_zone = NULL;
+static bool has_injected_zone0;
 
 unsigned malloc_debug_flags = 0;
 bool malloc_tracing_enabled = false;
 bool malloc_space_efficient_enabled = false;
-bool malloc_medium_space_efficient_enabled = false;
+bool malloc_medium_space_efficient_enabled = true;
+
+bool malloc_quarantine_enabled = false;
 
 unsigned malloc_check_start = 0; // 0 means don't check
 unsigned malloc_check_counter = 0;
@@ -67,18 +69,15 @@ unsigned malloc_check_each = 1000;
 static int malloc_check_sleep = 100; // default 100 second sleep
 static int malloc_check_abort = 0;   // default is to sleep, not abort
 
-static
-struct msl {
+static struct _malloc_msl_symbols msl = {};
+
+// TODO delete this, its only used some deprecated functions like turn_on_stack_logging,
+// which have been replaced by functions in MallocStackLogging.framework
+// (like msl_turn_on_stack_logging)
+static struct msl_dylib {
+	
 	void *dylib;
 
-	void (*handle_memory_event) (unsigned long event);
-	boolean_t (*stack_logging_locked) (void);
-	void (*fork_prepare) (void);
-	void (*fork_parent) (void);
-	void (*fork_child) (void);
-	
-	
-	// TODO delete these ones
 	kern_return_t (*get_frames_for_address)(task_t task,
 											mach_vm_address_t address,
 											mach_vm_address_t *stack_frames_buffer,
@@ -100,7 +99,7 @@ struct msl {
 												mach_vm_address_t *out_frames_buffer,
 												uint32_t *out_frames_count,
 												uint32_t max_frames);
-} msl = {};
+} msld = {};
 
 /*
  * Counters that coordinate zone destruction (in malloc_zone_unregister) with
@@ -122,7 +121,6 @@ static inline malloc_zone_t *inline_malloc_default_zone(void) __attribute__((alw
 #define DEFAULT_MALLOC_ZONE_STRING "DefaultMallocZone"
 #define DEFAULT_PUREGEABLE_ZONE_STRING "DefaultPurgeableMallocZone"
 #define MALLOC_HELPER_ZONE_STRING "MallocHelperZone"
-#define MALLOC_PGUARD_ZONE_STRING "ProbGuardMallocZone"
 
 MALLOC_NOEXPORT
 unsigned int phys_ncpus;
@@ -143,6 +141,7 @@ static const char medium_enabled_boot_arg[] = "malloc_medium_zone";
 static const char max_medium_magazines_boot_arg[] = "malloc_max_medium_magazines";
 static const char medium_activation_threshold_boot_arg[] = "malloc_medium_activation_threshold";
 static const char medium_space_efficient_boot_arg[] = "malloc_medium_space_efficient";
+static const char medium_madvise_dram_scale_divisor_boot_arg[] = "malloc_medium_madvise_dram_scale_divisor";
 #endif // CONFIG_MEDIUM_ALLOCATOR
 
 /*********	Utilities	************/
@@ -311,6 +310,18 @@ __malloc_init_from_bootargs(const char *bootargs)
 			malloc_medium_space_efficient_enabled = (value != 0);
 		}
 	}
+
+	flag = malloc_common_value_for_key_copy(bootargs, medium_madvise_dram_scale_divisor_boot_arg, value_buf, sizeof(value_buf));
+	if (flag) {
+		const char *endp;
+		long value = malloc_common_convert_to_long(flag, &endp);
+		if (!*endp && value >= 0) {
+			magazine_medium_madvise_dram_scale_divisor = (uint64_t)value;
+		} else {
+			malloc_report(ASL_LEVEL_ERR,
+					"malloc_medium_madvise_dram_scale_divisor must be positive - ignored.\n");
+		}
+	}
 #endif // CONFIG_MEDIUM_ALLOCATOR
 }
 
@@ -384,12 +395,21 @@ static void stack_logging_early_finished(const struct _malloc_late_init *funcs);
 
 // WARNING: The passed _malloc_late_init is a stack variable in
 // libSystem_initializer().  We must not hold on to it.
+//
+// WARNING 2: By the time this is called, malloc() is already used
+// a bunch of times (from libobjc, libxpc, ...).
 void
 __malloc_late_init(const struct _malloc_late_init *mli)
 {
 	register_pgm_zone(mli->internal_diagnostics);
 	stack_logging_early_finished(mli);
 	initial_num_zones = malloc_num_zones;
+	
+#if CONFIG_QUARANTINE
+	if (malloc_quarantine_enabled) {
+		quarantine_reset_environment();
+	}
+#endif
 }
 
 MALLOC_NOEXPORT malloc_zone_t* lite_zone = NULL;
@@ -640,11 +660,7 @@ MALLOC_NOEXPORT
 /*static*/ boolean_t
 has_default_zone0(void)
 {
-	if (!malloc_zones) {
-		return false;
-	}
-	
-	return initial_default_zone == malloc_zones[0];
+	return !has_injected_zone0;
 }
 
 static inline malloc_zone_t *find_registered_zone(const void *, size_t *) __attribute__((always_inline));
@@ -677,8 +693,8 @@ find_registered_zone(const void *ptr, size_t *returned_size)
 	size_t size;
 
 	// We assume that the initial zones will never be unregistered concurrently while this code is running so we can have
-	// a fast path without locking.  Callers who really do unregister these (to install their own default zone) need to
-	// ensure they establish their zone setup during initialization and before entering a multi-threaded environment.
+	// a fast path without synchronization.  Callers who really do unregister these (to install their own default zone) need
+	// to ensure they establish their zone setup during initialization and before entering a multi-threaded environment.
 	for (uint32_t i = 0; i < initial_num_zones; i++) {
 		zone = malloc_zones[i];
 		size = zone->size(zone, ptr);
@@ -786,7 +802,7 @@ malloc_gdb_po_unsafe(void)
 static void set_flags_from_environment(void);
 
 MALLOC_NOEXPORT void
-malloc_zone_register_while_locked(malloc_zone_t *zone)
+malloc_zone_register_while_locked(malloc_zone_t *zone, bool make_default)
 {
 	size_t protect_size;
 	unsigned i;
@@ -835,6 +851,13 @@ malloc_zone_register_while_locked(malloc_zone_t *zone)
 		mprotect(malloc_zones, protect_size, PROT_READ | PROT_WRITE);
 	}
 
+	if (make_default) {
+		memmove(&malloc_zones[1], &malloc_zones[0], malloc_num_zones * sizeof(malloc_zone_t *));
+		malloc_zones[0] = zone;
+	} else {
+		malloc_zones[malloc_num_zones] = zone;
+	}
+
 	/* <rdar://problem/12871662> This store-increment needs to be visible in the correct
 	 * order to any threads in find_registered_zone, such that if the incremented value
 	 * in malloc_num_zones is visible then the pointer write before it must also be visible.
@@ -843,12 +866,17 @@ malloc_zone_register_while_locked(malloc_zone_t *zone)
 	 * ensure the proper store-release operation is performed is to use OSAtomic*Barrier
 	 * to update malloc_num_zones.
 	 */
-	malloc_zones[malloc_num_zones] = zone;
 	OSAtomicIncrement32Barrier(&malloc_num_zones);
 
 	/* Finally, now that the zone is registered, disallow write access to the
 	 * malloc_zones array */
 	mprotect(malloc_zones, protect_size, PROT_READ);
+
+	// ASan and others interpose on mprotect() to ensure their zone is always at position 0.
+	if (make_default && malloc_zones[0] != zone) {
+		has_injected_zone0 = true;
+	}
+
 	//malloc_report(ASL_LEVEL_INFO, "Registered malloc_zone %p in malloc_zones %p [%u zones, %u bytes]\n", zone, malloc_zones,
 	// malloc_num_zones, protect_size);
 }
@@ -901,68 +929,87 @@ _malloc_initialize(const char *apple[], const char *bootargs)
 
 	set_flags_from_environment(); // will only set flags up to two times
 
+#if CONFIG_QUARANTINE
+	malloc_quarantine_enabled = quarantine_should_enable();
+#endif
+	
 #if CONFIG_NANOZONE
 	// TODO: envp should be passed down from Libsystem
 	const char **envp = (const char **)*_NSGetEnviron();
-	nano_common_init(envp, apple, bootargs);
-#endif
-
-	const uint32_t k_max_zones = 2;
-	malloc_zone_t *zone_stack[k_max_zones];
-	const char *name_stack[k_max_zones];
-	uint32_t num_zones = 0;
+	
+	// Force magazine_malloc then quarantine is enabled, to avoid speculative
+	// out-of-bounds use-after-free reads that nano/nanov2 performs.
+	if (!malloc_quarantine_enabled) {
+		nano_common_init(envp, apple, bootargs);
+	}
+#endif // CONFIG_NANOZONE
 
 	initial_scalable_zone = create_scalable_zone(0, malloc_debug_flags);
-	zone_stack[num_zones] = initial_scalable_zone;
-	name_stack[num_zones] = DEFAULT_MALLOC_ZONE_STRING;
-	num_zones++;
+	malloc_set_zone_name(initial_scalable_zone, DEFAULT_MALLOC_ZONE_STRING);
+	malloc_zone_register_while_locked(initial_scalable_zone, /*make_default=*/true);
 
 #if CONFIG_NANOZONE
 	nano_common_configure();
 
-	malloc_zone_t *helper_zone = zone_stack[num_zones - 1];
-	malloc_zone_t *nano_zone = NULL;
+	malloc_zone_t *helper_zone = initial_scalable_zone;
 
 	if (_malloc_engaged_nano == NANO_V2) {
-		nano_zone = nanov2_create_zone(helper_zone, malloc_debug_flags);
-	} else if (_malloc_engaged_nano == NANO_V1) {
-		nano_zone = nano_create_zone(helper_zone, malloc_debug_flags);
+		initial_nano_zone = nanov2_create_zone(helper_zone, malloc_debug_flags);
 	}
 
-	if (nano_zone) {
-		initial_nano_zone = nano_zone;
-		zone_stack[num_zones] = nano_zone;
-		name_stack[num_zones] = DEFAULT_MALLOC_ZONE_STRING;
-		name_stack[num_zones - 1] = MALLOC_HELPER_ZONE_STRING;
-		num_zones++;
+	if (initial_nano_zone) {
+		malloc_set_zone_name(initial_nano_zone, DEFAULT_MALLOC_ZONE_STRING);
+		malloc_set_zone_name(helper_zone, MALLOC_HELPER_ZONE_STRING);
+		malloc_zone_register_while_locked(initial_nano_zone, /*make_default=*/true);
 	}
 #endif
 
-	MALLOC_ASSERT(num_zones <= k_max_zones);
-	initial_default_zone = zone_stack[num_zones - 1];
-
-	// 2 separate loops: malloc_set_zone_name already requires a working allocator.
-	for (int i = num_zones - 1; i >= 0; i--) malloc_zone_register_while_locked(zone_stack[i]);
-	for (int i = num_zones - 1; i >= 0; i--) malloc_set_zone_name(zone_stack[i], name_stack[i]);
+#if CONFIG_QUARANTINE
+	if (malloc_quarantine_enabled) {
+		malloc_zone_t *wrapped_zone = malloc_zones[0];
+		malloc_zone_t *quarantine_zone = quarantine_create_zone(wrapped_zone);
+		malloc_zone_register_while_locked(quarantine_zone, /*make_default=*/true);
+	}
+#endif
 
 	initial_num_zones = malloc_num_zones;
+
+#if CONFIG_MEDIUM_ALLOCATOR
+	uint64_t memsize = platform_hw_memsize();
+	if (memsize >= 8 * magazine_medium_madvise_dram_scale_divisor) {
+		magazine_medium_madvise_window_scale_factor = 8;
+	} else if (memsize >= 4 * magazine_medium_madvise_dram_scale_divisor) {
+		magazine_medium_madvise_window_scale_factor = 4;
+	} else if (memsize >= 2 * magazine_medium_madvise_dram_scale_divisor) {
+		magazine_medium_madvise_window_scale_factor = 2;
+	} else {
+		magazine_medium_madvise_window_scale_factor = 1;
+	}
+#endif /* CONFIG_MEDIUM_ALLOCATOR */
 
 	// malloc_report(ASL_LEVEL_INFO, "%d registered zones\n", malloc_num_zones);
 	// malloc_report(ASL_LEVEL_INFO, "malloc_zones is at %p; malloc_num_zones is at %p\n", (unsigned)&malloc_zones,
 	// (unsigned)&malloc_num_zones);
 }
 
-static void make_last_zone_default_zone(void);
+static bool internal_build;
+static bool
+enable_pgm(void)
+{
+	bool other_debug_tool = has_injected_zone0 || malloc_quarantine_enabled;
+	return !other_debug_tool && pgm_should_enable(internal_build);
+}
+
 static void
 register_pgm_zone(bool internal_diagnostics)
 {
-	if (pguard_enabled(internal_diagnostics)) {
+	if (internal_diagnostics) {
+		internal_build = true;
+	}
+	if (enable_pgm()) {
 		malloc_zone_t *wrapped_zone = malloc_zones[0];
-		malloc_zone_t *pgm_zone = pguard_create_zone(wrapped_zone);
-		malloc_zone_register_while_locked(pgm_zone);
-		make_last_zone_default_zone();
-		initial_default_zone = pgm_zone;
-		malloc_set_zone_name(pgm_zone, MALLOC_PGUARD_ZONE_STRING);
+		malloc_zone_t *pgm_zone = pgm_create_zone(wrapped_zone);
+		malloc_zone_register_while_locked(pgm_zone, /*make_default=*/true);
 	}
 }
 
@@ -1392,24 +1439,12 @@ malloc_create_zone(vm_size_t start_size, unsigned flags)
 
 	zone = create_scalable_zone(start_size, flags | malloc_debug_flags);
 	malloc_zone_register(zone);
-	return zone;
-}
 
-static void
-make_last_zone_default_zone(void)
-{
-	unsigned protect_size = malloc_num_zones_allocated * sizeof(malloc_zone_t *);
-	mprotect(malloc_zones, protect_size, PROT_READ | PROT_WRITE);
-
-	malloc_zone_t *last_zone = malloc_zones[malloc_num_zones - 1];
-
-	// assert(zone == malloc_zones[malloc_num_zones - 1];
-	for (int i = malloc_num_zones - 1; i > 0; --i) {
-		malloc_zones[i] = malloc_zones[i - 1];
+	if (enable_pgm()) {
+		zone = pgm_create_zone(zone);
+		malloc_zone_register(zone);
 	}
-	malloc_zones[0] = last_zone;
-
-	mprotect(malloc_zones, protect_size, PROT_READ);
+	return zone;
 }
 
 /*
@@ -1424,7 +1459,6 @@ malloc_create_legacy_default_zone(void)
 	zone = create_legacy_scalable_zone(0, malloc_debug_flags);
 
 	MALLOC_LOCK();
-	malloc_zone_register_while_locked(zone);
 
 	//
 	// Establish the legacy scalable zone just created as the default zone.
@@ -1435,7 +1469,7 @@ malloc_create_legacy_default_zone(void)
 	}
 	malloc_set_zone_name(zone, DEFAULT_MALLOC_ZONE_STRING);
 
-	make_last_zone_default_zone();
+	malloc_zone_register_while_locked(zone, /*make_default=*/true);
 	MALLOC_UNLOCK();
 }
 
@@ -1799,7 +1833,7 @@ void
 malloc_zone_register(malloc_zone_t *zone)
 {
 	MALLOC_LOCK();
-	malloc_zone_register_while_locked(zone);
+	malloc_zone_register_while_locked(zone, false);
 	MALLOC_UNLOCK();
 }
 
@@ -1831,9 +1865,9 @@ malloc_zone_unregister(malloc_zone_t *z)
 
 		mprotect(malloc_zones, protect_size, PROT_READ);
 
-		// MAX(num_zones, 1) enables the fast path in find_registered_zone() for zone 0 even
+		// MAX(num_zones, 1) retains the fast path in find_registered_zone() for zone 0 even
 		// if it is a custom zone, e.g., ASan and user zones.
-		initial_num_zones = MIN(MAX(malloc_num_zones, 1), initial_num_zones);
+		initial_num_zones = MAX(MIN(malloc_num_zones, initial_num_zones), 1);
 
 		// Exchange the roles of the FRZ counters. The counter that has captured the number of threads presently
 		// executing *inside* find_registered_zone is swapped with the counter drained to zero last time through.
@@ -1858,21 +1892,24 @@ malloc_zone_unregister(malloc_zone_t *z)
 void
 malloc_set_zone_name(malloc_zone_t *z, const char *name)
 {
-	char *newName;
-
 	mprotect(z, sizeof(malloc_zone_t), PROT_READ | PROT_WRITE);
 	if (z->zone_name) {
-		free((char *)z->zone_name);
+		malloc_zone_t *old_zone = find_registered_zone(z->zone_name, NULL);
+		if (old_zone) {
+			malloc_zone_free(old_zone, (char *)z->zone_name);
+		}
 		z->zone_name = NULL;
 	}
 	if (name) {
 		size_t buflen = strlen(name) + 1;
-		newName = _malloc_zone_malloc(z, buflen, MZ_NONE);
-		if (newName) {
-			strlcpy(newName, name, buflen);
-			z->zone_name = (const char *)newName;
+		if (_dyld_is_memory_immutable(name, buflen)) {
+			z->zone_name = name;
 		} else {
-			z->zone_name = NULL;
+			char *name_copy = _malloc_zone_malloc(z, buflen, MZ_NONE);
+			if (name_copy) {
+				strlcpy(name_copy, name, buflen);
+				z->zone_name = name_copy;
+			}
 		}
 	}
 	mprotect(z, sizeof(malloc_zone_t), PROT_READ);
@@ -2521,8 +2558,6 @@ _malloc_fork_child(void)
 	if (_malloc_entropy_initialized) {
 		if (_malloc_engaged_nano == NANO_V2) {
 			nanov2_forked_zone((nanozonev2_t *)initial_nano_zone);
-		} else if (_malloc_engaged_nano == NANO_V1) {
-			nano_forked_zone((nanozone_t *)initial_nano_zone);
 		}
 	}
 #endif
@@ -2658,6 +2693,7 @@ malloc_debug(int level)
 #pragma mark -
 #pragma mark Malloc Stack Logging
 
+static bool _malloc_register_stack_logger(bool at_startup);
 
 /* this is called from libsystem during initialization. */
 static void
@@ -2667,23 +2703,21 @@ stack_logging_early_finished(const struct _malloc_late_init *funcs)
 	_dlopen = funcs->dlopen;
 	_dlsym = funcs->dlsym;
 #endif
+	if (funcs->version >= 2 && funcs->msl) {
+		msl = *funcs->msl;
+	}
 	const char **env = (const char**) *_NSGetEnviron();
 	for (const char **e = env; *e; e++) {
 		if (0==strncmp(*e, "MallocStackLogging", 18)) {
-			malloc_register_stack_logger();
-			void (*msl_set_flags_from_environment) (const char **env);
-			msl_set_flags_from_environment = _dlsym(msl.dylib, "msl_set_flags_from_environment");
-			if (msl_set_flags_from_environment) {
-				msl_set_flags_from_environment(env);
+			_malloc_register_stack_logger(true);
+			if (msl.set_flags_from_environment) {
+				msl.set_flags_from_environment(env);
 			}
 			break;
 		}
 	}
-	if (msl.dylib) {
-		void (*initialize) () = _dlsym(msl.dylib, "msl_initialize");
-		if (initialize) {
-			initialize();
-		}
+	if (msl.initialize) {
+		msl.initialize();
 	}
 }
 
@@ -2693,45 +2727,70 @@ static os_once_t _register_msl_dylib_pred;
 static void
 register_msl_dylib(void *dylib)
 {
+#if TARGET_OS_DRIVERKIT
+	set_msl_lite_hooks(msl.copy_msl_lite_hooks);
+#else
 	if (!dylib) {
 		return;
 	}
-	msl.dylib = dylib;
+	msld.dylib = dylib;
 	msl.handle_memory_event = _dlsym(dylib, "msl_handle_memory_event");
 	msl.stack_logging_locked = _dlsym(dylib, "msl_stack_logging_locked");
 	msl.fork_prepare = _dlsym(dylib, "msl_fork_prepare");
 	msl.fork_child = _dlsym(dylib, "msl_fork_child");
 	msl.fork_parent = _dlsym(dylib, "msl_fork_parent");
+	msl.turn_on_stack_logging = _dlsym(dylib, "msl_turn_on_stack_logging");
+	msl.turn_off_stack_logging = _dlsym(dylib, "msl_turn_off_stack_logging");
+	msl.set_flags_from_environment = _dlsym(dylib, "msl_set_flags_from_environment");
+	msl.initialize = _dlsym(dylib, "msl_initialize");
+
 	
 	// TODO delete these ones
-	msl.get_frames_for_address = _dlsym(dylib, "msl_get_frames_for_address");
-	msl.stackid_for_vm_region = _dlsym(dylib, "msl_stackid_for_vm_region");
-	msl.get_frames_for_stackid = _dlsym(dylib, "msl_get_frames_for_stackid");
-	msl.uniquing_table_read_stack = _dlsym(dylib, "msl_uniquing_table_read_stack");
+	msld.get_frames_for_address = _dlsym(dylib, "msl_get_frames_for_address");
+	msld.stackid_for_vm_region = _dlsym(dylib, "msl_stackid_for_vm_region");
+	msld.get_frames_for_stackid = _dlsym(dylib, "msl_get_frames_for_stackid");
+	msld.uniquing_table_read_stack = _dlsym(dylib, "msl_uniquing_table_read_stack");
 
 	void (*msl_copy_msl_lite_hooks) (struct _malloc_msl_lite_hooks_s *hooksp, size_t size);
 	msl_copy_msl_lite_hooks = _dlsym(dylib, "msl_copy_msl_lite_hooks");
 	if (msl_copy_msl_lite_hooks) {
 		set_msl_lite_hooks(msl_copy_msl_lite_hooks);
 	}
+#endif
 }
 
 MALLOC_EXPORT
 boolean_t
 malloc_register_stack_logger(void)
 {
-	if (msl.dylib != NULL) {
+    return _malloc_register_stack_logger(false);
+}
+
+static bool
+_malloc_register_stack_logger(bool at_startup)
+{
+	void *dylib = NULL;
+	if (malloc_quarantine_enabled && !at_startup) {
+		return false;
+	}
+#if !TARGET_OS_DRIVERKIT
+	if (msl.handle_memory_event != NULL) {
 		return true;
 	}
-	void *dylib = _dlopen("/System/Library/PrivateFrameworks/MallocStackLogging.framework/MallocStackLogging", RTLD_GLOBAL);
+	if (_dlopen == NULL) {
+		return false;
+	}
+	dylib = _dlopen("/System/Library/PrivateFrameworks/MallocStackLogging.framework/MallocStackLogging", RTLD_GLOBAL);
 	if (dylib == NULL) {
 		return false;	
 	}
+#endif
 	os_once(&_register_msl_dylib_pred, dylib, register_msl_dylib);
-	if (!msl.dylib) {
+	if (!msl.handle_memory_event) {
 		malloc_report(ASL_LEVEL_WARNING, "failed to load MallocStackLogging.framework\n");
+		return false;
 	}
-	return msl.dylib == dylib;
+	return true;
 }
 
 /* Symbolication.framework looks up this symbol by name inside libsystem_malloc.dylib. */
@@ -2753,55 +2812,48 @@ boolean_t
 turn_on_stack_logging(stack_logging_mode_type mode)
 {
 	malloc_register_stack_logger();
-	if (!msl.dylib) {
+	if (!msl.turn_on_stack_logging) {
 		return false;
 	}
-	boolean_t (*msl_turn_on_stack_logging) (stack_logging_mode_type mode);
-	msl_turn_on_stack_logging = _dlsym(msl.dylib, "msl_turn_on_stack_logging");
-	if (!msl_turn_on_stack_logging) {
-		return false;
-	}
-	return msl_turn_on_stack_logging(mode);
+	return msl.turn_on_stack_logging(mode);
 }
 
 MALLOC_EXPORT
 void turn_off_stack_logging(void)
 {
 	malloc_register_stack_logger();
-	if (!msl.dylib) {
-		return;
-	}
-	void (*msl_turn_off_stack_logging) ();
-	msl_turn_off_stack_logging = _dlsym(msl.dylib, "msl_turn_off_stack_logging");
-	if (msl_turn_off_stack_logging) {
-		msl_turn_off_stack_logging();
+	if (msl.turn_off_stack_logging) {
+		msl.turn_off_stack_logging();
 	}
 }
 
+//deprecated
 kern_return_t
 __mach_stack_logging_start_reading(task_t task, vm_address_t shared_memory_address, boolean_t *uses_lite_mode)
 {
 	malloc_register_stack_logger();
-	if (!msl.dylib) {
+	if (!msld.dylib) {
 		return KERN_FAILURE;
 	}
 	kern_return_t (*f) (task_t task, vm_address_t shared_memory_address, boolean_t *uses_lite_mode);
-	f = _dlsym(msl.dylib, "msl_start_reading");
+	f = _dlsym(msld.dylib, "msl_start_reading");
 	if (!f) {
 		return KERN_FAILURE;
 	}
 	return f(task, shared_memory_address, uses_lite_mode);
 }
 
+
+//deprecated
 kern_return_t
 __mach_stack_logging_stop_reading(task_t task)
 {
 	malloc_register_stack_logger();
-	if (!msl.dylib) {
+	if (!msld.dylib) {
 		return KERN_FAILURE;
 	}
 	kern_return_t (*f) (task_t task);
-	f = _dlsym(msl.dylib, "msl_stop_reading");
+	f = _dlsym(msld.dylib, "msl_stop_reading");
 	if (!f) {
 		return KERN_FAILURE;
 	}
@@ -2816,23 +2868,23 @@ __mach_stack_logging_get_frames(task_t task,
 								uint32_t *count)
 {
 	malloc_register_stack_logger();
-	if (!msl.get_frames_for_address) {
+	if (!msld.get_frames_for_address) {
 		return KERN_FAILURE;
 	}
-	return msl.get_frames_for_address(task, address, stack_frames_buffer, max_stack_frames, count);
+	return msld.get_frames_for_address(task, address, stack_frames_buffer, max_stack_frames, count);
 }
 
 uint64_t
 __mach_stack_logging_stackid_for_vm_region(task_t task, mach_vm_address_t address)
 {
 	malloc_register_stack_logger();
-	if (!msl.stackid_for_vm_region) {
+	if (!msld.stackid_for_vm_region) {
 		return -1ull;
 	}
-	return msl.stackid_for_vm_region(task, address);
+	return msld.stackid_for_vm_region(task, address);
 }
 
-
+//deprecated
 kern_return_t
 __mach_stack_logging_frames_for_uniqued_stack(task_t task,
 											  uint64_t stack_identifier,
@@ -2841,12 +2893,13 @@ __mach_stack_logging_frames_for_uniqued_stack(task_t task,
 											  uint32_t *count)
 {
 	malloc_register_stack_logger();
-	if (!msl.get_frames_for_stackid) {
+	if (!msld.get_frames_for_stackid) {
 		return KERN_FAILURE;
 	}
-	return msl.get_frames_for_stackid(task, stack_identifier, stack_frames_buffer, max_stack_frames, count, NULL);
+	return msld.get_frames_for_stackid(task, stack_identifier, stack_frames_buffer, max_stack_frames, count, NULL);
 }
 
+//deprecated
 kern_return_t
 __mach_stack_logging_get_frames_for_stackid(task_t task,
 											uint64_t stack_identifier,
@@ -2856,12 +2909,13 @@ __mach_stack_logging_get_frames_for_stackid(task_t task,
 											bool *last_frame_is_threadid)
 {
 	malloc_register_stack_logger();
-	if (!msl.get_frames_for_stackid) {
+	if (!msld.get_frames_for_stackid) {
 		return KERN_FAILURE;
 	}
-	return msl.get_frames_for_stackid(task, stack_identifier, stack_frames_buffer, max_stack_frames, count, last_frame_is_threadid);
+	return msld.get_frames_for_stackid(task, stack_identifier, stack_frames_buffer, max_stack_frames, count, last_frame_is_threadid);
 }
 
+//deprecated
 kern_return_t
 __mach_stack_logging_uniquing_table_read_stack(struct backtrace_uniquing_table *uniquing_table,
 											   uint64_t stackid,
@@ -2870,12 +2924,13 @@ __mach_stack_logging_uniquing_table_read_stack(struct backtrace_uniquing_table *
 											   uint32_t max_frames)
 {
 	malloc_register_stack_logger();
-	if (!msl.uniquing_table_read_stack) {
+	if (!msld.uniquing_table_read_stack) {
 		return KERN_FAILURE;
 	}
-	return msl.uniquing_table_read_stack(uniquing_table, stackid, out_frames_buffer, out_frames_count, max_frames);
+	return msld.uniquing_table_read_stack(uniquing_table, stackid, out_frames_buffer, out_frames_count, max_frames);
 }
 
+//deprecated
 kern_return_t
 __mach_stack_logging_enumerate_records(task_t task,
 									   mach_vm_address_t address,
@@ -2887,93 +2942,100 @@ __mach_stack_logging_enumerate_records(task_t task,
 						mach_vm_address_t address,
 						void enumerator(mach_stack_logging_record_t, void *),
 						void *context);
-	if (!msl.dylib) {
+	if (!msld.dylib) {
 		return KERN_FAILURE;
 	}
-	f = _dlsym(msl.dylib, "msl_disk_stack_logs_enumerate_from_task");
+	f = _dlsym(msld.dylib, "msl_disk_stack_logs_enumerate_from_task");
 	if (!f) {
 		return KERN_FAILURE;
 	}
 	return f(task, address, enumerator, context);
 }
 
+
+//deprecated
 struct backtrace_uniquing_table *
 __mach_stack_logging_copy_uniquing_table(task_t task)
 {
 	malloc_register_stack_logger();
 	struct backtrace_uniquing_table * (*f) (task_t task);
-	if (!msl.dylib) {
+	if (!msld.dylib) {
 		return NULL;
 	}
-	f = _dlsym(msl.dylib, "msl_uniquing_table_copy_from_task");
+	f = _dlsym(msld.dylib, "msl_uniquing_table_copy_from_task");
 	if (!f) {
 		return NULL;
 	}
 	return f(task);
 }
 
+//deprecated
 struct backtrace_uniquing_table *
 __mach_stack_logging_uniquing_table_copy_from_serialized(void *buffer, size_t size)
 {
 	malloc_register_stack_logger();
 	struct backtrace_uniquing_table * (*f) (void *buffer, size_t size);
-	if (!msl.dylib) {
+	if (!msld.dylib) {
 		return NULL;
 	}
-	f = _dlsym(msl.dylib, "msl_uniquing_table_copy_from_serialized");
+	f = _dlsym(msld.dylib, "msl_uniquing_table_copy_from_serialized");
 	if (!f) {
 		return NULL;
 	}
 	return f(buffer, size);
 }
 
+//deprecated
 void
 __mach_stack_logging_uniquing_table_release(struct backtrace_uniquing_table *table)
 {
 	malloc_register_stack_logger();
-	if (!msl.dylib) {
+	if (!msld.dylib) {
 		return;
 	}
 	void (*f) (struct backtrace_uniquing_table *table);
-	f = _dlsym(msl.dylib, "msl_uniquing_table_release");
+	f = _dlsym(msld.dylib, "msl_uniquing_table_release");
 	if (f) {
 		f(table);
 	}
 }
 
+//deprecated
 void
 __mach_stack_logging_uniquing_table_retain(struct backtrace_uniquing_table *table)
 {
 	malloc_register_stack_logger();
-	if (!msl.dylib) {
+	if (!msld.dylib) {
 		return;
 	}
 	void (*f) (struct backtrace_uniquing_table *table);
-	f = _dlsym(msl.dylib, "msl_uniquing_table_retain");
+	f = _dlsym(msld.dylib, "msl_uniquing_table_retain");
 	if (f) {
 		f(table);
 	}
 }
 
+//deprecated
 extern
 size_t
 __mach_stack_logging_uniquing_table_sizeof(struct backtrace_uniquing_table *table)
 {
 	malloc_register_stack_logger();
 	size_t (*f) (struct backtrace_uniquing_table *table);
-	f = _dlsym(msl.dylib, "msl_uniquing_table_retain");
+	f = _dlsym(msld.dylib, "msl_uniquing_table_retain");
 	return f(table);
 }
 
+//deprecated
 void *
 __mach_stack_logging_uniquing_table_serialize(struct backtrace_uniquing_table *table, mach_vm_size_t *size)
 {
 	malloc_register_stack_logger();
-	if (!msl.dylib) {
+	if (!msld.dylib) {
 		return NULL;
 	}
 	void * (*f) (struct backtrace_uniquing_table *table, mach_vm_size_t *size);
-	f = _dlsym(msl.dylib, "msl_uniquing_table_serialize");
+	f = _dlsym(msld.dylib, "msl_uniquing_table_serialize");
 	if (!f) {
 		return NULL;
 	}

@@ -176,7 +176,7 @@ settimeofday(__unused struct proc *p, struct settimeofday_args  *uap, __unused i
 	bzero(&atv, sizeof(atv));
 
 	/* Check that this task is entitled to set the time or it is root */
-	if (!IOTaskHasEntitlement(current_task(), SETTIME_ENTITLEMENT)) {
+	if (!IOCurrentTaskHasEntitlement(SETTIME_ENTITLEMENT)) {
 #if CONFIG_MACF
 		error = mac_system_check_settime(kauth_cred_get());
 		if (error) {
@@ -491,7 +491,7 @@ realitexpire(
 	struct proc *r;
 	struct timeval t;
 
-	r = proc_find(p->p_pid);
+	r = proc_find(proc_getpid(p));
 
 	proc_spinlock(p);
 
@@ -585,7 +585,7 @@ proc_free_realitimer(proc_t p)
 	proc_spinlock(p);
 
 	assert(p->p_rcall != NULL);
-	assert(p->p_refcount == 0);
+	assert(proc_list_exited(p));
 
 	timerclear(&p->p_realtimer.it_interval);
 

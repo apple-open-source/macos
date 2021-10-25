@@ -36,6 +36,7 @@
 /* Begin PBXBuildFile section */
 		1864C88E23F227D200A383C1 /* notify_test_helper.c in Sources */ = {isa = PBXBuildFile; fileRef = 1864C88223F2174E00A383C1 /* notify_test_helper.c */; };
 		1886391920E1A2BF00C8BEA9 /* notify_bench.c in Sources */ = {isa = PBXBuildFile; fileRef = 727C90371B9A372700D5B754 /* notify_bench.c */; };
+		189ACD7F25800C0100816271 /* com.apple.notify-tests.sb in Install Sandbox */ = {isa = PBXBuildFile; fileRef = 189ACD5C257FFE2100816271 /* com.apple.notify-tests.sb */; };
 		2D312B76102CA2E300F90022 /* libnotify.c in Sources */ = {isa = PBXBuildFile; fileRef = 2D312B73102CA2E300F90022 /* libnotify.c */; };
 		2D312B77102CA2E300F90022 /* notify_client.c in Sources */ = {isa = PBXBuildFile; fileRef = 2D312B74102CA2E300F90022 /* notify_client.c */; };
 		2D312B78102CA2E300F90022 /* table.c in Sources */ = {isa = PBXBuildFile; fileRef = 2D312B75102CA2E300F90022 /* table.c */; };
@@ -77,6 +78,7 @@
 		9487BF2C2089BAA30043BF74 /* table.c in Sources */ = {isa = PBXBuildFile; fileRef = 2D312B75102CA2E300F90022 /* table.c */; };
 		9487BF2D2089BAB20043BF74 /* libnotify.c in Sources */ = {isa = PBXBuildFile; fileRef = 2D312B73102CA2E300F90022 /* libnotify.c */; };
 		E6481E7F2165785F00C04412 /* notify_probes.d in Sources */ = {isa = PBXBuildFile; fileRef = E6481E7E2165785F00C04412 /* notify_probes.d */; };
+		F74F76B525DB8F17008B3BB8 /* notify_old_ipc.defs in Sources */ = {isa = PBXBuildFile; fileRef = F74F76AC25DB8EF8008B3BB8 /* notify_old_ipc.defs */; settings = {ATTRIBUTES = (Client, ); }; };
 		FC7B7A53155781930064D203 /* notify_internal.h in Headers */ = {isa = PBXBuildFile; fileRef = FC7B7A52155781930064D203 /* notify_internal.h */; };
 /* End PBXBuildFile section */
 
@@ -120,6 +122,17 @@
 			files = (
 			);
 			name = "Install man page";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		189ACD7E25800BEC00816271 /* Install Sandbox */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /System/Library/Sandbox/Profiles;
+			dstSubfolderSpec = 0;
+			files = (
+				189ACD7F25800C0100816271 /* com.apple.notify-tests.sb in Install Sandbox */,
+			);
+			name = "Install Sandbox";
 			runOnlyForDeploymentPostprocessing = 1;
 		};
 		2D38AA09102CD87C00D3D622 /* Copy man3 Files */ = {
@@ -204,6 +217,8 @@
 		1864C88223F2174E00A383C1 /* notify_test_helper.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = notify_test_helper.c; sourceTree = "<group>"; };
 		1864C88B23F227AC00A383C1 /* notify_test_helper */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = notify_test_helper; sourceTree = BUILT_PRODUCTS_DIR; };
 		1886391720E1A22F00C8BEA9 /* notifybench */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = notifybench; sourceTree = BUILT_PRODUCTS_DIR; };
+		189ACD5C257FFE2100816271 /* com.apple.notify-tests.sb */ = {isa = PBXFileReference; lastKnownFileType = text; path = "com.apple.notify-tests.sb"; sourceTree = "<group>"; };
+		189ACD7D25800A0B00816271 /* notify_sandbox.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = notify_sandbox.c; sourceTree = "<group>"; };
 		2D312B73102CA2E300F90022 /* libnotify.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = libnotify.c; sourceTree = "<group>"; usesTabs = 1; };
 		2D312B74102CA2E300F90022 /* notify_client.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = notify_client.c; sourceTree = "<group>"; tabWidth = 8; usesTabs = 1; };
 		2D312B75102CA2E300F90022 /* table.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = table.c; sourceTree = "<group>"; };
@@ -271,6 +286,7 @@
 		C0FF3C23234516ED00ABBA89 /* notify_matching.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = notify_matching.c; sourceTree = "<group>"; };
 		C0FF3C242345172700ABBA89 /* notify_leaks.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = notify_leaks.c; sourceTree = "<group>"; };
 		E6481E7E2165785F00C04412 /* notify_probes.d */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.dtrace; path = notify_probes.d; sourceTree = "<group>"; };
+		F74F76AC25DB8EF8008B3BB8 /* notify_old_ipc.defs */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.mig; path = notify_old_ipc.defs; sourceTree = "<group>"; };
 		FC7B7A52155781930064D203 /* notify_internal.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = notify_internal.h; sourceTree = "<group>"; usesTabs = 1; };
 /* End PBXFileReference section */
 
@@ -322,6 +338,7 @@
 				3F94777F191C322100A93E8E /* xcodescripts */,
 				3F999960185C474E00EAD3A0 /* xcodeconfig */,
 				2D312B79102CA30200F90022 /* notify_ipc.defs */,
+				F74F76AC25DB8EF8008B3BB8 /* notify_old_ipc.defs */,
 				6E8E6ACD2282A7DA0084C085 /* notify.defs */,
 				3FA21A97148AA7CD00099D2F /* libsystem_notify */,
 				3FA21AA7148AA82700099D2F /* notifyutil */,
@@ -524,6 +541,8 @@
 				182FD2C2210BB0F600BF263C /* notify_benchmark.c */,
 				180F8D3E21136EBF009A472B /* notify_pathwatch.c */,
 				C0FF3C242345172700ABBA89 /* notify_leaks.c */,
+				189ACD5C257FFE2100816271 /* com.apple.notify-tests.sb */,
+				189ACD7D25800A0B00816271 /* notify_sandbox.c */,
 			);
 			path = tests;
 			sourceTree = "<group>";
@@ -597,6 +616,7 @@
 			buildConfigurationList = 1864C88823F227AC00A383C1 /* Build configuration list for PBXNativeTarget "notify_test_helper" */;
 			buildPhases = (
 				1864C88423F227AC00A383C1 /* Sources */,
+				189ACD7E25800BEC00816271 /* Install Sandbox */,
 			);
 			buildRules = (
 			);
@@ -855,6 +875,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				F74F76B525DB8F17008B3BB8 /* notify_old_ipc.defs in Sources */,
 				2D312B7A102CA30200F90022 /* notify_ipc.defs in Sources */,
 				2D312B76102CA2E300F90022 /* libnotify.c in Sources */,
 				2D312B77102CA2E300F90022 /* notify_client.c in Sources */,
@@ -987,9 +1008,44 @@
 			buildSettings = {
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				CODE_SIGN_ENTITLEMENTS = notifyd/entitlements.plist;
+				LIBNOTIFY_UBSAN_DEBUG_CFLAGS = "-fsanitize=signed-integer-overflow,shift,pointer-overflow,float-cast-overflow,bounds,enum -fsanitize-trap=signed-integer-overflow,shift,pointer-overflow,float-cast-overflow,bounds,enum";
+				LIBNOTIFY_UBSAN_NONDEBUG_CFLAGS = "-fsanitize=signed-integer-overflow,shift,pointer-overflow,object-size,float-cast-overflow,bounds,enum -fsanitize-trap=signed-integer-overflow,shift,pointer-overflow,object-size,float-cast-overflow,bounds,enum";
 				OTHER_CFLAGS = (
 					"$(inherited)",
 					"-DSINGLE_THREADED_NOTIFY_STATE=1",
+				);
+				"OTHER_CFLAGS[sdk=appletvos*]" = (
+					"$(inherited)",
+					"-DSINGLE_THREADED_NOTIFY_STATE=1",
+					"$(LIBNOTIFY_UBSAN_NONDEBUG_CFLAGS)",
+				);
+				"OTHER_CFLAGS[sdk=bridgeos*]" = (
+					"$(inherited)",
+					"-DSINGLE_THREADED_NOTIFY_STATE=1",
+				);
+				"OTHER_CFLAGS[sdk=iphoneos*]" = (
+					"$(inherited)",
+					"-DSINGLE_THREADED_NOTIFY_STATE=1",
+					"$(LIBNOTIFY_UBSAN_NONDEBUG_CFLAGS)",
+				);
+				"OTHER_CFLAGS[sdk=watchos*]" = (
+					"$(inherited)",
+					"-DSINGLE_THREADED_NOTIFY_STATE=1",
+					"$(LIBNOTIFY_UBSAN_NONDEBUG_CFLAGS)",
+				);
+				OTHER_CPLUSPLUSFLAGS = "$(OTHER_CFLAGS)";
+				"OTHER_CPLUSPLUSFLAGS[sdk=appletvos*]" = (
+					"$(OTHER_CFLAGS)",
+					"$(LIBNOTIFY_UBSAN_NONDEBUG_CFLAGS)",
+				);
+				"OTHER_CPLUSPLUSFLAGS[sdk=bridgeos*]" = "$(OTHER_CFLAGS)";
+				"OTHER_CPLUSPLUSFLAGS[sdk=iphoneos*]" = (
+					"$(OTHER_CFLAGS)",
+					"$(LIBNOTIFY_UBSAN_NONDEBUG_CFLAGS)",
+				);
+				"OTHER_CPLUSPLUSFLAGS[sdk=watchos*]" = (
+					"$(OTHER_CFLAGS)",
+					"$(LIBNOTIFY_UBSAN_NONDEBUG_CFLAGS)",
 				);
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
@@ -1155,9 +1211,44 @@
 			buildSettings = {
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				CODE_SIGN_ENTITLEMENTS = notifyd/entitlements.plist;
+				LIBNOTIFY_UBSAN_DEBUG_CFLAGS = "-fsanitize=signed-integer-overflow,shift,pointer-overflow,float-cast-overflow,bounds,enum -fsanitize-trap=signed-integer-overflow,shift,pointer-overflow,float-cast-overflow,bounds,enum";
+				LIBNOTIFY_UBSAN_NONDEBUG_CFLAGS = "-fsanitize=signed-integer-overflow,shift,pointer-overflow,object-size,float-cast-overflow,bounds,enum -fsanitize-trap=signed-integer-overflow,shift,pointer-overflow,object-size,float-cast-overflow,bounds,enum";
 				OTHER_CFLAGS = (
 					"$(inherited)",
 					"-DSINGLE_THREADED_NOTIFY_STATE=1",
+				);
+				"OTHER_CFLAGS[sdk=appletvos*]" = (
+					"$(inherited)",
+					"-DSINGLE_THREADED_NOTIFY_STATE=1",
+					"$(LIBNOTIFY_UBSAN_DEBUG_CFLAGS)",
+				);
+				"OTHER_CFLAGS[sdk=bridgeos*]" = (
+					"$(inherited)",
+					"-DSINGLE_THREADED_NOTIFY_STATE=1",
+				);
+				"OTHER_CFLAGS[sdk=iphoneos*]" = (
+					"$(inherited)",
+					"-DSINGLE_THREADED_NOTIFY_STATE=1",
+					"$(LIBNOTIFY_UBSAN_DEBUG_CFLAGS)",
+				);
+				"OTHER_CFLAGS[sdk=watchos*]" = (
+					"$(inherited)",
+					"-DSINGLE_THREADED_NOTIFY_STATE=1",
+					"$(LIBNOTIFY_UBSAN_DEBUG_CFLAGS)",
+				);
+				OTHER_CPLUSPLUSFLAGS = "$(OTHER_CFLAGS)";
+				"OTHER_CPLUSPLUSFLAGS[sdk=appletvos*]" = (
+					"$(OTHER_CFLAGS)",
+					"$(LIBNOTIFY_UBSAN_DEBUG_CFLAGS)",
+				);
+				"OTHER_CPLUSPLUSFLAGS[sdk=bridgeos*]" = "$(OTHER_CFLAGS)";
+				"OTHER_CPLUSPLUSFLAGS[sdk=iphoneos*]" = (
+					"$(OTHER_CFLAGS)",
+					"$(LIBNOTIFY_UBSAN_DEBUG_CFLAGS)",
+				);
+				"OTHER_CPLUSPLUSFLAGS[sdk=watchos*]" = (
+					"$(OTHER_CFLAGS)",
+					"$(LIBNOTIFY_UBSAN_DEBUG_CFLAGS)",
 				);
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};

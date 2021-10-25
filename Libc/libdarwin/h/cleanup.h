@@ -56,7 +56,7 @@
 #include <mach/port.h>
 #include <mach/mach_port.h>
 #include <mach/kern_return.h>
-#include <mach/mach_right.h>
+#include <mach/mach_right_private.h>
 
 #if DARWIN_TAPI
 #include "tapi.h"

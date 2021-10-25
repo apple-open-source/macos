@@ -56,7 +56,7 @@ DecodedExten::DecodedExten(
 {
 	coder.allocCopyItem(extnId, mExtnId);
 	if(rawExtn) {
-		mRawExtn = (CSSM_DATA *)coder.malloc(sizeof(CSSM_DATA));
+		mRawExtn = (CSSM_DATA *)coder.alloc(sizeof(CSSM_DATA));
 		coder.allocCopyItem(*rawExtn, *mRawExtn);
 	}
 }
@@ -396,7 +396,7 @@ void DecodedExtensions::decodeFromNss(
 			 * have to know what kind of object it is anymore.
 			 */
 			assert(templ != NULL);
-			nssObj = mCoder.malloc(nssObjLen);
+			nssObj = mCoder.alloc(nssObjLen);
 			memset(nssObj, 0, nssObjLen);
 			PRErrorCode prtn;
 			prtn = mCoder.decodeItem(rawExtn, templ, nssObj);
@@ -443,14 +443,14 @@ void DecodedExtensions::encodeToNss(
 
 	/* malloc a NULL_terminated array of NSS_CertExtension pointers */
 	unsigned len = (mNumExtensions + 1) * sizeof(NSS_CertExtension *);
-	extensions = (NSS_CertExtension **)mCoder.malloc(len);
+	extensions = (NSS_CertExtension **)mCoder.alloc(len);
 	memset(extensions, 0, len);
 
 	/* grind thru our DecodedExtens, creating an NSS_CertExtension for
 	 * each one */
 	for(unsigned extenDex=0; extenDex<mNumExtensions; extenDex++) {
 		NSS_CertExtension *thisNssExten =
-			(NSS_CertExtension *)mCoder.malloc(sizeof(NSS_CertExtension));
+			(NSS_CertExtension *)mCoder.alloc(sizeof(NSS_CertExtension));
 		memset(thisNssExten, 0, sizeof(NSS_CertExtension));
 		extensions[extenDex] = thisNssExten;
 

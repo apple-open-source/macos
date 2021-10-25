@@ -27,13 +27,23 @@
 
 - (NSString* _Nullable)primaryiCloudAccountAltDSID:(NSError **)error
 {
+    if([ACAccountStore class] == nil || [ACAccount class] == nil) {
+        secnotice("authkit", "ACAccount not available");
+        if(error) {
+            *error = [NSError errorWithDomain:OctagonErrorDomain
+                                         code:OctagonErrorRequiredLibrariesNotPresent
+                                  description:@"ACAccount not available"];
+        }
+        return nil;
+    }
+
     ACAccountStore *store = [[ACAccountStore alloc] init];
     ACAccount* primaryAccount = [store aa_primaryAppleAccount];
     if(!primaryAccount) {
         secnotice("authkit", "No primary account");
         if (error) {
             *error = [NSError errorWithDomain:OctagonErrorDomain
-                                         code:OTAuthKitNoPrimaryAccount
+                                         code:OctagonErrorAuthKitNoPrimaryAccount
                                   description:@"No primary account"];
         }
         return nil;
@@ -44,7 +54,7 @@
         secnotice("authkit", "No altDSID on primary account");
         if (error) {
             *error = [NSError errorWithDomain:OctagonErrorDomain
-                                         code:OTAuthKitPrimaryAccountHaveNoDSID
+                                         code:OctagonErrorAuthKitPrimaryAccountHaveNoDSID
                                   description:@"No altdsid on primary account"];
         }
     }
@@ -53,6 +63,11 @@
 
 - (BOOL)accountIsHSA2ByAltDSID:(NSString*)altDSID
 {
+    if([ACAccount class] == nil || [AKAccountManager class] == nil) {
+        secnotice("authkit", "AuthKit not available");
+        return NO;
+    }
+
     BOOL hsa2 = NO;
 
     AKAccountManager *manager = [AKAccountManager sharedInstance];
@@ -73,7 +88,7 @@
     if(altDSID == nil) {
         secerror("octagon-authkit:could not retrieve altDSID");
     }
-    if (localError) {
+    if (altDSID == nil || localError) {
         secerror("octagon-authkit: hit an error retrieving altDSID: %@", localError);
         if(error){
             *error = localError;
@@ -92,6 +107,16 @@
 
 - (NSString* _Nullable)machineID:(NSError**)error
 {
+    if([AKAnisetteProvisioningController class] == nil || [AKAnisetteData class] == nil) {
+        secnotice("authkit", "AKAnisette not available");
+        if(error) {
+            *error = [NSError errorWithDomain:OctagonErrorDomain
+                                         code:OctagonErrorRequiredLibrariesNotPresent
+                                  description:@"AKAnisette not available"];
+        }
+        return nil;
+    }
+
     AKAnisetteProvisioningController* anisetteController = [[AKAnisetteProvisioningController alloc] init];
     NSError* localError = nil;
     AKAnisetteData* anisetteData = [anisetteController anisetteDataWithError:&localError];
@@ -109,7 +134,7 @@
         if(error) {
             [SecABC triggerAutoBugCaptureWithType:@"AuthKit" subType:@"missingMID"];
             *error = [NSError errorWithDomain:OctagonErrorDomain
-                                         code:OTAuthKitMachineIDMissing
+                                         code:OctagonErrorAuthKitMachineIDMissing
                                   description:@"Anisette data does not have machineID"];
         }
         return nil;
@@ -122,10 +147,18 @@
 
 - (void)fetchCurrentDeviceList:(void (^)(NSSet<NSString*>* _Nullable machineIDs, NSError* _Nullable error))complete
 {
+    if([AKDeviceListRequestContext class] == nil || [AKAppleIDAuthenticationController class] == nil) {
+        secnotice("authkit", "AuthKit not available");
+        complete(nil, [NSError errorWithDomain:OctagonErrorDomain
+                                          code:OctagonErrorRequiredLibrariesNotPresent
+                                   description:@"AKAnisette not available"]);
+        return;
+    }
+
     AKDeviceListRequestContext* context = [[AKDeviceListRequestContext alloc] init];
     if (context == nil) {
         NSError *error = [NSError errorWithDomain:OctagonErrorDomain
-                                             code:OTAuthKitAKDeviceListRequestContextClass
+                                             code:OctagonErrorAuthKitAKDeviceListRequestContextClass
                                       description:@"can't get AKDeviceListRequestContextClass"];
         [[CKKSAnalytics logger] logUnrecoverableError:error forEvent:OctagonEventAuthKitDeviceList withAttributes:nil];
         complete(nil, error);
@@ -136,7 +169,7 @@
     if (context.altDSID == NULL) {
         secnotice("authkit", "Failed to get primary account AltDSID: %@", authKitError);
         NSError *error = [NSError errorWithDomain:OctagonErrorDomain
-                                             code:OTAuthKitPrimaryAccountHaveNoDSID
+                                             code:OctagonErrorAuthKitPrimaryAccountHaveNoDSID
                                       description:@"Can't get primary AltDSID"
                                        underlying:authKitError];
         [[CKKSAnalytics logger] logUnrecoverableError:error forEvent:OctagonEventAuthKitDeviceList withAttributes:nil];
@@ -148,7 +181,7 @@
     AKAppleIDAuthenticationController *authController = [[AKAppleIDAuthenticationController alloc] init];
     if(authController == nil) {
         NSError *error = [NSError errorWithDomain:OctagonErrorDomain
-                                             code:OTAuthKitNoAuthenticationController
+                                             code:OctagonErrorAuthKitNoAuthenticationController
                                       description:@"can't get authController"];
         [[CKKSAnalytics logger] logUnrecoverableError:error forEvent:OctagonEventAuthKitDeviceList withAttributes:nil];
         complete(nil, error);
@@ -186,6 +219,11 @@
 
 - (void)notifyAKDeviceList:(NSNotification* _Nullable)notification
 {
+    if([AKDeviceListDeltaMessagePayload class] == nil) {
+        secnotice("authkit", "AuthKit not available; dropping device list notification");
+        return;
+    }
+
     AKDeviceListDeltaMessagePayload *payload = nil;
     NSDictionary *userInfo = nil;
     if (notification != nil) {

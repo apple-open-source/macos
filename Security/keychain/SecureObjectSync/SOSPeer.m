@@ -445,13 +445,11 @@ static FILE *fopen_journal(const char *journalPath, const char *mode, CFErrorRef
 
 #include <sys/stat.h>
 
-#if !defined(NDEBUG)
 static off_t getFileSize(int fd) {
     struct stat sb;
     fstat(fd, &sb);
     return sb.st_size;
 }
-#endif
 
 int SOSPeerHandoffFD(SOSPeerRef peer, CFErrorRef *error) {
     __block int fd = -1;
@@ -461,11 +459,13 @@ int SOSPeerHandoffFD(SOSPeerRef peer, CFErrorRef *error) {
             if (!SecCheckErrno(unlink(journalName), error, CFSTR("unlink %s"), journalName)) {
                 close(fd);
                 fd = -1;
+                secnotice("backup", "Unable to unlink file %s: %@", journalName, error?*error:NULL);
             } else {
                 secdebug("backup", "Handing off file %s with fd %d of size %llu", journalName, fd, getFileSize(fd));
+                secnotice("backup", "Handing off file %s of size %llu", journalName, getFileSize(fd));
             }
         } else {
-            secdebug("backup", "Handing off file %s failed, %@", journalName, error?*error:NULL);
+            secnotice("backup", "Handing off file %s failed, %@", journalName, error?*error:NULL);
         }
     });
     return fd;

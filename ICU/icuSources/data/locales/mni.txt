@@ -1,5 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
-// License & terms of use: http://www.unicode.org/copyright.html#License
+// License & terms of use: http://www.unicode.org/copyright.html
+// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
 mni{
     AuxExemplarCharacters{"[\u200C\u200D]"}
     ExemplarCharacters{
@@ -14,32 +15,78 @@ mni{
     }
     NumberElements{
         default{"beng"}
+        latn{
+            symbols{
+                decimal{"."}
+                group{","}
+                minusSign{"-"}
+                percentSign{"%"}
+                plusSign{"+"}
+            }
+        }
     }
-    Version{"36.1"}
     calendar{
+        generic{
+            DateTimePatterns{
+                "h:mm:ss a zzzz",
+                "h:mm:ss a z",
+                "h:mm:ss a",
+                "h:mm a",
+                "MMMM d, y G, EEEE",
+                "MMMM d, y G",
+                "MMM d, y G",
+                "M/d/y GGGGG",
+                "{1} {0}",
+                "{1} গী {0} দা",
+                "{1} গী {0} দা",
+                "{1} {0}",
+                "{1}, {0}",
+            }
+            intervalFormats{
+                fallback{"{0} - {1}"}
+            }
+        }
         gregorian{
             AmPmMarkers{
-                "নুমাং",
-                "নুতুং",
+                "এ এম",
+                "পি এম",
             }
             AmPmMarkersAbbr{
                 "নুমাং",
-                "নুতুং",
+                "PM",
             }
             DateTimePatterns{
-                "h.mm.ss a zzzz",
-                "h.mm.ss a z",
-                "h.mm.ss a",
-                "h.mm. a",
-                "EEEE, d MMMM, y",
-                "d MMMM, y",
-                "dd-MM-y",
-                "d-M-y",
-                "{1} {0}",
-                "{1} {0}",
-                "{1} {0}",
-                "{1} {0}",
-                "{1} {0}",
+                "h:mm:ss a zzzz",
+                "h:mm:ss a z",
+                "h:mm:ss a",
+                "h:mm a",
+                "MMMM d, y, EEEE",
+                "MMMM d, y",
+                "MMM d, y",
+                "d/M/yy",
+                "{1}, {0}",
+                "{1} গী {0} দা",
+                "{1} গী {0} দা",
+                "{1}, {0}",
+                "{1}, {0}",
+            }
+            availableFormats{
+                GyMMM{"G y MMM"}
+                GyMMMEd{"G y MMM d, E"}
+                GyMMMd{"G y MMM d"}
+                MEd{"d/M, E"}
+                MMMEd{"MMM d, E"}
+                MMMMd{"MMMM d"}
+                MMMd{"MMM d"}
+                Md{"d/M"}
+                yM{"M/y"}
+                yMEd{"d/M/y, E"}
+                yMMM{"MMM y"}
+                yMMMEd{"MMM d, y, E"}
+                yMMMM{"MMMM y"}
+                yMMMd{"MMM d, y"}
+                yMd{"d/M/y"}
+                yQQQ{"y QQQ"}
             }
             dayNames{
                 format{
@@ -50,7 +97,16 @@ mni{
                         "য়ুমশকৈশা",
                         "শগোলশেন",
                         "ইরাই",
-                        "থাংজা",
+                        "থাংজ",
+                    }
+                    narrow{
+                        "নোং",
+                        "নিং",
+                        "লৈ",
+                        "য়ুম",
+                        "শগ",
+                        "ইরা",
+                        "থাং",
                     }
                     wide{
                         "নোংমাইজিং",
@@ -59,15 +115,54 @@ mni{
                         "য়ুমশকৈশা",
                         "শগোলশেন",
                         "ইরাই",
-                        "থাংজা",
+                        "থাংজ",
                     }
+                }
+                stand-alone{
+                    abbreviated{
+                        "নোংমাইজিং",
+                        "নিংথৌকাবা",
+                        "লৈবাকপোকপা",
+                        "য়ুমশকৈশা",
+                        "শগোলশেন",
+                        "ইরাই",
+                        "থাংজ",
+                    }
+                    narrow{
+                        "নো",
+                        "নিং",
+                        "লৈ",
+                        "য়ুম",
+                        "শগ",
+                        "ইরা",
+                        "থাং",
+                    }
+                    wide{
+                        "নোংমাইজিং",
+                        "নিংথৌকাবা",
+                        "লৈবাকপোকপা",
+                        "য়ুমশকৈশা",
+                        "শগোলশেন",
+                        "ইরাই",
+                        "থাংজ",
+                    }
+                }
+            }
+            eras{
+                abbreviated{
+                    "খৃ: মমাং",
+                    "খৃ: মতুং",
+                }
+                abbreviated%variant{
+                    "বি সি ই",
+                    "সি ই",
                 }
             }
             monthNames{
                 format{
                     abbreviated{
-                        "জানুয়ারী",
-                        "ফেব্রুয়ারী",
+                        "জানুৱারি",
+                        "ফেব্রুৱারি",
                         "মার্চ",
                         "এপ্রিল",
                         "মে",
@@ -79,9 +174,23 @@ mni{
                         "নভেম্বর",
                         "ডিসেম্বর",
                     }
+                    narrow{
+                        "জা",
+                        "ফে",
+                        "মার",
+                        "এপ",
+                        "মে",
+                        "জুন",
+                        "জুল",
+                        "আ",
+                        "সে",
+                        "ওক",
+                        "নব",
+                        "ডি",
+                    }
                     wide{
-                        "জানুয়ারী",
-                        "ফেব্রুয়ারী",
+                        "জানুৱারি",
+                        "ফেব্রুৱারি",
                         "মার্চ",
                         "এপ্রিল",
                         "মে",
@@ -91,6 +200,50 @@ mni{
                         "সেপ্টেম্বর",
                         "ওক্টোবর",
                         "নভেম্বর",
+                        "ডিসেম্বর",
+                    }
+                }
+                stand-alone{
+                    abbreviated{
+                        "জানু",
+                        "ফেব্রু",
+                        "মার",
+                        "এপ্রি",
+                        "মে",
+                        "জুন",
+                        "জুলা",
+                        "আগ",
+                        "সেপ্ট",
+                        "ওক্টো",
+                        "নভে",
+                        "ডিসে",
+                    }
+                    narrow{
+                        "জা",
+                        "ফে",
+                        "মার",
+                        "এপ",
+                        "মে",
+                        "জুন",
+                        "জুল",
+                        "আ",
+                        "সে",
+                        "ও",
+                        "নব",
+                        "ডি",
+                    }
+                    wide{
+                        "জানুৱারি",
+                        "ফেব্রুৱারি",
+                        "মার্চ",
+                        "এপ্রিল",
+                        "মে",
+                        "জুন",
+                        "জুলাই",
+                        "ওগষ্ট",
+                        "সেপ্টেম্বর",
+                        "ওক্টোবর",
+                        "নবেম্বর",
                         "ডিসেম্বর",
                     }
                 }
@@ -116,6 +269,29 @@ mni{
     fields{
         day{
             dn{"নুমিৎ"}
+            relative{
+                "-1"{"ঙরাং"}
+                "0"{"ঙসি"}
+                "1"{"হয়েং"}
+            }
+        }
+        day-narrow{
+            dn{"নুমিৎ"}
+            relative{
+                "-1"{"ঙরাং"}
+                "0"{"ঙসি"}
+                "1"{"হয়েং"}
+            }
+        }
+        day-short{
+            relative{
+                "-1"{"ঙরাং"}
+                "0"{"ঙসি"}
+                "1"{"হয়েং"}
+            }
+        }
+        dayperiod{
+            dn{"এ এম/পি এম"}
         }
         era{
             dn{"চক"}
@@ -124,10 +300,25 @@ mni{
             dn{"পুং"}
         }
         minute{
-            dn{"মীৎকুপ"}
+            dn{"মিনট"}
+        }
+        minute-narrow{
+            dn{"মিনট"}
+        }
+        minute-short{
+            dn{"মিনট"}
         }
         month{
             dn{"থা"}
+        }
+        quarter{
+            dn{"মসুং"}
+        }
+        quarter-narrow{
+            dn{"মসুং"}
+        }
+        quarter-short{
+            dn{"মসুং"}
         }
         second{
             dn{"সেকেণ্ড"}
@@ -135,11 +326,27 @@ mni{
         week{
             dn{"চয়োল"}
         }
+        weekday{
+            dn{"চয়োলগী নুমিৎ"}
+        }
         year{
             dn{"চহী"}
         }
         zone{
-            dn{"মতুপ"}
+            dn{"জোন"}
         }
+    }
+    listPattern{
+        standard{
+            2{"{0} অমসুং {1}"}
+            end{"{0} অমসুং {1}"}
+            middle{"{0}, {1}"}
+            start{"{0}, {1}"}
+        }
+    }
+    measurementSystemNames{
+        UK{"য়ু কে"}
+        US{"য়ু এস"}
+        metric{"মেত্রিক"}
     }
 }

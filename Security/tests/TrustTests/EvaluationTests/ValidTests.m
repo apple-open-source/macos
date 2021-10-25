@@ -26,7 +26,6 @@ enum {
 
 @implementation ValidTests
 
-#if !TARGET_OS_BRIDGE
 - (void) run_valid_trust_test:(SecCertificateRef)leaf
                            ca:(SecCertificateRef)ca
                         subca:(SecCertificateRef)subca
@@ -85,6 +84,10 @@ enum {
 
 - (void)test_date_constraints
 {
+#if TARGET_OS_BRIDGE
+    /* Valid is not supported on bridgeOS */
+    XCTSkip();
+#endif
     SecCertificateRef ca_na=NULL, ca_nb=NULL, root=NULL;
     SecCertificateRef leaf_na_ok1=NULL, leaf_na_ok2=NULL;
     SecCertificateRef leaf_nb_ok1=NULL, leaf_nb_ok2=NULL, leaf_nb_revoked1=NULL;
@@ -165,6 +168,10 @@ enum {
 
 - (void)test_known_intermediate
 {
+#if TARGET_OS_BRIDGE
+    /* Valid is not supported on bridgeOS */
+    XCTSkip();
+#endif
     SecCertificateRef ca_ki=NULL, root=NULL;
     SecCertificateRef leaf_ki_ok1=NULL, leaf_ki_revoked1=NULL;
     SecCertificateRef leaf_unknown=NULL, ca_unknown=NULL;
@@ -213,12 +220,5 @@ enum {
     CFReleaseSafe(cal);
     CFReleaseSafe(date_20180310);
 }
-#else /* TARGET_OS_BRIDGE */
-/* Valid is not supported on bridgeOS */
-- (void)testSkipTests
-{
-    XCTAssert(true);
-}
-#endif
 
 @end

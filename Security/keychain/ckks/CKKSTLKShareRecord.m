@@ -40,9 +40,9 @@
 
 @implementation CKKSTLKShareRecord
 
-- (instancetype)init:(CKKSTLKShare*)share
-              zoneID:(CKRecordZoneID*)zoneID
-     encodedCKRecord:(NSData*)encodedCKRecord
+- (instancetype)initWithShare:(CKKSTLKShare*)share
+                       zoneID:(CKRecordZoneID*)zoneID
+              encodedCKRecord:(NSData*)encodedCKRecord
 {
     if((self = [super initWithCKRecordType:SecCKRecordTLKShareType
                            encodedCKRecord:encodedCKRecord
@@ -52,7 +52,7 @@
     return self;
 }
 
--(instancetype)init:(CKKSKey*)key
+-(instancetype)init:(CKKSKeychainBackedKey*)key
              sender:(id<CKKSSelfPeer>)sender
            receiver:(id<CKKSPeer>)receiver
               curve:(SFEllipticCurve)curve
@@ -66,14 +66,14 @@
                            encodedCKRecord:encodedCKRecord
                                     zoneID:zoneID])) {
 
-        _share = [[CKKSTLKShare alloc] init:key.keycore
-                                         sender:sender
-                                       receiver:receiver
-                                          curve:curve
-                                        version:version
-                                          epoch:epoch
-                                       poisoned:poisoned
-                                         zoneID:zoneID];
+        _share = [[CKKSTLKShare alloc] init:key
+                                     sender:sender
+                                   receiver:receiver
+                                      curve:curve
+                                    version:version
+                                      epoch:epoch
+                                   poisoned:poisoned
+                                     zoneID:zoneID];
     }
     return self;
 }
@@ -111,10 +111,11 @@
 }
 
 - (NSString*)description {
-    return [NSString stringWithFormat:@"<CKKSTLKShare(%@): recv:%@ send:%@>",
+    return [NSString stringWithFormat:@"<CKKSTLKShare(%@): recv:%@ send:%@ mod:%@>",
             self.share.tlkUUID,
             self.share.receiverPeerID,
-            self.share.senderPeerID];
+            self.share.senderPeerID,
+            self.storedCKRecord.modificationDate];
 }
 
 - (NSString*)tlkUUID
@@ -143,19 +144,6 @@
 - (NSData*)signature
 {
     return self.share.signature;
-}
-
-- (CKKSKey*)unwrapUsing:(id<CKKSSelfPeer>)localPeer
-                  error:(NSError * __autoreleasing *)error
-{
-    CKKSKeychainBackedKey* realkey = [self.share unwrapUsing:localPeer
-                                                       error:error];
-
-    if(!realkey) {
-        return nil;
-    }
-
-    return [[CKKSKey alloc] initWithKeyCore:realkey];
 }
 
 - (NSData*)dataForSigning
@@ -205,12 +193,12 @@
     return [self.share isEqual: obj.share];
 }
 
-+ (CKKSTLKShareRecord*)share:(CKKSKey*)key
-                    as:(id<CKKSSelfPeer>)sender
-                    to:(id<CKKSPeer>)receiver
-                 epoch:(NSInteger)epoch
-              poisoned:(NSInteger)poisoned
-                 error:(NSError* __autoreleasing *)error
++ (CKKSTLKShareRecord*)share:(CKKSKeychainBackedKey*)key
+                          as:(id<CKKSSelfPeer>)sender
+                          to:(id<CKKSPeer>)receiver
+                       epoch:(NSInteger)epoch
+                    poisoned:(NSInteger)poisoned
+                       error:(NSError* __autoreleasing *)error
 {
     NSError* localerror = nil;
     // Load any existing TLK Share, so we can update it
@@ -227,34 +215,30 @@
         return nil;
     }
 
-    CKKSTLKShare* share = [CKKSTLKShare share:key.keycore
-                                                   as:sender
-                                                   to:receiver
-                                                epoch:epoch
-                                             poisoned:poisoned
-                                                error:error];
+    CKKSTLKShare* share = [CKKSTLKShare share:key
+                                           as:sender
+                                           to:receiver
+                                        epoch:epoch
+                                     poisoned:poisoned
+                                        error:error];
     if(!share) {
         return nil;
     }
 
-    CKKSTLKShareRecord* sharerecord = [[CKKSTLKShareRecord alloc] init:share
-                                                                zoneID:key.zoneID
-                                                       encodedCKRecord:oldShare.encodedCKRecord];
+    CKKSTLKShareRecord* sharerecord = [[CKKSTLKShareRecord alloc] initWithShare:share
+                                                                         zoneID:key.zoneID
+                                                                encodedCKRecord:oldShare.encodedCKRecord];
     return sharerecord;
 }
 
-- (CKKSKey*)recoverTLK:(id<CKKSSelfPeer>)recoverer
-          trustedPeers:(NSSet<id<CKKSPeer>>*)peers
-                 error:(NSError* __autoreleasing *)error
+- (CKKSKeychainBackedKey*)recoverTLK:(id<CKKSSelfPeer>)recoverer
+                        trustedPeers:(NSSet<id<CKKSPeer>>*)peers
+                               error:(NSError* __autoreleasing *)error
 {
-    CKKSKeychainBackedKey* realkey = [self.share recoverTLK:recoverer
-                                               trustedPeers:peers
-                                                   ckrecord:self.storedCKRecord
-                                                      error:error];
-    if(!realkey) {
-        return nil;
-    }
-    return [[CKKSKey alloc] initWithKeyCore:realkey];
+    return [self.share recoverTLK:recoverer
+                     trustedPeers:peers
+                         ckrecord:self.storedCKRecord
+                            error:error];
 }
 
 #pragma mark - Database Operations

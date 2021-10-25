@@ -2,7 +2,7 @@
 
   bignum.c -
 
-  $Author: nobu $
+  $Author: usa $
   created at: Fri Jun 10 00:48:55 JST 1994
 
   Copyright (C) 1993-2007 Yukihiro Matsumoto
@@ -6875,7 +6875,15 @@ estimate_initial_sqrt(VALUE *xp, const size_t xn, const BDIGIT *nds, size_t len)
     rshift /= 2;
     rshift += (2-(len&1))*BITSPERDIG/2;
     if (rshift >= 0) {
-	d <<= rshift;
+        if (nlz((BDIGIT)d) + rshift >= BITSPERDIG) {
+            /* (d << rshift) does cause overflow.
+             * example: Integer.sqrt(0xffff_ffff_ffff_ffff ** 2)
+             */
+            d = ~(BDIGIT_DBL)0;
+        }
+        else {
+            d <<= rshift;
+        }
     }
     BDIGITS_ZERO(xds, xn-2);
     bdigitdbl2bary(&xds[xn-2], 2, d);

@@ -41,6 +41,18 @@ int backtrace(void** buffer, int size) {
 	return num_frames;
 }
 
+extern unsigned int _thread_stack_async_pcs(vm_address_t *buffer, unsigned max,
+		unsigned *nb, unsigned skip, void *startfp);
+
+size_t backtrace_async(void** buffer, size_t size, uint32_t *task_id_ptr) {
+	unsigned int num_frames;
+	uint32_t task_id = _thread_stack_async_pcs((vm_address_t*)buffer, size, &num_frames, 1, NULL);
+	while (num_frames >= 1 && buffer[num_frames-1] == NULL) num_frames -= 1;
+	if (task_id_ptr) *task_id_ptr = task_id;
+	return num_frames;
+}
+
+
 int
 backtrace_from_fp(void *startfp, void **buffer, int size)
 {

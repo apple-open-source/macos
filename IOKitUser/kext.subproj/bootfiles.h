@@ -151,6 +151,24 @@
  */
 #define kRecoveryBootModeSystemPasscodeLocked "system-passcode-locked"
 
+/* Regenerate local policy flow
+   Set by: patchd
+   Cleared by: Boot Recovery Assistant in the Recovery OS
+ 
+   Used by the software update mechanism to trigger regenerating the local
+   policy for the currently selected boot volume when necessary (e.g. when
+   crossing the paired recovery boundary on a reduced/permissive mode OS).
+ */
+#define kRecoveryBootModeRegenerateLocalPolicy "regenerate-local-policy"
+
+/* Obliteration and EACS flow
+   Set by: Mobile Obliteration
+   Cleared by: InstallDVDSpringboard
+
+   Used by mobile obliteration to boot to recovery to then trigger KRA
+ */
+#define kRecoveryBootModeObliteration "obliteration"
+
 /* The kernel */
 #define kDefaultKernelPath  "/System/Library/Kernels/kernel"
 //#define kDefaultKernel      "/mach_kernel"

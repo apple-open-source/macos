@@ -44,7 +44,7 @@ int secd_82_persistent_ref(int argc, char *const *argv)
 
     query = CFDictionaryCreateMutable( NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks );
     CFDictionarySetValue( query, kSecClass, kSecClassGenericPassword );
-    CFDictionarySetValue( query, kSecAttrSynchronizable, kSecAttrSynchronizableAny );;
+    CFDictionarySetValue( query, kSecAttrSynchronizable, kSecAttrSynchronizableAny );
     CFDictionarySetValue( query, kSecAttrAccount, CFSTR( "TestAccount" ) );
     CFDictionarySetValue( query, kSecReturnAttributes, kCFBooleanTrue );
     CFDictionarySetValue( query, kSecReturnPersistentRef, kCFBooleanTrue );

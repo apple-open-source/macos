@@ -66,6 +66,9 @@ int mbr_identifier_translate(int id_type, const void *identifier, size_t identif
  */
 int mbr_check_membership_ext(int userid_type, const void *userid, size_t userid_size, int groupid_type, const void *groupid, int refresh, int *isMember);
 
+SPI_AVAILABLE(macos(12.0), ios(15.0), watchos(8.0), tvos(15.0))
+int mbr_close_connections();
+
 __END_DECLS
 
 #endif /* !_MEMBERSHIPPRIV_H_ */

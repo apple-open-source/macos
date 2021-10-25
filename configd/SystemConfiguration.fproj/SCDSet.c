@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2006, 2009-2011, 2013, 2016-2019 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2006, 2009-2011, 2013, 2016-2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -54,19 +54,8 @@ SCDynamicStoreSetMultiple(SCDynamicStoreRef	store,
 	CFIndex				myNotifyLen	= 0;
 	int				sc_status;
 
-	if (store == NULL) {
-		store = __SCDynamicStoreNullSession();
-		if (store == NULL) {
-			/* sorry, you must provide a session */
-			_SCErrorSet(kSCStatusNoStoreSession);
-			return FALSE;
-		}
-	}
-
-	storePrivate = (SCDynamicStorePrivateRef)store;
-	if (storePrivate->server == MACH_PORT_NULL) {
-		_SCErrorSet(kSCStatusNoStoreServer);
-		return FALSE;	/* you must have an open session to play */
+	if (!__SCDynamicStoreNormalize(&store, TRUE)) {
+		return FALSE;
 	}
 
 	/* serialize the key/value pairs to set*/
@@ -80,7 +69,7 @@ SCDynamicStoreSetMultiple(SCDynamicStoreRef	store,
 			return FALSE;
 		}
 
-		ok = _SCSerialize(newInfo, &xmlSet, (void **)&mySetRef, &mySetLen);
+		ok = _SCSerialize(newInfo, &xmlSet, &mySetRef, &mySetLen);
 		CFRelease(newInfo);
 		if (!ok) {
 			_SCErrorSet(kSCStatusInvalidArgument);
@@ -90,7 +79,7 @@ SCDynamicStoreSetMultiple(SCDynamicStoreRef	store,
 
 	/* serialize the keys to remove */
 	if (keysToRemove != NULL) {
-		if (!_SCSerialize(keysToRemove, &xmlRemove, (void **)&myRemoveRef, &myRemoveLen)) {
+		if (!_SCSerialize(keysToRemove, &xmlRemove, &myRemoveRef, &myRemoveLen)) {
 			if (xmlSet != NULL)	CFRelease(xmlSet);
 			_SCErrorSet(kSCStatusInvalidArgument);
 			return FALSE;
@@ -99,13 +88,15 @@ SCDynamicStoreSetMultiple(SCDynamicStoreRef	store,
 
 	/* serialize the keys to notify */
 	if (keysToNotify != NULL) {
-		if (!_SCSerialize(keysToNotify, &xmlNotify, (void **)&myNotifyRef, &myNotifyLen)) {
+		if (!_SCSerialize(keysToNotify, &xmlNotify, &myNotifyRef, &myNotifyLen)) {
 			if (xmlSet != NULL)	CFRelease(xmlSet);
 			if (xmlRemove != NULL)	CFRelease(xmlRemove);
 			_SCErrorSet(kSCStatusInvalidArgument);
 			return FALSE;
 		}
 	}
+
+	storePrivate = (SCDynamicStorePrivateRef)store;
 
     retry :
 
@@ -153,21 +144,11 @@ SCDynamicStoreSetValue(SCDynamicStoreRef store, CFStringRef key, CFPropertyListR
 	int				sc_status;
 	int				newInstance;
 
-	if (store == NULL) {
-		store = __SCDynamicStoreNullSession();
-		if (store == NULL) {
-			/* sorry, you must provide a session */
-			_SCErrorSet(kSCStatusNoStoreSession);
-			return FALSE;
-		}
+	if (!__SCDynamicStoreNormalize(&store, TRUE)) {
+		return FALSE;
 	}
 
 	storePrivate = (SCDynamicStorePrivateRef)store;
-	if (storePrivate->server == MACH_PORT_NULL) {
-		/* sorry, you must have an open session to play */
-		_SCErrorSet(kSCStatusNoStoreServer);
-		return FALSE;
-	}
 
 	if (storePrivate->cache_active) {
 		if (storePrivate->cached_removals != NULL) {
@@ -193,13 +174,13 @@ SCDynamicStoreSetValue(SCDynamicStoreRef store, CFStringRef key, CFPropertyListR
 	}
 
 	/* serialize the key */
-	if (!_SCSerializeString(key, &utfKey, (void **)&myKeyRef, &myKeyLen)) {
+	if (!_SCSerializeString(key, &utfKey, &myKeyRef, &myKeyLen)) {
 		_SCErrorSet(kSCStatusInvalidArgument);
 		return FALSE;
 	}
 
 	/* serialize the data */
-	if (!_SCSerialize(value, &xmlData, (void **)&myDataRef, &myDataLen)) {
+	if (!_SCSerialize(value, &xmlData, &myDataRef, &myDataLen)) {
 		CFRelease(utfKey);
 		_SCErrorSet(kSCStatusInvalidArgument);
 		return FALSE;

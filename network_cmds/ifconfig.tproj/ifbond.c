@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2004-2021 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -264,8 +264,14 @@ static struct cmd bond_cmds[] = {
 	DEF_CLONE_CMD_ARG("-bonddev",		unsetbonddev),
 	DEF_CMD_ARG("bondmode",				setbondmode),
 };
+
+#define BOND_CLONE_NAME		"bond"
+#define BOND_CLONE_NAME_LENGTH	(sizeof(BOND_CLONE_NAME) - 1)
+
 static struct afswtch af_bond = {
 	.af_name	= "af_bond",
+	.af_clone_name  = BOND_CLONE_NAME,
+	.af_clone_name_length = BOND_CLONE_NAME_LENGTH,
 	.af_af		= AF_UNSPEC,
 	.af_other_status = bond_status,
 };

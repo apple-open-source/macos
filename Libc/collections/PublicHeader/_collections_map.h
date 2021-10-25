@@ -46,7 +46,7 @@ typedef bool (^os_map_128_payload_handler_t) (os_map_128_key_t, void *);
 #endif
 
 OS_EXPORT
-const char *
+const char * _Nullable
 os_map_str_entry(os_map_str_t *m, const char *key);
 
 OS_OVERLOADABLE OS_ALWAYS_INLINE

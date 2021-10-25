@@ -58,8 +58,8 @@ target directory to use.
 configuring the driver for the serial reader
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-You have to create or edit the file /etc/reader.conf. The file should
-contain something like:
+You have to create a file in the /etc/reader.conf.d/ directory. The file
+should contain something like:
 
 # Gemalto reader with serial communication
 #  - n is the serial port to use n in [0..3]
@@ -90,6 +90,7 @@ DEVICENAME field. Supported values are:
 - GemCoreSIMPro2 for IDBridge CR30
 - GemPCPinPad for GemPC PinPad
 - GemPCTwin for GemPC Twin (default value)
+- SEC1210 for Microchip SEC1210
 
 You will then have something like:
 DEVICENAME /dev/ttyS0:GemPCPinPad

@@ -33,6 +33,9 @@
 #include <security_utilities/unixchild.h>
 #include <Security/SecCertificate.h>
 #include <Security/SecCertificatePriv.h>
+#include <Security/SecPolicy.h>
+#include <Security/SecPolicyPriv.h>
+#include <libDER/oids.h>
 #include <vector>
 #include <errno.h>
 
@@ -149,12 +152,40 @@ std::string SecCodeSigner::getTeamIDFromSigner(CFArrayRef certs)
 		CFRef<SecCertificateRef> signerCert;
 		MacOSError::check(SecIdentityCopyCertificate(mSigner, &signerCert.aref()));
 
-		/* Make sure the certificate looks like an Apple certificate, because we do not
-			extract the team ID from a non Apple certificate */
-		if (SecStaticCode::isAppleDeveloperCert(certs)) {
-			CFRef<CFStringRef> teamIDFromCert;
+		/*
+		 * We use different policy between macOS and embedded platforms when deciding
+		 * what constitutes an Apple signed certificate chain. On iOS, we only allow
+		 * certificates which are allowed to sign for iPhone Developer and iPhone
+		 * distribution, whereas for macOS, we allow others as well.
+		 *
+		 * We check for Apple signage since we do not extract team IDs from non-Apple
+		 * signed certificates.
+		 */
+		bool isAppleSigned = false;
 
-			MacOSError::check(SecCertificateCopySubjectComponent(signerCert.get(), &CSSMOID_OrganizationalUnitName, &teamIDFromCert.aref()));
+#if TARGET_OS_OSX
+		isAppleSigned = SecStaticCode::isAppleDeveloperCert(certs);
+#else
+		CFRef<SecPolicyRef> certPolicy = SecPolicyCreateiPhoneProfileApplicationSigning();
+		if (!certPolicy) {
+			secerror("Unable to create iPhoneProfileApplicationSigning SecPolicy");
+			MacOSError::throwMe(errSecCSInternalError);
+		}
+
+		CFRef<SecTrustRef> certTrust;
+		MacOSError::check(SecTrustCreateWithCertificates(certs, certPolicy, certTrust.take()));
+
+		isAppleSigned = SecTrustEvaluateWithError(certTrust, NULL);
+#endif
+
+		if (isAppleSigned) {
+			CFRef<CFStringRef> teamIDFromCert = NULL;
+
+			teamIDFromCert.take(SecCertificateCopySubjectAttributeValue(signerCert.get(), (DERItem *)&oidOrganizationalUnitName));
+			if (!teamIDFromCert) {
+				secerror("Unable to get team ID (OrganizationalUnitName) from Apple signed certificate");
+				MacOSError::throwMe(errSecCSInvalidTeamIdentifier);
+			}
 
 			if (teamIDFromCert)
 				return cfString(teamIDFromCert);
@@ -221,8 +252,13 @@ void SecCodeSigner::returnDetachedSignature(BlobCore *blob, Signer &signer)
 		CFDataAppendBytes(CFMutableDataRef(mDetached.get()),
 			(const UInt8 *)blob, blob->length());
 	} else if (CFGetTypeID(mDetached) == CFNullGetTypeID()) {
+#if !TARGET_OS_OSX
+		secerror("Platform does not support the detached signature database");
+		MacOSError::throwMe(errSecUnimplemented);
+#else
 		SignatureDatabaseWriter db;
 		db.storeCode(blob, signer.path().c_str());
+#endif
 	} else
 		assert(false);
 }
@@ -350,6 +386,13 @@ SecCodeSigner::Parser::Parser(SecCodeSigner &state, CFDictionaryRef parameters)
 			MacOSError::check(SecIdentityCopyCertificate(state.mSigner, &signerCert.aref()));
 			if (certificateHasField(signerCert, devIdLeafMarkerOID))
 				state.mWantTimeStamp = true;
+
+#if !TARGET_OS_OSX
+			if (state.mWantTimeStamp) {
+				secerror("Platform does not support signing secure timestamps");
+				MacOSError::throwMe(errSecUnimplemented);
+			}
+#endif
 		}
 	}
 	state.mTimestampAuthentication = get<SecIdentityRef>(kSecCodeSignerTimestampAuthentication);

@@ -94,7 +94,7 @@ typedef struct _os_opaque_128_map_s os_map_128_t ;
 * The table to initialize
 *
 * @param config
-* The configuration to use for this table
+* The configuration to use for this map
 *
 * @discussion
 * An initialized map will use additional memory which can be freed with

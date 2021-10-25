@@ -37,8 +37,8 @@ NS_ASSUME_NONNULL_BEGIN
 - (instancetype)initWithSecretAttributes:(NSDictionary*)secretAttributes metadataAttributes:(NSDictionary*)metadataAttributes tamperCheck:(NSString*)tamperCheck keyclass:(keyclass_t)keyclass;
 
 - (nullable NSDictionary*)metadataAttributesWithError:(NSError**)error;
-- (nullable NSDictionary*)secretAttributesWithAcmContext:(NSData*)acmContext accessControl:(SecAccessControlRef)accessControl callerAccessGroups:(NSArray*)callerAccessGroups error:(NSError**)error;
-- (BOOL)deleteWithAcmContext:(NSData*)acmContext accessControl:(SecAccessControlRef)accessControl callerAccessGroups:(NSArray*)callerAccessGroups error:(NSError**)error;
+- (nullable NSDictionary*)secretAttributesWithAcmContext:(NSData*)acmContext accessControl:(SecAccessControlRef)accessControl callerAccessGroups:(NSArray*)callerAccessGroups keyDiversify:(bool)keyDiversify error:(NSError**)error;
+- (BOOL)deleteWithAcmContext:(NSData*)acmContext accessControl:(SecAccessControlRef)accessControl callerAccessGroups:(NSArray*)callerAccessGroups keyDiversify:(bool)keyDiversify error:(NSError**)error;
 
 - (nullable NSData*)encryptedBlobWithKeybag:(keybag_handle_t)keybag accessControl:(SecAccessControlRef)accessControl acmContext:(nullable NSData*)acmContext error:(NSError**)error;
 

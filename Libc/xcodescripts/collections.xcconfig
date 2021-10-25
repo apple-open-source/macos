@@ -79,10 +79,10 @@ VERSIONING_SYSTEM = apple-generic
 GCC_SYMBOLS_PRIVATE_EXTERN = YES
 STRIP_STYLE = non-global
 
-SUPPORTED_PLATFORMS = macosx iphoneos iphonesimulator appletvos appletvsimulator watchos watchsimulator iphoneosnano iphonesimulatornano bridgeos
+SUPPORTED_PLATFORMS = macosx iphoneos iphonesimulator appletvos appletvsimulator watchos watchsimulator bridgeos driverkit
 
 LINK_WITH_STANDARD_LIBRARIES = NO
-OTHER_LDFLAGS = -umbrella System -L/usr/lib/system $(LDFLAGS_DYLD) $(LDFLAGS_COMPILER_RT) $(LDFLAGS_SYSCALL) $(LDFLAGS_MALLOC) $(LDFLAGS_C) $(LDFLAGS_BLOCKS) $(LDFLAGS_DARWIN)
+OTHER_LDFLAGS = -umbrella System -L/usr/lib/system $(LDFLAGS_DYLD) $(LDFLAGS_COMPILER_RT) $(LDFLAGS_SYSCALL) $(LDFLAGS_MALLOC) $(LDFLAGS_C) $(LDFLAGS_BLOCKS)
 LDFLAGS_DYLD = -ldyld
 LDFLAGS_COMPILER_RT = -lcompiler_rt
 LDFLAGS_SYSCALL = -lsystem_kernel
@@ -90,4 +90,3 @@ LDFLAGS_SYSCALL[sdk=iphonesimulator*] = -lsystem_sim_kernel
 LDFLAGS_MALLOC = -lsystem_malloc
 LDFLAGS_C = -lsystem_c
 LDFLAGS_BLOCKS = -lsystem_blocks
-LDFLAGS_DARWIN = -lsystem_darwin

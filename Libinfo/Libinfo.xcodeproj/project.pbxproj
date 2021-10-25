@@ -150,6 +150,7 @@
 		2D5DD5D11608E6E80051891A /* configuration_profile.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = configuration_profile.h; sourceTree = "<group>"; };
 		2DBB147712DBD63300D710E3 /* inet6_opt_init.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = inet6_opt_init.3; sourceTree = "<group>"; };
 		3F397F7D185BD67F00987BCC /* Libinfo.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = Libinfo.xcconfig; path = xcodescripts/Libinfo.xcconfig; sourceTree = "<group>"; };
+		B73D52B02673D1C700E1E5CF /* lookupPriv.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = lookupPriv.h; sourceTree = "<group>"; };
 		BDE3980D2044CDA300CAD4A2 /* libinfo_common.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = libinfo_common.h; sourceTree = "<group>"; };
 		BDE3980E2044CDA300CAD4A2 /* pseudo_public.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = pseudo_public.h; sourceTree = "<group>"; };
 		BDE3980F2044CDA300CAD4A2 /* pseudo_private.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = pseudo_private.h; sourceTree = "<group>"; };
@@ -450,6 +451,7 @@
 				FC52842B11478C200058CCB0 /* libinfo.c */,
 				FC52842C11478C200058CCB0 /* libinfo.h */,
 				C965793B1B94CF2B00624699 /* libinfo_muser.h */,
+				B73D52B02673D1C700E1E5CF /* lookupPriv.h */,
 				FC52842E11478C200058CCB0 /* mdns_module.c */,
 				C96579391B94C97100624699 /* muser_module.c */,
 				FC52842F11478C200058CCB0 /* netdb.h */,
@@ -685,7 +687,7 @@
 		};
 		FC52866A114795BD0058CCB0 /* Install Files */ = {
 			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 8;
+			buildActionMask = 12;
 			files = (
 			);
 			inputPaths = (
@@ -693,9 +695,9 @@
 			name = "Install Files";
 			outputPaths = (
 			);
-			runOnlyForDeploymentPostprocessing = 1;
+			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "\"$PROJECT_DIR\"/xcodescripts/install_files.sh";
+			shellScript = "\"$PROJECT_DIR\"/xcodescripts/install_files.sh\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 

@@ -25,5 +25,6 @@
 #define _OS_COLLECTIONS_H_
 
 #include <os/collections_map.h>
+#include <os/collections_set.h>
 
 #endif // _OS_COLLECTIONS_H_

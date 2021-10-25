@@ -297,7 +297,14 @@ unload_units(void)
         remove_from_list(worst, &active_units);
         free_unit(worst);
     }
-    verbose(1, "Too many JIT code -- %d units unloaded", units_num - active_units.length);
+
+    if (units_num == active_units.length && mjit_opts.wait) {
+        mjit_opts.max_cache_size++; // avoid infinite loop on `rb_mjit_wait_call`. Note that --jit-wait is just for testing.
+        verbose(1, "No units can be unloaded -- incremented max-cache-size to %d for --jit-wait", mjit_opts.max_cache_size);
+    }
+    else {
+        verbose(1, "Too many JIT code -- %d units unloaded", units_num - active_units.length);
+    }
 }
 
 /* Add ISEQ to be JITed in parallel with the current thread.
@@ -647,6 +654,9 @@ mjit_init(struct mjit_options *opts)
     rb_native_cond_initialize(&mjit_client_wakeup);
     rb_native_cond_initialize(&mjit_worker_wakeup);
     rb_native_cond_initialize(&mjit_gc_wakeup);
+
+    /* Make sure root_fiber's saved_ec is scanned by mark_ec_units */
+    rb_fiber_init_mjit_cont(GET_EC()->fiber_ptr);
 
     /* Initialize class_serials cache for compilation */
     valid_class_serials = rb_hash_new();

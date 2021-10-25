@@ -58,6 +58,9 @@
 #warning "MAC policy is not KPI, see Technical Q&A QA1574, this header will be removed in next version"
 #endif
 
+#include <mach/mach_types.h>
+#include <stdint.h>
+
 /* mac_do_machexc() flags */
 #define	MAC_DOEXCF_TRACED	0x01	/* Only do mach exeception if
 					   being ptrace()'ed */
@@ -68,6 +71,9 @@ struct task;
 
 int	mac_do_machexc(int64_t code, int64_t subcode, uint32_t flags __unused);
 int	mac_schedule_userret(void);
+
+/* telemetry */
+int mac_schedule_telemetry(void);
 
 #if CONFIG_MACF
 void mac_policy_init(void);
@@ -82,6 +88,10 @@ int	mac_task_check_set_host_exception_port(struct task *task,
 	    unsigned int exception);
 int	mac_task_check_set_host_exception_ports(struct task *task,
 	    unsigned int exception_mask);
+int	mac_task_check_get_task_special_port(struct task *task,
+	    struct task *target, int which);
+int	mac_task_check_set_task_special_port(struct task *task,
+	    struct task *target, int which, struct ipc_port *port);
 int mac_task_check_get_movable_control_port(void);
 int mac_task_check_dyld_process_info_notify_register(void);
 
@@ -106,6 +116,7 @@ int  mac_task_register_filter_callbacks(
 /* threads */
 void	act_set_astmacf(struct thread *);
 void	mac_thread_userret(struct thread *);
+void	mac_thread_telemetry(struct thread *, int, void *, size_t);
 
 /* exception actions */
 struct label *mac_exc_create_label(void);

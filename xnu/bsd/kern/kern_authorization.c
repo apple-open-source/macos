@@ -48,7 +48,6 @@
 #include <sys/mount.h>
 #include <sys/sysproto.h>
 #include <mach/message.h>
-#include <mach/host_security.h>
 
 #include <kern/locks.h>
 
@@ -144,7 +143,6 @@ void
 kauth_init(void)
 {
 	/* bring up kauth subsystem components */
-	kauth_cred_init();
 	kauth_scope_init();
 }
 
@@ -168,10 +166,7 @@ kauth_alloc_scope(const char *identifier, kauth_scope_callback_t callback, void 
 	/*
 	 * Allocate and populate the scope structure.
 	 */
-	sp = kheap_alloc(KM_KAUTH, sizeof(*sp), Z_WAITOK | Z_ZERO);
-	if (sp == NULL) {
-		return NULL;
-	}
+	sp = kalloc_type(struct kauth_scope, Z_WAITOK | Z_ZERO | Z_NOFAIL);
 	sp->ks_flags = 0;
 	sp->ks_identifier = identifier;
 	sp->ks_idata = idata;
@@ -187,10 +182,7 @@ kauth_alloc_listener(const char *identifier, kauth_scope_callback_t callback, vo
 	/*
 	 * Allocate and populate the listener structure.
 	 */
-	lsp = kheap_alloc(KM_KAUTH, sizeof(*lsp), Z_WAITOK);
-	if (lsp == NULL) {
-		return NULL;
-	}
+	lsp = kalloc_type(struct kauth_listener, Z_WAITOK | Z_NOFAIL);
 	lsp->kl_identifier = identifier;
 	lsp->kl_idata = idata;
 	lsp->kl_callback = callback;
@@ -216,7 +208,7 @@ kauth_register_scope(const char *identifier, kauth_scope_callback_t callback, vo
 		if (strncmp(tsp->ks_identifier, identifier,
 		    strlen(tsp->ks_identifier) + 1) == 0) {
 			KAUTH_SCOPEUNLOCK();
-			kheap_free(KM_KAUTH, sp, sizeof(struct kauth_scope));
+			kfree_type(struct kauth_scope, sp);
 			return NULL;
 		}
 	}
@@ -274,7 +266,7 @@ kauth_deregister_scope(kauth_scope_t scope)
 		}
 	}
 	KAUTH_SCOPEUNLOCK();
-	kheap_free(KM_KAUTH, scope, sizeof(struct kauth_scope));
+	kfree_type(struct kauth_scope, scope);
 
 	return;
 }
@@ -303,7 +295,7 @@ kauth_listen_scope(const char *identifier, kauth_scope_callback_t callback, void
 			}
 			/* table already full */
 			KAUTH_SCOPEUNLOCK();
-			kheap_free(KM_KAUTH, klp, sizeof(struct kauth_listener));
+			kfree_type(struct kauth_listener, klp);
 			return NULL;
 		}
 	}
@@ -347,7 +339,7 @@ kauth_unlisten_scope(kauth_listener_t listener)
 					sp->ks_flags &= ~KS_F_HAS_LISTENERS;
 				}
 				KAUTH_SCOPEUNLOCK();
-				kheap_free(KM_KAUTH, listener, sizeof(struct kauth_listener));
+				kfree_type(struct kauth_listener, listener);
 				return;
 			}
 		}
@@ -358,7 +350,7 @@ kauth_unlisten_scope(kauth_listener_t listener)
 		if (klp == listener) {
 			TAILQ_REMOVE(&kauth_dangling_listeners, klp, kl_link);
 			KAUTH_SCOPEUNLOCK();
-			kheap_free(KM_KAUTH, listener, sizeof(struct kauth_listener));
+			kfree_type(struct kauth_listener, listener);
 			return;
 		}
 	}
@@ -620,6 +612,16 @@ kauth_acl_evaluate(kauth_cred_t cred, kauth_acl_eval_t eval)
 	guid_t guid;
 	uint32_t rights;
 	int wkguid;
+
+	if (cred == NULL) {
+		KAUTH_DEBUG("    ACL - got NULL credential");
+		return EINVAL;
+	}
+
+	if (eval == NULL) {
+		KAUTH_DEBUG("    ACL - got NULL ACL evaluator");
+		return EINVAL;
+	}
 
 	/* always allowed to do nothing */
 	if (eval->ae_requested == 0) {
@@ -1064,7 +1066,7 @@ kauth_filesec_alloc(int count)
 		return NULL;
 	}
 
-	fsp = kheap_alloc(KM_KAUTH, KAUTH_FILESEC_SIZE(count), Z_WAITOK);
+	fsp = kalloc_data(KAUTH_FILESEC_SIZE(count), Z_WAITOK);
 	if (fsp != NULL) {
 		fsp->fsec_magic = KAUTH_FILESEC_MAGIC;
 		fsp->fsec_owner = kauth_null_guid;
@@ -1098,7 +1100,7 @@ kauth_filesec_free(kauth_filesec_t fsp)
 		panic("freeing KAUTH_FILESEC_WANTED");
 	}
 #endif
-	kheap_free_addr(KM_KAUTH, fsp);
+	kfree_data_addr(fsp);
 }
 
 /*

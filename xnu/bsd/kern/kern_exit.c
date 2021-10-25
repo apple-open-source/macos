@@ -103,7 +103,7 @@
 #include <sys/sysproto.h>
 #include <sys/signalvar.h>
 #include <sys/kdebug.h>
-#include <sys/filedesc.h> /* fdfree */
+#include <sys/kdebug_triage.h>
 #include <sys/acct.h> /* acct_process */
 #include <sys/codesign.h>
 #include <sys/event.h> /* kevent_proc_copy_uptrs */
@@ -125,6 +125,7 @@
 #include <kern/thread_call.h>
 #include <kern/sched_prim.h>
 #include <kern/assert.h>
+#include <kern/locks.h>
 #include <kern/policy_internal.h>
 #include <kern/exc_guard.h>
 #include <kern/backtrace.h>
@@ -160,16 +161,19 @@ static void proc_memorystatus_remove(proc_t p);
 void proc_prepareexit(proc_t p, int rv, boolean_t perf_notify);
 void gather_populate_corpse_crashinfo(proc_t p, task_t corpse_task,
     mach_exception_data_type_t code, mach_exception_data_type_t subcode,
-    uint64_t *udata_buffer, int num_udata, void *reason);
+    uint64_t *udata_buffer, int num_udata, void *reason, exception_type_t etype);
 mach_exception_data_type_t proc_encode_exit_exception_code(proc_t p);
+exception_type_t get_exception_from_corpse_crashinfo(kcdata_descriptor_t corpse_info);
+#if CONFIG_VFORK
 void vfork_exit(proc_t p, int rv);
+#endif /* CONFIG_VFORK */
 __private_extern__ void munge_user64_rusage(struct rusage *a_rusage_p, struct user64_rusage *a_user_rusage_p);
 __private_extern__ void munge_user32_rusage(struct rusage *a_rusage_p, struct user32_rusage *a_user_rusage_p);
 static int reap_child_locked(proc_t parent, proc_t child, int deadparent, int reparentedtoinit, int locked, int droplock);
 static void populate_corpse_crashinfo(proc_t p, task_t corpse_task,
     struct rusage_superset *rup, mach_exception_data_type_t code,
     mach_exception_data_type_t subcode, uint64_t *udata_buffer,
-    int num_udata, os_reason_t reason);
+    int num_udata, os_reason_t reason, exception_type_t etype);
 static void proc_update_corpse_exception_codes(proc_t p, mach_exception_data_type_t *code, mach_exception_data_type_t *subcode);
 extern int proc_pidpathinfo_internal(proc_t p, uint64_t arg, char *buffer, uint32_t buffersize, int32_t *retval);
 static __attribute__((noinline)) void launchd_crashed_panic(proc_t p, int rv);
@@ -179,9 +183,7 @@ extern uint64_t get_task_phys_footprint_limit(task_t);
 int proc_list_uptrs(void *p, uint64_t *udata_buffer, int size);
 extern uint64_t task_corpse_get_crashed_thread_id(task_t corpse_task);
 
-ZONE_DECLARE(zombie_zone, "zombie",
-    sizeof(struct rusage_superset), ZC_NOENCRYPT);
-
+static KALLOC_TYPE_DEFINE(zombie_zone, struct rusage_superset, KT_DEFAULT);
 
 /*
  * Things which should have prototypes in headers, but don't
@@ -194,13 +196,151 @@ kern_return_t task_exception_notify(exception_type_t exception,
     mach_exception_data_type_t code, mach_exception_data_type_t subcode);
 kern_return_t task_violated_guard(mach_exception_code_t, mach_exception_subcode_t, void *);
 void    delay(int);
-void gather_rusage_info(proc_t p, rusage_info_current *ru, int flavor);
 
 #if __has_feature(ptrauth_calls)
 int exit_with_pac_exception(proc_t p, exception_type_t exception, mach_exception_code_t code,
     mach_exception_subcode_t subcode);
 #endif /* __has_feature(ptrauth_calls) */
 
+int exit_with_guard_exception(proc_t p, mach_exception_data_type_t code,
+    mach_exception_data_type_t subcode);
+int exit_with_port_space_exception(proc_t p, mach_exception_data_type_t code,
+    mach_exception_data_type_t subcode);
+static int exit_with_mach_exception(proc_t p, os_reason_t reason, exception_type_t exception,
+    mach_exception_code_t code, mach_exception_subcode_t subcode);
+
+#if DEVELOPMENT || DEBUG
+static LCK_GRP_DECLARE(proc_exit_lpexit_spin_lock_grp, "proc_exit_lpexit_spin");
+static LCK_MTX_DECLARE(proc_exit_lpexit_spin_lock, &proc_exit_lpexit_spin_lock_grp);
+static pid_t proc_exit_lpexit_spin_pid = -1;            /* wakeup point */
+static int proc_exit_lpexit_spin_pos = -1;              /* point to block */
+static int proc_exit_lpexit_spinning = 0;
+enum {
+	PELS_POS_START = 0,             /* beginning of proc_exit */
+	PELS_POS_PRE_TASK_DETACH,       /* before task/proc detach */
+	PELS_POS_POST_TASK_DETACH,      /* after task/proc detach */
+	PELS_POS_END,                   /* end of proc_exit */
+	PELS_NPOS                       /* # valid values */
+};
+
+/* Panic if matching processes (delimited by ',') exit on error. */
+static TUNABLE_STR(panic_on_eexit_pcomms, 128, "panic_on_error_exit", "");
+
+static int
+proc_exit_lpexit_spin_pid_sysctl SYSCTL_HANDLER_ARGS
+{
+#pragma unused(oidp, arg1, arg2)
+	pid_t new_value;
+	int changed;
+	int error;
+
+	if (!PE_parse_boot_argn("enable_proc_exit_lpexit_spin", NULL, 0)) {
+		return ENOENT;
+	}
+
+	error = sysctl_io_number(req, proc_exit_lpexit_spin_pid,
+	    sizeof(proc_exit_lpexit_spin_pid), &new_value, &changed);
+	if (error == 0 && changed != 0) {
+		if (new_value < -1) {
+			return EINVAL;
+		}
+		lck_mtx_lock(&proc_exit_lpexit_spin_lock);
+		proc_exit_lpexit_spin_pid = new_value;
+		wakeup(&proc_exit_lpexit_spin_pid);
+		proc_exit_lpexit_spinning = 0;
+		lck_mtx_unlock(&proc_exit_lpexit_spin_lock);
+	}
+	return error;
+}
+
+static int
+proc_exit_lpexit_spin_pos_sysctl SYSCTL_HANDLER_ARGS
+{
+#pragma unused(oidp, arg1, arg2)
+	int new_value;
+	int changed;
+	int error;
+
+	if (!PE_parse_boot_argn("enable_proc_exit_lpexit_spin", NULL, 0)) {
+		return ENOENT;
+	}
+
+	error = sysctl_io_number(req, proc_exit_lpexit_spin_pos,
+	    sizeof(proc_exit_lpexit_spin_pos), &new_value, &changed);
+	if (error == 0 && changed != 0) {
+		if (new_value < -1 || new_value >= PELS_NPOS) {
+			return EINVAL;
+		}
+		lck_mtx_lock(&proc_exit_lpexit_spin_lock);
+		proc_exit_lpexit_spin_pos = new_value;
+		wakeup(&proc_exit_lpexit_spin_pid);
+		proc_exit_lpexit_spinning = 0;
+		lck_mtx_unlock(&proc_exit_lpexit_spin_lock);
+	}
+	return error;
+}
+
+static int
+proc_exit_lpexit_spinning_sysctl SYSCTL_HANDLER_ARGS
+{
+#pragma unused(oidp, arg1, arg2)
+	int new_value;
+	int changed;
+	int error;
+
+	if (!PE_parse_boot_argn("enable_proc_exit_lpexit_spin", NULL, 0)) {
+		return ENOENT;
+	}
+
+	error = sysctl_io_number(req, proc_exit_lpexit_spinning,
+	    sizeof(proc_exit_lpexit_spinning), &new_value, &changed);
+	if (error == 0 && changed != 0) {
+		return EINVAL;
+	}
+	return error;
+}
+
+SYSCTL_PROC(_debug, OID_AUTO, proc_exit_lpexit_spin_pid,
+    CTLTYPE_INT | CTLFLAG_RW | CTLFLAG_LOCKED,
+    NULL, sizeof(pid_t),
+    proc_exit_lpexit_spin_pid_sysctl, "I", "PID to hold in proc_exit");
+
+SYSCTL_PROC(_debug, OID_AUTO, proc_exit_lpexit_spin_pos,
+    CTLTYPE_INT | CTLFLAG_RW | CTLFLAG_LOCKED,
+    NULL, sizeof(int),
+    proc_exit_lpexit_spin_pos_sysctl, "I", "position to hold in proc_exit");
+
+SYSCTL_PROC(_debug, OID_AUTO, proc_exit_lpexit_spinning,
+    CTLTYPE_INT | CTLFLAG_RD | CTLFLAG_LOCKED,
+    NULL, sizeof(int),
+    proc_exit_lpexit_spinning_sysctl, "I", "is a thread at requested pid/pos");
+
+static inline void
+proc_exit_lpexit_check(pid_t pid, int pos)
+{
+	if (proc_exit_lpexit_spin_pid == pid) {
+		bool slept = false;
+		lck_mtx_lock(&proc_exit_lpexit_spin_lock);
+		while (proc_exit_lpexit_spin_pid == pid &&
+		    proc_exit_lpexit_spin_pos == pos) {
+			if (!slept) {
+				os_log(OS_LOG_DEFAULT,
+				    "proc_exit_lpexit_check: Process[%d] waiting during proc_exit at pos %d as requested", pid, pos);
+				slept = true;
+			}
+			proc_exit_lpexit_spinning = 1;
+			msleep(&proc_exit_lpexit_spin_pid, &proc_exit_lpexit_spin_lock,
+			    PWAIT, "proc_exit_lpexit_check", NULL);
+			proc_exit_lpexit_spinning = 0;
+		}
+		lck_mtx_unlock(&proc_exit_lpexit_spin_lock);
+		if (slept) {
+			os_log(OS_LOG_DEFAULT,
+			    "proc_exit_lpexit_check: Process[%d] driving on from pos %d", pid, pos);
+		}
+	}
+}
+#endif /* DEVELOPMENT || DEBUG */
 
 /*
  * NOTE: Source and target may *NOT* overlap!
@@ -257,14 +397,14 @@ copyoutsiginfo(user_siginfo_t *native, boolean_t is64, user_addr_t uaddr)
 void
 gather_populate_corpse_crashinfo(proc_t p, task_t corpse_task,
     mach_exception_data_type_t code, mach_exception_data_type_t subcode,
-    uint64_t *udata_buffer, int num_udata, void *reason)
+    uint64_t *udata_buffer, int num_udata, void *reason, exception_type_t etype)
 {
 	struct rusage_superset rup;
 
 	gather_rusage_info(p, &rup.ri, RUSAGE_INFO_CURRENT);
 	rup.ri.ri_phys_footprint = 0;
 	populate_corpse_crashinfo(p, corpse_task, &rup, code, subcode,
-	    udata_buffer, num_udata, reason);
+	    udata_buffer, num_udata, reason, etype);
 }
 
 static void
@@ -315,7 +455,7 @@ proc_encode_exit_exception_code(proc_t p)
 static void
 populate_corpse_crashinfo(proc_t p, task_t corpse_task, struct rusage_superset *rup,
     mach_exception_data_type_t code, mach_exception_data_type_t subcode,
-    uint64_t *udata_buffer, int num_udata, os_reason_t reason)
+    uint64_t *udata_buffer, int num_udata, os_reason_t reason, exception_type_t etype)
 {
 	mach_vm_address_t uaddr = 0;
 	mach_exception_data_type_t exc_codes[EXCEPTION_CODE_MAX];
@@ -326,6 +466,8 @@ populate_corpse_crashinfo(proc_t p, task_t corpse_task, struct rusage_superset *
 	struct proc_workqueueinfo pwqinfo;
 	int retval = 0;
 	uint64_t crashed_threadid = task_corpse_get_crashed_thread_id(corpse_task);
+	bool is_corpse_fork;
+	uint32_t csflags;
 	unsigned int pflags = 0;
 	uint64_t max_footprint_mb;
 	uint64_t max_footprint;
@@ -362,8 +504,9 @@ populate_corpse_crashinfo(proc_t p, task_t corpse_task, struct rusage_superset *
 		kcdata_memcpy(crash_info_ptr, uaddr, exc_codes, sizeof(exc_codes));
 	}
 
-	if (KERN_SUCCESS == kcdata_get_memory_addr(crash_info_ptr, TASK_CRASHINFO_PID, sizeof(p->p_pid), &uaddr)) {
-		kcdata_memcpy(crash_info_ptr, uaddr, &p->p_pid, sizeof(p->p_pid));
+	if (KERN_SUCCESS == kcdata_get_memory_addr(crash_info_ptr, TASK_CRASHINFO_PID, sizeof(pid_t), &uaddr)) {
+		pid_t pid = proc_getpid(p);
+		kcdata_memcpy(crash_info_ptr, uaddr, &pid, sizeof(pid));
 	}
 
 	if (KERN_SUCCESS == kcdata_get_memory_addr(crash_info_ptr, TASK_CRASHINFO_PPID, sizeof(p->p_ppid), &uaddr)) {
@@ -388,8 +531,9 @@ populate_corpse_crashinfo(proc_t p, task_t corpse_task, struct rusage_superset *
 		kcdata_memcpy(crash_info_ptr, uaddr, &rup->ri, sizeof(rusage_info_current));
 	}
 
-	if (KERN_SUCCESS == kcdata_get_memory_addr(crash_info_ptr, TASK_CRASHINFO_PROC_CSFLAGS, sizeof(p->p_csflags), &uaddr)) {
-		kcdata_memcpy(crash_info_ptr, uaddr, &p->p_csflags, sizeof(p->p_csflags));
+	csflags = (uint32_t)proc_getcsflags(p);
+	if (KERN_SUCCESS == kcdata_get_memory_addr(crash_info_ptr, TASK_CRASHINFO_PROC_CSFLAGS, sizeof(csflags), &uaddr)) {
+		kcdata_memcpy(crash_info_ptr, uaddr, &csflags, sizeof(csflags));
 	}
 
 	if (KERN_SUCCESS == kcdata_get_memory_addr(crash_info_ptr, TASK_CRASHINFO_PROC_NAME, sizeof(p->p_comm), &uaddr)) {
@@ -596,6 +740,21 @@ populate_corpse_crashinfo(proc_t p, task_t corpse_task, struct rusage_superset *
 		kcdata_memcpy(crash_info_ptr, uaddr, &p->p_memstat_effectivepriority, sizeof(p->p_memstat_effectivepriority));
 	}
 
+	if (KERN_SUCCESS == kcdata_get_memory_addr(crash_info_ptr, TASK_CRASHINFO_KERNEL_TRIAGE_INFO_V1, sizeof(struct kernel_triage_info_v1), &uaddr)) {
+		char triage_strings[KDBG_TRIAGE_MAX_STRINGS][KDBG_TRIAGE_MAX_STRLEN];
+		kernel_triage_extract(thread_tid(current_thread()), triage_strings, KDBG_TRIAGE_MAX_STRINGS * KDBG_TRIAGE_MAX_STRLEN);
+		kcdata_memcpy(crash_info_ptr, uaddr, (void*) triage_strings, sizeof(struct kernel_triage_info_v1));
+	}
+
+	if (KERN_SUCCESS == kcdata_get_memory_addr(crash_info_ptr, TASK_CRASHINFO_TASK_IS_CORPSE_FORK, sizeof(is_corpse_fork), &uaddr)) {
+		is_corpse_fork = is_corpsefork(corpse_task);
+		kcdata_memcpy(crash_info_ptr, uaddr, &is_corpse_fork, sizeof(is_corpse_fork));
+	}
+
+	if (KERN_SUCCESS == kcdata_get_memory_addr(crash_info_ptr, TASK_CRASHINFO_EXCEPTION_TYPE, sizeof(etype), &uaddr)) {
+		kcdata_memcpy(crash_info_ptr, uaddr, &etype, sizeof(etype));
+	}
+
 	if (p->p_exit_reason != OS_REASON_NULL && reason == OS_REASON_NULL) {
 		reason = p->p_exit_reason;
 	}
@@ -626,6 +785,19 @@ populate_corpse_crashinfo(proc_t p, task_t corpse_task, struct rusage_superset *
 			kcdata_memcpy(crash_info_ptr, uaddr, udata_buffer, sizeof(uint64_t) * num_udata);
 		}
 	}
+}
+
+exception_type_t
+get_exception_from_corpse_crashinfo(kcdata_descriptor_t corpse_info)
+{
+	kcdata_iter_t iter = kcdata_iter((void *)corpse_info->kcd_addr_begin,
+	    corpse_info->kcd_length);
+	__assert_only uint32_t type = kcdata_iter_type(iter);
+	assert(type == KCDATA_BUFFER_BEGIN_CRASHINFO);
+
+	iter = kcdata_iter_find_type(iter, TASK_CRASHINFO_EXCEPTION_TYPE);
+	exception_type_t *etype = kcdata_iter_payload(iter);
+	return *etype;
 }
 
 /*
@@ -668,6 +840,23 @@ launchd_exit_reason_get_string_desc(os_reason_t exit_reason)
 	return (char *)kcdata_iter_payload(iter);
 }
 
+static int initproc_spawned = 0;
+
+static int
+sysctl_initproc_spawned(struct sysctl_oid *oidp, __unused void *arg1, __unused int arg2, struct sysctl_req *req)
+{
+	if (req->newptr != 0 && (proc_getpid(req->p) != 1 || initproc_spawned != 0)) {
+		// Can only ever be set by launchd, and only once at boot
+		return EPERM;
+	}
+	return sysctl_handle_int(oidp, &initproc_spawned, 0, req);
+}
+
+SYSCTL_PROC(_kern, OID_AUTO, initproc_spawned,
+    CTLFLAG_RW | CTLFLAG_KERN | CTLTYPE_INT | CTLFLAG_LOCKED, 0, 0,
+    sysctl_initproc_spawned, "I", "Boolean indicator that launchd has reached main");
+
+
 __abortlike
 static void
 launchd_crashed_panic(proc_t p, int rv)
@@ -687,8 +876,10 @@ launchd_crashed_panic(proc_t p, int rv)
 
 	if (strnstr(p->p_name, "preinit", sizeof(p->p_name))) {
 		launchd_crashed_prefix_str = "LTE preinit process exited";
-	} else {
+	} else if (initproc_spawned) {
 		launchd_crashed_prefix_str = "initproc exited";
+	} else {
+		launchd_crashed_prefix_str = "initproc failed to start";
 	}
 
 #if (DEVELOPMENT || DEBUG) && CONFIG_COREDUMP
@@ -728,14 +919,21 @@ launchd_crashed_panic(proc_t p, int rv)
 
 	if (p->p_exit_reason == OS_REASON_NULL) {
 		panic_with_options(0, NULL, DEBUGGER_OPTION_INITPROC_PANIC, "%s -- no exit reason available -- (signal %d, exit status %d %s)",
-		    launchd_crashed_prefix_str, WTERMSIG(rv), WEXITSTATUS(rv), ((p->p_csflags & CS_KILLED) ? "CS_KILLED" : ""));
+		    launchd_crashed_prefix_str, WTERMSIG(rv), WEXITSTATUS(rv), ((proc_getcsflags(p) & CS_KILLED) ? "CS_KILLED" : ""));
 	} else {
 		panic_with_options(0, NULL, DEBUGGER_OPTION_INITPROC_PANIC, "%s %s -- exit reason namespace %d subcode 0x%llx description: %." LAUNCHD_PANIC_REASON_STRING_MAXLEN "s",
-		    ((p->p_csflags & CS_KILLED) ? "CS_KILLED" : ""),
+		    ((proc_getcsflags(p) & CS_KILLED) ? "CS_KILLED" : ""),
 		    launchd_crashed_prefix_str, p->p_exit_reason->osr_namespace, p->p_exit_reason->osr_code,
 		    launchd_exit_reason_desc ? launchd_exit_reason_desc : "none");
 	}
 }
+
+
+#if DEVELOPMENT || DEBUG
+
+/* disable user faults */
+static TUNABLE(bool, bootarg_disable_user_faults, "-disable_user_faults", false);
+#endif /* DEVELOPMENT || DEBUG */
 
 #define OS_REASON_IFLAG_USER_FAULT 0x1
 
@@ -754,6 +952,13 @@ abort_with_payload_internal(proc_t p,
 	if (internal_flags & OS_REASON_IFLAG_USER_FAULT) {
 		uint32_t old_value = atomic_load_explicit(&p->p_user_faults,
 		    memory_order_relaxed);
+
+#if DEVELOPMENT || DEBUG
+		if (bootarg_disable_user_faults) {
+			return EQFULL;
+		}
+#endif /* DEVELOPMENT || DEBUG */
+
 		for (;;) {
 			if (old_value >= OS_REASON_TOTAL_USER_FAULTS_PER_PROC) {
 				return EQFULL;
@@ -768,7 +973,7 @@ abort_with_payload_internal(proc_t p,
 	}
 
 	KERNEL_DEBUG_CONSTANT(BSDDBG_CODE(DBG_BSD_PROC, BSD_PROC_EXITREASON_CREATE) | DBG_FUNC_NONE,
-	    p->p_pid, reason_namespace,
+	    proc_getpid(p), reason_namespace,
 	    reason_code, 0, 0);
 
 	exit_reason = build_userspace_exit_reason(reason_namespace, reason_code,
@@ -878,6 +1083,17 @@ exit_with_reason(proc_t p, int rv, int *retval, boolean_t thread_can_terminate, 
 	struct uthread *ut;
 	int error = 0;
 
+#if DEVELOPMENT || DEBUG
+	/*
+	 * Debug boot-arg: panic here if matching process is exiting with non-zero code.
+	 * Example usage: panic_on_error_exit=launchd,logd,watchdogd
+	 */
+	if (rv && strnstr(panic_on_eexit_pcomms, p->p_comm, sizeof(panic_on_eexit_pcomms))) {
+		panic("%s: Process %s with pid %d exited on error with code 0x%x.",
+		    __FUNCTION__, p->p_comm, p->p_pid, rv);
+	}
+#endif
+
 	/*
 	 * If a thread in this task has already
 	 * called exit(), then halt any others
@@ -885,6 +1101,7 @@ exit_with_reason(proc_t p, int rv, int *retval, boolean_t thread_can_terminate, 
 	 */
 
 	ut = get_bsdthread_info(self);
+#if CONFIG_VFORK
 	if ((p == current_proc()) &&
 	    (ut->uu_flag & UT_VFORK)) {
 		os_reason_free(exit_reason);
@@ -893,10 +1110,13 @@ exit_with_reason(proc_t p, int rv, int *retval, boolean_t thread_can_terminate, 
 		}
 
 		vfork_exit(p, rv);
-		vfork_return(p, retval, p->p_pid);
+		vfork_return(p, retval, proc_getpid(p));
 		unix_syscall_return(0);
 		/* NOT REACHED */
 	}
+#else
+	(void)retval;
+#endif /* CONFIG_VFORK */
 
 	/*
 	 * The parameter list of audit_syscall_exit() was augmented to
@@ -971,7 +1191,7 @@ exit_with_reason(proc_t p, int rv, int *retval, boolean_t thread_can_terminate, 
 
 	if (exit_reason != OS_REASON_NULL) {
 		KERNEL_DEBUG_CONSTANT(BSDDBG_CODE(DBG_BSD_PROC, BSD_PROC_EXITREASON_COMMIT) | DBG_FUNC_NONE,
-		    p->p_pid, exit_reason->osr_namespace,
+		    proc_getpid(p), exit_reason->osr_namespace,
 		    exit_reason->osr_code, 0, 0);
 	}
 
@@ -999,14 +1219,14 @@ exit_with_reason(proc_t p, int rv, int *retval, boolean_t thread_can_terminate, 
  * is currently being frozen.
  * The proc_list_lock is held by the caller.
  * NB: If the process should be ineligible for future freezing or jetsaming the caller should first set
- * the p_listflag P_LIST_EXITED bit.
+ * the p_refcount P_REF_DEAD bit.
  */
 static void
 proc_memorystatus_remove(proc_t p)
 {
 	LCK_MTX_ASSERT(&proc_list_mlock, LCK_MTX_ASSERT_OWNED);
 	while (memorystatus_remove(p) == EAGAIN) {
-		os_log(OS_LOG_DEFAULT, "memorystatus_remove: Process[%d] tried to exit while being frozen. Blocking exit until freeze completes.", p->p_pid);
+		os_log(OS_LOG_DEFAULT, "memorystatus_remove: Process[%d] tried to exit while being frozen. Blocking exit until freeze completes.", proc_getpid(p));
 		msleep(&p->p_memstat_state, &proc_list_mlock, PWAIT, "proc_memorystatus_remove", NULL);
 	}
 }
@@ -1016,6 +1236,7 @@ void
 proc_prepareexit(proc_t p, int rv, boolean_t perf_notify)
 {
 	mach_exception_data_type_t code = 0, subcode = 0;
+	exception_type_t etype;
 
 	struct uthread *ut;
 	thread_t self = current_thread();
@@ -1041,7 +1262,7 @@ proc_prepareexit(proc_t p, int rv, boolean_t perf_notify)
 	 * (which normally triggers a core) but may indicate that no crash report should be created.
 	 */
 	if (!(PROC_HAS_EXITREASON(p) && (PROC_EXITREASON_FLAGS(p) & OS_REASON_FLAG_NO_CRASH_REPORT)) &&
-	    (hassigprop(WTERMSIG(rv), SA_CORE) || ((p->p_csflags & CS_KILLED) != 0) ||
+	    (hassigprop(WTERMSIG(rv), SA_CORE) || ((proc_getcsflags(p) & CS_KILLED) != 0) ||
 	    (PROC_HAS_EXITREASON(p) && (PROC_EXITREASON_FLAGS(p) &
 	    OS_REASON_FLAG_GENERATE_CRASH_REPORT)))) {
 		/*
@@ -1062,11 +1283,22 @@ proc_prepareexit(proc_t p, int rv, boolean_t perf_notify)
 		    ((ut->uu_exception & 0x0f) << 20) |
 		    ((int)ut->uu_code & 0xfffff);
 		subcode = ut->uu_subcode;
+		etype = ut->uu_exception;
+
+		/* Defualt to EXC_CRASH if the exception is not an EXC_RESOURCE or EXC_GUARD */
+		if (etype != EXC_RESOURCE || etype != EXC_GUARD) {
+			etype = EXC_CRASH;
+		}
 
 		kr = task_exception_notify(EXC_CRASH, code, subcode);
 
 		/* Nobody handled EXC_CRASH?? remember to make corpse */
-		if (kr != 0) {
+		if (kr != 0 && p == current_proc()) {
+			/*
+			 * Do not create corpse when exit is called from jetsam thread.
+			 * Corpse creation code requires that proc_prepareexit is
+			 * called by the exiting proc and not the kernel_proc.
+			 */
 			create_corpse = TRUE;
 		}
 
@@ -1083,11 +1315,9 @@ proc_prepareexit(proc_t p, int rv, boolean_t perf_notify)
 		 */
 		task_t task = proc_task(p);
 		uintptr_t bt[2];
-		int bt_err;
-		bool user64;
-		bool was_truncated;
-		unsigned int frame_count = backtrace_user(bt, 2, &bt_err, &user64, &was_truncated);
-
+		struct backtrace_user_info btinfo = BTUINFO_INIT;
+		unsigned int frame_count = backtrace_user(bt, 2, NULL, &btinfo);
+		int bt_err = btinfo.btui_error;
 		if (bt_err == 0 && frame_count >= 1) {
 			/*
 			 * First check at the page containing the current PC.
@@ -1113,12 +1343,10 @@ proc_prepareexit(proc_t p, int rv, boolean_t perf_notify)
 
 			/*
 			 * Log that we found a corruption.
-			 * TBD..figure out how to bubble this up to crash reporter too,
-			 * instead of just the log message.
 			 */
 			if (kr != KERN_SUCCESS) {
 				os_log(OS_LOG_DEFAULT,
-				    "Text page corruption detected in dying process %d\n", p->p_pid);
+				    "Text page corruption detected in dying process %d\n", proc_getpid(p));
 			}
 		}
 	}
@@ -1126,7 +1354,7 @@ proc_prepareexit(proc_t p, int rv, boolean_t perf_notify)
 skipcheck:
 	/* Notify the perf server? */
 	if (perf_notify) {
-		(void)sys_perf_notify(self, p->p_pid);
+		(void)sys_perf_notify(self, proc_getpid(p));
 	}
 
 
@@ -1135,11 +1363,13 @@ skipcheck:
 		kr = task_mark_corpse(p->task);
 		if (kr != KERN_SUCCESS) {
 			if (kr == KERN_NO_SPACE) {
-				printf("Process[%d] has no vm space for corpse info.\n", p->p_pid);
+				printf("Process[%d] has no vm space for corpse info.\n", proc_getpid(p));
 			} else if (kr == KERN_NOT_SUPPORTED) {
-				printf("Process[%d] was destined to be corpse. But corpse is disabled by config.\n", p->p_pid);
+				printf("Process[%d] was destined to be corpse. But corpse is disabled by config.\n", proc_getpid(p));
+			} else if (kr == KERN_TERMINATED) {
+				printf("Process[%d] has been terminated before it could be converted to a corpse.\n", proc_getpid(p));
 			} else {
-				printf("Process[%d] crashed: %s. Too many corpses being created.\n", p->p_pid, p->p_comm);
+				printf("Process[%d] crashed: %s. Too many corpses being created.\n", proc_getpid(p), p->p_comm);
 			}
 			create_corpse = FALSE;
 		}
@@ -1171,20 +1401,20 @@ skipcheck:
 		est_knotes = kevent_proc_copy_uptrs(p, NULL, 0);
 		if (est_knotes > 0) {
 			buf_size = (uint32_t)((est_knotes + 32) * sizeof(uint64_t));
-			buffer = kheap_alloc(KHEAP_TEMP, buf_size, Z_WAITOK);
-			num_knotes = kevent_proc_copy_uptrs(p, buffer, buf_size);
-			if (num_knotes > est_knotes + 32) {
-				num_knotes = est_knotes + 32;
+			buffer = kalloc_data(buf_size, Z_WAITOK);
+			if (buffer) {
+				num_knotes = kevent_proc_copy_uptrs(p, buffer, buf_size);
+				if (num_knotes > est_knotes + 32) {
+					num_knotes = est_knotes + 32;
+				}
 			}
 		}
 
 		/* Update the code, subcode based on exit reason */
 		proc_update_corpse_exception_codes(p, &code, &subcode);
 		populate_corpse_crashinfo(p, p->task, rup,
-		    code, subcode, buffer, num_knotes, NULL);
-		if (buffer != NULL) {
-			kheap_free(KHEAP_TEMP, buffer, buf_size);
-		}
+		    code, subcode, buffer, num_knotes, NULL, etype);
+		kfree_data(buffer, buf_size);
 	}
 	/*
 	 * Remove proc from allproc queue and from pidhash chain.
@@ -1202,13 +1432,10 @@ skipcheck:
 	LIST_REMOVE(p, p_list);
 	LIST_INSERT_HEAD(&zombproc, p, p_list); /* Place onto zombproc. */
 	/* will not be visible via proc_find */
-	p->p_listflag |= P_LIST_EXITED;
+	os_atomic_or(&p->p_refcount, P_REF_DEAD, relaxed);
 
 	proc_list_unlock();
 
-#ifdef PGINPROF
-	vmsizmon();
-#endif
 	/*
 	 * If parent is waiting for us to exit or exec,
 	 * P_LPPWAIT is set; we will wakeup the parent below.
@@ -1269,11 +1496,15 @@ proc_exit(proc_t p)
 	}
 
 	proc_unlock(p);
-	pid = p->p_pid;
+	pid = proc_getpid(p);
 	exitval = p->p_xstat;
 	KERNEL_DEBUG_CONSTANT_IST(KDEBUG_COMMON,
 	    BSDDBG_CODE(DBG_BSD_PROC, BSD_PROC_EXIT) | DBG_FUNC_START,
 	    pid, exitval, 0, 0, 0);
+
+#if DEVELOPMENT || DEBUG
+	proc_exit_lpexit_check(pid, PELS_POS_START);
+#endif
 
 #if CONFIG_DTRACE
 	dtrace_proc_exit(p);
@@ -1297,7 +1528,7 @@ proc_exit(proc_t p)
 	 * Close open files and release open-file table.
 	 * This may block!
 	 */
-	fdfree(p);
+	fdt_invalidate(p);
 
 	/*
 	 * Once all the knotes, kqueues & workloops are destroyed, get rid of the
@@ -1339,7 +1570,7 @@ proc_exit(proc_t p)
 	pth_proc_hashdelete(p);
 #endif /* PSYNCH */
 
-	sessp = proc_session(p);
+	pg = proc_pgrp(p, &sessp);
 	if (SESS_LEADER(p, sessp)) {
 		if (sessp->s_ttyvp != NULLVP) {
 			struct vnode *ttyvp;
@@ -1347,6 +1578,7 @@ proc_exit(proc_t p)
 			int cttyflag = 0;
 			struct vfs_context context;
 			struct tty *tp;
+			struct pgrp *tpgrp = PGRP_NULL;
 
 			/*
 			 * Controlling process.
@@ -1354,24 +1586,26 @@ proc_exit(proc_t p)
 			 * drain controlling terminal
 			 * and revoke access to controlling terminal.
 			 */
+
+			proc_list_lock(); /* prevent any t_pgrp from changing */
 			session_lock(sessp);
-			tp = SESSION_TP(sessp);
-			if ((tp != TTY_NULL) && (tp->t_session == sessp)) {
-				session_unlock(sessp);
-
-				tty_pgsignal(tp, SIGHUP, 1);
-
-				session_lock(sessp);
-				tp = SESSION_TP(sessp);
+			if (sessp->s_ttyp && sessp->s_ttyp->t_session == sessp) {
+				tpgrp = tty_pgrp_locked(sessp->s_ttyp);
 			}
-			cttyflag = sessp->s_flags & S_CTTYREF;
-			sessp->s_flags &= ~S_CTTYREF;
+			proc_list_unlock();
+
+			if (tpgrp != PGRP_NULL) {
+				session_unlock(sessp);
+				pgsignal(tpgrp, SIGHUP, 1);
+				pgrp_rele(tpgrp);
+				session_lock(sessp);
+			}
+
+			cttyflag = (os_atomic_andnot_orig(&sessp->s_refcount,
+			    S_CTTYREF, relaxed) & S_CTTYREF);
 			ttyvp = sessp->s_ttyvp;
 			ttyvid = sessp->s_ttyvid;
-			sessp->s_ttyvp = NULLVP;
-			sessp->s_ttyvid = 0;
-			sessp->s_ttyp = TTY_NULL;
-			sessp->s_ttypgrpid = NO_PID;
+			tp = session_clear_tty_locked(sessp);
 			session_unlock(sessp);
 
 			if ((ttyvp != NULLVP) && (vnode_getwithvid(ttyvp, ttyvid) == 0)) {
@@ -1406,18 +1640,14 @@ proc_exit(proc_t p)
 		sessp->s_leader = NULL;
 		session_unlock(sessp);
 	}
-	session_rele(sessp);
 
-	pg = proc_pgrp(p);
 	fixjobc(p, pg, 0);
-	pg_rele(pg);
+	pgrp_rele(pg);
 
 	/*
-	 * Change RLIMIT_FSIZE for accounting/debugging. proc_limitsetcur_internal() will COW the current plimit
-	 * before making changes if the current plimit is shared. The COW'ed plimit will be freed
-	 * below by calling proc_limitdrop().
+	 * Change RLIMIT_FSIZE for accounting/debugging.
 	 */
-	proc_limitsetcur_internal(p, RLIMIT_FSIZE, RLIM_INFINITY);
+	proc_limitsetcur_fsize(p, RLIM_INFINITY);
 
 	(void)acct_process(p);
 
@@ -1468,7 +1698,7 @@ proc_exit(proc_t p)
 				 * the time we drop the list_lock and attempt
 				 * to acquire its proc_lock.
 				 */
-				if (proc_ref_locked(q) != q) {
+				if (proc_ref(q, true) != q) {
 					continue;
 				}
 
@@ -1513,7 +1743,7 @@ proc_exit(proc_t p)
 
 				psignal(q, SIGKILL);
 				proc_list_lock();
-				proc_rele_locked(q);
+				proc_rele(q);
 			} else {
 				q->p_listflag |= P_LIST_DEADPARENT;
 				proc_reparentlocked(q, initproc, 0, 1);
@@ -1566,7 +1796,7 @@ proc_exit(proc_t p)
 
 		for (; p1 != NULL; p1 = pn) {
 			pn = p1->pr_next;
-			kfree(p1, sizeof *p1);
+			kfree_type(struct uprof, p1);
 		}
 	}
 
@@ -1583,13 +1813,21 @@ proc_exit(proc_t p)
 
 	proc_limitdrop(p);
 
+#if DEVELOPMENT || DEBUG
+	proc_exit_lpexit_check(pid, PELS_POS_PRE_TASK_DETACH);
+#endif
+
 	/*
 	 * Finish up by terminating the task
 	 * and halt this thread (only if a
 	 * member of the task exiting).
 	 */
-	p->task = TASK_NULL;
+	proc_set_task(p, TASK_NULL);
 	set_bsdtask_info(task, NULL);
+
+#if DEVELOPMENT || DEBUG
+	proc_exit_lpexit_check(pid, PELS_POS_POST_TASK_DETACH);
+#endif
 
 	knote_hint = NOTE_EXIT | (p->p_xstat & 0xffff);
 	proc_knote(p, knote_hint);
@@ -1633,7 +1871,7 @@ proc_exit(proc_t p)
 	if ((p->p_listflag & P_LIST_DEADPARENT) == 0 || p->p_oppid) {
 		if (pp != initproc) {
 			proc_lock(pp);
-			pp->si_pid = p->p_pid;
+			pp->si_pid = proc_getpid(p);
 			pp->p_xhighbits = p->p_xhighbits;
 			p->p_xhighbits = 0;
 			pp->si_status = p->p_xstat;
@@ -1642,7 +1880,7 @@ proc_exit(proc_t p)
 			 * p_ucred usage is safe as it is an exiting process
 			 * and reference is dropped in reap
 			 */
-			pp->si_uid = kauth_cred_getruid(p->p_ucred);
+			pp->si_uid = kauth_cred_getruid(proc_ucred(p));
 			proc_unlock(pp);
 		}
 		/* mark as a zombie */
@@ -1711,6 +1949,9 @@ proc_exit(proc_t p)
 	}
 
 	proc_rele(pp);
+#if DEVELOPMENT || DEBUG
+	proc_exit_lpexit_check(pid, PELS_POS_END);
+#endif
 }
 
 
@@ -1734,6 +1975,7 @@ static int
 reap_child_locked(proc_t parent, proc_t child, int deadparent, int reparentedtoinit, int locked, int droplock)
 {
 	proc_t trace_parent = PROC_NULL;        /* Traced parent process, if tracing */
+	struct pgrp *pg;
 
 	if (locked == 1) {
 		proc_list_unlock();
@@ -1768,10 +2010,10 @@ reap_child_locked(proc_t parent, proc_t child, int deadparent, int reparentedtoi
 				 * reparented yet
 				 */
 				proc_lock(trace_parent);
-				trace_parent->si_pid = child->p_pid;
+				trace_parent->si_pid = proc_getpid(child);
 				trace_parent->si_status = child->p_xstat;
 				trace_parent->si_code = CLD_CONTINUED;
-				trace_parent->si_uid = kauth_cred_getruid(child->p_ucred);
+				trace_parent->si_uid = kauth_cred_getruid(proc_ucred(child));
 				proc_unlock(trace_parent);
 			}
 			proc_reparentlocked(child, trace_parent, 1, 0);
@@ -1849,17 +2091,19 @@ reap_child_locked(proc_t parent, proc_t child, int deadparent, int reparentedtoi
 	 */
 	persona_proc_drop(child);
 #endif
-	(void)chgproccnt(kauth_cred_getruid(child->p_ucred), -1);
+	(void)chgproccnt(kauth_cred_getruid(proc_ucred(child)), -1);
 
 	os_reason_free(child->p_exit_reason);
 
 	/*
 	 * Finally finished with old proc entry.
-	 * Unlink it from its process group and free it.
 	 */
-	leavepgrp(child);
 
 	proc_list_lock();
+
+	/* quit the group */
+	pg = pgrp_leave_locked(child);
+
 	LIST_REMOVE(child, p_list);     /* off zombproc */
 	parent->p_childrencnt--;
 	LIST_REMOVE(child, p_sibling);
@@ -1871,8 +2115,7 @@ reap_child_locked(proc_t parent, proc_t child, int deadparent, int reparentedtoi
 	wakeup(&child->p_stat);
 
 	/* Take it out of process hash */
-	LIST_REMOVE(child, p_hash);
-	child->p_listflag &= ~P_LIST_INHASH;
+	phash_remove_locked(proc_getpid(child), child);
 	proc_checkdeadrefs(child);
 	nprocs--;
 
@@ -1886,25 +2129,26 @@ reap_child_locked(proc_t parent, proc_t child, int deadparent, int reparentedtoi
 
 	proc_list_unlock();
 
+	pgrp_rele(pg);
+
 	/*
 	 * Free up credentials.
 	 */
-	if (IS_VALID_CRED(child->p_ucred)) {
-		kauth_cred_t tmp_ucred = child->p_ucred;
+	if (IS_VALID_CRED(proc_ucred(child))) {
+		kauth_cred_t tmp_ucred = proc_ucred(child);
 		kauth_cred_unref(&tmp_ucred);
-		child->p_ucred = NOCRED;
+		proc_set_ucred(child, NOCRED);
 	}
 
+	fdt_destroy(child);
 	lck_mtx_destroy(&child->p_mlock, &proc_mlock_grp);
 	lck_mtx_destroy(&child->p_ucred_mlock, &proc_ucred_mlock_grp);
-	lck_mtx_destroy(&child->p_fdmlock, &proc_fdmlock_grp);
 #if CONFIG_DTRACE
 	lck_mtx_destroy(&child->p_dtrace_sprlock, &proc_lck_grp);
 #endif
 	lck_spin_destroy(&child->p_slock, &proc_slock_grp);
-	lck_rw_destroy(&child->p_dirs_lock, &proc_dirslock_grp);
 
-	zfree(proc_zone, child);
+	proc_wait_release(child);
 	if ((locked == 1) && (droplock == 0)) {
 		proc_list_lock();
 	}
@@ -1971,7 +2215,7 @@ loop1:
 			sibling_count++;
 		}
 		if (uap->pid != WAIT_ANY &&
-		    p->p_pid != uap->pid &&
+		    proc_getpid(p) != uap->pid &&
 		    p->p_pgrpid != -(uap->pid)) {
 			continue;
 		}
@@ -2003,7 +2247,7 @@ loop1:
 				goto out;
 			}
 #endif
-			retval[0] = p->p_pid;
+			retval[0] = proc_getpid(p);
 			if (uap->status) {
 				/* Legacy apps expect only 8 bits of status */
 				status = 0xffff & p->p_xstat;   /* convert to int */
@@ -2074,7 +2318,7 @@ loop1:
 			proc_lock(p);
 			p->p_lflag |= P_LWAITED;
 			proc_unlock(p);
-			retval[0] = p->p_pid;
+			retval[0] = proc_getpid(p);
 			if (uap->status) {
 				status = W_STOPCODE(p->p_xstat);
 				error = copyout((caddr_t)&status,
@@ -2100,7 +2344,7 @@ loop1:
 
 			/* Prevent other process for waiting for this event */
 			OSBitAndAtomic(~((uint32_t)P_CONTINUED), &p->p_flag);
-			retval[0] = p->p_pid;
+			retval[0] = proc_getpid(p);
 			if (uap->status) {
 				status = W_STOPCODE(SIGCONT);
 				error = copyout((caddr_t)&status,
@@ -2232,7 +2476,7 @@ loop1:
 	PCHILDREN_FOREACH(q, p) {
 		switch (uap->idtype) {
 		case P_PID:     /* child with process ID equal to... */
-			if (p->p_pid != (pid_t)uap->id) {
+			if (proc_getpid(p) != (pid_t)uap->id) {
 				continue;
 			}
 			break;
@@ -2274,7 +2518,7 @@ loop1:
 			}
 #endif
 			siginfo.si_signo = SIGCHLD;
-			siginfo.si_pid = p->p_pid;
+			siginfo.si_pid = proc_getpid(p);
 
 			/* If the child terminated abnormally due to a signal, the signum
 			 * needs to be preserved in the exit status.
@@ -2325,7 +2569,7 @@ loop1:
 			}
 #endif
 			siginfo.si_signo = SIGCHLD;
-			siginfo.si_pid = p->p_pid;
+			siginfo.si_pid = proc_getpid(p);
 			siginfo.si_status = p->p_xstat; /* signal number */
 			siginfo.si_code = CLD_STOPPED;
 
@@ -2454,26 +2698,26 @@ proc_reparentlocked(proc_t child, proc_t parent, int signallable, int locked)
 	oldparent = child->p_pptr;
 #if __PROC_INTERNAL_DEBUG
 	if (oldparent == PROC_NULL) {
-		panic("proc_reparent: process %p does not have a parent\n", child);
+		panic("proc_reparent: process %p does not have a parent", child);
 	}
 #endif
 
 	LIST_REMOVE(child, p_sibling);
 #if __PROC_INTERNAL_DEBUG
 	if (oldparent->p_childrencnt == 0) {
-		panic("process children count already 0\n");
+		panic("process children count already 0");
 	}
 #endif
 	oldparent->p_childrencnt--;
 #if __PROC_INTERNAL_DEBUG
 	if (oldparent->p_childrencnt < 0) {
-		panic("process children count -ve\n");
+		panic("process children count -ve");
 	}
 #endif
 	LIST_INSERT_HEAD(&parent->p_children, child, p_sibling);
 	parent->p_childrencnt++;
 	child->p_pptr = parent;
-	child->p_ppid = parent->p_pid;
+	child->p_ppid = proc_getpid(parent);
 
 	proc_list_unlock();
 
@@ -2491,6 +2735,7 @@ proc_reparentlocked(proc_t child, proc_t parent, int signallable, int locked)
  * status and rusage for wait().  Check for child processes and orphan them.
  */
 
+#if CONFIG_VFORK
 void
 vfork_exit(proc_t p, int rv)
 {
@@ -2536,7 +2781,7 @@ vfork_exit_internal(proc_t p, int rv, int forceexit)
 		 * if we block here for outside code.
 		 */
 		/* Notify the perf server */
-		(void)sys_perf_notify(self, p->p_pid);
+		(void)sys_perf_notify(self, proc_getpid(p));
 	}
 
 	/*
@@ -2555,7 +2800,7 @@ vfork_exit_internal(proc_t p, int rv, int forceexit)
 	LIST_REMOVE(p, p_list);
 	LIST_INSERT_HEAD(&zombproc, p, p_list); /* Place onto zombproc. */
 	/* will not be visible via proc_find */
-	p->p_listflag |= P_LIST_EXITED;
+	os_atomic_or(&p->p_refcount, P_REF_DEAD, relaxed);
 
 	proc_list_unlock();
 
@@ -2574,11 +2819,10 @@ vfork_exit_internal(proc_t p, int rv, int forceexit)
 
 	vnode_t tvp;
 
-	struct pgrp * pg;
-	struct session *sessp;
+	struct pgrp *pg;
 	struct rusage_superset *rup;
 
-	rup = zalloc(zombie_zone);
+	rup = zalloc_flags(zombie_zone, Z_WAITOK | Z_NOFAIL);
 
 	proc_refdrain(p);
 
@@ -2586,24 +2830,19 @@ vfork_exit_internal(proc_t p, int rv, int forceexit)
 	 * Close open files and release open-file table.
 	 * This may block!
 	 */
-	fdfree(p);
+	fdt_invalidate(p);
 
-	sessp = proc_session(p);
-	if (SESS_LEADER(p, sessp)) {
+	pg = proc_pgrp(p, NULL);
+	if (SESS_LEADER(p, pg->pg_session)) {
 		panic("vfork child is session leader");
 	}
-	session_rele(sessp);
-
-	pg = proc_pgrp(p);
 	fixjobc(p, pg, 0);
-	pg_rele(pg);
+	pgrp_rele(pg);
 
 	/*
-	 * Change RLIMIT_FSIZE for accounting/debugging. proc_limitsetcur_internal() will COW the current plimit
-	 * before making changes if the current plimit is shared. The COW'ed plimit will be freed
-	 * below by calling proc_limitdrop().
+	 * Change RLIMIT_FSIZE for accounting/debugging.
 	 */
-	proc_limitsetcur_internal(p, RLIMIT_FSIZE, RLIM_INFINITY);
+	proc_limitsetcur_fsize(p, RLIM_INFINITY);
 
 	proc_list_lock();
 
@@ -2701,51 +2940,49 @@ vfork_exit_internal(proc_t p, int rv, int forceexit)
 	 * info and self times.  If we were unable to allocate a zombie
 	 * structure, this information is lost.
 	 */
-	if (rup != NULL) {
-		rup->ru = p->p_stats->p_ru;
-		timerclear(&rup->ru.ru_utime);
-		timerclear(&rup->ru.ru_stime);
+	rup->ru = p->p_stats->p_ru;
+	timerclear(&rup->ru.ru_utime);
+	timerclear(&rup->ru.ru_stime);
 
 #ifdef  FIXME
-		if (task) {
-			mach_task_basic_info_data_t tinfo;
-			task_thread_times_info_data_t ttimesinfo;
-			int task_info_stuff, task_ttimes_stuff;
-			struct timeval ut, st;
+	if (task) {
+		mach_task_basic_info_data_t tinfo;
+		task_thread_times_info_data_t ttimesinfo;
+		int task_info_stuff, task_ttimes_stuff;
+		struct timeval ut, st;
 
-			task_info_stuff = MACH_TASK_BASIC_INFO_COUNT;
-			task_info(task, MACH_TASK_BASIC_INFO,
-			    &tinfo, &task_info_stuff);
-			p->p_ru->ru.ru_utime.tv_sec = tinfo.user_time.seconds;
-			p->p_ru->ru.ru_utime.tv_usec = tinfo.user_time.microseconds;
-			p->p_ru->ru.ru_stime.tv_sec = tinfo.system_time.seconds;
-			p->p_ru->ru.ru_stime.tv_usec = tinfo.system_time.microseconds;
+		task_info_stuff = MACH_TASK_BASIC_INFO_COUNT;
+		task_info(task, MACH_TASK_BASIC_INFO,
+		    &tinfo, &task_info_stuff);
+		p->p_ru->ru.ru_utime.tv_sec = tinfo.user_time.seconds;
+		p->p_ru->ru.ru_utime.tv_usec = tinfo.user_time.microseconds;
+		p->p_ru->ru.ru_stime.tv_sec = tinfo.system_time.seconds;
+		p->p_ru->ru.ru_stime.tv_usec = tinfo.system_time.microseconds;
 
-			task_ttimes_stuff = TASK_THREAD_TIMES_INFO_COUNT;
-			task_info(task, TASK_THREAD_TIMES_INFO,
-			    &ttimesinfo, &task_ttimes_stuff);
+		task_ttimes_stuff = TASK_THREAD_TIMES_INFO_COUNT;
+		task_info(task, TASK_THREAD_TIMES_INFO,
+		    &ttimesinfo, &task_ttimes_stuff);
 
-			ut.tv_sec = ttimesinfo.user_time.seconds;
-			ut.tv_usec = ttimesinfo.user_time.microseconds;
-			st.tv_sec = ttimesinfo.system_time.seconds;
-			st.tv_usec = ttimesinfo.system_time.microseconds;
-			timeradd(&ut, &p->p_ru->ru.ru_utime, &p->p_ru->ru.ru_utime);
-			timeradd(&st, &p->p_ru->ru.ru_stime, &p->p_ru->ru.ru_stime);
-		}
+		ut.tv_sec = ttimesinfo.user_time.seconds;
+		ut.tv_usec = ttimesinfo.user_time.microseconds;
+		st.tv_sec = ttimesinfo.system_time.seconds;
+		st.tv_usec = ttimesinfo.system_time.microseconds;
+		timeradd(&ut, &p->p_ru->ru.ru_utime, &p->p_ru->ru.ru_utime);
+		timeradd(&st, &p->p_ru->ru.ru_stime, &p->p_ru->ru.ru_stime);
+	}
 #endif /* FIXME */
 
-		ruadd(&rup->ru, &p->p_stats->p_cru);
+	ruadd(&rup->ru, &p->p_stats->p_cru);
 
-		gather_rusage_info(p, &rup->ri, RUSAGE_INFO_CURRENT);
-		rup->ri.ri_phys_footprint = 0;
-		rup->ri.ri_proc_exit_abstime = mach_absolute_time();
+	gather_rusage_info(p, &rup->ri, RUSAGE_INFO_CURRENT);
+	rup->ri.ri_phys_footprint = 0;
+	rup->ri.ri_proc_exit_abstime = mach_absolute_time();
 
-		/*
-		 * Now that we have filled in the rusage info, make it
-		 * visible to an external observer via proc_pid_rusage().
-		 */
-		p->p_ru = rup;
-	}
+	/*
+	 * Now that we have filled in the rusage info, make it
+	 * visible to an external observer via proc_pid_rusage().
+	 */
+	p->p_ru = rup;
 
 	/*
 	 * Free up profiling buffers.
@@ -2759,7 +2996,7 @@ vfork_exit_internal(proc_t p, int rv, int forceexit)
 
 		for (; p1 != NULL; p1 = pn) {
 			pn = p1->pr_next;
-			kfree(p1, sizeof *p1);
+			kfree_type(struct uprof, p1);
 		}
 	}
 
@@ -2789,7 +3026,7 @@ vfork_exit_internal(proc_t p, int rv, int forceexit)
 	 * and halt this thread (only if a
 	 * member of the task exiting).
 	 */
-	p->task = TASK_NULL;
+	proc_set_task(p, TASK_NULL);
 
 	/*
 	 * Notify parent that we're gone.
@@ -2798,7 +3035,7 @@ vfork_exit_internal(proc_t p, int rv, int forceexit)
 	if ((p->p_listflag & P_LIST_DEADPARENT) == 0) {
 		if (pp != initproc) {
 			proc_lock(pp);
-			pp->si_pid = p->p_pid;
+			pp->si_pid = proc_getpid(p);
 			pp->p_xhighbits = p->p_xhighbits;
 			p->p_xhighbits = 0;
 			pp->si_status = p->p_xstat;
@@ -2807,7 +3044,7 @@ vfork_exit_internal(proc_t p, int rv, int forceexit)
 			 * p_ucred usage is safe as it is an exiting process
 			 * and reference is dropped in reap
 			 */
-			pp->si_uid = kauth_cred_getruid(p->p_ucred);
+			pp->si_uid = kauth_cred_getruid(proc_ucred(p));
 			proc_unlock(pp);
 		}
 		/* mark as a zombie */
@@ -2848,7 +3085,7 @@ vfork_exit_internal(proc_t p, int rv, int forceexit)
 	}
 	proc_rele(pp);
 }
-
+#endif /* CONFIG_VFORK */
 
 /*
  * munge_rusage
@@ -2934,22 +3171,52 @@ kdp_wait4_find_process(thread_t thread, __unused event64_t wait_event, thread_wa
 	waitinfo->owner = args->pid;
 }
 
+int
+exit_with_guard_exception(
+	proc_t p,
+	mach_exception_data_type_t code,
+	mach_exception_data_type_t subcode)
+{
+	os_reason_t reason = os_reason_create(OS_REASON_GUARD, (uint64_t)code);
+	assert(reason != OS_REASON_NULL);
+
+	return exit_with_mach_exception(p, reason, EXC_GUARD, code, subcode);
+}
+
 #if __has_feature(ptrauth_calls)
 int
 exit_with_pac_exception(proc_t p, exception_type_t exception, mach_exception_code_t code,
     mach_exception_subcode_t subcode)
 {
+	os_reason_t reason = os_reason_create(OS_REASON_PAC_EXCEPTION, (uint64_t)code);
+	assert(reason != OS_REASON_NULL);
+
+	return exit_with_mach_exception(p, reason, exception, code, subcode);
+}
+#endif /* __has_feature(ptrauth_calls) */
+
+int
+exit_with_port_space_exception(proc_t p, mach_exception_data_type_t code,
+    mach_exception_data_type_t subcode)
+{
+	os_reason_t reason = os_reason_create(OS_REASON_PORT_SPACE, (uint64_t)code);
+	assert(reason != OS_REASON_NULL);
+
+	return exit_with_mach_exception(p, reason, EXC_RESOURCE, code, subcode);
+}
+
+static int
+exit_with_mach_exception(proc_t p, os_reason_t reason, exception_type_t exception, mach_exception_code_t code,
+    mach_exception_subcode_t subcode)
+{
 	thread_t self = current_thread();
 	struct uthread *ut = get_bsdthread_info(self);
 
-	os_reason_t exception_reason = os_reason_create(OS_REASON_PAC_EXCEPTION, (uint64_t)code);
-	assert(exception_reason != OS_REASON_NULL);
-	exception_reason->osr_flags |= OS_REASON_FLAG_GENERATE_CRASH_REPORT;
 	ut->uu_exception = exception;
 	ut->uu_code = code;
 	ut->uu_subcode = subcode;
 
-	return exit_with_reason(p, W_EXITCODE(0, SIGKILL), (int *)NULL, TRUE, FALSE,
-	           0, exception_reason);
+	reason->osr_flags |= OS_REASON_FLAG_GENERATE_CRASH_REPORT;
+	return exit_with_reason(p, W_EXITCODE(0, SIGKILL), NULL,
+	           TRUE, FALSE, 0, reason);
 }
-#endif /* __has_feature(ptrauth_calls) */

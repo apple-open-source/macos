@@ -53,7 +53,7 @@ struct __xar_subdoc_t {
 
 #define XAR_SUBDOC(x) ((struct __xar_subdoc_t *)(x))
 
-void xar_subdoc_unserialize(xar_subdoc_t s, xmlTextReaderPtr reader);
+int xar_subdoc_unserialize(xar_subdoc_t s, xmlTextReaderPtr reader);
 void xar_subdoc_serialize(xar_subdoc_t s, xmlTextWriterPtr writer, int wrap);
 void xar_subdoc_free(xar_subdoc_t s);
 xar_subdoc_t xar_subdoc_find(xar_t x, const char *name);

@@ -340,12 +340,28 @@ smb_usr_t2request(struct smb_share *share, struct smbioc_t2rq *dp, vfs_context_t
 	}
 	
 	/* ioc_name_len includes the null byte, ioc_kern_name is a c-style string */
-	if (dp->ioc_kern_name && dp->ioc_name_len) {
-		t2p->t_name = smb_memdupin(dp->ioc_kern_name, dp->ioc_name_len);
+    uint32_t ioc_name_len = dp->ioc_name_len;
+	if (dp->ioc_kern_name && ioc_name_len) {
+        
+        /* Validate we get an acceptable name-length from userland */
+        if (ioc_name_len >= PATH_MAX) {
+            error = EINVAL;
+            goto bad;
+        }
+        
+		t2p->t_name = smb_memdupin(dp->ioc_kern_name, ioc_name_len);
 		if (t2p->t_name == NULL) {
 			error = ENOMEM;
 			goto bad;
 		}
+        
+        /* check null-termination to prevent race-condition attack */
+        /* note that ioc_name_len value includes the '\0' byte */
+        if (t2p->t_name[ioc_name_len-1] != '\0') {
+            SMB_FREE(t2p->t_name, M_SMBDATA);
+            error = EINVAL;
+            goto bad;
+        }
 	}
 	t2p->t2_maxscount = 0;
 	t2p->t2_maxpcount = dp->ioc_rparamcnt;

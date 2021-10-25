@@ -33,10 +33,12 @@
 #import "keychain/ckks/tests/CKKSMockSOSPresentAdapter.h"
 #import "keychain/ckks/tests/CKKSMockOctagonAdapter.h"
 #import "keychain/ckks/tests/CKKSMockLockStateProvider.h"
+
 #import "keychain/ckks/CKKSAccountStateTracker.h"
 #import "keychain/ckks/tests/MockCloudKit.h"
 
 #import "keychain/ot/OTManager.h"
+#import "keychain/ot/tests/OTMockPersonaAdapter.h"
 #import "keychain/trust/TrustedPeers/TPSyncingPolicy.h"
 
 NS_ASSUME_NONNULL_BEGIN
@@ -75,6 +77,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 // The CloudKit account status
 @property CKAccountStatus accountStatus;
+@property (nullable) NSError* ckAccountStatusFetchError;
 
 // The current HSA2-ness of the world
 // Set to 'unknown' to not inject any answer into
@@ -111,24 +114,20 @@ NS_ASSUME_NONNULL_BEGIN
 @property CKKSMockSOSPresentAdapter* mockSOSAdapter;
 @property (nullable) CKKSMockOctagonAdapter *mockOctagonAdapter;
 
+@property OTMockPersonaAdapter* mockPersonaAdapter;
+
 - (NSSet<NSString*>*)managedViewList;
 - (TPSyncingPolicy*)viewSortingPolicyForManagedViewList;
 - (TPSyncingPolicy*)viewSortingPolicyForManagedViewListWithUserControllableViews:(NSSet<NSString*>*)ucv
-                                                       syncUserControllableViews:(TPPBPeerStableInfo_UserControllableViewStatus)syncUserControllableViews;
+                                                       syncUserControllableViews:(TPPBPeerStableInfoUserControllableViewStatus)syncUserControllableViews;
 
 @property (nullable) id mockCKKSViewManager;
 @property (nullable) CKKSViewManager* injectedManager;
-
-// Injected into CKKSViewManager using OCMock
-@property BOOL overrideUseCKKSViewsFromPolicy;
+@property CKKSKeychainView* defaultCKKS;
 
 // Set this to true before calling -setup if you're going to configure the ckks view manager yourself
 // !disable format used because this will be initialized to false, and so will happen unless subclasses take positive action
 @property BOOL disableConfigureCKKSViewManagerWithViews;
-
-// Set this to true to override CKKSViewsFromPolicy to NO instead of the default YES
-// !disable format used because this will be initialized to false, and so will happen unless subclasses take positive action
-@property BOOL setCKKSViewsFromPolicyToNo;
 
 @property (nullable) OTManager* injectedOTManager;
 
@@ -137,6 +136,16 @@ NS_ASSUME_NONNULL_BEGIN
 
 // Used to track the test failure logger (for test teardown purposes)
 @property (class) CKKSTestFailureLogger* testFailureLogger;
+
+@property NSString *testName;
+
+@property BOOL dirSetup;
+
+@property NSString *testDir;
+
+- (void)setUpDirectories;
+
+- (void)cleanUpDirectories;
 
 - (CKKSKey*)fakeTLK:(CKRecordZoneID*)zoneID;
 
@@ -201,6 +210,7 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)failNextZoneCreationSilently:(CKRecordZoneID*)zoneID;
 - (void)failNextZoneSubscription:(CKRecordZoneID*)zoneID;
 - (void)failNextZoneSubscription:(CKRecordZoneID*)zoneID withError:(NSError*)error;
+- (void)persistentlyFailNextZoneSubscription:(CKRecordZoneID*)zoneID withError:(NSError*)error;
 
 - (NSError* _Nullable)shouldFailModifyRecordZonesOperation;
 - (void)ensureZoneDeletionAllowed:(FakeCKZone*)zone;

@@ -13,11 +13,44 @@
 			buildPhases = (
 			);
 			dependencies = (
-				603C882E08EC8117004474CD /* PBXTargetDependency */,
 				603C883208EC8117004474CD /* PBXTargetDependency */,
 			);
 			name = All;
 			productName = DiskArbitration;
+		};
+		95122A6A25844795000A9480 /* DiskArbitration_executables */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = 95122A6F25844795000A9480 /* Build configuration list for PBXAggregateTarget "DiskArbitration_executables" */;
+			buildPhases = (
+				95122A76258447AE000A9480 /* ShellScript */,
+			);
+			dependencies = (
+				957575DF25D36E74002758FF /* PBXTargetDependency */,
+			);
+			name = DiskArbitration_executables;
+			productName = DiskArbServer_exexcutables;
+		};
+		95378D7D262F80C800ABD5BA /* All_iOS */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = 95378D82262F80C800ABD5BA /* Build configuration list for PBXAggregateTarget "All_iOS" */;
+			buildPhases = (
+				95378D83262F80F400ABD5BA /* ShellScript */,
+			);
+			dependencies = (
+			);
+			name = All_iOS;
+			productName = All_iOS;
+		};
+		95378D84263221F500ABD5BA /* DiskArbitration_executables_iOS */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = 95378D85263221F500ABD5BA /* Build configuration list for PBXAggregateTarget "DiskArbitration_executables_iOS" */;
+			buildPhases = (
+				95378D8A2632221400ABD5BA /* ShellScript */,
+			);
+			dependencies = (
+			);
+			name = DiskArbitration_executables_iOS;
+			productName = DiskArbitration_iOS_executables;
 		};
 /* End PBXAggregateTarget section */
 
@@ -105,22 +138,26 @@
 		605A42351695074300959114 /* DAAgent.m in Sources */ = {isa = PBXBuildFile; fileRef = 605A42311695074300959114 /* DAAgent.m */; };
 		605A42361695074300959114 /* DADialog.m in Sources */ = {isa = PBXBuildFile; fileRef = 605A42331695074300959114 /* DADialog.m */; };
 		60C835DE1E96BC1F000438E6 /* libbsm.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 60C835DD1E96BC1F000438E6 /* libbsm.dylib */; };
+		957575D925D36E56002758FF /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 957575D825D36E56002758FF /* Foundation.framework */; };
+		957575DB25D36E5F002758FF /* UserFS.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 957575DA25D36E5F002758FF /* UserFS.framework */; settings = {ATTRIBUTES = (Weak, ); }; };
+		957575DD25D36E6A002758FF /* LiveFS.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 957575DC25D36E6A002758FF /* LiveFS.framework */; settings = {ATTRIBUTES = (Weak, ); }; };
+		957575E125D36E9A002758FF /* DAUserFSMount.m in Sources */ = {isa = PBXBuildFile; fileRef = 957575E025D36E9A002758FF /* DAUserFSMount.m */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
-		603C882D08EC8117004474CD /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 12D2592B030A908603A87B01 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 603C87BF08EC8117004474CD;
-			remoteInfo = "diskarbitrationd (Upgraded)";
-		};
 		603C883108EC8117004474CD /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 12D2592B030A908603A87B01 /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = 603C880E08EC8117004474CD;
 			remoteInfo = "DiskArbitration (Upgraded)";
+		};
+		957575DE25D36E74002758FF /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 12D2592B030A908603A87B01 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 603C87BF08EC8117004474CD;
+			remoteInfo = diskarbitrationd;
 		};
 /* End PBXContainerItemProxy section */
 
@@ -263,6 +300,10 @@
 		6DF96180047A6C5700A87B01 /* en */ = {isa = PBXFileReference; fileEncoding = 10; lastKnownFileType = text.plist.strings; name = en; path = DiskArbitration/en.lproj/Localizable.strings; sourceTree = "<group>"; };
 		6DFC226B04E2DCF700A87B01 /* DAThread.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = DAThread.h; path = diskarbitrationd/DAThread.h; sourceTree = "<group>"; };
 		6DFC226C04E2DCF700A87B01 /* DAThread.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = DAThread.c; path = diskarbitrationd/DAThread.c; sourceTree = "<group>"; };
+		957575D825D36E56002758FF /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX12.0.Internal.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
+		957575DA25D36E5F002758FF /* UserFS.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = UserFS.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX12.0.Internal.sdk/System/Library/PrivateFrameworks/UserFS.framework; sourceTree = DEVELOPER_DIR; };
+		957575DC25D36E6A002758FF /* LiveFS.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = LiveFS.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX12.0.Internal.sdk/System/Library/PrivateFrameworks/LiveFS.framework; sourceTree = DEVELOPER_DIR; };
+		957575E025D36E9A002758FF /* DAUserFSMount.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = DAUserFSMount.m; path = diskarbitrationd/DAUserFSMount.m; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -289,6 +330,9 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				957575DD25D36E6A002758FF /* LiveFS.framework in Frameworks */,
+				957575DB25D36E5F002758FF /* UserFS.framework in Frameworks */,
+				957575D925D36E56002758FF /* Foundation.framework in Frameworks */,
 				60C835DE1E96BC1F000438E6 /* libbsm.dylib in Frameworks */,
 				6054BAF01A76C970005039A0 /* libfs.a in Frameworks */,
 				603C87EF08EC8117004474CD /* CoreFoundation.framework in Frameworks */,
@@ -325,6 +369,9 @@
 		1236382F031ABDC703A87B01 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				957575DC25D36E6A002758FF /* LiveFS.framework */,
+				957575DA25D36E5F002758FF /* UserFS.framework */,
+				957575D825D36E56002758FF /* Foundation.framework */,
 				6DC2CC120471E09900A87B01 /* autodiskmount */,
 				12363830031ABDDD03A87B01 /* diskarbitrationd */,
 				6D676E8504068C9900A87B01 /* DiskArbitration */,
@@ -424,6 +471,7 @@
 		12D25927030A908603A87B01 = {
 			isa = PBXGroup;
 			children = (
+				957575E025D36E9A002758FF /* DAUserFSMount.m */,
 				2AE465A11CAB0F230049D02E /* Modules */,
 				1236382F031ABDC703A87B01 /* Frameworks */,
 				124AF309030AD93503A87B01 /* Products */,
@@ -687,6 +735,20 @@
 			isa = PBXProject;
 			attributes = {
 				LastUpgradeCheck = 0700;
+				TargetAttributes = {
+					95122A6A25844795000A9480 = {
+						CreatedOnToolsVersion = 12.4;
+						ProvisioningStyle = Automatic;
+					};
+					95378D7D262F80C800ABD5BA = {
+						CreatedOnToolsVersion = 13.0;
+						ProvisioningStyle = Automatic;
+					};
+					95378D84263221F500ABD5BA = {
+						CreatedOnToolsVersion = 13.0;
+						ProvisioningStyle = Automatic;
+					};
+				};
 			};
 			buildConfigurationList = 60BCD1B1088D46E40091026D /* Build configuration list for PBXProject "DiskArbitration" */;
 			compatibilityVersion = "Xcode 3.2";
@@ -705,6 +767,9 @@
 				603C87BF08EC8117004474CD /* diskarbitrationd */,
 				603C880E08EC8117004474CD /* DiskArbitration */,
 				60077B8012E630AF00D4AE4F /* DiskArbitrationAgent */,
+				95122A6A25844795000A9480 /* DiskArbitration_executables */,
+				95378D7D262F80C800ABD5BA /* All_iOS */,
+				95378D84263221F500ABD5BA /* DiskArbitration_executables_iOS */,
 			);
 		};
 /* End PBXProject section */
@@ -734,6 +799,57 @@
 			shellPath = /bin/sh;
 			shellScript = "if [ -r /usr/local/lib/OrderFiles/DiskArbitration.order ] ; then\n\tcp /usr/local/lib/OrderFiles/DiskArbitration.order ${OBJROOT}/DiskArbitration.order\nelse\n\ttouch ${OBJROOT}/DiskArbitration.order\nfi";
 		};
+		95122A76258447AE000A9480 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "# Type a script or drag a script file from your workspace to insert its path.\nmkdir -p $DSTROOT/AppleInternal\n";
+		};
+		95378D83262F80F400ABD5BA /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "# Type a script or drag a script file from your workspace to insert its path.\nmkdir -p $DSTROOT/AppleInternal\n";
+		};
+		95378D8A2632221400ABD5BA /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "# Type a script or drag a script file from your workspace to insert its path.\nmkdir -p $DSTROOT/AppleInternal\n";
+		};
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
@@ -759,6 +875,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				957575E125D36E9A002758FF /* DAUserFSMount.m in Sources */,
 				603C87D708EC8117004474CD /* fstab.c in Sources */,
 				603C87D808EC8117004474CD /* vsdb.c in Sources */,
 				605A422F1695070C00959114 /* DAAgent.c in Sources */,
@@ -803,15 +920,15 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
-		603C882E08EC8117004474CD /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 603C87BF08EC8117004474CD /* diskarbitrationd */;
-			targetProxy = 603C882D08EC8117004474CD /* PBXContainerItemProxy */;
-		};
 		603C883208EC8117004474CD /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 603C880E08EC8117004474CD /* DiskArbitration */;
 			targetProxy = 603C883108EC8117004474CD /* PBXContainerItemProxy */;
+		};
+		957575DF25D36E74002758FF /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 603C87BF08EC8117004474CD /* diskarbitrationd */;
+			targetProxy = 957575DE25D36E74002758FF /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -894,6 +1011,8 @@
 				GCC_PREPROCESSOR_DEFINITIONS = __DISKARBITRATIOND__;
 				INSTALL_PATH = /usr/libexec;
 				PRODUCT_NAME = diskarbitrationd;
+				SDKROOT = macosx.internal;
+				SYSTEM_FRAMEWORK_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
 			};
 			name = Debug;
 		};
@@ -905,6 +1024,8 @@
 				GCC_PREPROCESSOR_DEFINITIONS = __DISKARBITRATIOND__;
 				INSTALL_PATH = /usr/libexec;
 				PRODUCT_NAME = diskarbitrationd;
+				SDKROOT = macosx.internal;
+				SYSTEM_FRAMEWORK_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
 			};
 			name = Release;
 		};
@@ -935,6 +1056,8 @@
 					__text,
 					"$(OBJROOT)/DiskArbitration.order",
 				);
+				SUPPORTS_TEXT_BASED_API = YES;
+				TAPI_VERIFY_MODE = Pedantic;
 				WRAPPER_EXTENSION = framework;
 			};
 			name = Debug;
@@ -966,6 +1089,8 @@
 					__text,
 					"$(OBJROOT)/DiskArbitration.order",
 				);
+				SUPPORTS_TEXT_BASED_API = YES;
+				TAPI_VERIFY_MODE = Pedantic;
 				WRAPPER_EXTENSION = framework;
 			};
 			name = Release;
@@ -1020,6 +1145,8 @@
 				);
 				OTHER_LDFLAGS = "-fprofile-instr-generate";
 				PRODUCT_NAME = diskarbitrationd;
+				SDKROOT = macosx.internal;
+				SYSTEM_FRAMEWORK_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
 			};
 			name = ReleaseCoverage;
 		};
@@ -1050,6 +1177,8 @@
 					__text,
 					"$(OBJROOT)/DiskArbitration.order",
 				);
+				SUPPORTS_TEXT_BASED_API = YES;
+				TAPI_VERIFY_MODE = Pedantic;
 				WRAPPER_EXTENSION = framework;
 			};
 			name = ReleaseCoverage;
@@ -1106,6 +1235,8 @@
 				);
 				OTHER_LDFLAGS = "-fprofile-instr-generate";
 				PRODUCT_NAME = diskarbitrationd;
+				SDKROOT = macosx.internal;
+				SYSTEM_FRAMEWORK_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
 			};
 			name = DebugCoverage;
 		};
@@ -1136,6 +1267,8 @@
 					__text,
 					"$(OBJROOT)/DiskArbitration.order",
 				);
+				SUPPORTS_TEXT_BASED_API = YES;
+				TAPI_VERIFY_MODE = Pedantic;
 				WRAPPER_EXTENSION = framework;
 			};
 			name = DebugCoverage;
@@ -1152,6 +1285,114 @@
 				PROVISIONING_PROFILE = "";
 			};
 			name = DebugCoverage;
+		};
+		95122A6B25844795000A9480 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		95122A6C25844795000A9480 /* DebugCoverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = DebugCoverage;
+		};
+		95122A6D25844795000A9480 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+		95122A6E25844795000A9480 /* ReleaseCoverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = ReleaseCoverage;
+		};
+		95378D7E262F80C800ABD5BA /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				INSTALLHDRS_SCRIPT_PHASE = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos.internal;
+			};
+			name = Debug;
+		};
+		95378D7F262F80C800ABD5BA /* DebugCoverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				INSTALLHDRS_SCRIPT_PHASE = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos.internal;
+			};
+			name = DebugCoverage;
+		};
+		95378D80262F80C800ABD5BA /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				INSTALLHDRS_SCRIPT_PHASE = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos.internal;
+			};
+			name = Release;
+		};
+		95378D81262F80C800ABD5BA /* ReleaseCoverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				INSTALLHDRS_SCRIPT_PHASE = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos.internal;
+			};
+			name = ReleaseCoverage;
+		};
+		95378D86263221F500ABD5BA /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				INSTALLHDRS_SCRIPT_PHASE = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		95378D87263221F500ABD5BA /* DebugCoverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				INSTALLHDRS_SCRIPT_PHASE = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = DebugCoverage;
+		};
+		95378D88263221F500ABD5BA /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				INSTALLHDRS_SCRIPT_PHASE = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+		95378D89263221F500ABD5BA /* ReleaseCoverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				INSTALLHDRS_SCRIPT_PHASE = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = ReleaseCoverage;
 		};
 /* End XCBuildConfiguration section */
 
@@ -1218,6 +1459,39 @@
 				72BF5C092346A76800054F1E /* DebugCoverage */,
 				60BCD1B3088D46E40091026D /* Release */,
 				72BF5C032346A75200054F1E /* ReleaseCoverage */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		95122A6F25844795000A9480 /* Build configuration list for PBXAggregateTarget "DiskArbitration_executables" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				95122A6B25844795000A9480 /* Debug */,
+				95122A6C25844795000A9480 /* DebugCoverage */,
+				95122A6D25844795000A9480 /* Release */,
+				95122A6E25844795000A9480 /* ReleaseCoverage */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		95378D82262F80C800ABD5BA /* Build configuration list for PBXAggregateTarget "All_iOS" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				95378D7E262F80C800ABD5BA /* Debug */,
+				95378D7F262F80C800ABD5BA /* DebugCoverage */,
+				95378D80262F80C800ABD5BA /* Release */,
+				95378D81262F80C800ABD5BA /* ReleaseCoverage */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		95378D85263221F500ABD5BA /* Build configuration list for PBXAggregateTarget "DiskArbitration_executables_iOS" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				95378D86263221F500ABD5BA /* Debug */,
+				95378D87263221F500ABD5BA /* DebugCoverage */,
+				95378D88263221F500ABD5BA /* Release */,
+				95378D89263221F500ABD5BA /* ReleaseCoverage */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

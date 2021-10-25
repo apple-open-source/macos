@@ -133,12 +133,23 @@ struct machine_thread {
 #endif
 	uint64_t                  reserved5;
 
+#if SCHED_PREEMPTION_DISABLE_DEBUG
+	/*
+	 * Preemption disable timestamp, adjusted to
+	 * exclude duration of any interrupts that happened.
+	 */
+	uint64_t                                  preemption_disable_adj_mt;
+#endif /* SCHED_PREEMPTION_DISABLE_DEBUG */
+
 #if INTERRUPT_MASKED_DEBUG
 	uint64_t                  intmask_timestamp;          /* timestamp of when interrupts were manually masked */
 	uint64_t                  inthandler_timestamp;       /* timestamp of when interrupt handler started */
+	uint64_t                  intmask_cycles;             /* cycle count snapshot of when interrupts were masked */
+	uint64_t                  intmask_instr;              /* instruction count snapshot of when interrupts were masked */
 	unsigned int              int_type;                   /* interrupt type of the interrupt that was processed */
 	uintptr_t                 int_handler_addr;           /* slid, ptrauth-stripped virtual address of the interrupt handler */
 	uintptr_t                 int_vector;                 /* IOInterruptVector */
+	uint64_t                  int_time_mt;                /* total time spent in interrupt context */
 #endif
 
 #if __arm64__ && defined(CONFIG_XNUPOST)

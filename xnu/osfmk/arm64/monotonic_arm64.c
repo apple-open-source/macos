@@ -73,7 +73,7 @@ bool mt_core_supported = true;
 static const ml_topology_info_t *topology_info;
 
 /*
- * PMC[0-1] are the 48-bit fixed counters -- PMC0 is cycles and PMC1 is
+ * PMC[0-1] are the 48/64-bit fixed counters -- PMC0 is cycles and PMC1 is
  * instructions (see arm64/monotonic.h).
  *
  * PMC2+ are currently handled by kpc.
@@ -89,7 +89,13 @@ static const ml_topology_info_t *topology_info;
 
 #define PMC_ALL(X, A) PMC_0_7(X, A); PMC_8_9(X, A)
 
-#define CTR_MAX ((UINT64_C(1) << 47) - 1)
+#if CPMU_64BIT_PMCS
+#define PMC_WIDTH (63)
+#else // UPMU_64BIT_PMCS
+#define PMC_WIDTH (47)
+#endif // !UPMU_64BIT_PMCS
+
+#define CTR_MAX ((UINT64_C(1) << PMC_WIDTH) - 1)
 
 #define CYCLES 0
 #define INSTRS 1
@@ -150,7 +156,13 @@ enum {
 #define PMCR0_USEREN_EN (UINT64_C(1) << 30)
 #define PMCR0_CTR_GE8_EN_SHIFT (32)
 
-#define PMCR0_INIT (PMCR0_INTGEN_INIT | PMCR0_PMI_INIT)
+#if HAS_CPMU_PC_CAPTURE
+#define PMCR0_PCC_INIT (UINT64_C(0x7) << 24)
+#else /* HAS_CPMU_PC_CAPTURE */
+#define PMCR0_PCC_INIT (0)
+#endif /* !HAS_CPMU_PC_CAPTURE */
+
+#define PMCR0_INIT (PMCR0_INTGEN_INIT | PMCR0_PMI_INIT | PMCR0_PCC_INIT)
 
 /*
  * PMCR1 controls which execution modes count events.
@@ -227,12 +239,14 @@ mt_core_set_snap(unsigned int ctr, uint64_t count)
 static void
 core_set_enabled(void)
 {
+	uint32_t kpc_mask = kpc_get_running() &
+	    (KPC_CLASS_CONFIGURABLE_MASK | KPC_CLASS_POWER_MASK);
 	uint64_t pmcr0 = __builtin_arm_rsr64("PMCR0_EL1");
 	pmcr0 |= PMCR0_INIT | PMCR0_FIXED_EN;
 
-	if (kpc_get_running() & KPC_CLASS_CONFIGURABLE_MASK) {
-		uint64_t kpc_ctrs = kpc_get_configurable_pmc_mask(
-			KPC_CLASS_CONFIGURABLE_MASK) << MT_CORE_NFIXED;
+	if (kpc_mask != 0) {
+		uint64_t kpc_ctrs = kpc_get_configurable_pmc_mask(kpc_mask) <<
+		        MT_CORE_NFIXED;
 #if KPC_ARM64_CONFIGURABLE_COUNT > 6
 		uint64_t ctrs_ge8 = kpc_ctrs >> 8;
 		pmcr0 |= ctrs_ge8 << PMCR0_CTR_GE8_EN_SHIFT;
@@ -265,11 +279,11 @@ core_idle(__unused cpu_data_t *cpu)
 #if DEBUG
 	uint64_t pmcr0 = __builtin_arm_rsr64("PMCR0_EL1");
 	if ((pmcr0 & PMCR0_FIXED_EN) == 0) {
-		panic("monotonic: counters disabled before idling, pmcr0 = 0x%llx\n", pmcr0);
+		panic("monotonic: counters disabled before idling, pmcr0 = 0x%llx", pmcr0);
 	}
 	uint64_t pmcr1 = __builtin_arm_rsr64("PMCR1_EL1");
 	if ((pmcr1 & PMCR1_INIT) == 0) {
-		panic("monotonic: counter modes disabled before idling, pmcr1 = 0x%llx\n", pmcr1);
+		panic("monotonic: counter modes disabled before idling, pmcr1 = 0x%llx", pmcr1);
 	}
 #endif /* DEBUG */
 
@@ -317,6 +331,12 @@ static uintptr_t cpm_impl[MAX_NMONITORS] = {};
 #define UPMSR_OVF_MASK    (((UINT64_C(1) << UNCORE_NCTRS) - 1) << UPMSR_OVF_POS)
 
 #define UPMPCM_CORE(ID) (UINT64_C(1) << (ID))
+
+#if UPMU_64BIT_PMCS
+#define UPMC_WIDTH (63)
+#else // UPMU_64BIT_PMCS
+#define UPMC_WIDTH (47)
+#endif // !UPMU_64BIT_PMCS
 
 /*
  * The uncore_pmi_mask is a bitmask of CPUs that receive uncore PMIs.  It's
@@ -392,7 +412,6 @@ static unsigned int
 uncmon_get_curid(void)
 {
 #if UNCORE_PER_CLUSTER
-	// Pointer arithmetic to translate cluster_id into a clusters[] index.
 	return cpu_cluster_id();
 #else /* UNCORE_PER_CLUSTER */
 	return 0;
@@ -473,11 +492,11 @@ uncmon_set_counting_locked_r(unsigned int monid, uint64_t enctrmask)
 #endif /* UNCORE_PER_CLUSTER */
 
 /*
- * The uncore performance monitoring counters (UPMCs) are 48-bits wide.  The
- * high bit is an overflow bit, triggering a PMI, providing 47 usable bits.
+ * The uncore performance monitoring counters (UPMCs) are 48/64-bits wide.  The
+ * high bit is an overflow bit, triggering a PMI, providing 47/63 usable bits.
  */
 
-#define UPMC_MAX ((UINT64_C(1) << 48) - 1)
+#define UPMC_MAX ((UINT64_C(1) << UPMC_WIDTH) - 1)
 
 /*
  * The `__builtin_arm_{r,w}sr` functions require constant strings, since the
@@ -749,8 +768,6 @@ uncore_init(__unused mt_device_t dev)
 	}
 	assert(uncore_pmi_mask != 0);
 
-	unsigned int curmonid = uncmon_get_curid();
-
 	for (unsigned int monid = 0; monid < uncore_nmonitors(); monid++) {
 #if UNCORE_PER_CLUSTER
 		ml_topology_cluster_t *cluster = &topology_info->clusters[monid];
@@ -761,16 +778,6 @@ uncore_init(__unused mt_device_t dev)
 
 		struct uncore_monitor *mon = &uncore_monitors[monid];
 		lck_spin_init(&mon->um_lock, &mt_lock_grp, LCK_ATTR_NULL);
-
-		int intrs_en = uncmon_lock(mon);
-		if (monid != curmonid) {
-#if UNCORE_PER_CLUSTER
-			uncmon_init_locked_r(monid);
-#endif /* UNCORE_PER_CLUSTER */
-		} else {
-			uncmon_init_locked_l(monid);
-		}
-		uncmon_unlock(mon, intrs_en);
 	}
 
 	mt_uncore_initted = true;
@@ -855,6 +862,28 @@ uncore_add(struct monotonic_config *config, uint32_t *ctr_out)
 	if ((available & valid_ctrs) == 0) {
 		return E2BIG;
 	}
+	/*
+	 * Clear the UPMCs the first time an event is added.
+	 */
+	unsigned int curmonid = uncmon_get_curid();
+	if (uncore_active_ctrs == 0) {
+		for (unsigned int monid = 0; monid < uncore_nmonitors(); monid++) {
+			struct uncore_monitor *mon = &uncore_monitors[monid];
+			bool remote = monid != curmonid;
+
+			int intrs_en = uncmon_lock(mon);
+			for (unsigned int ctr = 0; ctr < UNCORE_NCTRS; ctr++) {
+				if (remote) {
+	#if UNCORE_PER_CLUSTER
+					uncmon_write_counter_locked_r(monid, ctr, 0);
+	#endif /* UNCORE_PER_CLUSTER */
+				} else {
+					uncmon_write_counter_locked_l(monid, ctr, 0);
+				}
+			}
+			uncmon_unlock(mon, intrs_en);
+		}
+	}
 
 	uint32_t ctr = __builtin_ffsll(available) - 1;
 
@@ -892,60 +921,64 @@ uncore_reset(void)
 
 	unsigned int curmonid = uncmon_get_curid();
 
-	for (unsigned int monid = 0; monid < uncore_nmonitors(); monid++) {
-		struct uncore_monitor *mon = &uncore_monitors[monid];
-		bool remote = monid != curmonid;
+	if (mt_owns_counters()) {
+		for (unsigned int monid = 0; monid < uncore_nmonitors(); monid++) {
+			struct uncore_monitor *mon = &uncore_monitors[monid];
+			bool remote = monid != curmonid;
 
-		int intrs_en = uncmon_lock(mon);
-		if (remote) {
-#if UNCORE_PER_CLUSTER
-			uncmon_set_counting_locked_r(monid, 0);
-#endif /* UNCORE_PER_CLUSTER */
-		} else {
-			uncmon_set_counting_locked_l(monid, 0);
-		}
+			int intrs_en = uncmon_lock(mon);
+			if (remote) {
+	#if UNCORE_PER_CLUSTER
+				uncmon_set_counting_locked_r(monid, 0);
+	#endif /* UNCORE_PER_CLUSTER */
+			} else {
+				uncmon_set_counting_locked_l(monid, 0);
+			}
 
-		for (int ctr = 0; ctr < UNCORE_NCTRS; ctr++) {
-			if (uncore_active_ctrs & (1U << ctr)) {
-				if (remote) {
-#if UNCORE_PER_CLUSTER
-					uncmon_write_counter_locked_r(monid, ctr, 0);
-#endif /* UNCORE_PER_CLUSTER */
-				} else {
-					uncmon_write_counter_locked_l(monid, ctr, 0);
+			for (int ctr = 0; ctr < UNCORE_NCTRS; ctr++) {
+				if (uncore_active_ctrs & (1U << ctr)) {
+					if (remote) {
+	#if UNCORE_PER_CLUSTER
+						uncmon_write_counter_locked_r(monid, ctr, 0);
+	#endif /* UNCORE_PER_CLUSTER */
+					} else {
+						uncmon_write_counter_locked_l(monid, ctr, 0);
+					}
 				}
 			}
-		}
 
-		memset(&mon->um_snaps, 0, sizeof(mon->um_snaps));
-		memset(&mon->um_counts, 0, sizeof(mon->um_counts));
-		if (remote) {
-#if UNCORE_PER_CLUSTER
-			uncmon_clear_int_locked_r(monid);
-#endif /* UNCORE_PER_CLUSTER */
-		} else {
-			uncmon_clear_int_locked_l(monid);
-		}
+			memset(&mon->um_snaps, 0, sizeof(mon->um_snaps));
+			memset(&mon->um_counts, 0, sizeof(mon->um_counts));
+			if (remote) {
+	#if UNCORE_PER_CLUSTER
+				uncmon_clear_int_locked_r(monid);
+	#endif /* UNCORE_PER_CLUSTER */
+			} else {
+				uncmon_clear_int_locked_l(monid);
+			}
 
-		uncmon_unlock(mon, intrs_en);
+			uncmon_unlock(mon, intrs_en);
+		}
 	}
 
 	uncore_active_ctrs = 0;
 	memset(&uncore_config, 0, sizeof(uncore_config));
 
-	for (unsigned int monid = 0; monid < uncore_nmonitors(); monid++) {
-		struct uncore_monitor *mon = &uncore_monitors[monid];
-		bool remote = monid != curmonid;
+	if (mt_owns_counters()) {
+		for (unsigned int monid = 0; monid < uncore_nmonitors(); monid++) {
+			struct uncore_monitor *mon = &uncore_monitors[monid];
+			bool remote = monid != curmonid;
 
-		int intrs_en = uncmon_lock(mon);
-		if (remote) {
+			int intrs_en = uncmon_lock(mon);
+			if (remote) {
 #if UNCORE_PER_CLUSTER
-			uncmon_program_events_locked_r(monid);
+				uncmon_program_events_locked_r(monid);
 #endif /* UNCORE_PER_CLUSTER */
-		} else {
-			uncmon_program_events_locked_l(monid);
+			} else {
+				uncmon_program_events_locked_l(monid);
+			}
+			uncmon_unlock(mon, intrs_en);
 		}
-		uncmon_unlock(mon, intrs_en);
 	}
 }
 
@@ -960,6 +993,7 @@ uncmon_set_enabled_l(unsigned int monid, bool enable)
 	int intrs_en = uncmon_lock(mon);
 
 	if (enable) {
+		uncmon_init_locked_l(monid);
 		uncmon_program_events_locked_l(monid);
 		uncmon_set_counting_locked_l(monid, uncore_active_ctrs);
 	} else {
@@ -978,6 +1012,7 @@ uncmon_set_enabled_r(unsigned int monid, bool enable)
 	int intrs_en = uncmon_lock(mon);
 
 	if (enable) {
+		uncmon_init_locked_r(monid);
 		uncmon_program_events_locked_r(monid);
 		uncmon_set_counting_locked_r(monid, uncore_active_ctrs);
 	} else {
@@ -1019,6 +1054,10 @@ uncore_fiq(uint64_t upmsr)
 	uint64_t disable_ctr_mask = (upmsr & UPMSR_OVF_MASK) >> UPMSR_OVF_POS;
 	/* should not receive interrupts from inactive counters */
 	assert(!(disable_ctr_mask & ~uncore_active_ctrs));
+
+	if (uncore_active_ctrs == 0) {
+		return;
+	}
 
 	unsigned int monid = uncmon_get_curid();
 	struct uncore_monitor *mon = &uncore_monitors[monid];
@@ -1319,10 +1358,28 @@ mt_fiq(void *cpu, uint64_t pmcr0, uint64_t upmsr)
 #endif /* !CPMU_AIC_PMI */
 
 #if HAS_UNCORE_CTRS
-	uncore_fiq(upmsr);
+	if (upmsr != 0) {
+		uncore_fiq(upmsr);
+	}
 #else /* HAS_UNCORE_CTRS */
 #pragma unused(upmsr)
 #endif /* !HAS_UNCORE_CTRS */
+}
+
+void
+mt_ownership_change(bool available)
+{
+#if HAS_UNCORE_CTRS
+	/*
+	 * No need to take the lock here, as this is only manipulated in the UPMU
+	 * when the current task already owns the counters and is on its way out.
+	 */
+	if (!available && uncore_active_ctrs) {
+		uncore_reset();
+	}
+#else
+#pragma unused(available)
+#endif /* HAS_UNCORE_CTRS */
 }
 
 static uint32_t mt_xc_sync;

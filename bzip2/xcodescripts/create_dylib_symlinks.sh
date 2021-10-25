@@ -9,9 +9,9 @@ mkdir -p ${INSTALL_DIR}
 
 if [[ ${ACTION} == "install" ]] ; then
     ln -fs libbz2.1.0.dylib ${DSTROOT}/usr/lib/libbz2.dylib
-    ln -fs libbz2.1.0.dylib ${DSTROOT}/usr/lib/libbz2.1.0.5.dylib
+    ln -fs libbz2.1.0.dylib ${DSTROOT}/usr/lib/libbz2.1.0.8.dylib
 fi
 
 ln -fs libbz2.1.0.tbd ${DSTROOT}/usr/lib/libbz2.tbd
-ln -fs libbz2.1.0.tbd ${DSTROOT}/usr/lib/libbz2.1.0.5.tbd
+ln -fs libbz2.1.0.tbd ${DSTROOT}/usr/lib/libbz2.1.0.8.tbd
 

@@ -86,11 +86,6 @@ _CCCryptorUpdate
 _CCDHComputeKey
 _CCDHCreate
 _CCDHGenerateKey
-_CCDHParametersCreateFromData
-_CCDHParametersCreateFromPKCS3
-_CCDHParametersPKCS3EncodeLength
-_CCDHParametersPKCS3Encode
-_CCDHParametersRelease
 _CCDHRelease
 _CCDeriveKey
 _CCHKDFExtract
@@ -163,6 +158,7 @@ _CCRSACryptorGeneratePair
 _CCRSACryptorCreatePublicKeyFromPrivateKey
 _CCRSACryptorGetPublicKeyFromPrivateKey
 _CCRSACryptorImport
+_CCRSACryptorRecoverPrivateKey
 _CCRSACryptorRelease
 _CCRSACryptorSign
 _CCRSACryptorVerify
@@ -216,8 +212,6 @@ _ccDRBGGetRngState
 _ccDevRandomGetRngState
 _kCCRandomDefault
 _kCCRandomDevRandom
-_kCCDHRFC2409Group2
-_kCCDHRFC3526Group5
 _CCDigestBlockSize
 _MD5Final
 _CNCRC

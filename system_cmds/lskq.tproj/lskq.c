@@ -32,10 +32,13 @@
 #include <sys/types.h>
 #include <sys/event.h>
 #include <sys/time.h>
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wquoted-include-in-framework-header"
 #include <sys/proc_info.h>
 #include <sys/param.h>
 #include <pthread/pthread.h>
 #include <mach/message.h>
+#pragma clang diagnostic pop
 #define PRIVATE
 #include <libproc.h>
 #undef PRIVATE

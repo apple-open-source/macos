@@ -590,11 +590,33 @@ tcp_print(netdissect_options *ndo,
                                 break;
 
                         case TCPOPT_MPTCP:
+                            {
+                                const u_char *snapend_save;
+                                int ret;
+
                                 datalen = len - 2;
                                 LENCHECK(datalen);
-                                if (!mptcp_print(ndo, cp-2, len, flags))
+                                /* FIXME: Proof-read mptcp_print() and if it
+                                 * always covers all bytes when it returns 1,
+                                 * only do ND_TCHECK_LEN() if it returned 0.
+                                 */
+                                ND_TCHECK2(*cp, datalen);
+                                /* Update the snapend to the end of the option
+                                 * before calling mptcp_print(). Some options
+                                 * (MPTCP or others) may be present after a
+                                 * MPTCP option. This prevents that, in
+                                 * mptcp_print(), the remaining length < the
+                                 * remaining caplen.
+                                 */
+                                snapend_save = ndo->ndo_snapend;
+                                ndo->ndo_snapend = min(cp - 2 + len,
+                                                          ndo->ndo_snapend);
+                                ret = mptcp_print(ndo, cp - 2, len, flags);
+                                ndo->ndo_snapend = snapend_save;
+                                if (!ret)
                                         goto bad;
                                 break;
+                            }
 
                         case TCPOPT_FASTOPEN:
                                 datalen = len - 2;

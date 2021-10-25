@@ -136,6 +136,13 @@ typedef NS_OPTIONS(uint32_t, SOSAccountGhostBustingOptions) {
 
 - (void)removeV0Peers:(void(^)(bool removedV0Peer, NSError *error))reply;
 
+- (void) sosDisable;
+- (void) sosEnable;
+- (void) sosIsEnabledCB: (void(^)(bool result)) complete;
+- (bool) sosIsEnabled;
+- (NSString *) sosIsEnabledString;
+
+
 @end
 #endif
 

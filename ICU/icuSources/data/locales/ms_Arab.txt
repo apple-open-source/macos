@@ -1,5 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
-// License & terms of use: http://www.unicode.org/copyright.html#License
+// License & terms of use: http://www.unicode.org/copyright.html
+// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
 ms_Arab{
     %%Parent{"root"}
     AuxExemplarCharacters{"[ڬ ۑ]"}
@@ -78,7 +79,6 @@ ms_Arab{
         native{"arab"}
         traditional{"arab"}
     }
-    Version{"36.1"}
     calendar{
         buddhist{
             DateTimePatterns{

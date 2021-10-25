@@ -54,6 +54,10 @@
 #include <Security/SecBasePriv.h>
 #include "TokenLogin.h"
 
+extern "C" {
+#include <ctkloginhelper.h>
+}
+
 //%%% add this to AuthorizationTagsPriv.h later
 #ifndef AGENT_HINT_LOGIN_KC_SUPPRESS_RESET_PANEL
 #define AGENT_HINT_LOGIN_KC_SUPPRESS_RESET_PANEL "loginKCCreate:suppressResetPanel"
@@ -1619,6 +1623,7 @@ void StorageManager::login(UInt32 nameLength, const void *name,
     // make plist changes after files have been renamed or created
     //***************************************************************
 
+    bool searchListChanged = false;
     // if the shortname keychain exists in the search list, either rename or remove the entry
     if (mSavedList.member(demungeDLDbIdentifier(shortnameDLDbIdentifier))) {
         if (shortnameDotKeychainExists && !mSavedList.member(demungeDLDbIdentifier(shortnameDotDLDbIdentifier))) {
@@ -1649,10 +1654,11 @@ void StorageManager::login(UInt32 nameLength, const void *name,
 
     // make sure that login.keychain is in the search list
     if (!mSavedList.member(demungeDLDbIdentifier(loginDLDbIdentifier))) {
-    	secnotice("KCLogin", "Adding %s to keychain search list", (loginDLDbIdentifier) ? loginDLDbIdentifier.dbName() : "<NULL>");
+        secnotice("KCLogin", "Adding %s to keychain search list", (loginDLDbIdentifier) ? loginDLDbIdentifier.dbName() : "<NULL>");
         mSavedList.add(demungeDLDbIdentifier(loginDLDbIdentifier));
         mSavedList.save();
         mSavedList.revert(true);
+        searchListChanged = true;
     }
 
     // if we have a shortname.keychain, always include it in the plist (after login.keychain)
@@ -1660,15 +1666,21 @@ void StorageManager::login(UInt32 nameLength, const void *name,
         mSavedList.add(demungeDLDbIdentifier(shortnameDotDLDbIdentifier));
         mSavedList.save();
         mSavedList.revert(true);
+        searchListChanged = true;
     }
 
     // make sure that the default keychain is in the search list; if not, reset the default to login.keychain
-	if (!mSavedList.member(mSavedList.defaultDLDbIdentifier())) {
-    	secnotice("KCLogin", "Changing default keychain to %s", (loginDLDbIdentifier) ? loginDLDbIdentifier.dbName() : "<NULL>");
+    if (!mSavedList.member(mSavedList.defaultDLDbIdentifier())) {
+        secnotice("KCLogin", "Changing default keychain to %s", (loginDLDbIdentifier) ? loginDLDbIdentifier.dbName() : "<NULL>");
         mSavedList.defaultDLDbIdentifier(demungeDLDbIdentifier(loginDLDbIdentifier));
         mSavedList.save();
         mSavedList.revert(true);
-	}
+    }
+
+    // let other processes know if the search list changed
+    if (searchListChanged) {
+        KCEventNotifier::PostKeychainEvent(kSecKeychainListChangedEvent);
+    }
 
     //***************************************************************
     // auto-unlock the login keychain(s)
@@ -1715,15 +1727,31 @@ void StorageManager::login(UInt32 nameLength, const void *name,
 							break;
 						}
 						tokenLoginDataUpdated = true;
-					}
+					} else if (status == errSecInteractionNotAllowed) {
+                        // UI has to be shown to update credentials
+                        secnotice("KCLogin", "Unable to unlock KC without showing UI");
+                        CssmError::throwMe(status); // to trigger login data regeneration
+                    }
 				}
 			}
 
             try {
-				// first try to unlock login keychain because if this fails, token keychain unlock fails as well
+                // first try to unlock login keychain because if this fails, token keychain unlock fails as well
 				if (tokenLoginData) {
+                    // check if smartcard setup is complete
+                    bool scKekNeeded = false; bool scKekValid = false;
+                    CFStringRef currName = CFStringCreateWithCString(kCFAllocatorDefault, userName.c_str(), kCFStringEncodingUTF8);
+                    OSStatus status = TKSmartCardSecureTokenStatus(currName, &scKekNeeded, NULL, &scKekValid);
+                    if (currName) {
+                        CFRelease(currName);
+                    }
+                    if (status == noErr && scKekNeeded == true && scKekValid == false) {
+                        secnotice("KCLogin", "SmartcardData not complete");
+                        CssmError::throwMe(status); // to trigger login data regeneration
+                    }
+                    
 					secnotice("KCLogin", "Going to unlock keybag using scBlob");
-					OSStatus status = TokenLoginUnlockKeybag(tokenLoginContext, tokenLoginData);
+                    status = TokenLoginUnlockKeybag(tokenLoginContext, tokenLoginData);
 					secnotice("KCLogin", "Keybag unlock result %d", (int)status);
 					if (status)
 						CssmError::throwMe(status); // to trigger login data regeneration

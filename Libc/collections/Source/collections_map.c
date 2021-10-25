@@ -83,8 +83,8 @@ os_map_64_hash(uint64_t key)
 static inline bool
 os_map_128_key_equals(os_map_128_key_t a, os_map_128_key_t b)
 {
-    return a.x[0] == b.x[0] &&
-        a.x[1] == b.x[1];
+	return a.x[0] == b.x[0] &&
+		a.x[1] == b.x[1];
 }
 
 static inline uint32_t

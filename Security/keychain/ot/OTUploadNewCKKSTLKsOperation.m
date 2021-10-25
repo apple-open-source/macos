@@ -52,16 +52,8 @@
 
     WEAKIFY(self);
 
-    NSMutableSet<CKKSKeychainView*>* viewsToUpload = [NSMutableSet set];
-
-    // One (or more) of our sub-CKKSes believes it needs to upload new TLKs.
-    CKKSViewManager* viewManager = self.deps.viewManager;
-    for(CKKSKeychainView* view in viewManager.currentViews) {
-        if([view requiresTLKUpload]) {
-            secnotice("octagon-ckks", "CKKS view %@ needs TLK uploads!", view);
-            [viewsToUpload addObject: view];
-        }
-    }
+    // One (or more) of our CKKS views believes it needs to upload new TLKs.
+    NSSet<CKKSKeychainViewState*>* viewsToUpload = [self.deps.ckks viewsRequiringTLKUpload];
 
     if(viewsToUpload.count == 0) {
          // Nothing to do; return to ready
@@ -70,22 +62,24 @@
         return;
     }
 
+    secnotice("octagon-ckks", "CKKS needs TLK uploads for %@", viewsToUpload);
+
     self.finishedOp = [NSBlockOperation blockOperationWithBlock:^{
         STRONGIFY(self);
         secnotice("octagon", "Finishing an update TLKs operation with %@", self.error ?: @"no error");
     }];
     [self dependOnBeforeGroupFinished:self.finishedOp];
 
-    OTFetchCKKSKeysOperation* fetchKeysOp = [[OTFetchCKKSKeysOperation alloc] initWithViews:viewsToUpload];
+    OTFetchCKKSKeysOperation* fetchKeysOp = [[OTFetchCKKSKeysOperation alloc] initWithDependencies:self.deps
+                                                                                      viewsToFetch:viewsToUpload];
     [self runBeforeGroupFinished:fetchKeysOp];
 
     CKKSResultOperation* proceedWithKeys = [CKKSResultOperation named:@"upload-tlks-with-keys"
                                                             withBlock:^{
-                                                                STRONGIFY(self);
-                                                                [self proceedWithKeys:fetchKeysOp.viewKeySets
-                                                                     pendingTLKShares:fetchKeysOp.tlkShares
-                                                                        viewsToUpload:viewsToUpload];
-                                                            }];
+        STRONGIFY(self);
+        [self proceedWithKeys:fetchKeysOp.viewKeySets
+             pendingTLKShares:fetchKeysOp.pendingTLKShares];
+    }];
 
     [proceedWithKeys addDependency:fetchKeysOp];
     [self runBeforeGroupFinished:proceedWithKeys];
@@ -93,9 +87,16 @@
 
 - (void)proceedWithKeys:(NSArray<CKKSKeychainBackedKeySet*>*)viewKeySets
        pendingTLKShares:(NSArray<CKKSTLKShare*>*)pendingTLKShares
-          viewsToUpload:(NSSet<CKKSKeychainView*>*)viewsToUpload
 {
     WEAKIFY(self);
+
+    if(viewKeySets.count == 0 && pendingTLKShares.count == 0) {
+        // Nothing to do
+        secnotice("octagon-ckks", "No CKKS views gave us TLKs to upload");
+        self.nextState = self.intendedState;
+        [self runBeforeGroupFinished:self.finishedOp];
+        return;
+   }
 
     secnotice("octagon-ckks", "Beginning tlk upload with keys: %@", viewKeySets);
     [self.deps.cuttlefishXPCWrapper updateTLKsWithContainer:self.deps.containerName
@@ -120,10 +121,7 @@
                 }
             } else {
                 // Tell CKKS about our shiny new records!
-                for(CKKSKeychainView* view in viewsToUpload) {
-                    secnotice("octagon-ckks", "Providing records to %@", view);
-                    [view receiveTLKUploadRecords: keyHierarchyRecords];
-                }
+                [self.deps.ckks receiveTLKUploadRecords:keyHierarchyRecords];
 
                 self.nextState = self.intendedState;
             }

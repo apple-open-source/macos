@@ -126,7 +126,6 @@ CPAN_PROJECTS := \
     Tree-DAG_Node-1.20 \
     Test-Warn-0.24 \
     Inline-0.53 \
-    Inline-Python-0.43 \
     Inline-Struct-0.06 \
     Inline-Wrapper-0.05 \
     PAR-Dist-0.49 \

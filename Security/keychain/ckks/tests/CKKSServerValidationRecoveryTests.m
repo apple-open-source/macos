@@ -182,6 +182,7 @@
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
 
     XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], @"Key state should have arrived at ready");
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:20*NSEC_PER_SEC], @"CKKS state machine should enter ready");
     [self waitForCKModifications];
 
     // Break the key hierarchy. The TLK will arrive via SOS later in this test.

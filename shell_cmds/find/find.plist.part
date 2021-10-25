@@ -2,17 +2,14 @@
 		<key>OpenSourceProject</key>
 		<string>find</string>
 		<key>OpenSourceVersion</key>
-		<string>2011-12-10</string>
+		<string>2021-03-13</string>
 		<key>OpenSourceWebsiteURL</key>
-		<string>http://svnweb.freebsd.org/base/head/usr.bin/find/</string>
-		<key>OpenSourceSCM</key>
-		<string>svn co http://svn.freebsd.org/base/head/usr.bin/find/</string>
+		<string>https://cgit.freebsd.org/src/tree/usr.bin/find?id=a9275d996c229a30879baa42a6d02d24663ac43b</string>
 		<key>OpenSourceImportDate</key>
-		<string>2012-01-06</string>
+		<string>2021-05-06</string>
 		<key>OpenSourceModifications</key>
 		<array>
 			<string>Add -xattr and -xattrname options.</string>
-			<string>execplus conformance fixes.</string>
 			<string>Man page fix (4772561).</string>
 			<string>Adjust FTS usage due to API differences.</string>
 			<string>Avoid searching unsearchable directories (3849245).</string>
@@ -23,7 +20,8 @@
 			<string>setmode conformance fix (3936046).</string>
 			<string>Use a saner MAXLOGNAME definition.</string>
 			<string>Workaround for lack of rpmatch function.</string>
-			<string>FreeBSD revisions 260336, 260355.</string>
+			<string>function.c: Revert -samefile/-newer change for POSIX conformance (77588562)</string>
+			<string>function.c: Don't require st_birthtime for atime (77588562)</string>
 		</array>
 		<key>OpenSourceLicense</key>
 		<string>bsd</string>

@@ -330,18 +330,18 @@ format,                                                                         
     });
 }
 
+- (void)_onqueueHandlePendingFlagLater:(OctagonPendingFlag*)pendingFlag {
+    dispatch_assert_queue(self.queue);
+    dispatch_async(self.queue, ^{
+        [self _onqueueHandlePendingFlag:pendingFlag];
+    });
+}
+
 - (void)_onqueueHandlePendingFlag:(OctagonPendingFlag*)pendingFlag {
     dispatch_assert_queue(self.queue);
 
     // Overwrite any existing pending flag!
     self.pendingFlags[pendingFlag.flag] = pendingFlag;
-
-    // Do we need to recheck any conditions? Anything which is currently the state of the world needs checking, as it might have changed since the last check
-    OctagonPendingConditions recheck = pendingFlag.conditions & self.currentConditions;
-    // Technically don't need this if check, as the bit-twiddling below will no-op if it's false, but it adds readability
-    if(recheck != 0x0) {
-        self.currentConditions &= ~recheck;
-    }
 
     if(pendingFlag.afterOperation) {
         WEAKIFY(self);
@@ -402,48 +402,59 @@ format,                                                                         
         return;
     }
 
-    // We need to recheck everything that is not currently the state of the world
-    OctagonPendingConditions pendingConditions = allConditions & ~(self.currentConditions);
-
     // But we don't need to recheck anything that's currently being checked
-    OctagonPendingConditions conditionsToCheck = pendingConditions & ~(self.conditionChecksInFlight);
+    OctagonPendingConditions conditionsToCheck = allConditions & ~(self.conditionChecksInFlight);
 
     WEAKIFY(self);
 
     if(conditionsToCheck & OctagonPendingConditionsDeviceUnlocked) {
         NSAssert(self.lockStateTracker != nil, @"Must have a lock state tracker to wait for unlock");
-        statemachinelog("conditions", "Waiting for unlock");
-        self.checkUnlockOperation = [NSBlockOperation blockOperationWithBlock:^{
-            STRONGIFY(self);
-            dispatch_sync(self.queue, ^{
-                statemachinelog("pending-flag", "Unlock occurred");
-                self.currentConditions |= OctagonPendingConditionsDeviceUnlocked;
-                self.conditionChecksInFlight &= ~OctagonPendingConditionsDeviceUnlocked;
-                [self _onqueueSendAnyPendingFlags];
-            });
-        }];
-        self.conditionChecksInFlight |= OctagonPendingConditionsDeviceUnlocked;
 
-        [self.checkUnlockOperation addNullableDependency:self.lockStateTracker.unlockDependency];
-        [self.operationQueue addOperation:self.checkUnlockOperation];
+        if(self.lockStateTracker.isLocked) {
+            statemachinelog("pending-flag", "Waiting for unlock");
+            self.currentConditions &= ~OctagonPendingConditionsDeviceUnlocked;
+
+            self.checkUnlockOperation = [NSBlockOperation blockOperationWithBlock:^{
+                STRONGIFY(self);
+                dispatch_sync(self.queue, ^{
+                    statemachinelog("pending-flag", "Unlock occurred");
+                    self.conditionChecksInFlight &= ~OctagonPendingConditionsDeviceUnlocked;
+                    [self _onqueueRecheckConditions];
+                    [self _onqueueSendAnyPendingFlags];
+                });
+            }];
+            self.conditionChecksInFlight |= OctagonPendingConditionsDeviceUnlocked;
+
+            [self.checkUnlockOperation addNullableDependency:self.lockStateTracker.unlockDependency];
+            [self.operationQueue addOperation:self.checkUnlockOperation];
+        } else {
+            self.currentConditions |= OctagonPendingConditionsDeviceUnlocked;
+        }
     }
 
     if(conditionsToCheck & OctagonPendingConditionsNetworkReachable) {
-        statemachinelog("conditions", "Waiting for network reachability");
         NSAssert(self.reachabilityTracker != nil, @"Must have a network reachability tracker to use network reachability pending flags");
-        self.checkReachabilityOperation = [NSBlockOperation blockOperationWithBlock:^{
-            STRONGIFY(self);
-            dispatch_sync(self.queue, ^{
-                statemachinelog("pending-flag", "Network is reachable");
-                self.currentConditions |= OctagonPendingConditionsNetworkReachable;
-                self.conditionChecksInFlight &= ~OctagonPendingConditionsNetworkReachable;
-                [self _onqueueSendAnyPendingFlags];
-            });
-        }];
-        self.conditionChecksInFlight |= OctagonPendingConditionsNetworkReachable;
 
-        [self.checkReachabilityOperation addNullableDependency:self.reachabilityTracker.reachabilityDependency];
-        [self.operationQueue addOperation:self.checkReachabilityOperation];
+        if(!self.reachabilityTracker.currentReachability) {
+            statemachinelog("pending-flag", "Waiting for network reachability");
+            self.currentConditions &= ~OctagonPendingConditionsNetworkReachable;
+
+            self.checkReachabilityOperation = [NSBlockOperation blockOperationWithBlock:^{
+                STRONGIFY(self);
+                dispatch_sync(self.queue, ^{
+                    statemachinelog("pending-flag", "Network is reachable");
+                    self.conditionChecksInFlight &= ~OctagonPendingConditionsNetworkReachable;
+                    [self _onqueueRecheckConditions];
+                    [self _onqueueSendAnyPendingFlags];
+                });
+            }];
+            self.conditionChecksInFlight |= OctagonPendingConditionsNetworkReachable;
+
+            [self.checkReachabilityOperation addNullableDependency:self.reachabilityTracker.reachabilityDependency];
+            [self.operationQueue addOperation:self.checkReachabilityOperation];
+        } else {
+            self.currentConditions |= OctagonPendingConditionsNetworkReachable;
+        }
     }
 }
 
@@ -525,6 +536,7 @@ format,                                                                         
 - (void)testReleaseStateMachinePause:(OctagonState*)pauseState
 {
     dispatch_sync(self.queue, ^{
+        statemachinelog("test", "Releasing state machine test pause from %@", pauseState);
         [self.testHoldStates removeObject:pauseState];
         [self _onqueuePokeStateMachine];
     });
@@ -611,7 +623,7 @@ format,                                                                         
     OctagonStateTransitionRequest* request = [[OctagonStateTransitionRequest alloc] init:name
                                                                             sourceStates:sourceStates
                                                                              serialQueue:self.queue
-                                                                                 timeout:10*NSEC_PER_SEC
+                                                                                 timeout:30*NSEC_PER_SEC
                                                                             transitionOp:op];
     [self handleExternalRequest:request];
 
@@ -634,23 +646,36 @@ format,                                                                         
 - (CKKSResultOperation*)doWatchedStateMachineRPC:(NSString*)name
                                     sourceStates:(NSSet<OctagonState*>*)sourceStates
                                             path:(OctagonStateTransitionPath*)path
-                                           reply:(nonnull void (^)(NSError *error))reply
+                                           reply:(nonnull void (^)(NSError * _Nullable error))reply
+{
+    CKKSResultOperation<OctagonStateTransitionOperationProtocol>* initialTransitionOp
+        = [OctagonStateTransitionOperation named:[NSString stringWithFormat:@"intial-transition-%@", name]
+                                        entering:path.initialState];
+
+    return [self doWatchedStateMachineRPC:name
+                             sourceStates:sourceStates
+                                     path:path
+                             transitionOp:initialTransitionOp
+                                    reply:reply];
+}
+
+- (CKKSResultOperation*)doWatchedStateMachineRPC:(NSString*)name
+                                    sourceStates:(NSSet<OctagonState*>*)sourceStates
+                                            path:(OctagonStateTransitionPath*)path
+                                    transitionOp:(CKKSResultOperation<OctagonStateTransitionOperationProtocol>*)initialTransitionOp
+                                           reply:(nonnull void (^)(NSError * _Nullable error))reply
 {
     statemachinelog("state-rpc", "Beginning a '%@' rpc", name);
 
     if (self.lockStateTracker) {
         [self.lockStateTracker recheck];
     }
-    
-    CKKSResultOperation<OctagonStateTransitionOperationProtocol>* initialTransitionOp
-        = [OctagonStateTransitionOperation named:[NSString stringWithFormat:@"intial-transition-%@", name]
-                                        entering:path.initialState];
 
-    // Note that this has an initial timeout of 10s, and isn't configurable.
+    // Note that this has an initial timeout of 30s, and isn't configurable.
     OctagonStateTransitionRequest* request = [[OctagonStateTransitionRequest alloc] init:name
                                                                             sourceStates:sourceStates
                                                                              serialQueue:self.queue
-                                                                                 timeout:10 * NSEC_PER_SEC
+                                                                                 timeout:30 * NSEC_PER_SEC
                                                                             transitionOp:initialTransitionOp];
 
     OctagonStateTransitionWatcher* watcher = [[OctagonStateTransitionWatcher alloc] initNamed:[NSString stringWithFormat:@"watcher-%@", name]

@@ -29,8 +29,6 @@
 @interface TrustSettingsTests : TrustEvaluationTestCase
 @end
 
-/* bridgeOS doesn't support trust settings */
-#if !TARGET_OS_BRIDGE
 
 #if TARGET_OS_IPHONE
 #define setTS(cert, settings) \
@@ -225,6 +223,9 @@ static SecPolicyRef sslFrameworkPolicy = NULL;
 
 - (void)test_no_constraints
 {
+#if TARGET_OS_BRIDGE
+    XCTSkip();
+#endif
     /* root with the default TrustRoot result succeeds */
     setTS(cert0, NULL);
     check_trust(sslChain, basicPolicy, verify_date, kSecTrustResultProceed);
@@ -274,6 +275,9 @@ static SecPolicyRef sslFrameworkPolicy = NULL;
 
 - (void)test_policy_constraints
 {
+#if TARGET_OS_BRIDGE
+    XCTSkip();
+#endif
     /* Trust only for SSL server. SSL server policy succeeds. */
     NSDictionary *sslServerAllowed = @{ (__bridge NSString*)kSecTrustSettingsPolicy: (__bridge id)sslFrameworkPolicy,
                                         (__bridge NSString*)kSecTrustSettingsResult: @(kSecTrustSettingsResultTrustAsRoot) };
@@ -292,6 +296,9 @@ static SecPolicyRef sslFrameworkPolicy = NULL;
 
 - (void)test_policy_string_constraints
 {
+#if TARGET_OS_BRIDGE
+    XCTSkip();
+#endif
     NSArray *hostnameAllowed = @[ @{ (__bridge NSString*)kSecTrustSettingsPolicy: (__bridge id)sslFrameworkPolicy,
                                      (__bridge NSString*)kSecTrustSettingsPolicyString: @("wrongname.apple.com"),
                                      (__bridge NSString*)kSecTrustSettingsResult: @(kSecTrustSettingsResultDeny) },
@@ -383,6 +390,9 @@ static SecPolicyRef sslFrameworkPolicy = NULL;
 #endif // TARGET_OS_OSX
 
 - (void)test_key_usage_constraints {
+#if TARGET_OS_BRIDGE
+    XCTSkip();
+#endif
     /* any key usage succeeds */
     NSDictionary *anyKeyUse = @{ (__bridge NSString*)kSecTrustSettingsKeyUsage: @(kSecTrustSettingsKeyUseAny),
                                  (__bridge NSString*)kSecTrustSettingsResult: @(kSecTrustSettingsResultTrustRoot)};
@@ -459,6 +469,9 @@ static SecPolicyRef sslFrameworkPolicy = NULL;
 
 - (void)test_allowed_errors
 {
+#if TARGET_OS_BRIDGE
+    XCTSkip();
+#endif
     setTS(cert0, NULL);
 
     /* allow expired errors */
@@ -515,6 +528,9 @@ static SecPolicyRef sslFrameworkPolicy = NULL;
 
 - (void)test_multiple_constraints
 {
+#if TARGET_OS_BRIDGE
+    XCTSkip();
+#endif
     /* deny all but */
     NSArray *denyAllBut = @[
                             @{(__bridge NSString*)kSecTrustSettingsPolicy: (__bridge id)sslFrameworkPolicy ,
@@ -581,6 +597,9 @@ static SecPolicyRef sslFrameworkPolicy = NULL;
 
 - (void)test_change_constraints
 {
+#if TARGET_OS_BRIDGE
+    XCTSkip();
+#endif
     /* allow all but */
     NSArray *allowAllBut = @[
                              @{(__bridge NSString*)kSecTrustSettingsPolicy: (__bridge id)sslFrameworkPolicy ,
@@ -602,6 +621,9 @@ static SecPolicyRef sslFrameworkPolicy = NULL;
 
 - (void)test_policy_name_pinning_constraints
 {
+#if TARGET_OS_BRIDGE
+    XCTSkip();
+#endif
     /* need a new policy object for this test so we don't mess up the policy used by the other tests */
     SecPolicyRef policy = SecPolicyCreateSSL(true, CFSTR("testserver.apple.com"));
 #if TARGET_OS_IPHONE
@@ -633,6 +655,9 @@ static SecPolicyRef sslFrameworkPolicy = NULL;
 
 - (void)testDistrustSystemRoot
 {
+#if TARGET_OS_BRIDGE
+    XCTSkip();
+#endif
     // Users can distrust system roots
     id systemRoot = [self SecCertificateCreateFromResource:@"DigiCertGlobalRootG3" subdirectory:@"si-20-sectrust-policies-data"];
     NSDictionary *deny = @{ (__bridge NSString*)kSecTrustSettingsResult: @(kSecTrustSettingsResultDeny)};
@@ -646,6 +671,9 @@ static SecPolicyRef sslFrameworkPolicy = NULL;
 
 - (void)testDistrustAppleRoot
 {
+#if TARGET_OS_BRIDGE
+    XCTSkip();
+#endif
     // Users cannot distrust the Apple Roots
     id appleRoot = [self SecCertificateCreateFromResource:@"AppleRootCA" subdirectory:@"si-20-sectrust-policies-data"];
     NSDictionary *deny = @{ (__bridge NSString*)kSecTrustSettingsResult: @(kSecTrustSettingsResultDeny)};
@@ -659,6 +687,9 @@ static SecPolicyRef sslFrameworkPolicy = NULL;
 
 - (void)testFatalResultsNonOverride
 {
+#if TARGET_OS_BRIDGE
+    XCTSkip();
+#endif
     id root = [self SecCertificateCreateFromPEMResource:@"ca-ki" subdirectory:@"si-88-sectrust-valid-data"];
     id revokedLeaf = [self SecCertificateCreateFromPEMResource:@"leaf-ki-revoked1" subdirectory:@"si-88-sectrust-valid-data"];
     TestTrustEvaluation *eval = [[TestTrustEvaluation alloc] initWithCertificates:@[revokedLeaf, root] policies:nil];
@@ -677,6 +708,9 @@ static SecPolicyRef sslFrameworkPolicy = NULL;
 
 - (void)testSystemTrustStore
 {
+#if TARGET_OS_BRIDGE
+    XCTSkip();
+#endif
     SecTrustStoreRef systemTS = SecTrustStoreForDomain(kSecTrustStoreDomainSystem);
     id appleRoot = [self SecCertificateCreateFromResource:@"AppleRootCA" subdirectory:@"si-20-sectrust-policies-data"];
     SecCertificateRef root = SecCertificateCreateWithBytes(NULL, _trustSettingsRoot, sizeof(_trustSettingsRoot));
@@ -685,7 +719,7 @@ static SecPolicyRef sslFrameworkPolicy = NULL;
     XCTAssertEqual(errSecReadOnly, SecTrustStoreSetTrustSettings(systemTS, root, NULL));
     XCTAssertEqual(errSecReadOnly, SecTrustStoreRemoveCertificate(systemTS, root));
 
-    /* Can't enumerate the trust store */
+    /* Can't enumerate the system trust store */
     CFArrayRef store = NULL;
     XCTAssertEqual(errSecUnimplemented, SecTrustStoreCopyAll(systemTS, &store));
     XCTAssert(store == NULL);
@@ -703,14 +737,46 @@ static SecPolicyRef sslFrameworkPolicy = NULL;
     CFReleaseNull(root);
 }
 
-@end
-
-#else // TARGET_OS_BRIDGE
-@implementation TrustSettingsTests
-- (void)testSkipTests
+- (void)testRemoveAll
 {
-    XCTAssert(true);
-}
-@end
-
+#if TARGET_OS_BRIDGE || TARGET_OS_OSX
+    XCTSkip();
 #endif
+    /* Should start out with the Corporate Roots */
+    CFArrayRef trustStore = NULL;
+    ok_status(SecTrustStoreCopyAll(SecTrustStoreForDomain(kSecTrustStoreDomainUser), &trustStore), "failed to copy trust store");
+    isnt(trustStore, NULL, "got empty trust store");
+    NSArray *nsTrustStore = CFBridgingRelease(trustStore);
+    isnt(nsTrustStore, NULL, "no trust store");
+    is([nsTrustStore count], 2, "didn't get 2 trust store entries");
+
+    /* Add two trust settings */
+    NSArray *allowAllBut = @[
+                             @{(__bridge NSString*)kSecTrustSettingsPolicy: (__bridge id)sslFrameworkPolicy ,
+                               (__bridge NSString*)kSecTrustSettingsResult: @(kSecTrustSettingsResultUnspecified)},
+                             @{(__bridge NSString*)kSecTrustSettingsResult: @(kSecTrustSettingsResultTrustRoot) }
+                             ];
+    [self addTrustSettingsForCert:cert2];
+    [self addTrustSettingsForCert:cert0 trustSettings:allowAllBut];
+
+    /* Should now have 4 certs */
+    trustStore = NULL;
+    ok_status(SecTrustStoreCopyAll(SecTrustStoreForDomain(kSecTrustStoreDomainUser), &trustStore), "failed to copy trust store");
+    isnt(trustStore, NULL, "got empty trust store");
+    nsTrustStore = CFBridgingRelease(trustStore);
+    isnt(nsTrustStore, NULL, "no trust store");
+    is([nsTrustStore count], 4, "didn't get 4 trust store entries");
+
+    /* Remove all */
+    ok_status(SecTrustStoreRemoveAll(SecTrustStoreForDomain(kSecTrustStoreDomainUser)), "failed to remove all trusted certs");
+
+    /* Should be back to just the corporate roots */
+    trustStore = NULL;
+    ok_status(SecTrustStoreCopyAll(SecTrustStoreForDomain(kSecTrustStoreDomainUser), &trustStore), "failed to copy trust store");
+    isnt(trustStore, NULL, "got empty trust store");
+    nsTrustStore = CFBridgingRelease(trustStore);
+    isnt(nsTrustStore, NULL, "no trust store");
+    is([nsTrustStore count], 2, "didn't get 2 trust store entries");
+}
+
+@end

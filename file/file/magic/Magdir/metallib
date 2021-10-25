@@ -1,0 +1,21 @@
+
+#------------------------------------------------------------------------------
+# $File: metallib,v 1.12 2020/10/22 11:25:44 john_doe Exp $
+# metallib:  file(1) magic for MetalLib
+#
+
+# From: John Doe <john_doe@unknown.us>
+0       string          MTLB           MetalLib
+
+# File type
+>6      uleshort        >0x1
+>8      uleshort        >0x3
+>>10    byte            =0x0           executable
+>>10    byte            =0x1           core image library
+>>10    byte            =0x2           dynamically linked shared library
+
+# File version
+>5      byte&0x80       =0x80          \b (MacOS)
+>4      uleshort&0x7FFF x              \b, version %d
+>6      uleshort        x              \b.%d
+>8      uleshort        x              \b.%d

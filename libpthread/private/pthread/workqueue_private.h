@@ -43,6 +43,7 @@
 #define WORKQ_FEATURE_MAINTENANCE	0x10	// QOS class maintenance
 #define WORKQ_FEATURE_KEVENT        0x40    // Support for direct kevent delivery
 #define WORKQ_FEATURE_WORKLOOP      0x80    // Support for direct workloop requests
+#define WORKQ_FEATURE_COOPERATIVE_WORKQ 0x100    // Support for direct workloop requests
 
 /* Legacy dispatch priority bands */
 
@@ -62,7 +63,8 @@ __BEGIN_DECLS
 // Legacy callback prototype, used with pthread_workqueue_setdispatch_np
 typedef void (*pthread_workqueue_function_t)(int queue_priority, int options, void *ctxt);
 // New callback prototype, used with pthread_workqueue_init
-typedef void (*pthread_workqueue_function2_t)(pthread_priority_t priority);
+typedef unsigned long pthread_workqueue_function2_arg_t;
+typedef void (*pthread_workqueue_function2_t)(pthread_workqueue_function2_arg_t arg);
 
 // Newer callback prototype, used in conjection with function2 when there are kevents to deliver
 // both parameters are in/out parameters
@@ -131,6 +133,11 @@ _pthread_workqueue_supported(void);
 __API_AVAILABLE(macos(10.10), ios(8.0))
 int
 _pthread_workqueue_addthreads(int numthreads, pthread_priority_t priority);
+
+// Request cooperative worker threads (fine grained priority)
+__API_AVAILABLE(macos(12.0), ios(15.0))
+int
+_pthread_workqueue_add_cooperativethreads(int numthreads, pthread_priority_t priority);
 
 // Should this thread return to the kernel?
 __API_AVAILABLE(macos(10.13), ios(11.0), tvos(11.0), watchos(4.0))

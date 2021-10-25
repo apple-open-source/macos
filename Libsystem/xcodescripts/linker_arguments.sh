@@ -126,7 +126,12 @@ for arch in ${ARCHS}; do
 		LPATH="${LIBSYS}/lib${lib}.a"
 	    fi
 	    echo "-Wl,-force_load,${LPATH}"
-	done >> "${OUTPUTFILE}"	    
+	done >> "${OUTPUTFILE}"
+
+    if ! [[ -z "$DRIVERKIT" ]]; then
+        echo "-iframeworkwithsysroot${DRIVERKITROOT}/System/Library/PrivateFrameworks" >> "${OUTPUTFILE}"
+        echo "-weak_framework MallocStackLogging" >> "${OUTPUTFILE}"
+    fi
 
 	echo "Final contents of ${OUTPUTFILE}:"
 	cat "${OUTPUTFILE}"

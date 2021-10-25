@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, 2003-2005, 2009-2011, 2016, 2017, 2019 Apple Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2003-2005, 2009-2011, 2016, 2017, 2019, 2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -44,14 +44,7 @@ SCDynamicStoreCopyNotifiedKeys(SCDynamicStoreRef store)
 	int				sc_status;
 	CFArrayRef			allKeys;
 
-	if (store == NULL) {
-		/* sorry, you must provide a session */
-		_SCErrorSet(kSCStatusNoStoreSession);
-		return NULL;
-	}
-
-	if (storePrivate->server == MACH_PORT_NULL) {
-		_SCErrorSet(kSCStatusNoStoreServer);
+	if (!__SCDynamicStoreNormalize(&store, FALSE)) {
 		return NULL;
 	}
 

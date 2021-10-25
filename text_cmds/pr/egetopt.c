@@ -1,4 +1,6 @@
 /*-
+ * SPDX-License-Identifier: BSD-4-Clause
+ *
  * Copyright (c) 1991 Keith Muller.
  * Copyright (c) 1993
  *	The Regents of the University of California.  All rights reserved.
@@ -42,11 +44,10 @@ static char sccsid[] = "@(#)egetopt.c	8.1 (Berkeley) 6/6/93";
 #endif
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/usr.bin/pr/egetopt.c,v 1.3 2002/06/23 20:42:30 charnier Exp $");
+__FBSDID("$FreeBSD$");
 
 #include <ctype.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 
 #include "extern.h"
@@ -77,7 +78,7 @@ egetopt(int nargc, char * const *nargv, const char *ostr)
 {
 	static char *place = emsg;	/* option letter processing */
 	char *oli;			/* option letter list index */
-	static int delim;		/* which option delimeter */
+	static int delim;		/* which option delimiter */
 	char *p;
 	static char savec = '\0';
 

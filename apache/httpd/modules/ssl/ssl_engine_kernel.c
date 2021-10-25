@@ -114,6 +114,45 @@ static int has_buffered_data(request_rec *r)
     return result;
 }
 
+/* If a renegotiation is required for the location, and the request
+ * includes a message body (and the client has not requested a "100
+ * Continue" response), then the client will be streaming the request
+ * body over the wire already.  In that case, it is not possible to
+ * stop and perform a new SSL handshake immediately; once the SSL
+ * library moves to the "accept" state, it will reject the SSL packets
+ * which the client is sending for the request body.
+ *
+ * To allow authentication to complete in the hook, the solution used
+ * here is to fill a (bounded) buffer with the request body, and then
+ * to reinject that request body later.
+ *
+ * This function is called to fill the renegotiation buffer for the
+ * location as required, or fail.  Returns zero on success or HTTP_
+ * error code on failure.
+ */
+static int fill_reneg_buffer(request_rec *r, SSLDirConfigRec *dc)
+{
+    int rv;
+    apr_size_t rsize;
+
+    /* ### this is HTTP/1.1 specific, special case for protocol? */
+    if (r->expecting_100 || !ap_request_has_body(r)) {
+        return 0;
+    }
+
+    rsize = dc->nRenegBufferSize == UNSET ? DEFAULT_RENEG_BUFFER_SIZE : dc->nRenegBufferSize;
+    if (rsize > 0) {
+        /* Fill the I/O buffer with the request body if possible. */
+        rv = ssl_io_buffer_fill(r, rsize);
+    }
+    else {
+        /* If the reneg buffer size is set to zero, just fail. */
+        rv = HTTP_REQUEST_ENTITY_TOO_LARGE;
+    }
+
+    return rv;
+}
+
 #ifdef HAVE_TLSEXT
 static int ap_array_same_str_set(apr_array_header_t *s1, apr_array_header_t *s2)
 {
@@ -814,41 +853,14 @@ static int ssl_hook_Access_classic(request_rec *r, SSLSrvConfigRec *sc, SSLDirCo
         }
     }
 
-    /* If a renegotiation is now required for this location, and the
-     * request includes a message body (and the client has not
-     * requested a "100 Continue" response), then the client will be
-     * streaming the request body over the wire already.  In that
-     * case, it is not possible to stop and perform a new SSL
-     * handshake immediately; once the SSL library moves to the
-     * "accept" state, it will reject the SSL packets which the client
-     * is sending for the request body.
-     *
-     * To allow authentication to complete in this auth hook, the
-     * solution used here is to fill a (bounded) buffer with the
-     * request body, and then to reinject that request body later.
-     */
-    if (renegotiate && !renegotiate_quick
-        && !r->expecting_100
-        && ap_request_has_body(r)) {
-        int rv;
-        apr_size_t rsize;
-
-        rsize = dc->nRenegBufferSize == UNSET ? DEFAULT_RENEG_BUFFER_SIZE :
-                                                dc->nRenegBufferSize;
-        if (rsize > 0) {
-            /* Fill the I/O buffer with the request body if possible. */
-            rv = ssl_io_buffer_fill(r, rsize);
-        }
-        else {
-            /* If the reneg buffer size is set to zero, just fail. */
-            rv = HTTP_REQUEST_ENTITY_TOO_LARGE;
-        }
-
-        if (rv) {
+    /* Fill reneg buffer if required. */
+    if (renegotiate && !renegotiate_quick) {
+        rc = fill_reneg_buffer(r, dc);
+        if (rc) {
             ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(02257)
                           "could not buffer message body to allow "
                           "SSL renegotiation to proceed");
-            return rv;
+            return rc;
         }
     }
 
@@ -1132,6 +1144,7 @@ static int ssl_hook_Access_modern(request_rec *r, SSLSrvConfigRec *sc, SSLDirCon
             }
         }
 
+        /* Fill reneg buffer if required. */
         if (change_vmode) {
             char peekbuf[1];
 
@@ -1144,6 +1157,14 @@ static int ssl_hook_Access_modern(request_rec *r, SSLSrvConfigRec *sc, SSLDirCon
                 return HTTP_FORBIDDEN;
             }
 
+            rc = fill_reneg_buffer(r, dc);
+            if (rc) {
+                ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(10228)
+                              "could not buffer message body to allow "
+                              "TLS Post-Handshake Authentication to proceed");
+                return rc;
+            }
+            
             ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(10129)
                           "verify client post handshake");
 
@@ -2321,16 +2342,34 @@ void ssl_callback_Info(const SSL *ssl, int where, int rc)
 #ifdef HAVE_TLSEXT
 
 static apr_status_t set_challenge_creds(conn_rec *c, const char *servername,
-                                        SSL *ssl, X509 *cert, EVP_PKEY *key)
+                                        SSL *ssl, X509 *cert, EVP_PKEY *key,
+                                        const char *cert_pem, const char *key_pem)
 {
     SSLConnRec *sslcon = myConnConfig(c);
+    apr_status_t rv = APR_SUCCESS;
+    int our_data = 0;
     
     sslcon->service_unavailable = 1;
+    if (cert_pem) {
+        cert = NULL;
+        key = NULL;
+        our_data = 1;
+        
+        rv = modssl_read_cert(c->pool, cert_pem, key_pem, NULL, NULL, &cert, &key);
+        if (rv != APR_SUCCESS) {
+            ap_log_cerror(APLOG_MARK, APLOG_WARNING, 0, c, APLOGNO(10266)
+                          "Failed to parse PEM of challenge certificate %s",
+                          servername);
+            goto cleanup;
+        }
+    }
+    
     if ((SSL_use_certificate(ssl, cert) < 1)) {
         ap_log_cerror(APLOG_MARK, APLOG_WARNING, 0, c, APLOGNO(10086)
                       "Failed to configure challenge certificate %s",
                       servername);
-        return APR_EGENERAL;
+        rv = APR_EGENERAL;
+        goto cleanup;
     }
     
     if (!SSL_use_PrivateKey(ssl, key)) {
@@ -2338,15 +2377,21 @@ static apr_status_t set_challenge_creds(conn_rec *c, const char *servername,
                       "error '%s' using Challenge key: %s",
                       ERR_error_string(ERR_peek_last_error(), NULL), 
                       servername);
-        return APR_EGENERAL;
+        rv = APR_EGENERAL;
+        goto cleanup;
     }
     
     if (SSL_check_private_key(ssl) < 1) {
         ap_log_cerror(APLOG_MARK, APLOG_WARNING, 0, c, APLOGNO(10088)
                       "Challenge certificate and private key %s "
                       "do not match", servername);
-        return APR_EGENERAL;
+        rv = APR_EGENERAL;
+        goto cleanup;
     }
+    
+cleanup:
+    if (our_data && cert) X509_free(cert);
+    if (our_data && key) EVP_PKEY_free(key);
     return APR_SUCCESS;
 }
   
@@ -2356,9 +2401,6 @@ static apr_status_t set_challenge_creds(conn_rec *c, const char *servername,
  */
 static apr_status_t init_vhost(conn_rec *c, SSL *ssl, const char *servername)
 {
-    X509 *cert;
-    EVP_PKEY *key;
-    
     if (c) {
         SSLConnRec *sslcon = myConnConfig(c);
 
@@ -2380,15 +2422,6 @@ static apr_status_t init_vhost(conn_rec *c, SSL *ssl, const char *servername)
 
                 sslcon->vhost_found = +1;
                 return APR_SUCCESS;
-            }
-            else if (ssl_is_challenge(c, servername, &cert, &key)) {
-                /* With ACMEv1 we can have challenge connections to a unknown domains
-                 * that need to be answered with a special certificate and will
-                 * otherwise not answer any requests. */
-                if (set_challenge_creds(c, servername, ssl, cert, key) != APR_SUCCESS) {
-                    return APR_EGENERAL;
-                }
-                SSL_set_verify(ssl, SSL_VERIFY_NONE, ssl_callback_SSLVerify);
             }
             else {
                 ap_log_cerror(APLOG_MARK, APLOG_DEBUG, 0, c, APLOGNO(02044)
@@ -2764,9 +2797,11 @@ int ssl_callback_alpn_select(SSL *ssl,
             const char *servername = SSL_get_servername(ssl, TLSEXT_NAMETYPE_host_name);
             X509 *cert;
             EVP_PKEY *key;
-            
-            if (ssl_is_challenge(c, servername, &cert, &key)) {
-                if (set_challenge_creds(c, servername, ssl, cert, key) != APR_SUCCESS) {
+            const char *cert_pem, *key_pem;
+
+            if (ssl_is_challenge(c, servername, &cert, &key, &cert_pem, &key_pem)) {
+                if (set_challenge_creds(c, servername, ssl, cert, key, 
+                                        cert_pem, key_pem) != APR_SUCCESS) {
                     return SSL_TLSEXT_ERR_ALERT_FATAL;
                 }
                 SSL_set_verify(ssl, SSL_VERIFY_NONE, ssl_callback_SSLVerify);

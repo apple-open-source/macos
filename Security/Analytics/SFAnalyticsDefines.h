@@ -26,6 +26,8 @@
 
 #if __OBJC2__
 
+#import <Foundation/Foundation.h>
+
 extern NSString* const SFAnalyticsTableSuccessCount;
 extern NSString* const SFAnalyticsTableHardFailures;
 extern NSString* const SFAnalyticsTableSoftFailures;

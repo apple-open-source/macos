@@ -103,3 +103,33 @@ _IOObjectCopyClass(
 	uint64_t        options);
 
 
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
+/*
+ * IOKit.framework versions of the API's in IOService.iig
+ *
+ * see IOService.iig IOService::CopySystemStateNotificationService()
+ */
+kern_return_t
+IOServiceCopySystemStateNotificationService(
+        mach_port_t		masterPort,
+        io_service_t  * service);
+
+/*
+ * see IOService.iig IOService::StateNotificationItemCreate()
+ */
+kern_return_t
+IOServiceStateNotificationItemCreate(io_service_t service, CFStringRef itemName, CFDictionaryRef schema);
+
+/*
+ * see IOService.iig IOService::StateNotificationItemSet()
+ */
+kern_return_t
+IOServiceStateNotificationItemSet(io_service_t service, CFStringRef itemName, CFDictionaryRef value);
+
+/*
+ * see IOService.iig IOService::StateNotificationItemCopy()
+ */
+kern_return_t
+IOServiceStateNotificationItemCopy(io_service_t service, CFStringRef itemName, CFDictionaryRef * value);
+

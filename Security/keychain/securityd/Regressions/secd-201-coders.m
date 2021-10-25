@@ -65,7 +65,6 @@ static void tests(void)
 
     __block CFErrorRef error = NULL;
     CFDataRef cfpassword = CFDataCreate(NULL, (uint8_t *) "FooFooFoo", 10);
-    CFDataRef cfwrong_password = CFDataCreate(NULL, (uint8_t *) "NotFooFooFoo", 10);
     CFStringRef cfaccount = CFSTR("test@test.org");
 
     CFMutableDictionaryRef changes = CFDictionaryCreateMutableForCFTypes(kCFAllocatorDefault);
@@ -81,11 +80,6 @@ static void tests(void)
     CFReleaseNull(error);
     ok(SOSAccountTryUserCredentials(alice_account, cfaccount, cfpassword, &error), "Credential trying (%@)", error);
     CFReleaseNull(cfpassword);
-
-    CFReleaseNull(error);
-    ok(!SOSAccountTryUserCredentials(alice_account, cfaccount, cfwrong_password, &error), "Credential failing (%@)", error);
-    CFReleaseNull(cfwrong_password);
-    is(error ? CFErrorGetCode(error) : 0, kSOSErrorWrongPassword, "Expected SOSErrorWrongPassword");
     CFReleaseNull(error);
 
     ok(SOSAccountResetToOffering_wTxn(alice_account, &error), "Reset to offering (%@)", error);
@@ -170,7 +164,7 @@ static void tests(void)
 int secd_201_coders(int argc, char *const *argv)
 {
 #if SOS_ENABLED
-    plan_tests(38);
+    plan_tests(36);
     secd_test_setup_temp_keychain(__FUNCTION__, NULL);
     tests();
     secd_test_teardown_delete_temp_keychain(__FUNCTION__);

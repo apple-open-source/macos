@@ -21,14 +21,6 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-/*
- * This is to fool os services to not provide the Keychain manager
- * interface tht doens't work since we don't have unified headers
- * between iOS and OS X. rdar://23405418/
- */
-#define __KEYCHAINCORE__ 1
-
-
 #import "secd_regressions.h"
 
 #import <Foundation/Foundation.h>
@@ -138,7 +130,7 @@ int secd_05_corrupted_items(int argc, char *const *argv)
         }
 
         is(sqlite3_close_v2(db), SQLITE_OK,
-           "Should be able to close db");;
+           "Should be able to close db");
     });
 
     /* start the adder threads */

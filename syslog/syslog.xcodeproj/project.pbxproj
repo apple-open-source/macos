@@ -106,7 +106,6 @@
 		5020A37F1098EEC400982ED6 /* libaslcommon.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 505ACB9D108FD16400197086 /* libaslcommon.a */; };
 		5039176F1091408B0001165E /* aslmanager.c in Sources */ = {isa = PBXBuildFile; fileRef = 5039176C1091408B0001165E /* aslmanager.c */; };
 		503917B81091410E0001165E /* asl_action.c in Sources */ = {isa = PBXBuildFile; fileRef = 503917A61091410E0001165E /* asl_action.c */; };
-		503917BB1091410E0001165E /* bsd_in.c in Sources */ = {isa = PBXBuildFile; fileRef = 503917AA1091410E0001165E /* bsd_in.c */; };
 		503917BC1091410E0001165E /* bsd_out.c in Sources */ = {isa = PBXBuildFile; fileRef = 503917AB1091410E0001165E /* bsd_out.c */; };
 		503917BD1091410E0001165E /* daemon.c in Sources */ = {isa = PBXBuildFile; fileRef = 503917AD1091410E0001165E /* daemon.c */; };
 		503917BE1091410E0001165E /* dbserver.c in Sources */ = {isa = PBXBuildFile; fileRef = 503917AF1091410E0001165E /* dbserver.c */; };
@@ -329,7 +328,6 @@
 		5039177C109140C30001165E /* syslogd */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = syslogd; sourceTree = BUILT_PRODUCTS_DIR; };
 		503917A61091410E0001165E /* asl_action.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = asl_action.c; path = syslogd.tproj/asl_action.c; sourceTree = "<group>"; };
 		503917A81091410E0001165E /* asl.conf.5 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = asl.conf.5; path = syslogd.tproj/asl.conf.5; sourceTree = "<group>"; };
-		503917AA1091410E0001165E /* bsd_in.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = bsd_in.c; path = syslogd.tproj/bsd_in.c; sourceTree = "<group>"; };
 		503917AB1091410E0001165E /* bsd_out.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = bsd_out.c; path = syslogd.tproj/bsd_out.c; sourceTree = "<group>"; };
 		503917AC1091410E0001165E /* com.apple.syslogd.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = com.apple.syslogd.plist; path = syslogd.tproj/com.apple.syslogd.plist; sourceTree = "<group>"; };
 		503917AD1091410E0001165E /* daemon.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = daemon.c; path = syslogd.tproj/daemon.c; sourceTree = "<group>"; };
@@ -508,7 +506,6 @@
 				503917A61091410E0001165E /* asl_action.c */,
 				2DB4DA0A125FC69A001CDC45 /* after_install.sh */,
 				503917A81091410E0001165E /* asl.conf.5 */,
-				503917AA1091410E0001165E /* bsd_in.c */,
 				503917AB1091410E0001165E /* bsd_out.c */,
 				503917AC1091410E0001165E /* com.apple.syslogd.plist */,
 				3ABA38852335754100E6D121 /* com.apple.syslogd.disabled.plist */,
@@ -804,7 +801,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				503917B81091410E0001165E /* asl_action.c in Sources */,
-				503917BB1091410E0001165E /* bsd_in.c in Sources */,
 				503917BC1091410E0001165E /* bsd_out.c in Sources */,
 				503917BD1091410E0001165E /* daemon.c in Sources */,
 				503917BE1091410E0001165E /* dbserver.c in Sources */,
@@ -937,7 +933,6 @@
 					"$(inherited)",
 					"$(SDKROOT)/System/Library/Frameworks/System.framework/PrivateHeaders",
 				);
-				"ORDER_FILE[sdk=iphoneos*]" = "${SDK_ROOT}/AppleInternal/OrderFiles/libsystem_asl.order";
 			};
 			name = Release;
 		};

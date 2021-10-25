@@ -46,8 +46,12 @@
 #include <os/log.h>
 #include <os/log_private.h>
 #include <os/reason_private.h>
+
+// debug_private.c
+extern void
+_os_debug_log_error_offset(char *msg, uint64_t offset);
 #else
-#define _os_debug_log_error_str(...)
+#define _os_debug_log_error_offset(...)
 // placeholder to disable usage of dlfcn.h
 typedef struct dl_info {
 	void *dli_fbase;
@@ -86,7 +90,7 @@ _os_get_build(char *build, size_t sz)
 	if (r == 0 && sz == 1) {
 		(void)strlcpy(build, "99Z999", oldsz);
 	}
-#if TARGET_IPHONE_SIMULATOR
+#if TARGET_OS_SIMULATOR
         char *simVersion = getenv("SIMULATOR_RUNTIME_BUILD_VERSION");
         if (simVersion) {
             strlcat(build, " ", oldsz);
@@ -165,7 +169,7 @@ _os_find_log_redirect_func(os_mach_header *hdr)
 			(void)strlcpy(name, (const char *)data, size + 1);
 			result = dlsym(RTLD_DEFAULT, name);
 		}
-	} else if (size == sizeof(struct _os_redirect_assumes_s)) {
+	} else if (size >= sizeof(struct _os_redirect_assumes_s)) {
 		struct _os_redirect_assumes_s *redirect = (struct _os_redirect_assumes_s *)data;
 		result = redirect->redirect;
 	}
@@ -189,7 +193,7 @@ _os_log_redirect(void *hdr, const char *msg)
 
 __attribute__((always_inline))
 static void
-_os_construct_message(uint64_t code, _SIMPLE_STRING asl_message, Dl_info *info, char *buff, size_t sz)
+_os_construct_message(uint64_t code, Dl_info *info, char *buff, size_t sz)
 {
 	const char *image_name = NULL;
 	uintptr_t offset = 0;
@@ -221,12 +225,6 @@ _os_construct_message(uint64_t code, _SIMPLE_STRING asl_message, Dl_info *info, 
 	_os_get_build(build, bsz);
 
 	(void)snprintf(buff, sz, "assertion failed: %s: %s + %lu [%s]: %s", build, image_name, offset, uuid_str, result);
-
-	_simple_asl_msg_set(asl_message, "com.apple.message.domain", "com.apple.assumes.failure");
-	_simple_asl_msg_set(asl_message, "com.apple.message.signature", sig);
-	_simple_asl_msg_set(asl_message, "com.apple.message.signature2", result);
-	_simple_asl_msg_set(asl_message, "com.apple.message.signature3", image_name);
-	_simple_asl_msg_set(asl_message, "com.apple.message.summarize", "YES");
 }
 
 #pragma mark Internal Implementations
@@ -281,18 +279,10 @@ _os_assumes_log_impl(uint64_t code)
 {
 	char message[256] = "";
 
-	_SIMPLE_STRING asl_message = _simple_asl_msg_new();
-	if (asl_message) {
-		Dl_info info;
-		_os_construct_message(code, asl_message, &info, message, sizeof(message));
-		if (!_os_log_redirect(info.dli_fbase, message)) {
-			_os_debug_log_error_str(message);
-			_simple_asl_msg_set(asl_message, "Level", "Error");
-			_simple_asl_msg_set(asl_message, "Message", "");
-			_simple_asl_send(asl_message);
-		}
-
-		_simple_sfree(asl_message);
+	Dl_info info;
+	_os_construct_message(code, &info, message, sizeof(message));
+	if (!_os_log_redirect(info.dli_fbase, message)) {
+		_os_debug_log_error_offset(message, (uint64_t)(uintptr_t)__builtin_return_address(0));
 	}
 
 	if (_os_abort_on_assumes()) {
@@ -306,21 +296,14 @@ _os_assert_log_impl(uint64_t code)
 {
 	char *result = NULL;
 
-	_SIMPLE_STRING asl_message = _simple_asl_msg_new();
-	if (asl_message) {
-		Dl_info info;
-		char message[256];
-		_os_construct_message(code, asl_message, &info, message, sizeof(message));
-		if (!_os_log_redirect(info.dli_fbase, message)) {
-			_os_debug_log_error_str(message);
-			_simple_asl_msg_set(asl_message, "Level", "Error");
-			_simple_asl_msg_set(asl_message, "Message", "");
-			_simple_asl_send(asl_message);
-		}
-
-		_simple_sfree(asl_message);
-		result = strdup(message);
+	Dl_info info;
+	char message[256];
+	_os_construct_message(code, &info, message, sizeof(message));
+	if (!_os_log_redirect(info.dli_fbase, message)) {
+		_os_debug_log_error_offset(message, (uint64_t)(uintptr_t)__builtin_return_address(0));
 	}
+
+	result = strdup(message);
 
 	return result;
 }
@@ -331,14 +314,12 @@ _os_assumes_log_ctx_impl(os_log_callout_t callout, void *ctx, uint64_t code)
 {
 	char message[256] = "";
 
-	_SIMPLE_STRING asl_message = _simple_asl_msg_new();
-	if (asl_message) {
-		Dl_info info;
-		_os_construct_message(code, asl_message, &info, message, sizeof(message));
+	Dl_info info;
+	_os_construct_message(code, &info, message, sizeof(message));
 
-		(void)callout(asl_message, ctx, message);
-		_simple_sfree(asl_message);
-	}
+	_SIMPLE_STRING dummy_asl_message = _simple_asl_msg_new();
+	(void)callout(dummy_asl_message, ctx, message);
+	_simple_sfree(dummy_asl_message);
 
 	if (_os_abort_on_assumes()) {
 		os_crash(message);
@@ -350,17 +331,16 @@ static inline char *
 _os_assert_log_ctx_impl(os_log_callout_t callout, void *ctx, uint64_t code)
 {
 	char *result = NULL;
+	char message[256] = "";
 
-	_SIMPLE_STRING asl_message = _simple_asl_msg_new();
-	if (asl_message) {
-		Dl_info info;
-		char message[256];
-		_os_construct_message(code, asl_message, &info, message, sizeof(message));
+	Dl_info info;
+	_os_construct_message(code, &info, message, sizeof(message));
 
-		(void)callout(asl_message, ctx, message);
-		_simple_sfree(asl_message);
-		result = strdup(message);
-	}
+	_SIMPLE_STRING dummy_asl_message = _simple_asl_msg_new();
+	(void)callout(dummy_asl_message, ctx, message);
+	_simple_sfree(dummy_asl_message);
+
+	result = strdup(message);
 	return result;
 }
 

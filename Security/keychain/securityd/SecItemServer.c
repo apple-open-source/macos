@@ -102,6 +102,9 @@
 
 /* Changed the name of the keychain changed notification, for testing */
 static const char *g_keychain_changed_notification = kSecServerKeychainChangedNotification;
+static CFNumberRef lastRowIDHandled = NULL;
+
+#define  MAX_NUM_PERSISTENT_REF_ROWIDS    100
 
 void SecItemServerSetKeychainChangedNotification(const char *notification_name)
 {
@@ -228,6 +231,15 @@ measureUpgradePhase2(struct timeval *start, int64_t itemsMigrated)
 
     SecCoreAnalyticsSendValue(CFSTR("com.apple.keychain.phase2.migrated-items"), itemsMigrated);
     SecCoreAnalyticsSendValue(CFSTR("com.apple.keychain.phase2.migrated-time"), duration);
+}
+
+static void
+measureUpgradePhase3(struct timeval *start, int64_t itemsMigrated)
+{
+    int64_t duration = measureDuration(start);
+
+    SecCoreAnalyticsSendValue(CFSTR("com.apple.keychain.phase3.add-uuid-persistentref-to-items"), itemsMigrated);
+    SecCoreAnalyticsSendValue(CFSTR("com.apple.keychain.phase3.migrated-time"), duration);
 }
 #endif /* TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR */
 
@@ -410,7 +422,7 @@ static bool UpgradeSchemaPhase1(SecDbConnectionRef dbt, const SecDbSchema *oldSc
                     secnotice("upgr", "dropping item during schema upgrade due to agrp=com.apple.token: %@", item);
                 } else {
                     // Insert new item into the new table.
-                    if (!SecDbItemInsert(item, dbt, false, &localError)) {
+                    if (!SecDbItemInsert(item, dbt, false, false, &localError)) {
                         secerror("item: %@ insert during upgrade: %@", item, localError);
                         ok = false;
                     }
@@ -670,6 +682,208 @@ out:
     return ok;
 }
 
+
+static bool phase3EvaluateErrorAndStop(bool *inProgress, bool *stop, CFErrorRef updateError, CFErrorRef *error) {
+    bool shouldStop = false;
+    CFIndex status = CFErrorGetCode(updateError);
+
+    switch (status) {
+        case errSecDecode:
+            // Items producing errSecDecode are not decodable and lost forever.
+            // In the future we should probably delete them.
+            *stop = true;
+            secnotice("upgr", "Failed to decode keychain item");
+            break;
+        case errSecInteractionNotAllowed:
+            secnotice("upgr", "Bailing in phase 3 interaction not allowed: %@", updateError);
+            *inProgress = true;
+            *stop = true;
+            shouldStop = true;
+            CFReleaseNull(lastRowIDHandled);
+            break;
+        case errSecAuthNeeded:
+            break;
+#if USE_KEYSTORE
+        case kAKSReturnNotReady:
+        case kAKSReturnTimeout:
+#endif
+        case errSecNotAvailable:
+            secnotice("upgr", "Bailing in phase 3 because AKS is unavailable: %@", updateError);
+            *inProgress = true;     // We're not done, call me again later!
+            *stop = true;
+            shouldStop = true;
+            // FALLTHROUGH
+        default:
+            CFErrorPropagate(CFRetainSafe(updateError), error);
+            break;
+    }
+    return shouldStop;
+}
+
+// Goes through all items for each table and assigns a persistent ref UUID
+bool UpgradeItemPhase3(SecDbConnectionRef inDbt, bool *inProgress, CFErrorRef *error) {
+#if TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR
+    __block int64_t itemsMigrated = 0;
+    struct timeval start;
+
+    gettimeofday(&start, NULL);
+#endif
+
+    // Go through all classes in new schema
+    const SecDbSchema *newSchema = current_schema();
+    for (const SecDbClass *const *class = newSchema->classes; *class != NULL; class++) {
+        if(!((*class)->itemclass)) {
+            //Don't try to decrypt non-item 'classes'
+            continue;
+        }
+
+        const char* tableCPtr = CFStringGetCStringPtr((*class)->name, kCFStringEncodingUTF8);
+
+        char *quotedMaxField = sqlite3_mprintf("%q", tableCPtr);
+        if (quotedMaxField == NULL) {
+            continue;
+        }
+        CFStringRef tableCF = CFStringCreateWithCString(kCFAllocatorDefault, quotedMaxField, kCFStringEncodingUTF8);
+        sqlite3_free(quotedMaxField);
+
+        __block CFStringRef sql = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("SELECT * FROM %@ WHERE persistref IS ''"), tableCF);
+        __block CFErrorRef cferror = NULL;
+        __block CFMutableArrayRef rowIDsToBeUpdated = CFArrayCreateMutableForCFTypes(kCFAllocatorDefault);
+
+        SecDbPrepare(inDbt, sql, &cferror, ^void (sqlite3_stmt *stmt) {
+            SecDbStep(inDbt, stmt, &cferror, ^(bool *stop) {
+                int64_t rowid = sqlite3_column_int64(stmt, 0);
+                secnotice("upgr", "picked up rowid: %lld that needs a persistref", rowid);
+                CFNumberRef rowid_cf = CFNumberCreate(kCFAllocatorDefault, kCFNumberLongLongType, &rowid);
+                
+                //only add rowids that are greater than the last 'highest' processed rowID.  This is to prevent infinite looping.
+                if (lastRowIDHandled == NULL || CFNumberCompare(rowid_cf, lastRowIDHandled, NULL) == kCFCompareGreaterThan) {
+                    CFArrayAppendValue(rowIDsToBeUpdated, rowid_cf);
+                    
+                    if (CFArrayGetCount(rowIDsToBeUpdated) > MAX_NUM_PERSISTENT_REF_ROWIDS) {
+                        *stop = true;
+                        *inProgress = true;
+                    }
+                }
+                CFReleaseNull(rowid_cf);
+            });
+        });
+
+        CFReleaseNull(sql);
+
+        __block bool shouldStop = false;
+
+        CFArrayForEach(rowIDsToBeUpdated, ^(const void *row) {
+    
+            if (shouldStop) { //stop processing items in the array
+                return;
+            }
+            
+            CFErrorRef queryError = NULL;
+            CFNumberRef row_cf = (CFNumberRef)row;
+            SecDbQueryRef query = query_create(*class, SecMUSRGetAllViews(), NULL, NULL, &queryError);
+            CFReleaseNull(queryError);
+            
+            SecDbItemSelect(query, inDbt, &queryError, ^bool(const SecDbAttr *attr) {
+                return (attr->flags & kSecDbInFlag) != 0;
+            }, ^bool(const SecDbAttr *attr) {
+                return attr->kind == kSecDbRowIdAttr;
+            }, NULL, ^bool(sqlite3_stmt *stmt, int col) {
+                return SecDbBindObject(stmt, 1, row_cf, NULL);
+            }, ^(SecDbItemRef item, bool *stop) {
+                CFErrorRef localError = NULL;
+                CFErrorRef fetchError = NULL;
+
+                //keep track of the highest rowID checked. if items are corrupt we will never be able to unwrap them
+                //and potentially cause an infinite loop.
+                CFReleaseNull(lastRowIDHandled);
+                lastRowIDHandled = CFRetainSafe(row_cf);
+                
+                //only update items that do not have a persistent ref UUID
+                CFDataRef persistRef = SecDbItemGetPersistentRef(item, &localError);
+                if (localError) {
+                    secerror("upgr: failed to get persistent ref error: %@", localError);
+                    if (phase3EvaluateErrorAndStop(inProgress, stop, localError, error)) {
+                        shouldStop = true;
+                        return;
+                    }
+                }
+
+                sqlite_int64 itemRowID = SecDbItemGetRowId(item, &fetchError);
+                if (fetchError) {
+                    secerror("upgr: failed to get rowID error: %@", fetchError);
+                }
+
+                CFStringRef itemClass = SecDbItemGetClass(item)->name;
+
+                CFStringRef shouldPerformUpgrade = (persistRef && CFDataGetLength(persistRef) == PERSISTENT_REF_UUID_BYTES_LENGTH) ? CFSTR("NO") : CFSTR("YES");
+
+                secnotice("upgr", "inspecting item at row %lld in table %@, should add persistref uuid?: %@", itemRowID, itemClass, shouldPerformUpgrade);
+                CFReleaseNull(fetchError);
+                CFReleaseNull(localError);
+
+                if (CFStringCompare(shouldPerformUpgrade, CFSTR("YES"), 0) == kCFCompareEqualTo) {
+                    secnotice("upgr", "upgrading item persistentref at row id %lld", itemRowID);
+
+                    //update item to have a UUID
+                    CFUUIDRef uuid = CFUUIDCreate(kCFAllocatorDefault);
+                    CFUUIDBytes uuidBytes = CFUUIDGetUUIDBytes(uuid);
+                    CFDataRef uuidData = CFDataCreate(kCFAllocatorDefault, (const void *)&uuidBytes, sizeof(uuidBytes));
+                    CFReleaseNull(uuid);
+
+                    //set the UUID on the item's persistent ref attribute
+                    bool setResult = SecDbItemSetValueWithName(item, kSecAttrPersistentReference, uuidData, &localError);
+                    CFReleaseNull(uuidData);
+
+                    if (!setResult || localError) {
+                        secerror("upgr: failed to set persistentref for item:%@, error:%@", item, localError);
+                        if (localError) {
+                            if (phase3EvaluateErrorAndStop(inProgress, stop, localError, error)) {
+                                shouldStop = true;
+                                return;
+                            }
+                        }
+                    } else {
+                        CFErrorRef updateError = NULL;
+                        bool updateResult = SecDbItemUpdate(item, item, inDbt, false, query->q_uuid_from_primary_key, &updateError);
+                        if (!updateResult || updateError) {
+                            secnotice("upgr", "phase3: failed to update item %@: %d, error: %@", item, updateResult, updateError);
+                            if (updateError) {
+                                if (phase3EvaluateErrorAndStop(inProgress, stop, updateError, error)) {
+                                    shouldStop = true;
+                                    return;
+                                }
+                            }
+
+                            CFReleaseNull(updateError);
+                        } else {
+                            secnotice("upgr", "updated item %@: %d", item, updateResult);
+                        }
+                    }
+                    CFReleaseNull(localError);
+                }
+            });
+            if (query != NULL) {
+                query_destroy(query, NULL);
+            }
+            CFReleaseNull(queryError);
+        });
+
+        CFReleaseNull(tableCF);
+        CFReleaseNull(rowIDsToBeUpdated);
+        CFReleaseNull(cferror);
+    }
+
+#if TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR
+    measureUpgradePhase3(&start, SecBucket2Significant(itemsMigrated));
+#endif
+    return true;
+}
+
+void clearLastRowIDHandledForTests() {
+    CFReleaseNull(lastRowIDHandled);
+}
+
 // There's no data-driven approach for this. Let's think about it more if it gets unwieldy
 static void performCustomIndexProcessing(SecDbConnectionRef dbt) {
     CFErrorRef cfErr = NULL;
@@ -881,6 +1095,23 @@ out:
         }
     } else {
         // Things seemed to go okay!
+        //let's try upgrading items persistent refs
+        if (SecKeychainIsStaticPersistentRefsEnabled()) {
+            SecSignpostStart(SecSignpostUpgradePhase3);
+
+            CFErrorRef phase3Error = NULL;
+
+            bool ok = UpgradeItemPhase3(dbt, inProgress, &phase3Error);
+            if (!ok) {
+                SecErrorPropagate(phase3Error, &localError);
+            }
+
+            if (!*inProgress && ok) {
+                secnotice("upgr", "Finished updating persistent refs!");
+                SecSignpostStop(SecSignpostUpgradePhase3);
+            }
+        }
+
         if (didPhase2) {
             LKAReportKeychainUpgradeOutcome(version, newVersion, LKAKeychainUpgradeOutcomeSuccess);
         }
@@ -906,6 +1137,7 @@ out:
             }
         }
     }
+
     if (localError) {
         if (error) {
             *error = (CFErrorRef)CFRetain(localError);
@@ -1190,7 +1422,7 @@ SecDbRef SecKeychainDbInitialize(SecDbRef db) {
 #if OCTAGON
     // This needs to be async, otherwise we get hangs between securityd, cloudd, and apsd
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
-        if(OctagonIsEnabled() && OctagonShouldPerformInitialization()) {
+        if(OctagonShouldPerformInitialization()) {
             OctagonInitialize();
         }
 
@@ -1266,6 +1498,7 @@ void SecKeychainDbForceClose(void)
     dispatch_group_t g = dispatch_group_create();
     dispatch_group_async(g, get_async_db_dispatch(), ^{});
     dispatch_group_wait(g, DISPATCH_TIME_FOREVER);
+    dispatch_release(g);
 
     dispatch_sync(get_kc_dbhandle_dispatch(), ^{
         if(_kc_dbhandle) {
@@ -1276,6 +1509,12 @@ void SecKeychainDbForceClose(void)
 }
 
 /* For whitebox testing only */
+
+SecDbRef SecKeychainDbGetDb(CFErrorRef* error)
+{
+    return kc_dbhandle(error);
+}
+
 void SecKeychainDbReset(dispatch_block_t inbetween)
 {
     dispatch_sync(get_kc_dbhandle_dispatch(), ^{
@@ -1437,24 +1676,8 @@ _FilterWithPolicy(SecPolicyRef policy, CFDateRef date, SecCertificateRef cert)
     }
 
     require_quiet((trustResult == kSecTrustResultProceed ||
-                         trustResult == kSecTrustResultUnspecified ||
-                         trustResult == kSecTrustResultRecoverableTrustFailure), cleanup);
-
+                         trustResult == kSecTrustResultUnspecified), cleanup);
     ok = true;
-#if TARGET_OS_IPHONE
-    CFArrayRef properties = SecTrustCopyProperties(trust);
-#else
-    CFArrayRef properties = SecTrustCopyProperties_ios(trust);
-#endif
-    if (properties) {
-        CFArrayForEach(properties, ^(const void *property) {
-            CFDictionaryForEach((CFDictionaryRef)property, ^(const void *key, const void *value) {
-                if (CFEqual((CFTypeRef)key, kSecPropertyKeyType) && CFEqual((CFTypeRef)value, kSecPropertyTypeError))
-                    ok = false;
-            });
-        });
-        CFRelease(properties);
-    }
 
 cleanup:
     if(props) CFRelease(props);
@@ -1683,6 +1906,36 @@ static CFStringRef CopyAccessGroupForRowID(sqlite_int64 rowID, CFStringRef itemC
     }
 }
 
+static CFStringRef CopyAccessGroupForPersistentRef(CFStringRef itemClass, CFDataRef uuidData)
+{
+    __block CFStringRef accessGroup = NULL;
+    
+    __block CFErrorRef error = NULL;
+    bool ok = kc_with_dbt(false, &error, ^bool(SecDbConnectionRef dbt) {
+        CFStringRef table = CFEqual(itemClass, kSecClassIdentity) ? kSecClassCertificate : itemClass;
+        CFStringRef sql = CFStringCreateWithFormat(NULL, NULL, CFSTR("SELECT agrp FROM %@ WHERE persistref == %@"), table, uuidData);
+        bool dbOk = SecDbWithSQL(dbt, sql, &error, ^bool(sqlite3_stmt *stmt) {
+            bool rowOk = SecDbForEach(dbt, stmt, &error, ^bool(int row_index) {
+                accessGroup = CFStringCreateWithBytes(NULL, sqlite3_column_blob(stmt, 0), sqlite3_column_bytes(stmt, 0), kCFStringEncodingUTF8, false);
+                return accessGroup != NULL;
+            });
+            
+            return (bool)(rowOk && accessGroup != NULL);
+        });
+        
+        CFReleaseNull(sql);
+        return (bool)(dbOk && accessGroup);
+    });
+    
+    if (ok) {
+        return accessGroup;
+    }
+    else {
+        CFReleaseNull(accessGroup);
+        return NULL;
+    }
+}
+
 // Expand this, rdar://problem/59297616
 // Known attributes which are not API/SPI should not be permitted in queries
 static bool nonAPIAttributesInDictionary(CFDictionaryRef attrs) {
@@ -1733,17 +1986,25 @@ SecItemServerCopyMatching(CFDictionaryRef query, CFTypeRef *result,
     if (client->canAccessNetworkExtensionAccessGroups) {
         CFDataRef persistentRef = CFDictionaryGetValue(query, kSecValuePersistentRef);
         CFStringRef itemClass = NULL;
+        CFDataRef uuidData = NULL;
         sqlite_int64 itemRowID = 0;
-        if (persistentRef && _SecItemParsePersistentRef(persistentRef, &itemClass, &itemRowID, NULL)) {
-            CFStringRef accessGroup = CopyAccessGroupForRowID(itemRowID, itemClass);
+        if (persistentRef && _SecItemParsePersistentRef(persistentRef, &itemClass, &itemRowID, &uuidData, NULL)) {
+            CFStringRef accessGroup = NULL;
+            if (SecKeychainIsStaticPersistentRefsEnabled() && uuidData && CFDataGetLength(uuidData) == PERSISTENT_REF_UUID_BYTES_LENGTH) {
+                accessGroup = CopyAccessGroupForPersistentRef(itemClass, uuidData);
+            } else {
+                accessGroup = CopyAccessGroupForRowID(itemRowID, itemClass);
+            }
             if (accessGroup && CFStringHasSuffix(accessGroup, kSecNetworkExtensionAccessGroupSuffix) && !CFArrayContainsValue(accessGroups, CFRangeMake(0, ag_count), accessGroup)) {
                 CFMutableArrayRef mutableAccessGroups = CFArrayCreateMutableCopy(NULL, 0, accessGroups);
                 CFArrayAppendValue(mutableAccessGroups, accessGroup);
                 CFReleaseNull(accessGroups);
                 accessGroups = mutableAccessGroups;
             }
+            
             CFReleaseNull(accessGroup);
         }
+        CFReleaseNull(uuidData);
     }
 
     if (CFArrayContainsValue(accessGroups, CFRangeMake(0, ag_count), CFSTR("*"))) {
@@ -1768,7 +2029,7 @@ SecItemServerCopyMatching(CFDictionaryRef query, CFTypeRef *result,
             }
         }
 
-#if TARGET_OS_IPHONE
+#if KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER
         if (q->q_sync_bubble && client->inMultiUser) {
             CFReleaseNull(q->q_musrView);
             q->q_musrView = SecMUSRCreateSyncBubbleUserUUID(q->q_sync_bubble);
@@ -1786,12 +2047,14 @@ SecItemServerCopyMatching(CFDictionaryRef query, CFTypeRef *result,
         query_set_caller_access_groups(q, accessGroups);
         if (client->isAppClip && !appClipHasSaneAccessGroups(client)) {
             ok = SecError(errSecRestrictedAPI, error, CFSTR("App clips are not permitted to use access groups other than application identifier"));
+#if KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER
         } else if (q->q_system_keychain && !client->allowSystemKeychain) {
             ok = SecError(errSecMissingEntitlement, error, CFSTR("client doesn't have entitlement for system keychain"));
         } else if (q->q_sync_bubble && !client->allowSyncBubbleKeychain) {
             ok = SecError(errSecMissingEntitlement, error, CFSTR("client doesn't have entitlement for syncbubble keychain"));
         } else if (q->q_system_keychain && q->q_sync_bubble) {
             ok = SecError(errSecMissingEntitlement, error, CFSTR("can't do both system and syncbubble keychain"));
+#endif
         } else if (q->q_use_item_list) {
             ok = SecError(errSecUseItemListUnsupported, error, CFSTR("use item list unsupported"));
         } else if (q->q_match_issuer && ((q->q_class != cert_class()) &&
@@ -1824,7 +2087,7 @@ _SecItemCopyMatching(CFDictionaryRef query, SecurityClient *client, CFTypeRef *r
     return SecItemServerCopyMatching(query, result, client, error);
 }
 
-#if TARGET_OS_IPHONE
+#if KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER
 static bool
 SecItemSynchronizable(CFDictionaryRef query)
 {
@@ -1907,7 +2170,7 @@ _SecItemAdd(CFDictionaryRef attributes, SecurityClient *client, CFTypeRef *resul
                 CFRelease(dict);
             }
         }
-#if TARGET_OS_IPHONE
+#if KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER
         if (q->q_system_keychain && client->inMultiUser) {
             CFReleaseNull(q->q_musrView);
             q->q_musrView = SecMUSRCopySystemKeychainUUID();
@@ -1928,15 +2191,24 @@ _SecItemAdd(CFDictionaryRef attributes, SecurityClient *client, CFTypeRef *resul
                 q->q_add_sync_callback = add_sync_callback;
             }
 #endif
+            if (SecKeychainIsStaticPersistentRefsEnabled()) {
+                CFUUIDRef uuid = CFUUIDCreate(kCFAllocatorDefault);
+                CFUUIDBytes uuidBytes = CFUUIDGetUUIDBytes(uuid);
+                CFDataRef uuidData = CFDataCreate(kCFAllocatorDefault, (const void *)&uuidBytes, sizeof(uuidBytes));
+                query_add_attribute(v10itempersistentref.name, uuidData, q);
+                CFRetainAssign(q->q_uuid_pref, uuidData);
+                CFReleaseNull(uuid);
+                CFReleaseNull(uuidData);
+            }
             if (client->isAppClip && !appClipHasSaneAccessGroups(client)) {
                 ok = SecError(errSecRestrictedAPI, error, CFSTR("App clips are not permitted to use access groups other than application identifier"));
             } else if (client->isAppClip && CFEqualSafe(CFDictionaryGetValue(attributes, kSecAttrSynchronizable), kCFBooleanTrue)) {
                 ok = SecError(errSecRestrictedAPI, error, CFSTR("App clips are not permitted to add synchronizable items to the keychain"));
+#if KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER
             } else if (q->q_system_keychain && !client->allowSystemKeychain) {
                 ok = SecError(errSecMissingEntitlement, error, CFSTR("client doesn't have entitlement for system keychain"));
             } else if (q->q_sync_bubble && !client->allowSyncBubbleKeychain) {
                 ok = SecError(errSecMissingEntitlement, error, CFSTR("client doesn't have entitlement for syncbubble keychain"));
-#if TARGET_OS_IPHONE
             } else if (q->q_system_keychain && SecItemSynchronizable(attributes) && !client->inMultiUser) {
                 ok = SecError(errSecInvalidKey, error, CFSTR("Can't store system keychain and synchronizable"));
 #endif
@@ -2010,7 +2282,7 @@ _SecItemUpdate(CFDictionaryRef query, CFDictionaryRef attributesToUpdate,
         ok = false;
     }
     if (ok) {
-#if TARGET_OS_IPHONE
+#if KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER
         if (q->q_system_keychain && client->inMultiUser) {
             CFReleaseNull(q->q_musrView);
             q->q_musrView = SecMUSRCopySystemKeychainUUID();
@@ -2025,11 +2297,11 @@ _SecItemUpdate(CFDictionaryRef query, CFDictionaryRef attributesToUpdate,
             CFEqualSafe(CFDictionaryGetValue(attributesToUpdate, kSecAttrSynchronizable), kCFBooleanTrue)))
         {
             ok = SecError(errSecRestrictedAPI, error, CFSTR("App clips are not permitted to make items synchronizable"));
+#if KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER
         } else if (q->q_system_keychain && !client->allowSystemKeychain) {
             ok = SecError(errSecMissingEntitlement, error, CFSTR("client doesn't have entitlement for system keychain"));
         } else if (q->q_sync_bubble && !client->allowSyncBubbleKeychain) {
             ok = SecError(errSecMissingEntitlement, error, CFSTR("client doesn't have entitlement for syncbubble keychain"));
-#if TARGET_OS_IPHONE
         } else if (q->q_system_keychain && SecItemSynchronizable(attributesToUpdate) && !client->inMultiUser) {
             ok = SecError(errSecInvalidKey, error, CFSTR("Can't update an system keychain item with synchronizable"));
 #endif
@@ -2117,7 +2389,7 @@ _SecItemDelete(CFDictionaryRef query, SecurityClient *client, CFErrorRef *error)
     Query *q = query_create_with_limit(query, client->musr, kSecMatchUnlimited, client, error);
     bool ok;
     if (q) {
-#if TARGET_OS_IPHONE
+#if KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER
         if (q->q_system_keychain && client->inMultiUser) {
             CFReleaseNull(q->q_musrView);
             q->q_musrView = SecMUSRCopySystemKeychainUUID();
@@ -2129,10 +2401,12 @@ _SecItemDelete(CFDictionaryRef query, SecurityClient *client, CFErrorRef *error)
         query_set_caller_access_groups(q, accessGroups);
         if (client->isAppClip && !appClipHasSaneAccessGroups(client)) {
             ok = SecError(errSecRestrictedAPI, error, CFSTR("App clips are not permitted to use access groups other than application identifier"));
+#if KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER
         } else if (q->q_system_keychain && !client->allowSystemKeychain) {
             ok = SecError(errSecMissingEntitlement, error, CFSTR("client doesn't have entitlement for system keychain"));
         } else if (q->q_sync_bubble && !client->allowSyncBubbleKeychain) {
             ok = SecError(errSecMissingEntitlement, error, CFSTR("client doesn't have entitlement for syncbubble keychain"));
+#endif
         } else if (q->q_limit != kSecMatchUnlimited) {
             ok = SecError(errSecMatchLimitUnsupported, error, CFSTR("match limit not supported by delete"));
         } else if (query_match_count(q) != 0) {
@@ -3447,7 +3721,7 @@ _SecServerImportInitialSyncCredentials(CFArrayRef array, CFErrorRef *error)
                     continue;
                 }
 
-                if (!SecDbItemInsert(dbi, dbt, false, &cferror)) {
+                if (!SecDbItemInsert(dbi, dbt, false, false, &cferror)) {
                     secinfo("ImportInitialSyncItems", "Item store failed with: %@: %@", cferror, dbi);
                     CFReleaseNull(cferror);
                 }
@@ -3513,7 +3787,7 @@ TransmogrifyItemsToSyncBubble(SecurityClient *client, uid_t uid,
         q->q_musrView = CFRetain(syncBubbleView);
         require(q->q_musrView, fail);
 
-        kc_with_dbt(false, error, ^(SecDbConnectionRef dbt) {
+        kc_with_dbt(true, error, ^(SecDbConnectionRef dbt) {
             return kc_transaction(dbt, error, ^{
                 return s3dl_query_delete(dbt, q, NULL, error);
             });
@@ -3573,7 +3847,7 @@ TransmogrifyItemsToSyncBubble(SecurityClient *client, uid_t uid,
                         return;
                     }
 
-                    if (!SecDbItemInsert(new_item, dbt, false, &error3)) {
+                    if (!SecDbItemInsert(new_item, dbt, false, false, &error3)) {
                         secnotice("syncbubble", "migration failed with %@ for item %@", error3, new_item);
                     }
                     CFRelease(new_item);
@@ -3911,8 +4185,10 @@ CFArrayRef _SecItemCopyParentCertificates(CFDataRef normalizedIssuer, CFArrayRef
     SecurityClient client = {
         .task = NULL,
         .accessGroups = accessGroups,
+#if KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER
         .allowSystemKeychain = true,
         .allowSyncBubbleKeychain = false,
+#endif
         .isNetworkExtension = false,
     };
 
@@ -3937,8 +4213,10 @@ bool _SecItemCertificateExists(CFDataRef normalizedIssuer, CFDataRef serialNumbe
     SecurityClient client = {
         .task = NULL,
         .accessGroups = accessGroups,
+#if KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER
         .allowSystemKeychain = true,
         .allowSyncBubbleKeychain = false,
+#endif
         .isNetworkExtension = false,
     };
     CFDictionaryRef query = CFDictionaryCreate(NULL, keys, values, 4, NULL, NULL);

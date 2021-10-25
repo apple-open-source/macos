@@ -147,7 +147,7 @@ _nwi_client_init()
 			static const char	*service_name	= NWI_SERVICE_NAME;
 
 			dispatch_once(&once, ^{
-#if	DEBUG
+#ifdef	DEBUG
 				const char	*name;
 
 				// get [XPC] service name
@@ -234,7 +234,7 @@ _nwi_state_copy_data()
 		dataRef = xpc_dictionary_get_data(reply, NWI_CONFIGURATION, &dataLen);
 		if ((dataRef != NULL) && (dataLen >= sizeof(nwi_state))) {
 			nwi_state = malloc(dataLen);
-			memcpy(nwi_state, (void *)dataRef, dataLen);
+			memcpy(nwi_state, dataRef, dataLen);
 			if (nwi_state->version != NWI_STATE_VERSION) {
 				/* make sure the version matches */
 				nwi_state_free(nwi_state);
@@ -258,10 +258,10 @@ _nwi_state_copy_data()
  *   Copy the config agent data and the data length.
  *   Caller must free the buffer.
  */
-const void *
+void *
 _nwi_config_agent_copy_data(const struct netagent *agent, uint64_t *length)
 {
-	const void	*buffer	= NULL;
+	void		*buffer	= NULL;
 	xpc_object_t	reqdict;
 	xpc_object_t	reply;
 
@@ -293,7 +293,7 @@ _nwi_config_agent_copy_data(const struct netagent *agent, uint64_t *length)
 		if ((xpc_buffer != NULL) && (len > 0)) {
 			buffer = malloc(len);
 			*length = len;
-			memcpy((void *)buffer, (void *)xpc_buffer, len);
+			memcpy(buffer, xpc_buffer, len);
 		}
 		xpc_release(reply);
 	}

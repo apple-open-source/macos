@@ -1,6 +1,9 @@
 /* expat_config.h.  Generated from expat_config.h.in by configure.  */
 /* expat_config.h.in.  Generated from configure.ac by autoheader.  */
 
+/* Define if building universal (internal helper macro) */
+/* #undef AC_APPLE_UNIVERSAL_BUILD */
+
 /* 1234 = LILENDIAN, 4321 = BIGENDIAN */
 #ifdef __BIG_ENDIAN__
 #define BYTEORDER 4321
@@ -78,7 +81,7 @@
 #define PACKAGE_NAME "expat"
 
 /* Define to the full name and version of this package. */
-#define PACKAGE_STRING "expat 2.2.8"
+#define PACKAGE_STRING "expat 2.4.1"
 
 /* Define to the one symbol short name of this package. */
 #define PACKAGE_TARNAME "expat"
@@ -87,16 +90,25 @@
 #define PACKAGE_URL ""
 
 /* Define to the version of this package. */
-#define PACKAGE_VERSION "2.2.8"
+#define PACKAGE_VERSION "2.4.1"
 
 /* Define to 1 if you have the ANSI C header files. */
 #define STDC_HEADERS 1
 
 /* Version number of package */
-#define VERSION "2.2.8"
+#define VERSION "2.4.1"
 
-/* whether byteorder is bigendian */
-/* #undef WORDS_BIGENDIAN */
+/* Define WORDS_BIGENDIAN to 1 if your processor stores words with the most
+   significant byte first (like Motorola and SPARC, unlike Intel). */
+#if defined AC_APPLE_UNIVERSAL_BUILD
+# if defined __BIG_ENDIAN__
+#  define WORDS_BIGENDIAN 1
+# endif
+#else
+# ifndef WORDS_BIGENDIAN
+/* #  undef WORDS_BIGENDIAN */
+# endif
+#endif
 
 /* Define to allow retrieving the byte offsets for attribute names and values.
    */
@@ -107,7 +119,7 @@
 #define XML_CONTEXT_BYTES 1024
 
 /* Define to include code reading entropy from `/dev/urandom'. */
-/* #undef XML_DEV_URANDOM */
+#define XML_DEV_URANDOM 1
 
 /* Define to make parameter entity parsing functionality available. */
 #define XML_DTD 1
@@ -123,5 +135,3 @@
 
 /* Define to `unsigned int' if <sys/types.h> does not define. */
 /* #undef size_t */
-
-#define XML_ENABLE_VISIBILITY 1

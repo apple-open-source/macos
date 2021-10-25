@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, 2003-2005, 2009-2011, 2013, 2016, 2017, 2019 Apple Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2003-2005, 2009-2011, 2013, 2016, 2017, 2019, 2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -36,7 +36,7 @@ SCDynamicStoreSetNotificationKeys(SCDynamicStoreRef	store,
 				  CFArrayRef		keys,
 				  CFArrayRef		patterns)
 {
-	SCDynamicStorePrivateRef	storePrivate = (SCDynamicStorePrivateRef)store;
+	SCDynamicStorePrivateRef	storePrivate	= (SCDynamicStorePrivateRef)store;
 	kern_return_t			status;
 	CFDataRef			xmlKeys		= NULL;	/* keys (XML serialized) */
 	xmlData_t			myKeysRef	= NULL;	/* keys (serialized) */
@@ -47,20 +47,13 @@ SCDynamicStoreSetNotificationKeys(SCDynamicStoreRef	store,
 	int				sc_status;
 	CFMutableArrayRef		tmp;
 
-	if (store == NULL) {
-		/* sorry, you must provide a session */
-		_SCErrorSet(kSCStatusNoStoreSession);
+	if (!__SCDynamicStoreNormalize(&store, FALSE)) {
 		return FALSE;
-	}
-
-	if (storePrivate->server == MACH_PORT_NULL) {
-		_SCErrorSet(kSCStatusNoStoreServer);
-		return FALSE;	/* you must have an open session to play */
 	}
 
 	/* serialize the keys */
 	if (keys != NULL) {
-		if (!_SCSerialize(keys, &xmlKeys, (void **)&myKeysRef, &myKeysLen)) {
+		if (!_SCSerialize(keys, &xmlKeys, &myKeysRef, &myKeysLen)) {
 			_SCErrorSet(kSCStatusFailed);
 			return FALSE;
 		}
@@ -68,13 +61,12 @@ SCDynamicStoreSetNotificationKeys(SCDynamicStoreRef	store,
 
 	/* serialize the patterns */
 	if (patterns != NULL) {
-		if (!_SCSerialize(patterns, &xmlPatterns, (void **)&myPatternsRef, &myPatternsLen)) {
+		if (!_SCSerialize(patterns, &xmlPatterns, &myPatternsRef, &myPatternsLen)) {
 			if (xmlKeys != NULL) CFRelease(xmlKeys);
 			_SCErrorSet(kSCStatusFailed);
 			return FALSE;
 		}
 	}
-
 
     retry :
 

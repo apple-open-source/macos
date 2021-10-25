@@ -65,4 +65,23 @@ message AccountMetadataClassC {
     // This might contain a voucher for use in joining Octagon.
     optional bytes voucher = 12;
     optional bytes voucherSignature = 13;
+
+    repeated bytes tlkSharesForVouchedIdentity = 14;
+
+    // Intended to be a TPPBSecureElementIdentity, but I can't figure out how to reference that proto from here
+    optional bytes secureElementIdentity = 15;
+
+    //reserved 16;
+
+    // Used during development
+    //reserved 17;
+
+    // This is true if the device used inheritance key
+    optional bool isInheritedAccount = 18;
+
+    // True if we've warmed the escrow record cache for this account
+    optional bool warmedEscrowCache = 19;
+
+    // True if we've warned the user about having too many peers
+    optional bool warnedTooManyPeers = 20;
 }

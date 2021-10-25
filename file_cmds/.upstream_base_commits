@@ -1,2 +1,15 @@
-#freebsd = https://github.com/freebsd/freebsd.git
+#freebsd = https://github.com/freebsd/freebsd-legacy.git
+#freebsd-src = https://git.FreeBSD.org/src.git
 chmod/chmod.1	freebsd	bin/chmod/chmod.1	14889ebf5bdeaead21c00f70044d9acbb923f6b0
+du/du.1	freebsd-src	usr.bin/du/du.1	6d6d6c360322227ba838c53ed72d31937a425800
+du/du.c	freebsd-src	usr.bin/du/du.c	2dfa4b66b3d0caaaae6ce2df476b5615f8415a19
+ls/cmp.c	freebsd-src	bin/ls/cmp.c	8a16b7a18f5d0b031f09832fd7752fba717e2a97
+ls/extern.h	freebsd-src	bin/ls/extern.h	e10ba80063386211b1c74eb72b4fb0f4093e93c0
+ls/ls.1	freebsd-src	bin/ls/ls.1	05c207e9e040d21d72f490c1663a96060bb465e9
+ls/ls.c	freebsd-src	bin/ls/ls.c	3fee777ec5a2e91ffbd9b396e99edae386eb150e
+ls/ls.h	freebsd-src	bin/ls/ls.h	0fdf7fa846b1a1b1679e86812a1b08b8cb623604
+ls/print.c	freebsd-src	bin/ls/print.c	e10ba80063386211b1c74eb72b4fb0f4093e93c0
+ls/util.c	freebsd-src	bin/ls/util.c	e10ba80063386211b1c74eb72b4fb0f4093e93c0
+mv/mv.1	freebsd	bin/mv/mv1	fbbd9655e5107c68e4e0146ff22b73d7350475bc
+touch/touch.1	freebsd-src	usr.bin/touch/touch.1	2a1fb740484524abbbf0175a5cd26d7c66a621f5
+touch/touch.c	freebsd-src	usr.bin/touch/touch.c	8a16b7a18f5d0b031f09832fd7752fba717e2a97

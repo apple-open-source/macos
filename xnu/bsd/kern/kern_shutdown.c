@@ -125,7 +125,7 @@ zprint_panic_info(void)
 	unsigned int  num_sites;
 	kern_return_t kr;
 
-	panic_include_zprint = TRUE;
+	panic_include_zprint = true;
 	panic_kext_memory_info = NULL;
 	panic_kext_memory_size = 0;
 
@@ -200,7 +200,7 @@ reboot_kernel(int howto, char *message)
 	/*
 	 * Notify the power management root domain that the system will shut down.
 	 */
-	IOSystemShutdownNotification(kIOSystemShutdownNotificationStageProcessExit);
+	IOSystemShutdownNotification(howto, kIOSystemShutdownNotificationStageProcessExit);
 
 	if ((howto & RB_QUICK) == RB_QUICK) {
 		printf("Quick reboot...\n");
@@ -239,11 +239,11 @@ reboot_kernel(int howto, char *message)
 
 		if (kdebug_enable) {
 			startTime = mach_absolute_time();
-			kdbg_dump_trace_to_file("/var/log/shutdown/shutdown.trace");
+			kdbg_dump_trace_to_file("/var/log/shutdown/shutdown.trace", true);
 			halt_log_enter("shutdown.trace", 0, mach_absolute_time() - startTime);
 		}
 
-		IOSystemShutdownNotification(kIOSystemShutdownNotificationStageRootUnmount);
+		IOSystemShutdownNotification(howto, kIOSystemShutdownNotificationStageRootUnmount);
 
 		/*
 		 * Unmount filesystems
@@ -258,7 +258,7 @@ reboot_kernel(int howto, char *message)
 			halt_log_enter("vfs_unmountall", 0, mach_absolute_time() - startTime);
 		}
 
-		IOSystemShutdownNotification(kIOSystemShutdownNotificationTerminateDEXTs);
+		IOSystemShutdownNotification(howto, kIOSystemShutdownNotificationTerminateDEXTs);
 
 		startTime = mach_absolute_time();
 		proc_shutdown(FALSE);
@@ -523,11 +523,11 @@ sd_callback3(proc_t p, void * args)
 			p->exit_thread = current_thread();
 			printf(".");
 
-			sd_log(ctx, "%s[%d] had to be forced closed with exit1().\n", p->p_comm, p->p_pid);
+			sd_log(ctx, "%s[%d] had to be forced closed with exit1().\n", p->p_comm, proc_getpid(p));
 
 			proc_unlock(p);
 			KERNEL_DEBUG_CONSTANT(BSDDBG_CODE(DBG_BSD_PROC, BSD_PROC_FRCEXIT) | DBG_FUNC_NONE,
-			    p->p_pid, 0, 1, 0, 0);
+			    proc_getpid(p), 0, 1, 0, 0);
 			sd->activecount++;
 			exit1(p, 1, (int *)NULL);
 		}
@@ -630,8 +630,8 @@ sigterm_loop:
 
 		for (p = allproc.lh_first; p; p = p->p_list.le_next) {
 			if (p->p_shutdownstate == 1) {
-				printf("%s[%d]: didn't act on SIGTERM\n", p->p_comm, p->p_pid);
-				sd_log(ctx, "%s[%d]: didn't act on SIGTERM\n", p->p_comm, p->p_pid);
+				printf("%s[%d]: didn't act on SIGTERM\n", p->p_comm, proc_getpid(p));
+				sd_log(ctx, "%s[%d]: didn't act on SIGTERM\n", p->p_comm, proc_getpid(p));
 			}
 		}
 
@@ -690,8 +690,8 @@ sigterm_loop:
 
 		for (p = allproc.lh_first; p; p = p->p_list.le_next) {
 			if (p->p_shutdownstate == 2) {
-				printf("%s[%d]: didn't act on SIGKILL\n", p->p_comm, p->p_pid);
-				sd_log(ctx, "%s[%d]: didn't act on SIGKILL\n", p->p_comm, p->p_pid);
+				printf("%s[%d]: didn't act on SIGKILL\n", p->p_comm, proc_getpid(p));
+				sd_log(ctx, "%s[%d]: didn't act on SIGKILL\n", p->p_comm, proc_getpid(p));
 			}
 		}
 

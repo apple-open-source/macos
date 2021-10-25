@@ -84,8 +84,8 @@ static bool xpc_dictionary_entry_is_type(xpc_object_t dictionary, const char *ke
     return value && (xpc_get_type(value) == type);
 }
 
-static void setSOSDisabledError(CFErrorRef *error) {
-    SecCFCreateErrorWithFormat(0, kSOSErrorDomain, NULL, error, NULL, CFSTR("SOS Disabled for this platform"));
+static bool setSOSDisabledError(CFErrorRef *error) {
+    return SecCFCreateErrorWithFormat(0, kSOSErrorDomain, NULL, error, NULL, CFSTR("SOS Disabled for this platform"));
 }
 
 SOSCCStatus SOSCCThisDeviceIsInCircle(CFErrorRef *error)

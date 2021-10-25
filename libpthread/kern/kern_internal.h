@@ -69,6 +69,7 @@ struct ksyn_waitq_element;
 #define PTHREAD_FEATURE_KEVENT          0x40		/* supports direct kevent delivery */
 #define PTHREAD_FEATURE_WORKLOOP          0x80		/* supports workloops */
 #define PTHREAD_FEATURE_QOS_DEFAULT		0x40000000	/* the kernel supports QOS_CLASS_DEFAULT */
+#define PTHREAD_FEATURE_COOPERATIVE_WORKQ	0x100		/* Supports a cooperative workqueue pool */
 
 /* userspace <-> kernel registration struct, for passing data to/from the kext during main thread init. */
 struct _pthread_registration_data {
@@ -94,6 +95,7 @@ struct _pthread_registration_data {
 #define _PTHREAD_REG_DEFAULT_USE_ADAPTIVE_SPIN 0x200
 	uint32_t mutex_default_policy; /* copy-out */
 	uint32_t joinable_offset_bits; /* copy-in */
+	uint32_t wq_quantum_expiry_offset; /* copy-in */
 } __attribute__ ((packed));
 
 /*
@@ -123,7 +125,8 @@ struct _pthread_registration_data {
 	PTHREAD_FEATURE_QOS_MAINTENANCE | \
 	PTHREAD_FEATURE_QOS_DEFAULT | \
 	PTHREAD_FEATURE_KEVENT | \
-	PTHREAD_FEATURE_WORKLOOP )
+	PTHREAD_FEATURE_WORKLOOP |  \
+	PTHREAD_FEATURE_COOPERATIVE_WORKQ)
 
 extern pthread_callbacks_t pthread_kern;
 

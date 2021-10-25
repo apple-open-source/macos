@@ -28,6 +28,7 @@
 #include <CoreFoundation/CoreFoundation.h>
 #include <Security/SecIdentityPriv.h>
 #include <Security/SecItem.h>
+#include <Security/SecCertificatePriv.h>
 #include <Security/SecCertificateRequest.h>
 #include <Security/SecInternal.h>
 #include <utilities/array_size.h>

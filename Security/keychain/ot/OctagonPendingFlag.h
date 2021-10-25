@@ -3,6 +3,7 @@
 
 #import <Foundation/Foundation.h>
 #import "keychain/ot/OctagonStateMachineHelpers.h"
+#import "keychain/ckks/CKKSNearFutureScheduler.h"
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -35,6 +36,15 @@ NSString* OctagonPendingConditionsToString(OctagonPendingConditions cond);
 - (instancetype)initWithFlag:(OctagonFlag*)flag
                   conditions:(OctagonPendingConditions)conditions
               delayInSeconds:(NSTimeInterval)delay;
+
+// The flag will unpend when the scheduler fires.
+
+- (instancetype)initWithFlag:(OctagonFlag*)flag
+                   scheduler:(CKKSNearFutureScheduler*)scheduler;
+
+- (instancetype)initWithFlag:(OctagonFlag*)flag
+                  conditions:(OctagonPendingConditions)conditions
+                   scheduler:(CKKSNearFutureScheduler*)scheduler;
 @end
 
 NS_ASSUME_NONNULL_END

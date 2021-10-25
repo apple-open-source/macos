@@ -299,11 +299,10 @@ static int testModExp()
 {
     CCStatus status;
     
-    // Shift n right by 11
     CCBigNumRef a = CCBigNumFromHexString(&status, "c968e40c5304364b057425920b18cc358f254ddb0f42f84850d6deec46006b4a692e52b7c3bddead45f77f2c1be1c606521d8a24260429f362d65b57873dbf270e97e210b872e45e97cb4cd87977ad20491e53c48cf0e88da9a61312675a2527c86ac537740c5e4206972f09c0f91fa1c9f14a2cf1be07e82a3b6fd58dc12c3a");
     CCBigNumRef b = CCBigNumFromHexString(&status, "010001");
-    CCBigNumRef c = CCBigNumFromHexString(&status, "354c912b09ee7abff5b3d94ed52a9e8dcae582e094daa375c495f970710af73efcc4f9776010511f654c7408a6d5d351ab1d94a0fede757d782b54ddcf6fe8d714870b78b0e67a9754cb03a5cf63bbda1c71791902ea4527fb0cd76437391e5422c704ffb6d6018261171d8cee98adcf0243f1fd520fb3761afe94a2f4d99f94");
-    CCBigNumRef resultExpected = CCBigNumFromHexString(&status, "0fb978a4f4fccdb14c7268918b784c4f6d5281c0d6ff43e60e88e97f97f2617608de2488c84eb99a3f467013c860536ec74f4968abeccbc1b026ee5873e40bdd292f8f7416a93df619288b49ba21d3e09aa796cb35a340b1abfda4e3b6cd92df2de64967e6a59f787586929c4d2920da20caeb384594d7f2b7e999dab0d6a1ac");
+    CCBigNumRef c = CCBigNumFromHexString(&status, "354c912b09ee7abff5b3d94ed52a9e8dcae582e094daa375c495f970710af73efcc4f9776010511f654c7408a6d5d351ab1d94a0fede757d782b54ddcf6fe8d714870b78b0e67a9754cb03a5cf63bbda1c71791902ea4527fb0cd76437391e5422c704ffb6d6018261171d8cee98adcf0243f1fd520fb3761afe94a2f4d99f93");
+    CCBigNumRef resultExpected = CCBigNumFromHexString(&status, "278f0153055299c9cdb1ac2bf5e9860352c911a87a284ce0cb68bd3bf5be3b5b5dd18a722f29f5ca5bd00e178a6789379142492f14b4d19d3ff9a2a67fa723b6c37c8532146cf934a5e180f37b1d79feba7b5d0b7c7e64cc4693f8b4b455861c42ba57a4623f9b3fb64c4704aa5f445c012ec18f4658aaa3368f7e7887dadf81");
     CCBigNumRef output = CCCreateBigNum(&status);
     
     status = CCBigNumModExp(output, a, b, c);
@@ -322,7 +321,6 @@ static int testMod()
 {
     CCStatus status;
     
-    // Shift n right by 11
     CCBigNumRef a = CCBigNumFromHexString(&status, "c968e40c5304364b057425920b18cc358f254ddb0f42f84850d6deec46006b4a692e52b7c3bddead45f77f2c1be1c606521d8a24260429f362d65b57873dbf270e97e210b872e45e97cb4cd87977ad20491e53c48cf0e88da9a61312675a2527c86ac537740c5e4206972f09c0f91fa1c9f14a2cf1be07e82a3b6fd58dc12c3a");
     CCBigNumRef c = CCBigNumFromHexString(&status, "354c912b09ee7abff5b3d94ed52a9e8dcae582e094daa375c495f970710af73efcc4f9776010511f654c7408a6d5d351ab1d94a0fede757d782b54ddcf6fe8d714870b78b0e67a9754cb03a5cf63bbda1c71791902ea4527fb0cd76437391e5422c704ffb6d6018261171d8cee98adcf0243f1fd520fb3761afe94a2f4d99f94");
     CCBigNumRef resultExpected = CCBigNumFromHexString(&status, "2983308b3538c60b245899a58b98f08c2e74c53950b30de70314f29af2df858d72df6651a38ceb4f1612231227604c1150c4cc412968c97afa545cbe18ee04a1d102bfa6a5bf7498996a41e70b4c7991f3c9e87984321915b87f8ce5c1aeca2b6015b6384f8a59bae351d662f52f1634c3257434fb8eed85d93fb1ecaf344d7e");
@@ -344,7 +342,6 @@ static int testModI()
 {
     CCStatus status;
     
-    // Shift n right by 11
     CCBigNumRef a = CCBigNumFromHexString(&status, "c968e40c5304364b057425920b18cc358f254ddb0f42f84850d6deec46006b4a692e52b7c3bddead45f77f2c1be1c606521d8a24260429f362d65b57873dbf270e97e210b872e45e97cb4cd87977ad20491e53c48cf0e88da9a61312675a2527c86ac537740c5e4206972f09c0f91fa1c9f14a2cf1be07e82a3b6fd58dc12c3a");
     uint32_t c=63;
     uint32_t resultExpected = 23;
@@ -363,7 +360,6 @@ static int testMul()
 {
     CCStatus status;
     
-    // Shift n right by 11
     CCBigNumRef a = CCBigNumFromHexString(&status, "c968e40c5304364b057425920b18cc358f254ddb0f42f84850d6deec46006b4a692e52b7c3bddead45f77f2c1be1c606521d8a24260429f362d65b57873dbf270e97e210b872e45e97cb4cd87977ad20491e53c48cf0e88da9a61312675a2527c86ac537740c5e4206972f09c0f91fa1c9f14a2cf1be07e82a3b6fd58dc12c3a");
     CCBigNumRef c = CCBigNumFromHexString(&status, "354c912b09ee7abff5b3d94ed52a9e8dcae582e094daa375c495f970710af73efcc4f9776010511f654c7408a6d5d351ab1d94a0fede757d782b54ddcf6fe8d714870b78b0e67a9754cb03a5cf63bbda1c71791902ea4527fb0cd76437391e5422c704ffb6d6018261171d8cee98adcf0243f1fd520fb3761afe94a2f4d99f94");
     CCBigNumRef resultExpected = CCBigNumFromHexString(&status, "29eef49086721db0707b81175570af0db1517307f313564ff3a07f695514e92f525efea63ab5de4830c06b365f5c21cba747b96c6cb315d5b3dfa6642324e0a30f0a999acd196c1c78b99bff4d53e1e1e5d02b521a964a286279129e9bfbb51738743617a73f896bfd21e7c4c24e8f72a4a995781b0b4fa1b37a2320b935b0c5e130f27a65135ac4b7247db58e7f752550d92e08b177a84d5d0364cd8c74d4e2bb086d1cd9bc4c541e86ecf66940be30b73675a63921f9fd1fdfa6db57bd4b13304ac0ac84d64c262d5802a1363ee1d519f88b8ca0997a77f7ece081042d88814da526c44f1323c7ac5b7eeedccda0e28bc65bc415bba767d34f161ab34f9788");
@@ -384,7 +380,6 @@ static int testMulI()
 {
     CCStatus status;
     
-    // Shift n right by 11
     CCBigNumRef a = CCBigNumFromHexString(&status, "c968e40c5304364b057425920b18cc358f254ddb0f42f84850d6deec46006b4a692e52b7c3bddead45f77f2c1be1c606521d8a24260429f362d65b57873dbf270e97e210b872e45e97cb4cd87977ad20491e53c48cf0e88da9a61312675a2527c86ac537740c5e4206972f09c0f91fa1c9f14a2cf1be07e82a3b6fd58dc12c3a");
     uint32_t c = 63;
     CCBigNumRef resultExpected = CCBigNumFromHexString(&status, "3190d01f086e095c7657953ef0bb1a412e3a2e28e8c17b19cbe4e0dc253a1a674fe2665b392bb9cca437e84bdadc8fbb8e3544fee55b0652e552c07a8a48320a9c9760a21d644633475b07e945e4739af1fe769d5eaf493adcbfdeb1876f2f24ca524688a58f0b323f9f3493667d4ec8d0b261410f7dc3f22264a0858de289e246");
@@ -404,7 +399,6 @@ static int testPrime()
 {
     CCStatus status;
     
-    // Shift n right by 11
     CCBigNumRef a = CCBigNumFromHexString(&status, "09c75b");
     ok(CCBigNumIsPrime(&status, a), "prime number");
     CCBigNumRef b = CCBigNumFromHexString(&status, "09c75c");
@@ -420,7 +414,6 @@ static int testDiv()
 {
     CCStatus status;
     
-    // Shift n right by 11
     CCBigNumRef a = CCBigNumFromHexString(&status, "c968e40c5304364b057425920b18cc358f254ddb0f42f84850d6deec46006b4a692e52b7c3bddead45f77f2c1be1c606521d8a24260429f362d65b57873dbf270e97e210b872e45e97cb4cd87977ad20491e53c48cf0e88da9a61312675a2527c86ac537740c5e4206972f09c0f91fa1c9f14a2cf1be07e82a3b6fd58dc12c3a");
     CCBigNumRef c = CCBigNumFromHexString(&status, "354c912b09ee7abff5b3d94ed52a9e8dcae582e094daa375c495f970710af73efcc4f9776010511f654c7408a6d5d351ab1d94a0fede757d782b54ddcf6fe8d714870b78b0e67a9754cb03a5cf63bbda1c71791902ea4527fb0cd76437391e5422c704ffb6d6018261171d8cee98adcf0243f1fd520fb3761afe94a2f4d99f94");
     CCBigNumRef resultExpected = CCBigNumFromHexString(&status, "03");
@@ -450,7 +443,6 @@ static int testMulMod()
 {
     CCStatus status;
     
-    // Shift n right by 11
     CCBigNumRef a = CCBigNumFromHexString(&status, "c968e40c5304364b057425920b18cc358f254ddb0f42f84850d6deec46006b4a692e52b7c3bddead45f77f2c1be1c606521d8a24260429f362d65b57873dbf270e97e210b872e45e97cb4cd87977ad20491e53c48cf0e88da9a61312675a2527c86ac537740c5e4206972f09c0f91fa1c9f14a2cf1be07e82a3b6fd58dc12c3a");
     CCBigNumRef c = CCBigNumFromHexString(&status, "354c912b09ee7abff5b3d94ed52a9e8dcae582e094daa375c495f970710af73efcc4f9776010511f654c7408a6d5d351ab1d94a0fede757d782b54ddcf6fe8d714870b78b0e67a9754cb03a5cf63bbda1c71791902ea4527fb0cd76437391e5422c704ffb6d6018261171d8cee98adcf0243f1fd520fb3761afe94a2f4d99f94");
     CCBigNumRef mod1 = CCBigNumFromHexString(&status, "912b09ee7abff5b3d94ed52a9e8dcae582e094daa375c495f970710af73efcc4f9776010511f654c7408a6d5d351ab1d94a0fede757d782b54ddcf6fe8d714870b78b0e67a9754cb03a5cf63bbda1c71791902ea4527fb0cd76437391e5422c704ffb6d6018261171d8cee98adcf0243f1fd520fb3761afe94a2f4d99f94");

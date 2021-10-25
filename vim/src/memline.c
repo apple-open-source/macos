@@ -1080,6 +1080,35 @@ add_b0_fenc(
     }
 }
 
+#if defined(HAVE_SYS_SYSINFO_H) && defined(HAVE_SYSINFO_UPTIME)
+# include <sys/sysinfo.h>
+#endif
+
+/*
+ * Return TRUE if the process with number "b0p->b0_pid" is still running.
+ * "swap_fname" is the name of the swap file, if it's from before a reboot then
+ * the result is FALSE;
+ */
+    static int
+swapfile_process_running(ZERO_BL *b0p, char_u *swap_fname UNUSED)
+{
+#ifdef HAVE_SYSINFO_UPTIME
+    stat_T	    st;
+    struct sysinfo  sinfo;
+
+    // If the system rebooted after when the swap file was written then the
+    // process can't be running now.
+    if (mch_stat((char *)swap_fname, &st) != -1
+	    && sysinfo(&sinfo) == 0
+	    && st.st_mtime < time(NULL) - (
+# ifdef FEAT_EVAL
+		override_sysinfo_uptime >= 0 ? override_sysinfo_uptime :
+# endif
+		sinfo.uptime))
+	return FALSE;
+#endif
+    return mch_process_running(char_to_long(b0p->b0_pid));
+}
 
 /*
  * Try to recover curbuf from the .swp file.
@@ -1693,7 +1722,7 @@ ml_recover(int checkext)
 	if (vim_strchr(p_cpo, CPO_PRESERVE) == NULL)
 	    msg_puts(_("\nYou may want to delete the .swp file now."));
 #if defined(UNIX) || defined(MSWIN)
-	if (mch_process_running(char_to_long(b0p->b0_pid)))
+	if (swapfile_process_running(b0p, fname_used))
 	{
 	    // Warn there could be an active Vim on the same file, the user may
 	    // want to kill it.
@@ -2172,7 +2201,7 @@ swapfile_info(char_u *fname)
 		    msg_puts(_("\n        process ID: "));
 		    msg_outnum(char_to_long(b0.b0_pid));
 #if defined(UNIX) || defined(MSWIN)
-		    if (mch_process_running(char_to_long(b0.b0_pid)))
+		    if (swapfile_process_running(&b0, fname))
 		    {
 			msg_puts(_(" (STILL RUNNING)"));
 # ifdef HAVE_PROCESS_STILL_RUNNING
@@ -2215,9 +2244,6 @@ swapfile_unchanged(char_u *fname)
     int		    fd;
     struct block0   b0;
     int		    ret = TRUE;
-#if defined(UNIX) || defined(MSWIN)
-    long	    pid;
-#endif
 
     // must be able to stat the swap file
     if (mch_stat((char *)fname, &st) == -1)
@@ -2260,8 +2286,7 @@ swapfile_unchanged(char_u *fname)
     }
 
     // process must be known and not be running
-    pid = char_to_long(b0.b0_pid);
-    if (pid == 0L || mch_process_running(pid))
+    if (char_to_long(b0.b0_pid) == 0L || swapfile_process_running(&b0, fname))
 	ret = FALSE;
 #endif
 
@@ -5564,7 +5589,7 @@ ml_updatechunk(
 		     && buf->b_ml.ml_line_count - line <= 1)
 	{
 	    /*
-	     * We are in the last chunk and it is cheap to crate a new one
+	     * We are in the last chunk and it is cheap to create a new one
 	     * after this. Do it now to avoid the loop above later on
 	     */
 	    curchnk = buf->b_ml.ml_chunksize + curix + 1;
@@ -5703,6 +5728,10 @@ ml_find_line_or_offset(buf_T *buf, linenr_T lnum, long *offp)
 
     while ((lnum != 0 && curline < lnum) || (offset != 0 && size < offset))
     {
+#ifdef FEAT_PROP_POPUP
+	size_t textprop_total = 0;
+#endif
+
 	if (curline > buf->b_ml.ml_line_count
 		|| (hp = ml_find_line(buf, curline, ML_FIND)) == NULL)
 	    return -1;
@@ -5724,18 +5753,16 @@ ml_find_line_or_offset(buf_T *buf, linenr_T lnum, long *offp)
 	}
 	else
 	{
-#ifdef FEAT_PROP_POPUP
-	    size_t textprop_total = 0;
-	    size_t textprop_size = 0;
-	    char_u *l1, *l2;
-#endif
-
 	    extra = 0;
 	    for (;;)
 	    {
 #ifdef FEAT_PROP_POPUP
+		size_t textprop_size = 0;
+
 		if (buf->b_has_textprop)
 		{
+		    char_u *l1, *l2;
+
 		    // compensate for the extra bytes taken by textprops
 		    l1 = (char_u *)dp + ((dp->db_index[idx]) & DB_INDEX_MASK);
 		    l2 = (char_u *)dp + (idx == 0 ? dp->db_txt_end
@@ -5765,7 +5792,7 @@ ml_find_line_or_offset(buf_T *buf, linenr_T lnum, long *offp)
 	    }
 	}
 #ifdef FEAT_PROP_POPUP
-	if (buf->b_has_textprop)
+	if (buf->b_has_textprop && lnum != 0)
 	{
 	    int i;
 
@@ -5773,12 +5800,18 @@ ml_find_line_or_offset(buf_T *buf, linenr_T lnum, long *offp)
 	    // lengths.
 	    len = 0;
 	    for (i = start_idx; i <= idx; ++i)
-		len += (int)STRLEN((char_u *)dp
-				    + ((dp->db_index[i]) & DB_INDEX_MASK)) + 1;
+	    {
+		char_u *p = (char_u *)dp + ((dp->db_index[i]) & DB_INDEX_MASK);
+		len += (int)STRLEN(p) + 1;
+	    }
 	}
 	else
 #endif
-	    len = text_end - ((dp->db_index[idx]) & DB_INDEX_MASK);
+	    len = text_end - ((dp->db_index[idx]) & DB_INDEX_MASK)
+#ifdef FEAT_PROP_POPUP
+				- (long)textprop_total
+#endif
+				;
 	size += len;
 	if (offset != 0 && size >= offset)
 	{
@@ -5788,7 +5821,11 @@ ml_find_line_or_offset(buf_T *buf, linenr_T lnum, long *offp)
 		*offp = offset - size + len;
 	    else
 		*offp = offset - size + len
-		     - (text_end - ((dp->db_index[idx - 1]) & DB_INDEX_MASK));
+		     - (text_end - ((dp->db_index[idx - 1]) & DB_INDEX_MASK))
+#ifdef FEAT_PROP_POPUP
+		     + (long)textprop_total
+#endif
+		     ;
 	    curline += idx - start_idx + extra;
 	    if (curline > buf->b_ml.ml_line_count)
 		return -1;	// exactly one byte beyond the end

@@ -1,4 +1,6 @@
 /*-
+ * SPDX-License-Identifier: BSD-2-Clause-FreeBSD
+ *
  * Copyright (c) 2004 Tim J. Robbins.
  * All rights reserved.
  *
@@ -30,7 +32,7 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/usr.bin/tr/cmap.c,v 1.2 2004/07/14 08:36:09 tjr Exp $");
+__FBSDID("$FreeBSD$");
 
 #include <assert.h>
 #include <limits.h>

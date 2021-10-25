@@ -473,14 +473,6 @@ hfs_vnop_getxattr(struct vnop_getxattr_args *ap)
 		}
 	}
 	hfsmp = VTOHFS(vp);
-#if CONFIG_HFS_STD
-	/*
-	 * Standard HFS only supports native FinderInfo and Resource Forks.
-	 */
-	if (hfsmp->hfs_flags & HFS_STANDARD) {
-		return (EPERM);
-	}
-#endif
 
 	if ((result = hfs_lock(cp, HFS_SHARED_LOCK, HFS_LOCK_DEFAULT))) {
 		return (result);
@@ -997,14 +989,7 @@ hfs_vnop_setxattr(struct vnop_setxattr_args *ap)
 		vnode_put(rvp);
 		return (result);
 	}
-#if CONFIG_HFS_STD
-	/*
-	 * Standard HFS only supports native FinderInfo and Resource Forks.
-	 */
-	if (hfsmp->hfs_flags & HFS_STANDARD) {
-		return (EPERM);
-	}
-#endif
+
 	attrsize = uio_resid(uio);
 
 	/* Enforce an upper limit. */
@@ -1526,14 +1511,7 @@ hfs_vnop_removexattr(struct vnop_removexattr_args *ap)
         
 		return (0);
 	}
-#if CONFIG_HFS_STD
-	/*
-	 * Standard HFS only supports native FinderInfo and Resource Forks.
-	 */
-	if (hfsmp->hfs_flags & HFS_STANDARD) {
-		return (EPERM);
-	}
-#endif
+
 	if (hfsmp->hfs_attribute_vp == NULL) {
 		return (ENOATTR);
 	}
@@ -1896,16 +1874,7 @@ hfs_vnop_listxattr(struct vnop_listxattr_args *ap)
 			}
 		}
 	}
-#if CONFIG_HFS_STD
-	/*
-	 * Standard HFS only supports native FinderInfo and Resource Forks.
-	 * Return at this point.
-	 */
-	if (hfsmp->hfs_flags & HFS_STANDARD) {
-		result = 0;
-		goto exit;
-	}
-#endif
+
 	/* Bail if we don't have any extended attributes. */
 	if ((hfsmp->hfs_attribute_vp == NULL) ||
 	    (cp->c_attr.ca_recflags & kHFSHasAttributesMask) == 0) {
@@ -2122,10 +2091,6 @@ exit:
 void
 hfs_xattr_init(struct hfsmount * hfsmp)
 {
-#if CONFIG_HFS_STD
-	if (ISSET(hfsmp->hfs_flags, HFS_STANDARD))
-		return;
-#endif
 
 	/*
 	 * If there isn't an attributes b-tree then create one.
@@ -2152,11 +2117,6 @@ hfs_set_volxattr(struct hfsmount *hfsmp, unsigned int xattrtype, int state)
 	int lockflags;
 	int result;
 
-#if CONFIG_HFS_STD
-	if (hfsmp->hfs_flags & HFS_STANDARD) {
-		return (ENOTSUP);
-	}
-#endif
 	if (xattrtype != HFSIOC_SET_XATTREXTENTS_STATE) {
 		return EINVAL;
 	}

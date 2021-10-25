@@ -42,29 +42,32 @@
 extern "C" {
 #endif
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+
 /*
  * ASN class : AlgorithmIdentifier
  * C struct  : SecAsn1AlgId
  */
-extern const SecAsn1Template kSecAsn1AlgorithmIDTemplate[];
+extern const SecAsn1Template kSecAsn1AlgorithmIDTemplate[] SEC_ASN1_API_DEPRECATED;
 
 /*
  * ASN class : SubjectPublicKeyInfo
  * C struct  : SecAsn1PubKeyInfo
  */
-extern const SecAsn1Template kSecAsn1SubjectPublicKeyInfoTemplate[];
+extern const SecAsn1Template kSecAsn1SubjectPublicKeyInfoTemplate[] SEC_ASN1_API_DEPRECATED;
 
 /*
  * ASN class : Attribute
  * C struct  : NSS_Attribute
  */
-typedef struct {
+typedef struct SEC_ASN1_API_DEPRECATED {
     SecAsn1Oid 	attrType;	
     SecAsn1Item 	**attrValue;
-} NSS_Attribute;
+} NSS_Attribute SEC_ASN1_API_DEPRECATED;
 
-extern const SecAsn1Template kSecAsn1AttributeTemplate[];
-extern const SecAsn1Template kSecAsn1SetOfAttributeTemplate[];
+extern const SecAsn1Template kSecAsn1AttributeTemplate[] SEC_ASN1_API_DEPRECATED;
+extern const SecAsn1Template kSecAsn1SetOfAttributeTemplate[] SEC_ASN1_API_DEPRECATED;
 
 /*
  * PKCS8 private key info
@@ -78,7 +81,7 @@ typedef struct DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER {
     NSS_Attribute 					**attributes;
 } NSS_PrivateKeyInfo DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
-extern const SecAsn1Template kSecAsn1PrivateKeyInfoTemplate[];
+extern const SecAsn1Template kSecAsn1PrivateKeyInfoTemplate[] SEC_ASN1_API_DEPRECATED;
 
 /*
  * PKCS8 Encrypted Private Key Info
@@ -93,7 +96,7 @@ typedef struct DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER {
 	SecAsn1Item						encryptedData;
 } NSS_EncryptedPrivateKeyInfo DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
-extern const SecAsn1Template kSecAsn1EncryptedPrivateKeyInfoTemplate[];
+extern const SecAsn1Template kSecAsn1EncryptedPrivateKeyInfoTemplate[] SEC_ASN1_API_DEPRECATED;
 
 /*
  * ASN class : DigestInfo
@@ -104,7 +107,7 @@ typedef struct DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER {
 	SecAsn1Item						digest;
 } NSS_DigestInfo DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
-extern const SecAsn1Template kSecAsn1DigestInfoTemplate[];
+extern const SecAsn1Template kSecAsn1DigestInfoTemplate[] SEC_ASN1_API_DEPRECATED;
 
 /*
  * Key structs and templates, placed here due to their ubiquitous use.
@@ -118,12 +121,12 @@ extern const SecAsn1Template kSecAsn1DigestInfoTemplate[];
  * ASN class : RSAPublicKey
  * C struct  : NSS_RSAPublicKeyPKCS1
  */
-typedef struct {
+typedef struct SEC_ASN1_API_DEPRECATED {
     SecAsn1Item modulus;
     SecAsn1Item publicExponent;
-} NSS_RSAPublicKeyPKCS1;
+} NSS_RSAPublicKeyPKCS1 SEC_ASN1_API_DEPRECATED;
 
-extern const SecAsn1Template kSecAsn1RSAPublicKeyPKCS1Template[];
+extern const SecAsn1Template kSecAsn1RSAPublicKeyPKCS1Template[] SEC_ASN1_API_DEPRECATED;
 
 /*
  * RSA public key, X509 format: NSS_SubjectPublicKeyInfoTemplate
@@ -135,7 +138,7 @@ extern const SecAsn1Template kSecAsn1RSAPublicKeyPKCS1Template[];
  * ASN class : RSAPrivateKey
  * C struct  : NSS_RSAPrivateKeyPKCS1
  */
-typedef struct {
+typedef struct SEC_ASN1_API_DEPRECATED {
 	SecAsn1Item version;
     SecAsn1Item modulus;
     SecAsn1Item publicExponent;
@@ -145,9 +148,9 @@ typedef struct {
     SecAsn1Item exponent1;
     SecAsn1Item exponent2;
     SecAsn1Item coefficient;
-} NSS_RSAPrivateKeyPKCS1;
+} NSS_RSAPrivateKeyPKCS1 SEC_ASN1_API_DEPRECATED;
 
-extern const SecAsn1Template kSecAsn1RSAPrivateKeyPKCS1Template[];
+extern const SecAsn1Template kSecAsn1RSAPrivateKeyPKCS1Template[] SEC_ASN1_API_DEPRECATED;
 
 /*
  * RSA private key, PKCS8 format: NSS_PrivateKeyInfo; the privateKey
@@ -162,36 +165,36 @@ extern const SecAsn1Template kSecAsn1RSAPrivateKeyPKCS1Template[];
  * ASN class : DHParameter
  * C struct  : NSS_DHParameter
  */
-typedef struct {
+typedef struct SEC_ASN1_API_DEPRECATED {
 	SecAsn1Item		prime;
 	SecAsn1Item		base;
 	SecAsn1Item		privateValueLength;	// optional
-} NSS_DHParameter;
+} NSS_DHParameter SEC_ASN1_API_DEPRECATED;
 
-extern const SecAsn1Template kSecAsn1DHParameterTemplate[];
+extern const SecAsn1Template kSecAsn1DHParameterTemplate[] SEC_ASN1_API_DEPRECATED;
 
 /*
  * ASN class : DHParameterBlock
  * C struct  : NSS_DHParameterBlock
  */
-typedef struct {
+typedef struct SEC_ASN1_API_DEPRECATED {
 	SecAsn1Oid		oid;				// CSSMOID_PKCS3
 	NSS_DHParameter	params;
-} NSS_DHParameterBlock;
+} NSS_DHParameterBlock SEC_ASN1_API_DEPRECATED;
 
-extern const SecAsn1Template kSecAsn1DHParameterBlockTemplate[];
+extern const SecAsn1Template kSecAsn1DHParameterBlockTemplate[] SEC_ASN1_API_DEPRECATED;
 
 /*
  * ASN class : DHPrivateKey
  * C struct  : NSS_DHPrivateKey
  */
-typedef struct {
+typedef struct SEC_ASN1_API_DEPRECATED {
 	SecAsn1Oid		dhOid;				// CSSMOID_DH
 	NSS_DHParameter	params;
 	SecAsn1Item		secretPart;
-} NSS_DHPrivateKey;
+} NSS_DHPrivateKey SEC_ASN1_API_DEPRECATED;
 
-extern const SecAsn1Template kSecAsn1DHPrivateKeyTemplate[];
+extern const SecAsn1Template kSecAsn1DHPrivateKeyTemplate[] SEC_ASN1_API_DEPRECATED;
 
 /* 
  * ANSI X9.42 style Diffie-Hellman keys.
@@ -210,48 +213,48 @@ extern const SecAsn1Template kSecAsn1DHPrivateKeyTemplate[];
  *   pGenCounter    INTEGER      -- parameter verification 
  * }
  */
-typedef struct {
+typedef struct SEC_ASN1_API_DEPRECATED {
 	SecAsn1Item		seed;			// BIT STRING, length in bits
 	SecAsn1Item		pGenCounter;
-} NSS_DHValidationParams;
+} NSS_DHValidationParams SEC_ASN1_API_DEPRECATED;
 
-typedef struct {
+typedef struct SEC_ASN1_API_DEPRECATED {
 	SecAsn1Item				p;
 	SecAsn1Item				g;
 	SecAsn1Item				q;
 	SecAsn1Item				j;			// OPTIONAL
 	NSS_DHValidationParams	*valParams;	// OPTIONAL
-} NSS_DHDomainParamsX942;
+} NSS_DHDomainParamsX942 SEC_ASN1_API_DEPRECATED;
 
 /* Custom X9.42 D-H AlgorithmIdentifier */
-typedef struct {
+typedef struct SEC_ASN1_API_DEPRECATED {
 	SecAsn1Oid				oid;		// CSSMOID_ANSI_DH_PUB_NUMBER
 	NSS_DHDomainParamsX942	params;
-} NSS_DHAlgorithmIdentifierX942;
+} NSS_DHAlgorithmIdentifierX942 SEC_ASN1_API_DEPRECATED;
 
-extern const SecAsn1Template kSecAsn1DHValidationParamsTemplate[];
-extern const SecAsn1Template kSecAsn1DHDomainParamsX942Template[];
-extern const SecAsn1Template kSecAsn1DHAlgorithmIdentifierX942Template[];
+extern const SecAsn1Template kSecAsn1DHValidationParamsTemplate[] SEC_ASN1_API_DEPRECATED;
+extern const SecAsn1Template kSecAsn1DHDomainParamsX942Template[] SEC_ASN1_API_DEPRECATED;
+extern const SecAsn1Template kSecAsn1DHAlgorithmIdentifierX942Template[] SEC_ASN1_API_DEPRECATED;
 
 /* PKCS8 form of D-H private key using X9.42 domain parameters */
-typedef struct {
+typedef struct SEC_ASN1_API_DEPRECATED {
     SecAsn1Item 						version;
 	NSS_DHAlgorithmIdentifierX942	algorithm;
 	/* octet string containing DER-encoded integer */
 	SecAsn1Item						privateKey;
     NSS_Attribute 					**attributes;	// OPTIONAL
-} NSS_DHPrivateKeyPKCS8;
+} NSS_DHPrivateKeyPKCS8 SEC_ASN1_API_DEPRECATED;
 
 /* X509 form of D-H public key using X9.42 domain parameters */
-typedef struct {
+typedef struct SEC_ASN1_API_DEPRECATED {
 	NSS_DHAlgorithmIdentifierX942	algorithm;
 	/* bit string containing DER-encoded integer representing 
 	 * raw public key */
 	SecAsn1Item						publicKey;		// length in BITS
-} NSS_DHPublicKeyX509;
+} NSS_DHPublicKeyX509 SEC_ASN1_API_DEPRECATED;
 
-extern const SecAsn1Template kSecAsn1DHPrivateKeyPKCS8Template[];
-extern const SecAsn1Template kSecAsn1DHPublicKeyX509Template[];
+extern const SecAsn1Template kSecAsn1DHPrivateKeyPKCS8Template[] SEC_ASN1_API_DEPRECATED;
+extern const SecAsn1Template kSecAsn1DHPublicKeyX509Template[] SEC_ASN1_API_DEPRECATED;
  
 // MARK: *** ECDSA ***
 
@@ -260,14 +263,16 @@ extern const SecAsn1Template kSecAsn1DHPublicKeyX509Template[];
  * The DER encoding of this is placed in the privateKey field
  * of a NSS_PrivateKeyInfo.
  */
-typedef struct {
+typedef struct SEC_ASN1_API_DEPRECATED {
     SecAsn1Item 	version;
 	SecAsn1Item		privateKey;
 	SecAsn1Item		params;		/* optional, ANY */
 	SecAsn1Item		pubKey;		/* BITSTRING, optional */
-} NSS_ECDSA_PrivateKey;
+} NSS_ECDSA_PrivateKey SEC_ASN1_API_DEPRECATED;
 
-extern const SecAsn1Template kSecAsn1ECDSAPrivateKeyInfoTemplate[];
+extern const SecAsn1Template kSecAsn1ECDSAPrivateKeyInfoTemplate[] SEC_ASN1_API_DEPRECATED;
+
+#pragma clang diagnostic pop
 
 #ifdef  __cplusplus
 }

@@ -41,7 +41,7 @@ man$(EXEEXT): $(MANOBJS) $(LIBOBJS)
 # CC may be a cross compiler, but BUILD_CC must compile for
 # the present machine.
 makemsg:
-	$(BUILD_CC) -o makemsg makemsg.c
+	$(BUILD_CC) $(CWARN) $(CFLAGS) -o makemsg makemsg.c
 
 msg.c gripedefs.h: ../msgs/mess.en makemsg
 	./makemsg ../msgs/mess.en gripedefs.h msg.c

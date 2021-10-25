@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005-2020 Apple Inc. All rights reserved.
+ * Copyright (c) 2005-2021 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -27,6 +27,7 @@
 #include <os/availability.h>
 #include <TargetConditionals.h>
 #include <sys/cdefs.h>
+#include <unistd.h>
 #include <CoreFoundation/CoreFoundation.h>
 #include <SystemConfiguration/SystemConfiguration.h>
 #include <SystemConfiguration/SCValidation.h>
@@ -37,7 +38,6 @@
  */
 
 __BEGIN_DECLS
-
 
 /*!
 	@group Interface configuration
@@ -80,6 +80,34 @@ extern const CFStringRef kSCNetworkInterfaceTypeVPN						API_AVAILABLE(macos(10.
  */
 typedef SCNetworkInterfaceRef SCBridgeInterfaceRef;
 
+
+/*!
+	@typedef SCNetworkServicePrimaryRank
+	@discussion Represents the rank of a network service.
+	The PrimaryRank represents individual priority bands that are combined
+	with the ServiceOrder to determine the Rank of a network service.
+	The Rank is used to sort all of the active network services, so that the
+	service with the smallest Rank value (highest priority) becomes
+	the "primary" service. The "primary" service is the one that
+	handles default network traffic. The relative order of PrimaryRank
+	values is: First, Default, Last, Never, and Scoped.
+	@constant kSCNetworkServicePrimaryRankFirst Allows a service to sort
+	ahead of other services. Used by connection-oriented services
+	like VPN (and historically, PPP).
+	@constant kSCNetworkServicePrimaryRankDefault Indicates no
+	rank adjustment.
+	@constant kSCNetworkServicePrimaryRankLast Indicates that if another
+	eligible service is active, it should be preferred to be primary
+	instead of this service.
+	@constant kSCNetworkServicePrimaryRankNever Prevents the service
+	from ever becoming the primary service. Allows subnet-local communication
+	to take place without specifically requiring binding traffic to the
+	interface.
+	@constant kSCNetworkServicePrimaryRankScoped Prevents the service
+	from becoming primary and also prevents any traffic that isn't specifically
+	bound to the interface from being routed there. Used for things like
+	Visual Voicemail and MMS.
+*/
 typedef CF_ENUM(uint32_t, SCNetworkServicePrimaryRank) {
 	kSCNetworkServicePrimaryRankDefault	= 0,
 	kSCNetworkServicePrimaryRankFirst	= 1,
@@ -298,19 +326,24 @@ _SCNetworkInterfaceCreateWithIONetworkInterfaceObject	(io_object_t			if_obj)		AP
 
 /*!
 	@function SCNetworkInterfaceGetPrimaryRank
-	@discussion We allow caller to retrieve the rank on an interface.
-	@param interface The interface to get the rank
-	@result SCNetworkServicePrimaryRank
+	@discussion Returns the primary rank asserted on this
+	specific SCNetworkInterfaceRef instance. This function does
+	not return assertions held by other instances.
+	@param interface The interface to retrieve the rank from.
+	@result The SCNetworkServicePrimaryRank asserted on
+	the interface, kSCNetworkServicePrimaryRankDefault if no
+	assertion is currently held.
  */
 SCNetworkServicePrimaryRank
 SCNetworkInterfaceGetPrimaryRank			(SCNetworkInterfaceRef		interface)	API_AVAILABLE(macos(10.8), ios(5.0));
 
 /*!
 	@function SCNetworkInterfaceSetPrimaryRank
-	@discussion We allow caller to set an assertion on an interface.
+	@discussion Set a rank assertion on the specified interface.
 		The rank assertion lives as long as the SCNetworkInterfaceRef
-		remains valid.
-	@param interface The interface to set the rank assertion
+		remains valid. Specifying kSCNetworkServicePrimaryRankDefault
+		clears the assertion.
+	@param interface The interface to set/clear the assertion on.
 	@param newRank The new rank to be set
 	@result TRUE if operation is successful; FALSE if an error was encountered.
  */
@@ -318,25 +351,111 @@ Boolean
 SCNetworkInterfaceSetPrimaryRank			(SCNetworkInterfaceRef		interface,
 							 SCNetworkServicePrimaryRank	newRank)	API_AVAILABLE(macos(10.8), ios(5.0));
 
+typedef CFTypeRef SCNetworkInterfaceRankAssertionInfoRef;
+
+/*!
+	@function SCNetworkInterfaceCopyRankAssertionInfo
+	@discussion Returns all of the rank assertions held on the interface.
+	@param interface The interface to return the rank asssertion information for.
+	@result A non-NULL array of SCNetworkInterfaceRankAssertionInfoRef if
+	rank assertions have been asserted, NULL otherwise. Use
+	SCNetworkInterfaceRankAssertionInfoGet*() to retrieve details about
+	the rank assertion.
+*/
+CFArrayRef /* of SCNetworkInterfaceRankAssertionInfoRef */
+SCNetworkInterfaceCopyRankAssertionInfo(SCNetworkInterfaceRef interface)
+	API_AVAILABLE(macos(12.0), ios(15.0));
+
+/*!
+	@function SCNetworkInterfaceRankAssertionInfoGetPrimaryRank
+	@discussion Returns the rank assertion value for the specific instance.
+	@param info The instance to return the information for.
+	@result The rank assertion associated with the specific instance.
+
+*/
+SCNetworkServicePrimaryRank
+SCNetworkInterfaceRankAssertionInfoGetPrimaryRank(SCNetworkInterfaceRankAssertionInfoRef info)
+	API_AVAILABLE(macos(12.0), ios(15.0));
+
+/*!
+	@function SCNetworkInterfaceRankAssertionInfoGetProcessID
+	@discussion Returns the process ID for the specific instance.
+	@param info The instance to return the information for.
+	@result The process ID for the specific instance.
+*/
+pid_t
+SCNetworkInterfaceRankAssertionInfoGetProcessID(SCNetworkInterfaceRankAssertionInfoRef info)
+	API_AVAILABLE(macos(12.0), ios(15.0));
+
+/*!
+	@function SCNetworkInterfaceRankAssertionInfoGetProcessName
+	@discussion Returns the process name for the specific instance.
+	@param info The instance to return the information for.
+	@result The process name for the specific instance.
+*/
+CFStringRef
+SCNetworkInterfaceRankAssertionInfoGetProcessName(SCNetworkInterfaceRankAssertionInfoRef info)
+	API_AVAILABLE(macos(12.0), ios(15.0));
+
+/*!
+	@function SCNetworkInterfaceCopyRankAssertionNotificationKey
+	@discussion Get the SCDynamicStore notication key for rank
+	assertion changes made on the interface.
+	@param interface The interface to get the notification key for.
+	@result Key used to receive rank assertion change notifications on the
+	interface.
+*/
+CFStringRef
+SCNetworkInterfaceCopyRankAssertionNotificationKey(SCNetworkInterfaceRef interface)
+	API_AVAILABLE(macos(12.0), ios(15.0));
+
+/*!
+	@function SCNetworkInterfaceRankAssertionCopyInterfaceNames
+	@discussion Returns the list of interfaces names with active rank assertions.
+	@result The list of interfaces that have rank assertions.
+*/
+CFArrayRef /* of CFStringRef */
+SCNetworkInterfaceRankAssertionCopyInterfaceNames(void)
+	API_AVAILABLE(macos(12.0), ios(15.0));
+
 /**
  ** SCNetworkInterfaceAdvisory
  **/
 
+/*!
+	@typedef SCNetworkInterfaceAdvisory
+	@discussion Used to advise the system of an issue or condition with a network
+	interface. Asserting a non-zero (non-kSCNetworkInterfaceAdvisoryNone) value
+	implies that another interface should be considered to be primary ahead of
+	this interface, if another such interface exists.
+	@constant kSCNetworkInterfaceAdvisoryNone Represents no issue/condition
+	on the interface. Used to clear a previously set advisory.
+	@constant kSCNetworkInterfaceAdvisoryLinkLayerIssue Indicates that there
+	is an issue with the interface at the link-layer e.g. poor radio conditions.
+	@constant kSCNetworkInterfaceAdvisoryUplinkIssue Indicates that there
+	is an issue with reaching hosts beyond the local subnet i.e. the uplink
+	is non-functional.
+	@constant kSCNetworkInterfaceAdvisoryBetterInterfaceAvailable Indicates
+	that there is another interface available that has superior throughput/power
+	characteristics than this interface.
+*/
 typedef CF_ENUM(uint32_t, SCNetworkInterfaceAdvisory) {
 	kSCNetworkInterfaceAdvisoryNone = 0,
 	kSCNetworkInterfaceAdvisoryLinkLayerIssue = 1,
 	kSCNetworkInterfaceAdvisoryUplinkIssue = 2,
+	kSCNetworkInterfaceAdvisoryBetterInterfaceAvailable = 3,
 };
 
 /*!
 	@function SCNetworkInterfaceSetAdvisory
 	@discussion Advise the system of some condition on the network interface
 	that warrants changing how the interface is used for IP networking,
-	and to clear a previously set advisory.
+	or to clear a previously set advisory. The advisory lives as long
+	as the SCNetworkInterfaceRef remains valid.
 	Calling this function requires root or having the boolean entitlement
 	"com.apple.SystemConfiguration.SCNetworkInterfaceSetAdvisory" = true.
 	@param interface The interface to assert the advisory on.
-	@param advisory The advisory to indicate on the interface, use
+	@param advisory The specific advisory to assert, use
 	kSCNetworkInterfaceAdvisoryNone to clear advisory.
 	@param reason A string indicating the reason for setting the advisory,
 	used to aid debugging.
@@ -350,7 +469,7 @@ SCNetworkInterfaceSetAdvisory(SCNetworkInterfaceRef interface,
 
 /*!
 	@function SCNetworkInterfaceAdvisoryIsSet
-	@discussion Find out if there is an advisory set on the interface.
+	@discussion Determine whether there is an advisory set on the interface.
 	@param interface The interface to check for an advisory.
 	@result TRUE if an advisory is set; FALSE otherwise.
 */
@@ -359,16 +478,82 @@ SCNetworkInterfaceAdvisoryIsSet(SCNetworkInterfaceRef interface)
 	API_AVAILABLE(macos(10.14), ios(12.0));
 
 /*!
+	@function SCNetworkInterfaceAdvisoryIsSpecificSet
+	@discussion Determine whether there is a specific advisory set on the interface.
+	@param interface The interface to check for the specific advisory.
+	@result TRUE if the specific advisory is set; FALSE otherwise.
+*/
+Boolean
+SCNetworkInterfaceAdvisoryIsSpecificSet(SCNetworkInterfaceRef interface,
+					SCNetworkInterfaceAdvisory advisory)
+	API_AVAILABLE(macos(12.0), ios(15.0));
+
+typedef CFTypeRef SCNetworkInterfaceAdvisoryInfoRef;
+
+/*!
+	@function SCNetworkInterfaceCopyAdvisoryInfo
+	@discussion Returns the advisory information for the interface.
+	@param interface The interface to return the advisory information for.
+	@result A non-NULL array of SCNetworkInterfaceAdvisoryInfoRef if
+	advisories have been asserted on the interface, NULL otherwise. Use
+	SCNetworkInterfaceAdvisoryInfoGet*() to retrieve details about
+	the specific advisory.
+*/
+CFArrayRef /* of SCNetworkInterfaceAdvisoryInfoRef */
+SCNetworkInterfaceCopyAdvisoryInfo(SCNetworkInterfaceRef interface)
+	API_AVAILABLE(macos(12.0), ios(15.0));
+
+/*!
+	@function SCNetworkInterfaceAdvisoryInfoGetAdvisory
+	@discussion Returns the advisory for the specific instance.
+	@param info The instance to return the advisory for.
+	@result The SCNetworkInterfaceAdvisory value.
+*/
+SCNetworkInterfaceAdvisory
+SCNetworkInterfaceAdvisoryInfoGetAdvisory(SCNetworkInterfaceAdvisoryInfoRef info)
+	API_AVAILABLE(macos(12.0), ios(15.0));
+
+
+/*!
+	@function SCNetworkInterfaceAdvisoryInfoGetProcessID
+	@discussion Returns the process ID for the advisory instance.
+	@param info The instance to return the process ID for.
+	@result The process ID value.
+*/
+pid_t
+SCNetworkInterfaceAdvisoryInfoGetProcessID(SCNetworkInterfaceAdvisoryInfoRef info)
+	API_AVAILABLE(macos(12.0), ios(15.0));
+
+/*!
+	@function SCNetworkInterfaceAdvisoryInfoGetProcessName
+	@discussion Returns the process name for the advisory instance.
+	@param info The instance to return the process name for.
+	@result The process name.
+*/
+CFStringRef
+SCNetworkInterfaceAdvisoryInfoGetProcessName(SCNetworkInterfaceAdvisoryInfoRef info)
+	API_AVAILABLE(macos(12.0), ios(15.0));
+
+/*!
 	@function SCNetworkInterfaceCopyAdvisoryNotificationKey
 	@discussion Get the SCDynamicStore notication key for advisory changes
 	made on the interface.
-	@param interface The interface for which to get the notification key.
+	@param interface The interface to get the notification key for.
 	@result Key used to receive advisory change notifications on the
 	interface.
 */
 CFStringRef
 SCNetworkInterfaceCopyAdvisoryNotificationKey(SCNetworkInterfaceRef interface)
 	API_AVAILABLE(macos(10.14), ios(12.0));
+
+/*!
+	@function SCNetworkInterfaceAdvisoryCopyInterfaceNames
+	@discussion Returns the list of interfaces names with active advisories.
+	@result The list of interfaces that have advisories.
+*/
+CFArrayRef /* of CFStringRef */
+SCNetworkInterfaceAdvisoryCopyInterfaceNames(void)
+	API_AVAILABLE(macos(12.0), ios(15.0));
 
 
 #define	kSCNetworkInterfaceConfigurationActionKey		CFSTR("New Interface Detected Action")
@@ -648,10 +833,19 @@ SCNetworkInterfaceSetCapability				(SCNetworkInterfaceRef		interface,
 							 CFStringRef			capability,
 							 CFTypeRef			newValue)	API_AVAILABLE(macos(10.7)) SPI_AVAILABLE(ios(5.0), tvos(9.0), watchos(1.0), bridgeos(1.0));
 
+CFTypeRef
+__SCNetworkInterfaceGetDisableUntilNeededValue		(SCNetworkInterfaceRef		interface)	API_AVAILABLE(macos(12.0)) SPI_AVAILABLE(ios(15.0), tvos(12.0), watchos(8.0), bridgeos(6.0));
+
 Boolean
 __SCNetworkInterfaceSetDisableUntilNeededValue		(SCNetworkInterfaceRef		interface,
 							 CFTypeRef			disable)	API_AVAILABLE(macos(10.11)) SPI_AVAILABLE(ios(9.0), tvos(9.0), watchos(2.0), bridgeos(2.0));
 
+CFTypeRef
+__SCNetworkInterfaceGetDisablePrivateRelayValue		(SCNetworkInterfaceRef		interface)	API_AVAILABLE(macos(12.0)) SPI_AVAILABLE(ios(15.0), tvos(12.0), watchos(8.0), bridgeos(6.0));
+
+Boolean
+__SCNetworkInterfaceSetDisablePrivateRelayValue		(SCNetworkInterfaceRef		interface,
+							 CFTypeRef			disable)	API_AVAILABLE(macos(12.0)) SPI_AVAILABLE(ios(15.0), tvos(12.0), watchos(8.0), bridgeos(6.0));
 
 int
 __SCNetworkInterfaceCreateCapabilities			(SCNetworkInterfaceRef		interface,
@@ -884,6 +1078,14 @@ SCNetworkInterfaceGetDisableUntilNeeded			(SCNetworkInterfaceRef		interface)	API
 Boolean
 SCNetworkInterfaceSetDisableUntilNeeded			(SCNetworkInterfaceRef		interface,
 							 Boolean			disable)	API_AVAILABLE(macos(10.11), ios(9.0));
+
+
+Boolean
+SCNetworkInterfaceGetDisablePrivateRelay		(SCNetworkInterfaceRef		interface)	API_AVAILABLE(macos(12.0), ios(15.0));
+
+Boolean
+SCNetworkInterfaceSetDisablePrivateRelay		(SCNetworkInterfaceRef		interface,
+							 Boolean			disable)	API_AVAILABLE(macos(12.0), ios(15.0));
 
 
 CFDictionaryRef

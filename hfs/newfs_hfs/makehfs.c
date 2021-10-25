@@ -1385,7 +1385,7 @@ get_dev_uuid(const char *disk_name, char *dev_uuid_str, int dev_uuid_len)
 
     dev_uuid_str[0] = '\0';
 
-    service = IOServiceGetMatchingService(kIOMasterPortDefault, IOBSDNameMatching(kIOMasterPortDefault, 0, disk_name));
+    service = IOServiceGetMatchingService(kIOMainPortDefault, IOBSDNameMatching(kIOMainPortDefault, 0, disk_name));
     if (service != IO_OBJECT_NULL) {
 	uuid_str = IORegistryEntryCreateCFProperty(service, CFSTR(kIOMediaUUIDKey), kCFAllocatorDefault, 0);
 	if (uuid_str) {

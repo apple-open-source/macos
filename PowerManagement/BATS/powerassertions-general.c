@@ -32,8 +32,11 @@ static void test_assertionExceptions(void);
 static void test_IOPMPerformBlockWithAssertion(void);
 static void test_sysQualifiers(void);
 static void testUserActivityAssertion(void);
+static void test_AsyncAssertions(void);
 
 int gPassCnt = 0, gFailCnt = 0;
+dispatch_group_t testG = NULL;
+static int async_assertion_timeout = 5;
 
 
 #define kSystemMaxAssertionsAllowed 64
@@ -72,11 +75,348 @@ int main(int argc, char *argv[])
     test_IOPMPerformBlockWithAssertion();
     test_sysQualifiers();
     testUserActivityAssertion();
-
+    test_AsyncAssertions();
     dispatch_main();
     return 0;
 }
 
+void testAsyncSimpleCreateRelease(void) {
+    START_TEST_CASE("testAsyncSimpleCreateRelease\n");
+    IOReturn ret;
+    IOPMAssertionID assertionID = kIOPMNullAssertionID;
+    ret = IOPMAssertionCreateWithName(kIOPMAssertionTypePreventUserIdleSystemSleep, kIOPMAssertionLevelOn, CFSTR("com.apple.powerd.test.async.assertion\n"), &assertionID);
+
+    if (ret != kIOReturnSuccess || assertionID == kIOPMNullAssertionID) {
+        FAIL("Failed to create assertion. Ret 0x%x\n", ret);
+    }
+
+    // check IOPMGetCurrentAsyncActiveAssertions
+    CFDictionaryRef assertions = IOPMGetCurrentAsyncActiveAssertions();
+    int length = (int)CFDictionaryGetCount(assertions);
+    if (length != 1) {
+        FAIL("Expected one active async assertion. Value: %d\n", length);
+    }
+
+    // release
+    ret = IOPMAssertionRelease(assertionID);
+    if (ret != kIOReturnSuccess ) {
+        FAIL("Failed to release assertion. Ret 0x%x\n", ret);
+    }
+    assertions = IOPMGetCurrentAsyncActiveAssertions();
+    if (assertions != NULL && CFDictionaryGetCount(assertions)!= 0) {
+        FAIL("Expected no current async active assertions. Length %d\n", (int)CFDictionaryGetCount(assertions));
+    }
+    CFArrayRef released_assertions = IOPMGetCurrentAsyncReleasedAssertions();
+    length = (int)CFArrayGetCount(released_assertions);
+    if (length != 1) {
+        FAIL("Expected inactive assertions of length 1. Value %d\n", length);
+    }
+    PASS("PASS: testAsyncSimpleCreateRelease\n");
+}
+
+void testAsyncCreateDelayedRelease(void) {
+    dispatch_group_enter(testG);
+    START_TEST_CASE("testAsyncCreateDelayedRelease\n");
+    __block IOReturn ret;
+    IOPMAssertionID assertionID = kIOPMNullAssertionID;
+    ret = IOPMAssertionCreateWithName(kIOPMAssertionTypePreventUserIdleSystemSleep, kIOPMAssertionLevelOn, CFSTR("com.apple.powerd.test.async.assertion"), &assertionID);
+    if (ret != kIOReturnSuccess || assertionID == kIOPMNullAssertionID) {
+        FAIL("Failed to create assertion. Ret 0x%x\n", ret);
+        dispatch_group_leave(testG);
+        return;
+    }
+
+    // check IOPMGetCurrentAsyncActiveAssertions
+    CFDictionaryRef assertions = IOPMGetCurrentAsyncActiveAssertions();
+    int length = (int)CFDictionaryGetCount(assertions);
+    if (length != 1) {
+        FAIL("Expected one active async assertion. Value: %d\n", length);
+        dispatch_group_leave(testG);
+        return;
+    }
+
+    // release after 2 seconds
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)((kAsyncAssertionsDefaultOffloadDelay + 1) * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        // check IOPMGetCurrentAsyncActiveAssertions, IOPMGetCurrentAsycnRemoteAssertion
+        CFDictionaryRef active_assertions = IOPMGetCurrentAsyncActiveAssertions();
+        int length = (int)CFDictionaryGetCount(assertions);
+        if (length != 1) {
+            FAIL("Expected one active async assertion. Value: %d\n", length);
+            return;
+        }
+        CFDictionaryRef remote_assertion = IOPMGetCurrentAsycnRemoteAssertion();
+        if (remote_assertion == NULL) {
+            FAIL("Expected active remote assertion\n");
+            dispatch_group_leave(testG);
+            return;
+        }
+        ret = IOPMAssertionRelease(assertionID);
+
+        active_assertions = IOPMGetCurrentAsyncActiveAssertions();
+        if (active_assertions != NULL && CFDictionaryGetCount(active_assertions) > 0) {
+            length = (int)CFDictionaryGetCount(active_assertions);
+            FAIL("Active assertions should be zero after release. Length %d\n", length);
+            dispatch_group_leave(testG);
+            return;
+        }
+        remote_assertion = IOPMGetCurrentAsycnRemoteAssertion();
+        if (remote_assertion != NULL) {
+            FAIL("Remote assertion should be NULL\n");
+            dispatch_group_leave(testG);
+            return;
+        }
+        PASS("PASS:testAsyncCreateDelayedRelease\n");
+        dispatch_group_leave(testG);
+    });
+}
+
+void testAsyncTimedAssertion(void) {
+    dispatch_group_enter(testG);
+    START_TEST_CASE("testAsyncTimedAssertion\n");
+    __block IOReturn ret;
+    IOPMAssertionID assertionID = kIOPMNullAssertionID;
+    ret = IOPMAssertionCreateWithDescription(kIOPMAssertionTypePreventUserIdleSystemSleep, CFSTR("com.apple.powerd.test.async.timeout"), NULL, NULL, NULL, async_assertion_timeout, kIOPMAssertionTimeoutActionRelease, &assertionID);
+    if (ret != kIOReturnSuccess || assertionID == kIOPMNullAssertionID) {
+        FAIL("Failed to create assertion. Ret 0x%x\n", ret);
+        dispatch_group_leave(testG);
+        return;
+    }
+    // check IOPMGetCurrentAsyncActiveAssertions, IOPMGetCurrentAsyncTimedAssertions
+    CFDictionaryRef assertions = IOPMGetCurrentAsyncActiveAssertions();
+    int length = (int)CFDictionaryGetCount(assertions);
+    if (length != 1) {
+        FAIL("Expected one active async assertion. Value: %d\n", length);
+        dispatch_group_leave(testG);
+        return;
+    }
+    CFArrayRef timed_assertions = IOPMGetCurrentAsyncTimedAssertions();
+    length = (int)CFArrayGetCount(timed_assertions);
+    if (length != 1) {
+        FAIL("Expected one active timed async assertion. Value: %d\n", length);
+        dispatch_group_leave(testG);
+        return;
+    }
+
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)((kAsyncAssertionsDefaultOffloadDelay + 1) * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        // its been two seconds. Assertion should have made it to powerd
+        CFDictionaryRef remote_assertion = IOPMGetCurrentAsycnRemoteAssertion();
+        if (remote_assertion == NULL) {
+            FAIL("Expected active remote assertion\n");
+            dispatch_group_leave(testG);
+            return;
+        }
+    });
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)((async_assertion_timeout+1) * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        // its been six seconds. Assertion should have released
+        // check IOPMGetCurrentAsycnRemoteAssertion, IOPMGetCurrentAsyncActiveAssertions, IOPMGetCurrentAsyncTimedAssertions
+        CFDictionaryRef remote_assertion = IOPMGetCurrentAsycnRemoteAssertion();
+        if (remote_assertion != NULL) {
+            FAIL("Expected active remote assertion to be NULL after assertion timeout\n");
+            dispatch_group_leave(testG);
+            return;
+        }
+        CFDictionaryRef active_assertions = IOPMGetCurrentAsyncActiveAssertions();
+        if (active_assertions && CFDictionaryGetCount(active_assertions) > 0) {
+            FAIL("Expected zero active assertions after assertion timed out\n");
+            dispatch_group_leave(testG);
+            return;
+        }
+        CFArrayRef timed_assertions = IOPMGetCurrentAsyncTimedAssertions();
+        if (timed_assertions && CFArrayGetCount(timed_assertions) > 0) {
+            FAIL("Expected zero timed assertions after assertion timed out\n");
+            dispatch_group_leave(testG);
+            return;
+        }
+        PASS("PASS: testAsyncTimedAssertion\n");
+        dispatch_group_leave(testG);
+    });
+
+}
+
+void testAsyncTimedEarlyRelease(void) {
+    dispatch_group_enter(testG);
+    START_TEST_CASE("testAsyncTimedEarlyRelease\n");
+    __block IOReturn ret;
+    IOPMAssertionID assertionID = kIOPMNullAssertionID;
+    ret = IOPMAssertionCreateWithDescription(kIOPMAssertionTypePreventUserIdleSystemSleep, CFSTR("com.apple.powerd.test.async.timeout"), NULL, NULL, NULL, async_assertion_timeout, kIOPMAssertionTimeoutActionRelease, &assertionID);
+    if (ret != kIOReturnSuccess || assertionID == kIOPMNullAssertionID) {
+        FAIL("Failed to create assertion. Ret 0x%x\n", ret);
+        dispatch_group_leave(testG);
+        return;
+    }
+
+    // check IOPMGetCurrentAsyncActiveAssertions, IOPMGetCurrentAsyncTimedAssertions
+    CFDictionaryRef assertions = IOPMGetCurrentAsyncActiveAssertions();
+    int length = (int)CFDictionaryGetCount(assertions);
+    if (length != 1) {
+        FAIL("Expected one active async assertion. Value: %d\n", length);
+        dispatch_group_leave(testG);
+        return;
+    }
+    CFArrayRef timed_assertions = IOPMGetCurrentAsyncTimedAssertions();
+    length = (int)CFArrayGetCount(timed_assertions);
+    if (length != 1) {
+        FAIL("Expected one active timed async assertion. Value: %d\n", length);
+        dispatch_group_leave(testG);
+        return;
+    }
+
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)((kAsyncAssertionsDefaultOffloadDelay + 1) * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        // its been two seconds. Let's release it
+        CFDictionaryRef remote_assertion = IOPMGetCurrentAsycnRemoteAssertion();
+        if (remote_assertion == NULL) {
+            FAIL("Expected active remote assertion\n");
+            dispatch_group_leave(testG);
+            return;
+        }
+        ret = IOPMAssertionRelease(assertionID);
+        if (ret != kIOReturnSuccess) {
+            FAIL("Failed to release assertion for 0x%x: error 0x%x", assertionID, ret);
+            dispatch_group_leave(testG);
+            return;
+        }
+
+        remote_assertion = IOPMGetCurrentAsycnRemoteAssertion();
+        if (remote_assertion != NULL) {
+            FAIL("Expected active remote assertion to be NULL after assertion timeout\n");
+            dispatch_group_leave(testG);
+            return;
+        }
+        CFDictionaryRef active_assertions = IOPMGetCurrentAsyncActiveAssertions();
+        if (active_assertions && CFDictionaryGetCount(active_assertions) > 0) {
+            FAIL("Expected zero active assertions after assertion timed out\n");
+            dispatch_group_leave(testG);
+            return;
+        }
+        CFArrayRef timed_assertions = IOPMGetCurrentAsyncTimedAssertions();
+        if (timed_assertions && CFArrayGetCount(timed_assertions) > 0) {
+            FAIL("Expected zero timed assertions after assertion timed out\n");
+            dispatch_group_leave(testG);
+            return;
+        }
+        PASS("PASS: testAsyncTimedEarlyRelease\n");
+        dispatch_group_leave(testG);
+    });
+}
+
+void testAsyncTimedImmediateRelease(void) {
+    dispatch_group_enter(testG);
+    START_TEST_CASE("testAsyncTimedImmediateRelease\n");
+    __block IOReturn ret;
+    IOPMAssertionID assertionID = kIOPMNullAssertionID;
+    ret = IOPMAssertionCreateWithDescription(kIOPMAssertionTypePreventUserIdleSystemSleep, CFSTR("com.apple.powerd.test.async.timeout"), NULL, NULL, NULL, async_assertion_timeout, kIOPMAssertionTimeoutActionRelease, &assertionID);
+
+    if (ret != kIOReturnSuccess || assertionID == kIOPMNullAssertionID) {
+        FAIL("Failed to create assertion. Ret 0x%x\n", ret);
+        dispatch_group_leave(testG);
+        return;
+    }
+
+    // TODO: check IOPMGetCurrentAsyncActiveAssertions, IOPMGetCurrentAsyncTimedAssertions
+    CFDictionaryRef assertions = IOPMGetCurrentAsyncActiveAssertions();
+    int length = (int)CFDictionaryGetCount(assertions);
+    if (length != 1) {
+        FAIL("Expected one active async assertion. Value: %d\n", length);
+        dispatch_group_leave(testG);
+        return;
+    }
+    CFArrayRef timed_assertions = IOPMGetCurrentAsyncTimedAssertions();
+    length = (int)CFArrayGetCount(timed_assertions);
+    if (length != 1) {
+        FAIL("Expected one active timed async assertion. Value: %d\n", length);
+        dispatch_group_leave(testG);
+        return;
+    }
+
+    // immediately release
+    ret = IOPMAssertionRelease(assertionID);
+    // TODO: check IOPMGetCurrentAsycnRemoteAssertion, IOPMGetCurrentAsyncTimedAssertions, IOPMGetCurrentAsyncActiveAssertions
+    assertions = IOPMGetCurrentAsyncActiveAssertions();
+    if (assertions) {
+        FAIL("Expected zero active assertions after release\n");
+        dispatch_group_leave(testG);
+        return;
+    }
+
+    timed_assertions = IOPMGetCurrentAsyncTimedAssertions();
+    if (timed_assertions) {
+        FAIL("Expected zero timed assertions after release\n");
+        dispatch_group_leave(testG);
+        return;
+    }
+    PASS("PASS: testAsyncTimedImmediateRelease\n");
+    dispatch_group_leave(testG);
+}
+
+void testAsyncPropertyUpdateLocal(void) {
+    START_TEST_CASE("testAsyncPropertyUpdateLocal\n");
+    __block IOReturn ret;
+    IOPMAssertionID assertionID = kIOPMNullAssertionID;
+    ret = IOPMAssertionCreateWithName(kIOPMAssertionTypePreventUserIdleSystemSleep, kIOPMAssertionLevelOn, CFSTR("com.apple.powerd.test.async.assertion.property\n"), &assertionID);
+
+    if (ret != kIOReturnSuccess || assertionID == kIOPMNullAssertionID) {
+        FAIL("Failed to create assertion. Ret 0x%x\n", ret);
+        return;
+    }
+
+    ret = IOPMAssertionSetProperty(assertionID, kIOPMAssertionNameKey, CFSTR("com.apple.powerd.async.newname"));
+    if (ret != kIOReturnSuccess) {
+        FAIL("Failed to update property for 0x%x. Ret: 0x%x\n", assertionID, ret);
+        return;
+    }
+    PASS("PASS: testAsyncPropertyUpdateLocal\n");
+}
+
+void testAsyncPropertyUpdateRemote(void) {
+    START_TEST_CASE("testAsyncPropertyUpdateRemote\n");
+    __block IOReturn ret;
+    IOPMAssertionID assertionID = kIOPMNullAssertionID;
+    ret = IOPMAssertionCreateWithName(kIOPMAssertionTypePreventUserIdleSystemSleep, kIOPMAssertionLevelOn, CFSTR("com.apple.powerd.test.async.assertion.property\n"), &assertionID);
+
+    if (ret != kIOReturnSuccess || assertionID == kIOPMNullAssertionID) {
+        FAIL("Failed to create assertion. Ret 0x%x\n", ret);
+        return;
+    }
+
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)((kAsyncAssertionsDefaultOffloadDelay + 1) * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        // assertion should have made it to powerd
+        CFDictionaryRef remote_assertion = IOPMGetCurrentAsycnRemoteAssertion();
+        if (remote_assertion == NULL) {
+            FAIL("Expected active remote assertion\n");
+            return;
+        }
+
+        ret = IOPMAssertionSetProperty(assertionID, kIOPMAssertionNameKey, CFSTR("com.apple.powerd.async.newname"));
+        if (ret != kIOReturnSuccess) {
+            FAIL("Failed to update property for 0x%x. Ret: 0x%x\n", assertionID, ret);
+            return;
+        }
+        PASS("PASS: testAsyncPropertyUpdateRemote\n");
+    });
+}
+
+void test_AsyncAssertions()
+{
+    IOPMEnableAsyncAssertions();
+    testAsyncSimpleCreateRelease();
+    testG = dispatch_group_create();
+
+    testAsyncCreateDelayedRelease();
+
+    dispatch_group_notify(testG, dispatch_get_main_queue(), ^{
+        testAsyncTimedAssertion();
+        dispatch_group_notify(testG, dispatch_get_main_queue(), ^{
+            testAsyncTimedEarlyRelease();
+            dispatch_group_notify(testG, dispatch_get_main_queue(), ^{
+                testAsyncTimedImmediateRelease();
+                dispatch_group_notify(testG, dispatch_get_main_queue(), ^{
+                    testAsyncPropertyUpdateLocal();
+                    testAsyncPropertyUpdateRemote();
+                });
+            });
+        });
+    });
+}
 
 static bool assertionIsSupported(CFStringRef assertionname)
 {
@@ -896,7 +1236,7 @@ exit:
     IOPMSetAssertionActivityAggregate(false);
 }
 
-int set_exceptionLimits()
+int set_exceptionLimits(void)
 {
     IOReturn ret;
     CFMutableDictionaryRef limits = NULL;
@@ -973,7 +1313,7 @@ void toggleExternalPower(bool disable)
     }
 }
 
-void test_assertionExceptions()
+void test_assertionExceptions(void)
 {
 
     int rc;
@@ -1058,7 +1398,7 @@ exit:
 
 
 #define kAssertName "IOPMPerformBlockWithAssertion test"
-int checkAssertionState()
+int checkAssertionState(void)
 {
     CFDictionaryRef dict = NULL;
     CFArrayRef  array = NULL;

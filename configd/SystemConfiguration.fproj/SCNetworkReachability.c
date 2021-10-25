@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2020 Apple Inc. All rights reserved.
+ * Copyright (c) 2003-2021 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -1770,6 +1770,7 @@ __SCNetworkReachabilityRestartResolver(SCNetworkReachabilityPrivateRef targetPri
 																: targetPrivate->parameters);
 					path = nw_path_evaluator_copy_path(pathEvaluator);
 					if (path != NULL) {
+						nw_path_t		crazyIvanPath	= NULL;
 						char			*e_caller	= NULL;
 						nw_endpoint_type_t	e_type;
 						int			ret		= 0;
@@ -1813,6 +1814,17 @@ __SCNetworkReachabilityRestartResolver(SCNetworkReachabilityPrivateRef targetPri
 						if ((ret < 0) && (e_caller != NULL)) {
 							free(e_caller);
 							e_caller = NULL;
+						}
+
+						if (e_type == nw_endpoint_type_address) {
+							crazyIvanPath =
+								__SCNetworkReachabilityCreateCrazyIvan46Path(path, resolvedEndpoint,
+													     targetPrivate->parameters,
+													     FALSE);
+							if (NULL != crazyIvanPath) {
+								nw_release(path);
+								path = crazyIvanPath;
+							}
 						}
 
 						flags = __SCNetworkReachabilityGetFlagsFromPath(targetPrivate->log_prefix,

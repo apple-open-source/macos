@@ -1608,7 +1608,7 @@ int hfs_vnop_setattr( vnode_t vp, const UVFSFileAttributes *attr )
 
     if ( attr->fa_validmask & UVFS_FA_VALID_BIRTHTIME )
     {
-        cp->c_ctime = attr->fa_birthtime.tv_sec;
+        cp->c_itime = attr->fa_birthtime.tv_sec;
     }
 
     if ( attr->fa_validmask & UVFS_FA_VALID_MTIME )

@@ -1,8 +1,10 @@
 /*	$NetBSD: grep.h,v 1.5 2011/02/27 17:33:37 joerg Exp $	*/
 /*	$OpenBSD: grep.h,v 1.15 2010/04/05 03:03:55 tedu Exp $	*/
-/*	$FreeBSD: src/usr.bin/grep/grep.h,v 1.10 2011/12/07 12:25:28 gabor Exp $	*/
+/*	$FreeBSD$	*/
 
 /*-
+ * SPDX-License-Identifier: BSD-2-Clause-FreeBSD
+ *
  * Copyright (c) 1999 James Howard and Dag-Erling Coïdan Smørgrav
  * Copyright (c) 2008-2009 Gabor Kovesdan <gabor@FreeBSD.org>
  * All rights reserved.
@@ -36,58 +38,49 @@
 #include <stdio.h>
 #include <zlib.h>
 
-#ifndef WITHOUT_FASTMATCH
-#include "fastmatch.h"
-#endif
-
-#ifdef WITHOUT_NLS
-#define getstr(n)	 errstr[n]
-#else
-#include <nl_types.h>
-
-extern nl_catd		 catalog;
-#define getstr(n)	 catgets(catalog, 1, n, errstr[n])
-#endif
-
 extern const char		*errstr[];
 
-#define VERSION		"2.5.1-FreeBSD"
+#define	VERSION		"2.6.0-FreeBSD"
 
-#define GREP_FIXED	0
-#define GREP_BASIC	1
-#define GREP_EXTENDED	2
+#define	GREP_FIXED	0
+#define	GREP_BASIC	1
+#define	GREP_EXTENDED	2
 
-#define BINFILE_BIN	0
-#define BINFILE_SKIP	1
-#define BINFILE_TEXT	2
-
-#define FILE_STDIO	0
-#define FILE_MMAP	1
-#define FILE_GZIP	2
-#define FILE_BZIP	3
-#define FILE_XZ		4
-#define FILE_LZMA	5
-
-#define DIR_READ	0
-#define DIR_SKIP	1
-#define DIR_RECURSE	2
-
-#define DEV_READ	0
-#define DEV_SKIP	1
-
-#define LINK_READ	0
-#define LINK_EXPLICIT	1
-#define LINK_SKIP	2
-
-#define EXCL_PAT	0
-#define INCL_PAT	1
-
-#ifdef __APPLE__
-#define MIN_LINE_MATCHES	32
-#define MAX_LINE_MATCHES	1073741824
-#else
-#define MAX_LINE_MATCHES	32
+#if !defined(REG_NOSPEC) && !defined(REG_LITERAL)
+#define WITH_INTERNAL_NOSPEC
 #endif
+
+#define	BINFILE_BIN	0
+#define	BINFILE_SKIP	1
+#define	BINFILE_TEXT	2
+
+#define	FILE_STDIO	0
+#define	FILE_MMAP	1
+#ifdef __APPLE__
+#define	FILE_GZIP	2
+#define	FILE_BZIP	3
+#define	FILE_XZ		4
+#define	FILE_LZMA	5
+#endif
+
+#define	DIR_READ	0
+#define	DIR_SKIP	1
+#define	DIR_RECURSE	2
+
+#define	DEV_READ	0
+#define	DEV_SKIP	1
+
+#define	LINK_READ	0
+#define	LINK_EXPLICIT	1
+#define	LINK_SKIP	2
+#ifdef __APPLE__
+#define	LINK_DEFAULT	3
+#endif
+
+#define	EXCL_PAT	0
+#define	INCL_PAT	1
+
+#define	MAX_MATCHES	32
 
 struct file {
 	int		 fd;
@@ -95,6 +88,7 @@ struct file {
 };
 
 struct str {
+	off_t		 boff;
 	off_t		 off;
 	size_t		 len;
 	char		*dat;
@@ -112,6 +106,21 @@ struct epat {
 	int		 mode;
 };
 
+/*
+ * Parsing context; used to hold things like matches made and
+ * other useful bits
+ */
+struct parsec {
+	regmatch_t	matches[MAX_MATCHES];		/* Matches made */
+	/* XXX TODO: This should be a chunk, not a line */
+	struct str	ln;				/* Current line */
+	size_t		lnstart;			/* Position in line */
+	size_t		matchidx;			/* Latest match index */
+	int		printed;			/* Metadata printed? */
+	bool		binary;				/* Binary file? */
+	bool		cntlines;			/* Count lines? */
+};
+
 /* Flags passed to regcomp() and regexec() */
 extern int	 cflags, eflags;
 
@@ -120,42 +129,41 @@ extern bool	 Eflag, Fflag, Gflag, Hflag, Lflag,
 		 bflag, cflag, hflag, iflag, lflag, mflag, nflag, oflag,
 		 qflag, sflag, vflag, wflag, xflag;
 extern bool	 dexclude, dinclude, fexclude, finclude, lbflag, nullflag;
-extern unsigned long long Aflag, Bflag;
+extern long long Aflag, Bflag;
 extern long long mcount;
+extern long long mlimit;
+extern char	 fileeol;
 extern char	*label;
 extern const char *color;
 extern int	 binbehave, devbehave, dirbehave, filebehave, grepbehave, linkbehave;
 
-extern bool	 file_err, first, matchall, prev;
-extern int	 tail;
+extern bool	 file_err, matchall;
 extern unsigned int dpatterns, fpatterns, patterns;
 extern struct pat *pattern;
 extern struct epat *dpattern, *fpattern;
 extern regex_t	*er_pattern, *r_pattern;
-#ifndef WITHOUT_FASTMATCH
-extern fastmatch_t *fg_pattern;
-#endif
 
 /* For regex errors  */
-#define RE_ERROR_BUF	512
+#define	RE_ERROR_BUF	512
 extern char	 re_error[RE_ERROR_BUF + 1];	/* Seems big enough */
 
 /* util.c */
 bool	 file_matching(const char *fname);
-int	 procfile(const char *fn);
-int	 grep_tree(char **argv);
+bool	 procfile(const char *fn, struct stat *);
+bool	 grep_tree(char **argv);
 void	*grep_malloc(size_t size);
 void	*grep_calloc(size_t nmemb, size_t size);
 void	*grep_realloc(void *ptr, size_t size);
 char	*grep_strdup(const char *str);
-void	 printline(struct str *line, int sep, regmatch_t *matches, int m);
+void	 grep_printline(struct str *line, int sep);
 
 /* queue.c */
-void	 enqueue(struct str *x);
+void	 initqueue(void);
+bool	 enqueue(struct str *x);
 void	 printqueue(void);
 void	 clearqueue(void);
 
 /* file.c */
 void		 grep_close(struct file *f);
 struct file	*grep_open(const char *path);
-char		*grep_fgetln(struct file *f, size_t *len);
+char		*grep_fgetln(struct file *f, struct parsec *pc);

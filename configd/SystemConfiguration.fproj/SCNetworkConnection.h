@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2006, 2008-2010, 2015, 2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2003-2006, 2008-2010, 2015, 2017, 2018, 2021 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -213,7 +213,7 @@ typedef void (*SCNetworkConnectionCallBack)	(
 		"best" SCNetworkConnection.
  */
 #define kSCNetworkConnectionSelectionOptionOnDemandHostName	CFSTR("OnDemandHostName")	// CFString
-												// API_AVAILABLE(macos(4.0))
+												// API_AVAILABLE(macos(10.4))
 												// SPI_AVAILABLE(ios(3.0), tvos(9.0), watchos(1.0), bridgeos(1.0))
 
 /*!
@@ -222,7 +222,7 @@ typedef void (*SCNetworkConnectionCallBack)	(
 		already been issued for the specified OnDemand host name.
  */
 #define kSCNetworkConnectionSelectionOptionOnDemandRetry	CFSTR("OnDemandRetry")		// CFBoolean
-												// API_AVAILABLE(macos(4.0))
+												// API_AVAILABLE(macos(10.4))
 												// SPI_AVAILABLE(ios(3.0), tvos(9.0), watchos(1.0), bridgeos(1.0))
 
 __BEGIN_DECLS

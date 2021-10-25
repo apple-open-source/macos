@@ -30,7 +30,6 @@
 				03B2DBD3100BE645005349BC /* PBXTargetDependency */,
 				18515B85133D1DBF000148A4 /* PBXTargetDependency */,
 				034E447F100BDF54009CA3DC /* PBXTargetDependency */,
-				03B2DBDB100BE6D2005349BC /* PBXTargetDependency */,
 				034E4485100BE15F009CA3DC /* PBXTargetDependency */,
 				03B2DBDD100BE6D5005349BC /* PBXTargetDependency */,
 			);
@@ -63,7 +62,6 @@
 				7216D2DA0EE89BE900AE70E4 /* PBXTargetDependency */,
 				7216D3060EE89D9A00AE70E4 /* PBXTargetDependency */,
 				7216D34D0EE89FEC00AE70E4 /* PBXTargetDependency */,
-				7216D37F0EE8A0B300AE70E4 /* PBXTargetDependency */,
 				7294F0EA0EE8BAC80052EC88 /* PBXTargetDependency */,
 				7294F1210EE8BCC20052EC88 /* PBXTargetDependency */,
 				72CD1D9C0EE8C47C005F825D /* PBXTargetDependency */,
@@ -94,7 +92,6 @@
 				72ABD0941083D767008C721C /* PBXTargetDependency */,
 				72ABD0961083D76A008C721C /* PBXTargetDependency */,
 				72ABD0981083D76D008C721C /* PBXTargetDependency */,
-				72ABD09A1083D76F008C721C /* PBXTargetDependency */,
 				72ABD09C1083D772008C721C /* PBXTargetDependency */,
 				72ABD09E1083D774008C721C /* PBXTargetDependency */,
 			);
@@ -302,13 +299,6 @@
 			remoteGlobalIDString = 7216D2990EE898BD00AE70E4;
 			remoteInfo = ping6;
 		};
-		03B2DBDA100BE6D2005349BC /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 724862310EE86EB7001D0DE9 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 7216D3580EE8A02200AE70E4;
-			remoteInfo = rtsol;
-		};
 		03B2DBDC100BE6D5005349BC /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 724862310EE86EB7001D0DE9 /* Project object */;
@@ -441,13 +431,6 @@
 			proxyType = 1;
 			remoteGlobalIDString = 7216D3130EE89E9E00AE70E4;
 			remoteInfo = rtadvd;
-		};
-		7216D37E0EE8A0B300AE70E4 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 724862310EE86EB7001D0DE9 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 7216D3580EE8A02200AE70E4;
-			remoteInfo = rtsol;
 		};
 		72179EAD146233390098FB3E /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -644,13 +627,6 @@
 			proxyType = 1;
 			remoteGlobalIDString = 7216D3130EE89E9E00AE70E4;
 			remoteInfo = rtadvd;
-		};
-		72ABD0991083D76F008C721C /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 724862310EE86EB7001D0DE9 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 7216D3580EE8A02200AE70E4;
-			remoteInfo = rtsol;
 		};
 		72ABD09B1083D772008C721C /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -2811,11 +2787,6 @@
 			target = 7216D2990EE898BD00AE70E4 /* ping6 */;
 			targetProxy = 03B2DBD2100BE645005349BC /* PBXContainerItemProxy */;
 		};
-		03B2DBDB100BE6D2005349BC /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 7216D3580EE8A02200AE70E4 /* rtsol */;
-			targetProxy = 03B2DBDA100BE6D2005349BC /* PBXContainerItemProxy */;
-		};
 		03B2DBDD100BE6D5005349BC /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 7294F1290EE8BD280052EC88 /* traceroute6 */;
@@ -2910,11 +2881,6 @@
 			isa = PBXTargetDependency;
 			target = 7216D3130EE89E9E00AE70E4 /* rtadvd */;
 			targetProxy = 7216D34C0EE89FEC00AE70E4 /* PBXContainerItemProxy */;
-		};
-		7216D37F0EE8A0B300AE70E4 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 7216D3580EE8A02200AE70E4 /* rtsol */;
-			targetProxy = 7216D37E0EE8A0B300AE70E4 /* PBXContainerItemProxy */;
 		};
 		72179EAE146233390098FB3E /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -3055,11 +3021,6 @@
 			isa = PBXTargetDependency;
 			target = 7216D3130EE89E9E00AE70E4 /* rtadvd */;
 			targetProxy = 72ABD0971083D76D008C721C /* PBXContainerItemProxy */;
-		};
-		72ABD09A1083D76F008C721C /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 7216D3580EE8A02200AE70E4 /* rtsol */;
-			targetProxy = 72ABD0991083D76F008C721C /* PBXContainerItemProxy */;
 		};
 		72ABD09C1083D772008C721C /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;

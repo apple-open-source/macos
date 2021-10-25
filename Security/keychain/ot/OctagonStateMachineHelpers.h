@@ -94,9 +94,8 @@ extern OctagonState* const OctagonStateMachineHalted;
         transitionOp:(OperationType)transitionOp;
 @end
 
-@interface NSError (Octagon)
+@interface NSError (OctagonRetry)
 - (NSTimeInterval)overallCuttlefishRetry;
-- (bool)retryableCuttlefishError;
 @end
 
 NS_ASSUME_NONNULL_END

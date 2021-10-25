@@ -10,7 +10,7 @@ NSXPCInterface* SecEscrowRequestSetupControlProtocol(NSXPCInterface* interface) 
     NSSet<Class>* errClasses = [SecXPCHelper safeErrorClasses];
 
     @try {
-        [interface setClasses:errClasses forSelector:@selector(triggerEscrowUpdate:reply:) argumentIndex:0 ofReply:YES];
+        [interface setClasses:errClasses forSelector:@selector(triggerEscrowUpdate:options:reply:) argumentIndex:0 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(cachePrerecord:serializedPrerecord:reply:) argumentIndex:0 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(fetchPrerecord:reply:) argumentIndex:1 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(fetchRequestWaitingOnPasscode:) argumentIndex:1 ofReply:YES];

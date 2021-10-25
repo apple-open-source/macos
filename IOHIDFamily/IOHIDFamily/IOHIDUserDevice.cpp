@@ -99,8 +99,8 @@ bool IOHIDUserDevice::initWithProperties(OSDictionary * properties)
 //----------------------------------------------------------------------------------------------------
 void IOHIDUserDevice::free()
 {
-    if ( _properties )
-        _properties->release();
+    OSSafeReleaseNULL(_properties);
+    OSSafeReleaseNULL(_provider);
         
     super::free();
 }
@@ -116,7 +116,9 @@ bool IOHIDUserDevice::handleStart( IOService * provider )
     _provider = OSDynamicCast(IOHIDResourceDeviceUserClient, provider);
     if ( !_provider )
         return false;
-        
+
+    _provider->retain();
+
     return true;
 }
 

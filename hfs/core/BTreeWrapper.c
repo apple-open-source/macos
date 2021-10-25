@@ -108,100 +108,11 @@ static Boolean ValidHFSRecord(const void *record, const BTreeControlBlock *btcb,
 	if (btcb->maxKeyLength == kHFSPlusExtentKeyMaximumLength )
 	{
 		return ( recordSize == sizeof(HFSPlusExtentRecord) );
-	}
-#if CONFIG_HFS_STD
-	else if ( btcb->maxKeyLength == kHFSExtentKeyMaximumLength )
-	{
-		return ( recordSize == sizeof(HFSExtentRecord) );
-	}
-#endif
-
-	else // Catalog record
-	{
+	} else { // Catalog record
 		const CatalogRecord *catalogRecord = (const CatalogRecord*) record;
 
 		switch(catalogRecord->recordType)
 		{
-
-#if CONFIG_HFS_STD
-			/*
-			 * HFS standard File/folder records and File/Folder Thread records
-			 * are only valid on configs that support HFS standard.
-			 */
-			case kHFSFolderRecord:
-			{
-				if ( recordSize != sizeof(HFSCatalogFolder) )
-					return false;
-				if ( catalogRecord->hfsFolder.flags != 0 )
-					return false;
-				if ( catalogRecord->hfsFolder.valence > 0x7FFF )
-					return false;
-					
-				cNodeID = catalogRecord->hfsFolder.folderID;
-	
-				if ( (cNodeID == 0) || (cNodeID < 16 && cNodeID > 2) )
-					return false;
-			}
-			break;
-
-			case kHFSFileRecord:
-			{
-				const HFSExtentDescriptor	*dataExtent;
-				const HFSExtentDescriptor	*rsrcExtent;
-				
-				if ( recordSize != sizeof(HFSCatalogFile) )
-					return false;								
-				if ( (catalogRecord->hfsFile.flags & ~(0x83)) != 0 )
-					return false;
-					
-				cNodeID = catalogRecord->hfsFile.fileID;
-				
-				if ( cNodeID < 16 )
-					return false;
-		
-				// make sure 0 ¾ LEOF ¾ PEOF for both forks
-				
-				if ( catalogRecord->hfsFile.dataLogicalSize < 0 )
-					return false;
-				if ( catalogRecord->hfsFile.dataPhysicalSize < catalogRecord->hfsFile.dataLogicalSize )
-					return false;
-				if ( catalogRecord->hfsFile.rsrcLogicalSize < 0 )
-					return false;
-				if ( catalogRecord->hfsFile.rsrcPhysicalSize < catalogRecord->hfsFile.rsrcLogicalSize )
-					return false;
-		
-				dataExtent = (const HFSExtentDescriptor*) &catalogRecord->hfsFile.dataExtents;
-				rsrcExtent = (const HFSExtentDescriptor*) &catalogRecord->hfsFile.rsrcExtents;
-	
-#if 0
-				for (i = 0; i < kHFSExtentDensity; ++i)
-				{
-					if ( (dataExtent[i].blockCount > 0) && (dataExtent[i].startBlock == 0) )
-						return false;
-					if ( (rsrcExtent[i].blockCount > 0) && (rsrcExtent[i].startBlock == 0) )
-						return false;
-				}
-#endif
-			}
-			break;
-
-			case kHFSFileThreadRecord:
-			case kHFSFolderThreadRecord:
-			{
-				if ( recordSize != sizeof(HFSCatalogThread) )
-					return false;
-	
-				cNodeID = catalogRecord->hfsThread.parentID;
-				if ( (cNodeID == 0) || (cNodeID < 16 && cNodeID > 2) )
-					return false;
-							
-				if ( (catalogRecord->hfsThread.nodeName[0] == 0) ||
-					 (catalogRecord->hfsThread.nodeName[0] > 31) )
-					return false;
-			}
-			break;
-#endif
-
 			case kHFSPlusFolderRecord:
 			{
 				if ( recordSize != sizeof(HFSPlusCatalogFolder) )

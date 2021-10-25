@@ -119,10 +119,12 @@ static int SMBSchemeLength(CFURLRef url)
 }
 
 /* 
- * This routine will percent escape out the input string by making a copy. The CreateStringByReplacingPercentEscapesUTF8
- * routine will either return a copy or take a retain on the original string.
+ * This routine will percent escape out the input string by making a copy.
+ * The CFURLCreateStringByReplacingPercentEscapes routine will either return a
+ * copy or take a retain on the original string.
  *
- * NOTE:  We always use kCFStringEncodingUTF8 and kCFAllocatorDefault.
+ * NOTE: We always use kCFStringEncodingUTF8 and kCFAllocatorDefault.
+ * NOTE: CFURLCreateStringByReplacingPercentEscapes can return NULL!
  */
 static void CreateStringByReplacingPercentEscapesUTF8(CFStringRef *inOutStr, CFStringRef LeaveEscaped)
 {
@@ -309,9 +311,16 @@ static CFStringRef CopyUserAndWorkgroupFromURL(CFStringRef *outWorkGroup, CFURLR
 	
 	/* Now get the workgroup */
 	wrkgrpString = CFStringCreateCopy(NULL, (CFStringRef)CFArrayGetValueAtIndex(userArray, 0));
+    
+    /*
+     * Unescape the workgroup string.
+     * Be careful, wrkgrpString could be returned as NULL
+     */
 	CreateStringByReplacingPercentEscapesUTF8(&wrkgrpString, CFSTR(""));
-	if (wrkgrpString)
-		*outWorkGroup = wrkgrpString;	/* We have the workgroup return it to the calling routine */
+    if (wrkgrpString) {
+        /* We have the workgroup return it to the calling routine */
+		*outWorkGroup = wrkgrpString;
+    }
 	CFRelease(userArray);
 	return(userString);
 }
@@ -426,91 +435,206 @@ static void SetPortNumberFromURL(struct smb_ctx *ctx, CFURLRef url)
  * The Share name and Path name will not begin with a slash.
  *		smb://server/ntfs  share = ntfs path = NULL
  *		smb://ntfs/dir1/dir2  share = ntfs path = dir1/dir2
- *		smb://server/OPEN%2fSPACE/dir1   share = OPEN%2fSPACE path = dir1
+ *		smb://server/OPEN%2FSPACE/dir1   share = OPEN%2FSPACE path = dir1
+ *
+ * NOTES:
+ * 1. This function returns a share and path that are already unescaped
+ * 2. A "/" in the share name is handled specially and left unescaped as %2f
+ * 3. A "/" in the path is not allowed. Just dont do it.
+ *
  */
 static int GetShareAndPathFromURL(CFURLRef url, CFStringRef *out_share, CFStringRef *out_path)
 {
-	Boolean isAbsolute;
+	Boolean isAbsolute = 0;
 	CFArrayRef userArray = NULL;
 	CFMutableArrayRef userArrayM = NULL;
 	CFStringRef share = CFURLCopyStrictPath(url, &isAbsolute);
+    CFMutableStringRef newshare = NULL;
 	CFStringRef path = NULL;
-	
-	*out_share = NULL;
+    CFRange foundSlash;
+
+    *out_share = NULL;
 	*out_path = NULL;
 	/* We have an empty share treat it like no share */
 	if (share && (CFStringGetLength(share) == 0)) {
 		CFRelease(share);	
 		share = NULL;
 	}
+    
 	/* Since there is no share name we have nothing left to do. */
-	if (!share)
+    if (!share) {
 		return 0;
+    }
+
+    /* Try to split it into a share name and path array components */
+    userArray = CFStringCreateArrayBySeparatingStrings(NULL, share, CFSTR("/"));
+    
+    /* If we split it up, then create a mutable array we can work on */
+    if (userArray && (CFArrayGetCount(userArray) > 1)) {
+		userArrayM = CFArrayCreateMutableCopy(NULL, CFArrayGetCount(userArray),
+                                              userArray);
+    }
 	
-	userArray = CFStringCreateArrayBySeparatingStrings(NULL, share, CFSTR("/"));
-	if (userArray && (CFArrayGetCount(userArray) > 1))
-		userArrayM = CFArrayCreateMutableCopy(NULL, CFArrayGetCount(userArray), userArray);
-	
-	if (userArray)
+    if (userArray) {
 		CFRelease(userArray);
-	
-	if (userArrayM) {
-		CFMutableStringRef newshare;	/* Just in case something goes wrong */
-		
+        userArray = NULL;
+    }
+
+    if (userArrayM) {
+        /*
+         * We found a share name and path
+         *
+         * Create a copy of the share name to work on in. If something goes
+         * wrong, we can just return the original share string.
+         */
 		newshare = CFStringCreateMutableCopy(NULL, 0, (CFStringRef)CFArrayGetValueAtIndex(userArrayM, 0));
 		if (newshare) {
-			CFStringTrim(newshare, CFSTR("/"));	/* Remove any trailing slashes */
-			CreateStringByReplacingPercentEscapesUTF8((CFStringRef *) &newshare, CFSTR("/"));
+            /* Remove any trailing slashes out of the share name*/
+			CFStringTrim(newshare, CFSTR("/"));
+            
+            /*
+             * Unescape the share name
+             * Be careful as newshare could be returned as NULL
+             *
+             * Have to handle the special case of "/" in the share name like
+             * "Open%2FSpace". Because the share name is part of the path, we
+             * cant just unescape it to "/" because that gives us a path of
+             * Open/Space and we end up thinking the share name is Open instead
+             * of "Open/Space". So we special case it and leave it unescaped
+             * in the dictionary as "Open%2FSpace".
+             */
+			CreateStringByReplacingPercentEscapesUTF8((CFStringRef *) &newshare,
+                                                      CFSTR("/"));
 		}
-		CFArrayRemoveValueAtIndex(userArrayM, 0);			
-			/* Now remove any trailing slashes */
+        
+        /* Remove the share out of the mutable array */
+		CFArrayRemoveValueAtIndex(userArrayM, 0);
+        
+        /* Reassemble path with "/" between each path component */
 		path = CFStringCreateByCombiningStrings(NULL, userArrayM, CFSTR("/"));
-		if (path && (CFStringGetLength(path) == 0)) {
-			CFRelease(path);	/* Empty path remove it */
+
+        /* Check to see if we actually have a path */
+        if (path && (CFStringGetLength(path) == 0)) {
+            /* Empty path so remove it */
+			CFRelease(path);
 			path = NULL;
 		}
+        
 		if (path) {
-			CFMutableStringRef newpath = CFStringCreateMutableCopy(NULL, 0, path);
+            /* Create a mutable path that we can work on */
+			CFMutableStringRef newpath = CFStringCreateMutableCopy(NULL, 0,
+                                                                   path);
 			if (newpath) {
-				CFStringTrim(newpath, CFSTR("/")); 	/* Remove any trailing slashes */
+                /* Remove any trailing slashes */
+				CFStringTrim(newpath, CFSTR("/"));
+                
+                /* Replace path with the cleaned up path */
 				CFRelease(path);
 				path = newpath;							
 			}
 		}
+        
 		if (path) {
-			CreateStringByReplacingPercentEscapesUTF8(&path, CFSTR("/"));
-			LogCFString(path, "Path", __FUNCTION__, __LINE__);			
+            /*
+             * Unescape the path
+             * Be careful as path could be returned as NULL
+             *
+             * We allow "/" in the share name, but do not allow it in the
+             * path. You can always just mount the share and navigate to the
+             * folder that has a "/" in it as a workaround.
+             */
+            foundSlash = CFStringFind (path, CFSTR("%2f"),
+                                       kCFCompareCaseInsensitive);
+            if (foundSlash.location != kCFNotFound) {
+                /*
+                 * Found a "%2f" in just path (no share in path), so error out
+                 */
+                os_log_error(OS_LOG_DEFAULT, "%s: '%%2f' not allowed in URL path",
+                             __FUNCTION__);
+                
+                if (share) {
+                    CFRelease(share);
+                    share = NULL;
+                }
+                
+                if (newshare) {
+                    CFRelease(newshare);
+                    newshare = NULL;
+                }
+
+                if (path) {
+                    CFRelease(path);
+                    path = NULL;
+                }
+
+                if (userArrayM) {
+                    CFRelease(userArrayM);
+                    userArrayM = NULL;
+                }
+
+                return(EINVAL);
+            }
+            else {
+                CreateStringByReplacingPercentEscapesUTF8(&path, CFSTR("/"));
+                LogCFString(path, "Path", __FUNCTION__, __LINE__);
+            }
 		}
 
+        /* Done with the mutable array */
 		CFRelease(userArrayM);
-		/* Something went wrong use the original value */
+        userArrayM = NULL;
+        
+		/*
+         * If something went wrong, just use the original value. Otherwise
+         * use the new share name that we cleaned up.
+         */
 		if (newshare) {
 			CFRelease(share);
 			share = newshare;
 		}
-	} else
+	}
+    else {
+        /*
+         * Must only be a share name and no path
+         *
+         * Unescape the share name
+         * Be careful as share could be returned as NULL
+         *
+         * Have to handle the special case of "/" in the share name like
+         * "Open%2FSpace". Because the share name is part of the path, we
+         * cant just unescape it to "/" because that gives us a path of
+         * Open/Space and we end up thinking the share name is Open instead
+         * of "Open/Space". So we special case it and leave it unescaped
+         * in the dictionary as "Open%2FSpace".
+         */
 		CreateStringByReplacingPercentEscapesUTF8(&share, CFSTR("/"));
+    }
 
-	/* 
-	 * The above routines will not un-precent escape out slashes. We only allow for the cases
-	 * where the share name is a single slash. Slashes are treated as delemiters in the path name.
-	 * So if the share name has a single 0x2f then make it a slash. This means you can't have
-	 * a share name whos name is 0x2f, not likley to happen.
+    /*
+	 * The above routines will not un-percent escape out slashes. We only allow
+     * for the cases where the share name is a single slash. Slashes are treated
+     * as delemiters in the path name. So if the share name has a single 0x2f
+     * then make it a slash. This means you can't have a share name whose name
+     * is literally "0x2f", not likely to happen.
 	 */
 	if (share && ( kCFCompareEqualTo == CFStringCompare (share, CFSTR("0x2f"), kCFCompareCaseInsensitive) )) {
 		CFRelease(share);
 		share = CFStringCreateCopy(NULL, CFSTR("/"));		
 	}
-
-	
-	if (share && (CFStringGetLength(share) >= SMB_MAXSHARENAMELEN)) {
+    
+    if (share && (CFStringGetLength(share) >= SMB_MAXSHARENAMELEN)) {
 		CFRelease(share);
-		if (path)
+        share = NULL;
+        
+        if (path) {
 			CFRelease(path);
+            path = NULL;
+        }
+        
 		return ENAMETOOLONG;
 	}
-	
-	*out_share = share;
+
+    *out_share = share;
 	*out_path = path;
 	return 0;
 }
@@ -532,8 +656,11 @@ static int SetShareAndPathFromURL(struct smb_ctx *ctx, CFURLRef url)
 	CFStringRef path = NULL;
 	CFIndex maxlen;
 	int error;
+    CFRange foundSlash;
+    CFMutableStringRef newshare = NULL;
 
-	error = GetShareAndPathFromURL(url, &share, &path);
+    /* Get the unescaped share and path */
+    error = GetShareAndPathFromURL(url, &share, &path);
 	if (error) {
 		return error;
     }
@@ -542,17 +669,45 @@ static int SetShareAndPathFromURL(struct smb_ctx *ctx, CFURLRef url)
 	if (share == NULL) {
         if (path != NULL) {
             CFRelease(path);
+            path = NULL;
         }
         
 		return 0;
     }
     
 	DebugLogCFString(share, "Share", __FUNCTION__, __LINE__);
-    
-	CreateStringByReplacingPercentEscapesUTF8(&share, CFSTR(""));
-	
+
+    /*
+     * Have to handle the special case of / in the share name like
+     * "Open%2FSpace". GetShareAndPathFromURL() returned the share name as
+     * "Open%2FSpace" but we want to store it in the context as "Open/Space".
+     */
+    foundSlash = CFStringFind (share, CFSTR("%2f"), kCFCompareCaseInsensitive);
+    if (foundSlash.location != kCFNotFound) {
+        /*
+         * Found a "%2f" in the path, so must be a share name with "/"
+         * in it. Manually change it back to "/", so we can save the real
+         * share name
+         */
+        newshare = CFStringCreateMutableCopy(NULL, 0, share);
+        if (newshare) {
+            /* Manually replace all "%2f" with "/" */
+            CFStringFindAndReplace(newshare, CFSTR("%2f"), CFSTR("/"),
+                                   CFRangeMake(0, CFStringGetLength(newshare)),
+                                   kCFCompareCaseInsensitive);
+
+            /* Replace share with the unescaped version */
+            CFRelease(share);
+            share = newshare;
+            
+            DebugLogCFString(share, "New Share", __FUNCTION__, __LINE__);
+        }
+    }
+
+    /* If a share or mount path are already set in context, clear them */
 	if (ctx->ct_origshare) {
 		free(ctx->ct_origshare);
+        ctx->ct_origshare = NULL;
     }
 	
 	if (ctx->mountPath) {
@@ -560,22 +715,29 @@ static int SetShareAndPathFromURL(struct smb_ctx *ctx, CFURLRef url)
     }
 	ctx->mountPath = NULL;
 	
+    /* Save the new share into the context */
 	maxlen = CFStringGetMaximumSizeForEncoding(CFStringGetLength(share), kCFStringEncodingUTF8) + 1;
 	ctx->ct_origshare = malloc(maxlen);
 	if (!ctx->ct_origshare) {
+        /* malloc failed, so bail */
 		CFRelease(share);
+        share = NULL;
         
         if (path != NULL) {
             CFRelease(path);
+            path = NULL;
         }
         
 		return ENOMEM;
 	}
 
-	CFStringGetCString(share, ctx->ct_origshare, maxlen, kCFStringEncodingUTF8);
-	str_upper(ctx->ct_sh.ioc_share, sizeof(ctx->ct_sh.ioc_share), share); 
+    CFStringGetCString(share, ctx->ct_origshare, maxlen, kCFStringEncodingUTF8);
+	str_upper(ctx->ct_sh.ioc_share, sizeof(ctx->ct_sh.ioc_share), share);
+    
 	CFRelease(share);
+    share = NULL;
 	
+    /* Save the path into the context */
 	ctx->mountPath = path;
 
 	return 0;
@@ -590,33 +752,38 @@ int ParseSMBURL(struct smb_ctx *ctx)
 {
 	int error  = EINVAL;
 
-	/* Make sure its a good URL, better be at this point */
+    /* Make sure its a good URL, better be at this point */
 	if ((!CFURLCanBeDecomposed(ctx->ct_url)) || (SMBSchemeLength(ctx->ct_url) < 0)) {
 		os_log_error(OS_LOG_DEFAULT, "This is an invalid URL, syserr = %s",
 					 strerror(error));
 		return error;
 	}
 
-	error = SetServerFromURL(ctx, ctx->ct_url);
+    error = SetServerFromURL(ctx, ctx->ct_url);
 	if (error) {
 		os_log_error(OS_LOG_DEFAULT, "The URL has a bad server name, syserr = %s",
 					 strerror(error));
 		return error;
 	}
-	error = SetUserNameFromURL(ctx, ctx->ct_url);
+
+    error = SetUserNameFromURL(ctx, ctx->ct_url);
 	if (error) {
 		os_log_error(OS_LOG_DEFAULT, "The URL has a bad user name, syserr = %s",
 					 strerror(error));
 		return error;
 	}
+    
 	error = SetPasswordFromURL(ctx, ctx->ct_url);
 	if (error) {
 		os_log_error(OS_LOG_DEFAULT, "The URL has a bad password, syserr = %s",
 					 strerror(error));
 		return error;
 	}
+    
 	SetPortNumberFromURL(ctx, ctx->ct_url);
+        
 	error = SetShareAndPathFromURL(ctx, ctx->ct_url);
+        
 	/* CFURLCopyQueryString to get ?WINS=msfilsys.apple.com;NODETYPE=H info */
 	return error;
 }
@@ -789,9 +956,11 @@ int smb_url_to_dictionary(CFURLRef url, CFDictionaryRef *dict)
 	}
 	
 	/* create and return the server parameters dictionary */
-	mutableDict = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, 
-												&kCFTypeDictionaryValueCallBacks);
+	mutableDict = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+                                            &kCFTypeDictionaryKeyCallBacks,
+                                            &kCFTypeDictionaryValueCallBacks);
 	if (mutableDict == NULL) {
+        /* Failed to create the mutable dictionary, so bail */
 		error = errno;
 		os_log_error(OS_LOG_DEFAULT, "%s: CFDictionaryCreateMutable failed, syserr = %s",
 					 __FUNCTION__, strerror(error));
@@ -799,46 +968,66 @@ int smb_url_to_dictionary(CFURLRef url, CFDictionaryRef *dict)
 	}
 	
 	/*
-	 * SMB can have two different scheme's cifs or smb. When we made SMBSchemeLength call at the
-	 * start of this routine it made sure we had one or the other scheme. Always default here to
-	 * the SMB scheme.
+	 * SMB can have two different scheme's cifs or smb. When we made
+     * SMBSchemeLength call at the start of this routine it made sure we had
+     * one or the other scheme. Always default here to the SMB scheme.
+     *
+     * Save the scheme in dictionary
 	 */
 	CFDictionarySetValue (mutableDict, kNetFSSchemeKey, CFSTR(SMB_SCHEME_STRING));
 
+    /* Try to get the host string and port string */
     error = NetFSCopyHostAndPort(url, &Server, &Port);
 	if ((Server == NULL) || (error != noErr)) {
         if (Port != NULL) {
             CFRelease(Port);
+            Port = NULL;
         }
 		goto ErrorOut; /* Server name is required */
     }
 	
+    /* Save the host string in dictionary */
 	LogCFString(Server, "Server String", __FUNCTION__, __LINE__);
 	CFDictionarySetValue (mutableDict, kNetFSHostKey, Server);
 	CFRelease(Server);
 	Server = NULL;
 	
+    /* If there is a port string, then save it in dictionary */
     if (Port != NULL) {
         CFDictionarySetValue (mutableDict, kNetFSAlternatePortKey, Port);
         CFRelease(Port);
         Port = NULL;
     }
 
+    /* Try to get username and workgroup strings */
 	Username = CopyUserAndWorkgroupFromURL(&DomainWrkgrp, url);
 	LogCFString(Username, "Username String", __FUNCTION__, __LINE__);
 	LogCFString(DomainWrkgrp, "DomainWrkgrp String", __FUNCTION__, __LINE__);
 	error = 0;
-	if ((Username) && (CFStringGetLength(Username) >= SMB_MAXUSERNAMELEN))
+    
+    /* Check to see if username is too long */
+    if ((Username) && (CFStringGetLength(Username) >= SMB_MAXUSERNAMELEN)) {
 		error = ENAMETOOLONG;
+    }
 
-	if ((DomainWrkgrp) && (CFStringGetLength(DomainWrkgrp) > SMB_MAXNetBIOSNAMELEN))
+    /* Check if workgroup name is too long */
+    if ((DomainWrkgrp) &&
+        (CFStringGetLength(DomainWrkgrp) > SMB_MAXNetBIOSNAMELEN)) {
 		error = ENAMETOOLONG;
+    }
 	
+    /* Was either username or workgroup name too long? If so, bail */
 	if (error) {
-		if (Username)
+        if (Username) {
 			CFRelease(Username);
-		if (DomainWrkgrp)
+            Username = NULL;
+        }
+        
+        if (DomainWrkgrp) {
 			CFRelease(DomainWrkgrp);
+            DomainWrkgrp = NULL;
+        }
+        
 		goto ErrorOut; /* Username or Domain name is too long */
 	}
 	
@@ -858,16 +1047,19 @@ int smb_url_to_dictionary(CFURLRef url, CFDictionaryRef *dict)
 		}
 	}
 
-	if (Username)
-	{
+    /* If there is a username string, then save it in dictionary */
+	if (Username) {
 		CFDictionarySetValue (mutableDict, kNetFSUserNameKey, Username);
-		CFRelease(Username);				
+		CFRelease(Username);
+        Username = NULL;
 	}	
 
     if (DomainWrkgrp) {
 		CFRelease(DomainWrkgrp);
+        DomainWrkgrp = NULL;
     }
     
+    /* Try to get the password */
 	Password = CFURLCopyPassword(url);
 	if (Password) {
 		if (CFStringGetLength(Password) >= SMB_MAXPASSWORDLEN) {
@@ -875,8 +1067,11 @@ int smb_url_to_dictionary(CFURLRef url, CFDictionaryRef *dict)
 			CFRelease(Password);		
 			goto ErrorOut; /* Password is too long */
 		}
+        
+        /* Save password into dictionary */
 		CFDictionarySetValue (mutableDict, kNetFSPasswordKey, Password);
-		CFRelease(Password);		
+		CFRelease(Password);
+        Password = NULL;
 	}
 	
 	/*
@@ -885,8 +1080,10 @@ int smb_url_to_dictionary(CFURLRef url, CFDictionaryRef *dict)
 	 * share and path are correct. So now split them apart and then put them put them back together.
 	 */
 	error = GetShareAndPathFromURL(url, &Share, &Path);
-	if (error)
-		goto ErrorOut; /* Share name is too long */
+    if (error) {
+        /* Failed to get share or path */
+		goto ErrorOut;
+    }
 	
 	LogCFString(Share, "Share String", __FUNCTION__, __LINE__);
 	LogCFString(Path, "Path String", __FUNCTION__, __LINE__);
@@ -905,45 +1102,65 @@ int smb_url_to_dictionary(CFURLRef url, CFDictionaryRef *dict)
 						 __FUNCTION__, strerror(error));
 			goto ErrorOut;
 		}
+        
+        /* Recombine the share and path strings together for the path */
 		if (CFStringGetLength(Path)) {
 			CFMutableStringRef tempString = CFStringCreateMutableCopy(NULL, 0, Share);
 			if (tempString) {
 				CFStringAppend(tempString, CFSTR("/"));
 				CFStringAppend(tempString, Path);
+                
+                /* Save the path string into dictionary */
 				CFDictionarySetValue (mutableDict, kNetFSPathKey, tempString);
-				CFRelease(tempString);		
+                
+				CFRelease(tempString);
+                tempString = NULL;
+                
 				CFRelease(Share);		
 				Share = NULL;
 			} 
 		}
 	}
+    
 	/* Ignore any empty share at this point */
-	if (Share && CFStringGetLength(Share))
+    if (Share && CFStringGetLength(Share)) {
+        /* Save the share string into dictionary */
 		CFDictionarySetValue (mutableDict, kNetFSPathKey, Share);
+    }
 
-	if (Share)
-		CFRelease(Share);		
+    if (Share) {
+		CFRelease(Share);
+        Share = NULL;
+    }
 	
-	if (Path) 
-		CFRelease(Path);		
+    if (Path) {
+		CFRelease(Path);
+        Path = NULL;
+    }
 
+    /* Return the filled in dictionary */
 	*dict = mutableDict;
 	return 0;
 		
 ErrorOut:
-		
 	*dict = NULL;
-	if (mutableDict)
+    if (mutableDict) {
 		CFRelease(mutableDict);
-	if (!error)	/* No error set it to the default error */
+        mutableDict = NULL;
+    }
+    
+    if (!error)	{
+        /* If no error, then set it to the default error */
 		error = EINVAL;
+    }
+    
 	return error;
 	
 }
 
 /* 
- * Given a dictionary create a url string. We assume that the dictionary has any characters that need to
- * be escaped out escaped out.
+ * Given a dictionary create a url string. We assume that the dictionary has
+ * any characters that need to be escaped, NOT currently escaped out.
  */
 static int smb_dictionary_to_urlstring(CFDictionaryRef dict, CFMutableStringRef *urlReturnString)
 {
@@ -954,11 +1171,17 @@ static int smb_dictionary_to_urlstring(CFDictionaryRef dict, CFMutableStringRef 
 	CFStringRef Password = NULL;
 	CFStringRef Server = NULL;
 	CFStringRef PortNumber = NULL;
-	CFStringRef Path = NULL;
+	CFStringRef ShareAndPath = NULL;
 	Boolean	releaseUsername = FALSE;
 	char *ipV6Name = NULL;
-	
-	urlStringM = CFStringCreateMutableCopy(NULL, 1024, CFSTR("smb://"));
+    CFRange foundSlash;
+    CFArrayRef userArray = NULL;
+    CFMutableArrayRef userArrayM = NULL;
+    CFStringRef share = NULL;
+    CFStringRef path = NULL;
+    CFMutableStringRef newshare = NULL;
+
+    urlStringM = CFStringCreateMutableCopy(NULL, 1024, CFSTR("smb://"));
 	if (urlStringM == NULL) {
 		error = errno;
 		os_log_error(OS_LOG_DEFAULT, "%s: couldn't allocate the url string, syserr = %s",
@@ -997,11 +1220,13 @@ static int smb_dictionary_to_urlstring(CFDictionaryRef dict, CFMutableStringRef 
     
 	/* Is this an IPv6 numeric name, then leave the square brackets around it */
 	if (ipV6Name && isIPv6NumericName(ipV6Name)) {
-        CreateStringByAddingPercentEscapesUTF8(&Server, CFSTR("[]"), NULL, FALSE);
+        CreateStringByAddingPercentEscapesUTF8(&Server, CFSTR("[]"), NULL,
+                                               FALSE);
     }
     else {
 		/* Some other name make sure we percent escape all the characters needed */
-		CreateStringByAddingPercentEscapesUTF8(&Server, NULL, CFSTR("~!'()/@:,?=;&+$"), FALSE);
+		CreateStringByAddingPercentEscapesUTF8(&Server, NULL,
+                                               CFSTR("~!'()/@:,?=;&+$"), FALSE);
 	}
     
 	/* Free up the buffer we allocated */
@@ -1022,11 +1247,14 @@ static int smb_dictionary_to_urlstring(CFDictionaryRef dict, CFMutableStringRef 
 	if (Username) {
 		CFArrayRef	userArray = NULL;
 		/* 
-		 * Remember that on windows a back slash is illegal, so if someone wants to use one
-		 * in the username they will need to escape percent it out.
+		 * Remember that on windows a back slash is illegal, so if someone wants
+         * to use one in the username they will need to escape percent it out.
 		 */
 		userArray = CreateWrkgrpUserArrayFromCFStringRef(Username, CFSTR("\\"));
-		/* If we have an array then we have a domain\username in the Username String */
+		/*
+         * If we have an array then we have a domain\username in the Username
+         * String
+         */
 		if (userArray) {
 			DomainWrkgrp = CFStringCreateCopy(NULL, (CFStringRef)CFArrayGetValueAtIndex(userArray, 0));
 			Username = CFStringCreateCopy(NULL, (CFStringRef)CFArrayGetValueAtIndex(userArray, 1));
@@ -1036,24 +1264,134 @@ static int smb_dictionary_to_urlstring(CFDictionaryRef dict, CFMutableStringRef 
 	}
 
 	Password = CFDictionaryGetValue(dict, kNetFSPasswordKey);
-	Path = CFDictionaryGetValue(dict, kNetFSPathKey);
+    ShareAndPath = CFDictionaryGetValue(dict, kNetFSPathKey);
 	PortNumber = CFDictionaryGetValue(dict, kNetFSAlternatePortKey);
 
 	/* 
-	 * Percent escape out any URL special characters, for the username, password, Domain/Workgroup,
-	 * path, and port. Not sure the port is required, but AFP does it so why not.
-	 * The CreateStringByAddingPercentEscapesUTF8 will return either NULL or a value that must be
-	 * released.
+	 * Percent escape out any URL special characters, for the username,
+     * password, Domain/Workgroup, path, and port. Not sure the port is
+     * required, but AFP does it so why not.
+     *
+     * The CreateStringByAddingPercentEscapesUTF8 will return either NULL or a
+     * value that must be released.
 	 */
-	CreateStringByAddingPercentEscapesUTF8(&DomainWrkgrp, NULL, CFSTR("@:;/?"), TRUE);
-	CreateStringByAddingPercentEscapesUTF8(&Username, NULL, CFSTR("@:;/?"), releaseUsername);
-	CreateStringByAddingPercentEscapesUTF8(&Password, NULL, CFSTR("@:;/?"), FALSE);
-	CreateStringByAddingPercentEscapesUTF8(&Path, CFSTR("%%"), CFSTR("?#"), FALSE);
-	CreateStringByAddingPercentEscapesUTF8(&PortNumber, NULL, NULL, FALSE);
+    if (DomainWrkgrp) {
+        CreateStringByAddingPercentEscapesUTF8(&DomainWrkgrp, NULL,
+                                               CFSTR("@:;/?"), TRUE);
+    }
+    
+    if (Username) {
+        CreateStringByAddingPercentEscapesUTF8(&Username, NULL,
+                                               CFSTR("@:;/?"), releaseUsername);
+    }
+    
+    if (Password) {
+        CreateStringByAddingPercentEscapesUTF8(&Password, NULL,
+                                               CFSTR("@:;/?"), FALSE);
+    }
+
+    if (PortNumber) {
+        CreateStringByAddingPercentEscapesUTF8(&PortNumber, NULL, NULL, FALSE);
+    }
+
+    if (ShareAndPath) {
+        /* Try to split it into a share name and path array components */
+        userArray = CFStringCreateArrayBySeparatingStrings(NULL, ShareAndPath,
+                                                           CFSTR("/"));
+        
+        /* If we split it up, then create a mutable array we can work on */
+        if (userArray && (CFArrayGetCount(userArray) > 1)) {
+            userArrayM = CFArrayCreateMutableCopy(NULL,
+                                                  CFArrayGetCount(userArray),
+                                                  userArray);
+        }
+        
+        if (userArray) {
+            CFRelease(userArray);
+            userArray = NULL;
+        }
+
+        if (userArrayM) {
+            /*
+             * We found a share name and path
+             */
+            share = CFStringCreateCopy(kCFAllocatorDefault, (CFStringRef)CFArrayGetValueAtIndex(userArrayM, 0));
+
+            /* Remove the share out of the mutable array */
+            CFArrayRemoveValueAtIndex(userArrayM, 0);
+            
+            /* Reassemble path with "/" between each path component */
+            path = CFStringCreateByCombiningStrings(NULL, userArrayM, CFSTR("/"));
+
+            /* Check to see if we actually have a path */
+            if (path && (CFStringGetLength(path) == 0)) {
+                /* Empty path so remove it */
+                CFRelease(path);
+                path = NULL;
+            }
+
+            if (path) {
+                /* Escape out the path, but do not escape out the "/" */
+                CreateStringByAddingPercentEscapesUTF8(&path, NULL,
+                                                       CFSTR(" !#$%&'()*+,:;<=>?@[]|"),
+                                                       FALSE);
+            }
+
+            /* Done with the mutable array */
+            CFRelease(userArrayM);
+            userArrayM = NULL;
+        }
+        else {
+            /*
+             * Must only be a share name and no path
+             */
+            share = CFStringCreateCopy(kCFAllocatorDefault, ShareAndPath);
+        }
+
+        if (share) {
+            /*
+             * Escape out the share
+             *
+             * Have to handle the special case of "/" in the share name like
+             * "Open%2FSpace". Because the share name is part of the path, we
+             * cant just unescape it to "/" because that gives us a path of
+             * Open/Space and we end up thinking the share name is Open instead
+             * of "Open/Space". So we special case it and leave it unescaped
+             * in the dictionary as "Open%2FSpace".
+             */
+            foundSlash = CFStringFind (share, CFSTR("%2f"),
+                                       kCFCompareCaseInsensitive);
+            if (foundSlash.location != kCFNotFound) {
+                /*
+                 * Found a "%2f" in the path, so must be a share name with "/"
+                 * in it. Manually change it back to "/", so we can escape
+                 * out the share name
+                 */
+                newshare = CFStringCreateMutableCopy(NULL, 0, share);
+
+                if (newshare) {
+                    /* Manually replace all "%2f" with "/" */
+                    CFStringFindAndReplace(newshare, CFSTR("%2f"), CFSTR("/"),
+                                           CFRangeMake(0, CFStringGetLength(newshare)),
+                                           kCFCompareCaseInsensitive);
+                    
+                    /* Replace share with the fixed up share name */
+                    CFRelease(share);
+                    share = newshare;
+                }
+           }
+
+            /* Escape out any URL reserved chars including "/" */
+            CreateStringByAddingPercentEscapesUTF8(&share, NULL,
+                                                   CFSTR(" !#$%&'()*+,:;<=>?@[]|/"),
+                                                   FALSE);
+        }
+    }
 
 	LogCFString(Username, "Username String", __FUNCTION__, __LINE__);
 	LogCFString(DomainWrkgrp, "Domain String", __FUNCTION__, __LINE__);
-	LogCFString(Path, "Path String", __FUNCTION__, __LINE__);
+    LogCFString(share, "Share String", __FUNCTION__, __LINE__);
+    LogCFString(path, "Path String", __FUNCTION__, __LINE__);
 	LogCFString(PortNumber, "PortNumber String", __FUNCTION__, __LINE__);
 	
 	/* Add the Domain/Workgroup */
@@ -1061,6 +1399,7 @@ static int smb_dictionary_to_urlstring(CFDictionaryRef dict, CFMutableStringRef 
 		CFStringAppend(urlStringM, DomainWrkgrp);
 		CFStringAppend(urlStringM, CFSTR(";"));
 	}
+    
 	/* Add the username and password */
 	if (Username || Password) {		
 		if (Username)
@@ -1082,35 +1421,57 @@ static int smb_dictionary_to_urlstring(CFDictionaryRef dict, CFMutableStringRef 
 	}
 	
 	/* Add the share and path */
-	if (Path) {
-		CFStringAppend(urlStringM, CFSTR("/"));
-		/* If the share name is a slash percent escape it out */
-		if ( kCFCompareEqualTo == CFStringCompare (Path, CFSTR("/"), kCFCompareCaseInsensitive) ) 
-			CFStringAppend(urlStringM, CFSTR("0x2f"));
-		else 
-			CFStringAppend(urlStringM, Path);
-	}
-	
-	DebugLogCFString(urlStringM, "URL String", __FUNCTION__, __LINE__);
-	
+    if (share) {
+        CFStringAppend(urlStringM, CFSTR("/"));
+        /* If the share name is a slash percent escape it out */
+        if (kCFCompareEqualTo == CFStringCompare (share, CFSTR("/"),
+                                                  kCFCompareCaseInsensitive)) {
+            CFStringAppend(urlStringM, CFSTR("0x2f"));
+        }
+        else {
+            CFStringAppend(urlStringM, share);
+        }
+
+        /* Can only add a path if there was a share */
+        if (path) {
+            CFStringAppend(urlStringM, CFSTR("/"));
+            CFStringAppend(urlStringM, path);
+        }
+    }
+    
+    DebugLogCFString(urlStringM, "URL String", __FUNCTION__, __LINE__);
+
 WeAreDone:
-	if (Username)
-		CFRelease(Username);		
-	if (Password)
-		CFRelease(Password);		
-	if (DomainWrkgrp)
-		CFRelease(DomainWrkgrp);		
-	if (Path)
-		CFRelease(Path);		
-	if (PortNumber)
-		CFRelease(PortNumber);	
-	if (Server)
+    if (Username) {
+		CFRelease(Username);
+    }
+    if (Password) {
+		CFRelease(Password);
+    }
+    if (DomainWrkgrp) {
+		CFRelease(DomainWrkgrp);
+    }
+    /* Do not release ShareAndPath as we only did a Get on it */
+    if (share) {
+        CFRelease(share);
+    }
+    if (path) {
+        CFRelease(path);
+    }
+    if (PortNumber) {
+		CFRelease(PortNumber);
+    }
+    if (Server) {
 		CFRelease(Server);
+    }
 	
-	if (error == 0)
+    /* If no error, return the URL string */
+    if (error == 0) {
 		*urlReturnString = urlStringM;
-	else if (urlStringM)
-		CFRelease(urlStringM);		
+    }
+    else if (urlStringM) {
+		CFRelease(urlStringM);
+    }
 		
 	return error;
 }

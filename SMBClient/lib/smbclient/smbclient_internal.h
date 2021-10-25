@@ -83,6 +83,8 @@ extern "C" {
 #define SMBFS_MNT_SNAPSHOT          0x100000
 #define SMBFS_MNT_MC_PREFER_WIRED   0x200000
 #define SMBFS_MNT_DISABLE_311       0x400000
+#define SMBFS_MNT_SESSION_ENCRYPT   0x800000
+#define SMBFS_MNT_SHARE_ENCRYPT    0x1000000
 
 /*
  * Async Read/Write defaults

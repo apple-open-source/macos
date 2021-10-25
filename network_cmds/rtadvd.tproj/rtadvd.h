@@ -75,6 +75,10 @@
 #define PREFIX_FROM_CONFIG 2
 #define PREFIX_FROM_DYNAMIC 3
 
+typedef uint8_t pref64_prefix_length_t;
+typedef uint8_t pref64_plc_t;
+typedef uint16_t pref64_scaled_lifetime_plc_t;
+
 struct prefix {
 	struct prefix *next;	/* forward link */
 	struct prefix *prev;	/* previous link */
@@ -180,6 +184,12 @@ struct	rainfo {
 	char *	capport;
 	u_int32_t capport_length;
 	u_int32_t capport_option_length;
+
+	/* PREF64 (NAT64 prefix) RFC 8781 */
+	bool pref64_specified;
+	pref64_prefix_length_t pref64_prefix_length;
+	pref64_scaled_lifetime_plc_t pref64_lifetime_plc;
+	struct in6_addr pref64_addr;
 
 	/* actual RA packet data and its length */
 	size_t ra_datalen;

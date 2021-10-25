@@ -375,7 +375,7 @@ willPerformHTTPRedirection:(NSHTTPURLResponse *)redirectResponse
  completionHandler:(void (^)(NSURLRequest *))completionHandler {
     /* The old code didn't allow re-direction, so we won't either. */
     secnotice("http", "failed redirection for %@", task.originalRequest.URL);
-    [task cancel];
+    completionHandler(nil);
 }
 
 - (void)URLSession:(NSURLSession *)session

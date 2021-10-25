@@ -25,7 +25,7 @@
 
 #import <CloudKit/CloudKit.h>
 #include "keychain/securityd/SecDbItem.h"
-#include <utilities/SecDb.h>
+#include "utilities/SecDb.h"
 #import "keychain/ckks/CKKSSQLDatabaseObject.h"
 
 NS_ASSUME_NONNULL_BEGIN
@@ -41,7 +41,7 @@ NS_ASSUME_NONNULL_BEGIN
 @property CKRecordZoneID* zoneID;
 @property NSString* ckRecordType;
 @property (nullable, copy) NSData* encodedCKRecord;
-@property (nullable, getter=storedCKRecord, setter=setStoredCKRecord:) CKRecord* storedCKRecord;
+@property (nullable, copy) CKRecord* storedCKRecord;
 
 - (CKRecord*)CKRecordWithZoneID:(CKRecordZoneID*)zoneID;
 

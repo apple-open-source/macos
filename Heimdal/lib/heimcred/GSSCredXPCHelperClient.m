@@ -141,8 +141,9 @@
     if (xpc_get_type(reply) == XPC_TYPE_DICTIONARY) {
 	NSDictionary *replyDictionary = CFBridgingRelease(_CFXPCCreateCFObjectFromXPCObject(reply));
 	
-	NSNumber *status = replyDictionary[@"status"];
-	NSNumber *expireTime = replyDictionary[@"expire"];
+	NSDictionary *resultDictionary = replyDictionary[@"result"];
+	NSNumber *status = resultDictionary[@"status"];
+	NSNumber *expireTime = resultDictionary[@"expire"];
 	*expire = [expireTime longValue];
 	
 	return [status intValue];

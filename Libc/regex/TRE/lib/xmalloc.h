@@ -43,12 +43,12 @@ void xmalloc_configure(int fail_after);
 #  endif
 # endif
 
-#define xmalloc(size) xmalloc_impl(size, __FILE__, __LINE__, \
+#define xmalloc(size) xmalloc_impl(size, __FILE_NAME__, __LINE__, \
 				   __XMALLOC_FUNCTION)
-#define xcalloc(nmemb, size) xcalloc_impl(nmemb, size, __FILE__, __LINE__, \
+#define xcalloc(nmemb, size) xcalloc_impl(nmemb, size, __FILE_NAME__, __LINE__, \
 					  __XMALLOC_FUNCTION)
-#define xfree(ptr) xfree_impl(ptr, __FILE__, __LINE__, __XMALLOC_FUNCTION)
-#define xrealloc(ptr, new_size) xrealloc_impl(ptr, new_size, __FILE__, \
+#define xfree(ptr) xfree_impl(ptr, __FILE_NAME__, __LINE__, __XMALLOC_FUNCTION)
+#define xrealloc(ptr, new_size) xrealloc_impl(ptr, new_size, __FILE_NAME__, \
 					      __LINE__, __XMALLOC_FUNCTION)
 #undef malloc
 #undef calloc

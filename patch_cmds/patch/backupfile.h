@@ -1,7 +1,4 @@
-/*	$OpenBSD: backupfile.h,v 1.6 2003/07/28 18:35:36 otto Exp $	*/
-
-/*
- * backupfile.h -- declarations for making Emacs style backup file names
+/*-
  * Copyright (C) 1990 Free Software Foundation, Inc.
  * 
  * This program is free software; you can redistribute it and/or modify it
@@ -10,7 +7,11 @@
  * This program is distributed in the hope that it will be useful, but WITHOUT
  * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
  * FITNESS FOR A PARTICULAR PURPOSE.
- * 
+ *
+ * backupfile.h -- declarations for making Emacs style backup file names
+ *
+ * $OpenBSD: backupfile.h,v 1.6 2003/07/28 18:35:36 otto Exp $
+ * $FreeBSD$
  */
 
 /* When to make backup files. */
@@ -32,7 +33,7 @@ enum backup_type {
 };
 
 extern enum backup_type backup_type;
-extern char	*simple_backup_suffix;
+extern const char	*simple_backup_suffix;
 
 char		*find_backup_file_name(const char *file);
 enum backup_type get_version(const char *version);

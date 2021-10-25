@@ -10,7 +10,6 @@
 #import "keychain/securityd/SecItemServer.h"
 #import "keychain/securityd/spi.h"
 
-#import <Security/SecItemPriv.h>
 #import "keychain/ckks/CKKS.h"
 
 #import <SecurityFoundation/SFKeychain.h>
@@ -22,4 +21,3 @@
 #import "keychain/securityd/SecItemDataSource.h"
 
 #import "keychain/ckks/tests/MockCloudKit.h"
-#import <Security/OTConstants.h>

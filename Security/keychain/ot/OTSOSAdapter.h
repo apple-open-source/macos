@@ -17,6 +17,9 @@ NS_ASSUME_NONNULL_BEGIN
 - (BOOL)updateCKKS4AllStatus:(BOOL)status error:(NSError**)error;
 
 - (BOOL)safariViewSyncingEnabled:(NSError**)error __attribute__((swift_error(nonnull_error)));
+
+- (bool)joinAfterRestore:(NSError * _Nullable __autoreleasing * _Nullable)error;
+- (bool)resetToOffering:(NSError * _Nullable __autoreleasing * _Nullable)error;
 @end
 
 @interface OTSOSActualAdapter : NSObject <OTSOSAdapter>

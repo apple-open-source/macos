@@ -36,6 +36,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <notify.h>
+#include <os/variant_private.h>
 
 namespace Security {
 namespace CodeSigning {
@@ -429,6 +430,27 @@ void PolicyDatabase::upgradeDatabase()
 		};
 		migrateReq(this, "Developer ID", 4.0);
 		migrateReq(this, "Unnotarized Developer ID", 0.0);
+	});
+
+	simpleFeature("testflight_executables", ^{
+		if (os_variant_allows_internal_security_policies("com.apple.security.gatekeeper")) {
+			SQLite::Statement addTestflight(*this,
+											"INSERT INTO authority (type, allow, flags, priority, label, requirement) "
+											" VALUES (1, 1, 2, 10.0, 'Testflight', "
+											"         'anchor apple generic and "
+											          "certificate 1[field.1.2.840.113635.100.6.2.1] exists and "
+											          "(certificate leaf[field.1.2.840.113635.100.6.1.25.1] exists or "
+											           "certificate leaf[field.1.2.840.113635.100.6.1.25.2] exists)')");
+			addTestflight.execute();
+		} else {
+			SQLite::Statement addTestflight(*this,
+											"INSERT INTO authority (type, allow, flags, priority, label, requirement) "
+											" VALUES (1, 1, 2, 10.0, 'Testflight', "
+											"         'anchor apple generic and "
+											          "certificate 1[field.1.2.840.113635.100.6.2.1] exists and "
+											          "certificate leaf[field.1.2.840.113635.100.6.1.25.1] exists')");
+			addTestflight.execute();
+		}
 	});
 }
 

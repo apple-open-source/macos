@@ -608,9 +608,8 @@ extern "C" IOReturn _IONDRVLibrariesMappingInitialize( IOService * provider )
         }
 
         maps->setObject(map);
-        map->release();
-
         virtAddress = map->getVirtualAddress();
+        map->release();
         mem->setMapping(kernel_task, virtAddress, kIOMapInhibitCache);
         if (!data)
             data = OSData::withCapacity( numMaps * sizeof( IOVirtualAddress));

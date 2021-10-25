@@ -37,9 +37,11 @@
 #define SEC_PROTOCOL_OPTIONS_KEY_enable_sct "enable_sct"
 #define SEC_PROTOCOL_OPTIONS_KEY_enable_ocsp "enable_ocsp"
 #define SEC_PROTOCOL_OPTIONS_KEY_enforce_ev "enforce_ev"
+#define SEC_PROTOCOL_OPTIONS_KEY_enable_ech "enable_ech"
 #define SEC_PROTOCOL_OPTIONS_KEY_enable_resumption "enable_resumption"
 #define SEC_PROTOCOL_OPTIONS_KEY_enable_renegotiation "enable_renegotiation"
 #define SEC_PROTOCOL_OPTIONS_KEY_enable_early_data "enable_early_data"
+#define SEC_PROTOCOL_OPTIONS_KEY_quic_use_legacy_codepoint "quic_use_legacy_codepoint"
 #define SEC_PROTOCOL_OPTIONS_KEY_peer_authentication_required "peer_authentication_required"
 #define SEC_PROTOCOL_OPTIONS_KEY_peer_authentication_optional "peer_authentication_optional"
 #define SEC_PROTOCOL_OPTIONS_KEY_certificate_compression_enabled "certificate_compression_enabled"
@@ -155,8 +157,14 @@ sec_protocol_metadata_access_handle(sec_protocol_metadata_t options,
     }
 
 bool
-sec_protocol_options_contents_are_equal(sec_protocol_options_content_t contentA, sec_protocol_options_content_t contentB)
+sec_protocol_options_contents_compare(sec_protocol_options_content_t contentA,
+                                      sec_protocol_options_content_t contentB,
+                                      sec_protocol_options_compare_mode_t compare_mode)
 {
+    if (compare_mode == sec_protocol_options_compare_mode_association) {
+        return true;
+    }
+
     if (contentA == contentB) {
         return true;
     }
@@ -190,6 +198,7 @@ sec_protocol_options_contents_are_equal(sec_protocol_options_content_t contentA,
     CHECK_FIELD(enable_sct);
     CHECK_FIELD(enable_ocsp);
     CHECK_FIELD(enforce_ev);
+    CHECK_FIELD(enable_ech);
     CHECK_FIELD(enable_resumption);
     CHECK_FIELD(enable_renegotiation);
     CHECK_FIELD(enable_early_data);
@@ -202,6 +211,26 @@ sec_protocol_options_contents_are_equal(sec_protocol_options_content_t contentA,
     CHECK_FIELD(allow_unknown_alpn_protos);
 
 #undef CHECK_FIELD
+
+    // Association, joining, and joining proxy do not compare the legacy codepoint setting
+    if (compare_mode != sec_protocol_options_compare_mode_association &&
+        compare_mode != sec_protocol_options_compare_mode_joining &&
+        compare_mode != sec_protocol_options_compare_mode_joining_proxy) {
+        // rdar://77408944 We can't just do a simple check for equality because
+        // quic_use_legacy_codepoint is supposed to default to true.
+#define CHECK_QUIC_LEGACY_CODEPOINT_SETTING(optionsA, optionsB) \
+    if (optionsA->quic_use_legacy_codepoint == false && \
+        optionsA->quic_use_legacy_codepoint_override == true && \
+        !(optionsB->quic_use_legacy_codepoint == false && \
+          optionsB->quic_use_legacy_codepoint_override == true)) { \
+        return false; \
+    }
+
+        CHECK_QUIC_LEGACY_CODEPOINT_SETTING(optionsA, optionsB);
+        CHECK_QUIC_LEGACY_CODEPOINT_SETTING(optionsB, optionsA);
+
+#undef CHECK_QUIC_LEGACY_CODEPOINT_SETTING
+    }
 
     // Check callback block and queue pairs next
 #define CHECK_BLOCK_QUEUE(block, queue) \
@@ -290,6 +319,12 @@ sec_protocol_options_contents_are_equal(sec_protocol_options_content_t contentA,
     }
 
     return true;
+}
+
+bool
+sec_protocol_options_contents_are_equal(sec_protocol_options_content_t contentA, sec_protocol_options_content_t contentB)
+{
+    return sec_protocol_options_contents_compare(contentA, contentB, sec_protocol_options_compare_mode_equal);
 }
 
 bool
@@ -436,6 +471,8 @@ sec_protocol_options_set_min_tls_protocol_version(sec_protocol_options_t options
     });
 }
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
 tls_protocol_version_t
 sec_protocol_options_get_default_min_tls_protocol_version(void)
 {
@@ -447,6 +484,7 @@ sec_protocol_options_get_default_min_dtls_protocol_version(void)
 {
     return tls_protocol_version_DTLSv10;
 }
+#pragma clang diagnostic pop
 
 void
 sec_protocol_options_set_tls_max_version(sec_protocol_options_t options, SSLProtocol version)
@@ -502,6 +540,27 @@ sec_protocol_options_get_enable_encrypted_client_hello(sec_protocol_options_t op
     return enable_ech;
 }
 
+bool
+sec_protocol_options_get_quic_use_legacy_codepoint(sec_protocol_options_t options) {
+    SEC_PROTOCOL_OPTIONS_VALIDATE(options, false);
+
+    __block bool quic_use_legacy_codepoint = true;
+    // The legacy codepoint currently defaults to true. If this changes, sec_protocol_options_contents_are_equal
+    // must be changed to reflect the new default (rdar://78423705).
+
+    (void)sec_protocol_options_access_handle(options, ^bool(void *handle) {
+        sec_protocol_options_content_t content = (sec_protocol_options_content_t)handle;
+        SEC_PROTOCOL_OPTIONS_VALIDATE(content, false);
+
+        if (content->quic_use_legacy_codepoint_override == true) {
+            quic_use_legacy_codepoint = content->quic_use_legacy_codepoint;
+        }
+        return true;
+    });
+
+    return quic_use_legacy_codepoint;
+}
+
 void
 sec_protocol_options_add_tls_application_protocol(sec_protocol_options_t options, const char *application_protocol)
 {
@@ -516,6 +575,23 @@ sec_protocol_options_add_tls_application_protocol(sec_protocol_options_t options
             content->application_protocols = xpc_array_create(NULL, 0);
         }
         xpc_array_set_string(content->application_protocols, XPC_ARRAY_APPEND, application_protocol);
+        return true;
+    });
+}
+
+void
+sec_protocol_options_clear_tls_application_protocols(sec_protocol_options_t options)
+{
+    SEC_PROTOCOL_OPTIONS_VALIDATE(options,);
+
+    (void)sec_protocol_options_access_handle(options, ^bool(void *handle) {
+        sec_protocol_options_content_t content = (sec_protocol_options_content_t)handle;
+        SEC_PROTOCOL_OPTIONS_VALIDATE(content, false);
+
+        if (content->application_protocols != NULL) {
+            xpc_release(content->application_protocols);
+        }
+        content->application_protocols = NULL;
         return true;
     });
 }
@@ -895,6 +971,20 @@ sec_protocol_options_set_enable_encrypted_client_hello(sec_protocol_options_t op
 }
 
 void
+sec_protocol_options_set_quic_use_legacy_codepoint(sec_protocol_options_t options, bool quic_use_legacy_codepoint) {
+    SEC_PROTOCOL_OPTIONS_VALIDATE(options,);
+
+    (void)sec_protocol_options_access_handle(options, ^bool(void *handle) {
+        sec_protocol_options_content_t content = (sec_protocol_options_content_t)handle;
+        SEC_PROTOCOL_OPTIONS_VALIDATE(content, false);
+
+        content->quic_use_legacy_codepoint = quic_use_legacy_codepoint;
+        content->quic_use_legacy_codepoint_override = true;
+        return true;
+    });
+}
+
+void
 sec_protocol_options_set_key_update_block(sec_protocol_options_t options, sec_protocol_key_update_t update_block, dispatch_queue_t update_queue)
 {
     SEC_PROTOCOL_OPTIONS_VALIDATE(options,);
@@ -1215,6 +1305,7 @@ sec_protocol_options_set_tls_certificate_compression_enabled(sec_protocol_option
         sec_protocol_options_content_t content = (sec_protocol_options_content_t)handle;
         SEC_PROTOCOL_OPTIONS_VALIDATE(content, false);
 
+        content->certificate_compression_enabled_override = true;
         content->certificate_compression_enabled = certificate_compression_enabled;
         return true;
     });
@@ -2237,9 +2328,11 @@ static const char *_options_bool_keys[] = {
     SEC_PROTOCOL_OPTIONS_KEY_enable_sct,
     SEC_PROTOCOL_OPTIONS_KEY_enable_ocsp,
     SEC_PROTOCOL_OPTIONS_KEY_enforce_ev,
+    SEC_PROTOCOL_OPTIONS_KEY_enable_ech,
     SEC_PROTOCOL_OPTIONS_KEY_enable_resumption,
     SEC_PROTOCOL_OPTIONS_KEY_enable_renegotiation,
     SEC_PROTOCOL_OPTIONS_KEY_enable_early_data,
+    SEC_PROTOCOL_OPTIONS_KEY_quic_use_legacy_codepoint,
     SEC_PROTOCOL_OPTIONS_KEY_peer_authentication_required,
     SEC_PROTOCOL_OPTIONS_KEY_peer_authentication_optional,
     SEC_PROTOCOL_OPTIONS_KEY_certificate_compression_enabled,
@@ -2328,9 +2421,11 @@ _serialize_options(xpc_object_t dictionary, sec_protocol_options_content_t optio
     xpc_dictionary_set_bool(dictionary, EXPAND_PARAMETER(enable_sct));
     xpc_dictionary_set_bool(dictionary, EXPAND_PARAMETER(enable_ocsp));
     xpc_dictionary_set_bool(dictionary, EXPAND_PARAMETER(enforce_ev));
+    xpc_dictionary_set_bool(dictionary, EXPAND_PARAMETER(enable_ech));
     xpc_dictionary_set_bool(dictionary, EXPAND_PARAMETER(enable_resumption));
     xpc_dictionary_set_bool(dictionary, EXPAND_PARAMETER(enable_renegotiation));
     xpc_dictionary_set_bool(dictionary, EXPAND_PARAMETER(enable_early_data));
+    xpc_dictionary_set_bool(dictionary, EXPAND_PARAMETER(quic_use_legacy_codepoint));
     xpc_dictionary_set_bool(dictionary, EXPAND_PARAMETER(peer_authentication_required));
     xpc_dictionary_set_bool(dictionary, EXPAND_PARAMETER(peer_authentication_optional));
     xpc_dictionary_set_bool(dictionary, EXPAND_PARAMETER(certificate_compression_enabled));
@@ -2392,6 +2487,10 @@ static struct _options_bool_key_setter {
         .setter_pointer = sec_protocol_options_set_enforce_ev,
     },
     {
+        .key = SEC_PROTOCOL_OPTIONS_KEY_enable_ech,
+        .setter_pointer = sec_protocol_options_set_enable_encrypted_client_hello,
+    },
+    {
         .key = SEC_PROTOCOL_OPTIONS_KEY_enable_resumption,
         .setter_pointer = sec_protocol_options_set_tls_resumption_enabled,
     },
@@ -2402,6 +2501,10 @@ static struct _options_bool_key_setter {
     {
         .key = SEC_PROTOCOL_OPTIONS_KEY_enable_early_data,
         .setter_pointer = sec_protocol_options_set_tls_early_data_enabled,
+    },
+    {
+        .key = SEC_PROTOCOL_OPTIONS_KEY_quic_use_legacy_codepoint,
+        .setter_pointer = sec_protocol_options_set_quic_use_legacy_codepoint,
     },
     {
         .key = SEC_PROTOCOL_OPTIONS_KEY_peer_authentication_required,
@@ -2835,6 +2938,82 @@ sec_protocol_options_set_tls_block_length_padding(sec_protocol_options_t options
         SEC_PROTOCOL_OPTIONS_VALIDATE(content, false);
 
         content->tls_block_length_padding = block_length_padding;
+        return true;
+    });
+}
+
+void
+sec_protocol_options_set_server_raw_public_key_certificates(sec_protocol_options_t options, CFArrayRef certificates)
+{
+    SEC_PROTOCOL_OPTIONS_VALIDATE(options, );
+    SEC_PROTOCOL_OPTIONS_VALIDATE(certificates, );
+
+    (void)sec_protocol_options_access_handle(options, ^bool(void *handle) {
+        sec_protocol_options_content_t content = (sec_protocol_options_content_t)handle;
+        SEC_PROTOCOL_OPTIONS_VALIDATE(content, false);
+
+        if (content->server_raw_public_key_certificates) {
+            CFRelease(content->server_raw_public_key_certificates);
+            content->server_raw_public_key_certificates = NULL;
+        }
+
+        CFMutableArrayRef certificates_copy = CFArrayCreateMutable(kCFAllocatorDefault, CFArrayGetCount(certificates), &kCFTypeArrayCallBacks);
+        if (!certificates_copy) {
+            return false;
+        }
+        for (CFIndex i = 0; i < CFArrayGetCount(certificates); i++) {
+            CFArrayAppendValue(certificates_copy, CFArrayGetValueAtIndex(certificates, i));
+        }
+        content->server_raw_public_key_certificates = certificates_copy;
+
+        return true;
+    });
+}
+
+void
+sec_protocol_options_add_server_raw_public_key_certificate(sec_protocol_options_t options,
+                                                           uint8_t *data, size_t len)
+{
+    CFMutableArrayRef certificates = CFArrayCreateMutable(kCFAllocatorDefault, 1, &kCFTypeArrayCallBacks);
+    if (!certificates) {
+        return;
+    }
+    CFDataRef certificate = CFDataCreate(kCFAllocatorDefault, data, len);
+    if (!certificate) {
+        CFRelease(certificates);
+        return;
+    }
+    CFArrayAppendValue(certificates, certificate);
+    CFRelease(certificate);
+
+    sec_protocol_options_set_server_raw_public_key_certificates(options, certificates);
+    CFRelease(certificates);
+}
+
+void
+sec_protocol_options_set_client_raw_public_key_certificates(sec_protocol_options_t options, CFArrayRef certificates)
+{
+    SEC_PROTOCOL_OPTIONS_VALIDATE(options, );
+    SEC_PROTOCOL_OPTIONS_VALIDATE(certificates, );
+
+    (void)sec_protocol_options_access_handle(options, ^bool(void *handle) {
+        sec_protocol_options_content_t content = (sec_protocol_options_content_t)handle;
+        SEC_PROTOCOL_OPTIONS_VALIDATE(content, false);
+
+        if (content->client_raw_public_key_certificates) {
+            CFRelease(content->client_raw_public_key_certificates);
+            content->client_raw_public_key_certificates = NULL;
+        }
+
+        CFMutableArrayRef certificates_copy = CFArrayCreateMutable(kCFAllocatorDefault, CFArrayGetCount(certificates), &kCFTypeArrayCallBacks);
+        if (!certificates_copy) {
+            return false;
+        }
+        for (CFIndex i = 0; i < CFArrayGetCount(certificates); i++) {
+            CFArrayAppendValue(certificates_copy, CFArrayGetValueAtIndex(certificates, i));
+        }
+        content->client_raw_public_key_certificates = certificates_copy;
+
         return true;
     });
 }

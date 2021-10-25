@@ -17,6 +17,7 @@
 #include "unicode/ustring.h"
 #include "unicode/parsepos.h"
 #include "unicode/uniset.h"
+#include "unicode/uscript.h"
 #include "unicode/usetiter.h"
 #include "unicode/utf16.h"
 #include "ustr_imp.h"
@@ -91,6 +92,8 @@ static const char VAR_DELIM = '_';
 // Tag for localized display names (symbols) of currencies
 static const char CURRENCIES[] = "Currencies";
 static const char CURRENCIES_NARROW[] = "Currencies%narrow";
+static const char CURRENCIES_FORMAL[] = "Currencies%formal";
+static const char CURRENCIES_VARIANT[] = "Currencies%variant";
 static const char CURRENCYPLURALS[] = "CurrencyPlurals";
 
 // ISO codes mapping table
@@ -649,7 +652,7 @@ ucurr_getName(const UChar* currency,
     }
 
     int32_t choice = (int32_t) nameStyle;
-    if (choice < 0 || choice > 2) {
+    if (choice < 0 || choice > 4) {
         *ec = U_ILLEGAL_ARGUMENT_ERROR;
         return 0;
     }
@@ -681,15 +684,57 @@ ucurr_getName(const UChar* currency,
     T_CString_toUpperCase(buf);
     
     const UChar* s = NULL;
+    UChar32 s0 = 0;
     ec2 = U_ZERO_ERROR;
-    LocalUResourceBundlePointer rb(ures_open(U_ICUDATA_CURR, loc, &ec2));
-
-    if (nameStyle == UCURR_NARROW_SYMBOL_NAME) {
+    UBool didFallBackByCountry = false;
+    LocalUResourceBundlePointer languageRB(ures_open(U_ICUDATA_CURR, loc, &ec2));
+    LocalUResourceBundlePointer countryRB(ures_openWithCountryFallback(U_ICUDATA_CURR, loc, &didFallBackByCountry, &ec2));
+    UScriptCode languageLocaleScript = USCRIPT_COMMON;
+    if (didFallBackByCountry) {
+        uscript_getCode(loc, &languageLocaleScript, 1, &ec2);
+        if (U_FAILURE(ec2)) {
+            languageLocaleScript = USCRIPT_COMMON;
+        }
+    }
+    
+    if (nameStyle == UCURR_NARROW_SYMBOL_NAME || nameStyle == UCURR_FORMAL_SYMBOL_NAME || nameStyle == UCURR_VARIANT_SYMBOL_NAME) {
         CharString key;
-        key.append(CURRENCIES_NARROW, ec2);
+        switch (nameStyle) {
+        case UCURR_NARROW_SYMBOL_NAME:
+            key.append(CURRENCIES_NARROW, ec2);
+            break;
+        case UCURR_FORMAL_SYMBOL_NAME:
+            key.append(CURRENCIES_FORMAL, ec2);
+            break;
+        case UCURR_VARIANT_SYMBOL_NAME:
+            key.append(CURRENCIES_VARIANT, ec2);
+            break;
+        default:
+            *ec = U_UNSUPPORTED_ERROR;
+            return 0;
+        }
         key.append("/", ec2);
         key.append(buf, ec2);
-        s = ures_getStringByKeyWithFallback(rb.getAlias(), key.data(), len, &ec2);
+        if (didFallBackByCountry) {
+            s = ures_getStringByKeyWithFallback(countryRB.getAlias(), key.data(), len, &ec2);
+            if (U_SUCCESS(ec2)) {
+                U16_GET(s, 0, 0, u_strlen(s), s0);
+                UScriptCode scr = uscript_getScript(s0, &ec2);
+                if (U_FAILURE(ec2) || (u_isalpha(s0) && scr != USCRIPT_LATIN && scr != languageLocaleScript)) {
+                    // if the currency symbol we got back is in a different script from the one used by the requested
+                    // locale's language (and isn't a symbol or a Latin letter), don't fall back by country
+                    s = NULL;
+                }
+            }
+        }
+        if (ec2 == U_MISSING_RESOURCE_ERROR || s == NULL) {
+            // if we didn't find the name in the country resource and it's different from the language resource,
+            // try the language resource
+            if (U_FAILURE(ec2)) {
+                ec2 = U_ZERO_ERROR;
+            }
+            s = ures_getStringByKeyWithFallback(languageRB.getAlias(), key.data(), len, &ec2);
+        }
         if (ec2 == U_MISSING_RESOURCE_ERROR) {
             *ec = U_USING_FALLBACK_WARNING;
             ec2 = U_ZERO_ERROR;
@@ -697,10 +742,33 @@ ucurr_getName(const UChar* currency,
         }
     }
     if (s == NULL) {
-        ures_getByKey(rb.getAlias(), CURRENCIES, rb.getAlias(), &ec2);
-        ures_getByKeyWithFallback(rb.getAlias(), buf, rb.getAlias(), &ec2);
-        s = ures_getStringByIndex(rb.getAlias(), choice, len, &ec2);
-    }
+        if (choice != UCURR_LONG_NAME && didFallBackByCountry) {
+            // if we're looking up a symbol (not a long name), look in the country resource first
+            ures_getByKey(countryRB.getAlias(), CURRENCIES, countryRB.getAlias(), &ec2);
+            ures_getByKeyWithFallback(countryRB.getAlias(), buf, countryRB.getAlias(), &ec2);
+            s = ures_getStringByIndex(countryRB.getAlias(), choice, len, &ec2);
+            if (U_SUCCESS(ec2)) {
+                U16_GET(s, 0, 0, u_strlen(s), s0);
+                UScriptCode scr = uscript_getScript(s0, &ec2);
+                if (U_FAILURE(ec2) || (u_isalpha(s0) && scr != USCRIPT_LATIN && scr != languageLocaleScript)) {
+                    // if the currency symbol we got back is in a different script from the one used by the requested
+                    // locale's language (and isn't a symbol or a Latin letter), don't fall back by country
+                    s = NULL;
+                }
+            }
+       }
+
+        // if we're looking for a long name, or we looked for the symbol and the country resource and got back
+        // the ISO code, try again in the language resource
+        if (s == NULL || u_strcmp(s, currency) == 0) {
+            if (U_FAILURE(ec2)) {
+                ec2 = U_ZERO_ERROR;
+            }
+            ures_getByKey(languageRB.getAlias(), CURRENCIES, languageRB.getAlias(), &ec2);
+            ures_getByKeyWithFallback(languageRB.getAlias(), buf, languageRB.getAlias(), &ec2);
+            s = ures_getStringByIndex(languageRB.getAlias(), choice, len, &ec2);
+        }
+        }
 
     // If we've succeeded we're done.  Otherwise, try to fallback.
     // If that fails (because we are already at root) then exit.
@@ -866,7 +934,7 @@ getCurrencyNameCount(const char* loc, int32_t* total_currency_name_count, int32_
     *total_currency_name_count = 0;
     *total_currency_symbol_count = 0;
     const UChar* s = NULL;
-    char locale[ULOC_FULLNAME_CAPACITY];
+    char locale[ULOC_FULLNAME_CAPACITY] = "";
     uprv_strcpy(locale, loc);
     const icu::Hashtable *currencySymbolsEquiv = getCurrSymbolsEquiv();
     for (;;) {
@@ -941,7 +1009,7 @@ collectCurrencyNames(const char* locale,
     // Look up the Currencies resource for the given locale.
     UErrorCode ec2 = U_ZERO_ERROR;
 
-    char loc[ULOC_FULLNAME_CAPACITY];
+    char loc[ULOC_FULLNAME_CAPACITY] = "";
     uloc_getName(locale, loc, sizeof(loc), &ec2);
     if (U_FAILURE(ec2) || ec2 == U_STRING_NOT_TERMINATED_WARNING) {
         ec = U_ILLEGAL_ARGUMENT_ERROR;
@@ -1610,7 +1678,7 @@ ucurr_getDefaultFractionDigits(const UChar* currency, UErrorCode* ec) {
     return ucurr_getDefaultFractionDigitsForUsage(currency,UCURR_USAGE_STANDARD,ec);
 }
 
-U_DRAFT int32_t U_EXPORT2
+U_CAPI int32_t U_EXPORT2
 ucurr_getDefaultFractionDigitsForUsage(const UChar* currency, const UCurrencyUsage usage, UErrorCode* ec) {
     int32_t fracDigits = 0;
     if (U_SUCCESS(*ec)) {
@@ -1633,7 +1701,7 @@ ucurr_getRoundingIncrement(const UChar* currency, UErrorCode* ec) {
     return ucurr_getRoundingIncrementForUsage(currency, UCURR_USAGE_STANDARD, ec);
 }
 
-U_DRAFT double U_EXPORT2
+U_CAPI double U_EXPORT2
 ucurr_getRoundingIncrementForUsage(const UChar* currency, const UCurrencyUsage usage, UErrorCode* ec) {
     double result = 0.0;
 
@@ -1948,6 +2016,7 @@ static const struct CurrencyList {
     {"UYI", UCURR_UNCOMMON|UCURR_NON_DEPRECATED},
     {"UYP", UCURR_COMMON|UCURR_DEPRECATED},
     {"UYU", UCURR_COMMON|UCURR_NON_DEPRECATED},
+    {"UYW", UCURR_UNCOMMON|UCURR_NON_DEPRECATED},
     {"UZS", UCURR_COMMON|UCURR_NON_DEPRECATED},
     {"VEB", UCURR_COMMON|UCURR_DEPRECATED},
     {"VEF", UCURR_COMMON|UCURR_NON_DEPRECATED},
@@ -2259,7 +2328,6 @@ ucurr_countCurrencies(const char* locale,
         // local variables
         UErrorCode localStatus = U_ZERO_ERROR;
         char id[ULOC_FULLNAME_CAPACITY];
-        uloc_getKeywordValue(locale, "currency", id, ULOC_FULLNAME_CAPACITY, &localStatus);
 
         // get country or country_variant in `id'
         idForLocale(locale, id, sizeof(id), ec);
@@ -2375,7 +2443,6 @@ ucurr_forLocaleAndDate(const char* locale,
             // local variables
             UErrorCode localStatus = U_ZERO_ERROR;
             char id[ULOC_FULLNAME_CAPACITY];
-            resLen = uloc_getKeywordValue(locale, "currency", id, ULOC_FULLNAME_CAPACITY, &localStatus);
 
             // get country or country_variant in `id'
             idForLocale(locale, id, sizeof(id), ec);

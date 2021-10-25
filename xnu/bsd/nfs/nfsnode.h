@@ -444,9 +444,10 @@ struct nfs_open_owner {
 	os_refcnt_t                     noo_refcnt;     /* # outstanding references */
 	uint32_t                        noo_flags;      /* see below */
 	kauth_cred_t                    noo_cred;       /* credentials of open owner */
+	pid_t                           noo_pid;        /* process pid of this owner */
 	uint32_t                        noo_name;       /* unique name used otw */
 	uint32_t                        noo_seqid;      /* client-side sequence ID */
-	TAILQ_HEAD(, nfs_open_file)      noo_opens;      /* list of open files */
+	TAILQ_HEAD(, nfs_open_file)     noo_opens;      /* list of open files */
 };
 /* noo_flags */
 #define NFS_OPEN_OWNER_LINK     0x1     /* linked into mount's open owner list */
@@ -540,6 +541,10 @@ TAILQ_HEAD(nfs_file_lock_queue, nfs_file_lock);
 #define NFS_FLOCK_LENGTH(S, E)  (((E) == UINT64_MAX) ? 0 : ((E) - (S) + 1))
 #define NFS_LOCK_LENGTH(S, E)   (((E) == UINT64_MAX) ? UINT64_MAX : ((E) - (S) + 1))
 
+/* nfs_lock_owner_find flags */
+#define NFS_LOCK_OWNER_FIND_ALLOC               0x01
+#define NFS_LOCK_OWNER_FIND_DEQUEUE             0x02
+
 /*
  * NFSv4 lock owner structure - per open owner per process per nfsnode
  *
@@ -557,6 +562,7 @@ struct nfs_lock_owner {
 	struct nfs_file_lock_queue      nlo_locks;      /* list of locks held */
 	struct nfs_file_lock            nlo_alock;      /* most lockers will only ever have one */
 	struct timeval                  nlo_pid_start;  /* Start time of process id */
+	caddr_t                         nlo_lockid;     /* lock identifier received by VNOP_ADVLOCK */
 	pid_t                           nlo_pid;        /* lock-owning process ID */
 	os_refcnt_t                     nlo_refcnt;     /* # outstanding references */
 	uint32_t                        nlo_flags;      /* see below */

@@ -2,7 +2,7 @@
 
   io.c -
 
-  $Author: naruse $
+  $Author: nagachika $
   created at: Fri Oct 15 18:08:59 JST 1993
 
   Copyright (C) 1993-2007 Yukihiro Matsumoto
@@ -4261,6 +4261,8 @@ VALUE
 rb_io_ungetbyte(VALUE io, VALUE b)
 {
     rb_io_t *fptr;
+    VALUE v;
+    unsigned char c;
 
     GetOpenFile(io, fptr);
     rb_io_check_byte_readable(fptr);
@@ -4269,8 +4271,8 @@ rb_io_ungetbyte(VALUE io, VALUE b)
         return Qnil;
       case T_FIXNUM:
       case T_BIGNUM: ;
-        VALUE v = rb_int_modulo(b, INT2FIX(256));
-        unsigned char c = NUM2INT(v) & 0xFF;
+        v = rb_int_modulo(b, INT2FIX(256));
+        c = NUM2INT(v) & 0xFF;
         b = rb_str_new((const char *)&c, 1);
         break;
       default:
@@ -6129,12 +6131,9 @@ io_strip_bom(VALUE io)
 		    return ENCINDEX_UTF_32LE;
 		}
 		rb_io_ungetbyte(io, b4);
-		rb_io_ungetbyte(io, b3);
 	    }
-	    else {
-		rb_io_ungetbyte(io, b3);
-		return ENCINDEX_UTF_16LE;
-	    }
+            rb_io_ungetbyte(io, b3);
+            return ENCINDEX_UTF_16LE;
 	}
 	rb_io_ungetbyte(io, b2);
 	break;
@@ -9014,6 +9013,7 @@ rb_f_backquote(VALUE obj, VALUE str)
     GetOpenFile(port, fptr);
     result = read_all(fptr, remain_size(fptr), Qnil);
     rb_io_close(port);
+    RFILE(port)->fptr = NULL;
     rb_io_fptr_finalize(fptr);
     rb_gc_force_recycle(port); /* also guards from premature GC */
 
@@ -12312,11 +12312,19 @@ argf_block_call_line(ID mid, int argc, VALUE *argv, VALUE argf)
  *  a single file consisting of the concatenation of each named file. After
  *  the last line of the first file has been returned, the first line of the
  *  second file is returned. The +ARGF.filename+ and +ARGF.lineno+ methods can
- *  be used to determine the filename and line number, respectively, of the
- *  current line.
+ *  be used to determine the filename of the current line and line number of
+ *  the whole input, respectively.
  *
  *  For example, the following code prints out each line of each named file
  *  prefixed with its line number, displaying the filename once per file:
+ *
+ *     ARGF.each_line do |line|
+ *       puts ARGF.filename if ARGF.file.lineno == 1
+ *       puts "#{ARGF.file.lineno}: #{line}"
+ *     end
+ *
+ *  While the following code prints only the first file's name at first, and
+ *  the contents with line number counted through all named files.
  *
  *     ARGF.each_line do |line|
  *       puts ARGF.filename if ARGF.lineno == 1

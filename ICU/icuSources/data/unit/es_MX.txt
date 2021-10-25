@@ -1,20 +1,19 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
-// License & terms of use: http://www.unicode.org/copyright.html#License
+// License & terms of use: http://www.unicode.org/copyright.html
+// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
 es_MX{
     %%Parent{"es_419"}
-    Version{"36.1"}
     units{
         concentr{
             milligram-per-deciliter{
-                one{"{0} mg/dL"}
-                other{"{0} mg/dL"}
+                dnam{"miligramos por decilitro"}
             }
-            millimole-per-liter{
-                dnam{"mmol/L"}
-            }
-            part-per-million{
-                dnam{"ppm"}
-            }
+        }
+        coordinate{
+            east{"{0} este"}
+            north{"{0} norte"}
+            south{"{0} sur"}
+            west{"{0} oeste"}
         }
         electric{
             ohm{
@@ -31,11 +30,6 @@ es_MX{
             }
         }
         length{
-            micrometer{
-                dnam{"micrometros"}
-                one{"{0} micrometro"}
-                other{"{0} micrometros"}
-            }
             mile-scandinavian{
                 dnam{"millas escandinavas"}
             }
@@ -68,11 +62,6 @@ es_MX{
                 other{"{0} kelvines"}
             }
         }
-        torque{
-            newton-meter{
-                dnam{"newton metros"}
-            }
-        }
         volume{
             acre-foot{
                 one{"{0} acre-pie"}
@@ -86,6 +75,13 @@ es_MX{
         }
     }
     unitsNarrow{
+        concentr{
+            percent{
+                dnam{"%"}
+                one{"{0}%"}
+                other{"{0}%"}
+            }
+        }
         duration{
             day{
                 dnam{"días"}
@@ -93,7 +89,6 @@ es_MX{
                 other{"{0}d"}
             }
             month{
-                dnam{"m"}
                 one{"{0}m"}
                 other{"{0}m"}
             }
@@ -122,9 +117,6 @@ es_MX{
             }
         }
         angle{
-            arc-second{
-                dnam{"arcseg"}
-            }
             degree{
                 dnam{"º"}
             }
@@ -137,6 +129,8 @@ es_MX{
             }
             percent{
                 dnam{"%"}
+                one{"{0}%"}
+                other{"{0}%"}
             }
             permille{
                 dnam{"‰"}
@@ -172,9 +166,11 @@ es_MX{
                 per{"{0}/a"}
             }
         }
-        electric{
-            volt{
-                dnam{"V"}
+        graphics{
+            dot{
+                dnam{"pto"}
+                one{"{0} pto"}
+                other{"{0} ptos"}
             }
         }
         length{
@@ -190,8 +186,6 @@ es_MX{
             }
             mile{
                 dnam{"millas"}
-                one{"{0} mi"}
-                other{"{0} mi"}
             }
             nautical-mile{
                 dnam{"M"}
@@ -227,13 +221,12 @@ es_MX{
         speed{
             kilometer-per-hour{
                 dnam{"km/hora"}
-                one{"{0} km/h"}
-                other{"{0} km/h"}
             }
         }
         temperature{
             celsius{
                 one{"{0} °C"}
+                other{"{0} °C"}
             }
         }
         torque{

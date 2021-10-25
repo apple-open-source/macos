@@ -29,12 +29,14 @@
 #import "keychain/ot/OTManager.h"
 #import "keychain/ot/OTRamping.h"
 #import "keychain/ot/OTFollowup.h"
-#import "keychain/ot/OTControlProtocol.h"
+#import <Security/OTControlProtocol.h>
 #import "keychain/ot/OTSOSAdapter.h"
 #import "keychain/ot/OTAuthKitAdapter.h"
+#import "keychain/ot/OTPersonaAdapter.h"
+#import "keychain/ot/OTTooManyPeersAdapter.h"
 #import "keychain/ot/OTDeviceInformationAdapter.h"
 #import "keychain/ot/OTCuttlefishAccountStateHolder.h"
-#import "keychain/escrowrequest/Framework/SecEscrowRequest.h"
+#import <Security/SecEscrowRequest.h>
 #import "keychain/ckks/CKKSAccountStateTracker.h"
 #import "keychain/ckks/CKKSLockStateTracker.h"
 #import "keychain/ckks/CKKSReachabilityTracker.h"
@@ -64,9 +66,12 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (instancetype)initWithSOSAdapter:(id<OTSOSAdapter>)sosAdapter
                     authKitAdapter:(id<OTAuthKitAdapter>)authKitAdapter
+               tooManyPeersAdapter:(id<OTTooManyPeersAdapter>)tooManyPeersAdapter
           deviceInformationAdapter:(id<OTDeviceInformationAdapter>)deviceInformationAdapter
+                    personaAdapter:(id<OTPersonaAdapter>)personaAdapter
                 apsConnectionClass:(Class<OctagonAPSConnection>)apsConnectionClass
                 escrowRequestClass:(Class<SecEscrowRequestable>)escrowRequestClass
+                     notifierClass:(Class<CKKSNotifier>)notifierClass
                        loggerClass:(Class<SFAnalyticsProtocol>)loggerClass
                   lockStateTracker:(CKKSLockStateTracker*)lockStateTracker
                reachabilityTracker:(CKKSReachabilityTracker*)reachabilityTracker
@@ -90,6 +95,7 @@ NS_ASSUME_NONNULL_BEGIN
                                       contextID:(NSString*)contextID
                                      sosAdapter:(id<OTSOSAdapter>)sosAdapter
                                  authKitAdapter:(id<OTAuthKitAdapter>)authKitAdapter
+                            tooManyPeersAdapter:(id<OTTooManyPeersAdapter>)tooManyPeersAdapter
                                lockStateTracker:(CKKSLockStateTracker*)lockStateTracker
                             accountStateTracker:(id<CKKSCloudKitAccountStateTrackingProvider>)accountStateTracker
                        deviceInformationAdapter:(id<OTDeviceInformationAdapter>)deviceInformationAdapter;
@@ -125,6 +131,56 @@ NS_ASSUME_NONNULL_BEGIN
                 recoveryKey:(NSString*)recoveryKey
                       reply:(void (^)(NSError * _Nullable))reply;
 
+- (void)createCustodianRecoveryKey:(NSString* _Nullable)containerName
+                         contextID:(NSString *)contextID
+                              uuid:(NSUUID *_Nullable)uuid
+                             reply:(void (^)(OTCustodianRecoveryKey *_Nullable crk, NSError *_Nullable error))reply;
+
+- (void)joinWithCustodianRecoveryKey:(NSString* _Nullable)containerName
+                           contextID:(NSString *)contextID
+                custodianRecoveryKey:(OTCustodianRecoveryKey *)crk
+                               reply:(void (^)(NSError *_Nullable))reply;
+
+- (void)preflightJoinWithCustodianRecoveryKey:(NSString* _Nullable)containerName
+                                    contextID:(NSString *)contextID
+                         custodianRecoveryKey:(OTCustodianRecoveryKey *)crk
+                                        reply:(void (^)(NSError *_Nullable))reply;
+
+- (void)removeCustodianRecoveryKey:(NSString* _Nullable)containerName
+                         contextID:(NSString *)contextID
+                              uuid:(NSUUID *)uuid
+                             reply:(void (^)(NSError *_Nullable error))reply;
+
+- (void)createInheritanceKey:(NSString* _Nullable)containerName
+                   contextID:(NSString *)contextID
+                        uuid:(NSUUID *_Nullable)uuid
+                       reply:(void (^)(OTInheritanceKey *_Nullable crk, NSError *_Nullable error))reply;
+
+- (void)generateInheritanceKey:(NSString* _Nullable)containerName
+                   contextID:(NSString *)contextID
+                        uuid:(NSUUID *_Nullable)uuid
+                       reply:(void (^)(OTInheritanceKey *_Nullable crk, NSError *_Nullable error))reply;
+
+- (void)storeInheritanceKey:(NSString* _Nullable)containerName
+                  contextID:(NSString *)contextID
+                         ik:(OTInheritanceKey *)ik
+                      reply:(void (^)(NSError *_Nullable error)) reply;
+
+- (void)joinWithInheritanceKey:(NSString* _Nullable)containerName
+                     contextID:(NSString *)contextID
+                inheritanceKey:(OTInheritanceKey *)ik
+                         reply:(void (^)(NSError *_Nullable))reply;
+
+- (void)preflightJoinWithInheritanceKey:(NSString* _Nullable)containerName
+                              contextID:(NSString *)contextID
+                         inheritanceKey:(OTInheritanceKey *)ik
+                                  reply:(void (^)(NSError *_Nullable))reply;
+
+- (void)removeInheritanceKey:(NSString* _Nullable)containerName
+                   contextID:(NSString *)contextID
+                        uuid:(NSUUID *)uuid
+                       reply:(void (^)(NSError *_Nullable error))reply;
+
 - (void)allContextsHalt;
 - (void)allContextsDisablePendingFlags;
 - (bool)allContextsPause:(uint64_t)within;
@@ -140,6 +196,11 @@ NS_ASSUME_NONNULL_BEGIN
                 containerName:(NSString* _Nullable)containerName
                   contextName:(NSString *)contextName
                         reply:(void (^)(NSError *error))reply;
+
+- (void)fetchAccountSettings:(NSString * _Nullable)containerName
+                   contextID:(NSString *)contextID
+                       reply:(void (^)(OTAccountSettings* _Nullable setting, NSError * _Nullable error))reply;
+
 @end
 
 @interface OTManager (Testing)
@@ -151,6 +212,7 @@ NS_ASSUME_NONNULL_BEGIN
 // This should only be used for the CKKS tests
 - (instancetype)initWithSOSAdapter:(id<OTSOSAdapter>)sosAdapter
                   lockStateTracker:(CKKSLockStateTracker*)lockStateTracker
+                    personaAdapter:(id<OTPersonaAdapter>)personaAdapter
          cloudKitClassDependencies:(CKKSCloudKitClassDependencies*)cloudKitClassDependencies;
 
 - (void)invalidateEscrowCache:(NSString * _Nullable)containerName

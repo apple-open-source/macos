@@ -16,27 +16,35 @@ EXTERN char e_undefined_variable_str[]
 EXTERN char e_undefined_variable_char_str[]
 	INIT(= N_("E121: Undefined variable: %c:%s"));
 #endif
+EXTERN char e_ambiguous_use_of_user_defined_command[]
+	INIT(= N_("E464: Ambiguous use of user-defined command"));
 EXTERN char e_invalid_command[]
 	INIT(= N_("E476: Invalid command"));
 #ifdef FEAT_EVAL
 EXTERN char e_invalid_command_str[]
 	INIT(= N_("E476: Invalid command: %s"));
+EXTERN char e_list_value_has_more_items_than_targets[]
+	INIT(= N_("E710: List value has more items than targets"));
+EXTERN char e_list_value_does_not_have_enough_items[]
+	INIT(= N_("E711: List value does not have enough items"));
 EXTERN char e_cannot_slice_dictionary[]
 	INIT(= N_("E719: Cannot slice a Dictionary"));
 EXTERN char e_assert_fails_second_arg[]
 	INIT(= N_("E856: \"assert_fails()\" second argument must be a string or a list with one or two strings"));
 EXTERN char e_cannot_index_special_variable[]
 	INIT(= N_("E909: Cannot index a special variable"));
-EXTERN char e_missing_var_str[]
-	INIT(= N_("E1100: Missing :var: %s"));
+#endif
+EXTERN char e_command_not_supported_in_vim9_script_missing_var_str[]
+	INIT(= N_("E1100: Command not supported in Vim9 script (missing :var?): %s"));
+#ifdef FEAT_EVAL
 EXTERN char e_variable_not_found_str[]
 	INIT(= N_("E1001: Variable not found: %s"));
 EXTERN char e_syntax_error_at_str[]
 	INIT(= N_("E1002: Syntax error at %s"));
 EXTERN char e_missing_return_value[]
 	INIT(= N_("E1003: Missing return value"));
-EXTERN char e_white_space_required_before_and_after_str[]
-	INIT(= N_("E1004: White space required before and after '%s'"));
+EXTERN char e_white_space_required_before_and_after_str_at_str[]
+	INIT(= N_("E1004: White space required before and after '%s' at \"%s\""));
 EXTERN char e_too_many_argument_types[]
 	INIT(= N_("E1005: Too many argument types"));
 EXTERN char e_str_is_used_as_argument[]
@@ -57,7 +65,7 @@ EXTERN char e_argument_nr_type_mismatch_expected_str_but_got_str[]
 	INIT(= N_("E1013: Argument %d: type mismatch, expected %s but got %s"));
 EXTERN char e_invalid_key_str[]
 	INIT(= N_("E1014: Invalid key: %s"));
-EXTERN char e_name_expected[]
+EXTERN char e_name_expected_str[]
 	INIT(= N_("E1015: Name expected: %s"));
 EXTERN char e_cannot_declare_a_scope_variable[]
 	INIT(= N_("E1016: Cannot declare a %s variable: %s"));
@@ -76,7 +84,7 @@ EXTERN char e_const_requires_a_value[]
 EXTERN char e_type_or_initialization_required[]
 	INIT(= N_("E1022: Type or initialization required"));
 EXTERN char e_using_number_as_bool_nr[]
-	INIT(= N_("E1023: Using a Number as a Bool: %d"));
+	INIT(= N_("E1023: Using a Number as a Bool: %lld"));
 EXTERN char e_using_number_as_string[]
 	INIT(= N_("E1024: Using a Number as a String"));
 EXTERN char e_using_rcurly_outside_if_block_scope[]
@@ -109,8 +117,10 @@ EXTERN char e_vim9script_can_only_be_used_in_script[]
 	INIT(= N_("E1038: \"vim9script\" can only be used in a script"));
 EXTERN char e_vim9script_must_be_first_command_in_script[]
 	INIT(= N_("E1039: \"vim9script\" must be the first command in a script"));
+#endif
 EXTERN char e_cannot_use_scriptversion_after_vim9script[]
 	INIT(= N_("E1040: Cannot use :scriptversion after :vim9script"));
+#ifdef FEAT_EVAL
 EXTERN char e_redefining_script_item_str[]
 	INIT(= N_("E1041: Redefining script item %s"));
 EXTERN char e_export_can_only_be_used_in_vim9script[]
@@ -129,15 +139,15 @@ EXTERN char e_item_not_found_in_script_str[]
 	INIT(= N_("E1048: Item not found in script: %s"));
 EXTERN char e_item_not_exported_in_script_str[]
 	INIT(= N_("E1049: Item not exported in script: %s"));
-EXTERN char e_colon_required_before_a_range[]
-	INIT(= N_("E1050: Colon required before a range"));
+EXTERN char e_colon_required_before_range_str[]
+	INIT(= N_("E1050: Colon required before a range: %s"));
 EXTERN char e_wrong_argument_type_for_plus[]
 	INIT(= N_("E1051: Wrong argument type for +"));
 EXTERN char e_cannot_declare_an_option[]
 	INIT(= N_("E1052: Cannot declare an option: %s"));
 EXTERN char e_could_not_import_str[]
 	INIT(= N_("E1053: Could not import \"%s\""));
-EXTERN char e_variable_already_declared_in_script[]
+EXTERN char e_variable_already_declared_in_script_str[]
 	INIT(= N_("E1054: Variable already declared in the script: %s"));
 EXTERN char e_missing_name_after_dots[]
 	INIT(= N_("E1055: Missing name after ..."));
@@ -163,10 +173,10 @@ EXTERN char e_cannot_declare_a_register_str[]
 	INIT(= N_("E1066: Cannot declare a register: %s"));
 EXTERN char e_separator_mismatch_str[]
 	INIT(= N_("E1067: Separator mismatch: %s"));
-EXTERN char e_no_white_space_allowed_before_str[]
-	INIT(= N_("E1068: No white space allowed before '%s'"));
-EXTERN char e_white_space_required_after_str[]
-	INIT(= N_("E1069: White space required after '%s'"));
+EXTERN char e_no_white_space_allowed_before_str_str[]
+	INIT(= N_("E1068: No white space allowed before '%s': %s"));
+EXTERN char e_white_space_required_after_str_str[]
+	INIT(= N_("E1069: White space required after '%s': %s"));
 EXTERN char e_missing_from[]
 	INIT(= N_("E1070: Missing \"from\""));
 EXTERN char e_invalid_string_after_from[]
@@ -305,3 +315,79 @@ EXTERN char e_using_bool_as_number[]
 	INIT(= N_("E1138: Using a Bool as a Number"));
 EXTERN char e_missing_matching_bracket_after_dict_key[]
 	INIT(= N_("E1139: Missing matching bracket after dict key"));
+EXTERN char e_for_argument_must_be_sequence_of_lists[]
+	INIT(= N_("E1140: For argument must be a sequence of lists"));
+EXTERN char e_indexable_type_required[]
+	INIT(= N_("E1141: Indexable type required"));
+EXTERN char e_non_empty_string_required[]
+	INIT(= N_("E1142: Non-empty string required"));
+EXTERN char e_empty_expression_str[]
+	INIT(= N_("E1143: Empty expression: \"%s\""));
+EXTERN char e_command_not_followed_by_white_space_str[]
+	INIT(= N_("E1144: Command is not followed by white space: %s"));
+EXTERN char e_missing_heredoc_end_marker_str[]
+	INIT(= N_("E1145: Missing heredoc end marker: %s"));
+EXTERN char e_command_not_recognized_str[]
+	INIT(= N_("E1146: Command not recognized: %s"));
+EXTERN char e_list_not_set[]
+	INIT(= N_("E1147: List not set"));
+EXTERN char e_cannot_index_str[]
+	INIT(= N_("E1148: Cannot index a %s"));
+EXTERN char e_script_variable_invalid_after_reload_in_function_str[]
+	INIT(= N_("E1149: Script variable is invalid after reload in function %s"));
+EXTERN char e_script_variable_type_changed[]
+	INIT(= N_("E1150: Script variable type changed"));
+EXTERN char e_mismatched_endfunction[]
+	INIT(= N_("E1151: Mismatched endfunction"));
+EXTERN char e_mismatched_enddef[]
+	INIT(= N_("E1152: Mismatched enddef"));
+EXTERN char e_invalid_operation_for_bool[]
+	INIT(= N_("E1153: Invalid operation for bool"));
+EXTERN char e_divide_by_zero[]
+	INIT(= N_("E1154: Divide by zero"));
+EXTERN char e_cannot_define_autocommands_for_all_events[]
+	INIT(= N_("E1155: Cannot define autocommands for ALL events"));
+EXTERN char e_cannot_change_arglist_recursively[]
+	INIT(= N_("E1156: Cannot change the argument list recursively"));
+EXTERN char e_missing_return_type[]
+	INIT(= N_("E1157: Missing return type"));
+EXTERN char e_cannot_use_flatten_in_vim9_script[]
+	INIT(= N_("E1158: Cannot use flatten() in Vim9 script"));
+EXTERN char e_cannot_split_window_when_closing_buffer[]
+	INIT(= N_("E1159: Cannot split a window when closing the buffer"));
+EXTERN char e_cannot_use_default_for_variable_arguments[]
+	INIT(= N_("E1160: Cannot use a default for variable arguments"));
+EXTERN char e_cannot_json_encode_str[]
+	INIT(= N_("E1161: Cannot json encode a %s"));
+EXTERN char e_register_name_must_be_one_char_str[]
+	INIT(= N_("E1162: Register name must be one character: %s"));
+EXTERN char e_variable_nr_type_mismatch_expected_str_but_got_str[]
+	INIT(= N_("E1163: Variable %d: type mismatch, expected %s but got %s"));
+EXTERN char e_vim9cmd_must_be_followed_by_command[]
+	INIT(= N_("E1164: vim9cmd must be followed by a command"));
+EXTERN char e_cannot_use_range_with_assignment_str[]
+	INIT(= N_("E1165: Cannot use a range with an assignment: %s"));
+EXTERN char e_cannot_use_range_with_dictionary[]
+	INIT(= N_("E1166: Cannot use a range with a dictionary"));
+EXTERN char e_argument_name_shadows_existing_variable_str[]
+	INIT(= N_("E1167: Argument name shadows existing variable: %s"));
+EXTERN char e_argument_already_declared_in_script_str[]
+	INIT(= N_("E1168: Argument already declared in the script: %s"));
+EXTERN char e_import_as_name_not_supported_here[]
+	INIT(= N_("E1169: 'import * as {name}' not supported here"));
+EXTERN char e_cannot_use_hash_curly_to_start_comment[]
+	INIT(= N_("E1170: Cannot use #{ to start a comment"));
+EXTERN char e_missing_end_block[]
+	INIT(= N_("E1171: Missing } after inline function"));
+EXTERN char e_cannot_use_default_values_in_lambda[]
+	INIT(= N_("E1172: Cannot use default values in a lambda"));
+EXTERN char e_text_found_after_enddef_str[]
+	INIT(= N_("E1173: Text found after enddef: %s"));
+EXTERN char e_string_required_for_argument_nr[]
+	INIT(= N_("E1174: String required for argument %d"));
+EXTERN char e_non_empty_string_required_for_argument_nr[]
+	INIT(= N_("E1175: Non-empty string required for argument %d"));
+EXTERN char e_misplaced_command_modifier[]
+	INIT(= N_("E1176: Misplaced command modifier"));
+EXTERN char e_for_loop_on_str_not_supported[]
+	INIT(= N_("E1177: For loop on %s not supported"));

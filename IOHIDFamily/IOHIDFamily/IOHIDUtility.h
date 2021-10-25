@@ -73,6 +73,7 @@ struct Key {
         }
         return result;
     }
+    uint32_t modifierMask () const;
 
 };
 

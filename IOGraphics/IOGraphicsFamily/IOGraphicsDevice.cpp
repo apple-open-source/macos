@@ -26,8 +26,11 @@
 
 #include <IOKit/graphics/IOGraphicsDevice.h>
 
+#ifdef TARGET_CPU_X86_64
+
 #define super IOService
 
 OSDefineMetaClass( IOGraphicsDevice, IOService )
 OSDefineAbstractStructors( IOGraphicsDevice, IOService )
 
+#endif // TARGET_CPU_X86_64

@@ -35,7 +35,7 @@ MIGCC=`xcrun -sdk "$SDKROOT" -find cc`
 export MIGCC
 [ -n "$DRIVERKITROOT" ] && MIG_DRIVERKIT_DEFINES="-DDRIVERKIT"
 MIG_DEFINES="-DLIBSYSCALL_INTERFACE $MIG_DRIVERKIT_DEFINES"
-MIG_PRIVATE_DEFINES="-DPRIVATE -D_OPEN_SOURCE_ -D__OPEN_SOURCE__"
+MIG_PRIVATE_DEFINES="-DPRIVATE"
 MIG_HEADER_OBJ="$OBJROOT/mig_hdr/include/mach"
 MIG_HEADER_DST="$BUILT_PRODUCTS_DIR/mig_hdr/include/mach"
 MIG_PRIVATE_HEADER_DST="$BUILT_PRODUCTS_DIR/mig_hdr/local/include/mach"
@@ -66,6 +66,7 @@ if [ `whoami` = "root" ]; then
 	ASROOT="-o 0"
 fi
 
+# These are covered by ../../osfmk/mach/mach.modulemap.
 MIGS="clock.defs
 	clock_priv.defs
 	clock_reply.defs
@@ -84,15 +85,18 @@ MIGS="clock.defs
 	thread_act.defs
 	vm_map.defs"
 
+# These are covered by ../../osfmk/mach/mach_private.modulemap.
 MIGS_PRIVATE=""
 
 MIGS_DUAL_PUBLIC_PRIVATE=""
 
-if ( echo {iphone,tv,appletv,watch,bridge}{os,simulator} iphone{osnano,nanosimulator} | grep -wFq "$PLATFORM_NAME" )
+MIGS_PRIVATE_PLATFORMS="iphoneos iphonesimulator tvos tvsimulator appletvos appletvsimulator watchos watchsimulator bridgeos bridgesimulator iphoneosnano iphonenanosimulator"
+
+if ( echo $MIGS_PRIVATE_PLATFORMS | grep -wFq "${PLATFORM_NAME}" )
 then
 	MIGS_PRIVATE="mach_vm.defs"
 else
-	MIGS+=" mach_vm.defs"
+	MIGS="$MIGS mach_vm.defs"
 fi
 
 MIGS_INTERNAL="mach_port.defs
@@ -106,6 +110,7 @@ SERVER_HDRS="key_defs.h
 	netname_defs.h
 	nm_defs.h"
 
+# These are covered by ../../osfmk/mach/mach.modulemap.
 MACH_HDRS="mach.h
 	mach_error.h
 	mach_init.h
@@ -117,11 +122,12 @@ MACH_HDRS="mach.h
 	vm_page_size.h
 	thread_state.h"
 
+# These are covered by ../../osfmk/mach/mach_private.modulemap.
 MACH_PRIVATE_HDRS="port_descriptions.h
 	mach_right_private.h
 	mach_sync_ipc.h"
 
-MIG_FILTERS="watchos_prohibited_mig.txt tvos_prohibited_mig.txt"
+MIG_FILTER_TEMPLATE="add_attributes_to_mig.txt"
 
 # install /usr/include/server headers 
 mkdir -p $SERVER_HEADER_DST
@@ -152,10 +158,8 @@ mkdir -p $MIG_HEADER_OBJ
 for mig in $MIGS $MIGS_DUAL_PUBLIC_PRIVATE; do
 	MIG_NAME=`basename $mig .defs`
 	$MIG -novouchers -arch $MACHINE_ARCH -cc $MIGCC -header "$MIG_HEADER_OBJ/$MIG_NAME.h" $MIG_DEFINES $MIG_INCFLAGS $SRC/$mig
-	for filter in $MIG_FILTERS; do
-		$FILTER_MIG $SRC/$filter $MIG_HEADER_OBJ/$MIG_NAME.h > $MIG_HEADER_OBJ/$MIG_NAME.tmp.h
-		mv $MIG_HEADER_OBJ/$MIG_NAME.tmp.h $MIG_HEADER_OBJ/$MIG_NAME.h
-	done
+        $FILTER_MIG $SRC/$MIG_FILTER_TEMPLATE $MIG_HEADER_OBJ/$MIG_NAME.h > $MIG_HEADER_OBJ/$MIG_NAME.tmp.h
+        mv $MIG_HEADER_OBJ/$MIG_NAME.tmp.h $MIG_HEADER_OBJ/$MIG_NAME.h
 	install $ASROOT -c -m 444 $MIG_HEADER_OBJ/$MIG_NAME.h $MIG_HEADER_DST/$MIG_NAME.h
 done
 

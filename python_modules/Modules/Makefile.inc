@@ -8,6 +8,18 @@ NAMEVERSION := $(NAME)-$(VERSION)
 TARBALL := $(NAMEVERSION).tar.gz
 DIR := $(OBJROOT)/$(NAMEVERSION)
 
+INCLUDEPYTHONVERS = $(PYPREFIX)/Headers
+export PYFRAMEWORKNAME = $(shell echo $(PYPREFIX) | cut -d '/' -f5)
+export PYAPPNAME = $(shell echo '$(PYFRAMEWORKNAME)' | sed 's,\.framework,,')
+export PYEXECUTABLE = $(PYPREFIX)/Resources/Python.app/Contents/MacOS/$(PYAPPNAME)
+
+ifeq ($(TOPDIR),AppleInternal)
+export LIBRARYPREFIX = /AppleInternal/Library
+export __INTERNALSDKBUILD__ = YES
+else
+export LIBRARYPREFIX = /Library
+endif
+
 $(DIR):
 	gnutar xozf $(TARBALL) -C $(OBJROOT)
 
@@ -16,13 +28,17 @@ afterinstallsrc::
 
 install: realinstall postinstall
 
-realinstall: $(DIR) custompatching
+realinstall: $(DIR) patchall custompatching
 	cd $(DIR) && \
 	ARCHFLAGS="$(RC_CFLAGS) -iwithsysroot /usr/local/libressl/include -L$(SDKROOT)/usr/local/libressl/lib" \
 	python setup.py install --home="$(EXTRAS)" --root="$(DSTROOT)" $(SETUPARGS)
 
 # allow custom patching before running setup.py
 custompatching:
+
+# install custom patch on all modules before running setup.py
+patchall:
+	sed -e 's,@SDKROOT@,$(SDKROOT),g' -e 's,@INCLUDEPYTHONVERS@,$(INCLUDEPYTHONVERS),g' $(SRCROOT)/Modules/setup.cfg.patch >> $(DIR)/setup.cfg
 
 # allow post install customization
 postinstall:

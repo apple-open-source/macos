@@ -62,8 +62,10 @@
 
         self->_client.task                                   = CFRetainSafe(existingClient->task);
         self->_client.accessGroups                           = CFRetainSafe(existingClient->accessGroups);
+#if KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER
         self->_client.allowSystemKeychain                    = existingClient->allowSystemKeychain;
         self->_client.allowSyncBubbleKeychain                = existingClient->allowSyncBubbleKeychain;
+#endif
         self->_client.isNetworkExtension                     = existingClient->isNetworkExtension;
         self->_client.canAccessNetworkExtensionAccessGroups  = existingClient->canAccessNetworkExtensionAccessGroups;
         self->_client.uid                                    = existingClient->uid;
@@ -71,8 +73,11 @@
 #if (TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR) && TARGET_HAS_KEYSTORE
         self->_client.keybag                                 = existingClient->keybag;
 #endif
-#if TARGET_OS_IPHONE
+#if KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER
         self->_client.inMultiUser                            = existingClient->inMultiUser;
+#endif
+
+#if KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER
         self->_client.activeUser                             = existingClient->activeUser;
 #endif
         self->_client.applicationIdentifier                  = CFRetainSafe(existingClient->applicationIdentifier);

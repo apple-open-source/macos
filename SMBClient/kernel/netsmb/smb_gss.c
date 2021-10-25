@@ -384,7 +384,7 @@ retry:
             if (SMBV_SMB3_OR_LATER(sessionp)) {
                 iod->iod_mackeylen = keylen;
                 SMB_MALLOC(iod->iod_mackey, uint8_t *,
-                           iod->iod_mackeylen, M_SMBTEMP, M_WAITOK);
+                           iod->iod_mackeylen, M_SMBTEMP, M_WAITOK | M_ZERO);
 
                 error = gss_mach_vmcopyout((vm_map_copy_t) okey,
                                            iod->iod_mackeylen,
@@ -395,8 +395,15 @@ retry:
                     goto out;
                 }
 
+                /* [MS-SMB2] 3.2.1.3 Session.FullSessionKey */
+                iod->iod_full_mackeylen = iod->iod_mackeylen;
+                SMB_MALLOC(iod->iod_full_mackey, uint8_t *,
+                           iod->iod_full_mackeylen, M_SMBTEMP, M_WAITOK | M_ZERO);
+                memcpy(iod->iod_full_mackey, iod->iod_mackey,
+                       iod->iod_mackeylen);
+
                 /*
-                 * MS-SMB2 3.2.1.3 Per Session
+                 * [MS-SMB2] 3.2.1.3 Per Session
                  * "Session.SessionKey: the first 16 bytes of the cryptographic key
                  * for this authenticated context...."
                  *
@@ -415,9 +422,13 @@ retry:
              * Free any old key and reset the sequence number
              */
             smb_reset_sig(sessionp);
+            
+            /* [MS-SMB2] 3.2.1.3 Session.SessionKey */
             sessionp->session_mackeylen = keylen;
             SMB_MALLOC(sessionp->session_mackey, uint8_t *,
-                       sessionp->session_mackeylen, M_SMBTEMP, M_WAITOK);
+                       sessionp->session_mackeylen, M_SMBTEMP, M_WAITOK | M_ZERO);
+            
+            
             error = gss_mach_vmcopyout((vm_map_copy_t) okey,
                                        sessionp->session_mackeylen,
                                        sessionp->session_mackey);
@@ -426,8 +437,15 @@ retry:
                 goto out;
             }
             
+            /* [MS-SMB2] 3.2.1.3 Session.FullSessionKey */
+            sessionp->full_session_mackeylen = sessionp->session_mackeylen;
+            SMB_MALLOC(sessionp->full_session_mackey, uint8_t *,
+                       sessionp->full_session_mackeylen, M_SMBTEMP, M_WAITOK | M_ZERO);
+            memcpy(sessionp->full_session_mackey, sessionp->session_mackey,
+                   sessionp->session_mackeylen);
+
             /*
-             * MS-SMB2 3.2.1.3 Per Session
+             * [MS-SMB2] 3.2.1.3 Per Session
              * "Session.SessionKey: the first 16 bytes of the cryptographic key
              * for this authenticated context...."
              *
@@ -440,8 +458,13 @@ retry:
                 }
             }
 
-            SMBDEBUG("%s keylen = %d seqno = %d\n", sessionp->session_srvname, keylen, sessionp->session_seqno);
+            SMBDEBUG("%s SessionKeyLen = %d FullSessionKey %d seqno = %d\n",
+                     sessionp->session_srvname,
+                     sessionp->session_mackeylen,
+                     sessionp->full_session_mackeylen,
+                     sessionp->session_seqno);
             smb_hexdump(__FUNCTION__, "setting session_mackey = ", sessionp->session_mackey, sessionp->session_mackeylen);
+
             /*
              * Windows expects the sequence number to restart once we get a signing
              * key. They expect this to happen once the client creates a authorization
@@ -862,6 +885,27 @@ again:
             ((error = smb_gss_ssandx(iod, caps, &action, context))))
 			break;
 	} while (SMB_GSS_CONTINUE_NEEDED(&iod->iod_gss));
+
+    /*
+     * Is session encryption being forced on?
+     *
+     * [MS-SMB2] 3.3.4.1.4
+     * If Connection.Dialect belongs to the SMB 3.x dialect family and
+     * Connection.ClientCapabilities includes the SMB2_GLOBAL_CAP_ENCRYPTION
+     * bit, the server MUST encrypt the message before sending, if
+     * IsEncryptionSupported is TRUE and any of the following conditions are
+     * satisfied:
+     *     If the message being sent is any response to a client request for
+     *     which Request.IsEncrypted is TRUE.
+     */
+    if (sessionp->session_misc_flags & SMBV_FORCE_SESSION_ENCRYPT) {
+        /*
+         * If forcing session encryption, then pretend like the server told us
+         * they are using session encryption.
+         */
+        SMBWARNING("Session level encryption forced on \n ");
+        sessionp->session_sopt.sv_sessflags |= SMB2_SESSION_FLAG_ENCRYPT_DATA;
+    }
 
     /*
      * Windows 2016 Server wants GSSD_INTEG_FLAG flag set for their Guest

@@ -1491,7 +1491,7 @@ CssmClient::Key KeychainDatabase::keyFromCreds(const TypedList &sample, unsigned
 		CSSM_CC_HANDLE CCHandle = unwrap.handle();
 		/*CSSM_RETURN rx = */ CSSM_GetContext (CCHandle, (CSSM_CONTEXT_PTR *)&tmpContext);
 		
-		// OK, this is skanky but necessary. We overwrite fields in the context struct
+		// OK, this is a bit ugly but necessary. We overwrite fields in the context struct
 
 		tmpContext->ContextType = CSSM_ALGCLASS_ASYMMETRIC;
 		tmpContext->AlgorithmType = CSSM_ALGID_RSA;
@@ -1515,18 +1515,23 @@ CssmClient::Key KeychainDatabase::keyFromCreds(const TypedList &sample, unsigned
 
         // Fix up key to include actual data
         CssmData &flattenedKey = sample[3].data();
-        unflattenKey(flattenedKey, key);
+        CssmKey tempKey;
+        unflattenKey(flattenedKey, tempKey);
 
         // Check that we have a reasonable key
-        if (key.header().blobType() != CSSM_KEYBLOB_RAW) {
+        if (tempKey.header().blobType() != CSSM_KEYBLOB_RAW) {
+            Allocator::standard().free(tempKey.KeyData.Data);
             CssmError::throwMe(CSSMERR_CSP_INVALID_KEY_REFERENCE);
         }
-        if (key.header().keyClass() != CSSM_KEYCLASS_SESSION_KEY) {
+        if (tempKey.header().keyClass() != CSSM_KEYCLASS_SESSION_KEY) {
+            Allocator::standard().free(tempKey.KeyData.Data);
             CssmError::throwMe(CSSMERR_CSP_INVALID_KEY_CLASS);
         }
 
         // bring the key into the CSP and return it
-        return CssmClient::Key(Server::csp(), key, true);
+        CssmClient::Key retKey(Server::csp(), tempKey, true);
+        Allocator::standard().free(tempKey.KeyData.Data);
+        return retKey;
     } else {
 		// not a KeyHandle reference; use key as a raw key
 		if (key.header().blobType() != CSSM_KEYBLOB_RAW)

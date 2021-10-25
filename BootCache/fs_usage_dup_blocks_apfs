@@ -1,0 +1,256 @@
+#!/usr/bin/perl
+
+# script that parses the output from `fs_usage -wb` and reports any duplicate I/Os
+# Can pass in --ignoreplayback to ignore the BootCache's playback
+#
+# output uses a - or + for every disk block in order to show overlap. In this example, kernelmanagerd got a BootCache hit capturing the first block of the playback's I/O:
+# ------ 16:21:03.628490    RdData[S]       D=0x001281ad  B=0x6000   BC:PLBK /dev/disk3  /dev/disk3                                                                                                                                    0.001055 W kernel_task.535
+# +      16:22:23.456123    RdMeta[S]       D=0x001281ad  B=0x1000   BC:HIT /dev/disk3  /dev/disk3                                                                                                                                     0.000237 W kernelmanagerd.2508
+#
+# Here, the playback didn't cover the entire range of the subesequent I/O, even though there was an overlap, so it was a BootCache miss:
+#         ----------------------- 16:21:50.087083    RdData[S]       D=0x040698e3  B=0x17000  BC:PLBK /dev/disk3s6s1  /dev/disk3s6s1                                                                                                                            0.003210 W kernel_task.535
+# ++++++++++++                    16:22:23.122770    RdData[A]       D=0x040698db  B=0xc000   BC:MISS /dev/disk3s6s1  /System/DriverKit/System/Library/dyld/dyld_shared_cache_x86_64h                                                                           0.000588 W com.apple.AppleU.2512
+
+
+my $blocksize = 4096; # 4096 for APFS
+
+BEGIN {
+	use FindBin qw($Bin);
+	
+	# Add the ~xint Perl module directory to the *start* of
+	# the search path
+	unshift(@INC, glob('/AppleInternal/Library/Perl'));
+	
+	# Add the sest suite Perl module directory to the *start* of
+	# the search path
+	unshift(@INC, "$Bin/../../Library/Perl");
+	
+	# Add our tool's Perl module directory to the *start* of
+	# the search path
+	unshift(@INC, "$Bin/Library/Perl");
+	
+	$ENV{"PATH"} = "$ENV{'PATH'}:.";
+	
+	use List::Util qw(first max maxstr min minstr reduce shuffle sum);
+}
+
+use strict; # Good to have
+use Getopt::Long;
+use POSIX qw(ceil floor);
+
+sub printWithOrder ;
+
+my $input;
+
+my $ignorePreviouslyParsedFilenames = 0;
+
+if (!defined $ARGV[0] or $ARGV[0] =~ /-[h\?]/) {
+	usage();
+}
+
+my $ignoreplayback = 0;
+
+if ($ARGV[0] eq "--ignoreplayback") {
+	$ignoreplayback = 1;
+	shift @ARGV;
+}
+
+
+# Loop over every file provided
+while ($input = shift @ARGV) {
+	
+	unless (-e $input) {
+		print "$input does not exist\n";
+		next;
+	}
+	
+	unless (open IN_FILE, $input) {
+		print "Unable to open $input\n";
+		next;
+	}
+	
+	print "Parsing $input\n";
+	
+	# Delete file extension
+	$input =~ s/(.*)\.[^\.]+/$1/;
+	
+	my @diskIO;
+	my @diskIOStart;
+	my @diskIOEnd;
+	
+	sub print_debug {
+		print stderr @_;
+	}
+	
+	sub printf_debug {
+		printf stderr @_;
+	}
+	
+	@diskIO = [];
+	@diskIOStart = [];
+	@diskIOEnd = [];
+	
+	my $numDups = 0;
+	
+	# Loop over every line of input, counting up stats
+	while (my $line = <IN_FILE>){
+		chomp $line;
+		
+		my $abstime;
+		my ($timestamp, $func, $args, $seconds, $blocked, $proc, $thread);
+		my $parsedFile;
+		if (($timestamp, $func, $args, $seconds, $blocked, $proc, $thread) = $line =~ /^([0-9\.:]+)  (.{17}) (.*)    ([\d\.]+)\s+([W]?)\s+(.*)\.(\d+)\s*$/ ) {
+			
+			if (length $proc == 16) {
+				$proc =~ s/.$//;
+				# print_debug "Shortened to $proc\n";
+			}
+			
+			# Get time in seconds
+			my ($hr, $mn, $sn) = split(/:/, $timestamp);
+			$abstime = $hr * 3600 + $mn * 60 + $sn;
+			
+			# Find the amount of bytes we're talking about
+			my $bytes = 0;
+			if ($args =~ /B=(\S+)/) {
+				$bytes = hex($1);
+			}
+			
+			# Count disk hits
+			if ($func =~ /^\s+/) { # Disk accesses have extra whitespace before the function name
+				$func =~ s/^\s+//;
+				$func =~ s/\s+$//;
+				
+				if ($func =~ /THROTTLED/ or $func =~ /CS$/ or $func =~ /TrimExtent/ or $func =~ /HFS_/) {
+					next;
+				}
+				
+				if ($ignoreplayback and $args =~ /BC:PLBK/) {
+					next;
+				}
+				
+				# Get the address
+				my $diskAddr;
+				if ($args =~ /D=(\S+)/) {
+					$diskAddr = hex($1) * $blocksize; # D is in blocks
+				} else {
+					print_debug "Disk access \"$func\" without a disk address!\n$line\n";
+					next;
+				}
+				
+				# Get the size
+				my $size;
+				if ($args =~ /B=(\S+)/) {
+					$size = hex($1);
+				} else {
+					print_debug "Disk access \"$func\" without a size!\n$line\n";
+					next;
+				}
+				
+				if ($func =~ /Rd|PgIn/) {
+					my $numOverlaps = 0;
+					my @overlapStart = [];
+					my @overlapEnd = [];
+					my @overlap = [];
+					for my $i (0..@diskIO-1) {
+						if ($diskIOStart[$i] < $diskAddr + $size and $diskIOEnd[$i] > $diskAddr) {
+							$overlapStart[$numOverlaps] = $diskIOStart[$i];
+							$overlapEnd[$numOverlaps] = $diskIOEnd[$i];
+							$overlap[$numOverlaps] = $diskIO[$i];
+							$numOverlaps++;
+						}
+					}
+					if ($numOverlaps > 0) {
+						my $minStart = min(@overlapStart, $diskAddr);
+						my $maxEnd = max(@overlapEnd, $diskAddr + $size);
+						my $numChars = (($maxEnd - $minStart) / 4096);
+						
+						#print "min:$minStart max:$maxEnd numChars:$numChars\n";
+						
+						for my $i (0..@overlap-1) {
+							for my $c (0..$numChars-1) {
+								
+								#print "\ni:$i c:$c start:" . ($overlapStart[$i] - $minStart) . " end:" . ($overlapEnd[$i] - $minStart) . " current:" . ($c * 4096) . " \n";
+								
+								if ($overlapStart[$i] - $minStart > $c * 4096) {
+									# Before this IO range
+									print " ";
+									next;
+								} elsif ($overlapEnd[$i] - $minStart <= $c * 4096) {
+									# After this IO range
+									print " ";
+									next;
+								}
+								
+								# In this IO range
+								print "-";
+							}
+							
+							printf " $overlap[$i]\n";
+						}
+						
+						for my $c (0..$numChars-1) {
+							
+							#print "\nc:$c addr:$diskAddr size:$size start:" . ($diskAddr - $minStart) . " end:" . ($diskAddr + $size - $minStart) . " current:" . ($c * 4096) . " \n";
+							
+							if ($diskAddr - $minStart > $c * 4096) {
+								# Before this IO range
+								print " ";
+								next;
+							} elsif ($diskAddr + $size - $minStart <= $c * 4096) {
+								# After this IO range
+								print " ";
+								next;
+							}
+							
+							# In this IO range
+							print "+";
+						}
+						
+						printf " $line\n\n\n";
+						$numDups++;
+					}
+				}
+				
+				$diskIOStart[@diskIOStart] = $diskAddr;
+				$diskIOEnd[@diskIOEnd] = $diskAddr + $size;
+				$diskIO[@diskIO] = $line;
+				
+			}
+		}
+	}
+	
+	printf "$numDups duplicate IO\n";
+	
+	close IN_FILE;
+	
+	last;
+}
+
+# re-exec because perl doesn't clean up its memory
+if (defined $ARGV[0]) {
+	if ($ignoreplayback) {
+		unshift @ARGV, "--ignoreplayback"
+	}
+	unshift @ARGV, $0;
+	exec @ARGV;
+}
+
+sub usage {
+	
+	print "fs_usage_dup_blocks\n";
+	print "\n";
+	print "   output lines which issue duplicate IOs to the disk\n";
+	print "\n";
+	print "   fs_usage_dup_blocks [--ignoreplayback] <file> ...\n";
+	print "\n";
+	print "   --ignoreplayback  Don't include BootCache playback IOs\n";
+	print "   <file>  Any number of fs_usage output files to parse\n";
+	print "           through.\n";
+	print "\n";
+	
+	exit 1;
+}
+
+
+

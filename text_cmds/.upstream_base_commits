@@ -1,10 +1,66 @@
-#freebsd = https://github.com/freebsd/freebsd.git
+#freebsd = https://github.com/freebsd/freebsd-legacy.git
+#freebsd-src = https://git.FreeBSD.org/src.git
+
+cat/cat.1	freebsd-src	bin/cat/cat.1		f3aff7c91bd451d300ffd37ddce5a1fdbe802123
+cat/cat.c	freebsd-src	bin/cat/cat.c		0614d7396798a268bd9efb103dffdeb0ad4a066c
+
+cut/cut.1	freebsd-src	usr.bin/cut/cut.1	079f5b9b7b286353e4dc169dd25073f442c5e2d4
+cut/cut.c	freebsd-src	usr.bin/cut/cut.c	6872fd3c9470e867df5ff4cdcbcfe758248b6b48
+
+ee/ee.1		freebsd	contrib/ee/ee.1		23982f44e537c700e567101221fe2c6f51329648
+
+expand/expand.1	freebsd	usr.bin/expand/expand.1	7e6cabd06e6caa6a02eeb86308dc0cb3f27e10da
+
+grep/file.c	freebsd-src	usr.bin/grep/file.c	81c3f64110bb76e24d6062eafd7206c10f676d6f
+grep/grep.1	freebsd-src	usr.bin/grep/grep.1	2373acbbb77d694b997d90f3251810c6edf5d6d8
+grep/grep.c	freebsd-src	usr.bin/grep/grep.c	2373acbbb77d694b997d90f3251810c6edf5d6d8
+grep/grep.h	freebsd-src	usr.bin/grep/grep.h	df546c3b730d4abcace1da24226bd5f01280588e
+grep/queue.c	freebsd-src	usr.bin/grep/queue.c	81c3f64110bb76e24d6062eafd7206c10f676d6f
+grep/util.c	freebsd-src	usr.bin/grep/util.c	3e2d96ac974db823255a6f40b90eeffa6e38d022
+grep/zgrep.1	freebsd-src	usr.bin/grep/zgrep.1	c4cbf1fbabcb84d9d0a49c2444ed398ed9907df5
+grep/zgrep.sh	freebsd-src	usr.bin/grep/zgrep.sh	1032f7b82bec6cc2ea895af87f1913de55185a1a
+
+head/head.1	freebsd-src usr.bin/head/head.1	79490b9339565d0876aef29b4cdc332222eb961e
+head/head.c	freebsd-src usr.bin/head/head.c	7ef518c05aca09c9ecfadd64b2055dfc2d6f6700
+
+pr/egetopt.c	freebsd-src	usr.bin/pr/egetopt.c	5f0345185bfe58dd9de92ff1a9a08fb390bd4c2f
+pr/extern.h	freebsd-src	usr.bin/pr/extern.h	5f0345185bfe58dd9de92ff1a9a08fb390bd4c2f
+pr/pr.1	freebsd-src	usr.bin/pr/pr.1	dda5b39711dab90ae1c5624bdd6ff7453177df31
+pr/pr.c	freebsd-src	usr.bin/pr/pr.c	5f0345185bfe58dd9de92ff1a9a08fb390bd4c2f
+pr/pr.h	freebsd-src	usr.bin/pr/pr.h	5f0345185bfe58dd9de92ff1a9a08fb390bd4c2f
 
 sed/POSIX	freebsd	usr.bin/sed/POSIX	3a58a22a0b52d622721ce09df3930ff87174022f
-sed/compile.c	freebsd	usr.bin/sed/compile.c	3a58a22a0b52d622721ce09df3930ff87174022f
+sed/compile.c	freebsd-src	usr.bin/sed/compile.c	14fdf163717efe7730104832b7a4b09c963c42ea
 sed/defs.h	freebsd	usr.bin/sed/defs.h	3a58a22a0b52d622721ce09df3930ff87174022f
 sed/extern.h	freebsd	usr.bin/sed/extern.h	3a58a22a0b52d622721ce09df3930ff87174022f
-sed/main.c	freebsd	usr.bin/sed/main.c	3a58a22a0b52d622721ce09df3930ff87174022f
+sed/main.c	freebsd-src	usr.bin/sed/main.c	f9ab72bb471a141f31a4476bb11bdaef81daf479
 sed/misc.c	freebsd	usr.bin/sed/misc.c	3a58a22a0b52d622721ce09df3930ff87174022f
 sed/process.c	freebsd	usr.bin/sed/process.c	3a58a22a0b52d622721ce09df3930ff87174022f
-sed/sed.1	freebsd	usr.bin/sed/sed.1	3a58a22a0b52d622721ce09df3930ff87174022f
+sed/sed.1	freebsd-src	usr.bin/sed/sed.1	f9ab72bb471a141f31a4476bb11bdaef81daf479
+
+sort/bwstring.c	freebsd-src	usr.bin/sort/bwstring.c	266b51ac6e24a71a4df54c30f63215bf1c3decdb
+sort/bwstring.h	freebsd-src	usr.bin/sort/bwstring.h	1de7b4b805ddbf2429da511c053686ac4591ed89
+sort/coll.c	freebsd-src	usr.bin/sort/coll.c	f20b149b45198bd016e669f60758e05c24a332ad
+sort/coll.h	freebsd-src	usr.bin/sort/coll.h	f20b149b45198bd016e669f60758e05c24a332ad
+sort/file.c	freebsd-src	usr.bin/sort/file.c	2d955e4199d48b4e1ce82efb53f56667593d669d
+sort/file.h	freebsd-src	usr.bin/sort/file.h	7137597e15bdd19c4aa33a0848595bec51b7a1da
+sort/mem.c	freebsd-src	usr.bin/sort/mem.c	1de7b4b805ddbf2429da511c053686ac4591ed89
+sort/mem.h	freebsd-src	usr.bin/sort/mem.h	1de7b4b805ddbf2429da511c053686ac4591ed89
+sort/nls/C.msg	freebsd-src	usr.bin/sort/nls/C.msg	131a228a6d1a2a1d3fc2381bedf40a1d52d82017
+sort/nls/hu_HU.ISO8859-2.msg	freebsd-src	usr.bin/sort/nls/hu_HU.ISO8859-2.msg	131a228a6d1a2a1d3fc2381bedf40a1d52d82017
+sort/radixsort.c	freebsd-src	usr.bin/sort/radixsort.c	9f7e5bdad1f350e68879e92c23601f0e3c2b3a3b
+sort/radixsort.h	freebsd-src	usr.bin/sort/radixsort.h	1de7b4b805ddbf2429da511c053686ac4591ed89
+sort/sort.1.in	freebsd-src	usr.bin/sort/sort.1.in	08509077b32fa08e0e54a878137b90ac93dbff69
+sort/sort.c	freebsd-src	usr.bin/sort/sort.c	f20b149b45198bd016e669f60758e05c24a332ad
+sort/sort.h	freebsd-src	usr.bin/sort/sort.h	1de7b4b805ddbf2429da511c053686ac4591ed89
+sort/vsort.c	freebsd-src	usr.bin/sort/vsort.c	1de7b4b805ddbf2429da511c053686ac4591ed89
+sort/vsort.h	freebsd-src	usr.bin/sort/vsort.h	1de7b4b805ddbf2429da511c053686ac4591ed89
+
+tr/tr.1		freebsd-src usr.bin/tr/tr.1	fbbd9655e5107c68e4e0146ff22b73d7350475bc
+tr/cmap.c	freebsd-src usr.bin/tr/cmap.c	1de7b4b805ddbf2429da511c053686ac4591ed89
+tr/cmap.h	freebsd-src usr.bin/tr/cmap.h	1de7b4b805ddbf2429da511c053686ac4591ed89
+tr/cset.c	freebsd-src usr.bin/tr/cset.c	1de7b4b805ddbf2429da511c053686ac4591ed89
+tr/cset.h	freebsd-src usr.bin/tr/cset.h	1de7b4b805ddbf2429da511c053686ac4591ed89
+tr/extern.h	freebsd-src usr.bin/tr/extern.h	8a16b7a18f5d0b031f09832fd7752fba717e2a97
+tr/str.c	freebsd-src usr.bin/tr/str.c	8a16b7a18f5d0b031f09832fd7752fba717e2a97
+tr/tr.c		freebsd-src usr.bin/tr/tr.c	7672a0148f79063eac8f8e0beb0db5350d02d5d4

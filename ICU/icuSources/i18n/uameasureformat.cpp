@@ -24,6 +24,7 @@
 #include "ustr_imp.h"
 #include "cstring.h"
 #include "ulocimp.h"
+#include "units_data.h"
 
 U_NAMESPACE_USE
 
@@ -66,209 +67,6 @@ uameasfmt_close(UAMeasureFormat *measfmt)
     delete (MeasureFormat*)measfmt;
 }
 
-static MeasureUnit * createObjectForMeasureUnit(UAMeasureUnit unit, UErrorCode* status )
-{
-    MeasureUnit * munit = NULL;
-    switch (unit) {
-        case UAMEASUNIT_ACCELERATION_G_FORCE:   munit = MeasureUnit::createGForce(*status);      break;
-        case UAMEASUNIT_ACCELERATION_METER_PER_SECOND_SQUARED:  munit = MeasureUnit::createMeterPerSecondSquared(*status); break;
-
-        case UAMEASUNIT_ANGLE_DEGREE:           munit = MeasureUnit::createDegree(*status);      break;
-        case UAMEASUNIT_ANGLE_ARC_MINUTE:       munit = MeasureUnit::createArcMinute(*status);   break;
-        case UAMEASUNIT_ANGLE_ARC_SECOND:       munit = MeasureUnit::createArcSecond(*status);   break;
-        case UAMEASUNIT_ANGLE_RADIAN:           munit = MeasureUnit::createRadian(*status);      break;
-        case UAMEASUNIT_ANGLE_REVOLUTION:       munit = MeasureUnit::createRevolutionAngle(*status); break;
-
-        case UAMEASUNIT_AREA_SQUARE_METER:      munit = MeasureUnit::createSquareMeter(*status);     break;
-        case UAMEASUNIT_AREA_SQUARE_KILOMETER:  munit = MeasureUnit::createSquareKilometer(*status); break;
-        case UAMEASUNIT_AREA_SQUARE_FOOT:       munit = MeasureUnit::createSquareFoot(*status);      break;
-        case UAMEASUNIT_AREA_SQUARE_MILE:       munit = MeasureUnit::createSquareMile(*status);      break;
-        case UAMEASUNIT_AREA_ACRE:              munit = MeasureUnit::createAcre(*status);            break;
-        case UAMEASUNIT_AREA_HECTARE:           munit = MeasureUnit::createHectare(*status);         break;
-        case UAMEASUNIT_AREA_SQUARE_CENTIMETER: munit = MeasureUnit::createSquareCentimeter(*status); break;
-        case UAMEASUNIT_AREA_SQUARE_INCH:       munit = MeasureUnit::createSquareInch(*status);      break;
-        case UAMEASUNIT_AREA_SQUARE_YARD:       munit = MeasureUnit::createSquareYard(*status);      break;
-        case UAMEASUNIT_AREA_DUNAM:             munit = MeasureUnit::createDunam(*status);           break;
-
-        case UAMEASUNIT_DURATION_YEAR:          munit = MeasureUnit::createYear(*status);        break;
-        case UAMEASUNIT_DURATION_MONTH:         munit = MeasureUnit::createMonth(*status);       break;
-        case UAMEASUNIT_DURATION_WEEK:          munit = MeasureUnit::createWeek(*status);        break;
-        case UAMEASUNIT_DURATION_DAY:           munit = MeasureUnit::createDay(*status);         break;
-        case UAMEASUNIT_DURATION_HOUR:          munit = MeasureUnit::createHour(*status);        break;
-        case UAMEASUNIT_DURATION_MINUTE:        munit = MeasureUnit::createMinute(*status);      break;
-        case UAMEASUNIT_DURATION_SECOND:        munit = MeasureUnit::createSecond(*status);      break;
-        case UAMEASUNIT_DURATION_MILLISECOND:   munit = MeasureUnit::createMillisecond(*status); break;
-        case UAMEASUNIT_DURATION_MICROSECOND:   munit = MeasureUnit::createMicrosecond(*status); break;
-        case UAMEASUNIT_DURATION_NANOSECOND:    munit = MeasureUnit::createNanosecond(*status);  break;
-        case UAMEASUNIT_DURATION_CENTURY:       munit = MeasureUnit::createCentury(*status);     break;
-        case UAMEASUNIT_DURATION_YEAR_PERSON:   munit = MeasureUnit::createYearPerson(*status);  break;
-        case UAMEASUNIT_DURATION_MONTH_PERSON:  munit = MeasureUnit::createMonthPerson(*status); break;
-        case UAMEASUNIT_DURATION_WEEK_PERSON:   munit = MeasureUnit::createWeekPerson(*status);  break;
-        case UAMEASUNIT_DURATION_DAY_PERSON:    munit = MeasureUnit::createDayPerson(*status);   break;
-        case UAMEASUNIT_DURATION_DECADE:        munit = MeasureUnit::createDecade(*status);      break;
-
-        case UAMEASUNIT_LENGTH_METER:           munit = MeasureUnit::createMeter(*status);       break;
-        case UAMEASUNIT_LENGTH_CENTIMETER:      munit = MeasureUnit::createCentimeter(*status);  break;
-        case UAMEASUNIT_LENGTH_KILOMETER:       munit = MeasureUnit::createKilometer(*status);   break;
-        case UAMEASUNIT_LENGTH_MILLIMETER:      munit = MeasureUnit::createMillimeter(*status);  break;
-        case UAMEASUNIT_LENGTH_PICOMETER:       munit = MeasureUnit::createPicometer(*status);   break;
-        case UAMEASUNIT_LENGTH_FOOT:            munit = MeasureUnit::createFoot(*status);        break;
-        case UAMEASUNIT_LENGTH_INCH:            munit = MeasureUnit::createInch(*status);        break;
-        case UAMEASUNIT_LENGTH_MILE:            munit = MeasureUnit::createMile(*status);        break;
-        case UAMEASUNIT_LENGTH_YARD:            munit = MeasureUnit::createYard(*status);        break;
-        case UAMEASUNIT_LENGTH_LIGHT_YEAR:      munit = MeasureUnit::createLightYear(*status);   break;
-        case UAMEASUNIT_LENGTH_DECIMETER:       munit = MeasureUnit::createDecimeter(*status);   break;
-        case UAMEASUNIT_LENGTH_MICROMETER:      munit = MeasureUnit::createMicrometer(*status);  break;
-        case UAMEASUNIT_LENGTH_NANOMETER:       munit = MeasureUnit::createNanometer(*status);   break;
-        case UAMEASUNIT_LENGTH_NAUTICAL_MILE:   munit = MeasureUnit::createNauticalMile(*status); break;
-        case UAMEASUNIT_LENGTH_FATHOM:          munit = MeasureUnit::createFathom(*status);      break;
-        case UAMEASUNIT_LENGTH_FURLONG:         munit = MeasureUnit::createFurlong(*status);     break;
-        case UAMEASUNIT_LENGTH_ASTRONOMICAL_UNIT: munit = MeasureUnit::createAstronomicalUnit(*status); break;
-        case UAMEASUNIT_LENGTH_PARSEC:          munit = MeasureUnit::createParsec(*status);      break;
-        case UAMEASUNIT_LENGTH_MILE_SCANDINAVIAN: munit = MeasureUnit::createMileScandinavian(*status); break;
-        case UAMEASUNIT_LENGTH_POINT:           munit = MeasureUnit::createPoint(*status);       break;
-        case UAMEASUNIT_LENGTH_SOLAR_RADIUS:    munit = MeasureUnit::createSolarRadius(*status); break;
-
-        case UAMEASUNIT_MASS_GRAM:              munit = MeasureUnit::createGram(*status);        break;
-        case UAMEASUNIT_MASS_KILOGRAM:          munit = MeasureUnit::createKilogram(*status);    break;
-        case UAMEASUNIT_MASS_OUNCE:             munit = MeasureUnit::createOunce(*status);       break;
-        case UAMEASUNIT_MASS_POUND:             munit = MeasureUnit::createPound(*status);       break;
-        case UAMEASUNIT_MASS_STONE:             munit = MeasureUnit::createStone(*status);       break;
-        case UAMEASUNIT_MASS_MICROGRAM:         munit = MeasureUnit::createMicrogram(*status);   break;
-        case UAMEASUNIT_MASS_MILLIGRAM:         munit = MeasureUnit::createMilligram(*status);   break;
-        case UAMEASUNIT_MASS_METRIC_TON:        munit = MeasureUnit::createMetricTon(*status);   break;
-        case UAMEASUNIT_MASS_TON:               munit = MeasureUnit::createTon(*status);         break;
-        case UAMEASUNIT_MASS_CARAT:             munit = MeasureUnit::createCarat(*status);       break;
-        case UAMEASUNIT_MASS_OUNCE_TROY:        munit = MeasureUnit::createOunceTroy(*status);   break;
-        case UAMEASUNIT_MASS_DALTON:            munit = MeasureUnit::createDalton(*status);      break;
-        case UAMEASUNIT_MASS_EARTH_MASS:        munit = MeasureUnit::createEarthMass(*status);   break;
-        case UAMEASUNIT_MASS_SOLAR_MASS:        munit = MeasureUnit::createSolarMass(*status);   break;
-
-        case UAMEASUNIT_POWER_WATT:             munit = MeasureUnit::createWatt(*status);        break;
-        case UAMEASUNIT_POWER_KILOWATT:         munit = MeasureUnit::createKilowatt(*status);    break;
-        case UAMEASUNIT_POWER_HORSEPOWER:       munit = MeasureUnit::createHorsepower(*status);  break;
-        case UAMEASUNIT_POWER_MILLIWATT:        munit = MeasureUnit::createMilliwatt(*status);   break;
-        case UAMEASUNIT_POWER_MEGAWATT:         munit = MeasureUnit::createMegawatt(*status);    break;
-        case UAMEASUNIT_POWER_GIGAWATT:         munit = MeasureUnit::createGigawatt(*status);    break;
-
-        case UAMEASUNIT_PRESSURE_HECTOPASCAL:   munit = MeasureUnit::createHectopascal(*status); break;
-        case UAMEASUNIT_PRESSURE_INCH_HG:       munit = MeasureUnit::createInchHg(*status);      break;
-        case UAMEASUNIT_PRESSURE_MILLIBAR:      munit = MeasureUnit::createMillibar(*status);    break;
-        case UAMEASUNIT_PRESSURE_MILLIMETER_OF_MERCURY:  munit = MeasureUnit::createMillimeterOfMercury(*status); break;
-        case UAMEASUNIT_PRESSURE_POUND_PER_SQUARE_INCH: munit = MeasureUnit::createPoundPerSquareInch(*status);  break;
-        case UAMEASUNIT_PRESSURE_ATMOSPHERE:    munit = MeasureUnit::createAtmosphere(*status);  break;
-        case UAMEASUNIT_PRESSURE_KILOPASCAL:    munit = MeasureUnit::createKilopascal(*status);  break;
-        case UAMEASUNIT_PRESSURE_MEGAPASCAL:    munit = MeasureUnit::createMegapascal(*status);  break;
-        case UAMEASUNIT_PRESSURE_PASCAL:        munit = MeasureUnit::createPascal(*status);      break;
-        case UAMEASUNIT_PRESSURE_BAR:           munit = MeasureUnit::createBar(*status);         break;
-
-        case UAMEASUNIT_SPEED_METER_PER_SECOND:   munit = MeasureUnit::createMeterPerSecond(*status);   break;
-        case UAMEASUNIT_SPEED_KILOMETER_PER_HOUR: munit = MeasureUnit::createKilometerPerHour(*status); break;
-        case UAMEASUNIT_SPEED_MILE_PER_HOUR:      munit = MeasureUnit::createMilePerHour(*status);      break;
-        case UAMEASUNIT_SPEED_KNOT:               munit = MeasureUnit::createKnot(*status);      break;
-
-        case UAMEASUNIT_TEMPERATURE_CELSIUS:    munit = MeasureUnit::createCelsius(*status);     break;
-        case UAMEASUNIT_TEMPERATURE_FAHRENHEIT: munit = MeasureUnit::createFahrenheit(*status);  break;
-        case UAMEASUNIT_TEMPERATURE_KELVIN:     munit = MeasureUnit::createKelvin(*status);      break;
-        case UAMEASUNIT_TEMPERATURE_GENERIC:    munit = MeasureUnit::createGenericTemperature(*status); break;
-
-        case UAMEASUNIT_VOLUME_LITER:           munit = MeasureUnit::createLiter(*status);          break;
-        case UAMEASUNIT_VOLUME_CUBIC_KILOMETER: munit = MeasureUnit::createCubicKilometer(*status); break;
-        case UAMEASUNIT_VOLUME_CUBIC_MILE:      munit = MeasureUnit::createCubicMile(*status);      break;
-        case UAMEASUNIT_VOLUME_MILLILITER:      munit = MeasureUnit::createMilliliter(*status);     break;
-        case UAMEASUNIT_VOLUME_CENTILITER:      munit = MeasureUnit::createCentiliter(*status);     break;
-        case UAMEASUNIT_VOLUME_DECILITER:       munit = MeasureUnit::createDeciliter(*status);      break;
-        case UAMEASUNIT_VOLUME_HECTOLITER:      munit = MeasureUnit::createHectoliter(*status);     break;
-        case UAMEASUNIT_VOLUME_MEGALITER:       munit = MeasureUnit::createMegaliter(*status);      break;
-        case UAMEASUNIT_VOLUME_CUBIC_CENTIMETER: munit = MeasureUnit::createCubicCentimeter(*status); break;
-        case UAMEASUNIT_VOLUME_CUBIC_METER:     munit = MeasureUnit::createCubicMeter(*status);     break;
-        case UAMEASUNIT_VOLUME_CUBIC_INCH:      munit = MeasureUnit::createCubicInch(*status);      break;
-        case UAMEASUNIT_VOLUME_CUBIC_FOOT:      munit = MeasureUnit::createCubicFoot(*status);      break;
-        case UAMEASUNIT_VOLUME_CUBIC_YARD:      munit = MeasureUnit::createCubicYard(*status);      break;
-        case UAMEASUNIT_VOLUME_ACRE_FOOT:       munit = MeasureUnit::createAcreFoot(*status);       break;
-        case UAMEASUNIT_VOLUME_BUSHEL:          munit = MeasureUnit::createBushel(*status);         break;
-        case UAMEASUNIT_VOLUME_TEASPOON:        munit = MeasureUnit::createTeaspoon(*status);       break;
-        case UAMEASUNIT_VOLUME_TABLESPOON:      munit = MeasureUnit::createTablespoon(*status);     break;
-        case UAMEASUNIT_VOLUME_FLUID_OUNCE:     munit = MeasureUnit::createFluidOunce(*status);     break;
-        case UAMEASUNIT_VOLUME_CUP:             munit = MeasureUnit::createCup(*status);            break;
-        case UAMEASUNIT_VOLUME_PINT:            munit = MeasureUnit::createPint(*status);           break;
-        case UAMEASUNIT_VOLUME_QUART:           munit = MeasureUnit::createQuart(*status);          break;
-        case UAMEASUNIT_VOLUME_GALLON:          munit = MeasureUnit::createGallon(*status);         break;
-        case UAMEASUNIT_VOLUME_CUP_METRIC:      munit = MeasureUnit::createCupMetric(*status);      break;
-        case UAMEASUNIT_VOLUME_PINT_METRIC:     munit = MeasureUnit::createPintMetric(*status);     break;
-        case UAMEASUNIT_VOLUME_GALLON_IMPERIAL: munit = MeasureUnit::createGallonImperial(*status); break;
-        case UAMEASUNIT_VOLUME_FLUID_OUNCE_IMPERIAL: munit = MeasureUnit::createFluidOunceImperial(*status); break;
-        case UAMEASUNIT_VOLUME_BARREL:          munit = MeasureUnit::createBarrel(*status);         break;
-
-        case UAMEASUNIT_ENERGY_JOULE:           munit = MeasureUnit::createJoule(*status);          break;
-        case UAMEASUNIT_ENERGY_KILOJOULE:       munit = MeasureUnit::createKilojoule(*status);      break;
-        case UAMEASUNIT_ENERGY_CALORIE:         munit = MeasureUnit::createCalorie(*status);        break;
-        case UAMEASUNIT_ENERGY_KILOCALORIE:     munit = MeasureUnit::createKilocalorie(*status);    break;
-        case UAMEASUNIT_ENERGY_FOODCALORIE:     munit = MeasureUnit::createFoodcalorie(*status);    break;
-        case UAMEASUNIT_ENERGY_KILOWATT_HOUR:   munit = MeasureUnit::createKilowattHour(*status);   break;
-        case UAMEASUNIT_ENERGY_ELECTRONVOLT:    munit = MeasureUnit::createElectronvolt(*status);   break;
-        case UAMEASUNIT_ENERGY_BRITISH_THERMAL_UNIT: munit = MeasureUnit::createBritishThermalUnit(*status); break;
-        case UAMEASUNIT_ENERGY_THERM_US:        munit = MeasureUnit::createThermUs(*status);        break;
-
-        case UAMEASUNIT_CONSUMPTION_LITER_PER_KILOMETER: munit = MeasureUnit::createLiterPerKilometer(*status); break;
-        case UAMEASUNIT_CONSUMPTION_MILE_PER_GALLON:     munit = MeasureUnit::createMilePerGallon(*status);     break;
-        case UAMEASUNIT_CONSUMPTION_LITER_PER_100_KILOMETERs: munit = MeasureUnit::createLiterPer100Kilometers(*status); break;
-        case UAMEASUNIT_CONSUMPTION_MILE_PER_GALLON_IMPERIAL: munit = MeasureUnit::createMilePerGallonImperial(*status); break;
-
-        case UAMEASUNIT_DIGITAL_BIT:            munit = MeasureUnit::createBit(*status);         break;
-        case UAMEASUNIT_DIGITAL_BYTE:           munit = MeasureUnit::createByte(*status);        break;
-        case UAMEASUNIT_DIGITAL_GIGABIT:        munit = MeasureUnit::createGigabit(*status);     break;
-        case UAMEASUNIT_DIGITAL_GIGABYTE:       munit = MeasureUnit::createGigabyte(*status);    break;
-        case UAMEASUNIT_DIGITAL_KILOBIT:        munit = MeasureUnit::createKilobit(*status);     break;
-        case UAMEASUNIT_DIGITAL_KILOBYTE:       munit = MeasureUnit::createKilobyte(*status);    break;
-        case UAMEASUNIT_DIGITAL_MEGABIT:        munit = MeasureUnit::createMegabit(*status);     break;
-        case UAMEASUNIT_DIGITAL_MEGABYTE:       munit = MeasureUnit::createMegabyte(*status);    break;
-        case UAMEASUNIT_DIGITAL_TERABIT:        munit = MeasureUnit::createTerabit(*status);     break;
-        case UAMEASUNIT_DIGITAL_TERABYTE:       munit = MeasureUnit::createTerabyte(*status);    break;
-        case UAMEASUNIT_DIGITAL_PETABYTE:       munit = MeasureUnit::createPetabyte(*status);    break;
-
-        case UAMEASUNIT_ELECTRIC_AMPERE:        munit = MeasureUnit::createAmpere(*status);      break;
-        case UAMEASUNIT_ELECTRIC_MILLIAMPERE:   munit = MeasureUnit::createMilliampere(*status); break;
-        case UAMEASUNIT_ELECTRIC_OHM:           munit = MeasureUnit::createOhm(*status);         break;
-        case UAMEASUNIT_ELECTRIC_VOLT:          munit = MeasureUnit::createVolt(*status);        break;
-
-        case UAMEASUNIT_FREQUENCY_HERTZ:        munit = MeasureUnit::createHertz(*status);       break;
-        case UAMEASUNIT_FREQUENCY_KILOHERTZ:    munit = MeasureUnit::createKilohertz(*status);   break;
-        case UAMEASUNIT_FREQUENCY_MEGAHERTZ:    munit = MeasureUnit::createMegahertz(*status);   break;
-        case UAMEASUNIT_FREQUENCY_GIGAHERTZ:    munit = MeasureUnit::createGigahertz(*status);   break;
-
-        case UAMEASUNIT_LIGHT_LUX:              munit = MeasureUnit::createLux(*status);         break;
-        case UAMEASUNIT_LIGHT_SOLAR_LUMINOSITY: munit = MeasureUnit::createSolarLuminosity(*status); break;
-
-        case UAMEASUNIT_CONCENTRATION_KARAT:    munit = MeasureUnit::createKarat(*status);       break;
-        case UAMEASUNIT_CONCENTRATION_MILLIGRAM_PER_DECILITER: munit = MeasureUnit::createMilligramPerDeciliter(*status); break;
-        case UAMEASUNIT_CONCENTRATION_MILLIMOLE_PER_LITER:     munit = MeasureUnit::createMillimolePerLiter(*status);     break;
-        case UAMEASUNIT_CONCENTRATION_PART_PER_MILLION:        munit = MeasureUnit::createPartPerMillion(*status);        break;
-        case UAMEASUNIT_CONCENTRATION_PERCENT:  munit = MeasureUnit::createPercent(*status);     break;
-        case UAMEASUNIT_CONCENTRATION_PERMILLE: munit = MeasureUnit::createPermille(*status);    break;
-        case UAMEASUNIT_CONCENTRATION_PERMYRIAD: munit = MeasureUnit::createPermyriad(*status);  break;
-        case UAMEASUNIT_CONCENTRATION_MOLE:     munit = MeasureUnit::createMole(*status);        break;
-
-        case UAMEASUNIT_FORCE_NEWTON:           munit = MeasureUnit::createNewton(*status);      break;
-        case UAMEASUNIT_FORCE_POUND_FORCE:      munit = MeasureUnit::createPoundForce(*status);  break;
-
-        case UAMEASUNIT_TORQUE_NEWTON_METER:    munit = MeasureUnit::createNewtonMeter(*status); break;
-        case UAMEASUNIT_TORQUE_POUND_FOOT:      munit = MeasureUnit::createPoundFoot(*status);   break;
-
-        case UAMEASUNIT_GRAPHICS_EM:            munit = MeasureUnit::createEm(*status);         break;
-        case UAMEASUNIT_GRAPHICS_PIXEL:         munit = MeasureUnit::createPixel(*status);      break;
-        case UAMEASUNIT_GRAPHICS_MEGAPIXEL:     munit = MeasureUnit::createMegapixel(*status);  break;
-        case UAMEASUNIT_GRAPHICS_PIXEL_PER_CENTIMETER: munit = MeasureUnit::createPixelPerCentimeter(*status); break;
-        case UAMEASUNIT_GRAPHICS_PIXEL_PER_INCH:       munit = MeasureUnit::createPixelPerInch(*status);       break;
-        case UAMEASUNIT_GRAPHICS_DOT_PER_CENTIMETER:   munit = MeasureUnit::createDotPerCentimeter(*status);   break;
-        case UAMEASUNIT_GRAPHICS_DOT_PER_INCH :        munit = MeasureUnit::createDotPerInch(*status);         break;
-
-        default: *status = U_ILLEGAL_ARGUMENT_ERROR; break;
-    }
-    return munit;
-}
-
-
 U_CAPI int32_t U_EXPORT2
 uameasfmt_format( const UAMeasureFormat* measfmt,
                   double            value,
@@ -302,7 +100,7 @@ uameasfmt_formatGetPosition( const UAMeasureFormat* measfmt,
         // Fix here until http://bugs.icu-project.org/trac/ticket/11593 is addressed
         unit = UAMEASUNIT_TEMPERATURE_GENERIC;
     }
-    MeasureUnit * munit = createObjectForMeasureUnit(unit, status);
+    MeasureUnit * munit = MeasureUnit::createFromUAMeasureUnit(unit, status);
     if (U_FAILURE(*status)) {
         return 0;
     }
@@ -373,7 +171,7 @@ uameasfmt_formatMultipleForFields( const UAMeasureFormat* measfmt,
                 // Fix here until http://bugs.icu-project.org/trac/ticket/11593 is addressed
                 unit = UAMEASUNIT_TEMPERATURE_GENERIC;
             }
-            MeasureUnit * munit = createObjectForMeasureUnit(unit, status);
+            MeasureUnit * munit = MeasureUnit::createFromUAMeasureUnit(unit, status);
             measurePtrs[i] = new Measure(measures[i].value, munit, *status);
         } else {
             MeasureUnit * munit = MeasureUnit::createGForce(*status); // any unit will do
@@ -411,7 +209,7 @@ uameasfmt_getUnitName( const UAMeasureFormat* measfmt,
         *status = U_ILLEGAL_ARGUMENT_ERROR;
         return 0;
     }
-    LocalPointer<const MeasureUnit> munit(createObjectForMeasureUnit(unit, status));
+    LocalPointer<const MeasureUnit> munit(MeasureUnit::createFromUAMeasureUnit(unit, status));
     if (U_FAILURE(*status)) {
         return 0;
     }
@@ -444,7 +242,7 @@ uameasfmt_getMultipleUnitNames( const UAMeasureFormat* measfmt,
     int32_t i;
     const MeasureUnit * unitPtrs[kMeasuresMax];
     for (i = 0; i < unitCount && U_SUCCESS(*status); i++) {
-        unitPtrs[i] = createObjectForMeasureUnit(units[i], status);
+        unitPtrs[i] = MeasureUnit::createFromUAMeasureUnit(units[i], status);
     }
     if (U_FAILURE(*status)) {
         while (i-- > 0) {
@@ -465,112 +263,107 @@ uameasfmt_getMultipleUnitNames( const UAMeasureFormat* measfmt,
     return res.extract(result, resultCapacity, *status);
 }
 
-// Temporary hack until we can use the forthcoming C++ MeasureUnitPreferences class for this
-typedef struct {
-    const char*     key;
-    int32_t         count;
-    UAMeasureUnit   units[2];
-} KeyToUnits;
-static const KeyToUnits keyToUnits[] = {
-    {   "acre",                     1,  { UAMEASUNIT_AREA_ACRE }   },
-    {   "celsius",                  1,  { UAMEASUNIT_TEMPERATURE_CELSIUS }   },
-    {   "centimeter",               1,  { UAMEASUNIT_LENGTH_CENTIMETER }   },
-    {   "cubic-kilometer",          1,  { UAMEASUNIT_VOLUME_CUBIC_KILOMETER }   },
-    {   "cubic-mile",               1,  { UAMEASUNIT_VOLUME_CUBIC_MILE }   },
-    {   "fahrenheit",               1,  { UAMEASUNIT_TEMPERATURE_FAHRENHEIT }   },
-    {   "fluid-ounce",              1,  { UAMEASUNIT_VOLUME_FLUID_OUNCE }   },
-    {   "foodcalorie",              1,  { UAMEASUNIT_ENERGY_FOODCALORIE }   },
-    {   "foot",                     1,  { UAMEASUNIT_LENGTH_FOOT }   },
-    {   "foot inch",                2,  { UAMEASUNIT_LENGTH_FOOT, UAMEASUNIT_LENGTH_INCH }   },
-    {   "gallon",                   1,  { UAMEASUNIT_VOLUME_GALLON }   },
-    {   "gram",                     1,  { UAMEASUNIT_MASS_GRAM }   },
-    {   "hectare",                  1,  { UAMEASUNIT_AREA_HECTARE }   },
-    {   "hectopascal",              1,  { UAMEASUNIT_PRESSURE_HECTOPASCAL }   },
-    {   "inch",                     1,  { UAMEASUNIT_LENGTH_INCH }   },
-    {   "inch-hg",                  1,  { UAMEASUNIT_PRESSURE_INCH_HG }   },
-    {   "joule",                    1,  { UAMEASUNIT_ENERGY_JOULE }   },
-    {   "kilocalorie",              1,  { UAMEASUNIT_ENERGY_KILOCALORIE }   },
-    {   "kilogram",                 1,  { UAMEASUNIT_MASS_KILOGRAM }   },
-    {   "kilogram gram",            2,  { UAMEASUNIT_MASS_KILOGRAM, UAMEASUNIT_MASS_GRAM }   },
-    {   "kilojoule",                1,  { UAMEASUNIT_ENERGY_KILOJOULE }   },
-    {   "kilometer",                1,  { UAMEASUNIT_LENGTH_KILOMETER }   },
-    {   "kilometer-per-hour",       1,  { UAMEASUNIT_SPEED_KILOMETER_PER_HOUR }   },
-    {   "kilowatt",                 1,  { UAMEASUNIT_POWER_KILOWATT }   },
-    {   "liter",                    1,  { UAMEASUNIT_VOLUME_LITER }   },
-    {   "liter-per-100kilometers",  1,  { UAMEASUNIT_CONSUMPTION_LITER_PER_100_KILOMETERs }   },
-    {   "liter-per-kilometer",      1,  { UAMEASUNIT_CONSUMPTION_LITER_PER_KILOMETER }   },
-    {   "meter",                    1,  { UAMEASUNIT_LENGTH_METER }   },
-    {   "meter centimeter",         2,  { UAMEASUNIT_LENGTH_METER, UAMEASUNIT_LENGTH_CENTIMETER }   },
-    {   "meter-per-second",         1,  { UAMEASUNIT_SPEED_METER_PER_SECOND }   },
-    {   "metric-ton",               1,  { UAMEASUNIT_MASS_METRIC_TON }   },
-    {   "mile",                     1,  { UAMEASUNIT_LENGTH_MILE }   },
-    {   "mile-per-gallon",          1,  { UAMEASUNIT_CONSUMPTION_MILE_PER_GALLON }   },
-    {   "mile-per-gallon-imperial", 1,  { UAMEASUNIT_CONSUMPTION_MILE_PER_GALLON_IMPERIAL }   },
-    {   "mile-per-hour",            1,  { UAMEASUNIT_SPEED_MILE_PER_HOUR }   },
-    {   "mile-scandinavian",        1,  { UAMEASUNIT_LENGTH_MILE_SCANDINAVIAN }   },
-    {   "millibar",                 1,  { UAMEASUNIT_PRESSURE_MILLIBAR }   },
-    {   "milligram-per-deciliter",  1,  { UAMEASUNIT_CONCENTRATION_MILLIGRAM_PER_DECILITER }   },
-    {   "milliliter",               1,  { UAMEASUNIT_VOLUME_MILLILITER }   },
-    {   "millimeter",               1,  { UAMEASUNIT_LENGTH_MILLIMETER }   },
-    {   "millimeter-of-mercury",    1,  { UAMEASUNIT_PRESSURE_MILLIMETER_OF_MERCURY }   },
-    {   "millimole-per-liter",      1,  { UAMEASUNIT_CONCENTRATION_MILLIMOLE_PER_LITER }   },
-    {   "milliwatt",                1,  { UAMEASUNIT_POWER_MILLIWATT }   },
-    {   "minute second",            2,  { UAMEASUNIT_DURATION_MINUTE, UAMEASUNIT_DURATION_SECOND }   },
-    {   "ounce",                    1,  { UAMEASUNIT_MASS_OUNCE }   },
-    {   "pound",                    1,  { UAMEASUNIT_MASS_POUND }   },
-    {   "pound ounce",              2,  { UAMEASUNIT_MASS_POUND, UAMEASUNIT_MASS_OUNCE }   },
-    {   "square-centimeter",        1,  { UAMEASUNIT_AREA_SQUARE_CENTIMETER }   },
-    {   "square-foot",              1,  { UAMEASUNIT_AREA_SQUARE_FOOT }   },
-    {   "square-inch",              1,  { UAMEASUNIT_AREA_SQUARE_INCH }   },
-    {   "square-kilometer",         1,  { UAMEASUNIT_AREA_SQUARE_KILOMETER }   },
-    {   "square-meter",             1,  { UAMEASUNIT_AREA_SQUARE_METER }   },
-    {   "square-mile",              1,  { UAMEASUNIT_AREA_SQUARE_MILE }   },
-    {   "stone pound",              2,  { UAMEASUNIT_MASS_STONE, UAMEASUNIT_MASS_POUND }   },
-    {   "ton",                      1,  { UAMEASUNIT_MASS_TON }   },
-    {   "watt",                     1,  { UAMEASUNIT_POWER_WATT }   },
-    {   "yard",                     1,  { UAMEASUNIT_LENGTH_YARD }   },
-    {   "year-person month-person", 2,  { UAMEASUNIT_DURATION_YEAR, UAMEASUNIT_DURATION_MONTH }   },
+typedef icu::units::UnitPreferences UnitPreferences;
+typedef icu::units::UnitPreference UnitPreference;
+
+static const char* usageAliases[][2] = {
+//    { "area/land-agricult",     "land" }, // falls back automatically to area/land; no case in the old data of this being different
+//    { "area/land-commercl",     "land" }, // falls back automatically to area/land; no case in the old data of this being different
+//    { "area/land-residntl",     "land" }, // falls back automatically to area/land; no case in the old data of this being different
+    { "area/default",           "default[2]" },
+    { "area/large",             "default[0]" },
+    { "area/small",             "default[3]" },
+    { "concentr/blood-glucose", "concentration/blood-glucose" },
+    { "duration/music-track",   "media" },
+    { "duration/person-age",    "year-duration/person-age[1]" }, // [0] is years, [1] is years and months, which is what the old data did
+    { "duration/tv-program",    "media" },
+    { "energy/large",           "default" }, // in the old data, energy/ would give us back "joule"-- nothing in the current stuff does
+    { "energy/person-usage",    "food" },
+    { "length/default",         "default[1]" },
+    { "length/large",           "default[0]" },
+    { "length/person-informal", "person-height[0]" },
+    { "length/person-small",    "person" },
+    { "length/road-small",      "road[3]" },
+    { "length/small",           "default[2]" },
+    { "length/visiblty-small",  "visiblty[1]" },
+    { "mass/default",           "default[1]" },
+    { "mass/large",             "default[0]" },
+    { "mass/person-small",      "person[1]" },
+    { "mass/small",             "default[2]" },
+    { "power/default",          "default[3]" },
+    { "power/large",            "default[2]" },
+    { "power/small",            "default[4]" },
+    { "speed/road-travel",      "default" },
+    { "temperature/person"      "default" },
+    { "volume/default",         "fluid[0]" },
+    { "volume/large",           "default" }, // this is "cubic-kilometer" in the old data-- nothing in the new data produces this, so I went with "cubic-meter"
+    { "volume/small",           "fluid[1]" },
+    { "volume/vehicle-fuel",    "vehicle" }
 };
-enum { kKeyToUnitsCount = UPRV_LENGTHOF(keyToUnits) };
+enum { kUsageAliasCount = UPRV_LENGTHOF(usageAliases) };
 
-enum { kCombinedKeyMax = 64, kKeyValueMax = 15 };
-
-static int compareKeyToUnits(const void* searchKey, const void* tableEntry) {
-    return uprv_strncmp(((const KeyToUnits*)searchKey)->key, ((const KeyToUnits*)tableEntry)->key, kCombinedKeyMax);
+// comparator for binary search of usageAliases
+static int compareAppleMapElements(const void *key, const void *entry) {
+    return uprv_strcmp((const char *)key, ((const char **)entry)[0]);
 }
 
-U_CAPI int32_t U_EXPORT2
-uameasfmt_getUnitsForUsage( const char*     locale,
-                            const char*     category,
-                            const char*     usage,
-                            UAMeasureUnit*  units,
-                            int32_t         unitsCapacity,
-                            UErrorCode*     status )
-{
-    if (U_FAILURE(*status)) {
-        return 0;
-    }
-    if ( category==NULL || ((units==NULL)? unitsCapacity!=0: unitsCapacity<0) ) {
-        *status = U_ILLEGAL_ARGUMENT_ERROR;
-        return 0;
-    }
-    char combinedKey[kCombinedKeyMax+1] = "";
-    char* combinedKeyPtr;
-    uprv_strncat(combinedKey, category, kCombinedKeyMax);
-    if (usage != NULL) {
-        uprv_strncat(combinedKey, "-", kCombinedKeyMax-uprv_strlen(combinedKey));
-        uprv_strncat(combinedKey, usage, kCombinedKeyMax-uprv_strlen(combinedKey));
-    }
-
-    // get unitPreferenceData bundle
-    UResourceBundle *prefb = ures_openDirect(NULL, "supplementalData", status);
-    ures_getByKey(prefb, "unitPreferenceData", prefb, status);
-    if (U_FAILURE(*status)) {
-        return 0;
+// internal function for uameasfmt_getUnitsForUsage()
+static void resolveUsageAlias(CharString& category,
+                              CharString& usage,
+                              int32_t&    offset,
+                              UErrorCode& status) {
+    offset = 0;
+    
+    CharString categoryAndUsage(category, status);
+    categoryAndUsage.append("/", status);
+    if (usage.isEmpty()) {
+        categoryAndUsage.append("default", status);
+    } else {
+        categoryAndUsage.append(usage, status);
     }
     
-    // Get region to use
-    char region[ULOC_COUNTRY_CAPACITY];
+    if (U_SUCCESS(status)) {
+        const char** entry = (const char**)bsearch(categoryAndUsage.data(), usageAliases, kUsageAliasCount, sizeof(usageAliases[0]), compareAppleMapElements);
+        if (entry != nullptr) {
+            usage.clear();
+            usage.append(entry[1], status);
+            if (usage.contains("/")) {
+                CharString newCategoryAndUsage;
+                newCategoryAndUsage.append(usage, status);
+                char* newCategory = newCategoryAndUsage.data();
+                char* slash = uprv_strchr(newCategory, '/');
+                char* newUsage = slash + 1;
+                *slash = '\0';
+                category.clear();
+                category.append(newCategory, status);
+                usage.clear();
+                usage.append(newUsage, status);
+            }
+            if (usage.contains("[")) {
+                CharString usageAndOffset;
+                usageAndOffset.append(usage, status);
+                char* newUsage = usageAndOffset.data();
+                char* openBracket = uprv_strchr(newUsage, '[');
+                char* offsetStr = openBracket + 1;
+                usage.truncate(openBracket - newUsage);
+                offset = atoi(offsetStr);
+            } else {
+                offset = 0;
+            }
+        }
+    }
+}
+
+// internal function for uameasfmt_getUnitsForUsage()
+static void resolveLocaleRegion(const char* locale,
+                                const char* category,
+                                char* region,
+                                UErrorCode* status) {
+    if (U_FAILURE(*status)) {
+        return;
+    }
+    
+    const int32_t kKeyValueMax = 15;
     UErrorCode localStatus;
     UBool usedOverride = FALSE;
     // First check for ms overrides, except in certain categories
@@ -593,82 +386,63 @@ uameasfmt_getUnitsForUsage( const char*     locale,
         }
     }
     if (!usedOverride) {
-        (void)ulocimp_getRegionForSupplementalData(locale, TRUE, region, sizeof(region), status);
-        if (U_FAILURE(*status)) {
-            return 0;
-        }
+        (void)ulocimp_getRegionForSupplementalData(locale, TRUE, region, ULOC_COUNTRY_CAPACITY, status);
+    }
+}
+
+U_CAPI int32_t U_EXPORT2
+uameasfmt_getUnitsForUsage( const char*     locale,
+                            const char*     category,
+                            const char*     usage,
+                            UAMeasureUnit*  units,
+                            int32_t         unitsCapacity,
+                            UErrorCode*     status )
+{
+    CharString resolvedCategory(category, *status);
+    CharString resolvedUsage(usage, *status);
+    int32_t entryOffset;
+    resolveUsageAlias(resolvedCategory, resolvedUsage, entryOffset, *status);
+    
+    // Get region to use; this has to be done after resolveUsageAlias
+    char region[ULOC_COUNTRY_CAPACITY];
+    resolveLocaleRegion(locale, resolvedCategory.data(), region, status);
+    if (U_FAILURE(*status)) {
+        return 0;
     }
 
-    UResourceBundle *unitb = NULL;
-    localStatus = U_ZERO_ERROR;
-    int32_t retval = 0;
-    UResourceBundle *regb = ures_getByKey(prefb, region, NULL, &localStatus);
-    if (U_SUCCESS(localStatus)) {
-        unitb = ures_getByKey(regb, combinedKey, unitb, &localStatus);
-        if (U_FAILURE(localStatus)) {
-            combinedKeyPtr = uprv_strstr(combinedKey, "-informal");
-            if (combinedKeyPtr != NULL) {
-                *combinedKeyPtr = 0;
-                localStatus = U_ZERO_ERROR;
-                unitb = ures_getByKey(regb, combinedKey, unitb, &localStatus);
-            }
-        }
+    // Remap consumption/vehicle-fuel for US/CA/GB to use consumption-inverse; this has to
+    // be done after resolveLocaleRegion (so it cannot be combined with resolveUsageAlias)
+    // rdar://73253930
+    if ( uprv_strcmp(resolvedCategory.data(), "consumption") == 0 &&
+         uprv_strcmp(resolvedUsage.data(), "vehicle-fuel") == 0 &&
+         (uprv_strcmp(region,"US")==0 || uprv_strcmp(region,"GB")==0 || uprv_strcmp(region,"CA")==0) ) {
+        resolvedCategory.clear();
+        resolvedCategory.append("consumption-inverse", *status);
+    }
+
+    LocalPointer<UnitPreferences> prefsGetter(new UnitPreferences(*status), *status);
+    if (U_FAILURE(*status)) {
+        return 0;
+    }
+    
+    const UnitPreference *const *prefs = nullptr;
+    int32_t prefCount = 0;
+    
+    prefsGetter->getPreferencesFor(resolvedCategory.data(), resolvedUsage.data(), region, prefs, prefCount, *status);
+    if (U_FAILURE(*status) || prefCount == 0) {
+        return 0;
+    }
+    
+    if (entryOffset >= prefCount) {
+        // if the alias table gave us an offset off the end of the array, just use the last element in the array
+        entryOffset = prefCount - 1;
+    }
+    MeasureUnit unit(MeasureUnit::forIdentifier(prefs[entryOffset]->unit.data(), *status));
+    if (U_FAILURE(*status)) {
+        return 0;
     } else {
-        combinedKeyPtr = uprv_strstr(combinedKey, "-informal");
-        if (combinedKeyPtr != NULL) {
-            *combinedKeyPtr = 0;
-        }
+        return unit.getUAMeasureUnits(units, unitsCapacity, *status);
     }
-    if (U_FAILURE(localStatus)) {
-        localStatus = U_ZERO_ERROR;
-        regb = ures_getByKey(prefb, "001", regb, &localStatus);
-        if (U_SUCCESS(localStatus)) {
-            unitb = ures_getByKey(regb, combinedKey, unitb, &localStatus);
-            if (U_FAILURE(localStatus)) {
-                combinedKeyPtr = uprv_strstr(combinedKey, "-small");
-                if (combinedKeyPtr == NULL) {
-                    combinedKeyPtr = uprv_strstr(combinedKey, "-large");
-                }
-                if (combinedKeyPtr != NULL) {
-                    *combinedKeyPtr = 0;
-                    localStatus = U_ZERO_ERROR;
-                    unitb = ures_getByKey(regb, combinedKey, unitb, &localStatus);
-                }
-            }
-        }
-    }
-    if (U_FAILURE(localStatus)) {
-        *status = localStatus;
-    } else {
-        int32_t keyLen = kCombinedKeyMax;
-        const char* unitsKey = ures_getUTF8String(unitb, combinedKey, &keyLen, FALSE, status);
-        if (U_SUCCESS(*status)) {
-            KeyToUnits  searchKey = { unitsKey, 0, { (UAMeasureUnit)0 } };
-            const KeyToUnits* keyToUnitsPtr = (const KeyToUnits*)bsearch(&searchKey, keyToUnits, kKeyToUnitsCount,
-                                                                        sizeof(KeyToUnits), compareKeyToUnits);
-            if (keyToUnitsPtr == NULL) {
-                *status = U_MISSING_RESOURCE_ERROR;
-            } else {
-                retval = keyToUnitsPtr->count;
-                if (units != NULL) {
-                    if (retval > unitsCapacity) {
-                        *status = U_BUFFER_OVERFLOW_ERROR;
-                    } else {
-                        units[0] = keyToUnitsPtr->units[0];
-                        if (retval > 1) {
-                            units[1] = keyToUnitsPtr->units[1];
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    ures_close(unitb);
-    ures_close(regb);
-    ures_close(prefb);
-
-    return retval;
 }
 
 U_CAPI const char * U_EXPORT2
@@ -678,7 +452,7 @@ uameasfmt_getUnitCategory(UAMeasureUnit unit,
     if (U_FAILURE(*status)) {
         return NULL;
     }
-    LocalPointer<const MeasureUnit> munit(createObjectForMeasureUnit(unit, status));
+    LocalPointer<const MeasureUnit> munit(MeasureUnit::createFromUAMeasureUnit(unit, status));
     if (U_FAILURE(*status)) {
         return NULL;
     }

@@ -2,7 +2,7 @@
 
   array.c -
 
-  $Author: naruse $
+  $Author: nagachika $
   created at: Fri Aug  6 09:46:12 JST 1993
 
   Copyright (C) 1993-2007 Yukihiro Matsumoto
@@ -1368,6 +1368,7 @@ ary_ensure_room_for_unshift(VALUE ary, int argc)
 	VALUE shared = ARY_SHARED(ary);
 	capa = RARRAY_LEN(shared);
 	if (ARY_SHARED_OCCUPIED(shared) && capa > new_len) {
+            rb_ary_modify_check(ary);
             head = RARRAY_CONST_PTR_TRANSIENT(ary);
             sharedp = RARRAY_CONST_PTR_TRANSIENT(shared);
 	    goto makeroom_if_need;

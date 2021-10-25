@@ -230,7 +230,6 @@ T_DECL(notify_benchmark_check,
 			for(k = 0; k < CHECK_WEIGHT; k++){
 				r = notify_check(t[i], &check);
 				bench_assert(r == 0);
-				bench_assert(check == 0);
 			}
 		}
 
@@ -240,7 +239,6 @@ T_DECL(notify_benchmark_check,
 			for(k = 0; k < CHECK_WEIGHT; k++){
 				r = notify_check(t[i], &check);
 				bench_assert(r == 0);
-				bench_assert(check == 0);
 			}
 		}
 
@@ -262,7 +260,6 @@ T_DECL(notify_benchmark_check,
 			for(k = 0; k < CHECK_WEIGHT; k++){
 				r = notify_check(t[i], &check);
 				bench_assert(r == 0);
-				bench_assert(check == 0);
 			}
 		}
 

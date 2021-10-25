@@ -34,6 +34,42 @@
 #include <DriverKit/IOMemoryDescriptor.iig>
 
 /*!
+ * @brief Options for <code>SaveDeviceState</code>
+ *
+ * @constant kPCIConfigShadowPermanent - Re-use the saved device state in all future restores (until the next permanent copy is made)
+ */
+enum IOPCISaveDeviceStateOptions
+{
+    kPCIConfigShadowPermanent = 0x80000000,
+};
+
+/*!
+ * @brief BAR indexes for <code>GetBARInfo</code>
+ */
+enum IOPCIMemoryRange
+{
+    kPCIMemoryRangeBAR0         = 0,
+    kPCIMemoryRangeBAR1         = 1,
+    kPCIMemoryRangeBAR2         = 2,
+    kPCIMemoryRangeBAR3         = 3,
+    kPCIMemoryRangeBAR4         = 4,
+    kPCIMemoryRangeBAR5         = 5,
+    kPCIMemoryRangeExpansionROM = 6,
+};
+
+/*!
+ * @brief BAR types for <code>GetBARInfo</code>
+ */
+enum IOPCIBARType
+{
+    kPCIBARTypeM32   = 0x00, /* 32-bit (Non-prefetchable) Memory */
+    kPCIBARTypeIO    = 0x01, /* I/O Space */
+    kPCIBARTypeM64   = 0x04, /* 64-bit (Non-prefetchable) Memory */
+    kPCIBARTypeM32PF = 0x08, /* 32-bit Prefetchable Memory */
+    kPCIBARTypeM64PF = 0x0c, /* 64-bit Prefetchable Memory */
+};
+
+/*!
    @iig implementation
    #if KERNEL
    #include <IOKit/pci/IOPCIDevice.h>
@@ -295,6 +331,42 @@ public:
     virtual kern_return_t
     EnablePCIPowerManagement(uint64_t state);
 
+#pragma mark State Management
+
+    /*!
+     * @brief       Save the PCIe state of the device.
+     * @discussion  This method will save the device's Configuration Space into memory, to be restored at a later point (for example, after a Function Level Reset) with RestoreDeviceState().
+     * @param       options See IOPCISaveDeviceStateOptions
+     * @result      kIOReturnSuccess if the save was succesful.
+     */
+    virtual kern_return_t
+    SaveDeviceState(IOOptionBits options = 0);
+
+    /*!
+     * @brief       Restore the PCIe state of the device.
+     * @discussion  This method will restore the device's Configuration Space from memory, using the last saved state from SaveDeviceState().
+     * @param       options Reserved for future use
+     * @result      kIOReturnSuccess if there were no errors.
+     */
+    virtual kern_return_t
+    RestoreDeviceState(IOOptionBits options = 0);
+
+#pragma mark Memory Accessor helpers
+
+    /*!
+     * @brief       Lookup information related to the device BAR.
+     * @discussion  This method returns the device memory index (used by the MemoryReadXX/MemoryWriteXX functions), type, and size of the user-specified BAR.
+     * @param       barIndex See enum IOPCIMemoryRange.
+     * @param       memoryIndex An out parameter to return the memory index, if the function is successful.
+     * @param       barSize An out parameter to return the BAR size (bytes), if the function is successful. Not applicable for Expansion ROM.
+     * @param       barType An out parameter to return the BAR type, if the function is successful. See enum IOPCIBARType. Not applicable for Expansion ROM.
+     * @result      kIOReturnSuccess if the requested index is found.
+     */
+    virtual kern_return_t
+    GetBARInfo(uint8_t   barIndex,
+               uint8_t*  memoryIndex,
+               uint64_t* barSize = 0,
+               uint8_t*  barType = 0);
 };
 
 #pragma mark Private Class Extension

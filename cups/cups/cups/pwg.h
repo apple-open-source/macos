@@ -11,6 +11,15 @@
 
 
 /*
+ * Include necessary headers...
+ */
+
+#  include <stddef.h>
+#  include <cups/ipp.h>
+#  include <cups/versioning.h>
+
+
+/*
  * C++ magic...
  */
 

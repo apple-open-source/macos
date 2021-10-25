@@ -43,10 +43,11 @@
 #include "apr_general.h"
 #include "util_filter.h"
 #include "apr_buckets.h"
+#include "http_protocol.h"
 #include "http_request.h"
+#include "http_ssl.h"
 #define APR_WANT_STRFUNC
 #include "apr_want.h"
-#include "mod_ssl.h"
 
 #include "zlib.h"
 
@@ -94,8 +95,6 @@ static const char deflate_magic[2] = { '\037', '\213' };
 #define DEFAULT_MEMLEVEL 9
 #define DEFAULT_BUFFERSIZE 8096
 
-static APR_OPTIONAL_FN_TYPE(ssl_var_lookup) *mod_deflate_ssl_var = NULL;
-
 /* Check whether a request is gzipped, so we can un-gzip it.
  * If a request has multiple encodings, we need the gzip
  * to be the outermost non-identity encoding.
@@ -118,8 +117,8 @@ static int check_gzip(request_rec *r, apr_table_t *hdrs1, apr_table_t *hdrs2)
     if (encoding && *encoding) {
 
         /* check the usual/simple case first */
-        if (!strcasecmp(encoding, "gzip")
-            || !strcasecmp(encoding, "x-gzip")) {
+        if (!ap_cstr_casecmp(encoding, "gzip")
+            || !ap_cstr_casecmp(encoding, "x-gzip")) {
             found = 1;
             if (hdrs) {
                 apr_table_unset(hdrs, "Content-Encoding");
@@ -137,8 +136,8 @@ static int check_gzip(request_rec *r, apr_table_t *hdrs1, apr_table_t *hdrs2)
             for(;;) {
                 char *token = ap_strrchr(new_encoding, ',');
                 if (!token) {        /* gzip:identity or other:identity */
-                    if (!strcasecmp(new_encoding, "gzip")
-                        || !strcasecmp(new_encoding, "x-gzip")) {
+                    if (!ap_cstr_casecmp(new_encoding, "gzip")
+                        || !ap_cstr_casecmp(new_encoding, "x-gzip")) {
                         found = 1;
                         if (hdrs) {
                             apr_table_unset(hdrs, "Content-Encoding");
@@ -150,8 +149,8 @@ static int check_gzip(request_rec *r, apr_table_t *hdrs1, apr_table_t *hdrs2)
                     break; /* seen all tokens */
                 }
                 for (ptr=token+1; apr_isspace(*ptr); ++ptr);
-                if (!strcasecmp(ptr, "gzip")
-                    || !strcasecmp(ptr, "x-gzip")) {
+                if (!ap_cstr_casecmp(ptr, "gzip")
+                    || !ap_cstr_casecmp(ptr, "x-gzip")) {
                     *token = '\0';
                     if (hdrs) {
                         apr_table_setn(hdrs, "Content-Encoding", new_encoding);
@@ -161,7 +160,7 @@ static int check_gzip(request_rec *r, apr_table_t *hdrs1, apr_table_t *hdrs2)
                     }
                     found = 1;
                 }
-                else if (!ptr[0] || !strcasecmp(ptr, "identity")) {
+                else if (!ptr[0] || !ap_cstr_casecmp(ptr, "identity")) {
                     *token = '\0';
                     continue; /* strip the token and find the next one */
                 }
@@ -514,10 +513,8 @@ static int check_ratio(request_rec *r, deflate_ctx *ctx,
 static int have_ssl_compression(request_rec *r)
 {
     const char *comp;
-    if (mod_deflate_ssl_var == NULL)
-        return 0;
-    comp = mod_deflate_ssl_var(r->pool, r->server, r->connection, r,
-                               "SSL_COMPRESS_METHOD");
+    comp = ap_ssl_var_lookup(r->pool, r->server, r->connection, r,
+                             "SSL_COMPRESS_METHOD");
     if (comp == NULL || *comp == '\0' || strcmp(comp, "NULL") == 0)
         return 0;
     return 1;
@@ -709,7 +706,7 @@ static apr_status_t deflate_out_filter(ap_filter_t *f,
             }
 
             token = ap_get_token(r->pool, &accepts, 0);
-            while (token && token[0] && strcasecmp(token, "gzip")) {
+            while (token && token[0] && ap_cstr_casecmp(token, "gzip")) {
                 /* skip parameters, XXX: ;q=foo evaluation? */
                 while (*accepts == ';') {
                     ++accepts;
@@ -794,7 +791,7 @@ static apr_status_t deflate_out_filter(ap_filter_t *f,
          */
 
         /* If the entire Content-Encoding is "identity", we can replace it. */
-        if (!encoding || !strcasecmp(encoding, "identity")) {
+        if (!encoding || !ap_cstr_casecmp(encoding, "identity")) {
             apr_table_setn(r->headers_out, "Content-Encoding", "gzip");
         }
         else {
@@ -1879,7 +1876,6 @@ static apr_status_t inflate_out_filter(ap_filter_t *f,
 static int mod_deflate_post_config(apr_pool_t *pconf, apr_pool_t *plog,
                                    apr_pool_t *ptemp, server_rec *s)
 {
-    mod_deflate_ssl_var = APR_RETRIEVE_OPTIONAL_FN(ssl_var_lookup);
     return OK;
 }
 

@@ -42,23 +42,23 @@
 
 #include "cmslocal.h"
 
+#include "cryptohi.h"
 #include "secitem.h"
 #include "secoid.h"
-#include "cryptohi.h"
 
+#include <Security/SecKeyPriv.h>
 #include <security_asn1/secasn1.h>
 #include <security_asn1/secerr.h>
-#include <Security/SecKeyPriv.h>
+#include <utilities/SecCFWrappers.h>
 
 /*
  * SecCmsEnvelopedDataCreate - create an enveloped data message
  */
-SecCmsEnvelopedDataRef
-SecCmsEnvelopedDataCreate(SecCmsMessageRef cmsg, SECOidTag algorithm, int keysize)
+SecCmsEnvelopedDataRef SecCmsEnvelopedDataCreate(SecCmsMessageRef cmsg, SECOidTag algorithm, int keysize)
 {
-    void *mark;
+    void* mark;
     SecCmsEnvelopedDataRef envd;
-    PLArenaPool *poolp;
+    PLArenaPool* poolp;
     OSStatus rv;
 
     poolp = cmsg->poolp;
@@ -67,15 +67,16 @@ SecCmsEnvelopedDataCreate(SecCmsMessageRef cmsg, SECOidTag algorithm, int keysiz
 
     envd = (SecCmsEnvelopedDataRef)PORT_ArenaZAlloc(poolp, sizeof(SecCmsEnvelopedData));
     if (envd == NULL)
-	goto loser;
+        goto loser;
 
     envd->cmsg = cmsg;
 
     /* version is set in SecCmsEnvelopedDataEncodeBeforeStart() */
 
-    rv = SecCmsContentInfoSetContentEncAlg((SecArenaPoolRef)poolp, &(envd->contentInfo), algorithm, NULL, keysize);
+    rv = SecCmsContentInfoSetContentEncAlg(
+        (SecArenaPoolRef)poolp, &(envd->contentInfo), algorithm, NULL, keysize);
     if (rv != SECSuccess)
-	goto loser;
+        goto loser;
 
     PORT_ArenaUnmark(poolp, mark);
     return envd;
@@ -88,31 +89,28 @@ loser:
 /*
  * SecCmsEnvelopedDataDestroy - destroy an enveloped data message
  */
-void
-SecCmsEnvelopedDataDestroy(SecCmsEnvelopedDataRef edp)
+void SecCmsEnvelopedDataDestroy(SecCmsEnvelopedDataRef edp)
 {
-    SecCmsRecipientInfoRef *recipientinfos;
+    SecCmsRecipientInfoRef* recipientinfos;
     SecCmsRecipientInfoRef ri;
 
     if (edp == NULL)
-	return;
+        return;
 
     recipientinfos = edp->recipientInfos;
     if (recipientinfos == NULL)
-	return;
+        return;
 
     while ((ri = *recipientinfos++) != NULL)
-	SecCmsRecipientInfoDestroy(ri);
+        SecCmsRecipientInfoDestroy(ri);
 
-   SecCmsContentInfoDestroy(&(edp->contentInfo));
-
+    SecCmsContentInfoDestroy(&(edp->contentInfo));
 }
 
 /*
  * SecCmsEnvelopedDataGetContentInfo - return pointer to this envelopedData's contentinfo
  */
-SecCmsContentInfoRef
-SecCmsEnvelopedDataGetContentInfo(SecCmsEnvelopedDataRef envd)
+SecCmsContentInfoRef SecCmsEnvelopedDataGetContentInfo(SecCmsEnvelopedDataRef envd)
 {
     return &(envd->contentInfo);
 }
@@ -122,10 +120,9 @@ SecCmsEnvelopedDataGetContentInfo(SecCmsEnvelopedDataRef envd)
  *
  * rip must be created on the same pool as edp - this is not enforced, though.
  */
-OSStatus
-SecCmsEnvelopedDataAddRecipient(SecCmsEnvelopedDataRef edp, SecCmsRecipientInfoRef rip)
+OSStatus SecCmsEnvelopedDataAddRecipient(SecCmsEnvelopedDataRef edp, SecCmsRecipientInfoRef rip)
 {
-    void *mark;
+    void* mark;
     OSStatus rv;
 
     /* XXX compare pools, if not same, copy rip into edp's pool */
@@ -135,13 +132,13 @@ SecCmsEnvelopedDataAddRecipient(SecCmsEnvelopedDataRef edp, SecCmsRecipientInfoR
 
     mark = PORT_ArenaMark(edp->cmsg->poolp);
 
-    rv = SecCmsArrayAdd(edp->cmsg->poolp, (void ***)&(edp->recipientInfos), (void *)rip);
+    rv = SecCmsArrayAdd(edp->cmsg->poolp, (void***)&(edp->recipientInfos), (void*)rip);
     if (rv != SECSuccess) {
-	PORT_ArenaRelease(edp->cmsg->poolp, mark);
-	return SECFailure;
+        PORT_ArenaRelease(edp->cmsg->poolp, mark);
+        return SECFailure;
     }
 
-    PORT_ArenaUnmark (edp->cmsg->poolp, mark);
+    PORT_ArenaUnmark(edp->cmsg->poolp, mark);
     return SECSuccess;
 }
 
@@ -157,11 +154,10 @@ SecCmsEnvelopedDataAddRecipient(SecCmsEnvelopedDataRef edp, SecCmsRecipientInfoR
  * using the proper algorithm for every certificiate.
  * it will finally set the bulk algorithm and key so that the encode step can find it.
  */
-OSStatus
-SecCmsEnvelopedDataEncodeBeforeStart(SecCmsEnvelopedDataRef envd)
+OSStatus SecCmsEnvelopedDataEncodeBeforeStart(SecCmsEnvelopedDataRef envd)
 {
     int version;
-    SecCmsRecipientInfoRef *recipientinfos;
+    SecCmsRecipientInfoRef* recipientinfos;
     SecCmsContentInfoRef cinfo;
     SecSymmetricKeyRef bulkkey = NULL;
     CSSM_ALGORITHMS algorithm;
@@ -170,9 +166,9 @@ SecCmsEnvelopedDataEncodeBeforeStart(SecCmsEnvelopedDataRef envd)
     //PK11SlotInfo *slot;
     OSStatus rv;
     CSSM_DATA_PTR dummy;
-    PLArenaPool *poolp;
+    PLArenaPool* poolp;
     extern const SecAsn1Template SecCmsRecipientInfoTemplate[];
-    void *mark = NULL;
+    void* mark = NULL;
     int i;
 
     poolp = envd->cmsg->poolp;
@@ -180,82 +176,89 @@ SecCmsEnvelopedDataEncodeBeforeStart(SecCmsEnvelopedDataRef envd)
 
     recipientinfos = envd->recipientInfos;
     if (recipientinfos == NULL) {
-	PORT_SetError(SEC_ERROR_BAD_DATA);
+        PORT_SetError(SEC_ERROR_BAD_DATA);
 #if 0
 	PORT_SetErrorString("Cannot find recipientinfos to encode.");
 #endif
-	goto loser;
+        goto loser;
     }
 
     version = SEC_CMS_ENVELOPED_DATA_VERSION_REG;
     if (envd->originatorInfo != NULL || envd->unprotectedAttr != NULL) {
-	version = SEC_CMS_ENVELOPED_DATA_VERSION_ADV;
+        version = SEC_CMS_ENVELOPED_DATA_VERSION_ADV;
     } else {
-	for (i = 0; recipientinfos[i] != NULL; i++) {
-	    if (SecCmsRecipientInfoGetVersion(recipientinfos[i]) != 0) {
-		version = SEC_CMS_ENVELOPED_DATA_VERSION_ADV;
-		break;
-	    }
-	}
+        for (i = 0; recipientinfos[i] != NULL; i++) {
+            if (SecCmsRecipientInfoGetVersion(recipientinfos[i]) != 0) {
+                version = SEC_CMS_ENVELOPED_DATA_VERSION_ADV;
+                break;
+            }
+        }
     }
     dummy = SEC_ASN1EncodeInteger(poolp, &(envd->version), version);
-    if (dummy == NULL)
-	goto loser;
+    if (dummy == NULL) {
+        goto loser;
+    }
 
     /* now we need to have a proper content encryption algorithm
      * on the SMIME level, we would figure one out by looking at SMIME capabilities
      * we cannot do that on our level, so if none is set already, we'll just go
      * with one of the mandatory algorithms (3DES) */
     if ((bulkalgtag = SecCmsContentInfoGetContentEncAlgTag(cinfo)) == SEC_OID_UNKNOWN) {
-	rv = SecCmsContentInfoSetContentEncAlg((SecArenaPoolRef)poolp, cinfo, SEC_OID_DES_EDE3_CBC, NULL, 168);
-	if (rv != SECSuccess)
-	    goto loser;
-	bulkalgtag = SEC_OID_DES_EDE3_CBC;
+        rv = SecCmsContentInfoSetContentEncAlg(
+            (SecArenaPoolRef)poolp, cinfo, SEC_OID_DES_EDE3_CBC, NULL, 168);
+        if (rv != SECSuccess) {
+            goto loser;
+        }
+        bulkalgtag = SEC_OID_DES_EDE3_CBC;
     }
 
     algorithm = SECOID_FindyCssmAlgorithmByTag(bulkalgtag);
-    if (!algorithm)
-	goto loser;
-    rv = SecKeyGenerate(NULL,	/* keychainRef */
-		algorithm,
-		SecCmsContentInfoGetBulkKeySize(cinfo),
-		0,		/* contextHandle */
-		CSSM_KEYUSE_ENCRYPT | CSSM_KEYUSE_DECRYPT,
-		CSSM_KEYATTR_EXTRACTABLE,
-		NULL,		/* initialAccess */
-		&bulkkey);
-    if (rv)
-	goto loser;
+    if (!algorithm  || SecCmsContentInfoGetBulkKeySize(cinfo) < 0) {
+        goto loser;
+    }
+    rv = SecKeyGenerate(NULL, /* keychainRef */
+                        algorithm,
+                        (uint32_t)SecCmsContentInfoGetBulkKeySize(cinfo),
+                        0, /* contextHandle */
+                        CSSM_KEYUSE_ENCRYPT | CSSM_KEYUSE_DECRYPT,
+                        CSSM_KEYATTR_EXTRACTABLE,
+                        NULL, /* initialAccess */
+                        &bulkkey);
+    if (rv) {
+        goto loser;
+    }
 
     mark = PORT_ArenaMark(poolp);
 
     /* Encrypt the bulk key with the public key of each recipient.  */
     for (i = 0; recipientinfos[i] != NULL; i++) {
-	rv = SecCmsRecipientInfoWrapBulkKey(recipientinfos[i], bulkkey, bulkalgtag);
-	if (rv != SECSuccess)
-	    goto loser;	/* error has been set by SecCmsRecipientInfoEncryptBulkKey */
-	    		/* could be: alg not supported etc. */
+        rv = SecCmsRecipientInfoWrapBulkKey(recipientinfos[i], bulkkey, bulkalgtag);
+        if (rv != SECSuccess) {
+            goto loser; /* error has been set by SecCmsRecipientInfoEncryptBulkKey */
+                        /* could be: alg not supported etc. */
+        }
     }
 
     /* the recipientinfos are all finished. now sort them by DER for SET OF encoding */
-    rv = SecCmsArraySortByDER((void **)envd->recipientInfos, SecCmsRecipientInfoTemplate, NULL);
-    if (rv != SECSuccess)
-	goto loser;	/* error has been set by SecCmsArraySortByDER */
+    rv = SecCmsArraySortByDER((void**)envd->recipientInfos, SecCmsRecipientInfoTemplate, NULL);
+    if (rv != SECSuccess) {
+        goto loser; /* error has been set by SecCmsArraySortByDER */
+    }
 
     /* store the bulk key in the contentInfo so that the encoder can find it */
     SecCmsContentInfoSetBulkKey(cinfo, bulkkey);
 
     PORT_ArenaUnmark(poolp, mark);
 
-    CFRelease(bulkkey);
+    CFReleaseNull(bulkkey);
 
     return SECSuccess;
 
 loser:
-    if (mark != NULL)
-	PORT_ArenaRelease (poolp, mark);
-    if (bulkkey)
-	CFRelease(bulkkey);
+    if (mark != NULL) {
+        PORT_ArenaRelease(poolp, mark);
+    }
+    CFReleaseNull(bulkkey);
 
     return SECFailure;
 }
@@ -266,30 +269,33 @@ loser:
  * it is essential that this is called before the contentEncAlg is encoded, because
  * setting up the encryption may generate IVs and thus change it!
  */
-OSStatus
-SecCmsEnvelopedDataEncodeBeforeData(SecCmsEnvelopedDataRef envd)
+OSStatus SecCmsEnvelopedDataEncodeBeforeData(SecCmsEnvelopedDataRef envd)
 {
     SecCmsContentInfoRef cinfo;
     SecSymmetricKeyRef bulkkey;
-    SECAlgorithmID *algid;
+    SECAlgorithmID* algid;
 
     cinfo = &(envd->contentInfo);
 
     /* find bulkkey and algorithm - must have been set by SecCmsEnvelopedDataEncodeBeforeStart */
     bulkkey = SecCmsContentInfoGetBulkKey(cinfo);
-    if (bulkkey == NULL)
-	return SECFailure;
+    if (bulkkey == NULL) {
+        return SECFailure;
+    }
     algid = SecCmsContentInfoGetContentEncAlg(cinfo);
-    if (algid == NULL)
-	return SECFailure;
+    if (algid == NULL) {
+        CFReleaseNull(bulkkey);
+        return SECFailure;
+    }
 
     /* this may modify algid (with IVs generated in a token).
      * it is essential that algid is a pointer to the contentEncAlg data, not a
      * pointer to a copy! */
     cinfo->ciphcx = SecCmsCipherContextStartEncrypt(envd->cmsg->poolp, bulkkey, algid);
-    CFRelease(bulkkey);
-    if (cinfo->ciphcx == NULL)
-	return SECFailure;
+    CFReleaseNull(bulkkey);
+    if (cinfo->ciphcx == NULL) {
+        return SECFailure;
+    }
 
     return SECSuccess;
 }
@@ -297,12 +303,11 @@ SecCmsEnvelopedDataEncodeBeforeData(SecCmsEnvelopedDataRef envd)
 /*
  * SecCmsEnvelopedDataEncodeAfterData - finalize this envelopedData for encoding
  */
-OSStatus
-SecCmsEnvelopedDataEncodeAfterData(SecCmsEnvelopedDataRef envd)
+OSStatus SecCmsEnvelopedDataEncodeAfterData(SecCmsEnvelopedDataRef envd)
 {
     if (envd->contentInfo.ciphcx) {
-	SecCmsCipherContextDestroy(envd->contentInfo.ciphcx);
-	envd->contentInfo.ciphcx = NULL;
+        SecCmsCipherContextDestroy(envd->contentInfo.ciphcx);
+        envd->contentInfo.ciphcx = NULL;
     }
 
     /* nothing else to do after data */
@@ -313,32 +318,32 @@ SecCmsEnvelopedDataEncodeAfterData(SecCmsEnvelopedDataRef envd)
  * SecCmsEnvelopedDataDecodeBeforeData - find our recipientinfo, 
  * derive bulk key & set up our contentinfo
  */
-OSStatus
-SecCmsEnvelopedDataDecodeBeforeData(SecCmsEnvelopedDataRef envd)
+OSStatus SecCmsEnvelopedDataDecodeBeforeData(SecCmsEnvelopedDataRef envd)
 {
     SecCmsRecipientInfoRef ri;
     SecSymmetricKeyRef bulkkey = NULL;
     SECOidTag bulkalgtag;
-    SECAlgorithmID *bulkalg;
+    SECAlgorithmID* bulkalg;
     OSStatus rv = SECFailure;
     SecCmsContentInfoRef cinfo;
-    SecCmsRecipient **recipient_list = NULL;
-    SecCmsRecipient *recipient;
+    SecCmsRecipient** recipient_list = NULL;
+    SecCmsRecipient* recipient;
     int rlIndex;
 
-    if (SecCmsArrayCount((void **)envd->recipientInfos) == 0) {
-	PORT_SetError(SEC_ERROR_BAD_DATA);
+    if (SecCmsArrayCount((void**)envd->recipientInfos) == 0) {
+        PORT_SetError(SEC_ERROR_BAD_DATA);
 #if 0
 	PORT_SetErrorString("No recipient data in envelope.");
 #endif
-	goto loser;
+        goto loser;
     }
 
     /* look if one of OUR cert's issuerSN is on the list of recipients, and if so,  */
     /* get the cert and private key for it right away */
     recipient_list = nss_cms_recipient_list_create(envd->recipientInfos);
-    if (recipient_list == NULL)
-	goto loser;
+    if (recipient_list == NULL) {
+        goto loser;
+    }
 
     /* what about multiple recipientInfos that match?
      * especially if, for some reason, we could not produce a bulk key with the first match?!
@@ -348,17 +353,17 @@ SecCmsEnvelopedDataDecodeBeforeData(SecCmsEnvelopedDataRef envd)
 
     /* if that fails, then we're not an intended recipient and cannot decrypt */
     if (rlIndex < 0) {
-	PORT_SetError(SEC_ERROR_NOT_A_RECIPIENT);
+        PORT_SetError(SEC_ERROR_NOT_A_RECIPIENT);
 #if 0
 	PORT_SetErrorString("Cannot decrypt data because proper key cannot be found.");
 #endif
-	goto loser;
+        goto loser;
     }
 
     recipient = recipient_list[rlIndex];
     if (!recipient->cert || !recipient->privkey) {
-	/* XXX should set an error code ?!? */
-	goto loser;
+        /* XXX should set an error code ?!? */
+        goto loser;
     }
     /* get a pointer to "our" recipientinfo */
     ri = envd->recipientInfos[recipient->riIndex];
@@ -366,16 +371,15 @@ SecCmsEnvelopedDataDecodeBeforeData(SecCmsEnvelopedDataRef envd)
     cinfo = &(envd->contentInfo);
     bulkalgtag = SecCmsContentInfoGetContentEncAlgTag(cinfo);
     if (bulkalgtag == SEC_OID_UNKNOWN) {
-	PORT_SetError(SEC_ERROR_INVALID_ALGORITHM);
-    } else
-	bulkkey = SecCmsRecipientInfoUnwrapBulkKey(ri,recipient->subIndex,
-						    recipient->cert,
-						    recipient->privkey,
-						    bulkalgtag);
+        PORT_SetError(SEC_ERROR_INVALID_ALGORITHM);
+    } else {
+        bulkkey = SecCmsRecipientInfoUnwrapBulkKey(
+            ri, recipient->subIndex, recipient->cert, recipient->privkey, bulkalgtag);
+    }
     if (bulkkey == NULL) {
-	/* no success finding a bulk key */
-	rv = errSecDataNotAvailable;
-	goto loser;
+        /* no success finding a bulk key */
+        rv = errSecDataNotAvailable;
+        goto loser;
     }
 
     SecCmsContentInfoSetBulkKey(cinfo, bulkkey);
@@ -386,11 +390,12 @@ SecCmsEnvelopedDataDecodeBeforeData(SecCmsEnvelopedDataRef envd)
     bulkalg = SecCmsContentInfoGetContentEncAlg(cinfo);
 
     cinfo->ciphcx = SecCmsCipherContextStartDecrypt(bulkkey, bulkalg);
-    if (cinfo->ciphcx == NULL)
-	goto loser;		/* error has been set by SecCmsCipherContextStartDecrypt */
+    if (cinfo->ciphcx == NULL) {
+        goto loser; /* error has been set by SecCmsCipherContextStartDecrypt */
+    }
 
 #if 1
-    // @@@ Fix me
+        // @@@ Fix me
 #else
     /* 
      * HACK ALERT!!
@@ -399,30 +404,29 @@ SecCmsEnvelopedDataDecodeBeforeData(SecCmsEnvelopedDataRef envd)
      * prior to freeing it.
      */
     if (SEC_PKCS5IsAlgorithmPBEAlg(bulkalg)) {
-	SEC_PKCS5KeyAndPassword *keyPwd = (SEC_PKCS5KeyAndPassword *)bulkkey;
-	bulkkey = keyPwd->key;
+        SEC_PKCS5KeyAndPassword* keyPwd = (SEC_PKCS5KeyAndPassword*)bulkkey;
+        bulkkey = keyPwd->key;
     }
 #endif
 
     rv = SECSuccess;
 
 loser:
-    if (bulkkey)
-	CFRelease(bulkkey);
-    if (recipient_list != NULL)
-	nss_cms_recipient_list_destroy(recipient_list);
+    CFReleaseNull(bulkkey);
+    if (recipient_list != NULL) {
+        nss_cms_recipient_list_destroy(recipient_list);
+    }
     return rv;
 }
 
 /*
  * SecCmsEnvelopedDataDecodeAfterData - finish decrypting this envelopedData's content
  */
-OSStatus
-SecCmsEnvelopedDataDecodeAfterData(SecCmsEnvelopedDataRef envd)
+OSStatus SecCmsEnvelopedDataDecodeAfterData(SecCmsEnvelopedDataRef envd)
 {
     if (envd && envd->contentInfo.ciphcx) {
-	SecCmsCipherContextDestroy(envd->contentInfo.ciphcx);
-	envd->contentInfo.ciphcx = NULL;
+        SecCmsCipherContextDestroy(envd->contentInfo.ciphcx);
+        envd->contentInfo.ciphcx = NULL;
     }
 
     return SECSuccess;
@@ -431,10 +435,8 @@ SecCmsEnvelopedDataDecodeAfterData(SecCmsEnvelopedDataRef envd)
 /*
  * SecCmsEnvelopedDataDecodeAfterEnd - finish decoding this envelopedData
  */
-OSStatus
-SecCmsEnvelopedDataDecodeAfterEnd(SecCmsEnvelopedDataRef envd)
+OSStatus SecCmsEnvelopedDataDecodeAfterEnd(SecCmsEnvelopedDataRef envd)
 {
     /* apply final touches */
     return SECSuccess;
 }
-

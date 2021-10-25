@@ -168,6 +168,8 @@ typedef struct {
         uint32_t pixelUnits:1;
         uint32_t centerOrigin:1;
         uint32_t builtIn:1;
+        uint32_t interpolated:1;
+        uint32_t injected:1;
     } options;
     uint8_t depth;
     uint8_t reserved[3];
@@ -753,9 +755,9 @@ typedef struct {
     uint32_t size;
     IOHIDEventType type;
     struct {
-        uint32_t reserved:15;
+        uint32_t reserved:16;
         uint32_t repeat:1;
-        uint32_t reserved2:16;
+        uint32_t reserved2:15;
     } options;
     uint8_t depth;
     uint8_t reserved[3];

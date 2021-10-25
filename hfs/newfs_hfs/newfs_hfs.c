@@ -818,11 +818,11 @@ static void validate_hfsplus_block_size(UInt64 sectorCount, UInt32 sectorSize)
 		 * That means that if the filesystem is >= 1 TB, then we'll use the index 
 		 * value. At 2TB, we grow to the 8K block size.
 		 */
-		if ((bit_index >= 0) && (bit_index < 22)) {
+		if ((bit_index >= 0) && (bit_index < NUM_ALLOC_BLOCKSIZES)) {
 			gBlockSize = (uint32_t)alloc_blocksize[bit_index];
 		}
 		
-		if (bit_index >= 22) {
+		if (bit_index >= NUM_ALLOC_BLOCKSIZES) {
 			fatal("Error: Disk Device is too big (%llu sectors, %d bytes per sector", sectorCount, sectorSize);
 		}
 	} 

@@ -69,15 +69,21 @@ main(int argc, char *argv[]) {
 #endif
 	printf("\tos_variant_has_full_logging: %s\n",
 			bool2str(os_variant_check("com.apple.osvariantutil", "HasFullLogging")));
+	printf("\tos_variant_allows_security_research: %s\n",
+			bool2str(os_variant_check("com.apple.osvariantutil", "AllowsSecurityResearch")));
 
 	printf("\nOS Variant Overrides:\n");
 	printf("\tCONTENT: %s\n", bool2str(_check_disabled(VP_CONTENT)));
 	printf("\tDIAGNOSTICS: %s\n", bool2str(_check_disabled(VP_DIAGNOSTICS)));
 	printf("\tUI: %s\n", bool2str(_check_disabled(VP_UI)));
 	printf("\tSECURITY: %s\n", bool2str(_check_disabled(VP_SECURITY)));
+	if (_check_disabled(VP_CONTENT) || _check_disabled(VP_DIAGNOSTICS) || _check_disabled(VP_UI) || _check_disabled(VP_SECURITY)) {
+		printf("(Hint: These overrides may have been set by the presence or contents of the files %s or %s)\n",
+				VAR_FILE_LEGACY, VAR_FILE_OVERRIDE);
+	}
 
 	printf("\nOS Variant Inputs:\n");
-#if !TARGET_OS_IPHONE || TARGET_IPHONE_SIMULATOR
+#if !TARGET_OS_IPHONE || TARGET_OS_SIMULATOR
 	printf("\tInternal Content: %s\n", bool2str(_check_internal_content()));
 #endif
 #if TARGET_OS_IPHONE

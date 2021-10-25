@@ -12,6 +12,7 @@ extern "C" {
 #include <errno.h>
 #include <fcntl.h>
 #include <fts.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

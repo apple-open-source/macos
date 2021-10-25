@@ -75,7 +75,7 @@ static int proxy_balancer_canon(request_rec *r, char *url)
     apr_port_t port = 0;
 
     /* TODO: offset of BALANCER_PREFIX ?? */
-    if (strncasecmp(url, "balancer:", 9) == 0) {
+    if (ap_cstr_casecmpn(url, "balancer:", 9) == 0) {
         url += 9;
     }
     else {
@@ -1312,7 +1312,7 @@ static int balancer_handler(request_rec *r)
         if ((val = apr_table_get(params, "w_hm"))) {
             proxy_hcmethods_t *method = proxy_hcmethods;
             for (; method->name; method++) {
-                if (!strcasecmp(method->name, val) && method->implemented)
+                if (!ap_cstr_casecmp(method->name, val) && method->implemented)
                     wsel->s->method = method->method;
             }
         }
@@ -1613,7 +1613,7 @@ static int balancer_handler(request_rec *r)
                 ap_rprintf(r, "          <httpd:lbset>%d</httpd:lbset>\n",
                            worker->s->lbset);
                 /* End proxy_worker_stat */
-                if (!strcasecmp(worker->s->scheme, "ajp")) {
+                if (!ap_cstr_casecmp(worker->s->scheme, "ajp")) {
                     ap_rputs("          <httpd:flushpackets>", r);
                     switch (worker->s->flush_packets) {
                         case flush_off:
@@ -1750,7 +1750,7 @@ static int balancer_handler(request_rec *r)
             ap_rvputs(r, balancer->s->vpath, "</td>\n", NULL);
             ap_rprintf(r, "<td>%s</td>\n",
                        !balancer->s->inactive ? "Yes" : "No");
-            ap_rputs("</table>\n<br />", r);
+            ap_rputs("</tr>\n</table>\n<br />", r);
             ap_rputs("\n\n<table><tr>"
                 "<th>Worker URL</th>"
                 "<th>Route</th><th>RouteRedir</th>"
@@ -1968,7 +1968,7 @@ static void balancer_child_init(apr_pool_t *p, server_rec *s)
                              balancer->s->name);
                 exit(1); /* Ugly, but what else? */
             }
-            init_balancer_members(conf->pool, s, balancer);
+            init_balancer_members(p, s, balancer);
         }
         s = s->next;
     }

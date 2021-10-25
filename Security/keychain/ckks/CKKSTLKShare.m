@@ -109,20 +109,30 @@
       publicKey:(SFECPublicKey*)receiverPublicKey
           error:(NSError* __autoreleasing*)error
 {
-    NSData* plaintext = [key serializeAsProtobuf:error];
+    NSError* localerror = nil;
+    NSData* plaintext = nil;
+
+    @autoreleasepool {
+        plaintext = [key serializeAsProtobuf:&localerror];
+    }
     if(!plaintext) {
+        if(error) {
+            *error = localerror;
+        }
         return nil;
     }
 
     SFIESOperation* sfieso = [[SFIESOperation alloc] initWithCurve:self.curve];
     SFIESCiphertext* ciphertext =
-        [sfieso encrypt:plaintext withKey:receiverPublicKey error:error];
+    [sfieso encrypt:plaintext withKey:receiverPublicKey error:error];
 
-    // Now use NSCoding to turn the ciphertext into something transportable
-    NSKeyedArchiver* archiver = [[NSKeyedArchiver alloc] initRequiringSecureCoding:YES];
-    [ciphertext encodeWithCoder:archiver];
+    @autoreleasepool {
+        // Now use NSCoding to turn the ciphertext into something transportable
+        NSKeyedArchiver* archiver = [[NSKeyedArchiver alloc] initRequiringSecureCoding:YES];
+        [ciphertext encodeWithCoder:archiver];
 
-    return archiver.encodedData;
+        return archiver.encodedData;
+    }
 }
 
 - (CKKSKeychainBackedKey* _Nullable)unwrapUsing:(id<CKKSSelfPeer>)localPeer
@@ -153,77 +163,79 @@
 // This record must serialize exactly the same on the other side for the signature to verify.
 - (NSData*)dataForSigning:(CKRecord* _Nullable)record
 {
-    // Ideally, we'd put this as DER or some other structured, versioned format.
-    // For now, though, do the straightforward thing and concatenate the fields of interest.
-    NSMutableData* dataToSign = [[NSMutableData alloc] init];
+    @autoreleasepool {
+        // Ideally, we'd put this as DER or some other structured, versioned format.
+        // For now, though, do the straightforward thing and concatenate the fields of interest.
+        NSMutableData* dataToSign = [[NSMutableData alloc] init];
 
-    uint64_t version = OSSwapHostToLittleConstInt64(self.version);
-    [dataToSign appendBytes:&version length:sizeof(version)];
+        uint64_t version = OSSwapHostToLittleConstInt64(self.version);
+        [dataToSign appendBytes:&version length:sizeof(version)];
 
-    // We only include the peer IDs in the signature; the receiver doesn't care if we signed the receiverPublicKey field;
-    // if it's wrong or doesn't match, the receiver will simply fail to decrypt the encrypted record.
-    [dataToSign appendData:[self.receiverPeerID dataUsingEncoding:NSUTF8StringEncoding]];
-    [dataToSign appendData:[self.senderPeerID dataUsingEncoding:NSUTF8StringEncoding]];
+        // We only include the peer IDs in the signature; the receiver doesn't care if we signed the receiverPublicKey field;
+        // if it's wrong or doesn't match, the receiver will simply fail to decrypt the encrypted record.
+        [dataToSign appendData:[self.receiverPeerID dataUsingEncoding:NSUTF8StringEncoding]];
+        [dataToSign appendData:[self.senderPeerID dataUsingEncoding:NSUTF8StringEncoding]];
 
-    [dataToSign appendData:self.wrappedTLK];
+        [dataToSign appendData:self.wrappedTLK];
 
-    uint64_t curve = OSSwapHostToLittleConstInt64(self.curve);
-    [dataToSign appendBytes:&curve length:sizeof(curve)];
+        uint64_t curve = OSSwapHostToLittleConstInt64(self.curve);
+        [dataToSign appendBytes:&curve length:sizeof(curve)];
 
-    uint64_t epoch = OSSwapHostToLittleConstInt64(self.epoch);
-    [dataToSign appendBytes:&epoch length:sizeof(epoch)];
+        uint64_t epoch = OSSwapHostToLittleConstInt64(self.epoch);
+        [dataToSign appendBytes:&epoch length:sizeof(epoch)];
 
-    uint64_t poisoned = OSSwapHostToLittleConstInt64(self.poisoned);
-    [dataToSign appendBytes:&poisoned length:sizeof(poisoned)];
+        uint64_t poisoned = OSSwapHostToLittleConstInt64(self.poisoned);
+        [dataToSign appendBytes:&poisoned length:sizeof(poisoned)];
 
-    // If we have a CKRecord passed in, add any unknown fields (that don't start with server_) to the signed data
-    // in sorted order by CKRecord key
-    if(record) {
-        NSMutableDictionary<NSString*, id>* extraData = [NSMutableDictionary dictionary];
+        // If we have a CKRecord passed in, add any unknown fields (that don't start with server_) to the signed data
+        // in sorted order by CKRecord key
+        if(record) {
+            NSMutableDictionary<NSString*, id>* extraData = [NSMutableDictionary dictionary];
 
-        for(NSString* key in record.allKeys) {
-            if([key isEqualToString:SecCKRecordSenderPeerID] ||
-               [key isEqualToString:SecCKRecordReceiverPeerID] ||
-               [key isEqualToString:SecCKRecordReceiverPublicEncryptionKey] ||
-               [key isEqualToString:SecCKRecordCurve] || [key isEqualToString:SecCKRecordEpoch] ||
-               [key isEqualToString:SecCKRecordPoisoned] ||
-               [key isEqualToString:SecCKRecordSignature] || [key isEqualToString:SecCKRecordVersion] ||
-               [key isEqualToString:SecCKRecordParentKeyRefKey] ||
-               [key isEqualToString:SecCKRecordWrappedKeyKey]) {
-                // This version of CKKS knows about this data field. Ignore them with prejudice.
-                continue;
+            for(NSString* key in record.allKeys) {
+                if([key isEqualToString:SecCKRecordSenderPeerID] ||
+                   [key isEqualToString:SecCKRecordReceiverPeerID] ||
+                   [key isEqualToString:SecCKRecordReceiverPublicEncryptionKey] ||
+                   [key isEqualToString:SecCKRecordCurve] || [key isEqualToString:SecCKRecordEpoch] ||
+                   [key isEqualToString:SecCKRecordPoisoned] ||
+                   [key isEqualToString:SecCKRecordSignature] || [key isEqualToString:SecCKRecordVersion] ||
+                   [key isEqualToString:SecCKRecordParentKeyRefKey] ||
+                   [key isEqualToString:SecCKRecordWrappedKeyKey]) {
+                    // This version of CKKS knows about this data field. Ignore them with prejudice.
+                    continue;
+                }
+
+                if([key hasPrefix:@"server_"]) {
+                    // Ignore all fields prefixed by "server_"
+                    continue;
+                }
+
+                extraData[key] = record[key];
             }
 
-            if([key hasPrefix:@"server_"]) {
-                // Ignore all fields prefixed by "server_"
-                continue;
-            }
+            NSArray* extraKeys = [[extraData allKeys] sortedArrayUsingSelector:@selector(compare:)];
+            for(NSString* extraKey in extraKeys) {
+                id obj = extraData[extraKey];
 
-            extraData[key] = record[key];
+                // Skip CKReferences, NSArray, CLLocation, and CKAsset.
+                if([obj isKindOfClass:[NSString class]]) {
+                    [dataToSign appendData:[obj dataUsingEncoding:NSUTF8StringEncoding]];
+                } else if([obj isKindOfClass:[NSData class]]) {
+                    [dataToSign appendData:obj];
+                } else if([obj isKindOfClass:[NSDate class]]) {
+                    NSISO8601DateFormatter* formatter = [[NSISO8601DateFormatter alloc] init];
+                    NSString* str = [formatter stringForObjectValue:obj];
+                    [dataToSign appendData:[str dataUsingEncoding:NSUTF8StringEncoding]];
+                } else if([obj isKindOfClass:[NSNumber class]]) {
+                    // Add an NSNumber
+                    uint64_t n64 = OSSwapHostToLittleConstInt64([obj unsignedLongLongValue]);
+                    [dataToSign appendBytes:&n64 length:sizeof(n64)];
+                }
+            }
         }
 
-        NSArray* extraKeys = [[extraData allKeys] sortedArrayUsingSelector:@selector(compare:)];
-        for(NSString* extraKey in extraKeys) {
-            id obj = extraData[extraKey];
-
-            // Skip CKReferences, NSArray, CLLocation, and CKAsset.
-            if([obj isKindOfClass:[NSString class]]) {
-                [dataToSign appendData:[obj dataUsingEncoding:NSUTF8StringEncoding]];
-            } else if([obj isKindOfClass:[NSData class]]) {
-                [dataToSign appendData:obj];
-            } else if([obj isKindOfClass:[NSDate class]]) {
-                NSISO8601DateFormatter* formatter = [[NSISO8601DateFormatter alloc] init];
-                NSString* str = [formatter stringForObjectValue:obj];
-                [dataToSign appendData:[str dataUsingEncoding:NSUTF8StringEncoding]];
-            } else if([obj isKindOfClass:[NSNumber class]]) {
-                // Add an NSNumber
-                uint64_t n64 = OSSwapHostToLittleConstInt64([obj unsignedLongLongValue]);
-                [dataToSign appendBytes:&n64 length:sizeof(n64)];
-            }
-        }
+        return dataToSign;
     }
-
-    return dataToSign;
 }
 
 // Returns the signature, but not the signed data itself;

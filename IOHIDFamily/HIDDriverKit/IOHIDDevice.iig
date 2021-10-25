@@ -75,8 +75,7 @@ public:
      * other 24 bits are options to specify the request.
      * @param completionTimeout Specifies an amount of time (in ms) after which
      * the command will be aborted if the entire command has not been completed.
-     * @param action OSAction to call CompleteReport when request completes. If omitted then
-     * getReport() executes synchronously, blocking until the request is complete.
+     * @param action OSAction to call CompleteReport when request completes.
      * @result kIOReturnSuccess on success, or an error return otherwise.
      */
     
@@ -97,8 +96,7 @@ public:
      * other 24 bits are options to specify the request.
      * @param completionTimeout Specifies an amount of time (in ms) after which
      * the command will be aborted if the entire command has not been completed.
-     * @param action OSAction to call CompleteReport when request completes. If omitted then
-     * setReport() executes synchronously, blocking until the request is complete.
+     * @param action OSAction to call CompleteReport when request completes.
      * @result kIOReturnSuccess on success, or an error return otherwise.
      */
     
@@ -145,8 +143,8 @@ class EXTENDS (IOHIDDevice) IOHIDDevicePrivate
                                         IOOptionBits              options    = 0);
     
     /*!
-     * @brief       Process Get/Set report requests from  kernel object
-     * @discussion  method called by kernel object to request processing GEt/Set report commands.
+     * @brief       Process GetReport/SetReport requests from  kernel object
+     * @discussion  method called by kernel object to request processing Get/Set report commands.
      * @param       report      descriptor to store report data.
      * @param       reportType  report type
      * @param       options     options[0..7] contain report ID.

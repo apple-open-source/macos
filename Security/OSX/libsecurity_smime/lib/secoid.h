@@ -37,9 +37,9 @@
  * secoid.h - public data structures and prototypes for ASN.1 OID functions
  */
 
-#include <security_asn1/seccomon.h>
-#include <security_asn1/plarenas.h>
 #include <Security/secasn1t.h>
+#include <security_asn1/plarenas.h>
+#include <security_asn1/seccomon.h>
 
 #include <security_smime/secoidt.h>
 
@@ -53,10 +53,10 @@ SEC_ASN1_CHOOSER_DECLARE(SECOID_AlgorithmIDTemplate)
 /*
  * OID handling routines
  */
-extern SECOidData *SECOID_FindOID(const SECItem *oid);
-extern SECOidTag SECOID_FindOIDTag(const SECItem *oid);
-extern SECOidData *SECOID_FindOIDByTag(SECOidTag tagnum);
-extern SECOidData *SECOID_FindOIDByCssmAlgorithm(CSSM_ALGORITHMS cssmAlgorithm);
+extern SECOidData* SECOID_FindOID(const SECItem* oid);
+extern SECOidTag SECOID_FindOIDTag(const SECItem* oid);
+extern SECOidData* SECOID_FindOIDByTag(SECOidTag tagnum);
+extern SECOidData* SECOID_FindOIDByCssmAlgorithm(CSSM_ALGORITHMS cssmAlgorithm);
 
 /****************************************/
 /*
@@ -70,8 +70,8 @@ extern SECOidData *SECOID_FindOIDByCssmAlgorithm(CSSM_ALGORITHMS cssmAlgorithm);
 **	"tag" the tag defining the algorithm (SEC_OID_*)
 **	"params" if not NULL, the parameters to go with the algorithm
 */
-extern SECStatus SECOID_SetAlgorithmID(PRArenaPool *arena, SECAlgorithmID *aid,
-				   SECOidTag tag, SECItem *params);
+extern SECStatus
+SECOID_SetAlgorithmID(PRArenaPool* arena, SECAlgorithmID* aid, SECOidTag tag, SECItem* params);
 
 /*
 ** Copy the "src" object to "dest". Memory is allocated in "dest" for
@@ -79,33 +79,32 @@ extern SECStatus SECOID_SetAlgorithmID(PRArenaPool *arena, SECAlgorithmID *aid,
 ** before memory is allocated (use SECOID_DestroyAlgorithmID(dest, PR_FALSE)
 ** to do that).
 */
-extern SECStatus SECOID_CopyAlgorithmID(PRArenaPool *arena, SECAlgorithmID *dest,
-				    const SECAlgorithmID *src);
+extern SECStatus
+SECOID_CopyAlgorithmID(PRArenaPool* arena, SECAlgorithmID* dest, const SECAlgorithmID* src);
 
 /*
 ** Get the SEC_OID_* tag for the given algorithm-id object.
 */
-extern SECOidTag SECOID_GetAlgorithmTag(const SECAlgorithmID *aid);
+extern SECOidTag SECOID_GetAlgorithmTag(const SECAlgorithmID* aid);
 
 /*
 ** Destroy an algorithm-id object.
 **	"aid" the certificate-request to destroy
 **	"freeit" if PR_TRUE then free the object as well as its sub-objects
 */
-extern void SECOID_DestroyAlgorithmID(SECAlgorithmID *aid, Boolean freeit);
+extern void SECOID_DestroyAlgorithmID(SECAlgorithmID* aid, Boolean freeit);
 
 /*
 ** Compare two algorithm-id objects, returning the difference between
 ** them.
 */
-extern SECComparison SECOID_CompareAlgorithmID(const SECAlgorithmID *a,
-					   const SECAlgorithmID *b);
+extern SECComparison SECOID_CompareAlgorithmID(const SECAlgorithmID* a, const SECAlgorithmID* b);
 
-extern Boolean SECOID_KnownCertExtenOID (const SECItem *extenOid);
+extern Boolean SECOID_KnownCertExtenOID(const SECItem* extenOid);
 
 /* Given a SEC_OID_* tag, return a string describing it.
  */
-extern const char *SECOID_FindOIDTagDescription(SECOidTag tagnum);
+extern const char* SECOID_FindOIDTagDescription(SECOidTag tagnum);
 
 /*
  * free up the oid data structures.

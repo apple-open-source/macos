@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2011, 2015, 2016, 2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2011, 2015-2018, 2021 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -41,7 +41,7 @@ CF_ASSUME_NONNULL_BEGIN
 		system, the network sets, network services, and network
 		protocols.
 
-		Note: When using the SCNetworkConfiguraiton APIs you must
+		Note: When using the SCNetworkConfiguration APIs you must
 		keep in mind that in order for any of your changes to be
 		committed to permanent storage a call must be made to the
 		SCPreferencesCommitChanges function.
@@ -107,8 +107,8 @@ extern const CFStringRef kSCNetworkInterfaceTypeIPSec						API_AVAILABLE(macos(1
 /*!
 	@const kSCNetworkInterfaceTypeIrDA
  */
-extern const CFStringRef kSCNetworkInterfaceTypeIrDA						API_AVAILABLE(macos(10.4))
-												SPI_AVAILABLE(ios(2.0), tvos(9.0), watchos(1.0), bridgeos(1.0));
+extern const CFStringRef kSCNetworkInterfaceTypeIrDA						API_DEPRECATED("No longer supported", macos(10.4,12.0))
+												API_UNAVAILABLE(ios, tvos, watchos, bridgeos);
 
 /*!
 	@const kSCNetworkInterfaceTypeL2TP

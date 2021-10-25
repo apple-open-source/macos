@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2010, 2013, 2015-2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2010, 2013, 2015-2018, 2021 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -43,6 +43,9 @@
 #include <sys/errno.h>
 #include <sys/mount.h>
 #include <sys/param.h>
+
+/* CrashReporter "Application Specific Information" */
+#include <CrashReporterClient.h>
 
 
 static Boolean
@@ -344,6 +347,121 @@ lockWithSCDynamicStore(SCPreferencesRef	prefs, Boolean wait)
 }
 
 
+static void
+__wait_for_PreferencesMonitor(void)
+{
+	CFArrayRef		keys;
+	Boolean			ok;
+	SCDynamicStoreRef	store	= NULL;
+
+	CRSetCrashLogMessage("Waiting for configd/PreferencesMonitor");
+
+	store = SCDynamicStoreCreate(NULL, CFSTR("__wait_for_PreferencesMonitor"), NULL, NULL);
+	if (store == NULL) {
+		goto done;
+	}
+
+	keys = CFArrayCreate(NULL, (const void **)&kSCDynamicStoreDomainSetup, 1, &kCFTypeArrayCallBacks);
+	ok = SCDynamicStoreSetNotificationKeys(store, keys, NULL);
+	CFRelease(keys);
+	if (!ok) {
+		SC_log(LOG_NOTICE, "SCDynamicStoreSetNotificationKeys() failed: %s", SCErrorString(SCError()));
+		goto done;
+	}
+
+	while (TRUE) {
+		CFArrayRef	changedKeys;
+		CFDictionaryRef	dict;
+
+		// check if quiet
+		dict = SCDynamicStoreCopyValue(store, kSCDynamicStoreDomainSetup);
+		if (dict != NULL) {
+			// the "Setup:" key is present indicating that
+			// configd/PreferencesMonitor has progressed past
+			// its call to __SCNetworkConfigurationUpgrade()
+			CFRelease(dict);
+			break;
+		}
+
+		ok = SCDynamicStoreNotifyWait(store);
+		if (!ok) {
+			SC_log(LOG_NOTICE, "SCDynamicStoreNotifyWait() failed: %s", SCErrorString(SCError()));
+			goto done;
+		}
+
+		changedKeys = SCDynamicStoreCopyNotifiedKeys(store);
+		if (changedKeys != NULL) {
+			CFRelease(changedKeys);
+		}
+	}
+
+    done :
+
+	CRSetCrashLogMessage(NULL);
+
+	if (store != NULL) CFRelease(store);
+	return;
+}
+
+
+/*
+ * Locking the default network configuration can result in a deadlock.
+ * Specifically, the following can occur :
+ *
+ * 1. the configd/InterfaceNamer and configd/PreferencesMonitor startup code
+ *    includes checks to see if the configuration needs to be upgraded.  If
+ *    needed, the plugins will acquire the lock, perform the upgrade, and
+ *    release the lock.
+ *
+ *    Note: the list of network interfaces is NOT available until after the
+ *          upgrade process has completed
+ *
+ * 2. a process (like CommCenter) opens the current network configuration
+ *    and checks the current network set.  If no network set exists then
+ *    the lock is acquired, a call is made to get the list of available
+ *    network interfaces, a new template configuration is created, and
+ *    release the lock.
+ *
+ * If (1) happens before (2) then we're fine.  But, if (2) acquires the
+ * lock first then we deadlock because we need the list of interfaces and
+ * that won't happen until (1) has completed.
+ *
+ * To avoid this deadlock we wait until after the upgrade check/action.
+ */
+static void
+avoid_SCNetworkConfiguration_deadlock(SCPreferencesRef prefs)
+{
+	static dispatch_once_t	once;
+	SCPreferencesPrivateRef	prefsPrivate	= (SCPreferencesPrivateRef)prefs;
+	CFBooleanRef		val		= NULL;
+
+	if ((prefsPrivate->options != NULL) &&
+	    CFDictionaryGetValueIfPresent(prefsPrivate->options,
+					  kSCPreferencesOptionAvoidDeadlock,
+					  (const void **)&val) &&
+	    isA_CFBoolean(val) &&
+	    !CFBooleanGetValue(val)) {
+		// don't block SCPreferencesLock() until the upgrade
+		// check/action has completed
+		return;
+	}
+
+	if (!__SCPreferencesUsingDefaultPrefs(prefs)) {
+		// if not the default network configuration
+		return;
+	}
+
+	// to avoid a startup deadlock, we need to wait for
+	// configd/PreferencesMonitor to progress past its
+	// call to __SCNetworkConfigurationUpgrade().
+	dispatch_once(&once, ^{
+		__wait_for_PreferencesMonitor();
+	});
+
+	return;
+}
+
+
 Boolean
 SCPreferencesLock(SCPreferencesRef prefs, Boolean wait)
 {
@@ -376,6 +494,8 @@ SCPreferencesLock(SCPreferencesRef prefs, Boolean wait)
 		return FALSE;
 	}
 
+	avoid_SCNetworkConfiguration_deadlock(prefs);
+
 	pthread_mutex_lock(&prefsPrivate->lock);
 
 	__SCPreferencesAddSessionKeys(prefs);
@@ -384,7 +504,7 @@ SCPreferencesLock(SCPreferencesRef prefs, Boolean wait)
 		char	*path;
 		CFIndex	pathLen;
 
-		path = prefsPrivate->newPath ? prefsPrivate->newPath : prefsPrivate->path;
+		path = prefsPrivate->path;
 		pathLen = strlen(path) + sizeof("-lock");
 		prefsPrivate->lockPath = CFAllocatorAllocate(NULL, pathLen, 0);
 		snprintf(prefsPrivate->lockPath, pathLen, "%s-lock", path);
@@ -417,7 +537,7 @@ SCPreferencesLock(SCPreferencesRef prefs, Boolean wait)
 					ret = createParentDirectory(prefsPrivate->lockPath);
 					if (ret == 0) {
 						SC_log(LOG_INFO, "created directory for \"%s\"",
-						       prefsPrivate->newPath ? prefsPrivate->newPath : prefsPrivate->path);
+						       prefsPrivate->path);
 						goto retry;
 					} else if (errno == EROFS) {
 						goto locked;
@@ -514,7 +634,7 @@ SCPreferencesLock(SCPreferencesRef prefs, Boolean wait)
 	}
 
 	SC_log(LOG_DEBUG, "SCPreferences() lock: %s",
-	       prefsPrivate->newPath ? prefsPrivate->newPath : prefsPrivate->path);
+	       prefsPrivate->path);
 
 	__SCPreferencesUpdateLockedState(prefs, TRUE);
 	pthread_mutex_unlock(&prefsPrivate->lock);

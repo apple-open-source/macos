@@ -272,9 +272,6 @@ static void usage(const char *me)
 	exit(2);
 }
 
-const CFStringRef kTKSmartCardPreferencesDomain = CFSTR("com.apple.security.smartcard");
-const CFStringRef kTKLegacyTokendPreferencesKey  = CFSTR("Legacy");
-
 //
 // Handle signals.
 // We send ourselves a message (through the "self" service), so actual

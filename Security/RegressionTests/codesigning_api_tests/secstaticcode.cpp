@@ -6,14 +6,17 @@
 #include <stdlib.h>
 #include <errno.h>
 #include <string.h>
+#include <exception>
 
 #include "StaticCode.h"
 
 #include <AssertMacros.h>
+#include <mach-o/dyld.h>
 #include <sys/xattr.h>
 #include <Security/SecCodePriv.h>
 #include <Security/SecCode.h>
 #include <Security/SecStaticCode.h>
+#include <kern/cs_blobs.h>
 
 #include "secstaticcode.h"
 
@@ -270,6 +273,38 @@ CheckAppleProcessCanUseNetworkWithFlag(void)
         FAIL("apple process cannot use network with kSecCSAllowNetworkAccess flag");
     } else {
         PASS("apple process can use network with kSecCSAllowNetworkAccess flag");
+        ret = 0;
+    }
+
+done:
+    return ret;
+}
+
+static int
+CheckAppleProcessHasDer(void)
+{
+    int ret = -1;
+    CFRef<CFURLRef> url;
+    SecStaticCodeRef codeRef;
+    OSStatus status = 0;
+    CFBooleanRef derblob;
+    SecPointer<SecStaticCode> code;
+
+    BEGIN();
+
+    url.take(CFURLCreateWithString(NULL, CFSTR("/Applications/Safari.app"), NULL));
+    status = SecStaticCodeCreateWithPath(url, kSecCSDefaultFlags, &codeRef);
+    if (status) {
+        FAIL("Failed to create SecStaticCode: %d", status);
+        goto done;
+    }
+
+    derblob = SecCodeSpecialSlotIsPresent(codeRef, CSSLOT_DER_ENTITLEMENTS);
+
+    if (derblob == kCFBooleanFalse) {
+        FAIL("signed process has no DER slot");
+    } else {
+        PASS("signed process has a DER slot");
         ret = 0;
     }
 
@@ -536,11 +571,113 @@ CheckSingleResourceValidationAPI(void)
     }
     system("cp /Applications/Safari.app/Contents/XPCServices/com.apple.WebKit.WebContent.Safari.xpc/Contents/MacOS/com.apple.WebKit.WebContent.Safari /tmp/Safari.app/Contents/XPCServices/com.apple.WebKit.WebContent.Safari.xpc/Contents/MacOS/com.apple.WebKit.WebContent.Safari");
 
+    // Create new SecStaticCode object referencing a framework outside the ARV.
+    url.take(CFURLCreateWithString(NULL, CFSTR("/Library/Apple/System/Library/PrivateFrameworks/MobileDevice.framework"), NULL));
+    status = SecStaticCodeCreateWithPath(url, kSecCSDefaultFlags, &codeRef.aref());
+    if (status) {
+        FAIL("Failed to create SecStaticCode on MobileDevice framework: %d", status);
+        goto done;
+    }
+
+    // Verify that resources can validate the main executable with version symlink properly.
+    status = SecStaticCodeValidateResourceWithErrors(codeRef, CFTempURL("/Library/Apple/System/Library/PrivateFrameworks/MobileDevice.framework/Versions/Current/MobileDevice"), kSecCSFastExecutableValidation, &error);
+    if (status != errSecSuccess) {
+        FAIL("Failed to validate main executable through current version: %d", status);
+        goto done;
+    }
+
+    // Verify that resources can validate the main executable with concrete version properly.
+    status = SecStaticCodeValidateResourceWithErrors(codeRef, CFTempURL("/Library/Apple/System/Library/PrivateFrameworks/MobileDevice.framework/Versions/A/MobileDevice"), kSecCSFastExecutableValidation, &error);
+    if (status != errSecSuccess) {
+        FAIL("Failed to validate main executable within framework: %d", status);
+        goto done;
+    }
+
+    // Verify that resources can validate the main executable outer symlink properly.
+    status = SecStaticCodeValidateResourceWithErrors(codeRef, CFTempURL("/Library/Apple/System/Library/PrivateFrameworks/MobileDevice.framework/MobileDevice"), kSecCSFastExecutableValidation, &error);
+    if (status != errSecSuccess) {
+        FAIL("Failed to validate main executable outer symlink of framework: %d", status);
+        goto done;
+    }
+
+    // Verify that resources can validate properly using the Current version.
+    status = SecStaticCodeValidateResourceWithErrors(codeRef, CFTempURL("/Library/Apple/System/Library/PrivateFrameworks/MobileDevice.framework/Versions/Current/XPCServices/MDRemoteServiceSupport.xpc/Contents/MacOS/MDRemoteServiceSupport"), kSecCSFastExecutableValidation, &error);
+    if (status != errSecSuccess) {
+        FAIL("Failed to validate executable within framework: %d", status);
+        goto done;
+    }
+
+    // Verify that resources can validate properly using the exact version.
+    status = SecStaticCodeValidateResourceWithErrors(codeRef, CFTempURL("/Library/Apple/System/Library/PrivateFrameworks/MobileDevice.framework/Versions/A/XPCServices/MDRemoteServiceSupport.xpc/Contents/MacOS/MDRemoteServiceSupport"), kSecCSFastExecutableValidation, &error);
+    if (status != errSecSuccess) {
+        FAIL("Failed to validate executable within framework using version symlink: %d", status);
+        goto done;
+    }
+
+    // Verify that Info.plist can validate properly using the exact version.
+    status = SecStaticCodeValidateResourceWithErrors(codeRef, CFTempURL("/Library/Apple/System/Library/PrivateFrameworks/MobileDevice.framework/Versions/A/Resources/Info.plist"), kSecCSDefaultFlags, &error);
+    if (status != errSecSuccess) {
+        FAIL("Failed to validate info.plist within framework using version symlink: %d", status);
+        goto done;
+    }
+
+    // Verify that Info.plist can validate properly using the symlink version.
+    status = SecStaticCodeValidateResourceWithErrors(codeRef, CFTempURL("/Library/Apple/System/Library/PrivateFrameworks/MobileDevice.framework/Versions/Current/Resources/Info.plist"), kSecCSDefaultFlags, &error);
+    if (status != errSecSuccess) {
+        FAIL("Failed to validate info.plist within framework using version symlink: %d", status);
+        goto done;
+    }
+
+    // Make a temporary copy of Calculator, and add some content along with a symlink to that content.
+    system("rm -rf /tmp/Calculator.app");
+    system("cp -R /System/Applications/Calculator.app /tmp/Calculator.app");
+    system("mkdir /tmp/Calculator.app/Contents/Resources/SHARED");
+    system("echo 'hello' > /tmp/Calculator.app/Contents/Resources/SHARED/hello.txt");
+    system("ln -s /tmp/Calculator.app/Contents/Resources/SHARED /tmp/Calculator.app/Contents/Resources/en.lproj/SHARED");
+    system("codesign -s - -f /tmp/Calculator.app");
+
+    // Create new SecStaticCode object referencing app in temp location.
+    url.take(CFURLCreateWithString(NULL, CFSTR("/tmp/Calculator.app"), NULL));
+    status = SecStaticCodeCreateWithPath(url, kSecCSDefaultFlags, &codeRef.aref());
+    if (status) {
+        FAIL("Failed to create SecStaticCode on temporary Calculator app: %d", status);
+        goto done;
+    }
+
+    // Verify that resources can validate the item in the shared directory properly, through the symlink.
+    status = SecStaticCodeValidateResourceWithErrors(codeRef, CFTempURL("/tmp/Calculator.app/Contents/Resources/en.lproj/SHARED/hello.txt"), kSecCSDefaultFlags, &error);
+    if (status != errSecSuccess) {
+        FAIL("Failed to validate file through symlink traversal: %d", status);
+        goto done;
+    }
+
+    // Remove the symlink but put a file there with the same content and ensure it doesn't validate.
+    system("rm -rf /tmp/Calculator.app/Contents/Resources/en.lproj/SHARED");
+    system("mkdir /tmp/Calculator.app/Contents/Resources/en.lproj/SHARED");
+    system("echo 'hello' > /tmp/Calculator.app/Contents/Resources/en.lproj/SHARED/hello.txt");
+    status = SecStaticCodeValidateResourceWithErrors(codeRef, CFTempURL("/tmp/Calculator.app/Contents/Resources/en.lproj/SHARED/hello.txt"), kSecCSDefaultFlags, &error);
+    if (status != errSecCSBadResource) {
+        FAIL("Failed to identify altered content type as bad resource: %d", status);
+        goto done;
+    }
+
+    // Update the symlink to point somewhere else, and even with the same content at the file it shouldn't validate.
+    system("rm -rf /tmp/Calculator.app/Contents/Resources/en.lproj/SHARED");
+    system("mkdir /tmp/Calculator.app/Contents/Resources/SHARED-bad");
+    system("echo 'hello' > /tmp/Calculator.app/Contents/Resources/SHARED-bad/hello.txt");
+    system("ln -s /tmp/Calculator.app/Contents/Resources/SHARED-bad /tmp/Calculator.app/Contents/Resources/en.lproj/SHARED");
+    status = SecStaticCodeValidateResourceWithErrors(codeRef, CFTempURL("/tmp/Calculator.app/Contents/Resources/en.lproj/SHARED/hello.txt"), kSecCSDefaultFlags, &error);
+    if (status != errSecCSBadResource) {
+        FAIL("Failed to identify altered symlink as bad resource: %d", status);
+        goto done;
+    }
+
     PASS("All SecStaticCodeValidateResourceWithErrors passed");
     ret = 0;
 
 done:
-    system("rm -rf  /tmp/Safari.app");
+    system("rm -rf /tmp/Safari.app");
+    system("rm -rf /tmp/Calculator.app");
     return ret;
 }
 
@@ -591,6 +728,25 @@ CheckSingleResourceValidationAPIPolicy(void)
     status = SecStaticCodeValidateResourceWithErrors(codeRef, CFTempURL("/AppleInternal/Applications/CatalogInspector.app/Contents/Resources/pkg.tiff"), kSecCSSkipRootVolumeExceptions, &error);
     if (status != errSecCSResourcesNotSealed) {
         FAIL("Failed to reject apple internal app with kSecCSSkipRootVolumeExceptions: %d", status);
+        goto done;
+    }
+
+    url.take(CFURLCreateWithString(NULL, CFSTR("/System/Volumes/Data/AppleInternal/Applications/CatalogInspector.app"), NULL));
+    status = SecStaticCodeCreateWithPath(url, kSecCSDefaultFlags, &codeRef.aref());
+    if (status) {
+        FAIL("Failed to create apple internal SecStaticCode: %d", status);
+        goto done;
+    }
+
+    status = SecStaticCodeValidateResourceWithErrors(codeRef, CFTempURL("/System/Volumes/Data/AppleInternal/Applications/CatalogInspector.app/Contents/Resources/pkg.tiff"), kSecCSDefaultFlags, &error);
+    if (status != errSecSuccess) {
+        FAIL("Failed to validate apple internal app resource (/SVD): %d", status);
+        goto done;
+    }
+
+    status = SecStaticCodeValidateResourceWithErrors(codeRef, CFTempURL("/System/Volumes/Data/AppleInternal/Applications/CatalogInspector.app/Contents/Resources/pkg.tiff"), kSecCSSkipRootVolumeExceptions, &error);
+    if (status != errSecCSResourcesNotSealed) {
+        FAIL("Failed to reject apple internal app with kSecCSSkipRootVolumeExceptions (/SVD): %d", status);
         goto done;
     }
 
@@ -694,7 +850,7 @@ CheckPathHelpers(void)
         goto done;
     }
 
-    stopped = iterateLargestSubpaths("/Applications/Safari.app/Contents/XPCServices/com.apple.WebKit.WebContent.Safari.xpc/Contents/Resources/WebContentProcess.nib", ^bool(string p) {
+    iterateLargestSubpaths("/Applications/Safari.app/Contents/XPCServices/com.apple.WebKit.WebContent.Safari.xpc/Contents/Resources/WebContentProcess.nib", ^bool(string p) {
         if ((p != expectedResults[currentIndex]) || (currentIndex > 6)) {
             FAIL("unexpected result: %d, %s", currentIndex, p.c_str());
             failed = true;
@@ -748,6 +904,21 @@ CheckValidityWithRevocationTraversal(void)
     status = SecStaticCodeCheckValidity(codeRef, kSecCSEnforceRevocationChecks, NULL);
     if (status) {
         FAIL("Unable to validate Safari with kSecCSEnforceRevocationChecks: %d", status);
+        goto done;
+    }
+
+    // Books.app has a broken signature (its in the ARV) and has internal symlinks to directories
+    // from its embedded frameworks that cause a specific UNIX error to be thrown in the traversal.
+    url.take(CFURLCreateWithString(NULL, CFSTR("/System/Applications/Books.app"), NULL));
+    status = SecStaticCodeCreateWithPath(url, kSecCSDefaultFlags, &codeRef.aref());
+    if (status) {
+        FAIL("Failed to create SecStaticCode: %d", status);
+        goto done;
+    }
+
+    status = SecStaticCodeCheckValidity(codeRef, kSecCSEnforceRevocationChecks, NULL);
+    if (status) {
+        FAIL("Unable to validate Books.app with kSecCSEnforceRevocationChecks: %d", status);
         goto done;
     }
 
@@ -824,6 +995,46 @@ done:
     return ret;
 }
 
+static int
+CheckUnsignedProcessHasDer(void)
+{
+    int ret = -1;
+    CFRef<CFURLRef> url;
+    CFRef<CFStringRef> str;
+    SecStaticCodeRef codeRef;
+    OSStatus status = 0;
+    CFBooleanRef derblob;
+    char buf[1024];
+    uint32_t bufsz = 1024;
+
+    BEGIN();
+
+    if (_NSGetExecutablePath(buf, &bufsz) != 0) {
+        FAIL("failed to retrieve unsigned app path");
+        goto done;
+    }
+
+    str.take(CFStringCreateWithCString(NULL, buf, kCFStringEncodingASCII));
+    url.take(CFURLCreateWithString(NULL, str, NULL));
+    status = SecStaticCodeCreateWithPath(url, kSecCSDefaultFlags, &codeRef);
+    if (status) {
+        FAIL("Failed to create SecStaticCode: %d", status);
+        goto done;
+    }
+
+    derblob = SecCodeSpecialSlotIsPresent(codeRef, CSSLOT_DER_ENTITLEMENTS);
+
+    if (derblob == kCFBooleanFalse) {
+        PASS("unsigned process has no DER slot");
+        ret = 0;
+    } else {
+        FAIL("unsigned process has a DER slot");
+    }
+
+done:
+    return ret;
+}
+
 static int runTests(int (*testList[])(void), int testCount)
 {
     fprintf(stdout, "[TEST] secsecstaticcodeapitest\n");
@@ -855,11 +1066,13 @@ int main(int argc, const char *argv[])
         CheckSingleResourceValidationAPIPolicy,
         CheckPathHelpers,
         CheckValidityWithRevocationTraversal,
+        CheckAppleProcessHasDer,
     };
 
     static int (*unsignedTestList[])(void) = {
         CheckUnsignedProcessNetworkByDefault,
         CheckUnsignedProcessCanDenyNetworkWithFlag,
+        CheckUnsignedProcessHasDer,
     };
 
     const int numberOfSignedTests = sizeof(signedTestList) / sizeof(*signedTestList);

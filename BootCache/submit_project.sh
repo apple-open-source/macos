@@ -1,13 +1,14 @@
 #!/bin/zsh
 
-# submit_project.sh 2.0.4
+# submit_project.sh 2.0.8
 # source lives at <ssh://git@stash.sd.apple.com/perf/submit_project.git>
 # usage: submit_project.sh [-v <version>] train [train [...]]
 
-# set these values per project
-projname="BootCache"
-repourl="ssh://git@stash.sd.apple.com/perf/BootCache.git"
-pbxprojpath="BootCache.xcodeproj/project.pbxproj"
+# override these values per project
+projname="BootCache" # default: first alphabetically found <projname>.xcodeproj in the current directory
+pbxprojpath="BootCache.xcodeproj/project.pbxproj" # default: <projname>.xcodeproj/project.pbxproj
+repourl="ssh://git@stash.sd.apple.com/perf/BootCache.git" # default: URL of 'origin' in the current git repository
+defaultbranch="main"
 # # #
 
 set -e
@@ -24,7 +25,18 @@ then
 	exit 1
 fi
 
-echo "Repo at '${repourl}'."
+if [[ $pbxprojpath == "" && $projname == "" ]]
+then
+	pbxprojpath=$(find -s . -name project.pbxproj -depth 2 -print | head -n1 | sed 's/^\.\///')
+fi
+
+if [[ $projname == "" ]]
+then
+	projname=$(echo ${pbxprojpath} | cut -d . -f 1)
+fi
+
+echo "Submitting ${projname} with project file at ${pbxprojpath}..."
+
 echo 'Fetching the latest from the default remote...'
 echo
 
@@ -86,9 +98,9 @@ then
 
 	echo "Head of current branch ${color_branchon} will be tagged \033[1;32m${projname}-${vers}\033[0m and submitted."
 
-	if [[ $branchon != "master" ]]
+	if [[ $branchon != $defaultbranch ]]
 	then
-		echo 'WARNING: A commit will be added to this branch that will not appear on "master", and that commit will be tagged.'
+		echo 'WARNING: A commit will be added to this branch that will not appear on "'$defaultbranch'", and that commit will be tagged.'
 		echo '(Usually you only want this if "'$color_branchon'" is an alternate release branch, e.g., for a software update.)'
 		echo
 		echo -n 'Is this OK? (Y/n): '
@@ -185,9 +197,26 @@ fi
 
 if [[ $tag == "yes" ]]
 then
-	agvtool new-version $vers
-	git commit $pbxprojpath -m "Bump to version ${vers}."
-	git push origin HEAD
+	
+	# Only try to set the version if the project has versioning configured
+	if [[ $(agvtool vers -terse) != "" ]]
+	then
+		agvtool new-version $vers
+		git commit $pbxprojpath -m "Bump to version ${vers}."
+		git push origin HEAD
+	else
+		echo 'WARNING: This project does not use Apple-generic versioning so the version will not be bumped.'
+
+		echo
+		echo -n "Is this OK? (Y/n): "
+		read ok
+
+		if [[ $ok != "Y" ]]
+		then
+			echo 'Bailing.'
+			exit 1
+		fi
+	fi
 
 	git tag -a $projname-$vers -m "Tagging version ${vers}."
 	git push origin $projname-$vers
@@ -196,6 +225,12 @@ fi
 echo "Running submitproject..."
 echo
 
-xbs submitproject -git -url "${repourl}" -tag "${projname}-${vers}" ${submit_to_trains}
+urlargs=()
+if [[ $repourl != "" ]]
+then
+	urlargs+=("-url")
+	urlargs+=($repourl)
+fi
+xbs submitproject -git ${urlargs} -tag "${projname}-${vers}" ${submit_to_trains}
 
 echo "Done, congrats!"

@@ -707,6 +707,78 @@ void SOSPeerInfoLogState(char *category, SOSPeerInfoRef pi, SecKeyRef pubKey, CF
     CFReleaseNull(serialNum);
 }
 
+
+// Interpret the OS version in the PeerInfo if present.  This assumes that the method of signifying releases
+// remains as 21A128, etc.  The only thing we rely on is the first 3 characters.  The third char must be the
+// update letter (A, B, C, etc).  If that's the case then return the prefix major number as an int.
+static int majorVersion(CFStringRef osVersion) {
+    int majorVersion = -1;
+    if(osVersion) {
+        secnotice("SOSMonitorMode", "Parsing :%@:", osVersion);
+        char versionChars[20];
+        if(CFStringGetCString(osVersion, versionChars, 20, kCFStringEncodingASCII)) { // os: 19A158a
+            majorVersion = 0;
+            for(int i=0; isdigit(versionChars[i]); i++) {
+                majorVersion = (majorVersion * 10) + versionChars[i] - '0';
+            }
+            secnotice("SOSMonitorMode", "majorVersion: %d", majorVersion);
+        } else {
+            secnotice("SOSMonitorMode", "No OS CString to parse");
+        }
+    } else {
+        secnotice("SOSMonitorMode", "No OS String to parse");
+    }
+    return majorVersion;
+}
+
+// legacy peerinfos for iOS are < 19.
+static bool sosPeerInfoIOSIsLegacy(SOSPeerInfoRef pi) {
+    CFStringRef osVersion = CFDictionaryGetValue(pi->gestalt, kPIOSVersionKey);
+    bool retval = (majorVersion(osVersion) < 19);
+    return retval;
+}
+
+// legacy peerinfos for macos are < 21
+static bool sosPeerInfoMacOSIsLegacy(SOSPeerInfoRef pi) {
+    CFStringRef osVersion = CFDictionaryGetValue(pi->gestalt, kPIOSVersionKey);
+    bool retval = (majorVersion(osVersion) < 21);
+    return retval;
+}
+
+static void reportLegacyStatus(char *devtype, SOSPeerInfoRef pi, bool legacyFlag) {
+    secnotice("SOSMonitorMode", "%s Peer %@ is %s", devtype, pi, (legacyFlag) ? "Legacy":  "Not Legacy");
+}
+
+bool SOSPeerInfoIsLegacy(SOSPeerInfoRef pi) {
+    bool retval = false;
+    CFStringRef devType = SOSPeerInfoGetPeerDeviceType(pi);
+    if(isKnown(devType)) {
+        switch(SOSPeerInfoGetClass(pi)) {
+            case SOSPeerInfo_iOS:
+                retval = sosPeerInfoIOSIsLegacy(pi);
+                reportLegacyStatus("IOS", pi, retval);
+                break;
+            case SOSPeerInfo_macOS:
+                retval = sosPeerInfoMacOSIsLegacy(pi);
+                reportLegacyStatus("MacOS", pi, retval);
+                break;
+            case SOSPeerInfo_unknown:
+                retval = true;
+                reportLegacyStatus("Unknown", pi, retval);
+                break;
+            case SOSPeerInfo_undetermined:
+            case SOSPeerInfo_watchOS:
+            case SOSPeerInfo_iCloud:
+            case SOSPeerInfo_tvOS:
+            default:
+                retval = false;
+                reportLegacyStatus("Default", pi, retval);
+                break;
+        }
+    }
+    return retval;
+}
+
 CFDictionaryRef SOSPeerInfoCopyPeerGestalt(SOSPeerInfoRef pi) {
     CFRetain(pi->gestalt);
     return pi->gestalt;
@@ -1158,35 +1230,52 @@ SOSPeerInfoDeviceClass SOSPeerInfoGetClass(SOSPeerInfoRef pi) {
     static CFDictionaryRef devID2Class = NULL;
     static dispatch_once_t onceToken = 0;
     
+    if(SOSPeerInfoIsCloudIdentity(pi)) {
+        return SOSPeerInfo_iCloud;
+    }
+    
     dispatch_once(&onceToken, ^{
         CFNumberRef cfSOSPeerInfo_macOS = CFNumberCreateWithCFIndex(kCFAllocatorDefault, SOSPeerInfo_macOS);
         CFNumberRef cfSOSPeerInfo_iOS = CFNumberCreateWithCFIndex(kCFAllocatorDefault, SOSPeerInfo_iOS);
         CFNumberRef cfSOSPeerInfo_iCloud = CFNumberCreateWithCFIndex(kCFAllocatorDefault, SOSPeerInfo_iCloud);
-        // CFNumberRef cfSOSPeerInfo_watchOS = CFNumberCreateWithCFIndex(kCFAllocatorDefault, SOSPeerInfo_watchOS);
-        // CFNumberRef cfSOSPeerInfo_tvOS = CFNumberCreateWithCFIndex(kCFAllocatorDefault, SOSPeerInfo_tvOS);
+        CFNumberRef cfSOSPeerInfo_watchOS = CFNumberCreateWithCFIndex(kCFAllocatorDefault, SOSPeerInfo_watchOS);
+        CFNumberRef cfSOSPeerInfo_tvOS = CFNumberCreateWithCFIndex(kCFAllocatorDefault, SOSPeerInfo_tvOS);
 
         devID2Class =     CFDictionaryCreateForCFTypes(kCFAllocatorDefault,
                                                        CFSTR("Mac Pro"), cfSOSPeerInfo_macOS,
                                                        CFSTR("MacBook"), cfSOSPeerInfo_macOS,
                                                        CFSTR("MacBook Pro"), cfSOSPeerInfo_macOS,
+                                                       CFSTR("MacBook Air"), cfSOSPeerInfo_macOS,
                                                        CFSTR("iCloud"), cfSOSPeerInfo_iCloud,
                                                        CFSTR("iMac"), cfSOSPeerInfo_macOS,
                                                        CFSTR("iPad"), cfSOSPeerInfo_iOS,
                                                        CFSTR("iPhone"), cfSOSPeerInfo_iOS,
                                                        CFSTR("iPod touch"), cfSOSPeerInfo_iOS,
+                                                       CFSTR("Watch"), cfSOSPeerInfo_watchOS,
+                                                       CFSTR("AppleTV"), cfSOSPeerInfo_tvOS,
                                                        NULL);
         CFReleaseNull(cfSOSPeerInfo_macOS);
         CFReleaseNull(cfSOSPeerInfo_iOS);
         CFReleaseNull(cfSOSPeerInfo_iCloud);
+        CFReleaseNull(cfSOSPeerInfo_watchOS);
+        CFReleaseNull(cfSOSPeerInfo_tvOS);
     });
     SOSPeerInfoDeviceClass retval = SOSPeerInfo_unknown;
+    
+    // SOSPeerInfo_undetermined
     CFStringRef dt = SOSPeerInfoGetPeerDeviceType(pi);
-    require_quiet(dt, errOut);
-    CFNumberRef classNum = CFDictionaryGetValue(devID2Class, dt);
-    require_quiet(classNum, errOut);
-    CFIndex tmp;
-    require_quiet(CFNumberGetValue(classNum, kCFNumberCFIndexType, &tmp), errOut);
-    retval = (SOSPeerInfoDeviceClass) tmp;
-errOut:
+    if(dt) {
+        CFNumberRef classNum = CFDictionaryGetValue(devID2Class, dt);
+        if(classNum) {
+            CFIndex tmp;
+            if(CFNumberGetValue(classNum, kCFNumberCFIndexType, &tmp)) {
+                retval = (SOSPeerInfoDeviceClass) tmp;
+            } else {
+                retval = SOSPeerInfo_undetermined;
+            }
+        } else {
+            retval = SOSPeerInfo_undetermined;
+        }
+    }
     return retval;
 }

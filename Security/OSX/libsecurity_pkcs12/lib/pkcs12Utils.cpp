@@ -45,7 +45,7 @@ void **p12NssNullArray(
 	SecNssCoder &coder)
 {
 	unsigned len = (num + 1) * sizeof(void *);
-	void **p = (void **)coder.malloc(len);
+	void **p = (void **)coder.alloc(len);
 	memset(p, 0, len);
 	return p;
 }

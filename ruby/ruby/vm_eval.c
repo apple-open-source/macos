@@ -2,7 +2,7 @@
 
   vm_eval.c -
 
-  $Author: naruse $
+  $Author: nagachika $
   created at: Sat May 24 16:02:32 JST 2008
 
   Copyright (C) 1993-2007 Yukihiro Matsumoto
@@ -1266,6 +1266,7 @@ eval_make_iseq(VALUE src, VALUE fname, int line, const rb_binding_t *bind,
     }
 
     if (fname != Qundef) {
+        if (!NIL_P(fname)) fname = rb_fstring(fname);
 	realpath = fname;
     }
     else if (bind) {
@@ -1275,7 +1276,7 @@ eval_make_iseq(VALUE src, VALUE fname, int line, const rb_binding_t *bind,
 	rb_parser_warn_location(parser, TRUE);
     }
     else {
-	fname = rb_usascii_str_new_cstr("(eval)");
+	fname = rb_fstring_lit("(eval)");
     }
 
     rb_parser_set_context(parser, base_block, FALSE);

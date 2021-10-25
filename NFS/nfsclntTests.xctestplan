@@ -1,0 +1,32 @@
+{
+  "configurations" : [
+    {
+      "id" : "6DFEE550-54D6-4609-92F4-F20269474CFF",
+      "name" : "Configuration 1",
+      "options" : {
+        "threadSanitizerEnabled" : false
+      }
+    }
+  ],
+  "defaultOptions" : {
+    "addressSanitizer" : {
+      "enabled" : true
+    },
+    "mallocScribbleEnabled" : true,
+    "threadSanitizerEnabled" : true,
+    "undefinedBehaviorSanitizerEnabled" : true
+  },
+  "testTargets" : [
+    {
+      "skippedTests" : [
+        "nfsclntTests_mount"
+      ],
+      "target" : {
+        "containerPath" : "container:NFS.xcodeproj",
+        "identifier" : "C47BB91225C1BE8A00DB38E2",
+        "name" : "nfsclntTests"
+      }
+    }
+  ],
+  "version" : 1
+}

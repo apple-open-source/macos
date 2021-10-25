@@ -1,8 +1,8 @@
-#/bin/sh
+#!/bin/sh
 
 mkdir -p "${HEIMDAL_TMPDIR}"
 
-function exportfile() {
+exportfile() {
 	output="$1" ; shift
 	input="$@"
 
@@ -27,7 +27,7 @@ function exportfile() {
 	fi
 }
 
-function rewritefile() {
+rewritefile() {
 	output="$1" ; shift
 	input="$@"
 

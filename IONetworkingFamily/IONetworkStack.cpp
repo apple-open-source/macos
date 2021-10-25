@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2011 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2021 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -772,6 +772,13 @@ IOReturn IONetworkStack::attachNetworkInterfaceToBSD( IONetworkInterface * netif
     IOReturn    result;
 
     assert( netif );
+
+    // Add the kIOBSDNameKey property before attaching so that the interface
+    // is discoverable in the IORegistry using IOBSDNameMatching() at the same
+    // time that it is available via getifaddrs().
+    snprintf(ifname, sizeof(ifname), "%s%u",
+	     netif->getNamePrefix(), netif->getUnitNumber());
+    netif->setProperty(kIOBSDNameKey, ifname);
     if ((result = netif->attachToDataLinkLayer(0, 0)) == kIOReturnSuccess)
     {
         // Hack to sync up the interface flags. The UP flag may already
@@ -782,13 +789,6 @@ IOReturn IONetworkStack::attachNetworkInterfaceToBSD( IONetworkInterface * netif
         // Interface is now attached to BSD.
         netif->setInterfaceState( kIONetworkInterfaceRegisteredState );
 
-        // Add a kIOBSDNameKey property to the interface AFTER the interface
-        // has attached to BSD. The order is very important to avoid rooting
-        // from an interface which is not yet known by BSD.
-
-        snprintf(ifname, sizeof(ifname), "%s%u",
-            netif->getNamePrefix(), netif->getUnitNumber());
-        netif->setProperty(kIOBSDNameKey, ifname);
         attachOK = true;
     }
 
@@ -821,8 +821,14 @@ IOReturn IONetworkStack::attachNetworkInterfaceToBSD( IONetworkInterface * netif
 
         if (pingMatching && !netif->isInactive())
         {
+            UNLOCK();
+
             // Re-register interface after setting kIOBSDNameKey.
             netif->registerService();
+        }
+        else
+        {
+            UNLOCK();
         }
     }
     else
@@ -830,9 +836,8 @@ IOReturn IONetworkStack::attachNetworkInterfaceToBSD( IONetworkInterface * netif
         // BSD attach failed, drop from list of attached interfaces
         removeNetworkInterface(netif);
         NIF_SET(netif, kInterfaceStateAbandoned);
+        UNLOCK();
     }
-
-    UNLOCK();
 
     if (!attachOK)
     {

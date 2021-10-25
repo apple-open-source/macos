@@ -1,5 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
-// License & terms of use: http://www.unicode.org/copyright.html#License
+// License & terms of use: http://www.unicode.org/copyright.html
+// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
 es_MX{
     %%Parent{"es_419"}
     Languages{
@@ -11,7 +12,6 @@ es_MX{
         bho{"bhoshpuri"}
         bla{"siksika"}
         bua{"buriat"}
-        de_AT{"alemán austriaco"}
         dum{"neerlandés medieval"}
         enm{"inglés medieval"}
         eu{"euskera"}
@@ -35,7 +35,6 @@ es_MX{
         nso{"sotho septentrional"}
         pa{"punyabí"}
         pa_Arab{"punyabí (naskh)"}
-        pcm{"pcm"}
         shu{"árabe chadiano"}
         ss{"siswati"}
         sw{"suajili"}
@@ -44,7 +43,6 @@ es_MX{
         tet{"tetún"}
         tn{"setswana"}
         tyv{"tuviniano"}
-        wuu{"wuu"}
         xal{"kalmyk"}
         zgh{"tamazight marroquí estándar"}
         zh_Hans{"chino simplificado"}
@@ -58,6 +56,7 @@ es_MX{
         en_GB{"inglés (R. U.)"}
     }
     Languages%variant{
+        ckb{"kurdo del centro"}
         ug{"uyghur"}
     }
     Scripts{
@@ -71,14 +70,10 @@ es_MX{
         collation{
             ducet{"orden de clasificación de Unicode predeterminado"}
         }
-        lb{
-            normal{"salto de línea normal"}
-        }
         numbers{
             gujr{"dígitos en gujarati"}
         }
     }
-    Version{"36.1"}
     characterLabelPattern{
         historic{"{0} — Históricos"}
         miscellaneous{"{0} — Varios"}

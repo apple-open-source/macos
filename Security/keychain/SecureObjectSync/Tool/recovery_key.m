@@ -126,6 +126,11 @@ recovery_key(int argc, char * const *argv)
             }
             case 'F':
             {
+#if TARGET_OS_WATCH || TARGET_OS_TV
+                printmsg(CFSTR("Cannot post recovery key follow ups on this platform)"));
+                hadError = true;
+                break;
+#else
                 NSError *localError = nil;
 
                 CDPFollowUpController *cdpd = [[CDPFollowUpController alloc] init];
@@ -141,6 +146,7 @@ recovery_key(int argc, char * const *argv)
                     printmsg(CFSTR("CoreCDP handling follow up\n"));
                 }
                 break;
+#endif  // TARGET_OS_WATCH || TARGET_OS_TV
             }
             case 'V': {
                 NSError *localError = nil;

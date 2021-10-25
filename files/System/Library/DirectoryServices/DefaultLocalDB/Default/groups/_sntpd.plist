@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>generateduid</key>
+	<array>
+		<string>ABCDEFAB-CDEF-ABCD-EFAB-CDEF00000119</string>
+	</array>
+	<key>gid</key>
+	<array>
+		<string>281</string>
+	</array>
+	<key>groupmembers</key>
+	<array>
+		<string>FFFFEEEE-DDDD-CCCC-BBBB-AAAA00000119</string>
+		<string>FFFFEEEE-DDDD-CCCC-BBBB-AAAA0000010A</string>
+	</array>
+	<key>name</key>
+	<array>
+		<string>_sntpd</string>
+	</array>
+	<key>passwd</key>
+	<array>
+		<string>*</string>
+	</array>
+	<key>realname</key>
+	<array>
+		<string>SNTP Server Daemon</string>
+	</array>
+	<key>users</key>
+	<array>
+		<string>_sntpd</string>
+		<string>_timed</string>
+	</array>
+</dict>
+</plist>

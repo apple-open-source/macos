@@ -411,31 +411,6 @@ __thread bool CKKSSQLInWriteTransaction = false;
     return ok;
 }
 
-+ (BOOL)performCKKSReadonlyTransaction:(void(^)(void))block
-{
-    CFErrorRef cferror = NULL;
-    bool ok = kc_with_dbt(true, &cferror, ^bool (SecDbConnectionRef dbconn) {
-        CFErrorRef cferrorInternal = NULL;
-        bool ret = kc_transaction_type(dbconn, kSecDbNormalTransactionType, &cferrorInternal, ^bool{
-            CKKSSQLInTransaction = true;
-            block();
-            CKKSSQLInTransaction = false;
-            return true;
-        });
-        if(cferrorInternal) {
-            ckkserror_global("ckkssql",  "error performing database transaction, major problems ahead: %@", cferrorInternal);
-        }
-        CFReleaseNull(cferrorInternal);
-        return ret;
-    });
-
-    if(cferror) {
-        ckkserror_global("ckkssql",  "error performing database operation, major problems ahead: %@", cferror);
-    }
-    CFReleaseNull(cferror);
-    return ok;
-}
-
 #pragma mark - Instance methods
 
 - (bool) saveToDatabase: (NSError * __autoreleasing *) error {

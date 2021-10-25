@@ -118,12 +118,8 @@ static void build_trust_chains(const void *key, const void *value,
     SecTrustEvaluate(trust, &result);
     CFDictionarySetValue(identity_dict, kSecImportItemTrust, trust);
 
-    cert_chain = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+    cert_chain = SecTrustCopyCertificateChain(trust);
 	if(!cert_chain) goto out; //require(cert_chain, out);
-    CFIndex cert_chain_length = SecTrustGetCertificateCount(trust);
-    int i;
-    for (i = 0; i < cert_chain_length; i++)
-        CFArrayAppendValue(cert_chain, SecTrustGetCertificateAtIndex(trust, i));
     CFDictionarySetValue(identity_dict, kSecImportItemCertChain, cert_chain);
 
     CFArrayAppendValue(a_build_trust_chains_context->identities, identity_dict);

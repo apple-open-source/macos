@@ -4,21 +4,21 @@
 #import "CKKSProvideKeySetOperation.h"
 
 @interface CKKSProvideKeySetOperation ()
-@property (nullable) CKKSCurrentKeySet* keyset;
+@property (nullable) NSDictionary<CKRecordZoneID*, CKKSCurrentKeySet*>* keysets;
 @property dispatch_queue_t queue;
 
 @property (nullable) NSOperation* startDependency;
 @end
 
 @implementation CKKSProvideKeySetOperation
-@synthesize zoneName = _zoneName;
-@synthesize keyset = _keyset;
+@synthesize keysets = _keysets;
+@synthesize intendedZoneIDs = _intendedZoneIDs;
 
-- (instancetype)initWithZoneName:(NSString*)zoneName
+- (instancetype)initWithIntendedZoneIDs:(NSSet<CKRecordZoneID*>*)intendedZoneIDs
 {
     if((self = [super init])) {
-        _zoneName = zoneName;
-        _keyset = nil;
+        _intendedZoneIDs = intendedZoneIDs;
+        _keysets = nil;
         _startDependency = [NSBlockOperation blockOperationWithBlock:^{}];
         _startDependency.name = @"key-set-provided";
 
@@ -29,12 +29,12 @@
     return self;
 }
 
-- (void)provideKeySet:(CKKSCurrentKeySet *)keyset
+- (void)provideKeySets:(NSDictionary<CKRecordZoneID*, CKKSCurrentKeySet*>*)keysets
 {
-    // Ensure that only one keyset is provided through each operation
+    // Ensure that only one keyset groupt is provided through each operation
     dispatch_sync(self.queue, ^{
-        if(!self.keyset) {
-            self.keyset = keyset;
+        if(!self.keysets) {
+            self.keysets = keysets;
             if(self.startDependency) {
                 // Create a new queue here, just to be safe in case someone is waiting
                 NSOperationQueue* queue = [[NSOperationQueue alloc] init];
@@ -43,8 +43,8 @@
             }
         }
     });
-
 }
+
 @end
 
 #endif // OCTAGON

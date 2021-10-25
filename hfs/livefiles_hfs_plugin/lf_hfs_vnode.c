@@ -156,7 +156,9 @@ void vnode_GetAttrInternal (vnode_t vp, UVFSFileAttributes *psOutAttr )
     psOutAttr->fa_atime.tv_sec  = cp->c_atime;
     psOutAttr->fa_ctime.tv_sec  = cp->c_ctime;
     psOutAttr->fa_mtime.tv_sec  = cp->c_mtime;
-    psOutAttr->fa_birthtime.tv_sec  = cp->c_btime;
+    psOutAttr->fa_birthtime.tv_sec  = cp->c_itime;
+    //abXXX: Follow up on backuptime
+    //psOutAttr->fa_backuptime.tv_sec = cp->c_btime;
     
     psOutAttr->fa_fileid        = cp->c_fileid;
     psOutAttr->fa_parentid      = cp->c_parentcnid;

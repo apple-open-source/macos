@@ -129,8 +129,10 @@ errOut:
     return result;
 }
 
-#if !TARGET_OS_BRIDGE // bridgeOS doesn't have a system trust store
 - (void)testSHA1_systemTrusted {
+#if TARGET_OS_BRIDGE // bridgeOS doesn't have a system trust store
+    XCTSkip();
+#endif
     NSDate *verifyDate = [NSDate dateWithTimeIntervalSinceReferenceDate:500000000.0]; // November 4, 2016 at 5:53:20 PM PDT
     SecCertificateRef sha1_leaf = SecCertificateCreateWithBytes(NULL, _badssl_sha1, sizeof(_badssl_sha1));
     SecCertificateRef sha1_int = SecCertificateCreateWithBytes(NULL, _digiCertSSCA, sizeof(_digiCertSSCA));
@@ -150,7 +152,6 @@ errOut:
     XCTAssertFalse([self runTrust:sha1_certs anchors:nil policy:eapPolicy verifyDate:verifyDate], "system trusted SHA1 certs succeeded for EAP");
     CFReleaseNull(eapPolicy);
 }
-#endif // !TARGET_OS_BRIDGE
 
 - (void)testSHA1_appTrustedLeaf {
     NSDate *verifyDate = [NSDate dateWithTimeIntervalSinceReferenceDate:500000000.0]; // November 4, 2016 at 5:53:20 PM PDT
@@ -205,8 +206,10 @@ errOut:
     CFReleaseNull(eapPolicy);
 }
 
-#if !TARGET_OS_BRIDGE // bridgeOS doesn't have trust settings
 - (void)testSHA1_trustSettingsOnRoot_TestLeaf {
+#if TARGET_OS_BRIDGE // bridgeOS doesn't have trust settings
+    XCTSkip();
+#endif
     NSDate *verifyDate = [NSDate dateWithTimeIntervalSinceReferenceDate:578000000.0]; // April 26, 2019 at 12:33:20 PM PDT
     SecCertificateRef sha1_leaf = SecCertificateCreateWithBytes(NULL, _testSHA1Leaf, sizeof(_testSHA1Leaf));
     SecCertificateRef sha1_root = SecCertificateCreateWithBytes(NULL, _testRoot, sizeof(_testRoot));
@@ -232,6 +235,9 @@ errOut:
 }
 
 - (void)testSHA1_trustSettingsOnLeaf {
+#if TARGET_OS_BRIDGE // bridgeOS doesn't have trust settings
+    XCTSkip();
+#endif
     NSDate *verifyDate = [NSDate dateWithTimeIntervalSinceReferenceDate:578000000.0]; // April 26, 2019 at 12:33:20 PM PDT
     SecCertificateRef sha1_leaf = SecCertificateCreateWithBytes(NULL, _testSHA1Leaf, sizeof(_testSHA1Leaf));
     NSArray *sha1_certs = @[ (__bridge id)sha1_leaf ];
@@ -255,6 +261,9 @@ errOut:
 }
 
 - (void)testSHA1_trustSettingsSelfSigned {
+#if TARGET_OS_BRIDGE // bridgeOS doesn't have trust settings
+    XCTSkip();
+#endif
     NSDate *verifyDate = [NSDate dateWithTimeIntervalSinceReferenceDate:578000000.0]; // April 26, 2019 at 12:33:20 PM PDT
     SecCertificateRef sha1_cert = SecCertificateCreateWithBytes(NULL, _testSHA1SelfSigned, sizeof(_testSHA1SelfSigned));
     NSArray *sha1_certs = @[ (__bridge id)sha1_cert ];
@@ -278,6 +287,9 @@ errOut:
 }
 
 - (void)testSHA1_denyTrustSettings {
+#if TARGET_OS_BRIDGE // bridgeOS doesn't have trust settings
+    XCTSkip();
+#endif
     NSDate *verifyDate = [NSDate dateWithTimeIntervalSinceReferenceDate:578000000.0]; // April 26, 2019 at 12:33:20 PM PDT
     SecCertificateRef sha1_leaf = SecCertificateCreateWithBytes(NULL, _testSHA1Leaf, sizeof(_testSHA1Leaf));
     NSArray *sha1_certs = @[ (__bridge id)sha1_leaf ];
@@ -301,6 +313,9 @@ errOut:
 }
 
 - (void)testSHA1_unspecifiedTrustSettings {
+#if TARGET_OS_BRIDGE // bridgeOS doesn't have trust settings
+    XCTSkip();
+#endif
     NSDate *verifyDate = [NSDate dateWithTimeIntervalSinceReferenceDate:578000000.0]; // April 26, 2019 at 12:33:20 PM PDT
     SecCertificateRef sha1_leaf = SecCertificateCreateWithBytes(NULL, _testSHA1Leaf, sizeof(_testSHA1Leaf));
     SecCertificateRef sha1_root = SecCertificateCreateWithBytes(NULL, _testRoot, sizeof(_testRoot));
@@ -325,10 +340,11 @@ errOut:
     [self removeTrustSettingsForCert:sha1_leaf persistentRef:persistentRef];
     CFReleaseNull(sha1_leaf);
 }
-#endif // !TARGET_OS_BRIDGE
 
-#if !TARGET_OS_BRIDGE // bridgeOS doesn't have a system trust store
 - (void)testSHA2_systemTrusted {
+#if TARGET_OS_BRIDGE // bridgeOS doesn't have a system trust store
+    XCTSkip();
+#endif
     NSDate *verifyDate = [NSDate dateWithTimeIntervalSinceReferenceDate:500000000.0]; // November 4, 2016 at 5:53:20 PM PDT
 
     SecCertificateRef sha2_leaf = SecCertificateCreateWithBytes(NULL, _badssl_sha2, sizeof(_badssl_sha2));
@@ -349,7 +365,6 @@ errOut:
     XCTAssertTrue([self runTrust:sha2_certs anchors:nil policy:eapPolicy verifyDate:verifyDate], "system trusted SHA2 certs failed for EAP");
     CFReleaseNull(eapPolicy);
 }
-#endif
 
 - (void)testSHA2_appTrustedLeaf {
     NSDate *verifyDate = [NSDate dateWithTimeIntervalSinceReferenceDate:500000000.0]; // November 4, 2016 at 5:53:20 PM PDT
@@ -398,8 +413,10 @@ errOut:
     CFReleaseNull(eapPolicy);
 }
 
-#if !TARGET_OS_BRIDGE // bridgeOS doesn't have trust settings
 - (void)testSHA2_trustSettingsOnRoot_TestLeaf {
+#if TARGET_OS_BRIDGE // bridgeOS doesn't have trust settings
+    XCTSkip();
+#endif
     NSDate *verifyDate = [NSDate dateWithTimeIntervalSinceReferenceDate:578000000.0]; // April 26, 2019 at 12:33:20 PM PDT
     SecCertificateRef sha2_leaf = SecCertificateCreateWithBytes(NULL, _testSHA2Leaf, sizeof(_testSHA2Leaf));
     SecCertificateRef sha2_root = SecCertificateCreateWithBytes(NULL, _testRoot, sizeof(_testRoot));
@@ -425,6 +442,9 @@ errOut:
 }
 
 - (void)testSHA2_trustSettingsOnLeaf {
+#if TARGET_OS_BRIDGE // bridgeOS doesn't have trust settings
+    XCTSkip();
+#endif
     NSDate *verifyDate = [NSDate dateWithTimeIntervalSinceReferenceDate:578000000.0]; // April 26, 2019 at 12:33:20 PM PDT
     SecCertificateRef sha2_leaf = SecCertificateCreateWithBytes(NULL, _testSHA2Leaf, sizeof(_testSHA2Leaf));
     NSArray *sha2_certs = @[ (__bridge id)sha2_leaf ];
@@ -448,6 +468,9 @@ errOut:
 }
 
 - (void)testSHA2_trustSettingsSelfSigned {
+#if TARGET_OS_BRIDGE // bridgeOS doesn't have trust settings
+    XCTSkip();
+#endif
     NSDate *verifyDate = [NSDate dateWithTimeIntervalSinceReferenceDate:578000000.0]; // April 26, 2019 at 12:33:20 PM PDT
     SecCertificateRef sha2_cert = SecCertificateCreateWithBytes(NULL, _testSHA2SelfSigned, sizeof(_testSHA2SelfSigned));
     NSArray *sha2_certs = @[ (__bridge id)sha2_cert ];
@@ -469,6 +492,5 @@ errOut:
     [self removeTrustSettingsForCert:sha2_cert persistentRef:persistentRef];
     CFReleaseNull(sha2_cert);
 }
-#endif // !TARGET_OS_BRIDGE
 
 @end

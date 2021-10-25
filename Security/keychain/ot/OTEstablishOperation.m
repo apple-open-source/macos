@@ -158,14 +158,11 @@
                 self.nextState = self.intendedState;
             }
 
-            [self.operationDependencies.viewManager setCurrentSyncingPolicy:syncingPolicy];
-
             // Tell CKKS about our shiny new records!
-            for (id key in self.operationDependencies.viewManager.views) {
-                CKKSKeychainView* view = self.operationDependencies.viewManager.views[key];
-                secnotice("octagon-ckks", "Providing records to %@", view);
-                [view receiveTLKUploadRecords: keyHierarchyRecords];
-            }
+            // TODO: we should also set trust here
+            [self.operationDependencies.ckks setCurrentSyncingPolicy:syncingPolicy];
+            [self.operationDependencies.ckks receiveTLKUploadRecords:keyHierarchyRecords];
+
             [self runBeforeGroupFinished:self.finishedOp];
         }];
 }

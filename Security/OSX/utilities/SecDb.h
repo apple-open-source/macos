@@ -144,7 +144,7 @@ bool SecDbConnectionIsReadOnly(SecDbConnectionRef dbconn);
 // Do not call this unless you are SecDbItem!
 void SecDbRecordChange(SecDbConnectionRef dbconn, CFTypeRef deleted, CFTypeRef inserted);
 
-void SecDbPerformOnCommitQueue(SecDbConnectionRef dbconn, bool barrier, dispatch_block_t perform);
+void SecDbPerformOnCommitQueue(SecDbConnectionRef dbconn, dispatch_block_t perform);
 void SecDBManagementTasks(SecDbConnectionRef dbconn);
 
 // MARK: -

@@ -146,7 +146,7 @@ public:
     
     virtual bool start(IOService * provider) APPLE_KEXT_OVERRIDE;
 
-    virtual void stop(IOService * provider); APPLE_KEXT_OVERRIDE;
+    virtual void stop(IOService * provider) APPLE_KEXT_OVERRIDE;
 
     virtual IOService * probe(IOService * provider, SInt32 * score) APPLE_KEXT_OVERRIDE;
 

@@ -260,14 +260,17 @@ extern uint64_t         max_mem;                /* 64-bit size of memory - limit
  */
 #define MALLOC_MEDIUM_CHUNK_SIZE (8ULL * 1024 * 1024) /* 8 MB */
 
+#ifdef KERNEL_PRIVATE
+extern uint64_t         sane_size;              /* Memory size to use for defaults calculations */
+#endif /* KERNEL_PRIVATE */
+
 #ifdef  XNU_KERNEL_PRIVATE
 
 #include <kern/debug.h>
 
 extern uint64_t         mem_actual;             /* 64-bit size of memory - not limited by maxmem */
 extern uint64_t         max_mem_actual;         /* Size of physical memory adjusted by maxmem */
-extern uint64_t         sane_size;              /* Memory size to use for defaults calculations */
-extern addr64_t         vm_last_addr;   /* Highest kernel virtual address known to the VM system */
+extern addr64_t         vm_last_addr;           /* Highest kernel virtual address known to the VM system */
 
 extern const vm_offset_t        vm_min_kernel_address;
 extern const vm_offset_t        vm_max_kernel_address;

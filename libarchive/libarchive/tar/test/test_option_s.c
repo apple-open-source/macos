@@ -36,7 +36,7 @@ DEFINE_TEST(test_option_s)
 	assertMakeFile("in/d1/bar", 0644, "bar");
 	if (canSymlink()) {
 		assertMakeFile("in/d1/realfile", 0644, "realfile");
-		assertMakeSymlink("in/d1/symlink", "realfile");
+		assertMakeSymlink("in/d1/symlink", "realfile", 0);
 	}
 	assertMakeFile("in/d1/hardlink1", 0644, "hardlinkedfile");
 	assertMakeHardlink("in/d1/hardlink2", "in/d1/hardlink1");
@@ -92,10 +92,8 @@ DEFINE_TEST(test_option_s)
 	 * Test 5: Name-switching substitutions when extracting archive.
 	 */
 	assertMakeDir("test5", 0755);
-	systemf("%s -cf test5.tar in/d1/foo in/d1/bar",
-	    testprog, testprog);
-	systemf("%s -xf test5.tar -s /foo/bar/ -s }bar}foo} -C test5",
-	    testprog, testprog);
+	systemf("%s -cf test5.tar in/d1/foo in/d1/bar", testprog);
+	systemf("%s -xf test5.tar -s /foo/bar/ -s }bar}foo} -C test5", testprog);
 	assertFileContents("foo", 3, "test5/in/d1/bar");
 	assertFileContents("bar", 3, "test5/in/d1/foo");
 
@@ -109,14 +107,14 @@ DEFINE_TEST(test_option_s)
 		    testprog, testprog);
 		assertFileContents("realfile", 8, "test6a/in/d2/realfile");
 		assertFileContents("realfile", 8, "test6a/in/d2/symlink");
-		assertIsSymlink("test6a/in/d2/symlink", "realfile");
+		assertIsSymlink("test6a/in/d2/symlink", "realfile", 0);
 		/* At creation time. */
 		assertMakeDir("test6b", 0755);
 		systemf("%s -cf - -s /d1/d2/ in/d1 | %s -xf - -C test6b",
 		    testprog, testprog);
 		assertFileContents("realfile", 8, "test6b/in/d2/realfile");
 		assertFileContents("realfile", 8, "test6b/in/d2/symlink");
-		assertIsSymlink("test6b/in/d2/symlink", "realfile");
+		assertIsSymlink("test6b/in/d2/symlink", "realfile", 0);
 	}
 
 	/*
@@ -129,14 +127,14 @@ DEFINE_TEST(test_option_s)
 		    testprog, testprog);
 		assertFileContents("realfile", 8, "test7a/in/d1/realfile-renamed");
 		assertFileContents("realfile", 8, "test7a/in/d1/symlink");
-		assertIsSymlink("test7a/in/d1/symlink", "realfile-renamed");
+		assertIsSymlink("test7a/in/d1/symlink", "realfile-renamed", 0);
 		/* At creation. */
 		assertMakeDir("test7b", 0755);
 		systemf("%s -cf - -s /realfile/realfile-renamed/ in/d1 | %s -xf - -C test7b",
 		    testprog, testprog);
 		assertFileContents("realfile", 8, "test7b/in/d1/realfile-renamed");
 		assertFileContents("realfile", 8, "test7b/in/d1/symlink");
-		assertIsSymlink("test7b/in/d1/symlink", "realfile-renamed");
+		assertIsSymlink("test7b/in/d1/symlink", "realfile-renamed", 0);
 	}
 
 	/*
@@ -192,7 +190,7 @@ DEFINE_TEST(test_option_s)
 		assertFileContents("realfile", 8, "test10a/in/d1/foo");
 		assertFileContents("foo", 3, "test10a/in/d1/realfile");
 		assertFileContents("foo", 3, "test10a/in/d1/symlink");
-		assertIsSymlink("test10a/in/d1/symlink", "realfile");
+		assertIsSymlink("test10a/in/d1/symlink", "realfile", 0);
 		/* At creation. */
 		assertMakeDir("test10b", 0755);
 		systemf("%s -cf - -s /realfile/foo/S -s /foo/realfile/ in/d1 | %s -xf - -C test10b",
@@ -200,7 +198,7 @@ DEFINE_TEST(test_option_s)
 		assertFileContents("realfile", 8, "test10b/in/d1/foo");
 		assertFileContents("foo", 3, "test10b/in/d1/realfile");
 		assertFileContents("foo", 3, "test10b/in/d1/symlink");
-		assertIsSymlink("test10b/in/d1/symlink", "realfile");
+		assertIsSymlink("test10b/in/d1/symlink", "realfile", 0);
 	}
 
 	/*
@@ -214,7 +212,7 @@ DEFINE_TEST(test_option_s)
 		assertFileContents("foo", 3, "test11a/in/d1/foo");
 		assertFileContents("realfile", 8, "test11a/in/d1/realfile");
 		assertFileContents("foo", 3, "test11a/in/d1/symlink");
-		assertIsSymlink("test11a/in/d1/symlink", "foo");
+		assertIsSymlink("test11a/in/d1/symlink", "foo", 0);
 		/* At creation. */
 		assertMakeDir("test11b", 0755);
 		systemf("%s -cf - -s /realfile/foo/R in/d1 | %s -xf - -C test11b",
@@ -222,7 +220,7 @@ DEFINE_TEST(test_option_s)
 		assertFileContents("foo", 3, "test11b/in/d1/foo");
 		assertFileContents("realfile", 8, "test11b/in/d1/realfile");
 		assertFileContents("foo", 3, "test11b/in/d1/symlink");
-		assertIsSymlink("test11b/in/d1/symlink", "foo");
+		assertIsSymlink("test11b/in/d1/symlink", "foo", 0);
 	}
 
 	/*

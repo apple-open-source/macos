@@ -505,7 +505,7 @@ static APR_INLINE apr_uint32_t listeners_disabled(void)
     return apr_atomic_read32(&listensocks_disabled);
 }
 
-static APR_INLINE int connections_above_limit(void)
+static APR_INLINE int connections_above_limit(int *busy)
 {
     apr_uint32_t i_count = ap_queue_info_num_idlers(worker_queue_info);
     if (i_count > 0) {
@@ -519,6 +519,9 @@ static APR_INLINE int connections_above_limit(void)
             return 0;
         }
     }
+    else if (busy) {
+        *busy = 1;
+    }
     return 1;
 }
 
@@ -526,21 +529,6 @@ static void abort_socket_nonblocking(apr_socket_t *csd)
 {
     apr_status_t rv;
     apr_socket_timeout_set(csd, 0);
-#if defined(SOL_SOCKET) && defined(SO_LINGER)
-    /* This socket is over now, and we don't want to block nor linger
-     * anymore, so reset it. A normal close could still linger in the
-     * system, while RST is fast, nonblocking, and what the peer will
-     * get if it sends us further data anyway.
-     */
-    {
-        apr_os_sock_t osd = -1;
-        struct linger opt;
-        opt.l_onoff = 1;
-        opt.l_linger = 0; /* zero timeout is RST */
-        apr_os_sock_get(&osd, csd);
-        setsockopt(osd, SOL_SOCKET, SO_LINGER, (void *)&opt, sizeof opt);
-    }
-#endif
     rv = apr_socket_close(csd);
     if (rv != APR_SUCCESS) {
         ap_log_error(APLOG_MARK, APLOG_ERR, rv, ap_server_conf, APLOGNO(00468)
@@ -771,7 +759,7 @@ static apr_status_t decrement_connection_count(void *cs_)
     is_last_connection = !apr_atomic_dec32(&connection_count);
     if (listener_is_wakeable
             && ((is_last_connection && listener_may_exit)
-                || (listeners_disabled() && !connections_above_limit()))) {
+                || (listeners_disabled() && !connections_above_limit(NULL)))) {
         apr_pollset_wakeup(event_pollset);
     }
     return APR_SUCCESS;
@@ -1595,8 +1583,8 @@ static void * APR_THREAD_FUNC listener_thread(apr_thread_t * thd, void *dummy)
     /* Unblock the signal used to wake this thread up, and set a handler for
      * it.
      */
-    unblock_signal(LISTENER_SIGNAL);
     apr_signal(LISTENER_SIGNAL, dummy_signal_handler);
+    unblock_signal(LISTENER_SIGNAL);
 
     for (;;) {
         timer_event_t *te;
@@ -1802,7 +1790,7 @@ static void * APR_THREAD_FUNC listener_thread(apr_thread_t * thd, void *dummy)
                                  "All workers busy, not accepting new conns "
                                  "in this process");
                 }
-                else if (connections_above_limit()) {
+                else if (connections_above_limit(&workers_were_busy)) {
                     disable_listensocks();
                     ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, ap_server_conf,
                                  "Too many open connections (%u), "
@@ -1811,7 +1799,6 @@ static void * APR_THREAD_FUNC listener_thread(apr_thread_t * thd, void *dummy)
                     ap_log_error(APLOG_MARK, APLOG_TRACE1, 0, ap_server_conf,
                                  "Idle workers: %u",
                                  ap_queue_info_num_idlers(worker_queue_info));
-                    workers_were_busy = 1;
                 }
                 else if (!listener_may_exit) {
                     void *csd = NULL;
@@ -1944,7 +1931,7 @@ static void * APR_THREAD_FUNC listener_thread(apr_thread_t * thd, void *dummy)
 
         if (listeners_disabled()
                 && !workers_were_busy
-                && !connections_above_limit()) {
+                && !connections_above_limit(NULL)) {
             enable_listensocks();
         }
     } /* listener main loop */
@@ -2583,8 +2570,8 @@ static void child_main(int child_num_arg, int child_bucket)
          * the other threads in the process needs to take us down
          * (e.g., for MaxConnectionsPerChild) it will send us SIGTERM
          */
-        unblock_signal(SIGTERM);
         apr_signal(SIGTERM, dummy_signal_handler);
+        unblock_signal(SIGTERM);
         /* Watch for any messages from the parent over the POD */
         while (1) {
             rv = ap_mpm_podx_check(my_bucket->pod);
@@ -3335,8 +3322,9 @@ static int event_open_logs(apr_pool_t * p, apr_pool_t * plog,
             new_max = num_buckets;
         }
         new_ptr = (int *)apr_palloc(ap_pglobal, new_max * sizeof(int));
-        memcpy(new_ptr, retained->idle_spawn_rate,
-               retained->mpm->num_buckets * sizeof(int));
+        if (retained->idle_spawn_rate) /* NULL at startup */
+            memcpy(new_ptr, retained->idle_spawn_rate,
+                   retained->mpm->num_buckets * sizeof(int));
         retained->idle_spawn_rate = new_ptr;
         retained->mpm->max_buckets = new_max;
     }
@@ -3456,6 +3444,7 @@ static int event_pre_config(apr_pool_t * pconf, apr_pool_t * plog,
     worker_queue_info = NULL;
     listener_os_thread = NULL;
     listensocks_disabled = 0;
+    listener_is_wakeable = 0;
 
     return OK;
 }

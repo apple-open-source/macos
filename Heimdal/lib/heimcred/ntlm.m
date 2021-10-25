@@ -41,6 +41,7 @@
 #import "config.h"
 #import "heimntlm.h"
 #import "common.h"
+#import "gsscred.h"
 
 #if ENABLE_NTLM
 
@@ -395,7 +396,7 @@ _HeimCredRegisterNTLM(void)
 	CFSetAddValue(set, schema);
 	CFRELEASE_NULL(schema);
 
-	_HeimCredRegisterMech(kHEIMTypeNTLM, set, NULL, NTLMAuthCallback, NULL, false, NULL);
+	_HeimCredRegisterMech(kHEIMTypeNTLM, set, NULL, NTLMAuthCallback, NULL, DefaultTraceCallback, false, NULL);
 	CFRELEASE_NULL(set);
 #endif /* ENABLE_NTLM */
 }

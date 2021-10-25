@@ -55,7 +55,7 @@ static unsigned char *p12StrCat(
 	unsigned char *outStr = NULL)	// if not present, we malloc
 {
 	if(outStr == NULL) {
-		outStr = (unsigned char *)coder.malloc(outLen);
+		outStr = (unsigned char *)coder.alloc(outLen);
 	}
 	unsigned toMove = outLen;
 	unsigned char *outp = outStr;
@@ -123,7 +123,7 @@ static CSSM_RETURN p12PbeGen(
 	 *    concatenating v/8 copies of ID.
 	 */
 	unsigned char *p12_D = NULL;		// diversifier
-	p12_D = (unsigned char *)coder.malloc(p12_v);
+	p12_D = (unsigned char *)coder.alloc(p12_v);
 	for(unsigned dex=0; dex<p12_v; dex++) {
 		p12_D[dex] = (unsigned char)pbeId;
 	}
@@ -155,7 +155,7 @@ static CSSM_RETURN p12PbeGen(
 	 * 4. Set I= S||P to be the concatenation of S and P.
 	 */
 	unsigned char *p12_I = 
-		(unsigned char *)coder.malloc(p12_Slen + p12_Plen);
+		(unsigned char *)coder.alloc(p12_Slen + p12_Plen);
 	memmove(p12_I, p12_S, p12_Slen);
 	if(p12_Plen) {
 		memmove(p12_I + p12_Slen, p12_P, p12_Plen);
@@ -167,14 +167,14 @@ static CSSM_RETURN p12PbeGen(
 	unsigned p12_c = (p12_n + p12_u - 1) / p12_u;
 	
 	/* allocate c hash-output-size bufs */
-	unsigned char *p12_A = (unsigned char *)coder.malloc(p12_c * p12_u);
+	unsigned char *p12_A = (unsigned char *)coder.alloc(p12_c * p12_u);
 
 	/* one reusable hash object */
 	DigestCtx ourDigest;
 	DigestCtx *hashHand = &ourDigest;
 
 	/* reused inside the loop */
-	unsigned char *p12_B = (unsigned char *)coder.malloc(p12_v + 1);
+	unsigned char *p12_B = (unsigned char *)coder.alloc(p12_v + 1);
 	BIGNUM *Ij = BN_new();
 	BIGNUM *Bpl1 = BN_new();
 	

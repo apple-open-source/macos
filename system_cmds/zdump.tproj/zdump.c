@@ -288,10 +288,6 @@ main(int argc, char *argv[])
 	if (fflush(stdout) || ferror(stdout))
 		errx(EXIT_FAILURE, _("error writing standard output"));
 	exit(EXIT_SUCCESS);
-
-	/* gcc -Wall pacifier */
-	for ( ; ; )
-		continue;
 }
 
 static void

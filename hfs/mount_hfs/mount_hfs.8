@@ -15,12 +15,12 @@
 .\" under the License.
 .\" 
 .\"     @(#)mount_hfs.8
-.Dd March 14, 2001
+.Dd October  27, 2020
 .Dt MOUNT_HFS 8
 .Os "Mac OS X"
 .Sh NAME
 .Nm mount_hfs
-.Nd mount an HFS/HFS+ file system
+.Nd mount an HFS+ file system
 .Sh SYNOPSIS
 .Nm mount_hfs
 .Op Fl e Ar encoding
@@ -47,11 +47,6 @@ at boot time.
 .Pp
 The options are as follows:
 .Bl -tag -width indent
-.It Fl e Ar encoding (standard HFS volumes only)
-Specify the Macintosh encoding. The following encodings are supported:
-.Pp
-Arabic, ChineseSimp, ChineseTrad, Croatian, Cyrillic, Greek, Hebrew,
-Icelandic, Japanese, Korean, Roman (default), Romanian, Thai, Turkish
 .It Fl u Ar user
 Set the owner of the files in the file system to
 .Pa user . 
@@ -91,10 +86,6 @@ man page for possible options and their meanings.
 Ignore the journal for this mount.
 .It Fl c
 Disable group commit for journaling.
-.It Fl w
-Mount the HFS wrapper volume.
-.It Fl x
-Disable execute permissions on a standard HFS file system.
 .El
 .Sh SEE ALSO
 .Xr mount 2 ,
@@ -106,4 +97,4 @@ Some HFS file systems with highly fragmented catalog files may not mount.
 .Sh HISTORY
 The
 .Nm mount_hfs
-utility first appeared in Mac OS X Server 1.0.
+utility first appeared in Mac OS X Server 1.0.  As of Mac OS X 10.15, this utility will no longer mount HFS standard file systems.

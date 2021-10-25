@@ -28,13 +28,13 @@
 
 extern "C" {
 #include <kern/debug.h>
+#include <pexpert/pexpert.h>
+};
+
 #include <kern/processor.h>
 #include <kern/thread.h>
 #include <kperf/kperf.h>
-#include <pexpert/pexpert.h>
 #include <machine/machine_routines.h>
-};
-
 #include <libkern/OSAtomic.h>
 #include <libkern/c++/OSCollection.h>
 #include <IOKit/IODeviceTreeSupport.h>
@@ -168,11 +168,7 @@ cpu_boot_thread(void */*unused0*/, wait_result_t /*unused1*/)
 	matching->release();
 
 	const size_t array_size = (topology_info->max_cpu_id + 1) * sizeof(*machProcessors);
-	machProcessors = static_cast<processor_t *>(IOMalloc(array_size));
-	if (!machProcessors) {
-		panic("Can't allocate machProcessors array");
-	}
-	memset(machProcessors, 0, array_size);
+	machProcessors = static_cast<processor_t *>(zalloc_permanent(array_size, ZALIGN_PTR));
 
 	for (unsigned int cpu = 0; cpu < topology_info->num_cpus; cpu++) {
 		const ml_topology_cpu *cpu_info = &topology_info->cpus[cpu];

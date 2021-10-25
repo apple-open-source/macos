@@ -63,8 +63,7 @@
 
     if (altDSID) {
         salt = altDSID;
-    }
-    else {
+    } else {
         secnotice("octagon", "authkit doesn't know about the altdsid, using stored value: %@", authKitError);
 
         NSError* accountError = nil;
@@ -73,9 +72,14 @@
         if(account && !accountError) {
             secnotice("octagon", "retrieved account, altdsid is: %@", account.altDSID);
             salt = account.altDSID;
-        }
-        if(accountError || !account){
-            secerror("failed to rerieve account object: %@", accountError);
+        } else {
+            if (accountError == nil) {
+                accountError = [NSError errorWithDomain:(__bridge NSString *)kSecErrorDomain code:errSecInternalError userInfo:nil];
+            }
+            secerror("failed to retrieve account object: %@", accountError);
+            self.error = accountError;
+            [self runBeforeGroupFinished:self.finishOp];
+            return;
         }
     }
 
@@ -107,19 +111,17 @@
                                                           reply:^(NSArray<CKRecord*>* _Nullable keyHierarchyRecords,
                                                                   NSError * _Nullable setError) {
             STRONGIFY(self);
+            [[CKKSAnalytics logger] logResultForEvent:OctagonEventSetRecoveryKey hardFailure:true result:setError];
             if(setError){
-                [[CKKSAnalytics logger] logResultForEvent:OctagonEventSetRecoveryKey hardFailure:true result:setError];
                 secerror("octagon: Error setting recovery key: %@", setError);
                 self.error = setError;
                 [self runBeforeGroupFinished:self.finishOp];
             } else {
                 secnotice("octagon", "successfully set recovery key");
 
-                for (id key in self.deps.viewManager.views) {
-                    CKKSKeychainView* view = self.deps.viewManager.views[key];
-                    secnotice("octagon-ckks", "Providing setRecoveryKey() records to %@", view);
-                    [view receiveTLKUploadRecords:keyHierarchyRecords];
-                }
+                secnotice("octagon-ckks", "Providing setRecoveryKey() records to %@", self.deps.ckks);
+                [self.deps.ckks receiveTLKUploadRecords:keyHierarchyRecords];
+
                 [self runBeforeGroupFinished:self.finishOp];
             }
         }];

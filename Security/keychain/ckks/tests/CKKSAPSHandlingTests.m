@@ -48,15 +48,19 @@
 
 @interface CKKSAPSHandlingTests : CloudKitKeychainSyncingTestsBase
 @property CKRecordZoneID*      manateeZoneID;
-@property CKKSKeychainView*    manateeView;
+@property CKKSKeychainViewState* manateeView;
 @property FakeCKZone*          manateeZone;
 @property (readonly) ZoneKeys* manateeZoneKeys;
-@end
 
+@property (nullable) NSSet* managedViewListOverride;
+@end
 
 @implementation CKKSAPSHandlingTests
 // We really just want two views here
 - (NSSet*)managedViewList {
+    if(self.managedViewListOverride) {
+        return self.managedViewListOverride;
+    }
     return [NSSet setWithObjects:@"keychain", @"Manatee", nil];
 }
 
@@ -70,8 +74,8 @@
     [self.ckksZones addObject:self.manateeZoneID];
     self.manateeZone = [[FakeCKZone alloc] initZone: self.manateeZoneID];
     self.zones[self.manateeZoneID] = self.manateeZone;
-    self.manateeView = [[CKKSViewManager manager] findOrCreateView:@"Manatee"];
-    XCTAssertNotNil(self.manateeView, "CKKSViewManager created the Manatee view");
+    self.manateeView = [self.defaultCKKS.operationDependencies viewStateForName:@"Manatee"];
+    XCTAssertNotNil(self.manateeView, "CKKS created the Manatee view");
     [self.ckksViews addObject:self.manateeView];
 }
 
@@ -80,8 +84,7 @@
     self.accountStatus = CKAccountStatusNoAccount;
     [self startCKKSSubsystem];
     
-    [self.manateeView halt];
-    [self.manateeView waitUntilAllOperationsAreFinished];
+    [self.defaultCKKS halt];
     self.manateeView = nil;
 
     [super tearDown];
@@ -109,9 +112,10 @@
 
     [self startCKKSSubsystem];
 
-    for(CKKSKeychainView* view in self.ckksViews) {
+    for(CKKSKeychainViewState* view in self.ckksViews) {
         XCTAssertEqual(0, [view.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], "Key state should enter 'ready' for view %@", view);
     }
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:20*NSEC_PER_SEC], "CKKS state machine should enter 'ready'");
 
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
 
@@ -123,10 +127,8 @@
     [self.manateeZone addToZone:manateeRecord];
 
     // Trigger a notification just for keychain zone. Both keychain and Manatee should process their incoming queues, and receive their items.
-    CKKSResultOperation* keychainProcessOp = [self.keychainView resultsOfNextProcessIncomingQueueOperation];
+    CKKSResultOperation* keychainProcessOp = [self.defaultCKKS resultsOfNextProcessIncomingQueueOperation];
     XCTAssertNotNil(keychainProcessOp, "Should have gotten a promise operation from Keychain");
-    CKKSResultOperation* manateeProcessOp = [self.manateeView resultsOfNextProcessIncomingQueueOperation];
-    XCTAssertNotNil(manateeProcessOp, "Should have gotten a promise operation from Manatee");
 
     // But if something goes wrong, don't block the whole test. Only way to do that is to make more operations, since there's no guarantee that the process ops above will ever be added
     // to a queue (and thus become 'finished')
@@ -134,11 +136,6 @@
     [keychainProcessTimeoutOp timeout:20*NSEC_PER_SEC];
     [keychainProcessTimeoutOp addSuccessDependency:keychainProcessOp];
     [self.operationQueue addOperation:keychainProcessTimeoutOp];
-
-    CKKSResultOperation* manateeProcessTimeoutOp = [CKKSResultOperation named:@"manatee-timeout" withBlock:^{}];
-    [manateeProcessTimeoutOp timeout:20*NSEC_PER_SEC];
-    [manateeProcessTimeoutOp addSuccessDependency:manateeProcessOp];
-    [self.operationQueue addOperation:manateeProcessTimeoutOp];
 
     APSIncomingMessage* apsMessage = [CKKSAPSHandlingTests messageWithTracingEnabledForZoneID:self.keychainZoneID];
 
@@ -164,10 +161,7 @@
 
     // Now, wait for both views to run their processing
     [keychainProcessTimeoutOp waitUntilFinished];
-    XCTAssertNil(keychainProcessTimeoutOp.error, "Shouldn't have been any error processing incoming queue (keychain)");
-
-    [manateeProcessTimeoutOp waitUntilFinished];
-    XCTAssertNil(manateeProcessTimeoutOp.error, "Shouldn't have been any error processing incoming queue (manatee)");
+    XCTAssertNil(keychainProcessTimeoutOp.error, "Shouldn't have been any error processing incoming queue");
 
     [self findGenericPassword:@"keychain-view" expecting:errSecSuccess];
     [self findGenericPassword:@"manatee-view" expecting:errSecSuccess];
@@ -182,9 +176,10 @@
 
     [self startCKKSSubsystem];
 
-    for(CKKSKeychainView* view in self.ckksViews) {
+    for(CKKSKeychainViewState* view in self.ckksViews) {
         XCTAssertEqual(0, [view.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], "Key state should enter 'ready' for view %@", view);
     }
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:20*NSEC_PER_SEC], "CKKS state machine should enter 'ready'");
 
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
 
@@ -192,7 +187,7 @@
     [self.keychainZone addToZone: keychainRecord];
 
      // Trigger a notification just for keychain zone. Both keychain and Manatee should process their incoming queues, and receive their items.
-    CKKSResultOperation* keychainProcessOp = [self.keychainView resultsOfNextProcessIncomingQueueOperation];
+    CKKSResultOperation* keychainProcessOp = [self.defaultCKKS resultsOfNextProcessIncomingQueueOperation];
     XCTAssertNotNil(keychainProcessOp, "Should have gotten a promise operation from Keychain");
 
     // But if something goes wrong, don't block the whole test. Only way to do that is to make more operations, since there's no guarantee that the process ops above will ever be added
@@ -272,14 +267,16 @@
     [apsReceiver connection:nil didReceiveIncomingMessage:apsMessage2];
 
     // Launch!
-    CKKSKeychainView* pushTestView = [self.injectedManager findOrCreateView:pushTestZone.zoneName];
-    [self.ckksViews addObject:pushTestView];
+    self.managedViewListOverride = [self.managedViewList setByAddingObject:@"PushTestZone"];
+    [self.defaultCKKS setCurrentSyncingPolicy:[self viewSortingPolicyForManagedViewList]];
 
     [self startCKKSSubsystem];
 
-    for(CKKSKeychainView* view in self.ckksViews) {
+    for(CKKSKeychainViewState* view in self.ckksViews) {
         XCTAssertEqual(0, [view.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], "Key state should enter 'ready' for view %@", view);
+
     }
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:20*NSEC_PER_SEC], "CKKS state machine should enter 'ready'");
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
 }
 

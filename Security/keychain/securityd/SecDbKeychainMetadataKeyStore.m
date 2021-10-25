@@ -163,7 +163,7 @@ static void initializeSharedMetadataStoreQueue(void) {
     NSMutableData* unwrapped = [NSMutableData dataWithLength:APPLE_KEYSTORE_MAX_KEY_LEN];
     SFAESKey* key = NULL;
     NSError *localError = nil;
-    if ([SecAKSObjCWrappers aksDecryptWithKeybag:keybag keyclass:classToUse ciphertext:wrapped outKeyclass:NULL plaintext:unwrapped error:&localError]) {
+    if ([SecAKSObjCWrappers aksDecryptWithKeybag:keybag keyclass:classToUse ciphertext:wrapped outKeyclass:NULL plaintext:unwrapped personaId:NULL personaIdLength:0 error:&localError]) {
         key = [[SFAESKey alloc] initWithData:unwrapped specifier:specifier error:&localError];
         if (!key) {
             secerror("SecDbKeychainItemV7: AKS decrypted metadata blob for class %d but could not turn it into a key: %@", classToUse, localError);
@@ -172,7 +172,7 @@ static void initializeSharedMetadataStoreQueue(void) {
 #if USE_KEYSTORE
     else if (classToUse < key_class_last && *outKeyclass == key_class_none) {
         *outKeyclass = classToUse | (key_class_last + 1);
-        if ([SecAKSObjCWrappers aksDecryptWithKeybag:keybag keyclass:*outKeyclass ciphertext:wrapped outKeyclass:NULL plaintext:unwrapped error:&localError]) {
+        if ([SecAKSObjCWrappers aksDecryptWithKeybag:keybag keyclass:*outKeyclass ciphertext:wrapped outKeyclass:NULL plaintext:unwrapped personaId:NULL personaIdLength:0 error:&localError]) {
             key = [[SFAESKey alloc] initWithData:unwrapped specifier:specifier error:&localError];
         }
     }
@@ -220,7 +220,7 @@ static void initializeSharedMetadataStoreQueue(void) {
     NSMutableData* wrappedKey = [NSMutableData dataWithLength:APPLE_KEYSTORE_MAX_SYM_WRAPPED_KEY_LEN];
     keyclass_t outKeyclass = keyclass;
 
-    if (![SecAKSObjCWrappers aksEncryptWithKeybag:keybag keyclass:keyclass plaintext:key.keyData outKeyclass:&outKeyclass ciphertext:wrappedKey error:&localError]) {
+    if (![SecAKSObjCWrappers aksEncryptWithKeybag:keybag keyclass:keyclass plaintext:key.keyData outKeyclass:&outKeyclass ciphertext:wrappedKey personaId:NULL personaIdLength:0 error:&localError]) {
         secerror("SecDbMetadataKeyStore: Unable to encrypt new metadata key to keybag: %@", localError);
         if (error) {
             *error = localError;

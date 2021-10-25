@@ -43,6 +43,7 @@
 #include "IOGraphicsKTrace.h"
 #include "GMetric.hpp"
 
+#ifdef TARGET_CPU_X86_64
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
@@ -1814,5 +1815,7 @@ OSMetaClassDefineReservedUnused(IODisplayParameterHandler, 6);
 OSMetaClassDefineReservedUnused(IODisplayParameterHandler, 7);
 OSMetaClassDefineReservedUnused(IODisplayParameterHandler, 8);
 OSMetaClassDefineReservedUnused(IODisplayParameterHandler, 9);
+
+#endif // TARGET_CPU_X86_64
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */

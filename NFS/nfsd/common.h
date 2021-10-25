@@ -35,6 +35,7 @@ struct nfs_conf_server {
 	int mount_require_resv_port;	/* mountd */
 	int nfsd_threads;		/* nfsd */
 	int port;			/* nfsd */
+	int materialize_dataless_files; /* nfsd */
 	int reqcache_size;		/* sysctl */
 	int request_queue_length;	/* sysctl */
 	int require_resv_port;		/* sysctl */
@@ -58,7 +59,7 @@ struct nfs_conf_server {
 #define DEBUG(L, ...) \
  	do { \
 		if ((L) <= (config.verbose - 2)) \
-			SYSLOG(LOG_DEBUG, __VA_ARGS__); \
+			SYSLOG(LOG_NOTICE, __VA_ARGS__); \
 	} while (0)
 #define log SYSLOG
 void SYSLOG(int, const char *, ...);

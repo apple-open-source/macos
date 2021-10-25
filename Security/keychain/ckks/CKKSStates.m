@@ -5,10 +5,109 @@
 #import "keychain/ckks/CKKSKeychainView.h"
 #import "keychain/ot/ObjCImprovements.h"
 
-CKKSFlag* const CKKSFlagTrustedPeersSetChanged = (CKKSFlag*) @"trusted_peers_changed";
+CKKSState* const CKKSStateLoggedOut = (CKKSState*) @"loggedout";
+CKKSState* const CKKSStateWaitForCloudKitAccountStatus = (CKKSState*)@"wait_for_ck_account_status";
 
-CKKSFlag* const CKKSFlagTLKCreationRequested = (CKKSFlag*)@"tlk_creation";
-CKKSFlag* const CKKSFlagKeyStateTLKsUploaded = (CKKSFlag*)@"tlks_uploaded";
+CKKSState* const CKKSStateLoseTrust = (CKKSState*) @"lose_trust";
+CKKSState* const CKKSStateWaitForTrust = (CKKSState*) @"waitfortrust";
+
+CKKSState* const CKKSStateInitializing = (CKKSState*) @"initializing";
+CKKSState* const CKKSStateInitialized = (CKKSState*) @"initialized";
+CKKSState* const CKKSStateZoneCreationFailed = (CKKSState*) @"zonecreationfailed";
+
+CKKSState* const CKKSStateFixupRefetchCurrentItemPointers = (CKKSState*) @"fixup_fetch_cip";
+CKKSState* const CKKSStateFixupFetchTLKShares = (CKKSState*) @"fixup_fetch_tlkshares";
+CKKSState* const CKKSStateFixupLocalReload = (CKKSState*) @"fixup_local_reload";
+CKKSState* const CKKSStateFixupResaveDeviceStateEntries = (CKKSState*) @"fixup_resave_cdse";
+CKKSState* const CKKSStateFixupDeleteAllCKKSTombstones = (CKKSState*) @"fixup_delete_tombstones";
+
+CKKSState* const CKKSStateBeginFetch = (CKKSState*) @"begin_fetch";
+CKKSState* const CKKSStateFetch = (CKKSState*) @"fetching";
+CKKSState* const CKKSStateFetchComplete = (CKKSState*) @"fetchcomplete";
+CKKSState* const CKKSStateNeedFullRefetch = (CKKSState*) @"needrefetch";
+
+CKKSState* const CKKSStateProcessReceivedKeys = (CKKSState*) @"process_key_hierarchy";
+CKKSState* const CKKSStateCheckZoneHierarchies = (CKKSState*)@"check_zone_hierarchies";
+
+CKKSState* const CKKSStateProvideKeyHierarchy = (CKKSState*)@"provide_key_hieararchy";
+CKKSState* const CKKSStateProvideKeyHierarchyUntrusted = (CKKSState*)@"provide_key_hieararchy_untrusted";
+
+CKKSState* const CKKSStateHealTLKShares = (CKKSState*) @"heal_tlk_shares";
+CKKSState* const CKKSStateHealTLKSharesFailed = (CKKSState*) @"healtlksharesfailed";
+
+CKKSState* const CKKSStateTLKMissing = (CKKSState*) @"tlkmissing";
+CKKSState* const CKKSStateUnhealthy = (CKKSState*) @"unhealthy";
+
+CKKSState* const CKKSStateResettingZone = (CKKSState*) @"resetzone";
+CKKSState* const CKKSStateResettingLocalData = (CKKSState*) @"resetlocal";
+
+CKKSState* const CKKSStateReady = (CKKSState*) @"ready";
+CKKSState* const CKKSStateBecomeReady = (CKKSState*) @"become_ready";
+CKKSState* const CKKSStateError = (CKKSState*) @"error";
+
+
+CKKSState* const CKKSStateProcessIncomingQueue = (CKKSState*) @"process_incoming_queue";
+CKKSState* const CKKSStateRemainingClassAIncomingItems = (CKKSState*) @"class_a_incoming_items_remaining";
+
+CKKSState* const CKKSStateScanLocalItems = (CKKSState*) @"scan_local_items";
+CKKSState* const CKKSStateReencryptOutgoingItems = (CKKSState*) @"reencrypt_outgoing_items";
+
+CKKSState* const CKKSStateProcessOutgoingQueue = (CKKSState*) @"process_outgoing_queue";
+CKKSState* const CKKSStateOutgoingQueueOperationFailed = (CKKSState*) @"process_outgoing_queue_failed";
+
+NSSet<CKKSState*>* CKKSAllStates(void)
+{
+    static NSSet<CKKSState*>* set = nil;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        set = [NSSet setWithArray: @[
+            CKKSStateReady,
+            CKKSStateError,
+
+            CKKSStateInitializing,
+            CKKSStateInitialized,
+            CKKSStateFetchComplete,
+            CKKSStateUnhealthy,
+            CKKSStateNeedFullRefetch,
+            CKKSStateFetch,
+            CKKSStateResettingZone,
+            CKKSStateResettingLocalData,
+            CKKSStateLoggedOut,
+            CKKSStateZoneCreationFailed,
+            CKKSStateWaitForTrust,
+
+            CKKSStateProcessReceivedKeys,
+            CKKSStateCheckZoneHierarchies,
+            CKKSStateBecomeReady,
+            CKKSStateLoseTrust,
+            CKKSStateTLKMissing,
+            CKKSStateWaitForCloudKitAccountStatus,
+            CKKSStateBeginFetch,
+
+            CKKSStateFixupRefetchCurrentItemPointers,
+            CKKSStateFixupFetchTLKShares,
+            CKKSStateFixupLocalReload,
+            CKKSStateFixupResaveDeviceStateEntries,
+            CKKSStateFixupDeleteAllCKKSTombstones,
+
+            CKKSStateHealTLKShares,
+            CKKSStateHealTLKSharesFailed,
+
+            CKKSStateProvideKeyHierarchy,
+            CKKSStateProvideKeyHierarchyUntrusted,
+
+            CKKSStateProcessIncomingQueue,
+            CKKSStateRemainingClassAIncomingItems,
+            CKKSStateScanLocalItems,
+            CKKSStateReencryptOutgoingItems,
+            CKKSStateProcessOutgoingQueue,
+            CKKSStateOutgoingQueueOperationFailed,
+        ]];
+    });
+    return set;
+}
+
+CKKSFlag* const CKKSFlagTrustedPeersSetChanged = (CKKSFlag*) @"trusted_peers_changed";
 
 CKKSFlag* const CKKSFlagCloudKitLoggedIn = (CKKSFlag*)@"ck_account_logged_in";
 CKKSFlag* const CKKSFlagCloudKitLoggedOut = (CKKSFlag*)@"ck_account_logged_out";
@@ -35,6 +134,10 @@ CKKSFlag* const CKKSFlagItemReencryptionNeeded = (CKKSFlag*)@"item_reencryption_
 
 CKKSFlag* const CKKSFlag24hrNotification = (CKKSFlag*)@"24_hr_notification";
 
+CKKSFlag* const CKKSFlagCheckQueues = (CKKSFlag*) @"check_queues";
+CKKSFlag* const CKKSFlagProcessIncomingQueueWithFreshPolicy = (CKKSFlag*) @"policy_fresh";
+CKKSFlag* const CKKSFlagOutgoingQueueOperationRateToken = (CKKSFlag*) @"oqo_token";
+
 NSSet<CKKSFlag*>* CKKSAllStateFlags(void)
 {
     static NSSet<CKKSFlag*>* s = nil;
@@ -44,7 +147,6 @@ NSSet<CKKSFlag*>* CKKSAllStateFlags(void)
             CKKSFlagFetchRequested,
             CKKSFlagKeyStateProcessRequested,
             CKKSFlagTrustedPeersSetChanged,
-            CKKSFlagTLKCreationRequested,
             CKKSFlagScanLocalItems,
             CKKSFlagCloudKitLoggedIn,
             CKKSFlagCloudKitLoggedOut,
@@ -56,10 +158,12 @@ NSSet<CKKSFlag*>* CKKSAllStateFlags(void)
             CKKSFlagBeginTrustedOperation,
             CKKSFlagEndTrustedOperation,
             CKKSFlagDeviceUnlocked,
-            CKKSFlagKeyStateTLKsUploaded,
             CKKSFlagFetchComplete,
             CKKSFlag24hrNotification,
             CKKSFlagKeySetRequested,
+            CKKSFlagCheckQueues,
+            CKKSFlagProcessIncomingQueueWithFreshPolicy,
+            CKKSFlagOutgoingQueueOperationRateToken,
         ]];
     });
     return s;

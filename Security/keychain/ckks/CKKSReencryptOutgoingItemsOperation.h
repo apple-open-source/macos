@@ -38,9 +38,9 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (instancetype)init NS_UNAVAILABLE;
 - (instancetype)initWithDependencies:(CKKSOperationDependencies*)dependencies
-                                ckks:(CKKSKeychainView*)ckks
                        intendedState:(OctagonState*)intendedState
-                          errorState:(OctagonState*)errorState;
+                          errorState:(OctagonState*)errorState
+                       holdOperation:(NSOperation* _Nullable)holdOperation;
 
 
 @end

@@ -66,6 +66,10 @@
 #ifndef _VM_VM_KERN_H_
 #define _VM_VM_KERN_H_
 
+#ifdef XNU_KERNEL_PRIVATE
+#include <kern/locks.h>
+#endif /* XNU_KERNEL_PRIVATE */
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -77,8 +81,6 @@ extern "C" {
 #ifdef  KERNEL_PRIVATE
 
 #ifdef XNU_KERNEL_PRIVATE
-
-#include <kern/locks.h>
 
 struct vm_page;
 
@@ -112,6 +114,16 @@ extern kern_return_t    kernel_memory_allocate(
 	vm_offset_t     mask,
 	kma_flags_t     flags,
 	vm_tag_t        tag);
+
+extern kern_return_t    kernel_memory_allocate_prot(
+	vm_map_t        map,
+	vm_offset_t     *addrp,
+	vm_size_t       size,
+	vm_offset_t     mask,
+	kma_flags_t     flags,
+	vm_tag_t        tag,
+	vm_prot_t               protection,
+	vm_prot_t               max_protection);
 
 extern kern_return_t kmem_alloc(
 	vm_map_t        map,
@@ -217,6 +229,14 @@ extern kern_return_t    vm_page_diagnose(
 
 extern uint32_t         vm_page_diagnose_estimate(void);
 
+typedef enum {
+	PMAP_FEAT_UEXEC = 1
+} pmap_feature_flags_t;
+
+#if defined(__x86_64__)
+extern bool             pmap_supported_feature(pmap_t pmap, pmap_feature_flags_t feat);
+#endif
+
 #if DEBUG || DEVELOPMENT
 
 extern kern_return_t    mach_memory_info_check(void);
@@ -237,13 +257,13 @@ extern void             vm_tag_alloc_locked(vm_allocation_site_t * site, vm_allo
 
 extern void             vm_tag_update_size(vm_tag_t tag, int64_t size);
 
-#if VM_MAX_TAG_ZONES
+#if VM_TAG_SIZECLASSES
 
 extern void             vm_allocation_zones_init(void);
 extern vm_tag_t         vm_tag_will_update_zone(vm_tag_t tag, uint32_t zidx, uint32_t zflags);
 extern void             vm_tag_update_zone_size(vm_tag_t tag, uint32_t zidx, long delta);
 
-#endif /* VM_MAX_TAG_ZONES */
+#endif /* VM_TAG_SIZECLASSES */
 
 extern vm_tag_t         vm_tag_bt_debug(void);
 

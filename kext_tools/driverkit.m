@@ -7,9 +7,6 @@
 #include <launch_priv.h>
 #include <Security/Authorization.h>
 
-#include <SystemExtensions/SystemExtensions.h>
-#include <SystemExtensions/SystemExtensions_Private.h>
-
 #include <xpc/private.h>
 
 #include "driverkit.h"
@@ -24,8 +21,6 @@ Boolean isDextSignedForDebugging(OSKextRef aDext);
 Boolean isDextStandaloneExecutable(OSKextRef aDext);
 
 extern AuthOptions_t KextdAuthenticationOptions;
-
-static OSSystemExtensionClient *gSysextClient = nil;
 
 /*
  * This function takes a dext's identifier and executable path, and wraps
@@ -376,66 +371,10 @@ finish:
     return result;
 }
 
-bool isDextAllowed(OSKextRef aDext)
+bool isDextAllowed(OSKextRef aDext __unused)
 {
-    CFURLRef    kextURL              = NULL; // must release
-    CFStringRef teamID               = NULL; // must release
-    CFStringRef bundleID             = NULL; // do not release
-    NSError    *error                = NULL; // must release
-    bool        teamIDPlatformBinary = false;
-    bool        teamIDNone           = false;
-    bool        approved             = false;
-
-    // SystemExtensions.framework is weak-linked, so be careful
-    if (![OSSystemExtensionClient class]) {
-        return true;
-    }
-
-    if (!gSysextClient) {
-        gSysextClient = [[OSSystemExtensionClient alloc] init];
-    }
-
-    bundleID = OSKextGetIdentifier(aDext);
-
-    kextURL = CFURLCopyAbsoluteURL(OSKextGetURL(aDext));
-    if (!kextURL) {
-        OSKextLogMemError();
-        goto finish;
-    }
-
-    // XXX - sysextd has no opinions on first-party dexts for now.
-    if (_OSKextIdentifierHasApplePrefix(aDext)) {
-        // teamIDPlatformBinary = true;
-        approved = true;
-        goto finish;
-    } else {
-        if (!copyDextTeamID(kextURL, &teamID)) {
-            OSKextLogCFString(aDext, kOSKextLogErrorLevel | kOSKextLogFileAccessFlag,
-                    CFSTR("Encountered error while trying to copy team ID at %@"),
-                    kextURL);
-            goto finish;
-        }
-        if (!teamID) {
-            OSKextLog(aDext, kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
-                    "No team ID found for dext binary.");
-            teamIDNone = true;
-        }
-    }
-
-    approved = [gSysextClient checkExtension:(__bridge NSString *)bundleID
-                                      teamID:(__bridge NSString *)teamID
-                        teamIDPlatformBinary:teamIDPlatformBinary
-                                  teamIDNone:teamIDNone
-                                       error:&error];
-    if (error) {
-        OSKextLogCFString(aDext, kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
-                CFSTR("Error encountered during approval check: %@"), error);
-        approved = false;
-    }
-
-finish:
-    SAFE_RELEASE(teamID);
-    SAFE_RELEASE(kextURL);
-
-    return approved;
+    OSKextLog(aDext,
+        kOSKextLogBasicLevel | kOSKextLogGeneralFlag,
+        "Call to isDextAllowed, stub returning true");
+    return true;
 }

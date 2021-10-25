@@ -151,7 +151,11 @@
 
 - (void)rpcTriggerSync:(NSArray <NSString *> *)peers complete:(void(^)(bool success, NSError *))complete
 {
-    [self.account rpcTriggerSync:peers complete:complete];
+    if([self sosIsEnabled]) {
+        [self.account rpcTriggerSync:peers complete:complete];
+    } else {
+        complete(true, nil);
+    }
 }
 
 - (void)getWatchdogParameters:(void (^)(NSDictionary* parameters, NSError* error))complete
@@ -186,11 +190,19 @@
 
 - (void)rpcTriggerBackup:(NSArray<NSString *>* _Nullable)backupPeers complete:(void (^)(NSError *error))complete
 {
-    [self.account rpcTriggerBackup:backupPeers complete:complete];
+    if([self sosIsEnabled]) {
+        [self.account rpcTriggerBackup:backupPeers complete:complete];
+    } else {
+        complete([[NSError alloc] initWithDomain:(__bridge id) kSOSErrorDomain code:kSOSDisabled userInfo:@{}]);
+    }
 }
 
 - (void)rpcTriggerRingUpdate:(void (^)(NSError *))complete {
-    [self.account rpcTriggerRingUpdate:complete];
+    if([self sosIsEnabled]) {
+        [self.account rpcTriggerRingUpdate:complete];
+    } else {
+        complete([[NSError alloc] initWithDomain:(__bridge id) kSOSErrorDomain code:kSOSDisabled userInfo:@{}]);
+    }
 }
 
 - (void)iCloudIdentityStatus_internal:(void (^)(NSDictionary *, NSError *))complete {
@@ -202,6 +214,41 @@
 }
 
 
+- (void)sosDisable {
+    [self.account performTransaction:^(SOSAccountTransaction * _Nonnull txn) {
+        [self.account sosDisable];
+    }];
+}
+
+
+- (void)sosEnable {
+    [self.account performTransaction:^(SOSAccountTransaction * _Nonnull txn) {
+        [self.account sosEnable];
+    }];
+}
+
+- (void) sosIsEnabledCB: (void(^)(bool result)) complete {
+    [self.account performTransaction:^(SOSAccountTransaction * _Nonnull txn) {
+        [self.account sosIsEnabledCB:^(bool result) {
+            complete(result);
+        }];
+    }];
+}
+
+- (bool) sosIsEnabled {
+    __block bool retval = false;
+    dispatch_semaphore_t semaphore = dispatch_semaphore_create(0);
+    [self sosIsEnabledCB:^(bool result) {
+        retval = result;
+        dispatch_semaphore_signal(semaphore);
+    }];
+    dispatch_semaphore_wait(semaphore, DISPATCH_TIME_FOREVER);
+    return retval;
+}
+
+- (NSString *) sosIsEnabledString {
+    return [self.account sosIsEnabledString];
+}
 
 @end
 

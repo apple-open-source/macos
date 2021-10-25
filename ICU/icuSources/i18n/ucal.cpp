@@ -93,7 +93,7 @@ ucal_setDefaultTimeZone(const UChar* zoneID, UErrorCode* ec) {
     }
 }
 
-U_DRAFT int32_t U_EXPORT2
+U_CAPI int32_t U_EXPORT2
 ucal_getHostTimeZone(UChar* result, int32_t resultCapacity, UErrorCode* ec) {
     int32_t len = 0;
     if (ec != NULL && U_SUCCESS(*ec)) {
@@ -156,25 +156,31 @@ ucal_open(  const UChar*  zoneID,
             UCalendarType caltype,
             UErrorCode*   status)
 {
-
-  if(U_FAILURE(*status)) return 0;
+  if (U_FAILURE(*status)) {
+      return nullptr;
+  }
   
-  LocalPointer<TimeZone> zone( (zoneID==NULL) ? TimeZone::createDefault() 
+  LocalPointer<TimeZone> zone( (zoneID==nullptr) ? TimeZone::createDefault() 
       : _createTimeZone(zoneID, len, status), *status);
 
   if (U_FAILURE(*status)) {
-      return NULL;
+      return nullptr;
   }
 
   if ( caltype == UCAL_GREGORIAN ) {
-      char  localeBuf[ULOC_LOCALE_IDENTIFIER_CAPACITY];
-      if ( locale == NULL ) {
+      char localeBuf[ULOC_LOCALE_IDENTIFIER_CAPACITY];
+      if ( locale == nullptr ) {
           locale = uloc_getDefault();
       }
-      uprv_strncpy(localeBuf, locale, ULOC_LOCALE_IDENTIFIER_CAPACITY);
+      int32_t localeLength = static_cast<int32_t>(uprv_strlen(locale));
+      if (localeLength >= ULOC_LOCALE_IDENTIFIER_CAPACITY) {
+          *status = U_ILLEGAL_ARGUMENT_ERROR;
+          return nullptr;
+      }
+      uprv_strcpy(localeBuf, locale);
       uloc_setKeywordValue("calendar", "gregorian", localeBuf, ULOC_LOCALE_IDENTIFIER_CAPACITY, status);
       if (U_FAILURE(*status)) {
-          return NULL;
+          return nullptr;
       }
       return (UCalendar*)Calendar::createInstance(zone.orphan(), Locale(localeBuf), *status);
   }
@@ -184,8 +190,9 @@ ucal_open(  const UChar*  zoneID,
 U_CAPI void U_EXPORT2
 ucal_close(UCalendar *cal)
 {
-
-  delete (Calendar*) cal;
+    if (cal != nullptr) {
+        delete (Calendar*) cal;
+    }
 }
 
 U_CAPI UCalendar* U_EXPORT2 
@@ -833,6 +840,30 @@ ucal_getTimeZoneIDForWindowsID(const UChar* winid, int32_t len, const char* regi
     }
 
     return resultLen;
+}
+
+U_CAPI void U_EXPORT2 ucal_getTimeZoneOffsetFromLocal(
+    const UCalendar* cal,
+    UTimeZoneLocalOption nonExistingTimeOpt,
+    UTimeZoneLocalOption duplicatedTimeOpt,
+    int32_t* rawOffset, int32_t* dstOffset, UErrorCode* status)
+{
+    if (U_FAILURE(*status)) {
+        return;
+    }
+    UDate date = ((Calendar*)cal)->getTime(*status);
+    if (U_FAILURE(*status)) {
+        return;
+    }
+    const TimeZone& tz = ((Calendar*)cal)->getTimeZone();
+    const BasicTimeZone* btz = dynamic_cast<const BasicTimeZone *>(&tz);
+    if (btz == nullptr) {
+        *status = U_ILLEGAL_ARGUMENT_ERROR;
+        return;
+    }
+    btz->getOffsetFromLocal(
+        date, nonExistingTimeOpt, duplicatedTimeOpt,
+        *rawOffset, *dstOffset, *status);
 }
 
 // Apple-specific function uacal_getDayPeriod and helper functions/data

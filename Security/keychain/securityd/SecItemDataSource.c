@@ -43,6 +43,7 @@
 #include <Security/SecItemPriv.h>
 #include <utilities/array_size.h>
 #include <keychain/ckks/CKKS.h>
+#include "keychain/ot/OTConstants.h"
 
 /*
  *
@@ -360,6 +361,9 @@ static SecDbItemRef SecItemDataSourceCopyMergedItem(SecDbItemRef item1, SecDbIte
             if(CFEqualSafe(attr->name, v10itemuuid.name)) {
                 SecItemPreserveAttribute(result, item2, attr);
             }
+            if(SecKeychainIsStaticPersistentRefsEnabled() && CFEqualSafe(attr->name, v10itempersistentref.name)) {
+                SecItemPreserveAttribute(result, item2, attr);
+            }
         }
 
         SecDbForEachAttrWithMask(SecDbItemGetClass(result), attr, kSecDbSyncSOSCannotSyncFlag) {
@@ -528,7 +532,7 @@ static bool dsWith(SOSDataSourceRef data_source, CFErrorRef *error, SOSDataSourc
                                source == kSOSDataSourceAPITransaction ? kSecDbExclusiveTransactionType : kSecDbExclusiveRemoteSOSTransactionType,
                                error, ^(bool *commit) {
                                    if (onCommitQueue) {
-                                       SecDbPerformOnCommitQueue(dbconn, false, ^{
+                                       SecDbPerformOnCommitQueue(dbconn, ^{
                                            transaction((SOSTransactionRef)dbconn, commit);
                                        });
                                    } else {
@@ -543,7 +547,7 @@ static bool dsReadWith(SOSDataSourceRef data_source, CFErrorRef *error, SOSDataS
     SecItemDataSourceRef ds = (SecItemDataSourceRef)data_source;
     __block bool ok = true;
     ok &= kc_with_custom_db(false, true, ds->db, error, ^bool(SecDbConnectionRef dbconn) {
-        SecDbPerformOnCommitQueue(dbconn, false, ^{
+        SecDbPerformOnCommitQueue(dbconn, ^{
             perform((SOSTransactionRef)dbconn);
         });
         return true;
@@ -551,7 +555,7 @@ static bool dsReadWith(SOSDataSourceRef data_source, CFErrorRef *error, SOSDataS
     return ok;
 }
 
-static SOSMergeResult dsMergeObject(SOSTransactionRef txn, SOSObjectRef peersObject, SOSObjectRef *mergedObject, CFErrorRef *error) {
+SOSMergeResult dsMergeObject(SOSTransactionRef txn, SOSObjectRef peersObject, SOSObjectRef *mergedObject, CFErrorRef *error) {
     SecDbConnectionRef dbconn = (SecDbConnectionRef)txn;
     SecDbItemRef peersItem = (SecDbItemRef)peersObject;
     __block SOSMergeResult mr = kSOSMergeFailure;
@@ -566,6 +570,22 @@ static SOSMergeResult dsMergeObject(SOSTransactionRef txn, SOSObjectRef peersObj
         secnotice("ds", "kSOSMergeFailure => SecDbItemSetKeybag: %@", localError);
         CFErrorPropagate(localError, error);
         return kSOSMergeFailure;
+    }
+
+    if (SecKeychainIsStaticPersistentRefsEnabled()) {
+        secinfo ("ds", "setting UUID persistent ref on peersitem: %@", peersItem);
+
+        CFUUIDRef uuidRef = CFUUIDCreate(kCFAllocatorDefault);
+        CFUUIDBytes uuidBytes = CFUUIDGetUUIDBytes(uuidRef);
+        CFDataRef uuidData = CFDataCreate(kCFAllocatorDefault, (const void *)&uuidBytes, sizeof(uuidBytes));
+        CFReleaseNull(uuidRef);
+        CFErrorRef setError = NULL;
+        SecDbItemSetPersistentRef(peersItem, uuidData, &setError);
+        if (setError) {
+            secnotice("ds", "failed to set persistent ref on item %@, error: %@", peersItem, setError);
+            CFReleaseNull(setError);
+        }
+        CFReleaseNull(uuidData);
     }
 
     bool insertedOrReplaced = SecDbItemInsertOrReplace(peersItem, dbconn, &localError, ^(SecDbItemRef myItem, SecDbItemRef *replace) {
@@ -922,6 +942,16 @@ void SecItemDataSourceFactoryReleaseAll() {
 
     dispatch_sync(sDSFQueue, ^{
         if(sDSTable) {
+            CFDictionaryForEach(sDSTable, ^(const void *key, const void* value) {
+                // Destroy value
+                struct SecItemDataSourceFactory* dsf = (struct SecItemDataSourceFactory*)value;
+                dispatch_release(dsf->queue);
+                CFReleaseNull(dsf->dsCache);
+                CFReleaseNull(dsf->db);
+
+                free(dsf);
+            });
+
             CFDictionaryRemoveAllValues(sDSTable);
         }
     });

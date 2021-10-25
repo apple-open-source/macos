@@ -180,6 +180,7 @@ static enum check_status factory_release_type = S_UNKNOWN;
 static enum check_status darwin_release_type = S_UNKNOWN;
 static enum check_status recovery_release_type = S_UNKNOWN;
 static enum check_status development_kernel = S_UNKNOWN;
+static enum check_status allows_security_research = S_UNKNOWN;
 #else // TARGET_OS_IPHONE
 static enum check_status internal_diags_profile = S_UNKNOWN;
 static enum check_status factory_content = S_UNKNOWN;
@@ -556,6 +557,29 @@ static bool _check_development_kernel(void)
 
 	return status2bool(development_kernel);
 }
+
+static void _check_allows_security_research_impl(void)
+{
+	if (_os_xbs_chrooted && allows_security_research != S_UNKNOWN) {
+		return;
+	} else {
+		os_assert(allows_security_research == S_UNKNOWN);
+	}
+
+	uint32_t buffer = 0;
+	size_t buffer_size = sizeof(buffer);
+
+	sysctlbyname("hw.features.allows_security_research", (void *)&buffer, &buffer_size, NULL, 0);
+
+	allows_security_research = (buffer != 0) ? S_YES : S_NO;
+}
+
+static bool _check_allows_security_research(void)
+{
+	_initialize_status();
+
+	return status2bool(allows_security_research);
+}
 #endif // TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR
 
 static void _check_uses_ephemeral_storage_impl(void)
@@ -622,6 +646,7 @@ static void _check_all_statuses(void)
 #if TARGET_OS_IPHONE
 	_check_system_version_plist_statuses_impl();
 	_check_development_kernel_impl();
+	_check_allows_security_research_impl();
 #else
 	_check_internal_diags_profile_impl();
 	_check_factory_content_impl();
@@ -646,6 +671,7 @@ os_variant_has_full_logging(const char * __unused subsystem)
 
 static const variant_check_mapping _variant_map[] = {
 	{.variant = "AllowsInternalSecurityPolicies", .function = os_variant_allows_internal_security_policies},
+	{.variant = "AllowsSecurityResearch", .function = os_variant_allows_security_research},
 	{.variant = "HasFactoryContent", .function = os_variant_has_factory_content},
 	{.variant = "HasFullLogging", .function = os_variant_has_full_logging},
 	{.variant = "HasInternalContent", .function = os_variant_has_internal_content},
@@ -767,6 +793,16 @@ os_variant_uses_ephemeral_storage(const char * __unused subsystem)
 }
 
 bool
+os_variant_allows_security_research(const char * __unused subsystem)
+{
+#if TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR
+	return _check_allows_security_research();
+#else
+	return false;
+#endif
+}
+
+bool
 os_variant_check(const char *subsystem, const char *variant)
 {
 	variant_check_mapping *current = (variant_check_mapping *)_variant_map;
@@ -842,6 +878,7 @@ static enum boot_mode {
 	BOOTMODE_KCGEN,
 	BOOTMODE_DIAGNOSTICS,
 	BOOTMODE_MIGRATION,
+	BOOTMODE_EACS,
 } os_boot_mode;
 
 static void
@@ -857,6 +894,8 @@ _os_boot_mode_launchd_init(const char *boot_mode)
 		os_boot_mode = BOOTMODE_DIAGNOSTICS;
 	} else if (strcmp(boot_mode, OS_BOOT_MODE_MIGRATION) == 0) {
 		os_boot_mode = BOOTMODE_MIGRATION;
+	} else if (strcmp(boot_mode, OS_BOOT_MODE_EACS) == 0) {
+		os_boot_mode = BOOTMODE_EACS;
 	}
 }
 
@@ -880,6 +919,9 @@ os_boot_mode_query(const char **boot_mode_out)
 		return true;
 	case BOOTMODE_MIGRATION:
 		*boot_mode_out = OS_BOOT_MODE_MIGRATION;
+		return true;
+	case BOOTMODE_EACS:
+		*boot_mode_out = OS_BOOT_MODE_EACS;
 		return true;
 	default:
 		return false;
@@ -943,6 +985,7 @@ enum status_flags_positions {
 	SFP_DEVELOPMENT_KERNEL = 10,
 	SFP_DARWINOS_CONTENT = 11,
 	SFP_FULL_LOGGING = 12,
+	SFP_ALLOWS_SECURITY_RESEARCH = 13,
 };
 
 #define STATUS_BOOT_MODE_SHIFT 48
@@ -991,6 +1034,9 @@ static uint64_t _get_cached_check_status(void)
 
 	os_assert(development_kernel != S_UNKNOWN);
 	res |= development_kernel << SFP_DEVELOPMENT_KERNEL * STATUS_BIT_WIDTH;
+
+	os_assert(allows_security_research != S_UNKNOWN);
+	res |= allows_security_research << SFP_ALLOWS_SECURITY_RESEARCH * STATUS_BIT_WIDTH;
 #else
 	os_assert(internal_diags_profile != S_UNKNOWN);
 	res |= internal_diags_profile << SFP_INTERNAL_DIAGS_PROFILE * STATUS_BIT_WIDTH;
@@ -1049,6 +1095,9 @@ static void _restore_cached_check_status(uint64_t status)
 
 	if ((status >> (SFP_DEVELOPMENT_KERNEL * STATUS_BIT_WIDTH)) & STATUS_SET)
 		development_kernel = (status >> (SFP_DEVELOPMENT_KERNEL * STATUS_BIT_WIDTH)) & STATUS_MASK;
+
+	if ((status >> (SFP_ALLOWS_SECURITY_RESEARCH * STATUS_BIT_WIDTH)) & STATUS_SET)
+		allows_security_research = (status >> (SFP_ALLOWS_SECURITY_RESEARCH * STATUS_BIT_WIDTH)) & STATUS_MASK;
 #else
 	if ((status >> (SFP_INTERNAL_DIAGS_PROFILE * STATUS_BIT_WIDTH)) & STATUS_SET)
 		internal_diags_profile = (status >> (SFP_INTERNAL_DIAGS_PROFILE * STATUS_BIT_WIDTH)) & STATUS_MASK;

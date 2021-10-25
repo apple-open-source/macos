@@ -25,6 +25,8 @@
 #include <stdlib.h>
 #include <platform/string.h>
 #include <_libkernel_init.h>
+#include <_simple.h>
+#include "os/internal.h"
 
 struct ProgramVars; /* forward reference */
 
@@ -53,10 +55,12 @@ static const struct _libkernel_string_functions _platform_string_functions = {
 };
 #endif
 
+
 void
 __libplatform_init(void *future_use __unused, const char *envp[],
 		const char *apple[], const struct ProgramVars *vars)
 {
+
     /* In the Simulator, we just provide _simple for dyld */
 #if !TARGET_OS_SIMULATOR
     __pfz_setup(apple);

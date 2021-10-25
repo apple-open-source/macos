@@ -36,6 +36,24 @@ extern "C" {
 #include <stdint.h>
 #include <CoreFoundation/CoreFoundation.h>
 
+/*
+ * Some macOS API's use the old style defined name CSSM_DATA and CSSM_OID.
+ * These are just typedefs for SecAsn* which are available for iOS. We complete
+ * those here in case they're not available for compatibility.
+ */
+#include <TargetConditionals.h>
+#if TARGET_OS_IPHONE
+
+#ifndef CSSM_DATA
+#define CSSM_DATA SecAsn1Item
+#endif
+
+#ifndef CSSM_OID
+#define CSSM_OID SecAsn1Oid
+#endif
+
+#endif /* TARGET_OS_IPHONE */
+
 CF_ASSUME_NONNULL_BEGIN
 
 /*

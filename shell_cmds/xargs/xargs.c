@@ -60,6 +60,7 @@ __FBSDID("$FreeBSD$");
 #include <locale.h>
 #include <paths.h>
 #include <regex.h>
+#include <spawn.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -103,8 +104,6 @@ static int cnt, Iflag, jfound, Lflag, Sflag, wasquoted, xflag;
 static int curprocs, maxprocs;
 static size_t pad9314053;
 static pid_t *childpids;
-
-static volatile int childerr;
 
 extern char **environ;
 
@@ -593,8 +592,10 @@ static void
 run(char **argv)
 {
 	pid_t pid;
-	int fd;
+	int rc;
 	char **avec;
+	posix_spawn_file_actions_t file_actions = {0};
+	const char *inpath = _PATH_DEVNULL;
 
 	/*
 	 * If the user wants to be notified of each command before it is
@@ -603,12 +604,14 @@ run(char **argv)
 	 */
 	if (tflag || pflag) {
 		(void)fprintf(stderr, "%s", *argv);
-		for (avec = argv + 1; *avec != NULL; ++avec)
+		for (avec = argv + 1; *avec != NULL; ++avec) {
 			(void)fprintf(stderr, " %s", *avec);
+		}
+
 		/*
 		 * If the user has asked to be prompted, do so.
 		 */
-		if (pflag)
+		if (pflag) {
 			/*
 			 * If they asked not to exec, return without execution
 			 * but if they asked to, go to the execution.  If we
@@ -619,37 +622,46 @@ run(char **argv)
 			case 0:
 				return;
 			case 1:
-				goto exec;
+				goto spawn;
 			case 2:
 				break;
 			}
+		}
 		(void)fprintf(stderr, "\n");
 		(void)fflush(stderr);
 	}
-exec:
-	childerr = 0;
-	switch (pid = vfork()) {
-	case -1:
-		warn("vfork");
-		xexit(*argv, 1);
-	case 0:
-		if (oflag) {
-			if ((fd = open(_PATH_TTY, O_RDONLY)) == -1)
-				err(1, "can't open /dev/tty");
-		} else {
-			fd = open(_PATH_DEVNULL, O_RDONLY);
-		}
-		if (fd > STDIN_FILENO) {
-			if (dup2(fd, STDIN_FILENO) != 0)
-				err(1, "can't dup2 to stdin");
-			close(fd);
-		}
-		execvp(argv[0], argv);
-		childerr = errno;
-		_exit(1);
+
+spawn:
+	if (oflag) {
+		inpath = _PATH_TTY;
 	}
-	pids_add(pid);
-	waitchildren(*argv, 0);
+
+	if (posix_spawn_file_actions_init(&file_actions) != 0) {
+		err(1, "posix_spawn_file_actions_init failed");
+	}
+
+	if (posix_spawn_file_actions_addopen(&file_actions, STDIN_FILENO, inpath, O_RDONLY, 0444) != 0) {
+		err(1, "posix_spawn_file_actions_addopen failed");
+	}
+
+	rc = posix_spawnp(&pid, *argv, &file_actions, NULL, argv, environ);
+
+	if (rc != 0) {
+		/*
+		 * If we couldn't invoke the utility wait until all other
+		 * children have exited before exiting with 126 or 127
+		 * without reading any further input.
+		 */
+		waitchildren(*argv, 1);
+
+		errno = rc;
+		warn("%s", *argv);
+
+		exit(rc == ENOENT ? 127 : 126);
+	} else {
+		pids_add(pid);
+		waitchildren(*argv, 0);
+	}
 }
 
 /*
@@ -691,20 +703,14 @@ waitchildren(const char *name, int waitall)
 
 	while ((pid = xwait(waitall || pids_full(), &status)) > 0) {
 		/*
-		 * If we couldn't invoke the utility or if utility exited
-		 * because of a signal or with a value of 255, warn (per
-		 * POSIX), and then wait until all other children have
-		 * exited before exiting 1-125. POSIX requires us to stop
-		 * reading if child exits because of a signal or with 255,
-		 * but it does not require us to exit immediately; waiting
-		 * is preferable to orphaning.
+		 * If utility exited because of a signal or with a value
+		 * of 255, warn (per POSIX), and then wait until all other
+		 * children have exited before exiting 1-125. POSIX requires
+		 * us to stop reading if child exits because of a signal or
+		 * with 255, but it does not require us to exit immediately;
+		 * waiting is preferable to orphaning.
 		 */
-		if (childerr != 0 && cause_exit == 0) {
-			errno = childerr;
-			waitall = 1;
-			cause_exit = errno == ENOENT ? 127 : 126;
-			warn("%s", name);
-		} else if (WIFSIGNALED(status)) {
+		if (WIFSIGNALED(status)) {
 			waitall = cause_exit = 1;
 			warnx("%s: terminated with signal %d; aborting",
 			    name, WTERMSIG(status));

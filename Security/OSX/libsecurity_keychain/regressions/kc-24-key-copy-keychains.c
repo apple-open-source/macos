@@ -90,7 +90,6 @@ static OSStatus GenerateRSAKeyPair(
     ok_status(status, "%s: SecKeyGeneratePair", testName);
 
 	if (params) CFRelease(params);
-	if (keychain) CFRelease(keychain);
 	if (access) CFRelease(access);
 
 	return status;
@@ -195,6 +194,8 @@ static int testCopyKey(SecKeychainRef userKeychain, SecKeychainRef tempKeychain)
 		warnc(EXIT_FAILURE, "Unable to get key pair (error %d)", (int)status);
 	}
 
+    CFReleaseNull(publicKeyRef);
+
 	// export private key from temp keychain to a wrapped data blob
 	CFDataRef exportedData = NULL;
 	CFStringRef tempPassword = CFSTR("MY_TEMPORARY_PASSWORD");
@@ -206,6 +207,7 @@ static int testCopyKey(SecKeychainRef userKeychain, SecKeychainRef tempKeychain)
 
 	status = SecItemExport(privateKeyRef, kSecFormatWrappedPKCS8, 0, &keyParams, &exportedData);
     ok_status(status, "%s: SecItemExport", testName);
+    CFReleaseNull(privateKeyRef);
 
 	if (!exportedData || status != noErr) {
 		errx(EXIT_FAILURE, "Unable to export key! (error %d)", (int)status);
@@ -260,7 +262,8 @@ static int testCopyKey(SecKeychainRef userKeychain, SecKeychainRef tempKeychain)
     // ensure that key was copied, and its label changed
     checkN(testName, createQueryKeyDictionaryWithLabel(userKeychain, kSecAttrKeyClassPrivate, label), 1);
 
-	if (access) CFRelease(access);
+    CFReleaseNull(access);
+    CFReleaseNull(exportedData);
 
 	return 0;
 }

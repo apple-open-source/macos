@@ -88,163 +88,192 @@ static bool AcceptApplicants(SOSAccount* account, CFIndex cnt) {
     return retval;
 }
 
-static void tests(void)
-{
-    CFDataRef cfpassword = CFDataCreate(NULL, (uint8_t *) "FooFooFoo", 10);
+
+static bool joinWithApprover(SOSAccount* me, SOSAccount *approver, void (^action)(void)) {
+    if(JoinCircle(me)) {
+        action();
+        return AcceptApplicants(approver, 1);
+    }
+    return false;
+}
+
+static bool test3peers(CFDataRef startPassword, bool joinAll, bool (^action)(CFStringRef cfaccount, CFMutableDictionaryRef changes, SOSAccount* alice_account, SOSAccount* bob_account, SOSAccount* carol_account) ) {
+    bool retval = false;
     CFStringRef cfaccount = CFSTR("test@test.org");
-    
+
     CFMutableDictionaryRef changes = CFDictionaryCreateMutableForCFTypes(kCFAllocatorDefault);
     SOSAccount* alice_account = CreateAccountForLocalChanges(CFSTR("Alice"), CFSTR("TestSource"));
     SOSAccount* bob_account = CreateAccountForLocalChanges(CFSTR("Bob"), CFSTR("TestSource"));
     SOSAccount* carol_account = CreateAccountForLocalChanges(CFSTR("Carol"), CFSTR("TestSource"));
-    
+        
     /* Set Initial Credentials and Parameters for the Syncing Circles ---------------------------------------*/
-    ok(AssertCreds(bob_account, cfaccount, cfpassword), "Setting credentials for Bob");
+    ok(AssertCreds(bob_account, cfaccount, startPassword), "Setting credentials for Bob");
     // Bob wins writing at this point, feed the changes back to alice.
 
     is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, carol_account, NULL), 1, "updates");
 
-    ok(AssertCreds(alice_account, cfaccount, cfpassword), "Setting credentials for Alice");
-    ok(AssertCreds(carol_account, cfaccount, cfpassword), "Setting credentials for Carol");
-    CFReleaseNull(cfpassword);
-    
-    /* Make Alice First Peer -------------------------------------------------------------------------------*/
+    ok(AssertCreds(alice_account, cfaccount, startPassword), "Setting credentials for Alice");
+    ok(AssertCreds(carol_account, cfaccount, startPassword), "Setting credentials for Carol");
+
     ok(ResetToOffering(alice_account), "Reset to offering - Alice as first peer");
-    
     is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, carol_account, NULL), 2, "updates");
+    
+    if(joinAll) {
+        ok(joinWithApprover(bob_account, alice_account, ^{
+            is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, carol_account, NULL), 2, "updates");
+        }), "Bob Joins");
+        ok(joinWithApprover(carol_account, alice_account, ^{
+            is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, carol_account, NULL), 5, "updates");
+        }), "Bob Joins");
+    }
 
-    /* Bob Joins -------------------------------------------------------------------------------------------*/
-    ok(JoinCircle(bob_account), "Bob Applies");
+    retval = action(cfaccount, changes, alice_account, bob_account, carol_account);
     
-    is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, carol_account, NULL), 2, "updates");
+    CFReleaseNull(changes);
+    
+    return retval;
+}
 
-    /* Alice Accepts -------------------------------------------------------------------------------------------*/
-    ok(AcceptApplicants(alice_account, 1), "Alice Accepts Bob's Application");
+static bool accountSeesTheseCounts(SOSAccount* account, int peers, int activePeers, int activeValidPeers) {
+    int cPeers = countPeers(account);  // how many peers representing devices (no hidden)
+    int cActivePeers = countActivePeers(account); // how many peers including hidden
+    int cActiveValidPeers = countActiveValidPeers(account);  // how many peers that validate - userKey and deviceKey
     
-    is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, carol_account, NULL), 3, "4 updates");
-    accounts_agree("bob&alice pair", bob_account, alice_account);
-    
-    /* Carol Applies -------------------------------------------------------------------------------------------*/
-    ok(JoinCircle(carol_account), "Carol Applies");
-    
-    is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, carol_account, NULL), 2, "updates");
-    is(countPeers(alice_account), 2, "See two peers");
-    
-    
-    /* Change Password ------------------------------------------------------------------------------------------*/
-    CFDataRef cfnewpassword = CFDataCreate(NULL, (uint8_t *) "ooFooFooF", 10);
-    
-    ok(AssertCreds(bob_account , cfaccount, cfnewpassword), "Credential resetting for Bob");
-    is(countPeers(bob_account), 2, "There are two valid peers - iCloud and Bob");
-    is(countActivePeers(bob_account), 3, "There are three active peers - bob, alice, and iCloud");
-    is(countActiveValidPeers(bob_account), 2, "There is two active valid peer - Bob and iCloud");
-    
-    is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, carol_account, NULL), 2, "updates");
+    is(cPeers, peers, "peer count doesn't match");
+    is(cActivePeers, activePeers, "active peer count doesn't match");
+    is(cActiveValidPeers, activeValidPeers, "active-valid peer count doesn't match");
+    return (peers == cPeers) && (activePeers == cActivePeers) && (activeValidPeers == cActiveValidPeers);
+}
 
-    ok(AssertCreds(alice_account , cfaccount, cfnewpassword), "Credential resetting for Alice");
+
+static void test1(void) {
+    // this is a standard "changing the password" for multiple peers already in the circle
+    CFDataRef cfpassword = CFDataCreate(NULL, (uint8_t *) "FooFooFoo", 10);
+    test3peers(cfpassword, true, ^bool(CFStringRef cfaccount, CFMutableDictionaryRef changes, SOSAccount *alice_account, SOSAccount *bob_account, SOSAccount *carol_account) {
+        /* Change Password ------------------------------------------------------------------------------------------*/
+        CFDataRef cfnewpassword = CFDataCreate(NULL, (uint8_t *) "ffoffoffo", 10);
+        
+        /* Bob */
+        ok(AssertCreds(bob_account , cfaccount, cfnewpassword), "Credential resetting for Bob");
+        is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, carol_account, NULL), 2, "updates");
+        ok(accountSeesTheseCounts(bob_account, 2, 3, 2), "peer counts match");
+
+        /* Alice */
+        ok(AssertCreds(alice_account , cfaccount, cfnewpassword), "Credential resetting for Alice");
+        is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, carol_account, NULL), 3, "updates");
+        ok(accountSeesTheseCounts(alice_account, 3, 4, 3), "peer counts match");
+        
+        /* Carol */
+        ok(AssertCreds(carol_account , cfaccount, cfnewpassword), "Credential resetting for Carol");
+        is(ProcessChangesUntilNoChange(changes, carol_account, alice_account, bob_account, NULL), 1, "updates");
+        is(ProcessChangesUntilNoChange(changes, carol_account, alice_account, bob_account, NULL), 2, "updates");
+        
+        ok(accountSeesTheseCounts(carol_account, 3, 4, 4), "peer counts match");
+        ok(accountSeesTheseCounts(alice_account, 3, 4, 4), "peer counts match");
+        ok(accountSeesTheseCounts(bob_account, 3, 4, 4), "peer counts match");
+        
+        CFReleaseNull(cfnewpassword);
+        return true;
+    });
+}
+
+static void test2(void) {
+    // Change password, but Carol does a "try" before the creds are really reset - then Carol should automatically fix creds once the parms are present.
+    CFDataRef cfpassword = CFDataCreate(NULL, (uint8_t *) "FooFooFoo", 10);
     
-    is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, carol_account, NULL), 3, "updates");
+    test3peers(cfpassword, true, ^bool(CFStringRef cfaccount, CFMutableDictionaryRef changes, SOSAccount *alice_account, SOSAccount *bob_account, SOSAccount *carol_account) {
+        /* Change Password ------------------------------------------------------------------------------------------*/
+        CFDataRef cfnewpassword = CFDataCreate(NULL, (uint8_t *) "ooFooFooF", 10);
+        
+        // This should fail, but prime Carol's account to validate once the keyparms are present.
+        ok(!SOSAccountTryUserCredentials(carol_account, cfaccount, cfnewpassword, NULL), "Carol tries password before it's set");
+        
+        ok(AssertCreds(alice_account , cfaccount, cfnewpassword), "Credential resetting for Alice");
+        is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, carol_account, NULL), 3, "updates");
+        
+        ok([alice_account isInCircle: NULL], "Alice should be valid in circle");
+        ok(![bob_account isInCircle: NULL], "Bob should not be valid in circle");
+        ok([carol_account isInCircle: NULL], "Carol should be valid in circle");
 
-    is(countPeers(alice_account), 2, "There are two peers - bob and alice");
-    is(countActiveValidPeers(alice_account), 3, "There are three active valid peers - alice, bob, and icloud");
-    
-    is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, carol_account, NULL), 1, "updates");
 
-    accounts_agree("bob&alice pair", bob_account, alice_account);
-    is(countPeers(alice_account), 2, "There are two peers - bob and alice");
-    is(countActiveValidPeers(alice_account), 3, "There are three active valid peers - alice, bob, and icloud");
-    
-    ok(AssertCreds(carol_account , cfaccount, cfnewpassword), "Credential resetting for Carol");
+        ok(AssertCreds(bob_account , cfaccount, cfnewpassword), "Credential resetting for Bob");
+        ok(accountSeesTheseCounts(bob_account, 2, 3, 2), "peer counts match");
+        
+        is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, carol_account, NULL), 4, "updates");
+        
+        ok([alice_account isInCircle: NULL], "Alice should be valid in circle");
+        ok([bob_account isInCircle: NULL], "Bob should be valid in circle");
+        ok([carol_account isInCircle: NULL], "Carol should be valid in circle");
+        
+        ok(accountSeesTheseCounts(alice_account, 3, 4, 4), "peer counts match");
+        ok(accountSeesTheseCounts(bob_account, 3, 4, 4), "peer counts match");
+        ok(accountSeesTheseCounts(carol_account, 3, 4, 4), "peer counts match");
+        CFReleaseNull(cfnewpassword);
+        return true;
+    });
+}
 
-    is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, carol_account, NULL), 1, "updates");
-    is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, carol_account, NULL), 2, "updates");
-
-    accounts_agree("bob&alice pair", bob_account, alice_account);
-    accounts_agree_internal("bob&carol pair", bob_account, carol_account, false);
-
-    ok(AcceptApplicants(alice_account , 1), "Alice Accepts Carol's Application");
-    
-    is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, carol_account, NULL), 4, "updates");
-
-    accounts_agree_internal("bob&alice pair", bob_account, alice_account, false);
-    accounts_agree_internal("bob&carol pair", bob_account, carol_account, false);
-    accounts_agree_internal("carol&alice pair", alice_account, carol_account, false);
-    
-    
-    /* Change Password 2 ----------------------------------------------------------------------------------------*/
-    CFReleaseNull(cfnewpassword);
-    cfnewpassword = CFDataCreate(NULL, (uint8_t *) "ffoffoffo", 10);
-    
-    /* Bob */
-    ok(AssertCreds(bob_account , cfaccount, cfnewpassword), "Credential resetting for Bob");
-    is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, carol_account, NULL), 2, "updates");
-
-    is(countPeers(bob_account), 3, "There are three peers - Alice, Carol, Bob");
-    is(countActivePeers(bob_account), 4, "There are four active peers - bob, alice, carol and iCloud");
-    is(countActiveValidPeers(bob_account), 2, "There is two active valid peer - Bob and iCloud");
-    
-
-    /* Alice */
-    ok(AssertCreds(alice_account , cfaccount, cfnewpassword), "Credential resetting for Alice");
-    is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, carol_account, NULL), 3, "updates");
-
-    is(countPeers(alice_account), 3, "There are three peers - Alice, Carol, Bob");
-    is(countActivePeers(alice_account), 4, "There are four active peers - bob, alice, carol and iCloud");
-    is(countActiveValidPeers(alice_account), 3, "There are three active valid peers - alice, bob, and icloud");
-
-    
-    /* Carol */
-    ok(AssertCreds(carol_account , cfaccount, cfnewpassword), "Credential resetting for Carol");
-    is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, carol_account, NULL), 4, "updates");
-
-    is(countPeers(carol_account), 3, "There are three peers - Alice, Carol, Bob");
-    is(countActivePeers(carol_account), 4, "There are four active peers - bob, alice, carol and iCloud");
-    is(countActiveValidPeers(carol_account), 4, "There are three active valid peers - alice, bob, carol, and icloud");
-    
-    accounts_agree_internal("bob&alice pair", bob_account, alice_account, false);
-
+static void test3(void) {
     /* Change Password 3 - cause a parm lost update collision ----------------------------------------------------*/
-    CFReleaseNull(cfnewpassword);
-    cfnewpassword = CFDataCreate(NULL, (uint8_t *) "cococococ", 10);
-    
-    ok(AssertCreds(bob_account , cfaccount, cfnewpassword), "Credential resetting for Bob");
-    ok(AssertCreds(alice_account , cfaccount, cfnewpassword), "Credential resetting for Alice");
-    is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, carol_account, NULL), 4, "updates");
+    CFDataRef cfpassword = CFDataCreate(NULL, (uint8_t *) "FooFooFoo", 10);
+    test3peers(cfpassword, true, ^bool(CFStringRef cfaccount, CFMutableDictionaryRef changes, SOSAccount *alice_account, SOSAccount *bob_account, SOSAccount *carol_account) {
+        CFDataRef cfnewpassword = CFDataCreate(NULL, (uint8_t *) "cococococ", 10);
+        
+        ok(AssertCreds(bob_account , cfaccount, cfnewpassword), "Credential resetting for Bob");
+        // without KVS going yet alice will write over Bob's parms
+        ok(AssertCreds(alice_account , cfaccount, cfnewpassword), "Credential resetting for Alice");
+        
+        // but during the KVS goes round and round thing Bob will use the cached password.
+        is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, carol_account, NULL), 4, "updates");
+        
+        ok(accountSeesTheseCounts(alice_account, 3, 4, 3), "peer counts match");
+        ok(accountSeesTheseCounts(bob_account, 3, 4, 3), "peer counts match");
+        ok(accountSeesTheseCounts(carol_account, 0, 0, 0), "peer counts match");
+        CFReleaseNull(cfnewpassword);
+        return true;
+    });
+}
 
-    is(countPeers(alice_account), 3, "There are three peers - Alice, Carol, Bob");
-    is(countActivePeers(alice_account), 4, "There are four active peers - bob, alice, carol and iCloud");
-    is(countActiveValidPeers(alice_account), 3, "There are three active valid peers - alice, bob, and icloud");
-
+static void test4(void) {
     /* Change Password 4 - new peer changes the password and joins ----------------------------------------------------*/
-    CFReleaseNull(cfnewpassword);
-    cfnewpassword = CFDataCreate(NULL, (uint8_t *) "dodododod", 10);
+    CFDataRef cfpassword = CFDataCreate(NULL, (uint8_t *) "FooFooFoo", 10);
+    test3peers(cfpassword, true, ^bool(CFStringRef cfaccount, CFMutableDictionaryRef changes, SOSAccount *alice_account, SOSAccount *bob_account, SOSAccount *carol_account) {
+        CFDataRef cfnewpassword = CFDataCreate(NULL, (uint8_t *) "dodododod", 10);
 
-    SOSAccount* david_account = CreateAccountForLocalChanges(CFSTR("David"), CFSTR("TestSource"));
-    ok(AssertCreds(david_account , cfaccount, cfnewpassword), "Credential resetting for David");
-    is(ProcessChangesUntilNoChange(changes, david_account, NULL), 2, "updates");
-    is(countPeers(david_account), 3, "Still 3 peers");
-    
-    
-    ok(JoinCircle(david_account), "David Applies");
-    is(ProcessChangesUntilNoChange(changes, david_account, NULL), 2, "updates");
-    is(countPeers(david_account), 1, "Only David is in circle");
-    
+        // New peer changes creds - there are no valid peers to let it in.  This resets the circle.
+        SOSAccount* david_account = CreateAccountForLocalChanges(CFSTR("David"), CFSTR("TestSource"));
+        ok(AssertCreds(david_account , cfaccount, cfnewpassword), "Credential resetting for David");
+        is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, carol_account, david_account, NULL), 2, "updates");
+        ok(JoinCircle(david_account), "David Applies");
+        is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, carol_account, david_account, NULL), 2, "updates");
+        
+        // only david_account should be in circle
+        ok(![alice_account isInCircle: NULL], "Alice should not be valid in circle");
+        ok(![bob_account isInCircle: NULL], "Bob should not be valid in circle");
+        ok(![carol_account isInCircle: NULL], "Carol should not be valid in circle");
+        ok([david_account isInCircle: NULL], "David should be valid in circle");
 
-    CFReleaseNull(cfnewpassword);
-    alice_account = nil;
-    bob_account = nil;
-    carol_account = nil;
-    david_account = nil;
-    SOSTestCleanup();
+        ok(accountSeesTheseCounts(alice_account, 0, 0, 0), "peer counts match");
+        ok(accountSeesTheseCounts(bob_account, 0, 0, 0), "peer counts match");
+        ok(accountSeesTheseCounts(carol_account, 0, 0, 0), "peer counts match");
+        ok(accountSeesTheseCounts(david_account, 1, 2, 2), "peer counts match");
+
+        CFReleaseNull(cfnewpassword);
+        return true;
+    });
 }
 #endif
 
 int secd_58_password_change(int argc, char *const *argv)
 {
 #if SOS_ENABLED
-    plan_tests(211);
+    plan_tests(297);
     secd_test_setup_temp_keychain(__FUNCTION__, NULL);
-    tests();
+    test1();
+    test2();
+    test3();
+    test4();
+    SOSTestCleanup();
     secd_test_teardown_delete_temp_keychain(__FUNCTION__);
 #else
     plan_tests(0);

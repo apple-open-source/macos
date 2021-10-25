@@ -1,5 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
-// License & terms of use: http://www.unicode.org/copyright.html#License
+// License & terms of use: http://www.unicode.org/copyright.html
+// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
 moh{
     AuxExemplarCharacters{"[b c d f g j l m p q u v x z]"}
     ExemplarCharacters{
@@ -7,7 +8,6 @@ moh{
         " {ì\\:} k n o ó ò {o\\:} {ó\\:} {ò\\:} r s t w y ʼ]"
     }
     ExemplarCharactersIndex{"[A E H I K N O R S T W Y]"}
-    Version{"36.1"}
     calendar{
         gregorian{
             DateTimePatterns{

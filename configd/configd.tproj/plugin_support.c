@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2019 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -415,10 +415,18 @@ loadBundle(const void *value, void *context) {
 		}
 
 		// get bundle entry points
-		bundleInfo->load  = getBundleSymbol(bundleInfo->bundle, CFSTR("load" ), shortID);
-		bundleInfo->start = getBundleSymbol(bundleInfo->bundle, CFSTR("start"), shortID);
-		bundleInfo->prime = getBundleSymbol(bundleInfo->bundle, CFSTR("prime"), shortID);
-		bundleInfo->stop  = getBundleSymbol(bundleInfo->bundle, CFSTR("stop" ), shortID);
+		bundleInfo->load  = (SCDynamicStoreBundleLoadFunction *) getBundleSymbol(bundleInfo->bundle,
+											 CFSTR("load" ),
+											 shortID);
+		bundleInfo->start = (SCDynamicStoreBundleStartFunction *)getBundleSymbol(bundleInfo->bundle,
+											 CFSTR("start"),
+											 shortID);
+		bundleInfo->prime = (SCDynamicStoreBundlePrimeFunction *)getBundleSymbol(bundleInfo->bundle,
+											 CFSTR("prime"),
+											 shortID);
+		bundleInfo->stop  = (SCDynamicStoreBundleStopFunction *) getBundleSymbol(bundleInfo->bundle,
+											 CFSTR("stop" ),
+											 shortID);
 	}
 
 	/* mark this bundle as having been loaded */
@@ -565,7 +573,7 @@ stopComplete(void *info)
 }
 
 
-static void
+static void __attribute__((noreturn))
 stopDelayed(CFRunLoopTimerRef timer, void *info)
 {
 #pragma unused(timer)

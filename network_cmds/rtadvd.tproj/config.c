@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2020 Apple Inc. All rights reserved.
+ * Copyright (c) 2009-2021 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -86,12 +86,23 @@
 #include <unistd.h>
 #include <ifaddrs.h>
 #include <stddef.h>
+#include <stdint.h>
+#include <stdbool.h>
 
 #include "rtadvd.h"
 #include "advcap.h"
 #include "timer.h"
 #include "if.h"
 #include "config.h"
+
+#define ND_OPT_PREF64_LIFETIME_MAX		65528
+
+#define PREF64_PREFIX_LEN_32		32
+#define PREF64_PREFIX_LEN_40		40
+#define PREF64_PREFIX_LEN_48		48
+#define PREF64_PREFIX_LEN_56		56
+#define PREF64_PREFIX_LEN_64		64
+#define PREF64_PREFIX_LEN_96		96
 
 static time_t prefix_timo = (60 * 120);	/* 2 hours.
 					 * XXX: should be configurable. */
@@ -101,6 +112,41 @@ static struct rtadvd_timer *prefix_timeout(void *);
 static void makeentry(char *, size_t, int, char *);
 static int getinet6sysctl(int);
 static int encode_domain(char *, u_char *);
+
+static inline bool
+pref64_prefix_length_get_plc(pref64_prefix_length_t prefix_length,
+			     pref64_plc_t * ret_plc)
+{
+	pref64_plc_t 	plc;
+	bool		valid = true;
+
+	switch (prefix_length) {
+	case PREF64_PREFIX_LEN_32:
+		plc = ND_OPT_PREF64_PLC_32;
+		break;
+	case PREF64_PREFIX_LEN_40:
+		plc = ND_OPT_PREF64_PLC_40;
+		break;
+	case PREF64_PREFIX_LEN_48:
+		plc = ND_OPT_PREF64_PLC_48;
+		break;
+	case PREF64_PREFIX_LEN_56:
+		plc = ND_OPT_PREF64_PLC_56;
+		break;
+	case PREF64_PREFIX_LEN_64:
+		plc = ND_OPT_PREF64_PLC_64;
+		break;
+	case PREF64_PREFIX_LEN_96:
+		plc = ND_OPT_PREF64_PLC_96;
+		break;
+	default:
+		plc = -1;
+		valid = false;
+		break;
+	}
+	*ret_plc = plc;
+	return valid;
+}
 
 void
 getconfig(intface)
@@ -117,6 +163,7 @@ getconfig(intface)
 	char *bp = buf;
 	char *addr, *flagstr;
 	char *capport;
+	char *pref64;
 	static int forwarding = -1;
 
 #define MUSTHAVE(var, cap)	\
@@ -712,7 +759,7 @@ getconfig(intface)
 	    rai->dnssl_option_length += (8 - (rai->dnssl_option_length & 0x7));
 	}
 
-	/* captive portal */
+	/* Captive Portal RFC 7710 */
 	capport = agetstr("capport", &bp);
 	if (capport != NULL) {
 		rai->capport = strdup(capport);
@@ -721,6 +768,47 @@ getconfig(intface)
 			= sizeof(struct nd_opt_hdr) + rai->capport_length;
 		rai->capport_option_length
 			+= (8 - (rai->capport_option_length & 0x7));
+	}
+
+	/* PREF64 (NAT64 prefix) RFC 8781 */
+	pref64 = agetstr("pref64addr", &bp);
+	if (pref64 != NULL) {
+		pref64_plc_t	plc;
+
+		if (inet_pton(AF_INET6, pref64, &rai->pref64_addr) != 1) {
+			errorlog("<%s> inet_pton failed for %s",
+				 __func__, pref64);
+			exit(1);
+		}
+		rai->pref64_specified = true;
+
+		/* prefix length */
+		MAYHAVE(val, "pref64len", PREF64_PREFIX_LEN_64);
+		if (!pref64_prefix_length_get_plc(val, &plc)) {
+			errorlog("<%s> invalid pref64len",
+				 __func__);
+			exit(1);
+		}
+		rai->pref64_prefix_length = val;
+
+		/* prefix lifetime */
+		if ((val = agetnum("pref64lifetime")) < 0) {
+			/* not specified, use default */
+			val = rai->maxinterval * 3;
+			if (val > ND_OPT_PREF64_LIFETIME_MAX) {
+				val = ND_OPT_PREF64_LIFETIME_MAX;
+			}
+		} else if (val > ND_OPT_PREF64_LIFETIME_MAX) {
+			/* specified value must be in range */
+			errorlog("<%s> invalid pref64lifetime %d > %d",
+				 __func__, val, ND_OPT_PREF64_LIFETIME_MAX);
+			exit(1);
+		}
+		if ((val & ND_OPT_PREF64_PLC_MASK) != 0) {
+			/* round up */
+			val += (8 - (val & ND_OPT_PREF64_PLC_MASK));
+		}
+		rai->pref64_lifetime_plc = val | plc;
 	}
 
 	/* okey */
@@ -1068,6 +1156,9 @@ make_packet(struct rainfo *rainfo)
 	if (rainfo->capport_option_length != 0) {
 		packlen += rainfo->capport_option_length;
 	}
+	if (rainfo->pref64_specified) {
+		packlen += sizeof(struct nd_opt_pref64);
+	}
 
 	/* allocate memory for the packet */
 	if ((buf = malloc(packlen)) == NULL) {
@@ -1231,8 +1322,7 @@ make_packet(struct rainfo *rainfo)
 
 		for (dnssl = rainfo->dnssl_list.next;
 		     dnssl != &rainfo->dnssl_list;
-		     dnssl = dnssl->next)
-		{
+		     dnssl = dnssl->next) {
 			int encodeLen = encode_domain(dnssl->domain, cursor);
 			cursor += encodeLen;
 			domains_length += encodeLen;
@@ -1245,20 +1335,46 @@ make_packet(struct rainfo *rainfo)
 		u_int32_t		zero_space;
 
 		capport_opt = (struct nd_opt_hdr *)buf;
-#ifndef ND_OPT_CAPTIVE_PORTAL
-#define ND_OPT_CAPTIVE_PORTAL           37      /* RFC 7710 */
-#endif /* ND_OPT_CAPTIVE_PORTAL */
 		capport_opt->nd_opt_type = ND_OPT_CAPTIVE_PORTAL;
 		capport_opt->nd_opt_len = rainfo->capport_option_length >> 3;
 		buf += sizeof(*capport_opt);
 		bcopy(rainfo->capport, buf, rainfo->capport_length);
 		buf += rainfo->capport_length;
 		zero_space = rainfo->capport_option_length
+			- sizeof(*capport_opt)
 			- rainfo->capport_length;
-		if (zero_space > 0) {
+		if (zero_space != 0) {
 			bzero(buf, zero_space);
 			buf += zero_space;
 		}
+	}
+	if (rainfo->pref64_specified) {
+		uint8_t			prefix_length_bytes;
+		struct nd_opt_pref64 *	pref64_opt;
+		uint8_t			zero_bytes;
+
+		pref64_opt = (struct nd_opt_pref64 *)buf;
+		buf += sizeof(*pref64_opt);
+		pref64_opt->nd_opt_pref64_type = ND_OPT_PREF64;
+		pref64_opt->nd_opt_pref64_len = sizeof(*pref64_opt) >> 3;
+		pref64_opt->nd_opt_pref64_scaled_lifetime_plc
+			= htons(rainfo->pref64_lifetime_plc);
+		prefix_length_bytes = rainfo->pref64_prefix_length / 8;
+		bcopy(&rainfo->pref64_addr, pref64_opt->nd_opt_pref64_prefix,
+		      prefix_length_bytes);
+		zero_bytes = sizeof(pref64_opt->nd_opt_pref64_prefix)
+			- prefix_length_bytes;
+		if (zero_bytes != 0) {
+			bzero(((uint8_t *)pref64_opt->nd_opt_pref64_prefix)
+			      + prefix_length_bytes,
+			      zero_bytes);
+		}
+	}
+	/* verify that we populated the packet to the expected size */
+	if (rainfo->ra_datalen != (buf - rainfo->ra_data)) {
+		errorlog("<%s> computed size %lu != populated size %lu",
+			 __func__, rainfo->ra_datalen, (buf - rainfo->ra_data));
+		exit(1);
 	}
 	return;
 }

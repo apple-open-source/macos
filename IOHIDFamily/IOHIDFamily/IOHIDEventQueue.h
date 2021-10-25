@@ -39,7 +39,6 @@ enum {
 #define HID_QUEUE_HEADER_SIZE               (sizeof(IOHIDElementValue))  // 24b
 #define HID_QUEUE_CAPACITY_MIN              16384       // 16k
 #define HID_QUEUE_CAPACITY_MAX              131072      // 128k
-#define HID_QUEUE_CAPACITY_MAX_ENTITLED     3145728     // 3mb
 
 #define HID_QUEUE_USAGE_BUCKETS 11
 #define HID_QUEUE_BUCKET_DENOM (100/(HID_QUEUE_USAGE_BUCKETS-1))

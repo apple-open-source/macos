@@ -36,12 +36,6 @@
 
 SOFT_LINK_OPTIONAL_FRAMEWORK(PrivateFrameworks, CloudServices);
 
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wstrict-prototypes"
-
-SOFT_LINK_CLASS(CloudServices, SecureBackup);
-SOFT_LINK_CONSTANT(CloudServices, kSecureBackupErrorDomain, NSErrorDomain);
-
 /* Escrow Authentication Information used for SRP*/
 SOFT_LINK_CONSTANT(CloudServices, kSecureBackupAuthenticationAppleID, NSString*);
 SOFT_LINK_CONSTANT(CloudServices, kSecureBackupAuthenticationPassword, NSString*);
@@ -58,45 +52,28 @@ SOFT_LINK_CONSTANT(CloudServices, kSecureBackupUseCachedPassphraseKey, NSString*
 SOFT_LINK_CONSTANT(CloudServices, kSecureBackupPassphraseKey, NSString*);
 SOFT_LINK_CONSTANT(CloudServices, kSecureBackupRecoveryKeyKey, NSString*);
 SOFT_LINK_CONSTANT(CloudServices, kSecureBackupContainsiCDPDataKey, NSString*);
-SOFT_LINK_CONSTANT(CloudServices, kSecureBackupSilentRecoveryAttemptKey, NSString*);
-
 
 /* Escrow Record Fields set by SecureBackup*/
-SOFT_LINK_CONSTANT(CloudServices, kSecureBackupIsEnabledKey, NSString*);
 SOFT_LINK_CONSTANT(CloudServices, kSecureBackupUsesRecoveryKeyKey, NSString*);
-SOFT_LINK_CONSTANT(CloudServices, kSecureBackupLastBackupTimestampKey, NSString*);
-SOFT_LINK_CONSTANT(CloudServices, kSecureBackupLastBackupDateKey, NSString*);
-SOFT_LINK_CONSTANT(CloudServices, kSecureBackupEscrowTrustStatusKey, NSString*);
 SOFT_LINK_CONSTANT(CloudServices, kSecureBackupRecordStatusKey, NSString*);
 SOFT_LINK_CONSTANT(CloudServices, kSecureBackupRecordIDKey, NSString*);
 SOFT_LINK_CONSTANT(CloudServices, kSecureBackupPeerInfoDataKey, NSString*);
 SOFT_LINK_CONSTANT(CloudServices, kSecureBackupPeerInfoSerialNumberKey, NSString*);
-SOFT_LINK_CONSTANT(CloudServices, kSecureBackupPeerInfoOSVersionKey, NSString*);
-SOFT_LINK_CONSTANT(CloudServices, kSecureBackupAlliCDPRecordsKey, NSString*);
 SOFT_LINK_CONSTANT(CloudServices, kSecureBackupRecordLabelKey, NSString*);
 SOFT_LINK_CONSTANT(CloudServices, kSecureBackupEscrowedSPKIKey, NSString*);
 SOFT_LINK_CONSTANT(CloudServices, kSecureBackupBottleIDKey, NSString*);
 SOFT_LINK_CONSTANT(CloudServices, kSecureBackupSerialNumberKey, NSString*);
-SOFT_LINK_CONSTANT(CloudServices, kSecureBackupBuildVersionKey, NSString*);
 
-SOFT_LINK_CONSTANT(CloudServices, kSecureBackupUsesRandomPassphraseKey, NSString*);
 SOFT_LINK_CONSTANT(CloudServices, kSecureBackupUsesComplexPassphraseKey, NSString*);
 SOFT_LINK_CONSTANT(CloudServices, kSecureBackupUsesNumericPassphraseKey, NSString*);
 SOFT_LINK_CONSTANT(CloudServices, kSecureBackupNumericPassphraseLengthKey, NSString*);
 
-SOFT_LINK_CONSTANT(CloudServices, kSecureBackupRecoveryRequiresVerificationTokenKey, NSString*);
-SOFT_LINK_CONSTANT(CloudServices, kSecureBackupAccountIsHighSecurityKey, NSString*);
-SOFT_LINK_CONSTANT(CloudServices, kSecureBackupSMSTargetInfoKey, NSString*);
-SOFT_LINK_CONSTANT(CloudServices, kSecureBackupMetadataKey, NSString*);
 SOFT_LINK_CONSTANT(CloudServices, kSecureBackupUsesMultipleiCSCKey, NSString*);
 SOFT_LINK_CONSTANT(CloudServices, kSecureBackupClientMetadataKey, NSString*);
-SOFT_LINK_CONSTANT(CloudServices, kSecureBackupBottleValidityKey, NSString*);
 SOFT_LINK_CONSTANT(CloudServices, kSecureBackupEscrowDateKey, NSString*);
 SOFT_LINK_CONSTANT(CloudServices, kSecureBackupRemainingAttemptsKey, NSString*);
 SOFT_LINK_CONSTANT(CloudServices, kSecureBackupCoolOffEndKey, NSString*);
 SOFT_LINK_CONSTANT(CloudServices, kSecureBackupRecoveryStatusKey, NSString*);
-
-#pragma clang diagnostic pop
 
 static NSString * const kCliqueSecureBackupTimestampKey                = @"com.apple.securebackup.timestamp";
 static NSString * const kCliqueEscrowServiceRecordMetadataKey          = @"metadata";
@@ -399,4 +376,3 @@ static NSString * const kCliqueSecureBackupExpectedFederationID        = @"EXPEC
 }
 
 @end
-

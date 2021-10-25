@@ -27,6 +27,17 @@ installsrc:
 
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/Common.make
 
+ifneq ($(SDKROOT),)
+# libpython.tbd exists in /usr/local/lib if python is installed to AppleInternal builds. Otherwise, it's in /usr/lib.
+# Try the internal location first, and then fall back to the standard install.
+# We can follow its symlink to find sys.prefix for the SDK.
+export _LIBPYTHONTBD := $(or $(wildcard $(SDKROOT)/usr/local/lib/libpython.tbd),$(SDKROOT)/usr/lib/libpython.tbd)
+export LIBPYTHONTBD := $(shell python -c "from os.path import realpath; print(realpath('$(_LIBPYTHONTBD)').replace('$(SDKROOT)', ''))")
+export PYPREFIX := $(shell dirname $(LIBPYTHONTBD))
+else
+export PYPREFIX := $(shell python -c "import sys; print(sys.prefix)")
+endif
+
 build::
 	$(MKDIR) $(OBJROOT)/$(OSL)
 	$(MKDIR) $(OBJROOT)/$(OSV)
@@ -94,7 +105,7 @@ mergebegin:
 #	    done || exit 1; \
 #	done
 
-PYFRAMEWORK = /System/Library/Frameworks/Python.framework
+PYFRAMEWORK = $(shell echo "$(PYPREFIX)" | sed 's/\.framework.*/\.framework/')
 PYFRAMEWORKDOCUMENTATION = $(PYFRAMEWORK)/Documentation
 PYFRAMEWORKEXAMPLES = $(PYFRAMEWORK)/Examples
 mergedefault:
@@ -127,7 +138,7 @@ mergedefault:
 #	rm -fv `comm -12 $(VERSIONMANLIST) $(MYVERSIONMANLIST)`
 
 MERGEVERSIONS = \
-    System
+	$(shell echo $(PYFRAMEWORK) | cut -d '/' -f2)
 mergeversions:
 	@set -x && \
 	for vers in $(VERSIONS); do \

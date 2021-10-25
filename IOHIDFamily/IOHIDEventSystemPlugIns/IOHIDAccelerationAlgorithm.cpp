@@ -8,6 +8,7 @@
 
 #include "IOHIDAccelerationAlgorithm.hpp"
 #include "IOHIDParameter.h"
+#include <IOKit/hid/IOHIDLibPrivate.h>
 #include <cmath>
 #include <sstream>
 

@@ -4,7 +4,7 @@
 # tarball to create the project source directory
 ##---------------------------------------------------------------------
 PROJECT = python
-VERSION = 2.7.16
+VERSION = 2.7.18
 
 PWD := $(shell pwd)
 
@@ -51,17 +51,21 @@ TARBALL = $(NAMEVERS).tar.xz
 FIX = '$(OBJROOT)/fix'
 
 VERS := $(shell echo $(VERSION) | sed 's/\(^[0-9]*\.[0-9]*\).*/\1/')
-FRAMEWORKS = /System/Library/Frameworks
-PYFRAMEWORK = $(FRAMEWORKS)/Python.framework
+
+USRBIN = $(USRPREFIX)/bin
+USRLIB = $(USRPREFIX)/lib
+USRINCLUDE = $(USRPREFIX)/include
+FRAMEWORKS = $(INSTALLPREFIX)/Library/Frameworks
+MAN1 = $(USRPREFIX)/share/man/man1
+
+PYFRAMEWORK = $(FRAMEWORKS)/$(PYFRAMEWORKNAME).framework
 VERSIONSVERS = $(PYFRAMEWORK)/Versions/$(VERS)
 INCLUDEPYTHONVERS = $(VERSIONSVERS)/include/$(PROJECT)$(VERS)
 LIBPYTHONVERS = $(VERSIONSVERS)/lib/$(PROJECT)$(VERS)
 
 DYLIB = lib$(PROJECT)$(VERS).dylib
-USRINCLUDE = /usr/include
-USRLIB = /usr/lib
 EXTRAS = $(VERSIONSVERS)/Extras
-LIBRARYPYTHON = /Library/Python/$(VERS)
+LIBRARYPYTHON = $(LIBRARYPREFIX)/Python/$(VERS)
 SITEPACKAGES = $(LIBRARYPYTHON)/site-packages
 
 EXTRASPYTHON = '$(DSTROOT)$(EXTRAS)/lib/python'
@@ -88,14 +92,15 @@ $(OBJROOT)/$(PROJECT):
 	mv $(NAMEVERS) $(PROJECT) && \
 	ed - $(PROJECT)/configure < $(FIX)/configure.ed && \
 	ed - $(PROJECT)/Include/py_curses.h < $(FIX)/py_curses.h.ed && \
-	ed - $(PROJECT)/Lib/distutils/command/install.py < $(FIX)/install.py.ed && \
-	ed - $(PROJECT)/Lib/distutils/sysconfig.py < $(FIX)/sysconfig.py.ed && \
+	ed - $(PROJECT)/Lib/distutils/command/install.py < $(FIX)/install.py.ed$(PATCHEXT) && \
+	ed - $(PROJECT)/Lib/distutils/sysconfig.py < $(FIX)/sysconfig.py.ed$(PATCHEXT) && \
 	ed - $(PROJECT)/Lib/distutils/tests/test_build_ext.py < $(FIX)/Lib_distutils_tests_test_build_ext.py.ed && \
 	patch $(PROJECT)/Lib/distutils/ccompiler.py $(FIX)/ccompiler.py.patch && \
 	ed - $(PROJECT)/Lib/distutils/unixccompiler.py < $(FIX)/unixccompiler.py.ed && \
 	ed - $(PROJECT)/Lib/logging/handlers.py < $(FIX)/Lib_logging_handlers.py.ed && \
 	patch $(PROJECT)/Lib/_osx_support.py $(FIX)/Lib__osx_support.py.patch && \
-	ed - $(PROJECT)/Lib/plat-mac/bundlebuilder.py < $(FIX)/bundlebuilder.py.ed && \
+	sed 's/@PYFRAMEWORKNAME@/$(PYFRAMEWORKNAME)/' $(FIX)/bundlebuilder.py.ed | ed - $(PROJECT)/Lib/plat-mac/bundlebuilder.py && \
+	sed -e 's/@PYFRAMEWORKNAME@/$(PYFRAMEWORKNAME)/' -e 's/@INSTALLPREFIX@/\$(INSTALLPREFIX)/' $(FIX)/pimp.py.ed | ed - $(PROJECT)/Lib/plat-mac/pimp.py && \
 	ed - $(PROJECT)/Lib/platform.py < $(FIX)/Lib_platform.py.ed && \
 	ed - $(PROJECT)/Lib/pydoc.py < $(FIX)/pydoc.py.ed && \
 	ed - $(PROJECT)/Lib/rlcompleter.py < $(FIX)/rlcompleter.py.ed && \
@@ -122,13 +127,14 @@ $(OBJROOT)/$(PROJECT):
 	patch $(PROJECT)/setup.py $(FIX)/setup.py.patch && \
 	patch $(PROJECT)/setup.py $(FIX)/setup.py-21106613.patch && \
 	patch -p1 $(PROJECT)/setup.py $(FIX)/setup.py-4627554-no64.patch && \
-	ed - $(PROJECT)/Modules/main.c < $(FIX)/Modules_main.c.ed && \
-	patch $(PROJECT)/Modules/main.c $(FIX)/deprecate.diff && \
+	patch $(PROJECT)/Modules/main.c $(FIX)/Modules_main.c.patch && \
 	patch $(PROJECT)/Mac/Makefile.in $(FIX)/Mac.Makefile.in.patch && \
 	patch $(PROJECT)/setup.py $(FIX)/setup.py-23359785.patch && \
+	patch $(PROJECT)/Python/pythonrun.c $(FIX)/pythonrun.c.patch && \
+	patch $(PROJECT)/Python/frozenmain.c $(FIX)/frozenmain.c.patch && \
+	patch $(PROJECT)/Doc/includes/run-func.c $(FIX)/run-func.c.patch && \
 	(cd $(PROJECT) && patch -p1 < $(FIX)/lchmod.patch) && \
 	patch $(PROJECT)/Python/mactoolboxglue.c $(FIX)/mactoolboxglue.c.diff && \
-	(cd $(PROJECT) && patch -p1 < $(FIX)/PR-57240915.patch) && \
 	for i in `find $(PROJECT)/Mac -name setup.py | xargs fgrep -l "'-framework', 'Carbon'"`; do \
 	    ed - $$i < $(FIX)/Mac_setup.py.ed || exit 1; \
 	done && \
@@ -138,9 +144,8 @@ $(OBJROOT)/$(PROJECT):
 	echo > $(PROJECT)/Lib/test/nullcert.pem
 	(cd $(PROJECT) && patch -p1 < $(FIX)/PR-46170992.diff)
 	dtrace -h -s $(FIX)/pydtrace.d -o '$(PYDTRACE_H)'
-	(cd $(PROJECT) && patch -R -p1 <$(FIX)/system-paths-revert.patch)
+	(cd $(PROJECT) && patch -R -p1 <$(FIX)/system-paths-revert.patch$(PATCHEXT))
 	(cd $(PROJECT) && git apply $(FIX)/dyld-shared-cache.patch)
-	(cd $(PROJECT) && git apply $(FIX)/python-CVE-2018-20852.patch)
 	(cd $(PROJECT) && git apply $(FIX)/setup.py-61766230.patch)
 	(cd $(PROJECT) && patch -p1 < $(FIX)/python-darwin20.patch)
 	(cd $(PROJECT) && patch -p1 < $(FIX)/python-arm64e-machinetype.patch)
@@ -151,7 +156,7 @@ $(OBJROOT)/$(PROJECT):
 	(cd $(PROJECT) && patch -p1 < $(FIX)/python-support-sealed-system-volume.patch)
 	(cd $(PROJECT) && patch -p1 < $(FIX)/python-CVE-2021-23336.patch)
 
-install: installpython
+install: installpython installpythonwrapper
 	install $(FIX)/audiotest.au $(DSTROOT)$(LIBPYTHONVERS)/email/test/data/audiotest.au
 	install $(FIX)/audiotest.au $(DSTROOT)$(LIBPYTHONVERS)/test/audiotest.au
 
@@ -163,7 +168,7 @@ install: installpython
 # version of python.
 ##---------------------------------------------------------------------
 installpython: $(OBJROOT)/$(PROJECT)
-	install -d '$(DSTROOT)/usr/bin'
+	install -d '$(DSTROOT)$(USRBIN)'
 	DSTROOT='$(DSTROOT)' OBJROOT='$(OBJROOT)/$(PROJECT)' \
 	    SRCROOT='$(OBJROOT)' SYMROOT='$(SYMROOT)' RC_ARCHS='$(RC_ARCHS)' \
 	    DYLD_NEW_LOCAL_SHARED_REGIONS=1 \
@@ -173,14 +178,19 @@ installpython: $(OBJROOT)/$(PROJECT)
 	    VERS=$(VERS)
 	@obj= && \
 	install -d '$(DSTROOT)$(USRINCLUDE)'
-	ln -sf ../..$(INCLUDEPYTHONVERS) '$(DSTROOT)$(USRINCLUDE)/$(PROJECT)$(VERS)'
+	ln -sf $(TOPBACKSTR)$(INCLUDEPYTHONVERS) '$(DSTROOT)$(USRINCLUDE)/$(PROJECT)$(VERS)'
 	install -d '$(DSTROOT)$(USRLIB)'
-	ln -sf ../..$(LIBPYTHONVERS) '$(DSTROOT)$(USRLIB)/$(PROJECT)$(VERS)'
-	ln -sf ../..$(VERSIONSVERS)/Python '$(DSTROOT)$(USRLIB)/$(DYLIB)'
+	ln -sf $(TOPBACKSTR)$(LIBPYTHONVERS) '$(DSTROOT)$(USRLIB)/$(PROJECT)$(VERS)'
+	ln -sf $(TOPBACKSTR)$(VERSIONSVERS)/$(PYFRAMEWORKNAME) '$(DSTROOT)$(USRLIB)/$(DYLIB)'
 ifeq ($(PYTHON_DEFAULT),YES)
 	ln -sf $(DYLIB) '$(DSTROOT)$(USRLIB)/lib$(PROJECT).dylib'
 endif
 	install -d '$(DSTROOT)$(SITEPACKAGES)'
+
+installpythonwrapper:
+	@set -x && \
+	cd '$(SRCROOT)/../pythonwrapper' && \
+	xcodebuild install DSTROOT=$(DSTROOT)
 
 .DEFAULT:
 	@$(MAKE) -f Makefile $@

@@ -250,7 +250,7 @@ _gsskrb5_set_sec_context_option
 	    return GSS_S_FAILURE;
 	}
 	memcpy(&c, value->value, sizeof(c));
-	krb5_plugin_register(context, c.type, c.name, c.symbol);
+	krb5_plugin_register_module(context, "krb5", c.type, c.name, c.symbol);
 
 	*minor_status = 0;
 	return GSS_S_COMPLETE;

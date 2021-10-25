@@ -1,5 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
-// License & terms of use: http://www.unicode.org/copyright.html#License
+// License & terms of use: http://www.unicode.org/copyright.html
+// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
 gaa{
     Countries{
         001{"Jeŋ Fɛɛ"}
@@ -109,7 +110,7 @@ gaa{
         MF{"St. Martin"}
         MG{"Madagaskar"}
         ML{"Mali"}
-        MO{"Makao SAR Tsaina"}
+        MO{"Makao"}
         MQ{"Martinik"}
         MR{"Mauritania"}
         MS{"Montserrat"}
@@ -165,15 +166,12 @@ gaa{
         ZZ{"He Ko Ni Gbɛ́i Bɛ Mli"}
     }
     Countries%short{
-        MO{"Makao"}
         US{"US"}
     }
     Countries%variant{
         CD{"Kongo (DR)"}
         CG{"Kongo (Jeŋmaŋ)"}
-        CI{"Ko Divua"}
         FK{"Falkland Ŋshɔkpɔi Lɛ"}
         SZ{"Swaziland"}
     }
-    Version{"36.1"}
 }

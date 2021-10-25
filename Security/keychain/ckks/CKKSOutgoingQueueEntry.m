@@ -169,7 +169,7 @@
 
     NSMutableDictionary* objd = nil;
 
-    ckkserror("ckksitem", zoneID, "Creating a (%@) outgoing queue entry for: %@", action, item);
+    ckksnotice("ckksitem", zoneID, "Creating a (%@) outgoing queue entry for: %@", action, item);
 
     NSError* keyError = nil;
     key = [self keyForItem:item

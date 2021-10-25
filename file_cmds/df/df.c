@@ -54,7 +54,8 @@ __used static const char rcsid[] =
 
 #ifdef __APPLE__
 #define MNT_IGNORE 0
-#endif
+#include <sys/attr.h>
+#endif /* defined(__APPLE__) */
 
 #include <sys/cdefs.h>
 #include <sys/param.h>
@@ -131,6 +132,7 @@ long	  regetmntinfo(struct statfs **, long, char **);
 unit_t	  unit_adjust(double *);
 void	  update_maxwidths(struct maxwidths *, struct statfs *);
 void	  usage(void);
+uint64_t	  usedblks(struct statfs *sfsp);
 
 int	aflag = 0, hflag, iflag, nflag;
 
@@ -427,6 +429,43 @@ static intmax_t fsbtoblk(int64_t num, uint64_t fsbs, u_long bs, char *fs)
 	}
 }
 
+uint64_t
+usedblks(struct statfs *sfsp)
+{
+#ifdef ATTR_VOL_SPACEUSED
+	static long blocksize = 0;
+	int dummy;
+
+	if (blocksize == 0) {
+		getbsize(&dummy, &blocksize);
+	}
+
+	/* Call getattrlist(ATTR_VOL_SPACEUSED) to get used space info. */
+	struct {
+		uint32_t size;
+		uint64_t spaceused;
+	} __attribute__((aligned(4), packed)) attrbuf = {0};
+	struct attrlist attrs = {0};
+
+	attrs.bitmapcount = ATTR_BIT_MAP_COUNT;
+	attrs.volattr = ATTR_VOL_INFO | ATTR_VOL_SPACEUSED;
+	if (getattrlist(sfsp->f_mntonname, &attrs, &attrbuf, sizeof(attrbuf), 0) != 0) {
+		warn("getattrlist failed");
+		return sfsp->f_blocks - sfsp->f_bfree;
+	}
+
+	/* The structure passed isn't entirely filled out -
+	   but use the preferred default value. */
+	if (sfsp->f_bsize == 0) {
+		return attrbuf.spaceused / blocksize;
+	}
+
+	return attrbuf.spaceused / sfsp->f_bsize;
+#else
+	return sfsp->f_blocks - sfsp->f_bfree;
+#endif
+}
+
 /*
  * Print out status about a filesystem.
  */
@@ -470,7 +509,7 @@ prtstat(struct statfs *sfsp, struct maxwidths *mwp)
 
 	(void)printf("%-*s", mwp->mntfrom, sfsp->f_mntfromname);
 	if (sfsp->f_blocks > sfsp->f_bfree)
-		used = sfsp->f_blocks - sfsp->f_bfree;
+		used = usedblks(sfsp);
 	else
 		used = 0;
 	availblks = sfsp->f_bavail + used;
@@ -525,8 +564,8 @@ update_maxwidths(struct maxwidths *mwp, struct statfs *sfsp)
 	mwp->total = imax(mwp->total, int64width(fsbtoblk(sfsp->f_blocks,
 							 sfsp->f_bsize, blocksize, sfsp->f_mntonname)));
 	if (sfsp->f_blocks >= sfsp->f_bfree)
-		mwp->used = imax(mwp->used, int64width(fsbtoblk(sfsp->f_blocks -
-							       sfsp->f_bfree, sfsp->f_bsize, blocksize, sfsp->f_mntonname)));
+		mwp->used = imax(mwp->used, int64width(fsbtoblk(usedblks(sfsp),
+							       sfsp->f_bsize, blocksize, sfsp->f_mntonname)));
 	mwp->avail = imax(mwp->avail, int64width(fsbtoblk(sfsp->f_bavail,
 							 sfsp->f_bsize, blocksize, sfsp->f_mntonname)));
 	mwp->iused = imax(mwp->iused, int64width(sfsp->f_files - sfsp->f_ffree));

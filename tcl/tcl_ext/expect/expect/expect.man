@@ -291,7 +291,7 @@ command within the
 program.)
 .I
 .TP 6
-.BI close " [-slave] [\-onexec 0|1] [\-i spawn_id]"
+.BI close " [-replica] [\-onexec 0|1] [\-i spawn_id]"
 closes the connection to the current process.
 Most interactive programs will detect EOF on their stdin and exit;
 thus
@@ -319,9 +319,9 @@ use the value 0.  A non-zero integer value will force the spawn closed
 (the default) in any new processes.
 
 The 
-.B \-slave
-flag closes the slave associated with the spawn id.  (See "spawn -pty".)
-When the connection is closed, the slave is automatically closed as
+.B \-replica
+flag closes the replica associated with the spawn id.  (See "spawn -pty".)
+When the connection is closed, the replica is automatically closed as
 well if still open.
 
 No matter whether the connection is closed implicitly or explicitly,
@@ -1858,8 +1858,8 @@ is not defined.  This may be tested as:
 .B spawn
 returns the UNIX process id.  If no process is spawned, 0 is returned.
 The variable
-.I spawn_out(slave,name)
-is set to the name of the pty slave device.
+.I spawn_out(replica,name)
+is set to the name of the pty replica device.
 .IP
 By default,
 .B spawn
@@ -1947,9 +1947,9 @@ flag causes a pty to be opened but no process spawned.  0 is returned
 to indicate there is no associated process.  Spawn_id is set as usual.
 
 The variable
-.I spawn_out(slave,fd)
-is set to a file identifier corresponding to the pty slave.
-It can be closed using "close -slave".
+.I spawn_out(replica,fd)
+is set to a file identifier corresponding to the pty replica.
+It can be closed using "close -replica".
 
 The
 .B \-ignore

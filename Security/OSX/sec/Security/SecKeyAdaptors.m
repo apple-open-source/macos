@@ -52,6 +52,15 @@
 #include <corecrypto/ccaes.h>
 #include <corecrypto/ccder.h>
 
+#include <os/log.h>
+
+static os_log_t _SECKEY_LOG() {
+    static dispatch_once_t once;
+    static os_log_t log;
+    dispatch_once(&once, ^{ log = os_log_create("com.apple.security", "seckey"); });
+    return log;
+};
+#define SECKEY_LOG _SECKEY_LOG()
 
 #pragma mark Algorithm constants value definitions
 
@@ -156,8 +165,8 @@ void SecKeyOperationContextDestroy(SecKeyOperationContext *context) {
 }
 
 static void PerformWithCFDataBuffer(CFIndex size, void (^operation)(uint8_t *buffer, CFDataRef data)) {
-    PerformWithBuffer(size, ^(size_t size, uint8_t *buffer) {
-        CFDataRef data = CFDataCreateWithBytesNoCopy(kCFAllocatorDefault, (const UInt8 *)buffer, size, kCFAllocatorNull);
+    PerformWithBufferAndClear(size, ^(size_t bufsize, uint8_t *buffer) {
+        CFDataRef data = CFDataCreateWithBytesNoCopy(kCFAllocatorDefault, (const UInt8 *)buffer, bufsize, kCFAllocatorNull);
         operation(buffer, data);
         CFRelease(data);
     });
@@ -337,7 +346,7 @@ static CFDataRef SecKeyRSACopyBigEndianToCCUnit(CFDataRef bigEndian, size_t size
         if (dataSize > size) {
             size = dataSize;
         }
-        result = CFDataCreateMutableWithScratch(kCFAllocatorDefault, ccn_sizeof_size(size));
+        result = CFDataCreateMutableWithScratch(SecCFAllocatorZeroize(), ccn_sizeof_size(size));
         ccn_read_uint(ccn_nof_size(size), (cc_unit *)CFDataGetMutableBytePtr(result), dataSize, CFDataGetBytePtr(bigEndian));
     }
     return result;
@@ -362,7 +371,7 @@ static CFDataRef SecKeyRSACopyCCUnitToBigEndian(CFDataRef ccunits, size_t size) 
     if (ccunits != NULL) {
         cc_size n = ccn_nof_size(CFDataGetLength(ccunits));
         const cc_unit *s = (const cc_unit *)CFDataGetBytePtr(ccunits);
-        result = CFDataCreateMutableWithScratch(kCFAllocatorDefault, size);
+        result = CFDataCreateMutableWithScratch(SecCFAllocatorZeroize(), size);
         ccn_write_uint_padded(n, s, CFDataGetLength(result), CFDataGetMutableBytePtr(result));
     }
     return result;
@@ -713,7 +722,7 @@ static CFTypeRef SecKeyECDHCopyX963Result(SecKeyOperationContext *context, const
             sharedInfoLength = CFDataGetLength(value);
         }
 
-        CFMutableDataRef kdfResult = CFDataCreateMutableWithScratch(kCFAllocatorDefault, requestedSize);
+        CFMutableDataRef kdfResult = CFDataCreateMutableWithScratch(SecCFAllocatorZeroize(), requestedSize);
         int err = ccansikdf_x963(di, CFDataGetLength(sharedSecret), CFDataGetBytePtr(sharedSecret), sharedInfoLength, sharedInfo,
                                  requestedSize, CFDataGetMutableBytePtr(kdfResult));
         require_noerr_action_quiet(err, out, (CFReleaseNull(kdfResult),
@@ -934,13 +943,14 @@ static Boolean SecKeyECIESEncryptAESGCMCopyResult(CFDataRef keyExchangeResult, C
     CFIndex aesKeySize = CFDataGetLength(keyExchangeResult) - sizeof(kSecKeyIESIV);
     const UInt8 *ivBuffer = CFDataGetBytePtr(keyExchangeResult) + aesKeySize;
     CFDataRef aad = inParams ? CFDictionaryGetValue(inParams, kSecKeyEncryptionParameterSymmetricAAD) : NULL;
-    require_action_quiet(ccgcm_one_shot(ccaes_gcm_encrypt_mode(),
-                                        aesKeySize, CFDataGetBytePtr(keyExchangeResult),
-                                        sizeof(kSecKeyIESIV), ivBuffer,
-                                        aad ? CFDataGetLength(aad) : 0, aad ? CFDataGetBytePtr(aad) : NULL,
-                                        CFDataGetLength(inData), CFDataGetBytePtr(inData),
-                                        resultBuffer, kSecKeyIESTagLength, tagBuffer) == 0, out,
-                         SecError(errSecParam, error, CFSTR("ECIES: Failed to aes-gcm encrypt data")));
+    int err = ccgcm_one_shot(ccaes_gcm_encrypt_mode(),
+                             aesKeySize, CFDataGetBytePtr(keyExchangeResult),
+                             sizeof(kSecKeyIESIV), ivBuffer,
+                             aad ? CFDataGetLength(aad) : 0, aad ? CFDataGetBytePtr(aad) : NULL,
+                             CFDataGetLength(inData), CFDataGetBytePtr(inData),
+                             resultBuffer, kSecKeyIESTagLength, tagBuffer);
+    require_action_quiet(err == 0, out,
+                         SecError(errSecParam, error, CFSTR("ECIES: Failed to aes-gcm encrypt data (err %d)"), err));
     res = TRUE;
 out:
     return res;
@@ -952,20 +962,21 @@ static CFDataRef SecKeyECIESDecryptAESGCMCopyResult(CFDataRef keyExchangeResult,
     CFMutableDataRef plaintext = NULL;
     CFMutableDataRef tag = NULL;
     require_action_quiet(CFDataGetLength(inData) >= kSecKeyIESTagLength, out, SecError(errSecParam, error, CFSTR("ECIES: Input data too short")));
-    plaintext = CFDataCreateMutableWithScratch(kCFAllocatorDefault, CFDataGetLength(inData) - kSecKeyIESTagLength);
+    plaintext = CFDataCreateMutableWithScratch(SecCFAllocatorZeroize(), CFDataGetLength(inData) - kSecKeyIESTagLength);
     tag = CFDataCreateMutableWithScratch(SecCFAllocatorZeroize(), kSecKeyIESTagLength);
     CFDataGetBytes(inData, CFRangeMake(CFDataGetLength(inData) - kSecKeyIESTagLength, kSecKeyIESTagLength),
                    CFDataGetMutableBytePtr(tag));
     CFIndex aesKeySize = CFDataGetLength(keyExchangeResult) - sizeof(kSecKeyIESIV);
     const UInt8 *ivBuffer = CFDataGetBytePtr(keyExchangeResult) + aesKeySize;
     CFDataRef aad = inParams ? CFDictionaryGetValue(inParams, kSecKeyEncryptionParameterSymmetricAAD) : NULL;
-    require_action_quiet(ccgcm_one_shot(ccaes_gcm_decrypt_mode(),
-                                        aesKeySize, CFDataGetBytePtr(keyExchangeResult),
-                                        sizeof(kSecKeyIESIV), ivBuffer,
-                                        aad ? CFDataGetLength(aad) : 0, aad ? CFDataGetBytePtr(aad) : NULL,
-                                        CFDataGetLength(plaintext), CFDataGetBytePtr(inData), CFDataGetMutableBytePtr(plaintext),
-                                        kSecKeyIESTagLength, CFDataGetMutableBytePtr(tag)) == 0, out,
-                         SecError(errSecParam, error, CFSTR("ECIES: Failed to aes-gcm decrypt data")));
+    int err = ccgcm_one_shot(ccaes_gcm_decrypt_mode(),
+                             aesKeySize, CFDataGetBytePtr(keyExchangeResult),
+                             sizeof(kSecKeyIESIV), ivBuffer,
+                             aad ? CFDataGetLength(aad) : 0, aad ? CFDataGetBytePtr(aad) : NULL,
+                             CFDataGetLength(plaintext), CFDataGetBytePtr(inData), CFDataGetMutableBytePtr(plaintext),
+                             kSecKeyIESTagLength, CFDataGetMutableBytePtr(tag));
+    require_action_quiet(err == 0, out,
+                         SecError(errSecParam, error, CFSTR("ECIES: Failed to aes-gcm decrypt data (err %d)"), err));
     result = CFRetain(plaintext);
 out:
     CFReleaseSafe(plaintext);
@@ -1028,7 +1039,7 @@ static CFDataRef SecKeyECIESKeyExchangeSHA2562PubKeysCopyResult(SecKeyOperationC
 
 static CFDataRef SecKeyECIESDecryptAESCBCCopyResult(CFDataRef keyExchangeResult, CFDataRef inData, CFDictionaryRef inParams,
                                                     CFErrorRef *error) {
-    CFMutableDataRef result = CFDataCreateMutableWithScratch(kCFAllocatorDefault, CFDataGetLength(inData));
+    CFMutableDataRef result = CFDataCreateMutableWithScratch(SecCFAllocatorZeroize(), CFDataGetLength(inData));
     cccbc_one_shot(ccaes_cbc_decrypt_mode(),
                    CFDataGetLength(keyExchangeResult), CFDataGetBytePtr(keyExchangeResult),
                    NULL, CFDataGetLength(keyExchangeResult) / CCAES_BLOCK_SIZE,
@@ -1076,13 +1087,14 @@ static CFTypeRef SecKeyRSAAESGCMCopyEncryptedData(SecKeyOperationContext *contex
 
     // Encrypt input data using AES-GCM.
     UInt8 *tagBuffer = resultBuffer + CFDataGetLength(in1);
-    require_action_quiet(ccgcm_one_shot(ccaes_gcm_encrypt_mode(),
-                                        CFDataGetLength(sessionKey), CFDataGetBytePtr(sessionKey),
-                                        sizeof(kSecKeyIESIV), kSecKeyIESIV,
-                                        CFDataGetLength(pubKeyData), CFDataGetBytePtr(pubKeyData),
-                                        CFDataGetLength(in1), CFDataGetBytePtr(in1), resultBuffer,
-                                        kSecKeyIESTagLength, tagBuffer) == 0, out,
-                         SecError(errSecParam, error, CFSTR("RSAWRAP: Failed to aes-gcm encrypt data")));
+    int err = ccgcm_one_shot(ccaes_gcm_encrypt_mode(),
+                             CFDataGetLength(sessionKey), CFDataGetBytePtr(sessionKey),
+                             sizeof(kSecKeyIESIV), kSecKeyIESIV,
+                             CFDataGetLength(pubKeyData), CFDataGetBytePtr(pubKeyData),
+                             CFDataGetLength(in1), CFDataGetBytePtr(in1), resultBuffer,
+                             kSecKeyIESTagLength, tagBuffer);
+    require_action_quiet(err == 0, out,
+                         SecError(errSecParam, error, CFSTR("RSAWRAP: Failed to aes-gcm encrypt data (err %d)"), err));
     result = CFRetain(ciphertext);
 
 out:
@@ -1131,18 +1143,19 @@ static CFTypeRef SecKeyRSAAESGCMCopyDecryptedData(SecKeyOperationContext *contex
 
     // Decrypt ciphertext using AES-GCM.
     plaintext = CFDataCreateMutableWithScratch(SecCFAllocatorZeroize(), CFDataGetLength(in1) - wrappedKeySize - kSecKeyIESTagLength);
-    tag = CFDataCreateMutableWithScratch(kCFAllocatorDefault, kSecKeyIESTagLength);
+    tag = CFDataCreateMutableWithScratch(SecCFAllocatorZeroize(), kSecKeyIESTagLength);
     CFDataGetBytes(in1, CFRangeMake(CFDataGetLength(in1) - kSecKeyIESTagLength, kSecKeyIESTagLength),
                    CFDataGetMutableBytePtr(tag));
     const UInt8 *ciphertextBuffer = CFDataGetBytePtr(in1);
     ciphertextBuffer += wrappedKeySize;
-    require_action_quiet(ccgcm_one_shot(ccaes_gcm_decrypt_mode(),
-                                        CFDataGetLength(sessionKey), CFDataGetBytePtr(sessionKey),
-                                        sizeof(kSecKeyIESIV), kSecKeyIESIV,
-                                        CFDataGetLength(pubKeyData), CFDataGetBytePtr(pubKeyData),
-                                        CFDataGetLength(plaintext), ciphertextBuffer, CFDataGetMutableBytePtr(plaintext),
-                                        kSecKeyIESTagLength, CFDataGetMutableBytePtr(tag)) == 0, out,
-                         SecError(errSecParam, error, CFSTR("RSA-WRAP: Failed to aes-gcm decrypt data")));
+    int err = ccgcm_one_shot(ccaes_gcm_decrypt_mode(),
+                             CFDataGetLength(sessionKey), CFDataGetBytePtr(sessionKey),
+                             sizeof(kSecKeyIESIV), kSecKeyIESIV,
+                             CFDataGetLength(pubKeyData), CFDataGetBytePtr(pubKeyData),
+                             CFDataGetLength(plaintext), ciphertextBuffer, CFDataGetMutableBytePtr(plaintext),
+                             kSecKeyIESTagLength, CFDataGetMutableBytePtr(tag));
+    require_action_quiet(err == 0, out,
+                         SecError(errSecParam, error, CFSTR("RSA-WRAP: Failed to aes-gcm decrypt data (err %d)"), err));
     result = CFRetain(plaintext);
 
 out:
@@ -1562,10 +1575,14 @@ SecKeyAlgorithmAdaptor SecKeyGetAlgorithmAdaptor(SecKeyOperationType operation, 
             SecKeyAlgorithmAdaptorCopyResult_KeyExchange_ECDHCofactorX963SHA384,
             SecKeyAlgorithmAdaptorCopyResult_KeyExchange_ECDHCofactorX963SHA512,
         };
-        check_compile_time(array_size(keyExchangeKeys) == array_size(keyExchangeKeys));
+        check_compile_time(array_size(keyExchangeKeys) == array_size(keyExchangeValues));
         adaptors[kSecKeyOperationTypeKeyExchange] = CFDictionaryCreate(kCFAllocatorDefault, keyExchangeKeys, keyExchangeValues,
                                                                        array_size(keyExchangeKeys), &kCFTypeDictionaryKeyCallBacks, NULL);
     });
     
-    return CFDictionaryGetValue(adaptors[operation], algorithm);
+    SecKeyAlgorithmAdaptor result = CFDictionaryGetValue(adaptors[operation], algorithm);
+    if (result == NULL) {
+        os_log_debug(SECKEY_LOG, "failed to find adaptor: operation=%d, algorithm=%{public}@ (adaptors:%d)", (int)operation, algorithm, (int)CFDictionaryGetCount(adaptors[operation]));
+    }
+    return result;
 }

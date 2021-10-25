@@ -286,6 +286,7 @@ extern kern_return_t    vm_pageout_wait(uint64_t deadline);
 
 extern unsigned int     vm_pageout_scan_event_counter;
 extern unsigned int     vm_page_anonymous_count;
+extern thread_t         vm_pageout_scan_thread;
 
 
 /*
@@ -319,6 +320,8 @@ extern struct   vm_pageout_queue        vm_pageout_queue_external;
  *	Routines exported to Mach.
  */
 extern void             vm_pageout(void);
+
+__startup_func extern void             vm_config_init(void);
 
 extern kern_return_t    vm_pageout_internal_start(void);
 
@@ -397,6 +400,7 @@ struct upl {
 	 */
 	vm_object_offset_t u_offset;
 	upl_size_t      u_size;       /* size in bytes of the address space */
+	upl_size_t      u_mapped_size;       /* size in bytes of the UPL that is mapped */
 	vm_offset_t     kaddr;      /* secondary mapping in kernel */
 	vm_object_t     map_object;
 	ppnum_t         highest_page;
@@ -503,6 +507,20 @@ extern kern_return_t vm_map_enter_upl(
 extern kern_return_t vm_map_remove_upl(
 	vm_map_t                map,
 	upl_t                   upl);
+
+extern kern_return_t vm_map_enter_upl_range(
+	vm_map_t                map,
+	upl_t                   upl,
+	vm_object_offset_t             offset,
+	upl_size_t               size,
+	vm_prot_t               prot,
+	vm_map_offset_t         *dst_addr);
+
+extern kern_return_t vm_map_remove_upl_range(
+	vm_map_t                map,
+	upl_t                   upl,
+	vm_object_offset_t             offset,
+	upl_size_t               size);
 
 /* wired  page list structure */
 typedef uint32_t *wpl_array_t;
@@ -692,6 +710,7 @@ struct vm_pageout_vminfo {
 	unsigned long vm_pageout_considered_bq_internal;
 	unsigned long vm_pageout_considered_bq_external;
 	unsigned long vm_pageout_skipped_external;
+	unsigned long vm_pageout_skipped_internal;
 
 	unsigned long vm_pageout_pages_evicted;
 	unsigned long vm_pageout_pages_purged;

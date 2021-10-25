@@ -211,6 +211,7 @@ newDecimalFormat(const Locale& locale, const UnicodeString& pattern, UErrorCode&
     if (U_FAILURE(status)) {
         return NULL;
     }
+    result->setAttribute(UNUM_FORMAT_WITH_FULL_PRECISION, TRUE, status); // Needed due to ICU68 additions for Apple change <rdar://problem/39240173>
     return result.orphan();
 }
 

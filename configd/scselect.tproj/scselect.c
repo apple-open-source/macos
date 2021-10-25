@@ -65,7 +65,7 @@ static const struct option longopts[] = {
 };
 
 
-static void
+static void __attribute__((noreturn))
 usage(const char *command)
 {
 	SCPrint(TRUE, stderr, CFSTR("usage: %s [-n] new-set-name\n"), command);
@@ -74,7 +74,7 @@ usage(const char *command)
 
 
 int
-main(int argc, char **argv)
+main(int argc, char * const argv[])
 {
 	const char		*command	= argv[0];
 	extern int		optind;
@@ -326,5 +326,4 @@ main(int argc, char **argv)
 #endif	/* !TARGET_OS_IPHONE */
 
 	exit (0);
-	return 0;
 }

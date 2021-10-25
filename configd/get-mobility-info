@@ -287,26 +287,6 @@ if   [ -x /usr/sbin/kextstat ]; then
 	/usr/sbin/kextstat				> kextstat		2>&1
 fi
 
-if [ -x /sbin/pfctl ]; then
-	echo "#"					>  pf
-	echo "# pfctl -s all"				>> pf
-	echo "#"					>> pf
-	${PRIV} /sbin/pfctl -s all			>> pf			2>&1
-	echo "=============================="		>> pf
-	echo "#"					>> pf
-	echo "# pfctl -s References"			>> pf
-	echo "#"					>> pf
-	${PRIV} /sbin/pfctl -s References		>> pf			2>&1
-	for ANCHOR in `${PRIV} pfctl -s Anchors -v 2>/dev/null`
-	do
-		echo "=============================="	>> pf
-		echo "#"				>> pf
-		echo "# pfctl -a ${ANCHOR} -s all"	>> pf
-		echo "#"				>> pf
-		${PRIV} /sbin/pfctl -a ${ANCHOR} -s all	>> pf			2>&1
-	done
-fi
-
 #
 # mach port info
 #

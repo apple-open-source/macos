@@ -121,6 +121,28 @@ static void tests(void)
     });
     WAIT_WHILE(requesting);
 
+    // look up credential with NULL fqdn parameter
+    // (implicitly selects domain from our entitlement)
+    requesting = true;
+    SecRequestSharedWebCredential(NULL, NULL, ^void (CFArrayRef credentials, CFErrorRef error) {
+        OSStatus status = (OSStatus)((error) ? CFErrorGetCode(error) : errSecSuccess);
+        // TODO: need a proper teamID-enabled application identifier to succeed; expect auth failure
+        bool notFound = false;
+        if (status == errSecItemNotFound || expected_failure(status)) {
+            status = errSecSuccess; notFound = true;
+        }
+        ok_status(status);
+
+        // should find only one credential if no fqdn or account is provided
+        // (since UI dialog only permits one credential to be selected)
+        CFIndex credentialCount = CFArrayGetCount(credentials);
+        // TODO: need a proper teamID-enabled application identifier to succeed
+        if (credentialCount == 0 && notFound) { credentialCount = 1; }
+        is(credentialCount == 1, true, "returned credentials == 1");
+        requesting = false;
+    });
+    WAIT_WHILE(requesting);
+
     // pass NULL to delete our credentials
     deleting = true;
     SecAddSharedWebCredential(fqdn, acct1, NULL, ^void (CFErrorRef error) {
@@ -162,7 +184,7 @@ static void tests(void)
 int si_76_shared_credentials(int argc, char *const *argv)
 {
 #if TARGET_OS_IOS
-		plan_tests(12);
+		plan_tests(14);
 		tests();
 #else
 		plan_tests(1);

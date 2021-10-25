@@ -1,5 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
-// License & terms of use: http://www.unicode.org/copyright.html#License
+// License & terms of use: http://www.unicode.org/copyright.html
+// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
 ar{
     Keys{
         calendar{"التقويم"}
@@ -160,6 +161,7 @@ ar{
         eu{"الباسكية"}
         ewo{"الإيوندو"}
         fa{"الفارسية"}
+        fa_AF{"الدارية"}
         fan{"الفانج"}
         fat{"الفانتي"}
         ff{"الفولانية"}
@@ -412,6 +414,7 @@ ar{
         raj{"الراجاسثانية"}
         rap{"الراباني"}
         rar{"الراروتونجاني"}
+        rhg{"الروهينغية"}
         rm{"الرومانشية"}
         rn{"الرندي"}
         ro{"الرومانية"}
@@ -557,10 +560,6 @@ ar{
         zxx{"بدون محتوى لغوي"}
         zza{"زازا"}
     }
-    Languages%menu{
-        yue{"الكَنْتُونية"}
-        zh{"الصينية"}
-    }
     Languages%short{
         az{"الأذرية"}
         en_GB{"الإنجليزية المملكة المتحدة"}
@@ -571,6 +570,7 @@ ar{
         ug{"الأيغورية"}
     }
     Scripts{
+        Adlm{"أدلم"}
         Arab{"العربية"}
         Aran{"نستعليق"}
         Armn{"الأرمينية"}
@@ -658,6 +658,7 @@ ar{
         Phnx{"الفينيقية"}
         Plrd{"الصوتيات الجماء"}
         Qaag{"زوجيي"}
+        Rohg{"الروهينغية الحنيفي"}
         Roro{"رنجورنجو"}
         Runr{"الروني"}
         Sara{"الساراتي"}
@@ -797,9 +798,9 @@ ar{
             ungegn{"يو إن جي إي جي إن"}
         }
         ms{
-            metric{"نظام متري"}
-            uksystem{"نظام المملكة المتحدة"}
-            ussystem{"نظام الولايات المتحدة"}
+            metric{"النظام المتري"}
+            uksystem{"نظام القياس البريطاني"}
+            ussystem{"نظام القياس الأمريكي"}
         }
         numbers{
             arab{"الأرقام العربية الهندية"}
@@ -864,7 +865,6 @@ ar{
         VALENCIA{"بلنسية"}
         WADEGILE{"المندرين باللاتينية - ويد–جيلز"}
     }
-    Version{"36.1"}
     characterLabelPattern{
         all{"{0} - الكل"}
         category-list{"{0}: {1}"}
@@ -883,6 +883,8 @@ ar{
             two{"ضغطتان ({0})"}
             zero{"{0} ضغطة"}
         }
+        subscript{"نظام الكتابة تحت السطر {0}"}
+        superscript{"نظام الكتابة فوق السطر {0}"}
     }
     codePatterns{
         language{"اللغة: {0}"}

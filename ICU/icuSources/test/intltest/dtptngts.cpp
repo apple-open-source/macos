@@ -43,6 +43,10 @@ void IntlTestDateTimePatternGeneratorAPI::runIndexedTest( int32_t index, UBool e
         TESTCASE(7, testJjMapping);
         TESTCASE(8, test20640_HourCyclArsEnNH);
         TESTCASE(9, testFallbackWithDefaultRootLocale);
+        TESTCASE(10, testGetDefaultHourCycle_OnEmptyInstance);
+        TESTCASE(11, test_jConsistencyOddLocales);
+        TESTCASE(12, testHorizontalInheritance);
+        TESTCASE(13, testBestPattern);
         default: name = ""; break;
     }
 }
@@ -117,19 +121,19 @@ void IntlTestDateTimePatternGeneratorAPI::testAPI(/*char *par*/)
 
     UnicodeString patternResults_en_US_japanese[] = {
         // en_US@calendar=japanese                            // 1 en_US@calendar=japanese
-        UnicodeString("1/11 H"),                              //  0: yM
-        UnicodeString("Jan 11 Heisei"),                       //  1: yMMM
-        UnicodeString("1/13/11 H"),                           //  2: yMd
-        UnicodeString("Jan 13, 11 Heisei"),                   //  3: yMMMd
+        UnicodeString("1/H11"),                               //  0: yM
+        UnicodeString("Jan Heisei 11"),                       //  1: yMMM
+        UnicodeString("1/13/H11"),                            //  2: yMd
+        UnicodeString("Jan 13, Heisei 11"),                   //  3: yMMMd
         UnicodeString("1/13"),                                //  4: Md
         UnicodeString("Jan 13"),                              //  5: MMMd
         UnicodeString("January 13"),                          //  6: MMMMd
-        UnicodeString("Q1 11 Heisei"),                        //  7: yQQQ
+        UnicodeString("Q1 Heisei 11"),                        //  7: yQQQ
         UnicodeString("11:58 PM"),                            //  8: hhmm
         UnicodeString("23:58"),                               //  9: HHmm
         UnicodeString("11:58 PM"),                            // 10: jjmm
         UnicodeString("58:59"),                               // 11: mmss
-        UnicodeString("January 11 Heisei"),                   // 12: yyyyMMMM
+        UnicodeString("January Heisei 11"),                   // 12: yyyyMMMM
         UnicodeString("Wed, Jan 13"),                         // 13: MMMEd -> EEE, MMM d"
         UnicodeString("13 Wed"),                              // 14: Ed    -> d EEE
         UnicodeString("11:58:59.123 PM"),                     // 15: jmmssSSS -> "h:mm:ss.SSS a"
@@ -185,15 +189,15 @@ void IntlTestDateTimePatternGeneratorAPI::testAPI(/*char *par*/)
         UnicodeString("13/1/1999"),                           // 02: yMd   -> "d/M/y"
         UnicodeString("13 ene 1999"),                         // 03: yMMMd -> "d MMM y"
         UnicodeString("13/1"),                                // 04: Md    -> "d/M"
-        UnicodeString("13 ene"),                              // 05: MMMd  -> "d MMM"
+        UnicodeString("13 ene"),                              // 05: MMMd  -> "d 'de' MMM"
         UnicodeString("13 de enero"),                         // 06: MMMMd -> "d 'de' MMMM"
         UnicodeString("T1 1999"),                             // 07: yQQQ  -> "QQQ y"
-        CharsToUnicodeString("11:58 p.\\u00A0m."),            // 08: hhmm  -> "hh:mm a"
+        CharsToUnicodeString("11:58 p.\\u202Fm."),            // 08: hhmm  -> "hh:mm a"
         UnicodeString("23:58"),                               // 09: HHmm  -> "HH:mm"
         UnicodeString("23:58"),                               // 10: jjmm  -> "HH:mm"
         UnicodeString("58:59"),                               // 11: mmss  -> "mm:ss"
         UnicodeString("enero de 1999"),                       // 12: yyyyMMMM -> "MMMM 'de' yyyy"
-        CharsToUnicodeString("mi\\u00E9, 13 ene"),             // 13: MMMEd -> "E d MMM"
+        CharsToUnicodeString("mi\\u00E9, 13 ene"),            // 13: MMMEd -> "E, d MMM"
         CharsToUnicodeString("mi\\u00E9 13"),                 // 14: Ed    -> "EEE d"
         UnicodeString("23:58:59,123"),                        // 15: jmmssSSS -> "H:mm:ss,SSS"
         UnicodeString("23:58"),                               // 16: JJmm
@@ -1007,9 +1011,9 @@ void IntlTestDateTimePatternGeneratorAPI::testOptions(/*char *par*/)
         { "en",                   "yyyy",  "yyyy",  UDATPG_MATCH_NO_OPTIONS },
         { "en",                   "YYYY",  "YYYY",  UDATPG_MATCH_NO_OPTIONS },
         { "en",                   "U",     "y",     UDATPG_MATCH_NO_OPTIONS },
-        { "en@calendar=japanese", "yyyy",  "y G",   UDATPG_MATCH_NO_OPTIONS },
-        { "en@calendar=japanese", "YYYY",  "Y G",   UDATPG_MATCH_NO_OPTIONS },
-        { "en@calendar=japanese", "U",     "y G",   UDATPG_MATCH_NO_OPTIONS },
+        { "en@calendar=japanese", "yyyy",  "G y",   UDATPG_MATCH_NO_OPTIONS },
+        { "en@calendar=japanese", "YYYY",  "G Y",   UDATPG_MATCH_NO_OPTIONS },
+        { "en@calendar=japanese", "U",     "G y",   UDATPG_MATCH_NO_OPTIONS },
         { "en@calendar=chinese",  "yyyy",  "r(U)",  UDATPG_MATCH_NO_OPTIONS },
         { "en@calendar=chinese",  "YYYY",  "Y(Y)",  UDATPG_MATCH_NO_OPTIONS }, // not a good result, want r(Y) or r(U)
         { "en@calendar=chinese",  "U",     "r(U)",     UDATPG_MATCH_NO_OPTIONS },
@@ -1464,7 +1468,9 @@ void IntlTestDateTimePatternGeneratorAPI::testJjMapping() {
                      shortPattern.extract(0, shortPattern.length(), spBuf, 32);
                      jPattern.extract(0, jPattern.length(), jpBuf, 32);
                      const char* dfmtCalType = (dfmt->getCalendar())->getType();
-                     errln("ERROR: locale %s, expected j resolved char %s to occur in short time pattern '%s' for %s (best pattern: '%s')", localeID, jcBuf, spBuf, dfmtCalType, jpBuf);
+                     const char* validLoc = dfmt->getLocaleID(ULOC_VALID_LOCALE, status);
+                     errln("ERROR: locale %s (valid %s), expected j resolved char %s to occur in short time pattern '%s' for %s (best pattern: '%s')",
+                             localeID, validLoc, jcBuf, spBuf, dfmtCalType, jpBuf);
                  }
                  break;
              }
@@ -1479,18 +1485,18 @@ void IntlTestDateTimePatternGeneratorAPI::test20640_HourCyclArsEnNH() {
         const char* localeName;
         const char16_t* expectedDtpgPattern;
         const char16_t* expectedTimePattern;
+        UDateFormatHourCycle expectedDefaultHourCycle;
     } cases[] = {
         // ars is interesting because it does not have a region, but it aliases
         // to ar_SA, which has a region.
-        {"ars", u"h\u00A0a", u"h:mm\u00A0a"},
+        {"ars", u"h\u00A0a", u"h:mm\u00A0a", UDAT_HOUR_CYCLE_12},
         // en_NH is interesting because NH is a deprecated region code;
         // formerly New Hebrides, now Vanuatu => VU => h.
-        {"en_NH", u"h a", u"h:mm a"},
+        {"en_NH", u"h a", u"h:mm a", UDAT_HOUR_CYCLE_12},
         // ch_ZH is a typo (should be zh_CN), but we should fail gracefully.
-        // {"cn_ZH", u"HH", u"H:mm"}, // TODO(ICU-20653): Desired behavior
-        {"cn_ZH", u"HH", u"HH:mm"}, // Actual behavior (falls back to root for std formats, 001 for mapping of 'j')
+        {"cn_ZH", u"HH", u"HH:mm", UDAT_HOUR_CYCLE_23 }, // Desired & now actual behavior (does this fix ICU-20653?)
         // a non-BCP47 locale without a country code should not fail
-        {"ja_TRADITIONAL", u"H時", u"H:mm"},
+        {"ja_TRADITIONAL", u"H時", u"H:mm", UDAT_HOUR_CYCLE_23},
     };
 
     for (auto& cas : cases) {
@@ -1509,11 +1515,17 @@ void IntlTestDateTimePatternGeneratorAPI::test20640_HourCyclArsEnNH() {
         if (status.errIfFailureAndReset()) {
             return;
         }
+        UDateFormatHourCycle defaultHourCycle = dtpg->getDefaultHourCycle(status);
+        if (status.errIfFailureAndReset()) {
+            return;
+        }
 
         assertEquals(UnicodeString("dtpgPattern ") + cas.localeName,
             cas.expectedDtpgPattern, dtpgPattern);
         assertEquals(UnicodeString("timePattern ") + cas.localeName,
             cas.expectedTimePattern, timePattern);
+        assertEquals(UnicodeString("defaultHour ") + cas.localeName,
+            cas.expectedDefaultHourCycle, defaultHourCycle);
     }
 
 }
@@ -1542,6 +1554,220 @@ void IntlTestDateTimePatternGeneratorAPI::testFallbackWithDefaultRootLocale() {
     uloc_setDefault(original, &status);
     if (U_FAILURE(status)) {
         errln("ERROR: Failed to change the default locale back to %s\n", original);
+    }
+}
+
+// ICU-21000 Ensure that calling getDefaultHourCycle on an empty instance doesn't call UPRV_UNREACHABLE/abort.
+void IntlTestDateTimePatternGeneratorAPI::testGetDefaultHourCycle_OnEmptyInstance() {
+    UErrorCode status = U_ZERO_ERROR;
+
+    LocalPointer<DateTimePatternGenerator> dtpg(DateTimePatternGenerator::createEmptyInstance(status), status);
+    if (U_FAILURE(status)) {
+        errln("ERROR: createEmptyInstance failed, status: %s", u_errorName(status));
+        return;
+    }
+    (void)dtpg->getDefaultHourCycle(status);
+    if (!U_FAILURE(status)) {
+        errln("ERROR: expected getDefaultHourCycle on an empty instance to fail, status: %s", u_errorName(status));
+        return;
+    }
+
+    status = U_USELESS_COLLATOR_ERROR;
+    (void)dtpg->getDefaultHourCycle(status);
+    if (status != U_USELESS_COLLATOR_ERROR) {
+        errln("ERROR: getDefaultHourCycle shouldn't modify status if it is already failed, status: %s", u_errorName(status));
+        return;
+    }
+}
+
+void IntlTestDateTimePatternGeneratorAPI::test_jConsistencyOddLocales() { // ICU-20590
+    static const char* localeIDs[] = {
+        "en", "ro", // known languages 12h / 24h
+        "en-RO", "ro-US",  // known languages with known regions, hour conflict language vs region
+        "en-XZ", "ro-XZ", // known languages 12h / 24h, unknown region
+        "xz-RO", "xz-US",  // unknown language with known regions
+        "xz", // unknown language
+        "xz-ZX",  // unknown language with unknown country
+        "ars", "wuu" // aliased locales
+    };
+    static const UChar* skeleton = u"jm";
+    for (const char* localeID: localeIDs) {
+        UErrorCode status = U_ZERO_ERROR;
+        Locale locale(localeID);
+        LocalPointer<DateFormat> dtfShort(DateFormat::createTimeInstance(DateFormat::kShort, locale), status);
+        if (U_FAILURE(status)) {
+            errln("DateFormat::createTimeInstance failed for locale %s: %s", localeID, u_errorName(status));
+            continue;
+        }
+        LocalPointer<DateFormat> dtfSkel(DateFormat::createInstanceForSkeleton(skeleton, locale, status));
+        if (U_FAILURE(status)) {
+            errln("DateFormat::createInstanceForSkeleton failed for locale %s: %s", localeID, u_errorName(status));
+            continue;
+        }
+        LocalPointer<DateTimePatternGenerator> dtpg(DateTimePatternGenerator::createInstance(locale, status));
+        if (U_FAILURE(status)) {
+            errln("DateTimePatternGenerator::createInstance failed for locale %s: %s", localeID, u_errorName(status));
+            continue;
+        }
+        UnicodeString dtfShortPattern, dtfSkelPattern;
+        dynamic_cast<SimpleDateFormat*>(dtfShort.getAlias())->toPattern(dtfShortPattern);
+        dynamic_cast<SimpleDateFormat*>(dtfSkel.getAlias())->toPattern(dtfSkelPattern);
+        UnicodeString dtpgPattern = (dtpg.getAlias())->getBestPattern(skeleton, status);
+        if (U_FAILURE(status)) {
+            errln("DateTimePatternGenerator::getBestPattern failed for locale %s: %s", localeID, u_errorName(status));
+            continue;
+        }
+        if (dtfShortPattern != dtfSkelPattern || dtfSkelPattern != dtpgPattern) {
+            const char* dtfShortValidLoc = dtfShort->getLocaleID(ULOC_VALID_LOCALE, status);
+            const char* dtfShortActualLoc = dtfShort->getLocaleID(ULOC_ACTUAL_LOCALE, status);
+            errln(UnicodeString("For locale ") + localeID +
+                    " expected same pattern from DateTimePatGen: " + dtpgPattern +
+                    ", DateFmt-forSkel: " + dtfSkelPattern + ", DateFmt-short: "  + dtfShortPattern +
+                    "; latter has validLoc " + dtfShortValidLoc + ", actualLoc " + dtfShortActualLoc);
+        }
+    }
+}
+
+// Apple rdar://78420184
+void IntlTestDateTimePatternGeneratorAPI::testHorizontalInheritance() {
+    static const char* testCases[] = {
+        "en_DK@calendar=buddhist", "MMMd",    "d MMM",
+        "en_DK@calendar=buddhist", "MMMEd",   "EEE, d MMM",
+        "en_DK@calendar=buddhist", "GGGGGyM", "MM/y GGGGG",
+        "en_DK@calendar=buddhist", "h",       "h a",
+        "en_DK@calendar=islamic",  "MMMd",    "d MMM",
+        "en_DK@calendar=islamic",  "MMMEd",   "EEE, d MMM",
+        "en_DK@calendar=islamic",  "GGGGGyM", "MM/y GGGGG",
+        "en_DK@calendar=islamic",  "h",       "h a",
+        
+        "en_IN@calendar=buddhist", "Ed",      "EEE d",
+        "en_IN@calendar=islamic",  "Ed",      "EEE d",
+
+        "es_MX@calendar=buddhist", "Ed",      "EEE d",
+        "es_MX@calendar=hebrew",   "Ed",      "EEE d",
+        "es_MX@calendar=islamic",  "Ed",      "EEE d",
+        
+        "es_AR@calendar=buddhist", "MMMd",    "d 'de' MMM",
+        "es_AR@calendar=buddhist", "Ed",      "EEE d",
+        "es_AR@calendar=buddhist", "yMd",     "d/M/y GGGGG",
+        "es_AR@calendar=hebrew",   "MMMd",    "d 'de' MMM",
+        "es_AR@calendar=hebrew",   "Ed",      "EEE d",
+        "es_AR@calendar=hebrew",   "yMd",     "d/M/y GGGGG",
+        "es_AR@calendar=islamic",  "MMMd",    "d 'de' MMM",
+        "es_AR@calendar=islamic",  "Ed",      "EEE d",
+        "es_AR@calendar=islamic",  "yMd",     "d/M/y GGGGG",
+        
+        "es_US@calendar=buddhist", "MMMEEE",  "LLL ccc",
+        "es_US@calendar=buddhist", "Ed",      "EEE d",
+        "es_US@calendar=hebrew",   "MMMEEE",  "LLL ccc",
+        "es_US@calendar=hebrew",   "Ed",      "EEE d",
+        "es_US@calendar=islamic",  "MMMEEE",  "LLL ccc",
+        "es_US@calendar=islamic",  "Ed",      "EEE d",
+
+        "fr_CA@calendar=hebrew",   "MMMEEE",  "LLL ccc",
+        "fr_CA@calendar=hebrew",   "Ed",      "EEE d",
+        "fr_CA@calendar=islamic",  "MMMEEE",  "LLL ccc",
+        "fr_CA@calendar=islamic",  "Ed",      "EEE d",
+
+        "fr_CH@calendar=hebrew",   "MMMEEE",  "LLL ccc",
+        "fr_CH@calendar=hebrew",   "Ed",      "EEE d",
+        "fr_CH@calendar=islamic",  "MMMEEE",  "LLL ccc",
+        "fr_CH@calendar=islamic",  "Ed",      "EEE d",
+    };
+    
+    for (int32_t i = 0; i < UPRV_LENGTHOF(testCases); i += 3) {
+        const char* localeID(testCases[i]);
+        const char* skeleton(testCases[i + 1]);
+        const char* expectedPattern(testCases[i + 2]);
+        
+        UErrorCode err = U_ZERO_ERROR;
+        LocalPointer<DateTimePatternGenerator> dtpg(DateTimePatternGenerator::createInstance(localeID, err), err);
+        
+        UnicodeString actualPattern = dtpg->getBestPattern(UnicodeString(skeleton), err);
+        
+        if (U_FAILURE(err)) {
+            errln("Failure for test case %s/%s: %s", localeID, skeleton, u_errorName(err));
+        } else {
+            char failureMessage[100];
+            strcpy(failureMessage, "Wrong result for test case ");
+            strcat(failureMessage, localeID);
+            strcat(failureMessage, "/");
+            strcat(failureMessage, skeleton);
+            assertEquals(failureMessage, UnicodeString(expectedPattern), actualPattern);
+        }
+    }
+}
+
+void IntlTestDateTimePatternGeneratorAPI::testBestPattern() {
+    // generic test for DateTimePatternGenerator::getBestPattern() that can be used to test multiple
+    // bugs in the resource data
+    static const char* testCases[] = {
+        // Apple rdar://71721198
+        "zh_Hant",    "MMMEd",    "M\u6708d\u65E5 EEE",
+        "zh_Hant_HK", "MMMEd",    "M\u6708d\u65E5 EEE",
+        "zh_Hant",    "GyMMMEd",  "Gy\u5E74M\u6708d\u65E5 EEE",
+        "zh_Hant_HK", "GyMMMEd",  "Gy\u5E74M\u6708d\u65E5 EEE",
+        "zh_Hant",    "yMMMEd",   "y\u5E74M\u6708d\u65E5 EEE",
+        "zh_Hant_HK", "yMMMEd",   "y\u5E74M\u6708d\u65E5 EEE",
+        "zh_Hant",    "full",     "y\u5E74M\u6708d\u65E5 EEEE",
+        "zh_Hant_HK", "full",     "y\u5E74M\u6708d\u65E5 EEEE",
+        // Apple rdar://79472054
+        // if the user asks for E, the minimum field length is 3, but if he asks for c or e, it's 1
+        "en_US",      "E",           "ccc",
+        "en_US",      "c",           "c",
+        "en_US",      "e",           "c",
+        "en_US",      "EE",          "ccc",
+        "en_US",      "cc",          "cc",
+        "en_US",      "ee",          "cc",
+        "en_US",      "EEE",         "ccc",
+        "en_US",      "ccc",         "ccc",
+        "en_US",      "eee",         "ccc",
+        // and if the user asked for c or e and the field length is 1 or 2, the output pattern should contain
+        // e instead of E (e supports numeric abbreviations; E doesn't)
+        "en_US",      "yMEd",        "EEE, M/d/y",
+        "en_US",      "yMcd",        "e, M/d/y",
+        "en_US",      "yMed",        "e, M/d/y",
+        "en_US",      "yMMEEdd",     "EEE, MM/dd/y",
+        "en_US",      "yMMccdd",     "ee, MM/dd/y",
+        "en_US",      "yMMeedd",     "ee, MM/dd/y",
+        "en_US",      "yMMMEd",      "EEE, MMM d, y",
+        "en_US",      "yMMMcccd",    "EEE, MMM d, y",
+        "en_US",      "yMMMeeed",    "EEE, MMM d, y",
+        "en_US",      "yMMMMEEEEd",  "EEEE, MMMM d, y",
+        "en_US",      "yMMMMccccd",  "EEEE, MMMM d, y",
+        "en_US",      "yMMMMeeeed",  "EEEE, MMMM d, y",
+    };
+    
+    for (int32_t i = 0; i < UPRV_LENGTHOF(testCases); i += 3) {
+        const char* localeID(testCases[i]);
+        const char* skeleton(testCases[i + 1]);
+        const char* expectedPattern(testCases[i + 2]);
+        
+        UErrorCode err = U_ZERO_ERROR;
+        UnicodeString actualPattern;
+        
+        if (uprv_strcmp(skeleton, "full") != 0) {
+            LocalPointer<DateTimePatternGenerator> dtpg(DateTimePatternGenerator::createInstance(localeID, err), err);
+            actualPattern = dtpg->getBestPattern(UnicodeString(skeleton), err);
+        } else {
+            LocalPointer<DateFormat> df(DateFormat::createDateInstance(DateFormat::kFull, localeID));
+            SimpleDateFormat* sdf = dynamic_cast<SimpleDateFormat*>(df.getAlias());
+            
+            if (sdf != NULL) {
+                sdf->toPattern(actualPattern);
+            }
+        }
+        
+        if (U_FAILURE(err)) {
+            errln("Failure for test case %s/%s: %s", localeID, skeleton, u_errorName(err));
+        } else {
+            char failureMessage[100];
+            strcpy(failureMessage, "Wrong result for test case ");
+            strcat(failureMessage, localeID);
+            strcat(failureMessage, "/");
+            strcat(failureMessage, skeleton);
+            assertEquals(failureMessage, UnicodeString(expectedPattern), actualPattern);
+        }
     }
 }
 

@@ -435,6 +435,7 @@
 		F4F0C1B21F3280CC00B2CEE7 /* testmore.c in Sources */ = {isa = PBXBuildFile; fileRef = F4F0C12B1F327DC400B2CEE7 /* testmore.c */; };
 		F4F0C1B31F3280CC00B2CEE7 /* testbyteBuffer.c in Sources */ = {isa = PBXBuildFile; fileRef = F4F0C1581F327DC400B2CEE7 /* testbyteBuffer.c */; };
 		F4F0C1B41F3280CC00B2CEE7 /* testutil.c in Sources */ = {isa = PBXBuildFile; fileRef = F4F0C15A1F327DC400B2CEE7 /* testutil.c */; };
+		FFC0D6A2264EFD9200C1F465 /* CommonCrypto.plist in Copy UTD plist */ = {isa = PBXBuildFile; fileRef = FFC0D6A1264EFD8700C1F465 /* CommonCrypto.plist */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXBuildRule section */
@@ -598,6 +599,17 @@
 			files = (
 				48B4205B15E2BB5800871A6E /* cn.1 in CopyFiles */,
 			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		FFC0D6A0264EFD4500C1F465 /* Copy UTD plist */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /AppleInternal/CoreOS/BATS/unit_tests;
+			dstSubfolderSpec = 0;
+			files = (
+				FFC0D6A2264EFD9200C1F465 /* CommonCrypto.plist in Copy UTD plist */,
+			);
+			name = "Copy UTD plist";
 			runOnlyForDeploymentPostprocessing = 1;
 		};
 /* End PBXCopyFilesBuildPhase section */
@@ -821,6 +833,7 @@
 		F4F0C15B1F327DC400B2CEE7 /* testutil.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = testutil.h; sourceTree = "<group>"; };
 		F4F0C15D1F327DC400B2CEE7 /* CommonBaseEncoding.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = CommonBaseEncoding.c; sourceTree = "<group>"; };
 		F4F0C15E1F327DC400B2CEE7 /* CommonCRC.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = CommonCRC.c; sourceTree = "<group>"; };
+		FFC0D6A1264EFD8700C1F465 /* CommonCrypto.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = CommonCrypto.plist; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -946,6 +959,7 @@
 		48AC91F81581554800BA9060 /* CCRegression */ = {
 			isa = PBXGroup;
 			children = (
+				FFC0D6A1264EFD8700C1F465 /* CommonCrypto.plist */,
 				F4F0C12E1F327DC400B2CEE7 /* main.c */,
 				F4F0C12D1F327DC400B2CEE7 /* README */,
 				F4F0C12F1F327DC400B2CEE7 /* CommonCrypto */,
@@ -967,7 +981,6 @@
 				4825E189158FD5AB0059CCF8 /* doc */,
 				48AC91F81581554800BA9060 /* CCRegression */,
 				486C539115DDBD2800C8DE50 /* cn_tool */,
-				5A08EC3823A428A40059AAEF /* CommonCryptoUnitTests */,
 				48BEE6B61580085A00A6A1E7 /* Products */,
 				F4D679831F2FECCF00856F4A /* Frameworks */,
 			);
@@ -1084,13 +1097,6 @@
 				48C489B215DAF0E500B301EC /* reverse_poly.c */,
 			);
 			path = libcn;
-			sourceTree = "<group>";
-		};
-		5A08EC3823A428A40059AAEF /* CommonCryptoUnitTests */ = {
-			isa = PBXGroup;
-			children = (
-			);
-			path = CommonCryptoUnitTests;
 			sourceTree = "<group>";
 		};
 		B6CF399020502161002C6A4E /* Private */ = {
@@ -1429,6 +1435,7 @@
 			buildPhases = (
 				48AC91F21581554800BA9060 /* Sources */,
 				48AC91F31581554800BA9060 /* Frameworks */,
+				FFC0D6A0264EFD4500C1F465 /* Copy UTD plist */,
 			);
 			buildRules = (
 			);
@@ -2285,6 +2292,7 @@
 				LINK_WITH_STANDARD_LIBRARIES = NO;
 				MODULEMAP_FILE = "$(SRCROOT)/include/module.modulemap";
 				MODULEMAP_PRIVATE_FILE = "$(SRCROOT)/include/Private/module.private.modulemap";
+				OTHER_CFLAGS = "-Werror=vla";
 				OTHER_LDFLAGS = (
 					"-Wl,-umbrella,System",
 					"-ldyld",
@@ -2331,6 +2339,7 @@
 				LINK_WITH_STANDARD_LIBRARIES = NO;
 				MODULEMAP_FILE = "$(SRCROOT)/include/module.modulemap";
 				MODULEMAP_PRIVATE_FILE = "$(SRCROOT)/include/Private/module.private.modulemap";
+				OTHER_CFLAGS = "-Werror=vla";
 				OTHER_LDFLAGS = (
 					"-Wl,-umbrella,System",
 					"-ldyld",
@@ -2471,6 +2480,7 @@
 				);
 				LINK_WITH_STANDARD_LIBRARIES = NO;
 				MACH_O_TYPE = staticlib;
+				OTHER_CFLAGS = "-Werror=vla";
 				OTHER_LDFLAGS = (
 					"-Wl,-umbrella,System",
 					"-ldyld",
@@ -2509,6 +2519,7 @@
 				);
 				LINK_WITH_STANDARD_LIBRARIES = NO;
 				MACH_O_TYPE = staticlib;
+				OTHER_CFLAGS = "-Werror=vla";
 				OTHER_LDFLAGS = (
 					"-Wl,-umbrella,System",
 					"-ldyld",

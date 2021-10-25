@@ -1,0 +1,222 @@
+#!/usr/bin/python3
+"""CLI Test Program to test NTFS."""
+import os
+import argparse
+import logging
+from subprocess import run
+
+from lib.constants import (
+    NTFS, IMAGE, EXTERNAL, SUCCESS, FAIL,
+)
+from lib.general import (
+    docmd, docmd_stdout, startup, teardown, test_begin, test_end,
+    convert_text_to_dmg,
+)
+from lib.file_system import FileSystem
+
+TESTDIR_BASE = '/tmp/test_ntfs/'
+TESTDIR = TESTDIR_BASE + str(os.getpid()) + '/'
+LOGFILE = TESTDIR + 'test_ntfs.log'
+BATS_LOGFILE = TESTDIR_BASE + 'test_ntfs_bats.log'
+SUITE_PRESUBMIT = 'presubmit'
+NTFS_DEFAULT_DMG = '/tmp/NTFSvol.dmg'
+MTREESPEC = 'mtreeSpec.txt'
+EXC_FILE = TESTDIR + 'mtree_exclude'
+
+
+# ============================================
+#     Functional Tests :  test_*()
+# ============================================
+
+def test_readonly(obj, kext=False):
+    """Check the mounted NTFS volume is read-only and can not write."""
+    obj.unmount(kext)
+    if obj.mount(kext) != 0:
+        logging.error("test_readonly FAIL: mount Fail")
+        return FAIL
+    if not obj.is_mounted_fs(kext):
+        logging.error("test_readonly FAIL: not mounted as expected fs type")
+        return FAIL
+    if not obj.is_readonly():
+        logging.error("test_readonly FAIL: is not readonly")
+        return FAIL
+
+    touchfile = obj.fsmntpt + '/test_readonly_touch_file'
+    if docmd(["touch", touchfile], should_fail=True) != 0:
+        logging.error("test_readonly FAIL: should not be able to write")
+        return FAIL
+    if obj.unmount(kext) != 0:
+        logging.error("test_readonly FAIL: Failed to unmount")
+        return FAIL
+    return SUCCESS
+
+
+def test_readonly_kext(obj):
+    return test_readonly(obj, kext=True)
+
+
+def test_mtree(obj, kext=False):
+    """Check the mtree being read is correct."""
+    exfile = open(EXC_FILE, 'w+')
+    exfile.write(MTREESPEC)
+    exfile.close()
+
+    obj.unmount()
+    if obj.mount(kext) != 0:
+        logging.error("test_mtree FAIL: Fail to mount")
+        return FAIL
+    mtree_spec = obj.fsmntpt + '/' + MTREESPEC
+    cmd = ["mtree", "-p", obj.fsmntpt, "-f", mtree_spec, "-X", EXC_FILE]
+    cmd.extend(["-k", "sha256digest size nlink time atime btime ctime inode xattrsdigest"])
+    result = docmd_stdout(cmd)
+    out = result['out']
+    err = result['err']
+    if err or out != '':
+        logging.error("test_mtree FAIL: mtree is changed")
+        return FAIL
+    return SUCCESS
+
+
+def test_mtree_kext(obj):
+    return test_mtree(obj, kext=True)
+
+
+# ============================================
+#        Main
+# ============================================
+
+TESTS = {
+    'readonly': {
+        'func': test_readonly,
+        'suite': SUITE_PRESUBMIT,
+        'description': 'check the mounted NTFS volume via UserFS is readonly',
+    },
+    'readonly_kext': {
+        'func': test_readonly_kext,
+        'suite': SUITE_PRESUBMIT,
+        'description': 'check the mounted NTFS volume via Kext is readonly',
+    },
+    'mtree': {
+        'func': test_mtree,
+        'suite': SUITE_PRESUBMIT,
+        'description': 'check the mtree on NTFS volume via UserFS is correct',
+    },
+    'mtree_kext': {
+        'func': test_mtree_kext,
+        'suite': SUITE_PRESUBMIT,
+        'description': 'check the mtree on NTFS volume via Kext is correct',
+    },
+}
+
+
+def cleanup():
+    """Clean up all files/dirs created by the test program."""
+    cmd = ['rm', '-rf', TESTDIR_BASE]
+    run(cmd)
+
+
+def list_tests():
+    """List all test names."""
+    print('')
+    for key in TESTS:
+        descrip = TESTS[key]['description']
+        suite = TESTS[key]['suite']
+        print(f'{key}: {descrip} ({suite})')
+    print('')
+
+
+def run_one_test(testname, args):
+    """Run a single test case."""
+    descrip = TESTS[testname]['description']
+    test_begin(testname, descrip, args.debug)
+
+    fstype = NTFS
+    if args.external:
+        disktype = EXTERNAL
+    else:
+        disktype = IMAGE
+    if args.diskimage:
+        dmg = args.diskimage
+    else:
+        dmg = NTFS_DEFAULT_DMG
+    func = TESTS[testname]['func']
+
+    obj = FileSystem(fstype, disktype, dmg)
+    err = obj.setup()
+    if err == 0:
+        err = func(obj)
+    obj.release(err)
+    test_end(testname, err, args.debug)
+
+
+def run_suite(suite, args):
+    """Run tests per suite."""
+    for testname in TESTS:
+        if TESTS[testname]['suite'] == suite:
+            run_one_test(testname, args)
+
+
+def run_all(args):
+    """Run all tests."""
+    for testname in TESTS:
+        run_one_test(testname, args)
+
+
+def cli_usage():
+    """Set the parser for this CLI program."""
+    parser = argparse.ArgumentParser(
+        description="CLI test program to test NTFS on macOS.")
+    parser.add_argument('-t', '--tests', default='all',
+                        help='run one or a suite of tests (default:%(default)s)')
+    parser.add_argument('-e', '--external', action='store_true',
+                        help='use the attached external drive')
+    parser.add_argument('-l', '--list_tests', action='store_true',
+                        help='list all tests')
+    parser.add_argument('-d', '--debug', action='store_true',
+                        help=f'print commands/error and keep {NTFS_DEFAULT_DMG}')
+    parser.add_argument('-c', '--cleanup', action='store_true',
+                        help='clean up all log dir/files')
+    parser.add_argument('-n', '--num_times', default=1, type=int,
+                        help='loop the test <num_times>')
+    parser.add_argument('-dmg', '--diskimage', default=NTFS_DEFAULT_DMG,
+                        help=f'disk image to use (default:%(default)s)')
+    return parser
+
+
+def main():
+    """Start the program."""
+    parser = cli_usage()
+    args = parser.parse_args()
+    if args.list_tests:
+        list_tests()
+        exit(0)
+    if args.cleanup:
+        cleanup()
+        exit(0)
+
+    # Make sure logging is setup before using it
+    startup(TESTDIR, LOGFILE, args.debug)
+    convert_text_to_dmg(NTFS_DEFAULT_DMG)
+
+    # Run tests
+    loopcnt = int(args.num_times)
+    testname = args.tests
+    for i in range(loopcnt):
+        if testname == 'all':
+            run_all(args)
+        elif testname == SUITE_PRESUBMIT:
+            run_suite(testname, args)
+        elif testname in TESTS:
+            run_one_test(testname, args)
+        else:
+            print('Unknown test name : ' + testname)
+            docmd(["rm", NTFS_DEFAULT_DMG])
+            exit(1)
+
+    run(["cp", LOGFILE, BATS_LOGFILE])
+    # Keep NTFS_DEFAULT_DMG around for debugging with -v option
+    if not args.debug:
+        docmd(["rm", NTFS_DEFAULT_DMG])
+    teardown(LOGFILE, args.debug)
+
+main()

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2010, 2021 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -52,5 +52,8 @@ DHCPDUIDGet(interface_list_t * interfaces);
 
 PRIVATE_EXTERN DHCPIAID
 DHCPIAIDGet(const char * ifname);
+
+PRIVATE_EXTERN CFDataRef
+DHCPDUIDCopy(interface_t * if_p);
 
 #endif /* _S_DHCPDUIDIAID_H */

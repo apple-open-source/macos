@@ -113,21 +113,39 @@ struct mp_dss {
 #define MP_DSS_a                        0x02
 #define MP_DSS_A                        0x01
 
+static const struct tok mptcp_addr_subecho_bits[] = {
+        { 0x6, "v0-ip6" },
+        { 0x4, "v0-ip4" },
+        { 0x1, "v1-echo" },
+        { 0x0, "v1" },
+        { 0, NULL }
+};
+
 struct mp_add_addr {
-        uint8_t        kind;
-        uint8_t        len;
-        uint8_t        sub_ipver;
-        uint8_t        addr_id;
-        union {
-                struct {
-                        uint8_t         addr[4];
-                        uint8_t         port[2];
-                } v4;
-                struct {
-                        uint8_t         addr[16];
-                        uint8_t         port[2];
-                } v6;
-        } u;
+	uint8_t        kind;
+	uint8_t        len;
+	uint8_t        sub_echo;
+	uint8_t        addr_id;
+	union {
+		struct {
+			uint8_t		addr[4];
+			uint8_t	        port[2];
+			uint8_t	        mac[8];
+		} v4;
+		struct {
+			uint8_t         addr[4];
+			uint8_t	        mac[8];
+		} v4np;
+		struct {
+			uint8_t		addr[16];;
+			uint8_t	        port[2];
+			uint8_t	        mac[8];
+		} v6;
+		struct {
+			uint8_t     	addr[16];
+			uint8_t	        mac[8];
+		} v6np;
+	} u;
 };
 
 #define MP_ADD_ADDR_IPVER(sub_ipver)    (((sub_ipver) >> 0) & 0xF)
@@ -177,22 +195,32 @@ mp_capable_print(netdissect_options *ndo,
                  const u_char *opt, u_int opt_len, u_char flags)
 {
         const struct mp_capable *mpc = (const struct mp_capable *) opt;
+        uint8_t version;
 
-        if (!(opt_len == 12 && (flags & TH_SYN)) &&
-            !(opt_len == 20 && (flags & (TH_SYN | TH_ACK)) == TH_ACK))
+        if (!((opt_len == 12 || opt_len == 4) && flags & TH_SYN) &&
+            !((opt_len == 20 || opt_len == 22) && (flags & (TH_SYN | TH_ACK)) ==
+              TH_ACK))
                 return 0;
 
-        if (MP_CAPABLE_OPT_VERSION(mpc->sub_ver) != 0) {
-                ND_PRINT((ndo, " Unknown Version (%d)", MP_CAPABLE_OPT_VERSION(mpc->sub_ver)));
+        version = MP_CAPABLE_OPT_VERSION(mpc->sub_ver);
+        switch (version) {
+                case 0: /* fall through */
+                case 1:
+                        ND_PRINT((ndo, " v%u", version));
+                        break;
+                default:
+                        ND_PRINT((ndo, " Unknown Version (%u)", version));
                 return 1;
         }
 
         if (mpc->flags & MP_CAPABLE_C)
                 ND_PRINT((ndo, " csum"));
-        ND_PRINT((ndo, " {0x%" PRIx64, EXTRACT_64BITS(mpc->sender_key)));
-        if (opt_len == 20) /* ACK */
-                ND_PRINT((ndo, ",0x%" PRIx64, EXTRACT_64BITS(mpc->receiver_key)));
-        ND_PRINT((ndo, "}"));
+        if (opt_len == 12 || opt_len >= 20) {
+		ND_PRINT((ndo, " {0x%" PRIx64, EXTRACT_64BITS(mpc->sender_key)));
+                if (opt_len >= 20)
+			ND_PRINT((ndo, ",0x%" PRIx64, EXTRACT_64BITS(mpc->receiver_key)));
+                ND_PRINT((ndo, "}"));
+        }
         return 1;
 }
 
@@ -330,27 +358,34 @@ add_addr_print(netdissect_options *ndo,
                const u_char *opt, u_int opt_len, u_char flags _U_)
 {
         const struct mp_add_addr *add_addr = (const struct mp_add_addr *) opt;
-        u_int ipver = MP_ADD_ADDR_IPVER(add_addr->sub_ipver);
 
-        if (!((opt_len == 8 || opt_len == 10) && ipver == 4) &&
-            !((opt_len == 20 || opt_len == 22) && ipver == 6))
-                return 0;
+	if (!(opt_len == 8 || opt_len == 10 || opt_len == 16 || opt_len == 18 ||
+	    opt_len == 20 || opt_len == 22 || opt_len == 28 || opt_len == 30))
+		return 0;
+
+	ND_PRINT((ndo, " %s",
+		 tok2str(mptcp_addr_subecho_bits, "[bad version/echo]",
+			 add_addr->sub_echo & 0xF)));
 
         ND_PRINT((ndo, " id %u", add_addr->addr_id));
-        switch (ipver) {
-        case 4:
-                ND_PRINT((ndo, " %s", ipaddr_string(ndo, add_addr->u.v4.addr)));
-                if (opt_len == 10)
-                        ND_PRINT((ndo, ":%u", EXTRACT_16BITS(add_addr->u.v4.port)));
-                break;
-        case 6:
-                ND_PRINT((ndo, " %s", ip6addr_string(ndo, add_addr->u.v6.addr)));
-                if (opt_len == 22)
-                        ND_PRINT((ndo, ":%u", EXTRACT_16BITS(add_addr->u.v6.port)));
-                break;
-        default:
-                return 0;
-        }
+	if (opt_len == 8 || opt_len == 10 || opt_len == 16 || opt_len == 18) {
+		ND_PRINT((ndo, " %s", ipaddr_string(ndo, add_addr->u.v4.addr)));
+		if (opt_len == 10 || opt_len == 18)
+			ND_PRINT((ndo, ":%u", EXTRACT_16BITS(add_addr->u.v4.port)));
+		if (opt_len == 16)
+			ND_PRINT((ndo, " hmac 0x%"  PRIx64, EXTRACT_64BITS(add_addr->u.v4np.mac)));
+		if (opt_len == 18)
+			ND_PRINT((ndo, " hmac 0x%" PRIx64, EXTRACT_64BITS(add_addr->u.v4.mac)));
+	}
+	if (opt_len == 20 || opt_len == 22 || opt_len == 28 || opt_len == 30) {
+		ND_PRINT((ndo, " %s", ip6addr_string(ndo, add_addr->u.v6.addr)));
+		if (opt_len == 22 || opt_len == 30)
+			ND_PRINT((ndo, ":%u", EXTRACT_16BITS(add_addr->u.v6.port)));
+		if (opt_len == 28)
+			ND_PRINT((ndo, " hmac 0x%" PRIx64, EXTRACT_64BITS(add_addr->u.v6np.mac)));
+		if (opt_len == 30)
+			ND_PRINT((ndo, " hmac 0x%" PRIx64, EXTRACT_64BITS(add_addr->u.v6.mac)));
+	}
 
         return 1;
 }

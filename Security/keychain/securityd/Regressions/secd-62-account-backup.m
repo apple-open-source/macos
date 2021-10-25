@@ -81,16 +81,13 @@ static void tests(void)
     CFDataRef alice_backup_key = CopyBackupKeyForString(CFSTR("Alice Backup Entropy"), &error);
     CFDataRef bob_backup_key = CopyBackupKeyForString(CFSTR("Bob Backup Entropy"), &error);
 
-    // Bob wins writing at this point, feed the changes back to alice.
-    is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, NULL), 1, "updates");
-
     ok(SOSAccountAssertUserCredentialsAndUpdate(alice_account, cfaccount, cfpassword, &error), "Credential setting (%@)", error);
     CFReleaseNull(error);
 
     ok(SOSAccountResetToOffering_wTxn(alice_account, &error), "Reset to offering (%@)", error);
     CFReleaseNull(error);
 
-    is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, NULL), 2, "updates");
+    is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, NULL), 1, "updates");
 
     ok(SOSAccountAssertUserCredentialsAndUpdate(bob_account, cfaccount, cfpassword, &error), "Credential setting (%@)", error);
     CFReleaseNull(error);
@@ -111,7 +108,7 @@ static void tests(void)
         CFReleaseNull(applicants);
     }
 
-    is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, NULL), 3, "updates");
+    isInRange(ProcessChangesUntilNoChange(changes, alice_account, bob_account, NULL), 1, 3, "updates");
     
     CFArrayRef peers = SOSAccountCopyPeers(alice_account, &error);
     ok(peers && CFArrayGetCount(peers) == 2, "See two peers %@ (%@)", peers, error);
@@ -151,7 +148,7 @@ static void tests(void)
     ok([bob_account.trust checkForRings:&error], "Alice_account is good");
     CFReleaseNull(error);
 
-    is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, NULL), 4, "updates");
+    isInRange(ProcessChangesUntilNoChange(changes, alice_account, bob_account, NULL), 2, 5, "updates");
 
 
     ok([alice_account.trust checkForRings:&error], "Alice_account is good");
@@ -200,7 +197,7 @@ static void tests(void)
 
     ok(SOSAccountSetBackupPublicKey_wTxn(bob_account, bob_backup_key, &error), "Set backup public key, bob (%@)", error);
 
-    is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, NULL), 3, "updates");
+    isInRange(ProcessChangesUntilNoChange(changes, alice_account, bob_account, NULL), 2, 5, "updates");
 
     //
     //removing backup key for bob account
@@ -227,7 +224,7 @@ static void tests(void)
     //alice does not have bob in her backup
     ok(!SOSAccountIsPeerInBackupAndCurrentInView(alice_account, bobTrust.peerInfo, kTestView1), "Bob is up to date in the backup - should not be so!");
 
-    is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, NULL), 5, "updates");
+    isInRange(ProcessChangesUntilNoChange(changes, alice_account, bob_account, NULL), 1, 5, "updates");
     
     ok(SOSAccountIsMyPeerInBackupAndCurrentInView(bob_account, kTestView1), "Bob's backup key should be in the backup");
     ok(SOSAccountIsMyPeerInBackupAndCurrentInView(alice_account, kTestView1), "Alice is in the backup");

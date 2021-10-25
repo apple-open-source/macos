@@ -94,6 +94,18 @@ static void test_failed_noreturn() __attribute((analyzer_noreturn)) {
 		"#     expected: '%d'\n", \
 		_this, _that); \
 })
+#define isInRange(THIS, THATLOW, THATHIGH, ...) \
+({ \
+    __typeof__(THIS) _this = (THIS); \
+__typeof__(THATLOW) _thatlow = (THATLOW); \
+__typeof__(THATHIGH) _thathigh = (THATHIGH); \
+    test_ok(TEST_CHECK(_this >= _thatlow && _this <= _thathigh), test_create_description(__VA_ARGS__), \
+        test_directive, test_reason, __FILE__, __LINE__, \
+        "#          got: '%d'\n" \
+        "#     expected: '%d' - '%d'\n", \
+        _thatlow, _thathigh); \
+})
+
 #define isnt(THIS, THAT, ...) \
 	cmp_ok((THIS), !=, (THAT), __VA_ARGS__)
 #define diag(MSG, ARGS...) \

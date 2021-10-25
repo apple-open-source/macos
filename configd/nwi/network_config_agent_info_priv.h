@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2016, 2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -29,9 +29,9 @@
 
 __BEGIN_DECLS
 
-const void *
+void *
 _nwi_config_agent_copy_data(const struct netagent * agent, uint64_t * length);
 
 __END_DECLS
 
-#endif // _CONFIG_AGENT_INFORMATION_PRIV_H_ 
+#endif // _CONFIG_AGENT_INFORMATION_PRIV_H_

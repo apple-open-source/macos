@@ -121,7 +121,7 @@ IOPCIDevice::ConfigurationRead32(uint64_t offset, uint32_t* readData)
                      ivars->deviceClient,
                      0) != kIOReturnSuccess)
     {
-        *readData = -1;
+        *readData = static_cast<uint32_t>(-1);
     }
     else
     {
@@ -140,7 +140,7 @@ IOPCIDevice::ConfigurationRead16(uint64_t offset, uint16_t* readData)
                      ivars->deviceClient,
                      0) != kIOReturnSuccess)
     {
-        *readData = -1;
+        *readData = static_cast<uint16_t>(-1);
     }
     else
     {
@@ -159,7 +159,7 @@ IOPCIDevice::ConfigurationRead8(uint64_t offset, uint8_t* readData)
                      ivars->deviceClient,
                      0) != kIOReturnSuccess)
     {
-        *readData = -1;
+        *readData = static_cast<uint8_t>(-1);
     }
     else
     {
@@ -212,7 +212,6 @@ IOPCIDevice::MemoryRead64(uint8_t   memoryIndex,
     IOMemoryMap* deviceMemory = ivars->deviceMemoryMappings[memoryIndex];
     *readData = *reinterpret_cast<volatile uint64_t*>(deviceMemory->GetAddress() + offset);
 #else
-    uint64_t bounceData;
     if(_MemoryAccess(kPCIDriverKitMemoryAccessOperationDeviceRead | kPCIDriverKitMemoryAccessOperation64Bit | memoryIndex,
                      offset,
                      0,
@@ -220,7 +219,7 @@ IOPCIDevice::MemoryRead64(uint8_t   memoryIndex,
                      ivars->deviceClient,
                      0) != kIOReturnSuccess)
     {
-        *readData = -1;
+        *readData = static_cast<uint64_t>(-1);
     }
 #endif
 }
@@ -230,9 +229,9 @@ IOPCIDevice::MemoryRead32(uint8_t   memoryIndex,
                           uint64_t  offset,
                           uint32_t* readData)
 {
+#if TARGET_CPU_X86 || TARGET_CPU_X86_64
     IOMemoryMap* deviceMemory = ivars->deviceMemoryMappings[memoryIndex];
 
-#if TARGET_CPU_X86 || TARGET_CPU_X86_64
     if(   (deviceMemory == NULL)
        && (memoryIndex < ivars->numDeviceMemoryMappings))
     {
@@ -245,7 +244,7 @@ IOPCIDevice::MemoryRead32(uint8_t   memoryIndex,
                          ivars->deviceClient,
                          0) != kIOReturnSuccess)
         {
-            *readData = -1;
+            *readData = static_cast<uint32_t>(-1);
         }
         else
         {
@@ -265,7 +264,7 @@ IOPCIDevice::MemoryRead32(uint8_t   memoryIndex,
                      ivars->deviceClient,
                      0) != kIOReturnSuccess)
     {
-        *readData = -1;
+        *readData = static_cast<uint32_t>(-1);
     }
     else
     {
@@ -279,9 +278,9 @@ IOPCIDevice::MemoryRead16(uint8_t   memoryIndex,
                           uint64_t  offset,
                           uint16_t* readData)
 {
+#if TARGET_CPU_X86 || TARGET_CPU_X86_64
     IOMemoryMap* deviceMemory = ivars->deviceMemoryMappings[memoryIndex];
 
-#if TARGET_CPU_X86 || TARGET_CPU_X86_64
     if(   (deviceMemory == NULL)
        && (memoryIndex < ivars->numDeviceMemoryMappings))
     {
@@ -294,7 +293,7 @@ IOPCIDevice::MemoryRead16(uint8_t   memoryIndex,
                          ivars->deviceClient,
                          0) != kIOReturnSuccess)
         {
-            *readData = -1;
+            *readData = static_cast<uint16_t>(-1);
         }
         else
         {
@@ -314,7 +313,7 @@ IOPCIDevice::MemoryRead16(uint8_t   memoryIndex,
                      ivars->deviceClient,
                      0) != kIOReturnSuccess)
     {
-        *readData = -1;
+        *readData = static_cast<uint16_t>(-1);
     }
     else
     {
@@ -328,9 +327,9 @@ IOPCIDevice::MemoryRead8(uint8_t  memoryIndex,
                          uint64_t offset,
                          uint8_t* readData)
 {
+#if TARGET_CPU_X86 || TARGET_CPU_X86_64
     IOMemoryMap* deviceMemory = ivars->deviceMemoryMappings[memoryIndex];
 
-#if TARGET_CPU_X86 || TARGET_CPU_X86_64
     if(   (deviceMemory == NULL)
        && (memoryIndex < ivars->numDeviceMemoryMappings))
     {
@@ -343,7 +342,7 @@ IOPCIDevice::MemoryRead8(uint8_t  memoryIndex,
                          ivars->deviceClient,
                          0) != kIOReturnSuccess)
         {
-            *readData = -1;
+            *readData = static_cast<uint8_t>(-1);
         }
         else
         {
@@ -363,7 +362,7 @@ IOPCIDevice::MemoryRead8(uint8_t  memoryIndex,
                      ivars->deviceClient,
                      0) != kIOReturnSuccess)
     {
-        *readData = -1;
+        *readData = static_cast<uint8_t>(-1);
     }
     else
     {

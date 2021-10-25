@@ -208,6 +208,8 @@ void IOHIDResourceDeviceUserClient::stop(IOService * provider)
     _port = MACH_PORT_NULL;
 
 exit:
+    OSSafeReleaseNULL(_device);
+
     super::stop(provider);
 }
 
@@ -225,9 +227,6 @@ void IOHIDResourceDeviceUserClient::free()
 
     if ( _createDeviceTimer )
         _createDeviceTimer->release();
-    
-    if ( _device )
-        _device->release();
     
     if (_pending) {
         _pending->release();
@@ -486,7 +485,7 @@ IOReturn IOHIDResourceDeviceUserClient::createDevice(IOExternalMethodArguments *
     propertiesLength = propertiesDesc->getLength();
     require_action(propertiesLength, exit, result=kIOReturnNoResources);
     
-    propertiesData = IOMalloc(propertiesLength);
+    propertiesData = IOMallocData(propertiesLength);
     require_action(propertiesData, exit, result=kIOReturnNoMemory);
     
     result = propertiesDesc->prepare();
@@ -530,7 +529,7 @@ exit:
         object->release();
     
     if ( propertiesData && propertiesLength )
-        IOFree(propertiesData, propertiesLength);
+        IOFreeData(propertiesData, propertiesLength);
 
     if ( propertiesDesc )
         propertiesDesc->release();
@@ -562,7 +561,7 @@ void IOHIDResourceDeviceUserClient::ReportComplete(void *param, IOReturn res, UI
     args[0] = 0;
     
     sendAsyncResult64(pb->fAsyncRef, res, args, 0);
-    IOFree(pb, sizeof(*pb));
+    IOFreeType(pb, IOHIDResourceDeviceUserClientAsyncParamBlock);
     
     release();
 }
@@ -601,8 +600,7 @@ IOReturn IOHIDResourceDeviceUserClient::handleReport(IOExternalMethodArguments *
     } else {
         IOHIDCompletion tap;
         
-        IOHIDResourceDeviceUserClientAsyncParamBlock *pb =
-        (IOHIDResourceDeviceUserClientAsyncParamBlock *)IOMalloc(sizeof(IOHIDResourceDeviceUserClientAsyncParamBlock));
+        IOHIDResourceDeviceUserClientAsyncParamBlock *pb = IOMallocType(IOHIDResourceDeviceUserClientAsyncParamBlock);
         
         if (!pb) {
             report->release();
@@ -623,7 +621,7 @@ IOReturn IOHIDResourceDeviceUserClient::handleReport(IOExternalMethodArguments *
         report->release();
         
         if (ret != kIOReturnSuccess) {
-            IOFree(pb, sizeof(*pb));
+            IOFreeType(pb, IOHIDResourceDeviceUserClientAsyncParamBlock);
             release();
         }
     }

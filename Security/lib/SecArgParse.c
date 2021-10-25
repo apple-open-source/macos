@@ -23,6 +23,7 @@
 
 #define __STDC_WANT_LIB_EXT1__ 1
 #include <string.h>
+#import <Security/SecInternalReleasePriv.h>
 
 #include "SecArgParse.h"
 
@@ -30,6 +31,7 @@
 //  If flag is set and argument is not, it has no_argument
 //  If flag is set and argument is set, it is optional_argument
 //  If flag is not set and argument is set, it is required_argument
+//  if argument_array is set, it is required_argument
 //  If flag is not set and argument is not set, what are you doing? There's no output.
 
 static int argument_status(struct argument* option) {
@@ -39,7 +41,8 @@ static int argument_status(struct argument* option) {
     return (!!(option->flag) &&  !(option->argument) ? no_argument :
             (!!(option->flag) && !!(option->argument) ? optional_argument :
              ( !(option->flag) && !!(option->argument) ? required_argument :
-              no_argument)));
+              (option->argument_array != NULL ? required_argument :
+               no_argument))));
 }
 
 static bool fill_long_option_array(struct argument* options, size_t noptions, struct option long_options[], size_t nloptions) {
@@ -47,6 +50,10 @@ static bool fill_long_option_array(struct argument* options, size_t noptions, st
     size_t longi = 0;
 
     for(i = 0; i <= noptions; i++) {
+        if(options[i].internal_only && !SecIsInternalRelease()) {
+            continue;
+        }
+
         if(longi >= nloptions) {
             return false;
         }
@@ -75,6 +82,10 @@ static bool fill_long_option_array(struct argument* options, size_t noptions, st
 static bool fill_short_option_array(struct argument* options, size_t noptions, char* short_options, size_t nshort_options) {
     size_t index = 0;
     for(size_t i = 0; i < noptions; i++) {
+        if(options[i].internal_only && !SecIsInternalRelease()) {
+            continue;
+        }
+
         if(options[i].shortname != '\0') {
             if(index >= nshort_options) {
                 return false;
@@ -101,6 +112,14 @@ static void trigger(struct argument option, char* argument) {
     }
     if(option.argument) {
         asprintf(option.argument, "%.1048576s", argument);
+    }
+    if(option.argument_array != NULL) {
+        size_t old_array_size = *(option.argument_array_count);
+
+        *(option.argument_array) = (char**)realloc(*(option.argument_array), (old_array_size+1) * sizeof(char*));
+        asprintf(&((*(option.argument_array))[old_array_size]), "%.1048576s", argument);
+
+        *(option.argument_array_count) = (old_array_size + 1);
     }
 }
 
@@ -248,6 +267,10 @@ void print_usage(struct arguments* args) {
 
     // Print all short options
     for(size_t i = 0; i < num_args; i++) {
+        if(args->arguments[i].internal_only && !SecIsInternalRelease()) {
+            continue;
+        }
+
         if(args->arguments[i].shortname) {
             printf(" [-%c", args->arguments[i].shortname);
 
@@ -261,6 +284,10 @@ void print_usage(struct arguments* args) {
 
     // Print all long args->arguments that don't have short args->arguments
     for(size_t i = 0; i < num_args; i++) {
+        if(args->arguments[i].internal_only && !SecIsInternalRelease()) {
+            continue;
+        }
+
         if(args->arguments[i].longname && !args->arguments[i].shortname) {
 
             printf(" [--%s", args->arguments[i].longname);
@@ -275,6 +302,10 @@ void print_usage(struct arguments* args) {
 
     // Print all commands
     for(size_t i = 0; i < num_args; i++) {
+        if(args->arguments[i].internal_only && !SecIsInternalRelease()) {
+            continue;
+        }
+
         if(args->arguments[i].command) {
             printf(" [%s]", args->arguments[i].command);
         }
@@ -282,6 +313,10 @@ void print_usage(struct arguments* args) {
 
     // Print all positional arguments
     for(size_t i = 0; i < num_args; i++) {
+        if(args->arguments[i].internal_only && !SecIsInternalRelease()) {
+            continue;
+        }
+
         if(args->arguments[i].positional_name) {
             if(args->arguments[i].positional_optional) {
                 printf(" [<%s>]", args->arguments[i].positional_name);
@@ -299,6 +334,10 @@ void print_usage(struct arguments* args) {
 
     printf("\npositional arguments:\n");
     for(size_t i = 0; i < num_args; i++) {
+        if(args->arguments[i].internal_only && !SecIsInternalRelease()) {
+            continue;
+        }
+
         if(args->arguments[i].positional_name) {
             printf("  %-31s %s\n", args->arguments[i].positional_name, args->arguments[i].description);
         }
@@ -307,6 +346,10 @@ void print_usage(struct arguments* args) {
     printf("\noptional arguments:\n");
     // List all short args->arguments
     for(size_t i = 0; i < num_args; i++) {
+        if(args->arguments[i].internal_only && !SecIsInternalRelease()) {
+            continue;
+        }
+
         if(args->arguments[i].shortname) {
             if(!args->arguments[i].longname) {
 
@@ -338,15 +381,28 @@ void print_usage(struct arguments* args) {
 
     // List all long args->arguments
     for(size_t i = 0; i < num_args; i++) {
+        if(args->arguments[i].internal_only && !SecIsInternalRelease()) {
+            continue;
+        }
+
         if(args->arguments[i].longname && !args->arguments[i].shortname) {
             if(argument_status(&args->arguments[i]) != no_argument) {
-                printf("  --%s %-*s %s\n",
-                       args->arguments[i].longname,
-                       28 - (int) strlen(args->arguments[i].longname),
-                       args->arguments[i].argname ? args->arguments[i].argname : "arg",
-                       args->arguments[i].description);
+
+                char longname_arg[30];
+                char description[128];
+
+                if(args->arguments[i].argument_array != NULL) {
+                    // This is a repeatable argument; add the helper text tags
+                    snprintf(longname_arg, 30, "%s %s...", args->arguments[i].longname, args->arguments[i].argname ? args->arguments[i].argname : "arg");
+                    snprintf(description, 128, "%s [repeatable]", args->arguments[i].description);
+                } else {
+                    snprintf(longname_arg, 30, "%s %s", args->arguments[i].longname, args->arguments[i].argname ? args->arguments[i].argname : "arg");
+                    snprintf(description, 128, "%s", args->arguments[i].description);
+                }
+
+                printf("  --%-28s %s\n", longname_arg, description);
             } else {
-                printf("  --%-29s %s\n", args->arguments[i].longname, args->arguments[i].description);
+                printf("  --%-28s %s\n", args->arguments[i].longname, args->arguments[i].description);
             }
         }
     }
@@ -354,6 +410,10 @@ void print_usage(struct arguments* args) {
     printf("\noptional commands:\n");
     // Print all commands
     for(size_t i = 0; i < num_args; i++) {
+        if(args->arguments[i].internal_only && !SecIsInternalRelease()) {
+            continue;
+        }
+
         if(args->arguments[i].command) {
             printf("  %-30s %s\n", args->arguments[i].command, args->arguments[i].description);
         }

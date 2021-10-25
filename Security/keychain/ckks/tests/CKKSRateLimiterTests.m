@@ -249,8 +249,8 @@
     NSDate *date = [NSDate date];
     NSDate *limit = nil;
     int trimSize = [self get:[self.rl config] key:@"trimSize"];
-    //int rateAll = [self get:[self.rl config] key:@"rateAll"];;
-    unsigned overloadDuration = [self getUnsigned:[self.rl config] key:@"overloadDuration"];;
+    //int rateAll = [self get:[self.rl config] key:@"rateAll"];
+    unsigned overloadDuration = [self getUnsigned:[self.rl config] key:@"overloadDuration"];
 
     for (int idx = 0; idx < (trimSize / 2); ++idx) {
         self.oqe.accessgroup = [NSString stringWithFormat:@"%d", idx];

@@ -31,6 +31,7 @@
 #import "keychain/ckks/CKKSControl.h"
 #import "keychain/ckks/CKKSControlProtocol.h"
 #import "keychain/ckks/CKKSControlServer.h"
+#import "keychain/ckks/CKKSExternalTLKClient.h"
 #import "utilities/debugging.h"
 
 @interface CKKSControl ()
@@ -135,24 +136,13 @@
         reply(error);
     }];
 }
-- (void)rpcFetchAndProcessChanges:(NSString*)viewName reply:(void(^)(NSError* error))reply {
+
+- (void)rpcFetchAndProcessChanges:(NSString*)viewName classA:(bool)classAError onlyIfNoRecentFetch:(bool)onlyIfNoRecentFetch reply:(void(^)(NSError* error))reply
+{
     secnotice("ckkscontrol", "Requesting a fetch for view %@", viewName);
     [[self objectProxyWithErrorHandler:^(NSError* error) {
         reply(error);
-    }] rpcFetchAndProcessChanges:viewName reply:^(NSError* error){
-        if(error) {
-            secnotice("ckkscontrol", "Fetch(classA) finished with error: %@", error);
-        } else {
-            secnotice("ckkscontrol", "Fetch(classA) finished successfully");
-        }
-        reply(error);
-    }];
-}
-- (void)rpcFetchAndProcessClassAChanges:(NSString*)viewName reply:(void(^)(NSError* error))reply {
-    secnotice("ckkscontrol", "Requesting a fetch(classA) for view %@", viewName);
-    [[self objectProxyWithErrorHandler:^(NSError* error) {
-        reply(error);
-    }] rpcFetchAndProcessClassAChanges:viewName reply:^(NSError* error){
+    }] rpcFetchAndProcessChanges:viewName classA:classAError onlyIfNoRecentFetch:onlyIfNoRecentFetch reply:^(NSError* error){
         if(error) {
             secnotice("ckkscontrol", "Fetch finished with error: %@", error);
         } else {
@@ -161,6 +151,16 @@
         reply(error);
     }];
 }
+- (void)rpcFetchAndProcessChanges:(NSString*)viewName reply:(void(^)(NSError* error))reply {
+    [self rpcFetchAndProcessChanges:viewName classA:false onlyIfNoRecentFetch:false reply:reply];
+}
+- (void)rpcFetchAndProcessChangesIfNoRecentFetch:(NSString*)viewName reply:(void(^)(NSError* error))reply {
+    [self rpcFetchAndProcessChanges:viewName classA:false onlyIfNoRecentFetch:true reply:reply];
+}
+- (void)rpcFetchAndProcessClassAChanges:(NSString*)viewName reply:(void(^)(NSError* error))reply {
+    [self rpcFetchAndProcessChanges:viewName classA:true onlyIfNoRecentFetch:false reply:reply];
+}
+
 - (void)rpcPushOutgoingChanges:(NSString*)viewName reply:(void(^)(NSError* error))reply {
     secnotice("ckkscontrol", "Requesting a push for view %@", viewName);
     [[self objectProxyWithErrorHandler:^(NSError* error) {
@@ -265,6 +265,69 @@
 
         reply(response);
     }];
+}
+
+- (void)proposeTLKForSEView:(NSString*)seViewName
+                proposedTLK:(CKKSExternalKey *)proposedTLK
+              wrappedOldTLK:(CKKSExternalKey * _Nullable)wrappedOldTLK
+                  tlkShares:(NSArray<CKKSExternalTLKShare*>*)shares
+                      reply:(void(^)(NSError* _Nullable error))reply
+{
+    [[self objectProxyWithErrorHandler:^(NSError * _Nonnull error) {
+        reply(error);
+    }] proposeTLKForSEView:seViewName
+               proposedTLK:proposedTLK
+             wrappedOldTLK:wrappedOldTLK
+                 tlkShares:shares
+                     reply:reply];
+}
+
+- (void)fetchSEViewKeyHierarchy:(NSString*)seViewName
+                          reply:(void (^)(CKKSExternalKey* _Nullable currentTLK,
+                                          NSArray<CKKSExternalKey*>* _Nullable pastTLKs,
+                                          NSArray<CKKSExternalTLKShare*>* _Nullable currentTLKShares,
+                                          NSError* _Nullable error))reply
+{
+    [self fetchSEViewKeyHierarchy:seViewName
+                       forceFetch:YES
+                            reply:reply];
+}
+
+- (void)fetchSEViewKeyHierarchy:(NSString*)seViewName
+                     forceFetch:(BOOL)forceFetch
+                          reply:(void (^)(CKKSExternalKey* _Nullable currentTLK,
+                                          NSArray<CKKSExternalKey*>* _Nullable pastTLKs,
+                                          NSArray<CKKSExternalTLKShare*>* _Nullable currentTLKShares,
+                                          NSError* _Nullable error))reply
+{
+    [[self objectProxyWithErrorHandler:^(NSError * _Nonnull error) {
+        reply(nil, nil, nil, error);
+    }] fetchSEViewKeyHierarchy:seViewName forceFetch:forceFetch reply:reply];
+}
+
+- (void)modifyTLKSharesForSEView:(NSString*)seViewName
+                          adding:(NSArray<CKKSExternalTLKShare*>*)sharesToAdd
+                        deleting:(NSArray<CKKSExternalTLKShare*>*)sharesToDelete
+                          reply:(void (^)(NSError* _Nullable error))reply
+{
+    [[self objectProxyWithErrorHandler:^(NSError * _Nonnull error) {
+        reply(error);
+    }] modifyTLKSharesForSEView:seViewName adding:sharesToAdd deleting:sharesToDelete reply:reply];
+}
+
+- (void)deleteSEView:(NSString*)seViewName
+              reply:(void (^)(NSError* _Nullable error))reply
+{
+    [[self objectProxyWithErrorHandler:^(NSError * _Nonnull error) {
+        reply(error);
+    }] deleteSEView:seViewName reply:reply];
+}
+
+- (void)toggleHavoc:(void (^)(BOOL havoc, NSError* _Nullable error))reply
+{
+    [[self objectProxyWithErrorHandler:^(NSError * _Nonnull error) {
+        reply(NO, error);
+    }] toggleHavoc:reply];
 }
 
 + (CKKSControl*)controlObject:(NSError* __autoreleasing *)error {

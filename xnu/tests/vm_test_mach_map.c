@@ -27,8 +27,11 @@
 #include <mach/shared_region.h>
 #include <machine/cpu_capabilities.h>
 
-T_GLOBAL_META(T_META_NAMESPACE("xnu.vm"),
-    T_META_RUN_CONCURRENTLY(true));
+T_GLOBAL_META(
+	T_META_NAMESPACE("xnu.vm"),
+	T_META_RADAR_COMPONENT_NAME("xnu"),
+	T_META_RADAR_COMPONENT_VERSION("VM"),
+	T_META_RUN_CONCURRENTLY(true));
 
 static void
 test_memory_entry_tagging(int override_tag)
@@ -556,6 +559,7 @@ T_DECL(purgeable_empty_to_volatile, "test task physical footprint when \
 
 T_DECL(madvise_shared, "test madvise shared for rdar://problem/2295713 logging \
     rethink needs madvise(MADV_FREE_HARDER)",
+    T_META_RUN_CONCURRENTLY(false),
     T_META_ALL_VALID_ARCHS(true))
 {
 	vm_address_t            vmaddr = 0, vmaddr2 = 0;
@@ -1668,7 +1672,8 @@ T_DECL(copyoverwrite_submap_protection, "test copywrite vm region submap \
 		    vmaddr,
 		    vmsize,
 		    vmaddr);
-		if (kr == KERN_PROTECTION_FAILURE) {
+		if (kr == KERN_PROTECTION_FAILURE ||
+		    kr == KERN_INVALID_ADDRESS) {
 			T_PASS("vm_copy(0x%llx,0x%llx) expected prot error 0x%x (%s)",
 			    vmaddr, vmsize, kr, mach_error_string(kr));
 			continue;

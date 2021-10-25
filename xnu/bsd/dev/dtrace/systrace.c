@@ -391,7 +391,8 @@ systrace_init(const struct sysent *actual, systrace_sysent_t **interposed)
 	}
 
 	for (i = 0; i < NSYSCALL; i++) {
-		const struct sysent *a = &actual[i];
+		/* Use of volatile protects the if statement below from being optimized away */
+		const volatile struct sysent *a = &actual[i];
 		systrace_sysent_t *s = &ssysent[i];
 
 		if (LOADABLE_SYSCALL(a) && !LOADED_SYSCALL(a)) {
@@ -761,7 +762,7 @@ machtrace_init(const mach_trap_t *actual, machtrace_sysent_t **interposed)
 	}
 
 	for (i = 0; i < NSYSCALL; i++) {
-		const mach_trap_t *a = &actual[i];
+		const volatile mach_trap_t *a = &actual[i];
 		machtrace_sysent_t *s = &msysent[i];
 
 		if (LOADABLE_SYSCALL(a) && !LOADED_SYSCALL(a)) {

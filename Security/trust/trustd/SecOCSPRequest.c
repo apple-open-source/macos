@@ -95,13 +95,14 @@ static CFDataRef _SecOCSPRequestCopyDEREncoding(SecOCSPRequestRef this) {
     issuerNameDigest = SecCertificateCopyIssuerSHA1Digest(this->certificate);
     issuerPubKeyDigest = SecCertificateCopyPublicKeySHA1Digest(this->issuer);
     serial = SecCertificateCopySerialNumberData(this->certificate, NULL);
+    require(CFDataGetLength(serial) > 0, errOut);
 
 	/* build the CertID from those components */
 	certId->issuerNameHash.Length = CC_SHA1_DIGEST_LENGTH;
 	certId->issuerNameHash.Data = (uint8_t *)CFDataGetBytePtr(issuerNameDigest);
 	certId->issuerPubKeyHash.Length = CC_SHA1_DIGEST_LENGTH;
 	certId->issuerPubKeyHash.Data = (uint8_t *)CFDataGetBytePtr(issuerPubKeyDigest);
-	certId->serialNumber.Length = CFDataGetLength(serial);
+	certId->serialNumber.Length = (size_t)CFDataGetLength(serial);
 	certId->serialNumber.Data = (uint8_t *)CFDataGetBytePtr(serial);
 
 	/* Build top level request with one entry in requestList, no signature,
@@ -114,8 +115,8 @@ static CFDataRef _SecOCSPRequestCopyDEREncoding(SecOCSPRequestRef this) {
     SecAsn1Item encoded;
 	require_noerr(SecAsn1EncodeItem(coder, &signedReq,
         kSecAsn1OCSPSignedRequestTemplate, &encoded), errOut);
-    der = CFDataCreate(kCFAllocatorDefault, encoded.Data,
-        encoded.Length);
+    require(encoded.Length < LONG_MAX, errOut);
+    der = CFDataCreate(kCFAllocatorDefault, encoded.Data, (CFIndex)encoded.Length);
 
 errOut:
     if (coder)

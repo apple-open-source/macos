@@ -660,6 +660,7 @@
 		448D7E351EA5C3B700ECC756 /* libxml2.a.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; path = libxml2.a.xcconfig; sourceTree = "<group>"; };
 		448D7E421EA5CC4100ECC756 /* empty.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = empty.c; sourceTree = "<group>"; };
 		4491DFC61CE67BB100002B02 /* libxml.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = libxml.h; path = libxml2/libxml.h; sourceTree = SOURCE_ROOT; };
+		44A55317268CD64300B8E5CC /* enc.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = enc.h; path = libxml2/enc.h; sourceTree = SOURCE_ROOT; };
 		44B1E3281C4EDAA40064124E /* xzlib.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = xzlib.c; sourceTree = "<group>"; };
 		44B1E3291C4EDAD10064124E /* xzlib.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = xzlib.h; path = libxml2/xzlib.h; sourceTree = SOURCE_ROOT; };
 		44C0436223DA54010076CBB2 /* globalsCompat.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = globalsCompat.h; sourceTree = "<group>"; };
@@ -1180,6 +1181,7 @@
 				5D58B06D14F8261200BE69D8 /* debugXML.h */,
 				5D58B06E14F8261200BE69D8 /* dict.h */,
 				5D58B06F14F8261200BE69D8 /* DOCBparser.h */,
+				44A55317268CD64300B8E5CC /* enc.h */,
 				5D58B07014F8261200BE69D8 /* encoding.h */,
 				5D58B07114F8261200BE69D8 /* entities.h */,
 				5D58B07214F8261200BE69D8 /* globals.h */,

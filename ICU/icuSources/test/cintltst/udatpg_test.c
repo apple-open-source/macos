@@ -45,9 +45,12 @@ static void TestUsage(void);
 static void TestBuilder(void);
 static void TestOptions(void);
 static void TestGetFieldDisplayNames(void);
+static void TestGetDefaultHourCycle(void);
+static void TestGetDefaultHourCycleOnEmptyInstance(void);
 static void TestJapaneseCalendarItems(void); // rdar://52042600
 static void TestCountryFallback(void);  // rdar://problem/26911014
 static void TestEras(void);
+static void TestAdlam(void);
 
 void addDateTimePatternGeneratorTest(TestNode** root) {
     TESTCASE(TestOpenClose);
@@ -55,9 +58,12 @@ void addDateTimePatternGeneratorTest(TestNode** root) {
     TESTCASE(TestBuilder);
     TESTCASE(TestOptions);
     TESTCASE(TestGetFieldDisplayNames);
+    TESTCASE(TestGetDefaultHourCycle);
+    TESTCASE(TestGetDefaultHourCycleOnEmptyInstance);
     TESTCASE(TestJapaneseCalendarItems);
     TESTCASE(TestCountryFallback);
     TESTCASE(TestEras);
+    TESTCASE(TestAdlam);
 }
 
 /*
@@ -524,6 +530,72 @@ static void TestGetFieldDisplayNames() {
     }
 }
 
+typedef struct HourCycleData {
+    const char *         locale;
+    UDateFormatHourCycle   expected;
+} HourCycleData;
+
+static void TestGetDefaultHourCycle() {
+    const HourCycleData testData[] = {
+        /*loc      expected */
+        { "ar_EG",    UDAT_HOUR_CYCLE_12 },
+        { "de_DE",    UDAT_HOUR_CYCLE_23 },
+        { "en_AU",    UDAT_HOUR_CYCLE_12 },
+        { "en_CA",    UDAT_HOUR_CYCLE_12 },
+        { "en_US",    UDAT_HOUR_CYCLE_12 },
+        { "es_ES",    UDAT_HOUR_CYCLE_23 },
+        { "fi",       UDAT_HOUR_CYCLE_23 },
+        { "fr",       UDAT_HOUR_CYCLE_23 },
+        { "ja_JP",    UDAT_HOUR_CYCLE_23 },
+        { "zh_CN",    UDAT_HOUR_CYCLE_12 },
+        { "zh_HK",    UDAT_HOUR_CYCLE_12 },
+        { "zh_TW",    UDAT_HOUR_CYCLE_12 },
+        { "ko_KR",    UDAT_HOUR_CYCLE_12 },
+    };
+    int count = UPRV_LENGTHOF(testData);
+    const HourCycleData * testDataPtr = testData;
+    for (; count-- > 0; ++testDataPtr) {
+        UErrorCode status = U_ZERO_ERROR;
+        UDateTimePatternGenerator * dtpgen =
+            udatpg_open(testDataPtr->locale, &status);
+        if ( U_FAILURE(status) ) {
+            log_data_err( "ERROR udatpg_open failed for locale %s : %s - (Are you missing data?)\n",
+                         testDataPtr->locale, myErrorName(status));
+        } else {
+            UDateFormatHourCycle actual = udatpg_getDefaultHourCycle(dtpgen, &status);
+            if (U_FAILURE(status) || testDataPtr->expected != actual) {
+                log_err("ERROR dtpgen locale %s udatpg_getDefaultHourCycle expecte to get %d but get %d\n",
+                        testDataPtr->locale, testDataPtr->expected, actual);
+            }
+            udatpg_close(dtpgen);
+        }
+    }
+}
+
+// Ensure that calling udatpg_getDefaultHourCycle on an empty instance doesn't call UPRV_UNREACHABLE/abort.
+static void TestGetDefaultHourCycleOnEmptyInstance() {
+    UErrorCode status = U_ZERO_ERROR;
+    UDateTimePatternGenerator * dtpgen = udatpg_openEmpty(&status);
+
+    if (U_FAILURE(status)) {
+        log_data_err("ERROR udatpg_openEmpty failed, status: %s \n", myErrorName(status));
+        return;
+    }
+
+    (void)udatpg_getDefaultHourCycle(dtpgen, &status);
+    if (!U_FAILURE(status)) {
+        log_data_err("ERROR expected udatpg_getDefaultHourCycle on an empty instance to fail, status: %s", myErrorName(status));
+    }
+
+    status = U_USELESS_COLLATOR_ERROR;
+    (void)udatpg_getDefaultHourCycle(dtpgen, &status);
+    if (status != U_USELESS_COLLATOR_ERROR) {
+        log_data_err("ERROR udatpg_getDefaultHourCycle shouldn't modify status if it is already failed, status: %s", myErrorName(status));
+    }
+
+    udatpg_close(dtpgen);
+}
+
 enum { kUFmtMax = 64, kBFmtMax = 128 };
 static void TestJapaneseCalendarItems(void) { // rdar://52042600
     static const UChar* jaJpnCalSkelAndFmt[][2] = {
@@ -644,7 +716,7 @@ static void TestCountryFallback(void) {
         u"sr_Cyrl_SA", u"Ejm", u"EEE hh:mm a",
         u"ru_Cyrl_BA", u"Ejm", u"EEE HH:mm",
         // And these are just a few additional arbitrary combinations:
-        u"ja_US", u"Ejm", u"EEE aK:mm",
+        u"ja_US", u"Ejm", u"EEE ah:mm",
         u"fr_DE", u"Ejm", u"EEE HH:mm",
         u"es_TW", u"Ejm", u"EEE, h:mm a",
         // Test to make sure that nothing goes wrong if language and country fallback both lead to the same resource
@@ -658,7 +730,10 @@ static void TestCountryFallback(void) {
         u"th_TH@calendar=gregorian", u"Gy", u"G y",
         u"th_TH@calendar=gregorian", u"y", u"y",
         u"th_US", u"Gy", u"G y",
-        u"th_US", u"y", u"y"
+        u"th_US", u"y", u"y",
+
+        // Piggybacking on here, some tests that are not actually about region fallback
+        u"uk", u"yMMMd", u"d MMM y 'р'." // rdar://70781056
     };
     
     for (int32_t i = 0; i < (sizeof(testData) / sizeof(UChar*)); i += 3) {
@@ -716,6 +791,29 @@ static void TestEras(void) {
         }
         udatpg_close(dtpg);
     }
+}
+
+// Test for rdar://80593890
+static void TestAdlam(void) {
+    UErrorCode err = U_ZERO_ERROR;
+    UDateTimePatternGenerator* dtpg = udatpg_open("ff_Adlm", &err);
+    if (U_FAILURE(err)) {
+        log_data_err("udatpg_open failed for locale ff_Adlm: %s\n", u_errorName(err));
+        return;
+    }
+    static const UChar* uexpect = u"EEE⹁ d MMM";
+    UChar upattern[kUFmtMax];
+    udatpg_getBestPattern(dtpg, u"MMMEd", -1, upattern, kUFmtMax, &err);
+    if (U_FAILURE(err)) {
+        log_err("udatpg_getBestPattern failed for locale ff_Adlm, pattern MMMEd: %s\n", u_errorName(err));
+    } else if (u_strcmp(upattern, uexpect) != 0) {
+        char bexpect[kBFmtMax];
+        char bpattern[kBFmtMax];
+        u_austrcpy(bexpect, uexpect);
+        u_austrcpy(bpattern, upattern);
+        log_err("udatpg_getBestPattern for locale ff_Adlm, pattern MMMEd: expected \"%s\", got \"%s\"\n", bexpect, bpattern);
+    }
+    udatpg_close(dtpg);
 }
 
 #endif

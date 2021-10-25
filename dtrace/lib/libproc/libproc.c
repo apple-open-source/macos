@@ -287,7 +287,7 @@ destroy_attr:
 			return NULL;
 		}
 #endif /* DTRACE_TARGET_APPLE_MAC */
-		*perr = task_for_pid(mach_task_self(), pid, &task);
+		*perr = task_read_for_pid(mach_task_self(), pid, &task);
 		if (*perr == KERN_SUCCESS) {
 			proc = createProcAndSymbolicator(pid, task, perr, false);
 		} else {
@@ -366,7 +366,7 @@ struct ps_prochandle *Pgrab(pid_t pid, int flags, int *perr) {
 	if (flags & PGRAB_RDONLY || (0 == flags)) {	
 		task_t task;
 
-		*perr = task_for_pid(mach_task_self(), pid, &task);
+		*perr = task_read_for_pid(mach_task_self(), pid, &task);
 		if (*perr == KERN_SUCCESS) {
 			if (0 == (flags & PGRAB_RDONLY))
 				(void)task_suspend(task);

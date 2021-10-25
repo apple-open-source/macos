@@ -58,7 +58,6 @@ static NSString* kRampPriorityKey =         @"RampPriority";
 
 @property (nonatomic, strong) NSString      *recordName;
 @property (nonatomic, strong) NSString      *localSettingName;
-@property (nonatomic, strong) CKRecordID    *recordID;
 
 @property (nonatomic, strong) CKKSAccountStateTracker *accountTracker;
 @property (nonatomic, strong) CKKSLockStateTracker      *lockStateTracker;
@@ -106,28 +105,18 @@ fetchRecordRecordsOperationClass:(Class<CKKSFetchRecordsOperation>) fetchRecordR
 
 -(void)fetchRampRecord:(CKOperationDiscretionaryNetworkBehavior)networkBehavior reply:(void (^)(BOOL featureAllowed, BOOL featurePromoted, BOOL featureVisible, NSInteger retryAfter, NSError *rampStateFetchError))recordRampStateFetchCompletionBlock
 {
-    __weak __typeof(self) weakSelf = self;
-
     CKOperationConfiguration *opConfig = [[CKOperationConfiguration alloc] init];
     opConfig.allowsCellularAccess = YES;
     opConfig.discretionaryNetworkBehavior = networkBehavior;
     opConfig.isCloudKitSupportOperation = YES;
 
-    _recordID = [[CKRecordID alloc] initWithRecordName:_recordName zoneID:_zoneID];
-    CKFetchRecordsOperation *operation = [[[self.fetchRecordRecordsOperationClass class] alloc] initWithRecordIDs:@[ _recordID]];
+    CKRecordID *recordID = [[CKRecordID alloc] initWithRecordName:_recordName zoneID:_zoneID];
+    CKFetchRecordsOperation *operation = [[[self.fetchRecordRecordsOperationClass class] alloc] initWithRecordIDs:@[ recordID]];
 
     operation.desiredKeys = @[kFeatureAllowedKey, kFeaturePromotedKey, kFeatureVisibleKey, kRetryAfterKey];
     
     operation.configuration = opConfig;
     operation.fetchRecordsCompletionBlock = ^(NSDictionary<CKRecordID *,CKRecord *> * _Nullable recordsByRecordID, NSError * _Nullable operationError) {
-        __strong __typeof(weakSelf) strongSelf = weakSelf;
-        if(!strongSelf) {
-            secnotice("octagon", "received callback for released object");
-            operationError = [NSError errorWithDomain:OctagonErrorDomain code:OTErrorCKCallback userInfo:@{NSLocalizedDescriptionKey: @"Received callback for released object"}];
-            recordRampStateFetchCompletionBlock(NO, NO, NO, kCKRampManagerDefaultRetryTimeInSeconds , operationError);
-            return;
-        }
-
         BOOL featureAllowed = NO;
         BOOL featurePromoted = NO;
         BOOL featureVisible = NO;
@@ -135,7 +124,7 @@ fetchRecordRecordsOperationClass:(Class<CKKSFetchRecordsOperation>) fetchRecordR
 
         secnotice("octagon", "Fetch operation records %@ fetchError %@", recordsByRecordID, operationError);
         // There should only be only one record.
-        CKRecord *rampRecord = recordsByRecordID[strongSelf.recordID];
+        CKRecord *rampRecord = recordsByRecordID[recordID];
 
         if (rampRecord) {
             featureAllowed = [rampRecord[kFeatureAllowedKey] boolValue];
@@ -146,7 +135,7 @@ fetchRecordRecordsOperationClass:(Class<CKKSFetchRecordsOperation>) fetchRecordR
             secnotice("octagon", "Fetch ramp state - featureAllowed %@, featurePromoted: %@, featureVisible: %@, retryAfter: %ld", (featureAllowed ? @YES : @NO), (featurePromoted ? @YES : @NO), (featureVisible ? @YES : @NO), (long)retryAfter);
         } else {
             secerror("octagon: Couldn't find CKRecord for ramp. Defaulting to not ramped in");
-            operationError = [NSError errorWithDomain:OctagonErrorDomain code:OTErrorRecordNotFound userInfo:@{NSLocalizedDescriptionKey: @" Couldn't find CKRecord for ramp. Defaulting to not ramped in"}];
+            operationError = [NSError errorWithDomain:OctagonErrorDomain code:OctagonErrorRecordNotFound userInfo:@{NSLocalizedDescriptionKey: @" Couldn't find CKRecord for ramp. Defaulting to not ramped in"}];
         }
         recordRampStateFetchCompletionBlock(featureAllowed, featurePromoted, featureVisible, retryAfter, operationError);
     };
@@ -200,7 +189,7 @@ fetchRecordRecordsOperationClass:(Class<CKKSFetchRecordsOperation>) fetchRecordR
     if(self.accountTracker.currentCKAccountInfo.accountStatus != CKAccountStatusAvailable){
         secnotice("octagon","not signed in! can't check ramp state");
         localError = [NSError errorWithDomain:OctagonErrorDomain
-                                         code:OTErrorNotSignedIn
+                                         code:OctagonErrorNotSignedIn
                                      userInfo:@{NSLocalizedDescriptionKey: @"not signed in"}];
         if(error){
             *error = localError;
@@ -210,7 +199,7 @@ fetchRecordRecordsOperationClass:(Class<CKKSFetchRecordsOperation>) fetchRecordR
     if(!self.reachabilityTracker.currentReachability){
         secnotice("octagon","no network! can't check ramp state");
         localError = [NSError errorWithDomain:OctagonErrorDomain
-                                         code:OTErrorNoNetwork
+                                         code:OctagonErrorNoNetwork
                                      userInfo:@{NSLocalizedDescriptionKey: @"no network"}];
         if(error){
             *error = localError;
@@ -239,7 +228,7 @@ fetchRecordRecordsOperationClass:(Class<CKKSFetchRecordsOperation>) fetchRecordR
     int64_t timeout = (int64_t)(SecCKKSTestsEnabled() ? 2*NSEC_PER_SEC : NSEC_PER_SEC * 65);
     if(dispatch_semaphore_wait(sema, dispatch_time(DISPATCH_TIME_NOW, timeout)) != 0) {
         secnotice("octagon", "timed out waiting for response from CloudKit\n");
-        localError = [NSError errorWithDomain:OctagonErrorDomain code:OTErrorCKTimeOut userInfo:@{NSLocalizedDescriptionKey: @"timed out waiting for response from CloudKit"}];
+        localError = [NSError errorWithDomain:OctagonErrorDomain code:OctagonErrorCKTimeOut userInfo:@{NSLocalizedDescriptionKey: @"timed out waiting for response from CloudKit"}];
 
         [logger logUnrecoverableError:localError forEvent:OctagonEventRamp withAttributes:@{
                                                                                             OctagonEventAttributeFailureReason : @"cloud kit timed out"}

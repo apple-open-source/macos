@@ -25,6 +25,7 @@
 #if __OBJC2__
 
 #import <Foundation/Foundation.h>
+#import <Security/CKKSExternalTLKClient.h>
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -53,6 +54,7 @@ typedef NS_ENUM(NSUInteger, CKKSKnownBadState) {
 - (void)rpcResyncLocal:(NSString* _Nullable)viewName reply:(void (^)(NSError* _Nullable error))reply;
 - (void)rpcResync:(NSString* _Nullable)viewName reply:(void (^)(NSError* _Nullable error))reply;
 - (void)rpcFetchAndProcessChanges:(NSString* _Nullable)viewName reply:(void (^)(NSError* _Nullable error))reply;
+- (void)rpcFetchAndProcessChangesIfNoRecentFetch:(NSString* _Nullable)viewName reply:(void (^)(NSError* _Nullable error))reply;
 - (void)rpcFetchAndProcessClassAChanges:(NSString* _Nullable)viewName reply:(void (^)(NSError* _Nullable error))reply;
 - (void)rpcPushOutgoingChanges:(NSString* _Nullable)viewName reply:(void (^)(NSError* _Nullable error))reply;
 - (void)rpcCKMetric:(NSString *)eventName attributes:(NSDictionary *)attributes reply:(void(^)(NSError* error))reply;
@@ -63,6 +65,38 @@ typedef NS_ENUM(NSUInteger, CKKSKnownBadState) {
 // convenience wrapper for rpcStatus:reply:
 - (void)rpcTLKMissing:(NSString* _Nullable)viewName reply:(void (^)(bool missing))reply;
 - (void)rpcKnownBadState:(NSString* _Nullable)viewName reply:(void (^)(CKKSKnownBadState))reply;
+
+- (void)proposeTLKForSEView:(NSString*)seViewName
+                proposedTLK:(CKKSExternalKey *)proposedTLK
+              wrappedOldTLK:(CKKSExternalKey * _Nullable)wrappedOldTLK
+                  tlkShares:(NSArray<CKKSExternalTLKShare*>*)shares
+                      reply:(void(^)(NSError* _Nullable error))reply;
+
+/* This API will cause the device to check in with CloudKit to get the most-up-to-date version of things */
+- (void)fetchSEViewKeyHierarchy:(NSString*)seViewName
+                          reply:(void (^)(CKKSExternalKey* _Nullable currentTLK,
+                                          NSArray<CKKSExternalKey*>* _Nullable pastTLKs,
+                                          NSArray<CKKSExternalTLKShare*>* _Nullable currentTLKShares,
+                                          NSError* _Nullable error))reply;
+
+/* If forceFetch is YES, then this API will check in with CLoudKit to get the most up-to-date version of things.
+   If forceFetch is NO, then this API will the locally cached state. It will not wait for any currently-occuring fetches to complete. */
+- (void)fetchSEViewKeyHierarchy:(NSString*)seViewName
+                     forceFetch:(BOOL)forceFetch
+                          reply:(void (^)(CKKSExternalKey* _Nullable currentTLK,
+                                          NSArray<CKKSExternalKey*>* _Nullable pastTLKs,
+                                          NSArray<CKKSExternalTLKShare*>* _Nullable currentTLKShares,
+                                          NSError* _Nullable error))reply;
+
+- (void)modifyTLKSharesForSEView:(NSString*)seViewName
+                          adding:(NSArray<CKKSExternalTLKShare*>*)sharesToAdd
+                        deleting:(NSArray<CKKSExternalTLKShare*>*)sharesToDelete
+                          reply:(void (^)(NSError* _Nullable error))reply;
+
+- (void)deleteSEView:(NSString*)seViewName
+               reply:(void (^)(NSError* _Nullable error))reply;
+
+- (void)toggleHavoc:(void (^)(BOOL havoc, NSError* _Nullable error))reply;
 
 + (CKKSControl* _Nullable)controlObject:(NSError* _Nullable __autoreleasing* _Nullable)error;
 + (CKKSControl* _Nullable)CKKSControlObject:(BOOL)sync error:(NSError* _Nullable __autoreleasing* _Nullable)error;

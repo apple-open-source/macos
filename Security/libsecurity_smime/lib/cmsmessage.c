@@ -54,20 +54,19 @@
  *
  * "poolp" - arena to allocate memory from, or NULL if new arena should be created
  */
-SecCmsMessageRef
-SecCmsMessageCreate(void)
+SecCmsMessageRef SecCmsMessageCreate(void)
 {
-    PLArenaPool *poolp;
+    PLArenaPool* poolp;
     SecCmsMessageRef cmsg;
 
-    poolp = PORT_NewArena (1024);           /* XXX what is right value? */
+    poolp = PORT_NewArena(1024); /* XXX what is right value? */
     if (poolp == NULL)
-	return NULL;
+        return NULL;
 
-    cmsg = (SecCmsMessageRef)PORT_ArenaZAlloc (poolp, sizeof(SecCmsMessage));
+    cmsg = (SecCmsMessageRef)PORT_ArenaZAlloc(poolp, sizeof(SecCmsMessage));
     if (cmsg == NULL) {
-	PORT_FreeArena(poolp, PR_FALSE);
-	return NULL;
+        PORT_FreeArena(poolp, PR_FALSE);
+        return NULL;
     }
 
     cmsg->poolp = poolp;
@@ -85,10 +84,11 @@ SecCmsMessageCreate(void)
  * "decrypt_key_cb", "decrypt_key_cb_arg" - callback function for getting bulk key for encryptedData
  * "detached_digestalgs", "detached_digests" - digests from detached content
  */
-void
-SecCmsMessageSetEncodingParams(SecCmsMessageRef cmsg,
-			PK11PasswordFunc pwfn, void *pwfn_arg,
-			SecCmsGetDecryptKeyCallback decrypt_key_cb, void *decrypt_key_cb_arg)
+void SecCmsMessageSetEncodingParams(SecCmsMessageRef cmsg,
+                                    PK11PasswordFunc pwfn,
+                                    void* pwfn_arg,
+                                    SecCmsGetDecryptKeyCallback decrypt_key_cb,
+                                    void* decrypt_key_cb_arg)
 {
 #if 0
     // @@@ Deal with password stuff.
@@ -103,21 +103,20 @@ SecCmsMessageSetEncodingParams(SecCmsMessageRef cmsg,
 /*
  * SecCmsMessageDestroy - destroy a CMS message and all of its sub-pieces.
  */
-void
-SecCmsMessageDestroy(SecCmsMessageRef cmsg)
+void SecCmsMessageDestroy(SecCmsMessageRef cmsg)
 {
-    PORT_Assert (cmsg->refCount > 0);
-    if (cmsg->refCount <= 0)	/* oops */
-	return;
+    PORT_Assert(cmsg->refCount > 0);
+    if (cmsg->refCount <= 0) /* oops */
+        return;
 
-    cmsg->refCount--;		/* thread safety? */
+    cmsg->refCount--; /* thread safety? */
     if (cmsg->refCount > 0)
-	return;
+        return;
 
     SecCmsContentInfoDestroy(&(cmsg->contentInfo));
 
     if (cmsg->poolp) {
-        PORT_FreeArena (cmsg->poolp, PR_TRUE);
+        PORT_FreeArena(cmsg->poolp, PR_TRUE);
     }
 }
 
@@ -127,13 +126,12 @@ SecCmsMessageDestroy(SecCmsMessageRef cmsg)
  * The copy may be virtual or may be real -- either way, the result needs
  * to be passed to SecCmsMessageDestroy later (as does the original).
  */
-SecCmsMessageRef
-SecCmsMessageCopy(SecCmsMessageRef cmsg)
+SecCmsMessageRef SecCmsMessageCopy(SecCmsMessageRef cmsg)
 {
     if (cmsg == NULL)
-	return NULL;
+        return NULL;
 
-    PORT_Assert (cmsg->refCount > 0);
+    PORT_Assert(cmsg->refCount > 0);
 
     cmsg->refCount++; /* XXX chrisk thread safety? */
     return cmsg;
@@ -142,8 +140,7 @@ SecCmsMessageCopy(SecCmsMessageRef cmsg)
 /*
  * SecCmsMessageGetContentInfo - return a pointer to the top level contentInfo
  */
-SecCmsContentInfoRef
-SecCmsMessageGetContentInfo(SecCmsMessageRef cmsg)
+SecCmsContentInfoRef SecCmsMessageGetContentInfo(SecCmsMessageRef cmsg)
 {
     return &(cmsg->contentInfo);
 }
@@ -153,12 +150,11 @@ SecCmsMessageGetContentInfo(SecCmsMessageRef cmsg)
  * In the case of those types which are encrypted, this returns the *plain* content.
  * In case of nested contentInfos, this descends and retrieves the innermost content.
  */
-const SecAsn1Item *
-SecCmsMessageGetContent(SecCmsMessageRef cmsg)
+const SecAsn1Item* SecCmsMessageGetContent(SecCmsMessageRef cmsg)
 {
     /* this is a shortcut */
     SecCmsContentInfoRef cinfo = SecCmsMessageGetContentInfo(cmsg);
-    const SecAsn1Item *pItem = SecCmsContentInfoGetInnerContent(cinfo);
+    const SecAsn1Item* pItem = SecCmsContentInfoGetInnerContent(cinfo);
     return pItem;
 }
 
@@ -167,16 +163,15 @@ SecCmsMessageGetContent(SecCmsMessageRef cmsg)
  *
  * CMS data content objects do not count.
  */
-int
-SecCmsMessageContentLevelCount(SecCmsMessageRef cmsg)
+int SecCmsMessageContentLevelCount(SecCmsMessageRef cmsg)
 {
     int count = 0;
     SecCmsContentInfoRef cinfo;
 
     /* walk down the chain of contentinfos */
-    for (cinfo = &(cmsg->contentInfo); cinfo != NULL; ) {
-	count++;
-	cinfo = SecCmsContentInfoGetChildContentInfo(cinfo);
+    for (cinfo = &(cmsg->contentInfo); cinfo != NULL;) {
+        count++;
+        cinfo = SecCmsContentInfoGetChildContentInfo(cinfo);
     }
     return count;
 }
@@ -186,15 +181,15 @@ SecCmsMessageContentLevelCount(SecCmsMessageRef cmsg)
  *
  * CMS data content objects do not count.
  */
-SecCmsContentInfoRef
-SecCmsMessageContentLevel(SecCmsMessageRef cmsg, int n)
+SecCmsContentInfoRef SecCmsMessageContentLevel(SecCmsMessageRef cmsg, int n)
 {
     int count = 0;
     SecCmsContentInfoRef cinfo;
 
     /* walk down the chain of contentinfos */
-    for (cinfo = &(cmsg->contentInfo); cinfo != NULL && count < n; cinfo = SecCmsContentInfoGetChildContentInfo(cinfo)) {
-	count++;
+    for (cinfo = &(cmsg->contentInfo); cinfo != NULL && count < n;
+         cinfo = SecCmsContentInfoGetChildContentInfo(cinfo)) {
+        count++;
     }
 
     return cinfo;
@@ -203,18 +198,18 @@ SecCmsMessageContentLevel(SecCmsMessageRef cmsg, int n)
 /*
  * SecCmsMessageContainsCertsOrCrls - see if message contains certs along the way
  */
-Boolean
-SecCmsMessageContainsCertsOrCrls(SecCmsMessageRef cmsg)
+Boolean SecCmsMessageContainsCertsOrCrls(SecCmsMessageRef cmsg)
 {
     SecCmsContentInfoRef cinfo;
 
     /* descend into CMS message */
-    for (cinfo = &(cmsg->contentInfo); cinfo != NULL; cinfo = SecCmsContentInfoGetChildContentInfo(cinfo)) {
-	if (SecCmsContentInfoGetContentTypeTag(cinfo) != SEC_OID_PKCS7_SIGNED_DATA)
-	    continue;	/* next level */
-	
-	if (SecCmsSignedDataContainsCertsOrCrls(cinfo->content.signedData))
-	    return PR_TRUE;
+    for (cinfo = &(cmsg->contentInfo); cinfo != NULL;
+         cinfo = SecCmsContentInfoGetChildContentInfo(cinfo)) {
+        if (SecCmsContentInfoGetContentTypeTag(cinfo) != SEC_OID_PKCS7_SIGNED_DATA)
+            continue; /* next level */
+
+        if (SecCmsSignedDataContainsCertsOrCrls(cinfo->content.signedData))
+            return PR_TRUE;
     }
     return PR_FALSE;
 }
@@ -222,21 +217,20 @@ SecCmsMessageContainsCertsOrCrls(SecCmsMessageRef cmsg)
 /*
  * SecCmsMessageIsEncrypted - see if message contains a encrypted submessage
  */
-Boolean
-SecCmsMessageIsEncrypted(SecCmsMessageRef cmsg)
+Boolean SecCmsMessageIsEncrypted(SecCmsMessageRef cmsg)
 {
     SecCmsContentInfoRef cinfo;
 
     /* walk down the chain of contentinfos */
-    for (cinfo = &(cmsg->contentInfo); cinfo != NULL; cinfo = SecCmsContentInfoGetChildContentInfo(cinfo))
-    {
-	switch (SecCmsContentInfoGetContentTypeTag(cinfo)) {
-	case SEC_OID_PKCS7_ENVELOPED_DATA:
-	case SEC_OID_PKCS7_ENCRYPTED_DATA:
-	    return PR_TRUE;
-	default:
-	    break;
-	}
+    for (cinfo = &(cmsg->contentInfo); cinfo != NULL;
+         cinfo = SecCmsContentInfoGetChildContentInfo(cinfo)) {
+        switch (SecCmsContentInfoGetContentTypeTag(cinfo)) {
+            case SEC_OID_PKCS7_ENVELOPED_DATA:
+            case SEC_OID_PKCS7_ENCRYPTED_DATA:
+                return PR_TRUE;
+            default:
+                break;
+        }
     }
     return PR_FALSE;
 }
@@ -251,22 +245,21 @@ SecCmsMessageIsEncrypted(SecCmsMessageRef cmsg)
  * Note that the content itself can be empty (detached content was sent
  * another way); it is the presence of the signature that matters.
  */
-Boolean
-SecCmsMessageIsSigned(SecCmsMessageRef cmsg)
+Boolean SecCmsMessageIsSigned(SecCmsMessageRef cmsg)
 {
     SecCmsContentInfoRef cinfo;
 
     /* walk down the chain of contentinfos */
-    for (cinfo = &(cmsg->contentInfo); cinfo != NULL; cinfo = SecCmsContentInfoGetChildContentInfo(cinfo))
-    {
-	switch (SecCmsContentInfoGetContentTypeTag(cinfo)) {
-	case SEC_OID_PKCS7_SIGNED_DATA:
-	    if (!SecCmsArrayIsEmpty((void **)cinfo->content.signedData->signerInfos))
-		return PR_TRUE;
-	    break;
-	default:
-	    break;
-	}
+    for (cinfo = &(cmsg->contentInfo); cinfo != NULL;
+         cinfo = SecCmsContentInfoGetChildContentInfo(cinfo)) {
+        switch (SecCmsContentInfoGetContentTypeTag(cinfo)) {
+            case SEC_OID_PKCS7_SIGNED_DATA:
+                if (!SecCmsArrayIsEmpty((void**)cinfo->content.signedData->signerInfos))
+                    return PR_TRUE;
+                break;
+            default:
+                break;
+        }
     }
     return PR_FALSE;
 }
@@ -277,20 +270,19 @@ SecCmsMessageIsSigned(SecCmsMessageRef cmsg)
  * returns PR_TRUE is innermost content length is < minLen
  * XXX need the encrypted content length (why?)
  */
-Boolean
-SecCmsMessageIsContentEmpty(SecCmsMessageRef cmsg, unsigned int minLen)
+Boolean SecCmsMessageIsContentEmpty(SecCmsMessageRef cmsg, unsigned int minLen)
 {
-    SecAsn1Item * item = NULL;
+    SecAsn1Item* item = NULL;
 
     if (cmsg == NULL)
-	return PR_TRUE;
+        return PR_TRUE;
 
     item = SecCmsContentInfoGetContent(SecCmsMessageGetContentInfo(cmsg));
 
     if (!item) {
-	return PR_TRUE;
-    } else if(item->Length <= minLen) {
-	return PR_TRUE;
+        return PR_TRUE;
+    } else if (item->Length <= minLen) {
+        return PR_TRUE;
     }
 
     return PR_FALSE;

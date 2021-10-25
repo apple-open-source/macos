@@ -155,8 +155,6 @@ main(int argc, char *argv[])
 			r = asprintf(&n[i], "dummy.test.%d", i);
 			assert(r != (uint32_t)~0);
 			l[i] = strlen(n[i]);
-			kr = mach_port_allocate(mach_task_self(), MACH_PORT_RIGHT_RECEIVE, &p[i]);
-			assert(kr == 0);
 		}
 
 		/* Empty Loop */
@@ -254,7 +252,7 @@ main(int argc, char *argv[])
 		s = mach_absolute_time();
 		for (uint32_t i = 0; i < cnt; i++)
 		{
-			r = notify_register_mach_port(n[i], &p[i], NOTIFY_REUSE, &t[i]);
+			r = notify_register_mach_port(n[i], &p[i], 0x0, &t[i]);
 			assert(r == 0);
 		}
 		reg_port[j] = mach_absolute_time() - s;
@@ -408,8 +406,6 @@ main(int argc, char *argv[])
 		for (uint32_t i = 0; i < cnt; i++)
 		{
 			free(n[i]);
-			kr = mach_port_mod_refs(mach_task_self(), p[i], MACH_PORT_RIGHT_RECEIVE, -1);
-			assert(kr == 0);
 		}
 
 	}

@@ -449,14 +449,14 @@ process_socket_common(si)
 	/*
 	 * Format vsock addresses.
 	 */
-		const char* laddr[32];
+		char laddr[32];
 		const struct vsock_sockinfo* vinfo = &si->psi.soi_proto.pri_vsock;
 		vsock_print_addr(laddr, sizeof(laddr), vinfo->local_cid, vinfo->local_port);
 
 		if (onlyLocal) {
 			(void) snpf(Namech, Namechl, "%s (%s)", laddr, state);
 		} else {
-			const char* raddr[32];
+			char raddr[32];
 			vsock_print_addr(raddr, sizeof(raddr), vinfo->remote_cid, vinfo->remote_port);
 			(void) snpf(Namech, Namechl, "%s->%s (%s)", laddr, raddr, state);
 		}

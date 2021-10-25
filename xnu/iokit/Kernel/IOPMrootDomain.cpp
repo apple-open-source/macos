@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2020 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2021 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -28,6 +28,7 @@
 
 #define IOKIT_ENABLE_SHARED_PTR
 
+#include <libkern/c++/OSAllocation.h>
 #include <libkern/c++/OSKext.h>
 #include <libkern/c++/OSMetaClass.h>
 #include <libkern/OSAtomic.h>
@@ -75,6 +76,7 @@
 
 #include <libkern/zlib.h>
 #include <os/cpp_util.h>
+#include <os/atomic_private.h>
 #include <libkern/c++/OSBoundedArrayRef.h>
 
 __BEGIN_DECLS
@@ -305,7 +307,7 @@ static OSSharedPtr<const OSSymbol>         gIOPMPSPostDishargeWaitSecondsKey;
 	                   | kIOPMSupportedOnUPS)
 
 #define kLocalEvalClamshellCommand  (1 << 15)
-#define kIdleSleepRetryInterval     (3 * 60)
+#define kIdleSleepRetryInterval     (3 * 60 * 1000)
 
 #define DISPLAY_WRANGLER_PRESENT    (!NO_KERNEL_HID)
 
@@ -679,7 +681,7 @@ private:
 	IOPMSettingControllerCallback   func;
 	OSObject                        *target;
 	uintptr_t                       refcon;
-	uint32_t                        *publishedFeatureID;
+	OSDataAllocation<uint32_t>      publishedFeatureID;
 	uint32_t                        settingCount;
 	bool                            disabled;
 
@@ -962,7 +964,7 @@ halt_log_enter(const char * what, const void * pc, uint64_t time)
 extern  uint32_t                           gFSState;
 
 extern "C" void
-IOSystemShutdownNotification(int stage)
+IOSystemShutdownNotification(int howto, int stage)
 {
 	uint64_t startTime;
 
@@ -983,7 +985,7 @@ IOSystemShutdownNotification(int stage)
 	if (kIOSystemShutdownNotificationTerminateDEXTs == stage) {
 		uint64_t nano, millis;
 		startTime = mach_absolute_time();
-		IOServicePH::systemHalt();
+		IOServicePH::systemHalt(howto);
 		absolutetime_to_nanoseconds(mach_absolute_time() - startTime, &nano);
 		millis = nano / NSEC_PER_MSEC;
 		if (true || (gHaltTimeMaxLog && (millis >= gHaltTimeMaxLog))) {
@@ -996,7 +998,7 @@ IOSystemShutdownNotification(int stage)
 
 	IOLockLock(gHaltLogLock);
 	if (!gHaltLog) {
-		gHaltLog = IONew(char, kHaltLogSize);
+		gHaltLog = IONewData(char, (vm_size_t)kHaltLogSize);
 		gHaltStartTime = mach_absolute_time();
 		if (gHaltLog) {
 			halt_log_putc('\n');
@@ -1418,10 +1420,7 @@ update_aotmode(uint32_t mode)
 		unsigned int oldCount;
 
 		if (mode && !gRootDomain->_aotMetrics) {
-		        gRootDomain->_aotMetrics = IONewZero(IOPMAOTMetrics, 1);
-		        if (!gRootDomain->_aotMetrics) {
-		                return ENOMEM;
-			}
+		        gRootDomain->_aotMetrics = IOMallocType(IOPMAOTMetrics);
 		}
 
 		oldCount = gRootDomain->idleSleepPreventersCount();
@@ -1853,6 +1852,7 @@ IOPMrootDomain::setProperties( OSObject * props_obj )
 	OSSharedPtr<const OSSymbol> stall_halt_string                   = OSSymbol::withCString("StallSystemAtHalt");
 	OSSharedPtr<const OSSymbol> battery_warning_disabled_string     = OSSymbol::withCString("BatteryWarningsDisabled");
 	OSSharedPtr<const OSSymbol> idle_seconds_string                 = OSSymbol::withCString("System Idle Seconds");
+	OSSharedPtr<const OSSymbol> idle_milliseconds_string            = OSSymbol::withCString("System Idle Milliseconds");
 	OSSharedPtr<const OSSymbol> sleepdisabled_string                = OSSymbol::withCString("SleepDisabled");
 	OSSharedPtr<const OSSymbol> ondeck_sleepwake_uuid_string        = OSSymbol::withCString(kIOPMSleepWakeUUIDKey);
 	OSSharedPtr<const OSSymbol> loginwindow_progress_string         = OSSymbol::withCString(kIOPMLoginWindowProgressKey);
@@ -1891,7 +1891,12 @@ IOPMrootDomain::setProperties( OSObject * props_obj )
 		} else if (key->isEqualTo(idle_seconds_string.get())) {
 			if ((n = OSDynamicCast(OSNumber, obj))) {
 				setProperty(key, n);
-				idleSeconds = n->unsigned32BitValue();
+				idleMilliSeconds = n->unsigned32BitValue() * 1000;
+			}
+		} else if (key->isEqualTo(idle_milliseconds_string.get())) {
+			if ((n = OSDynamicCast(OSNumber, obj))) {
+				setProperty(key, n);
+				idleMilliSeconds = n->unsigned32BitValue();
 			}
 		} else if (key->isEqualTo(boot_complete_string.get())) {
 			pmPowerStateQueue->submitPowerEvent(kPowerEventSystemBootCompleted);
@@ -2050,12 +2055,7 @@ IOPMrootDomain::setAggressiveness(
 		    (uint32_t) options, getAggressivenessTypeString((uint32_t) type), (uint32_t) value);
 	}
 
-	request = IONew(AggressivesRequest, 1);
-	if (!request) {
-		return kIOReturnNoMemory;
-	}
-
-	memset(request, 0, sizeof(*request));
+	request = IOMallocType(AggressivesRequest);
 	request->options  = options;
 	request->dataType = kAggressivesRequestTypeRecord;
 	request->data.record.type  = (uint32_t) type;
@@ -2093,7 +2093,7 @@ IOPMrootDomain::setAggressiveness(
 	AGGRESSIVES_UNLOCK();
 
 	if (found) {
-		IODelete(request, AggressivesRequest, 1);
+		IOFreeType(request, AggressivesRequest);
 	}
 
 	if (options & kAggressivesOptionSynchronous) {
@@ -2199,12 +2199,7 @@ IOPMrootDomain::joinAggressiveness(
 
 	DEBUG_LOG("joinAggressiveness %s %p\n", service->getName(), OBFUSCATE(service));
 
-	request = IONew(AggressivesRequest, 1);
-	if (!request) {
-		return kIOReturnNoMemory;
-	}
-
-	memset(request, 0, sizeof(*request));
+	request = IOMallocType(AggressivesRequest);
 	request->dataType = kAggressivesRequestTypeService;
 	request->data.service.reset(service, OSRetain); // released by synchronizeAggressives()
 
@@ -2320,7 +2315,7 @@ IOPMrootDomain::handleAggressivesRequests( void )
 				}
 
 				// Finished processing the request, release it.
-				IODelete(request, AggressivesRequest, 1);
+				IOFreeType(request, AggressivesRequest);
 				break;
 
 			case kAggressivesRequestTypeService:
@@ -2329,7 +2324,7 @@ IOPMrootDomain::handleAggressivesRequests( void )
 				break;
 
 			default:
-				panic("bad aggressives request type %x\n", request->dataType);
+				panic("bad aggressives request type %x", request->dataType);
 				break;
 			}
 		} while (!queue_empty(&aggressivesQueue));
@@ -2404,7 +2399,7 @@ IOPMrootDomain::synchronizeAggressives(
 			service.reset();
 		}
 
-		IODelete(request, AggressivesRequest, 1);
+		IOFreeType(request, AggressivesRequest);
 		request = NULL;
 
 		if (service) {
@@ -2516,7 +2511,7 @@ powerButtonUpCallout(thread_call_param_t us, thread_call_param_t)
 //******************************************************************************
 
 void
-IOPMrootDomain::startIdleSleepTimer( uint32_t inSeconds )
+IOPMrootDomain::startIdleSleepTimer( uint32_t inMilliSeconds )
 {
 	AbsoluteTime deadline;
 
@@ -2525,14 +2520,14 @@ IOPMrootDomain::startIdleSleepTimer( uint32_t inSeconds )
 		DLOG("idle timer not set (noidle=%d)\n", gNoIdleFlag);
 		return;
 	}
-	if (inSeconds) {
-		clock_interval_to_deadline(inSeconds, kSecondScale, &deadline);
+	if (inMilliSeconds) {
+		clock_interval_to_deadline(inMilliSeconds, kMillisecondScale, &deadline);
 		thread_call_enter_delayed(extraSleepTimer, deadline);
 		idleSleepTimerPending = true;
 	} else {
 		thread_call_enter(extraSleepTimer);
 	}
-	DLOG("idle timer set for %u seconds\n", inSeconds);
+	DLOG("idle timer set for %u milliseconds\n", inMilliSeconds);
 }
 
 //******************************************************************************
@@ -2604,7 +2599,7 @@ IOPMrootDomain::handleSleepTimerExpiration( void )
 //******************************************************************************
 // getTimeToIdleSleep
 //
-// Returns number of seconds left before going into idle sleep.
+// Returns number of milliseconds left before going into idle sleep.
 // Caller has to make sure that idle sleep is allowed at the time of calling
 // this function
 //******************************************************************************
@@ -2653,7 +2648,7 @@ IOPMrootDomain::getTimeToIdleSleep( void )
 	DLOG("user inactive %u min, time to idle sleep %u min\n",
 	    minutesSinceUserInactive, sleepDelay);
 
-	return sleepDelay * 60;
+	return sleepDelay * 60 * 1000;
 }
 
 //******************************************************************************
@@ -2784,7 +2779,7 @@ IOPMrootDomain::powerChangeDone( unsigned long previousPowerState )
 			if ((kIOPMAOTModeRespectTimers & _aotMode) && (_calendarWakeAlarmUTC < _aotWakeTimeUTC)) {
 				IOLog("use _calendarWakeAlarmUTC\n");
 				adjWakeTime = _calendarWakeAlarmUTC;
-			} else if (_aotExit || (kIOPMWakeEventAOTExitFlags & _aotPendingFlags)) {
+			} else if (kIOPMWakeEventAOTExitFlags & _aotPendingFlags) {
 				IOLog("accelerate _aotWakeTime for exit\n");
 				adjWakeTime = secs;
 			} else if (kIOPMDriverAssertionLevelOn == getPMAssertionLevel(kIOPMDriverAssertionCPUBit)) {
@@ -3087,11 +3082,18 @@ IOPMrootDomain::powerChangeDone( unsigned long previousPowerState )
 		}
 
 		// stay awake for at least 30 seconds
-		startIdleSleepTimer(30);
+		startIdleSleepTimer(30 * 1000);
 #endif
 		sleepCnt++;
 
 		thread_call_enter(updateConsoleUsersEntry);
+
+		// Skip AOT_STATE if we are waking up from an RTC timer.
+		// This check needs to be done after the epoch change is processed
+		// and before the changePowerStateWithTagToPriv() call below.
+		WAKEEVENT_LOCK();
+		aotShouldExit(false, false);
+		WAKEEVENT_UNLOCK();
 
 		changePowerStateWithTagToPriv(getRUN_STATE(), kCPSReasonWake);
 		break;
@@ -3560,7 +3562,7 @@ IOPMrootDomain::systemDidNotSleep( void )
 #if defined(XNU_TARGET_OS_OSX) && !DISPLAY_WRANGLER_PRESENT
 			startIdleSleepTimer(kIdleSleepRetryInterval);
 #else
-			startIdleSleepTimer(idleSeconds);
+			startIdleSleepTimer(idleMilliSeconds);
 #endif
 		} else if (!userIsActive) {
 			// Manually start the idle sleep timer besides waiting for
@@ -4117,7 +4119,6 @@ IOPMrootDomain::willNotifyPowerChildren( IOPMPowerStateIndex newPowerState )
 			}
 		} else if (!_aotNow && !_debugWakeSeconds) {
 			_aotNow            = true;
-			_aotExit           = false;
 			_aotPendingFlags   = 0;
 			_aotTasksSuspended = true;
 			_aotLastWakeTime   = 0;
@@ -5251,11 +5252,7 @@ IOPMrootDomain::evaluateSystemSleepPolicy(
 		IOReturn    result;
 
 		if (!gSleepPolicyVars) {
-			gSleepPolicyVars = IONew(IOPMSystemSleepPolicyVariables, 1);
-			if (!gSleepPolicyVars) {
-				goto done;
-			}
-			bzero(gSleepPolicyVars, sizeof(*gSleepPolicyVars));
+			gSleepPolicyVars = IOMallocType(IOPMSystemSleepPolicyVariables);
 		}
 		gSleepPolicyVars->signature = kIOPMSystemSleepPolicySignature;
 		gSleepPolicyVars->version   = kIOPMSystemSleepPolicyVersion;
@@ -5890,17 +5887,6 @@ IOPMrootDomain::tagPowerPlaneService(
 		flags |= kPMActionsFlagIsAudioDriver;
 	}
 
-	OSSharedPtr<OSObject> prop = service->copyProperty(kIOPMDarkWakeMaxPowerStateKey);
-	if (prop) {
-		OSNumber * num = OSDynamicCast(OSNumber, prop.get());
-		if (num) {
-			actions->darkWakePowerState = num->unsigned32BitValue();
-			if (actions->darkWakePowerState < maxPowerState) {
-				flags |= kPMActionsFlagHasDarkWakePowerState;
-			}
-		}
-	}
-
 	// Find the power connection object that is a child of the PCI host
 	// bridge, and has a graphics/audio device attached below. Mark the
 	// power branch for delayed child notifications.
@@ -5929,6 +5915,18 @@ IOPMrootDomain::tagPowerPlaneService(
 			parent = child->getParentEntry(gIOPowerPlane);
 		}
 	}
+
+	OSSharedPtr<OSObject> prop = service->copyProperty(kIOPMDarkWakeMaxPowerStateKey);
+	if (prop) {
+		OSNumber * num = OSDynamicCast(OSNumber, prop.get());
+		if (num) {
+			actions->darkWakePowerState = num->unsigned32BitValue();
+			if (actions->darkWakePowerState < maxPowerState) {
+				flags |= kPMActionsFlagHasDarkWakePowerState;
+			}
+		}
+	}
+
 
 	if (flags) {
 		DLOG("%s tag flags %x\n", service->getName(), flags);
@@ -6840,7 +6838,8 @@ class IOPMServiceInterestNotifier : public _IOServiceInterestNotifier
 
 protected:
 	uint32_t        ackTimeoutCnt;
-	uint32_t        msgType;        // Message pending ack
+	uint32_t        msgType;    // Last type seen by the message filter
+	uint32_t        lastSleepWakeMsgType;
 	uint32_t        msgIndex;
 	uint32_t        maxMsgDelayMS;
 	uint32_t        maxAckDelayMS;
@@ -6883,6 +6882,7 @@ IOPMrootDomain::registerInterest(
 		rc  = super::registerInterestForNotifier(notifier, typeOfInterest, handler, target, ref);
 	}
 	if (rc != kIOReturnSuccess) {
+		OSSafeReleaseNULL(notifier);
 		return NULL;
 	}
 
@@ -6938,31 +6938,36 @@ IOPMrootDomain::systemMessageFilter(
 {
 	const IOPMInterestContext * context = (const IOPMInterestContext *) arg1;
 	bool  isCapMsg = (context->messageType == kIOMessageSystemCapabilityChange);
+	bool  isCapPowerd = (object == (void *) systemCapabilityNotifier.get());
 	bool  isCapClient = false;
 	bool  allow = false;
+	OSBoolean **waitForReply = (typeof(waitForReply))arg3;
 	IOPMServiceInterestNotifier *notifier;
 
 	notifier = OSDynamicCast(IOPMServiceInterestNotifier, (OSObject *)object);
 
 	do {
+		// When powerd and kernel priority clients register capability interest,
+		// the power tree is sync'ed to inform those clients about the current
+		// system capability. Only allow capability change messages during sync.
 		if ((kSystemTransitionNewCapClient == _systemTransitionType) &&
 		    (!isCapMsg || !_joinedCapabilityClients ||
 		    !_joinedCapabilityClients->containsObject((OSObject *) object))) {
 			break;
 		}
 
-		// Capability change message for app and kernel clients.
-
+		// Capability change message for powerd and kernel clients
 		if (isCapMsg) {
-			// Kernel clients
+			// Kernel priority clients
 			if ((context->notifyType == kNotifyPriority) ||
 			    (context->notifyType == kNotifyCapabilityChangePriority)) {
 				isCapClient = true;
 			}
 
-			// powerd's systemCapabilityNotifier
-			if ((context->notifyType == kNotifyCapabilityChangeApps) &&
-			    (object == (void *) systemCapabilityNotifier.get())) {
+			// powerd will maintain two client registrations with root domain.
+			// isCapPowerd will be TRUE for any message targeting the powerd
+			// exclusive (capability change) interest registration.
+			if (isCapPowerd && (context->notifyType == kNotifyCapabilityChangeApps)) {
 				isCapClient = true;
 			}
 		}
@@ -6985,91 +6990,105 @@ IOPMrootDomain::systemMessageFilter(
 					capArgs->changeFlags = kIOPMSystemCapabilityDidChange;
 				}
 
-				if ((object == (void *) systemCapabilityNotifier.get()) &&
-				    context->isPreChange) {
+				if (isCapPowerd && context->isPreChange) {
 					toldPowerdCapWillChange = true;
 				}
 			}
 
-			// Capability change messages only go to the PM configd plugin.
+			// App level capability change messages must only go to powerd.
 			// Wait for response post-change if capabilitiy is increasing.
 			// Wait for response pre-change if capability is decreasing.
 
-			if ((context->notifyType == kNotifyCapabilityChangeApps) && arg3 &&
+			if ((context->notifyType == kNotifyCapabilityChangeApps) && waitForReply &&
 			    ((capabilityLoss && context->isPreChange) ||
 			    (!capabilityLoss && !context->isPreChange))) {
-				// app has not replied yet, wait for it
-				*((OSObject **) arg3) = kOSBooleanFalse;
+				*waitForReply = kOSBooleanTrue;
 			}
 
 			allow = true;
 			break;
 		}
 
-		// Capability client will always see kIOMessageCanSystemSleep,
-		// even for demand sleep. It will also have a chance to veto
-		// sleep one last time after all clients have responded to
-		// kIOMessageSystemWillSleep
+		// powerd will always receive CanSystemSleep, even for a demand sleep.
+		// It will also have a final chance to veto sleep after all clients
+		// have responded to SystemWillSleep
 
 		if ((kIOMessageCanSystemSleep == context->messageType) ||
 		    (kIOMessageSystemWillNotSleep == context->messageType)) {
-			if (object == (OSObject *) systemCapabilityNotifier.get()) {
+			if (isCapPowerd) {
 				allow = true;
 				break;
 			}
 
-			// Not idle sleep, don't ask apps.
+			// Demand sleep, don't ask apps for permission
 			if (context->changeFlags & kIOPMSkipAskPowerDown) {
 				break;
 			}
 		}
 
 		if (kIOPMMessageLastCallBeforeSleep == context->messageType) {
-			if ((object == (OSObject *) systemCapabilityNotifier.get()) &&
-			    CAP_HIGHEST(kIOPMSystemCapabilityGraphics) &&
+			if (isCapPowerd && CAP_HIGHEST(kIOPMSystemCapabilityGraphics) &&
 			    (fullToDarkReason == kIOPMSleepReasonIdle)) {
 				allow = true;
 			}
 			break;
 		}
 
-		// Reject capability change messages for legacy clients.
-		// Reject legacy system sleep messages for capability client.
-
-		if (isCapMsg || (object == (OSObject *) systemCapabilityNotifier.get())) {
+		// Drop capability change messages for legacy clients.
+		// Drop legacy system sleep messages for powerd capability interest.
+		if (isCapMsg || isCapPowerd) {
 			break;
 		}
 
-		// Filter system sleep messages.
+		// Not a capability change message.
+		// Perform message filtering based on _systemMessageClientMask.
 
 		if ((context->notifyType == kNotifyApps) &&
 		    (_systemMessageClientMask & kSystemMessageClientLegacyApp)) {
+			if (!notifier) {
+				break;
+			}
+
+			if ((notifier->lastSleepWakeMsgType == context->messageType) &&
+			    (notifier->lastSleepWakeMsgType == kIOMessageSystemWillPowerOn)) {
+				break; // drop any duplicate WillPowerOn for AOT devices
+			}
+
 			allow = true;
 
-			if (notifier) {
-				if (arg3) {
-					if (notifier->ackTimeoutCnt >= 3) {
-						*((OSObject **) arg3) = kOSBooleanFalse;
-					} else {
-						*((OSObject **) arg3) = kOSBooleanTrue;
-					}
+			if (waitForReply) {
+				if (notifier->ackTimeoutCnt >= 3) {
+					*waitForReply = kOSBooleanFalse;
+				} else {
+					*waitForReply = kOSBooleanTrue;
 				}
 			}
 		} else if ((context->notifyType == kNotifyPriority) &&
 		    (_systemMessageClientMask & kSystemMessageClientKernel)) {
 			allow = true;
 		}
-	}while (false);
+
+		// Check sleep/wake message ordering
+		if (allow) {
+			if (context->messageType == kIOMessageSystemWillSleep ||
+			    context->messageType == kIOMessageSystemWillPowerOn ||
+			    context->messageType == kIOMessageSystemHasPoweredOn) {
+				notifier->lastSleepWakeMsgType = context->messageType;
+			}
+		}
+	} while (false);
 
 	if (allow && isCapMsg && _joinedCapabilityClients) {
 		_joinedCapabilityClients->removeObject((OSObject *) object);
 		if (_joinedCapabilityClients->getCount() == 0) {
-			DLOG("destroyed capability client set %p\n",
+			DMSG("destroyed capability client set %p\n",
 			    OBFUSCATE(_joinedCapabilityClients.get()));
 			_joinedCapabilityClients.reset();
 		}
 	}
 	if (notifier) {
+		// Record the last seen message type even if the message is dropped
+		// for traceFilteredNotification().
 		notifier->msgType = context->messageType;
 	}
 
@@ -7555,7 +7574,7 @@ IOPMConvertCalendarToSeconds(const IOPMCalendarStruct * dt)
 unsigned long
 IOPMrootDomain::getRUN_STATE(void)
 {
-	return _aotNow ? AOT_STATE : ON_STATE;
+	return (_aotNow && !(kIOPMWakeEventAOTExitFlags & _aotPendingFlags)) ? AOT_STATE : ON_STATE;
 }
 
 bool
@@ -7606,18 +7625,22 @@ IOPMrootDomain::setWakeTime(uint64_t wakeContinuousTime)
 bool
 IOPMrootDomain::aotShouldExit(bool checkTimeSet, bool software)
 {
-	bool exitNow;
+	bool exitNow = false;
 	const char * reason = "";
 
+	if (!_aotNow) {
+		return false;
+	}
+
 	if (software) {
-		_aotExit = true;
+		exitNow = true;
 		_aotMetrics->softwareRequestCount++;
 		reason = "software request";
 	} else if (kIOPMWakeEventAOTExitFlags & _aotPendingFlags) {
-		_aotExit = true;
+		exitNow = true;
 		reason = gWakeReasonString;
 	} else if (checkTimeSet && (kPMCalendarTypeInvalid == _aotWakeTimeCalendar.selector)) {
-		_aotExit = true;
+		exitNow = true;
 		_aotMetrics->noTimeSetCount++;
 		reason = "flipbook expired";
 	} else if ((kIOPMAOTModeRespectTimers & _aotMode) && _calendarWakeAlarmUTC) {
@@ -7625,14 +7648,13 @@ IOPMrootDomain::aotShouldExit(bool checkTimeSet, bool software)
 		clock_usec_t    usec;
 		clock_get_calendar_microtime(&sec, &usec);
 		if (_calendarWakeAlarmUTC <= sec) {
-			_aotExit = true;
+			exitNow = true;
 			_aotMetrics->rtcAlarmsCount++;
 			reason = "user alarm";
 		}
 	}
-	exitNow = (_aotNow && _aotExit);
 	if (exitNow) {
-		_aotNow = false;
+		_aotPendingFlags |= kIOPMWakeEventAOTExit;
 		IOLog(LOG_PREFIX "AOT exit for %s, sc %d po %d, cp %d, rj %d, ex %d, nt %d, rt %d\n",
 		    reason,
 		    _aotMetrics->sleepCount,
@@ -7652,6 +7674,7 @@ IOPMrootDomain::aotExit(bool cps)
 	uint32_t savedMessageMask;
 
 	ASSERT_GATED();
+	_aotNow = false;
 	_aotTasksSuspended  = false;
 	_aotReadyToFullWake = false;
 	if (_aotTimerScheduled) {
@@ -8288,6 +8311,8 @@ IOPMrootDomain::handlePowerNotification( UInt32 msg )
 
 		sendClientClamshellNotification();
 
+		IOUserServer::powerSourceChanged(acAdaptorConnected);
+
 		// Re-evaluate the lid state
 		eval_clamshell = true;
 
@@ -8486,8 +8511,8 @@ IOPMrootDomain::evaluatePolicy( int stimulus, uint32_t arg )
 		DLOG("aggressiveness changed: system %u->%u, display %u\n",
 		    sleepSlider, minutesToIdleSleep, minutesToDisplayDim);
 
-		DLOG("idle time -> %d secs (ena %d)\n",
-		    idleSeconds, (minutesToIdleSleep != 0));
+		DLOG("idle time -> %d ms (ena %d)\n",
+		    idleMilliSeconds, (minutesToIdleSleep != 0));
 
 		// How long to wait before sleeping the system once
 		// the displays turns off is indicated by 'extraSleepDelay'.
@@ -8508,7 +8533,7 @@ IOPMrootDomain::evaluatePolicy( int stimulus, uint32_t arg )
 		}
 #if !defined(XNU_TARGET_OS_OSX)
 		if (0x7fffffff == minutesToIdleSleep) {
-			minutesToIdleSleep = idleSeconds;
+			minutesToIdleSleep = idleMilliSeconds / 1000;
 		}
 #endif /* !defined(XNU_TARGET_OS_OSX) */
 
@@ -8700,7 +8725,7 @@ IOPMrootDomain::evaluatePolicy( int stimulus, uint32_t arg )
 			startIdleSleepTimer(getTimeToIdleSleep());
 #else
 			changePowerStateWithTagToPriv(getRUN_STATE(), kCPSReasonIdleSleepEnabled);
-			startIdleSleepTimer( idleSeconds );
+			startIdleSleepTimer( idleMilliSeconds );
 #endif
 		} else {
 			// Start idle timer if prefs now allow system sleep
@@ -8732,8 +8757,8 @@ IOPMrootDomain::evaluatePolicy( int stimulus, uint32_t arg )
 						sleepASAP = true;
 					}
 #else
-					// stay awake for at least idleSeconds
-					startIdleSleepTimer(idleSeconds);
+					// stay awake for at least idleMilliSeconds
+					startIdleSleepTimer(idleMilliSeconds);
 #endif
 				}
 			} else if (!extraSleepDelay && !idleSleepTimerPending && !systemDarkWake) {
@@ -9510,11 +9535,10 @@ IOPMrootDomain::configureReportGated(uint64_t channel_id, uint64_t action, void 
 		}
 
 		reportSize = HISTREPORT_BUFSIZE(bktCnt);
-		*report = IOMalloc(reportSize);
+		*report = IOMallocZeroData(reportSize);
 		if (*report == NULL) {
 			break;
 		}
-		bzero(*report, reportSize);
 		HISTREPORT_INIT((uint16_t)bktCnt, bktSize, *report, reportSize,
 		    getRegistryEntryID(), channel_id, kIOReportCategoryPower);
 
@@ -9529,7 +9553,7 @@ IOPMrootDomain::configureReportGated(uint64_t channel_id, uint64_t action, void 
 			break;
 		}
 		if (*clientCnt == 1) {
-			IOFree(*report, HISTREPORT_BUFSIZE(bktCnt));
+			IOFreeData(*report, HISTREPORT_BUFSIZE(bktCnt));
 			*report = NULL;
 		}
 		(*clientCnt)--;
@@ -10561,7 +10585,7 @@ IOPMrootDomain::acceptSystemWakeEvents( uint32_t control )
 				}
 			}
 			if (i >= strlen(gWakeReasonString)) {
-				panic("Wake reason is empty\n");
+				panic("Wake reason is empty");
 			}
 		}
 #endif /* DEVELOPMENT */
@@ -10626,6 +10650,7 @@ IOPMrootDomain::claimSystemWakeEvent(
 		    || !strcmp("ringerab", reason)
 		    || !strcmp("smc0", reason)
 		    || !strcmp("AOP.RTPWakeupAP", reason)
+		    || !strcmp("AOP.RTP_AP_IRQ", reason)
 		    || !strcmp("BT.OutboxNotEmpty", reason)
 		    || !strcmp("WL.OutboxNotEmpty", reason)) {
 			flags |= kIOPMWakeEventAOTExit;
@@ -10857,7 +10882,7 @@ PMSettingObject *PMSettingObject::pmSettingObject(
 	pmsh->pmso = pmso;
 	pmso->pmsh = pmsh;
 
-	pmso->publishedFeatureID = (uint32_t *)IOMalloc(sizeof(uint32_t) * settingCount);
+	pmso->publishedFeatureID = OSDataAllocation<uint32_t>(settingCount, OSAllocateMemory);
 	if (pmso->publishedFeatureID) {
 		for (unsigned int i = 0; i < settingCount; i++) {
 			// Since there is now at least one listener to this setting, publish
@@ -10884,13 +10909,13 @@ void
 PMSettingObject::free( void )
 {
 	if (publishedFeatureID) {
-		for (uint32_t i = 0; i < settingCount; i++) {
-			if (publishedFeatureID[i]) {
-				parent->removePublishedFeature( publishedFeatureID[i] );
+		for (const auto& featureID : publishedFeatureID) {
+			if (featureID) {
+				parent->removePublishedFeature( featureID );
 			}
 		}
 
-		IOFree(publishedFeatureID, sizeof(uint32_t) * settingCount);
+		publishedFeatureID = {};
 	}
 
 	super::free();

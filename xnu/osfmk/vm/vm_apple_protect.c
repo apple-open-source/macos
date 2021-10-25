@@ -869,7 +869,7 @@ apple_protect_pager_deallocate_internal(
 			memory_object_control_deallocate(pager->ap_pgr_hdr.mo_control);
 			pager->ap_pgr_hdr.mo_control = MEMORY_OBJECT_CONTROL_NULL;
 		}
-		kfree(pager, sizeof(*pager));
+		kfree_type(struct apple_protect_pager, pager);
 		pager = APPLE_PROTECT_PAGER_NULL;
 	} else {
 		/* there are still plenty of references:  keep going... */
@@ -924,7 +924,7 @@ apple_protect_pager_synchronize(
 	__unused memory_object_size_t           length,
 	__unused vm_sync_t              sync_flags)
 {
-	panic("apple_protect_pager_synchronize: memory_object_synchronize no longer supported\n");
+	panic("apple_protect_pager_synchronize: memory_object_synchronize no longer supported");
 	return KERN_FAILURE;
 }
 
@@ -1054,10 +1054,7 @@ apple_protect_pager_create(
 	kern_return_t           kr;
 	struct pager_crypt_info *old_crypt_info;
 
-	pager = (apple_protect_pager_t) kalloc(sizeof(*pager));
-	if (pager == APPLE_PROTECT_PAGER_NULL) {
-		return APPLE_PROTECT_PAGER_NULL;
-	}
+	pager = kalloc_type(struct apple_protect_pager, Z_WAITOK | Z_NOFAIL);
 
 	/*
 	 * The vm_map call takes both named entry ports and raw memory
@@ -1159,7 +1156,7 @@ apple_protect_pager_create(
 #endif /* CRYPT_INFO_DEBUG */
 		crypt_info_deallocate(pager->crypt_info);
 		pager->crypt_info = NULL;
-		kfree(pager, sizeof(*pager));
+		kfree_type(struct apple_protect_pager, pager);
 		/* ... and go with the winner */
 		pager = pager2;
 		/* let the winner make sure the pager gets ready */
@@ -1331,7 +1328,7 @@ apple_protect_pager_setup(
 #endif /* CRYPT_INFO_DEBUG */
 		} else {
 			/* allocate a new crypt_info for new pager */
-			new_crypt_info = kalloc(sizeof(*new_crypt_info));
+			new_crypt_info = kalloc_type(struct pager_crypt_info, Z_WAITOK);
 			*new_crypt_info = *crypt_info;
 			new_crypt_info->crypt_refcnt = 1;
 #if CRYPT_INFO_DEBUG
@@ -1514,7 +1511,6 @@ crypt_info_deallocate(
 		    __FUNCTION__,
 		    crypt_info);
 #endif /* CRYPT_INFO_DEBUG */
-		kfree(crypt_info, sizeof(*crypt_info));
-		crypt_info = NULL;
+		kfree_type(struct pager_crypt_info, crypt_info);
 	}
 }

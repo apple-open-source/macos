@@ -82,6 +82,8 @@
 	<true/>
 	<key>com.apple.private.trustedpeershelper.client</key>
 	<true/>
+	<key>com.apple.private.followup</key>
+	<true/>
 	<key>com.apple.private.imcore.imremoteurlconnection</key>
 	<true/>
 	<key>com.apple.private.ids.remoteurlconnection</key>
@@ -97,6 +99,16 @@
 	<key>com.apple.symptom_diagnostics.report</key>
 	<true/>
 	<key>com.apple.private.security.storage.Keychains</key>
+	<true/>
+	<key>allow-softwareupdated</key>
+	<true/>
+	<key>com.apple.private.rtcreportingd</key>
+	<true/>
+	<key>com.apple.private.lockdown.finegrained-get</key>
+	<array>
+		<string>com.apple.securityd.ae/cookie</string>
+	</array>
+	<key>allow-obliterate-device</key>
 	<true/>
 </dict>
 </plist>

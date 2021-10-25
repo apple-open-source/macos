@@ -101,9 +101,13 @@ abort_test(thread_type_t type, corrupt_type_t corrupt_type)
 #endif
 #if defined(__arm64e__)
 	// on arm64e pthread_self() checks a ptrauth signature so it is
-	// likely to die of SIGTRAP
+	// likely to die of either SIGTRAP or SIGBUS.
 	if (corrupt_type == FULL_CORRUPTION || corrupt_type == SIG_CORRUPTION) {
-		T_EXPECT_EQ(signal, SIGTRAP, NULL);
+		if (signal == SIGBUS) {
+			T_EXPECT_EQ(signal, SIGBUS, NULL);
+		} else {
+			T_EXPECT_EQ(signal, SIGTRAP, NULL);
+		}
 		T_END;
 	}
 #endif
@@ -119,17 +123,17 @@ signal_handler(int signo)
 	T_FAIL("Unexpected signal: %d\n", signo);
 }
 
-T_DECL(abort_pthread_corrupt_test_full, "Tests abort")
+T_DECL(abort_pthread_corrupt_test_full, "Tests abort", T_META_IGNORECRASHES(".*abort_tests.*"))
 {
 	abort_test(PTHREAD, FULL_CORRUPTION);
 }
 
-T_DECL(abort_workqueue_corrupt_test_full, "Tests abort")
+T_DECL(abort_workqueue_corrupt_test_full, "Tests abort", T_META_IGNORECRASHES(".*abort_tests.*"))
 {
 	abort_test(WORKQUEUE, FULL_CORRUPTION);
 }
 
-T_DECL(abort_pthread_handler_test_full, "Tests abort")
+T_DECL(abort_pthread_handler_test_full, "Tests abort", T_META_IGNORECRASHES(".*abort_tests.*"))
 {
 	// rdar://52892057
 	T_SKIP("Abort hangs if the user registers their own SIGSEGV handler");
@@ -137,7 +141,7 @@ T_DECL(abort_pthread_handler_test_full, "Tests abort")
 	abort_test(PTHREAD, FULL_CORRUPTION);
 }
 
-T_DECL(abort_workqueue_handler_test_full, "Tests abort")
+T_DECL(abort_workqueue_handler_test_full, "Tests abort", T_META_IGNORECRASHES(".*abort_tests.*"))
 {
 	// rdar://52892057
 	T_SKIP("Abort hangs if the user registers their own SIGSEGV handler");
@@ -145,22 +149,23 @@ T_DECL(abort_workqueue_handler_test_full, "Tests abort")
 	abort_test(WORKQUEUE, FULL_CORRUPTION);
 }
 
-T_DECL(abort_pthread_corrupt_test_sig, "Tests abort")
+T_DECL(abort_pthread_corrupt_test_sig, "Tests abort", T_META_IGNORECRASHES(".*abort_tests.*"))
 {
 	abort_test(PTHREAD, SIG_CORRUPTION);
 }
 
-T_DECL(abort_workqueue_corrupt_test_sig, "Tests abort")
+T_DECL(abort_workqueue_corrupt_test_sig, "Tests abort", T_META_IGNORECRASHES(".*abort_tests.*"))
 {
 	abort_test(WORKQUEUE, SIG_CORRUPTION);
 }
 
-T_DECL(abort_pthread_test, "Tests abort")
+T_DECL(abort_pthread_test, "Tests abort", T_META_IGNORECRASHES(".*abort_tests.*"))
 {
 	abort_test(PTHREAD, NO_CORRUPTION);
 }
 
-T_DECL(abort_workqueue_test, "Tests abort")
+T_DECL(abort_workqueue_test, "Tests abort",
+		T_META_IGNORECRASHES(".*abort_tests.*"))
 {
 	abort_test(WORKQUEUE, NO_CORRUPTION);
 }

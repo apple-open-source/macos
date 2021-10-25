@@ -158,31 +158,6 @@ enum {
 #define kIOHIDEventServiceQueueSize         "QueueSize"
 #define kIOHIDAltSenderIdKey                "alt_sender_id"
 
-/*!
- * @define      kIOHIDMaxReportBufferCountKey
- * @abstract    Number property published on an IOHIDDevice that contains the
- *              report buffer count.
- * @discussion  HID devices can have the concept of a report buffer, wherein
- *              reports can be enqueued and dispatched in quick succession.
- *              A report buffer count can be published to help determine the
- *              correct queue size that will be able to handle incoming report
- *              rates. The queue size is determined by report buffer count
- *              multiplied by the report buffer's entry size (see
- *              kIOHIDReportBufferEntrySizeKey below).
- */
-#define kIOHIDMaxReportBufferCountKey       "MaxReportBufferCount"
-
-/*!
- * @define      kIOHIDReportBufferEntrySizeKey
- * @abstract    Number property published on an IOHIDDevice that contains
- *              the report buffer's entry size.
- * @discussion  Used in conjunction with kIOHIDMaxReportBufferCountKey.
- *              This key describes the entry size of the reports (in bytes)
- *              in the report buffer. The queue size is determined by the
- *              report buffer's report count multiplied by the entry size.
- */
-#define kIOHIDReportBufferEntrySizeKey      "ReportBufferEntrySize"
-
 #define kIOHIDMaxReportEnqueueSizeKey        "MaxQueuedReportSize"
 
 #define kIOHIDAppleVendorSupported          "AppleVendorSupported"
@@ -201,24 +176,6 @@ enum {
 #define kIOHIDCompatibilityInterface        "HIDCompatibilityInterface"
 
 #define kIOHIDAuthenticatedDeviceKey        "Authenticated"
-
-
-/*!
- @typedef IOHIDGameControllerType
- @abstract Describes support game controller types.
- @constant kIOHIDGameControllerTypeStandard Standard game controller.
- @constant kIOHIDGameControllerTypeExtended Extended game controller.
- */
-enum {
-    kIOHIDGameControllerTypeStandard,
-    kIOHIDGameControllerTypeExtended
-};
-typedef uint32_t IOHIDGameControllerType;
-
-#define kIOHIDGameControllerTypeKey         "GameControllerType"
-
-#define kIOHIDGameControllerFormFittingKey  "GameControllerFormFitting"
-
 
 #define kIOHIDFastPathHasEntitlementKey     "FastPathHasEntitlement"
 

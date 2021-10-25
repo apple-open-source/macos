@@ -31,6 +31,7 @@
 @property NSString* containerName;
 @property NSString* contextID;
 @property CuttlefishXPCWrapper* cuttlefishXPCWrapper;
+@property OTOperationDependencies* deps;
 
 // Since we're making callback based async calls, use this operation trick to hold off the ending of this operation
 @property NSOperation* finishedOp;
@@ -44,6 +45,7 @@
            contextID:(NSString*)contextID
               reason:(CuttlefishResetReason)reason
        intendedState:(OctagonState*)intendedState
+        dependencies:(OTOperationDependencies *)deps
           errorState:(OctagonState*)errorState
 cuttlefishXPCWrapper:(CuttlefishXPCWrapper*)cuttlefishXPCWrapper
 {
@@ -55,6 +57,7 @@ cuttlefishXPCWrapper:(CuttlefishXPCWrapper*)cuttlefishXPCWrapper
         _contextID = contextID;
         _cuttlefishXPCWrapper = cuttlefishXPCWrapper;
         _resetReason = reason;
+        _deps = deps;
     }
     return self;
 }
@@ -78,7 +81,32 @@ cuttlefishXPCWrapper:(CuttlefishXPCWrapper*)cuttlefishXPCWrapper
                 secnotice("octagon", "Unable to reset for (%@,%@): %@", self.containerName, self.contextID, error);
                 self.error = error;
             } else {
+
                 secnotice("octagon", "Successfully reset Octagon");
+                NSError* localError = nil;
+                [self.deps.stateHolder persistAccountChanges:^OTAccountMetadataClassC * _Nonnull(OTAccountMetadataClassC * _Nonnull metadata) {
+                    metadata.trustState = OTAccountMetadataClassC_TrustState_UNKNOWN;
+                    metadata.peerID = nil;
+                    metadata.syncingPolicy = nil;
+
+                    // Don't touch the CDP or account states; those can carry over
+
+                    metadata.voucher = nil;
+                    metadata.voucherSignature = nil;
+                    metadata.tlkSharesForVouchedIdentitys = nil;
+                    metadata.isInheritedAccount = NO;
+                    metadata.warmedEscrowCache = NO;
+                    metadata.warnedTooManyPeers = NO;
+
+                    return metadata;
+                } error:&localError];
+
+                if(localError) {
+                    secnotice("octagon", "Error resetting local account metadata state: %@", localError);
+                } else {
+                    secnotice("octagon", "Successfully reset local account metadata state");
+                }
+                
                 self.nextState = self.intendedState;
             }
 

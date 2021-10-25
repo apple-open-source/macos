@@ -2,15 +2,26 @@
 set -e
 set -x
 
+ln_dd() {
+    ln -hfs /usr/local/bin/dd "$DSTROOT"/bin/dd
+}
+
 case "$PLATFORM_NAME" in
 iphoneos|appletvos|watchos|bridgeos)
-    ln -hfs /usr/local/bin/dd "$DSTROOT"/bin/dd
+    ln_dd
     ;;
 macosx)
     ;;
 *)
-    echo "Unsupported platform: $PLATFORM_NAME"
-    exit 1
+    case "$FALLBACK_PLATFORM" in
+    iphoneos|appletvos|watchos|bridgeos)
+        ln_dd
+        ;;
+    *)
+        echo "Unsupported platform: $ACTUAL_PLATFORM_NAME"
+        exit 1
+        ;;
+    esac
     ;;
 esac
 

@@ -632,6 +632,7 @@ SimpleDateFormat& SimpleDateFormat::operator=(const SimpleDateFormat& other)
     fHasSecond = other.fHasSecond;
 
     fLocale = other.fLocale;
+
     // TimeZoneFormat can now be set independently via setter.
     // If it is NULL, it will be lazily initialized from locale
     delete fTimeZoneFormat;
@@ -999,7 +1000,8 @@ Calendar*
 SimpleDateFormat::initializeCalendar(TimeZone* adoptZone, const Locale& locale, UErrorCode& status)
 {
     if(!U_FAILURE(status)) {
-        fCalendar = Calendar::createInstance(adoptZone?adoptZone:TimeZone::createDefault(), locale, status);
+        fCalendar = Calendar::createInstance(
+            adoptZone ? adoptZone : TimeZone::forLocaleOrDefault(locale), locale, status);
     }
     return fCalendar;
 }
@@ -1164,7 +1166,8 @@ SimpleDateFormat::_format(Calendar& cal, UnicodeString& appendTo,
         // Use subFormat() to format a repeated pattern character
         // when a different pattern or non-pattern character is seen
         if (ch != prevCh && count > 0) {
-            subFormat(appendTo, prevCh, count, capitalizationContext, fieldNum++, handler, *workCal, status);
+            subFormat(appendTo, prevCh, count, capitalizationContext, fieldNum++,
+                      prevCh, handler, *workCal, status);
             count = 0;
         }
         if (ch == QUOTE) {
@@ -1191,7 +1194,8 @@ SimpleDateFormat::_format(Calendar& cal, UnicodeString& appendTo,
 
     // Format the last item in the pattern, if any
     if (count > 0) {
-        subFormat(appendTo, prevCh, count, capitalizationContext, fieldNum++, handler, *workCal, status);
+        subFormat(appendTo, prevCh, count, capitalizationContext, fieldNum++,
+                  prevCh, handler, *workCal, status);
     }
 
     if (calClone != NULL) {
@@ -1572,10 +1576,11 @@ SimpleDateFormat::processOverrideString(const Locale &locale, const UnicodeStrin
 //---------------------------------------------------------------------
 void
 SimpleDateFormat::subFormat(UnicodeString &appendTo,
-                            UChar ch,
+                            char16_t ch,
                             int32_t count,
                             UDisplayContext capitalizationContext,
                             int32_t fieldNum,
+                            char16_t fieldToOutput,
                             FieldPositionHandler& handler,
                             Calendar& cal,
                             UErrorCode& status) const
@@ -1969,7 +1974,10 @@ SimpleDateFormat::subFormat(UnicodeString &appendTo,
         break;
 
     case UDAT_QUARTER_FIELD:
-        if (count >= 4)
+        if (count >= 5)
+            _appendSymbol(appendTo, value/3, fSymbols->fNarrowQuarters,
+                          fSymbols->fNarrowQuartersCount);
+        else if (count == 4)
             _appendSymbol(appendTo, value/3, fSymbols->fQuarters,
                           fSymbols->fQuartersCount);
         else if (count == 3)
@@ -1980,7 +1988,10 @@ SimpleDateFormat::subFormat(UnicodeString &appendTo,
         break;
 
     case UDAT_STANDALONE_QUARTER_FIELD:
-        if (count >= 4)
+        if (count >= 5)
+            _appendSymbol(appendTo, value/3, fSymbols->fStandaloneNarrowQuarters,
+                          fSymbols->fStandaloneNarrowQuartersCount);
+        else if (count == 4)
             _appendSymbol(appendTo, value/3, fSymbols->fStandaloneQuarters,
                           fSymbols->fStandaloneQuartersCount);
         else if (count == 3)
@@ -2023,8 +2034,11 @@ SimpleDateFormat::subFormat(UnicodeString &appendTo,
         // In either case, fall back to am/pm.
         if (toAppend == NULL || toAppend->isBogus()) {
             // Reformat with identical arguments except ch, now changed to 'a'.
-            subFormat(appendTo, 0x61, count, capitalizationContext, fieldNum,
-                      handler, cal, status);
+            // We are passing a different fieldToOutput because we want to add
+            // 'b' to field position. This makes this fallback stable when
+            // there is a data change on locales.
+            subFormat(appendTo, u'a', count, capitalizationContext, fieldNum, u'b', handler, cal, status);
+            return;
         } else {
             appendTo += *toAppend;
         }
@@ -2044,9 +2058,11 @@ SimpleDateFormat::subFormat(UnicodeString &appendTo,
         if (ruleSet == NULL) {
             // Data doesn't exist for the locale we're looking for.
             // Falling back to am/pm.
-            subFormat(appendTo, 0x61, count, capitalizationContext, fieldNum,
-                      handler, cal, status);
-            break;
+            // We are passing a different fieldToOutput because we want to add
+            // 'B' to field position. This makes this fallback stable when
+            // there is a data change on locales.
+            subFormat(appendTo, u'a', count, capitalizationContext, fieldNum, u'B', handler, cal, status);
+            return;
         }
 
         // Get current display time.
@@ -2115,8 +2131,11 @@ SimpleDateFormat::subFormat(UnicodeString &appendTo,
         if (periodType == DayPeriodRules::DAYPERIOD_AM ||
             periodType == DayPeriodRules::DAYPERIOD_PM ||
             toAppend->isBogus()) {
-            subFormat(appendTo, 0x61, count, capitalizationContext, fieldNum,
-                      handler, cal, status);
+            // We are passing a different fieldToOutput because we want to add
+            // 'B' to field position iterator. This makes this fallback stable when
+            // there is a data change on locales.
+            subFormat(appendTo, u'a', count, capitalizationContext, fieldNum, u'B', handler, cal, status);
+            return;
         }
         else {
             appendTo += *toAppend;
@@ -2160,7 +2179,7 @@ SimpleDateFormat::subFormat(UnicodeString &appendTo,
     }
 #endif
 
-    handler.addAttribute(fgPatternIndexToDateFormatField[patternCharIndex], beginOffset, appendTo.length());
+    handler.addAttribute(DateFormatSymbols::getPatternCharIndex(fieldToOutput), beginOffset, appendTo.length());
 }
 
 //----------------------------------------------------------------------
@@ -3589,7 +3608,7 @@ int32_t SimpleDateFormat::subParse(const UnicodeString& text, int32_t& start, UC
             return pos.getIndex();
         } else {
             // count >= 3 // i.e., QQQ or QQQQ
-            // Want to be able to parse both short and long forms.
+            // Want to be able to parse short, long, and narrow forms.
             // Try count == 4 first:
             int32_t newStart = 0;
 
@@ -3601,6 +3620,11 @@ int32_t SimpleDateFormat::subParse(const UnicodeString& text, int32_t& start, UC
             if(getBooleanAttribute(UDAT_PARSE_MULTIPLE_PATTERNS_FOR_MATCH, status) || count == 3) {
                 if ((newStart = matchQuarterString(text, start, UCAL_MONTH,
                                           fSymbols->fShortQuarters, fSymbols->fShortQuartersCount, cal)) > 0)
+                    return newStart;
+            }
+            if(getBooleanAttribute(UDAT_PARSE_MULTIPLE_PATTERNS_FOR_MATCH, status) || count == 5) {
+                if ((newStart = matchQuarterString(text, start, UCAL_MONTH,
+                                      fSymbols->fNarrowQuarters, fSymbols->fNarrowQuartersCount, cal)) > 0)
                     return newStart;
             }
             if (!getBooleanAttribute(UDAT_PARSE_ALLOW_NUMERIC, status))
@@ -3633,6 +3657,11 @@ int32_t SimpleDateFormat::subParse(const UnicodeString& text, int32_t& start, UC
             if(getBooleanAttribute(UDAT_PARSE_MULTIPLE_PATTERNS_FOR_MATCH, status) || count == 3) {
                 if ((newStart = matchQuarterString(text, start, UCAL_MONTH,
                                           fSymbols->fStandaloneShortQuarters, fSymbols->fStandaloneShortQuartersCount, cal)) > 0)
+                    return newStart;
+            }
+            if(getBooleanAttribute(UDAT_PARSE_MULTIPLE_PATTERNS_FOR_MATCH, status) || count == 5) {
+                if ((newStart = matchQuarterString(text, start, UCAL_MONTH,
+                                          fSymbols->fStandaloneNarrowQuarters, fSymbols->fStandaloneNarrowQuartersCount, cal)) > 0)
                     return newStart;
             }
             if (!getBooleanAttribute(UDAT_PARSE_ALLOW_NUMERIC, status))

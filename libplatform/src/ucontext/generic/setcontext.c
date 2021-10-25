@@ -26,7 +26,7 @@
 #include <errno.h>
 #include <TargetConditionals.h>
 
-#if TARGET_OS_OSX || TARGET_OS_DRIVERKIT
+#if ((TARGET_OS_OSX || TARGET_OS_DRIVERKIT) && (defined(__LP64__) || defined(__i386__)))
 
 #include <stddef.h>
 #include <signal.h>

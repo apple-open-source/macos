@@ -1,7 +1,7 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
-// License & terms of use: http://www.unicode.org/copyright.html#License
+// License & terms of use: http://www.unicode.org/copyright.html
+// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
 sc{
-    Version{"36.1"}
     zoneStrings{
         "Africa:Abidjan"{
             ec{"Abidjan"}
@@ -210,6 +210,9 @@ sc{
         "America:St_Vincent"{
             ec{"Santu Vissente"}
         }
+        "Asia:Aqtau"{
+            ec{"Aktau"}
+        }
         "Asia:Aqtobe"{
             ec{"Aktobe"}
         }
@@ -241,7 +244,7 @@ sc{
             ec{"Mascate"}
         }
         "Asia:Qatar"{
-            ec{"Catar"}
+            ec{"Catàr"}
         }
         "Asia:Qyzylorda"{
             ec{"Kyzylorda"}
@@ -544,7 +547,7 @@ sc{
             ls{"Ora istandard de su Cabu Birde"}
         }
         "meta:Chamorro"{
-            ls{"Ora de Chamorro"}
+            ls{"Ora istandard de Chamorro"}
         }
         "meta:Chatham"{
             ld{"Ora legale de sas Chatham"}
@@ -666,7 +669,7 @@ sc{
             ls{"Ora istandard de sa Groenlàndia otzidentale"}
         }
         "meta:Gulf"{
-            ls{"Ora de su Gulfu"}
+            ls{"Ora istandard de su Gulfu"}
         }
         "meta:Guyana"{
             ls{"Ora de sa Guyana"}
@@ -687,7 +690,7 @@ sc{
             ls{"Ora istandard de Hovd"}
         }
         "meta:India"{
-            ls{"Ora de s’Ìndia"}
+            ls{"Ora istandard de s’Ìndia"}
         }
         "meta:Indian_Ocean"{
             ls{"Ora de s’Otzèanu Indianu"}
@@ -830,7 +833,9 @@ sc{
             ls{"Ora de Niue"}
         }
         "meta:Norfolk"{
-            ls{"Ora de s’Ìsula Norfolk"}
+            ld{"Ora legale de s’Ìsula Norfolk"}
+            lg{"Ora de s’Ìsula Norfolk"}
+            ls{"Ora istandard de s’Ìsula Norfolk"}
         }
         "meta:Noronha"{
             ld{"Ora legale de su Fernando de Noronha"}

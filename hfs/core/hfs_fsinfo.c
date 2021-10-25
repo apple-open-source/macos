@@ -753,10 +753,6 @@ static errno_t fsinfo_name_size_callback(__unused struct hfsmount *hfsmp,
 	if ((record->folder_record.recordType == kHFSPlusFolderThreadRecord) ||
 	    (record->folder_record.recordType == kHFSPlusFileThreadRecord)) {
 		length = record->thread_record.nodeName.length;
-		/* Make sure that the nodeName is bounded, otherwise return error */
-		if (length > kHFSPlusMaxFileNameChars) {
-			return EIO;
-		}
 		
 		// sanity check for a name length of zero, which isn't valid on disk.
 		if (length == 0)
@@ -764,6 +760,11 @@ static errno_t fsinfo_name_size_callback(__unused struct hfsmount *hfsmp,
 		
 		/* Round it down to nearest multiple of 5 to match our buckets granularity */
 		length = (length - 1)/ 5;
+
+		/* Use the last bucket for any file name which is larger */
+		if (length > (HFS_FSINFO_NAME_MAX_BUCKETS - 1))
+			length = HFS_FSINFO_NAME_MAX_BUCKETS - 1;
+
 		/* Account this value into our bucket */
 		fsinfo->bucket[length]++;
 	}

@@ -24,7 +24,7 @@
 /*
  * CMSEncoder.cpp - encode, sign, and/or encrypt CMS messages. 
  */
- 
+
 #include <Security/CMSEncoder.h>
 #include <Security/CMSPrivate.h>
 #include "CMSUtils.h"
@@ -221,10 +221,14 @@ static int encodeOid(
 	numDigitBytes = 1;
 
 	numsToProcess = argc - 2;
+    if ((numsToProcess >= (long)(LONG_MAX / sizeof(unsigned char*))) ||
+        (numsToProcess >= (long)(LONG_MAX / sizeof(unsigned)))){
+        goto cleanExit;
+    }
 	if(numsToProcess > 0) {
 		/* skip this loop in the unlikely event that input is only two numbers */
-		digits = (unsigned char **) malloc(numsToProcess * sizeof(unsigned char *));
-		numDigits = (unsigned *) malloc(numsToProcess * sizeof(unsigned));
+		digits = (unsigned char **) malloc((size_t)numsToProcess * sizeof(unsigned char *));
+		numDigits = (unsigned *) malloc((size_t)numsToProcess * sizeof(unsigned));
 		for(digit=0; digit<numsToProcess; digit++) {
 			num = cfStringToNumber((CFStringRef)CFArrayGetValueAtIndex(argvRef, digit+2));
 			if (num < 0) goto cleanExit;
@@ -251,10 +255,10 @@ static int encodeOid(
 	result = 0;
 
 cleanExit:
-    if (digits) free(digits);
-    if (numDigits) free(numDigits);
-	if (oidStr) CFRelease(oidStr);
-	if (argvRef) CFRelease(argvRef);
+    free(digits);
+    free(numDigits);
+	CFReleaseNull(oidStr);
+    CFReleaseNull(argvRef);
 
 	return result;
 }
@@ -281,7 +285,10 @@ static int convertOid(
 		// CFStringRef: OID representation is a dotted-decimal string
 		CFStringRef inStr = (CFStringRef)inRef;
 		CFIndex max = CFStringGetLength(inStr) * 3;
-		char *buf = (char *)malloc(max);
+        if (max < 0) {
+            return errSecMemoryError;
+        }
+		char *buf = (char *)malloc((size_t)max);
 		if (!buf) {
 			return errSecMemoryError;
 		}
@@ -505,23 +512,23 @@ static OSStatus cmsSetupForSignedData(
 			ortn = SecCmsSignerInfoAddSMIMECaps(signerInfo);
 			if(ortn) {
 				ortn = cmsRtnToOSStatus(ortn);
-				CSSM_PERROR("SecCmsSignerInfoAddSMIMEEncKeyPrefs", ortn);
+				CSSM_PERROR("SecCmsSignerInfoAddSMIMECaps", ortn);
 				break;
 			}
 		}
 		if(cmsEncoder->signedAttributes & kCMSAttrSmimeEncryptionKeyPrefs) {
-			ortn = SecCmsSignerInfoAddSMIMEEncKeyPrefs(signerInfo, ourCert, NULL);
+			ortn = SecCmsSignerInfoAddSMIMEEncKeyPreferences(signerInfo, ourCert);
 			if(ortn) {
 				ortn = cmsRtnToOSStatus(ortn);
-				CSSM_PERROR("SecCmsSignerInfoAddSMIMEEncKeyPrefs", ortn);
+				CSSM_PERROR("SecCmsSignerInfoAddSMIMEEncKeyPreferences", ortn);
 				break;
 			}
 		}
 		if(cmsEncoder->signedAttributes & kCMSAttrSmimeMSEncryptionKeyPrefs) {
-			ortn = SecCmsSignerInfoAddMSSMIMEEncKeyPrefs(signerInfo, ourCert, NULL);
+			ortn = SecCmsSignerInfoAddMSSMIMEEncKeyPreferences(signerInfo, ourCert);
 			if(ortn) {
 				ortn = cmsRtnToOSStatus(ortn);
-				CSSM_PERROR("SecCmsSignerInfoAddMSSMIMEEncKeyPrefs", ortn);
+				CSSM_PERROR("SecCmsSignerInfoAddMSSMIMEEncKeyPreferences", ortn);
 				break;
 			}
 		}
@@ -601,8 +608,10 @@ static OSStatus cmsSetupForEnvelopedData(
 	 */
 	CFIndex numCerts = CFArrayGetCount(cmsEncoder->recipients);
 	CFIndex dex;
-	SecCertificateRef *certArray = (SecCertificateRef *)malloc(
-		(numCerts+1) * sizeof(SecCertificateRef));
+    if (numCerts < 0 || numCerts >= (long)((LONG_MAX / sizeof(SecCertificateRef)) - 1)) {
+        return errSecAllocate;
+    }
+	SecCertificateRef *certArray = (SecCertificateRef *)malloc((size_t)(numCerts+1) * sizeof(SecCertificateRef));
 
 	for(dex=0; dex<numCerts; dex++) {
 		certArray[dex] = (SecCertificateRef)CFArrayGetValueAtIndex(
@@ -783,7 +792,7 @@ OSStatus CMSEncoderCreate(
 {
 	CMSEncoderRef cmsEncoder = NULL;
 	
-	uint32_t extra = sizeof(*cmsEncoder) - sizeof(cmsEncoder->base);
+	CFIndex extra = sizeof(*cmsEncoder) - sizeof(cmsEncoder->base);
 	cmsEncoder = (CMSEncoderRef)_CFRuntimeCreateInstance(NULL, CMSEncoderGetTypeID(),
 		extra, NULL);
 	if(cmsEncoder == NULL) {
@@ -993,11 +1002,11 @@ OSStatus CMSEncoderCopyEncapsulatedContentType(
 	}
 	
 	CSSM_OID *ecOid = &cmsEncoder->eContentType;
-	if(ecOid->Data == NULL) {
+	if(ecOid->Data == NULL || ecOid->Length > LONG_MAX) {
 		*eContentType = NULL;
 	}
 	else {
-		*eContentType = CFDataCreate(NULL, ecOid->Data, ecOid->Length);
+		*eContentType = CFDataCreate(NULL, ecOid->Data, (CFIndex)ecOid->Length);
 	}
 	return errSecSuccess;
 }
@@ -1255,7 +1264,8 @@ OSStatus CMSEncoderCopyEncodedContent(
 	}
 	cmsEncoder->encState = ES_Final;
 
-	if((cmsEncoder->encoderOut.Data == NULL) && !cmsEncoder->customCoder) {
+	if((cmsEncoder->encoderOut.Data == NULL || cmsEncoder->encoderOut.Length > LONG_MAX)
+       && !cmsEncoder->customCoder) {
 		/* not sure how this could happen... */
 		dprintf("Successful encode, but no data\n");
 		return errSecInternalComponent;
@@ -1271,7 +1281,7 @@ OSStatus CMSEncoderCopyEncodedContent(
 		case EO_Sign:
 		case EO_Encrypt:
 			*encodedContent = CFDataCreate(NULL, (const UInt8 *)cmsEncoder->encoderOut.Data,	
-				cmsEncoder->encoderOut.Length);
+				(CFIndex)cmsEncoder->encoderOut.Length);
 			return errSecSuccess;
 		case EO_SignEncrypt:
 			/* proceed, more work to do */
@@ -1385,7 +1395,7 @@ OSStatus CMSEncode(
 	ortn = CMSEncoderCopyEncodedContent(cmsEncoder, encodedContent);
 	
 errOut:
-	CFRelease(cmsEncoder);
+    CFReleaseNull(cmsEncoder);
 	return ortn;
 }
 

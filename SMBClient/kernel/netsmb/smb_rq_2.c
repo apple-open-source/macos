@@ -514,6 +514,11 @@ smb2_rq_credit_increment(struct smb_rq *rqp)
 		return (ENOMEM);
     }
 
+    if (rqp->sr_rspcreditsgranted == 0) {
+        /* Nothing to do */
+        return (0);
+    }
+
 	if (rqp->sr_session == NULL) {
         SMBERROR("rqp->sr_session is NULL in %lld \n", rqp->sr_messageid);
 		return (ENOMEM);
@@ -524,11 +529,6 @@ smb2_rq_credit_increment(struct smb_rq *rqp)
     if (iod == NULL) {
         SMBERROR("rqp->sr_iod is NULL in %lld \n", rqp->sr_messageid);
         return (ENOMEM);
-    }
-
-    if (rqp->sr_rspcreditsgranted == 0) {
-        /* Nothing to do */
-        return (0);
     }
 
     switch (rqp->sr_command) {

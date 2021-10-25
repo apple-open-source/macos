@@ -14,9 +14,12 @@
 
 @implementation PinningDbInitializationTests
 
-#if !TARGET_OS_BRIDGE
 - (void)testSchemaUpgrade
 {
+#if TARGET_OS_BRIDGE
+    /* BridgeOS doesn't have security_certificates project so there is no baseline pinning plist */
+    XCTSkip();
+#endif
     /* Create a "pinningDB" with a large content version number but older schema version */
     char *schema_v2 =   "PRAGMA foreign_keys=OFF; "
                         "PRAGMA user_version=2; "
@@ -49,6 +52,9 @@
 
 - (void)testContentUpgradeFromFile
 {
+#if TARGET_OS_BRIDGE
+    XCTSkip();
+#endif
     /* initialize a DB with the system content version */
     SecPinningDb *pinningDb = [[SecPinningDb alloc] init];
     XCTAssert(SecDbPerformRead([pinningDb db], NULL, ^(SecDbConnectionRef dbconn) {
@@ -68,12 +74,4 @@
     /* update one more time with the same content version */
     XCTAssert([pinningDb installDbFromURL:pinningPlist error:nil]);
 }
-#else // !TARGET_OS_BRIDGE
-/* BridgeOS doesn't have security_certificates project so there is no baseline pinning plist */
-- (void)testSkipTests
-{
-    XCTAssert(true);
-}
-#endif // !TARGET_OS_BRIDGE
-
 @end

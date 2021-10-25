@@ -1644,6 +1644,19 @@ add_locate(void *ctx, int type, struct sockaddr *addr)
     return 0;
 }
 
+static krb5_error_code
+add_locate_string(void *ctx, const char *source)
+{
+    struct krb5_krbhst_data *kd = ctx;
+    int ret;
+
+    ret = append_host_string(kd->context, kd, "plugin", source, kd->def_port, kd->port);
+    if (ret)
+	return ret;
+
+    return 0;
+}
+
 struct plctx {
     enum locate_service_type type;
     struct krb5_krbhst_data *kd;
@@ -1656,7 +1669,10 @@ plcallback(krb5_context context,
 {
     const krb5plugin_service_locate_ftable *locate = plug;
     struct plctx *plctx = userctx;
-    
+
+    if (locate->minor_version >= KRB5_PLUGIN_LOCATE_VERSION_3 && locate->lookup_host_string != NULL)
+	return locate->lookup_host_string(plugctx, plctx->flags, plctx->type, plctx->kd->realm, 0, 0, add_locate_string, plctx->kd);
+
     if (locate->minor_version >= KRB5_PLUGIN_LOCATE_VERSION_2)
 	return locate->lookup(plugctx, plctx->flags, plctx->type, plctx->kd->realm, 0, 0, add_locate, plctx->kd);
     

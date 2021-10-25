@@ -183,24 +183,30 @@ CCCryptorStatus CCCryptorGCMFinalize(CCCryptorRef cryptorRef,
                                      void *tag, size_t tagLength)
 {
     decl_cryptor();
-    if(tag==NULL  || tagLength<AESGCM_MIN_TAG_LEN || tagLength>AESGCM_BLOCK_LEN)  return kCCParamError;
-    if(cryptorRef->op!=kCCEncrypt && cryptorRef->op!=kCCDecrypt) return kCCParamError;
+
+    if (tag == NULL || tagLength < AESGCM_MIN_TAG_LEN || tagLength > AESGCM_BLOCK_LEN) {
+        return kCCParamError;
+    }
+    if (cryptorRef->op != kCCEncrypt && cryptorRef->op != kCCDecrypt) {
+        return kCCParamError;
+    }
 
     //for decryption only
-    char dec_tag[tagLength];
+    char dec_tag[AESGCM_BLOCK_LEN];
 
     //if decrypting, write the computed tag in an internal buffer
-    if(cryptorRef->op == kCCDecrypt){
-        memcpy(dec_tag, tag, sizeof(dec_tag));
+    if (cryptorRef->op == kCCDecrypt) {
+        memcpy(dec_tag, tag, tagLength);
         tag = dec_tag;
     }
-    
+
     int rc = ccgcm_finalize(cryptor->symMode[cryptor->op].gcm,cryptor->ctx[cryptor->op].gcm, tagLength, tag);
     CCCryptorStatus rv = rc == 0 ? kCCSuccess : kCCUnspecifiedError;
 
-    if(cryptorRef->op == kCCDecrypt)
-        cc_clear(sizeof dec_tag, dec_tag);
-    
+    if (cryptorRef->op == kCCDecrypt) {
+        cc_clear(tagLength, dec_tag);
+    }
+
     return rv;
 }
 
@@ -308,11 +314,12 @@ CCCryptorStatus CCCryptorGCMOneshotDecrypt(CCAlgorithm alg, const void  *key, si
 
 {
     CCCryptorStatus rv = validate_gcm_params(alg, kCCDecrypt, key, keyLength, iv, ivLen, aData, aDataLen, dataIn, dataInLength, dataOut, tagIn, tagLength);
-    if(rv!=kCCSuccess)
+    if (rv != kCCSuccess) {
         return rv;
-    
-    char tag[tagLength]; //we are sure tagLength is not very large
-    memcpy(tag, tagIn, sizeof(tag));
+    }
+
+    char tag[AESGCM_BLOCK_LEN];
+    memcpy(tag, tagIn, tagLength);
 
     int rc = ccgcm_one_shot(ccaes_gcm_decrypt_mode(), keyLength, key, ivLen, iv, aDataLen, aData, dataInLength, dataIn, dataOut, tagLength, tag);
 
@@ -320,6 +327,6 @@ CCCryptorStatus CCCryptorGCMOneshotDecrypt(CCAlgorithm alg, const void  *key, si
         cc_clear(dataInLength, dataOut);
     }
 
-    cc_clear(sizeof tag, tag);
+    cc_clear(tagLength, tag);
     return translate_err_code(rc);
 }

@@ -27,7 +27,7 @@
 
 	Version:	xxx put version here xxx
 
-	Copyright:	© 1999 by Apple Computer, Inc., all rights reserved.
+	Copyright:	ï¿½ 1999 by Apple Computer, Inc., all rights reserved.
 
 	File Ownership:
 
@@ -50,7 +50,43 @@
 
 #include "HIDLib.h"
 
-//#include <stdlib.h>
+#if !(KERNEL || TARGET_OS_DRIVERKIT)
+
+#include <stdlib.h>
+
+#define IOFreeType(ptr, type)                            \
+	IOFreeData(ptr, sizeof(type))
+
+static void IOFreeData(void* ptr, size_t __unused size) {
+	free(ptr);
+}
+
+#define IOMallocType(type)                              \
+	IOMallocZero(sizeof(type))
+
+static void * IOMallocZero(size_t size) {
+	return calloc(1, size);
+}
+
+#else
+
+#if TARGET_OS_DRIVERKIT
+#include <DriverKit/IOLib.h>
+
+#define IOFreeType(ptr, type)                           \
+    IOSafeDeleteNULL(ptr, type, 1)
+
+#define IOMallocType(type)                              \
+    IONewZero(type, 1)
+
+extern void IOFreeData(void * address, size_t length);
+
+#else
+#include <IOKit/system.h>
+#include <IOKit/IOLib.h>
+#endif
+
+#endif
 
 /*
  *------------------------------------------------------------------------------
@@ -70,7 +106,6 @@
 OSStatus HIDCloseReportDescriptor(HIDPreparsedDataRef preparsedDataRef)
 {
 	HIDPreparsedDataPtr ptPreparsedData = (HIDPreparsedDataPtr) preparsedDataRef;
-	OSStatus iStatus;
 /*
  *	Disallow NULL Pointers
 */
@@ -86,7 +121,7 @@ OSStatus HIDCloseReportDescriptor(HIDPreparsedDataRef preparsedDataRef)
 */
 	if (ptPreparsedData->rawMemPtr != NULL)
 	{
-		PoolDeallocate (ptPreparsedData->rawMemPtr, ptPreparsedData->numBytesAllocated);
+		IOFreeData(ptPreparsedData->rawMemPtr, (size_t)ptPreparsedData->numBytesAllocated);
 		ptPreparsedData->rawMemPtr = NULL;
 	}
 /*
@@ -96,9 +131,9 @@ OSStatus HIDCloseReportDescriptor(HIDPreparsedDataRef preparsedDataRef)
 /*
  *	Deallocate the preparsed data
 */
-	iStatus = PoolDeallocate (ptPreparsedData, sizeof(HIDPreparsedData));
+	IOFreeType(ptPreparsedData, HIDPreparsedData);
 
-	return iStatus;
+	return 0;
 }
 
 /*
@@ -139,7 +174,7 @@ HIDOpenReportDescriptor	   (void *					hidReportDescriptor,
 */
 	*preparsedDataRef = NULL;
 	
-	ptPreparsedData = PoolAllocateResident (sizeof (HIDPreparsedData), kShouldClearMem);
+	ptPreparsedData = IOMallocType(HIDPreparsedData);
 	
 /*
  *	Make sure we got the memory
@@ -188,9 +223,9 @@ HIDOpenReportDescriptor	   (void *					hidReportDescriptor,
     
 	// something failed, deallocate everything, and make sure we return an error
     if (ptPreparsedData->rawMemPtr != NULL)
-        PoolDeallocate (ptPreparsedData->rawMemPtr, ptPreparsedData->numBytesAllocated);
+        IOFreeData(ptPreparsedData->rawMemPtr, (size_t)ptPreparsedData->numBytesAllocated);
         
-    PoolDeallocate (ptPreparsedData, sizeof(HIDPreparsedData));
+    IOFreeType(ptPreparsedData, HIDPreparsedData);
     
     if (iStatus == kHIDSuccess)
         iStatus = kHIDNotEnoughMemoryErr;

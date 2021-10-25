@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2020 Apple Inc. All rights reserved.
+ * Copyright (c) 2003-2021 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -139,8 +139,6 @@ u_int32_t ip6_temp_valid_lifetime = DEF_TEMP_VALID_LIFETIME;
  *	static u_int32_t ip6_temp_valid_lifetime = 1800;
  */
 int ip6_temp_regen_advance = TEMPADDR_REGEN_ADVANCE;
-
-extern lck_mtx_t *nd6_mutex;
 
 /* Serialization variables for single thread access to nd_prefix */
 static boolean_t nd_prefix_busy;
@@ -284,6 +282,7 @@ nd6_rs_input(
 		src_sa6.sin6_family = AF_INET6;
 		src_sa6.sin6_len = sizeof(src_sa6);
 		src_sa6.sin6_addr = ip6->ip6_src;
+		src_sa6.sin6_scope_id = (!in6_embedded_scope && IN6_IS_SCOPE_EMBED(&src_sa6.sin6_addr)) ? ip6_input_getsrcifscope(m) : IFSCOPE_NONE;
 		if (!nd6_is_addr_neighbor(&src_sa6, ifp, 0)) {
 			nd6log(info, "nd6_rs_input: "
 			    "RS packet from non-neighbor\n");
@@ -692,7 +691,7 @@ nd6_ra_input(
 			}
 
 			bzero(&pr, sizeof(pr));
-			lck_mtx_init(&pr.ndpr_lock, ifa_mtx_grp, ifa_mtx_attr);
+			lck_mtx_init(&pr.ndpr_lock, &ifa_mtx_grp, &ifa_mtx_attr);
 			NDPR_LOCK(&pr);
 			pr.ndpr_prefix.sin6_family = AF_INET6;
 			pr.ndpr_prefix.sin6_len = sizeof(pr.ndpr_prefix);
@@ -732,13 +731,13 @@ nd6_ra_input(
 
 			if (in6_init_prefix_ltimes(&pr)) {
 				NDPR_UNLOCK(&pr);
-				lck_mtx_destroy(&pr.ndpr_lock, ifa_mtx_grp);
+				lck_mtx_destroy(&pr.ndpr_lock, &ifa_mtx_grp);
 				continue; /* prefix lifetime init failed */
 			} else {
 				NDPR_UNLOCK(&pr);
 			}
 			(void) prelist_update(&pr, dr, m, mcast);
-			lck_mtx_destroy(&pr.ndpr_lock, ifa_mtx_grp);
+			lck_mtx_destroy(&pr.ndpr_lock, &ifa_mtx_grp);
 
 			/*
 			 * We have to copy the values out after the
@@ -746,15 +745,8 @@ nd6_ra_input(
 			 * be properly set until after the router advertisement
 			 * updating can vet the values.
 			 */
-			prfl = NULL;
-			MALLOC(prfl, struct nd_prefix_list *, sizeof(*prfl),
-			    M_TEMP, M_WAITOK | M_ZERO);
-
-			if (prfl == NULL) {
-				log(LOG_DEBUG, "%s: unable to MALLOC RA prefix "
-				    "structure\n", __func__);
-				continue;
-			}
+			prfl = kalloc_type(struct nd_prefix_list,
+			    Z_WAITOK | Z_ZERO | Z_NOFAIL);
 
 			/* this is only for nd6_post_msg(), otherwise unused */
 			bcopy(&pr.ndpr_prefix, &prfl->pr.ndpr_prefix,
@@ -866,7 +858,7 @@ freeit:
 	prfl = NULL;
 	while ((prfl = nd_prefix_list_head) != NULL) {
 		nd_prefix_list_head = prfl->next;
-		FREE(prfl, M_TEMP);
+		kfree_type(struct nd_prefix_list, prfl);
 	}
 
 	return;
@@ -953,12 +945,24 @@ defrouter_addreq(struct nd_defrouter *new, struct nd_route_info *rti, boolean_t 
 		} else {
 			rtflags |= RTF_PRCLONING;
 		}
+
+		if (IN6_IS_SCOPE_EMBED(&key.sin6_addr) ||
+		    IN6_IS_ADDR_LOOPBACK(&key.sin6_addr)) {
+			nd6log2(info, "%s: ignoring router %s, rti prefix %s, scoped=%d, "
+			    "static=%d on advertising interface\n", if_name(new->ifp),
+			    ip6_sprintf(&new->rtaddr), ip6_sprintf(&rti->nd_rti_prefix), scoped,
+			    (new->stateflags & NDDRF_STATIC) ? 1 : 0);
+			goto out;
+		}
 	}
 
 	if (new->stateflags & NDDRF_MAPPED) {
 		gate.sin6_addr = new->rtaddr_mapped;
 	} else {
 		gate.sin6_addr = new->rtaddr;
+	}
+	if (!in6_embedded_scope && IN6_IS_SCOPE_EMBED(&gate.sin6_addr)) {
+		gate.sin6_scope_id = new->ifp->if_index;
 	}
 
 	ifscope = scoped ? new->ifp->if_index : IFSCOPE_NONE;
@@ -1172,10 +1176,10 @@ defrouter_reset(void)
 
 	/* Nuke primary (non-scoped) default router */
 	bzero(&drany, sizeof(drany));
-	lck_mtx_init(&drany.nddr_lock, ifa_mtx_grp, ifa_mtx_attr);
+	lck_mtx_init(&drany.nddr_lock, &ifa_mtx_grp, &ifa_mtx_attr);
 	lck_mtx_unlock(nd6_mutex);
 	defrouter_delreq(&drany, NULL);
-	lck_mtx_destroy(&drany.nddr_lock, ifa_mtx_grp);
+	lck_mtx_destroy(&drany.nddr_lock, &ifa_mtx_grp);
 	lck_mtx_lock(nd6_mutex);
 }
 
@@ -1234,7 +1238,7 @@ defrtrlist_ioctl(u_long cmd, caddr_t data)
 			break;
 		}
 
-		if (IN6_IS_SCOPE_EMBED(&dr0.rtaddr)) {
+		if (IN6_IS_SCOPE_EMBED(&dr0.rtaddr) && in6_embedded_scope) {
 			uint16_t *scope = &dr0.rtaddr.s6_addr16[1];
 
 			if (*scope == 0) {
@@ -1244,7 +1248,6 @@ defrtrlist_ioctl(u_long cmd, caddr_t data)
 				break;
 			}
 		}
-
 		if (add) {
 			error = defrtrlist_add_static(&dr0);
 		}
@@ -2151,11 +2154,7 @@ pfxrtr_add(struct nd_prefix *pr, struct nd_defrouter *dr)
 	LCK_MTX_ASSERT(nd6_mutex, LCK_MTX_ASSERT_OWNED);
 	NDPR_LOCK_ASSERT_NOTHELD(pr);
 
-	new = zalloc(ndprtr_zone);
-	if (new == NULL) {
-		return;
-	}
-	bzero(new, sizeof(*new));
+	new = zalloc_flags(ndprtr_zone, Z_WAITOK | Z_ZERO | Z_NOFAIL);
 	new->router = dr;
 
 	NDPR_LOCK(pr);
@@ -2198,8 +2197,8 @@ nd6_prefix_lookup(struct nd_prefix *pr, int nd6_prefix_expiry)
 		NDPR_LOCK(search);
 		if (pr->ndpr_ifp == search->ndpr_ifp &&
 		    pr->ndpr_plen == search->ndpr_plen &&
-		    in6_are_prefix_equal(&pr->ndpr_prefix.sin6_addr,
-		    &search->ndpr_prefix.sin6_addr, pr->ndpr_plen)) {
+		    in6_are_prefix_equal(&pr->ndpr_prefix.sin6_addr, pr->ndpr_prefix.sin6_scope_id,
+		    &search->ndpr_prefix.sin6_addr, search->ndpr_prefix.sin6_scope_id, pr->ndpr_plen)) {
 			if (nd6_prefix_expiry != ND6_PREFIX_EXPIRY_UNSPEC) {
 				search->ndpr_expire = nd6_prefix_expiry;
 			}
@@ -2796,8 +2795,8 @@ nddr_alloc(zalloc_flags_t how)
 
 	dr = zalloc_flags(nddr_zone, how | Z_ZERO);
 	if (dr) {
-		lck_mtx_init(&dr->nddr_lock, ifa_mtx_grp, ifa_mtx_attr);
-		lck_mtx_init(&dr->nddr_ref_lock, ifa_mtx_grp, ifa_mtx_attr);
+		lck_mtx_init(&dr->nddr_lock, &ifa_mtx_grp, &ifa_mtx_attr);
+		lck_mtx_init(&dr->nddr_ref_lock, &ifa_mtx_grp, &ifa_mtx_attr);
 		dr->nddr_debug |= IFD_ALLOC;
 		if (nddr_debug != 0) {
 			dr->nddr_debug |= IFD_DEBUG;
@@ -2818,8 +2817,8 @@ nddr_free(struct nd_defrouter *dr)
 		/* NOTREACHED */
 	}
 	dr->nddr_debug &= ~IFD_ALLOC;
-	lck_mtx_destroy(&dr->nddr_lock, ifa_mtx_grp);
-	lck_mtx_destroy(&dr->nddr_ref_lock, ifa_mtx_grp);
+	lck_mtx_destroy(&dr->nddr_lock, &ifa_mtx_grp);
+	lck_mtx_destroy(&dr->nddr_ref_lock, &ifa_mtx_grp);
 	zfree(nddr_zone, dr);
 }
 
@@ -2852,7 +2851,7 @@ nddr_addref(struct nd_defrouter *nddr)
 {
 	NDDR_REF_LOCK_SPIN(nddr);
 	if (++nddr->nddr_refcount == 0) {
-		panic("%s: nddr %p wraparound refcnt\n", __func__, nddr);
+		panic("%s: nddr %p wraparound refcnt", __func__, nddr);
 		/* NOTREACHED */
 	} else if (nddr->nddr_trace != NULL) {
 		(*nddr->nddr_trace)(nddr, TRUE);
@@ -2865,7 +2864,7 @@ nddr_remref(struct nd_defrouter *nddr)
 {
 	NDDR_REF_LOCK_SPIN(nddr);
 	if (nddr->nddr_refcount == 0) {
-		panic("%s: nddr %p negative refcnt\n", __func__, nddr);
+		panic("%s: nddr %p negative refcnt", __func__, nddr);
 		/* NOTREACHED */
 	} else if (nddr->nddr_trace != NULL) {
 		(*nddr->nddr_trace)(nddr, FALSE);
@@ -2913,8 +2912,8 @@ ndpr_alloc(int how)
 
 	pr = zalloc_flags(ndpr_zone, how | Z_ZERO);
 	if (pr != NULL) {
-		lck_mtx_init(&pr->ndpr_lock, ifa_mtx_grp, ifa_mtx_attr);
-		lck_mtx_init(&pr->ndpr_ref_lock, ifa_mtx_grp, ifa_mtx_attr);
+		lck_mtx_init(&pr->ndpr_lock, &ifa_mtx_grp, &ifa_mtx_attr);
+		lck_mtx_init(&pr->ndpr_ref_lock, &ifa_mtx_grp, &ifa_mtx_attr);
 		RB_INIT(&pr->ndpr_prproxy_sols);
 		pr->ndpr_debug |= IFD_ALLOC;
 		if (ndpr_debug != 0) {
@@ -2947,8 +2946,8 @@ ndpr_free(struct nd_prefix *pr)
 		/* NOTREACHED */
 	}
 	pr->ndpr_debug &= ~IFD_ALLOC;
-	lck_mtx_destroy(&pr->ndpr_lock, ifa_mtx_grp);
-	lck_mtx_destroy(&pr->ndpr_ref_lock, ifa_mtx_grp);
+	lck_mtx_destroy(&pr->ndpr_lock, &ifa_mtx_grp);
+	lck_mtx_destroy(&pr->ndpr_ref_lock, &ifa_mtx_grp);
 	zfree(ndpr_zone, pr);
 }
 
@@ -2981,7 +2980,7 @@ ndpr_addref(struct nd_prefix *ndpr)
 {
 	NDPR_REF_LOCK_SPIN(ndpr);
 	if (++ndpr->ndpr_refcount == 0) {
-		panic("%s: ndpr %p wraparound refcnt\n", __func__, ndpr);
+		panic("%s: ndpr %p wraparound refcnt", __func__, ndpr);
 		/* NOTREACHED */
 	} else if (ndpr->ndpr_trace != NULL) {
 		(*ndpr->ndpr_trace)(ndpr, TRUE);
@@ -2994,7 +2993,7 @@ ndpr_remref(struct nd_prefix *ndpr)
 {
 	NDPR_REF_LOCK_SPIN(ndpr);
 	if (ndpr->ndpr_refcount == 0) {
-		panic("%s: ndpr %p negative refcnt\n", __func__, ndpr);
+		panic("%s: ndpr %p negative refcnt", __func__, ndpr);
 		/* NOTREACHED */
 	} else if (ndpr->ndpr_trace != NULL) {
 		(*ndpr->ndpr_trace)(ndpr, FALSE);
@@ -3300,7 +3299,14 @@ pfxlist_onlink_check(void)
 		NDPR_ADDREF(pr);
 		if (pr->ndpr_stateflags & NDPRF_DETACHED) {
 			pr->ndpr_pltime = 0;
-			pr->ndpr_vltime = TWOHOUR;
+			/* Do not extend its valid lifetime */
+			uint64_t pr_remaining_lifetime = pr->ndpr_vltime - (uint32_t)(timenow - pr->ndpr_base_uptime);
+			if (pr->ndpr_vltime == ND6_INFINITE_LIFETIME ||
+			    pr_remaining_lifetime >= TWOHOUR) {
+				pr->ndpr_vltime = TWOHOUR;
+			} else {
+				pr->ndpr_vltime = pr_remaining_lifetime;
+			}
 			in6_init_prefix_ltimes(pr);
 			NDPR_UNLOCK(pr);
 		} else if ((pr->ndpr_stateflags & NDPRF_DETACHED) == 0 &&
@@ -3412,7 +3418,13 @@ pfxlist_onlink_check(void)
 				in6ifa_getlifetime(ifa, &lt6_tmp, 0);
 				/* We want to immediately deprecate the address */
 				lt6_tmp.ia6t_pltime = 0;
-				lt6_tmp.ia6t_vltime = TWOHOUR;
+				/* Do not extend its valid lifetime */
+				uint64_t remaining_lifetime = lt6_tmp.ia6t_vltime - (uint32_t)(timenow - ifa->ia6_updatetime);
+				if (lt6_tmp.ia6t_vltime == ND6_INFINITE_LIFETIME || remaining_lifetime >= TWOHOUR) {
+					lt6_tmp.ia6t_vltime = TWOHOUR;
+				} else {
+					lt6_tmp.ia6t_vltime = remaining_lifetime;
+				}
 
 				in6_init_address_ltimes(&lt6_tmp);
 				in6ifa_setlifetime(ifa, &lt6_tmp);
@@ -3451,8 +3463,8 @@ nd6_prefix_equal_lookup(struct nd_prefix *pr, boolean_t primary_only)
 			continue;
 		}
 		if (opr->ndpr_plen == pr->ndpr_plen &&
-		    in6_are_prefix_equal(&pr->ndpr_prefix.sin6_addr,
-		    &opr->ndpr_prefix.sin6_addr, pr->ndpr_plen) &&
+		    in6_are_prefix_equal(&pr->ndpr_prefix.sin6_addr, pr->ndpr_prefix.sin6_scope_id,
+		    &opr->ndpr_prefix.sin6_addr, opr->ndpr_prefix.sin6_scope_id, pr->ndpr_plen) &&
 		    (!primary_only ||
 		    !(opr->ndpr_stateflags & NDPRF_IFSCOPE))) {
 			NDPR_ADDREF(opr);
@@ -4346,7 +4358,9 @@ rt6_flush(
 	}
 	lck_mtx_lock(rnh_lock);
 	/* XXX: hack for KAME's link-local address kludge */
-	gateway->s6_addr16[1] = htons(ifp->if_index);
+	if (in6_embedded_scope) {
+		gateway->s6_addr16[1] = htons(ifp->if_index);
+	}
 
 	rnh->rnh_walktree(rnh, rt6_deleteroute, (void *)gateway);
 	lck_mtx_unlock(rnh_lock);

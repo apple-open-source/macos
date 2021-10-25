@@ -204,7 +204,7 @@ void	__xlocale_init(void);
 static inline __attribute__((always_inline)) locale_t
 __current_locale(void)
 {
-#if TARGET_IPHONE_SIMULATOR
+#if TARGET_OS_SIMULATOR
 	/* <rdar://problem/14136256> Crash in _objc_inform for duplicate class name during simulator launch
 	 * TODO: Remove after the simulator's libSystem is initialized properly.
 	 */

@@ -28,14 +28,23 @@
 
 #include <kern/assert.h>
 #include <kern/hvg_hypercall.h>
+#include <kdp/ml/i386/kdp_x86_common.h>
 #include <i386/cpuid.h>
 #include <os/log.h>
-
+#include <vm/pmap.h>
+#include <vm/vm_map.h>
+#include <x86_64/lowglobals.h>
 
 static bool
 hvg_live_coredump_enabled(void)
 {
 	return cpuid_vmm_present() && (cpuid_vmm_get_applepv_features() & CPUID_LEAF_FEATURE_COREDUMP) != 0;
+}
+
+static bool
+hvg_xnu_debug_enabled(void)
+{
+	return cpuid_vmm_present() && (cpuid_vmm_get_applepv_features() & CPUID_LEAF_FEATURE_XNU_DEBUG) != 0;
 }
 
 /*
@@ -93,4 +102,38 @@ hvg_hcall_trigger_dump(hvg_hcall_vmcore_file_t *vmcore,
 		}
 	}
 	return ret;
+}
+
+extern vm_offset_t c_buffers;
+extern vm_size_t   c_buffers_size;
+
+/*
+ * Inform the hypervisor of the kernel physical address of
+ * the low globals data and kernel CR3 value.
+ */
+void
+hvg_hcall_set_coredump_data(void)
+{
+	hvg_hcall_return_t ret;
+	hvg_hcall_output_regs_t output;
+
+	/* Does the hypervisor support feature: xnu debugging? */
+	if (!hvg_xnu_debug_enabled()) {
+		return;
+	}
+
+	/* Hypercall to set up necessary information for reliable coredump */
+	ret = hvg_hypercall6(HVG_HCALL_SET_COREDUMP_DATA,
+	    lowGlo.lgStext,              /* args[0]: KVA of kernel text */
+	    kernel_map->min_offset,      /* args[1]: KVA of kernel_map_start */
+	    kernel_map->max_offset,      /* args[2]: KVA of kernel_map_end */
+	    kernel_pmap->pm_cr3,         /* args[3]: Kernel CR3 */
+	    c_buffers,                   /* args[4]: KVA of compressor buffers */
+	    c_buffers_size,              /* args[5]: Size of compressor buffers */
+	    &output);
+
+	if (ret != HVG_HCALL_SUCCESS) {
+		os_log_error(OS_LOG_DEFAULT, "%s: hcall failed, ret %d\n",
+		    __func__, ret);
+	}
 }

@@ -1,10 +1,11 @@
 SSH-ADD(1)                  General Commands Manual                 SSH-ADD(1)
 
 NAME
-     ssh-add M-bM-^@M-^S adds private key identities to the authentication agent
+     ssh-add M-bM-^@M-^S adds private key identities to the OpenSSH authentication agent
 
 SYNOPSIS
-     ssh-add [-cDdkLlqvXx] [-E fingerprint_hash] [-t life] [file ...]
+     ssh-add [-cDdKkLlqvXx] [-E fingerprint_hash] [-S provider] [-t life]
+             [file ...]
      ssh-add -s pkcs11
      ssh-add -e pkcs11
      ssh-add -T pubkey ...
@@ -12,11 +13,11 @@ SYNOPSIS
 DESCRIPTION
      ssh-add adds private key identities to the authentication agent,
      ssh-agent(1).  When run without arguments, it adds the files
-     ~/.ssh/id_rsa, ~/.ssh/id_dsa, ~/.ssh/id_ecdsa, and ~/.ssh/id_ed25519.
-     After loading a private key, ssh-add will try to load corresponding
-     certificate information from the filename obtained by appending -cert.pub
-     to the name of the private key file.  Alternative file names can be given
-     on the command line.
+     ~/.ssh/id_rsa, ~/.ssh/id_dsa, ~/.ssh/id_ecdsa, ~/.ssh/id_ecdsa_sk,
+     ~/.ssh/id_ed25519, and ~/.ssh/id_ed25519_sk.  After loading a private
+     key, ssh-add will try to load corresponding certificate information from
+     the filename obtained by appending -cert.pub to the name of the private
+     key file.  Alternative file names can be given on the command line.
 
      If any file requires a passphrase, ssh-add asks for the passphrase from
      the user.  The passphrase is read from the user's tty.  ssh-add retries
@@ -42,7 +43,9 @@ DESCRIPTION
              removed.  Otherwise, the argument list will be interpreted as a
              list of paths to public key files to specify keys and
              certificates to be removed from the agent.  If no public key is
-             found at a given path, ssh-add will append .pub and retry.
+             found at a given path, ssh-add will append .pub and retry.  If
+             the argument list consists of M-bM-^@M-^\-M-bM-^@M-^] then ssh-add will read public
+             keys to be removed from standard input.
 
      -E fingerprint_hash
              Specifies the hash algorithm used when displaying key
@@ -51,6 +54,8 @@ DESCRIPTION
 
      -e pkcs11
              Remove keys provided by the PKCS#11 shared library pkcs11.
+
+     -K      Load resident keys from a FIDO authenticator.
 
      -k      When loading keys into or deleting keys from the agent, process
              plain private keys only and skip certificates.
@@ -62,6 +67,11 @@ DESCRIPTION
              agent.
 
      -q      Be quiet after a successful operation.
+
+     -S provider
+             Specifies a path to a library that will be used when adding FIDO
+             authenticator-hosted keys, overriding the default of using the
+             internal USB HID support.
 
      -s pkcs11
              Add keys provided by the PKCS#11 shared library pkcs11.
@@ -85,33 +95,42 @@ DESCRIPTION
      -x      Lock the agent with a password.
 
 ENVIRONMENT
-     DISPLAY and SSH_ASKPASS
+     DISPLAY, SSH_ASKPASS and SSH_ASKPASS_REQUIRE
              If ssh-add needs a passphrase, it will read the passphrase from
              the current terminal if it was run from a terminal.  If ssh-add
              does not have a terminal associated with it but DISPLAY and
              SSH_ASKPASS are set, it will execute the program specified by
              SSH_ASKPASS (by default M-bM-^@M-^\ssh-askpassM-bM-^@M-^]) and open an X11 window to
              read the passphrase.  This is particularly useful when calling
-             ssh-add from a .xsession or related script.  (Note that on some
-             machines it may be necessary to redirect the input from /dev/null
-             to make this work.)
+             ssh-add from a .xsession or related script.
+
+             SSH_ASKPASS_REQUIRE allows further control over the use of an
+             askpass program.  If this variable is set to M-bM-^@M-^\neverM-bM-^@M-^] then ssh-add
+             will never attempt to use one.  If it is set to M-bM-^@M-^\preferM-bM-^@M-^], then
+             ssh-add will prefer to use the askpass program instead of the TTY
+             when requesting passwords.  Finally, if the variable is set to
+             M-bM-^@M-^\forceM-bM-^@M-^], then the askpass program will be used for all passphrase
+             input regardless of whether DISPLAY is set.
 
      SSH_AUTH_SOCK
              Identifies the path of a UNIX-domain socket used to communicate
              with the agent.
 
+     SSH_SK_PROVIDER
+             Specifies a path to a library that will be used when loading any
+             FIDO authenticator-hosted keys, overriding the default of using
+             the built-in USB HID support.
+
 FILES
      ~/.ssh/id_dsa
-             Contains the DSA authentication identity of the user.
-
      ~/.ssh/id_ecdsa
-             Contains the ECDSA authentication identity of the user.
-
+     ~/.ssh/id_ecdsa_sk
      ~/.ssh/id_ed25519
-             Contains the Ed25519 authentication identity of the user.
-
+     ~/.ssh/id_ed25519_sk
      ~/.ssh/id_rsa
-             Contains the RSA authentication identity of the user.
+             Contains the DSA, ECDSA, authenticator-hosted ECDSA, Ed25519,
+             authenticator-hosted Ed25519 or RSA authentication identity of
+             the user.
 
      Identity files should not be readable by anyone but the user.  Note that
      ssh-add ignores identity files if they are accessible by others.
@@ -130,4 +149,4 @@ AUTHORS
      created OpenSSH.  Markus Friedl contributed the support for SSH protocol
      versions 1.5 and 2.0.
 
-OpenBSD 6.6                    January 21, 2019                    OpenBSD 6.6
+OpenBSD 6.9                      July 14, 2020                     OpenBSD 6.9

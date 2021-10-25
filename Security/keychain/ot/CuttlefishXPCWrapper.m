@@ -22,6 +22,7 @@
  */
 
 #import "keychain/ot/CuttlefishXPCWrapper.h"
+#import <AppleFeatures/AppleFeatures.h>
 
 @implementation CuttlefishXPCWrapper
 - (instancetype) initWithCuttlefishXPCConnection: (id<NSXPCProxyCreating>)cuttlefishXPCConnection
@@ -312,7 +313,8 @@ enum {NUM_RETRIES = 5};
                    osVersion:(NSString *)osVersion
                policyVersion:(nullable TPPolicyVersion *)policyVersion
                policySecrets:(nullable NSDictionary<NSString*,NSData*> *)policySecrets
-   syncUserControllableViews:(TPPBPeerStableInfo_UserControllableViewStatus)syncUserControllableViews
+   syncUserControllableViews:(TPPBPeerStableInfoUserControllableViewStatus)syncUserControllableViews
+       secureElementIdentity:(nullable TPPBSecureElementIdentity*)secureElementIdentity
  signingPrivKeyPersistentRef:(nullable NSData *)spkPr
      encPrivKeyPersistentRef:(nullable NSData*)epkPr
                        reply:(void (^)(NSString * _Nullable peerID,
@@ -349,6 +351,7 @@ enum {NUM_RETRIES = 5};
          policyVersion:policyVersion
          policySecrets:policySecrets
          syncUserControllableViews:syncUserControllableViews
+         secureElementIdentity:secureElementIdentity
          signingPrivKeyPersistentRef:spkPr
          encPrivKeyPersistentRef:epkPr
          reply:reply];
@@ -447,8 +450,8 @@ enum {NUM_RETRIES = 5};
                            tlkShares:(NSArray<CKKSTLKShare*> *)tlkShares
                                reply:(void (^)(NSData * _Nullable voucher,
                                                NSData * _Nullable voucherSig,
-                                               int64_t uniqueTLKsRecovered,
-                                               int64_t totalTLKSharesRecovered,
+                                               NSArray<CKKSTLKShare*>* _Nullable newTLKShares,
+                                               TrustedPeersHelperTLKRecoveryResult* _Nullable tlkRecoveryResults,
                                                NSError * _Nullable error))reply
 {
     __block int i = 0;
@@ -461,7 +464,7 @@ enum {NUM_RETRIES = 5};
                         retry = true;
                     } else {
                         secerror("octagon: Can't talk with TrustedPeersHelper: %@", error);
-                        reply(nil, nil, 0, 0, error);
+                        reply(nil, nil, nil, nil, error);
                     }
                     ++i;
                 }] vouchWithBottleWithContainer:container context:context bottleID:bottleID entropy:entropy bottleSalt:bottleSalt tlkShares:tlkShares reply:reply];
@@ -496,14 +499,12 @@ enum {NUM_RETRIES = 5};
     } while (retry);
 }
 
-- (void)vouchWithRecoveryKeyWithContainer:(NSString *)container
-                                  context:(NSString *)context
-                              recoveryKey:(NSString*)recoveryKey
-                                     salt:(NSString*)salt
-                                tlkShares:(NSArray<CKKSTLKShare*> *)tlkShares
-                                    reply:(void (^)(NSData * _Nullable voucher,
-                                                    NSData * _Nullable voucherSig,
-                                                    NSError * _Nullable error))reply
+- (void)preflightVouchWithCustodianRecoveryKeyWithContainer:(NSString*)container
+                                                    context:(NSString*)context
+                                                        crk:(TrustedPeersHelperCustodianRecoveryKey*)crk
+                                                      reply:(void (^)(NSString* _Nullable recoveryKeyID,
+                                                                      TPSyncingPolicy* _Nullable syncingPolicy,
+                                                                      NSError * _Nullable error))reply
 {
     __block int i = 0;
     __block bool retry;
@@ -518,7 +519,65 @@ enum {NUM_RETRIES = 5};
                         reply(nil, nil, error);
                     }
                     ++i;
+                }] preflightVouchWithCustodianRecoveryKeyWithContainer:container
+                                                               context:context
+                                                                   crk:crk
+                                                                 reply:reply];
+    } while (retry);
+}
+
+- (void)vouchWithRecoveryKeyWithContainer:(NSString *)container
+                                  context:(NSString *)context
+                              recoveryKey:(NSString*)recoveryKey
+                                     salt:(NSString*)salt
+                                tlkShares:(NSArray<CKKSTLKShare*> *)tlkShares
+                                    reply:(void (^)(NSData * _Nullable voucher,
+                                                    NSData * _Nullable voucherSig,
+                                                    NSArray<CKKSTLKShare*>* _Nullable newTLKShares,
+                                                    TrustedPeersHelperTLKRecoveryResult* _Nullable tlkRecoveryResults,
+                                                    NSError * _Nullable error))reply
+{
+    __block int i = 0;
+    __block bool retry;
+    do {
+        retry = false;
+        [[self.cuttlefishXPCConnection synchronousRemoteObjectProxyWithErrorHandler:^(NSError *_Nonnull error) {
+                    if (i < NUM_RETRIES && [self.class retryable:error]) {
+                        secnotice("octagon", "retrying cuttlefish XPC, (%d, %@)", i, error);
+                        retry = true;
+                    } else {
+                        secerror("octagon: Can't talk with TrustedPeersHelper: %@", error);
+                        reply(nil, nil, nil, nil, error);
+                    }
+                    ++i;
                 }] vouchWithRecoveryKeyWithContainer:container context:context recoveryKey:recoveryKey salt:salt tlkShares:tlkShares reply:reply];
+    } while (retry);
+}
+
+- (void)vouchWithCustodianRecoveryKeyWithContainer:(NSString *)container
+                                           context:(NSString *)context
+                                               crk:(TrustedPeersHelperCustodianRecoveryKey*)crk
+                                         tlkShares:(NSArray<CKKSTLKShare*> *)tlkShares
+                                             reply:(void (^)(NSData * _Nullable voucher,
+                                                             NSData * _Nullable voucherSig,
+                                                             NSArray<CKKSTLKShare*>* _Nullable newTLKShares,
+                                                             TrustedPeersHelperTLKRecoveryResult* _Nullable tlkRecoveryResults,
+                                                             NSError * _Nullable error))reply
+{
+    __block int i = 0;
+    __block bool retry;
+    do {
+        retry = false;
+        [[self.cuttlefishXPCConnection synchronousRemoteObjectProxyWithErrorHandler:^(NSError *_Nonnull error) {
+                    if (i < NUM_RETRIES && [self.class retryable:error]) {
+                        secnotice("octagon", "retrying cuttlefish XPC, (%d, %@)", i, error);
+                        retry = true;
+                    } else {
+                        secerror("octagon: Can't talk with TrustedPeersHelper: %@", error);
+                        reply(nil, nil, nil, nil, error);
+                    }
+                    ++i;
+                }] vouchWithCustodianRecoveryKeyWithContainer:container context:context crk:crk tlkShares:tlkShares reply:reply];
     } while (retry);
 }
 
@@ -608,12 +667,18 @@ enum {NUM_RETRIES = 5};
 
 - (void)updateWithContainer:(NSString *)container
                     context:(NSString *)context
+               forceRefetch:(BOOL)forceRefetch
                  deviceName:(nullable NSString *)deviceName
                serialNumber:(nullable NSString *)serialNumber
                   osVersion:(nullable NSString *)osVersion
               policyVersion:(nullable NSNumber *)policyVersion
               policySecrets:(nullable NSDictionary<NSString*,NSData*> *)policySecrets
   syncUserControllableViews:(nullable NSNumber *)syncUserControllableViews
+      secureElementIdentity:(nullable TrustedPeersHelperIntendedTPPBSecureElementIdentity*)secureElementIdentity
+#if !defined(__OPEN_SOURCE__) && APPLE_FEATURE_WALRUS_UI
+              walrusSetting:(nullable TPPBPeerStableInfoSetting *)walrusSetting
+                  webAccess:(nullable TPPBPeerStableInfoSetting *)webAccess
+#endif /* APPLE_FEATURE_WALRUS_UI */
                       reply:(void (^)(TrustedPeersHelperPeerState* _Nullable peerState, TPSyncingPolicy* _Nullable policy, NSError * _Nullable error))reply
 {
     __block int i = 0;
@@ -631,12 +696,18 @@ enum {NUM_RETRIES = 5};
                     ++i;
                 }] updateWithContainer:container
                                context:context
+                          forceRefetch:forceRefetch
                             deviceName:deviceName
                           serialNumber:serialNumber
                              osVersion:osVersion
                          policyVersion:policyVersion
                          policySecrets:policySecrets
              syncUserControllableViews:syncUserControllableViews
+                 secureElementIdentity:secureElementIdentity
+#if !defined(__OPEN_SOURCE__) && APPLE_FEATURE_WALRUS_UI
+                         walrusSetting:walrusSetting
+                             webAccess:webAccess
+#endif /* APPLE_FEATURE_WALRUS_UI */
                                  reply:reply];
     } while (retry);
 }
@@ -757,8 +828,9 @@ enum {NUM_RETRIES = 5};
 - (void)fetchCurrentPolicyWithContainer:(NSString*)container
                                 context:(NSString*)context
                         modelIDOverride:(NSString* _Nullable)modelIDOverride
+                     isInheritedAccount:(BOOL)isInheritedAccount
                                   reply:(void (^)(TPSyncingPolicy* _Nullable syncingPolicy,
-                                                  TPPBPeerStableInfo_UserControllableViewStatus userControllableViewStatusOfPeers,
+                                                  TPPBPeerStableInfoUserControllableViewStatus userControllableViewStatusOfPeers,
                                                   NSError * _Nullable error))reply
 {
     __block int i = 0;
@@ -772,11 +844,11 @@ enum {NUM_RETRIES = 5};
                     } else {
                         secerror("octagon: Can't talk with TrustedPeersHelper: %@", error);
                         reply(nil,
-                              TPPBPeerStableInfo_UserControllableViewStatus_UNKNOWN,
+                              TPPBPeerStableInfoUserControllableViewStatus_UNKNOWN,
                               error);
                     }
                     ++i;
-        }] fetchCurrentPolicyWithContainer:container context:context modelIDOverride:modelIDOverride reply:reply];
+        }] fetchCurrentPolicyWithContainer:container context:context modelIDOverride:modelIDOverride isInheritedAccount:isInheritedAccount reply:reply];
     } while (retry);
 }
 
@@ -850,6 +922,56 @@ enum {NUM_RETRIES = 5};
     } while (retry);
 }
 
+- (void)createCustodianRecoveryKeyWithContainer:(NSString *)container
+                                        context:(NSString *)context
+                                    recoveryKey:(NSString *)recoveryString
+                                           salt:(NSString *)salt
+                                       ckksKeys:(NSArray<CKKSKeychainBackedKeySet*> *)ckksKeys
+                                           uuid:(NSUUID *)uuid
+                                           kind:(TPPBCustodianRecoveryKey_Kind)kind
+                                          reply:(void (^)(NSArray<CKRecord*>* _Nullable keyHierarchyRecords,
+                                                          TrustedPeersHelperCustodianRecoveryKey* _Nullable crk,
+                                                          NSError* _Nullable error))reply
+{
+    __block int i = 0;
+    __block bool retry;
+    do {
+        retry = false;
+        [[self.cuttlefishXPCConnection synchronousRemoteObjectProxyWithErrorHandler:^(NSError *_Nonnull error) {
+                    if (i < NUM_RETRIES && [self.class retryable:error]) {
+                        secnotice("octagon", "retrying cuttlefish XPC, (%d, %@)", i, error);
+                        retry = true;
+                    } else {
+                        secerror("octagon: Can't talk with TrustedPeersHelper: %@", error);
+                        reply(nil, nil, error);
+                    }
+                    ++i;
+                }] createCustodianRecoveryKeyWithContainer:container context:context recoveryKey:recoveryString salt:salt ckksKeys:ckksKeys uuid:uuid kind:kind reply:reply];
+    } while (retry);
+}
+
+- (void)removeCustodianRecoveryKeyWithContainer:(NSString *)container
+                                        context:(NSString *)context
+                                           uuid:(NSUUID *)uuid
+                                          reply:(void (^)(NSError* _Nullable error))reply
+{
+    __block int i = 0;
+    __block bool retry;
+    do {
+        retry = false;
+        [[self.cuttlefishXPCConnection synchronousRemoteObjectProxyWithErrorHandler:^(NSError *_Nonnull error) {
+                    if (i < NUM_RETRIES && [self.class retryable:error]) {
+                        secnotice("octagon", "retrying cuttlefish XPC, (%d, %@)", i, error);
+                        retry = true;
+                    } else {
+                        secerror("octagon: Can't talk with TrustedPeersHelper: %@", error);
+                        reply(error);
+                    }
+                    ++i;
+                }] removeCustodianRecoveryKeyWithContainer:container context:context uuid:uuid reply:reply];
+    } while (retry);
+}
+
 - (void)reportHealthWithContainer:(NSString *)container
                           context:(NSString *)context
                 stateMachineState:(NSString *)state
@@ -897,7 +1019,7 @@ enum {NUM_RETRIES = 5};
 - (void)requestHealthCheckWithContainer:(NSString *)container
                                 context:(NSString *)context
                     requiresEscrowCheck:(BOOL)requiresEscrowCheck
-                                  reply:(void (^)(BOOL postRepairCFU, BOOL postEscrowCFU, BOOL resetOctagon, BOOL leaveTrust, NSError* _Nullable))reply
+                                  reply:(void (^)(BOOL postRepairCFU, BOOL postEscrowCFU, BOOL resetOctagon, BOOL leaveTrust, OTEscrowMoveRequestContext *moveRequest, NSError* _Nullable))reply
 {
     __block int i = 0;
     __block bool retry;
@@ -909,7 +1031,7 @@ enum {NUM_RETRIES = 5};
                         retry = true;
                     } else {
                         secerror("octagon: Can't talk with TrustedPeersHelper: %@", error);
-                        reply(NO, NO, NO, NO, error);
+                        reply(NO, NO, NO, NO, nil, error);
                     }
                     ++i;
         }] requestHealthCheckWithContainer:container context:context requiresEscrowCheck:requiresEscrowCheck reply:reply];
@@ -993,7 +1115,120 @@ enum {NUM_RETRIES = 5};
     } while (retry);
 }
 
+- (void)fetchRecoverableTLKSharesWithContainer:(nonnull NSString *)container
+                                       context:(nonnull NSString *)context
+                                        peerID:(NSString * _Nullable)peerID
+                                         reply:(nonnull void (^)(NSArray<CKRecord *> * _Nullable, NSError * _Nullable))reply {
+    __block int i = 0;
+    __block bool retry;
+    do {
+        retry = false;
+        [[self.cuttlefishXPCConnection synchronousRemoteObjectProxyWithErrorHandler:^(NSError *_Nonnull error) {
+            if (i < NUM_RETRIES && [self.class retryable:error]) {
+                secnotice("octagon", "retrying cuttlefish XPC, (%d, %@)", i, error);
+                retry = true;
+            } else {
+                secerror("octagon: Can't talk with TrustedPeersHelper: %@", error);
+                reply(nil, error);
+            }
+            ++i;
+        }] fetchRecoverableTLKSharesWithContainer:container context:context peerID:peerID reply:reply];
+    } while (retry);
+}
 
+- (void)fetchAccountSettingsWithContainer:(nonnull NSString *)container
+                                  context:(nonnull NSString *)context
+                                    reply:(nonnull void (^)(NSDictionary<NSString*, TPPBPeerStableInfoSetting *> * _Nullable, NSError * _Nullable))reply {
+    __block int i = 0;
+    __block bool retry;
+    do {
+        retry = false;
+        [[self.cuttlefishXPCConnection synchronousRemoteObjectProxyWithErrorHandler:^(NSError *_Nonnull error) {
+            if (i < NUM_RETRIES && [self.class retryable:error]) {
+                secnotice("octagon", "retrying cuttlefish XPC, (%d, %@)", i, error);
+                retry = true;
+            } else {
+                secerror("octagon: Can't talk with TrustedPeersHelper: %@", error);
+                reply(nil, error);
+            }
+            ++i;
+        }] fetchAccountSettingsWithContainer:container context:context reply:reply];
+    } while (retry);
+}
 
+- (void)prepareInheritancePeerWithContainer:(nonnull NSString *)container
+                                    context:(nonnull NSString *)context
+                                      epoch:(unsigned long long)epoch
+                                  machineID:(nonnull NSString *)machineID
+                                 bottleSalt:(nonnull NSString *)bottleSalt
+                                   bottleID:(nonnull NSString *)bottleID
+                                    modelID:(nonnull NSString *)modelID
+                                 deviceName:(nullable NSString *)deviceName
+                               serialNumber:(nullable NSString *)serialNumber
+                                  osVersion:(nonnull NSString *)osVersion
+                              policyVersion:(nullable TPPolicyVersion *)policyVersion
+                              policySecrets:(nullable NSDictionary<NSString *,NSData *> *)policySecrets syncUserControllableViews:(TPPBPeerStableInfoUserControllableViewStatus)syncUserControllableViews
+                      secureElementIdentity:(nullable TPPBSecureElementIdentity *)secureElementIdentity
+                signingPrivKeyPersistentRef:(nullable NSData *)spkPr
+                    encPrivKeyPersistentRef:(nullable NSData *)epkPr
+                                        crk:(nonnull TrustedPeersHelperCustodianRecoveryKey *)crk
+                                      reply:(nonnull void (^)(NSString * _Nullable, NSData * _Nullable, NSData * _Nullable, NSData * _Nullable, NSData * _Nullable, TPSyncingPolicy * _Nullable, NSString * _Nullable,                                                       NSArray<CKRecord*>* _Nullable keyHierarchyRecords, NSError * _Nullable))reply {
+    __block int i = 0;
+    __block bool retry;
+    do {
+        retry = false;
+        [[self.cuttlefishXPCConnection synchronousRemoteObjectProxyWithErrorHandler:^(NSError *_Nonnull error) {
+            if (i < NUM_RETRIES && [self.class retryable:error]) {
+                secnotice("octagon", "retrying cuttlefish XPC, (%d, %@)", i, error);
+                retry = true;
+            } else {
+                secerror("octagon: Can't talk with TrustedPeersHelper: %@", error);
+                reply(nil, nil, nil, nil, nil, nil, nil, nil, error);
+            }
+            ++i;
+        }] prepareInheritancePeerWithContainer:container
+         context:context
+         epoch:epoch
+         machineID:machineID
+         bottleSalt:bottleSalt
+         bottleID:bottleID
+         modelID:modelID
+         deviceName:deviceName
+         serialNumber:serialNumber
+         osVersion:osVersion
+         policyVersion:policyVersion
+         policySecrets:policySecrets
+         syncUserControllableViews:syncUserControllableViews
+         secureElementIdentity:secureElementIdentity
+         signingPrivKeyPersistentRef:spkPr
+         encPrivKeyPersistentRef:epkPr
+         crk:crk
+         reply:reply];
+    } while (retry);
+}
+
+- (void)recoverTLKSharesForInheritorWithContainer:(nonnull NSString *)container
+                                          context:(nonnull NSString *)context
+                                              crk:(nonnull TrustedPeersHelperCustodianRecoveryKey *)crk
+                                        tlkShares:(nonnull NSArray<CKKSTLKShare *> *)tlkShares
+                                            reply:(nonnull void (^)(NSArray<CKKSTLKShare *> * _Nullable,
+                                                                    TrustedPeersHelperTLKRecoveryResult* _Nullable tlkRecoveryResults,
+                                                                    NSError * _Nullable))reply {
+    __block int i = 0;
+    __block bool retry;
+    do {
+        retry = false;
+        [[self.cuttlefishXPCConnection synchronousRemoteObjectProxyWithErrorHandler:^(NSError *_Nonnull error) {
+            if (i < NUM_RETRIES && [self.class retryable:error]) {
+                secnotice("octagon", "retrying cuttlefish XPC, (%d, %@)", i, error);
+                retry = true;
+            } else {
+                secerror("octagon: Can't talk with TrustedPeersHelper: %@", error);
+                reply(nil, nil, error);
+            }
+            ++i;
+        }] recoverTLKSharesForInheritorWithContainer:container context:context crk:crk tlkShares:tlkShares reply:reply];
+    } while (retry);
+}
 
 @end

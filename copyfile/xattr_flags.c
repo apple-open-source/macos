@@ -205,7 +205,7 @@ stringToProperties(const char *proplist)
  * a string with the EA name, and the property list appended.  E.g., we
  * might return "com.apple.lfs.hfs.test#pD".
  *
- * The tricky part of this funciton is that it will not append any letters
+ * The tricky part of this function is that it will not append any letters
  * if the value is only the default properites.  In that case, it will copy
  * the EA name, and return that.
  *

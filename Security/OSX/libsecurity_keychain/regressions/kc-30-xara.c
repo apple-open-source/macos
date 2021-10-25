@@ -89,21 +89,22 @@ static void modifyAttributeInKeychain(char * name, CSSM_DL_DB_HANDLE dldbHandle,
     queryAll.RecordType = recordType;
 
     CSSM_HANDLE results = 0;
-    CSSM_DATA data = {};
     CSSM_DB_UNIQUE_RECORD_PTR uniqueIdPtr = NULL;
 
     CSSM_DB_RECORD_ATTRIBUTE_DATA attributes = {};
     attributes.NumberOfAttributes = 1;
-    attributes.AttributeData = malloc(sizeof(CSSM_DB_ATTRIBUTE_DATA) * attributes.NumberOfAttributes);
+    CSSM_DB_ATTRIBUTE_DATA attribData = {};
+    attributes.AttributeData = &attribData;
     attributes.AttributeData[0].Info.Label.AttributeName = attributeName;
     attributes.AttributeData[0].Info.AttributeNameFormat = CSSM_DB_ATTRIBUTE_NAME_AS_STRING;
 
-    attributes.AttributeData[0].NumberOfValues = 1;
-    attributes.AttributeData[0].Value = malloc(sizeof(CSSM_DATA)*attributes.AttributeData[0].NumberOfValues);
+    attributes.AttributeData[0].NumberOfValues = 0;
 
-
-    status = CSSM_DL_DataGetFirst(dldbHandle, &queryAll, &results, &attributes, &data, &uniqueIdPtr);
+    status = CSSM_DL_DataGetFirst(dldbHandle, &queryAll, &results, &attributes, NULL, &uniqueIdPtr);
     while(status == CSSM_OK) {
+        // No longer need the atribute data that was allocated by CSSM_DL_DataGetFirst or CSSM_DL_DataGetNext
+        free(attributes.AttributeData[0].Value[0].Data);
+
         // I'm sure it has one thing and that thing needs to change.
         attributes.AttributeData[0].Value[0].Data = (void*)newValue;
         attributes.AttributeData[0].Value[0].Length = strlen(newValue);
@@ -116,7 +117,12 @@ static void modifyAttributeInKeychain(char * name, CSSM_DL_DB_HANDLE dldbHandle,
                            CSSM_DB_MODIFY_ATTRIBUTE_REPLACE);
 
         CSSM_DL_FreeUniqueRecord(dldbHandle, uniqueIdPtr);
-        status = CSSM_DL_DataGetNext(dldbHandle, results, &attributes, &data, &uniqueIdPtr);
+
+        // no longer need the attribute data wrapper that was allocated by CSSM_DL_DataGetFirst or CSSM_DL_DataGetNext
+        free(attributes.AttributeData[0].Value);
+        attributes.AttributeData[0].NumberOfValues = 0;
+
+        status = CSSM_DL_DataGetNext(dldbHandle, results, &attributes, NULL, &uniqueIdPtr);
     }
     ok_status(CSSM_DL_DbClose(dldbHandle), "%s: CSSM_DL_DbClose", name);
 }
@@ -140,6 +146,7 @@ static void testAttackItem(CSSM_DL_DB_HANDLE dldbHandle) {
     kc = openKeychain(name);
     item = checkNCopyFirst(name, createQueryItemDictionary(kc, kSecClassGenericPassword), 1);
     readPasswordContentsWithResult(item, errSecInvalidItemRef, NULL);
+    CFReleaseNull(item);
 
     ok_status(SecKeychainDelete(kc), "%s: SecKeychainDelete", name);
     CFReleaseNull(kc);
@@ -193,6 +200,7 @@ static void testAddAfterCorruptItem(CSSM_DL_DB_HANDLE dldbHandle) {
     kc = openKeychain(name);
     SecKeychainItemRef item = checkNCopyFirst(name, createQueryItemDictionary(kc, kSecClassGenericPassword), 1);
     deleteItem(item);
+    CFReleaseNull(item);
     checkN(name, createQueryItemDictionary(kc, kSecClassGenericPassword), 0);
 
     makeCustomItemWithIntegrity(name, kc, kSecClassGenericPassword, CFSTR("evil_application"), CFSTR("d2aa97b30a1f96f9e61fcade2b00d9f4284976a83a5b68392251ee5ec827f8cc"));
@@ -400,6 +408,8 @@ static void testKeychainUpgrade() {
     });
 
     dispatch_group_wait(g, DISPATCH_TIME_FOREVER);
+    dispatch_release(g);
+    free(blockName);
 
     // @@@ I'm worried that there are still some thread issues in AppleDatabase; if these are run in the blocks above
     //     you can sometimes get CSSMERR_DL_INVALID_RECORD_UID/errSecInvalidRecord instead of errSecDuplicateItem
@@ -422,23 +432,28 @@ static void testKeychainUpgrade() {
     checkIntegrityHash(name, item, CFSTR("39c56eadd3e3b496b6099e5f3d5ff88eaee9ca2e3a50c1be8319807a72e451e5"));
     checkPartitionIDs(name, item, 0);
     makeCustomDuplicateItem(name, kc, kSecClassGenericPassword, CFSTR("test_generic"));
+    CFReleaseNull(item);
 
     item = checkNCopyFirst(name, createQueryItemDictionary(kc, kSecClassInternetPassword), 1);
     checkIntegrityHash(name, item, CFSTR("4f1b64e3c156968916e72d8ff3f1a8eb78b32abe0b2b43f0578eb07c722aaf03"));
     checkPartitionIDs(name, item, 0);
     makeCustomDuplicateItem(name, kc, kSecClassInternetPassword, CFSTR("test_internet"));
+    CFReleaseNull(item);
 
     item = checkNCopyFirst(name, createQueryKeyDictionary(kc, kSecAttrKeyClassSymmetric), 1);
     checkIntegrityHash(name, (SecKeychainItemRef) item, CFSTR("44f10f6bb508d47f8905859efc06eaee500304bc4da408b1f4d2a58c6502147b"));
     checkPartitionIDs(name, (SecKeychainItemRef) item, 0);
+    CFReleaseNull(item);
 
     item = checkNCopyFirst(name, createQueryKeyDictionary(kc, kSecAttrKeyClassPublic), 1);
     checkIntegrityHash(name, (SecKeychainItemRef) item, CFSTR("42d29fd5e9935edffcf6d0261eabddb00782ec775caa93716119e8e553ab5578"));
     checkPartitionIDs(name, (SecKeychainItemRef) item, 0);
+    CFReleaseNull(item);
 
     item = checkNCopyFirst(name, createQueryKeyDictionary(kc, kSecAttrKeyClassPrivate), 1);
     checkIntegrityHash(name, (SecKeychainItemRef) item, CFSTR("bdf219cdbc2dc6c4521cf39d1beda2e3491ef0330ba59eb41229dd909632f48d"));
     checkPartitionIDs(name, (SecKeychainItemRef) item, 0);
+    CFReleaseNull(item);
 
     ok_status(SecKeychainDelete(kc), "%s: SecKeychainDelete", name);
     CFReleaseNull(kc);
@@ -549,19 +564,24 @@ static void testKeychainDowngrade() {
     item = checkNCopyFirst(name, createQueryItemDictionary(kc, kSecClassGenericPassword), 1);
     checkIntegrityHash(name, item, CFSTR("6ba8d9f77ddba54d9373b11ae5c8f7b55a5e81da27e05e86723eeceb0a9a8e0c"));
     makeCustomDuplicateItem(name, kc, kSecClassGenericPassword, CFSTR("test_generic"));
+    CFReleaseNull(item);
 
     item = checkNCopyFirst(name, createQueryItemDictionary(kc, kSecClassInternetPassword), 1);
     checkIntegrityHash(name, item, CFSTR("630a9fe4f0191db8a99d6e8455e7114f628ce8f0f9eb3559efa572a98877a2b2"));
     makeCustomDuplicateItem(name, kc, kSecClassInternetPassword, CFSTR("test_internet"));
+    CFReleaseNull(item);
 
     item = checkNCopyFirst(name, createQueryKeyDictionary(kc, kSecAttrKeyClassSymmetric), 1);
     checkIntegrityHash(name, (SecKeychainItemRef) item, CFSTR("44f10f6bb508d47f8905859efc06eaee500304bc4da408b1f4d2a58c6502147b"));
+    CFReleaseNull(item);
 
     item = checkNCopyFirst(name, createQueryKeyDictionary(kc, kSecAttrKeyClassPublic), 1);
     checkIntegrityHash(name, (SecKeychainItemRef) item, CFSTR("d27ee2be4920d5b6f47f6b19696d09c9a6c1a5d80c6f148f778db27b4ba99d9a"));
+    CFReleaseNull(item);
 
     item = checkNCopyFirst(name, createQueryKeyDictionary(kc, kSecAttrKeyClassPrivate), 1);
     checkIntegrityHash(name, (SecKeychainItemRef) item, CFSTR("4b3f7bd7f9e48dc71006ce670990aed9dba6d5089b84d4113121bab41d0a3228"));
+    CFReleaseNull(item);
 
 
 
@@ -622,6 +642,7 @@ static void testKeychainWrongFile256() {
     // Iterate over the keychain to trigger upgrade
     item = checkNCopyFirst(name, createQueryItemDictionary(kc, kSecClassGenericPassword), 1);
     makeCustomDuplicateItem(name, kc, kSecClassGenericPassword, CFSTR("test_generic"));
+    CFReleaseNull(item);
 
     // We should have created keychainFile, check for it
     is(stat(keychainFile, &filebuf), 0, "%s: %s does not exist", name, keychainFile);
@@ -638,13 +659,18 @@ static void testKeychainWrongFile256() {
 
     item = checkNCopyFirst(name, createQueryItemDictionary(kc, kSecClassGenericPassword), 1);
     makeCustomDuplicateItem(name, kc, kSecClassGenericPassword, CFSTR("test_generic"));
+    CFReleaseNull(item);
 
     item = checkNCopyFirst(name, createQueryItemDictionary(kc, kSecClassInternetPassword), 1);
     makeCustomDuplicateItem(name, kc, kSecClassInternetPassword, CFSTR("test_internet"));
+    CFReleaseNull(item);
 
     item = checkNCopyFirst(name, createQueryKeyDictionary(kc, kSecAttrKeyClassSymmetric), 1);
+    CFReleaseNull(item);
     item = checkNCopyFirst(name, createQueryKeyDictionary(kc, kSecAttrKeyClassPublic), 1);
+    CFReleaseNull(item);
     item = checkNCopyFirst(name, createQueryKeyDictionary(kc, kSecAttrKeyClassPrivate), 1);
+    CFReleaseNull(item);
 
     ok_status(SecKeychainDelete(kc), "%s: SecKeychainDelete", name);
     CFReleaseNull(kc);
@@ -685,6 +711,7 @@ static void testKeychainWrongFile512() {
     // Iterate over the keychain to trigger upgrade
     item = checkNCopyFirst(name, createQueryItemDictionary(kc, kSecClassGenericPassword), 1);
     makeCustomDuplicateItem(name, kc, kSecClassGenericPassword, CFSTR("test_generic"));
+    CFReleaseNull(item);
 
     // We should have move the keychain to keychainDbFile, check for it
     isnt(stat(keychainFile, &filebuf), 0, "%s: %s still exists", name, keychainFile);
@@ -701,13 +728,18 @@ static void testKeychainWrongFile512() {
 
     item = checkNCopyFirst(name, createQueryItemDictionary(kc, kSecClassGenericPassword), 1);
     makeCustomDuplicateItem(name, kc, kSecClassGenericPassword, CFSTR("test_generic"));
+    CFReleaseNull(item);
 
     item = checkNCopyFirst(name, createQueryItemDictionary(kc, kSecClassInternetPassword), 1);
     makeCustomDuplicateItem(name, kc, kSecClassInternetPassword, CFSTR("test_internet"));
+    CFReleaseNull(item);
 
     item = checkNCopyFirst(name, createQueryKeyDictionary(kc, kSecAttrKeyClassSymmetric), 1);
+    CFReleaseNull(item);
     item = checkNCopyFirst(name, createQueryKeyDictionary(kc, kSecAttrKeyClassPublic), 1);
+    CFReleaseNull(item);
     item = checkNCopyFirst(name, createQueryKeyDictionary(kc, kSecAttrKeyClassPrivate), 1);
+    CFReleaseNull(item);
 
     ok_status(SecKeychainDelete(kc), "%s: SecKeychainDelete", name);
     CFReleaseNull(kc);
@@ -822,6 +854,7 @@ static void testUidAccess() {
     ok_status(SecItemAdd(query, &result), "%s: SecItemAdd", name);
     CFReleaseNull(query);
     ok(result != NULL, "%s: SecItemAdd returned a result", name);
+    CFReleaseNull(result);
 
     SecKeychainItemRef item = checkNCopyFirst(name, createQueryItemDictionary(kc, kSecClassGenericPassword), 1);
 
@@ -829,16 +862,20 @@ static void testUidAccess() {
     checkN(name, createQueryItemDictionary(kc, kSecClassGenericPassword), 1);
 
     // Check to make sure the ACL stays
-    access = NULL;
+    CFReleaseNull(access);
     ok_status(SecKeychainItemCopyAccess(item, &access), "%s: SecKeychainItemCopyAccess", name);
     checkAccessLength(name, access, 2);
 
     const char * newPassword = "newPassword";
     ok_status(SecKeychainItemModifyContent(item, NULL, (UInt32) strlen(newPassword), newPassword), "%s: SecKeychainItemModifyContent", name);
 
-    access = NULL;
+    CFReleaseNull(access);
+
     ok_status(SecKeychainItemCopyAccess(item, &access), "%s: SecKeychainItemCopyAccess", name);
     checkAccessLength(name, access, 2);
+
+    CFReleaseNull(access);
+    CFReleaseNull(item);
 
     ok_status(SecKeychainDelete(kc), "%s: SecKeychainDelete", name);
     CFReleaseNull(kc);
@@ -922,11 +959,13 @@ static void testMultipleUidAccess() {
     SecKeychainRef kc = newKeychain(name);
     CFMutableDictionaryRef query = createAddItemDictionary(kc, kSecClassGenericPassword, CFSTR("test label"));
     CFDictionarySetValue(query, kSecAttrAccess, access);
+    CFReleaseNull(access); // retained by query dict
 
     CFTypeRef result = NULL;
     ok_status(SecItemAdd(query, &result), "%s: SecItemAdd", name);
     CFReleaseNull(query);
     ok(result != NULL, "%s: SecItemAdd returned a result", name);
+    CFReleaseNull(result);
 
     checkN(name, createQueryItemDictionary(kc, kSecClassGenericPassword), 1);
 
@@ -956,6 +995,7 @@ static void testRootUidAccess() {
     ok_status(SecItemAdd(query, &result), "%s: SecItemAdd", name);
     CFReleaseNull(query);
     ok(result != NULL, "%s: SecItemAdd returned a result", name);
+    CFReleaseNull(result);
 
     query = createQueryItemDictionary(kc, kSecClassGenericPassword);
 
@@ -964,6 +1004,7 @@ static void testRootUidAccess() {
     ok_status(SecKeychainItemSetAccess(item, access), "%s: SecKeychainItemSetAccess", name);
     CFReleaseNull(access);
     checkN(name, createQueryItemDictionary(kc, kSecClassGenericPassword), 1);
+    CFReleaseNull(item);
 
     ok_status(SecKeychainDelete(kc), "%s: SecKeychainDelete", name);
     CFReleaseNull(kc);
@@ -1008,21 +1049,27 @@ static void testBadACL() {
     readPasswordContentsWithResult(item, errSecInvalidItemRef, NULL); // we don't expect to be able to read this
     deleteItem(item);
     checkN(name, createQueryItemDictionary(kc, kSecClassGenericPassword), 0);
+    CFReleaseNull(item);
 
     item = checkNCopyFirst(name, createQueryItemDictionary(kc, kSecClassInternetPassword), 1);
     readPasswordContentsWithResult(item, errSecInvalidItemRef, NULL); // we don't expect to be able to read this
     deleteItem(item);
     checkN(name, createQueryItemDictionary(kc, kSecClassInternetPassword), 0);
+    CFReleaseNull(item);
 
     // These should work
-    makeItem(name, kc, kSecClassGenericPassword, CFSTR("test_generic"));
-    makeItem(name, kc, kSecClassInternetPassword, CFSTR("test_internet"));
+    item = makeItem(name, kc, kSecClassGenericPassword, CFSTR("test_generic"));
+    CFReleaseNull(item);
+    item = makeItem(name, kc, kSecClassInternetPassword, CFSTR("test_internet"));
+    CFReleaseNull(item);
 
     // And now the items should exist
     item = checkNCopyFirst(name, createQueryItemDictionary(kc, kSecClassGenericPassword), 1);
     readPasswordContents(item, CFSTR("data"));
+    CFReleaseNull(item);
     item = checkNCopyFirst(name, createQueryItemDictionary(kc, kSecClassInternetPassword), 1);
     readPasswordContents(item, CFSTR("data"));
+    CFReleaseNull(item);
 
     ok_status(SecKeychainDelete(kc), "%s: SecKeychainDelete", name);
     CFReleaseNull(kc);
@@ -1046,11 +1093,16 @@ static void testIterateLockedKeychain() {
     ok_status(SecKeychainLock(kc), "%s: SecKeychainLock", name);
 
     item = checkNCopyFirst(name, createQueryItemDictionary(kc, kSecClassGenericPassword), 1);
+    CFReleaseNull(item);
     item = checkNCopyFirst(name, createQueryItemDictionary(kc, kSecClassInternetPassword), 1);
+    CFReleaseNull(item);
 
     item = checkNCopyFirst(name, createQueryKeyDictionary(kc, kSecAttrKeyClassSymmetric), 1);
+    CFReleaseNull(item);
     item = checkNCopyFirst(name, createQueryKeyDictionary(kc, kSecAttrKeyClassPublic), 1);
+    CFReleaseNull(item);
     item = checkNCopyFirst(name, createQueryKeyDictionary(kc, kSecAttrKeyClassPrivate), 1);
+    CFReleaseNull(item);
 
     ok_status(SecKeychainDelete(kc), "%s: SecKeychainDelete", name);
     CFReleaseNull(kc);

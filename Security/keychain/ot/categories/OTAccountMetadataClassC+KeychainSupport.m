@@ -9,10 +9,13 @@
 
 #import "OTAccountMetadataClassC+KeychainSupport.h"
 #import "keychain/categories/NSError+UsefulConstructors.h"
+#import <OctagonTrust/OTSecureElementPeerIdentity.h>
 
 #import "keychain/ot/OTDefines.h"
 #import "keychain/ot/OTConstants.h"
+#import "keychain/ckks/CKKSTLKShare.h"
 #import <TrustedPeers/TPSyncingPolicy.h>
+#import <TrustedPeers/TPPBSecureElementIdentity.h>
 
 @implementation OTAccountMetadataClassC (KeychainSupport)
 
@@ -141,7 +144,7 @@
     OTAccountMetadataClassC* state = [[OTAccountMetadataClassC alloc] initWithData:resultDict[(id)kSecValueData]];
     if(!state) {
         if(error) {
-            *error = [NSError errorWithDomain:OctagonErrorDomain code:OTErrorDeserializationFailure description:@"couldn't deserialize account state"];
+            *error = [NSError errorWithDomain:OctagonErrorDomain code:OctagonErrorDeserializationFailure description:@"couldn't deserialize account state"];
         }
         NSError* deleteError = nil;
         BOOL deleted = [OTAccountMetadataClassC deleteFromKeychainForContainer:containerName contextID:contextID error:&deleteError];
@@ -179,6 +182,53 @@
     [coder finishDecoding];
 
     return policy;
+}
+
+- (void)setTLKSharesPairedWithVoucher:(NSArray<CKKSTLKShare*>*)newTLKShares
+{
+    NSMutableArray<NSData*>* tlkSharesForStorage = [NSMutableArray array];
+
+    for(CKKSTLKShare* share in newTLKShares) {
+        NSKeyedArchiver *archiver = [[NSKeyedArchiver alloc] initRequiringSecureCoding:YES];
+        [share encodeWithCoder:archiver];
+        [tlkSharesForStorage addObject:archiver.encodedData];
+    }
+
+    self.tlkSharesForVouchedIdentitys = tlkSharesForStorage;
+}
+
+- (NSArray<CKKSTLKShare*>*)getTLKSharesPairedWithVoucher
+{
+    NSMutableArray<CKKSTLKShare*>* tlkShares = [NSMutableArray array];
+
+    for(NSData* shareData in self.tlkSharesForVouchedIdentitys) {
+        NSKeyedUnarchiver *coder = [[NSKeyedUnarchiver alloc] initForReadingFromData:shareData error:nil];
+        CKKSTLKShare* tlkShare = [[CKKSTLKShare alloc] initWithCoder:coder];
+        [coder finishDecoding];
+
+        [tlkShares addObject:tlkShare];
+    }
+
+    return tlkShares;
+}
+
+- (void)setOctagonSecureElementIdentity:(OTSecureElementPeerIdentity *)secureElementIdentity
+{
+    TPPBSecureElementIdentity* tppbSEI = [[TPPBSecureElementIdentity alloc] init];
+    tppbSEI.peerIdentifier = secureElementIdentity.peerIdentifier;
+    tppbSEI.peerData = secureElementIdentity.peerData;
+
+    self.secureElementIdentity = tppbSEI.data;
+}
+
+- (TPPBSecureElementIdentity* _Nullable)parsedSecureElementIdentity
+{
+    NSData* d = self.secureElementIdentity;
+    if(!d || [d length] == 0) {
+        return nil;
+    }
+
+    return [[TPPBSecureElementIdentity alloc] initWithData:d];
 }
 
 @end

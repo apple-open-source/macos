@@ -29,8 +29,6 @@
 #import "keychain/ot/OctagonStateMachineHelpers.h"
 #import "keychain/ot/OTOperationDependencies.h"
 
-@class OTCuttlefishContext;
-
 NS_ASSUME_NONNULL_BEGIN
 
 @interface OTVouchWithRecoveryKeyOperation : CKKSGroupOperation <OctagonStateTransitionOperationProtocol>
@@ -41,8 +39,6 @@ NS_ASSUME_NONNULL_BEGIN
                           errorState:(OctagonState*)errorState
                          recoveryKey:(NSString*)recoveryKey
                          saveVoucher:(BOOL)saveVoucher;
-
-@property (weak) OTCuttlefishContext* cuttlefishContext;
 
 @property (nonatomic) NSData* voucher;
 @property (nonatomic) NSData* voucherSig;

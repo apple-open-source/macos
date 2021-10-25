@@ -39,9 +39,11 @@ extern "C" {
 	This is the type of a reference to a code requirement.
 */
 #ifdef BRIDGED_SECCODESIGNER
-typedef struct CF_BRIDGED_TYPE(id) __SecCodeSigner *SecCodeSignerRef;	/* code signing object */
+typedef struct CF_BRIDGED_TYPE(id) __SecCodeSigner *SecCodeSignerRef
+SPI_AVAILABLE(macos(10.5), ios(15.0), macCatalyst(13.0));
 #else
-typedef struct __SecCodeSigner *SecCodeSignerRef;	/* code signing object */
+typedef struct __SecCodeSigner *SecCodeSignerRef
+SPI_AVAILABLE(macos(10.5), ios(15.0), macCatalyst(13.0));
 #endif
 
 
@@ -49,8 +51,8 @@ typedef struct __SecCodeSigner *SecCodeSignerRef;	/* code signing object */
 	@function SecCodeGetTypeID
 	Returns the type identifier of all SecCodeSigner instances.
 */
-CFTypeID SecCodeSignerGetTypeID(void);
-
+CFTypeID SecCodeSignerGetTypeID(void)
+SPI_AVAILABLE(macos(10.5), ios(15.0), macCatalyst(13.0));
 
 /*!
 	The following CFString constants can be used as keys in the parameters argument
@@ -146,33 +148,86 @@ CFTypeID SecCodeSignerGetTypeID(void);
 		version built into the Mach-O.
 
  */
-extern const CFStringRef kSecCodeSignerApplicationData;
-extern const CFStringRef kSecCodeSignerDetached;
-extern const CFStringRef kSecCodeSignerDigestAlgorithm;
-extern const CFStringRef kSecCodeSignerDryRun;
-extern const CFStringRef kSecCodeSignerEntitlements;
-extern const CFStringRef kSecCodeSignerFlags;
-extern const CFStringRef kSecCodeSignerIdentifier;
-extern const CFStringRef kSecCodeSignerIdentifierPrefix;
-extern const CFStringRef kSecCodeSignerIdentity;
-extern const CFStringRef kSecCodeSignerPageSize;
-extern const CFStringRef kSecCodeSignerRequirements;
-extern const CFStringRef kSecCodeSignerResourceRules;
-extern const CFStringRef kSecCodeSignerSDKRoot;
-extern const CFStringRef kSecCodeSignerSigningTime;
-extern const CFStringRef kSecCodeSignerTimestampAuthentication;
-extern const CFStringRef kSecCodeSignerRequireTimestamp;
-extern const CFStringRef kSecCodeSignerTimestampServer;
-extern const CFStringRef kSecCodeSignerTimestampOmitCertificates;
-extern const CFStringRef kSecCodeSignerPreserveMetadata;
-extern const CFStringRef kSecCodeSignerTeamIdentifier;
-extern const CFStringRef kSecCodeSignerPlatformIdentifier;
-extern const CFStringRef kSecCodeSignerRuntimeVersion;
-extern const CFStringRef kSecCodeSignerPreserveAFSC;
-extern const CFStringRef kSecCodeSignerOmitAdhocFlag;
-extern const CFStringRef kSecCodeSignerEditCpuType;
-extern const CFStringRef kSecCodeSignerEditCpuSubtype;
-extern const CFStringRef kSecCodeSignerEditCMS;
+extern const CFStringRef kSecCodeSignerApplicationData
+SPI_AVAILABLE(macos(10.5), ios(15.0), macCatalyst(13.0));
+
+extern const CFStringRef kSecCodeSignerDetached
+SPI_AVAILABLE(macos(10.5), ios(15.0), macCatalyst(13.0));
+
+extern const CFStringRef kSecCodeSignerDigestAlgorithm
+SPI_AVAILABLE(macos(10.5), ios(15.0), macCatalyst(13.0));
+
+extern const CFStringRef kSecCodeSignerDryRun
+SPI_AVAILABLE(macos(10.5), ios(15.0), macCatalyst(13.0));
+
+extern const CFStringRef kSecCodeSignerEntitlements
+SPI_AVAILABLE(macos(10.5), ios(15.0), macCatalyst(13.0));
+
+extern const CFStringRef kSecCodeSignerFlags
+SPI_AVAILABLE(macos(10.5), ios(15.0), macCatalyst(13.0));
+
+extern const CFStringRef kSecCodeSignerIdentifier
+SPI_AVAILABLE(macos(10.5), ios(15.0), macCatalyst(13.0));
+
+extern const CFStringRef kSecCodeSignerIdentifierPrefix
+SPI_AVAILABLE(macos(10.5), ios(15.0), macCatalyst(13.0));
+
+extern const CFStringRef kSecCodeSignerIdentity
+SPI_AVAILABLE(macos(10.5), ios(15.0), macCatalyst(13.0));
+
+extern const CFStringRef kSecCodeSignerPageSize
+SPI_AVAILABLE(macos(10.5), ios(15.0), macCatalyst(13.0));
+
+extern const CFStringRef kSecCodeSignerRequirements
+SPI_AVAILABLE(macos(10.5), ios(15.0), macCatalyst(13.0));
+
+extern const CFStringRef kSecCodeSignerResourceRules
+SPI_AVAILABLE(macos(10.5), ios(15.0), macCatalyst(13.0));
+
+extern const CFStringRef kSecCodeSignerSDKRoot
+SPI_AVAILABLE(macos(10.5), ios(15.0), macCatalyst(13.0));
+
+extern const CFStringRef kSecCodeSignerSigningTime
+SPI_AVAILABLE(macos(10.5), ios(15.0), macCatalyst(13.0));
+
+extern const CFStringRef kSecCodeSignerTimestampAuthentication
+SPI_AVAILABLE(macos(10.5), ios(15.0), macCatalyst(13.0));
+
+extern const CFStringRef kSecCodeSignerRequireTimestamp
+SPI_AVAILABLE(macos(10.5), ios(15.0), macCatalyst(13.0));
+
+extern const CFStringRef kSecCodeSignerTimestampServer
+SPI_AVAILABLE(macos(10.5), ios(15.0), macCatalyst(13.0));
+
+extern const CFStringRef kSecCodeSignerTimestampOmitCertificates
+SPI_AVAILABLE(macos(10.5), ios(15.0), macCatalyst(13.0));
+
+extern const CFStringRef kSecCodeSignerPreserveMetadata
+SPI_AVAILABLE(macos(10.5), ios(15.0), macCatalyst(13.0));
+
+extern const CFStringRef kSecCodeSignerTeamIdentifier
+SPI_AVAILABLE(macos(10.5), ios(15.0), macCatalyst(13.0));
+
+extern const CFStringRef kSecCodeSignerPlatformIdentifier
+SPI_AVAILABLE(macos(10.5), ios(15.0), macCatalyst(13.0));
+
+extern const CFStringRef kSecCodeSignerRuntimeVersion
+SPI_AVAILABLE(macos(10.5), ios(15.0), macCatalyst(13.0));
+
+extern const CFStringRef kSecCodeSignerPreserveAFSC
+SPI_AVAILABLE(macos(10.5), ios(15.0), macCatalyst(13.0));
+
+extern const CFStringRef kSecCodeSignerOmitAdhocFlag
+SPI_AVAILABLE(macos(10.5), ios(15.0), macCatalyst(13.0));
+
+extern const CFStringRef kSecCodeSignerEditCpuType
+SPI_AVAILABLE(macos(10.5), ios(15.0), macCatalyst(13.0));
+
+extern const CFStringRef kSecCodeSignerEditCpuSubtype
+SPI_AVAILABLE(macos(10.5), ios(15.0), macCatalyst(13.0));
+
+extern const CFStringRef kSecCodeSignerEditCMS
+SPI_AVAILABLE(macos(10.5), ios(15.0), macCatalyst(13.0));
 
 enum {
     kSecCodeSignerPreserveIdentifier = 1 << 0,		// preserve signing identifier
@@ -221,10 +276,12 @@ enum {
 
 #ifdef BRIDGED_SECCODESIGNER
 OSStatus SecCodeSignerCreate(CFDictionaryRef parameters, SecCSFlags flags,
-	SecCodeSignerRef * __nonnull CF_RETURNS_RETAINED signer);
+	SecCodeSignerRef * __nonnull CF_RETURNS_RETAINED signer)
+SPI_AVAILABLE(macos(10.5), ios(15.0), macCatalyst(13.0));
 #else
 OSStatus SecCodeSignerCreate(CFDictionaryRef parameters, SecCSFlags flags,
-	SecCodeSignerRef *signer);
+	SecCodeSignerRef *signer)
+SPI_AVAILABLE(macos(10.5), ios(15.0), macCatalyst(13.0));
 #endif
 
 /*!
@@ -245,10 +302,12 @@ OSStatus SecCodeSignerCreate(CFDictionaryRef parameters, SecCSFlags flags,
 	CSCommon.h or certain other Security framework headers.
 */
 OSStatus SecCodeSignerAddSignature(SecCodeSignerRef signer,
-	SecStaticCodeRef code, SecCSFlags flags);
+	SecStaticCodeRef code, SecCSFlags flags)
+SPI_AVAILABLE(macos(10.5), ios(15.0), macCatalyst(13.0));
 	
 OSStatus SecCodeSignerAddSignatureWithErrors(SecCodeSignerRef signer,
-	SecStaticCodeRef code, SecCSFlags flags, CFErrorRef *errors);
+	SecStaticCodeRef code, SecCSFlags flags, CFErrorRef *errors)
+SPI_AVAILABLE(macos(10.5), ios(15.0), macCatalyst(13.0));
 
 
 #ifdef __cplusplus

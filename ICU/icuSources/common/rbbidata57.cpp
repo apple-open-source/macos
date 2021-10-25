@@ -104,6 +104,7 @@ void RBBIDataWrapper57::init0() {
 }
 
 void RBBIDataWrapper57::init(const RBBIDataHeader57 *data, UErrorCode &status) {
+    fDontFreeData = FALSE;
     if (U_FAILURE(status)) {
         return;
     }
@@ -117,18 +118,17 @@ void RBBIDataWrapper57::init(const RBBIDataHeader57 *data, UErrorCode &status) {
     //       that is no longer supported.  At that time fFormatVersion was
     //       an int32_t field, rather than an array of 4 bytes.
 
-    fDontFreeData = FALSE;
     if (data->fFTableLen != 0) {
-        fForwardTable = (RBBIStateTable *)((char *)data + fHeader->fFTable);
+    fForwardTable = (RBBIStateTable57 *)((char *)data + fHeader->fFTable);
     }
     if (data->fRTableLen != 0) {
-        fReverseTable = (RBBIStateTable *)((char *)data + fHeader->fRTable);
+        fReverseTable = (RBBIStateTable57 *)((char *)data + fHeader->fRTable);
     }
     if (data->fSFTableLen != 0) {
-        fSafeFwdTable = (RBBIStateTable *)((char *)data + fHeader->fSFTable);
+        fSafeFwdTable = (RBBIStateTable57 *)((char *)data + fHeader->fSFTable);
     }
     if (data->fSRTableLen != 0) {
-        fSafeRevTable = (RBBIStateTable *)((char *)data + fHeader->fSRTable);
+        fSafeRevTable = (RBBIStateTable57 *)((char *)data + fHeader->fSRTable);
     }
 
 
@@ -240,7 +240,7 @@ const UnicodeString &RBBIDataWrapper57::getRuleSourceString() const {
 //
 //-----------------------------------------------------------------------------
 #ifdef RBBI_DEBUG
-void  RBBIDataWrapper57::printTable(const char *heading, const RBBIStateTable *table) {
+void  RBBIDataWrapper57::printTable(const char *heading, const RBBIStateTable57 *table) {
     uint32_t   c;
     uint32_t   s;
 
@@ -258,7 +258,7 @@ void  RBBIDataWrapper57::printTable(const char *heading, const RBBIStateTable *t
         return;
     }
     for (s=0; s<table->fNumStates; s++) {
-        RBBIStateTableRow *row = (RBBIStateTableRow *)
+        RBBIStateTableRow57 *row = (RBBIStateTableRow57 *)
                                   (table->fTableData + (table->fRowLen * s));
         RBBIDebugPrintf("%4d  |  %3d %3d %3d ", s, row->fAccepting, row->fLookAhead, row->fTagIdx);
         for (c=0; c<fHeader->fCatCount; c++)  {

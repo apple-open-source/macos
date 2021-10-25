@@ -21,7 +21,6 @@
 - (instancetype)initWithRandomAccountKey:(bool)randomAccountKey circle:(SOSCircleRef)circle
 {
     if ((self = [super init])) {
-        SecKeyRef publicKey = NULL;
         NSDictionary* parameters = @{
                                      (__bridge NSString*)kSecAttrKeyType:(__bridge NSString*) kSecAttrKeyTypeEC,
                                      (__bridge NSString*)kSecAttrKeySizeInBits: @(256),
@@ -37,26 +36,28 @@
                                              (__bridge NSString*)kSecAttrAccessible : (__bridge id)kSecAttrAccessibleAfterFirstUnlock,
                                              }
                                      };
-        if(SecKeyGeneratePair((__bridge CFDictionaryRef)parameters, &publicKey, &_deviceKey) != 0) {
-            NSLog(@"failed to create device key");
+
+        CFErrorRef cferror = NULL;
+        _deviceKey = SecKeyCreateRandomKey((__bridge CFDictionaryRef)parameters, &cferror);
+        if(_deviceKey == NULL || cferror != NULL) {
+            NSLog(@"failed to create device key: %@", cferror);
             return nil;
         }
-        CFReleaseNull(publicKey);
 
         NSMutableDictionary* octagonParameters = [parameters mutableCopy];
         octagonParameters[(__bridge NSString*)kSecAttrKeySizeInBits] = @(384);
-        if(SecKeyGeneratePair((__bridge CFDictionaryRef)octagonParameters, &publicKey, &_octagonSigningKey) != 0) {
-            NSLog(@"failed to create octagon signing key");
+
+        _octagonSigningKey = SecKeyCreateRandomKey((__bridge CFDictionaryRef)octagonParameters, &cferror);
+        if(_octagonSigningKey == NULL || cferror != NULL) {
+            NSLog(@"failed to create octagon signing key: %@", cferror);
             return nil;
         }
-        CFReleaseNull(publicKey);
 
-        if(SecKeyGeneratePair((__bridge CFDictionaryRef)octagonParameters, &publicKey, &_octagonEncryptionKey) != 0) {
-            NSLog(@"failed to create octagon signing key");
+        _octagonEncryptionKey = SecKeyCreateRandomKey((__bridge CFDictionaryRef)octagonParameters, &cferror);
+        if(_octagonEncryptionKey == NULL || cferror != NULL) {
+            NSLog(@"failed to create octagon signing key: %@", cferror);
             return nil;
         }
-        CFReleaseNull(publicKey);
-
 
         _circle = (SOSCircleRef)CFRetain(circle);
 
@@ -78,11 +79,11 @@
                                             (__bridge NSString*)kSecAttrAccessible : (__bridge id)kSecAttrAccessibleAfterFirstUnlock,
                                             };
 
-            if(SecKeyGeneratePair((__bridge CFDictionaryRef)accountParams, &publicKey, &_accountPrivateKey) != 0) {
-                NSLog(@"failed to create account signing key");
+            _accountPrivateKey = SecKeyCreateRandomKey((__bridge CFDictionaryRef)accountParams, &cferror);
+            if(_accountPrivateKey == NULL || cferror != NULL) {
+                NSLog(@"failed to create account signing key: %@", cferror);
                 return nil;
             }
-            CFReleaseNull(publicKey);
 
             _accountPublicKey = SecKeyCopyPublicKey(_accountPrivateKey);
 
@@ -362,6 +363,26 @@
 
 - (void)removeV0Peers:(void (^)(bool, NSError *))reply {
     reply(true, nil);
+}
+
+- (void)sosDisable {
+}
+
+- (void)sosEnable {
+}
+
+- (void) sosIsEnabledCB: (void(^)(bool result)) complete
+{
+    complete(true);
+}
+
+- (bool) sosIsEnabled
+{
+    return true;
+}
+
+- (NSString *)sosIsEnabledString {
+    return [self sosIsEnabled] ? @"[SOS is active]": @"[SOS is monitoring]";
 }
 
 @end

@@ -1,7 +1,9 @@
-﻿// © 2016 and later: Unicode, Inc. and others.
-// License & terms of use: http://www.unicode.org/copyright.html#License
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html
+// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
 es_MX{
     %%Parent{"es_419"}
+    AuxExemplarCharacters{"[à ă â å ä ã ā æ ç è ĕ ê ë ē ì ĭ î ï ī ò ŏ ô ö ø ō œ ù ŭ û ū ÿ]"}
     MoreInformation{"[...]"}
     NumberElements{
         latn{
@@ -104,7 +106,6 @@ es_MX{
             }
         }
     }
-    Version{"36.1"}
     calendar{
         generic{
             DateTimePatterns{
@@ -141,7 +142,36 @@ es_MX{
                 yyyyMMMEd{"EEE d MMM y G"}
                 yyyyMMMd{"d MMM y G"}
                 yyyyQQQ{"QQQ y G"}
-            }
+                 
+                // The following are all copied over from es_419.txt to work around the horizontal-inheritance
+                // problem and to address rdar://78420184 and should be removed when the horizontal inheritance
+                // bug is fixed.
+                Bh{"h B"}
+                Bhm{"h:mm B"}
+                Bhms{"h:mm:ss B"}
+                E{"ccc"}
+                EBhm{"E h:mm B"}
+                EBhms{"E h:mm:ss B"}
+                EHm{"E, HH:mm"}
+                EHms{"E, HH:mm:ss"}
+                Ed{"E d"}
+                Ehm{"E h:mm a"}
+                Ehms{"E h:mm:ss a"}
+                Gy{"y G"}
+                Hmsv{"H:mm:ss v"}
+                MEd{"E, d/M"}
+                MMM{"LLL"}
+                MMMMEd{"E, d 'de' MMMM"}
+                Md{"d/M"}
+                hmsv{"h:mm:ss a v"}
+                hmv{"h:mm a v"}
+                y{"y G"}
+                yyyy{"y G"}
+                yyyyM{"M/y GGGGG"}
+                yyyyMMMM{"MMMM 'de' y"}
+                yyyyMMMMd{"d 'de' MMMM 'de' y"}
+                yyyyMd{"d/M/y GGGGG"}
+          }
             intervalFormats{
                 Md{
                     M{"d/M – d/M"}
@@ -190,6 +220,7 @@ es_MX{
                 Hm{"H:mm"}
                 Hms{"H:mm:ss"}
                 Hmsv{"H:mm:ss v"}
+                Hmsvvvv{"H:mm:ss (vvvv)"}
                 Hmv{"H:mm v"}
                 M{"L"}
                 MEd{"E d/M"}
@@ -253,12 +284,12 @@ es_MX{
                 }
                 stand-alone{
                     abbreviated{
-                        am{"a. m."}
-                        pm{"p. m."}
+                        am{"a. m."}
+                        pm{"p. m."}
                     }
                     wide{
-                        am{"a. m."}
-                        pm{"p. m."}
+                        am{"a. m."}
+                        pm{"p. m."}
                     }
                 }
             }
@@ -496,7 +527,6 @@ es_MX{
         phonetic_alphabet{"Alfabeto fonético"}
         sign_standard_symbols{"Símbolos de señales/estándar"}
         smiley{"cara sonriente"}
-        south_asian_scripts{"Sistemas de escritura de Asia Meridional"}
         southeast_asian_scripts{"Sistemas de escritura de Asia Sudoriental"}
         symbols{"Símbolos"}
         tone_marks{"Marcas tonales"}
@@ -559,6 +589,7 @@ es_MX{
             }
             relativeTime{
                 future{
+                    one{"dentro de {0} viernes"}
                     other{"dentro de {0} viernes"}
                 }
             }
@@ -579,6 +610,7 @@ es_MX{
             }
             relativeTime{
                 future{
+                    one{"dentro de {0} vie."}
                     other{"dentro de {0} vie."}
                 }
                 past{
@@ -787,6 +819,7 @@ es_MX{
         sun-narrow{
             relativeTime{
                 future{
+                    one{"dentro de {0} DO"}
                     other{"dentro de {0} DO"}
                 }
                 past{
@@ -804,12 +837,14 @@ es_MX{
             relativeTime{
                 future{
                     one{"dentro de {0} jueves"}
+                    other{"dentro de {0} jueves"}
                 }
             }
         }
         thu-narrow{
             relativeTime{
                 future{
+                    one{"dentro de {0} JU"}
                     other{"dentro de {0} JU"}
                 }
             }
@@ -822,6 +857,7 @@ es_MX{
             }
             relativeTime{
                 future{
+                    one{"dentro de {0} martes"}
                     other{"dentro de {0} martes"}
                 }
             }
@@ -835,6 +871,7 @@ es_MX{
             relativeTime{
                 future{
                     one{"dentro de {0} miércoles"}
+                    other{"dentro de {0} miércoles"}
                 }
             }
         }

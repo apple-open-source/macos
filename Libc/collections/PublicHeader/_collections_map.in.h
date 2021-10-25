@@ -68,7 +68,7 @@ os_map_find(os_map_t *m, os_map_key_t key) {
 }
 
 OS_EXPORT
-void *
+void * _Nullable
 IN_MAP(,_delete)(os_map_t *m, os_map_key_t key);
 
 OS_OVERLOADABLE OS_ALWAYS_INLINE
@@ -80,12 +80,12 @@ os_map_delete(os_map_t *m, os_map_key_t key) {
 OS_EXPORT
 void
 IN_MAP(,_clear)(os_map_t *m,
-					   OS_NOESCAPE IN_MAP(,_payload_handler_t) handler);
+		OS_NOESCAPE IN_MAP(,_payload_handler_t)_Nullable  handler);
 
 OS_OVERLOADABLE OS_ALWAYS_INLINE
 static inline void
 os_map_clear(os_map_t *m,
-					OS_NOESCAPE IN_MAP(,_payload_handler_t) handler) {
+	     OS_NOESCAPE IN_MAP(,_payload_handler_t) _Nullable handler) {
     IN_MAP(,_clear)(m, handler);
 }
 
@@ -102,12 +102,12 @@ os_map_count(os_map_t *m) {
 OS_EXPORT
 void
 IN_MAP(,_foreach)(os_map_t *m,
-					OS_NOESCAPE IN_MAP(,_payload_handler_t) handler);
+		  OS_NOESCAPE IN_MAP(,_payload_handler_t) handler);
 
 OS_OVERLOADABLE OS_ALWAYS_INLINE
 static inline void
 os_map_foreach(os_map_t *m,
-				 OS_NOESCAPE IN_MAP(,_payload_handler_t) handler) {
+	       OS_NOESCAPE IN_MAP(,_payload_handler_t) handler) {
 	IN_MAP(,_foreach)(m, handler);
 }
 

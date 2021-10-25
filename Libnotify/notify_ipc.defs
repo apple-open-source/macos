@@ -24,7 +24,13 @@
 #include <mach/std_types.defs>
 #include <mach/mach_types.defs>
 
-subsystem notify_ipc 78945000;
+#ifdef NOTIFY_OLD_IPC_BASE
+subsystem notify_old_ipc 78945000;
+userprefix _old_ipc_base;
+#else
+subsystem notify_ipc 1000;
+userprefix _new_ipc_base;
+#endif
 serverprefix _;
 
 import <sys/types.h>;
@@ -243,6 +249,8 @@ routine _notify_server_regenerate
 );
 
 
+MsgOption MACH_SEND_FILTER_NONFATAL;
+
 routine _notify_server_checkin
 (
 	server : mach_port_t;
@@ -251,6 +259,8 @@ routine _notify_server_checkin
 	out status : int;
 	ServerAuditToken audit : audit_token_t
 );
+
+MsgOption MACH_MSG_OPTION_NONE;
 
 
 routine _notify_server_dump
@@ -283,5 +293,61 @@ routine _notify_server_register_mach_port_3
 	token: int;
 	out status : uint32_t;
 	out port : mach_port_move_receive_t;
+	ServerAuditToken audit : audit_token_t
+);
+
+routine _filtered_notify_server_checkin
+(
+	server : mach_port_t;
+	out version: uint32_t;
+	out server_pid : uint32_t;
+	out status : int;
+	ServerAuditToken audit : audit_token_t
+);
+
+simpleroutine _filtered_notify_server_post
+(
+	server : mach_port_t;
+	name : notify_name;
+	claim_root_access : boolean_t;
+	ServerAuditToken audit : audit_token_t
+);
+
+routine _filtered_notify_server_regenerate
+(
+	server : mach_port_t;
+	name : notify_name;
+	token : int;
+	reg_type : uint32_t;
+	port : mach_port_make_send_t;
+	sig: int;
+	prev_slot: int;
+	prev_state : uint64_t;
+	prev_time : uint64_t;
+	path : notify_path;
+	path_flags: int;
+	out new_slot : int;
+	out new_name_id : uint64_t;
+	out status : int;
+	ServerAuditToken audit : audit_token_t
+);
+
+simpleroutine _filtered_notify_server_set_state_2
+(
+	server : mach_port_t;
+	name_id : uint64_t;
+	state : uint64_t;
+	claim_root_access : boolean_t;
+	ServerAuditToken audit : audit_token_t
+);
+
+routine _filtered_notify_server_set_state_3
+(
+	server : mach_port_t;
+	token : int;
+	state : uint64_t;
+	out nid : uint64_t;
+	out status : int;
+	claim_root_access : boolean_t;
 	ServerAuditToken audit : audit_token_t
 );

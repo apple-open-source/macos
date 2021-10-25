@@ -87,6 +87,7 @@ LEAF(__setjmp, 0)
 	// return 0
 	xorl	%eax, %eax
 	ret
+	UNWIND_EPILOGUE
 
 
 LEAF(__longjmp, 0)
@@ -123,3 +124,4 @@ LEAF(__longjmp, 0)
 	cld
 
 	jmp		*%rsi
+	UNWIND_EPILOGUE

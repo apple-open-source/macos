@@ -31,7 +31,7 @@
 		<key>com.apple.kpi.bsd</key>
 		<string>9.0.0</string>
 		<key>com.apple.kpi.iokit</key>
-		<string>9.0.0</string>
+		<string>15.0</string>
 		<key>com.apple.kpi.libkern</key>
 		<string>9.0.0</string>
 		<key>com.apple.kpi.mach</key>

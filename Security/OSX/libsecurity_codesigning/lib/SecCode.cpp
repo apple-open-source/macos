@@ -313,6 +313,7 @@ const CFStringRef kSecCodeInfoRuntimeVersion = 	CFSTR("runtime-version");
 const CFStringRef kSecCodeInfoCodeDirectory =	CFSTR("CodeDirectory");
 const CFStringRef kSecCodeInfoCodeOffset =		CFSTR("CodeOffset");
 const CFStringRef kSecCodeInfoDiskRepInfo =     CFSTR("DiskRepInfo");
+const CFStringRef kSecCodeInfoEntitlementsDER =	CFSTR("entitlements-DER");
 const CFStringRef kSecCodeInfoResourceDirectory = CFSTR("ResourceDirectory");
 const CFStringRef kSecCodeInfoNotarizationDate = CFSTR("NotarizationDate");
 const CFStringRef kSecCodeInfoCMSDigestHashType = CFSTR("CMSDigestHashType");

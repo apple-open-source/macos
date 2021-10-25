@@ -2022,7 +2022,7 @@ int hfs_exchangedata_setxattr (struct hfsmount *hfsmp, uint32_t fileid,
 
 
 	/* Sanity check arguments */
-	if (name_selector > MAX_NUM_XATTR_NAMES) {
+	if (name_selector > MAX_NUM_XATTR_NAMES - 1) {
 		return EINVAL;
 	}
 
@@ -6134,31 +6134,12 @@ exit:
 int
 hfs_vnop_pathconf(struct vnop_pathconf_args *ap)
 {
-
-#if CONFIG_HFS_STD
-	int std_hfs = (VTOHFS(ap->a_vp)->hfs_flags & HFS_STANDARD);
-#endif
-
 	switch (ap->a_name) {
 	case _PC_LINK_MAX:
-#if CONFIG_HFS_STD
-		if (std_hfs) {
-			*ap->a_retval = 1;
-		} else
-#endif
-		{
-			*ap->a_retval = HFS_LINK_MAX;
-		}
+		*ap->a_retval = HFS_LINK_MAX;
 		break;
 	case _PC_NAME_MAX:
-#if CONFIG_HFS_STD
-		if (std_hfs) {
-			*ap->a_retval = kHFSMaxFileNameChars;  /* 31 */
-		} else
-#endif
-		{
-			*ap->a_retval = kHFSPlusMaxFileNameChars;  /* 255 */
-		}
+		*ap->a_retval = kHFSPlusMaxFileNameChars;  /* 255 */
 		break;
 	case _PC_PATH_MAX:
 		*ap->a_retval = PATH_MAX;  /* 1024 */
@@ -6173,14 +6154,7 @@ hfs_vnop_pathconf(struct vnop_pathconf_args *ap)
 		*ap->a_retval = 200112;		/* _POSIX_NO_TRUNC */
 		break;
 	case _PC_NAME_CHARS_MAX:
-#if CONFIG_HFS_STD
-		if (std_hfs) {
-			*ap->a_retval = kHFSMaxFileNameChars; /* 31 */
-		} else
-#endif
-		{
-			*ap->a_retval = kHFSPlusMaxFileNameChars; /* 255 */
-		}
+		*ap->a_retval = kHFSPlusMaxFileNameChars; /* 255 */
 		break;
 	case _PC_CASE_SENSITIVE:
 		if (VTOHFS(ap->a_vp)->hfs_flags & HFS_CASE_SENSITIVE)
@@ -6193,14 +6167,7 @@ hfs_vnop_pathconf(struct vnop_pathconf_args *ap)
 		break;
 	case _PC_FILESIZEBITS:
 		/* number of bits to store max file size */
-#if CONFIG_HFS_STD
-		if (std_hfs) {
-			*ap->a_retval = 32;
-		} else
-#endif
-		{
-			*ap->a_retval = 64;	
-		}
+		*ap->a_retval = 64;
 		break;
 	case _PC_XATTR_SIZE_BITS:
 		/* Number of bits to store maximum extended attribute size */
@@ -6518,11 +6485,7 @@ hfs_makenode(struct vnode *dvp, struct vnode **vpp, struct componentname *cnp,
 	} else {
 		attr.ca_itime = tv.tv_sec;
 	}
-#if CONFIG_HFS_STD
-	if ((hfsmp->hfs_flags & HFS_STANDARD) && gTimeZone.tz_dsttime) {
-		attr.ca_itime += 3600;	/* Same as what hfs_update does */
-	}
-#endif
+
 	attr.ca_atime = attr.ca_ctime = attr.ca_mtime = attr.ca_itime;
 	attr.ca_atimeondisk = attr.ca_atime;
 	if (VATTR_IS_ACTIVE(vap, va_flags)) {
@@ -6534,16 +6497,11 @@ hfs_makenode(struct vnode *dvp, struct vnode **vpp, struct componentname *cnp,
 	 * HFS+ only: all files get ThreadExists
 	 * HFSX only: dirs get HasFolderCount
 	 */
-#if CONFIG_HFS_STD
-	if (!(hfsmp->hfs_flags & HFS_STANDARD))
-#endif
-	{
-		if (vnodetype == VDIR) {
-			if (hfsmp->hfs_flags & HFS_FOLDERCOUNT)
-				attr.ca_recflags = kHFSHasFolderCountMask;
-		} else {
-			attr.ca_recflags = kHFSThreadExistsMask;
-		}
+	if (vnodetype == VDIR) {
+		if (hfsmp->hfs_flags & HFS_FOLDERCOUNT)
+			attr.ca_recflags = kHFSHasFolderCountMask;
+	} else {
+		attr.ca_recflags = kHFSThreadExistsMask;
 	}
 
 #if CONFIG_PROTECT	
@@ -7158,25 +7116,7 @@ restart:
 		 */
 
 		/* Get resource fork data */
-#if CONFIG_HFS_STD
-		if (ISSET(hfsmp->hfs_flags, HFS_STANDARD)) {
-			/*
-			 * HFS standard only:
-			 *
-			 * Get the resource fork for this item with a cat_lookup call, but do not
-			 * force a case lookup since HFS standard is case-insensitive only. We
-			 * don't want the descriptor; just the fork data here. If we tried to
-			 * do a ID lookup (via thread record -> catalog record), then we might fail
-			 * prematurely since, as noted above, thread records were not strictly required
-			 * on files in HFS.
-			 */
-			error = cat_lookup (hfsmp, descptr, 1, 0, (struct cat_desc*)NULL,
-								(struct cat_attr*)NULL, &rsrcfork, NULL);
-		} else
-#endif
-		{
-			error = cat_idlookup (hfsmp, cp->c_fileid, 0, 1, NULL, NULL, &rsrcfork);
-		}
+		error = cat_idlookup (hfsmp, cp->c_fileid, 0, 1, NULL, NULL, &rsrcfork);
 
 		hfs_systemfile_unlock(hfsmp, lockflags);
 		if (error) {
@@ -7421,77 +7361,6 @@ hfs_vnop_fsync(struct vnop_fsync_args *ap)
 int (**hfs_vnodeop_p)(void *);
 
 #define VOPFUNC int (*)(void *)
-
-
-#if CONFIG_HFS_STD
-int (**hfs_std_vnodeop_p) (void *);
-static int hfs_readonly_op (__unused void* ap) { return (EROFS); }
-
-/* 
- * In 10.6 and forward, HFS Standard is read-only and deprecated.  The vnop table below
- * is for use with HFS standard to block out operations that would modify the file system
- */
-
-const struct vnodeopv_entry_desc hfs_standard_vnodeop_entries[] = {
-    { &vnop_default_desc, (VOPFUNC)vn_default_error },
-    { &vnop_lookup_desc, (VOPFUNC)hfs_vnop_lookup },		/* lookup */
-    { &vnop_create_desc, (VOPFUNC)hfs_readonly_op },		/* create (READONLY) */
-    { &vnop_mknod_desc, (VOPFUNC)hfs_readonly_op },             /* mknod (READONLY) */
-    { &vnop_open_desc, (VOPFUNC)hfs_vnop_open },			/* open */
-    { &vnop_close_desc, (VOPFUNC)hfs_vnop_close },		/* close */
-    { &vnop_getattr_desc, (VOPFUNC)hfs_vnop_getattr },		/* getattr */
-    { &vnop_setattr_desc, (VOPFUNC)hfs_readonly_op },		/* setattr */
-    { &vnop_read_desc, (VOPFUNC)hfs_vnop_read },			/* read */
-    { &vnop_write_desc, (VOPFUNC)hfs_readonly_op },		/* write (READONLY) */
-    { &vnop_ioctl_desc, (VOPFUNC)hfs_vnop_ioctl },		/* ioctl */
-    { &vnop_select_desc, (VOPFUNC)hfs_vnop_select },		/* select */
-    { &vnop_revoke_desc, (VOPFUNC)nop_revoke },			/* revoke */
-    { &vnop_exchange_desc, (VOPFUNC)hfs_readonly_op },		/* exchange  (READONLY)*/
-    { &vnop_mmap_desc, (VOPFUNC)err_mmap },			/* mmap */
-    { &vnop_fsync_desc, (VOPFUNC)hfs_readonly_op},		/* fsync (READONLY) */
-    { &vnop_remove_desc, (VOPFUNC)hfs_readonly_op },		/* remove (READONLY) */
-    { &vnop_link_desc, (VOPFUNC)hfs_readonly_op },			/* link ( READONLLY) */
-    { &vnop_rename_desc, (VOPFUNC)hfs_readonly_op },		/* rename (READONLY)*/
-    { &vnop_mkdir_desc, (VOPFUNC)hfs_readonly_op },             /* mkdir (READONLY) */
-    { &vnop_rmdir_desc, (VOPFUNC)hfs_readonly_op },		/* rmdir (READONLY) */
-    { &vnop_symlink_desc, (VOPFUNC)hfs_readonly_op },         /* symlink (READONLY) */
-    { &vnop_readdir_desc, (VOPFUNC)hfs_vnop_readdir },		/* readdir */
-    { &vnop_readdirattr_desc, (VOPFUNC)hfs_vnop_readdirattr },	/* readdirattr */
-    { &vnop_readlink_desc, (VOPFUNC)hfs_vnop_readlink },		/* readlink */
-    { &vnop_inactive_desc, (VOPFUNC)hfs_vnop_inactive },		/* inactive */
-    { &vnop_reclaim_desc, (VOPFUNC)hfs_vnop_reclaim },		/* reclaim */
-    { &vnop_strategy_desc, (VOPFUNC)hfs_vnop_strategy },		/* strategy */
-    { &vnop_pathconf_desc, (VOPFUNC)hfs_vnop_pathconf },		/* pathconf */
-    { &vnop_advlock_desc, (VOPFUNC)err_advlock },		/* advlock */
-    { &vnop_allocate_desc, (VOPFUNC)hfs_readonly_op },		/* allocate (READONLY) */
-#if CONFIG_SEARCHFS
-    { &vnop_searchfs_desc, (VOPFUNC)hfs_vnop_search },		/* search fs */
-#else
-    { &vnop_searchfs_desc, (VOPFUNC)err_searchfs },		/* search fs */
-#endif
-    { &vnop_bwrite_desc, (VOPFUNC)hfs_readonly_op },		/* bwrite (READONLY) */
-    { &vnop_pagein_desc, (VOPFUNC)hfs_vnop_pagein },		/* pagein */
-    { &vnop_pageout_desc,(VOPFUNC) hfs_readonly_op },		/* pageout (READONLY)  */
-    { &vnop_copyfile_desc, (VOPFUNC)hfs_readonly_op },		/* copyfile (READONLY)*/
-    { &vnop_blktooff_desc, (VOPFUNC)hfs_vnop_blktooff },		/* blktooff */
-    { &vnop_offtoblk_desc, (VOPFUNC)hfs_vnop_offtoblk },		/* offtoblk */
-    { &vnop_blockmap_desc, (VOPFUNC)hfs_vnop_blockmap },			/* blockmap */
-    { &vnop_getxattr_desc, (VOPFUNC)hfs_vnop_getxattr},
-    { &vnop_setxattr_desc, (VOPFUNC)hfs_readonly_op},         /* set xattr (READONLY) */
-    { &vnop_removexattr_desc, (VOPFUNC)hfs_readonly_op},      /* remove xattr (READONLY) */
-    { &vnop_listxattr_desc, (VOPFUNC)hfs_vnop_listxattr},
-#if NAMEDSTREAMS
-    { &vnop_getnamedstream_desc, (VOPFUNC)hfs_vnop_getnamedstream },
-    { &vnop_makenamedstream_desc, (VOPFUNC)hfs_readonly_op }, 
-    { &vnop_removenamedstream_desc, (VOPFUNC)hfs_readonly_op },
-#endif
-    { &vnop_getattrlistbulk_desc, (VOPFUNC)hfs_vnop_getattrlistbulk },	/* getattrlistbulk */
-    { NULL, (VOPFUNC)NULL }
-};
-
-const struct vnodeopv_desc hfs_std_vnodeop_opv_desc =
-{ &hfs_std_vnodeop_p, hfs_standard_vnodeop_entries };
-#endif
 
 /* VNOP table for HFS+ */
 const struct vnodeopv_entry_desc hfs_vnodeop_entries[] = {

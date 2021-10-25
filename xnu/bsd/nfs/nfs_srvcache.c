@@ -260,10 +260,10 @@ loop:
 				panic("nfsrv cache");
 			}
 			if (rp->rc_state == RC_INPROG) {
-				OSAddAtomic64(1, &nfsstats.srvcache_inproghits);
+				OSAddAtomic64(1, &nfsrvstats.srvcache_inproghits);
 				ret = RC_DROPIT;
 			} else if (rp->rc_flag & RC_REPSTATUS) {
-				OSAddAtomic64(1, &nfsstats.srvcache_nonidemdonehits);
+				OSAddAtomic64(1, &nfsrvstats.srvcache_nonidemdonehits);
 				nd->nd_repstat = rp->rc_status;
 				error = nfsrv_rephead(nd, slp, &nmrep, 0);
 				if (error) {
@@ -275,7 +275,7 @@ loop:
 					*mrepp = nmrep.nmc_mhead;
 				}
 			} else if (rp->rc_flag & RC_REPMBUF) {
-				OSAddAtomic64(1, &nfsstats.srvcache_nonidemdonehits);
+				OSAddAtomic64(1, &nfsrvstats.srvcache_nonidemdonehits);
 				error = mbuf_copym(rp->rc_reply, 0, MBUF_COPYALL, MBUF_WAITOK, mrepp);
 				if (error) {
 					printf("nfsrv cache: reply copym failed for nonidem request hit\n");
@@ -284,7 +284,7 @@ loop:
 					ret = RC_REPLY;
 				}
 			} else {
-				OSAddAtomic64(1, &nfsstats.srvcache_idemdonehits);
+				OSAddAtomic64(1, &nfsrvstats.srvcache_idemdonehits);
 				rp->rc_state = RC_INPROG;
 				ret = RC_DOIT;
 			}
@@ -297,7 +297,7 @@ loop:
 			return ret;
 		}
 	}
-	OSAddAtomic64(1, &nfsstats.srvcache_misses);
+	OSAddAtomic64(1, &nfsrvstats.srvcache_misses);
 	if (nfsrv_reqcache_count < nfsrv_reqcache_size) {
 		/* try to allocate a new entry */
 		MALLOC(rp, struct nfsrvcache *, sizeof *rp, M_NFSD, M_WAITOK);

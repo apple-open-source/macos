@@ -1,5 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
-// License & terms of use: http://www.unicode.org/copyright.html#License
+// License & terms of use: http://www.unicode.org/copyright.html
+// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
 gez{
     Languages{
         aa{"አፋርኛ"}
@@ -147,5 +148,4 @@ gez{
     Scripts{
         Latn{"ላቲን"}
     }
-    Version{"36.1"}
 }

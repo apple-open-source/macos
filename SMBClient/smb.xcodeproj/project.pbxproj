@@ -83,7 +83,6 @@
 		451711FD10C97D4D0027078B /* ntstatus.h in Headers */ = {isa = PBXBuildFile; fileRef = 4549B57810C6075E007D7FD1 /* ntstatus.h */; };
 		451711FE10C97D4E0027078B /* netfs.c in Sources */ = {isa = PBXBuildFile; fileRef = 451F0B1E10BB11AE00F5DAEE /* netfs.c */; };
 		451711FF10C97D510027078B /* server.c in Sources */ = {isa = PBXBuildFile; fileRef = D6516B060F17F8C8003A80A8 /* server.c */; };
-		451720011152F3F300F83C4A /* smb_preferences.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 45171FF01152F2C900F83C4A /* smb_preferences.h */; };
 		451F0B2010BB11AE00F5DAEE /* netfs.c in Sources */ = {isa = PBXBuildFile; fileRef = 451F0B1E10BB11AE00F5DAEE /* netfs.c */; };
 		452AC8F713CA50A000BF25BE /* OpenDirectory.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 452AC8F613CA50A000BF25BE /* OpenDirectory.framework */; };
 		452C67120AF9924D003AC608 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F5A268BB02242ABA01CA2BBA /* CoreFoundation.framework */; };
@@ -104,7 +103,6 @@
 		45329C6009E23B4200B4975E /* rq.c in Sources */ = {isa = PBXBuildFile; fileRef = 2D8D3042009681767F000001 /* rq.c */; };
 		45329C6109E23B4200B4975E /* subr.c in Sources */ = {isa = PBXBuildFile; fileRef = 2D8D3043009681767F000001 /* subr.c */; };
 		45329C6809E23B4200B4975E /* charsets.c in Sources */ = {isa = PBXBuildFile; fileRef = EB2516160759C88500282A1C /* charsets.c */; };
-		45329CD409E23B4200B4975E /* nsmb.conf.5 in CopyFiles */ = {isa = PBXBuildFile; fileRef = EB55F4C20795DC8E00811E58 /* nsmb.conf.5 */; };
 		45329CEF09E23DAF00B4975E /* common.h in Headers */ = {isa = PBXBuildFile; fileRef = 2D8D2FF0009680147F000001 /* common.h */; };
 		45329CF309E23DAF00B4975E /* lookup.c in Sources */ = {isa = PBXBuildFile; fileRef = 2D8D2FF3009680147F000001 /* lookup.c */; };
 		45329CF509E23DAF00B4975E /* smbutil.c in Sources */ = {isa = PBXBuildFile; fileRef = 2D8D2FF6009680147F000001 /* smbutil.c */; };
@@ -272,8 +270,16 @@
 		DD17896F21710546008D17BB /* SMBClient.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D6516D750F181911003A80A8 /* SMBClient.framework */; };
 		DD178970217105D3008D17BB /* smbclient.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = DD17896B217102E2008D17BB /* smbclient.plist */; };
 		DD4C44A221C064CB00226B58 /* librap.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 4508BF1910DFF2DE0095516B /* librap.a */; };
+		DD5111E0265EEC08008E19CA /* libsmb.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 45329CD809E23B4200B4975E /* libsmb.a */; };
+		DD5111F9265EF2D0008E19CA /* OpenDirectory.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = DD5111F7265EEE38008E19CA /* OpenDirectory.framework */; };
+		DD5111FA265EF2FD008E19CA /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = DD5111E5265EEC8B008E19CA /* SystemConfiguration.framework */; };
+		DD5111FB265EF32A008E19CA /* GSS.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = DD5111E7265EEC94008E19CA /* GSS.framework */; };
+		DD5111FC265EF33B008E19CA /* Heimdal.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = DD5111E3265EEC71008E19CA /* Heimdal.framework */; };
+		DD5111FD265EF354008E19CA /* KerberosHelper.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = DD5111E1265EEC56008E19CA /* KerberosHelper.framework */; };
 		DD5ACA932061BFF700181D9A /* smb_read_write.c in Sources */ = {isa = PBXBuildFile; fileRef = DD5ACA922061BD1300181D9A /* smb_read_write.c */; };
 		DD5ACA952062233C00181D9A /* smb_read_write.h in Headers */ = {isa = PBXBuildFile; fileRef = DD5ACA942062233C00181D9A /* smb_read_write.h */; };
+		DD68E09B268E5E85007D8ECF /* smb_preferences.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 45171FF01152F2C900F83C4A /* smb_preferences.h */; };
+		DD68E09E268E5EB7007D8ECF /* nsmb.conf.5 in CopyFiles */ = {isa = PBXBuildFile; fileRef = EB55F4C20795DC8E00811E58 /* nsmb.conf.5 */; };
 		DD6972792550758600CE6E22 /* snapshot.c in Sources */ = {isa = PBXBuildFile; fileRef = DD6972782550758600CE6E22 /* snapshot.c */; };
 		DD7C30F421C064F600AF36C9 /* librpc.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 45BAC46110DC0B66008D40D3 /* librpc.a */; };
 		DD7C30F521C0650200AF36C9 /* DCERPC.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = DDFAFDDB21C062DA00EC4114 /* DCERPC.framework */; };
@@ -290,6 +296,12 @@
 		DDC45B1620C6FAB700731219 /* smb-client-diagnose in CopyFiles */ = {isa = PBXBuildFile; fileRef = DDC45B1420C6FA9700731219 /* smb-client-diagnose */; };
 		DDCBC1B0240F31830093F4AA /* json_support.m in Sources */ = {isa = PBXBuildFile; fileRef = B3DF4B4523CDAFE600046249 /* json_support.m */; };
 		DDCBC1B1240F320C0093F4AA /* json_support.h in Sources */ = {isa = PBXBuildFile; fileRef = B3DF4B4423CDAF9200046249 /* json_support.h */; };
+		DDD6F5D526615A7F009FCD25 /* libsmb.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 45329CD809E23B4200B4975E /* libsmb.a */; };
+		DDD6F5D626615A8A009FCD25 /* KerberosHelper.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = DD5111E1265EEC56008E19CA /* KerberosHelper.framework */; };
+		DDD6F5D726615A91009FCD25 /* Heimdal.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = DD5111E3265EEC71008E19CA /* Heimdal.framework */; };
+		DDD6F5D826615A98009FCD25 /* GSS.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = DD5111E7265EEC94008E19CA /* GSS.framework */; };
+		DDD6F5D926615AA3009FCD25 /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = DD5111E5265EEC8B008E19CA /* SystemConfiguration.framework */; };
+		DDD6F5DA26615AAA009FCD25 /* OpenDirectory.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = DD5111F7265EEE38008E19CA /* OpenDirectory.framework */; };
 		DDF7BF4D146DEAB600A152C3 /* smb_rq_2.c in Sources */ = {isa = PBXBuildFile; fileRef = DDF7BF4C146DEAB500A152C3 /* smb_rq_2.c */; };
 		DDF7BF4F146DEBBC00A152C3 /* smb_rq_2.h in Headers */ = {isa = PBXBuildFile; fileRef = DDF7BF4E146DEBBB00A152C3 /* smb_rq_2.h */; };
 		DDF7BF51146DEEEC00A152C3 /* smb_smb_2.c in Sources */ = {isa = PBXBuildFile; fileRef = DDF7BF50146DEEEB00A152C3 /* smb_smb_2.c */; };
@@ -491,6 +503,13 @@
 			remoteGlobalIDString = DD17895D217100D7008D17BB;
 			remoteInfo = smbclient_test;
 		};
+		DD68E093268E4130007D8ECF /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 2D8D2F38009679647F000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 45329C0109E23B4200B4975E;
+			remoteInfo = libsmb.a;
+		};
 		DD7C30F721C0654000AF36C9 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 2D8D2F38009679647F000001 /* Project object */;
@@ -522,16 +541,6 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
-		451720001152F3C600F83C4A /* CopyFiles */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 8;
-			dstPath = /usr/local/include/;
-			dstSubfolderSpec = 0;
-			files = (
-				451720011152F3F300F83C4A /* smb_preferences.h in CopyFiles */,
-			);
-			runOnlyForDeploymentPostprocessing = 1;
-		};
 		45329A7B09E2283700B4975E /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
@@ -539,16 +548,6 @@
 			dstSubfolderSpec = 0;
 			files = (
 				45329A7C09E2283700B4975E /* mount_smbfs.8 in CopyFiles */,
-			);
-			runOnlyForDeploymentPostprocessing = 1;
-		};
-		45329CD309E23B4200B4975E /* CopyFiles */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 8;
-			dstPath = /usr/share/man/man5;
-			dstSubfolderSpec = 0;
-			files = (
-				45329CD409E23B4200B4975E /* nsmb.conf.5 in CopyFiles */,
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 		};
@@ -598,6 +597,26 @@
 			dstSubfolderSpec = 0;
 			files = (
 				DD178970217105D3008D17BB /* smbclient.plist in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		DD68E09A268E5E6E007D8ECF /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/local/include;
+			dstSubfolderSpec = 0;
+			files = (
+				DD68E09B268E5E85007D8ECF /* smb_preferences.h in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		DD68E09D268E5EA6007D8ECF /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/share/man/man5;
+			dstSubfolderSpec = 0;
+			files = (
+				DD68E09E268E5EB7007D8ECF /* nsmb.conf.5 in CopyFiles */,
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 		};
@@ -808,6 +827,18 @@
 		DD178969217102E2008D17BB /* FakeXCTestCase.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = FakeXCTestCase.h; sourceTree = "<group>"; };
 		DD17896A217102E2008D17BB /* FakeXCTest.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = FakeXCTest.h; sourceTree = "<group>"; };
 		DD17896B217102E2008D17BB /* smbclient.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = smbclient.plist; sourceTree = "<group>"; };
+		DD5111E1265EEC56008E19CA /* KerberosHelper.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = KerberosHelper.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX13.0.Internal.sdk/System/Library/PrivateFrameworks/KerberosHelper.framework; sourceTree = DEVELOPER_DIR; };
+		DD5111E3265EEC71008E19CA /* Heimdal.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Heimdal.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX13.0.Internal.sdk/System/Library/PrivateFrameworks/Heimdal.framework; sourceTree = DEVELOPER_DIR; };
+		DD5111E5265EEC8B008E19CA /* SystemConfiguration.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SystemConfiguration.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX13.0.Internal.sdk/System/Library/Frameworks/SystemConfiguration.framework; sourceTree = DEVELOPER_DIR; };
+		DD5111E7265EEC94008E19CA /* GSS.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = GSS.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX13.0.Internal.sdk/System/Library/Frameworks/GSS.framework; sourceTree = DEVELOPER_DIR; };
+		DD5111E9265EECAF008E19CA /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX13.0.Internal.sdk/System/Library/Frameworks/CoreFoundation.framework; sourceTree = DEVELOPER_DIR; };
+		DD5111EB265EECCA008E19CA /* CoreServices.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreServices.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX13.0.Internal.sdk/System/Library/Frameworks/CoreServices.framework; sourceTree = DEVELOPER_DIR; };
+		DD5111ED265EECE1008E19CA /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX13.0.Internal.sdk/System/Library/Frameworks/Security.framework; sourceTree = DEVELOPER_DIR; };
+		DD5111EF265EED0D008E19CA /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX13.0.Internal.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
+		DD5111F1265EED76008E19CA /* NetFS.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = NetFS.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX13.0.Internal.sdk/System/Library/Frameworks/NetFS.framework; sourceTree = DEVELOPER_DIR; };
+		DD5111F3265EEDCB008E19CA /* IOKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOKit.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX13.0.Internal.sdk/System/Library/Frameworks/IOKit.framework; sourceTree = DEVELOPER_DIR; };
+		DD5111F5265EEE07008E19CA /* Kernel.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Kernel.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX13.0.Internal.sdk/System/Library/Frameworks/Kernel.framework; sourceTree = DEVELOPER_DIR; };
+		DD5111F7265EEE38008E19CA /* OpenDirectory.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = OpenDirectory.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX13.0.Internal.sdk/System/Library/Frameworks/OpenDirectory.framework; sourceTree = DEVELOPER_DIR; };
 		DD526CB51475B46F000582F7 /* smb_gss_2.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = smb_gss_2.h; sourceTree = "<group>"; };
 		DD5ACA922061BD1300181D9A /* smb_read_write.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = smb_read_write.c; sourceTree = "<group>"; };
 		DD5ACA942062233C00181D9A /* smb_read_write.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = smb_read_write.h; sourceTree = "<group>"; };
@@ -992,6 +1023,12 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				DD5111FD265EF354008E19CA /* KerberosHelper.framework in Frameworks */,
+				DD5111FC265EF33B008E19CA /* Heimdal.framework in Frameworks */,
+				DD5111FB265EF32A008E19CA /* GSS.framework in Frameworks */,
+				DD5111FA265EF2FD008E19CA /* SystemConfiguration.framework in Frameworks */,
+				DD5111F9265EF2D0008E19CA /* OpenDirectory.framework in Frameworks */,
+				DD5111E0265EEC08008E19CA /* libsmb.a in Frameworks */,
 				DD7C30F621C0650800AF36C9 /* SMBClient.framework in Frameworks */,
 				DD7C30F521C0650200AF36C9 /* DCERPC.framework in Frameworks */,
 				DD7C30F421C064F600AF36C9 /* librpc.a in Frameworks */,
@@ -1003,6 +1040,12 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				DDD6F5DA26615AAA009FCD25 /* OpenDirectory.framework in Frameworks */,
+				DDD6F5D926615AA3009FCD25 /* SystemConfiguration.framework in Frameworks */,
+				DDD6F5D826615A98009FCD25 /* GSS.framework in Frameworks */,
+				DDD6F5D726615A91009FCD25 /* Heimdal.framework in Frameworks */,
+				DDD6F5D626615A8A009FCD25 /* KerberosHelper.framework in Frameworks */,
+				DDD6F5D526615A7F009FCD25 /* libsmb.a in Frameworks */,
 				DD9C01CA21C06DF0003CCE78 /* librap.a in Frameworks */,
 				DD9C01C921C06DEC003CCE78 /* librpc.a in Frameworks */,
 				DD9C01C821C06DE7003CCE78 /* DCERPC.framework in Frameworks */,
@@ -1307,6 +1350,18 @@
 		456C8C110ADD6B1D005890B8 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				DD5111F7265EEE38008E19CA /* OpenDirectory.framework */,
+				DD5111F5265EEE07008E19CA /* Kernel.framework */,
+				DD5111F3265EEDCB008E19CA /* IOKit.framework */,
+				DD5111F1265EED76008E19CA /* NetFS.framework */,
+				DD5111EF265EED0D008E19CA /* Foundation.framework */,
+				DD5111ED265EECE1008E19CA /* Security.framework */,
+				DD5111EB265EECCA008E19CA /* CoreServices.framework */,
+				DD5111E9265EECAF008E19CA /* CoreFoundation.framework */,
+				DD5111E7265EEC94008E19CA /* GSS.framework */,
+				DD5111E5265EEC8B008E19CA /* SystemConfiguration.framework */,
+				DD5111E3265EEC71008E19CA /* Heimdal.framework */,
+				DD5111E1265EEC56008E19CA /* KerberosHelper.framework */,
 				D70368DA23BDF6DA003A0982 /* CoreFoundation.framework */,
 				D70368D523BDF62A003A0982 /* CoreServices.framework */,
 				D70368D323BDF618003A0982 /* NetFS.framework */,
@@ -1652,9 +1707,6 @@
 				45329C5209E23B4200B4975E /* Sources */,
 				45329CCF09E23B4200B4975E /* Frameworks */,
 				45329CD109E23B4200B4975E /* Rez */,
-				451720001152F3C600F83C4A /* CopyFiles */,
-				45329CD209E23B4200B4975E /* ShellScript */,
-				45329CD309E23B4200B4975E /* CopyFiles */,
 			);
 			buildRules = (
 				D6AF96B00DD8C6D8002022CD /* PBXBuildRule */,
@@ -1804,6 +1856,9 @@
 				D6516D710F181911003A80A8 /* Resources */,
 				D6516D720F181911003A80A8 /* Sources */,
 				D6516D730F181911003A80A8 /* Frameworks */,
+				DD68E09A268E5E6E007D8ECF /* CopyFiles */,
+				DD68E09C268E5E8C007D8ECF /* ShellScript */,
+				DD68E09D268E5EA6007D8ECF /* CopyFiles */,
 			);
 			buildRules = (
 			);
@@ -1880,6 +1935,7 @@
 			buildRules = (
 			);
 			dependencies = (
+				DD68E094268E4130007D8ECF /* PBXTargetDependency */,
 				DDD4475B23E1F1F2004901F1 /* PBXTargetDependency */,
 				DDD4475923E1F1EE004901F1 /* PBXTargetDependency */,
 			);
@@ -2056,15 +2112,6 @@
 /* End PBXRezBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
-		45329CD209E23B4200B4975E /* ShellScript */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 8;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 1;
-			shellPath = /bin/sh;
-			shellScript = "ln -s ./smb_preferences.h $DSTROOT//usr/local/include/smb_server_prefs.h";
-		};
 		722879961637231A0050EFA4 /* Copy Headers and IDLs from SDK to Sources */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
@@ -2126,6 +2173,23 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "rm -rf ${SMBFS_LIBRPC}/lsarpc_client.c\nln -s ${DERIVED_FILE_DIR}/lsarpc_client.c ${SMBFS_LIBRPC}/lsarpc_client.c\nrm -rf ${SMBFS_LIBRPC}/srvsvc_client.c\nln -s ${DERIVED_FILE_DIR}/srvsvc_client.c ${SMBFS_LIBRPC}/srvsvc_client.c";
+		};
+		DD68E09C268E5E8C007D8ECF /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = "ln -s ./smb_preferences.h $DSTROOT//usr/local/include/smb_server_prefs.h\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -2453,6 +2517,11 @@
 			isa = PBXTargetDependency;
 			target = DD17895D217100D7008D17BB /* smbclient_test */;
 			targetProxy = DD45F7AC2174E72E0023EAA6 /* PBXContainerItemProxy */;
+		};
+		DD68E094268E4130007D8ECF /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 45329C0109E23B4200B4975E /* libsmb.a */;
+			targetProxy = DD68E093268E4130007D8ECF /* PBXContainerItemProxy */;
 		};
 		DD7C30F821C0654000AF36C9 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -3304,7 +3373,6 @@
 					kernel/sys5,
 					kernel/mysys,
 					lib,
-					"${SDK_DIR}/usr/local/include",
 				);
 				INFOPLIST_FILE = "Info-smbfs_kext.plist";
 				INSTALL_GROUP = wheel;
@@ -3381,7 +3449,6 @@
 					kernel/sys5,
 					kernel/mysys,
 					lib,
-					"${SDK_DIR}/usr/local/include",
 				);
 				INFOPLIST_FILE = "Info-smbfs_kext.plist";
 				INSTALL_GROUP = wheel;
@@ -3947,7 +4014,6 @@
 					kernel/sys5,
 					kernel/mysys,
 					lib,
-					"${SDK_DIR}/usr/local/include",
 				);
 				INFOPLIST_FILE = "Info-smbfs_kext.plist";
 				INSTALL_GROUP = wheel;
@@ -5208,7 +5274,7 @@
 		DD178963217100D7008D17BB /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
+				ALWAYS_SEARCH_USER_PATHS = YES;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
@@ -5277,7 +5343,7 @@
 		DD178964217100D7008D17BB /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
+				ALWAYS_SEARCH_USER_PATHS = YES;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
@@ -5339,7 +5405,7 @@
 		DD178965217100D7008D17BB /* CodeCvgDeployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
+				ALWAYS_SEARCH_USER_PATHS = YES;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";

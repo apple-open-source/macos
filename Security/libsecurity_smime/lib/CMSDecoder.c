@@ -29,102 +29,99 @@
 #include <Security/CMSPrivate.h>
 #include "CMSUtils.h"
 
+#include <AssertMacros.h>
+#include <CoreFoundation/CFRuntime.h>
+#include <Security/SecCertificate.h>
+#include <Security/SecCertificatePriv.h>
+#include <Security/SecCmsContentInfo.h>
 #include <Security/SecCmsDecoder.h>
+#include <Security/SecCmsDigestContext.h>
 #include <Security/SecCmsEnvelopedData.h>
 #include <Security/SecCmsMessage.h>
 #include <Security/SecCmsSignedData.h>
 #include <Security/SecCmsSignerInfo.h>
-#include <Security/SecCmsContentInfo.h>
-#include <Security/SecCmsDigestContext.h>
-#include <Security/SecCertificate.h>
-#include <Security/SecCertificatePriv.h>
 #include <Security/SecSMIME.h>
-#include <Security/oidsattr.h>
 #include <Security/SecTrustPriv.h>
-#include <utilities/SecAppleAnchorPriv.h>
-#include <utilities/SecCFWrappers.h>
-#include <CoreFoundation/CFRuntime.h>
+#include <Security/oidsattr.h>
 #include <pthread.h>
 #include <syslog.h>
-#include <AssertMacros.h>
+#include <utilities/SecAppleAnchorPriv.h>
+#include <utilities/SecCFWrappers.h>
 
-#pragma mark --- Private types and definitions ---
+#pragma mark--- Private types and definitions ---
 
 /*
  * Decoder state.
  */
 typedef enum {
-    DS_Init,		/* between CMSDecoderCreate and CMSDecoderUpdateMessage */
-    DS_Updating,	/* between first CMSDecoderUpdateMessage and CMSDecoderFinalizeMessage */
-    DS_Final		/* CMSDecoderFinalizeMessage has been called */
+    DS_Init,     /* between CMSDecoderCreate and CMSDecoderUpdateMessage */
+    DS_Updating, /* between first CMSDecoderUpdateMessage and CMSDecoderFinalizeMessage */
+    DS_Final     /* CMSDecoderFinalizeMessage has been called */
 } CMSDecoderState;
 
 /*
  * Caller's CMSDecoderRef points to one of these.
  */
 struct _CMSDecoder {
-    CFRuntimeBase		base;
-    CMSDecoderState		decState;
-    SecCmsDecoderRef	decoder;
-    CFDataRef			detachedContent;
+    CFRuntimeBase base;
+    CMSDecoderState decState;
+    SecCmsDecoderRef decoder;
+    CFDataRef detachedContent;
 
     /*
      * The following are valid (and quiescent) after CMSDecoderFinalizeMessage().
      */
-    SecCmsMessageRef	cmsMsg;
-    Boolean				wasEncrypted;	/* valid after CMSDecoderFinalizeMessage() */
-    SecCmsSignedDataRef	signedData;		/* if there is one... */
+    SecCmsMessageRef cmsMsg;
+    Boolean wasEncrypted;           /* valid after CMSDecoderFinalizeMessage() */
+    SecCmsSignedDataRef signedData; /* if there is one... */
     /* only non-NULL if we found a signedData */
-    size_t				numSigners;
-    SecAsn1Oid			*eContentType;
+    size_t numSigners;
+    SecAsn1Oid* eContentType;
     /* etc. */
 };
 
 static void cmsDecoderInit(CFTypeRef dec);
 static void cmsDecoderFinalize(CFTypeRef dec);
 
-static CFRuntimeClass cmsDecoderRuntimeClass =
-{
-    0,			/* version */
+static CFRuntimeClass cmsDecoderRuntimeClass = {
+    0, /* version */
     "CMSDecoder",
     cmsDecoderInit,
-    NULL,		/* copy */
+    NULL, /* copy */
     cmsDecoderFinalize,
-    NULL,		/* equal - just use pointer equality */
-    NULL,		/* hash, ditto */
-    NULL,		/* copyFormattingDesc */
-    NULL		/* copyDebugDesc */
+    NULL, /* equal - just use pointer equality */
+    NULL, /* hash, ditto */
+    NULL, /* copyFormattingDesc */
+    NULL  /* copyDebugDesc */
 };
 
-#pragma mark --- Private Routines ---
+#pragma mark--- Private Routines ---
 
 static CFTypeID cmsDecoderTypeID = _kCFRuntimeNotATypeID;
 
 /* one time only class init, called via pthread_once() in CMSDecoderGetTypeID() */
 static void cmsDecoderClassInitialize(void)
 {
-    cmsDecoderTypeID =
-    _CFRuntimeRegisterClass((const CFRuntimeClass * const)&cmsDecoderRuntimeClass);
+    cmsDecoderTypeID = _CFRuntimeRegisterClass((const CFRuntimeClass* const) & cmsDecoderRuntimeClass);
 }
 
 /* init called out from _CFRuntimeCreateInstance() */
 static void cmsDecoderInit(CFTypeRef dec)
 {
-    char *start = ((char *)dec) + sizeof(CFRuntimeBase);
+    char* start = ((char*)dec) + sizeof(CFRuntimeBase);
     memset(start, 0, sizeof(struct _CMSDecoder) - sizeof(CFRuntimeBase));
 }
 
 /*
  * Dispose of a CMSDecoder. Called out from CFRelease().
  */
-static void cmsDecoderFinalize(
-                               CFTypeRef		dec)
+static void cmsDecoderFinalize(CFTypeRef dec)
 {
     CMSDecoderRef cmsDecoder = (CMSDecoderRef)dec;
-    if(cmsDecoder == NULL) {
+    if (cmsDecoder == NULL) {
         return;
     }
-    if(cmsDecoder->decoder != NULL) {
+    if (cmsDecoder->decoder != NULL) {
         /*
          * Normally this gets freed in SecCmsDecoderFinish - this is
          * an error case. Unlike Finish, this calls SecCmsMessageDestroy.
@@ -133,7 +130,7 @@ static void cmsDecoderFinalize(
         cmsDecoder->cmsMsg = NULL;
     }
     CFRELEASE(cmsDecoder->detachedContent);
-    if(cmsDecoder->cmsMsg != NULL) {
+    if (cmsDecoder->cmsMsg != NULL) {
         SecCmsMessageDestroy(cmsDecoder->cmsMsg);
         cmsDecoder->cmsMsg = NULL;
     }
@@ -146,26 +143,29 @@ static void cmsDecoderFinalize(
  * SignedData when already have detachedContent, or CMSDecoderSetDetachedContent()
  * when we already have a SignedData).
  */
-static OSStatus cmsDigestDetachedContent(
-                                         CMSDecoderRef cmsDecoder)
+static OSStatus cmsDigestDetachedContent(CMSDecoderRef cmsDecoder)
 {
-    ASSERT((cmsDecoder->signedData != NULL) && (cmsDecoder->detachedContent != NULL));
+    if (!cmsDecoder || !cmsDecoder->signedData || !cmsDecoder->detachedContent ||
+        CFDataGetLength(cmsDecoder->detachedContent) < 0) {
+        return errSecParam;
+    }
 
-    SECAlgorithmID **digestAlgorithms = SecCmsSignedDataGetDigestAlgs(cmsDecoder->signedData);
-    if(digestAlgorithms == NULL) {
+    SECAlgorithmID** digestAlgorithms = SecCmsSignedDataGetDigestAlgs(cmsDecoder->signedData);
+    if (digestAlgorithms == NULL) {
         return errSecUnknownFormat;
     }
     SecCmsDigestContextRef digcx = SecCmsDigestContextStartMultiple(digestAlgorithms);
-    if(digcx == NULL) {
+    if (digcx == NULL) {
         return errSecAllocate;
     }
 
-    SecCmsDigestContextUpdate(digcx, CFDataGetBytePtr(cmsDecoder->detachedContent),
-                              CFDataGetLength(cmsDecoder->detachedContent));
+    SecCmsDigestContextUpdate(digcx,
+                              CFDataGetBytePtr(cmsDecoder->detachedContent),
+                              (size_t)CFDataGetLength(cmsDecoder->detachedContent));
     OSStatus ortn = SecCmsSignedDataSetDigestContext(cmsDecoder->signedData, digcx);
     SecCmsDigestContextDestroy(digcx);
 
-    if(ortn) {
+    if (ortn) {
         ortn = cmsRtnToOSStatus(ortn);
         CSSM_PERROR("SecCmsSignedDataSetDigestContext", ortn);
         return ortn;
@@ -174,13 +174,13 @@ static OSStatus cmsDigestDetachedContent(
     return ortn;
 }
 
-#pragma mark --- Start of Public API ---
+#pragma mark--- Start of Public API ---
 
 CFTypeID CMSDecoderGetTypeID(void)
 {
     static pthread_once_t once = PTHREAD_ONCE_INIT;
 
-    if(cmsDecoderTypeID == _kCFRuntimeNotATypeID) {
+    if (cmsDecoderTypeID == _kCFRuntimeNotATypeID) {
         pthread_once(&once, &cmsDecoderClassInitialize);
     }
     return cmsDecoderTypeID;
@@ -189,15 +189,13 @@ CFTypeID CMSDecoderGetTypeID(void)
 /*
  * Create a CMSDecoder. Result must eventually be freed via CFRelease().
  */
-OSStatus CMSDecoderCreate(
-                          CMSDecoderRef		*cmsDecoderOut)	/* RETURNED */
+OSStatus CMSDecoderCreate(CMSDecoderRef* cmsDecoderOut) /* RETURNED */
 {
     CMSDecoderRef cmsDecoder = NULL;
 
-    uint32_t extra = sizeof(*cmsDecoder) - sizeof(cmsDecoder->base);
-    cmsDecoder = (CMSDecoderRef)_CFRuntimeCreateInstance(NULL, CMSDecoderGetTypeID(),
-                                                         extra, NULL);
-    if(cmsDecoder == NULL) {
+    CFIndex extra = sizeof(*cmsDecoder) - sizeof(cmsDecoder->base);
+    cmsDecoder = (CMSDecoderRef)_CFRuntimeCreateInstance(NULL, CMSDecoderGetTypeID(), extra, NULL);
+    if (cmsDecoder == NULL) {
         return errSecAllocate;
     }
     cmsDecoder->decState = DS_Init;
@@ -209,22 +207,19 @@ OSStatus CMSDecoderCreate(
  * Feed raw bytes of the message to be decoded into the decoder. Can be called
  * multiple times.
  */
-OSStatus CMSDecoderUpdateMessage(
-                                 CMSDecoderRef		cmsDecoder,
-                                 const void			*msgBytes,
-                                 size_t				msgBytesLen)
+OSStatus CMSDecoderUpdateMessage(CMSDecoderRef cmsDecoder, const void* msgBytes, size_t msgBytesLen)
 {
-    if(cmsDecoder == NULL) {
+    if (cmsDecoder == NULL) {
         return errSecParam;
     }
 
     OSStatus ortn;
-    switch(cmsDecoder->decState) {
+    switch (cmsDecoder->decState) {
         case DS_Init:
             /* First time through; set up */
             ASSERT(cmsDecoder->decoder == NULL);
             ortn = SecCmsDecoderCreate(NULL, NULL, NULL, NULL, NULL, NULL, &cmsDecoder->decoder);
-            if(ortn) {
+            if (ortn) {
                 ortn = cmsRtnToOSStatus(ortn);
                 CSSM_PERROR("SecCmsDecoderCreate", ortn);
                 return ortn;
@@ -247,7 +242,7 @@ OSStatus CMSDecoderUpdateMessage(
 
     /* FIXME - CFIndex same size as size_t on 64bit? */
     ortn = SecCmsDecoderUpdate(cmsDecoder->decoder, msgBytes, (CFIndex)msgBytesLen);
-    if(ortn) {
+    if (ortn) {
         ortn = cmsRtnToOSStatusDefault(ortn, errSecUnknownFormat);
         CSSM_PERROR("SecCmsDecoderUpdate", ortn);
     }
@@ -259,13 +254,12 @@ OSStatus CMSDecoderUpdateMessage(
  * finish decoding the message. We parse the message as best we can, up to
  * but not including verifying individual signerInfos.
  */
-OSStatus CMSDecoderFinalizeMessage(
-                                   CMSDecoderRef		cmsDecoder)
+OSStatus CMSDecoderFinalizeMessage(CMSDecoderRef cmsDecoder)
 {
-    if(cmsDecoder == NULL) {
+    if (cmsDecoder == NULL) {
         return errSecParam;
     }
-    if(cmsDecoder->decState != DS_Updating) {
+    if (cmsDecoder->decState != DS_Updating) {
         return errSecParam;
     }
     ASSERT(cmsDecoder->decoder != NULL);
@@ -275,7 +269,7 @@ OSStatus CMSDecoderFinalizeMessage(
     /* SecCmsDecoderFinish destroyed the decoder even on failure */
     cmsDecoder->decoder = NULL;
 
-    if(ortn) {
+    if (ortn) {
         ortn = cmsRtnToOSStatusDefault(ortn, errSecUnknownFormat);
         CSSM_PERROR("SecCmsDecoderFinish", ortn);
         return ortn;
@@ -287,13 +281,12 @@ OSStatus CMSDecoderFinalizeMessage(
     /* Look for a SignedData */
     int numContentInfos = SecCmsMessageContentLevelCount(cmsDecoder->cmsMsg);
     int dex;
-    for(dex=0; dex<numContentInfos; dex++) {
+    for (dex = 0; dex < numContentInfos; dex++) {
         SecCmsContentInfoRef ci = SecCmsMessageContentLevel(cmsDecoder->cmsMsg, dex);
         SECOidTag tag = SecCmsContentInfoGetContentTypeTag(ci);
-        switch(tag) {
+        switch (tag) {
             case SEC_OID_PKCS7_SIGNED_DATA:
-                cmsDecoder->signedData =
-                (SecCmsSignedDataRef)SecCmsContentInfoGetContent(ci);
+                cmsDecoder->signedData = (SecCmsSignedDataRef)SecCmsContentInfoGetContent(ci);
                 /* dig down one more layer for eContentType */
                 ci = SecCmsSignedDataGetContentInfo(cmsDecoder->signedData);
                 if (ci) {
@@ -303,17 +296,15 @@ OSStatus CMSDecoderFinalizeMessage(
             default:
                 break;
         }
-        if(cmsDecoder->signedData != NULL) {
+        if (cmsDecoder->signedData != NULL) {
             break;
         }
-
     }
 
     /* minimal processing of optional signedData... */
-    if(cmsDecoder->signedData != NULL) {
-        cmsDecoder->numSigners = (size_t)
-        SecCmsSignedDataSignerInfoCount(cmsDecoder->signedData);
-        if(cmsDecoder->detachedContent != NULL) {
+    if (cmsDecoder->signedData != NULL) {
+        cmsDecoder->numSigners = (size_t)SecCmsSignedDataSignerInfoCount(cmsDecoder->signedData);
+        if (cmsDecoder->detachedContent != NULL) {
             /* time to calculate digests from detached content */
             ortn = cmsDigestDetachedContent(cmsDecoder);
         }
@@ -332,17 +323,15 @@ OSStatus CMSDecoderFinalizeMessage(
  * be called befoere successfully ascertaining the signature status via
  * CMSDecoderCopySignerStatus().
  */
-OSStatus CMSDecoderSetDetachedContent(
-                                      CMSDecoderRef		cmsDecoder,
-                                      CFDataRef			detachedContent)
+OSStatus CMSDecoderSetDetachedContent(CMSDecoderRef cmsDecoder, CFDataRef detachedContent)
 {
-    if((cmsDecoder == NULL) || (detachedContent == NULL)) {
+    if ((cmsDecoder == NULL) || (detachedContent == NULL)) {
         return errSecParam;
     }
     cmsDecoder->detachedContent = detachedContent;
     CFRetain(detachedContent);
 
-    if(cmsDecoder->signedData != NULL) {
+    if (cmsDecoder->signedData != NULL) {
         /* time to calculate digests from detached content */
         ASSERT(cmsDecoder->decState == DS_Final);
         return cmsDigestDetachedContent(cmsDecoder);
@@ -355,14 +344,12 @@ OSStatus CMSDecoderSetDetachedContent(
  * Returns a NULL detachedContent if no detached content has been specified.
  * Caller must CFRelease() the result.
  */
-OSStatus CMSDecoderCopyDetachedContent(
-                                       CMSDecoderRef		cmsDecoder,
-                                       CFDataRef			*detachedContent)		/* RETURNED */
+OSStatus CMSDecoderCopyDetachedContent(CMSDecoderRef cmsDecoder, CFDataRef* detachedContent) /* RETURNED */
 {
-    if((cmsDecoder == NULL) || (detachedContent == NULL)) {
+    if ((cmsDecoder == NULL) || (detachedContent == NULL)) {
         return errSecParam;
     }
-    if(cmsDecoder->detachedContent != NULL) {
+    if (cmsDecoder->detachedContent != NULL) {
         CFRetain(cmsDecoder->detachedContent);
     }
     *detachedContent = cmsDecoder->detachedContent;
@@ -373,14 +360,12 @@ OSStatus CMSDecoderCopyDetachedContent(
  * Obtain the number of signers of a message. A result of zero indicates that
  * the message was not signed.
  */
-OSStatus CMSDecoderGetNumSigners(
-                                 CMSDecoderRef		cmsDecoder,
-                                 size_t				*numSigners)			/* RETURNED */
+OSStatus CMSDecoderGetNumSigners(CMSDecoderRef cmsDecoder, size_t* numSigners) /* RETURNED */
 {
-    if((cmsDecoder == NULL) || (numSigners == NULL)) {
+    if ((cmsDecoder == NULL) || (numSigners == NULL)) {
         return errSecParam;
     }
-    if(cmsDecoder->decState != DS_Final) {
+    if (cmsDecoder->decState != DS_Final) {
         return errSecParam;
     }
     *numSigners = cmsDecoder->numSigners;
@@ -392,61 +377,59 @@ OSStatus CMSDecoderGetNumSigners(
  * be signed my multiple signers; this function returns the status
  * associated with signer 'n' as indicated by the signerIndex parameter.
  */
-OSStatus CMSDecoderCopySignerStatus(
-                                    CMSDecoderRef		cmsDecoder,
-                                    size_t				signerIndex,
-                                    CFTypeRef			policyOrArray,
-                                    Boolean				evaluateSecTrust,
-                                    CMSSignerStatus		*signerStatus,			/* optional; RETURNED */
-                                    SecTrustRef			*secTrust,				/* optional; RETURNED */
-                                    OSStatus			*certVerifyResultCode)	/* optional; RETURNED */
+OSStatus CMSDecoderCopySignerStatus(CMSDecoderRef cmsDecoder,
+                                    size_t signerIndex,
+                                    CFTypeRef policyOrArray,
+                                    Boolean evaluateSecTrust,
+                                    CMSSignerStatus* signerStatus, /* optional; RETURNED */
+                                    SecTrustRef* secTrust, /* optional; RETURNED */
+                                    OSStatus* certVerifyResultCode) /* optional; RETURNED */
 {
-    if((cmsDecoder == NULL) || (cmsDecoder->decState != DS_Final) || (!policyOrArray) || !signerStatus) {
+    if ((cmsDecoder == NULL) || (cmsDecoder->decState != DS_Final) || (!policyOrArray) || !signerStatus) {
         return errSecParam;
     }
 
     /* initialize return values */
-    if(signerStatus) {
+    if (signerStatus) {
         *signerStatus = kCMSSignerUnsigned;
     }
-    if(secTrust) {
+    if (secTrust) {
         *secTrust = NULL;
     }
-    if(certVerifyResultCode) {
+    if (certVerifyResultCode) {
         *certVerifyResultCode = 0;
     }
 
-    if(cmsDecoder->signedData == NULL) {
-        *signerStatus = kCMSSignerUnsigned;	/* redundant, I know, but explicit */
+    if (cmsDecoder->signedData == NULL) {
+        *signerStatus = kCMSSignerUnsigned; /* redundant, I know, but explicit */
         return errSecSuccess;
     }
     ASSERT(cmsDecoder->numSigners > 0);
-    if(signerIndex >= cmsDecoder->numSigners) {
+    if (signerIndex >= cmsDecoder->numSigners) {
         *signerStatus = kCMSSignerInvalidIndex;
         return errSecSuccess;
     }
-    if(!SecCmsSignedDataHasDigests(cmsDecoder->signedData)) {
+    if (!SecCmsSignedDataHasDigests(cmsDecoder->signedData)) {
         *signerStatus = kCMSSignerNeedsDetachedContent;
         return errSecSuccess;
     }
 
     /*
      * OK, we should be able to verify this signerInfo.
-     * I think we have to do the SecCmsSignedDataVerifySignerInfo first
+     * I think we have to do the SecCmsSignedDataVerifySigner first
      * in order get all the cert pieces into place before returning them
      * to the caller.
      */
     SecTrustRef theTrust = NULL;
-    OSStatus vfyRtn = SecCmsSignedDataVerifySignerInfo(cmsDecoder->signedData,
-                                                       (int)signerIndex,
-                                                       NULL,
-                                                       policyOrArray,
-                                                       &theTrust);
+    OSStatus vfyRtn = SecCmsSignedDataVerifySigner(
+        cmsDecoder->signedData, (int)signerIndex, policyOrArray, &theTrust);
 
 #if SECTRUST_VERBOSE_DEBUG
-    syslog(LOG_ERR, "CMSDecoderCopySignerStatus: SecCmsSignedDataVerifySignerInfo returned %d", (int)vfyRtn);
-    if (policyOrArray) CFShow(policyOrArray);
-    if (theTrust) CFShow(theTrust);
+    syslog(LOG_ERR, "CMSDecoderCopySignerStatus: SecCmsSignedDataVerifySigner returned %d", (int)vfyRtn);
+    if (policyOrArray)
+        CFShow(policyOrArray);
+    if (theTrust)
+        CFShow(theTrust);
 #endif
 
     /* Subsequent errors to errOut: */
@@ -463,14 +446,14 @@ OSStatus CMSDecoderCopySignerStatus(
     SecTrustResultType secTrustResult;
     OSStatus evalRtn, verifyStatus = errSecSuccess;
 
-    if(secTrust != NULL) {
+    if (secTrust != NULL) {
         *secTrust = theTrust;
         /* we'll release our reference at the end */
         CFRetainSafe(theTrust);
     }
     SecCmsSignerInfoRef signerInfo =
-    SecCmsSignedDataGetSignerInfo(cmsDecoder->signedData, (int)signerIndex);
-    if(signerInfo == NULL) {
+        SecCmsSignedDataGetSignerInfo(cmsDecoder->signedData, (int)signerIndex);
+    if (signerInfo == NULL) {
         /* should never happen */
         ASSERT(0);
         dprintf("CMSDecoderCopySignerStatus: no signerInfo\n");
@@ -479,16 +462,16 @@ OSStatus CMSDecoderCopySignerStatus(
     }
 
     /* now do the actual cert verify */
-    if(evaluateSecTrust) {
+    if (evaluateSecTrust) {
         evalRtn = SecTrustEvaluate(theTrust, &secTrustResult);
-        if(evalRtn) {
+        if (evalRtn) {
             /* should never happen */
             CSSM_PERROR("SecTrustEvaluate", evalRtn);
             dprintf("CMSDecoderCopySignerStatus: SecTrustEvaluate error\n");
             ortn = errSecInternalComponent;
             goto errOut;
         }
-        switch(secTrustResult) {
+        switch (secTrustResult) {
             case kSecTrustResultUnspecified:
                 /* cert chain valid, no special UserTrust assignments */
             case kSecTrustResultProceed:
@@ -497,27 +480,24 @@ OSStatus CMSDecoderCopySignerStatus(
             case kSecTrustResultDeny:
                 verifyStatus = errSecTrustSettingDeny;
                 break;
-            default:
-            {
+            default: {
                 verifyStatus = errSecNotTrusted;
                 break;
             }
-        } 	/* switch(secTrustResult) */
-    }		/* evaluateSecTrust true */
-    if(certVerifyResultCode != NULL) {
+        } /* switch(secTrustResult) */
+    }     /* evaluateSecTrust true */
+    if (certVerifyResultCode != NULL) {
         *certVerifyResultCode = verifyStatus;
     }
 
     /* cook up global status based on vfyRtn and tpVfyStatus */
-    if(signerStatus != NULL) {
-        if((vfyRtn == errSecSuccess) && (verifyStatus == errSecSuccess))  {
+    if (signerStatus != NULL) {
+        if ((vfyRtn == errSecSuccess) && (verifyStatus == errSecSuccess)) {
             *signerStatus = kCMSSignerValid;
-        }
-        else if(vfyRtn != errSecSuccess) {
+        } else if (vfyRtn != errSecSuccess) {
             /* this could mean other things, but for now... */
             *signerStatus = kCMSSignerInvalidSignature;
-        }
-        else {
+        } else {
             *signerStatus = kCMSSignerInvalidCert;
         }
     }
@@ -532,22 +512,20 @@ errOut:
  *
  * This cannot be called until after CMSDecoderFinalizeMessage() is called.
  */
-OSStatus CMSDecoderCopySignerEmailAddress(
-                                          CMSDecoderRef		cmsDecoder,
-                                          size_t				signerIndex,
-                                          CFStringRef			*signerEmailAddress)	/* RETURNED */
+OSStatus CMSDecoderCopySignerEmailAddress(CMSDecoderRef cmsDecoder,
+                                          size_t signerIndex,
+                                          CFStringRef* signerEmailAddress) /* RETURNED */
 {
-    if((cmsDecoder == NULL) ||
-       (signerEmailAddress == NULL) ||
-       (cmsDecoder->signedData == NULL) ||			/* not signed */
-       (signerIndex >= cmsDecoder->numSigners) ||	/* index out of range */
-       (cmsDecoder->decState != DS_Final)) {
+    if ((cmsDecoder == NULL) || (signerEmailAddress == NULL) ||
+        (cmsDecoder->signedData == NULL) ||        /* not signed */
+        (signerIndex >= cmsDecoder->numSigners) || /* index out of range */
+        (cmsDecoder->decState != DS_Final)) {
         return errSecParam;
     }
 
     SecCmsSignerInfoRef signerInfo =
-    SecCmsSignedDataGetSignerInfo(cmsDecoder->signedData, (int)signerIndex);
-    if(signerInfo == NULL) {
+        SecCmsSignedDataGetSignerInfo(cmsDecoder->signedData, (int)signerIndex);
+    if (signerInfo == NULL) {
         /* should never happen */
         ASSERT(0);
         dprintf("CMSDecoderCopySignerEmailAddress: no signerInfo\n");
@@ -567,30 +545,25 @@ OSStatus CMSDecoderCopySignerEmailAddress(
  *
  * This cannot be called until after CMSDecoderFinalizeMessage() is called.
  */
-OSStatus CMSDecoderCopySignerCert(
-                                  CMSDecoderRef		cmsDecoder,
-                                  size_t				signerIndex,
-                                  SecCertificateRef	*signerCert)			/* RETURNED */
+OSStatus CMSDecoderCopySignerCert(CMSDecoderRef cmsDecoder, size_t signerIndex, SecCertificateRef* signerCert) /* RETURNED */
 {
-    if((cmsDecoder == NULL) ||
-       (signerCert == NULL) ||
-       (cmsDecoder->signedData == NULL) ||			/* not signed */
-       (signerIndex >= cmsDecoder->numSigners) ||	/* index out of range */
-       (cmsDecoder->decState != DS_Final)) {
+    if ((cmsDecoder == NULL) || (signerCert == NULL) || (cmsDecoder->signedData == NULL) || /* not signed */
+        (signerIndex >= cmsDecoder->numSigners) || /* index out of range */
+        (cmsDecoder->decState != DS_Final)) {
         return errSecParam;
     }
 
     SecCmsSignerInfoRef signerInfo =
-    SecCmsSignedDataGetSignerInfo(cmsDecoder->signedData, (int)signerIndex);
-    if(signerInfo == NULL) {
+        SecCmsSignedDataGetSignerInfo(cmsDecoder->signedData, (int)signerIndex);
+    if (signerInfo == NULL) {
         /* should never happen */
         ASSERT(0);
         dprintf("CMSDecoderCopySignerCertificate: no signerInfo\n");
         return errSecInternalComponent;
     }
-    *signerCert = SecCmsSignerInfoGetSigningCertificate(signerInfo, NULL);
+    *signerCert = SecCmsSignerInfoGetSigningCert(signerInfo);
     /* libsecurity_smime does NOT retain that */
-    if(*signerCert == NULL) {
+    if (*signerCert == NULL) {
         /* should never happen */
         ASSERT(0);
         dprintf("CMSDecoderCopySignerCertificate: no signerCert\n");
@@ -604,14 +577,12 @@ OSStatus CMSDecoderCopySignerCert(
  * Determine whether a CMS message was encrypted, and if so, whether we were
  * able to decrypt it.
  */
-OSStatus CMSDecoderIsContentEncrypted(
-                                      CMSDecoderRef	cmsDecoder,
-                                      Boolean			*wasEncrypted)
+OSStatus CMSDecoderIsContentEncrypted(CMSDecoderRef cmsDecoder, Boolean* wasEncrypted)
 {
-    if((cmsDecoder == NULL) || (wasEncrypted == NULL)) {
+    if ((cmsDecoder == NULL) || (wasEncrypted == NULL)) {
         return errSecParam;
     }
-    if(cmsDecoder->decState != DS_Final) {
+    if (cmsDecoder->decState != DS_Final) {
         return errSecParam;
     }
     *wasEncrypted = cmsDecoder->wasEncrypted;
@@ -622,22 +593,22 @@ OSStatus CMSDecoderIsContentEncrypted(
  * Obtain the eContentType OID for a SignedData's EncapsulatedContentType, if
  * present.
  */
-OSStatus CMSDecoderCopyEncapsulatedContentType(
-                                               CMSDecoderRef		cmsDecoder,
-                                               CFDataRef			*eContentType)		/* RETURNED */
+OSStatus CMSDecoderCopyEncapsulatedContentType(CMSDecoderRef cmsDecoder, CFDataRef* eContentType) /* RETURNED */
 {
-    if((cmsDecoder == NULL) || (eContentType == NULL)) {
+    if ((cmsDecoder == NULL) || (eContentType == NULL)) {
         return errSecParam;
     }
-    if(cmsDecoder->decState != DS_Final) {
+    if (cmsDecoder->decState != DS_Final) {
         return errSecParam;
     }
-    if(cmsDecoder->signedData == NULL) {
+    if (cmsDecoder->signedData == NULL) {
         *eContentType = NULL;
-    }
-    else {
-        SecAsn1Oid *ecOid = cmsDecoder->eContentType;
-        *eContentType = CFDataCreate(NULL, ecOid->Data, ecOid->Length);
+    } else {
+        SecAsn1Oid* ecOid = cmsDecoder->eContentType;
+        if (ecOid->Length > LONG_MAX) {
+            return errSecParam;
+        }
+        *eContentType = CFDataCreate(NULL, ecOid->Data, (CFIndex)ecOid->Length);
     }
     return errSecSuccess;
 }
@@ -648,40 +619,43 @@ OSStatus CMSDecoderCopyEncapsulatedContentType(
  * array.
  * This cannot be called until after CMSDecoderFinalizeMessage() is called.
  */
-OSStatus CMSDecoderCopyAllCerts(
-                                CMSDecoderRef		cmsDecoder,
-                                CFArrayRef			*certs)					/* RETURNED */
+OSStatus CMSDecoderCopyAllCerts(CMSDecoderRef cmsDecoder, CFArrayRef* certs) /* RETURNED */
 {
-    if((cmsDecoder == NULL) || (certs == NULL)) {
+    if ((cmsDecoder == NULL) || (certs == NULL)) {
         return errSecParam;
     }
-    if(cmsDecoder->decState != DS_Final) {
+    if (cmsDecoder->decState != DS_Final) {
         return errSecParam;
     }
-    if(cmsDecoder->signedData == NULL) {
+    if (cmsDecoder->signedData == NULL) {
         /* message wasn't signed */
         *certs = NULL;
         return errSecSuccess;
     }
 
     /* NULL_terminated array of CSSM_DATA ptrs */
-    SecAsn1Item **cssmCerts = SecCmsSignedDataGetCertificateList(cmsDecoder->signedData);
-    if((cssmCerts == NULL) || (*cssmCerts == NULL)) {
+    SecAsn1Item** cssmCerts = SecCmsSignedDataGetCertificateList(cmsDecoder->signedData);
+    if ((cssmCerts == NULL) || (*cssmCerts == NULL)) {
         *certs = NULL;
         return errSecSuccess;
     }
 
     CFMutableArrayRef allCerts = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
-    SecAsn1Item **cssmCert;
-    for(cssmCert=cssmCerts; *cssmCert!=NULL; cssmCert++) {
-        SecCertificateRef cfCert = SecCertificateCreateWithBytes(NULL, (*cssmCert)->Data, (*cssmCert)->Length);
-        if(!cfCert) {
-            CFRelease(allCerts);
+    SecAsn1Item** cssmCert;
+    for (cssmCert = cssmCerts; *cssmCert != NULL; cssmCert++) {
+        if ((*cssmCert)->Length > LONG_MAX) {
+            CFReleaseNull(allCerts);
+            return errSecAllocate;
+        }
+        SecCertificateRef cfCert =
+            SecCertificateCreateWithBytes(NULL, (*cssmCert)->Data, (CFIndex)(*cssmCert)->Length);
+        if (!cfCert) {
+            CFReleaseNull(allCerts);
             return errSecDecode;
         }
         CFArrayAppendValue(allCerts, cfCert);
         /* the array holds the only needed refcount */
-        CFRelease(cfCert);
+        CFReleaseNull(cfCert);
     }
     *certs = allCerts;
     return errSecSuccess;
@@ -692,31 +666,32 @@ OSStatus CMSDecoderCopyAllCerts(
  * signed with detached content this will return NULL.
  * Caller must CFRelease the result.
  */
-OSStatus CMSDecoderCopyContent(
-                               CMSDecoderRef		cmsDecoder,
-                               CFDataRef			*content)				/* RETURNED */
+OSStatus CMSDecoderCopyContent(CMSDecoderRef cmsDecoder, CFDataRef* content) /* RETURNED */
 {
-    if((cmsDecoder == NULL) || (content == NULL)) {
+    if ((cmsDecoder == NULL) || (content == NULL)) {
         return errSecParam;
     }
-    if(cmsDecoder->decState != DS_Final) {
+    if (cmsDecoder->decState != DS_Final) {
         return errSecParam;
     }
-    if(cmsDecoder->cmsMsg == NULL) {
+    if (cmsDecoder->cmsMsg == NULL) {
         /* Hmmm....looks like the finalize call failed */
         return errSecParam;
     }
-    const SecAsn1Item *odata = SecCmsMessageGetContent(cmsDecoder->cmsMsg);
-    if((odata == NULL) || (odata->Length == 0)) {
+    const SecAsn1Item* odata = SecCmsMessageGetContent(cmsDecoder->cmsMsg);
+    if ((odata == NULL) || (odata->Length == 0)) {
         /* i.e., detached content */
         *content = NULL;
         return errSecSuccess;
     }
-    *content = CFDataCreate(NULL, (const UInt8 *)odata->Data, odata->Length);
+    if (odata->Length > LONG_MAX) {
+        return errSecAllocate;
+    }
+    *content = CFDataCreate(NULL, (const UInt8*)odata->Data, (CFIndex)odata->Length);
     return errSecSuccess;
 }
 
-#pragma mark --- SPI declared in CMSPrivate.h ---
+#pragma mark--- SPI declared in CMSPrivate.h ---
 
 /*
  * Obtain the SecCmsMessageRef associated with a CMSDecoderRef. Intended
@@ -728,11 +703,9 @@ OSStatus CMSDecoderCopyContent(
  *
  * The CMSDecoder retains ownership of the returned SecCmsMessageRef.
  */
-OSStatus CMSDecoderGetCmsMessage(
-                                 CMSDecoderRef		cmsDecoder,
-                                 SecCmsMessageRef	*cmsMessage)		/* RETURNED */
+OSStatus CMSDecoderGetCmsMessage(CMSDecoderRef cmsDecoder, SecCmsMessageRef* cmsMessage) /* RETURNED */
 {
-    if((cmsDecoder == NULL) || (cmsMessage == NULL)) {
+    if ((cmsDecoder == NULL) || (cmsMessage == NULL)) {
         return errSecParam;
     }
     /* any state, whether we have a msg or not is OK */
@@ -746,14 +719,12 @@ OSStatus CMSDecoderGetCmsMessage(
  * CMSDecoderUpdateMessage(). The CMSDecoderRef takes ownership of the
  * incoming SecCmsDecoderRef.
  */
-OSStatus CMSDecoderSetDecoder(
-                              CMSDecoderRef		cmsDecoder,
-                              SecCmsDecoderRef	decoder)
+OSStatus CMSDecoderSetDecoder(CMSDecoderRef cmsDecoder, SecCmsDecoderRef decoder)
 {
-    if((cmsDecoder == NULL) || (decoder == NULL)) {
+    if ((cmsDecoder == NULL) || (decoder == NULL)) {
         return errSecParam;
     }
-    switch(cmsDecoder->decState) {
+    switch (cmsDecoder->decState) {
         case DS_Init:
             ASSERT(cmsDecoder->decoder == NULL);
             cmsDecoder->decoder = decoder;
@@ -772,11 +743,9 @@ OSStatus CMSDecoderSetDecoder(
  * CMSDecoderUpdateMessage() has been called.
  * The CMSDecoderRef retains ownership of the SecCmsDecoderRef.
  */
-OSStatus CMSDecoderGetDecoder(
-                              CMSDecoderRef		cmsDecoder,
-                              SecCmsDecoderRef	*decoder)			/* RETURNED */
+OSStatus CMSDecoderGetDecoder(CMSDecoderRef cmsDecoder, SecCmsDecoderRef* decoder) /* RETURNED */
 {
-    if((cmsDecoder == NULL) || (decoder == NULL)) {
+    if ((cmsDecoder == NULL) || (decoder == NULL)) {
         return errSecParam;
     }
     /* any state, whether we have a decoder or not is OK */
@@ -794,10 +763,9 @@ OSStatus CMSDecoderGetDecoder(
  *
  * This cannot be called until after CMSDecoderFinalizeMessage() is called.
  */
-OSStatus CMSDecoderCopySignerSigningTime(
-                                         CMSDecoderRef		cmsDecoder,
-                                         size_t				signerIndex,            /* usually 0 */
-                                         CFAbsoluteTime      *signingTime)			/* RETURNED */
+OSStatus CMSDecoderCopySignerSigningTime(CMSDecoderRef cmsDecoder,
+                                         size_t signerIndex,          /* usually 0 */
+                                         CFAbsoluteTime* signingTime) /* RETURNED */
 {
     OSStatus status = errSecParam;
     SecCmsMessageRef cmsg;
@@ -807,15 +775,14 @@ OSStatus CMSDecoderCopySignerSigningTime(
     require(cmsDecoder && signingTime, xit);
     require_noerr(CMSDecoderGetCmsMessage(cmsDecoder, &cmsg), xit);
     numContentInfos = SecCmsMessageContentLevelCount(cmsg);
-    for (int dex = 0; !signedData && dex < numContentInfos; dex++)
-    {
+    for (int dex = 0; !signedData && dex < numContentInfos; dex++) {
         SecCmsContentInfoRef ci = SecCmsMessageContentLevel(cmsg, dex);
         SECOidTag tag = SecCmsContentInfoGetContentTypeTag(ci);
         if (tag == SEC_OID_PKCS7_SIGNED_DATA)
             if ((signedData = (SecCmsSignedDataRef)SecCmsContentInfoGetContent(ci))) {
-                SecCmsSignerInfoRef signerInfo = SecCmsSignedDataGetSignerInfo(signedData, (int)signerIndex);
-                if (signerInfo)
-                {
+                SecCmsSignerInfoRef signerInfo =
+                    SecCmsSignedDataGetSignerInfo(signedData, (int)signerIndex);
+                if (signerInfo) {
                     status = SecCmsSignerInfoGetSigningTime(signerInfo, signingTime);
                     break;
                 }
@@ -837,19 +804,17 @@ xit:
  * This cannot be called until after CMSDecoderFinalizeMessage() is called.
  */
 
-OSStatus CMSDecoderCopySignerTimestamp(
-                                       CMSDecoderRef		cmsDecoder,
-                                       size_t				signerIndex,        /* usually 0 */
-                                       CFAbsoluteTime      *timestamp)			/* RETURNED */
+OSStatus CMSDecoderCopySignerTimestamp(CMSDecoderRef cmsDecoder,
+                                       size_t signerIndex,        /* usually 0 */
+                                       CFAbsoluteTime* timestamp) /* RETURNED */
 {
     return CMSDecoderCopySignerTimestampWithPolicy(cmsDecoder, NULL, signerIndex, timestamp);
 }
 
-OSStatus CMSDecoderCopySignerTimestampWithPolicy(
-                                                 CMSDecoderRef		cmsDecoder,
-                                                 CFTypeRef            timeStampPolicy,
-                                                 size_t				signerIndex,        /* usually 0 */
-                                                 CFAbsoluteTime      *timestamp)			/* RETURNED */
+OSStatus CMSDecoderCopySignerTimestampWithPolicy(CMSDecoderRef cmsDecoder,
+                                                 CFTypeRef timeStampPolicy,
+                                                 size_t signerIndex, /* usually 0 */
+                                                 CFAbsoluteTime* timestamp) /* RETURNED */
 {
     OSStatus status = errSecParam;
     SecCmsMessageRef cmsg;
@@ -859,16 +824,16 @@ OSStatus CMSDecoderCopySignerTimestampWithPolicy(
     require(cmsDecoder && timestamp, xit);
     require_noerr(CMSDecoderGetCmsMessage(cmsDecoder, &cmsg), xit);
     numContentInfos = SecCmsMessageContentLevelCount(cmsg);
-    for (int dex = 0; !signedData && dex < numContentInfos; dex++)
-    {
+    for (int dex = 0; !signedData && dex < numContentInfos; dex++) {
         SecCmsContentInfoRef ci = SecCmsMessageContentLevel(cmsg, dex);
         SECOidTag tag = SecCmsContentInfoGetContentTypeTag(ci);
         if (tag == SEC_OID_PKCS7_SIGNED_DATA)
             if ((signedData = (SecCmsSignedDataRef)SecCmsContentInfoGetContent(ci))) {
-                SecCmsSignerInfoRef signerInfo = SecCmsSignedDataGetSignerInfo(signedData, (int)signerIndex);
-                if (signerInfo)
-                {
-                    status = SecCmsSignerInfoGetTimestampTimeWithPolicy(signerInfo, timeStampPolicy, timestamp);
+                SecCmsSignerInfoRef signerInfo =
+                    SecCmsSignedDataGetSignerInfo(signedData, (int)signerIndex);
+                if (signerInfo) {
+                    status = SecCmsSignerInfoGetTimestampTimeWithPolicy(
+                        signerInfo, timeStampPolicy, timestamp);
                     break;
                 }
             }
@@ -890,10 +855,9 @@ xit:
  *
  * This cannot be called until after CMSDecoderFinalizeMessage() is called.
  */
-OSStatus CMSDecoderCopySignerTimestampCertificates(
-                                                   CMSDecoderRef		cmsDecoder,
-                                                   size_t				signerIndex,            /* usually 0 */
-                                                   CFArrayRef          *certificateRefs)       /* RETURNED */
+OSStatus CMSDecoderCopySignerTimestampCertificates(CMSDecoderRef cmsDecoder,
+                                                   size_t signerIndex, /* usually 0 */
+                                                   CFArrayRef* certificateRefs) /* RETURNED */
 {
     OSStatus status = errSecParam;
     SecCmsMessageRef cmsg = NULL;
@@ -905,48 +869,49 @@ OSStatus CMSDecoderCopySignerTimestampCertificates(
     require(cmsDecoder && certificateRefs, xit);
     require_noerr(CMSDecoderGetCmsMessage(cmsDecoder, &cmsg), xit);
     numContentInfos = SecCmsMessageContentLevelCount(cmsg);
-    for (int dex = 0; !signedData && dex < numContentInfos; dex++)
-    {
+    for (int dex = 0; !signedData && dex < numContentInfos; dex++) {
         SecCmsContentInfoRef ci = SecCmsMessageContentLevel(cmsg, dex);
         SECOidTag tag = SecCmsContentInfoGetContentTypeTag(ci);
         if (tag == SEC_OID_PKCS7_SIGNED_DATA)
             if ((signedData = (SecCmsSignedDataRef)SecCmsContentInfoGetContent(ci))) {
-                SecCmsSignerInfoRef signerInfo = SecCmsSignedDataGetSignerInfo(signedData, (int)signerIndex);
-                if (signerInfo)
-                {
+                SecCmsSignerInfoRef signerInfo =
+                    SecCmsSignedDataGetSignerInfo(signedData, (int)signerIndex);
+                if (signerInfo) {
                     CFArrayRef certList = SecCmsSignerInfoGetTimestampCertList(signerInfo);
                     require_action(certList, xit, status = errSecItemNotFound);
-                    CFMutableArrayRef certs = CFArrayCreateMutableCopy(kCFAllocatorDefault, CFArrayGetCount(certList), certList);
+                    CFMutableArrayRef certs = CFArrayCreateMutableCopy(
+                        kCFAllocatorDefault, CFArrayGetCount(certList), certList);
 
-                    if(certs){
+                    if (certs) {
                         //reorder certificates:
                         tsn = CFArrayGetCount(certs);
-                        good = tsn > 0 && SecIsAppleTrustAnchor((SecCertificateRef)CFArrayGetValueAtIndex(certs, tsn-1), 0);
+                        good = tsn > 0 &&
+                               SecIsAppleTrustAnchor(
+                                   (SecCertificateRef)CFArrayGetValueAtIndex(certs, tsn - 1), 0);
 
-                        if ( good == false )
-                        {
+                        if (good == false) {
                             //change TS certificate ordering.
-                            for (CFIndex n = 0; n < tsn; n++)
-                            {
-                                SecCertificateRef tsRoot = (SecCertificateRef)CFArrayGetValueAtIndex(certs, n);
+                            for (CFIndex n = 0; n < tsn; n++) {
+                                SecCertificateRef tsRoot =
+                                    (SecCertificateRef)CFArrayGetValueAtIndex(certs, n);
                                 if (tsRoot)
                                     if ((good = SecIsAppleTrustAnchor(tsRoot, 0))) {
-                                        CFArrayExchangeValuesAtIndices(certs, n, tsn-1);
+                                        CFArrayExchangeValuesAtIndices(certs, n, tsn - 1);
                                         break;
                                     }
                             }
                         }
-                        
+
                         *certificateRefs = CFArrayCreateCopy(kCFAllocatorDefault, certs);
-                        CFRelease(certs);
+                        CFReleaseNull(certs);
                         status = errSecSuccess;
                     }
                     break;
                 }
             }
     }
-    
-    
+
+
 xit:
     return status;
 }
@@ -961,29 +926,27 @@ xit:
  *
  * This cannot be called until after CMSDecoderFinalizeMessage() is called.
  */
-OSStatus CMSDecoderCopySignerAppleCodesigningHashAgility(
-                                                         CMSDecoderRef		cmsDecoder,
-                                                         size_t				signerIndex,            /* usually 0 */
-                                                         CFDataRef  CF_RETURNS_RETAINED *hashAgilityAttrValue)			/* RETURNED */
+OSStatus CMSDecoderCopySignerAppleCodesigningHashAgility(CMSDecoderRef cmsDecoder,
+                                                         size_t signerIndex, /* usually 0 */
+                                                         CFDataRef CF_RETURNS_RETAINED* hashAgilityAttrValue) /* RETURNED */
 {
     OSStatus status = errSecParam;
     SecCmsMessageRef cmsg;
     SecCmsSignedDataRef signedData = NULL;
     int numContentInfos = 0;
     CFDataRef returnedValue = NULL;
-    
+
     require(cmsDecoder && hashAgilityAttrValue, exit);
     require_noerr(CMSDecoderGetCmsMessage(cmsDecoder, &cmsg), exit);
     numContentInfos = SecCmsMessageContentLevelCount(cmsg);
-    for (int dex = 0; !signedData && dex < numContentInfos; dex++)
-    {
+    for (int dex = 0; !signedData && dex < numContentInfos; dex++) {
         SecCmsContentInfoRef ci = SecCmsMessageContentLevel(cmsg, dex);
         SECOidTag tag = SecCmsContentInfoGetContentTypeTag(ci);
         if (tag == SEC_OID_PKCS7_SIGNED_DATA)
             if ((signedData = (SecCmsSignedDataRef)SecCmsContentInfoGetContent(ci))) {
-                SecCmsSignerInfoRef signerInfo = SecCmsSignedDataGetSignerInfo(signedData, (int)signerIndex);
-                if (signerInfo)
-                {
+                SecCmsSignerInfoRef signerInfo =
+                    SecCmsSignedDataGetSignerInfo(signedData, (int)signerIndex);
+                if (signerInfo) {
                     status = SecCmsSignerInfoGetAppleCodesigningHashAgility(signerInfo, &returnedValue);
                     break;
                 }
@@ -991,7 +954,7 @@ OSStatus CMSDecoderCopySignerAppleCodesigningHashAgility(
     }
 exit:
     if (status == errSecSuccess && returnedValue) {
-        *hashAgilityAttrValue = (CFDataRef) CFRetain(returnedValue);
+        *hashAgilityAttrValue = (CFDataRef)CFRetain(returnedValue);
     } else {
         *hashAgilityAttrValue = NULL;
     }
@@ -1007,10 +970,9 @@ exit:
  *
  * This cannot be called until after CMSDecoderFinalizeMessage() is called.
  */
-OSStatus CMSDecoderCopySignerAppleCodesigningHashAgilityV2(
-     CMSDecoderRef        cmsDecoder,
-     size_t                signerIndex,            /* usually 0 */
-     CFDictionaryRef  CF_RETURNS_RETAINED *hashAgilityV2AttrValues)            /* RETURNED */
+OSStatus CMSDecoderCopySignerAppleCodesigningHashAgilityV2(CMSDecoderRef cmsDecoder,
+                                                           size_t signerIndex, /* usually 0 */
+                                                           CFDictionaryRef CF_RETURNS_RETAINED* hashAgilityV2AttrValues) /* RETURNED */
 {
     OSStatus status = errSecParam;
     SecCmsMessageRef cmsg;
@@ -1021,15 +983,14 @@ OSStatus CMSDecoderCopySignerAppleCodesigningHashAgilityV2(
     require(cmsDecoder && hashAgilityV2AttrValues, exit);
     require_noerr(CMSDecoderGetCmsMessage(cmsDecoder, &cmsg), exit);
     numContentInfos = SecCmsMessageContentLevelCount(cmsg);
-    for (int dex = 0; !signedData && dex < numContentInfos; dex++)
-    {
+    for (int dex = 0; !signedData && dex < numContentInfos; dex++) {
         SecCmsContentInfoRef ci = SecCmsMessageContentLevel(cmsg, dex);
         SECOidTag tag = SecCmsContentInfoGetContentTypeTag(ci);
         if (tag == SEC_OID_PKCS7_SIGNED_DATA)
             if ((signedData = (SecCmsSignedDataRef)SecCmsContentInfoGetContent(ci))) {
-                SecCmsSignerInfoRef signerInfo = SecCmsSignedDataGetSignerInfo(signedData, (int)signerIndex);
-                if (signerInfo)
-                {
+                SecCmsSignerInfoRef signerInfo =
+                    SecCmsSignedDataGetSignerInfo(signedData, (int)signerIndex);
+                if (signerInfo) {
                     status = SecCmsSignerInfoGetAppleCodesigningHashAgilityV2(signerInfo, &returnedValue);
                     break;
                 }
@@ -1037,7 +998,7 @@ OSStatus CMSDecoderCopySignerAppleCodesigningHashAgilityV2(
     }
 exit:
     if (status == errSecSuccess && returnedValue) {
-        *hashAgilityV2AttrValues = (CFDictionaryRef) CFRetain(returnedValue);
+        *hashAgilityV2AttrValues = (CFDictionaryRef)CFRetain(returnedValue);
     } else {
         *hashAgilityV2AttrValues = NULL;
     }
@@ -1053,10 +1014,9 @@ exit:
  *
  * This cannot be called until after CMSDecoderFinalizeMessage() is called.
  */
-OSStatus CMSDecoderCopySignerAppleExpirationTime(
-    CMSDecoderRef      cmsDecoder,
-    size_t             signerIndex,
-    CFAbsoluteTime     *expirationTime)            /* RETURNED */
+OSStatus CMSDecoderCopySignerAppleExpirationTime(CMSDecoderRef cmsDecoder,
+                                                 size_t signerIndex,
+                                                 CFAbsoluteTime* expirationTime) /* RETURNED */
 {
     OSStatus status = errSecParam;
     SecCmsMessageRef cmsg = NULL;
@@ -1071,7 +1031,8 @@ OSStatus CMSDecoderCopySignerAppleExpirationTime(
         SECOidTag tag = SecCmsContentInfoGetContentTypeTag(ci);
         if (tag == SEC_OID_PKCS7_SIGNED_DATA) {
             if ((signedData = (SecCmsSignedDataRef)SecCmsContentInfoGetContent(ci))) {
-                SecCmsSignerInfoRef signerInfo = SecCmsSignedDataGetSignerInfo(signedData, (int)signerIndex);
+                SecCmsSignerInfoRef signerInfo =
+                    SecCmsSignedDataGetSignerInfo(signedData, (int)signerIndex);
                 if (signerInfo) {
                     status = SecCmsSignerInfoGetAppleExpirationTime(signerInfo, expirationTime);
                     break;

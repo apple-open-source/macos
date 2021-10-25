@@ -239,6 +239,16 @@ void DALogError( const char * format, ... )
     va_end( arguments );
 }
 
+void DALogInfo( const char * format, ... )
+{
+    va_list arguments;
+
+    va_start( arguments, format );
+
+    __DALog( LOG_INFO, format, arguments );
+
+    va_end( arguments );
+}
 
 void DALogOpen( char * name, Boolean debug, Boolean error )
 {

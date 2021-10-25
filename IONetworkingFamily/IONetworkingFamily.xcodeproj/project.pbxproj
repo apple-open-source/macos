@@ -902,11 +902,6 @@
 				REZ_EXECUTABLE = YES;
 				SECTORDER_FLAGS = "";
 				SYMROOT = "/tmp/${PROJECT_NAME}";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
 				ZERO_LINK = YES;
 			};
 			name = Development;
@@ -926,11 +921,6 @@
 				REZ_EXECUTABLE = YES;
 				SECTORDER_FLAGS = "";
 				SYMROOT = "/tmp/${PROJECT_NAME}";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
 				ZERO_LINK = NO;
 			};
 			name = Deployment;
@@ -949,11 +939,6 @@
 				REZ_EXECUTABLE = YES;
 				SECTORDER_FLAGS = "";
 				SYMROOT = "/tmp/${PROJECT_NAME}";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
 			};
 			name = Default;
 		};
@@ -990,11 +975,6 @@
 				PRODUCT_NAME = IONetworkingFamily;
 				SECTORDER_FLAGS = "";
 				SYMROOT = "/tmp/${PROJECT_NAME}";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
 				WRAPPER_EXTENSION = kext;
 				ZERO_LINK = YES;
 			};
@@ -1028,11 +1008,6 @@
 				SECTORDER_FLAGS = "";
 				STRIP_INSTALLED_PRODUCT = YES;
 				SYMROOT = "/tmp/${PROJECT_NAME}";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
 				WRAPPER_EXTENSION = kext;
 				ZERO_LINK = NO;
 			};
@@ -1066,11 +1041,6 @@
 				SECTORDER_FLAGS = "";
 				STRIP_INSTALLED_PRODUCT = YES;
 				SYMROOT = "/tmp/${PROJECT_NAME}";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
 				WRAPPER_EXTENSION = kext;
 			};
 			name = Default;
@@ -1093,11 +1063,6 @@
 				REZ_EXECUTABLE = YES;
 				SECTORDER_FLAGS = "";
 				SYMROOT = "/tmp/${PROJECT_NAME}";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
 				ZERO_LINK = YES;
 			};
 			name = Development;
@@ -1117,11 +1082,6 @@
 				REZ_EXECUTABLE = YES;
 				SECTORDER_FLAGS = "";
 				SYMROOT = "/tmp/${PROJECT_NAME}";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
 				ZERO_LINK = NO;
 			};
 			name = Deployment;
@@ -1140,11 +1100,6 @@
 				REZ_EXECUTABLE = YES;
 				SECTORDER_FLAGS = "";
 				SYMROOT = "/tmp/${PROJECT_NAME}";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
 			};
 			name = Default;
 		};
@@ -1179,11 +1134,6 @@
 				PRODUCT_NAME = IONetworkingFamily;
 				SECTORDER_FLAGS = "";
 				SYMROOT = "/tmp/${PROJECT_NAME}";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
 				WRAPPER_EXTENSION = kext;
 				ZERO_LINK = YES;
 			};
@@ -1214,11 +1164,6 @@
 				PRODUCT_NAME = IONetworkingFamily;
 				SECTORDER_FLAGS = "";
 				SYMROOT = "/tmp/${PROJECT_NAME}";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
 				WRAPPER_EXTENSION = kext;
 				ZERO_LINK = NO;
 			};
@@ -1249,11 +1194,6 @@
 				PRODUCT_NAME = IONetworkingFamily;
 				SECTORDER_FLAGS = "";
 				SYMROOT = "/tmp/${PROJECT_NAME}";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
 				WRAPPER_EXTENSION = kext;
 			};
 			name = Default;
@@ -1276,11 +1216,6 @@
 				REZ_EXECUTABLE = YES;
 				SECTORDER_FLAGS = "";
 				SYMROOT = "/tmp/${PROJECT_NAME}";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
 				ZERO_LINK = YES;
 			};
 			name = Development;
@@ -1300,11 +1235,6 @@
 				REZ_EXECUTABLE = YES;
 				SECTORDER_FLAGS = "";
 				SYMROOT = "/tmp/${PROJECT_NAME}";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
 				ZERO_LINK = NO;
 			};
 			name = Deployment;
@@ -1323,11 +1253,6 @@
 				REZ_EXECUTABLE = YES;
 				SECTORDER_FLAGS = "";
 				SYMROOT = "/tmp/${PROJECT_NAME}";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
 			};
 			name = Default;
 		};
@@ -1368,6 +1293,12 @@
 				SDKROOT = macosx.internal;
 				STRIP_INSTALLED_PRODUCT = NO;
 				SYMROOT = "/tmp/${PROJECT_NAME}";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+					"-Wignored-qualifiers",
+				);
 			};
 			name = Development;
 		};
@@ -1406,6 +1337,12 @@
 				SDKROOT = macosx.internal;
 				STRIP_INSTALLED_PRODUCT = NO;
 				SYMROOT = "/tmp/${PROJECT_NAME}";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+					"-Wignored-qualifiers",
+				);
 			};
 			name = Deployment;
 		};
@@ -1444,6 +1381,12 @@
 				SDKROOT = macosx.internal;
 				STRIP_INSTALLED_PRODUCT = NO;
 				SYMROOT = "/tmp/${PROJECT_NAME}";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+					"-Wignored-qualifiers",
+				);
 			};
 			name = Default;
 		};

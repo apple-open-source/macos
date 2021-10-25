@@ -4,5 +4,7 @@
 <dict>
 	<key>com.apple.system-task-ports.read</key>
 	<true/>
+	<key>com.apple.private.persona-mgmt</key>
+	<true/>
 </dict>
 </plist>

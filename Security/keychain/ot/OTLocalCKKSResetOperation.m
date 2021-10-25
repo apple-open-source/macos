@@ -46,7 +46,7 @@
     }];
     [self dependOnBeforeGroupFinished:self.finishedOp];
 
-    [self.operationDependencies.viewManager rpcResetLocal:nil reply: ^(NSError* _Nullable resultError) {
+    [self.operationDependencies.ckks rpcResetLocal:nil reply: ^(NSError* _Nullable resultError) {
         STRONGIFY(self);
 
         secnotice("octagon-ckks", "Finished ckks-local-reset with %@", self.error ?: @"no error");

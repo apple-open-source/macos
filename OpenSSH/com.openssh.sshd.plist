@@ -10,8 +10,7 @@
 	<string>/usr/libexec/sshd-keygen-wrapper</string>
 	<key>ProgramArguments</key>
 	<array>
-		<string>/usr/sbin/sshd</string>
-		<string>-i</string>
+		<string>sshd-keygen-wrapper</string>
 	</array>
 	<key>Sockets</key>
 	<dict>

@@ -73,10 +73,61 @@ SecTrustStoreRef SecTrustStoreForDomain(SecTrustStoreDomain domain) {
     }
 }
 
+CFStringRef SecTrustStoreDomainName(SecTrustStoreRef ts) {
+    if (!ts) { return NULL; }
+    /* Important: a SecTrustStoreRef might either be a CFStringRef or a
+     * SecTrustStoreRef, depending on whether the server code is present in the
+     * client. Since SecTrustStoreRef is not a CFTypeRef, we cannot ask whether
+     * it is a string, but must compare pointers with the singleton instance.
+     */
+    if (gTrustd) {
+        SecTrustStoreRef tsRef;
+        tsRef = gTrustd->sec_trust_store_for_domain(kSecTrustStoreUserName, NULL);
+        if (tsRef == ts) { return kSecTrustStoreUserName; }
+        tsRef = gTrustd->sec_trust_store_for_domain(kSecTrustStoreAdminName, NULL);
+        if (tsRef == ts) { return kSecTrustStoreAdminName; }
+        tsRef = gTrustd->sec_trust_store_for_domain(kSecTrustStoreSystemName, NULL);
+        if (tsRef == ts) { return kSecTrustStoreSystemName; }
+    } else {
+        if (isString(ts)) { return (CFStringRef)ts; }
+    }
+    return NULL;
+}
+
+/* The SecTrustSettingsDomain and SecTrustStoreDomain enumerations
+ * use different values for equivalent trust domains, so separate
+ * accessors are needed to convert to and from domain names.
+ */
+CFStringRef SecTrustSettingsDomainName(SecTrustSettingsDomain domain) {
+    switch(domain) {
+        case kSecTrustSettingsDomainUser:
+            return kSecTrustStoreUserName;
+        case kSecTrustSettingsDomainAdmin:
+            return kSecTrustStoreAdminName;
+        case kSecTrustSettingsDomainSystem:
+            return kSecTrustStoreSystemName;
+        default:
+            break;
+    }
+    return NULL;
+}
+
+SecTrustSettingsDomain SecTrustSettingsDomainForName(CFStringRef domainName) {
+    if (CFEqualSafe(kSecTrustStoreUserName, domainName)) {
+        return kSecTrustSettingsDomainUser;
+    } else if (CFEqualSafe(kSecTrustStoreAdminName, domainName)) {
+        return kSecTrustSettingsDomainAdmin;
+    } else if (CFEqualSafe(kSecTrustStoreSystemName, domainName)) {
+        return kSecTrustSettingsDomainSystem;
+    } else {
+        return (SecTrustSettingsDomain) -1; // invalid value
+    }
+}
+
 static bool SecXPCDictionarySetCertificate(xpc_object_t message, const char *key, SecCertificateRef certificate, CFErrorRef *error) {
-    if (certificate) {
+    if (certificate && SecCertificateGetLength(certificate) > 0) {
         xpc_dictionary_set_data(message, key, SecCertificateGetBytePtr(certificate),
-                                SecCertificateGetLength(certificate));
+                                (size_t)SecCertificateGetLength(certificate));
         return true;
     }
     return SecError(errSecParam, error, CFSTR("NULL certificate"));
@@ -118,7 +169,6 @@ Boolean SecTrustStoreContains(SecTrustStoreRef ts,
 errOut:
 	return ok && contains;
 }
-
 
 static bool string_cert_cftype_to_error(enum SecXPCOperation op, SecTrustStoreRef ts, SecCertificateRef certificate, CFTypeRef trustSettingsDictOrArray, CFErrorRef *error)
 {
@@ -284,7 +334,7 @@ static bool string_to_array_error(enum SecXPCOperation op, SecTrustStoreRef ts, 
     }, ^bool(xpc_object_t response, CFErrorRef *blockError) {
         if (trustStoreContents) {
             *trustStoreContents = SecXPCDictionaryCopyArray(response, kSecXPCKeyResult, blockError);
-            if (!*trustStoreContents) return false;
+            if (!*trustStoreContents) { return false; }
         }
         return true;
     });
@@ -336,6 +386,32 @@ OSStatus SecTrustStoreCopyUsageConstraints(SecTrustStoreRef ts, SecCertificateRe
     });
 
     *usageConstraints = results;
+
+errOut:
+    os_release(activity);
+    return status;
+}
+
+static bool string_to_error(enum SecXPCOperation op, SecTrustStoreRef ts, CFErrorRef *error)
+{
+    return securityd_send_sync_and_do(op, error, ^bool(xpc_object_t message, CFErrorRef *blockError) {
+        return SecXPCDictionarySetString(message, kSecXPCKeyDomain, (CFStringRef)ts, blockError);
+    }, ^bool(xpc_object_t response, CFErrorRef *blockError) {
+        return true;
+    });
+}
+
+OSStatus SecTrustStoreRemoveAll(SecTrustStoreRef ts)
+{
+    OSStatus status = errSecParam;
+
+    os_activity_t activity = os_activity_create("SecTrustStoreRemoveAll", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_DEFAULT);
+    os_activity_scope(activity);
+    require(ts, errOut);
+
+    status = SecOSStatusWith(^bool (CFErrorRef *error) {
+        return TRUSTD_XPC(sec_truststore_remove_all, string_to_error, ts, error);
+    });
 
 errOut:
     os_release(activity);
@@ -533,3 +609,64 @@ CF_RETURNS_RETAINED CFArrayRef SecTrustStoreCopyTransparentConnectionPins(CFStri
     return NULL;
 #endif // TARGET_OS_BRIDGE
 }
+
+#if TARGET_OS_OSX
+static bool uid_string_to_cfdata_error(enum SecXPCOperation op, uid_t uid, CFStringRef domain, CFDataRef *trustSettings, CFErrorRef *error)
+{
+    return securityd_send_sync_and_do(op, error, ^bool(xpc_object_t message, CFErrorRef *blockError) {
+        return SecXPCDictionarySetString(message, kSecXPCKeyDomain, domain, blockError);
+    }, ^bool(xpc_object_t response, CFErrorRef *blockError) {
+        if (trustSettings) {
+            *trustSettings = SecXPCDictionaryCopyData(response, kSecXPCKeyResult, blockError);
+            if (!*trustSettings) { return false; }
+        }
+        return true;
+    });
+}
+
+static bool uid_string_data_cfdata_to_error(enum SecXPCOperation op, uid_t uid, CFStringRef domain, CFDataRef auth, CFDataRef trustSettings, CFErrorRef *error)
+{
+    return securityd_send_sync_and_do(op, error, ^bool(xpc_object_t message, CFErrorRef *blockError) {
+        bool ok = false;
+        ok = SecXPCDictionarySetString(message, kSecXPCKeyDomain, domain, blockError) &&
+            SecXPCDictionarySetData(message, kSecXPCKeyAuthExternalForm, auth, blockError) &&
+            (!trustSettings || SecXPCDictionarySetData(message, kSecXPCKeySettings, trustSettings, blockError));
+        return ok;
+    }, NULL);
+}
+
+OSStatus SecTrustSettingsXPCRead(CFStringRef domain, CFDataRef *trustSettings) {
+    __block CFDataRef results = NULL;
+    OSStatus status = errSecParam;
+
+    os_activity_t activity = os_activity_create("SecTrustSettingsXPCRead", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_DEFAULT);
+    os_activity_scope(activity);
+    require(domain, errOut);
+
+    status = SecOSStatusWith(^bool (CFErrorRef *error) {
+        return TRUSTD_XPC(sec_trust_settings_copy_data,
+                          uid_string_to_cfdata_error, getuid(),
+                          domain, &results, error);
+    });
+
+    *trustSettings = results;
+
+errOut:
+    os_release(activity);
+    return status;
+}
+
+OSStatus SecTrustSettingsXPCWrite(CFStringRef domain, CFDataRef auth, CFDataRef trustSettings) {
+    __block OSStatus status = errSecParam;
+
+    os_activity_initiate("SecTrustSettingsXPCWrite", OS_ACTIVITY_FLAG_DEFAULT, ^{
+        status = SecOSStatusWith(^bool (CFErrorRef *error) {
+            return TRUSTD_XPC(sec_trust_settings_set_data,
+                              uid_string_data_cfdata_to_error, getuid(),
+                              domain, auth, trustSettings, error);
+        });
+    });
+    return status;
+}
+#endif // TARGET_OS_OSX
+

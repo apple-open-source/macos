@@ -30,6 +30,7 @@ WARNING_CFLAGS := -Wno-format-invalid-specifier -Wno-format-extra-args
 OTHER_CFLAGS += \
 	-DDARWINTEST \
 	-DOS_UNFAIR_LOCK_INLINE=1 \
+	-fno-builtin \
 	-lCrashReporterClient \
 	-I$(SDKROOT)/System/Library/Frameworks/System.framework/PrivateHeaders \
 	-I$(SRCROOT)/../private \
@@ -58,6 +59,8 @@ else
 include MallocBenchTest/Makefile.dummy
 BATS_PLISTS = $(BATS_PLISTS_EXTRACT)
 endif
+
+BATS_PLISTS += $(PROJECT_DIR)/tests/xctests/BATS.plist
 
 $(BATS_PLISTS_EXTRACT): %.plist : %
 	$(EXTRACTMETA) extract -i /$(INSTALLPATH)/$(notdir $<) -b $(SYMROOT)/$(notdir $<) -o $@

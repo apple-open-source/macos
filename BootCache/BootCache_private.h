@@ -501,6 +501,7 @@ extern int	BC_merge_playlists(struct BC_playlist *, const struct BC_playlist *);
 extern int  BC_playlists_intersect(const struct BC_playlist*, const struct BC_playlist*);
 extern int  BC_playlist_for_filename(int fd, const char *fname, off_t maxsize, struct BC_playlist** ppc);
 extern int  BC_playlist_for_file_extents(int fd, uint nextents, const struct bc_file_extent* extents, struct BC_playlist** ppc);
+extern int  BC_playlist_for_native_shared_caches(struct BC_playlist** ppc);
 extern int  BC_sort_and_coalesce_playlist(struct BC_playlist* pc);
 extern int  BC_verify_playlist(const struct BC_playlist *);
 extern struct BC_playlist *BC_allocate_playlist(uint nmounts, uint nentries, uint nomaps);

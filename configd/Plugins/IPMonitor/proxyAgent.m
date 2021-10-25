@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, 2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2015, 2016, 2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -48,7 +48,7 @@
 		NSString *intf = [parameters valueForKey:@kEntityName];
 		NSNumber *subType = [parameters valueForKey:@kAgentSubType];
 		NSString *type = [[self class] agentType];
-		
+
 		_internalAgentName = [NSString stringWithFormat:@"%@-%@", type, intf];
 		_internalAgentSubType = [subType unsignedIntegerValue];
 		_internalAgentType = kAgentTypeProxy;

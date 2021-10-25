@@ -64,7 +64,7 @@
     }
 
     // Next, see if CloudServices can cache a certificate
-    NSData* cachedCert = [EscrowRequestInformCloudServicesOperation triggerCloudServicesPasscodeRequest:record.uuid error:&error];
+    NSData* cachedCert = [EscrowRequestInformCloudServicesOperation triggerCloudServicesPasscodeRequest:record.uuid serializedReason:record.serializedReason error:&error];
     record.lastCloudServicesTriggerTime = (uint64_t) ([[NSDate date] timeIntervalSince1970] * 1000);
 
     if(!cachedCert || error) {
@@ -106,14 +106,18 @@
 
 // Separated into a class method for mocking
 // Returns any cert that CS has cached
-+ (NSData* _Nullable)triggerCloudServicesPasscodeRequest:(NSString*)uuid error:(NSError**)error
++ (NSData* _Nullable)triggerCloudServicesPasscodeRequest:(NSString*)uuid serializedReason:(NSData *)serializedReason error:(NSError**)error
 {
     SecureBackup* sb = [[SecureBackup alloc] init];
 
+    SecureBackupEscrowReason *reason = [[SecureBackupEscrowReason alloc] initWithData:serializedReason];
+
     NSError* localError = nil;
-    SecureBackupBeginPasscodeRequestResults* results = [sb beginHSA2PasscodeRequest:true
-                                                                               uuid:uuid
-                                                                              error:error];
+    SecureBackupBeginPasscodeRequestResults* results = nil;
+    results = [sb beginHSA2PasscodeRequest:true
+                                      uuid:uuid
+                                    reason:reason
+                                     error:&localError];
 
     if(!results || localError) {
         secerror("escrowrequest: unable to begin passcode request: %@", localError);

@@ -21,14 +21,20 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-#import <Foundation/Foundation.h>
-
 #ifndef SECURITY_OT_OTCONTROLPROTOCOL_H
 #define SECURITY_OT_OTCONTROLPROTOCOL_H 1
+
+#ifdef __OBJC__
+
+#import <Foundation/Foundation.h>
+
+#import <AppleFeatures/AppleFeatures.h>
 
 #import <Security/OTClique.h>
 #import <Security/OTConstants.h>
 @class SFECKeyPair;
+@class OTSecureElementPeerIdentity;
+@class OTCurrentSecureElementIdentities;
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -178,6 +184,56 @@ NS_ASSUME_NONNULL_BEGIN
                  recoveryKey:(NSString*)recoveryKey
                        reply:(void (^)(NSError * _Nullable))reply;
 
+- (void) createCustodianRecoveryKey:(NSString* _Nullable)containerName
+                          contextID:(NSString *)contextID
+                               uuid:(NSUUID *_Nullable)uuid
+                              reply:(void (^)(OTCustodianRecoveryKey *_Nullable crk, NSError *_Nullable error))reply;
+
+- (void) joinWithCustodianRecoveryKey:(NSString* _Nullable)containerName
+                            contextID:(NSString *)contextID
+                 custodianRecoveryKey:(OTCustodianRecoveryKey *)crk
+                                reply:(void(^)(NSError* _Nullable error)) reply;
+
+- (void) preflightJoinWithCustodianRecoveryKey:(NSString* _Nullable)containerName
+                                     contextID:(NSString *)contextID
+                          custodianRecoveryKey:(OTCustodianRecoveryKey *)crk
+                                         reply:(void(^)(NSError* _Nullable error)) reply;
+
+- (void) removeCustodianRecoveryKey:(NSString* _Nullable)containerName
+                          contextID:(NSString *)contextID
+                               uuid:(NSUUID *)uuid
+                              reply:(void (^)(NSError *_Nullable error))reply;
+
+- (void) createInheritanceKey:(NSString* _Nullable)containerName
+                    contextID:(NSString *)contextID
+                         uuid:(NSUUID *_Nullable)uuid
+                        reply:(void (^)(OTInheritanceKey *_Nullable ik, NSError *_Nullable error))reply;
+
+- (void) generateInheritanceKey:(NSString* _Nullable)containerName
+                    contextID:(NSString *)contextID
+                         uuid:(NSUUID *_Nullable)uuid
+                        reply:(void (^)(OTInheritanceKey *_Nullable ik, NSError *_Nullable error))reply;
+
+- (void) storeInheritanceKey:(NSString* _Nullable)containerName
+                   contextID:(NSString *)contextID
+                          ik:(OTInheritanceKey *)ik
+                       reply:(void (^)(NSError *_Nullable error)) reply;
+
+- (void) joinWithInheritanceKey:(NSString* _Nullable)containerName
+                      contextID:(NSString *)contextID
+                 inheritanceKey:(OTInheritanceKey *)crk
+                          reply:(void(^)(NSError* _Nullable error)) reply;
+
+- (void) preflightJoinWithInheritanceKey:(NSString* _Nullable)containerName
+                               contextID:(NSString *)contextID
+                          inheritanceKey:(OTInheritanceKey *)crk
+                                   reply:(void(^)(NSError* _Nullable error)) reply;
+
+- (void) removeInheritanceKey:(NSString* _Nullable)containerName
+                    contextID:(NSString *)contextID
+                         uuid:(NSUUID *)uuid
+                        reply:(void (^)(NSError *_Nullable error))reply;
+
 - (void)healthCheck:(NSString * _Nullable)container
             context:(NSString *)context
 skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
@@ -234,10 +290,33 @@ skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
 - (void)resetAccountCDPContents:(NSString* _Nullable)containerName
                       contextID:(NSString*)contextID
                           reply:(void (^)(NSError* _Nullable error))reply;
+
+- (void)setLocalSecureElementIdentity:(NSString* _Nullable)containerName
+                            contextID:(NSString*)contextID
+                secureElementIdentity:(OTSecureElementPeerIdentity*)secureElementIdentity
+                                reply:(void (^)(NSError* _Nullable))reply;
+
+- (void)removeLocalSecureElementIdentityPeerID:(NSString* _Nullable)containerName
+                                     contextID:(NSString*)contextID
+                   secureElementIdentityPeerID:(NSData*)sePeerID
+                                         reply:(void (^)(NSError* _Nullable))reply;
+
+- (void)fetchTrustedSecureElementIdentities:(NSString* _Nullable)containerName
+                                  contextID:(NSString*)contextID
+                                      reply:(void (^)(OTCurrentSecureElementIdentities* _Nullable currentSet,
+                                                      NSError* _Nullable replyError))reply;
+
+
+- (void)waitForPriorityViewKeychainDataRecovery:(NSString* _Nullable)containerName
+                                      contextID:(NSString*)contextID
+                                          reply:(void (^)(NSError* _Nullable replyError))reply;
+
 @end
 
 NSXPCInterface* OTSetupControlProtocol(NSXPCInterface* interface);
 
 NS_ASSUME_NONNULL_END
+
+#endif /* __OBJC__ */
 
 #endif /* SECURITY_OT_OTCONTROLPROTOCOL_H */

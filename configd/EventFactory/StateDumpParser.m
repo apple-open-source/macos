@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2018, 2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -54,13 +54,17 @@
 
 - (instancetype)init
 {
-	NSError *regexError = nil;
+	self = [super init];
+	if (self == nil) {
+		return nil;
+	}
 
+	NSError *regexError = nil;
 	_nwiRegex = [[NSRegularExpression alloc] initWithPattern:@"\\s+(?<"TokenInterfaceName">\\w+) : flags\\s+: \\w+ \\(.+\\)\\n"
-		     						  "\\s+address\\s+: (?<"TokenAddress">\\S+)\\n"
-		     						  "(\\s+VPN server\\s+: \\S+\\n)?"
-		     						  "\\s+reach\\s+: \\w+ \\(.+\\)\\n"
-		     						  "\\s+rank\\s+: \\w+ \\((?<"TokenRank">\\w+), (?<"TokenOrder">\\w+)\\)"
+								  "\\s+address\\s+: (?<"TokenAddress">\\S+)\\n"
+								  "(\\s+VPN server\\s+: \\S+\\n)?"
+								  "\\s+reach\\s+: \\w+ \\(.+\\)\\n"
+								  "\\s+rank\\s+: \\w+ \\((?<"TokenRank">\\w+), (?<"TokenOrder">\\w+)\\)"
 							 options:0
 							   error:&regexError];
 	if (_nwiRegex == nil || regexError != nil) {
@@ -70,12 +74,12 @@
 
 	regexError = nil;
 	_dnsRegex = [[NSRegularExpression alloc] initWithPattern:@"resolver #\\d+\\n"
-		     						  "(  domain   : (?<"TokenDomain">\\S+)\\n)?"
-		     						  "(?<"TokenSearchDomains">(?:  search domain\\[\\d+\\] : \\S+\\n)*)"
-		     						  "(?<"TokenNameServers">(?:  nameserver\\[\\d+\\] : \\S+\\n)*)"
-		     						  "(  if_index : \\d+ \\((?<"TokenInterfaceName">\\w+)\\)\\n)"
-		     						  "(  flags    : \\w+ \\((?<"TokenFlagsDescription">.+)\\)\\n)"
-		     						  "(  reach    : \\w+ \\((?<"TokenReachabilityDescription">.+)\\)\\n)"
+								  "(  domain   : (?<"TokenDomain">\\S+)\\n)?"
+								  "(?<"TokenSearchDomains">(?:  search domain\\[\\d+\\] : \\S+\\n)*)"
+								  "(?<"TokenNameServers">(?:  nameserver\\[\\d+\\] : \\S+\\n)*)"
+								  "(  if_index : \\d+ \\((?<"TokenInterfaceName">\\w+)\\)\\n)"
+								  "(  flags    : \\w+ \\((?<"TokenFlagsDescription">.+)\\)\\n)"
+								  "(  reach    : \\w+ \\((?<"TokenReachabilityDescription">.+)\\)\\n)"
 							 options:0
 							   error:&regexError];
 	if (_dnsRegex == nil || regexError != nil) {

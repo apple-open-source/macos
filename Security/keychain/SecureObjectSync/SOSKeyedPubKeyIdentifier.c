@@ -76,13 +76,13 @@ CFStringRef SOSKeyedPubKeyIdentifierCopyPrefix(CFStringRef kpkid) {
     CFRange seploc = CFStringFind(kpkid, SEPARATOR, 0);
     if(seploc.location != SEPLOC) return NULL;
     CFRange prefloc = CFRangeMake(0, SEPLOC);
-    return CFStringCreateWithSubstring(kCFAllocatorDefault, kpkid, prefloc);;
+    return CFStringCreateWithSubstring(kCFAllocatorDefault, kpkid, prefloc);
 }
 
 CFStringRef SOSKeyedPubKeyIdentifierCopyHpub(CFStringRef kpkid) {
     CFRange seploc = CFStringFind(kpkid, SEPARATOR, 0);
     if(seploc.location != SEPLOC) return NULL;
     CFRange idloc = CFRangeMake(seploc.location+1, CFStringGetLength(kpkid) - (SEPLOC+1));
-    return CFStringCreateWithSubstring(kCFAllocatorDefault, kpkid, idloc);;
+    return CFStringCreateWithSubstring(kCFAllocatorDefault, kpkid, idloc);
 }
 

@@ -32,10 +32,12 @@
 #include <DriverKit/storage/SCSITask.h>
 #include <DriverKit/storage/SCSICmds_REQUEST_SENSE_Defs.h>
 #include <DriverKit/OSDictionary.iig>
+#include <DriverKit/IOBufferMemoryDescriptor.iig>
 #include <SCSIControllerDriverKit/IOSCSIParallelControllerCharacteristics.h>
 #else
 #include <IOKit/scsi/SCSITask.h>
 #include <IOKit/scsi/SCSICmds_REQUEST_SENSE_Defs.h>
+#include <DriverKit/IOBufferMemoryDescriptor.iig>
 #include <DriverKit/IOService.iig>
 #include <DriverKit/OSAction.iig>
 #include "IOSCSIParallelControllerCharacteristics.h"
@@ -170,6 +172,28 @@ public:
     virtual kern_return_t
     UserCreateTargetForID ( SCSIDeviceIdentifier    targetID,
                             OSDictionary *          targetDict ) QUEUENAME ( AuxiliaryQueue );
+	
+	
+	/*!
+		@function UserGetDataBuffer
+		@abstract Gets the data buffer associated with a particular IO request.
+		@discussion The dext class can call this method inside UserProcessParallelTask to get
+		the data buffer associated with that IO request. Only call this method if access to the data
+		buffer is required. Calling this method can have a significant impact on performance. The
+		caller will have to prepare new DMA mappings for this buffer and can no longer use the
+		mappings in fBufferIOVMAddr.
+		@param targetID ID of the target
+		@param controllerTaskID task ID to uniquely identify this IO. This should be the same
+		as fControllerTaskIdentifier  in the SCSIUserParallelTask structure.
+		@param buffer returned IOBufferMemoryDescriptor object
+		@result    kIOReturnSuccess on success. See IOReturn.h for error codes.
+	 */
+
+	virtual kern_return_t
+	UserGetDataBuffer ( SCSIDeviceIdentifier    	targetID,
+						uint64_t					controllerTaskID,
+					    IOBufferMemoryDescriptor **	buffer );
+	
     
 	/*!
 		@function UserReportHBAHighestLogicalUnitNumber

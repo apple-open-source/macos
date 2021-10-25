@@ -43,16 +43,7 @@
 #endif
 
 #define C_SEG_OFFSET_BITS       16
-#define C_SEG_BUFSIZE           (1024 * 256)
-#define C_SEG_MAX_PAGES         (C_SEG_BUFSIZE / PAGE_SIZE)
 
-#if !defined(__x86_64__)
-#define C_SEG_OFF_LIMIT         (C_SEG_BYTES_TO_OFFSET((C_SEG_BUFSIZE - 512)))
-#define C_SEG_ALLOCSIZE         (C_SEG_BUFSIZE + PAGE_SIZE)
-#else
-#define C_SEG_OFF_LIMIT         (C_SEG_BYTES_TO_OFFSET((C_SEG_BUFSIZE - 128)))
-#define C_SEG_ALLOCSIZE         (C_SEG_BUFSIZE)
-#endif /* !defined(__x86_64__) */
 #define C_SEG_MAX_POPULATE_SIZE (4 * PAGE_SIZE)
 
 #if defined(__arm64__) && (DEVELOPMENT || DEBUG)
@@ -97,7 +88,7 @@
 #define C_SLOT_C_POPCOUNT_BITS          0
 #define C_SLOT_C_PADDING_BITS           3
 
-#elif __ARM_WKDM_POPCNT__               /* no packing */
+#elif __APPLE_WKDM_POPCNT_EXTENSIONS__               /* no packing */
 #define C_SLOT_PACKED_PTR_BITS          47
 #define C_SLOT_PACKED_PTR_SHIFT         0
 #define C_SLOT_PACKED_PTR_BASE          ((uintptr_t)KERNEL_PMAP_HEAP_RANGE_START)
@@ -256,11 +247,9 @@ struct  c_slot_mapping {
 typedef struct c_slot_mapping *c_slot_mapping_t;
 
 
-#define C_SEG_SLOT_VAR_ARRAY_MIN_LEN    C_SEG_MAX_PAGES
-
 extern  int             c_seg_fixed_array_len;
 extern  vm_offset_t     c_buffers;
-#define C_SEG_BUFFER_ADDRESS(c_segno)   ((c_buffers + ((uint64_t)c_segno * (uint64_t)C_SEG_ALLOCSIZE)))
+#define C_SEG_BUFFER_ADDRESS(c_segno)   ((c_buffers + ((uint64_t)c_segno * (uint64_t)c_seg_allocsize)))
 
 #define C_SEG_SLOT_FROM_INDEX(cseg, index)      (index < c_seg_fixed_array_len ? &(cseg->c_slot_fixed_array[index]) : &(cseg->c_slot_var_array[index - c_seg_fixed_array_len]))
 
@@ -278,7 +267,7 @@ extern  vm_offset_t     c_buffers;
 #define C_SEG_OFFSET_ALIGNMENT_BOUNDARY __PLATFORM_WKDM_ALIGNMENT_BOUNDARY__
 #endif
 
-#define C_SEG_SHOULD_MINORCOMPACT_NOW(cseg)     ((C_SEG_UNUSED_BYTES(cseg) >= (C_SEG_BUFSIZE / 4)) ? 1 : 0)
+#define C_SEG_SHOULD_MINORCOMPACT_NOW(cseg)     ((C_SEG_UNUSED_BYTES(cseg) >= (c_seg_bufsize / 4)) ? 1 : 0)
 
 /*
  * the decsion to force a c_seg to be major compacted is based on 2 criteria
@@ -287,8 +276,8 @@ extern  vm_offset_t     c_buffers;
  *    of combining this c_seg with another one.
  */
 #define C_SEG_SHOULD_MAJORCOMPACT_NOW(cseg)                                                                                     \
-	((((cseg->c_bytes_unused + (C_SEG_BUFSIZE - C_SEG_OFFSET_TO_BYTES(c_seg->c_nextoffset))) >= (C_SEG_BUFSIZE / 8)) &&     \
-	  ((C_SLOT_MAX_INDEX - cseg->c_slots_used) > (C_SEG_BUFSIZE / PAGE_SIZE))) \
+	((((cseg->c_bytes_unused + (c_seg_bufsize - C_SEG_OFFSET_TO_BYTES(c_seg->c_nextoffset))) >= (c_seg_bufsize / 8)) &&     \
+	  ((C_SLOT_MAX_INDEX - cseg->c_slots_used) > (c_seg_bufsize / PAGE_SIZE))) \
 	? 1 : 0)
 
 #define C_SEG_ONDISK_IS_SPARSE(cseg)    ((cseg->c_bytes_used < cseg->c_bytes_unused) ? 1 : 0)
@@ -331,7 +320,7 @@ extern int vm_compressor_test_seg_wp;
 	if (write_protect_c_segs) {                     \
 	        vm_map_protect(compressor_map,                  \
 	                       (vm_map_offset_t)cseg->c_store.c_buffer,         \
-	                       (vm_map_offset_t)&cseg->c_store.c_buffer[C_SEG_BYTES_TO_OFFSET(C_SEG_ALLOCSIZE)],\
+	                       (vm_map_offset_t)&cseg->c_store.c_buffer[C_SEG_BYTES_TO_OFFSET(c_seg_allocsize)],\
 	                       VM_PROT_READ | VM_PROT_WRITE,    \
 	                       0);                              \
 	}                               \
@@ -342,7 +331,7 @@ extern int vm_compressor_test_seg_wp;
 	if (write_protect_c_segs) {                     \
 	        vm_map_protect(compressor_map,                  \
 	                       (vm_map_offset_t)cseg->c_store.c_buffer,         \
-	                       (vm_map_offset_t)&cseg->c_store.c_buffer[C_SEG_BYTES_TO_OFFSET(C_SEG_ALLOCSIZE)],\
+	                       (vm_map_offset_t)&cseg->c_store.c_buffer[C_SEG_BYTES_TO_OFFSET(c_seg_allocsize)],\
 	                       VM_PROT_READ,                    \
 	                       0);                              \
 	}                                                       \

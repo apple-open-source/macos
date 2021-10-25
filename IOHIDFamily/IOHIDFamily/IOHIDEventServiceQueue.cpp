@@ -46,6 +46,7 @@ IOHIDEventServiceQueue *IOHIDEventServiceQueue::withCapacity(UInt32 size, UInt32
         if  (!dataQueue->initWithCapacity(size)) {
             dataQueue->release();
             dataQueue = 0;
+            return nullptr;
         }
     }
 

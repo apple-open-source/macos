@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004, 2006, 2011, 2013, 2015, 2019 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2004, 2006, 2011, 2013, 2015, 2019, 2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -80,7 +80,7 @@ _notifychanges(mach_port_t			server,
 	}
 
 	/* serialize the array of keys */
-	ok = _SCSerialize(notifierKeys, NULL, (void **)listRef, &len);
+	ok = _SCSerialize(notifierKeys, NULL, listRef, &len);
 	*listLen = (mach_msg_type_number_t)len;
 	CFRelease(notifierKeys);
 	if (!ok) {

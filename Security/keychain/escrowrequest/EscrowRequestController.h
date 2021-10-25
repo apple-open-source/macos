@@ -21,6 +21,7 @@ extern OctagonState* const EscrowRequestStateWaitForUnlock;
 - (instancetype)initWithLockStateTracker:(CKKSLockStateTracker*)lockStateTracker;
 
 - (void)triggerEscrowUpdateRPC:(nonnull NSString *)reason
+                       options:(NSDictionary *)options
                          reply:(nonnull void (^)(NSError * _Nullable))reply;
 
 - (void)storePrerecordsInEscrowRPC:(void (^)(uint64_t count, NSError* _Nullable error))reply;

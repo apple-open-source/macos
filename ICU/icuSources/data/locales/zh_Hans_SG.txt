@@ -1,7 +1,7 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
-// License & terms of use: http://www.unicode.org/copyright.html#License
+// License & terms of use: http://www.unicode.org/copyright.html
+// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
 zh_Hans_SG{
-    Version{"36.1"}
     calendar{
         buddhist{
             DateTimePatterns{
@@ -9,7 +9,7 @@ zh_Hans_SG{
                 "z ah:mm:ss",
                 "ah:mm:ss",
                 "ah:mm",
-                "Gy年M月d日EEEE",
+                "Gy年M月d日 EEEE",
                 "Gy年M月d日",
                 "Gy年M月d日",
                 "Gd/M/yy",
@@ -26,7 +26,7 @@ zh_Hans_SG{
                 "z ah:mm:ss",
                 "ah:mm:ss",
                 "ah:mm",
-                "Gy年M月d日EEEE",
+                "Gy年M月d日 EEEE",
                 "Gy年M月d日",
                 "Gy年M月d日",
                 "dd/MM/yyGGGGG",
@@ -37,17 +37,10 @@ zh_Hans_SG{
                 "{1} {0}",
             }
             availableFormats{
-                H{"H时"}
-                Hm{"HH:mm"}
-                Hms{"HH:mm:ss"}
                 MEd{"M-dE"}
                 MMMMdd{"M月d日"}
                 MMdd{"MM-dd"}
                 Md{"M-d"}
-                h{"ah时"}
-                hm{"ah:mm"}
-                hms{"ah:mm:ss"}
-                ms{"mm:ss"}
                 yyyyMEd{"Gy年M月d日，E"}
                 yyyyMd{"Gy年M月d日"}
             }
@@ -92,7 +85,7 @@ zh_Hans_SG{
                 "z ah:mm:ss",
                 "ah:mm:ss",
                 "ah:mm",
-                "y年M月d日EEEE",
+                "y年M月d日 EEEE",
                 "y年M月d日",
                 "y年M月d日",
                 "dd/MM/yy",
@@ -172,7 +165,7 @@ zh_Hans_SG{
                 "z ah:mm:ss",
                 "ah:mm:ss",
                 "ah:mm",
-                "Gy年M月d日EEEE",
+                "Gy年M月d日 EEEE",
                 "Gy年M月d日",
                 "Gy年M月d日",
                 "Gd/M/yy",
@@ -193,7 +186,7 @@ zh_Hans_SG{
                 "z ah:mm:ss",
                 "ah:mm:ss",
                 "ah:mm",
-                "Gy年M月d日EEEE",
+                "Gy年M月d日 EEEE",
                 "Gy年M月d日",
                 "Gy年M月d日",
                 "Gd/M/yy",

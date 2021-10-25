@@ -16,9 +16,18 @@ NS_ASSUME_NONNULL_BEGIN
 @end
 
 @class TPSyncingPolicy;
+@class CKKSTLKShare;
+@class OTSecureElementPeerIdentity;
+@class TPPBSecureElementIdentity;
 @interface OTAccountMetadataClassC (NSSecureCodingSupport)
 - (void)setTPSyncingPolicy:(TPSyncingPolicy* _Nullable)policy;
 - (TPSyncingPolicy* _Nullable)getTPSyncingPolicy;
+
+- (void)setTLKSharesPairedWithVoucher:(NSArray<CKKSTLKShare*>*)newTLKShares;
+- (NSArray<CKKSTLKShare*>*)getTLKSharesPairedWithVoucher;
+
+- (void)setOctagonSecureElementIdentity:(OTSecureElementPeerIdentity *)secureElementIdentity;
+- (TPPBSecureElementIdentity* _Nullable)parsedSecureElementIdentity;
 @end
 
 NS_ASSUME_NONNULL_END

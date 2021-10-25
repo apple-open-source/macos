@@ -1,5 +1,6 @@
-﻿// © 2016 and later: Unicode, Inc. and others.
-// License & terms of use: http://www.unicode.org/copyright.html#License
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html
+// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
 ar{
     AuxExemplarCharacters{"[ـ\u200C\u200D\u200E\u200F پ چ ژ ڜ ڢ ڤ ڥ ٯ ڧ ڨ ک گ ی]"}
     Ellipsis{
@@ -21,7 +22,7 @@ ar{
     NumberElements{
         arab{
             patterns{
-                currencyFormat{"#,##0.00 ¤"}
+                currencyFormat{"‏#,##0.00 ‏¤;‏-#,##0.00 ‏¤"}
                 decimalFormat{"#,##0.###"}
                 percentFormat{"#,##0%"}
                 scientificFormat{"#E0"}
@@ -52,7 +53,7 @@ ar{
             }
             patterns{
                 accountingFormat{"¤#,##0.00;(¤#,##0.00)"}
-                currencyFormat{"¤ #,##0.00"}
+                currencyFormat{"‏#,##0.00 ‏¤;‏-#,##0.00 ‏¤"}
                 decimalFormat{"#,##0.###"}
                 percentFormat{"#,##0%"}
                 scientificFormat{"#E0"}
@@ -160,100 +161,100 @@ ar{
             patternsShort{
                 currencyFormat{
                     1000{
-                        few{"¤ 0 ألف"}
-                        many{"¤ 0 ألف"}
-                        one{"¤ 0 ألف"}
-                        other{"¤ 0 ألف"}
-                        two{"¤ 0 ألف"}
-                        zero{"¤ 0 ألف"}
+                        few{"0 ألف ¤"}
+                        many{"0 ألف ¤"}
+                        one{"0 ألف ¤"}
+                        other{"0 ألف ¤"}
+                        two{"0 ألف ¤"}
+                        zero{"0 ألف ¤"}
                     }
                     10000{
-                        few{"¤ 00 ألف"}
-                        many{"¤ 00 ألف"}
-                        one{"¤ 00 ألف"}
-                        other{"¤ 00 ألف"}
-                        two{"¤ 00 ألف"}
-                        zero{"¤ 00 ألف"}
+                        few{"00 ألف ¤"}
+                        many{"00 ألف ¤"}
+                        one{"00 ألف ¤"}
+                        other{"00 ألف ¤"}
+                        two{"00 ألف ¤"}
+                        zero{"00 ألف ¤"}
                     }
                     100000{
-                        few{"¤ 000 ألف"}
-                        many{"¤ 000 ألف"}
-                        one{"¤ 000 ألف"}
-                        other{"¤ 000 ألف"}
-                        two{"¤ 000 ألف"}
-                        zero{"¤ 000 ألف"}
+                        few{"000 ألف ¤"}
+                        many{"000 ألف ¤"}
+                        one{"000 ألف ¤"}
+                        other{"000 ألف ¤"}
+                        two{"000 ألف ¤"}
+                        zero{"000 ألف ¤"}
                     }
                     1000000{
-                        few{"¤ 0 مليون"}
-                        many{"¤ 0 مليون"}
-                        one{"¤ 0 مليون"}
-                        other{"¤ 0 مليون"}
-                        two{"¤ 0 مليون"}
-                        zero{"¤ 0 مليون"}
+                        few{"0 مليون ¤"}
+                        many{"0 مليون ¤"}
+                        one{"0 مليون ¤"}
+                        other{"0 مليون ¤"}
+                        two{"0 مليون ¤"}
+                        zero{"0 مليون ¤"}
                     }
                     10000000{
-                        few{"¤ 00 مليون"}
-                        many{"¤ 00 مليون"}
-                        one{"¤ 00 مليون"}
-                        other{"¤ 00 مليون"}
-                        two{"¤ 00 مليون"}
-                        zero{"¤ 00 مليون"}
+                        few{"00 مليون ¤"}
+                        many{"00 مليون ¤"}
+                        one{"00 مليون ¤"}
+                        other{"00 مليون ¤"}
+                        two{"00 مليون ¤"}
+                        zero{"00 مليون ¤"}
                     }
                     100000000{
-                        few{"¤ 000 مليون"}
-                        many{"¤ 000 مليون"}
-                        one{"¤ 000 مليون"}
-                        other{"¤ 000 مليون"}
-                        two{"¤ 000 مليون"}
-                        zero{"¤ 000 مليون"}
+                        few{"000 مليون ¤"}
+                        many{"000 مليون ¤"}
+                        one{"000 مليون ¤"}
+                        other{"000 مليون ¤"}
+                        two{"000 مليون ¤"}
+                        zero{"000 مليون ¤"}
                     }
                     1000000000{
-                        few{"¤ 0 مليار"}
-                        many{"¤ 0 مليار"}
-                        one{"¤ 0 مليار"}
-                        other{"¤ 0 مليار"}
-                        two{"¤ 0 مليار"}
-                        zero{"¤ 0 مليار"}
+                        few{"0 مليار ¤"}
+                        many{"0 مليار ¤"}
+                        one{"0 مليار ¤"}
+                        other{"0 مليار ¤"}
+                        two{"0 مليار ¤"}
+                        zero{"0 مليار ¤"}
                     }
                     10000000000{
-                        few{"¤ 00 مليار"}
-                        many{"¤ 00 مليار"}
-                        one{"¤ 00 مليار"}
-                        other{"¤ 00 مليار"}
-                        two{"¤ 00 مليار"}
-                        zero{"¤ 00 مليار"}
+                        few{"00 مليار ¤"}
+                        many{"00 مليار ¤"}
+                        one{"00 مليار ¤"}
+                        other{"00 مليار ¤"}
+                        two{"00 مليار ¤"}
+                        zero{"00 مليار ¤"}
                     }
                     100000000000{
-                        few{"¤ 000 مليار"}
-                        many{"¤ 000 مليار"}
-                        one{"¤ 000 مليار"}
-                        other{"¤ 000 مليار"}
-                        two{"¤ 000 مليار"}
-                        zero{"¤ 000 مليار"}
+                        few{"000 مليار ¤"}
+                        many{"000 مليار ¤"}
+                        one{"000 مليار ¤"}
+                        other{"000 مليار ¤"}
+                        two{"000 مليار ¤"}
+                        zero{"000 مليار ¤"}
                     }
                     1000000000000{
-                        few{"¤ 0 ترليون"}
-                        many{"¤ 0 ترليون"}
-                        one{"¤ 0 ترليون"}
-                        other{"¤ 0 ترليون"}
-                        two{"¤ 0 ترليون"}
-                        zero{"¤ 0 ترليون"}
+                        few{"0 ترليون ¤"}
+                        many{"0 ترليون ¤"}
+                        one{"0 ترليون ¤"}
+                        other{"0 ترليون ¤"}
+                        two{"0 ترليون ¤"}
+                        zero{"0 ترليون ¤"}
                     }
                     10000000000000{
-                        few{"¤ 00 ترليون"}
-                        many{"¤ 00 ترليون"}
-                        one{"¤ 00 ترليون"}
-                        other{"¤ 00 ترليون"}
-                        two{"¤ 00 ترليون"}
-                        zero{"¤ 00 ترليون"}
+                        few{"00 ترليون ¤"}
+                        many{"00 ترليون ¤"}
+                        one{"00 ترليون ¤"}
+                        other{"00 ترليون ¤"}
+                        two{"00 ترليون ¤"}
+                        zero{"00 ترليون ¤"}
                     }
                     100000000000000{
-                        few{"¤ 000 ترليون"}
-                        many{"¤ 000 ترليون"}
-                        one{"¤ 000 ترليون"}
-                        other{"¤ 000 ترليون"}
-                        two{"¤ 000 ترليون"}
-                        zero{"¤ 000 ترليون"}
+                        few{"000 ترليون ¤"}
+                        many{"000 ترليون ¤"}
+                        one{"000 ترليون ¤"}
+                        other{"000 ترليون ¤"}
+                        two{"000 ترليون ¤"}
+                        zero{"000 ترليون ¤"}
                     }
                 }
                 decimalFormat{
@@ -385,7 +386,6 @@ ar{
         minimumGroupingDigits{"1"}
         native{"arab"}
     }
-    Version{"36.1"}
     calendar{
         buddhist{
             eras{
@@ -606,42 +606,42 @@ ar{
                     m{"h:mm–h:mm B"}
                 }
                 Gy{
-                    G{"G y – G y"}
-                    y{"G y–y"}
+                    G{"y G – y G"}
+                    y{"y–y G"}
                 }
                 GyM{
-                    G{"GGGGG y-MM – GGGGG y-MM"}
-                    M{"GGGGG y-MM – y-MM"}
-                    y{"GGGGG y-MM – y-MM"}
+                    G{"M‏/y G – M‏/y G"}
+                    M{"M‏/y – M‏/y G"}
+                    y{"M‏/y – M‏/y G"}
                 }
                 GyMEd{
-                    G{"GGGGG y-MM-dd, E – GGGGG y-MM-dd, E"}
-                    M{"GGGGG y-MM-dd, E – y-MM-dd, E"}
-                    d{"GGGGG y-MM-dd, E – y-MM-dd, E"}
-                    y{"GGGGG y-MM-dd, E – y-MM-dd, E"}
+                    G{"E، d‏/M‏/y G – E، d‏/M‏/y G"}
+                    M{"E، d‏/M‏/y – E، d‏/M‏/y G"}
+                    d{"E، d‏/M‏/y – E، d‏/M‏/y G"}
+                    y{"E، d‏/M‏/y – E، d‏/M‏/y G"}
                 }
                 GyMMM{
-                    G{"G y MMM – G y MMM"}
-                    M{"G y MMM–MMM"}
-                    y{"G y MMM – y MMM"}
+                    G{"MMM، y G – MMM، y G"}
+                    M{"MMM – MMM، y G"}
+                    y{"MMM، y – MMM، y G"}
                 }
                 GyMMMEd{
-                    G{"G y MMM d, E – G y MMM d, E"}
-                    M{"G y MMM d, E – MMM d, E"}
-                    d{"G y MMM d, E – MMM d, E"}
-                    y{"G y MMM d, E – y MMM d, E"}
+                    G{"E، d MMM، y G – E، d MMM، y G"}
+                    M{"E، d MMM – E، d MMM، y G"}
+                    d{"E، d – E، d MMM، y G"}
+                    y{"E، d MMM، y – E، d MMM، y G"}
                 }
                 GyMMMd{
-                    G{"G y MMM d – G y MMM d"}
-                    M{"G y MMM d – MMM d"}
-                    d{"G y MMM d–d"}
-                    y{"G y MMM d – y MMM d"}
+                    G{"d MMM، y G – d MMM، y G"}
+                    M{"d MMM – d MMM، y G"}
+                    d{"d–d MMM، y G"}
+                    y{"d MMM، y – d MMM، y G"}
                 }
                 GyMd{
-                    G{"GGGGG y-MM-dd – GGGGG y-MM-dd"}
-                    M{"GGGGG y-MM-dd – y-MM-dd"}
-                    d{"GGGGG y-MM-dd – y-MM-dd"}
-                    y{"GGGGG y-MM-dd – y-MM-dd"}
+                    G{"d‏/M‏/y G – d‏/M‏/y G"}
+                    M{"d‏/M‏/y – d‏/M‏/y G"}
+                    d{"d‏/M‏/y – d‏/M‏/y G"}
+                    y{"d‏/M‏/y – d‏/M‏/y G"}
                 }
                 H{
                     H{"HH–HH"}
@@ -676,11 +676,11 @@ ar{
                 }
                 MMMd{
                     M{"d MMM – d MMM"}
-                    d{"MMM d–d"}
+                    d{"d–d MMM"}
                 }
                 Md{
-                    M{"M/d – M/d"}
-                    d{"M/d – M/d"}
+                    M{"d/‏M – d/‏M"}
+                    d{"d/‏M –‏ d/‏M"}
                 }
                 d{
                     d{"d–d"}
@@ -923,7 +923,7 @@ ar{
                         evening1{"مساءً"}
                         morning1{"فجرًا"}
                         morning2{"ص"}
-                        night1{"منتصف الليل"}
+                        night1{"في المساء"}
                         night2{"ليلاً"}
                     }
                     narrow{
@@ -939,9 +939,9 @@ ar{
                         afternoon1{"ظهرًا"}
                         afternoon2{"بعد الظهر"}
                         evening1{"مساءً"}
-                        morning1{"فجرًا"}
+                        morning1{"في الصباح"}
                         morning2{"صباحًا"}
-                        night1{"منتصف الليل"}
+                        night1{"في المساء"}
                         night2{"ليلاً"}
                     }
                 }
@@ -1010,42 +1010,42 @@ ar{
                     m{"h:mm–h:mm B"}
                 }
                 Gy{
-                    G{"G y – G y"}
-                    y{"G y–y"}
+                    G{"y G – y G"}
+                    y{"y–y G"}
                 }
                 GyM{
-                    G{"GGGGG y-MM – GGGGG y-MM"}
-                    M{"GGGGG y-MM – y-MM"}
-                    y{"GGGGG y-MM – y-MM"}
+                    G{"M‏/y G – M‏/y G"}
+                    M{"M‏/y – M‏/y G"}
+                    y{"M‏/y – M‏/y G"}
                 }
                 GyMEd{
-                    G{"GGGGG y-MM-dd, E – GGGGG y-MM-dd, E"}
-                    M{"GGGGG y-MM-dd, E – y-MM-dd, E"}
-                    d{"GGGGG y-MM-dd, E – y-MM-dd, E"}
-                    y{"GGGGG y-MM-dd, E – y-MM-dd, E"}
+                    G{"E، d‏/M‏/y G – E، d‏/M‏/y G"}
+                    M{"E، d‏/M‏/y – E، d‏/M‏/y G"}
+                    d{"E، d‏/M‏/y – E، d‏/M‏/y G"}
+                    y{"E، d‏/M‏/y – E، d‏/M‏/y G"}
                 }
                 GyMMM{
-                    G{"G y MMM – G y MMM"}
-                    M{"G y MMM–MMM"}
-                    y{"G y MMM – y MMM"}
+                    G{"MMM، y G – MMM، y G"}
+                    M{"MMM – MMM، y G"}
+                    y{"MMM، y – MMM، y G"}
                 }
                 GyMMMEd{
-                    G{"G y MMM d, E – G y MMM d, E"}
-                    M{"G y MMM d, E – MMM d, E"}
-                    d{"G y MMM d, E – MMM d, E"}
-                    y{"G y MMM d, E – y MMM d, E"}
+                    G{"E، d MMM، y G – E، d MMM، y G"}
+                    M{"E، d MMM – E، d MMM، y G"}
+                    d{"E، d – E، d MMM، y G"}
+                    y{"E، d MMM، y – E، d MMM، y G"}
                 }
                 GyMMMd{
-                    G{"G y MMM d – G y MMM d"}
-                    M{"G y MMM d – MMM d"}
-                    d{"G y MMM d–d"}
-                    y{"G y MMM d – y MMM d"}
+                    G{"d MMM، y G – d MMM، y G"}
+                    M{"d MMM – d MMM، y G"}
+                    d{"d–d MMM، y G"}
+                    y{"d MMM، y – d MMM، y G"}
                 }
                 GyMd{
-                    G{"GGGGG y-MM-dd – GGGGG y-MM-dd"}
-                    M{"GGGGG y-MM-dd – y-MM-dd"}
-                    d{"GGGGG y-MM-dd – y-MM-dd"}
-                    y{"GGGGG y-MM-dd – y-MM-dd"}
+                    G{"d‏/M‏/y G – d‏/M‏/y G"}
+                    M{"d‏/M‏/y – d‏/M‏/y G"}
+                    d{"d‏/M‏/y – d‏/M‏/y G"}
+                    y{"d‏/M‏/y – d‏/M‏/y G"}
                 }
                 H{
                     H{"HH–HH"}
@@ -1083,8 +1083,8 @@ ar{
                     d{"d–d MMM"}
                 }
                 Md{
-                    M{"M/d – M/d"}
-                    d{"M/d – M/d"}
+                    M{"d/‏M – d/‏M"}
+                    d{"d/‏M –‏ d/‏M"}
                 }
                 d{
                     d{"d–d"}
@@ -3251,7 +3251,7 @@ ar{
         }
     }
     measurementSystemNames{
-        UK{"المملكة المتحدة"}
+        UK{"النظام البريطاني"}
         US{"النظام الأمريكي"}
         metric{"النظام المتري"}
     }
@@ -3278,7 +3278,7 @@ ar{
         number{
             lenient{
                 "[\\-‒⁻₋−➖﹣－]",
-                "[,،٫、︐︑﹐﹑，､]",
+                "[,،٫⹁、︐︑﹐﹑，､]",
                 "[+⁺₊➕﬩﹢＋]",
             }
         }

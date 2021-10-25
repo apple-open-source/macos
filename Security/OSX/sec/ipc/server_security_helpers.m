@@ -31,7 +31,7 @@
 #include "ipc/securityd_client.h"
 #include <Security/SecEntitlements.h>
 #include "sectask/SystemEntitlements.h"
-#include <utilities/SecInternalReleasePriv.h>
+#include "utilities/SecInternalReleasePriv.h"
 #include <sys/codesign.h>
 #include <Security/SecItem.h>
 #include "utilities/SecCFRelease.h"
@@ -98,6 +98,43 @@ static bool sanityCheckClientAccessGroups(SecurityClient* client) {
     return answer;
 }
 
+bool SecFillSecurityClientMuser(SecurityClient *client)
+{
+    if (!client) {
+        return false;
+    }
+    @autoreleasepool {
+#if KEYCHAIN_SUPPORTS_PERSONA_MULTIUSER
+        /*
+         * iOS+macOS supports Enterprise Data Separation.
+         * tvOS supports guest users.
+         * Use the appropriate musr values for either.
+         */
+        UMUserPersona *persona = [[UMUserManager sharedManager] currentPersona];
+        if (persona &&
+#if TARGET_OS_IOS || TARGET_OS_OSX
+            persona.userPersonaType == UMUserPersonaTypeEnterprise
+#elif TARGET_OS_TV
+            persona.userPersonaType == UMUserPersonaTypeGuest
+#else
+#error Keychain does not support persona multiuser on this platform
+#endif
+        ) {
+            secinfo("serverxpc", "securityd client(%p): persona user %@", client, persona.userPersonaNickName);
+            secnotice("serverxpc", "securityd client(%p): persona uuid %@", client, persona.userPersonaUniqueString);
+            uuid_t uuid;
+
+            if (uuid_parse([persona.userPersonaUniqueString UTF8String], uuid) != 0) {
+                client->musr = NULL;
+                return false;
+            }
+            client->musr = CFDataCreate(NULL, uuid, sizeof(uuid_t));
+        }
+#endif /* KEYCHAIN_SUPPORTS_PERSONA_MULTIUSER */
+    }
+    return true;
+}
+
 bool
 fill_security_client(SecurityClient * client, const uid_t uid, audit_token_t auditToken) {
     if(!client) {
@@ -109,7 +146,7 @@ fill_security_client(SecurityClient * client, const uid_t uid, audit_token_t aud
         client->uid = uid;
         client->musr = NULL;
 
-#if TARGET_OS_IOS && HAVE_MOBILE_KEYBAG_SUPPORT
+#if KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER && HAVE_MOBILE_KEYBAG_SUPPORT
         if (device_is_multiuser()) {
             CFErrorRef error = NULL;
 
@@ -139,32 +176,12 @@ fill_security_client(SecurityClient * client, const uid_t uid, audit_token_t aud
                 client->keybag = KEYBAG_DEVICE;
             }
         } else
-#endif /* TARGET_OS_IOS && HAVE_MOBILE_KEYBAG_SUPPORT */
-#if TARGET_OS_IOS || TARGET_OS_TV
-        /*
-         * iOS supports Enterprise Data Separation.
-         * tvOS supports guest users.
-         * Use the appropriate musr values for either.
-         */
+#endif /* KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER && HAVE_MOBILE_KEYBAG_SUPPORT */
+#if KEYCHAIN_SUPPORTS_PERSONA_MULTIUSER
         {
-            UMUserPersona * persona = [[UMUserManager sharedManager] currentPersona];
-            if (persona &&
-#if TARGET_OS_IOS
-                persona.userPersonaType == UMUserPersonaTypeEnterprise
-#elif TARGET_OS_TV
-                persona.userPersonaType == UMUserPersonaTypeGuest
-#endif
-                ) {
-                secinfo("serverxpc", "securityd client: persona user %@", persona.userPersonaNickName);
-                uuid_t uuid;
-
-                if (uuid_parse([persona.userPersonaUniqueString UTF8String], uuid) != 0) {
-                    return false;
-                }
-                client->musr = CFDataCreate(NULL, uuid, sizeof(uuid_t));
-            }
+            SecFillSecurityClientMuser(client);
         }
-#endif /* TARGET_OS_IOS || TARGET_OS_TV */
+#endif /* KEYCHAIN_SUPPORTS_PERSONA_MULTIUSER */
 
         client->task = SecTaskCreateWithAuditToken(kCFAllocatorDefault, auditToken);
         client->accessGroups = SecTaskCopyAccessGroups(client->task);
@@ -179,7 +196,7 @@ fill_security_client(SecurityClient * client, const uid_t uid, audit_token_t aud
         client->isNetworkExtension = SecTaskGetBooleanValueForEntitlement(client->task, kSecEntitlementPrivateNetworkExtension);
         client->canAccessNetworkExtensionAccessGroups = SecTaskGetBooleanValueForEntitlement(client->task, kSecEntitlementNetworkExtensionAccessGroups);
 #endif
-#if HAVE_MOBILE_KEYBAG_SUPPORT && TARGET_OS_IOS
+#if HAVE_MOBILE_KEYBAG_SUPPORT && KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER
         if (client->inMultiUser) {
             client->allowSyncBubbleKeychain = SecTaskGetBooleanValueForEntitlement(client->task, kSecEntitlementPrivateKeychainSyncBubble);
         }

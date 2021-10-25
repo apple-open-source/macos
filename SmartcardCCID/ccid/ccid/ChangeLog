@@ -1,4 +1,1013 @@
-commit 8f33a2ff60919f579ee17012e91f927491ef70be (HEAD -> master, tag: ccid-1.4.32, origin/master, origin/HEAD)
+commit 3bb08235fb16ad625e33cef634b06abc1842bc15 (HEAD -> master, tag: 1.4.34, zotac/master, origin/master, origin/HEAD)
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sun Jan 24 13:59:00 2021 +0100
+
+    Release 1.4.34
+    
+    Signed-off-by: Ludovic Rousseau <ludovic.rousseau@free.fr>
+
+ README.md    | 31 +++++++++++++++++++++++++++++++
+ configure.ac |  2 +-
+ 2 files changed, 32 insertions(+), 1 deletion(-)
+
+commit ddbb2cee9c981311f4103e2311f75a0bc22f215e
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Jan 20 17:45:55 2021 +0100
+
+    Add BIT4ID mLector AIR DI V3
+
+ readers/bit4id_mlector_air_di_v3.txt | 231 +++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt        |   1 +
+ 2 files changed, 232 insertions(+)
+
+commit 6f0ac092afb26b0e4690a6b1b0607057732a2e76
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Jan 20 14:03:51 2021 +0100
+
+    Add Bit4id Digital-DNA Key (ProductID 0x2354)
+
+ readers/Bit4id_Digital_DNA_Key_v2.txt | 47 +++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt         |  3 ++-
+ 2 files changed, 49 insertions(+), 1 deletion(-)
+
+commit 53ce26d7d004075d8387887b0c509b117b72a878
+Author: Maksim Ivanov <emaxx@google.com>
+Date:   Mon Jan 11 21:07:36 2021 +0100
+
+    Fix potential memcpy call with null dest
+    
+    Add a check into CCID_Receive() in commands.c that skips calling
+    memcpy() in case the count is zero. This fixes the (theoretical) problem
+    in case both the count and the dest pointer are zero (such a call can be
+    made, e.g., from CmdXfrBlockAPDU_extended()) and the compiler uses the
+    non-null argument requirement to generate some incorrect code.
+    
+    This potential issue was found by clang-tidy (the
+    "NonNullParamChecker" diagnostic).
+
+ src/commands.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+commit 03c1bf558e3986b784af87135983bb4e2e9b7f4d
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu Jan 7 14:00:55 2021 +0100
+
+    Add ACS CryptoMate EVO
+
+ readers/ACS_CryptoMate_EVO.txt | 54 ++++++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt  |  1 +
+ 2 files changed, 55 insertions(+)
+
+commit 9c6d77562b28a65d9ae4093f0ec08c8f98e6f076
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu Jan 7 14:00:02 2021 +0100
+
+    Move AlcorMicro_AU9560 from supported to unsupported
+
+ readers/supported_readers.txt | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+commit 7a306c8da4872617dbc9a2cf6a8f7e827a6b3c38
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Dec 5 10:23:19 2020 +0100
+
+    Ad Canokeys Canokey
+
+ readers/Canokeys_Canokey.txt  | 56 +++++++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt |  5 +++-
+ 2 files changed, 60 insertions(+), 1 deletion(-)
+
+commit 7836cdfe10c4c6285c5a6aa7c05fda3072e59055
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu Dec 3 14:32:53 2020 +0100
+
+    Add Aktiv Rutoken SCR 3001 Reader
+
+ readers/Aktiv_Rutoken_SCR_3001_Reader.txt | 64 +++++++++++++++++++++++++++++++
+ readers/supported_readers.txt             |  1 +
+ 2 files changed, 65 insertions(+)
+
+commit b9a5c9f17280ff150baffe9a4b7381f2d57eff5b
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu Dec 3 09:48:36 2020 +0100
+
+    Add GoTrust Idem Key
+
+ readers/GoTrust_Idem_Key.txt  | 50 +++++++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt |  5 ++++-
+ 2 files changed, 54 insertions(+), 1 deletion(-)
+
+commit 0a75fef9f5458f0c9c38b658ea1470d2f7a95027
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Nov 25 21:08:27 2020 +0100
+
+    Add Avtor KP-375BLE
+    
+    It is the same VendorID and ProdictID as the Feitian bR301
+
+ readers/Avtor_KP-375BLE.txt   | 104 ++++++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt |   5 +-
+ 2 files changed, 108 insertions(+), 1 deletion(-)
+
+commit 8683f3b0bd0539b32f780891e1a08865fa1e151d
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Nov 25 21:03:03 2020 +0100
+
+    Add Avtor SC Reader KP382
+    
+    It is the same VendorID and ProdictID as the Feitian 502-CL reader.
+
+ readers/Avtor_SC_Reader_KP382.txt | 57 +++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt     |  7 +++--
+ 2 files changed, 62 insertions(+), 2 deletions(-)
+
+commit 0b8a4f616324de375d5270a321e30875ee3a9667
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Nov 25 20:36:06 2020 +0100
+
+    New firmware for Avtor_SecureToken.txt
+
+ readers/Avtor_SecureToken.txt | 33 ++++++++++++++-------------------
+ 1 file changed, 14 insertions(+), 19 deletions(-)
+
+commit cd6c1e0268cdc7da4eb8992368a61f8a5e4cac2f
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Nov 7 14:47:11 2020 +0100
+
+    Disable USB suspend for the AlcorMicro AU9520 reader
+    
+    After USB suspend the reader is mute and can't be used.
+    
+    Thanks to zeroconf for the bug report
+    "[Pcsclite-muscle] Alcor Micro AU9520 not recognized by libccid 1.4.31"
+    http://lists.infradead.org/pipermail/pcsclite-muscle/2020-November/001150.html
+
+ src/92_pcscd_ccid.rules | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+commit 726b123facde7197063984d95d516ad6be1d19d6
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Nov 7 13:53:46 2020 +0100
+
+    Update AU9520.txt
+    
+    Minor formatting changes.
+
+ readers/AU9520.txt | 8 +++++---
+ 1 file changed, 5 insertions(+), 3 deletions(-)
+
+commit 432c5cd0cae1f50bfeb6b362ba595ef84ec7fdc6
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Mon Oct 5 11:08:42 2020 +0200
+
+    Fix compiler warning on macOS
+    
+    ifdhandler.c:738:4: error: format specifies type 'long' but the argument has type 'unsigned int' [-Werror,-Wformat]
+                            Protocol - SCARD_PROTOCOL_T0);
+                            ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+ src/ifdhandler.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit 8dda13221e44c33180911045f08a758d23cb65c6
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sun Oct 4 15:52:54 2020 +0200
+
+    Fail if the requested protocol is not supported by reader
+    
+    Some readers do not support both T=0 and T=1. So in case a protocol not
+    supported is requested by the application the
+    IFDHSetProtocolParameters() call will fail. The SCardConnect() will then
+    also fail with SCARD_W_UNRESPONSIVE_CARD.
+    
+    A lot of tokens (with non-extractible card) do only support the protocol
+    of the embedded card so that is not a problem. The problem exists only
+    for readers where you can insert the card you want.
+    
+    For example the Sysmocom sysmoOCTSIM reader does only support T=0 protocol.
+    Inserting and using a T=1 will confuse the reader.
+
+ src/ifdhandler.c | 8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+commit 4928999b220e628d833dcebaf4bc4f36afe49f08
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sun Oct 4 15:50:57 2020 +0200
+
+    Add a new field dwProtocols in struct _ccid_descriptor
+    
+    For USB readers we copy the field dwProtocols from the CCID descriptor.
+    For serial readers we hardcode support of T=0 & T=1
+
+ src/ccid.h        | 5 +++++
+ src/ccid_serial.c | 1 +
+ src/ccid_usb.c    | 1 +
+ 3 files changed, 7 insertions(+)
+
+commit 5aec7d34ec798736f5b961520714f7e85f1ba3b5
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Oct 3 18:11:11 2020 +0200
+
+    parse: fix CCID chapters in comments
+
+ src/parse.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+commit ce3d5ce010632ef3ec4bee66bb917fdad0f0e1f6
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Oct 3 17:17:04 2020 +0200
+
+    Display libusb error code in text
+    
+    Add the human readable version of the libusb error code. For example
+    -4 is LIBUSB_ERROR_NO_DEVICE.
+    
+    We now have:
+    ccid_usb.c:1586:Multi_PollingProc() Multi_PollingProc (1/18): error -4 LIBUSB_ERROR_NO_DEVICE
+
+ src/ccid_usb.c | 14 +++++++++-----
+ 1 file changed, 9 insertions(+), 5 deletions(-)
+
+commit 0d53f0403afe7b3e3a2fdd15a160738b7cda647c
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Oct 3 16:45:59 2020 +0200
+
+    Add sysmocom - s.f.m.c. GmbH sysmoOCTSIM
+
+ readers/supported_readers.txt    |  5 +++-
+ readers/sysmocom_sysmoOCTSIM.txt | 52 ++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 56 insertions(+), 1 deletion(-)
+
+commit 666013c90b02d8a31a989c790f1424d36e786e78
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Tue Sep 29 19:15:54 2020 +0200
+
+    Add DESKO GmbH PENTA Scanner
+
+ readers/DESKO_PENTA_Scanner.txt | 365 ++++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt   |   1 +
+ 2 files changed, 366 insertions(+)
+
+commit f39d3a6db9ee991f7841fba63fd90423d37080a2
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Tue Sep 29 19:09:56 2020 +0200
+
+    Add DESKO GmbH IDenty chrom
+
+ readers/DESKO_IDenty_chrom.txt | 310 +++++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt  |   5 +-
+ 2 files changed, 314 insertions(+), 1 deletion(-)
+
+commit 765f4130acf89bf5ac3bcea019576fb534faabf8
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Sep 4 12:01:59 2020 +0200
+
+    Return "no smart card" if we get notified during a transmit
+    
+    If the card is removed during an APDU exchange then the reader will
+    report an error 0xFE for ICC_MUTE "CCID timed out while talking to the
+    ICC" and the slot status will contain 2 in bmICCStatus for "No ICC present".
+    
+    In this case the driver will now reports IFD_ICC_NOT_PRESENT instead of
+    IFD_COMMUNICATION_ERROR.
+    
+    Thanks to Marc Kewitz for the bug report
+    "[Pcsclite-muscle] Race condition during readerstate update"
+    http://lists.infradead.org/pipermail/pcsclite-muscle/2020-August/001107.html
+
+ src/commands.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+commit 933dab78c75819ee02abe37876cc1ea4b365076f
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu Sep 3 21:22:53 2020 +0200
+
+    ccid_error(): simplify the code
+    
+    In case of USE_OS_LOG then os_log_error() will be called by log_msg() so
+    no need to have a special treatment here.
+    
+    Thanks to Godfrey Chung fro the bug report.
+
+ src/ccid.c | 5 -----
+ 1 file changed, 5 deletions(-)
+
+commit 1f1fae6aeb2390707a8cc080802d2588c9bb89be
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Tue Sep 1 17:55:26 2020 +0200
+
+    Info.plist: update CFBundleIdentifier
+    
+    The project moved from https://pcsclite.alioth.debian.org/ccid.html to
+    https://ccid.apdu.fr/
+    
+    So I changed the CFBundleIdentifier from
+    org.debian.alioth.pcsclite.smartcardccid to fr.apdu.ccid.smartcardccid
+
+ src/Info.plist.src | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit 2e577324180d4d1942b9e73a58aa8de1e2f1cac8
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Mon Aug 31 17:55:02 2020 +0200
+
+    Add Identiv uTrust 3720 Contactless Reader
+
+ readers/Identiv_uTrust_3720_Contactless_Reader.txt | 57 ++++++++++++++++++++++
+ readers/supported_readers.txt                      |  3 +-
+ 2 files changed, 59 insertions(+), 1 deletion(-)
+
+commit 48680b3af325d63f58516b5737e8df8985b53bc7
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Aug 29 11:45:10 2020 +0200
+
+    Add Sunrex HP USB Business Slim Smartcard CCID Keyboard
+
+ ...P_USB_Business_Slim_Smartcard_CCID_Keyboard.txt | 58 ++++++++++++++++++++++
+ readers/supported_readers.txt                      |  5 +-
+ 2 files changed, 62 insertions(+), 1 deletion(-)
+
+commit 5e33ea786439439b99e51ab1b699494f10130aef
+Author: Godfrey Chung <godfrey.chung@acs.com.hk>
+Date:   Thu Aug 27 15:31:38 2020 +0800
+
+    Use "buffer.h" instead of <openct/buffer.h>
+    
+    buffer.c should include buffer.h directly from current directory instead
+    of including it from system directory.
+    
+    Fixes a "File not found" issue when I was importing the source code to
+    my Xcode project.
+
+ src/openct/buffer.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit 183c09cdc0973ba63fefe7e01a3b4e9982dcf3ab
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Aug 26 11:08:21 2020 +0200
+
+    Add ACS ACR1252IMP Reader
+
+ readers/ACS_ACR1252IMP_Reader.txt | 105 ++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt     |   3 +-
+ 2 files changed, 107 insertions(+), 1 deletion(-)
+
+commit 165e01a6d8eb7d5ab51400a961952d0ad82be9e2
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Tue Aug 25 10:43:14 2020 +0200
+
+    Do not report an error if the wrong interface is used by the driver
+    
+    With composite USB devices the pcscd daemon does not know which USB
+    interface correspond to the CCID reader. So all the interfaces are tried
+    and this generated critical errors in the logs.
+    
+    Like:
+    00000005 readerfactory.c:1110:RFInitializeReader() Open Port 0x200000 Failed (usb:096e/080a:libudev:0:/dev/bus/usb/003/013)
+    00000002 readerfactory.c:375:RFAddReader() FT ePass2003Auto init failed.
+    
+    When the driver reports IFD_NO_SUCH_DEVICE then the logs now have a
+    PCSC_LOG_INFO level so are no more displayed in red and no more present
+    by default.
+    
+    Fixes Salsa issue #8
+    https://salsa.debian.org/rousseau/PCSC/-/issues/8
+    "Do not report an error if the wrong interface is used by the driver"
+
+ src/ifdhandler.c | 7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
+
+commit c3c0f7c7b21303b9255c1aa2eb5ce79763d1dc9a
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Aug 12 11:04:13 2020 +0200
+
+    Add BIT4ID miniLector AIR NFC v3
+
+ readers/BIT4ID_miniLector_AIR_NFC_v3.txt | 57 ++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt            |  5 ++-
+ 2 files changed, 61 insertions(+), 1 deletion(-)
+
+commit 6c4a655fa8bdc3ca50fae856215020385a1167e2
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Tue Aug 11 18:26:29 2020 +0200
+
+    Add Feitian vR504 Contactless Reader
+
+ readers/Feitian_vR504_Contactless_Reader.txt | 60 ++++++++++++++++++++++++++++
+ readers/supported_readers.txt                |  3 ++
+ 2 files changed, 63 insertions(+)
+
+commit 3e302eb95efec7b8e73726b9c8830cb8f60ad84d
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Tue Aug 11 18:19:57 2020 +0200
+
+    Add Feitian R805
+
+ readers/Feitian_R805.txt      | 76 +++++++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt |  1 +
+ 2 files changed, 77 insertions(+)
+
+commit 419573af466b85a7c5bf72fe2e586942f129132f
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Tue Aug 11 18:15:18 2020 +0200
+
+    Add Feitian BLE CCID Dongle
+
+ readers/Feitian_BLE_CCID_Dongle.txt | 76 +++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt       | 11 +++---
+ 2 files changed, 82 insertions(+), 5 deletions(-)
+
+commit 1931153f087d6a508481fa5529eb34610aa1f80c
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Tue Aug 11 18:11:13 2020 +0200
+
+    Add FT Biopass KB FIDO CCID
+
+ readers/FT_Biopass_KB_FIDO_CCID.txt | 51 +++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt       |  1 +
+ 2 files changed, 52 insertions(+)
+
+commit b1d6b1fab9f6b53832e474c82aa4592ae5770dc7
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Tue Aug 11 18:09:37 2020 +0200
+
+    Add FT Biopass KB CCID
+
+ readers/FT_Biopass_KB_CCID.txt | 51 ++++++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt  |  1 +
+ 2 files changed, 52 insertions(+)
+
+commit 2aaeda361e4eef4c93511146c1185584c3f29b2b
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Tue Aug 11 18:06:08 2020 +0200
+
+    Add FT Biopass FIDO2
+
+ readers/FT_Biopass_FIDO2.txt  | 51 +++++++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt |  1 +
+ 2 files changed, 52 insertions(+)
+
+commit b5264bd96df4f8e397bd9eea9d5780e47b7a23bd
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Tue Aug 11 18:02:20 2020 +0200
+
+    Add FT Biopass CCID
+
+ readers/FT_Biopass_CCID.txt   | 51 +++++++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt |  3 ++-
+ 2 files changed, 53 insertions(+), 1 deletion(-)
+
+commit 0992f4ee587e67c93bca1bd00958f24dfc4bc099
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Aug 8 18:01:16 2020 +0200
+
+    Better fix for 6c0bcf32b8783ec077fa6029a51c45c9d499507d
+    
+    proc_len is an (unsigned int) so it can't be negative.
+    
+    We now check the value is smaller than 0x20000 (128 KB) that should be
+    big enough for any APDU :-)
+
+ src/commands.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit 1931e55b864d883d309e6c1c4064a63c84ad3fc7 (github/master)
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Aug 8 17:29:14 2020 +0200
+
+    CCID_Transmit: call memcpy() only with a non-NULL src
+    
+    Calling memcpy(dst, NULL, 0); is not a good idea and should be avoided.
+    This case happens when receiving (extended) APDU in chaining mode.
+    
+    hanks to Maksim Ivanov for the bug report
+    "[Pcsclite-muscle] Instances of Undefined behavior in CCID"
+    http://lists.infradead.org/pipermail/pcsclite-muscle/2020-August/001102.html
+    
+    " Hello,
+    
+    I found a couple of issues using the Clang's UBSan
+    (https://clang.llvm.org/docs/UndefinedBehaviorSanitizer.html) in the
+    CCID driver implementation:
+    
+    2. Undefined behavior due to calling memcpy() with a null |src|
+    argument in CCID_Transmit(). (It's called with a zero |n| in this
+    case, nonetheless such calls seem to be forbidden by the C Standard.) "
+
+ src/commands.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+commit 4385c302b2bb203db40dc509d62a5d800c778b2e
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Aug 8 17:23:40 2020 +0200
+
+    dw2i: fix potential integer overflow
+    
+    The maximum values manipulated by dw2i() should be far less than 64 KB.
+    So the problem should never happen unless you use a malicious reader.
+    
+    Thanks to Maksim Ivanov for the bug report
+    "[Pcsclite-muscle] Instances of Undefined behavior in CCID"
+    http://lists.infradead.org/pipermail/pcsclite-muscle/2020-August/001102.html
+    
+    " Hello,
+    
+    I found a couple of issues using the Clang's UBSan
+    (https://clang.llvm.org/docs/UndefinedBehaviorSanitizer.html) in the
+    CCID driver implementation:
+    
+    1. The dw2i() macro doesn't cast the shifted operands to |unsigned
+    int|, which means that the compiler will use |int| for those
+    intermediate expressions - but that leads to hitting Undefined
+    Behavior if the values overflow the (signed) int. "
+
+ src/ccid.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit e3376324961125bee366567e25c6613c10269866
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Aug 8 17:08:29 2020 +0200
+
+    Fix potential reads of uninitialized buffer
+    
+    We now make sure we have read at least CCID_RESPONSE_HEADER_SIZE (10)
+    bytes instead of just STATUS_OFFSET+1 (8) bytes.
+    
+    Thanks to Maksim Ivanov for the bug report
+    "[Pcsclite-muscle] Insufficient checks in CCID"
+    http://lists.infradead.org/pipermail/pcsclite-muscle/2020-August/001098.html
+    
+    " Hello,
+    
+    The CCID free software driver is missing a few checks and graceful
+    handling of some error cases:
+    
+    10. Reads of uninitialized buffer in CmdPowerOn(), CCID_Receive(),
+    CmdGetSlotStatus() - in case when the read buffer is too small to
+    contain the |ERROR_OFFSET| index.) "
+
+ src/commands.c | 12 ++++++------
+ src/commands.h |  1 +
+ 2 files changed, 7 insertions(+), 6 deletions(-)
+
+commit 97de195c6ae6a9cefb60b2ab6822e67f8bc36d2e
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Aug 8 16:45:17 2020 +0200
+
+    PPS_Match: fix potential read of uninitialized buffer
+    
+    Thanks to Maksim Ivanov for the bug report
+    "[Pcsclite-muscle] Insufficient checks in CCID"
+    http://lists.infradead.org/pipermail/pcsclite-muscle/2020-August/001098.html
+    
+    " Hello,
+    
+    The CCID free software driver is missing a few checks and graceful
+    handling of some error cases:
+    
+    7. Read of uninitialized buffer in PPS_Match() at
+    https://salsa.debian.org/rousseau/CCID/-/blob/4d5cbf703c268b31c734931166c52dcb9920c0fe/src/towitoko/pps.c#L101
+    - in case |len_confirm| is unexpectedly small. "
+
+ src/towitoko/pps.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+commit bab5d8aea2aed8336e1922798a8223d998f0beef
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Aug 8 16:39:04 2020 +0200
+
+    IFDHSetProtocolParameters: handle ATR_GetConvention() error
+    
+    If the ATR is invalid (i.e. does not start with 0x3B or 0x3F) then we
+    return an error instead of using an unitialized value.
+    
+    Thanks to Maksim Ivanov for the bug report
+    "[Pcsclite-muscle] Insufficient checks in CCID"
+    http://lists.infradead.org/pipermail/pcsclite-muscle/2020-August/001098.html
+    
+    " Hello,
+    
+    The CCID free software driver is missing a few checks and graceful
+    handling of some error cases:
+    
+    6. Read of uninitialized |convention| in IFDHSetProtocolParameters() -
+    in case ATR_GetConvention() returned a failure on a malformed ATR. "
+
+ src/ifdhandler.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+commit 72ddc000176c002555fda5e2259d73ef05027f7b
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Aug 8 16:34:21 2020 +0200
+
+    ReadUSB: fix potential read of uninitialized buffer
+    
+    Thanks to Maksim Ivanov for the bug report
+    "[Pcsclite-muscle] Insufficient checks in CCID"
+    http://lists.infradead.org/pipermail/pcsclite-muscle/2020-August/001098.html
+    
+    " Hello,
+    
+    The CCID free software driver is missing a few checks and graceful
+    handling of some error cases:
+    
+    5. Read of uninitialized buffer in ReadUSB() at
+    https://salsa.debian.org/rousseau/CCID/-/blob/4d5cbf703c268b31c734931166c52dcb9920c0fe/src/ccid_usb.c#L912
+    . (Because of the wrong ">=" size check - it should be a strict ">".) "
+
+ src/ccid_usb.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit 6e2e1b5732739888079a829acbc8fade438d3868
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Aug 8 16:28:32 2020 +0200
+
+    CmdGetSlotStatus: fix potential read of uninitialized buffer
+    
+    If the command SlotStatus fails then we report: card absent.
+    The problem was only present for a ICCD type B reader.
+    
+    Thanks to Maksim Ivanov for the bug report
+    "[Pcsclite-muscle] Insufficient checks in CCID"
+    http://lists.infradead.org/pipermail/pcsclite-muscle/2020-August/001098.html
+    
+    " Hello,
+    
+    The CCID free software driver is missing a few checks and graceful
+    handling of some error cases:
+    
+    4. Read of uninitialized buffer in CmdGetSlotStatus() at
+    https://salsa.debian.org/rousseau/CCID/-/blob/4d5cbf703c268b31c734931166c52dcb9920c0fe/src/commands.c#L1201
+    - in case when the control transfer returned only 1 instead of 3
+    bytes. "
+
+ src/commands.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit 160e5a3cea4bf36bc0cb0844b51631e0f0d98042
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Aug 8 16:21:40 2020 +0200
+
+    IFDHSetProtocolParameters(): Fix reading past the end-of-buffer
+    
+    The code is now also a bit faster since we compare the card ATR with
+    the OpenPGP card _only_ if they have the same size.
+    
+    Thanks to Maksim Ivanov for the bug report
+    "[Pcsclite-muscle] Insufficient checks in CCID"
+    http://lists.infradead.org/pipermail/pcsclite-muscle/2020-August/001098.html
+    
+    " Hello,
+    
+    The CCID free software driver is missing a few checks and graceful
+    handling of some error cases:
+    
+    3. memcmp() reading past the end-of-buffer when
+    IFDHSetProtocolParameters() is called with the ATR of length exceeding
+    20 bytes. (Specifically, when comparing the ATR with |openpgp_atr|:
+    https://salsa.debian.org/rousseau/CCID/-/blob/4d5cbf703c268b31c734931166c52dcb9920c0fe/src/ifdhandler.c#L1001
+    "
+
+ src/ifdhandler.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+commit a382095d8b19730c92969052f961a2066bc04c0f
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Aug 8 16:15:16 2020 +0200
+
+    CmdPowerOn: fix a potention overrun with bogus ATR
+    
+    If the ATR is larger than 33 bytes (MAX_ATR_SIZE) then we had a buffer
+    overrun.
+    This should never happen with correcr cards and readers.
+    
+    Thanks to Maksim Ivanov for the bug report
+    "[Pcsclite-muscle] Insufficient checks in CCID"
+    http://lists.infradead.org/pipermail/pcsclite-muscle/2020-August/001098.html
+    
+    " Hello,
+    
+    The CCID free software driver is missing a few checks and graceful
+    handling of some error cases:
+    
+    2. Wrong (too big) ATR size received from the device. (Would lead to a
+    buffer overrun in CmdPowerOn() when doing memmove() in the buffer:
+    https://salsa.debian.org/rousseau/CCID/-/blob/4d5cbf703c268b31c734931166c52dcb9920c0fe/src/commands.c#L294
+    "
+
+ src/commands.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+commit 6c0bcf32b8783ec077fa6029a51c45c9d499507d
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Aug 8 15:39:17 2020 +0200
+
+    T0ProcACK: fix a potential problem
+    
+    " Apparently, the fuzzer found one more similar bug: T0ProcACK() can be
+    called with the |proc_len| parameter equal to -1, leading to
+    stack-buffer-overflow.
+    
+    The stack trace is:
+    
+        #1 0x56eee7 in T0ProcACK /ssd/ccid/src/fuzzer/../commands.c:1988:3
+        #2 0x56d1d1 in CmdXfrBlockCHAR_T0 /ssd/ccid/src/fuzzer/../commands.c:2253:20
+        #3 0x5754cc in IFDHTransmitToICC /ssd/ccid/src/fuzzer/../ifdhandler.c:1403:17
+    
+    and the T0ProcACK() call is made from this line:
+    https://salsa.debian.org/rousseau/CCID/-/blob/c122e4f38cc7d1ffdb1fc0cece49145930d4634a/src/commands.c#L2197
+    
+    The negative |proc_len| is the result of this equation: |exp_len -
+    *rcv_len|, with exp_len=2, *rcv_len=3 in the found scenario. "
+    
+    The problem has been found by an automatic buzzer, not by a real problem
+    in the field.
+    
+    Thanks to Maksim Ivanov for the bug report
+
+ src/commands.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+commit 913d37d506f02a1c4543af9dd04d892b88acd9e0
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Aug 8 15:32:22 2020 +0200
+
+    CmdPowerOn: fix a potential infinite loop
+    
+    IF the reader reports bVoltageSupport = 0
+    AND does not support CCID_CLASS_AUTO_VOLTAGE or CCID_CLASS_AUTO_ACTIVATION
+    (this is bogus and only the case for the MYSMART MySMART PAD V2.0
+    https://ccid.apdu.fr/ccid/supported.html#0x09BE0x0002)
+    AND the user has conifigured ifdDriverOptions in Info.plist to use a
+    specific power
+    THEN we have an infinite loop.
+    
+    Thanks to Maksim Ivanov for the bug report
+    "[Pcsclite-muscle] Insufficient checks in CCID"
+    http://lists.infradead.org/pipermail/pcsclite-muscle/2020-August/001098.html
+    
+    " Hello,
+    
+    The CCID free software driver is missing a few checks and graceful
+    handling of some error cases:
+    
+    1. The device's |bVoltageSupport| having none of the low three bits
+    set. (The consequence of this issue is a hang in CmdPowerOn() in
+    "check_again: ... goto check_again". The specs say that the other bits
+    are reserved for future use, but theoretically this means that the
+    three lowest bits can be unset for some devices.) "
+
+ src/commands.c | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+commit 6a97cf97d01740f9473299cfeb96b2a10f4dcff6
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Aug 8 15:27:17 2020 +0200
+
+    CmdPowerOn: fix log messages
+
+ src/commands.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+commit c122e4f38cc7d1ffdb1fc0cece49145930d4634a
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu Aug 6 19:07:15 2020 +0200
+
+    Fix a potential crash in IFDHTransmitToICC()
+    
+    If IFDHTransmitToICC() is used before the card is powered on then the
+    T=1 state machine is not yet initialized and a crash will happen when
+    dereferencing the checksum function pointer in t1_compute_checksum().
+    
+    This will never happen when the driver is used with pcsc-lite. But it is
+    always safe to fix a potential bug.
+    
+    The problem has been found by an automatic buzzer.
+    
+    Thanks to Maksim Ivanov for the bug report
+
+ src/ifdhandler.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+commit 462c7af863468cbb0be3a65e0f2380ac88cf1f0b
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Aug 5 16:31:44 2020 +0200
+
+    Fix compiler warning
+    
+    ccid.c:702:3: warning: expression result unused [-Wunused-value]
+            (log_level);
+             ^~~~~~~~~
+
+ src/ccid.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit 7ecac620f8e64267e0bd152b40da20bd95d55fa1
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Aug 5 16:07:52 2020 +0200
+
+    T0ProcACK(): Fix a potential integer underflow
+    
+    The problem was in the funtion T0ProcACK() that is used for a Character
+    level reader (not TPDU or APDU reader). This is a very rare
+    configuration. I only have 6 such readers in my list:
+    https://ccid.apdu.fr/select_readers/?dwFeatures=11
+    
+    The problem has been found by an automatic buzzer, not by a real problem
+    in the field.
+    
+    Thanks to Maksim Ivanov for the bug report
+
+ src/commands.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+commit 94bddf6e40fa1e75f934e299d24fe126f4f91b68
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Aug 5 10:38:38 2020 +0200
+
+    INSTALL: use /etc/reader.conf.d/ instead of /etc/reader.conf
+    
+    /etc/reader.conf is deprecated and should not be used anymore.
+    
+    Thanks to ronie19 for the bug report
+    " Add Microchip SEC1210 UART support. "
+    https://github.com/LudovicRousseau/CCID/commit/ec652d249dc81c647bf80d5d3c21665ef00c6d8b#commitcomment-41185440
+
+ INSTALL | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+commit 4d5cbf703c268b31c734931166c52dcb9920c0fe
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Mon Jun 29 17:35:30 2020 +0200
+
+    INSTALL: document configuration for Microchip SEC1210
+    
+    The Microchip SEC1210 on serial port need to use (or equivalent)
+    DEVICENAME /dev/ttyS0:SEC1210
+
+ INSTALL | 1 +
+ 1 file changed, 1 insertion(+)
+
+commit 4a0359f22ed0dc668d09459c2be97009e5669969 (tag: 1.4.33)
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu Jun 25 20:17:51 2020 +0200
+
+    Release 1.4.33
+
+ README.md    | 11 +++++++++++
+ configure.ac |  2 +-
+ 2 files changed, 12 insertions(+), 1 deletion(-)
+
+commit cf394e8cb34b20665d2966ca4e4af41f14e283de
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu Jun 25 20:09:31 2020 +0200
+
+    Add Swissbit Secure USB PU-50n SE/PE
+
+ readers/Swissbit_Secure_USB_PU-50n_SE-PE.txt | 53 ++++++++++++++++++++++++++++
+ readers/supported_readers.txt                |  5 ++-
+ 2 files changed, 57 insertions(+), 1 deletion(-)
+
+commit e36702a474a853d1a398ae552486db7ece545593
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu Jun 18 09:44:25 2020 +0200
+
+    Add TOPPAN FORMS CO.,LTD TC63CUT021
+
+ readers/TOPPAN_FORMS_TC63CUT021.txt | 568 ++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt       |   5 +-
+ 2 files changed, 572 insertions(+), 1 deletion(-)
+
+commit c11a42753125a8de8a4746afcbb5b15426509416
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Mon Jun 15 15:35:24 2020 +0200
+
+    Add Genesys Logic CCID Card Reader (idProduct: 0x0771)
+
+ readers/Genesys_Logic_CCID_Card_Reader_0x0771.txt | 112 ++++++++++++++++++++++
+ readers/supported_readers.txt                     |   3 +-
+ 2 files changed, 114 insertions(+), 1 deletion(-)
+
+commit e782d48c44ac6f6c703f69d007cf26d5bdee06bd
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Tue May 26 17:10:33 2020 +0200
+
+    macOS: use --enable-oslog for macOS >= 10.12
+    
+    Use the new logging mechanism for macOS >= 10.12 (Sierra).
+
+ MacOSX/configure | 10 ++++++++--
+ 1 file changed, 8 insertions(+), 2 deletions(-)
+
+commit 5b9ac9c9e121111268bc36b9c0bc81bf5a451c02
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Tue May 26 17:04:36 2020 +0200
+
+    debug: add support of os_log(3) for macOS
+    
+    macOS uses a new logging mechanism to replace systlog().
+    
+    You can see the log traces using:
+    log stream --predicate 'process == "com.apple.ifdreader"'
+    or
+    log stream --predicate 'process == "com.apple.ifdreader"' --debug
+
+ src/ccid.c  |  5 +++++
+ src/debug.c | 57 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ src/debug.h | 31 +++++++++++++++++++++++++++++++
+ 3 files changed, 93 insertions(+)
+
+commit 63fc3fcaf9260ecd03e0a46828552f9da5805087
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Tue May 26 17:01:51 2020 +0200
+
+    configure: add --enable-oslog argument
+    
+    Define USE_OS_LOG when --enable-oslog is used.
+
+ configure.ac | 12 +++++++++++-
+ 1 file changed, 11 insertions(+), 1 deletion(-)
+
+commit fd2511e53e53845011091b902a9df2e067f5ed7e
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Tue May 26 11:58:29 2020 +0200
+
+    towitoko: do not use "bool" type
+    
+    Use an explicit "int" in the source code.
+    
+    Compilation fails on macOS when <os/log.h> is used.
+    
+    ./towitoko/defines.h:52:28: error: cannot combine with previous 'int'
+          declaration specifier
+    typedef int                bool;
+                               ^
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/clang/11.0.0/include/stdbool.h:31:14: note:
+          expanded from macro 'bool'
+                 ^
+    In file included from ifdhandler.c:49:
+    In file included from ./towitoko/atr.h:26:
+    ./towitoko/defines.h:52:1: warning: typedef requires a name
+          [-Wmissing-declarations]
+    typedef int                bool;
+    ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+ src/towitoko/atr.h     | 2 +-
+ src/towitoko/defines.h | 4 ----
+ src/towitoko/pps.c     | 4 ++--
+ 3 files changed, 3 insertions(+), 7 deletions(-)
+
+commit 4350da44df0c2735b13eaa8201501f50ebd992fd
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat May 16 16:53:38 2020 +0200
+
+    Update PCSC submodule to get Unicode support
+
+ PCSC | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit d8a7f95ff5719e151b862fe08cc9963553f6ca99
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Mon May 11 23:50:17 2020 +0200
+
+    Move CHERRY SECURE BOARD 1.0 in supported list
+
+ readers/supported_readers.txt | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+commit 008f2c5b0dee0f22097acfba9e7ae3728fc3d680
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Apr 29 15:18:10 2020 +0200
+
+    HID_OMNIKEY_5422.txt: updated CCID descriptor
+
+ readers/HID_OMNIKEY_5422.txt | 21 ++++++++++++++-------
+ 1 file changed, 14 insertions(+), 7 deletions(-)
+
+commit c6e4c082b2e895be03c5d1a5e4fb7965d04ce997
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Apr 24 11:50:50 2020 +0200
+
+    Fix typo in comment
+
+ examples/scardcontrol.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit a940d8994864e186ee7cc8ff01d8dac050af9f56
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Apr 22 14:52:34 2020 +0200
+
+    Fix compiler warning
+    
+    scardcontrol.c:851:27: warning: format ‘%d’ expects argument of type ‘int’, but argument 2 has type ‘DWORD’ {aka ‘long unsigned int’} [-Wformat=]
+      printf(" card response [%d bytes]:", length);
+                              ~^           ~~~~~~
+                              %ld
+
+ examples/scardcontrol.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit 8f33a2ff60919f579ee17012e91f927491ef70be (tag: 1.4.32)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Wed Apr 22 11:14:30 2020 +0200
 
@@ -9,7 +1018,7 @@ Date:   Wed Apr 22 11:14:30 2020 +0200
  ylwrap | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-commit 6d5c45d826219ded210e0dcf0038ccb632b036a9 (zotac/master)
+commit 6d5c45d826219ded210e0dcf0038ccb632b036a9
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Wed Apr 22 11:12:28 2020 +0200
 
@@ -162,7 +1171,7 @@ Date:   Wed Apr 15 11:21:15 2020 +0200
  src/ccid_usb.c | 4 +++-
  1 file changed, 3 insertions(+), 1 deletion(-)
 
-commit 4c8c809751211d35f4d417e1b086a554a79fd6e6 (github/master, usb)
+commit 4c8c809751211d35f4d417e1b086a554a79fd6e6 (usb)
 Author: Stephan Guilloux (home) <stephan.guilloux@crisalid.com>
 Date:   Tue Apr 14 13:19:45 2020 +0200
 
@@ -683,7 +1692,7 @@ Date:   Wed Aug 28 14:11:15 2019 +0200
  src/ccid.h | 3 +++
  2 files changed, 6 insertions(+)
 
-commit 743e9a9daf4dd27128eb6be8b13562f0ea695fd5 (tag: ccid-1.4.31)
+commit 743e9a9daf4dd27128eb6be8b13562f0ea695fd5 (tag: 1.4.31)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Sat Aug 10 11:49:32 2019 +0200
 
@@ -1014,7 +2023,7 @@ Date:   Mon Sep 24 21:00:04 2018 +0200
  readers/supported_readers.txt |   3 +-
  2 files changed, 312 insertions(+), 1 deletion(-)
 
-commit db45750ebb2ce8d841f8e555e79f09108527aaa8 (tag: ccid-1.4.30)
+commit db45750ebb2ce8d841f8e555e79f09108527aaa8 (tag: 1.4.30)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Wed Sep 19 09:33:32 2018 +0200
 
@@ -1464,7 +2473,7 @@ Date:   Fri Feb 23 23:23:30 2018 +0100
  readers/supported_readers.txt        |  3 +-
  2 files changed, 66 insertions(+), 1 deletion(-)
 
-commit 7ab9a8b3d2c91a9588388c489252628afc0469d0 (tag: ccid-1.4.29)
+commit 7ab9a8b3d2c91a9588388c489252628afc0469d0 (tag: 1.4.29)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Wed Feb 21 09:43:01 2018 +0100
 
@@ -1672,7 +2681,7 @@ Date:   Fri Oct 20 17:46:08 2017 +0200
  src/ifdhandler.c | 81 --------------------------------------------------------
  1 file changed, 81 deletions(-)
 
-commit 70379da0cf79444d7035e0f42bea6f759f0a0886 (tag: ccid-1.4.28)
+commit 70379da0cf79444d7035e0f42bea6f759f0a0886 (tag: 1.4.28)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Wed Oct 11 14:00:57 2017 +0200
 
@@ -1975,7 +2984,7 @@ Date:   Mon Jun 12 18:40:37 2017 +0200
  readers/supported_readers.txt         |  5 +++-
  2 files changed, 57 insertions(+), 1 deletion(-)
 
-commit a7dcbf296492f5056e1ba7abb8388531bb0a6708 (tag: ccid-1.4.27)
+commit a7dcbf296492f5056e1ba7abb8388531bb0a6708 (tag: 1.4.27)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Sun May 21 14:41:20 2017 +0200
 
@@ -2445,7 +3454,7 @@ Date:   Sat Jan 7 16:04:17 2017 +0100
  README | 1 -
  1 file changed, 1 deletion(-)
 
-commit 666a72c342f433fda1b77ff815fdfe728afc3ce7 (tag: ccid-1.4.26)
+commit 666a72c342f433fda1b77ff815fdfe728afc3ce7 (tag: 1.4.26)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Sat Jan 7 15:44:45 2017 +0100
 
@@ -2783,7 +3792,7 @@ Date:   Fri Sep 30 10:48:43 2016 +0200
  src/ifdhandler.c | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-commit 3da71e26b368b39814618a83c2fc64e492941dc4 (tag: ccid-1.4.25)
+commit 3da71e26b368b39814618a83c2fc64e492941dc4 (tag: 1.4.25)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Fri Sep 30 10:36:54 2016 +0200
 
@@ -3256,7 +4265,7 @@ Date:   Sun May 22 18:08:19 2016 +0200
  README | 1 +
  1 file changed, 1 insertion(+)
 
-commit a1197c49cee479f4187dfd05c900224b99127e17 (tag: ccid-1.4.24)
+commit a1197c49cee479f4187dfd05c900224b99127e17 (tag: 1.4.24)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Sun May 22 17:07:03 2016 +0200
 
@@ -3429,7 +4438,7 @@ Date:   Fri Apr 22 14:59:21 2016 +0200
  src/ccid_usb.c | 8 ++++----
  1 file changed, 4 insertions(+), 4 deletions(-)
 
-commit d636d54fdd07b416f591f28d84c6f0e3f4bda4f9 (tag: ccid-1.4.23)
+commit d636d54fdd07b416f591f28d84c6f0e3f4bda4f9 (tag: 1.4.23)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Wed Apr 20 10:04:45 2016 +0200
 
@@ -3699,7 +4708,7 @@ Date:   Sun Jan 10 17:21:59 2016 +0100
  MacOSX/configure | 4 ++++
  1 file changed, 4 insertions(+)
 
-commit 894b184b85c6c45b017a0ea9bef6b3892d207942 (tag: ccid-1.4.22)
+commit 894b184b85c6c45b017a0ea9bef6b3892d207942 (tag: 1.4.22)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Sun Jan 10 14:40:02 2016 +0100
 
@@ -4365,7 +5374,7 @@ Date:   Thu Oct 22 18:14:20 2015 +0200
  readers/supported_readers.txt    |  5 +++-
  2 files changed, 57 insertions(+), 1 deletion(-)
 
-commit 65886986170191a4b825bbf4701428e2d8442f1d (tag: ccid-1.4.21)
+commit 65886986170191a4b825bbf4701428e2d8442f1d (tag: 1.4.21)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Wed Oct 21 20:38:46 2015 +0200
 
@@ -4955,7 +5964,7 @@ Date:   Fri Aug 7 20:49:15 2015 +0200
  readers/Rutoken_PINPad_in.txt                                  | 0
  9 files changed, 0 insertions(+), 0 deletions(-)
 
-commit 67b190c1c8144c60110a13fc3c07de9e8b992654 (tag: ccid-1.4.20)
+commit 67b190c1c8144c60110a13fc3c07de9e8b992654 (tag: 1.4.20)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Wed Aug 5 13:21:33 2015 +0200
 
@@ -5167,7 +6176,7 @@ Date:   Thu May 14 21:06:03 2015 +0200
  readers/supported_readers.txt        |  3 +-
  2 files changed, 58 insertions(+), 1 deletion(-)
 
-commit a2d7335d8e2ccd2b29782edc88e9d82bd67d1891 (tag: ccid-1.4.19)
+commit a2d7335d8e2ccd2b29782edc88e9d82bd67d1891 (tag: 1.4.19)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Wed May 13 09:35:00 2015 +0200
 
@@ -5955,7 +6964,7 @@ Date:   Tue Sep 30 18:27:26 2014 +0000
  readers/supported_readers.txt        |  3 +-
  2 files changed, 58 insertions(+), 1 deletion(-)
 
-commit d0742d5f32194a6a8f842ec3ca411e0e5f93db66 (tag: ccid-1.4.18)
+commit d0742d5f32194a6a8f842ec3ca411e0e5f93db66 (tag: 1.4.18)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Sat Sep 13 16:25:24 2014 +0000
 
@@ -6463,7 +7472,7 @@ Date:   Mon Jun 16 13:42:45 2014 +0000
  configure.ac | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-commit b141f937611ffdf6a13e0d4645895af020c62801 (tag: ccid-1.4.17)
+commit b141f937611ffdf6a13e0d4645895af020c62801 (tag: 1.4.17)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Wed Jun 11 13:09:57 2014 +0000
 
@@ -6668,7 +7677,7 @@ Date:   Fri Apr 11 18:46:19 2014 +0000
  src/ccid.c | 4 ++++
  1 file changed, 4 insertions(+)
 
-commit 41d0291d1e2f6e63d902253897eb8042b08fd6c8 (tag: ccid-1.4.16)
+commit 41d0291d1e2f6e63d902253897eb8042b08fd6c8 (tag: 1.4.16)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Sun Mar 23 15:13:34 2014 +0000
 
@@ -6954,7 +7963,7 @@ Date:   Tue Feb 18 19:10:10 2014 +0000
  readers/supported_readers.txt              |  5 ++-
  2 files changed, 55 insertions(+), 1 deletion(-)
 
-commit ba0142521f7defd81c94ddcad7687ef65f5e1ed1 (tag: ccid-1.4.15)
+commit ba0142521f7defd81c94ddcad7687ef65f5e1ed1 (tag: 1.4.15)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Fri Feb 14 09:19:48 2014 +0000
 
@@ -7379,7 +8388,7 @@ Date:   Tue Nov 26 13:49:00 2013 +0000
  src/debug.h | 2 ++
  1 file changed, 2 insertions(+)
 
-commit 5a7356dc29f00dc2ba6b3558fb0e1f5a499f9702 (tag: ccid-1.4.14)
+commit 5a7356dc29f00dc2ba6b3558fb0e1f5a499f9702 (tag: 1.4.14)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Mon Nov 25 18:09:17 2013 +0000
 
@@ -7576,7 +8585,7 @@ Date:   Fri Oct 18 11:41:58 2013 +0000
  readers/extra_features/README.txt                  |  5 +++
  3 files changed, 68 insertions(+)
 
-commit 02b9c1c7ec6980322745fa4ae7558fc49c4d61be (tag: ccid-1.4.13)
+commit 02b9c1c7ec6980322745fa4ae7558fc49c4d61be (tag: 1.4.13)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Wed Oct 9 10:00:52 2013 +0000
 
@@ -7884,7 +8893,7 @@ Date:   Tue Aug 20 16:40:33 2013 +0000
  readers/supported_readers.txt      |  5 +++-
  2 files changed, 56 insertions(+), 1 deletion(-)
 
-commit 9eb1d0af03e4d00ce7c3cbda8f70964752b23bd7 (tag: ccid-1.4.12)
+commit 9eb1d0af03e4d00ce7c3cbda8f70964752b23bd7 (tag: 1.4.12)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Mon Aug 12 21:43:09 2013 +0000
 
@@ -8236,7 +9245,7 @@ Date:   Wed Jun 12 12:07:54 2013 +0000
  ylwrap | 180 +++++++++++++++++++++++++++++++++++++----------------------------
  1 file changed, 102 insertions(+), 78 deletions(-)
 
-commit bb091a591b199128a06fc95427eaf5aa4e4711e8 (tag: ccid-1.4.11)
+commit bb091a591b199128a06fc95427eaf5aa4e4711e8 (tag: 1.4.11)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Wed Jun 12 11:55:52 2013 +0000
 
@@ -8924,7 +9933,7 @@ Date:   Fri Apr 26 12:20:36 2013 +0000
  readers/Broadcom_5880v2.txt | 56 +++++++++++++++++++++++++++++++++++++++++++--
  1 file changed, 54 insertions(+), 2 deletions(-)
 
-commit c5d86a9a7057397c5e31cc8e52b51298c5b26359 (tag: ccid-1.4.10)
+commit c5d86a9a7057397c5e31cc8e52b51298c5b26359 (tag: 1.4.10)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Tue Apr 16 12:43:58 2013 +0000
 
@@ -9422,7 +10431,7 @@ Date:   Tue Jan 22 17:39:58 2013 +0000
  readers/supported_readers.txt   |  3 ++-
  2 files changed, 58 insertions(+), 1 deletion(-)
 
-commit 104d711cd67a29831130cccb73772e6d8c06b16d (tag: ccid-1.4.9)
+commit 104d711cd67a29831130cccb73772e6d8c06b16d (tag: 1.4.9)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Wed Jan 16 15:11:53 2013 +0000
 
@@ -9515,7 +10524,7 @@ Date:   Sun Oct 7 11:45:35 2012 +0000
  README | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-commit 2707566229c26c4e0b25914e41f3ae9d2685c0a0 (tag: ccid-1.4.8)
+commit 2707566229c26c4e0b25914e41f3ae9d2685c0a0 (tag: 1.4.8)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Sun Oct 7 11:36:44 2012 +0000
 
@@ -9798,7 +10807,7 @@ Date:   Sat Jun 23 14:35:42 2012 +0000
  readers/CherryST1044U.txt | 12 ++++++++----
  1 file changed, 8 insertions(+), 4 deletions(-)
 
-commit aa9d7a8f584a348a554c7b0654d54e7de81de5db (tag: ccid-1.4.7)
+commit aa9d7a8f584a348a554c7b0654d54e7de81de5db (tag: 1.4.7)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Fri Jun 22 08:53:40 2012 +0000
 
@@ -10300,7 +11309,7 @@ Date:   Sun Apr 8 07:53:56 2012 +0000
  readers/supported_readers.txt |  5 +++-
  2 files changed, 57 insertions(+), 1 deletion(-)
 
-commit 55fd3abef8024d6559dc15cbdf07b02071a9ff51 (tag: ccid-1.4.6)
+commit 55fd3abef8024d6559dc15cbdf07b02071a9ff51 (tag: 1.4.6)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Fri Apr 6 16:16:19 2012 +0000
 
@@ -11209,7 +12218,7 @@ Date:   Fri Oct 14 11:50:35 2011 +0000
  readers/supported_readers.txt |   5 +-
  2 files changed, 115 insertions(+), 2 deletions(-)
 
-commit 81cee7ffb4624e625b686d04de9e086e28bf18c9 (tag: ccid-1.4.5)
+commit 81cee7ffb4624e625b686d04de9e086e28bf18c9 (tag: 1.4.5)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Tue Oct 11 20:20:53 2011 +0000
 
@@ -12090,7 +13099,7 @@ Date:   Fri May 13 09:20:47 2011 +0000
  configure.in | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-commit 97292c00843822de2328c0ab64d503cfee27b58a (tag: ccid-1.4.4)
+commit 97292c00843822de2328c0ab64d503cfee27b58a (tag: 1.4.4)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Fri May 13 08:55:51 2011 +0000
 
@@ -12375,7 +13384,7 @@ Date:   Thu Apr 7 11:49:12 2011 +0000
  src/ccid_usb.c                |  1 +
  3 files changed, 6 insertions(+), 11 deletions(-)
 
-commit 9e310c9ae9afa49c67ddf517c5e616cb2d74df80 (tag: ccid-1.4.3)
+commit 9e310c9ae9afa49c67ddf517c5e616cb2d74df80 (tag: 1.4.3)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Sat Apr 2 18:47:10 2011 +0000
 
@@ -12569,7 +13578,7 @@ Date:   Fri Feb 25 09:03:48 2011 +0000
  src/ifdhandler.c | 8 ++++----
  1 file changed, 4 insertions(+), 4 deletions(-)
 
-commit 55044cab63afc5b924c18d9107493713944e1e4d (tag: ccid-1.4.2)
+commit 55044cab63afc5b924c18d9107493713944e1e4d (tag: 1.4.2)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Tue Feb 22 22:12:51 2011 +0000
 
@@ -13282,7 +14291,7 @@ Date:   Fri Dec 10 09:14:00 2010 +0000
  readers/Todos_Connectable.txt | 54 +++++++++++++++++++++++++++++++++++++++++++
  1 file changed, 54 insertions(+)
 
-commit 8fda904ac92a3566be8c258d4304338e0c21c6ef (tag: ccid-1.4.1)
+commit 8fda904ac92a3566be8c258d4304338e0c21c6ef (tag: 1.4.1)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Fri Dec 3 14:41:27 2010 +0000
 
@@ -14046,7 +15055,7 @@ Date:   Thu Aug 5 18:09:04 2010 +0000
  configure.in | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-commit 5e4dbf89f56b7ef470db0b4bd0195e896a5be9b1 (tag: ccid-1.4.0)
+commit 5e4dbf89f56b7ef470db0b4bd0195e896a5be9b1 (tag: 1.4.0)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Wed Aug 4 13:21:33 2010 +0000
 
@@ -14639,7 +15648,7 @@ Date:   Thu Jun 10 14:48:17 2010 +0000
  src/parse.c                                        | 284 +++++-----
  6 files changed, 522 insertions(+), 534 deletions(-)
 
-commit f4d7b9877cdd55583be1b0004ba7ec0ee85a42da (tag: ccid-1.3.13)
+commit f4d7b9877cdd55583be1b0004ba7ec0ee85a42da (tag: 1.3.13)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Fri Jun 4 13:29:42 2010 +0000
 
@@ -14857,7 +15866,7 @@ Date:   Sat May 8 09:56:19 2010 +0000
  configure.in | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-commit c4bc4ddc487ff9f36491479d7084a86f042474a0 (tag: ccid-1.3.12)
+commit c4bc4ddc487ff9f36491479d7084a86f042474a0 (tag: 1.3.12)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Sat May 8 09:54:35 2010 +0000
 
@@ -16321,7 +17330,7 @@ Date:   Fri Jul 31 08:42:49 2009 +0000
  src/ccid.h | 3 +++
  1 file changed, 3 insertions(+)
 
-commit fc8b22909a9df37b6e64461a77be59949fe6d3f4 (tag: ccid-1.3.11)
+commit fc8b22909a9df37b6e64461a77be59949fe6d3f4 (tag: 1.3.11)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Tue Jul 28 20:52:50 2009 +0000
 
@@ -17539,7 +18548,7 @@ Date:   Sat Mar 7 15:50:22 2009 +0000
  README | 16 ++++++++--------
  1 file changed, 8 insertions(+), 8 deletions(-)
 
-commit 0a53d04c7c0809a692ed1b62d2a257d195699b4a (tag: ccid-1.3.10)
+commit 0a53d04c7c0809a692ed1b62d2a257d195699b4a (tag: 1.3.10)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Sat Mar 7 15:35:24 2009 +0000
 
@@ -18125,7 +19134,7 @@ Date:   Tue Nov 18 21:50:41 2008 +0000
  bootstrap | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-commit 0d1a44544d252ed615516da09e7c571ed0a3caae (tag: ccid-1.3.9)
+commit 0d1a44544d252ed615516da09e7c571ed0a3caae (tag: 1.3.9)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Tue Nov 18 15:45:30 2008 +0000
 
@@ -18982,7 +19991,7 @@ Date:   Tue Jul 29 07:22:09 2008 +0000
  readers/Makefile.am                         |  1 +
  2 files changed, 54 insertions(+)
 
-commit 0ee15cad86cc0034b8e812adb3481b6d751faaf6 (tag: ccid-1.3.8)
+commit 0ee15cad86cc0034b8e812adb3481b6d751faaf6 (tag: 1.3.8)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Fri Jun 27 15:28:44 2008 +0000
 
@@ -19292,7 +20301,7 @@ Date:   Mon Jun 9 08:17:23 2008 +0000
  reconf                         | 4 ++--
  5 files changed, 4 insertions(+), 4 deletions(-)
 
-commit c824a3209b85ba89e17ea6e6ce9f809fbe581c26 (tag: ccid-1.3.7)
+commit c824a3209b85ba89e17ea6e6ce9f809fbe581c26 (tag: 1.3.7)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Sun Jun 8 09:01:21 2008 +0000
 
@@ -19649,7 +20658,7 @@ Date:   Thu May 8 12:02:18 2008 +0000
  README | 2 ++
  1 file changed, 2 insertions(+)
 
-commit 6aa78ac743112efbcd627780758102004837dbc9 (tag: ccid-1.3.6)
+commit 6aa78ac743112efbcd627780758102004837dbc9 (tag: 1.3.6)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Wed Apr 30 12:45:12 2008 +0000
 
@@ -20093,7 +21102,7 @@ Date:   Wed Feb 27 12:02:45 2008 +0000
  readers/Vega-Alpha.txt | 51 ++++++++++++++++++++++++++++++++++++++++++++++++++
  3 files changed, 102 insertions(+)
 
-commit ace6e7d70e435b638b29efd9a5216b403974c76c (tag: ccid-1.3.5)
+commit ace6e7d70e435b638b29efd9a5216b403974c76c (tag: 1.3.5)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Fri Feb 22 13:42:27 2008 +0000
 
@@ -20330,7 +21339,7 @@ Date:   Fri Feb 8 14:58:08 2008 +0000
  src/ifdhandler.c | 4 ++--
  1 file changed, 2 insertions(+), 2 deletions(-)
 
-commit d6aea064b698be40a731039b40c8254a08372e26 (tag: ccid-1.3.4)
+commit d6aea064b698be40a731039b40c8254a08372e26 (tag: 1.3.4)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Fri Feb 8 14:43:36 2008 +0000
 
@@ -20444,7 +21453,7 @@ Date:   Thu Feb 7 07:49:12 2008 +0000
  src/ifdhandler.c | 1 +
  1 file changed, 1 insertion(+)
 
-commit 8c41cb313495cfb0cc15e6fb0519ae08479b11ca (tag: ccid-1.3.3)
+commit 8c41cb313495cfb0cc15e6fb0519ae08479b11ca (tag: 1.3.3)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Wed Feb 6 14:26:30 2008 +0000
 
@@ -20736,7 +21745,7 @@ Date:   Thu Jan 24 09:21:13 2008 +0000
  src/commands.c | 8 ++++++++
  1 file changed, 8 insertions(+)
 
-commit 0b854d9332da6192aa3b4922a97cde740d84860a (tag: ccid-1.3.2)
+commit 0b854d9332da6192aa3b4922a97cde740d84860a (tag: 1.3.2)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Tue Jan 22 19:33:39 2008 +0000
 
@@ -21023,7 +22032,7 @@ Date:   Fri Nov 16 14:43:59 2007 +0000
  README | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-commit e9335fa1741c4df27d3036fe09a57630d15727d7 (tag: ccid-1.3.1)
+commit e9335fa1741c4df27d3036fe09a57630d15727d7 (tag: 1.3.1)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Fri Nov 16 13:27:00 2007 +0000
 
@@ -21922,7 +22931,7 @@ Date:   Thu May 10 13:05:51 2007 +0000
  contrib/RSA_SecurID/RSA_SecurID_getpasswd.1 | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-commit ec316fc748c8103840fd5a1bc54c044c7258fce8 (tag: ccid-1.3.0)
+commit ec316fc748c8103840fd5a1bc54c044c7258fce8 (tag: 1.3.0)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Thu May 10 09:16:42 2007 +0000
 
@@ -22844,7 +23853,7 @@ Date:   Tue Jan 30 15:01:50 2007 +0000
  src/ccid.c | 13 +++++++++++++
  1 file changed, 13 insertions(+)
 
-commit 949365adef6369b258129c77a57b8f235031d147 (tag: ccid-1.2.1)
+commit 949365adef6369b258129c77a57b8f235031d147 (tag: 1.2.1)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Sat Jan 27 16:48:06 2007 +0000
 
@@ -22976,7 +23985,7 @@ Date:   Sat Jan 20 15:47:19 2007 +0000
  README | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-commit 1f320ef0e0e1b03bd259a666e222a08a48a2ecf4 (tag: ccid-1.2.0)
+commit 1f320ef0e0e1b03bd259a666e222a08a48a2ecf4 (tag: 1.2.0)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Fri Jan 19 19:53:39 2007 +0000
 
@@ -24072,7 +25081,7 @@ Date:   Wed Sep 6 13:49:40 2006 +0000
  src/ifdhandler.c | 15 ++++++++++++++-
  1 file changed, 14 insertions(+), 1 deletion(-)
 
-commit c408dd5db5aab9566dd9f1f8c191252c739b4b73 (tag: ccid-1.1.0)
+commit c408dd5db5aab9566dd9f1f8c191252c739b4b73 (tag: 1.1.0)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Fri Aug 11 17:20:57 2006 +0000
 
@@ -24830,7 +25839,7 @@ Date:   Sat Apr 22 15:54:22 2006 +0000
  src/Makefile.am | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-commit f16c909b3da4869eb00a221e3907001d1bb3295d (tag: ccid-1.0.1)
+commit f16c909b3da4869eb00a221e3907001d1bb3295d (tag: 1.0.1)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Sat Apr 22 15:31:05 2006 +0000
 
@@ -25314,7 +26323,7 @@ Date:   Mon Mar 6 09:09:19 2006 +0000
  configure.in | 4 ++++
  1 file changed, 4 insertions(+)
 
-commit e6475898991f0e9c9414c8e2823f7bb7e0b55d46 (tag: ccid-1.0.0)
+commit e6475898991f0e9c9414c8e2823f7bb7e0b55d46 (tag: 1.0.0)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Fri Mar 3 17:21:52 2006 +0000
 
@@ -26417,7 +27426,7 @@ Date:   Tue Nov 29 09:15:13 2005 +0000
  configure.in | 6 +++---
  1 file changed, 3 insertions(+), 3 deletions(-)
 
-commit 11516ae737ce5122394b474dcb852b9959735c90 (tag: ccid-0.9.4)
+commit 11516ae737ce5122394b474dcb852b9959735c90 (tag: 0.9.4)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Sun Nov 27 19:44:29 2005 +0000
 
@@ -28537,7 +29546,7 @@ Date:   Thu Mar 17 10:11:14 2005 +0000
  configure.in | 13 +++++++------
  1 file changed, 7 insertions(+), 6 deletions(-)
 
-commit f9148888fe39c6844f932c3261706bc71419373d (tag: ccid-0.9.3)
+commit f9148888fe39c6844f932c3261706bc71419373d (tag: 0.9.3)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Mon Mar 14 19:36:21 2005 +0000
 
@@ -29785,7 +30794,7 @@ Date:   Tue Aug 17 16:56:19 2004 +0000
  src/Info.plist | 4 ++--
  1 file changed, 2 insertions(+), 2 deletions(-)
 
-commit 430640bfea8afad3464fcc6113db8c53da9a6ced (tag: ccid-0.9.2)
+commit 430640bfea8afad3464fcc6113db8c53da9a6ced (tag: 0.9.2)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Sun Aug 15 20:43:59 2004 +0000
 
@@ -30911,7 +31920,7 @@ Date:   Fri Jul 2 12:06:44 2004 +0000
  src/openct/README | 7 +++++++
  1 file changed, 7 insertions(+)
 
-commit 264cf2ce141bf47385d841360d584e64b1a74187 (tag: ccid-0.9.1)
+commit 264cf2ce141bf47385d841360d584e64b1a74187 (tag: 0.9.1)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Thu Jul 1 11:42:39 2004 +0000
 
@@ -31019,7 +32028,7 @@ Date:   Wed Jun 30 14:41:18 2004 +0000
  src/towitoko/COPYING | 504 +++++++++++++++++++++++++++++++++++++++++++++++++++
  1 file changed, 504 insertions(+)
 
-commit 87f903f5610a480864f9357bfd8c22abc7c9ae6d (tag: ccid-0.9.0)
+commit 87f903f5610a480864f9357bfd8c22abc7c9ae6d (tag: 0.9.0)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Wed Jun 30 14:06:29 2004 +0000
 
@@ -32235,7 +33244,7 @@ Date:   Tue Apr 6 06:52:34 2004 +0000
  src/ifdhandler.c | 74 ++++++++++++++++++++++++++++++++------------------------
  1 file changed, 42 insertions(+), 32 deletions(-)
 
-commit c986e5c2d69e352d3bd3d70f2191fc0eea50ec02 (tag: ccid-0.4.2)
+commit c986e5c2d69e352d3bd3d70f2191fc0eea50ec02 (tag: 0.4.2)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Mon Apr 5 09:56:52 2004 +0000
 
@@ -32413,7 +33422,7 @@ Date:   Tue Feb 24 21:16:51 2004 +0000
  Makefile.am | 8 ++++----
  1 file changed, 4 insertions(+), 4 deletions(-)
 
-commit 836596b64355779eaa919338ca9ae86758c88d38 (tag: ccid-0.4.1)
+commit 836596b64355779eaa919338ca9ae86758c88d38 (tag: 0.4.1)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Sat Feb 14 12:46:18 2004 +0000
 
@@ -32461,7 +33470,7 @@ Date:   Sat Feb 14 12:26:09 2004 +0000
  src/Makefile.am | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-commit 34a5f203544fa61cd8ebc39091120bfd78df6e36 (tag: ccid-0.4.0)
+commit 34a5f203544fa61cd8ebc39091120bfd78df6e36 (tag: 0.4.0)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Fri Feb 13 07:58:21 2004 +0000
 
@@ -33372,7 +34381,7 @@ Date:   Tue Nov 4 22:20:28 2003 +0000
  README | 2 ++
  1 file changed, 2 insertions(+)
 
-commit 62d5599a12f167a7452771caf9007510b76ccc90 (tag: ccid-0.3.2)
+commit 62d5599a12f167a7452771caf9007510b76ccc90 (tag: 0.3.2)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Tue Nov 4 22:16:38 2003 +0000
 
@@ -33583,7 +34592,7 @@ Date:   Tue Oct 28 16:51:37 2003 +0000
  src/commands.c | 6 ++++--
  1 file changed, 4 insertions(+), 2 deletions(-)
 
-commit 91491164758800c36ad6e8515889114cc1e6d613 (tag: ccid-0.3.1)
+commit 91491164758800c36ad6e8515889114cc1e6d613 (tag: 0.3.1)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Tue Sep 23 07:54:56 2003 +0000
 
@@ -33806,7 +34815,7 @@ Date:   Wed Sep 10 16:15:06 2003 +0000
  README | 5 +++--
  1 file changed, 3 insertions(+), 2 deletions(-)
 
-commit 5bb97c792ea0059af20ca01acbee48ecc81c4e46 (tag: ccid-0.3.0)
+commit 5bb97c792ea0059af20ca01acbee48ecc81c4e46 (tag: 0.3.0)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Wed Sep 10 12:27:28 2003 +0000
 
@@ -34091,7 +35100,7 @@ Date:   Wed Aug 27 06:53:56 2003 +0000
  src/capabilities.c | 30 ------------------------------
  3 files changed, 1 insertion(+), 32 deletions(-)
 
-commit 75f9cf942f47aff203b9fbd2715ccd77a19628fb (tag: ccid-0.2.0)
+commit 75f9cf942f47aff203b9fbd2715ccd77a19628fb (tag: 0.2.0)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Tue Aug 26 20:16:00 2003 +0000
 
@@ -34368,7 +35377,7 @@ Date:   Wed Aug 13 13:46:09 2003 +0000
  INSTALL | 58 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
  1 file changed, 58 insertions(+)
 
-commit 2581d621ab7f6a02033ed652bdafad9fdf5df30f (tag: ccid-0.1.0)
+commit 2581d621ab7f6a02033ed652bdafad9fdf5df30f (tag: 0.1.0)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Tue Aug 12 22:15:01 2003 +0000
 

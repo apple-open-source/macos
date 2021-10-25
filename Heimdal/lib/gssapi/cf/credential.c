@@ -92,7 +92,7 @@ OM_uint32 GSSAPI_LIB_FUNCTION
 gss_aapl_initial_cred(__nonnull const gss_name_t desired_name,
 		      __nonnull gss_const_OID desired_mech,
 		      __nullable CFDictionaryRef attributes,
-		      __nonnull gss_cred_id_t * __nullable output_cred_handle,
+		      __nullable gss_cred_id_t * __nonnull output_cred_handle,
 		      __nullable CFErrorRef *__nullable error)
 {
     OM_uint32 major_status, minor_status;

@@ -114,9 +114,12 @@
 		9F67ED4101B842340ECA2C3D /* control.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = control.c; sourceTree = "<group>"; };
 		9FF22D1E026652BA0ECA2C3D /* kext_glue.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = kext_glue.cpp; sourceTree = "<group>"; };
 		D30AF03520F5382C00C099E9 /* IOKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOKit.framework; path = System/Library/Frameworks/IOKit.framework; sourceTree = SDKROOT; };
+		D3192AC825E9708200098320 /* bc_allocations */ = {isa = PBXFileReference; lastKnownFileType = text.script.perl; path = bc_allocations; sourceTree = "<group>"; };
 		D3C0387E1E899E4F007533A8 /* bc_utils.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = bc_utils.cpp; sourceTree = "<group>"; };
 		D3C038801E89A0D1007533A8 /* bc_utils.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = bc_utils.h; sourceTree = "<group>"; };
+		D3CE11ED265466A600FF3338 /* gather_boot_data.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = gather_boot_data.sh; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.sh; };
 		D3D50D9B22A1D7BF002DE532 /* APFS.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = APFS.framework; path = System/Library/PrivateFrameworks/APFS.framework; sourceTree = SDKROOT; };
+		D3E001BB265C5AB700F78CBC /* fs_usage_dup_blocks_apfs */ = {isa = PBXFileReference; lastKnownFileType = text.script.perl; path = fs_usage_dup_blocks_apfs; sourceTree = "<group>"; };
 		D3F66DDD1F9132590024CC3E /* BootCache_debug.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = BootCache_debug.h; sourceTree = "<group>"; };
 		D3F66E541F9FE76D0024CC3E /* kext.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; path = kext.xcconfig; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -155,6 +158,7 @@
 			children = (
 				9F3E16B701FF60D80ECA2C3D /* Classes */,
 				247142CAFF3F8F9811CA285C /* Source */,
+				D3192AC725E9704B00098320 /* Debugging Tools */,
 				089C167CFE841241C02AAC07 /* Resources */,
 				19C28FB6FE9D52B211CA2CBB /* Products */,
 				72565F271331B395008CA43A /* Libraries */,
@@ -169,6 +173,8 @@
 			children = (
 				D3F66E541F9FE76D0024CC3E /* kext.xcconfig */,
 				72DE477E13AC15F400CAA790 /* convert_playlist_to_logical_playlist.sh */,
+				D3CE11ED265466A600FF3338 /* gather_boot_data.sh */,
+				D3E001BB265C5AB700F78CBC /* fs_usage_dup_blocks_apfs */,
 				7294709713AADB3300FD8E8C /* LoginExtra.logical_playlist */,
 				7223F8DA13AA82A8006C4DB0 /* RootExtra.logical_playlist */,
 				7246077213A9818100DDF965 /* Root.logical_playlist */,
@@ -231,6 +237,14 @@
 				D30AF03520F5382C00C099E9 /* IOKit.framework */,
 			);
 			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		D3192AC725E9704B00098320 /* Debugging Tools */ = {
+			isa = PBXGroup;
+			children = (
+				D3192AC825E9708200098320 /* bc_allocations */,
+			);
+			name = "Debugging Tools";
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -332,7 +346,7 @@
 			isa = PBXProject;
 			attributes = {
 				DefaultBuildSystemTypeForWorkspace = Latest;
-				LastUpgradeCheck = 1200;
+				LastUpgradeCheck = 1300;
 			};
 			buildConfigurationList = 42F550340A77D4BD00672F71 /* Build configuration list for PBXProject "BootCache" */;
 			compatibilityVersion = "Xcode 3.2";
@@ -392,7 +406,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi\n";
 		};
 		89F255870DAABEAD00CA7984 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -401,7 +415,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi\n";
 		};
 		C669CB370DF4A8900082DED3 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -489,7 +503,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 153;
+				CURRENT_PROJECT_VERSION = 158;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
@@ -507,7 +521,11 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				OTHER_CFLAGS = "-DBC_DEBUG";
+				OTHER_CFLAGS = (
+					"-enable-trivial-auto-var-init-zero-knowing-it-will-be-removed-from-clang",
+					"-ftrivial-auto-var-init=zero",
+					"-DBC_DEBUG",
+				);
 				SDKROOT = macosx.internal;
 				STRIP_INSTALLED_PRODUCT = NO;
 				SYSTEM_FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
@@ -518,6 +536,7 @@
 					"-Wno-four-char-constants",
 					"-Wno-unknown-pragmas",
 					"-Wno-error=#warnings",
+					"-Wno-error=frame-larger-than=",
 				);
 			};
 			name = Development;
@@ -545,7 +564,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 153;
+				CURRENT_PROJECT_VERSION = 158;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				GCC_MODEL_TUNING = "";
@@ -559,6 +578,10 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
+				OTHER_CFLAGS = (
+					"-enable-trivial-auto-var-init-zero-knowing-it-will-be-removed-from-clang",
+					"-ftrivial-auto-var-init=zero",
+				);
 				SDKROOT = macosx.internal;
 				SYSTEM_FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
 				SYSTEM_HEADER_SEARCH_PATHS = "$(SDKROOT)/usr/local/include";
@@ -568,6 +591,7 @@
 					"-Wno-four-char-constants",
 					"-Wno-unknown-pragmas",
 					"-Wno-error=#warnings",
+					"-Wno-error=frame-larger-than=",
 				);
 			};
 			name = Default;
@@ -624,20 +648,25 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = D3F66E541F9FE76D0024CC3E /* kext.xcconfig */;
 			buildSettings = {
-				CLANG_ANALYZER_DEADCODE_DEADSTORES = NO;
-				CLANG_ANALYZER_DIVIDE_BY_ZERO = NO;
-				CLANG_ANALYZER_NULL_DEREFERENCE = NO;
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				COMBINE_HIDPI_IMAGES = YES;
+				GCC_OPTIMIZATION_LEVEL = s;
 				INFOPLIST_FILE = "Info-BootCache_kext.plist";
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.BootCache;
-				MODULE_VERSION = 153;
+				MODULE_VERSION = 158;
 				OTHER_REZFLAGS = "";
 				PRODUCT_BUNDLE_IDENTIFIER = com.apple.BootCache;
 				PRODUCT_NAME = BootCache;
-				RUN_CLANG_STATIC_ANALYZER = YES;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+					"-Wno-error=#warnings",
+					"-Wno-error=frame-larger-than=",
+					"-Wframe-larger-than=768",
+				);
 				WRAPPER_EXTENSION = kext;
 			};
 			name = Development;
@@ -652,10 +681,18 @@
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.BootCache;
-				MODULE_VERSION = 153;
+				MODULE_VERSION = 158;
 				OTHER_REZFLAGS = "";
 				PRODUCT_BUNDLE_IDENTIFIER = com.apple.BootCache;
 				PRODUCT_NAME = BootCache;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+					"-Wno-error=#warnings",
+					"-Wno-error=frame-larger-than=",
+					"-Wframe-larger-than=768",
+				);
 				WRAPPER_EXTENSION = kext;
 			};
 			name = Default;

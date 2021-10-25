@@ -2,7 +2,7 @@
 .\"
 .Dd June 28, 2012
 .Dt LTOP 1
-.Os "Mac OS X"
+.Os "macOS"
 .Sh NAME
 .Nm ltop
 .Nd Display ledger information for processes on the system
@@ -20,7 +20,8 @@
 .Ek
 .Sh DESCRIPTION
 .Nm ltop
-displays the contents of system ledgers maintained by the kernel for each process in the system. Ledgers are a general accounting mechanism that the kernel uses to track and limit things like CPU time and memory usage.
+displays the contents of system ledgers maintained by the kernel for each process in the system.
+Ledgers are a general accounting mechanism that the kernel uses to track and limit things like CPU time and memory usage.
 .Pp
 If the optional
 .Ar interval
@@ -37,7 +38,8 @@ In conjunction with
 display the rate of change for each value, as compared to the previous sample displayed.
 .\" ==========
 .It Fl L
-Display template info. Shows which resources are tracked, and lists the associated units.
+Display template info.
+Shows which resources are tracked, and lists the associated units.
 .\" ==========
 .It Fl g Ar group
 Only display info for the ledgers associated with
@@ -56,4 +58,4 @@ Only display info for resource
 .\" ==========
 .El
 .Sh SEE ALSO
-.Xr top 1 
+.Xr top 1

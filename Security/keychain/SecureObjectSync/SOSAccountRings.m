@@ -141,6 +141,7 @@ bool SOSAccountUpdateNamedRing(SOSAccount* account, CFStringRef ringName, CFErro
                                       SOSRingRef (^create)(CFStringRef ringName, CFErrorRef *error),
                                       SOSRingRef (^copyModified)(SOSRingRef existing, CFErrorRef *error)) {
     if(![account isInCircle:NULL]) {
+        SOSErrorCreate(kSOSErrorNoCircle, error, NULL, CFSTR("Not in circle, won't update ring"));
         return false;
     }
     bool result = false;
@@ -158,6 +159,9 @@ bool SOSAccountUpdateNamedRing(SOSAccount* account, CFStringRef ringName, CFErro
     }
     CFReleaseNull(found);
     CFReleaseNull(newRing);
+    if(result && error && *error) {
+        CFReleaseNull(*error);
+    }
     return result;
 }
 

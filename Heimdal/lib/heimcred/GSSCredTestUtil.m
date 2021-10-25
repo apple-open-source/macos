@@ -678,14 +678,14 @@
     });
 
     //dispatch to main to prevent concurrency issues with the event threads.
-    dispatch_sync(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+//    dispatch_sync(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
 	@synchronized (_lock) {
 	    if (HeimCredCTX.needFlush) {
 		HeimCredCTX.needFlush = false;
 		storeCredCache();
 	    }
 	}
-    });
+//    });
 }
 
 

@@ -40,6 +40,16 @@
 
 #import <Foundation/NSData_Private.h>
 
+@interface CKKSKey ()
+@property (nullable) CKKSKeychainBackedKey* keycore;
+@property NSData* wrappedKeyDataBackingStore;
+
+// make writable
+@property NSString* uuid;
+@property NSString* parentKeyUUID;
+@property CKKSKeyClass* keyclass;
+@end
+
 @implementation CKKSKey
 
 - (instancetype)init {
@@ -60,13 +70,22 @@
                            encodedCKRecord:encodedrecord
                                     zoneID:zoneID])) {
 
-        _keycore = [[CKKSKeychainBackedKey alloc] initSelfWrappedWithAESKey:aeskey
-                                                                       uuid:uuid
-                                                                   keyclass:keyclass
-                                                                     zoneID:zoneID];
+        _uuid = uuid;
+        _parentKeyUUID = uuid;
+        _keyclass = keyclass;
+
+        NSError* localerror = nil;
+        _keycore = [CKKSKeychainBackedKey keyWrappedBySelf:aeskey
+                                                      uuid:uuid
+                                                  keyclass:keyclass
+                                                    zoneID:zoneID
+                                                     error:&localerror];
+
         if(!_keycore) {
             return nil;
         }
+
+        _wrappedKeyDataBackingStore = _keycore.wrappedkey.wrappedData;
 
         _currentkey = !!currentkey;
         _state = state;
@@ -74,51 +93,23 @@
     return self;
 }
 
-- (instancetype) initWrappedBy: (CKKSKey*) wrappingKey
-                        AESKey: (CKKSAESSIVKey*) aeskey
-                          uuid: (NSString*) uuid
-                      keyclass: (CKKSKeyClass*)keyclass
-                         state: (CKKSProcessedState*) state
-                        zoneID: (CKRecordZoneID*) zoneID
-               encodedCKRecord: (NSData*) encodedrecord
-                    currentkey: (NSInteger) currentkey
-{
-    if((self = [super initWithCKRecordType:SecCKRecordIntermediateKeyType
-                          encodedCKRecord:encodedrecord
-                                   zoneID:zoneID])) {
-        _keycore = [[CKKSKeychainBackedKey alloc] initWrappedBy:wrappingKey.keycore
-                                                         AESKey:aeskey
-                                                           uuid:uuid
-                                                       keyclass:keyclass
-                                                         zoneID:zoneID];
-        if(!_keycore) {
-            return nil;
-        }
-
-        _currentkey = !!currentkey;
-        _state = state;
-    }
-    return self;
-}
-
-- (instancetype) initWithWrappedAESKey: (CKKSWrappedAESSIVKey*) wrappedaeskey
-                                  uuid: (NSString*) uuid
-                         parentKeyUUID: (NSString*) parentKeyUUID
-                              keyclass: (CKKSKeyClass*)keyclass
-                                 state: (CKKSProcessedState*) state
-                                zoneID: (CKRecordZoneID*) zoneID
-                       encodedCKRecord: (NSData*) encodedrecord
-                            currentkey: (NSInteger) currentkey
+- (instancetype)initWithWrappedKeyData:(NSData*)wrappedKeyData
+                                  uuid:(NSString*)uuid
+                         parentKeyUUID:(NSString*)parentKeyUUID
+                              keyclass:(CKKSKeyClass*)keyclass
+                                 state:(CKKSProcessedState*)state
+                                zoneID:(CKRecordZoneID*)zoneID
+                       encodedCKRecord:(NSData*)encodedrecord
+                            currentkey:(NSInteger)currentkey
 {
     if((self = [super initWithCKRecordType:SecCKRecordIntermediateKeyType
                            encodedCKRecord:encodedrecord
                                     zoneID:zoneID])) {
 
-        _keycore = [[CKKSKeychainBackedKey alloc] initWithWrappedAESKey:wrappedaeskey
-                                                                   uuid:uuid
-                                                          parentKeyUUID:parentKeyUUID
-                                                               keyclass:keyclass
-                                                                 zoneID:zoneID];
+        _wrappedKeyDataBackingStore = wrappedKeyData;
+        _uuid = uuid;
+        _parentKeyUUID = parentKeyUUID;
+        _keyclass = keyclass;
 
         _currentkey = !!currentkey;
         _state = state;
@@ -127,13 +118,21 @@
 }
 
 - (instancetype)initWithKeyCore:(CKKSKeychainBackedKey*)core
+                          state:(CKKSProcessedState*)state
+                     currentkey:(bool)currentkey
 {
     if((self = [super initWithCKRecordType:SecCKRecordIntermediateKeyType
                            encodedCKRecord:nil
                                     zoneID:core.zoneID])) {
         _keycore = core;
-        _currentkey = false;
-        _state = SecCKKSProcessedStateRemote;
+        _wrappedKeyDataBackingStore = _keycore.wrappedkey.wrappedData;
+
+        _uuid = core.uuid;
+        _parentKeyUUID = core.parentKeyUUID;
+        _keyclass = core.keyclass;
+
+        _currentkey = currentkey;
+        _state = state;
     }
     return self;
 }
@@ -149,66 +148,76 @@
     CKKSKey* obj = (CKKSKey*)object;
 
     // Equality ignores state, currentkey, and CK record differences. Be careful...
-    return [self.keycore isEqual:obj.keycore] ? YES : NO;
+    return [self.uuid isEqualToString:obj.uuid] &&
+        [self.parentKeyUUID isEqualToString:obj.parentKeyUUID] &&
+        [self.wrappedKeyData isEqualToData:obj.wrappedKeyData] &&
+        [self.zoneID isEqual:obj.zoneID] &&
+        [self.keyclass isEqual:obj.keyclass]
+        ? YES : NO;
 }
 
-// These used to be properties on CKKSKey, but are now properties on the actual key inside
-- (NSString*)uuid
+- (CKKSKeychainBackedKey* _Nullable)getKeychainBackedKey:(NSError**)error
 {
-    return self.keycore.uuid;
+    if(self.keycore) {
+        return self.keycore;
+    }
+
+    if(self.wrappedKeyDataBackingStore.length != CKKSWrappedKeySize) {
+        if(error) {
+            *error = [NSError errorWithDomain:NSOSStatusErrorDomain
+                                         code:errSecParam
+                                  description:@"Wrong key size"];
+        }
+        return nil;
+    }
+
+    CKKSWrappedAESSIVKey* wrappedaeskey = [[CKKSWrappedAESSIVKey alloc] initWithData:self.wrappedKeyDataBackingStore];
+
+    self.keycore = [[CKKSKeychainBackedKey alloc] initWithWrappedAESKey:wrappedaeskey
+                                                                   uuid:self.uuid
+                                                          parentKeyUUID:self.parentKeyUUID
+                                                               keyclass:self.keyclass
+                                                                 zoneID:self.zoneID];
+    return self.keycore;
+}
+
+- (NSData*)wrappedKeyData
+{
+    if(self.keycore) {
+        if(![self.keycore.wrappedkey.wrappedData isEqualToData:self.wrappedKeyDataBackingStore]) {
+            ckkserror("ckkskey", self.zoneID, "Probable bug: wrapped key data does not match cached version");
+            self.wrappedKeyDataBackingStore = self.keycore.wrappedkey.wrappedData;
+        }
+
+        return self.keycore.wrappedkey.wrappedData;
+    } else {
+        return self.wrappedKeyDataBackingStore;
+    }
 }
 
 - (NSString*)zoneName
 {
-    return self.keycore.zoneID.zoneName;
+    return self.zoneID.zoneName;
 }
 
-- (void)setUuid:(NSString *)uuid
-{
-    self.keycore.uuid = uuid;
-}
-
-- (NSString*)parentKeyUUID
-{
-    return self.keycore.parentKeyUUID;
-}
-
-- (void)setParentKeyUUID:(NSString *)parentKeyUUID
-{
-    self.keycore.parentKeyUUID = parentKeyUUID;
-}
-
-- (CKKSKeyClass*)keyclass
-{
-    return self.keycore.keyclass;
-}
-
-- (void)setKeyclass:(CKKSKeyClass*)keyclass
-{
-    self.keycore.keyclass = keyclass;
-}
-
-- (CKKSWrappedAESSIVKey*)wrappedkey
-{
-    return self.keycore.wrappedkey;
-}
-
-- (void)setWrappedkey:(CKKSWrappedAESSIVKey*)wrappedkey
-{
-    self.keycore.wrappedkey = wrappedkey;
-}
-
-- (CKKSAESSIVKey*)aessivkey
-{
-    return self.keycore.aessivkey;
-}
 
 - (bool)wrapsSelf {
-    return [self.keycore wrapsSelf];
+    return [self.uuid isEqual:self.parentKeyUUID];
 }
 
 - (bool)wrapUnder: (CKKSKey*) wrappingKey error: (NSError * __autoreleasing *) error {
-    return [self.keycore wrapUnder:wrappingKey.keycore error:error];
+    /* Ensure that self.keycore is filled in */
+    if(nil == [self getKeychainBackedKey:error]) {
+        return false;
+    }
+
+    if(![self.keycore wrapUnder:wrappingKey.keycore error:error]) {
+        return false;
+    }
+
+    self.parentKeyUUID = self.keycore.parentKeyUUID;
+    self.wrappedKeyDataBackingStore = self.keycore.wrappedkey.wrappedData;
+    return true;
 }
 
 + (instancetype) loadKeyWithUUID: (NSString*) uuid zoneID:(CKRecordZoneID*)zoneID error: (NSError * __autoreleasing *) error {
@@ -226,39 +235,31 @@
 }
 
 + (CKKSKey*) randomKeyWrappedByParent: (CKKSKey*) parentKey keyclass:(CKKSKeyClass*)keyclass error: (NSError * __autoreleasing *) error {
-    CKKSAESSIVKey* aessivkey = [CKKSAESSIVKey randomKey:error];
-    if(aessivkey == nil) {
+    CKKSKeychainBackedKey* parentKeyCore = [parentKey getKeychainBackedKey:error];
+    if(parentKeyCore == nil) {
         return nil;
     }
 
-    CKKSKey* key = [[CKKSKey alloc] initWrappedBy: parentKey
-                                           AESKey: aessivkey
-                                             uuid:[[NSUUID UUID] UUIDString]
-                                         keyclass:keyclass
-                                            state:SecCKKSProcessedStateLocal
-                                           zoneID: parentKey.zoneID
-                                  encodedCKRecord: nil
-                                       currentkey: false];
-    return key;
+    CKKSKeychainBackedKey* randomKey = [CKKSKeychainBackedKey randomKeyWrappedByParent:parentKeyCore keyclass:keyclass error:error];
+
+    if(randomKey == nil) {
+        return nil;
+    }
+
+    return [[CKKSKey alloc] initWithKeyCore:randomKey
+                                      state:SecCKKSProcessedStateLocal
+                                 currentkey:false];
 }
 
 + (instancetype)randomKeyWrappedBySelf: (CKRecordZoneID*) zoneID error: (NSError * __autoreleasing *) error {
-    CKKSAESSIVKey* aessivkey = [CKKSAESSIVKey randomKey:error];
-    if(aessivkey == nil) {
+    CKKSKeychainBackedKey* randomKey = [CKKSKeychainBackedKey randomKeyWrappedBySelf:zoneID error:error];
+    if(randomKey == nil) {
         return nil;
     }
 
-    NSString* uuid = [[NSUUID UUID] UUIDString];
-
-    CKKSKey* key = [[CKKSKey alloc] initSelfWrappedWithAESKey: aessivkey
-                                                         uuid:uuid
-                                                     keyclass:SecCKKSKeyClassTLK
-                                                        state:SecCKKSProcessedStateLocal
-                                                       zoneID: zoneID
-                                              encodedCKRecord: nil
-                                                   currentkey: false];
-    return key;
-
+    return [[CKKSKey alloc] initWithKeyCore:randomKey
+                                      state:SecCKKSProcessedStateLocal
+                                 currentkey:false];
 }
 
 - (CKKSKey*)topKeyInAnyState: (NSError * __autoreleasing *) error {
@@ -298,12 +299,18 @@
     return nil;
 }
 
-- (CKKSAESSIVKey*)ensureKeyLoaded: (NSError * __autoreleasing *) error {
+- (CKKSKeychainBackedKey* _Nullable)ensureKeyLoaded:(NSError * __autoreleasing *)error
+{
+    /* Ensure that self.keycore is filled in */
+    if(nil == [self getKeychainBackedKey:error]) {
+        return nil;
+    }
+
     NSError* keychainError = nil;
 
-    CKKSAESSIVKey* sivkey = [self.keycore ensureKeyLoaded:&keychainError];
+    CKKSAESSIVKey* sivkey = [self.keycore ensureKeyLoadedFromKeychain:&keychainError];
     if(sivkey) {
-        return sivkey;
+        return self.keycore;
     }
 
     // Uhh, okay, if that didn't work, try to unwrap via the key hierarchy
@@ -315,7 +322,7 @@
             ckkserror("ckkskey", self.zoneID, "Resaving missing key failed, continuing: %@", resaveError);
         }
 
-        return self.aessivkey;
+        return self.keycore;
     }
 
     // Pick an error to report
@@ -327,8 +334,13 @@
 }
 
 - (CKKSAESSIVKey*)unwrapViaKeyHierarchy: (NSError * __autoreleasing *) error {
-    if(self.aessivkey) {
-        return self.aessivkey;
+    /* Ensure that self.keycore is filled in */
+    if(nil == [self getKeychainBackedKey:error]) {
+        return nil;
+    }
+
+    if(self.keycore.aessivkey) {
+        return self.keycore.aessivkey;
     }
 
     NSError* localerror = nil;
@@ -336,7 +348,7 @@
     // Attempt to load this key from the keychain
     if([self.keycore loadKeyMaterialFromKeychain:&localerror]) {
         // Rad. Success!
-        return self.aessivkey;
+        return self.keycore.aessivkey;
     }
 
     // First, check if we're a TLK.
@@ -358,8 +370,8 @@
         return nil;
     }
 
-    self.keycore.aessivkey = [parent unwrapAESKey:self.wrappedkey error:error];
-    return self.aessivkey;
+    self.keycore.aessivkey = [parent unwrapAESKey:self.keycore.wrappedkey error:error];
+    return self.keycore.aessivkey;
 }
 
 - (BOOL)unwrapViaTLKSharesTrustedBy:(NSArray<CKKSPeerProviderState*>*)trustStates
@@ -434,9 +446,19 @@
 - (BOOL)tlkMaterialPresentOrRecoverableViaTLKShare:(NSArray<CKKSPeerProviderState*>*)trustStates
                                              error:(NSError**)error
 {
+    /* Ensure that self.keycore is filled in */
+    if(nil == [self getKeychainBackedKey:error]) {
+        return NO;
+    }
+
     // If we have the key material, then this TLK is considered valid.
     NSError* loadError = nil;
-    CKKSAESSIVKey* loadedKey = [self ensureKeyLoaded:&loadError];
+    CKKSAESSIVKey* loadedKey = nil;
+    if([self ensureKeyLoaded:&loadError]) {
+        // Should just return what was loaded in ensureKeyLoaded
+        loadedKey = [self.keycore ensureKeyLoadedFromKeychain:&loadError];
+    }
+
     if(!loadedKey || loadError) {
         if(loadError.code == errSecInteractionNotAllowed) {
             ckkserror("ckksshare", self, "Unable to load key due to lock state: %@", loadError);
@@ -487,64 +509,85 @@
 }
 
 - (bool)trySelfWrappedKeyCandidate:(CKKSAESSIVKey*)candidate error:(NSError * __autoreleasing *) error {
+    /* Ensure that self.keycore is filled in */
+    if(nil == [self getKeychainBackedKey:error]) {
+        return nil;
+    }
+
     return [self.keycore trySelfWrappedKeyCandidate:candidate error:error];
 }
 
-- (CKKSWrappedAESSIVKey*)wrapAESKey: (CKKSAESSIVKey*) keyToWrap error: (NSError * __autoreleasing *) error {
+- (CKKSWrappedAESSIVKey* _Nullable)wrapAESKey: (CKKSAESSIVKey*) keyToWrap error: (NSError * __autoreleasing *) error {
+    /* Ensure that self.keycore is filled in */
+    if(nil == [self getKeychainBackedKey:error]) {
+        return nil;
+    }
+
     return [self.keycore wrapAESKey:keyToWrap error:error];
 }
 
-- (CKKSAESSIVKey*)unwrapAESKey: (CKKSWrappedAESSIVKey*) keyToUnwrap error: (NSError * __autoreleasing *) error {
+- (CKKSAESSIVKey* _Nullable)unwrapAESKey: (CKKSWrappedAESSIVKey*) keyToUnwrap error: (NSError * __autoreleasing *) error {
+    /* Ensure that self.keycore is filled in */
+    if(nil == [self getKeychainBackedKey:error]) {
+        return nil;
+    }
+
     return [self.keycore unwrapAESKey:keyToUnwrap error:error];
 }
 
 - (NSData*)encryptData: (NSData*) plaintext authenticatedData: (NSDictionary<NSString*, NSData*>*) ad error: (NSError * __autoreleasing *) error {
+    /* Ensure that self.keycore is filled in */
+    if(nil == [self getKeychainBackedKey:error]) {
+        return nil;
+    }
+
     return [self.keycore encryptData:plaintext authenticatedData:ad error:error];
 }
 
 - (NSData*)decryptData: (NSData*) ciphertext authenticatedData: (NSDictionary<NSString*, NSData*>*) ad error: (NSError * __autoreleasing *) error {
+    /* Ensure that self.keycore is filled in */
+    if(nil == [self getKeychainBackedKey:error]) {
+        return nil;
+    }
+
     return [self.keycore decryptData:ciphertext authenticatedData:ad error:error];
 }
 
 /* Functions to load and save keys from the keychain (where we get to store actual key material!) */
 - (BOOL)saveKeyMaterialToKeychain: (NSError * __autoreleasing *) error {
+    /* Ensure that self.keycore is filled in */
+    if(nil == [self getKeychainBackedKey:error]) {
+        return NO;
+    }
+
     return [self.keycore saveKeyMaterialToKeychain:true error: error];
 }
 
 - (BOOL)saveKeyMaterialToKeychain: (bool)stashTLK error:(NSError * __autoreleasing *) error {
+    /* Ensure that self.keycore is filled in */
+    if(nil == [self getKeychainBackedKey:error]) {
+        return NO;
+    }
+
     return [self.keycore saveKeyMaterialToKeychain:stashTLK error:error];
 }
 
 - (BOOL)loadKeyMaterialFromKeychain: (NSError * __autoreleasing *) error {
+    /* Ensure that self.keycore is filled in */
+    if(nil == [self getKeychainBackedKey:error]) {
+        return NO;
+    }
+
     return [self.keycore loadKeyMaterialFromKeychain:error];
 }
 
 - (BOOL)deleteKeyMaterialFromKeychain: (NSError * __autoreleasing *) error {
-    return [self.keycore deleteKeyMaterialFromKeychain:error];
-}
-
-+ (instancetype)keyFromKeychain: (NSString*) uuid
-                  parentKeyUUID: (NSString*) parentKeyUUID
-                       keyclass: (CKKSKeyClass*)keyclass
-                          state: (CKKSProcessedState*) state
-                         zoneID: (CKRecordZoneID*) zoneID
-                encodedCKRecord: (NSData*) encodedrecord
-                     currentkey: (NSInteger) currentkey
-                          error: (NSError * __autoreleasing *) error {
-    CKKSKey* key = [[CKKSKey alloc] initWithWrappedAESKey:nil
-                                                     uuid:uuid
-                                            parentKeyUUID:parentKeyUUID
-                                                 keyclass:keyclass
-                                                    state:state
-                                                   zoneID:zoneID
-                                          encodedCKRecord:encodedrecord
-                                               currentkey:currentkey];
-
-    if(![key loadKeyMaterialFromKeychain:error]) {
-        return nil;
+    /* Ensure that self.keycore is filled in */
+    if(nil == [self getKeychainBackedKey:error]) {
+        return NO;
     }
 
-    return key;
+    return [self.keycore deleteKeyMaterialFromKeychain:error];
 }
 
 + (NSString* _Nullable)isItemKeyForKeychainView:(SecDbItemRef)item {
@@ -657,7 +700,7 @@
 
 - (NSString*)CKRecordName
 {
-    return self.keycore.uuid;
+    return self.uuid;
 }
 
 - (void) setFromCKRecord: (CKRecord*) record {
@@ -670,28 +713,20 @@
 
     [self setStoredCKRecord: record];
 
-    NSString* uuid = record.recordID.recordName;
-    NSString* parentKeyUUID = nil;
+    self.uuid = record.recordID.recordName;
 
     if(record[SecCKRecordParentKeyRefKey] != nil) {
-        parentKeyUUID = [record[SecCKRecordParentKeyRefKey] recordID].recordName;
+        self.parentKeyUUID = [record[SecCKRecordParentKeyRefKey] recordID].recordName;
     } else {
         // We wrap ourself.
-        parentKeyUUID = uuid;
+        self.parentKeyUUID = self.uuid;
     }
 
-    NSString* keyclass = record[SecCKRecordKeyClassKey];
-    CKKSWrappedAESSIVKey* wrappedkey =
-        [[CKKSWrappedAESSIVKey alloc] initWithBase64:record[SecCKRecordWrappedKeyKey]];
-
-    self.keycore = [[CKKSKeychainBackedKey alloc] initWithWrappedAESKey:wrappedkey
-                                                                   uuid:uuid
-                                                          parentKeyUUID:parentKeyUUID
-                                                               keyclass:(CKKSKeyClass *)keyclass
-                                                                 zoneID:record.recordID.zoneID];
-
     self.keyclass = record[SecCKRecordKeyClassKey];
-    self.wrappedkey = [[CKKSWrappedAESSIVKey alloc] initWithBase64: record[SecCKRecordWrappedKeyKey]];
+    self.wrappedKeyDataBackingStore = [[NSData alloc] initWithBase64EncodedString:record[SecCKRecordWrappedKeyKey] options:0];
+
+    // We will need to re-create the keycore later, if applicable.
+    self.keycore = nil;
 
     self.state = SecCKKSProcessedStateRemote;
 }
@@ -715,7 +750,7 @@
     [CKKSItem setOSVersionInRecord: record];
 
     record[SecCKRecordKeyClassKey] = self.keyclass;
-    record[SecCKRecordWrappedKeyKey] = [self.wrappedkey base64WrappedKey];
+    record[SecCKRecordWrappedKeyKey] = [self.wrappedKeyData base64EncodedStringWithOptions:0];
 
     return record;
 }
@@ -749,7 +784,7 @@
         return false;
     }
 
-    if(![record[SecCKRecordWrappedKeyKey] isEqual: [self.wrappedkey base64WrappedKey]]) {
+    if(![record[SecCKRecordWrappedKeyKey] isEqual: [self.wrappedKeyData base64EncodedStringWithOptions:0]]) {
         ckksinfo_global("ckkskey", "wrapped key does not match");
         return false;
     }
@@ -791,20 +826,19 @@
              @"ckrecord": CKKSNilToNSNull([self.encodedCKRecord base64EncodedStringWithOptions:0]),
              @"keyclass": CKKSNilToNSNull(self.keyclass),
              @"state": CKKSNilToNSNull(self.state),
-             @"wrappedkey": CKKSNilToNSNull([self.wrappedkey base64WrappedKey]),
+             @"wrappedkey": CKKSNilToNSNull([self.wrappedKeyData base64EncodedDataWithOptions:0]),
              @"currentkey": self.currentkey ? @"1" : @"0"};
 }
 
 + (instancetype)fromDatabaseRow:(NSDictionary<NSString*, CKKSSQLResult*>*)row {
-    return [[CKKSKey alloc] initWithWrappedAESKey:row[@"wrappedkey"].asString ? [[CKKSWrappedAESSIVKey alloc] initWithBase64: row[@"wrappedkey"].asString] : nil
-                                             uuid:row[@"UUID"].asString
-                                    parentKeyUUID:row[@"parentKeyUUID"].asString
-                                         keyclass:(CKKSKeyClass*)row[@"keyclass"].asString
-                                            state:(CKKSProcessedState*)row[@"state"].asString
-                                           zoneID:[[CKRecordZoneID alloc] initWithZoneName:row[@"ckzone"].asString ownerName:CKCurrentUserDefaultName]
-                                  encodedCKRecord:row[@"ckrecord"].asBase64DecodedData
-                                       currentkey:row[@"currentkey"].asNSInteger];
-
+    return [[CKKSKey alloc] initWithWrappedKeyData:row[@"wrappedkey"].asBase64DecodedData
+                                              uuid:row[@"UUID"].asString
+                                     parentKeyUUID:row[@"parentKeyUUID"].asString
+                                          keyclass:(CKKSKeyClass*)row[@"keyclass"].asString
+                                             state:(CKKSProcessedState*)row[@"state"].asString
+                                            zoneID:[[CKRecordZoneID alloc] initWithZoneName:row[@"ckzone"].asString ownerName:CKCurrentUserDefaultName]
+                                   encodedCKRecord:row[@"ckrecord"].asBase64DecodedData
+                                        currentkey:row[@"currentkey"].asNSInteger];
 }
 
 + (NSNumber* _Nullable)counts:(CKRecordZoneID*)zoneID error:(NSError * __autoreleasing *)error
@@ -859,7 +893,7 @@
     proto.uuid = self.uuid;
     proto.zoneName = self.zoneID.zoneName;
     proto.keyclass = self.keyclass;
-    proto.key = [NSData _newZeroingDataWithBytes:self.aessivkey->key length:self.aessivkey->size];
+    proto.key = [NSData _newZeroingDataWithBytes:self.keycore.aessivkey->key length:self.keycore.aessivkey->size];
 
     return proto.data;
 }
@@ -886,7 +920,7 @@
 
 + (BOOL)intransactionRecordChanged:(CKRecord*)record
                             resync:(BOOL)resync
-                       flagHandler:(id<OctagonStateFlagHandler>)flagHandler
+                       flagHandler:(id<OctagonStateFlagHandler> _Nullable)flagHandler
                              error:(NSError**)error
 {
     NSError* localerror = nil;
@@ -954,6 +988,37 @@
     [flagHandler _onqueueHandleFlag:CKKSFlagKeyStateProcessRequested];
 
     return YES;
+}
+
++ (BOOL)intransactionRecordDeleted:(CKRecordID*)recordID
+                             error:(NSError**)error
+{
+    do {
+        NSError* localError = nil;
+        CKKSKey* key = [CKKSKey tryFromDatabaseAnyState:recordID.recordName
+                                                 zoneID:recordID.zoneID
+                                                  error:&localError];
+
+        if(!key) {
+            if(localError) {
+                ckkserror("ckkskey", recordID.zoneID, "Couldn't load key record from database: %@: %@", recordID, localError);
+                if(error) {
+                    *error = localError;
+                }
+                return NO;
+            }
+
+            return YES;
+        }
+
+        NSError* deleteError = nil;
+        [key deleteFromDatabase:&deleteError];
+        if(deleteError) {
+            ckkserror("ckkskey", recordID.zoneID, "Couldn't delete key record from database: %@: %@", recordID, deleteError);
+            return NO;
+        }
+
+    } while(true);
 }
 
 @end

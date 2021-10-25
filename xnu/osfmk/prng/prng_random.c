@@ -61,7 +61,7 @@ bootseed_init_bootloader(const struct ccdigest_info * di, ccdigest_ctx_t ctx)
 		 * Insufficient entropy is fatal.  We must fill the
 		 * entire entropy buffer during initializaton.
 		 */
-		panic("Expected %lu seed bytes from bootloader, but got %u.\n", sizeof(seed), n);
+		panic("Expected %lu seed bytes from bootloader, but got %u.", sizeof(seed), n);
 	}
 
 	ccdigest_update(di, ctx, sizeof(seed), seed);
@@ -246,7 +246,7 @@ read_erandom(void * buf, size_t nbytes)
 		// request a reseed; therefore, we panic on any error
 		rc = ccdrbg_generate(&erandom.drbg_info, (struct ccdrbg_state *)erandom.drbg_state, n, buffer_bytes, 0, NULL);
 		if (rc != CCDRBG_STATUS_OK) {
-			panic("read_erandom ccdrbg error %d\n", rc);
+			panic("read_erandom ccdrbg error %d", rc);
 		}
 
 		buffer_bytes += n;

@@ -149,7 +149,7 @@ CFDataRef SecPathBuilderCopyClientAuditToken(SecPathBuilderRef builder);
 void SecTrustServerEvaluateBlock(dispatch_queue_t builderQueue, CFDataRef clientAuditToken, CFArrayRef certificates, CFArrayRef anchors, bool anchorsOnly, bool keychainsAllowed, CFArrayRef policies, CFArrayRef responses, CFArrayRef SCTs, CFArrayRef trustedLogs, CFAbsoluteTime verifyTime, __unused CFArrayRef accessGroups, CFArrayRef exceptions, void (^evaluated)(SecTrustResultType tr, CFArrayRef details, CFDictionaryRef info, CFArrayRef chain, CFErrorRef error));
 
 /* Synchronously invoke SecTrustServerEvaluateBlock. */
-SecTrustResultType SecTrustServerEvaluate(CFArrayRef certificates, CFArrayRef anchors, bool anchorsOnly, bool keychainsAllowed, CFArrayRef policies, CFArrayRef responses, CFArrayRef SCTs, CFArrayRef trustedLogs, CFAbsoluteTime verifyTime, __unused CFArrayRef accessGroups, CFArrayRef exceptions, CFArrayRef *details, CFDictionaryRef *info, CFArrayRef *chain, CFErrorRef *error);
+SecTrustResultType SecTrustServerEvaluate(CFArrayRef certificates, CFArrayRef anchors, bool anchorsOnly, bool keychainsAllowed, CFArrayRef policies, CFArrayRef responses, CFArrayRef SCTs, CFArrayRef trustedLogs, CFAbsoluteTime verifyTime, __unused CFArrayRef accessGroups, CFArrayRef exceptions, CFDataRef auditToken, CFArrayRef *details, CFDictionaryRef *info, CFArrayRef *chain, CFErrorRef *error);
 
 /* TrustAnalytics builder types */
 typedef CF_OPTIONS(uint8_t, TA_SCTSource) {
@@ -173,7 +173,6 @@ typedef struct {
     uint64_t start_time;
     bool suspected_mitm;
     bool ca_fail_eku_check;
-    bool tls_invalid_ku;
     // Certificate Transparency
     TA_SCTSource sct_sources;
     uint32_t number_scts;

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2020 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2021 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -103,7 +103,8 @@ extern kern_return_t    vm_map_exec(
 	void                    *fsroot,
 	cpu_type_t              cpu,
 	cpu_subtype_t           cpu_subtype,
-	boolean_t               reslide);
+	boolean_t               reslide,
+	boolean_t               is_driverkit);
 
 __END_DECLS
 
@@ -224,6 +225,18 @@ struct vm_map_links {
 };
 
 /*
+ * Bit 3 of the protection and max_protection bitfields in a vm_map_entry
+ * does not correspond to bit 3 of a vm_prot_t, so these macros provide a means
+ * to convert between the "packed" representation in the vm_map_entry's fields
+ * and the equivalent bits defined in vm_prot_t.
+ */
+#if defined(__x86_64__)
+#define VM_VALID_VMPROTECT_FLAGS        (VM_PROT_ALL | VM_PROT_COPY | VM_PROT_UEXEC)
+#else
+#define VM_VALID_VMPROTECT_FLAGS        (VM_PROT_ALL | VM_PROT_COPY)
+#endif
+
+/*
  * FOOTPRINT ACCOUNTING:
  * The "memory footprint" is better described in the pmap layer.
  *
@@ -273,8 +286,8 @@ struct vm_map_entry {
 	/* boolean_t */ needs_copy:1,   /* object need to be copied? */
 
 	/* Only in task maps: */
-	/* vm_prot_t */ protection:3,   /* protection code */
-	/* vm_prot_t */ max_protection:3, /* maximum protection */
+	/* vm_prot_t-like */ protection:4,   /* protection code, bit3=UEXEC */
+	/* vm_prot_t-like */ max_protection:4, /* maximum protection, bit3=UEXEC */
 	/* vm_inherit_t */ inheritance:2, /* inheritance */
 	/* boolean_t */ use_pmap:1,     /*
 	                                 * use_pmap is overloaded:
@@ -293,8 +306,6 @@ struct vm_map_entry {
 	                                     * without unwiring them */
 	/* boolean_t */ used_for_jit:1,
 	/* boolean_t */ pmap_cs_associated:1, /* pmap_cs will validate */
-	/* boolean_t */ from_reserved_zone:1, /* Allocated from
-	                                       * kernel reserved zone	 */
 
 	/* iokit accounting: use the virtual size rather than resident size: */
 	/* boolean_t */ iokit_acct:1,
@@ -303,7 +314,7 @@ struct vm_map_entry {
 	/* boolean_t */ vme_atomic:1, /* entry cannot be split/coalesced */
 	/* boolean_t */ vme_no_copy_on_read:1,
 	/* boolean_t */ translated_allow_execute:1, /* execute in translated processes */
-	__unused:2;
+	/* boolean_t */ __padding:1;
 
 	unsigned short          wired_count;    /* can be paged if = 0 */
 	unsigned short          user_wired_count; /* for vm_wire */
@@ -464,6 +475,8 @@ struct _vm_map {
 #define max_offset              hdr.links.end   /* end of range */
 	pmap_t                  XNU_PTRAUTH_SIGNED_PTR("_vm_map.pmap") pmap;           /* Physical map */
 	vm_map_size_t           size;           /* virtual size */
+	uint64_t                size_limit;     /* rlimit on address space size */
+	uint64_t                data_limit;     /* rlimit on data size */
 	vm_map_size_t           user_wire_limit;/* rlimit on user locked memory */
 	vm_map_size_t           user_wire_size; /* current size of user locked memory in this map */
 #if XNU_TARGET_OS_OSX
@@ -710,8 +723,6 @@ int vm_self_region_page_shift_safely(vm_map_t target_map);
 
 /* Initialize the module */
 extern void             vm_map_init(void);
-
-extern void             vm_kernel_reserved_entry_init(void);
 
 /* Allocate a range in the specified virtual address map and
  * return the entry allocated for that range. */
@@ -1019,10 +1030,6 @@ extern void vm_map_submap_pmap_clean(
 
 /* Convert from a map entry port to a map */
 extern vm_map_t convert_port_entry_to_map(
-	ipc_port_t      port);
-
-/* Convert from a port to a vm_object */
-extern vm_object_t convert_port_entry_to_object(
 	ipc_port_t      port);
 
 
@@ -1433,6 +1440,14 @@ extern uint64_t         vm_map_get_max_aslr_slide_pages(
 extern uint64_t         vm_map_get_max_loader_aslr_slide_pages(
 	vm_map_t map);
 
+extern kern_return_t    vm_map_set_size_limit(
+	vm_map_t                map,
+	uint64_t                limit);
+
+extern kern_return_t    vm_map_set_data_limit(
+	vm_map_t                map,
+	uint64_t                limit);
+
 extern void             vm_map_set_user_wire_limit(
 	vm_map_t                map,
 	vm_size_t               limit);
@@ -1682,6 +1697,7 @@ vm_prot_to_wimg(unsigned int prot, unsigned int *wimg)
 extern kern_return_t vm_map_set_page_shift(vm_map_t map, int pageshift);
 extern bool vm_map_is_exotic(vm_map_t map);
 extern bool vm_map_is_alien(vm_map_t map);
+extern pmap_t vm_map_get_pmap(vm_map_t map);
 #endif /* XNU_KERNEL_PRIVATE */
 
 #define vm_map_round_page(x, pgmask) (((vm_map_offset_t)(x) + (pgmask)) & ~((signed)(pgmask)))

@@ -38,6 +38,7 @@
 #include <os/lock_private.h>
 #include <dispatch/dispatch.h>
 #include <string.h>
+#include <os/collections.h>
 
 #include "libnotify.h"
 #include "notify.h"
@@ -145,7 +146,7 @@ _notify_lib_notify_state_init(notify_state_t * ns, uint32_t flags)
 	_nc_table_init_64(&ns->client_table, offsetof(client_t, cid.hash_key));
 	_nc_table_init_n(&ns->port_table, offsetof(port_data_t, port));
 	_nc_table_init_n(&ns->proc_table, offsetof(proc_data_t, pid));
-	_nc_table_init_64(&ns->event_table, offsetof(event_data_t, event_token));
+	os_map_init(&ns->event_table, NULL);
 }
 
 // We only need to lock in the client

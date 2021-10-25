@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2015-2018, 2021 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -177,8 +177,8 @@
 	 without maintaining any state in configd.
 
 	 - We know that every agent has a unique name.
-	 - Use that name to calculate an MD5 hash. MD5 because the digest size is 16 bytes, and so it uuid_t.
-	 - create a NSUUID from these raw bytes.
+	 - Use that name to calculate an SHA256 hash.
+	 - create a NSUUID from the first use the first 16 bytes of the hash.
 
 	 - So for a name, we would always have the same UUID.
 

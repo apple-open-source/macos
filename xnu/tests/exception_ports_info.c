@@ -7,6 +7,8 @@
 
 T_GLOBAL_META(
 	T_META_NAMESPACE("xnu.ipc"),
+	T_META_RADAR_COMPONENT_NAME("xnu"),
+	T_META_RADAR_COMPONENT_VERSION("IPC"),
 	T_META_RUN_CONCURRENTLY(true));
 
 T_DECL(exception_ports_info, "Test {task, thread}_get_exception_ports_info")

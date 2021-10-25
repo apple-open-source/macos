@@ -1,6 +1,6 @@
 #
 # List of readers supported by the CCID driver
-# Generated: 2020-03-31
+# Generated: 2021-01-20
 #
 # DO NOT EDIT BY HAND
 
@@ -19,7 +19,6 @@
 
 # Alcor Micro
 0x058F:0x9520:Alcor Micro AU9520
-0x058F:0x9540:Alcor Micro AU9560
 
 # Athena
 0x0DC3:0x1004:Athena ASE IIIe
@@ -36,6 +35,7 @@
 0x046A:0x0010:Cherry GmbH SmartBoard XX44
 0x046A:0x002D:Cherry GmbH SmartTerminal XX44
 0x046A:0x003E:Cherry GmbH SmartTerminal ST-2xxx
+0x046A:0x01A2:Cherry GmbH CHERRY SECURE BOARD 1.0
 
 # COVADIS
 0x0982:0x0007:COVADIS ALYA
@@ -134,6 +134,7 @@
 0x072F:0x223B:ACS ACR1252 Dual Reader
 0x072F:0x223E:ACS ACR1252 Reader
 0x072F:0x223F:ACS ACR1255U-J1
+0x072F:0x2259:ACS ACR1252IMP Reader
 0x072F:0x8201:ACS APG8201 PINhandy 1
 0x072F:0x8202:ACS APG8201 USB Reader
 0x072F:0x8300:ACS ACR33 ICC Reader
@@ -141,6 +142,7 @@
 0x072F:0xB000:ACS ACR3901U ICC Reader
 0x072F:0xB100:ACS ACR39U ICC Reader
 0x072F:0xB106:ACS CryptoMate (T2)
+0x072F:0xB112:ACS CryptoMate EVO
 
 # AF Care
 0x1C34:0xAFC0:AF Care One
@@ -158,6 +160,7 @@
 # Aktiv
 0x0A89:0x0025:Aktiv Rutoken lite
 0x0A89:0x0030:Aktiv Rutoken ECP
+0x0A89:0x0069:Aktiv Rutoken SCR 3001 Reader
 0x0A89:0x0080:Aktiv PINPad Ex
 0x0A89:0x0081:Aktiv PINPad In
 0x0A89:0x0082:Aktiv Rutoken PINPad 2
@@ -213,6 +216,8 @@
 0x15CF:0x0019:Avtor SecureToken
 0x15CF:0x001D:Avtor SC Reader 371
 0x15CF:0x0020:Avtor SecureToken
+0x096E:0x0608:Avtor SC Reader KP382
+0x096E:0x0624:Avtor KP-375BLE
 
 # Axalto
 0x04E6:0x511C:Axalto Reflex USB v3
@@ -230,12 +235,17 @@
 0x25DD:0x2321:Bit4id CKey4
 0x25DD:0x2341:Bit4id tokenME FIPS v3
 0x25DD:0x2351:Bit4id Digital DNA Key
+0x25DD:0x2354:Bit4id Digital-DNA Key
 0x25DD:0x2361:Bit4id Digital-DNA Key BT
 0x25DD:0x2362:Bit4id Digital-DNA Key
 0x25DD:0x2371:Bit4id TokenME EVO v2
 0x25DD:0x3111:Bit4id miniLector
 0x25DD:0x3211:Bit4id miniLector AIR EVO
 0x25DD:0xB001:Bit4id miniLector Blue
+
+# BIT4ID
+0x25DD:0x3403:BIT4ID miniLector AIR NFC v3
+0x25DD:0x3503:BIT4ID mLector AIR DI V3
 
 # Bluink Ltd.
 0x2ABE:0x1003:Bluink Ltd. Bluink CCID
@@ -259,6 +269,9 @@
 0x0783:0x0009:C3PO KBR36
 0x0783:0x0010:C3PO LTC32
 0x0783:0x0036:C3PO LTC36
+
+# Canokeys
+0x20A0:0x42D4:Canokeys Canokey
 
 # CASTLES
 0x0CA6:0x00A0:CASTLES EZCCID Smart Card Reader
@@ -287,7 +300,6 @@
 0x046A:0x005B:Cherry GmbH SmartBoard XX1X
 0x046A:0x0070:Cherry GmbH SmartTerminal XX1X
 0x046A:0x0072:Cherry GmbH SmartTerminal ST-1275
-0x046A:0x01A2:Cherry GmbH CHERRY SECURE BOARD 1.0
 
 # Chicony
 0x04F2:0x0967:Chicony USB Smart Card Keyboard
@@ -301,6 +313,10 @@
 
 # DC.Ltd
 0x257B:0xC305:DC.Ltd DC4 5CCID READER
+
+# DESKO GmbH
+0x1AC2:0x0300:DESKO GmbH IDenty chrom
+0x1AC2:0x0302:DESKO GmbH PENTA Scanner
 
 # Doctolib
 0x1C34:0xAFD0:Doctolib SR
@@ -325,19 +341,19 @@
 # F-Secure Foundry
 0x1209:0x2702:F-Secure Foundry USB Armory Mk II
 
+# Feitian
+0x096E:0x060D:Feitian R502
+0x096E:0x0621:Feitian BLE CCID Dongle
+0x096E:0x0622:Feitian VR504 VHBR Contactless & Contact Card Reader
+0x096E:0x0623:Feitian bR500
+0x096E:0x0685:Feitian R805
+0x096E:0x0807:Feitian ePass2003
+0x096E:0x080F:Feitian eJAVA Token
+
 # FEITIAN
 0x096E:0x0619:FEITIAN iR301
 0x096E:0x061A:FEITIAN bR301
 0x096E:0x061C:FEITIAN iR301
-
-# Feitian
-0x096E:0x0608:Feitian 502-CL
-0x096E:0x060D:Feitian R502
-0x096E:0x0622:Feitian VR504 VHBR Contactless & Contact Card Reader
-0x096E:0x0623:Feitian bR500
-0x096E:0x0624:Feitian bR301
-0x096E:0x0807:Feitian ePass2003
-0x096E:0x080F:Feitian eJAVA Token
 
 # Feitian Technologies
 0x096E:0x0505:Feitian Technologies FT SCR310
@@ -351,6 +367,10 @@
 0x096E:0x0855:FT CCID KB
 0x096E:0x0856:FT U2F CCID
 0x096E:0x0859:FT CCID
+0x096E:0x0867:FT Biopass FIDO2
+0x096E:0x0868:FT Biopass KB FIDO CCID
+0x096E:0x0869:FT Biopass KB CCID
+0x096E:0x086C:FT Biopass CCID
 
 # Fujitsu
 0x0BF8:0x1022:Fujitsu Keyboard KB100 SCR
@@ -392,6 +412,7 @@
 # Genesys Logic
 0x05E3:0x0757:Genesys Logic CCID Card Reader
 0x05E3:0x0758:Genesys Logic Combo Card Reader
+0x05E3:0x0771:Genesys Logic CCID Card Reader
 
 # German Privacy Foundation
 0x20A0:0x4107:German Privacy Foundation Crypto Stick v1.2
@@ -405,6 +426,9 @@
 
 # GoldKey Security
 0x19C8:0x0012:GoldKey Security PIV Token
+
+# GoTrust
+0x32A3:0x3201:GoTrust Idem Key
 
 # HDZB
 0x1677:0x0025:HDZB uKeyCI800-K18
@@ -447,6 +471,7 @@
 0x0B81:0x0220:id3 Semiconductors CL1356A_HID
 
 # Identiv
+0x04E6:0x5612:Identiv uTrust 3720 Contactless Reader
 0x04E6:0x5713:Identiv CLOUD 2980 F Smart Card Reader
 0x04E6:0x5724:Identiv Identiv uTrust 4701 F Dual Interface Reader
 0x04E6:0x5790:Identiv uTrust 3700 F CL Reader
@@ -714,11 +739,20 @@
 0x08DF:0x3117:Spyrus Inc WorkSafe Pro
 0x08DF:0x3201:Spyrus Inc PocketVault P-3X
 
+# Sunrex
+0x05AF:0x605A:Sunrex HP USB Business Slim Smartcard CCID Keyboard
+
+# Swissbit
+0x1370:0x0901:Swissbit Secure USB PU-50n SE/PE
+
 # SYNNIX
 0x1206:0x2105:SYNNIX STD200
 
 # Sysking
 0x0E6A:0x5083:Sysking MII136C
+
+# sysmocom - s.f.m.c. GmbH
+0x1D50:0x6141:sysmocom - s.f.m.c. GmbH sysmoOCTSIM
 
 # Teridian Semiconductors
 0x1862:0x0000:Teridian Semiconductors TSC12xxFV.09
@@ -734,6 +768,9 @@
 # Todos
 0x0B0C:0x0050:Todos Argos Mini II
 0x0B0C:0x0052:Todos CX00
+
+# TOPPAN FORMS CO.,LTD
+0x23EB:0x0003:TOPPAN FORMS CO.,LTD TC63CUT021
 
 # ubisys
 0x19A6:0x0009:ubisys 13.56MHz RFID (CCID)
@@ -805,6 +842,7 @@
 # Aladdin
 
 # Alcor Micro
+0x058F:0x9540:Alcor Micro AU9540
 
 # Athena
 0x0DC3:0x100F:Athena IDProtect Flash
@@ -958,6 +996,15 @@
 
 #0x08E6:0x34C0:Gemalto Ezio Shield (Gemalto_Ezio_Shield.txt)
 #0x08E6:0x34C0:Gemalto Ezio Shield Pro SC (Gemalto_Ezio_Shield_Pro_SC.txt)
+
+#0x096E:0x0608:Avtor SC Reader KP382 (Avtor_SC_Reader_KP382.txt)
+#0x096E:0x0608:Feitian 502-CL (Feitian_R502-CL.txt)
+
+#0x096E:0x0622:Feitian VR504 VHBR Contactless & Contact Card Reader (Feitian_vR504.txt)
+#0x096E:0x0622:Feitian vR504 Contactless Reader (Feitian_vR504_Contactless_Reader.txt)
+
+#0x096E:0x0624:Avtor KP-375BLE (Avtor_KP-375BLE.txt)
+#0x096E:0x0624:Feitian bR301 (Feitian_bR301_BLE.txt)
 
 #0x0A5C:0x5802:Broadcom Corp 5880 (Broadcom_5880v3.txt)
 #0x0A5C:0x5802:Broadcom Corp 5880 (Broadcom_5880v4.txt)

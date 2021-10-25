@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2011, 2013-2017, 2019, 2020 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2011, 2013-2017, 2019-2021 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -81,7 +81,7 @@ _copy_interfaces()
 
 __private_extern__
 SCNetworkInterfaceRef
-_find_interface(int argc, char **argv, int *nArgs)
+_find_interface(int argc, char * const argv[], int *nArgs)
 {
 	Boolean			allowIndex	= TRUE;
 	CFIndex			i;
@@ -359,7 +359,7 @@ _find_interface(int argc, char **argv, int *nArgs)
 
 __private_extern__
 void
-create_interface(int argc, char **argv)
+create_interface(int argc, char * const argv[])
 {
 	SCNetworkInterfaceRef	interface;
 	CFStringRef		interfaceName;
@@ -438,7 +438,7 @@ create_interface(int argc, char **argv)
 
 __private_extern__
 void
-select_interface(int argc, char **argv)
+select_interface(int argc, char * const argv[])
 {
 	SCNetworkInterfaceRef	interface;
 
@@ -1002,7 +1002,7 @@ validateMediaOptions(SCNetworkInterfaceRef interface, CFMutableDictionaryRef new
 
 __private_extern__
 void
-show_interfaces(int argc, char **argv)
+show_interfaces(int argc, char * const argv[])
 {
 #pragma unused(argc)
 #pragma unused(argv)
@@ -1114,7 +1114,7 @@ show_interfaces(int argc, char **argv)
 
 
 static int
-__doRank(CFStringRef key, const char *description, void *info, int argc, char **argv, CFMutableDictionaryRef newConfiguration)
+__doRank(CFStringRef key, const char *description, void *info, int argc, char * const argv[], CFMutableDictionaryRef newConfiguration)
 {
 #pragma unused(key)
 #pragma unused(info)
@@ -1134,19 +1134,10 @@ __doRank(CFStringRef key, const char *description, void *info, int argc, char **
 
 	if (strlen(argv[0]) == 0) {
 		rank = kSCNetworkServicePrimaryRankDefault;
-	} else if ((strcasecmp(argv[0], "First") == 0)) {
-		rank = kSCNetworkServicePrimaryRankFirst;
-	} else if ((strcasecmp(argv[0], "Last") == 0)) {
-		rank = kSCNetworkServicePrimaryRankLast;
-	} else if ((strcasecmp(argv[0], "Never") == 0)) {
-		rank = kSCNetworkServicePrimaryRankNever;
-	} else if ((strcasecmp(argv[0], "Scoped") == 0)) {
-		rank = kSCNetworkServicePrimaryRankScoped;
-	} else {
+	} else if (!get_rank_from_string(argv[0], &rank)) {
 		SCPrint(TRUE, stdout, CFSTR("invalid rank\n"));
 		return -1;
 	}
-
 	interfaceName = SCNetworkInterfaceGetBSDName(net_interface);
 	if (interfaceName == NULL) {
 		SCPrint(TRUE, stdout, CFSTR("no BSD interface\n"));
@@ -1221,7 +1212,7 @@ static options qosOptions[] = {
 
 
 static int
-__doQoSMarking(CFStringRef key, const char *description, void *info, int argc, char **argv, CFMutableDictionaryRef newConfiguration)
+__doQoSMarking(CFStringRef key, const char *description, void *info, int argc, char * const argv[], CFMutableDictionaryRef newConfiguration)
 {
 #pragma unused(key)
 #pragma unused(description)
@@ -1298,7 +1289,7 @@ static options bondOptions[] = {
 
 
 static Boolean
-set_interface_bond(int argc, char **argv, CFMutableDictionaryRef newConfiguration)
+set_interface_bond(int argc, char * const argv[], CFMutableDictionaryRef newConfiguration)
 {
 	CFStringRef	interfaceName;
 	Boolean		ok;
@@ -1339,7 +1330,7 @@ static options bridgeOptions[] = {
 
 
 static Boolean
-set_interface_bridge(int argc, char **argv, CFMutableDictionaryRef newConfiguration)
+set_interface_bridge(int argc, char * const argv[], CFMutableDictionaryRef newConfiguration)
 {
 	CFStringRef	interfaceName;
 	Boolean		ok;
@@ -1386,7 +1377,7 @@ static options airportOptions[] = {
 
 
 static Boolean
-set_interface_airport(int argc, char **argv, CFMutableDictionaryRef newConfiguration)
+set_interface_airport(int argc, char * const argv[], CFMutableDictionaryRef newConfiguration)
 {
 	CFStringRef	interfaceName;
 	Boolean		ok;
@@ -1414,7 +1405,7 @@ set_interface_airport(int argc, char **argv, CFMutableDictionaryRef newConfigura
 
 
 static int
-__doCapability(CFStringRef key, const char *description, void *info, int argc, char **argv, CFMutableDictionaryRef newConfiguration)
+__doCapability(CFStringRef key, const char *description, void *info, int argc, char * const argv[], CFMutableDictionaryRef newConfiguration)
 {
 #pragma unused(info)
 	Boolean	ok	= FALSE;
@@ -1483,7 +1474,7 @@ static options ethernetOptions[] = {
 
 
 static Boolean
-set_interface_ethernet(int argc, char **argv, CFMutableDictionaryRef newConfiguration)
+set_interface_ethernet(int argc, char * const argv[], CFMutableDictionaryRef newConfiguration)
 {
 	CFStringRef	interfaceName;
 	Boolean		ok;
@@ -1511,7 +1502,7 @@ set_interface_ethernet(int argc, char **argv, CFMutableDictionaryRef newConfigur
 
 
 static int
-__doIPSecSharedSecret(CFStringRef key, const char *description, void *info, int argc, char **argv, CFMutableDictionaryRef newConfiguration)
+__doIPSecSharedSecret(CFStringRef key, const char *description, void *info, int argc, char * const argv[], CFMutableDictionaryRef newConfiguration)
 {
 #pragma unused(description)
 #pragma unused(info)
@@ -1591,7 +1582,7 @@ __doIPSecSharedSecret(CFStringRef key, const char *description, void *info, int 
 
 
 static int
-__doIPSecSharedSecretType(CFStringRef key, const char *description, void *info, int argc, char **argv, CFMutableDictionaryRef newConfiguration)
+__doIPSecSharedSecretType(CFStringRef key, const char *description, void *info, int argc, char * const argv[], CFMutableDictionaryRef newConfiguration)
 {
 #pragma unused(description)
 #pragma unused(info)
@@ -1619,7 +1610,7 @@ __doIPSecSharedSecretType(CFStringRef key, const char *description, void *info, 
 
 
 static int
-__doIPSecXAuthPassword(CFStringRef key, const char *description, void *info, int argc, char **argv, CFMutableDictionaryRef newConfiguration)
+__doIPSecXAuthPassword(CFStringRef key, const char *description, void *info, int argc, char * const argv[], CFMutableDictionaryRef newConfiguration)
 {
 #pragma unused(description)
 #pragma unused(info)
@@ -1700,7 +1691,7 @@ __doIPSecXAuthPassword(CFStringRef key, const char *description, void *info, int
 
 
 static int
-__doIPSecXAuthPasswordType(CFStringRef key, const char *description, void *info, int argc, char **argv, CFMutableDictionaryRef newConfiguration)
+__doIPSecXAuthPasswordType(CFStringRef key, const char *description, void *info, int argc, char * const argv[], CFMutableDictionaryRef newConfiguration)
 {
 #pragma unused(description)
 #pragma unused(info)
@@ -1745,7 +1736,7 @@ __cleanupDomainName(CFStringRef domain)
 
 
 static int
-__doOnDemandDomains(CFStringRef key, const char *description, void *info, int argc, char **argv, CFMutableDictionaryRef newConfiguration)
+__doOnDemandDomains(CFStringRef key, const char *description, void *info, int argc, char * const argv[], CFMutableDictionaryRef newConfiguration)
 {
 #pragma unused(description)
 #pragma unused(info)
@@ -1818,7 +1809,7 @@ static options ipsecOnDemandOptions[] = {
 
 
 static int
-__doIPSecOnDemandMatch(CFStringRef key, const char *description, void *info, int argc, char **argv, CFMutableDictionaryRef newConfiguration)
+__doIPSecOnDemandMatch(CFStringRef key, const char *description, void *info, int argc, char * const argv[], CFMutableDictionaryRef newConfiguration)
 {
 #pragma unused(key)
 #pragma unused(description)
@@ -1893,7 +1884,7 @@ static options ipsecOptions[] = {
 
 
 static Boolean
-set_interface_ipsec(int argc, char **argv, CFMutableDictionaryRef newConfiguration)
+set_interface_ipsec(int argc, char * const argv[], CFMutableDictionaryRef newConfiguration)
 {
 	Boolean		ok;
 
@@ -1920,7 +1911,7 @@ static options firewireOptions[] = {
 
 
 static Boolean
-set_interface_firewire(int argc, char **argv, CFMutableDictionaryRef newConfiguration)
+set_interface_firewire(int argc, char * const argv[], CFMutableDictionaryRef newConfiguration)
 {
 	CFStringRef	interfaceName;
 	Boolean		ok;
@@ -1994,7 +1985,7 @@ static options modemOptions[] = {
 
 
 static Boolean
-set_interface_modem(int argc, char **argv, CFMutableDictionaryRef newConfiguration)
+set_interface_modem(int argc, char * const argv[], CFMutableDictionaryRef newConfiguration)
 {
 	Boolean	ok;
 
@@ -2008,7 +1999,7 @@ set_interface_modem(int argc, char **argv, CFMutableDictionaryRef newConfigurati
 
 
 static int
-__doPPPAuthPW(CFStringRef key, const char *description, void *info, int argc, char **argv, CFMutableDictionaryRef newConfiguration)
+__doPPPAuthPW(CFStringRef key, const char *description, void *info, int argc, char * const argv[], CFMutableDictionaryRef newConfiguration)
 {
 #pragma unused(description)
 #pragma unused(info)
@@ -2089,7 +2080,7 @@ __doPPPAuthPW(CFStringRef key, const char *description, void *info, int argc, ch
 
 
 static int
-__doPPPAuthPWType(CFStringRef key, const char *description, void *info, int argc, char **argv, CFMutableDictionaryRef newConfiguration)
+__doPPPAuthPWType(CFStringRef key, const char *description, void *info, int argc, char * const argv[], CFMutableDictionaryRef newConfiguration)
 {
 #pragma unused(description)
 #pragma unused(info)
@@ -2130,7 +2121,7 @@ static options l2tp_ipsecOptions[] = {
 
 
 static int
-__doPPPIPSec(CFStringRef key, const char *description, void *info, int argc, char **argv, CFMutableDictionaryRef newPPPConfiguration)
+__doPPPIPSec(CFStringRef key, const char *description, void *info, int argc, char * const argv[], CFMutableDictionaryRef newPPPConfiguration)
 {
 #pragma unused(key)
 #pragma unused(description)
@@ -2216,7 +2207,7 @@ static options pppOnDemandOptions[] = {
 
 
 static int
-__doPPPOnDemandMatch(CFStringRef key, const char *description, void *info, int argc, char **argv, CFMutableDictionaryRef newConfiguration)
+__doPPPOnDemandMatch(CFStringRef key, const char *description, void *info, int argc, char * const argv[], CFMutableDictionaryRef newConfiguration)
 {
 	Boolean	ok;
 
@@ -2353,7 +2344,7 @@ static options pppOptions[] = {
 
 
 static Boolean
-set_interface_ppp(int argc, char **argv, CFMutableDictionaryRef newConfiguration)
+set_interface_ppp(int argc, char * const argv[], CFMutableDictionaryRef newConfiguration)
 {
 	Boolean	ok;
 
@@ -2367,7 +2358,7 @@ set_interface_ppp(int argc, char **argv, CFMutableDictionaryRef newConfiguration
 
 
 static Boolean
-set_interface_vlan(int argc, char **argv, CFMutableDictionaryRef newConfiguration)
+set_interface_vlan(int argc, char * const argv[], CFMutableDictionaryRef newConfiguration)
 {
 #pragma unused(argc)
 #pragma unused(argv)
@@ -2383,7 +2374,7 @@ SCPrint(TRUE, stdout, CFSTR("vlan interface management not yet supported\n"));
 
 
 static int
-__doVPNAuthPW(CFStringRef key, const char *description, void *info, int argc, char **argv, CFMutableDictionaryRef newConfiguration)
+__doVPNAuthPW(CFStringRef key, const char *description, void *info, int argc, char * const argv[], CFMutableDictionaryRef newConfiguration)
 {
 #pragma unused(description)
 #pragma unused(info)
@@ -2463,7 +2454,7 @@ __doVPNAuthPW(CFStringRef key, const char *description, void *info, int argc, ch
 
 
 static int
-__doVPNAuthPWType(CFStringRef key, const char *description, void *info, int argc, char **argv, CFMutableDictionaryRef newConfiguration)
+__doVPNAuthPWType(CFStringRef key, const char *description, void *info, int argc, char * const argv[], CFMutableDictionaryRef newConfiguration)
 {
 #pragma unused(description)
 #pragma unused(info)
@@ -2530,7 +2521,7 @@ static options vpnOptions[] = {
 
 
 static Boolean
-set_interface_vpn(int argc, char **argv, CFMutableDictionaryRef newConfiguration)
+set_interface_vpn(int argc, char * const argv[], CFMutableDictionaryRef newConfiguration)
 {
 	Boolean	ok;
 
@@ -2545,7 +2536,7 @@ set_interface_vpn(int argc, char **argv, CFMutableDictionaryRef newConfiguration
 
 __private_extern__
 void
-set_interface(int argc, char **argv)
+set_interface(int argc, char * const argv[])
 {
 	CFDictionaryRef		configuration;
 	CFStringRef		interfaceType;
@@ -2631,7 +2622,7 @@ set_interface(int argc, char **argv)
 
 __private_extern__
 void
-show_interface(int argc, char **argv)
+show_interface(int argc, char * const argv[])
 {
 	SCNetworkInterfaceRef	interface;
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2017-2021 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -118,8 +118,14 @@ static struct cmd fake_cmds[] = {
 	DEF_CLONE_CMD_ARG("peer",		setpeer),
 	DEF_CMD_OPTARG("-peer",			unsetpeer),
 };
+
+#define FAKE_CLONE_NAME		"feth"
+#define FAKE_CLONE_NAME_LENGTH	(sizeof(FAKE_CLONE_NAME) - 1)
+
 static struct afswtch af_fake = {
 	.af_name	= "af_fake",
+	.af_clone_name	= FAKE_CLONE_NAME,
+	.af_clone_name_length = FAKE_CLONE_NAME_LENGTH,
 	.af_af		= AF_UNSPEC,
 	.af_other_status = fake_status,
 };

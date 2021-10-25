@@ -1,0 +1,10 @@
+IP 172.16.254.234.49458 > 123.57.167.43.80: Flags [SEW], seq 3094058786, win 65535, options [mss 1396,nop,wscale 5,mptcp capable v1,nop,nop,TS val 1361068327 ecr 0,sackOK,eol], length 0
+IP 123.57.167.43.80 > 172.16.254.234.49458: Flags [S.E], seq 358856057, ack 3094058787, win 43440, options [mss 1363,sackOK,TS val 513908821 ecr 1361068327,nop,wscale 9,mptcp capable v1 {0xd76af2eab858ae8c}], length 0
+IP 172.16.254.234.49458 > 123.57.167.43.80: Flags [.], ack 1, win 4096, options [nop,nop,TS val 1361068623 ecr 513908821,mptcp capable v1 {0xd0c3d95bebf62dc,0xd76af2eab858ae8c}], length 0
+IP 172.16.254.234.49458 > 123.57.167.43.80: Flags [P.], seq 1:203, ack 1, win 4096, options [nop,nop,TS val 1361068633 ecr 513908821,mptcp capable v1 {0xd0c3d95bebf62dc,0xd76af2eab858ae8c},eol], length 202: HTTP: GET /bigfile HTTP/1.1
+IP 123.57.167.43.80 > 172.16.254.234.49458: Flags [.], ack 203, win 85, options [nop,nop,TS val 513909169 ecr 1361068633,mptcp add-addr v1 id 1 101.200.87.60 hmac 0x5883b7072288f122,mptcp dss ack 17352886936352348106], length 0
+IP 123.57.167.43.80 > 172.16.254.234.49458: Flags [.], seq 1:1324, ack 203, win 85, options [nop,nop,TS val 513909294 ecr 1361068633,mptcp dss ack 17352886936352348106 seq 15825746279829701860 subseq 1 len 2896,nop,nop], length 1323: HTTP: HTTP/1.1 200 OK
+IP 123.57.167.43.80 > 172.16.254.234.49458: Flags [.], seq 1324:2647, ack 203, win 85, options [nop,nop,TS val 513909294 ecr 1361068633,mptcp dss ack 17352886936352348106], length 1323: HTTP
+IP 123.57.167.43.80 > 172.16.254.234.49458: Flags [P.], seq 2647:2897, ack 203, win 85, options [nop,nop,TS val 513909294 ecr 1361068633,mptcp dss ack 17352886936352348106], length 250: HTTP
+IP 123.57.167.43.80 > 172.16.254.234.49458: Flags [.], seq 2897:4220, ack 203, win 85, options [nop,nop,TS val 513909297 ecr 1361068633,mptcp dss ack 17352886936352348106 seq 15825746279829704756 subseq 2897 len 2896,nop,nop], length 1323: HTTP
+IP 123.57.167.43.80 > 172.16.254.234.49458: Flags [.], seq 4220:5543, ack 203, win 85, options [nop,nop,TS val 513909297 ecr 1361068633,mptcp dss ack 17352886936352348106], length 1323: HTTP

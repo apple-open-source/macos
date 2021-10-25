@@ -4,7 +4,6 @@
 //
 
 #include "SOSAccountPriv.h"
-#include "SOSAccountLog.h"
 
 #include "keychain/SecureObjectSync/SOSTransportCircleKVS.h"
 #include "keychain/SecureObjectSync/SOSTransport.h"

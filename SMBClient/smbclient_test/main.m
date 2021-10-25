@@ -33,13 +33,15 @@ extern char g_test_url3[1024];
 
 CFMutableDictionaryRef json_dict = NULL;
 int json = 0;
+int list_tests_only = 0;
 
 static void
 usage(void)
 {
-    fprintf (stderr, "usage: smbclient_test [-f JSON] [-l testName] [-o output_file] -1 URL1 -2 URL2 -3 SMB1-URL [-h] \n\
+    fprintf (stderr, "usage: smbclient_test [-f JSON] [-l testName] [-e] [-o output_file] -1 URL1 -2 URL2 -3 SMB1-URL [-h] \n\
              -f%s Print info in the provided format. Supported formats: JSON \n\
              -l%s Limit run to only testName \n\
+             -e%s List out all testNames (doesnt require -1, -2, -3 args) \n\
              -o%s Filename to write JSON output to \n\
              -1%s Used for single user testing. Format of smb://domain;user:password@server/share \n\
              -2%s Has to be a different user to the same server/share used in URL1. Format of smb://domain;user2:password@server/share \n\
@@ -47,6 +49,7 @@ usage(void)
              \n",
              ",--format  ",
              ",--limit   ",
+             ",--list    ",
              ",--outfile ",
              ",--url1    ",
              ",--url2    ",
@@ -65,6 +68,7 @@ main(int argc, char **argv) {
     static struct option longopts[] = {
         { "format",     required_argument,      NULL,           'f' },
         { "limit",      required_argument,      NULL,           'l' },
+        { "list",       no_argument,            NULL,           'e' },
         { "outfile",    required_argument,      NULL,           'o' },
         { "url1",       required_argument,      NULL,           '1' },
         { "url2",       required_argument,      NULL,           '2' },
@@ -74,8 +78,11 @@ main(int argc, char **argv) {
     };
 
     optind = 0;
-    while ((ch = getopt_long(argc, argv, "f:l:o:1:2:3:h", longopts, NULL)) != -1) {
+    while ((ch = getopt_long(argc, argv, "ef:l:o:1:2:3:h", longopts, NULL)) != -1) {
         switch (ch) {
+            case 'e':
+                list_tests_only = 1;
+                break;
             case 'f':
                 if (strcasecmp(optarg, "json") == 0) {
                     json = 1;
@@ -106,21 +113,24 @@ main(int argc, char **argv) {
         }
     }
 
-    if (strnlen(g_test_url1, sizeof(g_test_url1)) == 0) {
-        fprintf(stderr, "URL1 is null \n");
-        usage();
-    }
+    if (list_tests_only == 0) {
+        /* Check for required arguments */
+        if (strnlen(g_test_url1, sizeof(g_test_url1)) == 0) {
+            fprintf(stderr, "URL1 is null \n");
+            usage();
+        }
 
-    if (strnlen(g_test_url2, sizeof(g_test_url2)) == 0) {
-        fprintf(stderr, "URL2 is null \n");
-        usage();
-    }
+        if (strnlen(g_test_url2, sizeof(g_test_url2)) == 0) {
+            fprintf(stderr, "URL2 is null \n");
+            usage();
+        }
 
-    if (strnlen(g_test_url3, sizeof(g_test_url3)) == 0) {
-        fprintf(stderr, "URL3 is null \n");
-        usage();
+        if (strnlen(g_test_url3, sizeof(g_test_url3)) == 0) {
+            fprintf(stderr, "URL3 is null \n");
+            usage();
+        }
     }
-
+    
     json_dict = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
                                           &kCFTypeDictionaryKeyCallBacks,
                                           &kCFTypeDictionaryValueCallBacks);
@@ -130,7 +140,7 @@ main(int argc, char **argv) {
         return( ENOMEM );
     }
 
-    if (json == 0) {
+    if ((json == 0) && (list_tests_only == 0)) {
         /* Not using JSON */
         printf("URL1: <%s> \n", g_test_url1);
         printf("URL2: <%s> \n", g_test_url2);

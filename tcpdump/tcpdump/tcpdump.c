@@ -3688,13 +3688,13 @@ print_pcap_ng_block(u_char *user, const struct pcap_pkthdr *h, const u_char *sp)
 			if (pcap_ng_block_get_option(block, PCAPNG_IF_NAME, &option_info) == 1)
 				ifname = (const char *)option_info.value;
 
-			if_info = pcap_add_if_info(ndo->ndo_pcap, ifname, -1, idbp->idb_linktype, idbp->idb_snaplen);
+			if_info = pcap_add_if_info(ndo->ndo_pcap, ifname, -1, linktype_to_dlt(idbp->idb_linktype), idbp->idb_snaplen);
 			if (if_info == NULL)
 				error("%s: cannot allocate memory", __func__);
 
 			if (ndo->ndo_kflag & PRMD_VERBOSE)
-				ND_PRINT((ndo, "Interface Description Block id: %d name: %s linktype: %u snaplen: %u\n",
-						  if_info->if_id, if_info->if_name, if_info->if_linktype,
+				ND_PRINT((ndo, "Interface Description Block id: %d name: %s linktype: %u (dlt: %d) snaplen: %u\n",
+						  if_info->if_id, if_info->if_name, idbp->idb_linktype, if_info->if_linktype,
 						  if_info->if_snaplen));
 
 			goto done;
@@ -3929,7 +3929,7 @@ print_pcap_ng_block(u_char *user, const struct pcap_pkthdr *h, const u_char *sp)
 	/*
 	 * Packet metadata
 	 */
-    if (ndo->ndo_kflag != PRMD_NONE && ndo->ndo_kflag != PRMD_VERBOSE) {
+	if (ndo->ndo_kflag != PRMD_NONE && ndo->ndo_kflag != PRMD_VERBOSE) {
 		const char *prsep = "";
 
 		ND_PRINT((ndo, "("));

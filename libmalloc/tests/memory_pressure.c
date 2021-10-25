@@ -35,6 +35,69 @@ stress(size_t sz, size_t cnt)
 	}
 }
 
+T_DECL(tiny_mem_pressure, "tiny memory pressure",
+#if TARGET_OS_WATCH
+		T_META_TIMEOUT(TEST_TIMEOUT),
+#endif // TARGET_OS_WATCH
+		T_META_ENVVAR("MallocDebugReport=stderr"),
+		T_META_ENVVAR("MallocScribble=1"),
+		T_META_ENVVAR("MallocSpaceEfficient=1"),
+		T_META_ENVVAR("MallocMaxMagazines=1"),
+		T_META_CHECK_LEAKS(false))
+{
+	dispatch_queue_t q = dispatch_queue_create("pressure queue", 0); // serial
+	dispatch_async(q, ^{
+		while (1) {
+			malloc_zone_pressure_relief(0, 0);
+			usleep(100000);
+		}
+	});
+	stress(128, 50000);
+	T_PASS("didn't crash");
+}
+
+T_DECL(small_mem_pressure, "small memory pressure thread",
+#if TARGET_OS_WATCH
+		T_META_TIMEOUT(TEST_TIMEOUT),
+#endif // TARGET_OS_WATCH
+		T_META_ENVVAR("MallocDebugReport=stderr"),
+		T_META_ENVVAR("MallocScribble=1"),
+		T_META_ENVVAR("MallocSpaceEfficient=1"),
+		T_META_ENVVAR("MallocMaxMagazines=1"),
+		T_META_CHECK_LEAKS(false))
+{
+	dispatch_queue_t q = dispatch_queue_create("pressure queue", 0); // serial
+	dispatch_async(q, ^{
+		while (1) {
+			malloc_zone_pressure_relief(0, 0);
+			usleep(10000);
+		}
+	});
+	stress(512, 20000);
+	T_PASS("didn't crash");
+}
+
+T_DECL(medium_mem_pressure, "medium memory pressure thread",
+#if TARGET_OS_WATCH
+		T_META_TIMEOUT(TEST_TIMEOUT),
+#endif // TARGET_OS_WATCH
+		T_META_ENVVAR("MallocDebugReport=stderr"),
+		T_META_ENVVAR("MallocScribble=1"),
+		T_META_ENVVAR("MallocSpaceEfficient=1"),
+		T_META_ENVVAR("MallocMaxMagazines=1"),
+		T_META_CHECK_LEAKS(false))
+{
+	dispatch_queue_t q = dispatch_queue_create("pressure queue", 0); // serial
+	dispatch_async(q, ^{
+		while (1) {
+			malloc_zone_pressure_relief(0, 0);
+			usleep(100000);
+		}
+	});
+	stress(64*1024, 1000);
+	T_PASS("didn't crash");
+}
+
 T_DECL(tiny_mem_pressure_multi, "test memory pressure in tiny on threads",
 #if TARGET_OS_WATCH
 		T_META_TIMEOUT(TEST_TIMEOUT),

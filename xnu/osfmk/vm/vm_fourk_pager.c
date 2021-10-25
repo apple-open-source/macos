@@ -443,7 +443,7 @@ fourk_pager_deallocate_internal(
 			memory_object_control_deallocate(pager->fourk_pgr_hdr.mo_control);
 			pager->fourk_pgr_hdr.mo_control = MEMORY_OBJECT_CONTROL_NULL;
 		}
-		kfree(pager, sizeof(*pager));
+		kfree_type(struct fourk_pager, pager);
 		pager = FOURK_PAGER_NULL;
 	} else {
 		/* there are still plenty of references:  keep going... */
@@ -498,7 +498,7 @@ fourk_pager_synchronize(
 	__unused memory_object_size_t   length,
 	__unused vm_sync_t              sync_flags)
 {
-	panic("fourk_pager_synchronize: memory_object_synchronize no longer supported\n");
+	panic("fourk_pager_synchronize: memory_object_synchronize no longer supported");
 	return KERN_FAILURE;
 }
 
@@ -705,11 +705,7 @@ fourk_pager_create(void)
 	}
 #endif
 
-	pager = (fourk_pager_t) kalloc(sizeof(*pager));
-	if (pager == FOURK_PAGER_NULL) {
-		return MEMORY_OBJECT_NULL;
-	}
-	bzero(pager, sizeof(*pager));
+	pager = kalloc_type(struct fourk_pager, Z_WAITOK | Z_ZERO | Z_NOFAIL);
 
 	/*
 	 * The vm_map call takes both named entry ports and raw memory

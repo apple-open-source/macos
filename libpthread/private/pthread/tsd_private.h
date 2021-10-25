@@ -106,7 +106,7 @@
 /* for usage by dyld */
 #define __PTK_LIBC_DYLD_Unwind_SjLj_Key	18
 
-/* Keys 20-29 for libdispatch usage */
+/* Keys 20-29,120-125 for libdispatch usage */
 #define __PTK_LIBDISPATCH_KEY0		20
 #define __PTK_LIBDISPATCH_KEY1		21
 #define __PTK_LIBDISPATCH_KEY2		22
@@ -117,6 +117,12 @@
 #define __PTK_LIBDISPATCH_KEY7		27
 #define __PTK_LIBDISPATCH_KEY8		28
 #define __PTK_LIBDISPATCH_KEY9		29
+
+#define __PTK_LIBDISPATCH_KEY10		120
+#define __PTK_LIBDISPATCH_KEY11		121
+#define __PTK_LIBDISPATCH_KEY12		122
+#define __PTK_LIBDISPATCH_KEY13		123
+#define __PTK_LIBDISPATCH_KEY14		124
 
 /* Keys 30-255 for Non Libsystem usage */
 
@@ -276,7 +282,7 @@ extern const struct pthread_layout_offsets_s {
 __header_always_inline int
 _pthread_has_direct_tsd(void)
 {
-#if TARGET_IPHONE_SIMULATOR
+#if TARGET_OS_SIMULATOR
 	return 0;
 #else
 	return 1;
@@ -287,7 +293,7 @@ _pthread_has_direct_tsd(void)
 __header_always_inline void *
 _pthread_getspecific_direct(unsigned long slot)
 {
-#if TARGET_IPHONE_SIMULATOR
+#if TARGET_OS_SIMULATOR
 	return pthread_getspecific(slot);
 #else
 	return _os_tsd_get_direct(slot);
@@ -299,7 +305,7 @@ _pthread_getspecific_direct(unsigned long slot)
 __header_always_inline int
 _pthread_setspecific_direct(unsigned long slot, void * val)
 {
-#if TARGET_IPHONE_SIMULATOR
+#if TARGET_OS_SIMULATOR
 	return _pthread_setspecific_static(slot, val);
 #else
 	return _os_tsd_set_direct(slot, val);

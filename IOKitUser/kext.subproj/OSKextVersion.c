@@ -31,6 +31,7 @@
 #else
 #include <libc.h>
 #include <System/libkern/OSKextLibPrivate.h>
+#include <CoreFoundation/CoreFoundation.h>
 #endif /* KERNEL */
 #include <System/libkern/OSKextLibPrivate.h>
 

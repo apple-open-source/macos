@@ -56,6 +56,13 @@ DATA_SYMLINK_DEST=System/Volumes/Data
 endif
 
 install::
+#if !defined(__OPEN_SOURCE_)
+	# The specified permissions on any entry may be overridden by XBS's
+	# .Permissions.config file. If you observe that the permissions are as
+	# expected in TempContent/Root but have been changed in the RuntimeRoot,
+	# then this is probably what happened. Currently this file overrides many
+	# permissions specified by the files project, which really should be fixed.
+#endif
 
 	# The hierarchy files REQUIRE that their columns be TAB-SEPARATED. Using
 	# spaces will result in that line being SILENTLY IGNORED. This should be

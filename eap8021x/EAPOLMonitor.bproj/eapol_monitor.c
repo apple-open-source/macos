@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010-2020 Apple Inc. All rights reserved.
+ * Copyright (c) 2010-2021 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -1107,12 +1107,12 @@ add_settings_notification(MyType * me)
 	return;
     }
     context.info = me;
-    notify_port_cf = CFMachPortCreateWithPort(NULL, notify_port,
-					      settings_changed, 
-					      &context,
-					      NULL);
+    notify_port_cf = _SC_CFMachPortCreateWithPort("EAPOLMonitor",
+						  notify_port,
+						  settings_changed,
+						  &context);
     if (notify_port_cf == NULL) {
-	EAPLOG(LOG_NOTICE, "EAPOLMonitor: CFMachPortCreateWithPort() failed");
+	/* _SC_CFMachPortCreateWithPort already logged the failure */
 	(void)notify_cancel(notify_token);
 	return;
     }

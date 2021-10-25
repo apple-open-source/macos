@@ -159,6 +159,10 @@ enum {
     kIOPCIConfiguratorTBPanics       = 0x01000000,
     kIOPCIConfiguratorTBUSBCPanics   = 0x02000000,
 
+    kIOPCIConfiguratorSystemMap      = 0x04000000,  // Force all devices to use system mapper, x86 only
+
+    kIOPCIConfiguratorDefaultETF     = 0x08000000, // Use default extended tag settings
+
     kIOPCIConfiguratorBootDefer      = kIOPCIConfiguratorDeferHotPlug | kIOPCIConfiguratorBoot,
 };
 
@@ -245,6 +249,12 @@ enum
     kPCIHotPlugTunnelRootParent = kPCIHotPlugTunnel | kPCIHPRootParent,
 };
 
+// value of expressPayloadSetting
+enum
+{
+    kPCIMaxPayloadSizeSet = 0x01,
+};
+
 #define kPCIBridgeMaxCount  256
 
 enum 
@@ -273,6 +283,7 @@ struct IOPCIConfigEntry
     IOPCIConfigEntry *  child;
     IOPCIConfigEntry *  peer;
     IOPCIConfigEntry *  hostBridgeEntry;
+    IOPCIConfigEntry *  rootPortEntry;
     uint32_t			id;
     uint32_t            classCode;
     IOPCIAddressSpace   space;
@@ -280,11 +291,12 @@ struct IOPCIConfigEntry
 
     uint32_t            expressCapBlock;
     uint32_t            expressDeviceCaps1;
+    uint32_t            expressDeviceCaps2;
 
     uint32_t            fpbCapBlock;
     uint32_t            fpbCaps;
 
-    IOPCIBridge *       hostBridge;
+    IOPCIHostBridge *   hostBridge;
     IOPCIRange *        ranges[kIOPCIRangeCount];
     IOPCIRange          busResv;
     uint32_t            rangeBaseChanges;
@@ -394,15 +406,16 @@ protected:
     uint16_t disableAccess(IOPCIConfigEntry * device, bool disable);
     void    restoreAccess(IOPCIConfigEntry * device, UInt16 command);
     void    bridgeAddChild(IOPCIConfigEntry * bridge, IOPCIConfigEntry * child);
-    bool    bridgeRemoveChild(IOPCIConfigEntry * bridge, IOPCIConfigEntry * dead,
+    void    bridgeRemoveChild(IOPCIConfigEntry * bridge, IOPCIConfigEntry * dead,
                               uint32_t deallocTypes, uint32_t freeTypes,
                               IOPCIConfigEntry ** childList);
-	void    bridgeMoveChildren(IOPCIConfigEntry * to, IOPCIConfigEntry * list);
+	void    deleteConfigEntry(IOPCIConfigEntry * entry);
+	void    bridgeMoveChildren(IOPCIConfigEntry * to, IOPCIConfigEntry * list, uint32_t moveTypes);
     void    bridgeDeadChild(IOPCIConfigEntry * bridge, IOPCIConfigEntry * dead);
     void    bridgeProbeChild(IOPCIConfigEntry * bridge, IOPCIAddressSpace space);
     void    bridgeProbeChildRanges(IOPCIConfigEntry * bridge, uint32_t resetMask);
     void    probeBaseAddressRegister(IOPCIConfigEntry * device, uint32_t lastBarNum, uint32_t resetMask);
-    void    safeProbeBaseAddressRegister(IOPCIConfigEntry * device, uint32_t lastBarNum, uint32_t resetMask);
+    void    safeProbeBaseAddressRegister(IOPCIConfigEntry * device, uint32_t lastBarNum, uint32_t resetMask, bool disableInterrupts);
     void    deviceProbeRanges(IOPCIConfigEntry * device, uint32_t resetMask);
     void    bridgeProbeRanges(IOPCIConfigEntry * bridge, uint32_t resetMask);
     void    cardbusProbeRanges(IOPCIConfigEntry * bridge, uint32_t resetMask);
@@ -421,7 +434,7 @@ protected:
     void           constructAddressingProperties(IOPCIConfigEntry * device, OSDictionary * propTable);
 
     bool     createRoot(void);
-    IOReturn addHostBridge(IOPCIBridge * hostBridge);
+    IOReturn addHostBridge(IOPCIHostBridge * hostBridge);
     IOPCIConfigEntry * findEntry(IORegistryEntry * from, IOPCIAddressSpace space);
 
     bool     configAccess(IOPCIConfigEntry * device, bool write);

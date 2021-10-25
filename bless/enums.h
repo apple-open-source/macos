@@ -37,16 +37,17 @@
 
 enum {
     kdummy = 0,
+	kallowui,
+	kalternateos,
     kapfsdriver,
-    kalternateos,
-    kbootinfo,
+	kbootblockfile,
 	kbootefi,
-    kbootblockfile,
-    kbooter,
+	kbooter,
+    kbootinfo,
 	kcreatesnapshot,
 	kdevice,
-    kfile,
-	kfirmware,			/* 10 */
+    kfile,				/* 10 */
+	kfirmware,
     kfolder,
     kfolder9,
     kgetboot,
@@ -55,8 +56,8 @@ enum {
     kkernel,
     kkernelcache,
     klabel,
-    klabelfile,
-	klastsealedsnapshot, /* 20 */
+    klabelfile, 		/* 20 */
+	klastsealedsnapshot,
     klegacy,
     klegacydrivehint,
     kmkext,
@@ -65,8 +66,8 @@ enum {
     knextonly,
     kopenfolder,
     koptions,
-    kpayload,
-	kpersonalize,       /* 30 */
+    kpayload,			/* 30 */
+	kpersonalize,
     kplist,
     kquiet,
 	krecovery,
@@ -75,8 +76,8 @@ enum {
     ksaveX,
     kserver,
     ksetboot,
-    kshortform,
-    kstartupfile,       /* 40 */
+    kshortform,			/* 40 */
+    kstartupfile,
     kunbless,
     kuse9,
     kverbose,

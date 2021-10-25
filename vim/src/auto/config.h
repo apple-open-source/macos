@@ -1,7 +1,7 @@
 /* auto/config.h.  Generated from config.h.in by configure.  */
 /*
- * config.h.in.  Generated automatically from configure.in by autoheader, and
- * manually changed after that.
+ * config.h.in.  Originally generated automatically from configure.ac by
+ * autoheader and manually changed after that.
  */
 
 /* Define if we have EBCDIC code */
@@ -30,6 +30,9 @@
 
 /* Define when __DATE__ " " __TIME__ can be used */
 #define HAVE_DATE_TIME 1
+
+/* Defined from $SOURCE_DATE_EPOCH, used as the build date */
+/* #undef BUILD_DATE */
 
 /* Define when __attribute__((unused)) can be used */
 #define HAVE_ATTRIBUTE_UNUSED 1
@@ -134,12 +137,6 @@
 #define PTYRANGE0 "pqrstuvw"
 #define PTYRANGE1 "0123456789abcdef"
 
-/* Define mode for pty */
-/* #undef PTYMODE */
-
-/* Define group for pty */
-/* #undef PTYGROUP */
-
 /* Define as the return type of signal handlers (int or void).  */
 #define RETSIGTYPE void
 
@@ -182,6 +179,7 @@
 #define HAVE_GETTIMEOFDAY 1
 /* #undef HAVE_GETWD */
 #define HAVE_ICONV 1
+#define HAVE_INET_NTOP 1
 #define HAVE_LOCALTIME_R 1
 #define HAVE_LSTAT 1
 #define HAVE_MEMSET 1
@@ -208,6 +206,7 @@
 #define HAVE_SIGVEC 1
 /* #undef HAVE_SMACK */
 #define HAVE_STRCASECMP 1
+#define HAVE_STRCOLL 1
 #define HAVE_STRERROR 1
 #define HAVE_STRFTIME 1
 /* #undef HAVE_STRICMP */
@@ -271,6 +270,7 @@
 #define HAVE_SYS_PARAM_H 1
 #define HAVE_SYS_POLL_H 1
 /* #undef HAVE_SYS_PTEM_H */
+/* #undef HAVE_SYS_PTMS_H */
 #define HAVE_SYS_RESOURCE_H 1
 #define HAVE_SYS_SELECT_H 1
 /* #undef HAVE_SYS_STATFS_H */
@@ -380,8 +380,8 @@
 /* Define if you want to include the Tcl interpreter. */
 /* #undef FEAT_TCL */
 
-/* Define if you want to include the Sniff interface. */
-/* #undef FEAT_SNIFF */
+/* Define for linking via dlopen() or LoadLibrary() */
+/* #undef DYNAMIC_TCL */
 
 /* Define if you want to add support for ACL */
 #define HAVE_POSIX_ACL 1
@@ -410,17 +410,11 @@
 /* Define if you want to include XIM support. */
 /* #undef FEAT_XIM */
 
-/* Define if you want to include Hangul input support. */
-/* #undef FEAT_HANGULIN */
-
 /* Define if you use GTK and want GNOME support. */
 /* #undef FEAT_GUI_GNOME */
 
 /* Define if you use KDE and want KDE Toolbar support. */
 /* #undef FEAT_KDETOOLBAR */
-
-/* Define if GTK+ multihead support is available (requires GTK+ >= 2.1.1). */
-/* #undef HAVE_GTK_MULTIHEAD */
 
 /* Define if your X has own locale library */
 /* #undef X_LOCALE */
@@ -446,8 +440,8 @@
 /* Define if we have shl_load() */
 /* #undef HAVE_SHL_LOAD */
 
-/* Define if you want to include Sun Visual Workshop support. */
-/* #undef FEAT_SUN_WORKSHOP */
+/* Define if we can use IPv6 networking. */
+#define FEAT_IPV6 1
 
 /* Define if you want to include NetBeans integration. */
 #define FEAT_NETBEANS_INTG 1
@@ -458,8 +452,11 @@
 /* Define if you want to include terminal emulator support. */
 #define FEAT_TERMINAL 1
 
-/* Define default global runtime path */
+// Define default global runtime path.
 /* #undef RUNTIME_GLOBAL */
+
+// Define default global runtime after path.
+/* #undef RUNTIME_GLOBAL_AFTER */
 
 /* Define name of who modified a released Vim */
 /* #undef MODIFIED_BY */
@@ -469,6 +466,9 @@
 
 /* Define if fcntl()'s F_SETFD command knows about FD_CLOEXEC */
 #define HAVE_FD_CLOEXEC 1
+
+/* Define if /proc/self/exe or similar can be read */
+/* #undef PROC_EXE_LINK */
 
 /* Define if you want Cygwin to use the WIN32 clipboard, not compatible with X11*/
 /* #undef FEAT_CYGWIN_WIN32_CLIPBOARD */
@@ -497,5 +497,14 @@
 /* Define if we have isnan() */
 #define HAVE_ISNAN 1
 
+/* Define if we have dirfd() */
+#define HAVE_DIRFD 1
+
+/* Define if we have flock() */
+#define HAVE_FLOCK 1
+
 /* Define to inline symbol or empty */
 /* #undef inline */
+
+/* Define if _SC_SIGSTKSZ is available via sysconf() */
+/* #undef HAVE_SYSCONF_SIGSTKSZ */

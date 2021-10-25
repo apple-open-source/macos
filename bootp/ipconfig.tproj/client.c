@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2020 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2021 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -483,6 +483,103 @@ S_get_ra(mach_port_t server, int argc, char * argv[])
     return (ret);
 }
 
+static int
+S_get_summary(mach_port_t server, int argc, char * argv[])
+{
+    kern_return_t	kret;
+    InterfaceName	name;
+    int			ret;
+    ipconfig_status_t	status;
+    CFDictionaryRef	summary = NULL;
+    xmlDataOut_t	summary_data = NULL;
+    unsigned int	summary_data_len = 0;
+
+    ret = 1;
+    InterfaceNameInit(name, argv[0]);
+    kret = ipconfig_get_summary(server, name, &summary_data, &summary_data_len,
+				&status);
+    if (kret != KERN_SUCCESS) {
+	fprintf(stderr, "ipconfig_get_summary failed, %s\n",
+		mach_error_string(kret));
+	goto done;
+    }
+    if (summary_data != NULL) {
+	summary
+	    = my_CFPropertyListCreateWithBytePtrAndLength(summary_data,
+							  summary_data_len);
+	(void)vm_deallocate(mach_task_self(), (vm_address_t)summary_data,
+			    summary_data_len);
+	if (summary == NULL) {
+	    fprintf(stderr, "failed to decode summary\n");
+	}
+    }
+    if (status != ipconfig_status_success_e) {
+	fprintf(stderr, "ipconfig_get_summary(%s) failed: %s\n",
+		name, ipconfig_status_string(status));
+	goto done;
+    }
+    else {
+	ret = 0;
+	if (summary != NULL) {
+	    SCPrint(TRUE, stdout, CFSTR("%@\n"), summary);
+	}
+    }
+ done:
+    my_CFRelease(&summary);
+    return (ret);
+}
+
+static int
+S_get_if_list(mach_port_t server, int argc, char * argv[])
+{
+    kern_return_t	kret;
+    CFArrayRef		if_list = NULL;
+    xmlDataOut_t	if_list_data = NULL;
+    unsigned int	if_list_data_len = 0;
+    int			ret;
+    ipconfig_status_t	status;
+
+    ret = 1;
+    kret = ipconfig_get_interface_list(server, &if_list_data,
+				       &if_list_data_len,
+				       &status);
+    if (kret != KERN_SUCCESS) {
+	fprintf(stderr, "ipconfig_get_interface_list failed, %s\n",
+		mach_error_string(kret));
+	goto done;
+    }
+    if (if_list_data != NULL) {
+	if_list
+	    = my_CFPropertyListCreateWithBytePtrAndLength(if_list_data,
+							  if_list_data_len);
+	(void)vm_deallocate(mach_task_self(), (vm_address_t)if_list_data,
+			    if_list_data_len);
+	if (if_list == NULL) {
+	    fprintf(stderr, "failed to decode interface list\n");
+	}
+    }
+    if (status != ipconfig_status_success_e) {
+	fprintf(stderr, "ipconfig_get_interface_list() failed: %s\n",
+		ipconfig_status_string(status));
+	goto done;
+    }
+    else {
+	ret = 0;
+	if (if_list != NULL) {
+	    for (CFIndex i = 0, count = CFArrayGetCount(if_list);
+		 i < count; i++) {
+		CFStringRef	ifname = CFArrayGetValueAtIndex(if_list, i);
+
+		SCPrint(TRUE, stdout, CFSTR("%s%@"), i != 0 ? " " : "", ifname);
+	    }
+	    printf("\n");
+	}
+    }
+ done:
+    my_CFRelease(&if_list);
+    return (ret);
+}
+
 #ifndef kSCValNetIPv6ConfigMethodLinkLocal
 static const CFStringRef kIPConfigurationIPv6ConfigMethodLinkLocal = CFSTR("LinkLocal");
 #define kSCValNetIPv6ConfigMethodLinkLocal kIPConfigurationIPv6ConfigMethodLinkLocal
@@ -835,6 +932,31 @@ S_set_cellular_clat46_autoenable(mach_port_t server, int argc, char * argv[])
 		fprintf(stderr, "failed to set cellular CLAT46 auto-enable\n");
 		return (1);
 	}
+	return (0);
+}
+
+static int
+S_set_ipv6_linklocal_modifier_expires(mach_port_t server,
+				      int argc, char * argv[])
+{
+	int		expires;
+	Boolean		val;
+
+	errno = 0;
+	expires = (int)strtol(argv[0], NULL, 0);
+	if (expires == 0 && errno != 0) {
+		fprintf(stderr,
+			"conversion to integer of %s failed\n",
+			argv[0]);
+		return (1);
+	}
+	val = (expires != 0);
+	if (!IPConfigurationControlPrefsSetIPv6LinkLocalModifierExpires(val)) {
+		fprintf(stderr,
+			"failed to set IPv6 linklocal modifier expires\n");
+		return (1);
+	}
+	printf("Reboot for this change to take effect.\n");
 	return (0);
 }
 
@@ -1193,6 +1315,8 @@ static const struct command_info {
     { "ifcount", S_if_count, 0, "", 1, 0 },
     { "getoption", S_get_option, 2, 
       " <interface name | \"\" > <option name> | <option code>", 1, 0 },
+    { "getiflist", S_get_if_list, 0, "", 1, 0 },
+    { "getsummary", S_get_summary, 1, " <interface name>", 1, 0 },
     { "getpacket", S_get_packet, 1, " <interface name>", 1, 0 },
     { "getv6packet", S_get_v6_packet, 1, " <interface name>", 1, 0 },
     { "getra", S_get_ra, 1, "<interface name>", 1, 0},
@@ -1206,6 +1330,8 @@ static const struct command_info {
     { "netbootpacket", S_bsdp_get_packet, 0, "", 0, 1 },
     { "setclat46enable", S_set_cellular_clat46_autoenable, 1, "0 | 1", 0, 1 },
     { "setverbose", S_set_verbose, 1, "0 | 1", 1, 1 },
+    { "setipv6linklocalmodifierexpires",
+      S_set_ipv6_linklocal_modifier_expires, 1, "0 | 1", 0, 1 },
 #ifdef IPCONFIG_TEST_NO_ENTRY
     { "setsomething", S_set_something, 1, "0 | 1", 1, 0 },
 #endif /* IPCONFIG_TEST_NO_ENTRY */

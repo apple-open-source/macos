@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2006, 2008, 2011. 2015, 2018-2019 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2006, 2008, 2011, 2015, 2019, 2020. 2015, 2018-2019 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -40,7 +40,7 @@
 #include <CoreFoundation/CoreFoundation.h>
 
 #define DISPATCH_MACH_SPI 1
-#import <dispatch/private.h>
+#include <dispatch/private.h>
 
 __BEGIN_DECLS
 

@@ -5,21 +5,22 @@
 	<key>OpenSourceProject</key>
 	<string>bzip2</string>
 	<key>OpenSourceVersion</key>
-	<string>1.0.6</string>
+	<string>1.0.8</string>
 	<key>OpenSourceWebsiteURL</key>
 	<string>http://www.bzip.org/</string>
 	<key>OpenSourceURL</key>
-	<string>http://www.bzip.org/1.0.6/bzip2-1.0.6.tar.gz</string>
+	<string>https://sourceware.org/pub/bzip2/bzip2-1.0.8.tar.gz</string>
 	<key>OpenSourceSHA1</key>
-	<string>3f89f861209ce81a6bab1fd1998c0ef311712002</string>
+	<string>bf7badf7e248e0ecf465d33c2f5aeec774209227</string>
 	<key>OpenSourceImportDate</key>
-	<string>2011-03-02</string>
+	<string>2021-01-04</string>
 	<key>OpenSourceModifications</key>
 	<array>
 		<string>EA support.</string>
 		<string>bzdiff fixes</string>
 		<string>bzgrep fixes</string>
 		<string>use strlcpy</string>
+		<string>rdar://problem/59291611 mandoc fix</string>
 	</array>
 	<key>OpenSourceLicense</key>
 	<string>Other</string>

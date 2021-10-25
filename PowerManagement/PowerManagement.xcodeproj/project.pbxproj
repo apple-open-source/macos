@@ -41,6 +41,7 @@
 			);
 			dependencies = (
 				4833AAD524C6388600995124 /* PBXTargetDependency */,
+				803BC915244A1CE900BA8263 /* PBXTargetDependency */,
 				B30469782322E0AD00B887C4 /* PBXTargetDependency */,
 				4878DC861E77757A00CF1891 /* PBXTargetDependency */,
 				48644FC51B7D5BBC00AC7C92 /* PBXTargetDependency */,
@@ -72,14 +73,15 @@
 			buildPhases = (
 			);
 			dependencies = (
+				B34A59082641DE3B001A952C /* PBXTargetDependency */,
 				486A1D452464710700943CE1 /* PBXTargetDependency */,
+				803BC917244A1F1600BA8263 /* PBXTargetDependency */,
 				4896C6A121BF3A9800D2BE6B /* PBXTargetDependency */,
 				80E851291E3AB29300B8A8EE /* PBXTargetDependency */,
 				4851F9AE1C6438C400125DBE /* PBXTargetDependency */,
 				8C1DA6F31986C02A0041B69A /* PBXTargetDependency */,
 				72A1C142128E0B0700754139 /* PBXTargetDependency */,
 				72E815750CFE473600CF547E /* PBXTargetDependency */,
-				72EE05D91909C876009A2681 /* PBXTargetDependency */,
 			);
 			name = "PowerManagement-Embedded";
 			productName = "PowerManagement-Embedded";
@@ -91,12 +93,12 @@
 		081E47AD23958CE90046AC84 /* BatteryDataCollectionManager.m in Sources */ = {isa = PBXBuildFile; fileRef = 081E47AB23958CE90046AC84 /* BatteryDataCollectionManager.m */; };
 		081E47B72395C03E0046AC84 /* test_batteryDataCollectionManager.m in Sources */ = {isa = PBXBuildFile; fileRef = 081E47B42395C03E0046AC84 /* test_batteryDataCollectionManager.m */; };
 		081E47B82395C1560046AC84 /* BatteryDataCollectionManager.h in Headers */ = {isa = PBXBuildFile; fileRef = 081E47AF23958D4F0046AC84 /* BatteryDataCollectionManager.h */; };
-		081E47C72395CB310046AC84 /* test_batteryDataCollectionManager.m in Sources */ = {isa = PBXBuildFile; fileRef = 081E47B42395C03E0046AC84 /* test_batteryDataCollectionManager.m */; };
-		081E47C82395CB460046AC84 /* BatteryDataCollectionManager.m in Sources */ = {isa = PBXBuildFile; fileRef = 081E47AB23958CE90046AC84 /* BatteryDataCollectionManager.m */; };
+		083BBC0925A7AD4400AC5486 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 083BBC0825A7AD4300AC5486 /* Foundation.framework */; };
 		084A0B1A240DC78400C19142 /* BatteryDataCollectionManager.m in Sources */ = {isa = PBXBuildFile; fileRef = 081E47AB23958CE90046AC84 /* BatteryDataCollectionManager.m */; };
 		08AD431523A31E11008A8EA3 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4878DC361E77593400CF1891 /* Foundation.framework */; };
 		08AD431A23A4A248008A8EA3 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4878DC361E77593400CF1891 /* Foundation.framework */; };
 		08AD431B23A4A473008A8EA3 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4878DC361E77593400CF1891 /* Foundation.framework */; };
+		08DC3AF325CF703D00C784FC /* com.apple.bdc.metadata.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = 08DC3AF125CF700A00C784FC /* com.apple.bdc.metadata.plist */; };
 		1149A7AA1E8351F80060933C /* PAssertions_XCTest.m in Sources */ = {isa = PBXBuildFile; fileRef = 1149A7A51E8351EE0060933C /* PAssertions_XCTest.m */; };
 		119B323D1E41503A00EB0780 /* powermanagement.defs in Sources */ = {isa = PBXBuildFile; fileRef = 720A66C406C2F7C600944335 /* powermanagement.defs */; settings = {ATTRIBUTES = (Server, ); COMPILER_FLAGS = "-D__MigTypeCheck=1"; }; };
 		119B323E1E41503E00EB0780 /* TTYKeepAwake.c in Sources */ = {isa = PBXBuildFile; fileRef = 72D984480B20BE7800D66087 /* TTYKeepAwake.c */; };
@@ -121,7 +123,6 @@
 		119B32541E4162AE00EB0780 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 119B32531E4162AE00EB0780 /* CoreFoundation.framework */; };
 		119B32561E4162B400EB0780 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 119B32551E4162B400EB0780 /* IOKit.framework */; };
 		119B32581E41634D00EB0780 /* powerd_test.h in Headers */ = {isa = PBXBuildFile; fileRef = 119B323A1E41501100EB0780 /* powerd_test.h */; };
-		119B32591E41635200EB0780 /* AggdDailyReport.h in Headers */ = {isa = PBXBuildFile; fileRef = 1161A0751DF79B3F00EC5CD5 /* AggdDailyReport.h */; };
 		119B325A1E4164A200EB0780 /* IOUPSPrivate.c in Sources */ = {isa = PBXBuildFile; fileRef = F7828184058E83D30055547B /* IOUPSPrivate.c */; };
 		119B325B1E41654800EB0780 /* CommonLib.h in Headers */ = {isa = PBXBuildFile; fileRef = 728F7A091A2657E800EA70CC /* CommonLib.h */; };
 		119B325C1E41658700EB0780 /* libsystemstats.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 481D3D3A1B166D5000201979 /* libsystemstats.dylib */; };
@@ -153,7 +154,7 @@
 		1ED44A0C25E5B3E30006AE96 /* prefs.m in Sources */ = {isa = PBXBuildFile; fileRef = 1ED44A0825E5B3E30006AE96 /* prefs.m */; };
 		22B9840916FBA91100BB59FC /* swd.c in Sources */ = {isa = PBXBuildFile; fileRef = 22B9840816FBA91100BB59FC /* swd.c */; };
 		22B9840A16FBABC800BB59FC /* com.apple.powerd.swd.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = 22B9840716FBA91100BB59FC /* com.apple.powerd.swd.plist */; };
-		2436E1892603E6D2009D0524 /* libMobileGestalt.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 2436E1882603E6D2009D0524 /* libMobileGestalt.dylib */; platformFilter = ios; };
+		24565E74261CD69C0026AE2F /* libMobileGestalt.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 24565E73261CD69C0026AE2F /* libMobileGestalt.dylib */; };
 		4817EC2A21B6071C0049B606 /* BatteryTimeRemaining.m in Sources */ = {isa = PBXBuildFile; fileRef = 40BE9CF2031ECBBC0ACA28D7 /* BatteryTimeRemaining.m */; };
 		4817EC2B21B608B60049B606 /* powermanagement.defs in Sources */ = {isa = PBXBuildFile; fileRef = 720A66C406C2F7C600944335 /* powermanagement.defs */; settings = {ATTRIBUTES = (Server, ); COMPILER_FLAGS = "-D__MigTypeCheck=1"; }; };
 		4817EC2D21B609010049B606 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4817EC2C21B609010049B606 /* CoreFoundation.framework */; };
@@ -176,9 +177,8 @@
 		4817EC6021B617300049B606 /* libbsm.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 4817EC5F21B617300049B606 /* libbsm.dylib */; };
 		4817EC6121B61A920049B606 /* PMSystemEvents.c in Sources */ = {isa = PBXBuildFile; fileRef = 72A9DF010CDAA05B000FDB18 /* PMSystemEvents.c */; };
 		4817EC6321B61AF60049B606 /* libenergytrace.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 4817EC6221B61AF60049B606 /* libenergytrace.dylib */; };
-		4817EC6421B61B170049B606 /* AggdDailyReport.m in Sources */ = {isa = PBXBuildFile; fileRef = 1161A0781DF9081800EC5CD5 /* AggdDailyReport.m */; };
 		48232D7E2006B77400B3BD7D /* libDiagnosticMessagesClient.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 48232D7D2006B77400B3BD7D /* libDiagnosticMessagesClient.tbd */; };
-		4825362E21BE427600A4DB1C /* pmtool.c in Sources */ = {isa = PBXBuildFile; fileRef = 48644FC11B7D5B2800AC7C92 /* pmtool.c */; };
+		4825362E21BE427600A4DB1C /* pmtool.m in Sources */ = {isa = PBXBuildFile; fileRef = 48644FC11B7D5B2800AC7C92 /* pmtool.m */; };
 		4825363021BE427600A4DB1C /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 40882BA6019747120ACA2928 /* CoreFoundation.framework */; };
 		4825363121BE427600A4DB1C /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 40882BA7019747120ACA2928 /* IOKit.framework */; };
 		4825363321BE427600A4DB1C /* pmtool.1 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 48644FC61B7D5E4C00AC7C92 /* pmtool.1 */; };
@@ -190,7 +190,7 @@
 		4843FF1921B1F85500012181 /* MobileKeyBag.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4843FF1821B1F85500012181 /* MobileKeyBag.framework */; };
 		484EA0F216BEEB8400E70CF3 /* libIOReport.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 4874455816B31BB000F343A8 /* libIOReport.a */; };
 		4851F9AC1C6431D000125DBE /* IOPSCreatePowerSource-simple.c in Sources */ = {isa = PBXBuildFile; fileRef = 4851F9A91C6431A000125DBE /* IOPSCreatePowerSource-simple.c */; };
-		48644FC31B7D5B8F00AC7C92 /* pmtool.c in Sources */ = {isa = PBXBuildFile; fileRef = 48644FC11B7D5B2800AC7C92 /* pmtool.c */; };
+		48644FC31B7D5B8F00AC7C92 /* pmtool.m in Sources */ = {isa = PBXBuildFile; fileRef = 48644FC11B7D5B2800AC7C92 /* pmtool.m */; };
 		48644FCC1B7D5F4B00AC7C92 /* pmtool.1 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 48644FC61B7D5E4C00AC7C92 /* pmtool.1 */; };
 		48644FCD1B7D603B00AC7C92 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 40882BA6019747120ACA2928 /* CoreFoundation.framework */; };
 		48644FCE1B7D603E00AC7C92 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 40882BA7019747120ACA2928 /* IOKit.framework */; };
@@ -295,9 +295,7 @@
 		48A48D781EF42F8F0016FE7B /* libbsm.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 4878DC771E7769C900CF1891 /* libbsm.dylib */; };
 		48A48D7A1EF42F8F0016FE7B /* libenergytrace.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 4878DC731E7769B300CF1891 /* libenergytrace.dylib */; };
 		48A48D821EF430540016FE7B /* BatteryData.c in Sources */ = {isa = PBXBuildFile; fileRef = 481801D41ECE17F500467D4B /* BatteryData.c */; };
-		48A48D831EF4305B0016FE7B /* AggdDailyReport.m in Sources */ = {isa = PBXBuildFile; fileRef = 1161A0781DF9081800EC5CD5 /* AggdDailyReport.m */; };
 		48A48D841EF430600016FE7B /* BatteryData.h in Headers */ = {isa = PBXBuildFile; fileRef = 481801D51ECE17F500467D4B /* BatteryData.h */; };
-		48A48D851EF430660016FE7B /* AggdDailyReport.h in Headers */ = {isa = PBXBuildFile; fileRef = 1161A0751DF79B3F00EC5CD5 /* AggdDailyReport.h */; };
 		48A48D871EF4309A0016FE7B /* AggregateDictionary.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 48A48D861EF4309A0016FE7B /* AggregateDictionary.framework */; };
 		48A48D8A1EF430CC0016FE7B /* upsshutdown in CopyFiles */ = {isa = PBXBuildFile; fileRef = A9D743DA05AF3D4D0075549C /* upsshutdown */; };
 		48A48D8C1EF430E50016FE7B /* upsshutdown.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 72FE7EA609AE4942003E0C4C /* upsshutdown.8 */; };
@@ -357,6 +355,7 @@
 		72A1C13F128E0AD700754139 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 40882BA7019747120ACA2928 /* IOKit.framework */; };
 		72A1C140128E0AD700754139 /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 40882BA8019747120ACA2928 /* SystemConfiguration.framework */; };
 		72A694E618EA2D4400D5D682 /* iopmruntests.py in CopyFiles */ = {isa = PBXBuildFile; fileRef = 72A694E418EA2CD500D5D682 /* iopmruntests.py */; };
+		72B7807C2673288C0037CE23 /* DataMigration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 72B7807B2673288C0037CE23 /* DataMigration.framework */; platformFilter = ios; settings = {ATTRIBUTES = (Weak, ); }; };
 		72D0ECFF08F73FB600CCEA2F /* AppleSmartBattery.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 72D0ECF908F73FB600CCEA2F /* AppleSmartBattery.cpp */; };
 		72D0ED0008F73FB600CCEA2F /* AppleSmartBatteryManager.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 72D0ECFC08F73FB600CCEA2F /* AppleSmartBatteryManager.cpp */; };
 		72EA6D1718EA2DE100FCE94F /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 72CEF7E118C16D5400E7B3B4 /* CoreFoundation.framework */; };
@@ -364,9 +363,52 @@
 		72EB16B814C75E47002F68C3 /* AppWorkaround.plist in Resources */ = {isa = PBXBuildFile; fileRef = 72EB16B714C75E47002F68C3 /* AppWorkaround.plist */; };
 		72EB16BB14C75EB0002F68C3 /* AppWorkaround.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = 72EB16B714C75E47002F68C3 /* AppWorkaround.plist */; };
 		72FB64721A9CF63C008B6634 /* CommonLib.c in Sources */ = {isa = PBXBuildFile; fileRef = 728F7A061A25687B00EA70CC /* CommonLib.c */; };
+		8007E1682458B7B40059706F /* LowPowerMode.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 804E7F702447E10D001FA751 /* LowPowerMode.framework */; settings = {ATTRIBUTES = (Weak, ); }; };
+		8007E1692458B7ED0059706F /* LowPowerMode.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 804E7F702447E10D001FA751 /* LowPowerMode.framework */; platformFilters = (ios, watchos, ); settings = {ATTRIBUTES = (Weak, ); }; };
+		8007E16E245A1AA00059706F /* PMLowPowerModeService.m in Sources */ = {isa = PBXBuildFile; fileRef = 803BC92B244A307600BA8263 /* PMLowPowerModeService.m */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
+		8007E16F245A1AC50059706F /* PMLowPowerModeService.m in Sources */ = {isa = PBXBuildFile; fileRef = 803BC92B244A307600BA8263 /* PMLowPowerModeService.m */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
+		800F7AE1263254E600D7C3CD /* CoreAnalytics.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 806A69302630FE020002A9C0 /* CoreAnalytics.framework */; settings = {ATTRIBUTES = (Weak, ); }; };
+		800F7AE22632550800D7C3CD /* CoreAnalytics.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 806A69302630FE020002A9C0 /* CoreAnalytics.framework */; settings = {ATTRIBUTES = (Weak, ); }; };
+		800F7AE52637858B00D7C3CD /* PMPowerModeAnalytics.m in Sources */ = {isa = PBXBuildFile; fileRef = 800F7AE32637858A00D7C3CD /* PMPowerModeAnalytics.m */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
+		800F7AE62637858B00D7C3CD /* PMPowerModeAnalytics.m in Sources */ = {isa = PBXBuildFile; fileRef = 800F7AE32637858A00D7C3CD /* PMPowerModeAnalytics.m */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
+		8018D1BB25CE1BD2004B7DA0 /* System.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B39F87612228BB91006D4499 /* System.framework */; };
+		8018D1BC25CE1BE5004B7DA0 /* System.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B39F87612228BB91006D4499 /* System.framework */; };
+		803BC947244E550800BA8263 /* CoreDuet.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4878DBD21E7123EF00CF1891 /* CoreDuet.framework */; };
+		803BC948244E550800BA8263 /* CoreDuetContext.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4878DBD31E7123EF00CF1891 /* CoreDuetContext.framework */; };
+		803BC94E244E594200BA8263 /* AggregateDictionary.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 803BC94D244E594200BA8263 /* AggregateDictionary.framework */; };
+		803BC952244E599900BA8263 /* PowerLog.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 803BC951244E599900BA8263 /* PowerLog.framework */; };
+		803BC958244E61D900BA8263 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 803BC957244E61D900BA8263 /* IOKit.framework */; };
+		803BC9632452695B00BA8263 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 803BC957244E61D900BA8263 /* IOKit.framework */; };
+		803BC96924526BA900BA8263 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4878DC361E77593400CF1891 /* Foundation.framework */; };
+		803BC96B24526BBD00BA8263 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 803BC96A24526BBD00BA8263 /* Foundation.framework */; };
+		804E7F752447E381001FA751 /* _PMLowPowerMode.h in Headers */ = {isa = PBXBuildFile; fileRef = 804E7F722447E381001FA751 /* _PMLowPowerMode.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		804E7F762447E381001FA751 /* _PMLowPowerMode.h in Headers */ = {isa = PBXBuildFile; fileRef = 804E7F722447E381001FA751 /* _PMLowPowerMode.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		804E7F772447E381001FA751 /* _PMLowPowerMode.m in Sources */ = {isa = PBXBuildFile; fileRef = 804E7F732447E381001FA751 /* _PMLowPowerMode.m */; settings = {COMPILER_FLAGS = "-Wno-quoted-include-in-framework-header"; }; };
+		804E7F782447E381001FA751 /* _PMLowPowerMode.m in Sources */ = {isa = PBXBuildFile; fileRef = 804E7F732447E381001FA751 /* _PMLowPowerMode.m */; settings = {COMPILER_FLAGS = "-Wno-quoted-include-in-framework-header"; }; };
+		804E7F792447E381001FA751 /* _PMLowPowerModeProtocol.h in Headers */ = {isa = PBXBuildFile; fileRef = 804E7F742447E381001FA751 /* _PMLowPowerModeProtocol.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		804E7F7A2447E381001FA751 /* _PMLowPowerModeProtocol.h in Headers */ = {isa = PBXBuildFile; fileRef = 804E7F742447E381001FA751 /* _PMLowPowerModeProtocol.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		805ED60124F75BC30003A796 /* LowPowerMode.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 804E7F702447E10D001FA751 /* LowPowerMode.framework */; };
+		806A69312630FE020002A9C0 /* CoreAnalytics.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 806A69302630FE020002A9C0 /* CoreAnalytics.framework */; platformFilter = ios; settings = {ATTRIBUTES = (Weak, ); }; };
+		8070C78C25E0754C0073835D /* AGPMUserLib.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 8070C78B25E0754C0073835D /* AGPMUserLib.a */; };
+		8070C78D25E075590073835D /* AGPMUserLib.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 8070C78B25E0754C0073835D /* AGPMUserLib.a */; };
+		807EAF37245A1EC6004FF827 /* PMLowPowerModeService.h in Headers */ = {isa = PBXBuildFile; fileRef = 807EAF35245A1EC6004FF827 /* PMLowPowerModeService.h */; };
+		807EAF39245A2053004FF827 /* PowerLog.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 803BC953244E59A500BA8263 /* PowerLog.framework */; platformFilters = (ios, watchos, ); settings = {ATTRIBUTES = (Weak, ); }; };
+		807EAF3A245A20C2004FF827 /* CoreDuet.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 803BC94A244E551900BA8263 /* CoreDuet.framework */; platformFilter = ios; settings = {ATTRIBUTES = (Weak, ); }; };
+		807EAF3B245A2145004FF827 /* FindMyDevice.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 803BC955244E619100BA8263 /* FindMyDevice.framework */; platformFilters = (ios, watchos, ); settings = {ATTRIBUTES = (Weak, ); }; };
+		807EAF3C245A226F004FF827 /* PowerLog.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 803BC951244E599900BA8263 /* PowerLog.framework */; settings = {ATTRIBUTES = (Weak, ); }; };
+		807EAF3D245A227C004FF827 /* AggregateDictionary.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 803BC94D244E594200BA8263 /* AggregateDictionary.framework */; settings = {ATTRIBUTES = (Weak, ); }; };
+		807EAF3E245A2289004FF827 /* FindMyDevice.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 803BC938244E3B8F00BA8263 /* FindMyDevice.framework */; settings = {ATTRIBUTES = (Weak, ); }; };
+		807EAF3F245A2385004FF827 /* AggregateDictionary.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 803BC94D244E594200BA8263 /* AggregateDictionary.framework */; settings = {ATTRIBUTES = (Weak, ); }; };
+		807EAF40245A238F004FF827 /* PowerLog.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 803BC951244E599900BA8263 /* PowerLog.framework */; settings = {ATTRIBUTES = (Weak, ); }; };
+		807EAF41245A2460004FF827 /* AggregateDictionary.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 803BC94D244E594200BA8263 /* AggregateDictionary.framework */; settings = {ATTRIBUTES = (Weak, ); }; };
+		807EAF42245A246B004FF827 /* PowerLog.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 803BC951244E599900BA8263 /* PowerLog.framework */; settings = {ATTRIBUTES = (Weak, ); }; };
 		808EE7EB1DB6CFA90035C5A1 /* AppleSmartBattery.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 72D0ECF908F73FB600CCEA2F /* AppleSmartBattery.cpp */; };
 		808EE7EC1DB6CFA90035C5A1 /* AppleSmartBatteryManager.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 72D0ECFC08F73FB600CCEA2F /* AppleSmartBatteryManager.cpp */; };
 		808EE7ED1DB6CFA90035C5A1 /* AppleSmartBatteryManagerUserClient.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 7226093409AAAFD0005EB532 /* AppleSmartBatteryManagerUserClient.cpp */; };
+		80AFE3F026277865002C31D9 /* PMPowerModeHandler.h in Headers */ = {isa = PBXBuildFile; fileRef = 80AFE3EF26277865002C31D9 /* PMPowerModeHandler.h */; };
+		80AFE3F126277865002C31D9 /* PMPowerModeHandler.h in Headers */ = {isa = PBXBuildFile; fileRef = 80AFE3EF26277865002C31D9 /* PMPowerModeHandler.h */; };
+		80AFE3F326277928002C31D9 /* PMPowerModeHandler.m in Sources */ = {isa = PBXBuildFile; fileRef = 80AFE3F226277928002C31D9 /* PMPowerModeHandler.m */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
+		80AFE3F426277928002C31D9 /* PMPowerModeHandler.m in Sources */ = {isa = PBXBuildFile; fileRef = 80AFE3F226277928002C31D9 /* PMPowerModeHandler.m */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
 		8C1DA6DC1986BFE90041B69A /* IOUPSPrivate.h in Headers */ = {isa = PBXBuildFile; fileRef = F7828186058E83D30055547B /* IOUPSPrivate.h */; };
 		8C1DA6DF1986BFE90041B69A /* ioupspluginmig.defs in Sources */ = {isa = PBXBuildFile; fileRef = F7828183058E83D30055547B /* ioupspluginmig.defs */; settings = {ATTRIBUTES = (Client, Server, ); }; };
 		8C1DA6E01986BFE90041B69A /* IOUPSPrivate.c in Sources */ = {isa = PBXBuildFile; fileRef = F7828184058E83D30055547B /* IOUPSPrivate.c */; };
@@ -377,17 +419,29 @@
 		8C1DA6E61986BFE90041B69A /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 40882BA7019747120ACA2928 /* IOKit.framework */; };
 		8C1DA6E71986BFE90041B69A /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 40882BA8019747120ACA2928 /* SystemConfiguration.framework */; };
 		8C1DA6EB1986BFE90041B69A /* ioupsd.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 72FE7EA409AE4931003E0C4C /* ioupsd.8 */; };
+		95185A2025A65E3B00995A32 /* SeedingAboveCycleCountThreshold.csv in Resources */ = {isa = PBXBuildFile; fileRef = 95185A1E25A65E3A00995A32 /* SeedingAboveCycleCountThreshold.csv */; };
+		95185A2125A65E3B00995A32 /* SeedingBelowCycleCountThreshold.csv in Resources */ = {isa = PBXBuildFile; fileRef = 95185A1F25A65E3A00995A32 /* SeedingBelowCycleCountThreshold.csv */; };
+		95185A8625A65EA500995A32 /* applesiliconvalues.csv in Resources */ = {isa = PBXBuildFile; fileRef = 95185A8525A65EA500995A32 /* applesiliconvalues.csv */; };
+		95E33A1D2565E33500DF678F /* BatteryHealthUnitTests.m in Sources */ = {isa = PBXBuildFile; fileRef = 95E33A1C2565E33500DF678F /* BatteryHealthUnitTests.m */; };
+		95E33A662565E5FD00DF678F /* BatteryTimeRemaining.m in Sources */ = {isa = PBXBuildFile; fileRef = 40BE9CF2031ECBBC0ACA28D7 /* BatteryTimeRemaining.m */; };
 		990FCECC245CD9A300D5B6B7 /* SkyLight.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 990FCECB245CD9A200D5B6B7 /* SkyLight.framework */; };
 		9C474D64200420BA00627C4F /* powerd.1 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 9C474D6120041C1C00627C4F /* powerd.1 */; };
 		9CD0FD56200963A30030E5A9 /* swd.1 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 9CD0FD542009607B0030E5A9 /* swd.1 */; };
 		B3176B3824B52442002CDB51 /* PMDisplay_test.m in Sources */ = {isa = PBXBuildFile; fileRef = B3176B3724B52442002CDB51 /* PMDisplay_test.m */; };
 		B33AF7E3218B82520032F237 /* libspindump.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = B33AF7E2218B82520032F237 /* libspindump.tbd */; };
+		B348AB7725D5BA7B0049E73E /* com.apple.powerd.assertiontimeouts.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = B348AB6D25D465920049E73E /* com.apple.powerd.assertiontimeouts.plist */; };
+		B348AB7925D5BABA0049E73E /* powerd.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = B348AB7225D4C7740049E73E /* powerd.plist */; };
+		B34A590A26430B1F001A952C /* Trial.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B34A590926430B1F001A952C /* Trial.framework */; platformFilters = (ios, watchos, ); settings = {ATTRIBUTES = (Weak, ); }; };
 		B39B82A92446A30D000FE62D /* XCTest_FunctionDefinitions.h in Headers */ = {isa = PBXBuildFile; fileRef = 1149A7A81E8351EE0060933C /* XCTest_FunctionDefinitions.h */; };
 		B39F875E2228A901006D4499 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 119B32531E4162AE00EB0780 /* CoreFoundation.framework */; };
 		B39F875F2228A90A006D4499 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 119B32551E4162B400EB0780 /* IOKit.framework */; };
 		B39F87622228BB91006D4499 /* System.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B39F87612228BB91006D4499 /* System.framework */; };
+		B3B46DAC261E7F8800E32291 /* com.apple.Trial.NamespaceDescriptor.253.powerd.plist in Copy Files */ = {isa = PBXBuildFile; fileRef = B3B46DAA261E7C9D00E32291 /* com.apple.Trial.NamespaceDescriptor.253.powerd.plist */; };
+		B3B46DAE261E7FA600E32291 /* com.apple.powerd.Trial.pb in CopyFiles */ = {isa = PBXBuildFile; fileRef = B3B46DA9261E7C5200E32291 /* com.apple.powerd.Trial.pb */; };
 		B3C15A6E2440E61F00D65E4F /* BatteryDataCollectionManager.m in Sources */ = {isa = PBXBuildFile; fileRef = 081E47AB23958CE90046AC84 /* BatteryDataCollectionManager.m */; };
 		B3C15A722441071F00D65E4F /* PMSystemLoad_Test.m in Sources */ = {isa = PBXBuildFile; fileRef = B3C15A712441071F00D65E4F /* PMSystemLoad_Test.m */; };
+		B3DA898D25F1C3660036C3D4 /* OSAnalytics.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B3DA898C25F1C3660036C3D4 /* OSAnalytics.framework */; settings = {ATTRIBUTES = (Weak, ); }; };
+		B3DA898E25F1C4840036C3D4 /* OSAnalytics.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B3DA898C25F1C3660036C3D4 /* OSAnalytics.framework */; settings = {ATTRIBUTES = (Weak, ); }; };
 		B3E63D392405F985009FE961 /* RunningBoardServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B3E63D382405F985009FE961 /* RunningBoardServices.framework */; };
 		D083E23F1F0481AA00A0AAB8 /* powerd.codes in Resources */ = {isa = PBXBuildFile; fileRef = D083E23E1F0481AA00A0AAB8 /* powerd.codes */; };
 		D083E2411F04821A00A0AAB8 /* powerd.codes in CopyFiles */ = {isa = PBXBuildFile; fileRef = D083E23E1F0481AA00A0AAB8 /* powerd.codes */; };
@@ -403,6 +457,13 @@
 			proxyType = 1;
 			remoteGlobalIDString = 48A48D4B1EF42F8F0016FE7B;
 			remoteInfo = "powerd-binary-Embedded";
+		};
+		19B98E50268A7C560035B7A5 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 4878DC451E77597E00CF1891;
+			remoteInfo = "powerd-binary";
 		};
 		22B9840B16FBAC8200BB59FC /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -551,12 +612,19 @@
 			remoteGlobalIDString = 72EA6D1518EA2DE100FCE94F;
 			remoteInfo = "IOPSCreatePowerSource-simple";
 		};
-		72EE05D81909C876009A2681 /* PBXContainerItemProxy */ = {
+		803BC914244A1CE900BA8263 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
 			proxyType = 1;
-			remoteGlobalIDString = 72CEF7C618C16C8100E7B3B4;
-			remoteInfo = BATS;
+			remoteGlobalIDString = 804E7F5A2447E017001FA751;
+			remoteInfo = BatterySaver;
+		};
+		803BC916244A1F1600BA8263 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 804E7F652447E10D001FA751;
+			remoteInfo = "BatterySaver-Embedded";
 		};
 		80E851281E3AB29300B8A8EE /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -572,12 +640,26 @@
 			remoteGlobalIDString = 8C1DA6DA1986BFE90041B69A;
 			remoteInfo = "ioupsd-Embedded";
 		};
+		9583B68225AE1E7200E9B721 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 95E33A192565E33400DF678F;
+			remoteInfo = BatteryHealthUnitTests;
+		};
 		B30469772322E0AD00B887C4 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = B30469712322E04F00B887C4;
 			remoteInfo = "powermanagement-tests";
+		};
+		B34A59072641DE3B001A952C /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 72CEF7C618C16C8100E7B3B4;
+			remoteInfo = BATS;
 		};
 		B34EFD742107E28F0013B948 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -596,6 +678,16 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
+		08DC3AF225CF701700C784FC /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /System/Library/PerfPowerTelemetry/MetadataReports;
+			dstSubfolderSpec = 0;
+			files = (
+				08DC3AF325CF703D00C784FC /* com.apple.bdc.metadata.plist in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
 		11DA8BED1E84C24000664706 /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
@@ -831,6 +923,15 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 		};
+		953407F425A3DBF800C02635 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /AppleInternal/CoreOS/BATS/unit_tests;
+			dstSubfolderSpec = 0;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
 		9C474D632004209E00627C4F /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
@@ -848,6 +949,47 @@
 			dstSubfolderSpec = 0;
 			files = (
 				9CD0FD56200963A30030E5A9 /* swd.1 in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		B348AB7625D5BA3A0049E73E /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = "";
+			dstSubfolderSpec = 7;
+			files = (
+				B348AB7725D5BA7B0049E73E /* com.apple.powerd.assertiontimeouts.plist in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		B348AB7825D5BA820049E73E /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /System/Library/FeatureFlags/Domain;
+			dstSubfolderSpec = 0;
+			files = (
+				B348AB7925D5BABA0049E73E /* powerd.plist in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		B3B46DAB261E7F5200E32291 /* Copy Files */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /System/Library/Trial/NamespaceDescriptors;
+			dstSubfolderSpec = 0;
+			files = (
+				B3B46DAC261E7F8800E32291 /* com.apple.Trial.NamespaceDescriptor.253.powerd.plist in Copy Files */,
+			);
+			name = "Copy Files";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		B3B46DAD261E7F9300E32291 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = "";
+			dstSubfolderSpec = 7;
+			files = (
+				B3B46DAE261E7FA600E32291 /* com.apple.powerd.Trial.pb in CopyFiles */,
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 		};
@@ -869,16 +1011,15 @@
 		081E47AF23958D4F0046AC84 /* BatteryDataCollectionManager.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = BatteryDataCollectionManager.h; sourceTree = "<group>"; };
 		081E47B42395C03E0046AC84 /* test_batteryDataCollectionManager.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = test_batteryDataCollectionManager.m; sourceTree = "<group>"; };
 		081E47BD2395CB1F0046AC84 /* BDC_UnitTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = BDC_UnitTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		081E47BF2395CB1F0046AC84 /* BDC_UnitTests.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = BDC_UnitTests.m; sourceTree = "<group>"; };
 		081E47C12395CB1F0046AC84 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		081E47C92396DA2F0046AC84 /* entitlements-Embedded.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; name = "entitlements-Embedded.plist"; path = "pmconfigd/entitlements-Embedded.plist"; sourceTree = SOURCE_ROOT; };
+		083BBC0825A7AD4300AC5486 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX12.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
+		08DC3AF125CF700A00C784FC /* com.apple.bdc.metadata.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = com.apple.bdc.metadata.plist; sourceTree = "<group>"; };
 		1149A7A41E8351EE0060933C /* PAssertions_XCTest.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = PAssertions_XCTest.h; sourceTree = "<group>"; };
 		1149A7A51E8351EE0060933C /* PAssertions_XCTest.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = PAssertions_XCTest.m; sourceTree = "<group>"; };
 		1149A7A61E8351EE0060933C /* PowerSource_XCTest.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = PowerSource_XCTest.m; sourceTree = "<group>"; };
 		1149A7A71E8351EE0060933C /* PS_XCTest.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = PS_XCTest.h; sourceTree = "<group>"; };
 		1149A7A81E8351EE0060933C /* XCTest_FunctionDefinitions.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = XCTest_FunctionDefinitions.h; sourceTree = "<group>"; };
-		1161A0751DF79B3F00EC5CD5 /* AggdDailyReport.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = AggdDailyReport.h; sourceTree = "<group>"; };
-		1161A0781DF9081800EC5CD5 /* AggdDailyReport.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = AggdDailyReport.m; sourceTree = "<group>"; };
 		119B322B1E414F5D00EB0780 /* pmconfigd.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = pmconfigd.h; sourceTree = "<group>"; };
 		119B32301E414FD800EB0780 /* powerd_test.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = powerd_test.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		119B32321E414FD800EB0780 /* powerd_test.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = powerd_test.m; sourceTree = "<group>"; };
@@ -907,12 +1048,12 @@
 		19FCB62C21B0A32B003CAFE2 /* AppleBatteryAuthKeys.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AppleBatteryAuthKeys.h; sourceTree = "<group>"; };
 		1ED44A0725E5B3E30006AE96 /* prefs.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = prefs.h; sourceTree = "<group>"; };
 		1ED44A0825E5B3E30006AE96 /* prefs.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = prefs.m; sourceTree = "<group>"; };
-		220D605F1828511000E98262 /* PMAssertionLog.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = PMAssertionLog.c; sourceTree = "<group>"; };
+		220D605F1828511000E98262 /* PMAssertionLog.c */ = {isa = PBXFileReference; explicitFileType = sourcecode.c.objc; fileEncoding = 4; path = PMAssertionLog.c; sourceTree = "<group>"; };
 		22996AFF18A3B5F7003ACA7D /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS8.0.Internal.sdk/System/Library/Frameworks/Security.framework; sourceTree = DEVELOPER_DIR; };
 		22B9840516FBA71500BB59FC /* swd */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = swd; sourceTree = BUILT_PRODUCTS_DIR; };
 		22B9840716FBA91100BB59FC /* com.apple.powerd.swd.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = com.apple.powerd.swd.plist; sourceTree = "<group>"; };
 		22B9840816FBA91100BB59FC /* swd.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = swd.c; sourceTree = "<group>"; };
-		2436E1882603E6D2009D0524 /* libMobileGestalt.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libMobileGestalt.dylib; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS14.5.Internal.sdk/usr/lib/libMobileGestalt.dylib; sourceTree = DEVELOPER_DIR; };
+		24565E73261CD69C0026AE2F /* libMobileGestalt.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libMobileGestalt.dylib; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS15.0.Internal.sdk/usr/lib/libMobileGestalt.dylib; sourceTree = DEVELOPER_DIR; };
 		40882BA6019747120ACA2928 /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = /System/Library/Frameworks/CoreFoundation.framework; sourceTree = "<absolute>"; };
 		40882BA7019747120ACA2928 /* IOKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOKit.framework; path = /System/Library/Frameworks/IOKit.framework; sourceTree = "<absolute>"; };
 		40882BA8019747120ACA2928 /* SystemConfiguration.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SystemConfiguration.framework; path = /System/Library/Frameworks/SystemConfiguration.framework; sourceTree = "<absolute>"; };
@@ -955,7 +1096,7 @@
 		4851F9A91C6431A000125DBE /* IOPSCreatePowerSource-simple.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "IOPSCreatePowerSource-simple.c"; sourceTree = "<group>"; };
 		4854695320177C0E0015467A /* entitlements.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = entitlements.plist; sourceTree = "<group>"; };
 		48644FB71B7D5B0500AC7C92 /* pmtool */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = pmtool; sourceTree = BUILT_PRODUCTS_DIR; };
-		48644FC11B7D5B2800AC7C92 /* pmtool.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = pmtool.c; path = pmtool/pmtool.c; sourceTree = SOURCE_ROOT; };
+		48644FC11B7D5B2800AC7C92 /* pmtool.m */ = {isa = PBXFileReference; explicitFileType = sourcecode.c.objc; fileEncoding = 4; name = pmtool.m; path = pmtool/pmtool.m; sourceTree = SOURCE_ROOT; };
 		48644FC21B7D5B2800AC7C92 /* pmtool.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = pmtool.h; path = pmtool/pmtool.h; sourceTree = SOURCE_ROOT; };
 		48644FC61B7D5E4C00AC7C92 /* pmtool.1 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.man; name = pmtool.1; path = pmtool/pmtool.1; sourceTree = SOURCE_ROOT; };
 		48644FC71B7D5E4C00AC7C92 /* pmtool.entitlements */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xml; name = pmtool.entitlements; path = pmtool/pmtool.entitlements; sourceTree = SOURCE_ROOT; };
@@ -1049,6 +1190,7 @@
 		72A8C49D173AE7A400562BA6 /* IOKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOKit.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.9.sdk/System/Library/Frameworks/IOKit.framework; sourceTree = DEVELOPER_DIR; };
 		72A9DF010CDAA05B000FDB18 /* PMSystemEvents.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = PMSystemEvents.c; sourceTree = "<group>"; };
 		72A9DF020CDAA05B000FDB18 /* PMSystemEvents.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = PMSystemEvents.h; sourceTree = "<group>"; };
+		72B7807B2673288C0037CE23 /* DataMigration.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = DataMigration.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS15.0.Internal.sdk/System/Library/PrivateFrameworks/DataMigration.framework; sourceTree = DEVELOPER_DIR; };
 		72C2C512062F57BB000F5FC7 /* com.apple.SystemPowerProfileDefaults.plist */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.plist.xml; path = com.apple.SystemPowerProfileDefaults.plist; sourceTree = "<group>"; };
 		72CEF7E118C16D5400E7B3B4 /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.10.sdk/System/Library/Frameworks/CoreFoundation.framework; sourceTree = DEVELOPER_DIR; };
 		72CEF7E318C16D5B00E7B3B4 /* IOKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOKit.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.10.sdk/System/Library/Frameworks/IOKit.framework; sourceTree = DEVELOPER_DIR; };
@@ -1071,13 +1213,47 @@
 		72FE22EF0A018A5700885E24 /* Cocoa.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Cocoa.framework; path = /System/Library/Frameworks/Cocoa.framework; sourceTree = "<absolute>"; };
 		72FE7EA409AE4931003E0C4C /* ioupsd.8 */ = {isa = PBXFileReference; explicitFileType = text.man; fileEncoding = 30; path = ioupsd.8; sourceTree = "<group>"; };
 		72FE7EA609AE4942003E0C4C /* upsshutdown.8 */ = {isa = PBXFileReference; explicitFileType = text.man; fileEncoding = 30; path = upsshutdown.8; sourceTree = "<group>"; };
+		800F7AE32637858A00D7C3CD /* PMPowerModeAnalytics.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = PMPowerModeAnalytics.m; sourceTree = "<group>"; };
+		800F7AE82637863300D7C3CD /* PMPowerModeAnalytics.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = PMPowerModeAnalytics.h; sourceTree = "<group>"; };
+		803BC92B244A307600BA8263 /* PMLowPowerModeService.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = PMLowPowerModeService.m; sourceTree = "<group>"; };
+		803BC936244E2AFB00BA8263 /* FindMyMac.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = FindMyMac.framework; path = System/Library/PrivateFrameworks/FindMyMac.framework; sourceTree = SDKROOT; };
+		803BC938244E3B8F00BA8263 /* FindMyDevice.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = FindMyDevice.framework; path = System/Library/PrivateFrameworks/FindMyDevice.framework; sourceTree = SDKROOT; };
+		803BC949244E551900BA8263 /* CoreDuetContext.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreDuetContext.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS14.0.Internal.sdk/System/Library/PrivateFrameworks/CoreDuetContext.framework; sourceTree = DEVELOPER_DIR; };
+		803BC94A244E551900BA8263 /* CoreDuet.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreDuet.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS14.0.Internal.sdk/System/Library/PrivateFrameworks/CoreDuet.framework; sourceTree = DEVELOPER_DIR; };
+		803BC94D244E594200BA8263 /* AggregateDictionary.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AggregateDictionary.framework; path = System/Library/PrivateFrameworks/AggregateDictionary.framework; sourceTree = SDKROOT; };
+		803BC94F244E594A00BA8263 /* AggregateDictionary.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AggregateDictionary.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS14.0.Internal.sdk/System/Library/PrivateFrameworks/AggregateDictionary.framework; sourceTree = DEVELOPER_DIR; };
+		803BC951244E599900BA8263 /* PowerLog.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = PowerLog.framework; path = System/Library/PrivateFrameworks/PowerLog.framework; sourceTree = SDKROOT; };
+		803BC953244E59A500BA8263 /* PowerLog.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = PowerLog.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS14.0.Internal.sdk/System/Library/PrivateFrameworks/PowerLog.framework; sourceTree = DEVELOPER_DIR; };
+		803BC955244E619100BA8263 /* FindMyDevice.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = FindMyDevice.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS14.0.Internal.sdk/System/Library/PrivateFrameworks/FindMyDevice.framework; sourceTree = DEVELOPER_DIR; };
+		803BC957244E61D900BA8263 /* IOKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOKit.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS14.0.Internal.sdk/System/Library/Frameworks/IOKit.framework; sourceTree = DEVELOPER_DIR; };
+		803BC9612452695100BA8263 /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS14.0.Internal.sdk/System/Library/Frameworks/CoreFoundation.framework; sourceTree = DEVELOPER_DIR; };
+		803BC96A24526BBD00BA8263 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS14.0.Internal.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
+		804E7F5B2447E017001FA751 /* LowPowerMode.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = LowPowerMode.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		804E7F5E2447E017001FA751 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		804E7F702447E10D001FA751 /* LowPowerMode.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = LowPowerMode.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		804E7F722447E381001FA751 /* _PMLowPowerMode.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = _PMLowPowerMode.h; sourceTree = "<group>"; };
+		804E7F732447E381001FA751 /* _PMLowPowerMode.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = _PMLowPowerMode.m; sourceTree = "<group>"; };
+		804E7F742447E381001FA751 /* _PMLowPowerModeProtocol.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = _PMLowPowerModeProtocol.h; sourceTree = "<group>"; };
+		805AA9F32447EBAA00D4DABA /* Info-Embedded.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = "Info-Embedded.plist"; sourceTree = "<group>"; };
+		806A69302630FE020002A9C0 /* CoreAnalytics.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreAnalytics.framework; path = System/Library/PrivateFrameworks/CoreAnalytics.framework; sourceTree = SDKROOT; };
+		8070C78B25E0754C0073835D /* AGPMUserLib.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = AGPMUserLib.a; path = usr/local/lib/AGPMUserLib.a; sourceTree = SDKROOT; };
 		80780E171AB0C600003409C8 /* libenergytrace.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libenergytrace.dylib; path = usr/lib/libenergytrace.dylib; sourceTree = SDKROOT; };
 		80780E191AB12D52003409C8 /* libenergytrace.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libenergytrace.dylib; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS9.0.Internal.sdk/usr/lib/libenergytrace.dylib; sourceTree = DEVELOPER_DIR; };
+		807EAF35245A1EC6004FF827 /* PMLowPowerModeService.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = PMLowPowerModeService.h; sourceTree = "<group>"; };
 		808EE7E11DB6CF260035C5A1 /* AppleSmartBatteryManager-Embedded.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "AppleSmartBatteryManager-Embedded.kext"; sourceTree = BUILT_PRODUCTS_DIR; };
+		80AFE3EF26277865002C31D9 /* PMPowerModeHandler.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = PMPowerModeHandler.h; sourceTree = "<group>"; };
+		80AFE3F226277928002C31D9 /* PMPowerModeHandler.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = PMPowerModeHandler.m; sourceTree = "<group>"; };
 		80FD7DB01E36AEA8008803C4 /* Info-Embedded.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = "Info-Embedded.plist"; path = "AppleSmartBatteryManager/Info-Embedded.plist"; sourceTree = "<group>"; };
 		8C0CB46220A691A700FE22F5 /* PowerManagementSignposts.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = PowerManagementSignposts.h; sourceTree = "<group>"; };
 		8C45D014215B102300722AE4 /* ioupsd-entitlements.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "ioupsd-entitlements.plist"; sourceTree = "<group>"; };
 		8CCB23AD1979C99000F63BE8 /* libIOAccessoryManager.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libIOAccessoryManager.dylib; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS8.0.Internal.sdk/usr/lib/libIOAccessoryManager.dylib; sourceTree = DEVELOPER_DIR; };
+		95185A1E25A65E3A00995A32 /* SeedingAboveCycleCountThreshold.csv */ = {isa = PBXFileReference; lastKnownFileType = text; path = SeedingAboveCycleCountThreshold.csv; sourceTree = "<group>"; };
+		95185A1F25A65E3A00995A32 /* SeedingBelowCycleCountThreshold.csv */ = {isa = PBXFileReference; lastKnownFileType = text; path = SeedingBelowCycleCountThreshold.csv; sourceTree = "<group>"; };
+		95185A8525A65EA500995A32 /* applesiliconvalues.csv */ = {isa = PBXFileReference; lastKnownFileType = text; path = applesiliconvalues.csv; sourceTree = "<group>"; };
+		95E33A1A2565E33400DF678F /* BatteryHealthUnitTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = BatteryHealthUnitTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		95E33A1C2565E33500DF678F /* BatteryHealthUnitTests.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = BatteryHealthUnitTests.m; sourceTree = "<group>"; };
+		95E33A1E2565E33500DF678F /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		95E33AEB2565EAB500DF678F /* BatteryHealthUnitTestsStubs.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = BatteryHealthUnitTestsStubs.h; sourceTree = "<group>"; };
 		990FCECB245CD9A200D5B6B7 /* SkyLight.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SkyLight.framework; path = System/Library/PrivateFrameworks/SkyLight.framework; sourceTree = SDKROOT; };
 		9C474D6120041C1C00627C4F /* powerd.1 */ = {isa = PBXFileReference; lastKnownFileType = text.man; path = powerd.1; sourceTree = "<group>"; };
 		9CD0FD542009607B0030E5A9 /* swd.1 */ = {isa = PBXFileReference; lastKnownFileType = text.man; path = swd.1; sourceTree = "<group>"; };
@@ -1092,9 +1268,16 @@
 		B30469702322E02F00B887C4 /* powermanagement-tests */ = {isa = PBXFileReference; lastKnownFileType = folder; path = "powermanagement-tests"; sourceTree = "<group>"; };
 		B3176B3724B52442002CDB51 /* PMDisplay_test.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = PMDisplay_test.m; sourceTree = "<group>"; };
 		B33AF7E2218B82520032F237 /* libspindump.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libspindump.tbd; path = usr/lib/libspindump.tbd; sourceTree = SDKROOT; };
+		B348AB6D25D465920049E73E /* com.apple.powerd.assertiontimeouts.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = com.apple.powerd.assertiontimeouts.plist; sourceTree = "<group>"; };
+		B348AB7225D4C7740049E73E /* powerd.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = powerd.plist; sourceTree = "<group>"; };
+		B34A59062641D6C9001A952C /* powerd-binary-embedded.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = "powerd-binary-embedded.xcconfig"; sourceTree = "<group>"; };
+		B34A590926430B1F001A952C /* Trial.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Trial.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS15.0.Internal.sdk/System/Library/PrivateFrameworks/Trial.framework; sourceTree = DEVELOPER_DIR; };
 		B39B82B22447AC7A000FE62D /* BATS.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = BATS.plist; sourceTree = "<group>"; };
 		B39F87612228BB91006D4499 /* System.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = System.framework; path = System/Library/Frameworks/System.framework; sourceTree = SDKROOT; };
+		B3B46DA9261E7C5200E32291 /* com.apple.powerd.Trial.pb */ = {isa = PBXFileReference; lastKnownFileType = file; path = com.apple.powerd.Trial.pb; sourceTree = "<group>"; };
+		B3B46DAA261E7C9D00E32291 /* com.apple.Trial.NamespaceDescriptor.253.powerd.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = com.apple.Trial.NamespaceDescriptor.253.powerd.plist; sourceTree = "<group>"; };
 		B3C15A712441071F00D65E4F /* PMSystemLoad_Test.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = PMSystemLoad_Test.m; sourceTree = "<group>"; };
+		B3DA898C25F1C3660036C3D4 /* OSAnalytics.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = OSAnalytics.framework; path = System/Library/PrivateFrameworks/OSAnalytics.framework; sourceTree = SDKROOT; };
 		B3E63D382405F985009FE961 /* RunningBoardServices.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = RunningBoardServices.framework; path = System/Library/PrivateFrameworks/RunningBoardServices.framework; sourceTree = SDKROOT; };
 		C110135B0EBB9C9F00FD5C2D /* AspenSDK.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = AspenSDK.xcconfig; path = AppleInternal/XcodeConfig/AspenSDK.xcconfig; sourceTree = DEVELOPER_DIR; };
 		D083E23E1F0481AA00A0AAB8 /* powerd.codes */ = {isa = PBXFileReference; lastKnownFileType = text; path = powerd.codes; sourceTree = "<group>"; };
@@ -1113,6 +1296,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				083BBC0925A7AD4400AC5486 /* Foundation.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1120,7 +1304,12 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				800F7AE22632550800D7C3CD /* CoreAnalytics.framework in Frameworks */,
+				8070C78D25E075590073835D /* AGPMUserLib.a in Frameworks */,
+				8018D1BC25CE1BE5004B7DA0 /* System.framework in Frameworks */,
 				990FCECC245CD9A300D5B6B7 /* SkyLight.framework in Frameworks */,
+				807EAF42245A246B004FF827 /* PowerLog.framework in Frameworks */,
+				807EAF41245A2460004FF827 /* AggregateDictionary.framework in Frameworks */,
 				08AD431B23A4A473008A8EA3 /* Foundation.framework in Frameworks */,
 				B33AF7E3218B82520032F237 /* libspindump.tbd in Frameworks */,
 				4878DBD41E7123EF00CF1891 /* CoreDuet.framework in Frameworks */,
@@ -1161,6 +1350,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				805ED60124F75BC30003A796 /* LowPowerMode.framework in Frameworks */,
 				4825363021BE427600A4DB1C /* CoreFoundation.framework in Frameworks */,
 				4825363121BE427600A4DB1C /* IOKit.framework in Frameworks */,
 			);
@@ -1170,6 +1360,10 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				807EAF3E245A2289004FF827 /* FindMyDevice.framework in Frameworks */,
+				807EAF3D245A227C004FF827 /* AggregateDictionary.framework in Frameworks */,
+				807EAF3C245A226F004FF827 /* PowerLog.framework in Frameworks */,
+				8007E1682458B7B40059706F /* LowPowerMode.framework in Frameworks */,
 				482CA99022BC21040002DC2D /* libIOReport.tbd in Frameworks */,
 				487BE3FE21B64A790005462B /* libDiagnosticMessagesClient.tbd in Frameworks */,
 				487BE3FC21B648CA0005462B /* SystemConfiguration.framework in Frameworks */,
@@ -1199,6 +1393,12 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				800F7AE1263254E600D7C3CD /* CoreAnalytics.framework in Frameworks */,
+				B3DA898E25F1C4840036C3D4 /* OSAnalytics.framework in Frameworks */,
+				8070C78C25E0754C0073835D /* AGPMUserLib.a in Frameworks */,
+				8018D1BB25CE1BD2004B7DA0 /* System.framework in Frameworks */,
+				807EAF40245A238F004FF827 /* PowerLog.framework in Frameworks */,
+				807EAF3F245A2385004FF827 /* AggregateDictionary.framework in Frameworks */,
 				B3E63D392405F985009FE961 /* RunningBoardServices.framework in Frameworks */,
 				08AD431A23A4A248008A8EA3 /* Foundation.framework in Frameworks */,
 				13B3011E22B9883100FDC1B9 /* SkyLight.framework in Frameworks */,
@@ -1234,7 +1434,15 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				2436E1892603E6D2009D0524 /* libMobileGestalt.dylib in Frameworks */,
+				72B7807C2673288C0037CE23 /* DataMigration.framework in Frameworks */,
+				B34A590A26430B1F001A952C /* Trial.framework in Frameworks */,
+				806A69312630FE020002A9C0 /* CoreAnalytics.framework in Frameworks */,
+				24565E74261CD69C0026AE2F /* libMobileGestalt.dylib in Frameworks */,
+				B3DA898D25F1C3660036C3D4 /* OSAnalytics.framework in Frameworks */,
+				807EAF3B245A2145004FF827 /* FindMyDevice.framework in Frameworks */,
+				807EAF3A245A20C2004FF827 /* CoreDuet.framework in Frameworks */,
+				807EAF39245A2053004FF827 /* PowerLog.framework in Frameworks */,
+				8007E1692458B7ED0059706F /* LowPowerMode.framework in Frameworks */,
 				08AD431523A31E11008A8EA3 /* Foundation.framework in Frameworks */,
 				4843FF1921B1F85500012181 /* MobileKeyBag.framework in Frameworks */,
 				48A48D921EF4D16B0016FE7B /* CoreFoundation.framework in Frameworks */,
@@ -1341,6 +1549,10 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				803BC952244E599900BA8263 /* PowerLog.framework in Frameworks */,
+				803BC94E244E594200BA8263 /* AggregateDictionary.framework in Frameworks */,
+				803BC947244E550800BA8263 /* CoreDuet.framework in Frameworks */,
+				803BC948244E550800BA8263 /* CoreDuetContext.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1350,6 +1562,24 @@
 			files = (
 				72EA6D2418EA303700FCE94F /* IOKit.framework in Frameworks */,
 				72EA6D1718EA2DE100FCE94F /* CoreFoundation.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		804E7F582447E017001FA751 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				803BC96924526BA900BA8263 /* Foundation.framework in Frameworks */,
+				803BC958244E61D900BA8263 /* IOKit.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		804E7F692447E10D001FA751 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				803BC96B24526BBD00BA8263 /* Foundation.framework in Frameworks */,
+				803BC9632452695B00BA8263 /* IOKit.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1371,13 +1601,19 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		95E33A172565E33400DF678F /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
 		081E47BE2395CB1F0046AC84 /* BDC_UnitTests */ = {
 			isa = PBXGroup;
 			children = (
-				081E47BF2395CB1F0046AC84 /* BDC_UnitTests.m */,
 				081E47C12395CB1F0046AC84 /* Info.plist */,
 			);
 			path = BDC_UnitTests;
@@ -1386,6 +1622,7 @@
 		08FB7794FE84155DC02AAC07 /* pmconfigd */ = {
 			isa = PBXGroup;
 			children = (
+				B34A59062641D6C9001A952C /* powerd-binary-embedded.xcconfig */,
 				B30469702322E02F00B887C4 /* powermanagement-tests */,
 				19B91D141FE042480048EA89 /* kext.xcconfig */,
 				728F7A021A2567D500EA70CC /* common */,
@@ -1404,6 +1641,8 @@
 				487BE3DC21B641560005462B /* powerd_test_ios */,
 				081E47BE2395CB1F0046AC84 /* BDC_UnitTests */,
 				4896D8492452222400687BC1 /* powerdatad */,
+				804E7F5C2447E017001FA751 /* LowPowerMode */,
+				95E33A1B2565E33400DF678F /* BatteryHealthUnitTests */,
 				40882B99019742A20ACA2928 /* Frameworks */,
 				1AB674ADFE9D54B511CA2CBB /* Products */,
 			);
@@ -1413,6 +1652,10 @@
 		08FB7795FE84155DC02AAC07 /* powerd */ = {
 			isa = PBXGroup;
 			children = (
+				800F7AE32637858A00D7C3CD /* PMPowerModeAnalytics.m */,
+				800F7AE82637863300D7C3CD /* PMPowerModeAnalytics.h */,
+				80AFE3EF26277865002C31D9 /* PMPowerModeHandler.h */,
+				B348AB7325D4C7840049E73E /* FeatureFlag */,
 				1ED44A0725E5B3E30006AE96 /* prefs.h */,
 				1ED44A0825E5B3E30006AE96 /* prefs.m */,
 				4841930221B5D6BA0098D167 /* powerd_test_embedded */,
@@ -1458,8 +1701,6 @@
 				A9FD4B72047C482B00FA82A6 /* PrivateLib.c */,
 				119B322B1E414F5D00EB0780 /* pmconfigd.h */,
 				40D4F0DB01F4A1F40ACA2928 /* pmconfigd.m */,
-				1161A0781DF9081800EC5CD5 /* AggdDailyReport.m */,
-				1161A0751DF79B3F00EC5CD5 /* AggdDailyReport.h */,
 				A9D743DA05AF3D4D0075549C /* upsshutdown */,
 				72FE7EA609AE4942003E0C4C /* upsshutdown.8 */,
 				729F44BA12D7DB3600AD49A8 /* com.apple.powerd.plist */,
@@ -1470,6 +1711,9 @@
 				D083E23E1F0481AA00A0AAB8 /* powerd.codes */,
 				081E47AB23958CE90046AC84 /* BatteryDataCollectionManager.m */,
 				081E47AF23958D4F0046AC84 /* BatteryDataCollectionManager.h */,
+				803BC92B244A307600BA8263 /* PMLowPowerModeService.m */,
+				80AFE3F226277928002C31D9 /* PMPowerModeHandler.m */,
+				807EAF35245A1EC6004FF827 /* PMLowPowerModeService.h */,
 			);
 			name = powerd;
 			path = pmconfigd;
@@ -1524,6 +1768,9 @@
 				4825363921BE427600A4DB1C /* pmtool */,
 				081E47BD2395CB1F0046AC84 /* BDC_UnitTests.xctest */,
 				4896D8472452222300687BC1 /* powerdatad */,
+				804E7F5B2447E017001FA751 /* LowPowerMode.framework */,
+				804E7F702447E10D001FA751 /* LowPowerMode.framework */,
+				95E33A1A2565E33400DF678F /* BatteryHealthUnitTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -1550,11 +1797,29 @@
 		40882B99019742A20ACA2928 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				72B7807B2673288C0037CE23 /* DataMigration.framework */,
+				B34A590926430B1F001A952C /* Trial.framework */,
+				806A69302630FE020002A9C0 /* CoreAnalytics.framework */,
+				24565E73261CD69C0026AE2F /* libMobileGestalt.dylib */,
+				B3DA898C25F1C3660036C3D4 /* OSAnalytics.framework */,
+				8070C78B25E0754C0073835D /* AGPMUserLib.a */,
+				083BBC0825A7AD4300AC5486 /* Foundation.framework */,
 				48F0496A24B6B56000D4FB46 /* libMobileGestalt.dylib */,
-				2436E1882603E6D2009D0524 /* libMobileGestalt.dylib */,
 				4865CE8D2461E7E2000016C4 /* Security.framework */,
 				4865CE792459EF7A000016C4 /* libIOReport.tbd */,
 				990FCECB245CD9A200D5B6B7 /* SkyLight.framework */,
+				803BC96A24526BBD00BA8263 /* Foundation.framework */,
+				803BC9612452695100BA8263 /* CoreFoundation.framework */,
+				803BC957244E61D900BA8263 /* IOKit.framework */,
+				803BC955244E619100BA8263 /* FindMyDevice.framework */,
+				803BC951244E599900BA8263 /* PowerLog.framework */,
+				803BC953244E59A500BA8263 /* PowerLog.framework */,
+				803BC94D244E594200BA8263 /* AggregateDictionary.framework */,
+				803BC94F244E594A00BA8263 /* AggregateDictionary.framework */,
+				803BC94A244E551900BA8263 /* CoreDuet.framework */,
+				803BC949244E551900BA8263 /* CoreDuetContext.framework */,
+				803BC938244E3B8F00BA8263 /* FindMyDevice.framework */,
+				803BC936244E2AFB00BA8263 /* FindMyMac.framework */,
 				B3E63D382405F985009FE961 /* RunningBoardServices.framework */,
 				08196AF723C3FDEB00D48110 /* CPMS.framework */,
 				13B3011D22B9883000FDC1B9 /* SkyLight.framework */,
@@ -1651,7 +1916,7 @@
 			children = (
 				722DC105260ABB2300F2CBC3 /* powerdManagedDefaultsSample.mobileconfig */,
 				48644FC21B7D5B2800AC7C92 /* pmtool.h */,
-				48644FC11B7D5B2800AC7C92 /* pmtool.c */,
+				48644FC11B7D5B2800AC7C92 /* pmtool.m */,
 				48644FC71B7D5E4C00AC7C92 /* pmtool.entitlements */,
 				48644FC61B7D5E4C00AC7C92 /* pmtool.1 */,
 			);
@@ -1749,6 +2014,39 @@
 			name = AppleSmartBatteryManager;
 			sourceTree = "<group>";
 		};
+		804E7F5C2447E017001FA751 /* LowPowerMode */ = {
+			isa = PBXGroup;
+			children = (
+				804E7F722447E381001FA751 /* _PMLowPowerMode.h */,
+				804E7F732447E381001FA751 /* _PMLowPowerMode.m */,
+				804E7F742447E381001FA751 /* _PMLowPowerModeProtocol.h */,
+				805AA9F32447EBAA00D4DABA /* Info-Embedded.plist */,
+				804E7F5E2447E017001FA751 /* Info.plist */,
+			);
+			path = LowPowerMode;
+			sourceTree = "<group>";
+		};
+		9523F04325801C9E007073BE /* TestVectors */ = {
+			isa = PBXGroup;
+			children = (
+				95185A1E25A65E3A00995A32 /* SeedingAboveCycleCountThreshold.csv */,
+				95185A1F25A65E3A00995A32 /* SeedingBelowCycleCountThreshold.csv */,
+				95185A8525A65EA500995A32 /* applesiliconvalues.csv */,
+			);
+			path = TestVectors;
+			sourceTree = "<group>";
+		};
+		95E33A1B2565E33400DF678F /* BatteryHealthUnitTests */ = {
+			isa = PBXGroup;
+			children = (
+				95E33AEB2565EAB500DF678F /* BatteryHealthUnitTestsStubs.h */,
+				95E33A1C2565E33500DF678F /* BatteryHealthUnitTests.m */,
+				95E33A1E2565E33500DF678F /* Info.plist */,
+				9523F04325801C9E007073BE /* TestVectors */,
+			);
+			path = BatteryHealthUnitTests;
+			sourceTree = "<group>";
+		};
 		9CD0FD53200960080030E5A9 /* Resources */ = {
 			isa = PBXGroup;
 			children = (
@@ -1760,15 +2058,27 @@
 		A9B6F98D054DDD9200F5EC01 /* Resources */ = {
 			isa = PBXGroup;
 			children = (
+				B3B46DAA261E7C9D00E32291 /* com.apple.Trial.NamespaceDescriptor.253.powerd.plist */,
+				B3B46DA9261E7C5200E32291 /* com.apple.powerd.Trial.pb */,
 				081E47C92396DA2F0046AC84 /* entitlements-Embedded.plist */,
+				08DC3AF125CF700A00C784FC /* com.apple.bdc.metadata.plist */,
 				48CE38971E6224AD001563E6 /* entitlements.plist */,
 				720C18EF16C8CB8F00357F83 /* com.apple.iokit.power */,
 				729A759C0A01F1D7000AB587 /* Power Management Bundle-Info.plist */,
 				A9E691B70564519800938E2D /* Localizable.strings */,
 				72C2C512062F57BB000F5FC7 /* com.apple.SystemPowerProfileDefaults.plist */,
 				9C474D6120041C1C00627C4F /* powerd.1 */,
+				B348AB6D25D465920049E73E /* com.apple.powerd.assertiontimeouts.plist */,
 			);
 			path = Resources;
+			sourceTree = "<group>";
+		};
+		B348AB7325D4C7840049E73E /* FeatureFlag */ = {
+			isa = PBXGroup;
+			children = (
+				B348AB7225D4C7740049E73E /* powerd.plist */,
+			);
+			path = FeatureFlag;
 			sourceTree = "<group>";
 		};
 		F7828182058E83A90055547B /* ioupsd */ = {
@@ -1796,7 +2106,7 @@
 				119B325B1E41654800EB0780 /* CommonLib.h in Headers */,
 				119B32581E41634D00EB0780 /* powerd_test.h in Headers */,
 				B39B82A92446A30D000FE62D /* XCTest_FunctionDefinitions.h in Headers */,
-				119B32591E41635200EB0780 /* AggdDailyReport.h in Headers */,
+				80AFE3F026277865002C31D9 /* PMPowerModeHandler.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1826,6 +2136,7 @@
 				4878DC531E775D6700CF1891 /* PrivateLib.c in Headers */,
 				4878DC511E775D5000CF1891 /* RepeatingAutoWake.h in Headers */,
 				4878DC501E775D4800CF1891 /* AutoWakeScheduler.h in Headers */,
+				80AFE3F126277865002C31D9 /* PMPowerModeHandler.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1834,7 +2145,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				48A48D8E1EF431340016FE7B /* PrivateLib.h in Headers */,
-				48A48D851EF430660016FE7B /* AggdDailyReport.h in Headers */,
+				807EAF37245A1EC6004FF827 /* PMLowPowerModeService.h in Headers */,
 				48A48D841EF430600016FE7B /* BatteryData.h in Headers */,
 				48A48D4D1EF42F8F0016FE7B /* PMStore.h in Headers */,
 				48A48D4F1EF42F8F0016FE7B /* HIDEventWatcher.h in Headers */,
@@ -1853,6 +2164,24 @@
 			buildActionMask = 2147483647;
 			files = (
 				729A758A0A01EE85000AB587 /* IOUPSPrivate.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		804E7F562447E017001FA751 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				804E7F752447E381001FA751 /* _PMLowPowerMode.h in Headers */,
+				804E7F792447E381001FA751 /* _PMLowPowerModeProtocol.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		804E7F662447E10D001FA751 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				804E7F762447E381001FA751 /* _PMLowPowerMode.h in Headers */,
+				804E7F7A2447E381001FA751 /* _PMLowPowerModeProtocol.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1887,6 +2216,7 @@
 			buildToolPath = /usr/bin/make;
 			buildWorkingDirectory = "powermanagement-tests";
 			dependencies = (
+				9583B68325AE1E7200E9B721 /* PBXTargetDependency */,
 				B39B82AD24479D9D000FE62D /* PBXTargetDependency */,
 			);
 			name = "powermanagement-tests";
@@ -2060,6 +2390,11 @@
 				48A48D711EF42F8F0016FE7B /* Frameworks */,
 				48A48D891EF430B60016FE7B /* CopyFiles */,
 				48A48D8B1EF430D00016FE7B /* CopyFiles */,
+				08DC3AF225CF701700C784FC /* CopyFiles */,
+				B348AB7625D5BA3A0049E73E /* CopyFiles */,
+				B348AB7825D5BA820049E73E /* CopyFiles */,
+				B3B46DAB261E7F5200E32291 /* Copy Files */,
+				B3B46DAD261E7F9300E32291 /* CopyFiles */,
 			);
 			buildRules = (
 			);
@@ -2223,6 +2558,7 @@
 			buildRules = (
 			);
 			dependencies = (
+				19B98E51268A7C560035B7A5 /* PBXTargetDependency */,
 			);
 			name = powerd;
 			productName = "Power Management Bundle";
@@ -2297,6 +2633,42 @@
 			productReference = 72EA6D1618EA2DE100FCE94F /* IOPSCreatePowerSource-simple */;
 			productType = "com.apple.product-type.tool";
 		};
+		804E7F5A2447E017001FA751 /* LowPowerMode */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 804E7F602447E017001FA751 /* Build configuration list for PBXNativeTarget "LowPowerMode" */;
+			buildPhases = (
+				804E7F562447E017001FA751 /* Headers */,
+				804E7F572447E017001FA751 /* Sources */,
+				804E7F582447E017001FA751 /* Frameworks */,
+				804E7F592447E017001FA751 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = LowPowerMode;
+			productName = BatterySaver;
+			productReference = 804E7F5B2447E017001FA751 /* LowPowerMode.framework */;
+			productType = "com.apple.product-type.framework";
+		};
+		804E7F652447E10D001FA751 /* LowPowerMode-Embedded */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 804E7F6B2447E10D001FA751 /* Build configuration list for PBXNativeTarget "LowPowerMode-Embedded" */;
+			buildPhases = (
+				804E7F662447E10D001FA751 /* Headers */,
+				804E7F682447E10D001FA751 /* Sources */,
+				804E7F692447E10D001FA751 /* Frameworks */,
+				804E7F6A2447E10D001FA751 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = "LowPowerMode-Embedded";
+			productName = BatterySaver;
+			productReference = 804E7F702447E10D001FA751 /* LowPowerMode.framework */;
+			productType = "com.apple.product-type.framework";
+		};
 		808EE7E01DB6CF260035C5A1 /* AppleSmartBatteryManager-Embedded */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 808EE7EA1DB6CF270035C5A1 /* Build configuration list for PBXNativeTarget "AppleSmartBatteryManager-Embedded" */;
@@ -2333,6 +2705,24 @@
 			productName = "ioupsd tool";
 			productReference = 729A757E0A01EDED000AB587 /* ioupsd */;
 			productType = "com.apple.product-type.tool";
+		};
+		95E33A192565E33400DF678F /* BatteryHealthUnitTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 95E33A232565E33500DF678F /* Build configuration list for PBXNativeTarget "BatteryHealthUnitTests" */;
+			buildPhases = (
+				95E33A162565E33400DF678F /* Sources */,
+				95E33A172565E33400DF678F /* Frameworks */,
+				95E33A182565E33400DF678F /* Resources */,
+				953407F425A3DBF800C02635 /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = BatteryHealthUnitTests;
+			productName = BatteryHealthUnitTests;
+			productReference = 95E33A1A2565E33400DF678F /* BatteryHealthUnitTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
 		};
 /* End PBXNativeTarget section */
 
@@ -2378,9 +2768,15 @@
 					72A1BF87128E037A00754139 = {
 						ProvisioningStyle = Manual;
 					};
+					804E7F5A2447E017001FA751 = {
+						CreatedOnToolsVersion = 12.0;
+					};
 					808EE7E01DB6CF260035C5A1 = {
 						CreatedOnToolsVersion = 8.1;
 						ProvisioningStyle = Automatic;
+					};
+					95E33A192565E33400DF678F = {
+						CreatedOnToolsVersion = 12.4;
 					};
 					B30469712322E04F00B887C4 = {
 						CreatedOnToolsVersion = 11.0;
@@ -2403,8 +2799,8 @@
 			projectRoot = "";
 			targets = (
 				409C6E9901A0B1A80ACA2928 /* PowerManagement */,
-				A661C2440CFE1C3D00B7CC2B /* PowerManagement-Embedded */,
 				72D0ECDE08F73D3000CCEA2F /* AppleSmartBatteryManager */,
+				A661C2440CFE1C3D00B7CC2B /* PowerManagement-Embedded */,
 				808EE7E01DB6CF260035C5A1 /* AppleSmartBatteryManager-Embedded */,
 				729A759A0A01F1D7000AB587 /* powerd */,
 				72E8154A0CFE470B00CF547E /* powerd-Embedded */,
@@ -2433,6 +2829,9 @@
 				B30469712322E04F00B887C4 /* powermanagement-tests */,
 				081E47BC2395CB1F0046AC84 /* BDC_UnitTests */,
 				4896D8462452222300687BC1 /* powerdatad */,
+				804E7F5A2447E017001FA751 /* LowPowerMode */,
+				804E7F652447E10D001FA751 /* LowPowerMode-Embedded */,
+				95E33A192565E33400DF678F /* BatteryHealthUnitTests */,
 			);
 		};
 /* End PBXProject section */
@@ -2485,10 +2884,34 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		804E7F592447E017001FA751 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		804E7F6A2447E10D001FA751 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		808EE7DF1DB6CF260035C5A1 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		95E33A182565E33400DF678F /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				95185A8625A65EA500995A32 /* applesiliconvalues.csv in Resources */,
+				95185A2025A65E3B00995A32 /* SeedingAboveCycleCountThreshold.csv in Resources */,
+				95185A2125A65E3B00995A32 /* SeedingBelowCycleCountThreshold.csv in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2515,8 +2938,6 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				081E47C82395CB460046AC84 /* BatteryDataCollectionManager.m in Sources */,
-				081E47C72395CB310046AC84 /* test_batteryDataCollectionManager.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2551,6 +2972,7 @@
 				119B32471E41506400EB0780 /* PMAssertions.c in Sources */,
 				119B324C1E41507900EB0780 /* PMStore.c in Sources */,
 				B3C15A722441071F00D65E4F /* PMSystemLoad_Test.m in Sources */,
+				80AFE3F326277928002C31D9 /* PMPowerModeHandler.m in Sources */,
 				1149A7AA1E8351F80060933C /* PAssertions_XCTest.m in Sources */,
 				4832B7022082C08600F1C1F7 /* test_userProximity.m in Sources */,
 				4878DBD91E72134500CF1891 /* test_standbyTimer.m in Sources */,
@@ -2577,7 +2999,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				4825362E21BE427600A4DB1C /* pmtool.c in Sources */,
+				4825362E21BE427600A4DB1C /* pmtool.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2585,6 +3007,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				8007E16F245A1AC50059706F /* PMLowPowerModeService.m in Sources */,
 				487BE3F621B647A60005462B /* ioupspluginmig.defs in Sources */,
 				487BE3EF21B647260005462B /* IOUPSPrivate.c in Sources */,
 				487BE3EE21B646F90005462B /* adaptiveDisplay.m in Sources */,
@@ -2594,7 +3017,6 @@
 				487BE3EA21B6464B0005462B /* TTYKeepAwake.c in Sources */,
 				487BE3E921B6463D0005462B /* ExternalMedia.c in Sources */,
 				081E47B72395C03E0046AC84 /* test_batteryDataCollectionManager.m in Sources */,
-				4817EC6421B61B170049B606 /* AggdDailyReport.m in Sources */,
 				4817EC6121B61A920049B606 /* PMSystemEvents.c in Sources */,
 				4817EC5D21B6156D0049B606 /* PMStore.c in Sources */,
 				4817EC5C21B615570049B606 /* RepeatingAutoWake.c in Sources */,
@@ -2619,7 +3041,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				48644FC31B7D5B8F00AC7C92 /* pmtool.c in Sources */,
+				48644FC31B7D5B8F00AC7C92 /* pmtool.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2627,6 +3049,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				800F7AE52637858B00D7C3CD /* PMPowerModeAnalytics.m in Sources */,
 				4878DC841E776B6800CF1891 /* IOUPSPrivate.c in Sources */,
 				4878DC721E77690500CF1891 /* CommonLib.c in Sources */,
 				4878DC711E7768F700CF1891 /* adaptiveDisplay.m in Sources */,
@@ -2638,6 +3061,7 @@
 				4878DC5F1E77686900CF1891 /* BatteryTimeRemaining.m in Sources */,
 				4878DC601E77686900CF1891 /* ExternalMedia.c in Sources */,
 				4878DC611E77686900CF1891 /* HIDEventWatcher.c in Sources */,
+				80AFE3F426277928002C31D9 /* PMPowerModeHandler.m in Sources */,
 				4878DC621E77686900CF1891 /* Platform.c in Sources */,
 				4878DC631E77686900CF1891 /* PMConnection.m in Sources */,
 				4878DC641E77686900CF1891 /* PMAssertionLog.c in Sources */,
@@ -2669,9 +3093,10 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				48A48D831EF4305B0016FE7B /* AggdDailyReport.m in Sources */,
+				8007E16E245A1AA00059706F /* PMLowPowerModeService.m in Sources */,
 				48A48D821EF430540016FE7B /* BatteryData.c in Sources */,
 				48A48D5A1EF42F8F0016FE7B /* IOUPSPrivate.c in Sources */,
+				800F7AE62637858B00D7C3CD /* PMPowerModeAnalytics.m in Sources */,
 				48A48D5B1EF42F8F0016FE7B /* CommonLib.c in Sources */,
 				48A48D5D1EF42F8F0016FE7B /* ioupspluginmig.defs in Sources */,
 				081E47AD23958CE90046AC84 /* BatteryDataCollectionManager.m in Sources */,
@@ -2790,6 +3215,22 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		804E7F572447E017001FA751 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				804E7F772447E381001FA751 /* _PMLowPowerMode.m in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		804E7F682447E10D001FA751 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				804E7F782447E381001FA751 /* _PMLowPowerMode.m in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		808EE7DC1DB6CF260035C5A1 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -2814,6 +3255,15 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		95E33A162565E33400DF678F /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				95E33A662565E5FD00DF678F /* BatteryTimeRemaining.m in Sources */,
+				95E33A1D2565E33500DF678F /* BatteryHealthUnitTests.m in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -2821,6 +3271,11 @@
 			isa = PBXTargetDependency;
 			target = 48A48D4B1EF42F8F0016FE7B /* powerd-binary-Embedded */;
 			targetProxy = 193D950222028617003FF5C3 /* PBXContainerItemProxy */;
+		};
+		19B98E51268A7C560035B7A5 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 4878DC451E77597E00CF1891 /* powerd-binary */;
+			targetProxy = 19B98E50268A7C560035B7A5 /* PBXContainerItemProxy */;
 		};
 		22B9840C16FBAC8200BB59FC /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -2927,10 +3382,15 @@
 			target = 72EA6D1518EA2DE100FCE94F /* IOPSCreatePowerSource-simple */;
 			targetProxy = 72EA6D2218EA2DF700FCE94F /* PBXContainerItemProxy */;
 		};
-		72EE05D91909C876009A2681 /* PBXTargetDependency */ = {
+		803BC915244A1CE900BA8263 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = 72CEF7C618C16C8100E7B3B4 /* BATS */;
-			targetProxy = 72EE05D81909C876009A2681 /* PBXContainerItemProxy */;
+			target = 804E7F5A2447E017001FA751 /* LowPowerMode */;
+			targetProxy = 803BC914244A1CE900BA8263 /* PBXContainerItemProxy */;
+		};
+		803BC917244A1F1600BA8263 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 804E7F652447E10D001FA751 /* LowPowerMode-Embedded */;
+			targetProxy = 803BC916244A1F1600BA8263 /* PBXContainerItemProxy */;
 		};
 		80E851291E3AB29300B8A8EE /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -2942,10 +3402,20 @@
 			target = 8C1DA6DA1986BFE90041B69A /* ioupsd-Embedded */;
 			targetProxy = 8C1DA6F21986C02A0041B69A /* PBXContainerItemProxy */;
 		};
+		9583B68325AE1E7200E9B721 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 95E33A192565E33400DF678F /* BatteryHealthUnitTests */;
+			targetProxy = 9583B68225AE1E7200E9B721 /* PBXContainerItemProxy */;
+		};
 		B30469782322E0AD00B887C4 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = B30469712322E04F00B887C4 /* powermanagement-tests */;
 			targetProxy = B30469772322E0AD00B887C4 /* PBXContainerItemProxy */;
+		};
+		B34A59082641DE3B001A952C /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 72CEF7C618C16C8100E7B3B4 /* BATS */;
+			targetProxy = B34A59072641DE3B001A952C /* PBXContainerItemProxy */;
 		};
 		B34EFD752107E28F0013B948 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -2982,6 +3452,7 @@
 				CLANG_ENABLE_MODULES = YES;
 				CLANG_ENABLE_OBJC_ARC = YES;
 				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_STATIC_ANALYZER_MODE = deep;
 				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
 				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_COMMA = YES;
@@ -3003,6 +3474,7 @@
 				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = dwarf;
@@ -3015,6 +3487,7 @@
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"DEBUG=1",
 					"$(inherited)",
+					"TEST=1",
 				);
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
@@ -3029,13 +3502,15 @@
 					"@executable_path/Frameworks",
 					"@loader_path/Frameworks",
 				);
+				MACOSX_DEPLOYMENT_TARGET = 10.14;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.apple.bdc-unittests.BDC-UnitTests";
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				RUN_CLANG_STATIC_ANALYZER = YES;
 				SDKROOT = iphoneos;
-				TARGETED_DEVICE_FAMILY = "1,2";
+				TARGETED_DEVICE_FAMILY = "1,2,6";
 			};
 			name = "Development-Embedded";
 		};
@@ -3050,6 +3525,7 @@
 				CLANG_ENABLE_MODULES = YES;
 				CLANG_ENABLE_OBJC_ARC = YES;
 				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_STATIC_ANALYZER_MODE = deep;
 				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
 				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_COMMA = YES;
@@ -3071,6 +3547,7 @@
 				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = dwarf;
@@ -3083,6 +3560,7 @@
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"DEBUG=1",
 					"$(inherited)",
+					"TEST=1",
 				);
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
@@ -3097,13 +3575,15 @@
 					"@executable_path/Frameworks",
 					"@loader_path/Frameworks",
 				);
+				MACOSX_DEPLOYMENT_TARGET = 10.14;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.apple.bdc-unittests.BDC-UnitTests";
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				RUN_CLANG_STATIC_ANALYZER = YES;
 				SDKROOT = iphoneos;
-				TARGETED_DEVICE_FAMILY = "1,2";
+				TARGETED_DEVICE_FAMILY = "1,2,6";
 			};
 			name = Development;
 		};
@@ -3118,6 +3598,7 @@
 				CLANG_ENABLE_MODULES = YES;
 				CLANG_ENABLE_OBJC_ARC = YES;
 				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_STATIC_ANALYZER_MODE = deep;
 				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
 				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_COMMA = YES;
@@ -3139,6 +3620,7 @@
 				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
@@ -3159,12 +3641,14 @@
 					"@executable_path/Frameworks",
 					"@loader_path/Frameworks",
 				);
+				MACOSX_DEPLOYMENT_TARGET = 10.14;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.apple.bdc-unittests.BDC-UnitTests";
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				RUN_CLANG_STATIC_ANALYZER = YES;
 				SDKROOT = iphoneos;
-				TARGETED_DEVICE_FAMILY = "1,2";
+				TARGETED_DEVICE_FAMILY = "1,2,6";
 				VALIDATE_PRODUCT = YES;
 			};
 			name = "Deployment-Embedded";
@@ -3180,6 +3664,7 @@
 				CLANG_ENABLE_MODULES = YES;
 				CLANG_ENABLE_OBJC_ARC = YES;
 				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_STATIC_ANALYZER_MODE = deep;
 				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
 				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_COMMA = YES;
@@ -3201,6 +3686,7 @@
 				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
@@ -3221,12 +3707,14 @@
 					"@executable_path/Frameworks",
 					"@loader_path/Frameworks",
 				);
+				MACOSX_DEPLOYMENT_TARGET = 10.14;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.apple.bdc-unittests.BDC-UnitTests";
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				RUN_CLANG_STATIC_ANALYZER = YES;
 				SDKROOT = iphoneos;
-				TARGETED_DEVICE_FAMILY = "1,2";
+				TARGETED_DEVICE_FAMILY = "1,2,6";
 				VALIDATE_PRODUCT = YES;
 			};
 			name = Deployment;
@@ -3295,6 +3783,10 @@
 				PRODUCT_BUNDLE_IDENTIFIER = "com.apple.powerd-test";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				TEST_BUILD_STYLE = _APPLEINTERNAL;
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-Wno-incomplete-umbrella",
+				);
 			};
 			name = "Development-Embedded";
 		};
@@ -3359,9 +3851,14 @@
 				MTL_ENABLE_DEBUG_INFO = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				OTHER_CFLAGS = "-DUSE_SYSTEMCONFIGURATION_PRIVATE_HEADERS";
+				OTHER_LDFLAGS = "";
 				PRODUCT_BUNDLE_IDENTIFIER = "com.apple.powerd-test";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				TEST_BUILD_STYLE = _APPLEINTERNAL;
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-Wno-incomplete-umbrella",
+				);
 			};
 			name = Development;
 		};
@@ -3422,6 +3919,10 @@
 				PRODUCT_BUNDLE_IDENTIFIER = "com.apple.powerd-test";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				TEST_BUILD_STYLE = _APPLEINTERNAL;
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-Wno-incomplete-umbrella",
+				);
 			};
 			name = "Deployment-Embedded";
 		};
@@ -3479,9 +3980,14 @@
 				MACOSX_DEPLOYMENT_TARGET = 10.12;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				OTHER_CFLAGS = "-DUSE_SYSTEMCONFIGURATION_PRIVATE_HEADERS";
+				OTHER_LDFLAGS = "";
 				PRODUCT_BUNDLE_IDENTIFIER = "com.apple.powerd-test";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				TEST_BUILD_STYLE = _APPLEINTERNAL;
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-Wno-incomplete-umbrella",
+				);
 			};
 			name = Deployment;
 		};
@@ -3749,7 +4255,7 @@
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
 				CLANG_CXX_LIBRARY = "libc++";
 				CLANG_ENABLE_MODULES = YES;
-				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_ARC = NO;
 				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
@@ -3796,7 +4302,7 @@
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
 				CLANG_CXX_LIBRARY = "libc++";
 				CLANG_ENABLE_MODULES = YES;
-				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_ARC = NO;
 				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
@@ -3843,7 +4349,7 @@
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
 				CLANG_CXX_LIBRARY = "libc++";
 				CLANG_ENABLE_MODULES = YES;
-				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_ARC = NO;
 				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
@@ -3883,7 +4389,7 @@
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
 				CLANG_CXX_LIBRARY = "libc++";
 				CLANG_ENABLE_MODULES = YES;
-				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_ARC = NO;
 				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
@@ -3984,11 +4490,20 @@
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
+				OTHER_LDFLAGS = "";
 				PRODUCT_BUNDLE_IDENTIFIER = "com.apple.powerd-test-embedded";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx.internal;
 				SUPPORTED_PLATFORMS = macosx;
+				SYSTEM_FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
 				VALID_ARCHS = "i386 x86_64 x86_64h";
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-Wno-incomplete-umbrella",
+				);
 			};
 			name = "Development-Embedded";
 		};
@@ -4060,11 +4575,20 @@
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
+				OTHER_LDFLAGS = "";
 				PRODUCT_BUNDLE_IDENTIFIER = "com.apple.powerd-test-embedded";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx.internal;
 				SUPPORTED_PLATFORMS = macosx;
+				SYSTEM_FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
 				VALID_ARCHS = "i386 x86_64 x86_64h";
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-Wno-incomplete-umbrella",
+				);
 			};
 			name = Development;
 		};
@@ -4128,11 +4652,20 @@
 				MACOSX_DEPLOYMENT_TARGET = 10.14;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
+				OTHER_LDFLAGS = "";
 				PRODUCT_BUNDLE_IDENTIFIER = "com.apple.powerd-test-embedded";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx.internal;
 				SUPPORTED_PLATFORMS = macosx;
+				SYSTEM_FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
 				VALID_ARCHS = "i386 x86_64 x86_64h";
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-Wno-incomplete-umbrella",
+				);
 			};
 			name = "Deployment-Embedded";
 		};
@@ -4196,11 +4729,20 @@
 				MACOSX_DEPLOYMENT_TARGET = 10.14;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
+				OTHER_LDFLAGS = "";
 				PRODUCT_BUNDLE_IDENTIFIER = "com.apple.powerd-test-embedded";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx.internal;
 				SUPPORTED_PLATFORMS = macosx;
+				SYSTEM_FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
 				VALID_ARCHS = "i386 x86_64 x86_64h";
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-Wno-incomplete-umbrella",
+				);
 			};
 			name = Deployment;
 		};
@@ -4211,7 +4753,7 @@
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
 				CLANG_CXX_LIBRARY = "libc++";
 				CLANG_ENABLE_MODULES = YES;
-				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_ARC = NO;
 				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
@@ -4257,7 +4799,7 @@
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
 				CLANG_CXX_LIBRARY = "libc++";
 				CLANG_ENABLE_MODULES = YES;
-				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_ARC = NO;
 				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
@@ -4303,7 +4845,7 @@
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
 				CLANG_CXX_LIBRARY = "libc++";
 				CLANG_ENABLE_MODULES = YES;
-				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_ARC = NO;
 				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
@@ -4342,7 +4884,7 @@
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
 				CLANG_CXX_LIBRARY = "libc++";
 				CLANG_ENABLE_MODULES = YES;
-				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_ARC = NO;
 				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
@@ -4428,7 +4970,7 @@
 					"$(inherited)",
 					"$(SDKROOT)//usr/local/lib",
 				);
-				MACOSX_DEPLOYMENT_TARGET = 10.16;
+				MACOSX_DEPLOYMENT_TARGET = 12.0;
 				MTL_ENABLE_DEBUG_INFO = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				OTHER_CFLAGS = "-fobjc-constant-literals";
@@ -4438,6 +4980,7 @@
 				WARNING_CFLAGS = (
 					"-Wall",
 					"-Wno-error=deprecated-declarations",
+					"-Wno-incomplete-umbrella",
 				);
 			};
 			name = "Development-Embedded";
@@ -4496,7 +5039,7 @@
 					"$(inherited)",
 					"$(SDKROOT)//usr/local/lib",
 				);
-				MACOSX_DEPLOYMENT_TARGET = 10.16;
+				MACOSX_DEPLOYMENT_TARGET = 12.0;
 				MTL_ENABLE_DEBUG_INFO = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				OTHER_CFLAGS = "-fobjc-constant-literals";
@@ -4532,6 +5075,7 @@
 				WARNING_CFLAGS = (
 					"-Wall",
 					"-Wno-error=deprecated-declarations",
+					"-Wno-incomplete-umbrella",
 				);
 			};
 			name = Development;
@@ -4584,7 +5128,7 @@
 					"$(inherited)",
 					"$(SDKROOT)//usr/local/lib",
 				);
-				MACOSX_DEPLOYMENT_TARGET = 10.16;
+				MACOSX_DEPLOYMENT_TARGET = 12.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				OTHER_CFLAGS = "-fobjc-constant-literals";
 				PRODUCT_NAME = powerd;
@@ -4597,6 +5141,7 @@
 				WARNING_CFLAGS = (
 					"-Wall",
 					"-Wno-error=deprecated-declarations",
+					"-Wno-incomplete-umbrella",
 				);
 			};
 			name = "Deployment-Embedded";
@@ -4649,7 +5194,7 @@
 					"$(inherited)",
 					"$(SDKROOT)//usr/local/lib",
 				);
-				MACOSX_DEPLOYMENT_TARGET = 10.16;
+				MACOSX_DEPLOYMENT_TARGET = 12.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				OTHER_CFLAGS = "-fobjc-constant-literals";
 				OTHER_LDFLAGS = (
@@ -4684,6 +5229,7 @@
 				WARNING_CFLAGS = (
 					"-Wall",
 					"-Wno-error=deprecated-declarations",
+					"-Wno-incomplete-umbrella",
 				);
 			};
 			name = Deployment;
@@ -4968,6 +5514,7 @@
 		};
 		48A48D7D1EF42F8F0016FE7B /* Development-Embedded */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = B34A59062641D6C9001A952C /* powerd-binary-embedded.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;
@@ -5033,15 +5580,44 @@
 					"-weak_framework",
 					CoreAnalytics,
 				);
+				"OTHER_LDFLAGS[sdk=bridgeos*]" = (
+					"-weak_framework",
+					CPMS,
+					"-weak_framework",
+					CoreAnalytics,
+				);
+				"OTHER_LDFLAGS[sdk=iphoneos*]" = (
+					"-weak_framework",
+					CPMS,
+					"-weak_framework",
+					CoreAnalytics,
+					"-weak_framework",
+					Trial,
+					"-weak_framwork",
+					DataMigration,
+				);
+				"OTHER_LDFLAGS[sdk=watchos*]" = (
+					"-weak_framework",
+					CPMS,
+					"-weak_framework",
+					CoreAnalytics,
+					"-weak_framework",
+					Trial,
+				);
 				PRODUCT_MODULE_NAME = powerd;
 				PRODUCT_NAME = powerd;
 				RUN_CLANG_STATIC_ANALYZER = YES;
 				SDKROOT = iphoneos.internal;
+				WARNING_CFLAGS = (
+					"-Wno-incomplete-umbrella",
+					"-Wall",
+				);
 			};
 			name = "Development-Embedded";
 		};
 		48A48D7E1EF42F8F0016FE7B /* Development */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = B34A59062641D6C9001A952C /* powerd-binary-embedded.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;
@@ -5107,15 +5683,44 @@
 					"-weak_framework",
 					CoreAnalytics,
 				);
+				"OTHER_LDFLAGS[sdk=bridgeos*]" = (
+					"-weak_framework",
+					CPMS,
+					"-weak_framework",
+					CoreAnalytics,
+				);
+				"OTHER_LDFLAGS[sdk=iphoneos*]" = (
+					"-weak_framework",
+					CPMS,
+					"-weak_framework",
+					CoreAnalytics,
+					"-weak_framework",
+					Trial,
+					"-weak_framework",
+					DataMigration,
+				);
+				"OTHER_LDFLAGS[sdk=watchos*]" = (
+					"-weak_framework",
+					CPMS,
+					"-weak_framework",
+					CoreAnalytics,
+					"-weak_framework",
+					Trial,
+				);
 				PRODUCT_MODULE_NAME = powerd;
 				PRODUCT_NAME = powerd;
 				RUN_CLANG_STATIC_ANALYZER = YES;
 				SDKROOT = iphoneos.internal;
+				WARNING_CFLAGS = (
+					"-Wno-incomplete-umbrella",
+					"-Wall",
+				);
 			};
 			name = Development;
 		};
 		48A48D7F1EF42F8F0016FE7B /* Deployment-Embedded */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = B34A59062641D6C9001A952C /* powerd-binary-embedded.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;
@@ -5169,6 +5774,30 @@
 					CPMS,
 					"-weak_framework",
 					CoreAnalytics,
+				);
+				"OTHER_LDFLAGS[sdk=bridgeos*]" = (
+					"-weak_framework",
+					CPMS,
+					"-weak_framework",
+					CoreAnalytics,
+				);
+				"OTHER_LDFLAGS[sdk=iphoneos*]" = (
+					"-weak_framework",
+					CPMS,
+					"-weak_framework",
+					CoreAnalytics,
+					"-weak_framework",
+					Trial,
+					"-weak_framework",
+					DataMigration,
+				);
+				"OTHER_LDFLAGS[sdk=watchos*]" = (
+					"-weak_framework",
+					CPMS,
+					"-weak_framework",
+					CoreAnalytics,
+					"-weak_framework",
+					Trial,
 				);
 				PRODUCT_MODULE_NAME = powerd;
 				PRODUCT_NAME = powerd;
@@ -5178,11 +5807,16 @@
 					"$(inherited)",
 					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
 				);
+				WARNING_CFLAGS = (
+					"-Wno-incomplete-umbrella",
+					"-Wall",
+				);
 			};
 			name = "Deployment-Embedded";
 		};
 		48A48D801EF42F8F0016FE7B /* Deployment */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = B34A59062641D6C9001A952C /* powerd-binary-embedded.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;
@@ -5241,10 +5875,38 @@
 					"-weak_framework",
 					CoreAnalytics,
 				);
+				"OTHER_LDFLAGS[sdk=bridgeos*]" = (
+					"-weak_framework",
+					CPMS,
+					"-weak_framework",
+					CoreAnalytics,
+				);
+				"OTHER_LDFLAGS[sdk=iphoneos*]" = (
+					"-weak_framework",
+					CPMS,
+					"-weak_framework",
+					CoreAnalytics,
+					"-weak_framework",
+					Trial,
+					"-weak_framework",
+					DataMigration,
+				);
+				"OTHER_LDFLAGS[sdk=watchos*]" = (
+					"-weak_framework",
+					CPMS,
+					"-weak_framework",
+					CoreAnalytics,
+					"-weak_framework",
+					Trial,
+				);
 				PRODUCT_MODULE_NAME = powerd;
 				PRODUCT_NAME = powerd;
 				RUN_CLANG_STATIC_ANALYZER = YES;
 				SDKROOT = iphoneos.internal;
+				WARNING_CFLAGS = (
+					"-Wno-incomplete-umbrella",
+					"-Wall",
+				);
 			};
 			name = Deployment;
 		};
@@ -5474,6 +6136,10 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx.internal;
 				SKIP_INSTALL = NO;
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-Wno-incomplete-umbrella",
+				);
 				WRAPPER_EXTENSION = bundle;
 			};
 			name = "Development-Embedded";
@@ -5530,6 +6196,10 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx.internal;
 				SKIP_INSTALL = NO;
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-Wno-incomplete-umbrella",
+				);
 				WRAPPER_EXTENSION = bundle;
 			};
 			name = Development;
@@ -5579,6 +6249,10 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx.internal;
 				SKIP_INSTALL = NO;
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-Wno-incomplete-umbrella",
+				);
 				WRAPPER_EXTENSION = bundle;
 			};
 			name = "Deployment-Embedded";
@@ -5628,6 +6302,10 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx.internal;
 				SKIP_INSTALL = NO;
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-Wno-incomplete-umbrella",
+				);
 				WRAPPER_EXTENSION = bundle;
 			};
 			name = Deployment;
@@ -6364,6 +7042,7 @@
 				ONLY_ACTIVE_ARCH = YES;
 				PM_VERSION = 161.0.0;
 				STRIP_INSTALLED_PRODUCT = NO;
+				TAPI_VERIFY_MODE = Pedantic;
 				WARNING_CFLAGS = "-Wall";
 			};
 			name = "Development-Embedded";
@@ -6400,6 +7079,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				PM_VERSION = 161.0.0;
+				TAPI_VERIFY_MODE = Pedantic;
 				WARNING_CFLAGS = "-Wall";
 			};
 			name = "Deployment-Embedded";
@@ -6502,6 +7182,8 @@
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				COMBINE_HIDPI_IMAGES = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTS_TEXT_BASED_API = YES;
+				TAPI_VERIFY_MODE = Pedantic;
 			};
 			name = "Development-Embedded";
 		};
@@ -6512,6 +7194,8 @@
 				COMBINE_HIDPI_IMAGES = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx.internal;
+				SUPPORTS_TEXT_BASED_API = YES;
+				TAPI_VERIFY_MODE = Pedantic;
 			};
 			name = Development;
 		};
@@ -6521,6 +7205,8 @@
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				COMBINE_HIDPI_IMAGES = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTS_TEXT_BASED_API = YES;
+				TAPI_VERIFY_MODE = Pedantic;
 			};
 			name = "Deployment-Embedded";
 		};
@@ -6531,6 +7217,8 @@
 				COMBINE_HIDPI_IMAGES = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx.internal;
+				SUPPORTS_TEXT_BASED_API = YES;
+				TAPI_VERIFY_MODE = Pedantic;
 			};
 			name = Deployment;
 		};
@@ -6815,6 +7503,642 @@
 			};
 			name = Deployment;
 		};
+		804E7F612447E017001FA751 /* Development-Embedded */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEFINES_MODULE = YES;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				INFOPLIST_FILE = "$(SRCROOT)/LowPowerMode/Info.plist";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				MACOSX_DEPLOYMENT_TARGET = 11.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.powerd.LowPowerMode;
+				PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
+				SDKROOT = macosx.internal;
+				SKIP_INSTALL = NO;
+				SUPPORTS_TEXT_BASED_API = YES;
+				SYSTEM_FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
+				TAPI_VERIFY_MODE = Pedantic;
+				VERSIONING_SYSTEM = "apple-generic";
+				VERSION_INFO_EXPORT_DECL = "__attribute__((visibility(\"hidden\")))";
+				VERSION_INFO_PREFIX = "";
+			};
+			name = "Development-Embedded";
+		};
+		804E7F622447E017001FA751 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEFINES_MODULE = YES;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				INFOPLIST_FILE = "$(SRCROOT)/LowPowerMode/Info.plist";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				MACOSX_DEPLOYMENT_TARGET = 11.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.powerd.LowPowerMode;
+				PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
+				SDKROOT = macosx.internal;
+				SKIP_INSTALL = NO;
+				SUPPORTS_TEXT_BASED_API = YES;
+				SYSTEM_FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
+				TAPI_VERIFY_MODE = Pedantic;
+				VERSIONING_SYSTEM = "apple-generic";
+				VERSION_INFO_EXPORT_DECL = "__attribute__((visibility(\"hidden\")))";
+				VERSION_INFO_PREFIX = "";
+			};
+			name = Development;
+		};
+		804E7F632447E017001FA751 /* Deployment-Embedded */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEFINES_MODULE = YES;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				INFOPLIST_FILE = "$(SRCROOT)/LowPowerMode/Info.plist";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				MACOSX_DEPLOYMENT_TARGET = 11.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.powerd.LowPowerMode;
+				PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
+				SDKROOT = macosx.internal;
+				SKIP_INSTALL = NO;
+				SUPPORTS_TEXT_BASED_API = YES;
+				SYSTEM_FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
+				TAPI_VERIFY_MODE = Pedantic;
+				VERSIONING_SYSTEM = "apple-generic";
+				VERSION_INFO_EXPORT_DECL = "__attribute__((visibility(\"hidden\")))";
+				VERSION_INFO_PREFIX = "";
+			};
+			name = "Deployment-Embedded";
+		};
+		804E7F642447E017001FA751 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEFINES_MODULE = YES;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				INFOPLIST_FILE = "$(SRCROOT)/LowPowerMode/Info.plist";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				MACOSX_DEPLOYMENT_TARGET = 11.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.powerd.LowPowerMode;
+				PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
+				SDKROOT = macosx.internal;
+				SKIP_INSTALL = NO;
+				SUPPORTS_TEXT_BASED_API = YES;
+				SYSTEM_FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
+				TAPI_VERIFY_MODE = Pedantic;
+				VERSIONING_SYSTEM = "apple-generic";
+				VERSION_INFO_EXPORT_DECL = "__attribute__((visibility(\"hidden\")))";
+				VERSION_INFO_PREFIX = "";
+			};
+			name = Deployment;
+		};
+		804E7F6C2447E10D001FA751 /* Development-Embedded */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEFINES_MODULE = YES;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				INFOPLIST_FILE = "$(SRCROOT)/LowPowerMode/Info-Embedded.plist";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				MACOSX_DEPLOYMENT_TARGET = 10.16;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.powerd.LowPowerMode;
+				PRODUCT_NAME = LowPowerMode;
+				SDKROOT = iphoneos.internal;
+				SKIP_INSTALL = NO;
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_TEXT_BASED_API = YES;
+				SYSTEM_FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
+				TAPI_VERIFY_MODE = Pedantic;
+				TARGETED_DEVICE_FAMILY = "1,2,4";
+				VERSIONING_SYSTEM = "apple-generic";
+				VERSION_INFO_EXPORT_DECL = "__attribute__((visibility(\"hidden\")))";
+				VERSION_INFO_PREFIX = "";
+			};
+			name = "Development-Embedded";
+		};
+		804E7F6D2447E10D001FA751 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEFINES_MODULE = YES;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				INFOPLIST_FILE = "$(SRCROOT)/LowPowerMode/Info-Embedded.plist";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				MACOSX_DEPLOYMENT_TARGET = 10.16;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.powerd.LowPowerMode;
+				PRODUCT_NAME = LowPowerMode;
+				SDKROOT = iphoneos.internal;
+				SKIP_INSTALL = NO;
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_TEXT_BASED_API = YES;
+				SYSTEM_FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
+				TAPI_VERIFY_MODE = Pedantic;
+				TARGETED_DEVICE_FAMILY = "1,2,4";
+				VERSIONING_SYSTEM = "apple-generic";
+				VERSION_INFO_EXPORT_DECL = "__attribute__((visibility(\"hidden\")))";
+				VERSION_INFO_PREFIX = "";
+			};
+			name = Development;
+		};
+		804E7F6E2447E10D001FA751 /* Deployment-Embedded */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEFINES_MODULE = YES;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				INFOPLIST_FILE = "$(SRCROOT)/LowPowerMode/Info-Embedded.plist";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				MACOSX_DEPLOYMENT_TARGET = 10.16;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.powerd.LowPowerMode;
+				PRODUCT_NAME = LowPowerMode;
+				SDKROOT = iphoneos.internal;
+				SKIP_INSTALL = NO;
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_TEXT_BASED_API = YES;
+				SYSTEM_FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
+				TAPI_VERIFY_MODE = Pedantic;
+				TARGETED_DEVICE_FAMILY = "1,2,4";
+				VERSIONING_SYSTEM = "apple-generic";
+				VERSION_INFO_EXPORT_DECL = "__attribute__((visibility(\"hidden\")))";
+				VERSION_INFO_PREFIX = "";
+			};
+			name = "Deployment-Embedded";
+		};
+		804E7F6F2447E10D001FA751 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEFINES_MODULE = YES;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				INFOPLIST_FILE = "$(SRCROOT)/LowPowerMode/Info-Embedded.plist";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				MACOSX_DEPLOYMENT_TARGET = 10.16;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.powerd.LowPowerMode;
+				PRODUCT_NAME = LowPowerMode;
+				SDKROOT = iphoneos.internal;
+				SKIP_INSTALL = NO;
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_TEXT_BASED_API = YES;
+				SYSTEM_FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
+				TAPI_VERIFY_MODE = Pedantic;
+				TARGETED_DEVICE_FAMILY = "1,2,4";
+				VERSIONING_SYSTEM = "apple-generic";
+				VERSION_INFO_EXPORT_DECL = "__attribute__((visibility(\"hidden\")))";
+				VERSION_INFO_PREFIX = "";
+			};
+			name = Deployment;
+		};
 		808EE7E61DB6CF260035C5A1 /* Development-Embedded */ = {
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 19B91D141FE042480048EA89 /* kext.xcconfig */;
@@ -7093,6 +8417,288 @@
 			};
 			name = Deployment;
 		};
+		95E33A1F2565E33500DF678F /* Development-Embedded */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = NO;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = NO;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+					"BHUI_XCTEST=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				INFOPLIST_FILE = BatteryHealthUnitTests/Info.plist;
+				INSTALL_PATH = /AppleInternal/Tests/PowerManagement/;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 11.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = "Apple-Inc.BatteryHealthUnitTests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx.internal;
+				SUPPORTED_PLATFORMS = "macosx iphoneos";
+			};
+			name = "Development-Embedded";
+		};
+		95E33A202565E33500DF678F /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = NO;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = NO;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+					"BHUI_XCTEST=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				INFOPLIST_FILE = BatteryHealthUnitTests/Info.plist;
+				INSTALL_PATH = /AppleInternal/Tests/PowerManagement/;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 11.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = "Apple-Inc.BatteryHealthUnitTests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx.internal;
+				SUPPORTED_PLATFORMS = "macosx iphoneos";
+			};
+			name = Development;
+		};
+		95E33A212565E33500DF678F /* Deployment-Embedded */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = NO;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = NO;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"BHUI_XCTEST=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				INFOPLIST_FILE = BatteryHealthUnitTests/Info.plist;
+				INSTALL_PATH = /AppleInternal/Tests/PowerManagement/;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 11.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = "Apple-Inc.BatteryHealthUnitTests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx.internal;
+				SUPPORTED_PLATFORMS = "macosx iphoneos";
+			};
+			name = "Deployment-Embedded";
+		};
+		95E33A222565E33500DF678F /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = NO;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = NO;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"BHUI_XCTEST=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				INFOPLIST_FILE = BatteryHealthUnitTests/Info.plist;
+				INSTALL_PATH = /AppleInternal/Tests/PowerManagement/;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 11.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = "Apple-Inc.BatteryHealthUnitTests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx.internal;
+				SUPPORTED_PLATFORMS = "macosx iphoneos";
+			};
+			name = Deployment;
+		};
 		A60E72020CFE3809003989A7 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -7127,6 +8733,7 @@
 				ONLY_ACTIVE_ARCH = YES;
 				PM_VERSION = 161.0.0;
 				SDKROOT = macosx.internal;
+				TAPI_VERIFY_MODE = Pedantic;
 				WARNING_CFLAGS = "-Wall";
 			};
 			name = Development;
@@ -7151,6 +8758,8 @@
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				PRODUCT_NAME = "PowerManagement-Embedded";
+				SUPPORTS_TEXT_BASED_API = YES;
+				TAPI_VERIFY_MODE = Pedantic;
 				VALID_ARCHS = "ppc64 ppc7400 ppc970 i386 x86_64 arm armv6 ppc";
 			};
 			name = Development;
@@ -7297,8 +8906,10 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
+				"OTHER_LDFLAGS[sdk=iphoneos*]" = "";
 				PM_VERSION = 161.0.0;
 				SDKROOT = macosx.internal;
+				TAPI_VERIFY_MODE = Pedantic;
 				WARNING_CFLAGS = "-Wall";
 			};
 			name = Deployment;
@@ -7322,6 +8933,8 @@
 				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				PRODUCT_NAME = "PowerManagement-Embedded";
+				SUPPORTS_TEXT_BASED_API = YES;
+				TAPI_VERIFY_MODE = Pedantic;
 				ZERO_LINK = NO;
 			};
 			name = Deployment;
@@ -7435,6 +9048,8 @@
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				PRODUCT_NAME = "PowerManagement-Embedded";
+				SUPPORTS_TEXT_BASED_API = YES;
+				TAPI_VERIFY_MODE = Pedantic;
 				VALID_ARCHS = "ppc64 ppc7400 ppc970 i386 x86_64 arm armv6 ppc";
 			};
 			name = "Development-Embedded";
@@ -7447,6 +9062,8 @@
 				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				PRODUCT_NAME = "PowerManagement-Embedded";
+				SUPPORTS_TEXT_BASED_API = YES;
+				TAPI_VERIFY_MODE = Pedantic;
 				ZERO_LINK = NO;
 			};
 			name = "Deployment-Embedded";
@@ -7992,6 +9609,28 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Deployment;
 		};
+		804E7F602447E017001FA751 /* Build configuration list for PBXNativeTarget "LowPowerMode" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				804E7F612447E017001FA751 /* Development-Embedded */,
+				804E7F622447E017001FA751 /* Development */,
+				804E7F632447E017001FA751 /* Deployment-Embedded */,
+				804E7F642447E017001FA751 /* Deployment */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Deployment;
+		};
+		804E7F6B2447E10D001FA751 /* Build configuration list for PBXNativeTarget "LowPowerMode-Embedded" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				804E7F6C2447E10D001FA751 /* Development-Embedded */,
+				804E7F6D2447E10D001FA751 /* Development */,
+				804E7F6E2447E10D001FA751 /* Deployment-Embedded */,
+				804E7F6F2447E10D001FA751 /* Deployment */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Deployment;
+		};
 		808EE7EA1DB6CF270035C5A1 /* Build configuration list for PBXNativeTarget "AppleSmartBatteryManager-Embedded" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
@@ -8010,6 +9649,17 @@
 				8C1DA6EE1986BFE90041B69A /* Development */,
 				8C1DA6EF1986BFE90041B69A /* Deployment-Embedded */,
 				8C1DA6F01986BFE90041B69A /* Deployment */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Deployment;
+		};
+		95E33A232565E33500DF678F /* Build configuration list for PBXNativeTarget "BatteryHealthUnitTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				95E33A1F2565E33500DF678F /* Development-Embedded */,
+				95E33A202565E33500DF678F /* Development */,
+				95E33A212565E33500DF678F /* Deployment-Embedded */,
+				95E33A222565E33500DF678F /* Deployment */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Deployment;

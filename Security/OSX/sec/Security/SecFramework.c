@@ -33,7 +33,7 @@
 
 #include "SecFramework.h"
 #include <CoreFoundation/CFBundle.h>
-#include <utilities/SecCFWrappers.h>
+#include "utilities/SecCFWrappers.h"
 
 /* Security.framework's bundle id. */
 #if TARGET_OS_IPHONE

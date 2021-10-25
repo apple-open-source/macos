@@ -29,12 +29,12 @@ const uint64_t guMaxLRU = (1LLU << LRU_COUNTER_SIZE);
 
 //---------------------------------- Functions Decleration ---------------------------------------
 
-static int          FAT_Access_M_GetFATCluster( FileSystemRecord_s *psFSRecord, FatCacheEntry_s* psCacheEntry, uint32_t uBlockSize, uint64_t uBlockOffset );
+static int          FAT_Access_M_GetFATCluster( FileSystemRecord_s *psFSRecord, uint8_t psCacheEntryNum, uint32_t uBlockSize, uint64_t uBlockOffset );
 static void         FAT_Access_M_UpdateLRU( uint8_t uFATEntryToUpdate,FileSystemRecord_s *psFSRecord );
 static uint8_t      FAT_Access_M_GetLRUIndex(FileSystemRecord_s *psFSRecord);
 static uint32_t     FAT_Access_M_FreeChainLength(FileSystemRecord_s *psFSRecord, uint32_t uStart, uint32_t uCount, int* piError);
 static errno_t      FAT_Access_M_FATChainAlloc(FileSystemRecord_s *psFSRecord, uint32_t uStart, uint32_t uClusterCount, uint32_t uFillwith, uint32_t *uStartAllocated, uint32_t *uCountAllocated);
-static int          FAT_Access_M_FlushCacheEntry(FileSystemRecord_s *psFSRecord, FatCacheEntry_s* psCacheEntry);
+static int          FAT_Access_M_FlushCacheEntry(FileSystemRecord_s *psFSRecord, FatCacheEntry_s* psCacheEntry, bool bIsAlter);
 static void         FAT_Access_M_SetCacheEntryAsDirty(FileSystemRecord_s *psFSRecord, uint32_t uCluster);
 static uint8_t      FAT_Access_M_GetCacheEntryAccordingToCluster(FileSystemRecord_s *psFSRecord, uint32_t uCluster);
 static int          FAT_Access_M_GetFatEntry(FileSystemRecord_s *psFSRecord,uint32_t uClusterNum, uint8_t** ppuEntry);
@@ -42,20 +42,20 @@ static uint32_t     FAT_Access_M_FatBlockSize( FileSystemRecord_s *psFSRecord, u
 static int          FAT_Access_M_SetClustersFatEntryContent( FileSystemRecord_s *psFSRecord, uint32_t uCluster, uint32_t uValue );
 
 //---------------------------------- Functions Implementation ------------------------------------
-
+#define HUNDRED_MICRO (100*1000)
 static int
-FAT_Access_M_FlushCacheEntry( FileSystemRecord_s *psFSRecord, FatCacheEntry_s* psCacheEntry )
+FAT_Access_M_FlushCacheEntry( FileSystemRecord_s *psFSRecord, FatCacheEntry_s* psCacheEntry, bool bIsAlter)
 {
     int iErr = 0;
 
     if ( !psCacheEntry->bIsDirty )
     {
-        goto exit;
+        return 0;
     }
 
     uint64_t uBlockOffset = psCacheEntry->uFatCacheEntryOffset;
     uint32_t uBlockSize   = FAT_Access_M_FatBlockSize(psFSRecord,uBlockOffset);
-    
+
     if ( uBlockOffset >= INVALID_CACHE_OFFSET(psFSRecord) )
     {
         iErr = EFAULT;
@@ -68,61 +68,158 @@ FAT_Access_M_FlushCacheEntry( FileSystemRecord_s *psFSRecord, FatCacheEntry_s* p
     for ( uFatIdx=0, uOffset=uBlockOffset; uFatIdx < psFSRecord->sFatInfo.uNumOfFATs; uFatIdx++, uOffset+=psFSRecord->sFatInfo.uFatSize )
     {
         size_t uActualBytesWritten = pwrite( psFSRecord->iFD, psCacheEntry->pvFatEntryCache, uBlockSize, psFSRecord->sFatInfo.uFatOffset+uOffset );
-        if ( uActualBytesWritten != uBlockSize )
+        if ( uActualBytesWritten < uBlockSize )
         {
+            if (bIsAlter)  {
+                psCacheEntry->bFailedToFlush = true;
+            }
             iErr = errno;
             MSDOS_LOG(LEVEL_ERROR, "FAT_Access_M_FlushCacheEntry failed to write errno = [%d]\n", iErr);
             goto exit;
         }
     }
-    
+
     // Only when finished writing to both copies
     // the cache is not dirty
     psCacheEntry->bIsDirty = false;
-    
+
 exit:
+    if (bIsAlter) pthread_cond_signal(&psCacheEntry->sFATCahceCond);
     return iErr;
+}
+
+static void
+FATMOD_CopyFATCacheToAlter(FileSystemRecord_s *psFSRecord, FatCacheEntry_s* psFatCacheEntry, FatCacheEntry_s* psAltFatCacheEntry)
+{
+    psAltFatCacheEntry->bIsDirty = psFatCacheEntry->bIsDirty;
+    if (psFatCacheEntry->bIsDirty) {
+        pthread_mutex_lock(&psAltFatCacheEntry->sFATCahceMutex);
+        memcpy(psAltFatCacheEntry->pvFatEntryCache, psFatCacheEntry->pvFatEntryCache, FAT_BLOCK_SIZE);
+        psAltFatCacheEntry->uFatCacheEntryOffset = psFatCacheEntry->uFatCacheEntryOffset;
+        
+        psFatCacheEntry->bIsDirty = false;
+        psAltFatCacheEntry->bFailedToFlush = false;
+        pthread_mutex_unlock(&psAltFatCacheEntry->sFATCahceMutex);
+    } else {
+        psAltFatCacheEntry->uFatCacheEntryOffset = INVALID_CACHE_OFFSET(psFSRecord);
+    }
+}
+
+static void
+FATMOD_CopyAllFATCacheToAlter(FileSystemRecord_s *psFSRecord)
+{
+    for ( uint8_t FATCacheCounter = 0; FATCacheCounter < FAT_CACHE_SIZE; FATCacheCounter++ )
+    {
+        FATMOD_CopyFATCacheToAlter(psFSRecord, &psFSRecord->sFATCache.psFATCacheEntries[FATCacheCounter], &psFSRecord->sFATCache.psAlterFATCacheEntries[FATCacheCounter]);
+    }
 }
 
 int
 FATMOD_FlushAllCacheEntries(FileSystemRecord_s *psFSRecord)
 {
     int iErr = 0;
+    pthread_mutex_lock(&psFSRecord->sFATCache.sAlterFatMutex);
     FAT_ACCESS_LOCK(psFSRecord);
-    
+    FATMOD_CopyAllFATCacheToAlter(psFSRecord);
+    FAT_ACCESS_FREE(psFSRecord);
+
     // Flush all dirty entries that are in the cache
     for ( uint8_t FATCacheCounter = 0; FATCacheCounter < FAT_CACHE_SIZE; FATCacheCounter++ )
     {
         // Even if failed in writing one of the cache parts, continue try to flush all the rest in order to save as much as possible
-        iErr |= FAT_Access_M_FlushCacheEntry( psFSRecord, &psFSRecord->sFATCache.psFATCacheEntries[FATCacheCounter] );
+        FatCacheEntry_s* entry = &psFSRecord->sFATCache.psAlterFATCacheEntries[FATCacheCounter];
+        pthread_mutex_lock(&entry->sFATCahceMutex);
+        if ( !(!entry->bIsDirty && entry->uFatCacheEntryOffset >= INVALID_CACHE_OFFSET(psFSRecord)))
+        {
+            iErr |= FAT_Access_M_FlushCacheEntry( psFSRecord, entry, true);
+            pthread_cond_broadcast(&entry->sFATCahceCond);
+        }
+        pthread_mutex_unlock(&entry->sFATCahceMutex);
     }
 
-    FAT_ACCESS_FREE(psFSRecord);
+    pthread_mutex_unlock(&psFSRecord->sFATCache.sAlterFatMutex);
     return iErr;
 }
 
-static int
-FAT_Access_M_GetFATCluster( FileSystemRecord_s *psFSRecord, FatCacheEntry_s* psCacheEntry, uint32_t uBlockSize, uint64_t uBlockOffset )
+static FatCacheEntry_s*
+FAT_Access_M_GetAltCacheEntryForOffset(FileSystemRecord_s *psFSRecord, uint64_t uBlockOffset) {
+    VolumeFatCache_s* psFATCache = &psFSRecord->sFATCache;
+    FatCacheEntry_s* retEntry = NULL;
+
+    // Go over all alter FAT cache entries
+    for ( uint8_t uFATCacheCounter = 0; uFATCacheCounter < FAT_CACHE_SIZE; uFATCacheCounter++ )
+    {
+        if (uBlockOffset == psFATCache->psAlterFATCacheEntries[uFATCacheCounter].uFatCacheEntryOffset) {
+            retEntry = &psFATCache->psAlterFATCacheEntries[uFATCacheCounter];
+            break;
+        }
+    }
+    return retEntry;
+}
+
+static void
+FAT_Access_M_WaitUntilClusterIsFlushedFromAlterClusterCache(FatCacheEntry_s* pEntry, uint64_t uBlockOffset)
 {
-    int iErr = 0;
+    if (pEntry) {
+        pthread_mutex_lock(&pEntry->sFATCahceMutex);
+        // In case we find the wanted cluster in the alter cache, and we found it's still dirty,
+        // we can't let the thread to go and read this data from the disk.
+        // We want to wait until the disk is sync.
+        while (pEntry->bIsDirty && uBlockOffset == pEntry->uFatCacheEntryOffset
+               && !pEntry->bFailedToFlush) {
+            struct timespec ts;
+            clock_gettime(CLOCK_REALTIME, &ts);
+            ts.tv_nsec += HUNDRED_MICRO;
+            pthread_cond_timedwait(&pEntry->sFATCahceCond,  &pEntry->sFATCahceMutex, &ts);
+        }
+        pthread_mutex_unlock(&pEntry->sFATCahceMutex);
+    }
+}
+
+static int
+FATMOD_FlushSpecificCacheEntry(FileSystemRecord_s *psFSRecord, uint8_t uEntryNum)
+{
     FAT_ACCESS_LOCK(psFSRecord);
-    iErr = FAT_Access_M_FlushCacheEntry( psFSRecord, psCacheEntry );
+    //We want to make sure no flushing of the same offset is being done from the Alter Cache
+    FatCacheEntry_s* pAltEntry = FAT_Access_M_GetAltCacheEntryForOffset(psFSRecord, psFSRecord->sFATCache.psFATCacheEntries[uEntryNum].uFatCacheEntryOffset);
+    FAT_Access_M_WaitUntilClusterIsFlushedFromAlterClusterCache(pAltEntry, psFSRecord->sFATCache.psFATCacheEntries[uEntryNum].uFatCacheEntryOffset);
+
+    //Flush the data to the drive
+    int err = FAT_Access_M_FlushCacheEntry( psFSRecord, &psFSRecord->sFATCache.psFATCacheEntries[uEntryNum], false);
+    FAT_ACCESS_FREE(psFSRecord);
+
+    return err;
+}
+
+static int
+FAT_Access_M_GetFATCluster( FileSystemRecord_s *psFSRecord, uint8_t psCacheEntryNum, uint32_t uBlockSize, uint64_t uBlockOffset )
+{
+    FAT_ACCESS_LOCK(psFSRecord);
+    int iErr = FATMOD_FlushSpecificCacheEntry(psFSRecord, psCacheEntryNum);
     if ( iErr != 0 )
     {
         MSDOS_LOG(LEVEL_ERROR, "FAT_Access_M_GetFATCluster failed to flush cache entry\n");
         goto exit;
     }
-    
-    if ( pread( psFSRecord->iFD, psCacheEntry->pvFatEntryCache, uBlockSize, psFSRecord->sFatInfo.uFatOffset+uBlockOffset) != uBlockSize )
-    {
-        iErr = errno;
-        MSDOS_LOG(LEVEL_ERROR, "FAT_Access_M_GetFATCluster failed to read. errno = [%d]\n", iErr);
-        psCacheEntry->uFatCacheEntryOffset = INVALID_CACHE_OFFSET(psFSRecord);
-        goto exit;
-    }
 
+    FatCacheEntry_s* psCacheEntry = &psFSRecord->sFATCache.psFATCacheEntries[psCacheEntryNum];
+    //Check if we have the wanted offset in the Alt cache
+    //O.W go read it from the device
+    FatCacheEntry_s* psAltCacheEntry = FAT_Access_M_GetAltCacheEntryForOffset(psFSRecord, uBlockOffset);
+    if (psAltCacheEntry && psAltCacheEntry->bIsDirty) {
+        memcpy(psAltCacheEntry->pvFatEntryCache, psCacheEntry->pvFatEntryCache, FAT_BLOCK_SIZE);
+        psCacheEntry->bIsDirty = psAltCacheEntry->bIsDirty;
+    } else {
+        if ( pread( psFSRecord->iFD, psCacheEntry->pvFatEntryCache, uBlockSize, psFSRecord->sFatInfo.uFatOffset+uBlockOffset) != uBlockSize )
+        {
+            iErr = errno;
+            MSDOS_LOG(LEVEL_ERROR, "FAT_Access_M_GetFATCluster failed to read. errno = [%d]\n", iErr);
+            psCacheEntry->uFatCacheEntryOffset = INVALID_CACHE_OFFSET(psFSRecord);
+            goto exit;
+        }
+    }
     psCacheEntry->uFatCacheEntryOffset = uBlockOffset;
-    
+
 exit:
     FAT_ACCESS_FREE(psFSRecord);
     return iErr;
@@ -623,11 +720,11 @@ FAT_Access_M_GetFatEntry( FileSystemRecord_s *psFSRecord,uint32_t uClusterNum, u
         FAT_Access_M_UpdateLRU( uFATCacheCounter, psFSRecord );
         goto exit;
     }
-
+    
     // In case non of the cache entries is the one needed -> find the LRU one and replace
     uFATCacheCounter = FAT_Access_M_GetLRUIndex( psFSRecord );
 
-    iErr = FAT_Access_M_GetFATCluster( psFSRecord, &psFATCache->psFATCacheEntries[uFATCacheCounter], uBlockSize, uBlockOffset );
+    iErr = FAT_Access_M_GetFATCluster( psFSRecord, uFATCacheCounter, uBlockSize, uBlockOffset );
     if (iErr)
     {
         MSDOS_LOG(LEVEL_ERROR, "FAT_Access_M_GetFATCluster: fail to get fat cluster\n");
@@ -658,6 +755,7 @@ FAT_Access_M_FATInit(FileSystemRecord_s *psFSRecord)
     // Set attr to mutex_recursive.. as the lock can be call on the same thread recursively.
     pthread_mutexattr_settype( &sAttr, PTHREAD_MUTEX_RECURSIVE );
     pthread_mutex_init( &psFATCache->sFatMutex, &sAttr );
+    pthread_mutex_init( &psFATCache->sAlterFatMutex, &sAttr );
     
     pthread_mutexattr_destroy( &sAttr );
     
@@ -669,12 +767,28 @@ FAT_Access_M_FATInit(FileSystemRecord_s *psFSRecord)
         psCacheEntry->uLRUCounter           = 0;
         psCacheEntry->uFatCacheEntryOffset  = INVALID_CACHE_OFFSET(psFSRecord);
         psCacheEntry->bIsDirty              = false;
+        psCacheEntry->bFailedToFlush        = false;
         psCacheEntry->pvFatEntryCache       = malloc(FAT_BLOCK_SIZE);
-        if ( psCacheEntry->pvFatEntryCache == NULL )
-        {
+        if ( psCacheEntry->pvFatEntryCache == NULL ) {
             iErr = ENOMEM;
             goto exit;
         }
+        
+        psCacheEntry = &psFATCache->psAlterFATCacheEntries[uIdx];
+
+        psCacheEntry->pvFatEntryCache       = NULL;
+        psCacheEntry->uLRUCounter           = 0;
+        psCacheEntry->uFatCacheEntryOffset  = INVALID_CACHE_OFFSET(psFSRecord);
+        psCacheEntry->bIsDirty              = false;
+        psCacheEntry->bFailedToFlush        = false;
+        psCacheEntry->pvFatEntryCache       = malloc(FAT_BLOCK_SIZE);
+        if ( psCacheEntry->pvFatEntryCache == NULL ) {
+            iErr = ENOMEM;
+            goto exit;
+        }
+
+        pthread_mutex_init(&psCacheEntry->sFATCahceMutex, NULL);
+        pthread_cond_init(&psCacheEntry->sFATCahceCond, NULL );
     }
 
     // Locate first free cluster
@@ -702,10 +816,20 @@ FAT_Access_M_FATFini(FileSystemRecord_s *psFSRecord)
         psCacheEntry->pvFatEntryCache       = NULL;
         psCacheEntry->uLRUCounter           = 0;
         psCacheEntry->uFatCacheEntryOffset  = INVALID_CACHE_OFFSET(psFSRecord);
+        
+        psCacheEntry = &psFATCache->psAlterFATCacheEntries[uIdx];
+        if (psCacheEntry->pvFatEntryCache) free(psCacheEntry->pvFatEntryCache);
+        psCacheEntry->pvFatEntryCache       = NULL;
+        psCacheEntry->uLRUCounter           = 0;
+        psCacheEntry->uFatCacheEntryOffset  = INVALID_CACHE_OFFSET(psFSRecord);
+
+        pthread_mutex_destroy(&psCacheEntry->sFATCahceMutex);
+        pthread_cond_destroy(&psCacheEntry->sFATCahceCond);
     }
     
     //Destroy FAT mutex
     pthread_mutex_destroy( &psFATCache->sFatMutex );
+    pthread_mutex_destroy( &psFATCache->sAlterFatMutex );
 }
 
 /*
@@ -745,8 +869,12 @@ FAT_Access_M_ContClusterAllocate(FileSystemRecord_s *psFSRecord, uint32_t uStart
         uint32_t uLen = FAT_Access_M_FreeChainLength(psFSRecord, uStart + 1, uCount, &error);
         if (error)
             goto done;
-        
-        if (uLen != 0 ) {
+
+        /*
+         * If we found enough clusters, or if we don't have to
+         * allocate the whole range contiguously we can stop the allocation here
+         */
+        if ((uLen >= uCount) || ((uLen != 0) && (!bMustBeConting))) {
             /* Use the min between what we found and what we need. */
             uLen = MIN(uLen, uCount);
             error = FAT_Access_M_FATChainAlloc(psFSRecord, uStart + 1, uLen, uFillWith, &uFirstAllocated, &uClustersAllocated);
@@ -759,9 +887,7 @@ FAT_Access_M_ContClusterAllocate(FileSystemRecord_s *psFSRecord, uint32_t uStart
             /* Update the allocated space */
             uCount -= uLen;
             
-            /* if we done allocating, go out */
-            if (uCount == 0)
-                goto done;
+            goto done;
         }
     }
     else 
@@ -1261,7 +1387,7 @@ FATMOD_SetDriveDirtyBit( FileSystemRecord_s *psFSRecord, bool bBitToDirty )
             uint8_t uIdx = FAT_Access_M_GetCacheEntryAccordingToCluster( psFSRecord, FAT_DIRTY_BIT_CLUSTER );
             if ( uIdx < FAT_CACHE_SIZE )
             {
-                iErr = FAT_Access_M_FlushCacheEntry( psFSRecord, &psFATCache->psFATCacheEntries[uIdx] );
+                iErr = FATMOD_FlushSpecificCacheEntry(psFSRecord, uIdx);
                 if ( iErr != 0 )
                 {
                     goto exit;

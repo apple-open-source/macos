@@ -31,6 +31,10 @@ framework module Security [extern_c][system] {
     header "SecAsn1Templates.h" 
     export *
   }
+  explicit module SecKey {
+      header "SecKey.h"
+      export *
+  }
   explicit module SecureDownload { 
     header "SecureDownload.h" 
     export *

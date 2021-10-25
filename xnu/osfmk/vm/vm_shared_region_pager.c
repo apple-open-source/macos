@@ -57,6 +57,8 @@
 #include <vm/vm_protos.h>
 #include <vm/vm_shared_region.h>
 
+#include <sys/kdebug_triage.h>
+
 #if __has_feature(ptrauth_calls)
 #include <ptrauth.h>
 extern boolean_t diversify_user_jop;
@@ -213,9 +215,9 @@ again:
 	 */
 	if (new == NULL) {
 		lck_mtx_unlock(&shared_region_jop_key_lock);
-		new = kalloc(sizeof *new);
+		new = kalloc_type(struct shared_region_jop_key_map, Z_WAITOK);
 		uint_t len = strlen(shared_region_id) + 1;
-		new->srk_shared_region_id = kheap_alloc(KHEAP_DATA_BUFFERS, len, Z_WAITOK);
+		new->srk_shared_region_id = kalloc_data(len, Z_WAITOK);
 		strlcpy(new->srk_shared_region_id, shared_region_id, len);
 		os_ref_init(&new->srk_ref_count, &srk_refgrp);
 
@@ -248,8 +250,9 @@ done:
 	 * free any unused new entry
 	 */
 	if (new != NULL) {
-		kheap_free(KHEAP_DATA_BUFFERS, new->srk_shared_region_id, strlen(new->srk_shared_region_id) + 1);
-		kfree(new, sizeof *new);
+		kfree_data(new->srk_shared_region_id,
+		    strlen(new->srk_shared_region_id) + 1);
+		kfree_type(struct shared_region_jop_key_map, new);
 	}
 }
 
@@ -280,8 +283,9 @@ done:
 	lck_mtx_unlock(&shared_region_jop_key_lock);
 
 	if (region != NULL) {
-		kheap_free(KHEAP_DATA_BUFFERS, region->srk_shared_region_id, strlen(region->srk_shared_region_id) + 1);
-		kfree(region, sizeof *region);
+		kfree_data(region->srk_shared_region_id,
+		    strlen(region->srk_shared_region_id) + 1);
+		kfree_type(struct shared_region_jop_key_map, region);
 	}
 }
 #endif /* __has_feature(ptrauth_calls) */
@@ -546,6 +550,7 @@ shared_region_pager_data_request(
 	    offset, upl_size,
 	    &upl, NULL, NULL, upl_flags, VM_KERN_MEMORY_SECURITY);
 	if (kr != KERN_SUCCESS) {
+		kernel_triage_record(thread_tid(current_thread()), KDBG_TRIAGE_EVENTID(KDBG_TRIAGE_SUBSYS_SHARED_REGION, KDBG_TRIAGE_RESERVED, KDBG_TRIAGE_SHARED_REGION_NO_UPL), 0 /* arg */);
 		retval = kr;
 		goto done;
 	}
@@ -766,6 +771,7 @@ retry_src_fault:
 				    kr);
 			}
 			if (kr != KERN_SUCCESS) {
+				kernel_triage_record(thread_tid(current_thread()), KDBG_TRIAGE_EVENTID(KDBG_TRIAGE_SUBSYS_SHARED_REGION, KDBG_TRIAGE_RESERVED, KDBG_TRIAGE_SHARED_REGION_SLIDE_ERROR), 0 /* arg */);
 				shared_region_pager_slid_error++;
 				break;
 			}
@@ -966,8 +972,9 @@ shared_region_pager_deallocate_internal(
 		if (si != NULL) {
 			vm_object_deallocate(si->si_slide_object);
 			/* free the slide_info_entry */
-			kheap_free(KHEAP_DATA_BUFFERS, si->si_slide_info_entry, si->si_slide_info_size);
-			kfree(si, sizeof *si);
+			kfree_data(si->si_slide_info_entry,
+			    si->si_slide_info_size);
+			kfree_type(struct vm_shared_region_slide_info, si);
 			pager->srp_slide_info = NULL;
 		}
 
@@ -975,7 +982,7 @@ shared_region_pager_deallocate_internal(
 			memory_object_control_deallocate(pager->srp_header.mo_control);
 			pager->srp_header.mo_control = MEMORY_OBJECT_CONTROL_NULL;
 		}
-		kfree(pager, sizeof(*pager));
+		kfree_type(struct shared_region_pager, pager);
 		pager = SHARED_REGION_PAGER_NULL;
 	} else {
 		/* there are still plenty of references:  keep going... */
@@ -1030,7 +1037,7 @@ shared_region_pager_synchronize(
 	__unused memory_object_size_t   length,
 	__unused vm_sync_t              sync_flags)
 {
-	panic("shared_region_pager_synchronize: memory_object_synchronize no longer supported\n");
+	panic("shared_region_pager_synchronize: memory_object_synchronize no longer supported");
 	return KERN_FAILURE;
 }
 
@@ -1159,7 +1166,7 @@ shared_region_pager_create(
 	kern_return_t           kr;
 	vm_object_t             object;
 
-	pager = (shared_region_pager_t) kalloc(sizeof(*pager));
+	pager = kalloc_type(struct shared_region_pager, Z_WAITOK);
 	if (pager == SHARED_REGION_PAGER_NULL) {
 		return SHARED_REGION_PAGER_NULL;
 	}

@@ -266,6 +266,28 @@ const uint8_t* der_decode_universaltime_body(CFAbsoluteTime *at, CFErrorRef *err
     return der_decode_commontime_body(at, error, year, der, der_end);
 }
 
+const uint8_t* der_decode_utc_time(CFAllocatorRef allocator,
+                                   CFDateRef* date, CFErrorRef *error,
+                                   const uint8_t* der, const uint8_t *der_end)
+{
+    if (NULL == der) {
+        SecCFDERCreateError(kSecDERErrorNullInput, CFSTR("null input"), NULL, error);
+        return NULL;
+    }
+    
+    der = ccder_decode_constructed_tl(CCDER_UTC_TIME, &der_end, der, der_end);
+    CFAbsoluteTime at = 0;
+    der = der_decode_universaltime_body(&at, error, der, der_end);
+    if (der) {
+        *date = CFDateCreate(allocator, at);
+        if (NULL == *date) {
+            SecCFDERCreateError(kSecDERErrorAllocationFailure, CFSTR("Failed to create utc date"), NULL, error);
+            return NULL;
+        }
+    }
+    return der;
+}
+
 const uint8_t* der_decode_date(CFAllocatorRef allocator,
                                CFDateRef* date, CFErrorRef *error,
                                const uint8_t* der, const uint8_t *der_end)

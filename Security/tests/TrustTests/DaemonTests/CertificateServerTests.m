@@ -51,49 +51,30 @@
     return result;
 }
 
-- (SecCertificatePathVCRef)createReversePath {
-    SecCertificateRef leaf = SecCertificateCreateWithBytes(NULL, _path_leaf_cert, sizeof(_path_leaf_cert));
-    SecCertificateRef ca = SecCertificateCreateWithBytes(NULL, _path_ca_cert, sizeof(_path_ca_cert));
-    SecCertificateRef root = SecCertificateCreateWithBytes(NULL, _path_root_cert, sizeof(_path_root_cert));
-    SecCertificatePathVCRef path = SecCertificatePathVCCreate(NULL, root, NULL);
-    SecCertificatePathVCRef path2 = SecCertificatePathVCCreate(path, ca, NULL);
-    CFRelease(path);
-    SecCertificatePathVCRef result = SecCertificatePathVCCreate(path2, leaf, NULL);
-    CFRelease(path2);
-    CFRelease(root);
-    CFRelease(ca);
-    CFRelease(leaf);
-    return result;
+- (void)testCopyNotBefores {
+    SecCertificatePathVCRef path = [self createPath];
+    NSArray *notBefores = CFBridgingRelease(SecCertificatePathVCCopyNotBefores(path));
+    XCTAssertNotNil(notBefores);
+    XCTAssertEqual(notBefores.count, 3);
+    XCTAssertEqualWithAccuracy([(NSDate *)notBefores[0] timeIntervalSinceReferenceDate],
+                               SecCertificateNotValidBefore(SecCertificatePathVCGetCertificateAtIndex(path, 0)), 0.1);
+    XCTAssertEqualWithAccuracy([(NSDate *)notBefores[1] timeIntervalSinceReferenceDate],
+                               SecCertificateNotValidBefore(SecCertificatePathVCGetCertificateAtIndex(path, 1)), 0.1);
+    XCTAssertEqualWithAccuracy([(NSDate *)notBefores[2] timeIntervalSinceReferenceDate],
+                               SecCertificateNotValidBefore(SecCertificatePathVCGetCertificateAtIndex(path, 2)), 0.1);
 }
 
-- (void)testGetMaximumNotBefore {
+- (void)testCopyNotAfters {
     SecCertificatePathVCRef path = [self createPath];
-    CFAbsoluteTime notBefore = SecCertificatePathVCGetMaximumNotBefore(path);
-    XCTAssertEqualObjects([NSDate dateWithTimeIntervalSinceReferenceDate:notBefore],
-                          [NSDate dateWithTimeIntervalSinceReferenceDate:626290914.0]); // November 5, 2020 at 9:41:54 AM PST
-    CFRelease(path);
-
-    // Reverse path should produce same result
-    path = [self createReversePath];
-    notBefore = SecCertificatePathVCGetMaximumNotBefore(path);
-    XCTAssertEqualObjects([NSDate dateWithTimeIntervalSinceReferenceDate:notBefore],
-                          [NSDate dateWithTimeIntervalSinceReferenceDate:626290914.0]); // November 5, 2020 at 9:41:54 AM PST
-    CFRelease(path);
-}
-
-- (void)testGetMinimumNotAfter {
-    SecCertificatePathVCRef path = [self createPath];
-    CFAbsoluteTime notAfter = SecCertificatePathVCGetMinimumNotAfter(path);
-    XCTAssertEqualObjects([NSDate dateWithTimeIntervalSinceReferenceDate:notAfter],
-                          [NSDate dateWithTimeIntervalSinceReferenceDate:660418914.0]); // December 5, 2021 at 9:41:54 AM PST
-    CFRelease(path);
-
-    // Reverse path should produce same result
-    path = [self createReversePath];
-    notAfter = SecCertificatePathVCGetMinimumNotAfter(path);
-    XCTAssertEqualObjects([NSDate dateWithTimeIntervalSinceReferenceDate:notAfter],
-                          [NSDate dateWithTimeIntervalSinceReferenceDate:660418914.0]); // December 5, 2021 at 9:41:54 AM PST
-    CFRelease(path);
+    NSArray *notAfters = CFBridgingRelease(SecCertificatePathVCCopyNotAfters(path));
+    XCTAssertNotNil(notAfters);
+    XCTAssertEqual(notAfters.count, 3);
+    XCTAssertEqualWithAccuracy([(NSDate *)notAfters[0] timeIntervalSinceReferenceDate],
+                               SecCertificateNotValidAfter(SecCertificatePathVCGetCertificateAtIndex(path, 0)), 0.1);
+    XCTAssertEqualWithAccuracy([(NSDate *)notAfters[1] timeIntervalSinceReferenceDate],
+                               SecCertificateNotValidAfter(SecCertificatePathVCGetCertificateAtIndex(path, 1)), 0.1);
+    XCTAssertEqualWithAccuracy([(NSDate *)notAfters[2] timeIntervalSinceReferenceDate],
+                               SecCertificateNotValidAfter(SecCertificatePathVCGetCertificateAtIndex(path, 2)), 0.1);
 }
 
 /* Mock OCSP behaviors in the validation context */
@@ -148,17 +129,26 @@
     CFRelease(path);
 }
 
-// Latest this update is from the CA response
-- (void)testLatestThisUpdate {
+- (void)testCopyNextUpdates {
     SecCertificatePathVCRef path = [self createPath];
     [self createAndPopulateRVCs:path];
 
-    CFAbsoluteTime ltu = SecCertificatePathVCGetLatestThisUpdate(path);
-    XCTAssertEqualObjects([NSDate dateWithTimeIntervalSinceReferenceDate:ltu],
-                          [NSDate dateWithTimeIntervalSinceReferenceDate:632103361.0]); // January 11, 2021 at 4:16:01 PM PST
+    NSArray *nextUpdates = CFBridgingRelease(SecCertificatePathVCCopyNextUpdates(path));
+    XCTAssertNotNil(nextUpdates);
+    XCTAssertEqual(nextUpdates.count, 2);
+    XCTAssertEqualWithAccuracy([(NSDate *)nextUpdates[0] timeIntervalSinceReferenceDate], 632142381.0, 0.1); // Jan 12 11:06:21 2021 GMT
+    XCTAssertEqualWithAccuracy([(NSDate *)nextUpdates[1] timeIntervalSinceReferenceDate], 632189761.0, 0.1); // Jan 13 00:16:01 2021 GMT
+}
 
-    SecCertificatePathVCDeleteRVCs(path);
-    CFRelease(path);
+- (void)testCopyThisUpdates {
+    SecCertificatePathVCRef path = [self createPath];
+    [self createAndPopulateRVCs:path];
+
+    NSArray *thisUpdates = CFBridgingRelease(SecCertificatePathVCCopyThisUpdates(path));
+    XCTAssertNotNil(thisUpdates);
+    XCTAssertEqual(thisUpdates.count, 2);
+    XCTAssertEqualWithAccuracy([(NSDate *)thisUpdates[0] timeIntervalSinceReferenceDate], 632099181.0, 0.1); // Jan 11 23:06:21 2021 GMT
+    XCTAssertEqualWithAccuracy([(NSDate *)thisUpdates[1] timeIntervalSinceReferenceDate], 632103361.0, 0.1); // Jan 12 00:16:01 2021 GMT
 }
 
 @end

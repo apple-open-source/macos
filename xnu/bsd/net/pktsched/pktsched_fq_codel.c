@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2020 Apple Inc. All rights reserved.
+ * Copyright (c) 2016-2021 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -65,7 +65,7 @@ static ZONE_DECLARE(fq_if_zone, "pktsched_fq_if", sizeof(fq_if_t), ZC_ZFREE_CLEA
 
 typedef STAILQ_HEAD(, flowq) flowq_dqlist_t;
 
-static fq_if_t *fq_if_alloc(struct ifnet *, classq_pkt_type_t);
+static fq_if_t *fq_if_alloc(struct ifnet *, struct ifclassq *, classq_pkt_type_t);
 static void fq_if_destroy(fq_if_t *fqs);
 static void fq_if_classq_init(fq_if_t *fqs, uint32_t priority,
     uint16_t quantum, uint32_t drr_max, uint32_t svc_class);
@@ -150,12 +150,12 @@ fq_getq_flow_mbuf(fq_if_t *fqs, fq_if_classq_t *fq_cl, fq_t *fq,
 }
 
 fq_if_t *
-fq_if_alloc(struct ifnet *ifp, classq_pkt_type_t ptype)
+fq_if_alloc(struct ifnet *ifp, struct ifclassq *ifq, classq_pkt_type_t ptype)
 {
 	fq_if_t *fqs;
 
 	fqs = zalloc_flags(fq_if_zone, Z_WAITOK | Z_ZERO);
-	fqs->fqs_ifq = &ifp->if_snd;
+	fqs->fqs_ifq = ifq;
 	fqs->fqs_ptype = ptype;
 
 	/* Calculate target queue delay */
@@ -165,7 +165,7 @@ fq_if_alloc(struct ifnet *ifp, classq_pkt_type_t ptype)
 	ifclassq_calc_update_interval(&fqs->fqs_update_interval);
 
 	/* Configure packet drop limit across all queues */
-	fqs->fqs_pkt_droplimit = IFCQ_PKT_DROP_LIMIT(&ifp->if_snd);
+	fqs->fqs_pkt_droplimit = IFCQ_PKT_DROP_LIMIT(ifq);
 	STAILQ_INIT(&fqs->fqs_fclist);
 	return fqs;
 }
@@ -964,7 +964,7 @@ fq_if_setup_ifclassq(struct ifclassq *ifq, u_int32_t flags,
 	VERIFY(ifq->ifcq_disc == NULL);
 	VERIFY(ifq->ifcq_type == PKTSCHEDT_NONE);
 
-	fqs = fq_if_alloc(ifp, ptype);
+	fqs = fq_if_alloc(ifp, ifq, ptype);
 	if (fqs == NULL) {
 		return ENOMEM;
 	}
@@ -1064,6 +1064,9 @@ fq_if_destroy_flow(fq_if_t *fqs, fq_if_classq_t *fq_cl, fq_t *fq,
 	    fq_hashlink);
 	fq_cl->fcl_stat.fcl_flows_cnt--;
 	IFCQ_CONVERT_LOCK(fqs->fqs_ifq);
+	if (__improbable(fq->fq_flags & FQF_FLOWCTL_ON)) {
+		fq_if_flow_feedback(fqs, fq, fq_cl);
+	}
 	fq->fq_flags |= FQF_DESTROYED;
 	if (destroy_now) {
 		fq_destroy(fq);
@@ -1224,6 +1227,14 @@ fq_if_add_fcentry(fq_if_t *fqs, pktsched_pkt_t *pkt, uint8_t flowsrc,
 	return (fce != NULL) ? TRUE : FALSE;
 }
 
+static void
+fq_if_remove_fcentry(fq_if_t *fqs, struct flowadv_fcentry *fce)
+{
+	STAILQ_REMOVE(&fqs->fqs_fclist, fce, flowadv_fcentry, fce_link);
+	STAILQ_NEXT(fce, fce_link) = NULL;
+	flowadv_add_entry(fce);
+}
+
 void
 fq_if_flow_feedback(fq_if_t *fqs, fq_t *fq, fq_if_classq_t *fq_cl)
 {
@@ -1236,16 +1247,13 @@ fq_if_flow_feedback(fq_if_t *fqs, fq_t *fq, fq_if_classq_t *fq_cl)
 		}
 	}
 	if (fce != NULL) {
-		STAILQ_REMOVE(&fqs->fqs_fclist, fce, flowadv_fcentry,
-		    fce_link);
-		STAILQ_NEXT(fce, fce_link) = NULL;
 		fq_cl->fcl_stat.fcl_flow_feedback++;
 		os_log(OS_LOG_DEFAULT, "%s: num: %d, scidx: %d, flowsrc: %d, "
 		    "flow: 0x%x, iface: %s\n", __func__,
 		    fq_cl->fcl_stat.fcl_flow_feedback, fq->fq_sc_index,
 		    fce->fce_flowsrc_type, fce->fce_flowid,
 		    if_name(fqs->fqs_ifq->ifcq_ifp));
-		flowadv_add_entry(fce);
+		fq_if_remove_fcentry(fqs, fce);
 	}
 	fq->fq_flags &= ~FQF_FLOWCTL_ON;
 }
@@ -1383,7 +1391,6 @@ fq_if_teardown_ifclassq(struct ifclassq *ifq)
 
 	IFCQ_LOCK_ASSERT_HELD(ifq);
 	VERIFY(fqs != NULL && ifq->ifcq_type == PKTSCHEDT_FQ_CODEL);
-
 	fq_if_destroy(fqs);
 	ifq->ifcq_disc = NULL;
 	ifclassq_detach(ifq);
@@ -1461,6 +1468,9 @@ fq_if_getqstats_ifclassq(struct ifclassq *ifq, u_int32_t qid,
 	fcls->fcls_dup_rexmts = fq_cl->fcl_stat.fcl_dup_rexmts;
 	fcls->fcls_pkts_compressible = fq_cl->fcl_stat.fcl_pkts_compressible;
 	fcls->fcls_pkts_compressed = fq_cl->fcl_stat.fcl_pkts_compressed;
+	fcls->fcls_min_qdelay = fq_cl->fcl_stat.fcl_min_qdelay;
+	fcls->fcls_max_qdelay = fq_cl->fcl_stat.fcl_max_qdelay;
+	fcls->fcls_avg_qdelay = fq_cl->fcl_stat.fcl_avg_qdelay;
 
 	/* Gather per flow stats */
 	flowstat_cnt = min((fcls->fcls_newflows_cnt +

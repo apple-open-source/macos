@@ -10,11 +10,12 @@ from utils import *
 import caching
 import lldb
 
-def IterateTAILQ_HEAD(headval, element_name):
+def IterateTAILQ_HEAD(headval, element_name, list_prefix=''):
     """ iterate over a TAILQ_HEAD in kernel. refer to bsd/sys/queue.h
         params:
-            headval     - value : value object representing the head of the list
-            element_name- str          :  string name of the field which holds the list links.
+            headval      - value : value object representing the head of the list
+            element_name - str   :  string name of the field which holds the list links.
+            list_prefix  - str   : use 's' here to iterate STAILQ_HEAD instead
         returns:
             A generator does not return. It is used for iterating.
             value : an object that is of type as headval->tqh_first. Always a pointer object
@@ -23,10 +24,10 @@ def IterateTAILQ_HEAD(headval, element_name):
           for entryobj in IterateTAILQ_HEAD(list_head, 'mnt_list'):
             print GetEntrySummary(entryobj)
     """
-    iter_val = headval.tqh_first
+    iter_val = headval.__getattr__(list_prefix + 'tqh_first')
     while unsigned(iter_val) != 0 :
         yield iter_val
-        iter_val = iter_val.__getattr__(element_name).tqe_next
+        iter_val = iter_val.__getattr__(element_name).__getattr__(list_prefix + 'tqe_next')
     #end of yield loop
 
 def IterateLinkedList(element, field_name):
@@ -406,6 +407,30 @@ class KernelTarget(object):
             self._globals_cache_dict[name] = value(LazyTarget.GetTarget().FindGlobalVariables(name, 1).GetValueAtIndex(0))
         return self._globals_cache_dict[name]
 
+    def PERCPU_BASE(self, cpu):
+        """ Get the PERCPU base for the given cpu number
+            params:
+              cpu  : int - the cpu# for this variable
+            returns: int - the base for PERCPU for this cpu index
+        """
+        if self.arch == 'x86_64':
+            return unsigned(self.globals.cpu_data_ptr[cpu].cpu_pcpu_base)
+        elif self.arch.startswith('arm'):
+            data_entries = self.GetGlobalVariable('CpuDataEntries')
+            return unsigned(data_entries[cpu]) - unsigned(data_entries[0])
+
+    def PERCPU_GET(self, name, cpu):
+        """ Get the value object representation for a kernel percpu global variable
+            params:
+              name : str - name of the variable. ex. version
+              cpu  : int - the cpu# for this variable
+            returns: value - python object representing global variable.
+            raises : Exception in case the variable is not found.
+        """
+        var = addressof(self.GetGlobalVariable('percpu_slot_' + name))
+        addr = unsigned(var) + self.PERCPU_BASE(cpu)
+        return dereference(self.GetValueFromAddress(addr, var))
+
     def GetLoadAddressForSymbol(self, name):
         """ Get the load address of a symbol in the kernel.
             params:
@@ -532,8 +557,9 @@ class KernelTarget(object):
             self._zones_list = caching.GetDynamicCacheData("kern._zones_list", [])
             if len(self._zones_list) > 0: return self._zones_list
             zone_array = self.GetGlobalVariable('zone_array')
+            zone_security_array = self.GetGlobalVariable('zone_security_array')
             for i in range(0, self.GetGlobalVariable('num_zones')):
-                self._zones_list.append(addressof(zone_array[i]))
+                self._zones_list.append([addressof(zone_array[i]), addressof(zone_security_array[i])])
             caching.SaveDynamicCacheData("kern._zones_list", self._zones_list)
             return self._zones_list
 

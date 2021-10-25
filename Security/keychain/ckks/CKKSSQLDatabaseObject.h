@@ -22,7 +22,7 @@
  */
 
 #include "keychain/securityd/SecDbItem.h"
-#include <utilities/SecDb.h>
+#include "utilities/SecDb.h"
 
 #define CKKSNilToNSNull(obj)   \
     ({                         \
@@ -151,6 +151,12 @@ typedef NS_ENUM(uint8_t, CKKSDatabaseTransactionResult) {
 - (NSDictionary<NSString*, NSString*>*)sqlValues;
 
 // Return a set of key-value pairs that will uniquely find This Row in the table
+// This can be exactly the SQL Primary Key, or include extra columns.
+// For objects loaded from the DB, CKKSSQLDatabaseObject will memoize this value.
+// Then, later, if the item is modified and saved back to the DB, this will be called
+// again to see if the "identity" of the item has changed. If so, as part of the object save,
+// the 'old' SQL row will be deleted and the 'new' row (including the item modifications)
+// will be persisted.
 - (NSDictionary<NSString*, NSString*>*)whereClauseToFindSelf;
 
 //- (instancetype)copyWithZone:(NSZone* _Nullable)zone;

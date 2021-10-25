@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2008, 2011, 2013, 2015, 2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2008, 2011, 2013, 2015, 2016, 2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -118,7 +118,7 @@ _configlist(mach_port_t			server,
 	*listLen = 0;
 
 	/* un-serialize the key */
-	if (!_SCUnserializeString(&key, NULL, (void *)keyRef, keyLen)) {
+	if (!_SCUnserializeString(&key, NULL, keyRef, keyLen)) {
 		*sc_status = kSCStatusFailed;
 		goto done;
 	}
@@ -144,7 +144,7 @@ _configlist(mach_port_t			server,
 	}
 
 	/* serialize the list of keys */
-	ok = _SCSerialize(subKeys, NULL, (void **)listRef, &len);
+	ok = _SCSerialize(subKeys, NULL, listRef, &len);
 	*listLen = (mach_msg_type_number_t)len;
 	CFRelease(subKeys);
 	if (!ok) {

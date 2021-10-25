@@ -603,8 +603,9 @@ def ProcessPanicStackshot(panic_stackshot_addr, panic_stackshot_len):
 
     self_path = str(__file__)
     base_dir_name = self_path[:self_path.rfind("/")]
-    print "python %s/kcdata.py %s -s %s" % (base_dir_name, ss_binfile, ss_ipsfile)
-    (c,so,se) = RunShellCommand("python %s/kcdata.py %s -s %s" % (base_dir_name, ss_binfile, ss_ipsfile))
+    kcdata_cmd = "%s \"%s/kcdata.py\" \"%s\" -s \"%s\"" % (sys.executable, base_dir_name, ss_binfile, ss_ipsfile)
+    print kcdata_cmd
+    (c, so, se) = RunShellCommand(kcdata_cmd)
     if c == 0:
         print "Saved ips stackshot file as %s" % ss_ipsfile
         return
@@ -1032,14 +1033,14 @@ def trace_parse_Copt(Copt):
 IDX_CPU = 0
 IDX_RINGPOS = 1
 IDX_RINGENTRY = 2
-def Trace_cmd(cmd_args=[], cmd_options={}, headerString=lambda:"", entryString=lambda x:"", ring=[], entries_per_cpu=0, max_backtraces=0):
+def Trace_cmd(cmd_args=[], cmd_options={}, headerString=lambda:"", entryString=lambda x:"", ring='', entries_per_cpu=0, max_backtraces=0):
     """Generic trace dumper helper function
     """
 
     if '-S' in cmd_options:
         field_arg = cmd_options['-S']
         try:
-            getattr(ring[0][0], field_arg)
+            getattr(kern.PERCPU_GET(ring, 0)[0], field_arg)
             sort_key_field_name = field_arg
         except AttributeError:
             raise ArgumentError("Invalid sort key field name `%s'" % field_arg)
@@ -1065,7 +1066,7 @@ def Trace_cmd(cmd_args=[], cmd_options={}, headerString=lambda:"", entryString=l
     # the original ring index, and the iotrace entry. 
     entries = []
     for x in chosen_cpus:
-        ring_slice = [(x, y, ring[x][y]) for y in range(entries_per_cpu)]
+        ring_slice = [(x, y, kern.PERCPU_GET(ring, x)[y]) for y in range(entries_per_cpu)]
         entries.extend(ring_slice)
 
     total_entries = len(entries)
@@ -1134,7 +1135,8 @@ def IOTrace_cmd(cmd_args=[], cmd_options={}):
         x[IDX_RINGENTRY].paddr,
         x[IDX_RINGENTRY].val)
 
-    Trace_cmd(cmd_args, cmd_options, hdrString, entryString, kern.globals.iotrace_ring, kern.globals.iotrace_entries_per_cpu, MAX_IOTRACE_BACKTRACES)
+    Trace_cmd(cmd_args, cmd_options, hdrString, entryString, 'iotrace_ring',
+        kern.globals.iotrace_entries_per_cpu, MAX_IOTRACE_BACKTRACES)
 
 
 @lldb_command('ttrace', 'C:N:S:RB')
@@ -1167,12 +1169,12 @@ def TrapTrace_cmd(cmd_args=[], cmd_options={}):
         x[IDX_RINGENTRY].curil,
         GetSourceInformationForAddress(x[IDX_RINGENTRY].interrupted_pc))
 
-    Trace_cmd(cmd_args, cmd_options, hdrString, entryString, kern.globals.traptrace_ring,
+    Trace_cmd(cmd_args, cmd_options, hdrString, entryString, 'traptrace_ring',
         kern.globals.traptrace_entries_per_cpu, MAX_TRAPTRACE_BACKTRACES)
 
 # Yields an iterator over all the sysctls from the provided root.
 # Can optionally filter by the given prefix
-def IterateSysctls(root_oid=kern.globals.sysctl__children, prefix="", depth = 0, parent = ""):
+def IterateSysctls(root_oid, prefix="", depth = 0, parent = ""):
     headp = root_oid
     for pp in IterateListEntry(headp, 'struct sysctl_oid *', 'oid_link', 's'):
         node_str = ""
@@ -1295,7 +1297,6 @@ from kauth import *
 from waitq import *
 from usertaskgdbserver import *
 from ktrace import *
-from pgtrace import *
 from xnutriage import *
 from kevent import *
 from workqueue import *
@@ -1304,3 +1305,5 @@ from ntstat import *
 from zonetriage import *
 from sysreg import *
 from counter import *
+from btlog import *
+from refgrp import *

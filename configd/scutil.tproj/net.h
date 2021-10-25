@@ -41,7 +41,7 @@ typedef int (*optionHandler) (CFStringRef		key,
 			      const char		*description,
 			      void			*info,
 			      int			argc,
-			      char			**argv,
+			      char * const		argv[],
 			      CFMutableDictionaryRef	newConfiguration);
 
 typedef enum {
@@ -94,7 +94,7 @@ __BEGIN_DECLS
 Boolean		_process_options(optionsRef		options,
 				 int			nOptions,
 				 int			argc,
-				 char			**argv,
+				 char * const		argv[],
 				 CFMutableDictionaryRef	newConfiguration);
 
 CF_RETURNS_RETAINED
@@ -111,26 +111,26 @@ CFIndex		_find_selection	(CFStringRef 	choice,
 void		_show_entity	(CFDictionaryRef entity, CFStringRef prefix);
 
 void		do_net_init	(void);
-void		do_net_quit	(int argc, char **argv);
+void		do_net_quit	(int argc, char * const argv[]);
 
-void		do_net_open	(int argc, char **argv);
-void		do_net_commit	(int argc, char **argv);
-void		do_net_apply	(int argc, char **argv);
-void		do_net_close	(int argc, char **argv);
+void		do_net_open	(int argc, char * const argv[]);
+void		do_net_commit	(int argc, char * const argv[]);
+void		do_net_apply	(int argc, char * const argv[]);
+void		do_net_close	(int argc, char * const argv[]);
 
-void		do_net_clean	(int argc, char **argv);
-void		do_net_create	(int argc, char **argv);
-void		do_net_disable	(int argc, char **argv);
-void		do_net_enable	(int argc, char **argv);
-void		do_net_migrate	(int argc, char **argv);
-void		do_net_remove	(int argc, char **argv);
-void		do_net_select	(int argc, char **argv);
-void		do_net_set	(int argc, char **argv);
-void		do_net_show	(int argc, char **argv);
-void		do_net_update	(int argc, char **argv);
-void		do_net_upgrade	(int argc, char **argv);
+void		do_net_clean	(int argc, char * const argv[]);
+void		do_net_create	(int argc, char * const argv[]);
+void		do_net_disable	(int argc, char * const argv[]);
+void		do_net_enable	(int argc, char * const argv[]);
+void		do_net_migrate	(int argc, char * const argv[]);
+void		do_net_remove	(int argc, char * const argv[]);
+void		do_net_select	(int argc, char * const argv[]);
+void		do_net_set	(int argc, char * const argv[]);
+void		do_net_show	(int argc, char * const argv[]);
+void		do_net_update	(int argc, char * const argv[]);
+void		do_net_upgrade	(int argc, char * const argv[]);
 
-void		do_net_snapshot	(int argc, char **argv);
+void		do_net_snapshot	(int argc, char * const argv[]);
 
 void		do_configuration(int argc, char **argv);
 

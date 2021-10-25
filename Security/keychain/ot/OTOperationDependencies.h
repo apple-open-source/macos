@@ -7,9 +7,9 @@
 #import "keychain/ot/OTAuthKitAdapter.h"
 #import "keychain/ot/OTCuttlefishAccountStateHolder.h"
 #import "keychain/ot/OTDeviceInformationAdapter.h"
-#import "keychain/ckks/CKKSViewManager.h"
+#import "keychain/ckks/CKKSKeychainView.h"
 #import "keychain/ckks/CKKSNearFutureScheduler.h"
-#import "keychain/escrowrequest/Framework/SecEscrowRequest.h"
+#import <Security/SecEscrowRequest.h>
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -27,9 +27,11 @@ NS_ASSUME_NONNULL_BEGIN
 @property id<OTAuthKitAdapter> authKitAdapter;
 @property id<OTDeviceInformationAdapter> deviceInformationAdapter;
 @property (readonly) CuttlefishXPCWrapper* cuttlefishXPCWrapper;
-@property (readonly, weak) CKKSViewManager* viewManager;
+@property (readonly, weak) CKKSKeychainView* ckks;
+
 @property CKKSLockStateTracker* lockStateTracker;
 @property Class<SecEscrowRequestable> escrowRequestClass;
+@property Class<CKKSNotifier> notifierClass;
 
 - (instancetype)initForContainer:(NSString*)containerName
                        contextID:(NSString*)contextID
@@ -39,10 +41,11 @@ NS_ASSUME_NONNULL_BEGIN
                   octagonAdapter:(id<CKKSPeerProvider> _Nullable)octagonAdapter
                   authKitAdapter:(id<OTAuthKitAdapter>)authKitAdapter
                deviceInfoAdapter:(id<OTDeviceInformationAdapter>)deviceInfoAdapter
-                     viewManager:(CKKSViewManager*)viewManager
+                 ckksAccountSync:(CKKSKeychainView* _Nullable)ckks
                 lockStateTracker:(CKKSLockStateTracker *)lockStateTracker
             cuttlefishXPCWrapper:(CuttlefishXPCWrapper *)cuttlefishXPCWrapper
-              escrowRequestClass:(Class<SecEscrowRequestable>)escrowRequestClass;
+              escrowRequestClass:(Class<SecEscrowRequestable>)escrowRequestClass
+                   notifierClass:(Class<CKKSNotifier>)notifierClass;
 @end
 
 NS_ASSUME_NONNULL_END

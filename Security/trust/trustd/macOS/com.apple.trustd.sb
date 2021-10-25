@@ -19,6 +19,11 @@
 (allow process-info-pidinfo)
 (allow file-read*)
 
+;; For validating client authorization to modify trust settings
+(allow authorization-right-obtain
+    (right-name "com.apple.trust-settings.user")
+    (right-name "com.apple.trust-settings.admin"))
+
 ;; ${PRODUCT_NAME}’s preference domain.
 (allow user-preference-read user-preference-write
     (preference-domain "com.apple.trustd"))
@@ -53,7 +58,8 @@
 
 (allow file-map-executable
     (regex #"/CoreServicesInternal")
-    (regex #"/csparser"))
+    (regex #"/csparser")
+    (regex #"/ldapdl"))
 
 (allow mach-lookup
 	(global-name "com.apple.ocspd")

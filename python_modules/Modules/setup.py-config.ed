@@ -1,0 +1,4 @@
+/config.add_subpackage/i
+    config.include_dirs = ['@SDKROOT@@INCLUDEPYTHONVERS@'] + config.include_dirs
+.
+w

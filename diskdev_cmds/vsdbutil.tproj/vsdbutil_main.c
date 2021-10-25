@@ -412,6 +412,8 @@ AdoptVolume(const char *path) {
 }
 
 
+#define ROOT_MNT_PATH		"/"
+#define ROOT_DATA_MNT_PATH	"/System/Volumes/Data"
 
 /*
  --	DisownVolume
@@ -420,6 +422,7 @@ AdoptVolume(const char *path) {
  */
 static int
 DisownVolume(const char *path) {
+	struct statfs buf;
 	VolumeUUID targetuuid;
 	VolumeStatusDBHandle vsdb;
 	u_int32_t volstatus;
@@ -457,12 +460,16 @@ DisownVolume(const char *path) {
 		(void)CloseVolumeStatusDB(vsdb);
 
 	};
-	
-	if ((result = UpdateMountStatus(path, volstatus)) != 0) {
+
+	if (statfs(path, &buf)) {
+		result = errno;
+		warnx("couldn't get statfs of '%s': %s", path, strerror(result));
+	} else if (strcmp(buf.f_mntonname, ROOT_MNT_PATH) &&
+			   strcmp(buf.f_mntonname, ROOT_DATA_MNT_PATH) &&
+			   (result = UpdateMountStatus(path, volstatus))) {
 		warnx("couldn't update mount status of '%s': %s", path, strerror(result));
-		return result;
-	};
-	
+	}
+
 	return result;
 };
 

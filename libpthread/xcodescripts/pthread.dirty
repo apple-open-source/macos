@@ -13,6 +13,7 @@ __pthread_free
 __pthread_keys
 __pthread_malloc
 __pthread_ptr_munge_token
+__pthread_workgroup_functions
 _exitf
 
 # int-sized

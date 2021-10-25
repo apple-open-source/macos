@@ -43,6 +43,7 @@
 #include <pcap/pcap-util.h>
 #endif /* DLT_PCAPNG */
 
+#include <signal.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -59,7 +60,6 @@ extern int pktap_if_count;
 extern u_int packets_mtdt_fltr_drop;
 
 extern char *svc2str(uint32_t);
-
 
 /*
  * Returns:
@@ -90,12 +90,13 @@ pktap_filter_packet(netdissect_options *ndo, struct pcap_if_info *if_info,
 		 * New interface
 		 */
 		if (if_info == NULL) {
-			if_info = pcap_add_if_info(pcap, pktp_hdr->pth_ifname,
-											-1, pktp_hdr->pth_dlt, ndo->ndo_snaplen);
+			if_info = pcap_add_if_info(pcap, pktp_hdr->pth_ifname, -1,
+						   pktp_hdr->pth_dlt, ndo->ndo_snaplen);
 			if (if_info == NULL) {
 				fprintf(stderr, "%s: pcap_add_if_info(%s, %u) failed: %s\n",
-					  __func__, pktp_hdr->pth_ifname, pktp_hdr->pth_dlt, pcap_geterr(pcap));
-				return (0);
+					__func__, pktp_hdr->pth_ifname, pktp_hdr->pth_dlt, pcap_geterr(pcap));
+				kill(getpid(), SIGTERM);
+				return 0;
 			}
 		}
 	}

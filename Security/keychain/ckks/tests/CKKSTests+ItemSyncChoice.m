@@ -43,10 +43,10 @@
 
 @implementation CloudKitKeychainSyncingItemSyncChoiceTests
 
-- (size_t)outgoingQueueSize:(CKKSKeychainView*)view {
+- (size_t)outgoingQueueSize:(CKKSKeychainViewState*)view {
     __block size_t result = 0;
 
-    [view dispatchSyncWithReadOnlySQLTransaction:^{
+    [self.defaultCKKS dispatchSyncWithReadOnlySQLTransaction:^{
         NSError* zoneError = nil;
         NSArray<CKKSOutgoingQueueEntry*>* entries = [CKKSOutgoingQueueEntry all:view.zoneID error:&zoneError];
         XCTAssertNil(zoneError, "should be no error fetching all OQEs");
@@ -56,10 +56,10 @@
     return result;
 }
 
-- (size_t)incomingQueueSize:(CKKSKeychainView*)view {
+- (size_t)incomingQueueSize:(CKKSKeychainViewState*)view {
     __block size_t result = 0;
 
-    [view dispatchSyncWithReadOnlySQLTransaction:^{
+    [self.defaultCKKS dispatchSyncWithReadOnlySQLTransaction:^{
         NSError* zoneError = nil;
         NSArray<CKKSIncomingQueueEntry*>* entries = [CKKSIncomingQueueEntry all:view.zoneID error:&zoneError];
         XCTAssertNil(zoneError, "should be no error fetching all IQEs");
@@ -83,26 +83,27 @@
 
     [self startCKKSSubsystem];
     XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], @"Key state should have arrived at ready");
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:20*NSEC_PER_SEC], @"CKKS state machine should enter ready");
 
-    [self.keychainView setCurrentSyncingPolicy:[self viewSortingPolicyForManagedViewListWithUserControllableViews:[NSSet setWithObject:self.keychainView.zoneName]
-                                                                                        syncUserControllableViews:TPPBPeerStableInfo_UserControllableViewStatus_DISABLED]
-                                 policyIsFresh:NO];
+    [self.defaultCKKS setCurrentSyncingPolicy:[self viewSortingPolicyForManagedViewListWithUserControllableViews:[NSSet setWithObject:self.keychainView.zoneName]
+                                                                                       syncUserControllableViews:TPPBPeerStableInfoUserControllableViewStatus_DISABLED]
+                                policyIsFresh:NO];
 
     [self addGenericPassword:@"data" account:@"account-delete-me"];
-    [self.keychainView waitForOperationsOfClass:[CKKSOutgoingQueueOperation class]];
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:10*NSEC_PER_SEC], @"CKKS state machine should enter 'ready'");
     XCTAssertEqual(1, [self outgoingQueueSize:self.keychainView], "There should be one pending item in the outgoing queue");
 
     // and again
     [self addGenericPassword:@"data" account:@"account-delete-me-2"];
-    [self.keychainView waitForOperationsOfClass:[CKKSOutgoingQueueOperation class]];
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:10*NSEC_PER_SEC], @"CKKS state machine should enter 'ready'");
     XCTAssertEqual(2, [self outgoingQueueSize:self.keychainView], "There should be two pending item in the outgoing queue");
 
     // When syncing is enabled, these items should sync
     [self expectCKModifyItemRecords:2 currentKeyPointerRecords:1 zoneID:self.keychainZoneID];
 
-    [self.keychainView setCurrentSyncingPolicy:[self viewSortingPolicyForManagedViewListWithUserControllableViews:[NSSet setWithObject:self.keychainView.zoneName]
-                                                                                        syncUserControllableViews:TPPBPeerStableInfo_UserControllableViewStatus_ENABLED]
-                                 policyIsFresh:NO];
+    [self.defaultCKKS setCurrentSyncingPolicy:[self viewSortingPolicyForManagedViewListWithUserControllableViews:[NSSet setWithObject:self.keychainView.zoneName]
+                                                                                       syncUserControllableViews:TPPBPeerStableInfoUserControllableViewStatus_ENABLED]
+                                policyIsFresh:NO];
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
 }
 
@@ -111,40 +112,45 @@
 
     [self startCKKSSubsystem];
     XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], @"Key state should have arrived at ready");
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:20*NSEC_PER_SEC], @"CKKS state machine should enter ready");
 
-    [self.keychainView setCurrentSyncingPolicy:[self viewSortingPolicyForManagedViewListWithUserControllableViews:[NSSet setWithObject:self.keychainView.zoneName]
-                                                                                        syncUserControllableViews:TPPBPeerStableInfo_UserControllableViewStatus_DISABLED]
-                                 policyIsFresh:NO];
+    [self.defaultCKKS setCurrentSyncingPolicy:[self viewSortingPolicyForManagedViewListWithUserControllableViews:[NSSet setWithObject:self.keychainView.zoneName]
+                                                                                       syncUserControllableViews:TPPBPeerStableInfoUserControllableViewStatus_DISABLED]
+                                policyIsFresh:NO];
 
     [self findGenericPassword: @"account0" expecting:errSecItemNotFound];
 
     [self.keychainZone addToZone:[self createFakeRecord:self.keychainZoneID recordName:@"7B598D31-F9C5-481E-98AC-5A507ACB2D00" withAccount:@"account0"]];
     [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
-    [self.keychainView waitForFetchAndIncomingQueueProcessing];
+    [self.defaultCKKS waitForFetchAndIncomingQueueProcessing];
     XCTAssertEqual(1, [self incomingQueueSize:self.keychainView], "There should be one pending item in the incoming queue");
 
     [self.keychainZone addToZone:[self createFakeRecord:self.keychainZoneID recordName:@"7B598D31-F9C5-481E-0000-5A507ACB2D00" withAccount:@"account1"]];
     [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
-    [self.keychainView waitForFetchAndIncomingQueueProcessing];
+    [self.defaultCKKS waitForFetchAndIncomingQueueProcessing];
     XCTAssertEqual(2, [self incomingQueueSize:self.keychainView], "There should be two pending item in the incoming queue");
 
     [self findGenericPassword:@"account0" expecting:errSecItemNotFound];
     [self findGenericPassword:@"account1" expecting:errSecItemNotFound];
 
-    // When syncing is enabled, these items should sync
-    [self.keychainView setCurrentSyncingPolicy:[self viewSortingPolicyForManagedViewListWithUserControllableViews:[NSSet setWithObject:self.keychainView.zoneName]
-                                                                                        syncUserControllableViews:TPPBPeerStableInfo_UserControllableViewStatus_ENABLED]
-                                 policyIsFresh:NO];
+    CKKSCondition* incomingProcess = self.defaultCKKS.stateConditions[CKKSStateProcessIncomingQueue];
 
-    [self.keychainView waitForOperationsOfClass:[CKKSIncomingQueueOperation class]];
+    // When syncing is enabled, these items should sync
+    [self.defaultCKKS setCurrentSyncingPolicy:[self viewSortingPolicyForManagedViewListWithUserControllableViews:[NSSet setWithObject:self.keychainView.zoneName]
+                                                                                       syncUserControllableViews:TPPBPeerStableInfoUserControllableViewStatus_ENABLED]
+                                policyIsFresh:NO];
+
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], @"key state should enter 'ready'");
+    XCTAssertEqual(0, [incomingProcess wait:20*NSEC_PER_SEC], @"CKKS state machine should process the incoming queue");
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:20*NSEC_PER_SEC], @"CKKS state machine should enter 'ready'");
     [self findGenericPassword:@"account0" expecting:errSecSuccess];
     [self findGenericPassword:@"account1" expecting:errSecSuccess];
 }
 
 - (void)testAcceptKeyHierarchyWhilePaused {
-    [self.keychainView setCurrentSyncingPolicy:[self viewSortingPolicyForManagedViewListWithUserControllableViews:[NSSet setWithObject:self.keychainView.zoneName]
-                                                                                        syncUserControllableViews:TPPBPeerStableInfo_UserControllableViewStatus_DISABLED]
-                                 policyIsFresh:NO];
+    [self.defaultCKKS setCurrentSyncingPolicy:[self viewSortingPolicyForManagedViewListWithUserControllableViews:[NSSet setWithObject:self.keychainView.zoneName]
+                                                                                       syncUserControllableViews:TPPBPeerStableInfoUserControllableViewStatus_DISABLED]
+                                policyIsFresh:NO];
 
     [self putFakeKeyHierarchyInCloudKit:self.keychainZoneID];
     [self saveTLKMaterialToKeychain:self.keychainZoneID];
@@ -153,12 +159,13 @@
     [self startCKKSSubsystem];
 
     XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], "Key state should have become ready");
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:20*NSEC_PER_SEC], "CKKS state machine should enter ready");
 }
 
 - (void)testUploadSelfTLKShare {
-    [self.keychainView setCurrentSyncingPolicy:[self viewSortingPolicyForManagedViewListWithUserControllableViews:[NSSet setWithObject:self.keychainView.zoneName]
-                                                                                        syncUserControllableViews:TPPBPeerStableInfo_UserControllableViewStatus_DISABLED]
-                                 policyIsFresh:NO];
+    [self.defaultCKKS setCurrentSyncingPolicy:[self viewSortingPolicyForManagedViewListWithUserControllableViews:[NSSet setWithObject:self.keychainView.zoneName]
+                                                                                       syncUserControllableViews:TPPBPeerStableInfoUserControllableViewStatus_DISABLED]
+                                policyIsFresh:NO];
 
     // Test starts with no keys in CKKS database, but one in our fake CloudKit.
     [self putFakeKeyHierarchyInCloudKit:self.keychainZoneID];
@@ -171,14 +178,15 @@
     [self expectCKModifyKeyRecords:0 currentKeyPointerRecords:0 tlkShareRecords:1 zoneID:self.keychainZoneID];
     [self startCKKSSubsystem];
     XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], "Key state should become ready");
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:20*NSEC_PER_SEC], "CKKS state machine should enter ready");
 
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
 }
 
 - (void)testSendNewTLKSharesOnTrustSetAddition {
-    [self.keychainView setCurrentSyncingPolicy:[self viewSortingPolicyForManagedViewListWithUserControllableViews:[NSSet setWithObject:self.keychainView.zoneName]
-                                                                                        syncUserControllableViews:TPPBPeerStableInfo_UserControllableViewStatus_DISABLED]
-                                 policyIsFresh:NO];
+    [self.defaultCKKS setCurrentSyncingPolicy:[self viewSortingPolicyForManagedViewListWithUserControllableViews:[NSSet setWithObject:self.keychainView.zoneName]
+                                                                                       syncUserControllableViews:TPPBPeerStableInfoUserControllableViewStatus_DISABLED]
+                                policyIsFresh:NO];
 
     // step 1: add a new peer; we should share the TLK with them
     // start with no trusted peers
@@ -196,7 +204,7 @@
 
     // and just double-check that no syncing is occurring
     [self addGenericPassword:@"data" account:@"account-delete-me"];
-    [self.keychainView waitForOperationsOfClass:[CKKSOutgoingQueueOperation class]];
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:20*NSEC_PER_SEC], @"CKKS state machine should enter 'ready'");
     XCTAssertEqual(1, [self outgoingQueueSize:self.keychainView], "There should be one pending item in the outgoing queue");
 }
 
@@ -205,21 +213,22 @@
     [self startCKKSSubsystem];
 
     XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], "Key state should have become ready");
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:20*NSEC_PER_SEC], "CKKS state machine should enter ready");
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
 
-    [self.keychainView setCurrentSyncingPolicy:[self viewSortingPolicyForManagedViewListWithUserControllableViews:[NSSet setWithObject:self.keychainView.zoneName]
-                                                                                        syncUserControllableViews:TPPBPeerStableInfo_UserControllableViewStatus_DISABLED]
-                                 policyIsFresh:NO];
+    [self.defaultCKKS setCurrentSyncingPolicy:[self viewSortingPolicyForManagedViewListWithUserControllableViews:[NSSet setWithObject:self.keychainView.zoneName]
+                                                                                       syncUserControllableViews:TPPBPeerStableInfoUserControllableViewStatus_DISABLED]
+                                policyIsFresh:NO];
 
     NSMutableDictionary* query = [@{
-                                    (id)kSecClass : (id)kSecClassGenericPassword,
-                                    (id)kSecAttrAccessGroup : @"com.apple.security.ckks",
-                                    (id)kSecAttrAccessible: (id)kSecAttrAccessibleAfterFirstUnlock,
-                                    (id)kSecAttrAccount : @"testaccount",
-                                    (id)kSecAttrSynchronizable : (id)kCFBooleanTrue,
-                                    (id)kSecAttrSyncViewHint : self.keychainView.zoneName,
-                                    (id)kSecValueData : (id) [@"asdf" dataUsingEncoding:NSUTF8StringEncoding],
-                                    } mutableCopy];
+        (id)kSecClass : (id)kSecClassGenericPassword,
+        (id)kSecAttrAccessGroup : @"com.apple.security.ckks",
+        (id)kSecAttrAccessible: (id)kSecAttrAccessibleAfterFirstUnlock,
+        (id)kSecAttrAccount : @"testaccount",
+        (id)kSecAttrSynchronizable : (id)kCFBooleanTrue,
+        (id)kSecAttrSyncViewHint : self.keychainView.zoneName,
+        (id)kSecValueData : (id) [@"asdf" dataUsingEncoding:NSUTF8StringEncoding],
+    } mutableCopy];
 
     XCTestExpectation* blockExpectation = [self expectationWithDescription: @"callback occurs"];
 

@@ -32,6 +32,7 @@
  *   kSCPropNetIgnoreLinkStatus                         "IgnoreLinkStatus"             CFBoolean
  *   kSCPropConfirmedInterfaceName                      "ConfirmedInterfaceName"       CFString
  *   kSCPropDisableUntilNeeded                          "DisableUntilNeeded"           CFNumber (0 or 1)
+ *   kSCPropDisablePrivateRelay                         "DisablePrivateRelay"          CFNumber (0 or 1)
  *
  * Preference Keys
  *
@@ -362,6 +363,13 @@ extern const CFStringRef kSCPropConfirmedInterfaceName                      API_
  */
 extern const CFStringRef kSCPropDisableUntilNeeded                          API_AVAILABLE(macos(10.11)) SPI_AVAILABLE(ios(9.0), tvos(9.0), watchos(2.0), bridgeos(2.0));
 #define kSCPropDisableUntilNeeded kSCPropDisableUntilNeeded
+
+/*!
+  @const kSCPropDisablePrivateRelay
+  @discussion Value is a CFNumber (0 or 1)
+ */
+extern const CFStringRef kSCPropDisablePrivateRelay                         API_AVAILABLE(macos(12.0)) SPI_AVAILABLE(ios(15.0), tvos(15.0), watchos(8.0), bridgeos(6.0));
+#define kSCPropDisablePrivateRelay kSCPropDisablePrivateRelay
 
 /*!
   @group Preference Keys

@@ -1,5 +1,6 @@
-/*	$OpenBSD: mkpath.c,v 1.2 2005/06/20 07:14:06 otto Exp $ */
-/*
+/*-
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
  * Copyright (c) 1983, 1992, 1993
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -26,6 +27,9 @@
  * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
+ *
+ * $OpenBSD: mkpath.c,v 1.2 2005/06/20 07:14:06 otto Exp $
+ * $FreeBSD$
  */
 
 #include <sys/types.h>
@@ -33,6 +37,8 @@
 #include <err.h>
 #include <errno.h>
 #include <string.h>
+
+int	mkpath(char *);
 
 /* Code taken directly from mkdir(1).
 

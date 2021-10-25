@@ -26,32 +26,62 @@
 #  include <tcpd.h>
 #endif /* HAVE_TCPD_H */
 
+#include "mime-private.h"
 
 /*
  * Local functions...
  */
 
 static int		check_if_modified(cupsd_client_t *con,
-			                  struct stat *filestats);
+			                const struct stat *filestats);
 static int		compare_clients(cupsd_client_t *a, cupsd_client_t *b,
 			                void *data);
 #ifdef HAVE_SSL
 static int		cupsd_start_tls(cupsd_client_t *con, http_encryption_t e);
 #endif /* HAVE_SSL */
-static char		*get_file(cupsd_client_t *con, struct stat *filestats,
-			          char *filename, size_t len);
+//static char		*get_file(cupsd_client_t *con, struct stat *filestats,
+//			          char *filename, size_t len);
 static http_status_t	install_cupsd_conf(cupsd_client_t *con);
-static int		is_cgi(cupsd_client_t *con, const char *filename,
-		               struct stat *filestats, mime_type_t *type);
+//static int		is_cgi(cupsd_client_t *con, const char *filename,
+//		               struct stat *filestats, mime_type_t *type);
 static int		is_path_absolute(const char *path);
 static int		pipe_command(cupsd_client_t *con, int infile, int *outfile,
-			             char *command, char *options, int root);
+			             char *command, char *options, int root, int percent_decode);
 static int		valid_host(cupsd_client_t *con);
-static int		write_file(cupsd_client_t *con, http_status_t code,
-		        	   char *filename, char *type,
-				   struct stat *filestats);
+//static int		write_file(cupsd_client_t *con, http_status_t code,
+//		        	   char *filename, char *type,
+//				   struct stat *filestats);
 static void		write_pipe(cupsd_client_t *con);
 
+/* - rooted file
+ * Avoid races by working with paths resolved from well known places.
+ * Prevents open(2) from working with a different file than we first stat'd.
+ * These rf_ things are built on top of a further abstraction that finds
+ * the best match given the original implementation of get_file.
+ * The cleanuup here would be to remove this scaffolding (where it calls through
+ * to the above static routines.)
+ */
+enum _rf_disposition_e {
+  RF_FOUND,       /* file->_fd is valid - you should rf_close_file(&file) */
+  RF_MISSING,     /* we don't have an open file - it might have been a symlink, or just not found */
+  RF_PASS_ON      /* file is zero'd */
+};
+typedef enum _rf_disposition_e rf_disposition_t;
+
+struct _rf_file_t {
+  rf_disposition_t _disposition;
+  int              _fd;           /* if disposition is RF_FOUND, then this will be != -1 and you need to rf_closefile */
+  char             _filename[MAXPATHLEN];
+  struct stat      _filestats;
+};
+typedef struct _rf_file_t rf_file_t;
+
+static void rf_get_file(cupsd_client_t* con, rf_file_t* file);
+static void rf_closefile(rf_file_t* file);
+static mime_type_t *rf_mimeFileType(mime_t *mime, const rf_file_t* file);
+static int rf_is_cgi(cupsd_client_t* con, const rf_file_t* file, mime_type_t *type);
+static int rf_check_if_modified(cupsd_client_t* con, const rf_file_t* file);
+static int rf_write_file(cupsd_client_t* con, http_status_t code, const rf_file_t* file, char* mime_type);
 
 /*
  * 'cupsdAcceptClient()' - Accept a new client.
@@ -553,18 +583,16 @@ cupsdReadClient(cupsd_client_t *con)	/* I - Client to read from */
   http_status_t		status;		/* Transfer status */
   ipp_state_t		ipp_state;	/* State of IPP transfer */
   int			bytes;		/* Number of bytes to POST */
-  char			*filename;	/* Name of file for GET/HEAD */
-  char			buf[1024];	/* Buffer for real filename */
-  struct stat		filestats;	/* File information */
   mime_type_t		*type;		/* MIME type of file */
   static unsigned	request_id = 0;	/* Request ID for temp files */
-
+  char                  request_uri[HTTP_MAX_URI];  /* uri - percent encoded */
+  char              recv_buf[1];
 
   status = HTTP_STATUS_CONTINUE;
 
   cupsdLogClient(con, CUPSD_LOG_DEBUG2, "cupsdReadClient: error=%d, used=%d, state=%s, data_encoding=HTTP_ENCODING_%s, data_remaining=" CUPS_LLFMT ", request=%p(%s), file=%d", httpError(con->http), (int)httpGetReady(con->http), httpStateString(httpGetState(con->http)), httpIsChunked(con->http) ? "CHUNKED" : "LENGTH", CUPS_LLCAST httpGetRemaining(con->http), con->request, con->request ? ippStateString(ippGetState(con->request)) : "", con->file);
 
-  if (httpError(con->http) == EPIPE && !httpGetReady(con->http) && recv(httpGetFd(con->http), buf, 1, MSG_PEEK) < 1)
+  if (httpError(con->http) == EPIPE && !httpGetReady(con->http) && recv(httpGetFd(con->http), recv_buf, 1, MSG_PEEK) < 1)
   {
    /*
     * Connection closed...
@@ -598,14 +626,14 @@ cupsdReadClient(cupsd_client_t *con)	/* I - Client to read from */
 
     con->auto_ssl = 0;
 
-    if (recv(httpGetFd(con->http), buf, 1, MSG_PEEK) == 1 &&
-        (!buf[0] || !strchr("DGHOPT", buf[0])))
+    if (recv(httpGetFd(con->http), recv_buf, 1, MSG_PEEK) == 1 &&
+        (!recv_buf[0] || !strchr("DGHOPT", recv_buf[0])))
     {
      /*
       * Encrypt this connection...
       */
 
-      cupsdLogClient(con, CUPSD_LOG_DEBUG2, "Saw first byte %02X, auto-negotiating SSL/TLS session.", buf[0] & 255);
+      cupsdLogClient(con, CUPSD_LOG_DEBUG2, "Saw first byte %02X, auto-negotiating SSL/TLS session.", recv_buf[0] & 255);
 
       if (cupsd_start_tls(con, HTTP_ENCRYPTION_ALWAYS))
         cupsdCloseClient(con);
@@ -622,7 +650,7 @@ cupsdReadClient(cupsd_client_t *con)	/* I - Client to read from */
         * See if we've received a request line...
 	*/
 
-        con->operation = httpReadRequest(con->http, con->uri, sizeof(con->uri));
+        con->operation = httpReadRequest(con->http, request_uri, sizeof(request_uri));
         if (con->operation == HTTP_STATE_ERROR ||
 	    con->operation == HTTP_STATE_UNKNOWN_METHOD ||
 	    con->operation == HTTP_STATE_UNKNOWN_VERSION)
@@ -689,7 +717,11 @@ cupsdReadClient(cupsd_client_t *con)	/* I - Client to read from */
         * Handle full URLs in the request line...
 	*/
 
-        if (strcmp(con->uri, "*"))
+        if (strcmp(request_uri, "*") == 0)
+        {
+          strlcpy(con->uri, request_uri, sizeof(con->uri));
+        }
+        else
 	{
 	  char	scheme[HTTP_MAX_URI],	/* Method/scheme */
 		userpass[HTTP_MAX_URI],	/* Username:password */
@@ -701,14 +733,14 @@ cupsdReadClient(cupsd_client_t *con)	/* I - Client to read from */
 	  * Separate the URI into its components...
 	  */
 
-          if (httpSeparateURI(HTTP_URI_CODING_MOST, con->uri,
+          if (httpSeparateURI(HTTP_URI_CODING_MOST, request_uri,
 	                      scheme, sizeof(scheme),
 	                      userpass, sizeof(userpass),
 			      hostname, sizeof(hostname), &port,
 			      resource, sizeof(resource)) < HTTP_URI_STATUS_OK)
           {
 	    cupsdLogClient(con, CUPSD_LOG_ERROR, "Bad URI \"%s\" in request.",
-                           con->uri);
+                           request_uri);
 	    cupsdSendError(con, HTTP_STATUS_METHOD_NOT_ALLOWED, CUPSD_AUTH_NONE);
 	    cupsdCloseClient(con);
 	    return;
@@ -730,14 +762,14 @@ cupsdReadClient(cupsd_client_t *con)	/* I - Client to read from */
 	    */
 
 	    cupsdLogClient(con, CUPSD_LOG_ERROR, "Bad URI \"%s\" in request.",
-                           con->uri);
+                           request_uri);
 	    cupsdSendError(con, HTTP_STATUS_METHOD_NOT_ALLOWED, CUPSD_AUTH_NONE);
 	    cupsdCloseClient(con);
 	    return;
 	  }
 
          /*
-	  * Copy the resource portion back into the URI; both resource and
+	  * Copy the percent-decoded resource portion into the URI; both resource and
 	  * con->uri are HTTP_MAX_URI bytes in size...
 	  */
 
@@ -793,7 +825,7 @@ cupsdReadClient(cupsd_client_t *con)	/* I - Client to read from */
 	break;
 
     default :
-        if (!httpGetReady(con->http) && recv(httpGetFd(con->http), buf, 1, MSG_PEEK) < 1)
+        if (!httpGetReady(con->http) && recv(httpGetFd(con->http), recv_buf, 1, MSG_PEEK) < 1)
 	{
 	 /*
 	  * Connection closed...
@@ -1046,60 +1078,74 @@ cupsdReadClient(cupsd_client_t *con)	/* I - Client to read from */
 
       switch (httpGetState(con->http))
       {
-	case HTTP_STATE_GET_SEND :
-            cupsdLogClient(con, CUPSD_LOG_DEBUG, "Processing GET %s", con->uri);
+        case HTTP_STATE_GET_SEND : {
+          cupsdLogClient(con, CUPSD_LOG_DEBUG, "Processing GET %s", con->uri);
 
-            if ((filename = get_file(con, &filestats, buf, sizeof(buf))) != NULL)
-            {
-	      type = mimeFileType(MimeDatabase, filename, NULL, NULL);
+          rf_file_t getfile;
+          rf_get_file(con, &getfile);
 
-              cupsdLogClient(con, CUPSD_LOG_DEBUG, "filename=\"%s\", type=%s/%s", filename, type ? type->super : "", type ? type->type : "");
+          if (getfile._disposition == RF_FOUND)
+          {
+              type = rf_mimeFileType(MimeDatabase, &getfile);
 
-              if (is_cgi(con, filename, &filestats, type))
-	      {
-	       /*
-	        * Note: con->command and con->options were set by is_cgi()...
-		*/
+              cupsdLogClient(con, CUPSD_LOG_DEBUG, "filename=\"%s\", type=%s/%s", getfile._filename, type ? type->super : "", type ? type->type : "");
 
-        	if (!cupsdSendCommand(con, con->command, con->options, 0))
-		{
-		  if (!cupsdSendError(con, HTTP_STATUS_NOT_FOUND, CUPSD_AUTH_NONE))
-		  {
-		    cupsdCloseClient(con);
-		    return;
-		  }
-        	}
-		else
-        	  cupsdLogRequest(con, HTTP_STATUS_OK);
-
-		if (httpGetVersion(con->http) <= HTTP_VERSION_1_0)
-		  httpSetKeepAlive(con->http, HTTP_KEEPALIVE_OFF);
-	        break;
-	      }
-
-	      if (!check_if_modified(con, &filestats))
+              /** NOTE: rf_is_cgi / old is_cgi mutates con for cgi parameter extraction */
+              if (rf_is_cgi(con, &getfile, type))
               {
-        	if (!cupsdSendError(con, HTTP_STATUS_NOT_MODIFIED, CUPSD_AUTH_NONE))
-		{
-		  cupsdCloseClient(con);
-		  return;
-		}
-	      }
-	      else
-              {
-		if (type == NULL)
-	          strlcpy(line, "text/plain", sizeof(line));
-		else
-	          snprintf(line, sizeof(line), "%s/%s", type->super, type->type);
+                rf_closefile(&getfile);
 
-        	if (!write_file(con, HTTP_STATUS_OK, filename, line, &filestats))
-		{
-		  cupsdCloseClient(con);
-		  return;
-		}
-	      }
+                /*
+                 * Note: con->command and con->options were set by is_cgi()...
+                 */
+
+                  if (!cupsdSendCommand(con, con->command, con->options, 0, 0))
+                  {
+                      if (!cupsdSendError(con, HTTP_STATUS_NOT_FOUND, CUPSD_AUTH_NONE))
+                      {
+                          cupsdCloseClient(con);
+                          return;
+                      }
+                  }
+                  else
+                      cupsdLogRequest(con, HTTP_STATUS_OK);
+
+                if (httpGetVersion(con->http) <= HTTP_VERSION_1_0)
+                    httpSetKeepAlive(con->http, HTTP_KEEPALIVE_OFF);
+
+                break;
+              }
+
+              if (!rf_check_if_modified(con, &getfile))
+              {
+                rf_closefile(&getfile);
+                if (!cupsdSendError(con, HTTP_STATUS_NOT_MODIFIED, CUPSD_AUTH_NONE))
+                {
+                    cupsdCloseClient(con);
+                    return;
+                }
+              }
+              else
+              {
+                char mime_line[256];
+
+                if (type == NULL)
+                    strlcpy(mime_line, "text/plain", sizeof(mime_line));
+                else
+                    snprintf(mime_line, sizeof(mime_line), "%s/%s", type->super, type->type);
+
+                int did_write = rf_write_file(con, HTTP_STATUS_OK, &getfile, mime_line);
+
+                rf_closefile(&getfile);
+
+                if (!did_write)
+                {
+                    cupsdCloseClient(con);
+                    return;
+                }
+              }
             }
-            else if (!buf[0] && (!strncmp(con->uri, "/admin", 6) || !strncmp(con->uri, "/classes", 8) || !strncmp(con->uri, "/help", 5) || !strncmp(con->uri, "/jobs", 5) || !strncmp(con->uri, "/printers", 9)))
+            else if ((getfile._disposition == RF_PASS_ON) && (!strncmp(con->uri, "/admin", 6) || !strncmp(con->uri, "/classes", 8) || !strncmp(con->uri, "/help", 5) || !strncmp(con->uri, "/jobs", 5) || !strncmp(con->uri, "/printers", 9)))
 	    {
 	      if (!WebInterface)
 	      {
@@ -1158,7 +1204,8 @@ cupsdReadClient(cupsd_client_t *con)	/* I - Client to read from */
 		  cupsdSetString(&con->options, NULL);
 	      }
 
-              if (!cupsdSendCommand(con, con->command, con->options, 0))
+              // REMINDSMA: At this point con->options has been % expanded - %252f becomes -> %2f
+              if (!cupsdSendCommand(con, con->command, con->options, 0, 0))
 	      {
 		if (!cupsdSendError(con, HTTP_STATUS_NOT_FOUND, CUPSD_AUTH_NONE))
 		{
@@ -1180,9 +1227,9 @@ cupsdReadClient(cupsd_client_t *con)	/* I - Client to read from */
 		return;
 	      }
 	    }
-            break;
+        }   break;
 
-	case HTTP_STATE_POST_RECV :
+        case HTTP_STATE_POST_RECV : {
            /*
 	    * See if the POST request includes a Content-Length field, and if
 	    * so check the length against any limits that are set...
@@ -1242,15 +1289,26 @@ cupsdReadClient(cupsd_client_t *con)	/* I - Client to read from */
 	      break;
 	    }
 
-	    if ((filename = get_file(con, &filestats, buf, sizeof(buf))) != NULL)
+            rf_file_t postfile;
+            rf_get_file(con, &postfile);
+
+	    if (postfile._disposition == RF_FOUND)
             {
 	     /*
 	      * POST to a file...
 	      */
 
-	      type = mimeFileType(MimeDatabase, filename, NULL, NULL);
+              type = rf_mimeFileType(MimeDatabase, &postfile);
 
-              if (!is_cgi(con, filename, &filestats, type))
+              int is_it_cgi = rf_is_cgi(con, &postfile, type);
+
+              // we don't ever actually use the file
+              rf_closefile(&postfile);
+
+              // so .. based on this logic, if the file exists and is a CGI, then we don't do anything?
+              // REMINDSMA...
+
+              if (!is_it_cgi)
 	      {
 	       /*
 	        * Only POST to CGI's...
@@ -1318,7 +1376,7 @@ cupsdReadClient(cupsd_client_t *con)	/* I - Client to read from */
 		return;
 	      }
 	    }
-	    break;
+        }    break;
 
 	case HTTP_STATE_PUT_RECV :
 	   /*
@@ -1405,10 +1463,13 @@ cupsdReadClient(cupsd_client_t *con)	/* I - Client to read from */
 	    cupsdCloseClient(con);
 	    return;
 
-	case HTTP_STATE_HEAD :
-            if ((filename = get_file(con, &filestats, buf, sizeof(buf))) != NULL)
+        case HTTP_STATE_HEAD : {
+          rf_file_t head_file;
+          rf_get_file(con, &head_file);
+
+          if (head_file._disposition == RF_FOUND)
             {
-	      if (!check_if_modified(con, &filestats))
+	      if (!rf_check_if_modified(con, &head_file))
 	      {
 		if (!cupsdSendError(con, HTTP_STATUS_NOT_MODIFIED, CUPSD_AUTH_NONE))
 		{
@@ -1424,7 +1485,7 @@ cupsdReadClient(cupsd_client_t *con)	/* I - Client to read from */
 		* Serve a file...
 		*/
 
-		type = mimeFileType(MimeDatabase, filename, NULL, NULL);
+                type = rf_mimeFileType(MimeDatabase, &head_file);
 		if (type == NULL)
 		  strlcpy(line, "text/plain", sizeof(line));
 		else
@@ -1432,8 +1493,10 @@ cupsdReadClient(cupsd_client_t *con)	/* I - Client to read from */
 
 		httpClearFields(con->http);
 
-		httpSetField(con->http, HTTP_FIELD_LAST_MODIFIED, httpGetDateString(filestats.st_mtime));
-		httpSetLength(con->http, (size_t)filestats.st_size);
+		httpSetField(con->http, HTTP_FIELD_LAST_MODIFIED, httpGetDateString(head_file._filestats.st_mtime));
+		httpSetLength(con->http, (size_t)head_file._filestats.st_size);
+
+                rf_closefile(&head_file);
 
 		if (!cupsdSendHeader(con, HTTP_STATUS_OK, line, CUPSD_AUTH_NONE))
 		{
@@ -1458,7 +1521,7 @@ cupsdReadClient(cupsd_client_t *con)	/* I - Client to read from */
 	      break;
 	    }
 
-	    if (!buf[0] && (!strncmp(con->uri, "/admin", 6) || !strncmp(con->uri, "/classes", 8) || !strncmp(con->uri, "/help", 5) || !strncmp(con->uri, "/jobs", 5) || !strncmp(con->uri, "/printers", 9)))
+	    if ((head_file._disposition == RF_PASS_ON) && (!strncmp(con->uri, "/admin", 6) || !strncmp(con->uri, "/classes", 8) || !strncmp(con->uri, "/help", 5) || !strncmp(con->uri, "/jobs", 5) || !strncmp(con->uri, "/printers", 9)))
 	    {
 	     /*
 	      * CGI output...
@@ -1486,7 +1549,7 @@ cupsdReadClient(cupsd_client_t *con)	/* I - Client to read from */
 
               cupsdLogRequest(con, HTTP_STATUS_NOT_FOUND);
 	    }
-            break;
+        }    break;
 
 	default :
             break; /* Anti-compiler-warning-code */
@@ -1566,6 +1629,7 @@ cupsdReadClient(cupsd_client_t *con)	/* I - Client to read from */
 	  * End of file, see how big it is...
 	  */
 
+          struct stat    filestats;  /* File information */
 	  fstat(con->file, &filestats);
 
 	  close(con->file);
@@ -1751,6 +1815,7 @@ cupsdReadClient(cupsd_client_t *con)	/* I - Client to read from */
 	{
 	  if (con->file >= 0)
 	  {
+            struct stat    filestats;  /* File information */
 	    fstat(con->file, &filestats);
 
 	    close(con->file);
@@ -1794,7 +1859,7 @@ cupsdReadClient(cupsd_client_t *con)	/* I - Client to read from */
 
 	    if (con->command)
 	    {
-	      if (!cupsdSendCommand(con, con->command, con->options, 0))
+	      if (!cupsdSendCommand(con, con->command, con->options, 0, 0))
 	      {
 		if (!cupsdSendError(con, HTTP_STATUS_NOT_FOUND, CUPSD_AUTH_NONE))
 		{
@@ -1852,7 +1917,8 @@ cupsdSendCommand(
     cupsd_client_t *con,		/* I - Client connection */
     char           *command,		/* I - Command to run */
     char           *options,		/* I - Command-line options */
-    int            root)		/* I - Run as root? */
+    int            root,		/* I - Run as root? */
+    int            percent_decode)      /* I - Percent decode the optoins string */
 {
   int	fd;				/* Standard input file descriptor */
 
@@ -1875,7 +1941,7 @@ cupsdSendCommand(
   else
     fd = -1;
 
-  con->pipe_pid    = pipe_command(con, fd, &(con->file), command, options, root);
+  con->pipe_pid    = pipe_command(con, fd, &(con->file), command, options, root, percent_decode);
   con->pipe_status = HTTP_STATUS_OK;
 
   httpClearFields(con->http);
@@ -2591,7 +2657,7 @@ cupsdWriteClient(cupsd_client_t *con)	/* I - Client connection */
 static int				/* O - 1 if modified since */
 check_if_modified(
     cupsd_client_t *con,		/* I - Client connection */
-    struct stat    *filestats)		/* I - File information */
+    const struct stat    *filestats)		/* I - File information */
 {
   const char	*ptr;			/* Pointer into field */
   time_t	date;			/* Time/date value */
@@ -2678,318 +2744,355 @@ cupsd_start_tls(cupsd_client_t    *con,	/* I - Client connection */
 #endif /* HAVE_SSL */
 
 
-/*
- * 'get_file()' - Get a filename and state info.
- */
-
-static char *				/* O  - Real filename */
-get_file(cupsd_client_t *con,		/* I  - Client connection */
-         struct stat    *filestats,	/* O  - File information */
-         char           *filename,	/* IO - Filename buffer */
-         size_t         len)		/* I  - Buffer length */
-{
-  int		status;			/* Status of filesystem calls */
-  char		*ptr;			/* Pointer info filename */
-  size_t	plen;			/* Remaining length after pointer */
-  char		language[7],		/* Language subdirectory, if any */
-		dest[1024];		/* Destination name */
-  int		perm_check = 1;		/* Do permissions check? */
-  cupsd_printer_t *p;			/* Printer */
-
-
- /*
-  * Figure out the real filename...
-  */
-
-  filename[0] = '\0';
-  language[0] = '\0';
-
-  if (!strncmp(con->uri, "/help", 5) && (con->uri[5] == '/' || !con->uri[5]))
-  {
-   /*
-    * All help files are served by the help.cgi program...
-    */
-
-    return (NULL);
-  }
-  else if ((!strncmp(con->uri, "/ppd/", 5) || !strncmp(con->uri, "/printers/", 10) || !strncmp(con->uri, "/classes/", 9)) && !strcmp(con->uri + strlen(con->uri) - 4, ".ppd"))
-  {
-    strlcpy(dest, strchr(con->uri + 1, '/') + 1, sizeof(dest));
-    dest[strlen(dest) - 4] = '\0'; /* Strip .ppd */
-
-    if ((p = cupsdFindDest(dest)) == NULL)
-    {
-      strlcpy(filename, "/", len);
-      cupsdLogClient(con, CUPSD_LOG_INFO, "No destination \"%s\" found.", dest);
-      return (NULL);
-    }
-
-    if (p->type & CUPS_PRINTER_CLASS)
-    {
-      int i;				/* Looping var */
-
-      for (i = 0; i < p->num_printers; i ++)
-      {
-	if (!(p->printers[i]->type & CUPS_PRINTER_CLASS))
-	{
-	  snprintf(filename, len, "%s/ppd/%s.ppd", ServerRoot, p->printers[i]->name);
-	  if (!access(filename, 0))
-	  {
-	    p = p->printers[i];
-	    break;
-	  }
-	}
-      }
-
-      if (i >= p->num_printers)
-	p = NULL;
-    }
-    else
-      snprintf(filename, len, "%s/ppd/%s.ppd", ServerRoot, p->name);
-
-    perm_check = 0;
-  }
-  else if ((!strncmp(con->uri, "/icons/", 7) || !strncmp(con->uri, "/printers/", 10) || !strncmp(con->uri, "/classes/", 9)) && !strcmp(con->uri + strlen(con->uri) - 4, ".png"))
-  {
-    strlcpy(dest, strchr(con->uri + 1, '/') + 1, sizeof(dest));
-    dest[strlen(dest) - 4] = '\0'; /* Strip .png */
-
-    if ((p = cupsdFindDest(dest)) == NULL)
-    {
-      strlcpy(filename, "/", len);
-      cupsdLogClient(con, CUPSD_LOG_INFO, "No destination \"%s\" found.", dest);
-      return (NULL);
-    }
-
-    if (p->type & CUPS_PRINTER_CLASS)
-    {
-      int i;				/* Looping var */
-
-      for (i = 0; i < p->num_printers; i ++)
-      {
-	if (!(p->printers[i]->type & CUPS_PRINTER_CLASS))
-	{
-	  snprintf(filename, len, "%s/images/%s.png", CacheDir, p->printers[i]->name);
-	  if (!access(filename, 0))
-	  {
-	    p = p->printers[i];
-	    break;
-	  }
-	}
-      }
-
-      if (i >= p->num_printers)
-	p = NULL;
-    }
-    else
-      snprintf(filename, len, "%s/images/%s.png", CacheDir, p->name);
-
-    if (access(filename, F_OK) < 0)
-      snprintf(filename, len, "%s/images/generic.png", DocumentRoot);
-
-    perm_check = 0;
-  }
-  else if (!strncmp(con->uri, "/admin", 6) || !strncmp(con->uri, "/classes", 8) || !strncmp(con->uri, "/jobs", 5) || !strncmp(con->uri, "/printers", 9))
-  {
-   /*
-    * Admin/class/job/printer pages are served by CGI...
-    */
-
-    return (NULL);
-  }
-  else if (!strncmp(con->uri, "/rss/", 5) && !strchr(con->uri + 5, '/'))
-    snprintf(filename, len, "%s/rss/%s", CacheDir, con->uri + 5);
-  else if (!strncmp(con->uri, "/strings/", 9) && !strcmp(con->uri + strlen(con->uri) - 8, ".strings"))
-  {
-    strlcpy(dest, con->uri + 9, sizeof(dest));
-    dest[strlen(dest) - 8] = '\0';
-
-    if ((p = cupsdFindDest(dest)) == NULL)
-    {
-      strlcpy(filename, "/", len);
-      cupsdLogClient(con, CUPSD_LOG_INFO, "No destination \"%s\" found.", dest);
-      return (NULL);
-    }
-
-    if (!p->strings)
-    {
-      strlcpy(filename, "/", len);
-      cupsdLogClient(con, CUPSD_LOG_INFO, "No strings files for \"%s\".", dest);
-      return (NULL);
-    }
-
-    strlcpy(filename, p->strings, len);
-
-    perm_check = 0;
-  }
-  else if (!strcmp(con->uri, "/admin/conf/cupsd.conf"))
-  {
-    strlcpy(filename, ConfigurationFile, len);
-
-    perm_check = 0;
-  }
-  else if (!strncmp(con->uri, "/admin/log/", 11))
-  {
-    if (!strncmp(con->uri + 11, "access_log", 10) && AccessLog[0] == '/')
-      strlcpy(filename, AccessLog, len);
-    else if (!strncmp(con->uri + 11, "error_log", 9) && ErrorLog[0] == '/')
-      strlcpy(filename, ErrorLog, len);
-    else if (!strncmp(con->uri + 11, "page_log", 8) && PageLog[0] == '/')
-      strlcpy(filename, PageLog, len);
-    else
-      return (NULL);
-
-    perm_check = 0;
-  }
-  else if (con->language)
-  {
-    snprintf(language, sizeof(language), "/%s", con->language->language);
-    snprintf(filename, len, "%s%s%s", DocumentRoot, language, con->uri);
-  }
-  else
-    snprintf(filename, len, "%s%s", DocumentRoot, con->uri);
-
-  if ((ptr = strchr(filename, '?')) != NULL)
-    *ptr = '\0';
-
- /*
-  * Grab the status for this language; if there isn't a language-specific file
-  * then fallback to the default one...
-  */
-
-  if ((status = lstat(filename, filestats)) != 0 && language[0] &&
-      strncmp(con->uri, "/icons/", 7) &&
-      strncmp(con->uri, "/ppd/", 5) &&
-      strncmp(con->uri, "/rss/", 5) &&
-      strncmp(con->uri, "/strings/", 9) &&
-      strncmp(con->uri, "/admin/conf/", 12) &&
-      strncmp(con->uri, "/admin/log/", 11))
-  {
-   /*
-    * Drop the country code...
-    */
-
-    language[3] = '\0';
-    snprintf(filename, len, "%s%s%s", DocumentRoot, language, con->uri);
-
-    if ((ptr = strchr(filename, '?')) != NULL)
-      *ptr = '\0';
-
-    if ((status = lstat(filename, filestats)) != 0)
-    {
-     /*
-      * Drop the language prefix and try the root directory...
-      */
-
-      language[0] = '\0';
-      snprintf(filename, len, "%s%s", DocumentRoot, con->uri);
-
-      if ((ptr = strchr(filename, '?')) != NULL)
-	*ptr = '\0';
-
-      status = lstat(filename, filestats);
-    }
-  }
-
- /*
-  * If we've found a symlink, 404 the sucker to avoid disclosing information.
-  */
-
-  if (!status && S_ISLNK(filestats->st_mode))
-  {
-    cupsdLogClient(con, CUPSD_LOG_INFO, "Symlinks such as \"%s\" are not allowed.", filename);
-    return (NULL);
-  }
-
- /*
-  * Similarly, if the file/directory does not have world read permissions, do
-  * not allow access...
-  */
-
-  if (!status && perm_check && !(filestats->st_mode & S_IROTH))
-  {
-    cupsdLogClient(con, CUPSD_LOG_INFO, "Files/directories such as \"%s\" must be world-readable.", filename);
-    return (NULL);
-  }
-
- /*
-  * If we've found a directory, get the index.html file instead...
-  */
-
-  if (!status && S_ISDIR(filestats->st_mode))
-  {
-   /*
-    * Make sure the URI ends with a slash...
-    */
-
-    if (con->uri[strlen(con->uri) - 1] != '/')
-      strlcat(con->uri, "/", sizeof(con->uri));
-
-   /*
-    * Find the directory index file, trying every language...
-    */
-
-    do
-    {
-      if (status && language[0])
-      {
-       /*
-        * Try a different language subset...
-	*/
-
-	if (language[3])
-	  language[0] = '\0';		/* Strip country code */
-	else
-	  language[0] = '\0';		/* Strip language */
-      }
-
-     /*
-      * Look for the index file...
-      */
-
-      snprintf(filename, len, "%s%s%s", DocumentRoot, language, con->uri);
-
-      if ((ptr = strchr(filename, '?')) != NULL)
-	*ptr = '\0';
-
-      ptr  = filename + strlen(filename);
-      plen = len - (size_t)(ptr - filename);
-
-      strlcpy(ptr, "index.html", plen);
-      status = lstat(filename, filestats);
-    }
-    while (status && language[0]);
-
-   /*
-    * If we've found a symlink, 404 the sucker to avoid disclosing information.
-    */
-
-    if (!status && S_ISLNK(filestats->st_mode))
-    {
-      cupsdLogClient(con, CUPSD_LOG_INFO, "Symlinks such as \"%s\" are not allowed.", filename);
-      return (NULL);
-    }
-
-   /*
-    * Similarly, if the file/directory does not have world read permissions, do
-    * not allow access...
-    */
-
-    if (!status && perm_check && !(filestats->st_mode & S_IROTH))
-    {
-      cupsdLogClient(con, CUPSD_LOG_INFO, "Files/directories such as \"%s\" must be world-readable.", filename);
-      return (NULL);
-    }
-  }
-
-  cupsdLogClient(con, CUPSD_LOG_DEBUG2, "get_file: filestats=%p, filename=%p, len=" CUPS_LLFMT ", returning \"%s\".", filestats, filename, CUPS_LLCAST len, status ? "(null)" : filename);
-
-  if (status)
-    return (NULL);
-  else
-    return (filename);
-}
-
+///*
+// * 'get_file()' - Get a filename and state info.
+// */
+//
+//static char *				/* O  - Real filename */
+//get_file2(cupsd_client_t *con,		/* I  - Client connection */
+//         struct stat    *filestats,	/* O  - File information */
+//         char           *filename,	/* IO - Filename buffer */
+//         size_t         len)		/* I  - Buffer length */
+//{
+//  int		status;			/* Status of filesystem calls */
+//  char		*ptr;			/* Pointer info filename */
+//  size_t	plen;			/* Remaining length after pointer */
+//  char		language[7],		/* Language subdirectory, if any */
+//		dest[1024];		/* Destination name */
+//  int		perm_check = 1;		/* Do permissions check? */
+//  cupsd_printer_t *found_printer;			/* Printer */
+//
+//  CFLog(kCFLogLevelInfo, CFSTR("get_file called here, uri %s, serverroot %s"), con->uri, ServerRoot);
+//
+// /*
+//  * Figure out the real filename...
+//  */
+//
+//  filename[0] = '\0';
+//  language[0] = '\0';
+//
+//  if (!strncmp(con->uri, "/help", 5) && (con->uri[5] == '/' || !con->uri[5]))
+//  {
+//   /*
+//    * All help files are served by the help.cgi program...
+//    */
+//
+//    return (NULL);
+//  }
+//  else if ((!strncmp(con->uri, "/ppd/", 5) || !strncmp(con->uri, "/printers/", 10) || !strncmp(con->uri, "/classes/", 9)) && !strcmp(con->uri + strlen(con->uri) - 4, ".ppd"))
+//  {
+//    strlcpy(dest, strchr(con->uri + 1, '/') + 1, sizeof(dest));
+//    dest[strlen(dest) - 4] = '\0'; /* Strip .ppd */
+//
+//    if ((found_printer = cupsdFindDest(dest)) == NULL)
+//    {
+//      strlcpy(filename, "/", len);
+//      cupsdLogClient(con, CUPSD_LOG_INFO, "No destination \"%s\" found.", dest);
+//      return (NULL);
+//    }
+//
+//    if (found_printer->type & CUPS_PRINTER_CLASS)
+//    {
+//      int i;				/* Looping var */
+//
+//      for (i = 0; i < found_printer->num_printers; i ++)
+//      {
+//	if (!(found_printer->printers[i]->type & CUPS_PRINTER_CLASS))
+//	{
+//	  snprintf(filename, len, "%s/ppd/%s.ppd", ServerRoot, found_printer->printers[i]->name);
+//	  if (!access(filename, 0))
+//	  {
+//	    found_printer = found_printer->printers[i];
+//	    break;
+//	  }
+//	}
+//      }
+//
+//      if (i >= found_printer->num_printers)
+//	found_printer = NULL;
+//    }
+//    else
+//      snprintf(filename, len, "%s/ppd/%s.ppd", ServerRoot, found_printer->name);
+//
+//    perm_check = 0;
+//  }
+//  else if ((!strncmp(con->uri, "/icons/", 7) || !strncmp(con->uri, "/printers/", 10) || !strncmp(con->uri, "/classes/", 9)) && !strcmp(con->uri + strlen(con->uri) - 4, ".png"))
+//  {
+//    strlcpy(dest, strchr(con->uri + 1, '/') + 1, sizeof(dest));
+//    dest[strlen(dest) - 4] = '\0'; /* Strip .png */
+//
+//    if ((found_printer = cupsdFindDest(dest)) == NULL)
+//    {
+//      strlcpy(filename, "/", len);
+//      cupsdLogClient(con, CUPSD_LOG_INFO, "No destination \"%s\" found.", dest);
+//      return (NULL);
+//    }
+//
+//    if (found_printer->type & CUPS_PRINTER_CLASS)
+//    {
+//      int i;				/* Looping var */
+//
+//      for (i = 0; i < found_printer->num_printers; i ++)
+//      {
+//	if (!(found_printer->printers[i]->type & CUPS_PRINTER_CLASS))
+//	{
+//	  snprintf(filename, len, "%s/images/%s.png", CacheDir, found_printer->printers[i]->name);
+//	  if (!access(filename, 0))
+//	  {
+//	    found_printer = found_printer->printers[i];
+//	    break;
+//	  }
+//	}
+//      }
+//
+//      if (i >= found_printer->num_printers)
+//	found_printer = NULL;
+//    }
+//    else
+//      snprintf(filename, len, "%s/images/%s.png", CacheDir, found_printer->name);
+//
+//    if (access(filename, F_OK) < 0)
+//      snprintf(filename, len, "%s/images/generic.png", DocumentRoot);
+//
+//    perm_check = 0;
+//  }
+//  else if (!strncmp(con->uri, "/admin", 6) || !strncmp(con->uri, "/classes", 8) || !strncmp(con->uri, "/jobs", 5) || !strncmp(con->uri, "/printers", 9))
+//  {
+//   /*
+//    * Admin/class/job/printer pages are served by CGI...
+//    */
+//
+//    return (NULL);
+//  }
+//  else if (!strncmp(con->uri, "/rss/", 5) && !strchr(con->uri + 5, '/'))
+//    snprintf(filename, len, "%s/rss/%s", CacheDir, con->uri + 5);
+//  else if (!strncmp(con->uri, "/strings/", 9) && !strcmp(con->uri + strlen(con->uri) - 8, ".strings"))
+//  {
+//    strlcpy(dest, con->uri + 9, sizeof(dest));
+//    dest[strlen(dest) - 8] = '\0';
+//
+//    if ((found_printer = cupsdFindDest(dest)) == NULL)
+//    {
+//      strlcpy(filename, "/", len);
+//      cupsdLogClient(con, CUPSD_LOG_INFO, "No destination \"%s\" found.", dest);
+//      return (NULL);
+//    }
+//
+//    if (!found_printer->strings)
+//    {
+//      strlcpy(filename, "/", len);
+//      cupsdLogClient(con, CUPSD_LOG_INFO, "No strings files for \"%s\".", dest);
+//      return (NULL);
+//    }
+//
+//    strlcpy(filename, found_printer->strings, len);
+//
+//    perm_check = 0;
+//  }
+//  else if (!strcmp(con->uri, "/admin/conf/cupsd.conf"))
+//  {
+//    strlcpy(filename, ConfigurationFile, len);
+//
+//    perm_check = 0;
+//  }
+//  else if (!strncmp(con->uri, "/admin/log/", 11))
+//  {
+//    if (!strncmp(con->uri + 11, "access_log", 10) && AccessLog[0] == '/')
+//      strlcpy(filename, AccessLog, len);
+//    else if (!strncmp(con->uri + 11, "error_log", 9) && ErrorLog[0] == '/')
+//      strlcpy(filename, ErrorLog, len);
+//    else if (!strncmp(con->uri + 11, "page_log", 8) && PageLog[0] == '/')
+//      strlcpy(filename, PageLog, len);
+//    else
+//      return (NULL);
+//
+//    perm_check = 0;
+//  }
+//  else if (con->language)
+//  {
+//    snprintf(language, sizeof(language), "/%s", con->language->language);
+//    snprintf(filename, len, "%s%s%s", DocumentRoot, language, con->uri);
+//  }
+//  else
+//    snprintf(filename, len, "%s%s", DocumentRoot, con->uri);
+//
+//  if ((ptr = strchr(filename, '?')) != NULL)
+//    *ptr = '\0';
+//
+// /*
+//  * Grab the status for this language; if there isn't a language-specific file
+//  * then fallback to the default one...
+//  */
+//
+//  if ((status = lstat(filename, filestats)) != 0 && language[0] &&
+//      strncmp(con->uri, "/icons/", 7) &&
+//      strncmp(con->uri, "/ppd/", 5) &&
+//      strncmp(con->uri, "/rss/", 5) &&
+//      strncmp(con->uri, "/strings/", 9) &&
+//      strncmp(con->uri, "/admin/conf/", 12) &&
+//      strncmp(con->uri, "/admin/log/", 11))
+//  {
+//   /*
+//    * Drop the country code...
+//    */
+//
+//    language[3] = '\0';
+//    snprintf(filename, len, "%s%s%s", DocumentRoot, language, con->uri);
+//
+//    if ((ptr = strchr(filename, '?')) != NULL)
+//      *ptr = '\0';
+//
+//    if ((status = lstat(filename, filestats)) != 0)
+//    {
+//     /*
+//      * Drop the language prefix and try the root directory...
+//      */
+//
+//      language[0] = '\0';
+//      snprintf(filename, len, "%s%s", DocumentRoot, con->uri);
+//
+//      if ((ptr = strchr(filename, '?')) != NULL)
+//	*ptr = '\0';
+//
+//      status = lstat(filename, filestats);
+//    }
+//  }
+//
+// /*
+//  * If we've found a symlink, 404 the sucker to avoid disclosing information.
+//  */
+//
+//  if (!status && S_ISLNK(filestats->st_mode))
+//  {
+//    cupsdLogClient(con, CUPSD_LOG_INFO, "Symlinks such as \"%s\" are not allowed.", filename);
+//    return (NULL);
+//  }
+//
+// /*
+//  * Similarly, if the file/directory does not have world read permissions, do
+//  * not allow access...
+//  */
+//
+//  if (!status && perm_check && !(filestats->st_mode & S_IROTH))
+//  {
+//    cupsdLogClient(con, CUPSD_LOG_INFO, "Files/directories such as \"%s\" must be world-readable.", filename);
+//    return (NULL);
+//  }
+//
+// /*
+//  * If we've found a directory, get the index.html file instead...
+//  */
+//
+//  if (!status && S_ISDIR(filestats->st_mode))
+//  {
+//   /*
+//    * Make sure the URI ends with a slash...
+//    */
+//
+//    if (con->uri[strlen(con->uri) - 1] != '/')
+//      strlcat(con->uri, "/", sizeof(con->uri));
+//
+//   /*
+//    * Find the directory index file, trying every language...
+//    */
+//
+//    do
+//    {
+//      if (status && language[0])
+//      {
+//       /*
+//        * Try a different language subset...
+//	*/
+//
+//	if (language[3])
+//	  language[0] = '\0';		/* Strip country code */
+//	else
+//	  language[0] = '\0';		/* Strip language */
+//      }
+//
+//     /*
+//      * Look for the index file...
+//      */
+//
+//      snprintf(filename, len, "%s%s%s", DocumentRoot, language, con->uri);
+//
+//      if ((ptr = strchr(filename, '?')) != NULL)
+//	*ptr = '\0';
+//
+//      ptr  = filename + strlen(filename);
+//      plen = len - (size_t)(ptr - filename);
+//
+//      strlcpy(ptr, "index.html", plen);
+//      status = lstat(filename, filestats);
+//    }
+//    while (status && language[0]);
+//
+//   /*
+//    * If we've found a symlink, 404 the sucker to avoid disclosing information.
+//    */
+//
+//    if (!status && S_ISLNK(filestats->st_mode))
+//    {
+//      cupsdLogClient(con, CUPSD_LOG_INFO, "Symlinks such as \"%s\" are not allowed.", filename);
+//      return (NULL);
+//    }
+//
+//   /*
+//    * Similarly, if the file/directory does not have world read permissions, do
+//    * not allow access...
+//    */
+//
+//    if (!status && perm_check && !(filestats->st_mode & S_IROTH))
+//    {
+//      cupsdLogClient(con, CUPSD_LOG_INFO, "Files/directories such as \"%s\" must be world-readable.", filename);
+//      return (NULL);
+//    }
+//  }
+//
+//  cupsdLogClient(con, CUPSD_LOG_DEBUG2, "get_file: filestats=%p, filename=%p, len=" CUPS_LLFMT ", returning \"%s\".", filestats, filename, CUPS_LLCAST len, status ? "(null)" : filename);
+//  CFLog(kCFLogLevelInfo, CFSTR("get_file: filestats=%p, filename=%p, len=" CUPS_LLFMT ", returning \"%s\"."), filestats, filename, CUPS_LLCAST len, status ? "(null)" : filename);
+//
+//  if (status)
+//    return (NULL);
+//  else
+//    return (filename);
+//}
+//
+//extern const char* check_file(const char*, const char*, char*, size_t);
+//
+//static char *        /* O  - Real filename */
+//get_file(cupsd_client_t *con,    /* I  - Client connection */
+//          struct stat    *filestats,  /* O  - File information */
+//          char           *filename,  /* IO - Filename buffer */
+//          size_t         len)    /* I  - Buffer length */
+//{
+//  char tmp[MAXPATHLEN];
+//  bzero(filename, len);
+//  bzero(tmp, sizeof(tmp));
+//
+//  const char* check = check_file(con->uri, con->language->language, tmp, sizeof(tmp));
+//  const char* result = get_file2(con, filestats, filename, len);
+//
+//  if (check == NULL && result == NULL) {
+//    return NULL;
+//  }
+//
+//  if (check == NULL && result != NULL) {
+//    CFLog(kCFLogLevelInfo, CFSTR("## GETFILECHECK [%s] -> { WE FAIL, THEM '%s' }"), con->uri, result);
+//    const char* check2 = check_file(con->uri, con->language->language, tmp, sizeof(tmp));
+//    const char* result2 = get_file2(con, filestats, filename, len);
+//  } else if (check != NULL && result == NULL) {
+//    CFLog(kCFLogLevelInfo, CFSTR("## GETFILECHECK [%s] -> { '%s', THEY FAIL }"), con->uri, check);
+//    const char* check2 = check_file(con->uri, con->language->language, tmp, sizeof(tmp));
+//    const char* result2 = get_file2(con, filestats, filename, len);
+//  } else if (strcmp(check, result) != 0) {
+//    CFLog(kCFLogLevelInfo, CFSTR("## GETFILECHECK [%s] -> DIFFER { WE '%s', THEY '%s' }"), con->uri, check, result);
+//    const char* check2 = check_file(con->uri, con->language->language, tmp, sizeof(tmp));
+//    const char* result2 = get_file2(con, filestats, filename, len);
+//  }
+//
+//  return result;
+//}
 
 /*
  * 'install_cupsd_conf()' - Install a configuration file.
@@ -3091,58 +3194,58 @@ install_cupsd_conf(cupsd_client_t *con)	/* I - Connection */
 }
 
 
-/*
- * 'is_cgi()' - Is the resource a CGI script/program?
- */
-
-static int				/* O - 1 = CGI, 0 = file */
-is_cgi(cupsd_client_t *con,		/* I - Client connection */
-       const char     *filename,	/* I - Real filename */
-       struct stat    *filestats,	/* I - File information */
-       mime_type_t    *type)		/* I - MIME type */
-{
-  const char	*options;		/* Options on URL */
-
-
- /*
-  * Get the options, if any...
-  */
-
-  if ((options = strchr(con->uri, '?')) != NULL)
-  {
-    options ++;
-    cupsdSetStringf(&(con->query_string), "QUERY_STRING=%s", options);
-  }
-
- /*
-  * Check for known types...
-  */
-
-  if (!type || _cups_strcasecmp(type->super, "application"))
-  {
-    cupsdLogClient(con, CUPSD_LOG_DEBUG2, "is_cgi: filename=\"%s\", filestats=%p, type=%s/%s, returning 0.", filename, filestats, type ? type->super : "unknown", type ? type->type : "unknown");
-    return (0);
-  }
-
-  if (!_cups_strcasecmp(type->type, "x-httpd-cgi") &&
-      (filestats->st_mode & 0111))
-  {
-   /*
-    * "application/x-httpd-cgi" is a CGI script.
-    */
-
-    cupsdSetString(&con->command, filename);
-
-    if (options)
-      cupsdSetStringf(&con->options, " %s", options);
-
-    cupsdLogClient(con, CUPSD_LOG_DEBUG2, "is_cgi: filename=\"%s\", filestats=%p, type=%s/%s, returning 1.", filename, filestats, type->super, type->type);
-    return (1);
-  }
-
-  cupsdLogClient(con, CUPSD_LOG_DEBUG2, "is_cgi: filename=\"%s\", filestats=%p, type=%s/%s, returning 0.", filename, filestats, type->super, type->type);
-  return (0);
-}
+///*
+// * 'is_cgi()' - Is the resource a CGI script/program?
+// */
+//
+//static int				/* O - 1 = CGI, 0 = file */
+//is_cgi(cupsd_client_t *con,		/* I - Client connection */
+//       const char     *filename,	/* I - Real filename */
+//       struct stat    *filestats,	/* I - File information */
+//       mime_type_t    *type)		/* I - MIME type */
+//{
+//  const char	*options;		/* Options on URL */
+//
+//
+// /*
+//  * Get the options, if any...
+//  */
+//
+//  if ((options = strchr(con->uri, '?')) != NULL)
+//  {
+//    options ++;
+//    cupsdSetStringf(&(con->query_string), "QUERY_STRING=%s", options);
+//  }
+//
+// /*
+//  * Check for known types...
+//  */
+//
+//  if (!type || _cups_strcasecmp(type->super, "application"))
+//  {
+//    cupsdLogClient(con, CUPSD_LOG_DEBUG2, "is_cgi: filename=\"%s\", filestats=%p, type=%s/%s, returning 0.", filename, filestats, type ? type->super : "unknown", type ? type->type : "unknown");
+//    return (0);
+//  }
+//
+//  if (!_cups_strcasecmp(type->type, "x-httpd-cgi") &&
+//      (filestats->st_mode & 0111))
+//  {
+//   /*
+//    * "application/x-httpd-cgi" is a CGI script.
+//    */
+//
+//    cupsdSetString(&con->command, filename);
+//
+//    if (options)
+//      cupsdSetStringf(&con->options, " %s", options);
+//
+//    cupsdLogClient(con, CUPSD_LOG_DEBUG2, "is_cgi: filename=\"%s\", filestats=%p, type=%s/%s, returning 1.", filename, filestats, type->super, type->type);
+//    return (1);
+//  }
+//
+//  cupsdLogClient(con, CUPSD_LOG_DEBUG2, "is_cgi: filename=\"%s\", filestats=%p, type=%s/%s, returning 0.", filename, filestats, type->super, type->type);
+//  return (0);
+//}
 
 
 /*
@@ -3197,8 +3300,9 @@ pipe_command(cupsd_client_t *con,	/* I - Client connection */
              int            infile,	/* I - Standard input for command */
              int            *outfile,	/* O - Standard output for command */
 	     char           *command,	/* I - Command to run */
-	     char           *options,	/* I - Options for command */
-	     int            root)	/* I - Run as root? */
+	     char           *options,	/* I - Options for command (already percent decoded) */
+	     int            root,       /* I - Run as root? */
+         int            percent_decode) /* I - Should we percent decode the string after all? */
 {
   int		i;			/* Looping var */
   int		pid;			/* Process ID */
@@ -3245,6 +3349,8 @@ pipe_command(cupsd_client_t *con,	/* I - Client connection */
   *
   * The string is always parsed out as command-line arguments, to
   * be consistent with Apache...
+  *
+  * Note that this assumes %xx decoding has already taken place on the options string.
   */
 
   cupsdLogClient(con, CUPSD_LOG_DEBUG2, "pipe_command: infile=%d, outfile=%p, command=\"%s\", options=\"%s\", root=%d", infile, outfile, command, options ? options : "(null)", root);
@@ -3314,7 +3420,7 @@ pipe_command(cupsd_client_t *con,	/* I - Client connection */
 	else
 	  break;
       }
-      else if (*commptr == '%' && isxdigit(commptr[1] & 255) &&
+      else if (percent_decode && *commptr == '%' && isxdigit(commptr[1] & 255) &&
                isxdigit(commptr[2] & 255))
       {
        /*
@@ -3718,46 +3824,46 @@ valid_host(cupsd_client_t *con)		/* I - Client connection */
 }
 
 
-/*
- * 'write_file()' - Send a file via HTTP.
- */
-
-static int				/* O - 0 on failure, 1 on success */
-write_file(cupsd_client_t *con,		/* I - Client connection */
-           http_status_t  code,		/* I - HTTP status */
-	   char           *filename,	/* I - Filename */
-	   char           *type,	/* I - File type */
-	   struct stat    *filestats)	/* O - File information */
-{
-  con->file = open(filename, O_RDONLY);
-
-  cupsdLogClient(con, CUPSD_LOG_DEBUG2, "write_file: code=%d, filename=\"%s\" (%d), type=\"%s\", filestats=%p.", code, filename, con->file, type ? type : "(null)", filestats);
-
-  if (con->file < 0)
-    return (0);
-
-  fcntl(con->file, F_SETFD, fcntl(con->file, F_GETFD) | FD_CLOEXEC);
-
-  con->pipe_pid    = 0;
-  con->sent_header = 1;
-
-  httpClearFields(con->http);
-
-  httpSetLength(con->http, (size_t)filestats->st_size);
-
-  httpSetField(con->http, HTTP_FIELD_LAST_MODIFIED,
-	       httpGetDateString(filestats->st_mtime));
-
-  if (!cupsdSendHeader(con, code, type, CUPSD_AUTH_NONE))
-    return (0);
-
-  cupsdAddSelect(httpGetFd(con->http), NULL, (cupsd_selfunc_t)cupsdWriteClient, con);
-
-  cupsdLogClient(con, CUPSD_LOG_DEBUG, "Sending file.");
-
-  return (1);
-}
-
+///*
+// * 'write_file()' - Send a file via HTTP.
+// */
+//
+//static int				/* O - 0 on failure, 1 on success */
+//write_file(cupsd_client_t *con,		/* I - Client connection */
+//           http_status_t  code,		/* I - HTTP status */
+//	   char           *filename,	/* I - Filename */
+//	   char           *type,	/* I - File type */
+//	   struct stat    *filestats)	/* O - File information */
+//{
+//  con->file = open(filename, O_RDONLY, 0600);
+//
+//  cupsdLogClient(con, CUPSD_LOG_DEBUG2, "write_file: code=%d, filename=\"%s\" (%d), type=\"%s\", filestats=%p.", code, filename, con->file, type ? type : "(null)", filestats);
+//
+//  if (con->file < 0)
+//    return (0);
+//
+//  fcntl(con->file, F_SETFD, fcntl(con->file, F_GETFD) | FD_CLOEXEC);
+//
+//  con->pipe_pid    = 0;
+//  con->sent_header = 1;
+//
+//  httpClearFields(con->http);
+//
+//  httpSetLength(con->http, (size_t)filestats->st_size);
+//
+//  httpSetField(con->http, HTTP_FIELD_LAST_MODIFIED,
+//	       httpGetDateString(filestats->st_mtime));
+//
+//  if (!cupsdSendHeader(con, code, type, CUPSD_AUTH_NONE))
+//    return (0);
+//
+//  cupsdAddSelect(httpGetFd(con->http), NULL, (cupsd_selfunc_t)cupsdWriteClient, con);
+//
+//  cupsdLogClient(con, CUPSD_LOG_DEBUG, "Sending file.");
+//
+//  return (1);
+//}
+//
 
 /*
  * 'write_pipe()' - Flag that data is available on the CGI pipe.
@@ -3774,4 +3880,699 @@ write_pipe(cupsd_client_t *con)		/* I - Client connection */
   cupsdAddSelect(httpGetFd(con->http), NULL, (cupsd_selfunc_t)cupsdWriteClient, con);
 
   cupsdLogClient(con, CUPSD_LOG_DEBUG, "CGI data ready to be sent.");
+}
+
+/*
+ * Rooted File -
+ */
+
+static void rf_closefile(rf_file_t* file)
+{
+  if (file->_fd != -1) {
+    close(file->_fd);
+  }
+  bzero(file, sizeof(*file));
+  file->_disposition = RF_MISSING;
+  file->_fd = -1;
+}
+
+static mime_type_t *        /* O - Type of file */
+rf_mimeFileType(mime_t     *mime,    /* I - MIME database */
+             const rf_file_t* file)  /* O - Is the file compressed? */
+{
+  const char* fileName = strrchr(file->_filename, '/');
+  if (fileName == NULL)
+    fileName = file->_filename;
+  else {
+    ++fileName;
+  }
+  return mimeFileTypeFD(mime, file->_fd, fileName);
+}
+
+static int
+rf_is_cgi(cupsd_client_t* con, const rf_file_t* file, mime_type_t *type)
+{
+  const char  *options;    /* Options on URL */
+
+  /*
+   * Get the options, if any...
+   */
+
+  if ((options = strchr(con->uri, '?')) != NULL)
+  {
+    options ++;
+    cupsdSetStringf(&(con->query_string), "QUERY_STRING=%s", options);
+  }
+
+  /*
+   * Check for known types...
+   */
+
+  if (!type || _cups_strcasecmp(type->super, "application"))
+  {
+//    CFLog(kCFLogLevelInfo, CFSTR("is_cgi: filename=\"%s\", type=%s/%s, returning 0."), file->filename, type ? type->super : "unknown", type ? type->type : "unknown");
+    return (0);
+  }
+
+  if (!_cups_strcasecmp(type->type, "x-httpd-cgi") && (file->_filestats.st_mode & 0111))
+  {
+    /*
+     * "application/x-httpd-cgi" is a CGI script.
+     */
+
+    cupsdSetString(&con->command, file->_filename);
+
+    if (options)
+      cupsdSetStringf(&con->options, " %s", options);
+
+//    CFLog(kCFLogLevelInfo, CFSTR("is_cgi: filename=\"%s\", type=%s/%s, returning 1."), file->filename, type->super, type->type);
+    return (1);
+  }
+
+//  CFLog(kCFLogLevelInfo, CFSTR("is_cgi: filename=\"%s\", type=%s/%s, returning 0."), file->filename, type->super, type->type);
+  return (0);
+}
+
+static int
+rf_check_if_modified(cupsd_client_t* con, const rf_file_t* file)
+{
+  return check_if_modified(con, &file->_filestats);
+}
+
+static int
+rf_write_file(cupsd_client_t* con, http_status_t code, const rf_file_t* file, char* type)
+{
+  con->file = dup(file->_fd);
+
+  cupsdLogClient(con, CUPSD_LOG_DEBUG2, "rf_write_file: code=%d, filename=\"%s\", fd=%d from %d, type=\"%s\"", code, file->_filename, con->file, file->_fd, type ? type : "(null)");
+
+  if (con->file < 0)
+    return (0);
+
+  struct stat stat2;
+
+  if (fstat(con->file, &stat2) == 0) {
+    if ((file->_filestats.st_dev != stat2.st_dev) || (file->_filestats.st_ino != stat2.st_ino)) {
+      cupsdLogClient(con, CUPSD_LOG_DEBUG2, "write_file: filestats different (%d %d)", (int) file->_filestats.st_ino, (int) stat2.st_ino);
+      close(con->file);
+      con->file = -1;
+      return (0);
+    }
+  }
+
+
+  fcntl(con->file, F_SETFD, fcntl(con->file, F_GETFD) | FD_CLOEXEC);
+
+  con->pipe_pid    = 0;
+  con->sent_header = 1;
+
+  httpClearFields(con->http);
+
+  httpSetLength(con->http, (size_t)file->_filestats.st_size);
+
+  httpSetField(con->http, HTTP_FIELD_LAST_MODIFIED,
+               httpGetDateString(file->_filestats.st_mtime));
+
+  if (!cupsdSendHeader(con, code, type, CUPSD_AUTH_NONE))
+    return (0);
+
+  cupsdAddSelect(httpGetFd(con->http), NULL, (cupsd_selfunc_t)cupsdWriteClient, con);
+
+  cupsdLogClient(con, CUPSD_LOG_DEBUG, "Sending file.");
+
+  return (1);
+}
+
+//#define ppLog(fmt, ...) fprintf(stderr, fmt "\n",__VA_ARGS__)
+#define ppLog(fmt, ...) do { cupsdLogClient(NULL, CUPSD_LOG_DEBUG, fmt,__VA_ARGS__); } while (0)
+
+/*
+ path to a full file (log or conf)
+ root + partial + filename + suffix
+ root + partial + [ lang ]
+ */
+
+
+enum rooted_path_location {
+  ROOTED_Invalid = 0,
+
+  ROOTED_ServerRoot,
+  ROOTED_DocumentRoot,
+  ROOTED_ConfigurationFile,
+  ROOTED_CacheDir,
+  ROOTED_AccessLog,
+  ROOTED_ErrorLog,
+  ROOTED_PageLog,
+};
+
+enum rooted_path_kind {
+  ROOTED_PATH_INVALID,
+  ROOTED_PATH_ONLY,
+  ROOTED_PATH_FULL,
+  ROOTED_PATH_PARTIAL,
+  ROOTED_PATH_LANG_INDEX,
+  ROOTED_PATH_MULTI
+};
+
+struct _rooted_path_parts {
+  enum rooted_path_location _root_path;
+  char _partial[MAXPATHLEN];
+};
+
+struct _rooted_path_parts_lang {
+  enum rooted_path_location _root_path;
+  char _partial[MAXPATHLEN];
+  char _language[32];
+};
+
+struct _rooted_path_s {
+  enum rooted_path_kind _kind;
+  union {
+    enum rooted_path_location _root;
+    char _full_path[MAXPATHLEN];
+    struct _rooted_path_parts _partialParts;
+    struct _rooted_path_parts_lang _partialPartsLang;
+    cups_array_t* _multiPaths;
+  } _u;
+};
+typedef struct _rooted_path_s rooted_path_t;
+
+static rooted_path_t* pathNew_Full(const char* path);
+static rooted_path_t* pathNew_Rooted(enum rooted_path_location root);
+static rooted_path_t* pathNew_Partial(enum rooted_path_location root, const char* dir, const char* name);
+static rooted_path_t* pathNew_PartialSuffix(enum rooted_path_location root, const char* dir, const char* name, const char* suffix);
+
+static void pathDelete(rooted_path_t*);
+
+static int pathResolveAndOpen(rooted_path_t* p, struct stat* sb, char* dst, size_t dstLen);
+
+static void* _path_copy(void* e, void* ignored)
+{
+  (void) ignored;
+  rooted_path_t* p = (rooted_path_t*) e;
+  rooted_path_t* cpy = (rooted_path_t*) calloc(1, sizeof(rooted_path_t));
+  cpy->_kind = p->_kind;
+
+  if (p->_kind == ROOTED_PATH_MULTI) {
+    cpy->_u._multiPaths = cupsArrayDup(p->_u._multiPaths);
+  } else {
+    memcpy(&cpy->_u, &p->_u, sizeof(p->_u));
+  }
+
+  return (void*) cpy;
+}
+
+static void _path_delete(void* e, void* ignored)
+{
+  (void) ignored;
+  rooted_path_t* p = (rooted_path_t*) e;
+  pathDelete(p);
+}
+
+static rooted_path_t* pathNew(enum rooted_path_kind kind)
+{
+  rooted_path_t* p = (rooted_path_t*) calloc(1, sizeof(rooted_path_t));
+  p->_kind = kind;
+  if (kind == ROOTED_PATH_MULTI) {
+    p->_u._multiPaths = cupsArrayNew3(NULL, NULL, NULL, 0, _path_copy, _path_delete);
+  }
+  return p;
+}
+
+static const char* pathRoot(enum rooted_path_location root)
+{
+  switch (root) {
+    default:
+      return NULL;
+#define XX(yy)  case ROOTED_##yy: return yy
+      XX(ServerRoot);
+      XX(DocumentRoot);
+      XX(ConfigurationFile);
+      XX(CacheDir);
+      XX(AccessLog);
+      XX(ErrorLog);
+      XX(PageLog);
+#undef XX
+  }
+}
+
+#if DEBUG
+static char* pathDebugStr(rooted_path_t* p)
+{
+  if (p == NULL)
+    return strdup("NULL PATH (pass through)");
+  char* s = NULL;
+  switch (p->_kind) {
+    case ROOTED_PATH_INVALID:
+      asprintf(&s, "Path<%p> { Invalid }", p);
+      break;
+    case ROOTED_PATH_ONLY:
+      asprintf(&s, "Path<%p> { Rooted '%s' }", p, pathRoot(p->_u._root));
+      break;
+    case ROOTED_PATH_FULL:
+      asprintf(&s, "Path<%p> { Full '%s' }", p, p->_u._full_path);
+      break;
+    case ROOTED_PATH_PARTIAL:
+      asprintf(&s, "Path<%p> { Partial '%s', '%s' }", p, pathRoot(p->_u._partialParts._root_path), p->_u._partialParts._partial);
+      break;
+    case ROOTED_PATH_LANG_INDEX:
+      asprintf(&s, "Path<%p> { PartialLangIndex '%s', '%s', '%s' }", p, pathRoot(p->_u._partialPartsLang._root_path), p->_u._partialPartsLang._partial, p->_u._partialPartsLang._language);
+      break;
+    case ROOTED_PATH_MULTI:
+      asprintf(&s, "Path<%p> { Multi '%d' }", p, cupsArrayCount(p->_u._multiPaths));
+      break;
+  }
+  return s;
+}
+#endif
+
+static int _full_resolveAndOpen(const char* fullPath, struct stat* sb, char* dst, size_t dstLen)
+{
+  int fd = open(fullPath, O_RDONLY);
+
+  if (fd == -1) {
+    ppLog("FPR: can't open file '%s'", fullPath);
+    return -1;
+  }
+
+  int ok = fstat(fd, sb) == 0;
+
+  if (! ok) {
+    ppLog("FPR: can't stat open file fd %d path %s err %d/%s", fd, fullPath, errno, strerror(errno));
+  }
+
+  if (ok) {
+    ok = S_ISREG(sb->st_mode);
+    if (! ok) {
+      ppLog("FPR: open file fd %d path %s is not a regular file: %x", fd, fullPath, sb->st_mode);
+    }
+  }
+
+  if (! ok) {
+    close(fd);
+    return -1;
+  }
+
+  strlcpy(dst, fullPath, dstLen);
+
+  return fd;
+}
+
+static int _root_resolveAndOpen(enum rooted_path_location root, struct stat* sb, char* dst, size_t dstLen)
+{
+  return _full_resolveAndOpen(pathRoot(root), sb, dst, dstLen);
+}
+
+static int _partial_resolveAndOpen(const struct _rooted_path_parts* pp, struct stat* sb, char* dst, size_t dstLen)
+{
+  int root_fd = open(pathRoot(pp->_root_path), O_RDONLY | O_DIRECTORY);
+  if (root_fd == -1) {
+    ppLog("PPR: Can't open root '%s' %d/%s", pathRoot(pp->_root_path), errno, strerror(errno));
+    return -1;
+  }
+
+  int fd = openat(root_fd, pp->_partial, O_RDONLY | O_NOFOLLOW);
+
+  int serr = errno;
+  close(root_fd);
+  if (fd == -1) {
+    ppLog("PPR: Can't open partial '%s' / '%s' %d/%s", pathRoot(pp->_root_path), pp->_partial, serr, strerror(serr));
+    return -1;
+  }
+  if (fstat(fd, sb) != 0) {
+    ppLog("PPR: Can't fstat partial '%s' / '%s' %d/%s", pathRoot(pp->_root_path), pp->_partial, errno, strerror(errno));
+    close(fd);
+    return -1;
+  }
+  snprintf(dst, dstLen, "%s/%s", pathRoot(pp->_root_path), pp->_partial);
+  return fd;
+}
+
+static int permissions_check_file(const struct stat* sb)
+{
+  if (S_ISDIR(sb->st_mode)) {
+    return 0;
+  }
+
+  if (S_ISLNK(sb->st_mode)) {
+    return 0;
+  }
+
+  if ((sb->st_mode & S_IROTH) == 0) {
+    return 0;
+  }
+
+  return 1;
+}
+
+static int _partial_lang_resolveAndOpen(struct _rooted_path_parts_lang* pp, struct stat* sb, char* dst, size_t dstLen)
+{
+  // start with _root_path
+  // get to _root_path / _partial
+  // -> if its a file, we can return it
+  // -> if a directory, search for lang_loc/index.html, lang/index.html or index.html
+
+  rooted_path_t* pDir = pathNew_Partial(pp->_root_path, NULL, pp->_partial);
+  int fd = pathResolveAndOpen(pDir, sb, dst, dstLen);
+  pathDelete(pDir);
+
+  if (fd != -1) {
+    if (permissions_check_file(sb)) {
+      ppLog("PLR: Found an ok file: %s", dst);
+      return fd;
+    }
+
+    // going to try again
+    close(fd);
+  }
+
+  // If we got here, then we're looking at a directory - so we need to probe around the languages
+  // for index.html.  First XX_YY/index.html, then XX/index.html, finally index.html
+  char lang_dir[MAXPATHLEN];
+  strlcpy(lang_dir, pp->_language, sizeof(lang_dir));
+  for (int i = 0;  i < 3;  i++) {
+    switch (i) {
+      case 0:
+        break;
+      case 1:
+        lang_dir[2] = '\0';
+        break;
+      case 2:
+        lang_dir[0] = '\0';
+        break;
+    }
+
+    char index_name[MAXPATHLEN];
+    if (strlen(lang_dir) == 0)
+      strlcpy(index_name, "index.html", sizeof(index_name));
+    else {
+      snprintf(index_name, sizeof(index_name), "%s/%s", lang_dir, "index.html");
+    }
+
+    rooted_path_t* p = pathNew_Partial(pp->_root_path, pp->_partial, index_name);
+    fd = pathResolveAndOpen(p, sb, dst, dstLen);
+    pathDelete(p);
+
+    if (fd != -1) {
+      ppLog("PLR: Found a file candidate - %s", dst);
+
+      if (permissions_check_file(sb)) {
+        ppLog("PLR: using this file - %s", dst);
+        return fd;
+      }
+
+     ppLog("PLR: File %s is not a regular file!", dst);
+     close(fd);
+    }
+
+    if (strlen(lang_dir) == 0) {
+      break;
+    }
+  }
+
+  return -1;
+}
+
+static int _multi_resolveAndOpen(cups_array_t* arr, struct stat* sb, char* dst, size_t dstLen)
+{
+  for (void* e = cupsArrayFirst(arr);
+       e != NULL;
+       e = cupsArrayNext(arr)) {
+    rooted_path_t* p = (rooted_path_t*) e;
+
+    int fd = pathResolveAndOpen(p, sb, dst, dstLen);
+    if (fd != -1) {
+      ppLog("MPR: found fd %d path %s", fd, dst);
+      return fd;
+    }
+  }
+
+  return -1;
+}
+
+static int pathResolveAndOpen(rooted_path_t* p, struct stat* sb, char* dst, size_t dstLen)
+{
+  switch (p->_kind) {
+    case ROOTED_PATH_INVALID:
+      return -1;
+
+    case ROOTED_PATH_ONLY:
+      return _root_resolveAndOpen(p->_u._root, sb, dst, dstLen);
+
+    case ROOTED_PATH_FULL:
+      return _full_resolveAndOpen(p->_u._full_path, sb, dst, dstLen);
+
+    case ROOTED_PATH_PARTIAL:
+      return _partial_resolveAndOpen(&p->_u._partialParts, sb, dst, dstLen);
+
+    case ROOTED_PATH_LANG_INDEX:
+      return _partial_lang_resolveAndOpen(&p->_u._partialPartsLang, sb, dst, dstLen);
+
+    case ROOTED_PATH_MULTI:
+      return _multi_resolveAndOpen(p->_u._multiPaths, sb, dst, dstLen);
+  }
+
+  return -1;
+}
+
+static void pathDelete(rooted_path_t* p)
+{
+  if (p->_kind == ROOTED_PATH_MULTI) {
+    cupsArrayDelete(p->_u._multiPaths);
+  }
+  free(p);
+}
+
+static rooted_path_t* pathNew_Full(const char* path)
+{
+  rooted_path_t* p = pathNew(ROOTED_PATH_FULL);
+  strlcpy(p->_u._full_path, path, sizeof(p->_u._full_path));
+  return p;
+}
+
+static rooted_path_t* pathNew_Rooted(enum rooted_path_location root)
+{
+  rooted_path_t* p = pathNew(ROOTED_PATH_ONLY);
+  p->_u._root = root;
+  return p;
+}
+
+static rooted_path_t* pathNew_Partial(enum rooted_path_location root, const char* dir, const char* name)
+{
+  rooted_path_t* p = pathNew(ROOTED_PATH_PARTIAL);
+  struct _rooted_path_parts* pu = &p->_u._partialParts;
+
+  pu->_root_path = root;
+
+  if (dir == NULL || dir[0] == '\0')
+    strlcpy(pu->_partial, name, sizeof(pu->_partial));
+  else {
+    snprintf(pu->_partial, sizeof(pu->_partial), "%s/%s", dir, name);
+  }
+
+  return p;
+}
+
+static rooted_path_t* pathNew_PartialSuffix(enum rooted_path_location root, const char* dir, const char* name, const char* suffix)
+{
+  char tmp[MAXPATHLEN];
+  snprintf(tmp, sizeof(tmp), "%s%s", name, suffix);
+  return pathNew_Partial(root, dir, tmp);
+}
+
+static rooted_path_t* pathNew_PartialLang(enum rooted_path_location root, const char* partial, const char* lang)
+{
+  rooted_path_t* p = pathNew(ROOTED_PATH_LANG_INDEX);
+  struct _rooted_path_parts_lang* pu = &p->_u._partialPartsLang;
+
+  pu->_root_path = root;
+  if (partial && partial[0] == '/')
+    ++partial;
+  strlcpy(pu->_partial, partial, sizeof(pu->_partial));
+  if (lang == NULL)
+    pu->_language[0] = 0;
+  else {
+    strlcpy(pu->_language, lang, sizeof(pu->_language));
+  }
+
+  return p;
+}
+
+static void pathAddMulti(rooted_path_t* p, rooted_path_t* e)
+{
+  cupsArrayAdd(p->_u._multiPaths, e);
+}
+
+static rooted_path_t* newPrinterPaths(enum rooted_path_location root, const char* uri, const char* dir, const char* suffix)
+{
+  char dest[1024];
+  strlcpy(dest, strchr(uri + 1, '/') + 1, sizeof(dest));
+  dest[strlen(dest) - strlen(suffix)] = '\0'; /* Strip suffix */
+
+  cupsd_printer_t* found = cupsdFindDest(dest);
+  if (found == NULL) {
+    return NULL;
+  }
+
+  rooted_path_t* multi = pathNew(ROOTED_PATH_MULTI);
+
+  if ((found->type & CUPS_PRINTER_CLASS) == 0) {
+    rooted_path_t* pp = pathNew_PartialSuffix(root, dir, found->name, suffix);
+    pathAddMulti(multi, pp);
+    pathDelete(pp);
+  }  else {
+    for (int i = 0; i < found->num_printers; i ++) {
+      if ((found->printers[i]->type & CUPS_PRINTER_CLASS) == 0) {
+        rooted_path_t* pp = pathNew_PartialSuffix(root, dir, found->printers[i]->name, suffix);
+        pathAddMulti(multi, pp);
+        pathDelete(pp);
+      }
+    }
+  }
+
+  return multi;
+}
+
+/*
+ * basic replacement for the existing get_file
+ */
+static rooted_path_t* get_file_paths(const char* uri, const char* lang)
+{
+  /*
+   * Figure out the real filename...
+   */
+
+  if (!strncmp(uri, "/help", 5) && (uri[5] == '/' || !uri[5])) {
+    /*
+     * All help files are served by the help.cgi program...
+     */
+
+    return (NULL);
+  }
+
+  int is_ppd = 0 == strncmp(uri, "/ppd/", 5);
+  int is_prn = 0 == strncmp(uri, "/printers/", 10);
+  int is_cls = 0 == strncmp(uri, "/classes/", 9);
+  int is_icn = 0 == strncmp(uri, "/icons/", 7);
+  int is_rss = 0 == strncmp(uri, "/rss/", 5);
+  int is_str = 0 == strncmp(uri, "/strings/", 9);
+  int is_cnf = 0 == strncmp(uri, "/admin/conf/", 12);
+  int is_log = 0 == strncmp(uri, "/admin/log/", 11);
+
+  const char* suffix = strchr(uri, '.');
+
+  int is_ppd_suffix = (suffix && 0 == strcmp(suffix, ".ppd"));
+  int is_png_suffix = (suffix && 0 == strcmp(suffix, ".png"));
+  int is_str_suffix = (suffix && 0 == strcmp(suffix, ".strings"));
+
+  if (is_ppd_suffix && (is_ppd || is_prn || is_cls)) {
+    rooted_path_t* multi = newPrinterPaths(ROOTED_ServerRoot, uri, "ppd", ".ppd");
+    if (multi == NULL) {
+      ppLog("No destination found for \"%s\".", uri);
+      return pathNew(ROOTED_PATH_INVALID);
+    }
+    return multi;
+  } else if (is_png_suffix && (is_icn || is_prn || is_cls))  {
+    rooted_path_t* multi = newPrinterPaths(ROOTED_CacheDir, uri, "images", ".png");
+    if (multi == NULL) {
+      ppLog("No destination found for \"%s\".", uri);
+      return pathNew(ROOTED_PATH_INVALID);
+    }
+    rooted_path_t* genericPath = pathNew_Partial(ROOTED_DocumentRoot, "images", "generic.png");
+    pathAddMulti(multi, genericPath);
+    pathDelete(genericPath);
+    return multi;
+  } else if (!strncmp(uri, "/admin", 6) || !strncmp(uri, "/classes", 8) || !strncmp(uri, "/jobs", 5) || !strncmp(uri, "/printers", 9)) {
+    /*
+     * Admin/class/job/printer pages are served by CGI...
+     */
+
+    return NULL;
+  } else if (is_rss && !strchr(uri + 5, '/')) {
+    return pathNew_Partial(ROOTED_CacheDir, "rss", (uri + 5));
+  } else if (is_str && is_str_suffix) {
+    char dest[1024];
+    strlcpy(dest, uri + 9, sizeof(dest));
+    dest[strlen(dest) - 8] = '\0';
+
+    cupsd_printer_t* found = cupsdFindDest(dest);
+
+    if (found == NULL) {
+      ppLog("No destination \"%s\" found.", dest);
+      return pathNew(ROOTED_PATH_INVALID);
+    }
+
+    if ((found->type & CUPS_PRINTER_CLASS) != 0) {
+      ppLog("No strings files for class \"%s\".", dest);
+      return pathNew(ROOTED_PATH_INVALID);
+    }
+
+    if (found->strings == NULL) {
+      ppLog("No strings files for \"%s\".", dest);
+      return pathNew(ROOTED_PATH_INVALID);
+    }
+
+    return pathNew_Full(found->strings);
+  }
+  else if (is_cnf && (0 == strcmp(uri, "/admin/conf/cupsd.conf"))) {
+    // based on the existing get_file, this case never gets hit - consumed bin /admin going to CGI above...
+    // so kept here for consistency...
+    return pathNew_Rooted(ROOTED_ConfigurationFile);
+  }  else if (is_log) {
+    enum rooted_path_location where = ROOTED_Invalid;
+
+    if (!strncmp(uri + 11, "access_log", 10) && AccessLog[0] == '/')
+      where = ROOTED_AccessLog;
+    else if (!strncmp(uri + 11, "error_log", 9) && ErrorLog[0] == '/')
+      where = ROOTED_ErrorLog;
+    else if (!strncmp(uri + 11, "page_log", 8) && PageLog[0] == '/')
+      where = ROOTED_PageLog;
+
+    if (where == ROOTED_Invalid)
+      return pathNew(ROOTED_PATH_INVALID);
+    else {
+      return pathNew_Rooted(where);
+    }
+  }  else {
+    return pathNew_PartialLang(ROOTED_DocumentRoot, uri, lang);
+  }
+
+  return NULL;
+}
+
+static void
+rf_get_file(cupsd_client_t* con, rf_file_t* file)
+{
+  bzero(file, sizeof(*file));
+  file->_disposition = RF_MISSING;
+  file->_fd = -1;
+
+  rooted_path_t* p = get_file_paths(con->uri, con->language == NULL? NULL : con->language->language);
+
+  if (p == NULL) {
+    // file should be handled as a cgi
+    file->_disposition = RF_PASS_ON;
+    return;
+  }
+
+  file->_fd = pathResolveAndOpen(p, &file->_filestats, file->_filename, sizeof(file->_filename));
+
+#if DEBUG
+  {
+    char* s = pathDebugStr(p);
+    ppLog("rf_get_file: fd %d for %s", file->_fd, s);
+    free(s);
+  }
+#endif
+
+  pathDelete(p);
+
+  if (file->_fd == -1) {
+    // file should have been there,
+    // or it was there, but we don't want to use it (its a symlink or something)
+    file->_disposition = RF_MISSING;
+    return;
+  }
+
+  file->_disposition = RF_FOUND;
 }

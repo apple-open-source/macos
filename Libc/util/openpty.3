@@ -45,11 +45,11 @@
 .Sh SYNOPSIS
 .Fd #include <util.h>
 .Ft int
-.Fn openpty "int *amaster" "int *aslave" "char *name" "struct termios *termp" "struct winsize *winp"
+.Fn openpty "int *aprimary" "int *areplica" "char *name" "struct termios *termp" "struct winsize *winp"
 .Ft int
 .Fn login_tty "int fd"
 .Ft pid_t
-.Fn forkpty "int *amaster" "char *name" "struct termios *termp" "struct winsize *winp"
+.Fn forkpty "int *aprimary" "char *name" "struct termios *termp" "struct winsize *winp"
 .Sh DESCRIPTION
 The
 .Fn openpty ,
@@ -61,29 +61,29 @@ functions perform manipulations on ttys and pseudo-ttys.
 The
 .Fn openpty
 function allocates a pseudo-tty and returns file descriptors
-for the master and slave in
-.Fa amaster
+for the primary and replica in
+.Fa aprimary
 and
-.Fa aslave .
+.Fa areplica .
 If
 .Fa name
-is non-null, the filename of the slave is returned in
+is non-null, the filename of the replica is returned in
 .Fa name .
 If
 .Fa termp
-is non-null, the terminal parameters of the slave will be set to the
+is non-null, the terminal parameters of the replica will be set to the
 values in
 .Fa termp .
 If
 .Fa winp
-is non-null, the window size of the slave will be set to the values in
+is non-null, the window size of the replica will be set to the values in
 .Fa winp .
 .Pp
 The
 .Fn login_tty
 function prepares for a login on the tty
 .Fa fd
-(which may be a real tty device, or the slave of a pseudo-tty as
+(which may be a real tty device, or the replica of a pseudo-tty as
 returned by
 .Fn openpty )
 by creating a new session, making
@@ -102,16 +102,16 @@ function combines
 and
 .Fn login_tty
 to creates a new process operating in a pseudo-tty.  The file
-descriptor of the master side of the pseudo-tty is returned in
-.Fa amaster ,
-and the filename of the slave in
+descriptor of the primary side of the pseudo-tty is returned in
+.Fa aprimary ,
+and the filename of the replica in
 .Fa name
 if it is non-null.  The
 .Fa termp
 and
 .Fa winp
 parameters, if non-null, will determine the terminal attributes and
-window size of the slave side of the pseudo-tty.
+window size of the replica side of the pseudo-tty.
 .Sh RETURN VALUES
 If a call to
 .Fn openpty ,
@@ -153,7 +153,7 @@ fails.
 .It Pa /dev/ptmx
 cloning pseudo-tty device
 .It Pa /dev/ttys[0-9][0-9][0-9]
-slave pseudo-tty devices
+replica pseudo-tty devices
 .El
 .Sh SEE ALSO
 .Xr fork 2

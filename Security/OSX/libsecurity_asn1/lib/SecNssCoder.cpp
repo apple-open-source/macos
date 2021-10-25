@@ -27,12 +27,15 @@
 #include <TargetConditionals.h>
 #if TARGET_OS_OSX
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wsign-conversion"
 #include "SecNssCoder.h"
 #include <Security/cssmerr.h>
 #include <security_utilities/utilities.h>
 #include <security_asn1/secasn1.h>
 #include <string.h>
 #include <security_utilities/simulatecrash_assert.h>
+#pragma clang diagnostic pop
 
 #ifdef	NDEBUG
 #define THROW_ENABLE	1
@@ -105,7 +108,7 @@ PRErrorCode SecNssCoder::encodeItem(
 	}
 }
 
-void *SecNssCoder::malloc(size_t len)
+void *SecNssCoder::alloc(size_t len)
 {
 	assert(mPool != NULL);
 	void *rtn = PORT_ArenaAlloc(mPool, len);
@@ -124,7 +127,7 @@ void *SecNssCoder::malloc_T(
         THROW_ERROR;
         return NULL;
     }
-    return malloc(unit_bytesize * num_units);
+    return alloc(unit_bytesize * num_units);
 }
 
 
@@ -133,7 +136,7 @@ void SecNssCoder::allocItem(
 	SECItem					&item,
 	size_t					len)
 {
-	item.Data = (uint8 *)malloc(len);
+	item.Data = (uint8 *)alloc(len);
 	item.Length = len;
 }
 

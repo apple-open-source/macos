@@ -46,6 +46,7 @@
 #include <kern/sched_prim.h>            /* for thread_wakeup() */
 #include <kern/thread_call.h>
 #include <kern/task.h>
+#include <machine/atomic.h>
 
 extern struct arm_saved_state *find_kern_regs(thread_t);
 
@@ -68,13 +69,13 @@ struct frame {
 inline void
 dtrace_membar_producer(void)
 {
-	__asm__ volatile ("dmb ish" : : : "memory");
+	__builtin_arm_dmb(DMB_ISH);
 }
 
 inline void
 dtrace_membar_consumer(void)
 {
-	__asm__ volatile ("dmb ish" : : : "memory");
+	__builtin_arm_dmb(DMB_ISH);
 }
 
 /*
@@ -177,6 +178,14 @@ dtrace_getvmreg(uint_t ndx)
 #pragma unused(ndx)
 	DTRACE_CPUFLAG_SET(CPU_DTRACE_ILLOP);
 	return 0;
+}
+
+void
+dtrace_livedump(char *filename, size_t len)
+{
+#pragma unused(filename)
+#pragma unused(len)
+	DTRACE_CPUFLAG_SET(CPU_DTRACE_ILLOP);
 }
 
 #define RETURN_OFFSET64 8

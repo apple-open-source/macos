@@ -477,7 +477,10 @@ CFStringRef SecLogAPICreate(bool apiIn, const char *api, CFStringRef format, ...
     
     if (apiIn) {
         char caller_info[80];
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wframe-address"
         snprintf(caller_info, sizeof(caller_info), "C%p F%p", __builtin_return_address(1), __builtin_frame_address(2));
+#pragma clang diagnostic pop
         CFStringAppend(outStr, CFSTR("CALLER "));
         CFStringAppendCString(outStr, caller_info, kCFStringEncodingASCII);
     }

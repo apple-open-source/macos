@@ -33,6 +33,7 @@
 #include <stdint.h>
 #include <sys/types.h>
 #include <Security/SecRandom.h>
+#include <CoreFoundation/CoreFoundation.h>
 
 #if defined(__cplusplus)
 extern "C" {

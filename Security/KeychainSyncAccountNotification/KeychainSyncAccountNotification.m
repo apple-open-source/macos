@@ -11,10 +11,18 @@
 #import <Security/SecureObjectSync/SOSCloudCircle.h>
 #import <AuthKit/AuthKit.h>
 #import <AuthKit/AuthKit_Private.h>
+
 #if OCTAGON
-#import <keychain/ot/OTControl.h>
-#include <utilities/SecCFRelease.h>
-#endif
+#import "keychain/ot/OTControl.h"
+#include "utilities/SecCFRelease.h"
+
+#import "ipc/securityd_client.h"
+#if KEYCHAIN_SUPPORTS_PERSONA_MULTIUSER
+#import <UserManagement/UserManagement.h>
+#endif // KEYCHAIN_SUPPORTS_PERSONA_MULTIUSER
+
+#endif // OCTAGON
+
 #import "utilities/debugging.h"
 #import "OT.h"
 
@@ -37,31 +45,33 @@
         SOSCCLoggedIntoAccount(NULL);
 
 #if OCTAGON
-        if(OctagonIsEnabled()){
-            NSString* altDSID =  [account aa_altDSID];
-            secnotice("octagon-account", "Received an primary Apple account modification (altDSID %@)", altDSID);
+        NSString* altDSID =  [account aa_altDSID];
 
-            __block NSError* error = nil;
+#if KEYCHAIN_SUPPORTS_PERSONA_MULTIUSER
+        UMUserPersona * persona = [[UMUserManager sharedManager] currentPersona];
+        secnotice("octagon-account", "Received an primary Apple account modification (altDSID %@, persona %@(%d))", altDSID, persona.userPersonaUniqueString, (int)persona.userPersonaType);
+#else
+        secnotice("octagon-account", "Received an primary Apple account modification (altDSID %@)", altDSID);
+#endif  // KEYCHAIN_SUPPORTS_PERSONA_MULTIUSER
 
-            // Use asynchronous XPC here for speed and just hope it works
-            OTControl* otcontrol = [OTControl controlObject:false error:&error];
-            
-            if (nil == otcontrol) {
-                secerror("octagon-account: Failed to get OTControl: %@", error.localizedDescription);
-            } else {
-                [otcontrol signIn:altDSID container:nil context:OTDefaultContext reply:^(NSError * _Nullable signedInError) {
-                    // take a retain on otcontrol so it won't invalidate the connection
-                    (void)otcontrol;
+        __block NSError* error = nil;
 
-                    if(signedInError) {
-                        secerror("octagon-account: error signing in: %s", [[signedInError description] UTF8String]);
-                    } else {
-                        secnotice("octagon-account", "account now signed in for octagon operation");
-                    }
-                }];
-            }
-        }else{
-            secerror("Octagon not enabled; not signing in");
+        // Use asynchronous XPC here for speed and just hope it works
+        OTControl* otcontrol = [OTControl controlObject:false error:&error];
+        
+        if (nil == otcontrol) {
+            secerror("octagon-account: Failed to get OTControl: %@", error.localizedDescription);
+        } else {
+            [otcontrol signIn:altDSID container:nil context:OTDefaultContext reply:^(NSError * _Nullable signedInError) {
+                // take a retain on otcontrol so it won't invalidate the connection
+                (void)otcontrol;
+
+                if(signedInError) {
+                    secerror("octagon-account: error signing in: %s", [[signedInError description] UTF8String]);
+                } else {
+                    secnotice("octagon-account", "account now signed in for octagon operation");
+                }
+            }];
         }
 #endif
     }
@@ -70,8 +80,14 @@
 
 #if OCTAGON
     if([account.accountType.identifier isEqualToString: ACAccountTypeIdentifierIDMS]) {
-        NSString* altDSID = [account aa_altDSID];;
-        secnotice("octagon-authkit", "Received an IDMS account modification (altDSID: %@)", altDSID);
+        NSString* altDSID = [account aa_altDSID];
+
+#if KEYCHAIN_SUPPORTS_PERSONA_MULTIUSER
+        UMUserPersona * persona = [[UMUserManager sharedManager] currentPersona];
+        secnotice("octagon-account", "Received an IDMS account modification (altDSID: %@, persona %@(%d))", altDSID, persona.userPersonaUniqueString, (int)persona.userPersonaType);
+#else
+        secnotice("octagon-account", "Received an IDMS account modification (altDSID: %@)", altDSID);
+#endif // KEYCHAIN_SUPPORTS_PERSONA_MULTIUSER
 
         AKAccountManager *manager = [AKAccountManager sharedInstance];
 
@@ -79,35 +95,40 @@
         AKAppleIDSecurityLevel newSecurityLevel = [manager securityLevelForAccount:account];
 
         if(oldSecurityLevel != newSecurityLevel) {
-            secnotice("octagon-authkit", "IDMS security level has now moved to %ld for altDSID %@", (unsigned long)newSecurityLevel, altDSID);
+            secnotice("octagon-account", "IDMS security level has now moved to %ld for altDSID %@", (unsigned long)newSecurityLevel, altDSID);
 
             __block NSError* error = nil;
             // Use an asynchronous otcontrol for Speed But Not Necessarily Correctness
             OTControl* otcontrol = [OTControl controlObject:false error:&error];
             if(!otcontrol || error) {
-                secerror("octagon-authkit: Failed to get OTControl: %@", error);
+                secerror("octagon-account: Failed to get OTControl: %@", error);
             } else {
                  [otcontrol notifyIDMSTrustLevelChangeForContainer:nil context:OTDefaultContext reply:^(NSError * _Nullable idmsError) {
                      // take a retain on otcontrol so it won't invalidate the connection
                      (void)otcontrol;
 
                      if(idmsError) {
-                         secerror("octagon-authkit: error with idms trust level change in: %s", [[idmsError description] UTF8String]);
+                         secerror("octagon-account: error with idms trust level change in: %s", [[idmsError description] UTF8String]);
                      } else {
-                         secnotice("octagon-authkit", "informed octagon of IDMS trust level change");
+                         secnotice("octagon-account", "informed octagon of IDMS trust level change");
                      }
                 }];
             }
 
         } else {
-            secnotice("octagon-authkit", "No change to IDMS security level (%lu) for altDSID %@", (unsigned long)newSecurityLevel, altDSID);
+            secnotice("octagon-account", "No change to IDMS security level (%lu) for altDSID %@", (unsigned long)newSecurityLevel, altDSID);
         }
     }
 #endif
 
     if ((changeType == kACAccountChangeTypeDeleted) && [oldAccount.accountType.identifier isEqualToString:ACAccountTypeIdentifierAppleAccount]) {
         NSString* altDSID =  [oldAccount aa_altDSID];
+#if KEYCHAIN_SUPPORTS_PERSONA_MULTIUSER
+        UMUserPersona * persona = [[UMUserManager sharedManager] currentPersona];
+        secnotice("octagon-account", "Received an Apple account deletion (altDSID: %@, persona %@(%d))", altDSID, persona.userPersonaUniqueString, (int)persona.userPersonaType);
+#else
         secnotice("octagon-account", "Received an Apple account deletion (altDSID %@)", altDSID);
+#endif // KEYCHAIN_SUPPORTS_PERSONA_MULTIUSER
 
         NSString *accountIdentifier = oldAccount.identifier;
         NSString *username = oldAccount.username;
@@ -123,28 +144,24 @@
                 }
 
 #if OCTAGON
-                if(OctagonIsEnabled()){
-                    __block NSError* error = nil;
+                __block NSError* error = nil;
 
-                    // Use an asynchronous control for Speed
-                    OTControl* otcontrol = [OTControl controlObject:false error:&error];
+                // Use an asynchronous control for Speed
+                OTControl* otcontrol = [OTControl controlObject:false error:&error];
 
-                    if (nil == otcontrol) {
-                        secerror("octagon-account: Failed to get OTControl: %@", error.localizedDescription);
-                    } else {
-                        [otcontrol signOut:nil context:OTDefaultContext reply:^(NSError * _Nullable signedInError) {
-                            // take a retain on otcontrol so it won't invalidate the connection
-                            (void)otcontrol;
-
-                            if(signedInError) {
-                                secerror("octagon-account: error signing out: %s", [[signedInError description] UTF8String]);
-                            } else {
-                                secnotice("octagon-account", "signed out of octagon trust");
-                            }
-                        }];
-                    }
+                if (nil == otcontrol) {
+                    secerror("octagon-account: Failed to get OTControl: %@", error.localizedDescription);
                 } else {
-                    secerror("Octagon not enabled; not signing out");
+                    [otcontrol signOut:nil context:OTDefaultContext reply:^(NSError * _Nullable signedInError) {
+                        // take a retain on otcontrol so it won't invalidate the connection
+                        (void)otcontrol;
+
+                        if(signedInError) {
+                            secerror("octagon-account: error signing out: %s", [[signedInError description] UTF8String]);
+                        } else {
+                            secnotice("octagon-account", "signed out of octagon trust");
+                        }
+                    }];
                 }
 #endif
             }

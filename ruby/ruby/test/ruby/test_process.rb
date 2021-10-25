@@ -1400,6 +1400,14 @@ class TestProcess < Test::Unit::TestCase
     }
   end
 
+  def test_argv0_keep_alive
+    assert_in_out_err([], <<~REPRO, ['-'], [], "[Bug #15887]")
+      $0 = "diverge"
+      4.times { GC.start }
+      puts Process.argv0
+    REPRO
+  end
+
   def test_status
     with_tmpchdir do
       s = run_in_child("exit 1")
@@ -2378,6 +2386,15 @@ EOS
     w.close if w
     r.close if r
   end if defined?(fork)
+
+  def test_rescue_exec_fail
+    assert_separately([], "#{<<~"begin;"}\n#{<<~'end;'}")
+    begin;
+      assert_raise(Errno::ENOENT) do
+        exec("", in: "")
+      end
+    end;
+  end
 
   def test_many_args
     bug11418 = '[ruby-core:70251] [Bug #11418]'

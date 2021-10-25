@@ -45,6 +45,12 @@ char data_volume[EDTVolumePropertySize] = {};
 
 static uint32_t edt_os_environment = EDT_OS_ENV_MAIN;
 
+/*
+ * The number of attempts to retry our container matching loop
+ * when an error occurs.
+ */
+#define CONTAINER_LOOKUP_RETRY_COUNT 6
+
 const char *
 get_boot_container(uint32_t *os_envp)
 {
@@ -75,22 +81,37 @@ get_boot_container(uint32_t *os_envp)
 	*os_envp = edt_os_environment;
 
 	// lookup the boot container
-	err = APFSContainerGetBootDevice(&container);
-	if (!err) {
-		strcpy(boot_container, _PATH_DEV);
-		CFStringGetCString(container,
-						   boot_container + strlen(_PATH_DEV),
-						   EDTVolumePropertySize - strlen(_PATH_DEV),
-						   kCFStringEncodingUTF8);
-		CFRelease(container);
-		return boot_container;
-	} else {
-		// just a warning if not booting the main OS (rdar://48693021)
-		fprintf(stderr, "%sfailed to get boot device - %s\n",
-				(edt_os_environment == EDT_OS_ENV_MAIN) ? "" : "warning: ",
-				strerror(err_get_code(err)));
-		return NULL;
-	}
+	int retry_count = CONTAINER_LOOKUP_RETRY_COUNT;
+	do {
+		err = APFSContainerGetBootDevice(&container);
+		if (!err) {
+			strcpy(boot_container, _PATH_DEV);
+			CFStringGetCString(container,
+							   boot_container + strlen(_PATH_DEV),
+							   EDTVolumePropertySize - strlen(_PATH_DEV),
+							   kCFStringEncodingUTF8);
+			CFRelease(container);
+			return boot_container;
+		} else {
+			// just a warning if not booting the main OS (rdar://48693021)
+			fprintf(stderr, "%sfailed to get boot device - %s\n",
+					(edt_os_environment == EDT_OS_ENV_MAIN) ? "" : "warning: ",
+					strerror(err_get_code(err)));
+			if (edt_os_environment == EDT_OS_ENV_MAIN) {
+				// don't retry
+				return NULL;
+			}
+		}
+
+		// FIXME: Use API like IOServiceAddMatchingNotification()
+		// to properly wait for the arrival of the boot device.
+		sleep(1);
+		if (--retry_count > 0) {
+			fprintf(stderr, "Retrying (%d retries left)...\n", retry_count);
+		}
+	} while (retry_count > 0);
+
+	return NULL;
 }
 
 const char *

@@ -1,8 +1,4 @@
-/*	$OpenBSD: inp.h,v 1.8 2003/08/15 08:00:51 otto Exp $	*/
-
-/*
- * patch - a program to apply diffs to original files
- * 
+/*-
  * Copyright 1986, Larry Wall
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -22,8 +18,13 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  * 
+ * patch - a program to apply diffs to original files
+ *
  * -C option added in 1998, original code by Marc Espie, based on FreeBSD
  * behaviour
+ *
+ * $OpenBSD: inp.h,v 1.8 2003/08/15 08:00:51 otto Exp $
+ * $FreeBSD$
  */
 
 void		re_input(void);

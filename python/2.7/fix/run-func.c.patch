@@ -1,0 +1,19 @@
+--- run-func.c.orig	2021-06-07 12:35:05.000000000 -0700
++++ run-func.c	2021-06-07 14:19:06.000000000 -0700
+@@ -1,5 +1,7 @@
+ #include <Python.h>
+ 
++extern void Py_InitializeWithoutMetrics(void);
++
+ int
+ main(int argc, char *argv[])
+ {
+@@ -12,7 +14,7 @@
+         return 1;
+     }
+ 
+-    Py_Initialize();
++    Py_InitializeWithoutMetrics();
+     pName = PyString_FromString(argv[1]);
+     /* Error checking of pName left out */
+ 

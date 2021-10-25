@@ -180,7 +180,7 @@ FSOPS_CopyVolumeLabelFromVolumeEntry(FileSystemRecord_s *psFSRecord, struct dosd
 }
 
 static void
-FSOPS_InitReadBootSectorAndSetFATType(void** ppvBootSector,FileSystemRecord_s *psFSRecord,int* piErr,uint32_t uBytesPerSector, bool bFailForDirty)
+FSOPS_InitReadBootSectorAndSetFATType(void** ppvBootSector, FileSystemRecord_s *psFSRecord, int* piErr, uint32_t uBytesPerSector, bool bFailForDirty)
 {
     //Read boot sector for MSDOS_Mount and validate
     *ppvBootSector = malloc(uBytesPerSector);
@@ -998,6 +998,9 @@ MSDOS_Mount (int iDiskFd, UVFSVolumeId volId, __unused UVFSMountFlags mountFlags
     DIROPS_InitDirEntryLockList(psFSRecord);
 
     psFSRecord->uPreAllocatedOpenFiles = 0;
+    
+    // Init counter for file ids of zero-length files (starts at 0xFFFFFFFFFFFFFFFF and is decremented until wrapping around at 0xFFFFFFFFF00000000)
+    psFSRecord->uNextAvailableFileID = ATOMIC_VAR_INIT( ZERO_LENGTH_INITIAL_FILEID );
 
     //Init chain cache
     FILERECORD_InitChainCache(psFSRecord);

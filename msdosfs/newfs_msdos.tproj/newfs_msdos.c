@@ -301,7 +301,7 @@ enum {
  */
 
 struct DiskSizeToClusterSize {
-    u_int32_t kilobytes;	    /* input: maximum kilobytes */
+    u_int64_t kilobytes;	    /* input: maximum kilobytes */
     u_int32_t bytes_per_cluster;    /* output: desired cluster size (in bytes) */
 };
 
@@ -313,15 +313,17 @@ struct DiskSizeToClusterSize fat16Sizes[] = {
     { 524288,     8192},    /* Disks up to 512 MB => 8 KB cluster */
     /* The following entries are used only if FAT16 is forced */
     {1048576,    16384},    /* Disks up to 1 GB => 16 KB cluster */
-    {UINT32_MAX, 32768}	    /* Disks over 2 GB => 32KB cluster (total size may be limited) */
+    {2097152,    32768},    /* Disks up to 2 GB => 32KB cluster (total size may be limited) */
+    {UINT64_MAX,     0}     // Hard stop
 };
 struct DiskSizeToClusterSize fat32Sizes[] = {
-    {   33300,       0},    /* Disks up to 32.5 MB; the 0 triggers an error */
-    {  266240,     512},    /* Disks up to 260 MB => 512 byte cluster; not used unles FAT32 forced */
-    { 8388608,    4096},    /* Disks up to   8 GB =>  4 KB cluster */
-    {16777216,    8192},    /* Disks up to  16 GB =>  8 KB cluster */
-    {33554432,   16384},    /* Disks up to  32 GB => 16 KB cluster */
-    {UINT32_MAX, 32768}	    /* Disks over 32 GB => 32 KB cluster */
+    {   33300,        0},    /* Disks up to 32.5 MB; the 0 triggers an error */
+    {  266240,      512},    /* Disks up to 260 MB => 512 byte cluster; not used unles FAT32 forced */
+    { 8388608,     4096},    /* Disks up to   8 GB =>  4 KB cluster */
+    {16777216,     8192},    /* Disks up to  16 GB =>  8 KB cluster */
+    {33554432,    16384},    /* Disks up to  32 GB => 16 KB cluster */
+    {17179869184, 32768},    /* Disks up to  16 TB => 32 KB cluster */
+    {UINT64_MAX,      0}     // Hard stop
 };
 
 enum SDCardType {
@@ -651,21 +653,25 @@ main(int argc, char *argv[])
 	    }
 	    break;
 	case 16:
-	    for (x=0; kilobytes > fat16Sizes[x].kilobytes; ++x)
-		;
-	    bytes_per_cluster = fat16Sizes[x].bytes_per_cluster;
-	    if (bytes_per_cluster < bpb.bps)
-		bytes_per_cluster = bpb.bps;
-	    bpb.spc = bytes_per_cluster / bpb.bps;
-	    break;
-	case 32:
-	    for (x=0; kilobytes > fat32Sizes[x].kilobytes; ++x)
-		;
-	    bytes_per_cluster = fat32Sizes[x].bytes_per_cluster;
-	    if (bytes_per_cluster < bpb.bps)
-		bytes_per_cluster = bpb.bps;
-	    bpb.spc = bytes_per_cluster / bpb.bps;
-	    break;
+            for (x=0; kilobytes > fat16Sizes[x].kilobytes; ++x)
+                ;
+            bytes_per_cluster = fat16Sizes[x].bytes_per_cluster;
+            if (!bytes_per_cluster)
+                errx(1, "FAT%d is impossible for disk size of %lluKiB", fat, kilobytes);
+            if (bytes_per_cluster < bpb.bps)
+                bytes_per_cluster = bpb.bps;
+            bpb.spc = bytes_per_cluster / bpb.bps;
+            break;
+        case 32:
+            for (x=0; kilobytes > fat32Sizes[x].kilobytes; ++x)
+                ;
+            bytes_per_cluster = fat32Sizes[x].bytes_per_cluster;
+            if (!bytes_per_cluster)
+                errx(1, "FAT%d is impossible for disk size of %lluKiB", fat, kilobytes);
+            if (bytes_per_cluster < bpb.bps)
+                bytes_per_cluster = bpb.bps;
+            bpb.spc = bytes_per_cluster / bpb.bps;
+            break;
 	default:
 	    errx(1, "Invalid FAT type: %d", fat);
 	    break;
@@ -1071,10 +1077,21 @@ getdiskinfo(int fd, const char *fname, const char *dtype, int oflag,
      * preparation for copying to a device with a different sector size.
      */
     if (bpb->bps && !bpb->bsec)
-	    bpb->bsec = (u_int)((block_count * block_size) / bpb->bps);
+    {
+        u_int64_t bsec = (block_count * block_size) / bpb->bps;
+        if (bsec > UINT32_MAX)
+            err(1, "%s: Drive is too large, the number of blocks is larger than any FAT FS can support", fname);
+
+        bpb->bsec = (u_int)bsec;
+    }
 
     if (!bpb->bsec)
-	    bpb->bsec = (u_int)block_count;
+    {
+        if (block_count > UINT32_MAX)
+            err(1, "%s: Drive is too large, the number of blocks is larger than any FAT FS can support", fname);
+
+	bpb->bsec = (u_int)block_count;
+    }
 
     if (!bpb->bps)
 	    bpb->bps = block_size;
@@ -1147,8 +1164,8 @@ static enum SDCardType sd_card_type_for_path(const char *path)
      */
     if (disk)
     {
-	obj = IOServiceGetMatchingService(kIOMasterPortDefault,
-					  IOBSDNameMatching(kIOMasterPortDefault, 0, disk));
+	obj = IOServiceGetMatchingService(kIOMainPortDefault,
+					  IOBSDNameMatching(kIOMainPortDefault, 0, disk));
     }
     
     /* See if the object has a card characteristics dictionary. */

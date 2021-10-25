@@ -167,62 +167,6 @@ loadlib(krb5_context context, char *path)
 }
 #endif /* HAVE_DLOPEN */
 
-/**
- * Register a plugin symbol name of specific type.
- * @param context a Keberos context
- * @param type type of plugin symbol
- * @param name name of plugin symbol
- * @param symbol a pointer to the named symbol
- * @return In case of error a non zero error com_err error is returned
- * and the Kerberos error string is set.
- *
- * @ingroup krb5_support
- */
-
-KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
-krb5_plugin_register(krb5_context context,
-		     enum krb5_plugin_type type,
-		     const char *name,
-		     void *symbol)
-{
-    struct plugin *e;
-
-    HEIMDAL_MUTEX_lock(&plugin_mutex);
-
-    /* check for duplicates */
-    for (e = registered; e != NULL; e = e->next) {
-	if (e->type == SYMBOL &&
-	    strcmp(e->u.symbol.name, name) == 0 &&
-	    e->u.symbol.type == type && e->u.symbol.symbol == symbol) {
-	    HEIMDAL_MUTEX_unlock(&plugin_mutex);
-	    return 0;
-	}
-    }
-
-    e = calloc(1, sizeof(*e));
-    if (e == NULL) {
-	HEIMDAL_MUTEX_unlock(&plugin_mutex);
-	krb5_set_error_message(context, ENOMEM, "malloc: out of memory");
-	return ENOMEM;
-    }
-    e->type = SYMBOL;
-    e->u.symbol.type = type;
-    e->u.symbol.name = strdup(name);
-    if (e->u.symbol.name == NULL) {
-	HEIMDAL_MUTEX_unlock(&plugin_mutex);
-	free(e);
-	krb5_set_error_message(context, ENOMEM, "malloc: out of memory");
-	return ENOMEM;
-    }
-    e->u.symbol.symbol = symbol;
-
-    e->next = registered;
-    registered = e;
-    HEIMDAL_MUTEX_unlock(&plugin_mutex);
-
-    return 0;
-}
-
 static int
 is_valid_plugin_filename(const char * n)
 {
@@ -435,7 +379,7 @@ _krb5_plugin_free(struct krb5_plugin *list)
 /*
  * module - dict of {
  *      ModuleName = [
- *          plugin = object{ 
+ *          plugin = object{
  *              array = { ptr, ctx }
  *          }
  *      ]
@@ -708,6 +652,138 @@ struct iter_ctx {
     void *userctx;
     krb5_error_code ret;
 };
+
+
+/**
+ * Register a plugin symbol name of specific type.
+ * @param context a Keberos context
+ * @param modulename name of the plugin module
+ * @param type type of plugin symbol
+ * @param name name of plugin symbol
+ * @param symbol a pointer to the named symbol
+ * @return In case of error a non zero error com_err error is returned
+ * and the Kerberos error string is set.
+ *
+ * @ingroup krb5_support
+ */
+
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
+krb5_plugin_register_module(krb5_context context,
+		     const char *modulename,
+		     enum krb5_plugin_type type,
+		     const char *name,
+		     void *symbol)
+{
+
+    struct plugin *e;
+
+    HEIMDAL_MUTEX_lock(&plugin_mutex);
+
+    if (modulename) {
+	struct plugin2 *p;
+
+	heim_dict_t module;
+
+	//create the modules dict, if it doesnt exist
+	if (modules == NULL) {
+	    modules = heim_dict_create(11);
+	    if (modules == NULL) {
+		HEIMDAL_MUTEX_unlock(&plugin_mutex);
+		return 1;
+	    }
+	}
+
+	heim_string_t module_name = heim_string_create(modulename);
+	//create the dict for the specific module, if it doesnt exist
+	module = heim_dict_copy_value(modules, module_name);
+	if (module == NULL) {
+	    module = heim_dict_create(11);
+	    if (module == NULL) {
+		HEIMDAL_MUTEX_unlock(&plugin_mutex);
+		heim_release(module_name);
+		return 1;
+	    }
+	    heim_dict_set_value(modules, module_name, module);
+	}
+	heim_release(module_name);
+
+	char *plug_name;
+	asprintf(&plug_name, "%p", symbol);
+	heim_string_t plugin_name = heim_string_create(plug_name);
+
+	//check if the plugin exists or not
+	p = heim_dict_copy_value(module, plugin_name);
+	if (p == NULL) {
+	    p = heim_uniq_alloc(sizeof(*p), "krb5-plugin", plug_dealloc);
+	    if (p) {
+		p->names = heim_dict_create(11);
+		heim_dict_set_value(module, plugin_name, p);
+
+		//add the plug struct for the symbol for the reference to the function
+		struct plug *pl;
+		pl = heim_uniq_alloc(sizeof(*pl), "struct-plug", plug_free);
+		pl->dataptr = symbol;
+
+		heim_dict_set_value(p->names, heim_string_create(name), pl);
+
+	    }
+	}
+	heim_release(p);
+    }
+    /* check for duplicates */
+    for (e = registered; e != NULL; e = e->next) {
+	if (e->type == SYMBOL &&
+	    strcmp(e->u.symbol.name, name) == 0 &&
+	    e->u.symbol.type == type && e->u.symbol.symbol == symbol) {
+	    HEIMDAL_MUTEX_unlock(&plugin_mutex);
+	    return 0;
+	}
+    }
+
+    e = calloc(1, sizeof(*e));
+    if (e == NULL) {
+	HEIMDAL_MUTEX_unlock(&plugin_mutex);
+	krb5_set_error_message(context, ENOMEM, "malloc: out of memory");
+	return ENOMEM;
+    }
+    e->type = SYMBOL;
+    e->u.symbol.type = type;
+    e->u.symbol.name = strdup(name);
+    if (e->u.symbol.name == NULL) {
+	HEIMDAL_MUTEX_unlock(&plugin_mutex);
+	free(e);
+	krb5_set_error_message(context, ENOMEM, "malloc: out of memory");
+	return ENOMEM;
+    }
+    e->u.symbol.symbol = symbol;
+
+    e->next = registered;
+    registered = e;
+    HEIMDAL_MUTEX_unlock(&plugin_mutex);
+
+    return 0;
+}
+
+/**
+ * Register a plugin symbol name of specific type.
+ * @param context a Keberos context
+ * @param type type of plugin symbol
+ * @param name name of plugin symbol
+ * @param symbol a pointer to the named symbol
+ * @return In case of error a non zero error com_err error is returned
+ * and the Kerberos error string is set.
+ *
+ * @ingroup krb5_support
+ */
+
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
+krb5_plugin_register(krb5_context context,
+		     enum krb5_plugin_type type,
+		     const char *name,
+		     void *symbol)
+{
+    return krb5_plugin_register_module(context, NULL, type, name, symbol);
+}
 
 static void
 search_modules(heim_object_t key, heim_object_t value, void *ctx)

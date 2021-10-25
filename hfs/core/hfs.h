@@ -327,10 +327,6 @@ typedef struct hfsmount {
 	struct cat_attr     hfs_private_attr[2];
 
 	u_int32_t		hfs_metadata_createdate;
-#if CONFIG_HFS_STD
-	hfs_to_unicode_func_t	hfs_get_unicode;
-	unicode_to_hfs_func_t	hfs_get_hfsname;
-#endif
  
 	/* Quota variables: */
 	struct quotafile	hfs_qfiles[MAXQUOTAS];    /* quota files */
@@ -916,10 +912,6 @@ u_int32_t BestBlockSizeFit(u_int32_t allocationBlockSize,
                                u_int32_t blockSizeLimit,
                                u_int32_t baseMultiple);
 
-#if CONFIG_HFS_STD
-OSErr	hfs_MountHFSVolume(struct hfsmount *hfsmp, HFSMasterDirectoryBlock *mdb,
-		struct proc *p);
-#endif
 OSErr	hfs_MountHFSPlusVolume(struct hfsmount *hfsmp, HFSPlusVolumeHeader *vhp,
 		off_t embeddedOffset, u_int64_t disksize, struct proc *p, void *args, kauth_cred_t cred);
 
@@ -1023,14 +1015,6 @@ void hfs_close_jvp(hfsmount_t *hfsmp);
 
 // Return a heap address suitable for logging or tracing
 uintptr_t obfuscate_addr(void *addr);
-
-#if CONFIG_HFS_STD
-int hfs_to_utf8(ExtendedVCB *vcb, const Str31 hfs_str, ByteCount maxDstLen,
-				ByteCount *actualDstLen, unsigned char* dstStr);
-int utf8_to_hfs(ExtendedVCB *vcb, ByteCount srcLen, const unsigned char* srcStr,
-				Str31 dstStr);
-int unicode_to_hfs(ExtendedVCB *vcb, ByteCount srcLen, u_int16_t* srcStr, Str31 dstStr, int retry);
-#endif
 
 void *hfs_malloc(size_t size);
 void hfs_free(void *ptr, size_t size);

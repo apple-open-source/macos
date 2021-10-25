@@ -17,4 +17,10 @@
                                 (__bridge IOHIDEventSystemConnectionRef)self);
 }
 
+- (void)getAuditToken:(audit_token_t *)token
+{
+    IOHIDEventSystemConnectionGetAuditToken(
+                                (__bridge IOHIDEventSystemConnectionRef)self, token);
+}
+
 @end

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2020 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2021 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -44,6 +44,9 @@
 #include <net/if_dl.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+
+#include <dlfcn.h>
+#include <mach-o/dyld_priv.h>
 
 #include <dispatch/dispatch.h>
 
@@ -244,6 +247,41 @@ _SC_string_to_sockaddr(const char *str, sa_family_t af, void *buf, size_t bufLen
 }
 
 
+void *
+_SC_dlopen(const char *framework)
+{
+	void			*image;
+	static dispatch_once_t	once;
+	static const char	*suffix	= NULL;
+
+	dispatch_once(&once, ^{
+		if (!dyld_process_is_restricted()) {
+			suffix = getenv("DYLD_IMAGE_SUFFIX");
+			if ((suffix != NULL) &&
+			    ((strlen(suffix) < 2) || (suffix[0] != '_'))) {
+				// if too short or no leading "_"
+				suffix = NULL;
+			}
+		}
+	});
+
+	if (suffix != NULL) {
+		struct stat	statbuf;
+		char		path[MAXPATHLEN];
+
+		strlcpy(path, framework, sizeof(path));
+		strlcat(path, suffix, sizeof(path));
+		if (0 <= stat(path, &statbuf)) {
+			image = dlopen(path, RTLD_LAZY | RTLD_LOCAL);
+			return image;
+		}
+	}
+
+	image = dlopen(framework, RTLD_LAZY | RTLD_LOCAL);
+	return image;
+}
+
+
 void
 _SC_sendMachMessage(mach_port_t port, mach_msg_id_t msg_id)
 {
@@ -365,14 +403,14 @@ _SC_hw_model(Boolean trim)
 
 
 static kern_return_t
-__CFDataCopyVMData(CFDataRef data, void **dataRef, CFIndex *dataLen)
+__CFDataCopyVMData(CFDataRef data, const void **dataRef, CFIndex *dataLen)
 {
 	kern_return_t		kr;
 
 	vm_address_t	vm_address;
 	vm_size_t	vm_size;
 
-	vm_address = (vm_address_t)CFDataGetBytePtr(data);
+	vm_address = (vm_address_t)(const void *)CFDataGetBytePtr(data);
 	vm_size    = (vm_size_t)CFDataGetLength(data);
 	kr = vm_allocate(mach_task_self(), &vm_address, vm_size, VM_FLAGS_ANYWHERE);
 	if (kr != KERN_SUCCESS) {
@@ -381,7 +419,7 @@ __CFDataCopyVMData(CFDataRef data, void **dataRef, CFIndex *dataLen)
 		return kr;
 	}
 
-	memcpy((void *)vm_address, (char *)CFDataGetBytePtr(data), vm_size);
+	memcpy((void *)vm_address, CFDataGetBytePtr(data), vm_size);
 	*dataRef = (void *)vm_address;
 	*dataLen = vm_size;
 
@@ -390,7 +428,7 @@ __CFDataCopyVMData(CFDataRef data, void **dataRef, CFIndex *dataLen)
 
 
 Boolean
-_SCSerialize(CFPropertyListRef obj, CFDataRef *xml, void **dataRef, CFIndex *dataLen)
+_SCSerialize(CFPropertyListRef obj, CFDataRef *xml, const void **dataRef, CFIndex *dataLen)
 {
 	CFDataRef		myXml;
 
@@ -419,7 +457,7 @@ _SCSerialize(CFPropertyListRef obj, CFDataRef *xml, void **dataRef, CFIndex *dat
 	if (xml != NULL) {
 		*xml = myXml;
 		if ((dataRef != NULL) && (dataLen != NULL)) {
-			*dataRef = (void *)CFDataGetBytePtr(myXml);
+			*dataRef = CFDataGetBytePtr(myXml);
 			*dataLen = CFDataGetLength(myXml);
 		}
 	} else {
@@ -438,14 +476,14 @@ _SCSerialize(CFPropertyListRef obj, CFDataRef *xml, void **dataRef, CFIndex *dat
 
 
 Boolean
-_SCUnserialize(CFPropertyListRef *obj, CFDataRef xml, void *dataRef, CFIndex dataLen)
+_SCUnserialize(CFPropertyListRef *obj, CFDataRef xml, const void *dataRef, CFIndex dataLen)
 {
 	CFErrorRef	error	= NULL;
 
 	if (xml == NULL) {
 		kern_return_t	status;
 
-		xml = CFDataCreateWithBytesNoCopy(NULL, (void *)dataRef, dataLen, kCFAllocatorNull);
+		xml = CFDataCreateWithBytesNoCopy(NULL, dataRef, dataLen, kCFAllocatorNull);
 		*obj = CFPropertyListCreateWithData(NULL, xml, kCFPropertyListImmutable, NULL, &error);
 		CFRelease(xml);
 
@@ -472,7 +510,7 @@ _SCUnserialize(CFPropertyListRef *obj, CFDataRef xml, void *dataRef, CFIndex dat
 
 
 Boolean
-_SCSerializeString(CFStringRef str, CFDataRef *data, void **dataRef, CFIndex *dataLen)
+_SCSerializeString(CFStringRef str, CFDataRef *data, const void **dataRef, CFIndex *dataLen)
 {
 	CFDataRef	myData;
 
@@ -502,7 +540,7 @@ _SCSerializeString(CFStringRef str, CFDataRef *data, void **dataRef, CFIndex *da
 	if (data != NULL) {
 		*data = myData;
 		if ((dataRef != NULL) && (dataLen != NULL)) {
-			*dataRef = (void *)CFDataGetBytePtr(myData);
+			*dataRef = CFDataGetBytePtr(myData);
 			*dataLen = CFDataGetLength(myData);
 		}
 	} else {
@@ -521,7 +559,7 @@ _SCSerializeString(CFStringRef str, CFDataRef *data, void **dataRef, CFIndex *da
 
 
 Boolean
-_SCUnserializeString(CFStringRef *str, CFDataRef utf8, void *dataRef, CFIndex dataLen)
+_SCUnserializeString(CFStringRef *str, CFDataRef utf8, const void *dataRef, CFIndex dataLen)
 {
 	if (utf8 == NULL) {
 		kern_return_t	status;
@@ -549,7 +587,7 @@ _SCUnserializeString(CFStringRef *str, CFDataRef utf8, void *dataRef, CFIndex da
 
 
 Boolean
-_SCSerializeData(CFDataRef data, void **dataRef, CFIndex *dataLen)
+_SCSerializeData(CFDataRef data, const void **dataRef, CFIndex *dataLen)
 {
 	kern_return_t	kr;
 
@@ -569,7 +607,7 @@ _SCSerializeData(CFDataRef data, void **dataRef, CFIndex *dataLen)
 
 
 Boolean
-_SCUnserializeData(CFDataRef *data, void *dataRef, CFIndex dataLen)
+_SCUnserializeData(CFDataRef *data, const void *dataRef, CFIndex dataLen)
 {
 	kern_return_t		status;
 
@@ -1364,8 +1402,7 @@ _SC_logMachPortStatus(void)
 }
 
 
-__private_extern__
-kern_return_t
+static kern_return_t
 _SC_getMachPortReferences(mach_port_t		port,
 			  mach_port_type_t	*pt,
 			  mach_port_urefs_t	*refs_send,
@@ -1462,8 +1499,69 @@ _SC_getMachPortReferences(mach_port_t		port,
 }
 
 
+Boolean
+_SC_checkMachPortReceive(const char *err_prefix, mach_port_t port)
+{
+	mach_port_type_t	pt;
+	mach_port_status_t	recv_status	= { .mps_nsrequest = 0, };
+	mach_port_urefs_t	refs_recv	= 0;
+	kern_return_t		status;
+
+	status = _SC_getMachPortReferences(port,
+					   &pt,
+					   NULL,
+					   &refs_recv,
+					   &recv_status,
+					   NULL,
+					   NULL,
+					   NULL,
+					   err_prefix);
+	if (status != KERN_SUCCESS) {
+		return FALSE;
+	}
+
+	if (refs_recv == 0)  {
+		// if no receive rights
+		return FALSE;
+	}
+
+	return TRUE;
+}
+
+
+Boolean
+_SC_checkMachPortSend(const char *err_prefix, mach_port_t port)
+{
+	mach_port_type_t	pt;
+	mach_port_urefs_t	refs_send	= 0;
+	mach_port_urefs_t	refs_once	= 0;
+	mach_port_urefs_t	refs_dead	= 0;
+	kern_return_t		status;
+
+	status = _SC_getMachPortReferences(port,
+					   &pt,
+					   &refs_send,
+					   NULL,
+					   NULL,
+					   &refs_once,
+					   NULL,
+					   &refs_dead,
+					   err_prefix);
+	if (status != KERN_SUCCESS) {
+		return FALSE;
+	}
+
+	if ((refs_send == 0) && (refs_once == 0) && (refs_dead == 0)) {
+		// if no send right
+		return FALSE;
+	}
+
+	return TRUE;
+}
+
+
 void
-_SC_logMachPortReferences(const char *str, mach_port_t port)
+_SC_logMachPortReferences(const char *log_prefix, mach_port_t port)
 {
 	const char		*blanks		= "                                                            ";
 	char			buf[60];
@@ -1477,21 +1575,9 @@ _SC_logMachPortReferences(const char *str, mach_port_t port)
 	kern_return_t		status;
 
 	buf[0] = '\0';
-	if (str != NULL) {
-		static int	is_configd	= -1;
-
-		if (is_configd == -1) {
-			is_configd = (strcmp(getprogname(), _SC_SERVER_PROG) == 0);
-		}
-		if (is_configd == 1) {
-			// if "configd", add indication if this is the M[ain] or [P]lugin thread
-			strlcpy(buf,
-				(CFRunLoopGetMain() == CFRunLoopGetCurrent()) ? "M " : "P ",
-				sizeof(buf));
-		}
-
+	if (log_prefix != NULL) {
 		// add provided string
-		strlcat(buf, str, sizeof(buf));
+		strlcpy(buf, log_prefix, sizeof(buf));
 
 		// fill
 		strlcat(buf, blanks, sizeof(buf));

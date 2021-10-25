@@ -183,7 +183,6 @@ LIST_HEAD(nfs_gss_svc_ctx_hashhead, nfs_gss_svc_ctx);
 
 __BEGIN_DECLS
 
-void    nfs_gss_init(void);
 uid_t   nfs_cred_getasid2uid(kauth_cred_t);
 int     nfs_gss_clnt_cred_put(struct nfsreq *, struct nfsm_chain *, mbuf_t);
 int     nfs_gss_clnt_verf_get(struct nfsreq *, struct nfsm_chain *,
@@ -197,6 +196,7 @@ void    nfs_gss_clnt_ctx_unmount(struct nfsmount *);
 int     nfs_gss_clnt_ctx_remove(struct nfsmount *, kauth_cred_t);
 int     nfs_gss_clnt_ctx_set_principal(struct nfsmount *, vfs_context_t, uint8_t *, size_t, uint32_t);
 int     nfs_gss_clnt_ctx_get_principal(struct nfsmount *, vfs_context_t, struct user_nfs_gss_principal *);
+void    nfs_gss_svc_init(void);
 int     nfs_gss_svc_cred_get(struct nfsrv_descript *, struct nfsm_chain *);
 int     nfs_gss_svc_verf_put(struct nfsrv_descript *, struct nfsm_chain *);
 int     nfs_gss_svc_ctx_init(struct nfsrv_descript *, struct nfsrv_sock *, mbuf_t *);

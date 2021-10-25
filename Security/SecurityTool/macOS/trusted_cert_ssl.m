@@ -299,7 +299,10 @@ static NSString *errorStringForKey(NSString *key)
 void printErrorDetails(SecTrustRef trust)
 {
     CFDictionaryRef result = SecTrustCopyResult(trust);
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     CFArrayRef properties = SecTrustCopyProperties(trust);
+#pragma clang diagnostic pop
     NSArray *props = (__bridge NSArray *)properties;
     NSArray *details = [(__bridge NSDictionary *)result objectForKey:@"TrustResultDetails"];
     if (!props || !details) {
@@ -355,11 +358,8 @@ void printExtendedResults(SecTrustRef trust)
         fprintf(stdout, "No extended validation result found\n");
     }
     CFBooleanRef isCT = (__bridge CFBooleanRef)[results objectForKey:(NSString *)kSecTrustCertificateTransparency];
-    CFBooleanRef isCTW = (__bridge CFBooleanRef)[results objectForKey:(NSString *)kSecTrustCertificateTransparencyWhiteList];
     if (isCT == kCFBooleanTrue) {
         fprintf(stdout, "Certificate Transparency (CT) status: " ANSI_GREEN "verified" ANSI_RESET "\n");
-    } else if (isCTW == kCFBooleanTrue) {
-        fprintf(stdout, "Certificate Transparency requirement waived for approved EV certificate\n");
     } else {
         fprintf(stdout, "Certificate Transparency (CT) status: " ANSI_RED "not verified" ANSI_RESET "\n");
         fprintf(stdout, "Unable to find at least 2 signed certificate timestamps (SCTs) from approved logs\n");

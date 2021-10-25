@@ -55,6 +55,15 @@ extern bool magazine_medium_enabled;
 MALLOC_NOEXPORT
 extern uint64_t magazine_medium_active_threshold;
 
+#if CONFIG_MEDIUM_ALLOCATOR
+MALLOC_NOEXPORT
+extern uint64_t magazine_medium_madvise_dram_scale_divisor;
+
+MALLOC_NOEXPORT
+extern uint64_t magazine_medium_madvise_window_scale_factor;
+#endif // CONFIG_MEDIUM_ALLOCATOR
+
+
 MALLOC_NOEXPORT
 extern uint64_t magazine_large_expanded_cache_threshold;
 

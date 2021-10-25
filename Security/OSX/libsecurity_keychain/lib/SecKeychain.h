@@ -284,7 +284,8 @@ OSStatus SecKeychainGetVersion(UInt32 * __nonnull returnVers);
     @param keychain On return, a pointer to the keychain reference. The memory that keychain occupies must be released by calling CFRelease when finished with it.
 	@result A result code.  See "Security Error Codes" (SecBase.h). In addition, errSecParam (-50) may be returned if the keychain parameter is invalid (NULL).
 */
-OSStatus SecKeychainOpen(const char *pathName, SecKeychainRef * __nonnull CF_RETURNS_RETAINED keychain);
+OSStatus SecKeychainOpen(const char *pathName, SecKeychainRef * __nonnull CF_RETURNS_RETAINED keychain)
+    API_DEPRECATED("Custom keychain management is no longer supported", macos(10.2, 12.0));
 
 /*!
 	@function SecKeychainCreate
@@ -297,7 +298,9 @@ OSStatus SecKeychainOpen(const char *pathName, SecKeychainRef * __nonnull CF_RET
     @param keychain On return, a pointer to a keychain reference. The memory that keychain occupies must be released by calling CFRelease when finished with it.
 	@result A result code.  See "Security Error Codes" (SecBase.h). In addition, errSecParam (-50) may be returned if the keychain parameter is invalid (NULL).
 */
-OSStatus SecKeychainCreate(const char *pathName, UInt32 passwordLength, const void * __nullable password, Boolean promptUser, SecAccessRef __nullable initialAccess, SecKeychainRef * __nonnull CF_RETURNS_RETAINED keychain) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
+OSStatus SecKeychainCreate(const char *pathName, UInt32 passwordLength, const void * __nullable password, Boolean promptUser, SecAccessRef __nullable initialAccess, SecKeychainRef * __nonnull CF_RETURNS_RETAINED keychain)
+    API_DEPRECATED("Custom keychain management is no longer supported", macos(10.2, 12.0))
+    API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 
 /*!
 	@function SecKeychainDelete
@@ -305,7 +308,9 @@ OSStatus SecKeychainCreate(const char *pathName, UInt32 passwordLength, const vo
     @param keychainOrArray A single keychain reference or a reference to an array of keychains to delete. IMPORTANT: SecKeychainDelete does not dispose the memory occupied by keychain references; use the CFRelease function when you are completely finished with a keychain.
 	@result A result code.  See "Security Error Codes" (SecBase.h). In addition, errSecInvalidKeychain (-25295) may be returned if the keychain parameter is invalid (NULL).
 */
-OSStatus SecKeychainDelete(SecKeychainRef __nullable keychainOrArray) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
+OSStatus SecKeychainDelete(SecKeychainRef __nullable keychainOrArray)
+    API_DEPRECATED("Custom keychain management is no longer supported", macos(10.2, 12.0))
+    API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 
 /*!
 	@function SecKeychainSetSettings
@@ -314,7 +319,9 @@ OSStatus SecKeychainDelete(SecKeychainRef __nullable keychainOrArray) API_UNAVAI
  	@param newSettings A pointer to the new keychain settings.
 	@result A result code.  See "Security Error Codes" (SecBase.h).
 */
-OSStatus SecKeychainSetSettings(SecKeychainRef __nullable keychain, const SecKeychainSettings *newSettings) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
+OSStatus SecKeychainSetSettings(SecKeychainRef __nullable keychain, const SecKeychainSettings *newSettings)
+    API_DEPRECATED("Custom keychain management is no longer supported", macos(10.2, 12.0))
+    API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 
 /*!
 	@function SecKeychainCopySettings
@@ -323,7 +330,9 @@ OSStatus SecKeychainSetSettings(SecKeychainRef __nullable keychain, const SecKey
     @param outSettings  A pointer to a keychain settings structure. Since this structure is versioned, you must preallocate it and fill in the version of the structure.
  @result A result code.  See "Security Error Codes" (SecBase.h).
 */
-OSStatus SecKeychainCopySettings(SecKeychainRef __nullable keychain, SecKeychainSettings *outSettings) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
+OSStatus SecKeychainCopySettings(SecKeychainRef __nullable keychain, SecKeychainSettings *outSettings)
+    API_DEPRECATED("Custom keychain management is no longer supported", macos(10.2, 12.0))
+    API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 
 /*!
 	@function SecKeychainUnlock
@@ -335,7 +344,9 @@ OSStatus SecKeychainCopySettings(SecKeychainRef __nullable keychain, SecKeychain
 	@result A result code.  See "Security Error Codes" (SecBase.h).
 	@discussion In most cases, your application does not need to call the SecKeychainUnlock function directly, since most Keychain Manager functions that require an unlocked keychain call SecKeychainUnlock automatically. If your application needs to verify that a keychain is unlocked, call the function SecKeychainGetStatus.
 */
-OSStatus SecKeychainUnlock(SecKeychainRef __nullable keychain, UInt32 passwordLength, const void * __nullable password, Boolean usePassword) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
+OSStatus SecKeychainUnlock(SecKeychainRef __nullable keychain, UInt32 passwordLength, const void * __nullable password, Boolean usePassword)
+    API_DEPRECATED("Custom keychain management is no longer supported", macos(10.2, 12.0))
+    API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 
 /*!
 	@function SecKeychainLock
@@ -343,14 +354,18 @@ OSStatus SecKeychainUnlock(SecKeychainRef __nullable keychain, UInt32 passwordLe
     @param keychain A reference to the keychain to lock.
 	@result A result code.  See "Security Error Codes" (SecBase.h).
 */
-OSStatus SecKeychainLock(SecKeychainRef	__nullable keychain) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
+OSStatus SecKeychainLock(SecKeychainRef	__nullable keychain)
+    API_DEPRECATED("Custom keychain management is no longer supported", macos(10.2, 12.0))
+    API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 
 /*!
 	@function SecKeychainLockAll
 	@abstract Locks all keychains belonging to the current user.
 	@result A result code.  See "Security Error Codes" (SecBase.h).
 */
-OSStatus SecKeychainLockAll(void) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
+OSStatus SecKeychainLockAll(void)
+    API_DEPRECATED("Custom keychain management is no longer supported", macos(10.2, 12.0))
+    API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 
 /*!
 	@function SecKeychainCopyDefault
@@ -366,7 +381,9 @@ OSStatus SecKeychainCopyDefault(SecKeychainRef * __nonnull CF_RETURNS_RETAINED k
 	@param keychain A reference to the keychain to set as default.
 	@result A result code.  See "Security Error Codes" (SecBase.h). In addition, errSecParam (-50) may be returned if the keychain parameter is invalid (NULL).
 */
-OSStatus SecKeychainSetDefault(SecKeychainRef __nullable keychain) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
+OSStatus SecKeychainSetDefault(SecKeychainRef __nullable keychain)
+    API_DEPRECATED("Custom keychain management is no longer supported", macos(10.2, 12.0))
+    API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 
 /*!
 	@function SecKeychainCopySearchList
@@ -382,7 +399,9 @@ OSStatus SecKeychainCopySearchList(CFArrayRef * __nonnull CF_RETURNS_RETAINED se
 	@param searchList The list of keychains to use in a search list when the SecKeychainCopySearchList function is called. An empty array clears the search list.
 	@result A result code.  See "Security Error Codes" (SecBase.h). In addition, errSecParam (-50) may be returned if the keychain list is not specified (NULL).
 */
-OSStatus SecKeychainSetSearchList(CFArrayRef searchList) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
+OSStatus SecKeychainSetSearchList(CFArrayRef searchList)
+    API_DEPRECATED("Custom keychain management is no longer supported", macos(10.2, 12.0))
+    API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 
 
 /*
@@ -421,7 +440,9 @@ OSStatus SecKeychainGetStatus(SecKeychainRef __nullable keychain, SecKeychainSta
 	@param pathName On return, the POSIX path to the keychain.
     @result A result code.  See "Security Error Codes" (SecBase.h).
 */
-OSStatus SecKeychainGetPath(SecKeychainRef __nullable keychain, UInt32 *ioPathLength, char *pathName) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
+OSStatus SecKeychainGetPath(SecKeychainRef __nullable keychain, UInt32 *ioPathLength, char *pathName)
+    API_DEPRECATED("Custom keychain management is no longer supported", macos(10.2, 12.0))
+    API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 
 #pragma mark ---- Keychain Item Attribute Information ----
 /*!
@@ -566,7 +587,9 @@ OSStatus SecKeychainFindGenericPassword(CFTypeRef __nullable keychainOrArray,  U
 	@param state A boolean representing the state of user interaction.  You should pass TRUE to allow user interaction, and FALSE to disallow user interaction
 	@result A result code.  See "Security Error Codes" (SecBase.h).
 */
-OSStatus SecKeychainSetUserInteractionAllowed(Boolean state) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
+OSStatus SecKeychainSetUserInteractionAllowed(Boolean state)
+    API_DEPRECATED("Custom keychain management is no longer supported", macos(10.2, 12.0))
+    API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 
 /*!
 	@function SecKeychainGetUserInteractionAllowed

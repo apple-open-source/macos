@@ -14,6 +14,7 @@ extern char g_test_url1[1024];
 extern char g_test_url2[1024];
 extern char g_test_url3[1024];
 extern CFMutableDictionaryRef json_dict;
+extern int list_tests_only;
 
 static int testCaseResult = 0;
 static char *testLimitedGlobingRule = NULL;
@@ -38,7 +39,7 @@ FakeXCFailureHandler(XCTestCase * __unused test, BOOL __unused expected, const c
     NSString *errorString = [[NSString alloc] initWithFormat:format arguments:ap];
     va_end(ap);
 
-    FXCTPrintf("FAILED assertion at: %s:%d %s\n", filePath, (int)lineNumber, [errorString UTF8String]);
+    FXCTPrintf("FAILED assertion at: %s:%d \n[ERROR_START]\n%s[ERROR_END]\n", filePath, (int)lineNumber, [errorString UTF8String]);
 
 #if !__has_feature(objc_arc)
     [errorString release];
@@ -95,7 +96,9 @@ returnNull(Method method)
     json_add_inputs_str(json_dict, "URL3", g_test_url3);
     json_add_time_stamp(json_dict, "start_time");
 
-    FXCTPrintf("[TEST] %s\n", getprogname());
+    if (list_tests_only == 0) {
+        FXCTPrintf("[TEST] %s\n", getprogname());
+    }
 
     numClasses = objc_getClassList(NULL, 0);
 
@@ -150,6 +153,12 @@ returnNull(Method method)
                     && returnNull(methods[n])
                     && checkLimited(mname))
                 {
+                    if (list_tests_only == 1) {
+                        /* Just listing out the test cases */
+                        FXCTPrintf("%s\n", mname);
+                        continue;
+                    }
+
                     /* Save some JSON individual test data */
                     CFMutableDictionaryRef test_results = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
                                                                                  &kCFTypeDictionaryKeyCallBacks,
@@ -210,9 +219,12 @@ returnNull(Method method)
 #endif
         }
     }
-    FXCTPrintf("[SUMMARY]\n"
-               "ran %ld tests %ld failed\n",
-               ranTests, failedTests);
+
+    if (list_tests_only == 0) {
+        FXCTPrintf("[SUMMARY]\n"
+                   "ran %ld tests %ld failed\n",
+                   ranTests, failedTests);
+    }
     
     /* Save some JSON test suite data */
     json_add_time_stamp(json_dict, "end_time");

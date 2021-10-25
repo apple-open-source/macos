@@ -1502,8 +1502,10 @@ void Transform::DoPhase3Activation()
     if (initError)
     {
         // Oops, now execution is about to grind to a halt
-        this->SendAttribute(AbortAH, initError);
+        CFErrorRef releaseMe = this->SendAttribute(AbortAH, initError);
+        CFReleaseNull(releaseMe);
     }
+    CFReleaseNull(initError);
 
     dispatch_resume(this->mActivationQueue);
     dispatch_group_async(this->mActivationPending, this->mActivationQueue, ^{

@@ -29,6 +29,7 @@
 #include <Security/SecureObjectSync/SOSCloudCircle.h>
 #import "keychain/ckks/CKKSCondition.h"
 #import "keychain/ckks/CloudKitDependencies.h"
+#import "keychain/ckks/CKKSNearFutureScheduler.h"
 #import "keychain/ot/OTClique.h"
 
 NS_ASSUME_NONNULL_BEGIN
@@ -82,8 +83,11 @@ NSString* CKKSAccountStatusToString(CKKSAccountStatus status);
 - (void)cloudkitAccountStateChange:(CKAccountInfo* _Nullable)oldAccountInfo to:(CKAccountInfo*)currentAccountInfo;
 @end
 @protocol CKKSCloudKitAccountStateTrackingProvider <NSObject>
+@property (nullable, copy) NSString* ckdeviceID;
+
 - (dispatch_semaphore_t)registerForNotificationsOfCloudKitAccountStatusChange:(id<CKKSCloudKitAccountStateListener>)listener;
 - (BOOL)notifyCKAccountStatusChangeAndWait:(dispatch_time_t)timeout;
+- (void)recheckCKAccountStatus;
 @end
 
 #pragma mark -- Tracker
@@ -91,6 +95,9 @@ NSString* CKKSAccountStatusToString(CKKSAccountStatus status);
 @interface CKKSAccountStateTracker : NSObject <CKKSCloudKitAccountStateTrackingProvider,
                                                CKKSOctagonStatusMemoizer>
 @property CKKSCondition* finishedInitialDispatches;
+
+// Trigger this to refetch the CK account status in a bit
+@property (readonly) CKKSNearFutureScheduler* fetchCKAccountStatusScheduler;
 
 // If you use these, please be aware they could change out from under you at any time
 @property (nullable) CKAccountInfo* currentCKAccountInfo;

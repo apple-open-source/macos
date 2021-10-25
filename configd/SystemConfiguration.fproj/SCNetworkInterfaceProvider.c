@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2018, 2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -417,7 +417,7 @@ SCNetworkInterfaceProviderResume(SCNetworkInterfaceProviderRef provider)
     return;
 }
 
-#if TEST_SCNetworkInterfaceProvider
+#ifdef	TEST_SCNetworkInterfaceProvider
 
 /*
   xcrun -sdk iphoneos.internal cc -o scnip SCNetworkInterfaceProvider.c -DTEST_SCNetworkInterfaceProvider -framework CoreFoundation -framework SystemConfiguration -arch arm64 -I ../IPMonitorControl ../IPMonitorControl/IPMonitorControl.c -DSC_LOG_HANDLE=__log_SCNetworkInterfaceProvider
@@ -467,4 +467,5 @@ main(int argc, char * argv[])
     exit(0);
     return (0);
 }
-#endif
+
+#endif	/* TEST_SCNetworkInterfaceProvider */

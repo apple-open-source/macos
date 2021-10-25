@@ -38,8 +38,8 @@
  *	       SecAsn1Items
  */
 
-#include <security_asn1/seccomon.h>
 #include <security_asn1/plarenas.h>
+#include <security_asn1/seccomon.h>
 #include "plhash.h"
 
 SEC_BEGIN_PROTOS
@@ -55,8 +55,7 @@ SEC_BEGIN_PROTOS
 ** XXX This probably should take a SecAsn1ItemType, but since that is mostly
 ** unused and our improved APIs (aka Stan) are looming, I left it out.
 */
-extern SecAsn1Item *SECITEM_AllocItem(PRArenaPool *arena, SecAsn1Item *item,
-				  size_t len);
+extern SecAsn1Item* SECITEM_AllocItem(PRArenaPool* arena, SecAsn1Item* item, size_t len);
 
 /*
 ** Reallocate the data for the specified "item".  If "arena" is not NULL,
@@ -66,50 +65,48 @@ extern SecAsn1Item *SECITEM_AllocItem(PRArenaPool *arena, SecAsn1Item *item,
 ** SECFailure is returned if it is not.  If the allocation succeeds,
 ** SECSuccess is returned.
 */
-extern SECStatus SECITEM_ReallocItem(PRArenaPool *arena, SecAsn1Item *item,
-				     size_t oldlen, size_t newlen);
+extern SECStatus SECITEM_ReallocItem(PRArenaPool* arena, SecAsn1Item* item, size_t oldlen, size_t newlen);
 
 /*
 ** Compare two items returning the difference between them.
 */
-extern SECComparison SECITEM_CompareItem(const SecAsn1Item *a, const SecAsn1Item *b);
+extern SECComparison SECITEM_CompareItem(const SecAsn1Item* a, const SecAsn1Item* b);
 
 /*
 ** Compare two items -- if they are the same, return true; otherwise false.
 */
-extern Boolean SECITEM_ItemsAreEqual(const SecAsn1Item *a, const SecAsn1Item *b);
+extern Boolean SECITEM_ItemsAreEqual(const SecAsn1Item* a, const SecAsn1Item* b);
 
 /*
 ** Copy "from" to "to"
 */
-extern SECStatus SECITEM_CopyItem(PRArenaPool *arena, SecAsn1Item *to, 
-                                  const SecAsn1Item *from);
+extern SECStatus SECITEM_CopyItem(PRArenaPool* arena, SecAsn1Item* to, const SecAsn1Item* from);
 
 /*
 ** Allocate an item and copy "from" into it.
 */
-extern SecAsn1Item *SECITEM_DupItem(const SecAsn1Item *from);
+extern SecAsn1Item* SECITEM_DupItem(const SecAsn1Item* from);
 
 /*
  ** Allocate an item and copy "from" into it.  The item itself and the 
  ** data it points to are both allocated from the arena.  If arena is
  ** NULL, this function is equivalent to SECITEM_DupItem.
  */
-extern SecAsn1Item *SECITEM_ArenaDupItem(PRArenaPool *arena, const SecAsn1Item *from);
+extern SecAsn1Item* SECITEM_ArenaDupItem(PRArenaPool* arena, const SecAsn1Item* from);
 
 /*
 ** Free "zap". If freeit is PR_TRUE then "zap" itself is freed.
 */
-extern void SECITEM_FreeItem(SecAsn1Item *zap, Boolean freeit);
+extern void SECITEM_FreeItem(SecAsn1Item* zap, Boolean freeit);
 
 /*
 ** Zero and then free "zap". If freeit is PR_TRUE then "zap" itself is freed.
 */
-extern void SECITEM_ZfreeItem(SecAsn1Item *zap, Boolean freeit);
+extern void SECITEM_ZfreeItem(SecAsn1Item* zap, Boolean freeit);
 
-PLHashNumber PR_CALLBACK SECITEM_Hash ( const void *key);
+PLHashNumber PR_CALLBACK SECITEM_Hash(const void* key);
 
-PRIntn PR_CALLBACK SECITEM_HashCompare ( const void *k1, const void *k2);
+PRIntn PR_CALLBACK SECITEM_HashCompare(const void* k1, const void* k2);
 
 
 SEC_END_PROTOS

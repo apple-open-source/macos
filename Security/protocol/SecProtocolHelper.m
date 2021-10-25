@@ -74,7 +74,9 @@ static const struct tls_ciphersuite_definition tls_ciphersuite_definitions[] = {
     DefineTLSCiphersuiteDefinition(SSL_RSA_WITH_3DES_EDE_CBC_SHA,                   tls_protocol_version_TLSv12, tls_protocol_version_TLSv12),
     DefineTLSCiphersuiteDefinition(TLS_DHE_RSA_WITH_AES_256_CBC_SHA256,             tls_protocol_version_TLSv12, tls_protocol_version_TLSv12),
     DefineTLSCiphersuiteDefinition(TLS_DHE_RSA_WITH_AES_128_CBC_SHA256,             tls_protocol_version_TLSv12, tls_protocol_version_TLSv12),
-    
+
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     // RFC 4492: Elliptic Curve Cryptography (ECC) Cipher Suites for Transport Layer Security (TLS)
     DefineTLSCiphersuiteDefinition(TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA,            tls_protocol_version_TLSv10,  tls_protocol_version_TLSv11),
     DefineTLSCiphersuiteDefinition(TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA,            tls_protocol_version_TLSv10,  tls_protocol_version_TLSv11),
@@ -92,6 +94,7 @@ static const struct tls_ciphersuite_definition tls_ciphersuite_definitions[] = {
     DefineTLSCiphersuiteDefinition(TLS_DHE_RSA_WITH_AES_128_CBC_SHA,                tls_protocol_version_TLSv10,  tls_protocol_version_TLSv11),
     DefineTLSCiphersuiteDefinition(TLS_DHE_RSA_WITH_AES_256_CBC_SHA,                tls_protocol_version_TLSv10,  tls_protocol_version_TLSv11),
     DefineTLSCiphersuiteDefinition(TLS_DHE_RSA_WITH_AES_128_CBC_SHA,                tls_protocol_version_TLSv10,  tls_protocol_version_TLSv11),
+#pragma clang diagnostic pop
 };
 
 // Size of the definition list

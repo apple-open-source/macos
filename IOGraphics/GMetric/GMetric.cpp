@@ -33,6 +33,8 @@ __END_DECLS
 
 #endif // KERNEL
 
+#ifdef TARGET_CPU_X86_64
+
 #define DGM(args...) D(TRACE, "GMetric", args)
 
 OSDefineMetaClassAndStructors(GMetricsRecorder, OSObject);
@@ -302,3 +304,5 @@ IOReturn GMetricsRecorder::copyOutLocked(IOMemoryDescriptor* outDesc)
     DGM("(mdl=%llu) -> %x\n", outDesc->getLength(), err);
     return err;
 }
+
+#endif // TARGET_CPU_X86_64

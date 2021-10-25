@@ -34,9 +34,10 @@
 #include "DAProbe.h"
 #include "DAQueue.h"
 #include "DASupport.h"
-
+#include "DALog.h"
 #include <unistd.h>
 #include <sys/mount.h>
+#include <sysexits.h>
 
 ///w:start
 void ___os_transaction_begin( void );
@@ -57,7 +58,7 @@ static void               __DAStageProbe( DADiskRef disk );
 
 static void __DAStageProbeCallback( int             status,
                                     DAFileSystemRef filesystem,
-                                    CFBooleanRef    clean,
+                                    int             cleanStatus,
                                     CFStringRef     name,
                                     CFStringRef     type,
                                     CFUUIDRef       uuid,
@@ -649,7 +650,7 @@ static void __DAStageProbe( DADiskRef disk )
 
 static void __DAStageProbeCallback( int             status,
                                     DAFileSystemRef filesystem,
-                                    CFBooleanRef    clean,
+                                    int             cleanStatus,
                                     CFStringRef     name,
                                     CFStringRef     type,
                                     CFUUIDRef       uuid,
@@ -658,6 +659,7 @@ static void __DAStageProbeCallback( int             status,
     DADiskRef         disk = context;
     CFMutableArrayRef keys;
     CFStringRef       kind;
+    CFBooleanRef      clean;
 
     DADiskSetFileSystem( disk, filesystem );
 
@@ -680,9 +682,16 @@ static void __DAStageProbeCallback( int             status,
 
         kind = DAFileSystemGetKind( filesystem );
 
+        clean =  ( cleanStatus == 0 ) ? kCFBooleanTrue : kCFBooleanFalse ;
 ///w:start
         if ( DADiskGetDescription( disk, kDADiskDescriptionMediaWritableKey ) == kCFBooleanFalse )
         {
+            clean = kCFBooleanTrue;
+        }
+        
+        if ( ( DAUnitGetState( disk, _kDAUnitStateHasAPFS ) ) && ( cleanStatus >= EX__BASE ) )
+        {
+            DALogDebug( "Ignoring FSCK failure with error code %d for id %@ since it does not indicate EDIRTY" , cleanStatus, disk );
             clean = kCFBooleanTrue;
         }
 ///w:stop

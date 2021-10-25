@@ -28,6 +28,7 @@
 #import "keychain/TrustedPeersHelper/TrustedPeersHelperProtocol.h"
 #import "keychain/ot/categories/OTAccountMetadataClassC+KeychainSupport.h"
 #import "keychain/ckks/CKKSAnalytics.h"
+#import "keychain/ckks/CKKSKeychainView.h"
 
 @interface OTFetchViewsOperation ()
 @property OTOperationDependencies* deps;
@@ -54,12 +55,23 @@
 {
     secnotice("octagon", "fetching views");
 
+    //double check the account metadata
+    NSError* localError = nil;
+    OTAccountMetadataClassC* currentAccountMetadata = [self.deps.stateHolder loadOrCreateAccountMetadata:&localError];
+
+    if (!currentAccountMetadata || localError) {
+        secnotice("octagon-ckks", "Failed to load account metadata: %@", localError);
+    } else {
+        self.isInheritedAccount = currentAccountMetadata.isInheritedAccount;
+    }
+
     WEAKIFY(self);
     [self.deps.cuttlefishXPCWrapper fetchCurrentPolicyWithContainer:self.deps.containerName
                                                             context:self.deps.contextID
                                                     modelIDOverride:nil
+                                                 isInheritedAccount:self.isInheritedAccount
                                                               reply:^(TPSyncingPolicy* _Nullable syncingPolicy,
-                                                                      TPPBPeerStableInfo_UserControllableViewStatus userControllableViewStatusOfPeers,
+                                                                      TPPBPeerStableInfoUserControllableViewStatus userControllableViewStatusOfPeers,
                                                                       NSError* _Nullable error) {
         STRONGIFY(self);
         [[CKKSAnalytics logger] logResultForEvent:OctagonEventFetchViews hardFailure:true result:error];
@@ -85,7 +97,7 @@
             return;
         }
 
-        [self.deps.viewManager setCurrentSyncingPolicy:syncingPolicy];
+        [self.deps.ckks setCurrentSyncingPolicy:syncingPolicy];
 
         self.nextState = self.intendedState;
     }];

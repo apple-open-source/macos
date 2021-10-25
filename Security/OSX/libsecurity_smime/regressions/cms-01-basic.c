@@ -216,7 +216,7 @@ static OSStatus verify_please(SecKeychainRef keychain, uint8_t *data_to_verify, 
                           status = errSecDecode, "Failed to get signed data");
     require_action_string(policy = SecPolicyCreateBasicX509(), out,
                           status = errSecAllocate, "Failed to create basic policy");
-    status = SecCmsSignedDataVerifySignerInfo(sigd, 0, keychain, policy, &trust);
+    status = SecCmsSignedDataVerifySigner(sigd, 0, policy, &trust);
 
 out:
     if (decoder) {

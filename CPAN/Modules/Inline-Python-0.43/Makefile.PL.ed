@@ -1,6 +1,0 @@
-/\\Q$Config{dlext}\\E/s/dlext/so/
-.
-/return query_options($ref) unless sanity_check($ref);/c
-return 1;
-.
-w

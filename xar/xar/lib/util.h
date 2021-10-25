@@ -70,4 +70,10 @@ char* xar_path_nextcomponent(char** path_to_advance);
  */
 size_t xar_optimal_io_size_at_path(const char *path);
 
+/*!
+@returns 0 if the file name is safe, < 0 if the file name is not safe. If out_filename is supplied a corrected file name is returned. You must free the returned file name
+ */
+int xar_is_safe_filename(const char *in_filename, char** out_filename);
+
+
 #endif /* _XAR_UTIL_H_ */

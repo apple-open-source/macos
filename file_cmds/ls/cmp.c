@@ -1,4 +1,6 @@
-/*
+/*-
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
  * Copyright (c) 1989, 1993
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -13,11 +15,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -40,7 +38,7 @@ static char sccsid[] = "@(#)cmp.c	8.1 (Berkeley) 5/31/93";
 #endif /* not lint */
 #endif
 #include <sys/cdefs.h>
-__RCSID("$FreeBSD: src/bin/ls/cmp.c,v 1.12 2002/06/30 05:13:54 obrien Exp $");
+__FBSDID("$FreeBSD$");
 
 
 #include <sys/types.h>
@@ -52,175 +50,161 @@ __RCSID("$FreeBSD: src/bin/ls/cmp.c,v 1.12 2002/06/30 05:13:54 obrien Exp $");
 #include "ls.h"
 #include "extern.h"
 
-#if defined(_POSIX_SOURCE) || defined(_POSIX_C_SOURCE) || \
-    defined(_XOPEN_SOURCE) || defined(__NetBSD__)
-#define ATIMENSEC_CMP(x, op, y) ((x)->st_atimensec op (y)->st_atimensec)
-#define CTIMENSEC_CMP(x, op, y) ((x)->st_ctimensec op (y)->st_ctimensec)
-#define MTIMENSEC_CMP(x, op, y) ((x)->st_mtimensec op (y)->st_mtimensec)
-#define BTIMENSEC_CMP(x, op, y) ((x)->st_birthtimensec op (y)->st_birthtimensec)
-#else
-#define ATIMENSEC_CMP(x, op, y) \
-	((x)->st_atimespec.tv_nsec op (y)->st_atimespec.tv_nsec)
-#define CTIMENSEC_CMP(x, op, y) \
-	((x)->st_ctimespec.tv_nsec op (y)->st_ctimespec.tv_nsec)
-#define MTIMENSEC_CMP(x, op, y) \
-	((x)->st_mtimespec.tv_nsec op (y)->st_mtimespec.tv_nsec)
-#define BTIMENSEC_CMP(x, op, y) \
-	((x)->st_birthtimespec.tv_nsec op (y)->st_birthtimespec.tv_nsec)
+#ifdef __APPLE__
+/*
+ * Aliased to the ino64, non-POSIX-conformant names; this works with the default
+ * build configuration of ls(1) on MacOS.
+ */
+#define	st_atim	st_atimespec
+#define	st_mtim	st_mtimespec
+#define	st_ctim	st_ctimespec
+#define	st_birthtim	st_birthtimespec
 #endif
 
 int
 namecmp(const FTSENT *a, const FTSENT *b)
 {
+
 	return (strcoll(a->fts_name, b->fts_name));
 }
 
 int
 revnamecmp(const FTSENT *a, const FTSENT *b)
 {
+
 	return (strcoll(b->fts_name, a->fts_name));
 }
 
 int
 modcmp(const FTSENT *a, const FTSENT *b)
 {
-	if (b->fts_statp->st_mtime > a->fts_statp->st_mtime)
+
+	if (b->fts_statp->st_mtim.tv_sec >
+	    a->fts_statp->st_mtim.tv_sec)
 		return (1);
-	else if (b->fts_statp->st_mtime < a->fts_statp->st_mtime)
+	if (b->fts_statp->st_mtim.tv_sec <
+	    a->fts_statp->st_mtim.tv_sec)
 		return (-1);
-	else if (MTIMENSEC_CMP(b->fts_statp, >, a->fts_statp))
+	if (b->fts_statp->st_mtim.tv_nsec >
+	    a->fts_statp->st_mtim.tv_nsec)
 		return (1);
-	else if (MTIMENSEC_CMP(b->fts_statp, <, a->fts_statp))
+	if (b->fts_statp->st_mtim.tv_nsec <
+	    a->fts_statp->st_mtim.tv_nsec)
 		return (-1);
+	if (f_samesort)
+		return (strcoll(b->fts_name, a->fts_name));
 	else
-		return (namecmp(a, b));
+		return (strcoll(a->fts_name, b->fts_name));
 }
 
 int
 revmodcmp(const FTSENT *a, const FTSENT *b)
 {
-	if (b->fts_statp->st_mtime > a->fts_statp->st_mtime)
-		return (-1);
-	else if (b->fts_statp->st_mtime < a->fts_statp->st_mtime)
-		return (1);
-	else if (MTIMENSEC_CMP(b->fts_statp, >, a->fts_statp))
-		return (-1);
-	else if (MTIMENSEC_CMP(b->fts_statp, <, a->fts_statp))
-		return (1);
-	else
-		return (revnamecmp(a, b));
+
+	return (modcmp(b, a));
 }
 
 int
 acccmp(const FTSENT *a, const FTSENT *b)
 {
-	if (b->fts_statp->st_atime > a->fts_statp->st_atime)
+
+	if (b->fts_statp->st_atim.tv_sec >
+	    a->fts_statp->st_atim.tv_sec)
 		return (1);
-	else if (b->fts_statp->st_atime < a->fts_statp->st_atime)
+	if (b->fts_statp->st_atim.tv_sec <
+	    a->fts_statp->st_atim.tv_sec)
 		return (-1);
-	else if (ATIMENSEC_CMP(b->fts_statp, >, a->fts_statp))
+	if (b->fts_statp->st_atim.tv_nsec >
+	    a->fts_statp->st_atim.tv_nsec)
 		return (1);
-	else if (ATIMENSEC_CMP(b->fts_statp, <, a->fts_statp))
+	if (b->fts_statp->st_atim.tv_nsec <
+	    a->fts_statp->st_atim.tv_nsec)
 		return (-1);
+	if (f_samesort)
+		return (strcoll(b->fts_name, a->fts_name));
 	else
-		return (namecmp(a, b));
+		return (strcoll(a->fts_name, b->fts_name));
 }
 
 int
 revacccmp(const FTSENT *a, const FTSENT *b)
 {
-	if (b->fts_statp->st_atime > a->fts_statp->st_atime)
-		return (-1);
-	else if (b->fts_statp->st_atime < a->fts_statp->st_atime)
-		return (1);
-	else if (ATIMENSEC_CMP(b->fts_statp, >, a->fts_statp))
-		return (-1);
-	else if (ATIMENSEC_CMP(b->fts_statp, <, a->fts_statp))
-		return (1);
-	else
-		return (revnamecmp(a, b));
-}
 
-int
-statcmp(const FTSENT *a, const FTSENT *b)
-{
-	if (b->fts_statp->st_ctime > a->fts_statp->st_ctime)
-		return (1);
-	else if (b->fts_statp->st_ctime < a->fts_statp->st_ctime)
-		return (-1);
-	else if (CTIMENSEC_CMP(b->fts_statp, >, a->fts_statp))
-		return (1);
-	else if (CTIMENSEC_CMP(b->fts_statp, <, a->fts_statp))
-		return (-1);
-	else
-		return (namecmp(a, b));
-}
-
-int
-revstatcmp(const FTSENT *a, const FTSENT *b)
-{
-	if (b->fts_statp->st_ctime > a->fts_statp->st_ctime)
-		return (-1);
-	else if (b->fts_statp->st_ctime < a->fts_statp->st_ctime)
-		return (1);
-	else if (CTIMENSEC_CMP(b->fts_statp, >, a->fts_statp))
-		return (-1);
-	else if (CTIMENSEC_CMP(b->fts_statp, <, a->fts_statp))
-		return (1);
-	else
-		return (revnamecmp(a, b));
-}
-
-int
-sizecmp(a, b)
-	const FTSENT *a, *b;
-{
-	if (b->fts_statp->st_size > a->fts_statp->st_size)
-		return (1);
-	if (b->fts_statp->st_size < a->fts_statp->st_size)
-		return (-1);
-	else
-		return (namecmp(a, b));
-}
-
-int
-revsizecmp(a, b)
-	const FTSENT *a, *b;
-{
-	if (b->fts_statp->st_size > a->fts_statp->st_size)
-		return (-1);
-	if (b->fts_statp->st_size < a->fts_statp->st_size)
-		return (1);
-	else
-		return (revnamecmp(a, b));
+	return (acccmp(b, a));
 }
 
 int
 birthcmp(const FTSENT *a, const FTSENT *b)
 {
-	if (b->fts_statp->st_birthtime > a->fts_statp->st_birthtime)
+
+	if (b->fts_statp->st_birthtim.tv_sec >
+	    a->fts_statp->st_birthtim.tv_sec)
 		return (1);
-	else if (b->fts_statp->st_birthtime < a->fts_statp->st_birthtime)
+	if (b->fts_statp->st_birthtim.tv_sec <
+	    a->fts_statp->st_birthtim.tv_sec)
 		return (-1);
-	else if (BTIMENSEC_CMP(b->fts_statp, >, a->fts_statp))
+	if (b->fts_statp->st_birthtim.tv_nsec >
+	    a->fts_statp->st_birthtim.tv_nsec)
 		return (1);
-	else if (BTIMENSEC_CMP(b->fts_statp, <, a->fts_statp))
+	if (b->fts_statp->st_birthtim.tv_nsec <
+	    a->fts_statp->st_birthtim.tv_nsec)
 		return (-1);
+	if (f_samesort)
+		return (strcoll(b->fts_name, a->fts_name));
 	else
-		return (namecmp(a, b));
+		return (strcoll(a->fts_name, b->fts_name));
 }
 
 int
 revbirthcmp(const FTSENT *a, const FTSENT *b)
 {
-	if (b->fts_statp->st_birthtime > a->fts_statp->st_birthtime)
-		return (-1);
-	else if (b->fts_statp->st_birthtime < a->fts_statp->st_birthtime)
+
+	return (birthcmp(b, a));
+}
+
+int
+statcmp(const FTSENT *a, const FTSENT *b)
+{
+
+	if (b->fts_statp->st_ctim.tv_sec >
+	    a->fts_statp->st_ctim.tv_sec)
 		return (1);
-	else if (BTIMENSEC_CMP(b->fts_statp, >, a->fts_statp))
+	if (b->fts_statp->st_ctim.tv_sec <
+	    a->fts_statp->st_ctim.tv_sec)
 		return (-1);
-	else if (BTIMENSEC_CMP(b->fts_statp, <, a->fts_statp))
+	if (b->fts_statp->st_ctim.tv_nsec >
+	    a->fts_statp->st_ctim.tv_nsec)
 		return (1);
+	if (b->fts_statp->st_ctim.tv_nsec <
+	    a->fts_statp->st_ctim.tv_nsec)
+		return (-1);
+	if (f_samesort)
+		return (strcoll(b->fts_name, a->fts_name));
 	else
-		return (revnamecmp(a, b));
+		return (strcoll(a->fts_name, b->fts_name));
+}
+
+int
+revstatcmp(const FTSENT *a, const FTSENT *b)
+{
+
+	return (statcmp(b, a));
+}
+
+int
+sizecmp(const FTSENT *a, const FTSENT *b)
+{
+
+	if (b->fts_statp->st_size > a->fts_statp->st_size)
+		return (1);
+	if (b->fts_statp->st_size < a->fts_statp->st_size)
+		return (-1);
+	return (strcoll(a->fts_name, b->fts_name));
+}
+
+int
+revsizecmp(const FTSENT *a, const FTSENT *b)
+{
+
+	return (sizecmp(b, a));
 }

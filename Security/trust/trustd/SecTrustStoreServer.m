@@ -29,11 +29,17 @@
 #include <Security/Security.h>
 #include <Security/SecTrustSettingsPriv.h>
 #include <Security/SecPolicyPriv.h>
+#include <Security/TrustSettingsSchema.h>
 #include <utilities/SecFileLocations.h>
 #include <utilities/SecCFWrappers.h>
 #import "OTATrustUtilities.h"
 #include "trustdFileLocations.h"
+#include "trustdVariants.h"
 #include "SecTrustStoreServer.h"
+
+#if TARGET_OS_OSX
+#include <membership.h>
+#endif
 
 /*
  * Each config file is a dictionary with NSString keys corresponding to the appIDs.
@@ -99,6 +105,10 @@ static bool _SecTrustStoreSetConfiguration(CFStringRef appID, CFTypeRef configur
                                            char *notification, ConfigDiskReader readConfigFromDisk,
                                            ConfigCheckerAndSetter checkAndSetConfig)
 {
+    if (!TrustdVariantAllowsFileWrite()) {
+        secerror("Unable to write %{public}s in this environment", configurationType);
+        return SecError(errSecUnimplemented, error, CFSTR("Unable to write %s in this environment"), configurationType);
+    }
     if (!SecOTAPKIIsSystemTrustd()) {
         secerror("Unable to write %{public}s from user agent", configurationType);
         return SecError(errSecWrPerm, error, CFSTR("Unable to write %s from user agent"), configurationType);
@@ -149,6 +159,9 @@ static bool _SecTrustStoreSetConfiguration(CFStringRef appID, CFTypeRef configur
 
 static void _SecTrustStoreCreateEmptyConfigCache(char *configurationType, _Atomic bool *cachedConfigExists, char *notification, int *notify_token, NSURL *fileURL, ConfigDiskReader readConfigFromDisk)
 {
+    if (!TrustdVariantAllowsFileWrite()) {
+        return;
+    }
     @autoreleasepool {
         NSError *read_error = nil;
         NSDictionary <NSString*,id> *allConfig = readConfigFromDisk(fileURL, &read_error);
@@ -180,6 +193,9 @@ static void _SecTrustStoreCreateEmptyConfigCache(char *configurationType, _Atomi
 static CFTypeRef _SecTrustStoreCopyConfiguration(CFStringRef appID, CFErrorRef *error, char *configurationType,
                                                  _Atomic bool *cachedConfigExists, char *notification, int *notify_token,
                                                  NSURL *fileURL, ConfigDiskReader readConfigFromDisk, CombineAndCopyAllConfig combineAllConfig) {
+    if (!TrustdVariantAllowsFileWrite()) {
+        return NULL;
+    }
     @autoreleasepool {
         /* Read the negative cached value as to whether there is config to read */
         if (!SecOTAPKIIsSystemTrustd()) {
@@ -521,6 +537,139 @@ CFArrayRef _SecTrustStoreCopyTransparentConnectionPins(CFStringRef appID, CFErro
 //
 // MARK: One-time migration
 //
+#if TARGET_OS_OSX
+static const NSString *kLegacyTrustSettingsBasePath = @"/Library/Security/Trust Settings";
+static const NSString *kAdminTrustSettingsPlist = @"Admin.plist";
+static const NSString *kUserTrustSettingsPlist = @"TrustSettings.plist";
+
+static bool _SecTrustStoreCopyOrCreateTrustSettingsPlist(NSString * _Nonnull srcPath, NSString * _Nonnull dstPath, uid_t uid, gid_t gid, mode_t mode, bool forceReset) {
+    NSError *error = NULL;
+    NSFileManager *fileManager = [NSFileManager defaultManager];
+    NSURL *srcURL = [NSURL fileURLWithPath:srcPath isDirectory:NO];
+    NSURL *dstURL = [NSURL fileURLWithPath:dstPath isDirectory:NO];
+    const char *dst = [dstURL fileSystemRepresentation];
+
+    if (!forceReset && [fileManager fileExistsAtPath:srcPath]) {
+        // copy existing trust settings file to destination
+        if (![fileManager copyItemAtURL:srcURL toURL:dstURL error:&error]) {
+            secerror("unable to migrate %s (%s error %ld)",
+                     [srcURL fileSystemRepresentation],
+                     [[error domain] UTF8String], (long)[error code]);
+            return false;
+        }
+        secnotice("trustsettings", "migrated trust settings to %s", dst);
+    } else {
+        // create empty trust settings file at destination, as a migration marker
+        // (note: empty file is not sufficient; needs version and trust list)
+        NSDictionary *dict = [NSDictionary dictionaryWithObjectsAndKeys:
+                              @{}, @"trustList", @1, @"trustVersion", nil];
+        if (![dict writeToURL:dstURL error:&error]) {
+            secerror("unable to create %s (%s error %ld)",
+                     [dstURL fileSystemRepresentation],
+                     [[error domain] UTF8String], (long)[error code]);
+            return false;
+        }
+        secnotice("trustsettings", "created empty trust settings at %s", dst);
+    }
+    if (chown(dst, uid, gid)) {
+        int localErrno = errno;
+        secerror("failed to change permissions of %s: %s", dst, strerror(localErrno));
+        return false;
+    }
+    if (chmod(dst, mode)) {
+        int localErrno = errno;
+        secerror("failed to change permissions of %s: %s", dst, strerror(localErrno));
+        return false;
+    }
+    return true; // successfully migrated trust settings
+}
+
+static bool _SecTrustStoreVerifyTrustSettingsVersion(NSString *tsPath) {
+    // check that the file at this path appears to be a readable trust settings plist
+    NSDictionary *tsDict = [NSDictionary dictionaryWithContentsOfFile:tsPath];
+    NSNumber *value = [tsDict objectForKey:(__bridge NSString *)kTrustRecordVersion];
+    int tsVersion = [value intValue];
+    if (tsVersion == kSecTrustRecordVersionCurrent) {
+        return true;
+    }
+    // unable to read expected version entry
+    const char *name = [tsPath UTF8String];
+    if (!name) { name = "<unknown>"; }
+    secerror("%s has trustVersion %d, expected %d",
+              name, tsVersion, kSecTrustRecordVersionCurrent);
+    return false;
+}
+#endif // TARGET_OS_OSX
+
+static bool _SecTrustStoreMigrateAdminTrustSettingsPlist(void) {
+#if TARGET_OS_OSX
+    __block NSString *srcPath = nil;
+    __block NSString *dstPath = nil;
+    __block bool result = true;
+
+    WithPathInPrivateTrustdDirectory((__bridge CFStringRef)kAdminTrustSettingsPlist, ^(const char *utf8String) {
+        srcPath = [NSString stringWithFormat:@"%@/%@", kLegacyTrustSettingsBasePath, kAdminTrustSettingsPlist];
+        dstPath = [NSString stringWithCString:utf8String encoding:NSUTF8StringEncoding];
+        struct stat sb;
+        int ret = stat(utf8String, &sb);
+        if (ret != 0) {
+            secinfo("trustsettings", "failed to stat Admin.plist: %s", strerror(errno));
+            result = false;
+        }
+    });
+    if (result) {
+        // file exists at dstPath; check that we can read its version entry
+        if (_SecTrustStoreVerifyTrustSettingsVersion(dstPath)) {
+            return true;
+        }
+        // unable to read expected version entry, so reset file contents
+    }
+    return _SecTrustStoreCopyOrCreateTrustSettingsPlist(srcPath, dstPath, TRUSTD_ROLE_ACCOUNT, TRUSTD_ROLE_ACCOUNT, TRUST_SETTINGS_ADMIN_MODE, result);
+
+#else // !TARGET_OS_OSX
+    return true;
+#endif
+}
+
+static bool _SecTrustStoreMigrateUserTrustSettingsPlist(void) {
+#if TARGET_OS_OSX
+    __block NSString *srcPath = nil;
+    __block NSString *dstPath = nil;
+    __block bool result = true;
+    __block uid_t euid = geteuid();
+
+    WithPathInPrivateUserTrustdDirectory((__bridge CFStringRef)kUserTrustSettingsPlist, ^(const char *utf8String) {
+        uuid_t currentUserUuid;
+        int ret = mbr_uid_to_uuid(euid, currentUserUuid);
+        if (ret != 0) {
+            secerror("failed to get UUID for user(%d) - %d", euid, ret);
+            // we won't have a srcPath; if dstPath is missing, this creates an empty file.
+        } else {
+            NSUUID *userUuid = [[NSUUID alloc] initWithUUIDBytes:currentUserUuid];
+            srcPath = [NSString stringWithFormat:@"%@/%@.plist", kLegacyTrustSettingsBasePath, [userUuid UUIDString]];
+        }
+        dstPath = [NSString stringWithCString:utf8String encoding:NSUTF8StringEncoding];
+        struct stat sb;
+        ret = stat(utf8String, &sb);
+        if (ret != 0) {
+            secinfo("trustsettings", "failed to stat user TrustSettings.plist: %s", strerror(errno));
+            result = false;
+        }
+    });
+    if (result) {
+        // file exists at dstPath; check that we can read its version entry
+        if (_SecTrustStoreVerifyTrustSettingsVersion(dstPath)) {
+            return true;
+        }
+        // unable to read expected version entry, so reset file contents
+    }
+    return _SecTrustStoreCopyOrCreateTrustSettingsPlist(srcPath, dstPath, euid, TRUST_SETTINGS_STAFF_GID, TRUST_SETTINGS_USER_MODE, result);
+
+#else // !TARGET_OS_OSX
+    return true;
+#endif
+}
+
 static bool _SecTrustStoreMigrateConfiguration(NSURL *oldFileURL, NSURL *newFileURL, char *configurationType, ConfigDiskReader readConfigFromDisk)
 {
     NSError *error;
@@ -559,5 +708,15 @@ void _SecTrustStoreMigrateConfigurations(void) {
             _SecTrustStoreMigrateConfiguration(TransparentConnectionPinsOldFileURL(), TransparentConnectionPinsFileURL(),
                                                "Transparent Connection Pins", readPinsFromDisk);
         }
+    });
+}
+
+void _SecTrustStoreMigrateTrustSettings(void) {
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        if (SecOTAPKIIsSystemTrustd()) {
+            _SecTrustStoreMigrateAdminTrustSettingsPlist();
+        }
+        _SecTrustStoreMigrateUserTrustSettingsPlist();
     });
 }

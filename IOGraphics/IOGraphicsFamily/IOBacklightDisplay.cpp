@@ -36,6 +36,8 @@
 #include "IOGraphicsKTrace.h"
 #include "GMetric.hpp"
 
+#ifdef TARGET_CPU_X86_64
+
 /*
     We further divide the actual display panel brightness levels into four
     IOKit power states which we export to our superclass.
@@ -962,4 +964,5 @@ IOReturn AppleBacklightDisplay::framebufferEvent( IOFramebuffer * framebuffer,
     return (err);
 }
 
+#endif //TARGET_CPU_X86_64
 

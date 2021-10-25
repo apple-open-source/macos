@@ -69,7 +69,7 @@
   #define HAVE_SMART_BATTERY            1
 
 
-#define kProcNameBufLen                     (2*MAXCOMLEN)
+#define kProcNameBufLen 64
 
 /* System Capability Macros */
 
@@ -93,13 +93,16 @@
 #define SYSLOAD_LOG         "systemLoad"
 #define AGGD_REPORTS_LOG    "aggdReport"
 #define BATTERY_LOG         "battery"
+#define BATTERY_HEALTH_LOG  "batteryhealth"
 #define ASSERTIONS_LOG      "assertions"
 #define PMSETTINGS_LOG      "pmSettings"
 #define SLEEPWAKE_LOG       "sleepWake"
 #define ADAPTIVEDISPLAY_LOG "adaptiveDisplay"
 #define WAKEREQUESTS_LOG    "wakeRequests"
 #define DISPLAY_LOG         "displayState"
+#define LOW_POWER_MODE_LOG  "lowPowerMode"
 #define PREFS_LOG           "prefs"
+#define BDC_LOG             "BDC"
 
 #ifndef LOG_STREAM
 #define LOG_STREAM OS_LOG_DEFAULT

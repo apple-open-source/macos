@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2020 Apple Inc. All rights reserved.
+ * Copyright (c) 2016-2021 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -512,6 +512,44 @@ fq_getq_flow(fq_if_t *fqs, fq_t *fq, pktsched_pkt_t *pkt)
 	    (qdelay > 0 && (u_int64_t)qdelay < fq->fq_min_qdelay)) {
 		fq->fq_min_qdelay = qdelay;
 	}
+
+	/* Update min/max/avg qdelay for the respective class */
+	if (fq_cl->fcl_stat.fcl_min_qdelay == 0 ||
+	    (qdelay > 0 && (u_int64_t)qdelay < fq_cl->fcl_stat.fcl_min_qdelay)) {
+		fq_cl->fcl_stat.fcl_min_qdelay = qdelay;
+	}
+
+	if (fq_cl->fcl_stat.fcl_max_qdelay == 0 ||
+	    (qdelay > 0 && (u_int64_t)qdelay > fq_cl->fcl_stat.fcl_max_qdelay)) {
+		fq_cl->fcl_stat.fcl_max_qdelay = qdelay;
+	}
+
+	uint64_t num_dequeues = fq_cl->fcl_stat.fcl_dequeue;
+
+	if (num_dequeues == 0) {
+		fq_cl->fcl_stat.fcl_avg_qdelay = qdelay;
+	} else if (qdelay > 0) {
+		uint64_t res = 0;
+		if (os_add_overflow(num_dequeues, 1, &res)) {
+			/* Reset the dequeue num and dequeue bytes */
+			fq_cl->fcl_stat.fcl_dequeue = num_dequeues = 0;
+			fq_cl->fcl_stat.fcl_dequeue_bytes = 0;
+			fq_cl->fcl_stat.fcl_avg_qdelay = qdelay;
+			os_log_info(OS_LOG_DEFAULT, "%s: dequeue num overflow, "
+			    "flow: 0x%x, iface: %s", __func__, fq->fq_flowhash,
+			    if_name(fqs->fqs_ifq->ifcq_ifp));
+		} else {
+			uint64_t product = 0;
+			if (os_mul_overflow(fq_cl->fcl_stat.fcl_avg_qdelay,
+			    num_dequeues, &product) || os_add_overflow(product, qdelay, &res)) {
+				fq_cl->fcl_stat.fcl_avg_qdelay = qdelay;
+			} else {
+				fq_cl->fcl_stat.fcl_avg_qdelay = res /
+				    (num_dequeues + 1);
+			}
+		}
+	}
+
 	if (now >= fq->fq_updatetime) {
 		if (fq->fq_min_qdelay > fqs->fqs_target_qdelay) {
 			if (!FQ_IS_DELAYHIGH(fq)) {

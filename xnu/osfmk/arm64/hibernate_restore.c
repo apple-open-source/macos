@@ -160,20 +160,22 @@ typedef struct {
 static void
 hib_bzero(volatile void *s, size_t n)
 {
+	uintptr_t p = (uintptr_t)s;
+
 	// can't use __nosan_bzero while the MMU is off, so do it manually
 	while (n > sizeof(uint64_t)) {
-		*(volatile uint64_t *)s = 0;
-		s += sizeof(uint64_t);
+		*(volatile uint64_t *)p = 0;
+		p += sizeof(uint64_t);
 		n -= sizeof(uint64_t);
 	}
 	while (n > sizeof(uint32_t)) {
-		*(volatile uint32_t *)s = 0;
-		s += sizeof(uint32_t);
+		*(volatile uint32_t *)p = 0;
+		p += sizeof(uint32_t);
 		n -= sizeof(uint32_t);
 	}
 	while (n) {
-		*(volatile char *)s = 0;
-		s++;
+		*(volatile char *)p = 0;
+		p++;
 		n--;
 	}
 }
@@ -418,12 +420,12 @@ pal_hib_resume_tramp(uint32_t headerPpnum)
 	map_range_start_end(&ctx, image_start, image_end, 0, MAP_RO);
 
 	// map some device register pages
-	if (gHibernateGlobals.dockChannelRegBase) {
-#define dockchannel_uart_base gHibernateGlobals.dockChannelRegBase
-		vm_address_t dockChannelRegBase = trunc_page(&rDOCKCHANNELS_DEV_WSTAT(DOCKCHANNEL_UART_CHANNEL));
-		map_register_page(&ctx, dockChannelRegBase);
+	if (gHibernateGlobals.dockChannelRegPhysBase) {
+#define dockchannel_uart_base gHibernateGlobals.dockChannelRegPhysBase
+		vm_address_t dockChannelRegPhysBase = trunc_page(&rDOCKCHANNELS_DEV_WSTAT(DOCKCHANNEL_UART_CHANNEL));
+		map_register_page(&ctx, dockChannelRegPhysBase);
 	}
-	map_register_page(&ctx, gHibernateGlobals.hibUartRegBase);
+	map_register_page(&ctx, gHibernateGlobals.hibUartRegPhysBase);
 	map_register_page(&ctx, gHibernateGlobals.hmacRegBase);
 
 	gHibTramp.memSlide = mem_slide;

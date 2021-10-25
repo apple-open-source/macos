@@ -10,6 +10,8 @@ NSString* const SecEscrowRequestHavePrecord = @"have_prerecord";
 NSString* const SecEscrowRequestPendingPasscode = @"pending_passcode";
 NSString* const SecEscrowRequestPendingCertificate = @"pending_certificate";
 
+NSString* const SecEscrowRequestOptionFederationMove = @"federation_move";
+
 @interface SecEscrowRequest ()
 @property NSXPCConnection *connection;
 @end
@@ -51,6 +53,11 @@ NSString* const SecEscrowRequestPendingCertificate = @"pending_certificate";
 
 - (BOOL)triggerEscrowUpdate:(NSString*)reason error:(NSError**)error
 {
+    return [self triggerEscrowUpdate:reason options:nil error:error];
+}
+
+- (BOOL)triggerEscrowUpdate:(NSString*)reason options:(NSDictionary*)options error:(NSError**)error
+{
     __block NSError* localError = nil;
 
     NSXPCConnection<EscrowRequestXPCProtocol>* c = [self.connection synchronousRemoteObjectProxyWithErrorHandler:^(NSError *xpcError) {
@@ -59,6 +66,7 @@ NSString* const SecEscrowRequestPendingCertificate = @"pending_certificate";
     }];
 
     [c triggerEscrowUpdate:reason
+                   options:options
                      reply:^(NSError * _Nullable xpcError) {
                          localError = xpcError;
 
@@ -243,6 +251,26 @@ NSString* const SecEscrowRequestPendingCertificate = @"pending_certificate";
     }
 
     return inProgress;
+}
+
+- (BOOL)escrowCompletedWithinLastSeconds:(NSTimeInterval)timeInterval
+{
+    __block BOOL result = true;
+    __block NSError* localError = nil;
+
+    NSXPCConnection<EscrowRequestXPCProtocol>* c = [self.connection synchronousRemoteObjectProxyWithErrorHandler:^(NSError *xpcError) {
+        localError = xpcError;
+        secnotice("escrow", "resetAllRequests: Failed to get XPC connection: %@", xpcError);
+    }];
+
+    [c escrowCompletedWithinLastSeconds:timeInterval reply:^(BOOL escrowCompletedWithin, NSError * _Nullable xpcError) {
+        result = escrowCompletedWithin;
+        localError = xpcError;
+
+        secnotice("escrow", "resetAllRequests: %@", xpcError);
+    }];
+
+    return result;
 }
 
 @end

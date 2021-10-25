@@ -49,20 +49,16 @@ extern char *svc2str(uint32_t);
 void
 print_pktap_header(struct netdissect_options *ndo, struct pktap_header *pktp_hdr)
 {
-	ND_PRINT((ndo, "pth_length %u (sizeof(struct pktap_header)  %lu)\n",
+	ND_PRINT((ndo, "pth_length %u (sizeof(struct pktap_header)  %lu)",
 		   pktp_hdr->pth_length, sizeof(struct pktap_header)));
-	ND_PRINT((ndo, "pth_type_next %u\n", pktp_hdr->pth_type_next));
-	ND_PRINT((ndo, "pth_dlt %u\n", pktp_hdr->pth_dlt));
-	ND_PRINT((ndo, "pth_ifname %s\n", pktp_hdr->pth_ifname));
-	ND_PRINT((ndo, "pth_flags 0x%x\n", pktp_hdr->pth_flags));
-	ND_PRINT((ndo, "pth_protocol_family %u\n", pktp_hdr->pth_protocol_family));
-	ND_PRINT((ndo, "pth_frame_pre_length %u\n", pktp_hdr->pth_frame_pre_length));
-	ND_PRINT((ndo, "pth_frame_post_length %u\n", pktp_hdr->pth_frame_post_length));
-	ND_PRINT((ndo, "pth_pid %d\n", pktp_hdr->pth_pid));
-	ND_PRINT((ndo, "pth_comm %s\n", pktp_hdr->pth_comm));
-	ND_PRINT((ndo, "pth_svc %u\n", pktp_hdr->pth_svc));
-	ND_PRINT((ndo, "pth_epid %d\n", pktp_hdr->pth_epid));
-	ND_PRINT((ndo, "pth_ecomm %s\n", pktp_hdr->pth_ecomm));
+	ND_PRINT((ndo, " type_next %u", pktp_hdr->pth_type_next));
+	ND_PRINT((ndo, " dlt %u", pktp_hdr->pth_dlt));
+	ND_PRINT((ndo, " ifname %s", pktp_hdr->pth_ifname));
+	ND_PRINT((ndo, " flags 0x%x", pktp_hdr->pth_flags));
+	ND_PRINT((ndo, " protocol_family %u", pktp_hdr->pth_protocol_family));
+	ND_PRINT((ndo, " frame_pre_length %u", pktp_hdr->pth_frame_pre_length));
+	ND_PRINT((ndo, " frame_post_length %u", pktp_hdr->pth_frame_post_length));
+	ND_PRINT((ndo, " iftype %u\n", pktp_hdr->pth_iftype));
 }
 #endif /* DEBUG */
 

@@ -1,5 +1,18 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
-// License & terms of use: http://www.unicode.org/copyright.html#License
+// License & terms of use: http://www.unicode.org/copyright.html
+// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
 sat{
-    Version{"36.1"}
+    Countries{
+        BR{"ᱵᱨᱟᱡᱤᱞ"}
+        CN{"ᱪᱤᱱ"}
+        DE{"ᱡᱟᱨᱢᱟᱱᱤ"}
+        FR{"ᱯᱷᱨᱟᱱᱥ"}
+        GB{"ᱭᱩᱱᱤᱭᱴᱮᱰ ᱠᱤᱝᱰᱚᱢ"}
+        IN{"ᱤᱱᱰᱤᱭᱟ"}
+        IT{"ᱤᱴᱞᱤ"}
+        JP{"ᱡᱟᱯᱟᱱ"}
+        RU{"ᱨᱩᱥ"}
+        US{"ᱭᱩᱱᱟᱭᱴᱮᱰ ᱮᱥᱴᱮᱴ"}
+        ZZ{"ᱵᱟᱝᱩᱨᱩᱢ ᱴᱚᱴᱷᱟ"}
+    }
 }

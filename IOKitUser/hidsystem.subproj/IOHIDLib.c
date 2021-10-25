@@ -50,8 +50,7 @@
 #include <AssertMacros.h>
 
 #if TARGET_OS_OSX
-#include <msgtracer_client.h>
-#include <msgtracer_keys.h>
+#include <IOKit/hid/IOHIDAnalytics.h>
 #endif //TARGET_OS_OSX
 
 #define IOHID_LOG_CURSOR _IOHIDLogCategory(kIOHIDLogCategoryCursor)
@@ -241,23 +240,32 @@ static void _LOGIOHIDPostEventCaller(void)
 {
     // This will return bundle re for executable bundle
     // eg App calling post event
-    CFBundleRef appBundleRef = CFBundleGetMainBundle();
-    CFStringRef appBundleName = NULL;
+    static dispatch_once_t hidAnalyticsSetup;
+   
     
-    if (appBundleRef) {
-        appBundleName = CFBundleGetValueForInfoDictionaryKey(appBundleRef, CFSTR("CFBundleIdentifier"));
-    }
-    
-    //Log call to message tracer
-    if (!appBundleName) {
-        return;
-    }
-    
-    
-    msgtracer_log_with_keys("com.apple.iokituser.hid.iohidpostevent", ASL_LEVEL_NOTICE,
-                            kMsgTracerKeySignature, CFStringGetCStringPtr(appBundleName, kCFStringEncodingASCII),
-                            kMsgTracerKeySummarize, "YES",
-                            NULL);
+    dispatch_once(&hidAnalyticsSetup, ^{
+        CFBundleRef appBundleRef = CFBundleGetMainBundle();
+        CFStringRef appBundleName = NULL;
+        
+        if (appBundleRef) {
+            appBundleName = CFBundleGetValueForInfoDictionaryKey(appBundleRef, CFSTR("CFBundleIdentifier"));
+        }
+        
+        if (!appBundleName) {
+            return;
+        }
+
+        CFTypeRef hidAnalyticsEvent = IOHIDAnalyticsEventCreate(CFSTR("com.apple.iokituser.hid.iohidpostevent"), NULL);
+        if (!hidAnalyticsEvent) {
+            os_log_error(_IOHIDLog(), "Failed to create HID analytics event for IOHIDPostEvent");
+            return;
+        }
+        IOHIDAnalyticsEventAddField(hidAnalyticsEvent, CFSTR("AppBundleName"));
+        IOHIDAnalyticsEventActivate(hidAnalyticsEvent);
+        IOHIDAnalyticsEventSetStringValueForField(hidAnalyticsEvent, CFSTR("AppBundleName"), appBundleName);
+        IOHIDAnalyticsEventCancel(hidAnalyticsEvent);
+        CFRelease(hidAnalyticsEvent);
+    });
 }
 #endif //TARGET_OS_OSX
 

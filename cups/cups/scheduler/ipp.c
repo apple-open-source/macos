@@ -4891,7 +4891,7 @@ copy_printer_attrs(
   }
 
   if (printer->alert && (!ra || cupsArrayFind(ra, "printer-alert")))
-    ippAddString(con->response, IPP_TAG_PRINTER, IPP_TAG_STRING, "printer-alert", NULL, printer->alert);
+    ippAddOctetString(con->response, IPP_TAG_PRINTER, "printer-alert", printer->alert, strlen(printer->alert));
 
   if (printer->alert_description && (!ra || cupsArrayFind(ra, "printer-alert-description")))
     ippAddString(con->response, IPP_TAG_PRINTER, IPP_TAG_TEXT, "printer-alert-description", NULL, printer->alert_description);
@@ -6167,7 +6167,7 @@ get_devices(cupsd_client_t *con)	/* I - Client connection */
 	   exclude_str[0] ? "%20" : "", exclude_str,
 	   include_str[0] ? "%20" : "", include_str);
 
-  if (cupsdSendCommand(con, command, options, 1))
+  if (cupsdSendCommand(con, command, options, 1, 1))
   {
    /*
     * Command started successfully, don't send an IPP response here...
@@ -7054,7 +7054,7 @@ get_ppd(cupsd_client_t  *con,		/* I - Client connection */
     url_encode_string(ppd_name, oppd_name, sizeof(oppd_name));
     snprintf(options, sizeof(options), "get+%d+%s", ippGetRequestId(con->request), oppd_name);
 
-    if (cupsdSendCommand(con, command, options, 0))
+    if (cupsdSendCommand(con, command, options, 0, 1))
     {
      /*
       * Command started successfully, don't send an IPP response here...
@@ -7292,7 +7292,7 @@ get_ppds(cupsd_client_t *con)		/* I - Client connection */
 	   exclude_str[0] ? "%20" : "", exclude_str,
 	   include_str[0] ? "%20" : "", include_str);
 
-  if (cupsdSendCommand(con, command, options, 0))
+  if (cupsdSendCommand(con, command, options, 0, 1))
   {
    /*
     * Command started successfully, don't send an IPP response here...

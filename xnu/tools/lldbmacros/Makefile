@@ -76,11 +76,12 @@ LLDBMACROS_PYTHON_FILES = $(LLDBMACROS_USERDEBUG_FILES) \
 	kauth.py \
 	usertaskgdbserver.py \
 	waitq.py \
-	pgtrace.py \
 	xnutriage.py \
 	zonetriage.py \
 	sysreg.py \
-	counter.py
+	counter.py \
+	btlog.py \
+	refgrp.py
 
 ifneq ($(PLATFORM),MacOSX)
 	LLDBMACROS_PYTHON_FILES+= \

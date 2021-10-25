@@ -709,6 +709,8 @@ static SecCmsMessageRef signed_data(struct signOptionsStr *signOptions)
         SecCmsMessageSetTSAContext(cmsg, SecCmsTSAGetDefaultContext(&error));
     }
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     if (!signOptions->encryptionKeyPreferenceNick)
     {
         /* check signing cert for fitness as encryption cert */
@@ -769,6 +771,7 @@ static SecCmsMessageRef signed_data(struct signOptionsStr *signOptions)
         SEC_CHECK(SecCmsSignedDataAddCertificate(sigd, ekpcert),
                   "cannot add encryption certificate");
     }
+#pragma clang diagnostic pop
 
     SEC_CHECK(SecCmsSignedDataAddSignerInfo(sigd, signerinfo),
               "cannot add CMS signerInfo object");

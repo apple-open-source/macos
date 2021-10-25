@@ -10,6 +10,7 @@
 
 #import <Foundation/Foundation.h>
 #import <HID/HIDBase.h>
+#import <IOKit/hidsystem/IOHIDEventSystemClient.h>
 
 NS_ASSUME_NONNULL_BEGIN
 

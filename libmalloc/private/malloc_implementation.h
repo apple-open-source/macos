@@ -24,6 +24,7 @@
 /* Private interfaces between libsystem_malloc, libSystem, and MallocStackLogging */
 
 #include <malloc/malloc.h>
+#include <stack_logging.h>
 
 #ifndef _MALLOC_IMPLEMENTATION_H_
 #define _MALLOC_IMPLEMENTATION_H_
@@ -31,12 +32,35 @@
 
 /*********	Libsystem initializers ************/
 
+struct _malloc_msl_lite_hooks_s;
+
+struct _malloc_msl_symbols {
+	unsigned long version;
+
+	/* the following are included in version 1 of this structure */
+
+	void (*handle_memory_event) (unsigned long event);
+	boolean_t (*stack_logging_locked) (void);
+	void (*fork_prepare) (void);
+	void (*fork_parent) (void);
+	void (*fork_child) (void);
+
+	void (*set_flags_from_environment) (const char **env);
+	void (*initialize) ();
+	boolean_t (*turn_on_stack_logging) (stack_logging_mode_type mode);
+	void (*turn_off_stack_logging) ();
+	void (*copy_msl_lite_hooks) (struct _malloc_msl_lite_hooks_s *hooksp, size_t size);
+};
+
+
 struct _malloc_late_init {
 	unsigned long version;
 	/* The following functions are included in version 1 of this structure */
 	void * (*dlopen) (const char *path, int mode);
 	void * (*dlsym) (void *handle, const char *symbol);
 	bool internal_diagnostics;  /* os_variant_has_internal_diagnostics() */
+	/* The following are included in version 2 of this structure */
+	const struct _malloc_msl_symbols *msl;
 };
 
 void __malloc_init(const char *apple[]);

@@ -1,0 +1,17 @@
+	<dict>
+		<key>OpenSourceProject</key>
+		<string>sleep</string>
+		<key>OpenSourceVersion</key>
+		<string>2020-12-31</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>https://cgit.freebsd.org/src/tree/bin/sleep?id=43d0803c4545861e8f2411aec0987968b2e4a299</string>
+		<key>OpenSourceImportDate</key>
+		<string>2021-04-21</string>
+		<key>OpenSourceModifications</key>
+		<array>
+			<string>sleep.c: improve POSIX conformance (6591313)</string>
+			<string>sleep.c: remove capsicum support (76853816)</string>
+		</array>
+		<key>OpenSourceLicense</key>
+		<string>bsd</string>
+	</dict>

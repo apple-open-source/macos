@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010-2015, 2017-2019 Apple Inc. All rights reserved.
+ * Copyright (c) 2010-2015, 2017-2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -146,7 +146,7 @@ done :
 /* -----------------------------------------------------------------------------
  ----------------------------------------------------------------------------- */
 static SCNetworkServiceRef
-nc_copy_service_from_arguments(int argc, char **argv, SCNetworkSetRef set) {
+nc_copy_service_from_arguments(int argc, char * const argv[], SCNetworkSetRef set) {
 	CFStringRef		serviceID	= NULL;
 	SCNetworkServiceRef	service		= NULL;
 
@@ -227,7 +227,7 @@ nc_callback(SCNetworkConnectionRef connection, SCNetworkConnectionStatus status,
 }
 
 static void
-nc_create_connection(int argc, char **argv, Boolean exit_on_failure)
+nc_create_connection(int argc, char * const argv[], Boolean exit_on_failure)
 {
 	SCNetworkConnectionContext	context	= { 0, &n_callback, NULL, NULL, NULL };
 	SCNetworkServiceRef		service;
@@ -253,8 +253,8 @@ nc_create_connection(int argc, char **argv, Boolean exit_on_failure)
 /* -----------------------------------------------------------------------------
  ----------------------------------------------------------------------------- */
 
-static void
-nc_trigger(int argc, char **argv)
+static void __attribute__((noreturn))
+nc_trigger(int argc, char * const argv[])
 {
 	Boolean		background	= FALSE;
 	int		i;
@@ -324,8 +324,8 @@ nc_release_connection()
 
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
-static void
-nc_start(int argc, char **argv)
+static void __attribute__((noreturn))
+nc_start(int argc, char * const argv[])
 {
 	CFMutableDictionaryRef		userOptions = NULL;
 	CFStringRef			iftype = NULL;
@@ -403,8 +403,8 @@ nc_start(int argc, char **argv)
 
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
-static void
-nc_stop(int argc, char **argv)
+static void __attribute__((noreturn))
+nc_stop(int argc, char * const argv[])
 {
 	nc_create_connection(argc, argv, TRUE);
 
@@ -419,8 +419,8 @@ nc_stop(int argc, char **argv)
 
 /* -----------------------------------------------------------------------------
  ----------------------------------------------------------------------------- */
-static void
-nc_suspend(int argc, char **argv)
+static void __attribute__((noreturn))
+nc_suspend(int argc, char * const argv[])
 {
 	nc_create_connection(argc, argv, TRUE);
 
@@ -432,8 +432,8 @@ nc_suspend(int argc, char **argv)
 
 /* -----------------------------------------------------------------------------
  ----------------------------------------------------------------------------- */
-static void
-nc_resume(int argc, char **argv)
+static void __attribute__((noreturn))
+nc_resume(int argc, char * const argv[])
 {
 	nc_create_connection(argc, argv, TRUE);
 
@@ -445,8 +445,8 @@ nc_resume(int argc, char **argv)
 
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
-static void
-nc_status(int argc, char **argv)
+static void __attribute__((noreturn))
+nc_status(int argc, char * const argv[])
 {
 	SCNetworkConnectionStatus	status;
 
@@ -459,8 +459,8 @@ nc_status(int argc, char **argv)
 	exit(0);
 }
 
-static void
-nc_watch(int argc, char **argv)
+static void __attribute__((noreturn))
+nc_watch(int argc, char * const argv[])
 {
 	SCNetworkConnectionStatus	status;
 
@@ -494,8 +494,8 @@ nc_watch(int argc, char **argv)
 
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
-static void
-nc_statistics(int argc, char **argv)
+static void __attribute__((noreturn))
+nc_statistics(int argc, char * const argv[])
 {
 	CFDictionaryRef stats_dict;
 
@@ -597,8 +597,8 @@ nc_ondemand_callback(SCDynamicStoreRef store, CFArrayRef changedKeys, void *info
 	}
 }
 
-static void
-nc_ondemand(int argc, char **argv)
+static void __attribute__((noreturn))
+nc_ondemand(int argc, char * const argv[])
 {
 	int			exit_code	= 1;
 	CFStringRef		key		= NULL;
@@ -766,8 +766,8 @@ nc_print_VPN_service(SCNetworkServiceRef service)
 
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
-static void
-nc_list(int argc, char **argv)
+static void __attribute__((noreturn))
+nc_list(int argc, char * const argv[])
 {
 #pragma unused(argc)
 #pragma unused(argv)
@@ -938,14 +938,14 @@ done:
 	}
 	_prefs_close();
 
-	exit(0);
+	return;
 }
 #endif	// !TARGET_OS_IPHONE
 
 /* -----------------------------------------------------------------------------
  ----------------------------------------------------------------------------- */
-static void
-nc_enablevpn(int argc, char **argv)
+static void __attribute__((noreturn))
+nc_enablevpn(int argc, char * const argv[])
 {
 	CFStringRef		argument = NULL;
 	CFStringRef		vendorType = NULL;
@@ -979,8 +979,8 @@ done:
 
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
-static void
-nc_show(int argc, char **argv)
+static void __attribute__((noreturn))
+nc_show(int argc, char * const argv[])
 {
 	SCNetworkServiceRef	service			= NULL;
 	SCDynamicStoreRef	store			= NULL;
@@ -1094,13 +1094,13 @@ done:
 
 /* -----------------------------------------------------------------------------
  ----------------------------------------------------------------------------- */
-static void
-nc_select(int argc, char **argv)
+static void __attribute__((noreturn))
+nc_select(int argc, char * const argv[])
 {
 	SCNetworkSetRef		current_set;
 	int			exit_code	= 1;
 	SCNetworkServiceRef	service		= NULL;
-#if NE_HAS_ENABLE_VPN
+#ifdef	NE_HAS_ENABLE_VPN
 	uuid_string_t		config_id_string;
 	uuid_t 			config_id;
 #else	// NE_HAS_ENABLE_VPN
@@ -1122,7 +1122,7 @@ nc_select(int argc, char **argv)
 		goto done;
 	}
 
-#if NE_HAS_ENABLE_VPN
+#ifdef	NE_HAS_ENABLE_VPN
 	memset(config_id_string, 0, sizeof(config_id_string));
 	if (_SC_cfstring_to_cstring(SCNetworkServiceGetServiceID(service), config_id_string, sizeof(config_id_string), kCFStringEncodingUTF8) != NULL &&
 		uuid_parse(config_id_string, config_id) == 0)
@@ -1160,8 +1160,8 @@ done:
 
 /* -----------------------------------------------------------------------------
  ----------------------------------------------------------------------------- */
-static void
-nc_help(int argc, char **argv)
+static void __attribute__((noreturn))
+nc_help(int argc, char * const argv[])
 {
 #pragma unused(argc)
 #pragma unused(argv)
@@ -1222,7 +1222,7 @@ nc_help(int argc, char **argv)
 
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
-typedef void (*nc_func) (int argc, char **argv);
+typedef void (*nc_func) (int argc, char * const argv[]);
 
 static const struct {
 	char		*cmd;
@@ -1265,7 +1265,7 @@ find_nc_cmd(char *cmd)
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
 void
-do_nc_cmd(char *cmd, int argc, char **argv, Boolean watch)
+do_nc_cmd(char *cmd, int argc, char * const argv[], Boolean watch)
 {
 	int	i;
 

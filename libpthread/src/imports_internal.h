@@ -63,7 +63,12 @@ extern uint32_t __psynch_rw_unlock2(pthread_rwlock_t *rwlock, uint32_t lgenval, 
 
 extern uint32_t __bsdthread_ctl(uintptr_t cmd, uintptr_t arg1, uintptr_t arg2, uintptr_t arg3);
 extern pthread_t __bsdthread_create(void *(*func)(void *), void *func_arg, void *stack, pthread_t  thread, unsigned int flags);
-extern int      __bsdthread_register(void (*)(pthread_t, mach_port_t, void *(*)(void *), void *, size_t, unsigned int), void (*)(pthread_t, mach_port_t, void *, void *, int), int,void (*)(pthread_t, mach_port_t, void *(*)(void *), void *, size_t, unsigned int), int32_t *,__uint64_t);
+extern int      __bsdthread_register(void *threadstart,
+                                     void *wqthread,
+                                     int pthsize,
+                                     void *pthread_init_data,
+                                     int32_t *pthread_init_data_size,
+                                     __uint64_t dispatchqueue_offset);
 extern int      __bsdthread_terminate(void *freeaddr, size_t freesize, mach_port_t kport, mach_port_t joinsem);
 
 extern uint64_t __thread_selfid(void);

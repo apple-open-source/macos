@@ -35,6 +35,8 @@
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
+#ifdef TARGET_CPU_X86_64
+
 #undef super
 #define super IOService
 
@@ -405,3 +407,4 @@ void IOI2CInterfaceUserClient::free()
     IOI2CUC_END(free,0,0,0);
 }
 
+#endif // TARGET_CPU_X86_64

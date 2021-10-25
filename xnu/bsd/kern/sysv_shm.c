@@ -273,7 +273,7 @@ shm_deallocate_segment(struct shmid_kernel *shmseg)
 	    shm_handle = shm_handle_next) {
 		shm_handle_next = shm_handle->shm_handle_next;
 		mach_memory_entry_port_release(shm_handle->shm_object);
-		kheap_free(KM_SHM, shm_handle, sizeof(struct shm_handle));
+		kfree_type(struct shm_handle, shm_handle);
 	}
 	shmseg->u.shm_internal = USER_ADDR_NULL;                /* tunnel */
 	size = vm_map_round_page(shmseg->u.shm_segsz,
@@ -376,7 +376,7 @@ shmdt_out:
 int
 shmat(struct proc *p, struct shmat_args *uap, user_addr_t *retval)
 {
-	int error, i, flags;
+	int error, flags;
 	struct shmid_kernel     *shmseg;
 	struct shmmap_state     *shmmap_s = NULL;
 	struct shm_handle       *shm_handle;
@@ -384,8 +384,7 @@ shmat(struct proc *p, struct shmat_args *uap, user_addr_t *retval)
 	mach_vm_address_t       shmlba;
 	mach_vm_size_t          map_size;       /* size of map entry */
 	mach_vm_size_t          mapped_size;
-	vm_prot_t           prot;
-	size_t              size;
+	vm_prot_t               prot;
 	kern_return_t           rv;
 	int                     shmat_ret;
 	int                     vm_flags;
@@ -412,22 +411,17 @@ shmat(struct proc *p, struct shmat_args *uap, user_addr_t *retval)
 		}
 
 		/* +1 for the sentinel */
-		if (os_add_and_mul_overflow(nsegs, 1, sizeof(struct shmmap_state), &size)) {
-			shmat_ret = ENOMEM;
-			goto shmat_out;
-		}
-
-		shmmap_s = kheap_alloc(KM_SHM, size, Z_WAITOK);
+		shmmap_s = kalloc_type(struct shmmap_state, nsegs + 1, Z_WAITOK);
 		if (shmmap_s == NULL) {
 			shmat_ret = ENOMEM;
 			goto shmat_out;
 		}
 
 		/* initialize the entries */
-		for (i = 0; i < nsegs; i++) {
+		for (int i = 0; i < nsegs; i++) {
 			shmmap_s[i].shmid = SHMID_UNALLOCATED;
 		}
-		shmmap_s[i].shmid = SHMID_SENTINEL;
+		shmmap_s[nsegs].shmid = SHMID_SENTINEL;
 
 		p->vm_shm = (caddr_t)shmmap_s;
 	}
@@ -552,7 +546,7 @@ shmat(struct proc *p, struct shmat_args *uap, user_addr_t *retval)
 	}
 
 	shmmap_s->shmid = uap->shmid;
-	shmseg->u.shm_lpid = p->p_pid;
+	shmseg->u.shm_lpid = proc_getpid(p);
 	shmseg->u.shm_atime = sysv_shmtime();
 	shmseg->u.shm_nattch++;
 	*retval = shmmap_s->va; /* XXX return -1 on error */
@@ -834,13 +828,7 @@ shmget_allocate_segment(struct proc *p, struct shmget_args *uap, int mode,
 			goto out;
 		}
 
-		shm_handle = kheap_alloc(KM_SHM, sizeof(struct shm_handle), Z_WAITOK);
-		if (shm_handle == NULL) {
-			kret = KERN_NO_SPACE;
-			mach_memory_entry_port_release(mem_object);
-			mem_object = NULL;
-			goto out;
-		}
+		shm_handle = kalloc_type(struct shm_handle, Z_WAITOK | Z_NOFAIL);
 		shm_handle->shm_object = mem_object;
 		shm_handle->shm_handle_size = size;
 		shm_handle->shm_handle_next = NULL;
@@ -859,7 +847,7 @@ shmget_allocate_segment(struct proc *p, struct shmget_args *uap, int mode,
 	shmseg->u.shm_perm.mode = (shmseg->u.shm_perm.mode & SHMSEG_WANTED) |
 	    (mode & ACCESSPERMS) | SHMSEG_ALLOCATED;
 	shmseg->u.shm_segsz = uap->size;
-	shmseg->u.shm_cpid = p->p_pid;
+	shmseg->u.shm_cpid = proc_getpid(p);
 	shmseg->u.shm_lpid = shmseg->u.shm_nattch = 0;
 	shmseg->u.shm_atime = shmseg->u.shm_dtime = 0;
 #if CONFIG_MACF
@@ -887,7 +875,7 @@ out:
 		    shm_handle = shm_handle_next) {
 			shm_handle_next = shm_handle->shm_handle_next;
 			mach_memory_entry_port_release(shm_handle->shm_object);
-			kheap_free(KM_SHM, shm_handle, sizeof(struct shm_handle));
+			kfree_type(struct shm_handle, shm_handle);
 		}
 		shmseg->u.shm_internal = USER_ADDR_NULL; /* tunnel */
 	}
@@ -979,7 +967,6 @@ int
 shmfork(struct proc *p1, struct proc *p2)
 {
 	struct shmmap_state *shmmap_s;
-	size_t size;
 	int nsegs = 0;
 	int ret = 0;
 
@@ -998,17 +985,13 @@ shmfork(struct proc *p1, struct proc *p2)
 		nsegs++;
 	}
 
-	if (os_add_and_mul_overflow(nsegs, 1, sizeof(struct shmmap_state), &size)) {
-		ret = 1;
-		goto shmfork_out;
-	}
-	shmmap_s = kheap_alloc(KM_SHM, size, Z_WAITOK);
+	shmmap_s = kalloc_type(struct shmmap_state, nsegs + 1, Z_WAITOK);
 	if (shmmap_s == NULL) {
 		ret = 1;
 		goto shmfork_out;
 	}
 
-	bcopy(src, (caddr_t)shmmap_s, size);
+	bcopy(src, (caddr_t)shmmap_s, (nsegs + 1) * sizeof(struct shmmap_state));
 	p2->vm_shm = (caddr_t)shmmap_s;
 	for (; shmmap_s->shmid != SHMID_SENTINEL; shmmap_s++) {
 		if (SHMID_IS_VALID(shmmap_s->shmid)) {
@@ -1025,7 +1008,6 @@ static void
 shmcleanup(struct proc *p, int deallocate)
 {
 	struct shmmap_state *shmmap_s;
-	size_t size = 0;
 	int nsegs = 0;
 
 	SYSV_SHM_SUBSYS_LOCK();
@@ -1042,10 +1024,7 @@ shmcleanup(struct proc *p, int deallocate)
 		}
 	}
 
-	if (os_add_and_mul_overflow(nsegs, 1, sizeof(struct shmmap_state), &size)) {
-		panic("shmcleanup: p->vm_shm buffer was correupted\n");
-	}
-	kheap_free(KM_SHM, p->vm_shm, size);
+	kfree_type(struct shmmap_state, nsegs + 1, p->vm_shm);
 	SYSV_SHM_SUBSYS_UNLOCK();
 }
 

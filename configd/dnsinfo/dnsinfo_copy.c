@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004, 2006, 2008-2013, 2015-2017, 2019 Apple Inc. All rights reserved.
+ * Copyright (c) 2004, 2006, 2008-2013, 2015-2017, 2019, 2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -99,7 +99,7 @@ dns_configuration_copy()
 			static const char	*service_name	= DNSINFO_SERVICE_NAME;
 
 			dispatch_once(&once, ^{
-#if	DEBUG
+#ifdef	DEBUG
 				const char	*name;
 
 				// get [XPC] service name
@@ -226,7 +226,7 @@ _dns_configuration_ack(dns_config_t *config, const char *bundle_id)
 #ifdef MAIN
 
 int
-main(int argc, char **argv)
+main(int argc, char * const argv[])
 {
 	dns_config_t	*config;
 

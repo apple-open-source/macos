@@ -87,7 +87,7 @@ void P12BagAttrs::addAttr(
 	uint32 numVals = (uint32)CFArrayGetCount(attrValues);
 	newAttr->attrValue = (CSSM_DATA **)p12NssNullArray(numVals, mCoder);
 	for(unsigned dex=0; dex<numVals; dex++) {
-		CSSM_DATA *dstVal = (CSSM_DATA *)mCoder.malloc(sizeof(CSSM_DATA));
+		CSSM_DATA *dstVal = (CSSM_DATA *)mCoder.alloc(sizeof(CSSM_DATA));
 		newAttr->attrValue[dex] = dstVal;
 		CFDataRef srcVal = (CFDataRef)CFArrayGetValueAtIndex(attrValues, dex);
 		assert(CFGetTypeID(srcVal) == CFDataGetTypeID());

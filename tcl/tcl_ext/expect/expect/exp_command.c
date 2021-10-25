@@ -2584,12 +2584,14 @@ Exp_CloseObjCmd(
 	"-i",
 	"-onexec",
 	"-slave",
+	"-replica",
 	NULL
     };
     enum options {
 	CLOSE_ID,
 	CLOSE_ONEXEC,
-	CLOSE_SLAVE
+	CLOSE_SLAVE,
+	CLOSE_REPLICA
     };
 
     for (i=1; i<objc; i++) {
@@ -2626,6 +2628,7 @@ Exp_CloseObjCmd(
 		}
 		break;
 	    case CLOSE_SLAVE:
+	    case CLOSE_REPLICA:
 		slave_flag = TRUE;
 		break;
 	}

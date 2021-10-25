@@ -182,8 +182,6 @@ INC_XLOCALE_INSTHDRS=(
 XLOCALE_INSTHDRS=( "${INC_XLOCALE_INSTHDRS[@]/#/${SRCROOT}/include/xlocale/}" )
 
 MODULEMAPS=(
-	${SRCROOT}/include/_types.modulemap
-	${SRCROOT}/include/stdint.modulemap
 )
 
 TYPES_INSTHDRS=(
@@ -205,6 +203,7 @@ LOCALHDRS=(
 	${SRCROOT}/gen/thread_stack_pcs.h
 	${SRCROOT}/libdarwin/h/dirstat.h
 	${SRCROOT}/darwin/subsystem.h
+	${SRCROOT}/darwin/_libc_init.h
 )
 
 OS_LOCALHDRS=( ${SRCROOT}/os/assumes.h ${SRCROOT}/os/debug_private.h )

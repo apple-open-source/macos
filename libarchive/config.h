@@ -1,4 +1,3 @@
-#include <TargetConditionals.h>
 /* config.h.  Generated from config.h.in by configure.  */
 /* config.h.in.  Generated from configure.ac by autoheader.  */
 
@@ -32,6 +31,9 @@
 /* MD5 via ARCHIVE_CRYPTO_MD5_LIBSYSTEM supported. */
 #define ARCHIVE_CRYPTO_MD5_LIBSYSTEM 1
 
+/* MD5 via ARCHIVE_CRYPTO_MD5_MBEDTLS supported. */
+/* #undef ARCHIVE_CRYPTO_MD5_MBEDTLS */
+
 /* MD5 via ARCHIVE_CRYPTO_MD5_NETTLE supported. */
 /* #undef ARCHIVE_CRYPTO_MD5_NETTLE */
 
@@ -47,6 +49,9 @@
 /* RMD160 via ARCHIVE_CRYPTO_RMD160_LIBMD supported. */
 /* #undef ARCHIVE_CRYPTO_RMD160_LIBMD */
 
+/* RMD160 via ARCHIVE_CRYPTO_RMD160_MBEDTLS supported. */
+/* #undef ARCHIVE_CRYPTO_RMD160_MBEDTLS */
+
 /* RMD160 via ARCHIVE_CRYPTO_RMD160_NETTLE supported. */
 /* #undef ARCHIVE_CRYPTO_RMD160_NETTLE */
 
@@ -61,6 +66,9 @@
 
 /* SHA1 via ARCHIVE_CRYPTO_SHA1_LIBSYSTEM supported. */
 #define ARCHIVE_CRYPTO_SHA1_LIBSYSTEM 1
+
+/* SHA1 via ARCHIVE_CRYPTO_SHA1_MBEDTLS supported. */
+/* #undef ARCHIVE_CRYPTO_SHA1_MBEDTLS */
 
 /* SHA1 via ARCHIVE_CRYPTO_SHA1_NETTLE supported. */
 /* #undef ARCHIVE_CRYPTO_SHA1_NETTLE */
@@ -86,6 +94,9 @@
 /* SHA256 via ARCHIVE_CRYPTO_SHA256_LIBSYSTEM supported. */
 #define ARCHIVE_CRYPTO_SHA256_LIBSYSTEM 1
 
+/* SHA256 via ARCHIVE_CRYPTO_SHA256_MBEDTLS supported. */
+/* #undef ARCHIVE_CRYPTO_SHA256_MBEDTLS */
+
 /* SHA256 via ARCHIVE_CRYPTO_SHA256_NETTLE supported. */
 /* #undef ARCHIVE_CRYPTO_SHA256_NETTLE */
 
@@ -106,6 +117,9 @@
 
 /* SHA384 via ARCHIVE_CRYPTO_SHA384_LIBSYSTEM supported. */
 #define ARCHIVE_CRYPTO_SHA384_LIBSYSTEM 1
+
+/* SHA384 via ARCHIVE_CRYPTO_SHA384_MBEDTLS supported. */
+/* #undef ARCHIVE_CRYPTO_SHA384_MBEDTLS */
 
 /* SHA384 via ARCHIVE_CRYPTO_SHA384_NETTLE supported. */
 /* #undef ARCHIVE_CRYPTO_SHA384_NETTLE */
@@ -131,6 +145,9 @@
 /* SHA512 via ARCHIVE_CRYPTO_SHA512_LIBSYSTEM supported. */
 #define ARCHIVE_CRYPTO_SHA512_LIBSYSTEM 1
 
+/* SHA512 via ARCHIVE_CRYPTO_SHA512_MBEDTLS supported. */
+/* #undef ARCHIVE_CRYPTO_SHA512_MBEDTLS */
+
 /* SHA512 via ARCHIVE_CRYPTO_SHA512_NETTLE supported. */
 /* #undef ARCHIVE_CRYPTO_SHA512_NETTLE */
 
@@ -153,13 +170,13 @@
 /* #undef ARCHIVE_XATTR_LINUX */
 
 /* Version number of bsdcat */
-#define BSDCAT_VERSION_STRING "3.3.2"
+#define BSDCAT_VERSION_STRING "3.5.1"
 
 /* Version number of bsdcpio */
-#define BSDCPIO_VERSION_STRING "3.3.2"
+#define BSDCPIO_VERSION_STRING "3.5.1"
 
 /* Version number of bsdtar */
-#define BSDTAR_VERSION_STRING "3.3.2"
+#define BSDTAR_VERSION_STRING "3.5.1"
 
 /* Define to 1 if the system has the type `ace_t'. */
 /* #undef HAVE_ACE_T */
@@ -283,6 +300,9 @@
 
 /* Define to 1 if you have the <bcrypt.h> header file. */
 /* #undef HAVE_BCRYPT_H */
+
+/* Define to 1 if you have the <blake2.h> header file. */
+/* #undef HAVE_BLAKE2_H */
 
 /* Define to 1 if you have the <bzlib.h> header file. */
 #define HAVE_BZLIB_H 1
@@ -430,7 +450,7 @@
 #define HAVE_ERRNO_H 1
 
 /* Define to 1 if you have the <expat.h> header file. */
-/* #define HAVE_EXPAT_H 1 */
+/* #undef HAVE_EXPAT_H */
 
 /* Define to 1 if you have the <ext2fs/ext2_fs.h> header file. */
 /* #undef HAVE_EXT2FS_EXT2_FS_H */
@@ -600,6 +620,9 @@
 /* Define to 1 if you have the `acl' library (-lacl). */
 /* #undef HAVE_LIBACL */
 
+/* Define to 1 if you have the `b2' library (-lb2). */
+/* #undef HAVE_LIBB2 */
+
 /* Define to 1 if you have the `bz2' library (-lbz2). */
 #define HAVE_LIBBZ2 1
 
@@ -616,7 +639,7 @@
 /* #undef HAVE_LIBEAY64 */
 
 /* Define to 1 if you have the `expat' library (-lexpat). */
-#define HAVE_LIBEXPAT 1
+/* #undef HAVE_LIBEXPAT */
 
 /* Define to 1 if you have the `lz4' library (-llz4). */
 /* #undef HAVE_LIBLZ4 */
@@ -626,6 +649,9 @@
 
 /* Define to 1 if you have the `lzo2' library (-llzo2). */
 /* #undef HAVE_LIBLZO2 */
+
+/* Define to 1 if you have the `mbedcrypto' library (-lmbedcrypto). */
+/* #undef HAVE_LIBMBEDCRYPTO */
 
 /* Define to 1 if you have the `md' library (-lmd). */
 /* #undef HAVE_LIBMD */
@@ -649,13 +675,16 @@
 #define HAVE_LIBXML2 1
 
 /* Define to 1 if you have the <libxml/xmlreader.h> header file. */
-/* #undef HAVE_LIBXML_XMLREADER_H */
+#define HAVE_LIBXML_XMLREADER_H 1
 
 /* Define to 1 if you have the <libxml/xmlwriter.h> header file. */
-/* #undef HAVE_LIBXML_XMLWRITER_H */
+#define HAVE_LIBXML_XMLWRITER_H 1
 
 /* Define to 1 if you have the `z' library (-lz). */
 #define HAVE_LIBZ 1
+
+/* Define to 1 if you have the `zstd' library (-lzstd). */
+/* #undef HAVE_LIBZSTD */
 
 /* Define to 1 if you have the <limits.h> header file. */
 #define HAVE_LIMITS_H 1
@@ -736,6 +765,15 @@
 /* Define to 1 if you have the <lzo/lzoconf.h> header file. */
 /* #undef HAVE_LZO_LZOCONF_H */
 
+/* Define to 1 if you have the <mbedtls/aes.h> header file. */
+/* #undef HAVE_MBEDTLS_AES_H */
+
+/* Define to 1 if you have the <mbedtls/md.h> header file. */
+/* #undef HAVE_MBEDTLS_MD_H */
+
+/* Define to 1 if you have the <mbedtls/pkcs5.h> header file. */
+/* #undef HAVE_MBEDTLS_PKCS5_H */
+
 /* Define to 1 if you have the `mbrtowc' function. */
 #define HAVE_MBRTOWC 1
 
@@ -749,7 +787,7 @@
 #define HAVE_MBR_UUID_TO_ID 1
 
 /* Define to 1 if you have the <md5.h> header file. */
-#define HAVE_MD5_H 1
+/* #undef HAVE_MD5_H */
 
 /* Define to 1 if you have the <membership.h> header file. */
 #define HAVE_MEMBERSHIP_H 1
@@ -872,7 +910,7 @@
 /* #undef HAVE_RICHACL_SET_FILE */
 
 /* Define to 1 if you have the <ripemd.h> header file. */
-#define HAVE_RIPEMD_H 1
+/* #undef HAVE_RIPEMD_H */
 
 /* Define to 1 if you have the `select' function. */
 #define HAVE_SELECT 1
@@ -887,13 +925,13 @@
 #define HAVE_SETXATTR 1
 
 /* Define to 1 if you have the <sha256.h> header file. */
-#define HAVE_SHA256_H 1
+/* #undef HAVE_SHA256_H */
 
 /* Define to 1 if you have the <sha512.h> header file. */
 /* #undef HAVE_SHA512_H */
 
 /* Define to 1 if you have the <sha.h> header file. */
-#define HAVE_SHA_H 1
+/* #undef HAVE_SHA_H */
 
 /* Define to 1 if you have the `sigaction' function. */
 #define HAVE_SIGACTION 1
@@ -946,6 +984,9 @@
 
 /* Define to 1 if you have the `strncpy_s' function. */
 /* #undef HAVE_STRNCPY_S */
+
+/* Define to 1 if you have the `strnlen' function. */
+#define HAVE_STRNLEN 1
 
 /* Define to 1 if you have the `strrchr' function. */
 #define HAVE_STRRCHR 1
@@ -1054,6 +1095,9 @@
 /* Define to 1 if you have the <sys/stat.h> header file. */
 #define HAVE_SYS_STAT_H 1
 
+/* Define to 1 if you have the <sys/sysmacros.h> header file. */
+/* #undef HAVE_SYS_SYSMACROS_H */
+
 /* Define to 1 if you have the <sys/time.h> header file. */
 #define HAVE_SYS_TIME_H 1
 
@@ -1089,6 +1133,9 @@
 
 /* Define to 1 if you have the <unistd.h> header file. */
 #define HAVE_UNISTD_H 1
+
+/* Define to 1 if you have the `unlinkat' function. */
+#define HAVE_UNLINKAT 1
 
 /* Define to 1 if you have the `unsetenv' function. */
 #define HAVE_UNSETENV 1
@@ -1168,6 +1215,9 @@
 /* Define to 1 if you have the <zlib.h> header file. */
 #define HAVE_ZLIB_H 1
 
+/* Define to 1 if you have the <zstd.h> header file. */
+/* #undef HAVE_ZSTD_H */
+
 /* Define to 1 if you have the `_ctime64_s' function. */
 /* #undef HAVE__CTIME64_S */
 
@@ -1176,6 +1226,9 @@
 
 /* Define to 1 if you have the `_get_timezone' function. */
 /* #undef HAVE__GET_TIMEZONE */
+
+/* Define to 1 if you have the `_gmtime64_s' function. */
+/* #undef HAVE__GMTIME64_S */
 
 /* Define to 1 if you have the `_localtime64_s' function. */
 /* #undef HAVE__LOCALTIME64_S */
@@ -1187,10 +1240,10 @@
 #define ICONV_CONST 
 
 /* Version number of libarchive as a single integer */
-#define LIBARCHIVE_VERSION_NUMBER "3003002"
+#define LIBARCHIVE_VERSION_NUMBER "3005001"
 
 /* Version number of libarchive */
-#define LIBARCHIVE_VERSION_STRING "3.3.2"
+#define LIBARCHIVE_VERSION_STRING "3.5.1"
 
 /* Define to 1 if `lstat' dereferences a symlink specified with a trailing
    slash. */
@@ -1220,7 +1273,7 @@
 #define PACKAGE_NAME "libarchive"
 
 /* Define to the full name and version of this package. */
-#define PACKAGE_STRING "libarchive 3.3.2"
+#define PACKAGE_STRING "libarchive 3.5.1"
 
 /* Define to the one symbol short name of this package. */
 #define PACKAGE_TARNAME "libarchive"
@@ -1229,7 +1282,7 @@
 #define PACKAGE_URL ""
 
 /* Define to the version of this package. */
-#define PACKAGE_VERSION "3.3.2"
+#define PACKAGE_VERSION "3.5.1"
 
 /* Define to 1 if PCRE_STATIC needs to be defined. */
 /* #undef PCRE_STATIC */
@@ -1269,7 +1322,7 @@
 
 
 /* Version number of package */
-#define VERSION "3.3.2"
+#define VERSION "3.5.1"
 
 /* Define to '0x0502' for Windows Server 2003 APIs. */
 /* #undef WINVER */
@@ -1315,6 +1368,9 @@
 
 /* Define to '0x0502' for Windows Server 2003 APIs. */
 /* #undef _WIN32_WINNT */
+
+/* Internal macro for sanity checks */
+#define __LIBARCHIVE_CONFIG_H_INCLUDED 1
 
 /* Define to empty if `const' does not conform to ANSI C. */
 /* #undef const */

@@ -57,9 +57,6 @@ const uint8_t* der_decode_number(CFAllocatorRef allocator,
     long long value = 0;
     
     if (payload_size > 0) {
-        if ((*payload & 0x80) == 0x80)
-            value = -1; // Negative integers fill with 1s so we end up negative.
-        
         const uint8_t* const payload_end = payload + payload_size;
         
         for (const uint8_t *payload_byte = payload;
@@ -67,6 +64,14 @@ const uint8_t* der_decode_number(CFAllocatorRef allocator,
              ++payload_byte) {
             value <<= 8;
             value |= *payload_byte;
+        }
+
+        if ((*payload & 0x80) == 0x80) {
+            /* the value should be negative. pad out the extra bytes. */
+            size_t pad_size = sizeof(value) - payload_size;
+            for (size_t i = 1; i <= pad_size; i++) {
+                value |= (long long)0xffull << ((sizeof(value) - i) * 8);
+            }
         }
     }
 
@@ -97,7 +102,8 @@ static inline size_t bytes_when_encoded(long long value)
         do {
             --bytes_encoded;
         } while (bytes_encoded > 1 && (byte_of(bytes_encoded, value) == first_byte));
-        
+
+        // add an extra 0x00 byte for non-negative values with the top-bit set
         if ((first_byte & 0x80) != (byte_of(bytes_encoded, value) & 0x80))
             bytes_encoded += 1;
     }

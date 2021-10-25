@@ -144,6 +144,7 @@ void securityd_init_local_spi(void) {
 #endif
     // You're trying to bring up a (non-trustd) 'securityd'. Create the local handler for securityd XPCs.
     securityd_spi.secd_xpc_server = SecCreateLocalCFSecuritydXPCServer();
+    securityd_spi.sec_fill_security_client_muser = SecFillSecurityClientMuser;
 }
 
 void securityd_init_server(void) {

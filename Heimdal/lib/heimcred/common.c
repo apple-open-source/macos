@@ -234,7 +234,7 @@ _HeimCredInitCommon(void)
 	    HeimCredCTX.heid = _CFRuntimeRegisterClass(&HeimCredEventContextClass);
 #endif
 
-	    HeimCredCTX.queue = dispatch_queue_create("HeimCred", NULL);
+	    HeimCredCTX.queue = dispatch_queue_create("HeimCred", DISPATCH_QUEUE_SERIAL);
 
 #if HEIMCRED_SERVER
 	    HeimCredCTX.sessions = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);

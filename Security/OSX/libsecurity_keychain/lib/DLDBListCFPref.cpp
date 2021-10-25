@@ -111,7 +111,7 @@ PasswordDBLookup *DLDbListCFPref::mPdbLookup = NULL;
 //
 //-------------------------------------------------------------------------------------
 
-DLDbListCFPref::DLDbListCFPref(SecPreferencesDomain domain) : mDomain(domain), mPropertyList(NULL), mChanged(false),
+DLDbListCFPref::DLDbListCFPref(SecPreferencesDomain domain) : mDomain(domain), mForceReloadEmptyFile(false), mPropertyList(NULL), mChanged(false),
     mSearchListSet(false), mDefaultDLDbIdentifierSet(false), mLoginDLDbIdentifierSet(false)
 {
     secinfo("secpref", "New DLDbListCFPref %p for domain %d", this, domain);
@@ -141,8 +141,15 @@ DLDbListCFPref::~DLDbListCFPref()
 void
 DLDbListCFPref::forceUserSearchListReread()
 {
+    secinfo("secpref", "forceUserSearchListReread");
+    
 	// set mPrefsTimeStamp so that it will "expire" the next time loadPropertyList is called
 	mPrefsTimeStamp = CFAbsoluteTimeGetCurrent() - kDLDbListCFPrefRevertInterval;
+    
+    // Also set the force ivar, so that we will force the reload if the file does not exist.
+    // This causes processes to reconsider the default values, which is necessary if they started
+    // before login.keychain was created.
+    mForceReloadEmptyFile = true;
 }
 
 bool
@@ -165,8 +172,8 @@ DLDbListCFPref::loadPropertyList(bool force)
 		MacOSError::throwMe(errSecInvalidPrefsDomain);
 	}
 
-	secinfo("secpref", "force=%s prefsPath=%s", force ? "true" : "false",
-		prefsPath.c_str());
+	secinfo("secpref", "force=%s mForceReloadEmptyFile=%s prefsPath=%s", force ? "true" : "false",
+		mForceReloadEmptyFile ? "true" : "false", prefsPath.c_str());
 
 	CFAbsoluteTime now = CFAbsoluteTimeGetCurrent();
 
@@ -190,6 +197,9 @@ DLDbListCFPref::loadPropertyList(bool force)
 		mPrefsTimeStamp = now;
 	}
 
+    bool forceReloadEmptyFile = mForceReloadEmptyFile;
+    mForceReloadEmptyFile = false;
+    
 	struct stat st;
 	if (stat(mPrefsPath.c_str(), &st))
 	{
@@ -198,7 +208,7 @@ DLDbListCFPref::loadPropertyList(bool force)
 			if (mPropertyList)
 			{
 				if (CFDictionaryGetCount(mPropertyList) == 0)
-					return false;
+					return forceReloadEmptyFile;
 				CFRelease(mPropertyList);
 			}
 

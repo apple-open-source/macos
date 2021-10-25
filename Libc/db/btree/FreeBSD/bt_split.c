@@ -45,6 +45,7 @@ __FBSDID("$FreeBSD: src/lib/libc/db/btree/bt_split.c,v 1.12 2009/03/28 05:45:29 
 
 #include <db.h>
 #include "btree.h"
+#include "libc_private.h" // for LIBC_ABORT
 
 static int	 bt_broot(BTREE *, PAGE *, PAGE *, PAGE *);
 static PAGE	*bt_page(BTREE *, PAGE *, PAGE **, PAGE **, indx_t *, size_t);

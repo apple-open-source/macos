@@ -18,14 +18,18 @@ ifeq ($(RC_MACOS),YES)
 CUPS_Components=all
 GSSAPI_Options=--enable-gssapi
 CUPS_StaticLibrary=NO
+CUPS_HasPublicHeaders=YES
+CUPS_ModuleMapUnifdefOptions=-DBUILD_FOR_MACOS
 else
 CUPS_Components=libcupslite
 GSSAPI_Options=--disable-gssapi
 CUPS_StaticLibrary=YES
+CUPS_HasPublicHeaders=NO
+CUPS_ModuleMapUnifdefOptions=-UBUILD_FOR_MACOS
 endif
 
 Configure_Flags = `$(SRCROOT)/gettargetflags.sh host` \
-		  --with-cups-build="cups-494.1" \
+		  --with-cups-build="cups-499.2" \
 		  --with-adminkey="system.print.admin" \
 		  --with-operkey="system.print.operator" \
 		  --with-pam-module=opendirectory \
@@ -48,8 +52,11 @@ Environment	=	CC=`/usr/bin/xcrun --find clang` \
 			CFLAGS="-g `$(SRCROOT)/gettargetflags.sh cflags`" \
 			CPPFLAGS="`$(SRCROOT)/gettargetflags.sh cppflags`" \
 			CXXFLAGS="`$(SRCROOT)/gettargetflags.sh cxxflags`" \
-			LDFLAGS="`$(SRCROOT)/gettargetflags.sh ldflags`" \
-			CODE_SIGN="/usr/bin/true"
+			LDFLAGS="`$(SRCROOT)/gettargetflags.sh ldflags`"
+
+ifeq ($(RC_MACOS),YES)
+Environment += CODE_SIGN="/usr/bin/true"
+endif
 
 ifneq ($(CUPS_StaticLibrary),YES)
 Environment += DSOFLAGS="`$(SRCROOT)/gettargetflags.sh dsoflags` -dynamiclib -single_module -lc"
@@ -102,7 +109,10 @@ install-all: configure
 # Install the libraries and headers.
 install-libs: configure
 	$(_v) umask $(Install_Mask) ; $(MAKE) -C $(BuildDirectory) $(Environment) $(Install_Flags) install-headers install-libs
+ifeq ($(RC_MACOS),YES)
 	$(_v) /usr/bin/codesign --force --sign - --entitlements $(SRCROOT)/usb-darwin.entitlements $(DSTROOT)/usr/libexec/cups/backend/usb
+endif
+	$(_v) umask $(Install_Mask) ; $(MAKE) $(Environment) $(Install_Flags) install-module-maps
 
 
 # The plist keeps track of the open source version we ship...
@@ -148,6 +158,7 @@ installapi: configure
 	@echo ++++++++++++++++++++++
 	@echo
 	$(_v) umask $(Install_Mask) ; $(MAKE) -C $(BuildDirectory) $(Environment) $(Install_Flags) libs install-headers
+	$(_v) umask $(Install_Mask) ; $(MAKE) $(Environment) $(Install_Flags) install-module-maps
 ifneq ($(CUPS_StaticLibrary),YES)
 	xcrun --sdk $(SDKROOT) tapi installapi $(TAPI_COMMON_OPTS) $(TAPI_INSTALL_PREFIX)
 	$(_v) umask $(Install_Mask) ; $(MAKE) $(Environment) $(Install_Flags) install-tbds
@@ -172,8 +183,24 @@ installapi-verify: configure
 	@echo "+++++++++++++++++++++++++++++++"
 	@echo
 	$(_v) umask $(Install_Mask) ; $(MAKE) -C $(BuildDirectory) $(Environment) $(Install_Flags) install-libs install-headers
+	$(_v) umask $(Install_Mask) ; $(MAKE) $(Environment) $(Install_Flags) install-module-maps
 	xcrun --sdk $(SDKROOT) tapi installapi $(TAPI_VERIFY_OPTS) $(TAPI_INSTALL_PREFIX)
 	if test -f $(OBJROOT)/cups/libcupsimage.2.dylib; then \
 		xcrun --sdk $(SDKROOT) tapi stubify --set-installapi-flag $(OBJROOT)/cups/libcupsimage.2.dylib; \
 	fi
 	$(_v) umask $(Install_Mask) ; $(MAKE) $(Environment) $(Install_Flags) install-tbds
+
+install-module-maps:
+	-$(UNIFDEF) $(CUPS_ModuleMapUnifdefOptions) -o $(BuildDirectory)/$(Project).modulemap $(SRCROOT)/$(Project).modulemap
+	-$(UNIFDEF) $(CUPS_ModuleMapUnifdefOptions) -o $(BuildDirectory)/$(Project).private.modulemap $(SRCROOT)/$(Project).private.modulemap
+# If a module map is the only module map in a directory, it should be called
+# 'module.modulemap' even if it is for a private module. And if there are 2
+# module maps in the same directory, call the module map for a private module
+# 'module.private.modulemap'.
+ifeq ($(CUPS_HasPublicHeaders),YES)
+	$(INSTALL_FILE) $(BuildDirectory)/$(Project).modulemap $(DSTROOT)/usr/include/$(Project)/module.modulemap
+	$(INSTALL_FILE) $(BuildDirectory)/$(Project).private.modulemap $(DSTROOT)/usr/local/include/$(Project)/module.modulemap
+else
+	$(INSTALL_FILE) $(BuildDirectory)/$(Project).modulemap $(DSTROOT)/usr/local/include/$(Project)/module.modulemap
+	$(INSTALL_FILE) $(BuildDirectory)/$(Project).private.modulemap $(DSTROOT)/usr/local/include/$(Project)/module.private.modulemap
+endif

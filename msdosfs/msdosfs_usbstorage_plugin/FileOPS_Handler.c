@@ -183,20 +183,25 @@ exit:
 }
 
 uint64_t
-MSDOS_GetFileID (NodeRecord_s* psNodeRecord)
+MSDOS_GetFileID (uint64_t uFirstClusterNumber, bool isFat12Or16Root, FileSystemRecord_s* psFSRecord)
 {
-    uint64_t uFileID = psNodeRecord->sRecordData.uFirstCluster;
+    uint64_t uFileID = uFirstClusterNumber;
     
-    if ( IS_FAT_12_16_ROOT_DIR(psNodeRecord) )
+    if ( isFat12Or16Root )
     {
         /* FAT12 and FAT16 have a special hard-coded file ID. */
         uFileID = FILENO_ROOT;
     }
     
-    /* Back-stop the file ID in case of something bogus. */
     if ( uFileID == 0 )
     {
-        uFileID = FILENO_EMPTY;
+        // Counter for file ids of zero-length files (starts at 0xFFFFFFFFFFFFFFFF and is decremented until wrapping around at 0xFFFFFFFFF00000000)
+        uFileID = atomic_fetch_sub( &psFSRecord->uNextAvailableFileID, 1 );
+        
+        // While another thread might barge in and get an ID smaller than ZERO_LENGTH_WRAP_AROUND_FILEID, only one will reset the counter
+        if( uFileID == ZERO_LENGTH_WRAP_AROUND_FILEID ) {
+            atomic_store( &psFSRecord->uNextAvailableFileID, ZERO_LENGTH_INITIAL_FILEID );
+        }
     }
     
     return uFileID;
@@ -282,7 +287,7 @@ MSDOS_GetAtrrFromDirEntry (NodeRecord_s* psNodeRecord, UVFSFileAttributes *outAt
                                   GET_FSRECORD(psNodeRecord)->sRootInfo.uRootLength :
                                   (uint64_t)psNodeRecord->sRecordData.uClusterChainLength * (uint64_t)CLUSTER_SIZE(GET_FSRECORD(psNodeRecord));
         outAttrs->fa_size       = outAttrs->fa_allocsize;
-        outAttrs->fa_fileid     = MSDOS_GetFileID(psNodeRecord);
+        outAttrs->fa_fileid     = MSDOS_GetFileID( psNodeRecord->sRecordData.uFirstCluster, IS_FAT_12_16_ROOT_DIR(psNodeRecord), GET_FSRECORD(psNodeRecord) );
 
         return;
     }
@@ -306,7 +311,7 @@ MSDOS_GetAtrrFromDirEntry (NodeRecord_s* psNodeRecord, UVFSFileAttributes *outAt
                         IS_SYMLINK(psNodeRecord)    ? psNodeRecord->sExtraData.sSymLinkData.uSymLinkLength :
                         getuint32(psDirEntry->deFileSize);
     
-    outAttrs->fa_fileid = MSDOS_GetFileID(psNodeRecord);
+    outAttrs->fa_fileid = MSDOS_GetFileID( psNodeRecord->sRecordData.uFirstCluster, IS_FAT_12_16_ROOT_DIR(psNodeRecord), GET_FSRECORD(psNodeRecord) );
     outAttrs->fa_bsd_flags  = MSDOS_GetFileBSDFlags(psDirEntry->deAttributes);
 
     // A/M/C Times..
@@ -680,7 +685,8 @@ MSDOS_ReadLink (UVFSFileNode Node, void *outBuf, size_t bufsize, size_t *actuall
     //Need to read the link cluster
     memset(pvBuffer,0,uBufferSize);
     uint32_t uLinkSize = sizeof(struct symlink);
-    *actuallyRead = RAWFILE_read(psLinkRecord, 0, uLinkSize, pvBuffer,&iError);
+    uint32_t uFileSize = getuint32(psLinkRecord->sRecordData.sNDE.sDosDirEntry.deFileSize);
+    *actuallyRead = RAWFILE_read(psLinkRecord, uFileSize, 0, uLinkSize, pvBuffer,&iError);
     if (iError)
     {
         MSDOS_LOG(LEVEL_ERROR, "MSDOS_ReadLink: Failed to read link content [%d]\n",iError);
@@ -757,10 +763,11 @@ MSDOS_Read(UVFSFileNode Node, uint64_t offset, size_t length, void *outBuf, size
     }
 
     locked = false;
+    uint32_t uFileSize = getuint32(psFileRecord->sRecordData.sNDE.sDosDirEntry.deFileSize);
     MultiReadSingleWrite_FreeRead( &psFileRecord->sRecordData.sRecordLck);
 
     //Read data
-    *actuallyRead = RAWFILE_read(psFileRecord, offset, length, outBuf,&iError);
+    *actuallyRead = RAWFILE_read(psFileRecord, uFileSize, offset, length, outBuf,&iError);
 
 exit:
     if (locked) MultiReadSingleWrite_FreeRead( &psFileRecord->sRecordData.sRecordLck);
@@ -774,7 +781,7 @@ MSDOS_Write (UVFSFileNode Node, uint64_t offset, size_t length, const void *buf,
 
     NodeRecord_s* psFileRecord = GET_RECORD(Node);
     FileSystemRecord_s* psFSRecord = GET_FSRECORD(psFileRecord);
-    uint64_t uLengthToBeWrriten = length;
+    uint64_t uLengthToBeWritten = length;
     int iError = 0;
     UVFSFileAttributes sFileAttrs;
 
@@ -813,7 +820,7 @@ MSDOS_Write (UVFSFileNode Node, uint64_t offset, size_t length, const void *buf,
     // Remember some values in case the write fails.
     uint64_t uOriginalAllocatedSize = (uint64_t)psFileRecord->sRecordData.uClusterChainLength * (uint64_t)CLUSTER_SIZE(psFSRecord);
     uint32_t uOriginalSize = getuint32(psFileRecord->sRecordData.sNDE.sDosDirEntry.deFileSize);
-    uint64_t uNewFileEnd = offset + uLengthToBeWrriten;
+    uint64_t uNewFileEnd = offset + uLengthToBeWritten;
     /*
      * If the end of the write will be beyond the current allocated size,
      * then grow the file to accommodate the bytes we want to write.
@@ -835,7 +842,7 @@ MSDOS_Write (UVFSFileNode Node, uint64_t offset, size_t length, const void *buf,
             goto exit;
         }
 
-        // Not even single cluster was allocated or not enougth to even get to the offset
+        // Not even single cluster was allocated or not enough to even get to the offset
         if ( (uNewAllocatedSize == uOriginalAllocatedSize) || (uNewAllocatedSize <= offset) )
         {
             iError = ENOSPC;
@@ -847,8 +854,8 @@ MSDOS_Write (UVFSFileNode Node, uint64_t offset, size_t length, const void *buf,
         {
             // Couldn't allocate as much as needed
             // Adjusting the length to write
-            MSDOS_LOG(LEVEL_DEBUG, "MSDOS_Write: not enough clusters for wanted length, bytes to write %llu out of %lu. Error\n", uLengthToBeWrriten, length);
-            uLengthToBeWrriten = uNewAllocatedSize - offset;
+            MSDOS_LOG(LEVEL_DEBUG, "MSDOS_Write: not enough clusters for wanted length, bytes to write %llu out of %lu. Error\n", uLengthToBeWritten, length);
+            uLengthToBeWritten = uNewAllocatedSize - offset;
         }
 
         // Need to zero fill the data between the original file size to the new offset to write from.
@@ -886,7 +893,7 @@ MSDOS_Write (UVFSFileNode Node, uint64_t offset, size_t length, const void *buf,
     }
     else if ( uNewFileEnd > uOriginalSize )
     {
-        uint32_t u32NewFileSize = (uint32_t)offset + (uint32_t)uLengthToBeWrriten;
+        uint32_t u32NewFileSize = (uint32_t)offset + (uint32_t)uLengthToBeWritten;
         putuint32( psFileRecord->sRecordData.sNDE.sDosDirEntry.deFileSize, u32NewFileSize );
 
         if ( ( offset > uOriginalSize) && (uOriginalSize % CLUSTER_SIZE(psFSRecord) != 0) )
@@ -905,7 +912,7 @@ MSDOS_Write (UVFSFileNode Node, uint64_t offset, size_t length, const void *buf,
 
     MultiReadSingleWrite_FreeWrite( &psFileRecord->sRecordData.sRecordLck);
 
-    *actuallyWritten = RAWFILE_write(psFileRecord, offset, uLengthToBeWrriten, (void*) buf, &iError);
+    *actuallyWritten = RAWFILE_write(psFileRecord, offset, uLengthToBeWritten, (void*) buf, &iError);
 
     MultiReadSingleWrite_LockWrite( &psFileRecord->sRecordData.sRecordLck);
 
@@ -915,7 +922,7 @@ MSDOS_Write (UVFSFileNode Node, uint64_t offset, size_t length, const void *buf,
     // In case the write failed -> return the file to it's original size
     if ( iError || (*actuallyWritten == 0) )
     {
-        MSDOS_LOG(LEVEL_ERROR, "MSDOS_Write: Failed in writing to device. Error [%d], written %lu bytes, wanted %llu\n bytes", iError, *actuallyWritten, uLengthToBeWrriten);
+        MSDOS_LOG(LEVEL_ERROR, "MSDOS_Write: Failed in writing to device. Error [%d], written %lu bytes, wanted %llu\n bytes", iError, *actuallyWritten, uLengthToBeWritten);
         if ( (!iError) && (length > 0) ) {
             // Probably a bug so we want our layer to report an error
             iError = EIO;

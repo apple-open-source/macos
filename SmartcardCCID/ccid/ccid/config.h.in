@@ -127,6 +127,9 @@
 /* composite device are seen as multi-slots */
 #undef USE_COMPOSITE_AS_MULTISLOT
 
+/* Use os_log(3) for debug */
+#undef USE_OS_LOG
+
 /* Use syslog(3) for debug */
 #undef USE_SYSLOG
 

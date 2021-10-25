@@ -40,10 +40,10 @@ NS_ASSUME_NONNULL_BEGIN
 
 @interface SecAKSObjCWrappers : NSObject
 + (bool)aksEncryptWithKeybag:(keybag_handle_t)keybag keyclass:(keyclass_t)keyclass plaintext:(NSData*)plaintext
-                 outKeyclass:(keyclass_t* _Nullable)outKeyclass ciphertext:(NSMutableData*)ciphertext error:(NSError**)error;
+                 outKeyclass:(keyclass_t* _Nullable)outKeyclass ciphertext:(NSMutableData*)ciphertext personaId:(const void* _Nullable)personaId personaIdLength:(size_t)personaIdLength error:(NSError**)error;
 
 + (bool)aksDecryptWithKeybag:(keybag_handle_t)keybag keyclass:(keyclass_t)keyclass ciphertext:(NSData*)ciphertext
-                 outKeyclass:(keyclass_t* _Nullable)outKeyclass plaintext:(NSMutableData*)plaintext error:(NSError**)error;
+                 outKeyclass:(keyclass_t* _Nullable)outKeyclass plaintext:(NSMutableData*)plaintext personaId:(const void* _Nullable)personaId personaIdLength:(size_t)personaIdLength error:(NSError**)error;
 @end
 
 NS_ASSUME_NONNULL_END

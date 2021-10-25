@@ -205,12 +205,10 @@ static void tests(void)
     CFReleaseNull(subject_alt_names);
     CFDictionaryRemoveAllValues(random_extensions);
 
-#if TARGET_OS_IPHONE
     CFDataRef scep_request = SecSCEPGenerateCertificateRequest(rdns,
         csr_parameters, phone_publicKey, phone_privateKey, NULL, ca_cert);
     isnt(scep_request, NULL, "got scep blob");
     //write_data("/tmp/scep_request.der", scep_request);
-#endif
 
     CFReleaseNull(email_dn);
     CFReleaseNull(cn_dn);
@@ -218,7 +216,6 @@ static void tests(void)
     CFReleaseNull(dn_array[1]);
     CFReleaseNull(rdns);
 
-#if TARGET_OS_IPHONE
     CFDataRef scep_reply = SecSCEPCertifyRequest(scep_request, ca_identity, serialno, false);
     isnt(scep_reply, NULL, "produced scep reply");
     //write_data("/tmp/scep_reply.der", scep_reply);
@@ -245,7 +242,6 @@ static void tests(void)
     CFReleaseSafe(scep_request);
     CFReleaseSafe(scep_reply);
     CFReleaseSafe(issued_certs);
-#endif
 
     // cleanups
     dict = CFDictionaryCreate(NULL, (const void **)&kSecValueRef, (const void **)&ca_identity, 1, NULL, NULL);
@@ -412,8 +408,10 @@ static bool test_csr_create_sign_verify(SecKeyRef ca_priv, SecKeyRef leaf_priv,
     /* Sign that CSR */
     uint8_t serial_no_bytes2[] = { 0xbb, 0x02 };
     serial_no = [NSData dataWithBytes:serial_no_bytes2 length:sizeof(serial_no_bytes2)];
-    leaf_cert2 = SecIdentitySignCertificateWithAlgorithm(ca_identity, (__bridge CFDataRef)serial_no,
-                                                         csr_pub_key, csr_subject, csr_extensions, cert_hashing_alg);
+    leaf_parameters = @{(__bridge NSString*)kSecCMSSignHashAlgorithm: (__bridge NSString*)csr_hashing_alg};
+    leaf_cert2 = SecIdentitySignCertificateWithParameters(ca_identity, (__bridge CFDataRef)serial_no,
+                                                         csr_pub_key, csr_subject, csr_extensions,
+                                                          (__bridge CFDictionaryRef)leaf_parameters);
     require(leaf_cert2, out);
 
     /* Verify the signed leaf certs chain to the root */
@@ -503,17 +501,304 @@ static void test_algs(void) {
     CFReleaseNull(leaf_ec_key);
 }
 
+    static void test_lifetimes(void) {
+        SecKeyRef ca_priv = NULL;
+        SecKeyRef leaf_priv = NULL;
+        NSDictionary *ec_parameters = nil;
+
+        ec_parameters = @{
+            (__bridge NSString*)kSecAttrKeyType: (__bridge NSString*)kSecAttrKeyTypeECSECPrimeRandom,
+            (__bridge NSString*)kSecAttrKeySizeInBits : @384,
+        };
+        ca_priv = SecKeyCreateRandomKey((__bridge CFDictionaryRef)ec_parameters, NULL);
+        isnt(NULL, ca_priv, "Failed to generate CA EC key");
+        leaf_priv = SecKeyCreateRandomKey((__bridge CFDictionaryRef)ec_parameters, NULL);
+        isnt(NULL, leaf_priv, "Failed to generate leaf EC key");
+
+        for (int i = 0; i < 2; i++) {
+            int64_t ca_lifetime = i == 0 ? 0 : 300; // 0 to represent "default"
+            int64_t leaf_lifetime = i == 1 ? 300 : 0;
+
+            SecCertificateRef ca_cert = NULL, leaf_cert = NULL;
+            SecIdentityRef ca_identity = NULL;
+            NSArray *leaf_rdns = nil;
+            NSDictionary *leaf_parameters = nil;
+            NSData *csr = nil, *serial_no = nil;
+            SecKeyRef csr_pub_key = NULL;
+            CFDataRef csr_subject = NULL, csr_extensions = NULL;
+
+            /* Generate a self-signed cert */
+            NSString *common_name = [NSString stringWithFormat:@"CSR Test Root: %lld seconds", ca_lifetime];
+            NSArray *ca_rdns = @[
+                 @[@[(__bridge NSString*)kSecOidCountryName, @"US"]],
+                 @[@[(__bridge NSString*)kSecOidOrganization, @"Apple Inc."]],
+                 @[@[(__bridge NSString*)kSecOidCommonName, common_name]]
+             ];
+            NSMutableDictionary *ca_parameters = [@{
+                (__bridge NSString *)kSecCSRBasicContraintsPathLen: @0,
+                (__bridge NSString *)kSecCertificateKeyUsage: @(kSecKeyUsageKeyCertSign | kSecKeyUsageCRLSign)
+            } mutableCopy];
+            if (ca_lifetime) {
+                ca_parameters[(__bridge NSString*)kSecCertificateLifetime] = @(ca_lifetime);
+            }
+            ca_cert = SecGenerateSelfSignedCertificate((__bridge CFArrayRef)ca_rdns,
+                                                       (__bridge CFDictionaryRef)ca_parameters,
+                                                       NULL, ca_priv);
+            require_action(ca_cert, out, fail("failed to make ca_cert"));
+            ca_identity = SecIdentityCreate(NULL, ca_cert, ca_priv);
+            require_action(ca_identity, out, fail("failed to make ca_identity"));
+
+            /* Generate a CSR */
+            common_name = [NSString stringWithFormat:@"CSR Leaf: %lld seconds", leaf_lifetime];
+            leaf_rdns = @[
+                @[@[(__bridge NSString*)kSecOidCountryName, @"US"]],
+                @[@[(__bridge NSString*)kSecOidOrganization, @"Apple Inc"]],
+                @[@[(__bridge NSString*)kSecOidCommonName, common_name]]
+            ];
+            leaf_parameters = @{
+                (__bridge NSString*)kSecSubjectAltName: @{
+                    (__bridge NSString*)kSecSubjectAltNameDNSName : @"valid.apple.com"
+                },
+                (__bridge NSString*)kSecCertificateKeyUsage : @(kSecKeyUsageDigitalSignature)
+            };
+            csr = CFBridgingRelease(SecGenerateCertificateRequest((__bridge CFArrayRef)leaf_rdns,
+                                                                          (__bridge CFDictionaryRef)leaf_parameters,
+                                                                          NULL, leaf_priv));
+            require_action(csr, out, fail("failed to make csr"));
+
+            /* Verify that CSR */
+            require_action(SecVerifyCertificateRequest((__bridge CFDataRef)csr, &csr_pub_key, NULL, &csr_subject, &csr_extensions), out,  fail("failed to verify csr"));
+            require_action(csr_pub_key && csr_extensions && csr_subject, out, fail("failed to get csr details"));
+
+            /* Sign that CSR */
+            uint8_t serial_no_bytes[] = { 0xbb, 0x01 };
+            serial_no = [NSData dataWithBytes:serial_no_bytes length:sizeof(serial_no_bytes)];
+            if (leaf_lifetime) {
+                leaf_parameters = @{ (__bridge NSString*)kSecCertificateLifetime : @(leaf_lifetime) };
+            } else {
+                leaf_parameters = @{};
+            }
+            leaf_cert = SecIdentitySignCertificateWithParameters(ca_identity, (__bridge CFDataRef)serial_no,
+                                                                 csr_pub_key, csr_subject, csr_extensions, (__bridge CFDictionaryRef) leaf_parameters);
+            require_action(leaf_cert, out, fail("failed to make leaf_cert"));
+
+            /* Check the lifetimes */
+            if (ca_lifetime) {
+                is(ca_lifetime, SecCertificateNotValidAfter(ca_cert) - SecCertificateNotValidBefore(ca_cert), "configured ca lifetime does not match");
+            } else {
+                is(3600*24*365, SecCertificateNotValidAfter(ca_cert) - SecCertificateNotValidBefore(ca_cert), "default ca lifetime does not match");
+            }
+
+            if (leaf_lifetime) {
+                is(leaf_lifetime, SecCertificateNotValidAfter(leaf_cert) - SecCertificateNotValidBefore(leaf_cert), "configured leaf lifetime does not match");
+            } else {
+                is(3600*24*365, SecCertificateNotValidAfter(leaf_cert) - SecCertificateNotValidBefore(leaf_cert), "default leaf lifetime does not match");
+            }
+
+            out:
+            CFReleaseNull(ca_cert);
+            CFReleaseNull(ca_identity);
+            CFReleaseNull(leaf_cert);
+            CFReleaseNull(csr_pub_key);
+            CFReleaseNull(csr_subject);
+            CFReleaseNull(csr_extensions);
+        }
+
+        CFReleaseNull(ca_priv);
+        CFReleaseNull(leaf_priv);
+    }
+
+    static void test_ekus(void) {
+        SecKeyRef cert_priv = NULL;
+        SecCertificateRef cert = NULL;
+        NSDictionary *ec_parameters = @{
+            (__bridge NSString*)kSecAttrKeyType: (__bridge NSString*)kSecAttrKeyTypeECSECPrimeRandom,
+            (__bridge NSString*)kSecAttrKeySizeInBits : @384,
+        };
+        cert_priv = SecKeyCreateRandomKey((__bridge CFDictionaryRef)ec_parameters, NULL);
+        isnt(NULL, cert_priv, "Failed to generate CA EC key");
+
+        NSArray *rdns = @[
+             @[@[(__bridge NSString*)kSecOidCountryName, @"US"]],
+             @[@[(__bridge NSString*)kSecOidOrganization, @"Apple Inc."]],
+             @[@[(__bridge NSString*)kSecOidCommonName, @"Self-signed EKUs Test"]]
+         ];
+
+        /* Value of EKU parameter incorrect type */
+        NSDictionary *parameters = @{
+            (__bridge NSString*)kSecCertificateKeyUsage: @(kSecKeyUsageDigitalSignature),
+            (__bridge NSString*)kSecCertificateExtendedKeyUsage : (__bridge NSString*)kSecEKUServerAuth
+        };
+        cert = SecGenerateSelfSignedCertificate((__bridge CFArrayRef)rdns,
+                                                   (__bridge CFDictionaryRef)parameters,
+                                                   NULL, cert_priv);
+        is(NULL, cert);
+        CFReleaseNull(cert);
+
+        /* Bad EKU */
+        parameters = @{
+            (__bridge NSString*)kSecCertificateKeyUsage: @(kSecKeyUsageDigitalSignature),
+            (__bridge NSString*)kSecCertificateExtendedKeyUsage : @[@"not an OID"]
+        };
+        cert = SecGenerateSelfSignedCertificate((__bridge CFArrayRef)rdns,
+                                                   (__bridge CFDictionaryRef)parameters,
+                                                   NULL, cert_priv);
+        is(NULL, cert);
+        CFReleaseNull(cert);
+
+        /* One EKU */
+        parameters = @{
+            (__bridge NSString*)kSecCertificateKeyUsage: @(kSecKeyUsageDigitalSignature),
+            (__bridge NSString*)kSecCertificateExtendedKeyUsage : @[(__bridge NSString*)kSecEKUServerAuth]
+        };
+        cert = SecGenerateSelfSignedCertificate((__bridge CFArrayRef)rdns,
+                                                   (__bridge CFDictionaryRef)parameters,
+                                                   NULL, cert_priv);
+        isnt(NULL, cert);
+        NSArray *ekus = CFBridgingRelease(SecCertificateCopyExtendedKeyUsage(cert));
+        ok(ekus != nil);
+        is([ekus count], 1);
+        CFReleaseNull(cert);
+
+        /* Multiple EKUs */
+        parameters = @{
+            (__bridge NSString*)kSecCertificateKeyUsage: @(kSecKeyUsageDigitalSignature),
+            (__bridge NSString*)kSecCertificateExtendedKeyUsage : @[(__bridge NSString*)kSecEKUClientAuth,
+                                                                    (__bridge NSString*)kSecEKUEmailProtection]
+        };
+        cert = SecGenerateSelfSignedCertificate((__bridge CFArrayRef)rdns,
+                                                   (__bridge CFDictionaryRef)parameters,
+                                                   NULL, cert_priv);
+        isnt(NULL, cert);
+        ekus = CFBridgingRelease(SecCertificateCopyExtendedKeyUsage(cert));
+        ok(ekus != nil);
+        is([ekus count], 2);
+        CFReleaseNull(cert);
+
+        /* Custom EKUs */
+        parameters = @{
+            (__bridge NSString*)kSecCertificateKeyUsage: @(kSecKeyUsageDigitalSignature),
+            (__bridge NSString*)kSecCertificateExtendedKeyUsage : @[@"1.2.840.113635.100.4.100",
+                                                                    (__bridge NSString*)kSecEKUEmailProtection]
+        };
+        cert = SecGenerateSelfSignedCertificate((__bridge CFArrayRef)rdns,
+                                                   (__bridge CFDictionaryRef)parameters,
+                                                   NULL, cert_priv);
+        isnt(NULL, cert);
+        ekus = CFBridgingRelease(SecCertificateCopyExtendedKeyUsage(cert));
+        ok(ekus != nil);
+        is([ekus count], 2);
+
+        CFReleaseNull(cert_priv);
+        CFReleaseNull(cert);
+    }
+
+    static void test_ca_extensions(void) {
+        SecKeyRef ca_priv = NULL, leaf_priv = NULL, leaf_pub = NULL;
+        SecCertificateRef ca_cert = NULL, leaf_cert = NULL;
+        SecIdentityRef ca_identity = NULL;
+        NSDictionary *leaf_parameters = nil;
+        NSArray *result_dns_names = nil;
+
+        uint8_t serial_no_bytes[] = { 0xbb, 0x01 };
+        NSData *serial_no = [NSData dataWithBytes:serial_no_bytes length:sizeof(serial_no_bytes)];
+
+        NSArray *leaf_subject = @[
+            @[@[(__bridge NSString*)kSecOidCountryName, @"US"]],
+            @[@[(__bridge NSString*)kSecOidOrganization, @"Apple Inc"]],
+            @[@[(__bridge NSString*)kSecOidCommonName, @"Extensions Signing Test Leaf"]]
+        ];
+
+        NSDictionary *ec_parameters = @{
+            (__bridge NSString*)kSecAttrKeyType: (__bridge NSString*)kSecAttrKeyTypeECSECPrimeRandom,
+            (__bridge NSString*)kSecAttrKeySizeInBits : @384,
+        };
+        ca_priv = SecKeyCreateRandomKey((__bridge CFDictionaryRef)ec_parameters, NULL);
+        isnt(NULL, ca_priv, "Failed to generate CA EC key");
+        leaf_priv = SecKeyCreateRandomKey((__bridge CFDictionaryRef)ec_parameters, NULL);
+        isnt(NULL, leaf_priv, "Failed to generate leaf EC key");
+        leaf_pub = SecKeyCopyPublicKey(leaf_priv);
+        isnt(NULL, leaf_pub, "Failed to get leaf public key");
+
+        /* Generate a self-signed cert */
+        NSArray *ca_rdns = @[
+             @[@[(__bridge NSString*)kSecOidCountryName, @"US"]],
+             @[@[(__bridge NSString*)kSecOidOrganization, @"Apple Inc."]],
+             @[@[(__bridge NSString*)kSecOidCommonName, @"Extensions Signing Test Root"]]
+         ];
+        NSDictionary *ca_parameters = @{
+            (__bridge NSString *)kSecCSRBasicContraintsPathLen: @0,
+            (__bridge NSString *)kSecCertificateKeyUsage: @(kSecKeyUsageKeyCertSign | kSecKeyUsageCRLSign)
+        };
+        ca_cert = SecGenerateSelfSignedCertificate((__bridge CFArrayRef)ca_rdns,
+                                                   (__bridge CFDictionaryRef)ca_parameters,
+                                                   NULL, ca_priv);
+        require_action(ca_cert, out, fail("failed to make ca_cert"));
+        ca_identity = SecIdentityCreate(NULL, ca_cert, ca_priv);
+        require_action(ca_identity, out, fail("failed to make ca_identity"));
+
+        /* Create leaf certs with no extensions */
+        leaf_cert = SecIdentitySignCertificateWithParameters(ca_identity, (__bridge CFDataRef)serial_no, leaf_pub, (__bridge CFArrayRef)leaf_subject,
+                                                             nil, nil);
+        isnt(NULL, leaf_cert, "failed to make leaf_cert with no extensions or parameters");
+        CFReleaseNull(leaf_cert);
+
+        /* No extensions but parameters with other entries */
+        leaf_parameters = @{ (__bridge NSString*)kSecCertificateLifetime : @(1024) };
+        leaf_cert = SecIdentitySignCertificateWithParameters(ca_identity, (__bridge CFDataRef)serial_no, leaf_pub, (__bridge CFArrayRef)leaf_subject,
+                                                             nil, (__bridge CFDictionaryRef)leaf_parameters);
+        isnt(NULL, leaf_cert, "failed to make leaf_cert with no extensions or parameters");
+        CFReleaseNull(leaf_cert);
+
+        /* Request extensions of wrong type */
+        leaf_cert = SecIdentitySignCertificateWithParameters(ca_identity, (__bridge CFDataRef)serial_no, leaf_pub, (__bridge CFArrayRef)leaf_subject,
+                                                             (__bridge CFArrayRef)leaf_subject, nil);
+        is(NULL, leaf_cert, "Created cert with request extensions of unsupported CFType");
+        CFReleaseNull(leaf_cert);
+
+        /* Request extensions of dictionary type */
+        leaf_parameters = @{
+            (__bridge NSString*)kSecSubjectAltName: @{
+                (__bridge NSString*)kSecSubjectAltNameDNSName : @"valid.apple.com"
+            },
+            (__bridge NSString*)kSecCertificateKeyUsage : @(kSecKeyUsageDigitalSignature)
+        };
+        leaf_cert = SecIdentitySignCertificateWithParameters(ca_identity, (__bridge CFDataRef)serial_no, leaf_pub, (__bridge CFArrayRef)leaf_subject,
+                                                             (__bridge CFDictionaryRef)leaf_parameters, nil);
+        isnt(NULL, leaf_cert, "failed to make leaf_cert with no extensions or parameters");
+        result_dns_names = CFBridgingRelease(SecCertificateCopyDNSNames(leaf_cert));
+        ok(nil != result_dns_names, "failed to set DNS names in leaf cert");
+        is([result_dns_names count], 1);
+        CFReleaseNull(leaf_cert);
+
+        /* "CA" extensions override request extensions */
+        leaf_cert = SecIdentitySignCertificateWithParameters(ca_identity, (__bridge CFDataRef)serial_no, leaf_pub, (__bridge CFArrayRef)leaf_subject,
+                                                             (__bridge CFDictionaryRef)ca_parameters, (__bridge CFDictionaryRef)leaf_parameters);
+        isnt(NULL, leaf_cert, "failed to make leaf_cert with no extensions or parameters");
+        result_dns_names = CFBridgingRelease(SecCertificateCopyDNSNames(leaf_cert));
+        ok(nil != result_dns_names, "failed to set DNS names in leaf cert");
+        is([result_dns_names count], 1);
+        is(false, SecCertificateIsCA(leaf_cert));
+        CFReleaseNull(leaf_cert);
+
+        out:
+        CFReleaseNull(ca_cert);
+        CFReleaseNull(ca_identity);
+        CFReleaseNull(ca_priv);
+        CFReleaseNull(leaf_priv);
+        CFReleaseNull(leaf_pub);
+    }
+
 int si_62_csr(int argc, char *const *argv)
 {
-#if TARGET_OS_IPHONE
-	plan_tests(41);
-#else
-    plan_tests(34);
-#endif
+	plan_tests(72);
 
 	tests();
     test_ec_csr();
     test_algs();
+    test_lifetimes();
+    test_ekus();
+    test_ca_extensions();
 
 	return 0;
 }

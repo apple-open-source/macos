@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2013-2021 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -73,6 +73,12 @@
  * - indicates whether CLAT46 should be auto-enabled for cellular interfaces
  */
 #define kCellularCLAT46AutoEnable	CFSTR("CellularCLAT46AutoEnable")	/* boolean */
+
+/*
+ * kIPv6LinkLocalModifierExpires
+ * - indicates IPv6 link-local modifiers should expire
+ */
+#define kIPv6LinkLocalModifierExpires	CFSTR("IPv6LinkLocalModifierExpires")	/* boolean */
 
 STATIC SCPreferencesRef				S_prefs;
 STATIC IPConfigurationControlPrefsCallBack	S_callback;
@@ -342,7 +348,7 @@ IPConfigurationControlPrefsGetAWDReportInterfaceTypes(void)
     return (IPConfigurationInterfaceTypesFromString(types));
 }
 
-Boolean
+PRIVATE_EXTERN Boolean
 IPConfigurationControlPrefsGetCellularCLAT46AutoEnable(void)
 {
 	Boolean		enabled = FALSE;
@@ -353,6 +359,19 @@ IPConfigurationControlPrefsGetCellularCLAT46AutoEnable(void)
 		enabled = CFBooleanGetValue(val);
 	}
 	return (enabled);
+}
+
+PRIVATE_EXTERN Boolean
+IPConfigurationControlPrefsGetIPv6LinkLocalModifierExpires(void)
+{
+	Boolean		expires = TRUE;
+	CFBooleanRef	val;
+
+	val = prefs_get_boolean(kIPv6LinkLocalModifierExpires);
+	if (val != NULL) {
+		expires = CFBooleanGetValue(val);
+	}
+	return (expires);
 }
 
 /**
@@ -381,7 +400,7 @@ IPConfigurationControlPrefsSetAWDReportInterfaceTypes(IPConfigurationInterfaceTy
     return (IPConfigurationControlPrefsSave());
 }
 
-Boolean
+PRIVATE_EXTERN Boolean
 IPConfigurationControlPrefsSetCellularCLAT46AutoEnable(Boolean enable)
 {
 	if (enable == FALSE) {
@@ -389,6 +408,20 @@ IPConfigurationControlPrefsSetCellularCLAT46AutoEnable(Boolean enable)
 	}
 	else {
 		prefs_set_boolean(kCellularCLAT46AutoEnable, kCFBooleanTrue);
+	}
+	return (IPConfigurationControlPrefsSave());
+}
+
+PRIVATE_EXTERN Boolean
+IPConfigurationControlPrefsSetIPv6LinkLocalModifierExpires(Boolean expires)
+{
+	if (expires) {
+		/* default is that the IPv6LL modifier expires */
+		prefs_set_boolean(kIPv6LinkLocalModifierExpires, NULL);
+	}
+	else {
+		prefs_set_boolean(kIPv6LinkLocalModifierExpires,
+				  kCFBooleanFalse);
 	}
 	return (IPConfigurationControlPrefsSave());
 }

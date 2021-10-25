@@ -16,6 +16,8 @@
 *   created by: Markus W. Scherer
 */
 
+#include <cstddef>
+
 #include "unicode/utypes.h"
 #include "unicode/ustring.h"
 #include "unicode/unistr.h"
@@ -221,13 +223,16 @@ utext_current32(UText *ut) {
         //        leading surrogate.  The attempt to access the trail will fail, but
         //        the original position before the unpaired lead still needs to be restored.
         int64_t  nativePosition = ut->chunkNativeLimit;
-        int32_t  originalOffset = ut->chunkOffset;
         if (ut->pFuncs->access(ut, nativePosition, TRUE)) {
             trail = ut->chunkContents[ut->chunkOffset];
         }
         UBool r = ut->pFuncs->access(ut, nativePosition, FALSE);  // reverse iteration flag loads preceding chunk
         U_ASSERT(r==TRUE);
-        ut->chunkOffset = originalOffset;
+        // Here we need to restore chunkOffset since the access functions were called with
+        // chunkNativeLimit but that is not where we were (we were 1 code unit before the
+        // limit). Restoring was originally added in ICU-4669 but did not support access
+        // functions that changed the chunk size, the following does.
+        ut->chunkOffset = ut->chunkLength - 1;
         if(!r) {
             return U_SENTINEL;
         }
@@ -571,8 +576,8 @@ enum {
 //    when a provider asks for a UText to be allocated with extra storage.
 
 struct ExtendedUText {
-    UText          ut;
-    max_align_t    extension;
+    UText               ut;
+    std::max_align_t    extension;
 };
 
 static const UText emptyText = UTEXT_INITIALIZER;
@@ -587,7 +592,7 @@ utext_setup(UText *ut, int32_t extraSpace, UErrorCode *status) {
         // We need to heap-allocate storage for the new UText
         int32_t spaceRequired = sizeof(UText);
         if (extraSpace > 0) {
-            spaceRequired = sizeof(ExtendedUText) + extraSpace - sizeof(max_align_t);
+            spaceRequired = sizeof(ExtendedUText) + extraSpace - sizeof(std::max_align_t);
         }
         ut = (UText *)uprv_malloc(spaceRequired);
         if (ut == NULL) {
@@ -1049,7 +1054,7 @@ utf8TextAccess(UText *ut, int64_t index, UBool forward) {
 
     //
     // Dispatch to the appropriate action for a
-    //   Backwards Diretion iteration request.
+    //   Backwards Direction iteration request.
     //
     if (ix==ut->chunkNativeStart) {
         // Check for normal sequential iteration cases first.

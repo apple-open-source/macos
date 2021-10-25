@@ -83,8 +83,8 @@
 #include <libkern/OSBase.h>
 #include <libkern/OSAtomic.h>
 #include <kern/thread_call.h>
-#include <libkern/OSMalloc.h>
 #include <IOKit/IOTypes.h>
+#include <IOKit/IOLib.h>
 
 /*
  * msdosfs include files.
@@ -110,6 +110,8 @@ struct msdosfs_fat_node {
     u_int32_t start_block;	/* device block number of first sector */
     u_int32_t file_size;	/* number of bytes covered by this vnode */
 };
+
+typedef struct msdosfs_fat_node msdosfs_fat_node_t;
 
 /*
  * Internal routines
@@ -225,7 +227,7 @@ int msdosfs_fat_reclaim(struct vnop_reclaim_args *ap)
     struct msdosfs_fat_node *node = vnode_fsnode(vp);
 
     vnode_clearfsnode(vp);
-    OSFree(node, sizeof(*node), msdosfs_malloc_tag);
+    IOFreeType(node, msdosfs_fat_node_t);
     return 0;
 }
 
@@ -260,7 +262,7 @@ int msdosfs_fat_init_vol(struct msdosfsmount *pmp)
     /*
      * Create a vnode to use to access the active FAT.
      */
-    node = OSMalloc(sizeof(*node), msdosfs_malloc_tag);
+    node = IOMallocType(msdosfs_fat_node_t);
     if (node == NULL)
     {
     	error = ENOMEM;
@@ -284,7 +286,7 @@ int msdosfs_fat_init_vol(struct msdosfsmount *pmp)
     error = vnode_create(VNCREATE_FLAVOR, VCREATESIZE, &vfsp, &pmp->pm_fat_active_vp);
     if (error)
     {
-        OSFree(node, sizeof(*node), msdosfs_malloc_tag);
+        IOFreeType(node, msdosfs_fat_node_t);
 	goto exit;
     }
     vnode_ref(pmp->pm_fat_active_vp);
@@ -295,7 +297,7 @@ int msdosfs_fat_init_vol(struct msdosfsmount *pmp)
 	/*
 	 * Create a vnode to use to access the alternate FAT.
 	 */
-        node = OSMalloc(sizeof(*node), msdosfs_malloc_tag);
+        node = IOMallocType(msdosfs_fat_node_t);
         if (node == NULL)
 	{
 	    error = ENOMEM;
@@ -319,8 +321,8 @@ int msdosfs_fat_init_vol(struct msdosfsmount *pmp)
         error = vnode_create(VNCREATE_FLAVOR, VCREATESIZE, &vfsp, &pmp->pm_fat_mirror_vp);
         if (error)
         {
-	    OSFree(node, sizeof(*node), msdosfs_malloc_tag);
-	    goto exit;
+            IOFreeType(node, msdosfs_fat_node_t);
+            goto exit;
         }
         vnode_ref(pmp->pm_fat_mirror_vp);
         vnode_put(pmp->pm_fat_mirror_vp);
@@ -329,7 +331,7 @@ int msdosfs_fat_init_vol(struct msdosfsmount *pmp)
     /*
      * Initialize the cache for most recently used FAT block.
      */
-    pmp->pm_fat_cache = OSMalloc(pmp->pm_fatblocksize, msdosfs_malloc_tag);
+    pmp->pm_fat_cache = IOMallocZeroData(pmp->pm_fatblocksize);
     if (pmp->pm_fat_cache == NULL)
     {
     	error = ENOMEM;
@@ -342,7 +344,7 @@ int msdosfs_fat_init_vol(struct msdosfsmount *pmp)
      * Allocate space for a list of free extents, used when searching for
      * free space (especially when free space is highly fragmented).
      */
-    pmp->pm_free_extents = OSMalloc(PAGE_SIZE, msdosfs_malloc_tag);
+    pmp->pm_free_extents = IOMallocZeroData(PAGE_SIZE);
     if (pmp->pm_free_extents == NULL)
     {
 	error = ENOMEM;
@@ -403,13 +405,13 @@ void msdosfs_fat_uninit_vol(struct msdosfsmount *pmp)
     
     if (pmp->pm_fat_cache)
     {
-	OSFree(pmp->pm_fat_cache, pmp->pm_fatblocksize, msdosfs_malloc_tag);
+	IOFreeData(pmp->pm_fat_cache, pmp->pm_fatblocksize);
 	pmp->pm_fat_cache = NULL;
     }
     
     if (pmp->pm_free_extents)
     {
-	OSFree(pmp->pm_free_extents, PAGE_SIZE, msdosfs_malloc_tag);
+        IOFreeData(pmp->pm_free_extents, PAGE_SIZE);
 	pmp->pm_free_extents = NULL;
 	pmp->pm_free_extent_count = 0;
     }
@@ -742,23 +744,6 @@ flush_now:
     msdosfs_meta_flush_internal(pmp, sync);
     KERNEL_DEBUG_CONSTANT(MSDOSFS_META_FLUSH|DBG_FUNC_END, 0, 0, 0, 0, 0);
 }
-
-
-void msdosfs_meta_sync_callback(void *arg0, void *unused)
-{
-#pragma unused(unused)
-    struct msdosfsmount *pmp = arg0;
-    
-    KERNEL_DEBUG_CONSTANT(MSDOSFS_META_SYNC_CALLBACK|DBG_FUNC_START, pmp, 0, 0, 0, 0);
-
-    OSDecrementAtomic(&pmp->pm_sync_scheduled);
-    msdosfs_meta_flush_internal(pmp, 0);
-    OSDecrementAtomic(&pmp->pm_sync_incomplete);
-    wakeup(&pmp->pm_sync_incomplete);
-    
-    KERNEL_DEBUG_CONSTANT(MSDOSFS_META_SYNC_CALLBACK|DBG_FUNC_END, 0, 0, 0, 0, 0);
-}
-
 
 
 /*

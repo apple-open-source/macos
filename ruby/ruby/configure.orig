@@ -908,6 +908,7 @@ infodir
 docdir
 oldincludedir
 includedir
+runstatedir
 localstatedir
 sharedstatedir
 sysconfdir
@@ -938,6 +939,7 @@ with_arch
 enable_load_relative
 enable_werror
 with_compress_debug_sections
+enable_fortify_source
 with_opt_dir
 with_winnt_ver
 with_gmp
@@ -1041,6 +1043,7 @@ datadir='${datarootdir}'
 sysconfdir='${prefix}/etc'
 sharedstatedir='${prefix}/com'
 localstatedir='${prefix}/var'
+runstatedir='${localstatedir}/run'
 includedir='${prefix}/include'
 oldincludedir='/usr/include'
 docdir='${datarootdir}/doc/${PACKAGE}'
@@ -1293,6 +1296,15 @@ do
   | -silent | --silent | --silen | --sile | --sil)
     silent=yes ;;
 
+  -runstatedir | --runstatedir | --runstatedi | --runstated \
+  | --runstate | --runstat | --runsta | --runst | --runs \
+  | --run | --ru | --r)
+    ac_prev=runstatedir ;;
+  -runstatedir=* | --runstatedir=* | --runstatedi=* | --runstated=* \
+  | --runstate=* | --runstat=* | --runsta=* | --runst=* | --runs=* \
+  | --run=* | --ru=* | --r=*)
+    runstatedir=$ac_optarg ;;
+
   -sbindir | --sbindir | --sbindi | --sbind | --sbin | --sbi | --sb)
     ac_prev=sbindir ;;
   -sbindir=* | --sbindir=* | --sbindi=* | --sbind=* | --sbin=* \
@@ -1430,7 +1442,7 @@ fi
 for ac_var in	exec_prefix prefix bindir sbindir libexecdir datarootdir \
 		datadir sysconfdir sharedstatedir localstatedir includedir \
 		oldincludedir docdir infodir htmldir dvidir pdfdir psdir \
-		libdir localedir mandir
+		libdir localedir mandir runstatedir
 do
   eval ac_val=\$$ac_var
   # Remove trailing slashes.
@@ -1583,6 +1595,7 @@ Fine tuning of the installation directories:
   --sysconfdir=DIR        read-only single-machine data [PREFIX/etc]
   --sharedstatedir=DIR    modifiable architecture-independent data [PREFIX/com]
   --localstatedir=DIR     modifiable single-machine data [PREFIX/var]
+  --runstatedir=DIR       modifiable per-process data [LOCALSTATEDIR/run]
   --libdir=DIR            object code libraries [EPREFIX/lib]
   --includedir=DIR        C header files [PREFIX/include]
   --oldincludedir=DIR     C header files for non-gcc [/usr/include]
@@ -1624,6 +1637,9 @@ Optional Features:
   --disable-werror        don't make warnings into errors even if a compiler
                           support -Werror feature [[disabled by default unless
                           development version]]
+  --disable-fortify-source
+                          disable -D_FORTIFY_SOURCE=2 option, which causes
+                          link error on mingw
   --disable-largefile     omit support for large files
   --disable-mathn         disable canonicalization for mathn
   --enable-setreuid       use setreuid()/setregid() according to need even if
@@ -6066,6 +6082,9 @@ $as_echo_n "checking for real target cpu... " >&6; }
 #ifdef __ppc64__
 "processor-name=powerpc64"
 #endif
+#ifdef __arm64__
+"processor-name=arm64"
+#endif
 EOF
 	    sed -n 's/^"processor-name=\(.*\)"/\1/p'`
 	    target="$target_cpu${target}"
@@ -8325,6 +8344,23 @@ if test "$GCC" = yes; then :
     # _FORTIFY_SOURCE=2 by default. So, let's support it for protecting us from
     # a mistake of silly C extensions.
 
+    # TODO: check if link succeeds with _FORTIFY_SOURCE=2.
+    case "$target_os" in #(
+  mingw*) :
+
+	fortify_source=no
+     ;; #(
+  *) :
+     ;;
+esac
+    # Check whether --enable-fortify_source was given.
+if test "${enable_fortify_source+set}" = set; then :
+  enableval=$enable_fortify_source; fortify_source=$enableval
+fi
+
+    if test "x$fortify_source" != xno; then :
+
+
     { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether -D_FORTIFY_SOURCE=2 is accepted as CFLAGS" >&5
 $as_echo_n "checking whether -D_FORTIFY_SOURCE=2 is accepted as CFLAGS... " >&6; }
     save_CFLAGS="$CFLAGS"
@@ -8383,6 +8419,8 @@ else
 
 fi
 
+
+fi
 
     : ${MJIT_HEADER_FLAGS='-P -dD'}
 
@@ -11514,7 +11552,7 @@ else
     We can't simply define LARGE_OFF_T to be 9223372036854775807,
     since some C++ compilers masquerading as C compilers
     incorrectly reject 9223372036854775807.  */
-#define LARGE_OFF_T (((off_t) 1 << 62) - 1 + ((off_t) 1 << 62))
+#define LARGE_OFF_T ((((off_t) 1 << 31) << 31) - 1 + (((off_t) 1 << 31) << 31))
   int off_t_is_large[(LARGE_OFF_T % 2147483629 == 721
 		       && LARGE_OFF_T % 2147483647 == 1)
 		      ? 1 : -1];
@@ -11560,7 +11598,7 @@ else
     We can't simply define LARGE_OFF_T to be 9223372036854775807,
     since some C++ compilers masquerading as C compilers
     incorrectly reject 9223372036854775807.  */
-#define LARGE_OFF_T (((off_t) 1 << 62) - 1 + ((off_t) 1 << 62))
+#define LARGE_OFF_T ((((off_t) 1 << 31) << 31) - 1 + (((off_t) 1 << 31) << 31))
   int off_t_is_large[(LARGE_OFF_T % 2147483629 == 721
 		       && LARGE_OFF_T % 2147483647 == 1)
 		      ? 1 : -1];
@@ -11584,7 +11622,7 @@ rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
     We can't simply define LARGE_OFF_T to be 9223372036854775807,
     since some C++ compilers masquerading as C compilers
     incorrectly reject 9223372036854775807.  */
-#define LARGE_OFF_T (((off_t) 1 << 62) - 1 + ((off_t) 1 << 62))
+#define LARGE_OFF_T ((((off_t) 1 << 31) << 31) - 1 + (((off_t) 1 << 31) << 31))
   int off_t_is_large[(LARGE_OFF_T % 2147483629 == 721
 		       && LARGE_OFF_T % 2147483647 == 1)
 		      ? 1 : -1];
@@ -11629,7 +11667,7 @@ else
     We can't simply define LARGE_OFF_T to be 9223372036854775807,
     since some C++ compilers masquerading as C compilers
     incorrectly reject 9223372036854775807.  */
-#define LARGE_OFF_T (((off_t) 1 << 62) - 1 + ((off_t) 1 << 62))
+#define LARGE_OFF_T ((((off_t) 1 << 31) << 31) - 1 + (((off_t) 1 << 31) << 31))
   int off_t_is_large[(LARGE_OFF_T % 2147483629 == 721
 		       && LARGE_OFF_T % 2147483647 == 1)
 		      ? 1 : -1];
@@ -11653,7 +11691,7 @@ rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
     We can't simply define LARGE_OFF_T to be 9223372036854775807,
     since some C++ compilers masquerading as C compilers
     incorrectly reject 9223372036854775807.  */
-#define LARGE_OFF_T (((off_t) 1 << 62) - 1 + ((off_t) 1 << 62))
+#define LARGE_OFF_T ((((off_t) 1 << 31) << 31) - 1 + (((off_t) 1 << 31) << 31))
   int off_t_is_large[(LARGE_OFF_T % 2147483629 == 721
 		       && LARGE_OFF_T % 2147483647 == 1)
 		      ? 1 : -1];
@@ -17787,7 +17825,7 @@ else
 
 	cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
-unsigned char atomic_var;
+unsigned int atomic_var;
 int
 main ()
 {
@@ -17827,7 +17865,7 @@ else
 
 	cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
-unsigned char atomic_var;
+unsigned int atomic_var;
 int
 main ()
 {
@@ -22986,6 +23024,28 @@ _ACEOF
 fi
 done
 
+for ac_func in getlogin
+do :
+  ac_fn_c_check_func "$LINENO" "getlogin" "ac_cv_func_getlogin"
+if test "x$ac_cv_func_getlogin" = xyes; then :
+  cat >>confdefs.h <<_ACEOF
+#define HAVE_GETLOGIN 1
+_ACEOF
+
+fi
+done
+
+for ac_func in getlogin_r
+do :
+  ac_fn_c_check_func "$LINENO" "getlogin_r" "ac_cv_func_getlogin_r"
+if test "x$ac_cv_func_getlogin_r" = xyes; then :
+  cat >>confdefs.h <<_ACEOF
+#define HAVE_GETLOGIN_R 1
+_ACEOF
+
+fi
+done
+
 for ac_func in getpgid
 do :
   ac_fn_c_check_func "$LINENO" "getpgid" "ac_cv_func_getpgid"
@@ -23019,12 +23079,45 @@ _ACEOF
 fi
 done
 
+for ac_func in getpwnam
+do :
+  ac_fn_c_check_func "$LINENO" "getpwnam" "ac_cv_func_getpwnam"
+if test "x$ac_cv_func_getpwnam" = xyes; then :
+  cat >>confdefs.h <<_ACEOF
+#define HAVE_GETPWNAM 1
+_ACEOF
+
+fi
+done
+
 for ac_func in getpwnam_r
 do :
   ac_fn_c_check_func "$LINENO" "getpwnam_r" "ac_cv_func_getpwnam_r"
 if test "x$ac_cv_func_getpwnam_r" = xyes; then :
   cat >>confdefs.h <<_ACEOF
 #define HAVE_GETPWNAM_R 1
+_ACEOF
+
+fi
+done
+
+for ac_func in getpwuid
+do :
+  ac_fn_c_check_func "$LINENO" "getpwuid" "ac_cv_func_getpwuid"
+if test "x$ac_cv_func_getpwuid" = xyes; then :
+  cat >>confdefs.h <<_ACEOF
+#define HAVE_GETPWUID 1
+_ACEOF
+
+fi
+done
+
+for ac_func in getpwuid_r
+do :
+  ac_fn_c_check_func "$LINENO" "getpwuid_r" "ac_cv_func_getpwuid_r"
+if test "x$ac_cv_func_getpwuid_r" = xyes; then :
+  cat >>confdefs.h <<_ACEOF
+#define HAVE_GETPWUID_R 1
 _ACEOF
 
 fi
@@ -26151,11 +26244,11 @@ if ${rb_cv_func_pthread_setname_np_arguments+:} false; then :
 else
   rb_cv_func_pthread_setname_np_arguments=
 	    # Linux,AIX,  (pthread_self(), name)
-	    # NetBSD (pthread_self(), name, \"%s\")
+	    # NetBSD (pthread_self(), \"%s\", name)
 	    # Darwin (name)
 	    for mac in \
 		"(pthread_self(), name)" \
-		"(pthread_self(), name, \"%s\")" \
+		"(pthread_self(), \"%s\", name)" \
 		"(name)" \
 		; do
 		cat confdefs.h - <<_ACEOF >conftest.$ac_ext
@@ -27289,12 +27382,12 @@ main(void)
     stack_t ss;
     struct sigaction sa;
 
-    ss.ss_sp = malloc(SIGSTKSZ);
+    ss.ss_sp = malloc(16*1024);
     if (ss.ss_sp == NULL) {
 	fprintf(stderr, "cannot allocate memory for sigaltstack\n");
 	return EXIT_FAILURE;
     }
-    ss.ss_size = SIGSTKSZ;
+    ss.ss_size = 16*1024;
     ss.ss_flags = 0;
     if (sigaltstack(&ss, NULL) == -1) {
 	fprintf(stderr, "sigaltstack failed\n");

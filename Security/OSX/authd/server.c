@@ -17,6 +17,7 @@
 #include "AuthorizationTags.h"
 #include "PreloginUserDb.h"
 
+#include <bsm/audit_kevents.h>
 #include <bsm/libbsm.h>
 #include <Security/Authorization.h>
 #include <Security/AuthorizationPriv.h>
@@ -199,6 +200,7 @@ OSStatus server_init(void)
     // check to see if we have an updates
     authdb_connection_t dbconn = authdb_connection_acquire(gDatabase);
     authdb_maintenance(dbconn);
+    authdb_check_for_mandatory_rights(dbconn);
     authdb_connection_release(&dbconn);
     
     _setupAuditSessionMonitor();

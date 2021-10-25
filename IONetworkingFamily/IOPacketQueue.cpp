@@ -69,7 +69,7 @@ bool IOPacketQueue::initWithCapacity(UInt32 capacity)
         return false;
     }
 
-    _queue = IONew(IOMbufQueue, 1);
+    _queue = IOMallocType(IOMbufQueue);
     if (_queue == 0)
         return false;
 
@@ -112,7 +112,7 @@ void IOPacketQueue::free()
     if (_queue)
     {
         flush();
-        IODelete(_queue, IOMbufQueue, 1);
+        IOFreeType(_queue, IOMbufQueue);
         _queue = 0;
     }
 
@@ -147,7 +147,7 @@ UInt32 IOPacketQueue::getCapacity() const
 //---------------------------------------------------------------------------
 // Peek at the head of the queue without dequeueing the packet.
 
-const mbuf_t IOPacketQueue::peek() const
+mbuf_t IOPacketQueue::peek() const
 {
     return IOMbufQueuePeek(_queue);
 }

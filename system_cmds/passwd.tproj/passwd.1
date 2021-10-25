@@ -33,7 +33,7 @@
 .\"
 .Dd August 18, 2008
 .Dt PASSWD 1
-.Os "Mac OS X"
+.Os "macOS"
 .Sh NAME
 .Nm passwd
 .Nd modify a user's password
@@ -103,22 +103,23 @@ This option specifies the user name to use when authenticating to
 the directory node.
 .It Ar user
 This optional argument specifies the user account whose password will be
-changed.  This account's current password may be required, even when run as the
+changed.
+This account's current password may be required, even when run as the
 super-user, depending on the directory system.
 .El
 .Sh FILES
 .Bl -tag -width /etc/master.passwd -compact
 .It Pa /etc/master.passwd
 The user database
-.It Pa /etc/passwd 
+.It Pa /etc/passwd
 A Version 7 format password file
 .It Pa /etc/passwd.XXXXXX
 Temporary copy of the password file
 .El
 .Sh SEE ALSO
 .Xr chpass 1 ,
-.Xr login 1 ,
 .Xr dscl 1 ,
+.Xr login 1 ,
 .Xr passwd 5 ,
 .Xr pwd_mkdb 8 ,
 .Xr vipw 8

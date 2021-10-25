@@ -26,8 +26,9 @@
 
 #include <stdbool.h>
 
-bool OctagonIsEnabled(void);
 bool SecErrorIsNestedErrorCappingEnabled(void);
+bool SecKeychainIsStaticPersistentRefsEnabled(void);
+void SecKeychainSetOverrideStaticPersistentRefsIsEnabled(bool value);
 
 #if __OBJC__
 
@@ -37,9 +38,43 @@ extern NSString* OTDefaultContext;
 
 extern NSErrorDomain const OctagonErrorDomain;
 
+typedef NS_ERROR_ENUM(OctagonErrorDomain, OctagonError) {
+    OctagonErrorNoIdentity                                      = 5,
+    OctagonErrorDeserializationFailure                          = 10,
+    OctagonErrorFeatureNotEnabled                               = 20,
+    OctagonErrorCKCallback                                      = 21,
+    OctagonErrorCKTimeOut                                       = 23,
+    OctagonErrorNoNetwork                                       = 24,
+    OctagonErrorNotSignedIn                                     = 25,
+    OctagonErrorRecordNotFound                                  = 26,
+    OctagonErrorNotSupported                                    = 29,
+    OctagonErrorUnexpectedStateTransition                       = 30,
+    OctagonErrorNoSuchContext                                   = 31,
+    OctagonErrorOperationUnavailableOnLimitedPeer               = 35,
+    OctagonErrorOctagonAdapter                                  = 38,
+    OctagonErrorSOSAdapter                                      = 39,
+    OctagonErrorRecoveryKeyMalformed                            = 41,
+    OctagonErrorAuthKitAKDeviceListRequestContextClass          = 43,
+    OctagonErrorAuthKitNoPrimaryAccount                         = 44,
+    OctagonErrorAuthKitNoAuthenticationController               = 45,
+    OctagonErrorAuthKitMachineIDMissing                         = 46,
+    OctagonErrorAuthKitPrimaryAccountHaveNoDSID                 = 47,
+    OctagonErrorFailedToLeaveClique                             = 48,
+    OctagonErrorSyncPolicyMissing                               = 49,
+    OctagonErrorRequiredLibrariesNotPresent                     = 50,
+#if !defined(__OPEN_SOURCE__) && APPLE_FEATURE_WALRUS_UI
+    OctagonErrorFailedToSetWalrus                               = 51,
+    OctagonErrorFailedToSetWebAccess                            = 52,
+#endif /* APPLE_FEATURE_WALRUS_UI */
+    OctagonErrorNoAccountSettingsSet                            = 53,
+    OctagonErrorBadUUID                                         = 54,
+    OctagonErrorUserControllableViewsUnavailable                = 55,
+    OctagonErrorICloudAccountStateUnknown                       = 56,
+    OctagonErrorClassCLocked                                    = 57,
+};
+
 /* used for defaults writes */
 extern NSString* OTDefaultsDomain;
-extern NSString* OTDefaultsOctagonEnable;
 
 extern NSString* OTProtocolPairing;
 extern NSString* OTProtocolPiggybacking;
@@ -48,34 +83,19 @@ extern const char * OTTrustStatusChangeNotification;
 extern NSString* OTEscrowRecordPrefix;
 
 
-BOOL OctagonPlatformSupportsSOS(void);
+bool OctagonPlatformSupportsSOS(void);
 
 // Used for testing.
-void OctagonSetIsEnabled(BOOL value);
-void OctagonSetPlatformSupportsSOS(BOOL value);
+void OctagonSetPlatformSupportsSOS(bool value);
 
-BOOL OctagonPerformSOSUpgrade(void);
-void OctagonSetSOSUpgrade(BOOL value);
+bool OctagonIsSOSFeatureEnabled(void);
+void OctagonSetSOSFeatureEnabled(bool value);
 
-BOOL OctagonRecoveryKeyIsEnabled(void);
-void OctagonRecoveryKeySetIsEnabled(BOOL value);
+bool SecKVSOnCloudKitIsEnabled(void);
+void SecKVSOnCloudKitSetOverrideIsEnabled(bool value);
 
-BOOL OctagonAuthoritativeTrustIsEnabled(void);
-void OctagonAuthoritativeTrustSetIsEnabled(BOOL value);
+void SecErrorSetOverrideNestedErrorCappingIsEnabled(bool value);
 
-BOOL OctagonIsSOSFeatureEnabled(void);
-void OctagonSetSOSFeatureEnabled(BOOL value);
-
-BOOL OctagonIsOptimizationEnabled(void);
-void OctagonSetOptimizationEnabled(BOOL value);
-
-BOOL OctagonIsEscrowRecordFetchEnabled(void);
-void OctagonSetEscrowRecordFetchEnabled(BOOL value);
-
-BOOL SecKVSOnCloudKitIsEnabled(void);
-void SecKVSOnCloudKitSetOverrideIsEnabled(BOOL value);
-
-void SecErrorSetOverrideNestedErrorCappingIsEnabled(BOOL value);
 
 typedef NS_ENUM(NSInteger, CuttlefishResetReason) {
     CuttlefishResetReasonUnknown = 0,

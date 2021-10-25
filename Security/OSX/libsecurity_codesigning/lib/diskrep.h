@@ -213,10 +213,23 @@ public:
 	void codeDirectory(const CodeDirectory *cd, CodeDirectory::SpecialSlot slot)
 		{ component(slot, CFTempData(cd->data(), cd->length())); }
 
+	bool getPreserveAFSC() {
 #if TARGET_OS_OSX
-	bool getPreserveAFSC()					{ return mPreserveAFSC; }
-	void setPreserveAFSC(bool flag)			{ mPreserveAFSC = flag; }
+		return mPreserveAFSC;
+#else
+		// AFSC is only valid on macOS targets.
+		return false;
 #endif
+	}
+
+	void setPreserveAFSC(bool flag) {
+#if TARGET_OS_OSX
+		mPreserveAFSC = flag;
+#else
+		// AFSC is only valid on macOS targets.
+		MacOSError::throwMe(errSecUnimplemented);
+#endif
+	}
 
 private:
 	Architecture mArch;

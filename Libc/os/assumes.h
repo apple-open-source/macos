@@ -74,11 +74,11 @@ __BEGIN_DECLS
 
 #define __os_crash_fmt(...) \
 	({ \
-		const size_t size = os_log_pack_size(__VA_ARGS__); \
-		uint8_t buf[size] __attribute__((aligned(alignof(os_log_pack_s)))); \
-		os_log_pack_t pack = (os_log_pack_t)&buf; \
-		os_log_pack_fill(pack, size, errno, __VA_ARGS__); \
-		_os_crash_fmt(pack, size); \
+		const size_t __size = os_log_pack_size(__VA_ARGS__); \
+		uint8_t __buf[__size] __attribute__((aligned(__alignof(os_log_pack_s)))); \
+		os_log_pack_t __pack = (os_log_pack_t)&__buf; \
+		os_log_pack_fill(__pack, __size, errno, __VA_ARGS__); \
+		_os_crash_fmt(__pack, __size); \
 		os_hardware_trap(); \
 	})
 
@@ -450,11 +450,13 @@ struct _os_redirect_assumes_s {
  */
 
 /*
- * The asl_message argument is a _SIMPLE_STRING that, when given to _simple_asl_send(), will
- * direct the message to the MessageTracer diagnostic messages store rather than
- * the default system log store.
+ * The first argument is an empty _SIMPLE_STRING, which is deallocated after
+ * the callout returns. It used to be a _SIMPLE_STRING that, when given to
+ * _simple_asl_send(), would have directed the message to the MessageTracer
+ * diagnostic messages store rather than the default system log store.
+ * Nobody used this capability, so it was removed.
  */
-typedef bool (*os_log_callout_t)(_SIMPLE_STRING asl_message, void *ctx, const char *);
+typedef bool (*os_log_callout_t)(_SIMPLE_STRING ignored, void *ctx, const char *);
 
 
 #define os_assumes_ctx(f, ctx, e) __extension__({ \

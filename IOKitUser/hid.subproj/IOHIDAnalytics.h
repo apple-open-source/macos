@@ -89,9 +89,7 @@ void IOHIDAnalyticsEventAddHistogramField(CFTypeRef  event, CFStringRef  fieldNa
  * IOHIDAnalyticsEventAddField
  *
  * @abstract
- * Add HIDAnalyticsEventField of type Integer.
- * Need to extend this with type option to support
- * normal fields for future
+ * Add HIDAnalyticsEventField of any type.
  *
  * @discussion
  * Field is added to event. Value set by user is what it gets.
@@ -161,7 +159,30 @@ void IOHIDAnalyticsEventCancel(CFTypeRef  event);
  */
 CF_EXPORT
 void IOHIDAnalyticsEventSetIntegerValueForField(CFTypeRef  event, CFStringRef  fieldName, uint64_t value);
-    
+
+/*!
+ * IOHIDAnalyticsEventSetStringValueForField
+ *
+ * @abstract
+ * Set value for given event field
+ *
+ * @discussion
+ * Set value for given event field. Update of field value is based on type of field. 
+ * Currently only plain HIDEvent Fields are supported. Histogram fields will not function
+ * with String arguments.
+ *
+ * @param event
+ * HIDAnayticsEventRef returned from  HIDAnalyticsEventCreate.
+ *
+ * @param fieldName
+ * Event field name.
+ *
+ * @param value
+ * Event field value to set.
+ *
+ */
+CF_EXPORT
+void IOHIDAnalyticsEventSetStringValueForField(CFTypeRef  event, CFStringRef  fieldName, CFStringRef value);
 
 /*!
  * IOHIDAnalyticsHistogramEventCreate

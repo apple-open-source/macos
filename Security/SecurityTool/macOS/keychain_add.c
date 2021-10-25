@@ -29,6 +29,7 @@
 #include "security_tool.h"
 #include "access_utils.h"
 #include "keychain_utilities.h"
+#include "trusted_cert_utils.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -486,44 +487,32 @@ do_add_certificates(const char *keychainName, int argc, char * const *argv)
 
 	for (ix = 0; ix < argc; ++ix)
 	{
-		CSSM_DATA certData = {};
 		OSStatus status;
 		SecCertificateRef certificate = NULL;
 
-		if (read_file(argv[ix], &certData))
+		if (readCertFile(argv[ix], &certificate))
 		{
 			result = 1;
 			continue;
 		}
 
-		status = SecCertificateCreateFromData(&certData, CSSM_CERT_X_509v3, CSSM_CERT_ENCODING_UNKNOWN, &certificate);
+		status = SecCertificateAddToKeychain(certificate, keychain);
 		if (status)
 		{
-			sec_perror("SecCertificateCreateFromData", status);
+			if (status == errSecDuplicateItem)
+			{
+				if (keychainName)
+					sec_error("%s: already in %s", argv[ix], keychainName);
+				else
+					sec_error("%s: already in default keychain", argv[ix]);
+			}
+			else
+			{
+				sec_perror("SecCertificateAddToKeychain", status);
+			}
 			result = 1;
 		}
-		else
-		{
-			status = SecCertificateAddToKeychain(certificate, keychain);
-			if (status)
-			{
-                if (status == errSecDuplicateItem)
-                {
-                    if (keychainName)
-                        sec_error("%s: already in %s", argv[ix], keychainName);
-                    else
-                        sec_error("%s: already in default keychain", argv[ix]);
-                }
-                else
-                {
-                    sec_perror("SecCertificateAddToKeychain", status);
-                }
-				result = 1;
-			}
-		}
 
-		if (certData.Data)
-			free(certData.Data);
 		if (certificate)
 			CFRelease(certificate);
 	}

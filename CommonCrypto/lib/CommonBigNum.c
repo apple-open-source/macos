@@ -381,7 +381,11 @@ CCStatus
 CCBigNumModExp(CCBigNumRef res, const CCBigNumRef a, const CCBigNumRef power, const CCBigNumRef modulus)
 {
     CC_DEBUG_LOG("Entering\n");
-	ccz_expmod((ccz *)res, (ccz *)a, (ccz *)power, (ccz *) modulus);
+
+    if (ccz_expmod((ccz *)res, (ccz *)a, (ccz *)power, (ccz *)modulus)) {
+        return kCCParamError;
+    }
+
     return kCCSuccess;
 }
 

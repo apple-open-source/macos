@@ -29,7 +29,8 @@
 #include <CoreFoundation/CoreFoundation.h>
 
 #if !TARGET_IPHONE_SIMULATOR
-#import <System/sys/kdebug.h>
+#import <sys/kdebug.h>
+#import <sys/kdebug_private.h>
 #endif
 
 /*
@@ -57,7 +58,7 @@ typedef CF_ENUM(unsigned int, SecSignpostType) {
     SecSignpostSecItemUpdate                = 20,
     SecSignpostSecItemDelete                = 22,
     SecSignpostSecItemCopyMatching          = 24,
-
+    SecSignpostUpgradePhase3                = 26,
 
     SecSignpostImpulse                         = 0x1000,
     SecSignpostImpulseBackupClassCount         = 0x1001,

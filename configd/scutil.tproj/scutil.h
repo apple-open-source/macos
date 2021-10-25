@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2005, 2009, 2012, 2016, 2017, 2019, 2020 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2005, 2009, 2012, 2016, 2017, 2019-2021 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -68,10 +68,18 @@ extern CFMutableArrayRef	watchedPatterns;
 
 __BEGIN_DECLS
 
-Boolean		process_line		(InputRef	src);
+Boolean		process_line		(InputRef			src);
 
-CFStringRef	_copyStringFromSTDIN	(CFStringRef	prompt,
-					 CFStringRef	defaultValue);
+CFStringRef	_copyStringFromSTDIN	(CFStringRef			prompt,
+					 CFStringRef			defaultValue);
+
+Boolean		get_bool_from_string	(const char			*str,
+					 Boolean			def_value,
+					 Boolean			*ret_value,
+					 Boolean			*use_default);
+
+Boolean		get_rank_from_string	(const char			*str,
+					 SCNetworkServicePrimaryRank	*ret_rank);
 
 __END_DECLS
 

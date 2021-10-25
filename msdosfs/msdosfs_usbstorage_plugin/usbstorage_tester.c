@@ -17,7 +17,7 @@
 
 #define TEST_1_THREAD_COUNT (4)
 #define TEST_1_1_THREAD_COUNT (3)
-#define TEST_1_1_FILES_COUNT (10)
+#define TEST_1_1_FILES_COUNT (2)
 #define TEST_2_THREAD_COUNT (4)
 #define TEST_3_THREAD_COUNT (7)
 
@@ -35,7 +35,7 @@
 
 #define TEST_7_THREAD_COUNT (12)
 
-#define TEST_CYCLE_COUNT (20)
+#define TEST_CYCLE_COUNT (2)
 
 typedef int pthread_barrierattr_t;
 typedef struct
@@ -1831,8 +1831,8 @@ int main( int argc, const char * argv[] )
         for ( uint64_t uIdx=0; uIdx<TEST_1_1_THREAD_COUNT * TEST_1_1_FILES_COUNT; uIdx++ )
         {
             memset(&sTest1_1_ThreadInput[uIdx],0,sizeof(ThreadInput_s));
-            sTest1_1_ThreadInput[uIdx].uBufferSize = 1024*1024;
-            sTest1_1_ThreadInput[uIdx].uFileSize = 100*1024*1024;
+            sTest1_1_ThreadInput[uIdx].uBufferSize = 512*1024;
+            sTest1_1_ThreadInput[uIdx].uFileSize = 10*1024*1024;
             sTest1_1_ThreadInput[uIdx].uTotalNumberOfThreads = TEST_1_1_THREAD_COUNT * TEST_1_1_FILES_COUNT;
             sTest1_1_ThreadInput[uIdx].uThreadId = (uint32_t) uIdx;
 

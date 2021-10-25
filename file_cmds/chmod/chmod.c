@@ -141,7 +141,7 @@ main(int argc, char *argv[])
 //			acloptflags |= ACL_FLAG | ACL_TO_STDOUT;
 //			ace_arg_not_required = 1;
 			errx(1, "-A not implemented");
-			goto done;
+//			goto done;
 		case 'E':
 			acloptflags |= ACL_FLAG | ACL_FROM_STDIN;
 			goto done;
@@ -168,7 +168,7 @@ main(int argc, char *argv[])
 //			acloptflags |= ACL_FLAG | ACL_INVOKE_EDITOR;
 //			ace_arg_not_required = 1;
 			errx(1, "-V not implemented");
-			goto done;
+//			goto done;
 #endif /* __APPLE__ */
 		/*
 		 * XXX

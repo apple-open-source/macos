@@ -77,7 +77,7 @@
 #include <sys/mount.h>
 #include <sys/namei.h>
 #include <sys/utfconv.h>
-#include <libkern/OSMalloc.h>
+#include <IOKit/IOLib.h>
 
 #include "bpb.h"
 #include "direntry.h"
@@ -576,7 +576,7 @@ foundroot:
 	{
 		found_cnp = *cnp;
 		found_cnp.cn_pnlen = 1024;
-		found_cnp.cn_pnbuf = found_cnp.cn_nameptr = OSMalloc(found_cnp.cn_pnlen, msdosfs_malloc_tag);
+		found_cnp.cn_pnbuf = found_cnp.cn_nameptr = IOMallocZeroData(found_cnp.cn_pnlen);
 		if (found_cnp.cn_nameptr == NULL)
 		{
 			error = ENOMEM;
@@ -594,7 +594,7 @@ foundroot:
 	}
 	if (case_folded)
 	{
-		OSFree(found_cnp.cn_nameptr, 1024, msdosfs_malloc_tag);
+		IOFreeData(found_cnp.cn_nameptr, 1024);
 	}
 	if (error == 0)
 		*vpp = DETOV(dp);

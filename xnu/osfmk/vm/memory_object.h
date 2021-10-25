@@ -114,8 +114,6 @@ extern upl_t convert_port_to_upl(
 
 extern ipc_port_t convert_upl_to_port( upl_t );
 
-__private_extern__ void upl_no_senders(ipc_port_t, mach_port_mscount_t);
-
 extern kern_return_t    memory_object_pages_resident(
 	memory_object_control_t         control,
 	boolean_t                       *               has_pages_resident);

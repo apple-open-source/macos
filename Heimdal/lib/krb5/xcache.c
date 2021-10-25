@@ -133,7 +133,9 @@ update_cache_info(krb5_context context,
 	if (attrs) {
 	    // if there are attrs, then the cache exists on the server.  this means we can save the cred entry for the cache.
 	    x->cred = cred;
+	    CFRetain(x->cred);
 	}
+	CFRELEASE_NULL(cred);
 	CFRELEASE_NULL(attrs);
 	if (x->cred == NULL) {
 	    //if the cred is null, then return not found so that xcc_get_principal can return the error

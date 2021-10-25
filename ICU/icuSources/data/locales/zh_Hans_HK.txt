@@ -1,7 +1,7 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
-// License & terms of use: http://www.unicode.org/copyright.html#License
+// License & terms of use: http://www.unicode.org/copyright.html
+// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
 zh_Hans_HK{
-    Version{"36.1"}
     calendar{
         buddhist{
             DateTimePatterns{
@@ -9,7 +9,7 @@ zh_Hans_HK{
                 "z ah:mm:ss",
                 "ah:mm:ss",
                 "ah:mm",
-                "Gy年M月d日EEEE",
+                "Gy年M月d日 EEEE",
                 "Gy年M月d日",
                 "Gy年M月d日",
                 "Gd/M/yy",
@@ -30,7 +30,7 @@ zh_Hans_HK{
                 "z ah:mm:ss",
                 "ah:mm:ss",
                 "ah:mm",
-                "Gy年M月d日EEEE",
+                "Gy年M月d日 EEEE",
                 "Gy年M月d日",
                 "Gy年M月d日",
                 "d/M/yyGGGGG",
@@ -86,7 +86,7 @@ zh_Hans_HK{
                 "z ah:mm:ss",
                 "ah:mm:ss",
                 "ah:mm",
-                "y年M月d日EEEE",
+                "y年M月d日 EEEE",
                 "y年M月d日",
                 "y年M月d日",
                 "d/M/yy",
@@ -160,7 +160,7 @@ zh_Hans_HK{
                 "z ah:mm:ss",
                 "ah:mm:ss",
                 "ah:mm",
-                "Gy年M月d日EEEE",
+                "Gy年M月d日 EEEE",
                 "Gy年M月d日",
                 "Gy年M月d日",
                 "Gd/M/yy",
@@ -181,7 +181,7 @@ zh_Hans_HK{
                 "z ah:mm:ss",
                 "ah:mm:ss",
                 "ah:mm",
-                "Gy年M月d日EEEE",
+                "Gy年M月d日 EEEE",
                 "Gy年M月d日",
                 "Gy年M月d日",
                 "Gd/M/yy",

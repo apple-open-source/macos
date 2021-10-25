@@ -10,6 +10,8 @@
 #include <security_utilities/crc.h>
 #include <securityd_client/ssnotify.h>
 #include <Security/SecKeychain.h>
+#include <securityd_client/ssclient.h>
+#include "dictionary.h"
 
 using namespace Security;
 
@@ -17,7 +19,6 @@ using namespace Security;
 //                          SharedMemoryClient
 //=================================================================================
 
-#if !defined(NDEBUG)
 static std::string unixerrorstr(int errnum) {
     string errstr;
     char buf[1024];
@@ -27,7 +28,33 @@ static std::string unixerrorstr(int errnum) {
     errstr += "(" + to_string(errnum) + ")";
     return errstr;
 }
-#endif
+
+// rdar://81579429
+// Always post a bogus keychain list changed event before trying to open the shared memory file, because securityd owns/creates those files.
+// But there's a race condition: this notification has to get to the securityd process, and that process has to create the file before we
+// try to open the file below. So we loop a few times trying to read the file.
+static void TickleSharedMemoryServer(uid_t uid) {
+    secdebug("MDSPRIVACY","[%03d] SharedMemoryClient tickling server", uid);
+
+    NameValueDictionary nvd;
+
+    Endian<pid_t> thePid = getpid();
+    nvd.Insert (new NameValuePair (PID_KEY, CssmData (reinterpret_cast<void*>(&thePid), sizeof (pid_t))));
+
+    // flatten the dictionary
+    CssmData data;
+    nvd.Export (data);
+
+    /* enforce a maximum size of 16k for notifications */
+    if (data.length() <= 16384) {
+        SecurityServer::ClientSession cs (Allocator::standard(), Allocator::standard());
+        cs.postNotification (SecurityServer::kNotificationDomainDatabase, kSecKeychainListChangedEvent, data);
+
+        secinfo("MDSPRIVACY", "[%03d] SharedMemoryClient posted event %u", uid, (unsigned int) kSecKeychainListChangedEvent);
+    }
+
+    free (data.data ());
+}
 
 SharedMemoryClient::SharedMemoryClient (const char* segmentName, SegmentOffsetType segmentSize, uid_t uid)
 {
@@ -45,18 +72,41 @@ SharedMemoryClient::SharedMemoryClient (const char* segmentName, SegmentOffsetTy
 		return;
 
 	// make the name
-	int segmentDescriptor;
+	int segmentDescriptor = -1;
 	{
         std::string name(SharedMemoryCommon::SharedMemoryFilePath(mSegmentName.c_str(), mUID));
 
-		// make a connection to the shared memory block
-		segmentDescriptor = open (name.c_str(), O_RDONLY, S_IROTH);
-		if (segmentDescriptor < 0) // error on opening the shared memory segment?
-		{
-            secdebug("MDSPRIVACY","[%03d] SharedMemoryClient open of %s failed: %s", mUID, name.c_str(), unixerrorstr(errno).c_str());
-			// CssmError::throwMe (CSSM_ERRCODE_INTERNAL_ERROR);
-			return;
-		}
+        int i = 0;
+        do {
+            // make a connection to the shared memory block
+            segmentDescriptor = open (name.c_str(), O_RDONLY, S_IROTH);
+            if (segmentDescriptor >= 0)
+            {
+                break;
+            }
+
+            secnotice("MDSPRIVACY","[%03d] SharedMemoryClient open of %s failed: %s", mUID, name.c_str(), unixerrorstr(errno).c_str());
+
+            if (errno != ENOENT) { // hard error on opening the shared memory segment?
+                // CssmError::throwMe (CSSM_ERRCODE_INTERNAL_ERROR);
+                return;
+            }
+
+            if (i == 0) { // only tickle the first time through
+                TickleSharedMemoryServer(uid);
+            }
+
+            i++;
+        } while (i < 10 && 0 == usleep((1 << (i-1)) * 1000));
+        // sum_(i=0…8)(2^i) is 511, so we'll wait a total of 511 miliseconds before giving up.
+        // Note that we tried 10 times, but the waits are between the tries, not before the first and not after the last.
+        
+        if (segmentDescriptor < 0) // too many retries opening the shared memory segment
+        {
+            secnotice("MDSPRIVACY","[%03d] SharedMemoryClient open of %s failed repeatedly", mUID, name.c_str());
+            // CssmError::throwMe (CSSM_ERRCODE_INTERNAL_ERROR);
+            return;
+        }
 	}
 
     // check that the file size is large enough to support operations

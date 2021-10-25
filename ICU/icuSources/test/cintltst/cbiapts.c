@@ -1274,8 +1274,10 @@ static const RBTokResult expTokLatnCFST[] = { // 26 tokens
     { { 146,  4 }, 0x030 },  // 
 };
 
-// The following was expTokLatnNLLT for ICU 61-based Apple ICU
-static const RBTokResult expTokLatnNLLT_Old[] = { // 66 tokens
+// The following is expTokLatnNLLT for:
+// Apple ICU-61nnn, rules from source
+// Apple ICU-68nnn, rules from source or file
+static const RBTokResult expTokLatnNLLT_61s_68[] = { // 66 tokens
     { {   0, 5 }, 0xC8 },  // Short
     { {   5, 1 }, 0x00 },  // _sp_
     { {   6, 6 }, 0xC8 },  // phrase
@@ -1346,9 +1348,10 @@ static const RBTokResult expTokLatnNLLT_Old[] = { // 66 tokens
     { { 147, 3 }, 0x77 },  // 1.0
 };
 
-// For ICU 62-based Apple ICU, expTokLatnNLLT matches expTokLatnNLLT_File
-#define expTokLatnNLLT expTokLatnNLLT_File
-static const RBTokResult expTokLatnNLLT_File[] = { // 67 tokens
+// The following is expTokLatnNLLT for:
+// Apple ICU-61nnn, rules from file
+// Apple ICU-62nnn through -67nnn, rules from source or file
+static const RBTokResult expTokLatnNLLT_61f_62_67[] = { // 67 tokens
     { {   0, 5 }, 0xC8 },  // Short
     { {   5, 1 }, 0x00 },  // _sp_
     { {   6, 6 }, 0xC8 },  // phrase
@@ -2137,7 +2140,7 @@ static const TokTextAndResults tokTextAndResCFST[] = {
 };
 
 static const TokTextAndResults tokTextAndResNLLT[] = {
-    { "NLLT/Latn", tokTextLatn, expTokLatnNLLT, UPRV_LENGTHOF(expTokLatnNLLT), expTokLatnNLLT_File, UPRV_LENGTHOF(expTokLatnNLLT_File), expTokLatnNLLT_57,     UPRV_LENGTHOF(expTokLatnNLLT_57),     expTokLatnNLLT_57,     UPRV_LENGTHOF(expTokLatnNLLT_57)},
+    { "NLLT/Latn", tokTextLatn, expTokLatnNLLT_61s_68, UPRV_LENGTHOF(expTokLatnNLLT_61s_68), expTokLatnNLLT_61s_68, UPRV_LENGTHOF(expTokLatnNLLT_61s_68), expTokLatnNLLT_57, UPRV_LENGTHOF(expTokLatnNLLT_57), expTokLatnNLLT_57, UPRV_LENGTHOF(expTokLatnNLLT_57)},
     { "NLLT/Misc", tokTextMisc, expTokMiscNLLT, UPRV_LENGTHOF(expTokMiscNLLT), expTokMiscNLLT,      UPRV_LENGTHOF(expTokMiscNLLT),      expTokMiscNLLT_57Loop, UPRV_LENGTHOF(expTokMiscNLLT_57Loop), expTokMiscNLLT,        UPRV_LENGTHOF(expTokMiscNLLT)},
     { "NLLT/Jpan", tokTextJpan, expTokJpan,     UPRV_LENGTHOF(expTokJpan),     expTokJpan,          UPRV_LENGTHOF(expTokJpan),          expTokJpanNLLT_57Loop, UPRV_LENGTHOF(expTokJpanNLLT_57Loop), expTokJpan,            UPRV_LENGTHOF(expTokJpan) },
     { "NLLT/Thai", tokTextThai, expTokThai,     UPRV_LENGTHOF(expTokThai),     expTokThai,          UPRV_LENGTHOF(expTokThai),          expTokThaiNLLT_57Loop, UPRV_LENGTHOF(expTokThaiNLLT_57Loop), expTokThai,            UPRV_LENGTHOF(expTokThai) },

@@ -665,7 +665,7 @@ Boolean __IOHIDDeviceSetupAsyncSupport(IOHIDDeviceRef device)
     os_assert(device->queuePort, "Failed to get queue port %p %p", device->queuePort, &device->sourceContext);
     
     if (!device->notificationPort) {
-        device->notificationPort = IONotificationPortCreate(kIOMasterPortDefault);
+        device->notificationPort = IONotificationPortCreate(kIOMainPortDefault);
     }
     os_assert(device->notificationPort, "Failed to create notification port %p", device->notificationPort);
     
@@ -745,9 +745,9 @@ void IOHIDDeviceSetDispatchQueue(IOHIDDeviceRef device, dispatch_queue_t queue)
 {
     os_assert(__IOHIDDeviceSetupAsyncSupport(device));
     
-    char label[32] = {0};
+    char label[256] = {0};
     
-    snprintf(label, sizeof(label), "IOHIDDeviceRef:0x%llx", device->regID);
+    snprintf(label, sizeof(label), "%s.IOHIDDeviceRef:0x%llx", dispatch_queue_get_label (queue) ? dispatch_queue_get_label (queue) : "", device->regID);
     
     device->dispatchQueue = dispatch_queue_create_with_target(label, DISPATCH_QUEUE_SERIAL, queue);
     require(device->dispatchQueue, exit);
@@ -891,7 +891,7 @@ void IOHIDDeviceRegisterRemovalCallback(
         CFSetAddValue(device->removalCallbackSet, infoRef);
         
         if (!device->notificationPort) {
-            device->notificationPort = IONotificationPortCreate(kIOMasterPortDefault);
+            device->notificationPort = IONotificationPortCreate(kIOMainPortDefault);
             require(device->notificationPort, cleanup);
             require(device->service, cleanup);
         }

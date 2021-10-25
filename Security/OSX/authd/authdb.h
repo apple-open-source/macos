@@ -64,6 +64,9 @@ bool authdb_import_plist(authdb_connection_t, CFDictionaryRef, bool, const char 
     
 AUTH_NONNULL_ALL
 authdb_connection_t authdb_connection_create(authdb_t);
+
+AUTH_NONNULL_ALL
+void authdb_check_for_mandatory_rights(authdb_connection_t);
     
 #if defined(__cplusplus)
 }

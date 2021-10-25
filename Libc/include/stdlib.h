@@ -128,11 +128,6 @@ extern int __mb_cur_max;
     && defined(_USE_EXTENDED_LOCALES_) && !defined(MB_CUR_MAX_L)
 #define	MB_CUR_MAX_L(x)	(___mb_cur_max_l(x))
 #endif
-//Begin-Libc
-#include "libc_private.h"
-/* f must be a literal string */
-#define LIBC_ABORT(f,...)	abort_report_np("%s:%s:%u: " f, __FILE__, __func__, __LINE__, ## __VA_ARGS__)
-//End-Libc
 
 #ifndef UNIFDEF_DRIVERKIT
 #include <malloc/_malloc.h>
@@ -205,13 +200,7 @@ unsigned long long
 #ifndef LIBC_ALIAS_SYSTEM
 //End-Libc
 
-#if TARGET_OS_IPHONE
-#define __swift_unavailable_on(osx_msg, ios_msg) __swift_unavailable(ios_msg)
-#else
-#define __swift_unavailable_on(osx_msg, ios_msg) __swift_unavailable(osx_msg)
-#endif
-
-__swift_unavailable_on("Use posix_spawn APIs or NSTask instead.", "Process spawning is unavailable")
+__swift_unavailable("Use posix_spawn APIs or NSTask instead. (On iOS, process spawning is unavailable.)")
 __API_AVAILABLE(macos(10.0)) __IOS_PROHIBITED
 __WATCHOS_PROHIBITED __TVOS_PROHIBITED
 int	 system(const char *) __DARWIN_ALIAS_C(system);
@@ -221,7 +210,6 @@ int	 system(const char *) LIBC_ALIAS_C(system);
 #endif /* !LIBC_ALIAS_SYSTEM */
 //End-Libc
 
-#undef __swift_unavailable_on
 #endif /* UNIFDEF_DRIVERKIT */
 
 size_t	 wcstombs(char * __restrict, const wchar_t * __restrict, size_t);
@@ -362,8 +350,17 @@ uint32_t
 #ifndef UNIFDEF_DRIVERKIT
 int	 atexit_b(void (^ _Nonnull)(void)) __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
 #endif /* UNIFDEF_DRIVERKIT */
+
+#ifdef __BLOCKS__
+#if __has_attribute(noescape)
+#define __bsearch_noescape __attribute__((__noescape__))
+#else
+#define __bsearch_noescape
+#endif
+#endif /* __BLOCKS__ */
 void	*bsearch_b(const void *__key, const void *__base, size_t __nel,
-	    size_t __width, int (^ _Nonnull __compar)(const void *, const void *)) __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
+	    size_t __width, int (^ _Nonnull __compar)(const void *, const void *) __bsearch_noescape)
+	    __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
 #endif /* __BLOCKS__ */
 
 #ifndef UNIFDEF_DRIVERKIT

@@ -57,7 +57,7 @@
 
 GSSAPI_LIB_FUNCTION OM_uint32 GSSAPI_LIB_CALL
 gss_release_oid(OM_uint32 *__nonnull minor_status,
-		__nonnull gss_OID * __nullable oid)
+		__nullable gss_OID * __nonnull oid)
 {
     struct _gss_mech_switch *m;
     gss_OID o = *oid;

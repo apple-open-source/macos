@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2008, 2010, 2012-2020 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2010, 2012-2021 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -39,14 +39,12 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#define	SC_LOG_HANDLE		__log_PreferencesMonitor
-#define SC_LOG_HANDLE_TYPE	static
 #include <SystemConfiguration/SystemConfiguration.h>
 #include <SystemConfiguration/SCPrivate.h>
 #include <SystemConfiguration/SCValidation.h>
 #include "SCNetworkConfigurationInternal.h"
 #include "plugin_shared.h"
-
+#include "prefsmon_log.h"
 
 /* globals */
 static SCPreferencesRef		prefs			= NULL;
@@ -79,20 +77,6 @@ static void
 updateConfiguration(SCPreferencesRef		prefs,
 		    SCPreferencesNotification   notificationType,
 		    void			*info);
-
-
-static os_log_t
-__log_PreferencesMonitor(void)
-{
-	static os_log_t	log	= NULL;
-
-	if (log == NULL) {
-		log = os_log_create("com.apple.SystemConfiguration", "PreferencesMonitor");
-	}
-
-	return log;
-}
-
 
 static void
 savePastConfiguration(CFStringRef old_model)
@@ -530,10 +514,7 @@ flatten(SCPreferencesRef	prefs,
 		vals  = CFAllocatorAllocate(NULL, nKeys * sizeof(CFPropertyListRef), 0);
 		CFDictionaryGetKeysAndValues(subset, keys, vals);
 		for (i = 0; i < nKeys; i++) {
-			if (CFGetTypeID((CFTypeRef)vals[i]) != CFDictionaryGetTypeID()) {
-				/* add this key/value to the current dictionary */
-				CFDictionarySetValue(myDict, keys[i], vals[i]);
-			} else {
+			if (isA_CFDictionary(vals[i])) {
 				CFStringRef	subKey;
 
 				/* flatten [sub]dictionaries */
@@ -545,6 +526,9 @@ flatten(SCPreferencesRef	prefs,
 								  keys[i]);
 				flatten(prefs, subKey, vals[i]);
 				CFRelease(subKey);
+			} else {
+				/* add this key/value to the current dictionary */
+				CFDictionarySetValue(myDict, keys[i], vals[i]);
 			}
 		}
 		CFAllocatorDeallocate(NULL, keys);
@@ -938,6 +922,14 @@ updateSCDynamicStore(SCPreferencesRef prefs)
 	return;
 }
 
+#if	TARGET_OS_OSX
+#include "preboot.h"
+static void
+updatePrebootVolume(void)
+{
+	(void)syncNetworkConfigurationToPrebootVolume();
+}
+#endif /* TARGET_OS_OSX*/
 
 static void
 updateConfiguration(SCPreferencesRef		prefs,
@@ -945,8 +937,8 @@ updateConfiguration(SCPreferencesRef		prefs,
 		    void			*info)
 {
 #pragma unused(info)
-#if	!TARGET_OS_IPHONE
-	if ((notificationType & kSCPreferencesNotificationCommit) == kSCPreferencesNotificationCommit) {
+#if	TARGET_OS_OSX
+	if ((notificationType & kSCPreferencesNotificationCommit) != 0) {
 		SCNetworkSetRef	current;
 
 		current = SCNetworkSetCopyCurrent(prefs);
@@ -955,10 +947,12 @@ updateConfiguration(SCPreferencesRef		prefs,
 			haveConfiguration = TRUE;
 			CFRelease(current);
 		}
+		/* copy configuration to preboot volume */
+		updatePrebootVolume();
 	}
-#endif	/* !TARGET_OS_IPHONE */
+#endif	/* TARGET_OS_OSX */
 
-	if ((notificationType & kSCPreferencesNotificationApply) != kSCPreferencesNotificationApply) {
+	if ((notificationType & kSCPreferencesNotificationApply) == 0) {
 		goto done;
 	}
 
@@ -1008,8 +1002,13 @@ __private_extern__
 void
 load_PreferencesMonitor(CFBundleRef bundle, Boolean bundleVerbose)
 {
-#pragma unused(bundle)
 #pragma unused(bundleVerbose)
+	CFStringRef		option_keys[]	= { kSCPreferencesOptionAllowModelConflict,
+						    kSCPreferencesOptionAvoidDeadlock };
+	CFPropertyListRef	option_vals[]	= { kCFBooleanTrue,
+						    kCFBooleanFalse };
+	CFDictionaryRef		options;
+
 	SC_log(LOG_DEBUG, "load() called");
 	SC_log(LOG_DEBUG, "  bundle ID = %@", CFBundleGetIdentifier(bundle));
 
@@ -1024,11 +1023,18 @@ load_PreferencesMonitor(CFBundleRef bundle, Boolean bundleVerbose)
 	}
 
 	/* open a SCPreferences session */
+	options = CFDictionaryCreate(NULL,
+				     (const void **)option_keys,
+				     (const void **)option_vals,
+				     sizeof(option_keys) / sizeof(option_keys[0]),
+				     &kCFTypeDictionaryKeyCallBacks,
+				     &kCFTypeDictionaryValueCallBacks);
 	prefs = SCPreferencesCreateWithOptions(NULL,
 					       MY_PLUGIN_ID,
 					       PREFERENCES_MONITOR_PLIST,
 					       NULL,	// authorization
-					       NULL);
+					       options);
+	CFRelease(options);
 	if (prefs != NULL) {
 		Boolean		need_update = FALSE;
 		CFStringRef 	new_model;
@@ -1105,7 +1111,7 @@ load_PreferencesMonitor(CFBundleRef bundle, Boolean bundleVerbose)
 
 #ifdef  MAIN
 int
-main(int argc, char **argv)
+main(int argc, char * const argv[])
 {
 	_sc_log     = kSCLogDestinationFile;
 	_sc_verbose = (argc > 1) ? TRUE : FALSE;

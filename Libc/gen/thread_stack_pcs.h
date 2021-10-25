@@ -31,7 +31,8 @@
 
 __BEGIN_DECLS
 
-extern void thread_stack_pcs(vm_address_t *buffer, unsigned max, unsigned *num);
+extern int thread_stack_pcs(vm_address_t *buffer, unsigned max, unsigned *num);
+extern int thread_stack_async_pcs(vm_address_t *buffer, unsigned max, unsigned *num);
 
 __END_DECLS
 

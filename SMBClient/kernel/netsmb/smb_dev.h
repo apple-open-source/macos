@@ -81,8 +81,14 @@
 #define SMB_SMB3_SIGNING_REQ    0x200   /* Signing required for SMB 3 */
 #define SMB_HIFI_REQUESTED      0x400   /* HiFi mode is being requested */
 #define SMB_MULTICHANNEL_ENABLE 0x800   /* Enable Multi-Channel SMB */
-#define SMB_MC_PREFER_WIRED    0x1000   /* Prefer wired NICs in multichannel */
-#define SMB_DISABLE_311        0x2000   /* Disable SMB v3.1.1 */
+#define SMB_MC_PREFER_WIRED         0x00001000   /* Prefer wired NICs in multichannel */
+#define SMB_DISABLE_311             0x00002000   /* Disable SMB v3.1.1 */
+#define SMB_ENABLE_AES_128_CCM      0x00004000   /* Enable SMB v3.1.1 AES_128_CCM encryption */
+#define SMB_ENABLE_AES_128_GCM      0x00008000   /* Enable SMB v3.1.1 AES_128_GCM encryption */
+#define SMB_ENABLE_AES_256_CCM      0x00010000   /* Enable SMB v3.1.1 AES_256_CCM encryption */
+#define SMB_ENABLE_AES_256_GCM      0x00020000   /* Enable SMB v3.1.1 AES_256_GCM encryption */
+#define SMB_FORCE_SESSION_ENCRYPT   0x00040000   /* Force session level encryption */
+#define SMB_FORCE_SHARE_ENCRYPT     0x00080000   /* Force share level encryption  */
 
 #define SMB_IOC_SPI_INIT_SIZE	8 * 1024 /* Inital buffer size for server provided init token */
 
@@ -278,6 +284,7 @@ struct smbioc_session_properties {
 	uint64_t	txmax;				
 	uint64_t	rxmax;				
 	uint64_t	wxmax;
+    uint32_t    encrypt_cipher;
     /* mc additions */
     struct timespec ioc_session_setup_time;
     uint64_t        ioc_total_rx_bytes;

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2020 Apple Inc. All rights reserved.
+ * Copyright (c) 2016-2021 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -64,6 +64,9 @@ struct fcl_stat {
 	u_int32_t fcl_dup_rexmts;
 	u_int32_t fcl_pkts_compressible;
 	u_int32_t fcl_pkts_compressed;
+	uint64_t fcl_min_qdelay;
+	uint64_t fcl_max_qdelay;
+	uint64_t fcl_avg_qdelay;
 };
 
 /*
@@ -189,6 +192,9 @@ struct fq_codel_classstats {
 	struct fq_codel_flowstats fcls_flowstats[FQ_IF_MAX_FLOWSTATS];
 	u_int32_t       fcls_pkts_compressible;
 	u_int32_t       fcls_pkts_compressed;
+	uint64_t        fcls_min_qdelay;
+	uint64_t        fcls_max_qdelay;
+	uint64_t        fcls_avg_qdelay;
 };
 
 #ifdef BSD_KERNEL_PRIVATE

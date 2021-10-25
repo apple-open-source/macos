@@ -87,8 +87,10 @@ errOut:
     CFReleaseNull(trust);
 }
 
-#if !TARGET_OS_BRIDGE
 - (void)testIntermediateFromKeychain {
+#if TARGET_OS_BRIDGE
+    XCTSkip();
+#endif
     SecTrustRef trust = NULL;
     CFArrayRef certs = NULL;
     SecCertificateRef cert0 = NULL, cert1 = NULL, framework_cert1 = NULL;
@@ -141,7 +143,6 @@ errOut:
     CFReleaseNull(policy);
     CFReleaseNull(trust);
 }
-#endif /* !TARGET_OS_BRIDGE */
 
 - (void)testSelfSignedAnchor {
     SecCertificateRef garthc2 =  NULL;
@@ -169,6 +170,36 @@ errOut:
     CFReleaseNull(policy);
     CFReleaseNull(trust);
     CFReleaseNull(date);
+}
+
+- (void)testAnchorPathLenConstraints {
+    SecCertificateRef anchor = SecCertificateCreateWithBytes(NULL, _pathLenConstraint_anchor, sizeof(_pathLenConstraint_anchor));
+    SecCertificateRef subCA = SecCertificateCreateWithBytes(NULL, _pathLenConstraint_subCA, sizeof(_pathLenConstraint_subCA));
+    SecCertificateRef validLeaf = SecCertificateCreateWithBytes(NULL, _pathLenConstraint_valid_leaf,
+                                                                sizeof(_pathLenConstraint_valid_leaf));
+    SecCertificateRef invalidLeaf = SecCertificateCreateWithBytes(NULL, _pathLenConstraint_invalid_leaf,
+                                                                  sizeof(_pathLenConstraint_invalid_leaf));
+    NSDate *testDate = CFBridgingRelease(CFDateCreateForGregorianZuluDay(NULL, 2011, 9, 1));
+    NSArray *certs = @[(__bridge id)invalidLeaf, (__bridge id)subCA];
+
+    NSError *error = nil;
+    TestTrustEvaluation *eval = [[TestTrustEvaluation alloc] initWithCertificates:certs policies:nil];
+    [eval setAnchors:@[(__bridge id)anchor]];
+    [eval setVerifyDate:testDate];
+    XCTAssertFalse([eval evaluate:&error]);
+    XCTAssertNotNil(error);
+    XCTAssertEqual(error.code, errSecPathLengthConstraintExceeded);
+
+    eval = [[TestTrustEvaluation alloc] initWithCertificates:@[(__bridge id)validLeaf] policies:nil];
+    [eval setAnchors:@[(__bridge id)anchor]];
+    [eval setVerifyDate:testDate];
+    XCTAssert([eval evaluate:&error]);
+    XCTAssertNil(error);
+
+    CFReleaseNull(anchor);
+    CFReleaseNull(subCA);
+    CFReleaseNull(validLeaf);
+    CFReleaseNull(invalidLeaf);
 }
 
 @end

@@ -20,11 +20,11 @@
 #include <IOKit/hid/AppleHIDUsageTables.h>
 #include <IOKit/hid/IOHIDUsageTables.h>
 #include <IOKit/hid/IOHIDKeys.h>
+#include <IOKit/hid/IOHIDLibPrivate.h>
 #include <IOKit/pwr_mgt/IOPM.h>
 #include <SkyLight/SkyLight.h>
 #include <SkyLight/SLSDisplayManager.h>
 #include "IOHIDNXEventTranslatorServiceFilter.h"
-#include "IOHIDDebug.h"
 #include "IOHIDNXEventTranslatorSessionFilter.h"
 #include <IOKit/hidsystem/IOHIDParameter.h>
 #include "IOHIDEventTranslation.h"
@@ -1196,7 +1196,7 @@ static NXEventHandle openHIDSystem(void)
     NXEventHandle    handle = MACH_PORT_NULL;
     mach_port_t      masterPort;
     
-    kr = IOMasterPort(MACH_PORT_NULL, &masterPort);
+    kr = IOMainPort(MACH_PORT_NULL, &masterPort);
     if(kr == KERN_SUCCESS) {
         service = IORegistryEntryFromPath(masterPort, kIOServicePlane ":/IOResources/IOHIDSystem");
         if (service) {

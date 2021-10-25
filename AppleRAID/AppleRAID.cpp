@@ -33,6 +33,11 @@ bool AppleRAID::init()
     raidMembers = OSDictionary::withCapacity(0x10);
     logicalVolumes = OSDictionary::withCapacity(0x10);
     
+    thread_call_func_t startSetMethod = OSMemberFunctionCast(thread_call_func_t, this, &AppleRAID::startSetThreaded);
+    arStartSetThreadCall = thread_call_allocate(startSetMethod, (thread_call_param_t)0);
+    
+    if (arStartSetThreadCall == 0) return false;
+    
     return (raidSets && raidMembers && logicalVolumes);
 }
 
@@ -51,6 +56,9 @@ void AppleRAID::free()
         logicalVolumes = 0;
     }
 
+    if (arStartSetThreadCall) thread_call_free(arStartSetThreadCall);
+    arStartSetThreadCall = 0;
+    
     super::free();
 }
 
@@ -248,7 +256,7 @@ IOReturn AppleRAID::newMember(IORegistryEntry * child)
 	}
 	
 	// try starting up the set
-	startSet(set);
+        thread_call_enter1(arStartSetThreadCall, (thread_call_param_t) set);
 
 	// needed for user notifications
 	if (firstTime) set->registerService();
@@ -347,6 +355,20 @@ void AppleRAID::recoverMember(IORegistryEntry * child)
 
 // *****************************************************************************
 
+void AppleRAID::startSetThreaded(AppleRAIDSet * set)
+{
+    gAppleRAIDGlobals.lock();
+    while (set->isPaused()) {
+        gAppleRAIDGlobals.unlock();
+        set->arSetCommandGate->runAction(
+            OSMemberFunctionCast(IOCommandGate::Action, set, &AppleRAIDSet::waitForPause)
+        );
+        gAppleRAIDGlobals.lock();
+    }
+    startSet(set);
+    gAppleRAIDGlobals.unlock();
+}
+
 void AppleRAID::startSet(AppleRAIDSet * set)
 {
     IOLog1("AppleRAID::startSet(%p) entered.\n", set);
@@ -436,6 +458,7 @@ IOReturn AppleRAID::updateSet(char * setInfoBuffer, uint32_t setInfoBufferSize, 
     if (setInfoBuffer[setInfoBufferSize - 1]) return kIOReturnBadArgument;;
     if (!retBuffer || !retBufferSize) return kIOReturnBadArgument;
 
+    IOLog1("AppleRAID::updateSet made it past early returns\n");
     // this code is running under the global raid lock        
     gAppleRAIDGlobals.lock();
 

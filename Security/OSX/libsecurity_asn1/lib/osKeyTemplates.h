@@ -42,6 +42,9 @@
 extern "C" {
 #endif
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+
 /*** 
  *** Note: RSA and Diffie-Hellman keys and structs are in 
  *** security_asn1/keyTemplates.h.
@@ -62,48 +65,48 @@ extern "C" {
  * DSA algorithm parameters. Used in CDSA key generation context as 
  * well as the parameters in an X509-formatted DSA public key.
  */
-typedef struct {
+typedef struct SEC_ASN1_API_DEPRECATED {
 	SecAsn1Item	p;
 	SecAsn1Item	q;
 	SecAsn1Item	g;
-} NSS_DSAAlgParams;
+} NSS_DSAAlgParams SEC_ASN1_API_DEPRECATED;
 
-extern const SecAsn1Template kSecAsn1DSAAlgParamsTemplate[];
+extern const SecAsn1Template kSecAsn1DSAAlgParamsTemplate[] SEC_ASN1_API_DEPRECATED;
 
 /*
  * DSA algorithm parameters, BSAFE style. Only used in FIPS186 format
  * public and private keys.
  */
-typedef struct {
+typedef struct SEC_ASN1_API_DEPRECATED {
 	SecAsn1Item	keySizeInBits;
 	SecAsn1Item	p;
 	SecAsn1Item	q;
 	SecAsn1Item	g;
-} NSS_DSAAlgParamsBSAFE;
+} NSS_DSAAlgParamsBSAFE SEC_ASN1_API_DEPRECATED;
 
-extern const SecAsn1Template kSecAsn1DSAAlgParamsBSAFETemplate[];
+extern const SecAsn1Template kSecAsn1DSAAlgParamsBSAFETemplate[] SEC_ASN1_API_DEPRECATED;
 
 /*
  * DSA X509-style AlgorithmID. Avoids ASN_ANY processing via direct 
  * insertion of the appropriate parameters.
  */
-typedef struct {
+typedef struct SEC_ASN1_API_DEPRECATED {
 	SecAsn1Oid			algorithm;
 	NSS_DSAAlgParams	*params;		// optional
-} NSS_DSAAlgorithmIdX509;
+} NSS_DSAAlgorithmIdX509 SEC_ASN1_API_DEPRECATED;
 
-extern const SecAsn1Template kSecAsn1DSAAlgorithmIdX509Template[];
+extern const SecAsn1Template kSecAsn1DSAAlgorithmIdX509Template[] SEC_ASN1_API_DEPRECATED;
 
 /*
  * DSA AlgorithmID, BSAFE style. Avoids ASN_ANY 
  * processing via direct insertion of the appropriate parameters.
  */
-typedef struct {
+typedef struct SEC_ASN1_API_DEPRECATED {
 	SecAsn1Oid				algorithm;
 	NSS_DSAAlgParamsBSAFE	params;
-} NSS_DSAAlgorithmIdBSAFE;
+} NSS_DSAAlgorithmIdBSAFE SEC_ASN1_API_DEPRECATED;
 
-extern const SecAsn1Template kSecAsn1DSAAlgorithmIdBSAFETemplate[];
+extern const SecAsn1Template kSecAsn1DSAAlgorithmIdBSAFETemplate[] SEC_ASN1_API_DEPRECATED;
 
 /**** 
  **** DSA public keys 
@@ -115,24 +118,24 @@ extern const SecAsn1Template kSecAsn1DSAAlgorithmIdBSAFETemplate[];
  * The publicKey is actually the DER encoding of an ASN 
  * integer, wrapped in a BIT STRING. 
  */
-typedef struct {
+typedef struct SEC_ASN1_API_DEPRECATED {
 	NSS_DSAAlgorithmIdX509	dsaAlg;
 	SecAsn1Item				publicKey;		// BIT string - Length in bits
-} NSS_DSAPublicKeyX509;
+} NSS_DSAPublicKeyX509 SEC_ASN1_API_DEPRECATED;
 
-extern const SecAsn1Template kSecAsn1DSAPublicKeyX509Template[];
+extern const SecAsn1Template kSecAsn1DSAPublicKeyX509Template[] SEC_ASN1_API_DEPRECATED;
 
 /*
  * DSA public key, BSAFE/FIPS186 format.
  * The public key is the DER encoding of an ASN integer, wrapped
  * in a bit string.
  */
-typedef struct {
+typedef struct SEC_ASN1_API_DEPRECATED {
 	NSS_DSAAlgorithmIdBSAFE		dsaAlg;
 	SecAsn1Item					publicKey;	// BIT string - Length in bits
-} NSS_DSAPublicKeyBSAFE;
+} NSS_DSAPublicKeyBSAFE SEC_ASN1_API_DEPRECATED;
 
-extern const SecAsn1Template kSecAsn1DSAPublicKeyBSAFETemplate[];
+extern const SecAsn1Template kSecAsn1DSAPublicKeyBSAFETemplate[] SEC_ASN1_API_DEPRECATED;
 
 /**** 
  **** DSA private keys 
@@ -141,16 +144,16 @@ extern const SecAsn1Template kSecAsn1DSAPublicKeyBSAFETemplate[];
 /*
  * DSA Private key, openssl custom format.
  */
-typedef struct {
+typedef struct SEC_ASN1_API_DEPRECATED {
 	SecAsn1Item	version;
 	SecAsn1Item	p;
 	SecAsn1Item	q;
 	SecAsn1Item	g;
 	SecAsn1Item	pub;
 	SecAsn1Item	priv;
-} NSS_DSAPrivateKeyOpenssl;
+} NSS_DSAPrivateKeyOpenssl SEC_ASN1_API_DEPRECATED;
 
-extern const SecAsn1Template kSecAsn1DSAPrivateKeyOpensslTemplate[];
+extern const SecAsn1Template kSecAsn1DSAPrivateKeyOpensslTemplate[] SEC_ASN1_API_DEPRECATED;
 
 /*
  * DSA private key, BSAFE/FIPS186 style.
@@ -159,20 +162,20 @@ extern const SecAsn1Template kSecAsn1DSAPrivateKeyOpensslTemplate[];
  * NSS_DSAPrivateKeyBSAFE.privateKey is an octet string containing
  * the DER encoding of this.
  */
-typedef struct {
+typedef struct SEC_ASN1_API_DEPRECATED {
 	SecAsn1Item				privateKey;
-} NSS_DSAPrivateKeyOcts;
+} NSS_DSAPrivateKeyOcts SEC_ASN1_API_DEPRECATED;
 
-extern const SecAsn1Template kSecAsn1DSAPrivateKeyOctsTemplate[];
+extern const SecAsn1Template kSecAsn1DSAPrivateKeyOctsTemplate[] SEC_ASN1_API_DEPRECATED;
 
-typedef struct {
+typedef struct SEC_ASN1_API_DEPRECATED {
 	SecAsn1Item				version;
 	NSS_DSAAlgorithmIdBSAFE	dsaAlg;
 	/* octet string containing a DER-encoded NSS_DSAPrivateKeyOcts */
 	SecAsn1Item				privateKey;
-} NSS_DSAPrivateKeyBSAFE;
+} NSS_DSAPrivateKeyBSAFE SEC_ASN1_API_DEPRECATED;
 
-extern const SecAsn1Template kSecAsn1DSAPrivateKeyBSAFETemplate[];
+extern const SecAsn1Template kSecAsn1DSAPrivateKeyBSAFETemplate[] SEC_ASN1_API_DEPRECATED;
 
 /*
  * DSA Private Key, PKCS8/SMIME style. Doesn't have keySizeInBits
@@ -180,25 +183,27 @@ extern const SecAsn1Template kSecAsn1DSAPrivateKeyBSAFETemplate[];
  * private key itself is a DER-encoded integer wrapped in an
  * octet string.
  */
-typedef struct {
+typedef struct SEC_ASN1_API_DEPRECATED {
 	SecAsn1Item				version;
 	NSS_DSAAlgorithmIdX509	dsaAlg;
 	/* octet string containing DER-encoded integer */
 	SecAsn1Item				privateKey;
     NSS_Attribute 			**attributes;		// optional
-} NSS_DSAPrivateKeyPKCS8;
+} NSS_DSAPrivateKeyPKCS8 SEC_ASN1_API_DEPRECATED;
 
-extern const SecAsn1Template kSecAsn1DSAPrivateKeyPKCS8Template[];
+extern const SecAsn1Template kSecAsn1DSAPrivateKeyPKCS8Template[] SEC_ASN1_API_DEPRECATED;
 
 /* 
  * DSA Signature.
  */
-typedef struct {
+typedef struct SEC_ASN1_API_DEPRECATED {
 	SecAsn1Item	r;
 	SecAsn1Item	s;
-} NSS_DSASignature;
+} NSS_DSASignature SEC_ASN1_API_DEPRECATED;
 
-extern const SecAsn1Template kSecAsn1DSASignatureTemplate[];
+extern const SecAsn1Template kSecAsn1DSASignatureTemplate[] SEC_ASN1_API_DEPRECATED;
+
+#pragma clang diagnostic pop
 
 #ifdef	__cplusplus
 }

@@ -1,16 +1,21 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
-// License & terms of use: http://www.unicode.org/copyright.html#License
+// License & terms of use: http://www.unicode.org/copyright.html
+// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
 es_BO{
     %%Parent{"es_419"}
     NumberElements{
         latn{
+            patterns{
+                accountingFormat{"¤ #,##0.00;(¤ #,##0.00)"}
+                currencyFormat{"¤ #,##0.00;¤ -#,##0.00"}
+                percentFormat{"#,##0%"}
+            }
             symbols{
                 decimal{","}
                 group{"."}
             }
         }
     }
-    Version{"36.1"}
     calendar{
         gregorian{
             AmPmMarkers{
@@ -31,8 +36,8 @@ es_BO{
                 "d MMM 'de' y",
                 "d/M/yy",
                 "{1} {0}",
-                "{1} 'a' 'las' {0}",
-                "{1} 'a' 'las' {0}",
+                "{1}, {0}",
+                "{1}, {0}",
                 "{1} {0}",
                 "{1} {0}",
             }

@@ -79,7 +79,7 @@ typedef enum {
 #endif
 #endif
 
-#include "libc_private.h"
+#include "_libc_init.h" // for _libc_functions->dirhelper
 
 #if __DARWIN_UNIX03
 static char *(*__dirhelper_func)(int, char *, size_t);

@@ -32,6 +32,7 @@ SOSCircleRef CF_RETURNS_RETAINED SOSAccountEnsureCircle(SOSAccount* a, CFStringR
         circle = SOSCircleCreate(NULL, name, NULL);
         a.key_interests_need_updating = true;
         [trust setTrustedCircle:circle];
+        [a sosEvaluateIfNeeded];
     } else {
         CFRetainSafe(circle);
     }

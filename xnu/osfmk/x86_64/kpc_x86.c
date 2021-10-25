@@ -44,9 +44,9 @@
 
 #include <kern/monotonic.h>
 
-/* Fixed counter mask -- three counters, each with OS and USER */
-#define IA32_FIXED_CTR_ENABLE_ALL_CTRS_ALL_RINGS (0x333)
-#define IA32_FIXED_CTR_ENABLE_ALL_PMI (0x888)
+/* Fixed counter mask for each fixed counter -- each with OS and USER */
+#define IA32_FIXED_CTR_ENABLE_ALL_RINGS (0x3)
+#define IA32_FIXED_CTR_ENABLE_PMI (0x8)
 
 #define IA32_PERFEVT_USER_EN (0x10000)
 #define IA32_PERFEVT_OS_EN (0x20000)
@@ -227,12 +227,14 @@ static void
 set_running_fixed(boolean_t on)
 {
 	uint64_t global = 0, mask = 0, fixed_ctrl = 0;
-	int i;
+	uint32_t i;
 	boolean_t enabled;
 
 	if (on) {
 		/* these are per-thread in SMT */
-		fixed_ctrl = IA32_FIXED_CTR_ENABLE_ALL_CTRS_ALL_RINGS | IA32_FIXED_CTR_ENABLE_ALL_PMI;
+		for (i = 0; i < kpc_fixed_count(); i++) {
+			fixed_ctrl |= ((uint64_t)(IA32_FIXED_CTR_ENABLE_ALL_RINGS | IA32_FIXED_CTR_ENABLE_PMI) << (4 * i));
+		}
 	} else {
 		/* don't allow disabling fixed counters */
 		return;
@@ -244,7 +246,7 @@ set_running_fixed(boolean_t on)
 
 	/* rmw the global control */
 	global = rdmsr64(MSR_IA32_PERF_GLOBAL_CTRL);
-	for (i = 0; i < (int) kpc_fixed_count(); i++) {
+	for (i = 0; i < kpc_fixed_count(); i++) {
 		mask |= (1ULL << (32 + i));
 	}
 

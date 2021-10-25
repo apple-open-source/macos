@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2020 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2021 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -401,13 +401,13 @@ add_supplemental_resolvers(CFMutableArrayRef	resolvers,
 	for (i = 0; i < n_services; i++) {
 		uint32_t		defaultOrder;
 		CFDictionaryRef		dns;
-		uint32_t		dns_resolver_flags;
+		uint32_t		dns_resolver_flags	= 0;
 		CFStringRef		interface;
-		CFMutableDictionaryRef	newDNS		= NULL;
+		CFMutableDictionaryRef	newDNS			= NULL;
 		uint32_t		newFlags;
-		CFDictionaryRef		service		= (CFDictionaryRef)vals[i];
-		CFStringRef		serviceID	= (CFStringRef)keys[i];
-		Boolean			trusted		= FALSE;	// trusted config w/interface
+		CFDictionaryRef		service			= (CFDictionaryRef)vals[i];
+		CFStringRef		serviceID		= (CFStringRef)keys[i];
+		Boolean			trusted			= FALSE;	// trusted config w/interface
 
 		if (!isA_CFDictionary(service)) {
 			continue;
@@ -1694,7 +1694,7 @@ dns_configuration_set(CFDictionaryRef   defaultResolver,
 				resolver = new_resolver;
 			}
 
-			if (i == 0) {
+			if ((i == 0) && (globalResolver != NULL)) {
 				*globalResolver = CFRetain(resolver);
 			}
 
@@ -1991,7 +1991,7 @@ split(const void * key, const void * value, void * context)
 }
 
 int
-main(int argc, char **argv)
+main(int argc, char * const argv[])
 {
 	CFDictionaryRef		entities;
 	CFDictionaryRef		globalResolver	= NULL;

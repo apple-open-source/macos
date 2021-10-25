@@ -132,19 +132,19 @@
 
 /* Apple/Darwin platforms */
 #ifdef __APPLE__
-#undef EXSLTPUBFUN
-#undef EXSLTPUBVAR
-#if defined(IN_LIBEXSLT) && !defined(LIBEXSLT_STATIC)
-  #define EXSLTPUBFUN extern __attribute__((visibility ("default")))
-  #define EXSLTPUBVAR extern __attribute__((visibility ("default")))
-#else
-  #define EXSLTPUBFUN
-  #if !defined(LIBEXSLT_STATIC)
+  #undef EXSLTPUBFUN
+  #undef EXSLTPUBVAR
+  #if defined(IN_LIBEXSLT) && !defined(LIBEXSLT_STATIC)
+    #define EXSLTPUBFUN extern __attribute__((visibility ("default")))
     #define EXSLTPUBVAR extern __attribute__((visibility ("default")))
   #else
-    #define EXSLTPUBVAR
+    #define EXSLTPUBFUN
+    #if !defined(LIBEXSLT_STATIC)
+      #define EXSLTPUBVAR extern __attribute__((visibility ("default")))
+    #else
+      #define EXSLTPUBVAR extern
+    #endif
   #endif
-#endif
 #endif /* __APPLE__ */
 
 /* Compatibility */

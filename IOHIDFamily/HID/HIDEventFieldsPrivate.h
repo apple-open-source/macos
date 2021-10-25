@@ -249,6 +249,8 @@ static HIDEventFieldInfo NULLEventFields[] = {
 	{ kIOHIDEventFieldIsPixelUnits, kEventFieldDataType_Integer, 1, 0, "IsPixelUnits" },
 	{ kIOHIDEventFieldIsCenterOrigin, kEventFieldDataType_Integer, 1, 0, "IsCenterOrigin" },
 	{ kIOHIDEventFieldIsBuiltIn, kEventFieldDataType_Integer, 1, 0, "IsBuiltIn" },
+	{ kIOHIDEventFieldInterpolated, kEventFieldDataType_Integer, 1, 0, "Interpolated" },
+	{ kIOHIDEventFieldInjected, kEventFieldDataType_Integer, 1, 0, "Injected" },
 	{ 0, kEventFieldDataType_None,  0, 0, NULL }
 };
 

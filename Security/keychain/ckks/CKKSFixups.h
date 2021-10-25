@@ -45,30 +45,33 @@ typedef NS_ENUM(NSUInteger, CKKSFixup) {
 #define CKKSCurrentFixupNumber (CKKSFixupDeleteAllCKKSTombstones)
 
 @interface CKKSFixups : NSObject
-+(nullable CKKSGroupOperation*)fixup:(CKKSFixup)lastfixup for:(CKKSKeychainView*)keychainView;
++ (CKKSState* _Nullable)fixupOperation:(CKKSFixup)lastfixup;
 @end
 
 // Fixup declarations. You probably don't need to look at these
-@interface CKKSFixupRefetchAllCurrentItemPointers : CKKSGroupOperation
-@property (weak) CKKSKeychainView* ckks;
-- (instancetype)initWithCKKSKeychainView:(CKKSKeychainView*)keychainView ckoperationGroup:(CKOperationGroup*)ckoperationGroup;
+@interface CKKSFixupRefetchAllCurrentItemPointers : CKKSGroupOperation<OctagonStateTransitionOperationProtocol>
+@property CKKSOperationDependencies* deps;
+- (instancetype)initWithOperationDependencies:(CKKSOperationDependencies*)operationDependencies
+                             ckoperationGroup:(CKOperationGroup*)ckoperationGroup;
 @end
 
-@interface CKKSFixupFetchAllTLKShares : CKKSGroupOperation
-@property (weak) CKKSKeychainView* ckks;
-- (instancetype)initWithCKKSKeychainView:(CKKSKeychainView*)keychainView ckoperationGroup:(CKOperationGroup*)ckoperationGroup;
+@interface CKKSFixupFetchAllTLKShares : CKKSGroupOperation<OctagonStateTransitionOperationProtocol>
+@property CKKSOperationDependencies* deps;
+- (instancetype)initWithOperationDependencies:(CKKSOperationDependencies*)operationDependencies
+                             ckoperationGroup:(CKOperationGroup*)ckoperationGroup;
 @end
 
-@interface CKKSFixupLocalReloadOperation : CKKSGroupOperation
-@property (weak) CKKSKeychainView* ckks;
-- (instancetype)initWithCKKSKeychainView:(CKKSKeychainView*)keychainView
-                             fixupNumber:(CKKSFixup)fixupNumber
-                        ckoperationGroup:(CKOperationGroup*)ckoperationGroup;
+@interface CKKSFixupLocalReloadOperation : CKKSGroupOperation<OctagonStateTransitionOperationProtocol>
+@property CKKSOperationDependencies* deps;
+- (instancetype)initWithOperationDependencies:(CKKSOperationDependencies*)operationDependencies
+                                  fixupNumber:(CKKSFixup)fixupNumber
+                             ckoperationGroup:(CKOperationGroup*)ckoperationGroup
+                                     entering:(CKKSState*)state;
 @end
 
-@interface CKKSFixupResaveDeviceStateEntriesOperation: CKKSGroupOperation
-@property (weak) CKKSKeychainView* ckks;
-- (instancetype)initWithCKKSKeychainView:(CKKSKeychainView*)keychainView;
+@interface CKKSFixupResaveDeviceStateEntriesOperation: CKKSGroupOperation<OctagonStateTransitionOperationProtocol>
+@property CKKSOperationDependencies* deps;
+- (instancetype)initWithOperationDependencies:(CKKSOperationDependencies*)operationDependencies;
 @end
 
 NS_ASSUME_NONNULL_END

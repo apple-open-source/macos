@@ -5,7 +5,9 @@
 #include <fcntl.h>
 #include <pthread.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
+#include <sys/param.h>
 #include <sys/stat.h>
 #include <sys/time.h>
 #include <unistd.h>
@@ -17,7 +19,7 @@ static void start_timer(const char* str) {
 	assert(gettimeofday(&tv, NULL) == 0);
 }
 
-static void stop_timer() {
+static void stop_timer(void) {
 	struct timeval tv2;
 	assert(gettimeofday(&tv2, NULL) == 0);
 	long sec = tv2.tv_sec - tv.tv_sec;
@@ -50,8 +52,32 @@ static int removefile_status_callback(removefile_state_t state, const char * pat
    return REMOVEFILE_PROCEED;
 }
 
+static void mklargedir(void) {
+	char *test_top_dir = "/tmp/removefile-test";
+	char large_dir_buf[NAME_MAX];
+	char *cwd = getcwd(NULL, 0);
+	size_t total_len = 0;
 
-void mkdirs() {
+	start_timer("Creating long directory structure");
+	assert(mkdir(test_top_dir, 0755) == 0);
+	total_len += sizeof(test_top_dir);
+	assert(chdir(test_top_dir) == 0);
+	memset_pattern8(large_dir_buf, "cutiepie", NAME_MAX);
+
+	// repeatedly create directories so that the total path
+	// of the depest directory is > PATH_MAX.
+	while (total_len <= PATH_MAX) {
+		assert(mkdir(large_dir_buf, 0755) == 0);
+		total_len += NAME_MAX;
+		assert(chdir(large_dir_buf) == 0);
+	}
+
+	stop_timer();
+	chdir(cwd);
+	free(cwd);
+}
+
+static void mkdirs(void) {
 	start_timer("Creating directory structure");
 	assert(mkdir("/tmp/removefile-test", 0755) == 0);
 	assert(mkdir("/tmp/removefile-test/foo", 0755) == 0);
@@ -61,11 +87,11 @@ void mkdirs() {
 	assert((fd = open("/tmp/removefile-test/foo/baz/woot", O_CREAT | O_TRUNC | O_WRONLY, 0644)) != -1);
 	write(fd, "Hello World\n", 12);
 	close(fd);
-        assert((fd = open("/tmp/removefile-test/foo/baz/wootage", O_CREAT | O_TRUNC | O_WRONLY, 0644)) != -1);
-        write(fd, "Hello World\n", 12);
+	assert((fd = open("/tmp/removefile-test/foo/baz/wootage", O_CREAT | O_TRUNC | O_WRONLY, 0644)) != -1);
+	write(fd, "Hello World\n", 12);
 	assert(lseek(fd, 1024*1024*30, SEEK_SET) != -1);
-        write(fd, "Goodbye Moon\n", 13);
-        close(fd);
+	write(fd, "Goodbye Moon\n", 13);
+	close(fd);
 	stop_timer();
 }
 
@@ -103,7 +129,7 @@ int main(int argc, char *argv[]) {
 	start_timer("removefile(state) with cancel");
 	assert(removefile_state_set(state, REMOVEFILE_STATE_ERROR_CALLBACK, removefile_error_callback) == 0);
 	assert(removefile_state_set(state, REMOVEFILE_STATE_ERROR_CONTEXT, (void*)4567) == 0);
-	assert(removefile("/tmp/removefile-test", state, REMOVEFILE_SECURE_1_PASS | REMOVEFILE_RECURSIVE) == -1 && errno == ECANCELED);
+	assert(removefile("/tmp/removefile-test", state, REMOVEFILE_SECURE_35_PASS | REMOVEFILE_RECURSIVE) == -1 && errno == ECANCELED);
 	stop_timer();
 
 	start_timer("removefile(NULL)");
@@ -132,6 +158,15 @@ int main(int argc, char *argv[]) {
 	assert(removefile("/tmp/removefile-test", state, REMOVEFILE_SECURE_1_PASS | REMOVEFILE_RECURSIVE) == 0);
 	stop_timer();
 
+	for (int i = 0; i < 2; i++) {
+		start_timer("removefile(NULL, REMOVEFILE_FORCE)");
+		mklargedir();
+		assert(removefile("/tmp/removefile-test", NULL,
+			(i == 1) ? REMOVEFILE_SECURE_1_PASS | REMOVEFILE_ALLOW_LONG_PATHS | REMOVEFILE_RECURSIVE
+			: REMOVEFILE_ALLOW_LONG_PATHS | REMOVEFILE_RECURSIVE) == 0);
+		stop_timer();
+	}
+
 	int fd;
 	mkdirs();
 	assert((fd = open("/tmp/removefile-test", O_RDONLY)) != -1);
@@ -149,5 +184,6 @@ int main(int argc, char *argv[]) {
 	stop_timer();
 
 	close(fd);
+	printf("Success!\n");
 	return 0;
 }

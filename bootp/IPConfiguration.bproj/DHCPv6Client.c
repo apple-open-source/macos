@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2018, 2020 Apple Inc. All rights reserved.
+ * Copyright (c) 2009-2021 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -77,7 +77,8 @@ typedef enum {
     kDHCPv6ClientStateUnbound,
     kDHCPv6ClientStateDecline,
     kDHCPv6ClientStateInform,
- } DHCPv6ClientState;
+    kDHCPv6ClientStateInformComplete,
+} DHCPv6ClientState;
 
 STATIC const char *
 DHCPv6ClientStateGetName(DHCPv6ClientState cstate)
@@ -94,16 +95,14 @@ DHCPv6ClientStateGetName(DHCPv6ClientState cstate)
 	"Unbound",
 	"Decline",
 	"Inform",
+	"InformComplete",
     };
-    const int 		names_count = sizeof(names) / sizeof(names[0]);
-
-    if (cstate >= 0 && cstate < names_count) {
+    if (cstate >= 0 && cstate < countof(names)) {
 	return (names[cstate]);
     }
     return ("<unknown>");
 }
 
-#if 0
 STATIC const char *
 DHCPv6ClientModeGetName(DHCPv6ClientMode mode)
 {
@@ -112,14 +111,11 @@ DHCPv6ClientModeGetName(DHCPv6ClientMode mode)
 	"Stateless",
 	"Stateful",
     };
-    const int 		names_count = sizeof(names) / sizeof(names[0]);
-
-    if (mode < names_count) {
+    if (mode >= 0 && mode < countof(names)) {
 	return (names[mode]);
     }
     return ("<unknown>");
 }
-#endif
 
 typedef struct {
     CFAbsoluteTime		start;
@@ -158,6 +154,8 @@ struct DHCPv6Client {
     DHCPv6OptionIA_NARef		ia_na;	   /* points to saved */	
     DHCPv6OptionIAADDRRef		ia_addr;   /* points to saved */
     lease_info_t			lease;
+    bool				private_address;
+    CFDataRef				duid;
 };
 
 STATIC DHCPv6ClientEventFunc	DHCPv6Client_Bound;
@@ -242,17 +240,17 @@ DHCPv6ClientOptionIsOK(int option)
     case kDHCPv6OPTION_INTERFACE_ID:
     case kDHCPv6OPTION_RECONF_MSG:
     case kDHCPv6OPTION_RECONF_ACCEPT:
-	return (TRUE);
+	return (true);
     default:
 	break;
     }
 
     for (i = 0; i < DHCPv6RequestedOptionsCount; i++) {
 	if (DHCPv6RequestedOptions[i] == option) {
-	    return (TRUE);
+	    return (true);
 	}
     }
-    return (FALSE);
+    return (false);
 }
 
 STATIC double
@@ -273,35 +271,82 @@ get_new_transaction_id(void)
     return (r & LOWER_24_BITS);
 }
 
+
 STATIC bool
-S_insert_duid(DHCPv6OptionAreaRef oa_p)
+DHCPv6ClientUsePrivateAddress(DHCPv6ClientRef client)
+{
+    return (client->private_address);
+}
+
+STATIC void
+DHCPv6ClientSetUsePrivateAddress(DHCPv6ClientRef client,
+				 bool use_private_address)
+{
+    client->private_address = use_private_address;
+}
+
+STATIC CFDataRef
+DHCPv6ClientGetDUID(DHCPv6ClientRef client)
+{
+    STATIC CFDataRef	duid;
+
+    if (DHCPv6ClientUsePrivateAddress(client)) {
+	if (client->duid == NULL) {
+	    interface_t * if_p;
+
+	    if_p = DHCPv6ClientGetInterface(client);
+	    client->duid = DHCPDUIDCopy(if_p);
+	}
+	return (client->duid);
+    }
+    if (duid == NULL) {
+	duid = DHCPDUIDGet(get_interface_list());
+    }
+    return (duid);
+}
+
+STATIC DHCPIAID
+DHCPv6ClientGetIAID(DHCPv6ClientRef client)
+{
+    interface_t * if_p;
+
+    if (DHCPv6ClientUsePrivateAddress(client)) {
+	/* we have our own address space */
+	return (0);
+    }
+    if_p = DHCPv6ClientGetInterface(client);
+    return (DHCPIAIDGet(if_name(if_p)));
+}
+
+STATIC bool
+S_insert_duid(DHCPv6ClientRef client, DHCPv6OptionAreaRef oa_p)
 {
     CFDataRef			data;
     DHCPv6OptionErrorString 	err;
 
-    data = DHCPDUIDGet(get_interface_list());
+    data = DHCPv6ClientGetDUID(client);
     if (data == NULL) {
-	return (FALSE);
+	return (false);
     }
-    if (DHCPv6OptionAreaAddOption(oa_p, kDHCPv6OPTION_CLIENTID,
-				  (int)CFDataGetLength(data),
-				  CFDataGetBytePtr(data),
-				  &err) == FALSE) {
+    if (!DHCPv6OptionAreaAddOption(oa_p, kDHCPv6OPTION_CLIENTID,
+				   (int)CFDataGetLength(data),
+				   CFDataGetBytePtr(data),
+				   &err)) {
 	my_log(LOG_NOTICE, "DHCPv6Client: failed to add CLIENTID, %s",
 	       err.str);
-	return (FALSE);
+	return (false);
     }
-    return (TRUE);
+    return (true);
 }
 
 STATIC bool
-S_duid_matches(DHCPv6OptionListRef options)
+S_duid_matches(DHCPv6ClientRef client, DHCPv6OptionListRef options)
 {
     CFDataRef		data;
     DHCPDUIDRef		duid;
     int			option_len;
 
-    data = DHCPDUIDGet(get_interface_list());
+    data = DHCPv6ClientGetDUID(client);
     duid = (DHCPDUIDRef)
 	DHCPv6OptionListGetOptionDataAndLength(options,
 					       kDHCPv6OPTION_CLIENTID,
@@ -309,9 +354,9 @@ S_duid_matches(DHCPv6OptionListRef options)
     if (duid == NULL
 	|| CFDataGetLength(data) != option_len
 	|| bcmp(duid, CFDataGetBytePtr(data), option_len) != 0) {
-	return (FALSE);
+	return (false);
     }
-    return (TRUE);
+    return (true);
 }
 
 STATIC DHCPv6OptionIA_NARef
@@ -358,8 +403,7 @@ get_ia_na_addr(DHCPv6ClientRef client, int msg_type,
 	return (NULL);
     }
     /* find the first ia_addr with non-zero lifetime */
-    start_index = 0;
-    for (start_index = 0; TRUE; start_index++) {
+    for (start_index = 0; true; start_index++) {
 	DHCPv6OptionIAADDRRef	ia_addr;
 	
 	ia_addr = (DHCPv6OptionIAADDRRef)
@@ -434,10 +478,9 @@ add_ia_na_option(DHCPv6ClientRef client, DHCPv6OptionAreaRef oa_p,
     DHCPv6OptionIA_NARef		ia_na_p;
     DHCPv6OptionRef			option;
     DHCPv6OptionIAADDRRef		ia_addr_p;
-    interface_t *			if_p = DHCPv6ClientGetInterface(client);
 
     ia_na_p = (DHCPv6OptionIA_NARef)buf;
-    DHCPv6OptionIA_NASetIAID(ia_na_p, DHCPIAIDGet(if_name(if_p)));
+    DHCPv6OptionIA_NASetIAID(ia_na_p, DHCPv6ClientGetIAID(client));
     DHCPv6OptionIA_NASetT1(ia_na_p, 0);
     DHCPv6OptionIA_NASetT2(ia_na_p, 0);
     option = (DHCPv6OptionRef)(buf + DHCPv6OptionIA_NA_MIN_LENGTH);
@@ -535,22 +578,99 @@ DHCPv6ClientHasDNS(DHCPv6ClientRef client, bool * search_available)
     const uint8_t *	servers;
     int			servers_len;
 
-    *search_available = FALSE;
+    *search_available = false;
 
     /* check for DNSServers, DNSDomainList options */
     if (client->saved.options == NULL) {
-	return (FALSE);
+	return (false);
     }
     search = DHCPv6OptionListGetOptionDataAndLength(client->saved.options,
 						    kDHCPv6OPTION_DOMAIN_LIST,
 						    &search_len, NULL);
     if (search != NULL && search_len > 0) {
-	*search_available = TRUE;
+	*search_available = true;
     }
     servers = DHCPv6OptionListGetOptionDataAndLength(client->saved.options,
 						     kDHCPv6OPTION_DNS_SERVERS,
 						     &servers_len, NULL);
     return (servers != NULL && (servers_len / sizeof(struct in6_addr)) != 0);
+}
+
+STATIC void
+DHCPv6ClientAddPacketDescription(DHCPv6ClientRef client,
+				 CFMutableDictionaryRef summary)
+{
+    dhcpv6_info_t *	info = &client->saved;
+    CFMutableStringRef	str;
+
+    if (!client->saved_verified || info->pkt == NULL || info->options == NULL) {
+	return;
+    }
+    str = CFStringCreateMutable(NULL, 0);
+    DHCPv6PacketPrintToString(str, info->pkt, info->pkt_len);
+    DHCPv6OptionListPrintToString(str, info->options);
+    CFDictionarySetValue(summary, CFSTR("Packet"), str);
+    CFRelease(str);
+}
+
+PRIVATE_EXTERN void
+DHCPv6ClientProvideSummary(DHCPv6ClientRef client,
+			   CFMutableDictionaryRef summary)
+{
+    CFMutableDictionaryRef	dict;
+
+    dict = CFDictionaryCreateMutable(NULL, 0,
+				     &kCFTypeDictionaryKeyCallBacks,
+				     &kCFTypeDictionaryValueCallBacks);
+    my_CFDictionarySetCString(dict, CFSTR("State"),
+			      DHCPv6ClientStateGetName(client->cstate));
+    my_CFDictionarySetCString(dict, CFSTR("Mode"),
+			      DHCPv6ClientModeGetName(client->mode));
+    if (client->lease.valid) {
+	if (!IN6_IS_ADDR_UNSPECIFIED(&client->our_ip)) {
+	    my_CFDictionarySetIPv6AddressAsString(dict,
+						  CFSTR("Address"),
+						  &client->our_ip);
+	}
+	my_CFDictionarySetAbsoluteTime(dict,
+				       CFSTR("LeaseStartTime"),
+				       client->lease.start);
+	if (client->lease.valid_lifetime == DHCP_INFINITE_LEASE) {
+	    CFDictionarySetValue(dict, CFSTR("LeaseIsInfinite"),
+				 kCFBooleanTrue);
+	}
+	else {
+	    my_CFDictionarySetAbsoluteTime(dict,
+					   CFSTR("LeaseExpirationTime"),
+					   client->lease.start
+					   + client->lease.valid_lifetime);
+	}
+    }
+    else {
+	CFAbsoluteTime	current_time;
+
+	switch (client->cstate) {
+	case kDHCPv6ClientStateSolicit:
+	case kDHCPv6ClientStateRequest:
+	case kDHCPv6ClientStateConfirm:
+	case kDHCPv6ClientStateInform:
+	    /* we're trying, so give some idea of the elapsed time */
+	    current_time = timer_get_current_time();
+	    if (current_time > client->start_time) {
+		CFTimeInterval	delta = current_time - client->start_time;
+
+		my_CFDictionarySetUInt64(dict, CFSTR("ElapsedTime"),
+					 delta);
+	    }
+	    break;
+	default:
+	    break;
+	}
+    }
+    DHCPv6ClientAddPacketDescription(client, dict);
+    CFDictionarySetValue(summary, CFSTR("DHCPv6"), dict);
+    CFRelease(dict);
+    return;
 }
 
 STATIC void
@@ -654,7 +774,7 @@ DHCPv6ClientClearPacket(DHCPv6ClientRef client)
     client->server_id = NULL;
     client->ia_na = NULL;
     client->ia_addr = NULL;
-    client->saved_verified = FALSE;
+    client->saved_verified = false;
     return;
 }
 
@@ -674,7 +794,7 @@ DHCPv6ClientLeaseStillValid(DHCPv6ClientRef client)
     CFAbsoluteTime		current_time;
     lease_info_t *		lease_p = &client->lease;
 
-    if (lease_p->valid == FALSE) {
+    if (!lease_p->valid) {
 	goto done;
     }
     if (lease_p->valid_lifetime == DHCP_INFINITE_LEASE) {
@@ -684,13 +804,13 @@ DHCPv6ClientLeaseStillValid(DHCPv6ClientRef client)
     if (current_time < lease_p->start) {
 	/* time went backwards */
 	DHCPv6ClientClearPacket(client);
-	lease_p->valid = FALSE;
+	lease_p->valid = false;
 	goto done;
     }
     if ((current_time - lease_p->start) >= lease_p->valid_lifetime) {
 	/* expired */
 	DHCPv6ClientClearPacket(client);
-	lease_p->valid = FALSE;
+	lease_p->valid = false;
     }
 
  done:
@@ -757,7 +877,7 @@ DHCPv6ClientSavePacket(DHCPv6ClientRef client, DHCPv6SocketReceiveDataRef data)
 	lease_p->preferred_lifetime = preferred_lifetime;
 	lease_p->valid_lifetime = valid_lifetime;
     }
-    client->saved_verified = TRUE;
+    client->saved_verified = true;
     return;
 }
 
@@ -775,21 +895,21 @@ DHCPv6ClientMakePacket(DHCPv6ClientRef client, int message_type,
     DHCPv6PacketSetTransactionID(pkt, client->transaction_id);
     DHCPv6OptionAreaInit(oa_p, pkt->options, 
 			 buf_size - DHCPV6_PACKET_HEADER_LENGTH);
-    if (S_insert_duid(oa_p) == FALSE) {
+    if (!S_insert_duid(client, oa_p)) {
 	return (NULL);
     }
-    if (DHCPv6OptionAreaAddOptionRequestOption(oa_p, 
-					       DHCPv6RequestedOptions,
-					       DHCPv6RequestedOptionsCount,
-					       &err) == FALSE) {
+    if (!DHCPv6OptionAreaAddOptionRequestOption(oa_p,
+						DHCPv6RequestedOptions,
+						DHCPv6RequestedOptionsCount,
+						&err)) {
 	my_log(LOG_NOTICE, "DHCPv6Client: failed to add ORO, %s",
 	       err.str);
 	return (NULL);
     }
     elapsed_time = get_elapsed_time(client);
-    if (DHCPv6OptionAreaAddOption(oa_p, kDHCPv6OPTION_ELAPSED_TIME,
-				  sizeof(elapsed_time), &elapsed_time,
-				  &err) == FALSE) {
+    if (!DHCPv6OptionAreaAddOption(oa_p, kDHCPv6OPTION_ELAPSED_TIME,
+				   sizeof(elapsed_time), &elapsed_time,
+				   &err)) {
 	my_log(LOG_NOTICE, "DHCPv6Client: failed to add ELAPSED_TIME, %s",
 	       err.str);
 	return (NULL);
@@ -844,12 +964,12 @@ DHCPv6ClientSendSolicit(DHCPv6ClientRef client)
     if (pkt == NULL) {
 	return;
     }
-    DHCPv6OptionIA_NASetIAID(&ia_na, DHCPIAIDGet(if_name(if_p)));
+    DHCPv6OptionIA_NASetIAID(&ia_na, DHCPv6ClientGetIAID(client));
     DHCPv6OptionIA_NASetT1(&ia_na, 0);
     DHCPv6OptionIA_NASetT2(&ia_na, 0);
-    if (DHCPv6OptionAreaAddOption(&oa, kDHCPv6OPTION_IA_NA,
-				  DHCPv6OptionIA_NA_MIN_LENGTH,
-				  &ia_na, &err) == FALSE) {
+    if (!DHCPv6OptionAreaAddOption(&oa, kDHCPv6OPTION_IA_NA,
+				   DHCPv6OptionIA_NA_MIN_LENGTH,
+				   &ia_na, &err)) {
 	my_log(LOG_NOTICE, "DHCPv6Client: failed to add IA_NA, %s",
 	       err.str);
 	return;
@@ -921,16 +1041,16 @@ DHCPv6ClientSendPacket(DHCPv6ClientRef client)
     case kDHCPv6MessageCONFIRM:
 	break;
     default:
-	if (DHCPv6OptionAreaAddOption(&oa, kDHCPv6OPTION_SERVERID,
-				      option_data_get_length(client->server_id),
-				      client->server_id, &err) == FALSE) {
+	if (!DHCPv6OptionAreaAddOption(&oa, kDHCPv6OPTION_SERVERID,
+				       option_data_get_length(client->server_id),
+				       client->server_id, &err)) {
 	    my_log(LOG_NOTICE, "DHCPv6Client: %s failed to add SERVERID, %s",
 		   DHCPv6ClientStateGetName(client->cstate), err.str);
 	    return;
 	}
 	break;
     }
-    if (add_ia_na_option(client, &oa, &err) == FALSE) {
+    if (!add_ia_na_option(client, &oa, &err)) {
 	my_log(LOG_NOTICE, "DHCPv6Client: failed to add IA_NA, %s",
 	       err.str);
 	return;
@@ -949,6 +1069,20 @@ DHCPv6ClientSendPacket(DHCPv6ClientRef client)
 	break;
     }
     return;
+}
+
+STATIC void
+DHCPv6Client_InformComplete(DHCPv6ClientRef client, IFEventID_t event_id,
+			    void * event_data)
+{
+    switch (event_id) {
+    case IFEventID_start_e:
+	DHCPv6ClientSetState(client, kDHCPv6ClientStateInformComplete);
+	DHCPv6ClientCancelPendingEvents(client);
+	break;
+    default:
+	break;
+    }
 }
 
 STATIC void
@@ -1007,7 +1141,7 @@ DHCPv6Client_Inform(DHCPv6ClientRef client, IFEventID_t event_id,
 	if (data->pkt->msg_type != kDHCPv6MessageREPLY
 	    || (DHCPv6PacketGetTransactionID((const DHCPv6PacketRef)data->pkt)
 		!= client->transaction_id)
-	    || (S_duid_matches(data->options) == FALSE)) {
+	    || (!S_duid_matches(client, data->options))) {
 	    /* not a match */
 	    break;
 	}
@@ -1016,7 +1150,7 @@ DHCPv6Client_Inform(DHCPv6ClientRef client, IFEventID_t event_id,
 						   kDHCPv6OPTION_SERVERID,
 						   &option_len, NULL);
 	if (server_id == NULL
-	    || DHCPDUIDIsValid(server_id, option_len) == FALSE) {
+	    || !DHCPDUIDIsValid(server_id, option_len)) {
 	    /* missing/invalid DUID */
 	    break;
 	}
@@ -1024,7 +1158,7 @@ DHCPv6Client_Inform(DHCPv6ClientRef client, IFEventID_t event_id,
 	       if_name(if_p), client->try);
 	DHCPv6ClientSavePacket(client, data);
 	DHCPv6ClientPostNotification(client);
-	DHCPv6ClientCancelPendingEvents(client);
+	DHCPv6Client_InformComplete(client, IFEventID_start_e, NULL);
 	break;
     }
     default:
@@ -1072,8 +1206,8 @@ DHCPv6Client_Decline(DHCPv6ClientRef client, IFEventID_t event_id,
 	DHCPv6ClientSetState(client, kDHCPv6ClientStateDecline);
 	DHCPv6ClientRemoveAddress(client, "Decline");
 	DHCPv6ClientCancelPendingEvents(client);
-	client->lease.valid = FALSE;
-	client->saved_verified = FALSE;
+	client->lease.valid = false;
+	client->saved_verified = false;
 	DHCPv6ClientPostNotification(client);
 	DHCPv6ClientClearRetransmit(client);
 	client->transaction_id = get_new_transaction_id();
@@ -1107,7 +1241,7 @@ DHCPv6Client_Decline(DHCPv6ClientRef client, IFEventID_t event_id,
 	if (data->pkt->msg_type != kDHCPv6MessageREPLY
 	    || (DHCPv6PacketGetTransactionID((const DHCPv6PacketRef)data->pkt)
 		!= client->transaction_id)
-	    || (S_duid_matches(data->options) == FALSE)) {
+	    || (!S_duid_matches(client, data->options))) {
 	    /* not a match */
 	    break;
 	}
@@ -1116,7 +1250,7 @@ DHCPv6Client_Decline(DHCPv6ClientRef client, IFEventID_t event_id,
 						   kDHCPv6OPTION_SERVERID,
 						   &option_len, NULL);
 	if (server_id == NULL
-	    || DHCPDUIDIsValid(server_id, option_len) == FALSE) {
+	    || !DHCPDUIDIsValid(server_id, option_len)) {
 	    /* missing/invalid DUID */
 	    break;
 	}
@@ -1222,7 +1356,7 @@ DHCPv6Client_RenewRebind(DHCPv6ClientRef client, IFEventID_t event_id,
 	if (data->pkt->msg_type != kDHCPv6MessageREPLY
 	    || (DHCPv6PacketGetTransactionID((const DHCPv6PacketRef)data->pkt)
 		!= client->transaction_id)
-	    || (S_duid_matches(data->options) == FALSE)) {
+	    || (!S_duid_matches(client, data->options))) {
 	    /* not a match */
 	    break;
 	}
@@ -1231,7 +1365,7 @@ DHCPv6Client_RenewRebind(DHCPv6ClientRef client, IFEventID_t event_id,
 						   kDHCPv6OPTION_SERVERID,
 						   &option_len, NULL);
 	if (server_id == NULL
-	    || DHCPDUIDIsValid(server_id, option_len) == FALSE) {
+	    || !DHCPDUIDIsValid(server_id, option_len)) {
 	    /* missing/invalid DUID */
 	    break;
 	}
@@ -1291,7 +1425,7 @@ DHCPv6Client_Confirm(DHCPv6ClientRef client, IFEventID_t event_id,
 	DHCPv6ClientSetState(client, kDHCPv6ClientStateConfirm);
 	DHCPv6ClientCancelPendingEvents(client);
 	DHCPv6ClientClearRetransmit(client);
-	client->saved_verified = FALSE;
+	client->saved_verified = false;
 	client->transaction_id = get_new_transaction_id();
 	DHCPv6SocketEnableReceive(client->sock, (DHCPv6SocketReceiveFuncPtr)
 				  DHCPv6Client_Confirm,
@@ -1306,7 +1440,7 @@ DHCPv6Client_Confirm(DHCPv6ClientRef client, IFEventID_t event_id,
 	    client->start_time = current_time;
 	}
 	else {
-	    bool		done = FALSE;
+	    bool		done = false;
 	    link_status_t	link_status;
 
 	    link_status = if_get_link_status(if_p);
@@ -1316,11 +1450,11 @@ DHCPv6Client_Confirm(DHCPv6ClientRef client, IFEventID_t event_id,
 	    }
 	    if (current_time > client->start_time) {
 		if ((current_time - client->start_time) >= DHCPv6_CNF_MAX_RD) {
-		    done = TRUE;
+		    done = true;
 		}
 	    }
 	    else {
-		done = TRUE;
+		done = true;
 	    }
 	    if (done) {
 		if (DHCPv6ClientLeaseStillValid(client)) {
@@ -1351,7 +1485,7 @@ DHCPv6Client_Confirm(DHCPv6ClientRef client, IFEventID_t event_id,
 	if (data->pkt->msg_type != kDHCPv6MessageREPLY
 	    || (DHCPv6PacketGetTransactionID((const DHCPv6PacketRef)data->pkt)
 		!= client->transaction_id)
-	    || (S_duid_matches(data->options) == FALSE)) {
+	    || !S_duid_matches(client, data->options)) {
 	    /* not a match */
 	    break;
 	}
@@ -1360,7 +1494,7 @@ DHCPv6Client_Confirm(DHCPv6ClientRef client, IFEventID_t event_id,
 						   kDHCPv6OPTION_SERVERID,
 						   &option_len, NULL);
 	if (server_id == NULL
-	    || DHCPDUIDIsValid(server_id, option_len) == FALSE) {
+	    || !DHCPDUIDIsValid(server_id, option_len)) {
 	    /* missing/invalid DUID */
 	    break;
 	}
@@ -1474,7 +1608,7 @@ DHCPv6Client_Bound(DHCPv6ClientRef client, IFEventID_t event_id,
 	uint32_t		preferred_lifetime;
 	int			prefix_length;
 	int			s;
-	bool			same_address = FALSE;
+	bool			same_address = false;
 	CFTimeInterval		time_since_start = 0;
 	uint32_t		valid_lifetime;
 
@@ -1483,8 +1617,8 @@ DHCPv6Client_Bound(DHCPv6ClientRef client, IFEventID_t event_id,
 	      our_ip, sizeof(our_ip_aligned));
 
 	DHCPv6ClientSetState(client, kDHCPv6ClientStateBound);
-	client->lease.valid = TRUE;
-	client->saved_verified = TRUE;
+	client->lease.valid = true;
+	client->saved_verified = true;
 	DHCPv6ClientCancelPendingEvents(client);
 
 	valid_lifetime = client->lease.valid_lifetime;
@@ -1521,9 +1655,9 @@ DHCPv6Client_Bound(DHCPv6ClientRef client, IFEventID_t event_id,
 	    break;
 	}
 	/* if the address has changed, remove the old first */
-	if (IN6_IS_ADDR_UNSPECIFIED(&client->our_ip) == FALSE) {
+	if (!IN6_IS_ADDR_UNSPECIFIED(&client->our_ip)) {
 	    if (IN6_ARE_ADDR_EQUAL(&client->our_ip, our_ip)) {
-		same_address = TRUE;
+		same_address = true;
 	    }
 	    else {
 		my_log(LOG_INFO, "DHCPv6 %s: Bound: removing %s",
@@ -1655,7 +1789,7 @@ DHCPv6Client_Request(DHCPv6ClientRef client, IFEventID_t event_id,
 	if (data->pkt->msg_type != kDHCPv6MessageREPLY
 	    || (DHCPv6PacketGetTransactionID((const DHCPv6PacketRef)data->pkt)
 		!= client->transaction_id)
-	    || (S_duid_matches(data->options) == FALSE)) {
+	    || !S_duid_matches(client, data->options)) {
 	    /* not a match */
 	    break;
 	}
@@ -1664,7 +1798,7 @@ DHCPv6Client_Request(DHCPv6ClientRef client, IFEventID_t event_id,
 						   kDHCPv6OPTION_SERVERID,
 						   &option_len, NULL);
 	if (server_id == NULL
-	    || DHCPDUIDIsValid(server_id, option_len) == FALSE) {
+	    || !DHCPDUIDIsValid(server_id, option_len)) {
 	    /* missing/invalid DUID */
 	    break;
 	}
@@ -1787,7 +1921,7 @@ DHCPv6Client_Solicit(DHCPv6ClientRef client, IFEventID_t event_id,
 	if (data->pkt->msg_type != kDHCPv6MessageADVERTISE
 	    || (DHCPv6PacketGetTransactionID((const DHCPv6PacketRef)data->pkt)
 		!= client->transaction_id)
-	    || (S_duid_matches(data->options) == FALSE)) {
+	    || !S_duid_matches(client, data->options)) {
 	    /* not a match */
 	    break;
 	}
@@ -1796,7 +1930,7 @@ DHCPv6Client_Solicit(DHCPv6ClientRef client, IFEventID_t event_id,
 						   kDHCPv6OPTION_SERVERID,
 						   &option_len, NULL);
 	if (server_id == NULL
-	    || DHCPDUIDIsValid(server_id, option_len) == FALSE) {
+	    || !DHCPDUIDIsValid(server_id, option_len)) {
 	    /* missing/invalid DUID */
 	    break;
 	}
@@ -1895,8 +2029,14 @@ DHCPv6ClientCreate(interface_t * if_p)
 }
 
 PRIVATE_EXTERN void
-DHCPv6ClientStart(DHCPv6ClientRef client, bool allocate_address)
+DHCPv6ClientStart(DHCPv6ClientRef client, bool allocate_address,
+		  bool privacy_required)
 {
+    interface_t *			if_p = DHCPv6ClientGetInterface(client);
+
+    my_log(LOG_NOTICE, "%s(%s): use %s address", __func__, if_name(if_p),
+	   privacy_required ? "private" : "permanent");
+    DHCPv6ClientSetUsePrivateAddress(client, privacy_required);
     if (allocate_address) {
 	client->mode = kDHCPv6ClientModeStateful;
 	/* start Stateful */
@@ -1926,9 +2066,11 @@ DHCPv6ClientStop(DHCPv6ClientRef client, bool discard_information)
 	DHCPv6ClientClearPacket(client);
     }
     else {
-	client->saved_verified = FALSE;
+	client->saved_verified = false;
     }
+    DHCPv6ClientSetState(client, kDHCPv6ClientStateInactive);
     client->mode = kDHCPv6ClientModeIdle;
+    my_CFRelease(&client->duid);
     DHCPv6ClientPostNotification(client);
     return;
 }
@@ -1955,6 +2097,7 @@ DHCPv6ClientRelease(DHCPv6ClientRef * client_p)
     }
     DHCPv6ClientSetNotificationCallBack(client, NULL, NULL);
     DHCPv6OptionListRelease(&client->saved.options);
+    my_CFRelease(&client->duid);
     free(client);
     return;
 }
@@ -1962,16 +2105,16 @@ DHCPv6ClientRelease(DHCPv6ClientRef * client_p)
 PRIVATE_EXTERN bool
 DHCPv6ClientGetInfo(DHCPv6ClientRef client, ipv6_info_t * info_p)
 {
-    if (client->saved.options == NULL || client->saved_verified == FALSE) {
+    if (client->saved.options == NULL || !client->saved_verified) {
 	info_p->pkt = NULL;
 	info_p->pkt_len = 0;
 	info_p->options = NULL;
-	return (FALSE);
+	return (false);
     }
     info_p->pkt = client->saved.pkt;
     info_p->pkt_len = client->saved.pkt_len;
     info_p->options = client->saved.options;
-    return (TRUE);
+    return (true);
 }
 
 PRIVATE_EXTERN void
@@ -2106,7 +2249,7 @@ client_notification(DHCPv6ClientRef client,
 {
     ipv6_info_t	info;
 
-    if (DHCPv6ClientGetInfo(client, &info) == FALSE) {
+    if (!DHCPv6ClientGetInfo(client, &info)) {
 	printf("DHCPv6 updated: no info\n");
     }
     else {
@@ -2158,10 +2301,10 @@ handle_change(SCDynamicStoreRef session, CFArrayRef changes, void * arg)
 		active = CFDictionaryGetValue(dict, kSCPropNetLinkActive);
 	    }
 	    if (CFEqual(active, kCFBooleanTrue)) {
-		DHCPv6ClientStart(client, S_allocate_address);
+		DHCPv6ClientStart(client, S_allocate_address, false);
 	    }
 	    else {
-		DHCPv6ClientStop(client, FALSE);
+		DHCPv6ClientStop(client, false);
 	    }
 	}
 	else if (CFStringHasSuffix(key, kSCEntNetIPv6)) {
@@ -2225,7 +2368,8 @@ main(int argc, char * argv[])
     interface_t *		if_p;
     const char *		ifname;
     interface_list_t *		interfaces = NULL;
-    boolean_t			send_bad_options = FALSE;
+    bool			use_privacy = false;
+    bool			send_bad_options = false;
 
     if (argc < 2) {
 	fprintf(stderr, "%s <ifname>\n", argv[0]);
@@ -2236,11 +2380,14 @@ main(int argc, char * argv[])
 	case 'a':
 	case 'A':
 	default:
-	    S_allocate_address = TRUE;
+	    S_allocate_address = true;
 	    break;
 	case 'b':
 	case 'B':
-	    send_bad_options = TRUE;
+	    send_bad_options = true;
+	    break;
+	case 'p':
+	    use_privacy = true;
 	    break;
 	}
     }
@@ -2256,7 +2403,7 @@ main(int argc, char * argv[])
 	exit(2);
     }
     (void) openlog("DHCPv6Client", LOG_PERROR | LOG_PID, LOG_DAEMON);
-    DHCPv6SocketSetVerbose(TRUE);
+    DHCPv6SocketSetVerbose(true);
     client = DHCPv6ClientCreate(if_p);
     if (client == NULL) {
 	fprintf(stderr, "DHCPv6ClientCreate(%s) failed\n", ifname);
@@ -2268,7 +2415,7 @@ main(int argc, char * argv[])
     else {
 	notification_init(client);
 	DHCPv6ClientSetNotificationCallBack(client, client_notification, NULL);
-	DHCPv6ClientStart(client, S_allocate_address);
+	DHCPv6ClientStart(client, S_allocate_address, use_privacy);
 	CFRunLoopRun();
     }
     exit(0);

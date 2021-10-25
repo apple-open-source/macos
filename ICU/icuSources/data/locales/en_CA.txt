@@ -1,5 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
-// License & terms of use: http://www.unicode.org/copyright.html#License
+// License & terms of use: http://www.unicode.org/copyright.html
+// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
 en_CA{
     %%Parent{"en_001"}
     NumberElements{
@@ -9,7 +10,6 @@ en_CA{
             }
         }
     }
-    Version{"36.1"}
     calendar{
         chinese{
             DateTimePatterns{

@@ -36,6 +36,7 @@
 #include <IOKit/IODMACommand.h>
 #include <IOKit/scsi/spi/IOSCSIParallelInterfaceController.h>
 #include <IOKit/scsi/SCSITask.h>
+#include <IOKit/IOBufferMemoryDescriptor.h>
 #include <DriverKit/OSAction.h>
 
 #include <IOKit/scsi/SCSITaskDefinition.h>
@@ -64,6 +65,7 @@ public:
 	OSAction *					fDextCompletion;
 	// Indicates if the task has already been submitted to the dext.
 	bool						fTaskSubmitted;
+	IOBufferMemoryDescriptor *	fDextDataBuffer;
 	
 	static SCSIParallelTask *	Create ( UInt32 sizeOfHBAData, UInt64 alignmentMask ); 
 	

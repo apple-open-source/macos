@@ -1,0 +1,16 @@
+	<dict>
+		<key>OpenSourceProject</key>
+		<string>pwd</string>
+		<key>OpenSourceVersion</key>
+		<string>2020-10-24</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>https://cgit.freebsd.org/src/tree/bin/pwd?id=64e352c6dfdb60e27ffc727033d7eda2faafb78f</string>
+		<key>OpenSourceImportDate</key>
+		<string>2021-04-21</string>
+		<key>OpenSourceModifications</key>
+		<array>
+			<string>pwd.1, pwd.c: improve POSIX conformance (4207130)</string>
+		</array>
+		<key>OpenSourceLicense</key>
+		<string>bsd</string>
+	</dict>

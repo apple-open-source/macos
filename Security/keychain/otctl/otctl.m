@@ -19,6 +19,8 @@
 #import "keychain/otpaird/OTPairingClient.h"
 #endif /* TARGET_OS_WATCH */
 
+#import <AppleFeatures/AppleFeatures.h>
+
 static int start = false;
 static int signIn = false;
 static int signOut = false;
@@ -48,6 +50,19 @@ static int recoverSilentRecord = false;
 
 static int resetAccountCDPContent = false;
 
+static int createCustodianRecoveryKey = false;
+static int joinWithCustodianRecoveryKey = false;
+static int preflightJoinWithCustodianRecoveryKey = false;
+static int removeCustodianRecoveryKey = false;
+
+static int createInheritanceKey = false;
+static int generateInheritanceKey = false;
+static int storeInheritanceKey = false;
+static int joinWithInheritanceKey = false;
+static int preflightJoinWithInheritanceKey = false;
+static int removeInheritanceKey = false;
+
+
 static int health = false;
 
 #if TARGET_OS_WATCH
@@ -70,14 +85,10 @@ static char* containerStr = NULL;
 static char* radarNumber = NULL;
 static char* appleIDArg = NULL;
 static char* dsidArg = NULL;
-
-static void internalOnly(void)
-{
-    if(!SecIsInternalRelease()) {
-        secnotice("octagon", "Tool not available on non internal builds");
-        errx(1, "Tool not available on non internal builds");
-    }
-}
+static char* wrappingKeyArg = NULL;
+static char* wrappedKeyArg = NULL;
+static char* custodianUUIDArg = NULL;
+static char* inheritanceUUIDArg = NULL;
 
 int main(int argc, char** argv)
 {
@@ -95,26 +106,32 @@ int main(int argc, char** argv)
         {.longname = "entropy", .argument = &secretArg, .description = "escrowed entropy in JSON"},
 
         {.longname = "appleID", .argument = &appleIDArg, .description = "AppleID"},
-        {.longname = "dsid", .argument = &dsidArg, .description = "DSID"},
+        {.longname = "dsid", .argument = &dsidArg, .description = "DSID", .internal_only = true},
 
         {.longname = "container", .argument = &containerStr, .description = "CloudKit container name"},
+        {.longname = "context", .argument = &contextNameArg, .description = "Context name"},
         {.longname = "radar", .argument = &radarNumber, .description = "Radar number"},
 
-        {.command = "start", .flag = &start, .flagval = true, .description = "Start Octagon state machine"},
-        {.command = "sign-in", .flag = &signIn, .flagval = true, .description = "Inform Cuttlefish container of sign in"},
-        {.command = "sign-out", .flag = &signOut, .flagval = true, .description = "Inform Cuttlefish container of sign out"},
+        {.longname = "wrapping-key", .argument = &wrappingKeyArg, .description = "Wrapping key (for joinWithCustodianRecoveryKey)", .internal_only = true},
+        {.longname = "wrapped-key", .argument = &wrappedKeyArg, .description = "Wrapped key (for joinWithCustodianRecoveryKey)", .internal_only = true},
+        {.longname = "custodianUUID", .argument = &custodianUUIDArg, .description = "UUID for joinWithCustodianRecoveryKey", .internal_only = true},
+        {.longname = "inheritanceUUID", .argument = &inheritanceUUIDArg, .description = "UUID for joinWithInheritanceKey", .internal_only = true},
+
+        {.command = "start", .flag = &start, .flagval = true, .description = "Start Octagon state machine", .internal_only = true},
+        {.command = "sign-in", .flag = &signIn, .flagval = true, .description = "Inform Cuttlefish container of sign in", .internal_only = true},
+        {.command = "sign-out", .flag = &signOut, .flagval = true, .description = "Inform Cuttlefish container of sign out", .internal_only = true},
         {.command = "status", .flag = &status, .flagval = true, .description = "Report Octagon status"},
 
         {.command = "resetoctagon", .flag = &resetoctagon, .flagval = true, .description = "Reset and establish new Octagon trust"},
-        {.command = "resetProtectedData", .flag = &resetProtectedData, .flagval = true, .description = "Reset ProtectedData"},
+        {.command = "resetProtectedData", .flag = &resetProtectedData, .flagval = true, .description = "Reset ProtectedData", .internal_only = true},
 
-        {.command = "user-controllable-views", .flag = &userControllableViewsSyncStatus, .flagval = true, .description = "Modify or view user-controllable views status (If one of --enable or --pause is passed, will modify status)"},
+        {.command = "user-controllable-views", .flag = &userControllableViewsSyncStatus, .flagval = true, .description = "Modify or view user-controllable views status (If one of --enable or --pause is passed, will modify status)", .internal_only = true},
 
         {.command = "allBottles", .flag = &fetchAllBottles, .flagval = true, .description = "Fetch all viable bottles"},
         {.command = "recover", .flag = &recover, .flagval = true, .description = "Recover using this bottle"},
         {.command = "depart", .flag = &depart, .flagval = true, .description = "Depart from Octagon Trust"},
 
-        {.command = "er-trigger", .flag = &er_trigger, .flagval = true, .description = "Trigger an Escrow Request request"},
+        {.command = "er-trigger", .flag = &er_trigger, .flagval = true, .description = "Trigger an Escrow Request request", .internal_only = true},
         {.command = "er-status", .flag = &er_status, .flagval = true, .description = "Report status on any pending Escrow Request requests"},
         {.command = "er-reset", .flag = &er_reset, .flagval = true, .description = "Delete all Escrow Request requests"},
         {.command = "er-store", .flag = &er_store, .flagval = true, .description = "Store any pending Escrow Request prerecords"},
@@ -132,6 +149,17 @@ int main(int argc, char** argv)
 
         {.command = "reset-account-cdp-contents", .flag = &resetAccountCDPContent, .flagval = true, .description = "Reset an account's CDP contents (escrow records, kvs data, cuttlefish)"},
 
+        {.command = "create-custodian-recovery-key", .flag = &createCustodianRecoveryKey, .flagval = true, .description = "Create a custodian recovery key", .internal_only = true},
+        {.command = "join-with-custodian-recovery-key", .flag = &joinWithCustodianRecoveryKey, .flagval = true, .description = "Join with a custodian recovery key", .internal_only = true},
+        {.command = "preflight-join-with-custodian-recovery-key", .flag = &preflightJoinWithCustodianRecoveryKey, .flagval = true, .description = "Preflight join with a custodian recovery key", .internal_only = true},
+        {.command = "remove-custodian-recovery-key", .flag = &removeCustodianRecoveryKey, .flagval = true, .description = "Remove a custodian recovery key", .internal_only = true},
+        {.command = "create-inheritance-key", .flag = &createInheritanceKey, .flagval = true, .description = "Create an inheritance key", .internal_only = true},
+        {.command = "generate-inheritance-key", .flag = &generateInheritanceKey, .flagval = true, .description = "Generate an inheritance key", .internal_only = true},
+        {.command = "store-inheritance-key", .flag = &storeInheritanceKey, .flagval = true, .description = "Store an inheritance key", .internal_only = true},
+        {.command = "join-with-inheritance-key", .flag = &joinWithInheritanceKey, .flagval = true, .description = "Join with an inheritance key", .internal_only = true},
+        {.command = "preflight-join-with-inheritance-key", .flag = &preflightJoinWithInheritanceKey, .flagval = true, .description = "Preflight join with an inheritance key", .internal_only = true},
+        {.command = "remove-inheritance-key", .flag = &removeInheritanceKey, .flagval = true, .description = "Remove an inheritance key", .internal_only = true},
+        
 
 #if TARGET_OS_WATCH
         {.command = "pairme", .flag = &pairme, .flagval = true, .description = "Perform pairing (watchOS only)"},
@@ -147,7 +175,7 @@ int main(int argc, char** argv)
     if(!options_parse(argc, argv, &args)) {
         printf("\n");
         print_usage(&args);
-        return -1;
+        return 1;
     }
 
     @autoreleasepool {
@@ -167,6 +195,11 @@ int main(int argc, char** argv)
 
         NSString* skipRateLimitingCheck = skipRateLimitingCheckArg ? [NSString stringWithCString:skipRateLimitingCheckArg encoding:NSUTF8StringEncoding] : @"NO";
 
+        NSString* wrappingKey = wrappingKeyArg ? [NSString stringWithCString:wrappingKeyArg encoding:NSUTF8StringEncoding] : nil;
+        NSString* wrappedKey = wrappedKeyArg ? [NSString stringWithCString:wrappedKeyArg encoding:NSUTF8StringEncoding] : nil;
+        NSString* custodianUUIDString = custodianUUIDArg ? [NSString stringWithCString:custodianUUIDArg encoding:NSUTF8StringEncoding] : nil;
+        NSString* inheritanceUUIDString = inheritanceUUIDArg ? [NSString stringWithCString:inheritanceUUIDArg encoding:NSUTF8StringEncoding] : nil;
+
         OTControlCLI* ctl = [[OTControlCLI alloc] initWithOTControl:rpc];
 
         NSError* escrowRequestError = nil;
@@ -175,32 +208,27 @@ int main(int argc, char** argv)
             errx(1, "SecEscrowRequest failed: %s", [[escrowRequestError description] UTF8String]);
         }
         if(resetoctagon) {
-            long ret = [ctl resetOctagon:container context:context altDSID:altDSID];
-            return (int)ret;
+            return [ctl resetOctagon:container context:context altDSID:altDSID];
         }
         if(resetProtectedData) {
-            internalOnly();
-            long ret = [ctl resetProtectedData:container context:context altDSID:altDSID appleID:appleID dsid:dsid];
-            return (int)ret;
+            return [ctl resetProtectedData:container context:context altDSID:altDSID appleID:appleID dsid:dsid];
         }
         if(userControllableViewsSyncStatus) {
-            internalOnly();
-
             if(argEnable && argPause) {
                 print_usage(&args);
-                return -1;
+                return 1;
             }
 
             if(argEnable == false && argPause == false) {
-                return (int)[ctl fetchUserControllableViewsSyncStatus:container contextID:context];
+                return [ctl fetchUserControllableViewsSyncStatus:container contextID:context];
             }
 
             // At this point, we're sure that either argEnabled or argPause is set; so the value of argEnabled captures the user's intention
-            return (int)[ctl setUserControllableViewsSyncStatus:container contextID:context enabled:argEnable];
+            return [ctl setUserControllableViewsSyncStatus:container contextID:context enabled:argEnable];
         }
 
         if(fetchAllBottles) {
-            return (int)[ctl fetchAllBottles:altDSID containerName:container context:context control:rpc];
+            return [ctl fetchAllBottles:altDSID containerName:container context:context control:rpc];
         }
         if(recover) {
             NSString* entropyJSON = secretArg ? [NSString stringWithCString:secretArg encoding:NSUTF8StringEncoding] : nil;
@@ -208,16 +236,15 @@ int main(int argc, char** argv)
 
             if(!entropyJSON || !bottleID) {
                 print_usage(&args);
-                return -1;
+                return 1;
             }
 
             NSData* entropy = [[NSData alloc] initWithBase64EncodedString:entropyJSON options:0];
             if(!entropy) {
-                print_usage(&args);
-                return -1;
+                errx(1, "bad base64 string passed to --entropy");
             }
 
-            return (int)[ctl recoverUsingBottleID:bottleID
+            return [ctl recoverUsingBottleID:bottleID
                                           entropy:entropy
                                           altDSID:altDSID
                                     containerName:container
@@ -225,29 +252,26 @@ int main(int argc, char** argv)
                                           control:rpc];
         }
         if(depart) {
-            return (int)[ctl depart:container context:context];
+            return [ctl depart:container context:context];
         }
         if(start) {
-            internalOnly();
-            return (int)[ctl startOctagonStateMachine:container context:context];
+            return [ctl startOctagonStateMachine:container context:context];
         }
         if(signIn) {
-            internalOnly();
-            return (int)[ctl signIn:altDSID container:container context:context];
+            return [ctl signIn:altDSID container:container context:context];
         }
         if(signOut) {
-            internalOnly();
-            return (int)[ctl signOut:container context:context];
+            return [ctl signOut:container context:context];
         }
 
         if(status) {
-            return (int)[ctl status:container context:context json:json];
+            return [ctl status:container context:context json:json];
         }
         if(fetch_escrow_records) {
-            return (int)[ctl fetchEscrowRecords:container context:context];
+            return [ctl fetchEscrowRecords:container context:context];
         }
         if(fetch_all_escrow_records) {
-            return (int)[ctl fetchAllEscrowRecords:container context:context];
+            return [ctl fetchAllEscrowRecords:container context:context];
         }
         if(recoverRecord) {
             NSString* recordIDString = recordID ? [NSString stringWithCString:recordID encoding:NSUTF8StringEncoding] : nil;
@@ -255,20 +279,20 @@ int main(int argc, char** argv)
 
             if(!recordIDString || !secret || !appleID) {
                 print_usage(&args);
-                return -1;
+                return 1;
             }
 
-            return (int)[ctl performEscrowRecovery:container context:context recordID:recordIDString appleID:appleID secret:secret];
+            return [ctl performEscrowRecovery:container context:context recordID:recordIDString appleID:appleID secret:secret];
         }
         if(recoverSilentRecord){
             NSString* secret = secretArg ? [NSString stringWithCString:secretArg encoding:NSUTF8StringEncoding] : nil;
 
             if(!secret || !appleID) {
                 print_usage(&args);
-                return -1;
+                return 1;
             }
 
-            return (int)[ctl performSilentEscrowRecovery:container context:context appleID:appleID secret:secret];
+            return [ctl performSilentEscrowRecovery:container context:context appleID:appleID secret:secret];
         }
         if(health) {
             BOOL skip = NO;
@@ -277,23 +301,106 @@ int main(int argc, char** argv)
             } else {
                 skip = NO;
             }
-            return (int)[ctl healthCheck:container context:context skipRateLimitingCheck:skip];
+            return [ctl healthCheck:container context:context skipRateLimitingCheck:skip];
         }
         if(ckks_policy_flag) {
-            return (int)[ctl refetchCKKSPolicy:container context:context];
+            return [ctl refetchCKKSPolicy:container context:context];
         }
         if (ttr_flag) {
             if (radarNumber == NULL) {
                 radarNumber = "1";
             }
-            return (int)[ctl tapToRadar:@"action" description:@"description" radar:[NSString stringWithUTF8String:radarNumber]];
+            return [ctl tapToRadar:@"action" description:@"description" radar:[NSString stringWithUTF8String:radarNumber]];
         }
         if(resetAccountCDPContent){
-            return (int)[ctl resetAccountCDPContentsWithContainerName:container contextID:context];
+            return [ctl resetAccountCDPContentsWithContainerName:container contextID:context];
+        }
+        if(createCustodianRecoveryKey) {
+            return [ctl createCustodianRecoveryKeyWithContainerName:container contextID:context json:json];
+        }
+        if(joinWithCustodianRecoveryKey) {
+            if (!wrappingKey || !wrappedKey || !custodianUUIDString) {
+                print_usage(&args);
+                return 1;
+            }
+            return [ctl joinWithCustodianRecoveryKeyWithContainerName:container
+                                                            contextID:context
+                                                          wrappingKey:wrappingKey
+                                                           wrappedKey:wrappedKey
+                                                           uuidString:custodianUUIDString];
+        }
+        if(preflightJoinWithCustodianRecoveryKey) {
+            if (!wrappingKey || !wrappedKey || !custodianUUIDString) {
+                print_usage(&args);
+                return 1;
+            }
+            return [ctl preflightJoinWithCustodianRecoveryKeyWithContainerName:container
+                                                                     contextID:context
+                                                                   wrappingKey:wrappingKey
+                                                                    wrappedKey:wrappedKey
+                                                                    uuidString:custodianUUIDString];
+        }
+        if(removeCustodianRecoveryKey) {
+            if (!custodianUUIDString) {
+                print_usage(&args);
+                return 1;
+            }
+            return [ctl removeCustodianRecoveryKeyWithContainerName:container
+                                                          contextID:context
+                                                         uuidString:custodianUUIDString];
         }
 
+        if(createInheritanceKey) {
+            return [ctl createInheritanceKeyWithContainerName:container contextID:context json:json];
+        }
+        if(generateInheritanceKey) {
+            return [ctl generateInheritanceKeyWithContainerName:container contextID:context json:json];
+        }
+        if(storeInheritanceKey) {
+            if (!wrappingKey || !wrappedKey || !inheritanceUUIDString) {
+                print_usage(&args);
+                return 1;
+            }
+            return [ctl storeInheritanceKeyWithContainerName:container
+                                                   contextID:context
+                                                 wrappingKey:wrappingKey
+                                                  wrappedKey:wrappedKey
+                                                  uuidString:inheritanceUUIDString];
+        }
+        if(joinWithInheritanceKey) {
+            if (!wrappingKey || !wrappedKey || !inheritanceUUIDString) {
+                print_usage(&args);
+                return 1;
+            }
+            return [ctl joinWithInheritanceKeyWithContainerName:container
+                                                      contextID:context
+                                                    wrappingKey:wrappingKey
+                                                     wrappedKey:wrappedKey
+                                                     uuidString:inheritanceUUIDString];
+        }
+        if(preflightJoinWithInheritanceKey) {
+            if (!wrappingKey || !wrappedKey || !inheritanceUUIDString) {
+                print_usage(&args);
+                return 1;
+            }
+            return [ctl preflightJoinWithInheritanceKeyWithContainerName:container
+                                                               contextID:context
+                                                             wrappingKey:wrappingKey
+                                                              wrappedKey:wrappedKey
+                                                              uuidString:inheritanceUUIDString];
+        }
+        if(removeInheritanceKey) {
+            if (!inheritanceUUIDString) {
+                print_usage(&args);
+                return 1;
+            }
+            return [ctl removeInheritanceKeyWithContainerName:container
+                                                    contextID:context
+                                                   uuidString:inheritanceUUIDString];
+        }
+
+
         if(er_trigger) {
-            internalOnly();
             return (int)[escrowctl trigger];
         }
         if(er_status) {
@@ -323,7 +430,7 @@ int main(int argc, char** argv)
 #endif /* TARGET_OS_WATCH */
 
         print_usage(&args);
-        return -1;
+        return 1;
     }
     return 0;
 }

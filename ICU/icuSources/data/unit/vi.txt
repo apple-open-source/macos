@@ -1,7 +1,7 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
-// License & terms of use: http://www.unicode.org/copyright.html#License
+// License & terms of use: http://www.unicode.org/copyright.html
+// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
 vi{
-    Version{"36.1"}
     durationUnits{
         hm{"h:mm"}
         hms{"h:mm:ss"}
@@ -102,7 +102,7 @@ vi{
             }
         }
         consumption{
-            liter-per-100kilometers{
+            liter-per-100-kilometer{
                 dnam{"lít/100km"}
                 other{"{0} l/100km"}
             }
@@ -287,6 +287,10 @@ vi{
             }
         }
         graphics{
+            dot{
+                dnam{"chấm"}
+                other{"{0} chấm"}
+            }
             dot-per-centimeter{
                 dnam{"chấm/xentimét"}
                 other{"{0} chấm/xentimét"}
@@ -325,6 +329,10 @@ vi{
             decimeter{
                 dnam{"đềximét"}
                 other{"{0} đềximét"}
+            }
+            earth-radius{
+                dnam{"bán kính trái đất"}
+                other{"{0} bán kính trái đất"}
             }
             foot{
                 dnam{"feet"}
@@ -396,6 +404,14 @@ vi{
             }
         }
         light{
+            candela{
+                dnam{"candela"}
+                other{"{0} candela"}
+            }
+            lumen{
+                dnam{"lumen"}
+                other{"{0} lumen"}
+            }
             lux{
                 dnam{"lux"}
                 other{"{0} lux"}
@@ -417,6 +433,10 @@ vi{
             earth-mass{
                 dnam{"Trọng lượng trái đất"}
                 other{"{0} trọng lượng trái đất"}
+            }
+            grain{
+                dnam{"gren"}
+                other{"{0} gren"}
             }
             gram{
                 dnam{"gam"}
@@ -498,7 +518,7 @@ vi{
                 dnam{"héctô pascal"}
                 other{"{0} héctô pascal"}
             }
-            inch-hg{
+            inch-ofhg{
                 dnam{"inch thủy ngân"}
                 other{"{0} inch thủy ngân"}
             }
@@ -506,11 +526,11 @@ vi{
                 dnam{"millibar"}
                 other{"{0} millibar"}
             }
-            millimeter-of-mercury{
+            millimeter-ofhg{
                 dnam{"milimét thủy ngân"}
                 other{"{0} milimét thủy ngân"}
             }
-            pound-per-square-inch{
+            pound-force-per-square-inch{
                 dnam{"pound/inch vuông"}
                 other{"{0} pound/inch vuông"}
             }
@@ -552,7 +572,7 @@ vi{
                 dnam{"newton-mét"}
                 other{"{0} newton-mét"}
             }
-            pound-foot{
+            pound-force-foot{
                 dnam{"pound-feet"}
                 other{"{0} pound-feet"}
             }
@@ -597,7 +617,7 @@ vi{
                 other{"{0} yard khối"}
             }
             cup{
-                dnam{"cup"}
+                dnam{"tách"}
                 other{"{0} cup"}
             }
             cup-metric{
@@ -607,6 +627,22 @@ vi{
             deciliter{
                 dnam{"đềxilít"}
                 other{"{0} đềxilít"}
+            }
+            dessert-spoon{
+                dnam{"thìa ăn tráng miệng"}
+                other{"{0} thìa ăn tráng miệng"}
+            }
+            dessert-spoon-imperial{
+                dnam{"thìa ăn tráng miệng Anh"}
+                other{"{0} thìa ăn tráng miệng Anh"}
+            }
+            dram{
+                dnam{"dram"}
+                other{"{0} dram chất lỏng Anh"}
+            }
+            drop{
+                dnam{"giọt"}
+                other{"{0} giọt"}
             }
             fluid-ounce{
                 dnam{"aoxơ chất lỏng"}
@@ -630,6 +666,10 @@ vi{
                 dnam{"hectolit"}
                 other{"{0} hectolit"}
             }
+            jigger{
+                dnam{"jigger"}
+                other{"{0} jigger"}
+            }
             liter{
                 dnam{"lít"}
                 other{"{0} lít"}
@@ -643,6 +683,10 @@ vi{
                 dnam{"mililít"}
                 other{"{0} mililít"}
             }
+            pinch{
+                dnam{"nhúm"}
+                other{"{0} nhúm"}
+            }
             pint{
                 dnam{"panh"}
                 other{"{0} panh"}
@@ -654,6 +698,10 @@ vi{
             quart{
                 dnam{"quart"}
                 other{"{0} quart"}
+            }
+            quart-imperial{
+                dnam{"lít Anh"}
+                other{"{0} lít Anh"}
             }
             tablespoon{
                 dnam{"muỗng canh"}
@@ -688,7 +736,7 @@ vi{
             }
         }
         consumption{
-            liter-per-100kilometers{
+            liter-per-100-kilometer{
                 dnam{"L/100km"}
                 other{"{0}L/100km"}
             }
@@ -805,7 +853,7 @@ vi{
             hectopascal{
                 other{"{0}hPa"}
             }
-            inch-hg{
+            inch-ofhg{
                 other{"{0}\u0022 Hg"}
             }
             millibar{
@@ -1067,6 +1115,10 @@ vi{
             }
         }
         graphics{
+            dot{
+                dnam{"chấm"}
+                other{"{0} chấm"}
+            }
             megapixel{
                 dnam{"megapixel"}
             }
@@ -1084,6 +1136,10 @@ vi{
             decimeter{
                 dnam{"dm"}
                 other{"{0} dm"}
+            }
+            earth-radius{
+                dnam{"R⊕"}
+                other{"{0} R⊕"}
             }
             fathom{
                 dnam{"fm"}
@@ -1142,6 +1198,14 @@ vi{
             }
         }
         light{
+            candela{
+                dnam{"cd"}
+                other{"{0} cd"}
+            }
+            lumen{
+                dnam{"lm"}
+                other{"{0} lm"}
+            }
             solar-luminosity{
                 dnam{"độ sáng của mặt trời"}
                 other{"{0} L☉"}
@@ -1159,6 +1223,10 @@ vi{
             earth-mass{
                 dnam{"Trọng lượng trái đất"}
                 other{"{0} M⊕"}
+            }
+            grain{
+                dnam{"gren"}
+                other{"{0} gren"}
             }
             gram{
                 dnam{"g"}
@@ -1240,7 +1308,7 @@ vi{
                 dnam{"hPa"}
                 other{"{0} hPa"}
             }
-            inch-hg{
+            inch-ofhg{
                 dnam{"inHg"}
                 other{"{0} inHg"}
             }
@@ -1256,11 +1324,11 @@ vi{
                 dnam{"mbar"}
                 other{"{0} mbar"}
             }
-            millimeter-of-mercury{
+            millimeter-ofhg{
                 dnam{"mm Hg"}
                 other{"{0} mm Hg"}
             }
-            pound-per-square-inch{
+            pound-force-per-square-inch{
                 dnam{"psi"}
                 other{"{0} psi"}
             }
@@ -1282,7 +1350,7 @@ vi{
                 dnam{"N⋅m"}
                 other{"{0} N⋅m"}
             }
-            pound-foot{
+            pound-force-foot{
                 dnam{"lbf⋅ft"}
                 other{"{0} lbf⋅ft"}
             }
@@ -1330,6 +1398,21 @@ vi{
                 dnam{"dL"}
                 other{"{0} dL"}
             }
+            dessert-spoon{
+                dnam{"thìa tráng miệng"}
+                other{"{0} thìa tm"}
+            }
+            dessert-spoon-imperial{
+                dnam{"thìa tráng miệng Anh"}
+                other{"{0} thìa tm Anh"}
+            }
+            dram{
+                dnam{"dram chất lỏng"}
+            }
+            drop{
+                dnam{"giọt"}
+                other{"{0} giọt"}
+            }
             fluid-ounce{
                 dnam{"fl oz"}
                 other{"{0} fl oz"}
@@ -1352,6 +1435,10 @@ vi{
                 dnam{"hL"}
                 other{"{0} hL"}
             }
+            jigger{
+                dnam{"jigger"}
+                other{"{0} jigger"}
+            }
             liter{
                 dnam{"l"}
                 other{"{0} L"}
@@ -1365,16 +1452,24 @@ vi{
                 dnam{"mL"}
                 other{"{0} mL"}
             }
+            pinch{
+                dnam{"nhúm"}
+                other{"{0} nhúm"}
+            }
             pint-metric{
                 dnam{"mpt"}
                 other{"{0} mpt"}
+            }
+            quart-imperial{
+                dnam{"lít Anh"}
+                other{"{0} lít Anh"}
             }
             tablespoon{
                 dnam{"thìa xúp"}
                 other{"{0} tbsp"}
             }
             teaspoon{
-                dnam{"tsp"}
+                dnam{"thìa cà phê"}
                 other{"{0} tsp"}
             }
         }

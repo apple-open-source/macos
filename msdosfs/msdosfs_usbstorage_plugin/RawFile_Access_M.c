@@ -14,11 +14,10 @@
 
 #define MAX_READ_WRITE_LENGTH (0x7ffff000)
 
-size_t RAWFILE_read(NodeRecord_s* psFileNode, uint64_t uOffset, size_t uLength, void *pvBuf,int* piError)
+size_t RAWFILE_read(NodeRecord_s* psFileNode, uint32_t uFileSize, uint64_t uOffset, size_t uLength, void *pvBuf,int* piError)
 {
     size_t uAcctuallyRead           = 0;
     FileSystemRecord_s* psFSRecord  = GET_FSRECORD(psFileNode);
-    uint32_t uFileSize              = getuint32(psFileNode->sRecordData.sNDE.sDosDirEntry.deFileSize);
     uint32_t uClusterSize           = CLUSTER_SIZE(psFSRecord);
     uint32_t uSectorSize            = SECTOR_SIZE(psFSRecord);
     
@@ -140,11 +139,9 @@ size_t RAWFILE_read(NodeRecord_s* psFileNode, uint64_t uOffset, size_t uLength, 
 
 static void registerUnAlignedCondTable(NodeRecord_s* psFileNode, uint64_t uOffset)
 {
-
-retry:
     pthread_mutex_lock(&psFileNode->sExtraData.sFileData.sUnAlignedWriteLck);
     uint64_t uSector;
-
+retry:
     uSector = uOffset / SECTOR_SIZE(GET_FSRECORD(psFileNode));
     bool needToWait = false;
     pthread_cond_t* condToWait = NULL;
@@ -178,13 +175,12 @@ retry:
             condToWait = &psFileNode->sExtraData.sFileData.sCondTable[NUM_OF_COND - 1].sCond;
         }
     }
-    
-    pthread_mutex_unlock(&psFileNode->sExtraData.sFileData.sUnAlignedWriteLck);
-    
-    if (needToWait)
-    {
+
+    if (needToWait) {
         pthread_cond_wait(condToWait, &psFileNode->sExtraData.sFileData.sUnAlignedWriteLck);
         goto retry;
+    } else {
+        pthread_mutex_unlock(&psFileNode->sExtraData.sFileData.sUnAlignedWriteLck);
     }
 }
 
@@ -211,25 +207,25 @@ static void unregisterUnAlignedCondTable(NodeRecord_s* psFileNode, uint64_t uOff
 size_t RAWFILE_write(NodeRecord_s* psFileNode, uint64_t uOffset, uint64_t uLength, void *pvBuf, int* piError)
 {
     FileSystemRecord_s* psFSRecord  = GET_FSRECORD(psFileNode);
-    size_t uAcctuallyWritten        = 0;
+    size_t uActuallyWritten         = 0;
     uint32_t uClusterSize           = CLUSTER_SIZE(psFSRecord);
     uint32_t uSectorSize            = SECTOR_SIZE(psFSRecord);
 
     // Fill the buffer until the buffer is full or till the end of the file
-    while ( uAcctuallyWritten < uLength )
+    while ( uActuallyWritten < uLength )
     {
-        /* Clculate how many bytes are still missing to add to the device
+        /* Calculate how many bytes are still missing to add to the device
          * If offset near end of file need to set only (uFileSize - uOffset)
-         * else need to write as much as left (uLength - uAcctuallyRead)
+         * else need to write as much as left (uLength - uActuallyWritten)
          */
-        uint64_t uBytesStillMissing = uLength - uAcctuallyWritten;
+        uint64_t uBytesStillMissing = uLength - uActuallyWritten;
         uint64_t uBytesToCopy = 0;
 
         // Get amount of contiguous clusters
         uint32_t uContiguousClusterLength, uCurrentCluster;
         FILERECORD_GetChainFromCache(psFileNode,(uint64_t) uOffset, &uCurrentCluster, &uContiguousClusterLength, piError);
         if (*piError) break;
-        
+
         // If we reached to the end of the allocated clusters stop write
         if (uContiguousClusterLength == 0)
         {
@@ -302,7 +298,7 @@ size_t RAWFILE_write(NodeRecord_s* psFileNode, uint64_t uOffset, uint64_t uLengt
 
             registerUnAlignedCondTable(psFileNode, uWriteOffset);
 
-            uBytesToCopy =  uBytesStillMissing;
+            uBytesToCopy = uBytesStillMissing;
 
             // Read the content of the existing file
             if ( pread(psFSRecord->iFD, pvBuffer, uSectorSize, uWriteOffset) != uSectorSize )
@@ -315,7 +311,7 @@ size_t RAWFILE_write(NodeRecord_s* psFileNode, uint64_t uOffset, uint64_t uLengt
             }
 
             //memcpy the last data
-            memcpy(pvBuffer, pvBuf+uAcctuallyWritten, uBytesToCopy);
+            memcpy(pvBuffer, pvBuf+uActuallyWritten, uBytesToCopy);
 
             // Read the content of the file
             if ( pwrite(psFSRecord->iFD, pvBuffer, uSectorSize, uWriteOffset) != uSectorSize )
@@ -341,7 +337,7 @@ size_t RAWFILE_write(NodeRecord_s* psFileNode, uint64_t uOffset, uint64_t uLengt
                 uBytesToCopy = ROUND_DOWN( uBytesStillMissing, uSectorSize );
             }
 
-            if ( pwrite(psFSRecord->iFD, pvBuf+uAcctuallyWritten, uBytesToCopy, uWriteOffset) != uBytesToCopy )
+            if ( pwrite(psFSRecord->iFD, pvBuf+uActuallyWritten, uBytesToCopy, uWriteOffset) != uBytesToCopy )
             {
                 *piError = errno;
                 MSDOS_LOG(LEVEL_ERROR, "RAWFILE_write pwrite 3 failed with error = %d\n", *piError);
@@ -349,11 +345,11 @@ size_t RAWFILE_write(NodeRecord_s* psFileNode, uint64_t uOffset, uint64_t uLengt
             }
         }
 
-        // Update the amount of butes alreay read
-        uAcctuallyWritten += uBytesToCopy;
+        // Update the amount of bytes already written
+        uActuallyWritten += uBytesToCopy;
         // Update in file offset
         uOffset += uBytesToCopy;
     }
 
-    return uAcctuallyWritten;
+    return uActuallyWritten;
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2020 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2021 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -157,9 +157,7 @@ S_cancel_pending_events(ServiceRef service_p)
     if (bootp->client) {
 	bootp_client_disable_receive(bootp->client);
     }
-    if (bootp->arp) {
-	arp_client_cancel(bootp->arp);
-    }
+    service_resolve_router_cancel(service_p, bootp->arp);
     return;
 }
 
@@ -293,9 +291,7 @@ bootp_arp_probe(ServiceRef service_p,  IFEventID_t evid, void * event_data)
 	  my_log(LOG_INFO, "BOOTP %s: ended at %ld", if_name(if_p),
 		 timer_current_secs() - bootp->start_secs);
 	  (void)service_disable_autoaddr(service_p);
-	  bootp_client_disable_receive(bootp->client);
-	  timer_cancel(bootp->timer);
-	  arp_client_cancel(bootp->arp);
+	  S_cancel_pending_events(service_p);
 	  arp_client_probe(bootp->arp, 
 			   (arp_result_func_t *)bootp_arp_probe, service_p,
 			   (void *)IFEventID_arp_e, G_ip_zeroes,
@@ -612,7 +608,7 @@ bootp_thread(ServiceRef service_p, IFEventID_t evid, void * event_data)
 	      status = ipconfig_status_internal_error_e;
 	      break;
 	  }
-	  if ((link_event->flags & kLinkFlagsSSIDChanged) != 0) {
+	  if (link_event->info == kLinkInfoNetworkChanged) {
 	      /* switched networks, remove IP address to avoid IP collisions */
 	      (void)service_remove_address(service_p);
 	  }

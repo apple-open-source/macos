@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015 Apple Computer, Inc.  All rights reserved.
+ * Copyright (c) 2015-21 Apple Computer, Inc.  All rights reserved.
  */
 
 #ifndef __REMOVEFILE_H__
@@ -25,6 +25,7 @@ enum {
 	REMOVEFILE_SECURE_3_PASS = (1 << 5),        // 3 pass overwrite
 	REMOVEFILE_SECURE_1_PASS_ZERO = (1 << 6),   // Single-pass overwrite, with 0 instead of random data
 	REMOVEFILE_CROSS_MOUNT = (1 << 7),          // Cross mountpoints when deleting recursively.
+	REMOVEFILE_ALLOW_LONG_PATHS = (1 << 8),     // Paths may be longer than PATH_MAX - requires temporarily changing cwd
 };
 
 /*

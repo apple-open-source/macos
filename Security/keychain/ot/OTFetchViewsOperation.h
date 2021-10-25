@@ -37,6 +37,8 @@ NS_ASSUME_NONNULL_BEGIN
                        intendedState:(OctagonState*)intendedState
                           errorState:(OctagonState*)errorState;
 
+@property BOOL isInheritedAccount;
+
 @end
 
 NS_ASSUME_NONNULL_END

@@ -70,6 +70,7 @@ urbtok_openBinaryRules(const uint8_t *rules,
     // The following intended-to-be-private constructor does adopt the rules.
     BreakIterator *result = new RuleBasedBreakIterator((RBBIDataHeader *)ruleCopy, *status);
     if(U_FAILURE(*status)) {
+        delete result;
         return 0;
     }
     ((RuleBasedBreakIterator*)result)->initLatin1Cat();
@@ -88,6 +89,7 @@ urbtok_openBinaryRulesNoCopy(const uint8_t *rules,
     // The following public constructor does not adopt the rules
     BreakIterator *result = new RuleBasedBreakIterator(rules, length, *status);
     if(U_FAILURE(*status)) {
+        delete result;
         return 0;
     }
     ((RuleBasedBreakIterator*)result)->initLatin1Cat();
@@ -224,6 +226,7 @@ urbtok57_openRules(const UChar     *rules,
     UnicodeString ruleString(rules, rulesLength);
     result = new RuleBasedTokenizer(ruleString, *parseErr, *status);
     if(U_FAILURE(*status)) {
+        delete result;
         return 0;
     }
 
@@ -251,6 +254,7 @@ urbtok57_openBinaryRules(const uint8_t *rules,
     BreakIterator *result = 0;
     result = new RuleBasedTokenizer(ruleCopy, *status);
     if(U_FAILURE(*status)) {
+        delete result;
         return 0;
     }
 
@@ -269,6 +273,7 @@ urbtok57_openBinaryRulesNoCopy(const uint8_t *rules,
     BreakIterator *result = 0;
     result = new RuleBasedTokenizer(rules, RuleBasedTokenizer::kDontAdopt, *status);
     if(U_FAILURE(*status)) {
+        delete result;
         return 0;
     }
 

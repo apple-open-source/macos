@@ -49,7 +49,7 @@
         _intendedState = intendedState;
         _nextState = errorState;
 
-        _peerIDs = [NSSet setWithArray:peerIDs];;
+        _peerIDs = [NSSet setWithArray:peerIDs];
     }
     return self;
 }

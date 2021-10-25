@@ -62,6 +62,7 @@ static struct option longopts[] = {
 { "apfsdriver",     required_argument,      0,              kapfsdriver},
 { "alternateos",    required_argument,      0,              kalternateos},
 { "alternateOS",    required_argument,      0,              kalternateos},
+{ "allowUI",        no_argument,            0,              kallowui},
 { "bootinfo",       optional_argument,      0,              kbootinfo},
 { "bootefi",		optional_argument,      0,              kbootefi},
 { "bootBlockFile",  required_argument,      0,              kbootblockfile },
@@ -115,6 +116,8 @@ static struct option longopts[] = {
 
 extern char *optarg;
 extern int optind;
+extern char blessVersionString[];
+char blessVersionNumString[64];
 
 int main (int argc, char * argv[])
 {
@@ -122,8 +125,10 @@ int main (int argc, char * argv[])
     int ch, longindex;
     BLContext context;
     struct blesscon bcon;
-    extern double blessVersionNumber;
 
+	strlcpy(blessVersionNumString, strrchr(blessVersionString, '-') + 1, sizeof blessVersionNumString);
+	*strchr(blessVersionNumString, '\n') = '\0';
+	
     bcon.quiet = 0;
     bcon.verbose = 0;
 
@@ -156,7 +161,7 @@ int main (int argc, char * argv[])
                 bcon.verbose = 1;
                 break;
             case kversion:
-                printf("%.1f\n", blessVersionNumber);
+                printf("%s\n", blessVersionNumString);
                 exit(0);
                 break;
             case kpayload:

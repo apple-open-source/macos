@@ -487,7 +487,7 @@ _dns_configuration_store(dns_create_config_t *_config)
 #ifdef  MAIN
 
 int
-main(int argc, char **argv)
+main(int argc, char * const argv[])
 {
 	static Boolean verbose = (argc > 1) ? TRUE : FALSE;
 	_sc_log     = kSCLogDestinationFile;

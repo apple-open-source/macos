@@ -83,11 +83,6 @@ int klog_in_close(void);
 static int activate_klog_in = 1;
 #endif
 
-int bsd_in_init(void);
-int bsd_in_reset(void);
-int bsd_in_close(void);
-static int activate_bsd_in = 1;
-
 #if !TARGET_OS_SIMULATOR
 int udp_in_init(void);
 int udp_in_reset(void);
@@ -122,7 +117,7 @@ init_modules()
 #if !TARGET_OS_SIMULATOR
 	module_t *m_klog_in, *m_bsd_out, *m_udp_in, *m_remote;
 #endif
-	module_t *m_asl, *m_bsd_in;
+	module_t *m_asl;
 	int m = 0;
 
 	/* ASL module (configured by /etc/asl.conf) */
@@ -179,22 +174,6 @@ init_modules()
 	if (m_klog_in->enabled) m_klog_in->init();
 #endif
 
-	/* BSD (UNIX domain socket) input module */
-	m_bsd_in = (module_t *)calloc(1, sizeof(module_t));
-	if (m_bsd_in == NULL)
-	{
-		asldebug("alloc failed (init_modules bsd_in)\n");
-		exit(1);
-	}
-
-	m_bsd_in->name = "bsd_in";
-	m_bsd_in->enabled = activate_bsd_in;
-	m_bsd_in->init = bsd_in_init;
-	m_bsd_in->reset = bsd_in_reset;
-	m_bsd_in->close = bsd_in_close;
-
-	if (m_bsd_in->enabled) m_bsd_in->init();
-
 #if !TARGET_OS_SIMULATOR
 	/* network (syslog protocol) input module */
 	m_udp_in = (module_t *)calloc(1, sizeof(module_t));
@@ -231,9 +210,9 @@ init_modules()
 
 	/* save modules in global.module array */
 #if TARGET_OS_SIMULATOR
-	global.module_count = 2;
+	global.module_count = 1;
 #else
-	global.module_count = 6;
+	global.module_count = 5;
 #endif
 	global.module = (module_t **)calloc(global.module_count, sizeof(module_t *));
 	if (global.module == NULL)
@@ -243,7 +222,6 @@ init_modules()
 	}
 
 	global.module[m++] = m_asl;
-	global.module[m++] = m_bsd_in;
 #if !TARGET_OS_SIMULATOR
 	global.module[m++] = m_bsd_out;
 	global.module[m++] = m_klog_in;
@@ -590,10 +568,6 @@ main(int argc, const char *argv[])
 		else if (streq(argv[i], "-klog_in"))
 		{
 			if ((i + 1) < argc) activate_klog_in = atoi(argv[++i]);
-		}
-		else if (streq(argv[i], "-bsd_in"))
-		{
-			if ((i + 1) < argc) activate_bsd_in = atoi(argv[++i]);
 		}
 		else if (streq(argv[i], "-udp_in"))
 		{

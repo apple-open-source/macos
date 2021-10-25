@@ -13,6 +13,7 @@
 #include <stdarg.h>                 // va_start(), et al.
 #include <syslog.h>
 #include <string.h>                 // memcpy()
+#include <bsm/audit_record.h>
 #include <bsm/audit_uevents.h>      // AUE_ssauth*
 #include <bsm/libbsm.h>
 #include <security_utilities/errors.h>

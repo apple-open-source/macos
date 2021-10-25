@@ -5115,6 +5115,7 @@ parsecred(char *namelist, struct xucred *cr)
 	struct passwd *pw;
 	struct group *gr;
 	int ngroups, groups[NGROUPS];
+	int allow_nogroups = 0;
 
 	/* try to make a copy of the string so we don't butcher the original */
 	namelistcopy = strdup(namelist);
@@ -5157,8 +5158,6 @@ parsecred(char *namelist, struct xucred *cr)
 		cr->cr_ngroups = (ngroups <= NGROUPS) ? ngroups : NGROUPS;
 		for (cnt = 0; cnt < cr->cr_ngroups; cnt++)
 			cr->cr_groups[cnt] = groups[cnt];
-		if (namelistcopy)
-			free(namelistcopy);
 		goto out;
 	}
 	/*
@@ -5176,6 +5175,13 @@ parsecred(char *namelist, struct xucred *cr)
 		return (ENOENT);
 	}
 	cr->cr_ngroups = 0;
+	/*
+	* Credential containing no groups.
+	*/
+	if (strcmp("", names) == 0) {
+		allow_nogroups = 1;
+		goto out;
+	}
 	while (names != NULL && *names != '\0' && cr->cr_ngroups < NGROUPS) {
 		name = strsep(&names, ":");
 		if (isdigit(*name) || *name == '-') {
@@ -5190,15 +5196,15 @@ parsecred(char *namelist, struct xucred *cr)
 	}
 	if (names != NULL && *names != '\0' && cr->cr_ngroups == NGROUPS)
 		log(LOG_ERR, "Too many groups in %s", namelist);
+out:
 	if (namelistcopy)
 		free(namelistcopy);
-out:
 	if (config.verbose >= 5) {
 		char buf[256];
 		snprintf_cred(buf, sizeof(buf), cr);
 		DEBUG(3, "got cred: %s", buf);
 	}
-	if (cr->cr_ngroups < 1) {
+	if (cr->cr_ngroups < 1 && !allow_nogroups) {
 		log(LOG_ERR, "no groups found: %s", namelist);
 		return (EINVAL);
 	}

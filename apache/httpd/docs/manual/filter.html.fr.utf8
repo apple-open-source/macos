@@ -71,8 +71,7 @@ comme le découpage des grosses requêtes (chunking) et la gestion des
 requêtes portant sur une partie d'un fichier (byte-range).</p>
 
 <p>Un grand choix d'applications sont implémentées par des modules de filtrage
-tiers disponibles à <a href="http://modules.apache.org/">modules.apache.org</a> entre autres.
-En voici quelques exemples :</p>
+tiers. En voici quelques exemples :</p>
 
 <ul>
 <li>Traitement et réécriture HTML et XML</li>
@@ -193,7 +192,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/filter.html';
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2020 The Apache Software Foundation.<br />Autorisé sous <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2021 The Apache Software Foundation.<br />Autorisé sous <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="./mod/">Modules</a> | <a href="./mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="./glossary.html">Glossaire</a> | <a href="./sitemap.html">Plan du site</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

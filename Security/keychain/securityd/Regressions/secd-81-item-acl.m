@@ -25,6 +25,8 @@
 
 #include "secd_regressions.h"
 
+#define HAS_LA_SET_ERROR 0
+
 #if USE_KEYSTORE
 #include <ACMLib.h>
 #include <coreauthd_spi.h>
@@ -35,6 +37,8 @@
 #if LA_CONTEXT_IMPLEMENTED
 static keybag_handle_t test_keybag;
 static const char *passcode1 = "passcode1";
+
+#if HAS_LA_SET_ERROR
 static const char *passcode2 = "passcode2";
 
 static bool changePasscode(const char *old_passcode, const char *new_passcode)
@@ -51,8 +55,13 @@ static bool changePasscode(const char *old_passcode, const char *new_passcode)
     kern_return_t status = aks_change_secret(test_keybag, old_passcode, (int)old_passcode_len, new_passcode, (int)new_passcode_len, generation_noop, NULL);
     return status == 0;
 }
+#endif
 
 #endif
+#endif
+
+#if HAS_LA_SET_ERROR
+extern void LASetErrorCodeBlock(CFErrorRef (^newCreateErrorBlock)(void));
 #endif
 
 
@@ -66,8 +75,6 @@ enum ItemAttrType {
     kAccessabilityItemAttr,
     kAccessGroupItemAttr,
 };
-
-extern void LASetErrorCodeBlock(CFErrorRef (^newCreateErrorBlock)(void));
 
 static void WithEachString(void(^each)(CFStringRef attr, enum ItemAttrType atype), ...) {
     va_list ap;
@@ -196,6 +203,8 @@ static void fillItem(CFMutableDictionaryRef item, uint32_t num)
 }
 
 #if LA_CONTEXT_IMPLEMENTED
+
+#if HAS_LA_SET_ERROR
 CF_RETURNS_RETAINED
 static CFErrorRef createCFError(CFStringRef message, CFIndex code)
 {
@@ -220,11 +229,13 @@ static void set_app_password(ACMContextRef acmContext)
     ACMCredentialDelete(acmCredential);
     CFReleaseSafe(appPwdData);
 }
-#endif
+#endif // TARGET_OS_IPHONE
+#endif // HAS_LA_SET_ERROR
 
 static void item_with_application_password(uint32_t *item_num)
 {
 #if TARGET_OS_IPHONE
+#if HAS_LA_SET_ERROR
     CFErrorRef (^okBlock)(void)  = ^ {
         return (CFErrorRef)NULL;
     };
@@ -354,10 +365,12 @@ static void item_with_application_password(uint32_t *item_num)
     ACMContextDelete(acmContext, true);
     CFReleaseSafe(credRefData);
 #endif
+#endif
 }
 
 static void item_with_invalid_acl(uint32_t *item_num)
 {
+#if HAS_LA_SET_ERROR
     CFErrorRef (^errorParamBlock)(void)  = ^ {
         return createCFError(CFSTR(""), kLAErrorParameter);
     };
@@ -382,10 +395,12 @@ static void item_with_invalid_acl(uint32_t *item_num)
 
     CFReleaseSafe(invalidAclRef);
     CFRelease(item);
+#endif
 }
 
 static void item_with_acl_caused_maxauth(uint32_t *item_num)
 {
+#if HAS_LA_SET_ERROR
     CFErrorRef (^okBlock)(void)  = ^ {
         return (CFErrorRef)NULL;
     };
@@ -407,14 +422,21 @@ static void item_with_acl_caused_maxauth(uint32_t *item_num)
     diag("this will cause an internal assert - on purpose");
     is_status(SecItemAdd(item, NULL), errSecAuthFailed, "max auth attempts failed");
 
+#if 0
+    // Ideally we would like to test this, but LASetErrorCodeBlock must be taught to work with direct LAContext calls to be able to do that.
     is(__security_simulatecrash_enable(true), 1, "Expecting simcrash max auth threshold passed");
+#else
+    __security_simulatecrash_enable(true);
+#endif
 
     CFReleaseSafe(aclRef);
     CFRelease(item);
+#endif
 }
 
 static void item_with_akpu(uint32_t *item_num)
 {
+#if HAS_LA_SET_ERROR
     CFErrorRef (^okBlock)(void)  = ^ {
         return (CFErrorRef)NULL;
     };
@@ -445,6 +467,7 @@ static void item_with_akpu(uint32_t *item_num)
     changePasscode(passcode2, passcode1);
     CFReleaseSafe(aclRef);
     CFRelease(item);
+#endif
 }
 #endif
 
@@ -467,6 +490,7 @@ static void item_with_skip_auth_ui(uint32_t *item_num)
 
 #if LA_CONTEXT_IMPLEMENTED
 static void item_forbidden_delete(uint32_t *item_num) {
+#if HAS_LA_SET_ERROR
     CFMutableDictionaryRef item = CFDictionaryCreateMutableForCFTypesWith(kCFAllocatorDefault, kSecClass, kSecClassInternetPassword, NULL);
     fillItem(item, (*item_num)++);
 
@@ -481,6 +505,7 @@ static void item_forbidden_delete(uint32_t *item_num) {
 
     CFReleaseNull(aclRef);
     CFRelease(item);
+#endif
 }
 #endif
 

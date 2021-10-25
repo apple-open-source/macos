@@ -175,7 +175,7 @@ static void intToCssmData(
 	else {
 		len = 4;
 	}
-	cdata.Data = (uint8 *)coder.malloc(len);
+	cdata.Data = (uint8 *)coder.alloc(len);
 	cdata.Length = len;
 	uint8 *cp = &cdata.Data[len - 1];
 	for(unsigned i=0; i<len; i++) {
@@ -353,7 +353,7 @@ abort:
 		outp++;
 		numBytes--;
 	}
-	cdata.Data = (uint8 *)coder.malloc(numBytes);
+	cdata.Data = (uint8 *)coder.alloc(numBytes);
 	memmove(cdata.Data, outp, numBytes);
 	cdata.Length = numBytes;
 	ffree(rawBytes);
@@ -1059,14 +1059,12 @@ feeReturn feeDEREncodeOpenSSLPrivateKey(
 	
 	/* quickie DER-encode of the curve OID */
 	try {
-		coder.allocItem(ecdsaPrivKey.params, curveOid->Length + 2);
+		coder.allocItem(ecdsaPrivKey.params, curveOid->Length);
 	}
 	catch(...) {
 		return FR_Memory;
 	}
-	ecdsaPrivKey.params.Data[0] = BER_TAG_OID;
-	ecdsaPrivKey.params.Data[1] = curveOid->Length;
-	memmove(ecdsaPrivKey.params.Data+2, curveOid->Data, curveOid->Length);
+	memmove(ecdsaPrivKey.params.Data, curveOid->Data, curveOid->Length);
 	
 	/* public key - optional - bit string, length in bits */
 	if(pubBlob) {
@@ -1120,11 +1118,7 @@ feeReturn feeDERDecodeOpenSSLKey(
 	if(ecdsaPrivKey.params.Data != NULL) {
 		/* quickie decode */
 		const CSSM_DATA *param = &ecdsaPrivKey.params;
-		if((param->Data[0] != BER_TAG_OID) || (param->Length <= 2)) {
-			dbgLog(("feeDERDecodeOpenSSLKey: bad curve params\n"));
-			return FR_BadKeyBlob;
-		}
-		CSSM_OID decOid = {param->Length-2, param->Data+2};
+		CSSM_OID decOid = {param->Length, param->Data};
 		if(curveOidToFeeDepth(&decOid, depth)) {
 			return FR_BadKeyBlob;
 		}

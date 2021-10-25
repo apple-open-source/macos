@@ -28,6 +28,7 @@
 #define _H_DRMAKER
 
 #include "reqmaker.h"
+#include <Security/SecAsn1Types.h>
 
 namespace Security {
 namespace CodeSigning {

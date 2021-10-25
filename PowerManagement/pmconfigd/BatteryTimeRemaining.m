@@ -51,8 +51,12 @@
 #include <battery/battery.h>
 #endif
 
+#ifndef BHUI_XCTEST
 #include "pmconfigd.h"
 #include "powermanagementServer.h" // mig generated
+#else
+#include "BatteryHealthUnitTestsStubs.h"
+#endif
 #include "BatteryTimeRemaining.h"
 #include "PMSettings.h"
 #include "UPSLowPower.h"
@@ -66,6 +70,7 @@
 #define kNominalCapacityPercentageThreshold  80
 #define kInitialNominalCapacityPercentage   104
 
+os_log_t    battery_health_log = NULL;
 os_log_t    battery_log = NULL;
 #undef   LOG_STREAM
 #define  LOG_STREAM   battery_log
@@ -236,12 +241,6 @@ static void updateCalibration0Flags(CFMutableDictionaryRef bhData, CFDictionaryR
 
 static int64_t pfStatusOverrideValue = -1;
 
-enum vactMode {
-    vactModeDisabled = 0,
-    vactModeEnabled,
-    vactModesCount,
-};
-
 #define CAPACITY_NO_CHANGE  (0)
 #define CAPACITY_FCC_CHANGE  (1 << 0)
 #define CAPACITY_NCC_CHANGE  (1 << 1)
@@ -274,38 +273,6 @@ enum vactMode {
 #define NCC_CURRENT_THRESH_SCALE  (100)
 #define NCC_GAMMA_SCALE  (1000)
 #define NCC_GAMMA  (909)   // 11.5 day time constant, 24hr calendar time epoch
-
-struct capacitySample {
-    // inputs
-    int fcc;    // Scaled FCC as returned by SMC
-
-    // persistent variable
-    int fccDaySampleAvg;
-    // persistent output
-    int ncc;
-    int nccpMonotonic;
-};
-
-struct nominalCapacityParams {
-    // inputs
-    int current;        // BISS or B0AC
-    int temperature;    // TB0T
-    int designCapacity;
-    int fcc;            // FCC as returned by the gauge
-    // substruct
-    struct capacitySample sample[vactModesCount];
-    // persistent variables
-    unsigned int fccDaySampleCount;
-    unsigned int fccAvgHistoryCount;
-    // parameters
-    int gamma;
-    // output
-    unsigned int significantChange;
-    unsigned int error;
-    unsigned int debug;
-    int cycleCount;
-    uint64_t ts;
-};
 
 static const CFStringRef capacityKeys[vactModesCount][3] = {
     [vactModeEnabled] = {
@@ -404,6 +371,11 @@ static int rawToNominal(int val, int base)
     }
     return result;
 }
+
+
+#ifdef BHUI_XCTEST
+int __rawToNominal(int val, int base) {return rawToNominal(val, base);}
+#endif
 
 static uint64_t getTimeInSecsSinceEpoch(void)
 {
@@ -521,6 +493,18 @@ static void _unpackBatteryState(IOPMBattery *b, CFDictionaryRef prop)
     boo = CFDictionaryGetValue(prop, CFSTR(kIOPMPSIsChargingKey));
     b->isCharging = (kCFBooleanTrue == boo);
 
+#if TARGET_OS_IPHONE || (TARGET_OS_OSX && TARGET_CPU_ARM64)
+    boo = CFDictionaryGetValue(prop, CFSTR(kIOPMPSRawExternalConnectedKey));
+    b->rawExternalConnected = (kCFBooleanTrue == boo);
+
+    boo = CFDictionaryGetValue(prop, CFSTR(kIOPMFullyChargedKey));
+    b->fullyCharged = (kCFBooleanTrue == boo);
+
+    boo = CFDictionaryGetValue(prop, CFSTR(kIOPMPSAtCriticalLevelKey));
+    b->isCritical = (kCFBooleanTrue == boo);
+#else // TARGET_OS_IPHONE || (TARGET_OS_OSX && TARGET_CPU_ARM64)
+    b->rawExternalConnected = b->externalConnected;
+#endif // TARGET_OS_IPHONE || (TARGET_OS_OSX && TARGET_CPU_ARM64)
 
     b->failureDetected = (CFStringRef)CFDictionaryGetValue(prop, CFSTR(kIOPMPSErrorConditionKey));
 
@@ -816,7 +800,7 @@ static void _batteryChanged(IOPMBattery *changed_battery)
     }
     else {
         // There is no battery here. May be just an adapeter
-        INFO_LOG("Battery is not installed\n");
+        DEBUG_LOG("Battery is not installed\n");
         CFDictionaryGetValueIfPresent(props, CFSTR(kIOPMPSExternalConnectedKey), (const void **)&externalConnected);
         CFDictionaryGetValueIfPresent(props, CFSTR(kIOPMPSAdapterDetailsKey), (const void **)&adapter);
 
@@ -992,6 +976,7 @@ __private_extern__ void BatteryTimeRemaining_prime(void)
 {
 
     battery_log = os_log_create(PM_LOG_SYSTEM, BATTERY_LOG);
+    battery_health_log = os_log_create(PM_LOG_SYSTEM, BATTERY_HEALTH_LOG);
     bzero(gPSList, sizeof(gPSList));
     bzero(&control, sizeof(BatteryControl));
 
@@ -1035,7 +1020,7 @@ static void BatteryTimeRemaining_finishSync(void)
         return;
     }
 
-    kr = IOServiceGetMatchingServices(kIOMasterPortDefault,
+    kr = IOServiceGetMatchingServices(kIOMainPortDefault,
             IOServiceMatching("IOPMPowerSource"), &iter);
     if ((kIOReturnSuccess != kr) || (MACH_PORT_NULL == iter)) {
         ERROR_LOG("Failed to find IOPMPowerSource object\n")
@@ -1438,6 +1423,8 @@ static void publish_IOPSGetPercentRemaining(
         currentStateBits |= kPSTimeRemainingNotifyChargingBit;
     if (fullyCharged)
         currentStateBits |= kPSTimeRemainingNotifyFullyChargedBit;
+    if (b && b->isCritical)
+        currentStateBits |= kPSCriticalLevelBit;
 
     changedStateBits = lastStateBits ^ currentStateBits;
     if (changedStateBits)
@@ -1448,6 +1435,7 @@ static void publish_IOPSGetPercentRemaining(
         // Suppress notification for charging state changes
         ignoreBits = (kPSTimeRemainingNotifyChargingBit 
                                  |kPSTimeRemainingNotifyFullyChargedBit
+                                 |kPSCriticalLevelBit
                                  );
         if (changedStateBits & ~ignoreBits)
         {
@@ -1455,6 +1443,8 @@ static void publish_IOPSGetPercentRemaining(
             INFO_LOG("Battery capacity change posted(0x%llx). Capacity:%d Source:%{public}s\n",
                     currentStateBits, percentRemaining, isExternal ? "AC":"Batt");
         }
+        if (changedStateBits & kPSCriticalLevelBit)
+            BatteryTimeRemaining_notify_post(kIOPSNotifyCriticalLevel);
     }
 }
 
@@ -1463,9 +1453,11 @@ __private_extern__ void kernelPowerSourcesDidChange(IOPMBattery *b)
     _internal_dispatch_assert_queue_barrier(batteryTimeRemainingQ);
 
     static int  _lastExternalConnected = -1;
+    static int  _lastRawExternalConnected = -1;
     static int  _lastPercentRemaining = 100;
     static int  _lastIsCharging = -1;
     int         _nowExternalConnected = 0;
+    int         _nowRawExternalConnected = 0;
     int         percentRemaining = 0;
     IOPMBattery **_batts = _batteries();
 
@@ -1487,11 +1479,16 @@ __private_extern__ void kernelPowerSourcesDidChange(IOPMBattery *b)
         return;
     }
 
-    _nowExternalConnected = (b->externalConnected ? 1 : 0) | (b->rawExternalConnected ? 1 : 0);
+    _nowExternalConnected = b->externalConnected;
+    _nowRawExternalConnected = b->rawExternalConnected;
+
     if (_lastExternalConnected != _nowExternalConnected) {
+        control.needsNotifyAC = true;
+    }
+
+    if (_lastRawExternalConnected != _nowRawExternalConnected) {
         // If AC has changed, we must invalidate time remaining.
         _discontinuityOccurred(false, true);
-        control.needsNotifyAC = true;
     } else if (_lastIsCharging != b->isCharging) {
         _discontinuityOccurred(false, false);
     }
@@ -1515,8 +1512,8 @@ __private_extern__ void kernelPowerSourcesDidChange(IOPMBattery *b)
     }
 
     // prevent percentage to increase when discharging
-    if (!control.percentageDiscontinuity && !_lastExternalConnected &&
-        !_nowExternalConnected && (percentRemaining > _lastPercentRemaining)) {
+    if (!control.percentageDiscontinuity && !_lastRawExternalConnected &&
+        !_nowRawExternalConnected && (percentRemaining > _lastPercentRemaining)) {
         percentRemaining = _lastPercentRemaining;
     } else if (CFAbsoluteTimeGetCurrent() >= (control.lastDiscontinuity + kDiscontinuitySettle)) {
         control.percentageDiscontinuity = false;
@@ -1526,6 +1523,7 @@ __private_extern__ void kernelPowerSourcesDidChange(IOPMBattery *b)
     b->swCalculatedPR = percentRemaining;
     _lastPercentRemaining = percentRemaining;
     _lastExternalConnected = _nowExternalConnected;
+    _lastRawExternalConnected = _nowRawExternalConnected;
     _lastIsCharging = b->isCharging;
 
     /************************************************************************
@@ -1748,6 +1746,9 @@ static void checkTimeRemainingValid(IOPMBattery **batts)
     }
 
 }
+
+#undef   LOG_STREAM
+#define  LOG_STREAM   battery_health_log
 
 #if TARGET_OS_IOS || POWERD_IOS_XCTEST || TARGET_OS_WATCH || TARGET_OS_OSX
 //
@@ -2321,7 +2322,7 @@ static int readBatteryLifetimeUPOCount(void)
         if ( propertyDict != NULL ) {
             CFDictionarySetValue(matchingDict, CFSTR(kIOPropertyMatchKey), propertyDict);
             CFRelease(propertyDict);
-            service= IOServiceGetMatchingService(kIOMasterPortDefault, matchingDict);
+            service= IOServiceGetMatchingService(kIOMainPortDefault, matchingDict);
             if ( service ) {
                 CFMutableDictionaryRef cfProperties = NULL;
                 IORegistryEntryCreateCFProperties(service, &cfProperties, 0, 0);
@@ -3491,7 +3492,9 @@ static CFStringRef getBatteryHealthPath(void)
     }
 
     nvramBatteryHealthPath = CFStringCreateMutable(NULL, 0);
-    CFStringAppend(nvramBatteryHealthPath, CFUUIDCreateString(NULL, NVRAM_BATTERY_HEALTH_UUID));
+    CFStringRef s = CFUUIDCreateString(NULL, NVRAM_BATTERY_HEALTH_UUID);
+    CFStringAppend(nvramBatteryHealthPath, s);
+    CFRelease(s);
     CFStringAppend(nvramBatteryHealthPath, CFSTR(":"));
     CFStringAppend(nvramBatteryHealthPath, CFSTR(NVRAM_BATTERY_HEALTH_KEY));
     return nvramBatteryHealthPath;
@@ -3512,7 +3515,7 @@ static CF_RETURNS_RETAINED CFMutableDictionaryRef readBatteryHealthPersistentDat
         return cachedBatteryHealthDataDict;
     }
 
-    ioent = IORegistryEntryFromPath(kIOMasterPortDefault, NVRAM_DEVICE_PATH);
+    ioent = IORegistryEntryFromPath(kIOMainPortDefault, NVRAM_DEVICE_PATH);
     if (ioent == IO_OBJECT_NULL) {
         ERROR_LOG(""NVRAM_DEVICE_PATH" missing!\n");
         goto out;
@@ -3570,7 +3573,7 @@ static bool writeBatteryHealthPersistentData(CFMutableDictionaryRef cfDict)
     _internal_dispatch_assert_queue(batteryTimeRemainingQ);
     NSDictionary *dict = (__bridge NSDictionary *)cfDict;
 
-    ioent = IORegistryEntryFromPath(kIOMasterPortDefault, NVRAM_DEVICE_PATH);
+    ioent = IORegistryEntryFromPath(kIOMainPortDefault, NVRAM_DEVICE_PATH);
     if (ioent == IO_OBJECT_NULL) {
         goto out;
     }
@@ -4004,7 +4007,7 @@ void checkNominalCapacity(CFDictionaryRef batteryProps, CFMutableDictionaryRef d
         INFO_LOG("Seed change detected: %d %d\n", params.sample[0].ncc, params.sample[1].ncc);
         CFDictionarySetIntValue(dict, CFSTR("seed0"), params.sample[0].ncc);
         CFDictionarySetIntValue(dict, CFSTR("seed1"), params.sample[1].ncc);
-        CFDictionarySetIntValue(dict, CFSTR("seedTs"), params.ts);
+        CFDictionarySetInt64Value(dict, CFSTR("seedTs"), params.ts);
     }
 
     if (params.significantChange & CAPACITY_SAMPLING_EPOCH_CHANGE) {
@@ -4498,12 +4501,22 @@ out:
 };
 #endif // TARGET_OS_OSX
 
+#undef   LOG_STREAM
+#define  LOG_STREAM   battery_log
+
 bool isFullyCharged(IOPMBattery *b)
 {
     bool is_charged = false;
 
-    if (!b) return false;
+    if (!b || !b->maxCap) {
+        return false;
+    }
 
+    unsigned int soc = 100 * b->currentCap / b->maxCap;
+
+#if TARGET_OS_IPHONE || (TARGET_OS_OSX && TARGET_CPU_ARM64)
+    is_charged = !!b->fullyCharged || (soc >= 100);
+#else // TARGET_OS_IPHONE || (TARGET_OS_OSX && TARGET_CPU_ARM64)
     // Set IsCharged if capacity >= 95% 
     // - Some portables will not initiate a battery charge if AC is
     //   connected when copacity is >= 95%.
@@ -4512,9 +4525,10 @@ bool isFullyCharged(IOPMBattery *b)
     // - IsCharged should be true when the external power adapter LED is Green;
     //   should be false when the external power adapter LED is Orange.
 
-    if (b->isPresent && (0 != b->maxCap)) {
-            is_charged = ((100*b->currentCap/b->maxCap) >= 95);
+    if (b->isPresent) {
+        is_charged = soc >= 95;
     }
+#endif // TARGET_OS_IPHONE || (TARGET_OS_OSX && TARGET_CPU_ARM64)
 
     return is_charged;
 }
@@ -4582,6 +4596,7 @@ static CFDictionaryRef packageKernelPowerSource(IOPMBattery *b, PSStruct *ps)
         set_capacity = 100;
         set_charge = b->swCalculatedPR;
 
+#if TARGET_OS_OSX && !TARGET_CPU_ARM64
         if( (100 == set_charge) && b->isCharging)
         {
             // We will artificially cap the percentage to 99% while charging
@@ -4590,6 +4605,7 @@ static CFDictionaryRef packageKernelPowerSource(IOPMBattery *b, PSStruct *ps)
             // to indicate we're not done charging. (4482296, 3285870)
             set_charge = 99;
         }
+#endif // TARGET_OS_OSX && !TARGET_CPU_ARM64
     } else {
         // Bad battery or bad reading => 0 capacity
         set_capacity = set_charge = 0;
@@ -4749,6 +4765,9 @@ __private_extern__ void getBatteryHealthPersistentData(xpc_object_t remoteConnec
             DEBUG_LOG("Returned battery health persistent data %{public}@\n", dict);
             if (respData) {
                 xpc_release(respData);
+            }
+            if (dict) {
+                CFRelease(dict);
             }
         }
         else {
@@ -4952,6 +4971,15 @@ __private_extern__ int getActivePSType(void)
     return rc;
 }
 
+static void dump_power_sources(void)
+{
+    for (size_t i = 0; i < ARRAY_SIZE(gPSList); i++) {
+        PSStruct *ps = &gPSList[i];
+
+        ERROR_LOG("id:%d pid:%d type:%d desc:%@\n", ps->psid, ps->pid, ps->psType, ps->description);
+    }
+}
+
 /***********************************************************************************/
 // MIG handler - back end for IOKit API IOPSCreatePowerSource
 #define PSID_MIN    5000
@@ -4978,6 +5006,7 @@ kern_return_t _io_ps_new_pspowersource(
         ps = iops_newps(callerPID, gPSID);
         if (!ps) {
             *result = kIOReturnNoSpace;
+            dump_power_sources();
             return;
         }
 

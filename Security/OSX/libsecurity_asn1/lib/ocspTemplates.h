@@ -45,26 +45,26 @@ extern "C" {
  *		issuerKeyHash		OCTET STRING, -- Hash of Issuers public key
  *		serialNumber		CertificateSerialNumber }   -- i.e., INTEGER
  */
-typedef struct {
+typedef struct SEC_ASN1_API_DEPRECATED {
 	SecAsn1AlgId		algId;
 	SecAsn1Item							issuerNameHash;
 	SecAsn1Item							issuerPubKeyHash;
 	SecAsn1Item							serialNumber;
-} SecAsn1OCSPCertID;
+} SecAsn1OCSPCertID SEC_ASN1_API_DEPRECATED;
 
-extern const SecAsn1Template kSecAsn1OCSPCertIDTemplate[];
+extern const SecAsn1Template kSecAsn1OCSPCertIDTemplate[] SEC_ASN1_API_DEPRECATED;
  
 /*
  * Request         ::=     SEQUENCE {
  *		reqCert                     CertID,
  *		singleRequestExtensions     [0] EXPLICIT Extensions OPTIONAL }  
  */
-typedef struct {
+typedef struct SEC_ASN1_API_DEPRECATED {
 	SecAsn1OCSPCertID					reqCert;
     NSS_CertExtension 					**extensions;		// optional	
-} SecAsn1OCSPRequest;
+} SecAsn1OCSPRequest SEC_ASN1_API_DEPRECATED;
 
-extern const SecAsn1Template kSecAsn1OCSPRequestTemplate[];
+extern const SecAsn1Template kSecAsn1OCSPRequestTemplate[] SEC_ASN1_API_DEPRECATED;
 
 /*
  * Signature       ::=     SEQUENCE {
@@ -76,13 +76,13 @@ extern const SecAsn1Template kSecAsn1OCSPRequestTemplate[];
  * we declare them here as ASN_ANY, get/set as raw data, and leave it to 
  * the CL to parse them.
  */
-typedef struct {
+typedef struct SEC_ASN1_API_DEPRECATED {
 	SecAsn1AlgId		algId;
 	SecAsn1Item							sig;		// length in BITS
 	SecAsn1Item							**certs;	// OPTIONAL
-} SecAsn1OCSPSignature;
+} SecAsn1OCSPSignature SEC_ASN1_API_DEPRECATED;
 
-extern const SecAsn1Template kSecAsn1OCSPSignatureTemplate[];
+extern const SecAsn1Template kSecAsn1OCSPSignatureTemplate[] SEC_ASN1_API_DEPRECATED;
 
 /* 
  * TBSRequest      ::=     SEQUENCE {
@@ -91,26 +91,26 @@ extern const SecAsn1Template kSecAsn1OCSPSignatureTemplate[];
  *		requestList                 SEQUENCE OF Request,
  *		requestExtensions   [2]     EXPLICIT Extensions OPTIONAL } 
  */
-typedef struct {
+typedef struct SEC_ASN1_API_DEPRECATED {
 	SecAsn1Item							*version;				// OPTIONAL
 	NSS_GeneralName						*requestorName;			// OPTIONAL
 	SecAsn1OCSPRequest					**requestList;
     NSS_CertExtension 					**requestExtensions;	// OPTIONAL
-} SecAsn1OCSPTbsRequest;
+} SecAsn1OCSPTbsRequest SEC_ASN1_API_DEPRECATED;
 
-extern const SecAsn1Template kSecAsn1OCSPTbsRequestTemplate[];
+extern const SecAsn1Template kSecAsn1OCSPTbsRequestTemplate[] SEC_ASN1_API_DEPRECATED;
 
 /* 
  * OCSPRequest     ::=     SEQUENCE {
  *		tbsRequest                  TBSRequest,
  *		optionalSignature   [0]     EXPLICIT Signature OPTIONAL }
  */
-typedef struct {
+typedef struct SEC_ASN1_API_DEPRECATED {
 	SecAsn1OCSPTbsRequest				tbsRequest;
 	SecAsn1OCSPSignature				*signature;			// OPTIONAL
-} SecAsn1OCSPSignedRequest;
+} SecAsn1OCSPSignedRequest SEC_ASN1_API_DEPRECATED;
 
-extern const SecAsn1Template kSecAsn1OCSPSignedRequestTemplate[];
+extern const SecAsn1Template kSecAsn1OCSPSignedRequestTemplate[] SEC_ASN1_API_DEPRECATED;
 
 // MARK: ----- OCSP Response -----
 
@@ -128,32 +128,32 @@ extern const SecAsn1Template kSecAsn1OCSPSignedRequestTemplate[];
  *
  * See <Security/certextensions.h> for enum values of CE_CrlReason.
  */
-typedef struct {
+typedef struct SEC_ASN1_API_DEPRECATED {
 	SecAsn1Item					revocationTime;
 	SecAsn1Item					*revocationReason;		// OPTIONAL, CE_CrlReason
-} SecAsn1OCSPRevokedInfo;
+} SecAsn1OCSPRevokedInfo SEC_ASN1_API_DEPRECATED;
 
-typedef union {
+typedef union SEC_ASN1_API_DEPRECATED {
 	SecAsn1OCSPRevokedInfo		*revokedInfo;
 	SecAsn1Item					*nullData;
-} SecAsn1OCSPCertStatus;
+} SecAsn1OCSPCertStatus SEC_ASN1_API_DEPRECATED;
 
 typedef enum {
 	CS_Good = 0,
 	CS_Revoked = 1,
 	CS_Unknown = 2,
 	CS_NotParsed = 0xff		/* Not in protocol: means value not parsed or seen */
-} SecAsn1OCSPCertStatusTag;
+} SecAsn1OCSPCertStatusTag SEC_ASN1_API_DEPRECATED;
 
-extern const SecAsn1Template kSecAsn1OCSPRevokedInfoTemplate[];
+extern const SecAsn1Template kSecAsn1OCSPRevokedInfoTemplate[] SEC_ASN1_API_DEPRECATED;
 
 /* 
  * Encode/decode CertStatus separately using one of these  hree templates. 
  * The result goes into SecAsn1OCSPSingleResponse.certStatus on encode. 
  */
-extern const SecAsn1Template kSecAsn1OCSPCertStatusGoodTemplate[];
-extern const SecAsn1Template kSecAsn1OCSPCertStatusRevokedTemplate[];
-extern const SecAsn1Template kSecAsn1OCSPCertStatusUnknownTemplate[];
+extern const SecAsn1Template kSecAsn1OCSPCertStatusGoodTemplate[] SEC_ASN1_API_DEPRECATED;
+extern const SecAsn1Template kSecAsn1OCSPCertStatusRevokedTemplate[] SEC_ASN1_API_DEPRECATED;
+extern const SecAsn1Template kSecAsn1OCSPCertStatusUnknownTemplate[] SEC_ASN1_API_DEPRECATED;
 
 /* 
  * SingleResponse ::= SEQUENCE {
@@ -163,15 +163,15 @@ extern const SecAsn1Template kSecAsn1OCSPCertStatusUnknownTemplate[];
  *		nextUpdate         [0]       EXPLICIT GeneralizedTime OPTIONAL,
  *		singleExtensions   [1]       EXPLICIT Extensions OPTIONAL }
  */
-typedef struct {
+typedef struct SEC_ASN1_API_DEPRECATED {
 	SecAsn1OCSPCertID			certID;
 	SecAsn1Item					certStatus;				// ASN_ANY here
 	SecAsn1Item					thisUpdate;				// GeneralizedTime
 	SecAsn1Item					*nextUpdate;			// GeneralizedTime, OPTIONAL
     NSS_CertExtension 			**singleExtensions;		// OPTIONAL
-} SecAsn1OCSPSingleResponse;
+} SecAsn1OCSPSingleResponse SEC_ASN1_API_DEPRECATED;
 
-extern const SecAsn1Template kSecAsn1OCSPSingleResponseTemplate[];
+extern const SecAsn1Template kSecAsn1OCSPSingleResponseTemplate[] SEC_ASN1_API_DEPRECATED;
 
 /*
  * ResponderID ::= CHOICE {
@@ -184,18 +184,18 @@ extern const SecAsn1Template kSecAsn1OCSPSingleResponseTemplate[];
  * where it's treated as an ANY_ANY when encoding that struct. The reverse happens
  * on decode. 
  */
-typedef union {
+typedef union SEC_ASN1_API_DEPRECATED {
 	SecAsn1Item					byName;
 	SecAsn1Item					byKey;		// key hash in OCTET STRING
-} SecAsn1OCSPResponderID;
+} SecAsn1OCSPResponderID SEC_ASN1_API_DEPRECATED;
 
 typedef enum {
 	RIT_Name	= 1,
 	RIT_Key		= 2
-} SecAsn1OCSPResponderIDTag;
+} SecAsn1OCSPResponderIDTag SEC_ASN1_API_DEPRECATED;
 
-extern const SecAsn1Template kSecAsn1OCSPResponderIDAsNameTemplate[];
-extern const SecAsn1Template kSecAsn1OCSPResponderIDAsKeyTemplate[];
+extern const SecAsn1Template kSecAsn1OCSPResponderIDAsNameTemplate[] SEC_ASN1_API_DEPRECATED;
+extern const SecAsn1Template kSecAsn1OCSPResponderIDAsKeyTemplate[] SEC_ASN1_API_DEPRECATED;
 
 /* 
  * ResponseData ::= SEQUENCE {
@@ -205,15 +205,15 @@ extern const SecAsn1Template kSecAsn1OCSPResponderIDAsKeyTemplate[];
  *		responses                SEQUENCE OF SingleResponse,
  *		responseExtensions   [1] EXPLICIT Extensions OPTIONAL }
  */
-typedef struct {
+typedef struct SEC_ASN1_API_DEPRECATED {
 	SecAsn1Item					*version;		// OPTIONAL
 	SecAsn1Item					responderID;	// ASN_ANY here, decode/encode separately
 	SecAsn1Item					producedAt;		// GeneralizedTime
 	SecAsn1OCSPSingleResponse   **responses;
     NSS_CertExtension 			**responseExtensions;	// OPTIONAL
-} SecAsn1OCSPResponseData;
+} SecAsn1OCSPResponseData SEC_ASN1_API_DEPRECATED;
 
-extern const SecAsn1Template kSecAsn1OCSPResponseDataTemplate[];
+extern const SecAsn1Template kSecAsn1OCSPResponseDataTemplate[] SEC_ASN1_API_DEPRECATED;
 
 /* 
  * BasicOCSPResponse       ::= SEQUENCE {
@@ -227,14 +227,14 @@ extern const SecAsn1Template kSecAsn1OCSPResponseDataTemplate[];
  *
  * Certs are likewise ASN_ANY since we use the CL to parse and create them. 
  */
-typedef struct {
+typedef struct SEC_ASN1_API_DEPRECATED {
 	SecAsn1Item						tbsResponseData;
 	SecAsn1AlgId	algId;
 	SecAsn1Item						sig;		// length in BITS
 	SecAsn1Item						**certs;	// optional
-} SecAsn1OCSPBasicResponse;
+} SecAsn1OCSPBasicResponse SEC_ASN1_API_DEPRECATED;
 
-extern const SecAsn1Template kSecAsn1OCSPBasicResponseTemplate[];
+extern const SecAsn1Template kSecAsn1OCSPBasicResponseTemplate[] SEC_ASN1_API_DEPRECATED;
 
 /*
  * ResponseBytes ::=       SEQUENCE {
@@ -244,24 +244,24 @@ extern const SecAsn1Template kSecAsn1OCSPBasicResponseTemplate[];
  * The contents of response are actually an encoded SecAsn1OCSPBasicResponse (at 
  * least until another response type is defined). 
  */
-typedef struct {
+typedef struct SEC_ASN1_API_DEPRECATED {
 	SecAsn1Oid					responseType;
 	SecAsn1Item					response;
-} SecAsn1OCSPResponseBytes;
+} SecAsn1OCSPResponseBytes SEC_ASN1_API_DEPRECATED;
 
-extern const SecAsn1Template kSecAsn1OCSPResponseBytesTemplate[];
+extern const SecAsn1Template kSecAsn1OCSPResponseBytesTemplate[] SEC_ASN1_API_DEPRECATED;
 
 /* 
  * OCSPResponse ::= SEQUENCE {
  *		responseStatus         OCSPResponseStatus,		-- an ENUM
  *		responseBytes          [0] EXPLICIT ResponseBytes OPTIONAL }
  */
-typedef struct {
+typedef struct SEC_ASN1_API_DEPRECATED {
 	SecAsn1Item					responseStatus;		// see enum below
 	SecAsn1OCSPResponseBytes	*responseBytes;		// optional
-} SecAsn1OCSPResponse;
+} SecAsn1OCSPResponse SEC_ASN1_API_DEPRECATED;
 
-extern const SecAsn1Template kSecAsn1OCSPResponseTemplate[];
+extern const SecAsn1Template kSecAsn1OCSPResponseTemplate[] SEC_ASN1_API_DEPRECATED;
 
 typedef enum {
 	RS_Success = 0,
@@ -271,7 +271,7 @@ typedef enum {
 	RS_Unused = 4,
 	RS_SigRequired = 5,
 	RS_Unauthorized = 6
-} SecAsn1OCSPResponseStatus;
+} SecAsn1OCSPResponseStatus SEC_ASN1_API_DEPRECATED;
 
 /* 
  * This is not part of the OCSP protocol; it's used in the communication between
@@ -292,7 +292,7 @@ typedef enum {
 
 #define OCSPD_REQUEST_VERS	0
 
-typedef struct {
+typedef struct SEC_ASN1_API_DEPRECATED {
 	SecAsn1Item			*cacheWriteDisable;
 	SecAsn1Item			*cacheReadDisable;
 	SecAsn1Item			certID;				// DER encoded SecAsn1OCSPCertID
@@ -300,38 +300,38 @@ typedef struct {
 	SecAsn1Item			*localRespURI;		// local responder URI
 	SecAsn1Item			**urls;				// normal URIs
 	
-} SecAsn1OCSPDRequest;
+} SecAsn1OCSPDRequest SEC_ASN1_API_DEPRECATED;
 
 /* 
  * And this is a sequence of them, packaged up and sent to ocspd in one RPC.
  */
-typedef struct {
+typedef struct SEC_ASN1_API_DEPRECATED {
 	SecAsn1Item			version;			// OCSPD_REQUEST_VERS
 	SecAsn1OCSPDRequest	**requests;
-} SecAsn1OCSPDRequests;
+} SecAsn1OCSPDRequests SEC_ASN1_API_DEPRECATED;
 
-extern const SecAsn1Template kSecAsn1OCSPDRequestTemplate[];
-extern const SecAsn1Template kSecAsn1OCSPDRequestsTemplate[];
+extern const SecAsn1Template kSecAsn1OCSPDRequestTemplate[] SEC_ASN1_API_DEPRECATED;
+extern const SecAsn1Template kSecAsn1OCSPDRequestsTemplate[] SEC_ASN1_API_DEPRECATED;
 
 /* 
  * Unordered set of replies from ocsdp; they map back to individual
  * SecAsn1OCSPDRequests by the encoded certID (which is obtained from the 
  * SecAsn1OCSPDRequest, NOT from the OCSP response).
  */
-typedef struct {
+typedef struct SEC_ASN1_API_DEPRECATED {
 	SecAsn1Item			certID;			// DER encoded SecAsn1OCSPCertID
 	SecAsn1Item			ocspResp;		// DER encoded SecAsn1OCSPResponse
-} SecAsn1OCSPDReply;
+} SecAsn1OCSPDReply SEC_ASN1_API_DEPRECATED;
 
 #define OCSPD_REPLY_VERS	0
 
-typedef struct {
+typedef struct SEC_ASN1_API_DEPRECATED {
 	SecAsn1Item			version;			// OCSPD_REPLY_VERS
 	SecAsn1OCSPDReply	**replies; 
-} SecAsn1OCSPReplies;
+} SecAsn1OCSPReplies SEC_ASN1_API_DEPRECATED;
 
-extern const SecAsn1Template kSecAsn1OCSPDReplyTemplate[];
-extern const SecAsn1Template kSecAsn1OCSPDRepliesTemplate[];
+extern const SecAsn1Template kSecAsn1OCSPDReplyTemplate[] SEC_ASN1_API_DEPRECATED;
+extern const SecAsn1Template kSecAsn1OCSPDRepliesTemplate[] SEC_ASN1_API_DEPRECATED;
 
 #pragma clang diagnostic pop
 

@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 #
 # TODO(kirk or SEAR/QA) after radar 53867279 is fixed, please delete this script
 #
@@ -6,6 +6,7 @@
 # this script will not find them and then your new tests will not get executed
 # in BATS!
 #
+from __future__ import print_function
 import sys
 import Foundation
 from glob import glob
@@ -20,10 +21,10 @@ test_plist['BATSConfigVersion'] = '0.1.0'
 test_plist['Project'] = 'Security'
 test_list = Foundation.NSMutableArray.array()
 
-test_files = glob(test_dir + '/octagon/*.swift') + glob(test_dir + '/octagon/*/*.swift')
+test_files = glob(test_dir + '/*.swift') + glob(test_dir + '/*/*.swift')
 
 def get_class_names():
-    test_classes = ['OctagonTests.OctagonStateMachineTests']
+    test_classes = []
     for filename in test_files:
         f = open(filename, 'r')
         for line in f:
@@ -54,7 +55,7 @@ for x in ['OctagonTrustTests']:
 
     test_dictionary = Foundation.NSMutableDictionary.dictionary()
     test_dictionary['TestName'] = x
-    test_dictionary['Timeout']= 1200
+    test_dictionary['Timeout'] = 1200
     test_dictionary['ShowSubtestResults']= True
     test_dictionary['WorkingDirectory'] = '/AppleInternal/XCTests/com.apple.security/'
 
@@ -90,5 +91,5 @@ if not os.path.exists(out_dir):
     os.makedirs(out_dir)
 success = test_plist.writeToFile_atomically_(outfile, 1)
 if not success:
-    print "test plist failed to write, error!"
+    print("test plist failed to write, error!")
     sys.exit(1)

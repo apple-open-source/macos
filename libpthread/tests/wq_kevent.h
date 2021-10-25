@@ -1,7 +1,7 @@
 #define REQUESTS_LEN 4
 static struct workq_reqthreads_req_s {unsigned long priority; int count;} requests[REQUESTS_LEN];
 
-#define QOS_STR(q) (q == QOS_CLASS_USER_INTERACTIVE ? "UInter" : (q == QOS_CLASS_USER_INITIATED ? "UInit" : (q == QOS_CLASS_DEFAULT ? "Dflt" : (q == QOS_CLASS_UTILITY ? "Util" : (q == QOS_CLASS_BACKGROUND ? "BG" : "Unkn" ) ) ) ) )
+#define QOS_STR(q) (q == QOS_CLASS_USER_INTERACTIVE ? "UI" : (q == QOS_CLASS_USER_INITIATED ? "IN" : (q == QOS_CLASS_DEFAULT ? "DEF" : (q == QOS_CLASS_UTILITY ? "UT" : (q == QOS_CLASS_BACKGROUND ? "BG" : "UN" ) ) ) ) )
 static char* describe_pri(pthread_priority_t pri){
 	qos_class_t qos;
 	unsigned long flags;

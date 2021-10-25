@@ -46,6 +46,10 @@
 #define PROC_UUID_ALT_DYLD_POLICY   0x00000004
 #endif
 
+#ifndef PROC_UUID_ALT_ROSETTA_POLICY
+#define PROC_UUID_ALT_ROSETTA_POLICY   0x00000008
+#endif
+
 /* UUID bucket */
 struct uuid_bucket
 {
@@ -56,7 +60,7 @@ struct uuid_bucket
 /* Static Function Definitions */
 static
 void
-usage();
+usage(void);
 
 static
 int
@@ -136,6 +140,9 @@ main(
     } else if (strcmp(policy_string, "alt-dyld") == 0) {
 
         policy = PROC_UUID_ALT_DYLD_POLICY;
+    } else if (strcmp(policy_string, "alt-rosetta") == 0) {
+
+        policy = PROC_UUID_ALT_ROSETTA_POLICY;
     } else {
 
         fprintf(stderr, "Unknown policy: %s\n", policy_string);
@@ -217,6 +224,7 @@ usage(void)
     fprintf(stderr, "\tno_cellular\tPROC_UUID_NO_CELLULAR\n");
     fprintf(stderr, "\tnecp\t\tPROC_UUID_NECP_APP_POLICY\n");
     fprintf(stderr, "\talt-dyld\tPROC_UUID_ALT_DYLD_POLICY\n");
+    fprintf(stderr, "\talt-rosetta\tPROC_UUID_ALT_ROSETTA_POLICY\n");
 }
 
 static

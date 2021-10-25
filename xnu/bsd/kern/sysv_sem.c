@@ -78,9 +78,6 @@
 #define MPRINTF(a)
 #endif
 
-#define KM_SYSVSEM       KHEAP_DEFAULT
-
-
 /* Hard system limits to avoid resource starvation / DOS attacks.
  * These are not needed if we can make the semaphore pages swappable.
  */
@@ -268,8 +265,7 @@ grow_semu_array(int newSize)
 #ifdef SEM_DEBUG
 	printf("growing semu[] from %d to %d\n", seminfo.semmnu, newSize);
 #endif
-	newSemu = kheap_alloc(KM_SYSVSEM, sizeof(struct sem_undo) * newSize,
-	    Z_WAITOK | Z_ZERO);
+	newSemu = kalloc_type(struct sem_undo, newSize, Z_WAITOK | Z_ZERO);
 	if (NULL == newSemu) {
 #ifdef SEM_DEBUG
 		printf("allocation failed.  no changes made.\n");
@@ -283,12 +279,12 @@ grow_semu_array(int newSize)
 	}
 	/*
 	 * The new elements (from newSemu[i] to newSemu[newSize-1]) have their
-	 * "un_proc" set to 0 (i.e. NULL) by the Z_ZERO flag to kheap_alloc
-	 * above, so they're already marked as "not in use".
+	 * "un_proc" set to 0 (i.e. NULL) by the Z_ZERO flag above,
+	 * so they're already marked as "not in use".
 	 */
 
 	/* Clean up the old array */
-	kheap_free(KM_SYSVSEM, semu, sizeof(struct sem_undo) * seminfo.semmnu);
+	kfree_type(struct sem_undo, seminfo.semmnu, semu);
 
 	semu = newSemu;
 	seminfo.semmnu = newSize;
@@ -326,8 +322,7 @@ grow_sema_array(int newSize)
 #ifdef SEM_DEBUG
 	printf("growing sema[] from %d to %d\n", seminfo.semmni, newSize);
 #endif
-	newSema = kheap_alloc(KM_SYSVSEM, sizeof(struct semid_kernel) * newSize,
-	    Z_WAITOK | Z_ZERO);
+	newSema = kalloc_type(struct semid_kernel, newSize, Z_WAITOK | Z_ZERO);
 	if (NULL == newSema) {
 #ifdef SEM_DEBUG
 		printf("allocation failed.  no changes made.\n");
@@ -360,12 +355,11 @@ grow_sema_array(int newSize)
 	/*
 	 * The new elements (from newSema[i] to newSema[newSize-1]) have their
 	 * "sem_base" and "sem_perm.mode" set to 0 (i.e. NULL) by the Z_ZERO
-	 * flag to kheap_alloc above, so they're already marked as "not in use".
+	 * flag above, so they're already marked as "not in use".
 	 */
 
 	/* Clean up the old array */
-	kheap_free(KM_SYSVSEM, sema,
-	    sizeof(struct semid_kernel) * seminfo.semmni);
+	kfree_type(struct semid_kernel, seminfo.semmni, sema);
 
 	sema = newSema;
 	seminfo.semmni = newSize;
@@ -406,7 +400,7 @@ grow_sem_pool(int new_pool_size)
 #ifdef SEM_DEBUG
 	printf("growing sem_pool array from %d to %d\n", seminfo.semmns, new_pool_size);
 #endif
-	new_sem_pool = kheap_alloc(KM_SYSVSEM, sizeof(struct sem) * new_pool_size,
+	new_sem_pool = kalloc_data(sizeof(struct sem) * new_pool_size,
 	    Z_WAITOK | Z_ZERO);
 	if (NULL == new_sem_pool) {
 #ifdef SEM_DEBUG
@@ -434,7 +428,7 @@ grow_sem_pool(int new_pool_size)
 	sem_pool = new_sem_pool;
 
 	/* clean up the old array */
-	kheap_free(KM_SYSVSEM, sem_free, sizeof(struct sem) * seminfo.semmns);
+	kfree_data(sem_free, sizeof(struct sem) * seminfo.semmns);
 
 	seminfo.semmns = new_pool_size;
 #ifdef SEM_DEBUG
@@ -585,7 +579,7 @@ semundo_adjust(struct proc *p, int *supidx, int semid,
 		if (sueptr->une_adjval == 0) {
 			suptr->un_cnt--;
 			*suepptr = sueptr->une_next;
-			kheap_free(KM_SYSVSEM, sueptr, sizeof(struct undo));
+			kfree_type(struct undo, sueptr);
 		}
 		return 0;
 	}
@@ -602,10 +596,7 @@ semundo_adjust(struct proc *p, int *supidx, int semid,
 	}
 
 	/* allocate a new semaphore undo entry */
-	new_sueptr = kheap_alloc(KM_SYSVSEM, sizeof(struct undo), Z_WAITOK);
-	if (new_sueptr == NULL) {
-		return ENOMEM;
-	}
+	new_sueptr = kalloc_type(struct undo, Z_WAITOK | Z_NOFAIL);
 
 	/* fill in the new semaphore undo entry */
 	new_sueptr->une_next = suptr->un_ent;
@@ -639,7 +630,7 @@ semundo_clear(int semid, int semnum)
 				if (semnum == -1 || sueptr->une_num == semnum) {
 					suptr->un_cnt--;
 					*suepptr = sueptr->une_next;
-					kheap_free(KM_SYSVSEM, sueptr, sizeof(struct undo));
+					kfree_type(struct undo, sueptr);
 					sueptr = *suepptr;
 					continue;
 				}
@@ -873,7 +864,7 @@ semctl(struct proc *p, struct semctl_args *uap, int32_t *retval)
 			goto semctlout;
 		}
 		semakptr->u.sem_base[semnum].semval = newsemval;
-		semakptr->u.sem_base[semnum].sempid = p->p_pid;
+		semakptr->u.sem_base[semnum].sempid = proc_getpid(p);
 		/* XXX scottl Should there be a MAC call here? */
 		semundo_clear(semid, semnum);
 		wakeup((caddr_t)semakptr);
@@ -892,7 +883,7 @@ semctl(struct proc *p, struct semctl_args *uap, int32_t *retval)
 			if (eval != 0) {
 				break;
 			}
-			semakptr->u.sem_base[i].sempid = p->p_pid;
+			semakptr->u.sem_base[i].sempid = proc_getpid(p);
 		}
 		/* XXX scottl Should there be a MAC call here? */
 		semundo_clear(semid, -1);
@@ -1378,7 +1369,7 @@ done:
 	for (i = 0; i < nsops; i++) {
 		sopptr = &sops[i];
 		semptr = &semakptr->u.sem_base[sopptr->sem_num];
-		semptr->sempid = p->p_pid;
+		semptr->sempid = proc_getpid(p);
 	}
 	semakptr->u.sem_otime = sysv_semtime();
 
@@ -1510,7 +1501,7 @@ semexit(struct proc *p)
 #endif
 			suptr->un_cnt--;
 			suptr->un_ent = sueptr->une_next;
-			kheap_free(KM_SYSVSEM, sueptr, sizeof(struct undo));
+			kfree_type(struct undo, sueptr);
 		}
 	}
 

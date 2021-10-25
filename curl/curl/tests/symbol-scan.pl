@@ -6,11 +6,11 @@
 #                            | (__| |_| |  _ <| |___
 #                             \___|\___/|_| \_\_____|
 #
-# Copyright (C) 2010-2018, Daniel Stenberg, <daniel@haxx.se>, et al.
+# Copyright (C) 2010 - 2021, Daniel Stenberg, <daniel@haxx.se>, et al.
 #
 # This software is licensed as described in the file COPYING, which
 # you should have received as part of this distribution. The terms
-# are also available at https://curl.haxx.se/docs/copyright.html.
+# are also available at https://curl.se/docs/copyright.html.
 #
 # You may opt to use, copy, modify, merge, publish, distribute and/or sell
 # copies of the Software, and permit persons to whom the Software is
@@ -22,7 +22,7 @@
 ###########################################################################
 #
 # This script grew out of help from Przemyslaw Iskra and Balint Szilakszi
-# a late evening in the #curl IRC channel on freenode.
+# a late evening in the #curl IRC channel.
 #
 
 use strict;
@@ -119,11 +119,13 @@ for my $e (sort @syms) {
     # CURL_EXTERN - is a define used for libcurl functions that are external,
     # public. No app or other code should ever use it.
     #
+    # CURLINC_ - defines for header dual-include prevention, ignore those.
+    #
     # *_LAST and *_LASTENTRY are just prefix for the placeholders used for the
     # last entry in many enum series.
     #
 
-    if($e =~ /(OBSOLETE|^CURL_EXTERN|_LAST\z|_LASTENTRY\z)/) {
+    if($e =~ /(OBSOLETE|^CURL_EXTERN|^CURLINC_|_LAST\z|_LASTENTRY\z)/) {
         $ignored++;
         next;
     }
@@ -174,5 +176,8 @@ if($summary) {
 }
 
 if($misses) {
-    exit 2; # there are stuff to attend to!
+    exit 0; # there are stuff to attend to!
+}
+else {
+    print "OK\n";
 }

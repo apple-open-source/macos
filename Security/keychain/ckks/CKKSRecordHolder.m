@@ -36,8 +36,9 @@
 
 #import <CloudKit/CloudKit.h>
 
-
 @implementation CKKSCKRecordHolder
+@synthesize encodedCKRecord = _encodedCKRecord;
+@synthesize storedCKRecord = _storedCKRecord;
 
 - (instancetype) initWithCKRecord: (CKRecord*) record {
     if(self = [super init]) {
@@ -52,36 +53,58 @@
         _zoneID = zoneID;
         _ckRecordType = recordType;
         _encodedCKRecord = encodedCKRecord;
-
-        if(self.encodedCKRecord && ![self.storedCKRecord.recordID.zoneID isEqual: self.zoneID]) {
-            ckkserror("ckks", self.zoneID, "mismatching zone ids in a single record: %@ and %@", self.zoneID, self.storedCKRecord.recordID.zoneID);
-        }
+        _storedCKRecord = nil;
     }
     return self;
 }
 
 - (CKRecord*) storedCKRecord {
-    if(!_encodedCKRecord) {
+    if(_storedCKRecord != nil) {
+        return [_storedCKRecord copy];
+    }
+
+    if(_encodedCKRecord == nil) {
         return nil;
     }
-    NSKeyedUnarchiver *coder = [[NSKeyedUnarchiver alloc] initForReadingFromData:_encodedCKRecord error:nil];
-    CKRecord* ckRecord = [[CKRecord alloc] initWithCoder:coder];
-    [coder finishDecoding];
+    @autoreleasepool {
+        NSKeyedUnarchiver *coder = [[NSKeyedUnarchiver alloc] initForReadingFromData:_encodedCKRecord error:nil];
+        CKRecord* ckRecord = [[CKRecord alloc] initWithCoder:coder];
+        [coder finishDecoding];
 
-    return ckRecord;
+        if(ckRecord && ![ckRecord.recordID.zoneID isEqual:self.zoneID]) {
+            ckkserror("ckks", self.zoneID, "mismatching zone ids in a single record: %@ and %@", self.zoneID, ckRecord.recordID.zoneID);
+        }
+
+        _storedCKRecord = ckRecord;
+        return [ckRecord copy];
+    }
 }
 
 - (void) setStoredCKRecord: (CKRecord*) ckRecord {
     if(!ckRecord) {
         _encodedCKRecord = nil;
+        _storedCKRecord = nil;
         return;
     }
+
     self.zoneID = ckRecord.recordID.zoneID;
     self.ckRecordType = ckRecord.recordType;
 
     NSKeyedArchiver *archiver = [[NSKeyedArchiver alloc] initRequiringSecureCoding:YES];
     [ckRecord encodeWithCoder:archiver];
     _encodedCKRecord = archiver.encodedData;
+    _storedCKRecord = [ckRecord copy];
+}
+
+- (NSData*)encodedCKRecord
+{
+    return _encodedCKRecord;
+}
+
+- (void)setEncodedCKRecord:(NSData *)encodedCKRecord
+{
+    _encodedCKRecord = encodedCKRecord;
+    _storedCKRecord = nil;
 }
 
 - (CKRecord*) CKRecordWithZoneID: (CKRecordZoneID*) zoneID {
@@ -94,9 +117,13 @@
         record = self.storedCKRecord;
     }
 
+    CKRecord* originalRecord = [record copy];
+
     [self updateCKRecord:record zoneID:zoneID];
 
-    self.storedCKRecord = record;
+    if(![record isEqual:originalRecord]) {
+        self.storedCKRecord = record;
+    }
     return record;
 }
 
@@ -125,7 +152,8 @@
     CKKSCKRecordHolder *rhCopy = [super copyWithZone:zone];
     rhCopy->_zoneID = _zoneID;
     rhCopy->_ckRecordType = _ckRecordType;
-    rhCopy->_encodedCKRecord = _encodedCKRecord;
+    rhCopy->_encodedCKRecord = [_encodedCKRecord copy];
+    rhCopy->_storedCKRecord = [_storedCKRecord copy];
     return rhCopy;
 }
 @end

@@ -1,9 +1,11 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 #
 # gkrecord - record Gatekeeper rejection activity
 #
 # gkrecord filename
 #
+from __future__ import print_function
+from builtins import str
 import sys
 import os
 import signal
@@ -17,11 +19,11 @@ import plistlib
 # Usage and fail
 #
 def usage():
-	print >>sys.stderr, "Usage: %s outputfile" % sys.argv[0]
+	print("Usage: %s outputfile" % sys.argv[0], file=sys.stderr)
 	sys.exit(2)
 
 def fail(whatever):
-	print >>sys.stderr, "%s: %s" % (sys.argv[0], whatever)
+	print("%s: %s" % (sys.argv[0], whatever), file=sys.stderr)
 	sys.exit(1)
 
 
@@ -112,7 +114,7 @@ signal.signal(signal.SIGINT, sigint)
 
 (authfd, authfile) = tempfile.mkstemp()
 dtrace = subprocess.Popen(["dtrace", "-qs", "/dev/stdin", str(spd_pid)], stdin=subprocess.PIPE, stdout=authfd, stderr=subprocess.PIPE)
-print "Exercise the programs to be whitelisted now. Interrupt this script (^C) when you are done."
+print("Exercise the programs to be whitelisted now. Interrupt this script (^C) when you are done.")
 (stdout, stderr) = dtrace.communicate(input=DSCRIPT)
 signal.signal(signal.SIGINT, signal.SIG_DFL)
 if stderr:
@@ -186,14 +188,14 @@ plistlib.writePlist(gkedict, outputfile)
 #
 # Report on any problems found
 #
-for rec in unsigned.values():
-	print >>sys.stderr, "PROBLEM: unsigned type %d object not whitelisted: %s" % (rec["type"], rec["path"])
-for rec in badsigned.values():
-	print >>sys.stderr, "PROBLEM: broken code signature; object not whitelisted: %s" % rec["path"]
+for rec in list(unsigned.values()):
+	print("PROBLEM: unsigned type %d object not whitelisted: %s" % (rec["type"], rec["path"]), file=sys.stderr)
+for rec in list(badsigned.values()):
+	print("PROBLEM: broken code signature; object not whitelisted: %s" % rec["path"], file=sys.stderr)
 
 
 #
 # Done
 #
-print "Recorded %d authorization(s), %d signature(s) in %s" % (len(auth), len(sigs), outputfile)
+print("Recorded %d authorization(s), %d signature(s) in %s" % (len(auth), len(sigs), outputfile))
 sys.exit(0)

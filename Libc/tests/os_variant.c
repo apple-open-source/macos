@@ -31,6 +31,9 @@ T_DECL(os_variant_basic, "Just calls all the APIs")
 
 	T_MAYFAIL;
 	T_EXPECT_TRUE(os_variant_check("com.apple.Libc.tests", "HasFullLogging"), NULL);
+
+	T_MAYFAIL;
+	T_EXPECT_TRUE(os_variant_check("com.apple.Libc.tests", "AllowsSecurityResearch"), NULL);
 }
 
 #define VARIANT_SKIP_EXPORTED
@@ -54,7 +57,7 @@ T_DECL(os_variant_detailed, "Looks at individual checks")
 	T_MAYFAIL;
 	T_EXPECT_FALSE(_check_disabled(VP_SECURITY), NULL);
 
-#if !TARGET_OS_IPHONE || TARGET_IPHONE_SIMULATOR
+#if !TARGET_OS_IPHONE || TARGET_OS_SIMULATOR
 	T_MAYFAIL;
 	T_EXPECT_TRUE(_check_internal_content(), NULL);
 #endif
@@ -65,6 +68,11 @@ T_DECL(os_variant_detailed, "Looks at individual checks")
 
 	T_MAYFAIL;
 	T_EXPECT_TRUE(_check_factory_release_type(), NULL);
+
+#if !TARGET_OS_SIMULATOR
+	T_MAYFAIL;
+	T_EXPECT_TRUE(_check_allows_security_research(), NULL);
+#endif
 #else
 	T_MAYFAIL;
 	T_EXPECT_FALSE(_check_internal_diags_profile(), NULL);

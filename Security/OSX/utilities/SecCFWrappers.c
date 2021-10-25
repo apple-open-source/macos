@@ -38,20 +38,7 @@ CFGiblisGetSingleton(CFDictionaryRef, SecGetDebugDescriptionFormatOptions, forma
     *formatOption = CFDictionaryCreate(kCFAllocatorDefault, k, v, 1, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
 })
 
-//
-// Smart comparator for strings that matches sorting functions
-//
-
-CFComparisonResult CFStringCompareSafe(const void *val1, const void *val2, void *context) {
-    if (!isString(val1))
-        return kCFCompareLessThan;
-    if (!isString(val2))
-        return kCFCompareGreaterThan;
-    
-    return CFStringCompare(val1, val2, 0);
-}
-
-void CFStringArrayPerformWithDelimiterWithDescription(CFArrayRef strings, CFStringRef start, CFStringRef end, void (^action)(CFStringRef description)) {
+static void CFStringArrayPerformWithDelimiterWithDescription(CFArrayRef strings, CFStringRef start, CFStringRef end, void (^action)(CFStringRef description)) {
     if(!strings) {
         action(CFSTR("null"));
     } else {
@@ -277,16 +264,6 @@ CFDataRef CFDataCreateWithRandomBytes(size_t len) {
     });
     return retval;
 }
-
-CFDataRef CFDataCreateWithInitializer(CFAllocatorRef allocator, CFIndex size, bool (^operation)(size_t size, uint8_t *buffer)) {
-    __block CFMutableDataRef result = NULL;
-    if(!size) return NULL;
-    if((result = CFDataCreateMutableWithScratch(allocator, size)) == NULL) return NULL;
-    if (!operation(size, CFDataGetMutableBytePtr(result))) CFReleaseNull(result);
-    return result;
-}
-
-
 
 CFGiblisGetSingleton(CFDateFormatterRef, GetShortDateFormatter, sDateFormatter, ^{
     CFLocaleRef locale = CFLocaleCopyCurrent();

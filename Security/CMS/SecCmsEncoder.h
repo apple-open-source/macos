@@ -145,6 +145,9 @@ SecCmsEncoderDestroy(SecCmsEncoderRef encoder);
 extern OSStatus
 SecCmsEncoderFinish(SecCmsEncoderRef encoder);
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+
 /*! @functiongroup One shot interface */
 #if TARGET_OS_OSX
 /*!
@@ -152,13 +155,10 @@ SecCmsEncoderFinish(SecCmsEncoderRef encoder);
      @abstract BER Encode a CMS message.
      @discussion BER Encode a CMS message, with input being the plaintext message and outBer being the output, stored in arena's pool.
  */
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
 extern OSStatus
 SecCmsMessageEncode(SecCmsMessageRef cmsg, const CSSM_DATA *input, SecArenaPoolRef arena,
                     CSSM_DATA_PTR outBer)
     API_AVAILABLE(macos(10.4)) API_UNAVAILABLE(macCatalyst);
-#pragma clang diagnostic pop
 #else // !TARGET_OS_OSX
 /*!
     @function
@@ -174,6 +174,8 @@ SecCmsMessageEncode(SecCmsMessageRef cmsg, const SecAsn1Item *input,
                     CFMutableDataRef outBer)
     API_AVAILABLE(ios(2.0), tvos(2.0), watchos(1.0)) API_UNAVAILABLE(macCatalyst);
 #endif // !TARGET_OS_OSX
+
+#pragma clang diagnostic pop
 
 __END_DECLS
 

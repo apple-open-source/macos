@@ -238,7 +238,7 @@ log_init_sec_context(struct _gss_context *ctx,
 GSSAPI_LIB_FUNCTION OM_uint32 GSSAPI_LIB_CALL
 gss_init_sec_context(OM_uint32 * __nonnull minor_status,
     __nullable const gss_cred_id_t initiator_cred_handle,
-    __nonnull gss_ctx_id_t * __nullable context_handle,
+    __nullable gss_ctx_id_t * __nonnull context_handle,
     __nonnull const gss_name_t target_name,
     __nullable const gss_OID input_mech_type,
     OM_uint32 req_flags,

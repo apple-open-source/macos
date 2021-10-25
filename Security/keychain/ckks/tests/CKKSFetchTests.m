@@ -28,8 +28,13 @@
     [self expectCKModifyKeyRecords:0 currentKeyPointerRecords:0 tlkShareRecords:1 zoneID:self.keychainZoneID];
     [self startCKKSSubsystem];
     XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], @"key state should enter 'ready'");
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:20*NSEC_PER_SEC], @"CKKS state machine should enter 'ready'");
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
     [self waitForCKModifications];
+
+    // Cause a fetch to occur, so that the local CKKS instance is definitely up to date with what it has uploaded, so the next fetch will be entirely items
+    [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
+    [self.defaultCKKS waitForFetchAndIncomingQueueProcessing];
 
     FakeCKZone* ckzone = self.zones[self.keychainZoneID];
 
@@ -54,12 +59,12 @@
     } runBeforeFinished:^{}];
 
     [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
-    [self.keychainView waitForFetchAndIncomingQueueProcessing];
+    [self.defaultCKKS waitForFetchAndIncomingQueueProcessing];
 
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
 
-    NSTimeInterval delta = [ckzone.fetchRecordZoneChangesTimestamps[2] timeIntervalSinceDate:ckzone.fetchRecordZoneChangesTimestamps[1]];
-    XCTAssertLessThan(delta, 2, "operation 1 and 2 should be back-to-back");
+    NSTimeInterval delta = [ckzone.fetchRecordZoneChangesTimestamps[3] timeIntervalSinceDate:ckzone.fetchRecordZoneChangesTimestamps[2]];
+    XCTAssertLessThan(delta, 2, "operation 2 and 3 should be back-to-back");
 
     [self findGenericPassword: @"account0" expecting:errSecSuccess];
     [self findGenericPassword: @"account1" expecting:errSecSuccess];
@@ -74,8 +79,13 @@
     [self expectCKModifyKeyRecords:0 currentKeyPointerRecords:0 tlkShareRecords:1 zoneID:self.keychainZoneID];
     [self startCKKSSubsystem];
     XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], @"key state should enter 'ready'");
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:20*NSEC_PER_SEC], @"CKKS state machine should enter 'ready'");
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
     [self waitForCKModifications];
+
+    // Cause a fetch to occur, so that the local CKKS instance is definitely up to date with what it has uploaded, so the next fetch will be entirely items
+    [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
+    [self.defaultCKKS waitForFetchAndIncomingQueueProcessing];
 
     FakeCKZone* ckzone = self.zones[self.keychainZoneID];
 
@@ -121,15 +131,15 @@
     } runBeforeFinished:^{}];
 
     [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
-    [self.keychainView waitForFetchAndIncomingQueueProcessing];
+    [self.defaultCKKS waitForFetchAndIncomingQueueProcessing];
 
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
 
-    NSTimeInterval delta = [ckzone.fetchRecordZoneChangesTimestamps[2] timeIntervalSinceDate:ckzone.fetchRecordZoneChangesTimestamps[1]];
-    XCTAssertLessThan(delta, 2, "operation 1 and 2 should be back-to-back");
-
-    delta = [ckzone.fetchRecordZoneChangesTimestamps[3] timeIntervalSinceDate:ckzone.fetchRecordZoneChangesTimestamps[2]];
+    NSTimeInterval delta = [ckzone.fetchRecordZoneChangesTimestamps[3] timeIntervalSinceDate:ckzone.fetchRecordZoneChangesTimestamps[2]];
     XCTAssertLessThan(delta, 2, "operation 2 and 3 should be back-to-back");
+
+    delta = [ckzone.fetchRecordZoneChangesTimestamps[4] timeIntervalSinceDate:ckzone.fetchRecordZoneChangesTimestamps[3]];
+    XCTAssertLessThan(delta, 2, "operation 3 and 4 should be back-to-back");
 
     [self findGenericPassword: @"account0" expecting:errSecSuccess];
     [self findGenericPassword: @"account1" expecting:errSecSuccess];
@@ -146,8 +156,13 @@
     [self expectCKModifyKeyRecords:0 currentKeyPointerRecords:0 tlkShareRecords:1 zoneID:self.keychainZoneID];
     [self startCKKSSubsystem];
     XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], @"key state should enter 'ready'");
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:20*NSEC_PER_SEC], @"CKKS state machine should enter 'ready'");
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
     [self waitForCKModifications];
+
+    // Cause a fetch to occur, so that the local CKKS instance is definitely up to date with what it has uploaded, so the next fetch will be entirely items
+    [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
+    [self.defaultCKKS waitForFetchAndIncomingQueueProcessing];
 
     FakeCKZone* ckzone = self.zones[self.keychainZoneID];
 
@@ -174,7 +189,7 @@
     } runBeforeFinished:^{}];
 
     [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
-    [self.keychainView waitForFetchAndIncomingQueueProcessing];
+    [self.defaultCKKS waitForFetchAndIncomingQueueProcessing];
 
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
 
@@ -192,8 +207,13 @@
     [self expectCKModifyKeyRecords:0 currentKeyPointerRecords:0 tlkShareRecords:1 zoneID:self.keychainZoneID];
     [self startCKKSSubsystem];
     XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], @"key state should enter 'ready'");
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:20*NSEC_PER_SEC], @"CKKS state machine should enter 'ready'");
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
     [self waitForCKModifications];
+
+    // Cause a fetch to occur, so that the local CKKS instance is definitely up to date with what it has uploaded, so the next fetch will be entirely items
+    [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
+    [self.defaultCKKS waitForFetchAndIncomingQueueProcessing];
 
     FakeCKZone* ckzone = self.zones[self.keychainZoneID];
 
@@ -241,7 +261,8 @@
 
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
 
-    [self.keychainView waitForOperationsOfClass:[CKKSIncomingQueueOperation class]];
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], @"key state should enter 'ready'");
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:20*NSEC_PER_SEC], @"CKKS state machine should enter 'ready'");
 
     [self findGenericPassword: @"account0" expecting:errSecSuccess];
     [self findGenericPassword: @"account1" expecting:errSecSuccess];
@@ -256,8 +277,13 @@
     [self expectCKModifyKeyRecords:0 currentKeyPointerRecords:0 tlkShareRecords:1 zoneID:self.keychainZoneID];
     [self startCKKSSubsystem];
     XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], @"key state should enter 'ready'");
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:20*NSEC_PER_SEC], @"CKKS state machine should enter 'ready'");
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
     [self waitForCKModifications];
+
+    // Cause a fetch to occur, so that the local CKKS instance is definitely up to date with what it has uploaded, so the next fetch will be entirely items
+    [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
+    [self.defaultCKKS waitForFetchAndIncomingQueueProcessing];
 
     FakeCKZone* ckzone = self.zones[self.keychainZoneID];
 
@@ -274,14 +300,16 @@
     [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
 
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
-    [self.keychainView waitForOperationsOfClass:[CKKSIncomingQueueOperation class]];
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], @"key state should enter 'ready'");
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:20*NSEC_PER_SEC], @"CKKS state machine should enter 'ready'");
+
     [self findGenericPassword: @"account0" expecting:errSecSuccess];
     [self findGenericPassword: @"account1" expecting:errSecSuccess];
 
     // Now, edit the on-disk CKSE
-    [self.keychainView halt];
+    [self.defaultCKKS halt];
 
-    [self.keychainView dispatchSyncWithSQLTransaction:^CKKSDatabaseTransactionResult{
+    [self.defaultCKKS dispatchSyncWithSQLTransaction:^CKKSDatabaseTransactionResult{
         NSError* error = nil;
         CKKSZoneStateEntry* ckse = [CKKSZoneStateEntry fromDatabase:self.keychainZoneID.zoneName error:&error];
 
@@ -308,13 +336,16 @@
         }
     } runBeforeFinished:^{}];
 
-    self.keychainView = [self.injectedManager restartZone:self.keychainZoneID.zoneName];
-    [self.keychainView beginCloudKitOperation];
-    [self beginSOSTrustedViewOperation:self.keychainView];
+    self.defaultCKKS = [self.injectedManager restartCKKSAccountSync:self.defaultCKKS];
+    self.keychainView = [self.defaultCKKS viewStateForName:self.keychainZoneID.zoneName];
+
+    [self.defaultCKKS beginCloudKitOperation];
+    [self beginSOSTrustedViewOperation:self.defaultCKKS];
 
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
 
-    [self.keychainView waitForOperationsOfClass:[CKKSIncomingQueueOperation class]];
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], @"key state should enter 'ready'");
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:20*NSEC_PER_SEC], @"CKKS state machine should enter 'ready'");
 
     [self findGenericPassword: @"account0" expecting:errSecSuccess];
     [self findGenericPassword: @"account1" expecting:errSecSuccess];
@@ -351,10 +382,12 @@
     [self expectCKModifyKeyRecords:0 currentKeyPointerRecords:0 tlkShareRecords:1 zoneID:self.keychainZoneID];
     [self startCKKSSubsystem];
     XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], @"key state should enter 'ready'");
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:20*NSEC_PER_SEC], @"CKKS state machine should enter 'ready'");
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
     [self waitForCKModifications];
 
-    [self.keychainView waitForOperationsOfClass:[CKKSIncomingQueueOperation class]];
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], @"key state should enter 'ready'");
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:20*NSEC_PER_SEC], @"CKKS state machine should enter 'ready'");
 
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
 

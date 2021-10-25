@@ -40,225 +40,215 @@
 #include <security_asn1/secerr.h>
 #include <security_asn1/secport.h>
 
-SecAsn1Item *
-SECITEM_AllocItem(PRArenaPool *arena, SecAsn1Item *item, size_t len)
+SecAsn1Item* SECITEM_AllocItem(PRArenaPool* arena, SecAsn1Item* item, size_t len)
 {
-    SecAsn1Item *result = NULL;
-    void *mark = NULL;
+    SecAsn1Item* result = NULL;
+    void* mark = NULL;
 
     if (arena != NULL) {
-	mark = PORT_ArenaMark(arena);
+        mark = PORT_ArenaMark(arena);
     }
 
     if (item == NULL) {
-	if (arena != NULL) {
-	    result = PORT_ArenaZAlloc(arena, sizeof(SecAsn1Item));
-	} else {
-	    result = PORT_ZAlloc(sizeof(SecAsn1Item));
-	}
-	if (result == NULL) {
-	    goto loser;
-	}
+        if (arena != NULL) {
+            result = PORT_ArenaZAlloc(arena, sizeof(SecAsn1Item));
+        } else {
+            result = PORT_ZAlloc(sizeof(SecAsn1Item));
+        }
+        if (result == NULL) {
+            goto loser;
+        }
     } else {
-	PORT_Assert(item->Data == NULL);
-	result = item;
+        PORT_Assert(item->Data == NULL);
+        result = item;
     }
 
     result->Length = len;
     if (len) {
-	if (arena != NULL) {
-	    result->Data = PORT_ArenaAlloc(arena, len);
-	} else {
-	    result->Data = PORT_Alloc(len);
-	}
+        if (arena != NULL) {
+            result->Data = PORT_ArenaAlloc(arena, len);
+        } else {
+            result->Data = PORT_Alloc(len);
+        }
     }
 
     if (mark) {
-	PORT_ArenaUnmark(arena, mark);
+        PORT_ArenaUnmark(arena, mark);
     }
-    return(result);
+    return (result);
 
 loser:
-    if ( arena != NULL ) {
-	if (mark) {
-	    PORT_ArenaRelease(arena, mark);
-	}
-	if (item != NULL) {
-	    item->Data = NULL;
-	    item->Length = 0;
-	}
+    if (arena != NULL) {
+        if (mark) {
+            PORT_ArenaRelease(arena, mark);
+        }
+        if (item != NULL) {
+            item->Data = NULL;
+            item->Length = 0;
+        }
     } else {
-	if (result != NULL) {
-	    SECITEM_FreeItem(result, (item == NULL) ? PR_TRUE : PR_FALSE);
-	}
+        if (result != NULL) {
+            SECITEM_FreeItem(result, (item == NULL) ? PR_TRUE : PR_FALSE);
+        }
     }
-    return(NULL);
+    return (NULL);
 }
 
-SECStatus
-SECITEM_ReallocItem(PRArenaPool *arena, SecAsn1Item *item, size_t oldlen,
-		    size_t newlen)
+SECStatus SECITEM_ReallocItem(PRArenaPool* arena, SecAsn1Item* item, size_t oldlen, size_t newlen)
 {
     PORT_Assert(item != NULL);
     if (item == NULL) {
-	/* XXX Set error.  But to what? */
-	return SECFailure;
+        /* XXX Set error.  But to what? */
+        return SECFailure;
     }
 
     /*
      * If no old length, degenerate to just plain alloc.
      */
     if (oldlen == 0) {
-	PORT_Assert(item->Data == NULL || item->Length == 0);
-	if (newlen == 0) {
-	    /* Nothing to do.  Weird, but not a failure.  */
-	    return SECSuccess;
-	}
-	item->Length = newlen;
-	if (arena != NULL) {
-	    item->Data = PORT_ArenaAlloc(arena, newlen);
-	} else {
-	    item->Data = PORT_Alloc(newlen);
-	}
+        PORT_Assert(item->Data == NULL || item->Length == 0);
+        if (newlen == 0) {
+            /* Nothing to do.  Weird, but not a failure.  */
+            return SECSuccess;
+        }
+        item->Length = newlen;
+        if (arena != NULL) {
+            item->Data = PORT_ArenaAlloc(arena, newlen);
+        } else {
+            item->Data = PORT_Alloc(newlen);
+        }
     } else {
-	if (arena != NULL) {
-	    item->Data = PORT_ArenaGrow(arena, item->Data, oldlen, newlen);
-	} else {
-	    item->Data = PORT_Realloc(item->Data, newlen);
-	}
+        if (arena != NULL) {
+            item->Data = PORT_ArenaGrow(arena, item->Data, oldlen, newlen);
+        } else {
+            item->Data = PORT_Realloc(item->Data, newlen);
+        }
     }
 
     if (item->Data == NULL) {
-	return SECFailure;
+        return SECFailure;
     }
 
     return SECSuccess;
 }
 
-SECComparison
-SECITEM_CompareItem(const SecAsn1Item *a, const SecAsn1Item *b)
+SECComparison SECITEM_CompareItem(const SecAsn1Item* a, const SecAsn1Item* b)
 {
     size_t m;
     SECComparison rv;
 
-    m = ( ( a->Length < b->Length ) ? a->Length : b->Length );
-    
-    rv = (SECComparison) PORT_Memcmp(a->Data, b->Data, m);
+    m = ((a->Length < b->Length) ? a->Length : b->Length);
+
+    rv = (SECComparison)PORT_Memcmp(a->Data, b->Data, m);
     if (rv) {
-	return rv;
+        return rv;
     }
     if (a->Length < b->Length) {
-	return SECLessThan;
+        return SECLessThan;
     }
     if (a->Length == b->Length) {
-	return SECEqual;
+        return SECEqual;
     }
     return SECGreaterThan;
 }
 
-Boolean
-SECITEM_ItemsAreEqual(const SecAsn1Item *a, const SecAsn1Item *b)
+Boolean SECITEM_ItemsAreEqual(const SecAsn1Item* a, const SecAsn1Item* b)
 {
     if (a->Length != b->Length)
         return PR_FALSE;
     if (!a->Length)
-    	return PR_TRUE;
+        return PR_TRUE;
     if (!a->Data || !b->Data) {
         /* avoid null pointer crash. */
-		return (Boolean)(a->Data == b->Data);
+        return (Boolean)(a->Data == b->Data);
     }
     return (Boolean)!PORT_Memcmp(a->Data, b->Data, a->Length);
 }
 
-SecAsn1Item *
-SECITEM_DupItem(const SecAsn1Item *from)
+SecAsn1Item* SECITEM_DupItem(const SecAsn1Item* from)
 {
     return SECITEM_ArenaDupItem(NULL, from);
 }
 
-SecAsn1Item *
-SECITEM_ArenaDupItem(PRArenaPool *arena, const SecAsn1Item *from)
+SecAsn1Item* SECITEM_ArenaDupItem(PRArenaPool* arena, const SecAsn1Item* from)
 {
-    SecAsn1Item *to;
+    SecAsn1Item* to;
 
-    if ( from == NULL ) {
-		return(NULL);
+    if (from == NULL) {
+        return (NULL);
     }
 
-    if ( arena != NULL ) {
-		to = (SecAsn1Item *)PORT_ArenaAlloc(arena, sizeof(SecAsn1Item));
+    if (arena != NULL) {
+        to = (SecAsn1Item*)PORT_ArenaAlloc(arena, sizeof(SecAsn1Item));
     } else {
-		to = (SecAsn1Item *)PORT_Alloc(sizeof(SecAsn1Item));
+        to = (SecAsn1Item*)PORT_Alloc(sizeof(SecAsn1Item));
     }
-    if ( to == NULL ) {
-		return(NULL);
+    if (to == NULL) {
+        return (NULL);
     }
 
-    if ( arena != NULL ) {
-		to->Data = (unsigned char *)PORT_ArenaAlloc(arena, from->Length);
+    if (arena != NULL) {
+        to->Data = (unsigned char*)PORT_ArenaAlloc(arena, from->Length);
     } else {
-		to->Data = (unsigned char *)PORT_Alloc(from->Length);
+        to->Data = (unsigned char*)PORT_Alloc(from->Length);
     }
-    if ( to->Data == NULL ) {
-		PORT_Free(to);
-		return(NULL);
+    if (to->Data == NULL) {
+        PORT_Free(to);
+        return (NULL);
     }
 
     to->Length = from->Length;
     // to->type = from->type;
-    if ( to->Length ) {
-		PORT_Memcpy(to->Data, from->Data, to->Length);
+    if (to->Length) {
+        PORT_Memcpy(to->Data, from->Data, to->Length);
     }
 
-    return(to);
+    return (to);
 }
 
-SECStatus
-SECITEM_CopyItem(PRArenaPool *arena, SecAsn1Item *to, const SecAsn1Item *from)
+SECStatus SECITEM_CopyItem(PRArenaPool* arena, SecAsn1Item* to, const SecAsn1Item* from)
 {
     // to->type = from->type;
     if (from->Data && from->Length) {
-	if ( arena ) {
-	    to->Data = (unsigned char*) PORT_ArenaAlloc(arena, from->Length);
-	} else {
-	    to->Data = (unsigned char*) PORT_Alloc(from->Length);
-	}
-	
-	if (!to->Data) {
-	    return SECFailure;
-	}
-	PORT_Memcpy(to->Data, from->Data, from->Length);
-	to->Length = from->Length;
+        if (arena) {
+            to->Data = (unsigned char*)PORT_ArenaAlloc(arena, from->Length);
+        } else {
+            to->Data = (unsigned char*)PORT_Alloc(from->Length);
+        }
+
+        if (!to->Data) {
+            return SECFailure;
+        }
+        PORT_Memcpy(to->Data, from->Data, from->Length);
+        to->Length = from->Length;
     } else {
-	to->Data = 0;
-	to->Length = 0;
+        to->Data = 0;
+        to->Length = 0;
     }
     return SECSuccess;
 }
 
-void
-SECITEM_FreeItem(SecAsn1Item *zap, Boolean freeit)
+void SECITEM_FreeItem(SecAsn1Item* zap, Boolean freeit)
 {
     if (zap) {
-	PORT_Free(zap->Data);
-	zap->Data = 0;
-	zap->Length = 0;
-	if (freeit) {
-	    PORT_Free(zap);
-	}
+        PORT_Free(zap->Data);
+        zap->Data = 0;
+        zap->Length = 0;
+        if (freeit) {
+            PORT_Free(zap);
+        }
     }
 }
 
-void
-SECITEM_ZfreeItem(SecAsn1Item *zap, Boolean freeit)
+void SECITEM_ZfreeItem(SecAsn1Item* zap, Boolean freeit)
 {
     if (zap) {
-	PORT_ZFree(zap->Data, zap->Length);
-	zap->Data = 0;
-	zap->Length = 0;
-	if (freeit) {
-	    PORT_ZFree(zap, sizeof(SecAsn1Item));
-	}
+        PORT_ZFree(zap->Data, zap->Length);
+        zap->Data = 0;
+        zap->Length = 0;
+        if (freeit) {
+            PORT_ZFree(zap, sizeof(SecAsn1Item));
+        }
     }
 }
 
@@ -271,19 +261,18 @@ SECITEM_ZfreeItem(SecAsn1Item *zap, Boolean freeit)
  * routine is left as an excercise for the more mathematically
  * inclined student.
  */
-PLHashNumber PR_CALLBACK
-SECITEM_Hash ( const void *key)
+PLHashNumber PR_CALLBACK SECITEM_Hash(const void* key)
 {
-    const SecAsn1Item *item = (const SecAsn1Item *)key;
+    const SecAsn1Item* item = (const SecAsn1Item*)key;
     PLHashNumber rv = 0;
 
-    PRUint8 *data = (PRUint8 *)item->Data;
-    PRUint8 *rvc = (PRUint8 *)&rv;
+    PRUint8* data = (PRUint8*)item->Data;
+    PRUint8* rvc = (PRUint8*)&rv;
 
     size_t i;
 
-    for( i = 0; i < item->Length; i++ ) {
-        rvc[ i % sizeof(rv) ] ^= *data;
+    for (i = 0; i < item->Length; i++) {
+        rvc[i % sizeof(rv)] ^= *data;
         data++;
     }
 
@@ -296,11 +285,10 @@ SECITEM_Hash ( const void *key)
  * quite the same ordering as the "sequence of numbers" order,
  * but heck it's only used internally by the hash table anyway.
  */
-PRIntn PR_CALLBACK
-SECITEM_HashCompare ( const void *k1, const void *k2)
+PRIntn PR_CALLBACK SECITEM_HashCompare(const void* k1, const void* k2)
 {
-    const SecAsn1Item *i1 = (const SecAsn1Item *)k1;
-    const SecAsn1Item *i2 = (const SecAsn1Item *)k2;
+    const SecAsn1Item* i1 = (const SecAsn1Item*)k1;
+    const SecAsn1Item* i2 = (const SecAsn1Item*)k2;
 
-    return SECITEM_ItemsAreEqual(i1,i2);
+    return SECITEM_ItemsAreEqual(i1, i2);
 }

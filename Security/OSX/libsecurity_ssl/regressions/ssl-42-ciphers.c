@@ -345,7 +345,7 @@ out:
 
 static bool check_peer_cert(SSLContextRef ctx, const ssl_test_handle *ssl, SecTrustRef *trust)
 {
-    CFMutableArrayRef peer_cert_array = NULL;
+    CFArrayRef peer_cert_array = NULL;
     CFMutableArrayRef orig_peer_cert_array = NULL;
 
     /* verify peer cert chain */
@@ -354,13 +354,8 @@ static bool check_peer_cert(SSLContextRef ctx, const ssl_test_handle *ssl, SecTr
     /* this won't verify without setting up a trusted anchor */
     require_noerr(SecTrustEvaluate(*trust, &trust_result), out);
 
-    CFIndex n_certs = SecTrustGetCertificateCount(*trust);
-
-    peer_cert_array = CFArrayCreateMutable(NULL, n_certs, &kCFTypeArrayCallBacks);
-    orig_peer_cert_array = CFArrayCreateMutableCopy(NULL, n_certs, ssl->peer_certs);
-    while (n_certs--)
-        CFArrayInsertValueAtIndex(peer_cert_array, 0,
-                                  SecTrustGetCertificateAtIndex(*trust, n_certs));
+    peer_cert_array = SecTrustCopyCertificateChain(*trust);
+    orig_peer_cert_array = CFArrayCreateMutableCopy(NULL, CFArrayGetCount(peer_cert_array), ssl->peer_certs);
 
     SecIdentityRef ident =
     (SecIdentityRef)CFArrayGetValueAtIndex(orig_peer_cert_array, 0);

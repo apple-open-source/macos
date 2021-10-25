@@ -67,6 +67,15 @@
     return self;
 }
 
+- (NSString*)description {
+    return [NSString stringWithFormat:@"<CKKSZoneStateEntry(%@): created:%@ subscribed:%@ moreRecords:%@>",
+            self.ckzone,
+            self.ckzonecreated ? @"YES" : @"NO",
+            self.ckzonesubscribed ? @"YES" : @"NO",
+            self.moreRecordsInCloudKit ? @"YES" : @"NO"
+    ];
+}
+
 - (BOOL)isEqual: (id) object {
     if(![object isKindOfClass:[CKKSZoneStateEntry class]]) {
         return NO;

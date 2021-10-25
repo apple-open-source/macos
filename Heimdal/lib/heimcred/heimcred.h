@@ -121,12 +121,14 @@ HeimCredGetImpersonateAuditToken(void) API_AVAILABLE(macos(10.16));
 void
 _HeimCredResetLocalCache(void);
 
+#if HEIMCRED_SERVER
 /*
  * Only valid server side side
  */
 typedef CFDictionaryRef (*HeimCredAuthCallback)(HeimCredRef, CFDictionaryRef);
 typedef CFTypeRef (*HeimCredStatusCallback)(HeimCredRef);
 typedef void (*HeimCredNotifyCaches)(void);
+typedef CFDictionaryRef(*HeimCredTraceCallback)(CFDictionaryRef);
 
 void
 _HeimCredRegisterMech(CFStringRef mech,
@@ -134,6 +136,7 @@ _HeimCredRegisterMech(CFStringRef mech,
 		      HeimCredStatusCallback statusCallback,
 		      HeimCredAuthCallback authCallback,
 		      HeimCredNotifyCaches notifyCaches,
+		      HeimCredTraceCallback traceCallback,
 		      bool readRestricted,
 		      CFArrayRef readOnlyCommands);
 
@@ -149,6 +152,7 @@ _HeimCredRegisterKerberosAcquireCred(void);
 CFMutableDictionaryRef
 _HeimCredCreateBaseSchema(CFStringRef objectType);
 
+#endif /* HEIMCRED_SERVER */
 /*
 typedef struct HeimAuth_s *HeimAuthRef;
 

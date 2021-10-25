@@ -25,7 +25,7 @@
 
 #import <CloudKit/CloudKit.h>
 #include "keychain/securityd/SecDbItem.h"
-#include <utilities/SecDb.h>
+#include "utilities/SecDb.h"
 #import "keychain/ckks/CKKS.h"
 #import "keychain/ckks/CKKSRecordHolder.h"
 #import "keychain/ckks/CKKSSQLDatabaseObject.h"
@@ -104,6 +104,12 @@ NS_ASSUME_NONNULL_BEGIN
 @interface CKKSSQLDatabaseObject (CKKSZoneExtras)
 // Convenience function: get all UUIDs of this type on this particular zone
 + (NSArray<NSString*>*)allUUIDs:(CKRecordZoneID*)zoneID error:(NSError * __autoreleasing *)error;
+
+// Same as above, but allow for multiple zones at once
++ (NSSet<NSString*>*)allUUIDsInZones:(NSSet<CKRecordZoneID*>*)zoneIDs error:(NSError * __autoreleasing *)error;
+
+// Get all parentKeyUUIDs of this type in this particular zone
++ (NSSet<NSString*>*)allParentKeyUUIDs:(CKRecordZoneID*)zoneID error:(NSError * __autoreleasing *)error;
 
 // Convenience function: get all objects in this particular zone
 + (NSArray*)all:(CKRecordZoneID*)zoneID error:(NSError* _Nullable __autoreleasing* _Nullable)error;

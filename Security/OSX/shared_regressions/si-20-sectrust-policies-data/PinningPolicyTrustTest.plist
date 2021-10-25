@@ -3626,7 +3626,7 @@
 		<key>CertDirectory</key>
 		<string>si-20-sectrust-policies-data</string>
 		<key>MajorTestName</key>
-		<string>iPhoneProfileApplicationSigning</string>
+		<string>iPhoneProfileApplicationSigning-WWDRG3</string>
 		<key>MinorTestName</key>
 		<string>PositiveTest</string>
 		<key>Policies</key>
@@ -3635,13 +3635,13 @@
 			<string>1.2.840.113635.100.1.55</string>
 		</dict>
 		<key>Leaf</key>
-		<string>test_iphone_distribution</string>
+		<string>apple_developer</string>
 		<key>Intermediates</key>
-		<string>TestAppleWWDR-G3</string>
+		<string>AppleWWDR-G3</string>
 		<key>Anchors</key>
-		<string>TestAppleRootCA</string>
+		<string>AppleRootCA</string>
 		<key>VerifyDate</key>
-		<date>2020-03-01T20:00:00Z</date>
+		<date>2021-03-01T20:00:00Z</date>
 		<key>ExpectedResult</key>
 		<integer>4</integer>
 		<key>ChainLength</key>
@@ -4076,6 +4076,56 @@
 		<integer>3</integer>
 		<key>VerifyDate</key>
 		<date>2020-09-15T00:00:00Z</date>
+	</dict>
+	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
+		<key>MajorTestName</key>
+		<string>DeveloperIDInstaller</string>
+		<key>MinorTestName</key>
+		<string>PositiveTest</string>
+		<key>Policies</key>
+		<dict>
+			<key>PolicyIdentifier</key>
+			<string>1.2.840.113635.100.1.103</string>
+		</dict>
+		<key>Leaf</key>
+		<string>developer_id_installer</string>
+		<key>Intermediates</key>
+		<string>DeveloperIDCA</string>
+		<key>Anchors</key>
+		<string>AppleRootCA</string>
+		<key>VerifyDate</key>
+		<date>2017-01-01T00:00:00Z</date>
+		<key>ExpectedResult</key>
+		<integer>4</integer>
+		<key>ChainLength</key>
+		<integer>3</integer>
+	</dict>
+	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
+		<key>MajorTestName</key>
+		<string>MacAppStoreInstaller</string>
+		<key>MinorTestName</key>
+		<string>PositiveTest</string>
+		<key>Policies</key>
+		<dict>
+			<key>PolicyIdentifier</key>
+			<string>1.2.840.113635.100.1.104</string>
+		</dict>
+		<key>Leaf</key>
+		<string>mac_app_store_installer</string>
+		<key>Intermediates</key>
+		<string>AppleWWDR</string>
+		<key>Anchors</key>
+		<string>AppleRootCA</string>
+		<key>VerifyDate</key>
+		<date>2024-01-01T00:00:00Z</date>
+		<key>ExpectedResult</key>
+		<integer>4</integer>
+		<key>ChainLength</key>
+		<integer>3</integer>
 	</dict>
 	<dict>
 		<key>CertDirectory</key>

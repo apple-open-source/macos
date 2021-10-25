@@ -299,7 +299,7 @@ intpr(void (*pfunc)(char *))
 
 	if (!pfunc) {
 		if (lflag) {
-			printf("%-10.10s %-5.5s %-39.39s %-39.39s %8.8s %5.5s",
+			printf("%-14.14s %-5.5s %-39.39s %-39.39s %8.8s %5.5s",
 				   "Name", "Mtu", "Network", "Address", "Ipkts", "Ierrs");
 		} else {
 			printf("%-10.10s %-5.5s %-13.13s %-15.15s %8.8s %5.5s",
@@ -463,9 +463,9 @@ intpr(void (*pfunc)(char *))
 			continue;
 		}
 		if (lflag) {
-			printf("%-10.10s %-5u ", name, mtu);
+			printf("%-14.14s %-5u ", name, mtu);
 		} else {
-			printf("%-5.5s %-5u ", name, mtu);
+			printf("%-10.10s %-5u ", name, mtu);
 		}
 
 		if (sa == 0) {
@@ -1192,7 +1192,7 @@ intpr_ri(void (*pfunc)(char *))
 		return;
 	}
 
-	printf("%-6s %-17s %8.8s %-9.9s %4s %4s",
+	printf("%-6s %-17s %14.14s %-9.9s %4s %4s",
 	       "Proto", "Linklayer Address", "Netif", "Expire", "Refs",
 	       "Prbs");
 	if (xflag)
@@ -1267,7 +1267,7 @@ llreach_sysctl(uint32_t ifindex)
 		snprintf(ifname, sizeof (ifname), "%s", "?");
 
 	for (i = 0; i < cnt; i++, lri++) {
-		printf("0x%-4x %-17s %8.8s ", lri->lri_proto,
+		printf("0x%-4x %-17s %14.14s ", lri->lri_proto,
 		    ether_ntoa((struct ether_addr *)lri->lri_addr), ifname);
 
 		if (lri->lri_expire > time.tv_sec)
@@ -2002,7 +2002,7 @@ print_wifi_status(nstat_ifnet_desc_wifi_status *status)
 	((tmp == NSTAT_IFNET_DESC_WIFI_UL_RETXT_LEVEL_HIGH) ? "(high)" : \
 	"(?)")))))
 
-	printf("\nwifi status:\n");
+	printf("wifi status:\n");
 	printf(
 	    "\t%s:\t%d\n"
 	    "\t%s:\t%d\n"
@@ -2071,7 +2071,7 @@ print_cellular_status(nstat_ifnet_desc_cellular_status *status)
 	((tmp_mss == NSTAT_IFNET_DESC_MSS_RECOMMENDED_LOW) ? "(low)" : \
 	"(?)"))))
 
-	printf("\ncellular status:\n");
+	printf("cellular status:\n");
 	printf(
 	    "\t%s:\t%d\n"
 	    "\t%s:\t%d\n"
@@ -2174,6 +2174,7 @@ print_interface_state(struct ifreq *ifr)
 		else
 			printf("\"invalid(%d)\"", avail);
 	}
+    printf("\n");
 }
 
 void

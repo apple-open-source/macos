@@ -23,6 +23,17 @@ enum
     kApplePIODMAMemoryIndexPIODMARegisters = 0
 };
 
+enum
+{
+    kApplePIODMADefaultFIFOSize = 16,
+    kApplePIODMADefaultNumBars  = 7, // 1 BAR reserved for no offset
+
+    kApplePIODMARequestDefaultCommandDMASpecificationByteAlignment   = 4,
+    kApplePIODMARequestDefaultCommandDMASpecificationAddressBits     = 32,
+    kApplePIODMARequestDefaultCommandDMASpecificationMaxTransfersize = 128,
+    kApplePIODMARequestDefaultCommandDMASpecificationMaxSegmentSize  = 0
+};
+
 enum tApplePIODMAState
 {
     kApplePIODMAStateDisabled = 0,
@@ -140,7 +151,6 @@ public:
 protected:
     void                            executeRequest(ApplePIODMARequest* request);
     virtual IOReturn                executeRequestGated(ApplePIODMARequest* request);
-    virtual ApplePIODMARequestPool* allocateRequestPool()                                        = 0;
     virtual void                    interruptOccurred(IOInterruptEventSource* source, int count) = 0;
     virtual IOReturn                enableGated();
     virtual IOReturn                disableGated();
@@ -162,6 +172,8 @@ protected:
     unsigned int            _completionTail;
     unsigned int            _completionHead;
 
+    uint32_t                _numBaseAddressOffsets;
+    uint64_t*               _baseAddressOffsets;
 };
 
 #endif /* _IOKIT_ApplePIODMA_H */

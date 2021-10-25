@@ -32,7 +32,7 @@
 #import "keychain/ckks/CKKSAccountStateTracker.h"
 #import "keychain/ckks/CKKSCloudKitClassDependencies.h"
 #import "keychain/ckks/CKKSCondition.h"
-#import "keychain/ckks/CKKSControlProtocol.h"
+#import <Security/CKKSControlProtocol.h>
 #import "keychain/ckks/CKKSLockStateTracker.h"
 #import "keychain/ckks/CKKSReachabilityTracker.h"
 #import "keychain/ckks/CKKSNotifier.h"
@@ -45,6 +45,7 @@
 
 #import "keychain/ot/OTSOSAdapter.h"
 #import "keychain/ot/OTDefines.h"
+#import "keychain/ot/OTPersonaAdapter.h"
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -56,6 +57,7 @@ NS_ASSUME_NONNULL_BEGIN
 @property CKKSAccountStateTracker* accountTracker;
 @property CKKSLockStateTracker* lockStateTracker;
 @property CKKSReachabilityTracker *reachabilityTracker;
+@property id<OTPersonaAdapter> personaAdapter;
 @property CKKSZoneChangeFetcher* zoneChangeFetcher;
 @property CKKSZoneModifier* zoneModifier;
 
@@ -66,36 +68,18 @@ NS_ASSUME_NONNULL_BEGIN
 
 @property id<OTSOSAdapter> sosPeerAdapter;
 
-@property (readonly, nullable) TPSyncingPolicy* policy;
-
-@property (readonly) NSMutableDictionary<NSString*, CKKSKeychainView*>* views;
-
 - (instancetype)initWithContainer:(CKContainer*)container
                        sosAdapter:(id<OTSOSAdapter> _Nullable)sosAdapter
               accountStateTracker:(CKKSAccountStateTracker*)accountTracker
                  lockStateTracker:(CKKSLockStateTracker*)lockStateTracker
               reachabilityTracker:(CKKSReachabilityTracker*)reachabilityTracker
+                   personaAdapter:(id<OTPersonaAdapter>)personaAdapter
         cloudKitClassDependencies:(CKKSCloudKitClassDependencies*)cloudKitClassDependencies;
 
-// Note: findView will not wait for any views to be created. You must handle
-// states where the daemon has not entirely started up yourself
-- (CKKSKeychainView* _Nullable)findView:(NSString*)viewName;
-
-// Similar to findView, but will create the view if it's not already present.
-- (CKKSKeychainView*)findOrCreateView:(NSString*)viewName;
-
-// findViewOrError will wait for the Syncing Policy to be loaded, which
-// creates all views. Don't call this from any important queues.
-- (CKKSKeychainView* _Nullable)findView:(NSString*)viewName error:(NSError**)error;
-
-- (void)setView:(CKKSKeychainView*)obj;
-- (void)clearView:(NSString*)viewName;
-
-- (NSSet<CKKSKeychainView*>*)currentViews;
+- (CKKSKeychainView* _Nullable)ckksAccountSyncForContainer:(NSString*)container
+                                                 contextID:(NSString*)contextID;
 
 - (void)setupAnalytics;
-
-- (NSString* _Nullable)viewNameForItem:(SecDbItemRef)item;
 
 - (void)handleKeychainEventDbConnection:(SecDbConnectionRef)dbconn
                                  source:(SecDbTransactionSource)txionSource
@@ -119,38 +103,10 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (void)registerSyncStatusCallback:(NSString*)uuid callback:(SecBoolNSErrorCallback)callback;
 
-// Cancels pending operations owned by this view manager
-- (void)cancelPendingOperations;
-
 + (instancetype)manager;
 
 // Called by XPC every 24 hours
 - (void)xpc24HrNotification;
-
-// Returns the current set of views
-- (NSSet<NSString*>*)viewList;
-
-- (NSSet<NSString*>*)defaultViewList;
-
-// Call this to set the syncing views+policy that this manager will use.
-// If beginCloudKitOperationOfAllViews has previously been called, then any new views created
-// as a result of this call will begin CK operation.
-- (BOOL)setCurrentSyncingPolicy:(TPSyncingPolicy* _Nullable)syncingPolicy;
-
-// Similar to above, but please only pass policyIsFresh=YES if Octagon has contacted cuttlefish immediately previously
-// Returns YES if the view set has changed as part of this set
-- (BOOL)setCurrentSyncingPolicy:(TPSyncingPolicy* _Nullable)syncingPolicy policyIsFresh:(BOOL)policyIsFresh;
-
-- (void)clearAllViews;
-
-// Create all views, but don't begin CK/network operations
-// Remove as part of <rdar://problem/57768740> CKKS: ensure we collect keychain changes made before policy is loaded from disk
-- (void)createViews;
-
-// Call this to begin CK operation of all views
-// This bit will be 'sticky', in that any new views created with also begin cloudkit operation immediately.
-// (clearAllViews will reset this bit.)
-- (void)beginCloudKitOperationOfAllViews;
 
 // Notify sbd to re-backup.
 - (void)notifyNewTLKsInKeychain;
@@ -164,9 +120,6 @@ NS_ASSUME_NONNULL_BEGIN
 + (CKContainer*)makeCKContainer:(NSString*)containerName
                          usePCS:(bool)usePCS;
 
-// Checks featureflags to return whether we should use policy-based views, or use the hardcoded list
-- (BOOL)useCKKSViewsFromPolicy;
-
 // Extract TLKs for sending to some peer. Pass restrictToPolicy=True if you want to restrict the returned TLKs
 // to what the current policy indicates (allowing to prioritize transferred TLKs)
 - (NSArray<CKKSKeychainBackedKey*>* _Nullable)currentTLKsFilteredByPolicy:(BOOL)restrictToPolicy error:(NSError**)error;
@@ -178,15 +131,12 @@ NS_ASSUME_NONNULL_BEGIN
 @end
 
 @interface CKKSViewManager (Testing)
-- (void)setOverrideCKKSViewsFromPolicy:(BOOL)value;
-- (void)resetSyncingPolicy;
-
 - (void)haltAll;
-- (CKKSKeychainView*)restartZone:(NSString*)viewName;
-- (void)haltZone:(NSString*)viewName;
+- (void)dropAllActors;
 
-// If set, any set passed to setSyncingViews will be intersected with this set
-- (void)setSyncingViewsAllowList:(NSSet<NSString*>* _Nullable)viewNames;
+// Note: this CKKSKeychainView _must_ correspond to the default container and contextID
+- (CKKSKeychainView*)restartCKKSAccountSync:(CKKSKeychainView*)view;
+- (CKKSKeychainView*)restartCKKSAccountSyncWithoutSettingPolicy:(CKKSKeychainView*)view;
 @end
 NS_ASSUME_NONNULL_END
 

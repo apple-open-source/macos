@@ -28,7 +28,6 @@
 #include "IOHIDDevice.h"
 #endif
 
-#include "IOHIDDebug.h"
 #include <pexpert/pexpert.h>
 
 __BEGIN_DECLS
@@ -85,6 +84,12 @@ bool isSingleUser();
 IOFixed getFixedValue(uint32_t value, uint32_t unit, uint32_t exponent);
 
 #define kHIDDtraceDebug "hid_dtrace_debug"
+
+typedef enum {
+    kHIDTraceGetReport = 1,
+    kHIDTraceSetReport,
+    kHIDTraceHandleReport,
+} HIDTraceFunctionType;
 
 __attribute__((optnone)) __attribute__((unused)) static uint32_t gIOHIDFamilyDtraceDebug()
 {

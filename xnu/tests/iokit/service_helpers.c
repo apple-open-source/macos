@@ -26,7 +26,7 @@ IOTestServiceFindService(const char * name, io_service_t * serviceOut)
 	}
 
 	do {
-		service = IOServiceGetMatchingService(kIOMasterPortDefault, IOServiceMatching(name));
+		service = IOServiceGetMatchingService(kIOMainPortDefault, IOServiceMatching(name));
 		if (service == IO_OBJECT_NULL) {
 			sleep(1);
 			retries += 1;

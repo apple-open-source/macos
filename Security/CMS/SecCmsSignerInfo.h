@@ -53,18 +53,20 @@ SecCmsSignerInfoCreate(SecCmsSignedDataRef sigd, SecIdentityRef identity, SECOid
     API_AVAILABLE(ios(2.0), tvos(2.0), watchos(1.0)) API_UNAVAILABLE(macCatalyst);
 #endif // !TARGET_OS_OSX
 
-#if TARGET_OS_OSX
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
+
+#if TARGET_OS_OSX
 extern SecCmsSignerInfoRef
 SecCmsSignerInfoCreateWithSubjKeyID(SecCmsMessageRef cmsg, CSSM_DATA_PTR subjKeyID, SecPublicKeyRef pubKey, SecPrivateKeyRef signingKey, SECOidTag digestalgtag)
     API_AVAILABLE(macos(10.4)) API_UNAVAILABLE(macCatalyst);
-#pragma clang diagnostic pop
 #else // !TARGET_OS_OSX
 extern SecCmsSignerInfoRef
 SecCmsSignerInfoCreateWithSubjKeyID(SecCmsSignedDataRef sigd, const SecAsn1Item *subjKeyID, SecPublicKeyRef pubKey, SecPrivateKeyRef signingKey, SECOidTag digestalgtag)
     API_AVAILABLE(ios(2.0), tvos(2.0), watchos(1.0)) API_UNAVAILABLE(macCatalyst);
 #endif // !TARGET_OS_OSX
+
+#pragma clang diagnostic pop
 
 #if TARGET_OS_OSX
 /*!
@@ -147,7 +149,16 @@ SecCmsSignerInfoGetAppleExpirationTime(SecCmsSignerInfoRef sinfo, CFAbsoluteTime
     @discussion The certs in the enclosing SignedData must have been imported already.
  */
 extern SecCertificateRef
-SecCmsSignerInfoGetSigningCertificate(SecCmsSignerInfoRef signerinfo, SecKeychainRef keychainOrArray);
+SecCmsSignerInfoGetSigningCertificate(SecCmsSignerInfoRef signerinfo, SecKeychainRef keychainOrArray)
+    API_DEPRECATED_WITH_REPLACEMENT("SecCmsSignerInfoGetSigningCert", macos(10.0, 12.0), ios(1.0, 15.0), watchos(1.0, 8.0), tvos(9.0, 15.0)) API_UNAVAILABLE(macCatalyst);
+
+/*!
+    @function
+    @abstract Return the signing cert of a CMS signerInfo.
+    @discussion The certs in the enclosing SignedData must have been imported already.
+ */
+extern SecCertificateRef
+SecCmsSignerInfoGetSigningCert(SecCmsSignerInfoRef signerinfo);
 
 /*!
     @function
@@ -198,7 +209,16 @@ SecCmsSignerInfoAddSMIMECaps(SecCmsSignerInfoRef signerinfo);
     @discussion This is expected to be included in outgoing signed messages for email (S/MIME).
  */
 OSStatus
-SecCmsSignerInfoAddSMIMEEncKeyPrefs(SecCmsSignerInfoRef signerinfo, SecCertificateRef cert, SecKeychainRef keychainOrArray);
+SecCmsSignerInfoAddSMIMEEncKeyPrefs(SecCmsSignerInfoRef signerinfo, SecCertificateRef cert, SecKeychainRef keychainOrArray)
+    API_DEPRECATED_WITH_REPLACEMENT("SecCmsSignerInfoAddSMIMEEncKeyPreferences", macos(10.0, 12.0), ios(1.0, 15.0), watchos(1.0, 8.0), tvos(9.0, 15.0)) API_UNAVAILABLE(macCatalyst);
+
+/*!
+    @function
+    @abstract Add a SMIMEEncryptionKeyPreferences attribute to the authenticated (i.e. signed) attributes of "signerinfo".
+    @discussion This is expected to be included in outgoing signed messages for email (S/MIME).
+ */
+OSStatus
+SecCmsSignerInfoAddSMIMEEncKeyPreferences(SecCmsSignerInfoRef signerinfo, SecCertificateRef cert);
 
 /*!
     @function
@@ -206,7 +226,16 @@ SecCmsSignerInfoAddSMIMEEncKeyPrefs(SecCmsSignerInfoRef signerinfo, SecCertifica
     @discussion This is expected to be included in outgoing signed messages for email (S/MIME), if compatibility with Microsoft mail clients is wanted.
  */
 OSStatus
-SecCmsSignerInfoAddMSSMIMEEncKeyPrefs(SecCmsSignerInfoRef signerinfo, SecCertificateRef cert, SecKeychainRef keychainOrArray);
+SecCmsSignerInfoAddMSSMIMEEncKeyPrefs(SecCmsSignerInfoRef signerinfo, SecCertificateRef cert, SecKeychainRef keychainOrArray)
+API_DEPRECATED_WITH_REPLACEMENT("SecCmsSignerInfoAddMSSMIMEEncKeyPreferences", macos(10.0, 12.0), ios(1.0, 15.0), watchos(1.0, 8.0), tvos(9.0, 15.0)) API_UNAVAILABLE(macCatalyst);
+
+/*!
+    @function
+    @abstract Add a SMIMEEncryptionKeyPreferences attribute to the authenticated (i.e. signed) attributes of "signerinfo", using the OID prefered by Microsoft.
+    @discussion This is expected to be included in outgoing signed messages for email (S/MIME), if compatibility with Microsoft mail clients is wanted.
+ */
+OSStatus
+SecCmsSignerInfoAddMSSMIMEEncKeyPreferences(SecCmsSignerInfoRef signerinfo, SecCertificateRef cert);
 
 /*!
     @function

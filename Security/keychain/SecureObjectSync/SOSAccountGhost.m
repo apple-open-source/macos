@@ -38,6 +38,7 @@ static bool sosGhostCheckValid(SOSPeerInfoRef pi) {
         case SOSPeerInfo_macOS: // go back and quit killing macos ghosts so people can multi-boot
         case SOSPeerInfo_iCloud:
         case SOSPeerInfo_unknown:
+        case SOSPeerInfo_undetermined:
         default:
             retval = false;
             break;

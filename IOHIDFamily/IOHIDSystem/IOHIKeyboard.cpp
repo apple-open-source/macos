@@ -151,7 +151,7 @@ bool IOHIKeyboard::init(OSDictionary * properties)
   _deviceLock   = IOLockAlloc();
   _keyMap       = 0;
   _keyStateSize = 4*((maxKeyCodes()+(EVK_BITS_PER_UNIT-1))/EVK_BITS_PER_UNIT);
-  _keyState     = (UInt32 *) IOMalloc(_keyStateSize);
+  _keyState     = (UInt32 *) IOMallocData(_keyStateSize);
   _codeToRepeat = (unsigned)-1;
   
   _keyboardEventTarget        = 0;
@@ -226,8 +226,10 @@ void IOHIKeyboard::free()
         _keyMap = 0;
     }
 
-    if( _keyState )
-        IOFree( _keyState, _keyStateSize);
+    if( _keyState ) {
+        IOFreeData( _keyState, _keyStateSize);
+        _keyState = NULL;
+    }
 
     // RY: MENTAL NOTE Do this last
     if ( lock )
@@ -299,7 +301,7 @@ IOReturn IOHIKeyboard::setParamProperties( OSDictionary * dict )
     if( (data = OSDynamicCast( OSData, dict->getObject(kIOHIDKeyMappingKey))))
 	{
 	
-		map = (unsigned char *)IOMalloc( data->getLength() );
+		map = (unsigned char *)IOMallocData( data->getLength() );
 		bcopy( data->getBytesNoCopy(), map, data->getLength() );
 		oldMap = _keyMap;
 		_keyMap = IOHIKeyboardMapper::keyboardMapper(this, map, data->getLength(), true);

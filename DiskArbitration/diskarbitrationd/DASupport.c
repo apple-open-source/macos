@@ -709,14 +709,19 @@ void DAMountMapListRefresh2( void )
 static struct timespec __gDAPreferenceListTime1 = { 0, 0 };
 static struct timespec __gDAPreferenceListTime2 = { 0, 0 };
 
-const CFStringRef kDAPreferenceMountDeferExternalKey  = CFSTR( "DAMountDeferExternal"  );
-const CFStringRef kDAPreferenceMountDeferInternalKey  = CFSTR( "DAMountDeferInternal"  );
-const CFStringRef kDAPreferenceMountDeferRemovableKey = CFSTR( "DAMountDeferRemovable" );
-const CFStringRef kDAPreferenceMountTrustExternalKey  = CFSTR( "DAMountTrustExternal"  );
-const CFStringRef kDAPreferenceMountTrustInternalKey  = CFSTR( "DAMountTrustInternal"  );
-const CFStringRef kDAPreferenceMountTrustRemovableKey = CFSTR( "DAMountTrustRemovable" );
-const CFStringRef kDAPreferenceAutoMountDisableKey    = CFSTR( "DAAutoMountDisable"    );
-
+const CFStringRef kDAPreferenceMountDeferExternalKey              = CFSTR( "DAMountDeferExternal"  );
+const CFStringRef kDAPreferenceMountDeferInternalKey              = CFSTR( "DAMountDeferInternal"  );
+const CFStringRef kDAPreferenceMountDeferRemovableKey             = CFSTR( "DAMountDeferRemovable" );
+const CFStringRef kDAPreferenceMountTrustExternalKey              = CFSTR( "DAMountTrustExternal"  );
+const CFStringRef kDAPreferenceMountTrustInternalKey              = CFSTR( "DAMountTrustInternal"  );
+const CFStringRef kDAPreferenceMountTrustRemovableKey             = CFSTR( "DAMountTrustRemovable" );
+const CFStringRef kDAPreferenceAutoMountDisableKey                = CFSTR( "DAAutoMountDisable"    );
+const CFStringRef kDAPreferenceEnableUserFSMountExternalKey       = CFSTR( "DAEnableUserFSMountExternal" );
+const CFStringRef kDAPreferenceEnableUserFSMountInternalKey       = CFSTR( "DAEnableUserFSMountInternal" );
+const CFStringRef kDAPreferenceEnableUserFSMountRemovableKey      = CFSTR( "DAEnableUserFSMountRemovable" );
+const CFStringRef kDAPreferenceDisableEjectNotificationKey        = CFSTR( "DADisableEjectNotification" );
+const CFStringRef kDAPreferenceDisableUnreadableNotificationKey   = CFSTR( "DADisableUnreadableNotification" );
+const CFStringRef kDAPreferenceDisableUnrepairableNotificationKey = CFSTR( "DADisableUnrepairableNotification" );
 
 void DAPreferenceListRefresh( void )
 {
@@ -858,6 +863,66 @@ void DAPreferenceListRefresh( void )
                 if ( CFGetTypeID( value ) == CFBooleanGetTypeID( ) )
                 {
                     CFDictionarySetValue( gDAPreferenceList, kDAPreferenceAutoMountDisableKey, value );
+                }
+            }
+            
+            value = SCPreferencesGetValue( preferences, kDAPreferenceEnableUserFSMountExternalKey );
+
+            if ( value )
+            {
+                if ( CFGetTypeID( value ) == CFBooleanGetTypeID( ) )
+                {
+                    CFDictionarySetValue( gDAPreferenceList, kDAPreferenceEnableUserFSMountExternalKey, value );
+                }
+            }
+            
+            value = SCPreferencesGetValue( preferences, kDAPreferenceEnableUserFSMountInternalKey );
+
+            if ( value )
+            {
+                if ( CFGetTypeID( value ) == CFBooleanGetTypeID( ) )
+                {
+                    CFDictionarySetValue( gDAPreferenceList, kDAPreferenceEnableUserFSMountInternalKey, value );
+                }
+            }
+            
+            value = SCPreferencesGetValue( preferences, kDAPreferenceEnableUserFSMountRemovableKey );
+
+            if ( value )
+            {
+                if ( CFGetTypeID( value ) == CFBooleanGetTypeID( ) )
+                {
+                    CFDictionarySetValue( gDAPreferenceList, kDAPreferenceEnableUserFSMountRemovableKey, value );
+                }
+            }
+            
+            value = SCPreferencesGetValue( preferences, kDAPreferenceDisableEjectNotificationKey );
+
+            if ( value )
+            {
+                if ( CFGetTypeID( value ) == CFBooleanGetTypeID( ) )
+                {
+                    CFDictionarySetValue( gDAPreferenceList, kDAPreferenceDisableEjectNotificationKey, value );
+                }
+            }
+            
+            value = SCPreferencesGetValue( preferences, kDAPreferenceDisableUnreadableNotificationKey );
+
+            if ( value )
+            {
+                if ( CFGetTypeID( value ) == CFBooleanGetTypeID( ) )
+                {
+                    CFDictionarySetValue( gDAPreferenceList, kDAPreferenceDisableUnreadableNotificationKey, value );
+                }
+            }
+            
+            value = SCPreferencesGetValue( preferences, kDAPreferenceDisableUnrepairableNotificationKey );
+
+            if ( value )
+            {
+                if ( CFGetTypeID( value ) == CFBooleanGetTypeID( ) )
+                {
+                    CFDictionarySetValue( gDAPreferenceList, kDAPreferenceDisableUnrepairableNotificationKey, value );
                 }
             }
             CFRelease( preferences );

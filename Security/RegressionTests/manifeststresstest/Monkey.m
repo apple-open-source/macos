@@ -83,7 +83,7 @@
                "The total of the weights must not exceed RAND_MAX == %d.\n", RAND_MAX);
         exit(1);
     }
-    unsigned r = random() % totalWeight;
+    unsigned r = (unsigned) (random() % totalWeight);
     
     if (r < self.config.addItemWeight) {
         return [self addItem];
@@ -119,7 +119,7 @@
                "Must allow a nonzero number of distinct values.\n");
         exit(1);
     }
-    unsigned n = random() % self.config.distinctValues;
+    unsigned n = (unsigned) (random() % self.config.distinctValues);
     return [NSString stringWithFormat:@"data-%u", n];
 }
 

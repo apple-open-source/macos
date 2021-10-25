@@ -27,7 +27,7 @@
 #include "file.h"
 
 #ifndef	lint
-FILE_RCSID("@(#)$File: seccomp.c,v 1.15 2020/05/30 23:56:26 christos Exp $")
+FILE_RCSID("@(#)$File: seccomp.c,v 1.18 2021/03/14 17:01:58 christos Exp $")
 #endif	/* lint */
 
 #if HAVE_LIBSECCOMP
@@ -35,6 +35,7 @@ FILE_RCSID("@(#)$File: seccomp.c,v 1.15 2020/05/30 23:56:26 christos Exp $")
 #include <sys/prctl.h> /* prctl */
 #include <sys/ioctl.h>
 #include <sys/socket.h>
+#include <termios.h>
 #include <fcntl.h>
 #include <stdlib.h>
 #include <errno.h>
@@ -174,9 +175,7 @@ enable_sandbox_full(void)
  	ALLOW_RULE(fcntl64);
 	ALLOW_RULE(fstat);
  	ALLOW_RULE(fstat64);
-#ifdef XZLIBSUPPORT
 	ALLOW_RULE(futex);
-#endif
 	ALLOW_RULE(getdents);
 #ifdef __NR_getdents64
 	ALLOW_RULE(getdents64);
@@ -219,12 +218,14 @@ enable_sandbox_full(void)
 	ALLOW_RULE(rt_sigreturn);
 	ALLOW_RULE(select);
 	ALLOW_RULE(stat);
+	ALLOW_RULE(statx);
 	ALLOW_RULE(stat64);
 	ALLOW_RULE(sysinfo);
 	ALLOW_RULE(umask);	// Used in file_pipe2file()
 	ALLOW_RULE(getpid);	// Used by glibc in file_pipe2file()
 	ALLOW_RULE(unlink);
 	ALLOW_RULE(write);
+	ALLOW_RULE(writev);
 
 
 #if 0

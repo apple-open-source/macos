@@ -450,6 +450,13 @@ vim_main2(void)
     if (p_lpl)
     {
 	char_u *rtp_copy = NULL;
+	char_u *plugin_pattern = (char_u *)
+# if defined(VMS) || defined(AMIGA) // VMS and Amiga don't handle the "**".
+		"plugin/*.vim"
+# else
+		"plugin/**/*.vim"
+# endif
+		;
 
 	// First add all package directories to 'runtimepath', so that their
 	// autoload directories can be found.  Only if not done already with a
@@ -462,12 +469,7 @@ vim_main2(void)
 	    add_pack_start_dirs();
 	}
 
-	source_in_path(rtp_copy == NULL ? p_rtp : rtp_copy,
-# ifdef VMS	// Somehow VMS doesn't handle the "**".
-		(char_u *)"plugin/*.vim",
-# else
-		(char_u *)"plugin/**/*.vim",
-# endif
+	source_in_path(rtp_copy == NULL ? p_rtp : rtp_copy, plugin_pattern,
 		DIP_ALL | DIP_NOAFTER, NULL);
 	TIME_MSG("loading plugins");
 	vim_free(rtp_copy);
@@ -478,13 +480,8 @@ vim_main2(void)
 	    load_start_packages();
 	TIME_MSG("loading packages");
 
-# ifdef VMS	// Somehow VMS doesn't handle the "**".
-	source_runtime((char_u *)"plugin/*.vim", DIP_ALL | DIP_AFTER);
-# else
-	source_runtime((char_u *)"plugin/**/*.vim", DIP_ALL | DIP_AFTER);
-# endif
+	source_runtime(plugin_pattern, DIP_ALL | DIP_AFTER);
 	TIME_MSG("loading after plugins");
-
     }
 #endif
 
@@ -1016,6 +1013,19 @@ is_not_a_term()
     return params.not_a_term;
 }
 
+/*
+ * Return TRUE when the --not-a-term argument was found or the GUI is in use.
+ */
+    static int
+is_not_a_term_or_gui()
+{
+    return params.not_a_term
+#ifdef FEAT_GUI
+			    || gui.in_use
+#endif
+	;
+}
+
 
 // When TRUE in a safe state when starting to wait for a character.
 static int	was_safe = FALSE;
@@ -1526,7 +1536,8 @@ getout_preserve_modified(int exitval)
 
 
 /*
- * Exit properly.
+ * Exit properly.  This is the only way to exit Vim after startup has
+ * succeeded.  We are certain to exit here, no way to abort it.
  */
     void
 getout(int exitval)
@@ -1542,10 +1553,13 @@ getout(int exitval)
     if (exmode_active || Unix2003_compat )
 	exitval += ex_exitval;
 
-    // Position the cursor on the last screen line, below all the text
-#ifdef FEAT_GUI
-    if (!gui.in_use)
+#ifdef FEAT_EVAL
+    set_vim_var_type(VV_EXITING, VAR_NUMBER);
+    set_vim_var_nr(VV_EXITING, exitval);
 #endif
+
+    // Position the cursor on the last screen line, below all the text
+    if (!is_not_a_term_or_gui())
 	windgoto((int)Rows - 1, 0);
 
 #if defined(FEAT_EVAL) || defined(FEAT_SYN_HL)
@@ -1655,9 +1669,7 @@ getout(int exitval)
     }
 
     // Position the cursor again, the autocommands may have moved it
-#ifdef FEAT_GUI
-    if (!gui.in_use)
-#endif
+    if (!is_not_a_term_or_gui())
 	windgoto((int)Rows - 1, 0);
 
 #ifdef FEAT_JOB_CHANNEL
@@ -1994,6 +2006,9 @@ command_line_scan(mparm_T *parmp)
 		{
 		    Columns = 80;	// need to init Columns
 		    info_message = TRUE; // use mch_msg(), not mch_errmsg()
+#if defined(FEAT_GUI) && !defined(ALWAYS_USE_GUI)
+		    gui.starting = FALSE; // not starting GUI, will exit
+#endif
 		    list_version();
 		    msg_putchar('\n');
 		    msg_didout = FALSE;
@@ -2726,7 +2741,6 @@ read_stdin(void)
     set_buflisted(TRUE);
 
     // Create memfile and read from stdin.
-    // This will also dup stdin from stderr to read commands from.
     (void)open_buffer(TRUE, NULL, 0);
 
     no_wait_return = FALSE;
@@ -2734,6 +2748,14 @@ read_stdin(void)
     TIME_MSG("reading stdin");
 
     check_swap_exists_action();
+
+#if !(defined(AMIGA) || defined(MACOS_X))
+    // Dup stdin from stderr to read commands from, so that shell commands
+    // work.
+    // TODO: why is this needed, even though readfile() has done this?
+    close(0);
+    vim_ignored = dup(2);
+#endif
 }
 
 /*
@@ -3279,9 +3301,8 @@ process_env(
     int		is_viminit) // when TRUE, called for VIMINIT
 {
     char_u	*initstr;
-#ifdef FEAT_EVAL
     sctx_T	save_current_sctx;
-#endif
+
     ESTACK_CHECK_DECLARATION
 
     if ((initstr = mch_getenv(env)) != NULL && *initstr != NUL)
@@ -3290,20 +3311,19 @@ process_env(
 	    vimrc_found(NULL, NULL);
 	estack_push(ETYPE_ENV, env, 0);
 	ESTACK_CHECK_SETUP
-#ifdef FEAT_EVAL
 	save_current_sctx = current_sctx;
+	current_sctx.sc_version = 1;
+#ifdef FEAT_EVAL
 	current_sctx.sc_sid = SID_ENV;
 	current_sctx.sc_seq = 0;
 	current_sctx.sc_lnum = 0;
-	current_sctx.sc_version = 1;
 #endif
+
 	do_cmdline_cmd(initstr);
 
 	ESTACK_CHECK_NOW
 	estack_pop();
-#ifdef FEAT_EVAL
 	current_sctx = save_current_sctx;
-#endif
 	return OK;
     }
     return FAIL;
@@ -3551,8 +3571,11 @@ usage(void)
 #endif // FEAT_GUI_X11
 #ifdef FEAT_GUI_GTK
     mch_msg(_("\nArguments recognised by gvim (GTK+ version):\n"));
+    main_msg(_("-background <color>\tUse <color> for the background (also: -bg)"));
+    main_msg(_("-foreground <color>\tUse <color> for normal text (also: -fg)"));
     main_msg(_("-font <font>\t\tUse <font> for normal text (also: -fn)"));
     main_msg(_("-geometry <geom>\tUse <geom> for initial geometry (also: -geom)"));
+    main_msg(_("-iconic\t\tStart Vim iconified"));
     main_msg(_("-reverse\t\tUse reverse video (also: -rv)"));
     main_msg(_("-display <display>\tRun Vim on <display> (also: --display)"));
     main_msg(_("--role <role>\tSet a unique role to identify the main window"));

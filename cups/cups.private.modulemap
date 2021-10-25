@@ -1,0 +1,74 @@
+module CUPS_Private [system] {
+    header "cups-private.h"
+    link "cups"
+    export *
+
+    module array {
+        header "array-private.h"
+        export *
+    }
+
+    module config {
+        header "config.h"
+        export *
+    }
+
+    module debug {
+        header "debug-private.h"
+        export *
+    }
+
+    module file {
+        header "file-private.h"
+        export *
+    }
+
+    explicit module http {
+        header "http-private.h"
+        export *
+    }
+
+    explicit module ipp {
+        header "ipp-private.h"
+        export *
+    }
+
+    module language {
+        header "language-private.h"
+        export *
+    }
+
+#ifdef BUILD_FOR_MACOS
+    explicit module ppd {
+        header "ppd-private.h"
+        export *
+    }
+#endif
+
+    explicit module pwg {
+        header "pwg-private.h"
+        export *
+    }
+
+    module raster {
+        header "raster-private.h"
+        export *
+    }
+
+#ifdef BUILD_FOR_MACOS
+    module snmp {
+        header "snmp-private.h"
+        export *
+    }
+#endif
+
+    module string {
+        header "string-private.h"
+        export *
+    }
+
+    module thread {
+        header "thread-private.h"
+        export *
+    }
+}

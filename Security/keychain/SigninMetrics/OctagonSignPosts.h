@@ -24,58 +24,67 @@
 #ifndef OctagonSignPosts_h
 #define OctagonSignPosts_h
 
-#import <Foundation/Foundation.h>
 #import <os/activity.h>
+#import <os/base.h>
 #import <os/log.h>
 #import <os/signpost.h>
 #import <os/signpost_private.h>
 
-NS_ASSUME_NONNULL_BEGIN
+OS_ASSUME_NONNULL_BEGIN
 
 typedef struct octagon_signpost_s {
     const os_signpost_id_t identifier;
     const uint64_t timestamp;
 } OctagonSignpost;
 
-#define OctagonSignpostNamePerformEscrowRecovery                        "OctagonSignpostNamePerformEscrowRecovery"
-#define OctagonSignpostNamePerformSilentEscrowRecovery                  "OctagonSignpostNamePerformSilentEscrowRecovery"
-#define OctagonSignpostNamePerformRecoveryFromSBD                       "OctagonSignpostNamePerformRecoveryFromSBD"
+#define OctagonSignpostNamePerformEscrowRecovery                            "OctagonSignpostNamePerformEscrowRecovery"
+#define OctagonSignpostNamePerformSilentEscrowRecovery                      "OctagonSignpostNamePerformSilentEscrowRecovery"
+#define OctagonSignpostNamePerformRecoveryFromSBD                           "OctagonSignpostNamePerformRecoveryFromSBD"
 
-#define OctagonSignpostNameRecoverWithCDPContext                        "OctagonSignpostNameRecoverWithCDPContext"
-#define OctagonSignpostNameRecoverSilentWithCDPContext                  "OctagonSignpostNameRecoverSilentWithCDPContext"
-#define OctagonSignpostNamePerformOctagonJoinForSilent                  "OctagonSignpostNamePerformOctagonJoinForSilent"
-#define OctagonSignpostNamePerformOctagonJoinForNonSilent               "OctagonSignpostNamePerformOctagonJoinForNonSilent"
+#define OctagonSignpostNameRecoverWithCDPContext                            "OctagonSignpostNameRecoverWithCDPContext"
+#define OctagonSignpostNameRecoverSilentWithCDPContext                      "OctagonSignpostNameRecoverSilentWithCDPContext"
+#define OctagonSignpostNamePerformOctagonJoinForSilent                      "OctagonSignpostNamePerformOctagonJoinForSilent"
+#define OctagonSignpostNamePerformOctagonJoinForNonSilent                   "OctagonSignpostNamePerformOctagonJoinForNonSilent"
 
 
-#define OctagonSignpostNamePerformOctagonJoin                           "OctagonSignpostNamePerformOctagonJoin"
-#define OctagonSignpostNamePerformResetAndEstablishAfterFailedBottle    "OctagonSignpostNamePerformResetAndEstablishAfterFailedBottle"
-#define OctagonSignpostNameFetchEgoPeer                                 "OctagonSignpostNameFetchEgoPeer"
-#define OctagonSignpostNameEstablish                                    "OctagonSignpostNameEstablish"
-#define OctagonSignpostNameResetAndEstablish                            "OctagonSignpostNameResetAndEstablish"
-#define OctagonSignpostNameMakeNewFriends                               "OctagonSignpostNameMakeNewFriends"
-#define OctagonSignpostNameFetchCliqueStatus                            "OctagonSignpostNameFetchCliqueStatus"
-#define OctagonSignpostNameRemoveFriendsInClique                        "OctagonSignpostNameRemoveFriendsInClique"
-#define OctagonSignpostNameLeaveClique                                  "OctagonSignpostNameLeaveClique"
-#define OctagonSignpostNamePeerDeviceNamesByPeerID                      "OctagonSignpostNamePeerDeviceNamesByPeerID"
-#define OctagonSignpostNameJoinAfterRestore                             "OctagonSignpostNameJoinAfterRestore"
-#define OctagonSignpostNameSafariPasswordSyncingEnabled                 "OctagonSignpostNameSafariPasswordSyncingEnabled"
-#define OctagonSignpostNameWaitForInitialSync                           "OctagonSignpostNameWaitForInitialSync"
-#define OctagonSignpostNameCopyViewUnawarePeerInfo                      "OctagonSignpostNameCopyViewUnawarePeerInfo"
-#define OctagonSignpostNameViewSet                                      "OctagonSignpostNameViewSet"
-#define OctagonSignpostNameSetUserCredentialsAndDSID                    "OctagonSignpostNameSetUserCredentialsAndDSID"
-#define OctagonSignpostNameTryUserCredentialsAndDSID                    "OctagonSignpostNameTryUserCredentialsAndDSID"
-#define OctagonSignpostNameCopyPeerPeerInfo                             "OctagonSignpostNameCopyPeerPeerInfo"
-#define OctagonSignpostNamePeersHaveViewsEnabled                        "OctagonSignpostNamePeersHaveViewsEnabled"
-#define OctagonSignpostNameRequestToJoinCircle                          "OctagonSignpostNameRequestToJoinCircle"
-#define OctagonSignpostNameAccountUserKeyAvailable                      "OctagonSignpostNameAccountUserKeyAvailable"
-#define OctagonSignpostNameFindOptimalBottleIDsWithContextData          "OctagonSignpostNameFindOptimalBottleIDsWithContextData"
-#define OctagonSignpostNameFetchEscrowRecords                           "OctagonSignpostNameFetchEscrowRecords"
-#define OctagonSignpostNameFetchEscrowContents                          "OctagonSignpostNameFetchEscrowContents"
-#define OctagonSignpostNameSetNewRecoveryKeyWithData                    "OctagonSignpostNameSetNewRecoveryKeyWithData"
-#define OctagonSignpostNameRecoverOctagonUsingData                      "OctagonSignpostNameRecoverOctagonUsingData"
-#define OctagonSignpostNamePerformedCDPStateMachineRun                  "OctagonSignpostNamePerformedCDPStateMachineRun"
-#define OctagonSignpostNameWaitForOctagonUpgrade                        "OctagonSignpostNameWaitForOctagonUpgrade"
-#define OctagonSignpostNameGetAccountInfo                               "OctagonSignpostNameGetAccountInfo"
+#define OctagonSignpostNamePerformOctagonJoin                               "OctagonSignpostNamePerformOctagonJoin"
+#define OctagonSignpostNamePerformResetAndEstablishAfterFailedBottle        "OctagonSignpostNamePerformResetAndEstablishAfterFailedBottle"
+#define OctagonSignpostNameFetchEgoPeer                                     "OctagonSignpostNameFetchEgoPeer"
+#define OctagonSignpostNameEstablish                                        "OctagonSignpostNameEstablish"
+#define OctagonSignpostNameResetAndEstablish                                "OctagonSignpostNameResetAndEstablish"
+#define OctagonSignpostNameMakeNewFriends                                   "OctagonSignpostNameMakeNewFriends"
+#define OctagonSignpostNameFetchCliqueStatus                                "OctagonSignpostNameFetchCliqueStatus"
+#define OctagonSignpostNameRemoveFriendsInClique                            "OctagonSignpostNameRemoveFriendsInClique"
+#define OctagonSignpostNameLeaveClique                                      "OctagonSignpostNameLeaveClique"
+#define OctagonSignpostNamePeerDeviceNamesByPeerID                          "OctagonSignpostNamePeerDeviceNamesByPeerID"
+#define OctagonSignpostNameJoinAfterRestore                                 "OctagonSignpostNameJoinAfterRestore"
+#define OctagonSignpostNameSafariPasswordSyncingEnabled                     "OctagonSignpostNameSafariPasswordSyncingEnabled"
+#define OctagonSignpostNameWaitForInitialSync                               "OctagonSignpostNameWaitForInitialSync"
+#define OctagonSignpostNameCopyViewUnawarePeerInfo                          "OctagonSignpostNameCopyViewUnawarePeerInfo"
+#define OctagonSignpostNameViewSet                                          "OctagonSignpostNameViewSet"
+#define OctagonSignpostNameSetUserCredentialsAndDSID                        "OctagonSignpostNameSetUserCredentialsAndDSID"
+#define OctagonSignpostNameTryUserCredentialsAndDSID                        "OctagonSignpostNameTryUserCredentialsAndDSID"
+#define OctagonSignpostNameCopyPeerPeerInfo                                 "OctagonSignpostNameCopyPeerPeerInfo"
+#define OctagonSignpostNamePeersHaveViewsEnabled                            "OctagonSignpostNamePeersHaveViewsEnabled"
+#define OctagonSignpostNameRequestToJoinCircle                              "OctagonSignpostNameRequestToJoinCircle"
+#define OctagonSignpostNameAccountUserKeyAvailable                          "OctagonSignpostNameAccountUserKeyAvailable"
+#define OctagonSignpostNameFindOptimalBottleIDsWithContextData              "OctagonSignpostNameFindOptimalBottleIDsWithContextData"
+#define OctagonSignpostNameFetchEscrowRecords                               "OctagonSignpostNameFetchEscrowRecords"
+#define OctagonSignpostNameFetchEscrowContents                              "OctagonSignpostNameFetchEscrowContents"
+#define OctagonSignpostNameSetNewRecoveryKeyWithData                        "OctagonSignpostNameSetNewRecoveryKeyWithData"
+#define OctagonSignpostNameRecoverOctagonUsingData                          "OctagonSignpostNameRecoverOctagonUsingData"
+#define OctagonSignpostNameRecoverOctagonUsingCustodianRecoveryKey          "OctagonSignpostNameRecoverOctagonUsingCustodianRecoveryKey"
+#define OctagonSignpostNamePreflightRecoverOctagonUsingCustodianRecoveryKey "OctagonSignpostNamePreflightRecoverOctagonUsingCustodianRecoveryKey"
+#define OctagonSignpostNameRecoverOctagonUsingInheritanceKey                "OctagonSignpostNameRecoverOctagonUsingInheritanceKey"
+#define OctagonSignpostNamePreflightRecoverOctagonUsingInheritanceKey       "OctagonSignpostNamePreflightRecoverOctagonUsingInheritanceKey"
+#define OctagonSignpostNameCreateCustodianRecoveryKey                       "OctagonSignpostNameCreateCustodianRecoveryKey"
+#define OctagonSignpostNameCreateInheritanceKey                             "OctagonSignpostNameCreateInheritanceKey"
+#define OctagonSignpostNameGenerateInheritanceKey                           "OctagonSignpostNameGenerateInheritanceKey"
+#define OctagonSignpostNameStoreInheritanceKey                              "OctagonSignpostNameStoreInheritanceKey"
+#define OctagonSignpostNameRemoveCustodianRecoveryKey                       "OctagonSignpostNameRemoveCustodianRecoveryKey"
+#define OctagonSignpostNameRemoveInheritanceKey                             "OctagonSignpostNameRemoveInheritanceKey"
+#define OctagonSignpostNamePerformedCDPStateMachineRun                      "OctagonSignpostNamePerformedCDPStateMachineRun"
+#define OctagonSignpostNameWaitForOctagonUpgrade                            "OctagonSignpostNameWaitForOctagonUpgrade"
 
 #define SOSSignpostNameAssertUserCredentialsAndOptionalDSID     "SOSSignpostNameAssertUserCredentialsAndOptionalDSID"
 #define SOSSignpostNameSOSCCTryUserCredentials                  "SOSSignpostNameSOSCCTryUserCredentials"
@@ -160,6 +169,6 @@ extern uint64_t _OctagonSignpostGetNanoseconds(OctagonSignpost signpost);
 #define _OctagonSwizzle1(x, a, ...) a, x, ##__VA_ARGS__
 #define _OctagonSwizzle2(x, y, a, ...) a, x, y, ##__VA_ARGS__
 
-NS_ASSUME_NONNULL_END
+OS_ASSUME_NONNULL_END
 
 #endif /* OctagonSignPosts_h */

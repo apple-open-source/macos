@@ -123,7 +123,7 @@ may be told to run the job today by suffixing the time with
 and to run the job tomorrow by suffixing the time with
 .Em tomorrow .
 The shortcut
-.Em next 
+.Em next
 can be used instead of
 .Em + 1 .
 .Pp
@@ -136,9 +136,7 @@ and to run a job at 1am tomorrow, use
 .Pp
 The
 .Nm at
-utility also supports the
-.Tn POSIX
-time format (see
+utility also supports the POSIX time format (see
 .Fl t
 option).
 .Pp
@@ -213,7 +211,7 @@ is implemented through the
 daemon periodically invoking
 .Xr atrun 8 ,
 which is disabled by default.
-See 
+See
 .Xr atrun 8
 for information about enabling
 .Nm atrun .
@@ -337,6 +335,13 @@ login records
 .Xr atrun 8 ,
 .Xr cron 8 ,
 .Xr sendmail 8
+.Sh AUTHORS
+At was mostly written by
+.An Thomas Koenig Aq ig25@rz.uni-karlsruhe.de .
+The time parsing routines are by
+.An David Parsons Aq orc@pell.chi.il.us ,
+with minor enhancements by
+.An Joe Halpin Aq joe.halpin@attbi.com .
 .Sh BUGS
 If the file
 .Pa /var/run/utmpx
@@ -360,10 +365,3 @@ If this is the case, another batch system such as
 may be more suitable.
 .Pp
 Specifying a date past 2038 may not work on some systems.
-.Sh AUTHORS
-At was mostly written by
-.An Thomas Koenig Aq ig25@rz.uni-karlsruhe.de .
-The time parsing routines are by
-.An David Parsons Aq orc@pell.chi.il.us ,
-with minor enhancements by
-.An Joe Halpin Aq joe.halpin@attbi.com .

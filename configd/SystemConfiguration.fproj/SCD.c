@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2008, 2010-2020 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2021 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -68,7 +68,12 @@ __SCThreadSpecificDataFinalize(void *arg)
 	__SCThreadSpecificDataRef	tsd = (__SCThreadSpecificDataRef)arg;
 
 	if (tsd != NULL) {
-		if (tsd->_sc_store != NULL) CFRelease(tsd->_sc_store);
+		if (tsd->_sc_interface_cache != NULL) {
+			CFRelease(tsd->_sc_interface_cache);
+		}
+		if (tsd->_sc_store != NULL) {
+			CFRelease(tsd->_sc_store);
+		}
 		CFAllocatorDeallocate(kCFAllocatorSystemDefault, tsd);
 	}
 	return;
@@ -94,6 +99,7 @@ __SCGetThreadSpecificData()
 	if (tsd == NULL) {
 		tsd = CFAllocatorAllocate(kCFAllocatorSystemDefault, sizeof(__SCThreadSpecificData), 0);
 		tsd->_sc_error = kSCStatusOK;
+		tsd->_sc_interface_cache = NULL;
 		tsd->_sc_store = NULL;
 		pthread_setspecific(tsDataKey, tsd);
 	}
@@ -423,7 +429,7 @@ _SC_syslog_os_log_mapping(int level)
 	}
 
 	return OS_LOG_TYPE_DEFAULT;
-};
+}
 
 static void
 __SCLog(void *ret_addr, os_log_type_t type, const char *formatString, va_list formatArguments)
@@ -502,8 +508,8 @@ __SC_Log(int level, CFStringRef format_CF, os_log_t log, os_log_type_t type, con
 #pragma unused(level)
 	Boolean		do_log		= FALSE;
 	Boolean		do_print	= FALSE;
-	va_list		args_log;
-	va_list		args_print;
+	va_list		args_log	= { 0 };
+	va_list		args_print	= { 0 };
 
 	if (_sc_log > kSCLogDestinationFile) {
 		do_log = TRUE;			// log requested
@@ -593,6 +599,7 @@ __SC_log_send(int level, os_log_t log, os_log_type_t type, os_log_pack_t pack)
 	if (_sc_log > kSCLogDestinationFile) {
 		do_log = TRUE;
 
+#ifdef	USE_SYSLOG_FOR_INSTALL
 		if (_SC_isInstallEnvironment()) {
 			/*
 			 * os_log(3) messages are not persisted in the
@@ -601,6 +608,7 @@ __SC_log_send(int level, os_log_t log, os_log_type_t type, os_log_pack_t pack)
 			 */
 			do_syslog = TRUE;
 		}
+#endif	// USE_SYSLOG_FOR_INSTALL
 
 		if (_sc_log >= kSCLogDestinationBoth) {
 			do_print = TRUE;	// log AND print requested
@@ -669,10 +677,10 @@ __SC_log_send(int level, os_log_t log, os_log_type_t type, os_log_pack_t pack)
 void
 SCLog(Boolean condition, int level, CFStringRef formatString, ...)
 {
-	va_list		formatArguments;
-	va_list		formatArguments_print;
-	Boolean		log	= FALSE;
-	Boolean		print	= FALSE;
+	va_list		formatArguments		= { 0 };
+	va_list		formatArguments_print	= { 0 };
+	Boolean		log			= FALSE;
+	Boolean		print			= FALSE;
 
 	if (!condition) {
 		return;
@@ -847,7 +855,8 @@ SCError(void)
 const char *
 SCErrorString(int status)
 {
-	int i;
+	const char	*err;
+	int		i;
 
 	for (i = 0; i < (int)nSC_ERRMSGS; i++) {
 		if (sc_errmsgs[i].status == status) {
@@ -863,5 +872,10 @@ SCErrorString(int status)
 		return bootstrap_strerror(status);
 	}
 
-	return mach_error_string(status);
+	err = mach_error_string(status);
+	if (err == NULL) {
+		err = strerror(status);		// return unknown error
+	}
+
+	return err;
 }

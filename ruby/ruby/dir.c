@@ -2,7 +2,7 @@
 
   dir.c -
 
-  $Author: naruse $
+  $Author: nagachika $
   created at: Wed Jan  5 09:51:01 JST 1994
 
   Copyright (C) 1993-2007 Yukihiro Matsumoto

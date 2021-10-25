@@ -530,7 +530,7 @@ exit:
     return KERN_SUCCESS;
 }
 
-__private_extern__ CFDictionaryRef copyRepeatPowerEvents( )
+__private_extern__ CFDictionaryRef copyRepeatPowerEvents(void)
 {
 
     CFMutableDictionaryRef  return_dict = NULL;

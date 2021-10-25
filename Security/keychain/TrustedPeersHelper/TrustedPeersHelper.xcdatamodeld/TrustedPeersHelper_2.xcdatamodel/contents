@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<model type="com.apple.IDECoreDataModeler.DataModel" documentVersion="1.0" lastSavedToolsVersion="19127" systemVersion="20G27" minimumToolsVersion="Automatic" sourceLanguage="Swift" userDefinedModelVersionIdentifier="">
+<model type="com.apple.IDECoreDataModeler.DataModel" documentVersion="1.0" lastSavedToolsVersion="19141.11" systemVersion="21A277" minimumToolsVersion="Automatic" sourceLanguage="Swift" userDefinedModelVersionIdentifier="">
     <entity name="Bottle" representedClassName="BottleMO" syncable="YES" codeGenerationType="class">
         <attribute name="bottleID" optional="YES" attributeType="String"/>
         <attribute name="contents" optional="YES" attributeType="Binary"/>
@@ -24,6 +24,7 @@
         <attribute name="name" optional="YES" attributeType="String"/>
         <attribute name="recoveryKeyEncryptionSPKI" optional="YES" attributeType="Binary"/>
         <attribute name="recoveryKeySigningSPKI" optional="YES" attributeType="Binary"/>
+        <attribute name="refetchLevel" optional="YES" attributeType="Integer 64" defaultValueString="0" usesScalarValueType="YES"/>
         <relationship name="bottles" optional="YES" toMany="YES" deletionRule="Nullify" destinationEntity="Bottle" inverseName="container" inverseEntity="Bottle"/>
         <relationship name="fullyViableEscrowRecords" optional="YES" toMany="YES" deletionRule="Nullify" destinationEntity="EscrowRecord" inverseName="fullyViableEscrowRecords" inverseEntity="EscrowRecord"/>
         <relationship name="legacyEscrowRecords" optional="YES" toMany="YES" deletionRule="Nullify" destinationEntity="EscrowRecord" inverseName="legacyEscrowRecords" inverseEntity="EscrowRecord"/>
@@ -112,7 +113,7 @@
     </entity>
     <elements>
         <element name="Bottle" positionX="-549" positionY="-234" width="128" height="150"/>
-        <element name="Container" positionX="-758" positionY="-261" width="128" height="343"/>
+        <element name="Container" positionX="-758" positionY="-261" width="128" height="359"/>
         <element name="EscrowClientMetadata" positionX="-513" positionY="-198" width="128" height="238"/>
         <element name="EscrowMetadata" positionX="-522" positionY="-207" width="128" height="178"/>
         <element name="EscrowRecord" positionX="-549" positionY="-234" width="128" height="209"/>

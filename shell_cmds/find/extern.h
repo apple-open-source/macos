@@ -1,4 +1,6 @@
 /*-
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
  * Copyright (c) 1991, 1993, 1994
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -10,7 +12,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -27,12 +29,14 @@
  * SUCH DAMAGE.
  *
  *	@(#)extern.h	8.3 (Berkeley) 4/16/94
- *	$FreeBSD: src/usr.bin/find/extern.h,v 1.26 2010/12/11 08:32:16 joel Exp $
+ *	$FreeBSD$
  */
 
 #include <sys/cdefs.h>
 
-void	 brace_subst(char *, char **, char *, int);
+#include <stdbool.h>
+
+void	 brace_subst(char *, char **, char *, size_t);
 PLAN	*find_create(char ***);
 int	 find_execute(PLAN *, char **);
 PLAN	*find_formplan(char **);
@@ -58,6 +62,7 @@ creat_f	c_flags;
 creat_f	c_follow;
 creat_f	c_fstype;
 creat_f	c_group;
+creat_f	c_ignore_readdir_race;
 creat_f	c_inum;
 creat_f	c_links;
 creat_f	c_ls;
@@ -72,6 +77,7 @@ creat_f	c_regex;
 creat_f	c_samefile;
 creat_f	c_simple;
 creat_f	c_size;
+creat_f	c_sparse;
 creat_f	c_type;
 creat_f	c_user;
 creat_f	c_xdev;
@@ -108,6 +114,7 @@ exec_f	f_prune;
 exec_f	f_quit;
 exec_f	f_regex;
 exec_f	f_size;
+exec_f	f_sparse;
 exec_f	f_type;
 exec_f	f_user;
 #ifdef __APPLE__
@@ -115,10 +122,17 @@ exec_f	f_xattr;
 exec_f	f_xattrname;
 #endif /* __APPLE__ */
 
-extern int ftsoptions, isdeprecated, isdepth, isoutput, issort, isxargs;
+extern int ftsoptions, ignore_readdir_race, isdepth, isoutput;
+extern int issort, isxargs;
 extern int mindepth, maxdepth;
 extern int regexp_flags;
+extern int exitstatus;
 extern time_t now;
 extern int dotfd;
 extern FTS *tree;
-extern int execplus_error;
+
+#ifdef __APPLE__
+extern bool unix2003_compat;
+#else
+#define	unix2003_compat	true
+#endif

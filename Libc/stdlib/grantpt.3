@@ -77,20 +77,20 @@ and
 .Fn posix_openpt
 functions allow access to pseudo-terminal devices.
 The first four functions accept a file descriptor
-that references the master half of a pseudo-terminal pair.
+that references the primary half of a pseudo-terminal pair.
 This file descriptor is created with
 .Fn posix_openpt .
 .Pp
 The
 .Fn grantpt
 function is used to establish ownership and permissions
-of the slave device counterpart to the master device
+of the replica device counterpart to the primary device
 specified with
 .Fa fildes .
-The slave device's ownership is set to the real user ID
+The replica device's ownership is set to the real user ID
 of the calling process; its permissions are set to
 user readable-writable and group writable.
-The group owner of the slave device is also set to the group
+The group owner of the replica device is also set to the group
 .Dq Li tty
 if it exists on the system; otherwise, it
 is left untouched.
@@ -99,11 +99,11 @@ The
 .Fn ptsname
 and
 .Fn ptsname_r
-functions return the full pathname of the slave device
-counterpart to the master device specified with
+functions return the full pathname of the replica device
+counterpart to the primary device specified with
 .Fa fildes .
 This value can be used
-to subsequently open the appropriate slave after
+to subsequently open the appropriate replica after
 .Fn posix_openpt
 and
 .Fn grantpt
@@ -115,14 +115,14 @@ function takes a buffer and length as arguments to avoid this problem.
 .Pp
 The
 .Fn unlockpt
-function unlocks the slave pseudo-terminal device associated
-with the master device to which
+function unlocks the replica pseudo-terminal device associated
+with the primary device to which
 .Fa fildes
 refers.
 .Pp
 The
 .Fn posix_openpt
-function opens the first available master pseudo-terminal
+function opens the first available primary pseudo-terminal
 device and returns a descriptor to it.
 The
 .Fa oflag
@@ -141,7 +141,7 @@ the controlling terminal for the calling process.
 The
 .Fn ptsname
 function returns a pointer to the name
-of the slave device on success; otherwise a
+of the replica device on success; otherwise a
 .Dv NULL
 pointer is returned and the global variable
 .Va errno
@@ -156,7 +156,7 @@ is set to indicate the error.
 The
 .Fn posix_openpt
 function returns a file descriptor to the first
-available master pseudo-terminal device on success;
+available primary pseudo-terminal device on success;
 otherwise \-1 is returned and the global variable
 .Va errno
 is set to indicate the error.
@@ -173,7 +173,7 @@ to:
 .Bl -tag -width Er
 .It Bq Er EINVAL
 .Fa fildes
-is not a master pseudo-terminal device.
+is not a primary pseudo-terminal device.
 .El
 .Pp
 In addition, the
@@ -201,7 +201,7 @@ function may set
 to:
 .Bl -tag -width Er
 .It Bq Er EACCES
-The slave pseudo-terminal device could not be accessed.
+The replica pseudo-terminal device could not be accessed.
 .El
 .Pp
 The

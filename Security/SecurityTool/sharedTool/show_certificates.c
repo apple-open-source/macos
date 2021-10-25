@@ -81,7 +81,10 @@ static void show_cert_eval(CFArrayRef certs, bool verbose) {
     };
     (void) SecTrustEvaluate(trust, &trustResult);
     printf("* trust: %s *\n", trustResults[trustResult]);
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     CFArrayRef properties = SecTrustCopyProperties(trust);
+#pragma clang diagnostic pop
     print_plist(properties);
     CFReleaseNull(properties);
     CFIndex ix, count = SecTrustGetCertificateCount(trust);

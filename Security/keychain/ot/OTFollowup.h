@@ -30,13 +30,22 @@
 #import <CoreCDP/CDPFollowUpController.h>
 #import "keychain/ckks/CKKSAnalytics.h"
 
+#if TARGET_OS_IOS || TARGET_OS_OSX
+#define OCTAGON_PLATFORM_SUPPORTS_RK_CFU 1
+#else
+#define OCTAGON_PLATFORM_SUPPORTS_RK_CFU 0
+#endif
+
 NS_ASSUME_NONNULL_BEGIN
 
 typedef NS_ENUM(uint8_t, OTFollowupContextType) {
-    OTFollowupContextTypeNone,
-    OTFollowupContextTypeRecoveryKeyRepair,
-    OTFollowupContextTypeStateRepair,
-    OTFollowupContextTypeConfirmExistingSecret,
+    OTFollowupContextTypeNone = 0,
+#if OCTAGON_PLATFORM_SUPPORTS_RK_CFU
+    OTFollowupContextTypeRecoveryKeyRepair = 1,
+#endif
+    OTFollowupContextTypeStateRepair = 2,
+    OTFollowupContextTypeConfirmExistingSecret = 3,
+    OTFollowupContextTypeSecureTerms = 4,
 };
 NSString* OTFollowupContextTypeToString(OTFollowupContextType contextType);
 

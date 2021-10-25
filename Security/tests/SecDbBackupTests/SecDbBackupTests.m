@@ -351,7 +351,7 @@ SecDbBackupManager* _manager;
 
     NSMutableData* recoverykeydata = [NSMutableData dataWithLength:APPLE_KEYSTORE_MAX_KEY_LEN];
     [SecAKSObjCWrappers aksDecryptWithKeybag:KEYBAG_DEVICE keyclass:key_class_aku
-                                  ciphertext:set.wrappedRecoveryKey outKeyclass:nil plaintext:recoverykeydata error:&error];
+                                  ciphertext:set.wrappedRecoveryKey outKeyclass:nil plaintext:recoverykeydata personaId:NULL personaIdLength:0 error:&error];
     XCTAssertNil(error, @"Able to decrypt recovery key: %@", error);
     SFAESKey* recoverykey = [[SFAESKey alloc] initWithData:recoverykeydata specifier:[[SFAESKeySpecifier alloc]
                                                                                       initWithBitSize:SFAESKeyBitSize256] error:&error];

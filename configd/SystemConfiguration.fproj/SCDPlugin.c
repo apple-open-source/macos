@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2006, 2013, 2015, 2017, 2018 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2002-2006, 2013, 2015, 2017, 2018, 2020 Apple, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -28,6 +28,7 @@
  * - initial revision
  */
 
+#include <crt_externs.h>
 #include <fcntl.h>
 #include <paths.h>
 #include <pwd.h>
@@ -40,6 +41,7 @@
 #include <sys/wait.h>
 #include <mach/mach.h>
 #include <mach/mach_error.h>
+#include <os/log.h>
 
 #include <CoreFoundation/CoreFoundation.h>
 #include <SystemConfiguration/SCDPlugin.h>
@@ -274,6 +276,78 @@ _SCDPluginExecInit(void)
 
 
 pid_t
+_SCDPluginSpawnCommand(SCDPluginSpawnCallBack	callout,
+		       void			*context,
+		       const char		*path,
+		       char * const 		argv[],
+		       SCDPluginSpawnSetup	setup,
+		       void			*setupContext)
+{
+	posix_spawn_file_actions_t	actions;
+	posix_spawnattr_t		attr;
+	char * *			envp	= *_NSGetEnviron();
+	pid_t				pid	= 0;
+	int				status;
+
+	// grab the activeChildren mutex
+	pthread_mutex_lock(&lock);
+
+	// if needed, initialize
+	if (childReaped == NULL) {
+		_SCDPluginExecInit();
+	}
+
+	posix_spawnattr_init(&attr);
+	posix_spawn_file_actions_init(&actions);
+
+	// by default, close all FDs
+	posix_spawnattr_setflags(&attr, POSIX_SPAWN_CLOEXEC_DEFAULT);
+
+	if (setup != NULL) {
+		(setup)(&actions, &attr, setupContext);
+	} else {
+		// STDIN, STDOUT, STDERR --> /dev/null
+		posix_spawn_file_actions_addopen(&actions, STDIN_FILENO,  _PATH_DEVNULL, O_RDWR, 0);
+		posix_spawn_file_actions_adddup2(&actions, STDIN_FILENO, STDOUT_FILENO);
+		posix_spawn_file_actions_adddup2(&actions, STDIN_FILENO, STDERR_FILENO);
+	}
+
+	os_log_info(OS_LOG_DEFAULT, "spawn: %s", path);
+	status = posix_spawn(&pid, path, &actions, &attr, argv, envp);
+
+	posix_spawnattr_destroy(&attr);
+	posix_spawn_file_actions_destroy(&actions);
+
+	if ((status == 0) && (pid != 0)) {
+		if (callout != NULL) {
+			childInfoRef	child;
+
+			// create child process info
+			child = CFAllocatorAllocate(NULL, sizeof(struct childInfo), 0);
+			memset(child, 0, sizeof(struct childInfo));
+			child->pid     = pid;
+			child->callout = callout;
+			child->context = context;
+
+			// add the new child to the activeChildren list
+			child->next = activeChildren;
+			activeChildren = child;
+		}
+	} else {
+		status = errno;
+		os_log_error(OS_LOG_DEFAULT, "posix_spawn() failed: %s\n", strerror(status));
+		errno = status;
+		pid = -1;
+	}
+
+	// release the activeChildren mutex
+	pthread_mutex_unlock(&lock);
+
+	return pid;
+}
+
+
+pid_t
 _SCDPluginExecCommand2(SCDPluginExecCallBack	callout,
 		       void			*context,
 		       uid_t			uid,
@@ -285,10 +359,19 @@ _SCDPluginExecCommand2(SCDPluginExecCallBack	callout,
 		       )
 {
 	char		buf[1024];
+	gid_t		egid		= getegid();
+	uid_t		euid		= geteuid();
 	pid_t		pid;
 	struct passwd	pwd;
-	struct passwd	*result	= NULL;
-	char		*username = NULL;
+	struct passwd	*result		= NULL;
+	int		status;
+	char		*username	= NULL;
+
+	if ((setup == NULL) && (uid == euid) && (gid == egid)) {
+		// use posix_spawn() if we're just exec'ing
+		pid = _SCDPluginSpawnCommand(callout, context, path, argv, NULL, NULL);
+		return pid;
+	}
 
 	// grab the activeChildren mutex
 	pthread_mutex_lock(&lock);
@@ -305,25 +388,18 @@ _SCDPluginExecCommand2(SCDPluginExecCallBack	callout,
 		_SCDPluginExecInit();
 	}
 
+	os_log_info(OS_LOG_DEFAULT, "fork/exec: %s", path);
 	pid = fork();
 
 	switch (pid) {
 		case -1 : {	/* if error */
-
-			int	status;
-
 			status = errno;
-			printf("fork() failed: %s\n", strerror(status));
+			os_log_error(OS_LOG_DEFAULT, "fork() failed: %s\n", strerror(status));
 			errno  = status;
 			break;
 		}
 
 		case 0 : {	/* if child */
-
-			gid_t	egid;
-			uid_t	euid;
-			int	status;
-
 			if (setup != NULL) {
 				(setup)(pid, setupContext);
 			} else {
@@ -363,7 +439,7 @@ _SCDPluginExecCommand2(SCDPluginExecCallBack	callout,
 
 			/* ensure that our PATH environment variable is somewhat reasonable */
 			if (setenv("PATH", "/bin:/sbin:/usr/bin:/usr/sbin", 0) == -1) {
-				printf("setenv() failed: %s\n", strerror(errno));
+				os_log_error(OS_LOG_DEFAULT, "setenv() failed: %s\n", strerror(errno));
 				exit(EX_OSERR);
 			}
 

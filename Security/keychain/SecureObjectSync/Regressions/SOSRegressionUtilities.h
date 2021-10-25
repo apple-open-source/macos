@@ -88,16 +88,7 @@ SecKeyRef SOSMakeUserKeyForPassword(const char *passwd);
 bool SOSPeerValidityCheck(SOSFullPeerInfoRef fpi, SecKeyRef userKey, CFErrorRef *error);
 
 
-static CFStringRef SOSModelFromType(SOSPeerInfoDeviceClass cls) {
-    switch(cls) {
-        case SOSPeerInfo_macOS: return CFSTR("Mac Pro");
-        case SOSPeerInfo_iOS: return CFSTR("iPhone");
-        case SOSPeerInfo_iCloud: return CFSTR("iCloud");
-        case SOSPeerInfo_watchOS: return CFSTR("needWatchOSDeviceName");
-        case SOSPeerInfo_tvOS: return CFSTR("needTVOSDeviceName");
-        default: return CFSTR("GENERICOSTHING");
-    }
-}
+CFStringRef SOSModelFromType(SOSPeerInfoDeviceClass cls);
 
 __END_DECLS
 

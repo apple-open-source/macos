@@ -115,12 +115,19 @@ CKKSZoneKeyState* const SecCKKSZoneKeyStateBadCurrentPointers = (CKKSZoneKeyStat
 CKKSZoneKeyState* const SecCKKSZoneKeyStateNewTLKsFailed = (CKKSZoneKeyState*) @"newtlksfailed";
 CKKSZoneKeyState* const SecCKKSZoneKeyStateHealTLKShares = (CKKSZoneKeyState*) @"healtlkshares";
 CKKSZoneKeyState* const SecCKKSZoneKeyStateHealTLKSharesFailed = (CKKSZoneKeyState*) @"healtlksharesfailed";
-CKKSZoneKeyState* const SecCKKSZoneKeyStateWaitForFixupOperation = (CKKSZoneKeyState*) @"waitforfixupoperation";
 CKKSZoneKeyState* const SecCKKSZoneKeyStateResettingZone = (CKKSZoneKeyState*) @"resetzone";
 CKKSZoneKeyState* const SecCKKSZoneKeyStateResettingLocalData = (CKKSZoneKeyState*) @"resetlocal";
 CKKSZoneKeyState* const SecCKKSZoneKeyStateLoggedOut = (CKKSZoneKeyState*) @"loggedout";
 CKKSZoneKeyState* const SecCKKSZoneKeyStateZoneCreationFailed = (CKKSZoneKeyState*) @"zonecreationfailed";
 CKKSZoneKeyState* const SecCKKSZoneKeyStateProcess = (CKKSZoneKeyState*) @"process_key_hierarchy";
+
+CKKSZoneKeyState* const CKKSZoneKeyStateFixupRefetchCurrentItemPointers = (CKKSZoneKeyState*) @"fixup_fetch_cip";
+CKKSZoneKeyState* const CKKSZoneKeyStateFixupFetchTLKShares = (CKKSZoneKeyState*) @"fixup_fetch_tlkshares";
+CKKSZoneKeyState* const CKKSZoneKeyStateFixupLocalReload = (CKKSZoneKeyState*) @"fixup_local_reload";
+CKKSZoneKeyState* const CKKSZoneKeyStateFixupResaveDeviceStateEntries = (CKKSZoneKeyState*) @"fixup_resave_cdse";
+CKKSZoneKeyState* const CKKSZoneKeyStateFixupDeleteAllCKKSTombstones = (CKKSZoneKeyState*) @"fixup_delete_tombstones";
+
+CKKSZoneKeyState* const CKKSZoneKeyStateCheckTLKShares = (CKKSZoneKeyState*) @"check_tlk_shares";
 
 NSString* const CKKSErrorDomain = @"CKKSErrorDomain";
 NSString* const CKKSServerExtensionErrorDomain = @"CKKSServerExtensionErrorDomain";

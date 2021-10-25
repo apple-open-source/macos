@@ -30,8 +30,6 @@
 #import "keychain/ot/OTOperationDependencies.h"
 #import "OTDeviceInformation.h"
 
-@class OTCuttlefishContext;
-
 NS_ASSUME_NONNULL_BEGIN
 
 @interface OTClientVoucherOperation : CKKSGroupOperation <OctagonStateTransitionOperationProtocol>
@@ -47,7 +45,6 @@ NS_ASSUME_NONNULL_BEGIN
                           stableInfo:(nonnull NSData *)stableInfo
                        stableInfoSig:(nonnull NSData *)stableInfoSig;
 
-@property (weak) OTCuttlefishContext* cuttlefishContext;
 @property (nonatomic) NSString* peerID;
 @property (nonatomic) NSData* permanentInfo;
 @property (nonatomic) NSData* permanentInfoSig;

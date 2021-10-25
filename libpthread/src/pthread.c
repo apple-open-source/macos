@@ -58,6 +58,7 @@
 #include <mach/mach_init.h>
 #include <mach/mach_vm.h>
 #include <mach/mach_sync_ipc.h>
+#include <mach/thread_switch.h>
 #include <sys/time.h>
 #include <sys/resource.h>
 #include <sys/sysctl.h>
@@ -168,6 +169,9 @@ static int pthread_concurrency;
 uintptr_t _pthread_ptr_munge_token;
 
 static void (*exitf)(int) = __exit;
+
+// workgroup support
+static struct pthread_workgroup_functions_s *_pthread_workgroup_functions;
 
 // work queue support data
 OS_NORETURN OS_COLD
@@ -1501,6 +1505,30 @@ pthread_create_suspended_np(pthread_t *thread, const pthread_attr_t *attr,
 	return _pthread_create(thread, attr, start_routine, arg, flags);
 }
 
+void
+pthread_install_workgroup_functions_np(
+		const struct pthread_workgroup_functions_s *pwgf)
+{
+	if (_pthread_workgroup_functions) {
+		PTHREAD_CLIENT_CRASH((uintptr_t)_pthread_workgroup_functions,
+				"workgroup functions already installed");
+	}
+
+	_pthread_workgroup_functions = pwgf;
+}
+
+int
+pthread_create_with_workgroup_np(pthread_t *thread, os_workgroup_t wg,
+		const pthread_attr_t *attr, void *(*start_routine)(void *), void *arg)
+{
+	if (!_pthread_workgroup_functions) {
+		PTHREAD_CLIENT_CRASH(0, "workgroup functions not yet installed");
+	}
+
+	return _pthread_workgroup_functions->pwgf_create_with_workgroup(thread, wg,
+			attr, start_routine, arg);
+}
+
 int
 pthread_detach(pthread_t thread)
 {
@@ -2102,6 +2130,51 @@ sched_yield(void)
 	return 0;
 }
 
+int
+_pthread_yield_to_enqueuer_4dispatch(unsigned long tsd_slot, void *expected_val,
+		unsigned int timeout_ms)
+{
+	mach_port_t enqueuer_port = MACH_PORT_NULL;
+
+	_pthread_lock_lock(&_pthread_list_lock);
+
+	/* If there are multiple enqueuers to the same queue, this logic does not
+	 * protect us from repeatedly yielding to the same thread which may not be
+	 * able to unblock us. But that is only a major problem if that thread is
+	 * constantly enqueueing to the same queue in a loop. We've not encountered
+	 * that scenario enough to handle that here.
+	 */
+	pthread_t p = NULL;
+	TAILQ_FOREACH(p, &__pthread_head, tl_plist) {
+		if (expected_val) {
+			if (p->tsd[tsd_slot] == expected_val) {
+				enqueuer_port = _pthread_tsd_slot(p, MACH_THREAD_SELF);
+				break;
+			}
+		} else {
+			if (p->tsd[tsd_slot] != NULL) {
+				enqueuer_port = _pthread_tsd_slot(p, MACH_THREAD_SELF);
+				break;
+			}
+		}
+	}
+	_pthread_lock_unlock(&_pthread_list_lock);
+
+	/* This will either do a directed yield if we found a potential enqueuer, or
+	 * do a suppress.
+	 *
+	 * Technically this is racey since we are referencing the enqueuer_port
+	 * without taking an additional reference to it under the list_lock. But
+	 * thread_switch falls back to a suppressed yield if the port is not an
+	 * actual valid thread_port anymore so that's a better win for perf rather
+	 * than taking refs
+	 */
+	thread_switch(enqueuer_port, SWITCH_OPTION_OSLOCK_DEPRESS,
+		(mach_msg_timeout_t) timeout_ms);
+
+	return 0;
+}
+
 // Libsystem knows about this symbol and exports it to libsyscall
 int
 pthread_current_stack_contains_np(const void *addr, size_t length)
@@ -2174,6 +2247,15 @@ pthread_stack_frame_decode_np(uintptr_t frame_addr, uintptr_t *return_addr)
 {
 	struct frame_data *frame = (struct frame_data *)frame_addr;
 
+#if __has_feature(ptrauth_calls)
+	/* In the case of Swift async backtraces, the context pointer read from
+	 * the OS stack is signed and will be passed here as `frame_addr`.
+	 * There is no harm in generally stripping this pointer which solves
+	 * this usecase.
+	 */
+	frame = ptrauth_strip(frame, ptrauth_key_process_dependent_data);
+#endif
+
 	if (return_addr) {
 #if __has_feature(ptrauth_calls)
 		*return_addr = (uintptr_t)ptrauth_strip((void *)frame->ret_addr,
@@ -2183,11 +2265,25 @@ pthread_stack_frame_decode_np(uintptr_t frame_addr, uintptr_t *return_addr)
 #endif /* __has_feature(ptrauth_calls) */
 	}
 
+	uintptr_t next_frame = frame->frame_addr_next;
 #if __has_feature(ptrauth_calls)
-	return (uintptr_t)ptrauth_strip((void *)frame->frame_addr_next,
+	next_frame = (uintptr_t)ptrauth_strip((void *)next_frame,
 			ptrauth_key_frame_pointer);
 #endif /* __has_feature(ptrauth_calls) */
-	return (uintptr_t)frame->frame_addr_next;
+#if __LP64__
+	/*
+	 * On our 64 bit platforms the top byte of the frame pointer
+	 * in userspace should always be zeros. Some ABIs might use
+	 * this byte to stash extended information about the frame
+	 * (for example the Swift concurrency ABI does this). On arm64
+	 * TBI makes dereferencing it transparent, but people might
+	 * want to do arithmetic on the resulting pointer, so strip
+	 * it unconditionally.
+	 */
+	next_frame = next_frame & ~0xFF00000000000000ul;
+#endif
+
+	return next_frame;
 }
 
 #pragma mark pthread workqueue support routines
@@ -2202,6 +2298,7 @@ _pthread_bsdthread_init(struct _pthread_registration_data *data)
 	data->tsd_offset = offsetof(struct pthread_s, tsd);
 	data->mach_thread_self_offset = __TSD_MACH_THREAD_SELF * sizeof(void *);
 	data->joinable_offset_bits = CHAR_BIT * (offsetof(struct pthread_s, tl_policy) + 1);
+	data->wq_quantum_expiry_offset = __PTK_LIBDISPATCH_KEY10 * sizeof(void *);
 
 	int rv = __bsdthread_register(thread_start, start_wqthread, (int)PTHREAD_SIZE,
 			(void*)data, (uintptr_t)sizeof(*data), data->dispatch_queue_offset);
@@ -2247,17 +2344,17 @@ _pthread_bsdthread_init(struct _pthread_registration_data *data)
 
 OS_NOINLINE
 static void
-_pthread_wqthread_legacy_worker_wrap(pthread_priority_t pp)
+_pthread_wqthread_legacy_worker_wrap(pthread_workqueue_function2_arg_t workq_function2_arg)
 {
 	/* Old thread priorities are inverted from where we have them in
 	 * the new flexible priority scheme. The highest priority is zero,
 	 * up to 2, with background at 3.
 	 */
 	pthread_workqueue_function_t func = (pthread_workqueue_function_t)__libdispatch_workerfunction;
-	bool overcommit = (pp & _PTHREAD_PRIORITY_OVERCOMMIT_FLAG);
+	bool overcommit = (workq_function2_arg & _PTHREAD_PRIORITY_OVERCOMMIT_FLAG);
 	int opts = overcommit ? WORKQ_ADDTHREADS_OPTION_OVERCOMMIT : 0;
 
-	switch (_pthread_priority_thread_qos(pp)) {
+	switch (_pthread_priority_thread_qos(workq_function2_arg)) {
 	case THREAD_QOS_USER_INITIATED:
 		return (*func)(WORKQ_HIGH_PRIOQUEUE, opts, NULL);
 	case THREAD_QOS_LEGACY:
@@ -2273,7 +2370,7 @@ _pthread_wqthread_legacy_worker_wrap(pthread_priority_t pp)
 	case THREAD_QOS_BACKGROUND:
 		return (*func)(WORKQ_BG_PRIOQUEUE, opts, NULL);
 	}
-	PTHREAD_INTERNAL_CRASH(pp, "Invalid pthread priority for the legacy interface");
+	PTHREAD_INTERNAL_CRASH(workq_function2_arg, "Invalid pthread priority for the legacy interface");
 }
 
 OS_ALWAYS_INLINE
@@ -2293,6 +2390,7 @@ _pthread_wqthread_priority(int flags)
 	if (flags & WQ_FLAG_THREAD_OVERCOMMIT) {
 		pp |= _PTHREAD_PRIORITY_OVERCOMMIT_FLAG;
 	}
+
 	if (flags & WQ_FLAG_THREAD_PRIO_QOS) {
 		qos = (thread_qos_t)(flags & WQ_FLAG_THREAD_PRIO_MASK);
 		pp = _pthread_priority_make_from_thread_qos(qos, 0, pp);
@@ -2372,6 +2470,13 @@ _pthread_wqthread(pthread_t self, mach_port_t kport, void *stacklowaddr,
 
 	self->tsd[_PTHREAD_TSD_SLOT_PTHREAD_QOS_CLASS] = (void *)pp;
 
+	// Only used for conveying to libdispatch that the thread is coming out to
+	// handle a cooperative request.
+	pthread_workqueue_function2_arg_t workq_function2_arg = pp;
+	if (flags & WQ_FLAG_THREAD_COOPERATIVE) {
+		workq_function2_arg |= _PTHREAD_PRIORITY_COOPERATIVE_FLAG;
+	}
+
 	// avoid spills on the stack hard to keep used stack space minimal
 	if (os_unlikely(nkevents == WORKQ_EXIT_THREAD_NKEVENT)) {
 		_pthread_wqthread_exit(self);
@@ -2390,12 +2495,12 @@ _pthread_wqthread(pthread_t self, mach_port_t kport, void *stacklowaddr,
 		__workq_kernreturn(WQOPS_THREAD_KEVENT_RETURN, self->arg, self->wq_nevents, 0);
 	} else {
 		self->fun = (void *(*)(void*))__libdispatch_workerfunction;
-		self->arg = (void *)(uintptr_t)pp;
+		self->arg = (void *)(uintptr_t)workq_function2_arg;
 		self->wq_nevents = 0;
 		if (os_likely(__workq_newapi)) {
-			(*__libdispatch_workerfunction)(pp);
+			(*__libdispatch_workerfunction)(workq_function2_arg);
 		} else {
-			_pthread_wqthread_legacy_worker_wrap(pp);
+			_pthread_wqthread_legacy_worker_wrap(workq_function2_arg);
 		}
 		__workq_kernreturn(WQOPS_THREAD_RETURN, NULL, 0, 0);
 	}
@@ -2603,6 +2708,22 @@ _pthread_workqueue_addthreads(int numthreads, pthread_priority_t priority)
 #endif
 
 	res = __workq_kernreturn(WQOPS_QUEUE_REQTHREADS, NULL, numthreads, (int)priority);
+	if (res == -1) {
+		res = errno;
+	}
+	return res;
+}
+
+int
+_pthread_workqueue_add_cooperativethreads(int numthreads, pthread_priority_t priority)
+{
+	int res = 0;
+
+	if (__libdispatch_workerfunction == NULL) {
+		return EPERM;
+	}
+
+	res = __workq_kernreturn(WQOPS_QUEUE_REQTHREADS2, NULL, numthreads, (int)priority);
 	if (res == -1) {
 		res = errno;
 	}

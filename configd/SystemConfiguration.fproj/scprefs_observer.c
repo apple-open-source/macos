@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, 2013, 2015-2019 Apple Inc. All rights reserved.
+ * Copyright (c) 2012, 2013, 2015-2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -160,9 +160,9 @@ prefs_observer_get_prefs_path(scprefs_observer_t observer)
 	case scprefs_observer_type_global:
 		return MANAGED_PREFERENCES_MOBILE_PATH;
 #endif	// !TARGET_OS_IPHONE
-	default:
-		return (NULL);
 	}
+
+	return NULL;
 }
 
 /*

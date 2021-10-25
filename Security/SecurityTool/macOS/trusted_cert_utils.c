@@ -463,6 +463,7 @@ CFOptionFlags revCheckOptionStringToFlags(
 		result |= kSecRevocationOCSPMethod;
 	}
 	else if(!strcmp(revCheckOption, "crl")) {
+		fprintf(stderr, "Warning: crl option is deprecated, use ocsp\n");
 		result |= kSecRevocationCRLMethod;
 	}
 	else if(!strcmp(revCheckOption, "require")) {
@@ -526,9 +527,13 @@ void printCertText(SecCertificateRef certRef)
 
 void printCertChain(SecTrustRef trustRef, bool printPem, bool printText)
 {
-	CFIndex idx, count = SecTrustGetCertificateCount(trustRef);
+    CFArrayRef chain = SecTrustCopyCertificateChain(trustRef);
+    if (!chain) {
+        return;
+    }
+	CFIndex idx, count = CFArrayGetCount(chain);
 	for (idx = 0; idx < count; idx++) {
-		SecCertificateRef cert = SecTrustGetCertificateAtIndex(trustRef, idx);
+		SecCertificateRef cert = (SecCertificateRef)CFArrayGetValueAtIndex(chain, idx);
 		fprintf(stdout, " %ld: ", idx);
 		printCertLabel(cert);
 		fprintf(stdout, "\n    ");
@@ -544,5 +549,6 @@ void printCertChain(SecTrustRef trustRef, bool printPem, bool printText)
 					SecCertificateGetBytePtr(cert));
 		}
 	}
+    CFReleaseNull(chain);
 }
 

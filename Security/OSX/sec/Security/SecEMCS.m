@@ -21,8 +21,6 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-#define __KEYCHAINCORE__ 1
-
 #include <Foundation/Foundation.h>
 #include <Security/SecBase.h>
 #include <Security/SecBasePriv.h>

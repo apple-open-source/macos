@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2020 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2021 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -23,7 +23,7 @@
 
 /*
  * wireless.h
- * - definitions for WiFi
+ * - CF object to retrieve Wi-Fi information
  */
 /* 
  * Modification History
@@ -35,19 +35,47 @@
 #define _S_WIRELESS_H
 
 #include <stdint.h>
+#include <stdbool.h>
 #include <CoreFoundation/CFString.h>
 #include <net/ethernet.h>
 
-typedef uint32_t wifi_auth_type;
+typedef struct WiFiInfo *WiFiInfoRef;
 
-#define WIFI_AUTH_TYPE_NONE 	0x0000
-#define WIFI_AUTH_TYPE_UNKNOWN 	0xFFFF
+typedef CF_ENUM(uint32_t, WiFiAuthType) {
+	kWiFiAuthTypeNone 	= 0x0000,
+	kWiFiAuthTypeUnknown	= 0xffff,
+};
+
+typedef CF_ENUM(uint8_t, WiFiInfoComparisonResult) {
+	kWiFiInfoComparisonResultUnknown	= 0,
+	kWiFiInfoComparisonResultSameNetwork	= 1,
+	kWiFiInfoComparisonResultNetworkChanged	= 2,
+	kWiFiInfoComparisonResultBSSIDChanged 	= 3,
+};
+
 
 const char *
-wifi_auth_type_string(wifi_auth_type auth_type);
-	
+WiFiAuthTypeGetString(WiFiAuthType auth_type);
+
+const char *
+WiFiInfoComparisonResultGetString(WiFiInfoComparisonResult result);
+
+WiFiInfoRef
+WiFiInfoCopy(CFStringRef ifname);
+
 CFStringRef
-wireless_copy_ssid_bssid(CFStringRef ifname, struct ether_addr * ap_mac,
-			 wifi_auth_type * auth_type_p);
+WiFiInfoGetSSID(WiFiInfoRef w);
+
+const struct ether_addr *
+WiFiInfoGetBSSID(WiFiInfoRef w);
+
+WiFiAuthType
+WiFiInfoGetAuthType(WiFiInfoRef w);
+
+CFStringRef
+WiFiInfoGetNetworkID(WiFiInfoRef w);
+
+WiFiInfoComparisonResult
+WiFiInfoCompare(WiFiInfoRef info1, WiFiInfoRef info2);
 
 #endif /* _S_WIRELESS_H */

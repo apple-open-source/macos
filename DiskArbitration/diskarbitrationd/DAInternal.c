@@ -533,6 +533,17 @@ __private_extern__ char * _DAVolumeCopyID( const struct statfs * fs )
 {
     char * id;
 
+    if ( strcmp( fs->f_fstypename, "lifs" ) == 0 )
+    {
+        char mntpoint[MAXPATHLEN];
+        char devname[MAXPATHLEN];
+        strlcpy(mntpoint, fs->f_mntfromname, sizeof(mntpoint));
+        if (__DAVolumeGetDeviceIDForLifsMount (mntpoint, devname, sizeof(devname)) == 0 )
+        {
+            asprintf( &id, "/dev/%s", devname );
+            goto exit;
+        }
+    }
     if ( strncmp( fs->f_mntfromname, _PATH_DEV, strlen( _PATH_DEV ) ) )
     {
         asprintf( &id, "%s?owner=%u", fs->f_mntonname, fs->f_owner );
@@ -542,12 +553,25 @@ __private_extern__ char * _DAVolumeCopyID( const struct statfs * fs )
         asprintf( &id, "%s", fs->f_mntfromname );
     }
 
+exit:
     return id;
 }
 
 __private_extern__ char * _DAVolumeGetID( const struct statfs * fs )
 {
     static char id[ sizeof( fs->f_mntonname ) + strlen( "?owner=" ) + strlen( "4294967295" ) ];
+    
+    if ( strcmp( fs->f_fstypename, "lifs" ) == 0 )
+    {
+        char mntpoint[MAXPATHLEN];
+        char devname[MAXPATHLEN];
+        strlcpy(mntpoint, fs->f_mntfromname, sizeof(mntpoint));
+        if (__DAVolumeGetDeviceIDForLifsMount (mntpoint, devname, sizeof(devname)) == 0 )
+        {
+            snprintf( id, sizeof( id ), "/dev/%s", devname );
+            goto exit;
+        }
+    }
 
     if ( strncmp( fs->f_mntfromname, _PATH_DEV, strlen( _PATH_DEV ) ) )
     {
@@ -558,5 +582,27 @@ __private_extern__ char * _DAVolumeGetID( const struct statfs * fs )
         snprintf( id, sizeof( id ), "%s", fs->f_mntfromname );
     }
 
+exit:
     return id;
 }
+
+__private_extern__ int __DAVolumeGetDeviceIDForLifsMount(char *mntpoint, char *devname, int len)
+{
+    char *    startStr;
+    char *    endStr;
+    int       ret = -1;
+        
+    if ((startStr = strstr(mntpoint, "://")))
+    {
+        startStr = startStr + strlen("://");
+        endStr = strrchr(startStr, '/');
+        if ( endStr != NULL )
+        {
+            *endStr = '\0';
+            strlcpy(devname, startStr, len);
+            ret = 0;
+        }
+    }
+    return ret;
+}
+

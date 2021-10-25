@@ -123,8 +123,9 @@ void dtrace_update_kernel_symbols(dtrace_hdl_t* dtp);
 #define	DT_VERS_1_16	DT_VERSION_NUMBER(1, 16, 0)
 #define	DT_VERS_1_17	DT_VERSION_NUMBER(1, 17, 0)
 #define	DT_VERS_1_18	DT_VERSION_NUMBER(1, 18, 0)
-#define	DT_VERS_LATEST	DT_VERS_1_18
-#define	DT_VERS_STRING	"Sun D 1.18"
+#define	DT_VERS_1_19	DT_VERSION_NUMBER(1, 19, 0)
+#define	DT_VERS_LATEST	DT_VERS_1_19
+#define	DT_VERS_STRING	"Sun D 1.19"
 
 const dt_version_t _dtrace_versions[] = {
 	DT_VERS_1_0,	/* D API 1.0.0 (PSARC 2001/466) Solaris 10 FCS */
@@ -289,6 +290,10 @@ static const dt_ident_t _dtrace_globals[] = {
 { "kvtophys", DT_IDENT_FUNC, 0, DIF_SUBR_KVTOPHYS, DT_ATTR_EVOLCMN, DT_VERS_1_17,
 	&dt_idops_func, "uint64_t(void*)" },
 #endif /* defined(DIF_SUBR_KVTOPHYS) */
+#if defined(DIF_SUBR_LIVEDUMP)
+{ "livedump", DT_IDENT_FUNC, 0, DIF_SUBR_LIVEDUMP, DT_ATTR_STABCMN, DT_VERS_1_19,
+	&dt_idops_func, "string(unsigned, ...)" },
+#endif /* defined(DIF_SUBR_LIVEDUMP) */
 { "lltostr", DT_IDENT_FUNC, 0, DIF_SUBR_LLTOSTR, DT_ATTR_STABCMN, DT_VERS_1_0,
 	&dt_idops_func, "string(int64_t, [int])" },
 { "llquantize", DT_IDENT_AGGFUNC, 0, DTRACEAGG_LLQUANTIZE,

@@ -95,7 +95,7 @@ lck_mtx_t *pthread_list_mlock;
 #define PTH_HASHSIZE 100
 
 static LIST_HEAD(pthhashhead, ksyn_wait_queue) *pth_glob_hashtbl;
-static unsigned long pthhash;
+static unsigned long pth_hash_mask;
 
 static LIST_HEAD(, ksyn_wait_queue) pth_free_list;
 
@@ -1533,13 +1533,13 @@ prepost:
 void
 pth_global_hashinit(void)
 {
-	pth_glob_hashtbl = hashinit(PTH_HASHSIZE * 4, M_PROC, &pthhash);
+	pth_glob_hashtbl = hashinit(PTH_HASHSIZE * 4, M_PROC, &pth_hash_mask);
 }
 
 void
 _pth_proc_hashinit(proc_t p)
 {
-	void *ptr = hashinit(PTH_HASHSIZE, M_PCB, &pthhash);
+	void *ptr = hashinit(PTH_HASHSIZE, M_PCB, &pth_hash_mask);
 	if (ptr == NULL) {
 		panic("pth_proc_hashinit: hash init returned 0\n");
 	}
@@ -1558,14 +1558,14 @@ ksyn_wq_hash_lookup(user_addr_t uaddr, proc_t p, int flags,
 	struct pthhashhead *hashptr;
 	if ((flags & PTHREAD_PSHARED_FLAGS_MASK) == PTHREAD_PROCESS_SHARED) {
 		hashptr = pth_glob_hashtbl;
-		LIST_FOREACH(kwq, &hashptr[object & pthhash], kw_hash) {
+		LIST_FOREACH(kwq, &hashptr[object & pth_hash_mask], kw_hash) {
 			if (kwq->kw_object == object && kwq->kw_offset == offset) {
 				break;
 			}
 		}
 	} else {
 		hashptr = pthread_kern->proc_get_pthhash(p);
-		LIST_FOREACH(kwq, &hashptr[uaddr & pthhash], kw_hash) {
+		LIST_FOREACH(kwq, &hashptr[uaddr & pth_hash_mask], kw_hash) {
 			if (kwq->kw_addr == uaddr) {
 				break;
 			}
@@ -1581,7 +1581,7 @@ _pth_proc_hashdelete(proc_t p)
 {
 	struct pthhashhead * hashptr;
 	ksyn_wait_queue_t kwq;
-	unsigned long hashsize = pthhash + 1;
+	unsigned long hashsize = pth_hash_mask + 1;
 	unsigned long i;
 	
 	hashptr = pthread_kern->proc_get_pthhash(p);
@@ -1610,7 +1610,7 @@ _pth_proc_hashdelete(proc_t p)
 		}
 	}
 	pthread_list_unlock();
-	FREE(hashptr, M_PROC);
+	hashdestroy(hashptr, M_PROC, pth_hash_mask);
 }
 
 /* no lock held for this as the waitqueue is getting freed */
@@ -1705,9 +1705,9 @@ ksyn_wqfind(user_addr_t uaddr, uint32_t mgen, uint32_t ugen, uint32_t sgen,
 			nkwq = NULL; // Don't free.
 			if ((flags & PTHREAD_PSHARED_FLAGS_MASK) == PTHREAD_PROCESS_SHARED) {
 				kwq->kw_pflags |= KSYN_WQ_SHARED;
-				LIST_INSERT_HEAD(&hashptr[object & pthhash], kwq, kw_hash);
+				LIST_INSERT_HEAD(&hashptr[object & pth_hash_mask], kwq, kw_hash);
 			} else {
-				LIST_INSERT_HEAD(&hashptr[uaddr & pthhash], kwq, kw_hash);
+				LIST_INSERT_HEAD(&hashptr[uaddr & pth_hash_mask], kwq, kw_hash);
 			}
 			kwq->kw_pflags |= KSYN_WQ_INHASH;
 		} else if (kwq != NULL) {
@@ -1841,7 +1841,7 @@ psynch_wq_cleanup(__unused void *param, __unused void * param1)
 	
 	microuptime(&t);
 	
-	LIST_FOREACH(kwq, &pth_free_list, kw_list) {
+	LIST_FOREACH_SAFE(kwq, &pth_free_list, kw_list, tmp) {
 		if (_kwq_is_used(kwq) || kwq->kw_iocount != 0) {
 			// still in use
 			continue;

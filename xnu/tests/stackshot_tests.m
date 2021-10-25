@@ -15,10 +15,14 @@
 #include <servers/bootstrap.h>
 #include <pthread/workqueue_private.h>
 #include <dispatch/private.h>
+#include <stdalign.h>
 #import <zlib.h>
 
 T_GLOBAL_META(
 		T_META_NAMESPACE("xnu.stackshot"),
+		T_META_RADAR_COMPONENT_NAME("xnu"),
+		T_META_RADAR_COMPONENT_VERSION("stackshot"),
+		T_META_OWNER("jonathan_w_adams"),
 		T_META_CHECK_LEAKS(false),
 		T_META_ASROOT(true)
 		);
@@ -49,6 +53,8 @@ static uint64_t global_flags = 0;
 #define PARSE_STACKSHOT_TRANSLATED           0x100
 #define PARSE_STACKSHOT_SHAREDCACHE_FLAGS    0x200
 #define PARSE_STACKSHOT_EXEC_INPROGRESS      0x400
+#define PARSE_STACKSHOT_TRANSITIONING        0x800
+#define PARSE_STACKSHOT_ASYNCSTACK           0x1000
 
 /* keys for 'extra' dictionary for parse_stackshot */
 static const NSString* zombie_child_pid_key = @"zombie_child_pid"; // -> @(pid), required for PARSE_STACKSHOT_ZOMBIE
@@ -61,6 +67,9 @@ static const NSString* sharedcache_child_pid_key = @"sharedcache_child_pid"; // 
 static const NSString* sharedcache_child_sameaddr_key = @"sharedcache_child_sameaddr"; // @(0 or 1), required for PARSE_STACKSHOT_SHAREDCACHE_FLAGS
 static const NSString* exec_inprogress_pid_key = @"exec_inprogress_pid";
 static const NSString* exec_inprogress_found_key = @"exec_inprogress_found";  // callback when inprogress is found
+static const NSString* transitioning_pid_key = @"transitioning_task_pid"; // -> @(pid), required for PARSE_STACKSHOT_TRANSITIONING
+static const NSString* asyncstack_expected_threadid_key = @"asyncstack_expected_threadid"; // -> @(tid), required for PARSE_STACKSHOT_ASYNCSTACK
+static const NSString* asyncstack_expected_stack_key = @"asyncstack_expected_stack"; // -> @[pc...]), expected PCs for asyncstack
 
 #define TEST_STACKSHOT_QUEUE_LABEL        "houston.we.had.a.problem"
 #define TEST_STACKSHOT_QUEUE_LABEL_LENGTH sizeof(TEST_STACKSHOT_QUEUE_LABEL)
@@ -536,6 +545,91 @@ T_DECL(shared_cache_flags, "tests stackshot's task_ss_flags for the shared cache
 	});
 }
 
+T_DECL(transitioning_tasks, "test that stackshot contains transitioning task info", T_META_BOOTARGS_SET("enable_proc_exit_lpexit_spin=1"))
+{
+    int32_t sysctlValue = -1, numAttempts =0;
+    char path[PATH_MAX];
+    uint32_t path_size = sizeof(path);
+    T_QUIET; T_ASSERT_POSIX_ZERO(_NSGetExecutablePath(path, &path_size), "_NSGetExecutablePath");
+    char *args[] = { path, "-n", "exec_child_preexec", NULL };
+
+    dispatch_source_t child_sig_src;
+    dispatch_semaphore_t child_ready_sem = dispatch_semaphore_create(0);
+    T_QUIET; T_ASSERT_NOTNULL(child_ready_sem, "exec child semaphore");
+
+    dispatch_queue_t signal_processing_q = dispatch_queue_create("signal processing queue", NULL);
+    T_QUIET; T_ASSERT_NOTNULL(signal_processing_q, "signal processing queue");
+
+    pid_t pid;
+
+    signal(SIGUSR1, SIG_IGN);
+    child_sig_src = dispatch_source_create(DISPATCH_SOURCE_TYPE_SIGNAL, SIGUSR1, 0, signal_processing_q);
+    T_QUIET; T_ASSERT_NOTNULL(child_sig_src, "dispatch_source_create (child_sig_src)");
+
+    dispatch_source_set_event_handler(child_sig_src, ^{ dispatch_semaphore_signal(child_ready_sem); });
+    dispatch_activate(child_sig_src);
+
+    T_ASSERT_POSIX_SUCCESS(sysctlbyname("debug.proc_exit_lpexit_spin_pid", NULL, NULL, &sysctlValue, sizeof(sysctlValue)), "set debug.proc_exit_lpexit_spin_pid=-1");
+    
+    int proc_exit_spin_pos = 0 ;
+    
+    while (0 == sysctlbyname("debug.proc_exit_lpexit_spin_pos", NULL, NULL, &proc_exit_spin_pos, sizeof(proc_exit_spin_pos))) {
+        
+        T_LOG(" ##### Testing while spinning in proc_exit at position %d ##### ", proc_exit_spin_pos);
+        
+        int sp_ret = posix_spawn(&pid, args[0], NULL, NULL, args, NULL);
+        T_ASSERT_POSIX_ZERO(sp_ret, "spawned process '%s' with PID %d", args[0], pid);
+
+        dispatch_semaphore_wait(child_ready_sem, DISPATCH_TIME_FOREVER);
+
+        struct proc_uniqidentifierinfo proc_info_data = { };
+        int retval = proc_pidinfo(getpid(), PROC_PIDUNIQIDENTIFIERINFO, 0, &proc_info_data, sizeof(proc_info_data));
+        T_QUIET; T_EXPECT_POSIX_SUCCESS(retval, "proc_pidinfo PROC_PIDUNIQIDENTIFIERINFO");
+        T_QUIET; T_ASSERT_EQ_INT(retval, (int) sizeof(proc_info_data), "proc_pidinfo PROC_PIDUNIQIDENTIFIERINFO returned data");
+
+        T_ASSERT_POSIX_SUCCESS(kill(pid, SIGUSR1), "signaled pre-exec child to exec");
+
+        dispatch_semaphore_wait(child_ready_sem, DISPATCH_TIME_FOREVER);
+
+        T_ASSERT_POSIX_SUCCESS(sysctlbyname("debug.proc_exit_lpexit_spin_pid", NULL, NULL, &pid, sizeof(pid)), "set debug.proc_exit_lpexit_spin_pid =  %d, ", pid);
+
+        T_ASSERT_POSIX_SUCCESS(kill(pid, SIGKILL), "kill post-exec child %d", pid);
+
+        sysctlValue = 0;
+        size_t len = sizeof(sysctlValue);
+        while (numAttempts < 5) {
+            T_ASSERT_POSIX_SUCCESS(sysctlbyname("debug.proc_exit_lpexit_spinning", &sysctlValue, &len, NULL, 0), "retrieve debug.proc_exit_lpexit_spinning");
+            if (sysctlValue != 1) numAttempts++;
+            else break;
+            sleep(1);
+        }
+
+        T_ASSERT_EQ_UINT(sysctlValue, 1, "find spinning task in proc_exit()");
+
+        struct scenario scenario = {
+            .name = "transitioning_tasks",
+            .flags = (STACKSHOT_KCDATA_FORMAT)
+        };
+
+        take_stackshot(&scenario, false, ^( void *ssbuf, size_t sslen) {
+            parse_stackshot(PARSE_STACKSHOT_TRANSITIONING, ssbuf, sslen, @{transitioning_pid_key: @(pid)});
+
+            // Kill the child
+            int sysctlValueB = -1;
+            T_ASSERT_POSIX_SUCCESS(sysctlbyname("debug.proc_exit_lpexit_spin_pid", NULL, NULL, &sysctlValueB, sizeof(sysctlValueB)), "set debug.proc_exit_lpexit_spin_pid=-1");
+            sleep(1);
+            size_t blen = sizeof(sysctlValueB);
+            T_ASSERT_POSIX_SUCCESS(sysctlbyname("debug.proc_exit_lpexit_spinning", &sysctlValueB, &blen, NULL, 0), "retrieve debug.proc_exit_lpexit_spinning");
+            T_ASSERT_EQ_UINT(sysctlValueB, 0, "make sure nothing is spining in proc_exit()");
+            int status;
+            T_ASSERT_POSIX_SUCCESS(waitpid(pid, &status, 0), "waitpid on post-exec child");
+        });
+        
+        proc_exit_spin_pos++;
+    }
+
+}
+
 static void *stuck_sysctl_thread(void *arg) {
 	int val = 1;
 	dispatch_semaphore_t child_thread_started = *(dispatch_semaphore_t *)arg;
@@ -712,7 +806,6 @@ T_DECL(exec, "test getting full task snapshots for a task that execs")
 	T_QUIET; T_ASSERT_POSIX_ZERO(sp_ret, "spawned process '%s' with PID %d", args[0], pid);
 	
 	dispatch_semaphore_wait(child_ready_sem, DISPATCH_TIME_FOREVER);
-	
 	uint64_t start_time = mach_absolute_time();
 	
 	struct proc_uniqidentifierinfo proc_info_data = { };
@@ -783,6 +876,123 @@ T_DECL(exec_inprogress, "test stackshots of processes in the middle of exec")
 	T_ASSERT_NE(cid1, cid2, "container IDs for in-progress exec are unique");
 	T_PASS("found mid-exec process in %d tries", tries);
 }
+
+#ifdef _LP64
+#if __has_feature(ptrauth_calls)
+#define __ptrauth_swift_async_context_parent \
+  __ptrauth(ptrauth_key_process_independent_data, 1, 0xbda2)
+#define __ptrauth_swift_async_context_resume \
+  __ptrauth(ptrauth_key_function_pointer, 1, 0xd707)
+#else
+#define __ptrauth_swift_async_context_parent
+#define __ptrauth_swift_async_context_resume
+#endif
+// Add 1 to match the symbolication aid added by the stackshot backtracer.
+#define asyncstack_frame(x) ((uintptr_t)(void *)ptrauth_strip((void *)(x), ptrauth_key_function_pointer) + 1)
+
+// This struct fakes the Swift AsyncContext struct which is used by
+// the Swift concurrency runtime. We only care about the first 2 fields.
+struct fake_async_context {
+	struct fake_async_context* __ptrauth_swift_async_context_parent next;
+	void(*__ptrauth_swift_async_context_resume resume_pc)(void);
+};
+
+static void
+level1_func()
+{
+}
+static void
+level2_func()
+{
+}
+
+// Create a chain of fake async contexts; sync with asyncstack_expected_stack below
+static alignas(16) struct fake_async_context level1 = { 0, level1_func };
+static alignas(16) struct fake_async_context level2 = { &level1, level2_func };
+
+struct async_test_semaphores {
+	dispatch_semaphore_t child_ready_sem;	/* signal parent we're ready */
+	dispatch_semaphore_t child_exit_sem;	/* parent tells us to go away */
+};
+
+#define	ASYNCSTACK_THREAD_NAME "asyncstack_thread"
+
+static void __attribute__((noinline, not_tail_called))
+expect_asyncstack(void *arg)
+{
+	struct async_test_semaphores *async_ts = arg;
+
+	T_QUIET; T_ASSERT_POSIX_ZERO(pthread_setname_np(ASYNCSTACK_THREAD_NAME),
+	     "set thread name to %s", ASYNCSTACK_THREAD_NAME);
+
+	/* Tell the main thread we're all set up, then wait for permission to exit */
+	dispatch_semaphore_signal(async_ts->child_ready_sem);
+	dispatch_semaphore_wait(async_ts->child_exit_sem, DISPATCH_TIME_FOREVER);
+	usleep(1);	/* make sure we don't tailcall semaphore_wait */
+}
+
+static void *
+asyncstack_thread(void *arg)
+{
+	uint64_t *fp = __builtin_frame_address(0);
+	// We cannot use a variable of pointer type, because this ABI is valid
+	// on arm64_32 where pointers are 32bits, but the context pointer will
+	// still be stored in a 64bits slot on the stack.
+#if __has_feature(ptrauth_calls)
+#define __stack_context_auth __ptrauth(ptrauth_key_process_dependent_data, 1, \
+	        0xc31a)
+	struct fake_async_context * __stack_context_auth ctx = &level2;
+#else // __has_feature(ptrauth_calls)
+	/* struct fake_async_context * */uint64_t ctx  = (uintptr_t)&level2;
+#endif // !__has_feature(ptrauth_calls)
+
+	// The signature of an async frame on the OS stack is:
+	// [ <AsyncContext address>, <Saved FP | (1<<60)>, <return address> ]
+	// The Async context must be right before the saved FP on the stack. This
+	// should happen naturally in an optimized build as it is the only
+	// variable on the stack.
+	// This function cannot use T_ASSERT_* becuse it changes the stack
+	// layout.
+	assert((uintptr_t)fp - (uintptr_t)&ctx == 8);
+
+	// Modify the saved FP on the stack to include the async frame marker
+	*fp |= (0x1ULL << 60);
+	expect_asyncstack(arg);
+	return NULL;
+}
+
+T_DECL(asyncstack, "test swift async stack entries")
+{
+	struct scenario scenario = {
+		.name = "asyncstack",
+		.flags = STACKSHOT_KCDATA_FORMAT | STACKSHOT_SAVE_LOADINFO,
+	};
+	struct async_test_semaphores async_ts = {
+	    .child_ready_sem = dispatch_semaphore_create(0),
+	    .child_exit_sem = dispatch_semaphore_create(0),
+	};
+	T_QUIET; T_ASSERT_NOTNULL(async_ts.child_ready_sem, "child_ready_sem alloc");
+	T_QUIET; T_ASSERT_NOTNULL(async_ts.child_exit_sem, "child_exit_sem alloc");
+
+	pthread_t pthread;
+	__block uint64_t threadid = 0;
+	T_QUIET; T_ASSERT_POSIX_ZERO(pthread_create(&pthread, NULL, asyncstack_thread, &async_ts), "pthread_create");
+	T_QUIET; T_ASSERT_POSIX_ZERO(pthread_threadid_np(pthread, &threadid), "pthread_threadid_np");
+
+	dispatch_semaphore_wait(async_ts.child_ready_sem, DISPATCH_TIME_FOREVER);
+
+	take_stackshot(&scenario, true, ^( void *ssbuf, size_t sslen) {
+		parse_stackshot(PARSE_STACKSHOT_ASYNCSTACK, ssbuf, sslen, @{
+		    asyncstack_expected_threadid_key: @(threadid),
+		       asyncstack_expected_stack_key: @[ @(asyncstack_frame(level2_func)), @(asyncstack_frame(level1_func)) ],
+		});
+	});
+
+	dispatch_semaphore_signal(async_ts.child_exit_sem);
+	T_QUIET; T_ASSERT_POSIX_ZERO(pthread_join(pthread, NULL), "wait for thread");
+
+}
+#endif
 
 static uint32_t
 get_user_promotion_basepri(void)
@@ -1335,8 +1545,7 @@ srp_send(
 	ret = mach_msg(&(send_msg.header),
 	    MACH_SEND_MSG |
 	    MACH_SEND_TIMEOUT |
-	    MACH_SEND_OVERRIDE |
-	    (reply_port ? MACH_SEND_SYNC_OVERRIDE : 0),
+	    MACH_SEND_OVERRIDE,
 	    send_msg.header.msgh_size,
 	    0,
 	    MACH_PORT_NULL,
@@ -1917,17 +2126,22 @@ parse_stackshot(uint64_t stackshot_parsing_flags, void *ssbuf, size_t sslen, NSD
 	bool expect_turnstile_lock = (stackshot_parsing_flags & PARSE_STACKSHOT_TURNSTILEINFO);
 	bool expect_srp_waitinfo = (stackshot_parsing_flags & PARSE_STACKSHOT_WAITINFO_SRP);
 	bool expect_exec_inprogress = (stackshot_parsing_flags & PARSE_STACKSHOT_EXEC_INPROGRESS);
+	bool expect_transitioning_task = (stackshot_parsing_flags & PARSE_STACKSHOT_TRANSITIONING);
+	bool expect_asyncstack = (stackshot_parsing_flags & PARSE_STACKSHOT_ASYNCSTACK);
 	bool found_zombie_child = false, found_postexec_child = false, found_shared_cache_layout = false, found_shared_cache_uuid = false;
-	bool found_translated_child = false;
+	bool found_translated_child = false, found_transitioning_task = false;
 	bool found_dispatch_queue_label = false, found_turnstile_lock = false;
 	bool found_cseg_waitinfo = false, found_srp_waitinfo = false;
 	bool found_sharedcache_child = false, found_sharedcache_badflags = false, found_sharedcache_self = false;
+	bool found_asyncstack = false;
 	uint64_t srp_expected_threadid = 0;
 	pid_t zombie_child_pid = -1, srp_expected_pid = -1, sharedcache_child_pid = -1;
-	pid_t translated_child_pid = -1;
+	pid_t translated_child_pid = -1, transistioning_task_pid = -1;
 	bool sharedcache_child_sameaddr = false;
 	uint64_t postexec_child_unique_pid = 0, cseg_expected_threadid = 0;
 	uint64_t sharedcache_child_flags = 0, sharedcache_self_flags = 0;
+	uint64_t asyncstack_threadid = 0;
+	NSArray *asyncstack_stack = nil;
 	char *inflatedBufferBase = NULL;
 	pid_t exec_inprogress_pid = -1;
 	void (^exec_inprogress_cb)(uint64_t, uint64_t) = NULL;
@@ -1967,6 +2181,13 @@ parse_stackshot(uint64_t stackshot_parsing_flags, void *ssbuf, size_t sslen, NSD
 		T_QUIET; T_ASSERT_GE([sameaddr_num intValue], 0, "sharedcache child sameaddr is boolean (0 or 1)");
 		T_QUIET; T_ASSERT_LE([sameaddr_num intValue], 1, "sharedcache child sameaddr is boolean (0 or 1)");
 	}
+    
+    if (expect_transitioning_task) {
+        NSNumber* pid_num = extra[transitioning_pid_key];
+        T_ASSERT_NOTNULL(pid_num, "transitioning task pid provided");
+        transistioning_task_pid = [pid_num intValue];
+    }
+    
 	if (expect_zombie_child) {
 		NSNumber* pid_num = extra[zombie_child_pid_key];
 		T_QUIET; T_ASSERT_NOTNULL(pid_num, "zombie child pid provided");
@@ -2017,6 +2238,14 @@ parse_stackshot(uint64_t stackshot_parsing_flags, void *ssbuf, size_t sslen, NSD
 
 		exec_inprogress_cb = extra[exec_inprogress_found_key];
 		T_QUIET; T_ASSERT_NOTNULL(exec_inprogress_cb, "exec inprogress found callback provided");
+	}
+
+	if (expect_asyncstack) {
+		NSNumber* threadid_id = extra[asyncstack_expected_threadid_key];
+		T_QUIET; T_ASSERT_NOTNULL(threadid_id, "asyncstack threadid provided");
+		asyncstack_threadid = [threadid_id unsignedLongLongValue];
+		asyncstack_stack = extra[asyncstack_expected_stack_key];
+		T_QUIET; T_ASSERT_NOTNULL(asyncstack_stack, "asyncstack expected stack provided");
 	}
 
 	kcdata_iter_t iter = kcdata_iter(ssbuf, sslen);
@@ -2128,20 +2357,37 @@ parse_stackshot(uint64_t stackshot_parsing_flags, void *ssbuf, size_t sslen, NSD
 			T_ASSERT_TRUE(kcdata_iter_container_valid(iter),
 					"checked that container is valid");
 
-			if (kcdata_iter_container_type(iter) != STACKSHOT_KCCONTAINER_TASK) {
+			uint64_t containerid = kcdata_iter_container_id(iter);
+			uint32_t container_type = kcdata_iter_container_type(iter) ;
+
+			/*
+			 * treat containers other than tasks/transitioning_tasks
+			 * as expanded in-line.
+			 */
+			if (container_type != STACKSHOT_KCCONTAINER_TASK &&
+			    container_type != STACKSHOT_KCCONTAINER_TRANSITIONING_TASK) {
 				break;
 			}
-			uint64_t containerid = kcdata_iter_container_id(iter);
-
 			NSDictionary *container = parseKCDataContainer(&iter, &error);
 			T_QUIET; T_ASSERT_NOTNULL(container, "parsed container from stackshot");
 			T_QUIET; T_ASSERT_NULL(error, "error unset after parsing container");
 
 			NSDictionary* task_snapshot = container[@"task_snapshots"][@"task_snapshot"];
 			NSDictionary* task_delta_snapshot = container[@"task_snapshots"][@"task_delta_snapshot"];
-			
-			T_QUIET; T_ASSERT_TRUE(!!task_snapshot != !!task_delta_snapshot, "Either task_snapshot xor task_delta_snapshot provided");
-
+			NSDictionary* transitioning_task_snapshot = container[@"transitioning_task_snapshots"][@"transitioning_task_snapshot"];
+            
+			/*
+			 * Having processed the container, we now only check it
+			 * if it's the correct type.
+			 */
+			if ((!expect_transitioning_task && (container_type != STACKSHOT_KCCONTAINER_TASK)) ||
+			    (expect_transitioning_task && (container_type != STACKSHOT_KCCONTAINER_TRANSITIONING_TASK))) {
+				break;
+			}
+			if (!expect_transitioning_task) {
+			    	T_QUIET; T_ASSERT_TRUE(!!task_snapshot != !!task_delta_snapshot, "Either task_snapshot xor task_delta_snapshot provided");
+			}
+            
 			if (expect_dispatch_queue_label && !found_dispatch_queue_label) {
 				for (id thread_key in container[@"task_snapshots"][@"thread_snapshots"]) {
 					NSMutableDictionary *thread = container[@"task_snapshots"][@"thread_snapshots"][thread_key];
@@ -2154,6 +2400,17 @@ parse_stackshot(uint64_t stackshot_parsing_flags, void *ssbuf, size_t sslen, NSD
 				}
 			}
 			
+			if (expect_transitioning_task && !found_transitioning_task) {
+				if (transitioning_task_snapshot) {
+					uint64_t the_pid = [transitioning_task_snapshot[@"tts_pid"] unsignedLongLongValue];
+					if (the_pid == (uint64_t)transistioning_task_pid) {
+					    found_transitioning_task = true;
+					    T_PASS("FOUND Transitioning task %llu has a transitioning task snapshot", (uint64_t) transistioning_task_pid);
+					    break;
+					}
+				}
+			}
+            
 			if (expect_postexec_child && !found_postexec_child) {
 				if (task_snapshot) {
 					uint64_t unique_pid = [task_snapshot[@"ts_unique_pid"] unsignedLongLongValue];
@@ -2200,16 +2457,17 @@ parse_stackshot(uint64_t stackshot_parsing_flags, void *ssbuf, size_t sslen, NSD
 					uint64_t baseAddress = (uint64_t)((NSNumber *)ptr[@"imageSlidBaseAddress"]).longLongValue;
 					uint64_t firstMapping = (uint64_t)((NSNumber *)ptr[@"sharedCacheSlidFirstMapping"]).longLongValue;
 
-					T_ASSERT_LE(baseAddress, firstMapping,
+					T_EXPECT_LE(baseAddress, firstMapping,
 						"in per-task shared_cache_dyld_load_info, "
 						"baseAddress <= firstMapping");
-					T_ASSERT_GE(baseAddress + (1ull << 29), firstMapping,
+					T_EXPECT_GE(baseAddress + (7ull << 32) + (1ull << 29),
+						firstMapping,
 						"in per-task shared_cache_dyld_load_info, "
-						"baseAddress + 512meg >= firstMapping");
+						"baseAddress + 28.5gig >= firstMapping");
 
 					size_t shared_cache_len;
 					const void *addr = _dyld_get_shared_cache_range(&shared_cache_len);
-					T_ASSERT_EQ((uint64_t)addr, firstMapping,
+					T_EXPECT_EQ((uint64_t)addr, firstMapping,
 							"SlidFirstMapping should match shared_cache_range");
 
 					/* 
@@ -2220,6 +2478,7 @@ parse_stackshot(uint64_t stackshot_parsing_flags, void *ssbuf, size_t sslen, NSD
 					found_shared_cache_uuid = true;
 				}
 			}
+
 			if (expect_sharedcache_child) {
 				uint64_t task_flags = [task_snapshot[@"ts_ss_flags"] unsignedLongLongValue];
 				uint64_t sharedregion_flags = (task_flags & (kTaskSharedRegionNone | kTaskSharedRegionSystem | kTaskSharedRegionOther));
@@ -2245,6 +2504,7 @@ parse_stackshot(uint64_t stackshot_parsing_flags, void *ssbuf, size_t sslen, NSD
 					T_QUIET; T_ASSERT_NULL(sharedregion_info, "expect no shared_cache_dyld_load_info struct");
 				}
 			}
+
 			if (expect_zombie_child && (pid == zombie_child_pid)) {
 				found_zombie_child = true;
 				
@@ -2389,6 +2649,22 @@ parse_stackshot(uint64_t stackshot_parsing_flags, void *ssbuf, size_t sslen, NSD
 						}
 					}
 				}
+				if (expect_asyncstack && !found_asyncstack &&
+				    asyncstack_threadid == [thread_snap[@"ths_thread_id"] unsignedLongLongValue]) {
+					found_asyncstack = true;
+					NSArray* async_stack = thread[@"user_async_stack_frames"];
+					NSNumber* start_idx = thread[@"user_async_start_index"];
+					NSArray* user_stack = thread[@"user_stack_frames"];
+					T_QUIET; T_ASSERT_NOTNULL(async_stack, "async thread %#llx has user_async_stack_frames", asyncstack_threadid);
+					T_QUIET; T_ASSERT_NOTNULL(start_idx, "async thread %#llx has user_async_start_index", asyncstack_threadid);
+					T_QUIET; T_ASSERT_NOTNULL(user_stack, "async thread %#llx has user_stack_frames", asyncstack_threadid);
+					T_QUIET; T_ASSERT_EQ(async_stack.count, asyncstack_stack.count,
+						"actual async_stack count == expected async_stack count");
+					for (size_t i = 0; i < async_stack.count; i++) {
+						T_EXPECT_EQ([async_stack[i][@"lr"] unsignedLongLongValue],
+							[asyncstack_stack[i] unsignedLongLongValue], "frame %zu matches", i);
+					}
+				}
 			}
 			T_EXPECT_TRUE(found_main_thread, "found main thread for current task in stackshot");
 			T_EXPECT_FALSE(found_null_kernel_frame, "should not see any NULL kernel frames");
@@ -2411,16 +2687,16 @@ parse_stackshot(uint64_t stackshot_parsing_flags, void *ssbuf, size_t sslen, NSD
 
 			check_shared_cache_uuid(payload->sharedCacheUUID);
 
-			T_ASSERT_LE(payload->sharedCacheUnreliableSlidBaseAddress,
+			T_EXPECT_LE(payload->sharedCacheUnreliableSlidBaseAddress,
 				payload->sharedCacheSlidFirstMapping,
 				"SlidBaseAddress <= SlidFirstMapping");
-			T_ASSERT_GE(payload->sharedCacheUnreliableSlidBaseAddress + (1ull << 29),
+			T_EXPECT_GE(payload->sharedCacheUnreliableSlidBaseAddress + (7ull << 32) + (1ull << 29),
 				payload->sharedCacheSlidFirstMapping,
-				"SlidFirstMapping should be within 512megs of SlidBaseAddress");
+				"SlidFirstMapping should be within 28.5gigs of SlidBaseAddress");
 
 			size_t shared_cache_len;
 			const void *addr = _dyld_get_shared_cache_range(&shared_cache_len);
-			T_ASSERT_EQ((uint64_t)addr, payload->sharedCacheSlidFirstMapping,
+			T_EXPECT_EQ((uint64_t)addr, payload->sharedCacheSlidFirstMapping,
 			    "SlidFirstMapping should match shared_cache_range");
 
 			/* 
@@ -2446,9 +2722,15 @@ parse_stackshot(uint64_t stackshot_parsing_flags, void *ssbuf, size_t sslen, NSD
 			}
 		}
 	}
+    
+	if (expect_transitioning_task) {
+		T_QUIET; T_ASSERT_TRUE(found_transitioning_task, "found transitioning_task child in kcdata");
+	}
+    
 	if (expect_exec_inprogress) {
 		T_QUIET; T_ASSERT_GT(exec_inprogress_found, 0, "found at least 1 task for execing process");
 	}
+
 	if (expect_zombie_child) {
 		T_QUIET; T_ASSERT_TRUE(found_zombie_child, "found zombie child in kcdata");
 	}
@@ -2483,6 +2765,10 @@ parse_stackshot(uint64_t stackshot_parsing_flags, void *ssbuf, size_t sslen, NSD
 
 	if (expect_srp_waitinfo) {
 		T_QUIET; T_ASSERT_TRUE(found_srp_waitinfo, "found special reply port waitinfo");
+	}
+
+	if (expect_asyncstack) {
+		T_QUIET; T_ASSERT_TRUE(found_asyncstack, "found async stack threadid");
 	}
 
 	T_ASSERT_FALSE(KCDATA_ITER_FOREACH_FAILED(iter), "successfully iterated kcdata");

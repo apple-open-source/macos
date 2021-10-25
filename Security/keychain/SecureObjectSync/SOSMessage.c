@@ -44,7 +44,6 @@
 #include <utilities/der_plist.h>
 #include <utilities/der_plist_internal.h>
 #include <utilities/debugging.h>
-#include <utilities/iCloudKeychainTrace.h>
 
 // TODO: This is a layer violation, we need a better way to do this
 // Currently it's only used for logging.

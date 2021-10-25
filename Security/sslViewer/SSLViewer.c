@@ -767,7 +767,10 @@ static void showPeerTrust(SecTrustRef peerTrust, bool verbose) {
     CFIndex i;
 
     printf("\n=============== Peer Trust Properties ===============\n");
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     CFArrayRef plist = SecTrustCopyProperties(peerTrust);
+#pragma clang diagnostic pop
     if (plist) {
         print_plist(plist);
         CFRelease(plist);

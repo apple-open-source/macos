@@ -1,4 +1,6 @@
 /*-
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
  * Copyright (c) 1991, 1993, 1994
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -10,11 +12,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -44,23 +42,37 @@ static char sccsid[] = "@(#)basename.c	8.4 (Berkeley) 5/4/95";
 #endif
 
 #include <sys/cdefs.h>
-__RCSID("$FreeBSD: src/usr.bin/basename/basename.c,v 1.14 2002/09/04 23:28:52 dwmalone Exp $");
+__FBSDID("$FreeBSD$");
 
+#ifndef __APPLE__
+#include <capsicum_helpers.h>
+#endif
 #include <err.h>
 #include <libgen.h>
+#include <limits.h>
+#include <locale.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <wchar.h>
 
+void stripsuffix(char *, const char *, size_t);
 void usage(void);
 
 int
 main(int argc, char **argv)
 {
-	char *p, *q, *suffix;
+	char *p, *suffix;
 	size_t suffixlen;
 	int aflag, ch;
+
+	setlocale(LC_ALL, "");
+
+#ifndef __APPLE__
+	if (caph_limit_stdio() < 0 || caph_enter() < 0)
+		err(1, "capsicum");
+#endif
 
 	aflag = 0;
 	suffix = NULL;
@@ -99,13 +111,35 @@ main(int argc, char **argv)
 	while (argc--) {
 		if ((p = basename(*argv)) == NULL)
 			err(1, "%s", argv[0]);
-		if (suffixlen && (q = strchr(p, '\0') - suffixlen) > p &&
-		    strcmp(suffix, q) == 0)
-			*q = '\0';
+		stripsuffix(p, suffix, suffixlen);
 		argv++;
 		(void)printf("%s\n", p);
 	}
 	exit(0);
+}
+
+void
+stripsuffix(char *p, const char *suffix, size_t suffixlen)
+{
+	char *q, *r;
+	mbstate_t mbs;
+	size_t n;
+
+	if (suffixlen && (q = strchr(p, '\0') - suffixlen) > p &&
+	    strcmp(suffix, q) == 0) {
+		/* Ensure that the match occurred on a character boundary. */
+		memset(&mbs, 0, sizeof(mbs));
+		for (r = p; r < q; r += n) {
+			n = mbrlen(r, MB_LEN_MAX, &mbs);
+			if (n == (size_t)-1 || n == (size_t)-2) {
+				memset(&mbs, 0, sizeof(mbs));
+				n = 1;
+			}
+		}
+		/* Chop off the suffix. */
+		if (q == r)
+			*q = '\0';
+	}
 }
 
 void

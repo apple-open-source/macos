@@ -1334,7 +1334,7 @@ nanov2_ptr_in_use_enumerator(task_t task, void *context, unsigned type_mask,
 	if (kr) {
 		return kr;
 	}
-	boolean_t self_zone = (task == mach_task_self() && (nanozonev2_t *)zone_address == nanozone);
+	boolean_t self_zone = mach_task_is_self(task) && (nanozonev2_t *)zone_address == nanozone;
 	memcpy(&zone_copy, nanozone, sizeof(zone_copy));
 	nanozone = &zone_copy;
 	nanov2_meta_index_t metablock_meta_index = nanov2_metablock_meta_index(nanozone);
@@ -1486,7 +1486,7 @@ nanov2_good_size(nanozonev2_t *nanozone, size_t size)
 static boolean_t
 nanov2_check(nanozonev2_t *nanozone)
 {
-	// Does nothing, just like Nano V1.
+	// Does nothing
 	return 1;
 }
 
@@ -1722,7 +1722,7 @@ nanov2_print_task(task_t task, unsigned level, vm_address_t zone_address,
 static void
 nanov2_log(malloc_zone_t *zone, void *log_address)
 {
-	// Does nothing, just like Nano V1.
+	// Does nothing
 }
 
 static void

@@ -289,7 +289,7 @@ read_files(void)
 	const char *devorprof;
 	int options;
 	int not_option;
-	int for_xnu_lib;
+	int f_flags;
 	char pname[BUFSIZ];
 	char fname[1024];
 	char *rest = (char *) 0;
@@ -349,7 +349,7 @@ next:
 	nreqs = 0;
 	devorprof = "";
 	needs = 0;
-	for_xnu_lib = 0;
+	f_flags = 0;
 	if (eq(wd, "standard")) {
 		goto checkdev;
 	}
@@ -376,7 +376,11 @@ nextopt:
 		goto save;
 	}
 	if (eq(wd, "xnu-library")) {
-		for_xnu_lib = 1;
+		f_flags |= LIBRARYDEP;
+		goto nextopt;
+	}
+	if (eq(wd, "bound-checks")) {
+		f_flags |= BOUND_CHECKS;
 		goto nextopt;
 	}
 	nreqs++;
@@ -477,13 +481,21 @@ checkdev:
 			goto getrest;
 		}
 		next_word(fp, wd);
-		if (wd && eq(wd, "xnu-library")) {
-			for_xnu_lib = 1;
-			next_word(fp, wd);
-		}
-		if (wd) {
+		while (wd) {
+			if (eq(wd, "xnu-library")) {
+				f_flags |= LIBRARYDEP;
+				next_word(fp, wd);
+				continue;
+			}
+			if (eq(wd, "bound-checks")) {
+				f_flags |= BOUND_CHECKS;
+				next_word(fp, wd);
+				continue;
+			}
+
 			devorprof = wd;
 			next_word(fp, wd);
+			break;
 		}
 	}
 
@@ -515,13 +527,10 @@ getrest:
 	} else {
 		tp->f_type = NORMAL;
 	}
-	tp->f_flags = 0;
+	tp->f_flags = f_flags;
 	tp->f_needs = needs;
 	if (pf && pf->f_type == INVISIBLE) {
 		pf->f_flags = 1;                /* mark as duplicate */
-	}
-	if (for_xnu_lib) {
-		tp->f_flags |= LIBRARYDEP;
 	}
 	goto next;
 }
@@ -719,10 +728,13 @@ do_rules(FILE *f)
 		*cp = '\0';
 		tp = tail(np);  /* dvw: init tp before 'if' */
 		fprintf(f, "-include %sd\n", tp);
+		if (ftp->f_flags & BOUND_CHECKS) {
+			fprintf(f, "%so_CFLAGS_ADD += ${CFLAGS_BOUND_CHECKS}\n", tp);
+		}
 		fprintf(f, "%so: %s%s%c\n", tp, source_dir, np, och);
 		if (och == 's') {
 			fprintf(f, "\t${S_RULE_0}\n");
-			fprintf(f, "\t${S_RULE_1A}%s%.*s${S_RULE_1B}%s\n",
+			fprintf(f, "\t${S_RULE_1A} %s%.*s${S_RULE_1B}%s\n",
 			    source_dir, (int)(tp - np), np, nl);
 			fprintf(f, "\t${S_RULE_2}%s\n", nl);
 			continue;
@@ -757,7 +769,7 @@ common:
 			if (ftp->f_extra) {
 				fprintf(f, "%s", ftp->f_extra);
 			}
-			fprintf(f, "%s%.*s${%c_RULE_1B%s}%s\n",
+			fprintf(f, " %s%.*s${%c_RULE_1B%s}%s\n",
 			    source_dir, (int)(tp - np), np, och_upper, extras, nl);
 
 			fprintf(f, "\t${%c_RULE_2%s}%s\n", och_upper, extras, nl);

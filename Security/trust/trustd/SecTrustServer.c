@@ -34,6 +34,7 @@
 #include "trust/trustd/SecCertificateServer.h"
 #include "trust/trustd/SecPinningDb.h"
 #include "trust/trustd/md.h"
+#include "trust/trustd/trustdVariants.h"
 
 #include <utilities/SecIOFormat.h>
 #include <utilities/SecDispatchRelease.h>
@@ -186,10 +187,7 @@ static void SecPathBuilderInit(SecPathBuilderRef builder, dispatch_queue_t build
     }
 
     builder->nextParentSource = 1;
-#if !TARGET_OS_WATCH
-    /* <rdar://32728029> */
-    builder->canAccessNetwork = true;
-#endif
+    builder->canAccessNetwork = TrustdVariantAllowsNetwork();
     atomic_init(&builder->asyncJobCount, 0);
 
     builder->anchorSources = CFArrayCreateMutable(allocator, 0, NULL);
@@ -223,44 +221,35 @@ static void SecPathBuilderInit(SecPathBuilderRef builder, dispatch_queue_t build
      ** The order here avoids the most expensive methods if the cheaper methods
      ** produce an acceptable chain: client-provided, keychains, network-fetched.
      **/
-#if !TARGET_OS_BRIDGE
     CFArrayAppendValue(builder->parentSources, builder->certificateSource);
-    builder->itemCertificateSource = SecItemCertificateSourceCreate(accessGroups);
-    if (keychainsAllowed) {
+    if (TrustdVariantAllowsKeychain() && keychainsAllowed) {
+        builder->itemCertificateSource = SecItemCertificateSourceCreate(accessGroups);
         CFArrayAppendValue(builder->parentSources, builder->itemCertificateSource);
- #if TARGET_OS_OSX
+#if TARGET_OS_OSX
         /* On OS X, need additional parent source to search legacy keychain files. */
         if (kSecLegacyCertificateSource->contains && kSecLegacyCertificateSource->copyParents) {
             CFArrayAppendValue(builder->parentSources, kSecLegacyCertificateSource);
         }
- #endif
+#endif
     }
     if (anchorsOnly) {
         /* Add the Apple, system, and user anchor certificate db to the search list
          if we don't explicitly trust them. */
         CFArrayAppendValue(builder->parentSources, builder->appleAnchorSource);
-        CFArrayAppendValue(builder->parentSources, kSecSystemAnchorSource);
+        if (TrustdVariantHasCertificatesBundle()) {
+            CFArrayAppendValue(builder->parentSources, kSecSystemAnchorSource);
+        }
         CFArrayAppendValue(builder->parentSources, kSecUserAnchorSource);
     }
-    if (keychainsAllowed && builder->canAccessNetwork) {
+    if (TrustdVariantAllowsNetwork() && keychainsAllowed && builder->canAccessNetwork) {
         CFArrayAppendValue(builder->parentSources, kSecCAIssuerSource);
     }
-#else /* TARGET_OS_BRIDGE */
-    /* Bridge can only access memory sources. */
-    CFArrayAppendValue(builder->parentSources, builder->certificateSource);
-    if (anchorsOnly) {
-        /* Add the Apple, system, and user anchor certificate db to the search list
-         if we don't explicitly trust them. */
-        CFArrayAppendValue(builder->parentSources, builder->appleAnchorSource);
-    }
-#endif /* !TARGET_OS_BRIDGE */
 
     /** Anchor Sources
      ** The order here allows a client-provided anchor to overrule
      ** a user or admin trust setting which can overrule the system anchors.
      ** Apple's anchors cannot be overriden by a trust setting.
      **/
-#if !TARGET_OS_BRIDGE
     if (builder->anchorSource) {
         CFArrayAppendValue(builder->anchorSources, builder->anchorSource);
     }
@@ -268,25 +257,18 @@ static void SecPathBuilderInit(SecPathBuilderRef builder, dispatch_queue_t build
         /* Only add the system and user anchor certificate db to the
          anchorSources if we are supposed to trust them. */
         CFArrayAppendValue(builder->anchorSources, builder->appleAnchorSource);
-        if (keychainsAllowed) {
+        if (TrustdVariantAllowsKeychain() && keychainsAllowed) {
 #if TARGET_OS_OSX
             if (kSecLegacyAnchorSource->contains && kSecLegacyAnchorSource->copyParents) {
                 CFArrayAppendValue(builder->anchorSources, kSecLegacyAnchorSource);
             }
 #endif
-            CFArrayAppendValue(builder->anchorSources, kSecUserAnchorSource);
         }
-        CFArrayAppendValue(builder->anchorSources, kSecSystemAnchorSource);
+        CFArrayAppendValue(builder->anchorSources, kSecUserAnchorSource);
+        if (TrustdVariantHasCertificatesBundle()) {
+            CFArrayAppendValue(builder->anchorSources, kSecSystemAnchorSource);
+        }
     }
-#else /* TARGET_OS_BRIDGE */
-    /* Bridge can only access memory sources. */
-    if (builder->anchorSource) {
-        CFArrayAppendValue(builder->anchorSources, builder->anchorSource);
-    }
-    if (!anchorsOnly) {
-        CFArrayAppendValue(builder->anchorSources, builder->appleAnchorSource);
-    }
-#endif /* !TARGET_OS_BRIDGE */
 
     builder->ocspResponses = CFRetainSafe(ocspResponses);
     builder->signedCertificateTimestamps = CFRetainSafe(signedCertificateTimestamps);
@@ -411,23 +393,23 @@ void SecPathBuilderSetCanAccessNetwork(SecPathBuilderRef builder, bool allow) {
     if (builder->canAccessNetwork != allow) {
         builder->canAccessNetwork = allow;
         if (allow) {
-#if !TARGET_OS_WATCH
-            secinfo("http", "network access re-enabled by policy");
-            /* re-enabling network_access re-adds kSecCAIssuerSource as
-               a parent source. */
-            CFArrayAppendValue(builder->parentSources, kSecCAIssuerSource);
-#else
-            /* <rdar://32728029> */
-            secnotice("http", "network access not allowed on WatchOS");
-            builder->canAccessNetwork = false;
-#endif
+            if (TrustdVariantAllowsNetwork()) {
+                secinfo("http", "network access re-enabled by policy");
+                /* re-enabling network_access re-adds kSecCAIssuerSource as
+                 a parent source. */
+                CFArrayAppendValue(builder->parentSources, kSecCAIssuerSource);
+            } else {
+                /* <rdar://32728029> */
+                secnotice("http", "network access not allowed in this environment");
+                builder->canAccessNetwork = false;
+            }
         } else {
             secinfo("http", "network access disabled by policy");
             /* disabling network_access removes kSecCAIssuerSource from
-               the list of parent sources. */
+             the list of parent sources. */
             CFIndex ix = CFArrayGetFirstIndexOfValue(builder->parentSources,
-                CFRangeMake(0, CFArrayGetCount(builder->parentSources)),
-                kSecCAIssuerSource);
+                                                     CFRangeMake(0, CFArrayGetCount(builder->parentSources)),
+                                                     kSecCAIssuerSource);
             if (ix >= 0)
                 CFArrayRemoveValueAtIndex(builder->parentSources, ix);
         }
@@ -808,10 +790,10 @@ static void SecPathBuilderAddPinningPolicies(SecPathBuilderRef builder) {
                 if (newRulesIX == 0) {
                     /* For the first set of pinning rules, replace this PVC's policies */
                     CFRetainAssign(builder->pvcs[ix]->policies, newPolicies);
-                } else {
+                } else if (builder->pvcCount > 0 || builder->pvcCount < (long)((LONG_MAX / sizeof(SecPVCRef)) - 1)) {
                     /* If there were two or more dictionaries of rules, we need to treat them as an "OR".
                      * Create another PVC for this dicitionary. */
-                    builder->pvcs = realloc(builder->pvcs, (builder->pvcCount + 1) * sizeof(SecPVCRef));
+                    builder->pvcs = realloc(builder->pvcs, (size_t)(builder->pvcCount + 1) * sizeof(SecPVCRef));
                     builder->pvcs[builder->pvcCount] = malloc(sizeof(struct OpaqueSecPVC));
                     SecPVCInit(builder->pvcs[builder->pvcCount], builder, newPolicies);
                     builder->pvcCount++;
@@ -1203,40 +1185,65 @@ static bool SecPathBuilderComputeDetails(SecPathBuilderRef builder) {
 }
 
 static CFAbsoluteTime SecPathBuilderCalculateTrustNotBefore(SecPathBuilderRef builder) {
-    /* TrustResult Not Before is the maxmimum of the cert chain NotBefores, ocsp response thisUpdates, and
-     * the current time minus the leeway*/
-    CFAbsoluteTime latestNotBefore = SecCertificatePathVCGetMaximumNotBefore(builder->bestPath);
-    if (SecCertificatePathVCIsRevocationDone(builder->bestPath)) {
-        CFAbsoluteTime thisUpdate = SecCertificatePathVCGetLatestThisUpdate(builder->bestPath);
-        if (thisUpdate > latestNotBefore) {
-            latestNotBefore = thisUpdate;
+    CFMutableArrayRef notBefores = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+
+    /* Collect all sources of notBefore dates */
+    CFDateRef beforeLeeway = CFDateCreate(NULL, CFAbsoluteTimeGetCurrent() - TRUST_TIME_LEEWAY);
+    CFArrayAppendValue(notBefores, beforeLeeway);
+
+    CFArrayRef certNotBefores = SecCertificatePathVCCopyNotBefores(builder->bestPath);
+    CFArrayAppendAll(notBefores, certNotBefores);
+
+    CFArrayRef ocspNotBefores = SecCertificatePathVCCopyThisUpdates(builder->bestPath);
+    CFArrayAppendAll(notBefores, ocspNotBefores);
+
+    CFReleaseNull(ocspNotBefores);
+    CFReleaseNull(beforeLeeway);
+    CFReleaseNull(certNotBefores);
+
+    /* Pick the nearest notBefore that's in the past */
+    __block CFAbsoluteTime trustNotBefore = -DBL_MAX;
+    CFAbsoluteTime now = CFAbsoluteTimeGetCurrent();
+    CFArrayForEach(notBefores, ^(const void *value) {
+        CFAbsoluteTime notBefore = CFDateGetAbsoluteTime((CFDateRef)value);
+        if (notBefore < now && notBefore > trustNotBefore) {
+            trustNotBefore = notBefore;
         }
-    }
+    });
 
-    CFAbsoluteTime before_leeway = CFAbsoluteTimeGetCurrent() - TRUST_TIME_LEEWAY;
-    if (before_leeway > latestNotBefore) {
-        latestNotBefore = before_leeway;
-    }
-
-    return latestNotBefore;
+    CFReleaseNull(notBefores);
+    return trustNotBefore;
 }
 
 static CFAbsoluteTime SecPathBuilderCalculateTrustNotAfter(SecPathBuilderRef builder) {
-    /* TrustResult Not After is the minimum of the cert chain NotAfters, ocsp response nextUpdates, and
-     * the current time plus the leeway*/
-    CFAbsoluteTime earliestNotAfter = SecCertificatePathVCGetMinimumNotAfter(builder->bestPath);
-    if (SecCertificatePathVCIsRevocationDone(builder->bestPath)) {
-        CFAbsoluteTime nextUpdate = SecCertificatePathVCGetEarliestNextUpdate(builder->bestPath);
-        if (nextUpdate != 0 && nextUpdate < earliestNotAfter) { // 0.0 is a (really dumb) sentinel for "not checked"
-            earliestNotAfter = nextUpdate;
-        }
-    }
+    CFMutableArrayRef notAfters = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
 
-    CFAbsoluteTime after_leeway = CFAbsoluteTimeGetCurrent() + TRUST_TIME_LEEWAY;
-    if (after_leeway < earliestNotAfter) {
-        earliestNotAfter = after_leeway;
-    }
-    return earliestNotAfter;
+    /* Collect all sources of notAfter dates */
+    CFDateRef afterLeeway = CFDateCreate(NULL, CFAbsoluteTimeGetCurrent() + TRUST_TIME_LEEWAY);
+    CFArrayAppendValue(notAfters, afterLeeway);
+
+    CFArrayRef certNotAfters = SecCertificatePathVCCopyNotAfters(builder->bestPath);
+    CFArrayAppendAll(notAfters, certNotAfters);
+
+    CFArrayRef ocspNotAfters = SecCertificatePathVCCopyNextUpdates(builder->bestPath);
+    CFArrayAppendAll(notAfters, ocspNotAfters);
+
+    CFReleaseNull(ocspNotAfters);
+    CFReleaseNull(afterLeeway);
+    CFReleaseNull(certNotAfters);
+
+    /* Pick the nearest notAfter that's in the future */
+    __block CFAbsoluteTime trustNotAfter = DBL_MAX;
+    CFAbsoluteTime now = CFAbsoluteTimeGetCurrent();
+    CFArrayForEach(notAfters, ^(const void *value) {
+        CFAbsoluteTime notAfter = CFDateGetAbsoluteTime((CFDateRef)value);
+        if (notAfter > now && notAfter < trustNotAfter) {
+            trustNotAfter = notAfter;
+        }
+    });
+
+    CFReleaseNull(notAfters);
+    return trustNotAfter;
 }
 
 static void SecPathBuilderReportTrustValidityPeriod(SecPathBuilderRef builder) {
@@ -1246,39 +1253,6 @@ static void SecPathBuilderReportTrustValidityPeriod(SecPathBuilderRef builder) {
 
     CFAbsoluteTime resultNotBefore = SecPathBuilderCalculateTrustNotBefore(builder);
     CFAbsoluteTime resultNotAfter = SecPathBuilderCalculateTrustNotAfter(builder);
-    /* Special cases where validity window is non-existent */
-    if (resultNotBefore > resultNotAfter) {
-        /* "now" can be before notAfter, between notAfter and notBefore, or after notBefore. We want to adjust
-         * the result validity period to ensure we have some valid period, ensuring we capture when the trust
-         * result could change. */
-        if (CFAbsoluteTimeGetCurrent() < resultNotAfter) {
-            /* "now" < notAfter < notBefore:
-             *      - caused by a cert with a future validity
-             *      - keep the notAfter date and move the notBefore to "now" */
-            resultNotBefore = CFAbsoluteTimeGetCurrent();
-        } else if (CFAbsoluteTimeGetCurrent() < resultNotBefore) {
-            /* notAfter <= "now" < notBefore:
-             *      - caused by a cert with a future validity and either an expired (revoked) OCSP response or cert
-             *      - swap the dates -- the result won't change between these two points */
-            CFAbsoluteTime temp = resultNotBefore;
-            resultNotBefore = resultNotAfter;
-            resultNotAfter = temp;
-        } else {
-            /* notAfter < notBefore <= "now":
-             *      - caused by expired certs (as notBefore will have been adjusted by the leeway)
-             *      - keep the notBefore and move notAfter to "now + leeway" */
-            resultNotAfter = CFAbsoluteTimeGetCurrent() + TRUST_TIME_LEEWAY;
-        }
-    }
-
-    /* Special case where the entire window is in the past. In order to avoid triggering
-     * trust evaluations with every trust object access, we're setting the validity period to
-     * be between notAfter and now + leeway. */
-    if (resultNotAfter < CFAbsoluteTimeGetCurrent()) {
-        resultNotBefore = resultNotAfter;
-        resultNotAfter = CFAbsoluteTimeGetCurrent() + TRUST_TIME_LEEWAY;
-    }
-
     CFDateRef notBeforeDate = CFDateCreate(NULL, resultNotBefore);
     CFDateRef notAfterDate = CFDateCreate(NULL, resultNotAfter);
     CFDictionarySetValue(builder->info, kSecTrustInfoResultNotBefore, notBeforeDate);
@@ -1297,16 +1271,9 @@ bool SecPathBuilderReportResult(SecPathBuilderRef builder) {
     /* isEV is not set unless also CT verified. Here, we need to check that we
      * got a revocation response as well. */
     if (builder->info && SecCertificatePathVCIsEV(builder->bestPath) && SecPathBuilderIsOkResult(builder)) {
-#if !TARGET_OS_WATCH
-        /* <rdar://32728029> We don't do networking on watchOS, so we can't require OCSP for EV */
-        if (SecCertificatePathVCIsRevocationDone(builder->bestPath))
-#endif
-        {
-#if !TARGET_OS_WATCH
+        if (SecCertificatePathVCIsRevocationDone(builder->bestPath) || !TrustdVariantAllowsNetwork()) {
             CFAbsoluteTime nextUpdate = SecCertificatePathVCGetEarliestNextUpdate(builder->bestPath);
-            if (nextUpdate != 0)
-#endif
-            {
+            if (!TrustdVariantAllowsNetwork() || (nextUpdate != 0)) {
                 /* Successful revocation check, so this cert is EV */
                 CFDictionarySetValue(builder->info, kSecTrustInfoExtendedValidationKey,
                                      kCFBooleanTrue); /* iOS key */
@@ -1515,13 +1482,16 @@ static CFDataRef SecTrustServerCopySelfAuditToken(void)
 
 
 // NO_SERVER Shim code only, xpc interface should call SecTrustServerEvaluateBlock() directly
-SecTrustResultType SecTrustServerEvaluate(CFArrayRef certificates, CFArrayRef anchors, bool anchorsOnly, bool keychainsAllowed, CFArrayRef policies, CFArrayRef responses, CFArrayRef SCTs, CFArrayRef trustedLogs, CFAbsoluteTime verifyTime, __unused CFArrayRef accessGroups, CFArrayRef exceptions, CFArrayRef *pdetails, CFDictionaryRef *pinfo, CFArrayRef *pchain, CFErrorRef *perror) {
+SecTrustResultType SecTrustServerEvaluate(CFArrayRef certificates, CFArrayRef anchors, bool anchorsOnly, bool keychainsAllowed, CFArrayRef policies, CFArrayRef responses, CFArrayRef SCTs, CFArrayRef trustedLogs, CFAbsoluteTime verifyTime, __unused CFArrayRef accessGroups, CFArrayRef exceptions, CFDataRef inAuditToken, CFArrayRef *pdetails, CFDictionaryRef *pinfo, CFArrayRef *pchain, CFErrorRef *perror) {
     dispatch_semaphore_t done = dispatch_semaphore_create(0);
     __block SecTrustResultType result = kSecTrustResultInvalid;
     __block dispatch_queue_t queue = dispatch_queue_create("com.apple.trustd.evaluation.recursive", DISPATCH_QUEUE_SERIAL);
 
-    /* make an audit token for ourselves */
-    CFDataRef audit_token = SecTrustServerCopySelfAuditToken();
+    /* make an audit token for ourselves if none passed in */
+    CFDataRef audit_token = CFRetainSafe(inAuditToken);
+    if (!audit_token) {
+        audit_token = SecTrustServerCopySelfAuditToken();
+    }
 
     /* We need to use the async call with the semaphore here instead of a synchronous call because we may return from
      * SecPathBuilderStep while waiting for an asynchronous network call in order to complete the evaluation. That return

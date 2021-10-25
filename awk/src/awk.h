@@ -24,6 +24,7 @@ THIS SOFTWARE.
 
 #include <assert.h>
 #include <stdint.h>
+#include <stdlib.h>
 #include <stdbool.h>
 #if __STDC_VERSION__ <= 199901L
 #define noreturn
@@ -228,7 +229,7 @@ extern	int	pairstack[], paircnt;
 
 #define NCHARS	(256+3)		/* 256 handles 8-bit chars; 128 does 7-bit */
 				/* watch out in match(), etc. */
-#define	HAT	(NCHARS+2)	/* matches ^ in regular expr */
+#define	HAT_CTRL	(NCHARS+2)	/* matches ^ in regular expr */
 #define NSTATES	32
 
 typedef struct rrow {

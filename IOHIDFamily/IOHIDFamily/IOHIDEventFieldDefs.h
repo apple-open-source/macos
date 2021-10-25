@@ -66,11 +66,13 @@ static const IOHIDEventField kIOHIDEventFieldGenericGestureType                 
 static const IOHIDEventField kIOHIDEventFieldGenericGestureTypeSwipeProgress                   =  (kIOHIDEventFieldGenericGestureBase | 2);
 
 #define kIOHIDEventFieldNULLBase IOHIDEventFieldBase(kIOHIDEventTypeNULL)
-static const IOHIDEventField kIOHIDEventFieldIsRelative                                        =  (kIOHIDEventFieldNULLBase | 0);
-static const IOHIDEventField kIOHIDEventFieldIsCenterOrigin                                    =  (kIOHIDEventFieldNULLBase | 3);
-static const IOHIDEventField kIOHIDEventFieldIsBuiltIn                                         =  (kIOHIDEventFieldNULLBase | 4);
-static const IOHIDEventField kIOHIDEventFieldIsPixelUnits                                      =  (kIOHIDEventFieldNULLBase | 2);
 static const IOHIDEventField kIOHIDEventFieldIsCollection                                      =  (kIOHIDEventFieldNULLBase | 1);
+static const IOHIDEventField kIOHIDEventFieldInjected                                          =  (kIOHIDEventFieldNULLBase | 6);
+static const IOHIDEventField kIOHIDEventFieldIsRelative                                        =  (kIOHIDEventFieldNULLBase | 0);
+static const IOHIDEventField kIOHIDEventFieldIsBuiltIn                                         =  (kIOHIDEventFieldNULLBase | 4);
+static const IOHIDEventField kIOHIDEventFieldInterpolated                                      =  (kIOHIDEventFieldNULLBase | 5);
+static const IOHIDEventField kIOHIDEventFieldIsCenterOrigin                                    =  (kIOHIDEventFieldNULLBase | 3);
+static const IOHIDEventField kIOHIDEventFieldIsPixelUnits                                      =  (kIOHIDEventFieldNULLBase | 2);
 
 #define kIOHIDEventFieldAmbientLightSensorBase IOHIDEventFieldBase(kIOHIDEventTypeAmbientLightSensor)
 static const IOHIDEventField kIOHIDEventFieldAmbientLightColorSpace                            =  (kIOHIDEventFieldAmbientLightSensorBase | 6);

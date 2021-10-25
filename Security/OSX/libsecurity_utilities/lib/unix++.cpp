@@ -495,6 +495,7 @@ AutoFileDesc::AutoFileDesc(AutoFileDesc&& rhs)
 
 AutoFileDesc& AutoFileDesc::operator=(AutoFileDesc&& rhs)
 {
+    close(); //Close any existing fd on the left hand side.
     setFd(rhs.fd());
     rhs.setFd(invalidFd);
     mAtEnd = rhs.mAtEnd;

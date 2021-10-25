@@ -228,7 +228,7 @@ _pthread_qos_class_encode_workqueue(int queue_priority, unsigned long flags)
 #define _PTHREAD_SET_SELF_OUTSIDE_QOS_SKIP \
 		(_PTHREAD_SET_SELF_QOS_FLAG | _PTHREAD_SET_SELF_FIXEDPRIORITY_FLAG | \
 		 _PTHREAD_SET_SELF_TIMESHARE_FLAG | \
-		 _PTHREAD_SET_SELF_ALTERNATE_AMX)
+		 _PTHREAD_SET_SELF_ALTERNATE_CLUSTER)
 
 int
 _pthread_set_properties_self(_pthread_set_flags_t flags,
@@ -255,7 +255,7 @@ skip:
 	 // attributes then we still want to set the TSD in userspace.
 	if ((flags & _PTHREAD_SET_SELF_QOS_FLAG) != 0) {
 		if (rv == 0 || errno == ENOENT) {
-			_pthread_setspecific_direct(_PTHREAD_TSD_SLOT_PTHREAD_QOS_CLASS, 
+			_pthread_setspecific_direct(_PTHREAD_TSD_SLOT_PTHREAD_QOS_CLASS,
 					priority);
 		}
 	}
@@ -279,9 +279,9 @@ pthread_set_timeshare_self(void)
 }
 
 int
-pthread_prefer_alternate_amx_self(void)
+pthread_prefer_alternate_cluster_self(void)
 {
-	return _pthread_set_properties_self(_PTHREAD_SET_SELF_ALTERNATE_AMX, 0, 0);
+	return _pthread_set_properties_self(_PTHREAD_SET_SELF_ALTERNATE_CLUSTER, 0, 0);
 }
 
 
@@ -512,11 +512,17 @@ _pthread_workqueue_parallelism_for_priority(int qos, unsigned long flags)
 	int rc = __bsdthread_ctl(BSDTHREAD_CTL_QOS_MAX_PARALLELISM, qos, flags, 0);
 	if (os_unlikely(rc == -1)) {
 		rc = errno;
-		if (rc != EINVAL) {
+		if (rc != EINVAL && rc != ENOTSUP) {
 			PTHREAD_INTERNAL_CRASH(rc, "qos_max_parallelism failed");
 		}
 		if (flags & _PTHREAD_QOS_PARALLELISM_COUNT_LOGICAL) {
 			return *(uint8_t *)_COMM_PAGE_LOGICAL_CPUS;
+		} else if (flags & _PTHREAD_QOS_PARALLELISM_CLUSTER_SHARED_RSRC) {
+			if (rc == ENOTSUP) {
+				return 0; /* Not supported on this hardware */
+			} else {
+				__builtin_trap();
+			}
 		} else {
 			return *(uint8_t *)_COMM_PAGE_PHYSICAL_CPUS;
 		}
@@ -537,14 +543,23 @@ pthread_qos_max_parallelism(qos_class_t qos, unsigned long flags)
 		return -1;
 	}
 
+	if (flags & ~(PTHREAD_MAX_PARALLELISM_PHYSICAL | PTHREAD_MAX_PARALLELISM_CLUSTER)) {
+		errno = EINVAL;
+		return -1;
+	}
+
 	unsigned long syscall_flags = _PTHREAD_QOS_PARALLELISM_COUNT_LOGICAL;
 	uint16_t *ptr = &_pthread_globals()->qmp_logical[thread_qos];
 
 	if (flags & PTHREAD_MAX_PARALLELISM_PHYSICAL) {
 		syscall_flags = 0;
 		ptr = &_pthread_globals()->qmp_physical[thread_qos];
+	} else if (flags & PTHREAD_MAX_PARALLELISM_CLUSTER) {
+		syscall_flags = _PTHREAD_QOS_PARALLELISM_CLUSTER_SHARED_RSRC;
+		ptr = &_pthread_globals()->cluster_physical[thread_qos];
 	}
-	if (*ptr == 0) {
+
+	if (*ptr == QOS_PARALLELISM_NOT_QUERIED) {
 		*ptr = _pthread_workqueue_parallelism_for_priority(thread_qos, syscall_flags);
 	}
 	return *ptr;
@@ -559,8 +574,12 @@ pthread_time_constraint_max_parallelism(unsigned long flags)
 	if (flags & PTHREAD_MAX_PARALLELISM_PHYSICAL) {
 		syscall_flags = 0;
 		ptr = &_pthread_globals()->qmp_physical[0];
+	} else if (flags & PTHREAD_MAX_PARALLELISM_CLUSTER) {
+		errno = EINVAL;
+		return -1;
 	}
-	if (*ptr == 0) {
+
+	if (*ptr == QOS_PARALLELISM_NOT_QUERIED) {
 		*ptr = _pthread_workqueue_parallelism_for_priority(0,
 				syscall_flags | _PTHREAD_QOS_PARALLELISM_REALTIME);
 	}

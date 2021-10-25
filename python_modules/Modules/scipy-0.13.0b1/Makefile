@@ -32,7 +32,8 @@ custompatching:
 	ed - $(DIR)/scipy/sparse/linalg/isolve/iterative/FWRAPPERS/wrap_veclib_c.c < veclib_cabi_c.c.ed
 	ed - $(DIR)/scipy/stats/mvn.pyf < scipy_stats_mvn.pyf.ed
 	ed - $(DIR)/scipy/stats/mvndst.f < scipy_stats_mvndst.f.ed
-	sed 's,XXXXX,$(TMPPREFIX),' setup.cfg > $(DIR)/setup.cfg
+	sed -e 's,@SDKROOT@,$(SDKROOT),g' -e 's,@INCLUDEPYTHONVERS@,$(INCLUDEPYTHONVERS),g' $(SRCROOT)/Modules/setup.py-config.ed | ed - $(DIR)/setup.py
+	sed 's,XXXXX,$(TMPPREFIX),' setup.cfg >> $(DIR)/setup.cfg
 	mkdir -p $(TMPPYTHON)
 	ditto $(PP)/numpy $(NUMPY)
 	cp f2c.py $(FCOMPILER)

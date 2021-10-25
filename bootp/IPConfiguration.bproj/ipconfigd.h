@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2020 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2021 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -88,5 +88,11 @@ forget_network(const char * name, CFStringRef ssid);
 ipconfig_status_t
 get_if_ra(const char * name, xmlDataOut_t * ra_data,
 	  mach_msg_type_number_t *ra_data_cnt);
+
+ipconfig_status_t
+copy_if_summary(const char * name, CFDictionaryRef * summary);
+
+ipconfig_status_t
+copy_interface_list(CFArrayRef * list);
 
 #endif /* _S_IPCONFIGD_H */

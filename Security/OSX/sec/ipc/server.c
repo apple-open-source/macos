@@ -57,7 +57,6 @@
 #include "keychain/securityd/SecOTRRemote.h"
 #include "trust/trustd/SecTrustServer.h"
 #include "trust/trustd/SecTrustStoreServer.h"
-#include "keychain/securityd/iCloudTrace.h"
 #include "keychain/securityd/spi.h"
 #include <utilities/SecAKSWrappers.h>
 #include <utilities/SecCFError.h>
@@ -74,14 +73,12 @@
 #include "trust/trustd/SecPinningDb.h"
 #include "keychain/securityd/SFKeychainControlManager.h"
 
+
 #include <keychain/ckks/CKKS.h>
 #include <keychain/ckks/CKKSControlServer.h>
 #include "keychain/ot/OctagonControlServer.h"
 
 #include "keychain/securityd/SFKeychainServer.h"
-#if !TARGET_OS_BRIDGE
-#include "keychain/securityd/PolicyReporter.h"
-#endif
 
 #include <AssertMacros.h>
 #include <CoreFoundation/CFXPCBridge.h>
@@ -385,8 +382,10 @@ static void securityd_xpc_dictionary_handler(const xpc_connection_t connection, 
         .accessGroups = NULL,
         .musr = NULL,
         .uid = xpc_connection_get_euid(connection),
+#if KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER
         .allowSystemKeychain = false,
         .allowSyncBubbleKeychain = false,
+#endif
         .isNetworkExtension = false,
         .canAccessNetworkExtensionAccessGroups = false,
         .applicationIdentifier = NULL,
@@ -1268,8 +1267,10 @@ static void securityd_xpc_dictionary_handler(const xpc_connection_t connection, 
                 {
                     if (client.musr)
                         xpc_dictionary_set_data(replyMessage, "musr", CFDataGetBytePtr(client.musr), CFDataGetLength(client.musr));
+#if KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER
                     xpc_dictionary_set_bool(replyMessage, "system-keychain", client.allowSystemKeychain);
                     xpc_dictionary_set_bool(replyMessage, "syncbubble-keychain", client.allowSyncBubbleKeychain);
+#endif
                     xpc_dictionary_set_bool(replyMessage, "network-extension", client.isNetworkExtension);
                     xpc_dictionary_set_bool(replyMessage, kSecXPCKeyResult, true);
                 }
@@ -1277,7 +1278,7 @@ static void securityd_xpc_dictionary_handler(const xpc_connection_t connection, 
             case kSecXPCOpTransmogrifyToSyncBubble:
                 {
                     if (EntitlementPresentAndTrue(operation, client.task, kSecEntitlementPrivateKeychainSyncBubble, &error)) {
-#if TARGET_OS_IOS
+#if KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER
                         uid_t uid = (uid_t)xpc_dictionary_get_int64(event, "uid");
                         CFArrayRef services = SecXPCDictionaryCopyArray(event, "services", &error);
                         bool res = false;
@@ -1295,7 +1296,7 @@ static void securityd_xpc_dictionary_handler(const xpc_connection_t connection, 
             case kSecXPCOpTransmogrifyToSystemKeychain:
                 {
                     if (EntitlementPresentAndTrue(operation, client.task, kSecEntitlementPrivateKeychainMigrateSystemKeychain, &error)) {
-#if TARGET_OS_IOS
+#if KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER
                         bool res = _SecServerTransmogrifyToSystemKeychain(&client, &error);
                         xpc_dictionary_set_bool(replyMessage, kSecXPCKeyResult, res);
 #else
@@ -1309,7 +1310,7 @@ static void securityd_xpc_dictionary_handler(const xpc_connection_t connection, 
                 {
                     if (EntitlementPresentAndTrue(operation, client.task, kSecEntitlementPrivateKeychainMigrateSystemKeychain, &error)) {
                         bool res = false;
-#if TARGET_OS_IOS
+#if KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER
                         uid_t uid = (uid_t)xpc_dictionary_get_int64(event, "uid");
                         if (uid) {
                             res = _SecServerDeleteMUSERViews(&client, uid, &error);
@@ -1552,7 +1553,7 @@ static void securityd_xpc_init(const char *service_name)
     xpc_activity_register("com.apple.securityd.entropyhealth", XPC_ACTIVITY_CHECK_IN, ^(xpc_activity_t activity) {
         xpc_activity_state_t activityState = xpc_activity_get_state(activity);
         if (activityState == XPC_ACTIVITY_STATE_RUN) {
-            SecCoreAnalyticsSendKernEntropyHealth();
+            SecCoreAnalyticsSendKernEntropyAnalytics();
         }
     });
 
@@ -1562,13 +1563,6 @@ static void securityd_xpc_init(const char *service_name)
             refresh_prng();
         }
     });
-
-#if OCTAGON && !TARGET_OS_BRIDGE
-    // Kick off reporting tasks.
-    if (os_variant_has_internal_diagnostics("com.apple.security") && !os_variant_is_recovery("securityd")) {
-        InitPolicyReporter();
-    }
-#endif
 }
 
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, 2004, 2005, 2010, 2011, 2013, 2015, 2018, 2019 Apple Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2003-2005, 2010, 2011, 2013, 2015, 2017-2019, 2021 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -65,7 +65,7 @@
 		      and non-empty with one exception.  That exception
 		      is when the SCDynamicStore server has been restarted.
 		      In that case, if no reconnect callback was setup
-		      with the SCDynamicStoreSetReconnectCallBack API
+		      with the SCDynamicStoreSetDisconnectCallBack API
 		      then a non-NULL but empty array will be passed.
 
 		Disconnect/reconnect considerations:
@@ -75,7 +75,7 @@
 
 		2. Processes that write to the SCDynamicStore should be
 		   prepared to repost any content when/if the server fails.
-		   A callout, registered with the SCDynamicStoreSetReconnectCallBack
+		   A callout, registered with the SCDynamicStoreSetDisconnectCallBack
 		   API, should be used to post any updates the SCDynamicStore
 		   after a failure.
 

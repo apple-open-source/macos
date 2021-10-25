@@ -71,6 +71,7 @@ OS_CLOSED_ENUM(hvg_hcall_return, uint32_t,
 
 OS_CLOSED_ENUM(hvg_hcall_code, uint32_t,
     HVG_HCALL_TRIGGER_DUMP        = 0x0001,       /* Collect guest dump */
+    HVG_HCALL_SET_COREDUMP_DATA   = 0x0002,       /* Set necessary info for reliable coredump */
     );
 
 /*
@@ -89,6 +90,8 @@ extern hvg_hcall_return_t
 hvg_hcall_trigger_dump(hvg_hcall_vmcore_file_t *vmcore,
     const hvg_hcall_dump_option_t dump_option);
 
+extern void
+hvg_hcall_set_coredump_data(void);
 
 #ifdef XNU_KERNEL_PRIVATE
 
@@ -99,7 +102,9 @@ hvg_hcall_trigger_dump(hvg_hcall_vmcore_file_t *vmcore,
 #if defined (__x86_64__)
 #include <i386/cpuid.h>
 #include <i386/x86_hypercall.h>
-#endif
+#else
+#define hvg_hcall_set_coredump_data() do {} while(0)
+#endif /* defined (__x86_64__) */
 
 #endif /* XNU_KERNEL_PRIVATE */
 

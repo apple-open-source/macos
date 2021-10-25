@@ -21,14 +21,6 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-/*
- * This is to fool os services to not provide the Keychain manager
- * interface tht doens't work since we don't have unified headers
- * between iOS and OS X. rdar://23405418/
- */
-#define __KEYCHAINCORE__ 1
-
-
 #import <Foundation/Foundation.h>
 #import <CoreFoundation/CoreFoundation.h>
 #import <Security/SecBase.h>
@@ -50,7 +42,7 @@ secd_21_transmogrify(int argc, char *const *argv)
 {
     plan_tests(kSecdTestSetupTestCount + 14);
 
-#if TARGET_OS_IOS
+#if KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER
     CFErrorRef error = NULL;
     CFDictionaryRef result = NULL;
     OSStatus res;
@@ -198,7 +190,7 @@ secd_21_transmogrify(int argc, char *const *argv)
 
     secd_test_teardown_delete_temp_keychain("secd_21_transmogrify");
 #else
-    plan_skip_all("not support on non TARGET_OS_IOS");
+    plan_skip_all("not support on non KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER");
 #endif
     return 0;
 }

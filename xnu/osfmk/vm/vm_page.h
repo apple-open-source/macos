@@ -1758,7 +1758,7 @@ extern lck_grp_t vm_page_lck_grp_local;
 	vm_object_t o;                                          \
 	o = VM_PAGE_OBJECT(mem);                                \
 	DTRACE_VM2(pgin, int, 1, (uint64_t *), NULL);           \
-	current_task()->pageins++;                              \
+	counter_inc(&current_task()->pageins);                  \
 	if (o->internal) {                                      \
 	        DTRACE_VM2(anonpgin, int, 1, (uint64_t *), NULL);       \
 	} else {                                                \

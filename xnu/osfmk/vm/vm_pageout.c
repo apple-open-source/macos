@@ -147,7 +147,7 @@ extern void consider_vm_pressure_events(void);
 #define MEMORYSTATUS_SUSPENDED_THRESHOLD  4
 #endif /* VM_PRESSURE_EVENTS */
 
-thread_t  vm_pageout_scan_thread = THREAD_NULL;
+SECURITY_READ_ONLY_LATE(thread_t) vm_pageout_scan_thread;
 boolean_t vps_dynamic_priority_enabled = FALSE;
 
 #ifndef VM_PAGEOUT_BURST_INACTIVE_THROTTLE  /* maximum iterations of the inactive queue w/o stealing/cleaning a page */
@@ -876,6 +876,7 @@ struct vm_pageout_stat {
 	unsigned int considered_bq_external;
 
 	unsigned int skipped_external;
+	unsigned int skipped_internal;
 	unsigned int filecache_min_reactivations;
 
 	unsigned int freed_speculative;
@@ -896,7 +897,7 @@ struct vm_pageout_stat {
 
 	unsigned int phantom_ghosts_found;
 	unsigned int phantom_ghosts_added;
-} vm_pageout_stats[VM_PAGEOUT_STAT_SIZE] = {{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, };
+} vm_pageout_stats[VM_PAGEOUT_STAT_SIZE] = {{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, };
 
 unsigned int vm_pageout_stat_now = 0;
 
@@ -1640,6 +1641,10 @@ update_vm_info(void)
 		tmp = vm_pageout_vminfo.vm_pageout_skipped_external;
 		vm_pageout_stats[vm_pageout_stat_now].skipped_external = (unsigned int)(tmp - last.vm_pageout_skipped_external);
 		last.vm_pageout_skipped_external = tmp;
+
+		tmp = vm_pageout_vminfo.vm_pageout_skipped_internal;
+		vm_pageout_stats[vm_pageout_stat_now].skipped_internal = (unsigned int)(tmp - last.vm_pageout_skipped_internal);
+		last.vm_pageout_skipped_internal = tmp;
 
 		tmp = vm_pageout_vminfo.vm_pageout_reactivation_limit_exceeded;
 		vm_pageout_stats[vm_pageout_stat_now].reactivation_limit_exceeded = (unsigned int)(tmp - last.vm_pageout_reactivation_limit_exceeded);
@@ -2426,7 +2431,22 @@ vps_choose_victim_page(vm_page_t *victim_page, int *anons_grabbed, boolean_t *gr
 		*grab_anonymous = TRUE;
 		*anons_grabbed = 0;
 
-		vm_pageout_vminfo.vm_pageout_skipped_external++;
+		if (VM_CONFIG_SWAP_IS_ACTIVE) {
+			vm_pageout_vminfo.vm_pageout_skipped_external++;
+		} else {
+			if (vm_page_free_count < (COMPRESSOR_FREE_RESERVED_LIMIT * 2)) {
+				/*
+				 * No swap and we are in dangerously low levels of free memory.
+				 * If we keep going ahead with anonymous pages, we are going to run into a situation
+				 * where the compressor will be stuck waiting for free pages (if it isn't already).
+				 *
+				 * So, pick a file backed page...
+				 */
+				*grab_anonymous = FALSE;
+				*anons_grabbed = ANONS_GRABBED_LIMIT;
+				vm_pageout_vminfo.vm_pageout_skipped_internal++;
+			}
+		}
 		goto want_anonymous;
 	}
 	*grab_anonymous = (vm_page_anonymous_count > vm_page_anonymous_min);
@@ -4299,6 +4319,10 @@ vm_pageout_iothread_external(void)
 
 	vm_page_unlock_queues();
 
+#if CONFIG_THREAD_GROUPS
+	thread_group_vm_add();
+#endif /* CONFIG_THREAD_GROUPS */
+
 	vm_pageout_iothread_external_continue(&vm_pageout_queue_external);
 
 	/*NOTREACHED*/
@@ -4365,7 +4389,6 @@ extern unsigned int     memorystatus_level;
 
 boolean_t vm_pressure_events_enabled = FALSE;
 
-#if (XNU_TARGET_OS_OSX && __arm64__)
 extern uint64_t next_warning_notification_sent_at_ts;
 extern uint64_t next_critical_notification_sent_at_ts;
 
@@ -4382,7 +4405,6 @@ uint64_t  vm_pressure_last_level_transition_abs = 0;
  * level before resending out notifications for that level again.
  */
 int  vm_pressure_level_transition_threshold = PRESSURE_LEVEL_STUCK_THRESHOLD_MINS;
-#endif /* (XNU_TARGET_OS_OSX && __arm64__) */
 
 void
 vm_pressure_response(void)
@@ -4391,6 +4413,10 @@ vm_pressure_response(void)
 	int                     new_level = -1;
 	unsigned int            total_pages;
 	uint64_t                available_memory = 0;
+	uint64_t                curr_ts, abs_time_since_level_transition, time_in_ns;
+	bool                    force_check = false;
+	int                     time_in_mins;
+
 
 	if (vm_pressure_events_enabled == FALSE) {
 		return;
@@ -4417,18 +4443,12 @@ vm_pressure_response(void)
 		return;
 	}
 
-#if (XNU_TARGET_OS_OSX && __arm64__)
-	uint64_t                curr_ts, abs_time_since_level_transition, time_in_ns;
-	bool                    force_check = false;
-	int                     time_in_mins;
-
 	curr_ts = mach_absolute_time();
 	abs_time_since_level_transition = curr_ts - vm_pressure_last_level_transition_abs;
 
 	absolutetime_to_nanoseconds(abs_time_since_level_transition, &time_in_ns);
 	time_in_mins = (int) ((time_in_ns / NSEC_PER_SEC) / 60);
 	force_check = (time_in_mins >= vm_pressure_level_transition_threshold);
-#endif /* (XNU_TARGET_OS_OSX && __arm64__) */
 
 	old_level = memorystatus_vm_pressure_level;
 
@@ -4450,11 +4470,9 @@ vm_pressure_response(void)
 			new_level = kVMPressureNormal;
 		} else if (VM_PRESSURE_WARNING_TO_CRITICAL()) {
 			new_level = kVMPressureCritical;
-#if (XNU_TARGET_OS_OSX && __arm64__)
 		} else if (force_check) {
 			new_level = kVMPressureWarning;
 			next_warning_notification_sent_at_ts = curr_ts;
-#endif /* (XNU_TARGET_OS_OSX && __arm64__) */
 		}
 		break;
 	}
@@ -4465,11 +4483,9 @@ vm_pressure_response(void)
 			new_level = kVMPressureNormal;
 		} else if (VM_PRESSURE_CRITICAL_TO_WARNING()) {
 			new_level = kVMPressureWarning;
-#if (XNU_TARGET_OS_OSX && __arm64__)
 		} else if (force_check) {
 			new_level = kVMPressureCritical;
 			next_critical_notification_sent_at_ts = curr_ts;
-#endif /* (XNU_TARGET_OS_OSX && __arm64__) */
 		}
 		break;
 	}
@@ -4478,11 +4494,7 @@ vm_pressure_response(void)
 		return;
 	}
 
-	if (new_level != -1
-#if (XNU_TARGET_OS_OSX && __arm64__)
-	    || force_check
-#endif /* (XNU_TARGET_OS_OSX && __arm64__)  */
-	    ) {
+	if (new_level != -1 || force_check) {
 		if (new_level != -1) {
 			memorystatus_vm_pressure_level = (vm_pressure_level_t) new_level;
 
@@ -4490,18 +4502,23 @@ vm_pressure_response(void)
 				VM_DEBUG_CONSTANT_EVENT(vm_pressure_level_change, VM_PRESSURE_LEVEL_CHANGE, DBG_FUNC_NONE,
 				    new_level, old_level, 0, 0);
 			}
-#if (XNU_TARGET_OS_OSX && __arm64__)
 		} else {
 			VM_DEBUG_CONSTANT_EVENT(vm_pressure_level_change, VM_PRESSURE_LEVEL_CHANGE, DBG_FUNC_NONE,
 			    new_level, old_level, force_check, 0);
-#endif /* (XNU_TARGET_OS_OSX && __arm64__) */
 		}
 
-		if ((memorystatus_vm_pressure_level != kVMPressureNormal) || (old_level != memorystatus_vm_pressure_level)
-#if (XNU_TARGET_OS_OSX && __arm64__)
-		    || force_check
-#endif /* (XNU_TARGET_OS_OSX && __arm64__) */
-		    ) {
+		if (hibernation_vmqueues_inspection || hibernate_cleaning_in_progress) {
+			/*
+			 * We don't want to schedule a wakeup while hibernation is in progress
+			 * because that could collide with checks for non-monotonicity in the scheduler.
+			 * We do however do all the updates to memorystatus_vm_pressure_level because
+			 * we _might_ want to use that for decisions regarding which pages or how
+			 * many pages we want to dump in hibernation.
+			 */
+			return;
+		}
+
+		if ((memorystatus_vm_pressure_level != kVMPressureNormal) || (old_level != memorystatus_vm_pressure_level) || force_check) {
 			if (vm_pageout_state.vm_pressure_thread_running == FALSE) {
 				thread_wakeup(&vm_pressure_thread);
 			}
@@ -4509,9 +4526,7 @@ vm_pressure_response(void)
 			if (old_level != memorystatus_vm_pressure_level) {
 				thread_wakeup(&vm_pageout_state.vm_pressure_changed);
 			}
-#if (XNU_TARGET_OS_OSX && __arm64__)
 			vm_pressure_last_level_transition_abs = curr_ts; /* renew the window of observation for a stuck pressure level */
-#endif /* (XNU_TARGET_OS_OSX && __arm64__) */
 		}
 	}
 }
@@ -4593,6 +4608,10 @@ vm_pressure_thread(void)
 		vm_pageout_state.vm_pressure_thread_running = FALSE;
 	}
 
+#if CONFIG_THREAD_GROUPS
+	thread_group_vm_add();
+#endif /* CONFIG_THREAD_GROUPS */
+
 	thread_set_thread_name(current_thread(), "VM_pressure");
 	thread_initialized = TRUE;
 	assert_wait((event_t) &vm_pressure_thread, THREAD_UNINT);
@@ -4634,10 +4653,17 @@ compute_pageout_gc_throttle(__unused void *arg)
  * end up trying to do a kernel_memory_allocate when the zone maps are almost
  * full.
  */
-
+bool garbage_collect_thread_inited = false;
 void
 vm_pageout_garbage_collect(int collect)
 {
+	if (!garbage_collect_thread_inited) {
+#if CONFIG_THREAD_GROUPS
+		thread_group_vm_add();
+#endif /* CONFIG_THREAD_GROUPS */
+		garbage_collect_thread_inited = true;
+	}
+
 	if (collect) {
 		if (zone_map_nearing_exhaustion()) {
 			/*
@@ -4736,6 +4762,59 @@ vm_set_restrictions(unsigned int num_cpus)
 	}
 }
 
+/*
+ * Set up vm_config based on the vm_compressor_mode.
+ * Must run BEFORE the pageout thread starts up.
+ */
+__startup_func
+void
+vm_config_init(void)
+{
+	bzero(&vm_config, sizeof(vm_config));
+
+	switch (vm_compressor_mode) {
+	case VM_PAGER_DEFAULT:
+		printf("mapping deprecated VM_PAGER_DEFAULT to VM_PAGER_COMPRESSOR_WITH_SWAP\n");
+		OS_FALLTHROUGH;
+
+	case VM_PAGER_COMPRESSOR_WITH_SWAP:
+		vm_config.compressor_is_present = TRUE;
+		vm_config.swap_is_present = TRUE;
+		vm_config.compressor_is_active = TRUE;
+		vm_config.swap_is_active = TRUE;
+		break;
+
+	case VM_PAGER_COMPRESSOR_NO_SWAP:
+		vm_config.compressor_is_present = TRUE;
+		vm_config.swap_is_present = TRUE;
+		vm_config.compressor_is_active = TRUE;
+		break;
+
+	case VM_PAGER_FREEZER_DEFAULT:
+		printf("mapping deprecated VM_PAGER_FREEZER_DEFAULT to VM_PAGER_FREEZER_COMPRESSOR_NO_SWAP\n");
+		OS_FALLTHROUGH;
+
+	case VM_PAGER_FREEZER_COMPRESSOR_NO_SWAP:
+		vm_config.compressor_is_present = TRUE;
+		vm_config.swap_is_present = TRUE;
+		break;
+
+	case VM_PAGER_COMPRESSOR_NO_SWAP_PLUS_FREEZER_COMPRESSOR_WITH_SWAP:
+		vm_config.compressor_is_present = TRUE;
+		vm_config.swap_is_present = TRUE;
+		vm_config.compressor_is_active = TRUE;
+		vm_config.freezer_swap_is_active = TRUE;
+		break;
+
+	case VM_PAGER_NOT_CONFIGURED:
+		break;
+
+	default:
+		printf("unknown compressor mode - %x\n", vm_compressor_mode);
+		break;
+	}
+}
+
 void
 vm_pageout(void)
 {
@@ -4748,8 +4827,6 @@ vm_pageout(void)
 	 * Set thread privileges.
 	 */
 	s = splsched();
-
-	vm_pageout_scan_thread = self;
 
 #if CONFIG_VPS_DYNAMIC_PRIO
 
@@ -4962,51 +5039,8 @@ vm_pageout(void)
 	vm_object_reaper_init();
 
 
-	bzero(&vm_config, sizeof(vm_config));
-
-	switch (vm_compressor_mode) {
-	case VM_PAGER_DEFAULT:
-		printf("mapping deprecated VM_PAGER_DEFAULT to VM_PAGER_COMPRESSOR_WITH_SWAP\n");
-		OS_FALLTHROUGH;
-
-	case VM_PAGER_COMPRESSOR_WITH_SWAP:
-		vm_config.compressor_is_present = TRUE;
-		vm_config.swap_is_present = TRUE;
-		vm_config.compressor_is_active = TRUE;
-		vm_config.swap_is_active = TRUE;
-		break;
-
-	case VM_PAGER_COMPRESSOR_NO_SWAP:
-		vm_config.compressor_is_present = TRUE;
-		vm_config.swap_is_present = TRUE;
-		vm_config.compressor_is_active = TRUE;
-		break;
-
-	case VM_PAGER_FREEZER_DEFAULT:
-		printf("mapping deprecated VM_PAGER_FREEZER_DEFAULT to VM_PAGER_FREEZER_COMPRESSOR_NO_SWAP\n");
-		OS_FALLTHROUGH;
-
-	case VM_PAGER_FREEZER_COMPRESSOR_NO_SWAP:
-		vm_config.compressor_is_present = TRUE;
-		vm_config.swap_is_present = TRUE;
-		break;
-
-	case VM_PAGER_COMPRESSOR_NO_SWAP_PLUS_FREEZER_COMPRESSOR_WITH_SWAP:
-		vm_config.compressor_is_present = TRUE;
-		vm_config.swap_is_present = TRUE;
-		vm_config.compressor_is_active = TRUE;
-		vm_config.freezer_swap_is_active = TRUE;
-		break;
-
-	case VM_PAGER_NOT_CONFIGURED:
-		break;
-
-	default:
-		printf("unknown compressor mode - %x\n", vm_compressor_mode);
-		break;
-	}
 	if (VM_CONFIG_COMPRESSOR_IS_PRESENT) {
-		vm_compressor_pager_init();
+		vm_compressor_init();
 	}
 
 #if VM_PRESSURE_EVENTS
@@ -5215,6 +5249,7 @@ upl_create(int type, int flags, upl_size_t size)
 	upl->kaddr = (vm_offset_t)0;
 	upl->u_offset = 0;
 	upl->u_size = 0;
+	upl->u_mapped_size = 0;
 	upl->map_object = NULL;
 	upl->ref_count = 1;
 	upl->ext_ref_count = 0;
@@ -5233,8 +5268,7 @@ upl_create(int type, int flags, upl_size_t size)
 	if ((type & UPL_CREATE_INTERNAL) && (type & UPL_CREATE_EXPEDITE_SUP)) {
 		/* Only support expedite on internal UPLs */
 		thread_t        curthread = current_thread();
-		upl->upl_reprio_info = (uint64_t *)kalloc(sizeof(uint64_t) * atop(size));
-		bzero(upl->upl_reprio_info, (sizeof(uint64_t) * atop(size)));
+		upl->upl_reprio_info = kalloc_data(sizeof(uint64_t) * atop(size), Z_WAITOK | Z_ZERO);
 		upl->flags |= UPL_EXPEDITE_SUPPORTED;
 		if (curthread->decmp_upl != NULL) {
 			upl_set_decmp_info(upl, curthread->decmp_upl);
@@ -5330,7 +5364,7 @@ upl_destroy(upl_t upl)
 
 #if CONFIG_IOSCHED
 	if (upl->flags & UPL_EXPEDITE_SUPPORTED) {
-		kfree(upl->upl_reprio_info, sizeof(uint64_t) * (size / PAGE_SIZE));
+		kfree_data(upl->upl_reprio_info, sizeof(uint64_t) * (size / PAGE_SIZE));
 	}
 #endif
 
@@ -5538,10 +5572,10 @@ vm_object_upl_request(
 		return KERN_INVALID_VALUE;
 	}
 	if ((!object->internal) && (object->paging_offset != 0)) {
-		panic("vm_object_upl_request: external object with non-zero paging offset\n");
+		panic("vm_object_upl_request: external object with non-zero paging offset");
 	}
 	if (object->phys_contiguous) {
-		panic("vm_object_upl_request: contiguous object specified\n");
+		panic("vm_object_upl_request: contiguous object specified");
 	}
 
 	assertf(page_aligned(offset) && page_aligned(size),
@@ -6910,9 +6944,12 @@ done:
  * vm_map_enter() API.
  */
 kern_return_t
-vm_map_enter_upl(
+vm_map_enter_upl_range(
 	vm_map_t                map,
 	upl_t                   upl,
+	vm_object_offset_t      offset_to_map,
+	upl_size_t              size_to_map,
+	vm_prot_t               prot_to_map,
 	vm_map_offset_t         *dst_addr)
 {
 	vm_map_size_t           size;
@@ -6931,7 +6968,7 @@ vm_map_enter_upl(
 		return KERN_INVALID_ARGUMENT;
 	}
 
-	DEBUG4K_UPL("map %p upl %p flags 0x%x object %p offset 0x%llx size 0x%x \n", map, upl, upl->flags, upl->map_object, upl->u_offset, upl->u_size);
+	DEBUG4K_UPL("map %p upl %p flags 0x%x object %p offset 0x%llx (uploff: 0x%llx) size 0x%x (uplsz: 0x%x) \n", map, upl, upl->flags, upl->map_object, offset_to_map, upl->u_offset, size_to_map, upl->u_size);
 	assert(map == kernel_map);
 
 	if ((isVectorUPL = vector_upl_is_valid(upl))) {
@@ -6952,7 +6989,7 @@ vm_map_enter_upl(
 
 		if (mapped) {
 			if (mapped != valid_upls) {
-				panic("Only %d of the %d sub-upls within the Vector UPL are alread mapped\n", mapped, valid_upls);
+				panic("Only %d of the %d sub-upls within the Vector UPL are alread mapped", mapped, valid_upls);
 			} else {
 				upl_unlock(vector_upl);
 				return KERN_FAILURE;
@@ -6969,7 +7006,7 @@ vm_map_enter_upl(
 		    VM_FLAGS_ANYWHERE, VM_MAP_KERNEL_FLAGS_NONE, VM_KERN_MEMORY_NONE,
 		    &vector_upl_submap);
 		if (kr != KERN_SUCCESS) {
-			panic("Vector UPL submap allocation failed\n");
+			panic("Vector UPL submap allocation failed");
 		}
 		map = vector_upl_submap;
 		vector_upl_set_submap(vector_upl, vector_upl_submap, vector_upl_dst_addr);
@@ -7002,8 +7039,6 @@ process_upl_to_enter:
 		}
 	}
 
-	size = upl_adjusted_size(upl, VM_MAP_PAGE_MASK(map));
-
 	if ((!(upl->flags & UPL_SHADOWED)) &&
 	    ((upl->flags & UPL_HAS_BUSY) ||
 	    !((upl->flags & (UPL_DEVICE_MEMORY | UPL_IO_WIRE)) || (upl->map_object->phys_contiguous)))) {
@@ -7013,6 +7048,7 @@ process_upl_to_enter:
 		unsigned int            pg_num;
 		wpl_array_t             lite_list;
 
+		size = upl_adjusted_size(upl, VM_MAP_PAGE_MASK(map));
 		if (upl->flags & UPL_INTERNAL) {
 			lite_list = (wpl_array_t)
 			    ((((uintptr_t)upl) + sizeof(struct upl))
@@ -7035,12 +7071,8 @@ process_upl_to_enter:
 		    upl->map_object,
 		    (uint64_t)upl->map_object->vo_shadow_offset);
 		upl->map_object->wimg_bits = object->wimg_bits;
-		assertf(page_aligned(upl->map_object->vo_shadow_offset),
-		    "object %p shadow_offset 0x%llx",
-		    upl->map_object, upl->map_object->vo_shadow_offset);
 		offset = upl->map_object->vo_shadow_offset;
 		new_offset = 0;
-		size = upl_adjusted_size(upl, VM_MAP_PAGE_MASK(map));
 
 		upl->flags |= UPL_SHADOWED;
 
@@ -7055,7 +7087,7 @@ process_upl_to_enter:
 
 				m = vm_page_lookup(object, offset);
 				if (m == VM_PAGE_NULL) {
-					panic("vm_upl_map: page missing\n");
+					panic("vm_upl_map: page missing");
 				}
 
 				/*
@@ -7093,12 +7125,23 @@ process_upl_to_enter:
 		vm_object_unlock(upl->map_object);
 	}
 	if (upl->flags & UPL_SHADOWED) {
-		offset = 0;
+		if (isVectorUPL) {
+			offset = 0;
+		} else {
+			offset = offset_to_map;
+		}
 	} else {
 		offset = upl_adjusted_offset(upl, VM_MAP_PAGE_MASK(map)) - upl->map_object->paging_offset;
+		if (!isVectorUPL) {
+			offset += offset_to_map;
+		}
 	}
 
-	size = upl_adjusted_size(upl, VM_MAP_PAGE_MASK(map));
+	if (isVectorUPL) {
+		size = upl_adjusted_size(upl, VM_MAP_PAGE_MASK(map));
+	} else {
+		size = MIN(upl_adjusted_size(upl, VM_MAP_PAGE_MASK(map)), size_to_map);
+	}
 
 	vm_object_reference(upl->map_object);
 
@@ -7110,7 +7153,7 @@ process_upl_to_enter:
 		kr = vm_map_enter(map, dst_addr, (vm_map_size_t)size, (vm_map_offset_t) 0,
 		    VM_FLAGS_ANYWHERE, VM_MAP_KERNEL_FLAGS_NONE, VM_KERN_MEMORY_OSFMK,
 		    upl->map_object, offset, FALSE,
-		    VM_PROT_DEFAULT, VM_PROT_ALL, VM_INHERIT_DEFAULT);
+		    prot_to_map, VM_PROT_ALL, VM_INHERIT_DEFAULT);
 
 		if (kr != KERN_SUCCESS) {
 			vm_object_deallocate(upl->map_object);
@@ -7121,11 +7164,14 @@ process_upl_to_enter:
 		kr = vm_map_enter(map, dst_addr, (vm_map_size_t)size, (vm_map_offset_t) 0,
 		    VM_FLAGS_FIXED, VM_MAP_KERNEL_FLAGS_NONE, VM_KERN_MEMORY_OSFMK,
 		    upl->map_object, offset, FALSE,
-		    VM_PROT_DEFAULT, VM_PROT_ALL, VM_INHERIT_DEFAULT);
+		    prot_to_map, VM_PROT_ALL, VM_INHERIT_DEFAULT);
 		if (kr) {
-			panic("vm_map_enter failed for a Vector UPL\n");
+			panic("vm_map_enter failed for a Vector UPL");
 		}
 	}
+	upl->u_mapped_size = (upl_size_t) size; /* When we allow multiple submappings of the UPL */
+	                                        /* this will have to be an increment rather than */
+	                                        /* an assignment. */
 	vm_object_lock(upl->map_object);
 
 	for (addr = *dst_addr; size > 0; size -= PAGE_SIZE, addr += PAGE_SIZE) {
@@ -7140,7 +7186,7 @@ process_upl_to_enter:
 			/* m->vmp_wpmapped = TRUE; */
 			assert(map->pmap == kernel_pmap);
 
-			PMAP_ENTER(map->pmap, addr, m, VM_PROT_DEFAULT, VM_PROT_NONE, 0, TRUE, kr);
+			PMAP_ENTER(map->pmap, addr, m, prot_to_map, VM_PROT_NONE, 0, TRUE, kr);
 
 			assert(kr == KERN_SUCCESS);
 #if KASAN
@@ -7179,6 +7225,16 @@ process_upl_to_enter:
 	return KERN_SUCCESS;
 }
 
+kern_return_t
+vm_map_enter_upl(
+	vm_map_t                map,
+	upl_t                   upl,
+	vm_map_offset_t         *dst_addr)
+{
+	upl_size_t upl_size = upl_adjusted_size(upl, VM_MAP_PAGE_MASK(map));
+	return vm_map_enter_upl_range(map, upl, 0, upl_size, VM_PROT_DEFAULT, dst_addr);
+}
+
 /*
  * Internal routine to remove a UPL mapping from a VM map.
  *
@@ -7190,9 +7246,11 @@ process_upl_to_enter:
  * maps yet.
  */
 kern_return_t
-vm_map_remove_upl(
+vm_map_remove_upl_range(
 	vm_map_t        map,
-	upl_t           upl)
+	upl_t           upl,
+	__unused vm_object_offset_t    offset_to_unmap,
+	__unused upl_size_t      size_to_unmap)
 {
 	vm_address_t    addr;
 	upl_size_t      size;
@@ -7220,7 +7278,7 @@ vm_map_remove_upl(
 
 		if (unmapped) {
 			if (unmapped != valid_upls) {
-				panic("%d of the %d sub-upls within the Vector UPL is/are not mapped\n", unmapped, valid_upls);
+				panic("%d of the %d sub-upls within the Vector UPL is/are not mapped", unmapped, valid_upls);
 			} else {
 				upl_unlock(vector_upl);
 				return KERN_FAILURE;
@@ -7254,13 +7312,14 @@ process_upl_to_remove:
 
 	if (upl->flags & UPL_PAGE_LIST_MAPPED) {
 		addr = upl->kaddr;
-		size = upl_adjusted_size(upl, VM_MAP_PAGE_MASK(map));
+		size = upl->u_mapped_size;
 
 		assert(upl->ref_count > 1);
 		upl->ref_count--;               /* removing mapping ref */
 
 		upl->flags &= ~UPL_PAGE_LIST_MAPPED;
 		upl->kaddr = (vm_offset_t) 0;
+		upl->u_mapped_size = 0;
 
 		if (!isVectorUPL) {
 			upl_unlock(upl);
@@ -7287,6 +7346,14 @@ process_upl_to_remove:
 	return KERN_FAILURE;
 }
 
+kern_return_t
+vm_map_remove_upl(
+	vm_map_t        map,
+	upl_t           upl)
+{
+	upl_size_t upl_size = upl_adjusted_size(upl, VM_MAP_PAGE_MASK(map));
+	return vm_map_remove_upl_range(map, upl, 0, upl_size);
+}
 
 kern_return_t
 upl_commit_range(
@@ -7609,7 +7676,7 @@ process_upl_to_commit:
 					dwp->dw_mask |= (DW_clear_busy | DW_PAGE_WAKEUP);
 				} else {
 					if (m->vmp_wire_count == 0) {
-						panic("wire_count == 0, m = %p, obj = %p\n", m, shadow_object);
+						panic("wire_count == 0, m = %p, obj = %p", m, shadow_object);
 					}
 					assert(m->vmp_q_state == VM_PAGE_IS_WIRED);
 
@@ -8610,7 +8677,7 @@ iopl_valid_data(
 				m->vmp_q_state = VM_PAGE_IS_WIRED;
 				wired_count++;
 			} else {
-				panic("iopl_valid_data: %p already wired\n", m);
+				panic("iopl_valid_data: %p already wired", m);
 			}
 
 			PAGE_WAKEUP_DONE(m);
@@ -8998,7 +9065,7 @@ vm_object_iopl_request(
 	}
 
 	if ((!object->internal) && (object->paging_offset != 0)) {
-		panic("vm_object_iopl_request: external object with non-zero paging offset\n");
+		panic("vm_object_iopl_request: external object with non-zero paging offset");
 	}
 
 
@@ -9286,10 +9353,10 @@ vm_object_iopl_request(
 		    dst_page->vmp_absent ||
 		    dst_page->vmp_fictitious) {
 			if (object == kernel_object) {
-				panic("vm_object_iopl_request: missing/bad page in kernel object\n");
+				panic("vm_object_iopl_request: missing/bad page in kernel object");
 			}
 			if (object == compressor_object) {
-				panic("vm_object_iopl_request: missing/bad page in compressor object\n");
+				panic("vm_object_iopl_request: missing/bad page in compressor object");
 			}
 
 			if (cntrl_flags & UPL_REQUEST_NO_FAULT) {
@@ -9668,7 +9735,7 @@ return_err:
 		dst_page = vm_page_lookup(object, offset);
 
 		if (dst_page == VM_PAGE_NULL) {
-			panic("vm_object_iopl_request: Wired page missing. \n");
+			panic("vm_object_iopl_request: Wired page missing.");
 		}
 
 		/*
@@ -9748,6 +9815,7 @@ upl_transpose(
 	boolean_t               upls_locked;
 	vm_object_t             object1, object2;
 
+	/* LD: Should mapped UPLs be eligible for a transpose? */
 	if (upl1 == UPL_NULL || upl2 == UPL_NULL || upl1 == upl2 || ((upl1->flags & UPL_VECTOR) == UPL_VECTOR) || ((upl2->flags & UPL_VECTOR) == UPL_VECTOR)) {
 		return KERN_INVALID_ARGUMENT;
 	}
@@ -9905,7 +9973,7 @@ vm_paging_map_init(void)
 	    VM_KERN_MEMORY_NONE,
 	    &map_entry);
 	if (kr != KERN_SUCCESS) {
-		panic("vm_paging_map_init: kernel_map full\n");
+		panic("vm_paging_map_init: kernel_map full");
 	}
 	VME_OBJECT_SET(map_entry, kernel_object);
 	VME_OFFSET_SET(map_entry, page_map_offset);
@@ -10129,7 +10197,6 @@ vm_paging_map_object(
 		}
 		page->vmp_pmapped = TRUE;
 
-		//assert(pmap_verify_free(VM_PAGE_GET_PHYS_PAGE(page)));
 		PMAP_ENTER(kernel_pmap,
 		    *address + page_map_offset,
 		    page,
@@ -10239,10 +10306,9 @@ vm_pageout_steal_laundry(vm_page_t page, boolean_t queues_locked)
 upl_t
 vector_upl_create(vm_offset_t upl_offset)
 {
-	int     vector_upl_size  = sizeof(struct _vector_upl);
 	int i = 0;
 	upl_t   upl;
-	vector_upl_t vector_upl = (vector_upl_t)kalloc(vector_upl_size);
+	vector_upl_t vector_upl = kalloc_type(struct _vector_upl, Z_WAITOK);
 
 	upl = upl_create(0, UPL_VECTOR, 0);
 	upl->vector_upl = vector_upl;
@@ -10267,21 +10333,21 @@ vector_upl_deallocate(upl_t upl)
 		vector_upl_t vector_upl = upl->vector_upl;
 		if (vector_upl) {
 			if (vector_upl->invalid_upls != vector_upl->num_upls) {
-				panic("Deallocating non-empty Vectored UPL\n");
+				panic("Deallocating non-empty Vectored UPL");
 			}
-			kfree(vector_upl->pagelist, (sizeof(struct upl_page_info) * (vector_upl->size / PAGE_SIZE)));
+			kfree_data(vector_upl->pagelist, sizeof(struct upl_page_info) * (vector_upl->size / PAGE_SIZE));
 			vector_upl->invalid_upls = 0;
 			vector_upl->num_upls = 0;
 			vector_upl->pagelist = NULL;
 			vector_upl->size = 0;
 			vector_upl->offset = 0;
-			kfree(vector_upl, sizeof(struct _vector_upl));
+			kfree_type(struct _vector_upl, vector_upl);
 			vector_upl = (vector_upl_t)0xfeedfeed;
 		} else {
-			panic("vector_upl_deallocate was passed a non-vectored upl\n");
+			panic("vector_upl_deallocate was passed a non-vectored upl");
 		}
 	} else {
-		panic("vector_upl_deallocate was passed a NULL upl\n");
+		panic("vector_upl_deallocate was passed a NULL upl");
 	}
 }
 
@@ -10336,13 +10402,13 @@ vector_upl_set_subupl(upl_t upl, upl_t subupl, uint32_t io_size)
 					}
 				}
 			} else {
-				panic("vector_upl_set_subupl was passed a NULL upl element\n");
+				panic("vector_upl_set_subupl was passed a NULL upl element");
 			}
 		} else {
-			panic("vector_upl_set_subupl was passed a non-vectored upl\n");
+			panic("vector_upl_set_subupl was passed a non-vectored upl");
 		}
 	} else {
-		panic("vector_upl_set_subupl was passed a NULL upl\n");
+		panic("vector_upl_set_subupl was passed a NULL upl");
 	}
 
 	return FALSE;
@@ -10358,7 +10424,7 @@ vector_upl_set_pagelist(upl_t upl)
 		if (vector_upl) {
 			vm_offset_t pagelist_size = 0, cur_upl_pagelist_size = 0;
 
-			vector_upl->pagelist = (upl_page_info_array_t)kalloc(sizeof(struct upl_page_info) * (vector_upl->size / PAGE_SIZE));
+			vector_upl->pagelist = kalloc_data(sizeof(struct upl_page_info) * (vector_upl->size / PAGE_SIZE), Z_WAITOK);
 
 			for (i = 0; i < vector_upl->num_upls; i++) {
 				cur_upl_pagelist_size = sizeof(struct upl_page_info) * upl_adjusted_size(vector_upl->upl_elems[i], PAGE_MASK) / PAGE_SIZE;
@@ -10370,10 +10436,10 @@ vector_upl_set_pagelist(upl_t upl)
 			}
 			assert( pagelist_size == (sizeof(struct upl_page_info) * (vector_upl->size / PAGE_SIZE)));
 		} else {
-			panic("vector_upl_set_pagelist was passed a non-vectored upl\n");
+			panic("vector_upl_set_pagelist was passed a non-vectored upl");
 		}
 	} else {
-		panic("vector_upl_set_pagelist was passed a NULL upl\n");
+		panic("vector_upl_set_pagelist was passed a NULL upl");
 	}
 }
 
@@ -10387,7 +10453,7 @@ vector_upl_subupl_byindex(upl_t upl, uint32_t index)
 				return vector_upl->upl_elems[index];
 			}
 		} else {
-			panic("vector_upl_subupl_byindex was passed a non-vectored upl\n");
+			panic("vector_upl_subupl_byindex was passed a non-vectored upl");
 		}
 	}
 	return NULL;
@@ -10424,13 +10490,13 @@ vector_upl_subupl_byoffset(upl_t upl, upl_offset_t *upl_offset, upl_size_t *upl_
 					if (*upl_offset >= subupl_state.offset) {
 						*upl_offset -= subupl_state.offset;
 					} else if (i) {
-						panic("Vector UPL offset miscalculation\n");
+						panic("Vector UPL offset miscalculation");
 					}
 					return subupl;
 				}
 			}
 		} else {
-			panic("vector_upl_subupl_byoffset was passed a non-vectored UPL\n");
+			panic("vector_upl_subupl_byoffset was passed a non-vectored UPL");
 		}
 	}
 	return NULL;
@@ -10447,10 +10513,10 @@ vector_upl_get_submap(upl_t upl, vm_map_t *v_upl_submap, vm_offset_t *submap_dst
 			*v_upl_submap = vector_upl->submap;
 			*submap_dst_addr = vector_upl->submap_dst_addr;
 		} else {
-			panic("vector_upl_get_submap was passed a non-vectored UPL\n");
+			panic("vector_upl_get_submap was passed a non-vectored UPL");
 		}
 	} else {
-		panic("vector_upl_get_submap was passed a null UPL\n");
+		panic("vector_upl_get_submap was passed a null UPL");
 	}
 }
 
@@ -10463,10 +10529,10 @@ vector_upl_set_submap(upl_t upl, vm_map_t submap, vm_offset_t submap_dst_addr)
 			vector_upl->submap = submap;
 			vector_upl->submap_dst_addr = submap_dst_addr;
 		} else {
-			panic("vector_upl_get_submap was passed a non-vectored UPL\n");
+			panic("vector_upl_get_submap was passed a non-vectored UPL");
 		}
 	} else {
-		panic("vector_upl_get_submap was passed a NULL UPL\n");
+		panic("vector_upl_get_submap was passed a NULL UPL");
 	}
 }
 
@@ -10494,10 +10560,10 @@ vector_upl_set_iostate(upl_t upl, upl_t subupl, upl_offset_t offset, upl_size_t 
 			}
 			vector_upl->upl_iostates[i].size = size;
 		} else {
-			panic("vector_upl_set_iostate was passed a non-vectored UPL\n");
+			panic("vector_upl_set_iostate was passed a non-vectored UPL");
 		}
 	} else {
-		panic("vector_upl_set_iostate was passed a NULL UPL\n");
+		panic("vector_upl_set_iostate was passed a NULL UPL");
 	}
 }
 
@@ -10522,10 +10588,10 @@ vector_upl_get_iostate(upl_t upl, upl_t subupl, upl_offset_t *offset, upl_size_t
 			*offset = vector_upl->upl_iostates[i].offset;
 			*size = vector_upl->upl_iostates[i].size;
 		} else {
-			panic("vector_upl_get_iostate was passed a non-vectored UPL\n");
+			panic("vector_upl_get_iostate was passed a non-vectored UPL");
 		}
 	} else {
-		panic("vector_upl_get_iostate was passed a NULL UPL\n");
+		panic("vector_upl_get_iostate was passed a NULL UPL");
 	}
 }
 
@@ -10542,10 +10608,10 @@ vector_upl_get_iostate_byindex(upl_t upl, uint32_t index, upl_offset_t *offset, 
 				*offset = *size = 0;
 			}
 		} else {
-			panic("vector_upl_get_iostate_byindex was passed a non-vectored UPL\n");
+			panic("vector_upl_get_iostate_byindex was passed a non-vectored UPL");
 		}
 	} else {
-		panic("vector_upl_get_iostate_byindex was passed a NULL UPL\n");
+		panic("vector_upl_get_iostate_byindex was passed a NULL UPL");
 	}
 }
 
@@ -10589,7 +10655,7 @@ upl_set_referenced(
 		upl->ext_ref_count++;
 	} else {
 		if (!upl->ext_ref_count) {
-			panic("upl_set_referenced not %p\n", upl);
+			panic("upl_set_referenced not %p", upl);
 		}
 		upl->ext_ref_count--;
 	}

@@ -48,7 +48,7 @@ static void printDescriptor(void *descriptor,
         return;
     }
 
-    char *str = reinterpret_cast<char*>(IOMalloc(descLen));
+    char *str = reinterpret_cast<char*>(IOMallocData(descLen));
     if (str) {
         char *target = str;
         for (unsigned int i = 0; i < length; i++) {
@@ -56,7 +56,7 @@ static void printDescriptor(void *descriptor,
             target += snprintf(target, descLen-i*2, "%02x", byte);
         }
         DescriptorLog("Descriptor: %s", str);
-        IOFree(str, descLen);
+        IOFreeData(str, descLen);
     } else {
         HIDLogError("[ElementContainer] Unable to print descriptor. Memory allocation failed.\n");
     }
@@ -72,11 +72,9 @@ bool IOHIDElementContainer::init(void *descriptor,
     
     require(super::init(), exit);
     
-    _reserved = IONew(ExpansionData, 1);
+    _reserved = IOMallocType(ExpansionData);
     require(_reserved, exit);
-    
-    bzero(_reserved, sizeof(ExpansionData));
-    
+
     status = HIDOpenReportDescriptor(descriptor, length, &parseData, 0);
     require_noerr_action(status, exit, {
         // This usually indicates a malformed descriptor was passed in.
@@ -127,7 +125,7 @@ void IOHIDElementContainer::free()
     OSSafeReleaseNULL(_elementValuesDescriptor);
     
     if (_reserved) {
-        IODelete(_reserved, ExpansionData, 1);
+        IOFreeType(_reserved, ExpansionData);
     }
     
     super::free();
@@ -345,11 +343,10 @@ bool IOHIDElementContainer::createCollectionElements(HIDPreparsedDataRef parseDa
     UInt32 count = maxCount;
     bool result = false;
     UInt32 index;
-    UInt32 allocSize = 0;
-    
-    require(!os_mul_overflow(maxCount, sizeof(HIDButtonCapabilities), &allocSize), exit);
-    
-    collections = (HIDCollectionExtendedNodePtr)IOMalloc(allocSize);
+
+    require(!os_mul_overflow(maxCount, sizeof(HIDCollectionExtendedNode), &index), exit);
+
+    collections = (HIDCollectionExtendedNodePtr)IONewData(HIDCollectionExtendedNode, maxCount);
     require(collections, exit);
     
     status = HIDGetCollectionExtendedNodes(collections, &count, parseData);
@@ -384,7 +381,7 @@ bool IOHIDElementContainer::createCollectionElements(HIDPreparsedDataRef parseDa
     
 exit:
     if (collections) {
-        IOFree(collections, allocSize);
+        IODeleteData(collections, HIDCollectionExtendedNode, maxCount);
     }
     
     return result;
@@ -418,15 +415,14 @@ bool IOHIDElementContainer::createButtonElements(HIDPreparsedDataRef parseData,
 {
     OSStatus status;
     HIDButtonCapabilitiesPtr buttons = NULL;
-    UInt32 count = maxCount;
+    UInt32 count;
     bool result = false;
-    UInt32 allocSize = 0;
-    
-    require_action(maxCount, exit, result = true);
-    
-    require(!os_mul_overflow(maxCount, sizeof(HIDButtonCapabilities), &allocSize), exit);
-    
-    buttons = (HIDButtonCapabilitiesPtr)IOMalloc(allocSize);
+
+    require(!os_mul_overflow(maxCount, sizeof(HIDButtonCapabilities), &count), exit);
+
+    require_action(count = maxCount, exit, result = true);
+
+    buttons = (HIDButtonCapabilitiesPtr)IONewData(HIDButtonCapabilities, maxCount);
     require(buttons, exit);
     
     status = HIDGetButtonCapabilities(hidReportType, buttons, &count, parseData);
@@ -451,7 +447,7 @@ bool IOHIDElementContainer::createButtonElements(HIDPreparsedDataRef parseData,
     
 exit:
     if (buttons) {
-        IOFree(buttons, allocSize);
+        IODeleteData(buttons, HIDButtonCapabilities, maxCount);
     }
     
     return result;
@@ -465,15 +461,14 @@ bool IOHIDElementContainer::createValueElements(HIDPreparsedDataRef parseData,
 {
     OSStatus status;
     HIDValueCapabilitiesPtr values = NULL;
-    UInt32 count = maxCount;
+    UInt32 count;
     bool result = false;
-    UInt32 allocSize = 0;
-    
-    require_action(maxCount, exit, result = true);
-    
-    require(!os_mul_overflow(maxCount, sizeof(HIDValueCapabilities), &allocSize), exit);
-    
-    values = (HIDValueCapabilitiesPtr)IOMalloc(allocSize);
+
+    require(!os_mul_overflow(maxCount, sizeof(HIDValueCapabilities), &count), exit);
+
+    require_action(count = maxCount, exit, result = true);
+        
+    values = (HIDValueCapabilitiesPtr)IONewData(HIDValueCapabilities, maxCount);
     require(values, exit);
     
     status = HIDGetValueCapabilities(hidReportType, values, &count, parseData);
@@ -498,7 +493,7 @@ bool IOHIDElementContainer::createValueElements(HIDPreparsedDataRef parseData,
     
 exit:
     if (values) {
-        IOFree(values, allocSize);
+        IODeleteData(values, HIDValueCapabilities, maxCount);
     }
     
     return result;

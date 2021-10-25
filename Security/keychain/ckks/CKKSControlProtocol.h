@@ -21,32 +21,66 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#ifdef __OBJC__
+
 #import <Foundation/Foundation.h>
 
+@class CKKSExternalKey;
+@class CKKSExternalTLKShare;
+
+NS_ASSUME_NONNULL_BEGIN;
+
 @protocol CKKSControlProtocol <NSObject>
-- (void)performanceCounters:(void(^)(NSDictionary <NSString *, NSNumber *> *))reply;
-- (void)rpcResetLocal: (NSString*)viewName reply: (void(^)(NSError* result)) reply;
+- (void)performanceCounters:(void(^)(NSDictionary <NSString *, NSNumber *> * _Nullable))reply;
+- (void)rpcResetLocal: (NSString* _Nullable)viewName reply: (void(^)(NSError* _Nullable result)) reply;
 
 /**
  * Reset CloudKit zone with a caller provided reason, the reason will be logged in the operation group
  * name so that the reason for reset can be summarized server side.
  */
-- (void)rpcResetCloudKit: (NSString*)viewName reason:(NSString *)reason reply: (void(^)(NSError* result)) reply;
-- (void)rpcResync:(NSString*)viewName reply: (void(^)(NSError* result)) reply;
-- (void)rpcResyncLocal:(NSString*)viewName reply:(void(^)(NSError* result))reply;
+- (void)rpcResetCloudKit:(NSString* _Nullable)viewName reason:(NSString *)reason reply: (void(^)(NSError* _Nullable result)) reply;
+- (void)rpcResync:(NSString* _Nullable)viewName reply: (void(^)(NSError* _Nullable result)) reply;
+- (void)rpcResyncLocal:(NSString* _Nullable)viewName reply:(void(^)(NSError* _Nullable result))reply;
 /**
  * Fetch status for the CKKS zones. If NULL is passed in a viewname, all zones are fetched.
  */
-- (void)rpcStatus:(NSString*)viewName reply: (void(^)(NSArray<NSDictionary*>* result, NSError* error)) reply;
+- (void)rpcStatus:(NSString* _Nullable)viewName reply: (void(^)(NSArray<NSDictionary*>* _Nullable result, NSError* _Nullable error)) reply;
 /**
  * Same as rpcStatus:reply: but avoid expensive operations (and thus don't report them). fastStatus doesn't include global status.
  */
-- (void)rpcFastStatus:(NSString*)viewName reply: (void(^)(NSArray<NSDictionary*>* result, NSError* error)) reply;
-- (void)rpcFetchAndProcessChanges:(NSString*)viewName reply: (void(^)(NSError* result)) reply;
-- (void)rpcFetchAndProcessClassAChanges:(NSString*)viewName reply: (void(^)(NSError* result)) reply;
-- (void)rpcPushOutgoingChanges:(NSString*)viewName reply: (void(^)(NSError* result)) reply;
-- (void)rpcGetCKDeviceIDWithReply: (void (^)(NSString* ckdeviceID))reply;
-- (void)rpcCKMetric:(NSString *)eventName attributes:(NSDictionary *)attributes reply:(void(^)(NSError* result)) reply;
+- (void)rpcFastStatus:(NSString* _Nullable)viewName reply: (void(^)(NSArray<NSDictionary*>* _Nullable result, NSError* _Nullable error))reply;
+- (void)rpcFetchAndProcessChanges:(NSString* _Nullable)viewName classA:(bool)classAError onlyIfNoRecentFetch:(bool)onlyIfNoRecentFetch reply:(void(^)(NSError* _Nullable result))reply;
+- (void)rpcPushOutgoingChanges:(NSString* _Nullable)viewName reply: (void(^)(NSError* _Nullable result)) reply;
+- (void)rpcGetCKDeviceIDWithReply:(void (^)(NSString* _Nullable ckdeviceID))reply;
+- (void)rpcCKMetric:(NSString *)eventName attributes:(NSDictionary *)attributes reply:(void(^)(NSError* _Nullable result)) reply;
+
+- (void)proposeTLKForSEView:(NSString*)seViewName
+                proposedTLK:(CKKSExternalKey *)proposedTLK
+              wrappedOldTLK:(CKKSExternalKey * _Nullable)wrappedOldTLK
+                  tlkShares:(NSArray<CKKSExternalTLKShare*>*)shares
+                      reply:(void(^)(NSError* _Nullable error))reply;
+
+- (void)fetchSEViewKeyHierarchy:(NSString*)seViewName
+                     forceFetch:(BOOL)forceFetch
+                          reply:(void (^)(CKKSExternalKey* _Nullable currentTLK,
+                                          NSArray<CKKSExternalKey*>* _Nullable pastTLKs,
+                                          NSArray<CKKSExternalTLKShare*>* _Nullable curentTLKShares,
+                                          NSError* _Nullable error))reply;
+
+- (void)modifyTLKSharesForSEView:(NSString*)seViewName
+                          adding:(NSArray<CKKSExternalTLKShare*>*)sharesToAdd
+                        deleting:(NSArray<CKKSExternalTLKShare*>*)sharesToDelete
+                           reply:(void (^)(NSError* _Nullable error))reply;
+
+- (void)deleteSEView:(NSString*)seViewName
+               reply:(void (^)(NSError* _Nullable error))reply;
+
+- (void)toggleHavoc:(void (^)(BOOL havoc, NSError* _Nullable error))reply;
+
 @end
 
 NSXPCInterface* CKKSSetupControlProtocol(NSXPCInterface* interface);
+
+NS_ASSUME_NONNULL_END
+
+#endif /* __OBJC__ */

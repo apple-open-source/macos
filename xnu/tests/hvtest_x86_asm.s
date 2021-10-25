@@ -264,6 +264,11 @@ _save_restore_debug_regs_entry:
     notq %rbx
     movq %rbx, %dr0
 
+    movq $0xEEEEEEEEEEEEEEEE, %rbx
+    movq %dr0, %rax
+    cmpq %rbx, %rax
+    jne .foul
+
     incq %rcx
     movq $0x2222222222222222, %rbx
     movq %dr1, %rax
@@ -325,7 +330,16 @@ _save_restore_debug_regs_entry:
     movq %rbx, %dr7
 
     popq %rax
+    notq %rax
     vmcall
+
+    pushq %rax
+
+    inc %rcx
+    movq $0xEEEEEEEEEEEEEEEE, %rbx
+    movq %dr0, %rax
+    cmpq %rbx, %rax
+    jne .foul
 
     movq %dr0, %rbx
     notq %rbx
@@ -357,6 +371,8 @@ _save_restore_debug_regs_entry:
     movq $0xffff0fff, %rax
     andq %rax, %rbx
     movq %rbx, %dr7
+
+    popq %rax
 
     jmp _save_restore_debug_regs_entry // 2nd pass
 

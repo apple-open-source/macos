@@ -28,9 +28,11 @@
 
 #include <sys/sysctl.h>
 
+#include <net/if_ports_used.h>
 #include <net/net_api_stats.h>
 #include <err.h>
 #include <stdio.h>
+#include <strings.h>
 
 #include "netstat.h"
 
@@ -58,14 +60,23 @@ print_net_api_stats(uint32_t off __unused, char *name, int af __unused)
 	printf ("%s:\n", name);
 
 	p(nas_iflt_attach_count, "\t%lld interface filter%s currently attached\n");
+#ifdef NAS_HAS_FLTR_OS_COUNTS
+	p(nas_iflt_attach_os_count, "\t%lld interface filter%s currently attached by OS\n");
+#endif /* NAS_HAS_FLTR_OS_COUNTS */
 	p(nas_iflt_attach_total, "\t%lld interface filter%s attached since boot\n");
 	p(nas_iflt_attach_os_total, "\t%lld interface filter%s attached since boot by OS\n");
 
 	p(nas_ipf_add_count, "\t%lld IP filter%s currently attached\n");
+#ifdef NAS_HAS_FLTR_OS_COUNTS
+	p(nas_ipf_add_os_count, "\t%lld interface filter%s currently attached by OS\n");
+#endif /* NAS_HAS_FLTR_OS_COUNTS */
 	p(nas_ipf_add_total, "\t%lld IP filter%s attached since boot\n");
 	p(nas_ipf_add_os_total, "\t%lld IP filter%s attached since boot by OS\n");
 
 	p(nas_sfltr_register_count, "\t%lld socket filter%s currently attached\n");
+#ifdef NAS_HAS_FLTR_OS_COUNTS
+	p(nas_sfltr_register_os_count, "\t%lld socket filter%s currently attached by OS\n");
+#endif /* NAS_HAS_FLTR_OS_COUNTS */
 	p(nas_sfltr_register_total, "\t%lld socket filter%s attached since boot\n");
 	p(nas_sfltr_register_os_total, "\t%lld socket filter%s attached since boot by OS\n");
 
@@ -118,5 +129,51 @@ print_net_api_stats(uint32_t off __unused, char *name, int af __unused)
 #undef STATDIFF
 #undef p
 #undef p1a
+
+	if (interval > 0) {
+		bcopy(&net_api_stats, &pnet_api_stats, len);
+	}
 }
 
+void
+print_if_ports_used_stats(uint32_t off __unused, char *name, int af __unused)
+{
+#ifdef IF_PORTS_USED_STATS_LIST
+	static struct if_ports_used_stats pif_ports_used_stats = {};
+	struct if_ports_used_stats if_ports_used_stats = {};
+	const char *mibvar = "net.link.generic.system.port_used.stats";
+	size_t len;
+
+	if (sysctlbyname(mibvar, NULL, &len, 0, 0) < 0) {
+		warn("sysctl: %s len: %lu", mibvar, len);
+	}
+	if (len > sizeof(struct if_ports_used_stats)) {
+		len = sizeof(struct if_ports_used_stats);
+	}
+	if (sysctlbyname(mibvar, &if_ports_used_stats, &len, 0, 0) < 0) {
+		warn("sysctl: %s len: %lu", mibvar, len);
+		return;
+	}
+
+	if (interval && vflag > 0)
+		print_time();
+	printf ("%s:\n", name);
+
+#define	STATDIFF(_field) (if_ports_used_stats._field - pif_ports_used_stats._field)
+#define	p(_field, _description, _singular, _plural) \
+if (STATDIFF(_field) != 0 || sflag <= 1) { \
+	printf("\t%llu " _description "\n", STATDIFF(_field), STATDIFF(_field) == 0 ? _singular : _plural); \
+}
+
+#define X(_type, _field, _description, _singular, _plural, ...) p(_field, _description, _singular, _plural)
+	IF_PORTS_USED_STATS_LIST
+#undef X
+
+#undef STATDIFF
+#undef p
+
+	if (interval > 0) {
+		bcopy(&if_ports_used_stats, &pif_ports_used_stats, len);
+	}
+#endif /* IF_PORTS_USED_STATS_LIST */
+}

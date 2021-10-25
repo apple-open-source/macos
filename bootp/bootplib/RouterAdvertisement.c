@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010-2020 Apple Inc. All rights reserved.
+ * Copyright (c) 2010-2021 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -34,6 +34,7 @@
  */
 
 #include <stdio.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <stddef.h>
 #include <unistd.h>
@@ -53,9 +54,51 @@
 
 #define RA_OPT_INFINITE_LIFETIME		((uint32_t)0xffffffff)
 
-#ifndef ND_OPT_CAPTIVE_PORTAL
-#define ND_OPT_CAPTIVE_PORTAL 37
-#endif // ND_OPT_CAPTIVE_PORTAL
+#define PREF64_PREFIX_LEN_32		32
+#define PREF64_PREFIX_LEN_40		40
+#define PREF64_PREFIX_LEN_48		48
+#define PREF64_PREFIX_LEN_56		56
+#define PREF64_PREFIX_LEN_64		64
+#define PREF64_PREFIX_LEN_96		96
+
+typedef uint8_t pref64_prefix_length_t;
+typedef uint8_t pref64_plc_t;
+typedef uint16_t pref64_scaled_lifetime_plc_t;
+
+static inline bool
+pref64_plc_get_prefix_length(pref64_plc_t plc,
+			     pref64_prefix_length_t * ret_prefix_length)
+{
+	pref64_prefix_length_t	prefix_length;
+	bool			valid = true;
+
+	switch (plc) {
+	case ND_OPT_PREF64_PLC_32:
+		prefix_length = PREF64_PREFIX_LEN_32;
+		break;
+	case ND_OPT_PREF64_PLC_40:
+		prefix_length = PREF64_PREFIX_LEN_40;
+		break;
+	case ND_OPT_PREF64_PLC_48:
+		prefix_length = PREF64_PREFIX_LEN_48;
+		break;
+	case ND_OPT_PREF64_PLC_56:
+		prefix_length = PREF64_PREFIX_LEN_56;
+		break;
+	case ND_OPT_PREF64_PLC_64:
+		prefix_length = PREF64_PREFIX_LEN_64;
+		break;
+	case ND_OPT_PREF64_PLC_96:
+		prefix_length = PREF64_PREFIX_LEN_96;
+		break;
+	default:
+		prefix_length = -1;
+		valid = false;
+		break;
+	}
+	*ret_prefix_length = prefix_length;
+	return valid;
+}
 
 struct __RouterAdvertisement {
 	CFRuntimeBase	cf_base;
@@ -97,6 +140,18 @@ struct _nd_opt_linkaddr {
 STATIC void
 RouterAdvertisementAppendDescription(RouterAdvertisementRef ra,
 				     CFMutableStringRef str);
+
+STATIC void
+AppendOptionDescription(CFMutableStringRef str,
+			const struct nd_opt_hdr * opt,
+			int opt_len);
+
+STATIC void
+AppendTruncatedOptionDescription(CFMutableStringRef str,
+				 const struct nd_opt_hdr * opt,
+				 int opt_len, int min_len);
+
+
 
 /**
  ** CF object glue code
@@ -186,7 +241,6 @@ __RouterAdvertisementAllocate(CFAllocatorRef allocator, size_t ndra_length)
 /**
  ** Utilities
  **/
-
 STATIC bool
 parse_nd_options(ptrlist_t * options_p, const char * buf, int len)
 {
@@ -243,6 +297,9 @@ S_nd_opt_name(int nd_opt)
 		break;
 	case ND_OPT_CAPTIVE_PORTAL:
 		str = "captive portal";
+		break;
+	case ND_OPT_PREF64:
+		str = "pref64";
 		break;
 	default:
 		str = "<unknown>";
@@ -468,6 +525,79 @@ find_prefix_lifetimes(ptrlist_t * options_p,
 	return (0);
 }
 
+STATIC bool
+get_pref64(const struct nd_opt_hdr * opt, int opt_len,
+	   struct in6_addr * ret_prefix, uint8_t * ret_prefix_length,
+	   uint16_t *ret_lifetime, CFMutableStringRef str)
+{
+	pref64_scaled_lifetime_plc_t	lifetime_plc;
+	pref64_plc_t			plc;
+	const struct nd_opt_pref64 *	pref64;
+	pref64_prefix_length_t		prefix_length;
+	pref64_prefix_length_t		prefix_length_bytes;
+	uint8_t				zero_bytes;
+
+	pref64 = (const struct nd_opt_pref64 *)opt;
+	if (opt_len < sizeof(*pref64)) {
+		if (str != NULL) {
+			AppendTruncatedOptionDescription(str, opt, opt_len,
+							 sizeof(*pref64));
+		}
+		return false;
+	}
+	lifetime_plc = ntohs(pref64->nd_opt_pref64_scaled_lifetime_plc);
+	plc = lifetime_plc & ND_OPT_PREF64_PLC_MASK;
+	if (!pref64_plc_get_prefix_length(plc, &prefix_length)) {
+		if (str != NULL) {
+			STRING_APPEND(str, "invalid PLC=%d: ", plc);
+			AppendOptionDescription(str, opt, opt_len);
+		}
+		return false;
+	}
+	prefix_length_bytes = prefix_length / 8;
+	zero_bytes = sizeof(*ret_prefix) - prefix_length_bytes;
+	bcopy(pref64->nd_opt_pref64_prefix, ret_prefix, prefix_length_bytes);
+	bzero(((uint8_t *)ret_prefix) + prefix_length_bytes, zero_bytes);
+	*ret_prefix_length = prefix_length;
+	*ret_lifetime = lifetime_plc & ND_OPT_PREF64_SCALED_LIFETIME_MASK;
+	return (true);
+}
+
+STATIC bool
+find_pref64(ptrlist_t * options_p, struct in6_addr * ret_prefix,
+	    uint8_t * ret_prefix_length, uint16_t * ret_prefix_lifetime)
+{
+	int			count;
+	int			i;
+
+	count = ptrlist_count(options_p);
+	for (i = 0; i < count; i++) {
+		const struct nd_opt_hdr *	opt;
+
+		opt = (const struct nd_opt_hdr *)ptrlist_element(options_p, i);
+		if (opt->nd_opt_type != ND_OPT_PREF64) {
+			continue;
+		}
+		if (get_pref64(opt, opt->nd_opt_len * ND_OPT_ALIGN,
+			       ret_prefix, ret_prefix_length,
+			       ret_prefix_lifetime, NULL)) {
+			return (true);
+		}
+	}
+	return (false);
+}
+
+
+STATIC void
+AppendOptionDescription(CFMutableStringRef str,
+			const struct nd_opt_hdr * opt,
+			int opt_len)
+{
+	print_bytes_sep_cfstr(str,
+			      (uint8_t *)(opt + 1),
+			      opt_len - sizeof(*opt), ':');
+}
+
 STATIC void
 AppendTruncatedOptionDescription(CFMutableStringRef str,
 				 const struct nd_opt_hdr * opt,
@@ -475,9 +605,7 @@ AppendTruncatedOptionDescription(CFMutableStringRef str,
 {
 	STRING_APPEND(str, "truncated (%d < %d) ",
 		      opt_len, min_len);
-	print_bytes_sep_cfstr(str,
-			      (uint8_t *)(opt + 1),
-			      opt_len - sizeof(*opt), ':');
+	AppendOptionDescription(str, opt, opt_len);
 }
 
 STATIC void
@@ -549,9 +677,7 @@ AppendDNSSLOptionDescription(CFMutableStringRef str,
 	domains = get_dnssl_domains(dnssl, opt_len, &domains_length);
 	if (domains == NULL) {
 		STRING_APPEND(str, "no domains ");
-		print_bytes_sep_cfstr(str,
-				      (uint8_t *)(opt + 1),
-				      opt_len - sizeof(*opt), ':');
+		AppendOptionDescription(str, opt, opt_len);
 		return;
 	}
 	list = DNSNameListCreate(domains, domains_length, &count);
@@ -661,9 +787,7 @@ AppendRouteInformationOptionDescription(CFMutableStringRef str,
 	if (prefix_length > MAX_PREFIX_LENGTH) {
 		STRING_APPEND(str, "invalid prefix length %d > %d",
 			      prefix_length, MAX_PREFIX_LENGTH);
-		print_bytes_sep_cfstr(str,
-				      (uint8_t *)(opt + 1),
-				      opt_len - sizeof(*opt), ':');
+		AppendOptionDescription(str, opt, opt_len);
 		return;
 	}
 #define N_BITS_PER_BYTE		8
@@ -724,12 +848,30 @@ AppendCaptivePortalOptionDescription(CFMutableStringRef str,
 	uri = get_captive_portal(opt, opt_len, &uri_length);
 	if (uri == NULL) {
 		STRING_APPEND_STR(str, "empty uri: ");
-		print_bytes_sep_cfstr(str,
-				      (uint8_t *)(opt + 1),
-				      opt_len - sizeof(*opt), ':');
+		AppendOptionDescription(str, opt, opt_len);
 		return;
 	}
 	STRING_APPEND(str, "uri=%.*s", uri_length, uri);
+	return;
+}
+
+STATIC void
+AppendPREF64OptionDescription(CFMutableStringRef str,
+			      const struct nd_opt_hdr * opt,
+			      int opt_len)
+{
+	char				ntopbuf[INET6_ADDRSTRLEN];
+	struct in6_addr			prefix;
+	pref64_prefix_length_t		prefix_length;
+	uint16_t			prefix_lifetime;
+
+	if (!get_pref64(opt, opt_len, &prefix, &prefix_length,
+			&prefix_lifetime, str)) {
+		return;
+	}
+	STRING_APPEND(str, "%s/%d lifetime %us",
+		      inet_ntop(AF_INET6, &prefix, ntopbuf, sizeof(ntopbuf)),
+		      prefix_length, prefix_lifetime);
 	return;
 }
 
@@ -774,12 +916,13 @@ AppendOptionDescriptions(CFMutableStringRef str, ptrlist_t * options_p)
 		case ND_OPT_CAPTIVE_PORTAL:
 			AppendCaptivePortalOptionDescription(str, opt, opt_len);
 			break;
+		case ND_OPT_PREF64:
+			AppendPREF64OptionDescription(str, opt, opt_len);
+			break;
 		case ND_OPT_TARGET_LINKADDR:
 		case ND_OPT_SOURCE_LINKADDR:
 		default:
-			print_bytes_sep_cfstr(str,
-					      (uint8_t *)(opt + 1),
-					      opt_len - sizeof(*opt), ':');
+			AppendOptionDescription(str, opt, opt_len);
 			break;
 		}
 		STRING_APPEND_STR(str, "\n");
@@ -1020,6 +1163,37 @@ RouterAdvertisementCopyCaptivePortal(RouterAdvertisementRef ra)
 
 	url = find_captive_portal(&ra->options, &url_length);
 	return (my_CFStringCreateWithBytes(url, url_length));
+}
+
+PRIVATE_EXTERN bool
+RouterAdvertisementGetPREF64(RouterAdvertisementRef ra,
+			     struct in6_addr * ret_prefix,
+			     uint8_t * ret_prefix_length,
+			     uint16_t * ret_prefix_lifetime)
+{
+	return (find_pref64(&ra->options, ret_prefix, ret_prefix_length,
+			    ret_prefix_lifetime));
+}
+
+PRIVATE_EXTERN CFStringRef
+RouterAdvertisementCopyPREF64PrefixAndLifetime(RouterAdvertisementRef ra,
+					       uint16_t * ret_prefix_lifetime)
+{
+	char	 		ntopbuf[INET6_ADDRSTRLEN];
+	struct in6_addr		prefix;
+	uint8_t			prefix_length;
+	uint16_t		prefix_lifetime;
+	CFStringRef		str;
+
+	if (!RouterAdvertisementGetPREF64(ra, &prefix, &prefix_length,
+					  &prefix_lifetime)) {
+		return (NULL);
+	}
+	inet_ntop(AF_INET6, &prefix, ntopbuf, sizeof(ntopbuf));
+	str = CFStringCreateWithFormat(NULL, NULL, CFSTR("%s/%d"),
+				       ntopbuf, prefix_length);
+	*ret_prefix_lifetime = prefix_lifetime;
+	return (str);
 }
 
 #define kPacket			CFSTR("Packet")

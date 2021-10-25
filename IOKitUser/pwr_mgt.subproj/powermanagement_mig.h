@@ -85,6 +85,10 @@ enum {
 #define kAssertionCheckMsg          "assertionCheck"
 #define kAssertionTimeoutMsg        "assertionTimeout"
 #define kAssertionSetStateMsg       "assertionSetState"
+#define kAssertionCopyActivityUpdateMsg "assertionCopyActivityUpdate"
+#define kAssertionUpdateActivityMsg     "assertionUpdateActivity"
+#define kAssertionUpdateActivesMsg      "assertionUpdateActives"
+
 
 #define kAssertionDetailsKey        "assertionDictonary"
 #define kAssertionIdKey             "assertionId"
@@ -92,6 +96,14 @@ enum {
 #define kAssertionEnTrIntensityKey  "EnTrIntensity"
 #define kAssertionCheckTokenKey     "assertionCheckToken"
 #define kAssertionCheckCountKey     "assertionCheckCount"
+#define kAssertionActivityLogKey    "assertionActivityLog"
+#define kAssertionInitialConnKey    "assertionInitialConnection"
+#define kAssertionFeatureSupportKey  "assertionFeatureSupported"
+#define kAssertionCopyActivityUpdateRefCntKey "assertionActivityUpdateRefCnt"
+#define kAssertionCopyActivityUpdateOverflowKey "assertionActivityUpdateOverflow"
+#define kAssertionCopyActivityUpdateDataKey     "assertionActivityUpdateData"
+#define kAssertionCopyActivityUpdateProcessListKey "assertionActivityUpdateProcessList"
+#define kAssertionCopyActiveAsyncAssertionsKey      "assertionActiveAsyncByProcess"
 
 #define kPSAdapterDetails           "adapterDetails"
 

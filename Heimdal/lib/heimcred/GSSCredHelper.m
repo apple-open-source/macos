@@ -31,6 +31,9 @@
 #import <CoreFoundation/CFXPCBridge.h>
 #import "common.h"
 #import "krb5.h"
+#import "heimbase.h"
+#import "crypto-headers.h"
+#import "krb5-private.h"
 
 os_log_t GSSHelperOSLog(void)
 {
@@ -54,20 +57,28 @@ os_log_t GSSHelperOSLog(void)
     
     krb5_error_code ret = 0;
     krb5_ccache  ccache = NULL;
-    krb5_creds cred;
     krb5_const_realm realm;
     krb5_get_init_creds_opt *opt = NULL;
-    char *in_tkt_service = NULL;
     krb5_uuid cacheUUID;
     krb5_principal principal = NULL;
     krb5_context context = NULL;
-    
+    krb5_init_creds_context ctx = NULL;
+    time_t endtime = 0;
+
     krb5_set_home_dir_access(NULL, FALSE);
-    memset(&cred, 0, sizeof(cred));
     ret = krb5_init_context(&context);
-    
+    if (ret) {
+	os_log_error(GSSHelperOSLog(), "Failed to initialize context: %d", ret);
+	NSDictionary *replydict = @{
+	    @"status":[NSNumber numberWithInt:ret],
+	};
+	os_log_debug(GSSHelperOSLog(), "do_Acquire results: %@", replydict);
+	xpc_object_t xpcreplyattrs = _CFXPCCreateXPCObjectFromCFObject((__bridge CFTypeRef)replydict);
+	xpc_dictionary_set_value(reply, "result", xpcreplyattrs);
+	return;
+    }
+
     NSMutableDictionary *attributesToPrint = nil;
-    NSString *clientName = nil;
     NSData *passwordData = nil;
     NSString *passwordString = nil;
     
@@ -96,14 +107,7 @@ os_log_t GSSHelperOSLog(void)
 	os_log_debug(GSSHelperOSLog(), "using cache: %@", CFBridgingRelease(CFUUIDCreateString(NULL, cacheID)));
 	CFRelease(cacheID);
     }
-    
-    clientName = attributes[(__bridge id _Nonnull)kHEIMAttrClientName];
-    if (clientName==nil) {
-	os_log_error(GSSHelperOSLog(), "unable to acquire credential without principal %d", peer.session);
-	ret = KRB5_FCC_INTERNAL;
-	goto out;
-    }
-    
+
     passwordData = attributes[(__bridge id _Nonnull)kHEIMAttrData];
     if (passwordData==nil) {
 	os_log_error(GSSHelperOSLog(), "unable to acquire credential without password %d", peer.session);
@@ -121,22 +125,10 @@ os_log_t GSSHelperOSLog(void)
     
     ret = krb5_cc_get_principal(context, ccache, &principal);
     if (ret) {
-	os_log_error(GSSHelperOSLog(), "unable to find cache %d, %d", peer.session, ret);
+	os_log_error(GSSHelperOSLog(), "unable to retrieve principal %d, %d", peer.session, ret);
 	goto out;
     }
-    
-    const char *princ_realm = krb5_principal_get_realm(context, principal);
-    if (ret || !princ_realm) {
-	krb5_free_principal(context, principal);
-	ret = krb5_make_principal(context, &principal, [clientName UTF8String],
-				  KRB5_WELLKNOWN_NAME, KRB5_ANON_NAME,
-				  NULL);
-	if (ret) {
-	    os_log_debug(GSSHelperOSLog(), "Failed to parse principal %d: %@", peer.session, clientName);
-	    goto out;
-	}
-    }
-    
+
     ret = krb5_get_init_creds_opt_alloc(context, &opt);
     if (ret)
 	goto out;
@@ -147,47 +139,55 @@ os_log_t GSSHelperOSLog(void)
     krb5_get_init_creds_opt_set_proxiable(opt, 1);
     krb5_get_init_creds_opt_set_canonicalize(context, opt, TRUE);
     krb5_get_init_creds_opt_set_win2k(context, opt, TRUE);
-    
-    ret = krb5_get_init_creds_password(context,
-				       &cred,
-				       principal,
-				       [passwordString UTF8String],
-				       NULL,
-				       NULL,
-				       0,
-				       in_tkt_service,
-				       opt);
-    
+
+    ret = krb5_init_creds_init(context, principal, NULL, NULL, 0, opt, &ctx);
+    if (ret) {
+	os_log_error(GSSHelperOSLog(), "unable to init cred context %d, %d", peer.session, ret);
+	goto out;
+    }
+
+    ret = krb5_init_creds_set_password(context, ctx, [passwordString UTF8String]);
     passwordString = nil;
-    
+    if (ret) {
+	os_log_error(GSSHelperOSLog(), "unable to set password %d, %d", peer.session, ret);
+	goto out;
+    }
+
+    ret = krb5_init_creds_get(context, ctx);
     if (ret) {
 	const char *msg = krb5_get_error_message(context, ret);
 	os_log_error(GSSHelperOSLog(), "Failed to acquire credentials for cache: %s", msg);
 	krb5_free_error_message(context, msg);
-	if (in_tkt_service != NULL)
-	    free(in_tkt_service);
 	goto out;
     }
-    
-    if (in_tkt_service != NULL)
-	free(in_tkt_service);
-    
-    ret = krb5_cc_store_cred(context, ccache, &cred);
+
+    ret = krb5_init_creds_store(context, ctx, ccache);
+    if (ret == 0) {
+	ret = krb5_init_creds_store_config(context, ctx, ccache);
+    }
     if (ret) {
 	const char *msg = krb5_get_error_message(context, ret);
 	os_log_error(GSSHelperOSLog(), "Failed to store credentials for cache %d: %s", peer.session, msg);
 	krb5_free_error_message(context, msg);
-	krb5_free_cred_contents(context, &cred);
 	goto out;
     }
-    
+
+    endtime = _krb5_init_creds_get_cred_endtime(context, ctx);
+
     out:
-    if (opt)
+    if (ctx) {
+	krb5_init_creds_free(context, ctx);
+	ctx = NULL;
+    }
+
+    if (opt) {
 	krb5_get_init_creds_opt_free(context, opt);
-    
+	opt = NULL;
+    }
+
     NSDictionary *replydict = @{
 	@"status":[NSNumber numberWithInt:ret],
-	@"expire":[NSNumber numberWithLong:cred.times.endtime],
+	@"expire":[NSNumber numberWithLong:endtime],
     };
     os_log_debug(GSSHelperOSLog(), "do_Acquire results: %@", replydict);
     xpc_object_t xpcreplyattrs = _CFXPCCreateXPCObjectFromCFObject((__bridge CFTypeRef)replydict);
@@ -195,7 +195,6 @@ os_log_t GSSHelperOSLog(void)
     xpc_dictionary_set_value(reply, "result", xpcreplyattrs);
     
     krb5_cc_close(context, ccache);
-    krb5_free_cred_contents(context, &cred);
     krb5_free_principal(context, principal);
     krb5_free_context(context);
     
@@ -225,6 +224,16 @@ os_log_t GSSHelperOSLog(void)
     krb5_set_home_dir_access(NULL, FALSE);
     
     ret = krb5_init_context(&context);
+    if (ret) {
+	os_log_error(GSSHelperOSLog(), "Failed to initialize context: %d", ret);
+	NSDictionary *replydict = @{
+	    @"status":[NSNumber numberWithInt:ret],
+	};
+	os_log_debug(GSSHelperOSLog(), "do_Refresh results: %@", replydict);
+	xpc_object_t xpcreplyattrs = _CFXPCCreateXPCObjectFromCFObject((__bridge CFTypeRef)replydict);
+	xpc_dictionary_set_value(reply, "result", xpcreplyattrs);
+	return;
+    }
 
     memset(&in, 0, sizeof(in));
     
@@ -380,12 +389,40 @@ os_log_t GSSHelperOSLog(void)
 	goto out;
     }
 
+    // remove all the non config entries from the cache, the service tickets are related to the original TGT that was just renewed
+    krb5_cc_cursor cursor;
+    krb5_creds cred;
+
+    ret = krb5_cc_start_seq_get(context, ccache, &cursor);
+    if (ret) {
+	os_log_error(GSSHelperOSLog(), "error in krb5_cc_start_seq_get: %d", ret);
+	goto out;
+    }
+
+    while ((ret = krb5_cc_next_cred(context, ccache, &cursor, &cred)) == 0) {
+	/*
+	 * Skip config entries
+	 */
+	if (krb5_is_config_principal(context, cred.server)) {
+	    krb5_free_cred_contents(context, &cred);
+	    continue;
+	}
+	ret = krb5_cc_remove_cred(context, ccache, 0, &cred);
+	if (ret) {
+	    //log the error but do not exit the loop
+	    os_log_error(GSSHelperOSLog(), "error in krb5_cc_remove_cred: %d", ret);
+	}
+	krb5_free_cred_contents(context, &cred);
+    }
+
+    krb5_cc_end_seq_get(context, ccache, &cursor);
+
     //store the new cred in the "real" cache.  it is stored instead of moved from the other cache to prevent false default cred elections and to retain the stored config and labels in the original cache.
     ret = krb5_cc_store_cred(context, ccache, out);
     if (ret) {
 	os_log_error(GSSHelperOSLog(), "unable to save cred in cache: %d, %d", peer.session, ret);
     }
-    
+
     expire = out->times.endtime;
 
     out:

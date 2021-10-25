@@ -28,6 +28,7 @@
 #import <Security/SecTrustPriv.h>
 #import "trust/trustd/SecCertificateServer.h"
 #import "trust/trustd/SecRevocationServer.h"
+#import "trust/trustd/SecRevocationDb.h"
 
 #import "TrustDaemonTestCase.h"
 #import "TrustServerTests_data.h"
@@ -138,21 +139,21 @@
 
     // For a non-EV, non-CT, no-revocation builder, only the trust result validity should be set
     XCTAssertEqual(info.count, 2);
-
-    /* NotBefore inputs: leaf cert notBefore at 626290914.0; now - leeway; no latest thisUpdate
-     * Maximum of these will be now - leeway */
     NSTimeInterval notBefore = [(NSDate *)info[(__bridge NSString*)kSecTrustInfoResultNotBefore] timeIntervalSinceReferenceDate];
-    XCTAssertEqualWithAccuracy(notBefore, CFAbsoluteTimeGetCurrent() - TRUST_TIME_LEEWAY, 0.5); // to within 1/2 second accuracy
-
-    /* NotAfter inputs: leaf cert notAfter at 660418914.0; now + leeway; no earliest nextUpdate
-     * Minimum of these will be (now + leeway) until current time is (notAfter - leeway) where it will switch to the notAfter.
-     * Then after the cert expires, it will change back to (now + leeway) as we correct for an inverted validity period. */
     NSTimeInterval notAfter = [(NSDate *)info[(__bridge NSString*)kSecTrustInfoResultNotAfter] timeIntervalSinceReferenceDate];
+
+    // The validity period should always be currently valid
+    XCTAssertLessThan(notBefore, CFAbsoluteTimeGetCurrent());
+    XCTAssertGreaterThan(notAfter, CFAbsoluteTimeGetCurrent());
+
+    // The notBefore should always be the leeway because issuance dates were long ago
+    XCTAssertEqualWithAccuracy(notBefore, CFAbsoluteTimeGetCurrent() - TRUST_TIME_LEEWAY, 0.5);
+
     if (CFAbsoluteTimeGetCurrent() < (660418914.0 - TRUST_TIME_LEEWAY)) {
-        // Well before leaf expiry
+        // Until we get near the cert expirations, the notAfter should be the leeway
         XCTAssertEqualWithAccuracy(notAfter, CFAbsoluteTimeGetCurrent() + TRUST_TIME_LEEWAY, 0.5);
     } else if (CFAbsoluteTimeGetCurrent() < 660418914.0 + TRUST_TIME_LEEWAY) {
-        // Until the cert has expired, the notAfter date bounds the trust result
+        // Until the cert has expired, the notAfter date of the cert bounds the trust result
         XCTAssertEqualWithAccuracy(notAfter, 660418914.0, 0.1);
     } else {
         // Once the cert expires we just use the leeway again
@@ -164,7 +165,7 @@
     CFRelease(path);
 }
 
-- (void)testReportResult_RevocationResults_InvertedWindows_Expired {
+- (void)testReportResult_RevocationResults_Expired {
     SecCertificatePathVCRef path = [self createPath];
     [self createAndPopulateRVCs:path];
     SecPathBuilderRef builder = [self createBuilderForPath:path];
@@ -175,16 +176,27 @@
     // For a non-EV, non-CT builder with revocation checked, so we should have the trust result validity and revocation keys
     XCTAssertEqual(info.count, 6);
 
-    /* NotBefore inputs: leaf cert notBefore at 626290914.0; now - 1:15; OCSP response latest thisUpdate at 632103361.0
-     * Maximum of these will be now - 1:15 */
     NSTimeInterval notBefore = [(NSDate *)info[(__bridge NSString*)kSecTrustInfoResultNotBefore] timeIntervalSinceReferenceDate];
-    XCTAssertEqualWithAccuracy(notBefore, CFAbsoluteTimeGetCurrent() - TRUST_TIME_LEEWAY, 0.5); // to within 1/2 second accuracy
-
-    /* NotAfter inputs: leaf cert notAfter at 660418914.0; now + 1:15; OCSP response earliest nextUpdate at  632142381.0
-     * Minimum of these will be the earliest next update, but because the notBefore is after that, we'll adjust
-     * the notAfter to now + 1:15 */
     NSTimeInterval notAfter = [(NSDate *)info[(__bridge NSString*)kSecTrustInfoResultNotAfter] timeIntervalSinceReferenceDate];
-    XCTAssertEqualWithAccuracy(notAfter, CFAbsoluteTimeGetCurrent() + TRUST_TIME_LEEWAY, 0.5);
+
+    // The validity period should always be currently valid
+    XCTAssertLessThan(notBefore, CFAbsoluteTimeGetCurrent());
+    XCTAssertGreaterThan(notAfter, CFAbsoluteTimeGetCurrent());
+
+    // The notBefore should always be the leeway because issuance dates were long ago
+    XCTAssertEqualWithAccuracy(notBefore, CFAbsoluteTimeGetCurrent() - TRUST_TIME_LEEWAY, 0.5);
+
+    // Because the OCSP responses are expired, we should get the same behavior as the no-revocation case
+    if (CFAbsoluteTimeGetCurrent() < (660418914.0 - TRUST_TIME_LEEWAY)) {
+        // Until we get near the cert expirations, the notAfter should be the leeway
+        XCTAssertEqualWithAccuracy(notAfter, CFAbsoluteTimeGetCurrent() + TRUST_TIME_LEEWAY, 0.5);
+    } else if (CFAbsoluteTimeGetCurrent() < 660418914.0 + TRUST_TIME_LEEWAY) {
+        // Until the cert has expired, the notAfter date of the cert bounds the trust result
+        XCTAssertEqualWithAccuracy(notAfter, 660418914.0, 0.1);
+    } else {
+        // Once the cert expires we just use the leeway again
+        XCTAssertEqualWithAccuracy(notAfter, CFAbsoluteTimeGetCurrent() + TRUST_TIME_LEEWAY, 0.5);
+    }
 
     XCTAssert([(NSNumber*)info[(__bridge NSString*)kSecTrustInfoRevocationKey] boolValue]);
     XCTAssert([(NSNumber*)info[(__bridge NSString*)kSecTrustRevocationChecked] boolValue]);
@@ -197,7 +209,7 @@
     CFRelease(path);
 }
 
-- (void)testReportResult_RevocationResults_InvertedWindows_FutureValidity {
+- (void)testReportResult_RevocationResults_FutureValidity {
     SecCertificatePathVCRef path = [self createPath];
     CFAbsoluteTime thisUpdate = CFAbsoluteTimeGetCurrent() + 400;
     CFAbsoluteTime nextUpdate = CFAbsoluteTimeGetCurrent() + 100;
@@ -212,11 +224,16 @@
     // For a non-EV, non-CT builder with revocation checked, so we should have the trust result validity and revocation keys
     XCTAssertEqual(info.count, 6);
 
-    /* Because thisUpdate and nextUpdate are flipped and both in the future, we should keep the nextUpdate as notAfter
-     * and use "now" as the notBefore */
     NSTimeInterval notBefore = [(NSDate *)info[(__bridge NSString*)kSecTrustInfoResultNotBefore] timeIntervalSinceReferenceDate];
-    XCTAssertEqualWithAccuracy(notBefore, CFAbsoluteTimeGetCurrent(), 0.5); // to within 1/2 second accuracy
     NSTimeInterval notAfter = [(NSDate *)info[(__bridge NSString*)kSecTrustInfoResultNotAfter] timeIntervalSinceReferenceDate];
+
+    // The validity period should always be currently valid
+    XCTAssertLessThan(notBefore, CFAbsoluteTimeGetCurrent());
+    XCTAssertGreaterThan(notAfter, CFAbsoluteTimeGetCurrent());
+
+    // The notBefore should always be the leeway because issuance dates were long ago or in the future
+    XCTAssertEqualWithAccuracy(notBefore, CFAbsoluteTimeGetCurrent() - TRUST_TIME_LEEWAY, 0.5);
+    // The notAfter should be the very near OCSP response expiration
     XCTAssertEqualWithAccuracy(notAfter, nextUpdate, 0.1);
 
     SecPathBuilderDestroy(builder);
@@ -224,7 +241,7 @@
     CFRelease(path);
 }
 
-- (void)testReportResult_RevocationResults_InvertedWindows_Between {
+- (void)testReportResult_RevocationResults_InvertedWindows {
     SecCertificatePathVCRef path = [self createPath];
     CFAbsoluteTime thisUpdate = CFAbsoluteTimeGetCurrent() + 400;
     CFAbsoluteTime nextUpdate = CFAbsoluteTimeGetCurrent() - 100;
@@ -239,19 +256,34 @@
     // For a non-EV, non-CT builder with revocation checked, so we should have the trust result validity and revocation keys
     XCTAssertEqual(info.count, 6);
 
-    /* Because thisUpdate and nextUpdate are flipped, with notBefore in the future but notAfter in the past,
-     * we should flip the two */
     NSTimeInterval notBefore = [(NSDate *)info[(__bridge NSString*)kSecTrustInfoResultNotBefore] timeIntervalSinceReferenceDate];
-    XCTAssertEqualWithAccuracy(notBefore, nextUpdate, 0.1); // to within 1/2 second accuracy
     NSTimeInterval notAfter = [(NSDate *)info[(__bridge NSString*)kSecTrustInfoResultNotAfter] timeIntervalSinceReferenceDate];
-    XCTAssertEqualWithAccuracy(notAfter, thisUpdate, 0.1);
+
+    // The validity period should always be currently valid
+    XCTAssertLessThan(notBefore, CFAbsoluteTimeGetCurrent());
+    XCTAssertGreaterThan(notAfter, CFAbsoluteTimeGetCurrent());
+
+    // The notBefore should always be the leeway because issuance dates were long ago or in the future
+    XCTAssertEqualWithAccuracy(notBefore, CFAbsoluteTimeGetCurrent() - TRUST_TIME_LEEWAY, 0.5);
+
+    // Because the OCSP responses are expired, we should get the same behavior as the no-revocation case for the notAfter
+    if (CFAbsoluteTimeGetCurrent() < (660418914.0 - TRUST_TIME_LEEWAY)) {
+        // Until we get near the cert expirations, the notAfter should be the leeway
+        XCTAssertEqualWithAccuracy(notAfter, CFAbsoluteTimeGetCurrent() + TRUST_TIME_LEEWAY, 0.5);
+    } else if (CFAbsoluteTimeGetCurrent() < 660418914.0 + TRUST_TIME_LEEWAY) {
+        // Until the cert has expired, the notAfter date of the cert bounds the trust result
+        XCTAssertEqualWithAccuracy(notAfter, 660418914.0, 0.1);
+    } else {
+        // Once the cert expires we just use the leeway again
+        XCTAssertEqualWithAccuracy(notAfter, CFAbsoluteTimeGetCurrent() + TRUST_TIME_LEEWAY, 0.5);
+    }
 
     SecPathBuilderDestroy(builder);
     free(builder);
     CFRelease(path);
 }
 
-- (void)testReportResult_RevocationResults_Expired {
+- (void)testReportResult_RevocationResults_RecentlyExpired {
     SecCertificatePathVCRef path = [self createPath];
     CFAbsoluteTime thisUpdate = CFAbsoluteTimeGetCurrent() - 400;
     CFAbsoluteTime nextUpdate = CFAbsoluteTimeGetCurrent() - 100;
@@ -266,16 +298,28 @@
     // For a non-EV, non-CT builder with revocation checked, so we should have the trust result validity and revocation keys
     XCTAssertEqual(info.count, 6);
 
-    /* thisUpdate and nextUpdate are both in the recent past, so we should adjust the validity period to
-     * be in the present */
     NSTimeInterval notBefore = [(NSDate *)info[(__bridge NSString*)kSecTrustInfoResultNotBefore] timeIntervalSinceReferenceDate];
-    XCTAssertEqualWithAccuracy(notBefore, nextUpdate, 0.1);
     NSTimeInterval notAfter = [(NSDate *)info[(__bridge NSString*)kSecTrustInfoResultNotAfter] timeIntervalSinceReferenceDate];
-    XCTAssertEqualWithAccuracy(notAfter, CFAbsoluteTimeGetCurrent() + TRUST_TIME_LEEWAY, 0.5);
+
+    // The validity period should always be currently valid
+    XCTAssertLessThan(notBefore, CFAbsoluteTimeGetCurrent());
+    XCTAssertGreaterThan(notAfter, CFAbsoluteTimeGetCurrent());
+
+    // The notBefore should always be the leeway because issuance dates were long ago or in the future
+    XCTAssertEqualWithAccuracy(notBefore, thisUpdate, 0.5);
+    // The notAfter should be the very near OCSP response expiration
+    XCTAssertEqualWithAccuracy(notAfter, CFAbsoluteTimeGetCurrent() + TRUST_TIME_LEEWAY, 0.1);
 
     SecPathBuilderDestroy(builder);
     free(builder);
     CFRelease(path);
+}
+
+- (void)testSerialInFilter {
+    // ensure that a known revoked serial number is matched in the bloom filter (rdar://79451332)
+    NSData *serialData = [NSData dataWithBytes:_revoked_serial_data length:sizeof(_revoked_serial_data)];
+    NSData *filterData = [NSData dataWithBytes:_dc_ssca_filter_data length:sizeof(_dc_ssca_filter_data)];
+    XCTAssertTrue(SecRevocationDbSerialInFilter((__bridge CFDataRef)serialData, (__bridge CFDataRef)filterData));
 }
 
 @end

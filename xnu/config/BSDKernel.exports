@@ -56,7 +56,9 @@ _buf_invalblkno
 _buf_invalidateblks
 _buf_iterate
 _buf_lblkno
+_buf_lblksize
 _buf_map
+_buf_map_range
 _buf_markaged
 _buf_markclean
 _buf_markdelayed
@@ -82,6 +84,7 @@ _buf_seterror
 _buf_setflags
 _buf_setfsprivate
 _buf_setlblkno
+_buf_setlblksize
 _buf_set_redundancy_flags
 _buf_setresid
 _buf_setsize
@@ -90,6 +93,7 @@ _buf_setvnode
 _buf_size
 _buf_strategy
 _buf_unmap
+_buf_unmap_range
 _buf_upl
 _buf_uploffset
 _buf_valid
@@ -356,6 +360,7 @@ _kernel_debug1
 _kernel_debug_filtered
 _kernel_debug_enter
 _kernel_debug_register_callback
+_kdebug_register_coproc
 _kernproc
 _kev_msg_post
 _kev_vendor_code_find
@@ -431,6 +436,7 @@ _microtime
 _microuptime
 _minphys
 _msleep
+_msleep0
 _nanotime
 _nanouptime
 _nd6_lookup_ipv6
@@ -602,9 +608,11 @@ _ubc_upl_abort_range
 _ubc_upl_commit
 _ubc_upl_commit_range
 _ubc_upl_map
+_ubc_upl_map_range
 _ubc_upl_maxbufsize
 _ubc_upl_pageinfo
 _ubc_upl_unmap
+_ubc_upl_unmap_range
 _uio_addiov
 _uio_create
 _uio_curriovbase

@@ -81,7 +81,11 @@ get_tiny_previous_free_msize(const void *ptr)
 		if (BITARRAY_BIT(prev_header, prev_index)) {
 			return 1;
 		}
-		return TINY_PREVIOUS_MSIZE(ptr);
+		msize_t *prev_msize_ptr = &TINY_PREVIOUS_MSIZE(ptr);
+		// This is a speculative read of potentially in-use app memory, we need
+		// to use _malloc_read_uint16_via_rsp to avoid triggering warnings in
+		// memory diagnostic tools.
+		return _malloc_read_uint16_via_rsp(prev_msize_ptr);
 	}
 	// don't read possibly unmapped memory before the beginning of the region
 	return 0;
@@ -873,6 +877,11 @@ tiny_madvise_pressure_relief(rack_t *rack)
 				continue;
 			}
 
+			if (REGION_TRAILER_FOR_TINY_REGION(tiny)->pinned_to_depot > 0) {
+				SZONE_MAGAZINE_PTR_UNLOCK(mag_ptr);
+				continue;
+			}
+
 			if (tiny == mag_ptr->mag_last_region && (mag_ptr->mag_bytes_free_at_end || mag_ptr->mag_bytes_free_at_start)) {
 				tiny_finalize_region(rack, mag_ptr);
 			}
@@ -887,7 +896,7 @@ tiny_madvise_pressure_relief(rack_t *rack)
 
 			SZONE_MAGAZINE_PTR_LOCK(tiny_depot_ptr);
 			MAGAZINE_INDEX_FOR_TINY_REGION(tiny) = DEPOT_MAGAZINE_INDEX;
-			REGION_TRAILER_FOR_TINY_REGION(tiny)->pinned_to_depot = 0;
+			MALLOC_ASSERT(REGION_TRAILER_FOR_TINY_REGION(tiny)->pinned_to_depot == 0);
 
 			size_t bytes_inplay = tiny_free_reattach_region(rack, tiny_depot_ptr, tiny);
 
@@ -993,22 +1002,32 @@ tiny_get_region_from_depot(rack_t *rack, magazine_t *tiny_mag_ptr, mag_index_t m
 	// Appropriate a Depot'd region that can satisfy requested msize.
 	region_trailer_t *node;
 	region_t sparse_region;
+	msize_t try_msize = msize;
 
 	while (1) {
-		sparse_region = tiny_find_msize_region(rack, depot_ptr, DEPOT_MAGAZINE_INDEX, msize);
+		sparse_region = tiny_find_msize_region(rack, depot_ptr, DEPOT_MAGAZINE_INDEX, try_msize);
 		if (NULL == sparse_region) { // Depot empty?
 			SZONE_MAGAZINE_PTR_UNLOCK(depot_ptr);
 			return 0;
 		}
 
 		node = REGION_TRAILER_FOR_TINY_REGION(sparse_region);
-		if (0 >= node->pinned_to_depot) {
+		if (0 == node->pinned_to_depot) {
+			// Found one!
 			break;
 		}
 
-		SZONE_MAGAZINE_PTR_UNLOCK(depot_ptr);
-		yield();
-		SZONE_MAGAZINE_PTR_LOCK(depot_ptr);
+		// Try the next msize up - maybe the head of its free list will be in
+		// a region we can use. Once we get the region we'll still allocate the
+		// original msize.
+		try_msize++;
+
+		if (try_msize > NUM_TINY_SLOTS) {
+			// Tried all the msizes but couldn't get a usable region. Let's
+			// give up for now and we'll allocate a new region from the kernel.
+			SZONE_MAGAZINE_PTR_UNLOCK(depot_ptr);
+			return 0;
+		}
 	}
 
 	// disconnect node from Depot
@@ -1019,7 +1038,7 @@ tiny_get_region_from_depot(rack_t *rack, magazine_t *tiny_mag_ptr, mag_index_t m
 
 	// Transfer ownership of the region
 	MAGAZINE_INDEX_FOR_TINY_REGION(sparse_region) = mag_index;
-	node->pinned_to_depot = 0;
+	MALLOC_ASSERT(node->pinned_to_depot == 0);
 
 	// Iterate the region putting its free entries on its new (locked) magazine's free list
 	size_t bytes_inplay = tiny_free_reattach_region(rack, tiny_mag_ptr, sparse_region);

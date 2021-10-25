@@ -53,7 +53,7 @@
     NSMutableArray* items = [[NSMutableArray alloc] init];
     __weak __typeof(self) weakSelf = self;
     __block NSError* error = nil;
-    [self.keychainView dispatchSyncWithSQLTransaction:^CKKSDatabaseTransactionResult{
+    [self.defaultCKKS dispatchSyncWithSQLTransaction:^CKKSDatabaseTransactionResult{
         for (CKRecord* record in records) {
             CKKSMirrorEntry* mirrorEntry = [CKKSMirrorEntry tryFromDatabase:record.recordID.recordName zoneID:weakSelf.keychainZoneID error:&error];
             XCTAssertNil(error, @"error encountered trying to generate CKKSMirrorEntry: %@", error);
@@ -114,7 +114,7 @@
     [self expectCKModifyItemRecords:passwordCount currentKeyPointerRecords:1 zoneID:self.keychainZoneID];
     
     [self startCKKSSubsystem];
-    [self.keychainView waitForKeyHierarchyReadiness];
+    [self.defaultCKKS waitForKeyHierarchyReadiness];
     
     // Wait for uploads to happen
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
@@ -281,7 +281,7 @@
     }
     
     [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
-    [self.keychainView waitForFetchAndIncomingQueueProcessing];
+    [self.defaultCKKS waitForFetchAndIncomingQueueProcessing];
     
     return query;
 }

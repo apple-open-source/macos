@@ -66,9 +66,10 @@
 		0C259F1314FCA25F00A3A244 /* protos.h in Headers */ = {isa = PBXBuildFile; fileRef = C66479270A35E7C90026B51E /* protos.h */; };
 		0C477C9715000D7200C0DFA2 /* BLSetEFIBootDevice.c in Sources */ = {isa = PBXBuildFile; fileRef = 0CAD6839135CD78E00C9B626 /* BLSetEFIBootDevice.c */; };
 		0CAD683A135CD78E00C9B626 /* BLSetEFIBootDevice.c in Sources */ = {isa = PBXBuildFile; fileRef = 0CAD6839135CD78E00C9B626 /* BLSetEFIBootDevice.c */; };
-		723BF18223A177EC00AC84EF /* libbootpolicy.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 723BF18123A177EC00AC84EF /* libbootpolicy.tbd */; };
 		72D184CC24B4FBDC008F9ADA /* libImg4Decode.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 72D184C724B4DBC9008F9ADA /* libImg4Decode.a */; };
 		72D184CE24B5036B008F9ADA /* libDER.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 72D184CD24B5036B008F9ADA /* libDER.a */; };
+		811658342564539F00EA237C /* ShareVars.py in CopyFiles */ = {isa = PBXBuildFile; fileRef = 811657FD2564533E00EA237C /* ShareVars.py */; };
+		81165842256453AA00EA237C /* ShareModule.py in CopyFiles */ = {isa = PBXBuildFile; fileRef = 811657FC256452D500EA237C /* ShareModule.py */; };
 		953E41C624EF943800FB44FB /* bless2cli.c in Sources */ = {isa = PBXBuildFile; fileRef = 95BB315224EF8EB300920A16 /* bless2cli.c */; };
 		953E41CA24EF946000FB44FB /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 953E41C924EF946000FB44FB /* Foundation.framework */; };
 		953E41CC24EF946800FB44FB /* CFNetwork.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 953E41CB24EF946800FB44FB /* CFNetwork.framework */; };
@@ -83,7 +84,6 @@
 		953E41DA24EF95D600FB44FB /* bless2_private.h in Headers */ = {isa = PBXBuildFile; fileRef = 953E41D924EF95D600FB44FB /* bless2_private.h */; };
 		953E41DB24EF95F500FB44FB /* bless2_private.h in Headers */ = {isa = PBXBuildFile; fileRef = 953E41D924EF95D600FB44FB /* bless2_private.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		953E41DC24EF979500FB44FB /* libimg4.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = B4CB691122E7D6AA00BB045E /* libimg4.tbd */; };
-		954023F6249A45C80013D230 /* apfs_boot_mount.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 954023F5249A45C70013D230 /* apfs_boot_mount.framework */; };
 		9542712324F9AFED007BC896 /* libauthinstall.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 9542712224F9AFED007BC896 /* libauthinstall.tbd */; };
 		9542712424F9B074007BC896 /* libImg4Encode.a in Frameworks */ = {isa = PBXBuildFile; fileRef = B4CB691422E7DD5700BB045E /* libImg4Encode.a */; };
 		9542712524F9B08E007BC896 /* libImg4Decode.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 72D184C724B4DBC9008F9ADA /* libImg4Decode.a */; };
@@ -232,8 +232,17 @@
 		FC7E599C23CC35AD00D7CC37 /* CoreText.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FC7E599923CC35AD00D7CC37 /* CoreText.framework */; settings = {ATTRIBUTES = (Weak, ); }; };
 		FC7E599D23CC35AD00D7CC37 /* CoreText.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FC7E599923CC35AD00D7CC37 /* CoreText.framework */; settings = {ATTRIBUTES = (Weak, ); }; };
 		FC88167E1EBBD73500935340 /* OSPersonalization.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FC88167D1EBBD6EE00935340 /* OSPersonalization.framework */; settings = {ATTRIBUTES = (Weak, ); }; };
+		FCD5A23E25A93CA6000F59B9 /* libbless2.a in Frameworks */ = {isa = PBXBuildFile; fileRef = B44C908222D6B30A005F44F4 /* libbless2.a */; };
+		FCD5A23F25A93CAB000F59B9 /* libbless2.a in Frameworks */ = {isa = PBXBuildFile; fileRef = B44C908222D6B30A005F44F4 /* libbless2.a */; };
+		FCD5A24F25BA0057000F59B9 /* apfs_boot_mount.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 954023F5249A45C70013D230 /* apfs_boot_mount.framework */; settings = {ATTRIBUTES = (Weak, ); }; };
+		FCD5A25D25BA00DB000F59B9 /* libauthinstall.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 9542712224F9AFED007BC896 /* libauthinstall.tbd */; settings = {ATTRIBUTES = (Weak, ); }; };
+		FCD5A27925BA0105000F59B9 /* libbootpolicy.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 723BF18123A177EC00AC84EF /* libbootpolicy.tbd */; settings = {ATTRIBUTES = (Weak, ); }; };
+		FCD5A28725BA011F000F59B9 /* libimg4.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = B4CB691122E7D6AA00BB045E /* libimg4.tbd */; settings = {ATTRIBUTES = (Weak, ); }; };
 		FCD9968523CD255D005FD479 /* ApplicationServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FCD9968423CD255D005FD479 /* ApplicationServices.framework */; settings = {ATTRIBUTES = (Weak, ); }; };
 		FCD9968623CD255D005FD479 /* ApplicationServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FCD9968423CD255D005FD479 /* ApplicationServices.framework */; settings = {ATTRIBUTES = (Weak, ); }; };
+		FCEFB044266A9B0A0042CD1F /* libbootpolicy.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 723BF18123A177EC00AC84EF /* libbootpolicy.tbd */; };
+		FCEFB045266A9B210042CD1F /* libDER.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 72D184CD24B5036B008F9ADA /* libDER.a */; };
+		FCEFB046266ABF7D0042CD1F /* libamsupport.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 95E8D85924F9B4130015B1B9 /* libamsupport.tbd */; settings = {ATTRIBUTES = (Weak, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -342,6 +351,13 @@
 			remoteGlobalIDString = C617599A057E749600252FAB;
 			remoteInfo = libbless;
 		};
+		FCD5A24025A93D7A000F59B9 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = B44C903622D6B30A005F44F4;
+			remoteInfo = libbless2;
+		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -371,6 +387,8 @@
 			dstPath = /AppleInternal/CoreOS/tests/bless;
 			dstSubfolderSpec = 0;
 			files = (
+				81165842256453AA00EA237C /* ShareModule.py in CopyFiles */,
+				811658342564539F00EA237C /* ShareVars.py in CopyFiles */,
 				A03E04FB251C196900E63711 /* test_bless2 in CopyFiles */,
 				A0968A3C22A5B8E200F39FBD /* test_bless in CopyFiles */,
 			);
@@ -424,6 +442,8 @@
 		72D184C724B4DBC9008F9ADA /* libImg4Decode.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libImg4Decode.a; path = usr/local/lib/libImg4Decode.a; sourceTree = SDKROOT; };
 		72D184CA24B4FB9C008F9ADA /* libImg4Decode_os.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libImg4Decode_os.a; path = usr/local/lib/libImg4Decode_os.a; sourceTree = SDKROOT; };
 		72D184CD24B5036B008F9ADA /* libDER.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libDER.a; path = usr/local/lib/libDER.a; sourceTree = SDKROOT; };
+		811657FC256452D500EA237C /* ShareModule.py */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.python; path = ShareModule.py; sourceTree = "<group>"; };
+		811657FD2564533E00EA237C /* ShareVars.py */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.python; path = ShareVars.py; sourceTree = "<group>"; };
 		953E41BE24EF91C000FB44FB /* bless2cli */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = bless2cli; sourceTree = BUILT_PRODUCTS_DIR; };
 		953E41C924EF946000FB44FB /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Frameworks/Foundation.framework; sourceTree = "<group>"; };
 		953E41CB24EF946800FB44FB /* CFNetwork.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CFNetwork.framework; path = Frameworks/CFNetwork.framework; sourceTree = "<group>"; };
@@ -583,6 +603,7 @@
 			files = (
 				95E8D85A24F9B4130015B1B9 /* libamsupport.tbd in Frameworks */,
 				9542712524F9B08E007BC896 /* libImg4Decode.a in Frameworks */,
+				FCEFB044266A9B0A0042CD1F /* libbootpolicy.tbd in Frameworks */,
 				9542712424F9B074007BC896 /* libImg4Encode.a in Frameworks */,
 				9542712324F9AFED007BC896 /* libauthinstall.tbd in Frameworks */,
 				953E41DC24EF979500FB44FB /* libimg4.tbd in Frameworks */,
@@ -593,7 +614,9 @@
 				953E41D324EF949400FB44FB /* Security.framework in Frameworks */,
 				953E41D124EF948900FB44FB /* SystemConfiguration.framework in Frameworks */,
 				953E41CF24EF947F00FB44FB /* CoreFoundation.framework in Frameworks */,
+				FCD5A23E25A93CA6000F59B9 /* libbless2.a in Frameworks */,
 				953E41CE24EF947100FB44FB /* DiskImages.framework in Frameworks */,
+				FCEFB045266A9B210042CD1F /* libDER.a in Frameworks */,
 				953E41CC24EF946800FB44FB /* CFNetwork.framework in Frameworks */,
 				953E41CA24EF946000FB44FB /* Foundation.framework in Frameworks */,
 			);
@@ -603,8 +626,6 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				954023F6249A45C80013D230 /* apfs_boot_mount.framework in Frameworks */,
-				723BF18223A177EC00AC84EF /* libbootpolicy.tbd in Frameworks */,
 				B44C909122D6B40A005F44F4 /* APFS.framework in Frameworks */,
 				B44C909022D6B403005F44F4 /* IOKit.framework in Frameworks */,
 				B44C908F22D6B3FC005F44F4 /* CoreFoundation.framework in Frameworks */,
@@ -623,6 +644,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				FCD5A25D25BA00DB000F59B9 /* libauthinstall.tbd in Frameworks */,
 				95B78C8224B8AA7B000ADA84 /* libpartition.a in Frameworks */,
 				72D184CE24B5036B008F9ADA /* libDER.a in Frameworks */,
 				72D184CC24B4FBDC008F9ADA /* libImg4Decode.a in Frameworks */,
@@ -630,11 +652,16 @@
 				FC4376001DFD3E4C0018A727 /* APFS.framework in Frameworks */,
 				C617597D057E749600252FAB /* CoreFoundation.framework in Frameworks */,
 				FC7E599A23CC35AD00D7CC37 /* CoreGraphics.framework in Frameworks */,
+				FCEFB046266ABF7D0042CD1F /* libamsupport.tbd in Frameworks */,
 				FCD9968523CD255D005FD479 /* ApplicationServices.framework in Frameworks */,
 				FC7E599C23CC35AD00D7CC37 /* CoreText.framework in Frameworks */,
 				C617597E057E749600252FAB /* IOKit.framework in Frameworks */,
 				C6175A1F057E749700252FAB /* libbless.a in Frameworks */,
+				FCD5A23F25A93CAB000F59B9 /* libbless2.a in Frameworks */,
 				FC88167E1EBBD73500935340 /* OSPersonalization.framework in Frameworks */,
+				FCD5A24F25BA0057000F59B9 /* apfs_boot_mount.framework in Frameworks */,
+				FCD5A27925BA0105000F59B9 /* libbootpolicy.tbd in Frameworks */,
+				FCD5A28725BA011F000F59B9 /* libimg4.tbd in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -685,6 +712,7 @@
 			isa = PBXGroup;
 			children = (
 				FC86AA342592B6B20000767E /* bless2 */,
+				BA3A398B04C8AB2200E2414C /* test */,
 				08FB7795FE84155DC02AAC07 /* Source */,
 				F61E922B01A4CF5801F50364 /* Other Files */,
 				1AB674ADFE9D54B511CA2CBB /* Products */,
@@ -715,7 +743,6 @@
 				FC424F961E8387170088DAEE /* manifests.m */,
 				FC4A583E1F86A12F00F15E95 /* personalize.m */,
 				FC48D0081F01B66500462641 /* blessUtilities.c */,
-				BA3A398B04C8AB2200E2414C /* test */,
 				BA10D77D04FADE430070B3E0 /* minibless.c */,
 				BA3D8141086C4E5000484376 /* unbless.c */,
 				C68F273C0CC13BEC00E3CD6A /* firmwaresyncd.c */,
@@ -753,6 +780,8 @@
 		BA3A398B04C8AB2200E2414C /* test */ = {
 			isa = PBXGroup;
 			children = (
+				811657FD2564533E00EA237C /* ShareVars.py */,
+				811657FC256452D500EA237C /* ShareModule.py */,
 				A03E04F9251C183600E63711 /* test_bless2 */,
 				A03E04F8251C181800E63711 /* bless2.plist */,
 				A0F8D4B222A1F8CA0018E165 /* test_bless */,
@@ -1131,6 +1160,7 @@
 			);
 			dependencies = (
 				C6175A12057E749700252FAB /* PBXTargetDependency */,
+				FCD5A24125A93D7A000F59B9 /* PBXTargetDependency */,
 			);
 			name = bless;
 			productInstallPath = /usr/sbin;
@@ -1580,6 +1610,11 @@
 			target = C617599A057E749600252FAB /* libbless */;
 			targetProxy = FC8588B61EEF25AE009EDD68 /* PBXContainerItemProxy */;
 		};
+		FCD5A24125A93D7A000F59B9 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = B44C903622D6B30A005F44F4 /* libbless2 */;
+			targetProxy = FCD5A24025A93D7A000F59B9 /* PBXContainerItemProxy */;
+		};
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
@@ -1646,11 +1681,8 @@
 					DiskArbitration,
 					"-framework",
 					MediaKit,
-					"-lSERestoreInfo",
 					"-lz",
 					"-lc++",
-					"-lDER",
-					"-lbootpolicy",
 				);
 				PRODUCT_NAME = bless2cli;
 				SDKROOT = macosx.internal;
@@ -1722,11 +1754,8 @@
 					DiskArbitration,
 					"-framework",
 					MediaKit,
-					"-lSERestoreInfo",
 					"-lz",
 					"-lc++",
-					"-lDER",
-					"-lbootpolicy",
 				);
 				PRODUCT_NAME = bless2cli;
 				SDKROOT = macosx.internal;
@@ -1802,11 +1831,8 @@
 					DiskArbitration,
 					"-framework",
 					MediaKit,
-					"-lSERestoreInfo",
 					"-lz",
 					"-lc++",
-					"-lDER",
-					"-lbootpolicy",
 				);
 				PRODUCT_NAME = bless2cli;
 				SDKROOT = macosx.internal;

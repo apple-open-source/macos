@@ -2,7 +2,7 @@
 #include "awk.h"
 #include "awkgram.tab.h"
 
-static const char * const printname[96] = {
+static const char * const printname[98] = {
 	"FIRSTTOKEN",	/* 258 */
 	"PROGRAM",	/* 259 */
 	"PASTAT",	/* 260 */
@@ -20,89 +20,91 @@ static const char * const printname[96] = {
 	"CCL",	/* 272 */
 	"NCCL",	/* 273 */
 	"CHAR",	/* 274 */
-	"OR",	/* 275 */
-	"STAR",	/* 276 */
-	"QUEST",	/* 277 */
-	"PLUS",	/* 278 */
-	"EMPTYRE",	/* 279 */
-	"ZERO",	/* 280 */
-	"IGNORE_PRIOR_ATOM",	/* 281 */
-	"AND",	/* 282 */
-	"BOR",	/* 283 */
-	"APPEND",	/* 284 */
-	"EQ",	/* 285 */
-	"GE",	/* 286 */
-	"GT",	/* 287 */
-	"LE",	/* 288 */
-	"LT",	/* 289 */
-	"NE",	/* 290 */
-	"IN",	/* 291 */
-	"ARG",	/* 292 */
-	"BLTIN",	/* 293 */
-	"BREAK",	/* 294 */
-	"CLOSE",	/* 295 */
-	"CONTINUE",	/* 296 */
-	"DELETE",	/* 297 */
-	"DO",	/* 298 */
-	"EXIT",	/* 299 */
-	"FOR",	/* 300 */
-	"FUNC",	/* 301 */
-	"SUB",	/* 302 */
-	"GSUB",	/* 303 */
-	"IF",	/* 304 */
-	"INDEX",	/* 305 */
-	"LSUBSTR",	/* 306 */
-	"MATCHFCN",	/* 307 */
-	"NEXT",	/* 308 */
-	"NEXTFILE",	/* 309 */
-	"ADD",	/* 310 */
-	"MINUS",	/* 311 */
-	"MULT",	/* 312 */
-	"DIVIDE",	/* 313 */
-	"MOD",	/* 314 */
-	"ASSIGN",	/* 315 */
-	"ASGNOP",	/* 316 */
-	"ADDEQ",	/* 317 */
-	"SUBEQ",	/* 318 */
-	"MULTEQ",	/* 319 */
-	"DIVEQ",	/* 320 */
-	"MODEQ",	/* 321 */
-	"POWEQ",	/* 322 */
-	"PRINT",	/* 323 */
-	"PRINTF",	/* 324 */
-	"SPRINTF",	/* 325 */
-	"ELSE",	/* 326 */
-	"INTEST",	/* 327 */
-	"CONDEXPR",	/* 328 */
-	"POSTINCR",	/* 329 */
-	"PREINCR",	/* 330 */
-	"POSTDECR",	/* 331 */
-	"PREDECR",	/* 332 */
-	"VAR",	/* 333 */
-	"IVAR",	/* 334 */
-	"VARNF",	/* 335 */
-	"CALL",	/* 336 */
-	"NUMBER",	/* 337 */
-	"STRING",	/* 338 */
-	"REGEXPR",	/* 339 */
-	"GETLINE",	/* 340 */
-	"SUBSTR",	/* 341 */
-	"SPLIT",	/* 342 */
-	"RETURN",	/* 343 */
-	"WHILE",	/* 344 */
-	"CAT",	/* 345 */
-	"UPLUS",	/* 346 */
-	"UMINUS",	/* 347 */
-	"NOT",	/* 348 */
-	"POWER",	/* 349 */
-	"INCR",	/* 350 */
-	"DECR",	/* 351 */
-	"INDIRECT",	/* 352 */
-	"LASTTOKEN",	/* 353 */
+	"HAT",	/* 275 */
+	"DOLLAR",	/* 276 */
+	"OR",	/* 277 */
+	"STAR",	/* 278 */
+	"QUEST",	/* 279 */
+	"PLUS",	/* 280 */
+	"EMPTYRE",	/* 281 */
+	"ZERO",	/* 282 */
+	"IGNORE_PRIOR_ATOM",	/* 283 */
+	"AND",	/* 284 */
+	"BOR",	/* 285 */
+	"APPEND",	/* 286 */
+	"EQ",	/* 287 */
+	"GE",	/* 288 */
+	"GT",	/* 289 */
+	"LE",	/* 290 */
+	"LT",	/* 291 */
+	"NE",	/* 292 */
+	"IN",	/* 293 */
+	"ARG",	/* 294 */
+	"BLTIN",	/* 295 */
+	"BREAK",	/* 296 */
+	"CLOSE",	/* 297 */
+	"CONTINUE",	/* 298 */
+	"DELETE",	/* 299 */
+	"DO",	/* 300 */
+	"EXIT",	/* 301 */
+	"FOR",	/* 302 */
+	"FUNC",	/* 303 */
+	"SUB",	/* 304 */
+	"GSUB",	/* 305 */
+	"IF",	/* 306 */
+	"INDEX",	/* 307 */
+	"LSUBSTR",	/* 308 */
+	"MATCHFCN",	/* 309 */
+	"NEXT",	/* 310 */
+	"NEXTFILE",	/* 311 */
+	"ADD",	/* 312 */
+	"MINUS",	/* 313 */
+	"MULT",	/* 314 */
+	"DIVIDE",	/* 315 */
+	"MOD",	/* 316 */
+	"ASSIGN",	/* 317 */
+	"ASGNOP",	/* 318 */
+	"ADDEQ",	/* 319 */
+	"SUBEQ",	/* 320 */
+	"MULTEQ",	/* 321 */
+	"DIVEQ",	/* 322 */
+	"MODEQ",	/* 323 */
+	"POWEQ",	/* 324 */
+	"PRINT",	/* 325 */
+	"PRINTF",	/* 326 */
+	"SPRINTF",	/* 327 */
+	"ELSE",	/* 328 */
+	"INTEST",	/* 329 */
+	"CONDEXPR",	/* 330 */
+	"POSTINCR",	/* 331 */
+	"PREINCR",	/* 332 */
+	"POSTDECR",	/* 333 */
+	"PREDECR",	/* 334 */
+	"VAR",	/* 335 */
+	"IVAR",	/* 336 */
+	"VARNF",	/* 337 */
+	"CALL",	/* 338 */
+	"NUMBER",	/* 339 */
+	"STRING",	/* 340 */
+	"REGEXPR",	/* 341 */
+	"GETLINE",	/* 342 */
+	"SUBSTR",	/* 343 */
+	"SPLIT",	/* 344 */
+	"RETURN",	/* 345 */
+	"WHILE",	/* 346 */
+	"CAT",	/* 347 */
+	"UPLUS",	/* 348 */
+	"UMINUS",	/* 349 */
+	"NOT",	/* 350 */
+	"POWER",	/* 351 */
+	"INCR",	/* 352 */
+	"DECR",	/* 353 */
+	"INDIRECT",	/* 354 */
+	"LASTTOKEN",	/* 355 */
 };
 
 
-Cell *(*proctab[96])(Node **, int) = {
+Cell *(*proctab[98])(Node **, int) = {
 	nullproc,	/* FIRSTTOKEN */
 	program,	/* PROGRAM */
 	pastat,	/* PASTAT */
@@ -120,6 +122,8 @@ Cell *(*proctab[96])(Node **, int) = {
 	nullproc,	/* CCL */
 	nullproc,	/* NCCL */
 	nullproc,	/* CHAR */
+	nullproc,	/* HAT */
+	nullproc,	/* DOLLAR */
 	nullproc,	/* OR */
 	nullproc,	/* STAR */
 	nullproc,	/* QUEST */

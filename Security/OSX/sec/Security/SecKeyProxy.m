@@ -28,6 +28,8 @@
 #import <Foundation/Foundation.h>
 #import <Foundation/NSXPCConnection_Private.h>
 
+#include <stdatomic.h>
+
 #include <Security/SecBasePriv.h>
 #include <Security/SecKeyInternal.h>
 #include <Security/SecIdentityPriv.h>
@@ -133,7 +135,9 @@
 @interface SecKeyProxy() <NSXPCListenerDelegate>
 @end
 
-@implementation SecKeyProxy
+@implementation SecKeyProxy {
+    _Atomic NSInteger _clientCount;
+}
 - (instancetype)initWithKey:(SecKeyRef)key certificate:(nullable NSData *)certificate {
     if (self = [super init]) {
         if (key != nil) {
@@ -179,6 +183,22 @@
     newConnection.exportedInterface = [NSXPCInterface interfaceWithProtocol:@protocol(SecKeyProxyProtocol)];
     newConnection.exportedObject = [[SecKeyProxyTarget alloc] initWithKey:_key certificate:_certificate];
     [newConnection _setQueue:[_listener _queue]];
+    
+    NSInteger oldClientCount = _clientCount++;
+    if (self.clientConnectionHandler != nil) {
+        self.clientConnectionHandler(oldClientCount == 0);
+    }
+    __weak typeof(self) weakSelf = self;
+    newConnection.invalidationHandler = ^{
+        typeof(self) strongSelf = weakSelf;
+        if (strongSelf != nil) {
+            NSInteger currentClientCount = --strongSelf->_clientCount;
+            if (strongSelf.clientDisconnectionHandler != nil) {
+                strongSelf.clientDisconnectionHandler(currentClientCount == 0);
+            }
+        }
+    };
+    
     [newConnection resume];
     return YES;
 }

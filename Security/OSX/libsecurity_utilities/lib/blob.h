@@ -45,6 +45,7 @@
 #include <security_utilities/endian.h>
 #include <security_utilities/memutils.h>
 #include <security_utilities/errors.h>
+#include <security_utilities/cfutilities.h>
 
 namespace Security {
 
@@ -98,6 +99,12 @@ public:
 		UnixError::throwMe(ENOMEM);
 	}
 	
+    // Valid for as long as the blob is valid
+    CFDataRef innerData() const
+    {
+        return CFDataCreateWithBytesNoCopy(kCFAllocatorDefault, this->at<UInt8>(sizeof(BlobCore)), length() - sizeof(BlobCore), kCFAllocatorNull);
+    }
+    
 	template <class BlobType>
 	bool is() const { return magic() == BlobType::typeMagic; }
 	
@@ -169,6 +176,19 @@ public:
 			return p;
 		return NULL;
 	}
+    
+    static inline CFDataRef blobify (CFDataRef content)
+    {
+        CFMutableDataRef data = CFDataCreateMutable(kCFAllocatorDefault, 0);
+        CFDataSetLength(data, CFDataGetLength(content) + sizeof(BlobCore));
+        if (!data) {
+            MacOSError::throwMe(errSecAllocate);
+        }
+        Blob<BlobType, _magic>* blob = reinterpret_cast<Blob<BlobType, _magic>*>(CFDataGetMutableBytePtr(data));
+        blob->initialize(sizeof(BlobCore) + CFDataGetLength(content));
+        memcpy(blob->at<void*>(sizeof(Blob)), CFDataGetBytePtr(content), CFDataGetLength(content));
+        return data;
+    }
 	
 	BlobType *clone() const
 	{ assert(validateBlob()); return specific(this->BlobCore::clone());	}

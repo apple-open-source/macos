@@ -26,20 +26,18 @@
  */
 
 #include "CMSUtils.h"
+#include <Security/SecBase.h>
+#include <security_asn1/seccomon.h>
+#include <security_asn1/secerr.h>
 #include <stdlib.h>
 #include <string.h>
-#include <security_asn1/secerr.h>
-#include <security_asn1/seccomon.h>
-#include <Security/SecBase.h>
 
 /*
  * Copy a CSSM_DATA, mallocing the result.
  */
-void cmsCopyCmsData(
-                    const SecAsn1Item *src,
-                    SecAsn1Item *dst)
+void cmsCopyCmsData(const SecAsn1Item* src, SecAsn1Item* dst)
 {
-    dst->Data = (uint8_t *)malloc(src->Length);
+    dst->Data = (uint8_t*)malloc(src->Length);
     memmove(dst->Data, src->Data, src->Length);
     dst->Length = src->Length;
 }
@@ -50,27 +48,22 @@ void cmsCopyCmsData(
  * If srcItemOrArray is not of the type specified in expectedType,
  * errSecParam will be returned.
  */
-OSStatus cmsAppendToArray(
-                          CFTypeRef srcItemOrArray,
-                          CFMutableArrayRef *dstArray,
-                          CFTypeID expectedType)
+OSStatus cmsAppendToArray(CFTypeRef srcItemOrArray, CFMutableArrayRef* dstArray, CFTypeID expectedType)
 {
-    if(srcItemOrArray == NULL) {
+    if (srcItemOrArray == NULL) {
         return errSecSuccess;
     }
-    if(*dstArray == NULL) {
+    if (*dstArray == NULL) {
         *dstArray = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
     }
     CFTypeID inType = CFGetTypeID(srcItemOrArray);
-    if(inType == CFArrayGetTypeID()) {
+    if (inType == CFArrayGetTypeID()) {
         CFArrayRef srcArray = (CFArrayRef)srcItemOrArray;
         CFRange srcRange = {0, CFArrayGetCount(srcArray)};
         CFArrayAppendArray(*dstArray, srcArray, srcRange);
-    }
-    else if(inType == expectedType) {
+    } else if (inType == expectedType) {
         CFArrayAppendValue(*dstArray, srcItemOrArray);
-    }
-    else {
+    } else {
         return errSecParam;
     }
     return errSecSuccess;
@@ -80,27 +73,27 @@ OSStatus cmsAppendToArray(
  * Munge an OSStatus returned from libsecurity_smime, which may well be an ASN.1 private
  * error code, to a real OSStatus.
  */
-OSStatus cmsRtnToOSStatusDefault(OSStatus smimeRtn,		// from libsecurity_smime
-                          OSStatus defaultRtn)	// use this if we can't map smimeRtn
+OSStatus cmsRtnToOSStatusDefault(OSStatus smimeRtn,    // from libsecurity_smime
+                                 OSStatus defaultRtn)  // use this if we can't map smimeRtn
 {
-    if(smimeRtn == SECFailure) {
+    if (smimeRtn == SECFailure) {
         /* This is a SECStatus. Try to get detailed error info. */
         smimeRtn = PORT_GetError();
-        PORT_SetError(0); // clean up the thread since we're handling this error
-        if(smimeRtn == 0) {
+        PORT_SetError(0);  // clean up the thread since we're handling this error
+        if (smimeRtn == 0) {
             /* S/MIME just gave us generic error; no further info available; punt. */
             dprintf("cmsRtnToOSStatus: SECFailure, no status avilable\n");
             return defaultRtn ? defaultRtn : errSecInternalComponent;
         }
         /* else proceed to map smimeRtn to OSStatus */
     }
-    if(!IS_SEC_ERROR(smimeRtn)) {
+    if (!IS_SEC_ERROR(smimeRtn)) {
         /* isn't ASN.1 or S/MIME error; use as is. */
         return smimeRtn;
     }
 
     /* Convert SECErrorCodes to OSStatus */
-    switch(smimeRtn) {
+    switch (smimeRtn) {
         case SEC_ERROR_BAD_DER:
         case SEC_ERROR_BAD_DATA:
             return errSecUnknownFormat;
@@ -142,6 +135,7 @@ OSStatus cmsRtnToOSStatusDefault(OSStatus smimeRtn,		// from libsecurity_smime
     }
 }
 
-OSStatus cmsRtnToOSStatus(OSStatus smimeRtn) {
+OSStatus cmsRtnToOSStatus(OSStatus smimeRtn)
+{
     return cmsRtnToOSStatusDefault(smimeRtn, 0);
 }

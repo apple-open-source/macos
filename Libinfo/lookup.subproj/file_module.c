@@ -2007,15 +2007,17 @@ _fsi_get_fs(si_mod_t *si, const char *name, int which)
 	// We still boot using HFS sometimes (e.g. ramdisks) and therefore
 	// need to conditionalize using the EDT over the fstab file.
 	// Certain HFS ramdisks rely on the EDT entries. Prefer the EDT
-	// over the fstab file, but fall back to use the file upon failure
-	// to obtain the EDT entries.
+	// over the fstab file when requesting all entries (SEL_ALL),
+	// but fall back to use the file upon failure to obtain the EDT entries,
+	// or for other request types.
 	struct statfs rootfs;
 	const char *root_path = "/";
 
 	if (statfs(root_path, &rootfs)) return NULL;
 
 	all = _fsi_get_edt_fs(si, name, which);
-	if (all || string_equal(rootfs.f_fstypename, "apfs"))
+	if ((all && (which == SEL_ALL)) ||
+		string_equal(rootfs.f_fstypename, "apfs"))
 	{
 		return all;
 	}

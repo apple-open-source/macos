@@ -60,6 +60,6 @@ _HeimCredRegisterKerberos(void)
     CFRELEASE_NULL(schema);
 
 
-    _HeimCredRegisterMech(kHEIMTypeKerberos, set, KerberosStatusCallback, NULL, HeimCredGlobalCTX.notifyCaches, false, NULL);
+    _HeimCredRegisterMech(kHEIMTypeKerberos, set, KerberosStatusCallback, NULL, HeimCredGlobalCTX.notifyCaches, DefaultTraceCallback, false, NULL);
     CFRELEASE_NULL(set);
 }

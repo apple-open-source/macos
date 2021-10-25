@@ -58,7 +58,6 @@
 
 #include <sys/param.h>
 #include <sys/mount.h>
-#include <sys/socket.h>
 #include <sys/socketvar.h>
 #include <sys/un.h>
 #include <sys/stat.h>
@@ -86,34 +85,21 @@
 
 #include <oncrpc/rpc.h>
 
-#include <nfs/rpcv2.h>
-#include <nfs/nfsproto.h>
-#include <nfs/nfs.h>
 #define _NFS_XDR_SUBS_FUNCS_ /* define this to get xdrbuf function definitions */
 #include <nfs/xdr_subs.h>
 
 #include <TargetConditionals.h>
 
+#include "mount_nfs.h"
+
 
 #define _PATH_NFS_CONF	"/etc/nfs.conf"
-struct nfs_conf_client {
-	int access_cache_timeout;
-	int access_for_getattr;
-	int allow_async;
-	int callback_port;
-	int initialdowndelay;
-	int iosize;
-	int nextdowndelay;
-	int nfsiod_thread_max;
-	int statfs_rate_limit;
-	int is_mobile;
-	int squishy_flags;
-	int root_steals_gss_context;
-	char *default_nfs4domain;
-};
+
 /* init to invalid values so we will only set values specified in nfs.conf */
 struct nfs_conf_client config =
 {
+	-1,
+	-1,
 	-1,
 	-1,
 	-1,
@@ -280,31 +266,7 @@ int retrycnt = -1;
 int zdebug = 0;		/* Turn on testing flag to make kernel prepend '@' to realm */
 
 /* mount options */
-struct {
-	int		mntflags;				/* MNT_* flags */
-	uint32_t	mattrs[NFS_MATTR_BITMAP_LEN];		/* what attrs are set */
-	uint32_t	mflags_mask[NFS_MFLAG_BITMAP_LEN];	/* what flags are set */
-	uint32_t	mflags[NFS_MFLAG_BITMAP_LEN];		/* set flag values */
-	uint32_t	nfs_version, nfs_minor_version;		/* NFS version */
-	uint32_t	nfs_max_vers, nfs_min_vers;		 /* NFS min and max packed version */
-	uint32_t	rsize, wsize, readdirsize, readahead;	/* I/O values */
-	struct timespec	acregmin, acregmax, acdirmin, acdirmax;	/* attrcache values */
-	uint32_t	lockmode;				/* advisory file locking mode */
-	struct nfs_sec	sec;					/* security flavors */
-	struct nfs_etype etype;					/* Kerberos session key encryption types to use */
-	uint32_t	maxgrouplist;				/* max AUTH_SYS groups */
-	int		socket_type, socket_family;		/* socket info */
-	uint32_t	nfs_port, mount_port;			/* port info */
-	struct timespec	request_timeout;			/* NFS request timeout */
-	uint32_t	soft_retry_count;			/* soft retrans count */
-	struct timespec	dead_timeout;				/* dead timeout value */
-	fhandle_t	fh;					/* initial file handle */
-	char *		realm;					/* realm of the client. use for setting up kerberos creds */
-	char *		principal;				/* inital GSS pincipal */
-	char *		sprinc;					/* principal of the server */
-	char *		local_nfs_port;				/* unix domain address "port" for nfs protocol */
-	char *		local_mount_port;			/* unix domain address "port" for mount protocol */
-} options;
+struct nfs_options_client options;
 
 /* convenience macro for setting a mount flag to a particular value (on/off) */
 #define SETFLAG(F, V) \
@@ -316,22 +278,6 @@ struct {
 			NFS_BITMAP_CLR(options.mflags, F); \
 	} while (0)
 
-/*
- * NFS file system location structures
- */
-struct nfs_fs_server {
-	struct nfs_fs_server *	ns_next;
-	char *			ns_name;	/* name of server */
-	struct addrinfo *	ns_ailist;	/* list of addresses for server */
-};
-struct nfs_fs_location {
-	struct nfs_fs_location *nl_next;
-	struct nfs_fs_server *	nl_servers;	/* list of server pointers */
-	char *			nl_path;	/* file system path */
-	uint32_t		nl_servcnt;	/* # servers in list */
-};
-
-
 #define AOK	(void *)	// assert alignment is OK
 
 /* function prototypes */
@@ -340,16 +286,12 @@ void		dump_mount_options(struct nfs_fs_location *, char *);
 void		set_krb5_sec_flavor_for_principal(void);
 void		handle_mntopts(char *);
 void		warn_badoptions(char *);
-int		config_read(struct nfs_conf_client *);
 void		config_sysctl(void);
-int		parse_fs_locations(const char *, struct nfs_fs_location **);
 int		getaddresslist(struct nfs_fs_server *);
-void		getaddresslists(struct nfs_fs_location *, int *);
 void		freeaddresslists(struct nfs_fs_location *);
 int		assemble_mount_args(struct nfs_fs_location *, char **);
 void		usage(void);
 int		nfsparsevers(const char *, uint32_t *, uint32_t *);
-int		hexstr2fh(const char *, fhandle_t *);
 char *		fh2hexstr(fhandle_t *);
 enum clnt_stat	ping_rpc_statd(struct sockaddr *);
 void		nfs_err(int, const char *, ...);
@@ -392,10 +334,22 @@ nfs_err(int error, const char *fmt,...)
 	va_end(ap);
 }
 
-int
-main(int argc, char *argv[])
+void
+setup_switches(void)
 {
 	uint i;
+
+	mopts_switches_no = malloc(sizeof(mopts_switches));
+	if (!mopts_switches_no)
+		nfs_err(ENOMEM, "memory allocation failed");
+	bcopy(mopts_switches, mopts_switches_no, sizeof(mopts_switches));
+	for (i=0; i < sizeof(mopts_switches)/sizeof(struct mntopt); i++)
+		mopts_switches_no[i].m_inverse = (mopts_switches[i].m_inverse == 0);
+}
+
+int
+mount_nfs_imp(int argc, char *argv[])
+{
 	int c, error, try, delay, servcnt;
 	uint32_t num;
 	char mntonname[MAXPATHLEN];
@@ -405,15 +359,10 @@ main(int argc, char *argv[])
 	bzero(&options, sizeof(options));
 
 	/* set up mopts_switches_no from mopts_switches */
-	mopts_switches_no = malloc(sizeof(mopts_switches));
-	if (!mopts_switches_no)
-		nfs_err(ENOMEM, "memory allocation failed");
-	bcopy(mopts_switches, mopts_switches_no, sizeof(mopts_switches));
-	for (i=0; i < sizeof(mopts_switches)/sizeof(struct mntopt); i++)
-		mopts_switches_no[i].m_inverse = (mopts_switches[i].m_inverse == 0);
+	setup_switches();
 
 	/* initialize and process options */
-	config_read(&config);
+	config_read(_PATH_NFS_CONF, &config);
 
 	while ((c = getopt(argc, argv, "234a:bcdF:g:I:iLlmo:Pp:R:r:sTt:Uvw:x:z")) != EOF)
 		switch (c) {
@@ -734,6 +683,11 @@ main(int argc, char *argv[])
 		nfs_err(error, "can't mount %s from %s onto %s: %s", nfsl->nl_path, nfsl->nl_servers->ns_name, mntonname, strerror(error));
 
 	exit(error);
+}
+
+int
+main(int argc, char *argv[]) {
+	return mount_nfs_imp(argc, argv);
 }
 
 /*
@@ -1300,7 +1254,7 @@ get_etypes(const char *etypes_orig, struct nfs_etype *etypes)
 		}
 		else if (!strcasecmp("aes256", etype) ||
 			 !strcasecmp("aes256-cts-hmac-sha1", etype) || !strcasecmp("aes256-cts-hmac-sha1-96", etype)) {
-			if (etype_bits & AES128_BIT) {
+			if (etype_bits & AES256_BIT) {
 				warnx("etype aes256-cts-hmac-sha1-96  appears more than once: %s", etype_list);
 				continue;
 			}
@@ -1360,6 +1314,10 @@ handle_mntopts(char *opts)
 	mop = getmntopts(opts, mopts, &options.mntflags, &altflags);
 	if (mop == NULL)
 		nfs_err(EINVAL, "getmntops failed: %s", opts);
+
+	if (options.mntflags) {
+		NFS_BITMAP_SET(options.mattrs, NFS_MATTR_MNTFLAGS);
+	}
 
 	if (altflags & ALTF_ATTRCACHE_VAL) {
 		if ((p2 = getmntoptstr(mop, "actimeo"))) {
@@ -1514,7 +1472,7 @@ handle_mntopts(char *opts)
 					options.socket_type = SOCK_STREAM;
 					options.socket_family = AF_INET;
 				}
-			} else if (!strncasecmp(p2, "udp", 4) || strncasecmp(p2, "udp4", 5)) {
+			} else if (!strncasecmp(p2, "udp", 4) || !strncasecmp(p2, "udp4", 5)) {
 				if (options.local_nfs_port || options.local_mount_port)
 					warnx("netid must be ticotsord or ticlts when specifing local socket ports");
 				else {
@@ -1827,6 +1785,8 @@ handle_mntopts(char *opts)
 		SETFLAG(NFS_MFLAG_NOCALLBACK, 1);
 	if (altflags & ALTF_CONN)
 		SETFLAG(NFS_MFLAG_NOCONNECT, 1);
+	if (altflags & ALTF_NOOPAQUE_AUTH)
+		SETFLAG(NFS_MFLAG_NOOPAQUE_AUTH, 0);
 	if (altflags & ALTF_DUMBTIMR)
 		SETFLAG(NFS_MFLAG_DUMBTIMER, 0);
 	if (altflags & ALTF_HARD)
@@ -1850,7 +1810,7 @@ handle_mntopts(char *opts)
 	if (altflags & ALTF_MUTEJUKEBOX)
 		SETFLAG(NFS_MFLAG_MUTEJUKEBOX, 0);
 	if (altflags & ALTF_NAMEDATTR)
-		SETFLAG(NFS_MFLAG_NAMEDATTR, 1);
+		SETFLAG(NFS_MFLAG_NAMEDATTR, 0);
 	if (altflags & ALTF_NEGNAMECACHE)
 		SETFLAG(NFS_MFLAG_NONEGNAMECACHE, 1);
 	if (altflags & ALTF_NFC)
@@ -1868,6 +1828,9 @@ handle_mntopts(char *opts)
 	if (altflags & ALTF_UDP) /* noudp = tcp */
 		options.socket_type = SOCK_STREAM;
 	freemntopts(mop);
+
+	if (options.socket_type || options.socket_family)
+		NFS_BITMAP_SET(options.mattrs, NFS_MATTR_SOCKET_TYPE);
 
 	warn_badoptions(opts);
 }
@@ -1919,16 +1882,16 @@ warn_badoptions(char *opts)
  * read the NFS client values from nfs.conf
  */
 int
-config_read(struct nfs_conf_client *conf)
+config_read(const char *confpath, struct nfs_conf_client *conf)
 {
 	FILE *f;
 	size_t len, linenum = 0;
 	char *line, *p, *key, *value;
 	long val;
 
-	if (!(f = fopen(_PATH_NFS_CONF, "r"))) {
+	if (!(f = fopen(confpath, "r"))) {
 		if (errno != ENOENT)
-			warn("%s", _PATH_NFS_CONF);
+			warn("%s", confpath);
 		return (1);
 	}
 	for (; (line = fparseln(f, &len, &linenum, NULL, 0)); free(line)) {
@@ -1998,6 +1961,12 @@ config_read(struct nfs_conf_client *conf)
 			if (value) {
 				conf->default_nfs4domain = strndup(value, MAXPATHLEN);
 			}
+		} else if (!strcmp(key, "nfs.client.mount_timeout")) {
+			if (value && val)
+				conf->mount_timeout = (int)val;
+		} else if (!strcmp(key, "nfs.client.mount_quick_timeout")) {
+			if (value && val)
+				conf->mount_quick_timeout = (int)val;
 		} else {
 			if (verbose)
 				printf("ignoring unknown config value: %4ld %s=%s\n", linenum, key, value ? value : "");
@@ -2127,6 +2096,10 @@ config_sysctl(void)
 		sysctl_set("vfs.generic.nfs.client.squishy_flags", config.squishy_flags);
 	if (config.root_steals_gss_context != -1)
 		sysctl_set("vfs.generic.nfs.client.root_steals_gss_context", config.root_steals_gss_context);
+	if (config.mount_timeout != -1)
+		sysctl_set("vfs.generic.nfs.client.mount_timeout", config.mount_timeout);
+	if (config.mount_quick_timeout != -1)
+		sysctl_set("vfs.generic.nfs.client.mount_quick_timeout", config.mount_quick_timeout);
 	if (config.default_nfs4domain != NULL) {
 		sysctlbyname("vfs.generic.nfs.client.default_nfs4domain", NULL, 0, config.default_nfs4domain, strnlen(config.default_nfs4domain, MAXPATHLEN));
 	}
@@ -2776,7 +2749,7 @@ dump_mount_options(struct nfs_fs_location *nfslhead, char *mntonname)
 	if (NFS_BITMAP_ISSET(options.mflags_mask, NFS_MFLAG_RDIRPLUS) || (verbose > 1))
 		printf(",%srdirplus", NFS_BITMAP_ISSET(options.mflags, NFS_MFLAG_RDIRPLUS) ? "" : "no");
 	if (NFS_BITMAP_ISSET(options.mflags_mask, NFS_MFLAG_DUMBTIMER) || (verbose > 1))
-		printf(",%sdumbtimr", NFS_BITMAP_ISSET(options.mflags, NFS_MFLAG_DUMBTIMER) ? "" : "no");
+		printf(",%sdumbtimer", NFS_BITMAP_ISSET(options.mflags, NFS_MFLAG_DUMBTIMER) ? "" : "no");
 	if (NFS_BITMAP_ISSET(options.mattrs, NFS_MATTR_REQUEST_TIMEOUT) || (verbose > 1))
 		printf(",timeo=%ld", NFS_BITMAP_ISSET(options.mattrs, NFS_MATTR_REQUEST_TIMEOUT) ?
 			((options.request_timeout.tv_sec * 10) + (options.request_timeout.tv_nsec % 100000000)) : 10);

@@ -85,29 +85,12 @@
 
     secnotice("octagon", "joining with a voucher: %@", self.voucherData);
 
-    self.finishedOp = [[NSOperation alloc] init];
-    [self dependOnBeforeGroupFinished:self.finishedOp];
+    NSArray<CKKSTLKShare*>* newTLKShares = [metadata getTLKSharesPairedWithVoucher];
 
-    WEAKIFY(self);
-
-    OTFetchCKKSKeysOperation* fetchKeysOp = [[OTFetchCKKSKeysOperation alloc] initWithDependencies:self.deps
-                                                                                     refetchNeeded:NO];
-    // We only care about TLKs that are ready for upload. Don't wait long.
-    fetchKeysOp.desiredTimeout = 2*NSEC_PER_SEC;
-    [self runBeforeGroupFinished:fetchKeysOp];
-
-    CKKSResultOperation* proceedWithKeys = [CKKSResultOperation named:@"vouch-with-keys"
-                                                            withBlock:^{
-                                                                STRONGIFY(self);
-                                                                [self proceedWithKeys:fetchKeysOp.viewKeySets
-                                                                     pendingTLKShares:fetchKeysOp.pendingTLKShares];
-                                                            }];
-
-    [proceedWithKeys addDependency:fetchKeysOp];
-    [self runBeforeGroupFinished:proceedWithKeys];
+    [self proceedWithPendingTLKShares:newTLKShares];
 }
 
-- (void)proceedWithKeys:(NSArray<CKKSKeychainBackedKeySet*>*)viewKeySets pendingTLKShares:(NSArray<CKKSTLKShare*>*)pendingTLKShares
+- (void)proceedWithPendingTLKShares:(NSArray<CKKSTLKShare*>*)pendingTLKShares
 {
     WEAKIFY(self);
 
@@ -126,11 +109,12 @@
         secnotice("octagon-sos", "SOS not enabled; no preapproved keys");
     }
 
+    // We currently don't check if we want to bring up new CKKS views at join time.
     [self.deps.cuttlefishXPCWrapper joinWithContainer:self.deps.containerName
                                               context:self.deps.contextID
                                           voucherData:self.voucherData
                                            voucherSig:self.voucherSig
-                                             ckksKeys:viewKeySets
+                                             ckksKeys:@[]
                                             tlkShares:pendingTLKShares
                                       preapprovedKeys:publicSigningSPKIs
                                                 reply:^(NSString * _Nullable peerID,
@@ -158,7 +142,7 @@
 
                 [[CKKSAnalytics logger] logSuccessForEventNamed:OctagonEventJoinWithVoucher];
 
-                [self.deps.viewManager setCurrentSyncingPolicy:syncingPolicy];
+                [self.deps.ckks setCurrentSyncingPolicy:syncingPolicy];
 
                 NSError* localError = nil;
                 BOOL persisted = [self.deps.stateHolder persistAccountChanges:^OTAccountMetadataClassC * _Nonnull(OTAccountMetadataClassC * _Nonnull metadata) {
@@ -167,8 +151,9 @@
 
                     metadata.voucher = nil;
                     metadata.voucherSignature = nil;
-
+                    [metadata.tlkSharesForVouchedIdentitys removeAllObjects];
                     [metadata setTPSyncingPolicy:syncingPolicy];
+                    
                     return metadata;
                 } error:&localError];
                 if(!persisted || localError) {
@@ -180,11 +165,7 @@
                 }
 
                 // Tell CKKS about our shiny new records!
-                for (id key in self.deps.viewManager.views) {
-                    CKKSKeychainView* view = self.deps.viewManager.views[key];
-                    secnotice("octagon-ckks", "Providing join() records to %@", view);
-                    [view receiveTLKUploadRecords: keyHierarchyRecords];
-                }
+                [self.deps.ckks receiveTLKUploadRecords:keyHierarchyRecords];
             }
             [self runBeforeGroupFinished:self.finishedOp];
         }];

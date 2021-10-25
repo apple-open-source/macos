@@ -36,13 +36,17 @@ NS_ASSUME_NONNULL_BEGIN
 typedef NSString<CKKSFetchBecauseProtocol> CKKSFetchBecause;
 extern CKKSFetchBecause* const CKKSFetchBecauseAPNS;
 extern CKKSFetchBecause* const CKKSFetchBecauseAPIFetchRequest;
+extern CKKSFetchBecause* const CKKSFetchBecauseSEAPIFetchRequest;
+extern CKKSFetchBecause* const CKKSFetchBecauseKeySetFetchRequest;
 extern CKKSFetchBecause* const CKKSFetchBecauseCurrentItemFetchRequest;
 extern CKKSFetchBecause* const CKKSFetchBecauseInitialStart;
-extern CKKSFetchBecause* const CKKSFetchBecauseSecuritydRestart;
 extern CKKSFetchBecause* const CKKSFetchBecausePreviousFetchFailed;
 extern CKKSFetchBecause* const CKKSFetchBecauseKeyHierarchy;
 extern CKKSFetchBecause* const CKKSFetchBecauseTesting;
 extern CKKSFetchBecause* const CKKSFetchBecauseResync;
+extern CKKSFetchBecause* const CKKSFetchBecauseMoreComing;
+extern CKKSFetchBecause* const CKKSFetchBecauseResolvingConflict;
+extern CKKSFetchBecause* const CKKSFetchBecausePeriodicRefetch;
 
 /* Clients that register to use fetches */
 @interface CKKSCloudKitFetchRequest : NSObject
@@ -62,15 +66,16 @@ extern CKKSFetchBecause* const CKKSFetchBecauseResync;
 @class CKKSCloudKitDeletion;
 
 @protocol CKKSChangeFetcherClient <NSObject>
-- (CKRecordZoneID*)zoneID;
-- (BOOL)zoneIsReadyForFetching;
-- (CKKSCloudKitFetchRequest*)participateInFetch;
+- (BOOL)zoneIsReadyForFetching:(CKRecordZoneID*)zoneID;
+- (CKKSCloudKitFetchRequest*)participateInFetch:(CKRecordZoneID*)zoneID;
 
 // Return false if this is a 'fatal' error and you don't want another fetch to be tried
-- (bool)shouldRetryAfterFetchError:(NSError*)error;
+- (bool)shouldRetryAfterFetchError:(NSError*)error
+                            zoneID:(CKRecordZoneID*)zoneID;
 
 - (void)changesFetched:(NSArray<CKRecord*>*)changedRecords
       deletedRecordIDs:(NSArray<CKKSCloudKitDeletion*>*)deleted
+                zoneID:(CKRecordZoneID*)zoneID
         newChangeToken:(CKServerChangeToken*)changeToken
             moreComing:(BOOL)moreComing
                 resync:(BOOL)resync;
@@ -104,7 +109,7 @@ extern CKKSFetchBecause* const CKKSFetchBecauseResync;
 - (instancetype)init NS_UNAVAILABLE;
 - (instancetype)initWithContainer:(CKContainer*)container
                        fetchClass:(Class<CKKSFetchRecordZoneChangesOperation>)fetchRecordZoneChangesOperationClass
-                          clients:(NSArray<id<CKKSChangeFetcherClient>>*)clients
+                        clientMap:(NSDictionary<CKRecordZoneID*, id<CKKSChangeFetcherClient>>*)clientMap
                      fetchReasons:(NSSet<CKKSFetchBecause*>*)fetchReasons
                        apnsPushes:(NSSet<CKRecordZoneNotification*>* _Nullable)apnsPushes
                       forceResync:(bool)forceResync

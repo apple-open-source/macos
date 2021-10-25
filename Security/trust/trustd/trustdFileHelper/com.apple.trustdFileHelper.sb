@@ -35,6 +35,14 @@
 (allow file-write-mode file-write-owner
         (subpath "/private/var/protected/trustd"))
 
+;; Fix permissions on legacy trust settings
+(allow file-read* file-write-mode file-write-owner
+        (subpath "/Library/Security/Trust Settings"))
+
+;; Create and fix permissions on sfanalytics directory
+(allow file-read* file-write*
+        (subpath "/private/var/protected/sfanalytics"))
+
 (allow file-read*
     (literal "/usr/libexec")
     (literal "/usr/libexec/trustdFileHelper")

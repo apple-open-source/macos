@@ -1,0 +1,16 @@
+--- setuptools-41.0.1.orig/setuptools/command/easy_install.py	2021-01-27 08:47:25.000000000 -0800
++++ setuptools-41.0.1/setuptools/command/easy_install.py	2021-01-27 08:49:27.000000000 -0800
+@@ -2042,8 +2042,11 @@
+ 
+     @staticmethod
+     def _render(items):
+-        cmdline = subprocess.list2cmdline(
+-            CommandSpec._strip_quotes(item.strip()) for item in items)
++        if os.environ.get('__INTERNALSDKBUILD__'):
++            cmdline = '@PYEXECUTABLE@'
++        else:
++            cmdline = subprocess.list2cmdline(
++                CommandSpec._strip_quotes(item.strip()) for item in items)
+         return '#!' + cmdline + '\n'
+ 
+ 

@@ -1,4 +1,4 @@
-#! /bin/sh
+#! /bin/bash
 # ylwrap - wrapper for lex/yacc invocations.
 
 scriptversion=2009-04-28.21; # UTC

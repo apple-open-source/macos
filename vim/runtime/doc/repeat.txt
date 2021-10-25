@@ -1,4 +1,4 @@
-*repeat.txt*    For Vim version 8.2.  Last change: 2020 Oct 09
+*repeat.txt*    For Vim version 8.2.  Last change: 2021 Feb 13
 
 
 		  VIM REFERENCE MANUAL    by Bram Moolenaar
@@ -354,6 +354,16 @@ For writing a Vim script, see chapter 41 of the user manual |usr_41.txt|.
 			Vim version, or update Vim to a newer version.  See
 			|vimscript-version| for what changed between versions.
 
+:vim9s[cript] [noclear]				*:vim9s* *:vim9script*
+			Marks a script file as containing |Vim9-script|
+			commands.  Also see |vim9-namespace|.
+			Must be the first command in the file.
+			For [noclear] see |vim9-reload|.
+			Without the |+eval| feature this changes the syntax
+			for some commands.
+			See |:vim9cmd| for executing one command with Vim9
+			syntax and semantics.
+			 
 						*:scr* *:scriptnames*
 :scr[iptnames]		List all sourced script names, in the order they were
 			first sourced.  The number is used for the script ID
@@ -667,9 +677,9 @@ Your directory layout would be like this:
    opt/fooextra/doc/tags  	        " help tags
 
 This allows for the user to do: >
-	mkdir ~/.vim/pack/myfoobar
-	cd ~/.vim/pack/myfoobar
-	git clone https://github.com/you/foobar.git
+	mkdir ~/.vim/pack
+	cd ~/.vim/pack
+	git clone https://github.com/you/foobar.git myfoobar
 
 Here "myfoobar" is a name that the user can choose, the only condition is that
 it differs from other packages.
@@ -869,7 +879,7 @@ DEFINING BREAKPOINTS
 		valid in the script where it has been defined and if that
 		script is called from several other scripts, this will stop
 		whenever that particular variable will become visible or
-		unaccessible again.
+		inaccessible again.
 
 The [lnum] is the line number of the breakpoint.  Vim will stop at or after
 this line.  When omitted line 1 is used.
@@ -891,8 +901,9 @@ matches ".../plugin/explorer.vim", ".../plugin/iexplorer.vim", etc. >
 matches ".../plugin/explorer.vim" and "explorer.vim" in any other directory.
 
 The match for functions is done against the name as it's shown in the output
-of ":function".  For local functions this means that something like "<SNR>99_"
-is prepended.
+of ":function".  However, for local functions the script-specific prefix such
+as "<SNR>99_" is ignored to make it easier to match script-local functions
+without knowing the ID of the script.
 
 Note that functions are first loaded and later executed.  When they are loaded
 the "file" breakpoints are checked, when they are executed the "func"
@@ -947,10 +958,10 @@ OBSCURE
 
 Profiling means that Vim measures the time that is spent on executing
 functions and/or scripts.  The |+profile| feature is required for this.
-It is only included when Vim was compiled with "huge" features.
+It is included when Vim was compiled with "huge" features.
 
 You can also use the |reltime()| function to measure time.  This only requires
-the |+reltime| feature, which is present more often.
+the |+reltime| feature, which is present in more builds.
 
 For profiling syntax highlighting see |:syntime|.
 
@@ -997,7 +1008,12 @@ For example, to profile the one_script.vim script file: >
 
 
 You must always start with a ":profile start fname" command.  The resulting
-file is written when Vim exits.  Here is an example of the output, with line
+file is written when Vim exits.  For example, to profile one specific
+function: >
+	profile start /tmp/vimprofile
+	profile func MyFunc
+
+Here is an example of the output, with line
 numbers prepended for the explanation:
 
   1 FUNCTION  Test2() ~

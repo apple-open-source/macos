@@ -97,22 +97,22 @@
 		0F10646C229460B200795FA1 /* IOHIDUserDevice.h in Headers */ = {isa = PBXBuildFile; fileRef = 0F10646B229460B200795FA1 /* IOHIDUserDevice.h */; };
 		0F37C03C22A81F530057C599 /* IOHIDUserDevice.h in Copy hidsystem Headers */ = {isa = PBXBuildFile; fileRef = 0F10646B229460B200795FA1 /* IOHIDUserDevice.h */; };
 		0F37C03D22A81F660057C599 /* IOHIDUserDevice.h in Copy HIDSystem Headers */ = {isa = PBXBuildFile; fileRef = 0F10646B229460B200795FA1 /* IOHIDUserDevice.h */; };
-		0F47017321668694003E2B9C /* HIDElementIvar.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0F40FBC721667B8700EAEBCA /* HIDElementIvar.h */; };
-		0F4701742166869A003E2B9C /* HIDElementBase.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0F40FBC921667B9900EAEBCA /* HIDElementBase.h */; };
-		0F470175216686A9003E2B9C /* HIDElementIvar.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0F40FBC721667B8700EAEBCA /* HIDElementIvar.h */; };
-		0F470176216686B0003E2B9C /* HIDElementBase.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0F40FBC921667B9900EAEBCA /* HIDElementBase.h */; };
-		0F470177216686B8003E2B9C /* HIDElementBase.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0F40FBC921667B9900EAEBCA /* HIDElementBase.h */; };
-		0F470178216686BF003E2B9C /* HIDElementIvar.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0F40FBC721667B8700EAEBCA /* HIDElementIvar.h */; };
-		0F470179216686C8003E2B9C /* HIDElementBase.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0F40FBC921667B9900EAEBCA /* HIDElementBase.h */; };
-		0F47017A216686CE003E2B9C /* HIDElementIvar.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0F40FBC721667B8700EAEBCA /* HIDElementIvar.h */; };
-		0F8A4D8F2167E4B400A077F2 /* HIDServiceClientBase.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0F8DFBBF2167C9D1009D1ACC /* HIDServiceClientBase.h */; };
-		0F8A4D902167E4B900A077F2 /* HIDServiceClientIvar.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0F8DFBC32167C9EF009D1ACC /* HIDServiceClientIvar.h */; };
-		0F8A4D912167E4C200A077F2 /* HIDServiceClientBase.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0F8DFBBF2167C9D1009D1ACC /* HIDServiceClientBase.h */; };
-		0F8A4D922167E4C800A077F2 /* HIDServiceClientIvar.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0F8DFBC32167C9EF009D1ACC /* HIDServiceClientIvar.h */; };
-		0F8A4D932167E4D500A077F2 /* HIDServiceClientBase.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0F8DFBBF2167C9D1009D1ACC /* HIDServiceClientBase.h */; };
-		0F8A4D942167E4DC00A077F2 /* HIDServiceClientIvar.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0F8DFBC32167C9EF009D1ACC /* HIDServiceClientIvar.h */; };
-		0F8A4D952167E4E700A077F2 /* HIDServiceClientBase.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0F8DFBBF2167C9D1009D1ACC /* HIDServiceClientBase.h */; };
-		0F8A4D962167E4ED00A077F2 /* HIDServiceClientIvar.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0F8DFBC32167C9EF009D1ACC /* HIDServiceClientIvar.h */; };
+		0F47017321668694003E2B9C /* HIDElementIvar.h in Copy HIDObjC Private Headers */ = {isa = PBXBuildFile; fileRef = 0F40FBC721667B8700EAEBCA /* HIDElementIvar.h */; };
+		0F4701742166869A003E2B9C /* HIDElementBase.h in Copy HIDObjC Private Headers */ = {isa = PBXBuildFile; fileRef = 0F40FBC921667B9900EAEBCA /* HIDElementBase.h */; };
+		0F470175216686A9003E2B9C /* HIDElementIvar.h in Copy HIDObjC Private Headers */ = {isa = PBXBuildFile; fileRef = 0F40FBC721667B8700EAEBCA /* HIDElementIvar.h */; };
+		0F470176216686B0003E2B9C /* HIDElementBase.h in Copy HIDObjC Private Headers */ = {isa = PBXBuildFile; fileRef = 0F40FBC921667B9900EAEBCA /* HIDElementBase.h */; };
+		0F470177216686B8003E2B9C /* HIDElementBase.h in Copy HIDObjC Private Headers */ = {isa = PBXBuildFile; fileRef = 0F40FBC921667B9900EAEBCA /* HIDElementBase.h */; };
+		0F470178216686BF003E2B9C /* HIDElementIvar.h in Copy HIDObjC Private Headers */ = {isa = PBXBuildFile; fileRef = 0F40FBC721667B8700EAEBCA /* HIDElementIvar.h */; };
+		0F470179216686C8003E2B9C /* HIDElementBase.h in Copy HIDObjC Private Headers */ = {isa = PBXBuildFile; fileRef = 0F40FBC921667B9900EAEBCA /* HIDElementBase.h */; };
+		0F47017A216686CE003E2B9C /* HIDElementIvar.h in Copy HIDObjC Private Headers */ = {isa = PBXBuildFile; fileRef = 0F40FBC721667B8700EAEBCA /* HIDElementIvar.h */; };
+		0F8A4D8F2167E4B400A077F2 /* HIDServiceClientBase.h in Copy HIDObjC Private Headers */ = {isa = PBXBuildFile; fileRef = 0F8DFBBF2167C9D1009D1ACC /* HIDServiceClientBase.h */; };
+		0F8A4D902167E4B900A077F2 /* HIDServiceClientIvar.h in Copy HIDObjC Private Headers */ = {isa = PBXBuildFile; fileRef = 0F8DFBC32167C9EF009D1ACC /* HIDServiceClientIvar.h */; };
+		0F8A4D912167E4C200A077F2 /* HIDServiceClientBase.h in Copy HIDObjC Private Headers */ = {isa = PBXBuildFile; fileRef = 0F8DFBBF2167C9D1009D1ACC /* HIDServiceClientBase.h */; };
+		0F8A4D922167E4C800A077F2 /* HIDServiceClientIvar.h in Copy HIDObjC Private Headers */ = {isa = PBXBuildFile; fileRef = 0F8DFBC32167C9EF009D1ACC /* HIDServiceClientIvar.h */; };
+		0F8A4D932167E4D500A077F2 /* HIDServiceClientBase.h in Copy HIDObjC Private Headers */ = {isa = PBXBuildFile; fileRef = 0F8DFBBF2167C9D1009D1ACC /* HIDServiceClientBase.h */; };
+		0F8A4D942167E4DC00A077F2 /* HIDServiceClientIvar.h in Copy HIDObjC Private Headers */ = {isa = PBXBuildFile; fileRef = 0F8DFBC32167C9EF009D1ACC /* HIDServiceClientIvar.h */; };
+		0F8A4D952167E4E700A077F2 /* HIDServiceClientBase.h in Copy HIDObjC Private Headers */ = {isa = PBXBuildFile; fileRef = 0F8DFBBF2167C9D1009D1ACC /* HIDServiceClientBase.h */; };
+		0F8A4D962167E4ED00A077F2 /* HIDServiceClientIvar.h in Copy HIDObjC Private Headers */ = {isa = PBXBuildFile; fileRef = 0F8DFBC32167C9EF009D1ACC /* HIDServiceClientIvar.h */; };
 		0F8C514F2139BC9A00B5E85B /* IOHIDServiceClientPrivate.h in Headers */ = {isa = PBXBuildFile; fileRef = 0F8C514E2139BC2A00B5E85B /* IOHIDServiceClientPrivate.h */; };
 		0F8C51502139BC9A00B5E85B /* IOHIDServiceClientPrivate.h in Headers */ = {isa = PBXBuildFile; fileRef = 0F8C514E2139BC2A00B5E85B /* IOHIDServiceClientPrivate.h */; };
 		0F8C51512139BC9B00B5E85B /* IOHIDServiceClientPrivate.h in Headers */ = {isa = PBXBuildFile; fileRef = 0F8C514E2139BC2A00B5E85B /* IOHIDServiceClientPrivate.h */; };
@@ -122,34 +122,34 @@
 		0F8C51562139BCA300B5E85B /* IOHIDElementPrivate.h in Headers */ = {isa = PBXBuildFile; fileRef = 0F8C514D2139BBFC00B5E85B /* IOHIDElementPrivate.h */; };
 		0F8C51572139BCA400B5E85B /* IOHIDElementPrivate.h in Headers */ = {isa = PBXBuildFile; fileRef = 0F8C514D2139BBFC00B5E85B /* IOHIDElementPrivate.h */; };
 		0F8C51582139BCA500B5E85B /* IOHIDElementPrivate.h in Headers */ = {isa = PBXBuildFile; fileRef = 0F8C514D2139BBFC00B5E85B /* IOHIDElementPrivate.h */; };
-		0F971AE221486475000E2B5D /* HIDEventIvar.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0F971AD921486074000E2B5D /* HIDEventIvar.h */; };
-		0F971AE32148647E000E2B5D /* HIDEventBase.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0F971AD721486074000E2B5D /* HIDEventBase.h */; };
-		0F971AE521486B1B000E2B5D /* HIDEventIvar.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0F971AD921486074000E2B5D /* HIDEventIvar.h */; };
-		0F971AE621486B24000E2B5D /* HIDEventBase.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0F971AD721486074000E2B5D /* HIDEventBase.h */; };
-		0F971AE721486B28000E2B5D /* hidobjcbase.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0F971ADA21486074000E2B5D /* hidobjcbase.h */; };
-		0F971AE821486B30000E2B5D /* hidobjcbase.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0F971ADA21486074000E2B5D /* hidobjcbase.h */; };
-		0F971AEA21486B46000E2B5D /* hidobjcbase.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0F971ADA21486074000E2B5D /* hidobjcbase.h */; };
-		0F971AEB21486B4D000E2B5D /* HIDEventBase.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0F971AD721486074000E2B5D /* HIDEventBase.h */; };
-		0F971AEC21486B53000E2B5D /* HIDEventIvar.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0F971AD921486074000E2B5D /* HIDEventIvar.h */; };
-		0F971AEE21486B63000E2B5D /* hidobjcbase.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0F971ADA21486074000E2B5D /* hidobjcbase.h */; };
-		0F971AEF21486B67000E2B5D /* HIDEventBase.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0F971AD721486074000E2B5D /* HIDEventBase.h */; };
-		0F971AF021486B6B000E2B5D /* HIDEventIvar.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0F971AD921486074000E2B5D /* HIDEventIvar.h */; };
-		0F995A162177F52400045795 /* HIDDeviceIvar.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0F995A0E2177EB7400045795 /* HIDDeviceIvar.h */; };
-		0F995A172177F52B00045795 /* HIDDeviceBase.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0F995A102177EB8200045795 /* HIDDeviceBase.h */; };
-		0F995A182177F53500045795 /* HIDDeviceIvar.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0F995A0E2177EB7400045795 /* HIDDeviceIvar.h */; };
-		0F995A192177F53B00045795 /* HIDDeviceBase.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0F995A102177EB8200045795 /* HIDDeviceBase.h */; };
-		0F995A1A2177F54300045795 /* HIDDeviceIvar.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0F995A0E2177EB7400045795 /* HIDDeviceIvar.h */; };
-		0F995A1B2177F54A00045795 /* HIDDeviceBase.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0F995A102177EB8200045795 /* HIDDeviceBase.h */; };
-		0F995A1C2177F55100045795 /* HIDDeviceIvar.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0F995A0E2177EB7400045795 /* HIDDeviceIvar.h */; };
-		0F995A1D2177F55600045795 /* HIDDeviceBase.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0F995A102177EB8200045795 /* HIDDeviceBase.h */; };
-		0FC7842C214F22E000AD8611 /* HIDConnectionIvar.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0FC78425214F1B7000AD8611 /* HIDConnectionIvar.h */; };
-		0FC7842D214F22E700AD8611 /* HIDConnectionBase.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0FC78424214F1B6100AD8611 /* HIDConnectionBase.h */; };
-		0FC7842E214F22F100AD8611 /* HIDConnectionIvar.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0FC78425214F1B7000AD8611 /* HIDConnectionIvar.h */; };
-		0FC7842F214F22F800AD8611 /* HIDConnectionBase.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0FC78424214F1B6100AD8611 /* HIDConnectionBase.h */; };
-		0FC78430214F230300AD8611 /* HIDConnectionIvar.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0FC78425214F1B7000AD8611 /* HIDConnectionIvar.h */; };
-		0FC78431214F230900AD8611 /* HIDConnectionBase.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0FC78424214F1B6100AD8611 /* HIDConnectionBase.h */; };
-		0FC78432214F231200AD8611 /* HIDConnectionIvar.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0FC78425214F1B7000AD8611 /* HIDConnectionIvar.h */; };
-		0FC78433214F231800AD8611 /* HIDConnectionBase.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0FC78424214F1B6100AD8611 /* HIDConnectionBase.h */; };
+		0F971AE221486475000E2B5D /* HIDEventIvar.h in Copy HIDObjC Private Headers */ = {isa = PBXBuildFile; fileRef = 0F971AD921486074000E2B5D /* HIDEventIvar.h */; };
+		0F971AE32148647E000E2B5D /* HIDEventBase.h in Copy HIDObjC Private Headers */ = {isa = PBXBuildFile; fileRef = 0F971AD721486074000E2B5D /* HIDEventBase.h */; };
+		0F971AE521486B1B000E2B5D /* HIDEventIvar.h in Copy HIDObjC Private Headers */ = {isa = PBXBuildFile; fileRef = 0F971AD921486074000E2B5D /* HIDEventIvar.h */; };
+		0F971AE621486B24000E2B5D /* HIDEventBase.h in Copy HIDObjC Private Headers */ = {isa = PBXBuildFile; fileRef = 0F971AD721486074000E2B5D /* HIDEventBase.h */; };
+		0F971AE721486B28000E2B5D /* hidobjcbase.h in Copy HIDObjC Private Headers */ = {isa = PBXBuildFile; fileRef = 0F971ADA21486074000E2B5D /* hidobjcbase.h */; };
+		0F971AE821486B30000E2B5D /* hidobjcbase.h in Copy HIDObjC Private Headers */ = {isa = PBXBuildFile; fileRef = 0F971ADA21486074000E2B5D /* hidobjcbase.h */; };
+		0F971AEA21486B46000E2B5D /* hidobjcbase.h in Copy HIDObjC Private Headers */ = {isa = PBXBuildFile; fileRef = 0F971ADA21486074000E2B5D /* hidobjcbase.h */; };
+		0F971AEB21486B4D000E2B5D /* HIDEventBase.h in Copy HIDObjC Private Headers */ = {isa = PBXBuildFile; fileRef = 0F971AD721486074000E2B5D /* HIDEventBase.h */; };
+		0F971AEC21486B53000E2B5D /* HIDEventIvar.h in Copy HIDObjC Private Headers */ = {isa = PBXBuildFile; fileRef = 0F971AD921486074000E2B5D /* HIDEventIvar.h */; };
+		0F971AEE21486B63000E2B5D /* hidobjcbase.h in Copy HIDObjC Private Headers */ = {isa = PBXBuildFile; fileRef = 0F971ADA21486074000E2B5D /* hidobjcbase.h */; };
+		0F971AEF21486B67000E2B5D /* HIDEventBase.h in Copy HIDObjC Private Headers */ = {isa = PBXBuildFile; fileRef = 0F971AD721486074000E2B5D /* HIDEventBase.h */; };
+		0F971AF021486B6B000E2B5D /* HIDEventIvar.h in Copy HIDObjC Private Headers */ = {isa = PBXBuildFile; fileRef = 0F971AD921486074000E2B5D /* HIDEventIvar.h */; };
+		0F995A162177F52400045795 /* HIDDeviceIvar.h in Copy HIDObjC Private Headers */ = {isa = PBXBuildFile; fileRef = 0F995A0E2177EB7400045795 /* HIDDeviceIvar.h */; };
+		0F995A172177F52B00045795 /* HIDDeviceBase.h in Copy HIDObjC Private Headers */ = {isa = PBXBuildFile; fileRef = 0F995A102177EB8200045795 /* HIDDeviceBase.h */; };
+		0F995A182177F53500045795 /* HIDDeviceIvar.h in Copy HIDObjC Private Headers */ = {isa = PBXBuildFile; fileRef = 0F995A0E2177EB7400045795 /* HIDDeviceIvar.h */; };
+		0F995A192177F53B00045795 /* HIDDeviceBase.h in Copy HIDObjC Private Headers */ = {isa = PBXBuildFile; fileRef = 0F995A102177EB8200045795 /* HIDDeviceBase.h */; };
+		0F995A1A2177F54300045795 /* HIDDeviceIvar.h in Copy HIDObjC Private Headers */ = {isa = PBXBuildFile; fileRef = 0F995A0E2177EB7400045795 /* HIDDeviceIvar.h */; };
+		0F995A1B2177F54A00045795 /* HIDDeviceBase.h in Copy HIDObjC Private Headers */ = {isa = PBXBuildFile; fileRef = 0F995A102177EB8200045795 /* HIDDeviceBase.h */; };
+		0F995A1C2177F55100045795 /* HIDDeviceIvar.h in Copy HIDObjC Private Headers */ = {isa = PBXBuildFile; fileRef = 0F995A0E2177EB7400045795 /* HIDDeviceIvar.h */; };
+		0F995A1D2177F55600045795 /* HIDDeviceBase.h in Copy HIDObjC Private Headers */ = {isa = PBXBuildFile; fileRef = 0F995A102177EB8200045795 /* HIDDeviceBase.h */; };
+		0FC7842C214F22E000AD8611 /* HIDConnectionIvar.h in Copy HIDObjC Private Headers */ = {isa = PBXBuildFile; fileRef = 0FC78425214F1B7000AD8611 /* HIDConnectionIvar.h */; };
+		0FC7842D214F22E700AD8611 /* HIDConnectionBase.h in Copy HIDObjC Private Headers */ = {isa = PBXBuildFile; fileRef = 0FC78424214F1B6100AD8611 /* HIDConnectionBase.h */; };
+		0FC7842E214F22F100AD8611 /* HIDConnectionIvar.h in Copy HIDObjC Private Headers */ = {isa = PBXBuildFile; fileRef = 0FC78425214F1B7000AD8611 /* HIDConnectionIvar.h */; };
+		0FC7842F214F22F800AD8611 /* HIDConnectionBase.h in Copy HIDObjC Private Headers */ = {isa = PBXBuildFile; fileRef = 0FC78424214F1B6100AD8611 /* HIDConnectionBase.h */; };
+		0FC78430214F230300AD8611 /* HIDConnectionIvar.h in Copy HIDObjC Private Headers */ = {isa = PBXBuildFile; fileRef = 0FC78425214F1B7000AD8611 /* HIDConnectionIvar.h */; };
+		0FC78431214F230900AD8611 /* HIDConnectionBase.h in Copy HIDObjC Private Headers */ = {isa = PBXBuildFile; fileRef = 0FC78424214F1B6100AD8611 /* HIDConnectionBase.h */; };
+		0FC78432214F231200AD8611 /* HIDConnectionIvar.h in Copy HIDObjC Private Headers */ = {isa = PBXBuildFile; fileRef = 0FC78425214F1B7000AD8611 /* HIDConnectionIvar.h */; };
+		0FC78433214F231800AD8611 /* HIDConnectionBase.h in Copy HIDObjC Private Headers */ = {isa = PBXBuildFile; fileRef = 0FC78424214F1B6100AD8611 /* HIDConnectionBase.h */; };
 		0FEF2BEE225D269500C4081D /* IOHIDEventServiceKeys_Private.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0FEF2BE1225D260400C4081D /* IOHIDEventServiceKeys_Private.h */; };
 		0FEF2BEF225D269500C4081D /* IOHIDDeviceKeys.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0FEF2BE0225D260400C4081D /* IOHIDDeviceKeys.h */; };
 		0FEF2BF0225D269500C4081D /* IOHIDDeviceTypes.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0FEF2BDF225D260400C4081D /* IOHIDDeviceTypes.h */; };
@@ -428,22 +428,22 @@
 		3FF08625165AC62000BD1467 /* main.c in Sources */ = {isa = PBXBuildFile; fileRef = 3FF08610165AC58000BD1467 /* main.c */; };
 		4254C71212806ECF000EB18F /* IOUserEthernetController.c in Sources */ = {isa = PBXBuildFile; fileRef = 84EC17950EF71A0700885282 /* IOUserEthernetController.c */; };
 		4254C753128070BF000EB18F /* IOUserEthernetController.h in Copy Files N */ = {isa = PBXBuildFile; fileRef = 84EC17930EF719FF00885282 /* IOUserEthernetController.h */; };
-		4838A120214AFCE200C2E1D8 /* HIDServiceIvar.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 48CCDDD4214AF543006EF5BB /* HIDServiceIvar.h */; };
-		4838A121214AFCE900C2E1D8 /* HIDServiceBase.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 48CCDDD3214AF51E006EF5BB /* HIDServiceBase.h */; };
-		4838A122214AFCF300C2E1D8 /* HIDServiceBase.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 48CCDDD3214AF51E006EF5BB /* HIDServiceBase.h */; };
-		4838A123214AFCF800C2E1D8 /* HIDServiceIvar.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 48CCDDD4214AF543006EF5BB /* HIDServiceIvar.h */; };
-		4838A124214AFD0200C2E1D8 /* HIDServiceBase.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 48CCDDD3214AF51E006EF5BB /* HIDServiceBase.h */; };
-		4838A125214AFD0B00C2E1D8 /* HIDServiceIvar.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 48CCDDD4214AF543006EF5BB /* HIDServiceIvar.h */; };
-		4838A126214AFD1400C2E1D8 /* HIDServiceBase.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 48CCDDD3214AF51E006EF5BB /* HIDServiceBase.h */; };
-		4838A127214AFD1C00C2E1D8 /* HIDServiceIvar.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 48CCDDD4214AF543006EF5BB /* HIDServiceIvar.h */; };
-		4838A13A214B22DA00C2E1D8 /* HIDSessionBase.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4838A130214B1F1100C2E1D8 /* HIDSessionBase.h */; };
-		4838A13B214B22DE00C2E1D8 /* HIDSessionIvar.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4838A132214B1F2000C2E1D8 /* HIDSessionIvar.h */; };
-		4838A13C214B22E800C2E1D8 /* HIDSessionBase.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4838A130214B1F1100C2E1D8 /* HIDSessionBase.h */; };
-		4838A13D214B22F100C2E1D8 /* HIDSessionIvar.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4838A132214B1F2000C2E1D8 /* HIDSessionIvar.h */; };
-		4838A13E214B22FC00C2E1D8 /* HIDSessionBase.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4838A130214B1F1100C2E1D8 /* HIDSessionBase.h */; };
-		4838A13F214B230400C2E1D8 /* HIDSessionIvar.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4838A132214B1F2000C2E1D8 /* HIDSessionIvar.h */; };
-		4838A140214B230D00C2E1D8 /* HIDSessionBase.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4838A130214B1F1100C2E1D8 /* HIDSessionBase.h */; };
-		4838A141214B231400C2E1D8 /* HIDSessionIvar.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4838A132214B1F2000C2E1D8 /* HIDSessionIvar.h */; };
+		4838A120214AFCE200C2E1D8 /* HIDServiceIvar.h in Copy HIDObjC Private Headers */ = {isa = PBXBuildFile; fileRef = 48CCDDD4214AF543006EF5BB /* HIDServiceIvar.h */; };
+		4838A121214AFCE900C2E1D8 /* HIDServiceBase.h in Copy HIDObjC Private Headers */ = {isa = PBXBuildFile; fileRef = 48CCDDD3214AF51E006EF5BB /* HIDServiceBase.h */; };
+		4838A122214AFCF300C2E1D8 /* HIDServiceBase.h in Copy HIDObjC Private Headers */ = {isa = PBXBuildFile; fileRef = 48CCDDD3214AF51E006EF5BB /* HIDServiceBase.h */; };
+		4838A123214AFCF800C2E1D8 /* HIDServiceIvar.h in Copy HIDObjC Private Headers */ = {isa = PBXBuildFile; fileRef = 48CCDDD4214AF543006EF5BB /* HIDServiceIvar.h */; };
+		4838A124214AFD0200C2E1D8 /* HIDServiceBase.h in Copy HIDObjC Private Headers */ = {isa = PBXBuildFile; fileRef = 48CCDDD3214AF51E006EF5BB /* HIDServiceBase.h */; };
+		4838A125214AFD0B00C2E1D8 /* HIDServiceIvar.h in Copy HIDObjC Private Headers */ = {isa = PBXBuildFile; fileRef = 48CCDDD4214AF543006EF5BB /* HIDServiceIvar.h */; };
+		4838A126214AFD1400C2E1D8 /* HIDServiceBase.h in Copy HIDObjC Private Headers */ = {isa = PBXBuildFile; fileRef = 48CCDDD3214AF51E006EF5BB /* HIDServiceBase.h */; };
+		4838A127214AFD1C00C2E1D8 /* HIDServiceIvar.h in Copy HIDObjC Private Headers */ = {isa = PBXBuildFile; fileRef = 48CCDDD4214AF543006EF5BB /* HIDServiceIvar.h */; };
+		4838A13A214B22DA00C2E1D8 /* HIDSessionBase.h in Copy HIDObjC Private Headers */ = {isa = PBXBuildFile; fileRef = 4838A130214B1F1100C2E1D8 /* HIDSessionBase.h */; };
+		4838A13B214B22DE00C2E1D8 /* HIDSessionIvar.h in Copy HIDObjC Private Headers */ = {isa = PBXBuildFile; fileRef = 4838A132214B1F2000C2E1D8 /* HIDSessionIvar.h */; };
+		4838A13C214B22E800C2E1D8 /* HIDSessionBase.h in Copy HIDObjC Private Headers */ = {isa = PBXBuildFile; fileRef = 4838A130214B1F1100C2E1D8 /* HIDSessionBase.h */; };
+		4838A13D214B22F100C2E1D8 /* HIDSessionIvar.h in Copy HIDObjC Private Headers */ = {isa = PBXBuildFile; fileRef = 4838A132214B1F2000C2E1D8 /* HIDSessionIvar.h */; };
+		4838A13E214B22FC00C2E1D8 /* HIDSessionBase.h in Copy HIDObjC Private Headers */ = {isa = PBXBuildFile; fileRef = 4838A130214B1F1100C2E1D8 /* HIDSessionBase.h */; };
+		4838A13F214B230400C2E1D8 /* HIDSessionIvar.h in Copy HIDObjC Private Headers */ = {isa = PBXBuildFile; fileRef = 4838A132214B1F2000C2E1D8 /* HIDSessionIvar.h */; };
+		4838A140214B230D00C2E1D8 /* HIDSessionBase.h in Copy HIDObjC Private Headers */ = {isa = PBXBuildFile; fileRef = 4838A130214B1F1100C2E1D8 /* HIDSessionBase.h */; };
+		4838A141214B231400C2E1D8 /* HIDSessionIvar.h in Copy HIDObjC Private Headers */ = {isa = PBXBuildFile; fileRef = 4838A132214B1F2000C2E1D8 /* HIDSessionIvar.h */; };
 		48438B9A1CEBB0F20067C8C2 /* IOHIDProperties.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 48438B991CEBB0940067C8C2 /* IOHIDProperties.h */; };
 		48438B9B1CEBB1020067C8C2 /* IOHIDProperties.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 48438B981CEBB08C0067C8C2 /* IOHIDProperties.h */; };
 		48438B9C1CEBB1050067C8C2 /* IOHIDProperties.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 48438B981CEBB08C0067C8C2 /* IOHIDProperties.h */; };
@@ -1285,6 +1285,10 @@
 		DA3CE2A40D46AF6B009749E9 /* IOUSBDeviceControllerLib.c in Sources */ = {isa = PBXBuildFile; fileRef = DA3CE2A20D46AF6B009749E9 /* IOUSBDeviceControllerLib.c */; };
 		DA3CE2A50D46AF6B009749E9 /* IOUSBDeviceControllerLib.h in Headers */ = {isa = PBXBuildFile; fileRef = DA3CE2A30D46AF6B009749E9 /* IOUSBDeviceControllerLib.h */; };
 		DA3CE2B10D46B10E009749E9 /* IOUSBDeviceControllerLib.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = DA3CE2A30D46AF6B009749E9 /* IOUSBDeviceControllerLib.h */; };
+		DD963A0825F2B318000E9FD0 /* IOMapTypes.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = DD963A0725F2B275000E9FD0 /* IOMapTypes.h */; };
+		DD963A0925F2B32F000E9FD0 /* IOMapTypes.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = DD963A0625F2B12D000E9FD0 /* IOMapTypes.h */; };
+		DD963A0A25F2B339000E9FD0 /* IOMapTypes.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = DD963A0625F2B12D000E9FD0 /* IOMapTypes.h */; };
+		DD963A0B25F2B342000E9FD0 /* IOMapTypes.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = DD963A0625F2B12D000E9FD0 /* IOMapTypes.h */; };
 		E1AF601A07B40A70007EADEA /* IOCFSerialize.c in Sources */ = {isa = PBXBuildFile; fileRef = E1AF601907B40A70007EADEA /* IOCFSerialize.c */; settings = {ATTRIBUTES = (); }; };
 		E1AF601C07B40A70007EADEA /* IOCFUnserialize.tab.c in Sources */ = {isa = PBXBuildFile; fileRef = E1AF601B07B40A70007EADEA /* IOCFUnserialize.tab.c */; settings = {ATTRIBUTES = (); }; };
 		E1AF601E07B40A70007EADEA /* IOKitLib.c in Sources */ = {isa = PBXBuildFile; fileRef = E1AF601D07B40A70007EADEA /* IOKitLib.c */; settings = {ATTRIBUTES = (); }; };
@@ -1489,100 +1493,104 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		0F971AE121486458000E2B5D /* CopyFiles */ = {
+		0F971AE121486458000E2B5D /* Copy HIDObjC Private Headers */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
 			dstPath = "Versions/$(FRAMEWORK_VERSION)/PrivateHeaders/hidobjc";
 			dstSubfolderSpec = 1;
 			files = (
-				0F995A1D2177F55600045795 /* HIDDeviceBase.h in CopyFiles */,
-				0F995A1C2177F55100045795 /* HIDDeviceIvar.h in CopyFiles */,
-				0F8A4D962167E4ED00A077F2 /* HIDServiceClientIvar.h in CopyFiles */,
-				0F8A4D952167E4E700A077F2 /* HIDServiceClientBase.h in CopyFiles */,
-				0F47017A216686CE003E2B9C /* HIDElementIvar.h in CopyFiles */,
-				0F470179216686C8003E2B9C /* HIDElementBase.h in CopyFiles */,
-				0FC78433214F231800AD8611 /* HIDConnectionBase.h in CopyFiles */,
-				0FC78432214F231200AD8611 /* HIDConnectionIvar.h in CopyFiles */,
-				4838A141214B231400C2E1D8 /* HIDSessionIvar.h in CopyFiles */,
-				4838A140214B230D00C2E1D8 /* HIDSessionBase.h in CopyFiles */,
-				4838A127214AFD1C00C2E1D8 /* HIDServiceIvar.h in CopyFiles */,
-				4838A126214AFD1400C2E1D8 /* HIDServiceBase.h in CopyFiles */,
-				0F971AE821486B30000E2B5D /* hidobjcbase.h in CopyFiles */,
-				0F971AE32148647E000E2B5D /* HIDEventBase.h in CopyFiles */,
-				0F971AE221486475000E2B5D /* HIDEventIvar.h in CopyFiles */,
+				0F995A1D2177F55600045795 /* HIDDeviceBase.h in Copy HIDObjC Private Headers */,
+				0F995A1C2177F55100045795 /* HIDDeviceIvar.h in Copy HIDObjC Private Headers */,
+				0F8A4D962167E4ED00A077F2 /* HIDServiceClientIvar.h in Copy HIDObjC Private Headers */,
+				0F8A4D952167E4E700A077F2 /* HIDServiceClientBase.h in Copy HIDObjC Private Headers */,
+				0F47017A216686CE003E2B9C /* HIDElementIvar.h in Copy HIDObjC Private Headers */,
+				0F470179216686C8003E2B9C /* HIDElementBase.h in Copy HIDObjC Private Headers */,
+				0FC78433214F231800AD8611 /* HIDConnectionBase.h in Copy HIDObjC Private Headers */,
+				0FC78432214F231200AD8611 /* HIDConnectionIvar.h in Copy HIDObjC Private Headers */,
+				4838A141214B231400C2E1D8 /* HIDSessionIvar.h in Copy HIDObjC Private Headers */,
+				4838A140214B230D00C2E1D8 /* HIDSessionBase.h in Copy HIDObjC Private Headers */,
+				4838A127214AFD1C00C2E1D8 /* HIDServiceIvar.h in Copy HIDObjC Private Headers */,
+				4838A126214AFD1400C2E1D8 /* HIDServiceBase.h in Copy HIDObjC Private Headers */,
+				0F971AE821486B30000E2B5D /* hidobjcbase.h in Copy HIDObjC Private Headers */,
+				0F971AE32148647E000E2B5D /* HIDEventBase.h in Copy HIDObjC Private Headers */,
+				0F971AE221486475000E2B5D /* HIDEventIvar.h in Copy HIDObjC Private Headers */,
 			);
+			name = "Copy HIDObjC Private Headers";
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		0F971AE421486B0E000E2B5D /* CopyFiles */ = {
+		0F971AE421486B0E000E2B5D /* Copy HIDObjC Private Headers */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
 			dstPath = "Versions/$(FRAMEWORK_VERSION)/PrivateHeaders/hidobjc";
 			dstSubfolderSpec = 1;
 			files = (
-				0F995A1B2177F54A00045795 /* HIDDeviceBase.h in CopyFiles */,
-				0F995A1A2177F54300045795 /* HIDDeviceIvar.h in CopyFiles */,
-				0F8A4D942167E4DC00A077F2 /* HIDServiceClientIvar.h in CopyFiles */,
-				0F8A4D932167E4D500A077F2 /* HIDServiceClientBase.h in CopyFiles */,
-				0F470178216686BF003E2B9C /* HIDElementIvar.h in CopyFiles */,
-				0F470177216686B8003E2B9C /* HIDElementBase.h in CopyFiles */,
-				0FC78431214F230900AD8611 /* HIDConnectionBase.h in CopyFiles */,
-				0FC78430214F230300AD8611 /* HIDConnectionIvar.h in CopyFiles */,
-				4838A13F214B230400C2E1D8 /* HIDSessionIvar.h in CopyFiles */,
-				4838A13E214B22FC00C2E1D8 /* HIDSessionBase.h in CopyFiles */,
-				4838A125214AFD0B00C2E1D8 /* HIDServiceIvar.h in CopyFiles */,
-				4838A124214AFD0200C2E1D8 /* HIDServiceBase.h in CopyFiles */,
-				0F971AE721486B28000E2B5D /* hidobjcbase.h in CopyFiles */,
-				0F971AE621486B24000E2B5D /* HIDEventBase.h in CopyFiles */,
-				0F971AE521486B1B000E2B5D /* HIDEventIvar.h in CopyFiles */,
+				0F995A1B2177F54A00045795 /* HIDDeviceBase.h in Copy HIDObjC Private Headers */,
+				0F995A1A2177F54300045795 /* HIDDeviceIvar.h in Copy HIDObjC Private Headers */,
+				0F8A4D942167E4DC00A077F2 /* HIDServiceClientIvar.h in Copy HIDObjC Private Headers */,
+				0F8A4D932167E4D500A077F2 /* HIDServiceClientBase.h in Copy HIDObjC Private Headers */,
+				0F470178216686BF003E2B9C /* HIDElementIvar.h in Copy HIDObjC Private Headers */,
+				0F470177216686B8003E2B9C /* HIDElementBase.h in Copy HIDObjC Private Headers */,
+				0FC78431214F230900AD8611 /* HIDConnectionBase.h in Copy HIDObjC Private Headers */,
+				0FC78430214F230300AD8611 /* HIDConnectionIvar.h in Copy HIDObjC Private Headers */,
+				4838A13F214B230400C2E1D8 /* HIDSessionIvar.h in Copy HIDObjC Private Headers */,
+				4838A13E214B22FC00C2E1D8 /* HIDSessionBase.h in Copy HIDObjC Private Headers */,
+				4838A125214AFD0B00C2E1D8 /* HIDServiceIvar.h in Copy HIDObjC Private Headers */,
+				4838A124214AFD0200C2E1D8 /* HIDServiceBase.h in Copy HIDObjC Private Headers */,
+				0F971AE721486B28000E2B5D /* hidobjcbase.h in Copy HIDObjC Private Headers */,
+				0F971AE621486B24000E2B5D /* HIDEventBase.h in Copy HIDObjC Private Headers */,
+				0F971AE521486B1B000E2B5D /* HIDEventIvar.h in Copy HIDObjC Private Headers */,
 			);
+			name = "Copy HIDObjC Private Headers";
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		0F971AE921486B39000E2B5D /* CopyFiles */ = {
+		0F971AE921486B39000E2B5D /* Copy HIDObjC Private Headers */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
 			dstPath = "Versions/$(FRAMEWORK_VERSION)/PrivateHeaders/hidobjc";
 			dstSubfolderSpec = 1;
 			files = (
-				0F995A192177F53B00045795 /* HIDDeviceBase.h in CopyFiles */,
-				0F995A182177F53500045795 /* HIDDeviceIvar.h in CopyFiles */,
-				0F8A4D922167E4C800A077F2 /* HIDServiceClientIvar.h in CopyFiles */,
-				0F8A4D912167E4C200A077F2 /* HIDServiceClientBase.h in CopyFiles */,
-				0F470176216686B0003E2B9C /* HIDElementBase.h in CopyFiles */,
-				0F470175216686A9003E2B9C /* HIDElementIvar.h in CopyFiles */,
-				0FC7842F214F22F800AD8611 /* HIDConnectionBase.h in CopyFiles */,
-				0FC7842E214F22F100AD8611 /* HIDConnectionIvar.h in CopyFiles */,
-				4838A13D214B22F100C2E1D8 /* HIDSessionIvar.h in CopyFiles */,
-				4838A13C214B22E800C2E1D8 /* HIDSessionBase.h in CopyFiles */,
-				4838A123214AFCF800C2E1D8 /* HIDServiceIvar.h in CopyFiles */,
-				4838A122214AFCF300C2E1D8 /* HIDServiceBase.h in CopyFiles */,
-				0F971AEC21486B53000E2B5D /* HIDEventIvar.h in CopyFiles */,
-				0F971AEB21486B4D000E2B5D /* HIDEventBase.h in CopyFiles */,
-				0F971AEA21486B46000E2B5D /* hidobjcbase.h in CopyFiles */,
+				0F995A192177F53B00045795 /* HIDDeviceBase.h in Copy HIDObjC Private Headers */,
+				0F995A182177F53500045795 /* HIDDeviceIvar.h in Copy HIDObjC Private Headers */,
+				0F8A4D922167E4C800A077F2 /* HIDServiceClientIvar.h in Copy HIDObjC Private Headers */,
+				0F8A4D912167E4C200A077F2 /* HIDServiceClientBase.h in Copy HIDObjC Private Headers */,
+				0F470176216686B0003E2B9C /* HIDElementBase.h in Copy HIDObjC Private Headers */,
+				0F470175216686A9003E2B9C /* HIDElementIvar.h in Copy HIDObjC Private Headers */,
+				0FC7842F214F22F800AD8611 /* HIDConnectionBase.h in Copy HIDObjC Private Headers */,
+				0FC7842E214F22F100AD8611 /* HIDConnectionIvar.h in Copy HIDObjC Private Headers */,
+				4838A13D214B22F100C2E1D8 /* HIDSessionIvar.h in Copy HIDObjC Private Headers */,
+				4838A13C214B22E800C2E1D8 /* HIDSessionBase.h in Copy HIDObjC Private Headers */,
+				4838A123214AFCF800C2E1D8 /* HIDServiceIvar.h in Copy HIDObjC Private Headers */,
+				4838A122214AFCF300C2E1D8 /* HIDServiceBase.h in Copy HIDObjC Private Headers */,
+				0F971AEC21486B53000E2B5D /* HIDEventIvar.h in Copy HIDObjC Private Headers */,
+				0F971AEB21486B4D000E2B5D /* HIDEventBase.h in Copy HIDObjC Private Headers */,
+				0F971AEA21486B46000E2B5D /* hidobjcbase.h in Copy HIDObjC Private Headers */,
 			);
+			name = "Copy HIDObjC Private Headers";
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		0F971AED21486B58000E2B5D /* CopyFiles */ = {
+		0F971AED21486B58000E2B5D /* Copy HIDObjC Private Headers */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
 			dstPath = "Versions/$(FRAMEWORK_VERSION)/PrivateHeaders/hidobjc";
 			dstSubfolderSpec = 1;
 			files = (
-				0F995A172177F52B00045795 /* HIDDeviceBase.h in CopyFiles */,
-				0F995A162177F52400045795 /* HIDDeviceIvar.h in CopyFiles */,
-				0F8A4D902167E4B900A077F2 /* HIDServiceClientIvar.h in CopyFiles */,
-				0F8A4D8F2167E4B400A077F2 /* HIDServiceClientBase.h in CopyFiles */,
-				0F4701742166869A003E2B9C /* HIDElementBase.h in CopyFiles */,
-				0F47017321668694003E2B9C /* HIDElementIvar.h in CopyFiles */,
-				0FC7842D214F22E700AD8611 /* HIDConnectionBase.h in CopyFiles */,
-				0FC7842C214F22E000AD8611 /* HIDConnectionIvar.h in CopyFiles */,
-				4838A13B214B22DE00C2E1D8 /* HIDSessionIvar.h in CopyFiles */,
-				4838A13A214B22DA00C2E1D8 /* HIDSessionBase.h in CopyFiles */,
-				4838A121214AFCE900C2E1D8 /* HIDServiceBase.h in CopyFiles */,
-				4838A120214AFCE200C2E1D8 /* HIDServiceIvar.h in CopyFiles */,
-				0F971AF021486B6B000E2B5D /* HIDEventIvar.h in CopyFiles */,
-				0F971AEF21486B67000E2B5D /* HIDEventBase.h in CopyFiles */,
-				0F971AEE21486B63000E2B5D /* hidobjcbase.h in CopyFiles */,
+				0F995A172177F52B00045795 /* HIDDeviceBase.h in Copy HIDObjC Private Headers */,
+				0F995A162177F52400045795 /* HIDDeviceIvar.h in Copy HIDObjC Private Headers */,
+				0F8A4D902167E4B900A077F2 /* HIDServiceClientIvar.h in Copy HIDObjC Private Headers */,
+				0F8A4D8F2167E4B400A077F2 /* HIDServiceClientBase.h in Copy HIDObjC Private Headers */,
+				0F4701742166869A003E2B9C /* HIDElementBase.h in Copy HIDObjC Private Headers */,
+				0F47017321668694003E2B9C /* HIDElementIvar.h in Copy HIDObjC Private Headers */,
+				0FC7842D214F22E700AD8611 /* HIDConnectionBase.h in Copy HIDObjC Private Headers */,
+				0FC7842C214F22E000AD8611 /* HIDConnectionIvar.h in Copy HIDObjC Private Headers */,
+				4838A13B214B22DE00C2E1D8 /* HIDSessionIvar.h in Copy HIDObjC Private Headers */,
+				4838A13A214B22DA00C2E1D8 /* HIDSessionBase.h in Copy HIDObjC Private Headers */,
+				4838A121214AFCE900C2E1D8 /* HIDServiceBase.h in Copy HIDObjC Private Headers */,
+				4838A120214AFCE200C2E1D8 /* HIDServiceIvar.h in Copy HIDObjC Private Headers */,
+				0F971AF021486B6B000E2B5D /* HIDEventIvar.h in Copy HIDObjC Private Headers */,
+				0F971AEF21486B67000E2B5D /* HIDEventBase.h in Copy HIDObjC Private Headers */,
+				0F971AEE21486B63000E2B5D /* hidobjcbase.h in Copy HIDObjC Private Headers */,
 			);
+			name = "Copy HIDObjC Private Headers";
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		10830CE00F5DDF8200937E9E /* CopyFiles */ = {
@@ -1826,6 +1834,7 @@
 			dstPath = include/IOKit;
 			dstSubfolderSpec = 16;
 			files = (
+				DD963A0925F2B32F000E9FD0 /* IOMapTypes.h in CopyFiles */,
 				843E66B41B4DA2AC0098D555 /* IOKitKeysPrivate.h in CopyFiles */,
 				3F73AF8B1649D4B10021F107 /* IOBSD.h in CopyFiles */,
 				3F73AF8C1649D4B10021F107 /* IODataQueueShared.h in CopyFiles */,
@@ -2150,6 +2159,7 @@
 			dstPath = include/IOKit;
 			dstSubfolderSpec = 16;
 			files = (
+				DD963A0825F2B318000E9FD0 /* IOMapTypes.h in CopyFiles */,
 				72385420087F2EEE00B36ABB /* IOBSD.h in CopyFiles */,
 				72385421087F2EEE00B36ABB /* IODataQueueShared.h in CopyFiles */,
 				72385422087F2EEE00B36ABB /* IOKitKeys.h in CopyFiles */,
@@ -2302,6 +2312,7 @@
 			dstPath = include/IOKit;
 			dstSubfolderSpec = 16;
 			files = (
+				DD963A0A25F2B339000E9FD0 /* IOMapTypes.h in CopyFiles */,
 				843E66B21B4DA2530098D555 /* IOKitKeysPrivate.h in CopyFiles */,
 				8420537F0CFE585600C2EF0D /* IOBSD.h in CopyFiles */,
 				842053800CFE585600C2EF0D /* IODataQueueShared.h in CopyFiles */,
@@ -2866,6 +2877,7 @@
 			dstPath = include/IOKit;
 			dstSubfolderSpec = 16;
 			files = (
+				DD963A0B25F2B342000E9FD0 /* IOMapTypes.h in CopyFiles */,
 				843E66B31B4DA29F0098D555 /* IOKitKeysPrivate.h in CopyFiles */,
 				848E733D150688A4006AE483 /* IOBSD.h in CopyFiles */,
 				848E733E150688A4006AE483 /* IODataQueueShared.h in CopyFiles */,
@@ -3381,6 +3393,8 @@
 		8421FC450F3219EF00F49609 /* IOMIGMachPort.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IOMIGMachPort.h; sourceTree = "<group>"; };
 		8421FC470F321A0A00F49609 /* IOMIGMachPort.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = IOMIGMachPort.c; sourceTree = "<group>"; };
 		842DF47E16A850E5005BD008 /* IOHIDServicePrivate.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = IOHIDServicePrivate.h; sourceTree = "<group>"; };
+		843B3E4225D1EF720088A088 /* IOKit-iOS.modulemap */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.module-map"; path = "IOKit-iOS.modulemap"; sourceTree = "<group>"; };
+		843B3E4325D1EF730088A088 /* IOKit-iOSSimulator.modulemap */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.module-map"; path = "IOKit-iOSSimulator.modulemap"; sourceTree = "<group>"; };
 		843C1FED0C0790410009057F /* IOHIDEvent.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = IOHIDEvent.c; sourceTree = "<group>"; };
 		843C1FEE0C0790410009057F /* IOHIDEvent.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOHIDEvent.h; sourceTree = "<group>"; };
 		843C1FF80C0792DB0009057F /* IOHIDServicePlugIn.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOHIDServicePlugIn.h; sourceTree = "<group>"; };
@@ -3431,6 +3445,8 @@
 		847A12560C07C3A400F3CCDB /* IOHIDSession.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOHIDSession.h; sourceTree = "<group>"; };
 		847A12570C07C3A400F3CCDB /* IOHIDTypes.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOHIDTypes.h; sourceTree = "<group>"; };
 		8483D7BD1742AC390052EA97 /* IODataQueueClientPrivate.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = IODataQueueClientPrivate.h; sourceTree = "<group>"; };
+		8488C3BE25CB9E6200956DF1 /* IOKit.private.modulemap */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.module-map"; path = IOKit.private.modulemap; sourceTree = "<group>"; };
+		8488C3BF25CB9E6200956DF1 /* IOKit.modulemap */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.module-map"; path = IOKit.modulemap; sourceTree = "<group>"; };
 		848E733915068444006AE483 /* IOKit.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = IOKit.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		8491B45F145B48E100DD2767 /* EDID.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = EDID.h; path = System/Library/Frameworks/IOKit.framework/Versions/A/PrivateHeaders/audio_video/EDID.h; sourceTree = SDKROOT; };
 		8491B460145B48E100DD2767 /* IOAV.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = IOAV.h; path = System/Library/Frameworks/IOKit.framework/Versions/A/PrivateHeaders/audio_video/IOAV.h; sourceTree = SDKROOT; };
@@ -3497,8 +3513,10 @@
 		84E02A170E8784A400850EED /* IOHIDUserDevice.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IOHIDUserDevice.h; sourceTree = "<group>"; };
 		84E22FB91542367E009448C3 /* IOUSBDeviceController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IOUSBDeviceController.h; sourceTree = "<group>"; };
 		84E22FBC1542384A009448C3 /* IOUSBDeviceController.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = IOUSBDeviceController.c; sourceTree = "<group>"; };
+		84E5E3FC2605C64300D12F66 /* IOKit-iOS.private.modulemap */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.module-map"; path = "IOKit-iOS.private.modulemap"; sourceTree = "<group>"; };
 		84EC17930EF719FF00885282 /* IOUserEthernetController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IOUserEthernetController.h; sourceTree = "<group>"; };
 		84EC17950EF71A0700885282 /* IOUserEthernetController.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = IOUserEthernetController.c; sourceTree = "<group>"; };
+		84F1201325D35FEB00ED58A4 /* IOKit-Embedded.modulemap */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.module-map"; path = "IOKit-Embedded.modulemap"; sourceTree = "<group>"; };
 		84F70BC70EF0E5AF00FF9E99 /* IOUserEthernetResourceUserClient.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = IOUserEthernetResourceUserClient.h; path = System/Library/Frameworks/IOKit.framework/Versions/A/PrivateHeaders/network/IOUserEthernetResourceUserClient.h; sourceTree = SDKROOT; };
 		84FF284A1363799000A37B4B /* IODPController.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = IODPController.c; sourceTree = "<group>"; };
 		84FF284B1363799000A37B4B /* IODPController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IODPController.h; sourceTree = "<group>"; };
@@ -3539,6 +3557,8 @@
 		DA3CE2A20D46AF6B009749E9 /* IOUSBDeviceControllerLib.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = IOUSBDeviceControllerLib.c; sourceTree = "<group>"; };
 		DA3CE2A30D46AF6B009749E9 /* IOUSBDeviceControllerLib.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IOUSBDeviceControllerLib.h; sourceTree = "<group>"; };
 		DD4F73622388809B00FC292A /* ioserviceauthorized.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = ioserviceauthorized.entitlements; sourceTree = "<group>"; };
+		DD963A0625F2B12D000E9FD0 /* IOMapTypes.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = IOMapTypes.h; path = "$(SDKROOT)/System/Library/Frameworks/IOKit.framework/Versions/A/Headers/IOMapTypes.h"; sourceTree = "<absolute>"; };
+		DD963A0725F2B275000E9FD0 /* IOMapTypes.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = IOMapTypes.h; path = System/Library/Frameworks/IOKit.framework/Versions/A/Headers/IOMapTypes.h; sourceTree = SDKROOT; };
 		E1AF600107B40A70007EADEA /* IOKit.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = IOKit.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		E1AF600607B40A70007EADEA /* IOCFSerialize.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = IOCFSerialize.h; sourceTree = "<group>"; };
 		E1AF600807B40A70007EADEA /* IOCFUnserialize.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = IOCFUnserialize.h; sourceTree = "<group>"; };
@@ -4056,6 +4076,7 @@
 				723853EE087F2CC800B36ABB /* IOReturn.h */,
 				723853EF087F2CC800B36ABB /* IOSharedLock.h */,
 				723853F0087F2CC800B36ABB /* IOTypes.h */,
+				DD963A0725F2B275000E9FD0 /* IOMapTypes.h */,
 				723853F1087F2CC800B36ABB /* OSMessageNotification.h */,
 				723853F2087F2CD500B36ABB /* IOPM.h */,
 				724B4F3C0EF720E2008787DE /* IOPMPrivate.h */,
@@ -4111,6 +4132,7 @@
 				842053540CFE547A00C2EF0D /* IOMessage.h */,
 				842053550CFE547A00C2EF0D /* IOReturn.h */,
 				842053560CFE547A00C2EF0D /* IOSharedLock.h */,
+				DD963A0625F2B12D000E9FD0 /* IOMapTypes.h */,
 				842053570CFE547A00C2EF0D /* IOTypes.h */,
 				842053580CFE547A00C2EF0D /* OSMessageNotification.h */,
 				842053590CFE548E00C2EF0D /* IOPM.h */,
@@ -4329,6 +4351,19 @@
 				E1AF605F07B40A71007EADEA /* usb */,
 			);
 			name = Legacy;
+			sourceTree = "<group>";
+		};
+		8488C3BD25CB9E4900956DF1 /* Modules */ = {
+			isa = PBXGroup;
+			children = (
+				8488C3BF25CB9E6200956DF1 /* IOKit.modulemap */,
+				8488C3BE25CB9E6200956DF1 /* IOKit.private.modulemap */,
+				843B3E4225D1EF720088A088 /* IOKit-iOS.modulemap */,
+				84F1201325D35FEB00ED58A4 /* IOKit-Embedded.modulemap */,
+				843B3E4325D1EF730088A088 /* IOKit-iOSSimulator.modulemap */,
+				84E5E3FC2605C64300D12F66 /* IOKit-iOS.private.modulemap */,
+			);
+			path = Modules;
 			sourceTree = "<group>";
 		};
 		8491B42E145B413800DD2767 /* External Frameworks and Libraries */ = {
@@ -4564,6 +4599,7 @@
 				E1AF604807B40A71007EADEA /* pwr_mgt */,
 				84801A0C1601014300AF1470 /* Legacy */,
 				84CA38B213EA449600CFFC08 /* Embedded */,
+				8488C3BD25CB9E4900956DF1 /* Modules */,
 				E1AF600307B40A70007EADEA /* Headers */,
 				E1AF601807B40A70007EADEA /* Other Sources */,
 				3E4B57BB07B4564600F76970 /* Mig .def files */,
@@ -5367,7 +5403,6 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 3F116DEE1638DFAD001C6A14 /* Build configuration list for PBXNativeTarget "IOKit-iOSSimulator" */;
 			buildPhases = (
-				3F116D0B1638DFAD001C6A14 /* Create Symlinks for Embedded Product */,
 				3F116D0C1638DFAD001C6A14 /* CopyFiles */,
 				3F116D0E1638DFAD001C6A14 /* CopyFiles */,
 				3F116D111638DFAD001C6A14 /* CopyFiles */,
@@ -5382,10 +5417,10 @@
 				3F116D461638DFAD001C6A14 /* CopyFiles */,
 				3F116D5E1638DFAD001C6A14 /* Copy Files */,
 				3F116D601638DFAD001C6A14 /* Headers */,
+				0F971AE921486B39000E2B5D /* Copy HIDObjC Private Headers */,
 				3F116D9E1638DFAD001C6A14 /* Sources */,
 				3F116DE51638DFAD001C6A14 /* Frameworks */,
 				3F116DED1638DFAD001C6A14 /* ShellScript */,
-				0F971AE921486B39000E2B5D /* CopyFiles */,
 			);
 			buildRules = (
 			);
@@ -5457,7 +5492,6 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 8472D52D0CFA100A003111DE /* Build configuration list for PBXNativeTarget "IOKit-Embedded" */;
 			buildPhases = (
-				10BB67E30F5CC10700D026A8 /* Create Symlinks for Embedded Product */,
 				8472D47C0CFA100A003111DE /* CopyFiles */,
 				8472D4830CFA100A003111DE /* Copy hidsystem Headers */,
 				8472D4860CFA100A003111DE /* Copy Private HID Headers */,
@@ -5475,10 +5509,10 @@
 				84246CD813E7471A0085D3F9 /* CopyFiles */,
 				8472D4B90CFA100A003111DE /* Copy Files */,
 				8472D4BB0CFA100A003111DE /* Headers */,
+				0F971AE421486B0E000E2B5D /* Copy HIDObjC Private Headers */,
 				8472D4E10CFA100A003111DE /* Sources */,
 				8472D5250CFA100A003111DE /* Frameworks */,
 				8472D52B0CFA100A003111DE /* ShellScript */,
-				0F971AE421486B0E000E2B5D /* CopyFiles */,
 			);
 			buildRules = (
 			);
@@ -5496,7 +5530,6 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 848E733415068444006AE483 /* Build configuration list for PBXNativeTarget "IOKit-Embedded-eOS" */;
 			buildPhases = (
-				848E725915068444006AE483 /* Create Symlinks for Embedded Product */,
 				48684E0E1D25C7D800CC1067 /* CopyFiles */,
 				848E725F15068444006AE483 /* CopyFiles */,
 				848E727015068444006AE483 /* CopyFiles */,
@@ -5513,10 +5546,10 @@
 				848E72A315068444006AE483 /* CopyFiles */,
 				848E72A815068444006AE483 /* Copy Files */,
 				848E72AA15068444006AE483 /* Headers */,
+				0F971AE121486458000E2B5D /* Copy HIDObjC Private Headers */,
 				848E72E615068444006AE483 /* Sources */,
 				848E732B15068444006AE483 /* Frameworks */,
 				848E733315068444006AE483 /* ShellScript */,
-				0F971AE121486458000E2B5D /* CopyFiles */,
 			);
 			buildRules = (
 			);
@@ -5574,6 +5607,7 @@
 				F344727D1EA69DD300B97729 /* Copy Files P */,
 				F34472871EA69E3400B97729 /* Copy Files Q */,
 				72F0C081086C88AC00C78B91 /* Headers */,
+				0F971AED21486B58000E2B5D /* Copy HIDObjC Private Headers */,
 				E1AF5FFC07B40A70007EADEA /* Sources */,
 				0C19EED50C8F8971002B0FB4 /* ShellScript */,
 				E1AF5FFD07B40A70007EADEA /* Resources */,
@@ -5581,7 +5615,6 @@
 				E1AF5FFF07B40A70007EADEA /* Rez */,
 				2D76BD2308DD0F83009A41B5 /* ShellScript */,
 				603D2FBC18D9FFEA00A15FF1 /* Embed XPC Services */,
-				0F971AED21486B58000E2B5D /* CopyFiles */,
 				7227668D21669AC50019278D /* CopyFiles */,
 			);
 			buildRules = (
@@ -5719,20 +5752,6 @@
 			shellPath = /bin/sh;
 			shellScript = "# 345678901234567890123456789012345678901234567890123456789012345678901234567890\n\n# only way I could figure out how to get the generated header describing the\n# routines compiled into the framemwork to be installed in PrivateHeaders/kext\n\nset -x\n\nif [ -e \"${SCRIPT_INPUT_FILE_0}\" ] ; then\n    cp \"${SCRIPT_INPUT_FILE_0}\" \"${SCRIPT_OUTPUT_FILE_0}\"\nelif [ -e \"${DERIVED_FILE_DIR}/kextmanager_mig.h\" ] ; then\n    cp \"${SCRIPT_INPUT_FILE_1}\" \"${SCRIPT_OUTPUT_FILE_0}\"\nelse\n    echo \"Can't find derived MIG header\"\n    exit 1\nfi\n\n";
 		};
-		10BB67E30F5CC10700D026A8 /* Create Symlinks for Embedded Product */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputPaths = (
-			);
-			name = "Create Symlinks for Embedded Product";
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "# When building for Aspen, we still build IOKit.framework as a deep framework, so we need to create the necessary symlinks by hand.\nif [ \\( \"${PLATFORM_NAME}\" = \"iphoneos\" -o \"${PLATFORM_NAME}\" = \"tvos\"  -o \"${PLATFORM_NAME}\" = \"appletvos\" -o \"${PLATFORM_NAME}\" = \"watchos\" -o \"${PLATFORM_NAME}\" = \"bridgeos\" \\) -a \\( \"${CONFIGURATION}\" = \"Development-Embedded\" -o \"${CONFIGURATION}\" = \"Deployment-Embedded\" \\) ]\nthen\n\techo \"cd \\\"${TARGET_BUILD_DIR}/${FULL_PRODUCT_NAME}\\\"\"\n\tcd \"${TARGET_BUILD_DIR}/${FULL_PRODUCT_NAME}\"\n\tfor filename in Headers PrivateHeaders \"${EXECUTABLE_NAME}\"\n\tdo\n\t\techo \"/bin/ln -sF \\\"Versions/${FRAMEWORK_VERSION}/${filename}\\\" \\\"${filename}\\\"\"\n\t\t/bin/ln -sF \"Versions/${FRAMEWORK_VERSION}/${filename}\" \"${filename}\"\n\tdone\n    echo \"/bin/ln -sF \\\"${FRAMEWORK_VERSION}\\\" \\\"Versions/Current\\\"\"\n    /bin/ln -sF \"${FRAMEWORK_VERSION}\" \"Versions/Current\"\nfi\nexit 0\n";
-		};
 		2D76BD2308DD0F83009A41B5 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 8;
@@ -5768,20 +5787,6 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = "/bin/bash DeviceMIG.sh";
 			shellScript = "# Type a script or drag a script file from your workspace to insert its path.\n";
-		};
-		3F116D0B1638DFAD001C6A14 /* Create Symlinks for Embedded Product */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputPaths = (
-			);
-			name = "Create Symlinks for Embedded Product";
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "# When building for Aspen, we still build IOKit.framework as a deep framework, so we need to create the necessary symlinks by hand.\necho \"cd \\\"${TARGET_BUILD_DIR}/${FULL_PRODUCT_NAME}\\\"\"\ncd \"${TARGET_BUILD_DIR}/${FULL_PRODUCT_NAME}\"\nfor filename in Headers PrivateHeaders \"${EXECUTABLE_NAME}\"\ndo\n    echo \"/bin/ln -sF \\\"Versions/${FRAMEWORK_VERSION}/${filename}\\\" \\\"${filename}\\\"\"\n    /bin/ln -sF \"Versions/${FRAMEWORK_VERSION}/${filename}\" \"${filename}\"\ndone\necho \"/bin/ln -sF \\\"${FRAMEWORK_VERSION}\\\" \\\"Versions/Current\\\"\"\n/bin/ln -sF \"${FRAMEWORK_VERSION}\" \"Versions/Current\"\nexit 0\n";
 		};
 		3F116DED1638DFAD001C6A14 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -5843,20 +5848,6 @@
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = "/bin/bash DeviceMIG.sh install";
 			shellScript = "";
-		};
-		848E725915068444006AE483 /* Create Symlinks for Embedded Product */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputPaths = (
-			);
-			name = "Create Symlinks for Embedded Product";
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "# When building for Aspen, we still build IOKit.framework as a deep framework, so we need to create the necessary symlinks by hand.\nif [ \\( \"${PLATFORM_NAME}\" = \"iphoneos\" -o \"${PLATFORM_NAME}\" = \"yola\" -o \"${PLATFORM_NAME}\" = \"iphoneosnano\" \\) -a \\( \"${CONFIGURATION}\" = \"Development-Embedded\" -o \"${CONFIGURATION}\" = \"Deployment-Embedded\" \\) ]\nthen\n\techo \"cd \\\"${TARGET_BUILD_DIR}/${FULL_PRODUCT_NAME}\\\"\"\n\tcd \"${TARGET_BUILD_DIR}/${FULL_PRODUCT_NAME}\"\n\tfor filename in Headers PrivateHeaders \"${EXECUTABLE_NAME}\"\n\tdo\n\t\techo \"/bin/ln -sF \\\"Versions/${FRAMEWORK_VERSION}/${filename}\\\" \\\"${filename}\\\"\"\n\t\t/bin/ln -sF \"Versions/${FRAMEWORK_VERSION}/${filename}\" \"${filename}\"\n\tdone\n    echo \"/bin/ln -sF \\\"${FRAMEWORK_VERSION}\\\" \\\"Versions/Current\\\"\"\n    /bin/ln -sF \"${FRAMEWORK_VERSION}\" \"Versions/Current\"\nfi\nexit 0\n";
 		};
 		848E733315068444006AE483 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -7397,7 +7388,8 @@
 				CLANG_LINK_OBJC_RUNTIME = NO;
 				CODE_SIGN_IDENTITY = "-";
 				COMBINE_HIDPI_IMAGES = YES;
-				CONTENTS_FOLDER_PATH = IOKit.framework/Versions/A;
+				CONTENTS_FOLDER_PATH = "$(VERSIONS_FOLDER_PATH)/$(FRAMEWORK_VERSION)";
+				DEFINES_MODULE = YES;
 				DYLIB_COMPATIBILITY_VERSION = 1.0.0;
 				DYLIB_CURRENT_VERSION = 275.0.0;
 				FRAMEWORK_SEARCH_PATHS = (
@@ -7414,6 +7406,8 @@
 					"$(SRCROOT)/usr/local/lib",
 					"$(SDKROOT)/usr/lib",
 				);
+				MODULEMAP_FILE = "$(SRCROOT)/Modules/IOKit-iOSSimulator.modulemap";
+				MODULEMAP_PRIVATE_FILE = "$(SRCROOT)/Modules/IOKit-iOS.private.modulemap";
 				OTHER_CFLAGS = (
 					"-DIOKIT_EMBEDDED",
 					"$(OTHER_CFLAGS)",
@@ -7434,7 +7428,10 @@
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = IOKit;
 				SECTORDER_FLAGS = "";
+				SHALLOW_BUNDLE = NO;
+				UNLOCALIZED_RESOURCES_FOLDER_PATH = "$(CONTENTS_FOLDER_PATH)/Resources";
 				VALID_ARCHS = "ppc64 ppc7400 ppc970 i386 x86_64 arm armv6 ppc";
+				VERSIONS_FOLDER_PATH = "$(WRAPPER_NAME)/Versions";
 			};
 			name = Deployment;
 		};
@@ -7445,7 +7442,8 @@
 				CLANG_LINK_OBJC_RUNTIME = NO;
 				CODE_SIGN_IDENTITY = "-";
 				COMBINE_HIDPI_IMAGES = YES;
-				CONTENTS_FOLDER_PATH = IOKit.framework/Versions/A;
+				CONTENTS_FOLDER_PATH = "$(VERSIONS_FOLDER_PATH)/$(FRAMEWORK_VERSION)";
+				DEFINES_MODULE = YES;
 				DYLIB_COMPATIBILITY_VERSION = 1.0.0;
 				DYLIB_CURRENT_VERSION = 275.0.0;
 				FRAMEWORK_SEARCH_PATHS = (
@@ -7462,6 +7460,8 @@
 					"$(SRCROOT)/usr/local/lib",
 					"$(SDKROOT)/usr/lib",
 				);
+				MODULEMAP_FILE = "$(SRCROOT)/Modules/IOKit-iOSSimulator.modulemap";
+				MODULEMAP_PRIVATE_FILE = "$(SRCROOT)/Modules/IOKit-iOS.private.modulemap";
 				OTHER_CFLAGS = (
 					"-DIOKIT_EMBEDDED",
 					"$(OTHER_CFLAGS)",
@@ -7482,7 +7482,10 @@
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = IOKit;
 				SECTORDER_FLAGS = "";
+				SHALLOW_BUNDLE = NO;
+				UNLOCALIZED_RESOURCES_FOLDER_PATH = "$(CONTENTS_FOLDER_PATH)/Resources";
 				VALID_ARCHS = "ppc64 ppc7400 ppc970 i386 x86_64 arm armv6 ppc arm64";
+				VERSIONS_FOLDER_PATH = "$(WRAPPER_NAME)/Versions";
 			};
 			name = Development;
 		};
@@ -7493,7 +7496,8 @@
 				CLANG_LINK_OBJC_RUNTIME = NO;
 				CODE_SIGN_IDENTITY = "-";
 				COMBINE_HIDPI_IMAGES = YES;
-				CONTENTS_FOLDER_PATH = IOKit.framework/Versions/A;
+				CONTENTS_FOLDER_PATH = "$(VERSIONS_FOLDER_PATH)/$(FRAMEWORK_VERSION)";
+				DEFINES_MODULE = YES;
 				DYLIB_COMPATIBILITY_VERSION = 1.0.0;
 				DYLIB_CURRENT_VERSION = 275.0.0;
 				FRAMEWORK_SEARCH_PATHS = (
@@ -7511,6 +7515,8 @@
 					"$(SRCROOT)/usr/local/lib",
 					"$(SDKROOT)/usr/lib\"",
 				);
+				MODULEMAP_FILE = "$(SRCROOT)/Modules/IOKit-iOSSimulator.modulemap";
+				MODULEMAP_PRIVATE_FILE = "$(SRCROOT)/Modules/IOKit-iOS.private.modulemap";
 				OTHER_CFLAGS = (
 					"-DIOKIT_EMBEDDED",
 					"$(OTHER_CFLAGS)",
@@ -7527,6 +7533,9 @@
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = IOKit;
 				SECTORDER_FLAGS = "";
+				SHALLOW_BUNDLE = NO;
+				UNLOCALIZED_RESOURCES_FOLDER_PATH = "$(CONTENTS_FOLDER_PATH)/Resources";
+				VERSIONS_FOLDER_PATH = "$(WRAPPER_NAME)/Versions";
 			};
 			name = "Deployment-Embedded";
 		};
@@ -7537,7 +7546,8 @@
 				CLANG_LINK_OBJC_RUNTIME = NO;
 				CODE_SIGN_IDENTITY = "-";
 				COMBINE_HIDPI_IMAGES = YES;
-				CONTENTS_FOLDER_PATH = IOKit.framework/Versions/A;
+				CONTENTS_FOLDER_PATH = "$(VERSIONS_FOLDER_PATH)/$(FRAMEWORK_VERSION)";
+				DEFINES_MODULE = YES;
 				DYLIB_COMPATIBILITY_VERSION = 1.0.0;
 				DYLIB_CURRENT_VERSION = 275.0.0;
 				FRAMEWORK_SEARCH_PATHS = (
@@ -7555,6 +7565,8 @@
 					"$(SRCROOT)/usr/local/lib",
 					"$(SDKROOT)/usr/lib",
 				);
+				MODULEMAP_FILE = "$(SRCROOT)/Modules/IOKit-iOSSimulator.modulemap";
+				MODULEMAP_PRIVATE_FILE = "$(SRCROOT)/Modules/IOKit-iOS.private.modulemap";
 				OTHER_CFLAGS = (
 					"-DIOKIT_EMBEDDED",
 					"$(OTHER_CFLAGS)",
@@ -7571,6 +7583,9 @@
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = IOKit;
 				SECTORDER_FLAGS = "";
+				SHALLOW_BUNDLE = NO;
+				UNLOCALIZED_RESOURCES_FOLDER_PATH = "$(CONTENTS_FOLDER_PATH)/Resources";
+				VERSIONS_FOLDER_PATH = "$(WRAPPER_NAME)/Versions";
 			};
 			name = "Development-Embedded";
 		};
@@ -7931,6 +7946,7 @@
 				CLANG_LINK_OBJC_RUNTIME = NO;
 				CODE_SIGN_IDENTITY = "-";
 				COMBINE_HIDPI_IMAGES = YES;
+				DEFINES_MODULE = YES;
 				DYLIB_COMPATIBILITY_VERSION = 1.0.0;
 				DYLIB_CURRENT_VERSION = 275.0.0;
 				FRAMEWORK_SEARCH_PATHS = (
@@ -7947,6 +7963,9 @@
 					"\"$(SRCROOT)/usr/local/lib\"",
 					"\"$(SDKROOT)/usr/lib\"",
 				);
+				"MODULEMAP_FILE[sdk=*]" = "$(SRCROOT)/Modules/IOKit-Embedded.modulemap";
+				"MODULEMAP_FILE[sdk=iphoneos*]" = "$(SRCROOT)/Modules/IOKit-iOS.modulemap";
+				MODULEMAP_PRIVATE_FILE = "$(SRCROOT)/Modules/IOKit-iOS.private.modulemap";
 				OTHER_CFLAGS = (
 					"$(OTHER_CFLAGS)",
 					"-DAPPLE",
@@ -8105,6 +8124,7 @@
 				CLANG_LINK_OBJC_RUNTIME = NO;
 				CODE_SIGN_IDENTITY = "-";
 				COMBINE_HIDPI_IMAGES = YES;
+				DEFINES_MODULE = YES;
 				DYLIB_COMPATIBILITY_VERSION = 1.0.0;
 				DYLIB_CURRENT_VERSION = 275.0.0;
 				FRAMEWORK_SEARCH_PATHS = (
@@ -8121,6 +8141,9 @@
 					"\"$(SRCROOT)/usr/local/lib\"",
 					"\"$(SDKROOT)/usr/lib\"",
 				);
+				"MODULEMAP_FILE[sdk=*]" = "$(SRCROOT)/Modules/IOKit-Embedded.modulemap";
+				"MODULEMAP_FILE[sdk=iphoneos*]" = "$(SRCROOT)/Modules/IOKit-iOS.modulemap";
+				MODULEMAP_PRIVATE_FILE = "$(SRCROOT)/Modules/IOKit-iOS.private.modulemap";
 				OTHER_CFLAGS = (
 					"$(OTHER_CFLAGS)",
 					"-DAPPLE",
@@ -8148,7 +8171,8 @@
 				CLANG_LINK_OBJC_RUNTIME = NO;
 				CODE_SIGN_IDENTITY = "-";
 				COMBINE_HIDPI_IMAGES = YES;
-				CONTENTS_FOLDER_PATH = IOKit.framework/Versions/A;
+				CONTENTS_FOLDER_PATH = "$(VERSIONS_FOLDER_PATH)/$(FRAMEWORK_VERSION)";
+				DEFINES_MODULE = YES;
 				DYLIB_COMPATIBILITY_VERSION = 1.0.0;
 				DYLIB_CURRENT_VERSION = 275.0.0;
 				FRAMEWORK_SEARCH_PATHS = (
@@ -8166,6 +8190,9 @@
 					"\"$(SRCROOT)/usr/local/lib\"",
 					"\"$(SDKROOT)/usr/lib\"",
 				);
+				"MODULEMAP_FILE[sdk=*]" = "$(SRCROOT)/Modules/IOKit-Embedded.modulemap";
+				"MODULEMAP_FILE[sdk=iphoneos*]" = "$(SRCROOT)/Modules/IOKit-iOS.modulemap";
+				MODULEMAP_PRIVATE_FILE = "$(SRCROOT)/Modules/IOKit-iOS.private.modulemap";
 				OTHER_CFLAGS = (
 					"-DIOKIT_EMBEDDED",
 					"$(OTHER_CFLAGS)",
@@ -8182,6 +8209,9 @@
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = IOKit;
 				SECTORDER_FLAGS = "";
+				SHALLOW_BUNDLE = NO;
+				UNLOCALIZED_RESOURCES_FOLDER_PATH = "$(CONTENTS_FOLDER_PATH)/Resources";
+				VERSIONS_FOLDER_PATH = "$(WRAPPER_NAME)/Versions";
 			};
 			name = "Deployment-Embedded";
 		};
@@ -8191,7 +8221,8 @@
 				CLANG_LINK_OBJC_RUNTIME = NO;
 				CODE_SIGN_IDENTITY = "-";
 				COMBINE_HIDPI_IMAGES = YES;
-				CONTENTS_FOLDER_PATH = IOKit.framework/Versions/A;
+				CONTENTS_FOLDER_PATH = "$(VERSIONS_FOLDER_PATH)/$(FRAMEWORK_VERSION)";
+				DEFINES_MODULE = YES;
 				DYLIB_COMPATIBILITY_VERSION = 1.0.0;
 				DYLIB_CURRENT_VERSION = 275.0.0;
 				FRAMEWORK_SEARCH_PATHS = (
@@ -8209,6 +8240,9 @@
 					"\"$(SRCROOT)/usr/local/lib\"",
 					"\"$(SDKROOT)/usr/lib\"",
 				);
+				"MODULEMAP_FILE[sdk=*]" = "$(SRCROOT)/Modules/IOKit-Embedded.modulemap";
+				"MODULEMAP_FILE[sdk=iphoneos*]" = "$(SRCROOT)/Modules/IOKit-iOS.modulemap";
+				MODULEMAP_PRIVATE_FILE = "$(SRCROOT)/Modules/IOKit-iOS.private.modulemap";
 				OTHER_CFLAGS = (
 					"-DIOKIT_EMBEDDED",
 					"$(OTHER_CFLAGS)",
@@ -8225,6 +8259,9 @@
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = IOKit;
 				SECTORDER_FLAGS = "";
+				SHALLOW_BUNDLE = NO;
+				UNLOCALIZED_RESOURCES_FOLDER_PATH = "$(CONTENTS_FOLDER_PATH)/Resources";
+				VERSIONS_FOLDER_PATH = "$(WRAPPER_NAME)/Versions";
 			};
 			name = "Development-Embedded";
 		};
@@ -8233,6 +8270,7 @@
 			buildSettings = {
 				CODE_SIGN_IDENTITY = "-";
 				COMBINE_HIDPI_IMAGES = YES;
+				DEFINES_MODULE = YES;
 				DYLIB_COMPATIBILITY_VERSION = 1.0.0;
 				DYLIB_CURRENT_VERSION = 275.0.0;
 				FRAMEWORK_SEARCH_PATHS = (
@@ -8249,6 +8287,8 @@
 					"\"$(SRCROOT)/usr/local/lib\"",
 					"\"$(SDKROOT)/usr/lib\"",
 				);
+				MODULEMAP_FILE = "$(SRCROOT)/Modules/IOKit-Embedded.modulemap";
+				MODULEMAP_PRIVATE_FILE = "$(SRCROOT)/Modules/IOKit-iOS.private.modulemap";
 				OTHER_CFLAGS = (
 					"$(OTHER_CFLAGS)",
 					"-DAPPLE",
@@ -8273,6 +8313,7 @@
 			buildSettings = {
 				CODE_SIGN_IDENTITY = "-";
 				COMBINE_HIDPI_IMAGES = YES;
+				DEFINES_MODULE = YES;
 				DYLIB_COMPATIBILITY_VERSION = 1.0.0;
 				DYLIB_CURRENT_VERSION = 275.0.0;
 				FRAMEWORK_SEARCH_PATHS = (
@@ -8290,6 +8331,8 @@
 					"\"$(SRCROOT)/usr/local/lib\"",
 					"\"$(SDKROOT)/usr/lib\"",
 				);
+				MODULEMAP_FILE = "$(SRCROOT)/Modules/IOKit-Embedded.modulemap";
+				MODULEMAP_PRIVATE_FILE = "$(SRCROOT)/Modules/IOKit-iOS.private.modulemap";
 				OTHER_CFLAGS = (
 					"$(OTHER_CFLAGS)",
 					"-DAPPLE",
@@ -8314,7 +8357,8 @@
 			buildSettings = {
 				CODE_SIGN_IDENTITY = "-";
 				COMBINE_HIDPI_IMAGES = YES;
-				CONTENTS_FOLDER_PATH = IOKit.framework/Versions/A;
+				CONTENTS_FOLDER_PATH = "$(VERSIONS_FOLDER_PATH)/$(FRAMEWORK_VERSION)";
+				DEFINES_MODULE = YES;
 				DYLIB_COMPATIBILITY_VERSION = 1.0.0;
 				DYLIB_CURRENT_VERSION = 275.0.0;
 				FRAMEWORK_SEARCH_PATHS = (
@@ -8333,6 +8377,8 @@
 					"\"$(SRCROOT)/usr/local/lib\"",
 					"\"$(SDKROOT)/usr/lib\"",
 				);
+				MODULEMAP_FILE = "$(SRCROOT)/Modules/IOKit-Embedded.modulemap";
+				MODULEMAP_PRIVATE_FILE = "$(SRCROOT)/Modules/IOKit-iOS.private.modulemap";
 				OTHER_CFLAGS = (
 					"-DIOKIT_EMBEDDED",
 					"$(OTHER_CFLAGS)",
@@ -8348,6 +8394,9 @@
 				OTHER_MIGFLAGS = "-DIOKIT -DNO_SECURITY_FRAMEWORK";
 				OTHER_REZFLAGS = "";
 				SECTORDER_FLAGS = "";
+				SHALLOW_BUNDLE = NO;
+				UNLOCALIZED_RESOURCES_FOLDER_PATH = "$(CONTENTS_FOLDER_PATH)/Resources";
+				VERSIONS_FOLDER_PATH = "$(WRAPPER_NAME)/Versions";
 			};
 			name = "Deployment-Embedded";
 		};
@@ -8356,7 +8405,8 @@
 			buildSettings = {
 				CODE_SIGN_IDENTITY = "-";
 				COMBINE_HIDPI_IMAGES = YES;
-				CONTENTS_FOLDER_PATH = IOKit.framework/Versions/A;
+				CONTENTS_FOLDER_PATH = "$(VERSIONS_FOLDER_PATH)/$(FRAMEWORK_VERSION)";
+				DEFINES_MODULE = YES;
 				DYLIB_COMPATIBILITY_VERSION = 1.0.0;
 				DYLIB_CURRENT_VERSION = 275.0.0;
 				FRAMEWORK_SEARCH_PATHS = (
@@ -8375,6 +8425,8 @@
 					"\"$(SRCROOT)/usr/local/lib\"",
 					"\"$(SDKROOT)/usr/lib\"",
 				);
+				MODULEMAP_FILE = "$(SRCROOT)/Modules/IOKit-Embedded.modulemap";
+				MODULEMAP_PRIVATE_FILE = "$(SRCROOT)/Modules/IOKit-iOS.private.modulemap";
 				OTHER_CFLAGS = (
 					"-DIOKIT_EMBEDDED",
 					"$(OTHER_CFLAGS)",
@@ -8390,6 +8442,9 @@
 				OTHER_MIGFLAGS = "-DIOKIT -DNO_SECURITY_FRAMEWORK";
 				OTHER_REZFLAGS = "";
 				SECTORDER_FLAGS = "";
+				SHALLOW_BUNDLE = NO;
+				UNLOCALIZED_RESOURCES_FOLDER_PATH = "$(CONTENTS_FOLDER_PATH)/Resources";
+				VERSIONS_FOLDER_PATH = "$(WRAPPER_NAME)/Versions";
 			};
 			name = "Development-Embedded";
 		};

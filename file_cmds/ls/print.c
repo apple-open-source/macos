@@ -1,4 +1,6 @@
-/*
+/*-
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
  * Copyright (c) 1989, 1993, 1994
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -13,11 +15,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -40,7 +38,7 @@ static char sccsid[] = "@(#)print.c	8.4 (Berkeley) 4/17/94";
 #endif /* not lint */
 #endif
 #include <sys/cdefs.h>
-__RCSID("$FreeBSD: src/bin/ls/print.c,v 1.57 2002/08/29 14:29:09 keramida Exp $");
+__FBSDID("$FreeBSD$");
 
 #include <sys/param.h>
 #include <sys/stat.h>
@@ -59,14 +57,16 @@ __RCSID("$FreeBSD: src/bin/ls/print.c,v 1.57 2002/08/29 14:29:09 keramida Exp $"
 #include <err.h>
 #include <errno.h>
 #include <fts.h>
-#include <math.h>
 #include <langinfo.h>
 #include <libutil.h>
+#include <limits.h>
 #include <stdio.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
+#include <wchar.h>
 #ifdef COLORLS
 #include <ctype.h>
 #include <termcap.h>
@@ -74,23 +74,24 @@ __RCSID("$FreeBSD: src/bin/ls/print.c,v 1.57 2002/08/29 14:29:09 keramida Exp $"
 #endif
 #include <stdint.h>		/* intmax_t */
 #include <assert.h>
-#ifdef __APPLE__ 
-#include <get_compat.h>
-#else 
-#define COMPAT_MODE(a,b) (1)
-#endif /* __APPLE__ */
 
 #include "ls.h"
 #include "extern.h"
 
-static int	printaname(FTSENT *, u_long, u_long);
-static void	printlink(FTSENT *);
+static int	printaname(const FTSENT *, u_long, u_long);
+static void	printdev(size_t, dev_t);
+static void	printlink(const FTSENT *);
 static void	printtime(time_t);
 static int	printtype(u_int);
 static void	printsize(size_t, off_t);
 #ifdef COLORLS
+static void	endcolor_termcap(int);
+static void	endcolor_ansi(void);
 static void	endcolor(int);
 static int	colortype(mode_t);
+#endif
+#ifndef __APPLE__
+static void	aclmode(char *, const FTSENT *);
 #endif
 
 #define	IS_NOPRINT(p)	((p)->fts_number == NO_PRINT)
@@ -123,13 +124,16 @@ static struct {
 } colors[C_NUMCOLORS];
 #endif
 
+static size_t padding_for_month[12];
+static size_t month_max_size = 0;
+
 void
-printscol(DISPLAY *dp)
+printscol(const DISPLAY *dp)
 {
 	FTSENT *p;
 
 	assert(dp);
-	if (COMPAT_MODE("bin/ls", "Unix2003") && (dp->list != NULL)) {
+	if (unix2003_compat && (dp->list != NULL)) {
 		if (dp->list->fts_level != FTS_ROOTLEVEL && (f_longform || f_size))
 			(void)printf("total %qu\n", (u_int64_t)howmany(dp->btotal, blocksize));
 	}
@@ -145,7 +149,7 @@ printscol(DISPLAY *dp)
 /*
  * print name in current style
  */
-static int
+int
 printname(const char *name)
 {
 	if (f_octal || f_octal_escape)
@@ -154,6 +158,70 @@ printname(const char *name)
 		return prn_printable(name);
 	else
 		return prn_normal(name);
+}
+
+static const char *
+get_abmon(int mon)
+{
+
+	switch (mon) {
+	case 0: return (nl_langinfo(ABMON_1));
+	case 1: return (nl_langinfo(ABMON_2));
+	case 2: return (nl_langinfo(ABMON_3));
+	case 3: return (nl_langinfo(ABMON_4));
+	case 4: return (nl_langinfo(ABMON_5));
+	case 5: return (nl_langinfo(ABMON_6));
+	case 6: return (nl_langinfo(ABMON_7));
+	case 7: return (nl_langinfo(ABMON_8));
+	case 8: return (nl_langinfo(ABMON_9));
+	case 9: return (nl_langinfo(ABMON_10));
+	case 10: return (nl_langinfo(ABMON_11));
+	case 11: return (nl_langinfo(ABMON_12));
+	}
+
+	/* should never happen */
+	abort();
+}
+
+static size_t
+mbswidth(const char *month)
+{
+	wchar_t wc;
+	size_t width, donelen, clen, w;
+
+	width = donelen = 0;
+	while ((clen = mbrtowc(&wc, month + donelen, MB_LEN_MAX, NULL)) != 0) {
+		if (clen == (size_t)-1 || clen == (size_t)-2)
+			return (-1);
+		donelen += clen;
+		if ((w = wcwidth(wc)) == (size_t)-1)
+			return (-1);
+		width += w;
+	}
+
+	return (width);
+}
+
+static void
+compute_abbreviated_month_size(void)
+{
+	int i;
+	size_t width;
+	size_t months_width[12];
+
+	for (i = 0; i < 12; i++) {
+		width = mbswidth(get_abmon(i));
+		if (width == (size_t)-1) {
+			month_max_size = -1;
+			return;
+		}
+		months_width[i] = width;
+		if (width > month_max_size)
+			month_max_size = width;
+	}
+
+	for (i = 0; i < 12; i++)
+		padding_for_month[i] = month_max_size - months_width[i];
 }
 
 /*
@@ -231,7 +299,7 @@ errout:
 }
 
 static void
-printxattr(DISPLAY *dp, int count, char *buf, int sizes[])
+printxattr(const DISPLAY *dp, int count, char *buf, int sizes[])
 {
 	for (int i = 0; i < count; i++) {
 		putchar('\t');
@@ -311,7 +379,7 @@ printacl(acl_t acl, int isdir)
 }
 
 void
-printlong(DISPLAY *dp)
+printlong(const DISPLAY *dp)
 {
 	struct stat *sp;
 	FTSENT *p;
@@ -321,87 +389,65 @@ printlong(DISPLAY *dp)
 	int color_printed = 0;
 #endif
 
-	if (dp->list->fts_level != FTS_ROOTLEVEL && (f_longform || f_size))
+	if ((dp->list == NULL || dp->list->fts_level != FTS_ROOTLEVEL) &&
+	    (f_longform || f_size)) {
 		(void)printf("total %qu\n", (u_int64_t)howmany(dp->btotal, blocksize));
+	}
 
 	for (p = dp->list; p; p = p->fts_link) {
 		if (IS_NOPRINT(p))
 			continue;
 		sp = p->fts_statp;
-		if (f_inode) 
-#if _DARWIN_FEATURE_64_BIT_INODE
-			(void)printf("%*llu ", dp->s_inode, (u_quad_t)sp->st_ino);
-#else
-			(void)printf("%*lu ", dp->s_inode, (u_long)sp->st_ino);
-#endif
+		if (f_inode)
+			(void)printf("%*ju ",
+			    dp->s_inode, (uintmax_t)sp->st_ino);
 		if (f_size)
-			(void)printf("%*qu ",
-			    dp->s_block, (u_int64_t)howmany(sp->st_blocks, blocksize));
+			(void)printf("%*jd ",
+			    dp->s_block, howmany(sp->st_blocks, blocksize));
 		strmode(sp->st_mode, buf);
+#ifndef __APPLE__
+		aclmode(buf, p);
+#endif
 		np = p->fts_pointer;
 #ifdef __APPLE__
-		buf[10] = '\0';	/* make +/@ abut the mode */
+		buf[10] = '\0';	/* make +/@ about the mode */
 		char str[2] = { np->mode_suffix, '\0' };
-#endif /* __APPLE__ */
+
 		if (f_group && f_owner) {	/* means print neither */
-#ifdef __APPLE__
-			(void)printf("%s%s %*u   ", buf, str, dp->s_nlink,
-				     sp->st_nlink);
-#else  /* ! __APPLE__ */
-			(void)printf("%s %*u   ", buf, dp->s_nlink,
-				     sp->st_nlink);
-#endif /* __APPLE__ */
-		}
-		else if (f_group) {
-#ifdef __APPLE__
-			(void)printf("%s%s %*u %-*s  ", buf, str, dp->s_nlink,
-				     sp->st_nlink, dp->s_group, np->group);
-#else  /* ! __APPLE__ */
-			(void)printf("%s %*u %-*s  ", buf, dp->s_nlink,
-				     sp->st_nlink, dp->s_group, np->group);
-#endif /* __APPLE__ */
-		}
-		else if (f_owner) {
-#ifdef __APPLE__
-			(void)printf("%s%s %*u %-*s  ", buf, str, dp->s_nlink,
-				     sp->st_nlink, dp->s_user, np->user);
-#else  /* ! __APPLE__ */
-			(void)printf("%s %*u %-*s  ", buf, dp->s_nlink,
-				     sp->st_nlink, dp->s_user, np->user);
-#endif /* __APPLE__ */
-		}
-		else {
-#ifdef __APPLE__
-			(void)printf("%s%s %*u %-*s  %-*s  ", buf, str, dp->s_nlink,
-				     sp->st_nlink, dp->s_user, np->user, dp->s_group,
+			(void)printf("%s%s %*ju   ", buf, str, dp->s_nlink,
+				     (uintmax_t)sp->st_nlink);
+		} else if (f_group) {
+			(void)printf("%s%s %*ju %-*s  ", buf, str, dp->s_nlink,
+				     (uintmax_t)sp->st_nlink, dp->s_group, np->group);
+		} else if (f_owner) {
+			(void)printf("%s%s %*ju %-*s  ", buf, str, dp->s_nlink,
+				     (uintmax_t)sp->st_nlink, dp->s_user, np->user);
+		} else {
+			(void)printf("%s%s %*ju %-*s  %-*s  ", buf, str, dp->s_nlink,
+				     (uintmax_t)sp->st_nlink, dp->s_user, np->user, dp->s_group,
 				     np->group);
-#else  /* ! __APPLE__ */
-			(void)printf("%s %*u %-*s  %-*s  ", buf, dp->s_nlink,
-				     sp->st_nlink, dp->s_user, np->user, dp->s_group,
-				     np->group);
-#endif /* ! __APPLE__ */
 		}
+#else  /* ! __APPLE__ */
+		(void)printf("%s %*ju %-*s  %-*s  ", buf, dp->s_nlink,
+		    (uintmax_t)sp->st_nlink, dp->s_user, np->user, dp->s_group,
+		    np->group);
+#endif /* __APPLE__ */
 		if (f_flags)
 			(void)printf("%-*s ", dp->s_flags, np->flags);
+#ifndef __APPLE__
+		if (f_label)
+			(void)printf("%-*s ", dp->s_label, np->label);
+#endif /* !__APPLE__ */
 		if (S_ISCHR(sp->st_mode) || S_ISBLK(sp->st_mode))
-			if (minor(sp->st_rdev) > 255 || minor(sp->st_rdev) < 0)
-				(void)printf("%3d, 0x%08x ",
-				    major(sp->st_rdev),
-				    (u_int)minor(sp->st_rdev));
-			else
-				(void)printf("%3d, %3d ",
-				    major(sp->st_rdev), minor(sp->st_rdev));
-		else if (dp->bcfile)
-			(void)printf("%*s%*qu ",
-			    8 - dp->s_size, "", dp->s_size, (u_int64_t)sp->st_size);
+			printdev(dp->s_size, sp->st_rdev);
 		else
 			printsize(dp->s_size, sp->st_size);
 		if (f_accesstime)
 			printtime(sp->st_atime);
+		else if (f_birthtime)
+			printtime(sp->st_birthtime);
 		else if (f_statustime)
 			printtime(sp->st_ctime);
-		else if (f_birthtime) 
-			printtime(sp->st_birthtime);
 		else
 			printtime(sp->st_mtime);
 #ifdef COLORLS
@@ -430,15 +476,15 @@ printlong(DISPLAY *dp)
 }
 
 void
-printstream(DISPLAY *dp)
+printstream(const DISPLAY *dp)
 {
 	FTSENT *p;
-	extern int termwidth;
 	int chcnt;
 
 	for (p = dp->list, chcnt = 0; p; p = p->fts_link) {
 		if (p->fts_number == NO_PRINT)
 			continue;
+		/* XXX strlen does not take octal escapes into account. */
 		if (strlen(p->fts_name) + chcnt +
 		    (p->fts_link ? 2 : 0) >= (unsigned)termwidth) {
 			putchar('\n');
@@ -453,14 +499,14 @@ printstream(DISPLAY *dp)
 	if (chcnt)
 		putchar('\n');
 }
-		
+
 void
-printcol(DISPLAY *dp)
+printcol(const DISPLAY *dp)
 {
-	extern int termwidth;
 	static FTSENT **array;
 	static int lastentries = -1;
 	FTSENT *p;
+	FTSENT **narray;
 	int base;
 	int chcnt;
 	int cnt;
@@ -483,12 +529,14 @@ printcol(DISPLAY *dp)
 	 * of pointers.
 	 */
 	if ((lastentries == -1) || (dp->entries > lastentries)) {
-		lastentries = dp->entries;
-		if ((array = realloc(array, dp->entries * sizeof(FTSENT *))) == NULL) {
+		if ((narray =
+		    realloc(array, dp->entries * sizeof(FTSENT *))) == NULL) {
 			warn(NULL);
 			printscol(dp);
 			return;
 		}
+		lastentries = dp->entries;
+		array = narray;
 	}
 	memset(array, 0, dp->entries * sizeof(FTSENT *));
 	for (p = dp->list, num = 0; p; p = p->fts_link)
@@ -513,9 +561,10 @@ printcol(DISPLAY *dp)
 	if (num % numcols)
 		++numrows;
 
-	assert(dp->list);
-	if (dp->list->fts_level != FTS_ROOTLEVEL && (f_longform || f_size))
+	if ((dp->list == NULL || dp->list->fts_level != FTS_ROOTLEVEL) &&
+	    (f_longform || f_size)) {
 		(void)printf("total %qu\n", (u_int64_t)howmany(dp->btotal, blocksize));
+	}
 
 	base = 0;
 	for (row = 0; row < numrows; ++row) {
@@ -524,7 +573,8 @@ printcol(DISPLAY *dp)
 			base = row;
 		for (col = 0, chcnt = 0; col < numcols; ++col) {
 			assert(base < dp->entries);
-			chcnt += printaname(array[base], dp->s_inode, dp->s_block);
+			chcnt += printaname(array[base], dp->s_inode,
+			    dp->s_block);
 			if (f_sortacross)
 				base++;
 			else
@@ -549,7 +599,7 @@ printcol(DISPLAY *dp)
  * return # of characters printed, no trailing characters.
  */
 static int
-printaname(FTSENT *p, u_long inodefield, u_long sizefield)
+printaname(const FTSENT *p, u_long inodefield, u_long sizefield)
 {
 	struct stat *sp;
 	int chcnt;
@@ -560,14 +610,11 @@ printaname(FTSENT *p, u_long inodefield, u_long sizefield)
 	sp = p->fts_statp;
 	chcnt = 0;
 	if (f_inode)
-#if _DARWIN_FEATURE_64_BIT_INODE
-		chcnt += printf("%*llu ", (int)inodefield, (u_quad_t)sp->st_ino);
-#else
-		chcnt += printf("%*lu ", (int)inodefield, (u_long)sp->st_ino);
-#endif
+		chcnt += printf("%*ju ",
+		    (int)inodefield, (uintmax_t)sp->st_ino);
 	if (f_size)
-		chcnt += printf("%*qu ",
-		    (int)sizefield, (u_int64_t)howmany(sp->st_blocks, blocksize));
+		chcnt += printf("%*jd ",
+		    (int)sizefield, howmany(sp->st_blocks, blocksize));
 #ifdef COLORLS
 	if (f_color)
 		color_printed = colortype(sp->st_mode);
@@ -582,11 +629,46 @@ printaname(FTSENT *p, u_long inodefield, u_long sizefield)
 	return (chcnt);
 }
 
+/*
+ * Print device special file major and minor numbers.
+ */
+static void
+printdev(size_t width, dev_t dev)
+{
+
+	(void)printf("%#*jx ", (u_int)width, (uintmax_t)dev);
+}
+
+static size_t
+ls_strftime(char *str, size_t len, const char *fmt, const struct tm *tm)
+{
+	char *posb, nfmt[BUFSIZ];
+	const char *format = fmt;
+	size_t ret;
+
+	if ((posb = strstr(fmt, "%b")) != NULL) {
+		if (month_max_size == 0) {
+			compute_abbreviated_month_size();
+		}
+		if (month_max_size > 0) {
+			snprintf(nfmt, sizeof(nfmt),  "%.*s%s%*s%s",
+			    (int)(posb - fmt), fmt,
+			    get_abmon(tm->tm_mon),
+			    (int)padding_for_month[tm->tm_mon],
+			    "",
+			    posb + 2);
+			format = nfmt;
+		}
+	}
+	ret = strftime(str, len, format, tm);
+	return (ret);
+}
+
 static void
 printtime(time_t ftime)
 {
 	char longstring[80];
-	static time_t now;
+	static time_t now = 0;
 	const char *format;
 	static int d_first = -1;
 
@@ -596,25 +678,21 @@ printtime(time_t ftime)
 		now = time(NULL);
 
 #define	SIXMONTHS	((365 / 2) * 86400)
-	if (f_sectime)
+	if (f_timeformat)  /* user specified format */
+		format = f_timeformat;
+	else if (f_sectime)
 		/* mmm dd hh:mm:ss yyyy || dd mmm hh:mm:ss yyyy */
-		format = d_first ? "%e %b %T %Y " : "%b %e %T %Y ";
-	else if (COMPAT_MODE("bin/ls", "Unix2003")) {
-		if (ftime + SIXMONTHS > now && ftime <= now)
-			/* mmm dd hh:mm || dd mmm hh:mm */
-			format = d_first ? "%e %b %R " : "%b %e %R ";
-		else
-			/* mmm dd  yyyy || dd mmm  yyyy */
-			format = d_first ? "%e %b  %Y " : "%b %e  %Y ";
-	}
-	else if (ftime + SIXMONTHS > now && ftime < now + SIXMONTHS)
+		format = d_first ? "%e %b %T %Y" : "%b %e %T %Y";
+	else if (ftime + SIXMONTHS > now &&
+	    ftime < now + (unix2003_compat ? 1 : SIXMONTHS))
 		/* mmm dd hh:mm || dd mmm hh:mm */
-		format = d_first ? "%e %b %R " : "%b %e %R ";
+		format = d_first ? "%e %b %R" : "%b %e %R";
 	else
 		/* mmm dd  yyyy || dd mmm  yyyy */
-		format = d_first ? "%e %b  %Y " : "%b %e  %Y ";
-	strftime(longstring, sizeof(longstring), format, localtime(&ftime));
+		format = d_first ? "%e %b  %Y" : "%b %e  %Y";
+	ls_strftime(longstring, sizeof(longstring), format, localtime(&ftime));
 	fputs(longstring, stdout);
+	fputc(' ', stdout);
 }
 
 static int
@@ -666,14 +744,14 @@ putch(int c)
 static int
 writech(int c)
 {
-	char tmp = c;
+	char tmp = (char)c;
 
 	(void)write(STDOUT_FILENO, &tmp, 1);
 	return 0;
 }
 
 static void
-printcolor(Colors c)
+printcolor_termcap(Colors c)
 {
 	char *ansiseq;
 
@@ -693,10 +771,53 @@ printcolor(Colors c)
 }
 
 static void
-endcolor(int sig)
+printcolor_ansi(Colors c)
 {
+
+	printf("\033[");
+
+	if (colors[c].bold)
+		printf("1");
+	if (colors[c].num[0] != -1)
+		printf(";3%d", colors[c].num[0]);
+	if (colors[c].num[1] != -1)
+		printf(";4%d", colors[c].num[1]);
+	printf("m");
+}
+
+static void
+printcolor(Colors c)
+{
+
+	if (explicitansi)
+		printcolor_ansi(c);
+	else
+		printcolor_termcap(c);
+}
+
+static void
+endcolor_termcap(int sig)
+{
+
 	tputs(ansi_coloff, 1, sig ? writech : putch);
 	tputs(attrs_off, 1, sig ? writech : putch);
+}
+
+static void
+endcolor_ansi(void)
+{
+
+	printf("\33[m");
+}
+
+static void
+endcolor(int sig)
+{
+
+	if (explicitansi)
+		endcolor_ansi();
+	else
+		endcolor_termcap(sig);
 }
 
 static int
@@ -727,6 +848,7 @@ colortype(mode_t mode)
 	case S_IFCHR:
 		printcolor(C_CHR);
 		return (1);
+	default:;
 	}
 	if (mode & (S_IXUSR | S_IXGRP | S_IXOTH)) {
 		if (mode & S_ISUID)
@@ -745,17 +867,17 @@ parsecolors(const char *cs)
 {
 	int i;
 	int j;
-	int len;
+	size_t len;
 	char c[2];
 	short legacy_warn = 0;
 
 	if (cs == NULL)
 		cs = "";	/* LSCOLORS not set */
 	len = strlen(cs);
-	for (i = 0; i < C_NUMCOLORS; i++) {
+	for (i = 0; i < (int)C_NUMCOLORS; i++) {
 		colors[i].bold = 0;
 
-		if (len <= 2 * i) {
+		if (len <= 2 * (size_t)i) {
 			c[0] = defcolors[2 * i];
 			c[1] = defcolors[2 * i + 1];
 		} else {
@@ -767,10 +889,9 @@ parsecolors(const char *cs)
 			if (c[j] >= '0' && c[j] <= '7') {
 				colors[i].num[j] = c[j] - '0';
 				if (!legacy_warn) {
-					fprintf(stderr,
-					    "warn: LSCOLORS should use "
+					warnx("LSCOLORS should use "
 					    "characters a-h instead of 0-9 ("
-					    "see the manual page)\n");
+					    "see the manual page)");
 				}
 				legacy_warn = 1;
 			} else if (c[j] >= 'a' && c[j] <= 'h')
@@ -778,12 +899,11 @@ parsecolors(const char *cs)
 			else if (c[j] >= 'A' && c[j] <= 'H') {
 				colors[i].num[j] = c[j] - 'A';
 				colors[i].bold = 1;
-			} else if (tolower((unsigned char)c[j] == 'x'))
+			} else if (tolower((unsigned char)c[j]) == 'x')
 				colors[i].num[j] = -1;
 			else {
-				fprintf(stderr,
-				    "error: invalid character '%c' in LSCOLORS"
-				    " env var\n", c[j]);
+				warnx("invalid character '%c' in LSCOLORS"
+				    " env var", c[j]);
 				colors[i].num[j] = -1;
 			}
 		}
@@ -802,7 +922,7 @@ colorquit(int sig)
 #endif /* COLORLS */
 
 static void
-printlink(FTSENT *p)
+printlink(const FTSENT *p)
 {
 	int lnklen;
 	char name[MAXPATHLEN + 1];
@@ -826,12 +946,93 @@ static void
 printsize(size_t width, off_t bytes)
 {
 
-  if (f_humanval) {
-    char buf[5];
+	if (f_humanval) {
+		/*
+		 * Reserve one space before the size and allocate room for
+		 * the trailing '\0'.
+		 */
+		char buf[HUMANVALSTR_LEN - 1 + 1];
 
-    humanize_number(buf, sizeof(buf), (int64_t)bytes, "",
+		humanize_number(buf, sizeof(buf), (int64_t)bytes, "",
 		    HN_AUTOSCALE, HN_B | HN_NOSPACE | HN_DECIMAL);
-    (void)printf("%5s ", buf);
-  } else
-    (void)printf("%*jd ", (u_int)width, (intmax_t)bytes);
+		(void)printf("%*s ", (u_int)width, buf);
+	} else if (f_thousands) {		/* with commas */
+		/* This format assignment needed to work round gcc bug. */
+		const char *format = "%*j'd ";
+		(void)printf(format, (u_int)width, bytes);
+	} else
+		(void)printf("%*jd ", (u_int)width, bytes);
 }
+
+#ifndef __APPLE__
+/*
+ * Add a + after the standard rwxrwxrwx mode if the file has an
+ * ACL. strmode() reserves space at the end of the string.
+ */
+static void
+aclmode(char *buf, const FTSENT *p)
+{
+	char name[MAXPATHLEN + 1];
+	int ret, trivial;
+	static dev_t previous_dev = NODEV;
+	static int supports_acls = -1;
+	static int type = ACL_TYPE_ACCESS;
+	acl_t facl;
+
+	/*
+	 * XXX: ACLs are not supported on whiteouts and device files
+	 * residing on UFS.
+	 */
+	if (S_ISCHR(p->fts_statp->st_mode) || S_ISBLK(p->fts_statp->st_mode) ||
+	    S_ISWHT(p->fts_statp->st_mode))
+		return;
+
+	if (previous_dev == p->fts_statp->st_dev && supports_acls == 0)
+		return;
+
+	if (p->fts_level == FTS_ROOTLEVEL)
+		snprintf(name, sizeof(name), "%s", p->fts_name);
+	else
+		snprintf(name, sizeof(name), "%s/%s",
+		    p->fts_parent->fts_accpath, p->fts_name);
+
+	if (previous_dev != p->fts_statp->st_dev) {
+		previous_dev = p->fts_statp->st_dev;
+		supports_acls = 0;
+
+		ret = lpathconf(name, _PC_ACL_NFS4);
+		if (ret > 0) {
+			type = ACL_TYPE_NFS4;
+			supports_acls = 1;
+		} else if (ret < 0 && errno != EINVAL) {
+			warn("%s", name);
+			return;
+		}
+		if (supports_acls == 0) {
+			ret = lpathconf(name, _PC_ACL_EXTENDED);
+			if (ret > 0) {
+				type = ACL_TYPE_ACCESS;
+				supports_acls = 1;
+			} else if (ret < 0 && errno != EINVAL) {
+				warn("%s", name);
+				return;
+			}
+		}
+	}
+	if (supports_acls == 0)
+		return;
+	facl = acl_get_link_np(name, type);
+	if (facl == NULL) {
+		warn("%s", name);
+		return;
+	}
+	if (acl_is_trivial_np(facl, &trivial)) {
+		acl_free(facl);
+		warn("%s", name);
+		return;
+	}
+	if (!trivial)
+		buf[10] = '+';
+	acl_free(facl);
+}
+#endif /* !__APPLE__ */

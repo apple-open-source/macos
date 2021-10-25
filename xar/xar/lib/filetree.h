@@ -120,6 +120,7 @@ const char *xar_attr_get(xar_file_t f, const char *prop, const char *key);
 const char *xar_attr_pget(xar_file_t f, xar_prop_t p, const char *key);
 void xar_attr_free(xar_attr_t a);
 void xar_file_serialize(xar_file_t f, xmlTextWriterPtr writer);
+int xar_prop_serializable(xar_prop_t p);
 xar_file_t xar_file_unserialize(xar_t x, xar_file_t parent, xmlTextReaderPtr reader);
 xar_file_t xar_file_find(xar_file_t f, const char *path);
 xar_file_t xar_file_new(xar_file_t f);

@@ -17,18 +17,13 @@
 #include <assert.h>
 #include <sys/queue.h>
 
-/*
- * There should be better APIs to describe the shared region
- * For now, some hackery.
- */
-
-#include <mach/shared_region.h>
+#include <mach-o/dyld_introspection.h>
 
 static __inline boolean_t
-in_shared_region(mach_vm_address_t addr)
+in_shared_region(dyld_shared_cache_t sc, mach_vm_address_t addr)
 {
-    const mach_vm_address_t base = SHARED_REGION_BASE;
-    const mach_vm_address_t size = SHARED_REGION_SIZE;
+    uint64_t base = dyld_shared_cache_get_base_address(sc);
+    uint64_t size = dyld_shared_cache_get_mapped_size(sc);
     return addr >= base && addr < (base + size);
 }
 
@@ -62,7 +57,7 @@ in_zfod_region(const vm_region_submap_info_data_64_t *info)
 }
 
 static struct region *
-new_region(mach_vm_offset_t vmaddr, mach_vm_size_t vmsize, const vm_region_submap_info_data_64_t *infop)
+new_region(mach_vm_offset_t vmaddr, mach_vm_size_t vmsize, const vm_region_submap_info_data_64_t *infop, dyld_shared_cache_t sc)
 {
     struct region *r = calloc(1, sizeof (*r));
     assert(vmaddr != 0 && vmsize != 0);
@@ -70,7 +65,7 @@ new_region(mach_vm_offset_t vmaddr, mach_vm_size_t vmsize, const vm_region_subma
     R_SETSIZE(r, vmsize);
     r->r_info = *infop;
     r->r_purgable = VM_PURGABLE_DENY;
-    r->r_insharedregion = in_shared_region(vmaddr);
+    r->r_insharedregion = in_shared_region(sc, vmaddr);
     r->r_incommregion = in_comm_region(vmaddr, &r->r_info);
     r->r_inzfodregion = in_zfod_region(&r->r_info);
 
@@ -164,30 +159,48 @@ walk_regions(task_t task, struct regionhead *rhead)
 {
     mach_vm_offset_t vm_addr = MACH_VM_MIN_ADDRESS;
     natural_t depth = 0;
+    dyld_shared_cache_t sc = NULL;
+    dyld_process_t process = NULL;
+    dyld_process_snapshot_t snapshot = NULL;
+    kern_return_t ret = KERN_SUCCESS;
+    int retval = EX_OSERR;
 
 	if (OPTIONS_DEBUG(opt, 3)) {
 		printf("Building raw region list\n");
         print_memory_region_header();
 	}
+
+    process = dyld_process_create_for_task(task, &ret);
+    if (KERN_SUCCESS != ret) {
+        err_mach(ret, NULL, "dyld_process_create_for_task()");
+        goto done;
+    }
+    snapshot = dyld_process_snapshot_create_for_process(process, &ret);
+    if (KERN_SUCCESS != ret) {
+        err_mach(ret, NULL, "dyld_process_snapshot_create_for_process()");
+        goto done;
+    }
+    sc = dyld_process_snapshot_get_shared_cache(snapshot);
+
     while (1) {
         vm_region_submap_info_data_64_t info;
         mach_msg_type_number_t count = VM_REGION_SUBMAP_INFO_COUNT_64;
         mach_vm_size_t vm_size;
 
-        kern_return_t ret = mach_vm_region_recurse(task, &vm_addr, &vm_size, &depth, (vm_region_recurse_info_t)&info, &count);
+        ret = mach_vm_region_recurse(task, &vm_addr, &vm_size, &depth, (vm_region_recurse_info_t)&info, &count);
 
         if (KERN_FAILURE == ret) {
             err_mach(ret, NULL, "error inspecting task at %llx", vm_addr);
-            goto bad;
+            goto done;
         } else if (KERN_INVALID_ADDRESS == ret) {
             break;  /* loop termination */
         } else if (KERN_SUCCESS != ret) {
             err_mach(ret, NULL, "error inspecting task at %llx", vm_addr);
-            goto bad;
+            goto done;
         }
 
         if (OPTIONS_DEBUG(opt, 3)) {
-            struct region *d = new_region(vm_addr, vm_size, &info);
+            struct region *d = new_region(vm_addr, vm_size, &info, sc);
             ROP_PRINT(d);
             ROP_DELETE(d);
         }
@@ -195,7 +208,7 @@ walk_regions(task_t task, struct regionhead *rhead)
         if (info.is_submap) {
 #ifdef CONFIG_SUBMAP
             /* We also want to see submaps -- for debugging purposes. */
-            struct region *r = new_region(vm_addr, vm_size, &info);
+            struct region *r = new_region(vm_addr, vm_size, &info, sc);
             r->r_depth = depth;
             STAILQ_INSERT_TAIL(rhead, r, r_linkage);
 #endif
@@ -208,7 +221,7 @@ walk_regions(task_t task, struct regionhead *rhead)
             continue; // ignore immediately: IO memory has side-effects
         }
 
-        struct region *r = new_region(vm_addr, vm_size, &info);
+        struct region *r = new_region(vm_addr, vm_size, &info, sc);
 #ifdef CONFIG_SUBMAP
         r->r_depth = depth;
 #endif
@@ -230,9 +243,15 @@ walk_regions(task_t task, struct regionhead *rhead)
         vm_addr += vm_size;
     }
 
-    return 0;
-bad:
-    return EX_OSERR;
+    retval = 0;
+
+done:
+    if (snapshot)
+        dyld_process_snapshot_dispose(snapshot);
+    if (process)
+        dyld_process_dispose(process);
+
+    return retval;
 }
 
 void

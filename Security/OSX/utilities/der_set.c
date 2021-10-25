@@ -34,8 +34,8 @@
 #include <CoreFoundation/CoreFoundation.h>
 
 const uint8_t* der_decode_set(CFAllocatorRef allocator,
-                                     CFSetRef* set, CFErrorRef *error,
-                                     const uint8_t* der, const uint8_t *der_end)
+                              CFSetRef* set, CFErrorRef *error,
+                              const uint8_t* der, const uint8_t *der_end)
 {
     if (NULL == der) {
         SecCFDERCreateError(kSecDERErrorNullInput, CFSTR("null input"), NULL, error);
@@ -50,8 +50,7 @@ const uint8_t* der_decode_set(CFAllocatorRef allocator,
         return NULL;
     }
     
-    CFMutableSetRef theSet = (set && *set) ? CFSetCreateMutableCopy(allocator, 0, *set)
-                                           : CFSetCreateMutable(allocator, 0, &kCFTypeSetCallBacks);
+    CFMutableSetRef theSet = CFSetCreateMutable(allocator, 0, &kCFTypeSetCallBacks);
     
     if (NULL == theSet) {
         SecCFDERCreateError(kSecDERErrorAllocationFailure, CFSTR("Failed to create set"), NULL, error);
@@ -72,7 +71,7 @@ const uint8_t* der_decode_set(CFAllocatorRef allocator,
     
     
 exit:
-    if (payload == payload_end && set) {
+    if (payload == payload_end) {
         CFTransferRetained(*set, theSet);
     }
     

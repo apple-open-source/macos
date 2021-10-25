@@ -29,8 +29,6 @@
 #import "keychain/ot/OctagonStateMachineHelpers.h"
 #import "keychain/ot/OTOperationDependencies.h"
 
-@class OTCuttlefishContext;
-
 NS_ASSUME_NONNULL_BEGIN
 
 @interface OTVouchWithBottleOperation : CKKSGroupOperation <OctagonStateTransitionOperationProtocol>
@@ -44,7 +42,6 @@ NS_ASSUME_NONNULL_BEGIN
                           bottleSalt:(NSString*)bottleSalt
                          saveVoucher:(BOOL)saveVoucher;
 
-@property (weak) OTCuttlefishContext* cuttlefishContext;
 @property (nonatomic) NSString* bottleID;
 @property (nonatomic) NSData* entropy;
 @property (nonatomic) NSString* bottleSalt;

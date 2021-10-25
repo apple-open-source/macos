@@ -34,6 +34,7 @@
 #include "XCTest_FunctionDefinitions.h"
 #include <IOKit/pwr_mgt/IOPM.h>
 #include <IOKit/pwr_mgt/IOPMLibPrivate.h>
+#include <IOKit/pwr_mgt/powermanagement_mig.h>
 
 #include <sys/queue.h>
 
@@ -114,6 +115,9 @@ do {    \
 
 #define MAKE_UNIQAID(time, type, idx) \
     ((((uint64_t)time) & 0xffffffff) << 32) | ((type) & 0xffff) << 16 | ((idx) & 0xffff)
+
+#define MAKE_UNIQAID_ASYNC(time, type, idx) \
+    ((((uint64_t)time) & 0xffffffff) << 32) | ((type) & 0xffff) << 16 | (((idx) & 0xffff0000) >> 16)
 /*
  * kMaxAssertions  should be <= 0x7fff.
  * Then the 'idx' used ID_FROM_INDEX will be <= 0x7fff
@@ -239,6 +243,7 @@ typedef struct {
     uint32_t            proc_exited:1;      // True if PROC_EXIT notification is received
     uint32_t            aggactivity:1;      // Contributed to gActivityAggCnt. Subscribed to AssertionActivityAggregate
     uint32_t            isSuspended:1;      // Process assertions are suspended
+    uint64_t            activeAsyncAssertion; // Active async assertion id
 } ProcessInfo;
 
 typedef struct assertion {
@@ -412,7 +417,8 @@ typedef enum {
     kATurnOnLog,
     kANameChangeLog,
     kAStateSuspend,
-    kAStateResume
+    kAStateResume,
+    kASystemTimeoutLog,
 } assertLogAction;
 
 typedef struct {
@@ -504,6 +510,13 @@ __private_extern__ void applyToAssertionsSync(assertionType_t *assertType,
                                               void (^performOnAssertion)(assertion_t *));
 __private_extern__ void configAssertionType(kerAssertionType idx, bool initialConfig);
 __private_extern__ void logAssertionEvent(assertLogAction assertionAction, assertion_t *assertion);
+__private_extern__ void logAsyncAssertionActivity(ProcessInfo *pinfo, CFArrayRef activity);
+__private_extern__ void copyAssertionActivityUpdate(xpc_object_t remote, xpc_object_t msg);
+__private_extern__ void copyActiveAssertions(xpc_object_t remote, xpc_object_t msg);
+__private_extern__ void checkForAssertionActivityUpdates(bool actives_only);
+__private_extern__ void _sendAssertionActivityUpdate(CFArrayRef timedoutProcesses, bool client_overflow);
+__private_extern__ void _sendActiveAssertions(CFMutableDictionaryRef activeAssertions);
+__private_extern__ bool assertionActivityUpdateInProgress(void);
 __private_extern__ uint8_t getAssertionLevel(kerAssertionType idx);
 __private_extern__ void setAggregateLevel(kerAssertionType idx, uint8_t val);
 __private_extern__ uint32_t getKerAssertionBits(void);
@@ -533,6 +546,13 @@ void handleAssertionSuspend(pid_t pid);
 void handleAssertionResume(pid_t pid);
 void processSetAssertionState(xpc_connection_t peer, xpc_object_t msg);
 void logAssertionCount(bool displayOn);
+void asyncAssertionLogging(xpc_connection_t peer, xpc_object_t msg);
+void asyncAssertionInitialConnection(xpc_connection_t peer, xpc_object_t msg);
+void asyncAssertionFeatureSupport(xpc_connection_t peer, xpc_object_t msg);
+
+void startSystemAssertionTimer(void);
+void cancelSystemAssertionTimer(void);
+void updateSystemAssertionTimeout(xpc_object_t peer, xpc_object_t msg);
 
 
 __private_extern__ void logASLAssertionTypeSummary( kerAssertionType type);

@@ -498,8 +498,12 @@ struct pthread_globals_s {
 	size_t atfork_count;
 	struct pthread_atfork_entry atfork_storage[PTHREAD_ATFORK_INLINE_MAX];
 	struct pthread_atfork_entry *atfork;
+
+#define QOS_PARALLELISM_NOT_QUERIED (uint16_t) -1
+
 	uint16_t qmp_logical[THREAD_QOS_LAST];
 	uint16_t qmp_physical[THREAD_QOS_LAST];
+	uint16_t cluster_physical[THREAD_QOS_LAST];
 
 };
 typedef struct pthread_globals_s *pthread_globals_t;

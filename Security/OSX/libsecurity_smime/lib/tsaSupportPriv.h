@@ -26,36 +26,46 @@
 #ifndef libsecurity_smime_tsaSupport_priv_h
 #define libsecurity_smime_tsaSupport_priv_h
 
-#include <Security/SecCmsBase.h>
 #include <CoreFoundation/CoreFoundation.h>
+#include <Security/SecCmsBase.h>
 
-#include <Security/tsaTemplates.h>
 #include <Security/SecAsn1Coder.h>
+#include <Security/tsaTemplates.h>
 
 #if defined(__cplusplus)
 extern "C" {
 #endif
 
-extern const CFStringRef kTSADebugContextKeyBadReq;         // CFURLRef
-extern const CFStringRef kTSADebugContextKeyBadNonce;     // CFBooleanRef
+extern const CFStringRef kTSADebugContextKeyBadReq;    // CFURLRef
+extern const CFStringRef kTSADebugContextKeyBadNonce;  // CFBooleanRef
 
-OSStatus SecTSAResponseCopyDEREncoding(SecAsn1CoderRef coder, const CSSM_DATA *tsaResponse, SecAsn1TimeStampRespDER *respDER);
-OSStatus decodeTimeStampToken(SecCmsSignerInfoRef signerinfo, CSSM_DATA_PTR inData, CSSM_DATA_PTR encDigest, uint64_t expectedNonce);
-OSStatus decodeTimeStampTokenWithPolicy(SecCmsSignerInfoRef signerinfo, CFTypeRef timeStampPolicy, CSSM_DATA_PTR inData, CSSM_DATA_PTR encDigest, uint64_t expectedNonce);
-OSStatus createTSAMessageImprint(SecCmsSignerInfoRef signerInfo, SECAlgorithmID *digestAlg,
-                                 CSSM_DATA_PTR encDigest, SecAsn1TSAMessageImprint *messageImprint);
+OSStatus SecTSAResponseCopyDEREncoding(SecAsn1CoderRef coder,
+                                       const CSSM_DATA* tsaResponse,
+                                       SecAsn1TimeStampRespDER* respDER);
+OSStatus decodeTimeStampToken(SecCmsSignerInfoRef signerinfo,
+                              CSSM_DATA_PTR inData,
+                              CSSM_DATA_PTR encDigest,
+                              uint64_t expectedNonce);
+OSStatus decodeTimeStampTokenWithPolicy(SecCmsSignerInfoRef signerinfo,
+                                        CFTypeRef timeStampPolicy,
+                                        CSSM_DATA_PTR inData,
+                                        CSSM_DATA_PTR encDigest,
+                                        uint64_t expectedNonce);
+OSStatus createTSAMessageImprint(SecCmsSignerInfoRef signerInfo,
+                                 SECAlgorithmID* digestAlg,
+                                 CSSM_DATA_PTR encDigest,
+                                 SecAsn1TSAMessageImprint* messageImprint);
 
 #ifndef NDEBUG
-int tsaWriteFileX(const char *fileName, const unsigned char *bytes, size_t numBytes);
+int tsaWriteFileX(const char* fileName, const unsigned char* bytes, size_t numBytes);
 #endif
 
-char *cfStringToChar(CFStringRef inStr);
-uint64_t tsaDER_ToInt(const CSSM_DATA *DER_Data);
-void displayTSTInfo(SecAsn1TSATSTInfo *tstInfo);
+char* cfStringToChar(CFStringRef inStr);
+uint64_t tsaDER_ToInt(const CSSM_DATA* DER_Data);
+void displayTSTInfo(SecAsn1TSATSTInfo* tstInfo);
 
 #if defined(__cplusplus)
 }
 #endif
 
-#endif  /* libsecurity_smime_tsaSupport_priv_h */
-
+#endif /* libsecurity_smime_tsaSupport_priv_h */

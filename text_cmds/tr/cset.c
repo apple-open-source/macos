@@ -1,4 +1,6 @@
 /*-
+ * SPDX-License-Identifier: BSD-2-Clause-FreeBSD
+ *
  * Copyright (c) 2004 Tim J. Robbins.
  * All rights reserved.
  *
@@ -30,7 +32,7 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/usr.bin/tr/cset.c,v 1.3 2004/07/14 08:33:14 tjr Exp $");
+__FBSDID("$FreeBSD$");
 
 #include <assert.h>
 #include <stdbool.h>
@@ -153,11 +155,11 @@ cset_in_hard(struct cset *cs, wchar_t ch)
 	struct csclass *csc;
 
 	for (csc = cs->cs_classes; csc != NULL; csc = csc->csc_next)
-		if (csc->csc_invert ^ iswctype(ch, csc->csc_type) != 0)
+		if (csc->csc_invert ^ (iswctype(ch, csc->csc_type) != 0))
 			return (cs->cs_invert ^ true);
 	if (cs->cs_root != NULL) {
 		cs->cs_root = cset_splay(cs->cs_root, ch);
-		return (cs->cs_invert ^ cset_rangecmp(cs->cs_root, ch) == 0);
+		return (cs->cs_invert ^ (cset_rangecmp(cs->cs_root, ch) == 0));
 	}
 	return (cs->cs_invert ^ false);
 }

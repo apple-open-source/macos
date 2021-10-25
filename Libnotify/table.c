@@ -21,104 +21,79 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-#include <os/base.h>
-#include <stdlib.h>
-#include <string.h>
-#include <syslog.h>
-#include <sys/types.h>
-#include <sys/param.h>
-#include <os/assumes.h>
-
 #include "table.h"
 #include "notify_internal.h"
 
-#define TABLE_TOMBSTONE ((void *)~0)
-#define TABLE_MINSHIFT  5
-#define TABLE_MINSIZE   (1 << TABLE_MINSHIFT)
-
-OS_ALWAYS_INLINE
-static inline uint32_t
-table_next(uint32_t i, uint32_t size)
-{
-    i++;
-    return i >= size ? 0 : i;
+void _nc_table_init(table_t *t, size_t key_offset) {
+	os_set_init(&t->set, NULL);
+	t->key_offset = key_offset;
 }
 
-OS_ALWAYS_INLINE
-static inline uint32_t
-table_prev(uint32_t i, uint32_t size)
-{
-    return (i ? i : size) - 1;
+void _nc_table_init_n(table_n_t *t, size_t key_offset) {
+	os_set_init(&t->set, NULL);
+	t->key_offset = key_offset;
 }
 
-static inline bool
-string_equals(const char *a, const char *b)
-{
-	return a == b || strcmp(a, b) == 0;
+void _nc_table_init_64(table_64_t *t, size_t key_offset) {
+	os_set_init(&t->set, NULL);
+	t->key_offset = key_offset;
 }
 
-static uint32_t
-string_hash(const char *key)
-{
-    uint32_t hash = 0;
-
-    for (; *key; key++) {
-        hash += (unsigned char)(*key);
-        hash += (hash << 10);
-        hash ^= (hash >> 6);
-    }
-
-    hash += (hash << 3);
-    hash ^= (hash >> 11);
-    hash += (hash << 15);
-
-    return hash;
+void _nc_table_insert(table_t *t, char **key) {
+	os_set_insert(&t->set, (void *)key);
 }
 
-static inline bool
-uint32_equals(uint32_t a, uint32_t b)
-{
-	return a == b;
+void _nc_table_insert_n(table_n_t *t, uint32_t *key)  {
+	os_set_insert(&t->set, (void *)key);
 }
 
-static inline uint32_t
-uint32_hash(uint32_t x)
-{
-    x = ((x >> 16) ^ x) * 0x45d9f3b;
-    x = ((x >> 16) ^ x) * 0x45d9f3b;
-    x = (x >> 16) ^ x;
-    return x;
+void _nc_table_insert_64(table_64_t *t, uint64_t *key)  {
+	os_set_insert(&t->set, (void *)key);
 }
 
-static inline bool
-uint64_equals(uint64_t a, uint64_t b)
-{
-	return a == b;
+void *_nc_table_find(table_t *t, const char *key) {
+	void *offset_result = os_set_find(&t->set, key);
+	return (offset_result != NULL) ? (void *)((uintptr_t)offset_result - (uintptr_t)t->key_offset) : NULL;
 }
 
-static inline uint32_t
-uint64_hash(uint64_t key)
-{
-    return uint32_hash((uint32_t)key ^ (uint32_t)(key >> 32));
+void *_nc_table_find_n(table_n_t *t, uint32_t key) {
+	void *offset_result = os_set_find(&t->set, key);
+	return (offset_result != NULL) ? (void *)((uintptr_t)offset_result - (uintptr_t)t->key_offset)  : NULL;
 }
 
-#define ns(n)         _nc_table##n
-#define key_t         char *
-#define ckey_t        const char *
-#define key_hash      string_hash
-#define key_equals    string_equals
-#include "table.in.c"
+void *_nc_table_find_64(table_64_t *t, uint64_t key) {
+	void *offset_result = os_set_find(&t->set, key);
+	return (offset_result != NULL) ? (void *)((uintptr_t)offset_result - (uintptr_t)t->key_offset)  : NULL;
+}
 
-#define ns(n)         _nc_table##n##_n
-#define key_t         uint32_t
-#define ckey_t        uint32_t
-#define key_hash      uint32_hash
-#define key_equals    uint32_equals
-#include "table.in.c"
+void _nc_table_delete(table_t *t, const char *key) {
+	(void)os_set_delete(&t->set, key);
+}
 
-#define ns(n)         _nc_table##n##_64
-#define key_t         uint64_t
-#define ckey_t        uint64_t
-#define key_hash      uint64_hash
-#define key_equals    uint64_equals
-#include "table.in.c"
+void _nc_table_delete_n(table_n_t *t, uint32_t key) {
+	(void)os_set_delete(&t->set, key);
+}
+
+void _nc_table_delete_64(table_64_t *t, uint64_t key) {
+	(void)os_set_delete(&t->set, key);
+}
+
+typedef bool (^payload_handler_t) (void *);
+
+void _nc_table_foreach(table_t *t, OS_NOESCAPE payload_handler_t handler) {
+	os_set_foreach(&t->set, ^bool (const char **_ptr) {
+		return handler((void *)((uintptr_t)_ptr - (uintptr_t)t->key_offset));
+	});
+}
+
+void _nc_table_foreach_n(table_n_t *t, OS_NOESCAPE payload_handler_t handler) {
+	os_set_foreach(&t->set, ^bool (uint32_t *_ptr) {
+		return handler((void *)((uintptr_t)_ptr - (uintptr_t)t->key_offset));
+	});
+}
+
+void _nc_table_foreach_64(table_64_t *t,OS_NOESCAPE payload_handler_t handler) {
+	os_set_foreach(&t->set, ^bool (uint64_t *_ptr) {
+		return handler((void *)((uintptr_t)_ptr - (uintptr_t)t->key_offset));
+	});
+}

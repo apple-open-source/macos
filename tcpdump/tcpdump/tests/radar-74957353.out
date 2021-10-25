@@ -1,0 +1,197 @@
+IP 10.42.53.132.50000 > 52.41.70.31.5201: Flags [SEW], seq 2445669383, win 65535, options [mss 1460,nop,wscale 5,mptcp capable v1,nop,nop,TS val 1979236006 ecr 0,sackOK,eol], length 0
+IP 52.41.70.31.5201 > 10.42.53.132.50000: Flags [S.E], seq 436714502, ack 2445669384, win 62503, options [mss 1460,sackOK,TS val 3534614510 ecr 1979236006,nop,wscale 7,mptcp capable v1 csum {0xe2232841fa0ef689}], length 0
+IP 10.42.53.132.50000 > 52.41.70.31.5201: Flags [.], ack 1, win 4096, options [nop,nop,TS val 1979236040 ecr 3534614510,mptcp capable v1 csum {0x406125b6882119e6,0xe2232841fa0ef689}], length 0
+IP 10.42.53.132.50000 > 52.41.70.31.5201: Flags [.], seq 1:1429, ack 1, win 4096, options [nop,nop,TS val 1979236312 ecr 3534614510,mptcp dss ack 3789686029 seq 804902517 subseq 1 len 2000 csum 0x6e5d], length 1428
+IP 10.42.53.132.50000 > 52.41.70.31.5201: Flags [P.], seq 1429:2001, ack 1, win 4096, options [nop,nop,TS val 1979236312 ecr 3534614510,mptcp dss ack 3789686029 seq 804902517 subseq 1 len 2000 csum 0x6e5d], length 572
+IP 52.41.70.31.5201 > 10.42.53.132.50000: Flags [.], ack 2001, win 489, options [nop,nop,TS val 3534614818 ecr 1979236312,mptcp dss ack 4066747377], length 0
+IP 10.42.53.132.50000 > 52.41.70.31.5201: Flags [.], seq 2001:3429, ack 1, win 4096, options [nop,nop,TS val 1979236590 ecr 3534614818,mptcp dss ack 3789686029 seq 804904517 subseq 2001 len 2000 csum 0x5ebd], length 1428
+IP 10.42.53.132.50000 > 52.41.70.31.5201: Flags [P.], seq 3429:4001, ack 1, win 4096, options [nop,nop,TS val 1979236590 ecr 3534614818,mptcp dss ack 3789686029 seq 804904517 subseq 2001 len 2000 csum 0x5ebd], length 572
+IP 52.41.70.31.5201 > 10.42.53.132.50000: Flags [.], ack 4001, win 489, options [nop,nop,TS val 3534615097 ecr 1979236590,mptcp dss ack 4066747377], length 0
+IP 10.42.53.132.50000 > 52.41.70.31.5201: Flags [.], seq 4001:5429, ack 1, win 4096, options [nop,nop,TS val 1979236864 ecr 3534615097,mptcp dss ack 3789686029 seq 804906517 subseq 4001 len 2000 csum 0x4f1d], length 1428
+IP 10.42.53.132.50000 > 52.41.70.31.5201: Flags [P.], seq 5429:6001, ack 1, win 4096, options [nop,nop,TS val 1979236864 ecr 3534615097,mptcp dss ack 3789686029 seq 804906517 subseq 4001 len 2000 csum 0x4f1d], length 572
+IP 52.41.70.31.5201 > 10.42.53.132.50000: Flags [.], ack 6001, win 489, options [nop,nop,TS val 3534615369 ecr 1979236864,mptcp dss ack 4066747377], length 0
+IP 10.42.53.132.50000 > 52.41.70.31.5201: Flags [.], seq 6001:7429, ack 1, win 4096, options [nop,nop,TS val 1979237137 ecr 3534615369,mptcp dss ack 3789686029 seq 804908517 subseq 6001 len 2000 csum 0x3f7d], length 1428
+IP 10.42.53.132.50000 > 52.41.70.31.5201: Flags [P.], seq 7429:8001, ack 1, win 4096, options [nop,nop,TS val 1979237137 ecr 3534615369,mptcp dss ack 3789686029 seq 804908517 subseq 6001 len 2000 csum 0x3f7d], length 572
+IP 52.41.70.31.5201 > 10.42.53.132.50000: Flags [.], ack 7429, win 489, options [nop,nop,TS val 3534615637 ecr 1979237137,mptcp dss ack 4066747377], length 0
+IP 52.41.70.31.5201 > 10.42.53.132.50000: Flags [.], ack 8001, win 489, options [nop,nop,TS val 3534615637 ecr 1979237137,mptcp dss ack 4066747377], length 0
+IP 10.42.53.132.50000 > 52.41.70.31.5201: Flags [.], seq 8001:9429, ack 1, win 4096, options [nop,nop,TS val 1979237410 ecr 3534615637,mptcp dss ack 3789686029 seq 804910517 subseq 8001 len 2000 csum 0x2fdd], length 1428
+IP 10.42.53.132.50000 > 52.41.70.31.5201: Flags [P.], seq 9429:10001, ack 1, win 4096, options [nop,nop,TS val 1979237410 ecr 3534615637,mptcp dss ack 3789686029 seq 804910517 subseq 8001 len 2000 csum 0x2fdd], length 572
+IP 52.41.70.31.5201 > 10.42.53.132.50000: Flags [.], ack 10001, win 489, options [nop,nop,TS val 3534615915 ecr 1979237410,mptcp dss ack 4066747377], length 0
+IP 10.42.53.132.50000 > 52.41.70.31.5201: Flags [.], seq 10001:11429, ack 1, win 4096, options [nop,nop,TS val 1979237681 ecr 3534615915,mptcp dss ack 3789686029 seq 804912517 subseq 10001 len 2000 csum 0x203d], length 1428
+IP 10.42.53.132.50000 > 52.41.70.31.5201: Flags [P.], seq 11429:12001, ack 1, win 4096, options [nop,nop,TS val 1979237681 ecr 3534615915,mptcp dss ack 3789686029 seq 804912517 subseq 10001 len 2000 csum 0x203d], length 572
+IP 52.41.70.31.5201 > 10.42.53.132.50000: Flags [.], ack 12001, win 489, options [nop,nop,TS val 3534616187 ecr 1979237681,mptcp dss ack 4066747377], length 0
+IP 10.42.53.132.50000 > 52.41.70.31.5201: Flags [.], seq 12001:13429, ack 1, win 4096, options [nop,nop,TS val 1979237952 ecr 3534616187,mptcp dss ack 3789686029 seq 804914517 subseq 12001 len 2000 csum 0x109d], length 1428
+IP 10.42.53.132.50000 > 52.41.70.31.5201: Flags [P.], seq 13429:14001, ack 1, win 4096, options [nop,nop,TS val 1979237952 ecr 3534616187,mptcp dss ack 3789686029 seq 804914517 subseq 12001 len 2000 csum 0x109d], length 572
+IP 52.41.70.31.5201 > 10.42.53.132.50000: Flags [.], ack 14001, win 489, options [nop,nop,TS val 3534616455 ecr 1979237952,mptcp dss ack 4066747377], length 0
+IP 10.42.53.132.50000 > 52.41.70.31.5201: Flags [.], seq 14001:15429, ack 1, win 4096, options [nop,nop,TS val 1979238225 ecr 3534616455,mptcp dss ack 3789686029 seq 804916517 subseq 14001 len 2000 csum 0xfd], length 1428
+IP 10.42.53.132.50000 > 52.41.70.31.5201: Flags [P.], seq 15429:16001, ack 1, win 4096, options [nop,nop,TS val 1979238225 ecr 3534616455,mptcp dss ack 3789686029 seq 804916517 subseq 14001 len 2000 csum 0xfd], length 572
+IP 52.41.70.31.5201 > 10.42.53.132.50000: Flags [.], ack 16001, win 489, options [nop,nop,TS val 3534616730 ecr 1979238225,mptcp dss ack 4066747377], length 0
+IP 10.42.53.132.50000 > 52.41.70.31.5201: Flags [.], seq 16001:17429, ack 1, win 4096, options [nop,nop,TS val 1979238498 ecr 3534616730,mptcp dss ack 3789686029 seq 804918517 subseq 16001 len 2000 csum 0xf15c], length 1428
+IP 10.42.53.132.50000 > 52.41.70.31.5201: Flags [P.], seq 17429:18001, ack 1, win 4096, options [nop,nop,TS val 1979238498 ecr 3534616730,mptcp dss ack 3789686029 seq 804918517 subseq 16001 len 2000 csum 0xf15c], length 572
+IP 52.41.70.31.5201 > 10.42.53.132.50000: Flags [.], ack 18001, win 489, options [nop,nop,TS val 3534617003 ecr 1979238498,mptcp dss ack 4066747377], length 0
+IP 10.42.53.132.50000 > 52.41.70.31.5201: Flags [.], seq 18001:19429, ack 1, win 4096, options [nop,nop,TS val 1979238771 ecr 3534617003,mptcp dss ack 3789686029 seq 804920517 subseq 18001 len 2000 csum 0xe1bc], length 1428
+IP 10.42.53.132.50000 > 52.41.70.31.5201: Flags [P.], seq 19429:20001, ack 1, win 4096, options [nop,nop,TS val 1979238771 ecr 3534617003,mptcp dss ack 3789686029 seq 804920517 subseq 18001 len 2000 csum 0xe1bc], length 572
+IP 52.41.70.31.5201 > 10.42.53.132.50000: Flags [.], ack 20001, win 489, options [nop,nop,TS val 3534617274 ecr 1979238771,mptcp dss ack 4066747377], length 0
+IP 10.42.53.132.50000 > 52.41.70.31.5201: Flags [F.], seq 20001, ack 1, win 4096, options [nop,nop,TS val 1979257673 ecr 3534617274,mptcp dss fin ack 3789686029 seq 804922517 subseq 0 len 1 csum 0xef4], length 0
+IP 52.41.70.31.5201 > 10.42.53.132.50000: Flags [.], ack 20002, win 489, options [nop,nop,TS val 3534636218 ecr 1979257673,mptcp dss ack 4066747377], length 0
+IP 10.42.53.132.50002 > 52.41.70.31.5201: Flags [SEW], seq 3111594058, win 65535, options [mss 1460,nop,wscale 5,mptcp capable v0 {0x10b4a985eac6e5d9},nop,nop,TS val 3192558561 ecr 0,sackOK,eol], length 0
+IP 52.41.70.31.5201 > 10.42.53.132.50002: Flags [S.E], seq 3152720739, ack 3111594059, win 62503, options [mss 1460,sackOK,TS val 3534642216 ecr 3192558561,nop,wscale 7,mptcp capable v0 csum {0x580fe1c914225d29}], length 0
+IP 10.42.53.132.50002 > 52.41.70.31.5201: Flags [.], ack 1, win 4096, options [nop,nop,TS val 3192558595 ecr 3534642216,mptcp capable v0 csum {0x10b4a985eac6e5d9,0x580fe1c914225d29}], length 0
+IP 10.42.53.132.50002 > 52.41.70.31.5201: Flags [.], seq 1:1429, ack 1, win 4096, options [nop,nop,TS val 3192558874 ecr 3534642216,mptcp dss ack 1179770297 seq 3554115263 subseq 1 len 2000 csum 0x7010], length 1428
+IP 10.42.53.132.50002 > 52.41.70.31.5201: Flags [P.], seq 1429:2001, ack 1, win 4096, options [nop,nop,TS val 3192558874 ecr 3534642216,mptcp dss ack 1179770297 seq 3554115263 subseq 1 len 2000 csum 0x7010], length 572
+IP 52.41.70.31.5201 > 10.42.53.132.50002: Flags [.], ack 2001, win 473, options [nop,nop,TS val 3534642530 ecr 3192558874,mptcp dss ack 3554117263], length 0
+IP6 2607:fb90:3635:797b:5986:1647:4961:b852.50003 > 2607:7700:0:13::3429:461f.5201: Flags [S], seq 1266509227, win 0, options [mss 1404,nop,wscale 5,mptcp join backup id 3 token 0x15110639 nonce 0xda4cb2e9,nop,nop,TS val 590899905 ecr 0,sackOK,eol], length 0
+IP 52.41.70.31.5201 > 10.42.53.132.50002: Flags [P.], seq 1:1025, ack 2001, win 473, options [nop,nop,TS val 3534642530 ecr 3192558874,mptcp dss ack 3554117263 seq 1179770297 subseq 1 len 1024 csum 0xe70b], length 1024
+IP 10.42.53.132.50002 > 52.41.70.31.5201: Flags [.], ack 1025, win 8169, options [nop,nop,TS val 3192558909 ecr 3534642530,mptcp dss ack 1179771321], length 0
+IP 52.41.70.31.5201 > 10.42.53.132.50002: Flags [P.], seq 1025:2001, ack 2001, win 473, options [nop,nop,TS val 3534642556 ecr 3192558874,mptcp dss ack 3554117263 seq 1179771321 subseq 1025 len 976 csum 0xfd59], length 976
+IP 10.42.53.132.50002 > 52.41.70.31.5201: Flags [.], ack 2001, win 8171, options [nop,nop,TS val 3192558934 ecr 3534642556,mptcp dss ack 1179772297], length 0
+IP6 2607:7700:0:13::3429:461f.5201 > 2607:fb90:3635:797b:5986:1647:4961:b852.50003: Flags [S.], seq 3531829736, ack 1266509228, win 62503, options [mss 1400,sackOK,TS val 1772841781 ecr 590899905,nop,wscale 7,mptcp join id 0 hmac 0xaf8488892c4f796b nonce 0xe34303eb], length 0
+IP6 2607:fb90:3635:797b:5986:1647:4961:b852.50003 > 2607:7700:0:13::3429:461f.5201: Flags [.], ack 1, win 8201, options [nop,nop,TS val 590900118 ecr 1772841781,mptcp join hmac 0xd65ad8e33a106f374b4a6e9b11f4a5739ad65260], length 0
+IP 10.42.53.132.50002 > 52.41.70.31.5201: Flags [.], seq 2001:3429, ack 2001, win 8201, options [nop,nop,TS val 3192559134 ecr 3534642556,mptcp dss ack 1179772297 seq 3554117263 subseq 2001 len 2000 csum 0x6070], length 1428
+IP 10.42.53.132.50002 > 52.41.70.31.5201: Flags [P.], seq 3429:4001, ack 2001, win 8201, options [nop,nop,TS val 3192559134 ecr 3534642556,mptcp dss ack 1179772297 seq 3554117263 subseq 2001 len 2000 csum 0x6070], length 572
+IP 52.41.70.31.5201 > 10.42.53.132.50002: Flags [.], ack 3429, win 473, options [nop,nop,TS val 3534642782 ecr 3192559134,mptcp dss ack 3554117263], length 0
+IP 52.41.70.31.5201 > 10.42.53.132.50002: Flags [.], ack 4001, win 458, options [nop,nop,TS val 3534642783 ecr 3192559134,mptcp dss ack 3554119263], length 0
+IP 52.41.70.31.5201 > 10.42.53.132.50002: Flags [P.], seq 2001:3025, ack 4001, win 458, options [nop,nop,TS val 3534642783 ecr 3192559134,mptcp dss ack 3554119263 seq 1179772297 subseq 2001 len 1024 csum 0xd76b], length 1024
+IP 10.42.53.132.50002 > 52.41.70.31.5201: Flags [.], ack 3025, win 8177, options [nop,nop,TS val 3192559161 ecr 3534642783,mptcp dss ack 1179773321], length 0
+IP 52.41.70.31.5201 > 10.42.53.132.50002: Flags [P.], seq 3025:4001, ack 4001, win 458, options [nop,nop,TS val 3534642808 ecr 3192559134,mptcp dss ack 3554119263 seq 1179773321 subseq 3025 len 976 csum 0xedb9], length 976
+IP 10.42.53.132.50002 > 52.41.70.31.5201: Flags [.], ack 4001, win 8179, options [nop,nop,TS val 3192559186 ecr 3534642808,mptcp dss ack 1179774297], length 0
+IP6 2607:7700:0:13::3429:461f.5201 > 2607:fb90:3635:797b:5986:1647:4961:b852.50003: Flags [.], ack 1, win 884, options [nop,nop,TS val 1772841860 ecr 590900118,mptcp dss ack 3554119263], length 0
+IP 10.42.53.132.50002 > 52.41.70.31.5201: Flags [.], seq 4001:5429, ack 4001, win 8209, options [nop,nop,TS val 3192559407 ecr 3534642808,mptcp dss ack 1179774297 seq 3554119263 subseq 4001 len 2000 csum 0x50d0], length 1428
+IP 10.42.53.132.50002 > 52.41.70.31.5201: Flags [P.], seq 5429:6001, ack 4001, win 8209, options [nop,nop,TS val 3192559407 ecr 3534642808,mptcp dss ack 1179774297 seq 3554119263 subseq 4001 len 2000 csum 0x50d0], length 572
+IP 52.41.70.31.5201 > 10.42.53.132.50002: Flags [.], ack 5429, win 884, options [nop,nop,TS val 3534643062 ecr 3192559407,mptcp dss ack 3554119263], length 0
+IP 52.41.70.31.5201 > 10.42.53.132.50002: Flags [.], ack 6001, win 884, options [nop,nop,TS val 3534643062 ecr 3192559407,mptcp dss ack 3554121263], length 0
+IP 52.41.70.31.5201 > 10.42.53.132.50002: Flags [P.], seq 4001:5025, ack 6001, win 884, options [nop,nop,TS val 3534643062 ecr 3192559407,mptcp dss ack 3554121263 seq 1179774297 subseq 4001 len 1024 csum 0xc7cb], length 1024
+IP 10.42.53.132.50002 > 52.41.70.31.5201: Flags [.], ack 5025, win 8177, options [nop,nop,TS val 3192559440 ecr 3534643062,mptcp dss ack 1179775321], length 0
+IP 52.41.70.31.5201 > 10.42.53.132.50002: Flags [P.], seq 5025:6001, ack 6001, win 884, options [nop,nop,TS val 3534643087 ecr 3192559407,mptcp dss ack 3554121263 seq 1179775321 subseq 5025 len 976 csum 0xde19], length 976
+IP 10.42.53.132.50002 > 52.41.70.31.5201: Flags [.], ack 6001, win 8179, options [nop,nop,TS val 3192559465 ecr 3534643087,mptcp dss ack 1179776297], length 0
+IP 10.42.53.132.50002 > 52.41.70.31.5201: Flags [.], seq 6001:7429, ack 6001, win 8209, options [nop,nop,TS val 3192559676 ecr 3534643087,mptcp dss ack 1179776297 seq 3554121263 subseq 6001 len 2000 csum 0x4130], length 1428
+IP 10.42.53.132.50002 > 52.41.70.31.5201: Flags [P.], seq 7429:8001, ack 6001, win 8209, options [nop,nop,TS val 3192559676 ecr 3534643087,mptcp dss ack 1179776297 seq 3554121263 subseq 6001 len 2000 csum 0x4130], length 572
+IP 52.41.70.31.5201 > 10.42.53.132.50002: Flags [.], ack 8001, win 884, options [nop,nop,TS val 3534643331 ecr 3192559676,mptcp dss ack 3554123263], length 0
+IP 52.41.70.31.5201 > 10.42.53.132.50002: Flags [P.], seq 6001:7025, ack 8001, win 884, options [nop,nop,TS val 3534643332 ecr 3192559676,mptcp dss ack 3554123263 seq 1179776297 subseq 6001 len 1024 csum 0xb82b], length 1024
+IP 10.42.53.132.50002 > 52.41.70.31.5201: Flags [.], ack 7025, win 8177, options [nop,nop,TS val 3192559709 ecr 3534643332,mptcp dss ack 1179777321], length 0
+IP 52.41.70.31.5201 > 10.42.53.132.50002: Flags [P.], seq 7025:8001, ack 8001, win 884, options [nop,nop,TS val 3534643357 ecr 3192559676,mptcp dss ack 3554123263 seq 1179777321 subseq 7025 len 976 csum 0xce79], length 976
+IP 10.42.53.132.50002 > 52.41.70.31.5201: Flags [.], ack 8001, win 8179, options [nop,nop,TS val 3192559736 ecr 3534643357,mptcp dss ack 1179778297], length 0
+IP 10.42.53.132.50002 > 52.41.70.31.5201: Flags [.], seq 8001:9429, ack 8001, win 8209, options [nop,nop,TS val 3192559954 ecr 3534643357,mptcp dss ack 1179778297 seq 3554123263 subseq 8001 len 2000 csum 0x3190], length 1428
+IP 10.42.53.132.50002 > 52.41.70.31.5201: Flags [P.], seq 9429:10001, ack 8001, win 8209, options [nop,nop,TS val 3192559954 ecr 3534643357,mptcp dss ack 1179778297 seq 3554123263 subseq 8001 len 2000 csum 0x3190], length 572
+IP 52.41.70.31.5201 > 10.42.53.132.50002: Flags [.], ack 10001, win 884, options [nop,nop,TS val 3534643608 ecr 3192559954,mptcp dss ack 3554125263], length 0
+IP 52.41.70.31.5201 > 10.42.53.132.50002: Flags [P.], seq 8001:9025, ack 10001, win 884, options [nop,nop,TS val 3534643608 ecr 3192559954,mptcp dss ack 3554125263 seq 1179778297 subseq 8001 len 1024 csum 0xa88b], length 1024
+IP 10.42.53.132.50002 > 52.41.70.31.5201: Flags [.], ack 9025, win 8177, options [nop,nop,TS val 3192559987 ecr 3534643608,mptcp dss ack 1179779321], length 0
+IP 52.41.70.31.5201 > 10.42.53.132.50002: Flags [P.], seq 9025:10001, ack 10001, win 884, options [nop,nop,TS val 3534643633 ecr 3192559954,mptcp dss ack 3554125263 seq 1179779321 subseq 9025 len 976 csum 0xbed9], length 976
+IP 10.42.53.132.50002 > 52.41.70.31.5201: Flags [.], ack 10001, win 8179, options [nop,nop,TS val 3192560011 ecr 3534643633,mptcp dss ack 1179780297], length 0
+IP 10.42.53.132.50002 > 52.41.70.31.5201: Flags [.], seq 10001:11429, ack 10001, win 8209, options [nop,nop,TS val 3192560223 ecr 3534643633,mptcp dss ack 1179780297 seq 3554125263 subseq 10001 len 2000 csum 0x21f0], length 1428
+IP 10.42.53.132.50002 > 52.41.70.31.5201: Flags [P.], seq 11429:12001, ack 10001, win 8209, options [nop,nop,TS val 3192560223 ecr 3534643633,mptcp dss ack 1179780297 seq 3554125263 subseq 10001 len 2000 csum 0x21f0], length 572
+IP 52.41.70.31.5201 > 10.42.53.132.50002: Flags [.], ack 12001, win 884, options [nop,nop,TS val 3534643878 ecr 3192560223,mptcp dss ack 3554127263], length 0
+IP 52.41.70.31.5201 > 10.42.53.132.50002: Flags [P.], seq 10001:11025, ack 12001, win 884, options [nop,nop,TS val 3534643878 ecr 3192560223,mptcp dss ack 3554127263 seq 1179780297 subseq 10001 len 1024 csum 0x98eb], length 1024
+IP 10.42.53.132.50002 > 52.41.70.31.5201: Flags [.], ack 11025, win 8177, options [nop,nop,TS val 3192560257 ecr 3534643878,mptcp dss ack 1179781321], length 0
+IP 52.41.70.31.5201 > 10.42.53.132.50002: Flags [P.], seq 11025:12001, ack 12001, win 884, options [nop,nop,TS val 3534643903 ecr 3192560223,mptcp dss ack 3554127263 seq 1179781321 subseq 11025 len 976 csum 0xaf39], length 976
+IP 10.42.53.132.50002 > 52.41.70.31.5201: Flags [.], ack 12001, win 8179, options [nop,nop,TS val 3192560297 ecr 3534643903,mptcp dss ack 1179782297], length 0
+IP 10.42.53.132.50002 > 52.41.70.31.5201: Flags [.], seq 12001:13429, ack 12001, win 8209, options [nop,nop,TS val 3192560493 ecr 3534643903,mptcp dss ack 1179782297 seq 3554127263 subseq 12001 len 2000 csum 0x1250], length 1428
+IP 10.42.53.132.50002 > 52.41.70.31.5201: Flags [P.], seq 13429:14001, ack 12001, win 8209, options [nop,nop,TS val 3192560493 ecr 3534643903,mptcp dss ack 1179782297 seq 3554127263 subseq 12001 len 2000 csum 0x1250], length 572
+IP 52.41.70.31.5201 > 10.42.53.132.50002: Flags [.], ack 14001, win 884, options [nop,nop,TS val 3534644148 ecr 3192560493,mptcp dss ack 3554129263], length 0
+IP 52.41.70.31.5201 > 10.42.53.132.50002: Flags [P.], seq 12001:13025, ack 14001, win 884, options [nop,nop,TS val 3534644148 ecr 3192560493,mptcp dss ack 3554129263 seq 1179782297 subseq 12001 len 1024 csum 0x894b], length 1024
+IP 10.42.53.132.50002 > 52.41.70.31.5201: Flags [.], ack 13025, win 8177, options [nop,nop,TS val 3192560527 ecr 3534644148,mptcp dss ack 1179783321], length 0
+IP 52.41.70.31.5201 > 10.42.53.132.50002: Flags [P.], seq 13025:14001, ack 14001, win 884, options [nop,nop,TS val 3534644173 ecr 3192560493,mptcp dss ack 3554129263 seq 1179783321 subseq 13025 len 976 csum 0x9f99], length 976
+IP 10.42.53.132.50002 > 52.41.70.31.5201: Flags [.], ack 14001, win 8179, options [nop,nop,TS val 3192560552 ecr 3534644173,mptcp dss ack 1179784297], length 0
+IP 10.42.53.132.50002 > 52.41.70.31.5201: Flags [.], seq 14001:15429, ack 14001, win 8209, options [nop,nop,TS val 3192560762 ecr 3534644173,mptcp dss ack 1179784297 seq 3554129263 subseq 14001 len 2000 csum 0x2b0], length 1428
+IP 10.42.53.132.50002 > 52.41.70.31.5201: Flags [P.], seq 15429:16001, ack 14001, win 8209, options [nop,nop,TS val 3192560762 ecr 3534644173,mptcp dss ack 1179784297 seq 3554129263 subseq 14001 len 2000 csum 0x2b0], length 572
+IP 52.41.70.31.5201 > 10.42.53.132.50002: Flags [.], ack 16001, win 884, options [nop,nop,TS val 3534644412 ecr 3192560762,mptcp dss ack 3554131263], length 0
+IP 52.41.70.31.5201 > 10.42.53.132.50002: Flags [P.], seq 14001:15025, ack 16001, win 884, options [nop,nop,TS val 3534644412 ecr 3192560762,mptcp dss ack 3554131263 seq 1179784297 subseq 14001 len 1024 csum 0x79ab], length 1024
+IP 10.42.53.132.50002 > 52.41.70.31.5201: Flags [.], ack 15025, win 8177, options [nop,nop,TS val 3192560791 ecr 3534644412,mptcp dss ack 1179785321], length 0
+IP 52.41.70.31.5201 > 10.42.53.132.50002: Flags [P.], seq 15025:16001, ack 16001, win 884, options [nop,nop,TS val 3534644438 ecr 3192560762,mptcp dss ack 3554131263 seq 1179785321 subseq 15025 len 976 csum 0x8ff9], length 976
+IP 10.42.53.132.50002 > 52.41.70.31.5201: Flags [.], ack 16001, win 8179, options [nop,nop,TS val 3192560816 ecr 3534644438,mptcp dss ack 1179786297], length 0
+IP 10.42.53.132.50002 > 52.41.70.31.5201: Flags [.], seq 16001:17429, ack 16001, win 8209, options [nop,nop,TS val 3192561031 ecr 3534644438,mptcp dss ack 1179786297 seq 3554131263 subseq 16001 len 2000 csum 0xf30f], length 1428
+IP 10.42.53.132.50002 > 52.41.70.31.5201: Flags [P.], seq 17429:18001, ack 16001, win 8209, options [nop,nop,TS val 3192561031 ecr 3534644438,mptcp dss ack 1179786297 seq 3554131263 subseq 16001 len 2000 csum 0xf30f], length 572
+IP 52.41.70.31.5201 > 10.42.53.132.50002: Flags [.], ack 18001, win 884, options [nop,nop,TS val 3534644686 ecr 3192561031,mptcp dss ack 3554133263], length 0
+IP 52.41.70.31.5201 > 10.42.53.132.50002: Flags [P.], seq 16001:17025, ack 18001, win 884, options [nop,nop,TS val 3534644686 ecr 3192561031,mptcp dss ack 3554133263 seq 1179786297 subseq 16001 len 1024 csum 0x6a0b], length 1024
+IP 10.42.53.132.50002 > 52.41.70.31.5201: Flags [.], ack 17025, win 8177, options [nop,nop,TS val 3192561065 ecr 3534644686,mptcp dss ack 1179787321], length 0
+IP 52.41.70.31.5201 > 10.42.53.132.50002: Flags [P.], seq 17025:18001, ack 18001, win 884, options [nop,nop,TS val 3534644711 ecr 3192561031,mptcp dss ack 3554133263 seq 1179787321 subseq 17025 len 976 csum 0x8059], length 976
+IP 10.42.53.132.50002 > 52.41.70.31.5201: Flags [.], ack 18001, win 8179, options [nop,nop,TS val 3192561090 ecr 3534644711,mptcp dss ack 1179788297], length 0
+IP 10.42.53.132.50002 > 52.41.70.31.5201: Flags [.], seq 18001:19429, ack 18001, win 8209, options [nop,nop,TS val 3192561300 ecr 3534644711,mptcp dss ack 1179788297 seq 3554133263 subseq 18001 len 2000 csum 0xe36f], length 1428
+IP 10.42.53.132.50002 > 52.41.70.31.5201: Flags [P.], seq 19429:20001, ack 18001, win 8209, options [nop,nop,TS val 3192561300 ecr 3534644711,mptcp dss ack 1179788297 seq 3554133263 subseq 18001 len 2000 csum 0xe36f], length 572
+IP 52.41.70.31.5201 > 10.42.53.132.50002: Flags [.], ack 20001, win 884, options [nop,nop,TS val 3534644949 ecr 3192561300,mptcp dss ack 3554135263], length 0
+IP 52.41.70.31.5201 > 10.42.53.132.50002: Flags [P.], seq 18001:19025, ack 20001, win 884, options [nop,nop,TS val 3534644949 ecr 3192561300,mptcp dss ack 3554135263 seq 1179788297 subseq 18001 len 1024 csum 0x5a6b], length 1024
+IP 10.42.53.132.50002 > 52.41.70.31.5201: Flags [.], ack 19025, win 8177, options [nop,nop,TS val 3192561328 ecr 3534644949,mptcp dss ack 1179789321], length 0
+IP 52.41.70.31.5201 > 10.42.53.132.50002: Flags [P.], seq 19025:20001, ack 20001, win 884, options [nop,nop,TS val 3534644974 ecr 3192561300,mptcp dss ack 3554135263 seq 1179789321 subseq 19025 len 976 csum 0x70b9], length 976
+IP 10.42.53.132.50002 > 52.41.70.31.5201: Flags [.], ack 20001, win 8179, options [nop,nop,TS val 3192561352 ecr 3534644974,mptcp dss ack 1179790297], length 0
+IP6 2607:fb90:3635:797b:5986:1647:4961:b852.50003 > 2607:7700:0:13::3429:461f.5201: Flags [F.], seq 1, ack 1, win 8209, options [nop,nop,TS val 590902356 ecr 1772841860,mptcp dss fin ack 1179790297 seq 3554135263 subseq 0 len 1 csum 0x10a7], length 0
+IP 10.42.53.132.50002 > 52.41.70.31.5201: Flags [F.], seq 20001, ack 20001, win 8209, options [nop,nop,TS val 3192561360 ecr 3534644974,mptcp dss fin ack 1179790297 seq 3554135263 subseq 0 len 1 csum 0x10a7], length 0
+IP 52.41.70.31.5201 > 10.42.53.132.50002: Flags [.], ack 20002, win 884, options [nop,nop,TS val 3534645008 ecr 3192561360,mptcp dss ack 3554135264], length 0
+IP 52.41.70.31.5201 > 10.42.53.132.50002: Flags [F.], seq 20001, ack 20002, win 884, options [nop,nop,TS val 3534645008 ecr 3192561360,mptcp dss fin ack 3554135264 seq 1179790297 subseq 0 len 1 csum 0x1f6e], length 0
+IP 10.42.53.132.50002 > 52.41.70.31.5201: Flags [.], ack 20002, win 8209, options [nop,nop,TS val 3192561386 ecr 3534645008,mptcp dss ack 1179790298], length 0
+IP6 2607:7700:0:13::3429:461f.5201 > 2607:fb90:3635:797b:5986:1647:4961:b852.50003: Flags [F.], seq 1, ack 2, win 884, options [nop,nop,TS val 1772844115 ecr 590902356,mptcp dss ack 3554135264], length 0
+IP6 2607:fb90:3635:797b:5986:1647:4961:b852.50003 > 2607:7700:0:13::3429:461f.5201: Flags [.], ack 2, win 8209, options [nop,nop,TS val 590902468 ecr 1772844115,mptcp dss ack 1179790298], length 0
+IP 10.42.53.132.50004 > 52.41.70.31.5201: Flags [SEW], seq 2889004778, win 65535, options [mss 1460,nop,wscale 5,mptcp capable v1,nop,nop,TS val 1952099318 ecr 0,sackOK,eol], length 0
+IP 52.41.70.31.5201 > 10.42.53.132.50004: Flags [S.E], seq 851672643, ack 2889004779, win 62503, options [mss 1460,sackOK,TS val 3534736900 ecr 1952099318,nop,wscale 7,mptcp capable v1 csum {0x288a718919d7fdeb}], length 0
+IP 10.42.53.132.50004 > 52.41.70.31.5201: Flags [.], ack 1, win 4096, options [nop,nop,TS val 1952099358 ecr 3534736900,mptcp capable v1 csum {0x2d2800beb7b89352,0x288a718919d7fdeb}], length 0
+IP 10.42.53.132.50004 > 52.41.70.31.5201: Flags [.], seq 1:1429, ack 1, win 4096, options [nop,nop,TS val 1952099616 ecr 3534736900,mptcp dss ack 621856857 seq 4042235108 subseq 1 len 2000 csum 0x2f61], length 1428
+IP 10.42.53.132.50004 > 52.41.70.31.5201: Flags [P.], seq 1429:2001, ack 1, win 4096, options [nop,nop,TS val 1952099616 ecr 3534736900,mptcp dss ack 621856857 seq 4042235108 subseq 1 len 2000 csum 0x2f61], length 572
+IP 52.41.70.31.5201 > 10.42.53.132.50004: Flags [.], ack 1429, win 489, options [nop,nop,TS val 3534737201 ecr 1952099616,mptcp dss ack 836911334], length 0
+IP 52.41.70.31.5201 > 10.42.53.132.50004: Flags [.], ack 2001, win 489, options [nop,nop,TS val 3534737201 ecr 1952099616,mptcp dss ack 836911334], length 0
+IP 10.42.53.132.50004 > 52.41.70.31.5201: Flags [.], seq 2001:3429, ack 1, win 4096, options [nop,nop,TS val 1952099875 ecr 3534737201,mptcp dss ack 621856857 seq 4042237108 subseq 2001 len 2000 csum 0x1fc1], length 1428
+IP 10.42.53.132.50004 > 52.41.70.31.5201: Flags [P.], seq 3429:4001, ack 1, win 4096, options [nop,nop,TS val 1952099875 ecr 3534737201,mptcp dss ack 621856857 seq 4042237108 subseq 2001 len 2000 csum 0x1fc1], length 572
+IP 52.41.70.31.5201 > 10.42.53.132.50004: Flags [.], ack 4001, win 489, options [nop,nop,TS val 3534737460 ecr 1952099875,mptcp dss ack 836911334], length 0
+IP 10.42.53.132.50004 > 52.41.70.31.5201: Flags [.], seq 4001:5429, ack 1, win 4096, options [nop,nop,TS val 1952100152 ecr 3534737460,mptcp dss ack 621856857 seq 4042239108 subseq 4001 len 2000 csum 0x1021], length 1428
+IP 10.42.53.132.50004 > 52.41.70.31.5201: Flags [P.], seq 5429:6001, ack 1, win 4096, options [nop,nop,TS val 1952100152 ecr 3534737460,mptcp dss ack 621856857 seq 4042239108 subseq 4001 len 2000 csum 0x1021], length 572
+IP 52.41.70.31.5201 > 10.42.53.132.50004: Flags [.], ack 6001, win 489, options [nop,nop,TS val 3534737734 ecr 1952100152,mptcp dss ack 836911334], length 0
+IP 10.42.53.132.50004 > 52.41.70.31.5201: Flags [.], seq 6001:7429, ack 1, win 4096, options [nop,nop,TS val 1952100409 ecr 3534737734,mptcp dss ack 621856857 seq 4042241108 subseq 6001 len 2000 csum 0x81], length 1428
+IP 10.42.53.132.50004 > 52.41.70.31.5201: Flags [P.], seq 7429:8001, ack 1, win 4096, options [nop,nop,TS val 1952100409 ecr 3534737734,mptcp dss ack 621856857 seq 4042241108 subseq 6001 len 2000 csum 0x81], length 572
+IP 52.41.70.31.5201 > 10.42.53.132.50004: Flags [.], ack 7429, win 489, options [nop,nop,TS val 3534737991 ecr 1952100409,mptcp dss ack 836911334], length 0
+IP 52.41.70.31.5201 > 10.42.53.132.50004: Flags [.], ack 8001, win 489, options [nop,nop,TS val 3534737991 ecr 1952100409,mptcp dss ack 836911334], length 0
+IP 10.42.53.132.50004 > 52.41.70.31.5201: Flags [.], seq 8001:9429, ack 1, win 4096, options [nop,nop,TS val 1952100673 ecr 3534737991,mptcp dss ack 621856857 seq 4042243108 subseq 8001 len 2000 csum 0xf0e0], length 1428
+IP 10.42.53.132.50004 > 52.41.70.31.5201: Flags [P.], seq 9429:10001, ack 1, win 4096, options [nop,nop,TS val 1952100673 ecr 3534737991,mptcp dss ack 621856857 seq 4042243108 subseq 8001 len 2000 csum 0xf0e0], length 572
+IP 52.41.70.31.5201 > 10.42.53.132.50004: Flags [.], ack 10001, win 489, options [nop,nop,TS val 3534738254 ecr 1952100673,mptcp dss ack 836911334], length 0
+IP 10.42.53.132.50004 > 52.41.70.31.5201: Flags [.], seq 10001:11429, ack 1, win 4096, options [nop,nop,TS val 1952100947 ecr 3534738254,mptcp dss ack 621856857 seq 4042245108 subseq 10001 len 2000 csum 0xe140], length 1428
+IP 10.42.53.132.50004 > 52.41.70.31.5201: Flags [P.], seq 11429:12001, ack 1, win 4096, options [nop,nop,TS val 1952100947 ecr 3534738254,mptcp dss ack 621856857 seq 4042245108 subseq 10001 len 2000 csum 0xe140], length 572
+IP 52.41.70.31.5201 > 10.42.53.132.50004: Flags [.], ack 11429, win 489, options [nop,nop,TS val 3534738529 ecr 1952100947,mptcp dss ack 836911334], length 0
+IP 52.41.70.31.5201 > 10.42.53.132.50004: Flags [.], ack 12001, win 489, options [nop,nop,TS val 3534738529 ecr 1952100947,mptcp dss ack 836911334], length 0
+IP 10.42.53.132.50004 > 52.41.70.31.5201: Flags [.], seq 12001:13429, ack 1, win 4096, options [nop,nop,TS val 1952101200 ecr 3534738529,mptcp dss ack 621856857 seq 4042247108 subseq 12001 len 2000 csum 0xd1a0], length 1428
+IP 10.42.53.132.50004 > 52.41.70.31.5201: Flags [P.], seq 13429:14001, ack 1, win 4096, options [nop,nop,TS val 1952101200 ecr 3534738529,mptcp dss ack 621856857 seq 4042247108 subseq 12001 len 2000 csum 0xd1a0], length 572
+IP 52.41.70.31.5201 > 10.42.53.132.50004: Flags [.], ack 14001, win 489, options [nop,nop,TS val 3534738782 ecr 1952101200,mptcp dss ack 836911334], length 0
+IP 10.42.53.132.50004 > 52.41.70.31.5201: Flags [.], seq 14001:15429, ack 1, win 4096, options [nop,nop,TS val 1952101455 ecr 3534738782,mptcp dss ack 621856857 seq 4042249108 subseq 14001 len 2000 csum 0xc200], length 1428
+IP 10.42.53.132.50004 > 52.41.70.31.5201: Flags [P.], seq 15429:16001, ack 1, win 4096, options [nop,nop,TS val 1952101455 ecr 3534738782,mptcp dss ack 621856857 seq 4042249108 subseq 14001 len 2000 csum 0xc200], length 572
+IP 52.41.70.31.5201 > 10.42.53.132.50004: Flags [.], ack 16001, win 489, options [nop,nop,TS val 3534739034 ecr 1952101455,mptcp dss ack 836911334], length 0
+IP 10.42.53.132.50004 > 52.41.70.31.5201: Flags [.], seq 16001:17429, ack 1, win 4096, options [nop,nop,TS val 1952101730 ecr 3534739034,mptcp dss ack 621856857 seq 4042251108 subseq 16001 len 2000 csum 0xb260], length 1428
+IP 10.42.53.132.50004 > 52.41.70.31.5201: Flags [P.], seq 17429:18001, ack 1, win 4096, options [nop,nop,TS val 1952101730 ecr 3534739034,mptcp dss ack 621856857 seq 4042251108 subseq 16001 len 2000 csum 0xb260], length 572
+IP 52.41.70.31.5201 > 10.42.53.132.50004: Flags [.], ack 17429, win 489, options [nop,nop,TS val 3534739312 ecr 1952101730,mptcp dss ack 836911334], length 0
+IP 52.41.70.31.5201 > 10.42.53.132.50004: Flags [.], ack 18001, win 489, options [nop,nop,TS val 3534739312 ecr 1952101730,mptcp dss ack 836911334], length 0
+IP 10.42.53.132.50004 > 52.41.70.31.5201: Flags [.], seq 18001:19429, ack 1, win 4096, options [nop,nop,TS val 1952102005 ecr 3534739312,mptcp dss ack 621856857 seq 4042253108 subseq 18001 len 2000 csum 0xa2c0], length 1428
+IP 10.42.53.132.50004 > 52.41.70.31.5201: Flags [P.], seq 19429:20001, ack 1, win 4096, options [nop,nop,TS val 1952102005 ecr 3534739312,mptcp dss ack 621856857 seq 4042253108 subseq 18001 len 2000 csum 0xa2c0], length 572
+IP 52.41.70.31.5201 > 10.42.53.132.50004: Flags [.], ack 20001, win 489, options [nop,nop,TS val 3534739588 ecr 1952102005,mptcp dss ack 836911334], length 0
+IP 10.42.53.132.50004 > 52.41.70.31.5201: Flags [F.], seq 20001, ack 1, win 4096, options [nop,nop,TS val 1952117094 ecr 3534739588,mptcp dss fin ack 621856857 seq 4042255108 subseq 0 len 1 csum 0xcff7], length 0
+IP 52.41.70.31.5201 > 10.42.53.132.50004: Flags [.], ack 20002, win 489, options [nop,nop,TS val 3534754718 ecr 1952117094,mptcp dss ack 836911334], length 0
+IP 10.42.53.132.50005 > 52.41.70.31.5201: Flags [SEW], seq 3773645235, win 65535, options [mss 1460,nop,wscale 5,mptcp capable v1,nop,nop,TS val 2686559159 ecr 0,sackOK,eol], length 0
+IP 52.41.70.31.5201 > 10.42.53.132.50005: Flags [S.E], seq 1639751572, ack 3773645236, win 62503, options [mss 1460,sackOK,TS val 3534758662 ecr 2686559159,nop,wscale 7,mptcp capable v1 csum {0x95371f3c9bffaccb}], length 0
+IP 10.42.53.132.50005 > 52.41.70.31.5201: Flags [.], ack 1, win 4096, options [nop,nop,TS val 2686559193 ecr 3534758662,mptcp capable v1 csum {0x71364d262a7d35fd,0x95371f3c9bffaccb}], length 0
+IP 10.42.53.132.50005 > 52.41.70.31.5201: Flags [.], seq 1:1429, ack 1, win 4096, options [nop,nop,TS val 2686559471 ecr 3534758662,mptcp dss ack 2141456551 seq 1460776725 subseq 1 len 2000 csum 0x3eab], length 1428
+IP 10.42.53.132.50005 > 52.41.70.31.5201: Flags [P.], seq 1429:2001, ack 1, win 4096, options [nop,nop,TS val 2686559471 ecr 3534758662,mptcp dss ack 2141456551 seq 1460776725 subseq 1 len 2000 csum 0x3eab], length 572
+IP 52.41.70.31.5201 > 10.42.53.132.50005: Flags [.], ack 2001, win 489, options [nop,nop,TS val 3534758976 ecr 2686559471,mptcp dss ack 2841823246], length 0
+IP 10.42.53.132.50005 > 52.41.70.31.5201: Flags [.], seq 2001:3429, ack 1, win 4096, options [nop,nop,TS val 2686559745 ecr 3534758976,mptcp dss ack 2141456551 seq 1460778725 subseq 2001 len 2000 csum 0x2f0b], length 1428
+IP 10.42.53.132.50005 > 52.41.70.31.5201: Flags [P.], seq 3429:4001, ack 1, win 4096, options [nop,nop,TS val 2686559745 ecr 3534758976,mptcp dss ack 2141456551 seq 1460778725 subseq 2001 len 2000 csum 0x2f0b], length 572
+IP 52.41.70.31.5201 > 10.42.53.132.50005: Flags [.], ack 3429, win 489, options [nop,nop,TS val 3534759250 ecr 2686559745,mptcp dss ack 2841823246], length 0
+IP 52.41.70.31.5201 > 10.42.53.132.50005: Flags [.], ack 4001, win 489, options [nop,nop,TS val 3534759250 ecr 2686559745,mptcp dss ack 2841823246], length 0
+IP 10.42.53.132.50005 > 52.41.70.31.5201: Flags [.], seq 4001:5429, ack 1, win 4096, options [nop,nop,TS val 2686560013 ecr 3534759250,mptcp dss ack 2141456551 seq 1460780725 subseq 4001 len 2000 csum 0x1f6b], length 1428
+IP 10.42.53.132.50005 > 52.41.70.31.5201: Flags [P.], seq 5429:6001, ack 1, win 4096, options [nop,nop,TS val 2686560013 ecr 3534759250,mptcp dss ack 2141456551 seq 1460780725 subseq 4001 len 2000 csum 0x1f6b], length 572
+IP 52.41.70.31.5201 > 10.42.53.132.50005: Flags [.], ack 6001, win 489, options [nop,nop,TS val 3534759513 ecr 2686560013,mptcp dss ack 2841823246], length 0
+IP 10.42.53.132.50005 > 52.41.70.31.5201: Flags [.], seq 6001:7429, ack 1, win 4096, options [nop,nop,TS val 2686560286 ecr 3534759513,mptcp dss ack 2141456551 seq 1460782725 subseq 6001 len 2000 csum 0xfcb], length 1428
+IP 10.42.53.132.50005 > 52.41.70.31.5201: Flags [P.], seq 7429:8001, ack 1, win 4096, options [nop,nop,TS val 2686560286 ecr 3534759513,mptcp dss ack 2141456551 seq 1460782725 subseq 6001 len 2000 csum 0xfcb], length 572
+IP 52.41.70.31.5201 > 10.42.53.132.50005: Flags [.], ack 8001, win 489, options [nop,nop,TS val 3534759789 ecr 2686560286,mptcp dss ack 2841823246], length 0
+IP 10.42.53.132.50005 > 52.41.70.31.5201: Flags [.], seq 8001:9429, ack 1, win 4096, options [nop,nop,TS val 2686560559 ecr 3534759789,mptcp dss ack 2141456551 seq 1460784725 subseq 8001 len 2000 csum 0x2b], length 1428
+IP 10.42.53.132.50005 > 52.41.70.31.5201: Flags [P.], seq 9429:10001, ack 1, win 4096, options [nop,nop,TS val 2686560559 ecr 3534759789,mptcp dss ack 2141456551 seq 1460784725 subseq 8001 len 2000 csum 0x2b], length 572
+IP 52.41.70.31.5201 > 10.42.53.132.50005: Flags [.], ack 10001, win 489, options [nop,nop,TS val 3534760063 ecr 2686560559,mptcp dss ack 2841823246], length 0
+IP 10.42.53.132.50005 > 52.41.70.31.5201: Flags [.], seq 10001:11429, ack 1, win 4096, options [nop,nop,TS val 2686560836 ecr 3534760063,mptcp dss ack 2141456551 seq 1460786725 subseq 10001 len 2000 csum 0xf08a], length 1428
+IP 10.42.53.132.50005 > 52.41.70.31.5201: Flags [P.], seq 11429:12001, ack 1, win 4096, options [nop,nop,TS val 2686560836 ecr 3534760063,mptcp dss ack 2141456551 seq 1460786725 subseq 10001 len 2000 csum 0xf08a], length 572
+IP 52.41.70.31.5201 > 10.42.53.132.50005: Flags [.], ack 12001, win 489, options [nop,nop,TS val 3534760337 ecr 2686560836,mptcp dss ack 2841823246], length 0
+IP 10.42.53.132.50005 > 52.41.70.31.5201: Flags [.], seq 12001:13429, ack 1, win 4096, options [nop,nop,TS val 2686561109 ecr 3534760337,mptcp dss ack 2141456551 seq 1460788725 subseq 12001 len 2000 csum 0xe0ea], length 1428
+IP 10.42.53.132.50005 > 52.41.70.31.5201: Flags [P.], seq 13429:14001, ack 1, win 4096, options [nop,nop,TS val 2686561109 ecr 3534760337,mptcp dss ack 2141456551 seq 1460788725 subseq 12001 len 2000 csum 0xe0ea], length 572
+IP 52.41.70.31.5201 > 10.42.53.132.50005: Flags [.], ack 14001, win 489, options [nop,nop,TS val 3534760613 ecr 2686561109,mptcp dss ack 2841823246], length 0
+IP 10.42.53.132.50005 > 52.41.70.31.5201: Flags [.], seq 14001:15429, ack 1, win 4096, options [nop,nop,TS val 2686561381 ecr 3534760613,mptcp dss ack 2141456551 seq 1460790725 subseq 14001 len 2000 csum 0xd14a], length 1428
+IP 10.42.53.132.50005 > 52.41.70.31.5201: Flags [P.], seq 15429:16001, ack 1, win 4096, options [nop,nop,TS val 2686561381 ecr 3534760613,mptcp dss ack 2141456551 seq 1460790725 subseq 14001 len 2000 csum 0xd14a], length 572
+IP 52.41.70.31.5201 > 10.42.53.132.50005: Flags [.], ack 16001, win 489, options [nop,nop,TS val 3534760885 ecr 2686561381,mptcp dss ack 2841823246], length 0
+IP 10.42.53.132.50005 > 52.41.70.31.5201: Flags [.], seq 16001:17429, ack 1, win 4096, options [nop,nop,TS val 2686561654 ecr 3534760885,mptcp dss ack 2141456551 seq 1460792725 subseq 16001 len 2000 csum 0xc1aa], length 1428
+IP 10.42.53.132.50005 > 52.41.70.31.5201: Flags [P.], seq 17429:18001, ack 1, win 4096, options [nop,nop,TS val 2686561654 ecr 3534760885,mptcp dss ack 2141456551 seq 1460792725 subseq 16001 len 2000 csum 0xc1aa], length 572
+IP 52.41.70.31.5201 > 10.42.53.132.50005: Flags [.], ack 18001, win 489, options [nop,nop,TS val 3534761157 ecr 2686561654,mptcp dss ack 2841823246], length 0
+IP 10.42.53.132.50005 > 52.41.70.31.5201: Flags [.], seq 18001:19429, ack 1, win 4096, options [nop,nop,TS val 2686561927 ecr 3534761157,mptcp dss ack 2141456551 seq 1460794725 subseq 18001 len 2000 csum 0xb20a], length 1428
+IP 10.42.53.132.50005 > 52.41.70.31.5201: Flags [P.], seq 19429:20001, ack 1, win 4096, options [nop,nop,TS val 2686561927 ecr 3534761157,mptcp dss ack 2141456551 seq 1460794725 subseq 18001 len 2000 csum 0xb20a], length 572
+IP 52.41.70.31.5201 > 10.42.53.132.50005: Flags [.], ack 20001, win 489, options [nop,nop,TS val 3534761431 ecr 2686561927,mptcp dss ack 2841823246], length 0
+IP 10.42.53.132.50005 > 52.41.70.31.5201: Flags [F.], seq 20001, ack 1, win 4096, options [nop,nop,TS val 2686592255 ecr 3534761431,mptcp dss fin ack 2141456551 seq 1460796725 subseq 0 len 1 csum 0xdf41], length 0
+IP 52.41.70.31.5201 > 10.42.53.132.50005: Flags [.], ack 20002, win 489, options [nop,nop,TS val 3534791798 ecr 2686592255,mptcp dss ack 2841823246], length 0

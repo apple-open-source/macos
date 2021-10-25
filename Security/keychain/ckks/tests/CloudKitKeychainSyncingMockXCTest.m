@@ -53,15 +53,20 @@
 #import "keychain/ot/OTDefines.h"
 
 #import "tests/secdmockaks/mockaks.h"
+#import "ipc/securityd_client.h"
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
 #import "keychain/SecureObjectSync/SOSAccount.h"
 #pragma clang diagnostic pop
 
+@interface CKKSControl (TestAccess)
+@property NSXPCConnection *connection;
+@end
+
 @implementation ZoneKeys
 - (instancetype)initLoadingRecordsFromZone:(FakeCKZone*)zone {
-    if((self = [super init])) {
+    if((self = [super initWithZoneID:zone.zoneID])) {
         CKRecordID* currentTLKPointerID    = [[CKRecordID alloc] initWithRecordName:SecCKKSKeyClassTLK zoneID:zone.zoneID];
         CKRecordID* currentClassAPointerID = [[CKRecordID alloc] initWithRecordName:SecCKKSKeyClassA   zoneID:zone.zoneID];
         CKRecordID* currentClassCPointerID = [[CKRecordID alloc] initWithRecordName:SecCKKSKeyClassC   zoneID:zone.zoneID];
@@ -99,6 +104,10 @@
     (void)[CKKSManifest shouldSyncManifests]; // perfrom initialization
     SecCKKSSetSyncManifests(false);
     SecCKKSSetEnforceManifests(false);
+
+#if TARGET_OS_IOS
+    SecSecuritySetPersonaMusr(NULL);
+#endif
 
     // Check that your environment is set up correctly
     XCTAssertFalse([CKKSManifest shouldSyncManifests], "Manifests syncing is disabled");
@@ -152,18 +161,33 @@
 
 - (void)tearDown {
     // Make sure the key state machines won't continue
-    for(CKKSKeychainView* view in self.ckksViews) {
-        [view.stateMachine haltOperation];
-    }
+    [self.defaultCKKS.stateMachine haltOperation];
     [self.ckksViews removeAllObjects];
 
     [super tearDown];
     self.keys = nil;
 
+    // We're tearing down the tests; things that are non-nil in the tests should be thrown away
+    // We can't rely on the test class being released, unforunately...
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wnonnull"
+    self.ckksControl = nil;
+
+    [self.suggestTLKUpload stopMocking];
+    self.suggestTLKUpload = nil;
+
+    [self.requestPolicyCheck stopMocking];
+    self.requestPolicyCheck = nil;
+
     [self.mockCKKSKeychainBackedKey stopMocking];
     self.mockCKKSKeychainBackedKey = nil;
+#pragma clang diagnostic pop
 
     self.remoteSOSOnlyPeer = nil;
+
+#if TARGET_OS_IOS
+    SecSecuritySetPersonaMusr(NULL);
+#endif
 }
 
 - (void)startCKKSSubsystem
@@ -177,34 +201,29 @@
 }
 
 - (void)beginSOSTrustedOperationForAllViews {
-    for(CKKSKeychainView* view in self.ckksViews) {
-        [self beginSOSTrustedViewOperation:view];
-    }
+    [self beginSOSTrustedViewOperation:self.defaultCKKS];
 }
 
-- (void)beginSOSTrustedViewOperation:(CKKSKeychainView*)view
+- (void)beginSOSTrustedViewOperation:(CKKSKeychainView*)ckks
 {
     if(self.automaticallyBeginCKKSViewCloudKitOperation) {
-        [view beginCloudKitOperation];
+        [ckks beginCloudKitOperation];
     }
-
-    [view beginTrustedOperation:@[self.mockSOSAdapter]
+    [ckks beginTrustedOperation:@[self.mockSOSAdapter]
                suggestTLKUpload:self.suggestTLKUpload
              requestPolicyCheck:self.requestPolicyCheck];
 }
 
 - (void)endSOSTrustedOperationForAllViews {
-    for(CKKSKeychainView* view in self.ckksViews) {
-        [self endSOSTrustedViewOperation:view];
-    }
+    [self endSOSTrustedViewOperation:self.defaultCKKS];
 }
 
-- (void)endSOSTrustedViewOperation:(CKKSKeychainView*)view
+- (void)endSOSTrustedViewOperation:(CKKSKeychainView*)ckks
 {
     if(self.automaticallyBeginCKKSViewCloudKitOperation) {
-        [view beginCloudKitOperation];
+        [ckks beginCloudKitOperation];
     }
-    [view endTrustedOperation];
+    [ckks endTrustedOperation];
 }
 
 - (void)verifyDatabaseMocks {
@@ -263,8 +282,7 @@
 
     NSError* error = nil;
 
-    ZoneKeys* zonekeys = [[ZoneKeys alloc] init];
-    zonekeys.viewName = zoneID.zoneName;
+    ZoneKeys* zonekeys = [[ZoneKeys alloc] initWithZoneID:zoneID];
 
     zonekeys.tlk = [self fakeTLK:zoneID];
     [zonekeys.tlk CKRecordWithZoneID: zoneID]; // no-op here, but memoize in the object
@@ -425,7 +443,7 @@
 
     ZoneKeys* zonekeys = self.keys[zoneID];
     XCTAssertNil(zonekeys, "Should not already have zone keys when putting keyset in cloudkit");
-    zonekeys = [[ZoneKeys alloc] initForZoneName:zoneID.zoneName];
+    zonekeys = [[ZoneKeys alloc] initWithZoneID:zoneID];
 
     FakeCKZone* zone = self.zones[zoneID];
     // Cuttlefish makes this for you, but for now assert if there's an issue
@@ -460,33 +478,41 @@
     return newRecords;
 }
 
-- (void)performOctagonTLKUpload:(NSSet<CKKSKeychainView*>*)views
+- (void)performOctagonTLKUpload:(NSSet<CKKSKeychainViewState*>*)views
 {
     [self performOctagonTLKUpload:views afterUpload:nil];
 }
 
-- (void)performOctagonTLKUpload:(NSSet<CKKSKeychainView*>*)views afterUpload:(void (^_Nullable)(void))afterUpload
+- (void)performOctagonTLKUpload:(NSSet<CKKSKeychainViewState*>*)views afterUpload:(void (^_Nullable)(void))afterUpload
 {
     NSMutableArray<CKKSResultOperation<CKKSKeySetProviderOperationProtocol>*>* keysetOps = [NSMutableArray array];
 
-    for(CKKSKeychainView* view in views) {
-        XCTAssertEqual(0, [view.keyHierarchyConditions[SecCKKSZoneKeyStateWaitForTLKCreation] wait:40*NSEC_PER_SEC], @"key state should enter 'waitfortlkcreation' (view %@)", view);
-        [keysetOps addObject: [view findKeySet:NO]];
+    for(CKKSKeychainViewState* view in views) {
+        if(view.ckksManagedView) {
+            XCTAssertEqual(0, [view.keyHierarchyConditions[SecCKKSZoneKeyStateWaitForTLKCreation] wait:20*NSEC_PER_SEC], @"key state should enter 'waitfortlkcreation' (view %@)", view);
+        }
     }
-
-    // Now that we've kicked them all off, wait for them to resolve
-    for(CKKSKeychainView* view in views) {
-        XCTAssertEqual(0, [view.keyHierarchyConditions[SecCKKSZoneKeyStateWaitForTLKUpload] wait:40*NSEC_PER_SEC], @"key state should enter 'waitfortlkupload'");
-    }
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:20*NSEC_PER_SEC], @"CKKS state machine should enter 'ready'");
+    [keysetOps addObject:[self.defaultCKKS findKeySets:NO]];
 
     NSMutableArray<CKRecord*>* keyHierarchyRecords = [NSMutableArray array];
 
     for(CKKSResultOperation<CKKSKeySetProviderOperationProtocol>* keysetOp in keysetOps) {
         // Wait until finished is usually a bad idea. We could rip this out into an operation if we'd like.
         [keysetOp waitUntilFinished];
-        XCTAssertNil(keysetOp.error, "Should be no error fetching keyset from CKKS");
+        XCTAssertNil(keysetOp.error, "Should be no error fetching keysets from CKKS");
 
-        NSArray<CKRecord*>* records = [self putKeySetInCloudKit:keysetOp.keyset];
+        NSMutableDictionary<CKRecordZoneID*, CKKSCurrentKeySet*>* keysets = [NSMutableDictionary dictionary];
+        for(CKRecordZoneID* zoneID in keysetOp.keysets) {
+            for(CKKSKeychainViewState* viewState in views) {
+                if([viewState.zoneID.zoneName isEqualToString:zoneID.zoneName]) {
+                    XCTAssertTrue(keysetOp.keysets[zoneID].proposed, "Keyset we're writing to CK should be proposed");
+                    keysets[zoneID] = keysetOp.keysets[zoneID];
+                }
+            }
+        }
+
+        NSArray<CKRecord*>* records = [self performOctagonKeySetWrites:keysets];
         [keyHierarchyRecords addObjectsFromArray:records];
     }
 
@@ -495,9 +521,20 @@
     }
 
     // Tell our views about our shiny new records!
-    for(CKKSKeychainView* view in views) {
-        [view receiveTLKUploadRecords: keyHierarchyRecords];
+    [self.defaultCKKS receiveTLKUploadRecords:keyHierarchyRecords];
+}
+
+- (NSArray<CKRecord*>*)performOctagonKeySetWrites:(NSDictionary<CKRecordZoneID*, CKKSCurrentKeySet*>*)keysets
+{
+    NSMutableArray<CKRecord*>* records = [NSMutableArray array];
+    for(CKRecordZoneID* zoneID in keysets) {
+        CKKSCurrentKeySet* keyset = keysets[zoneID];
+
+        NSArray<CKRecord*>* newRecords = [self putKeySetInCloudKit:keyset];
+        [records addObjectsFromArray:newRecords];
     }
+
+    return records;
 }
 
 - (void)saveTLKMaterialToKeychainSimulatingSOS: (CKRecordZoneID*)zoneID {
@@ -643,12 +680,17 @@ static CFDictionaryRef SOSCreatePeerGestaltFromName(CFStringRef name)
                        zoneID:(CKRecordZoneID*)zoneID
 {
     NSError* error = nil;
-    CKKSTLKShareRecord* share = [CKKSTLKShareRecord share:key
-                                           as:sharingPeer
-                                           to:receivingPeer
-                                        epoch:-1
-                                     poisoned:0
-                                        error:&error];
+
+    CKKSKeychainBackedKey* keychainBackedKey = [key getKeychainBackedKey:&error];
+    XCTAssertNotNil(keychainBackedKey, "Should have some keychain-backed key to share");
+    XCTAssertNil(error, "Should have been no error sharing a CKKSKey");
+
+    CKKSTLKShareRecord* share = [CKKSTLKShareRecord share:keychainBackedKey
+                                                       as:sharingPeer
+                                                       to:receivingPeer
+                                                    epoch:-1
+                                                 poisoned:0
+                                                    error:&error];
     XCTAssertNil(error, "Should have been no error sharing a CKKSKey");
     XCTAssertNotNil(share, "Should be able to create a share");
 
@@ -734,7 +776,7 @@ static CFDictionaryRef SOSCreatePeerGestaltFromName(CFStringRef name)
 
             ZoneKeys* zonekeys = strongSelf.keys[zoneID];
             if(!zonekeys) {
-                zonekeys = [[ZoneKeys alloc] init];
+                zonekeys = [[ZoneKeys alloc] initWithZoneID:zoneID];
                 strongSelf.keys[zoneID] = zonekeys;
             }
 
@@ -878,27 +920,28 @@ static CFDictionaryRef SOSCreatePeerGestaltFromName(CFStringRef name)
     }]];
 }
 
-- (void)checkNoCKKSData: (CKKSKeychainView*) view {
+- (void)checkNoCKKSDataForView:(CKKSKeychainViewState*)viewState
+{
     // Test that there are no items in the database
-    [view dispatchSyncWithReadOnlySQLTransaction:^{
+    [self.defaultCKKS dispatchSyncWithReadOnlySQLTransaction:^{
         NSError* error = nil;
-        NSArray<CKKSMirrorEntry*>* ckmes = [CKKSMirrorEntry all: view.zoneID error:&error];
+        NSArray<CKKSMirrorEntry*>* ckmes = [CKKSMirrorEntry all:viewState.zoneID error:&error];
         XCTAssertNil(error, "No error fetching CKMEs");
         XCTAssertEqual(ckmes.count, 0ul, "No CKMirrorEntries");
 
-        NSArray<CKKSOutgoingQueueEntry*>* oqes = [CKKSOutgoingQueueEntry all: view.zoneID error:&error];
+        NSArray<CKKSOutgoingQueueEntry*>* oqes = [CKKSOutgoingQueueEntry all:viewState.zoneID error:&error];
         XCTAssertNil(error, "No error fetching OQEs");
         XCTAssertEqual(oqes.count, 0ul, "No OutgoingQueueEntries");
 
-        NSArray<CKKSIncomingQueueEntry*>* iqes = [CKKSIncomingQueueEntry all: view.zoneID error:&error];
+        NSArray<CKKSIncomingQueueEntry*>* iqes = [CKKSIncomingQueueEntry all:viewState.zoneID error:&error];
         XCTAssertNil(error, "No error fetching IQEs");
         XCTAssertEqual(iqes.count, 0ul, "No IncomingQueueEntries");
 
-        NSArray<CKKSKey*>* keys = [CKKSKey all: view.zoneID error:&error];
+        NSArray<CKKSKey*>* keys = [CKKSKey all:viewState.zoneID error:&error];
         XCTAssertNil(error, "No error fetching keys");
         XCTAssertEqual(keys.count, 0ul, "No CKKSKeys");
 
-        NSArray<CKKSDeviceStateEntry*>* deviceStates = [CKKSDeviceStateEntry allInZone:view.zoneID error:&error];
+        NSArray<CKKSDeviceStateEntry*>* deviceStates = [CKKSDeviceStateEntry allInZone:viewState.zoneID error:&error];
         XCTAssertNil(error, "should be no error fetching device states");
         XCTAssertEqual(deviceStates.count, 0ul, "No Device State entries");
     }];
@@ -962,6 +1005,11 @@ static CFDictionaryRef SOSCreatePeerGestaltFromName(CFStringRef name)
 }
 
 - (NSDictionary*)fakeRecordDictionary:(NSString*) account zoneID:(CKRecordZoneID*)zoneID {
+    return [self fakeRecordDictionary:account password:nil zoneID:zoneID];
+}
+
+- (NSDictionary*)fakeRecordDictionary:(NSString* _Nullable)account password:(NSString* _Nullable)password zoneID:(CKRecordZoneID*)zoneID
+{
     NSError* error = nil;
 
     /* Basically: @{
@@ -996,6 +1044,9 @@ static CFDictionaryRef SOSCreatePeerGestaltFromName(CFStringRef name)
     if(account) {
         [item setObject: account forKey: (__bridge id) kSecAttrAccount];
     }
+    if(password) {
+        item[(id)kSecValueData] = [password dataUsingEncoding:NSUTF8StringEncoding];
+    }
     return item;
 }
 
@@ -1003,6 +1054,18 @@ static CFDictionaryRef SOSCreatePeerGestaltFromName(CFStringRef name)
 - (CKRecord*)createFakeTombstoneRecord:(CKRecordZoneID*)zoneID recordName:(NSString*)recordName account:(NSString*)account {
     NSMutableDictionary* item = [[self fakeRecordDictionary:account zoneID:zoneID] mutableCopy];
     item[@"tomb"] = @YES;
+
+    CKRecordID* ckrid = [[CKRecordID alloc] initWithRecordName:recordName zoneID:zoneID];
+    return [self newRecord:ckrid withNewItemData:item];
+}
+
+- (CKRecord*)createFakeMultiuserRecord:(CKRecordZoneID*)zoneID musr:(NSUUID*)musruuid recordName:(NSString*)recordName account:(NSString*)account {
+    NSMutableDictionary* item = [[self fakeRecordDictionary:account zoneID:zoneID] mutableCopy];
+
+    uuid_t uuid;
+    [musruuid getUUIDBytes:uuid];
+    NSData* uuidData = [NSData dataWithBytes:uuid length:sizeof(uuid_t)];
+    item[@"musr"] = uuidData;
 
     CKRecordID* ckrid = [[CKRecordID alloc] initWithRecordName:recordName zoneID:zoneID];
     return [self newRecord:ckrid withNewItemData:item];
@@ -1209,6 +1272,20 @@ static CFDictionaryRef SOSCreatePeerGestaltFromName(CFStringRef name)
     XCTAssertEqual(status, SecItemCopyMatching((__bridge CFDictionaryRef) query, NULL), "Finding item %@", account);
 }
 
+- (NSData*)findGenericPasswordPersistentReference: (NSString*) account expecting: (OSStatus) status {
+    NSDictionary *query = @{(id)kSecClass : (id)kSecClassGenericPassword,
+                            (id)kSecAttrAccessGroup : @"com.apple.security.ckks",
+                            (id)kSecAttrAccount : account,
+                            (id)kSecAttrSynchronizable : (id)kCFBooleanTrue,
+                            (id)kSecReturnPersistentRef : (id)kCFBooleanTrue,
+                            (id)kSecMatchLimit : (id)kSecMatchLimitOne,
+    };
+    CFTypeRef pref = NULL;
+    XCTAssertEqual(status, SecItemCopyMatching((__bridge CFDictionaryRef) query, &pref), "Finding item %@", account);
+    XCTAssertNotNil((__bridge id)pref, "persistent ref should not be nil");
+    return CFBridgingRelease(pref);
+}
+
 - (void)checkGenericPassword: (NSString*) password account: (NSString*) account {
     NSDictionary *query = @{(id)kSecClass : (id)kSecClassGenericPassword,
                             (id)kSecAttrAccessGroup : @"com.apple.security.ckks",
@@ -1306,6 +1383,29 @@ static CFDictionaryRef SOSCreatePeerGestaltFromName(CFStringRef name)
     return [self expectationForNotification:notification object:nil handler:^BOOL(NSNotification * _Nonnull nsnotification) {
         ckksnotice_global("ckks", "Got a notification for %@: %@", notification, nsnotification);
         return YES;
+    }];
+}
+
+- (XCTestExpectation*)expectLibNotifyReadyForView:(NSString*)viewName
+{
+    NSString* notification = [NSString stringWithFormat: @"com.apple.security.view-ready.%@", viewName];
+    return [self expectationForNotification:notification object:nil handler:^BOOL(NSNotification * _Nonnull nsnotification) {
+        ckksnotice_global("ckks", "Got a 'ready' notification for %@: %@", notification, nsnotification);
+        return YES;
+    }];
+}
+
+- (XCTestExpectation*)expectNSNotificationReadyForView:(NSString*)viewName
+{
+    return [self expectationForNotification:@"com.apple.security.view-become-ready"
+                                     object:nil
+                                    handler:^BOOL(NSNotification * _Nonnull notification) {
+        NSString* notifiedView = notification.userInfo[@"view"];
+        if(notifiedView == nil) {
+            return NO;
+        }
+
+        return [viewName isEqualToString:notifiedView];
     }];
 }
 

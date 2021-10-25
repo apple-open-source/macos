@@ -5,15 +5,15 @@
 	<key>OpenSourceProject</key>
 	<string>file</string>
 	<key>OpenSourceVersion</key>
-	<string>5.39</string>
+	<string>5.40</string>
 	<key>OpenSourceWebsiteURL</key>
-	<string></string>
+	<string>http://www.darwinsys.com/file/</string>
 	<key>OpenSourceURL</key>
-	<string>ftp://ftp.astron.com/pub/file/file-5.39.tar.gz</string>
+	<string>ftp://ftp.astron.com/pub/file/file-5.40.tar.gz</string>
 	<key>OpenSourceSHA512256</key>
-	<string>1bc10f62f1b4718e5f4b5f1349f4804c786894c6d4a412ecd6f2005f4e850e60</string>
+	<string>ef83cf60a313e655f3282b31665c84b86439946dbc8ab9e4a3213662fa8146a6</string>
 	<key>OpenSourceImportDate</key>
-	<string>2020-06-23</string>
+	<string>2021-04-04</string>
 	<key>OpenSourceModifications</key>
 	<array>
 		<string>Correct error in sun magic file (2504403).</string>
@@ -32,6 +32,7 @@
 		<string>magic/Magdir/dyld: support dyld shared chache (10701427)</string>
 		<string>magic/Magdir/mach: add arm64e (48022403)</string>
 		<string>magic/Magdir/apple: remove junk bytes (37293829)</string>
+		<string>src/encoding.c: fix from Anatol Belski to restore 5.39 behavior for short ascii strings with repeating bytes</string>
 	</array>
 	<key>OpenSourceLicense</key>
 	<string>BSD</string>

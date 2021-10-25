@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2020 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2021 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -456,6 +456,57 @@ _ipconfig_get_ra(mach_port_t p, InterfaceName name,
 		 ipconfig_status_t * status)
 {
     *status = get_if_ra(InterfaceNameNulTerminate(name), ra_data, ra_data_cnt);
+    return (KERN_SUCCESS);
+}
+
+PRIVATE_EXTERN kern_return_t
+_ipconfig_get_summary(mach_port_t server,
+                      InterfaceName name,
+                      xmlData_t * xml_data,
+                      mach_msg_type_number_t * xml_data_len,
+                      ipconfig_status_t * ret_status)
+{
+    ipconfig_status_t	status;
+    CFDictionaryRef	summary = NULL;
+
+    *xml_data = NULL;
+    *xml_data_len = 0;
+    status = copy_if_summary(name, &summary);
+    if (summary != NULL) {
+        *xml_data = (xmlDataOut_t)
+        my_CFPropertyListCreateVMData(summary, xml_data_len);
+        if (*xml_data == NULL) {
+            my_log(LOG_NOTICE, "failed to serialize data");
+            status = ipconfig_status_allocation_failed_e;
+        }
+    }
+    my_CFRelease(&summary);
+    *ret_status = status;
+    return (KERN_SUCCESS);
+}
+
+PRIVATE_EXTERN kern_return_t
+_ipconfig_get_interface_list(mach_port_t server,
+			     xmlData_t * xml_data,
+			     mach_msg_type_number_t * xml_data_len,
+			     ipconfig_status_t * ret_status)
+{
+    CFArrayRef		interface_list = NULL;
+    ipconfig_status_t	status;
+
+    *xml_data = NULL;
+    *xml_data_len = 0;
+    status = copy_interface_list(&interface_list);
+    if (interface_list != NULL) {
+        *xml_data = (xmlDataOut_t)
+        my_CFPropertyListCreateVMData(interface_list, xml_data_len);
+        if (*xml_data == NULL) {
+            my_log(LOG_NOTICE, "failed to serialize data");
+            status = ipconfig_status_allocation_failed_e;
+        }
+    }
+    my_CFRelease(&interface_list);
+    *ret_status = status;
     return (KERN_SUCCESS);
 }
 

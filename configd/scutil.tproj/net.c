@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2007, 2009-2011, 2014, 2016, 2017, 2019, 2020 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2011, 2014, 2016, 2017, 2019, 2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -121,7 +121,7 @@ _find_selection(CFStringRef choice, selections choices[], unsigned int *flags)
 
 __private_extern__
 Boolean
-_process_options(optionsRef options, int nOptions, int argc, char **argv, CFMutableDictionaryRef newConfiguration)
+_process_options(optionsRef options, int nOptions, int argc, char * const argv[], CFMutableDictionaryRef newConfiguration)
 {
 	while (argc > 0) {
 		CFIndex	optionIndex	= kCFNotFound;
@@ -541,7 +541,7 @@ do_net_init()
 
 __private_extern__
 void
-do_net_open(int argc, char **argv)
+do_net_open(int argc, char * const argv[])
 {
 	Boolean		ok;
 
@@ -583,7 +583,7 @@ do_net_open(int argc, char **argv)
 
 __private_extern__
 void
-do_net_commit(int argc, char **argv)
+do_net_commit(int argc, char * const argv[])
 {
 #pragma unused(argc)
 #pragma unused(argv)
@@ -599,7 +599,7 @@ do_net_commit(int argc, char **argv)
 
 __private_extern__
 void
-do_net_apply(int argc, char **argv)
+do_net_apply(int argc, char * const argv[])
 {
 #pragma unused(argc)
 #pragma unused(argv)
@@ -612,7 +612,7 @@ do_net_apply(int argc, char **argv)
 
 __private_extern__
 void
-do_net_close(int argc, char **argv)
+do_net_close(int argc, char * const argv[])
 {
 	if (_prefs_commitRequired(argc, argv, "close")) {
 		return;
@@ -627,7 +627,7 @@ do_net_close(int argc, char **argv)
 
 __private_extern__
 void
-do_net_quit(int argc, char **argv)
+do_net_quit(int argc, char * const argv[])
 {
 	if (_prefs_commitRequired(argc, argv, "quit")) {
 		return;
@@ -644,7 +644,7 @@ do_net_quit(int argc, char **argv)
 /* -------------------- */
 
 
-typedef void (*net_func) (int argc, char **argv);
+typedef void (*net_func) (int argc, char * const argv[]);
 
 static const struct {
 	char		*key;
@@ -713,7 +713,7 @@ findNetKey(char *key)
 
 __private_extern__
 void
-do_net_create(int argc, char **argv)
+do_net_create(int argc, char * const argv[])
 {
 	char	*key;
 	int	i;
@@ -740,7 +740,7 @@ do_net_create(int argc, char **argv)
 
 __private_extern__
 void
-do_net_disable(int argc, char **argv)
+do_net_disable(int argc, char * const argv[])
 {
 	char	*key;
 	int	i;
@@ -767,7 +767,7 @@ do_net_disable(int argc, char **argv)
 
 __private_extern__
 void
-do_net_enable(int argc, char **argv)
+do_net_enable(int argc, char * const argv[])
 {
 	char	*key;
 	int	i;
@@ -793,7 +793,7 @@ do_net_enable(int argc, char **argv)
 
 
 static void
-do_net_migrate_perform(int argc, char **argv)
+do_net_migrate_perform(int argc, char * const argv[])
 {
 	char * sourceConfiguration = NULL;
 	char * targetConfiguration = NULL;
@@ -833,8 +833,8 @@ do_net_migrate_perform(int argc, char **argv)
 		CFRelease(str);
 	}
 
+	SCPrint(TRUE, stdout, CFSTR("Start migration\n"));
 	migrationFiles = _SCNetworkConfigurationPerformMigration(sourceConfigurationURL, currentConfigurationURL, targetConfigurationURL, NULL);
-
 	if (migrationFiles != NULL) {
 		SCPrint(TRUE, stdout, CFSTR("Migration complete\n"));
 		SCPrint(_sc_debug, stdout, CFSTR("updated files: %@\n"), migrationFiles);
@@ -858,7 +858,7 @@ do_net_migrate_perform(int argc, char **argv)
 
 
 static void
-do_net_migrate_validate(int argc, char **argv)
+do_net_migrate_validate(int argc, char * const argv[])
 {
 #pragma unused(argc)
 	char *configuration = NULL;
@@ -893,7 +893,7 @@ do_net_migrate_validate(int argc, char **argv)
 
 __private_extern__
 void
-do_net_migrate(int argc, char **argv)
+do_net_migrate(int argc, char * const argv[])
 {
 	char	*key;
 
@@ -915,7 +915,7 @@ do_net_migrate(int argc, char **argv)
 
 __private_extern__
 void
-do_net_remove(int argc, char **argv)
+do_net_remove(int argc, char * const argv[])
 {
 	char	*key;
 	int	i;
@@ -942,7 +942,7 @@ do_net_remove(int argc, char **argv)
 
 __private_extern__
 void
-do_net_select(int argc, char **argv)
+do_net_select(int argc, char * const argv[])
 {
 	char	*key;
 	int	i;
@@ -969,7 +969,7 @@ do_net_select(int argc, char **argv)
 
 __private_extern__
 void
-do_net_set(int argc, char **argv)
+do_net_set(int argc, char * const argv[])
 {
 	char	*key;
 	int	i;
@@ -991,7 +991,7 @@ do_net_set(int argc, char **argv)
 
 __private_extern__
 void
-do_net_show(int argc, char **argv)
+do_net_show(int argc, char * const argv[])
 {
 	char	*key;
 	int	i;
@@ -1013,7 +1013,7 @@ do_net_show(int argc, char **argv)
 
 __private_extern__
 void
-do_net_clean(int argc, char **argv)
+do_net_clean(int argc, char * const argv[])
 {
 #pragma unused(argc)
 #pragma unused(argv)
@@ -1054,7 +1054,7 @@ do_net_clean(int argc, char **argv)
 
 __private_extern__
 void
-do_net_update(int argc, char **argv)
+do_net_update(int argc, char * const argv[])
 {
 #pragma unused(argc)
 #pragma unused(argv)
@@ -1123,7 +1123,7 @@ do_net_update(int argc, char **argv)
 
 __private_extern__
 void
-do_net_upgrade(int argc, char **argv)
+do_net_upgrade(int argc, char * const argv[])
 {
 	Boolean		do_commit	= FALSE;
 	Boolean		upgraded;
@@ -1205,7 +1205,7 @@ do_net_upgrade(int argc, char **argv)
 #include <unistd.h>
 __private_extern__
 void
-do_net_snapshot(int argc, char **argv)
+do_net_snapshot(int argc, char * const argv[])
 {
 #pragma unused(argc)
 #pragma unused(argv)
@@ -1282,5 +1282,6 @@ do_configuration(int argc, char **argv)
 	if (path != NULL) CFRelease(path);
 	CFRelease(prefs);
 	CFRelease(ni_prefs);
-	exit(0);
+
+	return;
 }

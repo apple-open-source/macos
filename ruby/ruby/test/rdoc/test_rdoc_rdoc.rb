@@ -350,6 +350,7 @@ class TestRDocRDoc < RDoc::TestCase
 
   def test_parse_file_forbidden
     skip 'chmod not supported' if Gem.win_platform?
+    skip "assumes that euid is not root" if Process.euid == 0
 
     @rdoc.store = RDoc::Store.new
 
@@ -416,6 +417,18 @@ class TestRDocRDoc < RDoc::TestCase
       ]
 
       assert_empty @rdoc.remove_unparseable file_list
+    end
+  end
+
+  def test_remove_unparseable_CVE_2021_31799
+    skip 'for Un*x platforms' if Gem.win_platform?
+    temp_dir do
+      file_list = ['| touch evil.txt && echo tags']
+      file_list.each do |f|
+        FileUtils.touch f
+      end
+      assert_equal file_list, @rdoc.remove_unparseable(file_list)
+      assert_equal file_list, Dir.children('.')
     end
   end
 

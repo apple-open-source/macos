@@ -62,6 +62,7 @@ enum {
     kSOSEntitlementMissing = 7,
 
     KSOSCantParseSOSMessage = 8,
+    kSOSDisabled,
 };
 
 //
@@ -533,6 +534,7 @@ extern const CFStringRef kCKKSViewHealth;
 extern const CFStringRef kCKKSViewApplePay;
 extern const CFStringRef kCKKSViewHome;
 extern const CFStringRef kCKKSViewLimitedPeersAllowed;
+extern const CFStringRef kCKKSViewMFi;
 
 
 /*!

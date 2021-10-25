@@ -122,8 +122,9 @@
     _config = [NSPropertyListSerialization propertyListWithData:configData options:NSPropertyListImmutable format:nil error:&err];
     if (!_config) {
         XCTFail(@"Could not deserialize property list: %@", err);
+    } else {
+        _RL = [[RateLimiter alloc] initWithConfig:_config];
     }
-    _RL = [[RateLimiter alloc] initWithConfig:_config];
     _obj = [TestObject new];
     _time = [NSDate date];
 }

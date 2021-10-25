@@ -8,7 +8,7 @@
 #ifndef HIDElementIvar_h
 #define HIDElementIvar_h
 
-#import "hidobjcbase.h"
+#import <IOKit/hidobjc/hidobjcbase.h>
 #import <CoreFoundation/CoreFoundation.h>
 #import <objc/objc.h> // for objc_object
 
