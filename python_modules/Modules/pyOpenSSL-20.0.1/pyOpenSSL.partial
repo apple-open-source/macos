@@ -1,0 +1,20 @@
+<plist version="1.0">
+<dict>
+	<key>OpenSourceImportDate</key>
+	<string>2021-09-27</string>
+	<key>OpenSourceLicense</key>
+	<string>Apache 2.0</string>
+	<key>OpenSourceLicenseFile</key>
+	<string>python_modules.txt</string>
+	<key>OpenSourceSHA256</key>
+	<string>4c231c759543ba02560fcd2480c48dcec4dae34c9da7d3747c508227e0624b51</string>
+	<key>OpenSourceProject</key>
+	<string>pyOpenSSL</string>
+	<key>OpenSourceURL</key>
+	<string>https://files.pythonhosted.org/packages/98/cd/cbc9c152daba9b5de6094a185c66f1c6eb91c507f378bb7cad83d623ea88/pyOpenSSL-20.0.1.tar.gz</string>
+	<key>OpenSourceVersion</key>
+	<string>20.0.1</string>
+	<key>OpenSourceWebsiteURL</key>
+	<string>http://pyopenssl.sourceforge.net/</string>
+</dict>
+</plist>

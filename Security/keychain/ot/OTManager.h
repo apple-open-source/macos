@@ -201,6 +201,9 @@ NS_ASSUME_NONNULL_BEGIN
                    contextID:(NSString *)contextID
                        reply:(void (^)(OTAccountSettings* _Nullable setting, NSError * _Nullable error))reply;
 
+// Helper function to make CK containers
++ (CKContainer*)makeCKContainer:(NSString*)containerName;
+
 @end
 
 @interface OTManager (Testing)

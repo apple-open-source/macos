@@ -397,6 +397,35 @@
     [self findGenericPassword:@"account3" expecting:errSecSuccess];
 }
 
+- (void)testRepeatedRetries {
+    [self putFakeKeyHierarchyInCloudKit: self.keychainZoneID];
+    [self saveTLKMaterialToKeychain:self.keychainZoneID];
+
+    [self expectCKModifyKeyRecords:0 currentKeyPointerRecords:0 tlkShareRecords:1 zoneID:self.keychainZoneID];
+    [self startCKKSSubsystem];
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], @"key state should enter 'ready'");
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:20*NSEC_PER_SEC], @"CKKS state machine should enter 'ready'");
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
+    [self waitForCKModifications];
+
+    FakeCKZone* ckzone = self.zones[self.keychainZoneID];
+
+    [ckzone failNextFetchWith:[[CKPrettyError alloc] initWithDomain:CKErrorDomain code:CKErrorNetworkFailure userInfo:@{CKErrorRetryAfterKey : [NSNumber numberWithInt:1]}]];
+    [ckzone failNextFetchWith:[[CKPrettyError alloc] initWithDomain:CKErrorDomain code:CKErrorNetworkFailure userInfo:@{CKErrorRetryAfterKey : [NSNumber numberWithInt:1]}]];
+    [ckzone failNextFetchWith:[[CKPrettyError alloc] initWithDomain:CKErrorDomain code:CKErrorNetworkFailure userInfo:@{CKErrorRetryAfterKey : [NSNumber numberWithInt:1]}]];
+
+    // Call direct to set our own timeouts
+    CKKSResultOperation* fetchOp = [self.defaultCKKS rpcFetchAndProcessIncomingQueue:nil
+                                                                             because:CKKSFetchBecauseTesting
+                                                                errorOnClassAFailure:false];
+
+    [fetchOp timeout:45*NSEC_PER_SEC];
+    [fetchOp waitUntilFinished];
+    XCTAssertNil(fetchOp.error, @"Should have no error fetching");
+
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
+}
+
 
 @end
 

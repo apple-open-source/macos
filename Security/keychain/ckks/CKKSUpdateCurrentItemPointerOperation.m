@@ -187,13 +187,25 @@
             // have a CIP, but it points to a deleted keychain item.
             // In that case, we shouldn't error out.
             //
-            if(oldCurrentItemHash && ![cip.currentItemUUID isEqualToString: oldCurrentItemUUID]) {
+            if(oldCurrentItemUUID) {
+                if(![cip.currentItemUUID isEqualToString: oldCurrentItemUUID]) {
+                    ckksnotice("ckkscurrent", self.viewState.zoneID, "current item pointer(%@) doesn't match user-supplied UUID (%@); rejecting change of current", cip, oldCurrentItemUUID);
+                    self.error = [NSError errorWithDomain:CKKSErrorDomain
+                                                     code:CKKSItemChanged
+                                              description:[NSString stringWithFormat:@"Current pointer(%@) does not match user-supplied %@, aborting", cip, oldCurrentItemUUID]];
+                    return CKKSDatabaseTransactionRollback;
+                }
+            } else {
+                SecDbItemRef existingItem = [self _onqueueFindSecDbItemWithUUID:cip.currentItemUUID accessGroup:self.accessGroup error:NULL];
+                if(existingItem != NULL) {
+                    CFReleaseNull(existingItem);
 
-                ckksnotice("ckkscurrent", self.viewState.zoneID, "current item pointer(%@) doesn't match user-supplied UUID (%@); rejecting change of current", cip, oldCurrentItemUUID);
-                self.error = [NSError errorWithDomain:CKKSErrorDomain
-                                                 code:CKKSItemChanged
-                                          description:[NSString stringWithFormat:@"Current pointer(%@) does not match user-supplied %@, aborting", cip, oldCurrentItemUUID]];
-                return CKKSDatabaseTransactionRollback;
+                    ckksnotice("ckkscurrent", self.viewState.zoneID, "no user-supplied UUID and current item pointer(%@) is not dangling; rejecting change of current", cip);
+                    self.error = [NSError errorWithDomain:CKKSErrorDomain
+                                                     code:CKKSItemChanged
+                                              description:[NSString stringWithFormat:@"No user-supplied UUID and current pointer(%@) is not dangling, aborting", cip]];
+                    return CKKSDatabaseTransactionRollback;
+                }
             }
             // Cool. Since you know what you're updating, you're allowed to update!
             cip.currentItemUUID = newItemUUID;
@@ -338,6 +350,42 @@
 }
 
 - (SecDbItemRef _Nullable)_onqueueFindSecDbItem:(NSData*)persistentRef accessGroup:(NSString*)accessGroup error:(NSError**)error {
+    NSDictionary *query = @{
+        (__bridge NSString *)kSecValuePersistentRef : persistentRef,
+        (__bridge NSString *)kSecAttrAccessGroup : accessGroup,
+    };
+
+    return [self _onqueueFindSecDbItemWithQuery:query error:error];
+}
+
+- (SecDbItemRef _Nullable)_onqueueFindSecDbItemWithUUID:(NSString*)uuid accessGroup:(NSString*)accessGroup error:(NSError**)error {
+    SecDbItemRef result = NULL;
+
+    const SecDbSchema* schema = current_schema();
+    for (const SecDbClass *const *class = schema->classes; *class != NULL; class++) {
+        if(!((*class)->itemclass)) {
+            // Don't try to scan non-item 'classes'
+            continue;
+        }
+
+        NSDictionary *query = @{
+            (__bridge NSString *)kSecClass : (__bridge NSString *)(*class)->name,
+            (__bridge NSString *)kSecAttrSynchronizable: (__bridge NSString *)kSecAttrSynchronizableAny,
+            (__bridge NSString *)kSecAttrTombstone : @NO,
+            (__bridge NSString *)kSecAttrUUID : uuid,
+            (__bridge NSString *)kSecAttrAccessGroup : accessGroup,
+        };
+
+        result = [self _onqueueFindSecDbItemWithQuery:query error:error];
+        if (result != NULL) {
+            break;
+        }
+    }
+
+    return result;
+}
+
+- (SecDbItemRef _Nullable)_onqueueFindSecDbItemWithQuery:(NSDictionary*)query error:(NSError**)error {
     __block SecDbItemRef blockItem = NULL;
     CFErrorRef cferror = NULL;
     __block NSError* localerror = NULL;
@@ -345,10 +393,7 @@
     bool ok = kc_with_dbt(true, &cferror, ^bool (SecDbConnectionRef dbt) {
         // Find the items from their persistent refs.
         CFErrorRef blockcfError = NULL;
-        Query *q = query_create_with_limit( (__bridge CFDictionaryRef) @{
-                                                                         (__bridge NSString *)kSecValuePersistentRef : persistentRef,
-                                                                         (__bridge NSString *)kSecAttrAccessGroup : accessGroup,
-                                                                         },
+        Query *q = query_create_with_limit((__bridge CFDictionaryRef)query,
                                            NULL,
                                            1,
                                            NULL, 

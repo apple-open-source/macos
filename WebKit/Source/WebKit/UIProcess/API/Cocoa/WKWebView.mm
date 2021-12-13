@@ -170,6 +170,7 @@
 #import "WKWebViewContentProviderRegistry.h"
 #import <MobileCoreServices/MobileCoreServices.h>
 #import <UIKit/UIApplication.h>
+#import <pal/spi/cf/CFNotificationCenterSPI.h>
 #import <pal/spi/cocoa/QuartzCoreSPI.h>
 #import <pal/spi/ios/GraphicsServicesSPI.h>
 #import <wtf/cocoa/Entitlements.h>
@@ -324,9 +325,11 @@ static void validate(WKWebViewConfiguration *configuration)
 static void hardwareKeyboardAvailabilityChangedCallback(CFNotificationCenterRef, void* observer, CFStringRef, const void*, CFDictionaryRef)
 {
     ASSERT(observer);
-    WKWebView *webView = (__bridge WKWebView *)observer;
+    RetainPtr webView { (__bridge WKWebView *)observer };
+    if (!webView)
+        return;
     [webView->_contentView _hardwareKeyboardAvailabilityChanged];
-    webView._page->hardwareKeyboardAvailabilityChanged(GSEventIsHardwareKeyboardAttached());
+    webView->_page->hardwareKeyboardAvailabilityChanged(GSEventIsHardwareKeyboardAttached());
 }
 #endif
 
@@ -394,7 +397,9 @@ static void hardwareKeyboardAvailabilityChangedCallback(CFNotificationCenterRef,
 
     _page->contentSizeCategoryDidChange([self _contentSizeCategory]);
 
-    CFNotificationCenterAddObserver(CFNotificationCenterGetDarwinNotifyCenter(), (__bridge const void *)(self), hardwareKeyboardAvailabilityChangedCallback, (CFStringRef)[NSString stringWithUTF8String:kGSEventHardwareKeyboardAvailabilityChangedNotification], nullptr, CFNotificationSuspensionBehaviorCoalesce);
+    auto notificationName = adoptNS([[NSString alloc] initWithCString:kGSEventHardwareKeyboardAvailabilityChangedNotification encoding:NSUTF8StringEncoding]);
+    auto notificationBehavior = static_cast<CFNotificationSuspensionBehavior>(CFNotificationSuspensionBehaviorCoalesce | _CFNotificationObserverIsObjC);
+    CFNotificationCenterAddObserver(CFNotificationCenterGetDarwinNotifyCenter(), (__bridge const void *)(self), hardwareKeyboardAvailabilityChangedCallback, (__bridge CFStringRef)notificationName.get(), nullptr, notificationBehavior);
 #endif // PLATFORM(IOS_FAMILY)
 
 #if ENABLE(META_VIEWPORT)
@@ -638,7 +643,8 @@ static void hardwareKeyboardAvailabilityChangedCallback(CFNotificationCenterRef,
     [[NSNotificationCenter defaultCenter] removeObserver:self];
     [_scrollView setInternalDelegate:nil];
 
-    CFNotificationCenterRemoveObserver(CFNotificationCenterGetDarwinNotifyCenter(), (__bridge const void *)(self), (CFStringRef)[NSString stringWithUTF8String:kGSEventHardwareKeyboardAvailabilityChangedNotification], nullptr);
+    auto notificationName = adoptNS([[NSString alloc] initWithCString:kGSEventHardwareKeyboardAvailabilityChangedNotification encoding:NSUTF8StringEncoding]);
+    CFNotificationCenterRemoveObserver(CFNotificationCenterGetDarwinNotifyCenter(), (__bridge const void *)(self), (__bridge CFStringRef)notificationName.get(), nullptr);
 #endif
 
     [super dealloc];
@@ -1757,7 +1763,12 @@ static _WKSelectionAttributes selectionAttributes(const WebKit::EditorState& edi
     if (![readAccessURL isFileURL])
         [NSException raise:NSInvalidArgumentException format:@"%@ is not a file URL", readAccessURL];
 
-    return wrapper(_page->loadFile(URL.absoluteString, readAccessURL.absoluteString));
+    bool isAppInitiated = true;
+#if ENABLE(APP_PRIVACY_REPORT)
+    isAppInitiated = request.attribution == NSURLRequestAttributionDeveloper;
+#endif
+
+    return wrapper(_page->loadFile(URL.absoluteString, readAccessURL.absoluteString, isAppInitiated));
 }
 
 - (CocoaColor *)themeColor
@@ -1765,17 +1776,17 @@ static _WKSelectionAttributes selectionAttributes(const WebKit::EditorState& edi
     auto themeColor = _page->themeColor();
     if (!themeColor.isValid())
         return nil;
-    return WebCore::platformColor(themeColor);
+    return WebCore::platformColor(themeColor).autorelease();
 }
 
 - (CocoaColor *)underPageBackgroundColor
 {
-    return WebCore::platformColor(_page->underPageBackgroundColor());
+    return WebCore::platformColor(_page->underPageBackgroundColor()).autorelease();
 }
 
 - (void)setUnderPageBackgroundColor:(CocoaColor *)underPageBackgroundColorOverride
 {
-    _page->setUnderPageBackgroundColorOverride(underPageBackgroundColorOverride.CGColor);
+    _page->setUnderPageBackgroundColorOverride(WebCore::roundAndClampToSRGBALossy(underPageBackgroundColorOverride.CGColor));
 }
 
 + (BOOL)automaticallyNotifiesObserversOfUnderPageBackgroundColor
@@ -3256,7 +3267,7 @@ static inline OptionSet<WebKit::FindOptions> toFindOptions(_WKFindOptions wkFind
     auto pageExtendedBackgroundColor = _page->pageExtendedBackgroundColor();
     if (!pageExtendedBackgroundColor.isValid())
         return nil;
-    return WebCore::platformColor(pageExtendedBackgroundColor);
+    return WebCore::platformColor(pageExtendedBackgroundColor).autorelease();
 }
 
 - (CocoaColor *)_sampledPageTopColor
@@ -3264,7 +3275,7 @@ static inline OptionSet<WebKit::FindOptions> toFindOptions(_WKFindOptions wkFind
     auto sampledPageTopColor = _page->sampledPageTopColor();
     if (!sampledPageTopColor.isValid())
         return nil;
-    return WebCore::platformColor(sampledPageTopColor);
+    return WebCore::platformColor(sampledPageTopColor).autorelease();
 }
 
 - (id <_WKInputDelegate>)_inputDelegate

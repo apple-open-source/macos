@@ -2247,6 +2247,59 @@ class TrustedPeersHelperUnitTests: XCTestCase {
         XCTAssertNil(setRecoveryError, "error should be nil")
     }
 
+    func testCreateCustodianRecoveryKey() throws {
+        let store = tmpStoreDescription(name: "container.db")
+
+        let c = try Container(name: ContainerName(container: "c", context: "context"),
+                              persistentStoreDescription: store,
+                              darwinNotifier: FakeCKKSNotifier.self,
+                              cuttlefish: self.cuttlefish)
+
+        let machineIDs = Set(["aaa"])
+        XCTAssertNil(c.setAllowedMachineIDsSync(test: self, allowedMachineIDs: machineIDs, accountIsDemo: false))
+
+        print("preparing peer A")
+        let (aPeerID, aPermanentInfo, aPermanentInfoSig, _, _, _, error) =
+            c.prepareSync(test: self, epoch: 1, machineID: "aaa", bottleSalt: "123456789", bottleID: UUID().uuidString, modelID: "iPhone1,1")
+        do {
+            let state = c.getStateSync(test: self)
+            XCTAssertTrue(state.bottles.contains { $0.peerID == aPeerID }, "should have a bottle for peer")
+            let secret = c.loadSecretSync(test: self, label: aPeerID!)
+            XCTAssertNotNil(secret, "secret should not be nil")
+            XCTAssertNil(error, "error should be nil")
+        }
+        XCTAssertNil(error)
+        XCTAssertNotNil(aPeerID)
+        XCTAssertNotNil(aPermanentInfo)
+        XCTAssertNotNil(aPermanentInfoSig)
+
+        print("establishing A")
+        do {
+            let (peerID, _, _, error) = c.establishSync(test: self, ckksKeys: [], tlkShares: [], preapprovedKeys: nil)
+            XCTAssertNil(error)
+            XCTAssertNotNil(peerID)
+        }
+        let recoveryKey = SecRKCreateRecoveryKeyString(nil)
+        XCTAssertNotNil(recoveryKey, "recoveryKey should not be nil")
+
+        let limitedPeers = try self.makeFakeKeyHierarchy(zoneID: CKRecordZone.ID(zoneName: "LimitedPeersAllowed"))
+        self.cuttlefish.fakeCKZones[CKRecordZone.ID(zoneName: "LimitedPeersAllowed")] = FakeCKZone(zone: CKRecordZone.ID(zoneName: "LimitedPeersAllowed"))
+        let passwords = try self.makeFakeKeyHierarchy(zoneID: CKRecordZone.ID(zoneName: "Passwords"))
+        self.cuttlefish.fakeCKZones[CKRecordZone.ID(zoneName: "Passwords")] = FakeCKZone(zone: CKRecordZone.ID(zoneName: "Passwords"))
+        let ckksKeys = [limitedPeers, passwords]
+
+        let (records, _, createCustodianRecoveryKeyError) = c.createCustodianRecoveryKeySync(test: self,
+                                                                                             recoveryString: recoveryKey!,
+                                                                                             salt: "altDSID",
+                                                                                             ckksKeys: ckksKeys,
+                                                                                             kind: TPPBCustodianRecoveryKey_Kind.INHERITANCE_KEY,
+                                                                                             uuid: UUID())
+        XCTAssertNil(createCustodianRecoveryKeyError, "error should be nil")
+        XCTAssertNotNil(records, "records should not be nil")
+        XCTAssertEqual(1, records!.count, "expect one record")
+        XCTAssertEqual("LimitedPeersAllowed", records![0].recordID.zoneID.zoneName, "expect LimitedPeersAllowed ckks keys")
+    }
+
     func roundTripThroughSetValueTransformer(set: Set<String>) {
         let t = SetValueTransformer()
 

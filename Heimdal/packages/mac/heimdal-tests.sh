@@ -83,6 +83,9 @@ if sudo -n true ; then
     sudo defaults write /Library/Preferences/.GlobalPreferences GSSDebugLevel -int 20;
     sudo defaults write /Library/Preferences/.GlobalPreferences KerberosDebugLevel -int 20
     sudo log config --mode "level:debug,persist:debug" --subsystem com.apple.Heimdal
+    sudo defaults write /Library/Preferences/com.apple.GSS.NTLM 'NTLM session key' -bool true
+    sudo defaults write /Library/Preferences/com.apple.Kerberos logging -dict-add kcm '0-/OSLOG:normal:'
+    sudo defaults write /Library/Preferences/com.apple.Kerberos logging -dict-add digest-service '0-/OSLOG:normal:'
 
     sudo killall -9 kcm digest-service kdc GSSCred
 else
@@ -94,6 +97,9 @@ else
     defaults write /Library/Preferences/.GlobalPreferences GSSDebugLevel -int 20
     defaults write /Library/Preferences/.GlobalPreferences KerberosDebugLevel -int 20
     log config --mode "level:debug,persist:debug" --subsystem com.apple.Heimdal
+    defaults write /Library/Preferences/com.apple.GSS.NTLM 'NTLM session key' -bool true
+    defaults write /Library/Preferences/com.apple.Kerberos logging -dict-add kcm '0-/OSLOG:normal:'
+    defaults write /Library/Preferences/com.apple.Kerberos logging -dict-add digest-service '0-/OSLOG:normal:'
 
     killall -9 kcm digest-service kdc GSSCred
 fi

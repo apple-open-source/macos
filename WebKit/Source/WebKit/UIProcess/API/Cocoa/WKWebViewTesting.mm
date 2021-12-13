@@ -55,6 +55,24 @@
 
 @implementation WKWebView (WKTesting)
 
+- (void)_addEventAttributionWithSourceID:(uint8_t)sourceID destinationURL:(NSURL *)destination sourceDescription:(NSString *)sourceDescription purchaser:(NSString *)purchaser reportEndpoint:(NSURL *)reportEndpoint optionalNonce:(NSString *)nonce applicationBundleID:(NSString *)bundleID ephemeral:(BOOL)ephemeral
+{
+    WebCore::PrivateClickMeasurement measurement(
+        WebCore::PrivateClickMeasurement::SourceID(sourceID),
+        WebCore::PrivateClickMeasurement::SourceSite(reportEndpoint),
+        WebCore::PrivateClickMeasurement::AttributionDestinationSite(destination),
+        bundleID,
+        sourceDescription,
+        purchaser,
+        WallTime::now(),
+        ephemeral ? WebCore::PrivateClickMeasurementAttributionEphemeral::Yes : WebCore::PrivateClickMeasurementAttributionEphemeral::No
+    );
+    if (nonce)
+        measurement.setEphemeralSourceNonce({ nonce });
+
+    _page->setPrivateClickMeasurement(WTFMove(measurement));
+}
+
 - (void)_setPageScale:(CGFloat)scale withOrigin:(CGPoint)origin
 {
     _page->scalePage(scale, WebCore::roundedIntPoint(origin));
@@ -335,6 +353,20 @@
 {
     _page->setPrivateClickMeasurementTokenSignatureURLForTesting(url, [completionHandler = makeBlockPtr(completionHandler)] {
         completionHandler();
+    });
+}
+
+- (void)_setPrivateClickMeasurementAppBundleIDForTesting:(NSString *)appBundleID completionHandler:(void(^)(void))completionHandler
+{
+    _page->setPrivateClickMeasurementAppBundleIDForTesting(appBundleID, [completionHandler = makeBlockPtr(completionHandler)] {
+        completionHandler();
+    });
+}
+
+- (void)_dumpPrivateClickMeasurement:(void(^)(NSString *))completionHandler
+{
+    _page->dumpPrivateClickMeasurement([completionHandler = makeBlockPtr(completionHandler)](const String& privateClickMeasurement) {
+        completionHandler(privateClickMeasurement);
     });
 }
 

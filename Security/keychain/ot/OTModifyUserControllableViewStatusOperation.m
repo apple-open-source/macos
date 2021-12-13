@@ -152,10 +152,6 @@
                                           policySecrets:nil
                               syncUserControllableViews:[NSNumber numberWithInt:intendedViewStatus]
                                   secureElementIdentity:nil
-#if !defined(__OPEN_SOURCE__) && APPLE_FEATURE_WALRUS_UI
-                                          walrusSetting:nil
-                                              webAccess:nil
-#endif /* APPLE_FEATURE_WALRUS_UI */
                                                   reply:^(TrustedPeersHelperPeerState* peerState, TPSyncingPolicy* syncingPolicy, NSError* error) {
         STRONGIFY(self);
         if(error || !syncingPolicy) {

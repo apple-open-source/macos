@@ -81,7 +81,6 @@ extern CKKSKeyClass* const SecCKKSKeyClassC;
 
 /* Useful CloudKit configuration */
 extern NSString* SecCKKSContainerName;
-extern bool SecCKKSContainerUsePCS;
 extern NSString* const SecCKKSSubscriptionID;
 extern NSString* const SecCKKSAPSNamedPort;
 
@@ -389,6 +388,8 @@ typedef CF_ENUM(CFIndex, CKKSErrorCode) {
 
     CKKSErrorAccountStatusUnknown = 64,
     CKKSErrorNotSupported = 65,
+
+    CKKSErrorFetchNotCompleted = 66,
 };
 
 typedef CF_ENUM(CFIndex, CKKSResultDescriptionErrorCode) {

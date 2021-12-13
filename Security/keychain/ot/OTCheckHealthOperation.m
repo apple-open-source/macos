@@ -29,6 +29,7 @@
 #import "keychain/ot/ObjCImprovements.h"
 #import "keychain/TrustedPeersHelper/TrustedPeersHelperProtocol.h"
 #import <Security/SecInternalReleasePriv.h>
+#import <CloudServices/SecureBackup.h>
 
 #if !TARGET_OS_SIMULATOR
 #import <MobileKeyBag/MobileKeyBag.h>
@@ -152,6 +153,7 @@
     [self.deps.cuttlefishXPCWrapper requestHealthCheckWithContainer:self.deps.containerName
                                                             context:self.deps.contextID
                                                 requiresEscrowCheck: [self checkIfPasscodeIsSetForDevice]
+                                                   knownFederations:[SecureBackup knownICDPFederations:NULL]
                                                               reply:^(BOOL postRepairCFU, BOOL postEscrowCFU, BOOL resetOctagon, BOOL leaveTrust, OTEscrowMoveRequestContext *moveRequest, NSError *error) {
             STRONGIFY(self);
             if(error) {

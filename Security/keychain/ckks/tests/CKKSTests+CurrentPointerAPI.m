@@ -176,6 +176,21 @@
     [self waitForExpectations:@[keychainChanged] timeout:8];
     [self waitForCKModifications];
 
+    // Test for rdar://83903981 (Manatee identity creation race)
+    XCTestExpectation* badSetCurrentExpectation = [self expectationWithDescription:@"callback occurs"];
+    SecItemSetCurrentItemAcrossAllDevices((__bridge CFStringRef)@"com.apple.security.ckks",
+                                          (__bridge CFStringRef)@"pcsservice",
+                                          (__bridge CFStringRef)@"keychain",
+                                          (__bridge CFDataRef)persistentRef,
+                                          (__bridge CFDataRef)sha1, NULL, NULL, ^ (CFErrorRef cferror) {
+                                              NSError* error = (__bridge NSError*)cferror;
+                                              XCTAssertNotNil(error, "expected an error trying to set current item again");
+                                              XCTAssertEqualObjects(error.domain, CKKSErrorDomain, "unexpected error domain");
+                                              XCTAssertEqual(error.code, CKKSItemChanged, "unexpected error code");
+                                              [badSetCurrentExpectation fulfill];
+                                          });
+    [self waitForExpectations:@[badSetCurrentExpectation] timeout:2];
+
     [self waitForExpectationsWithTimeout:8.0 handler:nil];
 
     CKRecord* currentItemPointer = self.keychainZone.currentDatabase[[[CKRecordID alloc] initWithRecordName:@"com.apple.security.ckks-pcsservice" zoneID:self.keychainZoneID]];

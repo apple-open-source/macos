@@ -13,6 +13,13 @@ class OctagonErrorUtilsTest: OctagonTestsBase {
         print(error)
         XCTAssertTrue(error.isRetryable(), "NSURLErrorTimedOut should be retryable")
     }
+
+    func testCKErrorRetryable() throws {
+        let urlError = NSError(domain: NSURLErrorDomain, code: NSURLErrorNotConnectedToInternet, userInfo: nil)
+        let ckError = NSError(domain: CKErrorDomain, code: CKError.networkUnavailable.rawValue, userInfo: [NSUnderlyingErrorKey: urlError])
+        print(ckError)
+        XCTAssertTrue(ckError.isRetryable(), "CK/NSURLErrorNotConnectedToInternet should be retryable")
+    }
 }
 
 #endif

@@ -35,6 +35,16 @@ NS_ASSUME_NONNULL_BEGIN
 + (NSDictionary* _Nullable)copyPiggybackingInitialSyncData:(NSData*)data;
 
 + (BOOL)testSecKey:(CKKSSelves*)octagonSelf error:(NSError**)error;
+
++ (BOOL)addNRandomKeychainItemsWithoutUpgradedPersistentRefs:(int64_t)number;
++ (BOOL)checkAllPersistentRefBeenUpgraded;
++ (BOOL)expectXNumberOfItemsUpgraded:(int64_t)expected;
++ (NSNumber* _Nullable)lastRowID;
++ (void)setError:(int)errorCode;
++ (void)clearError;
++ (void)clearLastRowID;
++ (void)clearErrorInsertionDictionary;
++ (void)setErrorAtRowID:(int)errorCode;
 @end
 
 // The swift-based OctagonTests can't call OctagonTrust methods. Bridge them!

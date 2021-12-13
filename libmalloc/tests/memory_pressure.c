@@ -85,6 +85,7 @@ T_DECL(medium_mem_pressure, "medium memory pressure thread",
 		T_META_ENVVAR("MallocScribble=1"),
 		T_META_ENVVAR("MallocSpaceEfficient=1"),
 		T_META_ENVVAR("MallocMaxMagazines=1"),
+		T_META_MAYFAIL("Disabled until rdar://83904507 is fixed"),
 		T_META_CHECK_LEAKS(false))
 {
 	dispatch_queue_t q = dispatch_queue_create("pressure queue", 0); // serial

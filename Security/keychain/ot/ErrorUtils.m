@@ -38,6 +38,9 @@ static NSString * const _CKInternalErrorDomain = @"CKInternalErrorDomain";
 static NSString * const _CKErrorRetryAfterKey = @"CKRetryAfter";
 
 enum {
+    /*! Network not available */
+    _CKErrorNetworkUnavailable             = 3,
+
     /*! Network error (available but CFNetwork gave us an error) */
     _CKErrorNetworkFailure                 = 4,
 
@@ -134,6 +137,7 @@ enum {
             retry = true;
         } else {
             switch (self.code) {
+            case _CKErrorNetworkUnavailable:
             case _CKErrorNetworkFailure:
             case _CKErrorRequestRateLimited:
                 retry = true;

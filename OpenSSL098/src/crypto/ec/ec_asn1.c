@@ -922,8 +922,11 @@ static EC_GROUP *ec_asn1_parameters2group(const ECPARAMETERS *params)
 		ret->seed_len = params->curve->seed->length;
 		}
 
-	if (!params->order || !params->base || !params->base->data)
-		{
+    if (params->order == NULL
+            || params->base == NULL
+            || params->base->data == NULL
+            || params->base->length == 0)
+        {
 		ECerr(EC_F_EC_ASN1_PARAMETERS2GROUP, EC_R_ASN1_ERROR);
 		goto err;
 		}

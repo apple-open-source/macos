@@ -261,6 +261,8 @@ void WebsiteDataStore::resolveDirectoriesIfNecessary()
         m_resolvedConfiguration->setNetworkCacheDirectory(resolveAndCreateReadWriteDirectoryForSandboxExtension(m_configuration->networkCacheDirectory()));
     if (!m_configuration->resourceLoadStatisticsDirectory().isEmpty())
         m_resolvedConfiguration->setResourceLoadStatisticsDirectory(resolveAndCreateReadWriteDirectoryForSandboxExtension(m_configuration->resourceLoadStatisticsDirectory()));
+    if (!m_configuration->privateClickMeasurementStorageDirectory().isEmpty())
+        m_resolvedConfiguration->setPrivateClickMeasurementStorageDirectory(resolveAndCreateReadWriteDirectoryForSandboxExtension(m_configuration->privateClickMeasurementStorageDirectory()));
     if (!m_configuration->serviceWorkerRegistrationDirectory().isEmpty() && m_resolvedConfiguration->serviceWorkerRegistrationDirectory().isEmpty())
         m_resolvedConfiguration->setServiceWorkerRegistrationDirectory(resolveAndCreateReadWriteDirectoryForSandboxExtension(m_configuration->serviceWorkerRegistrationDirectory()));
     if (!m_configuration->javaScriptConfigurationDirectory().isEmpty())
@@ -269,6 +271,8 @@ void WebsiteDataStore::resolveDirectoriesIfNecessary()
         m_resolvedConfiguration->setCacheStorageDirectory(resolvePathForSandboxExtension(m_configuration->cacheStorageDirectory()));
     if (!m_configuration->hstsStorageDirectory().isEmpty() && m_resolvedConfiguration->hstsStorageDirectory().isEmpty())
         m_resolvedConfiguration->setHSTSStorageDirectory(resolvePathForSandboxExtension(m_configuration->hstsStorageDirectory()));
+    if (!m_configuration->generalStorageDirectory().isEmpty())
+        m_resolvedConfiguration->setGeneralStorageDirectory(resolveAndCreateReadWriteDirectoryForSandboxExtension(m_configuration->generalStorageDirectory()));
 #if HAVE(ARKIT_INLINE_PREVIEW)
     if (!m_configuration->modelElementCacheDirectory().isEmpty())
         m_resolvedConfiguration->setModelElementCacheDirectory(resolveAndCreateReadWriteDirectoryForSandboxExtension(m_configuration->modelElementCacheDirectory()));
@@ -1736,43 +1740,25 @@ void WebsiteDataStore::getNetworkProcessConnection(WebProcessProxy& webProcessPr
     auto& networkProcessProxy = networkProcess();
     networkProcessProxy.getNetworkProcessConnection(webProcessProxy, [weakThis = makeWeakPtr(*this), networkProcessProxy = makeWeakPtr(networkProcessProxy), webProcessProxy = makeWeakPtr(webProcessProxy), reply = WTFMove(reply), shouldRetryOnFailure] (auto& connectionInfo) mutable {
         if (UNLIKELY(!IPC::Connection::identifierIsValid(connectionInfo.identifier()))) {
-            auto logError = [networkProcessProxy, webProcessProxy]() {
-#if OS(DARWIN)
-                if (!os_variant_allows_internal_security_policies("com.apple.WebKit"))
-                    return;
-
-                if (!webProcessProxy)
-                    return;
-
-                int networkProcessIdentifier = 0;
-                String networkProcessState = "Unknown"_s;
-                if (networkProcessProxy) {
-                    networkProcessIdentifier = networkProcessProxy->processIdentifier();
-                    networkProcessState = networkProcessProxy->stateString();
-                }
-                RELEASE_LOG_ERROR(Process, "WebsiteDataStore::getNetworkProcessConnection: Failed to get connection - networkProcessProxy=%p, networkProcessIdentifier=%d, processState=%s, webProcessProxy=%p, webProcessIdentifier=%d", networkProcessProxy.get(), networkProcessIdentifier, networkProcessState.utf8().data(), webProcessProxy.get(), webProcessProxy->processIdentifier());
-                RELEASE_ASSERT_NOT_REACHED();
-#endif
-            };
-
             if (shouldRetryOnFailure == ShouldRetryOnFailure::No || !webProcessProxy) {
-                logError();
+                RELEASE_LOG_ERROR(Process, "getNetworkProcessConnection: Failed to get connection to network process, will reply invalid identifier ...");
                 reply({ });
                 return;
             }
 
             // Retry on the next RunLoop iteration because we may be inside the WebsiteDataStore destructor.
-            RunLoop::main().dispatch([weakThis = WTFMove(weakThis), networkProcessProxy = WTFMove(networkProcessProxy), webProcessProxy = WTFMove(webProcessProxy), reply = WTFMove(reply), logError = WTFMove(logError)] () mutable {
+            RunLoop::main().dispatch([weakThis = WTFMove(weakThis), networkProcessProxy = WTFMove(networkProcessProxy), webProcessProxy = WTFMove(webProcessProxy), reply = WTFMove(reply)] () mutable {
                 if (RefPtr<WebsiteDataStore> strongThis = weakThis.get(); strongThis && webProcessProxy) {
                     // Terminate if it is the same network process.
                     if (networkProcessProxy && strongThis->m_networkProcess == networkProcessProxy.get())
                         strongThis->terminateNetworkProcess();
                     RELEASE_LOG_ERROR(Process, "getNetworkProcessConnection: Failed to get connection to network process, will retry ...");
                     strongThis->getNetworkProcessConnection(*webProcessProxy, WTFMove(reply), ShouldRetryOnFailure::No);
-                } else {
-                    logError();
-                    reply({ });
+                    return;
                 }
+
+                RELEASE_LOG_ERROR(Process, "getNetworkProcessConnection: Failed to get connection to network process, will reply invalid identifier ...");
+                reply({ });
             });
             return;
         }
@@ -1901,7 +1887,7 @@ void WebsiteDataStore::isResourceLoadStatisticsEphemeral(CompletionHandler<void(
 
 void WebsiteDataStore::setPrivateClickMeasurementDebugMode(bool enabled)
 {
-    networkProcess().setPrivateClickMeasurementDebugMode(enabled);
+    networkProcess().setPrivateClickMeasurementDebugMode(sessionID(), enabled);
 }
 
 #if ENABLE(RESOURCE_LOAD_STATISTICS)
@@ -1970,11 +1956,18 @@ WebsiteDataStoreParameters WebsiteDataStore::parameters()
 
     resolveDirectoriesIfNecessary();
 
-    auto resourceLoadStatisticsDirectory = m_configuration->resourceLoadStatisticsDirectory();
+    auto resourceLoadStatisticsDirectory = m_resolvedConfiguration->resourceLoadStatisticsDirectory();
     SandboxExtension::Handle resourceLoadStatisticsDirectoryHandle;
     if (!resourceLoadStatisticsDirectory.isEmpty()) {
         if (auto handle = SandboxExtension::createHandleForReadWriteDirectory(resourceLoadStatisticsDirectory))
             resourceLoadStatisticsDirectoryHandle = WTFMove(*handle);
+    }
+
+    auto privateClickMeasurementStorageDirectory = m_resolvedConfiguration->privateClickMeasurementStorageDirectory();
+    SandboxExtension::Handle privateClickMeasurementStorageDirectoryHandle;
+    if (!privateClickMeasurementStorageDirectory.isEmpty()) {
+        if (auto handle = SandboxExtension::createHandleForReadWriteDirectory(privateClickMeasurementStorageDirectory))
+            privateClickMeasurementStorageDirectoryHandle = WTFMove(*handle);
     }
 
     auto networkCacheDirectory = resolvedNetworkCacheDirectory();
@@ -2006,6 +1999,8 @@ WebsiteDataStoreParameters WebsiteDataStore::parameters()
     ResourceLoadStatisticsParameters resourceLoadStatisticsParameters = {
         WTFMove(resourceLoadStatisticsDirectory),
         WTFMove(resourceLoadStatisticsDirectoryHandle),
+        WTFMove(privateClickMeasurementStorageDirectory),
+        WTFMove(privateClickMeasurementStorageDirectoryHandle),
         resourceLoadStatisticsEnabled(),
 #if ENABLE(RESOURCE_LOAD_STATISTICS)
         isItpStateExplicitlySet(),
@@ -2083,6 +2078,12 @@ WebsiteDataStoreParameters WebsiteDataStore::parameters()
             parameters.cacheStorageDirectoryExtensionHandle = WTFMove(*handle);
     }
 
+    if (auto directory = generalStorageDirectory(); !directory.isEmpty()) {
+        parameters.generalStorageDirectory = directory;
+        if (auto handle = SandboxExtension::createHandleForReadWriteDirectory(directory))
+            parameters.generalStorageDirectoryHandle = WTFMove(*handle);
+    }
+
     parameters.perOriginStorageQuota = perOriginStorageQuota();
     parameters.perThirdPartyOriginStorageQuota = perThirdPartyOriginStorageQuota();
 
@@ -2140,6 +2141,11 @@ void WebsiteDataStore::resetQuota(CompletionHandler<void()>&& completionHandler)
 {
     auto callbackAggregator = CallbackAggregator::create(WTFMove(completionHandler));
     networkProcess().resetQuota(m_sessionID, [callbackAggregator] { });
+}
+
+void WebsiteDataStore::clearStorage(CompletionHandler<void()>&& completionHandler)
+{
+    networkProcess().clearStorage(m_sessionID, WTFMove(completionHandler));
 }
 
 #if !PLATFORM(COCOA)

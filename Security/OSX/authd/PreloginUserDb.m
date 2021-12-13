@@ -151,7 +151,7 @@ OSStatus preloginDb(PreloginUserDb * _Nonnull * _Nonnull _Nonnulldb);
         return noErr;
     };
 
-    [self processPrebootVolumes:prebootVolumes worker:volumeWorker];
+    [self processPrebootVolumes:prebootVolumes worker:volumeWorker canMount:YES];
 
     if (err) {
         *err = nil;
@@ -300,7 +300,7 @@ OSStatus preloginDb(PreloginUserDb * _Nonnull * _Nonnull _Nonnulldb);
         }
     }
     
-    NSArray *prebootVolumes = [self relevantPrebootVolumes];
+    NSArray *prebootVolumes = [self prebootVolumesForUuid:uuid.UUIDString];
     __block OSStatus retval = errAuthorizationInternal;
     
     OSStatus (^volumeWorker)(NSUUID *volumeUuid, NSString *mountPoint) = ^OSStatus(NSUUID *volumeUuid, NSString *mountPoint) {
@@ -370,7 +370,7 @@ OSStatus preloginDb(PreloginUserDb * _Nonnull * _Nonnull _Nonnulldb);
         return retval;
     };
 
-    [self processPrebootVolumes:prebootVolumes worker:volumeWorker];
+    [self processPrebootVolumes:prebootVolumes worker:volumeWorker canMount:!internal];
     
     return retval;
 }
@@ -394,7 +394,7 @@ OSStatus preloginDb(PreloginUserDb * _Nonnull * _Nonnull _Nonnulldb);
     return result;
 }
 
-- (void)processPrebootVolumes:(NSArray*)prebootVolumes worker:(OSStatus (^)(NSUUID *volumeUuid, NSString *mountPoint))workerBlock
+- (void)processPrebootVolumes:(NSArray*)prebootVolumes worker:(OSStatus (^)(NSUUID *volumeUuid, NSString *mountPoint))workerBlock canMount:(BOOL)canMount
 {
     // process each preboot volume
     for (id prebootVolume in prebootVolumes) {
@@ -402,6 +402,10 @@ OSStatus preloginDb(PreloginUserDb * _Nonnull * _Nonnull _Nonnulldb);
         BOOL weMountedPreboot = NO;
         NSString *mountPoint = [_diskMgr mountPointForDisk:(__bridge DADiskRef _Nonnull)(prebootVolume) error:NULL];
         if (!mountPoint) {
+            if (!canMount) {
+                os_log_error(AUTHD_LOG, "Volume not mounted %{public}@, skipping", prebootVolume);
+                continue;
+            }
             weMountedPreboot = [self mountPrebootVolume:prebootVolume];
             if (weMountedPreboot) {
                 mountPoint = [_diskMgr mountPointForDisk:(__bridge DADiskRef _Nonnull)(prebootVolume) error:NULL];
@@ -410,7 +414,7 @@ OSStatus preloginDb(PreloginUserDb * _Nonnull * _Nonnull _Nonnulldb);
                 continue;
             }
         }
-        os_log_error(AUTHD_LOG, "Preboot %{public}@ mounted at  %{public}@", prebootVolume, mountPoint);
+        os_log_info(AUTHD_LOG, "Preboot %{public}@ mounted at %{public}@", prebootVolume, mountPoint);
 
         // process the preboot volume
         NSDirectoryEnumerator *dirEnumerator = [[NSFileManager defaultManager] enumeratorAtURL:[NSURL fileURLWithPath:mountPoint isDirectory:YES] includingPropertiesForKeys:nil options:NSDirectoryEnumerationSkipsSubdirectoryDescendants errorHandler:nil];
@@ -438,6 +442,44 @@ OSStatus preloginDb(PreloginUserDb * _Nonnull * _Nonnull _Nonnulldb);
             [self unmountPrebootVolume:prebootVolume];
         }
     }
+}
+
+- (NSArray *)prebootVolumesForUuid:(NSString *)uuid
+{
+    DMAPFS *dmAPFS = [[getDMAPFSClass() alloc] initWithManager:_diskMgr];
+    DADiskRef diskRef = NULL;
+    [dmAPFS volumeForVolumeUUID:uuid volume:&diskRef];
+    if (!diskRef) {
+        os_log_error(AUTHD_LOG, "Failed to determine disk for UUID %{public}@", uuid);
+        return nil;
+    }
+    
+    DADiskRef container = NULL;
+    DMDiskErrorType diskErr = [dmAPFS containerForVolume:diskRef container:&container];
+    if (!container) {
+        os_log_error(AUTHD_LOG, "Failed to determine container for UUID %{public}@: %{public}@", uuid, soft_DMUnlocalizedTechnicalErrorString(diskErr));
+        return nil;
+    }
+    NSArray *volumes = nil;
+    NSMutableArray *result = @[].mutableCopy;
+    [dmAPFS volumesForContainer:container volumes:&volumes];
+    
+    for (id disk in volumes) {
+        BOOL preboot;
+        diskErr = [dmAPFS isPrebootVolume:(__bridge DADiskRef _Nonnull)(disk) prebootRole:&preboot];
+        if (diskErr) {
+            os_log_error(AUTHD_LOG, "Failed to determine preboot state for %{public}@: %{public}@", disk, soft_DMUnlocalizedTechnicalErrorString(diskErr));
+            continue;
+        }
+        if (!preboot) {
+            os_log_info(AUTHD_LOG, "Not a preboot volume: %{public}@", disk);
+            continue;
+        }
+        os_log_info(AUTHD_LOG, "Will use preboot volume: %{public}@", disk);
+
+        [result addObject:disk];
+    }
+    return result;
 }
 
 // For FVUnlock or Migration, return just the disks from the current container

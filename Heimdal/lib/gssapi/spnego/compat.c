@@ -150,6 +150,7 @@ _gss_spnego_fixup_ntlm(gssspnego_ctx ctx)
     if (gss_oid_equal(ctx->negotiated_mech_type, GSS_NTLM_MECHANISM)) {
 	gss_buffer_set_t buffer_set = GSS_C_NO_BUFFER_SET;
 	OM_uint32 junk;
+	// spnego needs to reset the RC4 stream after signing the MechListMIC, but not the seq number
 	gss_inquire_sec_context_by_oid(&junk, ctx->negotiated_ctx_id,
 				       GSS_C_NTLM_RESET_KEYS,
 				       &buffer_set);

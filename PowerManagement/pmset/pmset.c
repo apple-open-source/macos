@@ -129,9 +129,6 @@
 #if TARGET_OS_OSX
 #define ARG_VACT            "vactdisabled"
 #define ARG_LOWPOWERMODE    "lowpowermode"
-#if !RC_HIDE_J316
-#define ARG_HIGHPOWERMODE   "highpowermode"
-#endif // !RC_HIDE_J316
 #define ARG_CUSTOMPOWERMODE "powermode"
 #endif // TARGET_OS_OSX
 
@@ -326,9 +323,6 @@ PMFeature all_features[] =
 #if TARGET_OS_OSX
     { kIOPMVact,                    ARG_VACT },
     { kIOPMLowPowerModeKey,         ARG_LOWPOWERMODE},
-#if !RC_HIDE_J316
-    { kIOPMHighPowerModeKey,        ARG_HIGHPOWERMODE},
-#endif // !RC_HIDE_J316
 #endif // TARGET_OS_OSX
 };
 
@@ -1126,19 +1120,7 @@ static void show_pm_settings_dict(
                 show_override_type = _kIOPMAssertionSystemOn;
             }
 #if TARGET_OS_OSX
-#if !RC_HIDE_J316
-        } else if (strcmp(ps, kIOPMHighPowerModeKey) == 0) {
-            // While displaying settings we either show a tri-state "powermode [0,1,2]" where 0 is OFF,
-            // 1 is LPM, 2 is HPM. OR if HPM isn't supported, we show "lowpowermode [0,1]"
-            // Ignore the key reported by dictionary which is only useful to know if the feature is supported
-            continue;
-#endif // !RC_HIDE_J316
         } else if (strcmp(ps, kIOPMLowPowerModeKey) == 0) {
-#if !RC_HIDE_J316
-            if (IOPMFeatureIsAvailable(CFSTR(kIOPMHighPowerModeKey), activeps)) {
-                printf(" %-20s ", ARG_CUSTOMPOWERMODE);
-            } else
-#endif // !RC_HIDE_J316
                 printf(" %-20s ", ARG_LOWPOWERMODE);
 #endif // TARGET_OS_OSX
         } else {
@@ -4409,15 +4391,6 @@ static int checkAndSetPowerModeIntValue(
                     goto exit;
                 }
                 break;
-#if !RC_HIDE_J316
-            case 2:
-                if (!IOPMFeatureIsAvailable(CFSTR(kIOPMHighPowerModeKey), CFSTR(kIOPMBatteryPowerKey))) {
-                    ret = -1;
-                    printf("%s not supported on %s\n", kIOPMHighPowerModeKey, kIOPMBatteryPowerKey);
-                    goto exit;
-                }
-                break;
-#endif
             default:
                 break;
         }
@@ -4432,15 +4405,6 @@ static int checkAndSetPowerModeIntValue(
                     goto exit;
                 }
                 break;
-#if !RC_HIDE_J316
-            case 2:
-                if (!IOPMFeatureIsAvailable(CFSTR(kIOPMHighPowerModeKey), CFSTR(kIOPMACPowerKey))) {
-                    ret = -1;
-                    printf("%s not supported on %s\n", kIOPMHighPowerModeKey, kIOPMACPowerKey);
-                    goto exit;
-                }
-                break;
-#endif
             default:
                 break;
         }

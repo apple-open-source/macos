@@ -210,41 +210,6 @@ extension Container {
         return (reta, retkhr, retpolicy, reterr)
     }
 
-#if !__OPEN_SOURCE__ && APPLE_FEATURE_WALRUS_UI
-    func updateSync(test: XCTestCase,
-                    forceRefetch: Bool = false,
-                    deviceName: String? = nil,
-                    serialNumber: String? = nil,
-                    osVersion: String? = nil,
-                    policyVersion: UInt64? = nil,
-                    policySecrets: [String: Data]? = nil,
-                    syncUserControllableViews: TPPBPeerStableInfoUserControllableViewStatus? = nil,
-                    secureElementIdentity: TrustedPeersHelperIntendedTPPBSecureElementIdentity? = nil,
-                    walrusSetting: TPPBPeerStableInfoSetting? = nil,
-                    webAccess: TPPBPeerStableInfoSetting? = nil) -> (TrustedPeersHelperPeerState?, TPSyncingPolicy?, Error?) {
-        let expectation = XCTestExpectation(description: "update replied")
-        var reterr: Error?
-        var retstate: TrustedPeersHelperPeerState?
-        var retpolicy: TPSyncingPolicy?
-        self.update(forceRefetch: forceRefetch,
-                    deviceName: deviceName,
-                    serialNumber: serialNumber,
-                    osVersion: osVersion,
-                    policyVersion: policyVersion,
-                    policySecrets: policySecrets,
-                    syncUserControllableViews: syncUserControllableViews,
-                    secureElementIdentity: secureElementIdentity,
-                    walrusSetting: walrusSetting,
-                    webAccess: webAccess) { state, policy, err in
-                        retstate = state
-                        retpolicy = policy
-                        reterr = err
-                        expectation.fulfill()
-        }
-        test.wait(for: [expectation], timeout: 10.0)
-        return (retstate, retpolicy, reterr)
-    }
-#else
     func updateSync(test: XCTestCase,
                     forceRefetch: Bool = false,
                     deviceName: String? = nil,
@@ -274,7 +239,6 @@ extension Container {
         test.wait(for: [expectation], timeout: 10.0)
         return (retstate, retpolicy, reterr)
     }
-#endif
 
     func setAllowedMachineIDsSync(test: XCTestCase, allowedMachineIDs: Set<String>, accountIsDemo: Bool, listDifference: Bool = true) -> (Error?) {
         let expectation = XCTestExpectation(description: "setAllowedMachineIDs replied")
@@ -489,7 +453,7 @@ extension Container {
         var retleavetrust: Bool = false
         var reterror: Error?
 
-        self.requestHealthCheck(requiresEscrowCheck: requiresEscrowCheck) { repairAccount, repairEscrow, resetOctagon, leaveTrust, _, error in
+        self.requestHealthCheck(requiresEscrowCheck: requiresEscrowCheck, knownFederations: []) { repairAccount, repairEscrow, resetOctagon, leaveTrust, _, error in
             retrepairaccount = repairAccount
             retrepairescrow = repairEscrow
             retresetoctagon = resetOctagon

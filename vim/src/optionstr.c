@@ -2215,7 +2215,7 @@ ambw_end:
 	    if (errmsg == NULL)
 	    {
 		int *oldarray = curbuf->b_p_vsts_array;
-		if (tabstop_set(*varp, &(curbuf->b_p_vsts_array)))
+		if (tabstop_set(*varp, &(curbuf->b_p_vsts_array)) == OK)
 		{
 		    if (oldarray)
 			vim_free(oldarray);
@@ -2254,7 +2254,7 @@ ambw_end:
 	    {
 		int *oldarray = curbuf->b_p_vts_array;
 
-		if (tabstop_set(*varp, &(curbuf->b_p_vts_array)))
+		if (tabstop_set(*varp, &(curbuf->b_p_vts_array)) == OK)
 		{
 		    vim_free(oldarray);
 #ifdef FEAT_FOLDING

@@ -505,6 +505,7 @@ _gss_ntlm_accept_sec_context
 	}
 	
 	_gss_ntlm_set_keys(ctx);
+	_gss_ntlm_reset_seq(ctx);
 
 	if (mech_type)
 	    *mech_type = GSS_NTLM_MECHANISM;

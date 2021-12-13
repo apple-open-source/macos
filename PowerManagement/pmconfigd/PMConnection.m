@@ -2131,6 +2131,92 @@ void logAwakeTime(void)
 #endif
 }
 
+void logCASleepNotificationLastResponder(CFArrayRef sleepDelayStats)
+{
+#if HAS_COREANALYTICS
+
+    long                    numElems = 0;
+    long                    i = 0;
+    CFDictionaryRef         appDelayInfoRef = NULL;
+    CFStringRef             transString = NULL;
+    CFStringRef             responseTypeString = NULL;
+    CFNumberRef             delayRef = NULL;
+    int                     delay;
+    int                     delayTimeoutMS = 30000;
+    
+    long                    lastResponderIndex = -1;
+    int                     lastResponderTime = INT_MIN;
+    
+    char                    *appNameBuf = NULL;
+    
+    
+    if (!isA_CFArray(sleepDelayStats)) {
+        return;
+    }
+    
+    numElems = CFArrayGetCount(sleepDelayStats);
+    if (numElems == 0) {
+        return;
+    }
+    
+    for (i=0; i < numElems; i++) {
+        appDelayInfoRef = CFArrayGetValueAtIndex(sleepDelayStats, i);
+        if ( !isA_CFDictionary(appDelayInfoRef)) {
+            continue;;
+        }
+        
+        // Only consider delays for sleep transitions
+        transString  = CFDictionaryGetValue(appDelayInfoRef, CFSTR(kIOPMStatsSystemTransitionKey));
+        if (!isA_CFString(transString) || ( !CFEqual(transString, CFSTR("Sleep")) )) {
+            continue;
+        }
+        
+        // Only interested in kIOPMStatsResponseTimedOut and kIOPMStatsResponseSlow events
+        responseTypeString  = CFDictionaryGetValue(appDelayInfoRef, CFSTR(kIOPMStatsApplicationResponseTypeKey));
+        if (!isA_CFString(responseTypeString) ||
+            ( (!CFEqual(responseTypeString, CFSTR(kIOPMStatsResponseSlow))) &&
+              (!CFEqual(responseTypeString, CFSTR(kIOPMStatsResponseTimedOut))) )  ) {
+            continue;
+        }
+        
+        // For timeout responses, we supply the default value of 30000 ms.
+        if (CFEqual(responseTypeString, CFSTR(kIOPMStatsResponseTimedOut))) {
+            delay = delayTimeoutMS;
+        }
+        
+        else {
+            delayRef = CFDictionaryGetValue(appDelayInfoRef, CFSTR(kIOPMStatsTimeMSKey));
+            if (!isA_CFNumber(delayRef) || (!CFNumberGetValue(delayRef, kCFNumberIntType, &delay))) {
+                continue;
+            }
+        }
+        
+        if (delay > lastResponderTime) {
+            lastResponderTime = delay;
+            lastResponderIndex = i;
+        }
+    }
+    
+    if (lastResponderIndex == -1) {
+        return;
+    }
+    
+    // Grab the last responder's name. Skip for macOS since we might expose 3P app names.
+    
+    
+    analytics_send_event_lazy("com.apple.powerd.sleepdelay", ^xpc_object_t(void) {
+        xpc_object_t dict = xpc_dictionary_create(NULL, NULL, 0);
+        xpc_dictionary_set_uint64(dict, "delay_time", lastResponderTime);
+        if (appNameBuf && strlen(appNameBuf)) {
+            xpc_dictionary_set_string(dict, "last_responder", appNameBuf);
+        }
+        return dict;
+    });
+    
+#endif /* HAS_COREANALYTICS */
+}
+
+
 /*****************************************************************************/
 /* PMConnectionPowerCallBack */
 /*****************************************************************************/
@@ -2614,14 +2700,17 @@ static void PMConnectionPowerCallBack(
             IOAllowPowerChange(gRootDomainConnect, (long)capArgs->notifyRef);     
                    
         SystemLoadSystemPowerStateHasChanged( );
-
         // Get stats on delays while waking up. This includes delays from previous sleep
         // and the current wake
         appStats = (CFArrayRef)_copyRootDomainProperty(CFSTR(kIOPMSleepStatisticsAppsKey));
         if (appStats) {
             logASLMessageAppStats(appStats, kPMASLDomainKernelClientStats);
+#if HAS_COREANALYTICS
+            logCASleepNotificationLastResponder(appStats);
+#endif
             CFRelease(appStats);
         }
+
 
 #if TARGET_OS_OSX
         if (getLastSleepType() == kIOPMSleepTypeHibernate) {

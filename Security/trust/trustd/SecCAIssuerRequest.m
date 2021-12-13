@@ -46,6 +46,9 @@
 #define MAX_CA_ISSUERS 3
 #define CA_ISSUERS_REQUEST_THRESHOLD 10
 
+/* Forward declaration */
+CFArrayRef SecCAIssuerRequestCacheCopyParents(SecCertificateRef cert, CFArrayRef issuers, bool expired);
+
 typedef void (*CompletionHandler)(void *context, CFArrayRef parents);
 
 @interface CAIssuerDelegate: TrustURLSessionDelegate
@@ -141,7 +144,7 @@ static NSArray *certificatesFromData(NSData *data) {
     if (parents)  {
         /* Found some parents, add to cache, close session, and return to SecPathBuilder */
         secdebug("caissuer", "found parents for %@", task.originalRequest.URL);
-        SecCAIssuerCacheAddCertificates((__bridge CFArrayRef)parents, (__bridge CFURLRef)task.originalRequest.URL, urlContext.expiration);
+        SecCAIssuerCacheAddCertificates((__bridge CFArrayRef)parents, (__bridge CFURLRef)task.originalRequest.URL, urlContext.maxAge + CFAbsoluteTimeGetCurrent());
         urlContext.context = nil; // set the context to NULL before we call back because the callback may free the builder
         dispatch_async(SecPathBuilderGetQueue(builder), ^{
             urlContext.callback(builder, (__bridge CFArrayRef)parents);
@@ -153,7 +156,13 @@ static NSArray *certificatesFromData(NSData *data) {
             secdebug("caissuer", "no more fetches. returning to builder");
             urlContext.context = nil; // set the context to NULL before we call back because the callback may free the builder
             dispatch_async(SecPathBuilderGetQueue(builder), ^{
-                urlContext.callback(builder, NULL);
+                // Use whatever parents we have cached, even if the they are expired
+                CFArrayRef cachedParents = SecCAIssuerRequestCacheCopyParents(NULL, (__bridge CFArrayRef)urlContext.URIs, true);
+                if (cachedParents) {
+                    secdebug("caissuer", "falling back to expired cached entries");
+                }
+                urlContext.callback(builder, cachedParents);
+                CFReleaseNull(cachedParents);
             });
         }
     }
@@ -185,6 +194,9 @@ static NSArray *certificatesFromData(NSData *data) {
  parent if the normalized subject of parent matches the normalized issuer
  of certificate. */
 static CF_RETURNS_RETAINED CFArrayRef SecCAIssuerConvertToParents(SecCertificateRef certificate, CFArrayRef CF_CONSUMED putativeParents) {
+    if (!certificate) {
+        return putativeParents;
+    }
     CFDataRef nic = SecCertificateGetNormalizedIssuerContent(certificate);
     NSMutableArray *parents = [NSMutableArray array];
     NSArray *possibleParents = CFBridgingRelease(putativeParents);
@@ -202,8 +214,8 @@ static CF_RETURNS_RETAINED CFArrayRef SecCAIssuerConvertToParents(SecCertificate
     }
 }
 
-static CFArrayRef SecCAIssuerRequestCacheCopyParents(SecCertificateRef cert,
-    CFArrayRef issuers) {
+CFArrayRef SecCAIssuerRequestCacheCopyParents(SecCertificateRef cert,
+    CFArrayRef issuers, bool expired) {
     CFIndex ix = 0, ex = CFArrayGetCount(issuers);
     for (;ix < ex; ++ix) {
         CFURLRef issuer = CFArrayGetValueAtIndex(issuers, ix);
@@ -211,7 +223,7 @@ static CFArrayRef SecCAIssuerRequestCacheCopyParents(SecCertificateRef cert,
         if (scheme) {
             if (CFEqual(CFSTR("http"), scheme)) {
                 CFArrayRef parents = SecCAIssuerConvertToParents(cert,
-                    SecCAIssuerCacheCopyMatching(issuer));
+                    SecCAIssuerCacheCopyMatching(issuer, expired));
                 if (parents) {
                     secdebug("caissuer", "cache hit, for %@. no request issued", issuer);
                     CFRelease(scheme);
@@ -236,7 +248,8 @@ bool SecCAIssuerCopyParents(SecCertificateRef certificate, void *context, void (
 
         SecPathBuilderRef builder = (SecPathBuilderRef)context;
         TrustAnalyticsBuilder *analytics = SecPathBuilderGetAnalyticsData(builder);
-        CFArrayRef parents = SecCAIssuerRequestCacheCopyParents(certificate, (__bridge CFArrayRef)nsIssuers);
+        /* Fetch non-expired entries from the cache; if all entries are expired, we want to do a network fetch in order to update those. */
+        CFArrayRef parents = SecCAIssuerRequestCacheCopyParents(certificate, (__bridge CFArrayRef)nsIssuers, false);
         if (parents) {
             if (analytics) {
                 /* We found parents in the cache */

@@ -49,6 +49,7 @@
 
 namespace WebCore {
 struct MockMediaDevice;
+struct ScreenProperties;
 struct SecurityOriginData;
 }
 
@@ -82,15 +83,19 @@ public:
     void clearMockMediaDevices();
     void removeMockMediaDevice(const String&);
     void resetMockMediaDevices();
+    void setMockCameraIsInterrupted(bool);
 #endif
 
     void removeSession(PAL::SessionID);
 
 #if PLATFORM(MAC)
     void displayConfigurationChanged(CGDirectDisplayID, CGDisplayChangeSummaryFlags);
+    void setScreenProperties(const WebCore::ScreenProperties&);
 #endif
 
     void updatePreferences();
+
+    void terminateForTesting();
 
 private:
     explicit GPUProcessProxy();

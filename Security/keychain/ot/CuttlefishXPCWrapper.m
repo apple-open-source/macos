@@ -675,10 +675,6 @@ enum {NUM_RETRIES = 5};
               policySecrets:(nullable NSDictionary<NSString*,NSData*> *)policySecrets
   syncUserControllableViews:(nullable NSNumber *)syncUserControllableViews
       secureElementIdentity:(nullable TrustedPeersHelperIntendedTPPBSecureElementIdentity*)secureElementIdentity
-#if !defined(__OPEN_SOURCE__) && APPLE_FEATURE_WALRUS_UI
-              walrusSetting:(nullable TPPBPeerStableInfoSetting *)walrusSetting
-                  webAccess:(nullable TPPBPeerStableInfoSetting *)webAccess
-#endif /* APPLE_FEATURE_WALRUS_UI */
                       reply:(void (^)(TrustedPeersHelperPeerState* _Nullable peerState, TPSyncingPolicy* _Nullable policy, NSError * _Nullable error))reply
 {
     __block int i = 0;
@@ -704,10 +700,6 @@ enum {NUM_RETRIES = 5};
                          policySecrets:policySecrets
              syncUserControllableViews:syncUserControllableViews
                  secureElementIdentity:secureElementIdentity
-#if !defined(__OPEN_SOURCE__) && APPLE_FEATURE_WALRUS_UI
-                         walrusSetting:walrusSetting
-                             webAccess:webAccess
-#endif /* APPLE_FEATURE_WALRUS_UI */
                                  reply:reply];
     } while (retry);
 }
@@ -1019,6 +1011,7 @@ enum {NUM_RETRIES = 5};
 - (void)requestHealthCheckWithContainer:(NSString *)container
                                 context:(NSString *)context
                     requiresEscrowCheck:(BOOL)requiresEscrowCheck
+                       knownFederations:(NSArray<NSString *> *)knownFederations
                                   reply:(void (^)(BOOL postRepairCFU, BOOL postEscrowCFU, BOOL resetOctagon, BOOL leaveTrust, OTEscrowMoveRequestContext *moveRequest, NSError* _Nullable))reply
 {
     __block int i = 0;
@@ -1034,7 +1027,7 @@ enum {NUM_RETRIES = 5};
                         reply(NO, NO, NO, NO, nil, error);
                     }
                     ++i;
-        }] requestHealthCheckWithContainer:container context:context requiresEscrowCheck:requiresEscrowCheck reply:reply];
+        }] requestHealthCheckWithContainer:container context:context requiresEscrowCheck:requiresEscrowCheck knownFederations:knownFederations reply:reply];
     } while (retry);
 }
 

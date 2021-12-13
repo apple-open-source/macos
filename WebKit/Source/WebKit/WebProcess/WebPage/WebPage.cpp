@@ -135,6 +135,7 @@
 #include "WebSpeechRecognitionProvider.h"
 #include "WebSpeechSynthesisClient.h"
 #include "WebStorageNamespaceProvider.h"
+#include "WebStorageProvider.h"
 #include "WebTouchEvent.h"
 #include "WebURLSchemeHandlerProxy.h"
 #include "WebUndoStep.h"
@@ -159,6 +160,8 @@
 #include <WebCore/CommonVM.h>
 #include <WebCore/ContactsRequestData.h>
 #include <WebCore/ContextMenuController.h>
+#include <WebCore/CrossOriginEmbedderPolicy.h>
+#include <WebCore/CrossOriginOpenerPolicy.h>
 #include <WebCore/DOMPasteAccess.h>
 #include <WebCore/DataTransfer.h>
 #include <WebCore/DatabaseManager.h>
@@ -229,6 +232,7 @@
 #include <WebCore/RenderTheme.h>
 #include <WebCore/RenderTreeAsText.h>
 #include <WebCore/RenderView.h>
+#include <WebCore/ReportingEndpointsCache.h>
 #include <WebCore/ResourceLoadStatistics.h>
 #include <WebCore/ResourceRequest.h>
 #include <WebCore/ResourceResponse.h>
@@ -262,6 +266,7 @@
 #include <pal/SessionID.h>
 #include <wtf/ProcessID.h>
 #include <wtf/RunLoop.h>
+#include <wtf/Scope.h>
 #include <wtf/SetForScope.h>
 #include <wtf/SystemTracing.h>
 #include <wtf/text/TextStream.h>
@@ -566,7 +571,8 @@ WebPage::WebPage(PageIdentifier pageID, WebPageCreationParameters&& parameters)
         makeUniqueRef<WebFrameLoaderClient>(m_mainFrame.copyRef()),
         makeUniqueRef<WebSpeechRecognitionProvider>(m_identifier),
         makeUniqueRef<MediaRecorderProvider>(*this),
-        WebProcess::singleton().broadcastChannelRegistry()
+        WebProcess::singleton().broadcastChannelRegistry(),
+        makeUniqueRef<WebStorageProvider>()
     );
     pageConfiguration.chromeClient = new WebChromeClient(*this);
 #if ENABLE(CONTEXT_MENUS)
@@ -602,6 +608,7 @@ WebPage::WebPage(PageIdentifier pageID, WebPageCreationParameters&& parameters)
     pageConfiguration.pluginInfoProvider = &WebPluginInfoProvider::singleton();
     pageConfiguration.storageNamespaceProvider = WebStorageNamespaceProvider::getOrCreate(*m_pageGroup);
     pageConfiguration.visitedLinkStore = VisitedLinkTableController::getOrCreate(parameters.visitedLinkTableID);
+    pageConfiguration.reportingEndpointsCache = &WebProcess::singleton().reportingEndpointsCache();
 
 #if ENABLE(APPLE_PAY)
     pageConfiguration.paymentCoordinatorClient = new WebPaymentCoordinator(*this);
@@ -1703,6 +1710,11 @@ void WebPage::loadRequest(LoadParameters&& loadParameters)
     setIsNavigatingToAppBoundDomain(loadParameters.isNavigatingToAppBoundDomain, &m_mainFrame.get());
 #endif
 
+    WebProcess::singleton().webLoaderStrategy().setExistingNetworkResourceLoadIdentifierToResume(loadParameters.existingNetworkResourceLoadIdentifierToResume);
+    auto resumingLoadScope = makeScopeExit([] {
+        WebProcess::singleton().webLoaderStrategy().setExistingNetworkResourceLoadIdentifierToResume(std::nullopt);
+    });
+
     SendStopResponsivenessTimer stopper;
 
     m_pendingNavigationID = loadParameters.navigationID;
@@ -1737,7 +1749,7 @@ NO_RETURN void WebPage::loadRequestWaitingForProcessLaunch(LoadParameters&&, URL
     RELEASE_ASSERT_NOT_REACHED();
 }
 
-void WebPage::loadDataImpl(uint64_t navigationID, bool shouldTreatAsContinuingLoad, std::optional<WebsitePoliciesData>&& websitePolicies, Ref<SharedBuffer>&& sharedBuffer, ResourceRequest&& request, ResourceResponse&& response, const URL& unreachableURL, const UserData& userData, std::optional<NavigatingToAppBoundDomain> isNavigatingToAppBoundDomain, SubstituteData::SessionHistoryVisibility sessionHistoryVisibility, ShouldOpenExternalURLsPolicy shouldOpenExternalURLsPolicy)
+void WebPage::loadDataImpl(uint64_t navigationID, ShouldTreatAsContinuingLoad shouldTreatAsContinuingLoad, std::optional<WebsitePoliciesData>&& websitePolicies, Ref<SharedBuffer>&& sharedBuffer, ResourceRequest&& request, ResourceResponse&& response, const URL& unreachableURL, const UserData& userData, std::optional<NavigatingToAppBoundDomain> isNavigatingToAppBoundDomain, SubstituteData::SessionHistoryVisibility sessionHistoryVisibility, ShouldOpenExternalURLsPolicy shouldOpenExternalURLsPolicy)
 {
 #if ENABLE(APP_BOUND_DOMAINS)
     setIsNavigatingToAppBoundDomain(isNavigatingToAppBoundDomain, &m_mainFrame.get());
@@ -1838,7 +1850,10 @@ void WebPage::stopLoading()
         return;
 
     SendStopResponsivenessTimer stopper;
-    m_page->userInputBridge().stopLoadingFrame(*m_mainFrame->coreFrame());
+
+    Ref coreFrame = *m_mainFrame->coreFrame();
+    m_page->userInputBridge().stopLoadingFrame(coreFrame.get());
+    coreFrame->loader().completePageTransitionIfNeeded();
 }
 
 bool WebPage::defersLoading() const
@@ -1876,6 +1891,8 @@ void WebPage::goToBackForwardItem(uint64_t navigationID, const BackForwardItemId
     SendStopResponsivenessTimer stopper;
 
     m_lastNavigationWasAppInitiated = lastNavigationWasAppInitiated;
+    if (auto* documentLoader = corePage()->mainFrame().loader().documentLoader())
+        documentLoader->setLastNavigationWasAppInitiated(lastNavigationWasAppInitiated);
 
     ASSERT(isBackForwardLoadType(backForwardType));
 
@@ -4316,6 +4333,41 @@ void WebPage::sendCSPViolationReport(FrameIdentifier frameID, const URL& reportU
         return;
     if (auto* frame = WebProcess::singleton().webFrame(frameID))
         PingLoader::sendViolationReport(*frame->coreFrame(), reportURL, report.releaseNonNull(), ViolationReportType::ContentSecurityPolicy);
+}
+
+void WebPage::sendCOEPPolicyInheritenceViolation(FrameIdentifier frameID, const SecurityOriginData& embedderOrigin, const String& endpoint, COEPDisposition disposition, const String& type, const URL& blockedURL)
+{
+    if (auto* frame = WebProcess::singleton().webFrame(frameID); frame && frame->coreFrame())
+        WebCore::sendCOEPPolicyInheritenceViolation(*frame->coreFrame(), embedderOrigin, endpoint, disposition, type, blockedURL);
+}
+
+void WebPage::sendCOEPCORPViolation(FrameIdentifier frameID, const SecurityOriginData& embedderOrigin, const String& endpoint, COEPDisposition disposition, FetchOptions::Destination destination, const URL& blockedURL)
+{
+    if (auto* frame = WebProcess::singleton().webFrame(frameID); frame && frame->coreFrame())
+        WebCore::sendCOEPCORPViolation(*frame->coreFrame(), embedderOrigin, endpoint, disposition, destination, blockedURL);
+}
+
+void WebPage::sendViolationReportWhenNavigatingToCOOPResponse(FrameIdentifier frameID, const CrossOriginOpenerPolicy& coop, COOPDisposition disposition, const URL& coopURL, const URL& previousResponseURL, const SecurityOriginData& coopOrigin, const SecurityOriginData& previousResponseOrigin, const String& referrer, const String& userAgent, const String& reportToHeaderValue)
+{
+    if (!reportToHeaderValue.isEmpty())
+        WebProcess::singleton().reportingEndpointsCache().addEndpointsFromReportToHeader(coopURL, reportToHeaderValue);
+
+    // FIXME: Add the concept of browsing context group like in the specification instead of treating the whole process as a group.
+    if (Page::nonUtilityPageCount() <= 1)
+        return;
+
+    if (auto* frame = WebProcess::singleton().webFrame(frameID); frame && frame->coreFrame())
+        WebCore::sendViolationReportWhenNavigatingToCOOPResponse(*frame->coreFrame(), coop, disposition, coopURL, previousResponseURL, coopOrigin.securityOrigin(), previousResponseOrigin.securityOrigin(), referrer, userAgent);
+}
+
+void WebPage::sendViolationReportWhenNavigatingAwayFromCOOPResponse(FrameIdentifier frameID, const CrossOriginOpenerPolicy& coop, COOPDisposition disposition, const URL& coopURL, const URL& nextResponseURL, const SecurityOriginData& coopOrigin, const SecurityOriginData& nextResponseOrigin, bool isCOOPResponseNavigationSource, const String& userAgent)
+{
+    // FIXME: Add the concept of browsing context group like in the specification instead of treating the whole process as a group.
+    if (Page::nonUtilityPageCount() <= 1)
+        return;
+
+    if (auto* frame = WebProcess::singleton().webFrame(frameID); frame && frame->coreFrame())
+        WebCore::sendViolationReportWhenNavigatingAwayFromCOOPResponse(*frame->coreFrame(), coop, disposition, coopURL, nextResponseURL, coopOrigin.securityOrigin(), nextResponseOrigin.securityOrigin(), isCOOPResponseNavigationSource, userAgent);
 }
 
 void WebPage::enqueueSecurityPolicyViolationEvent(FrameIdentifier frameID, SecurityPolicyViolationEvent::Init&& eventInit)

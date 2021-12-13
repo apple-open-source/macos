@@ -1,6 +1,6 @@
 {
     "$schema": "https://valid.apple.com/ct/log_list/schema_versions/log_list_schema_v3.json",
-    "assetVersion": 14,
+    "assetVersion": 15,
     "operators": [
         {
             "email": [
@@ -204,6 +204,10 @@
                             "version": "24"
                         }
                     },
+                    "temporal_interval": {
+                        "end_exclusive": "2023-01-01T00:00:00Z",
+                        "start_inclusive": "2018-01-01T00:00:00Z"
+                    },
                     "url": "https://log.gdca.com.cn/"
                 },
                 {
@@ -216,6 +220,10 @@
                             "timestamp": "2019-01-03T23:11:12Z",
                             "version": "25"
                         }
+                    },
+                    "temporal_interval": {
+                        "end_exclusive": "2023-01-01T00:00:00Z",
+                        "start_inclusive": "2018-01-01T00:00:00Z"
                     },
                     "url": "https://log2.gdca.com.cn/"
                 }
@@ -673,7 +681,7 @@
                     },
                     "temporal_interval": {
                         "end_exclusive": "2019-01-01T00:00:00Z",
-                        "start_inclusive": "2018-01-01T00:00:00Z"
+                        "start_inclusive": "2017-12-12T00:00:00Z"
                     },
                     "url": "https://nessie2018.ct.digicert.com/log/"
                 },
@@ -776,7 +784,7 @@
                     },
                     "temporal_interval": {
                         "end_exclusive": "2019-01-01T00:00:00Z",
-                        "start_inclusive": "2018-01-01T00:00:00Z"
+                        "start_inclusive": "2017-12-12T00:00:00Z"
                     },
                     "url": "https://yeti2018.ct.digicert.com/log/"
                 },
@@ -1051,7 +1059,7 @@
                         }
                     },
                     "temporal_interval": {
-                        "end_exclusive": "2024-01-01T00:00:00Z",
+                        "end_exclusive": "2024-01-07T00:00:00Z",
                         "start_inclusive": "2023-01-01T00:00:00Z"
                     },
                     "url": "https://oak.ct.letsencrypt.org/2023/"
@@ -1104,9 +1112,9 @@
                     "log_id": "w2X5s2VPMoPHnamOk9dBj1ure+MlLJjh0vBLuetCfSM=",
                     "mmd": 86400,
                     "state": {
-                        "qualified": {
-                            "timestamp": "2021-05-27T18:46:58Z",
-                            "version": "98"
+                        "usable": {
+                            "timestamp": "2021-08-23T21:45:49Z",
+                            "version": "103"
                         }
                     },
                     "temporal_interval": {
@@ -1121,9 +1129,9 @@
                     "log_id": "6H6nZgvCbPYALvVyXT/g4zG5OTu5L79Y6zuQSdr1Q1o=",
                     "mmd": 86400,
                     "state": {
-                        "qualified": {
-                            "timestamp": "2021-05-27T18:47:26Z",
-                            "version": "99"
+                        "usable": {
+                            "timestamp": "2021-08-23T21:46:21Z",
+                            "version": "104"
                         }
                     },
                     "temporal_interval": {
@@ -1136,5 +1144,5 @@
             "name": "TrustAsia"
         }
     ],
-    "version": "102"
+    "version": "105"
 }

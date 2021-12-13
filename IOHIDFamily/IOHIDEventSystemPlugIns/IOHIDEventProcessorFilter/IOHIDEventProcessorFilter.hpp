@@ -92,6 +92,8 @@ protected:
     UInt32              _timeoutState;
     int                 _multiEventCount;
     bool                _terminalEventDispatched;
+    bool                _longPressOccured;
+    bool                _alternateLongPressHandling;
     
     UInt64              _secondEventTimeout;
     UInt64              _thirdEventTimeout;
@@ -99,7 +101,7 @@ protected:
     UInt64              _longPressTimeout;
 
 public:
-    void                init(IOHIDEventProcessor * owner, Timer * timer, IOHIDEventType type, UInt32 usagePage, UInt32 usage, UInt64 secondEventTimeout, UInt64 thirdEventTimeout, UInt64 longPressTimeout);
+    void                init(IOHIDEventProcessor * owner, Timer * timer, IOHIDEventType type, UInt32 usagePage, UInt32 usage, UInt64 secondEventTimeout, UInt64 thirdEventTimeout, UInt64 longPressTimeout, bool alternateLongPressHandling = false);
 
     bool                eventOccurred(IOHIDEventRef event, bool timedOut, IOHIDEventRef &terminalEvent);
     bool                conformsTo(IOHIDEventType type, UInt32 usagePage, UInt32 usage);
@@ -223,6 +225,7 @@ private:
     UInt64                      _multiTapDoubleTapTimeout;
     UInt64                      _multiTapTripleTapTimeout;
 
+    bool                        _alternateLongPressHandling;
     UInt64                      _longPressTimeout;
     
     Event *                     _eventHead;

@@ -150,7 +150,7 @@ public:
 #endif
 
 #if USE(CG)
-    WEBCORE_EXPORT Color(CGColorRef, OptionSet<Flags> = { });
+    WEBCORE_EXPORT static Color createAndPreserveColorSpace(CGColorRef, OptionSet<Flags> = { });
 #endif
 
 #if PLATFORM(WIN)
@@ -206,6 +206,10 @@ private:
         ColorComponents<float, 4> m_components;
     };
     Color(Ref<OutOfLineComponents>&&, ColorSpace, OptionSet<Flags> = { });
+
+#if USE(CG)
+    WEBCORE_EXPORT static Color createAndLosslesslyConvertToSupportedColorSpace(CGColorRef, OptionSet<Flags> = { });
+#endif
 
     enum class FlagsIncludingPrivate : uint8_t {
         Semantic                        = static_cast<uint8_t>(Flags::Semantic),
@@ -266,8 +270,9 @@ bool outOfLineComponentssEqual(const Color&, const Color&);
 bool outOfLineComponentssEqualIgnoringSemanticColor(const Color&, const Color&);
 
 #if USE(CG)
-WEBCORE_EXPORT CGColorRef cachedCGColor(const Color&);
+WEBCORE_EXPORT RetainPtr<CGColorRef> cachedCGColor(const Color&);
 WEBCORE_EXPORT ColorComponents<float, 4> platformConvertColorComponents(ColorSpace, ColorComponents<float, 4>, const DestinationColorSpace&);
+WEBCORE_EXPORT std::optional<SRGBA<uint8_t>> roundAndClampToSRGBALossy(CGColorRef);
 #endif
 
 WEBCORE_EXPORT WTF::TextStream& operator<<(WTF::TextStream&, const Color&);

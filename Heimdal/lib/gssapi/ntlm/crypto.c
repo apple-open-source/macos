@@ -69,7 +69,6 @@ _gss_ntlm_set_key(struct ntlmv2_key *key, int acceptor, int sealsign,
 	sealmagic = i2a_sealmagic;
     }
 
-    key->seq = 0;
 
     ctx = CCDigestCreate(kCCDigestMD5);
     CCDigestUpdate(ctx, data, len);
@@ -87,6 +86,21 @@ _gss_ntlm_set_key(struct ntlmv2_key *key, int acceptor, int sealsign,
     EVP_CipherInit_ex(&key->sealkey, EVP_rc4(), NULL, out, NULL, 1);
     if (sealsign) {
 	key->signsealkey = &key->sealkey;
+    }
+}
+
+void
+_gss_ntlm_reset_seq(ntlm_ctx ctx)
+{
+    if (ctx->flags & NTLM_NEG_NTLM2_SESSION) {
+	struct ntlmv2_key *key = &ctx->u.v2.send;
+	if (key) {
+	    key->seq = 0;
+	}
+	key = &ctx->u.v2.recv;
+	if (key) {
+	    key->seq = 0;
+	}
     }
 }
 
@@ -201,7 +215,11 @@ v2_sign_message(unsigned char signkey[16],
                 int iov_count)
 {
     unsigned char *out = trailer->buffer.value;
+    memset(out, 0, 16);
+
     unsigned char hmac[16];
+    memset(&hmac, 0, sizeof(hmac));
+
     CCHmacContext c;
     int i;
 
@@ -240,7 +258,7 @@ v2_sign_message(unsigned char signkey[16],
     else
 	memcpy(&out[4], hmac, 8);
 
-    memset(&out[12], 0, 4);
+    _gss_mg_encode_le_uint32(seq, &out[12]);
 
     return GSS_S_COMPLETE;
 }
@@ -260,7 +278,7 @@ v2_verify_message(unsigned char signkey[16],
     if (trailer->buffer.length != 16)
 	return GSS_S_BAD_MIC;
 
-    _gss_mg_decode_be_uint32((uint8_t *)trailer->buffer.value + 12, &seq);
+    _gss_mg_decode_le_uint32((uint8_t *)trailer->buffer.value + 12, &seq);
 
     out.type = GSS_IOV_BUFFER_TYPE_TRAILER;
     out.buffer.length = sizeof(outbuf);
@@ -282,19 +300,34 @@ v2_seal_message(unsigned char signkey[16],
 		EVP_CIPHER_CTX *sealkey,
                 gss_iov_buffer_t trailer,
 		gss_iov_buffer_desc *iov,
-                int iov_count)
+                int iov_count,
+		int *conf_state)
 {
     OM_uint32 ret;
     int i;
 
+    //create a parallel buffer for the encrypted data, if any
+    if (iov_count < 1) {
+	return GSS_S_FAILURE;
+    }
+
+    gss_iov_buffer_desc eiov[iov_count];
     for (i = 0; i < iov_count; i++) {
         gss_iov_buffer_t iovp = &iov[i];
+	eiov[i].buffer.length = 0;
+	eiov[i].buffer.value = NULL;
+	eiov[i].type = iovp->type;
 
         switch (GSS_IOV_BUFFER_TYPE(iovp->type)) {
         case GSS_IOV_BUFFER_TYPE_DATA:
         case GSS_IOV_BUFFER_TYPE_PADDING:
-	    EVP_Cipher(sealkey, iovp->buffer.value, iovp->buffer.value,
+		eiov[i].buffer.length = iovp->buffer.length;
+		eiov[i].buffer.value = calloc(1, eiov[i].buffer.length);
+	    EVP_Cipher(sealkey, eiov[i].buffer.value, iovp->buffer.value,
 		       iovp->buffer.length);
+		if (conf_state) {
+		    *conf_state = 1;
+		}
             break;
         default:
             break;
@@ -303,7 +336,26 @@ v2_seal_message(unsigned char signkey[16],
 
     assert(trailer->buffer.length == 16);
 
+    // sign the unencrypted data
     ret = v2_sign_message(signkey, sealkey, seq, trailer, iov, iov_count);
+
+    //copy the encrypted data into the buffer
+    for (i = 0; i < iov_count; i++) {
+	gss_iov_buffer_t iovp = &iov[i];
+
+	switch (GSS_IOV_BUFFER_TYPE(iovp->type)) {
+	case GSS_IOV_BUFFER_TYPE_DATA:
+	case GSS_IOV_BUFFER_TYPE_PADDING:
+		//copy the encrypted value into the array
+		if (eiov[i].buffer.value) {
+		memcpy(iovp->buffer.value, eiov[i].buffer.value, eiov[i].buffer.length);
+		free(eiov[i].buffer.value);
+		}
+	    break;
+	default:
+	    break;
+	}
+    }
 
     return ret;
 }
@@ -314,7 +366,8 @@ v2_unseal_message(unsigned char signkey[16],
 		  EVP_CIPHER_CTX *sealkey,
                   gss_iov_buffer_t trailer,
                   gss_iov_buffer_desc *iov,
-                  int iov_count)
+                  int iov_count,
+		  int *conf_state)
 {
     OM_uint32 ret;
     int i;
@@ -327,6 +380,9 @@ v2_unseal_message(unsigned char signkey[16],
         case GSS_IOV_BUFFER_TYPE_PADDING:
 	    EVP_Cipher(sealkey, iovp->buffer.value, iovp->buffer.value,
 		       iovp->buffer.length);
+		if (conf_state) {
+		    *conf_state = 1;
+		}
             break;
         default:
             break;
@@ -642,7 +698,7 @@ OM_uint32 _gss_ntlm_wrap_iov
 	return v2_seal_message(ctx->u.v2.send.signkey,
 			       ctx->u.v2.send.seq++,
 			       &ctx->u.v2.send.sealkey,
-			       trailer, iov, iov_count);
+			       trailer, iov, iov_count, conf_state);
 
     } else if (CTX_FLAGS_ISSET(ctx, NTLM_NEG_SEAL)) {
         int i;
@@ -698,7 +754,7 @@ OM_uint32 _gss_ntlm_wrap
 
     iov[1].type = GSS_IOV_BUFFER_TYPE_TRAILER;
     iov[1].buffer.length = 16;
-    iov[1].buffer.value = (unsigned char *)output_message_buffer->value + 16;
+    iov[1].buffer.value = (unsigned char *)output_message_buffer->value + input_message_buffer->length;
 
     ret = _gss_ntlm_wrap_iov(minor_status, context_handle,
                              conf_req_flag, qop_req,
@@ -757,7 +813,8 @@ OM_uint32 _gss_ntlm_unwrap_iov
 				 &ctx->u.v2.recv.sealkey,
 				 trailer,
 				 iov,
-				 iov_count);
+				 iov_count,
+				 conf_state);
 
     } else if (CTX_FLAGS_ISSET(ctx, NTLM_NEG_SEAL)) {
 

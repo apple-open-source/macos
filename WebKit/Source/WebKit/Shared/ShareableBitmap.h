@@ -84,6 +84,7 @@ public:
         Configuration m_configuration;
     };
 
+    static void validateConfiguration(Configuration&);
     static CheckedUint32 numBytesForSize(WebCore::IntSize, const ShareableBitmap::Configuration&);
     static CheckedUint32 calculateBytesPerRow(WebCore::IntSize, const Configuration&);
     static CheckedUint32 calculateBytesPerPixel(const Configuration&);
@@ -174,6 +175,10 @@ private:
     COMPtr<IDXGISurface1> m_surface;
     COMPtr<IDXGIKeyedMutex> m_surfaceMutex;
     COMPtr<ID2D1Bitmap> m_bitmap;
+#endif
+
+#if USE(CG)
+    bool m_releaseBitmapContextDataCalled { false };
 #endif
 
     // If the shareable bitmap is backed by shared memory, this points to the shared memory object.

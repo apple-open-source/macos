@@ -586,59 +586,6 @@ class Client: TrustedPeersHelperProtocol {
         }
     }
 
-#if !__OPEN_SOURCE__ && APPLE_FEATURE_WALRUS_UI
-    func update(withContainer container: String,
-                context: String,
-                forceRefetch: Bool,
-                deviceName: String?,
-                serialNumber: String?,
-                osVersion: String?,
-                policyVersion: NSNumber?,
-                policySecrets: [String: Data]?,
-                syncUserControllableViews: NSNumber?,
-                secureElementIdentity: TrustedPeersHelperIntendedTPPBSecureElementIdentity?,
-                walrusSetting: TPPBPeerStableInfoSetting?,
-                webAccess: TPPBPeerStableInfoSetting?,
-                reply: @escaping (TrustedPeersHelperPeerState?, TPSyncingPolicy?, Error?) -> Void) {
-        do {
-            let containerName = ContainerName(container: container, context: context)
-            os_log("Updating %{public}@", log: tplogDebug, type: .default, containerName.description)
-            let container = try self.containerMap.findOrCreate(name: containerName)
-
-            let syncUserControllableSetting: TPPBPeerStableInfoUserControllableViewStatus?
-            if let value = syncUserControllableViews?.int32Value {
-                switch value {
-                case TPPBPeerStableInfoUserControllableViewStatus.ENABLED.rawValue:
-                    syncUserControllableSetting = .ENABLED
-                case TPPBPeerStableInfoUserControllableViewStatus.DISABLED.rawValue:
-                    syncUserControllableSetting = .DISABLED
-                case TPPBPeerStableInfoUserControllableViewStatus.FOLLOWING.rawValue:
-                    syncUserControllableSetting = .FOLLOWING
-                default:
-                    throw ContainerError.unknownSyncUserControllableViewsValue(value: value)
-                }
-            } else {
-                syncUserControllableSetting = nil
-            }
-
-            container.update(forceRefetch: forceRefetch,
-                             deviceName: deviceName,
-                             serialNumber: serialNumber,
-                             osVersion: osVersion,
-                             policyVersion: policyVersion?.uint64Value,
-                             policySecrets: policySecrets,
-                             syncUserControllableViews: syncUserControllableSetting,
-                             secureElementIdentity: secureElementIdentity,
-                             walrusSetting: walrusSetting,
-                             webAccess: webAccess
-                             ) { state, policy, error in reply(state, policy, error?.sanitizeForClientXPC()) }
-        } catch {
-            os_log("update failed for (%{public}@, %{public}@): %{public}@", log: tplogDebug, type: .default, container, context, error as CVarArg)
-            reply(nil, nil, error.sanitizeForClientXPC())
-        }
-    }
-
-#else
     func update(withContainer container: String,
                 context: String,
                 forceRefetch: Bool,
@@ -685,7 +632,6 @@ class Client: TrustedPeersHelperProtocol {
             reply(nil, nil, error.sanitizeForClientXPC())
         }
     }
-#endif /* APPLE_FEATURE_WALRUS_UI */
 
     func setPreapprovedKeysWithContainer(_ container: String,
                                          context: String,
@@ -957,12 +903,12 @@ class Client: TrustedPeersHelperProtocol {
         }
     }
 
-    func requestHealthCheck(withContainer container: String, context: String, requiresEscrowCheck: Bool, reply: @escaping (Bool, Bool, Bool, Bool, OTEscrowMoveRequestContext?, Error?) -> Void) {
+    func requestHealthCheck(withContainer container: String, context: String, requiresEscrowCheck: Bool, knownFederations: [String], reply: @escaping (Bool, Bool, Bool, Bool, OTEscrowMoveRequestContext?, Error?) -> Void) {
         do {
             let containerName = ContainerName(container: container, context: context)
             os_log("Health Check! requiring escrow check? %d for %{public}@", log: tplogDebug, type: .default, requiresEscrowCheck, containerName.description)
             let container = try self.containerMap.findOrCreate(name: containerName)
-            container.requestHealthCheck(requiresEscrowCheck: requiresEscrowCheck) { postRepair, postEscrow, postReset, leaveTrust, moveRequest, error in
+            container.requestHealthCheck(requiresEscrowCheck: requiresEscrowCheck, knownFederations: knownFederations) { postRepair, postEscrow, postReset, leaveTrust, moveRequest, error in
                 reply(postRepair, postEscrow, postReset, leaveTrust, moveRequest, error?.sanitizeForClientXPC())
             }
         } catch {

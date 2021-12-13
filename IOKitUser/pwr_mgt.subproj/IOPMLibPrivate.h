@@ -1513,9 +1513,6 @@ void IOPMUnregisterExceptionNotification(IOPMNotificationHandle handle);
 // Feature availability
 #define kIOPMLowPowerModeKey                            "LowPowerMode"
 // Feature availability
-#if !RC_HIDE_J316
-#define kIOPMHighPowerModeKey                           "HighPowerMode"
-#endif
 // units - CFNumber 0(Auto) / 1(LowPowerMode) / 2(HighPowerMode)
 // Alias for clients that already use LPM key for setting tri-state 0/1/2 values
 #define kIOPMCustomPowerModeKey                          kIOPMLowPowerModeKey
@@ -1539,11 +1536,7 @@ void IOPMUnregisterExceptionNotification(IOPMNotificationHandle handle);
  * Pro mode deprecated, DO NOT USE
  */
 // Alias for clients that already use ProMode key for HPM
-#if !RC_HIDE_J316
-#define kIOPMProModeKey                                 kIOPMHighPowerModeKey
-#else
 #define kIOPMProModeKey                                 "ProMode"
-#endif
 #define kIOPMSystemProModeEngaged						""
 #define kIOPMSystemProModeDisengaged					""
 // See xnu/iokit/IOKit/pwr_mgt/IOPM.h for other PM Settings keys:

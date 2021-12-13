@@ -1,6 +1,1073 @@
+2021-11-18  Russell Epstein  <repstein@apple.com>
+
+        Cherry-pick r285130. rdar://problem/85166839
+
+    [macOS] Opening local html files is failing
+    https://bugs.webkit.org/show_bug.cgi?id=232572
+    <rdar://81330442>
+    
+    Reviewed by Brent Fulgham.
+    
+    Source/WebKit:
+    
+    On some macOS versions, opening local html files is failing. In order for the WebContent process
+    to successfully issue the file extension to the Networking process, the flags for the extension
+    in the WebContent process must include the user intent flag when the extension is issued with an
+    audit token.
+    
+    * Shared/Cocoa/SandboxExtensionCocoa.mm:
+    (WebKit::SandboxExtensionImpl::sandboxExtensionForType):
+    
+    Source/WTF:
+    
+    Declare sandbox flag.
+    
+    * wtf/spi/darwin/SandboxSPI.h:
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@285130 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-11-01  Per Arne  <pvollan@apple.com>
+
+            [macOS] Opening local html files is failing
+            https://bugs.webkit.org/show_bug.cgi?id=232572
+            <rdar://81330442>
+
+            Reviewed by Brent Fulgham.
+
+            Declare sandbox flag.
+
+            * wtf/spi/darwin/SandboxSPI.h:
+
+2021-11-11  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r285565. rdar://problem/83159358
+
+    [macOS] Enable NSURLSession partitioning based on first-party domain at CFNetwork level
+    https://bugs.webkit.org/show_bug.cgi?id=230750
+    <rdar://problem/83159358>
+    
+    Reviewed by Alex Christensen.
+    
+    Source/WebKit:
+    
+    * NetworkProcess/cocoa/NetworkDataTaskCocoa.mm:
+    (WebKit::NetworkDataTaskCocoa::NetworkDataTaskCocoa):
+    (overrideAttributionContext): Deleted.
+    Stop disabling CFNetwork NSURLSession partitioning based on first-party domain on
+    macOS.
+    
+    * NetworkProcess/cocoa/NetworkSessionCocoa.h:
+    * NetworkProcess/cocoa/NetworkSessionCocoa.mm:
+    (WebKit::NetworkSessionCocoa::sessionWrapperForTask):
+    (WebKit::NetworkSessionCocoa::hasIsolatedSession const):
+    (WebKit::NetworkSessionCocoa::clearIsolatedSessions):
+    (WebKit::NetworkSessionCocoa::invalidateAndCancelSessionSet):
+    Disable ITP session partitioning of certain prevalent domains on platforms where
+    CFNetwork already does full partitioning of all domains (now that it is enabled
+    on macOS 12+ and iOS15+).
+    
+    Source/WTF:
+    
+    Add HAVE(CFNETWORK_SESSION_PARTITIONING_BASED_ON_FIRST_PARTY_DOMAIN) build time flag that is true
+    on newer Apple OSes where CFNetwork does NSURLSession partitioning based on first-party domain for
+    us.
+    
+    * wtf/PlatformHave.h:
+    
+    LayoutTests:
+    
+    Skip a few ITP session partitioning tests on newer OSes now that session partitioning
+    happens for all first-party domains at CFNetwork level on these OSes.
+    
+    * platform/ios-wk2/TestExpectations:
+    * platform/mac-wk2/TestExpectations:
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@285565 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-11-09  Chris Dumez  <cdumez@apple.com>
+
+            [macOS] Enable NSURLSession partitioning based on first-party domain at CFNetwork level
+            https://bugs.webkit.org/show_bug.cgi?id=230750
+            <rdar://problem/83159358>
+
+            Reviewed by Alex Christensen.
+
+            Add HAVE(CFNETWORK_SESSION_PARTITIONING_BASED_ON_FIRST_PARTY_DOMAIN) build time flag that is true
+            on newer Apple OSes where CFNetwork does NSURLSession partitioning based on first-party domain for
+            us.
+
+            * wtf/PlatformHave.h:
+
+2021-11-08  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Cherry-pick r285036. rdar://problem/85173478
+
+    Disable ENABLE_JIT on arm64_32
+    https://bugs.webkit.org/show_bug.cgi?id=232468
+    
+    Reviewed by Yusuke Suzuki.
+    
+    We were disabling JIT via a runtime configuration before since we haven't
+    yet implemented the JIT on arm64_32. However, not compiling ENABLE(JIT)
+    code on arm64_32 saves 11MB in the binary size of JavaScriptCore.
+    
+    In my local compiles, I'm going from 24M to 13M.
+    
+    * wtf/PlatformEnable.h:
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@285036 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-10-29  Saam Barati  <sbarati@apple.com>
+
+            Disable ENABLE_JIT on arm64_32
+            https://bugs.webkit.org/show_bug.cgi?id=232468
+
+            Reviewed by Yusuke Suzuki.
+
+            We were disabling JIT via a runtime configuration before since we haven't
+            yet implemented the JIT on arm64_32. However, not compiling ENABLE(JIT)
+            code on arm64_32 saves 11MB in the binary size of JavaScriptCore.
+
+            In my local compiles, I'm going from 24M to 13M.
+
+            * wtf/PlatformEnable.h:
+
+2021-11-04  Russell Epstein  <repstein@apple.com>
+
+        Cherry-pick r285241. rdar://problem/84990898
+
+    [macOS] MediaSession coordinator enabled in UIProcess, disabled in WebContent
+    https://bugs.webkit.org/show_bug.cgi?id=232687
+    <rdar://84990898>
+    
+    Reviewed by Eric Carlson.
+    
+    Source/WebKit:
+    
+    The default value of defaultMediaSessionCoordinatorEnabled() will be true if the UIProcess has
+    the correct entitlement. However, this value is not passed across the XPC boundary unless it has
+    been overridden, which means defaultMediaSessionCoordinatorEnabled() will control the setting
+    in the WebContent process, which is not entitled.
+    
+    Have the WebContent process check its parent process's entitlement rather than its own when
+    determining the default value for defaultMediaSessionCoordinatorEnabled().
+    
+    * Shared/WebPreferencesDefaultValues.cpp:
+    (WebKit::defaultMediaSessionCoordinatorEnabled):
+    
+    Source/WTF:
+    
+    Have the MediaSessionPlaylistEnabled preference use the same defaults as MediaSessionCoordinatorEnabled.
+    
+    * Scripts/Preferences/WebPreferencesExperimental.yaml:
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@285241 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-11-03  Jer Noble  <jer.noble@apple.com>
+
+            [macOS] MediaSession coordinator enabled in UIProcess, disabled in WebContent
+            https://bugs.webkit.org/show_bug.cgi?id=232687
+            <rdar://84990898>
+
+            Reviewed by Eric Carlson.
+
+            Have the MediaSessionPlaylistEnabled preference use the same defaults as MediaSessionCoordinatorEnabled.
+
+            * Scripts/Preferences/WebPreferencesExperimental.yaml:
+
+2021-11-04  Russell Epstein  <repstein@apple.com>
+
+        Cherry-pick r282704. rdar://problem/83067708
+
+    Build fix: WebKit::WebProcessPool should use a weak observer with CFNotificationCenter
+    <https://webkit.org/b/230227>
+    <rdar://problem/83067708>
+    
+    * wtf/spi/cocoa/NSObjCRuntimeSPI.h:
+    - Fix internal Catalina builds by including
+      NSObjCRuntime_Private.h, but falling through to define
+      NS_DIRECT and NS_DIRECT_MEMBERS if they weren't defined in the
+      private header.
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@282704 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-09-17  David Kilzer  <ddkilzer@apple.com>
+
+            Build fix: WebKit::WebProcessPool should use a weak observer with CFNotificationCenter
+            <https://webkit.org/b/230227>
+            <rdar://problem/83067708>
+
+            * wtf/spi/cocoa/NSObjCRuntimeSPI.h:
+            - Fix internal Catalina builds by including
+              NSObjCRuntime_Private.h, but falling through to define
+              NS_DIRECT and NS_DIRECT_MEMBERS if they weren't defined in the
+              private header.
+
+2021-11-04  Russell Epstein  <repstein@apple.com>
+
+        Cherry-pick r282632. rdar://problem/83067708
+
+    WebKit::WebProcessPool should use a weak observer with CFNotificationCenter
+    <https://webkit.org/b/230227>
+    <rdar://problem/83067708>
+    
+    Reviewed by Darin Adler.
+    
+    Source/WebKit:
+    
+    To fix the bug, implement an Objective-C class named
+    WKProcessPoolWeakObserver which contains an instance variable
+    holding a WeakPtr<WebProcessPool>, and tell CFNotificationCenter
+    to hold a weak reference to WKProcessPoolWeakObserver.
+    
+    Since WKProcessPoolWeakObserver is self-contained within the
+    source file, it uses the NS_DIRECT_MEMBERS attribute since it
+    does not require the overhead of dynamic Objective-C method
+    dispatch.
+    
+    * UIProcess/Cocoa/WebProcessPoolCocoa.mm:
+    (-[WKProcessPoolWeakObserver initWithWeakPtr:]): Add.
+    (-[WKProcessPoolWeakObserver pool]): Add.
+    - Implement WKProcessPoolWeakObserver class.
+    - Note that init methods can never be marked as NS_DIRECT, and
+      @property statements can't use NS_DIRECT in their declaration,
+      so the @property is declared in a category which uses
+      NS_DIRECT_MEMBERS.
+    (WebKit::extractWebProcessPool): Add.
+    - Static helper method for extracting RefPtr<WebProcessPool>
+      from type-punned WKProcessPoolWeakObserver.
+    (WebKit::WebProcessPool::backlightLevelDidChangeCallback):
+    (WebKit::WebProcessPool::accessibilityPreferencesChangedCallback):
+    (WebKit::WebProcessPool::mediaAccessibilityPreferencesChangedCallback):
+    (WebKit::WebProcessPool::colorPreferencesDidChangeCallback):
+    (WebKit::WebProcessPool::remoteWebInspectorEnabledCallback):
+    - Clean up function parameter list.
+    - Use extractWebProcessPool() helper method to get a
+      RefPtr<WebProcessPool> from `observer`.
+    (WebKit::WebProcessPool::addCFNotificationObserver): Add.
+    (WebKit::WebProcessPool::removeCFNotificationObserver): Add.
+    - Private helper methods to reduce duplicate code.
+    - Use m_weakObserver for CFNotificationCenter observer and
+      include _CFNotificationObserverIsObjC to fix the bug.
+    (WebKit::WebProcessPool::registerNotificationObservers):
+    - Make use of new addCFNotificationObserver() helper method.
+    - Fixes use of static_cast<CFStringRef> to make code ready for
+      ARC by using a __bridge cast or removing the static_cast when
+      CFSTR() is used.
+    (WebKit::WebProcessPool::unregisterNotificationObservers):
+    - Make use of new removeCFNotificationObserver() helper method.
+    
+    * UIProcess/WebProcessPool.h:
+    - Add m_weakObserver instance variable to hold the
+      WKProcessPoolWeakObserver object.
+    (WebKit::WebProcessPool::addCFNotificationObserver): Add.
+    (WebKit::WebProcessPool::removeCFNotificationObserver): Add.
+    - Add declarations for new helper methods.
+    (WebKit::WebProcessPool::backlightLevelDidChangeCallback):
+    (WebKit::WebProcessPool::accessibilityPreferencesChangedCallback):
+    (WebKit::WebProcessPool::mediaAccessibilityPreferencesChangedCallback):
+    (WebKit::WebProcessPool::colorPreferencesDidChangeCallback):
+    (WebKit::WebProcessPool::remoteWebInspectorEnabledCallback):
+    - Clean up function parameter list.
+    
+    Source/WTF:
+    
+    Tests (API):
+        TestWTF.TypeCastsNS.checked_ns_cast
+        TestWTF.TypeCastsNS.dynamic_ns_cast
+        TestWTF.TypeCastsNS.dynamic_ns_cast_RetainPtr
+    
+    * WTF.xcodeproj/project.pbxproj:
+    * wtf/PlatformMac.cmake:
+    - Add new header files to the project.
+    
+    * wtf/cocoa/TypeCastsNS.h: Add.
+    (WTF::checked_ns_cast):
+    (WTF::dynamic_ns_cast):
+    - Add casts for NS objects similar to TypeCastsCF.h.
+    
+    * wtf/PlatformHave.h:
+    (HAVE_NS_DIRECT_SUPPORT): Add.
+    - Note that clang for macOS 11 Big Sur claims to know about the
+      attributes, but will fail to compile if they are actually
+      used.
+    
+    * wtf/spi/cocoa/NSObjCRuntimeSPI.h: Add.
+    (NS_DIRECT):
+    (NS_DIRECT_MEMBERS):
+    - Define compiler attributes for direct dispatch of Objective-C
+      methods.
+    
+    Tools:
+    
+    * TestWebKitAPI/TestWebKitAPI.xcodeproj/project.pbxproj:
+    - Add TypeCastsNS.mm to the project.
+    * TestWebKitAPI/Tests/WTF/cocoa/TypeCastsNS.mm: Add.
+    (TestWebKitAPI::TEST): Add tests for <wtf/TypeCastsNS.h>.
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@282632 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-09-16  David Kilzer  <ddkilzer@apple.com>
+
+            WebKit::WebProcessPool should use a weak observer with CFNotificationCenter
+            <https://webkit.org/b/230227>
+            <rdar://problem/83067708>
+
+            Reviewed by Darin Adler.
+
+            Tests (API):
+                TestWTF.TypeCastsNS.checked_ns_cast
+                TestWTF.TypeCastsNS.dynamic_ns_cast
+                TestWTF.TypeCastsNS.dynamic_ns_cast_RetainPtr
+
+            * WTF.xcodeproj/project.pbxproj:
+            * wtf/PlatformMac.cmake:
+            - Add new header files to the project.
+
+            * wtf/cocoa/TypeCastsNS.h: Add.
+            (WTF::checked_ns_cast):
+            (WTF::dynamic_ns_cast):
+            - Add casts for NS objects similar to TypeCastsCF.h.
+
+            * wtf/PlatformHave.h:
+            (HAVE_NS_DIRECT_SUPPORT): Add.
+            - Note that clang for macOS 11 Big Sur claims to know about the
+              attributes, but will fail to compile if they are actually
+              used.
+
+            * wtf/spi/cocoa/NSObjCRuntimeSPI.h: Add.
+            (NS_DIRECT):
+            (NS_DIRECT_MEMBERS):
+            - Define compiler attributes for direct dispatch of Objective-C
+              methods.
+
+2021-11-02  Russell Epstein  <repstein@apple.com>
+
+        Cherry-pick r283732. rdar://problem/84349027
+
+    Add feature flag for COOP / COEP violation reporting and turn off by default
+    https://bugs.webkit.org/show_bug.cgi?id=231371
+    
+    Reviewed by Youenn Fablet.
+    
+    Add feature flag for COOP / COEP violation reporting and turn off by default since our
+    implementation doesn't match the latest specification.
+    
+    Source/WebCore:
+    
+    * loader/CrossOriginEmbedderPolicy.cpp:
+    (WebCore::sendCOEPPolicyInheritenceViolation):
+    (WebCore::sendCOEPCORPViolation):
+    * loader/CrossOriginOpenerPolicy.cpp:
+    (WebCore::sendViolationReportWhenNavigatingToCOOPResponse):
+    (WebCore::sendViolationReportWhenNavigatingAwayFromCOOPResponse):
+    
+    Source/WTF:
+    
+    * Scripts/Preferences/WebPreferencesExperimental.yaml:
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@283732 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-10-07  Chris Dumez  <cdumez@apple.com>
+
+            Add feature flag for COOP / COEP violation reporting and turn off by default
+            https://bugs.webkit.org/show_bug.cgi?id=231371
+
+            Reviewed by Youenn Fablet.
+
+            Add feature flag for COOP / COEP violation reporting and turn off by default since our
+            implementation doesn't match the latest specification.
+
+            * Scripts/Preferences/WebPreferencesExperimental.yaml:
+
+2021-10-26  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r284344. rdar://problem/84625558
+
+    Build fix #3: Adopt attribution AVCaptureSession SPI for GPU process
+    https://bugs.webkit.org/show_bug.cgi?id=231621
+    <rdar://problem/80748535>
+    
+    Unreviewed build fix.
+    
+    
+    Source/WebCore/PAL:
+    
+    * pal/spi/cocoa/TCCSPI.h:
+    - Use HAVE(TCC_IOS_14_BIG_SUR_SPI).
+    
+    Source/WebKit:
+    
+    * Shared/Cocoa/TCCSoftLink.h:
+    (tcc_identity_create):
+    * Shared/Cocoa/TCCSoftLink.mm:
+    (tcc_identity_create):
+    - Use HAVE(TCC_IOS_14_BIG_SUR_SPI).
+    
+    Source/WTF:
+    
+    * wtf/PlatformHave.h:
+    (HAVE_TCC_IOS_14_BIG_SUR_SPI): Add.
+    - Used for TCC.framework SPI available in iOS 14 and macOS 11
+      Big Sur and later.
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@284344 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-10-17  David Kilzer  <ddkilzer@apple.com>
+
+            Build fix #3: Adopt attribution AVCaptureSession SPI for GPU process
+            https://bugs.webkit.org/show_bug.cgi?id=231621
+            <rdar://problem/80748535>
+
+            Unreviewed build fix.
+
+            * wtf/PlatformHave.h:
+            (HAVE_TCC_IOS_14_BIG_SUR_SPI): Add.
+            - Used for TCC.framework SPI available in iOS 14 and macOS 11
+              Big Sur and later.
+
+2021-10-27  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r283662. rdar://problem/84717723
+
+    Fix watchOS, tvOS, and macCatalyst builds after r283592
+    https://bugs.webkit.org/show_bug.cgi?id=231300
+    rdar://83936867
+    
+    Reviewed by Wenson Hsieh.
+    
+    Source/WebKit:
+    
+    * Platform/spi/ios/PhotosUISPI.h:
+    * UIProcess/ios/forms/WKFileUploadPanel.mm:
+    (-[WKFileUploadPanel imagePickerController:didFinishPickingMultipleMediaWithInfo:]):
+    
+    Source/WTF:
+    
+    * wtf/PlatformEnableCocoa.h:
+    * wtf/PlatformHave.h:
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@283662 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-10-06  Aditya Keerthi  <akeerthi@apple.com>
+
+            Fix watchOS, tvOS, and macCatalyst builds after r283592
+            https://bugs.webkit.org/show_bug.cgi?id=231300
+            rdar://83936867
+
+            Reviewed by Wenson Hsieh.
+
+            * wtf/PlatformEnableCocoa.h:
+            * wtf/PlatformHave.h:
+
+2021-10-18  Russell Epstein  <repstein@apple.com>
+
+        Cherry-pick r284230. rdar://problem/84351866
+
+    Allow WASM to use up to 4GB
+    https://bugs.webkit.org/show_bug.cgi?id=229353
+    rdar://81603447
+    
+    Reviewed by Yusuke Suzuki.
+    
+    JSTests:
+    
+    The big-wasm-memory/wasm-memory-requested... tests used to simply expect an OOM at 2GB.
+    They now expect success at 4GB, and failure at 4GB+1.
+    The exceptions they expect are now more specific, as previously there was a rounding issue that was causing the specific exceptions not to be thrown (resulting in the generic OOM exception later in the code).
+    Finally I made them only run on 64-bit platforms since we don't support typed arrays >=2GB on 32-bits, and I made them only run in one configuration since they can take a little bit of time.
+    
+    I also added a few new tests, specifically checking our handling of large typed arrays, and especially of indices above INT32_MAX.
+    
+    * stress/big-wasm-memory-grow-no-max.js:
+    (test):
+    * stress/big-wasm-memory-grow.js:
+    (test):
+    * stress/big-wasm-memory.js:
+    (test):
+    * stress/typed-array-always-large.js: Added.
+    (getArrayLength):
+    (getByVal):
+    (putByVal):
+    (test):
+    * stress/typed-array-eventually-large.js: Added.
+    (getArrayLength):
+    (getByVal):
+    (putByVal):
+    (test):
+    * stress/typed-array-large-eventually-oob.js: Added.
+    (getArrayLength):
+    (getByVal):
+    (putByVal):
+    (test):
+    * wasm/regress/wasm-memory-requested-more-than-MAX_ARRAY_BUFFER_SIZE-2.js:
+    * wasm/regress/wasm-memory-requested-more-than-MAX_ARRAY_BUFFER_SIZE.js:
+    
+    Source/JavaScriptCore:
+    
+    While increasing MAX_ARRAY_BUFFER_SIZE to 4GB was easy, it was not remotely the only thing required to get this to work:
+    - 4GB is not representable in a uint32_t, so I changed all length of ArrayBuffer/TypedArray/etc.. to being UCPURegister.
+    - This also required changing NewTypedArray in all of LLInt/Baseline/DFG/FTL to accept a non-int32 size.
+        In order to avoid performance regressions, I had to add speculation in the DFG/FTL, which now have two versions of NewTypedArray (one that takes an Int32 and one that takes a StrictInt52)
+    - Similarly, GetArrayLength and GetTypedArrayByteOffset now can either return an Int32 or a larger number.
+        I also had to split them in the DFG/FTL, see GetTypedArrayLengthAsInt52 and GetTypedArrayByteOffsetAsInt52 for examples
+    - In turns, I had to add CheckInBoundsInt52 since CheckInBounds could not accept the result of GetTypedArrayLengthAsInt52
+    - I modified the runtime functions for GetByVal/PutByVal/DataViewGet/DataViewSet/AtomicsXXX to accept non-Int32 indices, since for {Int8/UInt8/UInt8Clamped}Array, a maximum size of 4GB implies indices > 2B.
+    - I added a "mayBeLargeTypedArray" bit to ArrayProfile/UnlinkedArrayProfile/DFG::ArrayMode to track whether such a non-Int32 index was seen to allow proper speculation and specialization of fast paths in the DFG/FTL.
+        I then updated the runtime functions used by the slow paths to correctly update it.
+    
+    Unfortunately I ran out of time to add all the speculations/update all the fast paths.
+    So the following will have to wait for a follow-up patch:
+    - Accepting large indices in the fast path of GetByVal in the LLInt
+    - Accepting large indices in the fast paths generated by AccessCase/PolymorphicAccess
+    - Accepting large indices in the fast paths generated by the DFG/FTL for each of GetByVal/PutByVal/DataViewGet/DataViewSet/AtomicsXXX
+    
+    The current patch is functional, it will just have dreadful performance if trying to use indices >2B in a {Int8/UInt8/UInt8Clamped}Array.
+    
+    Other minor changes in this patch:
+    - Fixed an undefined behavior in ArrayBuffer::createInternal where memcpy could be called on nullptr (the spec explicitly bans this even when length is 0)
+    - Replaced some repetitive and error-prone bounds checking by calls to WTF::isSumSmallerThanOrEqual, which is clearer, shorter, and reuse CheckedArithmetic facilities to avoid overflow issues.
+    - Fixed a variety of obsolete comments
+    - Added support for branch64(RelationalCondition cond, RegisterID left, Imm64 right)
+        (there was already support for the same but with TrustedImm64)
+    - Made various AbstractMacroAssembler function constexpr as part of the previous point
+    
+    * assembler/AbstractMacroAssembler.cpp:
+    * assembler/AbstractMacroAssembler.h:
+    (JSC::AbstractMacroAssembler::TrustedImmPtr::TrustedImmPtr):
+    (JSC::AbstractMacroAssembler::TrustedImmPtr::asIntptr):
+    (JSC::AbstractMacroAssembler::TrustedImmPtr::asPtr):
+    (JSC::AbstractMacroAssembler::ImmPtr::ImmPtr):
+    (JSC::AbstractMacroAssembler::ImmPtr::asTrustedImmPtr):
+    (JSC::AbstractMacroAssembler::TrustedImm32::TrustedImm32):
+    (JSC::AbstractMacroAssembler::Imm32::Imm32):
+    (JSC::AbstractMacroAssembler::Imm32::asTrustedImm32 const):
+    (JSC::AbstractMacroAssembler::TrustedImm64::TrustedImm64):
+    (JSC::AbstractMacroAssembler::Imm64::Imm64):
+    (JSC::AbstractMacroAssembler::Imm64::asTrustedImm64 const):
+    (JSC::AbstractMacroAssembler::canBlind):
+    (JSC::AbstractMacroAssembler::shouldBlindForSpecificArch):
+    * assembler/MacroAssembler.h:
+    (JSC::MacroAssembler::branch64):
+    * assembler/MacroAssemblerARM64.h:
+    (JSC::MacroAssemblerARM64::shouldBlindForSpecificArch):
+    (JSC::MacroAssemblerARM64::branch64):
+    * assembler/MacroAssemblerARM64E.h:
+    (JSC::MacroAssemblerARM64E::untagArrayPtrLength64):
+    (JSC::MacroAssemblerARM64E::untagArrayPtrLength32): Deleted.
+    * assembler/MacroAssemblerX86Common.h:
+    (JSC::MacroAssemblerX86Common::canBlind):
+    (JSC::MacroAssemblerX86Common::shouldBlindForSpecificArch):
+    * bytecode/AccessCase.cpp:
+    (JSC::AccessCase::needsScratchFPR const):
+    (JSC::AccessCase::generateWithGuard):
+    * bytecode/ArrayProfile.h:
+    (JSC::ArrayProfile::setMayBeLargeTypedArray):
+    (JSC::ArrayProfile::mayBeLargeTypedArray const):
+    (JSC::UnlinkedArrayProfile::UnlinkedArrayProfile):
+    (JSC::UnlinkedArrayProfile::update):
+    * dfg/DFGAbstractInterpreterInlines.h:
+    (JSC::DFG::AbstractInterpreter<AbstractStateType>::executeEffects):
+    * dfg/DFGArgumentsEliminationPhase.cpp:
+    * dfg/DFGArrayMode.cpp:
+    (JSC::DFG::ArrayMode::refine const):
+    * dfg/DFGArrayMode.h:
+    (JSC::DFG::ArrayMode::ArrayMode):
+    (JSC::DFG::ArrayMode::mayBeLargeTypedArray const):
+    (JSC::DFG::ArrayMode::withType const):
+    (JSC::DFG::ArrayMode::withSpeculation const):
+    (JSC::DFG::ArrayMode::withConversion const):
+    (JSC::DFG::ArrayMode::withTypeAndConversion const):
+    (JSC::DFG::ArrayMode::withArrayClassAndSpeculationAndMayBeLargeTypedArray const):
+    (JSC::DFG::ArrayMode::speculationFromProfile):
+    (JSC::DFG::ArrayMode::withSpeculationFromProfile const):
+    (JSC::DFG::ArrayMode::withProfile const):
+    (JSC::DFG::ArrayMode::operator== const):
+    (JSC::DFG::ArrayMode::withArrayClass const): Deleted.
+    * dfg/DFGByteCodeParser.cpp:
+    (JSC::DFG::ByteCodeParser::handleIntrinsicGetter):
+    * dfg/DFGClobberize.h:
+    (JSC::DFG::clobberize):
+    * dfg/DFGCommon.h:
+    (JSC::DFG::enableInt52):
+    * dfg/DFGConstantFoldingPhase.cpp:
+    (JSC::DFG::ConstantFoldingPhase::foldConstants):
+    * dfg/DFGDoesGC.cpp:
+    (JSC::DFG::doesGC):
+    * dfg/DFGFixupPhase.cpp:
+    (JSC::DFG::FixupPhase::fixupNode):
+    (JSC::DFG::FixupPhase::convertToGetArrayLength):
+    (JSC::DFG::FixupPhase::prependGetArrayLength): Deleted.
+    * dfg/DFGGenerationInfo.h:
+    * dfg/DFGHeapLocation.cpp:
+    (WTF::printInternal):
+    * dfg/DFGHeapLocation.h:
+    * dfg/DFGIntegerRangeOptimizationPhase.cpp:
+    * dfg/DFGNode.h:
+    (JSC::DFG::Node::hasStorageChild const):
+    (JSC::DFG::Node::storageChildIndex):
+    (JSC::DFG::Node::hasArrayMode):
+    * dfg/DFGNodeType.h:
+    * dfg/DFGOperations.cpp:
+    (JSC::DFG::putByVal):
+    (JSC::DFG::newTypedArrayWithSize):
+    (JSC::DFG::JSC_DEFINE_JIT_OPERATION):
+    * dfg/DFGOperations.h:
+    * dfg/DFGPredictionPropagationPhase.cpp:
+    * dfg/DFGSSALoweringPhase.cpp:
+    (JSC::DFG::SSALoweringPhase::handleNode):
+    (JSC::DFG::SSALoweringPhase::lowerBoundsCheck):
+    * dfg/DFGSafeToExecute.h:
+    (JSC::DFG::safeToExecute):
+    * dfg/DFGSpeculativeJIT.cpp:
+    (JSC::DFG::SpeculativeJIT::jumpForTypedArrayOutOfBounds):
+    (JSC::DFG::SpeculativeJIT::emitTypedArrayBoundsCheck):
+    (JSC::DFG::SpeculativeJIT::compileGetByValOnIntTypedArray):
+    (JSC::DFG::SpeculativeJIT::compilePutByValForIntTypedArray):
+    (JSC::DFG::SpeculativeJIT::compileGetByValOnFloatTypedArray):
+    (JSC::DFG::SpeculativeJIT::compilePutByValForFloatTypedArray):
+    (JSC::DFG::SpeculativeJIT::cageTypedArrayStorage):
+    (JSC::DFG::SpeculativeJIT::compileGetTypedArrayByteOffset):
+    (JSC::DFG::SpeculativeJIT::compileGetArrayLength):
+    (JSC::DFG::SpeculativeJIT::compileNewTypedArrayWithSize):
+    (JSC::DFG::SpeculativeJIT::emitNewTypedArrayWithSizeInRegister):
+    (JSC::DFG::SpeculativeJIT::compileNewTypedArray):
+    * dfg/DFGSpeculativeJIT.h:
+    * dfg/DFGSpeculativeJIT32_64.cpp:
+    (JSC::DFG::SpeculativeJIT::compileGetByVal):
+    (JSC::DFG::SpeculativeJIT::compile):
+    * dfg/DFGSpeculativeJIT64.cpp:
+    (JSC::DFG::SpeculativeJIT::compileNewTypedArrayWithInt52Size):
+    (JSC::DFG::SpeculativeJIT::compileGetTypedArrayLengthAsInt52):
+    (JSC::DFG::SpeculativeJIT::compileGetTypedArrayByteOffsetAsInt52):
+    (JSC::DFG::SpeculativeJIT::compile):
+    * dfg/DFGTypeCheckHoistingPhase.cpp:
+    (JSC::DFG::TypeCheckHoistingPhase::identifyRedundantStructureChecks):
+    (JSC::DFG::TypeCheckHoistingPhase::identifyRedundantArrayChecks):
+    * dfg/DFGValidate.cpp:
+    * ftl/FTLCapabilities.cpp:
+    (JSC::FTL::canCompile):
+    * ftl/FTLLowerDFGToB3.cpp:
+    (JSC::FTL::DFG::LowerDFGToB3::validateAIState):
+    (JSC::FTL::DFG::LowerDFGToB3::compileNode):
+    (JSC::FTL::DFG::LowerDFGToB3::emitGetTypedArrayByteOffsetExceptSettingResult):
+    (JSC::FTL::DFG::LowerDFGToB3::compileGetTypedArrayByteOffset):
+    (JSC::FTL::DFG::LowerDFGToB3::compileGetTypedArrayByteOffsetAsInt52):
+    (JSC::FTL::DFG::LowerDFGToB3::compileGetArrayLength):
+    (JSC::FTL::DFG::LowerDFGToB3::compileGetTypedArrayLengthAsInt52):
+    (JSC::FTL::DFG::LowerDFGToB3::compileCheckInBoundsInt52):
+    (JSC::FTL::DFG::LowerDFGToB3::compilePutByVal):
+    (JSC::FTL::DFG::LowerDFGToB3::compileNewTypedArray):
+    (JSC::FTL::DFG::LowerDFGToB3::emitNewTypedArrayWithSize):
+    (JSC::FTL::DFG::LowerDFGToB3::compileCompareStrictEq):
+    * ftl/FTLOutput.h:
+    (JSC::FTL::Output::load64NonNegative):
+    * jit/IntrinsicEmitter.cpp:
+    (JSC::IntrinsicGetterAccessCase::emitIntrinsicGetter):
+    * jit/JITOperations.cpp:
+    (JSC::putByVal):
+    (JSC::getByVal):
+    * llint/LLIntOfflineAsmConfig.h:
+    * llint/LLIntSlowPaths.cpp:
+    (JSC::LLInt::getByVal):
+    (JSC::LLInt::LLINT_SLOW_PATH_DECL):
+    * llint/LowLevelInterpreter.asm:
+    * llint/LowLevelInterpreter32_64.asm:
+    * llint/LowLevelInterpreter64.asm:
+    * runtime/ArrayBuffer.cpp:
+    (JSC::SharedArrayBufferContents::SharedArrayBufferContents):
+    (JSC::ArrayBufferContents::ArrayBufferContents):
+    (JSC::ArrayBufferContents::tryAllocate):
+    (JSC::ArrayBuffer::create):
+    (JSC::ArrayBuffer::createAdopted):
+    (JSC::ArrayBuffer::createFromBytes):
+    (JSC::ArrayBuffer::tryCreate):
+    (JSC::ArrayBuffer::createUninitialized):
+    (JSC::ArrayBuffer::tryCreateUninitialized):
+    (JSC::ArrayBuffer::createInternal):
+    (JSC::ArrayBuffer::clampValue):
+    (JSC::ArrayBuffer::clampIndex const):
+    (JSC::ArrayBuffer::sliceWithClampedIndex const):
+    * runtime/ArrayBuffer.h:
+    (JSC::ArrayBufferContents::sizeInBytes const):
+    (JSC::ArrayBuffer::byteLength const):
+    (JSC::ArrayBuffer::gcSizeEstimateInBytes const):
+    * runtime/ArrayBufferView.cpp:
+    (JSC::ArrayBufferView::ArrayBufferView):
+    * runtime/ArrayBufferView.h:
+    (JSC::ArrayBufferView::byteOffset const):
+    (JSC::ArrayBufferView::byteLength const):
+    (JSC::ArrayBufferView::verifyByteOffsetAlignment):
+    (JSC::ArrayBufferView::verifySubRangeLength):
+    (JSC::ArrayBufferView::clampOffsetAndNumElements):
+    (JSC::ArrayBufferView::setImpl):
+    (JSC::ArrayBufferView::setRangeImpl):
+    (JSC::ArrayBufferView::getRangeImpl):
+    (JSC::ArrayBufferView::zeroRangeImpl):
+    (JSC::ArrayBufferView::calculateOffsetAndLength): Deleted.
+    * runtime/AtomicsObject.cpp:
+    * runtime/DataView.cpp:
+    (JSC::DataView::DataView):
+    (JSC::DataView::create):
+    * runtime/DataView.h:
+    * runtime/GenericTypedArrayView.h:
+    * runtime/GenericTypedArrayViewInlines.h:
+    (JSC::GenericTypedArrayView<Adaptor>::GenericTypedArrayView):
+    (JSC::GenericTypedArrayView<Adaptor>::create):
+    (JSC::GenericTypedArrayView<Adaptor>::tryCreate):
+    (JSC::GenericTypedArrayView<Adaptor>::createUninitialized):
+    (JSC::GenericTypedArrayView<Adaptor>::tryCreateUninitialized):
+    (JSC::GenericTypedArrayView<Adaptor>::subarray const): Deleted.
+    * runtime/JSArrayBufferView.cpp:
+    (JSC::JSArrayBufferView::ConstructionContext::ConstructionContext):
+    (JSC::JSArrayBufferView::byteLength const):
+    (JSC::JSArrayBufferView::slowDownAndWasteMemory):
+    (JSC::JSArrayBufferView::possiblySharedImpl):
+    * runtime/JSArrayBufferView.h:
+    (JSC::JSArrayBufferView::sizeOf):
+    (JSC::JSArrayBufferView::ConstructionContext::length const):
+    (JSC::JSArrayBufferView::length const):
+    * runtime/JSArrayBufferViewInlines.h:
+    (JSC::JSArrayBufferView::byteOffsetImpl):
+    (JSC::JSArrayBufferView::byteOffset):
+    (JSC::JSArrayBufferView::byteOffsetConcurrently):
+    * runtime/JSCJSValue.h:
+    * runtime/JSCJSValueInlines.h:
+    (JSC::JSValue::toIndex const):
+    (JSC::JSValue::toTypedArrayIndex const):
+    * runtime/JSDataView.cpp:
+    (JSC::JSDataView::create):
+    (JSC::JSDataView::createUninitialized):
+    (JSC::JSDataView::set):
+    (JSC::JSDataView::setIndex):
+    * runtime/JSDataView.h:
+    * runtime/JSDataViewPrototype.cpp:
+    (JSC::getData):
+    (JSC::setData):
+    * runtime/JSGenericTypedArrayView.h:
+    * runtime/JSGenericTypedArrayViewConstructorInlines.h:
+    (JSC::constructGenericTypedArrayViewWithArguments):
+    (JSC::constructGenericTypedArrayViewImpl):
+    * runtime/JSGenericTypedArrayViewInlines.h:
+    (JSC::JSGenericTypedArrayView<Adaptor>::create):
+    (JSC::JSGenericTypedArrayView<Adaptor>::createWithFastVector):
+    (JSC::JSGenericTypedArrayView<Adaptor>::createUninitialized):
+    (JSC::JSGenericTypedArrayView<Adaptor>::validateRange):
+    (JSC::JSGenericTypedArrayView<Adaptor>::setWithSpecificType):
+    (JSC::JSGenericTypedArrayView<Adaptor>::set):
+    * runtime/JSObject.h:
+    (JSC::JSObject::putByIndexInline):
+    (JSC::JSObject::tryGetIndexQuickly const):
+    (JSC::JSObject::trySetIndexQuickly):
+    (JSC::JSObject::canSetIndexQuickly): Deleted.
+    * runtime/JSObjectInlines.h:
+    (JSC::JSObject::getIndexQuicklyForTypedArray const):
+    (JSC::JSObject::setIndexQuicklyForArrayStorageIndexingType):
+    (JSC::JSObject::trySetIndexQuicklyForTypedArray):
+    (JSC::JSObject::canSetIndexQuicklyForTypedArray const): Deleted.
+    * runtime/Operations.h:
+    (JSC::getByValWithIndex):
+    * wasm/WasmPageCount.h:
+    
+    Source/WebCore:
+    
+    Some parts of WebCore use TypedArrays, and would not build after I made the length() function on typed arrays return UCPURegister instead of uint32_t.
+    Most fixes were trivial, the only exception is SerializedScriptValue.cpp, where I had to increment the version number, as ArrayBuffer (and ArrayBufferViews) now write/read their length in a 64-bit field (and same for the byteOffset of ArrayBufferView).
+    
+    I also had to add a test in PixelBuffer.cpp that the size of the ArrayBuffer it will try to allocate is < INT32_MAX.
+    Otherwise, the test LayoutTests/fast/shapes/shape-outside-floats/shape-outside-imagedata-overflow.html which checks that very large images are properly rejected without crashing, would timeout.
+    
+    No new tests, as the code is already extensively covered by existing tests, and I implemented no new features.
+    
+    * Modules/webaudio/AudioBuffer.cpp:
+    (WebCore::AudioBuffer::copyFromChannel):
+    (WebCore::AudioBuffer::copyToChannel):
+    * Modules/webaudio/RealtimeAnalyser.cpp:
+    (WebCore::RealtimeAnalyser::getByteFrequencyData):
+    (WebCore::RealtimeAnalyser::getFloatTimeDomainData):
+    (WebCore::RealtimeAnalyser::getByteTimeDomainData):
+    * bindings/js/SerializedScriptValue.cpp:
+    (WebCore::CloneSerializer::dumpArrayBufferView):
+    (WebCore::CloneSerializer::dumpImageBitmap):
+    (WebCore::CloneSerializer::dumpIfTerminal):
+    (WebCore::CloneDeserializer::readArrayBufferImpl):
+    (WebCore::CloneDeserializer::readArrayBuffer):
+    (WebCore::CloneDeserializer::readArrayBufferViewImpl):
+    (WebCore::CloneDeserializer::readArrayBufferView):
+    * bindings/js/SerializedScriptValue.h:
+    (WebCore::SerializedScriptValue::encode const):
+    (WebCore::SerializedScriptValue::decode):
+    * fileapi/NetworkSendQueue.cpp:
+    (WebCore::NetworkSendQueue::enqueue):
+    * platform/graphics/PixelBuffer.cpp:
+    (WebCore::PixelBuffer::tryCreate):
+    * platform/graphics/iso/ISOBox.h:
+    
+    Source/WTF:
+    
+    Made some of CheckedArithmetic constexpr, and added isSumSmallerThanOrEqual since it is a commonly used test in ArrayBuffer and easy to get wrong in terms of overflow.
+    
+    * wtf/CheckedArithmetic.h:
+    (WTF::isInBounds):
+    (WTF::convertSafely):
+    (WTF::isSumSmallerThanOrEqual):
+    
+    LayoutTests:
+    
+    Rebaselined three following tests as different or fewer error messages appear on the console.
+    Also changed currentVersion in serialized-script-value.html from 9 to 10.
+    
+    * fast/canvas/canvas-getImageData-invalid-result-buffer-crash-expected.txt:
+    * fast/storage/serialized-script-value.html:
+    * webaudio/OfflineAudioContext-bad-buffer-crash-expected.txt:
+    * webaudio/OfflineAudioContext/bad-buffer-length-expected.txt:
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@284230 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-10-14  Robin Morisset  <rmorisset@apple.com>
+
+            Allow WASM to use up to 4GB
+            https://bugs.webkit.org/show_bug.cgi?id=229353
+            rdar://81603447
+
+            Reviewed by Yusuke Suzuki.
+
+            Made some of CheckedArithmetic constexpr, and added isSumSmallerThanOrEqual since it is a commonly used test in ArrayBuffer and easy to get wrong in terms of overflow.
+
+            * wtf/CheckedArithmetic.h:
+            (WTF::isInBounds):
+            (WTF::convertSafely):
+            (WTF::isSumSmallerThanOrEqual):
+
+2021-10-12  Alan Coon  <alancoon@apple.com>
+
+        Apply patch. rdar://problem/83953336
+
+    Branch application of r282513.
+
+    2021-10-12  Cameron McCormack  <heycam@apple.com>
+
+            Disable display-p3 canvas and ImageData on platforms other than Monterey+ and iOS 15+
+            https://bugs.webkit.org/show_bug.cgi?id=230139
+            <rdar://81828819>
+
+            Reviewed by Sam Weinig.
+
+            Add HAVE(CORE_ANIMATION_FIX_FOR_RADAR_78402035) to represent whether
+            CoreAnimation has a fix for a bug that prevents Display P3 canvas
+            rendering operations from behaving correctly.
+
+            Add ENABLE(PREDEFINED_COLOR_SPACE_DISPLAY_P3) to represent whether the
+            "display-p3" values of the PredefinedColorSpace IDL enum is enabled.
+            This in turn controls whether Display P3 canvases and ImageData objects
+            can be created. We turn this on only for platforms where
+            ENABLE(DESTINATION_COLOR_SPACE_DISPLAY_P3), since that is what the
+            canvas and ImageData backing stores use, and only if
+            HAVE(CORE_ANIMATION_FIX_FOR_RADAR_78402035). The result is that these
+            features are only enabled on macOS Monterey+ and iOS 15+.
+
+            * wtf/PlatformEnable.h:
+            * wtf/PlatformEnableCocoa.h:
+            * wtf/PlatformHave.h:
+
+2021-10-08  Russell Epstein  <repstein@apple.com>
+
+        Cherry-pick r282696. rdar://problem/83954782
+
+    Preserve color space when creating ImageBuffers for ImageBitmaps
+    https://bugs.webkit.org/show_bug.cgi?id=229022
+    <rdar://problem/81828459>
+    
+    Reviewed by Sam Weinig.
+    
+    LayoutTests/imported/w3c:
+    
+    * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/canvas-display-p3-drawImage-ImageBitmap-Blob-expected.txt: Added.
+    * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/canvas-display-p3-drawImage-ImageBitmap-Blob.html: Added.
+    * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/canvas-display-p3-drawImage-ImageBitmap-ImageBitmap-expected.txt: Added.
+    * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/canvas-display-p3-drawImage-ImageBitmap-ImageBitmap.html: Added.
+    * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/canvas-display-p3-drawImage-ImageBitmap-ImageData-expected.txt: Added.
+    * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/canvas-display-p3-drawImage-ImageBitmap-ImageData.html: Added.
+    * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/canvas-display-p3-drawImage-ImageBitmap-canvas-expected.txt: Added.
+    * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/canvas-display-p3-drawImage-ImageBitmap-canvas.html: Added.
+    * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/canvas-display-p3-drawImage-ImageBitmap-cloned-expected.txt: Added.
+    * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/canvas-display-p3-drawImage-ImageBitmap-cloned.html: Added.
+    * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/canvas-display-p3-drawImage-ImageBitmap-image-expected.txt: Added.
+    * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/canvas-display-p3-drawImage-ImageBitmap-image.html: Added.
+    
+    Source/WebCore:
+    
+    ImageBitmaps can be created with various sources of image data.
+    Currently, they always create an sRGB ImageBuffer to copy the
+    image data into. This patch tries to preserve the color space
+    of the source image data. Because ImageBuffer only works with 8 bit
+    RGBA data, other color space models (such as CMYK) get converted
+    to Display P3 if available, or sRGB otherwise. The rationale for
+    this is that ImageBitmaps are designed to be drawn into canvases,
+    and we currently only support sRGB and Display P3 for canvas backing
+    stores.
+    
+    It's not ideal that we do the color space conversion, since it would
+    be better to delay the conversion until it's needed when drawing onto
+    the canvas. It's also not ideal that we can't preserve the pixel
+    format of the image data, which might be 16 bit color or floats. We
+    could support these only if ImageBuffer were extended to support them.
+    A different design for ImageBitmap where it can hold on to the image
+    data source directly (and support for structured cloning and worker
+    thread transferrance added) could also work. For now, we don't worry,
+    and accept the loss of color fidelity when downsampling or converting
+    from non-RGB color space models.
+    
+    Support for structured cloning of ImageBitmaps with non-sRGB data
+    isn't added, but a test for this is. (This will need a way to
+    serialize the DestinationColorSpace.)
+    
+    Tests: imported/w3c/web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/canvas-display-p3-drawImage-ImageBitmap-Blob.html
+           imported/w3c/web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/canvas-display-p3-drawImage-ImageBitmap-ImageBitmap.html
+           imported/w3c/web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/canvas-display-p3-drawImage-ImageBitmap-ImageData.html
+           imported/w3c/web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/canvas-display-p3-drawImage-ImageBitmap-canvas.html
+           imported/w3c/web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/canvas-display-p3-drawImage-ImageBitmap-cloned.html
+           imported/w3c/web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/canvas-display-p3-drawImage-ImageBitmap-image.html
+    
+    * bindings/js/SerializedScriptValue.cpp:
+    (WebCore::CloneSerializer::dumpImageBitmap):
+    (WebCore::CloneDeserializer::readImageBitmap):
+    * html/ImageBitmap.cpp:
+    (WebCore::ImageBitmap::create):
+    (WebCore::ImageBitmap::createImageBuffer):
+    (WebCore::ImageBitmap::resolveWithBlankImageBuffer):
+    (WebCore::ImageBitmap::createPromise):
+    (WebCore::ImageBitmap::createFromBuffer):
+    * html/ImageBitmap.h:
+    * html/OffscreenCanvas.cpp:
+    (WebCore::OffscreenCanvas::transferToImageBitmap):
+    (WebCore::OffscreenCanvas::createImageBuffer const):
+    * platform/graphics/BitmapImage.cpp:
+    (WebCore::BitmapImage::colorSpace):
+    * platform/graphics/BitmapImage.h:
+    * platform/graphics/DestinationColorSpace.cpp:
+    (WebCore::DestinationColorSpace::asRGB const): New function that
+    abstracts out the behavior "tell me whether the color space is
+    appropriate for use with an 8 bit RGB buffer", which is common
+    to ImageBitmap and ShareableBitmapCG.
+    * platform/graphics/DestinationColorSpace.h:
+    * platform/graphics/Image.cpp:
+    (WebCore::Image::colorSpace):
+    * platform/graphics/Image.h:
+    
+    Source/WebKit:
+    
+    * Shared/cg/ShareableBitmapCG.cpp:
+    (WebKit::ShareableBitmap::validateConfiguration): Factor out some
+    loging into DestinationColorSpace::asRGB.
+    
+    Source/WTF:
+    
+    * wtf/PlatformHave.h:
+    
+    LayoutTests:
+    
+    * TestExpectations:
+    * platform/ios-14/TestExpectations:
+    * platform/ios/TestExpectations:
+    * platform/mac/TestExpectations:
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@282696 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-09-17  Cameron McCormack  <heycam@apple.com>
+
+            Preserve color space when creating ImageBuffers for ImageBitmaps
+            https://bugs.webkit.org/show_bug.cgi?id=229022
+            <rdar://problem/81828459>
+
+            Reviewed by Sam Weinig.
+
+            * wtf/PlatformHave.h:
+
+2021-10-07  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r283541. rdar://problem/83956057
+
+    Enable 2D canvas color space support on Apple platforms
+    https://bugs.webkit.org/show_bug.cgi?id=231145
+    <rdar://82948394>
+    
+    Reviewed by Simon Fraser.
+    
+    * Scripts/Preferences/WebPreferencesExperimental.yaml:
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@283541 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-10-05  Cameron McCormack  <heycam@apple.com>
+
+            Enable 2D canvas color space support on Apple platforms
+            https://bugs.webkit.org/show_bug.cgi?id=231145
+            <rdar://82948394>
+
+            Reviewed by Simon Fraser.
+
+            * Scripts/Preferences/WebPreferencesExperimental.yaml:
+
+2021-10-07  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r282245. rdar://problem/83956084
+
+    Unreviewed, follow-up after r282007
+    
+    Somehow, the wrong settings got enabled by the patch landed.
+    
+    * Scripts/Preferences/WebPreferencesExperimental.yaml:
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@282245 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-09-09  Chris Dumez  <cdumez@apple.com>
+
+            Unreviewed, follow-up after r282007
+
+            Somehow, the wrong settings got enabled by the patch landed.
+
+            * Scripts/Preferences/WebPreferencesExperimental.yaml:
+
+2021-10-07  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r282007. rdar://problem/83957048
+
+    [WK2] Turn on support for Cross-Origin-Opener-Policy / Cross-Origin-Embedder-Policy
+    https://bugs.webkit.org/show_bug.cgi?id=229818
+    
+    Reviewed by Sam Weinig.
+    
+    Turn on support for Cross-Origin-Opener-Policy / Cross-Origin-Embedder-Policy on WebKit2 now that
+    the feature is complete and all known issues have been fixed.
+    
+    * Scripts/Preferences/WebPreferencesExperimental.yaml:
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@282007 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-09-03  Chris Dumez  <cdumez@apple.com>
+
+            [WK2] Turn on support for Cross-Origin-Opener-Policy / Cross-Origin-Embedder-Policy
+            https://bugs.webkit.org/show_bug.cgi?id=229818
+
+            Reviewed by Sam Weinig.
+
+            Turn on support for Cross-Origin-Opener-Policy / Cross-Origin-Embedder-Policy on WebKit2 now that
+            the feature is complete and all known issues have been fixed.
+
+            * Scripts/Preferences/WebPreferencesExperimental.yaml:
+
 2021-10-01  Russell Epstein  <repstein@apple.com>
 
-        Cherry-pick r281725. rdar://problem/83782432
+        Cherry-pick r281725. rdar://problem/83776284
 
     .:
     Land Windows build fixes from safari-612.1.29.14-branch.
@@ -64,9 +1131,9 @@
 
             * WTF.vcxproj/WTF.proj:
 
-2021-09-29  Alan Coon  <alancoon@apple.com>
+2021-09-28  Alan Coon  <alancoon@apple.com>
 
-        Cherry-pick r283156. rdar://problem/83681765
+        Cherry-pick r283156. rdar://problem/83648190
 
     Vorbis decoder can't be instantiated - Remove workaround added in bug 228139
     https://bugs.webkit.org/show_bug.cgi?id=230742

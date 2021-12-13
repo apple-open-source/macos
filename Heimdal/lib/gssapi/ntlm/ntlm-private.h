@@ -246,6 +246,9 @@ _gss_ntlm_release_name (
 	gss_name_t * input_name );
 
 void
+_gss_ntlm_reset_seq (ntlm_ctx ctx);
+
+void
 _gss_ntlm_set_keys (ntlm_ctx ctx);
 
 void

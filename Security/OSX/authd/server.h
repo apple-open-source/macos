@@ -5,6 +5,7 @@
 
 #include "authd_private.h"
 #include <xpc/xpc.h>
+#include "Authorization.h"
 
 #if defined(__cplusplus)
 extern "C" {
@@ -86,6 +87,10 @@ authorization_copy_prelogin_pref_value(connection_t conn, xpc_object_t message, 
 AUTH_NONNULL_ALL
 OSStatus
 authorization_prelogin_smartcardonly_override(connection_t conn, xpc_object_t message, xpc_object_t reply);
+
+AUTH_NONNULL2
+OSStatus
+server_authorize(connection_t, auth_token_t, AuthorizationFlags, auth_rights_t, auth_items_t, engine_t *);
 
 #if defined(__cplusplus)
 }

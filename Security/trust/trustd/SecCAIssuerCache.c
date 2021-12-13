@@ -49,13 +49,15 @@
 #include <CoreFoundation/CFUtilities.h>
 #include <utilities/SecCFWrappers.h>
 
-static const char expireSQL[] = "DELETE FROM issuers WHERE expires<?";
+static const char deleteSQL[] = "DELETE FROM issuers";
 static const char beginTxnSQL[] = "BEGIN EXCLUSIVE TRANSACTION";
 static const char endTxnSQL[] = "COMMIT TRANSACTION";
 static const char insertIssuerSQL[] = "INSERT OR REPLACE INTO issuers "
     "(uri,expires,certificate) VALUES (?,?,?)";
 static const char selectIssuerSQL[] = "SELECT certificate FROM "
     "issuers WHERE uri=?";
+static const char selectNonExpiredIssuerSQL[] = "SELECT certificate FROM "
+    "issuers WHERE uri=? and expires>?";
 
 #define kSecCAIssuerFileName "caissuercache.sqlite3"
 
@@ -63,11 +65,12 @@ typedef struct __SecCAIssuerCache *SecCAIssuerCacheRef;
 struct __SecCAIssuerCache {
     dispatch_queue_t queue;
 	sqlite3 *s3h;
-	sqlite3_stmt *expire;
+	sqlite3_stmt *delete;
 	sqlite3_stmt *beginTxn;
 	sqlite3_stmt *endTxn;
 	sqlite3_stmt *insertIssuer;
 	sqlite3_stmt *selectIssuer;
+    sqlite3_stmt *selectNonExpiredIssuer;
     bool in_transaction;
 };
 
@@ -208,8 +211,8 @@ static SecCAIssuerCacheRef SecCAIssuerCacheCreate(const char *db_name) {
                              &this->endTxn, NULL);
 	require_noerr(s3e, errOut);
 
-	s3e = sqlite3_prepare_v2(this->s3h, expireSQL, sizeof(expireSQL),
-                             &this->expire, NULL);
+	s3e = sqlite3_prepare_v2(this->s3h, deleteSQL, sizeof(deleteSQL),
+                             &this->delete, NULL);
 	if (create && s3e == SQLITE_ERROR) {
         s3e = SecCAIssuerCacheEnsureTxn(this);
 		require_noerr(s3e, errOut);
@@ -230,8 +233,8 @@ static SecCAIssuerCacheRef SecCAIssuerCacheCreate(const char *db_name) {
 			sqlite3_free(errmsg);
 		}
 		require_noerr(s3e, errOut);
-        s3e = sqlite3_prepare_v2(this->s3h, expireSQL, sizeof(expireSQL),
-                                 &this->expire, NULL);
+        s3e = sqlite3_prepare_v2(this->s3h, deleteSQL, sizeof(deleteSQL),
+                                 &this->delete, NULL);
 	}
 	require_noerr(s3e, errOut);
 	s3e = sqlite3_prepare_v2(this->s3h, insertIssuerSQL, sizeof(insertIssuerSQL),
@@ -240,6 +243,10 @@ static SecCAIssuerCacheRef SecCAIssuerCacheCreate(const char *db_name) {
 	s3e = sqlite3_prepare_v2(this->s3h, selectIssuerSQL, sizeof(selectIssuerSQL),
                              &this->selectIssuer, NULL);
 	require_noerr(s3e, errOut);
+    s3e = sqlite3_prepare_v2(this->s3h, selectNonExpiredIssuerSQL, sizeof(selectNonExpiredIssuerSQL),
+                             &this->selectNonExpiredIssuer, NULL);
+    require_noerr(s3e, errOut);
+
 
 	return this;
 
@@ -262,10 +269,6 @@ static void SecCAIssuerCacheInit(void) {
     WithPathInPrivateUserTrustdDirectory(CFSTR(kSecCAIssuerFileName), ^(const char *utf8String) {
         kSecCAIssuerCache = SecCAIssuerCacheCreate(utf8String);
     });
-
-    if (kSecCAIssuerCache) {
-        atexit(SecCAIssuerCacheGC);
-    }
 }
 
 static CF_RETURNS_RETAINED CFDataRef convertArrayOfCertsToData(CFArrayRef certificates) {
@@ -361,7 +364,8 @@ errOut:
 }
 
 static CFArrayRef _SecCAIssuerCacheCopyMatching(SecCAIssuerCacheRef this,
-                                                       CFURLRef uri) {
+                                                CFURLRef uri,
+                                                bool expired) {
     CFArrayRef certificates = NULL;
     int s3e = SQLITE_OK;
 
@@ -369,21 +373,32 @@ static CFArrayRef _SecCAIssuerCacheCopyMatching(SecCAIssuerCacheRef this,
     require(uriData = CFURLCreateData(kCFAllocatorDefault, uri,
                                       kCFStringEncodingUTF8, false), errOut);
     require_action(CFDataGetLength(uriData) > 0, errOut, s3e = SQLITE_NOMEM);
-    s3e = sqlite3_bind_blob_wrapper(this->selectIssuer, 1, CFDataGetBytePtr(uriData),
+
+    sqlite3_stmt *stmt = NULL;
+    if (expired) {
+        stmt = this->selectIssuer;
+    } else {
+        stmt = this->selectNonExpiredIssuer;
+    }
+    s3e = sqlite3_bind_blob_wrapper(stmt, 1, CFDataGetBytePtr(uriData),
                             (size_t)CFDataGetLength(uriData), SQLITE_TRANSIENT);
     CFReleaseNull(uriData);
 
-    if (!s3e) s3e = sqlite3_step(this->selectIssuer);
+    if (!expired) {
+        s3e = sqlite3_bind_double(stmt, 2, CFAbsoluteTimeGetCurrent());
+    }
+
+    if (!s3e) s3e = sqlite3_step(stmt);
     if (s3e == SQLITE_ROW) {
         /* Found an entry! */
         secdebug("caissuercache", "found cached response for %@", uri);
 
-        const void *respData = sqlite3_column_blob(this->selectIssuer, 0);
-        int respLen = sqlite3_column_bytes(this->selectIssuer, 0);
+        const void *respData = sqlite3_column_blob(stmt, 0);
+        int respLen = sqlite3_column_bytes(stmt, 0);
         certificates = convertDataToArrayOfCerts((uint8_t *)respData, respLen);
     }
 
-    require_noerr(s3e = sec_sqlite3_reset(this->selectIssuer, s3e), errOut);
+    require_noerr(s3e = sec_sqlite3_reset(stmt, s3e), errOut);
 
 errOut:
     CFReleaseNull(uriData);
@@ -404,20 +419,19 @@ errOut:
     return certificates;
 }
 
-static void _SecCAIssuerCacheGC(void *context) {
+static void _SecCAIssuerCacheClear(void *context) {
     SecCAIssuerCacheRef this = context;
     int s3e;
 
     require_noerr(s3e = SecCAIssuerCacheEnsureTxn(this), errOut);
-    secdebug("caissuercache", "expiring stale responses");
-    s3e = sqlite3_bind_double(this->expire, 1, CFAbsoluteTimeGetCurrent());
-    if (!s3e) s3e = sqlite3_step(this->expire);
-    require_noerr(s3e = sec_sqlite3_reset(this->expire, s3e), errOut);
+    secnotice("caissuercache", "clearing CAIssuer cache");
+    if (!s3e) s3e = sqlite3_step(this->delete);
+    require_noerr(s3e = sec_sqlite3_reset(this->delete, s3e), errOut);
     require_noerr(s3e = SecCAIssuerCacheCommitTxn(this), errOut);
 
 errOut:
     if (s3e != SQLITE_OK) {
-        secerror("caissuer cache expire failed: %s", sqlite3_errmsg(this->s3h));
+        secerror("caissuer cache delete failed: %s", sqlite3_errmsg(this->s3h));
         TrustdHealthAnalyticsLogErrorCodeForDatabase(TACAIssuerCache, TAOperationWrite, TAFatalError, s3e);
         /* TODO: Blow away the cache and create a new db. */
     }
@@ -453,34 +467,24 @@ void SecCAIssuerCacheAddCertificates(CFArrayRef certificates,
     });
 }
 
-CFArrayRef SecCAIssuerCacheCopyMatching(CFURLRef uri) {
+CFArrayRef SecCAIssuerCacheCopyMatching(CFURLRef uri, bool expired) {
     dispatch_once(&kSecCAIssuerCacheOnce, ^{
         SecCAIssuerCacheInit();
     });
     __block CFArrayRef certs = NULL;
     if (kSecCAIssuerCache)
         dispatch_sync(kSecCAIssuerCache->queue, ^{
-            certs = _SecCAIssuerCacheCopyMatching(kSecCAIssuerCache, uri);
+            certs = _SecCAIssuerCacheCopyMatching(kSecCAIssuerCache, uri, expired);
         });
     return certs;
 }
 
-/* This should be called on a normal non emergency exit. This function
- effectively does a SecCAIssuerCacheFlush.
- Currently this is called from our atexit handeler.
- This function expires any records that are stale and commits.
-
- Idea for future cache management policies:
- Expire old cache entires from database if:
- - The time to do so has arrived based on the nextExpire date in the
- policy table.
- - If the size of the database exceeds the limit set in the maxSize field
- in the policy table, vacuum the db.  If the database is still too
- big, expire records on a LRU basis.
- */
-void SecCAIssuerCacheGC(void) {
+void SecCAIssuerCacheClear(void) {
+    dispatch_once(&kSecCAIssuerCacheOnce, ^{
+        SecCAIssuerCacheInit();
+    });
     if (kSecCAIssuerCache)
         dispatch_sync(kSecCAIssuerCache->queue, ^{
-            _SecCAIssuerCacheGC(kSecCAIssuerCache);
+            _SecCAIssuerCacheClear(kSecCAIssuerCache);
         });
 }

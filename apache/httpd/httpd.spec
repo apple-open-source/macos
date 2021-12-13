@@ -4,7 +4,7 @@
 
 Summary: Apache HTTP Server
 Name: httpd
-Version: 2.4.48
+Version: 2.4.51
 Release: 1
 URL: http://httpd.apache.org/
 Vendor: Apache Software Foundation

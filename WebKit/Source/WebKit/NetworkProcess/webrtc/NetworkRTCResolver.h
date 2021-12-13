@@ -27,6 +27,7 @@
 
 #if USE(LIBWEBRTC)
 
+#include "LibWebRTCResolverIdentifier.h"
 #include "RTCNetwork.h"
 #include <WebCore/DNS.h>
 #include <wtf/CompletionHandler.h>

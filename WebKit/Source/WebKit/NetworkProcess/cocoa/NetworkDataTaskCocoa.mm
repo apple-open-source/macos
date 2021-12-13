@@ -345,8 +345,6 @@ NetworkDataTaskCocoa::NetworkDataTaskCocoa(NetworkSession& session, NetworkDataT
     mutableRequest.get().attribution = request.isAppInitiated() ? NSURLRequestAttributionDeveloper : NSURLRequestAttributionUser;
 #endif
 
-    overrideAttributionContext(mutableRequest.get());
-
     if (parameters.pcmDataCarried)
         processPCMRequest(*parameters.pcmDataCarried, mutableRequest.get());
 
@@ -518,6 +516,10 @@ void NetworkDataTaskCocoa::willPerformHTTPRedirection(WebCore::ResourceResponse&
 
     if (isTopLevelNavigation())
         request.setFirstPartyForCookies(request.url());
+
+#if ENABLE(APP_PRIVACY_REPORT)
+    request.setIsAppInitiated(request.nsURLRequest(WebCore::HTTPBodyUpdatePolicy::DoNotUpdateHTTPBody).attribution == NSURLRequestAttributionDeveloper);
+#endif
 
 #if ENABLE(RESOURCE_LOAD_STATISTICS)
 #if HAVE(CFNETWORK_CNAME_AND_COOKIE_TRANSFORM_SPI)

@@ -1238,6 +1238,8 @@ struct conn_rec {
 
     /** The "real" master connection. NULL if I am the master. */
     conn_rec *master;
+
+    int outgoing;
 };
 
 /**
@@ -1739,6 +1741,18 @@ AP_DECLARE(int) ap_unescape_url(char *url);
  */
 AP_DECLARE(int) ap_unescape_url_keep2f(char *url, int decode_slashes);
 
+#define AP_UNESCAPE_URL_KEEP_UNRESERVED (1u << 0)
+#define AP_UNESCAPE_URL_FORBID_SLASHES  (1u << 1)
+#define AP_UNESCAPE_URL_KEEP_SLASHES    (1u << 2)
+
+/**
+ * Unescape a URL, with options
+ * @param url The url to unescape
+ * @param flags Bitmask of AP_UNESCAPE_URL_* flags
+ * @return 0 on success, non-zero otherwise
+ */
+AP_DECLARE(int) ap_unescape_url_ex(char *url, unsigned int flags);
+
 /**
  * Unescape an application/x-www-form-urlencoded string
  * @param query The query to unescape
@@ -1761,6 +1775,21 @@ AP_DECLARE(void) ap_no2slash(char *name);
  *        ignored.
  */
 AP_DECLARE(void) ap_no2slash_ex(char *name, int is_fs_path);
+
+#define AP_NORMALIZE_ALLOW_RELATIVE     (1u <<  0)
+#define AP_NORMALIZE_NOT_ABOVE_ROOT     (1u <<  1)
+#define AP_NORMALIZE_DECODE_UNRESERVED  (1u <<  2)
+#define AP_NORMALIZE_MERGE_SLASHES      (1u <<  3)
+#define AP_NORMALIZE_DROP_PARAMETERS    (0) /* deprecated */
+
+/**
+ * Remove all ////, /./ and /xx/../ substrings from a path, and more
+ * depending on passed in flags.
+ * @param path The path to normalize
+ * @param flags bitmask of AP_NORMALIZE_* flags
+ * @return non-zero on success
+ */
+AP_DECLARE(int) ap_normalize_path(char *path, unsigned int flags);
 
 /**
  * Remove all ./ and xx/../ substrings from a file name. Also remove

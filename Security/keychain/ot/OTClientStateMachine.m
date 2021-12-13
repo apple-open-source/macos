@@ -291,10 +291,6 @@ NSDictionary<OctagonState*, NSNumber*>* OctagonClientStateMap(void) {
      policySecrets:nil
      syncUserControllableViews:nil
      secureElementIdentity:nil
-#if !defined(__OPEN_SOURCE__) && APPLE_FEATURE_WALRUS_UI
-     walrusSetting:nil
-     webAccess:nil
-#endif /* APPLE_FEATURE_WALRUS_UI */
      reply:^(TrustedPeersHelperPeerState* peerState, TPSyncingPolicy* policy, NSError* error) {
          if(error) {
              secerror("OTCuttlefishContext: updating errored: %@", error);

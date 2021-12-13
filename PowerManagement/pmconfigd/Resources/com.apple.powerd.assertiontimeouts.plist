@@ -74,5 +74,7 @@
 	<integer>0</integer>
 	<key>loctool</key>
 	<integer>0</integer>
+	<key>appstored</key>
+	<integer>0</integer>
 </dict>
 </plist>

@@ -1,0 +1,156 @@
+From e540d3285f92d1e8d7d6249b8a6e36948e619fe4 Mon Sep 17 00:00:00 2001
+From: Charlie Li <git@vishwin.info>
+Date: Mon, 19 Apr 2021 17:25:22 -0400
+Subject: [PATCH 1/4] LibreSSL 3.3.2 supports SSL_OP_NO_DTLS*
+
+While here, bump CI
+---
+ .github/workflows/ci.yml              | 2 +-
+ src/_cffi_src/openssl/cryptography.py | 9 +++++++++
+ src/_cffi_src/openssl/ssl.py          | 2 +-
+ 3 files changed, 11 insertions(+), 2 deletions(-)
+
+diff --git a/src/_cffi_src/openssl/cryptography.py b/src/_cffi_src/openssl/cryptography.py
+index e2b5a13235a..ab296343906 100644
+--- a/src/_cffi_src/openssl/cryptography.py
++++ b/src/_cffi_src/openssl/cryptography.py
+@@ -32,6 +32,13 @@
+ #include <Winsock2.h>
+ #endif
+ 
++#if CRYPTOGRAPHY_IS_LIBRESSL
++    #define CRYPTOGRAPHY_LIBRESSL_332_OR_GREATER \
++        (LIBRESSL_VERSION_NUMBER >= 0x3030200f)
++#else
++#define CRYPTOGRAPHY_LIBRESSL_332_OR_GREATER (0)
++#endif
++
+ #define CRYPTOGRAPHY_OPENSSL_110F_OR_GREATER \
+     (OPENSSL_VERSION_NUMBER >= 0x1010006f && !CRYPTOGRAPHY_IS_LIBRESSL)
+ 
+@@ -59,6 +66,8 @@
+ static const int CRYPTOGRAPHY_NEEDS_OSRANDOM_ENGINE;
+ 
+ static const int CRYPTOGRAPHY_IS_LIBRESSL;
++
++static const int CRYPTOGRAPHY_LIBRESSL_332_OR_GREATER;
+ """
+ 
+ FUNCTIONS = """
+diff --git a/src/_cffi_src/openssl/ssl.py b/src/_cffi_src/openssl/ssl.py
+index 11a7d63a961..23cbc5ff425 100644
+--- a/src/_cffi_src/openssl/ssl.py
++++ b/src/_cffi_src/openssl/ssl.py
+@@ -585,7 +585,7 @@
+ static const long TLS_ST_OK = 0;
+ #endif
+ 
+-#if CRYPTOGRAPHY_IS_LIBRESSL
++#if CRYPTOGRAPHY_IS_LIBRESSL && !CRYPTOGRAPHY_LIBRESSL_332_OR_GREATER
+ static const long SSL_OP_NO_DTLSv1 = 0;
+ static const long SSL_OP_NO_DTLSv1_2 = 0;
+ long (*DTLS_set_link_mtu)(SSL *, long) = NULL;
+
+From ec2a1701a34a28783e2353befb9c5c057f65d782 Mon Sep 17 00:00:00 2001
+From: Charlie Li <git@vishwin.info>
+Date: Mon, 19 Apr 2021 17:41:33 -0400
+Subject: [PATCH 2/4] Fix preprocessor guards for LibreSSL's SSL_OP_NO_DTLS*
+
+DTLS_set_link_mtu and DTLS_get_link_min_mtu are not part of 3.3.2
+---
+ src/_cffi_src/openssl/ssl.py | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/src/_cffi_src/openssl/ssl.py b/src/_cffi_src/openssl/ssl.py
+index 23cbc5ff425..a0b1641454e 100644
+--- a/src/_cffi_src/openssl/ssl.py
++++ b/src/_cffi_src/openssl/ssl.py
+@@ -585,9 +585,11 @@
+ static const long TLS_ST_OK = 0;
+ #endif
+ 
+-#if CRYPTOGRAPHY_IS_LIBRESSL && !CRYPTOGRAPHY_LIBRESSL_332_OR_GREATER
++#if CRYPTOGRAPHY_IS_LIBRESSL
++#if !CRYPTOGRAPHY_LIBRESSL_332_OR_GREATER
+ static const long SSL_OP_NO_DTLSv1 = 0;
+ static const long SSL_OP_NO_DTLSv1_2 = 0;
++#endif
+ long (*DTLS_set_link_mtu)(SSL *, long) = NULL;
+ long (*DTLS_get_link_min_mtu)(SSL *) = NULL;
+ #endif
+
+From 7d03d4477b4f06a3e1ec412afa0f2e4edb4e3893 Mon Sep 17 00:00:00 2001
+From: Charlie Li <git@vishwin.info>
+Date: Mon, 19 Apr 2021 18:16:14 -0400
+Subject: [PATCH 3/4] Switch to LESS_THAN context for LibreSSL 3.3.2
+
+While here, fix indents
+---
+ src/_cffi_src/openssl/cryptography.py | 8 ++++----
+ src/_cffi_src/openssl/ssl.py          | 2 +-
+ 2 files changed, 5 insertions(+), 5 deletions(-)
+
+diff --git a/src/_cffi_src/openssl/cryptography.py b/src/_cffi_src/openssl/cryptography.py
+index ab296343906..0b468c8d719 100644
+--- a/src/_cffi_src/openssl/cryptography.py
++++ b/src/_cffi_src/openssl/cryptography.py
+@@ -33,10 +33,10 @@
+ #endif
+ 
+ #if CRYPTOGRAPHY_IS_LIBRESSL
+-    #define CRYPTOGRAPHY_LIBRESSL_332_OR_GREATER \
+-        (LIBRESSL_VERSION_NUMBER >= 0x3030200f)
++#define CRYPTOGRAPHY_LIBRESSL_LESS_THAN_332 \
++    (LIBRESSL_VERSION_NUMBER < 0x3030200f)
+ #else
+-#define CRYPTOGRAPHY_LIBRESSL_332_OR_GREATER (0)
++#define CRYPTOGRAPHY_LIBRESSL_LESS_THAN_332 (0)
+ #endif
+ 
+ #define CRYPTOGRAPHY_OPENSSL_110F_OR_GREATER \
+@@ -67,7 +67,7 @@
+ 
+ static const int CRYPTOGRAPHY_IS_LIBRESSL;
+ 
+-static const int CRYPTOGRAPHY_LIBRESSL_332_OR_GREATER;
++static const int CRYPTOGRAPHY_LIBRESSL_LESS_THAN_332;
+ """
+ 
+ FUNCTIONS = """
+diff --git a/src/_cffi_src/openssl/ssl.py b/src/_cffi_src/openssl/ssl.py
+index a0b1641454e..081ef041fa3 100644
+--- a/src/_cffi_src/openssl/ssl.py
++++ b/src/_cffi_src/openssl/ssl.py
+@@ -586,7 +586,7 @@
+ #endif
+ 
+ #if CRYPTOGRAPHY_IS_LIBRESSL
+-#if !CRYPTOGRAPHY_LIBRESSL_332_OR_GREATER
++#if CRYPTOGRAPHY_LIBRESSL_LESS_THAN_332
+ static const long SSL_OP_NO_DTLSv1 = 0;
+ static const long SSL_OP_NO_DTLSv1_2 = 0;
+ #endif
+
+From 843ef2dbfff33ea3018b04d926ccd6d1b629ef87 Mon Sep 17 00:00:00 2001
+From: Charlie Li <git@vishwin.info>
+Date: Mon, 19 Apr 2021 18:22:20 -0400
+Subject: [PATCH 4/4] Remove extra C variable declaration
+
+The variable is not actually used from Python
+---
+ src/_cffi_src/openssl/cryptography.py | 2 --
+ 1 file changed, 2 deletions(-)
+
+diff --git a/src/_cffi_src/openssl/cryptography.py b/src/_cffi_src/openssl/cryptography.py
+index 0b468c8d719..b9c7a793b3b 100644
+--- a/src/_cffi_src/openssl/cryptography.py
++++ b/src/_cffi_src/openssl/cryptography.py
+@@ -66,8 +66,6 @@
+ static const int CRYPTOGRAPHY_NEEDS_OSRANDOM_ENGINE;
+ 
+ static const int CRYPTOGRAPHY_IS_LIBRESSL;
+-
+-static const int CRYPTOGRAPHY_LIBRESSL_LESS_THAN_332;
+ """
+ 
+ FUNCTIONS = """

@@ -498,7 +498,8 @@ _evaluate_mechanisms(engine_t engine, CFArrayRef mechanisms)
     auth_items_copy(hints, engine->hints);
     auth_items_copy(context, engine->sticky_context);
     
-	CFDictionaryRef la_result = NULL;
+	CFDictionaryRef laResult = NULL;
+    CFStringRef unameCf = NULL;
 
     CFIndex count = CFArrayGetCount(mechanisms);
 	bool sheet_evaluation = false;
@@ -510,14 +511,48 @@ _evaluate_mechanisms(engine_t engine, CFArrayRef mechanisms)
 		if (key && value) {
 			CFMutableDictionaryRef options = CFDictionaryCreateMutable(kCFAllocatorDefault, 1, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
 			CFDictionarySetValue(options, key, value);
-			la_result = LACopyResultOfPolicyEvaluation(engine->la_context, kLAPolicyDeviceOwnerAuthentication, options, NULL);
-            os_log_debug(AUTHD_LOG, "engine %lld: Retrieve LA evaluate result: %d", engine->engine_index, la_result != NULL);
+			laResult = LACopyResultOfPolicyEvaluation(engine->la_context, kLAPolicyDeviceOwnerAuthentication, options, NULL);
+            os_log_debug(AUTHD_LOG, "engine %lld: Retrieve LA evaluate result: %d", engine->engine_index, laResult != NULL);
 			CFReleaseSafe(options);
 		}
 		CFReleaseSafe(key);
 		CFReleaseSafe(value);
 	}
-
+    
+    Boolean apUsed = auth_items_exist(engine->context, AGENT_CONTEXT_AP_PAM_SERVICE_NAME);
+    const char *uname = NULL;
+    int uid = -1;
+    
+    if (uid == -1) {
+        if (apUsed) {
+            uname = auth_items_get_string(engine->context, AGENT_CONTEXT_AP_USER_NAME);
+        } else {
+            uname = auth_items_get_string(engine->context, AGENT_USERNAME);
+        }
+    }
+    
+    if (!uname && uid != -1) {
+        // we did not get user from Username or AHP username field but we have UID so try it
+        struct passwd *pw = getpwuid(uid);
+        if (pw) {
+            uname = pw->pw_name;
+        }
+    }
+    if (engine->la_context) {
+        if (!uname) {
+            os_log_error(AUTHD_LOG, "No user specified, unable to continue");
+            result = kAuthorizationResultDeny;
+            goto done;
+        }
+        
+        unameCf = CFStringCreateWithCString(kCFAllocatorDefault, uname, kCFStringEncodingUTF8);
+        if(!unameCf)    {
+            os_log_error(AUTHD_LOG, "Unable to create a username, unable to continue");
+            result = kAuthorizationResultDeny;
+            goto done;
+        }
+    }
+    
 	for (CFIndex i = 0; i < count; i++) {
         mechanism_t mech = (mechanism_t)CFArrayGetValueAtIndex(mechanisms, i);
         
@@ -531,31 +566,30 @@ _evaluate_mechanisms(engine_t engine, CFArrayRef mechanisms)
 				if (strcmp(mechanism_get_string(mech), "builtin:authenticate") == 0) {
 					// set the UID the same way as SecurityAgent would
 					if (auth_items_exist(engine->context, "sheet-uid")) {
-						os_log_debug(AUTHD_LOG, "engine %lld: setting sheet UID %d to the context", engine->engine_index, auth_items_get_uint(engine->context, "sheet-uid"));
+                        uid = auth_items_get_uint(engine->context, "sheet-uid");
+						os_log_debug(AUTHD_LOG, "engine %lld: setting sheet UID %d to the context", engine->engine_index, uid);
 						auth_items_set_uint(engine->context, AGENT_CONTEXT_UID, auth_items_get_uint(engine->context, "sheet-uid"));
 					}
 
 					// find out if sheet just provided credentials or did real authentication
 					// if password is provided or PAM service name exists, it means authd has to evaluate credentials
 					// otherwise we need to check la_result
-					if (auth_items_exist(engine->context, AGENT_CONTEXT_AP_PAM_SERVICE_NAME) || auth_items_exist(engine->context, kAuthorizationEnvironmentPassword)) {
+					if (apUsed || auth_items_exist(engine->context, kAuthorizationEnvironmentPassword)) {
 						// do not try to get credentials as it has been already passed by sheet
 						os_log_debug(AUTHD_LOG, "engine %lld: ignoring builtin sheet authenticate", engine->engine_index);
 					} else {
 						// sheet itself did the authenticate the user
 						os_log_debug(AUTHD_LOG, "engine %lld: running builtin sheet authenticate", engine->engine_index);
 						sheet_evaluation = true;
-						if (!la_result || TKGetSmartcardSetting(kTKEnforceSmartcard) != 0) {
-							result = kAuthorizationResultDeny; // no la_result => evaluate did not pass for sheet method. Enforced smartcard => no way to use sheet based evaluation
-						}
 					}
 					shoud_run_agent = false; // SecurityAgent should not be run for builtin:authenticate
 				} else if (strcmp(mechanism_get_string(mech), "builtin:authenticate,privileged") == 0) {
 					if (sheet_evaluation) {
 						os_log_debug(AUTHD_LOG, "engine %lld: running builtin sheet privileged authenticate", engine->engine_index);
 						shoud_run_agent = false;
-						if (!la_result || TKGetSmartcardSetting(kTKEnforceSmartcard) != 0) {  // should not get here under normal circumstances but we need to handle this case as well
-							result = kAuthorizationResultDeny; // no la_result => evaluate did not pass. Enforced smartcard => no way to use sheet based evaluation
+						if (!laResult || TKGetSmartcardSettingForUser(kTKEnforceSmartcard, unameCf) != 0) {
+							result = kAuthorizationResultDeny;
+                            os_log_error(AUTHD_LOG, "engine %lld: denying sheet auth", engine->engine_index);
 						}
 					} else {
 						// should_run_agent has to be set to true because we want authorizationhost to verify the credentials
@@ -669,7 +703,8 @@ done:
     CFReleaseSafe(ccaudit);
     CFReleaseSafe(context);
     CFReleaseSafe(hints);
-	CFReleaseSafe(la_result);
+	CFReleaseSafe(laResult);
+    CFReleaseSafe(unameCf);
 
     switch(result)
     {
@@ -1367,6 +1402,7 @@ OSStatus engine_authorize(engine_t engine, auth_rights_t rights, auth_items_t en
     auth_items_remove(engine->context, kAuthorizationEnvironmentPassword);
     auth_items_remove(engine->context, AGENT_CONTEXT_AUTHENTICATION_FAILURE);
     auth_items_remove(engine->context, kAuthorizationPamResult);
+    auth_items_remove(engine->context, AGENT_CONTEXT_SC_REQUIRED_USER);
     
     if (environment) {
         _parse_environment(engine, environment);
@@ -1566,6 +1602,44 @@ OSStatus engine_authorize(engine_t engine, auth_rights_t rights, auth_items_t en
         status = errAuthorizationDenied;
     }
     
+    const char *reqUser = auth_items_get_string(engine->context, AGENT_CONTEXT_SC_REQUIRED_USER);
+    if ((status == errAuthorizationSuccess) && reqUser) {
+        os_log(AUTHD_LOG, "Password only prompt for SmartCard-enforced user %s, PIN prompt will follow", reqUser);
+        AuthorizationRef scAuthorizationRef;
+        status = AuthorizationCreate(NULL, kAuthorizationEmptyEnvironment, kAuthorizationFlagDefaults, &scAuthorizationRef);
+        if (status != errAuthorizationSuccess) {
+            os_log_error(AUTHD_LOG, "Unable to create SC only authorization: %d", (int)status);
+        } else {
+            status = errSecInternalError;
+            auth_token_t scAuth = NULL;
+            auth_rights_t scRights = NULL;
+            auth_items_t scEnvironment = NULL;
+            connection_t scConn = NULL;
+            
+            scConn = connection_create(engine->proc);
+            scAuth = auth_token_create(engine->proc, kAuthorizationFlagDefaults);
+            require_action(scAuth != NULL, scDone, os_log_error(AUTHD_LOG, "Unable to create scAuth"));
+            
+            scRights = auth_rights_create();
+            require_action(scRights != NULL, scDone, os_log_error(AUTHD_LOG, "Unable to create rights"));
+            auth_rights_add(scRights, "com.apple.auth.user");
+            
+            scEnvironment = auth_items_create();
+            require_action(scEnvironment != NULL, scDone, os_log_error(AUTHD_LOG, "Unable to create env"));
+            
+            auth_items_set_string(scEnvironment, AGENT_HINT_REQUIRED_USER, reqUser);
+            
+            status = server_authorize(scConn, scAuth, kAuthorizationFlagInteractionAllowed | kAuthorizationFlagExtendRights, scRights, scEnvironment, NULL);
+            if (status != errAuthorizationSuccess) {
+                os_log_error(AUTHD_LOG, "SC authorization failed: %d", (int)status);
+            }
+        scDone:
+            CFReleaseSafe(scAuth);
+            CFReleaseSafe(scRights);
+            CFReleaseSafe(scEnvironment);
+            CFReleaseSafe(scConn);
+        }
+    }
     os_log_debug(AUTHD_LOG, "engine %lld: authorize result: %d", engine->engine_index, (int)status);
 
     if ((engine->flags & kAuthorizationFlagExtendRights) && !(engine->flags & kAuthorizationFlagDestroyRights)) {

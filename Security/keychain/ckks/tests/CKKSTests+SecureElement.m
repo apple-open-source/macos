@@ -172,6 +172,52 @@
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
 }
 
+- (void)testFetchViewKeysBeforeInitialCKFetch {
+    [self holdCloudKitFetches];
+
+    [self createAndSaveFakeKeyHierarchy:self.keychainZoneID];
+    [self startCKKSSubsystem];
+
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateFetch] wait:20*NSEC_PER_SEC], @"CKKS state machine should enter 'fetch'");
+
+    XCTestExpectation* fetchExpectation = [self expectationWithDescription:@"fetch should arrive"];
+    [self.ckksControl fetchSEViewKeyHierarchy:CKKSSEViewPTA
+                                   forceFetch:NO
+                                        reply:^(CKKSExternalKey * _Nullable currentTLK,
+                                                NSArray<CKKSExternalKey *> * _Nullable pastTLKs,
+                                                NSArray<CKKSExternalTLKShare *> * _Nullable currentTLKShares,
+                                                NSError * _Nullable error) {
+        XCTAssertNotNil(error, "Should be an error fetching the view hierarchy");
+        XCTAssertNil(currentTLK, "Should not have a current TLK");
+        XCTAssertEqual(pastTLKs.count, 0, "Should be no past TLKs");
+        XCTAssertEqual(currentTLKShares.count, 0, "Should be no tlkShares");
+        [fetchExpectation fulfill];
+    }];
+
+    [self waitForExpectations:@[fetchExpectation] timeout:20];
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
+
+    [self releaseCloudKitFetchHold];
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:20*NSEC_PER_SEC], @"CKKS state machine should enter 'ready'");
+
+    XCTestExpectation* fetchExpectation2 = [self expectationWithDescription:@"fetch should arrive"];
+    [self.ckksControl fetchSEViewKeyHierarchy:CKKSSEViewPTA
+                                   forceFetch:NO
+                                        reply:^(CKKSExternalKey * _Nullable currentTLK,
+                                                NSArray<CKKSExternalKey *> * _Nullable pastTLKs,
+                                                NSArray<CKKSExternalTLKShare *> * _Nullable currentTLKShares,
+                                                NSError * _Nullable error) {
+        XCTAssertNil(error, "Should be no error fetching the view hierarchy");
+        XCTAssertNil(currentTLK, "Should not have a current TLK");
+        XCTAssertEqual(pastTLKs.count, 0, "Should be no past TLKs");
+        XCTAssertEqual(currentTLKShares.count, 0, "Should be no tlkShares");
+        [fetchExpectation2 fulfill];
+    }];
+
+    [self waitForExpectations:@[fetchExpectation2] timeout:20];
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
+}
+
 - (void)testFetchWihoutCreatingZone {
     [self createAndSaveFakeKeyHierarchy:self.keychainZoneID];
     [self startCKKSSubsystem];

@@ -56,14 +56,11 @@ CKKSFetchBecause* const CKKSFetchBecausePeriodicRefetch = (CKKSFetchBecause*) @"
 #pragma mark - CKKSZoneChangeFetchDependencyOperation
 @interface CKKSZoneChangeFetchDependencyOperation : CKKSResultOperation
 @property (weak) CKKSZoneChangeFetcher* owner;
-@property NSMutableArray<CKKSZoneChangeFetchDependencyOperation*>* chainDependents;
-- (void)chainDependency:(CKKSZoneChangeFetchDependencyOperation*)newDependency;
 @end
 
 @implementation CKKSZoneChangeFetchDependencyOperation
 - (instancetype)init {
     if((self = [super init])) {
-        _chainDependents = [NSMutableArray array];
     }
     return self;
 }
@@ -75,17 +72,6 @@ CKKSFetchBecause* const CKKSFetchBecausePeriodicRefetch = (CKKSFetchBecause*) @"
                          underlying:self.owner.lastCKFetchError];
 }
 
-- (void)chainDependency:(CKKSZoneChangeFetchDependencyOperation*)newDependency {
-    [self addSuccessDependency:newDependency];
-
-    // There's no need to build a chain more than two links long. Move all our children up to depend on the new dependency.
-    for(CKKSZoneChangeFetchDependencyOperation* op in self.chainDependents) {
-        [newDependency.chainDependents addObject:op];
-        [op addSuccessDependency:newDependency];
-        [op removeDependency:self];
-    }
-    [self.chainDependents removeAllObjects];
-}
 @end
 
 #pragma mark - CKKSZoneChangeFetcher
@@ -107,6 +93,8 @@ CKKSFetchBecause* const CKKSFetchBecausePeriodicRefetch = (CKKSFetchBecause*) @"
 @property NSMutableSet<CKRecordZoneNotification*>* apnsPushes;
 @property bool newRequests; // true if there's someone pending on successfulFetchDependency
 @property CKKSZoneChangeFetchDependencyOperation* successfulFetchDependency;
+
+@property NSMutableSet<CKKSZoneChangeFetchDependencyOperation*>* inflightFetchDependencies;
 
 @property (nullable) CKKSZoneChangeFetchDependencyOperation* inflightFetchDependency;
 
@@ -133,6 +121,8 @@ CKKSFetchBecause* const CKKSFetchBecausePeriodicRefetch = (CKKSFetchBecause*) @"
         _queue = dispatch_queue_create([_name UTF8String], DISPATCH_QUEUE_SERIAL_WITH_AUTORELEASE_POOL);
         _operationQueue = [[NSOperationQueue alloc] init];
         _successfulFetchDependency = [self createSuccesfulFetchDependency];
+
+        _inflightFetchDependencies = [NSMutableSet set];
         _inflightFetchDependency = nil;
 
         _newRequests = false;
@@ -314,6 +304,11 @@ CKKSFetchBecause* const CKKSFetchBecausePeriodicRefetch = (CKKSFetchBecause*) @"
 
     CKKSZoneChangeFetchDependencyOperation* dependency = self.successfulFetchDependency;
     self.inflightFetchDependency = dependency;
+    [self.inflightFetchDependencies addObject:dependency];
+
+    // create a new fetch dependency, for all those who come in while this operation is executing
+    self.newRequests = false;
+    self.successfulFetchDependency = [self createSuccesfulFetchDependency];
 
     NSMutableSet<CKKSFetchBecause*>* lastFetchReasons = self.currentFetchReasons;
     self.currentFetchReasons = [[NSMutableSet alloc] init];
@@ -376,7 +371,11 @@ CKKSFetchBecause* const CKKSFetchBecausePeriodicRefetch = (CKKSFetchBecause*) @"
 
             if(fetchAllChanges.error == nil) {
                 // success! notify the listeners.
-                [self.operationQueue addOperation: dependency];
+
+                for(CKKSZoneChangeFetchDependencyOperation* dependencyOp in self.inflightFetchDependencies) {
+                    [self.operationQueue addOperation:dependencyOp];
+                }
+                [self.inflightFetchDependencies removeAllObjects];
                 self.currentFetch = nil;
 
                 // Did new people show up and want another fetch?
@@ -384,9 +383,7 @@ CKKSFetchBecause* const CKKSFetchBecausePeriodicRefetch = (CKKSFetchBecause*) @"
                     [self.fetchScheduler trigger];
                 }
             } else {
-                // The operation errored. Chain the dependency on the current one...
-                [dependency chainDependency:self.successfulFetchDependency];
-                [self.operationQueue addOperation: dependency];
+                // The operation errored.
 
                 if(!attemptAnotherFetch) {
                     ckkserror_global("ckksfetcher", "All clients thought %@ is a fatal error. Not restarting fetch.", fetchAllChanges.error);
@@ -417,10 +414,6 @@ CKKSFetchBecause* const CKKSFetchBecausePeriodicRefetch = (CKKSFetchBecause*) @"
             }
         });
     }];
-
-    // creata a new fetch dependency, for all those who come in while this operation is executing
-    self.newRequests = false;
-    self.successfulFetchDependency = [self createSuccesfulFetchDependency];
 
     // now let new new fetch go and process it's results
     self.currentProcessResult.name = @"zone-change-fetcher-worker";

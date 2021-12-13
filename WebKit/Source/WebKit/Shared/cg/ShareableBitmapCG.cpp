@@ -37,10 +37,26 @@
 
 namespace WebKit {
 using namespace WebCore;
-    
+
+void ShareableBitmap::validateConfiguration(Configuration& configuration)
+{
+    if (!configuration.colorSpace)
+        return;
+
+    configuration.colorSpace = configuration.colorSpace->asRGB();
+
+    if (!configuration.colorSpace) {
+#if HAVE(CORE_GRAPHICS_EXTENDED_SRGB_COLOR_SPACE)
+        configuration.colorSpace = DestinationColorSpace(extendedSRGBColorSpaceRef());
+#else
+        configuration.colorSpace = DestinationColorSpace::SRGB();
+#endif
+    }
+}
+
 static CGColorSpaceRef colorSpace(const ShareableBitmap::Configuration& configuration)
 {
-    return configuration.colorSpace ? configuration.colorSpace->platformColorSpace() : WebCore::sRGBColorSpaceRef();
+    return configuration.colorSpace ? configuration.colorSpace->platformColorSpace() : sRGBColorSpaceRef();
 }
 
 static bool wantsExtendedRange(const ShareableBitmap::Configuration& configuration)
@@ -97,11 +113,20 @@ std::unique_ptr<GraphicsContext> ShareableBitmap::createGraphicsContext()
     if (bytesPerRow.hasOverflowed())
         return nullptr;
 
-    RetainPtr<CGContextRef> bitmapContext = adoptCF(CGBitmapContextCreateWithData(data(), m_size.width(), m_size.height(), bitsPerComponent, bytesPerRow, colorSpace(m_configuration), bitmapInfo(m_configuration), releaseBitmapContextData, this));
-    if (!bitmapContext)
-        return nullptr;
-
     ref(); // Balanced by deref in releaseBitmapContextData.
+
+    m_releaseBitmapContextDataCalled = false;
+    RetainPtr<CGContextRef> bitmapContext = adoptCF(CGBitmapContextCreateWithData(data(), m_size.width(), m_size.height(), bitsPerComponent, bytesPerRow, colorSpace(m_configuration), bitmapInfo(m_configuration), releaseBitmapContextData, this));
+    if (!bitmapContext) {
+        // When CGBitmapContextCreateWithData fails and returns null, it will only
+        // call the release callback in some circumstances <rdar://82228446>. We
+        // work around this by recording whether it was called, and calling it
+        // ourselves if needed.
+        if (!m_releaseBitmapContextDataCalled)
+            releaseBitmapContextData(this, this->data());
+        return nullptr;
+    }
+    ASSERT(!m_releaseBitmapContextDataCalled);
 
     // We want the origin to be in the top left corner so we flip the backing store context.
     CGContextTranslateCTM(bitmapContext.get(), 0, m_size.height());
@@ -171,6 +196,7 @@ void ShareableBitmap::releaseBitmapContextData(void* typelessBitmap, void* typel
 {
     ShareableBitmap* bitmap = static_cast<ShareableBitmap*>(typelessBitmap);
     ASSERT_UNUSED(typelessData, bitmap->data() == typelessData);
+    bitmap->m_releaseBitmapContextDataCalled = true;
     bitmap->deref(); // Balanced by ref in createGraphicsContext.
 }
 

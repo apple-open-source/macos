@@ -27,6 +27,7 @@
 
 #include "AppPrivacyReport.h"
 #include "NavigatingToAppBoundDomain.h"
+#include "NetworkResourceLoadIdentifier.h"
 #include "PrefetchCache.h"
 #include "PrivateClickMeasurementNetworkLoader.h"
 #include "SandboxExtension.h"
@@ -123,21 +124,27 @@ public:
     virtual void clearAppBoundSession() { }
 #endif
     void storePrivateClickMeasurement(WebCore::PrivateClickMeasurement&&);
-    void handlePrivateClickMeasurementConversion(WebCore::PrivateClickMeasurement::AttributionTriggerData&&, const URL& requestURL, const WebCore::ResourceRequest& redirectRequest);
+    void handlePrivateClickMeasurementConversion(WebCore::PrivateClickMeasurement::AttributionTriggerData&&, const URL& requestURL, const WebCore::ResourceRequest& redirectRequest, String&& attributedBundleIdentifier);
     void dumpPrivateClickMeasurement(CompletionHandler<void(String)>&&);
-    void clearPrivateClickMeasurement();
-    void clearPrivateClickMeasurementForRegistrableDomain(WebCore::RegistrableDomain&&);
+    void clearPrivateClickMeasurement(CompletionHandler<void()>&&);
+    void clearPrivateClickMeasurementForRegistrableDomain(WebCore::RegistrableDomain&&, CompletionHandler<void()>&&);
     void setPrivateClickMeasurementOverrideTimerForTesting(bool value);
     void markAttributedPrivateClickMeasurementsAsExpiredForTesting(CompletionHandler<void()>&&);
     void setPrivateClickMeasurementTokenPublicKeyURLForTesting(URL&&);
     void setPrivateClickMeasurementTokenSignatureURLForTesting(URL&&);
     void setPrivateClickMeasurementAttributionReportURLsForTesting(URL&& sourceURL, URL&& destinationURL);
     void markPrivateClickMeasurementsAsExpiredForTesting();
+    void setPrivateClickMeasurementEphemeralMeasurementForTesting(bool);
     void setPCMFraudPreventionValuesForTesting(String&& unlinkableToken, String&& secretToken, String&& signature, String&& keyID);
     void firePrivateClickMeasurementTimerImmediately();
+    void setPrivateClickMeasurementAppBundleIDForTesting(String&&);
 
     void addKeptAliveLoad(Ref<NetworkResourceLoader>&&);
     void removeKeptAliveLoad(NetworkResourceLoader&);
+
+    void addLoaderAwaitingWebProcessTransfer(Ref<NetworkResourceLoader>&&);
+    void removeLoaderWaitingWebProcessTransfer(NetworkResourceLoadIdentifier);
+    RefPtr<NetworkResourceLoader> takeLoaderAwaitingWebProcessTransfer(NetworkResourceLoadIdentifier);
 
     NetworkCache::Cache* cache() { return m_cache.get(); }
 
@@ -163,6 +170,8 @@ public:
 
     NetworkLoadScheduler& networkLoadScheduler();
     PrivateClickMeasurementManager& privateClickMeasurement() { return *m_privateClickMeasurement; }
+    void setPrivateClickMeasurementDebugMode(bool);
+    bool privateClickMeasurementDebugModeEnabled() const { return m_privateClickMeasurementDebugModeEnabled; }
 
 #if PLATFORM(COCOA)
     AppPrivacyReportTestingData& appPrivacyReportTestingData() { return m_appPrivacyReportTestingData; }
@@ -190,6 +199,7 @@ protected:
     Ref<NetworkProcess> m_networkProcess;
     WeakHashSet<NetworkDataTask> m_dataTaskSet;
 #if ENABLE(RESOURCE_LOAD_STATISTICS)
+    String m_privateClickMeasurementStorageDirectory;
     String m_resourceLoadStatisticsDirectory;
     RefPtr<WebResourceLoadStatisticsStore> m_resourceLoadStatistics;
     ShouldIncludeLocalhost m_shouldIncludeLocalhostInResourceLoadStatistics { ShouldIncludeLocalhost::Yes };
@@ -206,8 +216,21 @@ protected:
 #endif
     bool m_isStaleWhileRevalidateEnabled { false };
     std::unique_ptr<PrivateClickMeasurementManager> m_privateClickMeasurement;
+    bool m_privateClickMeasurementDebugModeEnabled { false };
 
     HashSet<Ref<NetworkResourceLoader>> m_keptAliveLoads;
+
+    class CachedNetworkResourceLoader {
+        WTF_MAKE_FAST_ALLOCATED;
+    public:
+        explicit CachedNetworkResourceLoader(Ref<NetworkResourceLoader>&&);
+        RefPtr<NetworkResourceLoader> takeLoader();
+    private:
+        void expirationTimerFired();
+        WebCore::Timer m_expirationTimer;
+        RefPtr<NetworkResourceLoader> m_loader;
+    };
+    HashMap<NetworkResourceLoadIdentifier, std::unique_ptr<CachedNetworkResourceLoader>> m_loadersAwaitingWebProcessTransfer;
 
     PrefetchCache m_prefetchCache;
 

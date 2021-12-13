@@ -124,6 +124,7 @@ _multiTapTrackingEnabled(0),
 _multiTapDoubleTapTimeout(0),
 _multiTapTripleTapTimeout(0),
 _longPressTimeout(0),
+_alternateLongPressHandling(false),
 _eventHead(0),
 _freeButtonHead(0),
 _freeTapHead(0)
@@ -259,6 +260,7 @@ static CFStringRef PropertyList [] = {
     CFSTR(kIOHIDKeyboardPressCountDoublePressTimeoutKey),
     CFSTR(kIOHIDKeyboardPressCountTriplePressTimeoutKey),
     CFSTR(kIOHIDKeyboardLongPressTimeoutKey),
+    CFSTR(kIOHIDAlternateLongPressHandlingKey),
     CFSTR(kIOHIDBiometricTapTrackingEnabledKey),
     CFSTR(kIOHIDBiometricDoubleTapTimeoutKey),
     CFSTR(kIOHIDBiometricTripleTapTimeoutKey)
@@ -327,6 +329,11 @@ void IOHIDEventProcessor::setPropertyForClient(CFStringRef key,CFTypeRef propert
         CFNumberGetValue((CFNumberRef)property, kCFNumberLongLongType, &number);
         _longPressTimeout = number;
         HIDLogDebug("LongPress now %llu", _longPressTimeout);
+    }
+
+    if (CFStringCompare(key, CFSTR(kIOHIDAlternateLongPressHandlingKey),0) == kCFCompareEqualTo) {
+        _alternateLongPressHandling = kCFBooleanTrue == property;
+        HIDLogDebug("Alternate Long Press %s", _alternateLongPressHandling ? "enabled" : "false");
     }
     
     if (CFStringCompare(key, CFSTR(kIOHIDBiometricTapTrackingEnabledKey), 0) == kCFCompareEqualTo) {
@@ -531,7 +538,8 @@ IOHIDEventRef IOHIDEventProcessor::filter(IOHIDEventRef event)
                    usage,
                    doubleTO,
                    tripleTO,
-                   eventType == kIOHIDEventTypeKeyboard ? _longPressTimeout : 0);
+                   eventType == kIOHIDEventTypeKeyboard ? _longPressTimeout : 0,
+                   _alternateLongPressHandling);
         
         if (!curr) {
             HIDLogError("Could not create new event");
@@ -717,6 +725,7 @@ void IOHIDEventProcessor::serialize (CFMutableDictionaryRef dict) const {
     serializer.SetValueForKey(CFSTR(kIOHIDKeyboardPressCountDoublePressTimeoutKey), _multiPressDoublePressTimeout);
     serializer.SetValueForKey(CFSTR(kIOHIDKeyboardPressCountTriplePressTimeoutKey), _multiPressTriplePressTimeout);
     serializer.SetValueForKey(CFSTR(kIOHIDKeyboardLongPressTimeoutKey), _longPressTimeout);
+    serializer.SetValueForKey(CFSTR(kIOHIDAlternateLongPressHandlingKey), _alternateLongPressHandling);
     serializer.SetValueForKey(CFSTR(kIOHIDBiometricTapTrackingEnabledKey), _multiPressTriplePressTimeout);
     serializer.SetValueForKey(CFSTR(kIOHIDBiometricDoubleTapTimeoutKey), _multiTapDoubleTapTimeout);
     serializer.SetValueForKey(CFSTR(kIOHIDBiometricTripleTapTimeoutKey), _multiTapTripleTapTimeout);
@@ -752,7 +761,9 @@ _terminalEventDispatched(0),
 _secondEventTimeout(0),
 _thirdEventTimeout(0),
 _lastActionTimestamp(0),
-_longPressTimeout(0)
+_longPressTimeout(0),
+_longPressOccured(false),
+_alternateLongPressHandling(false)
 {
 }
 
@@ -777,7 +788,8 @@ void Event::init(IOHIDEventProcessor * owner,
                  UInt32 usage,
                  UInt64 secondEventTimeout,
                  UInt64 thirdEventTimeout,
-                 UInt64 longPressTimeout)
+                 UInt64 longPressTimeout,
+                 bool alternateLongPressHandling)
 {
     _owner                   = owner;
     _eventType               = eventType;
@@ -789,6 +801,7 @@ void Event::init(IOHIDEventProcessor * owner,
     _timer                   = timer;
     
     _terminalEventDispatched = false;
+    _longPressOccured        = false;
     _lastActionTimestamp     = 0;
     _nextEvent               = 0;
     _nextTimerEvent          = 0;
@@ -797,6 +810,7 @@ void Event::init(IOHIDEventProcessor * owner,
     _nextTimeout             = 0;
     _isComplete              = false;
     _multiEventCount         = 0;
+    _alternateLongPressHandling = alternateLongPressHandling;
     
     // Slightly offset terminal event timeouts from long press timeout,
     // if they are the same.
@@ -1053,6 +1067,11 @@ IOHIDEventRef ButtonEvent::createSyntheticEvent(bool isTerminalEvent)
         setMultiEventCount(event, _multiEventCount);
         
         IOHIDEventSetPhase(event, IOHIDEventGetPhase(event) | kIOHIDEventPhaseEnded);
+
+        if (_alternateLongPressHandling) {
+            IOHIDEventSetIntegerValue(event, kIOHIDEventFieldKeyboardLongPress, _longPressOccured);
+        }
+
         _terminalEventDispatched = true;
     }
     
@@ -1095,6 +1114,8 @@ void ButtonEvent::FDEnter(IOHIDEventRef event)
     IOHIDEventSetPhase(event, IOHIDEventGetPhase(event) | kIOHIDEventPhaseBegan);
     
     setMultiEventCount(event, 1);
+
+    _longPressOccured = false;
     
     _state = kKPStateFirstDown;
     
@@ -1137,7 +1158,8 @@ void ButtonEvent::SDEnter(IOHIDEventRef event)
     setMultiEventCount(event, 2);
     
     _state = kKPStateSecondDown;
-    
+    _longPressOccured = false;
+
     // trigger next timeout immediately to dispatch terminal event
     // if there is no TD or LP timeout
     if ( _thirdEventTimeout == 0 ) {
@@ -1177,6 +1199,7 @@ void ButtonEvent::TDEnter(IOHIDEventRef event)
     setMultiEventCount(event, 3);
     
     _state = kKPStateThirdDown;
+    _longPressOccured = false;
     
     // trigger next timeout immediately
     TEEnter(event);
@@ -1236,11 +1259,11 @@ void ButtonEvent::TEEnter(IOHIDEventRef event)
         else if (_state == kKPStateSecondDown && _longPressTimeout > _thirdEventTimeout) {
             nextTimeout = _longPressTimeout - _thirdEventTimeout;
         }
-        
+
         else if (_state == kKPStateThirdDown) {
             nextTimeout = _longPressTimeout;
         }
-        
+
         _timeoutState = kKPStateLongPress;
     }
     
@@ -1305,28 +1328,53 @@ void ButtonEvent::LPEnter(IOHIDEventRef event)
     }
     else {
         
-        // Button is still down, so send long press event. Send terminal event immediately
-        // afterward (if not already sent), and reset presscount.
-        
+        // Button is still down, so send long press event.
+        // Send a terminal if alternate handling isn't enabled for a later double/triple press.
+        // If double/triple press timeout is still further out, wait until the next timeout to
+        // dispatch event when using alternate handling.
+
         IOHIDEventRef lpEvent = createSyntheticEvent(false);
-        
+            
         IOHIDEventSetIntegerValue(lpEvent, kIOHIDEventFieldKeyboardLongPress, kIOHIDKeyboardLongPress);
         IOHIDEventSetIntegerValue(lpEvent, kIOHIDEventFieldKeyboardDown, true);
-        
+
         setMultiEventCount(lpEvent, _multiEventCount);
-        
+
         // If there is an event being processed, asynchronously dispatch the synthetic event afterward.
         // Otherwise, synchronously dispatch the synthetic event.
         dispatchEvent(lpEvent, (event ? true : false));
-        
-        _state = kKPStateLongPress;
-        
-        if (isDown) {
-            _lastActionTimestamp = IOHIDEventGetTimeStamp(lpEvent);
-            
-            TEEnter(event);
+
+        _longPressOccured = true;
+
+        if (_alternateLongPressHandling) {
+            uint64_t nextTimeout = 0;
+
+            if (_state == kKPStateFirstDown && _secondEventTimeout > _longPressTimeout) {
+                nextTimeout = _secondEventTimeout - _longPressTimeout;
+            }
+
+            else if (_state == kKPStateSecondDown && _thirdEventTimeout > _longPressTimeout) {
+                nextTimeout = _thirdEventTimeout - _longPressTimeout;
+            }
+
+            else {
+                _state = kKPStateLongPress;
+
+                TEEnter(lpEvent);
+            }
+
+            _timeoutState = kKPStateTerminalEvent;
+
+            _lastActionTimestamp = mach_absolute_time();
+
+            _timer->registerEventTimeout(this, nextTimeout);
+        } else {
+            if (isDown) {
+                _state = kKPStateLongPress;
+
+                TEEnter(lpEvent);
+            }
         }
-        
         CFRelease(lpEvent);
     }
 }
@@ -1382,6 +1430,9 @@ IOHIDEventRef TapEvent::createSyntheticEvent(bool isTerminalEvent)
         setMultiEventCount(event, _multiEventCount);
         
         IOHIDEventSetPhase(event, IOHIDEventGetPhase(event) | kIOHIDEventPhaseEnded);
+        if (_alternateLongPressHandling) {
+            IOHIDEventSetIntegerValue(event, kIOHIDEventFieldKeyboardLongPress, _longPressOccured);
+        }
         _terminalEventDispatched = true;
     }
     

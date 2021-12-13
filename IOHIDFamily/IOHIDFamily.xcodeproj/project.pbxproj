@@ -3527,6 +3527,7 @@
 		7E40BD5D268BB2E300E0B308 /* IOHIDTestSessionFilter.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; path = IOHIDTestSessionFilter.xcconfig; sourceTree = "<group>"; };
 		7E4B842F24241FEB007674AB /* TestIOHIDLibUserClient.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = TestIOHIDLibUserClient.m; sourceTree = "<group>"; };
 		7E534CFD245787730061B91F /* TestPhaseKeyboardEvents.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = TestPhaseKeyboardEvents.m; sourceTree = "<group>"; };
+		7E583A40270290C500B257C0 /* MultitouchSupport.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MultitouchSupport.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX12.0.Internal.sdk/System/Library/PrivateFrameworks/MultitouchSupport.framework; sourceTree = DEVELOPER_DIR; };
 		7E594EC4260A94E100CF353D /* TestIOHIDKeyboardFilter.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = TestIOHIDKeyboardFilter.m; sourceTree = "<group>"; };
 		7E5B348525E9B4DA00EF1CD2 /* TestUPSConstants.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = TestUPSConstants.m; sourceTree = "<group>"; };
 		7E708312242C49B900DAA1F9 /* IOHIDEventDummyService.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IOHIDEventDummyService.kext; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -5345,6 +5346,7 @@
 		98B9F0521AB00DBB003B3C24 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				7E583A40270290C500B257C0 /* MultitouchSupport.framework */,
 				7EDA85A525D30ACF003D017C /* CoreAnalytics.framework */,
 				7E8E321E243FD99E00978262 /* SkyLight.framework */,
 				663C47A323FF61DE00512F4C /* IOKit.framework */,
@@ -18862,6 +18864,10 @@
 				PRODUCT_BUNDLE_IDENTIFIER = "com.apple.iokit.hid.${PRODUCT_NAME:rfc1034identifier}";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx.internal;
+				SYSTEM_FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
 				WRAPPER_EXTENSION = plugin;
 			};
 			name = "Development-CodeCoverage";
@@ -19995,6 +20001,10 @@
 				PRODUCT_BUNDLE_IDENTIFIER = "com.apple.iokit.hid.${PRODUCT_NAME:rfc1034identifier}";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx.internal;
+				SYSTEM_FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
 				WRAPPER_EXTENSION = plugin;
 			};
 			name = Development;
@@ -20039,6 +20049,10 @@
 				PRODUCT_BUNDLE_IDENTIFIER = "com.apple.iokit.hid.${PRODUCT_NAME:rfc1034identifier}";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx.internal;
+				SYSTEM_FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
 				VALIDATE_PRODUCT = YES;
 				WRAPPER_EXTENSION = plugin;
 			};

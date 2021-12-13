@@ -1895,6 +1895,51 @@ CheckIdentityItem(NSString *accessGroup, OSStatus expectedStatus)
     SecKeychainSetOverrideStaticPersistentRefsIsEnabled(false);
 }
 
+-(void)testCopyAccessGroupForPersistentRef
+{
+    SecKeychainSetOverrideStaticPersistentRefsIsEnabled(true);
+    CFErrorRef localError = NULL;
+
+    SecurityClient client = {
+        .task = NULL,
+        .accessGroups = (__bridge CFArrayRef)@[
+            @"com.apple.security.ckks"
+        ],
+        .canAccessNetworkExtensionAccessGroups = true,
+    };
+    
+    NSMutableDictionary* query = [@{
+        (id)kSecClass : (id)kSecClassGenericPassword,
+        (id)kSecAttrAccessGroup : @"com.apple.security.ckks",
+        (id)kSecAttrAccessible: (id)kSecAttrAccessibleAfterFirstUnlock,
+        (id)kSecAttrAccount : @"testaccount",
+        (id)kSecAttrSynchronizable : (id)kCFBooleanTrue,
+        (id)kSecAttrSyncViewHint : @"Passwords",
+        (id)kSecAttrPCSPlaintextPublicKey : [@"asdf" dataUsingEncoding:NSUTF8StringEncoding],
+        (id)kSecValueData : (id) [@"asdf" dataUsingEncoding:NSUTF8StringEncoding],
+        (id)kSecReturnPersistentRef : @YES
+
+    } mutableCopy];
+
+    CFTypeRef pref1 = NULL;
+    XCTAssertEqual(SecItemAdd((__bridge CFDictionaryRef)query, &pref1), errSecSuccess);
+    XCTAssertNotNil((__bridge id)pref1, "persistent ref should not be nil");
+    XCTAssertTrue(CFDataGetLength(pref1) == 20, "persistent ref length should be 20");
+
+    query = nil;
+    query = [NSMutableDictionary dictionary];
+    query[(id)kSecValuePersistentRef] = (__bridge id)(pref1);
+    query[(id)kSecReturnAttributes] = @YES;
+    query[(id)kSecReturnPersistentRef] = @YES;
+
+    CFTypeRef item = NULL;
+    XCTAssertTrue(_SecItemCopyMatching((__bridge CFDictionaryRef)query, &client, &item, &localError));
+    XCTAssertNotNil((__bridge id)item, "item should not be nil");
+    XCTAssertTrue(isDictionary(item), "item should be a dictionary");
+    CFDataRef foundPref = CFDictionaryGetValue(item, kSecValuePersistentRef);
+    XCTAssertEqualObjects((__bridge NSData*)pref1, (__bridge NSData*)foundPref, @"persistent refs should be equal");
+}
+
 @end
 
 #endif

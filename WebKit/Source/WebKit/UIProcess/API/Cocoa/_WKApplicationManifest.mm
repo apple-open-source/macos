@@ -67,7 +67,7 @@
         URL(scopeURL),
         static_cast<WebCore::ApplicationManifest::Display>(display),
         URL(startURL),
-        WebCore::Color(themeColor.CGColor),
+        WebCore::roundAndClampToSRGBALossy(themeColor.CGColor),
     };
 
     API::Object::constructInWrapper<API::ApplicationManifest>(self, WTFMove(coreApplicationManifest));
@@ -139,7 +139,7 @@ static NSString *nullableNSString(const WTF::String& string)
 
 - (CocoaColor *)themeColor
 {
-    return WebCore::platformColor(_applicationManifest->applicationManifest().themeColor);
+    return WebCore::platformColor(_applicationManifest->applicationManifest().themeColor).autorelease();
 }
 
 - (_WKApplicationManifestDisplayMode)displayMode

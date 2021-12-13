@@ -199,6 +199,13 @@ SSLGetClientSideAuthenticate (
 	SSLContextRef	context,
 	SSLAuthenticate	*auth);					// RETURNED
 
+/*
+ * Returns true if an unsafe DH parameter was used when TLS session was
+ * negotiated else returns false
+ *
+ */
+bool SSLIsSessionNegotiatedWithUnsafeDH(SSLContextRef context);
+
 #if !TARGET_OS_IPHONE
 /*
  * Get/set array of trusted leaf certificates.

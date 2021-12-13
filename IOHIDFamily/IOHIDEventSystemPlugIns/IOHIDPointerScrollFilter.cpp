@@ -35,6 +35,7 @@
 #include <pthread.h>
 #include <asl.h>
 #include <fcntl.h>
+#include <cmath>
 #include <mach/mach.h>
 #include <mach/mach_time.h>
 #include "CF.h"
@@ -130,7 +131,8 @@ IOHIDPointerScrollFilter::IOHIDPointerScrollFilter(CFUUIDRef factoryID):
   _scrollAcceleration(-1),
   _leagacyShim(false),
   _pointerAccelerationSupported(true),
-  _scrollAccelerationSupported(true)
+  _scrollAccelerationSupported(true),
+  _scrollMomentumMult(1.0)
 {
   for (size_t index = 0; index < sizeof(_scrollAccelerators)/sizeof(_scrollAccelerators[0]); index++) {
     _scrollAccelerators[index] = NULL;
@@ -473,11 +475,42 @@ void IOHIDPointerScrollFilter::accelerateEvent(IOHIDEventRef event) {
       static int axis [3] = {kIOHIDEventFieldScrollX, kIOHIDEventFieldScrollY, kIOHIDEventFieldScrollZ};
       double value [3];
       accelerated = false;
+
+      if (IOHIDEventGetScrollMomentum(event) != 0) {
+        CFTypeRef momentumScrollRate = _IOHIDEventCopyAttachment(event, CFSTR("ScrollMomentumDispatchRate"), 0);
+
+        if (momentumScrollRate && CFGetTypeID(momentumScrollRate) == CFNumberGetTypeID()) {
+          CFNumberRef momentumScrollValue = (CFNumberRef)momentumScrollRate;
+          double prevScrollMomentumMult = _scrollMomentumMult;
+          float dispatchRate = kIOHIDDefaultReportRate;
+          
+          CFNumberGetValue(momentumScrollValue, kCFNumberFloatType, &dispatchRate);
+          _scrollMomentumMult = dispatchRate / kIOHIDDefaultReportRate;
+
+          if (fabs(prevScrollMomentumMult  - _scrollMomentumMult) > 0.5) {
+            HIDLogInfo("[%@] _scrollMomentumMult:%.3f->%.3f", SERVICE_ID, prevScrollMomentumMult, _scrollMomentumMult);
+          }
+        } else {
+          _scrollMomentumMult = 1.0;
+        }
+
+
+        if (momentumScrollRate) {
+          CFRelease(momentumScrollRate);
+          momentumScrollRate = NULL;
+        }
+      } else {
+        _scrollMomentumMult = 1.0;
+      }
+
       
       for (int  index = 0; index < (int)(sizeof(axis) / sizeof(axis[0])); index++) {
         value[index] = IOHIDEventGetFloatValue (event, axis[index]);
         if (value[index] != 0 && _scrollAccelerators[index] != NULL) {
-          accelerated |=_scrollAccelerators[index]->accelerate(&value[index], 1, IOHIDEventGetTimeStamp(event));
+          double *scrollValue = (value + index);
+          *scrollValue *= _scrollMomentumMult;
+          accelerated |=_scrollAccelerators[index]->accelerate(scrollValue, 1, IOHIDEventGetTimeStamp(event));
+          *scrollValue /= _scrollMomentumMult;
         }
       }
       if (accelerated && (accelEvent = IOHIDEventCreateCopy(kCFAllocatorDefault, event)) != NULL) {

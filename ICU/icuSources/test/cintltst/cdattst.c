@@ -2103,6 +2103,8 @@ static const StandardPatternItem stdPatternItems[] = {
     { "en_CN", UDAT_MEDIUM, UDAT_SHORT, u"Feb 25, 2015 at 5:10 AM" },
     { "en_TW", UDAT_MEDIUM, UDAT_SHORT, u"Feb 25, 2015 at 5:10 AM" },
     { "en_KR", UDAT_MEDIUM, UDAT_SHORT, u"Feb 25, 2015 5:10 AM" },
+    // Add test for Apple <rdar://problem/83597941>
+    { "en_AU", UDAT_SHORT, UDAT_NONE, u"25/2/2015" },
     // Add tests for Apple <rdar://problem/51014042>; currently no specific locales for these
     { "en_AZ", UDAT_MEDIUM, UDAT_SHORT, u"25 Feb 2015 at 05:10" }, // en uses h, AZ Azerbaijanvpref cycle H
     { "fr_US", UDAT_NONE, UDAT_SHORT, u"5:10 AM" }, // fr uses H, US pref cycle h

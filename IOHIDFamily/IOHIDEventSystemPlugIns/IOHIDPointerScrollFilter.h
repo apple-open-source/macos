@@ -22,6 +22,8 @@
 
 #define kDefaultPointerResolutionFixed (400 << 16)
 
+#define kIOHIDDefaultReportRate 60.0
+
 class IOHIDPointerScrollFilter
 {
 public:
@@ -83,7 +85,7 @@ private:
 
     IOHIDAccelerator            *_pointerAccelerator;
     IOHIDAccelerator            *_scrollAccelerators[3];
-    
+
     dispatch_queue_t            _queue;
     CFMutableDictionaryRefWrap  _property;
     CFMutableDictionaryRefWrap  _cachedProperty;
@@ -91,6 +93,7 @@ private:
     IOHIDServiceRef             _service;
     double                      _pointerAcceleration;
     double                      _scrollAcceleration;
+    double                      _scrollMomentumMult;
     boolean_t                   _leagacyShim;
     bool                        _pointerAccelerationSupported;
     bool                        _scrollAccelerationSupported;

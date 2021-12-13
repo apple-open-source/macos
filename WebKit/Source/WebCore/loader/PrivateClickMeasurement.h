@@ -47,12 +47,15 @@ OBJC_CLASS RSABSSATokenBlinder;
 
 namespace WebCore {
 
+enum class PrivateClickMeasurementAttributionEphemeral : bool { No, Yes };
+
 class PrivateClickMeasurement {
 public:
     using PriorityValue = uint32_t;
 
     enum class PcmDataCarried : bool { NonPersonallyIdentifiable, PersonallyIdentifiable };
     enum class AttributionReportEndpoint : bool { Source, Destination };
+    enum class IsRunningLayoutTest : bool { No, Yes };
 
     struct SourceID {
         static constexpr uint32_t MaxEntropy = 255;
@@ -88,6 +91,11 @@ public:
         bool operator==(const SourceSite& other) const
         {
             return registrableDomain == other.registrableDomain;
+        }
+
+        bool operator!=(const SourceSite& other) const
+        {
+            return registrableDomain != other.registrableDomain;
         }
 
         bool matches(const URL& url) const
@@ -129,6 +137,11 @@ public:
         bool operator==(const AttributionDestinationSite& other) const
         {
             return registrableDomain == other.registrableDomain;
+        }
+
+        bool operator!=(const AttributionDestinationSite& other) const
+        {
+            return registrableDomain != other.registrableDomain;
         }
 
         bool matches(const URL& url) const
@@ -300,19 +313,21 @@ public:
     };
 
     PrivateClickMeasurement() = default;
-    PrivateClickMeasurement(SourceID sourceID, const SourceSite& sourceSite, const AttributionDestinationSite& destinationSite, String&& sourceDescription = { }, String&& purchaser = { }, WallTime timeOfAdClick = WallTime::now())
+    PrivateClickMeasurement(SourceID sourceID, const SourceSite& sourceSite, const AttributionDestinationSite& destinationSite, const String& sourceApplicationBundleID, String&& sourceDescription = { }, String&& purchaser = { }, WallTime timeOfAdClick = WallTime::now(), PrivateClickMeasurementAttributionEphemeral isEphemeral = PrivateClickMeasurementAttributionEphemeral::No)
         : m_sourceID { sourceID }
         , m_sourceSite { sourceSite }
         , m_destinationSite { destinationSite }
         , m_sourceDescription { WTFMove(sourceDescription) }
         , m_purchaser { WTFMove(purchaser) }
         , m_timeOfAdClick { timeOfAdClick }
+        , m_isEphemeral { isEphemeral }
+        , m_sourceApplicationBundleID { sourceApplicationBundleID }
     {
     }
 
     WEBCORE_EXPORT static const Seconds maxAge();
     WEBCORE_EXPORT static Expected<AttributionTriggerData, String> parseAttributionRequest(const URL& redirectURL);
-    WEBCORE_EXPORT AttributionSecondsUntilSendData attributeAndGetEarliestTimeToSend(AttributionTriggerData&&);
+    WEBCORE_EXPORT AttributionSecondsUntilSendData attributeAndGetEarliestTimeToSend(AttributionTriggerData&&, IsRunningLayoutTest);
     WEBCORE_EXPORT bool hasHigherPriorityThan(const PrivateClickMeasurement&) const;
     WEBCORE_EXPORT URL attributionReportSourceURL() const;
     WEBCORE_EXPORT URL attributionReportAttributeOnURL() const;
@@ -324,11 +339,15 @@ public:
     AttributionTimeToSendData timesToSend() const { return m_timesToSend; };
     void setTimesToSend(AttributionTimeToSendData data) { m_timesToSend = data; }
     const SourceID& sourceID() const { return m_sourceID; }
-    std::optional<AttributionTriggerData> attributionTriggerData() { return m_attributionTriggerData; }
+    const std::optional<AttributionTriggerData>& attributionTriggerData() const { return m_attributionTriggerData; }
     void setAttribution(AttributionTriggerData&& attributionTriggerData) { m_attributionTriggerData = WTFMove(attributionTriggerData); }
+    const String& sourceApplicationBundleID() const { return m_sourceApplicationBundleID; }
+    WEBCORE_EXPORT void setSourceApplicationBundleIDForTesting(const String&);
 
     const String& sourceDescription() const { return m_sourceDescription; }
     const String& purchaser() const { return m_purchaser; }
+    bool isEphemeral() const { return m_isEphemeral == PrivateClickMeasurementAttributionEphemeral::Yes; }
+    void setEphemeral(PrivateClickMeasurementAttributionEphemeral isEphemeral) { m_isEphemeral = isEphemeral; }
 
     // MARK: - Fraud Prevention
     WEBCORE_EXPORT URL tokenPublicKeyURL() const;
@@ -338,6 +357,8 @@ public:
 
     struct EphemeralSourceNonce {
         String nonce;
+
+        EphemeralSourceNonce isolatedCopy() const;
 
         WEBCORE_EXPORT bool isValid() const;
 
@@ -354,6 +375,7 @@ public:
         String signatureBase64URL;
         String keyIDBase64URL;
 
+        SourceSecretToken isolatedCopy() const;
         bool isValid() const;
     };
 
@@ -369,6 +391,8 @@ public:
     template<class Encoder> void encode(Encoder&) const;
     template<class Decoder> static std::optional<PrivateClickMeasurement> decode(Decoder&);
 
+    WEBCORE_EXPORT PrivateClickMeasurement isolatedCopy() const;
+
 private:
     bool isValid() const;
 
@@ -378,6 +402,7 @@ private:
     String m_sourceDescription;
     String m_purchaser;
     WallTime m_timeOfAdClick;
+    PrivateClickMeasurementAttributionEphemeral m_isEphemeral;
 
     std::optional<AttributionTriggerData> m_attributionTriggerData;
     AttributionTimeToSendData m_timesToSend;
@@ -389,11 +414,14 @@ private:
         RetainPtr<RSABSSATokenReady> readyToken;
 #endif
         String valueBase64URL;
+
+        SourceUnlinkableToken isolatedCopy() const;
     };
 
     std::optional<EphemeralSourceNonce> m_ephemeralSourceNonce;
     SourceUnlinkableToken m_sourceUnlinkableToken;
     std::optional<SourceSecretToken> m_sourceSecretToken;
+    String m_sourceApplicationBundleID;
 };
 
 template<class Encoder>
@@ -406,7 +434,9 @@ void PrivateClickMeasurement::encode(Encoder& encoder) const
         << m_purchaser
         << m_timeOfAdClick
         << m_ephemeralSourceNonce
+        << m_isEphemeral
         << m_attributionTriggerData
+        << m_sourceApplicationBundleID
         << m_timesToSend;
 }
 
@@ -448,11 +478,21 @@ std::optional<PrivateClickMeasurement> PrivateClickMeasurement::decode(Decoder& 
     if (!ephemeralSourceNonce)
         return std::nullopt;
 
+    std::optional<PrivateClickMeasurementAttributionEphemeral> isEphemeral;
+    decoder >> isEphemeral;
+    if (!isEphemeral)
+        return std::nullopt;
+
     std::optional<std::optional<AttributionTriggerData>> attributionTriggerData;
     decoder >> attributionTriggerData;
     if (!attributionTriggerData)
         return std::nullopt;
-    
+
+    std::optional<String> sourceApplicationBundleID;
+    decoder >> sourceApplicationBundleID;
+    if (!sourceApplicationBundleID)
+        return std::nullopt;
+
     std::optional<AttributionTimeToSendData> timesToSend;
     decoder >> timesToSend;
     if (!timesToSend)
@@ -462,9 +502,11 @@ std::optional<PrivateClickMeasurement> PrivateClickMeasurement::decode(Decoder& 
         SourceID { WTFMove(*sourceID) },
         SourceSite { WTFMove(*sourceRegistrableDomain) },
         AttributionDestinationSite { WTFMove(*destinationRegistrableDomain) },
+        WTFMove(*sourceApplicationBundleID),
         WTFMove(*sourceDescription),
         WTFMove(*purchaser),
-        WTFMove(*timeOfAdClick)
+        WTFMove(*timeOfAdClick),
+        WTFMove(*isEphemeral)
     };
     attribution.m_ephemeralSourceNonce = WTFMove(*ephemeralSourceNonce);
     attribution.m_attributionTriggerData = WTFMove(*attributionTriggerData);

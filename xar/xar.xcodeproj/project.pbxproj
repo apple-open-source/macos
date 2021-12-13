@@ -125,8 +125,9 @@
 		B41FC12B09F6BF3C00006FAE /* xar.txt in CopyFiles */ = {isa = PBXBuildFile; fileRef = B41FC12609F6BF3300006FAE /* xar.txt */; };
 		B476FACD0A49E68600BCD61F /* signature.c in Sources */ = {isa = PBXBuildFile; fileRef = B476FACC0A49E68600BCD61F /* signature.c */; };
 		B476FACF0A49E68600BCD61F /* signature.c in Sources */ = {isa = PBXBuildFile; fileRef = B476FACC0A49E68600BCD61F /* signature.c */; };
-		B4772CA30A003F7300E4205C /* xar.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = B4772CA20A003F6E00E4205C /* xar.h */; };
+		B4772CA30A003F7300E4205C /* xar.h in Copy Public Headers */ = {isa = PBXBuildFile; fileRef = B4772CA20A003F6E00E4205C /* xar.h */; };
 		C03E1E5225E72D3900AC0F53 /* util.c in Sources */ = {isa = PBXBuildFile; fileRef = B41FC09709F6BC2C00006FAE /* util.c */; };
+		C09ABF1D27157DE100542782 /* xar_internal.h in Copy Private Headers */ = {isa = PBXBuildFile; fileRef = C09ABF1A27157D1100542782 /* xar_internal.h */; };
 		E9C0E6741497DDAB00BF8F0F /* ea.h in Headers */ = {isa = PBXBuildFile; fileRef = E9C0E6731497DDAB00BF8F0F /* ea.h */; };
 		E9D786581D260606006D5F7D /* lzmaxar.c in Sources */ = {isa = PBXBuildFile; fileRef = 98665C700EA83E44008193F1 /* lzmaxar.c */; };
 		E9D7865D1D2606F9006D5F7D /* ea.c in Sources */ = {isa = PBXBuildFile; fileRef = 98665C6E0EA83E36008193F1 /* ea.c */; };
@@ -246,14 +247,15 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
-		B41FC0DC09F6BD2300006FAE /* CopyFiles */ = {
+		B41FC0DC09F6BD2300006FAE /* Copy Public Headers */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
 			dstPath = /usr/include/xar;
 			dstSubfolderSpec = 0;
 			files = (
-				B4772CA30A003F7300E4205C /* xar.h in CopyFiles */,
+				B4772CA30A003F7300E4205C /* xar.h in Copy Public Headers */,
 			);
+			name = "Copy Public Headers";
 			runOnlyForDeploymentPostprocessing = 1;
 		};
 		B41FC0ED09F6BDE400006FAE /* CopyFiles */ = {
@@ -284,6 +286,17 @@
 			files = (
 				B41FC12A09F6BF3700006FAE /* xar.plist in CopyFiles */,
 			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		C09ABF1C27157D9900542782 /* Copy Private Headers */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/local/include/xar;
+			dstSubfolderSpec = 0;
+			files = (
+				C09ABF1D27157DE100542782 /* xar_internal.h in Copy Private Headers */,
+			);
+			name = "Copy Private Headers";
 			runOnlyForDeploymentPostprocessing = 1;
 		};
 /* End PBXCopyFilesBuildPhase section */
@@ -345,6 +358,7 @@
 		B4657F1E0A49E6150074E45D /* signature.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = signature.h; path = xar/lib/signature.h; sourceTree = "<group>"; };
 		B476FACC0A49E68600BCD61F /* signature.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = signature.c; path = xar/lib/signature.c; sourceTree = "<group>"; };
 		B4772CA20A003F6E00E4205C /* xar.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = xar.h; path = include/xar.h; sourceTree = BUILT_PRODUCTS_DIR; };
+		C09ABF1A27157D1100542782 /* xar_internal.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = xar_internal.h; path = xar/src/xar_internal.h; sourceTree = "<group>"; };
 		E9C0E6731497DDAB00BF8F0F /* ea.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = ea.h; path = xar/lib/ea.h; sourceTree = "<group>"; };
 		E9E06B88219E252E004DB0CA /* test_xar */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = test_xar; sourceTree = BUILT_PRODUCTS_DIR; };
 		E9E06B8A219E252E004DB0CA /* main.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = main.m; sourceTree = "<group>"; };
@@ -477,6 +491,7 @@
 				B41FC09809F6BC2C00006FAE /* util.h */,
 				B41FC09909F6BC2C00006FAE /* zxar.c */,
 				B41FC09A09F6BC2C00006FAE /* zxar.h */,
+				C09ABF1A27157D1100542782 /* xar_internal.h */,
 				7C7F76CC2202351600155C33 /* xar.xcconfig */,
 			);
 			name = lib;
@@ -560,8 +575,9 @@
 				B41FC05B09F6B7C200006FAE /* Headers */,
 				B41FC05C09F6B7C200006FAE /* Sources */,
 				B41FC05D09F6B7C200006FAE /* Frameworks */,
-				B41FC0DC09F6BD2300006FAE /* CopyFiles */,
-				B401A30509F6D73200B5C762 /* ShellScript */,
+				B41FC0DC09F6BD2300006FAE /* Copy Public Headers */,
+				C09ABF1C27157D9900542782 /* Copy Private Headers */,
+				B401A30509F6D73200B5C762 /* Link Built Dir */,
 			);
 			buildRules = (
 			);
@@ -648,7 +664,7 @@
 		B41FC04109F6B74500006FAE /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 0800;
+				LastUpgradeCheck = 1300;
 				TargetAttributes = {
 					E9E06B87219E252E004DB0CA = {
 						CreatedOnToolsVersion = 11.0;
@@ -658,13 +674,11 @@
 			};
 			buildConfigurationList = B41FC04209F6B74500006FAE /* Build configuration list for PBXProject "xar" */;
 			compatibilityVersion = "Xcode 3.2";
-			developmentRegion = English;
+			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
-				English,
-				Japanese,
-				French,
-				German,
+				en,
+				Base,
 			);
 			mainGroup = B41FC03F09F6B74500006FAE;
 			productRefGroup = B41FC06009F6B7C200006FAE /* Products */;
@@ -686,18 +700,19 @@
 /* End PBXProject section */
 
 /* Begin PBXShellScriptBuildPhase section */
-		B401A30509F6D73200B5C762 /* ShellScript */ = {
+		B401A30509F6D73200B5C762 /* Link Built Dir */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 8;
 			files = (
 			);
 			inputPaths = (
 			);
+			name = "Link Built Dir";
 			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
-			shellScript = "ln -s \"libxar.1.dylib\" \"$TARGET_BUILD_DIR/libxar.dylib\"";
+			shellScript = "ln -s \"libxar.1.dylib\" \"$TARGET_BUILD_DIR/libxar.dylib\"\n";
 		};
 		B41FC04E09F6B76200006FAE /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -721,7 +736,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "# shell script goes here\n\nif [ ! -e \"$BUILT_PRODUCTS_DIR\" ]; then\n\tmkdir -p \"$BUILT_PRODUCTS_DIR\"\nfi\n\ncd \"$BUILT_PRODUCTS_DIR\"\n\n$SRCROOT/xar/configure\n\n\nexit 0";
+			shellScript = "# shell script goes here\n\nif [ ! -e \"$BUILT_PRODUCTS_DIR\" ]; then\n\tmkdir -p \"$BUILT_PRODUCTS_DIR\"\nfi\n\ncd \"$BUILT_PRODUCTS_DIR\"\n\n$SRCROOT/xar/configure\n\n\nexit 0\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -892,15 +907,41 @@
 		B41FC04309F6B74500006FAE /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
 				CURRENT_PROJECT_VERSION = 1;
 				DYLIB_COMPATIBILITY_VERSION = 1.0;
 				DYLIB_CURRENT_VERSION = 1.3;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = macosx.internal;
 				STRIP_STYLE = debugging;
-				VALID_ARCHS = "i386 x86_64";
 				VERSIONING_SYSTEM = "apple-generic";
 			};
 			name = Debug;
@@ -908,12 +949,38 @@
 		B41FC04409F6B74500006FAE /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = YES;
 				CURRENT_PROJECT_VERSION = "$(RC_ProjectSourceVersion)";
 				DYLIB_COMPATIBILITY_VERSION = 1.0;
 				DYLIB_CURRENT_VERSION = 1.3;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
 				SDKROOT = macosx.internal;
-				VALID_ARCHS = "i386 x86_64";
 				VERSIONING_SYSTEM = "apple-generic";
 			};
 			name = Release;
@@ -921,6 +988,7 @@
 		B41FC05209F6B77E00006FAE /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
@@ -932,11 +1000,10 @@
 		B41FC05309F6B77E00006FAE /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				COPY_PHASE_STRIP = YES;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
 				PRODUCT_NAME = configure;
-				ZERO_LINK = NO;
 			};
 			name = Release;
 		};
@@ -944,12 +1011,11 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 7C7F76CC2202351600155C33 /* xar.xcconfig */;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
 				EXECUTABLE_PREFIX = lib;
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
-				GCC_MODEL_TUNING = G5;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				HEADER_SEARCH_PATHS = (
 					"$(inherited)",
@@ -961,10 +1027,9 @@
 					"$(inherited)",
 					"$(SDKROOT)/usr/lib/system",
 				);
-				PREBINDING = NO;
+				ONLY_ACTIVE_ARCH = NO;
 				PRODUCT_NAME = xar.1;
 				VERSIONING_SYSTEM = "apple-generic";
-				ZERO_LINK = YES;
 			};
 			name = Debug;
 		};
@@ -972,11 +1037,10 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 7C7F76CC2202351600155C33 /* xar.xcconfig */;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = YES;
 				EXECUTABLE_PREFIX = lib;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				GCC_MODEL_TUNING = G5;
 				HEADER_SEARCH_PATHS = (
 					"$(inherited)",
 					/usr/include/libxml2,
@@ -987,20 +1051,18 @@
 					"$(inherited)",
 					"$(SDKROOT)/usr/lib/system",
 				);
-				PREBINDING = NO;
+				ONLY_ACTIVE_ARCH = NO;
 				PRODUCT_NAME = xar.1;
 				VERSIONING_SYSTEM = "apple-generic";
-				ZERO_LINK = NO;
 			};
 			name = Release;
 		};
 		B41FC0E709F6BD8C00006FAE /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
-				GCC_MODEL_TUNING = G5;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				HEADER_SEARCH_PATHS = (
 					"$(inherited)",
@@ -1008,38 +1070,32 @@
 					"$(TARGET_BUILD_DIR)/include",
 				);
 				INSTALL_PATH = /usr/bin;
-				PREBINDING = NO;
 				PRODUCT_NAME = xar;
-				ZERO_LINK = YES;
 			};
 			name = Debug;
 		};
 		B41FC0E809F6BD8C00006FAE /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				COPY_PHASE_STRIP = YES;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				GCC_MODEL_TUNING = G5;
 				HEADER_SEARCH_PATHS = (
 					"$(inherited)",
 					/usr/include/libxml2,
 					"$(TARGET_BUILD_DIR)/include",
 				);
 				INSTALL_PATH = /usr/bin;
-				PREBINDING = NO;
 				PRODUCT_NAME = xar;
-				ZERO_LINK = NO;
 			};
 			name = Release;
 		};
 		B41FC0F609F6BE7F00006FAE /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
-				GCC_MODEL_TUNING = G5;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				HEADER_SEARCH_PATHS = (
 					"$(inherited)",
@@ -1047,38 +1103,36 @@
 					"$(TARGET_BUILD_DIR)/include",
 				);
 				INSTALL_PATH = /usr/local/lib;
-				MACOSX_DEPLOYMENT_TARGET = 10.8;
-				PREBINDING = NO;
+				MACOSX_DEPLOYMENT_TARGET = 10.9;
+				ONLY_ACTIVE_ARCH = NO;
 				PRODUCT_NAME = xarstatic;
 				VERSIONING_SYSTEM = "apple-generic";
-				ZERO_LINK = YES;
 			};
 			name = Debug;
 		};
 		B41FC0F709F6BE7F00006FAE /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = YES;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				GCC_MODEL_TUNING = G5;
 				HEADER_SEARCH_PATHS = (
 					"$(inherited)",
 					/usr/include/libxml2,
 					"$(TARGET_BUILD_DIR)/include",
 				);
 				INSTALL_PATH = /usr/local/lib;
-				MACOSX_DEPLOYMENT_TARGET = 10.8;
-				PREBINDING = NO;
+				MACOSX_DEPLOYMENT_TARGET = 10.9;
+				ONLY_ACTIVE_ARCH = NO;
 				PRODUCT_NAME = xarstatic;
 				VERSIONING_SYSTEM = "apple-generic";
-				ZERO_LINK = NO;
 			};
 			name = Release;
 		};
 		B41FC12809F6BF3300006FAE /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_OPTIMIZATION_LEVEL = 0;
@@ -1089,8 +1143,8 @@
 		B41FC12909F6BF3300006FAE /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				COPY_PHASE_STRIP = YES;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				PRODUCT_NAME = OpenSource;
 				ZERO_LINK = NO;
 			};
@@ -1099,10 +1153,8 @@
 		B41FC13809F6BF7900006FAE /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				COPY_PHASE_STRIP = NO;
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
-				GCC_OPTIMIZATION_LEVEL = 0;
 				PRODUCT_NAME = All;
 			};
 			name = Debug;
@@ -1110,17 +1162,16 @@
 		B41FC13909F6BF7900006FAE /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				COPY_PHASE_STRIP = YES;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
 				PRODUCT_NAME = All;
-				ZERO_LINK = NO;
 			};
 			name = Release;
 		};
 		E9D659A51486FD650089C4DA /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Debug;
@@ -1128,6 +1179,7 @@
 		E9D659A61486FD650089C4DA /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Release;
@@ -1135,6 +1187,7 @@
 		E9D659AD1486FFD10089C4DA /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Debug;
@@ -1142,6 +1195,7 @@
 		E9D659AE1486FFD10089C4DA /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Release;
@@ -1196,9 +1250,6 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				MACOSX_DEPLOYMENT_TARGET = 10.15;
-				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
-				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx;
 			};
@@ -1250,9 +1301,6 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				MACOSX_DEPLOYMENT_TARGET = 10.15;
-				MTL_ENABLE_DEBUG_INFO = NO;
-				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx;
 			};
@@ -1262,15 +1310,13 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
-				GCC_MODEL_TUNING = G5;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				HEADER_SEARCH_PATHS = /usr/include/libxml2;
 				INSTALL_PATH = /usr/local/bin;
 				OTHER_CFLAGS = "-DXARSIG_BUILDING_WITH_XAR";
-				PREBINDING = NO;
 				PRODUCT_NAME = xarsig;
 			};
 			name = Debug;
@@ -1279,15 +1325,12 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				COPY_PHASE_STRIP = YES;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				GCC_MODEL_TUNING = G5;
 				HEADER_SEARCH_PATHS = /usr/include/libxml2;
 				INSTALL_PATH = /usr/local/bin;
 				OTHER_CFLAGS = "-DXARSIG_BUILDING_WITH_XAR";
-				PREBINDING = NO;
 				PRODUCT_NAME = xarsig;
-				ZERO_LINK = NO;
 			};
 			name = Release;
 		};

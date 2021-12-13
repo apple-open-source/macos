@@ -161,6 +161,7 @@ typedef struct {
 	CFMutableDictionaryRef	overrides;
 	CFStringRef		prefix;
 	Boolean			trustRequired;
+	Boolean			isEphemeral;
 	CFNumberRef		type;
 	CFNumberRef		unit;
 	CFNumberRef		family;

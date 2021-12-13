@@ -34,13 +34,16 @@
 #include "ImageBuffer.h"
 #include "MediaPlayerPrivate.h"
 #include "PixelBuffer.h"
+#include <memory>
 #include <wtf/UniqueArray.h>
 
 #if USE(AVFOUNDATION)
 #include "GraphicsContextGLCV.h"
 #endif
 
-#include <memory>
+#if !PLATFORM(COCOA) && ENABLE(MEDIA_STREAM)
+#include "MediaSample.h"
+#endif
 
 namespace WebCore {
 
@@ -72,13 +75,15 @@ GCGLbitfield GraphicsContextGLOpenGL::getBuffersToAutoClear() const
     return m_buffersToAutoClear;
 }
 
-void GraphicsContextGLOpenGL::enablePreserveDrawingBuffer()
+#if !USE(ANGLE)
+bool GraphicsContextGLOpenGL::releaseThreadResources(ReleaseThreadResourceBehavior)
 {
-    GraphicsContextGL::enablePreserveDrawingBuffer();
-    // After dynamically transitioning to preserveDrawingBuffer:true
-    // for canvas capture, clear out any buffer auto-clearing state.
-    m_buffersToAutoClear = 0;
 }
+
+void GraphicsContextGLOpenGL::platformReleaseThreadResources()
+{
+}
+#endif
 
 #if !USE(ANGLE)
 bool GraphicsContextGLOpenGL::texImage2DResourceSafe(GCGLenum target, GCGLint level, GCGLenum internalformat, GCGLsizei width, GCGLsizei height, GCGLint border, GCGLenum format, GCGLenum type, GCGLint unpackAlignment)
@@ -251,6 +256,13 @@ std::optional<PixelBuffer> GraphicsContextGLOpenGL::paintRenderingResultsToPixel
     }
     return results;
 }
+
+#if !PLATFORM(COCOA) && ENABLE(MEDIA_STREAM)
+RefPtr<MediaSample> GraphicsContextGLOpenGL::paintCompositedResultsToMediaSample()
+{
+    return nullptr;
+}
+#endif
 
 std::optional<PixelBuffer> GraphicsContextGLOpenGL::readRenderingResultsForPainting()
 {

@@ -629,9 +629,6 @@ typedef int (*pthread_jit_write_callback_t)(void * _Nullable ctx);
  * On systems where pthread_jit_write_protect_supported_np(3) is false, this
  * function calls @callback directly and does nothing else.
  *
- * Only callbacks in libraries/images present at process start-up are allowed -
- * callbacks in images loaded dynamically via dlopen(3)/etc. are not permitted.
- *
  * This function only enforces that @callback is allowed if the caller has the
  * com.apple.security.cs.jit-write-allowlist entitlement.  That entitlement also
  * disallows use of pthread_jit_write_protect_np(3).  Adopting the entitlement
@@ -643,6 +640,14 @@ typedef int (*pthread_jit_write_callback_t)(void * _Nullable ctx);
  * behavior is intended to permit independent adoption of this interface by
  * libraries - once all libraries in an application have adopted, the
  * application should add the entitlement.
+ *
+ * By default, only callbacks in libraries/images present at process start-up
+ * are allowed - callbacks in images loaded dynamically via dlopen(3)/etc. are
+ * not permitted.  However, if the additional entitlement
+ * com.apple.security.cs.jit-write-allowlist-freeze-late is _also_ present, any
+ * callbacks in dlopen'd libraries are also added to the set of allowed
+ * callbacks until the {@link pthread_jit_write_freeze_callbacks_np} function is
+ * called.
  *
  * The goal of this interface is to allow applications that execute JIT-compiled
  * code to mitigate against attempts from attackers to escalate to code
@@ -664,6 +669,35 @@ __API_UNAVAILABLE(ios, tvos, watchos, bridgeos, driverkit)
 __SWIFT_UNAVAILABLE_MSG("This interface cannot be safely used from Swift")
 int pthread_jit_write_with_callback_np(
 		pthread_jit_write_callback_t _Nonnull callback, void * _Nullable ctx);
+
+/*!
+ * @function pthread_jit_write_freeze_callbacks_np
+ *
+ * @abstract
+ * Freezes the set of allowed pthread JIT write callbacks, preventing any
+ * callbacks in subsequently dlopen'd libraries from being allowed as arguments
+ * to {@link pthread_jit_write_with_callback_np}
+ *
+ * @discussion
+ * If the com.apple.security.cs.jit-write-allowlist-freeze-late entitlement is
+ * present, this function must be called exactly once after all libraries
+ * containing JIT write callbacks have been loaded to prevent any further
+ * runtime modifications to the set of allowed callbacks.  Failing to call this
+ * function before calling pthread_jit_write_with_callback_np(3) for the first
+ * time is an error, as is calling it multiple times.
+ *
+ * If the jit-write-allowlist-freeze-late entitlement is not present, calling
+ * this function is an error.
+ *
+ * If an application does not need to dlopen(3) any libraries or frameworks
+ * containing needed JIT write callbacks, it is best to avoid the
+ * jit-write-allowlist-freeze-late entitlement and accompanying need to call
+ * this function, as this allows the runtime to automatically freeze the set of
+ * allowed callbacks early in process initialization.
+ */
+__API_AVAILABLE(macos(12.1))
+__API_UNAVAILABLE(ios, tvos, watchos, bridgeos, driverkit)
+void pthread_jit_write_freeze_callbacks_np(void);
 
 /*!
  * @function pthread_cpu_number_np

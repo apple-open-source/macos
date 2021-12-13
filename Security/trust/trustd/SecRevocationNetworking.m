@@ -548,7 +548,7 @@ bool SecValidUpdateUpdateNow(dispatch_queue_t queue, CFStringRef server, CFIndex
     } else {
         SecOCSPResponseRef ocspResponse = SecOCSPResponseCreate((__bridge CFDataRef)urlContext.response);
         if (ocspResponse) {
-            SecORVCConsumeOCSPResponse(orvc, ocspResponse, urlContext.expiration, true, false);
+            SecORVCConsumeOCSPResponse(orvc, ocspResponse, urlContext.maxAge, true, false);
             if (analytics && !orvc->done) {
                 /* We got an OCSP response that didn't pass validation */
                 analytics->ocsp_validation_failed = true;

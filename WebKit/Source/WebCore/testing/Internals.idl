@@ -700,6 +700,7 @@ enum AutoplayPolicy {
     [Conditional=VIDEO] boolean mediaElementHasCharacteristic(HTMLMediaElement element, DOMString characteristic);
     [Conditional=VIDEO] undefined beginSimulatedHDCPError(HTMLMediaElement media);
     [Conditional=VIDEO] undefined endSimulatedHDCPError(HTMLMediaElement media);
+    [Conditional=VIDEO] boolean mediaPlayerRenderingCanBeAccelerated(HTMLMediaElement media);
 
     [Conditional=VIDEO] boolean elementShouldBufferData(HTMLMediaElement media);
     [Conditional=VIDEO] DOMString elementBufferingPolicy(HTMLMediaElement media);
@@ -868,6 +869,8 @@ enum AutoplayPolicy {
     [Conditional=WEB_RTC] undefined setWebRTCH265Support(boolean allowed);
     [Conditional=WEB_RTC] undefined setWebRTCVP9Support(boolean supportVP9Profile0, boolean supportVP9Profile2);
     [Conditional=WEB_RTC] undefined setWebRTCVP9VTBSupport(boolean allowed);
+    [Conditional=WEB_RTC] boolean isSupportingVP9VTB();
+    [Conditional=WEB_RTC] Promise<boolean> isVP9VTBDeccoderUsed(RTCPeerConnection connection);
     [Conditional=WEB_RTC] undefined setSFrameCounter(RTCRtpSFrameTransform transform, DOMString counter);
     [Conditional=WEB_RTC] unsigned long long sframeCounter(RTCRtpSFrameTransform transform);
     [Conditional=WEB_RTC] unsigned long long sframeKeyId(RTCRtpSFrameTransform transform);

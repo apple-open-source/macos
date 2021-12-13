@@ -2308,6 +2308,21 @@ class Container: NSObject {
                 reply(nil, nil, ContainerError.invalidPermanentInfoOrSig)
                 return
             }
+            guard let stableInfoData = self.containerMO.egoPeerStableInfo else {
+                os_log("stableInfo does not exist", log: tplogDebug, type: .default)
+                reply(nil, nil, ContainerError.invalidStableInfoOrSig)
+                return
+            }
+            guard let stableInfoSig = self.containerMO.egoPeerStableInfoSig else {
+                os_log("stableInfoSig does not exist", log: tplogDebug, type: .default)
+                reply(nil, nil, ContainerError.invalidStableInfoOrSig)
+                return
+            }
+            guard let stableInfo = TPPeerStableInfo(data: stableInfoData, sig: stableInfoSig) else {
+                os_log("cannot create TPPeerStableInfo", log: tplogDebug, type: .default)
+                reply(nil, nil, ContainerError.invalidStableInfoOrSig)
+                return
+            }
             loadEgoKeyPair(identifier: signingKeyIdentifier(peerID: egoPeerID)) { signingKeyPair, error in
                 guard let signingKeyPair = signingKeyPair else {
                     os_log("handle: no signing key pair: %{public}@", log: tplogDebug, type: .default, (error as CVarArg?) ?? "no error")
@@ -2316,7 +2331,9 @@ class Container: NSObject {
                 }
                 self.moc.performAndWait {
                     do {
-                        let tlkShares = try makeTLKShares(ckksTLKs: ckksKeys.map { $0.tlk },
+                        let crkViews = try self.model.getViewsForCRK(crk.tpCustodian, donorPermanentInfo: permanentInfo, donorStableInfo: stableInfo)
+                        let ckksTLKs = ckksKeys.filter { crkViews.contains($0.tlk.zoneID.zoneName) }.map { $0.tlk }
+                        let tlkShares = try makeTLKShares(ckksTLKs: ckksTLKs,
                                                           asPeer: crk.peerKeys,
                                                           toPeer: crk.peerKeys,
                                                           epoch: Int(permanentInfo.epoch))
@@ -4105,7 +4122,7 @@ class Container: NSObject {
         }
     }
 
-    func requestHealthCheck(requiresEscrowCheck: Bool, reply: @escaping (Bool, Bool, Bool, Bool, OTEscrowMoveRequestContext?, Error?) -> Void) {
+    func requestHealthCheck(requiresEscrowCheck: Bool, knownFederations: [String], reply: @escaping (Bool, Bool, Bool, Bool, OTEscrowMoveRequestContext?, Error?) -> Void) {
         self.semaphore.wait()
         let reply: (Bool, Bool, Bool, Bool, OTEscrowMoveRequestContext?, Error?) -> Void = {
             os_log("health check complete: %{public}@", log: tplogTrace, type: .info, traceError($5))
@@ -4113,7 +4130,7 @@ class Container: NSObject {
             reply($0, $1, $2, $3, $4, $5)
         }
 
-        os_log("requestHealthCheck requiring escrow check: %d", log: tplogDebug, type: .default, requiresEscrowCheck)
+        os_log("requestHealthCheck requiring escrow check: %d, known federations: %{public}@", log: tplogDebug, type: .default, requiresEscrowCheck, knownFederations)
 
         self.moc.performAndWait {
             guard let egoPeerID = self.containerMO.egoPeerID else {
@@ -4125,6 +4142,7 @@ class Container: NSObject {
             let request = GetRepairActionRequest.with {
                 $0.peerID = egoPeerID
                 $0.requiresEscrowCheck = requiresEscrowCheck
+                $0.knownFederations = knownFederations
             }
 
             self.cuttlefish.getRepairAction(request) { response in

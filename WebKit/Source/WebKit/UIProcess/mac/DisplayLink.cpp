@@ -101,16 +101,12 @@ void DisplayLink::addObserver(IPC::Connection& connection, DisplayLinkObserverID
 
     if (!CVDisplayLinkIsRunning(m_displayLink)) {
         LOG_WITH_STREAM(DisplayLink, stream << "[UI ] DisplayLink for display " << m_displayID << " starting CVDisplayLink with fps " << m_displayNominalFramesPerSecond);
+
+        m_currentUpdate = { 0, m_displayNominalFramesPerSecond };
+
         CVReturn error = CVDisplayLinkStart(m_displayLink);
         if (error)
             RELEASE_LOG_FAULT(DisplayLink, "DisplayLink: Could not start the display link: %d", error);
-
-        if (!m_displayNominalFramesPerSecond) {
-            RELEASE_LOG_FAULT(DisplayLink, "DisplayLink: displayNominalFramesPerSecond is 0, using %d", WebCore::FullSpeedFramesPerSecond);
-            m_displayNominalFramesPerSecond = WebCore::FullSpeedFramesPerSecond;
-        };
-
-        m_currentUpdate = { 0, m_displayNominalFramesPerSecond };
     }
 }
 
@@ -240,9 +236,9 @@ void DisplayLink::notifyObserversDisplayWasRefreshed()
             << " observers, on background queue " << shouldSendIPCOnBackgroundQueue << " maxFramesPerSecond " << observersMaxFramesPerSecond << " full speed clients " << connectionInfo.fullSpeedUpdatesClientCount << " relevant " << mainThreadWantsUpdate);
 
         if (connectionInfo.fullSpeedUpdatesClientCount) {
-            IPC::Connection::send(connectionID, Messages::EventDispatcher::DisplayWasRefreshed(m_displayID, m_currentUpdate, mainThreadWantsUpdate), 0);
+            IPC::Connection::send(connectionID, Messages::EventDispatcher::DisplayWasRefreshed(m_displayID, m_currentUpdate, mainThreadWantsUpdate), 0, { }, Thread::QOS::UserInteractive);
         } else if (mainThreadWantsUpdate)
-            IPC::Connection::send(connectionID, Messages::WebProcess::DisplayWasRefreshed(m_displayID, m_currentUpdate), 0);
+            IPC::Connection::send(connectionID, Messages::WebProcess::DisplayWasRefreshed(m_displayID, m_currentUpdate), 0, { }, Thread::QOS::UserInteractive);
     }
 
     m_currentUpdate = m_currentUpdate.nextUpdate();

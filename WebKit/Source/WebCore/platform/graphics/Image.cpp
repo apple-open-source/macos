@@ -153,6 +153,11 @@ void Image::drawPattern(GraphicsContext& ctxt, const FloatRect& destRect, const 
         imageObserver()->didDraw(*this);
 }
 
+ImageDrawResult Image::drawForCanvas(GraphicsContext& context, const FloatRect& dstRect, const FloatRect& srcRect, const ImagePaintingOptions& options, DestinationColorSpace)
+{
+    return draw(context, dstRect, srcRect, options);
+}
+
 ImageDrawResult Image::drawTiled(GraphicsContext& ctxt, const FloatRect& destRect, const FloatPoint& srcPoint, const FloatSize& scaledTileSize, const FloatSize& spacing, const ImagePaintingOptions& options)
 {
     Color color = singlePixelSolidColor();
@@ -350,6 +355,11 @@ void Image::startAnimationAsynchronously()
     if (m_animationStartTimer->isActive())
         return;
     m_animationStartTimer->startOneShot(0_s);
+}
+
+DestinationColorSpace Image::colorSpace()
+{
+    return DestinationColorSpace::SRGB();
 }
 
 void Image::dump(TextStream& ts) const

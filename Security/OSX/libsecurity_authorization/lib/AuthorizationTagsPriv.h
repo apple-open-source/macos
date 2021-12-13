@@ -338,6 +338,7 @@
 #define AGENT_CONTEXT_NEW_PASSWORD "new-password"
 #define AGENT_CONTEXT_AUTO_LOGIN "auto-login"
 #define AGENT_CONTEXT_USER_CONSENT "user-consent"
+#define AGENT_CONTEXT_SC_REQUIRED_USER "rscuser"
 
 // Allow the user to choose to display their password
 #define AGENT_HINT_ALLOW_SHOW_PASSWORD "show-add-password"

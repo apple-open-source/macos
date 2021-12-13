@@ -76,7 +76,7 @@
 #include "test_char.h"
 
 /* Win32/NetWare/OS2 need to check for both forward and back slashes
- * in ap_getparents() and ap_escape_url.
+ * in ap_normalize_path() and ap_escape_url().
  */
 #ifdef CASE_BLIND_FILESYSTEM
 #define IS_SLASH(s) ((s == '/') || (s == '\\'))
@@ -491,75 +491,134 @@ AP_DECLARE(apr_status_t) ap_pregsub_ex(apr_pool_t *p, char **result,
     return rc;
 }
 
+/* Forward declare */
+static char x2c(const char *what);
+
+#define IS_SLASH_OR_NUL(s) (s == '\0' || IS_SLASH(s))
+
+/*
+ * Inspired by mod_jk's jk_servlet_normalize().
+ */
+AP_DECLARE(int) ap_normalize_path(char *path, unsigned int flags)
+{
+    int ret = 1;
+    apr_size_t l = 1, w = 1, n;
+    int decode_unreserved = (flags & AP_NORMALIZE_DECODE_UNRESERVED) != 0;
+
+    if (!IS_SLASH(path[0])) {
+        /* Besides "OPTIONS *", a request-target should start with '/'
+         * per RFC 7230 section 5.3, so anything else is invalid.
+         */
+        if (path[0] == '*' && path[1] == '\0') {
+            return 1;
+        }
+        /* However, AP_NORMALIZE_ALLOW_RELATIVE can be used to bypass
+         * this restriction (e.g. for subrequest file lookups).
+         */
+        if (!(flags & AP_NORMALIZE_ALLOW_RELATIVE) || path[0] == '\0') {
+            return 0;
+        }
+
+        l = w = 0;
+    }
+
+    while (path[l] != '\0') {
+        /* RFC-3986 section 2.3:
+         *  For consistency, percent-encoded octets in the ranges of
+         *  ALPHA (%41-%5A and %61-%7A), DIGIT (%30-%39), hyphen (%2D),
+         *  period (%2E), underscore (%5F), or tilde (%7E) should [...]
+         *  be decoded to their corresponding unreserved characters by
+         *  URI normalizers.
+         */
+        if (decode_unreserved && path[l] == '%') {
+            if (apr_isxdigit(path[l + 1]) && apr_isxdigit(path[l + 2])) {
+                const char c = x2c(&path[l + 1]);
+                if (TEST_CHAR(c, T_URI_UNRESERVED)) {
+                    /* Replace last char and fall through as the current
+                     * read position */
+                    l += 2;
+                    path[l] = c;
+                }
+            }
+            else {
+                /* Invalid encoding */
+                ret = 0;
+            }
+        }
+
+        if (w == 0 || IS_SLASH(path[w - 1])) {
+            /* Collapse ///// sequences to / */
+            if ((flags & AP_NORMALIZE_MERGE_SLASHES) && IS_SLASH(path[l])) {
+                do {
+                    l++;
+                } while (IS_SLASH(path[l]));
+                continue;
+            }
+
+            if (path[l] == '.') {
+                /* Remove /./ segments */
+                if (IS_SLASH_OR_NUL(path[l + 1])) {
+                    l++;
+                    if (path[l]) {
+                        l++;
+                    }
+                    continue;
+                }
+
+                /* Remove /xx/../ segments (or /xx/.%2e/ when
+                 * AP_NORMALIZE_DECODE_UNRESERVED is set since we
+                 * decoded only the first dot above).
+                 */
+                n = l + 1;
+                if ((path[n] == '.' || (decode_unreserved
+                                        && path[n] == '%'
+                                        && path[++n] == '2'
+                                        && (path[++n] == 'e'
+                                            || path[n] == 'E')))
+                        && IS_SLASH_OR_NUL(path[n + 1])) {
+                    /* Wind w back to remove the previous segment */
+                    if (w > 1) {
+                        do {
+                            w--;
+                        } while (w && !IS_SLASH(path[w - 1]));
+                    }
+                    else {
+                        /* Already at root, ignore and return a failure
+                         * if asked to.
+                         */
+                        if (flags & AP_NORMALIZE_NOT_ABOVE_ROOT) {
+                            ret = 0;
+                        }
+                    }
+
+                    /* Move l forward to the next segment */
+                    l = n + 1;
+                    if (path[l]) {
+                        l++;
+                    }
+                    continue;
+                }
+            }
+        }
+
+        path[w++] = path[l++];
+    }
+    path[w] = '\0';
+
+    return ret;
+}
+
 /*
  * Parse .. so we don't compromise security
  */
 AP_DECLARE(void) ap_getparents(char *name)
 {
-    char *next;
-    int l, w, first_dot;
-
-    /* Four paseses, as per RFC 1808 */
-    /* a) remove ./ path segments */
-    for (next = name; *next && (*next != '.'); next++) {
-    }
-
-    l = w = first_dot = next - name;
-    while (name[l] != '\0') {
-        if (name[l] == '.' && IS_SLASH(name[l + 1])
-            && (l == 0 || IS_SLASH(name[l - 1])))
-            l += 2;
-        else
-            name[w++] = name[l++];
-    }
-
-    /* b) remove trailing . path, segment */
-    if (w == 1 && name[0] == '.')
-        w--;
-    else if (w > 1 && name[w - 1] == '.' && IS_SLASH(name[w - 2]))
-        w--;
-    name[w] = '\0';
-
-    /* c) remove all xx/../ segments. (including leading ../ and /../) */
-    l = first_dot;
-
-    while (name[l] != '\0') {
-        if (name[l] == '.' && name[l + 1] == '.' && IS_SLASH(name[l + 2])
-            && (l == 0 || IS_SLASH(name[l - 1]))) {
-            int m = l + 3, n;
-
-            l = l - 2;
-            if (l >= 0) {
-                while (l >= 0 && !IS_SLASH(name[l]))
-                    l--;
-                l++;
-            }
-            else
-                l = 0;
-            n = l;
-            while ((name[n] = name[m]))
-                (++n, ++m);
-        }
-        else
-            ++l;
-    }
-
-    /* d) remove trailing xx/.. segment. */
-    if (l == 2 && name[0] == '.' && name[1] == '.')
+    if (!ap_normalize_path(name, AP_NORMALIZE_NOT_ABOVE_ROOT |
+                                 AP_NORMALIZE_ALLOW_RELATIVE)) {
         name[0] = '\0';
-    else if (l > 2 && name[l - 1] == '.' && name[l - 2] == '.'
-             && IS_SLASH(name[l - 3])) {
-        l = l - 4;
-        if (l >= 0) {
-            while (l >= 0 && !IS_SLASH(name[l]))
-                l--;
-            l++;
-        }
-        else
-            l = 0;
-        name[l] = '\0';
     }
 }
+
 AP_DECLARE(void) ap_no2slash_ex(char *name, int is_fs_path)
 {
 
@@ -1827,8 +1886,12 @@ static char x2c(const char *what)
  *   decoding %00 or a forbidden character returns HTTP_NOT_FOUND
  */
 
-static int unescape_url(char *url, const char *forbid, const char *reserved)
+static int unescape_url(char *url, const char *forbid, const char *reserved,
+                        unsigned int flags)
 {
+    const int keep_slashes = (flags & AP_UNESCAPE_URL_KEEP_SLASHES) != 0,
+              forbid_slashes = (flags & AP_UNESCAPE_URL_FORBID_SLASHES) != 0,
+              keep_unreserved = (flags & AP_UNESCAPE_URL_KEEP_UNRESERVED) != 0;
     int badesc, badpath;
     char *x, *y;
 
@@ -1853,12 +1916,16 @@ static int unescape_url(char *url, const char *forbid, const char *reserved)
                 char decoded;
                 decoded = x2c(y + 1);
                 if ((decoded == '\0')
+                    || (forbid_slashes && IS_SLASH(decoded))
                     || (forbid && ap_strchr_c(forbid, decoded))) {
                     badpath = 1;
                     *x = decoded;
                     y += 2;
                 }
-                else if (reserved && ap_strchr_c(reserved, decoded)) {
+                else if ((keep_unreserved && TEST_CHAR(decoded,
+                                                       T_URI_UNRESERVED))
+                         || (keep_slashes && IS_SLASH(decoded))
+                         || (reserved && ap_strchr_c(reserved, decoded))) {
                     *x++ = *y++;
                     *x++ = *y++;
                     *x = *y;
@@ -1884,19 +1951,24 @@ static int unescape_url(char *url, const char *forbid, const char *reserved)
 AP_DECLARE(int) ap_unescape_url(char *url)
 {
     /* Traditional */
-    return unescape_url(url, SLASHES, NULL);
+    return unescape_url(url, SLASHES, NULL, 0);
 }
 AP_DECLARE(int) ap_unescape_url_keep2f(char *url, int decode_slashes)
 {
     /* AllowEncodedSlashes (corrected) */
     if (decode_slashes) {
         /* no chars reserved */
-        return unescape_url(url, NULL, NULL);
+        return unescape_url(url, NULL, NULL, 0);
     } else {
         /* reserve (do not decode) encoded slashes */
-        return unescape_url(url, NULL, SLASHES);
+        return unescape_url(url, NULL, SLASHES, 0);
     }
 }
+AP_DECLARE(int) ap_unescape_url_ex(char *url, unsigned int flags)
+{
+    return unescape_url(url, NULL, NULL, flags);
+}
+
 #ifdef NEW_APIS
 /* IFDEF these out until they've been thought through.
  * Just a germ of an API extension for now
@@ -1906,7 +1978,7 @@ AP_DECLARE(int) ap_unescape_url_proxy(char *url)
     /* leave RFC1738 reserved characters intact, * so proxied URLs
      * don't get mangled.  Where does that leave encoded '&' ?
      */
-    return unescape_url(url, NULL, "/;?");
+    return unescape_url(url, NULL, "/;?", 0);
 }
 AP_DECLARE(int) ap_unescape_url_reserved(char *url, const char *reserved)
 {
@@ -1928,7 +2000,7 @@ AP_DECLARE(int) ap_unescape_urlencoded(char *query)
     }
 
     /* unescape everything else */
-    return unescape_url(query, NULL, NULL);
+    return unescape_url(query, NULL, NULL, 0);
 }
 
 AP_DECLARE(char *) ap_construct_server(apr_pool_t *p, const char *hostname,
@@ -1944,7 +2016,7 @@ AP_DECLARE(char *) ap_construct_server(apr_pool_t *p, const char *hostname,
 
 AP_DECLARE(int) ap_unescape_all(char *url)
 {
-    return unescape_url(url, NULL, NULL);
+    return unescape_url(url, NULL, NULL, 0);
 }
 
 /* c2x takes an unsigned, and expects the caller has guaranteed that
@@ -2490,12 +2562,11 @@ AP_DECLARE(char *) ap_escape_quotes(apr_pool_t *p, const char *instring)
      * in front of every " that doesn't already have one.
      */
     while (*inchr != '\0') {
-        if ((*inchr == '\\') && (inchr[1] != '\0')) {
-            *outchr++ = *inchr++;
-            *outchr++ = *inchr++;
-        }
         if (*inchr == '"') {
             *outchr++ = '\\';
+        }
+        if ((*inchr == '\\') && (inchr[1] != '\0')) {
+            *outchr++ = *inchr++;
         }
         if (*inchr != '\0') {
             *outchr++ = *inchr++;
@@ -2537,6 +2608,7 @@ AP_DECLARE(char *) ap_append_pid(apr_pool_t *p, const char *string,
  * in timeout_parameter.
  * @return Status value indicating whether the parsing was successful or not.
  */
+#define CHECK_OVERFLOW(a, b) if (a > b) return APR_EGENERAL
 AP_DECLARE(apr_status_t) ap_timeout_parameter_parse(
                                                const char *timeout_parameter,
                                                apr_interval_time_t *timeout,
@@ -2545,6 +2617,7 @@ AP_DECLARE(apr_status_t) ap_timeout_parameter_parse(
     char *endp;
     const char *time_str;
     apr_int64_t tout;
+    apr_uint64_t check;
 
     tout = apr_strtoi64(timeout_parameter, &endp, 10);
     if (errno) {
@@ -2557,24 +2630,32 @@ AP_DECLARE(apr_status_t) ap_timeout_parameter_parse(
         time_str = endp;
     }
 
+    if (tout < 0) { 
+        return APR_EGENERAL;
+    }
+
     switch (*time_str) {
         /* Time is in seconds */
     case 's':
-        *timeout = (apr_interval_time_t) apr_time_from_sec(tout);
+        CHECK_OVERFLOW(tout, apr_time_sec(APR_INT64_MAX));
+        check = apr_time_from_sec(tout);
         break;
-    case 'h':
         /* Time is in hours */
-        *timeout = (apr_interval_time_t) apr_time_from_sec(tout * 3600);
+    case 'h':
+        CHECK_OVERFLOW(tout, apr_time_sec(APR_INT64_MAX / 3600));
+        check = apr_time_from_sec(tout * 3600);
         break;
     case 'm':
         switch (*(++time_str)) {
         /* Time is in milliseconds */
         case 's':
-            *timeout = (apr_interval_time_t) tout * 1000;
+            CHECK_OVERFLOW(tout, apr_time_as_msec(APR_INT64_MAX));
+            check = apr_time_from_msec(tout);
             break;
         /* Time is in minutes */
         case 'i':
-            *timeout = (apr_interval_time_t) apr_time_from_sec(tout * 60);
+            CHECK_OVERFLOW(tout, apr_time_sec(APR_INT64_MAX / 60));
+            check = apr_time_from_sec(tout * 60);
             break;
         default:
             return APR_EGENERAL;
@@ -2583,8 +2664,11 @@ AP_DECLARE(apr_status_t) ap_timeout_parameter_parse(
     default:
         return APR_EGENERAL;
     }
+
+    *timeout = (apr_interval_time_t)check;
     return APR_SUCCESS;
 }
+#undef CHECK_OVERFLOW
 
 AP_DECLARE(int) ap_parse_strict_length(apr_off_t *len, const char *str)
 {

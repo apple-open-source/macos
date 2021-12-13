@@ -151,6 +151,7 @@
 #import <WebCore/DragData.h>
 #import <WebCore/DragItem.h>
 #import <WebCore/DummySpeechRecognitionProvider.h>
+#import <WebCore/DummyStorageProvider.h>
 #import <WebCore/Editing.h>
 #import <WebCore/Editor.h>
 #import <WebCore/Event.h>
@@ -876,7 +877,7 @@ private:
     }
 
     if (indicatorData.options.contains(WebCore::TextIndicatorOption::ComputeEstimatedBackgroundColor))
-        _estimatedBackgroundColor = [PAL::allocUIColorInstance() initWithCGColor:cachedCGColor(indicatorData.estimatedBackgroundColor)];
+        _estimatedBackgroundColor = [PAL::allocUIColorInstance() initWithCGColor:cachedCGColor(indicatorData.estimatedBackgroundColor).get()];
 
     return self;
 }
@@ -1541,7 +1542,8 @@ static void WebKitInitializeGamepadProviderIfNecessary()
         makeUniqueRef<WebFrameLoaderClient>(),
         makeUniqueRef<WebCore::DummySpeechRecognitionProvider>(),
         makeUniqueRef<WebCore::MediaRecorderProvider>(),
-        WebBroadcastChannelRegistry::getOrCreate([[self preferences] privateBrowsingEnabled])
+        WebBroadcastChannelRegistry::getOrCreate([[self preferences] privateBrowsingEnabled]),
+        makeUniqueRef<WebCore::DummyStorageProvider>()
     );
 #if !PLATFORM(IOS_FAMILY)
     pageConfiguration.chromeClient = new WebChromeClient(self);
@@ -1819,7 +1821,8 @@ static void WebKitInitializeGamepadProviderIfNecessary()
         makeUniqueRef<WebFrameLoaderClient>(),
         makeUniqueRef<WebCore::DummySpeechRecognitionProvider>(),
         makeUniqueRef<WebCore::MediaRecorderProvider>(),
-        WebBroadcastChannelRegistry::getOrCreate([[self preferences] privateBrowsingEnabled])
+        WebBroadcastChannelRegistry::getOrCreate([[self preferences] privateBrowsingEnabled]),
+        makeUniqueRef<WebCore::DummyStorageProvider>()
     );
     pageConfiguration.chromeClient = new WebChromeClientIOS(self);
 #if ENABLE(DRAG_SUPPORT)
@@ -9508,7 +9511,7 @@ static NSTextAlignment nsTextAlignmentFromRenderStyle(const WebCore::RenderStyle
 
                 Color textColor = style->visitedDependentColor(CSSPropertyColor);
                 if (textColor.isValid())
-                    [_private->_textTouchBarItemController setTextColor:nsColor(textColor)];
+                    [_private->_textTouchBarItemController setTextColor:nsColor(textColor).get()];
 
                 [_private->_textTouchBarItemController setCurrentTextAlignment:nsTextAlignmentFromRenderStyle(style)];
 

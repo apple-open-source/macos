@@ -207,7 +207,10 @@ static int32_t xar_parse_header(xar_t x) {
 
 xar_t xar_open(const char *file, int32_t flags)
 {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunguarded-availability-new"
 	return xar_open_digest_verify(file, flags, NULL, 0);
+#pragma clang diagnostic pop
 }
 
 /* xar_open

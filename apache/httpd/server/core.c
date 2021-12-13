@@ -511,6 +511,8 @@ static void *create_core_server_config(apr_pool_t *a, server_rec *s)
     conf->protocols_honor_order = -1;
     conf->merge_slashes = AP_CORE_CONFIG_UNSET; 
     
+    conf->strict_host_check= AP_CORE_CONFIG_UNSET; 
+
     return (void *)conf;
 }
 
@@ -584,6 +586,12 @@ static void *merge_core_server_configs(apr_pool_t *p, void *basev, void *virtv)
     conf->flush_max_pipelined = (virt->flush_max_pipelined >= 0)
                                   ? virt->flush_max_pipelined
                                   : base->flush_max_pipelined;
+
+    conf->strict_host_check = (virt->strict_host_check != AP_CORE_CONFIG_UNSET)
+                              ? virt->strict_host_check 
+                              : base->strict_host_check;
+
+    AP_CORE_MERGE_FLAG(strict_host_check, conf, base, virt);
 
     return conf;
 }
@@ -4623,7 +4631,10 @@ AP_INIT_TAKE2("CGIVar", set_cgi_var, NULL, OR_FILEINFO,
 AP_INIT_FLAG("QualifyRedirectURL", set_qualify_redirect_url, NULL, OR_FILEINFO,
              "Controls whether the REDIRECT_URL environment variable is fully "
              "qualified"),
-
+AP_INIT_FLAG("StrictHostCheck", set_core_server_flag, 
+             (void *)APR_OFFSETOF(core_server_config, strict_host_check),  
+             RSRC_CONF,
+             "Controls whether a hostname match is required"),
 AP_INIT_TAKE1("ForceType", ap_set_string_slot_lower,
        (void *)APR_OFFSETOF(core_dir_config, mime_type), OR_FILEINFO,
      "a mime type that overrides other configured type"),
@@ -5246,9 +5257,14 @@ static conn_rec *core_create_conn(apr_pool_t *ptrans, server_rec *server,
 
 static int core_pre_connection(conn_rec *c, void *csd)
 {
-    core_net_rec *net = apr_palloc(c->pool, sizeof(*net));
+    core_net_rec *net;
     apr_status_t rv;
 
+    if (c->master) {
+        return DONE;
+    }
+    
+    net = apr_palloc(c->pool, sizeof(*net));
     /* The Nagle algorithm says that we should delay sending partial
      * packets in hopes of getting more data.  We don't want to do
      * this; we are not telnet.  There are bad interactions between
@@ -5287,6 +5303,31 @@ static int core_pre_connection(conn_rec *c, void *csd)
     ap_add_input_filter_handle(ap_core_input_filter_handle, net, NULL, net->c);
     ap_add_output_filter_handle(ap_core_output_filter_handle, net, NULL, net->c);
     return DONE;
+}
+
+AP_DECLARE(int) ap_pre_connection(conn_rec *c, void *csd)
+{
+    int rc = OK;
+
+    rc = ap_run_pre_connection(c, csd);
+    if (rc != OK && rc != DONE) {
+        c->aborted = 1;
+        /*
+         * In case we errored, the pre_connection hook of the core
+         * module maybe did not run (it is APR_HOOK_REALLY_LAST) and
+         * hence we missed to
+         *
+         * - Put the socket in c->conn_config
+         * - Setup core output and input filters
+         * - Set socket options and timeouts
+         *
+         * Hence call it in this case.
+         */
+        if (!ap_get_conn_socket(c)) {
+            core_pre_connection(c, csd);
+        }
+    }
+    return rc;
 }
 
 AP_DECLARE(int) ap_state_query(int query)
@@ -5623,4 +5664,3 @@ AP_DECLARE_MODULE(core) = {
     core_cmds,                    /* command apr_table_t */
     register_hooks                /* register hooks */
 };
-

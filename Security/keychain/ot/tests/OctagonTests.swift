@@ -98,7 +98,7 @@ class FakeCuttlefishCKOperationRunner: ContainerNameToCKOperationRunner {
         self.server = server
     }
 
-    func client(container: String) -> CKOperationRunner {
+    func client(containerName _: String) -> CKOperationRunner {
         return FakeCKOperationRunner(server: self.server)
     }
 }
@@ -360,6 +360,9 @@ class OctagonTestsBase: CloudKitKeychainSyncingMockXCTest {
     var manager: OTManager!
     var cuttlefishContext: OTCuttlefishContext!
 
+    var keychainUpgradeController: KeychainItemUpgradeRequestController!
+    var keychainUpgradeServer: KeychainItemUpgradeRequestServer!
+
     var otcliqueContext: OTConfigurationContext!
 
     var intendedCKKSZones: Set<CKRecordZone.ID>!
@@ -495,6 +498,9 @@ class OctagonTestsBase: CloudKitKeychainSyncingMockXCTest {
 
         self.cuttlefishContext = self.manager.context(forContainerName: OTCKContainerName, contextID: OTDefaultContext)
 
+        self.keychainUpgradeServer = KeychainItemUpgradeRequestServer(lockStateTracker: self.lockStateTracker)
+        self.keychainUpgradeController = self.keychainUpgradeServer.controller
+
         self.otControlEntitlementBearer = FakeOTControlEntitlementBearer()
         self.otControlEntitlementChecker = OctagonXPCEntitlementChecker.create(with: self.manager, entitlementBearer: self.otControlEntitlementBearer)
 
@@ -530,6 +536,10 @@ class OctagonTestsBase: CloudKitKeychainSyncingMockXCTest {
     override func tearDown() {
         // Just to be sure
         self.verifyDatabaseMocks()
+
+        TestsObjectiveC.clearError()
+        TestsObjectiveC.clearLastRowID()
+        TestsObjectiveC.clearErrorInsertionDictionary()
 
         let statusExpectation = self.expectation(description: "status callback occurs")
         self.cuttlefishContext.rpcStatus { _, _ in
@@ -587,6 +597,8 @@ class OctagonTestsBase: CloudKitKeychainSyncingMockXCTest {
         self.otControlCLI = nil
 
         self.otFollowUpController = nil
+        self.keychainUpgradeController.persistentReferenceUpgrader.cancel()
+        self.keychainUpgradeController = nil
     }
 
     override func managedViewList() -> Set<String> {
@@ -644,6 +656,13 @@ class OctagonTestsBase: CloudKitKeychainSyncingMockXCTest {
         XCTAssertEqual(0, (context.stateMachine.stateConditions[state]!).wait(within), "State machine should enter '\(state)'")
         if state == OctagonStateReady || state == OctagonStateUntrusted {
             XCTAssertEqual(0, context.stateMachine.paused.wait(10 * NSEC_PER_SEC), "State machine should pause soon")
+        }
+    }
+
+    func assertEnters(stateMachine: OctagonStateMachine, state: String, within: UInt64) {
+        XCTAssertEqual(0, (stateMachine.stateConditions[state]!).wait(within), "State machine should enter '\(state)'")
+        if state == OctagonStateReady || state == OctagonStateUntrusted {
+            XCTAssertEqual(0, stateMachine.paused.wait(10 * NSEC_PER_SEC), "State machine should pause soon")
         }
     }
 
@@ -3123,6 +3142,689 @@ class OctagonTests: OctagonTestsBase {
         self.sendTTRRequest(context: self.cuttlefishContext)
 
         self.wait(for: [try XCTUnwrap(self.ttrExpectation)], timeout: 10)
+    }
+
+    func testPersistRefSchedulerLessThan100Items() throws {
+
+        TestsObjectiveC.addNRandomKeychainItemsWithoutUpgradedPersistentRefs(3)
+
+        XCTAssertFalse(TestsObjectiveC.checkAllPersistentRefBeenUpgraded(), "should NOT be upgraded")
+
+        self.startCKAccountStatusMock()
+
+        self.keychainUpgradeController.triggerKeychainItemUpdateRPC { error in
+            XCTAssertNil(error, "error should be nil")
+        }
+
+        self.assertEnters(stateMachine: self.keychainUpgradeController.stateMachine, state: KeychainItemUpgradeRequestStateUpgradePersistentRef, within: 10 * NSEC_PER_SEC)
+
+        self.assertEnters(stateMachine: self.keychainUpgradeController.stateMachine, state: KeychainItemUpgradeRequestStateNothingToDo, within: 10 * NSEC_PER_SEC)
+
+        XCTAssertTrue(TestsObjectiveC.checkAllPersistentRefBeenUpgraded(), "all items should be upgraded")
+        XCTAssertEqual(TestsObjectiveC.lastRowID(), NSNumber(value: 3), "last rowID should be 3")
+        XCTAssertTrue(TestsObjectiveC.expectXNumber(ofItemsUpgraded: 3), "should be 3 upgraded")
+        self.assertEnters(stateMachine: self.keychainUpgradeController.stateMachine, state: KeychainItemUpgradeRequestStateNothingToDo, within: 10 * NSEC_PER_SEC)
+    }
+
+    func testPersistRefSchedulerMoreThan100Items() throws {
+        TestsObjectiveC.addNRandomKeychainItemsWithoutUpgradedPersistentRefs(150)
+
+        XCTAssertFalse(TestsObjectiveC.checkAllPersistentRefBeenUpgraded(), "should NOT be upgraded")
+
+        self.startCKAccountStatusMock()
+
+        self.keychainUpgradeController.triggerKeychainItemUpdateRPC { error in
+            XCTAssertNil(error, "error should be nil")
+        }
+        self.assertEnters(stateMachine: self.keychainUpgradeController.stateMachine, state: KeychainItemUpgradeRequestStateUpgradePersistentRef, within: 10 * NSEC_PER_SEC)
+
+        self.assertEnters(stateMachine: self.keychainUpgradeController.stateMachine, state: KeychainItemUpgradeRequestStateNothingToDo, within: 10 * NSEC_PER_SEC)
+
+        XCTAssertTrue(TestsObjectiveC.checkAllPersistentRefBeenUpgraded(), "should be upgraded")
+        XCTAssertNil(self.keychainUpgradeController.persistentReferenceUpgrader.nextFireTime, "nextFireTime should be nil")
+        XCTAssertEqual(TestsObjectiveC.lastRowID(), NSNumber(value: 150), "last rowID should be 150")
+        XCTAssertTrue(TestsObjectiveC.expectXNumber(ofItemsUpgraded: 150), "should be 150 upgraded")
+    }
+
+    func testPersistRefSchedulerLessThan100ItemsErrSecInteractionNotAllowed() throws {
+        TestsObjectiveC.addNRandomKeychainItemsWithoutUpgradedPersistentRefs(3)
+
+        XCTAssertFalse(TestsObjectiveC.checkAllPersistentRefBeenUpgraded(), "should NOT be upgraded")
+        TestsObjectiveC.setError(errSecInteractionNotAllowed)
+
+        self.startCKAccountStatusMock()
+
+        // device is locked
+        self.aksLockState = true
+        self.lockStateProvider.aksCurrentlyLocked = true
+        self.lockStateTracker.recheck()
+ 
+        self.keychainUpgradeController.triggerKeychainItemUpdateRPC { error in
+            XCTAssertNil(error, "error should be nil")
+        }
+
+        self.assertEnters(stateMachine: self.keychainUpgradeController.stateMachine, state: KeychainItemUpgradeRequestStateWaitForUnlock, within: 10 * NSEC_PER_SEC)
+
+        XCTAssertFalse(TestsObjectiveC.checkAllPersistentRefBeenUpgraded(), "all items should NOT be upgraded")
+        XCTAssertEqual(TestsObjectiveC.lastRowID(), nil, "last rowID should be nil")
+        XCTAssertTrue(TestsObjectiveC.expectXNumber(ofItemsUpgraded: 0), "should be 0 upgraded")
+
+        XCTAssertNil(self.keychainUpgradeController.persistentReferenceUpgrader.nextFireTime, "nextFireTime should be nil")
+
+        // now the device is unlocked
+        TestsObjectiveC.clearError()
+        self.aksLockState = false
+        self.lockStateProvider.aksCurrentlyLocked = false
+        self.lockStateTracker.recheck()
+        
+        self.assertEnters(stateMachine: self.keychainUpgradeController.stateMachine, state: KeychainItemUpgradeRequestStateUpgradePersistentRef, within: 10 * NSEC_PER_SEC)
+
+        self.assertEnters(stateMachine: self.keychainUpgradeController.stateMachine, state: KeychainItemUpgradeRequestStateNothingToDo, within: 10 * NSEC_PER_SEC)
+
+        XCTAssertTrue(TestsObjectiveC.checkAllPersistentRefBeenUpgraded(), "all items should be upgraded")
+        XCTAssertEqual(TestsObjectiveC.lastRowID(), NSNumber(value: 3), "last rowID should be 3")
+        XCTAssertTrue(TestsObjectiveC.expectXNumber(ofItemsUpgraded: 3), "should be 3 upgraded")
+        XCTAssertNil(self.keychainUpgradeController.persistentReferenceUpgrader.nextFireTime, "nextFireTime should be nil")
+    }
+
+    func testPersistRefSchedulerMoreThan100ItemsErrSecInteractionNotAllowed() throws {
+        TestsObjectiveC.addNRandomKeychainItemsWithoutUpgradedPersistentRefs(200)
+
+        XCTAssertFalse(TestsObjectiveC.checkAllPersistentRefBeenUpgraded(), "should NOT be upgraded")
+        TestsObjectiveC.setError(errSecInteractionNotAllowed)
+
+        self.startCKAccountStatusMock()
+
+        // device is locked
+        self.aksLockState = true
+        self.lockStateTracker.recheck()
+        self.lockStateProvider.aksCurrentlyLocked = true
+
+        self.keychainUpgradeController.triggerKeychainItemUpdateRPC { error in
+            XCTAssertNil(error, "error should be nil")
+        }
+
+        self.assertEnters(stateMachine: self.keychainUpgradeController.stateMachine, state: KeychainItemUpgradeRequestStateWaitForUnlock, within: 10 * NSEC_PER_SEC)
+
+        XCTAssertFalse(TestsObjectiveC.checkAllPersistentRefBeenUpgraded(), "all items should NOT be upgraded")
+
+        XCTAssertNil(self.keychainUpgradeController.persistentReferenceUpgrader.nextFireTime, "nextFireTime should be nil")
+        XCTAssertEqual(TestsObjectiveC.lastRowID(), nil, "last rowID should be nil")
+        XCTAssertTrue(TestsObjectiveC.expectXNumber(ofItemsUpgraded: 0), "should be 0 upgraded")
+
+        // now the device is unlocked
+        TestsObjectiveC.clearError()
+        self.aksLockState = false
+        self.lockStateProvider.aksCurrentlyLocked = false
+        self.lockStateTracker.recheck()
+
+        XCTAssertFalse(TestsObjectiveC.checkAllPersistentRefBeenUpgraded(), "all items should NOT be upgraded")
+
+        XCTAssertNil(self.keychainUpgradeController.persistentReferenceUpgrader.nextFireTime, "nextFireTime should be nil")
+
+        self.assertEnters(stateMachine: self.keychainUpgradeController.stateMachine, state: KeychainItemUpgradeRequestStateUpgradePersistentRef, within: 10 * NSEC_PER_SEC)
+
+        self.assertEnters(stateMachine: self.keychainUpgradeController.stateMachine, state: KeychainItemUpgradeRequestStateNothingToDo, within: 10 * NSEC_PER_SEC)
+
+        XCTAssertTrue(TestsObjectiveC.checkAllPersistentRefBeenUpgraded(), "all items should be upgraded")
+        XCTAssertEqual(TestsObjectiveC.lastRowID(), NSNumber(value: 200), "last rowID should be 200")
+        XCTAssertTrue(TestsObjectiveC.expectXNumber(ofItemsUpgraded: 200), "should be 200 upgraded")
+
+        XCTAssertNil(self.keychainUpgradeController.persistentReferenceUpgrader.nextFireTime, "nextFireTime should be nil")
+    }
+
+    func testPersistRefSchedulerMoreThan100ItemsRandomErrSecInteractionNotAllowed() throws {
+        TestsObjectiveC.addNRandomKeychainItemsWithoutUpgradedPersistentRefs(200)
+
+        XCTAssertFalse(TestsObjectiveC.checkAllPersistentRefBeenUpgraded(), "should NOT be upgraded")
+        TestsObjectiveC.setErrorAtRowID(errSecInteractionNotAllowed)
+
+        self.startCKAccountStatusMock()
+
+        // device is locked
+        self.aksLockState = true
+        self.lockStateProvider.aksCurrentlyLocked = true
+        self.lockStateTracker.recheck()
+
+        self.keychainUpgradeController.triggerKeychainItemUpdateRPC { error in
+            XCTAssertNil(error, "error should be nil")
+        }
+        self.assertEnters(stateMachine: self.keychainUpgradeController.stateMachine, state: KeychainItemUpgradeRequestStateWaitForUnlock, within: 10 * NSEC_PER_SEC)
+
+        XCTAssertFalse(TestsObjectiveC.checkAllPersistentRefBeenUpgraded(), "all items should NOT be upgraded")
+        XCTAssertNil(self.keychainUpgradeController.persistentReferenceUpgrader.nextFireTime, "nextFireTime should be nil")
+        XCTAssertEqual(TestsObjectiveC.lastRowID(), nil, "last rowID should be nil")
+        XCTAssertTrue(TestsObjectiveC.expectXNumber(ofItemsUpgraded: 0), "should be 0 upgraded")
+
+        // now the device is unlocked
+        TestsObjectiveC.clearError()
+        TestsObjectiveC.clearErrorInsertionDictionary()
+        
+        self.aksLockState = false
+        self.lockStateProvider.aksCurrentlyLocked = false
+        self.lockStateTracker.recheck()
+
+        XCTAssertFalse(TestsObjectiveC.checkAllPersistentRefBeenUpgraded(), "all items should NOT be upgraded")
+
+        XCTAssertNil(self.keychainUpgradeController.persistentReferenceUpgrader.nextFireTime, "nextFireTime should be nil")
+
+        self.assertEnters(stateMachine: self.keychainUpgradeController.stateMachine, state: KeychainItemUpgradeRequestStateUpgradePersistentRef, within: 10 * NSEC_PER_SEC)
+
+        self.assertEnters(stateMachine: self.keychainUpgradeController.stateMachine, state: KeychainItemUpgradeRequestStateNothingToDo, within: 10 * NSEC_PER_SEC)
+  
+        XCTAssertTrue(TestsObjectiveC.checkAllPersistentRefBeenUpgraded(), "all items should be upgraded")
+        XCTAssertEqual(TestsObjectiveC.lastRowID(), NSNumber(value: 200), "last rowID should be 200")
+        XCTAssertTrue(TestsObjectiveC.expectXNumber(ofItemsUpgraded: 200), "should be 200 upgraded")
+        XCTAssertNil(self.keychainUpgradeController.persistentReferenceUpgrader.nextFireTime, "nextFireTime should be nil")
+    }
+
+    //shared tests for decode, auth needed, not available
+    func sharedTestsForLessThan100Items(errorCode: Int32) throws {
+        TestsObjectiveC.addNRandomKeychainItemsWithoutUpgradedPersistentRefs(3)
+
+        TestsObjectiveC.setError(errorCode)
+
+        XCTAssertFalse(TestsObjectiveC.checkAllPersistentRefBeenUpgraded(), "should NOT be upgraded")
+
+        self.startCKAccountStatusMock()
+        
+        // start the state machine
+        self.keychainUpgradeController.triggerKeychainItemUpdateRPC { error in
+            XCTAssertNil(error, "error should be nil")
+        }
+        self.assertEnters(stateMachine: self.keychainUpgradeController.stateMachine, state: KeychainItemUpgradeRequestStateNothingToDo, within: 10 * NSEC_PER_SEC)
+
+        XCTAssertFalse(TestsObjectiveC.checkAllPersistentRefBeenUpgraded(), "all items should NOT be upgraded")
+        XCTAssertNil(self.keychainUpgradeController.persistentReferenceUpgrader.nextFireTime, "nextFireTime should be nil")
+        XCTAssertEqual(TestsObjectiveC.lastRowID(), NSNumber(value: 3), "last rowID should be 3")
+        XCTAssertTrue(TestsObjectiveC.expectXNumber(ofItemsUpgraded: 0), "should be 0 upgraded")
+
+        // begin steps to simulate a secd restart where errors are empty, last rowid is empty
+        // clear the error and rowID
+        TestsObjectiveC.clearError()
+        TestsObjectiveC.clearLastRowID()
+
+        // Now restart the context
+        self.manager.removeContext(forContainerName: OTCKContainerName, contextID: OTDefaultContext)
+        self.cuttlefishContext = self.manager.context(forContainerName: OTCKContainerName, contextID: OTDefaultContext)
+
+        XCTAssertFalse(TestsObjectiveC.checkAllPersistentRefBeenUpgraded(), "all items should NOT be upgraded")
+
+        // start the state machine
+        self.keychainUpgradeController.triggerKeychainItemUpdateRPC { error in
+            XCTAssertNil(error, "error should be nil")
+        }
+        
+        self.assertEnters(stateMachine: self.keychainUpgradeController.stateMachine, state: KeychainItemUpgradeRequestStateUpgradePersistentRef, within: 10 * NSEC_PER_SEC)
+
+        self.assertEnters(stateMachine: self.keychainUpgradeController.stateMachine, state: KeychainItemUpgradeRequestStateNothingToDo, within: 10 * NSEC_PER_SEC)
+
+        // now all items are upgraded
+        XCTAssertTrue(TestsObjectiveC.checkAllPersistentRefBeenUpgraded(), "all items should be upgraded")
+        XCTAssertEqual(TestsObjectiveC.lastRowID(), NSNumber(value: 3), "last rowID should be 3")
+        XCTAssertTrue(TestsObjectiveC.expectXNumber(ofItemsUpgraded: 3), "should be 3 upgraded")
+        XCTAssertNil(self.keychainUpgradeController.persistentReferenceUpgrader.nextFireTime, "nextFireTime should be nil")
+
+        // Now restart the context again, check last rowID should be the same
+        self.manager.removeContext(forContainerName: OTCKContainerName, contextID: OTDefaultContext)
+        self.cuttlefishContext = self.manager.context(forContainerName: OTCKContainerName, contextID: OTDefaultContext)
+
+        self.keychainUpgradeController.triggerKeychainItemUpdateRPC { error in
+            XCTAssertNil(error, "error should be nil")
+        }
+
+        self.assertEnters(stateMachine: self.keychainUpgradeController.stateMachine, state: KeychainItemUpgradeRequestStateNothingToDo, within: 10 * NSEC_PER_SEC)
+
+        XCTAssertNil(self.keychainUpgradeController.persistentReferenceUpgrader.nextFireTime, "nextFireTime should be nil")
+        XCTAssertTrue(TestsObjectiveC.expectXNumber(ofItemsUpgraded: 3), "should be 3 upgraded")
+        XCTAssertTrue(TestsObjectiveC.checkAllPersistentRefBeenUpgraded(), "all items should be upgraded")
+        XCTAssertEqual(TestsObjectiveC.lastRowID(), NSNumber(value: 3), "last rowID should still be 3")
+    }
+    
+    func sharedTestsForLessThan100ItemsTimeoutAndNotReady(errorCode: Int32) throws {
+        SecKeychainSetOverrideStaticPersistentRefsIsEnabled(false);
+
+        TestsObjectiveC.addNRandomKeychainItemsWithoutUpgradedPersistentRefs(3)
+
+        TestsObjectiveC.setError(errorCode)
+
+        XCTAssertFalse(TestsObjectiveC.checkAllPersistentRefBeenUpgraded(), "should NOT be upgraded")
+
+        self.startCKAccountStatusMock()
+        
+        let refCondition = self.keychainUpgradeController.persistentReferenceUpgrader
+
+        let callbackExpectation = self.expectation(description: "callback occurs")
+
+        let callback = CKKSResultOperation.named("callback") {
+            callbackExpectation.fulfill()
+        }
+        callback.timeout(10 * NSEC_PER_SEC)
+
+        callback.addDependency(refCondition.operationDependency)
+        self.operationQueue.addOperation(callback)
+
+        self.keychainUpgradeController.triggerKeychainItemUpdateRPC { error in
+            XCTAssertNil(error, "error should be nil")
+        }
+        self.assertEnters(stateMachine: self.keychainUpgradeController.stateMachine, state: KeychainItemUpgradeRequestStateUpgradePersistentRef, within: 10 * NSEC_PER_SEC)
+        self.assertEnters(stateMachine: self.keychainUpgradeController.stateMachine, state: KeychainItemUpgradeRequestStateNothingToDo, within: 10 * NSEC_PER_SEC)
+        XCTAssertNotNil(self.keychainUpgradeController.persistentReferenceUpgrader.nextFireTime, "nextFireTime should NOT be nil")
+
+        self.wait(for: [callbackExpectation], timeout: 10)
+
+        self.assertEnters(stateMachine: self.keychainUpgradeController.stateMachine, state: KeychainItemUpgradeRequestStateUpgradePersistentRef, within: 10 * NSEC_PER_SEC)
+        self.assertEnters(stateMachine: self.keychainUpgradeController.stateMachine, state: KeychainItemUpgradeRequestStateNothingToDo, within: 10 * NSEC_PER_SEC)
+
+        XCTAssertFalse(TestsObjectiveC.checkAllPersistentRefBeenUpgraded(), "all items should NOT be upgraded")
+        XCTAssertNil(TestsObjectiveC.lastRowID(), "last rowID should be nil")
+        XCTAssertTrue(TestsObjectiveC.expectXNumber(ofItemsUpgraded: 0), "should be 0 upgraded")
+
+        // begin steps to simulate a secd restart where errors are empty, last rowid is empty
+        // clear the error and rowID
+        TestsObjectiveC.clearError()
+        TestsObjectiveC.clearLastRowID()
+
+        // Now restart the context
+        self.manager.removeContext(forContainerName: OTCKContainerName, contextID: OTDefaultContext)
+        self.cuttlefishContext = self.manager.context(forContainerName: OTCKContainerName, contextID: OTDefaultContext)
+
+        XCTAssertFalse(TestsObjectiveC.checkAllPersistentRefBeenUpgraded(), "all items should NOT be upgraded")
+
+        let refConditionAfterRestart = self.keychainUpgradeController.persistentReferenceUpgrader
+        let afterRestartCallbackExpectation = self.expectation(description: "after restart callback occurs")
+        let afterRestartCallback = CKKSResultOperation.named("after restart callback") {
+            afterRestartCallbackExpectation.fulfill()
+        }
+        afterRestartCallback.timeout(10 * NSEC_PER_SEC)
+
+        afterRestartCallback.addDependency(refConditionAfterRestart.operationDependency)
+        self.operationQueue.addOperation(afterRestartCallback)
+        // start the state machine
+        self.keychainUpgradeController.triggerKeychainItemUpdateRPC { error in
+            XCTAssertNil(error, "error should be nil")
+        }
+        self.assertEnters(stateMachine: self.keychainUpgradeController.stateMachine, state: KeychainItemUpgradeRequestStateUpgradePersistentRef, within: 10 * NSEC_PER_SEC)
+        self.assertEnters(stateMachine: self.keychainUpgradeController.stateMachine, state: KeychainItemUpgradeRequestStateNothingToDo, within: 10 * NSEC_PER_SEC)
+
+        self.wait(for: [afterRestartCallbackExpectation], timeout: 10)
+
+        XCTAssertTrue(TestsObjectiveC.checkAllPersistentRefBeenUpgraded(), "all items should be upgraded")
+        XCTAssertEqual(TestsObjectiveC.lastRowID(), NSNumber(value: 3), "last rowID should be 3")
+        XCTAssertTrue(TestsObjectiveC.expectXNumber(ofItemsUpgraded: 3), "should be 3 upgraded")
+        XCTAssertNil(self.keychainUpgradeController.persistentReferenceUpgrader.nextFireTime, "nextFireTime should be nil")
+    }
+
+    //for decode, authneeded, not available errors
+    func sharedTestsForMoreThan100Items(errorCode: Int32) throws {
+        TestsObjectiveC.addNRandomKeychainItemsWithoutUpgradedPersistentRefs(200)
+
+        TestsObjectiveC.setError(errorCode)
+
+        XCTAssertFalse(TestsObjectiveC.checkAllPersistentRefBeenUpgraded(), "should NOT be upgraded")
+
+        self.startCKAccountStatusMock()
+  
+        // start the state machine
+        self.keychainUpgradeController.triggerKeychainItemUpdateRPC { error in
+            XCTAssertNil(error, "error should be nil")
+        }
+        self.assertEnters(stateMachine: self.keychainUpgradeController.stateMachine, state: KeychainItemUpgradeRequestStateUpgradePersistentRef, within: 10 * NSEC_PER_SEC)
+        self.assertEnters(stateMachine: self.keychainUpgradeController.stateMachine, state: KeychainItemUpgradeRequestStateNothingToDo, within: 10 * NSEC_PER_SEC)
+
+
+        XCTAssertFalse(TestsObjectiveC.checkAllPersistentRefBeenUpgraded(), "all items should NOT be upgraded")
+        XCTAssertNil(self.keychainUpgradeController.persistentReferenceUpgrader.nextFireTime, "nextFireTime should be nil")
+        XCTAssertEqual(TestsObjectiveC.lastRowID(), NSNumber(value: 200), "last rowID should be 200")
+        XCTAssertTrue(TestsObjectiveC.expectXNumber(ofItemsUpgraded: 0), "should be 0 upgraded")
+
+        // at this point secd has scanned all items and skipped over all the items
+
+        // begin steps to simulate a secd restart where errors are empty, last rowid is empty
+        // clear the error and rowID
+        TestsObjectiveC.clearError()
+        TestsObjectiveC.clearLastRowID()
+
+        // Now restart the context
+        self.manager.removeContext(forContainerName: OTCKContainerName, contextID: OTDefaultContext)
+        self.cuttlefishContext = self.manager.context(forContainerName: OTCKContainerName, contextID: OTDefaultContext)
+
+        XCTAssertFalse(TestsObjectiveC.checkAllPersistentRefBeenUpgraded(), "all items should NOT be upgraded")
+
+        // start the state machine
+        self.keychainUpgradeController.triggerKeychainItemUpdateRPC { error in
+            XCTAssertNil(error, "error should be nil")
+        }
+        self.assertEnters(stateMachine: self.keychainUpgradeController.stateMachine, state: KeychainItemUpgradeRequestStateUpgradePersistentRef, within: 10 * NSEC_PER_SEC)
+        self.assertEnters(stateMachine: self.keychainUpgradeController.stateMachine, state: KeychainItemUpgradeRequestStateNothingToDo, within: 10 * NSEC_PER_SEC)
+
+        XCTAssertTrue(TestsObjectiveC.checkAllPersistentRefBeenUpgraded(), "all items should be upgraded")
+        XCTAssertEqual(TestsObjectiveC.lastRowID(), NSNumber(value: 200), "last rowID should be 200")
+        XCTAssertTrue(TestsObjectiveC.expectXNumber(ofItemsUpgraded: 200), "should be 200 upgraded")
+        XCTAssertNil(self.keychainUpgradeController.persistentReferenceUpgrader.nextFireTime, "nextFireTime should be nil")
+
+        // Now restart the context again, check last rowID should be the same
+        self.manager.removeContext(forContainerName: OTCKContainerName, contextID: OTDefaultContext)
+        self.cuttlefishContext = self.manager.context(forContainerName: OTCKContainerName, contextID: OTDefaultContext)
+
+        self.keychainUpgradeController.triggerKeychainItemUpdateRPC { error in
+            XCTAssertNil(error, "error should be nil")
+        }
+        XCTAssertEqual(TestsObjectiveC.lastRowID(), NSNumber(value: 200), "last rowID should still be 200")
+        XCTAssertTrue(TestsObjectiveC.expectXNumber(ofItemsUpgraded: 200), "should be 200 upgraded")
+        self.assertEnters(stateMachine: self.keychainUpgradeController.stateMachine, state: KeychainItemUpgradeRequestStateNothingToDo, within: 10 * NSEC_PER_SEC)
+        XCTAssertNil(self.keychainUpgradeController.persistentReferenceUpgrader.nextFireTime, "nextFireTime should be nil")
+        XCTAssertTrue(TestsObjectiveC.checkAllPersistentRefBeenUpgraded(), "all items should be upgraded")
+    }
+
+    func sharedTestsForMoreThan100ItemsTimeoutAndNotReady(errorCode: Int32) throws {
+        TestsObjectiveC.addNRandomKeychainItemsWithoutUpgradedPersistentRefs(200)
+
+        TestsObjectiveC.setError(errorCode)
+
+        XCTAssertFalse(TestsObjectiveC.checkAllPersistentRefBeenUpgraded(), "should NOT be upgraded")
+
+        self.startCKAccountStatusMock()
+
+        let refCondition = self.keychainUpgradeController.persistentReferenceUpgrader
+
+        // setup the operation dependency
+        var callbackExpectation = self.expectation(description: "callback occurs")
+        var callback = CKKSResultOperation.named("callback") {
+            callbackExpectation.fulfill()
+        }
+        callback.timeout(10 * NSEC_PER_SEC)
+
+        callback.addDependency(refCondition.operationDependency)
+        self.operationQueue.addOperation(callback)
+
+        // start the state machine
+        self.keychainUpgradeController.triggerKeychainItemUpdateRPC { error in
+            XCTAssertNil(error, "error should be nil")
+        }
+        self.assertEnters(stateMachine: self.keychainUpgradeController.stateMachine, state: KeychainItemUpgradeRequestStateUpgradePersistentRef, within: 10 * NSEC_PER_SEC)
+        self.assertEnters(stateMachine: self.keychainUpgradeController.stateMachine, state: KeychainItemUpgradeRequestStateNothingToDo, within: 10 * NSEC_PER_SEC)
+
+        self.wait(for: [callbackExpectation], timeout: 10)
+
+        XCTAssertFalse(TestsObjectiveC.checkAllPersistentRefBeenUpgraded(), "all items should NOT be upgraded")
+        XCTAssertNotNil(self.keychainUpgradeController.persistentReferenceUpgrader.nextFireTime, "nextFireTime should NOT be nil")
+        XCTAssertNil(TestsObjectiveC.lastRowID(), "should be nil")
+        XCTAssertTrue(TestsObjectiveC.expectXNumber(ofItemsUpgraded: 0), "should be 0 upgraded")
+
+        // setup the operation dependency for expected trigger
+        callbackExpectation = self.expectation(description: "second batch callback occurs")
+        callback = CKKSResultOperation.named("second batch callback") {
+            callbackExpectation.fulfill()
+        }
+        callback.timeout(10 * NSEC_PER_SEC)
+
+        callback.addDependency(refCondition.operationDependency)
+        self.operationQueue.addOperation(callback)
+
+        self.wait(for: [callbackExpectation], timeout: 10)
+
+        XCTAssertFalse(TestsObjectiveC.checkAllPersistentRefBeenUpgraded(), "all items should NOT be upgraded")
+        XCTAssertNotNil(self.keychainUpgradeController.persistentReferenceUpgrader.nextFireTime, "nextFireTime should NOT be nil")
+        XCTAssertNil(TestsObjectiveC.lastRowID(), "should be nil")
+        XCTAssertTrue(TestsObjectiveC.expectXNumber(ofItemsUpgraded: 0), "should be 0 upgraded")
+
+        // at this point secd has scanned all items and skipped over all the items
+
+        // begin steps to simulate a secd restart where errors are empty, last rowid is empty
+        // clear the error and rowID
+        TestsObjectiveC.clearError()
+        TestsObjectiveC.clearLastRowID()
+
+        // Now restart the context
+        self.manager.removeContext(forContainerName: OTCKContainerName, contextID: OTDefaultContext)
+        self.cuttlefishContext = self.manager.context(forContainerName: OTCKContainerName, contextID: OTDefaultContext)
+        
+        XCTAssertFalse(TestsObjectiveC.checkAllPersistentRefBeenUpgraded(), "all items should NOT be upgraded")
+
+        let refConditionAfterRestart = self.keychainUpgradeController.persistentReferenceUpgrader
+        let afterRestartCallbackExpectation = self.expectation(description: "after restart callback occurs")
+        let afterRestartCallback = CKKSResultOperation.named("after restart callback") {
+            afterRestartCallbackExpectation.fulfill()
+        }
+        afterRestartCallback.timeout(10 * NSEC_PER_SEC)
+
+        afterRestartCallback.addDependency(refConditionAfterRestart.operationDependency)
+        self.operationQueue.addOperation(afterRestartCallback)
+        // start the state machine
+        self.keychainUpgradeController.triggerKeychainItemUpdateRPC { error in
+            XCTAssertNil(error, "error should be nil")
+        }
+        self.assertEnters(stateMachine: self.keychainUpgradeController.stateMachine, state: KeychainItemUpgradeRequestStateUpgradePersistentRef, within: 10 * NSEC_PER_SEC)
+        self.assertEnters(stateMachine: self.keychainUpgradeController.stateMachine, state: KeychainItemUpgradeRequestStateNothingToDo, within: 10 * NSEC_PER_SEC)
+
+        self.wait(for: [afterRestartCallbackExpectation], timeout: 10)
+
+        XCTAssertTrue(TestsObjectiveC.checkAllPersistentRefBeenUpgraded(), "all items should be upgraded")
+        XCTAssertEqual(TestsObjectiveC.lastRowID(), NSNumber(value: 200), "last rowID should be 200")
+        XCTAssertTrue(TestsObjectiveC.expectXNumber(ofItemsUpgraded: 200), "should be 200 upgraded")
+        XCTAssertNil(self.keychainUpgradeController.persistentReferenceUpgrader.nextFireTime, "nextFireTime should be nil")
+    }
+
+    //for decode, authneeded, not available errors
+    func sharedTestsForMoreThan100ItemsRandomInsertion(errorCode: Int32) throws {
+        TestsObjectiveC.addNRandomKeychainItemsWithoutUpgradedPersistentRefs(200)
+
+        TestsObjectiveC.setErrorAtRowID(errorCode)
+
+        XCTAssertFalse(TestsObjectiveC.checkAllPersistentRefBeenUpgraded(), "should NOT be upgraded")
+
+        self.startCKAccountStatusMock()
+
+        // start the state machine
+        self.keychainUpgradeController.triggerKeychainItemUpdateRPC { error in
+            XCTAssertNil(error, "error should be nil")
+        }
+        self.assertEnters(stateMachine: self.keychainUpgradeController.stateMachine, state: KeychainItemUpgradeRequestStateNothingToDo, within: 10 * NSEC_PER_SEC)
+
+        XCTAssertFalse(TestsObjectiveC.checkAllPersistentRefBeenUpgraded(), "all items should NOT be upgraded")
+        XCTAssertNil(self.keychainUpgradeController.persistentReferenceUpgrader.nextFireTime, "nextFireTime should be nil")
+        XCTAssertEqual(TestsObjectiveC.lastRowID(), NSNumber(value: 200), "last rowID should be 200")
+        XCTAssertTrue(TestsObjectiveC.expectXNumber(ofItemsUpgraded: 199), "should be 199 upgraded") // all but 150
+
+        // at this point secd has scanned all items and skipped over all the items
+
+        // begin steps to simulate a secd restart where errors are empty, last rowid is empty
+        // clear the error and rowID
+        TestsObjectiveC.clearError()
+        TestsObjectiveC.clearLastRowID()
+        TestsObjectiveC.clearErrorInsertionDictionary()
+
+        // Now restart the context
+        self.manager.removeContext(forContainerName: OTCKContainerName, contextID: OTDefaultContext)
+        self.cuttlefishContext = self.manager.context(forContainerName: OTCKContainerName, contextID: OTDefaultContext)
+
+        XCTAssertFalse(TestsObjectiveC.checkAllPersistentRefBeenUpgraded(), "all items should NOT be upgraded")
+
+        // start the state machine
+        self.keychainUpgradeController.triggerKeychainItemUpdateRPC { error in
+            XCTAssertNil(error, "error should be nil")
+        }
+        
+        self.assertEnters(stateMachine: self.keychainUpgradeController.stateMachine, state: KeychainItemUpgradeRequestStateUpgradePersistentRef, within: 10 * NSEC_PER_SEC)
+        self.assertEnters(stateMachine: self.keychainUpgradeController.stateMachine, state: KeychainItemUpgradeRequestStateNothingToDo, within: 10 * NSEC_PER_SEC)
+
+        // only rowID 150 wasn't upgraded before and it should be the last looked at rowID
+        XCTAssertTrue(TestsObjectiveC.checkAllPersistentRefBeenUpgraded(), "all items should be upgraded")
+        XCTAssertEqual(TestsObjectiveC.lastRowID(), NSNumber(value: 150), "last rowID should be 150")
+        XCTAssertTrue(TestsObjectiveC.expectXNumber(ofItemsUpgraded: 200), "should be 200 upgraded")
+        XCTAssertNil(self.keychainUpgradeController.persistentReferenceUpgrader.nextFireTime, "nextFireTime should be nil")
+
+        // Now restart the context again, check last rowID should be the same
+        self.manager.removeContext(forContainerName: OTCKContainerName, contextID: OTDefaultContext)
+        self.cuttlefishContext = self.manager.context(forContainerName: OTCKContainerName, contextID: OTDefaultContext)
+
+        self.keychainUpgradeController.triggerKeychainItemUpdateRPC { error in
+            XCTAssertNil(error, "error should be nil")
+        }
+        XCTAssertEqual(TestsObjectiveC.lastRowID(), NSNumber(value: 150), "last rowID should still be 150")
+        XCTAssertTrue(TestsObjectiveC.expectXNumber(ofItemsUpgraded: 200), "should be 200 upgraded")
+
+        self.assertEnters(stateMachine: self.keychainUpgradeController.stateMachine, state: KeychainItemUpgradeRequestStateNothingToDo, within: 10 * NSEC_PER_SEC)
+
+        XCTAssertNil(self.keychainUpgradeController.persistentReferenceUpgrader.nextFireTime, "nextFireTime should be nil")
+        XCTAssertEqual(TestsObjectiveC.lastRowID(), NSNumber(value: 150), "last rowID should still be 150")
+        XCTAssertTrue(TestsObjectiveC.expectXNumber(ofItemsUpgraded: 200), "should be 200 upgraded")
+        XCTAssertTrue(TestsObjectiveC.checkAllPersistentRefBeenUpgraded(), "all items should be upgraded")
+    }
+    
+    func sharedTestsForMoreThan100ItemsRandomInsertionNotReadyAndTimeout(errorCode: Int32) throws {
+        TestsObjectiveC.addNRandomKeychainItemsWithoutUpgradedPersistentRefs(200)
+
+        TestsObjectiveC.setErrorAtRowID(errorCode)
+
+        XCTAssertFalse(TestsObjectiveC.checkAllPersistentRefBeenUpgraded(), "should NOT be upgraded")
+
+        self.startCKAccountStatusMock()
+
+        let refCondition = self.keychainUpgradeController.persistentReferenceUpgrader
+
+        // setup the operation dependency
+        let callbackExpectation = self.expectation(description: "callback occurs")
+        let callback = CKKSResultOperation.named("callback") {
+            callbackExpectation.fulfill()
+        }
+        callback.timeout(10 * NSEC_PER_SEC)
+
+        callback.addDependency(refCondition.operationDependency)
+        self.operationQueue.addOperation(callback)
+
+        // start the state machine
+        self.keychainUpgradeController.triggerKeychainItemUpdateRPC { error in
+            XCTAssertNil(error, "error should be nil")
+        }
+        self.assertEnters(stateMachine: self.keychainUpgradeController.stateMachine, state: KeychainItemUpgradeRequestStateNothingToDo, within: 10 * NSEC_PER_SEC)
+
+        self.wait(for: [callbackExpectation], timeout: 10)
+
+        XCTAssertFalse(TestsObjectiveC.checkAllPersistentRefBeenUpgraded(), "all items should NOT be upgraded")
+        XCTAssertNotNil(self.keychainUpgradeController.persistentReferenceUpgrader.nextFireTime, "nextFireTime should NOT be nil")
+        XCTAssertEqual(TestsObjectiveC.lastRowID(), NSNumber(value: 149), "last rowID should be 149")
+        XCTAssertTrue(TestsObjectiveC.expectXNumber(ofItemsUpgraded: 149), "should be 149 upgraded")
+
+        // at this point secd has scanned all items and skipped over all the items
+
+        // begin steps to simulate a secd restart where errors are empty, last rowid is empty
+        // clear the error and rowID
+        TestsObjectiveC.clearError()
+        TestsObjectiveC.clearLastRowID()
+        TestsObjectiveC.clearErrorInsertionDictionary()
+
+        // Now restart the context
+        self.manager.removeContext(forContainerName: OTCKContainerName, contextID: OTDefaultContext)
+        self.cuttlefishContext = self.manager.context(forContainerName: OTCKContainerName, contextID: OTDefaultContext)
+
+        XCTAssertFalse(TestsObjectiveC.checkAllPersistentRefBeenUpgraded(), "all items should NOT be upgraded")
+
+        // setup the second attempt upgrading items operation dependency
+        let refConditionAfterRestart = self.keychainUpgradeController.persistentReferenceUpgrader
+        let afterRestartCallbackExpectation = self.expectation(description: "after restart callback occurs")
+        let afterRestartCallback = CKKSResultOperation.named("after restart callback") {
+            afterRestartCallbackExpectation.fulfill()
+        }
+        afterRestartCallback.timeout(10 * NSEC_PER_SEC)
+
+        afterRestartCallback.addDependency(refConditionAfterRestart.operationDependency)
+        self.operationQueue.addOperation(afterRestartCallback)
+        // start the state machine
+        self.keychainUpgradeController.triggerKeychainItemUpdateRPC { error in
+            XCTAssertNil(error, "error should be nil")
+        }
+        self.assertEnters(stateMachine: self.keychainUpgradeController.stateMachine, state: KeychainItemUpgradeRequestStateUpgradePersistentRef, within: 10 * NSEC_PER_SEC)
+        self.assertEnters(stateMachine: self.keychainUpgradeController.stateMachine, state: KeychainItemUpgradeRequestStateNothingToDo, within: 10 * NSEC_PER_SEC)
+
+        self.wait(for: [afterRestartCallbackExpectation], timeout: 10)
+
+        // only rowID 150 wasn't upgraded before and it should be the last looked at rowID
+        XCTAssertTrue(TestsObjectiveC.checkAllPersistentRefBeenUpgraded(), "all items should be upgraded")
+        XCTAssertEqual(TestsObjectiveC.lastRowID(), NSNumber(value: 200), "last rowID should be 200")
+        XCTAssertTrue(TestsObjectiveC.expectXNumber(ofItemsUpgraded: 200), "should be 200 upgraded")
+        XCTAssertNil(self.keychainUpgradeController.persistentReferenceUpgrader.nextFireTime, "nextFireTime should be nil")
+
+        // Now restart the context again, check last rowID should be the same
+        self.manager.removeContext(forContainerName: OTCKContainerName, contextID: OTDefaultContext)
+        self.cuttlefishContext = self.manager.context(forContainerName: OTCKContainerName, contextID: OTDefaultContext)
+
+        self.keychainUpgradeController.triggerKeychainItemUpdateRPC { error in
+            XCTAssertNil(error, "error should be nil")
+        }
+        XCTAssertEqual(TestsObjectiveC.lastRowID(), NSNumber(value: 200), "last rowID should still be 200")
+        XCTAssertTrue(TestsObjectiveC.expectXNumber(ofItemsUpgraded: 200), "should be 200 upgraded")
+
+        self.assertEnters(stateMachine: self.keychainUpgradeController.stateMachine, state: KeychainItemUpgradeRequestStateNothingToDo, within: 10 * NSEC_PER_SEC)
+
+        XCTAssertNil(self.keychainUpgradeController.persistentReferenceUpgrader.nextFireTime, "nextFireTime should be nil")
+        XCTAssertEqual(TestsObjectiveC.lastRowID(), NSNumber(value: 200), "last rowID should still be 200")
+        XCTAssertTrue(TestsObjectiveC.expectXNumber(ofItemsUpgraded: 200), "should be 200 upgraded")
+        XCTAssertTrue(TestsObjectiveC.checkAllPersistentRefBeenUpgraded(), "all items should be upgraded")
+    }
+
+    /* all same behavior tests for kAKSReturnNotReady, kAKSReturnTimeout */
+
+    func testPersistRefSchedulerLessThan100ItemskAKSReturnNotReady() throws {
+        try self.sharedTestsForLessThan100ItemsTimeoutAndNotReady(errorCode: Int32(kAKSReturnNotReady))
+    }
+
+    func testPersistRefSchedulerMoreThan100ItemskAKSReturnNotReady() throws {
+        try self.sharedTestsForMoreThan100ItemsTimeoutAndNotReady(errorCode:Int32(kAKSReturnNotReady))
+    }
+
+    func testPersistRefSchedulerMoreThan100ItemskAKSReturnNotReadyRandomInsertion() throws {
+        try self.sharedTestsForMoreThan100ItemsRandomInsertionNotReadyAndTimeout(errorCode: Int32(kAKSReturnNotReady))
+    }
+
+    func testPersistRefSchedulerLessThan100ItemskAKSReturnTimeout() throws {
+        try self.sharedTestsForLessThan100ItemsTimeoutAndNotReady(errorCode: Int32(kAKSReturnTimeout))
+    }
+
+    func testPersistRefSchedulerMoreThan100ItemskAKSReturnTimeout() throws {
+        try self.sharedTestsForMoreThan100ItemsTimeoutAndNotReady(errorCode: Int32(kAKSReturnTimeout))
+    }
+
+    func testPersistRefSchedulerMoreThan100ItemskAKSReturnTimeoutRandomInsertion() throws {
+        try self.sharedTestsForMoreThan100ItemsRandomInsertionNotReadyAndTimeout(errorCode: Int32(kAKSReturnTimeout))
+    }
+
+    /* all same behavior tests for errSecDecode, errSecAuthNeeded, and errSecNotAvailable*/
+    func testPersistRefSchedulerLessThan100ItemsErrSecDecode() throws {
+        try self.sharedTestsForLessThan100Items(errorCode: errSecDecode)
+    }
+
+    func testPersistRefSchedulerMoreThan100ItemsErrSecDecode() throws {
+        try self.sharedTestsForMoreThan100Items(errorCode: errSecDecode)
+    }
+
+    func testPersistRefSchedulerMoreThan100ItemsErrSecDecodeRandomInsertion() throws {
+        try self.sharedTestsForMoreThan100ItemsRandomInsertion(errorCode: Int32(errSecDecode))
+    }
+
+    func testPersistRefSchedulerLessThan100ItemsErrSecAuthNeeded() throws {
+        try self.sharedTestsForLessThan100Items(errorCode: Int32(errSecAuthNeeded))
+    }
+
+    func testPersistRefSchedulerMoreThan100ItemsErrSecAuthNeeded() throws {
+        try self.sharedTestsForMoreThan100Items(errorCode: Int32(errSecAuthNeeded))
+    }
+
+    func testPersistRefSchedulerMoreThan100ItemsErrSecAuthNeededRandomInsertion() throws {
+        try self.sharedTestsForMoreThan100ItemsRandomInsertion(errorCode: Int32(errSecAuthNeeded))
+    }
+    
+    func testPersistRefSchedulerLessThan100ItemsErrSecNotAvailable() throws {
+        try self.sharedTestsForLessThan100Items(errorCode: errSecNotAvailable)
+    }
+
+    func testPersistRefSchedulerMoreThan100ItemsErrSecNotAvailable() throws {
+        try self.sharedTestsForMoreThan100Items(errorCode: errSecNotAvailable)
+    }
+
+    func testPersistRefSchedulerMoreThan100ItemsErrSecNotAvailableRandomInsertion() throws {
+        try self.sharedTestsForMoreThan100ItemsRandomInsertion(errorCode: errSecNotAvailable)
     }
 }
 

@@ -59,6 +59,7 @@ _SSLGetCertificate
 _SSLGetCipherSizes
 _SSLGetClientCertificateState
 _SSLGetClientSideAuthenticate
+_SSLIsSessionNegotiatedWithUnsafeDH
 _SSLGetConnection
 _SSLGetDatagramWriteSize
 _SSLGetEnabledCiphers
@@ -200,6 +201,7 @@ _SSLGetAllowsExpiredRoots
 _SSLGetBufferedReadSize
 _SSLGetClientCertificateState
 _SSLGetClientSideAuthenticate
+_SSLIsSessionNegotiatedWithUnsafeDH
 _SSLGetConnection
 _SSLGetDiffieHellmanParams
 _SSLGetEnableCertVerify

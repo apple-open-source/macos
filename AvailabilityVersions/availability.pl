@@ -189,6 +189,13 @@ my @versions = (
     "tvos",     "15.1",
     "watchos",  "8.1",
     "os_set",   "late_fall_2021",
+    "macos",    "12.1",
+    "ios",      "15.2",
+    "tvos",     "15.2",
+    "watchos",  "8.3",
+    "bridgeos", "6.2",
+    "os_set",   "winter_2021",
+
 );
 
 my @macosx_versions = pairvalues pairgrep { $a eq "macos" } @versions;

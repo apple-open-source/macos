@@ -42,6 +42,7 @@
 
 #if PLATFORM(COCOA)
 #include "MachMessage.h"
+#include "WKCrashReporter.h"
 #endif
 
 #if USE(UNIX_DOMAIN_SOCKETS)
@@ -453,7 +454,7 @@ UniqueRef<Encoder> Connection::createSyncMessageEncoder(MessageName messageName,
     return encoder;
 }
 
-bool Connection::sendMessage(UniqueRef<Encoder>&& encoder, OptionSet<SendOption> sendOptions)
+bool Connection::sendMessage(UniqueRef<Encoder>&& encoder, OptionSet<SendOption> sendOptions, std::optional<Thread::QOS> qos)
 {
     if (!isValid())
         return false;
@@ -493,9 +494,14 @@ bool Connection::sendMessage(UniqueRef<Encoder>&& encoder, OptionSet<SendOption>
     }
     
     // FIXME: We should add a boolean flag so we don't call this when work has already been scheduled.
-    m_connectionQueue->dispatch([protectedThis = makeRef(*this)]() mutable {
+    auto sendOutgoingMessages = [protectedThis = makeRef(*this)]() mutable {
         protectedThis->sendOutgoingMessages();
-    });
+    };
+    if (qos)
+        m_connectionQueue->dispatchWithQOS(WTFMove(sendOutgoingMessages), *qos);
+    else
+        m_connectionQueue->dispatch(WTFMove(sendOutgoingMessages));
+
     return true;
 }
 
@@ -744,6 +750,16 @@ void Connection::processIncomingSyncReply(std::unique_ptr<Decoder> decoder)
     // This can happen if the send timed out, so it's fine to ignore.
 }
 
+static NEVER_INLINE NO_RETURN_DUE_TO_CRASH void terminateDueToIPCTerminateMessage()
+{
+#if PLATFORM(COCOA)
+    WebKit::logAndSetCrashLogMessage("Receives Terminate message");
+#else
+    WTFLogAlways("Receives Terminate message");
+#endif
+    CRASH();
+}
+
 void Connection::processIncomingMessage(std::unique_ptr<Decoder> message)
 {
     ASSERT(message->messageReceiverName() != ReceiverName::Invalid);
@@ -752,6 +768,9 @@ void Connection::processIncomingMessage(std::unique_ptr<Decoder> message)
         processIncomingSyncReply(WTFMove(message));
         return;
     }
+
+    if (message->messageName() == MessageName::Terminate)
+        return terminateDueToIPCTerminateMessage();
 
     if (!MessageReceiveQueueMap::isValidMessage(*message)) {
         RunLoop::main().dispatch([protectedThis = makeRef(*this), messageName = message->messageName()]() mutable {

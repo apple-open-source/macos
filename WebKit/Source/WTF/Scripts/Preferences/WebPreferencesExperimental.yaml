@@ -26,6 +26,20 @@
 # They must include a humanReadableName and humanReadableDescription. This is
 #   the text exposed to the user from the WebKit client.
 
+AccessHandleEnabled:
+  type: bool
+  humanReadableName: "AccessHandle API"
+  humanReadableDescription: "Enable AccessHandle API"
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      "PLATFORM(COCOA)" : true
+      default: false
+    WebCore:
+      "PLATFORM(COCOA)" : true
+      default: false
+
 AccessibilityObjectModelEnabled:
   type: bool
   humanReadableName: "Accessibility Object Model"
@@ -264,8 +278,10 @@ CanvasColorSpaceEnabled:
   humanReadableDescription: "Enable use of predefined canvas color spaces"
   defaultValue:
     WebKitLegacy:
+      "PLATFORM(COCOA)": true
       default: false
     WebKit:
+      "PLATFORM(COCOA)": true
       default: false
     WebCore:
       default: false
@@ -285,6 +301,18 @@ ContactPickerAPIEnabled:
   type: bool
   humanReadableName: "Contact Picker API"
   humanReadableDescription: "Enable the Contact Picker API"
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+    WebCore:
+      default: false
+
+CoopCoepViolationReportingEnabled:
+  type: bool
+  humanReadableName: "COOP and COEP violations reporting"
+  humanReadableDescription: "Cross-Origin-Opener-Policy and Cross-Origin-Embedder-Policy reporting"
   defaultValue:
     WebKitLegacy:
       default: false
@@ -329,7 +357,7 @@ CrossOriginEmbedderPolicyEnabled:
     WebKitLegacy:
       default: false
     WebKit:
-      default: false
+      default: true
     WebCore:
       default: false
 
@@ -341,7 +369,7 @@ CrossOriginOpenerPolicyEnabled:
     WebKitLegacy:
       default: false
     WebKit:
-      default: false
+      default: true
     WebCore:
       default: false
 
@@ -422,6 +450,20 @@ FetchAPIKeepAliveEnabled:
       default: true
     WebKit:
       default: true
+
+FileSystemAccessEnabled:
+  type: bool
+  humanReadableName: "File System Access API"
+  humanReadableDescription: "Enable File System Access API"
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      "PLATFORM(COCOA)" : true
+      default: false
+    WebCore:
+      "PLATFORM(COCOA)" : true
+      default: false
 
 FocusVisibleEnabled:
   type: bool
@@ -738,9 +780,9 @@ MediaSessionPlaylistEnabled:
     WebKitLegacy:
       default: false
     WebKit:
-      default: false
+      default: WebKit::defaultMediaSessionCoordinatorEnabled()
     WebCore:
-      default: false
+      default: true
 
 ModelElementEnabled:
   type: bool
@@ -1042,6 +1084,20 @@ SpringTimingFunctionEnabled:
       "ENABLE(EXPERIMENTAL_FEATURES)" : true
       default: false
     WebCore:
+      default: false
+
+StorageAPIEnabled:
+  type: bool
+  humanReadableName: "Storage API"
+  humanReadableDescription: "Enable Storage API"
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      "PLATFORM(COCOA)" : true
+      default: false
+    WebCore:
+      "PLATFORM(COCOA)" : true
       default: false
 
 SyntheticEditingCommandsEnabled:

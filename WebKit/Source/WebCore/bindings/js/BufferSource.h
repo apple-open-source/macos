@@ -49,6 +49,13 @@ public:
             return buffer ? static_cast<const uint8_t*>(buffer->data()) : nullptr;
         }, m_variant);
     }
+    
+    void* mutableData() const
+    {
+        return WTF::visit([](auto& buffer) -> void* {
+            return buffer->data();
+        }, m_variant);
+    }
 
     size_t length() const
     {

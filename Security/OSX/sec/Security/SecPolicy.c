@@ -493,6 +493,12 @@ void SecPolicySetOptionsValue(SecPolicyRef policy, CFStringRef key, CFTypeRef va
 		if (!options) return;
 		policy->_options = options;
 	}
+	// special case for kSecPolicyCheckTemporalValidity == kCFBooleanFalse,
+	// which should remove the key rather than set its value. (rdar://83941011)
+	if (CFEqual(key, kSecPolicyCheckTemporalValidity) && value && CFEqual(value, kCFBooleanFalse)) {
+		CFDictionaryRemoveValue(options, key);
+		return;
+	}
 	CFDictionarySetValue(options, key, value);
 }
 

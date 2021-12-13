@@ -49,6 +49,7 @@
 #include "Page.h"
 #include "PlatformStrategies.h"
 #include "ProgressTracker.h"
+#include "ReportingEndpointsCache.h"
 #include "ResourceError.h"
 #include "ResourceHandle.h"
 #include "ResourceLoadInfo.h"
@@ -174,6 +175,9 @@ void PingLoader::sendViolationReport(Frame& frame, const URL& reportURL, Ref<For
     case ViolationReportType::XSSAuditor:
         request.setHTTPContentType("application/json"_s);
         break;
+    case ViolationReportType::StandardReportingAPIViolation:
+        request.setHTTPContentType("application/reports+json"_s);
+        break;
     }
 
     bool removeCookies = true;
@@ -184,16 +188,17 @@ void PingLoader::sendViolationReport(Frame& frame, const URL& reportURL, Ref<For
 
     HTTPHeaderMap originalRequestHeader = request.httpHeaderFields();
 
-    frame.loader().updateRequestAndAddExtraFields(request, IsMainResource::No);
+    if (reportType != ViolationReportType::StandardReportingAPIViolation)
+        frame.loader().updateRequestAndAddExtraFields(request, IsMainResource::No);
 
     String referrer = SecurityPolicy::generateReferrerHeader(document.referrerPolicy(), reportURL, frame.loader().outgoingReferrer());
     if (!referrer.isEmpty())
         request.setHTTPReferrer(referrer);
 
-    startPingLoad(frame, request, WTFMove(originalRequestHeader), ShouldFollowRedirects::No, ContentSecurityPolicyImposition::SkipPolicyCheck, ReferrerPolicy::EmptyString);
+    startPingLoad(frame, request, WTFMove(originalRequestHeader), ShouldFollowRedirects::No, ContentSecurityPolicyImposition::SkipPolicyCheck, ReferrerPolicy::EmptyString, reportType);
 }
 
-void PingLoader::startPingLoad(Frame& frame, ResourceRequest& request, HTTPHeaderMap&& originalRequestHeaders, ShouldFollowRedirects shouldFollowRedirects, ContentSecurityPolicyImposition policyCheck, ReferrerPolicy referrerPolicy)
+void PingLoader::startPingLoad(Frame& frame, ResourceRequest& request, HTTPHeaderMap&& originalRequestHeaders, ShouldFollowRedirects shouldFollowRedirects, ContentSecurityPolicyImposition policyCheck, ReferrerPolicy referrerPolicy, std::optional<ViolationReportType> violationReportType)
 {
     unsigned long identifier = frame.page()->progress().createUniqueIdentifier();
     // FIXME: Why activeDocumentLoader? I would have expected documentLoader().
@@ -210,6 +215,14 @@ void PingLoader::startPingLoad(Frame& frame, ResourceRequest& request, HTTPHeade
     options.referrerPolicy = referrerPolicy;
     options.sendLoadCallbacks = SendCallbackPolicy::SendCallbacks;
     options.cache = FetchOptions::Cache::NoCache;
+
+    // https://www.w3.org/TR/reporting/#try-delivery
+    if (violationReportType == ViolationReportType::StandardReportingAPIViolation) {
+        options.credentials = FetchOptions::Credentials::SameOrigin;
+        options.mode = FetchOptions::Mode::Cors;
+        options.serviceWorkersMode = ServiceWorkersMode::None;
+        options.destination = FetchOptions::Destination::Report;
+    }
 
     // FIXME: Deprecate the ping load code path.
     if (platformStrategies()->loaderStrategy()->usePingLoad()) {
@@ -231,4 +244,42 @@ void PingLoader::startPingLoad(Frame& frame, ResourceRequest& request, HTTPHeade
     frame.document()->cachedResourceLoader().requestPingResource(WTFMove(cachedResourceRequest));
 }
 
+// // https://html.spec.whatwg.org/multipage/origin.html#sanitize-url-report
+String PingLoader::sanitizeURLForReport(const URL& url)
+{
+    URL sanitizedURL = url;
+    sanitizedURL.removeCredentials();
+    sanitizedURL.removeFragmentIdentifier();
+    return sanitizedURL.string();
 }
+
+// https://www.w3.org/TR/reporting/#try-delivery
+void PingLoader::sendReportToEndpoint(Frame& frame, const SecurityOriginData& origin, const String& endpoint, const String& type, const URL& reportURL, const String& userAgent, const Function<void(JSON::Object&)>& populateReportBody)
+{
+    ASSERT(!endpoint.isEmpty());
+    auto reportingEndpointsCache = frame.page() ? frame.page()->reportingEndpointsCache() : nullptr;
+    if (!reportingEndpointsCache)
+        return;
+    auto endpointURL = reportingEndpointsCache->endpointURL(origin, endpoint);
+    if (!endpointURL.isValid())
+        return;
+
+    auto body = JSON::Object::create();
+    populateReportBody(body);
+
+    auto reportObject = JSON::Object::create();
+    reportObject->setString("type"_s, type);
+    if (reportURL.isValid())
+        reportObject->setString("url"_s, reportURL.string());
+    reportObject->setString("user_agent", userAgent);
+    reportObject->setInteger("age", 0); // We currently do not delay sending the reports.
+    reportObject->setObject("body"_s, WTFMove(body));
+
+    auto reportList = JSON::Array::create();
+    reportList->pushObject(reportObject);
+
+    auto report = FormData::create(reportList->toJSONString().utf8());
+    sendViolationReport(frame, endpointURL, WTFMove(report), ViolationReportType::StandardReportingAPIViolation);
+}
+
+} // namespace WebCore

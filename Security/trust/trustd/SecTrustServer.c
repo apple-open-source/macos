@@ -1466,7 +1466,7 @@ SecTrustServerEvaluateBlock(dispatch_queue_t builderQueue, CFDataRef clientAudit
     SecPathBuilderStep(builder);
 }
 
-static CFDataRef SecTrustServerCopySelfAuditToken(void)
+CFDataRef SecTrustServerCopySelfAuditToken(void)
 {
     audit_token_t token;
     kern_return_t kr;

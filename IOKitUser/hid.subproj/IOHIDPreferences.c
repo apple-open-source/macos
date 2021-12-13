@@ -20,6 +20,16 @@
 #define kHIDPreferencesCopyDomain   "HIDPreferencesCopyDomain"
 #define kHIDPreferencesSetDomain    "HIDPreferencesSetDomain"
 
+#pragma mark -
+#define kHIDPreferencesSetForInstance          "HIDPreferencesSetForInstance"
+#define kHIDPreferencesSetMultipleForInstance  "HIDPreferencesSetMultipleForInstance"
+#define kHIDPreferencesCopyForInstance         "HIDPreferencesCopyForInstance"
+#define kHIDPreferencesCopyMultipleForInstance "HIDPreferencesCopyMultipleForInstance"
+#define kHIDPreferencesSynchronizeForInstance  "HIDPreferencesSynchronizeForInstance"
+#define kHIDPreferencesCopyDomainForInstance   "HIDPreferencesCopyDomainForInstance"
+#define kHIDPreferencesSetDomainForInstance    "HIDPreferencesSetDomainForInstance"
+#define kHIDPreferencesCreateInstance          "HIDPreferencesCreateInstance"
+
 
 typedef void (*HIDPreferencesSetPtr)(CFStringRef key, CFTypeRef __nullable value, CFStringRef user, CFStringRef host, CFStringRef domain);
 typedef void (*HIDPreferencesSetMultiplePtr)(CFDictionaryRef __nullable keysToSet , CFArrayRef __nullable keysToRemove, CFStringRef user, CFStringRef host, CFStringRef domain);
@@ -29,6 +39,15 @@ typedef void (*HIDPreferencesSynchronizePtr)(CFStringRef user, CFStringRef host,
 typedef CFTypeRef (*HIDPreferencesCopyDomainPtr)(CFStringRef key, CFStringRef domain);
 typedef void (*HIDPreferencesSetDomainPtr)(CFStringRef key,  CFTypeRef __nullable value, CFStringRef domain);
 
+#pragma mark -
+typedef void (*HIDPreferencesSetForInstancePtr)(CFTypeRef hidPreference, CFStringRef key, CFTypeRef __nullable value, CFStringRef user, CFStringRef host, CFStringRef domain);
+typedef void (*HIDPreferencesSetMultipleForInstancePtr)(CFTypeRef hidPreference, CFDictionaryRef __nullable keysToSet , CFArrayRef __nullable keysToRemove, CFStringRef user, CFStringRef host, CFStringRef domain);
+typedef CFTypeRef (*HIDPreferencesCopyForInstancePtr)(CFTypeRef hidPreference, CFStringRef key, CFStringRef user, CFStringRef host, CFStringRef domain);
+typedef CFDictionaryRef (*HIDPreferencesCopyMultipleForInstancePtr)(CFTypeRef hidPreference, CFArrayRef __nullable keys, CFStringRef user, CFStringRef host, CFStringRef domain);
+typedef void (*HIDPreferencesSynchronizeForInstancePtr)(CFTypeRef hidPreference, CFStringRef user, CFStringRef host, CFStringRef domain);
+typedef CFTypeRef (*HIDPreferencesCopyDomainForInstancePtr)(CFTypeRef hidPreference, CFStringRef key, CFStringRef domain);
+typedef void (*HIDPreferencesSetDomainForInstancePtr)(CFTypeRef hidPreference, CFStringRef key,  CFTypeRef __nullable value, CFStringRef domain);
+typedef CFTypeRef (*HIDPreferencesCreateInstancePtr)(IOHIDPreferencesOption option);
 
 
 static HIDPreferencesSetPtr __setPtr = NULL;
@@ -39,6 +58,15 @@ static HIDPreferencesSynchronizePtr __synchronizePtr = NULL;
 static HIDPreferencesCopyDomainPtr __copyDomainPtr = NULL;
 static HIDPreferencesSetDomainPtr __setDomainPtr = NULL;
 
+#pragma mark -
+static HIDPreferencesSetForInstancePtr __setForInstancePtr = NULL;
+static HIDPreferencesSetMultipleForInstancePtr __setMultipleForInstancePtr = NULL;
+static HIDPreferencesCopyForInstancePtr __copyForInstancePtr = NULL;
+static HIDPreferencesCopyMultipleForInstancePtr __copyMultipleForInstancePtr = NULL;
+static HIDPreferencesSynchronizeForInstancePtr __synchronizeForInstancePtr = NULL;
+static HIDPreferencesCopyDomainForInstancePtr __copyDomainForInstancePtr = NULL;
+static HIDPreferencesSetDomainForInstancePtr __setDomainForInstancePtr = NULL;
+static HIDPreferencesCreateInstancePtr __createPtr = NULL;
 
 static void* HIDPreferencesFrameworkGetSymbol( void* handle, const char* symbolName) {
     
@@ -70,7 +98,15 @@ static void __loadFramework()
         __synchronizePtr = (HIDPreferencesSynchronizePtr)HIDPreferencesFrameworkGetSymbol(haHandle, kHIDPreferencesSynchronize);
         __copyDomainPtr = (HIDPreferencesCopyDomainPtr)HIDPreferencesFrameworkGetSymbol(haHandle, kHIDPreferencesCopyDomain);
         __setDomainPtr = (HIDPreferencesSetDomainPtr)HIDPreferencesFrameworkGetSymbol(haHandle, kHIDPreferencesSetDomain);
-            
+        
+        __setForInstancePtr = (HIDPreferencesSetForInstancePtr)HIDPreferencesFrameworkGetSymbol(haHandle, kHIDPreferencesSetForInstance);
+        __setMultipleForInstancePtr = (HIDPreferencesSetMultipleForInstancePtr)HIDPreferencesFrameworkGetSymbol(haHandle, kHIDPreferencesSetMultipleForInstance);
+        __copyForInstancePtr = (HIDPreferencesCopyForInstancePtr)HIDPreferencesFrameworkGetSymbol(haHandle, kHIDPreferencesCopyForInstance);
+        __copyMultipleForInstancePtr = (HIDPreferencesCopyMultipleForInstancePtr)HIDPreferencesFrameworkGetSymbol(haHandle, kHIDPreferencesCopyMultipleForInstance);
+        __synchronizeForInstancePtr = (HIDPreferencesSynchronizeForInstancePtr)HIDPreferencesFrameworkGetSymbol(haHandle, kHIDPreferencesSynchronizeForInstance);
+        __copyDomainForInstancePtr = (HIDPreferencesCopyDomainForInstancePtr)HIDPreferencesFrameworkGetSymbol(haHandle, kHIDPreferencesCopyDomainForInstance);
+        __setDomainForInstancePtr = (HIDPreferencesSetDomainForInstancePtr)HIDPreferencesFrameworkGetSymbol(haHandle, kHIDPreferencesSetDomainForInstance);
+        __createPtr = (HIDPreferencesCreateInstancePtr)HIDPreferencesFrameworkGetSymbol(haHandle, kHIDPreferencesCreateInstance);
     });
     
 }
@@ -168,3 +204,109 @@ void IOHIDPreferencesSetDomain(CFStringRef key,  CFTypeRef __nullable value, CFS
     
     __setDomainPtr(key, value, domain);
 }
+
+#pragma mark -
+#pragma mark -
+
+CFTypeRef __nullable IOHIDPreferencesCreateInstance(IOHIDPreferencesOption option) {
+    __loadFramework();
+    //Switch back to original
+    if (!__createPtr) {
+        IOHIDLogInfo("Failed to find %s for create",HIDPreferencesFrameworkPath);
+        return NULL;
+    }
+    return __createPtr(option);
+}
+
+void IOHIDPreferencesSetForInstance(CFTypeRef hidPreference, CFStringRef key, CFTypeRef __nullable value, CFStringRef user, CFStringRef host, CFStringRef domain) {
+    
+    __loadFramework();
+    //Switch back to original
+    if (!__setForInstancePtr) {
+        IOHIDLogInfo("Failed to find %s for set, switch to default CFPreferences",HIDPreferencesFrameworkPath);
+        CFPreferencesSetValue(key, value, domain, user, host);
+        return;
+    }
+    
+    __setForInstancePtr(hidPreference, key, value, user, host, domain);
+}
+
+void IOHIDPreferencesSetMultipleForInstance(CFTypeRef hidPreference, CFDictionaryRef __nullable keysToSet , CFArrayRef __nullable keysToRemove, CFStringRef user, CFStringRef host, CFStringRef domain) {
+    
+    __loadFramework();
+
+    if (!__setMultipleForInstancePtr) {
+        IOHIDLogInfo("Failed to find %s for set multiple , switch to default CFPreferences",HIDPreferencesFrameworkPath);
+        CFPreferencesSetMultiple(keysToSet, keysToRemove, domain, user, host);
+        return;
+    }
+    
+    __setMultipleForInstancePtr(hidPreference, keysToSet, keysToRemove, user, host, domain);
+}
+
+
+CFTypeRef __nullable IOHIDPreferencesCopyForInstance(CFTypeRef hidPreference, CFStringRef key, CFStringRef user, CFStringRef host, CFStringRef domain) {
+    
+    __loadFramework();
+
+    if (!__copyForInstancePtr) {
+        IOHIDLogInfo("Failed to find %s for copy, switch to default CFPreferences",HIDPreferencesFrameworkPath);
+        return CFPreferencesCopyValue(key, domain, user, host);
+    }
+    
+    return __copyForInstancePtr(hidPreference, key, user, host, domain);
+    
+}
+
+CFDictionaryRef __nullable IOHIDPreferencesCopyMultipleForInstance(CFTypeRef hidPreference, CFArrayRef __nullable keys, CFStringRef user, CFStringRef host, CFStringRef domain) {
+    
+    __loadFramework();
+
+    if (!__copyMultipleForInstancePtr) {
+        IOHIDLogInfo("Failed to find %s for copy multiple, switch to default CFPreferences",HIDPreferencesFrameworkPath);
+        return CFPreferencesCopyMultiple(keys, domain, user, host);
+    }
+    
+    return __copyMultipleForInstancePtr(hidPreference, keys, user, host, domain);
+}
+
+void IOHIDPreferencesSynchronizeForInstance(CFTypeRef hidPreference, CFStringRef user, CFStringRef host, CFStringRef domain) {
+    
+    __loadFramework();
+
+    if (!__synchronizeForInstancePtr) {
+        IOHIDLogInfo("Failed to find %s for synchronize, switch to default CFPreferences",HIDPreferencesFrameworkPath);
+        CFPreferencesSynchronize(domain, user, host);
+        return;
+    }
+    
+    __synchronizeForInstancePtr(hidPreference, user, host, domain);
+    
+}
+
+CFTypeRef __nullable IOHIDPreferencesCopyDomainForInstance(CFTypeRef hidPreference , CFStringRef key, CFStringRef domain) {
+    
+    __loadFramework();
+
+    if (!__copyDomainForInstancePtr) {
+        IOHIDLogInfo("Failed to find %s for copy domain, switch to default CFPreferences",HIDPreferencesFrameworkPath);
+        return CFPreferencesCopyAppValue(key, domain);;
+    }
+    
+    return __copyDomainForInstancePtr(hidPreference, key, domain);
+    
+}
+
+void IOHIDPreferencesSetDomainForInstance(CFTypeRef hidPreference, CFStringRef key,  CFTypeRef __nullable value, CFStringRef domain) {
+    
+    __loadFramework();
+
+    if (!__setDomainForInstancePtr) {
+        IOHIDLogInfo("Failed to find %s for set domain, switch to default CFPreferences",HIDPreferencesFrameworkPath);
+        CFPreferencesSetAppValue(key, value, domain);
+        return;
+    }
+    
+    __setDomainForInstancePtr(hidPreference,  key, value, domain);
+}
+

@@ -189,6 +189,13 @@ private:
         return m_process.setCaptureAttributionString();
     }
 
+#if ENABLE(APP_PRIVACY_REPORT)
+    void setTCCIdentity() final
+    {
+        m_process.setTCCIdentity();
+    }
+#endif
+
     GPUConnectionToWebProcess& m_process;
 };
 
@@ -450,7 +457,9 @@ RemoteAudioSessionProxy& GPUConnectionToWebProcess::audioSessionProxy()
 {
     if (!m_audioSessionProxy) {
         m_audioSessionProxy = RemoteAudioSessionProxy::create(*this).moveToUniquePtr();
-        gpuProcess().audioSessionManager().addProxy(*m_audioSessionProxy);
+
+        auto auditToken = gpuProcess().parentProcessConnection()->getAuditToken();
+        gpuProcess().audioSessionManager().addProxy(*m_audioSessionProxy, auditToken);
     }
     return *m_audioSessionProxy;
 }

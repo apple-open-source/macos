@@ -1824,6 +1824,23 @@ See remaining rules for examples.
             <key>shared</key>
             <false/>
         </dict>
+	<key>com.apple.auth.user</key>
+	<dict>
+		<key>authenticate-user</key>
+		<true/>
+		<key>class</key>
+		<string>user</string>
+		<key>comment</key>
+		<string>Authenticate as an any user.</string>
+		<key>group</key>
+		<string>staff</string>
+		<key>password-only</key>
+		<false/>
+		<key>shared</key>
+		<false/>
+		<key>timeout</key>
+		<integer>0</integer>
+	</dict>
     </dict>
 	<key>rules</key>
 	<dict>

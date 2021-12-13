@@ -141,9 +141,6 @@ OctagonState* const OctagonStateAssistCKKSTLKUploadAfterCKKSReset = (OctagonStat
 
 OctagonState* const OctagonStateHealthCheckLeaveClique = (OctagonState*)@"HealthCheckLeaveClique";
 
-#if !defined(__OPEN_SOURCE__) && APPLE_FEATURE_WALRUS_UI
-OctagonState* const OctagonStateSetAccountSettings = (OctagonState*)@"SetAccountSettings";
-#endif /* APPLE_FEATURE_WALRUS_UI */
 
 /* escrow */
 OctagonState* const OctagonStateEscrowTriggerUpdate = (OctagonState*)@"EscrowTriggerUpdate";
@@ -243,9 +240,6 @@ OctagonFlag* const OctagonFlagAttemptUserControllableViewStatusUpgrade = (Octago
                                      @[OctagonStateBottlePreloadOctagonKeysInSOS,            @65U,],
                                      @[OctagonStateAttemptSOSUpgradeDetermineCDPState,       @66U,],
                                      @[OctagonStateLostAccountAuth,                          @67U,],
-#if !defined(__OPEN_SOURCE__) && APPLE_FEATURE_WALRUS_UI
-                                     @[OctagonStateSetAccountSettings,                       @68U,],
-#endif /* APPLE_FEATURE_WALRUS_UI */
                                      @[OctagonStateCreateIdentityForCustodianRecoveryKey,    @69U,],
                                      @[OctagonStateVouchWithCustodianRecoveryKey,            @70U,],
                                      //Removed: @[OctagonStateFixupRefetchCuttlefishForCustodian,       @71U,],

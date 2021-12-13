@@ -49,7 +49,7 @@ CPAN_PROJECTS := \
     Date-Calc-6.3 \
     Convert-ASN1-0.26 \
     GSSAPI-0.28 \
-    Net-SSLeay-1.72 \
+    Net-SSLeay-1.88 \
     Authen-SASL-2.16 \
     XML-NamespaceSupport-1.11 \
     XML-SAX-Base-1.08 \
@@ -81,8 +81,9 @@ CPAN_PROJECTS := \
     NetAddr-IP-4.072 \
     Net-DNS-Resolver-Programmable-v0.003 \
     Mail-SPF-v2.9.0 \
-    Crypt-OpenSSL-Random-0.04 \
-    Crypt-OpenSSL-RSA-0.28 \
+    Crypt-OpenSSL-Guess-0.11 \
+    Crypt-OpenSSL-Random-0.15 \
+    Crypt-OpenSSL-RSA-0.31 \
     Mail-DKIM-0.40 \
     Try-Tiny-0.19 \
     Sub-Name-0.05 \

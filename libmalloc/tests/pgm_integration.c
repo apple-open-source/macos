@@ -82,7 +82,7 @@ out_of_bounds_within_block(void)
 	T_ASSERT_EQ(malloc_size(ptr), 5ul, "strict alignment");
 
 	touch_memory(ptr - 1);  // left-alignment is always perfect
-	touch_memory(ptr + 6);
+	touch_memory(ptr + 5);
 }
 
 T_DECL(uaf_detection, "Use-after-free detection",
@@ -104,7 +104,11 @@ T_DECL(oob_detection_within_block, "Intra-block out-of-bounds detection",
 		T_META_ENVVAR("MallocProbGuardAllocations=300"),
 		T_META_ENVVAR("MallocProbGuardStrictAlignment=1"))
 {
+#if __LP64__  // MALLOC_TARGET_64BIT
 	assert_crash(out_of_bounds_within_block);
+#else
+	T_SKIP("ARM (32 bit) crashes on misaligned memory accesses: EXC_ARM_DA_ALIGN");
+#endif
 }
 
 static boolean_t

@@ -62,10 +62,6 @@ typedef NS_ERROR_ENUM(OctagonErrorDomain, OctagonError) {
     OctagonErrorFailedToLeaveClique                             = 48,
     OctagonErrorSyncPolicyMissing                               = 49,
     OctagonErrorRequiredLibrariesNotPresent                     = 50,
-#if !defined(__OPEN_SOURCE__) && APPLE_FEATURE_WALRUS_UI
-    OctagonErrorFailedToSetWalrus                               = 51,
-    OctagonErrorFailedToSetWebAccess                            = 52,
-#endif /* APPLE_FEATURE_WALRUS_UI */
     OctagonErrorNoAccountSettingsSet                            = 53,
     OctagonErrorBadUUID                                         = 54,
     OctagonErrorUserControllableViewsUnavailable                = 55,

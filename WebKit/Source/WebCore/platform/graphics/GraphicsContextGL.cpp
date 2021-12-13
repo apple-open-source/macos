@@ -357,17 +357,11 @@ RefPtr<GraphicsContextGL> GraphicsContextGL::create(const GraphicsContextGLAttri
     return result;
 }
 
-GraphicsContextGL::GraphicsContextGL(GraphicsContextGLAttributes attrs, GraphicsContextGL*)
+GraphicsContextGL::GraphicsContextGL(GraphicsContextGLAttributes attrs)
     : m_attrs(attrs)
 {
 }
 
-void GraphicsContextGL::enablePreserveDrawingBuffer()
-{
-    // Canvas capture should not call this unless necessary.
-    ASSERT(!m_attrs.preserveDrawingBuffer);
-    m_attrs.preserveDrawingBuffer = true;
-}
 
 unsigned GraphicsContextGL::getClearBitsByAttachmentType(GCGLenum attachment)
 {

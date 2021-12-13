@@ -21,7 +21,7 @@ export PERL5LIB := $(EXTRASLIB)
 export NO_PERL_PREPENDTOPATH := 1
 
 # <rdar://problem/42682363> CPAN builds against ssl incorrectly
-export OPENSSL_PREFIX := $(SDKROOT)/usr/local/libressl
+export OPENSSL_PREFIX := $(SDKROOT)/usr/local/libressl-3.3
 export OPENSSL_BINDIR := /usr/bin
 
 no_target:

@@ -179,3 +179,5 @@
 "com.apple.configurationprofiles.deviceenrollment.install" = "__APPNAME__ is trying to enroll you in a remote management (MDM) service.";
 
 "com.apple.configurationprofiles.deviceenrollment.uninstall" = "__APPNAME__ is trying to unenroll you from a remote management (MDM) service.";
+
+"com.apple.auth.user" = "Please authenticate yourself again using SmartCard because your account is SmartCard enforced.";

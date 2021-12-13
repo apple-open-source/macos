@@ -25,6 +25,10 @@
 			<string>patch 8.1.0704: building with Ruby 2.6 gives compiler warnings</string>
 			<string>54351200 - locale test fixes</string>
 			<string>54054432 - revert 617e8df8a7509121f9b0a563b95e4f81287ff720</string>
+			<string>83259449 - CVE-2021-3770: Out-of-bounds Write in vim</string>
+			<string>83508693 - CVE-2021-3778: Out-of-bounds Write in vim</string>
+			<string>83624543 - CVE-2021-3796: Use After Free in vim</string>
+			<string>84478251 - CVE-2021-3875: Out-of-bounds Write in vim</string>
 		</array>
 	</dict>
 </array>

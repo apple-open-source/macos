@@ -71,6 +71,7 @@ const char* UserMediaCaptureManager::supplementName()
 
 void UserMediaCaptureManager::setupCaptureProcesses(bool shouldCaptureAudioInUIProcess, bool shouldCaptureAudioInGPUProcess, bool shouldCaptureVideoInUIProcess, bool shouldCaptureVideoInGPUProcess, bool shouldCaptureDisplayInUIProcess)
 {
+    // FIXME(rdar://84278146): Adopt AVCaptureSession attribution API for camera access in the web process if shouldCaptureVideoInGPUProcess is false.
     MockRealtimeMediaSourceCenter::singleton().setMockAudioCaptureEnabled(!shouldCaptureAudioInUIProcess && !shouldCaptureAudioInGPUProcess);
     MockRealtimeMediaSourceCenter::singleton().setMockVideoCaptureEnabled(!shouldCaptureVideoInUIProcess && !shouldCaptureVideoInGPUProcess);
     MockRealtimeMediaSourceCenter::singleton().setMockDisplayCaptureEnabled(!shouldCaptureDisplayInUIProcess);
@@ -137,9 +138,9 @@ void UserMediaCaptureManager::captureFailed(RealtimeMediaSourceIdentifier id)
 void UserMediaCaptureManager::sourceMutedChanged(RealtimeMediaSourceIdentifier id, bool muted)
 {
     if (auto source = m_audioSources.get(id))
-        source->setMuted(muted);
+        source->sourceMutedChanged(muted);
     else if (auto source = m_videoSources.get(id))
-        source->setMuted(muted);
+        source->sourceMutedChanged(muted);
 }
 
 void UserMediaCaptureManager::sourceSettingsChanged(RealtimeMediaSourceIdentifier id, RealtimeMediaSourceSettings&& settings)

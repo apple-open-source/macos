@@ -1173,6 +1173,7 @@ pthread_setname_np(const char *name)
 static union _pthread_jit_config_u {
 	struct {
 		bool allowlist_enabled;
+		bool allowlist_freeze_late;
 		bool allowlist_frozen;
 		uint32_t allowlist_count;
 		pthread_jit_write_callback_t allowlist[];
@@ -1186,6 +1187,8 @@ _Static_assert(sizeof(_pthread_jit_config) == PAGE_MAX_SIZE,
 #define _PTHREAD_JIT_ALLOWLIST_CAPACITY \
 		((PAGE_MAX_SIZE - offsetof(union _pthread_jit_config_u, allowlist)) / \
 		sizeof(pthread_jit_write_callback_t))
+
+static _pthread_lock _pthread_jit_config_lock = _PTHREAD_LOCK_INITIALIZER;
 
 static void
 _pthread_jit_write_protect_global_init(void)
@@ -1217,6 +1220,9 @@ _pthread_jit_write_protect_global_init(void)
 		}
 
 		config->allowlist_enabled = true;
+		if (__pthread_supported_features & PTHREAD_FEATURE_JIT_FREEZE_LATE) {
+			config->allowlist_freeze_late = true;
+		}
 	}
 }
 
@@ -1226,9 +1232,13 @@ _pthread_jit_write_protect_bulk_image_load_callback(unsigned int image_count,
 {
 	union _pthread_jit_config_u *config = &_pthread_jit_config;
 
-	// Ignore dlopen()s
+	if (config->allowlist_freeze_late) {
+		_pthread_lock_lock(&_pthread_jit_config_lock);
+	}
+
+	// Ignore dlopen()s after the allowlist is frozen
 	if (config->allowlist_frozen) {
-		return;
+		goto done;
 	}
 
 	for (unsigned int i = 0; i < image_count; i++) {
@@ -1263,6 +1273,27 @@ _pthread_jit_write_protect_bulk_image_load_callback(unsigned int image_count,
 			config->allowlist_count++;
 		}
 	}
+
+done:
+	if (config->allowlist_freeze_late) {
+		_pthread_lock_unlock(&_pthread_jit_config_lock);
+	}
+}
+
+static void
+_pthread_jit_write_protect_freeze_config(void)
+{
+	union _pthread_jit_config_u *config = &_pthread_jit_config;
+
+	// By protecting config read-only with set_maximum, prevent an attack
+	// from later altering its protection back to writeable.
+	kern_return_t kr = mach_vm_protect(mach_task_self(),
+			(mach_vm_address_t)config, sizeof(*config),
+			/* set_maximum */ true, VM_PROT_READ);
+	if (kr != KERN_SUCCESS) {
+		PTHREAD_INTERNAL_CRASH(kr, "jit config vm_protect() failed");
+	}
+
 }
 
 static void
@@ -1274,17 +1305,11 @@ _pthread_jit_write_protect_late_init(void)
 		_dyld_register_for_bulk_image_loads(
 				_pthread_jit_write_protect_bulk_image_load_callback);
 
-		// Since there's no way to un-register the image load callback, just
-		// remember that we're no longer interested in new images
-		config->allowlist_frozen = true;
-
-		// By protecting config read-only with set_maximum, prevent an attack
-		// from later altering its protection back to writeable.
-		kern_return_t kr = mach_vm_protect(mach_task_self(),
-				(mach_vm_address_t)config, sizeof(*config),
-				/* set_maximum */ true, VM_PROT_READ);
-		if (kr != KERN_SUCCESS) {
-			PTHREAD_INTERNAL_CRASH(kr, "jit config vm_protect() failed");
+		if (!config->allowlist_freeze_late) {
+			// Since there's no way to un-register the image load callback, just
+			// remember that we're no longer interested in new images
+			config->allowlist_frozen = true;
+			_pthread_jit_write_protect_freeze_config();
 		}
 	}
 }
@@ -1341,6 +1366,12 @@ pthread_jit_write_with_callback_np(pthread_jit_write_callback_t callback,
 
 	union _pthread_jit_config_u *config = &_pthread_jit_config;
 	if (config->allowlist_enabled) {
+		if (!config->allowlist_frozen) {
+			PTHREAD_CLIENT_CRASH(config->allowlist_freeze_late,
+					"pthread_jit_write_with_callback_np() called before "
+					"pthread_jit_write_freeze_callbacks_np()");
+		}
+
 		uint32_t i;
 		for (i = 0; i < config->allowlist_count; i++) {
 			if (config->allowlist[i] == callback) {
@@ -1364,6 +1395,33 @@ pthread_jit_write_with_callback_np(pthread_jit_write_callback_t callback,
 	return rv;
 #else // _PTHREAD_CONFIG_JIT_WRITE_PROTECT
 	return callback(ctx);
+#endif // _PTHREAD_CONFIG_JIT_WRITE_PROTECT
+}
+
+void
+pthread_jit_write_freeze_callbacks_np(void)
+{
+#if _PTHREAD_CONFIG_JIT_WRITE_PROTECT
+	if (!os_thread_self_restrict_rwx_is_supported()) {
+		return;
+	}
+
+	union _pthread_jit_config_u *config = &_pthread_jit_config;
+
+	if (!config->allowlist_freeze_late) {
+		PTHREAD_CLIENT_CRASH(0, "pthread_jit_write_freeze_callbacks_np() "
+				"called but freeze-late entitlement is missing");
+	}
+
+	_pthread_lock_lock(&_pthread_jit_config_lock);
+	if (config->allowlist_frozen) {
+		PTHREAD_CLIENT_CRASH(0,
+				"pthread_jit_write_freeze_callbacks_np() already called");
+	}
+	config->allowlist_frozen = true;
+	_pthread_lock_unlock(&_pthread_jit_config_lock);
+
+	_pthread_jit_write_protect_freeze_config();
 #endif // _PTHREAD_CONFIG_JIT_WRITE_PROTECT
 }
 

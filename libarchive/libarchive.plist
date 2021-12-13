@@ -40,6 +40,7 @@
 		<string>libarchive/test/test_archive_string_conversion.c: fix memory leak (68720556)</string>
 		<string>libarchive/test/test_write_disk_appledouble.c: fix acl string leaks (68720556)</string>
 		<string>libarchive/test/test_write_disk_mac_metadata.c: fix acl string leaks (68720556)</string>
+		<string>libarchive/archive_read_support_format_rar5.c: fix heap buffer overflow (82437116)</string>
 	</array>
 	<key>OpenSourceLicense</key>
 	<string>BSD</string>

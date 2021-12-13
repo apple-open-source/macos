@@ -29,6 +29,10 @@ messages -> WebPage LegacyReceiver {
 
     AddConsoleMessage(WebCore::FrameIdentifier frameID, enum:uint8_t JSC::MessageSource messageSource, enum:uint8_t JSC::MessageLevel messageLevel, String message, uint64_t requestID)
     SendCSPViolationReport(WebCore::FrameIdentifier frameID, URL reportURL, IPC::FormDataReference reportData)
+    SendCOEPPolicyInheritenceViolation(WebCore::FrameIdentifier frameID, struct WebCore::SecurityOriginData embedderOrigin, String endpoint, enum:bool WebCore::COEPDisposition disposition, String type, URL blockedURL)
+    SendCOEPCORPViolation(WebCore::FrameIdentifier frameID, struct WebCore::SecurityOriginData embedderOrigin, String endpoint, enum:bool WebCore::COEPDisposition disposition, enum:uint8_t WebCore::FetchOptions::Destination destination, URL blockedURL)
+    SendViolationReportWhenNavigatingToCOOPResponse(WebCore::FrameIdentifier frameID, struct WebCore::CrossOriginOpenerPolicy coop, enum:bool WebCore::COOPDisposition disposition, URL coopURL, URL previousResponseURL, struct WebCore::SecurityOriginData coopOrigin, struct WebCore::SecurityOriginData previousResponseOrigin, String referrer, String userAgent, String reportToHeaderValue)
+    SendViolationReportWhenNavigatingAwayFromCOOPResponse(WebCore::FrameIdentifier frameID, struct WebCore::CrossOriginOpenerPolicy coop, enum:bool WebCore::COOPDisposition disposition, URL coopURL, URL nextResponseURL, struct WebCore::SecurityOriginData coopOrigin, struct WebCore::SecurityOriginData nextResponseOrigin, bool isCOOPResponseNavigationSource, String userAgent)
     EnqueueSecurityPolicyViolationEvent(WebCore::FrameIdentifier frameID, WebCore::SecurityPolicyViolationEvent::Init eventInit)
 
     TestProcessIncomingSyncMessagesWhenWaitingForSyncReply() -> (bool handled) Synchronous
@@ -167,7 +171,7 @@ GenerateSyntheticEditingCommand(enum:uint8_t WebKit::SyntheticEditingCommandType
     ScrollBy(uint32_t scrollDirection, uint32_t scrollGranularity)
     CenterSelectionInVisibleArea()
 
-    GoToBackForwardItem(uint64_t navigationID, struct WebCore::BackForwardItemIdentifier backForwardItemID, enum:uint8_t WebCore::FrameLoadType backForwardType, enum:bool WebCore::ShouldTreatAsContinuingLoad shouldTreatAsContinuingLoad, std::optional<WebKit::WebsitePoliciesData> websitePolicies, bool lastNavigationWasAppInitiated)
+    GoToBackForwardItem(uint64_t navigationID, struct WebCore::BackForwardItemIdentifier backForwardItemID, enum:uint8_t WebCore::FrameLoadType backForwardType, enum:uint8_t WebCore::ShouldTreatAsContinuingLoad shouldTreatAsContinuingLoad, std::optional<WebKit::WebsitePoliciesData> websitePolicies, bool lastNavigationWasAppInitiated)
     TryRestoreScrollPosition()
 
     LoadURLInFrame(URL url, String referrer, WebCore::FrameIdentifier frameID)

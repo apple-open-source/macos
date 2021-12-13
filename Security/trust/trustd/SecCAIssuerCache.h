@@ -42,10 +42,9 @@ __BEGIN_DECLS
 void SecCAIssuerCacheAddCertificates(CFArrayRef certificates,
                                     CFURLRef uri, CFAbsoluteTime expires);
 
-CFArrayRef SecCAIssuerCacheCopyMatching(CFURLRef uri);
+CFArrayRef SecCAIssuerCacheCopyMatching(CFURLRef uri, bool expired);
 
-/* This should be called on a normal non emergency exit. */
-void SecCAIssuerCacheGC(void);
+void SecCAIssuerCacheClear(void);
 
 __END_DECLS
 

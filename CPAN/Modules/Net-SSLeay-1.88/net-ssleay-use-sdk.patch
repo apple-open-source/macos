@@ -1,0 +1,13 @@
+diff --git a/Makefile.PL b/Makefile.PL
+index 31d9c74..1a73917 100644
+--- a/Makefile.PL
++++ b/Makefile.PL
+@@ -206,6 +206,8 @@ EOM
+               : qw( ssl crypto z )
+              );
+ 
++        push @{ $opts->{lib_paths} }, '@SDKROOT@/usr/lib';
++
+         if (($Config{cc} =~ /aCC/i) && $^O eq 'hpux') {
+             print "*** Enabling HPUX aCC options (+e)\n";
+             $opts->{optimize} = '+e -O2 -g';

@@ -138,6 +138,7 @@ class PointerCaptureController;
 class PointerLockController;
 class ProgressTracker;
 class RenderObject;
+class ReportingEndpointsCache;
 class ResourceUsageOverlay;
 class RenderingUpdateScheduler;
 class ScrollLatchingController;
@@ -145,10 +146,11 @@ class ScrollingCoordinator;
 class ServicesOverlayController;
 class Settings;
 class SocketProvider;
+class SpeechRecognitionProvider;
 class SpeechSynthesisClient;
 class StorageNamespace;
 class StorageNamespaceProvider;
-class SpeechRecognitionProvider;
+class StorageProvider;
 class UserContentProvider;
 class UserContentURLPattern;
 class UserInputBridge;
@@ -170,7 +172,7 @@ using SharedStringHash = uint32_t;
 enum class CanWrap : bool;
 enum class DidWrap : bool;
 enum class RouteSharingPolicy : uint8_t;
-enum class ShouldTreatAsContinuingLoad : bool;
+enum class ShouldTreatAsContinuingLoad : uint8_t;
 
 enum class EventThrottlingBehavior : bool { Responsive, Unresponsive };
 
@@ -287,7 +289,7 @@ public:
     WEBCORE_EXPORT void setBroadcastChannelRegistry(Ref<BroadcastChannelRegistry>&&); // Only used by WebKitLegacy.
 
     WEBCORE_EXPORT static void forEachPage(const WTF::Function<void(Page&)>&);
-    static unsigned nonUtilityPageCount();
+    WEBCORE_EXPORT static unsigned nonUtilityPageCount();
 
     unsigned subframeCount() const;
 
@@ -303,6 +305,8 @@ public:
     WEBCORE_EXPORT void setRemoteInspectionNameOverride(const String&);
     void remoteInspectorInformationDidChange() const;
 #endif
+
+    ReportingEndpointsCache* reportingEndpointsCache() { return m_reportingEndpointsCache.get(); }
 
     Chrome& chrome() const { return *m_chrome; }
     DragCaretController& dragCaretController() const { return *m_dragCaretController; }
@@ -872,6 +876,8 @@ public:
     void cacheTextRecognitionResult(const HTMLElement&, const IntRect& containerRect, const TextRecognitionResult&);
 #endif
 
+    WEBCORE_EXPORT StorageConnection& storageConnection();
+
 private:
     struct Navigation {
         RegistrableDomain domain;
@@ -1193,6 +1199,9 @@ private:
 
     const bool m_httpsUpgradeEnabled { true };
     mutable MediaSessionGroupIdentifier m_mediaSessionGroupIdentifier;
+
+    RefPtr<ReportingEndpointsCache> m_reportingEndpointsCache;
+    UniqueRef<StorageProvider> m_storageProvider;
 
 #if ENABLE(IMAGE_ANALYSIS)
     // FIXME: These should be refactored to use a weak hash map of HTMLElement to std::pair<TextRecognitionResult, IntSize>.

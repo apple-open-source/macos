@@ -1324,13 +1324,14 @@ asl_file_fetch_object(asl_file_t *s, uint16_t fetch_type, uint64_t where, char *
 	off += sizeof(uint32_t);
 
 	len = ntohl(len);
-	if ((off + len) > s->file_size) return ASL_STATUS_READ_FAILED;
+	if (len == 0 || (off + len) > s->file_size) return ASL_STATUS_READ_FAILED;
 
 	*out = calloc(1, len);
 	if (*out == NULL) return ASL_STATUS_NO_MEMORY;
 
 	status = fread(*out, len, 1, s->store);
-	if (status != 1)
+	if (status != 1 || (fetch_type == ASL_FILE_TYPE_STR &&
+				((*out)[len - 1] != '\0' || strlen(*out) != len - 1)))
 	{
 		free(*out);
 		*out = NULL;
@@ -1486,6 +1487,13 @@ asl_file_fetch_pos(asl_file_t *s, uint64_t where, int dir, asl_msg_t **msg)
 	}
 
 	/* check buffer size */
+	if (buflen < MSG_RECORD_FIXED_LENGTH - RECORD_COMMON_LEN) {
+		free(buf);
+		s->cursor = 0;
+		s->cursor_xid = 0;
+		return ASL_STATUS_READ_FAILED;
+	}
+
 	kvn = _asl_get_32(buf + BUFFER_OFFSET_KVCOUNT);
 	if (buflen < (MSG_RECORD_FIXED_LENGTH - RECORD_COMMON_LEN + (kvn * sizeof(uint64_t))))
 	{

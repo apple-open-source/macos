@@ -1,3 +1,153 @@
+2021-10-26  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r284523. rdar://problem/83763291
+
+    WebRTC p2p call, VP9-SVC only low layer decoded on receiver side
+    https://bugs.webkit.org/show_bug.cgi?id=231071
+    <rdar://problem/83763291>
+    
+    Reviewed by Eric Carlson.
+    
+    Source/ThirdParty/libwebrtc:
+    
+    In case VP9 SVC is used, fallback to software decoder for now.
+    
+    * Source/webrtc/sdk/WebKit/WebKitDecoder.mm:
+    
+    Source/WebCore:
+    
+    Add Internals API to check whether VP9 VTB is used or not.
+    
+    Test: webrtc/vp9-svc.html
+    
+    * Modules/mediastream/PeerConnectionBackend.h:
+    * Modules/mediastream/RTCPeerConnection.cpp:
+    * Modules/mediastream/RTCPeerConnection.h:
+    * Modules/mediastream/libwebrtc/LibWebRTCMediaEndpoint.cpp:
+    * Modules/mediastream/libwebrtc/LibWebRTCMediaEndpoint.h:
+    * Modules/mediastream/libwebrtc/LibWebRTCPeerConnectionBackend.cpp:
+    * Modules/mediastream/libwebrtc/LibWebRTCPeerConnectionBackend.h:
+    * Modules/mediastream/libwebrtc/LibWebRTCStatsCollector.cpp:
+    * Modules/mediastream/libwebrtc/LibWebRTCStatsCollector.h:
+    * testing/Internals.cpp:
+    * testing/Internals.h:
+    * testing/Internals.idl:
+    
+    LayoutTests:
+    
+    * webrtc/vp9-svc-expected.txt: Added.
+    * webrtc/vp9-svc.html: Added.
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@284523 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-10-20  Youenn Fablet  <youenn@apple.com>
+
+            WebRTC p2p call, VP9-SVC only low layer decoded on receiver side
+            https://bugs.webkit.org/show_bug.cgi?id=231071
+            <rdar://problem/83763291>
+
+            Reviewed by Eric Carlson.
+
+            In case VP9 SVC is used, fallback to software decoder for now.
+
+            * Source/webrtc/sdk/WebKit/WebKitDecoder.mm:
+
+2021-10-18  Russell Epstein  <repstein@apple.com>
+
+        Apply patch. rdar://problem/84124706
+
+    2021-10-18  David Kilzer  <ddkilzer@apple.com>
+
+            [WebRTC] Leak or over-release of CFPixelBufferRef returned from webrtc::createPixelBufferFromFrame()
+            <https://webkit.org/b/229661>
+            <rdar://problem/82507827>
+
+            Reviewed by Eric Carlson.
+
+            * Configurations/libwebrtc.iOS.exp:
+            * Configurations/libwebrtc.iOSsim.exp:
+            * Configurations/libwebrtc.mac.exp:
+            - Update export symbol for rename from pixelBufferFromFrame() to
+              createPixelBufferFromFrame().
+
+            * Source/webrtc/sdk/WebKit/WebKitDecoderReceiver.cpp:
+            (webrtc::WebKitDecoderReceiver::Decoded):
+            - Update to call renamed createPixelBufferFromFrame() function.
+              This method already released the returned CFPixelBufferRef, so
+              it did not require any more changes.  Also, its functor
+              returned a +1 retained CFPixelBufferRef, so it did not need to
+              change, either.
+
+            * Source/webrtc/sdk/WebKit/WebKitUtilities.h:
+            - Include <CoreFoundation/CFBase.h> for CF_RETURNS_RETAINED.
+            (webrtc::createPixelBufferFromFrame):
+            - Name const std::function<>& as `createPixelBuffer` to describe
+              its behavior.
+            - Add CF_RETURNS_RETAINED to describe memory management of the
+              returned object.
+            * Source/webrtc/sdk/WebKit/WebKitUtilities.mm:
+            (webrtc::pixelBufferFromFrame):
+            - Rename to createPixelBufferFromFrame().
+            (webrtc::createPixelBufferFromFrame):
+            - Rename from pixelBufferFromFrame().
+            - Rename const std::function<>& argument to `createPixelBuffer`
+              to describe its behavior of returning a +1 retained
+              CVPixelBufferRef.
+            - Fix last return statement to return a +1 retained
+              CFPixelBufferRef if it is not nullptr.
+
+            * WebKit/libwebrtc.diff:
+            - Update diff for WebKitUtilities.{h|mm}.
+
+2021-10-17  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Cherry-pick r284082. rdar://problem/84351872
+
+    Override guessed color space for incoming H.264/265 streams
+    https://bugs.webkit.org/show_bug.cgi?id=231353
+    <rdar://problem/83969311>
+    
+    Reviewed by Youenn Fablet.
+    
+    When the VTDecompressionSession decodes incoming H.264/H.265 samples,
+    it puts guessed color space attachments on the CVPixelBuffer, and the
+    guesses are based on video resolution. WebRTC streams however default
+    to being sRGB. So this patch overrides a guess with what we know the
+    stream will be. (Once we support different color spaces in WebRTC
+    video streams we'll need to adjust this.)
+    
+    * Source/webrtc/sdk/objc/components/video_codec/RTCVideoDecoderH264.mm:
+    (overrideColorSpaceAttachmentsIfNeeded):
+    (decompressionOutputCallback):
+    * Source/webrtc/sdk/objc/components/video_codec/RTCVideoDecoderH265.mm:
+    (overrideColorSpaceAttachmentsIfNeeded):
+    (h265DecompressionOutputCallback):
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@284082 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-10-13  Cameron McCormack  <heycam@apple.com>
+
+            Override guessed color space for incoming H.264/265 streams
+            https://bugs.webkit.org/show_bug.cgi?id=231353
+            <rdar://problem/83969311>
+
+            Reviewed by Youenn Fablet.
+
+            When the VTDecompressionSession decodes incoming H.264/H.265 samples,
+            it puts guessed color space attachments on the CVPixelBuffer, and the
+            guesses are based on video resolution. WebRTC streams however default
+            to being sRGB. So this patch overrides a guess with what we know the
+            stream will be. (Once we support different color spaces in WebRTC
+            video streams we'll need to adjust this.)
+
+            * Source/webrtc/sdk/objc/components/video_codec/RTCVideoDecoderH264.mm:
+            (overrideColorSpaceAttachmentsIfNeeded):
+            (decompressionOutputCallback):
+            * Source/webrtc/sdk/objc/components/video_codec/RTCVideoDecoderH265.mm:
+            (overrideColorSpaceAttachmentsIfNeeded):
+            (h265DecompressionOutputCallback):
+
 2021-09-23  Alan Coon  <alancoon@apple.com>
 
         Cherry-pick r282831. rdar://problem/83429823

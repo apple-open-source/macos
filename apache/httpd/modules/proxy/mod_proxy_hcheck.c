@@ -20,6 +20,7 @@
 #if APR_HAS_THREADS
 #include "apr_thread_pool.h"
 #endif
+#include "http_ssl.h"
 
 module AP_MODULE_DECLARE_DATA proxy_hcheck_module;
 
@@ -74,6 +75,8 @@ typedef struct {
     proxy_worker *hc;
     apr_time_t *now;
 } baton_t;
+
+static APR_OPTIONAL_FN_TYPE(ajp_handle_cping_cpong) *ajp_handle_cping_cpong = NULL;
 
 static void *hc_create_config(apr_pool_t *p, server_rec *s)
 {
@@ -601,7 +604,7 @@ static int hc_get_backend(const char *proxy_function, proxy_conn_rec **backend,
         (*backend)->addr = hc->cp->addr;
         (*backend)->hostname = hc->s->hostname_ex;
         if (strcmp(hc->s->scheme, "https") == 0 || strcmp(hc->s->scheme, "wss") == 0 ) {
-            if (!ap_proxy_ssl_enable(NULL)) {
+            if (!ap_ssl_has_outgoing_handlers()) {
                 ap_log_error(APLOG_MARK, APLOG_WARNING, 0, ctx->s, APLOGNO(03252)
                               "mod_ssl not configured?");
                 return !OK;
@@ -611,6 +614,49 @@ static int hc_get_backend(const char *proxy_function, proxy_conn_rec **backend,
 
     }
     return hc_determine_connection(ctx, hc, &(*backend)->addr, ptemp);
+}
+
+static apr_status_t hc_check_cping(baton_t *baton, apr_thread_t *thread)
+{
+    int status;
+    sctx_t *ctx = baton->ctx;
+    proxy_worker *hc = baton->hc;
+    proxy_conn_rec *backend = NULL;
+    apr_pool_t *ptemp = baton->ptemp;
+    request_rec *r;
+    apr_interval_time_t timeout;
+
+    if (!ajp_handle_cping_cpong) {
+        return APR_ENOTIMPL;
+    }
+
+    ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, baton->ctx->s, "HCCPING starting");
+    if ((status = hc_get_backend("HCCPING", &backend, hc, ctx, baton->ptemp)) != OK) {
+        return backend_cleanup("HCCPING", backend, ctx->s, status);
+    }
+    if ((status = ap_proxy_connect_backend("HCCPING", backend, hc, ctx->s)) != OK) {
+        return backend_cleanup("HCCPING", backend, ctx->s, status);
+    }
+    r = create_request_rec(ptemp, ctx->s, baton->balancer, "CPING");
+    if ((status = ap_proxy_connection_create_ex("HCCPING", backend, r)) != OK) {
+        return backend_cleanup("HCCPING", backend, ctx->s, status);
+    }
+    set_request_connection(r, backend->connection);
+    backend->connection->current_thread = thread;
+
+    if (hc->s->ping_timeout_set) {
+        timeout = hc->s->ping_timeout;
+    } else if ( hc->s->conn_timeout_set) {
+        timeout = hc->s->conn_timeout;
+    } else if ( hc->s->timeout_set) {
+        timeout = hc->s->timeout;
+    } else {
+        /* default to socket timeout */
+        apr_socket_timeout_get(backend->sock, &timeout); 
+    }
+    status = ajp_handle_cping_cpong(backend->sock, r, timeout);
+    ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, baton->ctx->s, "HCCPING done %d", status);
+    return backend_cleanup("HCCPING", backend, ctx->s, status);
 }
 
 static apr_status_t hc_check_tcp(baton_t *baton)
@@ -753,7 +799,7 @@ static int hc_read_body(request_rec *r, apr_bucket_brigade *bb)
  * then apply those to the resulting response, otherwise
  * any status code 2xx or 3xx is considered "passing"
  */
-static apr_status_t hc_check_http(baton_t *baton)
+static apr_status_t hc_check_http(baton_t *baton, apr_thread_t *thread)
 {
     int status;
     proxy_conn_rec *backend = NULL;
@@ -783,6 +829,7 @@ static apr_status_t hc_check_http(baton_t *baton)
         return backend_cleanup("HCOH", backend, ctx->s, status);
     }
     set_request_connection(r, backend->connection);
+    backend->connection->current_thread = thread;
 
     bb = apr_brigade_create(r->pool, r->connection->bucket_alloc);
 
@@ -848,8 +895,11 @@ static void * APR_THREAD_FUNC hc_check(apr_thread_t *thread, void *b)
     if (hc->s->method == TCP) {
         rv = hc_check_tcp(baton);
     }
+    else if (hc->s->method == CPING) {
+        rv = hc_check_cping(baton, thread);
+    }
     else {
-        rv = hc_check_http(baton);
+        rv = hc_check_http(baton, thread);
     }
 
     now = apr_time_now();
@@ -1075,6 +1125,18 @@ static int hc_post_config(apr_pool_t *p, apr_pool_t *plog,
                      "watchdog callback registered (%s for %s)", HCHECK_WATHCHDOG_NAME, s->server_hostname);
         s = s->next;
     }
+
+    ajp_handle_cping_cpong = APR_RETRIEVE_OPTIONAL_FN(ajp_handle_cping_cpong);
+    if (ajp_handle_cping_cpong) {
+       proxy_hcmethods_t *method = proxy_hcmethods;
+       for (; method->name; method++) {
+           if (method->method == CPING) {
+               method->implemented = 1;
+               break;
+           }
+       }
+    }
+
     return OK;
 }
 

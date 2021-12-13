@@ -59,6 +59,51 @@ bool PrivateClickMeasurement::isValid() const
         && (m_timesToSend.sourceEarliestTimeToSend || m_timesToSend.destinationEarliestTimeToSend);
 }
 
+PrivateClickMeasurement::SourceSecretToken PrivateClickMeasurement::SourceSecretToken::isolatedCopy() const
+{
+    return {
+        tokenBase64URL.isolatedCopy(),
+        signatureBase64URL.isolatedCopy(),
+        keyIDBase64URL.isolatedCopy(),
+    };
+}
+
+PrivateClickMeasurement::EphemeralSourceNonce PrivateClickMeasurement::EphemeralSourceNonce::isolatedCopy() const
+{
+    return { nonce.isolatedCopy() };
+}
+
+PrivateClickMeasurement::SourceUnlinkableToken PrivateClickMeasurement::SourceUnlinkableToken::isolatedCopy() const
+{
+    return {
+#if PLATFORM(COCOA)
+        blinder,
+        waitingToken,
+        readyToken,
+#endif
+        valueBase64URL.isolatedCopy()
+    };
+}
+
+PrivateClickMeasurement PrivateClickMeasurement::isolatedCopy() const
+{
+    PrivateClickMeasurement copy;
+    copy.m_sourceID = m_sourceID;
+    copy.m_sourceSite = m_sourceSite.isolatedCopy();
+    copy.m_destinationSite = m_destinationSite.isolatedCopy();
+    copy.m_sourceDescription = m_sourceDescription.isolatedCopy();
+    copy.m_purchaser = m_purchaser.isolatedCopy();
+    copy.m_timeOfAdClick = m_timeOfAdClick.isolatedCopy();
+    copy.m_isEphemeral = m_isEphemeral;
+    copy.m_attributionTriggerData = m_attributionTriggerData;
+    copy.m_timesToSend = m_timesToSend;
+    copy.m_ephemeralSourceNonce = crossThreadCopy(m_ephemeralSourceNonce);
+    copy.m_sourceUnlinkableToken = m_sourceUnlinkableToken.isolatedCopy();
+    copy.m_sourceSecretToken = crossThreadCopy(m_sourceSecretToken);
+    copy.m_sourceApplicationBundleID = m_sourceApplicationBundleID.isolatedCopy();
+    return copy;
+}
+
 Expected<PrivateClickMeasurement::AttributionTriggerData, String> PrivateClickMeasurement::parseAttributionRequest(const URL& redirectURL)
 {
     auto path = StringView(redirectURL.string()).substring(redirectURL.pathStart(), redirectURL.pathEnd() - redirectURL.pathStart());
@@ -98,12 +143,17 @@ bool PrivateClickMeasurement::hasPreviouslyBeenReported()
     return !m_timesToSend.sourceEarliestTimeToSend || !m_timesToSend.destinationEarliestTimeToSend;
 }
 
-static Seconds randomlyBetweenTwentyFourAndFortyEightHours()
+void PrivateClickMeasurement::setSourceApplicationBundleIDForTesting(const String& appBundleIDForTesting)
 {
-    return 24_h + Seconds(randomNumber() * (24_h).value());
+    m_sourceApplicationBundleID = appBundleIDForTesting;
 }
 
-PrivateClickMeasurement::AttributionSecondsUntilSendData PrivateClickMeasurement::attributeAndGetEarliestTimeToSend(AttributionTriggerData&& attributionTriggerData)
+static Seconds randomlyBetweenTwentyFourAndFortyEightHours(PrivateClickMeasurement::IsRunningLayoutTest isRunningTest)
+{
+    return isRunningTest == PrivateClickMeasurement::IsRunningLayoutTest::Yes ? 1_s : 24_h + Seconds(randomNumber() * (24_h).value());
+}
+
+PrivateClickMeasurement::AttributionSecondsUntilSendData PrivateClickMeasurement::attributeAndGetEarliestTimeToSend(AttributionTriggerData&& attributionTriggerData, IsRunningLayoutTest isRunningTest)
 {
     if (!attributionTriggerData.isValid() || (m_attributionTriggerData && m_attributionTriggerData->priority >= attributionTriggerData.priority))
         return { };
@@ -111,8 +161,8 @@ PrivateClickMeasurement::AttributionSecondsUntilSendData PrivateClickMeasurement
     m_attributionTriggerData = WTFMove(attributionTriggerData);
     // 24-48 hour delay before sending. This helps privacy since the conversion and the attribution
     // requests are detached and the time of the attribution does not reveal the time of the conversion.
-    auto sourceSecondsUntilSend = randomlyBetweenTwentyFourAndFortyEightHours();
-    auto destinationSecondsUntilSend = randomlyBetweenTwentyFourAndFortyEightHours();
+    auto sourceSecondsUntilSend = randomlyBetweenTwentyFourAndFortyEightHours(isRunningTest);
+    auto destinationSecondsUntilSend = randomlyBetweenTwentyFourAndFortyEightHours(isRunningTest);
     m_timesToSend = { WallTime::now() + sourceSecondsUntilSend, WallTime::now() + destinationSecondsUntilSend };
 
     return AttributionSecondsUntilSendData { sourceSecondsUntilSend, destinationSecondsUntilSend };

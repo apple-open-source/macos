@@ -1198,7 +1198,7 @@ configure_zone(pgm_zone_t *zone)
 	// Approximate a (1 / sample_rate) chance for sampling; 1 means "always sample".
 	zone->sample_counter_range = (sample_rate != 1) ? (2 * sample_rate) : 1;
 	bool strict_alignment = env_var("MallocProbGuardStrictAlignment") ? env_bool("MallocProbGuardStrictAlignment") : FEATURE_FLAG(ProbGuardStrictAlignment, false);
-	zone->min_alignment = strict_alignment ? 1 : 16;  // Darwin ABI requires 16 byte alignment.
+	zone->min_alignment = (strict_alignment && MALLOC_TARGET_64BIT) ? 1 : 16;  // Darwin ABI requires 16 byte alignment.
 	zone->signal_handler = env_bool("MallocProbGuardSignalHandler");
 	zone->debug = env_bool("MallocProbGuardDebug");
 	zone->debug_log_throttle_ms = env_uint("MallocProbGuardDebugLogThrottleInMillis", 1000);

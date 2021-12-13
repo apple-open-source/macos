@@ -54,9 +54,12 @@ class Crypto;
 class FontFaceSet;
 class Performance;
 class ScheduledAction;
+class WorkerFileSystemStorageConnection;
 class WorkerLocation;
 class WorkerNavigator;
 class WorkerSWClientConnection;
+class WorkerStorageConnection;
+class WorkerStorageConnection;
 struct WorkerParameters;
 
 namespace IDBClient {
@@ -79,6 +82,11 @@ public:
     void suspend() final;
     void resume() final;
 
+    using WeakValueType = EventTarget::WeakValueType;
+    using EventTarget::weakPtrFactory;
+    WorkerStorageConnection& storageConnection();
+    WorkerFileSystemStorageConnection& getFileSystemStorageConnection(Ref<FileSystemStorageConnection>&&);
+    WorkerFileSystemStorageConnection* fileSystemStorageConnection();
     WorkerCacheStorageConnection& cacheStorageConnection();
     MessagePortChannelProvider& messagePortChannelProvider();
 #if ENABLE(SERVICE_WORKER)
@@ -212,6 +220,8 @@ private:
     Settings::Values m_settingsValues;
     WorkerType m_workerType;
     FetchOptions::Credentials m_credentials;
+    RefPtr<WorkerStorageConnection> m_storageConnection;
+    RefPtr<WorkerFileSystemStorageConnection> m_fileSystemStorageConnection;
 };
 
 } // namespace WebCore

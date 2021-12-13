@@ -1154,6 +1154,12 @@ static apr_status_t get_certificates(server_rec *s, apr_pool_t *p, int fallback,
                 APR_ARRAY_PUSH(key_files, const char*) = keyfile;
                 APR_ARRAY_PUSH(chain_files, const char*) = chainfile;
             }
+            else if (APR_STATUS_IS_ENOENT(rv)) {
+                /* certificate for this pkey is not available, others might
+                 * if pkeys have been added for a runnign mdomain.
+                 * see issue #260 */
+                rv = APR_SUCCESS;
+            }
             else if (!APR_STATUS_IS_ENOENT(rv)) {
                 ap_log_error(APLOG_MARK, APLOG_ERR, rv, s, APLOGNO(10110)
                              "retrieving credentials for MD %s (%s)",
@@ -1201,6 +1207,9 @@ leave:
     if (!md_array_is_empty(key_files) && !md_array_is_empty(chain_files)) {
         *pkey_files = key_files;
         *pcert_files = chain_files;
+    }
+    else if (APR_SUCCESS == rv) {
+        rv = APR_ENOENT;
     }
     return rv;
 }
@@ -1276,7 +1285,7 @@ static int md_answer_challenge(conn_rec *c, const char *servername,
     sc = md_config_get(c->base_server);
     if (!sc || !sc->mc->reg) goto cleanup;
 
-    ap_log_cerror(APLOG_MARK, APLOG_TRACE6, 0, c,
+    ap_log_cerror(APLOG_MARK, APLOG_TRACE1, 0, c,
                   "Answer challenge[tls-alpn-01] for %s", servername);
     store = md_reg_store_get(sc->mc->reg);
 
@@ -1505,12 +1514,7 @@ static void md_hooks(apr_pool_t *pool)
     ap_hook_ssl_ocsp_prime_hook(md_ocsp_prime_status, NULL, NULL, APR_HOOK_MIDDLE);
     ap_hook_ssl_ocsp_get_resp_hook(md_ocsp_provide_status, NULL, NULL, APR_HOOK_MIDDLE);
 #else
-
-#ifndef SSL_CERT_HOOKS
-#error "This version of mod_md requires Apache httpd 2.4.41 or newer."
-#endif
-    APR_OPTIONAL_HOOK(ssl, init_stapling_status, md_ocsp_init_stapling_status, NULL, NULL, APR_HOOK_MIDDLE);
-    APR_OPTIONAL_HOOK(ssl, get_stapling_status, md_ocsp_get_stapling_status, NULL, NULL, APR_HOOK_MIDDLE);
+#error "This version of mod_md requires Apache httpd 2.4.48 or newer."
 #endif /* AP_MODULE_MAGIC_AT_LEAST() */
 }
 

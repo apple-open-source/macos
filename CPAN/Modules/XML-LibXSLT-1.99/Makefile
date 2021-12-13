@@ -5,3 +5,4 @@ include ../Makefile.inc
 
 custompatching:
 	ed - $(DIR)/Makefile.PL < $(MYSRC)/Makefile.PL.ed
+	patch -d $(DIR) -p1 -i $(MYSRC)/xml-libxslt-use-sdkroot.patch

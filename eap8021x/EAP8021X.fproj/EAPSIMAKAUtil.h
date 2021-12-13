@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008-2019 Apple Inc. All rights reserved.
+ * Copyright (c) 2008-2019, 2021 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -281,7 +281,7 @@ EAPSIMAKAAttributeType
 EAPSIMAKAIdentityTypeGetAttributeType(CFStringRef string);
 
 EAPSIMAKAEncryptedIdentityInfoRef
-EAPSIMAKAInitEncryptedIdentityInfo(EAPType type, CFDictionaryRef properties, Boolean static_config, Boolean *is_privacy_protection_enabled);
+EAPSIMAKAInitEncryptedIdentityInfo(EAPType type, CFDictionaryRef properties, Boolean static_config, Boolean *is_privacy_protection_enabled, Boolean *is_oob_pseudonym_supported);
 
 void
 EAPSIMAKAClearEncryptedIdentityInfo(EAPSIMAKAEncryptedIdentityInfoRef info);

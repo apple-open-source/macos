@@ -43,6 +43,7 @@
 #include "CommonSlowPaths.h"
 #include "DFGAbstractHeap.h"
 #include "DFGArrayMode.h"
+#include "DFGBackwardsPropagationPhase.h"
 #include "DFGBlockSet.h"
 #include "DFGCapabilities.h"
 #include "DFGClobberize.h"
@@ -3806,8 +3807,17 @@ bool ByteCodeParser::handleDOMJITCall(Node* callTarget, Operand result, const DO
 template<typename ChecksFunctor>
 bool ByteCodeParser::handleIntrinsicGetter(Operand result, SpeculatedType prediction, const GetByVariant& variant, Node* thisNode, const ChecksFunctor& insertChecks)
 {
+#if USE(LARGE_TYPED_ARRAYS)
+    static_assert(enableInt52());
+#endif
+
     switch (variant.intrinsic()) {
     case TypedArrayByteLengthIntrinsic: {
+        bool willNeedGetTypedArrayLengthAsInt52 = !isInt32Speculation(prediction) || m_inlineStackTop->m_exitProfile.hasExitSite(m_currentIndex, Overflow);
+#if !USE(LARGE_TYPED_ARRAYS)
+        if (willNeedGetTypedArrayLengthAsInt52)
+            return false;
+#endif
         insertChecks();
 
         TypedArrayType type = (*variant.structureSet().begin())->classInfo()->typedArrayStorageType;
@@ -3821,26 +3831,30 @@ bool ByteCodeParser::handleIntrinsicGetter(Operand result, SpeculatedType predic
             ASSERT(arrayType != Array::Generic);
         });
 
-        Node* lengthNode = addToGraph(GetArrayLength, OpInfo(ArrayMode(arrayType, Array::Read).asWord()), thisNode);
+        NodeType op = willNeedGetTypedArrayLengthAsInt52 ? GetTypedArrayLengthAsInt52 : GetArrayLength;
+        Node* lengthNode = addToGraph(op, OpInfo(ArrayMode(arrayType, Array::Read).asWord()), thisNode);
         // Our ArrayMode shouldn't cause us to exit here so we should be ok to exit without effects.
         m_exitOK = true;
         addToGraph(ExitOK);
-
 
         if (!logSize) {
             set(result, lengthNode);
             return true;
         }
 
-        // We can use a BitLShift here because typed arrays will never have a byteLength
-        // that overflows int32.
-        Node* shiftNode = jsConstant(jsNumber(logSize));
-        set(result, addToGraph(ArithBitLShift, lengthNode, shiftNode));
+        // We cannot use a BitLShift here because typed arrays may have a byteLength that overflows Int32.
+        Node* typeSize = jsConstant(jsNumber(1 << logSize));
+        set(result, addToGraph(ArithMul, lengthNode, typeSize));
 
         return true;
     }
 
     case TypedArrayLengthIntrinsic: {
+        bool willNeedGetTypedArrayLengthAsInt52 = !isInt32Speculation(prediction) || m_inlineStackTop->m_exitProfile.hasExitSite(m_currentIndex, Overflow);
+#if !USE(LARGE_TYPED_ARRAYS)
+        if (willNeedGetTypedArrayLengthAsInt52)
+            return false;
+#endif
         insertChecks();
 
         TypedArrayType type = (*variant.structureSet().begin())->classInfo()->typedArrayStorageType;
@@ -3852,13 +3866,19 @@ bool ByteCodeParser::handleIntrinsicGetter(Operand result, SpeculatedType predic
             ASSERT(arrayType != Array::Generic);
         });
 
-        set(result, addToGraph(GetArrayLength, OpInfo(ArrayMode(arrayType, Array::Read).asWord()), thisNode));
+        NodeType op = willNeedGetTypedArrayLengthAsInt52 ? GetTypedArrayLengthAsInt52 : GetArrayLength;
+        set(result, addToGraph(op, OpInfo(ArrayMode(arrayType, Array::Read).asWord()), thisNode));
 
         return true;
 
     }
 
     case TypedArrayByteOffsetIntrinsic: {
+        bool willNeedGetTypedArrayByteOffsetAsInt52 = !isInt32Speculation(prediction) || m_inlineStackTop->m_exitProfile.hasExitSite(m_currentIndex, Overflow);
+#if !USE(LARGE_TYPED_ARRAYS)
+        if (willNeedGetTypedArrayByteOffsetAsInt52)
+            return false;
+#endif
         insertChecks();
 
         TypedArrayType type = (*variant.structureSet().begin())->classInfo()->typedArrayStorageType;
@@ -3870,7 +3890,8 @@ bool ByteCodeParser::handleIntrinsicGetter(Operand result, SpeculatedType predic
             ASSERT(arrayType != Array::Generic);
         });
 
-        set(result, addToGraph(GetTypedArrayByteOffset, OpInfo(ArrayMode(arrayType, Array::Read).asWord()), thisNode));
+        NodeType op = willNeedGetTypedArrayByteOffsetAsInt52 ? GetTypedArrayByteOffsetAsInt52 : GetTypedArrayByteOffset;
+        set(result, addToGraph(op, OpInfo(ArrayMode(arrayType, Array::Read).asWord()), thisNode));
 
         return true;
     }
@@ -9022,6 +9043,13 @@ void ByteCodeParser::parse()
     parseCodeBlock();
     linkBlocks(inlineStackEntry.m_unlinkedBlocks, inlineStackEntry.m_blockLinkingTargets);
 
+    // We run backwards propagation now because the soundness of that phase
+    // relies on seeing the graph as if it were an IR over bytecode, since
+    // the spec-correctness of that phase relies on seeing all bytecode uses.
+    // Therefore, we run this pass before we do any pruning of the graph
+    // after ForceOSRExit sites.
+    performBackwardsPropagation(m_graph);
+
     if (m_hasAnyForceOSRExits) {
         BlockSet blocksToIgnore;
         for (BasicBlock* block : m_graph.blocksInNaturalOrder()) {
@@ -9080,15 +9108,17 @@ void ByteCodeParser::parse()
 
                 ++nodeIndex;
 
-                {
-                    if (validationEnabled()) {
-                        // This verifies that we don't need to change any of the successors's predecessor
-                        // list after planting the Unreachable below. At this point in the bytecode
-                        // parser, we haven't linked up the predecessor lists yet.
-                        for (BasicBlock* successor : block->successors())
-                            RELEASE_ASSERT(successor->predecessors.isEmpty());
-                    }
+                if (validationEnabled()) {
+                    // This verifies that we don't need to change any of the successors's predecessor
+                    // list after planting the Unreachable below. At this point in the bytecode
+                    // parser, we haven't linked up the predecessor lists yet.
+                    for (BasicBlock* successor : block->successors())
+                        RELEASE_ASSERT(successor->predecessors.isEmpty());
+                }
 
+                block->resize(nodeIndex);
+
+                {
                     auto insertLivenessPreservingOp = [&] (InlineCallFrame* inlineCallFrame, NodeType op, Operand operand) {
                         VariableAccessData* variable = mapping.operand(operand);
                         if (!variable) {
@@ -9112,41 +9142,9 @@ void ByteCodeParser::parse()
                     flushForTerminalImpl(origin.semantic, addFlushDirect, addPhantomLocalDirect);
                 }
 
-                while (true) {
-                    RELEASE_ASSERT(nodeIndex < block->size());
-
-                    Node* node = block->at(nodeIndex);
-
-                    node->origin = origin;
-                    m_graph.doToChildren(node, [&] (Edge edge) {
-                        // We only need to keep data flow edges to nodes defined prior to the ForceOSRExit. The reason
-                        // for this is we rely on backwards propagation being able to see the "full" bytecode. To model
-                        // this, we preserve uses of a node in a generic way so that backwards propagation can reason
-                        // about them. Therefore, we can't remove uses of a node which is defined before the ForceOSRExit
-                        // even when we're at a point in the program after the ForceOSRExit, because that would break backwards
-                        // propagation's analysis over the uses of a node. However, we don't need this same preservation for
-                        // nodes defined after ForceOSRExit, as we've already exitted before those defs.
-                        if (edge->hasResult())
-                            insertionSet.insertNode(nodeIndex, SpecNone, Phantom, origin, Edge(edge.node(), UntypedUse));
-                    });
-
-                    bool isTerminal = node->isTerminal();
-
-                    node->removeWithoutChecks();
-
-                    if (isTerminal) {
-                        insertionSet.insertNode(nodeIndex, SpecNone, Unreachable, origin);
-                        break;
-                    }
-
-                    ++nodeIndex;
-                }
-
+                insertionSet.insertNode(nodeIndex, SpecNone, Unreachable, origin);
                 insertionSet.execute(block);
 
-                auto nodeAndIndex = block->findTerminal();
-                DFG_ASSERT(m_graph, nodeAndIndex.node, nodeAndIndex.node->op() == Unreachable);
-                block->resize(nodeAndIndex.index + 1);
                 break;
             }
         }

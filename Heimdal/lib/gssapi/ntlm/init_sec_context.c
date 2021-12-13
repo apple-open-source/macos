@@ -669,6 +669,7 @@ request_err:
      * Now that we have a session key, let setup crypto layer
      */
 
+    _gss_ntlm_reset_seq(ctx);
     _gss_ntlm_set_keys(ctx);
 
     if (ret_flags)

@@ -276,6 +276,8 @@
         [self fetchCloudKitExternallyManagedViewKeyHierarchy:viewState
                                                        reply:reply];
     } else {
+        // If the client does not want a forced fetch, don't wait for a fetch, even if one is required.
+        // They are probably expecting a quick return, and prefer to get an error back quickly.
         [self loadKeys:viewState
                  reply:reply];
     }
@@ -316,6 +318,17 @@
 {
     [self.databaseProvider dispatchSyncWithReadOnlySQLTransaction:^{
         NSError* error = nil;
+
+        CKKSZoneStateEntry* ckse = [CKKSZoneStateEntry state:viewState.zoneName];
+        if(ckse.changeToken == nil) {
+            error = [NSError errorWithDomain:CKKSErrorDomain
+                                        code:CKKSErrorFetchNotCompleted
+                                 description:@"Initial fetch results not present; cannot provide accurate answer about TLK state"];
+            ckkserror("ckks-se", viewState.zoneID, "Haven't successfully completed a fetch for this zone; returning %@", error);
+                     reply(nil, nil, nil, error);
+            return;
+        }
+
         CKKSCurrentKeyPointer* currentTLKPointer = [CKKSCurrentKeyPointer tryFromDatabase:SecCKKSKeyClassTLK zoneID:viewState.zoneID error:&error];
 
         if(error != nil) {

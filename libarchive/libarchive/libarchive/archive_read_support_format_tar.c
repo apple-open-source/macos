@@ -1852,6 +1852,35 @@ pax_attribute_acl(struct archive_read *a, struct tar *tar,
 	return (r);
 }
 
+static int
+pax_attribute_size(struct archive_read *a, struct tar *tar,
+    struct archive_entry *entry, const char *value)
+{
+	int64_t bytes_remaining = tar_atol10(value, strlen(value));
+	if (bytes_remaining < 0) {
+		archive_set_error(&a->archive, ARCHIVE_ERRNO_MISC,
+		    "Invalid entry size");
+		return (ARCHIVE_FATAL);
+	}
+
+	tar->entry_bytes_remaining = bytes_remaining;
+
+	/*
+	 * The "size" pax header keyword always overrides the
+	 * "size" field in the tar header.
+	 * GNU.sparse.realsize, GNU.sparse.size and
+	 * SCHILY.realsize override this value.
+	 */
+	if (!tar->realsize_override) {
+		archive_entry_set_size(entry,
+		    tar->entry_bytes_remaining);
+		tar->realsize
+		    = tar->entry_bytes_remaining;
+	}
+
+	return ARCHIVE_OK;
+}
+
 /*
  * Parse a single key=value attribute.  key/value pointers are
  * assumed to point into reasonably long-lived storage.
@@ -2096,20 +2125,9 @@ pax_attribute(struct archive_read *a, struct tar *tar,
 		/* Someday: if (strcmp(key, "security.acl") == 0) { ... } */
 		if (strcmp(key, "size") == 0) {
 			/* "size" is the size of the data in the entry. */
-			tar->entry_bytes_remaining
-			    = tar_atol10(value, strlen(value));
-			/*
-			 * The "size" pax header keyword always overrides the
-			 * "size" field in the tar header.
-			 * GNU.sparse.realsize, GNU.sparse.size and
-			 * SCHILY.realsize override this value.
-			 */
-			if (!tar->realsize_override) {
-				archive_entry_set_size(entry,
-				    tar->entry_bytes_remaining);
-				tar->realsize
-				    = tar->entry_bytes_remaining;
-			}
+			r = pax_attribute_size(a, tar, entry, value);
+			if (r == ARCHIVE_FATAL)
+				return (r);
 		}
 		break;
 	case 'u':

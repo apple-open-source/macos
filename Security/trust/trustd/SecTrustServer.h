@@ -144,6 +144,7 @@ dispatch_queue_t SecPathBuilderGetQueue(SecPathBuilderRef builder);
 /* Return the client audit token associated with this path builder,
    which caller must release, or NULL if there is no external client. */
 CFDataRef SecPathBuilderCopyClientAuditToken(SecPathBuilderRef builder);
+CFDataRef SecTrustServerCopySelfAuditToken(void);
 
 /* Evaluate trust and call evaluated when done. */
 void SecTrustServerEvaluateBlock(dispatch_queue_t builderQueue, CFDataRef clientAuditToken, CFArrayRef certificates, CFArrayRef anchors, bool anchorsOnly, bool keychainsAllowed, CFArrayRef policies, CFArrayRef responses, CFArrayRef SCTs, CFArrayRef trustedLogs, CFAbsoluteTime verifyTime, __unused CFArrayRef accessGroups, CFArrayRef exceptions, void (^evaluated)(SecTrustResultType tr, CFArrayRef details, CFDictionaryRef info, CFArrayRef chain, CFErrorRef error));

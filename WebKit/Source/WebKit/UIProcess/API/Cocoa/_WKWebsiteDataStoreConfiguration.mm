@@ -186,6 +186,22 @@ static void checkURLArgument(NSURL *url)
     _configuration->setResourceLoadStatisticsDirectory(url.path);
 }
 
+- (NSURL *)privateClickMeasurementStorageDirectory
+{
+    auto& directory = _configuration->privateClickMeasurementStorageDirectory();
+    if (directory.isNull())
+        return nil;
+    return [NSURL fileURLWithPath:directory isDirectory:YES];
+}
+
+- (void)setPrivateClickMeasurementStorageDirectory:(NSURL *)url
+{
+    if (!_configuration->isPersistent())
+        [NSException raise:NSInvalidArgumentException format:@"Cannot set privateClickMeasurementStorageDirectory on a non-persistent _WKWebsiteDataStoreConfiguration."];
+    checkURLArgument(url);
+    _configuration->setPrivateClickMeasurementStorageDirectory(url.path);
+}
+
 - (NSURL *)_cacheStorageDirectory
 {
     return [NSURL fileURLWithPath:_configuration->cacheStorageDirectory() isDirectory:YES];
@@ -317,6 +333,22 @@ static void checkURLArgument(NSURL *url)
         [NSException raise:NSInvalidArgumentException format:@"Cannot set alternativeServicesDirectory on a non-persistent _WKWebsiteDataStoreConfiguration."];
     checkURLArgument(url);
     _configuration->setAlternativeServicesDirectory(url.path);
+}
+
+- (NSURL *)generalStorageDirectory
+{
+    auto& directory = _configuration->generalStorageDirectory();
+    if (directory.isNull())
+        return nil;
+    return [NSURL fileURLWithPath:directory isDirectory:YES];
+}
+
+- (void)setGeneralStorageDirectory:(NSURL *)url
+{
+    if (!_configuration->isPersistent())
+        [NSException raise:NSInvalidArgumentException format:@"Cannot set storageDirectory on a non-persistent _WKWebsiteDataStoreConfiguration."];
+    checkURLArgument(url);
+    _configuration->setGeneralStorageDirectory(url.path);
 }
 
 - (BOOL)deviceManagementRestrictionsEnabled

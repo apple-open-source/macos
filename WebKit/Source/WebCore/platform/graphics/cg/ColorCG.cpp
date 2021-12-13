@@ -54,9 +54,10 @@ RetainPtr<CGColorRef> TinyLRUCachePolicy<WebCore::Color, RetainPtr<CGColorRef>>:
 
 namespace WebCore {
 
-static std::optional<SRGBA<uint8_t>> roundAndClampToSRGBALossy(CGColorRef color)
+std::optional<SRGBA<uint8_t>> roundAndClampToSRGBALossy(CGColorRef color)
 {
-    // FIXME: ExtendedColor - needs to handle color spaces.
+    // FIXME: Interpreting components of a color in an arbitrary color space
+    // as sRGB could be wrong, not just lossy.
 
     if (!color)
         return std::nullopt;
@@ -87,9 +88,52 @@ static std::optional<SRGBA<uint8_t>> roundAndClampToSRGBALossy(CGColorRef color)
     return convertColor<SRGBA<uint8_t>>(makeFromComponentsClamping<SRGBA<float>>(r, g, b, a ));
 }
 
-Color::Color(CGColorRef color, OptionSet<Flags> flags)
-    : Color(roundAndClampToSRGBALossy(color), flags)
+Color Color::createAndLosslesslyConvertToSupportedColorSpace(CGColorRef color, OptionSet<Flags> flags)
 {
+    auto sourceCGColorSpace = CGColorGetColorSpace(color);
+#if HAVE(CORE_GRAPHICS_XYZ_COLOR_SPACE)
+    auto destinationCGColorSpace = xyzColorSpaceRef();
+    auto destinationColorSpace = ColorSpace::XYZ_D50;
+#else
+    auto destinationCGColorSpace = sRGBColorSpaceRef();
+    auto destinationColorSpace = ColorSpace::SRGB;
+#endif
+    ASSERT(CGColorSpaceGetNumberOfComponents(destinationCGColorSpace) == 3);
+
+    auto sourceComponents = CGColorGetComponents(color);
+    CGFloat destinationComponents[3] { };
+
+    auto transform = adoptCF(CGColorTransformCreate(destinationCGColorSpace, nullptr));
+    auto result = CGColorTransformConvertColorComponents(transform.get(), sourceCGColorSpace, kCGRenderingIntentDefault, sourceComponents, destinationComponents);
+    ASSERT_UNUSED(result, result);
+
+    float a = destinationComponents[0];
+    float b = destinationComponents[1];
+    float c = destinationComponents[2];
+    float alpha = CGColorGetAlpha(color);
+
+    return Color(OutOfLineComponents::create({ a, b, c, alpha }), destinationColorSpace, flags);
+}
+
+Color Color::createAndPreserveColorSpace(CGColorRef color, OptionSet<Flags> flags)
+{
+    if (!color)
+        return Color();
+
+    size_t numComponents = CGColorGetNumberOfComponents(color);
+    auto colorSpace = colorSpaceForCGColorSpace(CGColorGetColorSpace(color));
+
+    if (numComponents != 4 || !colorSpace)
+        return createAndLosslesslyConvertToSupportedColorSpace(color, flags);
+
+    const CGFloat* components = CGColorGetComponents(color);
+
+    float a = components[0];
+    float b = components[1];
+    float c = components[2];
+    float alpha = components[3];
+
+    return Color(OutOfLineComponents::create({ a, b, c, alpha }), *colorSpace, flags);
 }
 
 static std::pair<CGColorSpaceRef, ColorComponents<float, 4>> convertToCGCompatibleComponents(ColorSpace colorSpace, ColorComponents<float, 4> components)
@@ -128,7 +172,7 @@ static RetainPtr<CGColorRef> createCGColor(const Color& color)
     return adoptCF(CGColorCreate(cgColorSpace, cgFloatComponents));
 }
 
-CGColorRef cachedCGColor(const Color& color)
+RetainPtr<CGColorRef> cachedCGColor(const Color& color)
 {
     if (auto srgb = color.tryGetAsSRGBABytes()) {
         switch (PackedColor::RGBA { *srgb }.value) {
@@ -138,7 +182,7 @@ CGColorRef cachedCGColor(const Color& color)
             std::call_once(onceFlag, [] {
                 transparentCGColor.construct(createCGColor(Color::transparentBlack));
             });
-            return transparentCGColor.get().get();
+            return transparentCGColor.get();
         }
         case PackedColor::RGBA { Color::black }.value: {
             static LazyNeverDestroyed<RetainPtr<CGColorRef>> blackCGColor;
@@ -146,7 +190,7 @@ CGColorRef cachedCGColor(const Color& color)
             std::call_once(onceFlag, [] {
                 blackCGColor.construct(createCGColor(Color::black));
             });
-            return blackCGColor.get().get();
+            return blackCGColor.get();
         }
         case PackedColor::RGBA { Color::white }.value: {
             static LazyNeverDestroyed<RetainPtr<CGColorRef>> whiteCGColor;
@@ -154,7 +198,7 @@ CGColorRef cachedCGColor(const Color& color)
             std::call_once(onceFlag, [] {
                 whiteCGColor.construct(createCGColor(Color::white));
             });
-            return whiteCGColor.get().get();
+            return whiteCGColor.get();
         }
         }
     }
@@ -163,7 +207,7 @@ CGColorRef cachedCGColor(const Color& color)
     Locker locker { cachedColorLock };
 
     static NeverDestroyed<TinyLRUCache<Color, RetainPtr<CGColorRef>, 32>> cache;
-    return cache.get().get(color).get();
+    return cache.get().get(color);
 }
 
 ColorComponents<float, 4> platformConvertColorComponents(ColorSpace inputColorSpace, ColorComponents<float, 4> inputColorComponents, const DestinationColorSpace& outputColorSpace)
@@ -181,6 +225,7 @@ ColorComponents<float, 4> platformConvertColorComponents(ColorSpace inputColorSp
     auto transform = adoptCF(CGColorTransformCreate(outputColorSpace.platformColorSpace(), nullptr));
     auto result = CGColorTransformConvertColorComponents(transform.get(), cgInputColorSpace, kCGRenderingIntentDefault, sourceComponents, destinationComponents);
     ASSERT_UNUSED(result, result);
+    // FIXME: CGColorTransformConvertColorComponents doesn't copy over any alpha component.
     return { static_cast<float>(destinationComponents[0]), static_cast<float>(destinationComponents[1]), static_cast<float>(destinationComponents[2]), static_cast<float>(destinationComponents[3]) };
 }
 

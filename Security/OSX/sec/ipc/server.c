@@ -110,6 +110,8 @@
 #include "keychain/escrowrequest/EscrowRequestXPCServer.h"
 #include "keychain/escrowrequest/EscrowRequestServerHelpers.h"
 
+#include "keychain/keychainupgrader/KeychainItemUpgradeRequestServerHelpers.h"
+
 #if TARGET_OS_OSX
 #include <sandbox.h>
 #include <pwd.h>
@@ -1707,6 +1709,7 @@ int main(int argc, char *argv[])
     CKKSControlServerInitialize();
     OctagonControlServerInitialize();
     EscrowRequestXPCServerInitialize();
+    KeychainItemUpgradeRequestServerInitialize();
 #endif
 
 	// <rdar://problem/22425706> 13B104+Roots:Device never moved past spinner after using approval to ENABLE icdp

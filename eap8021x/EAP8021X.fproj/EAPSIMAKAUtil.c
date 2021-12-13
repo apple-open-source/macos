@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008-2020 Apple Inc. All rights reserved.
+ * Copyright (c) 2008-2021 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -607,7 +607,7 @@ EAPSIMAKAIdentityTypeGetAttributeType(CFStringRef string)
 }
 
 PRIVATE_EXTERN EAPSIMAKAEncryptedIdentityInfoRef
-EAPSIMAKAInitEncryptedIdentityInfo(EAPType type, CFDictionaryRef properties, Boolean static_config, Boolean *is_privacy_protection_enabled)
+EAPSIMAKAInitEncryptedIdentityInfo(EAPType type, CFDictionaryRef properties, Boolean static_config, Boolean *is_privacy_protection_enabled, Boolean *is_oob_pseudonym_supported)
 {
     EAPSIMAKAEncryptedIdentityInfoRef	encrypted_identity_info = NULL;
     CFDataRef				encrypted_identity = NULL;
@@ -621,6 +621,7 @@ EAPSIMAKAInitEncryptedIdentityInfo(EAPType type, CFDictionaryRef properties, Boo
     CFDictionaryRef 			info = NULL;
 
     *is_privacy_protection_enabled = TRUE;
+    *is_oob_pseudonym_supported = FALSE;
     b = isA_CFBoolean(CFDictionaryGetValue(properties, kEAPClientPropEAPSIMAKAEncryptedIdentityEnabled));
     if (b == NULL || CFBooleanGetValue(b) == false) {
 	*is_privacy_protection_enabled = FALSE;
@@ -725,6 +726,7 @@ EAPSIMAKAInitEncryptedIdentityInfo(EAPType type, CFDictionaryRef properties, Boo
 done:
     my_CFRelease(&info);
     my_CFRelease(&realm);
+    *is_oob_pseudonym_supported = isOOBPseudonymSupported;
     if (oob_pseudonym != NULL || encrypted_identity != NULL) {
 	encrypted_identity_info = (EAPSIMAKAEncryptedIdentityInfoRef)malloc(sizeof(*encrypted_identity_info));
 	bzero(encrypted_identity_info, sizeof(*encrypted_identity_info));

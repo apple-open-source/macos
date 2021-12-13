@@ -184,6 +184,7 @@ loader/mac/DocumentLoaderMac.cpp
 loader/mac/LoaderNSURLExtras.mm
 loader/mac/ResourceLoaderMac.mm
 page/CaptionUserPreferencesMediaAF.cpp
+page/cocoa/CaptionUserPreferencesMediaAFCocoa.mm
 page/cocoa/MemoryReleaseCocoa.mm
 page/cocoa/PerformanceLoggingCocoa.mm
 page/cocoa/ResourceUsageOverlayCocoa.mm
@@ -359,6 +360,7 @@ platform/graphics/cg/PatternCG.cpp
 platform/graphics/cg/SubimageCacheWithTimer.cpp
 platform/graphics/cg/TransformationMatrixCG.cpp
 platform/graphics/cg/UTIRegistry.cpp
+platform/graphics/cocoa/ANGLEUtilitiesCocoa.cpp
 platform/graphics/cocoa/AudioTrackPrivateWebM.cpp
 platform/graphics/cocoa/ColorCocoa.mm
 platform/graphics/cocoa/FloatRectCocoa.mm
@@ -392,6 +394,7 @@ platform/graphics/coretext/FontCascadeCoreText.cpp
 platform/graphics/coretext/FontCoreText.cpp
 platform/graphics/coretext/FontPlatformDataCoreText.cpp
 platform/graphics/coretext/GlyphPageCoreText.cpp
+platform/graphics/cv/CVUtilities.mm
 platform/graphics/cv/ImageTransferSessionVT.mm
 platform/graphics/cv/PixelBufferConformerCV.cpp
 platform/graphics/cv/GraphicsContextGLCVANGLE.cpp
@@ -539,7 +542,6 @@ platform/mediastream/mac/RealtimeMediaSourceCenterMac.cpp
 platform/mediastream/mac/RealtimeMediaSourceCenterMac.mm
 platform/mediastream/mac/RealtimeOutgoingAudioSourceCocoa.cpp
 platform/mediastream/mac/RealtimeOutgoingVideoSourceCocoa.cpp
-platform/mediastream/mac/RealtimeVideoUtilities.mm
 platform/mediastream/mac/ScreenDisplayCapturerMac.mm
 platform/mediastream/mac/WebAudioSourceProviderCocoa.mm
 platform/mediastream/mac/WindowDisplayCapturerMac.mm
@@ -594,7 +596,7 @@ testing/cocoa/WebViewVisualIdentificationOverlay.mm
 // The following files aren't unified with others to prevent them from being merged
 // with files that use the system OpenGL.
 
+platform/graphics/angle/ANGLEUtilities.cpp @no-unify
 platform/graphics/angle/ExtensionsGLANGLE.cpp @no-unify
 platform/graphics/angle/GraphicsContextGLANGLE.cpp @no-unify
-platform/graphics/angle/GraphicsContextGLANGLEEGLUtilities.cpp @no-unify
 platform/graphics/angle/TemporaryANGLESetting.cpp @no-unify

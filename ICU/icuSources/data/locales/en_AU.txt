@@ -145,7 +145,7 @@ en_AU{
                 "EEEE, d MMMM y",
                 "d MMMM y",
                 "d MMM y",
-                "d/M/yy",
+                "d/M/y",
                 "{1}, {0}",
                 "{1} 'at' {0}",
                 "{1} 'at' {0}",
@@ -155,9 +155,9 @@ en_AU{
             availableFormats{
                 MEd{"E, d/M"}
                 Md{"d/M"}
-                yM{"M/yy"}
-                yMEd{"E, d/M/yy"}
-                yMd{"d/M/yy"}
+                yM{"M/y"}
+                yMEd{"E, d/M/y"}
+                yMd{"d/M/y"}
             }
             dayNames{
                 format{

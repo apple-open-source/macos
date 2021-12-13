@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2020 Apple Inc. All rights reserved.
+ * Copyright (C) 2020-2021 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -31,11 +31,12 @@
 #include "GPUProcessConnection.h"
 #include "LibWebRTCCodecsMessages.h"
 #include "LibWebRTCCodecsProxyMessages.h"
+#include "Logging.h"
 #include "WebCoreArgumentCoders.h"
 #include "WebProcess.h"
+#include <WebCore/CVUtilities.h>
 #include <WebCore/LibWebRTCMacros.h>
 #include <WebCore/PlatformMediaSessionManager.h>
-#include <WebCore/RealtimeVideoUtilities.h>
 #include <WebCore/RemoteVideoSample.h>
 #include <WebCore/RuntimeEnabledFeatures.h>
 #include <WebCore/VP9UtilitiesCocoa.h>
@@ -241,8 +242,7 @@ void LibWebRTCCodecs::setCallbacks(bool useGPUProcess)
     WebProcess::singleton().libWebRTCCodecs();
 
 #if ENABLE(VP9)
-    // FIMXE: We should disable VP9VTB if VP9 hardware decoding is enabled but there is no support for it.
-    WebProcess::singleton().libWebRTCCodecs().setVP9VTBSupport(PlatformMediaSessionManager::shouldEnableVP9Decoder() || PlatformMediaSessionManager::shouldEnableVP9SWDecoder());
+    WebProcess::singleton().libWebRTCCodecs().setVP9VTBSupport(WebProcess::singleton().ensureGPUProcessConnection().hasVP9HardwareDecoder());
 #endif
 
     webrtc::setVideoDecoderCallbacks(createVideoDecoder, releaseVideoDecoder, decodeVideoFrame, registerDecodeCompleteCallback);
@@ -332,15 +332,9 @@ void LibWebRTCCodecs::completedDecoding(RTCDecoderIdentifier decoderIdentifier, 
     if (!decoder->decodedImageCallback)
         return;
 
-    if (!m_imageTransferSession || m_imageTransferSession->pixelFormat() != remoteSample.videoFormat())
-        m_imageTransferSession = WebCore::ImageTransferSessionVT::create(remoteSample.videoFormat());
-
-    if (!m_imageTransferSession) {
-        ASSERT_NOT_REACHED();
+    if (!remoteSample.surface())
         return;
-    }
-
-    auto pixelBuffer = m_imageTransferSession->createPixelBuffer(remoteSample.surface(), remoteSample.size());
+    auto pixelBuffer = createCVPixelBuffer(remoteSample.surface()).value_or(nullptr);
     if (!pixelBuffer) {
         ASSERT_NOT_REACHED();
         return;
@@ -431,8 +425,7 @@ int32_t LibWebRTCCodecs::encodeFrame(Encoder& encoder, const webrtc::VideoFrame&
     if (!encoder.connection)
         return WEBRTC_VIDEO_CODEC_ERROR;
 
-    RetainPtr<CVPixelBufferRef> newPixelBuffer;
-    auto pixelBuffer = webrtc::pixelBufferFromFrame(frame, [&newPixelBuffer](size_t width, size_t height, webrtc::BufferType bufferType) -> CVPixelBufferRef {
+    auto pixelBuffer = adoptCF(webrtc::createPixelBufferFromFrame(frame, [](size_t width, size_t height, webrtc::BufferType bufferType) -> CVPixelBufferRef {
         OSType poolBufferType;
         switch (bufferType) {
         case webrtc::BufferType::I420:
@@ -445,17 +438,20 @@ int32_t LibWebRTCCodecs::encodeFrame(Encoder& encoder, const webrtc::VideoFrame&
         if (!pixelBufferPool)
             return nullptr;
 
-        newPixelBuffer = WebCore::createPixelBufferFromPool(pixelBufferPool);
-        return newPixelBuffer.get();
-    });
+        return WebCore::createCVPixelBufferFromPool(pixelBufferPool).value_or(nullptr).leakRef();
+    }));
 
     if (!pixelBuffer)
         return WEBRTC_VIDEO_CODEC_ERROR;
 
-    auto sample = RemoteVideoSample::create(pixelBuffer, MediaTime(frame.timestamp_us() * 1000, 1000000), toMediaSampleVideoRotation(frame.rotation()));
+    auto sample = RemoteVideoSample::create(pixelBuffer.get(), MediaTime(frame.timestamp_us() * 1000, 1000000), toMediaSampleVideoRotation(frame.rotation()));
     if (!sample) {
         // FIXME: Optimize this code path, currently we have non BGRA for muted frames at least.
-        sample = RemoteVideoSample::create(convertToBGRA(newPixelBuffer.get()), MediaTime(frame.timestamp_us() * 1000, 1000000), toMediaSampleVideoRotation(frame.rotation()));
+        sample = RemoteVideoSample::create(convertToBGRA(pixelBuffer.get()), MediaTime(frame.timestamp_us() * 1000, 1000000), toMediaSampleVideoRotation(frame.rotation()));
+        if (!sample) {
+            RELEASE_LOG_ERROR(WebRTC, "Unable to convert remote video sample");
+            return WEBRTC_VIDEO_CODEC_ERROR;
+        }
     }
 
     encoder.connection->send(Messages::LibWebRTCCodecsProxy::EncodeFrame { encoder.identifier, *sample, frame.timestamp(), shouldEncodeAsKeyFrame }, 0);
@@ -505,9 +501,14 @@ void LibWebRTCCodecs::completedEncoding(RTCEncoderIdentifier identifier, IPC::Da
 CVPixelBufferPoolRef LibWebRTCCodecs::pixelBufferPool(size_t width, size_t height, OSType type)
 {
     if (!m_pixelBufferPool || m_pixelBufferPoolWidth != width || m_pixelBufferPoolHeight != height) {
-        m_pixelBufferPool = createPixelBufferPool(width, height, type);
-        m_pixelBufferPoolWidth = width;
-        m_pixelBufferPoolHeight = height;
+        m_pixelBufferPool = nullptr;
+        m_pixelBufferPoolWidth = 0;
+        m_pixelBufferPoolHeight = 0;
+        if (auto pool = WebCore::createIOSurfaceCVPixelBufferPool(width, height, type)) {
+            m_pixelBufferPool = WTFMove(*pool);
+            m_pixelBufferPoolWidth = width;
+            m_pixelBufferPoolHeight = height;
+        }
     }
     return m_pixelBufferPool.get();
 }

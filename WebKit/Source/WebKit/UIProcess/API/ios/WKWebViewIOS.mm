@@ -57,6 +57,7 @@
 #import <WebCore/IOSurface.h>
 #import <WebCore/LocalCurrentTraitCollection.h>
 #import <WebCore/MIMETypeRegistry.h>
+#import <WebCore/RuntimeApplicationChecks.h>
 #import <WebCore/VersionChecks.h>
 #import <pal/spi/cocoa/QuartzCoreSPI.h>
 #import <pal/spi/ios/GraphicsServicesSPI.h>
@@ -481,7 +482,7 @@ enum class AllowPageBackgroundColorOverride : bool { No, Yes };
 static WebCore::Color baseScrollViewBackgroundColor(WKWebView *webView, AllowPageBackgroundColorOverride allowPageBackgroundColorOverride)
 {
     if (webView->_customContentView)
-        return [webView->_customContentView backgroundColor].CGColor;
+        return WebCore::roundAndClampToSRGBALossy([webView->_customContentView backgroundColor].CGColor);
 
     if (webView->_gestureController) {
         WebCore::Color color = webView->_gestureController->backgroundColorForCurrentSnapshot();
@@ -507,11 +508,11 @@ static WebCore::Color scrollViewBackgroundColor(WKWebView *webView, AllowPageBac
     WebCore::Color color = baseScrollViewBackgroundColor(webView, allowPageBackgroundColorOverride);
 
     if (!color.isValid() && webView->_contentView)
-        color = [webView->_contentView backgroundColor].CGColor;
+        color = WebCore::roundAndClampToSRGBALossy([webView->_contentView backgroundColor].CGColor);
 
     if (!color.isValid()) {
 #if HAVE(OS_DARK_MODE_SUPPORT)
-        color = UIColor.systemBackgroundColor.CGColor;
+        color = WebCore::roundAndClampToSRGBALossy(UIColor.systemBackgroundColor.CGColor);
 #else
         color = WebCore::Color::white;
 #endif
@@ -534,7 +535,7 @@ static WebCore::Color scrollViewBackgroundColor(WKWebView *webView, AllowPageBac
     if (_scrollViewBackgroundColor != newScrollViewBackgroundColor) {
         _scrollViewBackgroundColor = newScrollViewBackgroundColor;
 
-        auto uiBackgroundColor = adoptNS([[UIColor alloc] initWithCGColor:cachedCGColor(newScrollViewBackgroundColor)]);
+        auto uiBackgroundColor = adoptNS([[UIColor alloc] initWithCGColor:cachedCGColor(newScrollViewBackgroundColor).get()]);
         [_scrollView setBackgroundColor:uiBackgroundColor.get()];
     }
 
@@ -2623,6 +2624,7 @@ static WebCore::UserInterfaceLayoutDirection toUserInterfaceLayoutDirection(UISe
             WebCore::PrivateClickMeasurement::SourceID(attribution.sourceIdentifier),
             WebCore::PrivateClickMeasurement::SourceSite(attribution.reportEndpoint),
             WebCore::PrivateClickMeasurement::AttributionDestinationSite(attribution.destinationURL),
+            WebCore::applicationBundleIdentifier(),
             attribution.sourceDescription,
             attribution.purchaser
         );
@@ -2645,6 +2647,38 @@ static WebCore::UserInterfaceLayoutDirection toUserInterfaceLayoutDirection(UISe
     return nil;
 #endif
 }
+
+- (void)_setEphemeralUIEventAttribution:(UIEventAttribution *)attribution
+{
+    // FIXME: Deprecate and remove this version without a bundle ID.
+    [self _setEphemeralUIEventAttribution:attribution forApplicationWithBundleID:@"com.apple.mobilesafari"];
+}
+
+- (void)_setEphemeralUIEventAttribution:(UIEventAttribution *)attribution forApplicationWithBundleID:(NSString *)bundleID
+{
+#if HAVE(UI_EVENT_ATTRIBUTION)
+    if (attribution) {
+        WebCore::PrivateClickMeasurement measurement(
+            WebCore::PrivateClickMeasurement::SourceID(attribution.sourceIdentifier),
+            WebCore::PrivateClickMeasurement::SourceSite(attribution.reportEndpoint),
+            WebCore::PrivateClickMeasurement::AttributionDestinationSite(attribution.destinationURL),
+            bundleID,
+            attribution.sourceDescription,
+            attribution.purchaser,
+            WallTime::now(),
+            WebCore::PrivateClickMeasurementAttributionEphemeral::Yes
+        );
+        _page->setPrivateClickMeasurement(WTFMove(measurement));
+    } else
+        _page->setPrivateClickMeasurement(std::nullopt);
+#endif
+}
+
+- (UIEventAttribution *)_ephemeralUIEventAttribution
+{
+    return self._uiEventAttribution;
+}
+
 #endif // !PLATFORM(WATCHOS) && !PLATFORM(APPLETV)
 
 - (CGRect)_contentVisibleRect

@@ -201,7 +201,7 @@ static NSString* const kOTRampZoneName = @"metadata_zone";
         _sosEnabledForPlatform = OctagonPlatformSupportsSOS();
         _cuttlefishXPCConnection = cuttlefishXPCConnection;
 
-        _cloudKitContainer = [CKKSViewManager makeCKContainer:SecCKKSContainerName usePCS:SecCKKSContainerUsePCS];
+        _cloudKitContainer = [OTManager makeCKContainer:SecCKKSContainerName];
         _accountStateTracker = [[CKKSAccountStateTracker alloc] init:_cloudKitContainer
                                            nsnotificationCenterClass:cloudKitClassDependencies.nsnotificationCenterClass];
 
@@ -242,7 +242,7 @@ static NSString* const kOTRampZoneName = @"metadata_zone";
         _lockStateTracker = lockStateTracker;
         _personaAdapter = personaAdapter;
 
-        _cloudKitContainer = [CKKSViewManager makeCKContainer:SecCKKSContainerName usePCS:SecCKKSContainerUsePCS];
+        _cloudKitContainer = [OTManager makeCKContainer:SecCKKSContainerName];
         _accountStateTracker = [[CKKSAccountStateTracker alloc] init:_cloudKitContainer
                                            nsnotificationCenterClass:cloudKitClassDependencies.nsnotificationCenterClass];
         _reachabilityTracker = [[CKKSReachabilityTracker alloc] init];
@@ -2334,6 +2334,14 @@ skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
     [cfshContext rpcFetchTrustedSecureElementIdentities:reply];
 }
 
+
++ (CKContainer*)makeCKContainer:(NSString*)containerName
+{
+    CKContainerOptions* containerOptions = [[CKContainerOptions alloc] init];
+    containerOptions.bypassPCSEncryption = YES;
+    CKContainerID *containerID = [CKContainer containerIDForContainerIdentifier:containerName];
+    return [[CKContainer alloc] initWithContainerID:containerID options:containerOptions];
+}
 
 @end
 

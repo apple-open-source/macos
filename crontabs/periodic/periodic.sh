@@ -80,18 +80,18 @@ do
         do
             for file in $dir/*
             do
-                if [ -x $file -a ! -d $file ]
+                if [ -x "$file" -a ! -d "$file" ]
                 then
                     output=TRUE
                     processed=$(($processed + 1))
-                    result=(`/usr/bin/stat -f '%Su %Ul' $file`)
+                    result=(`/usr/bin/stat -f '%Su %Ul' "$file"`)
                     user=${result[0]}
                     hardlinks=${result[1]}
                     if [ $hardlinks -ne 1 ] ; then
                         skippedlist+=("$file")
                         continue
                     fi
-                    /usr/bin/su $user -c $file </dev/null >$tmp_output 2>&1
+                    /usr/bin/sudo --non-interactive --user $user -- "$file" </dev/null >$tmp_output 2>&1
                     rc=$?
                     if [ -s $tmp_output ]
                     then

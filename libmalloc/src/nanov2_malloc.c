@@ -2512,14 +2512,22 @@ retry:
 	}
 
 	// Allocate a new arena and maybe a new region. To do either of those
-	// things, we need to take the regions_lock. After doing so, check that
-	// the state is unchanged. If it has, just assume that we might have some
-	// new space to allocate into and try again.
+	// things, we need to take the regions_lock. After doing so, check that the
+	// state is unchanged. If it has _and_ the initial next arena is safe, just
+	// assume that we might have some new space to allocate into and try again.
 	boolean_t failed = FALSE;
 	arena = initial_region_next_arena;
+
+	// The initial next arena may actually be the limit arena of its region, in
+	// which case it's not safe to attempt to allocate from.
+	bool initial_region_next_arena_is_limit =
+			(arena == (nanov2_arena_t *)nanov2_region_address_for_ptr(arena));
+
 	_malloc_lock_lock(&nanozone->regions_lock);
-	if (nanozone->current_region_next_arena == arena) {
-		if ((void *)arena >= nanozone->current_region_limit) {
+	if (nanozone->current_region_next_arena == arena ||
+			initial_region_next_arena_is_limit) {
+		if ((void *)nanozone->current_region_next_arena >=
+				nanozone->current_region_limit) {
 			// Reached the end of the region. Allocate a new one, if we can.
 			if (nanov2_allocate_new_region(nanozone)) {
 				arena = nanozone->current_region_next_arena++;
@@ -2527,8 +2535,8 @@ retry:
 				failed = TRUE;
 			}
 		} else {
-			// Assign the new arena, in the same region.
-			nanozone->current_region_next_arena = arena + 1;
+			// Assign the new arena, in the current region.
+			arena = nanozone->current_region_next_arena++;
 		}
 
 		// Set up the guard blocks for the new arena, if requested

@@ -1,33 +1,2793 @@
+2021-11-11  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r283300. rdar://problem/85259264
+
+    DFG strength reduction on % operator should handle an INT_MIN divisor.
+    https://bugs.webkit.org/show_bug.cgi?id=230391
+    <rdar://problem/83229740>
+    
+    Reviewed by Robin Morisset.
+    
+    JSTests:
+    
+    * stress/dfg-strength-reduction-on-mod-should-handle-INT_MIN.js: Added.
+    
+    Source/JavaScriptCore:
+    
+    * dfg/DFGStrengthReductionPhase.cpp:
+    (JSC::DFG::StrengthReductionPhase::handleNode):
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@283300 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-09-29  Mark Lam  <mark.lam@apple.com>
+
+            DFG strength reduction on % operator should handle an INT_MIN divisor.
+            https://bugs.webkit.org/show_bug.cgi?id=230391
+            <rdar://problem/83229740>
+
+            Reviewed by Robin Morisset.
+
+            * dfg/DFGStrengthReductionPhase.cpp:
+            (JSC::DFG::StrengthReductionPhase::handleNode):
+
+2021-10-25  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] Don't branch around register allocation in DFG enumerator get by val
+        https://bugs.webkit.org/show_bug.cgi?id=232260
+        rdar://84544469
+
+        Reviewed by Robin Morisset.
+
+        * dfg/DFGSpeculativeJIT.cpp:
+        (JSC::DFG::SpeculativeJIT::compileGetByValOnString):
+        (JSC::DFG::SpeculativeJIT::compileGetByValOnIntTypedArray):
+        (JSC::DFG::SpeculativeJIT::compileGetByValOnFloatTypedArray):
+        (JSC::DFG::SpeculativeJIT::compileGetByValForObjectWithString):
+        (JSC::DFG::SpeculativeJIT::compileGetByValForObjectWithSymbol):
+        (JSC::DFG::SpeculativeJIT::compileGetByValOnDirectArguments):
+        (JSC::DFG::SpeculativeJIT::compileGetByValOnScopedArguments):
+        (JSC::DFG::SpeculativeJIT::compileEnumeratorGetByVal):
+        * dfg/DFGSpeculativeJIT.h:
+        * dfg/DFGSpeculativeJIT32_64.cpp:
+        (JSC::DFG::SpeculativeJIT::compileGetByVal):
+        (JSC::DFG::SpeculativeJIT::compile):
+        * dfg/DFGSpeculativeJIT64.cpp:
+        (JSC::DFG::SpeculativeJIT::compileGetByVal):
+        (JSC::DFG::SpeculativeJIT::compile):
+
+2021-11-02  Saam Barati  <sbarati@apple.com>
+
+        EnumeratorGetByVal for IndexedMode+OwnStructureMode doesn't always recover the property name
+        https://bugs.webkit.org/show_bug.cgi?id=231321
+        <rdar://problem/84211697>
+
+        Reviewed by Yusuke Suzuki.
+
+        When running an EnumeratorGetByVal in IndexedMode+OwnStructureMode, we may
+        go to the slow path. However, we were incorrectly going to the slow path
+        before recovering the actual property name. Instead, we were passing in
+        the integer index value to the get by val.
+
+        * dfg/DFGSpeculativeJIT.cpp:
+        (JSC::DFG::SpeculativeJIT::compileEnumeratorGetByVal):
+        * ftl/FTLLowerDFGToB3.cpp:
+        (JSC::FTL::DFG::LowerDFGToB3::compileCompareStrictEq):
+
+2021-11-08  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Cherry-pick r283938. rdar://problem/85166798
+
+    Don't branch around register allocation in DFG enumerator get by val and pass in the right LValue type to strictInt52ToJSValue
+    https://bugs.webkit.org/show_bug.cgi?id=231465
+    <rdar://83876470>
+    
+    Reviewed by Yusuke Suzuki.
+    
+    JSTests:
+    
+    * stress/dont-branch-around-regalloc-enumerator-get-by-val.js: Added.
+    (foo):
+    
+    Source/JavaScriptCore:
+    
+    * dfg/DFGSpeculativeJIT.cpp:
+    (JSC::DFG::SpeculativeJIT::setIntTypedArrayLoadResult):
+    (JSC::DFG::SpeculativeJIT::compileGetByValOnIntTypedArray):
+    * dfg/DFGSpeculativeJIT.h:
+    * dfg/DFGSpeculativeJIT64.cpp:
+    (JSC::DFG::SpeculativeJIT::compile):
+    * ftl/FTLLowerDFGToB3.cpp:
+    (JSC::FTL::DFG::LowerDFGToB3::compileCompareStrictEq):
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@283938 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-10-11  Saam Barati  <sbarati@apple.com>
+
+            Don't branch around register allocation in DFG enumerator get by val and pass in the right LValue type to strictInt52ToJSValue
+            https://bugs.webkit.org/show_bug.cgi?id=231465
+            <rdar://83876470>
+
+            Reviewed by Yusuke Suzuki.
+
+            * dfg/DFGSpeculativeJIT.cpp:
+            (JSC::DFG::SpeculativeJIT::setIntTypedArrayLoadResult):
+            (JSC::DFG::SpeculativeJIT::compileGetByValOnIntTypedArray):
+            * dfg/DFGSpeculativeJIT.h:
+            * dfg/DFGSpeculativeJIT64.cpp:
+            (JSC::DFG::SpeculativeJIT::compile):
+            * ftl/FTLLowerDFGToB3.cpp:
+            (JSC::FTL::DFG::LowerDFGToB3::compileCompareStrictEq):
+
+2021-11-08  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Cherry-pick r283862. rdar://problem/85167292
+
+    Run backwards propagation before we prune the graph after ForceOSRExit nodes in BytecodeParser
+    https://bugs.webkit.org/show_bug.cgi?id=230823
+    <rdar://problem/83565088>
+    
+    Reviewed by Yusuke Suzuki.
+    
+    When I ported the phase to run right after bytecode parsing, I wanted
+    to maintain the same behavior as the prior pass that ran after CPS
+    rethreading. I noticed a slight bug in some of my logic that changed
+    some of heuristics and how they'd effect double voting.
+    
+    The old patch was mimicking the "is loaded from" bit by using the NodeFlags.
+    Howver, this has some issues with how this interacts with our other uses
+    of NodeFlags. So, to make things simple, I just add a new "VariableIsUsed"
+    bit.
+    
+    * dfg/DFGBackwardsPropagationPhase.cpp:
+    (JSC::DFG::BackwardsPropagationPhase::propagate):
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@283862 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-10-08  Saam Barati  <sbarati@apple.com>
+
+            Run backwards propagation before we prune the graph after ForceOSRExit nodes in BytecodeParser
+            https://bugs.webkit.org/show_bug.cgi?id=230823
+            <rdar://problem/83565088>
+
+            Reviewed by Yusuke Suzuki.
+
+            When I ported the phase to run right after bytecode parsing, I wanted
+            to maintain the same behavior as the prior pass that ran after CPS
+            rethreading. I noticed a slight bug in some of my logic that changed
+            some of heuristics and how they'd effect double voting.
+
+            The old patch was mimicking the "is loaded from" bit by using the NodeFlags.
+            Howver, this has some issues with how this interacts with our other uses
+            of NodeFlags. So, to make things simple, I just add a new "VariableIsUsed"
+            bit.
+
+            * dfg/DFGBackwardsPropagationPhase.cpp:
+            (JSC::DFG::BackwardsPropagationPhase::propagate):
+
+2021-11-08  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Cherry-pick r283818. rdar://problem/85173568
+
+    RegExpExec can't statically prove which of the two structures it will get in AI by just looking at the RegExp*
+    https://bugs.webkit.org/show_bug.cgi?id=231382
+    <rdar://83722151>
+    
+    Reviewed by Mark Lam.
+    
+    JSTests:
+    
+    * stress/reg-exp-exec-cant-prove-which-structure-it-produces-in-ai.js: Added.
+    (foo):
+    
+    Source/JavaScriptCore:
+    
+    Because of the RegExp.prototype.compile API, we don't know if the RegExp
+    produced by RegExpExec will have indices or not, because that bit of
+    information can be reset by the RegExp.prototype.compile API. So, we
+    conservatively say that it can produce either structure.
+    
+    * dfg/DFGAbstractInterpreterInlines.h:
+    (JSC::DFG::AbstractInterpreter<AbstractStateType>::executeEffects):
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@283818 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-10-08  Saam Barati  <sbarati@apple.com>
+
+            RegExpExec can't statically prove which of the two structures it will get in AI by just looking at the RegExp*
+            https://bugs.webkit.org/show_bug.cgi?id=231382
+            <rdar://83722151>
+
+            Reviewed by Mark Lam.
+
+            Because of the RegExp.prototype.compile API, we don't know if the RegExp
+            produced by RegExpExec will have indices or not, because that bit of
+            information can be reset by the RegExp.prototype.compile API. So, we
+            conservatively say that it can produce either structure.
+
+            * dfg/DFGAbstractInterpreterInlines.h:
+            (JSC::DFG::AbstractInterpreter<AbstractStateType>::executeEffects):
+
+2021-11-08  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Cherry-pick r283623. rdar://problem/85167292
+
+    Run backwards propagation before we prune the graph after ForceOSRExit nodes in BytecodeParser
+    https://bugs.webkit.org/show_bug.cgi?id=230823
+    <rdar://problem/83565088>
+    
+    Reviewed by Robin Morisset.
+    
+    JSTests:
+    
+    * run-backwards-propagation-before-osr-exit-pruning.js: Added.
+    (assert):
+    (main.async v24):
+    (main):
+    
+    Source/JavaScriptCore:
+    
+    We've found yet another bug where pruning code after OSR exits
+    before running backwards propagation leads to us breaking the spec
+    in weird IR situations. In the particular test case here, we end
+    up not thinking we care about negative zero for an ArithNegate,
+    and we exit the program while recovering the value 0 instead of -0.
+    
+    Fundamentally, backwards propagation wants to see all bytecode uses.
+    Therefore, it seems like a more sound strategy to run backwards propagation
+    before we end up mucking with the graph. This patch makes it so we run
+    backwards propagation inside bytecode parser before we prune the IR.
+    That way, the phase sees the graph as if it's an IR over the whole bytecode
+    graph.
+    
+    * bytecode/Operands.h:
+    (JSC::Operands::operator!= const):
+    * dfg/DFGBackwardsPropagationPhase.cpp:
+    (JSC::DFG::BackwardsPropagationPhase::BackwardsPropagationPhase):
+    (JSC::DFG::BackwardsPropagationPhase::run):
+    (JSC::DFG::BackwardsPropagationPhase::mergeFlags):
+    (JSC::DFG::BackwardsPropagationPhase::propagate):
+    (JSC::DFG::performBackwardsPropagation):
+    * dfg/DFGBackwardsPropagationPhase.h:
+    * dfg/DFGByteCodeParser.cpp:
+    (JSC::DFG::ByteCodeParser::parse):
+    * dfg/DFGPlan.cpp:
+    (JSC::DFG::Plan::compileInThreadImpl):
+    * dfg/DFGUnificationPhase.cpp:
+    (JSC::DFG::UnificationPhase::run):
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@283623 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-10-06  Saam Barati  <sbarati@apple.com>
+
+            Run backwards propagation before we prune the graph after ForceOSRExit nodes in BytecodeParser
+            https://bugs.webkit.org/show_bug.cgi?id=230823
+            <rdar://problem/83565088>
+
+            Reviewed by Robin Morisset.
+
+            We've found yet another bug where pruning code after OSR exits
+            before running backwards propagation leads to us breaking the spec
+            in weird IR situations. In the particular test case here, we end
+            up not thinking we care about negative zero for an ArithNegate,
+            and we exit the program while recovering the value 0 instead of -0.
+
+            Fundamentally, backwards propagation wants to see all bytecode uses.
+            Therefore, it seems like a more sound strategy to run backwards propagation
+            before we end up mucking with the graph. This patch makes it so we run
+            backwards propagation inside bytecode parser before we prune the IR.
+            That way, the phase sees the graph as if it's an IR over the whole bytecode
+            graph.
+
+            * bytecode/Operands.h:
+            (JSC::Operands::operator!= const):
+            * dfg/DFGBackwardsPropagationPhase.cpp:
+            (JSC::DFG::BackwardsPropagationPhase::BackwardsPropagationPhase):
+            (JSC::DFG::BackwardsPropagationPhase::run):
+            (JSC::DFG::BackwardsPropagationPhase::mergeFlags):
+            (JSC::DFG::BackwardsPropagationPhase::propagate):
+            (JSC::DFG::performBackwardsPropagation):
+            * dfg/DFGBackwardsPropagationPhase.h:
+            * dfg/DFGByteCodeParser.cpp:
+            (JSC::DFG::ByteCodeParser::parse):
+            * dfg/DFGPlan.cpp:
+            (JSC::DFG::Plan::compileInThreadImpl):
+            * dfg/DFGUnificationPhase.cpp:
+            (JSC::DFG::UnificationPhase::run):
+
+2021-11-08  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Cherry-pick r283567. rdar://problem/85173529
+
+    CodeBlock should not add/remove LoopHintExecutionCounters.
+    https://bugs.webkit.org/show_bug.cgi?id=231209
+    rdar://83571235
+    
+    Reviewed by Saam Barati.
+    
+    JSTests:
+    
+    * stress/codeBlock-should-not-add-remove-loop-hint-execution-counters-due-to-cached-unlinked-baseline-code.js: Added.
+    
+    Source/JavaScriptCore:
+    
+    This is because cached unlinked baseline JIT code would retain a pointer to those
+    counters.  Hence, the UnlinkedCodeBlock should do the add /remove of the counters
+    instead.
+    
+    * bytecode/CodeBlock.cpp:
+    (JSC::CodeBlock::finishCreation):
+    (JSC::CodeBlock::~CodeBlock):
+    * bytecode/UnlinkedCodeBlock.cpp:
+    (JSC::UnlinkedCodeBlock::initializeLoopHintExecutionCounter):
+    (JSC::UnlinkedCodeBlock::~UnlinkedCodeBlock):
+    * bytecode/UnlinkedCodeBlock.h:
+    * bytecode/UnlinkedCodeBlockGenerator.cpp:
+    (JSC::UnlinkedCodeBlockGenerator::finalize):
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@283567 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-10-05  Mark Lam  <mark.lam@apple.com>
+
+            CodeBlock should not add/remove LoopHintExecutionCounters.
+            https://bugs.webkit.org/show_bug.cgi?id=231209
+            rdar://83571235
+
+            Reviewed by Saam Barati.
+
+            This is because cached unlinked baseline JIT code would retain a pointer to those
+            counters.  Hence, the UnlinkedCodeBlock should do the add /remove of the counters
+            instead.
+
+            * bytecode/CodeBlock.cpp:
+            (JSC::CodeBlock::finishCreation):
+            (JSC::CodeBlock::~CodeBlock):
+            * bytecode/UnlinkedCodeBlock.cpp:
+            (JSC::UnlinkedCodeBlock::initializeLoopHintExecutionCounter):
+            (JSC::UnlinkedCodeBlock::~UnlinkedCodeBlock):
+            * bytecode/UnlinkedCodeBlock.h:
+            * bytecode/UnlinkedCodeBlockGenerator.cpp:
+            (JSC::UnlinkedCodeBlockGenerator::finalize):
+
+2021-11-08  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Cherry-pick r283332. rdar://problem/85173157
+
+    The DFG/FTL need to be aware that Proxy's can produce "function" for typeof and might be callable
+    https://bugs.webkit.org/show_bug.cgi?id=230804
+    <rdar://problem/83543951>
+    
+    Reviewed by Yusuke Suzuki.
+    
+    JSTests:
+    
+    * stress/ai-typeof-needs-to-be-aware-of-proxy-2.js: Added.
+    (assert):
+    (builtin.vm.createBuiltin):
+    (builtin2.vm.createBuiltin):
+    (let.p.new.Proxy):
+    * stress/ai-typeof-needs-to-be-aware-of-proxy.js: Added.
+    (assert):
+    (builtin.vm.createBuiltin):
+    (let.p.new.Proxy):
+    * stress/is-callable-in-ftl-needs-to-be-aware-of-proxy.js: Added.
+    (main):
+    
+    Source/JavaScriptCore:
+    
+    This patch fixes a couple bugs:
+    - We were constant folding typeof on ProxyObject to "object"
+      even when ProxyObject might produce a callable Proxy, and hence,
+      should produce "function". This was a bug in AI.
+    - This also fixes a similar bug in IsCallable's implementation in
+      the FTL where we assumed that ProxyObject's type can't be callable.
+    
+    * bytecode/SpeculatedType.h:
+    * dfg/DFGAbstractInterpreterInlines.h:
+    (JSC::DFG::AbstractInterpreter<AbstractStateType>::executeEffects):
+    * ftl/FTLLowerDFGToB3.cpp:
+    (JSC::FTL::DFG::LowerDFGToB3::compileCompareStrictEq):
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@283332 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-09-30  Saam Barati  <sbarati@apple.com>
+
+            The DFG/FTL need to be aware that Proxy's can produce "function" for typeof and might be callable
+            https://bugs.webkit.org/show_bug.cgi?id=230804
+            <rdar://problem/83543951>
+
+            Reviewed by Yusuke Suzuki.
+
+            This patch fixes a couple bugs:
+            - We were constant folding typeof on ProxyObject to "object"
+              even when ProxyObject might produce a callable Proxy, and hence,
+              should produce "function". This was a bug in AI.
+            - This also fixes a similar bug in IsCallable's implementation in
+              the FTL where we assumed that ProxyObject's type can't be callable.
+
+            * bytecode/SpeculatedType.h:
+            * dfg/DFGAbstractInterpreterInlines.h:
+            (JSC::DFG::AbstractInterpreter<AbstractStateType>::executeEffects):
+            * ftl/FTLLowerDFGToB3.cpp:
+            (JSC::FTL::DFG::LowerDFGToB3::compileCompareStrictEq):
+
+2021-11-08  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Cherry-pick r283232. rdar://problem/85166097
+
+    Code inside strength reduction can incorrectly prove that we know what lastIndex is
+    https://bugs.webkit.org/show_bug.cgi?id=230802
+    <rdar://problem/83543699>
+    
+    Reviewed by Mark Lam.
+    
+    JSTests:
+    
+    * stress/dont-fold-regexp-exec-when-we-dont-know-last-index-and-regexp-is-constant.js: Added.
+    (assert):
+    (let.reg.RegExp.foo.g.doExec):
+    (noInline.doExec):
+    
+    Source/JavaScriptCore:
+    
+    The phase was searching backwards in the graph to see if it found the RegExp
+    node. However, the RegExp node might be a JSConstant. Hence, the program
+    didn't allocate it. So we can't assume that we know what the lastIndex is.
+    We were incorrectly assuming it was "0" in a program like this:
+    a: JSConstant(RegExp)
+    b: RegExpExec(@a)
+    
+    And we assumed we're invoking RegExpExec with lastIndex is 0, because we found
+    our RegExp in a backwards search. This is likely because we're also matching
+    NewRegExp nodes, in which case, it is valid to say lastIndex is 0.
+    
+    This caused us to return a constant value that would've been the exec
+    result had we invoked it with a NewRegExpNode.
+    
+    * dfg/DFGStrengthReductionPhase.cpp:
+    (JSC::DFG::StrengthReductionPhase::run):
+    (JSC::DFG::StrengthReductionPhase::handleNode):
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@283232 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-09-29  Saam Barati  <sbarati@apple.com>
+
+            Code inside strength reduction can incorrectly prove that we know what lastIndex is
+            https://bugs.webkit.org/show_bug.cgi?id=230802
+            <rdar://problem/83543699>
+
+            Reviewed by Mark Lam.
+
+            The phase was searching backwards in the graph to see if it found the RegExp
+            node. However, the RegExp node might be a JSConstant. Hence, the program
+            didn't allocate it. So we can't assume that we know what the lastIndex is.
+            We were incorrectly assuming it was "0" in a program like this:
+            a: JSConstant(RegExp)
+            b: RegExpExec(@a)
+
+            And we assumed we're invoking RegExpExec with lastIndex is 0, because we found
+            our RegExp in a backwards search. This is likely because we're also matching
+            NewRegExp nodes, in which case, it is valid to say lastIndex is 0.
+
+            This caused us to return a constant value that would've been the exec
+            result had we invoked it with a NewRegExpNode.
+
+            * dfg/DFGStrengthReductionPhase.cpp:
+            (JSC::DFG::StrengthReductionPhase::run):
+            (JSC::DFG::StrengthReductionPhase::handleNode):
+
+2021-11-08  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Cherry-pick r283207. rdar://problem/85173933
+
+    DoesGCCheck does not use enough bits for nodeIndex
+    https://bugs.webkit.org/show_bug.cgi?id=230915
+    <rdar://83297515>
+    
+    Reviewed by Mark Lam.
+    
+    JSTests:
+    
+    * stress/verify-can-gc-node-index.js: Added.
+    (gen):
+    (f):
+    
+    Source/JavaScriptCore:
+    
+    * dfg/DFGDoesGCCheck.h:
+    (JSC::DFG::DoesGCCheck::DoesGCCheck):
+    (JSC::DFG::DoesGCCheck::encode):
+    (JSC::DFG::DoesGCCheck::set):
+    (JSC::DFG::DoesGCCheck::expectDoesGC const):
+    (JSC::DFG::DoesGCCheck::isSpecial const):
+    (JSC::DFG::DoesGCCheck::special):
+    (JSC::DFG::DoesGCCheck::nodeOp):
+    (JSC::DFG::DoesGCCheck::nodeIndex):
+    * dfg/DFGOSRExit.cpp:
+    (JSC::DFG::OSRExit::compileExit):
+    * dfg/DFGSpeculativeJIT.cpp:
+    (JSC::DFG::SpeculativeJIT::compileLoopHint):
+    * dfg/DFGSpeculativeJIT32_64.cpp:
+    (JSC::DFG::SpeculativeJIT::compile):
+    * dfg/DFGSpeculativeJIT64.cpp:
+    (JSC::DFG::SpeculativeJIT::compile):
+    * ftl/FTLLowerDFGToB3.cpp:
+    (JSC::FTL::DFG::LowerDFGToB3::compileNode):
+    (JSC::FTL::DFG::LowerDFGToB3::compileCompareStrictEq):
+    * ftl/FTLOSRExitCompiler.cpp:
+    (JSC::FTL::compileStub):
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@283207 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-09-28  Saam Barati  <sbarati@apple.com>
+
+            DoesGCCheck does not use enough bits for nodeIndex
+            https://bugs.webkit.org/show_bug.cgi?id=230915
+            <rdar://83297515>
+
+            Reviewed by Mark Lam.
+
+            * dfg/DFGDoesGCCheck.h:
+            (JSC::DFG::DoesGCCheck::DoesGCCheck):
+            (JSC::DFG::DoesGCCheck::encode):
+            (JSC::DFG::DoesGCCheck::set):
+            (JSC::DFG::DoesGCCheck::expectDoesGC const):
+            (JSC::DFG::DoesGCCheck::isSpecial const):
+            (JSC::DFG::DoesGCCheck::special):
+            (JSC::DFG::DoesGCCheck::nodeOp):
+            (JSC::DFG::DoesGCCheck::nodeIndex):
+            * dfg/DFGOSRExit.cpp:
+            (JSC::DFG::OSRExit::compileExit):
+            * dfg/DFGSpeculativeJIT.cpp:
+            (JSC::DFG::SpeculativeJIT::compileLoopHint):
+            * dfg/DFGSpeculativeJIT32_64.cpp:
+            (JSC::DFG::SpeculativeJIT::compile):
+            * dfg/DFGSpeculativeJIT64.cpp:
+            (JSC::DFG::SpeculativeJIT::compile):
+            * ftl/FTLLowerDFGToB3.cpp:
+            (JSC::FTL::DFG::LowerDFGToB3::compileNode):
+            (JSC::FTL::DFG::LowerDFGToB3::compileCompareStrictEq):
+            * ftl/FTLOSRExitCompiler.cpp:
+            (JSC::FTL::compileStub):
+
+2021-11-08  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Cherry-pick r282821. rdar://problem/85167490
+
+    Differential testing: live statement don't execute
+    https://bugs.webkit.org/show_bug.cgi?id=229939
+    
+    Reviewed by Saam Barati.
+    
+    JSTests:
+    
+    * stress/in-by-val-should-throw.js: Added.
+    (doesThrow):
+    (noInline.doesThrow.noFTL.doesThrow.blackbox):
+    (noInline.blackbox.doesNotThrow):
+    (noInline.doesNotThrow.noFTL.doesNotThrow.main):
+    
+    Source/JavaScriptCore:
+    
+    In statements are supposed to throw if they are applied to a non-object. We incorrectly converted
+    InByVals into HasIndexedProperty any time they were a cell, so we silently converted non-objects. Before converting
+    an InByVal, we first speculate that the base is an object now.
+    
+    We do not always require an object edge for HasIndexedProperty because enumerator next() does not
+    throw if it encounters a cell that requires conversion during the call to toObject (for example, a
+    string literal). That is, we should silently convert the string during enumeration, but not for an
+    In statement, and so HasIndexedProperty is prepared to handle both cases.
+    
+    * dfg/DFGFixupPhase.cpp:
+    (JSC::DFG::FixupPhase::fixupNode):
+    (JSC::DFG::FixupPhase::convertToHasIndexedProperty):
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@282821 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-09-21  Justin Michaud  <justin_michaud@apple.com>
+
+            Differential testing: live statement don't execute
+            https://bugs.webkit.org/show_bug.cgi?id=229939
+
+            Reviewed by Saam Barati.
+
+            In statements are supposed to throw if they are applied to a non-object. We incorrectly converted
+            InByVals into HasIndexedProperty any time they were a cell, so we silently converted non-objects. Before converting
+            an InByVal, we first speculate that the base is an object now.
+
+            We do not always require an object edge for HasIndexedProperty because enumerator next() does not
+            throw if it encounters a cell that requires conversion during the call to toObject (for example, a
+            string literal). That is, we should silently convert the string during enumeration, but not for an
+            In statement, and so HasIndexedProperty is prepared to handle both cases.
+
+            * dfg/DFGFixupPhase.cpp:
+            (JSC::DFG::FixupPhase::fixupNode):
+            (JSC::DFG::FixupPhase::convertToHasIndexedProperty):
+
+2021-11-08  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Cherry-pick r282212. rdar://problem/85165960
+
+    Differential testing: incorrect constant propagation around Uint8ClampedArray
+    https://bugs.webkit.org/show_bug.cgi?id=229869
+    
+    JSTests:
+    
+    Reviewed by Saam Barati.
+    
+    * stress/Uint8ClampedArrayClampsInt52Positive.js: Added.
+    (let.x.123.test):
+    (noInline.test.int32pos1):
+    (255.int32pos2):
+    (1.int32neg1):
+    (0.int32neg2):
+    (0.int52pos1):
+    (255.int52pos2):
+    (255.int52neg1):
+    (0.int52neg2):
+    (0.int52neg3):
+    (0.int52pos3):
+    (255.int8):
+    
+    Source/JavaScriptCore:
+    
+    We casted int52 values to int32 before clamping, which caused any value with the 32nd bit
+    set to be interpreted as negative. The fix is to check the full-size value when deciding to clamp.
+    
+    Reviewed by Saam Barati.
+    
+    * ftl/FTLLowerDFGToB3.cpp:
+    (JSC::FTL::DFG::LowerDFGToB3::compileCompareStrictEq):
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@282212 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-09-09  Justin Michaud  <justin_michaud@apple.com>
+
+            Differential testing: incorrect constant propagation around Uint8ClampedArray
+            https://bugs.webkit.org/show_bug.cgi?id=229869
+
+            We casted int52 values to int32 before clamping, which caused any value with the 32nd bit
+            set to be interpreted as negative. The fix is to check the full-size value when deciding to clamp.
+
+            Reviewed by Saam Barati.
+
+            * ftl/FTLLowerDFGToB3.cpp:
+            (JSC::FTL::DFG::LowerDFGToB3::compileCompareStrictEq):
+
+2021-11-04  Russell Epstein  <repstein@apple.com>
+
+        Cherry-pick r284036. rdar://problem/85034297
+
+    Fix spec-correctness when inlining __proto__ intrinsic using get_by_id_with_this
+    https://bugs.webkit.org/show_bug.cgi?id=231559
+    
+    Reviewed by Yusuke Suzuki.
+    
+    My original fix in r283512 has some theoretical spec correctness issues.
+    I'm not sure if they can be materialized or not since we only use
+    get_by_id_with_this in very limited scenarios. However, this patch just
+    makes it so we call the getter instead of attempting to inline it
+    when using get_by_id_with_this.
+    
+    * jit/AssemblyHelpers.cpp:
+    (JSC::AssemblyHelpers::emitLoadPrototypeWithoutCheck): Deleted.
+    * jit/AssemblyHelpers.h:
+    * jit/IntrinsicEmitter.cpp:
+    (JSC::IntrinsicGetterAccessCase::canEmitIntrinsicGetter):
+    (JSC::IntrinsicGetterAccessCase::emitIntrinsicGetter):
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@284036 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-10-12  Saam Barati  <sbarati@apple.com>
+
+            Fix spec-correctness when inlining __proto__ intrinsic using get_by_id_with_this
+            https://bugs.webkit.org/show_bug.cgi?id=231559
+
+            Reviewed by Yusuke Suzuki.
+
+            My original fix in r283512 has some theoretical spec correctness issues.
+            I'm not sure if they can be materialized or not since we only use
+            get_by_id_with_this in very limited scenarios. However, this patch just
+            makes it so we call the getter instead of attempting to inline it
+            when using get_by_id_with_this.
+
+            * jit/AssemblyHelpers.cpp:
+            (JSC::AssemblyHelpers::emitLoadPrototypeWithoutCheck): Deleted.
+            * jit/AssemblyHelpers.h:
+            * jit/IntrinsicEmitter.cpp:
+            (JSC::IntrinsicGetterAccessCase::canEmitIntrinsicGetter):
+            (JSC::IntrinsicGetterAccessCase::emitIntrinsicGetter):
+
+2021-11-04  Russell Epstein  <repstein@apple.com>
+
+        Cherry-pick r283954. rdar://problem/85045208
+
+    Share more code that uses ScratchRegisterAllocator in the ICs
+    https://bugs.webkit.org/show_bug.cgi?id=231125
+    <rdar://problem/84066374>
+    
+    Reviewed by Sam Weinig.
+    
+    We had the same code to allocate a scratch register allocator copy pasted
+    all over the IC code. This patch refactors that to use a shared helper.
+    
+    Also, Delete was using a ScratchRegisterAllocator for no reason (it never
+    allocated a scratch register), so I deleted that code.
+    
+    * bytecode/AccessCase.cpp:
+    (JSC::AccessCase::generateWithGuard):
+    (JSC::AccessCase::generateImpl):
+    * bytecode/GetterSetterAccessCase.cpp:
+    (JSC::GetterSetterAccessCase::emitDOMJITGetter):
+    * bytecode/PolymorphicAccess.cpp:
+    (JSC::AccessGenerationState::makeDefaultScratchAllocator):
+    (JSC::PolymorphicAccess::regenerate):
+    * bytecode/PolymorphicAccess.h:
+    * jit/IntrinsicEmitter.cpp:
+    (JSC::IntrinsicGetterAccessCase::emitIntrinsicGetter):
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@283954 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-10-11  Saam Barati  <sbarati@apple.com>
+
+            Share more code that uses ScratchRegisterAllocator in the ICs
+            https://bugs.webkit.org/show_bug.cgi?id=231125
+            <rdar://problem/84066374>
+
+            Reviewed by Sam Weinig.
+
+            We had the same code to allocate a scratch register allocator copy pasted
+            all over the IC code. This patch refactors that to use a shared helper.
+
+            Also, Delete was using a ScratchRegisterAllocator for no reason (it never
+            allocated a scratch register), so I deleted that code.
+
+            * bytecode/AccessCase.cpp:
+            (JSC::AccessCase::generateWithGuard):
+            (JSC::AccessCase::generateImpl):
+            * bytecode/GetterSetterAccessCase.cpp:
+            (JSC::GetterSetterAccessCase::emitDOMJITGetter):
+            * bytecode/PolymorphicAccess.cpp:
+            (JSC::AccessGenerationState::makeDefaultScratchAllocator):
+            (JSC::PolymorphicAccess::regenerate):
+            * bytecode/PolymorphicAccess.h:
+            * jit/IntrinsicEmitter.cpp:
+            (JSC::IntrinsicGetterAccessCase::emitIntrinsicGetter):
+
+2021-11-04  Russell Epstein  <repstein@apple.com>
+
+        Cherry-pick r283512. rdar://problem/85034084
+
+    IntrinsicGetterAccessCase implementation of __proto__ needs to handle get_by_id_with_this
+    https://bugs.webkit.org/show_bug.cgi?id=229951
+    <rdar://problem/82787527>
+    
+    Reviewed by Yusuke Suzuki.
+    
+    JSTests:
+    
+    * stress/run-proto-intrinsic-getter-with-this-value-in-get-by-id-with-this.js: Added.
+    (assert):
+    (main.v37):
+    (main):
+    
+    Source/JavaScriptCore:
+    
+    The whole point of get_by_id_with_this is to have different
+    slot base values for |this| vs the slot base when invoking
+    getters. However, our intrinsic getter inlining wasn't respecting
+    this. This patch makes the __proto__ intrinsic getter do the right
+    thing. For typed array intrinsic getters, if they have different
+    |this| value vs slot base, we chose not to inline them, because
+    the type checks are not on the |this| value, so they're not guaranteed
+    to be typed arrays. We can improve upon this in the future.
+    
+    * bytecode/IntrinsicGetterAccessCase.h:
+    * jit/AssemblyHelpers.cpp:
+    (JSC::AssemblyHelpers::emitLoadPrototypeWithoutCheck):
+    * jit/AssemblyHelpers.h:
+    * jit/IntrinsicEmitter.cpp:
+    (JSC::IntrinsicGetterAccessCase::canEmitIntrinsicGetter):
+    (JSC::IntrinsicGetterAccessCase::emitIntrinsicGetter):
+    * jit/Repatch.cpp:
+    (JSC::tryCacheGetBy):
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@283512 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-10-04  Saam Barati  <sbarati@apple.com>
+
+            IntrinsicGetterAccessCase implementation of __proto__ needs to handle get_by_id_with_this
+            https://bugs.webkit.org/show_bug.cgi?id=229951
+            <rdar://problem/82787527>
+
+            Reviewed by Yusuke Suzuki.
+
+            The whole point of get_by_id_with_this is to have different
+            slot base values for |this| vs the slot base when invoking
+            getters. However, our intrinsic getter inlining wasn't respecting
+            this. This patch makes the __proto__ intrinsic getter do the right
+            thing. For typed array intrinsic getters, if they have different
+            |this| value vs slot base, we chose not to inline them, because
+            the type checks are not on the |this| value, so they're not guaranteed
+            to be typed arrays. We can improve upon this in the future.
+
+            * bytecode/IntrinsicGetterAccessCase.h:
+            * jit/AssemblyHelpers.cpp:
+            (JSC::AssemblyHelpers::emitLoadPrototypeWithoutCheck):
+            * jit/AssemblyHelpers.h:
+            * jit/IntrinsicEmitter.cpp:
+            (JSC::IntrinsicGetterAccessCase::canEmitIntrinsicGetter):
+            (JSC::IntrinsicGetterAccessCase::emitIntrinsicGetter):
+            * jit/Repatch.cpp:
+            (JSC::tryCacheGetBy):
+
+2021-11-04  Russell Epstein  <repstein@apple.com>
+
+        Cherry-pick r285149. rdar://problem/81217357
+
+    [JSC] LLIntCallee should have two replacements
+    https://bugs.webkit.org/show_bug.cgi?id=228552
+    rdar://81217357
+    
+    Reviewed by Saam Barati.
+    
+    LLIntCallee can be used for signaling memory and bounds-checking memory.
+    Thus it should have two replacements for each mode.
+    
+    * wasm/WasmBBQPlan.cpp:
+    (JSC::Wasm::BBQPlan::work):
+    * wasm/WasmCallee.h:
+    (JSC::Wasm::Callee::setOSREntryCallee):
+    * wasm/WasmOMGForOSREntryPlan.cpp:
+    (JSC::Wasm::OMGForOSREntryPlan::work):
+    * wasm/WasmOMGPlan.cpp:
+    (JSC::Wasm::OMGPlan::work):
+    * wasm/WasmPlan.cpp:
+    (JSC::Wasm::Plan::updateCallSitesToCallUs):
+    * wasm/WasmSlowPaths.cpp:
+    (JSC::LLInt::jitCompileAndSetHeuristics):
+    (JSC::LLInt::WASM_SLOW_PATH_DECL):
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@285149 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-11-01  Yusuke Suzuki  <ysuzuki@apple.com>
+
+            [JSC] LLIntCallee should have two replacements
+            https://bugs.webkit.org/show_bug.cgi?id=228552
+            rdar://81217357
+
+            Reviewed by Saam Barati.
+
+            LLIntCallee can be used for signaling memory and bounds-checking memory.
+            Thus it should have two replacements for each mode.
+
+            * wasm/WasmBBQPlan.cpp:
+            (JSC::Wasm::BBQPlan::work):
+            * wasm/WasmCallee.h:
+            (JSC::Wasm::Callee::setOSREntryCallee):
+            * wasm/WasmOMGForOSREntryPlan.cpp:
+            (JSC::Wasm::OMGForOSREntryPlan::work):
+            * wasm/WasmOMGPlan.cpp:
+            (JSC::Wasm::OMGPlan::work):
+            * wasm/WasmPlan.cpp:
+            (JSC::Wasm::Plan::updateCallSitesToCallUs):
+            * wasm/WasmSlowPaths.cpp:
+            (JSC::LLInt::jitCompileAndSetHeuristics):
+            (JSC::LLInt::WASM_SLOW_PATH_DECL):
+
+2021-11-04  Russell Epstein  <repstein@apple.com>
+
+        Cherry-pick r285117. rdar://problem/84402043
+
+    JSGenericTypedArrayView<Adaptor>::set crashes if the length + objectOffset is > UINT32_MAX
+    https://bugs.webkit.org/show_bug.cgi?id=231975
+    rdar://84402043
+    
+    Reviewed by Yusuke Suzuki.
+    
+    JSTests:
+    
+    - regress-84402043 is the testcase that revealed the problem.
+    - typed-array-set-large(-offset) test the same function, in the typed-array to typed-array case
+    - typed-array-large-slice tests the only caller that passes a non-0 objectOffset, and found other issues with it
+    - typed-array-large-oob-eventually-not.js is just another test of the Wasm4GB change that I had forgotten to commit
+    
+    * stress/regress-84402043.js: Added.
+    * stress/typed-array-large-oob-eventually-not.js: Added.
+    (test):
+    * stress/typed-array-large-slice.js: Added.
+    (expect):
+    * stress/typed-array-set-large-offset.js: Added.
+    * stress/typed-array-set-large.js: Added.
+    
+    Source/JavaScriptCore:
+    
+    UINT_MAX (and anything above it) is not a valid array index, so we cannot use JSObject::get(JSGlobalObject*, unsigned) with an index that big.
+    This was pointed by Yusuke in his review of my recent patch that introduced the problem (https://bugs.webkit.org/show_bug.cgi?id=229353#c21),
+    but I misunderstood the code and thought we could never get values that big at that point, thus only putting a RELEASE_ASSERT.
+    In this patch I instead apply his original suggestion to have a first loop using the (fast) JSObject::get(),
+    and a second loop for any large indices, using a slower but safe code path.
+    
+    I also fixed an unrelated bug I noticed in Clobberize/AbstractInterpreter while testing the rest of the patch:
+    they were not aware that NewTypedArray can take a Int52RepUse child.
+    
+    Finally, while trying to properly test this change, I discovered that genericTypedArrayViewProtoFuncSlice
+    (which is the only caller of JSGenericTypedArrayView<Adaptor>::set which passes it a non-0 objectOffset)
+    was still using unsigned everywhere instead of size_t, and that the same was true of all other functions in the same file.
+    So I fixed it in the same patch.
+    
+    * dfg/DFGAbstractInterpreterInlines.h:
+    (JSC::DFG::AbstractInterpreter<AbstractStateType>::executeEffects):
+    * dfg/DFGClobberize.h:
+    (JSC::DFG::clobberize):
+    * runtime/JSArrayBufferConstructor.cpp:
+    (JSC::JSGenericArrayBufferConstructor<sharingMode>::constructImpl):
+    * runtime/JSGenericTypedArrayViewConstructorInlines.h:
+    (JSC::constructGenericTypedArrayViewImpl):
+    * runtime/JSGenericTypedArrayViewInlines.h:
+    (JSC::JSGenericTypedArrayView<Adaptor>::set):
+    * runtime/JSGenericTypedArrayViewPrototypeFunctions.h:
+    (JSC::argumentClampedIndexFromStartOrEnd):
+    (JSC::genericTypedArrayViewProtoFuncSet):
+    (JSC::genericTypedArrayViewProtoFuncCopyWithin):
+    (JSC::genericTypedArrayViewProtoFuncIncludes):
+    (JSC::genericTypedArrayViewProtoFuncIndexOf):
+    (JSC::genericTypedArrayViewProtoFuncJoin):
+    (JSC::genericTypedArrayViewProtoFuncFill):
+    (JSC::genericTypedArrayViewProtoFuncLastIndexOf):
+    (JSC::genericTypedArrayViewProtoFuncSlice):
+    (JSC::genericTypedArrayViewPrivateFuncSubarrayCreate):
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@285117 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-11-01  Robin Morisset  <rmorisset@apple.com>
+
+            JSGenericTypedArrayView<Adaptor>::set crashes if the length + objectOffset is > UINT32_MAX
+            https://bugs.webkit.org/show_bug.cgi?id=231975
+            rdar://84402043
+
+            Reviewed by Yusuke Suzuki.
+
+            UINT_MAX (and anything above it) is not a valid array index, so we cannot use JSObject::get(JSGlobalObject*, unsigned) with an index that big.
+            This was pointed by Yusuke in his review of my recent patch that introduced the problem (https://bugs.webkit.org/show_bug.cgi?id=229353#c21),
+            but I misunderstood the code and thought we could never get values that big at that point, thus only putting a RELEASE_ASSERT.
+            In this patch I instead apply his original suggestion to have a first loop using the (fast) JSObject::get(),
+            and a second loop for any large indices, using a slower but safe code path.
+
+            I also fixed an unrelated bug I noticed in Clobberize/AbstractInterpreter while testing the rest of the patch:
+            they were not aware that NewTypedArray can take a Int52RepUse child.
+
+            Finally, while trying to properly test this change, I discovered that genericTypedArrayViewProtoFuncSlice
+            (which is the only caller of JSGenericTypedArrayView<Adaptor>::set which passes it a non-0 objectOffset)
+            was still using unsigned everywhere instead of size_t, and that the same was true of all other functions in the same file.
+            So I fixed it in the same patch.
+
+            * dfg/DFGAbstractInterpreterInlines.h:
+            (JSC::DFG::AbstractInterpreter<AbstractStateType>::executeEffects):
+            * dfg/DFGClobberize.h:
+            (JSC::DFG::clobberize):
+            * runtime/JSArrayBufferConstructor.cpp:
+            (JSC::JSGenericArrayBufferConstructor<sharingMode>::constructImpl):
+            * runtime/JSGenericTypedArrayViewConstructorInlines.h:
+            (JSC::constructGenericTypedArrayViewImpl):
+            * runtime/JSGenericTypedArrayViewInlines.h:
+            (JSC::JSGenericTypedArrayView<Adaptor>::set):
+            * runtime/JSGenericTypedArrayViewPrototypeFunctions.h:
+            (JSC::argumentClampedIndexFromStartOrEnd):
+            (JSC::genericTypedArrayViewProtoFuncSet):
+            (JSC::genericTypedArrayViewProtoFuncCopyWithin):
+            (JSC::genericTypedArrayViewProtoFuncIncludes):
+            (JSC::genericTypedArrayViewProtoFuncIndexOf):
+            (JSC::genericTypedArrayViewProtoFuncJoin):
+            (JSC::genericTypedArrayViewProtoFuncFill):
+            (JSC::genericTypedArrayViewProtoFuncLastIndexOf):
+            (JSC::genericTypedArrayViewProtoFuncSlice):
+            (JSC::genericTypedArrayViewPrivateFuncSubarrayCreate):
+
+2021-11-04  Russell Epstein  <repstein@apple.com>
+
+        Cherry-pick r285004. rdar://problem/84778008
+
+    Don't call type() on Structure, instead call type() on its typeInfo()
+    https://bugs.webkit.org/show_bug.cgi?id=232414
+    
+    Reviewed by Yusuke Suzuki.
+    
+    * dfg/DFGOperations.cpp:
+    (JSC::DFG::JSC_DEFINE_JIT_OPERATION):
+    * dfg/DFGSpeculativeJIT.cpp:
+    (JSC::DFG::SpeculativeJIT::emitAllocateRawObject):
+    * ftl/FTLLowerDFGToB3.cpp:
+    (JSC::FTL::DFG::LowerDFGToB3::compileCompareStrictEq):
+    * runtime/Structure.h:
+    (JSC::Structure::type):
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@285004 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-10-28  Saam Barati  <sbarati@apple.com>
+
+            Don't call type() on Structure, instead call type() on its typeInfo()
+            https://bugs.webkit.org/show_bug.cgi?id=232414
+
+            Reviewed by Yusuke Suzuki.
+
+            * dfg/DFGOperations.cpp:
+            (JSC::DFG::JSC_DEFINE_JIT_OPERATION):
+            * dfg/DFGSpeculativeJIT.cpp:
+            (JSC::DFG::SpeculativeJIT::emitAllocateRawObject):
+            * ftl/FTLLowerDFGToB3.cpp:
+            (JSC::FTL::DFG::LowerDFGToB3::compileCompareStrictEq):
+            * runtime/Structure.h:
+            (JSC::Structure::type):
+
+2021-11-04  Russell Epstein  <repstein@apple.com>
+
+        Cherry-pick r284716. rdar://problem/84366658
+
+    [JSC] GetTypedArrayLengthAsInt52 must be inserted only when we ensure that input is TypedArray via array-mode-based filtering
+    https://bugs.webkit.org/show_bug.cgi?id=232168
+    rdar://84366658
+    
+    Reviewed by Robin Morisset.
+    
+    JSTests:
+    
+    * stress/gettypedarraylengthasint52-must-be-emitted-for-typedarray.js: Added.
+    (foo):
+    
+    Source/JavaScriptCore:
+    
+    GetTypedArrayLengthAsInt52 works only when input is TypedArray, which should be validated via array-mode (and already inserted checks in fixup).
+    Accidentally we were inserting it without checking typed-array condition in SSA lowering phase. This patch adds a condition which ensures it
+    is TypedArray.
+    
+    * dfg/DFGSSALoweringPhase.cpp:
+    (JSC::DFG::SSALoweringPhase::handleNode):
+    (JSC::DFG::SSALoweringPhase::lowerBoundsCheck):
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@284716 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-10-22  Yusuke Suzuki  <ysuzuki@apple.com>
+
+            [JSC] GetTypedArrayLengthAsInt52 must be inserted only when we ensure that input is TypedArray via array-mode-based filtering
+            https://bugs.webkit.org/show_bug.cgi?id=232168
+            rdar://84366658
+
+            Reviewed by Robin Morisset.
+
+            GetTypedArrayLengthAsInt52 works only when input is TypedArray, which should be validated via array-mode (and already inserted checks in fixup).
+            Accidentally we were inserting it without checking typed-array condition in SSA lowering phase. This patch adds a condition which ensures it
+            is TypedArray.
+
+            * dfg/DFGSSALoweringPhase.cpp:
+            (JSC::DFG::SSALoweringPhase::handleNode):
+            (JSC::DFG::SSALoweringPhase::lowerBoundsCheck):
+
+2021-11-04  Russell Epstein  <repstein@apple.com>
+
+        Cherry-pick r284646. rdar://problem/84523973
+
+    [JSC] Make GetTypedArrayLengthAsInt52 and GetTypedArrayByteOffsetAsInt52 NodeResultInt52
+    https://bugs.webkit.org/show_bug.cgi?id=232100
+    
+    Reviewed by Robin Morisset.
+    
+    This patch makes GetTypedArrayLengthAsInt52 and GetTypedArrayByteOffsetAsInt52 have NodeResultInt52 by default.
+    And DFG validation should skip Int52 validation before fixup phase, as we are doing for double results.
+    
+    * dfg/DFGFixupPhase.cpp:
+    (JSC::DFG::FixupPhase::fixupNode):
+    * dfg/DFGNodeType.h:
+    * dfg/DFGSSALoweringPhase.cpp:
+    (JSC::DFG::SSALoweringPhase::handleNode):
+    (JSC::DFG::SSALoweringPhase::lowerBoundsCheck):
+    * dfg/DFGValidate.cpp:
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@284646 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-10-21  Yusuke Suzuki  <ysuzuki@apple.com>
+
+            [JSC] Make GetTypedArrayLengthAsInt52 and GetTypedArrayByteOffsetAsInt52 NodeResultInt52
+            https://bugs.webkit.org/show_bug.cgi?id=232100
+
+            Reviewed by Robin Morisset.
+
+            This patch makes GetTypedArrayLengthAsInt52 and GetTypedArrayByteOffsetAsInt52 have NodeResultInt52 by default.
+            And DFG validation should skip Int52 validation before fixup phase, as we are doing for double results.
+
+            * dfg/DFGFixupPhase.cpp:
+            (JSC::DFG::FixupPhase::fixupNode):
+            * dfg/DFGNodeType.h:
+            * dfg/DFGSSALoweringPhase.cpp:
+            (JSC::DFG::SSALoweringPhase::handleNode):
+            (JSC::DFG::SSALoweringPhase::lowerBoundsCheck):
+            * dfg/DFGValidate.cpp:
+
+2021-11-04  Russell Epstein  <repstein@apple.com>
+
+        Cherry-pick r284635. rdar://problem/84455814
+
+    [JSC] Inserted GetTypedArrayLengthAsInt52 for PutByVal should have NodeResultInt52
+    https://bugs.webkit.org/show_bug.cgi?id=232059
+    
+    Reviewed by Saam Barati.
+    
+    JSTests:
+    
+    * stress/inserted-gettypedarraylengthasint52-should-have-int52-result-for-put-by-val.js: Added.
+    (foo.bar):
+    (foo):
+    
+    Source/JavaScriptCore:
+    
+    When inserting GetTypedArrayLengthAsInt52 after fixup phase, we must set NodeResultInt52.
+    
+    * dfg/DFGSSALoweringPhase.cpp:
+    (JSC::DFG::SSALoweringPhase::handleNode):
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@284635 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-10-21  Yusuke Suzuki  <ysuzuki@apple.com>
+
+            [JSC] Inserted GetTypedArrayLengthAsInt52 for PutByVal should have NodeResultInt52
+            https://bugs.webkit.org/show_bug.cgi?id=232059
+
+            Reviewed by Saam Barati.
+
+            When inserting GetTypedArrayLengthAsInt52 after fixup phase, we must set NodeResultInt52.
+
+            * dfg/DFGSSALoweringPhase.cpp:
+            (JSC::DFG::SSALoweringPhase::handleNode):
+
+2021-11-04  Russell Epstein  <repstein@apple.com>
+
+        Cherry-pick r284513. rdar://problem/84441842
+
+    Address post-landing feedback to wasm exceptions
+    https://bugs.webkit.org/show_bug.cgi?id=231973
+    
+    Reviewed by Saam Barati.
+    
+    Address comments left by Saam in https://bugs.webkit.org/show_bug.cgi?id=229681
+    after the patch landed. This includes deleting some unused code, and renaming a
+    couple variables and methods, but the biggest change is copying the callee saves
+    to VMEntry in the llint rethrow.
+    
+    * interpreter/Interpreter.cpp:
+    (JSC::CatchInfo::CatchInfo):
+    (JSC::UnwindFunctor::operator() const):
+    * interpreter/Interpreter.h:
+    (JSC::CatchInfo::CatchInfo): Deleted.
+    * jit/JSInterfaceJIT.h:
+    (JSC::JSInterfaceJIT::convertCalleeToVM): Deleted.
+    * llint/WebAssembly.asm:
+    * wasm/WasmB3IRGenerator.cpp:
+    (JSC::Wasm::B3IRGenerator::ControlData::ControlData):
+    (JSC::Wasm::B3IRGenerator::ControlData::tryDepth const):
+    (JSC::Wasm::B3IRGenerator::connectControlAtEntrypoint):
+    (JSC::Wasm::B3IRGenerator::addLoop):
+    (JSC::Wasm::B3IRGenerator::addTry):
+    (JSC::Wasm::B3IRGenerator::preparePatchpointForExceptions):
+    (JSC::Wasm::B3IRGenerator::emitCatchImpl):
+    (JSC::Wasm::B3IRGenerator::addDelegateToUnreachable):
+    (JSC::Wasm::B3IRGenerator::addThrow):
+    (JSC::Wasm::B3IRGenerator::addRethrow):
+    (JSC::Wasm::B3IRGenerator::addEndToUnreachable):
+    (JSC::Wasm::B3IRGenerator::connectControlEntry): Deleted.
+    * wasm/WasmCallee.h:
+    (JSC::Wasm::Callee::llintFunctionCodeBlock const):
+    (JSC::Wasm::Callee::functionCodeBlock const): Deleted.
+    * wasm/WasmLLIntGenerator.cpp:
+    (JSC::Wasm::LLIntGenerator::unifyValuesWithBlock):
+    (JSC::Wasm::LLIntGenerator::addTry):
+    (JSC::Wasm::LLIntGenerator::addThrow):
+    (JSC::Wasm::LLIntGenerator::repatch): Deleted.
+    * wasm/WasmOperations.cpp:
+    (JSC::Wasm::JSC_DEFINE_JIT_OPERATION):
+    * wasm/WasmOperations.h:
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@284513 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-10-19  Tadeu Zagallo  <tzagallo@apple.com>
+
+            Address post-landing feedback to wasm exceptions
+            https://bugs.webkit.org/show_bug.cgi?id=231973
+
+            Reviewed by Saam Barati.
+
+            Address comments left by Saam in https://bugs.webkit.org/show_bug.cgi?id=229681
+            after the patch landed. This includes deleting some unused code, and renaming a
+            couple variables and methods, but the biggest change is copying the callee saves
+            to VMEntry in the llint rethrow.
+
+            * interpreter/Interpreter.cpp:
+            (JSC::CatchInfo::CatchInfo):
+            (JSC::UnwindFunctor::operator() const):
+            * interpreter/Interpreter.h:
+            (JSC::CatchInfo::CatchInfo): Deleted.
+            * jit/JSInterfaceJIT.h:
+            (JSC::JSInterfaceJIT::convertCalleeToVM): Deleted.
+            * llint/WebAssembly.asm:
+            * wasm/WasmB3IRGenerator.cpp:
+            (JSC::Wasm::B3IRGenerator::ControlData::ControlData):
+            (JSC::Wasm::B3IRGenerator::ControlData::tryDepth const):
+            (JSC::Wasm::B3IRGenerator::connectControlAtEntrypoint):
+            (JSC::Wasm::B3IRGenerator::addLoop):
+            (JSC::Wasm::B3IRGenerator::addTry):
+            (JSC::Wasm::B3IRGenerator::preparePatchpointForExceptions):
+            (JSC::Wasm::B3IRGenerator::emitCatchImpl):
+            (JSC::Wasm::B3IRGenerator::addDelegateToUnreachable):
+            (JSC::Wasm::B3IRGenerator::addThrow):
+            (JSC::Wasm::B3IRGenerator::addRethrow):
+            (JSC::Wasm::B3IRGenerator::addEndToUnreachable):
+            (JSC::Wasm::B3IRGenerator::connectControlEntry): Deleted.
+            * wasm/WasmCallee.h:
+            (JSC::Wasm::Callee::llintFunctionCodeBlock const):
+            (JSC::Wasm::Callee::functionCodeBlock const): Deleted.
+            * wasm/WasmLLIntGenerator.cpp:
+            (JSC::Wasm::LLIntGenerator::unifyValuesWithBlock):
+            (JSC::Wasm::LLIntGenerator::addTry):
+            (JSC::Wasm::LLIntGenerator::addThrow):
+            (JSC::Wasm::LLIntGenerator::repatch): Deleted.
+            * wasm/WasmOperations.cpp:
+            (JSC::Wasm::JSC_DEFINE_JIT_OPERATION):
+            * wasm/WasmOperations.h:
+
+2021-10-25  Null  <null@apple.com>
+
+        Cherry-pick r283600. rdar://problem/84625586
+
+    Don't pass DontBuildStrings to next token after parsing an empty parameter list
+    https://bugs.webkit.org/show_bug.cgi?id=225094
+    <rdar://problem/77231778>
+    
+    Reviewed by Yusuke Suzuki.
+    
+    JSTests:
+    
+    * stress/dont-pass-DontBuildStrings-when-building-empty-arguments-list.js: Added.
+    (main.a.prototype.g.toString.string_appeared_here):
+    (main.a):
+    (main):
+    
+    Source/JavaScriptCore:
+    
+    We might need the string, it turns out!
+    
+    * parser/Parser.cpp:
+    (JSC::Parser<LexerType>::parseArguments):
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@283600 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-10-05  Saam Barati  <sbarati@apple.com>
+
+            Don't pass DontBuildStrings to next token after parsing an empty parameter list
+            https://bugs.webkit.org/show_bug.cgi?id=225094
+            <rdar://problem/77231778>
+
+            Reviewed by Yusuke Suzuki.
+
+            We might need the string, it turns out!
+
+            * parser/Parser.cpp:
+            (JSC::Parser<LexerType>::parseArguments):
+
+2021-10-25  Null  <null@apple.com>
+
+        Cherry-pick r284699. rdar://problem/84340372
+
+    canDoFastSpread should also check that the Structure is from the global object we're watching
+    https://bugs.webkit.org/show_bug.cgi?id=231976
+    <rdar://84340372>
+    
+    Reviewed by Keith Miller.
+    
+    Just reorder the checks for clarity.
+    
+    * dfg/DFGGraph.cpp:
+    (JSC::DFG::Graph::canDoFastSpread):
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@284699 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-10-22  Saam Barati  <sbarati@apple.com>
+
+            canDoFastSpread should also check that the Structure is from the global object we're watching
+            https://bugs.webkit.org/show_bug.cgi?id=231976
+            <rdar://84340372>
+
+            Reviewed by Keith Miller.
+
+            Just reorder the checks for clarity.
+
+            * dfg/DFGGraph.cpp:
+            (JSC::DFG::Graph::canDoFastSpread):
+
+2021-10-25  Null  <null@apple.com>
+
+        Cherry-pick r284623. rdar://problem/84375007
+
+    Add missing overflow check to DFGIntegerRangeOptimizationPhase::filterConstant()
+    https://bugs.webkit.org/show_bug.cgi?id=232058
+    
+    Reviewed by Robin Morisset.
+    
+    Added overflow check.
+    
+    * dfg/DFGIntegerRangeOptimizationPhase.cpp:
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@284623 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-10-21  Michael Saboff  <msaboff@apple.com>
+
+            Add missing overflow check to DFGIntegerRangeOptimizationPhase::filterConstant()
+            https://bugs.webkit.org/show_bug.cgi?id=232058
+
+            Reviewed by Robin Morisset.
+
+            Added overflow check.
+
+            * dfg/DFGIntegerRangeOptimizationPhase.cpp:
+
+2021-10-25  Null  <null@apple.com>
+
+        Cherry-pick r284585. rdar://problem/84338648
+
+    [JSC] ArithAbs should care about INT32_MIN
+    https://bugs.webkit.org/show_bug.cgi?id=232051
+    rdar://84338648
+    
+    Reviewed by Michael Saboff.
+    
+    ArithAbs (without overflow check) can return negative value if the input is INT32_MIN with Int32Use.
+    
+    * dfg/DFGIntegerRangeOptimizationPhase.cpp:
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@284585 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-10-20  Yusuke Suzuki  <ysuzuki@apple.com>
+
+            [JSC] ArithAbs should care about INT32_MIN
+            https://bugs.webkit.org/show_bug.cgi?id=232051
+            rdar://84338648
+
+            Reviewed by Michael Saboff.
+
+            ArithAbs (without overflow check) can return negative value if the input is INT32_MIN with Int32Use.
+
+            * dfg/DFGIntegerRangeOptimizationPhase.cpp:
+
+2021-10-25  Null  <null@apple.com>
+
+        Cherry-pick r284576. rdar://problem/84338462
+
+    We should watch isHavingABadTime if we read from the structureCache
+    https://bugs.webkit.org/show_bug.cgi?id=232019
+    
+    Reviewed by Yusuke Suzuki.
+    
+    We should lock the structure cache when we clear it, and the compiler thread should
+    watch isHavingABadTime in the case that the cache might get cleared.
+    
+    * dfg/DFGAbstractInterpreterInlines.h:
+    (JSC::DFG::AbstractInterpreter<AbstractStateType>::executeEffects):
+    * dfg/DFGConstantFoldingPhase.cpp:
+    (JSC::DFG::ConstantFoldingPhase::foldConstants):
+    * runtime/JSGlobalObject.cpp:
+    (JSC::JSGlobalObject::haveABadTime):
+    * runtime/StructureCache.cpp:
+    (JSC::StructureCache::clear):
+    * runtime/StructureCache.h:
+    (JSC::StructureCache::clear): Deleted.
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@284576 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-10-20  Justin Michaud  <justin_michaud@apple.com>
+
+            We should watch isHavingABadTime if we read from the structureCache
+            https://bugs.webkit.org/show_bug.cgi?id=232019
+
+            Reviewed by Yusuke Suzuki.
+
+            We should lock the structure cache when we clear it, and the compiler thread should
+            watch isHavingABadTime in the case that the cache might get cleared.
+
+            * dfg/DFGAbstractInterpreterInlines.h:
+            (JSC::DFG::AbstractInterpreter<AbstractStateType>::executeEffects):
+            * dfg/DFGConstantFoldingPhase.cpp:
+            (JSC::DFG::ConstantFoldingPhase::foldConstants):
+            * runtime/JSGlobalObject.cpp:
+            (JSC::JSGlobalObject::haveABadTime):
+            * runtime/StructureCache.cpp:
+            (JSC::StructureCache::clear):
+            * runtime/StructureCache.h:
+            (JSC::StructureCache::clear): Deleted.
+
+2021-10-25  Null  <null@apple.com>
+
+        Cherry-pick r284573. rdar://problem/84329018
+
+    Add missing overflow checks to DFGIntegerRangeOptimizationPhase::isEquivalentTo()
+    https://bugs.webkit.org/show_bug.cgi?id=232024
+    
+    Reviewed by Tadeu Zagallo.
+    
+    Added overflow check before comparing for equality.
+    
+    * dfg/DFGIntegerRangeOptimizationPhase.cpp:
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@284573 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-10-20  Michael Saboff  <msaboff@apple.com>
+
+            Add missing overflow checks to DFGIntegerRangeOptimizationPhase::isEquivalentTo()
+            https://bugs.webkit.org/show_bug.cgi?id=232024
+
+            Reviewed by Tadeu Zagallo.
+
+            Added overflow check before comparing for equality.
+
+            * dfg/DFGIntegerRangeOptimizationPhase.cpp:
+
+2021-10-25  Null  <null@apple.com>
+
+        Cherry-pick r284506. rdar://problem/84340372
+
+    canDoFastSpread should also check that the Structure is from the global object we're watching
+    https://bugs.webkit.org/show_bug.cgi?id=231976
+    <rdar://84340372>
+    
+    Reviewed by Keith Miller.
+    
+    * dfg/DFGGraph.cpp:
+    (JSC::DFG::Graph::canDoFastSpread):
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@284506 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-10-19  Saam Barati  <sbarati@apple.com>
+
+            canDoFastSpread should also check that the Structure is from the global object we're watching
+            https://bugs.webkit.org/show_bug.cgi?id=231976
+            <rdar://84340372>
+
+            Reviewed by Keith Miller.
+
+            * dfg/DFGGraph.cpp:
+            (JSC::DFG::Graph::canDoFastSpread):
+
+2021-10-25  Null  <null@apple.com>
+
+        Cherry-pick r284467. rdar://problem/84327812
+
+    Wasm Table can take arbitrary default value
+    https://bugs.webkit.org/show_bug.cgi?id=231933
+    rdar://84327812
+    
+    Reviewed by Robin Morisset.
+    
+    * wasm/WasmTable.cpp:
+    (JSC::Wasm::Table::grow):
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@284467 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-10-18  Yusuke Suzuki  <ysuzuki@apple.com>
+
+            Wasm Table can take arbitrary default value
+            https://bugs.webkit.org/show_bug.cgi?id=231933
+            rdar://84327812
+
+            Reviewed by Robin Morisset.
+
+            * wasm/WasmTable.cpp:
+            (JSC::Wasm::Table::grow):
+
+2021-10-25  Null  <null@apple.com>
+
+        Cherry-pick r282984. rdar://problem/77587429
+
+    Web Inspector: Graphics: add instrumentation for new `CanvasRenderingContext2DSettings`
+    https://bugs.webkit.org/show_bug.cgi?id=225180
+    <rdar://problem/77587429>
+    
+    Reviewed by BJ Burg.
+    
+    Source/JavaScriptCore:
+    
+    * inspector/protocol/Canvas.json:
+    Add `colorSpace` and `desynchronized` to `Canvas.ContextAttributes`.
+    
+    Source/WebCore:
+    
+    * inspector/InspectorCanvas.cpp:
+    (WebCore::buildObjectForCanvasContextAttributes): Added.
+    (WebCore::InspectorCanvas::buildObjectForCanvas):
+    (WebCore::InspectorCanvas::buildInitialState):
+    Unify the two cases where we fetch canvas attributes into a single method so that both get
+    the same data. This means that the canvas recorder now also uses `Canvas.ContextAttributes`.
+    
+    LayoutTests:
+    
+    * inspector/canvas/context-attributes-expected.txt:
+    * inspector/canvas/recording-2d-frameCount-expected.txt:
+    * inspector/canvas/recording-2d-full-expected.txt:
+    * inspector/canvas/recording-2d-memoryLimit-expected.txt:
+    * inspector/canvas/recording-bitmaprenderer-frameCount-expected.txt:
+    * inspector/canvas/recording-bitmaprenderer-full-expected.txt:
+    * inspector/canvas/recording-bitmaprenderer-memoryLimit-expected.txt:
+    * inspector/canvas/recording-html-2d-expected.txt:
+    * inspector/canvas/recording-webgl-frameCount-expected.txt:
+    * inspector/canvas/recording-webgl-full-expected.txt:
+    * inspector/canvas/recording-webgl-memoryLimit-expected.txt:
+    * inspector/canvas/recording-webgl-snapshots-expected.txt:
+    * inspector/canvas/recording-webgl2-frameCount-expected.txt:
+    * inspector/canvas/recording-webgl2-full-expected.txt:
+    * inspector/canvas/recording-webgl2-memoryLimit-expected.txt:
+    * inspector/canvas/recording-webgl2-snapshots-expected.txt:
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@282984 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-09-23  Devin Rousso  <drousso@apple.com>
+
+            Web Inspector: Graphics: add instrumentation for new `CanvasRenderingContext2DSettings`
+            https://bugs.webkit.org/show_bug.cgi?id=225180
+            <rdar://problem/77587429>
+
+            Reviewed by BJ Burg.
+
+            * inspector/protocol/Canvas.json:
+            Add `colorSpace` and `desynchronized` to `Canvas.ContextAttributes`.
+
+2021-10-18  Russell Epstein  <repstein@apple.com>
+
+        Cherry-pick r284348. rdar://problem/84398090
+
+    [JSC] PutByVal's child5 should be KnownInt32Use / Int52RepUse in FTL
+    https://bugs.webkit.org/show_bug.cgi?id=231884
+    rdar://84357099
+    
+    Reviewed by Robin Morisset.
+    
+    JSTests:
+    
+    * stress/put-by-val-known-int32.js: Added.
+    (new.Uint8Array.1000000.map):
+    
+    Source/JavaScriptCore:
+    
+    The child5 of PutByVal should be KnownInt32Use or Int52RepUse.
+    
+    * ftl/FTLLowerDFGToB3.cpp:
+    (JSC::FTL::DFG::LowerDFGToB3::compilePutByVal):
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@284348 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-10-18  Yusuke Suzuki  <ysuzuki@apple.com>
+
+            [JSC] PutByVal's child5 should be KnownInt32Use / Int52RepUse in FTL
+            https://bugs.webkit.org/show_bug.cgi?id=231884
+            rdar://84357099
+
+            Reviewed by Robin Morisset.
+
+            The child5 of PutByVal should be KnownInt32Use or Int52RepUse.
+
+            * ftl/FTLLowerDFGToB3.cpp:
+            (JSC::FTL::DFG::LowerDFGToB3::compilePutByVal):
+
+2021-10-18  Russell Epstein  <repstein@apple.com>
+
+        Cherry-pick r284369. rdar://problem/84394405
+
+    [JSC] Use USE(LARGE_TYPED_ARRAY)
+    https://bugs.webkit.org/show_bug.cgi?id=231885
+    
+    Reviewed by Sam Weinig.
+    
+    Fix USE(ADDRESS64) with USE(LARGE_TYPED_ARRAY). USE(ADDRESS64) is not correct (it should be CPU(ADDRESS64)).
+    It is coverted by JSTests/stress/typed-array-large-eventually-oob.js.
+    
+    * dfg/DFGSpeculativeJIT64.cpp:
+    (JSC::DFG::SpeculativeJIT::compile):
+    * ftl/FTLLowerDFGToB3.cpp:
+    (JSC::FTL::DFG::LowerDFGToB3::compileCompareStrictEq):
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@284369 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-10-18  Yusuke Suzuki  <ysuzuki@apple.com>
+
+            [JSC] Use USE(LARGE_TYPED_ARRAY)
+            https://bugs.webkit.org/show_bug.cgi?id=231885
+
+            Reviewed by Sam Weinig.
+
+            Fix USE(ADDRESS64) with USE(LARGE_TYPED_ARRAY). USE(ADDRESS64) is not correct (it should be CPU(ADDRESS64)).
+            It is coverted by JSTests/stress/typed-array-large-eventually-oob.js.
+
+            * dfg/DFGSpeculativeJIT64.cpp:
+            (JSC::DFG::SpeculativeJIT::compile):
+            * ftl/FTLLowerDFGToB3.cpp:
+            (JSC::FTL::DFG::LowerDFGToB3::compileCompareStrictEq):
+
+2021-10-18  Russell Epstein  <repstein@apple.com>
+
+        Apply patch. rdar://problem/84351845
+
+    2021-10-18  Tadeu Zagallo  <tzagallo@apple.com> and Keith Miller  <keith_miller@apple.com>
+
+            Implement the WebAssembly exception handling proposal
+            https://bugs.webkit.org/show_bug.cgi?id=229681
+            <rdar://81603387>
+
+            Reviewed by Keith Miller.
+
+            Add support for the WebAssembly exception handling proposal, as per
+            the WIP spec: https://github.com/WebAssembly/exception-handling
+
+            The proposal includes 6 new instructions: try, catch, catch_all,
+            delegate, throw and rethrow. All the instructions are supported by
+            the LLInt and B3 generators, but not yet supported in Air. Any
+            functions use exceptions will use B3 in BBQ.
+
+            A few important notes about the implementation:
+            - In B3, since we can now have multiple entrypoints (one for the
+            function entry + 1 for each catch/catch_all), we can no longer just
+            replace every value in the stack with a Phi when we find a new
+            entrypoint. This worked so far because of the assumption that any
+            block couldn't access its enclosing stack, and since the enclosing stack
+            would only be accessible when we exited the current block, we added Phis
+            at the end of each block when we had a new entrypoint. Now, since we have to capture all
+            live values at any point that might throw (calls, throw and rethrow),
+            we break that assumption. To simplify all the possible ways we might
+            have to merge the state from multiple entrypoints we now use B3
+            Variables to represent stack slots.
+            - Some extra information is required to be able to properly restore
+            the state when catching an exception:
+                - We added a field VM::calleeForWasmCatch. This field is necessary
+                because whenever we throw, we might end up in JavaScript, which
+                assumes the callee is a cell and uses it to get the VM and restore
+                callee saves. The issue is when catching exceptions in wasm we
+                still need the original callee, and if throwing and catching from
+                the same frame, that call frame slot has now been overwritten, so
+                we store its original value in the VM field.
+                - We also need to store the current Wasm Instance into the call
+                frame's slot for the `this` argument. The instance is used both by
+                the unwinder, to check if the exception being thrown matches the
+                exceptions handled by catch candidates, and by the catch implementation,
+                which is necessary when throwing from a cross instance call where both
+                the callee save or TLS will have the callee's instance.
+                - We store the current opcode for the llint, or the
+                call site index for B3, in the call frame slot for the argument
+                count tag. The call site index is used by the unwinder to check
+                if a given catch can handle the exception being thrown.
+
+            * DerivedSources-input.xcfilelist:
+            * DerivedSources-output.xcfilelist:
+            * DerivedSources.make:
+            * JavaScriptCore.xcodeproj/project.pbxproj:
+            * Sources.txt:
+            * bytecode/BytecodeList.rb:
+            * bytecode/HandlerInfo.h:
+            * bytecode/Instruction.h:
+            (JSC::BaseInstruction::name const):
+            * interpreter/CallFrame.cpp:
+            (JSC::CallFrame::bytecodeIndex const):
+            * interpreter/CallFrame.h:
+            (JSC::CallSiteIndex::CallSiteIndex):
+            (JSC::CallSiteIndex::hash const):
+            (JSC::CallSiteIndex::deletedValue):
+            (JSC::CallSiteIndex::isHashTableDeletedValue const):
+            (JSC::CallSiteIndexHash::hash):
+            (JSC::CallSiteIndexHash::equal):
+            * interpreter/Interpreter.cpp:
+            (JSC::CatchInfo::CatchInfo):
+            (JSC::UnwindFunctor::UnwindFunctor):
+            (JSC::UnwindFunctor::operator() const):
+            (JSC::Interpreter::unwind):
+            * interpreter/Interpreter.h:
+            (JSC::CatchInfo::CatchInfo):
+            * interpreter/StackVisitor.cpp:
+            (JSC::StackVisitor::readNonInlinedFrame):
+            * jit/AssemblyHelpers.cpp:
+            (JSC::AssemblyHelpers::restoreCalleeSavesFromEntryFrameCalleeSavesBuffer):
+            (JSC::AssemblyHelpers::restoreCalleeSavesFromVMEntryFrameCalleeSavesBuffer):
+            (JSC::AssemblyHelpers::restoreCalleeSavesFromVMEntryFrameCalleeSavesBufferImpl):
+            * jit/AssemblyHelpers.h:
+            * jit/JITExceptions.cpp:
+            (JSC::genericUnwind):
+            * jit/JSInterfaceJIT.h:
+            (JSC::JSInterfaceJIT::convertCalleeToVM):
+            * llint/LLIntData.h:
+            (JSC::LLInt::getCodeRef):
+            (JSC::LLInt::getWide16CodeRef):
+            (JSC::LLInt::getWide32CodeRef):
+            * llint/LLIntExceptions.cpp:
+            (JSC::LLInt::wasmReturnToThrow):
+            (JSC::LLInt::handleWasmCatch):
+            (JSC::LLInt::handleWasmCatchAll):
+            * llint/LLIntExceptions.h:
+            * llint/LLIntOffsetsExtractor.cpp:
+            * llint/WebAssembly.asm:
+            * runtime/ErrorInstance.cpp:
+            (JSC::ErrorInstance::ErrorInstance):
+            * runtime/ErrorInstance.h:
+            (JSC::ErrorInstance::setCatchableFromWasm):
+            (JSC::ErrorInstance::isCatchableFromWasm const):
+            * runtime/JSGlobalObject.cpp:
+            * runtime/JSGlobalObject.h:
+            * runtime/OptionsList.h:
+            * runtime/VM.cpp:
+            (JSC::VM::VM):
+            * runtime/VM.h:
+            (JSC::VM::calleeForWasmCatchOffset):
+            * wasm/WasmAirIRGenerator.cpp:
+            (JSC::Wasm::AirIRGenerator::ControlData::isTry):
+            (JSC::Wasm::AirIRGenerator::ControlData::isCatch):
+            (JSC::Wasm::AirIRGenerator::ControlData::isAnyCatch):
+            (JSC::Wasm::AirIRGenerator::ControlData::isLoop):
+            (JSC::Wasm::AirIRGenerator::ControlData::isBlock):
+            (JSC::Wasm::AirIRGenerator::ControlData::dump const):
+            (JSC::Wasm::AirIRGenerator::addTry):
+            (JSC::Wasm::AirIRGenerator::addCatch):
+            (JSC::Wasm::AirIRGenerator::addCatchToUnreachable):
+            (JSC::Wasm::AirIRGenerator::addCatchAll):
+            (JSC::Wasm::AirIRGenerator::addCatchAllToUnreachable):
+            (JSC::Wasm::AirIRGenerator::addDelegate):
+            (JSC::Wasm::AirIRGenerator::addDelegateToUnreachable):
+            (JSC::Wasm::AirIRGenerator::addThrow):
+            (JSC::Wasm::AirIRGenerator::addRethrow):
+            * wasm/WasmB3IRGenerator.cpp:
+            (JSC::Wasm::B3IRGenerator::ControlData::ControlData):
+            (JSC::Wasm::B3IRGenerator::ControlData::isTry):
+            (JSC::Wasm::B3IRGenerator::ControlData::isAnyCatch):
+            (JSC::Wasm::B3IRGenerator::ControlData::isLoop):
+            (JSC::Wasm::B3IRGenerator::ControlData::isBlock):
+            (JSC::Wasm::B3IRGenerator::ControlData::isCatch):
+            (JSC::Wasm::B3IRGenerator::ControlData::dump const):
+            (JSC::Wasm::B3IRGenerator::ControlData::convertTryToCatch):
+            (JSC::Wasm::B3IRGenerator::ControlData::convertTryToCatchAll):
+            (JSC::Wasm::B3IRGenerator::ControlData::tryStart const):
+            (JSC::Wasm::B3IRGenerator::ControlData::tryEnd const):
+            (JSC::Wasm::B3IRGenerator::ControlData::tryDepth const):
+            (JSC::Wasm::B3IRGenerator::ControlData::catchKind const):
+            (JSC::Wasm::B3IRGenerator::ControlData::exception const):
+            (JSC::Wasm::B3IRGenerator::ControlData::stackSize const):
+            (JSC::Wasm::B3IRGenerator::didPopValueFromStack):
+            (JSC::Wasm::B3IRGenerator::addStackMap):
+            (JSC::Wasm::B3IRGenerator::takeStackmaps):
+            (JSC::Wasm::B3IRGenerator::takeExceptionHandlers):
+            (JSC::Wasm::B3IRGenerator::push):
+            (JSC::Wasm::B3IRGenerator::get):
+            (JSC::Wasm::B3IRGenerator::set):
+            (JSC::Wasm::PatchpointExceptionHandle::generate const):
+            (JSC::Wasm::B3IRGenerator::fixupPointerPlusOffset):
+            (JSC::Wasm::B3IRGenerator::B3IRGenerator):
+            (JSC::Wasm::B3IRGenerator::restoreWebAssemblyGlobalState):
+            (JSC::Wasm::B3IRGenerator::insertEntrySwitch):
+            (JSC::Wasm::B3IRGenerator::insertConstants):
+            (JSC::Wasm::B3IRGenerator::addRefIsNull):
+            (JSC::Wasm::B3IRGenerator::addTableGet):
+            (JSC::Wasm::B3IRGenerator::addTableSet):
+            (JSC::Wasm::B3IRGenerator::addRefFunc):
+            (JSC::Wasm::B3IRGenerator::addTableInit):
+            (JSC::Wasm::B3IRGenerator::addTableSize):
+            (JSC::Wasm::B3IRGenerator::addTableGrow):
+            (JSC::Wasm::B3IRGenerator::addTableFill):
+            (JSC::Wasm::B3IRGenerator::addTableCopy):
+            (JSC::Wasm::B3IRGenerator::getLocal):
+            (JSC::Wasm::B3IRGenerator::emitIndirectCall):
+            (JSC::Wasm::B3IRGenerator::addGrowMemory):
+            (JSC::Wasm::B3IRGenerator::addCurrentMemory):
+            (JSC::Wasm::B3IRGenerator::addMemoryFill):
+            (JSC::Wasm::B3IRGenerator::addMemoryInit):
+            (JSC::Wasm::B3IRGenerator::addMemoryCopy):
+            (JSC::Wasm::B3IRGenerator::setLocal):
+            (JSC::Wasm::B3IRGenerator::getGlobal):
+            (JSC::Wasm::B3IRGenerator::setGlobal):
+            (JSC::Wasm::B3IRGenerator::emitCheckAndPreparePointer):
+            (JSC::Wasm::B3IRGenerator::emitLoadOp):
+            (JSC::Wasm::B3IRGenerator::load):
+            (JSC::Wasm::B3IRGenerator::emitStoreOp):
+            (JSC::Wasm::B3IRGenerator::store):
+            (JSC::Wasm::B3IRGenerator::sanitizeAtomicResult):
+            (JSC::Wasm::B3IRGenerator::fixupPointerPlusOffsetForAtomicOps):
+            (JSC::Wasm::B3IRGenerator::emitAtomicLoadOp):
+            (JSC::Wasm::B3IRGenerator::atomicLoad):
+            (JSC::Wasm::B3IRGenerator::emitAtomicStoreOp):
+            (JSC::Wasm::B3IRGenerator::atomicStore):
+            (JSC::Wasm::B3IRGenerator::emitAtomicBinaryRMWOp):
+            (JSC::Wasm::B3IRGenerator::atomicBinaryRMW):
+            (JSC::Wasm::B3IRGenerator::emitAtomicCompareExchange):
+            (JSC::Wasm::B3IRGenerator::atomicCompareExchange):
+            (JSC::Wasm::B3IRGenerator::atomicWait):
+            (JSC::Wasm::B3IRGenerator::atomicNotify):
+            (JSC::Wasm::B3IRGenerator::truncSaturated):
+            (JSC::Wasm::B3IRGenerator::addSelect):
+            (JSC::Wasm::B3IRGenerator::addConstant):
+            (JSC::Wasm::B3IRGenerator::emitLoopTierUpCheck):
+            (JSC::Wasm::B3IRGenerator::loadFromScratchBuffer):
+            (JSC::Wasm::B3IRGenerator::connectControlEntry):
+            (JSC::Wasm::B3IRGenerator::addLoop):
+            (JSC::Wasm::B3IRGenerator::addTopLevel):
+            (JSC::Wasm::B3IRGenerator::addBlock):
+            (JSC::Wasm::B3IRGenerator::addIf):
+            (JSC::Wasm::B3IRGenerator::addElse):
+            (JSC::Wasm::B3IRGenerator::addElseToUnreachable):
+            (JSC::Wasm::B3IRGenerator::addTry):
+            (JSC::Wasm::B3IRGenerator::addCatch):
+            (JSC::Wasm::B3IRGenerator::preparePatchpointForExceptions):
+            (JSC::Wasm::B3IRGenerator::addCatchToUnreachable):
+            (JSC::Wasm::B3IRGenerator::addCatchAll):
+            (JSC::Wasm::B3IRGenerator::addCatchAllToUnreachable):
+            (JSC::Wasm::B3IRGenerator::emitCatchImpl):
+            (JSC::Wasm::B3IRGenerator::addDelegate):
+            (JSC::Wasm::B3IRGenerator::addDelegateToUnreachable):
+            (JSC::Wasm::B3IRGenerator::addThrow):
+            (JSC::Wasm::B3IRGenerator::addRethrow):
+            (JSC::Wasm::B3IRGenerator::addReturn):
+            (JSC::Wasm::B3IRGenerator::addBranch):
+            (JSC::Wasm::B3IRGenerator::addSwitch):
+            (JSC::Wasm::B3IRGenerator::endBlock):
+            (JSC::Wasm::B3IRGenerator::addEndToUnreachable):
+            (JSC::Wasm::B3IRGenerator::createCallPatchpoint):
+            (JSC::Wasm::B3IRGenerator::addCall):
+            (JSC::Wasm::B3IRGenerator::addCallIndirect):
+            (JSC::Wasm::B3IRGenerator::addCallRef):
+            (JSC::Wasm::B3IRGenerator::unify):
+            (JSC::Wasm::B3IRGenerator::unifyValuesWithBlock):
+            (JSC::Wasm::parseAndCompile):
+            (JSC::Wasm::computeExceptionHandlerLocations):
+            (JSC::Wasm::B3IRGenerator::emitChecksForModOrDiv):
+            (JSC::Wasm::B3IRGenerator::addOp<OpType::I32DivS>):
+            (JSC::Wasm::B3IRGenerator::addOp<OpType::I32RemS>):
+            (JSC::Wasm::B3IRGenerator::addOp<OpType::I32DivU>):
+            (JSC::Wasm::B3IRGenerator::addOp<OpType::I32RemU>):
+            (JSC::Wasm::B3IRGenerator::addOp<OpType::I64DivS>):
+            (JSC::Wasm::B3IRGenerator::addOp<OpType::I64RemS>):
+            (JSC::Wasm::B3IRGenerator::addOp<OpType::I64DivU>):
+            (JSC::Wasm::B3IRGenerator::addOp<OpType::I64RemU>):
+            (JSC::Wasm::B3IRGenerator::addOp<OpType::I32Ctz>):
+            (JSC::Wasm::B3IRGenerator::addOp<OpType::I64Ctz>):
+            (JSC::Wasm::B3IRGenerator::addOp<OpType::I32Popcnt>):
+            (JSC::Wasm::B3IRGenerator::addOp<OpType::I64Popcnt>):
+            (JSC::Wasm::B3IRGenerator::addOp<F64ConvertUI64>):
+            (JSC::Wasm::B3IRGenerator::addOp<OpType::F32ConvertUI64>):
+            (JSC::Wasm::B3IRGenerator::addOp<OpType::F64Nearest>):
+            (JSC::Wasm::B3IRGenerator::addOp<OpType::F32Nearest>):
+            (JSC::Wasm::B3IRGenerator::addOp<OpType::F64Trunc>):
+            (JSC::Wasm::B3IRGenerator::addOp<OpType::F32Trunc>):
+            (JSC::Wasm::B3IRGenerator::addOp<OpType::I32TruncSF64>):
+            (JSC::Wasm::B3IRGenerator::addOp<OpType::I32TruncSF32>):
+            (JSC::Wasm::B3IRGenerator::addOp<OpType::I32TruncUF64>):
+            (JSC::Wasm::B3IRGenerator::addOp<OpType::I32TruncUF32>):
+            (JSC::Wasm::B3IRGenerator::addOp<OpType::I64TruncSF64>):
+            (JSC::Wasm::B3IRGenerator::addOp<OpType::I64TruncUF64>):
+            (JSC::Wasm::B3IRGenerator::addOp<OpType::I64TruncSF32>):
+            (JSC::Wasm::B3IRGenerator::addOp<OpType::I64TruncUF32>):
+            * wasm/WasmB3IRGenerator.h:
+            * wasm/WasmBBQPlan.cpp:
+            (JSC::Wasm::BBQPlan::prepareImpl):
+            (JSC::Wasm::BBQPlan::work):
+            (JSC::Wasm::BBQPlan::compileFunction):
+            (JSC::Wasm::BBQPlan::didCompleteCompilation):
+            (JSC::Wasm::BBQPlan::initializeCallees):
+            * wasm/WasmBBQPlan.h:
+            * wasm/WasmCallee.cpp:
+            (JSC::Wasm::Callee::handlerForIndex):
+            (JSC::Wasm::LLIntCallee::LLIntCallee):
+            (JSC::Wasm::LLIntCallee::linkExceptionHandlers):
+            (JSC::Wasm::OptimizingJITCallee::linkExceptionHandlers):
+            (JSC::Wasm::OptimizingJITCallee::stackmap const):
+            * wasm/WasmCallee.h:
+            (JSC::Wasm::Callee::hasExceptionHandlers const):
+            (JSC::Wasm::Callee::functionCodeBlock const):
+            (JSC::Wasm::OptimizingJITCallee::OptimizingJITCallee):
+            * wasm/WasmCallingConvention.h:
+            (JSC::Wasm::WasmCallingConvention::callInformationFor const):
+            * wasm/WasmFormat.h:
+            (JSC::Wasm::typeToString):
+            (JSC::Wasm::isValidExternalKind):
+            (JSC::Wasm::makeString):
+            * wasm/WasmFunctionCodeBlock.h:
+            (JSC::Wasm::FunctionCodeBlock::numberOfExceptionHandlers const):
+            (JSC::Wasm::FunctionCodeBlock::exceptionHandler):
+            (JSC::Wasm::FunctionCodeBlock::addExceptionHandler):
+            * wasm/WasmFunctionParser.h:
+            (JSC::Wasm::isTryOrCatch):
+            (JSC::Wasm::FunctionParser<Context>::parseExceptionIndex):
+            (JSC::Wasm::FunctionParser<Context>::parseExpression):
+            (JSC::Wasm::FunctionParser<Context>::parseUnreachableExpression):
+            * wasm/WasmHandlerInfo.cpp: Added.
+            (JSC::Wasm::HandlerInfo::initialize):
+            (JSC::Wasm::HandlerInfo::handlerForIndex):
+            * wasm/WasmHandlerInfo.h: Added.
+            (JSC::Wasm::UnlinkedHandlerInfo::UnlinkedHandlerInfo):
+            (JSC::Wasm::HandlerInfo::tag const):
+            (JSC::Wasm::HandlerInfo::delegateTarget const):
+            * wasm/WasmInstance.cpp:
+            (JSC::Wasm::Instance::~Instance):
+            * wasm/WasmInstance.h:
+            (JSC::Wasm::Instance::addTag):
+            (JSC::Wasm::Instance::tag const):
+            * wasm/WasmLLIntGenerator.cpp:
+            (JSC::Wasm::LLIntGenerator::ControlType::try_):
+            (JSC::Wasm::LLIntGenerator::ControlType::catch_):
+            (JSC::Wasm::LLIntGenerator::ControlType::isLoop):
+            (JSC::Wasm::LLIntGenerator::ControlType::isBlock):
+            (JSC::Wasm::LLIntGenerator::ControlType::isIf):
+            (JSC::Wasm::LLIntGenerator::ControlType::isTry):
+            (JSC::Wasm::LLIntGenerator::ControlType::isAnyCatch):
+            (JSC::Wasm::LLIntGenerator::ControlType::isCatch):
+            (JSC::Wasm::LLIntGenerator::unifyValuesWithBlock):
+            (JSC::Wasm::LLIntGenerator::walkExpressionStack):
+            (JSC::Wasm::LLIntGenerator::materializeConstantsAndLocals):
+            (JSC::Wasm::parseAndCompileBytecode):
+            (JSC::Wasm::LLIntGenerator::LLIntGenerator):
+            (JSC::Wasm::LLIntGenerator::repatch):
+            (JSC::Wasm::LLIntGenerator::finalize):
+            (JSC::Wasm::LLIntGenerator::callInformationForCaller):
+            (JSC::Wasm::LLIntGenerator::callInformationForCallee):
+            (JSC::Wasm::LLIntGenerator::addArguments):
+            (JSC::Wasm::LLIntGenerator::addLoop):
+            (JSC::Wasm::LLIntGenerator::addTry):
+            (JSC::Wasm::LLIntGenerator::finalizePreviousBlockForCatch):
+            (JSC::Wasm::LLIntGenerator::addCatch):
+            (JSC::Wasm::LLIntGenerator::addCatchToUnreachable):
+            (JSC::Wasm::LLIntGenerator::addCatchAll):
+            (JSC::Wasm::LLIntGenerator::addCatchAllToUnreachable):
+            (JSC::Wasm::LLIntGenerator::addDelegate):
+            (JSC::Wasm::LLIntGenerator::addDelegateToUnreachable):
+            (JSC::Wasm::LLIntGenerator::addThrow):
+            (JSC::Wasm::LLIntGenerator::addRethrow):
+            (JSC::Wasm::LLIntGenerator::endBlock):
+            (JSC::Wasm::LLIntGenerator::addEndToUnreachable):
+            * wasm/WasmLLIntGenerator.h:
+            * wasm/WasmLimits.h:
+            * wasm/WasmModuleInformation.cpp:
+            * wasm/WasmModuleInformation.h:
+            (JSC::Wasm::ModuleInformation::exceptionIndexSpaceSize const):
+            (JSC::Wasm::ModuleInformation::isImportedExceptionFromExceptionIndexSpace const):
+            (JSC::Wasm::ModuleInformation::signatureIndexFromExceptionIndexSpace const):
+            (JSC::Wasm::ModuleInformation::importExceptionCount const):
+            (JSC::Wasm::ModuleInformation::isDeclaredException const):
+            (JSC::Wasm::ModuleInformation::addDeclaredException):
+            * wasm/WasmOMGForOSREntryPlan.cpp:
+            (JSC::Wasm::OMGForOSREntryPlan::work):
+            * wasm/WasmOMGPlan.cpp:
+            (JSC::Wasm::OMGPlan::work):
+            * wasm/WasmOSREntryData.h:
+            (JSC::Wasm::OSREntryData::values):
+            * wasm/WasmOperations.cpp:
+            (JSC::Wasm::loadValuesIntoBuffer):
+            (JSC::Wasm::doOSREntry):
+            (JSC::Wasm::JSC_DEFINE_JIT_OPERATION):
+            * wasm/WasmOperations.h:
+            * wasm/WasmSectionParser.cpp:
+            (JSC::Wasm::SectionParser::parseImport):
+            (JSC::Wasm::SectionParser::parseExport):
+            (JSC::Wasm::SectionParser::parseException):
+            * wasm/WasmSections.h:
+            (JSC::Wasm::validateOrder):
+            * wasm/WasmSignature.cpp:
+            (JSC::Wasm::SignatureInformation::SignatureInformation):
+            (JSC::Wasm::SignatureInformation::signatureFor):
+            * wasm/WasmSlowPaths.cpp:
+            (JSC::LLInt::WASM_SLOW_PATH_DECL):
+            * wasm/WasmSlowPaths.h:
+            * wasm/WasmStreamingParser.cpp:
+            (JSC::Wasm::StreamingParser::parseCodeSectionSize):
+            * wasm/WasmTag.cpp: Copied from Source/JavaScriptCore/wasm/js/JSWebAssemblyRuntimeError.h.
+            * wasm/WasmTag.h: Copied from Source/JavaScriptCore/wasm/WasmLLIntGenerator.h.
+            (JSC::Wasm::Tag::create):
+            (JSC::Wasm::Tag::parameterCount const):
+            (JSC::Wasm::Tag::parameter const):
+            (JSC::Wasm::Tag::operator== const):
+            (JSC::Wasm::Tag::operator!= const):
+            (JSC::Wasm::Tag::signature const):
+            (JSC::Wasm::Tag::Tag):
+            * wasm/WasmThunks.cpp:
+            * wasm/WasmThunks.h:
+            * wasm/generateWasmB3IRGeneratorInlinesHeader.py:
+            (CodeGenerator.generateOpcode):
+            (CodeGenerator.makeResult):
+            (CodeGenerator.generate):
+            * wasm/generateWasmOpsHeader.py:
+            (typeMacroizer):
+            * wasm/js/JSWebAssembly.cpp:
+            * wasm/js/JSWebAssemblyException.cpp: Added.
+            (JSC::JSWebAssemblyException::JSWebAssemblyException):
+            (JSC::JSWebAssemblyException::finishCreation):
+            (JSC::JSWebAssemblyException::visitChildrenImpl):
+            (JSC::JSWebAssemblyException::destroy):
+            (JSC::JSWebAssemblyException::getArg const):
+            * wasm/js/JSWebAssemblyException.h: Added.
+            (JSC::JSWebAssemblyException::subspaceFor):
+            (JSC::JSWebAssemblyException::createStructure):
+            (JSC::JSWebAssemblyException::create):
+            (JSC::JSWebAssemblyException::tag const):
+            (JSC::JSWebAssemblyException::payload const):
+            * wasm/js/JSWebAssemblyHelpers.h:
+            (JSC::toJSValue):
+            (JSC::fromJSValue):
+            * wasm/js/JSWebAssemblyInstance.cpp:
+            (JSC::JSWebAssemblyInstance::tryCreate):
+            * wasm/js/JSWebAssemblyInstance.h:
+            * wasm/js/JSWebAssemblyRuntimeError.cpp:
+            (JSC::createJSWebAssemblyRuntimeError):
+            * wasm/js/JSWebAssemblyRuntimeError.h:
+            * wasm/js/JSWebAssemblyTag.cpp: Copied from Source/JavaScriptCore/wasm/js/JSWebAssemblyRuntimeError.cpp.
+            (JSC::JSWebAssemblyTag::create):
+            (JSC::JSWebAssemblyTag::createStructure):
+            (JSC::JSWebAssemblyTag::JSWebAssemblyTag):
+            * wasm/js/JSWebAssemblyTag.h: Copied from Source/JavaScriptCore/wasm/js/JSWebAssemblyRuntimeError.h.
+            * wasm/js/WasmToJS.cpp:
+            (JSC::Wasm::wasmToJS):
+            * wasm/js/WebAssemblyExceptionConstructor.cpp: Added.
+            (JSC::JSC_DEFINE_HOST_FUNCTION):
+            (JSC::WebAssemblyExceptionConstructor::create):
+            (JSC::WebAssemblyExceptionConstructor::createStructure):
+            (JSC::WebAssemblyExceptionConstructor::finishCreation):
+            (JSC::WebAssemblyExceptionConstructor::WebAssemblyExceptionConstructor):
+            * wasm/js/WebAssemblyExceptionConstructor.h: Copied from Source/JavaScriptCore/wasm/js/JSWebAssemblyRuntimeError.h.
+            * wasm/js/WebAssemblyExceptionPrototype.cpp: Added.
+            (JSC::WebAssemblyExceptionPrototype::create):
+            (JSC::WebAssemblyExceptionPrototype::createStructure):
+            (JSC::WebAssemblyExceptionPrototype::finishCreation):
+            (JSC::WebAssemblyExceptionPrototype::WebAssemblyExceptionPrototype):
+            (JSC::getException):
+            (JSC::getTag):
+            (JSC::JSC_DEFINE_HOST_FUNCTION):
+            * wasm/js/WebAssemblyExceptionPrototype.h: Copied from Source/JavaScriptCore/wasm/js/JSWebAssemblyRuntimeError.h.
+            * wasm/js/WebAssemblyFunction.cpp:
+            (JSC::JSC_DEFINE_HOST_FUNCTION):
+            * wasm/js/WebAssemblyModuleRecord.cpp:
+            (JSC::WebAssemblyModuleRecord::linkImpl):
+            * wasm/js/WebAssemblyTagConstructor.cpp: Added.
+            (JSC::JSC_DEFINE_HOST_FUNCTION):
+            (JSC::WebAssemblyTagConstructor::createTag):
+            (JSC::WebAssemblyTagConstructor::create):
+            (JSC::WebAssemblyTagConstructor::createStructure):
+            (JSC::WebAssemblyTagConstructor::finishCreation):
+            (JSC::WebAssemblyTagConstructor::WebAssemblyTagConstructor):
+            * wasm/js/WebAssemblyTagConstructor.h: Copied from Source/JavaScriptCore/wasm/js/JSWebAssemblyRuntimeError.h.
+            * wasm/js/WebAssemblyTagPrototype.cpp: Added.
+            (JSC::WebAssemblyTagPrototype::create):
+            (JSC::WebAssemblyTagPrototype::createStructure):
+            (JSC::WebAssemblyTagPrototype::finishCreation):
+            (JSC::WebAssemblyTagPrototype::WebAssemblyTagPrototype):
+            (JSC::getTag):
+            (JSC::JSC_DEFINE_HOST_FUNCTION):
+            * wasm/js/WebAssemblyTagPrototype.h: Copied from Source/JavaScriptCore/wasm/js/JSWebAssemblyRuntimeError.h.
+            * wasm/wasm.json:
+
+2021-10-18  Russell Epstein  <repstein@apple.com>
+
+        Cherry-pick r284230. rdar://problem/84351866
+
+    Allow WASM to use up to 4GB
+    https://bugs.webkit.org/show_bug.cgi?id=229353
+    rdar://81603447
+    
+    Reviewed by Yusuke Suzuki.
+    
+    JSTests:
+    
+    The big-wasm-memory/wasm-memory-requested... tests used to simply expect an OOM at 2GB.
+    They now expect success at 4GB, and failure at 4GB+1.
+    The exceptions they expect are now more specific, as previously there was a rounding issue that was causing the specific exceptions not to be thrown (resulting in the generic OOM exception later in the code).
+    Finally I made them only run on 64-bit platforms since we don't support typed arrays >=2GB on 32-bits, and I made them only run in one configuration since they can take a little bit of time.
+    
+    I also added a few new tests, specifically checking our handling of large typed arrays, and especially of indices above INT32_MAX.
+    
+    * stress/big-wasm-memory-grow-no-max.js:
+    (test):
+    * stress/big-wasm-memory-grow.js:
+    (test):
+    * stress/big-wasm-memory.js:
+    (test):
+    * stress/typed-array-always-large.js: Added.
+    (getArrayLength):
+    (getByVal):
+    (putByVal):
+    (test):
+    * stress/typed-array-eventually-large.js: Added.
+    (getArrayLength):
+    (getByVal):
+    (putByVal):
+    (test):
+    * stress/typed-array-large-eventually-oob.js: Added.
+    (getArrayLength):
+    (getByVal):
+    (putByVal):
+    (test):
+    * wasm/regress/wasm-memory-requested-more-than-MAX_ARRAY_BUFFER_SIZE-2.js:
+    * wasm/regress/wasm-memory-requested-more-than-MAX_ARRAY_BUFFER_SIZE.js:
+    
+    Source/JavaScriptCore:
+    
+    While increasing MAX_ARRAY_BUFFER_SIZE to 4GB was easy, it was not remotely the only thing required to get this to work:
+    - 4GB is not representable in a uint32_t, so I changed all length of ArrayBuffer/TypedArray/etc.. to being UCPURegister.
+    - This also required changing NewTypedArray in all of LLInt/Baseline/DFG/FTL to accept a non-int32 size.
+        In order to avoid performance regressions, I had to add speculation in the DFG/FTL, which now have two versions of NewTypedArray (one that takes an Int32 and one that takes a StrictInt52)
+    - Similarly, GetArrayLength and GetTypedArrayByteOffset now can either return an Int32 or a larger number.
+        I also had to split them in the DFG/FTL, see GetTypedArrayLengthAsInt52 and GetTypedArrayByteOffsetAsInt52 for examples
+    - In turns, I had to add CheckInBoundsInt52 since CheckInBounds could not accept the result of GetTypedArrayLengthAsInt52
+    - I modified the runtime functions for GetByVal/PutByVal/DataViewGet/DataViewSet/AtomicsXXX to accept non-Int32 indices, since for {Int8/UInt8/UInt8Clamped}Array, a maximum size of 4GB implies indices > 2B.
+    - I added a "mayBeLargeTypedArray" bit to ArrayProfile/UnlinkedArrayProfile/DFG::ArrayMode to track whether such a non-Int32 index was seen to allow proper speculation and specialization of fast paths in the DFG/FTL.
+        I then updated the runtime functions used by the slow paths to correctly update it.
+    
+    Unfortunately I ran out of time to add all the speculations/update all the fast paths.
+    So the following will have to wait for a follow-up patch:
+    - Accepting large indices in the fast path of GetByVal in the LLInt
+    - Accepting large indices in the fast paths generated by AccessCase/PolymorphicAccess
+    - Accepting large indices in the fast paths generated by the DFG/FTL for each of GetByVal/PutByVal/DataViewGet/DataViewSet/AtomicsXXX
+    
+    The current patch is functional, it will just have dreadful performance if trying to use indices >2B in a {Int8/UInt8/UInt8Clamped}Array.
+    
+    Other minor changes in this patch:
+    - Fixed an undefined behavior in ArrayBuffer::createInternal where memcpy could be called on nullptr (the spec explicitly bans this even when length is 0)
+    - Replaced some repetitive and error-prone bounds checking by calls to WTF::isSumSmallerThanOrEqual, which is clearer, shorter, and reuse CheckedArithmetic facilities to avoid overflow issues.
+    - Fixed a variety of obsolete comments
+    - Added support for branch64(RelationalCondition cond, RegisterID left, Imm64 right)
+        (there was already support for the same but with TrustedImm64)
+    - Made various AbstractMacroAssembler function constexpr as part of the previous point
+    
+    * assembler/AbstractMacroAssembler.cpp:
+    * assembler/AbstractMacroAssembler.h:
+    (JSC::AbstractMacroAssembler::TrustedImmPtr::TrustedImmPtr):
+    (JSC::AbstractMacroAssembler::TrustedImmPtr::asIntptr):
+    (JSC::AbstractMacroAssembler::TrustedImmPtr::asPtr):
+    (JSC::AbstractMacroAssembler::ImmPtr::ImmPtr):
+    (JSC::AbstractMacroAssembler::ImmPtr::asTrustedImmPtr):
+    (JSC::AbstractMacroAssembler::TrustedImm32::TrustedImm32):
+    (JSC::AbstractMacroAssembler::Imm32::Imm32):
+    (JSC::AbstractMacroAssembler::Imm32::asTrustedImm32 const):
+    (JSC::AbstractMacroAssembler::TrustedImm64::TrustedImm64):
+    (JSC::AbstractMacroAssembler::Imm64::Imm64):
+    (JSC::AbstractMacroAssembler::Imm64::asTrustedImm64 const):
+    (JSC::AbstractMacroAssembler::canBlind):
+    (JSC::AbstractMacroAssembler::shouldBlindForSpecificArch):
+    * assembler/MacroAssembler.h:
+    (JSC::MacroAssembler::branch64):
+    * assembler/MacroAssemblerARM64.h:
+    (JSC::MacroAssemblerARM64::shouldBlindForSpecificArch):
+    (JSC::MacroAssemblerARM64::branch64):
+    * assembler/MacroAssemblerARM64E.h:
+    (JSC::MacroAssemblerARM64E::untagArrayPtrLength64):
+    (JSC::MacroAssemblerARM64E::untagArrayPtrLength32): Deleted.
+    * assembler/MacroAssemblerX86Common.h:
+    (JSC::MacroAssemblerX86Common::canBlind):
+    (JSC::MacroAssemblerX86Common::shouldBlindForSpecificArch):
+    * bytecode/AccessCase.cpp:
+    (JSC::AccessCase::needsScratchFPR const):
+    (JSC::AccessCase::generateWithGuard):
+    * bytecode/ArrayProfile.h:
+    (JSC::ArrayProfile::setMayBeLargeTypedArray):
+    (JSC::ArrayProfile::mayBeLargeTypedArray const):
+    (JSC::UnlinkedArrayProfile::UnlinkedArrayProfile):
+    (JSC::UnlinkedArrayProfile::update):
+    * dfg/DFGAbstractInterpreterInlines.h:
+    (JSC::DFG::AbstractInterpreter<AbstractStateType>::executeEffects):
+    * dfg/DFGArgumentsEliminationPhase.cpp:
+    * dfg/DFGArrayMode.cpp:
+    (JSC::DFG::ArrayMode::refine const):
+    * dfg/DFGArrayMode.h:
+    (JSC::DFG::ArrayMode::ArrayMode):
+    (JSC::DFG::ArrayMode::mayBeLargeTypedArray const):
+    (JSC::DFG::ArrayMode::withType const):
+    (JSC::DFG::ArrayMode::withSpeculation const):
+    (JSC::DFG::ArrayMode::withConversion const):
+    (JSC::DFG::ArrayMode::withTypeAndConversion const):
+    (JSC::DFG::ArrayMode::withArrayClassAndSpeculationAndMayBeLargeTypedArray const):
+    (JSC::DFG::ArrayMode::speculationFromProfile):
+    (JSC::DFG::ArrayMode::withSpeculationFromProfile const):
+    (JSC::DFG::ArrayMode::withProfile const):
+    (JSC::DFG::ArrayMode::operator== const):
+    (JSC::DFG::ArrayMode::withArrayClass const): Deleted.
+    * dfg/DFGByteCodeParser.cpp:
+    (JSC::DFG::ByteCodeParser::handleIntrinsicGetter):
+    * dfg/DFGClobberize.h:
+    (JSC::DFG::clobberize):
+    * dfg/DFGCommon.h:
+    (JSC::DFG::enableInt52):
+    * dfg/DFGConstantFoldingPhase.cpp:
+    (JSC::DFG::ConstantFoldingPhase::foldConstants):
+    * dfg/DFGDoesGC.cpp:
+    (JSC::DFG::doesGC):
+    * dfg/DFGFixupPhase.cpp:
+    (JSC::DFG::FixupPhase::fixupNode):
+    (JSC::DFG::FixupPhase::convertToGetArrayLength):
+    (JSC::DFG::FixupPhase::prependGetArrayLength): Deleted.
+    * dfg/DFGGenerationInfo.h:
+    * dfg/DFGHeapLocation.cpp:
+    (WTF::printInternal):
+    * dfg/DFGHeapLocation.h:
+    * dfg/DFGIntegerRangeOptimizationPhase.cpp:
+    * dfg/DFGNode.h:
+    (JSC::DFG::Node::hasStorageChild const):
+    (JSC::DFG::Node::storageChildIndex):
+    (JSC::DFG::Node::hasArrayMode):
+    * dfg/DFGNodeType.h:
+    * dfg/DFGOperations.cpp:
+    (JSC::DFG::putByVal):
+    (JSC::DFG::newTypedArrayWithSize):
+    (JSC::DFG::JSC_DEFINE_JIT_OPERATION):
+    * dfg/DFGOperations.h:
+    * dfg/DFGPredictionPropagationPhase.cpp:
+    * dfg/DFGSSALoweringPhase.cpp:
+    (JSC::DFG::SSALoweringPhase::handleNode):
+    (JSC::DFG::SSALoweringPhase::lowerBoundsCheck):
+    * dfg/DFGSafeToExecute.h:
+    (JSC::DFG::safeToExecute):
+    * dfg/DFGSpeculativeJIT.cpp:
+    (JSC::DFG::SpeculativeJIT::jumpForTypedArrayOutOfBounds):
+    (JSC::DFG::SpeculativeJIT::emitTypedArrayBoundsCheck):
+    (JSC::DFG::SpeculativeJIT::compileGetByValOnIntTypedArray):
+    (JSC::DFG::SpeculativeJIT::compilePutByValForIntTypedArray):
+    (JSC::DFG::SpeculativeJIT::compileGetByValOnFloatTypedArray):
+    (JSC::DFG::SpeculativeJIT::compilePutByValForFloatTypedArray):
+    (JSC::DFG::SpeculativeJIT::cageTypedArrayStorage):
+    (JSC::DFG::SpeculativeJIT::compileGetTypedArrayByteOffset):
+    (JSC::DFG::SpeculativeJIT::compileGetArrayLength):
+    (JSC::DFG::SpeculativeJIT::compileNewTypedArrayWithSize):
+    (JSC::DFG::SpeculativeJIT::emitNewTypedArrayWithSizeInRegister):
+    (JSC::DFG::SpeculativeJIT::compileNewTypedArray):
+    * dfg/DFGSpeculativeJIT.h:
+    * dfg/DFGSpeculativeJIT32_64.cpp:
+    (JSC::DFG::SpeculativeJIT::compileGetByVal):
+    (JSC::DFG::SpeculativeJIT::compile):
+    * dfg/DFGSpeculativeJIT64.cpp:
+    (JSC::DFG::SpeculativeJIT::compileNewTypedArrayWithInt52Size):
+    (JSC::DFG::SpeculativeJIT::compileGetTypedArrayLengthAsInt52):
+    (JSC::DFG::SpeculativeJIT::compileGetTypedArrayByteOffsetAsInt52):
+    (JSC::DFG::SpeculativeJIT::compile):
+    * dfg/DFGTypeCheckHoistingPhase.cpp:
+    (JSC::DFG::TypeCheckHoistingPhase::identifyRedundantStructureChecks):
+    (JSC::DFG::TypeCheckHoistingPhase::identifyRedundantArrayChecks):
+    * dfg/DFGValidate.cpp:
+    * ftl/FTLCapabilities.cpp:
+    (JSC::FTL::canCompile):
+    * ftl/FTLLowerDFGToB3.cpp:
+    (JSC::FTL::DFG::LowerDFGToB3::validateAIState):
+    (JSC::FTL::DFG::LowerDFGToB3::compileNode):
+    (JSC::FTL::DFG::LowerDFGToB3::emitGetTypedArrayByteOffsetExceptSettingResult):
+    (JSC::FTL::DFG::LowerDFGToB3::compileGetTypedArrayByteOffset):
+    (JSC::FTL::DFG::LowerDFGToB3::compileGetTypedArrayByteOffsetAsInt52):
+    (JSC::FTL::DFG::LowerDFGToB3::compileGetArrayLength):
+    (JSC::FTL::DFG::LowerDFGToB3::compileGetTypedArrayLengthAsInt52):
+    (JSC::FTL::DFG::LowerDFGToB3::compileCheckInBoundsInt52):
+    (JSC::FTL::DFG::LowerDFGToB3::compilePutByVal):
+    (JSC::FTL::DFG::LowerDFGToB3::compileNewTypedArray):
+    (JSC::FTL::DFG::LowerDFGToB3::emitNewTypedArrayWithSize):
+    (JSC::FTL::DFG::LowerDFGToB3::compileCompareStrictEq):
+    * ftl/FTLOutput.h:
+    (JSC::FTL::Output::load64NonNegative):
+    * jit/IntrinsicEmitter.cpp:
+    (JSC::IntrinsicGetterAccessCase::emitIntrinsicGetter):
+    * jit/JITOperations.cpp:
+    (JSC::putByVal):
+    (JSC::getByVal):
+    * llint/LLIntOfflineAsmConfig.h:
+    * llint/LLIntSlowPaths.cpp:
+    (JSC::LLInt::getByVal):
+    (JSC::LLInt::LLINT_SLOW_PATH_DECL):
+    * llint/LowLevelInterpreter.asm:
+    * llint/LowLevelInterpreter32_64.asm:
+    * llint/LowLevelInterpreter64.asm:
+    * runtime/ArrayBuffer.cpp:
+    (JSC::SharedArrayBufferContents::SharedArrayBufferContents):
+    (JSC::ArrayBufferContents::ArrayBufferContents):
+    (JSC::ArrayBufferContents::tryAllocate):
+    (JSC::ArrayBuffer::create):
+    (JSC::ArrayBuffer::createAdopted):
+    (JSC::ArrayBuffer::createFromBytes):
+    (JSC::ArrayBuffer::tryCreate):
+    (JSC::ArrayBuffer::createUninitialized):
+    (JSC::ArrayBuffer::tryCreateUninitialized):
+    (JSC::ArrayBuffer::createInternal):
+    (JSC::ArrayBuffer::clampValue):
+    (JSC::ArrayBuffer::clampIndex const):
+    (JSC::ArrayBuffer::sliceWithClampedIndex const):
+    * runtime/ArrayBuffer.h:
+    (JSC::ArrayBufferContents::sizeInBytes const):
+    (JSC::ArrayBuffer::byteLength const):
+    (JSC::ArrayBuffer::gcSizeEstimateInBytes const):
+    * runtime/ArrayBufferView.cpp:
+    (JSC::ArrayBufferView::ArrayBufferView):
+    * runtime/ArrayBufferView.h:
+    (JSC::ArrayBufferView::byteOffset const):
+    (JSC::ArrayBufferView::byteLength const):
+    (JSC::ArrayBufferView::verifyByteOffsetAlignment):
+    (JSC::ArrayBufferView::verifySubRangeLength):
+    (JSC::ArrayBufferView::clampOffsetAndNumElements):
+    (JSC::ArrayBufferView::setImpl):
+    (JSC::ArrayBufferView::setRangeImpl):
+    (JSC::ArrayBufferView::getRangeImpl):
+    (JSC::ArrayBufferView::zeroRangeImpl):
+    (JSC::ArrayBufferView::calculateOffsetAndLength): Deleted.
+    * runtime/AtomicsObject.cpp:
+    * runtime/DataView.cpp:
+    (JSC::DataView::DataView):
+    (JSC::DataView::create):
+    * runtime/DataView.h:
+    * runtime/GenericTypedArrayView.h:
+    * runtime/GenericTypedArrayViewInlines.h:
+    (JSC::GenericTypedArrayView<Adaptor>::GenericTypedArrayView):
+    (JSC::GenericTypedArrayView<Adaptor>::create):
+    (JSC::GenericTypedArrayView<Adaptor>::tryCreate):
+    (JSC::GenericTypedArrayView<Adaptor>::createUninitialized):
+    (JSC::GenericTypedArrayView<Adaptor>::tryCreateUninitialized):
+    (JSC::GenericTypedArrayView<Adaptor>::subarray const): Deleted.
+    * runtime/JSArrayBufferView.cpp:
+    (JSC::JSArrayBufferView::ConstructionContext::ConstructionContext):
+    (JSC::JSArrayBufferView::byteLength const):
+    (JSC::JSArrayBufferView::slowDownAndWasteMemory):
+    (JSC::JSArrayBufferView::possiblySharedImpl):
+    * runtime/JSArrayBufferView.h:
+    (JSC::JSArrayBufferView::sizeOf):
+    (JSC::JSArrayBufferView::ConstructionContext::length const):
+    (JSC::JSArrayBufferView::length const):
+    * runtime/JSArrayBufferViewInlines.h:
+    (JSC::JSArrayBufferView::byteOffsetImpl):
+    (JSC::JSArrayBufferView::byteOffset):
+    (JSC::JSArrayBufferView::byteOffsetConcurrently):
+    * runtime/JSCJSValue.h:
+    * runtime/JSCJSValueInlines.h:
+    (JSC::JSValue::toIndex const):
+    (JSC::JSValue::toTypedArrayIndex const):
+    * runtime/JSDataView.cpp:
+    (JSC::JSDataView::create):
+    (JSC::JSDataView::createUninitialized):
+    (JSC::JSDataView::set):
+    (JSC::JSDataView::setIndex):
+    * runtime/JSDataView.h:
+    * runtime/JSDataViewPrototype.cpp:
+    (JSC::getData):
+    (JSC::setData):
+    * runtime/JSGenericTypedArrayView.h:
+    * runtime/JSGenericTypedArrayViewConstructorInlines.h:
+    (JSC::constructGenericTypedArrayViewWithArguments):
+    (JSC::constructGenericTypedArrayViewImpl):
+    * runtime/JSGenericTypedArrayViewInlines.h:
+    (JSC::JSGenericTypedArrayView<Adaptor>::create):
+    (JSC::JSGenericTypedArrayView<Adaptor>::createWithFastVector):
+    (JSC::JSGenericTypedArrayView<Adaptor>::createUninitialized):
+    (JSC::JSGenericTypedArrayView<Adaptor>::validateRange):
+    (JSC::JSGenericTypedArrayView<Adaptor>::setWithSpecificType):
+    (JSC::JSGenericTypedArrayView<Adaptor>::set):
+    * runtime/JSObject.h:
+    (JSC::JSObject::putByIndexInline):
+    (JSC::JSObject::tryGetIndexQuickly const):
+    (JSC::JSObject::trySetIndexQuickly):
+    (JSC::JSObject::canSetIndexQuickly): Deleted.
+    * runtime/JSObjectInlines.h:
+    (JSC::JSObject::getIndexQuicklyForTypedArray const):
+    (JSC::JSObject::setIndexQuicklyForArrayStorageIndexingType):
+    (JSC::JSObject::trySetIndexQuicklyForTypedArray):
+    (JSC::JSObject::canSetIndexQuicklyForTypedArray const): Deleted.
+    * runtime/Operations.h:
+    (JSC::getByValWithIndex):
+    * wasm/WasmPageCount.h:
+    
+    Source/WebCore:
+    
+    Some parts of WebCore use TypedArrays, and would not build after I made the length() function on typed arrays return UCPURegister instead of uint32_t.
+    Most fixes were trivial, the only exception is SerializedScriptValue.cpp, where I had to increment the version number, as ArrayBuffer (and ArrayBufferViews) now write/read their length in a 64-bit field (and same for the byteOffset of ArrayBufferView).
+    
+    I also had to add a test in PixelBuffer.cpp that the size of the ArrayBuffer it will try to allocate is < INT32_MAX.
+    Otherwise, the test LayoutTests/fast/shapes/shape-outside-floats/shape-outside-imagedata-overflow.html which checks that very large images are properly rejected without crashing, would timeout.
+    
+    No new tests, as the code is already extensively covered by existing tests, and I implemented no new features.
+    
+    * Modules/webaudio/AudioBuffer.cpp:
+    (WebCore::AudioBuffer::copyFromChannel):
+    (WebCore::AudioBuffer::copyToChannel):
+    * Modules/webaudio/RealtimeAnalyser.cpp:
+    (WebCore::RealtimeAnalyser::getByteFrequencyData):
+    (WebCore::RealtimeAnalyser::getFloatTimeDomainData):
+    (WebCore::RealtimeAnalyser::getByteTimeDomainData):
+    * bindings/js/SerializedScriptValue.cpp:
+    (WebCore::CloneSerializer::dumpArrayBufferView):
+    (WebCore::CloneSerializer::dumpImageBitmap):
+    (WebCore::CloneSerializer::dumpIfTerminal):
+    (WebCore::CloneDeserializer::readArrayBufferImpl):
+    (WebCore::CloneDeserializer::readArrayBuffer):
+    (WebCore::CloneDeserializer::readArrayBufferViewImpl):
+    (WebCore::CloneDeserializer::readArrayBufferView):
+    * bindings/js/SerializedScriptValue.h:
+    (WebCore::SerializedScriptValue::encode const):
+    (WebCore::SerializedScriptValue::decode):
+    * fileapi/NetworkSendQueue.cpp:
+    (WebCore::NetworkSendQueue::enqueue):
+    * platform/graphics/PixelBuffer.cpp:
+    (WebCore::PixelBuffer::tryCreate):
+    * platform/graphics/iso/ISOBox.h:
+    
+    Source/WTF:
+    
+    Made some of CheckedArithmetic constexpr, and added isSumSmallerThanOrEqual since it is a commonly used test in ArrayBuffer and easy to get wrong in terms of overflow.
+    
+    * wtf/CheckedArithmetic.h:
+    (WTF::isInBounds):
+    (WTF::convertSafely):
+    (WTF::isSumSmallerThanOrEqual):
+    
+    LayoutTests:
+    
+    Rebaselined three following tests as different or fewer error messages appear on the console.
+    Also changed currentVersion in serialized-script-value.html from 9 to 10.
+    
+    * fast/canvas/canvas-getImageData-invalid-result-buffer-crash-expected.txt:
+    * fast/storage/serialized-script-value.html:
+    * webaudio/OfflineAudioContext-bad-buffer-crash-expected.txt:
+    * webaudio/OfflineAudioContext/bad-buffer-length-expected.txt:
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@284230 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-10-14  Robin Morisset  <rmorisset@apple.com>
+
+            Allow WASM to use up to 4GB
+            https://bugs.webkit.org/show_bug.cgi?id=229353
+            rdar://81603447
+
+            Reviewed by Yusuke Suzuki.
+
+            While increasing MAX_ARRAY_BUFFER_SIZE to 4GB was easy, it was not remotely the only thing required to get this to work:
+            - 4GB is not representable in a uint32_t, so I changed all length of ArrayBuffer/TypedArray/etc.. to being UCPURegister.
+            - This also required changing NewTypedArray in all of LLInt/Baseline/DFG/FTL to accept a non-int32 size.
+                In order to avoid performance regressions, I had to add speculation in the DFG/FTL, which now have two versions of NewTypedArray (one that takes an Int32 and one that takes a StrictInt52)
+            - Similarly, GetArrayLength and GetTypedArrayByteOffset now can either return an Int32 or a larger number.
+                I also had to split them in the DFG/FTL, see GetTypedArrayLengthAsInt52 and GetTypedArrayByteOffsetAsInt52 for examples
+            - In turns, I had to add CheckInBoundsInt52 since CheckInBounds could not accept the result of GetTypedArrayLengthAsInt52
+            - I modified the runtime functions for GetByVal/PutByVal/DataViewGet/DataViewSet/AtomicsXXX to accept non-Int32 indices, since for {Int8/UInt8/UInt8Clamped}Array, a maximum size of 4GB implies indices > 2B.
+            - I added a "mayBeLargeTypedArray" bit to ArrayProfile/UnlinkedArrayProfile/DFG::ArrayMode to track whether such a non-Int32 index was seen to allow proper speculation and specialization of fast paths in the DFG/FTL.
+                I then updated the runtime functions used by the slow paths to correctly update it.
+
+            Unfortunately I ran out of time to add all the speculations/update all the fast paths.
+            So the following will have to wait for a follow-up patch:
+            - Accepting large indices in the fast path of GetByVal in the LLInt
+            - Accepting large indices in the fast paths generated by AccessCase/PolymorphicAccess
+            - Accepting large indices in the fast paths generated by the DFG/FTL for each of GetByVal/PutByVal/DataViewGet/DataViewSet/AtomicsXXX
+
+            The current patch is functional, it will just have dreadful performance if trying to use indices >2B in a {Int8/UInt8/UInt8Clamped}Array.
+
+            Other minor changes in this patch:
+            - Fixed an undefined behavior in ArrayBuffer::createInternal where memcpy could be called on nullptr (the spec explicitly bans this even when length is 0)
+            - Replaced some repetitive and error-prone bounds checking by calls to WTF::isSumSmallerThanOrEqual, which is clearer, shorter, and reuse CheckedArithmetic facilities to avoid overflow issues.
+            - Fixed a variety of obsolete comments
+            - Added support for branch64(RelationalCondition cond, RegisterID left, Imm64 right)
+                (there was already support for the same but with TrustedImm64)
+            - Made various AbstractMacroAssembler function constexpr as part of the previous point
+
+            * assembler/AbstractMacroAssembler.cpp:
+            * assembler/AbstractMacroAssembler.h:
+            (JSC::AbstractMacroAssembler::TrustedImmPtr::TrustedImmPtr):
+            (JSC::AbstractMacroAssembler::TrustedImmPtr::asIntptr):
+            (JSC::AbstractMacroAssembler::TrustedImmPtr::asPtr):
+            (JSC::AbstractMacroAssembler::ImmPtr::ImmPtr):
+            (JSC::AbstractMacroAssembler::ImmPtr::asTrustedImmPtr):
+            (JSC::AbstractMacroAssembler::TrustedImm32::TrustedImm32):
+            (JSC::AbstractMacroAssembler::Imm32::Imm32):
+            (JSC::AbstractMacroAssembler::Imm32::asTrustedImm32 const):
+            (JSC::AbstractMacroAssembler::TrustedImm64::TrustedImm64):
+            (JSC::AbstractMacroAssembler::Imm64::Imm64):
+            (JSC::AbstractMacroAssembler::Imm64::asTrustedImm64 const):
+            (JSC::AbstractMacroAssembler::canBlind):
+            (JSC::AbstractMacroAssembler::shouldBlindForSpecificArch):
+            * assembler/MacroAssembler.h:
+            (JSC::MacroAssembler::branch64):
+            * assembler/MacroAssemblerARM64.h:
+            (JSC::MacroAssemblerARM64::shouldBlindForSpecificArch):
+            (JSC::MacroAssemblerARM64::branch64):
+            * assembler/MacroAssemblerARM64E.h:
+            (JSC::MacroAssemblerARM64E::untagArrayPtrLength64):
+            (JSC::MacroAssemblerARM64E::untagArrayPtrLength32): Deleted.
+            * assembler/MacroAssemblerX86Common.h:
+            (JSC::MacroAssemblerX86Common::canBlind):
+            (JSC::MacroAssemblerX86Common::shouldBlindForSpecificArch):
+            * bytecode/AccessCase.cpp:
+            (JSC::AccessCase::needsScratchFPR const):
+            (JSC::AccessCase::generateWithGuard):
+            * bytecode/ArrayProfile.h:
+            (JSC::ArrayProfile::setMayBeLargeTypedArray):
+            (JSC::ArrayProfile::mayBeLargeTypedArray const):
+            (JSC::UnlinkedArrayProfile::UnlinkedArrayProfile):
+            (JSC::UnlinkedArrayProfile::update):
+            * dfg/DFGAbstractInterpreterInlines.h:
+            (JSC::DFG::AbstractInterpreter<AbstractStateType>::executeEffects):
+            * dfg/DFGArgumentsEliminationPhase.cpp:
+            * dfg/DFGArrayMode.cpp:
+            (JSC::DFG::ArrayMode::refine const):
+            * dfg/DFGArrayMode.h:
+            (JSC::DFG::ArrayMode::ArrayMode):
+            (JSC::DFG::ArrayMode::mayBeLargeTypedArray const):
+            (JSC::DFG::ArrayMode::withType const):
+            (JSC::DFG::ArrayMode::withSpeculation const):
+            (JSC::DFG::ArrayMode::withConversion const):
+            (JSC::DFG::ArrayMode::withTypeAndConversion const):
+            (JSC::DFG::ArrayMode::withArrayClassAndSpeculationAndMayBeLargeTypedArray const):
+            (JSC::DFG::ArrayMode::speculationFromProfile):
+            (JSC::DFG::ArrayMode::withSpeculationFromProfile const):
+            (JSC::DFG::ArrayMode::withProfile const):
+            (JSC::DFG::ArrayMode::operator== const):
+            (JSC::DFG::ArrayMode::withArrayClass const): Deleted.
+            * dfg/DFGByteCodeParser.cpp:
+            (JSC::DFG::ByteCodeParser::handleIntrinsicGetter):
+            * dfg/DFGClobberize.h:
+            (JSC::DFG::clobberize):
+            * dfg/DFGCommon.h:
+            (JSC::DFG::enableInt52):
+            * dfg/DFGConstantFoldingPhase.cpp:
+            (JSC::DFG::ConstantFoldingPhase::foldConstants):
+            * dfg/DFGDoesGC.cpp:
+            (JSC::DFG::doesGC):
+            * dfg/DFGFixupPhase.cpp:
+            (JSC::DFG::FixupPhase::fixupNode):
+            (JSC::DFG::FixupPhase::convertToGetArrayLength):
+            (JSC::DFG::FixupPhase::prependGetArrayLength): Deleted.
+            * dfg/DFGGenerationInfo.h:
+            * dfg/DFGHeapLocation.cpp:
+            (WTF::printInternal):
+            * dfg/DFGHeapLocation.h:
+            * dfg/DFGIntegerRangeOptimizationPhase.cpp:
+            * dfg/DFGNode.h:
+            (JSC::DFG::Node::hasStorageChild const):
+            (JSC::DFG::Node::storageChildIndex):
+            (JSC::DFG::Node::hasArrayMode):
+            * dfg/DFGNodeType.h:
+            * dfg/DFGOperations.cpp:
+            (JSC::DFG::putByVal):
+            (JSC::DFG::newTypedArrayWithSize):
+            (JSC::DFG::JSC_DEFINE_JIT_OPERATION):
+            * dfg/DFGOperations.h:
+            * dfg/DFGPredictionPropagationPhase.cpp:
+            * dfg/DFGSSALoweringPhase.cpp:
+            (JSC::DFG::SSALoweringPhase::handleNode):
+            (JSC::DFG::SSALoweringPhase::lowerBoundsCheck):
+            * dfg/DFGSafeToExecute.h:
+            (JSC::DFG::safeToExecute):
+            * dfg/DFGSpeculativeJIT.cpp:
+            (JSC::DFG::SpeculativeJIT::jumpForTypedArrayOutOfBounds):
+            (JSC::DFG::SpeculativeJIT::emitTypedArrayBoundsCheck):
+            (JSC::DFG::SpeculativeJIT::compileGetByValOnIntTypedArray):
+            (JSC::DFG::SpeculativeJIT::compilePutByValForIntTypedArray):
+            (JSC::DFG::SpeculativeJIT::compileGetByValOnFloatTypedArray):
+            (JSC::DFG::SpeculativeJIT::compilePutByValForFloatTypedArray):
+            (JSC::DFG::SpeculativeJIT::cageTypedArrayStorage):
+            (JSC::DFG::SpeculativeJIT::compileGetTypedArrayByteOffset):
+            (JSC::DFG::SpeculativeJIT::compileGetArrayLength):
+            (JSC::DFG::SpeculativeJIT::compileNewTypedArrayWithSize):
+            (JSC::DFG::SpeculativeJIT::emitNewTypedArrayWithSizeInRegister):
+            (JSC::DFG::SpeculativeJIT::compileNewTypedArray):
+            * dfg/DFGSpeculativeJIT.h:
+            * dfg/DFGSpeculativeJIT32_64.cpp:
+            (JSC::DFG::SpeculativeJIT::compileGetByVal):
+            (JSC::DFG::SpeculativeJIT::compile):
+            * dfg/DFGSpeculativeJIT64.cpp:
+            (JSC::DFG::SpeculativeJIT::compileNewTypedArrayWithInt52Size):
+            (JSC::DFG::SpeculativeJIT::compileGetTypedArrayLengthAsInt52):
+            (JSC::DFG::SpeculativeJIT::compileGetTypedArrayByteOffsetAsInt52):
+            (JSC::DFG::SpeculativeJIT::compile):
+            * dfg/DFGTypeCheckHoistingPhase.cpp:
+            (JSC::DFG::TypeCheckHoistingPhase::identifyRedundantStructureChecks):
+            (JSC::DFG::TypeCheckHoistingPhase::identifyRedundantArrayChecks):
+            * dfg/DFGValidate.cpp:
+            * ftl/FTLCapabilities.cpp:
+            (JSC::FTL::canCompile):
+            * ftl/FTLLowerDFGToB3.cpp:
+            (JSC::FTL::DFG::LowerDFGToB3::validateAIState):
+            (JSC::FTL::DFG::LowerDFGToB3::compileNode):
+            (JSC::FTL::DFG::LowerDFGToB3::emitGetTypedArrayByteOffsetExceptSettingResult):
+            (JSC::FTL::DFG::LowerDFGToB3::compileGetTypedArrayByteOffset):
+            (JSC::FTL::DFG::LowerDFGToB3::compileGetTypedArrayByteOffsetAsInt52):
+            (JSC::FTL::DFG::LowerDFGToB3::compileGetArrayLength):
+            (JSC::FTL::DFG::LowerDFGToB3::compileGetTypedArrayLengthAsInt52):
+            (JSC::FTL::DFG::LowerDFGToB3::compileCheckInBoundsInt52):
+            (JSC::FTL::DFG::LowerDFGToB3::compilePutByVal):
+            (JSC::FTL::DFG::LowerDFGToB3::compileNewTypedArray):
+            (JSC::FTL::DFG::LowerDFGToB3::emitNewTypedArrayWithSize):
+            (JSC::FTL::DFG::LowerDFGToB3::compileCompareStrictEq):
+            * ftl/FTLOutput.h:
+            (JSC::FTL::Output::load64NonNegative):
+            * jit/IntrinsicEmitter.cpp:
+            (JSC::IntrinsicGetterAccessCase::emitIntrinsicGetter):
+            * jit/JITOperations.cpp:
+            (JSC::putByVal):
+            (JSC::getByVal):
+            * llint/LLIntOfflineAsmConfig.h:
+            * llint/LLIntSlowPaths.cpp:
+            (JSC::LLInt::getByVal):
+            (JSC::LLInt::LLINT_SLOW_PATH_DECL):
+            * llint/LowLevelInterpreter.asm:
+            * llint/LowLevelInterpreter32_64.asm:
+            * llint/LowLevelInterpreter64.asm:
+            * runtime/ArrayBuffer.cpp:
+            (JSC::SharedArrayBufferContents::SharedArrayBufferContents):
+            (JSC::ArrayBufferContents::ArrayBufferContents):
+            (JSC::ArrayBufferContents::tryAllocate):
+            (JSC::ArrayBuffer::create):
+            (JSC::ArrayBuffer::createAdopted):
+            (JSC::ArrayBuffer::createFromBytes):
+            (JSC::ArrayBuffer::tryCreate):
+            (JSC::ArrayBuffer::createUninitialized):
+            (JSC::ArrayBuffer::tryCreateUninitialized):
+            (JSC::ArrayBuffer::createInternal):
+            (JSC::ArrayBuffer::clampValue):
+            (JSC::ArrayBuffer::clampIndex const):
+            (JSC::ArrayBuffer::sliceWithClampedIndex const):
+            * runtime/ArrayBuffer.h:
+            (JSC::ArrayBufferContents::sizeInBytes const):
+            (JSC::ArrayBuffer::byteLength const):
+            (JSC::ArrayBuffer::gcSizeEstimateInBytes const):
+            * runtime/ArrayBufferView.cpp:
+            (JSC::ArrayBufferView::ArrayBufferView):
+            * runtime/ArrayBufferView.h:
+            (JSC::ArrayBufferView::byteOffset const):
+            (JSC::ArrayBufferView::byteLength const):
+            (JSC::ArrayBufferView::verifyByteOffsetAlignment):
+            (JSC::ArrayBufferView::verifySubRangeLength):
+            (JSC::ArrayBufferView::clampOffsetAndNumElements):
+            (JSC::ArrayBufferView::setImpl):
+            (JSC::ArrayBufferView::setRangeImpl):
+            (JSC::ArrayBufferView::getRangeImpl):
+            (JSC::ArrayBufferView::zeroRangeImpl):
+            (JSC::ArrayBufferView::calculateOffsetAndLength): Deleted.
+            * runtime/AtomicsObject.cpp:
+            * runtime/DataView.cpp:
+            (JSC::DataView::DataView):
+            (JSC::DataView::create):
+            * runtime/DataView.h:
+            * runtime/GenericTypedArrayView.h:
+            * runtime/GenericTypedArrayViewInlines.h:
+            (JSC::GenericTypedArrayView<Adaptor>::GenericTypedArrayView):
+            (JSC::GenericTypedArrayView<Adaptor>::create):
+            (JSC::GenericTypedArrayView<Adaptor>::tryCreate):
+            (JSC::GenericTypedArrayView<Adaptor>::createUninitialized):
+            (JSC::GenericTypedArrayView<Adaptor>::tryCreateUninitialized):
+            (JSC::GenericTypedArrayView<Adaptor>::subarray const): Deleted.
+            * runtime/JSArrayBufferView.cpp:
+            (JSC::JSArrayBufferView::ConstructionContext::ConstructionContext):
+            (JSC::JSArrayBufferView::byteLength const):
+            (JSC::JSArrayBufferView::slowDownAndWasteMemory):
+            (JSC::JSArrayBufferView::possiblySharedImpl):
+            * runtime/JSArrayBufferView.h:
+            (JSC::JSArrayBufferView::sizeOf):
+            (JSC::JSArrayBufferView::ConstructionContext::length const):
+            (JSC::JSArrayBufferView::length const):
+            * runtime/JSArrayBufferViewInlines.h:
+            (JSC::JSArrayBufferView::byteOffsetImpl):
+            (JSC::JSArrayBufferView::byteOffset):
+            (JSC::JSArrayBufferView::byteOffsetConcurrently):
+            * runtime/JSCJSValue.h:
+            * runtime/JSCJSValueInlines.h:
+            (JSC::JSValue::toIndex const):
+            (JSC::JSValue::toTypedArrayIndex const):
+            * runtime/JSDataView.cpp:
+            (JSC::JSDataView::create):
+            (JSC::JSDataView::createUninitialized):
+            (JSC::JSDataView::set):
+            (JSC::JSDataView::setIndex):
+            * runtime/JSDataView.h:
+            * runtime/JSDataViewPrototype.cpp:
+            (JSC::getData):
+            (JSC::setData):
+            * runtime/JSGenericTypedArrayView.h:
+            * runtime/JSGenericTypedArrayViewConstructorInlines.h:
+            (JSC::constructGenericTypedArrayViewWithArguments):
+            (JSC::constructGenericTypedArrayViewImpl):
+            * runtime/JSGenericTypedArrayViewInlines.h:
+            (JSC::JSGenericTypedArrayView<Adaptor>::create):
+            (JSC::JSGenericTypedArrayView<Adaptor>::createWithFastVector):
+            (JSC::JSGenericTypedArrayView<Adaptor>::createUninitialized):
+            (JSC::JSGenericTypedArrayView<Adaptor>::validateRange):
+            (JSC::JSGenericTypedArrayView<Adaptor>::setWithSpecificType):
+            (JSC::JSGenericTypedArrayView<Adaptor>::set):
+            * runtime/JSObject.h:
+            (JSC::JSObject::putByIndexInline):
+            (JSC::JSObject::tryGetIndexQuickly const):
+            (JSC::JSObject::trySetIndexQuickly):
+            (JSC::JSObject::canSetIndexQuickly): Deleted.
+            * runtime/JSObjectInlines.h:
+            (JSC::JSObject::getIndexQuicklyForTypedArray const):
+            (JSC::JSObject::setIndexQuicklyForArrayStorageIndexingType):
+            (JSC::JSObject::trySetIndexQuicklyForTypedArray):
+            (JSC::JSObject::canSetIndexQuicklyForTypedArray const): Deleted.
+            * runtime/Operations.h:
+            (JSC::getByValWithIndex):
+            * wasm/WasmPageCount.h:
+
+2021-10-17  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Cherry-pick r284212. rdar://problem/84351869
+
+    Wasm LLInt should zero bytecodeIndex before throwing
+    https://bugs.webkit.org/show_bug.cgi?id=231688
+    <rdar://84207898>
+    
+    Reviewed by Yusuke Suzuki.
+    
+    After r283852, the unwinder can now ask WebAssembly frames for their bytecodeIndex.
+    We do write to the bytecodeIndex when throwing from the wasm `throw` opcode, but we
+    failed to write when trapping (e.g.  throwing an OOB or Unreachable). The value of
+    the bytecodeIndex in this is case is not interesting, since these exceptions can't be
+    caught from Wasm, all we need to know is ensure there isn't an invalid left-over
+    value in that stack slot, so we zero it.
+    
+    * llint/WebAssembly.asm:
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@284212 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-10-14  Tadeu Zagallo  <tzagallo@apple.com>
+
+            Wasm LLInt should zero bytecodeIndex before throwing
+            https://bugs.webkit.org/show_bug.cgi?id=231688
+            <rdar://84207898>
+
+            Reviewed by Yusuke Suzuki.
+
+            After r283852, the unwinder can now ask WebAssembly frames for their bytecodeIndex.
+            We do write to the bytecodeIndex when throwing from the wasm `throw` opcode, but we
+            failed to write when trapping (e.g.  throwing an OOB or Unreachable). The value of
+            the bytecodeIndex in this is case is not interesting, since these exceptions can't be
+            caught from Wasm, all we need to know is ensure there isn't an invalid left-over
+            value in that stack slot, so we zero it.
+
+            * llint/WebAssembly.asm:
+
+2021-08-26  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        Intl.DateTimeFormat incorrectly parses patterns with 'h' literal
+        https://bugs.webkit.org/show_bug.cgi?id=229313
+        rdar://82414310
+
+        Reviewed by Ross Kirsling.
+
+        While DateTimeFormat pattern and skeleton can include single-quoted literal texts,
+        we are not respecting that when parsing them to extract information. As a result,
+        we are incorrectly extracting hour-cycle information for "fr" locale since it can
+        include "HH 'h'" pattern text. This patch fixes that by skipping literal text
+        correctly.
+
+        * runtime/IntlDateTimeFormat.cpp:
+        (JSC::skipLiteralText):
+        (JSC::IntlDateTimeFormat::setFormatsFromPattern):
+        (JSC::IntlDateTimeFormat::hourCycleFromPattern):
+        (JSC::IntlDateTimeFormat::replaceHourCycleInSkeleton):
+        (JSC::IntlDateTimeFormat::replaceHourCycleInPattern):
+        * runtime/IntlDateTimeFormat.h:
+        * runtime/IntlLocale.cpp:
+        (JSC::IntlLocale::hourCycles):
+
 2021-10-06  Russell Epstein  <repstein@apple.com>
 
-        Cherry-pick r281647. rdar://problem/83782432
-
-    [AppleWin] JSC build failure
-    https://bugs.webkit.org/show_bug.cgi?id=229578
-    
-    Reviewed by Don Olmstead.
-    
-    Add new build dependency between LLIntOffsetsExtractor and JSCBuiltins targets.
-    
-    * CMakeLists.txt:
-    
-    
-    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@281647 268f45cc-cd09-0410-ab3c-d52691b4dbfc
-
-    2021-08-26  Per Arne Vollan  <pvollan@apple.com>
-
-            [AppleWin] JSC build failure
-            https://bugs.webkit.org/show_bug.cgi?id=229578
-
-            Reviewed by Don Olmstead.
-
-            Add new build dependency between LLIntOffsetsExtractor and JSCBuiltins targets.
-
-            * CMakeLists.txt:
-
-2021-10-06  Russell Epstein  <repstein@apple.com>
-
-        Cherry-pick r283632. rdar://problem/83943156
+        Cherry-pick r283632. rdar://problem/83942704
 
     Speculative fix for a null pointer dereference in ByteCodeParser::handlePutByVal.
     https://bugs.webkit.org/show_bug.cgi?id=231252
@@ -62,9 +2822,9 @@
             (JSC::DFG::ByteCodeParser::parseBlock):
             (JSC::DFG::ByteCodeParser::handlePutByVal):
 
-2021-10-05  Russell Epstein  <repstein@apple.com>
+2021-10-06  Russell Epstein  <repstein@apple.com>
 
-        Cherry-pick r283556. rdar://problem/83900153
+        Cherry-pick r283556. rdar://problem/83956477
 
     [JSC] JSPropertyNameEnumerator should not have cached prototype chain since empty JSPropertyNameEnumerator is shared
     https://bugs.webkit.org/show_bug.cgi?id=231202
@@ -211,9 +2971,9 @@
             (JSC::StructureRareData::clearCachedPropertyNameEnumerator):
             (JSC::StructureRareData::invalidateWatchpointBasedValidation): Deleted.
 
-2021-10-02  Alan Coon  <alancoon@apple.com>
+2021-10-06  Russell Epstein  <repstein@apple.com>
 
-        Cherry-pick r283444. rdar://problem/83784764
+        Cherry-pick r283444. rdar://problem/83960033
 
     Remove JSC hack after r283410
     https://bugs.webkit.org/show_bug.cgi?id=230261
@@ -253,9 +3013,9 @@
             (JSC::JSObject::getOwnPropertyDescriptor):
             * runtime/PropertySlot.h:
 
-2021-10-01  Russell Epstein  <repstein@apple.com>
+2021-10-06  Russell Epstein  <repstein@apple.com>
 
-        Cherry-pick r283410. rdar://problem/83784764
+        Cherry-pick r283410. rdar://problem/83960033
 
     Disable new incumbent-window until it is fully implemented
     https://bugs.webkit.org/show_bug.cgi?id=230261
@@ -316,9 +3076,36 @@
             (JSC::JSObject::getOwnPropertyDescriptor):
             * runtime/PropertySlot.h:
 
+2021-10-06  Russell Epstein  <repstein@apple.com>
+
+        Cherry-pick r281647. rdar://problem/83776284
+
+    [AppleWin] JSC build failure
+    https://bugs.webkit.org/show_bug.cgi?id=229578
+    
+    Reviewed by Don Olmstead.
+    
+    Add new build dependency between LLIntOffsetsExtractor and JSCBuiltins targets.
+    
+    * CMakeLists.txt:
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@281647 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-08-26  Per Arne Vollan  <pvollan@apple.com>
+
+            [AppleWin] JSC build failure
+            https://bugs.webkit.org/show_bug.cgi?id=229578
+
+            Reviewed by Don Olmstead.
+
+            Add new build dependency between LLIntOffsetsExtractor and JSCBuiltins targets.
+
+            * CMakeLists.txt:
+
 2021-10-01  Russell Epstein  <repstein@apple.com>
 
-        Cherry-pick r281725. rdar://problem/83782432
+        Cherry-pick r281725. rdar://problem/83776284
 
     .:
     Land Windows build fixes from safari-612.1.29.14-branch.

@@ -116,10 +116,6 @@ NS_ASSUME_NONNULL_BEGIN
 // first time after launch, only waits the the initial call
 - (BOOL)waitForTrustReady;
 
-// Helper function to make CK containers
-+ (CKContainer*)makeCKContainer:(NSString*)containerName
-                         usePCS:(bool)usePCS;
-
 // Extract TLKs for sending to some peer. Pass restrictToPolicy=True if you want to restrict the returned TLKs
 // to what the current policy indicates (allowing to prioritize transferred TLKs)
 - (NSArray<CKKSKeychainBackedKey*>* _Nullable)currentTLKsFilteredByPolicy:(BOOL)restrictToPolicy error:(NSError**)error;

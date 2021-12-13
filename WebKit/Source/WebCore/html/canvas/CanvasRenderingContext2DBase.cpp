@@ -1570,17 +1570,17 @@ ExceptionOr<void> CanvasRenderingContext2DBase::drawImage(Document& document, Ca
 
     bool repaintEntireCanvas = false;
     if (rectContainsCanvas(normalizedDstRect)) {
-        c->drawImage(*image, normalizedDstRect, normalizedSrcRect, options);
+        c->drawImageForCanvas(*image, normalizedDstRect, normalizedSrcRect, options, colorSpace());
         repaintEntireCanvas = true;
     } else if (isFullCanvasCompositeMode(op)) {
         fullCanvasCompositedDrawImage(*image, normalizedDstRect, normalizedSrcRect, op);
         repaintEntireCanvas = true;
     } else if (op == CompositeOperator::Copy) {
         clearCanvas();
-        c->drawImage(*image, normalizedDstRect, normalizedSrcRect, options);
+        c->drawImageForCanvas(*image, normalizedDstRect, normalizedSrcRect, options, colorSpace());
         repaintEntireCanvas = true;
     } else
-        c->drawImage(*image, normalizedDstRect, normalizedSrcRect, options);
+        c->drawImageForCanvas(*image, normalizedDstRect, normalizedSrcRect, options, colorSpace());
 
     if (isEntireBackingStoreDirty())
         didDraw(std::nullopt);
@@ -1677,17 +1677,19 @@ ExceptionOr<void> CanvasRenderingContext2DBase::drawImage(HTMLVideoElement& vide
     checkOrigin(&video);
 
 #if USE(CG)
-    if (auto image = video.nativeImageForCurrentTime()) {
-        c->drawNativeImage(*image, FloatSize(video.videoWidth(), video.videoHeight()), dstRect, srcRect);
+    if (c->hasPlatformContext()) {
+        if (auto image = video.nativeImageForCurrentTime()) {
+            c->drawNativeImage(*image, FloatSize(video.videoWidth(), video.videoHeight()), dstRect, srcRect);
 
-        if (isEntireBackingStoreDirty())
-            didDraw(std::nullopt);
-        else if (rectContainsCanvas(dstRect))
-            didDrawEntireCanvas();
-        else
-            didDraw(dstRect);
+            if (isEntireBackingStoreDirty())
+                didDraw(std::nullopt);
+            else if (rectContainsCanvas(dstRect))
+                didDrawEntireCanvas();
+            else
+                didDraw(dstRect);
 
-        return { };
+            return { };
+        }
     }
 #endif
 
@@ -1842,12 +1844,12 @@ void CanvasRenderingContext2DBase::compositeBuffer(ImageBuffer& buffer, const In
     c->restore();
 }
 
-static void drawImageToContext(Image& image, GraphicsContext& context, const FloatRect& dest, const FloatRect& src, const ImagePaintingOptions& options)
+static void drawImageToContext(Image& image, GraphicsContext& context, const FloatRect& dest, const FloatRect& src, const ImagePaintingOptions& options, DestinationColorSpace colorSpace)
 {
-    context.drawImage(image, dest, src, options);
+    context.drawImageForCanvas(image, dest, src, options, colorSpace);
 }
 
-static void drawImageToContext(ImageBuffer& imageBuffer, GraphicsContext& context, const FloatRect& dest, const FloatRect& src, const ImagePaintingOptions& options)
+static void drawImageToContext(ImageBuffer& imageBuffer, GraphicsContext& context, const FloatRect& dest, const FloatRect& src, const ImagePaintingOptions& options, DestinationColorSpace)
 {
     context.drawImageBuffer(imageBuffer, dest, src, options);
 }
@@ -1878,7 +1880,7 @@ template<class T> void CanvasRenderingContext2DBase::fullCanvasCompositedDrawIma
     buffer->context().translate(-transformedAdjustedRect.location());
     buffer->context().translate(croppedOffset);
     buffer->context().concatCTM(effectiveTransform);
-    drawImageToContext(image, buffer->context(), adjustedDest, src, { CompositeOperator::SourceOver });
+    drawImageToContext(image, buffer->context(), adjustedDest, src, { CompositeOperator::SourceOver }, colorSpace());
 
     compositeBuffer(*buffer, bufferRect, op);
 }

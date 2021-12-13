@@ -364,7 +364,7 @@ T_DECL(overspill_arena, "force overspill of an arena",
 // Guaranteed number of 256-byte allocations to be sure we fill a region.
 #define ALLOCS_PER_REGION ((NANOV2_REGION_SIZE)/256)
 
-// This test is required only on macOS because iOS only uses one region.
+// These tests are required only on macOS because iOS only uses one region.
 T_DECL(overspill_region, "force overspill of a region",
 	   T_META_ENVVAR("MallocNanoZone=V2"))
 {
@@ -400,5 +400,111 @@ T_DECL(overspill_region, "force overspill of a region",
 	T_SKIP("Nano allocator not configured");
 #endif // CONFIG_NANOZONE
 }
+
+void *
+punch_holes_thread(void *arg)
+{
+	T_LOG("Starting holes thread");
+	bool *done = arg;
+
+	bool holes[1024] = { false };
+	while (!os_atomic_load(done, relaxed)) {
+		bool allocate = random() % 2;
+		int which = random() % 1024;
+		uintptr_t base = NANOZONE_BASE_REGION_ADDRESS;
+		size_t len = 128ull * 1024ull * 1024ull;
+		size_t stride = 512ull * 1024ull * 1024ull;
+		uint64_t offset = stride * which;
+		void *addr = (void *)(base + offset);
+
+		if (allocate && !holes[which]) {
+			void *hole = mmap(addr, len, PROT_NONE, MAP_ANON | MAP_PRIVATE, -1, 0);
+			if (hole == addr) {
+				holes[which] = true;
+				T_LOG("punched hole %d (%p, %p)", which, hole, addr);
+			} else if (hole != MAP_FAILED) {
+				T_LOG("failed to punch hole %d (wanted %p, got %p), unmapping", which,
+						addr, hole);
+				munmap(hole, len);
+			}
+		} else if (!allocate && holes[which]) {
+			munmap(addr, len);
+			holes[which] = false;
+			T_LOG("unmapped hole %d", which);
+		}
+
+		usleep(300);
+	}
+
+	return NULL;
+}
+
+void *
+do_allocations_thread(void *arg)
+{
+	bool *done = arg;
+
+	size_t n = (256ull << 20) / 128;
+	void **allocations = malloc(n * sizeof(void *));
+	T_ASSERT_NOTNULL(allocations, "allocations");
+
+	while (!os_atomic_load(done, relaxed)) {
+		for (int i = 0; i < n; i++) {
+			allocations[i] = malloc(128);
+		}
+
+		usleep(100);
+
+		for (int i = 0; i < n; i++) {
+			free(allocations[i]);
+		}
+
+		usleep(50000 * ((random() % 8) + 1));
+	}
+
+	free(allocations);
+
+	return NULL;
+}
+
+T_DECL(region_holes, "ensure correct handling of holes between regions",
+		T_META_ENVVAR("MallocNanoZone=V2"))
+{
+#if CONFIG_NANOZONE
+	srandom(time(NULL));
+
+	bool done = false;
+
+	pthread_t holes_thread;
+	int rc = pthread_create(&holes_thread, NULL, punch_holes_thread, &done);
+	T_ASSERT_POSIX_ZERO(rc, "pthread_create");
+
+	int nthreads = 4;
+	pthread_t allocation_threads[nthreads];
+	for (int i = 0; i < nthreads; i++) {
+		rc = pthread_create(&allocation_threads[i], NULL, do_allocations_thread,
+				&done);
+		T_ASSERT_POSIX_ZERO(rc, "pthread_create");
+	}
+
+	sleep(4); // arbitrary time to try to hit the race
+
+	os_atomic_store(&done, true, relaxed);
+
+	rc = pthread_join(holes_thread, NULL);
+	T_ASSERT_POSIX_ZERO(rc, "pthread_join");
+
+	for (int i = 0; i < nthreads; i++) {
+		rc = pthread_join(allocation_threads[i], NULL);
+		T_ASSERT_POSIX_ZERO(rc, "pthread_join");
+	}
+
+	T_PASS("Didn't crash");
+	T_END;
+#else // CONFIG_NANOZONE
+	T_SKIP("Nano allocator not configured");
+#endif // CONFIG_NANOZONE
+}
+
 #endif // TARGET_OS_OSX
 

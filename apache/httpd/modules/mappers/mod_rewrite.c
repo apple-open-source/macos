@@ -617,6 +617,13 @@ static unsigned is_absolute_uri(char *uri, int *supportsqs)
             return 6;
         }
         break;
+
+    case 'u':
+    case 'U':
+        if (!ap_cstr_casecmpn(uri, "nix:", 4)) {        /* unix:     */
+            *sqs = 1;
+            return (uri[4] == '/' && uri[5] == '/') ? 7 : 5;
+        }
     }
 
     return 0;
@@ -760,23 +767,23 @@ static void splitout_queryargs(request_rec *r, int qsappend, int qsdiscard,
                                int qslast)
 {
     char *q;
-    int split;
+    int split, skip;
 
     /* don't touch, unless it's a scheme for which a query string makes sense.
      * See RFC 1738 and RFC 2368.
      */
-    if (is_absolute_uri(r->filename, &split)
+    if ((skip = is_absolute_uri(r->filename, &split))
         && !split) {
         r->args = NULL; /* forget the query that's still flying around */
         return;
     }
 
-    if ( qsdiscard ) {
+    if (qsdiscard) {
         r->args = NULL; /* Discard query string */
         rewritelog((r, 2, NULL, "discarding query string"));
     }
 
-    q = qslast ? ap_strrchr(r->filename, '?') : ap_strchr(r->filename, '?');
+    q = qslast ? ap_strrchr(r->filename + skip, '?') : ap_strchr(r->filename + skip, '?');
 
     if (q != NULL) {
         char *olduri;
@@ -807,8 +814,6 @@ static void splitout_queryargs(request_rec *r, int qsappend, int qsdiscard,
         rewritelog((r, 3, NULL, "split uri=%s -> uri=%s, args=%s", olduri,
                     r->filename, r->args ? r->args : "<none>"));
     }
-
-    return;
 }
 
 /*

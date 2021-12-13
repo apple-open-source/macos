@@ -25,7 +25,8 @@
 .Sh NAME
 .Nm pthread_jit_write_protect_supported_np ,
 .Nm pthread_jit_write_protect_np ,
-.Nm pthread_jit_write_with_callback_np
+.Nm pthread_jit_write_with_callback_np ,
+.Nm pthread_jit_write_freeze_callbacks_np
 .Nd thread JIT region write protection settings
 .Sh SYNOPSIS
 .In pthread.h
@@ -36,6 +37,8 @@
 .Ft typedef "int \*(lp*pthread_jit_write_callback_t\*(rp\*(lpvoid *\*(rp" ;
 .Ft int
 .Fn pthread_jit_write_with_callback_np "pthread_jit_write_callback_t callback" "void *ctx"
+.Ft void
+.Fn pthread_jit_write_freeze_callbacks_np "void"
 .Sh DESCRIPTION
 The
 .Fn pthread_jit_write_protect_supported_np
@@ -73,7 +76,7 @@ return rc;
 .Pp
 However,
 .Fn pthread_jit_write_with_callback_np
-enforces that
+enforces that the
 .Fa callback
 function must have been previously enumerated in a static list of allowed JIT write callbacks declared using the \fBPTHREAD_JIT_WRITE_ALLOW_CALLBACKS_NP\fR macro.
 Note that each image (i.e. main executable or framework/dylib) can specify its own list, and each image may specify at most one list.
@@ -96,6 +99,14 @@ jit_write_cb(void *ctx)
 
 PTHREAD_JIT_WRITE_ALLOW_CALLBACKS_NP(jit_write_cb);
 .Ed
+.Pp
+By default, JIT write callbacks are not allowed in frameworks/dylibs dynamically loaded at runtime via
+.Xr dlopen 3 .
+However, applications that need JIT write callbacks in dynamically loaded code can take an additional entitlement (see
+.Sx ENTITLEMENTS )
+to allow them in any code loaded up until the
+.Fn pthread_jit_write_freeze_callbacks_np
+function is called.
 .Pp
 On platforms where
 .Fn pthread_jit_write_protect_supported_np
@@ -141,6 +152,10 @@ A Boolean value that indicates whether
 should be disabled and
 .Fn pthread_jit_write_with_callback_np
 must be used instead to write to the JIT region.
+.It Dv com.apple.security.cs.jit-write-allowlist-freeze-late
+A Boolean value that indicates whether the runtime should wait for an explicit call to
+.Fn pthread_jit_write_freeze_callbacks_np
+before "freezing" the set of allowed JIT write callbacks, to allow the application to dynamically load code containing JIT write callbacks that should be allowed.
 .El
 .Sh SEE ALSO
 .Xr mmap 2

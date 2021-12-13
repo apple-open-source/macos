@@ -3829,7 +3829,9 @@ void insertActiveAssertion(assertion_t *assertion, assertionType_t *assertType, 
 
         updateSystemQualifiers(assertion, kAssertionOpRaise);
     }
-    startProcTimer(assertion);
+    dispatch_async(_getPMMainQueue(), ^{
+        startProcTimer(assertion);
+    });
 
 }
 

@@ -355,7 +355,7 @@ static CGPoint shortened(CGPoint start, CGPoint end, float width)
 static void drawJoinedLines(CGContextRef context, const Vector<CGPoint>& points, CGLineCap lineCap, float lineWidth, Color strokeColor)
 {
     CGContextSetLineWidth(context, lineWidth);
-    CGContextSetStrokeColorWithColor(context, cachedCGColor(strokeColor));
+    CGContextSetStrokeColorWithColor(context, cachedCGColor(strokeColor).get());
     CGContextSetShouldAntialias(context, true);
     CGContextBeginPath(context);
     CGContextSetLineCap(context, lineCap);
@@ -1362,7 +1362,7 @@ static const Vector<CSSValueSystemColorInformation>& cssValueSystemColorInformat
 static inline std::optional<Color> systemColorFromCSSValueSystemColorInformation(CSSValueSystemColorInformation systemColorInformation, bool useDarkAppearance)
 {
     if (auto color = wtfObjCMsgSend<UIColor *>(PAL::getUIColorClass(), systemColorInformation.selector)) {
-        Color systemColor = { color.CGColor, Color::Flags::Semantic };
+        Color systemColor(roundAndClampToSRGBALossy(color.CGColor), Color::Flags::Semantic);
 
         if (systemColorInformation.opacity < 1.0f)
             systemColor = systemColor.colorWithAlphaMultipliedBy(systemColorInformation.opacity);
@@ -1488,7 +1488,7 @@ static RetainPtr<CTFontRef> attachmentActionFont()
 
 static UIColor *attachmentActionColor(const RenderAttachment& attachment)
 {
-    return [PAL::getUIColorClass() colorWithCGColor:cachedCGColor(attachment.style().visitedDependentColor(CSSPropertyColor))];
+    return [PAL::getUIColorClass() colorWithCGColor:cachedCGColor(attachment.style().visitedDependentColor(CSSPropertyColor)).get()];
 }
 
 static RetainPtr<CTFontRef> attachmentTitleFont()

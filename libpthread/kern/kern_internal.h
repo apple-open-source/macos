@@ -71,6 +71,9 @@ struct ksyn_waitq_element;
 #define PTHREAD_FEATURE_QOS_DEFAULT		0x40000000	/* the kernel supports QOS_CLASS_DEFAULT */
 #define PTHREAD_FEATURE_COOPERATIVE_WORKQ	0x100		/* Supports a cooperative workqueue pool */
 
+
+#define PTHREAD_FEATURE_JIT_FREEZE_LATE	0x00000800 /* Enforce JIT callback allowlist */
+
 /* userspace <-> kernel registration struct, for passing data to/from the kext during main thread init. */
 struct _pthread_registration_data {
 	/*

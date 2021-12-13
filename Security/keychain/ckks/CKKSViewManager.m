@@ -170,20 +170,6 @@
     return self;
 }
 
-+ (CKContainer*)makeCKContainer:(NSString*)containerName
-                         usePCS:(bool)usePCS
-{
-    CKContainer* container = [CKContainer containerWithIdentifier:containerName];
-    if(!usePCS) {
-        CKContainerOptions* containerOptions = [[CKContainerOptions alloc] init];
-        containerOptions.bypassPCSEncryption = YES;
-
-        // We don't have a great way to set these, so replace the entire container object
-        container = [[CKContainer alloc] initWithContainerID: container.containerID options:containerOptions];
-    }
-    return container;
-}
-
 - (BOOL)allowClientRPC:(NSError**)error
 {
     if(![self.personaAdapter currentThreadIsForPrimaryiCloudAccount]) {

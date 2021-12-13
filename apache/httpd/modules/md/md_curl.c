@@ -213,8 +213,7 @@ static int curl_debug_log(CURL *curl, curl_infotype type, char *data, size_t siz
             if (md_log_is_level(req->pool, MD_LOG_TRACE5)) {
                 md_data_t d;
                 const char *s;
-                d.data = data;
-                d.len = size;
+                md_data_init(&d, data, size);
                 md_data_to_hex(&s, 0, req->pool, &d);
                 md_log_perror(MD_LOG_MARK, MD_LOG_TRACE5, 0, req->pool, 
                               "req[%d]: data(hex) -->  %s", req->id, s);
@@ -226,8 +225,7 @@ static int curl_debug_log(CURL *curl, curl_infotype type, char *data, size_t siz
             if (md_log_is_level(req->pool, MD_LOG_TRACE5)) {
                 md_data_t d;
                 const char *s;
-                d.data = data;
-                d.len = size;
+                md_data_init(&d, data, size);
                 md_data_to_hex(&s, 0, req->pool, &d);
                 md_log_perror(MD_LOG_MARK, MD_LOG_TRACE5, 0, req->pool, 
                               "req[%d]: data(hex) <-- %s", req->id, s);
@@ -493,7 +491,7 @@ static apr_status_t md_curl_multi_perform(md_http_t *http, apr_pool_t *p,
             else if (APR_STATUS_IS_ENOENT(rv)) {
                 md_log_perror(MD_LOG_MARK, MD_LOG_TRACE3, 0, p, 
                               "multi_perform[%d reqs]: no more requests", requests->nelts);
-                if (!running) {
+                if (!requests->nelts) {
                     goto leave;
                 }
                 break;
@@ -526,13 +524,13 @@ static apr_status_t md_curl_multi_perform(md_http_t *http, apr_pool_t *p,
         }
 
         /* process status messages, e.g. that a request is done */
-        while (1) {
+        while (running < requests->nelts) {
             curlmsg = curl_multi_info_read(curlm, &msgcount);
             if (!curlmsg) break;
             if (curlmsg->msg == CURLMSG_DONE) {
                 req = find_curl_request(requests, curlmsg->easy_handle);
                 if (req) {
-                    md_log_perror(MD_LOG_MARK, MD_LOG_TRACE3, 0, p, 
+                    md_log_perror(MD_LOG_MARK, MD_LOG_TRACE2, 0, p,
                                   "multi_perform[%d reqs]: req[%d] done", 
                                   requests->nelts, req->id);
                     update_status(req);
@@ -548,7 +546,6 @@ static apr_status_t md_curl_multi_perform(md_http_t *http, apr_pool_t *p,
                 }
             }
         }
-        assert(running == requests->nelts);
     };
 
 leave:

@@ -1852,6 +1852,20 @@ func Test_incsearch_substitute_dump2()
   sleep 100m
   call VerifyScreenDump(buf, 'Test_incsearch_sub_02', {})
 
+func Test_search_with_invalid_range()
+  new
+  let lines =<< trim END
+    /\%.v
+    5/
+    c
+  END
+  call writefile(lines, 'Xrangesearch')
+  source Xrangesearch
+
+  bwipe!
+  call delete('Xrangesearch')
+endfunc
+
 
   call StopVimInTerminal(buf)
   call delete('Xis_subst_script2')

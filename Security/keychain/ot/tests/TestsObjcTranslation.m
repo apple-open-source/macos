@@ -7,6 +7,7 @@
 #import "keychain/securityd/SOSCloudCircleServer.h"
 #import "keychain/SecureObjectSync/SOSAccountPriv.h"
 #import "keychain/OctagonTrust/OctagonTrust.h"
+#import "keychain/securityd/SecItemServer.h"
 
 static const uint8_t signingKey_384[] = {
     0x04, 0xe4, 0x1b, 0x3e, 0x88, 0x81, 0x9f, 0x3b, 0x80, 0xd0, 0x28, 0x1c,
@@ -216,6 +217,124 @@ static const uint8_t signingKey_384[] = {
     CFReleaseNull(octagonEncryptionPubSecKey);
 
     return YES;
+}
+
++ (BOOL)addNRandomKeychainItemsWithoutUpgradedPersistentRefs:(int64_t)number
+{
+    SecKeychainSetOverrideStaticPersistentRefsIsEnabled(false);
+    
+    NSDictionary* addQuery = nil;
+    CFTypeRef result = NULL;
+    
+    for(int i = 0; i< number; i++) {
+        addQuery = @{ (id)kSecClass : (id)kSecClassGenericPassword,
+                      (id)kSecValueData : [@"uuid" dataUsingEncoding:NSUTF8StringEncoding],
+                      (id)kSecAttrAccount : [NSString stringWithFormat:@"testKeychainItemUpgradePhase%dAccount%d", i, i],
+                      (id)kSecAttrService : @"TestUUIDPersistentRefService",
+                      (id)kSecUseDataProtectionKeychain : @(YES),
+                      (id)kSecAttrAccessible : (id)kSecAttrAccessibleWhenUnlocked,
+                      (id)kSecReturnAttributes : @(YES),
+                      (id)kSecReturnPersistentRef : @(YES)
+        };
+        
+        result = NULL;
+        SecItemAdd((__bridge CFDictionaryRef)addQuery, &result);
+    }
+    
+    SecKeychainSetOverrideStaticPersistentRefsIsEnabled(true);
+    return YES;
+}
+
++ (BOOL)expectXNumberOfItemsUpgraded:(int64_t)expected
+{
+    int64_t upgraded = 0;
+    
+    NSDictionary *query = @{ (id)kSecClass : (id)kSecClassGenericPassword,
+                             (id)kSecUseDataProtectionKeychain : @(YES),
+                             (id)kSecReturnAttributes : @(YES),
+                             (id)kSecReturnPersistentRef : @(YES),
+                             (id)kSecMatchLimit : (id)kSecMatchLimitAll,
+    };
+    
+    CFTypeRef items = NULL;
+    SecItemCopyMatching((__bridge CFDictionaryRef)query, &items);
+    
+    for (NSDictionary *item in (__bridge NSArray*)items) {
+        NSData* pref = item[(id)kSecValuePersistentRef];
+        if ([pref length] == 20) {
+            upgraded+=1;
+        }
+    }
+    
+    return (upgraded == expected);
+}
+
++ (BOOL)checkAllPersistentRefBeenUpgraded
+{
+    BOOL allUpgraded = YES;
+    
+    NSDictionary *query = @{ (id)kSecClass : (id)kSecClassGenericPassword,
+                             (id)kSecUseDataProtectionKeychain : @(YES),
+                             (id)kSecReturnAttributes : @(YES),
+                             (id)kSecReturnPersistentRef : @(YES),
+                             (id)kSecMatchLimit : (id)kSecMatchLimitAll,
+    };
+    
+    CFTypeRef items = NULL;
+    SecItemCopyMatching((__bridge CFDictionaryRef)query, &items);
+    
+    for (NSDictionary *item in (__bridge NSArray*)items) {
+        NSData* pref = item[(id)kSecValuePersistentRef];
+        if ([pref length] == 20) {
+            allUpgraded &= YES;
+        } else {
+            allUpgraded &= NO;
+        }
+    }
+    
+    return allUpgraded;
+}
+
++ (NSNumber* _Nullable)lastRowID
+{
+    return (__bridge NSNumber*) lastRowIDHandledForTests();
+}
+
++ (void)setError:(int)errorCode
+{
+    NSString* descriptionString = [NSString stringWithFormat:@"Fake error %d for testing", errorCode];
+    CFErrorRef error = (__bridge CFErrorRef)[NSError errorWithDomain:(id)kSecErrorDomain code:errorCode userInfo:@{NSLocalizedDescriptionKey : descriptionString}];
+    setExpectedErrorForTests(error);
+}
+
++ (void)clearError
+{
+    clearTestError();
+}
+
++ (void)clearLastRowID
+{
+    clearLastRowIDHandledForTests();
+}
+
++ (void)clearErrorInsertionDictionary
+{
+    clearRowIDAndErrorDictionary();
+}
+
++ (void)setErrorAtRowID:(int)errorCode
+{
+    CFMutableDictionaryRef rowIDToErrorDictionary = CFDictionaryCreateMutableForCFTypes(kCFAllocatorDefault);
+
+    NSString* descriptionString = [NSString stringWithFormat:@"Fake error %d for testing", errorCode];
+
+    CFErrorRef error = (__bridge CFErrorRef)[NSError errorWithDomain:(id)kSecErrorDomain code:errorCode userInfo:@{NSLocalizedDescriptionKey : descriptionString}];
+    CFNumberRef rowID = CFBridgingRetain([[NSNumber alloc]initWithInt:150]);
+    CFDictionaryAddValue(rowIDToErrorDictionary, rowID, error);
+    
+    setRowIDToErrorDictionary(rowIDToErrorDictionary);
+
+    CFReleaseNull(rowID);
 }
 
 @end

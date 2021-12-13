@@ -452,7 +452,6 @@ bool AccessCase::needsScratchFPR() const
     case CustomAccessorGetter:
     case CustomValueSetter:
     case CustomAccessorSetter:
-    case IntrinsicGetter:
     case InHit:
     case InMiss:
     case CheckPrivateBrand:
@@ -495,6 +494,8 @@ bool AccessCase::needsScratchFPR() const
     case IndexedTypedArrayUint32Store:
     case IndexedTypedArrayFloat32Store:
     case IndexedTypedArrayFloat64Store:
+    // Used by TypedArrayLength/TypedArrayByteOffset in the process of boxing their result as a double
+    case IntrinsicGetter:
         return true;
     }
     RELEASE_ASSERT_NOT_REACHED();
@@ -1059,14 +1060,7 @@ void AccessCase::generateWithGuard(
         jit.load8(CCallHelpers::Address(baseGPR, JSCell::typeInfoTypeOffset()), scratchGPR);
         fallThrough.append(jit.branch32(CCallHelpers::NotEqual, scratchGPR, CCallHelpers::TrustedImm32(ScopedArgumentsType)));
 
-        ScratchRegisterAllocator allocator(stubInfo.usedRegisters);
-        allocator.lock(stubInfo.baseRegs());
-        allocator.lock(valueRegs);
-        allocator.lock(stubInfo.propertyRegs());
-        if (stubInfo.m_stubInfoGPR != InvalidGPRReg)
-            allocator.lock(stubInfo.m_stubInfoGPR);
-        ASSERT(stubInfo.m_arrayProfileGPR == InvalidGPRReg);
-        allocator.lock(scratchGPR);
+        auto allocator = state.makeDefaultScratchAllocator(scratchGPR);
         
         GPRReg scratch2GPR = allocator.allocateScratchGPR();
         GPRReg scratch3GPR = allocator.allocateScratchGPR();
@@ -1152,29 +1146,31 @@ void AccessCase::generateWithGuard(
 
         GPRReg propertyGPR = state.u.propertyGPR;
 
-        
         jit.load8(CCallHelpers::Address(baseGPR, JSCell::typeInfoTypeOffset()), scratchGPR);
         fallThrough.append(jit.branch32(CCallHelpers::NotEqual, scratchGPR, CCallHelpers::TrustedImm32(typeForTypedArrayType(type))));
 
-        jit.load32(CCallHelpers::Address(baseGPR, JSArrayBufferView::offsetOfLength()), scratchGPR);
-        state.failAndRepatch.append(jit.branch32(CCallHelpers::AboveOrEqual, propertyGPR, scratchGPR));
+        CCallHelpers::Address addressOfLength = CCallHelpers::Address(baseGPR, JSArrayBufferView::offsetOfLength());
+        jit.signExtend32ToPtr(propertyGPR, scratchGPR);
+#if USE(LARGE_TYPED_ARRAYS)
+        // The length is a size_t, so either 32 or 64 bits depending on the platform.
+        state.failAndRepatch.append(jit.branch64(CCallHelpers::AboveOrEqual, scratchGPR, addressOfLength));
+#else
+        state.failAndRepatch.append(jit.branch32(CCallHelpers::AboveOrEqual, propertyGPR, addressOfLength));
+#endif
 
-        ScratchRegisterAllocator allocator(stubInfo.usedRegisters);
-        allocator.lock(stubInfo.baseRegs());
-        allocator.lock(valueRegs);
-        allocator.lock(stubInfo.propertyRegs());
-        if (stubInfo.m_stubInfoGPR != InvalidGPRReg)
-            allocator.lock(stubInfo.m_stubInfoGPR);
-        ASSERT(stubInfo.m_arrayProfileGPR == InvalidGPRReg);
-        allocator.lock(scratchGPR);
+        auto allocator = state.makeDefaultScratchAllocator(scratchGPR);
         GPRReg scratch2GPR = allocator.allocateScratchGPR();
 
         ScratchRegisterAllocator::PreservedState preservedState = allocator.preserveReusedRegistersByPushing(
             jit, ScratchRegisterAllocator::ExtraStackSpace::NoExtraSpace);
 
+#if USE(LARGE_TYPED_ARRAYS)
+        jit.load64(addressOfLength, scratchGPR);
+#else
+        jit.load32(addressOfLength, scratchGPR);
+#endif
         jit.loadPtr(CCallHelpers::Address(baseGPR, JSArrayBufferView::offsetOfVector()), scratch2GPR);
         jit.cageConditionallyAndUntag(Gigacage::Primitive, scratch2GPR, scratchGPR, scratchGPR, false);
-
         jit.signExtend32ToPtr(propertyGPR, scratchGPR);
         if (isInt(type)) {
             switch (elementSize(type)) {
@@ -1245,14 +1241,7 @@ void AccessCase::generateWithGuard(
 
         fallThrough.append(jit.branchIfNotString(baseGPR));
 
-        ScratchRegisterAllocator allocator(stubInfo.usedRegisters);
-        allocator.lock(stubInfo.baseRegs());
-        allocator.lock(valueRegs);
-        allocator.lock(stubInfo.propertyRegs());
-        if (stubInfo.m_stubInfoGPR != InvalidGPRReg)
-            allocator.lock(stubInfo.m_stubInfoGPR);
-        ASSERT(stubInfo.m_arrayProfileGPR == InvalidGPRReg);
-        allocator.lock(scratchGPR);
+        auto allocator = state.makeDefaultScratchAllocator(scratchGPR);
         GPRReg scratch2GPR = allocator.allocateScratchGPR();
 
         CCallHelpers::JumpList failAndIgnore;
@@ -1306,14 +1295,8 @@ void AccessCase::generateWithGuard(
         jit.load8(CCallHelpers::Address(baseGPR, JSCell::indexingTypeAndMiscOffset()), scratchGPR);
         jit.and32(CCallHelpers::TrustedImm32(IndexingShapeMask), scratchGPR);
 
-        ScratchRegisterAllocator allocator(stubInfo.usedRegisters);
-        allocator.lock(stubInfo.baseRegs());
-        allocator.lock(valueRegs);
-        allocator.lock(stubInfo.propertyRegs());
-        if (stubInfo.m_stubInfoGPR != InvalidGPRReg)
-            allocator.lock(stubInfo.m_stubInfoGPR);
-        ASSERT(stubInfo.m_arrayProfileGPR == InvalidGPRReg);
-        allocator.lock(scratchGPR);
+        auto allocator = state.makeDefaultScratchAllocator(scratchGPR);
+
         GPRReg scratch2GPR = allocator.allocateScratchGPR();
 #if USE(JSVALUE32_64)
         GPRReg scratch3GPR = allocator.allocateScratchGPR();
@@ -1414,15 +1397,7 @@ void AccessCase::generateWithGuard(
 
         CCallHelpers::JumpList isOutOfBounds;
 
-        ScratchRegisterAllocator allocator(stubInfo.usedRegisters);
-        allocator.lock(stubInfo.baseRegs());
-        allocator.lock(valueRegs);
-        allocator.lock(stubInfo.propertyRegs());
-        if (stubInfo.m_stubInfoGPR != InvalidGPRReg)
-            allocator.lock(stubInfo.m_stubInfoGPR);
-        if (stubInfo.m_arrayProfileGPR != InvalidGPRReg)
-            allocator.lock(stubInfo.m_arrayProfileGPR);
-        allocator.lock(scratchGPR);
+        auto allocator = state.makeDefaultScratchAllocator(scratchGPR);
         GPRReg scratch2GPR = allocator.allocateScratchGPR();
         ScratchRegisterAllocator::PreservedState preservedState;
 
@@ -1592,27 +1567,28 @@ void AccessCase::generateWithGuard(
             ready.link(&jit);
         }
 
-        jit.load32(CCallHelpers::Address(baseGPR, JSArrayBufferView::offsetOfLength()), scratchGPR);
-        // OutOfBounds bit of ArrayProfile will be set in the operation function.
-        state.failAndRepatch.append(jit.branch32(CCallHelpers::AboveOrEqual, propertyGPR, scratchGPR));
+        CCallHelpers::Address addressOfLength = CCallHelpers::Address(baseGPR, JSArrayBufferView::offsetOfLength());
+        jit.signExtend32ToPtr(propertyGPR, scratchGPR);
+#if USE(LARGE_TYPED_ARRAYS)
+        // The length is a UCPURegister, so either 32 or 64 bits depending on the platform.
+        state.failAndRepatch.append(jit.branch64(CCallHelpers::AboveOrEqual, scratchGPR, addressOfLength));
+#else
+        state.failAndRepatch.append(jit.branch32(CCallHelpers::AboveOrEqual, propertyGPR, addressOfLength));
+#endif
 
-        ScratchRegisterAllocator allocator(stubInfo.usedRegisters);
-        allocator.lock(stubInfo.baseRegs());
-        allocator.lock(valueRegs);
-        allocator.lock(stubInfo.propertyRegs());
-        if (stubInfo.m_stubInfoGPR != InvalidGPRReg)
-            allocator.lock(stubInfo.m_stubInfoGPR);
-        if (stubInfo.m_arrayProfileGPR != InvalidGPRReg)
-            allocator.lock(stubInfo.m_arrayProfileGPR);
-        allocator.lock(scratchGPR);
+        auto allocator = state.makeDefaultScratchAllocator(scratchGPR);
         GPRReg scratch2GPR = allocator.allocateScratchGPR();
 
         ScratchRegisterAllocator::PreservedState preservedState = allocator.preserveReusedRegistersByPushing(
             jit, ScratchRegisterAllocator::ExtraStackSpace::NoExtraSpace);
 
+#if USE(LARGE_TYPED_ARRAYS)
+        jit.load64(addressOfLength, scratchGPR);
+#else
+        jit.load32(addressOfLength, scratchGPR);
+#endif
         jit.loadPtr(CCallHelpers::Address(baseGPR, JSArrayBufferView::offsetOfVector()), scratch2GPR);
         jit.cageConditionallyAndUntag(Gigacage::Primitive, scratch2GPR, scratchGPR, scratchGPR, false);
-
         jit.signExtend32ToPtr(propertyGPR, scratchGPR);
         if (isInt(type)) {
             if (isClamped(type)) {
@@ -1683,14 +1659,7 @@ void AccessCase::generateWithGuard(
         
         GPRReg valueGPR = valueRegs.payloadGPR();
         
-        ScratchRegisterAllocator allocator(stubInfo.usedRegisters);
-        allocator.lock(stubInfo.baseRegs());
-        allocator.lock(valueRegs);
-        allocator.lock(stubInfo.propertyRegs());
-        if (stubInfo.m_stubInfoGPR != InvalidGPRReg)
-            allocator.lock(stubInfo.m_stubInfoGPR);
-        ASSERT(stubInfo.m_arrayProfileGPR == InvalidGPRReg);
-        allocator.lock(scratchGPR);
+        auto allocator = state.makeDefaultScratchAllocator(scratchGPR);
         
         GPRReg scratch2GPR = allocator.allocateScratchGPR();
         
@@ -2259,16 +2228,7 @@ void AccessCase::generateImpl(AccessGenerationState& state)
         bool reallocating = allocating && structure()->outOfLineCapacity();
         bool allocatingInline = allocating && !structure()->couldHaveIndexingHeader();
 
-        ScratchRegisterAllocator allocator(stubInfo.usedRegisters);
-        allocator.lock(stubInfo.baseRegs());
-        allocator.lock(valueRegs);
-        if (stubInfo.propertyRegs())
-            allocator.lock(stubInfo.propertyRegs());
-        if (stubInfo.m_stubInfoGPR != InvalidGPRReg)
-            allocator.lock(stubInfo.m_stubInfoGPR);
-        if (stubInfo.m_arrayProfileGPR != InvalidGPRReg)
-            allocator.lock(stubInfo.m_arrayProfileGPR);
-        allocator.lock(scratchGPR);
+        auto allocator = state.makeDefaultScratchAllocator(scratchGPR);
 
         GPRReg scratchGPR2 = InvalidGPRReg;
         GPRReg scratchGPR3 = InvalidGPRReg;
@@ -2424,22 +2384,11 @@ void AccessCase::generateImpl(AccessGenerationState& state)
     }
 
     case Delete: {
-        ScratchRegisterAllocator allocator(stubInfo.usedRegisters);
-        allocator.lock(stubInfo.baseRegs());
-        allocator.lock(valueRegs);
-        allocator.lock(baseGPR);
-        if (stubInfo.m_stubInfoGPR != InvalidGPRReg)
-            allocator.lock(stubInfo.m_stubInfoGPR);
-        ASSERT(stubInfo.m_arrayProfileGPR == InvalidGPRReg);
-        allocator.lock(scratchGPR);
         ASSERT(structure()->transitionWatchpointSetHasBeenInvalidated());
         ASSERT(newStructure()->transitionKind() == TransitionKind::PropertyDeletion);
         ASSERT(baseGPR != scratchGPR);
         ASSERT(!valueRegs.uses(baseGPR));
         ASSERT(!valueRegs.uses(scratchGPR));
-
-        ScratchRegisterAllocator::PreservedState preservedState =
-            allocator.preserveReusedRegistersByPushing(jit, ScratchRegisterAllocator::ExtraStackSpace::NoExtraSpace);
 
         jit.moveValue(JSValue(), valueRegs);
 
@@ -2464,7 +2413,6 @@ void AccessCase::generateImpl(AccessGenerationState& state)
 
         jit.move(MacroAssembler::TrustedImm32(true), valueRegs.payloadGPR());
 
-        allocator.restoreReusedRegistersByPopping(jit, preservedState);
         state.succeed();
         return;
     }

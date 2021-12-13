@@ -1,4 +1,0 @@
-[groups]
-x = a
-y = b, @z
-z = c, @x

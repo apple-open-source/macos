@@ -116,6 +116,7 @@
 #include "RenderView.h"
 #include "RenderWidget.h"
 #include "RenderingUpdateScheduler.h"
+#include "ReportingEndpointsCache.h"
 #include "ResizeObserver.h"
 #include "ResourceUsageOverlay.h"
 #include "RuntimeEnabledFeatures.h"
@@ -134,6 +135,7 @@
 #include "StorageArea.h"
 #include "StorageNamespace.h"
 #include "StorageNamespaceProvider.h"
+#include "StorageProvider.h"
 #include "StyleAdjuster.h"
 #include "StyleResolver.h"
 #include "StyleScope.h"
@@ -325,6 +327,8 @@ Page::Page(PageConfiguration&& pageConfiguration)
     , m_loadsSubresources(pageConfiguration.loadsSubresources)
     , m_shouldRelaxThirdPartyCookieBlocking(pageConfiguration.shouldRelaxThirdPartyCookieBlocking)
     , m_httpsUpgradeEnabled(pageConfiguration.httpsUpgradeEnabled)
+    , m_reportingEndpointsCache(WTFMove(pageConfiguration.reportingEndpointsCache))
+    , m_storageProvider(WTFMove(pageConfiguration.storageProvider))
 {
     updateTimerThrottlingState();
 
@@ -2201,9 +2205,6 @@ void Page::playbackControlsMediaEngineChanged()
 
 void Page::setMuted(MediaProducer::MutedStateFlags muted)
 {
-    if (m_mutedState == muted)
-        return;
-
     m_mutedState = muted;
 
     forEachDocument([] (Document& document) {
@@ -3692,5 +3693,10 @@ void Page::resetTextRecognitionResults()
 }
 
 #endif // ENABLE(IMAGE_ANALYSIS)
+
+StorageConnection& Page::storageConnection()
+{
+    return m_storageProvider->storageConnection();
+}
 
 } // namespace WebCore

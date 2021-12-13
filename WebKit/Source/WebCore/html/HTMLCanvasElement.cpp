@@ -758,6 +758,13 @@ RefPtr<ImageData> HTMLCanvasElement::getImageData()
 RefPtr<MediaSample> HTMLCanvasElement::toMediaSample()
 {
 #if PLATFORM(COCOA) || USE(GSTREAMER)
+#if ENABLE(WEBGL)
+    if (is<WebGLRenderingContextBase>(m_context.get())) {
+        if (RuntimeEnabledFeatures::sharedFeatures().webAPIStatisticsEnabled())
+            ResourceLoadObserver::shared().logCanvasRead(document());
+        return downcast<WebGLRenderingContextBase>(*m_context).paintCompositedResultsToMediaSample();
+    }
+#endif
     auto* imageBuffer = buffer();
     if (!imageBuffer)
         return nullptr;
@@ -1047,8 +1054,23 @@ void HTMLCanvasElement::prepareForDisplay()
 {
     ASSERT(needsPreparationForDisplay());
 
+    bool shouldPrepare = true;
+#if ENABLE(WEBGL)
+    // FIXME: Currently the below prepare skip logic is conservative and applies only to
+    // WebGL elements.
+    if (is<WebGLRenderingContextBase>(m_context.get())) {
+        // If the canvas is not in the document body, then it won't be
+        // composited and thus doesn't need preparation. Unfortunately
+        // it can't tell at the time it was added to the list, since it
+        // could be inserted or removed from the document body afterwards.
+        shouldPrepare = isInTreeScope() || hasDisplayBufferObservers();
+    }
+#endif
+    if (!shouldPrepare)
+        return;
     if (m_context)
         m_context->prepareForDisplay();
+    notifyObserversCanvasDisplayBufferPrepared();
 }
 
 bool HTMLCanvasElement::isControlledByOffscreen() const

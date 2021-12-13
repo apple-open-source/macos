@@ -499,6 +499,7 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)requestHealthCheckWithContainer:(NSString *)container
                                 context:(NSString *)context
                     requiresEscrowCheck:(BOOL)requiresEscrowCheck
+                       knownFederations:(NSArray<NSString *> *)knownFederations
                                   reply:(void (^)(BOOL postRepairCFU, BOOL postEscrowCFU, BOOL resetOctagon, BOOL leaveTrust, OTEscrowMoveRequestContext* _Nullable moveRequest, NSError* _Nullable error))reply;
 
 - (void)getSupportAppInfoWithContainer:(NSString *)container

@@ -1,0 +1,16 @@
+diff --git a/Makefile.PL b/Makefile.PL
+index 51c6161..b6e7daf 100644
+--- a/Makefile.PL
++++ b/Makefile.PL
+@@ -103,8 +103,9 @@ EOF
+             warn "*** ", $@ if $DEBUG;
+             warn "using fallback values for LIBS and INC\n";
+             # backtick fails if gnome-config didn't exist...
+-            $config{LIBS} = '-L/usr/local/lib -L/usr/lib -lxslt -lxml2 -lz -lm';
+-            $config{INC} = '-I/usr/local/include -I/usr/include';
++            my $sdkroot = exists($ENV{SDKROOT}) ? $ENV{SDKROOT} : '';
++            $config{LIBS} = "-L/usr/local/lib -L$sdkroot/usr/lib -lxslt -lxml2 -lz -lm";
++            $config{INC} = "-I/usr/local/include -I$sdkroot/usr/include";
+ 
+             print <<OPT;
+ options:

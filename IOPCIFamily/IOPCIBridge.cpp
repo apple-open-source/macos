@@ -1802,6 +1802,15 @@ IOReturn IOPCIBridge::restoreTunnelState(IOPCIDevice * rootDevice, IOOptionBits 
 		IOSimpleLockLock(vars->_allPCI2PCIBridgesLock);
 
 		next   = (IOPCIConfigShadow *) queue_next(&shadow->link);
+
+		// Check if shadow's device terminated while restoreTunnelState()
+		// released _allPCI2PCIBridgesLock.
+		if (next == NULL)
+		{
+			next = (IOPCIConfigShadow *) queue_first(&root->dependents);
+			continue;
+		}
+
 		queue_remove(&root->dependents,
 					 shadow,
 					 IOPCIConfigShadow *,
@@ -1960,6 +1969,15 @@ IOReturn IOPCIBridge::restoreMachineState(IOOptionBits options, IOPCIDevice * de
 		IOSimpleLockLock(vars->_allPCI2PCIBridgesLock);
 
 		next   = (IOPCIConfigShadow *) queue_next(&shadow->link);
+
+		// Check if shadow's device terminated while restoreMachineState()
+		// released _allPCI2PCIBridgesLock.
+		if (next == NULL)
+		{
+			next = (IOPCIConfigShadow *) queue_first(&vars->_allPCIDeviceRestoreQ);
+			continue;
+		}
+
 		queue_remove(&vars->_allPCIDeviceRestoreQ,
 					 shadow,
 					 IOPCIConfigShadow *,
@@ -3491,6 +3509,33 @@ void IOPCI2PCIBridge::handleInterrupt(IOInterruptEventSource * source __unused, 
         return;
     }
 
+    uint16_t linkStatus = fBridgeDevice->configRead16( fBridgeDevice->reserved->expressCapability + 0x12 );
+    uint16_t linkBandwidthMask = ((1 << 14) | (1 << 15));
+
+    if (linkStatus & linkBandwidthMask)
+    {
+        OSIterator *childIter = getChildIterator( gIOServicePlane );
+        OSObject *child = NULL;
+
+        DLOG("%s: link bandwidth notification, linkStatus: 0x%x\n", fBridgeDevice->getName(), linkStatus);
+
+        // Update child properties
+        while (   (childIter != NULL)
+               && ((child = childIter->getNextObject()) != NULL))
+        {
+            IOPCIDevice *nub = OSDynamicCast(IOPCIDevice, child);
+            if (nub && nub->reserved)
+            {
+				uint32_t childLinkStatus = nub->configRead16( nub->reserved->expressCapability + 0x12);
+                nub->setProperty(kIOPCIExpressLinkStatusKey, childLinkStatus, 32);
+            }
+        }
+
+        OSSafeReleaseNULL(childIter);
+
+        fBridgeDevice->configWrite16(fBridgeDevice->reserved->expressCapability + 0x12, linkStatus & linkBandwidthMask);
+    }
+
 	if (fHotPlugInts)
 	{
         enum { kNeedMask = ((1 << 8) | (1 << 3)) };
@@ -3507,7 +3552,8 @@ void IOPCI2PCIBridge::handleInterrupt(IOInterruptEventSource * source __unused, 
 
             fHotplugCount++;
 
-            uint16_t linkStatus  = fBridgeDevice->configRead16( fBridgeDevice->reserved->expressCapability + 0x12 );
+            // Re-read link status so its value is up-to-date with respect to slot status
+            uint16_t linkStatus = fBridgeDevice->configRead16( fBridgeDevice->reserved->expressCapability + 0x12 );
             uint16_t linkControl = fBridgeDevice->configRead16( fBridgeDevice->reserved->expressCapability + 0x10 );
 
             DLOG("%s: hotpInt (%d), fNeedProbe %d, slotStatus %x, linkStatus %x, linkControl %x\n",
@@ -3919,6 +3965,14 @@ void IOPCI2PCIBridge::enableBridgeInterrupts(void)
 		 fBridgeDevice->configWrite32(fBridgeDevice->reserved->aerCapability + 0x30, 0xff);
 		 command |= (1 << 0) | (1 << 1) | (1 << 2);
 		 fBridgeDevice->configWrite32(fBridgeDevice->reserved->aerCapability + 0x2c, command);
+	}
+	uint32_t linkCap = fBridgeDevice->configRead32(fBridgeDevice->reserved->expressCapability + 0xc);
+	if (linkCap & (1 << 21))
+	{
+		DLOG("%s: enable link bandwidth notifications\n", fBridgeDevice->getName());
+		uint16_t linkControl = fBridgeDevice->configRead16(fBridgeDevice->reserved->expressCapability + 0x10);
+		linkControl |= (1 << 10) | (1 << 11);
+		fBridgeDevice->configWrite16(fBridgeDevice->reserved->expressCapability + 0x10, linkControl);
 	}
 }
 

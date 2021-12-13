@@ -48,6 +48,7 @@
 #include <WebCore/LogInitialization.h>
 #include <WebCore/MockRealtimeMediaSourceCenter.h>
 #include <WebCore/RuntimeApplicationChecks.h>
+#include <WebCore/ScreenProperties.h>
 #include <wtf/CompletionHandler.h>
 #include <wtf/LogInitialization.h>
 #include <wtf/TranslatedProcess.h>
@@ -310,6 +311,11 @@ void GPUProcessProxy::resetMockMediaDevices()
 {
     send(Messages::GPUProcess::ResetMockMediaDevices { }, 0);
 }
+
+void GPUProcessProxy::setMockCameraIsInterrupted(bool isInterrupted)
+{
+    send(Messages::GPUProcess::SetMockCameraIsInterrupted { isInterrupted }, 0);
+}
 #endif
 
 void GPUProcessProxy::getLaunchOptions(ProcessLauncher::LaunchOptions& launchOptions)
@@ -335,7 +341,7 @@ void GPUProcessProxy::getGPUProcessConnection(WebProcessProxy& webProcessProxy, 
 
     RELEASE_LOG(ProcessSuspension, "%p - GPUProcessProxy is taking a background assertion because a web process is requesting a connection", this);
     startResponsivenessTimer(UseLazyStop::No);
-    sendWithAsyncReply(Messages::GPUProcess::CreateGPUConnectionToWebProcess { webProcessProxy.coreProcessIdentifier(), webProcessProxy.sessionID(), parameters }, [this, weakThis = makeWeakPtr(*this), reply = WTFMove(reply)](auto&& identifier) mutable {
+    sendWithAsyncReply(Messages::GPUProcess::CreateGPUConnectionToWebProcess { webProcessProxy.coreProcessIdentifier(), webProcessProxy.sessionID(), parameters }, [this, weakThis = makeWeakPtr(*this), reply = WTFMove(reply)](auto&& identifier, auto&& connectionParameters) mutable {
         if (!weakThis) {
             RELEASE_LOG_ERROR(Process, "GPUProcessProxy::getGPUProcessConnection: GPUProcessProxy deallocated during connection establishment");
             return reply({ });
@@ -352,7 +358,7 @@ void GPUProcessProxy::getGPUProcessConnection(WebProcessProxy& webProcessProxy, 
         UNUSED_VARIABLE(this);
 #elif OS(DARWIN)
         MESSAGE_CHECK(MACH_PORT_VALID(identifier->port()));
-        reply(GPUProcessConnectionInfo { IPC::Attachment { identifier->port(), MACH_MSG_TYPE_MOVE_SEND }, this->connection()->getAuditToken() });
+        reply(GPUProcessConnectionInfo { IPC::Attachment { identifier->port(), MACH_MSG_TYPE_MOVE_SEND }, this->connection()->getAuditToken(), WTFMove(connectionParameters) });
 #else
         notImplemented();
 #endif
@@ -387,6 +393,11 @@ void GPUProcessProxy::processIsReadyToExit()
     RELEASE_LOG(Process, "%p - GPUProcessProxy::processIsReadyToExit:", this);
     terminate();
     gpuProcessExited(GPUProcessTerminationReason::IdleExit); // May cause |this| to get deleted.
+}
+
+void GPUProcessProxy::terminateForTesting()
+{
+    processIsReadyToExit();
 }
 
 void GPUProcessProxy::didClose(IPC::Connection&)
@@ -541,6 +552,11 @@ void GPUProcessProxy::displayConfigurationChanged(CGDirectDisplayID displayID, C
 {
     send(Messages::GPUProcess::DisplayConfigurationChanged { displayID, flags }, 0);
 }
+
+void GPUProcessProxy::setScreenProperties(const ScreenProperties& properties)
+{
+    send(Messages::GPUProcess::SetScreenProperties { properties }, 0);
+}
 #endif
 
 void GPUProcessProxy::updatePreferences()
@@ -603,6 +619,10 @@ void GPUProcessProxy::updatePreferences()
 
 #if ENABLE(VORBIS)
     send(Messages::GPUProcess::SetVorbisDecoderEnabled(hasEnabledVorbis), 0);
+#endif
+
+#if PLATFORM(MAC)
+    setScreenProperties(WebCore::collectScreenProperties());
 #endif
 }
 

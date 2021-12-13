@@ -57,6 +57,7 @@ GPUProcess/webrtc/RemoteMediaRecorderManager.cpp
 GPUProcess/webrtc/RemoteSampleBufferDisplayLayer.cpp
 GPUProcess/webrtc/RemoteSampleBufferDisplayLayerManager.cpp
 
+NetworkProcess/DatabaseUtilities.cpp
 NetworkProcess/PrivateClickMeasurementManager.cpp
 NetworkProcess/PrivateClickMeasurementNetworkLoader.cpp
 NetworkProcess/NetworkActivityTracker.cpp
@@ -98,11 +99,21 @@ NetworkProcess/Downloads/PendingDownload.cpp
 NetworkProcess/IndexedDB/WebIDBConnectionToClient.cpp
 NetworkProcess/IndexedDB/WebIDBServer.cpp
 
+NetworkProcess/PrivateClickMeasurement/PrivateClickMeasurementDatabase.cpp
+NetworkProcess/PrivateClickMeasurement/PrivateClickMeasurementDebugInfo.cpp
+NetworkProcess/PrivateClickMeasurement/PrivateClickMeasurementStore.cpp
+
 NetworkProcess/ServiceWorker/ServiceWorkerFetchTask.cpp @no-unify
 NetworkProcess/ServiceWorker/ServiceWorkerSoftUpdateLoader.cpp
 NetworkProcess/ServiceWorker/WebSWOriginStore.cpp @no-unify
 NetworkProcess/ServiceWorker/WebSWServerConnection.cpp @no-unify
 NetworkProcess/ServiceWorker/WebSWServerToContextConnection.cpp @no-unify
+
+NetworkProcess/storage/FileSystemStorageManager.cpp
+NetworkProcess/storage/FileSystemStorageHandle.cpp
+NetworkProcess/storage/FileSystemStorageHandleRegistry.cpp
+NetworkProcess/storage/NetworkStorageManager.cpp
+NetworkProcess/storage/OriginStorageManager.cpp
 
 NetworkProcess/WebStorage/LocalStorageDatabase.cpp
 NetworkProcess/WebStorage/LocalStorageDatabaseTracker.cpp
@@ -155,6 +166,7 @@ Platform/IPC/SharedBufferDataReference.cpp @no-unify
 Platform/IPC/StreamClientConnection.cpp @no-unify
 Platform/IPC/StreamConnectionBuffer.cpp @no-unify
 Platform/IPC/StreamConnectionWorkQueue.cpp @no-unify
+Platform/IPC/SharedFileHandle.cpp @no-unify
 Platform/IPC/StreamServerConnection.cpp @no-unify
 Platform/IPC/StringReference.cpp @no-unify
 
@@ -689,6 +701,7 @@ WebProcess/WebCoreSupport/WebDateTimeChooser.cpp
 WebProcess/WebCoreSupport/WebDiagnosticLoggingClient.cpp
 WebProcess/WebCoreSupport/WebDragClient.cpp
 WebProcess/WebCoreSupport/WebEditorClient.cpp
+WebProcess/WebCoreSupport/WebFileSystemStorageConnection.cpp
 WebProcess/WebCoreSupport/WebFrameLoaderClient.cpp
 WebProcess/WebCoreSupport/WebGeolocationClient.cpp
 WebProcess/WebCoreSupport/WebMediaKeySystemClient.cpp
@@ -703,6 +716,7 @@ WebProcess/WebCoreSupport/WebSearchPopupMenu.cpp
 WebProcess/WebCoreSupport/WebUserMediaClient.cpp
 WebProcess/WebCoreSupport/WebSpeechRecognitionConnection.cpp
 WebProcess/WebCoreSupport/WebSpeechSynthesisClient.cpp
+WebProcess/WebCoreSupport/WebStorageConnection.cpp
 
 WebProcess/WebPage/DrawingArea.cpp
 WebProcess/WebPage/EventDispatcher.cpp

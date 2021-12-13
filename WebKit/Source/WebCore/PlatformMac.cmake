@@ -337,6 +337,7 @@ list(APPEND WebCore_SOURCES
     platform/graphics/coretext/FontPlatformDataCoreText.cpp
     platform/graphics/coretext/GlyphPageCoreText.cpp
 
+    platform/graphics/cv/CVUtilities.mm
     platform/graphics/cv/GraphicsContextGLCVANGLE.cpp
     platform/graphics/cv/ImageRotationSessionVT.mm
     platform/graphics/cv/PixelBufferConformerCV.cpp
@@ -601,7 +602,7 @@ list(APPEND WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/graphics/MIMETypeCache.h
     platform/graphics/Model.h
 
-    platform/graphics/angle/GraphicsContextGLANGLEEGLUtilities.h
+    platform/graphics/angle/ANGLEUtilities.h
 
     platform/graphics/avfoundation/AudioSourceProviderAVFObjC.h
     platform/graphics/avfoundation/MediaPlaybackTargetCocoa.h

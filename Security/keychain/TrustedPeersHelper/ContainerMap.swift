@@ -305,14 +305,19 @@ protocol CKOperationRunner {
 class CuttlefishCKCodeOperationRunner: CKOperationRunner {
     private let underlyingCodeService: CKCodeService
 
-    init(container: String) {
-        let ckContainer = CKContainer(identifier: container)
+    private let ckContainer: CKContainer
+
+    init(containerName: String) {
+        let containerOptions = CKContainerOptions()
+        containerOptions.bypassPCSEncryption = true
+        let containerID = CKContainer.containerID(forContainerIdentifier: containerName)
+        self.ckContainer = CKContainer(containerID: containerID, options: containerOptions)
         // Cuttlefish is using its own push topic.
         // To register for this push topic, we need to issue CK operations with a specific bundle identifier
-        ckContainer.options.setApplicationBundleIdentifierOverride(CuttlefishPushTopicBundleIdentifier)
+        self.ckContainer.options.setApplicationBundleIdentifierOverride(CuttlefishPushTopicBundleIdentifier)
 
-        let ckDatabase = ckContainer.privateCloudDatabase
-        self.underlyingCodeService = ckContainer.codeService(named: "Cuttlefish", databaseScope: ckDatabase.databaseScope)
+        let ckDatabase = self.ckContainer.privateCloudDatabase
+        self.underlyingCodeService = self.ckContainer.codeService(named: "Cuttlefish", databaseScope: ckDatabase.databaseScope)
     }
 
     func add<RequestType, ResponseType>(_ operation: CKCodeOperation<RequestType, ResponseType>) where RequestType: Message, ResponseType: Message {
@@ -321,12 +326,12 @@ class CuttlefishCKCodeOperationRunner: CKOperationRunner {
 }
 
 protocol ContainerNameToCKOperationRunner {
-    func client(container: String) -> CKOperationRunner
+    func client(containerName: String) -> CKOperationRunner
 }
 
 class CuttlefishCKOperationRunnerCreator: ContainerNameToCKOperationRunner {
-    func client(container: String) -> CKOperationRunner {
-        return CuttlefishCKCodeOperationRunner(container: container)
+    func client(containerName: String) -> CKOperationRunner {
+        return CuttlefishCKCodeOperationRunner(containerName: containerName)
     }
 }
 
@@ -357,7 +362,7 @@ class ContainerMap {
                 let description = NSPersistentStoreDescription(url: persistentStoreURL)
 
                 // Wrap whatever we're given in a magically-retrying layer
-                let ckCodeOperationRunner = self.ckCodeOperationRunnerCreator.client(container: name.container)
+                let ckCodeOperationRunner = self.ckCodeOperationRunnerCreator.client(containerName: name.container)
                 let retryingCuttlefish = RetryingCKCodeService(retry: ckCodeOperationRunner)
 
                 let container = try Container(name: name,

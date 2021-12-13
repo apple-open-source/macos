@@ -1,2 +1,0 @@
-g/^build_requires/s/^/#/
-w

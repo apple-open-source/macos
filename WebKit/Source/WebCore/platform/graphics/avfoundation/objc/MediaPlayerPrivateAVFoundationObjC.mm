@@ -627,6 +627,8 @@ void MediaPlayerPrivateAVFoundationObjC::createAVPlayerLayer()
     if (!m_avPlayer)
         return;
 
+    ALWAYS_LOG(LOGIDENTIFIER);
+
     m_videoLayer = adoptNS([PAL::allocAVPlayerLayerInstance() init]);
     [m_videoLayer setPlayer:m_avPlayer.get()];
 
@@ -680,7 +682,7 @@ MediaTime MediaPlayerPrivateAVFoundationObjC::getStartDate() const
 
 bool MediaPlayerPrivateAVFoundationObjC::hasAvailableVideoFrame() const
 {
-    if (currentRenderingMode() == MediaRenderingToLayer)
+    if (currentRenderingMode() == MediaRenderingMode::MediaRenderingToLayer)
         return m_cachedIsReadyForDisplay;
 
     if (m_videoOutput && (m_lastPixelBuffer || [m_videoOutput hasNewPixelBufferForItemTime:[m_avPlayerItem currentTime]]))
@@ -1814,7 +1816,7 @@ void MediaPlayerPrivateAVFoundationObjC::paint(GraphicsContext& context, const F
         return;
 
     // We can ignore the request if we are already rendering to a layer.
-    if (currentRenderingMode() == MediaRenderingToLayer)
+    if (currentRenderingMode() == MediaRenderingMode::MediaRenderingToLayer)
         return;
 
     // paint() is best effort, so only paint if we already have an image generator or video output available.
@@ -2340,6 +2342,10 @@ void MediaPlayerPrivateAVFoundationObjC::updateVideoTracks()
     for (auto& track : m_audioTracks)
         track->resetPropertiesFromTrack();
 
+    // In case the video track content changed, we may be able to perform a readback again.
+    if (count)
+        m_waitForVideoOutputMediaDataWillChangeTimedOut = false;
+
     ALWAYS_LOG(LOGIDENTIFIER, "track count was ", count, ", is ", m_videoTracks.size());
 }
 
@@ -2456,6 +2462,8 @@ bool MediaPlayerPrivateAVFoundationObjC::updateLastPixelBuffer()
     if (!m_avPlayerItem || readyState() < MediaPlayer::ReadyState::HaveCurrentData)
         return false;
 
+    m_haveBeenAskedToPaint = true;
+
     if (!m_videoOutput)
         createVideoOutput();
     ASSERT(m_videoOutput);
@@ -2553,6 +2561,8 @@ RefPtr<NativeImage> MediaPlayerPrivateAVFoundationObjC::nativeImageForCurrentTim
 
 void MediaPlayerPrivateAVFoundationObjC::waitForVideoOutputMediaDataWillChange()
 {
+    if (m_waitForVideoOutputMediaDataWillChangeTimedOut)
+        return;
     [m_videoOutput requestNotificationOfMediaDataChangeWithAdvanceInterval:0];
 
     // Wait for 1 second.
@@ -2568,9 +2578,10 @@ void MediaPlayerPrivateAVFoundationObjC::waitForVideoOutputMediaDataWillChange()
     m_runningModalPaint = false;
 
     bool satisfied = timeoutTimer.isActive();
-    if (!satisfied)
+    if (!satisfied) {
         ERROR_LOG(LOGIDENTIFIER, "timed out");
-    else
+        m_waitForVideoOutputMediaDataWillChangeTimedOut = true;
+    } else
         INFO_LOG(LOGIDENTIFIER, "waiting for videoOutput took ", (MonotonicTime::now() - start).seconds());
 }
 

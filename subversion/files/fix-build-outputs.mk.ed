@@ -1,3 +1,0 @@
-/libsvn_swig_perl && $(LINK_LIB)/s/$(LINK_LIB)/$(LINKVERS_LIB)/
-/libsvn_swig_py && $(LINK)/s/$(LINK)/$(LINKVERS)/
-w

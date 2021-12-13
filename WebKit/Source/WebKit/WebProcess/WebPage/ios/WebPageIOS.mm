@@ -335,8 +335,13 @@ void WebPage::getPlatformEditorState(Frame& frame, EditorState& result) const
 
     postLayoutData.insideFixedPosition = startNodeIsInsideFixedPosition || endNodeIsInsideFixedPosition;
     if (!selection.isNone()) {
-        if (RefPtr container = selection.start().containerNode(); container && container->renderer() && selection.isContentEditable())
-            postLayoutData.caretColor = CaretBase::computeCaretColor(container->renderer()->style(), container.get());
+        if (selection.hasEditableStyle()) {
+            // FIXME: The caret color style should be computed using the selection caret's container
+            // rather than the focused element. This causes caret colors in editable children to be
+            // ignored in favor of the editing host's caret color. See: <https://webkit.org/b/229809>.
+            if (RefPtr editableRoot = selection.rootEditableElement(); editableRoot && editableRoot->renderer())
+                postLayoutData.caretColor = CaretBase::computeCaretColor(editableRoot->renderer()->style(), editableRoot.get());
+        }
 
         if (auto editableRootOrFormControl = makeRefPtr(enclosingTextFormControl(selection.start()) ?: selection.rootEditableElement())) {
             postLayoutData.selectionClipRect = rootViewInteractionBounds(*editableRootOrFormControl);
@@ -2908,10 +2913,31 @@ static void selectionPositionInformation(WebPage& page, const InteractionInforma
     if (!hitNode || !hitNode->renderer())
         return;
 
-    RenderObject* renderer = hitNode->renderer();
-    boundsPositionInformation(*renderer, info);
+    auto* renderer = hitNode->renderer();
 
+    info.selectability = ([&] {
+        if (renderer->style().userSelect() == UserSelect::None)
+            return InteractionInformationAtPosition::Selectability::UnselectableDueToUserSelectNone;
+
+        if (is<Element>(*hitNode)) {
+            if (isAssistableElement(downcast<Element>(*hitNode)))
+                return InteractionInformationAtPosition::Selectability::UnselectableDueToFocusableElement;
+
+            if (rectIsTooBigForSelection(info.bounds, *result.innerNodeFrame())) {
+                // We don't want to select blocks that are larger than 97% of the visible area of the document.
+                // FIXME: Is this heuristic still needed, now that block selection has been removed?
+                return InteractionInformationAtPosition::Selectability::UnselectableDueToLargeElementBounds;
+            }
+        }
+
+        return InteractionInformationAtPosition::Selectability::Selectable;
+    })();
     info.isSelected = result.isSelected();
+
+    if (info.isLink || info.isImage)
+        return;
+
+    boundsPositionInformation(*renderer, info);
     
     if (is<Element>(*hitNode)) {
         Element& element = downcast<Element>(*hitNode);
@@ -2925,13 +2951,8 @@ static void selectionPositionInformation(WebPage& page, const InteractionInforma
         linkIndicatorPositionInformation(page, attachment, request, info);
         if (attachment.file())
             info.url = URL::fileURLWithFileSystemPath(downcast<HTMLAttachmentElement>(*hitNode).file()->path());
-    } else {
-        info.isSelectable = renderer->style().userSelect() != UserSelect::None;
-        // We don't want to select blocks that are larger than 97% of the visible area of the document.
-        // FIXME: Is this heuristic still needed, now that block selection has been removed?
-        if (info.isSelectable && !hitNode->isTextNode())
-            info.isSelectable = !isAssistableElement(*downcast<Element>(hitNode)) && !rectIsTooBigForSelection(info.bounds, *result.innerNodeFrame());
     }
+
     for (auto currentNode = makeRefPtr(hitNode); currentNode; currentNode = currentNode->parentOrShadowHostNode()) {
         auto* renderer = currentNode->renderer();
         if (!renderer)
@@ -3107,8 +3128,7 @@ InteractionInformationAtPosition WebPage::positionInformation(const InteractionI
     if (!info.isImage && request.includeImageData && is<HTMLImageElement>(hitTestNode))
         imagePositionInformation(*this, downcast<HTMLImageElement>(*hitTestNode), request, info);
 
-    if (!(info.isLink || info.isImage))
-        selectionPositionInformation(*this, request, info);
+    selectionPositionInformation(*this, request, info);
 
     // Prevent the callout bar from showing when tapping on the datalist button.
 #if ENABLE(DATALIST_ELEMENT)

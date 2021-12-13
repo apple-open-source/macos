@@ -898,4 +898,71 @@ errOut:
     XCTAssert([test evaluate:nil]);
 }
 
+static void test_shortcut_signing(CFDateRef date, bool disableTemporalCheck, bool expectedResult)
+{
+    OSStatus err;
+    CFIndex errcode = errSecSuccess;
+    CFMutableArrayRef certs = NULL;
+    SecCertificateRef leaf = NULL;
+    SecCertificateRef ca = NULL;
+    SecPolicyRef appleIDValidationPolicy = NULL;
+    SecTrustRef trust = NULL;
+    CFErrorRef error = NULL;
+    bool isTrusted = false;
+
+    isnt(leaf = SecCertificateCreateWithBytes(kCFAllocatorDefault, _aidvrs5_leaf, sizeof(_aidvrs5_leaf)), NULL, "leaf");
+    isnt(ca = SecCertificateCreateWithBytes(kCFAllocatorDefault, _aaica2_ca, sizeof(_aaica2_ca)), NULL, "ca");
+    isnt(certs = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks), NULL, "certs");
+    if (!certs) { goto exit; }
+    CFArrayAppendValue(certs, leaf);
+    CFArrayAppendValue(certs, ca);
+
+    appleIDValidationPolicy = SecPolicyCreateAppleIDValidationRecordSigningPolicy();
+    if (!appleIDValidationPolicy) { goto exit; }
+    if (disableTemporalCheck) {
+        SecPolicySetOptionsValue(appleIDValidationPolicy, kSecPolicyCheckTemporalValidity, kCFBooleanFalse);
+    }
+    err = SecTrustCreateWithCertificates(certs, appleIDValidationPolicy, &trust);
+    is(err, errSecSuccess, "error creating trust reference");
+    isnt(trust, NULL, "failed to obtain SecTrustRef");
+    if (err != errSecSuccess || trust == NULL) { goto exit; }
+    if (date) {
+        is(err = SecTrustSetVerifyDate(trust, date), errSecSuccess, "set verify date");
+        if (err != errSecSuccess) { goto exit; }
+    }
+    isTrusted = SecTrustEvaluateWithError(trust, &error);
+    if (!isTrusted) {
+        if (error) {
+            errcode = CFErrorGetCode(error);
+        } else {
+            errcode = errSecInternalComponent;
+        }
+    }
+    is(expectedResult, errcode == errSecSuccess, "check error code");
+    is(isTrusted, expectedResult, "check trust result");
+exit:
+    CFReleaseSafe(error);
+    CFReleaseSafe(trust);
+    CFReleaseSafe(appleIDValidationPolicy);
+    CFReleaseSafe(certs);
+    CFReleaseSafe(leaf);
+    CFReleaseSafe(ca);
+}
+
+- (void)testShortcutSigning
+{
+    // test normal case: evaluation at time within validity period, with expiration check disabled
+    CFDateRef dateWithinRange =  CFDateCreate(NULL, 655245000.0); /* Oct 6 2021 */
+    test_shortcut_signing(dateWithinRange, true, true);
+    CFReleaseNull(dateWithinRange);
+
+    // test normal case: evaluation at time outside validity period, with expiration check disabled
+    CFDateRef dateOutsideRange = CFDateCreate(NULL, 781500000.0); /* Oct 6 2025 */
+    test_shortcut_signing(dateOutsideRange, true, true);
+
+    // test evaluation at time outside validity period, with expiration check enabled (should fail)
+    test_shortcut_signing(dateOutsideRange, false, false);
+    CFReleaseNull(dateOutsideRange);
+}
+
 @end

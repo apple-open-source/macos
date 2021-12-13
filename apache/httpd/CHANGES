@@ -1,5 +1,230 @@
                                                          -*- coding: utf-8 -*-
+Changes with Apache 2.4.51
+
+  *) core: Add ap_unescape_url_ex() for better decoding control, and deprecate
+     unused AP_NORMALIZE_DROP_PARAMETERS flag.
+     [Yann Ylavic, Ruediger Pluem, Stefan Eissing, Joe Orton]
+
+Changes with Apache 2.4.50
+
+  *) SECURITY: CVE-2021-41773: Path traversal and file disclosure
+     vulnerability in Apache HTTP Server 2.4.49 (cve.mitre.org)
+     A flaw was found in a change made to path normalization in
+     Apache HTTP Server 2.4.49. An attacker could use a path
+     traversal attack to map URLs to files outside the expected
+     document root.
+     If files outside of the document root are not protected by
+     "require all denied" these requests can succeed. Additionally
+     this flaw could leak the source of interpreted files like CGI
+     scripts.
+     This issue is known to be exploited in the wild.
+     This issue only affects Apache 2.4.49 and not earlier versions.
+     Credits: This issue was reported by Ash Daulton along with the
+     cPanel Security Team
+
+  *) SECURITY: CVE-2021-41524: null pointer dereference in h2 fuzzing
+     (cve.mitre.org)
+     While fuzzing the 2.4.49 httpd, a new null pointer dereference
+     was detected during HTTP/2 request processing,
+     allowing an external source to DoS the server. This requires a
+     specially crafted request.
+     The vulnerability was recently introduced in version 2.4.49. No
+     exploit is known to the project.
+     Credits: Apache httpd team would like to thank LI ZHI XIN from
+     NSFocus Security Team for reporting this issue.
+
+  *) core: AP_NORMALIZE_DECODE_UNRESERVED should normalize the second dot in
+     the uri-path when it's preceded by a dot.  [Yann Ylavic]
+
+  *) mod_md: when MDMessageCmd for a 'challenge-setup:<type>:<dnsname>'
+     fails (!= 0 exit), the renewal process is aborted and an error is
+     reported for the MDomain. This provides scripts that distribute
+     information in a cluster to abort early with bothering an ACME
+     server to validate a dns name that will not work. The common
+     retry logic will make another attempt in the future, as with
+     other failures.
+     Fixed a bug when adding private key specs to an already working
+     MDomain, see <https://github.com/icing/mod_md/issues/260>.
+     [Stefan Eissing]
+
+  *) mod_proxy: Handle UDS URIs with empty hostname ("unix:///...") as if they
+     had no hostname ("unix:/...").  [Yann Ylavic]
+
+  *) mod_md: fixed a bug in handling multiple parallel OCSP requests. These could
+     run into an assertion which terminated (and restarted) the child process where
+     the task was running. Eventually, all OCSP responses were collected, but not
+     in the way that things are supposed to work.
+     See also <https://bz.apache.org/bugzilla/show_bug.cgi?id=65567>.
+     The bug was possibly triggered when more than one OCSP status needed updating
+     at the same time. For example for several renewed certificates after a server
+     reload.
+
+  *) mod_rewrite: Fix UDS ("unix:") scheme for [P] rules.  PR 57691 + 65590.
+     [Janne Peltonen <janne.peltonen sange.fi>]
+
+  *) event mpm: Correctly count active child processes in parent process if
+     child process dies due to MaxConnectionsPerChild.
+     PR 65592 [Ruediger Pluem]
+
+  *) mod_http2: when a server is restarted gracefully, any idle h2 worker
+     threads are shut down immediately.
+     Also, change OpenSSL API use for deprecations in OpenSSL 3.0.
+     Adds all other, never proposed code changes to make a clean
+     sync of http2 sources. [Stefan Eissing]
+
+  *) mod_dav: Correctly handle errors returned by dav providers on REPORT
+     requests. [Ruediger Pluem]
+
+  *) core: do not install core input/output filters on secondary
+     connections. [Stefan Eissing]
+
+  *) core: Add ap_pre_connection() as a wrapper to ap_run_pre_connection()
+     and use it to prevent that failures in running the pre_connection
+     hook cause crashes afterwards. [Ruediger Pluem]
+
+  *) mod_speling: Add CheckBasenameMatch PR 44221.  [Christophe Jaillet]
+
+Changes with Apache 2.4.49
+
+  *) SECURITY: CVE-2021-40438 (cve.mitre.org)
+     mod_proxy: Server Side Request Forgery (SSRF) vulnerabilty [Yann Ylavic]
+
+  *) SECURITY: CVE-2021-39275 (cve.mitre.org)
+     core: ap_escape_quotes buffer overflow
+
+  *) SECURITY: CVE-2021-36160 (cve.mitre.org)
+     mod_proxy_uwsgi: Out of bound read vulnerability [Yann Ylavic]
+
+  *) SECURITY: CVE-2021-34798 (cve.mitre.org)
+     core: null pointer dereference on malformed request
+
+  *) SECURITY: CVE-2021-33193 (cve.mitre.org)
+     mod_http2: Request splitting vulnerability with mod_proxy [Stefan Eissing]
+
+  *) core/mod_proxy/mod_ssl:
+     Adding `outgoing` flag to conn_rec, indicating a connection is
+     initiated by the server to somewhere, in contrast to incoming
+     connections from clients.
+     Adding 'ap_ssl_bind_outgoing()` function that marks a connection
+     as outgoing and is used by mod_proxy instead of the previous
+     optional function `ssl_engine_set`. This enables other SSL
+     module to secure proxy connections.
+     The optional functions `ssl_engine_set`, `ssl_engine_disable` and
+     `ssl_proxy_enable` are now provided by the core to have backward
+     compatibility with non-httpd modules that might use them. mod_ssl
+     itself no longer registers these functions, but keeps them in its
+     header for backward compatibility.
+     The core provided optional function wrap any registered function
+     like it was done for `ssl_is_ssl`.
+     [Stefan Eissing]
+
+  *) mod_ssl: Support logging private key material for use with
+     wireshark via log file given by SSLKEYLOGFILE environment
+     variable.  Requires OpenSSL 1.1.1.  PR 63391.  [Joe Orton]
+
+  *) mod_proxy: Do not canonicalize the proxied URL when both "nocanon" and
+     "ProxyPassInterpolateEnv On" are configured.  PR 65549.
+     [Joel Self <joelself gmail.com>]
+
+  *) mpm_event: Fix children processes possibly not stopped on graceful
+     restart.  PR 63169.  [Joel Self <joelself gmail.com>]
+
+  *) mod_proxy: Fix a potential infinite loop when tunneling Upgrade(d)
+     protocols from mod_proxy_http, and a timeout triggering falsely when
+     using mod_proxy_wstunnel, mod_proxy_connect or mod_proxy_http with
+     upgrade= setting.  PRs 65521 and 65519.  [Yann Ylavic]
+
+  *) mod_unique_id: Reduce the time window where duplicates may be generated
+     PR 65159
+     [Christophe Jaillet]
+
+  *) mpm_prefork: Block signals for child_init hooks to prevent potential
+     threads created from there to catch MPM's signals.
+     [Ruediger Pluem, Yann Ylavic]
+
+  *) Revert "mod_unique_id: Fix potential duplicated ID generation under heavy load.
+     PR 65159" added in 2.4.47.
+     This causes issue on Windows.
+     [Christophe Jaillet]
+
+  *) mod_proxy_uwsgi: Fix PATH_INFO setting for generic worker.  [Yann Ylavic]
+
+  *) mod_md: Certificate/keys pairs are verified as matching before a renewal is accepted
+     as successful or a staged renewal is replacing the existing certificates.
+     This avoid potential mess ups in the md store file system to render the active
+     certificates non-working. [@mkauf]
+
+  *) mod_proxy: Faster unix socket path parsing in the "proxy:" URL.
+     [Yann Ylavic]
+
+  *) mod_ssl: tighten the handling of ALPN for outgoing (proxy)
+     connections. If ALPN protocols are provided and sent to the
+     remote server, the received protocol selected is inspected
+     and checked for a match. Without match, the peer handshake
+     fails.
+     An exception is the proposal of "http/1.1" where it is
+     accepted if the remote server did not answer ALPN with
+     a selected protocol. This accomodates for hosts that do
+     not observe/support ALPN and speak http/1.x be default.
+
+  *) mod_proxy: Fix possible reuse/merging of Proxy(Pass)Match worker instances
+     with others when their URLs contain a '$' substitution.  PR 65419 + 65429.
+     [Yann Ylavic]
+
+  *) mod_dav: Add method_precondition hook. WebDAV extensions define
+     conditions that must exist before a WebDAV method can be executed.
+     This hook allows a WebDAV extension to verify these preconditions.
+     [Graham Leggett]
+
+  *) Add hooks deliver_report and gather_reports to mod_dav.h. Allows other
+     modules apart from versioning implementations to handle the REPORT method.
+     [Graham Leggett]
+
+  *) Add dav_get_provider(), dav_open_lockdb(), dav_close_lockdb() and
+     dav_get_resource() to mod_dav.h. [Graham Leggett]
+
+  *) core: fix ap_escape_quotes substitution logic. [Eric Covener]
+
+  *) core/mpm: add hook 'child_stopping` that gets called when the MPM is
+     stopping a child process. The additional `graceful` parameter allows
+     registered hooks to free resources early during a graceful shutdown.
+     [Yann Ylavic, Stefan Eissing]
+
+  *) mod_proxy: Fix icomplete initialization of BalancerMember(s) from the
+     balancer-manager, which can lead to a crash.  [Yann Ylavic]
+
+  *) mpm_event: Fix graceful stop/restart of children processes if connections
+     are in lingering close for too long.  [Yann Ylavic]
+
+  *) mod_md: fixed a potential null pointer dereference if ACME/OCSP
+     server returned 2xx responses without content type. Reported by chuangwen.
+     [chuangwen, Stefan Eissing]
+
+  *) mod_md:
+     - Domain names in `<MDomain ...>` can now appear in quoted form.
+     - Fixed a failure in ACME challenge selection that aborted further searches
+       when the tls-alpn-01 method did not seem to be suitable.
+     - Changed the tls-alpn-01 setup to only become unsuitable when none of the
+       dns names showed support for a configured 'Protocols ... acme-tls/1'. This
+       allows use of tls-alpn-01 for dns names that are not mapped to a VirtualHost.
+     [Stefan Eissing]
+
+  *) Add CPING to health check logic. [Jean-Frederic Clere]
+
+  *) core: Split ap_create_request() from ap_read_request(). [Graham Leggett]
+
+  *) core, h2: common ap_parse_request_line() and ap_check_request_header()
+     code. [Yann Ylavic]
+
+  *) core: Add StrictHostCheck to allow unconfigured hostnames to be
+     rejected. [Eric Covener]
+
+  *) htcacheclean: Improve help messages.  [Christophe Jaillet]
+
 Changes with Apache 2.4.48
+
+  *) SECURITY: CVE-2021-31618 (cve.mitre.org)
+     mod_http2: Fix a potential NULL pointer dereference [Ivan Zhakov]
 
   *) mod_proxy_wstunnel: Add ProxyWebsocketFallbackToProxyHttp to opt-out the
      fallback to mod_proxy_http for WebSocket upgrade and tunneling.
@@ -126,6 +351,33 @@ Changes with Apache 2.4.48
 
 Changes with Apache 2.4.47
 
+  *) SECURITY: CVE-2021-30641 (cve.mitre.org)
+     Unexpected <Location> section matching with 'MergeSlashes OFF'
+
+  *) SECURITY: CVE-2020-35452 (cve.mitre.org)
+     mod_auth_digest: possible stack overflow by one nul byte while validating
+     the Digest nonce.  [Yann Ylavic]
+
+  *) SECURITY: CVE-2021-26691 (cve.mitre.org)
+     mod_session: Fix possible crash due to NULL pointer dereference, which
+     could be used to cause a Denial of Service with a malicious backend
+     server and SessionHeader.  [Yann Ylavic]
+
+  *) SECURITY: CVE-2021-26690 (cve.mitre.org)
+     mod_session: Fix possible crash due to NULL pointer dereference, which
+     could be used to cause a Denial of Service.  [Yann Ylavic]
+
+  *) SECURITY: CVE-2020-13950 (cve.mitre.org)
+     mod_proxy_http: Fix possible crash due to NULL pointer dereference, which
+     could be used to cause a Denial of Service.  [Yann Ylavic]
+
+  *) SECURITY: CVE-2020-13938 (cve.mitre.org)
+     Windows: Prevent local users from stopping the httpd process [Ivan Zhakov]
+
+  *) SECURITY: CVE-2019-17567 (cve.mitre.org)
+     mod_proxy_wstunnel, mod_proxy_http: Handle Upgradable protocols end-to-end
+     negotiation.  [Yann Ylavic]
+
   *) mod_dav_fs: Improve logging output when failing to open files for
      writing.  PR 64413.  [Bingyu Shen <ahshenbingyu gmail.com>]
 
@@ -185,21 +437,12 @@ Changes with Apache 2.4.47
   *) mod_authnz_ldap: Prevent authentications with empty passwords for the
      initial bind to fail with status 500. [Ruediger Pluem]
 
-  *) mod_auth_digest: Fast validation of the nonce's base64 to fail early if
-     the format can't match anyway.  [Yann Ylavic]
-
   *) mod_proxy_fcgi: Honor "SetEnv proxy-sendcl" to forward a chunked
      Transfer-Encoding from the client, spooling the request body when needed
      to provide a Content-Length to the backend.  PR 57087.  [Yann Ylavic]
 
-  *) mod_proxy: Put mod_proxy_{connect,wstunnel} tunneling code in common in
-     proxy_util.  [Yann Ylavic]
-
   *) mod_proxy: Improve tunneling loop to support half closed connections and
      pending data draining (for protocols like rsync). PR 61616. [Yann Ylavic]
-
-  *) mod_proxy_http: handle Upgrade request, 101 (Switching Protocol) response
-     and switched protocol forwarding.  [Yann Ylavic]
 
   *) mod_proxy_wstunnel: Leave Upgrade requests handling to mod_proxy_http,
      allowing for (non-)Upgrade negotiation with the origin server.

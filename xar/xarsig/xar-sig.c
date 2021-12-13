@@ -51,9 +51,9 @@
 #include <regex.h>
 #include <errno.h>
 #ifdef XARSIG_BUILDING_WITH_XAR
-#include "xar.h"
+#include "xar_internal.h"
 #else
-#include <xar/xar.h>
+#include <xar/xar_internal.h>
 #endif // XARSIG_BUILDING_WITH_XAR
 #include "filetree.h"
 #include "util.h"

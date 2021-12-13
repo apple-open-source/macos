@@ -725,6 +725,15 @@ Boolean
 _SCNetworkInterfaceIsCarPlay				(SCNetworkInterfaceRef		interface)	API_AVAILABLE(macos(10.15), ios(13.0));
 
 /*!
+	@function _SCNetworkInterfaceIsVMNET
+	@discussion Indicates whether an interface is VMNET.
+	@param interface The network interface.
+	@result TRUE if the interface is VMNET.
+ */
+Boolean
+_SCNetworkInterfaceIsVMNET				(SCNetworkInterfaceRef		interface)	API_AVAILABLE(macos(12.0), ios(15.0));
+
+/*!
 	@function _SCNetworkInterfaceIsHiddenConfiguration
 	@discussion Identifies if the configuration of a network interface should be
 		hidden from any user interface (e.g. the "Network" pref pane).
@@ -742,6 +751,18 @@ _SCNetworkInterfaceIsHiddenConfiguration		(SCNetworkInterfaceRef		interface)	API
  */
 Boolean
 _SCNetworkInterfaceIsHiddenInterface			(SCNetworkInterfaceRef		interface)	SPI_AVAILABLE(macos(10.16), ios(14.0), tvos(14.0), watchos(7.0));
+
+
+/*!
+	@function _SCNetworkInterfaceIsEphemeral
+	@discussion Indicates whether this is an empheral interface, i.e. one
+	that does not require persistent name assignment. Such an interface
+	is never associated with persistent configuration.
+	@param interface The network interface.
+	@result TRUE if this is an ephemeral interface.
+ */
+Boolean
+_SCNetworkInterfaceIsEphemeral			(SCNetworkInterfaceRef		interface)	SPI_AVAILABLE(macos(12.0), ios(15.0));
 
 
 /*!

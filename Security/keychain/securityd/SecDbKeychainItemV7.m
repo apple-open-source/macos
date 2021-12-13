@@ -840,6 +840,13 @@ typedef NS_ENUM(uint32_t, SecDbKeychainAKSWrappedKeyType) {
         size_t unwrappedKeyDERLength = 0;
         int aksResult = aks_ref_key_decrypt(refKey, aksParamsDERData, aksParamsDERLength, wrappedKeyData.bytes, wrappedKeyData.length, &unwrappedKeyDERData, &unwrappedKeyDERLength);
         if (aksResult != 0) {
+            // If AKS needs authentication for this item, inform the caller that they should give us an acmContext
+            if (aksResult == kAKSReturnPolicyError && acmContext == nil) {
+                ks_access_control_needed_error(&cfError, NULL, NULL);
+                BridgeCFErrorToNSErrorOut(error, cfError);
+                return nil;
+            }
+
             CFDataRef accessControlData = SecAccessControlCopyData(accessControl);
             create_cferror_from_aks(aksResult, kAKSKeyOpDecrypt, 0, 0, accessControlData, (__bridge CFDataRef)acmContext, &cfError);
             CFReleaseNull(accessControlData);

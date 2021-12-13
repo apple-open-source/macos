@@ -1479,7 +1479,7 @@ int ap_proxy_http_process_response(proxy_http_req_t *req)
             ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(10239)
                           "HTTP: tunneling protocol %s", upgrade);
 
-            rv = ap_proxy_tunnel_create(&tunnel, r, origin, "HTTP");
+            rv = ap_proxy_tunnel_create(&tunnel, r, origin, upgrade);
             if (rv != APR_SUCCESS) {
                 ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r, APLOGNO(10240)
                               "can't create tunnel for %s", upgrade);
@@ -1867,7 +1867,7 @@ static int proxy_http_handler(request_rec *r, proxy_worker *worker,
                       "HTTP: declining URL %s", url);
         return DECLINED; /* only interested in HTTP, WS or FTP via proxy */
     }
-    if (is_ssl && !ap_proxy_ssl_enable(NULL)) {
+    if (is_ssl && !ap_ssl_has_outgoing_handlers()) {
         ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(01112)
                       "HTTP: declining URL %s (mod_ssl not configured?)", url);
         return DECLINED;

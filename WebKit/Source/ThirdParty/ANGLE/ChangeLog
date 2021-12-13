@@ -1,3 +1,519 @@
+2021-11-08  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Cherry-pick r285220. rdar://problem/84224687
+
+    REGRESSION (iOS 15): Tab crashes when trying to render Projector stories
+    https://bugs.webkit.org/show_bug.cgi?id=231607
+    
+    	Rework vertex buffer caching to allow us to reuse parts
+    	of converted buffers. This dramatically drops the memory usage
+    	of this tab from 4.5 gb to roughly 1.3gb
+    
+    Reviewed by Dean Jackson.
+    
+    * src/libANGLE/renderer/metal/BufferMtl.mm:
+    (rx::BufferMtl::getVertexConversionBuffer):
+    * src/libANGLE/renderer/metal/VertexArrayMtl.mm:
+    (rx::VertexArrayMtl::convertVertexBuffer):
+    (rx::VertexArrayMtl::convertVertexBufferCPU):
+    (rx::VertexArrayMtl::convertVertexBufferGPU):
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@285220 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-11-03  Kyle Piddington  <kpiddington@apple.com>
+
+            REGRESSION (iOS 15): Tab crashes when trying to render Projector stories
+            https://bugs.webkit.org/show_bug.cgi?id=231607
+
+    	Rework vertex buffer caching to allow us to reuse parts
+    	of converted buffers. This dramatically drops the memory usage
+    	of this tab from 4.5 gb to roughly 1.3gb
+
+            Reviewed by Dean Jackson.
+
+            * src/libANGLE/renderer/metal/BufferMtl.mm:
+            (rx::BufferMtl::getVertexConversionBuffer):
+            * src/libANGLE/renderer/metal/VertexArrayMtl.mm:
+            (rx::VertexArrayMtl::convertVertexBuffer):
+            (rx::VertexArrayMtl::convertVertexBufferCPU):
+            (rx::VertexArrayMtl::convertVertexBufferGPU):
+
+2021-11-04  Russell Epstein  <repstein@apple.com>
+
+        Cherry-pick r284849. rdar://problem/84066469
+
+    REGRESSION (iOS 15), safari604.1: Could not link the shader program
+    https://bugs.webkit.org/show_bug.cgi?id=231475
+    
+    Renaming regex incorrectly substituted an attribute.
+    Update to require exact attribute match
+    
+    Source/ThirdParty/ANGLE:
+    
+    Reviewed by Dean Jackson
+    
+    * src/libANGLE/renderer/metal/mtl_glslang_mtl_utils.mm:
+    (rx::mtl::updateShaderAttributes):
+    
+    LayoutTests:
+    
+    Add test to expose bug, verify test passes
+    
+    Reviewed by Dean Jackson.
+    
+    * fast/canvas/webgl/attrib-name-aliasing-bug-expected.txt: Added.
+    * fast/canvas/webgl/attrib-name-aliasing-bug.html: Added.
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@284849 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-10-25  Kyle Piddington  <kpiddington@apple.com>
+
+            REGRESSION (iOS 15), safari604.1: Could not link the shader program
+            https://bugs.webkit.org/show_bug.cgi?id=231475
+
+            Renaming regex incorrectly substituted an attribute.
+            Update to require exact attribute match
+
+            Reviewed by Dean Jackson
+
+            * src/libANGLE/renderer/metal/mtl_glslang_mtl_utils.mm:
+            (rx::mtl::updateShaderAttributes):
+
+2021-10-26  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r284293. rdar://problem/84204653
+
+    REGRESSION (r283667): webgl/2.0.0/deqp/functional/gles3/lifetime.html fails
+    https://bugs.webkit.org/show_bug.cgi?id=231682
+    
+    Transform feedback should avoid appending _u for
+    builtin output variables.
+    
+    Reviewed by Kimmo Kinnunen.
+    
+    * src/libANGLE/renderer/metal/mtl_glslang_mtl_utils.mm:
+    (rx::mtl::GenerateTransformFeedbackVaryingOutput):
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@284293 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-10-15  Kyle Piddington  <kpiddington@apple.com>
+
+            REGRESSION (r283667): webgl/2.0.0/deqp/functional/gles3/lifetime.html fails
+            https://bugs.webkit.org/show_bug.cgi?id=231682
+
+            Transform feedback should avoid appending _u for
+            builtin output variables.
+
+            Reviewed by Kimmo Kinnunen.
+
+            * src/libANGLE/renderer/metal/mtl_glslang_mtl_utils.mm:
+            (rx::mtl::GenerateTransformFeedbackVaryingOutput):
+
+2021-10-26  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r283667. rdar://problem/84629931
+
+    Shadertoy "truchet district" fails to compile with error: Internal error compiling shader with Metal backend"
+    https://bugs.webkit.org/show_bug.cgi?id=229378
+    <rdar://problem/82299053>
+    
+    Reviewed by Kenneth Russell.
+    
+    Source/ThirdParty/ANGLE:
+    
+    Change TranslatorMetalDirect to prefix '_u' to all user defined variables.
+    Clean up builtins like samplers and ANGLE structs that were being
+    accidently promoted to userDefined variables.
+    
+    * src/compiler/translator/TranslatorMetalDirect.cpp:
+    (sh::GetMslKeywords):
+    * src/compiler/translator/TranslatorMetalDirect/Name.cpp:
+    (Name::emit const):
+    * src/compiler/translator/TranslatorMetalDirect/SymbolEnv.cpp:
+    (SymbolEnv::getTextureEnv):
+    (SymbolEnv::getSamplerStruct):
+    (sh::GetTextureTypeName):
+    * src/libANGLE/renderer/metal/mtl_glslang_mtl_utils.mm:
+    (rx::mtl::GenerateTransformFeedbackVaryingOutput):
+    
+    LayoutTests:
+    
+    Add a test testing Metal reserved words and standard library macros.
+    
+    * webgl/pending/conformance/glsl/misc/shader-with-reserved-words-2-expected.txt: Added.
+    * webgl/pending/conformance/glsl/misc/shader-with-reserved-words-2.html: Added.
+    * webgl/pending/resources/webgl_test_files/conformance/glsl/misc/shader-with-reserved-words-2.html: Added.
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@283667 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-10-06  Kyle Piddington  <kpiddington@apple.com>
+
+            Shadertoy "truchet district" fails to compile with error: Internal error compiling shader with Metal backend"
+            https://bugs.webkit.org/show_bug.cgi?id=229378
+            <rdar://problem/82299053>
+
+            Reviewed by Kenneth Russell.
+
+            Change TranslatorMetalDirect to prefix '_u' to all user defined variables.
+            Clean up builtins like samplers and ANGLE structs that were being
+            accidently promoted to userDefined variables.
+
+            * src/compiler/translator/TranslatorMetalDirect.cpp:
+            (sh::GetMslKeywords):
+            * src/compiler/translator/TranslatorMetalDirect/Name.cpp:
+            (Name::emit const):
+            * src/compiler/translator/TranslatorMetalDirect/SymbolEnv.cpp:
+            (SymbolEnv::getTextureEnv):
+            (SymbolEnv::getSamplerStruct):
+            (sh::GetTextureTypeName):
+            * src/libANGLE/renderer/metal/mtl_glslang_mtl_utils.mm:
+            (rx::mtl::GenerateTransformFeedbackVaryingOutput):
+
+2021-10-26  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r281794. rdar://problem/84625240
+
+    webgl/1.0.x/conformance/glsl/misc/fragcolor-fragdata-invariant.html fails
+    https://bugs.webkit.org/show_bug.cgi?id=223317
+    <rdar://problem/75772659>
+    
+    Patch by Kimmo Kinnunen <kkinnunen@apple.com> on 2021-08-31
+    Reviewed by Kenneth Russell.
+    
+    Source/ThirdParty/ANGLE:
+    
+    The parser maintains invariance metadata for each input and output
+    with the help of the symbol table, during parsing.
+    
+    Use this metadata through the collection phase done by CollectVariables
+    section of shader compilation.
+    
+    Remove the manual tree rewrite section that collected the invariance
+    information. The implementation had following problems:
+    1) It would declare the variables present. This would fail the test case
+    fixed here, due to the test case using invariant declarations to both
+    FragColor and FragData, which would cause both to be present as outputs
+    to the MSL.
+    2) It would operate on rewritten variables. For example, FragCoord would
+    be replaced with different variable, causing the invariance be marked
+    based on the rewritten name but the later lookup intended to be done
+    with the original name.
+    
+    Remove logic to mark FragCoord as invariant, as MSL specification explicitly
+    says that only the vertex [[position]] output can be marked as [[invariant]].
+    As noted above, this never worked.
+    
+    Fix cases where the tree rewriters assume that all variable references are
+    done within functions. The global qualifier declarations are now left
+    in the tree and as such can refer to variables but do not belong to any
+    function.
+    
+    Fixes:
+    webgl/1.0.x/conformance/glsl/misc/fragcolor-fragdata-invariant.html
+    webgl/2.0.y/conformance/glsl/misc/fragcolor-fragdata-invariant.html
+    
+    * ANGLE.xcodeproj/project.pbxproj:
+    * src/compiler/translator/TranslatorMetalDirect.cpp:
+    (sh::TranslatorMetalDirect::translateImpl):
+    * src/compiler/translator/TranslatorMetalDirect/DiscoverDependentFunctions.cpp:
+    * src/compiler/translator/TranslatorMetalDirect/EmitMetal.cpp:
+    (GenMetalTraverser::GenMetalTraverser):
+    (GenMetalTraverser::emitPostQualifier):
+    (GenMetalTraverser::visitGlobalQualifierDeclaration):
+    (sh::EmitMetal):
+    * src/compiler/translator/TranslatorMetalDirect/EmitMetal.h:
+    * src/compiler/translator/TranslatorMetalDirect/RewriteGlobalQualifierDecls.cpp: Removed.
+    * src/compiler/translator/TranslatorMetalDirect/RewriteGlobalQualifierDecls.h: Removed.
+    * src/compiler/translator/TranslatorMetalDirect/RewritePipelines.cpp:
+    (sh::IsVariableInvariant):
+    (sh::GeneratePipelineStruct::Exec):
+    (sh::GeneratePipelineStruct::GeneratePipelineStruct):
+    (sh::GeneratePipelineStruct::createInternalPipelineStruct):
+    (sh::UpdatePipelineSymbols):
+    (sh::RewritePipeline):
+    (sh::RewritePipelines):
+    * src/compiler/translator/TranslatorMetalDirect/RewritePipelines.h:
+    * src/compiler/translator/TranslatorMetalDirect/SeparateCompoundExpressions.cpp:
+    
+    LayoutTests:
+    
+           Fixes tests:
+           webgl/1.0.x/conformance/glsl/misc/fragcolor-fragdata-invariant.html
+           webgl/2.0.y/conformance/glsl/misc/fragcolor-fragdata-invariant.html
+    
+    * TestExpectations:
+    Mark the skipped tests as Pass until all 1.0.x/2.0.y tests
+    are unskipped.
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@281794 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-08-31  Kimmo Kinnunen  <kkinnunen@apple.com>
+
+            webgl/1.0.x/conformance/glsl/misc/fragcolor-fragdata-invariant.html fails
+            https://bugs.webkit.org/show_bug.cgi?id=223317
+            <rdar://problem/75772659>
+
+            Reviewed by Kenneth Russell.
+
+            The parser maintains invariance metadata for each input and output
+            with the help of the symbol table, during parsing.
+
+            Use this metadata through the collection phase done by CollectVariables
+            section of shader compilation.
+
+            Remove the manual tree rewrite section that collected the invariance
+            information. The implementation had following problems:
+            1) It would declare the variables present. This would fail the test case
+            fixed here, due to the test case using invariant declarations to both
+            FragColor and FragData, which would cause both to be present as outputs
+            to the MSL.
+            2) It would operate on rewritten variables. For example, FragCoord would
+            be replaced with different variable, causing the invariance be marked
+            based on the rewritten name but the later lookup intended to be done
+            with the original name.
+
+            Remove logic to mark FragCoord as invariant, as MSL specification explicitly
+            says that only the vertex [[position]] output can be marked as [[invariant]].
+            As noted above, this never worked.
+
+            Fix cases where the tree rewriters assume that all variable references are
+            done within functions. The global qualifier declarations are now left
+            in the tree and as such can refer to variables but do not belong to any
+            function.
+
+            Fixes:
+            webgl/1.0.x/conformance/glsl/misc/fragcolor-fragdata-invariant.html
+            webgl/2.0.y/conformance/glsl/misc/fragcolor-fragdata-invariant.html
+
+            * ANGLE.xcodeproj/project.pbxproj:
+            * src/compiler/translator/TranslatorMetalDirect.cpp:
+            (sh::TranslatorMetalDirect::translateImpl):
+            * src/compiler/translator/TranslatorMetalDirect/DiscoverDependentFunctions.cpp:
+            * src/compiler/translator/TranslatorMetalDirect/EmitMetal.cpp:
+            (GenMetalTraverser::GenMetalTraverser):
+            (GenMetalTraverser::emitPostQualifier):
+            (GenMetalTraverser::visitGlobalQualifierDeclaration):
+            (sh::EmitMetal):
+            * src/compiler/translator/TranslatorMetalDirect/EmitMetal.h:
+            * src/compiler/translator/TranslatorMetalDirect/RewriteGlobalQualifierDecls.cpp: Removed.
+            * src/compiler/translator/TranslatorMetalDirect/RewriteGlobalQualifierDecls.h: Removed.
+            * src/compiler/translator/TranslatorMetalDirect/RewritePipelines.cpp:
+            (sh::IsVariableInvariant):
+            (sh::GeneratePipelineStruct::Exec):
+            (sh::GeneratePipelineStruct::GeneratePipelineStruct):
+            (sh::GeneratePipelineStruct::createInternalPipelineStruct):
+            (sh::UpdatePipelineSymbols):
+            (sh::RewritePipeline):
+            (sh::RewritePipelines):
+            * src/compiler/translator/TranslatorMetalDirect/RewritePipelines.h:
+            * src/compiler/translator/TranslatorMetalDirect/SeparateCompoundExpressions.cpp:
+
+2021-10-25  Null  <null@apple.com>
+
+        Cherry-pick r284125. rdar://problem/84630015
+
+    Upstream ANGLE: PrimitiveRestart tests fail due to incorrect draw commands
+    https://bugs.webkit.org/show_bug.cgi?id=231626
+    <rdar:/problem/84167241>
+    
+    Primitive restart draw commands were being encoded
+    incorrectly. Single element ranges were being disregarded,
+    and a maximum draw size was not being enforced when the
+    index buffer was aliased / reused.
+    
+    Cherry-pick from upstream anglebug.com/6535
+    
+    Reviewed by Kenneth Russell.
+    
+    * src/libANGLE/renderer/metal/VertexArrayMtl.mm:
+    (rx::VertexArrayMtl::getDrawIndices):
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@284125 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-10-13  Kyle Piddington  <kpiddington@apple.com>
+
+            Upstream ANGLE: PrimitiveRestart tests fail due to incorrect draw commands
+            https://bugs.webkit.org/show_bug.cgi?id=231626
+            <rdar:/problem/84167241>
+
+            Primitive restart draw commands were being encoded
+            incorrectly. Single element ranges were being disregarded,
+            and a maximum draw size was not being enforced when the
+            index buffer was aliased / reused.
+
+            Cherry-pick from upstream anglebug.com/6535
+
+            Reviewed by Kenneth Russell.
+
+            * src/libANGLE/renderer/metal/VertexArrayMtl.mm:
+            (rx::VertexArrayMtl::getDrawIndices):
+
+2021-10-25  Null  <null@apple.com>
+
+        Cherry-pick r282627. rdar://problem/84630078
+
+    webgl/2.0.y/conformance/extensions/webgl-compressed-texture-s3tc-srgb.html fails on Intel+AMD Metal
+    https://bugs.webkit.org/show_bug.cgi?id=229941
+    
+    Zero-initialize compressed textures explicitly, as they aren't implicitly initalized in Metal.
+    Reviewed by Kenneth Russell <kbr@chromium.org>.
+    
+    Source/ThirdParty/ANGLE:
+    
+    * src/libANGLE/renderer/metal/mtl_utils.h:
+    * src/libANGLE/renderer/metal/mtl_utils.mm:
+    (rx::mtl::GetCompressedBufferForTextureWithFormat):
+    (rx::mtl::InitializeCompressedTextureContents):
+    (rx::mtl::InitializeTextureContents):
+    
+    LayoutTests:
+    
+    * TestExpectations:
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@282627 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-09-16  Kyle Piddington  <kpiddington@apple.com>
+
+            webgl/2.0.y/conformance/extensions/webgl-compressed-texture-s3tc-srgb.html fails on Intel+AMD Metal
+            https://bugs.webkit.org/show_bug.cgi?id=229941
+
+            Zero-initialize compressed textures explicitly, as they aren't implicitly initalized in Metal.
+            Reviewed by Kenneth Russell <kbr@chromium.org>.
+
+            * src/libANGLE/renderer/metal/mtl_utils.h:
+            * src/libANGLE/renderer/metal/mtl_utils.mm:
+            (rx::mtl::GetCompressedBufferForTextureWithFormat):
+            (rx::mtl::InitializeCompressedTextureContents):
+            (rx::mtl::InitializeTextureContents):
+
+2021-10-25  Null  <null@apple.com>
+
+        Cherry-pick r281547. rdar://problem/84629691
+
+    ANGLE Metal infinities and NaNs generated with incorrect syntax
+    https://bugs.webkit.org/show_bug.cgi?id=229439
+    <rdar://81033366>
+    
+    Patch by Kimmo Kinnunen <kkinnunen@apple.com> on 2021-08-24
+    Reviewed by Dean Jackson.
+    
+    Source/ThirdParty/ANGLE:
+    
+    Generate NaN and infinity constant values correctly.
+    An else was missing from if-block, causing double processing.
+    
+    * src/compiler/translator/TranslatorMetalDirect/EmitMetal.cpp:
+    (GenMetalTraverser::emitSingleConstant):
+    * src/libANGLE/renderer/metal/mtl_utils.mm:
+    (rx::mtl::CreateShaderLibrary):
+    
+    LayoutTests:
+    
+    Add tests that test some aspects of NaN and -+inf that the GLSL ES 3.00 spec
+    talks about.
+    
+    * webgl/pending/conformance2/glsl3/float-constant-expressions-expected.txt: Added.
+    * webgl/pending/conformance2/glsl3/float-constant-expressions.html: Added.
+    * webgl/pending/resources/webgl_test_files/conformance2/glsl3/float-constant-expressions.html: Added.
+    * webgl/pending/resources/webgl_test_files/js/glsl-conformance-test.js: Added.
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@281547 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-08-24  Kimmo Kinnunen  <kkinnunen@apple.com>
+
+            ANGLE Metal infinities and NaNs generated with incorrect syntax
+            https://bugs.webkit.org/show_bug.cgi?id=229439
+            <rdar://81033366>
+
+            Reviewed by Dean Jackson.
+
+            Generate NaN and infinity constant values correctly.
+            An else was missing from if-block, causing double processing.
+
+            * src/compiler/translator/TranslatorMetalDirect/EmitMetal.cpp:
+            (GenMetalTraverser::emitSingleConstant):
+            * src/libANGLE/renderer/metal/mtl_utils.mm:
+            (rx::mtl::CreateShaderLibrary):
+
+2021-10-07  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r283014. rdar://problem/83954982
+
+    [WebGL2, Safari 15 - iOS15] Problems with drawElements in some conditions
+    https://bugs.webkit.org/show_bug.cgi?id=230107
+    
+    Index buffer rewrite was dispatching too many threads.
+    Reviewed by Dean Jackson.
+    
+    * src/libANGLE/renderer/metal/ProvokingVertexHelper.mm:
+    (rx::ProvokingVertexHelper::preconditionIndexBuffer):
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@283014 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-09-23  Kyle Piddington  <kpiddington@apple.com>
+
+            [WebGL2, Safari 15 - iOS15] Problems with drawElements in some conditions
+            https://bugs.webkit.org/show_bug.cgi?id=230107
+
+            Index buffer rewrite was dispatching too many threads.
+            Reviewed by Dean Jackson.
+
+            * src/libANGLE/renderer/metal/ProvokingVertexHelper.mm:
+            (rx::ProvokingVertexHelper::preconditionIndexBuffer):
+
+2021-10-07  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r282800. rdar://problem/83955324
+
+    ANGLE Metal: single-component swizzles do not compile
+    https://bugs.webkit.org/show_bug.cgi?id=230472
+    <rdar://problem/83310780>
+    
+    Patch by Kimmo Kinnunen <kkinnunen@apple.com> on 2021-09-20
+    Reviewed by Dean Jackson.
+    
+    Source/ThirdParty/ANGLE:
+    
+    Fix metal compiler compile errors when using
+    single value swizles (glslvariable.r) in position where lvalues would
+    be needed. Use the variable instead of single element array
+    (copy-paste typo).
+    
+    * src/compiler/translator/TranslatorMetalDirect/ProgramPrelude.cpp:
+    
+    LayoutTests:
+    
+    Add a test for testing the swizzles as lvalues.
+    
+    * webgl/pending/conformance/glsl/misc/swizzle-as-lvalue-expected.txt: Added.
+    * webgl/pending/conformance/glsl/misc/swizzle-as-lvalue.html: Added.
+    * webgl/pending/resources/webgl_test_files/conformance/glsl/misc/swizzle-as-lvalue.html: Added.
+    * webgl/pending/resources/webgl_test_files/resources/glsl-feature-tests.css: Added.
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@282800 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-09-20  Kimmo Kinnunen  <kkinnunen@apple.com>
+
+            ANGLE Metal: single-component swizzles do not compile
+            https://bugs.webkit.org/show_bug.cgi?id=230472
+            <rdar://problem/83310780>
+
+            Reviewed by Dean Jackson.
+
+            Fix metal compiler compile errors when using
+            single value swizles (glslvariable.r) in position where lvalues would
+            be needed. Use the variable instead of single element array
+            (copy-paste typo).
+
+            * src/compiler/translator/TranslatorMetalDirect/ProgramPrelude.cpp:
+
 2021-08-17  David Kilzer  <ddkilzer@apple.com>
 
         [Metal ANGLE] Fix over-autorelease of rx::DisplayMtl::getMetalDeviceMatchingAttribute() and various Objective-C leaks

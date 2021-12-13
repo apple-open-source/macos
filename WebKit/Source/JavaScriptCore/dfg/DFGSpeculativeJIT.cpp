@@ -134,7 +134,7 @@ void SpeculativeJIT::emitAllocateRawObject(GPRReg resultGPR, RegisteredStructure
     }
 
     Allocator allocator;
-    if (structure->type() == JSType::ArrayType)
+    if (structure->typeInfo().type() == JSType::ArrayType)
         allocator = allocatorForNonVirtualConcurrently<JSArray>(vm, JSArray::allocationSize(inlineCapacity), AllocatorForMode::AllocatorIfExists);
     else
         allocator = allocatorForNonVirtualConcurrently<JSFinalObject>(vm, JSFinalObject::allocationSize(inlineCapacity), AllocatorForMode::AllocatorIfExists);
@@ -2110,8 +2110,14 @@ void SpeculativeJIT::compileLoopHint(Node* node)
             if constexpr (validateDFGDoesGC) {
                 if (Options::validateDoesGC()) {
                     // We need to mock what a Return does: claims to GC.
-                    m_jit.move(CCallHelpers::TrustedImmPtr(vm().heap.addressOfDoesGC()), GPRInfo::regT0);
-                    m_jit.store32(CCallHelpers::TrustedImm32(DoesGCCheck::encode(true, DoesGCCheck::Special::Uninitialized)), CCallHelpers::Address(GPRInfo::regT0));
+                    DoesGCCheck check;
+                    check.u.encoded = DoesGCCheck::encode(true, DoesGCCheck::Special::Uninitialized);
+#if USE(JSVALUE64)
+                    m_jit.store64(CCallHelpers::TrustedImm64(check.u.encoded), vm().heap.addressOfDoesGC());
+#else
+                    m_jit.store32(CCallHelpers::TrustedImm32(check.u.other), &vm().heap.addressOfDoesGC()->u.other);
+                    m_jit.store32(CCallHelpers::TrustedImm32(check.u.nodeIndex), &vm().heap.addressOfDoesGC()->u.nodeIndex);
+#endif
                 }
             }
 
@@ -2587,7 +2593,7 @@ void SpeculativeJIT::compileGetCharCodeAt(Node* node)
     strictInt32Result(scratchReg, m_currentNode);
 }
 
-void SpeculativeJIT::compileGetByValOnString(Node* node, const ScopedLambda<std::tuple<JSValueRegs, DataFormat>(DataFormat preferredFormat)>& prefix)
+void SpeculativeJIT::compileGetByValOnString(Node* node, const ScopedLambda<std::tuple<JSValueRegs, DataFormat, CanUseFlush>(DataFormat preferredFormat)>& prefix)
 {
     SpeculateCellOperand base(this, m_graph.child(node, 0));
     SpeculateStrictInt32Operand property(this, m_graph.child(node, 1));
@@ -2598,7 +2604,7 @@ void SpeculativeJIT::compileGetByValOnString(Node* node, const ScopedLambda<std:
 
     JSValueRegs resultRegs;
     DataFormat format;
-    std::tie(resultRegs, format) = prefix(node->arrayMode().isOutOfBounds() ? DataFormatJS : DataFormatCell);
+    std::tie(resultRegs, format, std::ignore) = prefix(node->arrayMode().isOutOfBounds() ? DataFormatJS : DataFormatCell);
     GPRReg scratchReg = resultRegs.payloadGPR();
 
     // unsigned comparison so we can filter out negative indices and indices that are too large
@@ -3232,28 +3238,43 @@ static void compileClampDoubleToByte(JITCompiler& jit, GPRReg result, FPRReg sou
 
 }
 
-JITCompiler::Jump SpeculativeJIT::jumpForTypedArrayOutOfBounds(Node* node, GPRReg baseGPR, GPRReg indexGPR)
+JITCompiler::Jump SpeculativeJIT::jumpForTypedArrayOutOfBounds(Node* node, GPRReg baseGPR, GPRReg indexGPR, GPRReg scratchGPR)
 {
     if (node->op() == PutByValAlias)
         return JITCompiler::Jump();
     JSArrayBufferView* view = m_jit.graph().tryGetFoldableView(
         m_state.forNode(m_jit.graph().child(node, 0)).m_value, node->arrayMode());
     if (view) {
-        uint32_t length = view->length();
+        size_t length = view->length();
         Node* indexNode = m_jit.graph().child(node, 1).node();
-        if (indexNode->isInt32Constant() && indexNode->asUInt32() < length)
+        if (indexNode->isAnyIntConstant() && indexNode->asUInt32() < length)
             return JITCompiler::Jump();
+#if USE(LARGE_TYPED_ARRAYS)
+        m_jit.signExtend32ToPtr(indexGPR, scratchGPR);
+        return m_jit.branch64(
+            MacroAssembler::AboveOrEqual, scratchGPR, MacroAssembler::Imm64(length));
+#else
+        UNUSED_PARAM(scratchGPR);
         return m_jit.branch32(
             MacroAssembler::AboveOrEqual, indexGPR, MacroAssembler::Imm32(length));
+#endif
     }
+
+#if USE(LARGE_TYPED_ARRAYS)
+    m_jit.signExtend32ToPtr(indexGPR, scratchGPR);
+    return m_jit.branch64(
+        MacroAssembler::AboveOrEqual, scratchGPR,
+        MacroAssembler::Address(baseGPR, JSArrayBufferView::offsetOfLength()));
+#else
     return m_jit.branch32(
         MacroAssembler::AboveOrEqual, indexGPR,
         MacroAssembler::Address(baseGPR, JSArrayBufferView::offsetOfLength()));
+#endif
 }
 
-void SpeculativeJIT::emitTypedArrayBoundsCheck(Node* node, GPRReg baseGPR, GPRReg indexGPR)
+void SpeculativeJIT::emitTypedArrayBoundsCheck(Node* node, GPRReg baseGPR, GPRReg indexGPR, GPRReg scratchGPR)
 {
-    JITCompiler::Jump jump = jumpForTypedArrayOutOfBounds(node, baseGPR, indexGPR);
+    JITCompiler::Jump jump = jumpForTypedArrayOutOfBounds(node, baseGPR, indexGPR, scratchGPR);
     if (!jump.isSet())
         return;
     speculationCheck(OutOfBounds, JSValueRegs(), nullptr, jump);
@@ -3319,19 +3340,20 @@ void SpeculativeJIT::loadFromIntTypedArray(GPRReg storageReg, GPRReg propertyReg
     }
 }
 
-void SpeculativeJIT::setIntTypedArrayLoadResult(Node* node, JSValueRegs resultRegs, TypedArrayType type, bool canSpeculate, bool shouldBox)
+void SpeculativeJIT::setIntTypedArrayLoadResult(Node* node, JSValueRegs resultRegs, TypedArrayType type, bool canSpeculate, bool shouldBox, FPRReg resultFPR)
 {
     bool isUInt32 = elementSize(type) == 4 && !isSigned(type);
+    if (isUInt32)
+        ASSERT(resultFPR != InvalidFPRReg);
     GPRReg resultReg = resultRegs.payloadGPR();
 
     if (shouldBox) {
         if (isUInt32) {
-            FPRTemporary fresult(this);
-            m_jit.convertInt32ToDouble(resultReg, fresult.fpr());
+            m_jit.convertInt32ToDouble(resultReg, resultFPR);
             JITCompiler::Jump positive = m_jit.branch32(MacroAssembler::GreaterThanOrEqual, resultReg, TrustedImm32(0));
-            m_jit.addDouble(JITCompiler::AbsoluteAddress(&AssemblyHelpers::twoToThe32), fresult.fpr());
+            m_jit.addDouble(JITCompiler::AbsoluteAddress(&AssemblyHelpers::twoToThe32), resultFPR);
             positive.link(&m_jit);
-            m_jit.boxDouble(fresult.fpr(), resultRegs);
+            m_jit.boxDouble(resultFPR, resultRegs);
         } else
             m_jit.boxInt32(resultRegs.payloadGPR(), resultRegs);
         jsValueResult(resultRegs, node);
@@ -3359,35 +3381,43 @@ void SpeculativeJIT::setIntTypedArrayLoadResult(Node* node, JSValueRegs resultRe
     }
 #endif
     
-    FPRTemporary fresult(this);
-    m_jit.convertInt32ToDouble(resultReg, fresult.fpr());
+    m_jit.convertInt32ToDouble(resultReg, resultFPR);
     JITCompiler::Jump positive = m_jit.branch32(MacroAssembler::GreaterThanOrEqual, resultReg, TrustedImm32(0));
-    m_jit.addDouble(JITCompiler::AbsoluteAddress(&AssemblyHelpers::twoToThe32), fresult.fpr());
+    m_jit.addDouble(JITCompiler::AbsoluteAddress(&AssemblyHelpers::twoToThe32), resultFPR);
     positive.link(&m_jit);
-    doubleResult(fresult.fpr(), node);
+    doubleResult(resultFPR, node);
 }
 
-void SpeculativeJIT::compileGetByValOnIntTypedArray(Node* node, TypedArrayType type, const ScopedLambda<std::tuple<JSValueRegs, DataFormat>(DataFormat preferredFormat)>& prefix)
+void SpeculativeJIT::compileGetByValOnIntTypedArray(Node* node, TypedArrayType type, const ScopedLambda<std::tuple<JSValueRegs, DataFormat, CanUseFlush>(DataFormat preferredFormat)>& prefix)
 {
     ASSERT(isInt(type));
     
     SpeculateCellOperand base(this, m_graph.varArgChild(node, 0));
     SpeculateStrictInt32Operand property(this, m_graph.varArgChild(node, 1));
     StorageOperand storage(this, m_graph.varArgChild(node, 2));
+    GPRTemporary scratch(this);
 
     GPRReg baseReg = base.gpr();
     GPRReg propertyReg = property.gpr();
     GPRReg storageReg = storage.gpr();
+    GPRReg scratchGPR = scratch.gpr();
+
+    std::optional<FPRTemporary> fprTemp;
+    FPRReg resultFPR = InvalidFPRReg;
+    if (elementSize(type) == 4 && !isSigned(type)) {
+        fprTemp.emplace(this);
+        resultFPR = fprTemp->fpr();
+    }
 
     JSValueRegs resultRegs;
     DataFormat format;
-    std::tie(resultRegs, format) = prefix(DataFormatInt32);
+    std::tie(resultRegs, format, std::ignore) = prefix(DataFormatInt32);
     bool shouldBox = format == DataFormatJS;
 
-    emitTypedArrayBoundsCheck(node, baseReg, propertyReg);
+    emitTypedArrayBoundsCheck(node, baseReg, propertyReg, scratchGPR);
     loadFromIntTypedArray(storageReg, propertyReg, resultRegs.payloadGPR(), type);
     constexpr bool canSpeculate = true;
-    setIntTypedArrayLoadResult(node, resultRegs, type, canSpeculate, shouldBox);
+    setIntTypedArrayLoadResult(node, resultRegs, type, canSpeculate, shouldBox, resultFPR);
 }
 
 bool SpeculativeJIT::getIntTypedArrayStoreOperand(
@@ -3542,6 +3572,7 @@ void SpeculativeJIT::compilePutByValForIntTypedArray(GPRReg base, GPRReg propert
     ASSERT(isInt(type));
     
     StorageOperand storage(this, m_jit.graph().varArgChild(node, 3));
+    GPRTemporary scratch(this);
     GPRReg storageReg = storage.gpr();
     
     Edge valueUse = m_jit.graph().varArgChild(node, 2);
@@ -3574,7 +3605,7 @@ void SpeculativeJIT::compilePutByValForIntTypedArray(GPRReg base, GPRReg propert
     ASSERT_UNUSED(valueGPR, valueGPR != property);
     ASSERT(valueGPR != base);
     ASSERT(valueGPR != storageReg);
-    JITCompiler::Jump outOfBounds = jumpForTypedArrayOutOfBounds(node, base, property);
+    JITCompiler::Jump outOfBounds = jumpForTypedArrayOutOfBounds(node, base, property, scratch.gpr());
 
     switch (elementSize(type)) {
     case 1:
@@ -3625,25 +3656,27 @@ void SpeculativeJIT::compilePutByValForIntTypedArray(GPRReg base, GPRReg propert
     noResult(node);
 }
 
-void SpeculativeJIT::compileGetByValOnFloatTypedArray(Node* node, TypedArrayType type, const ScopedLambda<std::tuple<JSValueRegs, DataFormat>(DataFormat preferredFormat)>& prefix)
+void SpeculativeJIT::compileGetByValOnFloatTypedArray(Node* node, TypedArrayType type, const ScopedLambda<std::tuple<JSValueRegs, DataFormat, CanUseFlush>(DataFormat preferredFormat)>& prefix)
 {
     ASSERT(isFloat(type));
     
     SpeculateCellOperand base(this, m_graph.varArgChild(node, 0));
     SpeculateStrictInt32Operand property(this, m_graph.varArgChild(node, 1));
     StorageOperand storage(this, m_graph.varArgChild(node, 2));
+    GPRTemporary scratch(this);
+    FPRTemporary result(this);
 
     GPRReg baseReg = base.gpr();
     GPRReg propertyReg = property.gpr();
     GPRReg storageReg = storage.gpr();
+    GPRReg scratchGPR = scratch.gpr();
+    FPRReg resultReg = result.fpr();
 
     JSValueRegs resultRegs;
     DataFormat format;
-    std::tie(resultRegs, format) = prefix(DataFormatDouble);
+    std::tie(resultRegs, format, std::ignore) = prefix(DataFormatDouble);
 
-    FPRTemporary result(this);
-    FPRReg resultReg = result.fpr();
-    emitTypedArrayBoundsCheck(node, baseReg, propertyReg);
+    emitTypedArrayBoundsCheck(node, baseReg, propertyReg, scratchGPR);
     switch (elementSize(type)) {
     case 4:
         m_jit.loadFloat(MacroAssembler::BaseIndex(storageReg, propertyReg, MacroAssembler::TimesFour), resultReg);
@@ -3677,10 +3710,12 @@ void SpeculativeJIT::compilePutByValForFloatTypedArray(GPRReg base, GPRReg prope
 
     SpeculateDoubleOperand valueOp(this, valueUse);
     FPRTemporary scratch(this);
+    GPRTemporary gpScratch(this);
     FPRReg valueFPR = valueOp.fpr();
     FPRReg scratchFPR = scratch.fpr();
+    GPRReg scratchGPR = gpScratch.gpr();
 
-    MacroAssembler::Jump outOfBounds = jumpForTypedArrayOutOfBounds(node, base, property);
+    MacroAssembler::Jump outOfBounds = jumpForTypedArrayOutOfBounds(node, base, property, scratchGPR);
     
     switch (elementSize(type)) {
     case 4: {
@@ -3702,7 +3737,7 @@ void SpeculativeJIT::compilePutByValForFloatTypedArray(GPRReg base, GPRReg prope
     noResult(node);
 }
 
-void SpeculativeJIT::compileGetByValForObjectWithString(Node* node, const ScopedLambda<std::tuple<JSValueRegs, DataFormat>(DataFormat preferredFormat)>& prefix)
+void SpeculativeJIT::compileGetByValForObjectWithString(Node* node, const ScopedLambda<std::tuple<JSValueRegs, DataFormat, CanUseFlush>(DataFormat preferredFormat)>& prefix)
 {
     SpeculateCellOperand arg1(this, m_graph.varArgChild(node, 0));
     SpeculateCellOperand arg2(this, m_graph.varArgChild(node, 1));
@@ -3711,19 +3746,25 @@ void SpeculativeJIT::compileGetByValForObjectWithString(Node* node, const Scoped
     GPRReg arg2GPR = arg2.gpr();
 
     JSValueRegs resultRegs;
-    std::tie(resultRegs, std::ignore) = prefix(DataFormatJS);
+    CanUseFlush canUseFlush = CanUseFlush::Yes;
+    std::tie(resultRegs, std::ignore, canUseFlush) = prefix(DataFormatJS);
 
     speculateObject(m_graph.varArgChild(node, 0), arg1GPR);
     speculateString(m_graph.varArgChild(node, 1), arg2GPR);
 
-    flushRegisters();
+    if (canUseFlush == CanUseFlush::No)
+        silentSpillAllRegisters(resultRegs);
+    else
+        flushRegisters();
     callOperation(operationGetByValObjectString, resultRegs, TrustedImmPtr::weakPointer(m_graph, m_graph.globalObjectFor(node->origin.semantic)), arg1GPR, arg2GPR);
+    if (canUseFlush == CanUseFlush::No)
+        silentFillAllRegisters();
     m_jit.exceptionCheck();
 
     jsValueResult(resultRegs, node);
 }
 
-void SpeculativeJIT::compileGetByValForObjectWithSymbol(Node* node, const ScopedLambda<std::tuple<JSValueRegs, DataFormat>(DataFormat preferredFormat)>& prefix)
+void SpeculativeJIT::compileGetByValForObjectWithSymbol(Node* node, const ScopedLambda<std::tuple<JSValueRegs, DataFormat, CanUseFlush>(DataFormat preferredFormat)>& prefix)
 {
     SpeculateCellOperand arg1(this, m_graph.varArgChild(node, 0));
     SpeculateCellOperand arg2(this, m_graph.varArgChild(node, 1));
@@ -3732,13 +3773,19 @@ void SpeculativeJIT::compileGetByValForObjectWithSymbol(Node* node, const Scoped
     GPRReg arg2GPR = arg2.gpr();
 
     JSValueRegs resultRegs;
-    std::tie(resultRegs, std::ignore) = prefix(DataFormatJS);
+    CanUseFlush canUseFlush = CanUseFlush::Yes;
+    std::tie(resultRegs, std::ignore, canUseFlush) = prefix(DataFormatJS);
 
     speculateObject(m_graph.varArgChild(node, 0), arg1GPR);
     speculateSymbol(m_graph.varArgChild(node, 1), arg2GPR);
 
-    flushRegisters();
+    if (canUseFlush == CanUseFlush::No)
+        silentSpillAllRegisters(resultRegs);
+    else
+        flushRegisters();
     callOperation(operationGetByValObjectSymbol, resultRegs, TrustedImmPtr::weakPointer(m_graph, m_graph.globalObjectFor(node->origin.semantic)), arg1GPR, arg2GPR);
+    if (canUseFlush == CanUseFlush::No)
+        silentFillAllRegisters();
     m_jit.exceptionCheck();
 
     jsValueResult(resultRegs, node);
@@ -7930,7 +7977,7 @@ void SpeculativeJIT::cageTypedArrayStorage(GPRReg baseReg, GPRReg storageReg, bo
 {
     auto untagArrayPtr = [&]() {
 #if CPU(ARM64E)
-        m_jit.untagArrayPtrLength32(MacroAssembler::Address(baseReg, JSArrayBufferView::offsetOfLength()), storageReg, validateAuth);
+        m_jit.untagArrayPtrLength64(MacroAssembler::Address(baseReg, JSArrayBufferView::offsetOfLength()), storageReg, validateAuth);
 #else
         UNUSED_PARAM(validateAuth);
         UNUSED_PARAM(baseReg);
@@ -8002,9 +8049,6 @@ void SpeculativeJIT::compileGetTypedArrayByteOffset(Node* node)
     GPRReg baseGPR = base.gpr();
     GPRReg vectorGPR = vector.gpr();
     GPRReg dataGPR = data.gpr();
-    ASSERT(baseGPR != vectorGPR);
-    ASSERT(baseGPR != dataGPR);
-    ASSERT(vectorGPR != dataGPR);
 
     GPRReg arrayBufferGPR = dataGPR;
 
@@ -8046,10 +8090,15 @@ void SpeculativeJIT::compileGetTypedArrayByteOffset(Node* node)
     nullVector.link(&m_jit);
 #endif
 
+#if USE(LARGE_TYPED_ARRAYS)
+    // AI promises that the result of GetTypedArrayByteOffset will be Int32, so we must uphold that promise here.
+    speculationCheck(Overflow, JSValueRegs(), nullptr, m_jit.branch32(MacroAssembler::Above, vectorGPR, TrustedImm32(std::numeric_limits<int32_t>::max())));
+#endif
+
     strictInt32Result(vectorGPR, node);
 }
 
-void SpeculativeJIT::compileGetByValOnDirectArguments(Node* node, const ScopedLambda<std::tuple<JSValueRegs, DataFormat>(DataFormat preferredFormat)>& prefix)
+void SpeculativeJIT::compileGetByValOnDirectArguments(Node* node, const ScopedLambda<std::tuple<JSValueRegs, DataFormat, CanUseFlush>(DataFormat preferredFormat)>& prefix)
 {
     SpeculateCellOperand base(this, m_graph.varArgChild(node, 0));
     SpeculateStrictInt32Operand property(this, m_graph.varArgChild(node, 1));
@@ -8058,7 +8107,7 @@ void SpeculativeJIT::compileGetByValOnDirectArguments(Node* node, const ScopedLa
     GPRReg propertyReg = property.gpr();
 
     JSValueRegs resultRegs;
-    std::tie(resultRegs, std::ignore) = prefix(DataFormatJS);
+    std::tie(resultRegs, std::ignore, std::ignore) = prefix(DataFormatJS);
     GPRReg scratchReg = resultRegs.payloadGPR();
     
     if (!m_compileOkay)
@@ -8090,7 +8139,7 @@ void SpeculativeJIT::compileGetByValOnDirectArguments(Node* node, const ScopedLa
     jsValueResult(resultRegs, node);
 }
 
-void SpeculativeJIT::compileGetByValOnScopedArguments(Node* node, const ScopedLambda<std::tuple<JSValueRegs, DataFormat>(DataFormat preferredFormat)>& prefix)
+void SpeculativeJIT::compileGetByValOnScopedArguments(Node* node, const ScopedLambda<std::tuple<JSValueRegs, DataFormat, CanUseFlush>(DataFormat preferredFormat)>& prefix)
 {
     SpeculateCellOperand base(this, m_graph.varArgChild(node, 0));
     SpeculateStrictInt32Operand property(this, m_graph.varArgChild(node, 1));
@@ -8106,7 +8155,7 @@ void SpeculativeJIT::compileGetByValOnScopedArguments(Node* node, const ScopedLa
         return;
 
     JSValueRegs resultRegs;
-    std::tie(resultRegs, std::ignore) = prefix(DataFormatJS);
+    std::tie(resultRegs, std::ignore, std::ignore) = prefix(DataFormatJS);
     
     m_jit.loadPtr(
         MacroAssembler::Address(baseReg, ScopedArguments::offsetOfStorage()), resultRegs.payloadGPR());
@@ -8312,11 +8361,17 @@ void SpeculativeJIT::compileGetArrayLength(Node* node)
         GPRTemporary result(this, Reuse, base);
         GPRReg baseGPR = base.gpr();
         GPRReg resultGPR = result.gpr();
+#if USE(LARGE_TYPED_ARRAYS)
+        m_jit.load64(MacroAssembler::Address(baseGPR, JSArrayBufferView::offsetOfLength()), resultGPR);
+        speculationCheck(Overflow, JSValueSource(), nullptr, m_jit.branch64(MacroAssembler::Above, resultGPR, TrustedImm64(std::numeric_limits<int32_t>::max())));
+#else
         m_jit.load32(MacroAssembler::Address(baseGPR, JSArrayBufferView::offsetOfLength()), resultGPR);
+#endif
         strictInt32Result(resultGPR, node);
         break;
     } }
 }
+
 
 void SpeculativeJIT::compileCheckIdent(Node* node)
 {
@@ -11081,10 +11136,24 @@ void SpeculativeJIT::compileNewTypedArrayWithSize(Node* node)
     auto typedArrayType = node->typedArrayType();
     RegisteredStructure structure = m_jit.graph().registerStructure(globalObject->typedArrayStructureConcurrently(typedArrayType));
     RELEASE_ASSERT(structure.get());
-    
+
+#if USE(LARGE_TYPED_ARRAYS)
+    // The operations we call on the slow path expect a intptr_t, so int64_t on 64 bit platforms
+    SpeculateInt32Operand size(this, node->child1());
+    GPRTemporary scratch(this);
+    GPRReg sizeGPR = size.gpr();
+    GPRReg scratchGPR = scratch.gpr();
+    m_jit.signExtend32ToPtr(sizeGPR, scratchGPR);
+    emitNewTypedArrayWithSizeInRegister(node, typedArrayType, structure, scratchGPR);
+#else
     SpeculateInt32Operand size(this, node->child1());
     GPRReg sizeGPR = size.gpr();
-    
+    emitNewTypedArrayWithSizeInRegister(node, typedArrayType, structure, sizeGPR);
+#endif
+}
+
+void SpeculativeJIT::emitNewTypedArrayWithSizeInRegister(Node* node, TypedArrayType typedArrayType, RegisteredStructure structure, GPRReg sizeGPR)
+{
     GPRTemporary result(this);
     GPRTemporary storage(this);
     GPRTemporary scratch(this);
@@ -11098,8 +11167,15 @@ void SpeculativeJIT::compileNewTypedArrayWithSize(Node* node)
     
     m_jit.move(TrustedImmPtr(nullptr), storageGPR);
 
+#if USE(LARGE_TYPED_ARRAYS)
+    slowCases.append(m_jit.branch64(
+        MacroAssembler::Above, sizeGPR, TrustedImm64(JSArrayBufferView::fastSizeLimit)));
+    // We assume through the rest of the fast path that the size is a 32-bit number.
+    static_assert(isInBounds<int32_t>(JSArrayBufferView::fastSizeLimit));
+#else
     slowCases.append(m_jit.branch32(
         MacroAssembler::Above, sizeGPR, TrustedImm32(JSArrayBufferView::fastSizeLimit)));
+#endif
     
     m_jit.move(sizeGPR, scratchGPR);
     m_jit.lshift32(TrustedImm32(logElementSize(typedArrayType)), scratchGPR);
@@ -11155,9 +11231,15 @@ void SpeculativeJIT::compileNewTypedArrayWithSize(Node* node)
     m_jit.storePtr(
         storageGPR,
         MacroAssembler::Address(resultGPR, JSArrayBufferView::offsetOfVector()));
+#if USE(LARGE_TYPED_ARRAYS)
+    m_jit.store64(
+        sizeGPR,
+        MacroAssembler::Address(resultGPR, JSArrayBufferView::offsetOfLength()));
+#else
     m_jit.store32(
         sizeGPR,
         MacroAssembler::Address(resultGPR, JSArrayBufferView::offsetOfLength()));
+#endif
     m_jit.store32(
         TrustedImm32(FastTypedArray),
         MacroAssembler::Address(resultGPR, JSArrayBufferView::offsetOfMode()));
@@ -13629,9 +13711,9 @@ void SpeculativeJIT::compileEnumeratorGetByVal(Node* node)
         JSValueRegs resultRegs;
         GPRReg indexGPR;
         GPRReg enumeratorGPR;
-        MacroAssembler::Jump badStructureSlowPath;
+        MacroAssembler::JumpList recoverGenericCase;
 
-        compileGetByVal(node, scopedLambda<std::tuple<JSValueRegs, DataFormat>(DataFormat)>([&] (DataFormat) {
+        compileGetByVal(node, scopedLambda<std::tuple<JSValueRegs, DataFormat, CanUseFlush>(DataFormat)>([&] (DataFormat) {
             Edge storageEdge = m_graph.varArgChild(node, 2);
             StorageOperand storage;
             if (storageEdge)
@@ -13658,12 +13740,15 @@ void SpeculativeJIT::compileEnumeratorGetByVal(Node* node)
                 storageGPR = storage.gpr();
 
             MacroAssembler::JumpList notFastNamedCases;
+            // FIXME: Maybe we should have a better way to represent IndexedMode+OwnStructureMode?
+            bool indexedAndOwnStructureMode = m_graph.varArgChild(node, 1).node() == m_graph.varArgChild(node, 3).node();
+            MacroAssembler::JumpList& genericOrRecoverCase = indexedAndOwnStructureMode ? recoverGenericCase : notFastNamedCases;
 
             // FIXME: We shouldn't generate this code if we know base is not an object.
             notFastNamedCases.append(m_jit.branchTest32(MacroAssembler::NonZero, modeGPR, TrustedImm32(JSPropertyNameEnumerator::IndexedMode | JSPropertyNameEnumerator::GenericMode)));
             {
                 if (!m_state.forNode(baseEdge).isType(SpecCell))
-                    notFastNamedCases.append(m_jit.branchIfNotCell(baseCellGPR));
+                    genericOrRecoverCase.append(m_jit.branchIfNotCell(baseCellGPR));
 
                 // Check the structure
                 // FIXME: If we know there's only one structure for base we can just embed it here.
@@ -13675,11 +13760,7 @@ void SpeculativeJIT::compileEnumeratorGetByVal(Node* node)
                     MacroAssembler::Address(
                         enumeratorGPR, JSPropertyNameEnumerator::cachedStructureIDOffset()));
 
-                // FIXME: Maybe we should have a better way to represent Indexed+Named?
-                if (m_graph.varArgChild(node, 1).node() == m_graph.varArgChild(node, 3).node())
-                    badStructureSlowPath = badStructure;
-                else
-                    notFastNamedCases.append(badStructure);
+                genericOrRecoverCase.append(badStructure);
 
                 // Compute the offset
                 // If index is less than the enumerator's cached inline storage, then it's an inline access
@@ -13704,15 +13785,15 @@ void SpeculativeJIT::compileEnumeratorGetByVal(Node* node)
             }
 
             notFastNamedCases.link(&m_jit);
-            return std::make_pair(resultRegs, DataFormatJS);
+            return std::tuple { resultRegs, DataFormatJS, CanUseFlush::No };
         }));
 
         // We rely on compileGetByVal to call jsValueResult for us.
         // FIXME: This is kinda hacky...
         ASSERT(generationInfo(node).jsValueRegs() == resultRegs && generationInfo(node).registerFormat() == DataFormatJS);
 
-        if (badStructureSlowPath.isSet())
-            addSlowPathGenerator(slowPathCall(badStructureSlowPath, this, operationEnumeratorRecoverNameAndGetByVal, resultRegs, TrustedImmPtr::weakPointer(m_graph, m_graph.globalObjectFor(node->origin.semantic)), baseCellGPR, indexGPR, enumeratorGPR));
+        if (!recoverGenericCase.empty())
+            addSlowPathGenerator(slowPathCall(recoverGenericCase, this, operationEnumeratorRecoverNameAndGetByVal, resultRegs, TrustedImmPtr::weakPointer(m_graph, m_graph.globalObjectFor(node->origin.semantic)), baseCellGPR, indexGPR, enumeratorGPR));
 
         doneCases.link(&m_jit);
     };
@@ -14200,6 +14281,11 @@ void SpeculativeJIT::compileNewTypedArray(Node* node)
     case Int32Use:
         compileNewTypedArrayWithSize(node);
         break;
+#if USE(LARGE_TYPED_ARRAYS)
+    case Int52RepUse:
+        compileNewTypedArrayWithInt52Size(node);
+        break;
+#endif
     case UntypedUse: {
         JSValueOperand argument(this, node->child1());
         JSValueRegs argumentRegs = argument.jsValueRegs();
@@ -15227,11 +15313,15 @@ void SpeculativeJIT::compileAllocateNewArrayWithSize(JSGlobalObject* globalObjec
 
 void SpeculativeJIT::compileHasIndexedProperty(Node* node, S_JITOperation_GCZ slowPathOperation, const ScopedLambda<std::tuple<GPRReg, GPRReg>()>& prefix)
 {
-    SpeculateCellOperand base(this, m_graph.varArgChild(node, 0));
+    auto baseEdge = m_graph.varArgChild(node, 0);
+    SpeculateCellOperand base(this, baseEdge);
 
     GPRReg baseGPR = base.gpr();
     GPRReg indexGPR = InvalidGPRReg;
     GPRReg resultGPR = InvalidGPRReg;
+
+    if (baseEdge.useKind() == ObjectUse)
+        speculateObject(baseEdge, baseGPR);
 
     MacroAssembler::JumpList slowCases;
     ArrayMode mode = node->arrayMode();

@@ -49,7 +49,7 @@
 #include <regex.h>
 #include <errno.h>
 #include <time.h>
-#include "xar.h"
+#include "xar_internal.h"
 #include "config.h"
 #include "filetree.h"
 #include "util.h"

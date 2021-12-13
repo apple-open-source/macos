@@ -26,7 +26,6 @@ CKKSKeyClass* const SecCKKSKeyClassA = (CKKSKeyClass*) @"classA";
 CKKSKeyClass* const SecCKKSKeyClassC = (CKKSKeyClass*) @"classC";
 
 NSString* SecCKKSContainerName = @"com.apple.security.keychain";
-bool SecCKKSContainerUsePCS = false;
 
 NSString* const SecCKKSSubscriptionID = @"keychain-changes";
 NSString* const SecCKKSAPSNamedPort = @"com.apple.securityd.aps";

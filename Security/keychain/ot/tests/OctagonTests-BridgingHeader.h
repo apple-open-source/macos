@@ -95,3 +95,6 @@
 #import "keychain/ot/proto/generated_source/OTEscrowRecordMetadata.h"
 #import "keychain/ot/proto/generated_source/OTEscrowRecordMetadataClientMetadata.h"
 
+#import "keychain/keychainupgrader/KeychainItemUpgradeRequestServer.h"
+#import "keychain/keychainupgrader/KeychainItemUpgradeRequestController.h"
+#import "keychain/keychainupgrader/KeychainItemUpgradeRequestServerHelpers.h"

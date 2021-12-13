@@ -59,6 +59,7 @@
 #include "WebConnectionToUIProcess.h"
 #include "WebCookieJar.h"
 #include "WebCoreArgumentCoders.h"
+#include "WebFileSystemStorageConnection.h"
 #include "WebFrame.h"
 #include "WebFrameNetworkingContext.h"
 #include "WebGamepadProvider.h"
@@ -126,9 +127,11 @@
 #include <WebCore/ProcessWarming.h>
 #include <WebCore/RegistrableDomain.h>
 #include <WebCore/RemoteCommandListener.h>
+#include <WebCore/ReportingEndpointsCache.h>
 #include <WebCore/ResourceLoadStatistics.h>
 #include <WebCore/RuntimeApplicationChecks.h>
 #include <WebCore/RuntimeEnabledFeatures.h>
+#include <WebCore/ScriptExecutionContext.h>
 #include <WebCore/SecurityOrigin.h>
 #include <WebCore/ServiceWorkerContextData.h>
 #include <WebCore/Settings.h>
@@ -273,6 +276,7 @@ WebProcess::WebProcess()
     , m_cacheStorageProvider(WebCacheStorageProvider::create())
     , m_broadcastChannelRegistry(WebBroadcastChannelRegistry::create())
     , m_cookieJar(WebCookieJar::create())
+    , m_reportingEndpointsCache(ReportingEndpointsCache::create())
     , m_dnsPrefetchHystereris([this](PAL::HysteresisState state) { if (state == PAL::HysteresisState::Stopped) m_dnsPrefetchedHosts.clear(); })
 #if ENABLE(NETSCAPE_PLUGIN_API)
     , m_pluginProcessConnectionManager(PluginProcessConnectionManager::create())
@@ -522,6 +526,8 @@ void WebProcess::initializeWebProcess(WebProcessCreationParameters&& parameters)
     WebCore::RuntimeEnabledFeatures::sharedFeatures().setAttrStyleEnabled(parameters.attrStyleEnabled);
     
     commonVM().setGlobalConstRedeclarationShouldThrow(parameters.shouldThrowExceptionForGlobalConstantRedeclaration);
+
+    ScriptExecutionContext::setCrossOriginMode(parameters.crossOriginMode);
 
 #if ENABLE(SERVICE_CONTROLS)
     setEnabledServices(parameters.hasImageServices, parameters.hasSelectionServices, parameters.hasRichContentServices);
@@ -1201,6 +1207,20 @@ void WebProcess::networkProcessConnectionClosed(NetworkProcessConnection* connec
             paymentCoordinator->networkProcessConnectionClosed();
 #endif
     }
+
+    // Recreate a new connection with valid IPC connection on next operation.
+    if (m_fileSystemStorageConnection) {
+        m_fileSystemStorageConnection->connectionClosed();
+        m_fileSystemStorageConnection = nullptr;
+    }
+}
+
+WebFileSystemStorageConnection& WebProcess::fileSystemStorageConnection()
+{
+    if (!m_fileSystemStorageConnection)
+        m_fileSystemStorageConnection = WebFileSystemStorageConnection::create(ensureNetworkProcessConnection().connection());
+
+    return *m_fileSystemStorageConnection;
 }
 
 WebLoaderStrategy& WebProcess::webLoaderStrategy()
@@ -1250,7 +1270,7 @@ GPUProcessConnection& WebProcess::ensureGPUProcessConnection()
         if (!IPC::Connection::identifierIsValid(connectionInfo.identifier()))
             CRASH();
 
-        m_gpuProcessConnection = GPUProcessConnection::create(connectionInfo.releaseIdentifier());
+        m_gpuProcessConnection = GPUProcessConnection::create(connectionInfo.releaseIdentifier(), connectionInfo.parameters);
 #if HAVE(AUDIT_TOKEN)
         ASSERT(connectionInfo.auditToken);
         m_gpuProcessConnection->setAuditToken(WTFMove(connectionInfo.auditToken));

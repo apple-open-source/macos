@@ -1055,8 +1055,8 @@ __private_extern__ void logASLMessageSleep(
 {
     aslmsg                  m;
     char                    uuidString[150];
-    char                    source[10];
     uint32_t                percentage = 0;
+    char                    source[10];
     char                    numbuf[15];
     bool                    success = true;
     char                    messageString[200];
@@ -1088,8 +1088,8 @@ __private_extern__ void logASLMessageSleep(
         snprintf(messageString, sizeof(messageString), "Failure during sleep: %s : %s", failureStr, (sig) ? sig : "");
     }
 
-    getPowerState(&pwrSrc, &percentage);
     INFO_LOG("%{public}s", messageString);
+    getPowerState(&pwrSrc, &percentage);
     m = new_msg_pmset_log();
     if (success) {
         asl_set(m, kPMASLDomainKey, kPMASLDomainPMSleep);
@@ -1141,9 +1141,9 @@ __private_extern__ void logASLMessageWake(
     char                    numbuf[15];
     CFStringRef             tmpStr = NULL;
     char                    claimed[255];
+    uint32_t                percentage = 0;
     char                    buf[200];
     char                    source[10];
-    uint32_t                percentage = 0;
     char                    wakeReasonBuf[512];
     char                    cBuf[50];
     const char *            detailString = NULL;

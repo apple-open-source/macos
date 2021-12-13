@@ -16,6 +16,7 @@
 #include "connection.h"
 #include "AuthorizationTags.h"
 #include "PreloginUserDb.h"
+#include "Authorization.h"
 
 #include <bsm/audit_kevents.h>
 #include <bsm/libbsm.h>
@@ -411,8 +412,7 @@ done:
     return status;
 }
 
-static OSStatus _server_authorize(connection_t conn, auth_token_t auth, AuthorizationFlags flags, auth_rights_t rights, auth_items_t environment, engine_t * engine_out)
-{
+OSStatus server_authorize(connection_t conn, auth_token_t auth, AuthorizationFlags flags, auth_rights_t rights, auth_items_t environment, engine_t * engine_out) {
     __block OSStatus status = errAuthorizationDenied;
     engine_t engine = NULL;
     
@@ -464,7 +464,7 @@ authorization_create(connection_t conn, xpc_object_t message, xpc_object_t reply
         process_add_auth_token(proc,auth);
     }
     
-    status = _server_authorize(conn, auth, flags, rights, environment, NULL);
+    status = server_authorize(conn, auth, flags, rights, environment, NULL);
     require_noerr(status, done);
     
     //reply
@@ -598,7 +598,7 @@ authorization_copy_rights(connection_t conn, xpc_object_t message, xpc_object_t 
     status = _process_find_copy_auth_token_from_xpc(proc, message, &auth);
     require_noerr_action_quiet(status, done, os_log_error(AUTHD_LOG, "copy_rights: no auth token"));
     
-    status = _server_authorize(conn, auth, flags, rights, environment, &engine);
+    status = server_authorize(conn, auth, flags, rights, environment, &engine);
 	require_noerr_action_quiet(status, done, os_log_error(AUTHD_LOG, "copy_rights: authorization failed"));
 
 	//reply
@@ -897,7 +897,7 @@ authorization_enable_smartcard(connection_t conn, xpc_object_t message, xpc_obje
 
     checkRight = auth_rights_create();
     auth_rights_add(checkRight, "config.modify.smartcard");
-    status = _server_authorize(conn, auth, kAuthorizationFlagDefaults | kAuthorizationFlagInteractionAllowed | kAuthorizationFlagExtendRights, checkRight, NULL, NULL);
+    status = server_authorize(conn, auth, kAuthorizationFlagDefaults | kAuthorizationFlagInteractionAllowed | kAuthorizationFlagExtendRights, checkRight, NULL, NULL);
     require_noerr(status, done);
 
     enable_smartcard = xpc_dictionary_get_bool(message, AUTH_XPC_DATA);

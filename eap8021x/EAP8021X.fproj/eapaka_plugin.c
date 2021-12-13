@@ -114,6 +114,7 @@ typedef struct {
     EAPSIMAKAPersistentStateRef		persist;
     bool				reauth_success;
     EAPSIMAKAEncryptedIdentityInfoRef	encrypted_identity_info;
+    bool 				oob_pseudonym_used;
     AKAStaticKeys			static_keys;
     uint8_t				pkt[1500];
 } EAPAKAContext, *EAPAKAContextRef;
@@ -591,6 +592,7 @@ eapaka_identity(EAPAKAContextRef context,
 	break;
     }
 
+    context->oob_pseudonym_used = FALSE;
     /* create our response */
     context->last_identity_type = identity_req_type;
     pkt = make_response_packet(context, in_pkt,
@@ -631,6 +633,7 @@ eapaka_identity(EAPAKAContextRef context,
 	identity_data = CFStringCreateExternalRepresentation(NULL, identity,
 							     kCFStringEncodingUTF8, 0);
 	EAPAKAContextSetLastIdentity(context, identity_data);
+	context->oob_pseudonym_used = TRUE;
     } else {
 	/* legacy */
 	CFStringRef identity = sim_identity_create(context->persist,
@@ -1522,17 +1525,35 @@ eapaka_init(EAPClientPluginDataRef plugin, CFArrayRef * require_props,
 	    EAPSIMAKAPersistentStateSetReauthIDUsed(context->persist, FALSE);
 	}
     }
+    Boolean is_temp_identity_available = (context->persist != NULL &&
+					 EAPSIMAKAPersistentStateTemporaryUsernameAvailable(context->persist));
+    Boolean is_privacy_protection_enabled = FALSE;
     if (plugin->encryptedEAPIdentity == NULL) {
-	Boolean is_privacy_protection_enabled;
+	Boolean is_oob_pseudonym_supported = FALSE;
 	context->encrypted_identity_info
 	= EAPSIMAKAInitEncryptedIdentityInfo(kEAPTypeEAPAKA, plugin->properties,
-					     static_config, &is_privacy_protection_enabled);
-	if (is_privacy_protection_enabled && context->encrypted_identity_info == NULL) {
-	    /* this means we failed to get encrypted-identity/oob-pseudonym from CT */
-	    EAPLOG(LOG_INFO, "EAP-AKA: failed to get privacy protected identity");
-	    EAPAKAContextFree(context);
-	    return (kEAPClientStatusResourceUnavailable);
+					     static_config, &is_privacy_protection_enabled,
+					     &is_oob_pseudonym_supported);
+	if (is_privacy_protection_enabled == TRUE && context->encrypted_identity_info == NULL) {
+	    Boolean failed = TRUE;
+	    if (is_temp_identity_available == TRUE && is_oob_pseudonym_supported == TRUE) {
+		/* we don't need out-of-band pseudonym as we have in-band pseudonym or fast re-auth id */
+		failed  = FALSE;
+		EAPLOG(LOG_INFO,
+		       "EAP-AKA: out-of-band pseudonym is not required as in-band pseudonym is available");
+	    }
+	    if (failed == TRUE) {
+		/* this means we failed to get encrypted-identity/oob-pseudonym from CT */
+		EAPLOG(LOG_ERR, "EAP-AKA: failed to get privacy protected identity");
+		EAPAKAContextFree(context);
+		return (kEAPClientStatusResourceUnavailable);
+	    }
 	}
+    }
+    if (is_privacy_protection_enabled == TRUE && context->encrypted_identity_info != NULL &&
+	context->encrypted_identity_info->oob_pseudonym != NULL && is_temp_identity_available == FALSE) {
+	context->oob_pseudonym_used = TRUE;
+	EAPLOG(LOG_INFO, "EAP-AKA: using out-of-band pseudonym as an identity");
     }
     context->plugin = plugin;
     plugin->private = context;
@@ -1573,6 +1594,11 @@ eapaka_process(EAPClientPluginDataRef plugin,
 	if (context->state == kEAPAKAClientStateSuccess) {
 	    context->plugin_state = kEAPClientStateSuccess;
 	    save_persistent_state(context);
+	    if (context->oob_pseudonym_used) {
+		/* request CT to refresh the out-of-band pseudonym */
+		EAPLOG(LOG_NOTICE, "eapaka: requesting out-of-band psuedonym refresh");
+		SIMReportDecryptionError(NULL);
+	    }
 	}
 	break;
     case kEAPCodeFailure:
@@ -1651,7 +1677,9 @@ eapaka_user_name_copy(CFDictionaryRef properties)
     CFStringRef				ret_identity = NULL;
     Boolean				static_config = TRUE;
     EAPSIMAKAEncryptedIdentityInfoRef	encrypted_identity_info = NULL;
-    Boolean 				is_privacy_protection_enabled;
+    Boolean 				is_privacy_protection_enabled = FALSE;
+    Boolean 				is_oob_pseudonym_supported = FALSE;
+    Boolean 				is_temp_identity_available = FALSE;
 
     imsi = copy_static_imsi(properties);
     if (imsi == NULL) {
@@ -1662,22 +1690,20 @@ eapaka_user_name_copy(CFDictionaryRef properties)
 	static_config = FALSE;
     }
     encrypted_identity_info = EAPSIMAKAInitEncryptedIdentityInfo(kEAPTypeEAPAKA, properties,
-								 static_config, &is_privacy_protection_enabled);
-    if (is_privacy_protection_enabled && encrypted_identity_info == NULL) {
-	/* this means we failed to get encrypted-identity/oob-pseudonym from CT */
-	EAPLOG(LOG_INFO, "EAP-AKA: failed to get privacy protected identity");
-	my_CFRelease(&imsi);
-	return NULL;
-    }
+								 static_config,
+								 &is_privacy_protection_enabled,
+								 &is_oob_pseudonym_supported);
     identity_type = S_get_identity_type(properties);
     persist = EAPSIMAKAPersistentStateCreate(kEAPTypeEAPAKA,
 					     CC_SHA1_DIGEST_LENGTH,
 					     imsi, identity_type, NULL);
     my_CFRelease(&imsi);
     if (persist != NULL) {
+	is_temp_identity_available = EAPSIMAKAPersistentStateTemporaryUsernameAvailable(persist);
 	if (encrypted_identity_info != NULL &&
 	    EAPSIMAKAPersistentStateTemporaryUsernameAvailable(persist) == FALSE) {
 	    if (encrypted_identity_info->oob_pseudonym) {
+		EAPLOG_FL(LOG_INFO, "EAP-AKA: using out-of-band pseudonym as an identity");
 		ret_identity = CFRetain(encrypted_identity_info->oob_pseudonym);
 	    } else {
 		/* we should send anonymous username in EAP-Response/Identity packet */
@@ -1707,6 +1733,20 @@ eapaka_user_name_copy(CFDictionaryRef properties)
 	    }
 	}
 	EAPSIMAKAPersistentStateRelease(persist);
+    }
+    if (is_privacy_protection_enabled == TRUE && encrypted_identity_info == NULL) {
+	Boolean failed = TRUE;
+	if (is_temp_identity_available == TRUE && is_oob_pseudonym_supported == TRUE) {
+	    /* we don't need out-of-band pseudonym as we have in-band pseudonym or fast re-auth id */
+	    failed  = FALSE;
+	    EAPLOG(LOG_INFO,
+		   "EAP-AKA: out-of-band pseudonym is not required as in-band pseudonym is available");
+	}
+	if (failed == TRUE) {
+	    /* this means we failed to get encrypted-identity/oob-pseudonym from CT */
+	    EAPLOG(LOG_ERR, "EAP-AKA: failed to get privacy protected identity");
+	    ret_identity = NULL;
+	}
     }
 done:
     EAPSIMAKAClearEncryptedIdentityInfo(encrypted_identity_info);

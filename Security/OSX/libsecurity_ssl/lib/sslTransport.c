@@ -626,3 +626,15 @@ SSLGetBufferedReadSize(SSLContextRef ctx,
 	}
 	return errSecSuccess;
 }
+
+bool SSLIsSessionNegotiatedWithUnsafeDH(SSLContextRef ctx)
+{
+    if (ctx == NULL) {
+        return false;
+    }
+    if (tls_handshake_get_session_warning(ctx->hdsk) == CCDH_SAFETY_CHECK) {
+        return true;
+    } else {
+        return false;
+    }
+}

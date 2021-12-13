@@ -103,7 +103,7 @@ public:
 #if ENABLE(VIDEO_PRESENTATION_MODE)
     void updateVideoFullscreenInlineImage();
     void setVideoFullscreenMode(WebCore::MediaPlayer::VideoFullscreenMode);
-    void videoFullscreenStandbyChanged();
+    void videoFullscreenStandbyChanged(bool);
 #endif
 
     void setBufferingPolicy(WebCore::MediaPlayer::BufferingPolicy);
@@ -311,7 +311,7 @@ private:
     void nativeImageForCurrentTime(CompletionHandler<void(std::optional<WTF::MachSendRight>&&)>&&);
 #endif
 #if USE(AVFOUNDATION)
-    void pixelBufferForCurrentTime(CompletionHandler<void(RetainPtr<CVPixelBufferRef>&&)>&&);
+    void pixelBufferForCurrentTimeIfChanged(CompletionHandler<void(std::optional<RetainPtr<CVPixelBufferRef>>&&)>&&);
 #endif
 
 #if !RELEASE_LOG_DISABLED
@@ -354,6 +354,8 @@ private:
 
     bool m_bufferedChanged { true };
     bool m_renderingCanBeAccelerated { false };
+    WebCore::MediaPlayer::VideoFullscreenMode m_fullscreenMode { WebCore::MediaPlayer::VideoFullscreenModeNone };
+    bool m_videoFullscreenStandby { false };
 
 #if ENABLE(LEGACY_ENCRYPTED_MEDIA) && ENABLE(ENCRYPTED_MEDIA)
     bool m_shouldContinueAfterKeyNeeded { false };
@@ -366,7 +368,9 @@ private:
     ScopedRenderingResourcesRequest m_renderingResourcesRequest;
 
     bool m_observingTimeChanges { false };
-
+#if USE(AVFOUNDATION)
+    RetainPtr<CVPixelBufferRef> m_pixelBufferForCurrentTime;
+#endif
 #if !RELEASE_LOG_DISABLED
     const Logger& m_logger;
 #endif

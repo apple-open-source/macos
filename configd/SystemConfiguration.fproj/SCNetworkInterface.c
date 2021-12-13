@@ -42,6 +42,8 @@
 #include "SCHelper_client.h"
 #include "plugin_shared.h"
 
+#define kIOIsEphemeralKey	"IsEphemeral"
+
 #if	!TARGET_OS_IPHONE
 #include <EAP8021X/EAPClientProperties.h>
 #else	// !TARGET_OS_IPHONE
@@ -133,6 +135,7 @@ enum {
 	kSortBond,
 	kSortBridge,
 	kSortVLAN,
+	kSortVMNET,
 	kSortUnknown
 };
 
@@ -159,6 +162,7 @@ static const char *sortOrderName[]	= {
 	"Bond",
 	"Bridge",
 	"VLAN",
+	"VMNET",
 	"Unknown"
 };
 
@@ -355,6 +359,9 @@ __SCNetworkInterfaceCopyFormattingDescription(CFTypeRef cf, CFDictionaryRef form
 		CFStringAppendFormat(result, NULL, CFSTR(", trust required = TRUE"));
 	}
 #endif	// TARGET_OS_IPHONE
+	if (interfacePrivate->isEphemeral) {
+		CFStringAppendFormat(result, NULL, CFSTR(", ephemeral"));
+	}
 	if (interfacePrivate->location != NULL) {
 		CFStringAppendFormat(result, NULL, CFSTR(", location = %@"), interfacePrivate->location);
 	}
@@ -1810,6 +1817,10 @@ processNetworkInterface(SCNetworkInterfacePrivateRef	interfacePrivate,
 							interfacePrivate->interface_type	= kSCNetworkInterfaceTypeEthernet;
 							interfacePrivate->entity_type		= kSCValNetInterfaceTypeEthernet;
 							interfacePrivate->sort_order		= kSortCarPlay;
+						} else if (CFEqual(val, CFSTR("VMNET"))) {
+							interfacePrivate->interface_type	= kSCNetworkInterfaceTypeEthernet;
+							interfacePrivate->entity_type		= kSCValNetInterfaceTypeEthernet;
+							interfacePrivate->sort_order		= kSortVMNET;
 						}
 					}
 
@@ -2545,25 +2556,29 @@ copyIORegistryProperties(io_registry_entry_t reg_ent, const CFStringRef *reg_key
 }
 
 static Boolean
-isHidden(CFTypeRef hidden)
+getBooleanValue(CFTypeRef t, Boolean default_value)
 {
-	int	val	= 0;
+	Boolean	ret = default_value;
 
-	// looks at the [passed] value of the hidden property
-	if (hidden == NULL) {
-		return FALSE;
+	if (t == NULL) {
+		// use default value
+	} else if (isA_CFBoolean(t) != NULL) {
+		ret =  CFBooleanGetValue(t);
 	}
+	else if (isA_CFNumber(t) != NULL) {
+		int	val;
 
-	if (isA_CFBoolean(hidden)) {
-		return CFBooleanGetValue(hidden);
-	} else if (isA_CFNumber(hidden)) {
-		if (CFNumberGetValue(hidden, kCFNumberIntType, (void *)&val) &&
-		    (val == 0)) {
-			return FALSE;
+		if (CFNumberGetValue(t, kCFNumberIntType, (void *)&val)) {
+			ret = (val != 0);
 		}
 	}
+	return ret;
+}
 
-	return TRUE;	// if not explicitly FALSE or 0
+static Boolean
+isHidden(CFTypeRef hidden)
+{
+	return getBooleanValue(hidden, FALSE);
 }
 
 static SCNetworkInterfaceRef
@@ -2594,7 +2609,8 @@ createInterface(io_registry_entry_t	interface,
 		CFSTR(kIOTTYDeviceKey),
 		CFSTR(kIOTTYBaseNameKey),
 		CFSTR(kIOSerialBSDTypeKey),
-		CFSTR(kIOLocation)
+		CFSTR(kIOLocation),
+		CFSTR(kIOIsEphemeralKey)
 	};
 
 	const CFStringRef controller_dict_keys[] = {
@@ -2660,6 +2676,13 @@ createInterface(io_registry_entry_t	interface,
 	interfacePrivate->hiddenInterface = hidden_interface;
 	interfacePrivate->path = __SC_IORegistryEntryCopyPath(interface, kIOServicePlane);
 	interfacePrivate->entryID = entryID;
+	if (interface_dict != NULL) {
+		CFTypeRef	is_ephemeral;
+
+		// set whether the interface is ephemeral
+		is_ephemeral = CFDictionaryGetValue(interface_dict, CFSTR(kIOIsEphemeralKey));
+		interfacePrivate->isEphemeral = getBooleanValue(is_ephemeral, FALSE);
+	}
 
 	// configuration [PPP, Modem, DNS, IPv4, IPv6, Proxies, SMB] template overrides
 	val = IORegistryEntrySearchCFProperty(interface,
@@ -7912,6 +7935,13 @@ _SCNetworkInterfaceIsCarPlay(SCNetworkInterfaceRef interface)
 	return (interfacePrivate->sort_order == kSortCarPlay);
 }
 
+Boolean
+_SCNetworkInterfaceIsVMNET(SCNetworkInterfaceRef interface)
+{
+	SCNetworkInterfacePrivateRef	interfacePrivate	= (SCNetworkInterfacePrivateRef)interface;
+
+	return (interfacePrivate->sort_order == kSortVMNET);
+}
 
 Boolean
 _SCNetworkInterfaceIsHiddenConfiguration(SCNetworkInterfaceRef interface)
@@ -8007,6 +8037,15 @@ _SCNetworkInterfaceIsThunderbolt(SCNetworkInterfaceRef interface)
 	}
 
 	return (interfacePrivate->sort_order == kSortThunderbolt);
+}
+
+
+Boolean
+_SCNetworkInterfaceIsEphemeral(SCNetworkInterfaceRef interface)
+{
+	SCNetworkInterfacePrivateRef	interfacePrivate	= (SCNetworkInterfacePrivateRef)interface;
+
+	return interfacePrivate->isEphemeral;
 }
 
 

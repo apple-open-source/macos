@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2017-2021 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -30,6 +30,7 @@
 
 #if USE(LIBWEBRTC)
 
+#import "CVUtilities.h"
 #import "Logging.h"
 #import "MediaSampleAVFObjC.h"
 #import "RealtimeVideoUtilities.h"
@@ -39,6 +40,7 @@ ALLOW_UNUSED_PARAMETERS_BEGIN
 #import <webrtc/sdk/WebKit/WebKitUtilities.h>
 ALLOW_UNUSED_PARAMETERS_END
 
+#import "CoreVideoSoftLink.h"
 #import <pal/cf/CoreMediaSoftLink.h>
 
 namespace WebCore {
@@ -98,10 +100,12 @@ CVPixelBufferPoolRef RealtimeIncomingVideoSourceCocoa::pixelBufferPool(size_t wi
         case webrtc::BufferType::I010:
             poolBufferType = kCVPixelFormatType_420YpCbCr10BiPlanarVideoRange;
         }
-        m_pixelBufferPool = createPixelBufferPool(width, height, poolBufferType);
-        m_pixelBufferPoolWidth = width;
-        m_pixelBufferPoolHeight = height;
-        m_pixelBufferPoolBufferType = bufferType;
+        if (auto pool = createIOSurfaceCVPixelBufferPool(width, height, poolBufferType)) {
+            m_pixelBufferPool = WTFMove(*pool);
+            m_pixelBufferPoolWidth = width;
+            m_pixelBufferPoolHeight = height;
+            m_pixelBufferPoolBufferType = bufferType;
+        }
     }
     return m_pixelBufferPool.get();
 }
@@ -117,8 +121,7 @@ RetainPtr<CVPixelBufferRef> RealtimeIncomingVideoSourceCocoa::pixelBufferFromVid
         return m_blackFrame.get();
     }
 
-    RetainPtr<CVPixelBufferRef> newPixelBuffer;
-    return webrtc::pixelBufferFromFrame(frame, [this, &newPixelBuffer](size_t width, size_t height, webrtc::BufferType bufferType) -> CVPixelBufferRef {
+    return adoptCF(webrtc::createPixelBufferFromFrame(frame, [this](size_t width, size_t height, webrtc::BufferType bufferType) -> CVPixelBufferRef {
         auto pixelBufferPool = this->pixelBufferPool(width, height, bufferType);
         if (!pixelBufferPool)
             return nullptr;
@@ -130,9 +133,8 @@ RetainPtr<CVPixelBufferRef> RealtimeIncomingVideoSourceCocoa::pixelBufferFromVid
             ERROR_LOG_IF(loggerPtr(), LOGIDENTIFIER, "Failed creating a pixel buffer with error ", status);
             return nullptr;
         }
-        newPixelBuffer = adoptCF(pixelBuffer);
-        return newPixelBuffer.get();
-    });
+        return pixelBuffer;
+    }));
 }
 
 void RealtimeIncomingVideoSourceCocoa::OnFrame(const webrtc::VideoFrame& frame)

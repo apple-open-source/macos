@@ -28,6 +28,7 @@
 #pragma once
 
 #include "ActiveDOMObject.h"
+#include "CrossOriginMode.h"
 #include "DOMTimer.h"
 #include "RTCDataChannelRemoteHandlerConnection.h"
 #include "ResourceLoaderOptions.h"
@@ -35,6 +36,7 @@
 #include "SecurityContext.h"
 #include "ServiceWorkerTypes.h"
 #include "Settings.h"
+#include "StorageConnection.h"
 #include <JavaScriptCore/ConsoleTypes.h>
 #include <JavaScriptCore/HandleTypes.h>
 #include <wtf/CrossThreadTask.h>
@@ -73,7 +75,6 @@ class MessagePort;
 class PublicURLManager;
 class RejectedPromiseTracker;
 class ResourceRequest;
-class SecurityOrigin;
 class SocketProvider;
 enum class ReferrerPolicy : uint8_t;
 enum class TaskSource : uint8_t;
@@ -171,6 +172,9 @@ public:
     virtual CSSValuePool& cssValuePool();
     virtual std::unique_ptr<FontLoadRequest> fontLoadRequest(String& url, bool isSVG, bool isInitiatingElementInUserAgentShadowTree, LoadedFromOpaqueSource);
     virtual void beginLoadingFontSoon(FontLoadRequest&) { }
+
+    WEBCORE_EXPORT static void setCrossOriginMode(CrossOriginMode);
+    static CrossOriginMode crossOriginMode();
 
     void ref() { refScriptExecutionContext(); }
     void deref() { derefScriptExecutionContext(); }

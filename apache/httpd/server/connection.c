@@ -139,18 +139,12 @@ AP_DECLARE(int) ap_start_lingering_close(conn_rec *c)
     ap_flush_conn(c);
 
 #ifdef NO_LINGCLOSE
-    apr_socket_close(csd);
     return 1;
 #else
     /* Shut down the socket for write, which will send a FIN
      * to the peer.
      */
-    if (c->aborted
-            || apr_socket_shutdown(csd, APR_SHUTDOWN_WRITE) != APR_SUCCESS) {
-        apr_socket_close(csd);
-        return 1;
-    }
-    return 0;
+    return (c->aborted || apr_socket_shutdown(csd, APR_SHUTDOWN_WRITE));
 #endif
 }
 
@@ -162,6 +156,7 @@ AP_DECLARE(void) ap_lingering_close(conn_rec *c)
     apr_socket_t *csd = ap_get_conn_socket(c);
 
     if (ap_start_lingering_close(c)) {
+        apr_socket_close(csd);
         return;
     }
 
@@ -207,13 +202,9 @@ AP_DECLARE(void) ap_lingering_close(conn_rec *c)
 
 AP_CORE_DECLARE(void) ap_process_connection(conn_rec *c, void *csd)
 {
-    int rc;
     ap_update_vhost_given_ip(c);
 
-    rc = ap_run_pre_connection(c, csd);
-    if (rc != OK && rc != DONE) {
-        c->aborted = 1;
-    }
+    ap_pre_connection(c, csd);
 
     if (!c->aborted) {
         ap_run_process_connection(c);

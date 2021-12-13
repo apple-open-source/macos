@@ -32,6 +32,9 @@
 #define MAX_TASKS 3
 #define MAX_TIMEOUTS 2
 #define TIMEOUT_BACKOFF 60 // 1 minute
+#define MAX_AGE_DEFAULT 60.0 * 60.0 * 24.0 * 1 // 1 day
+#define MAX_AGE_MIN 60.0 * 60.0 // 1 hour
+#define MAX_AGE_MAX 60.0 * 60.0 * 24.0 * 7 // 7 days
 
 /* There has got to be an easier way to do this.  For now we based this code
  on CFNetwork/Connection/URLResponse.cpp. */
@@ -346,12 +349,12 @@ NSString *kSecTrustRequestHeaderUUID = @"X-Apple-Request-UUID";
         }
 
         secdebug("http", "completed taskId %@", taskId);
-        context.expiration = 60.0 * 60.0 * 24.0 * 7; /* Default is 7 days */
+        context.maxAge = MAX_AGE_DEFAULT; /* Default is 1 days */
         if ([context.response length] > 0 && [[task response] isKindOfClass:[NSHTTPURLResponse class]]) {
             NSString *cacheControl = [[(NSHTTPURLResponse *)[task response] allHeaderFields] objectForKey:@"cache-control"];
             NSString *maxAge = CFBridgingRelease(copyParseMaxAge((__bridge CFStringRef)cacheControl));
-            if (maxAge && [maxAge doubleValue] > context.expiration) {
-                context.expiration = [maxAge doubleValue];
+            if (maxAge && ([maxAge doubleValue] >= MAX_AGE_MIN) && ([maxAge doubleValue] <= MAX_AGE_MAX)) {
+                context.maxAge = [maxAge doubleValue];
             }
         }
 

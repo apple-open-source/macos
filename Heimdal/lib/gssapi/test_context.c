@@ -294,6 +294,7 @@ wrapunwrap_iov(gss_ctx_id_t cctx, gss_ctx_id_t sctx, int flags, gss_OID mechoid)
     OM_uint32 min_stat, maj_stat;
     gss_qop_t qop_state;
     int conf_state, conf_state2;
+    bool uses_updated_spnego = false;
     gss_iov_buffer_desc iov[6];
     unsigned char *p;
     int iov_len;
@@ -393,7 +394,14 @@ wrapunwrap_iov(gss_ctx_id_t cctx, gss_ctx_id_t sctx, int flags, gss_OID mechoid)
 
     assert((size_t)(p - ((unsigned char *)token.data)) == token.length);
 
-    if ((flags & (USE_SIGN_ONLY|FORCE_IOV)) == 0) {
+    gss_buffer_set_t ds;
+    maj_stat = gss_inquire_sec_context_by_oid(&min_stat,
+					      sctx,
+					      GSS_C_PEER_HAS_UPDATED_SPNEGO,
+					      &ds);
+    uses_updated_spnego = (maj_stat == GSS_S_COMPLETE);
+
+    if (!uses_updated_spnego && (flags & (USE_SIGN_ONLY|FORCE_IOV)) == 0) {
 	gss_buffer_desc input, output;
 
 	input.value = token.data;

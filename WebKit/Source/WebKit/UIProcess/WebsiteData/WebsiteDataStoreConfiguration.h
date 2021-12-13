@@ -117,12 +117,18 @@ public:
     const String& resourceLoadStatisticsDirectory() const { return m_resourceLoadStatisticsDirectory; }
     void setResourceLoadStatisticsDirectory(String&& directory) { m_resourceLoadStatisticsDirectory = WTFMove(directory); }
 
+    const String& privateClickMeasurementStorageDirectory() const { return m_privateClickMeasurementStorageDirectory; }
+    void setPrivateClickMeasurementStorageDirectory(String&& directory) { m_privateClickMeasurementStorageDirectory = WTFMove(directory); }
+
     const String& networkCacheDirectory() const { return m_networkCacheDirectory; }
     void setNetworkCacheDirectory(String&& directory) { m_networkCacheDirectory = WTFMove(directory); }
     
     const String& cacheStorageDirectory() const { return m_cacheStorageDirectory; }
     void setCacheStorageDirectory(String&& directory) { m_cacheStorageDirectory = WTFMove(directory); }
-    
+
+    const String& generalStorageDirectory() const { return m_generalStorageDirectory; }
+    void setGeneralStorageDirectory(String&& directory) { m_generalStorageDirectory = WTFMove(directory); }
+
     const String& applicationCacheFlatFileSubdirectoryName() const { return m_applicationCacheFlatFileSubdirectoryName; }
     void setApplicationCacheFlatFileSubdirectoryName(String&& directory) { m_applicationCacheFlatFileSubdirectoryName = WTFMove(directory); }
     
@@ -178,6 +184,7 @@ private:
     IsPersistent m_isPersistent { IsPersistent::No };
 
     String m_cacheStorageDirectory;
+    String m_generalStorageDirectory;
     uint64_t m_perOriginStorageQuota { WebCore::StorageQuotaManager::defaultQuota() };
     String m_networkCacheDirectory;
     String m_applicationCacheDirectory;
@@ -201,6 +208,7 @@ private:
     String m_alternativeServicesDirectory;
     String m_deviceIdHashSaltsStorageDirectory;
     String m_resourceLoadStatisticsDirectory;
+    String m_privateClickMeasurementStorageDirectory;
     String m_javaScriptConfigurationDirectory;
     String m_cookieStorageFile;
     String m_sourceApplicationBundleIdentifier;
