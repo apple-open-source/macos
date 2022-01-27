@@ -311,6 +311,10 @@ skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
                                       contextID:(NSString*)contextID
                                           reply:(void (^)(NSError* _Nullable replyError))reply;
 
+- (void)tlkRecoverabilityForEscrowRecordData:(NSString* _Nullable)containerName
+                                   contextID:(NSString*)contextID
+                                  recordData:(NSData*)recordData
+                                       reply:(void (^)(NSArray<NSString*>* _Nullable views, NSError* _Nullable error))reply;
 @end
 
 NSXPCInterface* OTSetupControlProtocol(NSXPCInterface* interface);

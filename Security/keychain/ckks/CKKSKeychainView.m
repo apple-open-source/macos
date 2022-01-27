@@ -2435,6 +2435,34 @@
     reply(ret, nil);
 }
 
+- (void)pcsMirrorKeysForServices:(NSDictionary<NSNumber*,NSArray<NSData*>*>*)services reply:(void (^)(NSDictionary<NSNumber*,NSArray<NSData*>*>* _Nullable result, NSError* _Nullable error))reply
+{
+    WEAKIFY(self);
+    CKKSResultOperation* pcsMirrorKeysOp = [CKKSResultOperation named:@"pcs-mirror-keys" withBlock:^{
+        STRONGIFY(self);
+        [self dispatchSyncWithReadOnlySQLTransaction:^{
+            NSMutableDictionary<NSNumber*,NSArray<NSData*>*>* result = [[NSMutableDictionary alloc] init];
+            NSError* error = nil;
+
+            for (NSNumber* serviceNum in services) {
+                NSArray<NSData*>* mirrorKeys = [CKKSMirrorEntry pcsMirrorKeysForService:serviceNum matchingKeys:services[serviceNum] error:&error];
+                if (mirrorKeys) {
+                    result[serviceNum] = mirrorKeys;
+                } else {
+                    // Errors should not be typical, so bail immediately if we encounter one. */
+                    ckksnotice_global("ckks", "Error getting PCS key hash for service %@: %@", serviceNum, error);
+                    result = nil;
+                    break;
+                }
+            }
+
+            reply(result, error);
+        }];
+    }];
+
+    [self scheduleOperation:pcsMirrorKeysOp];
+}
+
 - (void)xpc24HrNotification
 {
     // Called roughly once every 24hrs
@@ -3331,6 +3359,33 @@
     }
 
     return YES;
+}
+
+- (NSArray<NSString*>*)viewsForPeerID:(NSString*)peerID error:(NSError**)error
+{
+    __block NSMutableArray<NSString*> *viewsForPeer = [NSMutableArray array];
+    __block NSError *localError = nil;
+    [self dispatchSyncWithReadOnlySQLTransaction:^{
+        for(CKKSKeychainViewState* viewState in self.operationDependencies.allViews) {
+            CKKSCurrentKeySet* keyset = [CKKSCurrentKeySet loadForZone:viewState.zoneID];
+            if (keyset.error) {
+                ckkserror("ckks", viewState.zoneID, "error loading keyset: %@", keyset.error);
+                localError = keyset.error;
+            } else {
+                if (keyset.currentTLKPointer.currentKeyUUID) {
+                    NSArray<CKKSTLKShareRecord*>* tlkShares = [CKKSTLKShareRecord allFor:peerID keyUUID:keyset.currentTLKPointer.currentKeyUUID zoneID:viewState.zoneID error:&localError];
+                    if (tlkShares && localError == nil) {
+                        [viewsForPeer addObject:viewState.zoneName];
+                    }
+                }
+            }
+        }
+    }];
+
+    if (error) {
+        *error = localError;
+    }
+    return viewsForPeer;
 }
 
 - (void)rpcStatus:(NSString* _Nullable)viewName

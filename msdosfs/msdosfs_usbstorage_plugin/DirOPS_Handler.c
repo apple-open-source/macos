@@ -3070,6 +3070,7 @@ DIROPS_DeInitDirClusterDataCache(FileSystemRecord_s *psFSRecord)
             free(psFSRecord->sDirClusterCache.sGlobalFAT12_16RootClusterrCache->puClusterData);
             free(psFSRecord->sDirClusterCache.sGlobalFAT12_16RootClusterrCache);
         }
+        psFSRecord->sDirClusterCache.bIsAllocated = false;
     }
 }
 
@@ -3083,6 +3084,7 @@ DIROPS_InitDirClusterDataCache(FileSystemRecord_s *psFSRecord)
     pthread_mutexattr_settype(&sAttr, PTHREAD_MUTEX_ERRORCHECK);
     pthread_mutex_init(&psFSRecord->sDirClusterCache.sDirClusterDataCacheMutex, &sAttr);
     pthread_cond_init(&psFSRecord->sDirClusterCache.sDirClusterCacheCond, NULL);
+    pthread_mutexattr_destroy(&sAttr);
     uint32_t uClusterSize = CLUSTER_SIZE(psFSRecord);
 
     for (int uIdx = 0; uIdx < DIR_CLUSTER_DATA_TABLE_MAX; uIdx++) {
@@ -3092,7 +3094,7 @@ DIROPS_InitDirClusterDataCache(FileSystemRecord_s *psFSRecord)
         {
             MSDOS_LOG(LEVEL_ERROR, "DIROPS_InitDirClusterDataCache failed to allocate memory.\n");
             iErr = ENOMEM;
-            break;
+            goto fail;
         }
         memset(psClusterData->puClusterData, 0, uClusterSize);
 
@@ -3140,15 +3142,27 @@ DIROPS_InitDirClusterDataCache(FileSystemRecord_s *psFSRecord)
     }
 
     psFSRecord->sDirClusterCache.uNumOfUnusedEntries = DIR_CLUSTER_DATA_TABLE_MAX;
+    psFSRecord->sDirClusterCache.bIsAllocated = true;
     goto exit;
 
 fail:
     //Need to free what we already managed to allocate
+    pthread_mutex_destroy(&psFSRecord->sDirClusterCache.sDirClusterDataCacheMutex);
+    pthread_cond_destroy(&psFSRecord->sDirClusterCache.sDirClusterCacheCond);
     for (int uIdx = 0; uIdx < DIR_CLUSTER_DATA_TABLE_MAX; uIdx++) {
         if (psFSRecord->sDirClusterCache.sDirClusterCacheData[uIdx].puClusterData) {
             free(psFSRecord->sDirClusterCache.sDirClusterCacheData[uIdx].puClusterData);
             psFSRecord->sDirClusterCache.sDirClusterCacheData[uIdx].puClusterData = NULL;
+            MultiReadSingleWrite_DeInit(&psFSRecord->sDirClusterCache.sDirClusterCacheData[uIdx].sCDLck);
         }
+    }
+
+    if (psFSRecord->sDirClusterCache.sGlobalFAT12_16RootClusterrCache) {
+        if (psFSRecord->sDirClusterCache.sGlobalFAT12_16RootClusterrCache->puClusterData) {
+            free(psFSRecord->sDirClusterCache.sGlobalFAT12_16RootClusterrCache->puClusterData);
+            MultiReadSingleWrite_DeInit(&psFSRecord->sDirClusterCache.sGlobalFAT12_16RootClusterrCache->sCDLck);
+        }
+        free(psFSRecord->sDirClusterCache.sGlobalFAT12_16RootClusterrCache);
     }
 exit:
     return iErr;

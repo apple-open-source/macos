@@ -36,6 +36,8 @@
 #include <IOKit/pwr_mgt/RootDomain.h>
 #include <IOKit/pci/IOAGPDevice.h>
 
+#include <stdatomic.h>
+
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 class IOPCIConfigurator;
 class IOPCIDevice;
@@ -57,6 +59,12 @@ typedef struct
     void * result;
     void * arg;
 } configOpParams;
+
+typedef struct
+{
+    IOService * provider;
+    uint8_t busNum;
+} probeBusParams;
 
 /*!
     @class IOPCIBridge
@@ -129,8 +137,7 @@ protected:
         struct IOPCIRange * rangeLists[kIOPCIResourceTypeCount];
         IOPCIMessagedInterruptController *messagedInterruptController;
         IOPCIHostBridgeData *hostBridgeData;
-        IOSimpleLock *lock; // Synchronizes access to 'started'
-        bool started;
+        atomic_bool readyToProbe;
     };
 
 /*! @var reserved
@@ -352,6 +359,9 @@ protected:
                                       IOByteCount         size);
 
 #endif
+
+private:
+    void probeBusGated( probeBusParams *params );
 };
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */

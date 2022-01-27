@@ -55,6 +55,8 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (int)performSilentEscrowRecovery:(NSString * _Nullable)container context:(NSString *)contextID appleID:(NSString *)appleID secret:(NSString *)secret;
 
+- (int)tlkRecoverability:(NSString * _Nullable)container context:(NSString *)contextID;
+
 - (int)setUserControllableViewsSyncStatus:(NSString * _Nullable)containerName
                                  contextID:(NSString *)contextID
                                    enabled:(BOOL)enabled;

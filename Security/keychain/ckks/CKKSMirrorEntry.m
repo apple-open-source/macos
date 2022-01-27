@@ -170,6 +170,25 @@
     return result;
 }
 
++ (NSArray<NSData*>*)pcsMirrorKeysForService:(NSNumber*)service matchingKeys:(NSArray<NSData*>*)matchingKeys error:(NSError * __autoreleasing *)error
+{
+    NSMutableArray<NSData*>* mirrorKeys = [[NSMutableArray alloc] initWithCapacity:matchingKeys.count];
+
+    [CKKSSQLDatabaseObject queryDatabaseTable:[self sqlTable]
+                                        where:@{ @"pcss" : service }
+                                      columns:@[ @"pcsk" ]
+                                      groupBy:nil
+                                      orderBy:@[ @"pcsk" ]
+                                        limit:0
+                                   processRow:^(NSDictionary<NSString*, CKKSSQLResult*>* row) {
+                                                  NSData *pcsk = row[@"pcsk"].asBase64DecodedData;
+                                                  if ([matchingKeys containsObject:pcsk]) {
+                                                      [mirrorKeys addObject:pcsk];
+                                                  }
+                                              }
+                                        error:error];
+    return mirrorKeys;
+}
 
 @end
 

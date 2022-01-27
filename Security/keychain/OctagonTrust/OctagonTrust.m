@@ -765,6 +765,49 @@ static NSString* localOTCKContainerName = @"com.apple.security.keychain";
 #endif
 }
 
+- (NSArray<NSString*>* _Nullable)tlkRecoverabilityForEscrowRecord:(OTEscrowRecord*)record error:(NSError**)error
+{
+#if OCTAGON
+    secnotice("octagon-tlk-recoverability", "tlkRecoverabiltyForEscrowRecord invoked for context:%@", self.ctx);
+    __block NSError* localError = nil;
+
+    OTControl *control = [self.ctx makeOTControl:&localError];
+    if (!control) {
+        secnotice("octagon-tlk-recoverability", "unable to create otcontrol: %@", localError);
+        if (error) {
+            *error = localError;
+        }
+        return nil;
+    }
+
+    __block NSArray<NSString *> * _Nullable views = nil;
+    
+    [control tlkRecoverabilityForEscrowRecordData:self.ctx.containerName contextID:self.ctx.context recordData:record.data reply:^(NSArray<NSString *> * _Nullable blockViews, NSError * _Nullable replyError) {
+        if(replyError) {
+            secnotice("octagon-tlk-recoverability", "tlkRecoverabilityForEscrowRecordData errored: %@", replyError);
+        } else {
+            secnotice("octagon-tlk-recoverability", "tlkRecoverabilityForEscrowRecordData succeeded");
+        }
+        views = blockViews;
+        localError = replyError;
+    }];
+    
+    if(error && localError) {
+        *error = localError;
+    }
+
+    secnotice("octagon-tlk-recoverability", "views %@ supported for record %@", views, record);
+
+    return views;
+
+#else
+    if (error) {
+        *error = [NSError errorWithDomain:NSOSStatusErrorDomain code:errSecUnimplemented userInfo:nil];
+    }
+    return nil;
+#endif
+}
+
 @end
 
 #endif

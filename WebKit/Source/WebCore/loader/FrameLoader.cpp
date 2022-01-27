@@ -1035,13 +1035,13 @@ String FrameLoader::outgoingOrigin() const
     return m_frame.document()->securityOrigin().toString();
 }
 
-bool FrameLoader::checkIfFormActionAllowedByCSP(const URL& url, bool didReceiveRedirectResponse) const
+bool FrameLoader::checkIfFormActionAllowedByCSP(const URL& url, bool didReceiveRedirectResponse, const URL& preRedirectURL) const
 {
     if (m_submittedFormURL.isEmpty())
         return true;
 
     auto redirectResponseReceived = didReceiveRedirectResponse ? ContentSecurityPolicy::RedirectResponseReceived::Yes : ContentSecurityPolicy::RedirectResponseReceived::No;
-    return m_frame.document()->contentSecurityPolicy()->allowFormAction(url, redirectResponseReceived);
+    return m_frame.document()->contentSecurityPolicy()->allowFormAction(url, redirectResponseReceived, preRedirectURL);
 }
 
 void FrameLoader::setOpener(Frame* opener)
@@ -1356,7 +1356,7 @@ void FrameLoader::loadURL(FrameLoadRequest&& frameLoadRequest, const String& ref
     if (!referrer.isEmpty())
         request.setHTTPReferrer(referrer);
 
-    updateRequestAndAddExtraFields(request, IsMainResource::Yes, newLoadType);
+    updateRequestAndAddExtraFields(request, IsMainResource::Yes, newLoadType, ShouldUpdateAppInitiatedValue::Yes, &frameLoadRequest.requester());
 
     ASSERT(newLoadType != FrameLoadType::Same);
 
@@ -2905,7 +2905,7 @@ ResourceRequestCachePolicy FrameLoader::defaultRequestCachingPolicy(const Resour
     return ResourceRequestCachePolicy::UseProtocolCachePolicy;
 }
 
-void FrameLoader::updateRequestAndAddExtraFields(ResourceRequest& request, IsMainResource mainResource, FrameLoadType loadType, ShouldUpdateAppInitiatedValue shouldUpdate)
+void FrameLoader::updateRequestAndAddExtraFields(ResourceRequest& request, IsMainResource mainResource, FrameLoadType loadType, ShouldUpdateAppInitiatedValue shouldUpdate, Document* initiator)
 {
     // If the request came from a previous process due to process-swap-on-navigation then we should not modify the request.
     if (m_currentLoadContinuingState == LoadContinuingState::ContinuingWithRequest)
@@ -2923,14 +2923,16 @@ void FrameLoader::updateRequestAndAddExtraFields(ResourceRequest& request, IsMai
     }
 
     if (request.isSameSiteUnspecified()) {
-        auto* initiator = m_frame.document();
-        if (isMainResource) {
-            auto* ownerFrame = m_frame.tree().parent();
-            if (!ownerFrame && m_stateMachine.isDisplayingInitialEmptyDocument())
-                ownerFrame = m_opener.get();
-            if (ownerFrame)
-                initiator = ownerFrame->document();
-            ASSERT(ownerFrame || m_frame.isMainFrame());
+        if (!initiator) {
+            initiator = m_frame.document();
+            if (isMainResource) {
+                auto* ownerFrame = m_frame.tree().parent();
+                if (!ownerFrame && m_stateMachine.isDisplayingInitialEmptyDocument())
+                    ownerFrame = m_opener.get();
+                if (ownerFrame)
+                    initiator = ownerFrame->document();
+                ASSERT(ownerFrame || m_frame.isMainFrame());
+            }
         }
         addSameSiteInfoToRequestIfNeeded(request, initiator);
     }
@@ -3064,7 +3066,7 @@ void FrameLoader::loadPostRequest(FrameLoadRequest&& request, const String& refe
     workingResourceRequest.setHTTPMethod("POST");
     workingResourceRequest.setHTTPBody(inRequest.httpBody());
     workingResourceRequest.setHTTPContentType(contentType);
-    updateRequestAndAddExtraFields(workingResourceRequest, IsMainResource::Yes, loadType);
+    updateRequestAndAddExtraFields(workingResourceRequest, IsMainResource::Yes, loadType, ShouldUpdateAppInitiatedValue::Yes, &request.requester());
 
     if (Document* document = m_frame.document())
         document->contentSecurityPolicy()->upgradeInsecureRequestIfNeeded(workingResourceRequest, ContentSecurityPolicy::InsecureRequestType::Load);
@@ -4030,14 +4032,14 @@ void FrameLoader::dispatchDidCommitLoad(std::optional<HasInsecureContent> initia
 
     m_client->dispatchDidCommitLoad(initialHasInsecureContent, initialUsedLegacyTLS);
 
-    if (m_frame.isMainFrame())
-        m_frame.page()->didCommitLoad();
+    if (auto* page = m_frame.page(); page && m_frame.isMainFrame())
+        page->didCommitLoad();
 
     InspectorInstrumentation::didCommitLoad(m_frame, m_documentLoader.get());
 
 #if ENABLE(REMOTE_INSPECTOR)
-    if (m_frame.isMainFrame())
-        m_frame.page()->remoteInspectorInformationDidChange();
+    if (auto* page = m_frame.page(); page && m_frame.isMainFrame())
+        page->remoteInspectorInformationDidChange();
 #endif
 }
 

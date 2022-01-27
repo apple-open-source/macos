@@ -43,7 +43,6 @@
 
 
 
-
 #pragma mark ComputerName
 
 
@@ -416,6 +415,7 @@ SCDynamicStoreCopyLocalHostName(SCDynamicStoreRef store)
 	CFDictionaryRef		dict		= NULL;
 	CFStringRef		key;
 	CFStringRef		name		= NULL;
+
 
 	key  = SCDynamicStoreKeyCreateHostNames(NULL);
 	dict = SCDynamicStoreCopyValue(store, key);

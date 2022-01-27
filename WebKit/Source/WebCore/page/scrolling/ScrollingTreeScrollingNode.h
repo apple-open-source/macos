@@ -45,6 +45,7 @@ class WEBCORE_EXPORT ScrollingTreeScrollingNode : public ScrollingTreeNode {
     friend class ScrollingTreeScrollingNodeDelegateMac;
 #endif
     friend class ScrollingTree;
+    friend class ThreadedScrollingTree;
 
 public:
     virtual ~ScrollingTreeScrollingNode();
@@ -120,13 +121,17 @@ protected:
     virtual void willDoProgrammaticScroll(const FloatPoint&) { }
     
     virtual FloatPoint adjustedScrollPosition(const FloatPoint&, ScrollClamping = ScrollClamping::Clamped) const;
-
+    bool momentumScrollingAnimatorEnabled() const;
+    
     virtual void currentScrollPositionChanged(ScrollType, ScrollingLayerPositionAction = ScrollingLayerPositionAction::Sync);
     virtual void updateViewportForCurrentScrollPosition(std::optional<FloatRect> = { }) { }
     virtual bool scrollPositionAndLayoutViewportMatch(const FloatPoint& position, std::optional<FloatRect> overrideLayoutViewport);
 
     virtual void repositionScrollingLayers() { }
     virtual void repositionRelatedLayers() { }
+    
+    void updateScrollPositionAtLastDisplayRefresh();
+    std::optional<FloatPoint> scrollPositionAtLastDisplayRefresh() { return m_scrollPositionAtLastDisplayRefresh; };
 
     void applyLayerPositions() override;
 
@@ -160,6 +165,7 @@ private:
     std::optional<unsigned> m_currentHorizontalSnapPointIndex;
     std::optional<unsigned> m_currentVerticalSnapPointIndex;
     ScrollableAreaParameters m_scrollableAreaParameters;
+    std::optional<FloatPoint> m_scrollPositionAtLastDisplayRefresh;
 #if ENABLE(SCROLLING_THREAD)
     OptionSet<SynchronousScrollingReason> m_synchronousScrollingReasons;
 #endif

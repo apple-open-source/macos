@@ -1,3 +1,1927 @@
+2022-01-16  Russell Epstein  <repstein@apple.com>
+
+        Cherry-pick r288078. rdar://problem/85801310
+
+    database names leak cross-origin within the same browser session
+    https://bugs.webkit.org/show_bug.cgi?id=233548
+    
+    Reviewed by Geoff Garen.
+    
+    Source/WebCore:
+    
+    Test: http/tests/security/getdatabases-crossorigin.html
+    
+    * Modules/indexeddb/server/IDBServer.cpp:
+    (WebCore::IDBServer::IDBServer::getAllDatabaseNamesAndVersions): When iterating the set of all open
+      UniqueIDBDatabases, only add them to the results list if their origins match.
+    
+    * page/ClientOrigin.h:
+    (WebCore::ClientOrigin::operator!= const):
+    
+    LayoutTests:
+    
+    * http/tests/security/getdatabases-crossorigin-expected.txt: Added.
+    * http/tests/security/getdatabases-crossorigin.html: Added.
+    * http/tests/security/resources/getdatabases-otherframe.html: Added.
+    * http/tests/security/resources/getdatabases-otherwindow.html: Added.
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@288078 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2022-01-16  Brady Eidson  <beidson@apple.com>
+
+            database names leak cross-origin within the same browser session
+            https://bugs.webkit.org/show_bug.cgi?id=233548
+
+            Reviewed by Geoff Garen.
+
+            Test: http/tests/security/getdatabases-crossorigin.html
+
+            * Modules/indexeddb/server/IDBServer.cpp:
+            (WebCore::IDBServer::IDBServer::getAllDatabaseNamesAndVersions): When iterating the set of all open
+              UniqueIDBDatabases, only add them to the results list if their origins match.
+
+            * page/ClientOrigin.h:
+            (WebCore::ClientOrigin::operator!= const):
+
+2022-01-10  Russell Epstein  <repstein@apple.com>
+
+        Cherry-pick r287814. rdar://problem/86845512
+
+    Null pointer crash when calling into `-[WebView close]` in `-webView:didCommitLoadForFrame:`
+    https://bugs.webkit.org/show_bug.cgi?id=234994
+    rdar://86845512
+    
+    Reviewed by Chris Dumez and Geoff Garen.
+    
+    Source/WebCore:
+    
+    Add a null check in `FrameLoader::dispatchDidCommitLoad()` before calling into any methods on the frame's Page.
+    Since we called into the client layer to `dispatchDidCommitLoad()` immediately prior to this, a legacy WebKit
+    client may have already caused the page to be destroyed (e.g. by closing the web view). Since Frame's pointer
+    to Page is a WeakPtr, this triggers null derefs when attempting to call either `didCommitLoad()` or
+    `remoteInspectorInformationDidChange()`.
+    
+    Test: WebKitLegacy.CloseWhileCommittingLoad
+    
+    * loader/FrameLoader.cpp:
+    (WebCore::FrameLoader::dispatchDidCommitLoad):
+    
+    Tools:
+    
+    Add a new API test to exercise the fix.
+    
+    * TestWebKitAPI/TestWebKitAPI.xcodeproj/project.pbxproj:
+    * TestWebKitAPI/Tests/WebKitCocoa/CloseWhileCommittingLoad.mm: Added.
+    (-[CloseWhileCommittingLoadDelegate webView:didCommitLoadForFrame:]):
+    (TestWebKitAPI::TEST):
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@287814 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2022-01-08  Wenson Hsieh  <wenson_hsieh@apple.com>
+
+            Null pointer crash when calling into `-[WebView close]` in `-webView:didCommitLoadForFrame:`
+            https://bugs.webkit.org/show_bug.cgi?id=234994
+            rdar://86845512
+
+            Reviewed by Chris Dumez and Geoff Garen.
+
+            Add a null check in `FrameLoader::dispatchDidCommitLoad()` before calling into any methods on the frame's Page.
+            Since we called into the client layer to `dispatchDidCommitLoad()` immediately prior to this, a legacy WebKit
+            client may have already caused the page to be destroyed (e.g. by closing the web view). Since Frame's pointer
+            to Page is a WeakPtr, this triggers null derefs when attempting to call either `didCommitLoad()` or
+            `remoteInspectorInformationDidChange()`.
+
+            Test: WebKitLegacy.CloseWhileCommittingLoad
+
+            * loader/FrameLoader.cpp:
+            (WebCore::FrameLoader::dispatchDidCommitLoad):
+
+2022-01-07  Russell Epstein  <repstein@apple.com>
+
+        Cherry-pick r286094. rdar://problem/87125111
+
+    Report the initiating url instead of the redirected one
+    https://bugs.webkit.org/show_bug.cgi?id=233037
+    
+    Patch by Carlos Garcia Campos <cgarcia@igalia.com> on 2021-11-20
+    Reviewed by Brent Fulgham.
+    
+    LayoutTests/imported/w3c:
+    
+    * web-platform-tests/content-security-policy/securitypolicyviolation/img-src-redirect.sub-expected.txt:
+    
+    Source/WebCore:
+    
+    As per the spec, blockedURI should use the requested URL of original request instead of redirected location.
+    
+    * loader/DocumentThreadableLoader.cpp:
+    (WebCore::DocumentThreadableLoader::isAllowedByContentSecurityPolicy):
+    * loader/SubresourceLoader.cpp:
+    (WebCore::SubresourceLoader::willSendRequestInternal):
+    * loader/cache/CachedResourceLoader.cpp:
+    (WebCore::CachedResourceLoader::allowedByContentSecurityPolicy const):
+    (WebCore::CachedResourceLoader::canRequestAfterRedirection const):
+    (WebCore::CachedResourceLoader::updateRequestAfterRedirection):
+    * loader/cache/CachedResourceLoader.h:
+    * page/csp/ContentSecurityPolicy.cpp:
+    (WebCore::ContentSecurityPolicy::allowChildContextFromSource const):
+    (WebCore::ContentSecurityPolicy::allowScriptFromSource const):
+    (WebCore::ContentSecurityPolicy::allowImageFromSource const):
+    (WebCore::ContentSecurityPolicy::allowStyleFromSource const):
+    (WebCore::ContentSecurityPolicy::allowFontFromSource const):
+    (WebCore::ContentSecurityPolicy::allowManifestFromSource const):
+    (WebCore::ContentSecurityPolicy::allowMediaFromSource const):
+    * page/csp/ContentSecurityPolicy.h:
+    
+    Source/WebKit:
+    
+    Pass pre-redirect URL to allowChildContextFromSource() and allowScriptFromSource().
+    
+    * NetworkProcess/NetworkLoadChecker.cpp:
+    (WebKit::NetworkLoadChecker::isAllowedByContentSecurityPolicy):
+    
+    LayoutTests:
+    
+    * TestExpectations: Unskip imported/w3c/web-platform-tests/content-security-policy/securitypolicyviolation/img-src-redirect.sub.html
+    * http/tests/security/contentSecurityPolicy/1.1/child-src/worker-redirect-blocked-expected.txt:
+    * http/tests/security/contentSecurityPolicy/audio-redirect-blocked-expected.txt:
+    * http/tests/security/contentSecurityPolicy/font-redirect-blocked-expected.txt:
+    * http/tests/security/contentSecurityPolicy/image-redirect-blocked-expected.txt:
+    * http/tests/security/contentSecurityPolicy/script-redirect-blocked-expected.txt:
+    * http/tests/security/contentSecurityPolicy/stylesheet-redirect-blocked-expected.txt:
+    * http/tests/security/contentSecurityPolicy/svg-font-redirect-blocked-expected.txt:
+    * http/tests/security/contentSecurityPolicy/svg-image-redirect-blocked-expected.txt:
+    * http/tests/security/contentSecurityPolicy/track-redirect-blocked-expected.txt:
+    * http/tests/security/contentSecurityPolicy/video-redirect-blocked-expected.txt:
+    * http/tests/security/contentSecurityPolicy/worker-blob-inherits-csp-importScripts-redirect-cross-origin-blocked-expected.txt:
+    * http/tests/security/contentSecurityPolicy/worker-csp-importScripts-redirect-cross-origin-blocked-expected.txt:
+    * http/tests/security/contentSecurityPolicy/xsl-redirect-blocked-expected.txt:
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@286094 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-11-20  Carlos Garcia Campos  <cgarcia@igalia.com>
+
+            Report the initiating url instead of the redirected one
+            https://bugs.webkit.org/show_bug.cgi?id=233037
+
+            Reviewed by Brent Fulgham.
+
+            As per the spec, blockedURI should use the requested URL of original request instead of redirected location.
+
+            * loader/DocumentThreadableLoader.cpp:
+            (WebCore::DocumentThreadableLoader::isAllowedByContentSecurityPolicy):
+            * loader/SubresourceLoader.cpp:
+            (WebCore::SubresourceLoader::willSendRequestInternal):
+            * loader/cache/CachedResourceLoader.cpp:
+            (WebCore::CachedResourceLoader::allowedByContentSecurityPolicy const):
+            (WebCore::CachedResourceLoader::canRequestAfterRedirection const):
+            (WebCore::CachedResourceLoader::updateRequestAfterRedirection):
+            * loader/cache/CachedResourceLoader.h:
+            * page/csp/ContentSecurityPolicy.cpp:
+            (WebCore::ContentSecurityPolicy::allowChildContextFromSource const):
+            (WebCore::ContentSecurityPolicy::allowScriptFromSource const):
+            (WebCore::ContentSecurityPolicy::allowImageFromSource const):
+            (WebCore::ContentSecurityPolicy::allowStyleFromSource const):
+            (WebCore::ContentSecurityPolicy::allowFontFromSource const):
+            (WebCore::ContentSecurityPolicy::allowManifestFromSource const):
+            (WebCore::ContentSecurityPolicy::allowMediaFromSource const):
+            * page/csp/ContentSecurityPolicy.h:
+
+2022-01-07  Russell Epstein  <repstein@apple.com>
+
+        Cherry-pick r287604. rdar://problem/85966622
+
+    Protect frame from destruction in HTMLMediaElement::setupAndCallJS
+    https://bugs.webkit.org/show_bug.cgi?id=234259
+    
+    Patch by Frédéric Wang <fwang@igalia.com> on 2022-01-04
+    Reviewed by Darin Adler.
+    
+    Source/WebCore:
+    
+    Test: http/tests/media/media-element-frame-destroyed-crash.html
+    
+    * html/HTMLMediaElement.cpp:
+    (WebCore::HTMLMediaElement::setupAndCallJS): Protect the frame before executing the JS code,
+    so that it is not destroyed before its associated ScriptController.
+    
+    LayoutTests:
+    
+    Add non-regression test, embedded in multiple iframes to make regression easily reproducible.
+    
+    * http/conf/mime.types: Ensure that ts files are served with MIME type video/mp2t as that's required
+    to make the non-regression test work properly.
+    * http/tests/media/media-element-frame-destroyed-crash-expected.txt: Added.
+    * http/tests/media/media-element-frame-destroyed-crash.html: Added.
+    * http/tests/media/resources/empty.ts: Added.
+    * http/tests/media/resources/media-element-frame-destroyed-crash-subframe.html: Added.
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@287604 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2022-01-04  Frédéric Wang  <fwang@igalia.com>
+
+            Protect frame from destruction in HTMLMediaElement::setupAndCallJS
+            https://bugs.webkit.org/show_bug.cgi?id=234259
+
+            Reviewed by Darin Adler.
+
+            Test: http/tests/media/media-element-frame-destroyed-crash.html
+
+            * html/HTMLMediaElement.cpp:
+            (WebCore::HTMLMediaElement::setupAndCallJS): Protect the frame before executing the JS code,
+            so that it is not destroyed before its associated ScriptController.
+
+2022-01-06  Russell Epstein  <repstein@apple.com>
+
+        Apply patch. rdar://problem/87125345
+
+    2022-01-06  Youenn Fablet  <youenn@apple.com>
+
+            Use requester when calling updateRequestAndAddExtraFields
+            https://bugs.webkit.org/show_bug.cgi?id=234507
+            <rdar://problem/85049490>
+
+            In case of navigation loads, the requester is the fetch request client.
+            As such, it should be the one used to determine whether the request is cross-origin is not.
+            Pass the requester to updateRequestAndAddExtraFields to do the correct computation.
+            Validate that some request fields are now correctly observed in service workers.
+
+            Test: http/wpt/service-workers/navigation-iframe-site.https.html
+
+            * loader/FrameLoader.cpp:
+            * loader/FrameLoader.h:
+            * testing/ServiceWorkerInternals.cpp:
+            * testing/ServiceWorkerInternals.h:
+            * testing/ServiceWorkerInternals.idl:
+
+2022-01-05  Russell Epstein  <repstein@apple.com>
+
+        Cherry-pick r287110. rdar://problem/87124750
+
+    Clean-up: Adopt Page::forEachDocument in some missed spots
+    https://bugs.webkit.org/show_bug.cgi?id=234324
+    <rdar://problem/85443831>
+    
+    Reviewed by Darin Adler.
+    
+    Switch manual loops to our 'forEachDocument' style in a few places that were missed
+    in earlier refactoring.
+    
+    No change in behavior.
+    
+    * history/BackForwardCache.cpp:
+    (WebCore::setBackForwardCacheState)
+    * page/EventHandler.cpp:
+    (WebCore::removeDraggedContentDocumentMarkersFromAllFramesInPage):
+    * page/Frame.cpp:
+    (WebCore::Frame::orientationChanged):
+    * page/Page.cpp:
+    (WebCore::Page::~Page):
+    (WebCore::Page::forEachDocumentFromMainFrame): Added.
+    (WebCore::Page::forEachDocument): Use new method.
+    (WebCore::Page::forEachFrameFromMainFrame): Added.
+    (WebCore::Page::windowScreenDidChange):
+    (WebCore::Page::userAgentChanged):
+    * page/ios/FrameIOS.mm:
+    (WebCore::Frame::dispatchPageHideEventBeforePause):
+    (WebCore::Frame::dispatchPageShowEventBeforeResume):
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@287110 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-12-15  Brent Fulgham  <bfulgham@apple.com>
+
+            Clean-up: Adopt Page::forEachDocument in some missed spots
+            https://bugs.webkit.org/show_bug.cgi?id=234324
+            <rdar://problem/85443831>
+
+            Reviewed by Darin Adler.
+
+            Switch manual loops to our 'forEachDocument' style in a few places that were missed
+            in earlier refactoring.
+
+            No change in behavior.
+
+            * history/BackForwardCache.cpp:
+            (WebCore::setBackForwardCacheState)
+            * page/EventHandler.cpp:
+            (WebCore::removeDraggedContentDocumentMarkersFromAllFramesInPage):
+            * page/Frame.cpp:
+            (WebCore::Frame::orientationChanged):
+            * page/Page.cpp:
+            (WebCore::Page::~Page):
+            (WebCore::Page::forEachDocumentFromMainFrame): Added.
+            (WebCore::Page::forEachDocument): Use new method.
+            (WebCore::Page::forEachFrameFromMainFrame): Added.
+            (WebCore::Page::windowScreenDidChange):
+            (WebCore::Page::userAgentChanged):
+            * page/ios/FrameIOS.mm:
+            (WebCore::Frame::dispatchPageHideEventBeforePause):
+            (WebCore::Frame::dispatchPageShowEventBeforeResume):
+
+2022-01-05  Russell Epstein  <repstein@apple.com>
+
+        Cherry-pick r287286. rdar://problem/87124952
+
+    Don't include SVGImageForContainers in allCachedSVGImages
+    https://bugs.webkit.org/show_bug.cgi?id=234364
+    
+    Patch by Matt Woodrow <mattwoodrow@apple.com> on 2021-12-20
+    Reviewed by Dean Jackson.
+    
+    * loader/cache/CachedImage.cpp:
+    (WebCore::CachedImage::image const):
+    (WebCore::CachedImage::hasSVGImage const):
+    (WebCore::CachedImage::image): Deleted.
+    * loader/cache/CachedImage.h:
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@287286 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-12-20  Matt Woodrow  <mattwoodrow@apple.com>
+
+            Don't include SVGImageForContainers in allCachedSVGImages
+            https://bugs.webkit.org/show_bug.cgi?id=234364
+
+            Reviewed by Dean Jackson.
+
+            * loader/cache/CachedImage.cpp:
+            (WebCore::CachedImage::image const):
+            (WebCore::CachedImage::hasSVGImage const):
+            (WebCore::CachedImage::image): Deleted.
+            * loader/cache/CachedImage.h:
+
+2022-01-05  Russell Epstein  <repstein@apple.com>
+
+        Cherry-pick r287240. rdar://problem/86026618
+
+    Fix pointer to blob data in BlobResourceHandle::readDataSync()
+    <https://webkit.org/b/234459>
+    <rdar://86026618>
+    
+    Reviewed by Chris Dumez.
+    
+    * platform/network/BlobResourceHandle.cpp:
+    (WebCore::BlobResourceHandle::readDataSync):
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@287240 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-12-19  David Kilzer  <ddkilzer@apple.com>
+
+            Fix pointer to blob data in BlobResourceHandle::readDataSync()
+            <https://webkit.org/b/234459>
+            <rdar://86026618>
+
+            Reviewed by Chris Dumez.
+
+            * platform/network/BlobResourceHandle.cpp:
+            (WebCore::BlobResourceHandle::readDataSync):
+
+2022-01-05  Russell Epstein  <repstein@apple.com>
+
+        Cherry-pick r287048. rdar://problem/87125012
+
+    Adhere to DisplayList iterator's API contract in MemoryDisplayList::~InMemoryDisplayList()
+    https://bugs.webkit.org/show_bug.cgi?id=234264
+    
+    Patch by Gabriel Nava Marino <gnavamarino@apple.com> on 2021-12-14
+    Reviewed by Myles C. Maxfield.
+    
+    The client is not adhearing to the DisplayList Iterator's API contract in MemoryDisplayList::~InMemoryDisplayList():
+    "Part of the iterator's API contract is that if the item is nullopt, you're not allowed to keep
+    iterating - doing this will lead to an infinite loop."
+    
+    Here we now do so by breaking out of iteration if the item is nullopt.
+    
+    * platform/graphics/displaylists/InMemoryDisplayList.cpp:
+    (WebCore::DisplayList::InMemoryDisplayList::~InMemoryDisplayList):
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@287048 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-12-14  Gabriel Nava Marino  <gnavamarino@apple.com>
+
+            Adhere to DisplayList iterator's API contract in MemoryDisplayList::~InMemoryDisplayList()
+            https://bugs.webkit.org/show_bug.cgi?id=234264
+
+            Reviewed by Myles C. Maxfield.
+
+            The client is not adhearing to the DisplayList Iterator's API contract in MemoryDisplayList::~InMemoryDisplayList():
+            "Part of the iterator's API contract is that if the item is nullopt, you're not allowed to keep
+            iterating - doing this will lead to an infinite loop."
+
+            Here we now do so by breaking out of iteration if the item is nullopt.
+
+            * platform/graphics/displaylists/InMemoryDisplayList.cpp:
+            (WebCore::DisplayList::InMemoryDisplayList::~InMemoryDisplayList):
+
+2022-01-05  Russell Epstein  <repstein@apple.com>
+
+        Cherry-pick r286940. rdar://problem/85388372
+
+    Implement step 17 of main fetch algorithm
+    https://bugs.webkit.org/show_bug.cgi?id=234140
+    
+    Reviewed by Brent Fulgham.
+    
+    LayoutTests/imported/w3c:
+    
+    * web-platform-tests/service-workers/service-worker/fetch-csp.https.html:
+    * web-platform-tests/service-workers/service-worker/resources/fetch-csp-iframe.html.sub.headers:
+    
+    Source/WebCore:
+    
+    The step was implemented for non DocumentThreadableLoader resources, we need to also do the same step within DocumentThreadableLoader.
+    
+    Covered by existing updated tests.
+    
+    * loader/DocumentThreadableLoader.cpp:
+    * loader/DocumentThreadableLoader.h:
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@286940 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-12-13  Youenn Fablet  <youenn@apple.com>
+
+            Implement step 17 of main fetch algorithm
+            https://bugs.webkit.org/show_bug.cgi?id=234140
+
+            Reviewed by Brent Fulgham.
+
+            The step was implemented for non DocumentThreadableLoader resources, we need to also do the same step within DocumentThreadableLoader.
+
+            Covered by existing updated tests.
+
+            * loader/DocumentThreadableLoader.cpp:
+            * loader/DocumentThreadableLoader.h:
+
+2022-01-05  Russell Epstein  <repstein@apple.com>
+
+        Cherry-pick r285710. rdar://problem/87125070
+
+    REGRESSION(r285624) Using revert keyword with a css variable hits assert
+    https://bugs.webkit.org/show_bug.cgi?id=233031
+    rdar://85332271
+    
+    Reviewed by Tim Horton.
+    
+    Source/WebCore:
+    
+    Test: fast/selectors/variable-revert-crash.html
+    
+    * style/StyleBuilderState.h:
+    
+    Default initialization set the variable to a value that is not in the enumeration.
+    
+    LayoutTests:
+    
+    * fast/selectors/variable-revert-crash-expected.txt: Added.
+    * fast/selectors/variable-revert-crash.html: Added.
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@285710 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-11-12  Antti Koivisto  <antti@apple.com>
+
+            REGRESSION(r285624) Using revert keyword with a css variable hits assert
+            https://bugs.webkit.org/show_bug.cgi?id=233031
+            rdar://85332271
+
+            Reviewed by Tim Horton.
+
+            Test: fast/selectors/variable-revert-crash.html
+
+            * style/StyleBuilderState.h:
+
+            Default initialization set the variable to a value that is not in the enumeration.
+
+2022-01-05  Russell Epstein  <repstein@apple.com>
+
+        Cherry-pick r284980. rdar://problem/84223894
+
+    Fix CARingBuffer mix mode
+    https://bugs.webkit.org/show_bug.cgi?id=232427
+    Source/WebCore:
+    
+    Reviewed by Eric Carlson.
+    
+    Like done for Copy, we need to use the destination offset to write data properly.
+    
+    Covered by API test.
+    
+    * platform/audio/cocoa/CARingBuffer.cpp:
+    
+    Tools:
+    
+    <rdar://problem/84747657>
+    
+    Reviewed by Eric Carlson.
+    
+    * TestWebKitAPI/Tests/WebCore/CARingBuffer.cpp:
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@284980 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-10-28  Youenn Fablet  <youenn@apple.com>
+
+            Fix CARingBuffer mix mode
+            https://bugs.webkit.org/show_bug.cgi?id=232427
+
+            Reviewed by Eric Carlson.
+
+            Like done for Copy, we need to use the destination offset to write data properly.
+
+            Covered by API test.
+
+            * platform/audio/cocoa/CARingBuffer.cpp:
+
+2021-12-21  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r287107. rdar://problem/85150486
+
+    Unreviewed build fix after r287077.
+    
+    * platform/network/ProtectionSpaceHash.h:
+    (WebCore::ProtectionSpaceHash::hash):
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@287107 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-12-15  Chris Dumez  <cdumez@apple.com>
+
+            Unreviewed build fix after r287077.
+
+            * platform/network/ProtectionSpaceHash.h:
+            (WebCore::ProtectionSpaceHash::hash):
+
+2021-12-21  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r287077. rdar://problem/85150486
+
+    http/tests/security/basic-auth-subresource.html and some other http auth tests are flaky
+    https://bugs.webkit.org/show_bug.cgi?id=234314
+    <rdar://85150486>
+    
+    Reviewed by Darin Adler.
+    
+    http/tests/security/basic-auth-subresource.html and some other http auth tests are flaky.
+    
+    No new tests, I will be able to unskip those layout tests in internal once this lands.
+    
+    * platform/network/ProtectionSpaceBase.cpp:
+    (WebCore::ProtectionSpaceBase::ProtectionSpaceBase):
+    (WebCore::ProtectionSpaceBase::host const): Deleted.
+    (WebCore::ProtectionSpaceBase::port const): Deleted.
+    (WebCore::ProtectionSpaceBase::serverType const): Deleted.
+    (WebCore::ProtectionSpaceBase::realm const): Deleted.
+    (WebCore::ProtectionSpaceBase::authenticationScheme const): Deleted.
+    * platform/network/ProtectionSpaceBase.h:
+    (WebCore::ProtectionSpaceBase::host const):
+    (WebCore::ProtectionSpaceBase::port const):
+    (WebCore::ProtectionSpaceBase::serverType const):
+    (WebCore::ProtectionSpaceBase::realm const):
+    (WebCore::ProtectionSpaceBase::authenticationScheme const):
+    Clean up / modernise the ProtectionSpaceBase class.
+    
+    * platform/network/ProtectionSpaceHash.h:
+    (WebCore::ProtectionSpaceHash::hash):
+    - Use Hasher in ProtectionSpaceHash::hash() as it is less error-prone. I believe the
+      previous implementation was wrong because it was calling
+      `StringHasher::hashMemory(hashCodes, codeCount)` instead of
+      `StringHasher::hashMemory(hashCodes, codeCount * sizeof(unsigned))`.
+      This could have resulted in inefficiencies I believe since we were not hashing the
+      whole array memory.
+    - Fix ProtectionSpace<ProtectionSpace> so that emptyValueIsZero is false instead of
+      true. This was a bug since the ProtectionSpaceBase constructor initializes data
+      members to non-zero values.
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@287077 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-12-15  Chris Dumez  <cdumez@apple.com>
+
+            http/tests/security/basic-auth-subresource.html and some other http auth tests are flaky
+            https://bugs.webkit.org/show_bug.cgi?id=234314
+            <rdar://85150486>
+
+            Reviewed by Darin Adler.
+
+            http/tests/security/basic-auth-subresource.html and some other http auth tests are flaky.
+
+            No new tests, I will be able to unskip those layout tests in internal once this lands.
+
+            * platform/network/ProtectionSpaceBase.cpp:
+            (WebCore::ProtectionSpaceBase::ProtectionSpaceBase):
+            (WebCore::ProtectionSpaceBase::host const): Deleted.
+            (WebCore::ProtectionSpaceBase::port const): Deleted.
+            (WebCore::ProtectionSpaceBase::serverType const): Deleted.
+            (WebCore::ProtectionSpaceBase::realm const): Deleted.
+            (WebCore::ProtectionSpaceBase::authenticationScheme const): Deleted.
+            * platform/network/ProtectionSpaceBase.h:
+            (WebCore::ProtectionSpaceBase::host const):
+            (WebCore::ProtectionSpaceBase::port const):
+            (WebCore::ProtectionSpaceBase::serverType const):
+            (WebCore::ProtectionSpaceBase::realm const):
+            (WebCore::ProtectionSpaceBase::authenticationScheme const):
+            Clean up / modernise the ProtectionSpaceBase class.
+
+            * platform/network/ProtectionSpaceHash.h:
+            (WebCore::ProtectionSpaceHash::hash):
+            - Use Hasher in ProtectionSpaceHash::hash() as it is less error-prone. I believe the
+              previous implementation was wrong because it was calling
+              `StringHasher::hashMemory(hashCodes, codeCount)` instead of
+              `StringHasher::hashMemory(hashCodes, codeCount * sizeof(unsigned))`.
+              This could have resulted in inefficiencies I believe since we were not hashing the
+              whole array memory.
+            - Fix ProtectionSpace<ProtectionSpace> so that emptyValueIsZero is false instead of
+              true. This was a bug since the ProtectionSpaceBase constructor initializes data
+              members to non-zero values.
+
+2021-12-21  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r287067. rdar://problem/86276497
+
+    Make sure to start a realtime outgoing source in case it is taken to another sender
+    https://bugs.webkit.org/show_bug.cgi?id=234296
+    <rdar://86276497>
+    
+    Reviewed by Eric Carlson.
+    
+    Source/WebCore:
+    
+    We are asynchronously starting libwebrtc sources.
+    When a sender is created first and is assigned a source later, we take the source and assign it to the sender.
+    In that case, the source might not be started and we will not send any data.
+    
+    Test: webrtc/addTransceiver-then-addTrack.html
+    
+    * Modules/mediastream/libwebrtc/LibWebRTCRtpSenderBackend.cpp:
+    
+    LayoutTests:
+    
+    * webrtc/addTransceiver-then-addTrack-expected.txt: Added.
+    * webrtc/addTransceiver-then-addTrack.html: Added.
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@287067 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-12-15  Youenn Fablet  <youenn@apple.com>
+
+            Make sure to start a realtime outgoing source in case it is taken to another sender
+            https://bugs.webkit.org/show_bug.cgi?id=234296
+            <rdar://86276497>
+
+            Reviewed by Eric Carlson.
+
+            We are asynchronously starting libwebrtc sources.
+            When a sender is created first and is assigned a source later, we take the source and assign it to the sender.
+            In that case, the source might not be started and we will not send any data.
+
+            Test: webrtc/addTransceiver-then-addTrack.html
+
+            * Modules/mediastream/libwebrtc/LibWebRTCRtpSenderBackend.cpp:
+
+2021-12-15  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r287079. rdar://problem/85892959
+
+    Twitter scroll stutter: ensure that CA backing store is always deallocated on the main thread
+    https://bugs.webkit.org/show_bug.cgi?id=234328
+    <rdar://85892959>
+    
+    Reviewed by Tim Horton.
+    
+    When scrolling pages like Twitter and Facebook we observed CoreAnimation commits on the
+    scrolling thread taking longer than they should because CABackingStore objects were being
+    released in those transactions.
+    
+    Work around this issue by extending the lifetime of CABackingStore objects if we detect that
+    they might be entrained into a scrolling tree commit, by virtue of having overlapping main
+    thread and scrolling thread commits.
+    
+    The logic is contained in PlatformCALayerContentsDelayedReleaser, which puts layer contents
+    into a retaining vector when they are being cleared on the layer. They are released at the
+    end of a main thread commit; if we detected overlapping commits, then we release on a
+    dispatch to extend the lifetime slightly.
+    
+    The remaining changes are plumbing to get commit willBegin/didEnd messages to PlatformCALayerContentsDelayedReleaser
+    for main and scrolling threads.
+    
+    * SourcesCocoa.txt:
+    * WebCore.xcodeproj/project.pbxproj:
+    * page/scrolling/ScrollingTree.h:
+    * page/scrolling/ThreadedScrollingTree.h:
+    * page/scrolling/mac/ScrollingCoordinatorMac.h:
+    * page/scrolling/mac/ScrollingCoordinatorMac.mm:
+    (WebCore::ScrollingCoordinatorMac::willStartPlatformRenderingUpdate):
+    (WebCore::ScrollingCoordinatorMac::didCompletePlatformRenderingUpdate):
+    * page/scrolling/mac/ScrollingTreeMac.h:
+    * page/scrolling/mac/ScrollingTreeMac.mm:
+    (ScrollingTreeMac::applyLayerPositionsInternal):
+    (ScrollingTreeMac::registerForPlatformRenderingUpdateCallback):
+    * platform/graphics/ca/GraphicsLayerCA.cpp:
+    (WebCore::GraphicsLayerCA::updateContentsVisibility):
+    (WebCore::GraphicsLayerCA::updateDrawsContent):
+    * platform/graphics/ca/PlatformCALayer.cpp:
+    (WebCore::PlatformCALayer::clearContents):
+    * platform/graphics/ca/PlatformCALayer.h:
+    * platform/graphics/ca/cocoa/PlatformCALayerCocoa.h:
+    * platform/graphics/ca/cocoa/PlatformCALayerCocoa.mm:
+    (WebCore::PlatformCALayerCocoa::setBackingStoreAttached):
+    (WebCore::PlatformCALayerCocoa::clearContents):
+    * platform/graphics/ca/cocoa/PlatformCALayerContentsDelayedReleaser.h: Added.
+    (WebCore::PlatformCALayerContentsDelayedReleaser::WTF_GUARDED_BY_LOCK):
+    * platform/graphics/ca/cocoa/PlatformCALayerContentsDelayedReleaser.mm: Added.
+    (WebCore::PlatformCALayerContentsDelayedReleaser::singleton):
+    (WebCore::PlatformCALayerContentsDelayedReleaser::takeLayerContents):
+    (WebCore::PlatformCALayerContentsDelayedReleaser::mainThreadCommitWillStart):
+    (WebCore::PlatformCALayerContentsDelayedReleaser::mainThreadCommitDidEnd):
+    (WebCore::PlatformCALayerContentsDelayedReleaser::scrollingThreadCommitWillStart):
+    (WebCore::PlatformCALayerContentsDelayedReleaser::scrollingThreadCommitDidEnd):
+    (WebCore::PlatformCALayerContentsDelayedReleaser::updateSawOverlappingCommit):
+    (WebCore::PlatformCALayerContentsDelayedReleaser::clearRetainedContents):
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@287079 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-12-15  Simon Fraser  <simon.fraser@apple.com>
+
+            Twitter scroll stutter: ensure that CA backing store is always deallocated on the main thread
+            https://bugs.webkit.org/show_bug.cgi?id=234328
+            <rdar://85892959>
+
+            Reviewed by Tim Horton.
+
+            When scrolling pages like Twitter and Facebook we observed CoreAnimation commits on the
+            scrolling thread taking longer than they should because CABackingStore objects were being
+            released in those transactions.
+
+            Work around this issue by extending the lifetime of CABackingStore objects if we detect that
+            they might be entrained into a scrolling tree commit, by virtue of having overlapping main
+            thread and scrolling thread commits.
+
+            The logic is contained in PlatformCALayerContentsDelayedReleaser, which puts layer contents
+            into a retaining vector when they are being cleared on the layer. They are released at the
+            end of a main thread commit; if we detected overlapping commits, then we release on a
+            dispatch to extend the lifetime slightly.
+
+            The remaining changes are plumbing to get commit willBegin/didEnd messages to PlatformCALayerContentsDelayedReleaser
+            for main and scrolling threads.
+
+            * SourcesCocoa.txt:
+            * WebCore.xcodeproj/project.pbxproj:
+            * page/scrolling/ScrollingTree.h:
+            * page/scrolling/ThreadedScrollingTree.h:
+            * page/scrolling/mac/ScrollingCoordinatorMac.h:
+            * page/scrolling/mac/ScrollingCoordinatorMac.mm:
+            (WebCore::ScrollingCoordinatorMac::willStartPlatformRenderingUpdate):
+            (WebCore::ScrollingCoordinatorMac::didCompletePlatformRenderingUpdate):
+            * page/scrolling/mac/ScrollingTreeMac.h:
+            * page/scrolling/mac/ScrollingTreeMac.mm:
+            (ScrollingTreeMac::applyLayerPositionsInternal):
+            (ScrollingTreeMac::registerForPlatformRenderingUpdateCallback):
+            * platform/graphics/ca/GraphicsLayerCA.cpp:
+            (WebCore::GraphicsLayerCA::updateContentsVisibility):
+            (WebCore::GraphicsLayerCA::updateDrawsContent):
+            * platform/graphics/ca/PlatformCALayer.cpp:
+            (WebCore::PlatformCALayer::clearContents):
+            * platform/graphics/ca/PlatformCALayer.h:
+            * platform/graphics/ca/cocoa/PlatformCALayerCocoa.h:
+            * platform/graphics/ca/cocoa/PlatformCALayerCocoa.mm:
+            (WebCore::PlatformCALayerCocoa::setBackingStoreAttached):
+            (WebCore::PlatformCALayerCocoa::clearContents):
+            * platform/graphics/ca/cocoa/PlatformCALayerContentsDelayedReleaser.h: Added.
+            (WebCore::PlatformCALayerContentsDelayedReleaser::WTF_GUARDED_BY_LOCK):
+            * platform/graphics/ca/cocoa/PlatformCALayerContentsDelayedReleaser.mm: Added.
+            (WebCore::PlatformCALayerContentsDelayedReleaser::singleton):
+            (WebCore::PlatformCALayerContentsDelayedReleaser::takeLayerContents):
+            (WebCore::PlatformCALayerContentsDelayedReleaser::mainThreadCommitWillStart):
+            (WebCore::PlatformCALayerContentsDelayedReleaser::mainThreadCommitDidEnd):
+            (WebCore::PlatformCALayerContentsDelayedReleaser::scrollingThreadCommitWillStart):
+            (WebCore::PlatformCALayerContentsDelayedReleaser::scrollingThreadCommitDidEnd):
+            (WebCore::PlatformCALayerContentsDelayedReleaser::updateSawOverlappingCommit):
+            (WebCore::PlatformCALayerContentsDelayedReleaser::clearRetainedContents):
+
+2021-12-16  Alan Coon  <alancoon@apple.com>
+
+        Apply patch. rdar://problem/86505382
+
+    2021-12-16  Simon Fraser  <simon.fraser@apple.com>
+
+            rdar://86505382 ([root] StarE21E179 / J314c : Slight but noticeable J-shaped "wobble" at tail end of sm-med scrolls)
+
+            Branch patch reviewed by Tim Horton. 
+
+            During momentum scrolling, we axis-lock on a per-event basis by zeroing out the smaller
+            of the X and Y deltas. This is a problem for slightly diagonal scrolls, where, towards
+            the tail, in a Y-biased scroll we can get individual events whose X delta is later than
+            their Y delta.
+
+            To fix this, use the same axis locking for all the events in a gesture, based on the
+            scrollingVelocity() of the last fingers-down event. This velocity is not strictly
+            X- or Y-locked; it can contain both X and Y deltas for strongly diagonal gestures,
+            but that's what we want.
+
+            * platform/ScrollController.h:
+            * platform/mac/ScrollController.mm:
+            (WebCore::ScrollController::handleWheelEvent):
+
+2021-12-13  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r286907. rdar://problem/86307593
+
+    [Cocoa] -[AVPlayerItem liveUpdateInterval] can hang the main thread for ~60ms
+    https://bugs.webkit.org/show_bug.cgi?id=234131
+    
+    Reviewed by Eric Carlson.
+    
+    Direct property access of AVFoundation objects can take tens of milliseconds to return
+    a value, even for simple properties. This impacts scrolling responsiveness.
+    
+    -liveUpdateInterval is not KVO-observable, but only changes when -seekableTimeRanges does
+    as well. Query and cache that property during KVO of -seekableTimeRanges.
+    
+    * platform/graphics/avfoundation/objc/MediaPlayerPrivateAVFoundationObjC.h:
+    * platform/graphics/avfoundation/objc/MediaPlayerPrivateAVFoundationObjC.mm:
+    (WebCore::MediaPlayerPrivateAVFoundationObjC::seekableTimeRangesLastModifiedTime const):
+    (WebCore::MediaPlayerPrivateAVFoundationObjC::liveUpdateInterval const):
+    (WebCore::MediaPlayerPrivateAVFoundationObjC::seekableTimeRangesDidChange):
+    (-[WebCoreAVFMovieObserver observeValueForKeyPath:ofObject:change:context:]):
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@286907 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-12-11  Jer Noble  <jer.noble@apple.com>
+
+            [Cocoa] -[AVPlayerItem liveUpdateInterval] can hang the main thread for ~60ms
+            https://bugs.webkit.org/show_bug.cgi?id=234131
+
+            Reviewed by Eric Carlson.
+
+            Direct property access of AVFoundation objects can take tens of milliseconds to return
+            a value, even for simple properties. This impacts scrolling responsiveness.
+
+            -liveUpdateInterval is not KVO-observable, but only changes when -seekableTimeRanges does
+            as well. Query and cache that property during KVO of -seekableTimeRanges.
+
+            * platform/graphics/avfoundation/objc/MediaPlayerPrivateAVFoundationObjC.h:
+            * platform/graphics/avfoundation/objc/MediaPlayerPrivateAVFoundationObjC.mm:
+            (WebCore::MediaPlayerPrivateAVFoundationObjC::seekableTimeRangesLastModifiedTime const):
+            (WebCore::MediaPlayerPrivateAVFoundationObjC::liveUpdateInterval const):
+            (WebCore::MediaPlayerPrivateAVFoundationObjC::seekableTimeRangesDidChange):
+            (-[WebCoreAVFMovieObserver observeValueForKeyPath:ofObject:change:context:]):
+
+2021-12-13  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r286905. rdar://problem/86235740
+
+    Scrolling can drop frames when CoreAnimation commits take a long time
+    https://bugs.webkit.org/show_bug.cgi?id=234160
+    <rdar://86235740>
+    
+    Reviewed by Tim Horton.
+    
+    In r261985 I added a mechanism that has the scrolling thread wait for the main thread to
+    finish a rendering update, and, if the main thread fails to complete in time, then the
+    scrolling thread commits. This allows for scrolling synchronization when the main thread is
+    responsive, but smooth scrolling when the main thread is busy.
+    
+    However, r261985 only waits for WebKit work to finish; what we really care about is whether
+    the main thread completes its CA commit in time (because that determines whether the scroll
+    shows on the screen).
+    
+    So plumb through pre-/post-commit hooks from TiledCoreAnimationDrawingArea, which already
+    had them for inspector instrumentation. Then have ThreadedScrollingTree notify
+    m_stateCondition in didCompletePlatformRenderingUpdate(), instead of
+    didCompleteRenderingUpdate().
+    Source/WebCore:
+    
+    Also, now we can call the inspector hooks from Page, rather than out in TiledCoreAnimationDrawingArea.
+    
+    * page/Page.cpp:
+    (WebCore::Page::willStartPlatformRenderingUpdate):
+    (WebCore::Page::didCompletePlatformRenderingUpdate):
+    * page/Page.h:
+    * page/scrolling/ScrollingCoordinator.h:
+    (WebCore::ScrollingCoordinator::willStartPlatformRenderingUpdate):
+    (WebCore::ScrollingCoordinator::didCompletePlatformRenderingUpdate):
+    * page/scrolling/ThreadedScrollingTree.cpp:
+    (WebCore::ThreadedScrollingTree::didCompletePlatformRenderingUpdate):
+    (WebCore::ThreadedScrollingTree::didCompleteRenderingUpdate): Deleted.
+    * page/scrolling/ThreadedScrollingTree.h:
+    * page/scrolling/mac/ScrollingCoordinatorMac.h:
+    * page/scrolling/mac/ScrollingCoordinatorMac.mm:
+    (WebCore::ScrollingCoordinatorMac::didCompletePlatformRenderingUpdate):
+    
+    Source/WebKit:
+    
+    Also, now we can call the inspector hooks from Page, rather than out in TiledCoreAnimationDrawingArea.
+    
+    * WebProcess/WebPage/WebPage.cpp:
+    (WebKit::WebPage::willStartPlatformRenderingUpdate):
+    (WebKit::WebPage::didCompletePlatformRenderingUpdate):
+    * WebProcess/WebPage/WebPage.h:
+    * WebProcess/WebPage/mac/TiledCoreAnimationDrawingArea.mm:
+    (WebKit::TiledCoreAnimationDrawingArea::addCommitHandlers):
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@286905 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-12-10  Simon Fraser  <simon.fraser@apple.com>
+
+            Scrolling can drop frames when CoreAnimation commits take a long time
+            https://bugs.webkit.org/show_bug.cgi?id=234160
+            <rdar://86235740>
+
+            Reviewed by Tim Horton.
+
+            In r261985 I added a mechanism that has the scrolling thread wait for the main thread to
+            finish a rendering update, and, if the main thread fails to complete in time, then the
+            scrolling thread commits. This allows for scrolling synchronization when the main thread is
+            responsive, but smooth scrolling when the main thread is busy.
+
+            However, r261985 only waits for WebKit work to finish; what we really care about is whether
+            the main thread completes its CA commit in time (because that determines whether the scroll
+            shows on the screen).
+
+            So plumb through pre-/post-commit hooks from TiledCoreAnimationDrawingArea, which already
+            had them for inspector instrumentation. Then have ThreadedScrollingTree notify
+            m_stateCondition in didCompletePlatformRenderingUpdate(), instead of
+            didCompleteRenderingUpdate().
+
+            Also, now we can call the inspector hooks from Page, rather than out in TiledCoreAnimationDrawingArea.
+
+            * page/Page.cpp:
+            (WebCore::Page::willStartPlatformRenderingUpdate):
+            (WebCore::Page::didCompletePlatformRenderingUpdate):
+            * page/Page.h:
+            * page/scrolling/ScrollingCoordinator.h:
+            (WebCore::ScrollingCoordinator::willStartPlatformRenderingUpdate):
+            (WebCore::ScrollingCoordinator::didCompletePlatformRenderingUpdate):
+            * page/scrolling/ThreadedScrollingTree.cpp:
+            (WebCore::ThreadedScrollingTree::didCompletePlatformRenderingUpdate):
+            (WebCore::ThreadedScrollingTree::didCompleteRenderingUpdate): Deleted.
+            * page/scrolling/ThreadedScrollingTree.h:
+            * page/scrolling/mac/ScrollingCoordinatorMac.h:
+            * page/scrolling/mac/ScrollingCoordinatorMac.mm:
+            (WebCore::ScrollingCoordinatorMac::didCompletePlatformRenderingUpdate):
+
+2021-12-13  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r286932. rdar://problem/86385697
+
+    Ensure that the scrolling thread always commits layer position changes to reduce scrolling stutters
+    https://bugs.webkit.org/show_bug.cgi?id=234213
+    
+    Reviewed by Tim Horton.
+    
+    On a page where CA commits on the main thread take a long time (e.g. because of expensive
+    painting), it's possible that the main thread has updated the scrolling layer position, and
+    then the scrolling thread detects that the commit is taking a long time and attempts to
+    trigger its own commit, but because the layer position property doesn't change, no commit
+    occurs.
+    
+    Work around this by setting the layer position to 0,0 and back when we're on the scrolling
+    thread. Only do this if the scroll position changed since the last display refresh to avoid
+    triggering redundant commits.
+    
+    Ideally we'd traverse the scrolling tree and do this for every scrolling node, but scrolling
+    trees can get large so for now just apply this to the root node.
+    
+    * page/scrolling/ScrollingTreeScrollingNode.cpp:
+    (WebCore::ScrollingTreeScrollingNode::updateScrollPositionAtLastDisplayRefresh):
+    * page/scrolling/ScrollingTreeScrollingNode.h:
+    * page/scrolling/ThreadedScrollingTree.cpp:
+    (WebCore::ThreadedScrollingTree::displayDidRefreshOnScrollingThread):
+    (WebCore::ThreadedScrollingTree::storeScrollPositionsAtLastDisplayRefresh):
+    * page/scrolling/ThreadedScrollingTree.h:
+    * page/scrolling/mac/ScrollingTreeFrameScrollingNodeMac.mm:
+    (WebCore::ScrollingTreeFrameScrollingNodeMac::repositionScrollingLayers):
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@286932 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-12-12  Simon Fraser  <simon.fraser@apple.com>
+
+            Ensure that the scrolling thread always commits layer position changes to reduce scrolling stutters
+            https://bugs.webkit.org/show_bug.cgi?id=234213
+
+            Reviewed by Tim Horton.
+
+            On a page where CA commits on the main thread take a long time (e.g. because of expensive
+            painting), it's possible that the main thread has updated the scrolling layer position, and
+            then the scrolling thread detects that the commit is taking a long time and attempts to
+            trigger its own commit, but because the layer position property doesn't change, no commit
+            occurs.
+
+            Work around this by setting the layer position to 0,0 and back when we're on the scrolling
+            thread. Only do this if the scroll position changed since the last display refresh to avoid
+            triggering redundant commits.
+
+            Ideally we'd traverse the scrolling tree and do this for every scrolling node, but scrolling
+            trees can get large so for now just apply this to the root node.
+
+            * page/scrolling/ScrollingTreeScrollingNode.cpp:
+            (WebCore::ScrollingTreeScrollingNode::updateScrollPositionAtLastDisplayRefresh):
+            * page/scrolling/ScrollingTreeScrollingNode.h:
+            * page/scrolling/ThreadedScrollingTree.cpp:
+            (WebCore::ThreadedScrollingTree::displayDidRefreshOnScrollingThread):
+            (WebCore::ThreadedScrollingTree::storeScrollPositionsAtLastDisplayRefresh):
+            * page/scrolling/ThreadedScrollingTree.h:
+            * page/scrolling/mac/ScrollingTreeFrameScrollingNodeMac.mm:
+            (WebCore::ScrollingTreeFrameScrollingNodeMac::repositionScrollingLayers):
+
+2021-12-13  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r286858. rdar://problem/86423741
+
+    Use simpler idioms for std::less and std::greater possible in modern C++
+    https://bugs.webkit.org/show_bug.cgi?id=234117
+    
+    Reviewed by Anders Carlsson.
+    
+    Source/WebCore:
+    
+    * testing/InternalsMapLike.cpp:
+    (WebCore::InternalsMapLike::inspectValues const): Remove unneeded explicit
+    use of std:less, because this is what std::sort by default.
+    
+    Source/WebKit:
+    
+    * WebProcess/WebPage/MomentumEventDispatcher.cpp:
+    (WebKit::MomentumEventDispatcher::equalizeTailGaps): Removed unneeded
+    template arguments for std::greater, and removed explicit use of std::less,
+    since that's what std::sort does by default.
+    
+    Source/WTF:
+    
+    * wtf/ListDump.h:
+    (WTF::sortedListDump): Removed unnecessary template arguments to std::less.
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@286858 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-12-09  Darin Adler  <darin@apple.com>
+
+            Use simpler idioms for std::less and std::greater possible in modern C++
+            https://bugs.webkit.org/show_bug.cgi?id=234117
+
+            Reviewed by Anders Carlsson.
+
+            * testing/InternalsMapLike.cpp:
+            (WebCore::InternalsMapLike::inspectValues const): Remove unneeded explicit
+            use of std:less, because this is what std::sort by default.
+
+2021-12-09  Alan Coon  <alancoon@apple.com>
+
+        Apply patch. rdar://problem/86235842
+
+    2021-12-09  Simon Fraser  <simon.fraser@apple.com>
+
+            rdar://86235842 ([root] J316c: Rubber-banding is more stuttery with the momentum generator enabled)
+
+            Reviewed by Tim Horton.
+
+            Branch-only patch (this timer does not exist on trunk).
+
+            To avoid raciness between displayDidRefresh callbacks and the rubberbanding timer, offset
+            the timer by 1/4 frame. After the first frame, we reset its fire interval back to the
+            nominal frame rate.
+
+            stopAnimationCallback() sets m_isAnimationTimerInOffsetPhase to false to avoid any chance
+            of restarting a stopped timer in the callback.
+
+            * page/scrolling/ScrollingTree.h:
+            * page/scrolling/mac/ScrollingTreeScrollingNodeDelegateMac.h:
+            * page/scrolling/mac/ScrollingTreeScrollingNodeDelegateMac.mm:
+            (WebCore::ScrollingTreeScrollingNodeDelegateMac::startAnimationCallback):
+            (WebCore::ScrollingTreeScrollingNodeDelegateMac::stopAnimationCallback):
+            (WebCore::ScrollingTreeScrollingNodeDelegateMac::scrollControllerAnimationTimerFired):
+
+2021-12-03  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r285526. rdar://problem/85928816
+
+    Add runtime flag for momentum scrolling
+    https://bugs.webkit.org/show_bug.cgi?id=232898
+    <rdar://problem/85211338>
+    
+    Reviewed by Simon Fraser.
+    
+    * Scripts/Preferences/WebPreferencesInternal.yaml:
+    Add the preference.
+    
+    * page/scrolling/AsyncScrollingCoordinator.cpp:
+    (WebCore::AsyncScrollingCoordinator::setFrameScrollingNodeState):
+    * page/scrolling/ScrollingStateFrameScrollingNode.cpp:
+    (WebCore::ScrollingStateFrameScrollingNode::ScrollingStateFrameScrollingNode):
+    (WebCore::ScrollingStateFrameScrollingNode::applicableProperties const):
+    (WebCore::ScrollingStateFrameScrollingNode::setMomentumScrollingAnimatorEnabled):
+    * page/scrolling/ScrollingStateFrameScrollingNode.h:
+    * page/scrolling/ScrollingStateNode.h:
+    * page/scrolling/ScrollingTree.cpp:
+    (WebCore::ScrollingTree::commitTreeState):
+    * page/scrolling/ScrollingTree.h:
+    (WebCore::ScrollingTree::momentumScrollingAnimatorEnabled const):
+    (WebCore::ScrollingTree::setMomentumScrollingAnimatorEnabled):
+    * page/scrolling/ScrollingTreeScrollingNode.cpp:
+    (WebCore::ScrollingTreeScrollingNode::momentumScrollingAnimatorEnabled const):
+    * page/scrolling/ScrollingTreeScrollingNode.h:
+    * page/scrolling/mac/ScrollingTreeScrollingNodeDelegateMac.h:
+    * page/scrolling/mac/ScrollingTreeScrollingNodeDelegateMac.mm:
+    (WebCore::ScrollingTreeScrollingNodeDelegateMac::momentumScrollingAnimatorEnabled const):
+    * platform/ScrollingEffectsController.h:
+    (WebCore::ScrollingEffectsControllerClient::momentumScrollingAnimatorEnabled const):
+    
+    * Shared/RemoteLayerTree/RemoteScrollingCoordinatorTransaction.cpp:
+    (ArgumentCoder<ScrollingStateFrameScrollingNode>::encode):
+    (ArgumentCoder<ScrollingStateFrameScrollingNode>::decode):
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@285526 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-11-09  Tim Horton  <timothy_horton@apple.com>
+
+            Add runtime flag for momentum scrolling
+            https://bugs.webkit.org/show_bug.cgi?id=232898
+            <rdar://problem/85211338>
+
+            Reviewed by Simon Fraser.
+
+            * page/scrolling/AsyncScrollingCoordinator.cpp:
+            (WebCore::AsyncScrollingCoordinator::setFrameScrollingNodeState):
+            * page/scrolling/ScrollingStateFrameScrollingNode.cpp:
+            (WebCore::ScrollingStateFrameScrollingNode::ScrollingStateFrameScrollingNode):
+            (WebCore::ScrollingStateFrameScrollingNode::applicableProperties const):
+            (WebCore::ScrollingStateFrameScrollingNode::setMomentumScrollingAnimatorEnabled):
+            * page/scrolling/ScrollingStateFrameScrollingNode.h:
+            * page/scrolling/ScrollingStateNode.h:
+            * page/scrolling/ScrollingTree.cpp:
+            (WebCore::ScrollingTree::commitTreeState):
+            * page/scrolling/ScrollingTree.h:
+            (WebCore::ScrollingTree::momentumScrollingAnimatorEnabled const):
+            (WebCore::ScrollingTree::setMomentumScrollingAnimatorEnabled):
+            * page/scrolling/ScrollingTreeScrollingNode.cpp:
+            (WebCore::ScrollingTreeScrollingNode::momentumScrollingAnimatorEnabled const):
+            * page/scrolling/ScrollingTreeScrollingNode.h:
+            * page/scrolling/mac/ScrollingTreeScrollingNodeDelegateMac.h:
+            * page/scrolling/mac/ScrollingTreeScrollingNodeDelegateMac.mm:
+            (WebCore::ScrollingTreeScrollingNodeDelegateMac::momentumScrollingAnimatorEnabled const):
+            * platform/ScrollingEffectsController.h:
+            (WebCore::ScrollingEffectsControllerClient::momentumScrollingAnimatorEnabled const):
+
+2021-12-03  Russell Epstein  <repstein@apple.com>
+
+        Cherry-pick r286481. rdar://problem/85928816
+
+    A Safari tab can rarely get stuck in a state where rendering updates stop happening
+    https://bugs.webkit.org/show_bug.cgi?id=233784
+    rdar://85445072
+    
+    Reviewed by Chris Dumez.
+    
+    Sometimes a Safari tab can get into a state where rendering updates cease to happen,
+    which manifests as partially broken scrolling, blank tiles revealed when scrolling,
+    and somewhat broken page updates. I was able to sometimes reproduce this by clicking
+    on links in eBay emails from Mail on a system with two displays.
+    
+    From the one time I reproduce with logging, the output indicated that DisplayRefreshMonitor::displayLinkFired()
+    would early return because isPreviousFrameDone() was false. The only way for that to occur,
+    barring memory corruption, is if DisplayRefreshMonitorMac::dispatchDisplayDidRefresh() returned early,
+    which it does if the callback comes twice in a single event loop; this may explain the rarity.
+    
+    So fix DisplayRefreshMonitorMac::dispatchDisplayDidRefresh() call setIsPreviousFrameDone(true)
+    so the next callback can make progress
+    
+    Also add some locking annotations and fix one missing lock, and some release logging.
+    
+    Source/WebCore:
+    
+    * platform/graphics/DisplayRefreshMonitor.cpp:
+    (WebCore::DisplayRefreshMonitor::stop):
+    (WebCore::DisplayRefreshMonitor::firedAndReachedMaxUnscheduledFireCount):
+    (WebCore::DisplayRefreshMonitor::displayLinkFired):
+    * platform/graphics/DisplayRefreshMonitor.h:
+    (WebCore::DisplayRefreshMonitor::WTF_REQUIRES_LOCK):
+    (WebCore::DisplayRefreshMonitor::WTF_GUARDED_BY_LOCK):
+    (WebCore::DisplayRefreshMonitor::setMaxUnscheduledFireCount): Deleted.
+    (WebCore::DisplayRefreshMonitor::isScheduled const): Deleted.
+    (WebCore::DisplayRefreshMonitor::setIsScheduled): Deleted.
+    (WebCore::DisplayRefreshMonitor::isPreviousFrameDone const): Deleted.
+    (WebCore::DisplayRefreshMonitor::setIsPreviousFrameDone): Deleted.
+    
+    Source/WebKit:
+    
+    * WebProcess/WebPage/mac/DisplayRefreshMonitorMac.cpp:
+    (WebKit::DisplayRefreshMonitorMac::dispatchDisplayDidRefresh):
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@286481 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-12-02  Simon Fraser  <simon.fraser@apple.com>
+
+            A Safari tab can rarely get stuck in a state where rendering updates stop happening
+            https://bugs.webkit.org/show_bug.cgi?id=233784
+            rdar://85445072
+
+            Reviewed by Chris Dumez.
+
+            Sometimes a Safari tab can get into a state where rendering updates cease to happen,
+            which manifests as partially broken scrolling, blank tiles revealed when scrolling,
+            and somewhat broken page updates. I was able to sometimes reproduce this by clicking
+            on links in eBay emails from Mail on a system with two displays.
+
+            From the one time I reproduce with logging, the output indicated that DisplayRefreshMonitor::displayLinkFired()
+            would early return because isPreviousFrameDone() was false. The only way for that to occur,
+            barring memory corruption, is if DisplayRefreshMonitorMac::dispatchDisplayDidRefresh() returned early,
+            which it does if the callback comes twice in a single event loop; this may explain the rarity.
+
+            So fix DisplayRefreshMonitorMac::dispatchDisplayDidRefresh() call setIsPreviousFrameDone(true)
+            so the next callback can make progress
+
+            Also add some locking annotations and fix one missing lock, and some release logging.
+
+            * platform/graphics/DisplayRefreshMonitor.cpp:
+            (WebCore::DisplayRefreshMonitor::stop):
+            (WebCore::DisplayRefreshMonitor::firedAndReachedMaxUnscheduledFireCount):
+            (WebCore::DisplayRefreshMonitor::displayLinkFired):
+            * platform/graphics/DisplayRefreshMonitor.h:
+            (WebCore::DisplayRefreshMonitor::WTF_REQUIRES_LOCK):
+            (WebCore::DisplayRefreshMonitor::WTF_GUARDED_BY_LOCK):
+            (WebCore::DisplayRefreshMonitor::setMaxUnscheduledFireCount): Deleted.
+            (WebCore::DisplayRefreshMonitor::isScheduled const): Deleted.
+            (WebCore::DisplayRefreshMonitor::setIsScheduled): Deleted.
+            (WebCore::DisplayRefreshMonitor::isPreviousFrameDone const): Deleted.
+            (WebCore::DisplayRefreshMonitor::setIsPreviousFrameDone): Deleted.
+
+2021-12-02  Russell Epstein  <repstein@apple.com>
+
+        Cherry-pick r286410. rdar://problem/85928816
+
+    Scrolling complex websites can stutter: scrolling thread commit can get blocked on scroll synchronization
+    https://bugs.webkit.org/show_bug.cgi?id=233738
+    rdar://85880147
+    
+    Reviewed by Tim Horton.
+    
+    The scroll synchronization added in r261985 can cause dropped frames while scrolling. This
+    occurs when ThreadedScrollingTree::waitForRenderingUpdateCompletionOrTimeout(), which is
+    called at the start of a rendering update on the main thread, starts at a time when it will
+    delay the handling of displayDidRefreshOnScrollingThread(). This can result in delaying the
+    CA commit for that frame on the scrolling thread.
+    
+    The solution is to clamp the duration that waitForRenderingUpdateCompletionOrTimeout() waits
+    on the condition, so that it doesn't exceed the next expected display refresh time.
+    
+    * page/scrolling/ThreadedScrollingTree.cpp:
+    (WebCore::ThreadedScrollingTree::waitForRenderingUpdateCompletionOrTimeout):
+    (WebCore::ThreadedScrollingTree::displayDidRefreshOnScrollingThread):
+    * page/scrolling/ThreadedScrollingTree.h:
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@286410 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-12-01  Simon Fraser  <simon.fraser@apple.com>
+
+            Scrolling complex websites can stutter: scrolling thread commit can get blocked on scroll synchronization
+            https://bugs.webkit.org/show_bug.cgi?id=233738
+            rdar://85880147
+
+            Reviewed by Tim Horton.
+
+            The scroll synchronization added in r261985 can cause dropped frames while scrolling. This
+            occurs when ThreadedScrollingTree::waitForRenderingUpdateCompletionOrTimeout(), which is
+            called at the start of a rendering update on the main thread, starts at a time when it will
+            delay the handling of displayDidRefreshOnScrollingThread(). This can result in delaying the
+            CA commit for that frame on the scrolling thread.
+
+            The solution is to clamp the duration that waitForRenderingUpdateCompletionOrTimeout() waits
+            on the condition, so that it doesn't exceed the next expected display refresh time.
+
+            * page/scrolling/ThreadedScrollingTree.cpp:
+            (WebCore::ThreadedScrollingTree::waitForRenderingUpdateCompletionOrTimeout):
+            (WebCore::ThreadedScrollingTree::displayDidRefreshOnScrollingThread):
+            * page/scrolling/ThreadedScrollingTree.h:
+
+2021-12-02  Russell Epstein  <repstein@apple.com>
+
+        Cherry-pick r286411. rdar://problem/85928816
+
+    Scrolling complex websites can stutter: scrolling thread frame can fail to process wheel events
+    https://bugs.webkit.org/show_bug.cgi?id=233739
+    rdar://85946176
+    
+    Reviewed by Tim Horton.
+    
+    While the scrolling thread is chilling in
+    ThreadedScrollingTree::waitForRenderingUpdateCompletionOrTimeout(), waiting up to half a
+    frame to allow the main thread to handle the commit (for scroll synchronization), wheel
+    events may have been dispatched to the scrolling thread.
+    
+    If we blow the timeout and commit anyway, we need to make sure we've handled these wheel
+    events first, so that the current frame can commit some layer movement. We can achieve this
+    by dispatching the applyLayerPositions(), which will enqueue it behind any waiting wheel
+    event dispatch from EventDispatcher::internalWheelEvent().
+    
+    * page/scrolling/ScrollingTree.cpp:
+    (WebCore::ScrollingTree::applyLayerPositions):
+    * page/scrolling/ThreadedScrollingTree.cpp:
+    (WebCore::ThreadedScrollingTree::waitForRenderingUpdateCompletionOrTimeout):
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@286411 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-12-01  Simon Fraser  <simon.fraser@apple.com>
+
+            Scrolling complex websites can stutter: scrolling thread frame can fail to process wheel events
+            https://bugs.webkit.org/show_bug.cgi?id=233739
+            rdar://85946176
+
+            Reviewed by Tim Horton.
+
+            While the scrolling thread is chilling in
+            ThreadedScrollingTree::waitForRenderingUpdateCompletionOrTimeout(), waiting up to half a
+            frame to allow the main thread to handle the commit (for scroll synchronization), wheel
+            events may have been dispatched to the scrolling thread.
+
+            If we blow the timeout and commit anyway, we need to make sure we've handled these wheel
+            events first, so that the current frame can commit some layer movement. We can achieve this
+            by dispatching the applyLayerPositions(), which will enqueue it behind any waiting wheel
+            event dispatch from EventDispatcher::internalWheelEvent().
+
+            * page/scrolling/ScrollingTree.cpp:
+            (WebCore::ScrollingTree::applyLayerPositions):
+            * page/scrolling/ThreadedScrollingTree.cpp:
+            (WebCore::ThreadedScrollingTree::waitForRenderingUpdateCompletionOrTimeout):
+
+2021-12-01  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r286352. rdar://problem/85928816
+
+    Custom application of r286352 to introduce frameDuration() for a future patch.
+    
+    Pass the timestamp for scrolling thread animations through all the serviceScrollAnimation() calls
+    https://bugs.webkit.org/show_bug.cgi?id=233678
+    
+    Reviewed by Tim Horton.
+    
+    Source/WebCore:
+    
+    All scroll animations serviced at the same time should use a common timestamp, and
+    avoid multiple calls to MonotonicTime::now() by passing the time down through from
+    ThreadedScrollingTree::displayDidRefreshOnScrollingThread().
+    
+    Also minor refactoring in ThreadedScrollingTree to prepare for a future patch.
+    
+    * page/scrolling/ScrollingTree.cpp:
+    (WebCore::ScrollingTree::nominalFramesPerSecond):
+    * page/scrolling/ScrollingTreeScrollingNode.h:
+    * page/scrolling/ScrollingTreeScrollingNodeDelegate.h:
+    * page/scrolling/ThreadedScrollingTree.cpp:
+    (WebCore::ThreadedScrollingTree::frameDuration):
+    (WebCore::ThreadedScrollingTree::maxAllowableRenderingUpdateDurationForSynchronization):
+    (WebCore::ThreadedScrollingTree::serviceScrollAnimations):
+    (WebCore::ThreadedScrollingTree::displayDidRefreshOnScrollingThread):
+    * page/scrolling/ThreadedScrollingTree.h:
+    * page/scrolling/mac/ScrollingTreeFrameScrollingNodeMac.h:
+    * page/scrolling/mac/ScrollingTreeFrameScrollingNodeMac.mm:
+    (WebCore::ScrollingTreeFrameScrollingNodeMac::serviceScrollAnimation):
+    * page/scrolling/mac/ScrollingTreeOverflowScrollingNodeMac.h:
+    * page/scrolling/mac/ScrollingTreeOverflowScrollingNodeMac.mm:
+    (WebCore::ScrollingTreeOverflowScrollingNodeMac::serviceScrollAnimation):
+    * page/scrolling/mac/ScrollingTreeScrollingNodeDelegateMac.h:
+    * page/scrolling/mac/ScrollingTreeScrollingNodeDelegateMac.mm:
+    (WebCore::ScrollingTreeScrollingNodeDelegateMac::serviceScrollAnimation):
+    * page/scrolling/nicosia/ScrollingTreeFrameScrollingNodeNicosia.cpp:
+    (WebCore::ScrollingTreeFrameScrollingNodeNicosia::serviceScrollAnimation):
+    * page/scrolling/nicosia/ScrollingTreeFrameScrollingNodeNicosia.h:
+    * page/scrolling/nicosia/ScrollingTreeOverflowScrollingNodeNicosia.cpp:
+    (WebCore::ScrollingTreeOverflowScrollingNodeNicosia::serviceScrollAnimation):
+    * page/scrolling/nicosia/ScrollingTreeOverflowScrollingNodeNicosia.h:
+    * page/scrolling/nicosia/ScrollingTreeScrollingNodeDelegateNicosia.cpp:
+    (WebCore::ScrollingTreeScrollingNodeDelegateNicosia::serviceScrollAnimation):
+    * page/scrolling/nicosia/ScrollingTreeScrollingNodeDelegateNicosia.h:
+    
+    Source/WebKit:
+    
+    * UIProcess/RemoteLayerTree/ios/ScrollingTreeScrollingNodeDelegateIOS.h:
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@286352 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-11-30  Simon Fraser  <simon.fraser@apple.com>
+
+            Custom application of r286352 to prepare for a future patch.
+
+            Pass the timestamp for scrolling thread animations through all the serviceScrollAnimation() calls
+            https://bugs.webkit.org/show_bug.cgi?id=233678
+
+            Reviewed by Tim Horton.
+
+            All scroll animations serviced at the same time should use a common timestamp, and
+            avoid multiple calls to MonotonicTime::now() by passing the time down through from
+            ThreadedScrollingTree::displayDidRefreshOnScrollingThread().
+
+            Also minor refactoring in ThreadedScrollingTree to prepare for a future patch.
+
+            (WebCore::ThreadedScrollingTree::frameDuration):
+            (WebCore::ThreadedScrollingTree::displayDidRefreshOnScrollingThread):
+            * page/scrolling/ThreadedScrollingTree.h:
+
+2021-12-01  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r283353. rdar://problem/85928816
+
+    Simplify some scrolling-related code in WebKit with use of RectEdges<bool>
+    https://bugs.webkit.org/show_bug.cgi?id=231037
+    
+    Reviewed by Tim Horton.
+    
+    Source/WebCore:
+    
+    Export edgePinnedState().
+    
+    * platform/ScrollableArea.h:
+    
+    Source/WebKit:
+    
+    Use RectEdges<bool> in code that tracks rubber banding state, and edge pinned state.
+    
+    * Shared/WebCoreArgumentCoders.cpp:
+    (IPC::ArgumentCoder<RectEdges<bool>>::encode):
+    (IPC::ArgumentCoder<RectEdges<bool>>::decode):
+    * Shared/WebCoreArgumentCoders.h:
+    * UIProcess/API/C/WKPage.cpp:
+    (WKPageIsPinnedToLeftSide):
+    (WKPageIsPinnedToRightSide):
+    (WKPageIsPinnedToTopSide):
+    (WKPageIsPinnedToBottomSide):
+    (WKPageRubberBandsAtLeft):
+    (WKPageRubberBandsAtRight):
+    (WKPageRubberBandsAtTop):
+    (WKPageRubberBandsAtBottom):
+    * UIProcess/Cocoa/WebViewImpl.mm:
+    (WebKit::toWKRectEdge):
+    (WebKit::toRectEdges):
+    (WebKit::WebViewImpl::pinnedState):
+    (WebKit::WebViewImpl::rubberBandingEnabled):
+    (WebKit::WebViewImpl::setRubberBandingEnabled):
+    * UIProcess/ViewGestureController.cpp:
+    (WebKit::ViewGestureController::PendingSwipeTracker::scrollEventCanBecomeSwipe):
+    * UIProcess/WebPageProxy.cpp:
+    (WebKit::WebPageProxy::sendWheelEvent):
+    (WebKit::WebPageProxy::setRubberBandsAtLeft):
+    (WebKit::WebPageProxy::setRubberBandsAtRight):
+    (WebKit::WebPageProxy::setRubberBandsAtTop):
+    (WebKit::WebPageProxy::setRubberBandsAtBottom):
+    (WebKit::WebPageProxy::didCommitLoadForFrame):
+    (WebKit::WebPageProxy::resetState):
+    (WebKit::WebPageProxy::didChangeScrollOffsetPinningForMainFrame):
+    (WebKit::WebPageProxy::rubberBandsAtLeft const): Deleted.
+    (WebKit::WebPageProxy::rubberBandsAtRight const): Deleted.
+    (WebKit::WebPageProxy::rubberBandsAtTop const): Deleted.
+    (WebKit::WebPageProxy::rubberBandsAtBottom const): Deleted.
+    * UIProcess/WebPageProxy.h:
+    * UIProcess/WebPageProxy.messages.in:
+    * WebProcess/WebPage/EventDispatcher.cpp:
+    (WebKit::EventDispatcher::wheelEvent):
+    * WebProcess/WebPage/EventDispatcher.h:
+    * WebProcess/WebPage/EventDispatcher.messages.in:
+    * WebProcess/WebPage/WebPage.cpp:
+    (WebKit::WebPage::updateMainFrameScrollOffsetPinning):
+    * WebProcess/WebPage/WebPage.h:
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@283353 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-09-30  Simon Fraser  <simon.fraser@apple.com>
+
+            Simplify some scrolling-related code in WebKit with use of RectEdges<bool>
+            https://bugs.webkit.org/show_bug.cgi?id=231037
+
+            Reviewed by Tim Horton.
+
+            Export edgePinnedState().
+
+            * platform/ScrollableArea.h:
+
+2021-12-01  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r286270. rdar://problem/85928816
+
+    Plumb raw platform scrolling deltas along in wheel events
+    https://bugs.webkit.org/show_bug.cgi?id=233583
+    
+    Reviewed by Simon Fraser.
+    
+    Source/WebCore:
+    
+    * platform/PlatformWheelEvent.cpp:
+    (WebCore::PlatformWheelEvent::createFromGesture):
+    * platform/PlatformWheelEvent.h:
+    (WebCore::PlatformWheelEvent::rawPlatformDelta const):
+    * PAL/pal/spi/mac/IOKitSPIMac.h:
+    
+    Source/WebKit:
+    
+    * Shared/WebEventConversion.cpp:
+    (WebKit::WebKit2PlatformWheelEvent::WebKit2PlatformWheelEvent):
+    * Shared/WebWheelEvent.cpp:
+    (WebKit::WebWheelEvent::WebWheelEvent):
+    (WebKit::WebWheelEvent::encode const):
+    (WebKit::WebWheelEvent::decode):
+    * Shared/WebWheelEvent.h:
+    (WebKit::WebWheelEvent::rawPlatformDelta const):
+    * Shared/WebWheelEventCoalescer.cpp:
+    (WebKit::WebWheelEventCoalescer::coalesce):
+    * Shared/mac/WebEventFactory.mm:
+    (WebKit::WebEventFactory::createWebWheelEvent):
+    Extract and plumb raw unaccelerated (in the HID sense) deltas in scroll
+    events for use in a future patch.
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@286270 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-11-29  Tim Horton  <timothy_horton@apple.com>
+
+            Plumb raw platform scrolling deltas along in wheel events
+            https://bugs.webkit.org/show_bug.cgi?id=233583
+
+            Reviewed by Simon Fraser.
+
+            * platform/PlatformWheelEvent.cpp:
+            (WebCore::PlatformWheelEvent::createFromGesture):
+            * platform/PlatformWheelEvent.h:
+            (WebCore::PlatformWheelEvent::rawPlatformDelta const):
+            * PAL/pal/spi/mac/IOKitSPIMac.h:
+
+2021-12-01  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r285790. rdar://problem/85928816
+
+    Attach IOHIDEvent timestamps to wheel events
+    https://bugs.webkit.org/show_bug.cgi?id=233051
+    
+    Reviewed by Wenson Hsieh.
+    Source/WebCore:
+    
+    On some macOS devices, there can be significant deltas between NSEvent timestamps,
+    and the timestamps on underlying IOHIDEvents (rdar://85309639). This makes momentum
+    velocity computation unpredictable; we can get better results by using IOHIDEvent
+    timestamps.
+    
+    * platform/PlatformWheelEvent.cpp:
+    (WebCore::PlatformWheelEvent::createFromGesture):
+    * platform/PlatformWheelEvent.h:
+    (WebCore::PlatformWheelEvent::ioHIDEventTimestamp const):
+    * platform/mac/PlatformEventFactoryMac.h:
+    * platform/mac/PlatformEventFactoryMac.mm:
+    (WebCore::eventTimeStampSince1970):
+    (WebCore::PlatformMouseEventBuilder::PlatformMouseEventBuilder):
+    (WebCore::PlatformWheelEventBuilder::PlatformWheelEventBuilder):
+    (WebCore::PlatformKeyboardEventBuilder::PlatformKeyboardEventBuilder):
+    
+    Source/WebCore/PAL:
+    
+    Expose a few bits of SPI needed.
+    
+    * pal/spi/cg/CoreGraphicsSPI.h:
+    * pal/spi/cocoa/IOKitSPI.h:
+    
+    Source/WebKit:
+    
+    On some macOS devices, there can be significant deltas between NSEvent timestamps,
+    and the timestamps on underlying IOHIDEvents (rdar://85309639). This makes momentum
+    velocity computation unpredictable; we can get better results by using IOHIDEvent
+    timestamps.
+    
+    * Shared/WebEventConversion.cpp:
+    (WebKit::WebKit2PlatformWheelEvent::WebKit2PlatformWheelEvent):
+    * Shared/WebWheelEvent.cpp:
+    (WebKit::WebWheelEvent::WebWheelEvent):
+    (WebKit::WebWheelEvent::encode const):
+    (WebKit::WebWheelEvent::decode):
+    * Shared/WebWheelEvent.h:
+    (WebKit::WebWheelEvent::ioHIDEventTimestamp const):
+    * Shared/WebWheelEventCoalescer.cpp:
+    (WebKit::WebWheelEventCoalescer::coalesce):
+    * Shared/ios/WebIOSEventFactory.mm:
+    (WebIOSEventFactory::createWebWheelEvent):
+    * Shared/mac/NativeWebGestureEventMac.mm:
+    * Shared/mac/WebEventFactory.mm:
+    (WebKit::WebEventFactory::createWebMouseEvent):
+    (WebKit::WebEventFactory::createWebWheelEvent):
+    (WebKit::WebEventFactory::createWebKeyboardEvent):
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@285790 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-11-14  Simon Fraser  <simon.fraser@apple.com>
+
+            Attach IOHIDEvent timestamps to wheel events
+            https://bugs.webkit.org/show_bug.cgi?id=233051
+
+            Reviewed by Wenson Hsieh.
+
+            On some macOS devices, there can be significant deltas between NSEvent timestamps,
+            and the timestamps on underlying IOHIDEvents (rdar://85309639). This makes momentum
+            velocity computation unpredictable; we can get better results by using IOHIDEvent
+            timestamps.
+
+            * platform/PlatformWheelEvent.cpp:
+            (WebCore::PlatformWheelEvent::createFromGesture):
+            * platform/PlatformWheelEvent.h:
+            (WebCore::PlatformWheelEvent::ioHIDEventTimestamp const):
+            * platform/mac/PlatformEventFactoryMac.h:
+            * platform/mac/PlatformEventFactoryMac.mm:
+            (WebCore::eventTimeStampSince1970):
+            (WebCore::PlatformMouseEventBuilder::PlatformMouseEventBuilder):
+            (WebCore::PlatformWheelEventBuilder::PlatformWheelEventBuilder):
+            (WebCore::PlatformKeyboardEventBuilder::PlatformKeyboardEventBuilder):
+
+2021-12-01  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r285786. rdar://problem/85928816
+
+    Clean up IOKit SPI headers
+    https://bugs.webkit.org/show_bug.cgi?id=233093
+    
+    Reviewed by Simon Fraser.
+    
+    Source/WebCore:
+    
+    * platform/gamepad/cocoa/GameControllerGamepadProvider.mm:
+    * platform/gamepad/mac/HIDGamepadProvider.h:
+    * platform/gamepad/mac/HIDGamepadProvider.mm:
+    
+    Source/WebCore/PAL:
+    
+    * PAL.xcodeproj/project.pbxproj:
+    * pal/spi/cg/CoreGraphicsSPI.h:
+    * pal/spi/cocoa/IOKitSPI.h:
+    * pal/spi/ios/IOKitSPIIOS.h: Added.
+    * pal/spi/mac/IOKitSPIMac.h:
+    IOKit vends a much different set of public API on iOS vs. macOS,
+    so we have separate SPI headers to reduce the confusion.
+    
+    Unfortunately, the SPI header for iOS was not explicitly named as such,
+    and started being used in some macOS code. For a while, this didn't lead
+    to any trouble because the aforementioned macOS code didn't ALSO have
+    the public SDK headers included, but a future patch from Simon will
+    use IOKitSPI.h in a place where the macOS IOKit public headers are included,
+    and thus we must make the split more explicit.
+    
+    Rename IOKitSPI.h to IOKitSPIIOS.h; make IOKitSPI choose the right one.
+    Add some SPI defintions to IOKitSPIMac.h that were missing (which the
+    dependent code was getting via the iOS header on macOS).
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@285786 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-11-13  Tim Horton  <timothy_horton@apple.com>
+
+            Clean up IOKit SPI headers
+            https://bugs.webkit.org/show_bug.cgi?id=233093
+
+            Reviewed by Simon Fraser.
+
+            * platform/gamepad/cocoa/GameControllerGamepadProvider.mm:
+            * platform/gamepad/mac/HIDGamepadProvider.h:
+            * platform/gamepad/mac/HIDGamepadProvider.mm:
+
+2021-12-06  Ryan Haddad  <ryanhaddad@apple.com>
+
+        Unreviewed, fix the debug build.
+
+        * platform/graphics/cocoa/FontCacheCoreText.cpp:
+        (WebCore::variationAxes):
+
+2021-12-02  Alan Coon  <alancoon@apple.com>
+
+        Revert r286394. rdar://problem/83070565
+
+2021-12-02  Alan Coon  <alancoon@apple.com>
+
+        Revert r286395. rdar://problem/83070565
+
+2021-12-01  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r285320. rdar://problem/85943167
+
+    Form action with a redirect should report correct blocked URI
+    https://bugs.webkit.org/show_bug.cgi?id=232660
+    <rdar://problem/84969024>
+    
+    Reviewed by Brent Fulgham.
+    
+    Source/WebCore:
+    
+    We currently report the blocked URI as the target of a redirect, per
+    the spec it should actually be the initiating url.
+    
+    Test: http/tests/security/contentSecurityPolicy/form-action-redirect-with-correct-blocked-uri.html
+    
+    * loader/DocumentLoader.cpp:
+    (WebCore::DocumentLoader::willSendRequest):
+    * loader/FrameLoader.cpp:
+    (WebCore::FrameLoader::checkIfFormActionAllowedByCSP const):
+    * loader/FrameLoader.h:
+    * page/csp/ContentSecurityPolicy.cpp:
+    (WebCore::ContentSecurityPolicy::allowResourceFromSource const):
+    (WebCore::ContentSecurityPolicy::allowFormAction const):
+    * page/csp/ContentSecurityPolicy.h:
+    
+    LayoutTests:
+    
+    * http/tests/security/contentSecurityPolicy/form-action-redirect-with-correct-blocked-uri-expected.txt: Added.
+    * http/tests/security/contentSecurityPolicy/form-action-redirect-with-correct-blocked-uri.html: Added.
+    * http/tests/security/contentSecurityPolicy/1.1/form-action-src-redirect-blocked-expected.txt:
+    Update console logging to report the correct URL.
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@285320 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-11-04  Kate Cheney  <katherine_cheney@apple.com>
+
+            Form action with a redirect should report correct blocked URI
+            https://bugs.webkit.org/show_bug.cgi?id=232660
+            <rdar://problem/84969024>
+
+            Reviewed by Brent Fulgham.
+
+            We currently report the blocked URI as the target of a redirect, per
+            the spec it should actually be the initiating url.
+
+            Test: http/tests/security/contentSecurityPolicy/form-action-redirect-with-correct-blocked-uri.html
+
+            * loader/DocumentLoader.cpp:
+            (WebCore::DocumentLoader::willSendRequest):
+            * loader/FrameLoader.cpp:
+            (WebCore::FrameLoader::checkIfFormActionAllowedByCSP const):
+            * loader/FrameLoader.h:
+            * page/csp/ContentSecurityPolicy.cpp:
+            (WebCore::ContentSecurityPolicy::allowResourceFromSource const):
+            (WebCore::ContentSecurityPolicy::allowFormAction const):
+            * page/csp/ContentSecurityPolicy.h:
+
+2021-12-01  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r286309. rdar://problem/84665699
+
+    Use scriptDisallowedScope in FrameSelection::updateAppearance
+    https://bugs.webkit.org/show_bug.cgi?id=233644
+    
+    Patch by Gabriel Nava Marino <gnavamarino@apple.com> on 2021-11-30
+    Reviewed by Ryosuke Niwa.
+    
+    Use scriptDisallowedScope in FrameSelection::updateAppearance to avoid re-entrancy
+    RenderView problems when a downstream function executes a JS callback.
+    
+    * editing/FrameSelection.cpp:
+    (WebCore::FrameSelection::validateSelection const):
+    (WebCore::FrameSelection::updateAppearance):
+    * editing/FrameSelection.h:
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@286309 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-11-30  Gabriel Nava Marino  <gnavamarino@apple.com>
+
+            Use scriptDisallowedScope in FrameSelection::updateAppearance
+            https://bugs.webkit.org/show_bug.cgi?id=233644
+
+            Reviewed by Ryosuke Niwa.
+
+            Use scriptDisallowedScope in FrameSelection::updateAppearance to avoid re-entrancy
+            RenderView problems when a downstream function executes a JS callback.
+
+            * editing/FrameSelection.cpp:
+            (WebCore::FrameSelection::validateSelection const):
+            (WebCore::FrameSelection::updateAppearance):
+            * editing/FrameSelection.h:
+
+2021-12-01  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r286308. rdar://problem/63180952
+
+    Scripting attributes are sometimes not properly stripped from elements when JS is disabled
+    https://bugs.webkit.org/show_bug.cgi?id=233642
+    <rdar://63180952>
+    
+    Reviewed by Geoffrey Garen.
+    
+    Source/WebCore:
+    
+    HTMLConstructionSite::mergeAttributesFromTokenIntoElement() was not properly stripping scripting
+    Element attributes when scripting is disabled, unlike other code paths in HTMLConstructionSite().
+    
+    Covered by new API tests.
+    
+    * html/parser/HTMLConstructionSite.cpp:
+    (WebCore::HTMLConstructionSite::mergeAttributesFromTokenIntoElement):
+    
+    Tools:
+    
+    Add API test coverage.
+    
+    * TestWebKitAPI/Tests/WebKitCocoa/WKWebViewConfiguration.mm:
+    (TEST):
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@286308 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-11-30  Chris Dumez  <cdumez@apple.com>
+
+            Scripting attributes are sometimes not properly stripped from elements when JS is disabled
+            https://bugs.webkit.org/show_bug.cgi?id=233642
+            <rdar://63180952>
+
+            Reviewed by Geoffrey Garen.
+
+            HTMLConstructionSite::mergeAttributesFromTokenIntoElement() was not properly stripping scripting
+            Element attributes when scripting is disabled, unlike other code paths in HTMLConstructionSite().
+
+            Covered by new API tests.
+
+            * html/parser/HTMLConstructionSite.cpp:
+            (WebCore::HTMLConstructionSite::mergeAttributesFromTokenIntoElement):
+
+2021-12-01  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r285570. rdar://problem/83070565
+
+    Fix crash in GraphicsContextCG::endTransparencyLayer
+    https://bugs.webkit.org/show_bug.cgi?id=230230
+    
+    Reviewed by Myles C. Maxfield.
+    
+    Source/WebCore:
+    
+    The crash was due to unbalanced calls to begin and end transparency layers.
+    
+    A branch handling ancestors of transparent layers that are transform root needed to be
+    aware of the top layer. Opacity on ancestors don't affect top layer elements so calling
+    `beginTransparencyLayers` on `parent()` is incorrect.
+    
+    Also fix `transparentPaintingAncestor()` to be top layer aware to avoid flickering layers
+    while scrolling.
+    
+    Test: fast/layers/top-layer-ancestor-opacity-and-transform-crash.html
+    
+    * rendering/RenderLayer.cpp:
+    (WebCore::RenderLayer::transparentPaintingAncestor):
+    (WebCore::RenderLayer::paintLayerWithEffects):
+    
+    LayoutTests:
+    
+    * fast/layers/top-layer-ancestor-opacity-and-transform-crash-expected.txt: Added.
+    * fast/layers/top-layer-ancestor-opacity-and-transform-crash.html: Added.
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@285570 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-11-10  Tim Nguyen  <ntim@apple.com>
+
+            Fix crash in GraphicsContextCG::endTransparencyLayer
+            https://bugs.webkit.org/show_bug.cgi?id=230230
+
+            Reviewed by Myles C. Maxfield.
+
+            The crash was due to unbalanced calls to begin and end transparency layers.
+
+            A branch handling ancestors of transparent layers that are transform root needed to be
+            aware of the top layer. Opacity on ancestors don't affect top layer elements so calling
+            `beginTransparencyLayers` on `parent()` is incorrect.
+
+            Also fix `transparentPaintingAncestor()` to be top layer aware to avoid flickering layers
+            while scrolling.
+
+            Test: fast/layers/top-layer-ancestor-opacity-and-transform-crash.html
+
+            * rendering/RenderLayer.cpp:
+            (WebCore::RenderLayer::transparentPaintingAncestor):
+            (WebCore::RenderLayer::paintLayerWithEffects):
+
+2021-12-01  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r285569. rdar://problem/83070565
+
+    Enable dialog tests on Windows
+    https://bugs.webkit.org/show_bug.cgi?id=232911
+    
+    Reviewed by Youenn Fablet.
+    
+    The runtime flag sometimes seems to be off for Windows, change the member in
+    RuntimeEnabledFeatures.h and re-enable tests.
+    
+    Source/WebCore:
+    
+    * page/RuntimeEnabledFeatures.h:
+    
+    LayoutTests:
+    
+    * platform/win/TestExpectations:
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@285569 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-11-10  Tim Nguyen  <ntim@apple.com>
+
+            Enable dialog tests on Windows
+            https://bugs.webkit.org/show_bug.cgi?id=232911
+
+            Reviewed by Youenn Fablet.
+
+            The runtime flag sometimes seems to be off for Windows, change the member in
+            RuntimeEnabledFeatures.h and re-enable tests.
+
+            * page/RuntimeEnabledFeatures.h:
+
 2021-11-16  Russell Epstein  <repstein@apple.com>
 
         Cherry-pick r285823. rdar://problem/85236459

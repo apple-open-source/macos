@@ -2886,6 +2886,12 @@ void WebPageProxy::handleWheelEvent(const NativeWebWheelEvent& event)
 
     closeOverlayedViews();
 
+#if ENABLE(MOMENTUM_EVENT_DISPATCHER)
+    // FIXME: We should not have to look this up repeatedly, but it can also change occasionally.
+    if (event.momentumPhase() == WebWheelEvent::PhaseBegan && preferences().momentumScrollingAnimatorEnabled())
+        m_scrollingAccelerationCurve = ScrollingAccelerationCurve::fromNativeWheelEvent(event);
+#endif
+
     if (wheelEventCoalescer().shouldDispatchEvent(event)) {
         auto event = wheelEventCoalescer().nextEventToDispatch();
         sendWheelEvent(*event);
@@ -2893,26 +2899,28 @@ void WebPageProxy::handleWheelEvent(const NativeWebWheelEvent& event)
 }
 
 #if HAVE(CVDISPLAYLINK)
-void WebPageProxy::wheelEventHysteresisUpdated(PAL::HysteresisState state)
+void WebPageProxy::wheelEventHysteresisUpdated(PAL::HysteresisState)
+{
+    updateDisplayLinkFrequency();
+}
+
+void WebPageProxy::updateDisplayLinkFrequency()
 {
     if (!m_process->hasConnection() || !m_displayID)
         return;
 
-    bool wantsFullSpeedUpdates = state == PAL::HysteresisState::Started;
-    process().processPool().setDisplayLinkForDisplayWantsFullSpeedUpdates(*m_process->connection(), *m_displayID, wantsFullSpeedUpdates);
+    bool wantsFullSpeedUpdates = m_wheelEventActivityHysteresis.state() == PAL::HysteresisState::Started;
+    if (wantsFullSpeedUpdates != m_registeredForFullSpeedUpdates) {
+        process().processPool().setDisplayLinkForDisplayWantsFullSpeedUpdates(*m_process->connection(), *m_displayID, wantsFullSpeedUpdates);
+        m_registeredForFullSpeedUpdates = wantsFullSpeedUpdates;
+    }
 }
 #endif
 
 void WebPageProxy::updateWheelEventActivityAfterProcessSwap()
 {
 #if HAVE(CVDISPLAYLINK)
-    if (m_wheelEventActivityHysteresis.state() == PAL::HysteresisState::Started) {
-        if (!m_process->hasConnection() || !m_displayID)
-            return;
-
-        bool wantsFullSpeedUpdates = true;
-        process().processPool().setDisplayLinkForDisplayWantsFullSpeedUpdates(*m_process->connection(), *m_displayID, wantsFullSpeedUpdates);
-    }
+    updateDisplayLinkFrequency();
 #endif
 }
 
@@ -2925,16 +2933,21 @@ void WebPageProxy::sendWheelEvent(const WebWheelEvent& event)
     auto* connection = messageSenderConnection();
     if (!connection)
         return;
+    
+    auto rubberBandableEdges = this->rubberBandableEdges();
+    if (shouldUseImplicitRubberBandControl()) {
+        rubberBandableEdges.setLeft(!m_backForwardList->backItem());
+        rubberBandableEdges.setRight(!m_backForwardList->forwardItem());
+    }
 
-    connection->send(
-        Messages::EventDispatcher::WheelEvent(
-            m_webPageID,
-            event,
-            shouldUseImplicitRubberBandControl() ? !m_backForwardList->backItem() : rubberBandsAtLeft(),
-            shouldUseImplicitRubberBandControl() ? !m_backForwardList->forwardItem() : rubberBandsAtRight(),
-            rubberBandsAtTop(),
-            rubberBandsAtBottom()
-    ), 0, { }, Thread::QOS::UserInteractive);
+#if ENABLE(MOMENTUM_EVENT_DISPATCHER)
+    if (event.momentumPhase() == WebWheelEvent::PhaseBegan && m_scrollingAccelerationCurve != m_lastSentScrollingAccelerationCurve) {
+        connection->send(Messages::EventDispatcher::SetScrollingAccelerationCurve(m_webPageID, m_scrollingAccelerationCurve), 0, { }, Thread::QOS::UserInteractive);
+        m_lastSentScrollingAccelerationCurve = m_scrollingAccelerationCurve;
+    }
+#endif
+
+    connection->send(Messages::EventDispatcher::WheelEvent(m_webPageID, event, rubberBandableEdges), 0, { }, Thread::QOS::UserInteractive);
 
     // Manually ping the web process to check for responsiveness since our wheel
     // event will dispatch to a non-main thread, which always responds.
@@ -3608,7 +3621,7 @@ void WebPageProxy::commitProvisionalPage(FrameIdentifier frameID, FrameInfoData&
 
     m_process->removeMessageReceiver(Messages::WebPageProxy::messageReceiverName(), m_webPageID);
     auto* navigation = navigationState().navigation(m_provisionalPage->navigationID());
-    bool didSuspendPreviousPage = navigation && !m_provisionalPage->shouldClosePreviousPageAfterCommit() ? suspendCurrentPageIfPossible(*navigation, mainFrameIDInPreviousProcess, m_provisionalPage->processSwapRequestedByClient(), shouldDelayClosingUntilFirstLayerFlush) : false;
+    bool didSuspendPreviousPage = navigation && !m_provisionalPage->isProcessSwappingOnNavigationResponse() ? suspendCurrentPageIfPossible(*navigation, mainFrameIDInPreviousProcess, m_provisionalPage->processSwapRequestedByClient(), shouldDelayClosingUntilFirstLayerFlush) : false;
     m_process->removeWebPage(*this, m_websiteDataStore.ptr() == &m_provisionalPage->process().websiteDataStore() ? WebProcessProxy::EndsUsingDataStore::No : WebProcessProxy::EndsUsingDataStore::Yes);
 
     // There is no way we'll be able to return to the page in the previous page so close it.
@@ -3621,6 +3634,11 @@ void WebPageProxy::commitProvisionalPage(FrameIdentifier frameID, FrameInfoData&
     didCommitLoadForFrame(frameID, WTFMove(frameInfo), WTFMove(request), navigationID, mimeType, frameHasCustomContentProvider, frameLoadType, certificateInfo, usedLegacyTLS, containsPluginDocument, forcedHasInsecureContent, mouseEventPolicy, userData);
 
     m_inspectorController->didCommitProvisionalPage(oldWebPageID, m_webPageID);
+}
+
+void WebPageProxy::destroyProvisionalPage()
+{
+    m_provisionalPage = nullptr;
 }
 
 void WebPageProxy::continueNavigationInNewProcess(API::Navigation& navigation, std::unique_ptr<SuspendedPageProxy>&& suspendedPage, Ref<WebProcessProxy>&& newProcess, ProcessSwapRequestedByClient processSwapRequestedByClient, ShouldTreatAsContinuingLoad shouldTreatAsContinuingLoad, RefPtr<API::WebsitePolicies>&& websitePolicies, std::optional<NetworkResourceLoadIdentifier> existingNetworkResourceLoadIdentifierToResume)
@@ -3638,8 +3656,8 @@ void WebPageProxy::continueNavigationInNewProcess(API::Navigation& navigation, s
     }
 
     bool isServerSideRedirect = shouldTreatAsContinuingLoad == ShouldTreatAsContinuingLoad::YesAfterNavigationPolicyDecision && navigation.currentRequestIsRedirect();
-    bool shouldClosePreviousPageAfterCommit = shouldTreatAsContinuingLoad == ShouldTreatAsContinuingLoad::YesAfterProvisionalLoadStarted;
-    m_provisionalPage = makeUnique<ProvisionalPageProxy>(*this, WTFMove(newProcess), WTFMove(suspendedPage), navigation.navigationID(), isServerSideRedirect, navigation.currentRequest(), processSwapRequestedByClient, shouldClosePreviousPageAfterCommit, websitePolicies.get());
+    bool isProcessSwappingOnNavigationResponse = shouldTreatAsContinuingLoad == ShouldTreatAsContinuingLoad::YesAfterProvisionalLoadStarted;
+    m_provisionalPage = makeUnique<ProvisionalPageProxy>(*this, WTFMove(newProcess), WTFMove(suspendedPage), navigation.navigationID(), isServerSideRedirect, navigation.currentRequest(), processSwapRequestedByClient, isProcessSwappingOnNavigationResponse, websitePolicies.get());
     auto continuation = [this, protectedThis = makeRef(*this), navigation = makeRef(navigation), shouldTreatAsContinuingLoad, websitePolicies = WTFMove(websitePolicies), existingNetworkResourceLoadIdentifierToResume]() mutable {
         if (auto* item = navigation->targetItem()) {
             LOG(Loading, "WebPageProxy %p continueNavigationInNewProcess to back item URL %s", this, item->url().utf8().data());
@@ -3986,12 +4004,23 @@ void WebPageProxy::setIntrinsicDeviceScaleFactor(float scaleFactor)
 
 void WebPageProxy::windowScreenDidChange(PlatformDisplayID displayID, std::optional<unsigned> nominalFramesPerSecond)
 {
+#if HAVE(CVDISPLAYLINK)
+    if (m_process->hasConnection() && m_displayID && m_registeredForFullSpeedUpdates)
+        process().processPool().setDisplayLinkForDisplayWantsFullSpeedUpdates(*m_process->connection(), *m_displayID, false);
+
+    m_registeredForFullSpeedUpdates = false;
+#endif
+
     m_displayID = displayID;
 
     if (!hasRunningProcess())
         return;
 
+    send(Messages::EventDispatcher::PageScreenDidChange(m_webPageID, displayID, nominalFramesPerSecond));
     send(Messages::WebPage::WindowScreenDidChange(displayID, nominalFramesPerSecond));
+#if HAVE(CVDISPLAYLINK)
+    updateDisplayLinkFrequency();
+#endif
 }
 
 float WebPageProxy::deviceScaleFactor() const
@@ -4124,44 +4153,24 @@ void WebPageProxy::setSuppressScrollbarAnimations(bool suppressAnimations)
     send(Messages::WebPage::SetSuppressScrollbarAnimations(suppressAnimations));
 }
 
-bool WebPageProxy::rubberBandsAtLeft() const
-{
-    return m_rubberBandsAtLeft;
-}
-
 void WebPageProxy::setRubberBandsAtLeft(bool rubberBandsAtLeft)
 {
-    m_rubberBandsAtLeft = rubberBandsAtLeft;
-}
-
-bool WebPageProxy::rubberBandsAtRight() const
-{
-    return m_rubberBandsAtRight;
+    m_rubberBandableEdges.setLeft(rubberBandsAtLeft);
 }
 
 void WebPageProxy::setRubberBandsAtRight(bool rubberBandsAtRight)
 {
-    m_rubberBandsAtRight = rubberBandsAtRight;
-}
-
-bool WebPageProxy::rubberBandsAtTop() const
-{
-    return m_rubberBandsAtTop;
+    m_rubberBandableEdges.setRight(rubberBandsAtRight);
 }
 
 void WebPageProxy::setRubberBandsAtTop(bool rubberBandsAtTop)
 {
-    m_rubberBandsAtTop = rubberBandsAtTop;
-}
-
-bool WebPageProxy::rubberBandsAtBottom() const
-{
-    return m_rubberBandsAtBottom;
+    m_rubberBandableEdges.setTop(rubberBandsAtTop);
 }
 
 void WebPageProxy::setRubberBandsAtBottom(bool rubberBandsAtBottom)
 {
-    m_rubberBandsAtBottom = rubberBandsAtBottom;
+    m_rubberBandableEdges.setBottom(rubberBandsAtBottom);
 }
     
 void WebPageProxy::setEnableVerticalRubberBanding(bool enableVerticalRubberBanding)
@@ -4933,11 +4942,7 @@ void WebPageProxy::didCommitLoadForFrame(FrameIdentifier frameID, FrameInfoData&
         if (m_mainFrameHasCustomContentProvider) {
             // Always assume that the main frame is pinned here, since the custom representation view will handle
             // any wheel events and dispatch them to the WKView when necessary.
-            m_mainFrameIsPinnedToLeftSide = true;
-            m_mainFrameIsPinnedToRightSide = true;
-            m_mainFrameIsPinnedToTopSide = true;
-            m_mainFrameIsPinnedToBottomSide = true;
-
+            m_mainFramePinnedState = { true, true, true, true };
             m_uiClient->pinnedStateDidChange(*this);
         }
         pageClient().didCommitLoadForMainFrame(mimeType, frameHasCustomContentProvider);
@@ -7849,10 +7854,7 @@ void WebPageProxy::resetState(ResetStateReason resetStateReason)
     m_mainFrameHasHorizontalScrollbar = false;
     m_mainFrameHasVerticalScrollbar = false;
 
-    m_mainFrameIsPinnedToLeftSide = true;
-    m_mainFrameIsPinnedToRightSide = true;
-    m_mainFrameIsPinnedToTopSide = true;
-    m_mainFrameIsPinnedToBottomSide = true;
+    m_mainFramePinnedState = { true, true, true, true };
 
     m_visibleScrollerThumbRect = IntRect();
 
@@ -7929,6 +7931,10 @@ void WebPageProxy::resetState(ResetStateReason resetStateReason)
         m_xrSystem->invalidate();
         m_xrSystem = nullptr;
     }
+#endif
+
+#if ENABLE(MOMENTUM_EVENT_DISPATCHER)
+    m_lastSentScrollingAccelerationCurve = std::nullopt;
 #endif
 }
 
@@ -8759,13 +8765,10 @@ void WebPageProxy::didChangeScrollbarsForMainFrame(bool hasHorizontalScrollbar, 
     m_mainFrameHasVerticalScrollbar = hasVerticalScrollbar;
 }
 
-void WebPageProxy::didChangeScrollOffsetPinningForMainFrame(bool pinnedToLeftSide, bool pinnedToRightSide, bool pinnedToTopSide, bool pinnedToBottomSide)
+void WebPageProxy::didChangeScrollOffsetPinningForMainFrame(RectEdges<bool> pinnedState)
 {
     pageClient().pinnedStateWillChange();
-    m_mainFrameIsPinnedToLeftSide = pinnedToLeftSide;
-    m_mainFrameIsPinnedToRightSide = pinnedToRightSide;
-    m_mainFrameIsPinnedToTopSide = pinnedToTopSide;
-    m_mainFrameIsPinnedToBottomSide = pinnedToBottomSide;
+    m_mainFramePinnedState = pinnedState;
     pageClient().pinnedStateDidChange();
 
     m_uiClient->pinnedStateDidChange(*this);
@@ -10757,6 +10760,11 @@ void WebPageProxy::dispatchActivityStateUpdateForTesting()
     RunLoop::current().dispatch([protectedThis = makeRef(*this)] {
         protectedThis->dispatchActivityStateChange();
     });
+}
+
+void WebPageProxy::isLayerTreeFrozen(CompletionHandler<void(bool)>&& completionHandler)
+{
+    sendWithAsyncReply(Messages::WebPage::IsLayerTreeFrozen(), WTFMove(completionHandler));
 }
 
 void WebPageProxy::requestSpeechRecognitionPermission(WebCore::SpeechRecognitionRequest& request, CompletionHandler<void(std::optional<SpeechRecognitionError>&&)>&& completionHandler)

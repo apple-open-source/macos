@@ -2847,10 +2847,22 @@ void stopProcTimer(assertion_t *assertion)
 }
 
 
-void startProcTimer(assertion_t *assertion)
+void startProcTimer(pid_t pid, IOPMAssertionID id)
 {
+    assertion_t *assertion = NULL;
+
+    ProcessInfo *pinfo = processInfoGet(pid);
+    if (!pinfo || pinfo->proc_exited || pinfo->maxAssertLength == 0) {
+        // Make sure the process still exists
+        return;
+    }
+
+    lookupAssertion(pid, id, &assertion);
+    if (!assertion) {
+        return;
+    }
+
     assertionType_t     *assertType = NULL;
-    ProcessInfo *pinfo = NULL;
     dispatch_source_t disp;
 
     assertType = &gAssertionTypes[assertion->kassert];
@@ -2858,18 +2870,12 @@ void startProcTimer(assertion_t *assertion)
         return;
     }
 
-    // Account the timers based on the pid creating the assertions
-    pinfo = assertion->pinfo;
-    if (!pinfo || pinfo->maxAssertLength == 0) {
-        return;
-    }
-
     if (_getPowerSource() != kBatteryPowered) {
         // Time based assertion validation is done only on battery power
         return;
     }
-    if (assertion->timeout) {
 
+    if (assertion->timeout) {
         uint64_t currTime = getMonotonicTime();
         uint64_t deltaSecs = assertion->timeout - currTime;
         if (deltaSecs <= pinfo->maxAssertLength) {
@@ -2893,7 +2899,6 @@ void startProcTimer(assertion_t *assertion)
                           DISPATCH_TIME_FOREVER, 0);
     dispatch_resume(assertion->procTimer);
     assertion->state |= kAssertionProcTimerActive;
-
 }
 
 
@@ -3830,7 +3835,7 @@ void insertActiveAssertion(assertion_t *assertion, assertionType_t *assertType, 
         updateSystemQualifiers(assertion, kAssertionOpRaise);
     }
     dispatch_async(_getPMMainQueue(), ^{
-        startProcTimer(assertion);
+        startProcTimer(assertion->pinfo->pid, assertion->assertionId);
     });
 
 }
@@ -4118,7 +4123,7 @@ void insertTimedAssertion(assertion_t *assertion, assertionType_t *assertType, b
         schedDisableAppSleep( assertion );
         updateSystemQualifiers(assertion, kAssertionOpRaise);
     }
-    startProcTimer(assertion);
+    startProcTimer(assertion->pinfo->pid, assertion->assertionId);
     /*  
      * If this assertion is not the one with earliest timeout,
      * there is nothing to do.
@@ -6066,7 +6071,7 @@ static void   evaluateForPSChange(void)
                 if ((!(assertion->state & kAssertionStateValidOnBatt)) && (assertType->flags & kAssertionTypeNotValidOnBatt)) {
                     updateAppStats(assertion, kAssertionOpRelease);
                 }
-                startProcTimer(assertion);
+                startProcTimer(assertion->pinfo->pid, assertion->assertionId);
             }
             else if (pwrSrc != kBatteryPowered) {
                 if (assertType->flags & kAssertionTypeNotValidOnBatt) {

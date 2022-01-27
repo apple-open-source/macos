@@ -767,6 +767,22 @@ INTERNAL unsigned32     allocate_assoc_action_rtn
         rpc__cn_assoc_push_call (call_rep_p->assoc, call_rep_p, &status);
         event_entry.event_id = RPC_C_CALL_ALLOC_ASSOC_ACK;
         event_entry.event_param = (dce_pointer_t) NULL;
+
+        /*
+         * <85346854> When using rpc_c_authn_level_pkt_privacy,
+         * RPC__GSSAUTH_CN_AUTH_PADDING is used for padding and that results in
+         * needing a possible 8 more pad bytes. Thus, shorten the max_seg_size
+         * so we do not exceed the maximum fragment length.
+         */
+        if ((call_rep_p->sec != NULL) &&
+            (call_rep_p->sec->sec_info->authn_level == rpc_c_authn_level_pkt_privacy)) {
+            if (RPC_CN_ASSOC_MAX_XMIT_FRAG (call_rep_p->assoc) > 8) {
+                call_rep_p->max_seg_size = RPC_CN_ASSOC_MAX_XMIT_FRAG (call_rep_p->assoc) - 8;
+                RPC_DBG_PRINTF (rpc_e_dbg_general, RPC_C_CN_DBG_GENERAL,
+                                ("%s: Packet privacy in use, reducing max seg size by 8 to %u \n",
+                                 __FUNCTION__, call_rep_p->max_seg_size));
+            }
+        }
     }
     else
     {

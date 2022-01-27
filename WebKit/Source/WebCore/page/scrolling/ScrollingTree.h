@@ -100,6 +100,9 @@ public:
     bool scrollingPerformanceTestingEnabled() const { return m_scrollingPerformanceTestingEnabled; }
     void setScrollingPerformanceTestingEnabled(bool value) { m_scrollingPerformanceTestingEnabled = value; }
 
+    bool momentumScrollingAnimatorEnabled() const { return m_momentumScrollingAnimatorEnabled; }
+    void setMomentumScrollingAnimatorEnabled(bool value) { m_momentumScrollingAnimatorEnabled = value; }
+
     WEBCORE_EXPORT OptionSet<WheelEventProcessingSteps> determineWheelEventProcessing(const PlatformWheelEvent&);
     WEBCORE_EXPORT virtual WheelEventHandlingResult handleWheelEvent(const PlatformWheelEvent&, OptionSet<WheelEventProcessingSteps> = { });
 
@@ -220,7 +223,9 @@ public:
 
     void windowScreenDidChange(PlatformDisplayID, std::optional<FramesPerSecond> nominalFramesPerSecond);
     PlatformDisplayID displayID();
-    
+
+    std::optional<FramesPerSecond> nominalFramesPerSecond();
+
     bool hasProcessedWheelEventsRecently();
     WEBCORE_EXPORT void willProcessWheelEvent();
 
@@ -254,9 +259,7 @@ protected:
     void setGestureState(std::optional<WheelScrollGestureState>);
     std::optional<WheelScrollGestureState> gestureState();
 
-    std::optional<FramesPerSecond> nominalFramesPerSecond();
-
-    void applyLayerPositionsInternal() WTF_REQUIRES_LOCK(m_treeLock);
+    WEBCORE_EXPORT virtual void applyLayerPositionsInternal() WTF_REQUIRES_LOCK(m_treeLock);
     void removeAllNodes() WTF_REQUIRES_LOCK(m_treeLock);
 
     Lock m_treeLock; // Protects the scrolling tree.
@@ -335,6 +338,7 @@ private:
     bool m_scrollingPerformanceTestingEnabled { false };
     bool m_asyncFrameOrOverflowScrollingEnabled { false };
     bool m_wheelEventGesturesBecomeNonBlocking { false };
+    bool m_momentumScrollingAnimatorEnabled { false };
     bool m_needsApplyLayerPositionsAfterCommit { false };
     bool m_inCommitTreeState { false };
 };

@@ -5489,7 +5489,7 @@ static PowerSources _getPowerSourceSync(void)
 {
    IOPMBattery      **batteries;
    _internal_dispatch_assert_queue(batteryTimeRemainingQ);
-   if (_batteryCountSync() && (batteries = _batteries()) && (!batteries[0]->externalConnected) )
+   if (_batteryCountSync() && (batteries = _batteries()) && (batteries[0]->isPresent && !batteries[0]->externalConnected) )
       return kBatteryPowered;
    else
       return kACPowered;

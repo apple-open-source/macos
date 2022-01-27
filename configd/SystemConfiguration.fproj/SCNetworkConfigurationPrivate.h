@@ -766,6 +766,16 @@ _SCNetworkInterfaceIsEphemeral			(SCNetworkInterfaceRef		interface)	SPI_AVAILABL
 
 
 /*!
+	@function _SCNetworkInterfaceIsSelfNamed
+	@discussion Indicates whether this is a self-named interface.
+	@param interface The network interface.
+	@result TRUE if this is a self-named interface.
+ */
+Boolean
+_SCNetworkInterfaceIsSelfNamed			(SCNetworkInterfaceRef		interface)	SPI_AVAILABLE(macos(12.0), ios(15.0));
+
+
+/*!
 	@function _SCNetworkInterfaceIsQoSMarkingProfileInstalled
 	@discussion Identifies if a network interface has a QoSMarking profile installed
 	@param interface The network interface.

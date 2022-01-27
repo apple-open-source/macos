@@ -676,6 +676,17 @@ skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
     }] waitForPriorityViewKeychainDataRecovery:containerName contextID:contextID reply:reply];
 }
 
+- (void)tlkRecoverabilityForEscrowRecordData:(NSString* _Nullable)containerName
+                                   contextID:(NSString*)contextID
+                                  recordData:(NSData*)recordData
+                                       reply:(void (^)(NSArray<NSString*>* _Nullable views, NSError* _Nullable error))reply
+{
+    [[self getConnection:^(NSError *connectionError) {
+        reply(nil, connectionError);
+    }] tlkRecoverabilityForEscrowRecordData:containerName contextID:contextID recordData:recordData reply:reply];
+}
+
+
 + (OTControl*)controlObject:(NSError* __autoreleasing *)error {
     return [OTControl controlObject:false error:error];
 }

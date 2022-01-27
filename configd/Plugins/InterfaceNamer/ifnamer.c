@@ -3329,6 +3329,11 @@ nameInterfaces(CFMutableArrayRef if_list)
 
 	interface = CFArrayGetValueAtIndex(if_list, i);
 	SC_log(LOG_INFO, "%s: %d. %@", __func__, (int)i, interface);
+	if (_SCNetworkInterfaceIsSelfNamed(interface)) {
+	    /* ignore self-named interfaces */
+	    SC_log(LOG_INFO, "Ignoring self-named interface");
+	    continue;
+	}
 	unit = _SCNetworkInterfaceGetIOInterfaceUnit(interface);
 	if (unit != NULL) {
 	    // interface already has a unit number

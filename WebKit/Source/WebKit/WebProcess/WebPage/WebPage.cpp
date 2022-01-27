@@ -2790,6 +2790,11 @@ void WebPage::unfreezeLayerTree(LayerTreeFreezeReason reason)
     updateDrawingAreaLayerTreeFreezeState();
 }
 
+void WebPage::isLayerTreeFrozen(CompletionHandler<void(bool)>&& completionHandler)
+{
+    completionHandler(!!m_layerTreeFreezeReasons);
+}
+
 void WebPage::updateDrawingAreaLayerTreeFreezeState()
 {
     if (!m_drawingArea)
@@ -3052,7 +3057,7 @@ static bool handleWheelEvent(const WebWheelEvent& wheelEvent, Page* page, Option
     return page->userInputBridge().handleWheelEvent(platformWheelEvent, processingSteps);
 }
 
-bool WebPage::wheelEvent(const WebWheelEvent& wheelEvent, OptionSet<WheelEventProcessingSteps> processingSteps)
+bool WebPage::wheelEvent(const WebWheelEvent& wheelEvent, OptionSet<WheelEventProcessingSteps> processingSteps, EventDispatcher::WheelEventOrigin wheelEventOrigin)
 {
     m_userActivity.impulse();
 
@@ -3060,7 +3065,7 @@ bool WebPage::wheelEvent(const WebWheelEvent& wheelEvent, OptionSet<WheelEventPr
 
     bool handled = handleWheelEvent(wheelEvent, m_page.get(), processingSteps);
 
-    if (processingSteps.contains(WheelEventProcessingSteps::MainThreadForScrolling))
+    if (processingSteps.contains(WheelEventProcessingSteps::MainThreadForScrolling) && wheelEventOrigin == EventDispatcher::WheelEventOrigin::UIProcess)
         send(Messages::WebPageProxy::DidReceiveEvent(static_cast<uint32_t>(wheelEvent.type()), handled));
 
     return handled;
@@ -3074,7 +3079,7 @@ void WebPage::dispatchWheelEventWithoutScrolling(const WebWheelEvent& wheelEvent
 #else
     bool isCancelable = true;
 #endif
-    bool handled = this->wheelEvent(wheelEvent, { isCancelable ? WheelEventProcessingSteps::MainThreadForBlockingDOMEventDispatch : WheelEventProcessingSteps::MainThreadForNonBlockingDOMEventDispatch });
+    bool handled = this->wheelEvent(wheelEvent, { isCancelable ? WheelEventProcessingSteps::MainThreadForBlockingDOMEventDispatch : WheelEventProcessingSteps::MainThreadForNonBlockingDOMEventDispatch }, EventDispatcher::WheelEventOrigin::UIProcess);
     completionHandler(handled);
 }
 
@@ -4239,6 +4244,20 @@ void WebPage::finalizeRenderingUpdate(OptionSet<FinalizeRenderingUpdateFlags> fl
 #endif
 }
 
+void WebPage::willStartPlatformRenderingUpdate()
+{
+    if (m_isClosed)
+        return;
+    m_page->willStartPlatformRenderingUpdate();
+}
+
+void WebPage::didCompletePlatformRenderingUpdate()
+{
+    if (m_isClosed)
+        return;
+    m_page->didCompletePlatformRenderingUpdate();
+}
+
 void WebPage::releaseMemory(Critical)
 {
 #if ENABLE(GPU_PROCESS)
@@ -4937,23 +4956,14 @@ void WebPage::addMIMETypeWithCustomContentProvider(const String& mimeType)
 
 void WebPage::updateMainFrameScrollOffsetPinning()
 {
-    Frame& frame = m_page->mainFrame();
-    ScrollPosition scrollPosition = frame.view()->scrollPosition();
-    ScrollPosition maximumScrollPosition = frame.view()->maximumScrollPosition();
-    ScrollPosition minimumScrollPosition = frame.view()->minimumScrollPosition();
+    auto* frameView = mainFrameView();
+    if (!frameView)
+        return;
 
-    bool isPinnedToLeftSide = (scrollPosition.x() <= minimumScrollPosition.x());
-    bool isPinnedToRightSide = (scrollPosition.x() >= maximumScrollPosition.x());
-    bool isPinnedToTopSide = (scrollPosition.y() <= minimumScrollPosition.y());
-    bool isPinnedToBottomSide = (scrollPosition.y() >= maximumScrollPosition.y());
-
-    if (isPinnedToLeftSide != m_cachedMainFrameIsPinnedToLeftSide || isPinnedToRightSide != m_cachedMainFrameIsPinnedToRightSide || isPinnedToTopSide != m_cachedMainFrameIsPinnedToTopSide || isPinnedToBottomSide != m_cachedMainFrameIsPinnedToBottomSide) {
-        send(Messages::WebPageProxy::DidChangeScrollOffsetPinningForMainFrame(isPinnedToLeftSide, isPinnedToRightSide, isPinnedToTopSide, isPinnedToBottomSide));
-        
-        m_cachedMainFrameIsPinnedToLeftSide = isPinnedToLeftSide;
-        m_cachedMainFrameIsPinnedToRightSide = isPinnedToRightSide;
-        m_cachedMainFrameIsPinnedToTopSide = isPinnedToTopSide;
-        m_cachedMainFrameIsPinnedToBottomSide = isPinnedToBottomSide;
+    auto pinnedState = frameView->edgePinnedState();
+    if (pinnedState != m_cachedMainFramePinnedState) {
+        send(Messages::WebPageProxy::DidChangeScrollOffsetPinningForMainFrame(pinnedState));
+        m_cachedMainFramePinnedState = pinnedState;
     }
 }
 

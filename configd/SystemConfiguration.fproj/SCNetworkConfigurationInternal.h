@@ -162,6 +162,7 @@ typedef struct {
 	CFStringRef		prefix;
 	Boolean			trustRequired;
 	Boolean			isEphemeral;
+	Boolean			isSelfNamed;
 	CFNumberRef		type;
 	CFNumberRef		unit;
 	CFNumberRef		family;

@@ -98,6 +98,10 @@ typedef NS_ENUM(NSUInteger, CKKSKnownBadState) {
 
 - (void)toggleHavoc:(void (^)(BOOL havoc, NSError* _Nullable error))reply;
 
+- (void)pcsMirrorKeysForServices:(NSDictionary<NSNumber*,NSArray<NSData*>*>*)services
+                           reply:(void (^)(NSDictionary<NSNumber*,NSArray<NSData*>*>* _Nullable result,
+                                           NSError* _Nullable error))reply;
+
 + (CKKSControl* _Nullable)controlObject:(NSError* _Nullable __autoreleasing* _Nullable)error;
 + (CKKSControl* _Nullable)CKKSControlObject:(BOOL)sync error:(NSError* _Nullable __autoreleasing* _Nullable)error;
 

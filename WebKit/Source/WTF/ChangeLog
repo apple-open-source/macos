@@ -1,3 +1,443 @@
+2022-01-06  Russell Epstein  <repstein@apple.com>
+
+        Cherry-pick r287641. rdar://problem/86338105
+
+    Momentum Event Dispatcher: Momentum tails may get truncated if the duration runs longer than the system's
+    https://bugs.webkit.org/show_bug.cgi?id=234535
+    <rdar://problem/86338105>
+    
+    Reviewed by Simon Fraser.
+    
+    Source/WebKit:
+    
+    Currently, synthetic momentum dispatch is strictly tied to the duration
+    of the real platform momentum phase, which has two unfortunate implications:
+    
+    - if our phase runs shorter than the platform phase, we'll keep dispatching
+      zero-delta events until the platform momentum ends
+    
+    - more importantly, if our phase runs longer, it will be abruptly terminated
+      when the platform momentum ends
+    
+    In practice, our synthetic phase is very close in duration to the system one,
+    so the impact is minimal. But, to be safe, disentagle the two durations,
+    using a new bit from the platform to determine if the system momentum phase
+    was interrupted by the user (e.g. by tapping the trackpad) or naturally,
+    and ignoring the ended event in the natural case, allowing synthetic
+    events to continue being dispatched.
+    
+    * Shared/WebWheelEvent.cpp:
+    (WebKit::WebWheelEvent::WebWheelEvent):
+    (WebKit::WebWheelEvent::encode const):
+    (WebKit::WebWheelEvent::decode):
+    * Shared/WebWheelEvent.h:
+    (WebKit::WebWheelEvent::momentumEndType const):
+    * Shared/WebWheelEventCoalescer.cpp:
+    (WebKit::WebWheelEventCoalescer::coalesce):
+    Plumb momentumEndType along on WebWheelEvent. Platforms that don't
+    provide information about the interruption reason will always say Unknown.
+    
+    * Shared/mac/WebEventFactory.mm:
+    (WebKit::WebEventFactory::createWebWheelEvent):
+    Only bother looking up the CGEvent/IOHIDEvent once, and extract all
+    relevant details in one go.
+    
+    * WebProcess/WebPage/MomentumEventDispatcher.cpp:
+    (WebKit::MomentumEventDispatcher::handleWheelEvent):
+    Don't interrupt the synthetic momentum phase if the momentum-ended event
+    comes from the natural end of the deceleration instead of an interruption
+    (or an unknown reason).
+    
+    Keep track of whether we're in the middle of a platform momentum phase
+    that we chose (at momentum-begin time) to override. When deciding
+    whether to eat an incoming event, take *both* this new bit and whether
+    we are currently in the middle of a synthetic phase into account. It
+    is important to continue eating incoming events in the case where
+    the synthetic phase ended early (so `active` became false) but the
+    platform phase continues.
+    
+    (WebKit::MomentumEventDispatcher::dispatchSyntheticMomentumEvent):
+    (WebKit::MomentumEventDispatcher::didEndMomentumPhase):
+    Adjust some logging wording to be more precise.
+    
+    (WebKit::MomentumEventDispatcher::setScrollingAccelerationCurve):
+    Make this log public so that the curve value is visible in logs.
+    
+    (WebKit::MomentumEventDispatcher::consumeDeltaForCurrentTime):
+    Make consumeDeltaForCurrentTime inform the client via an optional when
+    we are at the end of the delta table.
+    
+    (WebKit::MomentumEventDispatcher::displayWasRefreshed):
+    Stop the synthetic momentum phase as soon as we run out of deltas.
+    
+    (WebKit::MomentumEventDispatcher::computeNextDelta):
+    * WebProcess/WebPage/MomentumEventDispatcher.h:
+    
+    Source/WTF:
+    
+    * wtf/PlatformHave.h:
+    Add a HAVE for kIOHIDEventScrollMomentumInterrupted.
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@287641 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2022-01-05  Tim Horton  <timothy_horton@apple.com>
+
+            Momentum Event Dispatcher: Momentum tails may get truncated if the duration runs longer than the system's
+            https://bugs.webkit.org/show_bug.cgi?id=234535
+            <rdar://problem/86338105>
+
+            Reviewed by Simon Fraser.
+
+            * wtf/PlatformHave.h:
+            Add a HAVE for kIOHIDEventScrollMomentumInterrupted.
+
+2021-12-13  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r286858. rdar://problem/86423741
+
+    Use simpler idioms for std::less and std::greater possible in modern C++
+    https://bugs.webkit.org/show_bug.cgi?id=234117
+    
+    Reviewed by Anders Carlsson.
+    
+    Source/WebCore:
+    
+    * testing/InternalsMapLike.cpp:
+    (WebCore::InternalsMapLike::inspectValues const): Remove unneeded explicit
+    use of std:less, because this is what std::sort by default.
+    
+    Source/WebKit:
+    
+    * WebProcess/WebPage/MomentumEventDispatcher.cpp:
+    (WebKit::MomentumEventDispatcher::equalizeTailGaps): Removed unneeded
+    template arguments for std::greater, and removed explicit use of std::less,
+    since that's what std::sort does by default.
+    
+    Source/WTF:
+    
+    * wtf/ListDump.h:
+    (WTF::sortedListDump): Removed unnecessary template arguments to std::less.
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@286858 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-12-09  Darin Adler  <darin@apple.com>
+
+            Use simpler idioms for std::less and std::greater possible in modern C++
+            https://bugs.webkit.org/show_bug.cgi?id=234117
+
+            Reviewed by Anders Carlsson.
+
+            * wtf/ListDump.h:
+            (WTF::sortedListDump): Removed unnecessary template arguments to std::less.
+
+2021-12-06  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r286537. rdar://problem/85928816
+
+    Add trace points for generated momentum events
+    https://bugs.webkit.org/show_bug.cgi?id=233857
+    
+    Reviewed by Tim Horton.
+    
+    Source/WebKit:
+    
+    Add start/end points for synthetic momentum, and a trace point for each generated event.
+    
+    * WebProcess/WebPage/MomentumEventDispatcher.cpp:
+    (WebKit::MomentumEventDispatcher::dispatchSyntheticMomentumEvent):
+    (WebKit::MomentumEventDispatcher::didStartMomentumPhase):
+    (WebKit::MomentumEventDispatcher::didEndMomentumPhase):
+    
+    Source/WTF:
+    
+    * wtf/SystemTracing.h:
+    
+    Tools:
+    
+    Add start/end points for synthetic momentum, and a trace point for each generated event.
+    
+    * Tracing/SystemTracePoints.plist:
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@286537 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-12-05  Simon Fraser  <simon.fraser@apple.com>
+
+            Add trace points for generated momentum events
+            https://bugs.webkit.org/show_bug.cgi?id=233857
+
+            Reviewed by Tim Horton.
+
+            * wtf/SystemTracing.h:
+
+2021-12-03  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r286504. rdar://problem/85928816
+
+    Enable Momentum Event Generator by default
+    https://bugs.webkit.org/show_bug.cgi?id=233807
+    <rdar://problem/85262515>
+    
+    Reviewed by Simon Fraser.
+    
+    * Scripts/Preferences/WebPreferencesInternal.yaml:
+    Turn it on for modern WebKit. Adjust the description slightly.
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@286504 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-12-03  Tim Horton  <timothy_horton@apple.com>
+
+            Enable Momentum Event Generator by default
+            https://bugs.webkit.org/show_bug.cgi?id=233807
+            <rdar://problem/85262515>
+
+            Reviewed by Simon Fraser.
+
+            * Scripts/Preferences/WebPreferencesInternal.yaml:
+            Turn it on for modern WebKit. Adjust the description slightly.
+
+2021-12-03  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r285526. rdar://problem/85928816
+
+    Add runtime flag for momentum scrolling
+    https://bugs.webkit.org/show_bug.cgi?id=232898
+    <rdar://problem/85211338>
+    
+    Reviewed by Simon Fraser.
+    
+    * Scripts/Preferences/WebPreferencesInternal.yaml:
+    Add the preference.
+    
+    * page/scrolling/AsyncScrollingCoordinator.cpp:
+    (WebCore::AsyncScrollingCoordinator::setFrameScrollingNodeState):
+    * page/scrolling/ScrollingStateFrameScrollingNode.cpp:
+    (WebCore::ScrollingStateFrameScrollingNode::ScrollingStateFrameScrollingNode):
+    (WebCore::ScrollingStateFrameScrollingNode::applicableProperties const):
+    (WebCore::ScrollingStateFrameScrollingNode::setMomentumScrollingAnimatorEnabled):
+    * page/scrolling/ScrollingStateFrameScrollingNode.h:
+    * page/scrolling/ScrollingStateNode.h:
+    * page/scrolling/ScrollingTree.cpp:
+    (WebCore::ScrollingTree::commitTreeState):
+    * page/scrolling/ScrollingTree.h:
+    (WebCore::ScrollingTree::momentumScrollingAnimatorEnabled const):
+    (WebCore::ScrollingTree::setMomentumScrollingAnimatorEnabled):
+    * page/scrolling/ScrollingTreeScrollingNode.cpp:
+    (WebCore::ScrollingTreeScrollingNode::momentumScrollingAnimatorEnabled const):
+    * page/scrolling/ScrollingTreeScrollingNode.h:
+    * page/scrolling/mac/ScrollingTreeScrollingNodeDelegateMac.h:
+    * page/scrolling/mac/ScrollingTreeScrollingNodeDelegateMac.mm:
+    (WebCore::ScrollingTreeScrollingNodeDelegateMac::momentumScrollingAnimatorEnabled const):
+    * platform/ScrollingEffectsController.h:
+    (WebCore::ScrollingEffectsControllerClient::momentumScrollingAnimatorEnabled const):
+    
+    * Shared/RemoteLayerTree/RemoteScrollingCoordinatorTransaction.cpp:
+    (ArgumentCoder<ScrollingStateFrameScrollingNode>::encode):
+    (ArgumentCoder<ScrollingStateFrameScrollingNode>::decode):
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@285526 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-11-09  Tim Horton  <timothy_horton@apple.com>
+
+            Add runtime flag for momentum scrolling
+            https://bugs.webkit.org/show_bug.cgi?id=232898
+            <rdar://problem/85211338>
+
+            Reviewed by Simon Fraser.
+
+            * Scripts/Preferences/WebPreferencesInternal.yaml:
+            Add the preference.
+
+2021-12-01  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r286346. rdar://problem/85928816
+
+    Add a momentum event synthesizer
+    https://bugs.webkit.org/show_bug.cgi?id=233653
+    <rdar://problem/85571258>
+    
+    Reviewed by Simon Fraser.
+    
+    Source/WebCore/PAL:
+    
+    * pal/spi/mac/IOKitSPIMac.h:
+    Add some SPI.
+    
+    Source/WebKit:
+    
+    * Platform/Logging.h:
+    Add ScrollAnimations log channel to WebKit (it already exists in WebCore).
+    
+    * Shared/ScrollingAccelerationCurve.cpp: Added.
+    (WebKit::ScrollingAccelerationCurve::ScrollingAccelerationCurve):
+    (WebKit::ScrollingAccelerationCurve::interpolate):
+    (WebKit::ScrollingAccelerationCurve::computeIntermediateValuesIfNeeded):
+    (WebKit::ScrollingAccelerationCurve::evaluateQuartic):
+    (WebKit::ScrollingAccelerationCurve::accelerationFactor):
+    (WebKit::ScrollingAccelerationCurve::encode const):
+    (WebKit::ScrollingAccelerationCurve::decode):
+    (WebKit::operator<<):
+    (WebKit::ScrollingAccelerationCurve::fromNativeWheelEvent):
+    * Shared/ScrollingAccelerationCurve.h: Added.
+    (WebKit::ScrollingAccelerationCurve::operator== const):
+    (WebKit::ScrollingAccelerationCurve::operator!= const):
+    Add a class that represents a quartic scrolling acceleration curve with
+    a trailing linear tangent region, and allows interpolation between curves
+    and evaluation of the curve at a point.
+    
+    * Shared/mac/ScrollingAccelerationCurveMac.mm: Added.
+    (WebKit::fromFixedPoint):
+    (WebKit::readFixedPointParameter):
+    (WebKit::fromIOHIDCurve):
+    (WebKit::fromIOHIDCurveArrayWithAcceleration):
+    (WebKit::ScrollingAccelerationCurve::fromNativeWheelEvent):
+    Given a NativeWebWheelEvent, extract its underlying platform event
+    and fetch the ScrollingAccelerationCurve for the originating device.
+    
+    * Sources.txt:
+    * SourcesCocoa.txt:
+    * UIProcess/WebPageProxy.cpp:
+    (WebKit::WebPageProxy::handleWheelEvent):
+    Fetch the current ScrollingAccelerationCurve on each momentum begin event,
+    if the feature is enabled.
+    
+    (WebKit::WebPageProxy::sendWheelEvent):
+    Send the ScrollingAccelerationCurve to EventDispatcher just before
+    we send the momentum begin event along, if it has changed.
+    
+    (WebKit::WebPageProxy::windowScreenDidChange):
+    Keep EventDispatcher apprised of changes to the current screen of the page.
+    
+    (WebKit::WebPageProxy::resetState):
+    * UIProcess/WebPageProxy.h:
+    * WebKit.xcodeproj/project.pbxproj:
+    * WebProcess/WebPage/EventDispatcher.cpp:
+    (WebKit::EventDispatcher::EventDispatcher):
+    (WebKit::EventDispatcher::internalWheelEvent):
+    Factor most of wheelEvent out into internalWheelEvent, so that
+    MomentumEventDispatcher can call internalWheelEvent(), skipping the code
+    in wheelEvent() that forwards the event... to MomentumEventDispatcher.
+    
+    Also, keep track of where the event came from (UI process or MomentumEventDispatcher)
+    and avoid sending didReceiveEvent replies to the UI process for synthetic
+    events that it doesn't know about.
+    
+    (WebKit::EventDispatcher::wheelEvent):
+    Forward wheel events to MomentumEventDispatcher.
+    
+    (WebKit::EventDispatcher::setScrollingAccelerationCurve):
+    Forward scrolling curve changes to MomentumEventDispatcher.
+    
+    (WebKit::EventDispatcher::displayWasRefreshed):
+    Forward display refresh callbacks to MomentumEventDispatcher.
+    
+    (WebKit::EventDispatcher::windowScreenDidChange):
+    Forward page screen changes to MomentumEventDispatcher.
+    
+    * WebProcess/WebPage/EventDispatcher.h:
+    * WebProcess/WebPage/EventDispatcher.messages.in:
+    
+    * WebProcess/WebPage/WebPage.cpp:
+    (WebKit::WebPage::wheelEvent):
+    (WebKit::WebPage::dispatchWheelEventWithoutScrolling):
+    * WebProcess/WebPage/WebPage.h:
+    Don't send didReceiveEvent for synthetic events from the main thread either.
+    
+    * WebProcess/WebPage/MomentumEventDispatcher.cpp: Added.
+    (WebKit::MomentumEventDispatcher::MomentumEventDispatcher):
+    (WebKit::MomentumEventDispatcher::~MomentumEventDispatcher):
+    (WebKit::MomentumEventDispatcher::eventShouldStartSyntheticMomentumPhase const):
+    If we have everything we need (a scrolling curve - which also implies
+    that the setting is enabled - and raw platform deltas), and the event
+    is a momentum begin event, we can use it to start a synthetic momentum phase.
+    
+    (WebKit::MomentumEventDispatcher::handleWheelEvent):
+    Start or stop the momentum phase as appropriate.
+    Record any incoming fingers-down phase events in a rolling event history structure.
+    Block platform-event-driven events from being further handled by WebKit
+    if we are inside a synthetic momentum phase, since we'll be replacing them.
+    
+    (WebKit::appKitScrollMultiplierForEvent):
+    Determine the AppKit scroll muliplier ("accelerated" vs "unaccelerated"
+    deltas in NSEvent parlance) from the event via division.
+    
+    (WebKit::MomentumEventDispatcher::dispatchSyntheticMomentumEvent):
+    Dispatch a synthetic event with the given momentum phase and delta.
+    We borrow some properties from the event that initiated the momentum
+    phase (e.g. the position), and some from whatever event we've most
+    recently seen (even if we told the rest of WebKit to ignore it), so
+    that we get the most up-to-date state for e.g. the keyboard modifiers.
+    
+    (WebKit::MomentumEventDispatcher::didStartMomentumPhase):
+    Record relevant information about the start event, generate the
+    momentum curve, and start a full-rate display link. Also, send a momentum
+    begin event, since we blocked the real one.
+    
+    (WebKit::MomentumEventDispatcher::didEndMomentumPhase):
+    Send a momentum ended event, shut down the display link, and reset all
+    per-gesture state.
+    
+    (WebKit::MomentumEventDispatcher::setScrollingAccelerationCurve):
+    Store ScrollingAccelerationCurves on a per-page basis.
+    
+    (WebKit::MomentumEventDispatcher::displayID const):
+    Look up the displayID for the current gesture's page.
+    
+    (WebKit::MomentumEventDispatcher::startDisplayLink):
+    (WebKit::MomentumEventDispatcher::stopDisplayLink):
+    Start and stop a display link, which will - in a roundabout manner -
+    eventually call back into displayWasRefreshed.
+    
+    (WebKit::MomentumEventDispatcher::windowScreenDidChange):
+    Store DisplayIDs on a per-page basis.
+    
+    (WebKit::MomentumEventDispatcher::displayWasRefreshed):
+    When the display link calls us back, emit a single momentum changed
+    event of sufficient delta to move us to the desired offset along the curve.
+    
+    (WebKit::MomentumEventDispatcher::didScrollWithInterval):
+    (WebKit::MomentumEventDispatcher::didScroll):
+    Record incoming scrolling events into a rolling history deque.
+    
+    (WebKit::MomentumEventDispatcher::buildOffsetTableWithInitialDelta):
+    Compute the offsets for the entire "ideal curve" table (at 60Hz) by
+    running the animation and accumulating the deltas.
+    
+    (WebKit::interpolate):
+    (WebKit::MomentumEventDispatcher::offsetAtTime):
+    Interpolate along the "ideal curve" to determine the intended offset
+    at a given time.
+    
+    (WebKit::momentumDecayRate):
+    (WebKit::MomentumEventDispatcher::computeNextDelta):
+    Compute the next delta given a delta (and the event history) by applying
+    a bit of exponential decay and then passing it through the
+    ScrollingAccelerationCurve. We return both the unaccelerated
+    and accelerated deltas, because the input to the next iteration of
+    computeNextDelta is the unaccelerated delta, but the delta applied
+    to the actual scroll position is the accelerated delta.
+    
+    * WebProcess/WebPage/MomentumEventDispatcher.h: Added.
+    
+    Source/WTF:
+    
+    * wtf/PlatformEnable.h:
+    Add an ENABLE().
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@286346 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-11-30  Tim Horton  <timothy_horton@apple.com>
+
+            Add a momentum event synthesizer
+            https://bugs.webkit.org/show_bug.cgi?id=233653
+            <rdar://problem/85571258>
+
+            Reviewed by Simon Fraser.
+
+            * wtf/PlatformEnable.h:
+            Add an ENABLE().
+
 2021-11-18  Russell Epstein  <repstein@apple.com>
 
         Cherry-pick r285130. rdar://problem/85166839

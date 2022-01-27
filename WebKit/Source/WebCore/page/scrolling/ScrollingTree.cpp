@@ -279,7 +279,8 @@ void ScrollingTree::commitTreeState(std::unique_ptr<ScrollingStateTree>&& scroll
             || rootNode->hasChangedProperty(ScrollingStateNode::Property::AsyncFrameOrOverflowScrollingEnabled)
             || rootNode->hasChangedProperty(ScrollingStateNode::Property::WheelEventGesturesBecomeNonBlocking)
             || rootNode->hasChangedProperty(ScrollingStateNode::Property::ScrollingPerformanceTestingEnabled)
-            || rootNode->hasChangedProperty(ScrollingStateNode::Property::IsMonitoringWheelEvents))) {
+            || rootNode->hasChangedProperty(ScrollingStateNode::Property::IsMonitoringWheelEvents)
+            || rootNode->hasChangedProperty(ScrollingStateNode::Property::MomentumScrollingAnimatorEnabled))) {
         Locker locker { m_treeStateLock };
 
         if (rootStateNodeChanged || rootNode->hasChangedProperty(ScrollingStateNode::Property::ScrolledContentsLayer))
@@ -299,6 +300,9 @@ void ScrollingTree::commitTreeState(std::unique_ptr<ScrollingStateTree>&& scroll
 
         if (rootStateNodeChanged || rootNode->hasChangedProperty(ScrollingStateNode::Property::IsMonitoringWheelEvents))
             m_isMonitoringWheelEvents = scrollingStateTree->rootStateNode()->isMonitoringWheelEvents();
+
+        if (rootStateNodeChanged || rootNode->hasChangedProperty(ScrollingStateNode::Property::MomentumScrollingAnimatorEnabled))
+            m_momentumScrollingAnimatorEnabled = scrollingStateTree->rootStateNode()->momentumScrollingAnimatorEnabled();
     }
 
     m_overflowRelatedNodesMap.clear();
@@ -320,6 +324,10 @@ void ScrollingTree::commitTreeState(std::unique_ptr<ScrollingStateTree>&& scroll
         if (auto node = m_nodeMap.take(nodeID))
             node->willBeDestroyed();
     }
+
+    if (rootNode && (rootStateNodeChanged || rootNode->hasChangedProperty(ScrollingStateNode::Property::MomentumScrollingAnimatorEnabled)))
+        RELEASE_LOG(Scrolling, "ScrollingTree momentum scrolling animator enabled: %d", rootNode->momentumScrollingAnimatorEnabled());
+    
 
     LOG_WITH_STREAM(ScrollingTree, stream << "committed ScrollingTree" << scrollingTreeAsText(ScrollingStateTreeAsTextBehaviorDebug));
 }
@@ -416,7 +424,6 @@ void ScrollingTree::applyLayerPositionsAfterCommit()
 
 void ScrollingTree::applyLayerPositions()
 {
-    ASSERT(isMainThread());
     Locker locker { m_treeLock };
 
     applyLayerPositionsInternal();
@@ -700,7 +707,7 @@ void ScrollingTree::willProcessWheelEvent()
     m_lastWheelEventTime = MonotonicTime::now();
 }
 
-std::optional<unsigned> ScrollingTree::nominalFramesPerSecond()
+std::optional<FramesPerSecond> ScrollingTree::nominalFramesPerSecond()
 {
     Locker locker { m_treeStateLock };
     return m_treeState.nominalFramesPerSecond;

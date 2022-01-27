@@ -57,6 +57,8 @@ NS_ASSUME_NONNULL_BEGIN
 + (NSDictionary<NSString*, NSNumber*>*)countsByParentKey:(CKRecordZoneID*)zoneID error:(NSError* __autoreleasing*)error;
 + (NSNumber* _Nullable)counts:(CKRecordZoneID*)zoneID error: (NSError * __autoreleasing *) error;
 
++ (NSArray<NSData*>*)pcsMirrorKeysForService:(NSNumber*)service matchingKeys:(NSArray<NSData*>*)matchingKeys error:(NSError * __autoreleasing *)error;
+
 @end
 
 NS_ASSUME_NONNULL_END

@@ -3138,15 +3138,8 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
     reply(peerID, localError);
 }
 
-- (void)rpcFetchDeviceNamesByPeerID:(void (^)(NSDictionary<NSString*, NSString*>* _Nullable peers, NSError* _Nullable error))reply
+- (void)rpcFetchPeerAttributes:(NSString*)attribute includeSelf:(BOOL)includeSelf reply:(void (^)(NSDictionary<NSString*, NSString*>* _Nullable peers, NSError* _Nullable error))reply
 {
-    NSError* accountError = [self errorIfNoCKAccount:nil];
-    if (accountError != nil) {
-        secnotice("octagon", "No cloudkit account present: %@", accountError);
-        reply(nil, accountError);
-        return;
-    }
-
     // As this isn't a state-modifying operation, we don't need to go through the state machine.
     [self.cuttlefishXPCWrapper dumpWithContainer:self.containerName
                                          context:self.contextID
@@ -3158,11 +3151,22 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
                 return;
             }
 
+            NSMutableDictionary<NSString*, NSString*>* peerMap = [NSMutableDictionary dictionary];
+
             NSDictionary* selfInfo = dump[@"self"];
+           
+            if ([attribute isEqualToString:@"bottleID"]) {
+                NSArray<NSDictionary*>*bottles = dump[@"bottles"];
+                for(NSDictionary *bottle in bottles) {
+                    peerMap[bottle[@"peerID"]] = bottle[@"bottleID"];
+                }
+                reply(peerMap, nil);
+                return;
+            }
+        
             NSArray* peers = dump[@"peers"];
             NSArray* trustedPeerIDs = selfInfo[@"dynamicInfo"][@"included"];
 
-            NSMutableDictionary<NSString*, NSString*>* peerMap = [NSMutableDictionary dictionary];
 
             for(NSString* peerID in trustedPeerIDs) {
                 NSDictionary* peerMatchingID = nil;
@@ -3179,11 +3183,29 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
                     continue;
                 }
 
-                peerMap[peerID] = peerMatchingID[@"stableInfo"][@"device_name"];
+                peerMap[peerID] = peerMatchingID[@"stableInfo"][attribute];
             }
 
             reply(peerMap, nil);
         }];
+}
+
+- (void)rpcFetchDeviceNamesByPeerID:(void (^)(NSDictionary<NSString*, NSString*>* _Nullable peers, NSError* _Nullable error))reply
+{
+    NSError* accountError = [self errorIfNoCKAccount:nil];
+    if (accountError != nil) {
+        secnotice("octagon", "No cloudkit account present: %@", accountError);
+        reply(nil, accountError);
+        return;
+    }
+    
+    [self rpcFetchPeerAttributes:@"device_name" includeSelf:NO reply:reply];
+}
+
+
+- (void)rpcFetchPeerIDByBottleID:(void (^)(NSDictionary<NSString*, NSString*>* _Nullable peers, NSError* _Nullable error))reply
+{
+    [self rpcFetchPeerAttributes:@"bottleID" includeSelf:YES reply:reply];
 }
 
 - (void)rpcSetRecoveryKey:(NSString*)recoveryKey reply:(void (^)(NSError * _Nullable error))reply
@@ -3873,6 +3895,83 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
     [replyOp addDependency:waitOp];
     [self.operationQueue addOperation:replyOp];
 }
+
+- (void)octagonPeerIDGivenBottleID:(NSString*)bottleID reply:(void (^)(NSString *peerID))reply
+{
+    [self rpcFetchPeerIDByBottleID:^(NSDictionary<NSString *,NSString *> *peers, NSError * error) {
+        __block NSString* peerID = nil;
+        [peers enumerateKeysAndObjectsUsingBlock:^(NSString *fetchedPeerID, NSString *bottleID, BOOL *stop) {
+            if ([bottleID isEqualToString:bottleID]) {
+                peerID = fetchedPeerID;
+                *stop = true;
+            }
+        }];
+        reply(peerID);
+    }];
+}
+
+- (void)tlkRecoverabilityInOctagon:(NSData*)recordData reply:(void (^)(NSArray<NSString*>* views, NSError* replyError))reply
+{
+    //fetch all bottleIDs, fully viable and partial
+    [self rpcFetchAllViableBottles:^(NSArray<NSString *> * _Nullable sortedBottleIDs, NSArray<NSString *> * _Nullable sortedPartialEscrowRecordIDs, NSError * _Nullable fetchError) {
+        if (fetchError) {
+            secerror("octagon-tlk-recoverability: fetching bottles failed: %@", fetchError);
+            reply(nil, fetchError);
+            return;
+        } else {
+            OTEscrowRecord *otRecord = [[OTEscrowRecord alloc] initWithData:recordData];
+            NSString *evaluationBottle = otRecord.escrowInformationMetadata.bottleId;
+            if (![sortedBottleIDs containsObject:evaluationBottle] && ![sortedPartialEscrowRecordIDs containsObject:evaluationBottle]) {
+                secnotice("octagon-tlk-recoverability", "record's bottleID is not valid in cuttlefish");
+                reply(nil, [NSError errorWithDomain:OctagonErrorDomain code:OctagonErrorRecordNotViable userInfo:@{NSLocalizedDescriptionKey : @"Record's bottleID is not valid in cuttlefish"}]);
+            } else {
+                //fetch the Octagon peer matching the escrow record's serial
+                [self octagonPeerIDGivenBottleID:otRecord.escrowInformationMetadata.bottleId reply:^(NSString *peerID) {
+                    if (!peerID) {
+                        secnotice("octagon-tlk-recoverability", "Octagon peerID not trusted for record %@", otRecord);
+                        reply(nil, [NSError errorWithDomain:OctagonErrorDomain code:OctagonErrorRecordNotViable userInfo:@{NSLocalizedDescriptionKey : @"Octagon peerID not trusted for record"}]);
+                        return;
+                    } else {
+                        NSError *localError = nil;
+                        NSArray<NSString*>* views = [self.ckks viewsForPeerID:peerID error:&localError];
+                        reply(views, localError);
+                        return;
+                    }
+                }];
+            }
+        }
+    }];
+}
+
+- (void)rpcTlkRecoverabilityForEscrowRecordData:(NSData*)recordData
+                                         reply:(void (^)(NSArray<NSString*>* views, NSError* replyError))reply
+{
+    NSError* accountError = [self errorIfNoCKAccount:nil];
+    if (accountError != nil) {
+        secnotice("octagon-tlk-recoverability", "No cloudkit account present: %@", accountError);
+        reply(nil, accountError);
+        return;
+    }
+    
+    [self tlkRecoverabilityInOctagon:recordData reply:^(NSArray<NSString *> *views, NSError *replyError) {
+        if (replyError) {
+            secerror("octagon-tlk-recoverability: failed assessing tlk recoverability using the octagon identity, error: %@", replyError);
+            reply(nil, replyError);
+            return;
+        }
+        
+        if (views && [views count] > 0) {
+            secnotice("octagon-tlk-recoverability", "found views using octagon peer matching record! views: %@", views);
+            reply(views, nil);
+            return;
+        } else {
+            secerror("octagon-tlk-recoverability: failed to find views");
+            reply(nil, [NSError errorWithDomain:OctagonErrorDomain code:OctagonErrorRecordNotViable userInfo:@{ NSLocalizedDescriptionKey : @"Record cannot recover any views" }]);
+            return;
+        }
+    }];
+}
+
 
 #pragma mark --- Health Checker
 

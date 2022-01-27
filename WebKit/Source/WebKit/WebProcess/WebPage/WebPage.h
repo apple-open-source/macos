@@ -38,6 +38,7 @@
 #include "DownloadID.h"
 #include "DrawingAreaInfo.h"
 #include "EditingRange.h"
+#include "EventDispatcher.h"
 #include "FocusedElementInformation.h"
 #include "GeolocationIdentifier.h"
 #include "InjectedBundlePageContextMenuClient.h"
@@ -81,6 +82,7 @@
 #include <WebCore/PluginData.h>
 #include <WebCore/PointerCharacteristics.h>
 #include <WebCore/PointerID.h>
+#include <WebCore/RectEdges.h>
 #include <WebCore/SecurityPolicyViolationEvent.h>
 #include <WebCore/ShareData.h>
 #include <WebCore/SimpleRange.h>
@@ -657,6 +659,11 @@ public:
 
     void didUpdateRendering();
 
+    // A "platform rendering update" here describes the work done by the system graphics framework before work is submitted to the system compositor.
+    // On macOS, this is a CoreAnimation commit.
+    void willStartPlatformRenderingUpdate();
+    void didCompletePlatformRenderingUpdate();
+
 #if PLATFORM(MAC)
     void setTopOverhangImage(WebImage*);
     void setBottomOverhangImage(WebImage*);
@@ -851,6 +858,8 @@ public:
     };
     void freezeLayerTree(LayerTreeFreezeReason);
     void unfreezeLayerTree(LayerTreeFreezeReason);
+
+    void isLayerTreeFrozen(CompletionHandler<void(bool)>&&);
 
     void markLayersVolatile(CompletionHandler<void(bool)>&& completionHandler = { });
     void cancelMarkLayersVolatile();
@@ -1059,7 +1068,7 @@ public:
     void startWaitingForContextMenuToShow() { m_waitingForContextMenuToShow = true; }
 #endif
 
-    bool wheelEvent(const WebWheelEvent&, OptionSet<WebCore::WheelEventProcessingSteps>);
+    bool wheelEvent(const WebWheelEvent&, OptionSet<WebCore::WheelEventProcessingSteps>, EventDispatcher::WheelEventOrigin);
 
     void wheelEventHandlersChanged(bool);
     void recomputeShortCircuitHorizontalWheelEventsState();
@@ -2154,10 +2163,7 @@ private:
     std::optional<WebCore::SimpleRange> m_rangeForDropSnapshot;
 #endif
 
-    bool m_cachedMainFrameIsPinnedToLeftSide { true };
-    bool m_cachedMainFrameIsPinnedToRightSide { true };
-    bool m_cachedMainFrameIsPinnedToTopSide { true };
-    bool m_cachedMainFrameIsPinnedToBottomSide { true };
+    WebCore::RectEdges<bool> m_cachedMainFramePinnedState { true, true, true, true };
     bool m_canShortCircuitHorizontalWheelEvents { false };
     bool m_hasWheelEventHandlers { false };
 

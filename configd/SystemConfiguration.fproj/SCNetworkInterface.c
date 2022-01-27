@@ -43,6 +43,7 @@
 #include "plugin_shared.h"
 
 #define kIOIsEphemeralKey	"IsEphemeral"
+#define kIOSelfNamedKey 	"SelfNamed"
 
 #if	!TARGET_OS_IPHONE
 #include <EAP8021X/EAPClientProperties.h>
@@ -361,6 +362,9 @@ __SCNetworkInterfaceCopyFormattingDescription(CFTypeRef cf, CFDictionaryRef form
 #endif	// TARGET_OS_IPHONE
 	if (interfacePrivate->isEphemeral) {
 		CFStringAppendFormat(result, NULL, CFSTR(", ephemeral"));
+	}
+	if (interfacePrivate->isSelfNamed) {
+		CFStringAppendFormat(result, NULL, CFSTR(", self-named"));
 	}
 	if (interfacePrivate->location != NULL) {
 		CFStringAppendFormat(result, NULL, CFSTR(", location = %@"), interfacePrivate->location);
@@ -2596,6 +2600,7 @@ createInterface(io_registry_entry_t	interface,
 	SCNetworkInterfacePrivateRef	interfacePrivate	= NULL;
 	CFMutableDictionaryRef		interface_dict		= NULL;
 	kern_return_t			kr;
+	Boolean				self_named		= FALSE;
 	CFTypeRef			val;
 
 	// Keys of interest
@@ -2615,7 +2620,8 @@ createInterface(io_registry_entry_t	interface,
 
 	const CFStringRef controller_dict_keys[] = {
 		CFSTR(kIOFeatures),
-		CFSTR(kIOMACAddress)
+		CFSTR(kIOMACAddress),
+		CFSTR(kIOSelfNamedKey)
 	};
 
 	const CFStringRef bus_dict_keys[] = {
@@ -2652,6 +2658,12 @@ createInterface(io_registry_entry_t	interface,
 	controller_dict = copyIORegistryProperties(controller,
 						   controller_dict_keys,
 						   sizeof(controller_dict_keys)/sizeof(controller_dict_keys[0]));
+	if (controller_dict != NULL) {
+		// set whether the interface is self-named
+		val = CFDictionaryGetValue(controller_dict,
+					   CFSTR(kIOSelfNamedKey));
+		self_named = getBooleanValue(val, FALSE);
+	}
 
 	// get the bus node
 	kr = IORegistryEntryGetParentEntry(controller, kIOServicePlane, &bus);
@@ -2676,12 +2688,12 @@ createInterface(io_registry_entry_t	interface,
 	interfacePrivate->hiddenInterface = hidden_interface;
 	interfacePrivate->path = __SC_IORegistryEntryCopyPath(interface, kIOServicePlane);
 	interfacePrivate->entryID = entryID;
+	interfacePrivate->isSelfNamed = self_named;
 	if (interface_dict != NULL) {
-		CFTypeRef	is_ephemeral;
-
 		// set whether the interface is ephemeral
-		is_ephemeral = CFDictionaryGetValue(interface_dict, CFSTR(kIOIsEphemeralKey));
-		interfacePrivate->isEphemeral = getBooleanValue(is_ephemeral, FALSE);
+		val = CFDictionaryGetValue(interface_dict,
+					   CFSTR(kIOIsEphemeralKey));
+		interfacePrivate->isEphemeral = getBooleanValue(val, FALSE);
 	}
 
 	// configuration [PPP, Modem, DNS, IPv4, IPv6, Proxies, SMB] template overrides
@@ -8046,6 +8058,14 @@ _SCNetworkInterfaceIsEphemeral(SCNetworkInterfaceRef interface)
 	SCNetworkInterfacePrivateRef	interfacePrivate	= (SCNetworkInterfacePrivateRef)interface;
 
 	return interfacePrivate->isEphemeral;
+}
+
+Boolean
+_SCNetworkInterfaceIsSelfNamed(SCNetworkInterfaceRef interface)
+{
+	SCNetworkInterfacePrivateRef	interfacePrivate	= (SCNetworkInterfacePrivateRef)interface;
+
+	return interfacePrivate->isSelfNamed;
 }
 
 

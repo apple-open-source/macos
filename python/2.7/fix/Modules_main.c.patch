@@ -1,0 +1,59 @@
+--- main.c.orig	2021-06-07 12:36:50.000000000 -0700
++++ main.c	2021-06-07 14:17:41.000000000 -0700
+@@ -28,6 +28,12 @@
+ #endif
+ #endif
+ 
++
++
++
++
++
++
+ #include "pygetopt.h"
+ 
+ #define COPYRIGHT \
+@@ -55,6 +61,8 @@
+ extern int Py_RISCOSWimpFlag;
+ #endif /*RISCOS*/
+ 
++extern void Py_InitializeWithoutMetrics(void);
++
+ /* Short usage message (with %s for argv0) */
+ static char *usage_line =
+ "usage: %s [option] ... [-c cmd | -m mod | file | -] [arg] ...\n";
+@@ -267,6 +275,15 @@
+     Py_RISCOSWimpFlag = 0;
+ #endif
+ 
++
++
++
++
++
++
++
++
++
+     /* Hash randomization needed early for all string operations
+        (including -W and -X options). */
+     _PyOS_opterr = 0;  /* prevent printing the error in 1st pass */
+@@ -548,10 +565,17 @@
+ #else
+     Py_SetProgramName(argv[0]);
+ #endif
+-    Py_Initialize();
++    Py_InitializeWithoutMetrics();
+ 
+     if (Py_VerboseFlag ||
+         (command == NULL && filename == NULL && module == NULL && stdin_is_interactive)) {
++        fprintf(stderr,
++                "\nWARNING: Python 2.7 is not recommended. "
++                "\nThis version is included in macOS "
++                "for compatibility with legacy software. "
++                "\nFuture versions of macOS will not include Python 2.7. "
++                "\nInstead, it is recommended that you transition to using "
++                "'python3' from within Terminal.\n\n");
+         fprintf(stderr, "Python %s on %s\n",
+             Py_GetVersion(), Py_GetPlatform());
+         if (!Py_NoSiteFlag)

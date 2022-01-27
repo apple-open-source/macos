@@ -495,6 +495,44 @@ enum {NUM_RETRIES = 10};
 #endif
 }
 
+- (int)tlkRecoverability:(NSString * _Nullable)container context:(NSString *)contextID
+{
+#if OCTAGON
+    __block int ret = 1;
+    
+    NSError* error = nil;
+    OTConfigurationContext *data = [[OTConfigurationContext alloc] init];
+    data.context = contextID;
+
+    OTClique *clique = [[OTClique alloc] initWithContextData:data];
+    if (clique == nil) {
+        fprintf(stderr, "Failed to create clique\n");
+        return ret;
+    }
+    NSArray<OTEscrowRecord*>* records = [OTClique fetchAllEscrowRecords:data error:&error];
+    if (records == nil || error != nil) {
+        fprintf(stderr, "Failed to fetch escrow records: %s.\n", error.description.UTF8String);
+        return ret;
+    } else {
+        for (OTEscrowRecord *record in records) {
+            NSError* localError = nil;
+            NSArray<NSString*>* views = [clique tlkRecoverabilityForEscrowRecord:record error:&localError];
+            if (views && [views count] > 0 && localError == nil) {
+                for (NSString *view in views) {
+                    printf("%s has recoverable view: %s\n", record.recordId.UTF8String, [view UTF8String]);
+                }
+                ret = 0;
+            } else {
+                fprintf(stderr, "%s Failed TLK recoverability check: %s\n", record.recordId.UTF8String, localError.description.UTF8String);
+            }
+        }
+    }
+    return ret;
+#else
+    fprintf(stderr, "Unimplemented.\n");
+    return 1;
+#endif
+}
 
 - (int)status:(NSString * _Nullable)container context:(NSString *)contextID json:(bool)json {
 #if OCTAGON

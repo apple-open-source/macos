@@ -561,54 +561,55 @@ bool ContentSecurityPolicy::allowChildFrameFromSource(const URL& url, RedirectRe
     return allPoliciesAllow(WTFMove(handleViolatedDirective), &ContentSecurityPolicyDirectiveList::violatedDirectiveForFrame, url, redirectResponseReceived == RedirectResponseReceived::Yes);
 }
 
-bool ContentSecurityPolicy::allowResourceFromSource(const URL& url, RedirectResponseReceived redirectResponseReceived, const char* name, ResourcePredicate resourcePredicate) const
+bool ContentSecurityPolicy::allowResourceFromSource(const URL& url, RedirectResponseReceived redirectResponseReceived, const char* name, ResourcePredicate resourcePredicate, const URL& preRedirectURL) const
 {
     if (LegacySchemeRegistry::schemeShouldBypassContentSecurityPolicy(url.protocol().toStringWithoutCopying()))
         return true;
     String sourceURL;
+    const auto& blockedURL = !preRedirectURL.isNull() ? preRedirectURL : url;
     TextPosition sourcePosition(WTF::OrdinalNumber::beforeFirst(), WTF::OrdinalNumber());
     auto handleViolatedDirective = [&] (const ContentSecurityPolicyDirective& violatedDirective) {
-        String consoleMessage = consoleMessageForViolation(name, violatedDirective, url, "Refused to load");
-        reportViolation(name, violatedDirective, url, consoleMessage, sourceURL, sourcePosition);
+        String consoleMessage = consoleMessageForViolation(name, violatedDirective, blockedURL, "Refused to load");
+        reportViolation(name, violatedDirective, blockedURL, consoleMessage, sourceURL, sourcePosition);
     };
     return allPoliciesAllow(WTFMove(handleViolatedDirective), resourcePredicate, url, redirectResponseReceived == RedirectResponseReceived::Yes);
 }
 
-bool ContentSecurityPolicy::allowChildContextFromSource(const URL& url, RedirectResponseReceived redirectResponseReceived) const
+bool ContentSecurityPolicy::allowChildContextFromSource(const URL& url, RedirectResponseReceived redirectResponseReceived, const URL& preRedirectURL) const
 {
-    return allowResourceFromSource(url, redirectResponseReceived, ContentSecurityPolicyDirectiveNames::childSrc, &ContentSecurityPolicyDirectiveList::violatedDirectiveForChildContext);
+    return allowResourceFromSource(url, redirectResponseReceived, ContentSecurityPolicyDirectiveNames::childSrc, &ContentSecurityPolicyDirectiveList::violatedDirectiveForChildContext, preRedirectURL);
 }
 
-bool ContentSecurityPolicy::allowScriptFromSource(const URL& url, RedirectResponseReceived redirectResponseReceived) const
+bool ContentSecurityPolicy::allowScriptFromSource(const URL& url, RedirectResponseReceived redirectResponseReceived, const URL& preRedirectURL) const
 {
-    return allowResourceFromSource(url, redirectResponseReceived, ContentSecurityPolicyDirectiveNames::scriptSrc, &ContentSecurityPolicyDirectiveList::violatedDirectiveForScript);
+    return allowResourceFromSource(url, redirectResponseReceived, ContentSecurityPolicyDirectiveNames::scriptSrc, &ContentSecurityPolicyDirectiveList::violatedDirectiveForScript, preRedirectURL);
 }
 
-bool ContentSecurityPolicy::allowImageFromSource(const URL& url, RedirectResponseReceived redirectResponseReceived) const
+bool ContentSecurityPolicy::allowImageFromSource(const URL& url, RedirectResponseReceived redirectResponseReceived, const URL& preRedirectURL) const
 {
-    return allowResourceFromSource(url, redirectResponseReceived, ContentSecurityPolicyDirectiveNames::imgSrc, &ContentSecurityPolicyDirectiveList::violatedDirectiveForImage);
+    return allowResourceFromSource(url, redirectResponseReceived, ContentSecurityPolicyDirectiveNames::imgSrc, &ContentSecurityPolicyDirectiveList::violatedDirectiveForImage, preRedirectURL);
 }
 
-bool ContentSecurityPolicy::allowStyleFromSource(const URL& url, RedirectResponseReceived redirectResponseReceived) const
+bool ContentSecurityPolicy::allowStyleFromSource(const URL& url, RedirectResponseReceived redirectResponseReceived, const URL& preRedirectURL) const
 {
-    return allowResourceFromSource(url, redirectResponseReceived, ContentSecurityPolicyDirectiveNames::styleSrc, &ContentSecurityPolicyDirectiveList::violatedDirectiveForStyle);
+    return allowResourceFromSource(url, redirectResponseReceived, ContentSecurityPolicyDirectiveNames::styleSrc, &ContentSecurityPolicyDirectiveList::violatedDirectiveForStyle, preRedirectURL);
 }
 
-bool ContentSecurityPolicy::allowFontFromSource(const URL& url, RedirectResponseReceived redirectResponseReceived) const
+bool ContentSecurityPolicy::allowFontFromSource(const URL& url, RedirectResponseReceived redirectResponseReceived, const URL& preRedirectURL) const
 {
-    return allowResourceFromSource(url, redirectResponseReceived, ContentSecurityPolicyDirectiveNames::fontSrc, &ContentSecurityPolicyDirectiveList::violatedDirectiveForFont);
+    return allowResourceFromSource(url, redirectResponseReceived, ContentSecurityPolicyDirectiveNames::fontSrc, &ContentSecurityPolicyDirectiveList::violatedDirectiveForFont, preRedirectURL);
 }
 
 #if ENABLE(APPLICATION_MANIFEST)
-bool ContentSecurityPolicy::allowManifestFromSource(const URL& url, RedirectResponseReceived redirectResponseReceived) const
+bool ContentSecurityPolicy::allowManifestFromSource(const URL& url, RedirectResponseReceived redirectResponseReceived, const URL& preRedirectURL) const
 {
-    return allowResourceFromSource(url, redirectResponseReceived, ContentSecurityPolicyDirectiveNames::manifestSrc, &ContentSecurityPolicyDirectiveList::violatedDirectiveForManifest);
+    return allowResourceFromSource(url, redirectResponseReceived, ContentSecurityPolicyDirectiveNames::manifestSrc, &ContentSecurityPolicyDirectiveList::violatedDirectiveForManifest, preRedirectURL);
 }
 #endif // ENABLE(APPLICATION_MANIFEST)
 
-bool ContentSecurityPolicy::allowMediaFromSource(const URL& url, RedirectResponseReceived redirectResponseReceived) const
+bool ContentSecurityPolicy::allowMediaFromSource(const URL& url, RedirectResponseReceived redirectResponseReceived, const URL& preRedirectURL) const
 {
-    return allowResourceFromSource(url, redirectResponseReceived, ContentSecurityPolicyDirectiveNames::mediaSrc, &ContentSecurityPolicyDirectiveList::violatedDirectiveForMedia);
+    return allowResourceFromSource(url, redirectResponseReceived, ContentSecurityPolicyDirectiveNames::mediaSrc, &ContentSecurityPolicyDirectiveList::violatedDirectiveForMedia, preRedirectURL);
 }
 
 bool ContentSecurityPolicy::allowConnectToSource(const URL& url, RedirectResponseReceived redirectResponseReceived, const URL& preRedirectURL) const
@@ -624,9 +625,9 @@ bool ContentSecurityPolicy::allowConnectToSource(const URL& url, RedirectRespons
     return allPoliciesAllow(WTFMove(handleViolatedDirective), &ContentSecurityPolicyDirectiveList::violatedDirectiveForConnectSource, url, redirectResponseReceived == RedirectResponseReceived::Yes);
 }
 
-bool ContentSecurityPolicy::allowFormAction(const URL& url, RedirectResponseReceived redirectResponseReceived) const
+bool ContentSecurityPolicy::allowFormAction(const URL& url, RedirectResponseReceived redirectResponseReceived, const URL& preRedirectURL) const
 {
-    return allowResourceFromSource(url, redirectResponseReceived, ContentSecurityPolicyDirectiveNames::formAction, &ContentSecurityPolicyDirectiveList::violatedDirectiveForFormAction);
+    return allowResourceFromSource(url, redirectResponseReceived, ContentSecurityPolicyDirectiveNames::formAction, &ContentSecurityPolicyDirectiveList::violatedDirectiveForFormAction, preRedirectURL);
 }
 
 bool ContentSecurityPolicy::allowBaseURI(const URL& url, bool overrideContentSecurityPolicy) const

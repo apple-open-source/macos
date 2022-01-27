@@ -64,6 +64,7 @@ static int removeInheritanceKey = false;
 
 
 static int health = false;
+static int tlkRecoverability = false;
 
 #if TARGET_OS_WATCH
 static int pairme = false;
@@ -159,7 +160,8 @@ int main(int argc, char** argv)
         {.command = "join-with-inheritance-key", .flag = &joinWithInheritanceKey, .flagval = true, .description = "Join with an inheritance key", .internal_only = true},
         {.command = "preflight-join-with-inheritance-key", .flag = &preflightJoinWithInheritanceKey, .flagval = true, .description = "Preflight join with an inheritance key", .internal_only = true},
         {.command = "remove-inheritance-key", .flag = &removeInheritanceKey, .flagval = true, .description = "Remove an inheritance key", .internal_only = true},
-        
+        {.command = "tlk-recoverability", .flag = &tlkRecoverability, .flagval = true, .description = "Evaluate tlk recoverability for an account", .internal_only = true},
+
 
 #if TARGET_OS_WATCH
         {.command = "pairme", .flag = &pairme, .flagval = true, .description = "Perform pairing (watchOS only)"},
@@ -302,6 +304,9 @@ int main(int argc, char** argv)
                 skip = NO;
             }
             return [ctl healthCheck:container context:context skipRateLimitingCheck:skip];
+        }
+        if(tlkRecoverability) {
+            return [ctl tlkRecoverability:container context:context];
         }
         if(ckks_policy_flag) {
             return [ctl refetchCKKSPolicy:container context:context];

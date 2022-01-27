@@ -1,6 +1,7 @@
 #if OCTAGON
 
 import Security_Private.OTClique_Private
+import XCTest
 
 @objcMembers
 class OctagonEscrowRecordTests: OctagonTestsBase {
@@ -941,6 +942,345 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
             throw error
         }
         self.wait(for: [fetchViableBottlesAfterCacheRemovalExpectation], timeout: 10)
+    }
+
+    func setupTLKRecoverability(contextID: String) throws {
+        let bottlerContext = self.makeInitiatorContext(contextID: contextID)
+
+        bottlerContext.startOctagonStateMachine()
+        let ckacctinfo = CKAccountInfo()
+        ckacctinfo.accountStatus = .available
+        ckacctinfo.hasValidCredentials = true
+        ckacctinfo.accountPartition = .production
+
+        bottlerContext.cloudkitAccountStateChange(nil, to: ckacctinfo)
+        XCTAssertNoThrow(try bottlerContext.setCDPEnabled())
+        self.assertEnters(context: bottlerContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
+
+        let clique: OTClique
+        let bottlerotcliqueContext = OTConfigurationContext()
+        bottlerotcliqueContext.context = contextID
+        bottlerotcliqueContext.dsid = "1234"
+        bottlerotcliqueContext.altDSID = self.mockAuthKit.altDSID!
+        bottlerotcliqueContext.otControl = self.otControl
+        do {
+            clique = try OTClique.newFriends(withContextData: bottlerotcliqueContext, resetReason: .testGenerated)
+            XCTAssertNotNil(clique, "Clique should not be nil")
+            XCTAssertNotNil(clique.cliqueMemberIdentifier, "Should have a member identifier after a clique newFriends call")
+        } catch {
+            XCTFail("Shouldn't have errored making new friends: \(error)")
+            throw error
+        }
+
+        self.assertEnters(context: bottlerContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
+        self.assertConsidersSelfTrusted(context: bottlerContext)
+
+        let entropy = try self.loadSecret(label: clique.cliqueMemberIdentifier!)
+        XCTAssertNotNil(entropy, "entropy should not be nil")
+
+        // Fake that this peer also created some TLKShares for itself
+        self.putFakeKeyHierarchiesInCloudKit()
+        try self.putSelfTLKSharesInCloudKit(context: bottlerContext)
+
+        let bottle = self.fakeCuttlefishServer.state.bottles[0]
+
+        self.cuttlefishContext.startOctagonStateMachine()
+        self.startCKAccountStatusMock()
+        XCTAssertNoThrow(try self.cuttlefishContext.setCDPEnabled())
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
+
+        let joinWithBottleExpectation = self.expectation(description: "joinWithBottle callback occurs")
+        self.cuttlefishContext.join(withBottle: bottle.bottleID, entropy: entropy!, bottleSalt: self.otcliqueContext.altDSID!) { error in
+            XCTAssertNil(error, "error should be nil")
+            joinWithBottleExpectation.fulfill()
+        }
+
+        self.wait(for: [joinWithBottleExpectation], timeout: 100)
+
+        let dumpCallback = self.expectation(description: "dumpCallback callback occurs")
+        self.tphClient.dump(withContainer: OTCKContainerName, context: OTDefaultContext) { dump, _ in
+            XCTAssertNotNil(dump, "dump should not be nil")
+            let egoSelf = dump!["self"] as? [String: AnyObject]
+            XCTAssertNotNil(egoSelf, "egoSelf should not be nil")
+            let dynamicInfo = egoSelf!["dynamicInfo"] as? [String: AnyObject]
+            XCTAssertNotNil(dynamicInfo, "dynamicInfo should not be nil")
+            let included = dynamicInfo!["included"] as? [String]
+            XCTAssertNotNil(included, "included should not be nil")
+            XCTAssertEqual(included!.count, 2, "should be 2 peer ids")
+            dumpCallback.fulfill()
+        }
+        self.wait(for: [dumpCallback], timeout: 10)
+
+        self.verifyDatabaseMocks()
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
+        self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
+        self.assertTLKSharesInCloudKit(receiver: self.cuttlefishContext, sender: self.cuttlefishContext)
+
+        OctagonSetPlatformSupportsSOS(true)
+    }
+
+    func testTLKRecoverabilityAllRecordsValid() throws {
+        let initiatorContextID = "initiator-context-id"
+        try self.setupTLKRecoverability(contextID: initiatorContextID)
+
+        let bottlerotcliqueContext = OTConfigurationContext()
+        bottlerotcliqueContext.context = initiatorContextID
+        bottlerotcliqueContext.dsid = "1234"
+        bottlerotcliqueContext.altDSID = self.mockAuthKit.altDSID!
+        bottlerotcliqueContext.otControl = self.otControl
+
+        // now call fetchviablebottles, we should get the uncached version
+        let fetchUnCachedViableBottlesExpectation = self.expectation(description: "fetch UnCached ViableBottles")
+
+        self.fakeCuttlefishServer.fetchViableBottlesListener = { request in
+            self.fakeCuttlefishServer.fetchViableBottlesListener = nil
+            XCTAssertEqual(request.filterRequest, .unknown, "request filtering should be unknown")
+            fetchUnCachedViableBottlesExpectation.fulfill()
+            return nil
+        }
+
+        let bottle = self.fakeCuttlefishServer.state.bottles[0]
+
+        do {
+            let escrowRecordDatas = try OTClique.fetchEscrowRecordsInternal(bottlerotcliqueContext)
+            let escrowRecords = escrowRecordDatas.map { OTEscrowRecord(data: $0) }
+
+            XCTAssertNotNil(escrowRecords, "escrowRecords should not be nil")
+            XCTAssertEqual(escrowRecords.count, 2, "should be 2 escrow records")
+            let reduced = escrowRecords.compactMap { $0!.escrowInformationMetadata.bottleId }
+            XCTAssert(reduced.contains(bottle.bottleID), "The bottle we're about to restore should be viable")
+        } catch {
+            XCTFail("Shouldn't have errored fetching escrow records: \(error)")
+            throw error
+        }
+        self.wait(for: [fetchUnCachedViableBottlesExpectation], timeout: 1)
+
+        do {
+            let escrowRecordDatas = try OTClique.fetchEscrowRecordsInternal(bottlerotcliqueContext)
+            let escrowRecords = escrowRecordDatas.map { OTEscrowRecord(data: $0) }
+
+            XCTAssertNotNil(escrowRecords, "escrowRecords should not be nil")
+            XCTAssertEqual(escrowRecords.count, 2, "should be 2 escrow records")
+            let reduced = escrowRecords.compactMap { $0!.escrowInformationMetadata.bottleId }
+            XCTAssert(reduced.contains(bottle.bottleID), "The bottle we're about to restore should be viable")
+        } catch {
+            XCTFail("Shouldn't have errored fetching escrow records: \(error)")
+            throw error
+        }
+
+        do {
+            let escrowRecordDatas = try OTClique.fetchEscrowRecordsInternal(bottlerotcliqueContext)
+
+            var tlkRecoverabilityExpectation = self.expectation(description: "recoverability expectation")
+            self.manager.tlkRecoverability(forEscrowRecordData: OTCKContainerName, contextID: OTDefaultContext, record: escrowRecordDatas[0]) {retViews, error in
+                XCTAssertNotNil(retViews, "retViews should not be nil")
+#if !TARGET_OS_WATCH && !TARGET_OS_TV
+                XCTAssertTrue(retViews!.contains("Manatee"), "should contain Manatee view")
+#endif
+                XCTAssertTrue(retViews!.contains("LimitedPeersAllowed"), "should contain LimitedPeersAllowed view")
+                XCTAssertNil(error, "error should be nil")
+                tlkRecoverabilityExpectation.fulfill()
+            }
+            self.wait(for: [tlkRecoverabilityExpectation], timeout: 10)
+
+            tlkRecoverabilityExpectation = self.expectation(description: "recoverability expectation")
+            self.manager.tlkRecoverability(forEscrowRecordData: OTCKContainerName, contextID: OTDefaultContext, record: escrowRecordDatas[1]) {retViews, error in
+                XCTAssertNotNil(retViews, "retViews should not be nil")
+#if !TARGET_OS_WATCH && !TARGET_OS_TV
+                XCTAssertTrue(retViews!.contains("Manatee"), "should contain Manatee view")
+#endif
+                XCTAssertTrue(retViews!.contains("LimitedPeersAllowed"), "should contain LimitedPeersAllowed view")
+                XCTAssertNil(error, "error should be nil")
+                tlkRecoverabilityExpectation.fulfill()
+            }
+            self.wait(for: [tlkRecoverabilityExpectation], timeout: 10)
+        } catch {
+            XCTFail("Shouldn't have errored fetching escrow records: \(error)")
+            throw error
+        }
+    }
+
+    func testTLKRecoverabilityNoneValid() throws {
+        let initiatorContextID = "initiator-context-id"
+        try self.setupTLKRecoverability(contextID: initiatorContextID)
+
+        let bottlerotcliqueContext = OTConfigurationContext()
+        bottlerotcliqueContext.context = initiatorContextID
+        bottlerotcliqueContext.dsid = "1234"
+        bottlerotcliqueContext.altDSID = self.mockAuthKit.altDSID!
+        bottlerotcliqueContext.otControl = self.otControl
+
+        // now call fetchviablebottles, we should get the uncached version
+        let fetchUnCachedViableBottlesExpectation = self.expectation(description: "fetch UnCached ViableBottles")
+
+        self.fakeCuttlefishServer.fetchViableBottlesListener = { request in
+            self.fakeCuttlefishServer.fetchViableBottlesListener = nil
+            XCTAssertEqual(request.filterRequest, .unknown, "request filtering should be unknown")
+            fetchUnCachedViableBottlesExpectation.fulfill()
+            return nil
+        }
+
+        let bottle = self.fakeCuttlefishServer.state.bottles[0]
+
+        do {
+            let escrowRecordDatas = try OTClique.fetchEscrowRecordsInternal(bottlerotcliqueContext)
+            let escrowRecords = escrowRecordDatas.map { OTEscrowRecord(data: $0) }
+
+            XCTAssertNotNil(escrowRecords, "escrowRecords should not be nil")
+            XCTAssertEqual(escrowRecords.count, 2, "should be 2 escrow records")
+            let reduced = escrowRecords.compactMap { $0!.escrowInformationMetadata.bottleId }
+            XCTAssert(reduced.contains(bottle.bottleID), "The bottle we're about to restore should be viable")
+        } catch {
+            XCTFail("Shouldn't have errored fetching escrow records: \(error)")
+            throw error
+        }
+        self.wait(for: [fetchUnCachedViableBottlesExpectation], timeout: 1)
+
+        do {
+            let escrowRecordDatas = try OTClique.fetchEscrowRecordsInternal(bottlerotcliqueContext)
+            let escrowRecords = escrowRecordDatas.map { OTEscrowRecord(data: $0) }
+
+            XCTAssertNotNil(escrowRecords, "escrowRecords should not be nil")
+            XCTAssertEqual(escrowRecords.count, 2, "should be 2 escrow records")
+            let reduced = escrowRecords.compactMap { $0!.escrowInformationMetadata.bottleId }
+            XCTAssert(reduced.contains(bottle.bottleID), "The bottle we're about to restore should be viable")
+        } catch {
+            XCTFail("Shouldn't have errored fetching escrow records: \(error)")
+            throw error
+        }
+
+        do {
+            let escrowRecordDatas = try OTClique.fetchEscrowRecordsInternal(bottlerotcliqueContext)
+
+            let resetExpectation = self.expectation(description: "resetExpectation")
+            self.cuttlefishContext.rpcResetAndEstablish(.testGenerated) { resetError in
+                XCTAssertNil(resetError, "should NOT error resetting and establishing")
+                resetExpectation.fulfill()
+            }
+            self.wait(for: [resetExpectation], timeout: 10)
+
+            var tlkRecoverabilityExpectation = self.expectation(description: "recoverability expectation")
+            self.manager.tlkRecoverability(forEscrowRecordData: OTCKContainerName, contextID: OTDefaultContext, record: escrowRecordDatas[0]) {retViews, error in
+                XCTAssertNil(retViews, "retViews should be nil")
+                XCTAssertNotNil(error, "error should not be nil")
+                XCTAssertEqual((error! as NSError).code, 58, "error code should be 58")
+                XCTAssertEqual((error! as NSError).domain, OctagonErrorDomain, "error domain should be OctagonErrorDomain")
+                tlkRecoverabilityExpectation.fulfill()
+            }
+            self.wait(for: [tlkRecoverabilityExpectation], timeout: 10)
+
+            tlkRecoverabilityExpectation = self.expectation(description: "recoverability expectation")
+            self.manager.tlkRecoverability(forEscrowRecordData: OTCKContainerName, contextID: OTDefaultContext, record: escrowRecordDatas[1]) {retViews, error in
+                XCTAssertNil(retViews, "retViews should be nil")
+                XCTAssertNotNil(error, "error should not be nil")
+                XCTAssertEqual((error! as NSError).code, 58, "error code should be 58")
+                XCTAssertEqual((error! as NSError).domain, OctagonErrorDomain, "error domain should be OctagonErrorDomain")
+                tlkRecoverabilityExpectation.fulfill()
+            }
+            self.wait(for: [tlkRecoverabilityExpectation], timeout: 10)
+        } catch {
+            XCTFail("Shouldn't have errored fetching escrow records: \(error)")
+            throw error
+        }
+    }
+    func testTLKRecoverabilityOneViableOneNotViable() throws {
+        OctagonSetPlatformSupportsSOS(false)
+        let initiatorContextID = "initiator-context-id"
+        try self.setupTLKRecoverability(contextID: initiatorContextID)
+
+        let bottlerotcliqueContext = OTConfigurationContext()
+        bottlerotcliqueContext.context = OTDefaultContext
+        bottlerotcliqueContext.dsid = "1234"
+        bottlerotcliqueContext.altDSID = self.mockAuthKit.altDSID!
+        bottlerotcliqueContext.otControl = self.otControl
+
+        let clique = OTClique(contextData: bottlerotcliqueContext)
+        OctagonSetPlatformSupportsSOS(false)
+        XCTAssertNoThrow(try clique.leave(), "Should be NO error departing clique")
+
+        // now call fetchviablebottles, we should get the uncached version
+        let fetchUnCachedViableBottlesExpectation = self.expectation(description: "fetch UnCached ViableBottles")
+
+        self.fakeCuttlefishServer.fetchViableBottlesListener = { request in
+            self.fakeCuttlefishServer.fetchViableBottlesListener = nil
+            XCTAssertEqual(request.filterRequest, .byOctagonOnly, "request filtering should be byOctagonOnly")
+            fetchUnCachedViableBottlesExpectation.fulfill()
+            return nil
+        }
+
+        let bottle = self.fakeCuttlefishServer.state.bottles[0]
+
+        do {
+            let escrowRecordDatas = try OTClique.fetchEscrowRecordsInternal(bottlerotcliqueContext)
+            let escrowRecords = escrowRecordDatas.map { OTEscrowRecord(data: $0) }
+
+            XCTAssertNotNil(escrowRecords, "escrowRecords should not be nil")
+            XCTAssertEqual(escrowRecords.count, 2, "should be 2 escrow records")
+            let reduced = escrowRecords.compactMap { $0!.escrowInformationMetadata.bottleId }
+            XCTAssert(reduced.contains(bottle.bottleID), "The bottle we're about to restore should be viable")
+        } catch {
+            XCTFail("Shouldn't have errored fetching escrow records: \(error)")
+            throw error
+        }
+        self.wait(for: [fetchUnCachedViableBottlesExpectation], timeout: 1)
+
+        do {
+            let escrowRecordDatas = try OTClique.fetchEscrowRecordsInternal(bottlerotcliqueContext)
+            let escrowRecords = escrowRecordDatas.map { OTEscrowRecord(data: $0) }
+
+            XCTAssertNotNil(escrowRecords, "escrowRecords should not be nil")
+            XCTAssertEqual(escrowRecords.count, 2, "should be 2 escrow records")
+            let reduced = escrowRecords.compactMap { $0!.escrowInformationMetadata.bottleId }
+            XCTAssert(reduced.contains(bottle.bottleID), "The bottle we're about to restore should be viable")
+        } catch {
+            XCTFail("Shouldn't have errored fetching escrow records: \(error)")
+            throw error
+        }
+
+        do {
+            let escrowRecordDatas = try OTClique.fetchEscrowRecordsInternal(bottlerotcliqueContext)
+
+            var tlkRecoverabilityExpectation = self.expectation(description: "recoverability expectation")
+            self.manager.tlkRecoverability(forEscrowRecordData: OTCKContainerName, contextID: OTDefaultContext, record: escrowRecordDatas[0]) {retViews, error in
+                if retViews == nil {
+                    XCTAssertNil(retViews, "retViews should be nil")
+                    XCTAssertNotNil(error, "error should not be nil")
+                    XCTAssertEqual((error! as NSError).code, 58, "error code should be 58")
+                    XCTAssertEqual((error! as NSError).domain, OctagonErrorDomain, "error domain should be OctagonErrorDomain")
+                } else {
+                    XCTAssertNotNil(retViews, "retViews should not be nil")
+#if !TARGET_OS_WATCH && !TARGET_OS_TV
+                XCTAssertTrue(retViews!.contains("Manatee"), "should contain Manatee view")
+#endif
+                XCTAssertTrue(retViews!.contains("LimitedPeersAllowed"), "should contain LimitedPeersAllowed view")
+                    XCTAssertNil(error, "error should be nil")
+                }
+                tlkRecoverabilityExpectation.fulfill()
+            }
+            self.wait(for: [tlkRecoverabilityExpectation], timeout: 10)
+
+            tlkRecoverabilityExpectation = self.expectation(description: "recoverability expectation")
+            self.manager.tlkRecoverability(forEscrowRecordData: OTCKContainerName, contextID: OTDefaultContext, record: escrowRecordDatas[1]) {retViews, error in
+                if retViews == nil {
+                    XCTAssertNil(retViews, "retViews should be nil")
+                    XCTAssertNotNil(error, "error should not be nil")
+                    XCTAssertEqual((error! as NSError).code, 58, "error code should be 58")
+                    XCTAssertEqual((error! as NSError).domain, OctagonErrorDomain, "error domain should be OctagonErrorDomain")
+                } else {
+                    XCTAssertNotNil(retViews, "retViews should not be nil")
+#if !TARGET_OS_WATCH && !TARGET_OS_TV
+                XCTAssertTrue(retViews!.contains("Manatee"), "should contain Manatee view")
+#endif
+                XCTAssertTrue(retViews!.contains("LimitedPeersAllowed"), "should contain LimitedPeersAllowed view")
+                    XCTAssertNil(error, "error should be nil")
+                }
+                tlkRecoverabilityExpectation.fulfill()
+            }
+            self.wait(for: [tlkRecoverabilityExpectation], timeout: 10)
+        } catch {
+            XCTFail("Shouldn't have errored fetching escrow records: \(error)")
+            throw error
+        }
     }
 }
 

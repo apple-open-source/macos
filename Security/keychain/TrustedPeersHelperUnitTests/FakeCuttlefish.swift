@@ -530,6 +530,8 @@ class FakeCuttlefishServer: CuttlefishAPIAsync {
 
         self.state.peersByID[request.peer.peerID] = request.peer
         self.state.bottles.append(request.bottle)
+        let stableInfo = request.peer.stableInfoAndSig.toStableInfo()
+        let serial = stableInfo?.serialNumber
         let escrowInformation = EscrowInformation.with {
             $0.label = "com.apple.icdp.record." + request.bottle.bottleID
             $0.creationDate = Google_Protobuf_Timestamp(date: Date())
@@ -543,6 +545,7 @@ class FakeCuttlefishServer: CuttlefishAPIAsync {
                 $0.peerInfo = Data()
                 $0.bottleID = request.bottle.bottleID
                 $0.escrowedSpki = request.bottle.escrowedSigningSpki
+                $0.serial = serial!
                 let cm = EscrowInformation.Metadata.ClientMetadata.with {
                     $0.deviceColor = "#202020"
                     $0.deviceEnclosureColor = "#020202"
@@ -614,6 +617,8 @@ class FakeCuttlefishServer: CuttlefishAPIAsync {
         }
         self.state.peersByID[request.peer.peerID] = request.peer
         self.state.bottles.append(request.bottle)
+        let stableInfo = request.peer.stableInfoAndSig.toStableInfo()
+        let serial = stableInfo?.serialNumber
         let escrowInformation = EscrowInformation.with {
             $0.label = "com.apple.icdp.record." + request.bottle.bottleID
             $0.creationDate = Google_Protobuf_Timestamp(date: Date())
@@ -627,6 +632,7 @@ class FakeCuttlefishServer: CuttlefishAPIAsync {
                 $0.peerInfo = Data()
                 $0.bottleID = request.bottle.bottleID
                 $0.escrowedSpki = request.bottle.escrowedSigningSpki
+                $0.serial = serial!
                 let cm = EscrowInformation.Metadata.ClientMetadata.with {
                     $0.deviceColor = "#202020"
                     $0.deviceEnclosureColor = "#020202"

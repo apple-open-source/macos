@@ -241,7 +241,12 @@ BOOL getProcInfo(int pid, NSMutableDictionary **dictPt, BOOL *finished, NSError 
     argsArr = [NSMutableArray arrayWithCapacity:nargs];
     while (argsRead < nargs) {
         argPt = cp;
-        [argsArr addObject:[NSString stringWithUTF8String:argPt]];
+        NSString *arg = [NSString stringWithUTF8String:argPt];
+        if (!arg) {
+            error = CREATE_ERROR(GetProcInfoError, @"sysctl corrupt arg%d cannot be nil", argsRead);
+            goto done;
+        }
+        [argsArr addObject:arg];
         while (cp < &procargs[size] && *cp++ != '\0');
         if (cp >= &procargs[size]) {
             error = CREATE_ERROR(GetProcInfoError, @"sysctl corrupt arg%d", argsRead);

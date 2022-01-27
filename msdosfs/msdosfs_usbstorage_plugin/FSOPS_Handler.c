@@ -837,7 +837,11 @@ MSDOS_ScanVolGetVolName(char* pcVolName, int iDiskFd)
     LookForDirEntryArgs_s sArgs;
     sArgs.eMethod = LU_BY_VOLUME_ENTRY;
     NodeDirEntriesData_s sNodeDirEntriesData;
-    DIROPS_InitDirClusterDataCache(psFSRecord);
+    iError = DIROPS_InitDirClusterDataCache(psFSRecord);
+    if ( iError != 0 )
+    {
+        goto end;
+    }
 
     iError = DIROPS_LookForDirEntry(pvRootNode, &sArgs, NULL, &sNodeDirEntriesData );
     if ( iError == 0 )
@@ -1035,7 +1039,11 @@ MSDOS_Mount (int iDiskFd, UVFSVolumeId volId, __unused UVFSMountFlags mountFlags
     }
 
     DIAGNOSTIC_INIT(psFSRecord);
-    DIROPS_InitDirClusterDataCache(psFSRecord);
+    err = DIROPS_InitDirClusterDataCache(psFSRecord);
+    if ( err != 0 )
+    {
+        goto free_all_and_fail;
+    }
 
     // Create roothandle with root directory
     if (!FSOPS_CreateRootRecord(psFSRecord , &pvRootNode))

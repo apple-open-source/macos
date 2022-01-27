@@ -153,6 +153,14 @@ FOUNDATION_EXPORT const unsigned char OctagonTrustVersionString[];
  */
 - (BOOL)waitForPriorityViewKeychainDataRecovery:(NSError**)error;
 
+/* *
+ * @abstract                        Evaluate an escrow record's TLK recoverability
+ * @param record                    The escrow record to evaluate
+ * @param error                     An error parameter: filled in if the call times out or verification fails in any way
+ * @return NSArray<NSString*>*      An array of recoverable keychain views by this record
+ */
+- (NSArray<NSString*>* _Nullable)tlkRecoverabilityForEscrowRecord:(OTEscrowRecord*)record error:(NSError**)error;
+
 @end
 
 NS_ASSUME_NONNULL_END

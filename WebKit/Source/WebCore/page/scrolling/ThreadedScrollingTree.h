@@ -60,6 +60,8 @@ public:
     void willStartRenderingUpdate();
     void didCompleteRenderingUpdate();
 
+    void didCompletePlatformRenderingUpdate();
+
     Lock& treeLock() WTF_RETURNS_LOCK(m_treeLock) { return m_treeLock; }
 
     bool scrollAnimatorEnabled() const { return m_scrollAnimatorEnabled; }
@@ -88,12 +90,16 @@ private:
 
     void displayDidRefreshOnScrollingThread();
     void waitForRenderingUpdateCompletionOrTimeout() WTF_REQUIRES_LOCK(m_treeLock);
+    void renderingUpdateComplete();
 
     bool canUpdateLayersOnScrollingThread() const WTF_REQUIRES_LOCK(m_treeLock);
 
     void scheduleDelayedRenderingUpdateDetectionTimer(Seconds) WTF_REQUIRES_LOCK(m_treeLock);
     void delayedRenderingUpdateDetectionTimerFired();
 
+    void storeScrollPositionsAtLastDisplayRefresh() WTF_REQUIRES_LOCK(m_treeLock);
+    
+    Seconds frameDuration();
     Seconds maxAllowableRenderingUpdateDurationForSynchronization();
 
     enum class SynchronizationState : uint8_t {
@@ -108,6 +114,8 @@ private:
 
     bool m_receivedBeganEventFromMainThread WTF_GUARDED_BY_LOCK(m_treeLock) { false };
     Condition m_waitingForBeganEventCondition;
+    
+    MonotonicTime m_lastDisplayDidRefreshTime;
 
     // Dynamically allocated because it has to use the ScrollingThread's runloop.
     std::unique_ptr<RunLoop::Timer<ThreadedScrollingTree>> m_delayedRenderingUpdateDetectionTimer WTF_GUARDED_BY_LOCK(m_treeLock);

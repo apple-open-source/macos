@@ -35,12 +35,14 @@
 #include <WebCore/InbandTextTrackPrivate.h>
 #include <WebCore/Logging.h>
 #include <WebCore/MediaSample.h>
+#include <WebCore/SharedBuffer.h>
 #include <WebCore/SourceBufferParserWebM.h>
 #include <WebCore/VideoTrackPrivate.h>
 #include <pal/avfoundation/MediaTimeAVFoundation.h>
 #include <wtf/LoggerHelper.h>
 #include <wtf/WorkQueue.h>
 
+#include <pal/cf/CoreMediaSoftLink.h>
 #include <pal/cocoa/MediaToolboxSoftLink.h>
 
 WTF_DECLARE_CF_TYPE_TRAIT(MTPluginFormatReader);

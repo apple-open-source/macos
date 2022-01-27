@@ -639,15 +639,10 @@ void IOPCIBridge::deferredProbe(IOPCIDevice * device)
 	client = device->copyClientWithCategory(gIODefaultMatchCategoryKey);
 	if ((bridge = OSDynamicCast(IOPCIBridge, client)))
 	{
-		bool started;
 		DLOG("configOp:<-probe: %s(0x%qx)\n", device->getName(), device->getRegistryEntryID());
 
-		IOSimpleLockLock(bridge->reserved->lock);
-		started = bridge->reserved->started;
-		IOSimpleLockUnlock(bridge->reserved->lock);
-
-		// If IOPCIBridge::start() hasn't completed then there's no need to run probeBus here, it will run during start()
-		if (started)
+		// If IOPCIBridge::start() hasn't initialized the ivars needed for probeBus(), then there's no need to it here, it will run during start().
+		if (atomic_load(&bridge->reserved->readyToProbe))
 		{
 			bridge->probeBus(device, bridge->firstBusNum());
 		}
@@ -805,6 +800,8 @@ bool IOPCIBridge::start( IOService * provider )
         }
     }
 
+    atomic_store(&reserved->readyToProbe, true);
+
     probeBus( provider, firstBusNum() );
 
     if ((kIOPCIConfiguratorDeepIdle & gIOPCIFlags)
@@ -825,10 +822,6 @@ bool IOPCIBridge::start( IOService * provider )
 	}
     
     registerService();
-
-    IOSimpleLockLock(reserved->lock);
-    reserved->started = true;
-    IOSimpleLockUnlock(reserved->lock);
 
     return (true);
 }
@@ -853,13 +846,6 @@ bool IOPCIBridge::init( OSDictionary *  propTable )
         return false;
     }
 
-    reserved->lock = IOSimpleLockAlloc();
-    if (reserved->lock == nullptr)
-    {
-        IOFreeType(reserved, ExpansionData);
-        return false;
-    }
-
     return true;
 }
 
@@ -868,10 +854,6 @@ void IOPCIBridge::free( void )
     if (reserved)
     {
         OSSafeReleaseNULL(reserved->hostBridgeData);
-        if (reserved->lock)
-        {
-            IOSimpleLockFree(reserved->lock);
-        }
         IOFreeType(reserved, ExpansionData);
     }
 
@@ -2301,7 +2283,7 @@ void IOPCIBridge::removeDevice( IOPCIDevice * device, IOOptionBits options )
 #endif
 
     restoreQRemove(device);
-    configOpParams cp = {.device = device, .op = kConfigOpTerminated, .result = nullptr, .arg = device};
+    configOpParams cp = {.device = device, .op = kConfigOpTerminated, .result = nullptr};
     configOp(&cp);
 }
 
@@ -2544,12 +2526,14 @@ bool IOPCIBridge::childPrefersMSIX( IOPCIDevice *device )
     return prefersMSIX;
 }
 
-void IOPCIBridge::probeBus( IOService * provider, UInt8 busNum )
+void IOPCIBridge::probeBusGated( probeBusParams *params )
 {
     IORegistryEntry *  found;
     OSDictionary *     propTable;
     IOPCIDevice *      nub = 0;
     OSIterator *       kidsIter;
+    IOService *        provider = params->provider;
+    uint8_t            busNum = params->busNum;
     UInt32             index = 0;
     UInt32             idx = 0;
     bool               hotplugBus;
@@ -2773,6 +2757,19 @@ void IOPCIBridge::probeBus( IOService * provider, UInt8 busNum )
     nubs->release();
     if (kidsIter)
         kidsIter->release();
+}
+
+void IOPCIBridge::probeBus( IOService * provider, UInt8 busNum )
+{
+    IOPCIHostBridgeData *vars = reserved->hostBridgeData;
+    probeBusParams params;
+
+    params.provider = provider;
+    params.busNum = busNum;
+
+    vars->_configWorkLoop->runAction(
+        OSMemberFunctionCast(IOCommandGate::Action, this, &IOPCIBridge::probeBusGated),
+        this, &params);
 }
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -3810,9 +3807,9 @@ bool IOPCI2PCIBridge::configure( IOService * provider )
 	}
 
 #else
-	if (fBridgeDevice->reserved && fBridgeDevice->reserved->configEntry && fBridgeDevice->reserved->configEntry->hostBridge)
+	if (fBridgeDevice->reserved && fBridgeDevice->reserved->hostBridge)
 	{
-		IOPCIHostBridgeData *vars = fBridgeDevice->reserved->configEntry->hostBridge->reserved->hostBridgeData;
+		IOPCIHostBridgeData *vars = fBridgeDevice->reserved->hostBridge->reserved->hostBridgeData;
 		if (vars)
 		{
 			((IOPCIBridge*)this)->reserved->hostBridgeData = vars;

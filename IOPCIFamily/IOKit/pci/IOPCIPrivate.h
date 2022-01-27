@@ -119,6 +119,7 @@ struct IOPCIDeviceExpansionData
 
 	IORecursiveLock * lock;
     struct IOPCIConfigEntry * configEntry;
+    IOPCIHostBridge *hostBridge;
 
 	IOOptionBits sessionOptions;
 

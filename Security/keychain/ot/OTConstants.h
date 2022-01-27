@@ -67,6 +67,7 @@ typedef NS_ERROR_ENUM(OctagonErrorDomain, OctagonError) {
     OctagonErrorUserControllableViewsUnavailable                = 55,
     OctagonErrorICloudAccountStateUnknown                       = 56,
     OctagonErrorClassCLocked                                    = 57,
+    OctagonErrorRecordNotViable                                 = 58,
 };
 
 /* used for defaults writes */

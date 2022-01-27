@@ -57,7 +57,6 @@ def expandPlatformVersions(prefix, define_prefix, platform, arg)
 end
 
 $minorLookupTable = {
-    "late_winter" => "0115",
     "spring" => "0301",
     "late_spring" => "0415",
     "summer" => "0601",
@@ -65,7 +64,8 @@ $minorLookupTable = {
     "fall" => "0901",
     "autumn" => "0902", # autumn has to come after fall because of ios 13.0 and 13.1
     "late_fall" => "1015",
-    "winter" => "1201"
+    "winter" => "1201",
+    "late_winter" => "1215"
 }
 
 def setNameToVersion(setName)

@@ -125,6 +125,9 @@ IOPCIScalar IOPCIRangeListSize(IOPCIRange * first);
 #define FOREACH_CHILD(bridge, child) \
     for(IOPCIConfigEntry * (child) = (bridge)->child; (child); (child) = (child)->peer)
 
+#define FOREACH_CHILD_SAFE(bridge, child, next) \
+    for(IOPCIConfigEntry * (next), * (child) = (bridge)->child; (next) = (child) ? (child)->peer : NULL, (child); (child) = (next))
+
 enum {
     kIOPCIConfiguratorIOLog          = 0x00000001,
     kIOPCIConfiguratorKPrintf        = 0x00000002,
@@ -395,8 +398,7 @@ protected:
     bool    bridgeTotalResources(IOPCIConfigEntry * bridge, uint32_t typeMask);
     int32_t bridgeAllocateResources( IOPCIConfigEntry * bridge, uint32_t typeMask );
 
-	bool    bridgeDeallocateChildRanges(IOPCIConfigEntry * bridge, IOPCIConfigEntry * dead,
-								        uint32_t deallocTypes, uint32_t freeTypes);
+	void    bridgeDeallocateChildRanges(IOPCIConfigEntry * bridge, IOPCIConfigEntry * dead);
 
     void    doConfigure(uint32_t options);
 
@@ -406,9 +408,8 @@ protected:
     uint16_t disableAccess(IOPCIConfigEntry * device, bool disable);
     void    restoreAccess(IOPCIConfigEntry * device, UInt16 command);
     void    bridgeAddChild(IOPCIConfigEntry * bridge, IOPCIConfigEntry * child);
-    void    bridgeRemoveChild(IOPCIConfigEntry * bridge, IOPCIConfigEntry * dead,
-                              uint32_t deallocTypes, uint32_t freeTypes,
-                              IOPCIConfigEntry ** childList);
+    void    bridgeRemoveChild(IOPCIConfigEntry * bridge, IOPCIConfigEntry * dead);
+	void    bridgeMarkChildDead(IOPCIConfigEntry * bridge, IOPCIConfigEntry * dead);
 	void    deleteConfigEntry(IOPCIConfigEntry * entry);
 	void    bridgeMoveChildren(IOPCIConfigEntry * to, IOPCIConfigEntry * list, uint32_t moveTypes);
     void    bridgeDeadChild(IOPCIConfigEntry * bridge, IOPCIConfigEntry * dead);

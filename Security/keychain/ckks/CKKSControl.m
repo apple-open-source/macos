@@ -330,6 +330,13 @@
     }] toggleHavoc:reply];
 }
 
+- (void)pcsMirrorKeysForServices:(NSDictionary<NSNumber*,NSArray<NSData*>*>*)services reply:(void (^)(NSDictionary<NSNumber*,NSArray<NSData*>*>* _Nullable result, NSError* _Nullable error))reply
+{
+    [[self objectProxyWithErrorHandler:^(NSError * _Nonnull error) {
+        reply(nil, error);
+    }] pcsMirrorKeysForServices:services reply:reply];
+}
+
 + (CKKSControl*)controlObject:(NSError* __autoreleasing *)error {
     return [CKKSControl CKKSControlObject:NO error:error];
 }

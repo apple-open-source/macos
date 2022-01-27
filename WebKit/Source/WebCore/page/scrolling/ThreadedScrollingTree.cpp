@@ -28,6 +28,7 @@
 
 #if ENABLE(ASYNC_SCROLLING) && ENABLE(SCROLLING_THREAD)
 
+#include "AnimationFrameRate.h"
 #include "AsyncScrollingCoordinator.h"
 #include "Logging.h"
 #include "PlatformWheelEvent.h"
@@ -296,16 +297,20 @@ void ThreadedScrollingTree::willStartRenderingUpdate()
     m_state = SynchronizationState::InRenderingUpdate;
 }
 
+Seconds ThreadedScrollingTree::frameDuration()
+{
+    auto displayFPS = nominalFramesPerSecond().value_or(FullSpeedFramesPerSecond);
+    return 1_s / (double)displayFPS;
+}
+
 Seconds ThreadedScrollingTree::maxAllowableRenderingUpdateDurationForSynchronization()
 {
     constexpr double allowableFrameFraction = 0.5;
-    auto displayFPS = nominalFramesPerSecond().value_or(60);
-    Seconds frameDuration = 1_s / (double)displayFPS;
-    return allowableFrameFraction * frameDuration;
+    return allowableFrameFraction * frameDuration();
 }
 
 // This code allows the main thread about half a frame to complete its rendering udpate. If the main thread
-// is responsive (i.e. managing to render every frame), then we expect to get a didCompleteRenderingUpdate()
+// is responsive (i.e. managing to render every frame), then we expect to get a didCompletePlatformRenderingUpdate()
 // within 8ms of willStartRenderingUpdate(). We time this via m_stateCondition, which blocks the scrolling
 // thread (with m_treeLock locked at the start and end) so that we don't handle wheel events while waiting.
 // If the condition times out, we know the main thread is being slow, and allow the scrolling thread to
@@ -318,8 +323,9 @@ void ThreadedScrollingTree::waitForRenderingUpdateCompletionOrTimeout()
     if (m_delayedRenderingUpdateDetectionTimer)
         m_delayedRenderingUpdateDetectionTimer->stop();
 
-    auto startTime = MonotonicTime::now();
-    auto timeoutTime = startTime + maxAllowableRenderingUpdateDurationForSynchronization();
+    auto currentTime = MonotonicTime::now();
+    auto estimatedNextDisplayRefreshTime = std::max(m_lastDisplayDidRefreshTime + frameDuration(), currentTime);
+    auto timeoutTime = std::min(currentTime + maxAllowableRenderingUpdateDurationForSynchronization(), estimatedNextDisplayRefreshTime);
 
     bool becameIdle = m_stateCondition.waitUntil(m_treeLock, timeoutTime, [&] {
         assertIsHeld(m_treeLock);
@@ -332,8 +338,12 @@ void ThreadedScrollingTree::waitForRenderingUpdateCompletionOrTimeout()
         m_state = SynchronizationState::Desynchronized;
         // At this point we know the main thread is taking too long in the rendering update,
         // so we give up trying to sync with the main thread and update layers here on the scrolling thread.
-        if (canUpdateLayersOnScrollingThread())
-            applyLayerPositionsInternal();
+        if (canUpdateLayersOnScrollingThread()) {
+            // Dispatch to allow for the scrolling thread to handle any outstanding wheel events before we commit layers.
+            ScrollingThread::dispatch([protectedThis = makeRef(*this)]() {
+                protectedThis->applyLayerPositions();
+            });
+        }
         tracePoint(ScrollingThreadRenderUpdateSyncEnd, 1);
     } else
         tracePoint(ScrollingThreadRenderUpdateSyncEnd);
@@ -341,7 +351,21 @@ void ThreadedScrollingTree::waitForRenderingUpdateCompletionOrTimeout()
 
 void ThreadedScrollingTree::didCompleteRenderingUpdate()
 {
+    // macOS needs to wait for the CA commit (the "platform rendering update").
+#if !PLATFORM(MAC)
+    renderingUpdateComplete();
+#endif
+}
+
+void ThreadedScrollingTree::didCompletePlatformRenderingUpdate()
+{
+    renderingUpdateComplete();
+}
+
+void ThreadedScrollingTree::renderingUpdateComplete()
+{
     ASSERT(isMainThread());
+
     Locker locker { m_treeLock };
 
     if (m_state == SynchronizationState::InRenderingUpdate)
@@ -377,6 +401,9 @@ void ThreadedScrollingTree::displayDidRefreshOnScrollingThread()
     ASSERT(ScrollingThread::isCurrentThread());
 
     Locker locker { m_treeLock };
+    
+    auto now = MonotonicTime::now();
+    m_lastDisplayDidRefreshTime = now;
 
     if (m_state != SynchronizationState::Idle && canUpdateLayersOnScrollingThread())
         applyLayerPositionsInternal();
@@ -393,6 +420,8 @@ void ThreadedScrollingTree::displayDidRefreshOnScrollingThread()
     case SynchronizationState::Desynchronized:
         break;
     }
+    
+    storeScrollPositionsAtLastDisplayRefresh();
 }
 
 void ThreadedScrollingTree::displayDidRefresh(PlatformDisplayID displayID)
@@ -413,6 +442,14 @@ void ThreadedScrollingTree::displayDidRefresh(PlatformDisplayID displayID)
     ScrollingThread::dispatch([protectedThis = makeRef(*this)]() {
         protectedThis->displayDidRefreshOnScrollingThread();
     });
+}
+
+void ThreadedScrollingTree::storeScrollPositionsAtLastDisplayRefresh()
+{
+    // Ideally this would be a tree walk for every scrolling node, but scrolling trees can get big so for now just do this for the root;
+    // ScrollingTreeFrameScrollingNodeMac::repositionScrollingLayers() uses the state to know whether it should force a commit.
+    if (auto* rootNode = this->rootNode())
+        rootNode->updateScrollPositionAtLastDisplayRefresh();
 }
 
 } // namespace WebCore

@@ -96,6 +96,8 @@ NSXPCInterface* CKKSSetupControlProtocol(NSXPCInterface* interface) {
         [interface setClasses:errClasses forSelector:@selector(modifyTLKSharesForSEView:adding:deleting:reply:) argumentIndex:0 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(deleteSEView:reply:) argumentIndex:0 ofReply:YES];
 
+        [interface setClasses:errClasses forSelector:@selector(pcsMirrorKeysForServices:reply:) argumentIndex:1 ofReply:YES];
+
         [interface setClasses:tlkShareArrayClasses forSelector:@selector(proposeTLKForSEView:proposedTLK:wrappedOldTLK:tlkShares:reply:) argumentIndex:3 ofReply:NO];
         [interface setClasses:tlkArrayClasses      forSelector:@selector(fetchSEViewKeyHierarchy:forceFetch:reply:) argumentIndex:1 ofReply:YES];
         [interface setClasses:tlkShareArrayClasses forSelector:@selector(fetchSEViewKeyHierarchy:forceFetch:reply:) argumentIndex:2 ofReply:YES];

@@ -404,6 +404,16 @@ void DocumentThreadableLoader::didReceiveResponse(unsigned long identifier, cons
     ASSERT(m_client);
     ASSERT(response.type() != ResourceResponse::Type::Error);
 
+#if ENABLE(SERVICE_WORKER)
+    // https://fetch.spec.whatwg.org/commit-snapshots/6257e220d70f560a037e46f1b4206325400db8dc/#main-fetch step 17.
+    if (response.source() == ResourceResponse::Source::ServiceWorker && response.url() != m_resource->url()) {
+        if (!isResponseAllowedByContentSecurityPolicy(response)) {
+            reportContentSecurityPolicyError(response.url());
+            return;
+        }
+    }
+#endif
+
     InspectorInstrumentation::didReceiveThreadableLoaderResponse(*this, identifier);
 
     if (m_delayCallbacksForIntegrityCheck)
@@ -681,14 +691,19 @@ bool DocumentThreadableLoader::isAllowedByContentSecurityPolicy(const URL& url, 
     case ContentSecurityPolicyEnforcement::DoNotEnforce:
         return true;
     case ContentSecurityPolicyEnforcement::EnforceChildSrcDirective:
-        return contentSecurityPolicy().allowChildContextFromSource(url, redirectResponseReceived);
+        return contentSecurityPolicy().allowChildContextFromSource(url, redirectResponseReceived, preRedirectURL);
     case ContentSecurityPolicyEnforcement::EnforceConnectSrcDirective:
         return contentSecurityPolicy().allowConnectToSource(url, redirectResponseReceived, preRedirectURL);
     case ContentSecurityPolicyEnforcement::EnforceScriptSrcDirective:
-        return contentSecurityPolicy().allowScriptFromSource(url, redirectResponseReceived);
+        return contentSecurityPolicy().allowScriptFromSource(url, redirectResponseReceived, preRedirectURL);
     }
     ASSERT_NOT_REACHED();
     return false;
+}
+
+bool DocumentThreadableLoader::isResponseAllowedByContentSecurityPolicy(const ResourceResponse& response)
+{
+    return isAllowedByContentSecurityPolicy(response.url(), ContentSecurityPolicy::RedirectResponseReceived::Yes, { });
 }
 
 bool DocumentThreadableLoader::isAllowedRedirect(const URL& url)

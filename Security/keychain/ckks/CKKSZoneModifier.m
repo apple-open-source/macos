@@ -248,7 +248,7 @@
     };
 
     if(self.networkFailure) {
-        ckksnotice_global("ckkszonemodifier", "Waiting for reachabilty before issuing zone creation");
+        ckksnotice_global("ckkszonemodifier", "Waiting for reachability before issuing zone creation");
         [zoneModifyOperation addNullableDependency:self.reachabilityTracker.reachabilityDependency];
     }
 
@@ -299,7 +299,7 @@
     [zoneSubscriptionOperation addNullableDependency:ops.zoneModificationOperation];
 
     if(self.networkFailure) {
-        ckksnotice_global("ckkszonemodifier", "Waiting for reachabilty before issuing zone subscription");
+        ckksnotice_global("ckkszonemodifier", "Waiting for reachability before issuing zone subscription");
         [zoneSubscriptionOperation addNullableDependency:self.reachabilityTracker.reachabilityDependency];
     }
 

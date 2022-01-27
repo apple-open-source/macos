@@ -169,6 +169,8 @@ public:
         m_hasPreciseScrollingDeltas = webEvent.hasPreciseScrollingDeltas();
 #endif
 #if PLATFORM(COCOA)
+        m_ioHIDEventTimestamp = webEvent.ioHIDEventTimestamp();
+        m_rawPlatformDelta = webEvent.rawPlatformDelta();
         m_scrollCount = webEvent.scrollCount();
         m_unacceleratedScrollingDeltaX = webEvent.unacceleratedScrollingDelta().width();
         m_unacceleratedScrollingDeltaY = webEvent.unacceleratedScrollingDelta().height();

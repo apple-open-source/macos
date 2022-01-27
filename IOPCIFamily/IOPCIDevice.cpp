@@ -895,11 +895,13 @@ void IOPCIDevice::extendedConfigWrite8( IOByteCount offset, UInt8 data )
 
 UInt32 IOPCIDevice::findPCICapability( UInt8 capabilityID, UInt8 * offset )
 {
+    if (!configAccess(true)) return 0;
     return (parent->findPCICapability(space, capabilityID, offset));
 }
 
 UInt32 IOPCIDevice::extendedFindPCICapability( UInt32 capabilityID, IOByteCount * offset )
 {
+    if (!configAccess(true)) return 0;
     return (parent->extendedFindPCICapability(reserved->configEntry, capabilityID, offset));
 }
 
@@ -1635,10 +1637,10 @@ IOReturn IOPCIDevice::deviceMemoryRead64(uint8_t   memoryIndex,
         }
 
 
-        result = reserved->configEntry->hostBridge->deviceMemoryRead(deviceMemoryDescriptor,
-                                                                     offset,
-                                                                     readData,
-                                                                     sizeof(uint64_t));
+        result = reserved->hostBridge->deviceMemoryRead(deviceMemoryDescriptor,
+                                                        offset,
+                                                        readData,
+                                                        sizeof(uint64_t));
     }
 #endif
 
@@ -1689,10 +1691,10 @@ IOReturn IOPCIDevice::deviceMemoryRead32(uint8_t   memoryIndex,
             return kIOReturnBadArgument;
         }
 
-        result = reserved->configEntry->hostBridge->deviceMemoryRead(deviceMemoryDescriptor,
-                                                                     offset,
-                                                                     readData,
-                                                                     sizeof(uint32_t));
+        result = reserved->hostBridge->deviceMemoryRead(deviceMemoryDescriptor,
+                                                        offset,
+                                                        readData,
+                                                        sizeof(uint32_t));
     }
 #endif
 
@@ -1743,10 +1745,10 @@ IOReturn IOPCIDevice::deviceMemoryRead16(uint8_t   memoryIndex,
             return kIOReturnBadArgument;
         }
 
-        result = reserved->configEntry->hostBridge->deviceMemoryRead(deviceMemoryDescriptor,
-                                                                     offset,
-                                                                     readData,
-                                                                     sizeof(uint16_t));
+        result = reserved->hostBridge->deviceMemoryRead(deviceMemoryDescriptor,
+                                                        offset,
+                                                        readData,
+                                                        sizeof(uint16_t));
     }
 #endif
 
@@ -1797,10 +1799,10 @@ IOReturn IOPCIDevice::deviceMemoryRead8(uint8_t  memoryIndex,
             return kIOReturnBadArgument;
         }
 
-        result = reserved->configEntry->hostBridge->deviceMemoryRead(deviceMemoryDescriptor,
-                                                                     offset,
-                                                                     readData,
-                                                                     sizeof(uint8_t));
+        result = reserved->hostBridge->deviceMemoryRead(deviceMemoryDescriptor,
+                                                        offset,
+                                                        readData,
+                                                        sizeof(uint8_t));
     }
 #endif
 

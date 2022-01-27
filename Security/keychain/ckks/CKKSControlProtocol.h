@@ -77,6 +77,8 @@ NS_ASSUME_NONNULL_BEGIN;
 
 - (void)toggleHavoc:(void (^)(BOOL havoc, NSError* _Nullable error))reply;
 
+- (void)pcsMirrorKeysForServices:(NSDictionary<NSNumber*,NSArray<NSData*>*>*)services reply:(void (^)(NSDictionary<NSNumber*,NSArray<NSData*>*>* _Nullable result, NSError* _Nullable error))reply;
+
 @end
 
 NSXPCInterface* CKKSSetupControlProtocol(NSXPCInterface* interface);

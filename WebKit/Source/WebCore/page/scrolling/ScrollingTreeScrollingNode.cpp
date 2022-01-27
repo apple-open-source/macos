@@ -227,6 +227,11 @@ void ScrollingTreeScrollingNode::setScrollSnapInProgress(bool isSnapping)
     scrollingTree().setNodeScrollSnapInProgress(scrollingNodeID(), isSnapping);
 }
 
+bool ScrollingTreeScrollingNode::momentumScrollingAnimatorEnabled() const
+{
+    return scrollingTree().momentumScrollingAnimatorEnabled();
+}
+
 FloatPoint ScrollingTreeScrollingNode::adjustedScrollPosition(const FloatPoint& scrollPosition, ScrollClamping clamping) const
 {
     if (clamping == ScrollClamping::Clamped)
@@ -266,6 +271,11 @@ void ScrollingTreeScrollingNode::currentScrollPositionChanged(ScrollType, Scroll
 {
     m_scrolledSinceLastCommit = true;
     scrollingTree().scrollingTreeNodeDidScroll(*this, action);
+}
+
+void ScrollingTreeScrollingNode::updateScrollPositionAtLastDisplayRefresh()
+{
+    m_scrollPositionAtLastDisplayRefresh = m_currentScrollPosition;
 }
 
 bool ScrollingTreeScrollingNode::scrollPositionAndLayoutViewportMatch(const FloatPoint& position, std::optional<FloatRect>)

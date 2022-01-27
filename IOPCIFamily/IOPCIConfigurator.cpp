@@ -269,17 +269,10 @@ IOReturn CLASS::configOp(IOService * device, uintptr_t op, void * arg, void * ar
             break;
 
 		case kConfigOpTerminated:
-			if (!entry)
-			{
-				pciDevice = OSDynamicCast(IOPCIDevice, (IOService *)arg2);
-				if (!pciDevice) panic("IOPCIDevice");
-				entry = pciDevice->reserved->configEntry;
-			}
 			if (entry)
 			{
 				DLOG("kConfigOpTerminated at " D() "\n", DEVICE_IDENT(entry));
-				uint32_t types = kIOPCIRangeAllBarsMask | (1 << kIOPCIRangeBridgeBusNumber);
-				bridgeRemoveChild(entry->parent, entry, types, types, NULL);
+				bridgeRemoveChild(entry->parent, entry);
 			}
 			ret = kIOReturnSuccess;
 			return (ret);
@@ -1393,6 +1386,7 @@ bool CLASS::bridgeConstructDeviceTree(void * unused, IOPCIConfigEntry * bridge)
             nub->release();
             if (!ok) continue;
             nub->reserved->configEntry = child;
+            nub->reserved->hostBridge = child->hostBridge;
             child->dtNub = nub;
 #if ACPI_SUPPORT
             child->dtEntry = nub;
@@ -1607,20 +1601,16 @@ void CLASS::bridgeAddChild(IOPCIConfigEntry * bridge, IOPCIConfigEntry * child)
 
 //---------------------------------------------------------------------------
 
-bool CLASS::bridgeDeallocateChildRanges(IOPCIConfigEntry * bridge, IOPCIConfigEntry * dead,
-								        uint32_t deallocTypes, uint32_t freeTypes)
+void CLASS::bridgeDeallocateChildRanges(IOPCIConfigEntry * bridge, IOPCIConfigEntry * dead)
 {
 	IOPCIRange *        range;
 	IOPCIRange *        childRange;
     bool				ok;
-    bool				dispose;
-    bool				didKeep = false;
 
     for (int rangeIndex = 0; rangeIndex < kIOPCIRangeCount; rangeIndex++)
 	{
 		childRange = dead->ranges[rangeIndex];
-		if (!childRange)								continue;
-		if (!((1 << rangeIndex) & deallocTypes)) 		continue;
+		if (!childRange) continue;
 
 		// Free the secondary bus back to itself
 		if ((kIOPCIRangeBridgeBusNumber == rangeIndex) && dead->busResv.nextSubRange)
@@ -1628,8 +1618,6 @@ bool CLASS::bridgeDeallocateChildRanges(IOPCIConfigEntry * bridge, IOPCIConfigEn
 			ok = IOPCIRangeListDeallocateSubRange(childRange, &dead->busResv);
 			if (!ok) panic("!IOPCIRangeListDeallocateSubRange busResv");
 		}
-
-		dispose = (0 != ((1 << rangeIndex) & freeTypes));
 
 		if (childRange->nextSubRange)
 		{
@@ -1652,17 +1640,11 @@ bool CLASS::bridgeDeallocateChildRanges(IOPCIConfigEntry * bridge, IOPCIConfigEn
             }
             bridge->haveAllocs |= (1 << childRange->type);
 			dead->rangeBaseChanges |= (1 << rangeIndex);
+		}
 
-			didKeep |= !dispose;
-		}
-		if (dispose)
-		{
-			IOPCIRangeFree(childRange);
-			dead->ranges[rangeIndex] = NULL;
-		}
+		IOPCIRangeFree(childRange);
+		dead->ranges[rangeIndex] = NULL;
 	}
-
-	return (didKeep);
 }
 
 //---------------------------------------------------------------------------
@@ -1694,19 +1676,48 @@ void CLASS::deleteConfigEntry(IOPCIConfigEntry *entry)
 
 //---------------------------------------------------------------------------
 
-void CLASS::bridgeRemoveChild(IOPCIConfigEntry * bridge, IOPCIConfigEntry * dead,
-								uint32_t deallocTypes, uint32_t freeTypes,
-								IOPCIConfigEntry ** childList)
+void CLASS::bridgeMarkChildDead(IOPCIConfigEntry * bridge, IOPCIConfigEntry * dead)
+{
+    IOPCIConfigEntry *child;
+    IOPCIConfigEntry *next;
+    bool			  didKeep;
+
+	dead->deviceState |= kPCIDeviceStateDead;
+
+	FOREACH_CHILD_SAFE(dead, child, next)
+	{
+		bridgeMarkChildDead(dead, child);
+	}
+
+    DLOG("bridge " B() " marking child %p " D() " dead\n",
+         BRIDGE_IDENT(bridge), dead, DEVICE_IDENT(dead));
+
+	if (kPCIDeviceStateRequestPause & dead->deviceState)
+	{
+		dead->deviceState &= ~kPCIDeviceStateRequestPause;
+		fWaitingPause--;
+	}
+
+	if (   (dead->dtNub != NULL)
+		&& (dead->dtNub->inPlane(gIOServicePlane) == false))
+	{
+		// If dead isn't in the service plane, it won't terminate; remove it immediately.
+		DLOG("bridge %p dead child at " D() " never entered service plane\n", bridge, DEVICE_IDENT(child));
+
+		bridgeRemoveChild(bridge, dead);
+	}
+}
+
+void CLASS::bridgeRemoveChild(IOPCIConfigEntry * bridge, IOPCIConfigEntry * dead)
 {
     IOPCIConfigEntry ** prev;
     IOPCIConfigEntry *  child;
-    bool				didKeep;
 
 	dead->deviceState |= kPCIDeviceStateDead;
 
     while ((child = dead->child))
     {
-        bridgeRemoveChild(dead, child, deallocTypes, freeTypes, childList);
+        bridgeRemoveChild(dead, child);
     }
 
     DLOG("bridge " B() " removing child %p " D() "\n",
@@ -1737,18 +1748,9 @@ void CLASS::bridgeRemoveChild(IOPCIConfigEntry * bridge, IOPCIConfigEntry * dead
 	bridge->deviceState |= kPCIDeviceStateChildChanged;
 	bridge->deviceState &= ~(kPCIDeviceStateTotalled | kPCIDeviceStateAllocated);
 
-	didKeep = bridgeDeallocateChildRanges(bridge, dead, deallocTypes, freeTypes);
+	bridgeDeallocateChildRanges(bridge, dead);
 
-    if (childList && didKeep)
-	{
-		dead->parent       = NULL;
-		dead->peer         = *childList;
-		*childList         = dead;
-	}
-	else
-    {
-		deleteConfigEntry(dead);
-	}
+	deleteConfigEntry(dead);
 }
 
 //---------------------------------------------------------------------------
@@ -1806,57 +1808,17 @@ void CLASS::bridgeDeadChild(IOPCIConfigEntry * bridge, IOPCIConfigEntry * dead)
     if (kPCIDeviceStateDead & dead->deviceState)
         return;
 
+	// Mark the hierarchy rooted at dead as, well, dead. This hierarchy retains
+	// its allocations -- BAR, MEM, PFM, IO, and bus numbers -- until the
+	// devices terminate. As the terminations proceed in bottom-up order,
+	// allocations will be deallocated to their parent until they reach dead's
+	// parent, bridge. If a device is not present in the service plane, free it
+	// immediately.
+
     DLOG("bridge %p dead child at " D() "\n", bridge, DEVICE_IDENT(dead));
 	markChanged(dead);
 
-	// Remove dead and its children, recursively freeing their allocations back to bridge.
-	bridgeRemoveChild(bridge, dead,
-					  kIOPCIRangeAllMask, kIOPCIRangeAllBridgeMask & ~(1 << kIOPCIRangeBridgeBusNumber), &pendingList);
-
-	// Free downstream bridges. Their bus number allocations are a subset of dead's, which will be
-	// reserved until dead terminates.
-	IOPCIConfigEntry *next = pendingList;
-	IOPCIConfigEntry *prev = NULL;
-	while (next)
-	{
-		IOPCIConfigEntry *child;
-
-		child = next;
-		next = child->peer;
-
-		if (!child->isBridge || (child == dead))
-		{
-			prev = child;
-			continue;
-		}
-
-		deleteConfigEntry(child);
-
-		if (prev)
-			prev->peer = next;
-		else
-			pendingList = next;
-	}
-
-	// Move the remaining devices directly underneath bridge, and reallocate their BAR mappings
-	// and bus numbers. These allocations are reserved until the device completes termination.
-	if (pendingList)
-    {
-		bridgeMoveChildren(bridge, pendingList, kIOPCIRangeAllBarsMask | (1 << kIOPCIRangeBridgeBusNumber));
-    }
-
-	// If any remaining devices aren't in the service plane, they won't terminate; remove them immediately.
-	FOREACH_CHILD(bridge, child)
-	{
-		if(   (child->dtNub != NULL)
-		   && (child->dtNub->inPlane(gIOServicePlane) == false))
-		{
-			DLOG("bridge %p dead child at " D() " never entered service plane\n", bridge, DEVICE_IDENT(child));
-
-			bridgeRemoveChild(bridge, child,
-					kIOPCIRangeAllBarsMask, kIOPCIRangeAllBarsMask, NULL);
-		}
-	}
+	bridgeMarkChildDead(bridge, dead);
 }
 
 //---------------------------------------------------------------------------

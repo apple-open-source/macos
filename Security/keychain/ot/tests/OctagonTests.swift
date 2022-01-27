@@ -3198,7 +3198,7 @@ class OctagonTests: OctagonTestsBase {
         self.aksLockState = true
         self.lockStateProvider.aksCurrentlyLocked = true
         self.lockStateTracker.recheck()
- 
+
         self.keychainUpgradeController.triggerKeychainItemUpdateRPC { error in
             XCTAssertNil(error, "error should be nil")
         }
@@ -3216,7 +3216,7 @@ class OctagonTests: OctagonTestsBase {
         self.aksLockState = false
         self.lockStateProvider.aksCurrentlyLocked = false
         self.lockStateTracker.recheck()
-        
+
         self.assertEnters(stateMachine: self.keychainUpgradeController.stateMachine, state: KeychainItemUpgradeRequestStateUpgradePersistentRef, within: 10 * NSEC_PER_SEC)
 
         self.assertEnters(stateMachine: self.keychainUpgradeController.stateMachine, state: KeychainItemUpgradeRequestStateNothingToDo, within: 10 * NSEC_PER_SEC)
@@ -3299,7 +3299,7 @@ class OctagonTests: OctagonTestsBase {
         // now the device is unlocked
         TestsObjectiveC.clearError()
         TestsObjectiveC.clearErrorInsertionDictionary()
-        
+
         self.aksLockState = false
         self.lockStateProvider.aksCurrentlyLocked = false
         self.lockStateTracker.recheck()
@@ -3311,14 +3311,14 @@ class OctagonTests: OctagonTestsBase {
         self.assertEnters(stateMachine: self.keychainUpgradeController.stateMachine, state: KeychainItemUpgradeRequestStateUpgradePersistentRef, within: 10 * NSEC_PER_SEC)
 
         self.assertEnters(stateMachine: self.keychainUpgradeController.stateMachine, state: KeychainItemUpgradeRequestStateNothingToDo, within: 10 * NSEC_PER_SEC)
-  
+
         XCTAssertTrue(TestsObjectiveC.checkAllPersistentRefBeenUpgraded(), "all items should be upgraded")
         XCTAssertEqual(TestsObjectiveC.lastRowID(), NSNumber(value: 200), "last rowID should be 200")
         XCTAssertTrue(TestsObjectiveC.expectXNumber(ofItemsUpgraded: 200), "should be 200 upgraded")
         XCTAssertNil(self.keychainUpgradeController.persistentReferenceUpgrader.nextFireTime, "nextFireTime should be nil")
     }
 
-    //shared tests for decode, auth needed, not available
+    // shared tests for decode, auth needed, not available
     func sharedTestsForLessThan100Items(errorCode: Int32) throws {
         TestsObjectiveC.addNRandomKeychainItemsWithoutUpgradedPersistentRefs(3)
 
@@ -3327,7 +3327,7 @@ class OctagonTests: OctagonTestsBase {
         XCTAssertFalse(TestsObjectiveC.checkAllPersistentRefBeenUpgraded(), "should NOT be upgraded")
 
         self.startCKAccountStatusMock()
-        
+
         // start the state machine
         self.keychainUpgradeController.triggerKeychainItemUpdateRPC { error in
             XCTAssertNil(error, "error should be nil")
@@ -3354,7 +3354,7 @@ class OctagonTests: OctagonTestsBase {
         self.keychainUpgradeController.triggerKeychainItemUpdateRPC { error in
             XCTAssertNil(error, "error should be nil")
         }
-        
+
         self.assertEnters(stateMachine: self.keychainUpgradeController.stateMachine, state: KeychainItemUpgradeRequestStateUpgradePersistentRef, within: 10 * NSEC_PER_SEC)
 
         self.assertEnters(stateMachine: self.keychainUpgradeController.stateMachine, state: KeychainItemUpgradeRequestStateNothingToDo, within: 10 * NSEC_PER_SEC)
@@ -3380,9 +3380,9 @@ class OctagonTests: OctagonTestsBase {
         XCTAssertTrue(TestsObjectiveC.checkAllPersistentRefBeenUpgraded(), "all items should be upgraded")
         XCTAssertEqual(TestsObjectiveC.lastRowID(), NSNumber(value: 3), "last rowID should still be 3")
     }
-    
+
     func sharedTestsForLessThan100ItemsTimeoutAndNotReady(errorCode: Int32) throws {
-        SecKeychainSetOverrideStaticPersistentRefsIsEnabled(false);
+        SecKeychainSetOverrideStaticPersistentRefsIsEnabled(false)
 
         TestsObjectiveC.addNRandomKeychainItemsWithoutUpgradedPersistentRefs(3)
 
@@ -3391,7 +3391,7 @@ class OctagonTests: OctagonTestsBase {
         XCTAssertFalse(TestsObjectiveC.checkAllPersistentRefBeenUpgraded(), "should NOT be upgraded")
 
         self.startCKAccountStatusMock()
-        
+
         let refCondition = self.keychainUpgradeController.persistentReferenceUpgrader
 
         let callbackExpectation = self.expectation(description: "callback occurs")
@@ -3455,7 +3455,7 @@ class OctagonTests: OctagonTestsBase {
         XCTAssertNil(self.keychainUpgradeController.persistentReferenceUpgrader.nextFireTime, "nextFireTime should be nil")
     }
 
-    //for decode, authneeded, not available errors
+    // for decode, authneeded, not available errors
     func sharedTestsForMoreThan100Items(errorCode: Int32) throws {
         TestsObjectiveC.addNRandomKeychainItemsWithoutUpgradedPersistentRefs(200)
 
@@ -3464,14 +3464,13 @@ class OctagonTests: OctagonTestsBase {
         XCTAssertFalse(TestsObjectiveC.checkAllPersistentRefBeenUpgraded(), "should NOT be upgraded")
 
         self.startCKAccountStatusMock()
-  
+
         // start the state machine
         self.keychainUpgradeController.triggerKeychainItemUpdateRPC { error in
             XCTAssertNil(error, "error should be nil")
         }
         self.assertEnters(stateMachine: self.keychainUpgradeController.stateMachine, state: KeychainItemUpgradeRequestStateUpgradePersistentRef, within: 10 * NSEC_PER_SEC)
         self.assertEnters(stateMachine: self.keychainUpgradeController.stateMachine, state: KeychainItemUpgradeRequestStateNothingToDo, within: 10 * NSEC_PER_SEC)
-
 
         XCTAssertFalse(TestsObjectiveC.checkAllPersistentRefBeenUpgraded(), "all items should NOT be upgraded")
         XCTAssertNil(self.keychainUpgradeController.persistentReferenceUpgrader.nextFireTime, "nextFireTime should be nil")
@@ -3579,7 +3578,7 @@ class OctagonTests: OctagonTestsBase {
         // Now restart the context
         self.manager.removeContext(forContainerName: OTCKContainerName, contextID: OTDefaultContext)
         self.cuttlefishContext = self.manager.context(forContainerName: OTCKContainerName, contextID: OTDefaultContext)
-        
+
         XCTAssertFalse(TestsObjectiveC.checkAllPersistentRefBeenUpgraded(), "all items should NOT be upgraded")
 
         let refConditionAfterRestart = self.keychainUpgradeController.persistentReferenceUpgrader
@@ -3606,7 +3605,7 @@ class OctagonTests: OctagonTestsBase {
         XCTAssertNil(self.keychainUpgradeController.persistentReferenceUpgrader.nextFireTime, "nextFireTime should be nil")
     }
 
-    //for decode, authneeded, not available errors
+    // for decode, authneeded, not available errors
     func sharedTestsForMoreThan100ItemsRandomInsertion(errorCode: Int32) throws {
         TestsObjectiveC.addNRandomKeychainItemsWithoutUpgradedPersistentRefs(200)
 
@@ -3645,7 +3644,7 @@ class OctagonTests: OctagonTestsBase {
         self.keychainUpgradeController.triggerKeychainItemUpdateRPC { error in
             XCTAssertNil(error, "error should be nil")
         }
-        
+
         self.assertEnters(stateMachine: self.keychainUpgradeController.stateMachine, state: KeychainItemUpgradeRequestStateUpgradePersistentRef, within: 10 * NSEC_PER_SEC)
         self.assertEnters(stateMachine: self.keychainUpgradeController.stateMachine, state: KeychainItemUpgradeRequestStateNothingToDo, within: 10 * NSEC_PER_SEC)
 
@@ -3672,7 +3671,7 @@ class OctagonTests: OctagonTestsBase {
         XCTAssertTrue(TestsObjectiveC.expectXNumber(ofItemsUpgraded: 200), "should be 200 upgraded")
         XCTAssertTrue(TestsObjectiveC.checkAllPersistentRefBeenUpgraded(), "all items should be upgraded")
     }
-    
+
     func sharedTestsForMoreThan100ItemsRandomInsertionNotReadyAndTimeout(errorCode: Int32) throws {
         TestsObjectiveC.addNRandomKeychainItemsWithoutUpgradedPersistentRefs(200)
 
@@ -3771,7 +3770,7 @@ class OctagonTests: OctagonTestsBase {
     }
 
     func testPersistRefSchedulerMoreThan100ItemskAKSReturnNotReady() throws {
-        try self.sharedTestsForMoreThan100ItemsTimeoutAndNotReady(errorCode:Int32(kAKSReturnNotReady))
+        try self.sharedTestsForMoreThan100ItemsTimeoutAndNotReady(errorCode: Int32(kAKSReturnNotReady))
     }
 
     func testPersistRefSchedulerMoreThan100ItemskAKSReturnNotReadyRandomInsertion() throws {
@@ -3814,7 +3813,7 @@ class OctagonTests: OctagonTestsBase {
     func testPersistRefSchedulerMoreThan100ItemsErrSecAuthNeededRandomInsertion() throws {
         try self.sharedTestsForMoreThan100ItemsRandomInsertion(errorCode: Int32(errSecAuthNeeded))
     }
-    
+
     func testPersistRefSchedulerLessThan100ItemsErrSecNotAvailable() throws {
         try self.sharedTestsForLessThan100Items(errorCode: errSecNotAvailable)
     }

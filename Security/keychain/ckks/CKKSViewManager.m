@@ -1121,6 +1121,21 @@ dispatch_once_t globalZoneStateQueueOnce;
     [view toggleHavoc:reply];
 }
 
+- (void)pcsMirrorKeysForServices:(NSDictionary<NSNumber*,NSArray<NSData*>*>*)services reply:(void (^)(NSDictionary<NSNumber*,NSArray<NSData*>*>* _Nullable result, NSError* _Nullable error))reply
+{
+    CKKSKeychainView* view = [self ckksAccountSyncForContainer:SecCKKSContainerName
+                                                     contextID:OTDefaultContext];
+    if(!view) {
+        ckksnotice_global("ckks", "No CKKS view for %@, %@", SecCKKSContainerName, OTDefaultContext);
+        reply(nil, [NSError errorWithDomain:CKKSErrorDomain
+                                       code:CKKSNoSuchView
+                                   userInfo:@{NSLocalizedDescriptionKey: [NSString stringWithFormat: @"No syncing view for %@, %@", SecCKKSContainerName, OTDefaultContext]}]);
+        return;
+    }
+
+    [view pcsMirrorKeysForServices:services reply:reply];
+}
+
 -(void)xpc24HrNotification {
     // XPC has poked us and said we should do some cleanup!
     ckksnotice_global("ckks", "Received a 24hr notification from XPC");

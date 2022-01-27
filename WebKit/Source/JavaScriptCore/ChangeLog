@@ -1,3 +1,315 @@
+2022-01-05  Mark Lam  <mark.lam@apple.com>
+
+        Cherry-pick r287421. rdar://problem/84260429
+
+    2021-12-23  Mark Lam  <mark.lam@apple.com>
+
+            Make DeferredWorkTimer::addPendingWork() return a Ticket.
+            https://bugs.webkit.org/show_bug.cgi?id=234628
+            rdar://84260429
+
+            Reviewed by Yusuke Suzuki.
+
+            1. Make Ticket a unique token instead of the JSObject* target object.
+               The Ticket is now a pointer to the TicketData in the pending work list.
+
+            2. Instead of taking a Ticket argument, DeferredWorkTimer::addPendingWork() now
+               takes a JSObject* `target` argument explicitly, and returns the Ticket for the
+               added TicketData instead.
+
+               All the relevant DeferredWorkTimer APIS already take a Ticket as an argument.
+               This ensures that addPendingWork() is called before we start doing work with
+               these APIs (especially scheduleWorkSoon()).
+
+            3. Previously, addPendingWork() will only save one instance of TicketData for
+               a given JSObject* key.  With this patch, we'll register a new TicketData
+               instance for every call to addPendingWork(), and return a unique Ticket for it.
+
+               This is needed because it may be possible for 2 different clients to call
+               addPendingWork() and scheduleWorkSoon() with the same target JSObject* but with
+               different sets of dependencies.
+
+               Secondly, even is the both sets of dependencies are identical, a client may
+               call addPendingWork() and scheduleWorkSoon() with the same JSObject* target
+               more than once because it intended to schedule more than 1 task to run.
+
+               Note that DeferredWorkTimer::doWork() consumes the corresponding TicketData
+               (i.e. removes it from the m_pendingTickets list) for each task as it is run.
+               To ensure that the dependencies for each task is protected, we'll either need
+               to ref count the TicketData for the same target object (and hold off on removing
+               it from the list), or we'll need to register a different TicketData instance
+               for each task.  Ref counting can solve the second issue above, but does not
+               solve the first.  So, this patch goes with the more generic solution to allow
+               each task to have its own TicketData instance (and, its own unique Ticket).
+
+            4. Previously, if the client cancels pending work, we would remove the TicketData
+               immediately from the m_pendingTickets list.  This opens up an opportunity for
+               the same TicketData memory to be re-allocated by another client.  This, in turn,
+               would make the Ticket token not unique and potentially allow a cancelled ticket
+               to be reused before DeferredWorkTimer::doWork() is called.
+
+               This patch changes DeferredWorkTimer::cancelPendingWork() to only clear the
+               contents of the TicketData instead.  TicketData::scriptExecutionOwner being
+               null is used as an indication that the ticket has been cancelled.  Since the
+               TicketData itself is not "freed" yet, all TicketData will remain unique until
+               DeferredWorkTimer::doWork().
+
+               Consequently, DeferredWorkTimer::doWork() will now check for cancelled tickets
+               and remove them from the m_pendingTickets list.
+
+            5. JSFinalizationRegistry was previously calling DeferredWorkTimer::hasPendingWork()
+               to check if it has already scheduled a task, so as not to reschedule again until
+               after the previously scheduled task has been run.  This does not play nice
+               with the new Ticket API, because this hasPendingWork() check needs to be done
+               before calling addPendingWork(), and hence, the Ticket is not available yet.
+
+               Fortunately, JSFinalizationRegistry should know if it has already scheduled
+               a task itself.  This patch adds a m_hasAlreadyScheduledWork flag to 
+               JSFinalizationRegistry that can be used for this check instead.
+
+            * jsc.cpp:
+            (JSC_DEFINE_HOST_FUNCTION):
+            * runtime/DeferredWorkTimer.cpp:
+            (JSC::DeferredWorkTimer::TicketData::TicketData):
+            (JSC::DeferredWorkTimer::TicketData::vm):
+            (JSC::DeferredWorkTimer::TicketData::cancel):
+            (JSC::DeferredWorkTimer::doWork):
+            (JSC::DeferredWorkTimer::addPendingWork):
+            (JSC::DeferredWorkTimer::hasPendingWork):
+            (JSC::DeferredWorkTimer::hasDependancyInPendingWork):
+            (JSC::DeferredWorkTimer::cancelPendingWork):
+            * runtime/DeferredWorkTimer.h:
+            (JSC::DeferredWorkTimer::TicketData::target):
+            * runtime/JSFinalizationRegistry.cpp:
+            (JSC::JSFinalizationRegistry::finalizeUnconditionally):
+            * runtime/JSFinalizationRegistry.h:
+            * wasm/WasmStreamingCompiler.cpp:
+            (JSC::Wasm::StreamingCompiler::StreamingCompiler):
+            (JSC::Wasm::StreamingCompiler::~StreamingCompiler):
+            (JSC::Wasm::StreamingCompiler::didComplete):
+            (JSC::Wasm::StreamingCompiler::fail):
+            (JSC::Wasm::StreamingCompiler::cancel):
+            * wasm/WasmStreamingCompiler.h:
+            * wasm/js/JSWebAssembly.cpp:
+            (JSC::JSWebAssembly::webAssemblyModuleValidateAsync):
+            (JSC::instantiate):
+            (JSC::compileAndInstantiate):
+            (JSC::JSWebAssembly::webAssemblyModuleInstantinateAsync):
+
+2022-01-05  Russell Epstein  <repstein@apple.com>
+
+        Cherry-pick r286283. rdar://problem/87125362
+
+    [JSC] jumpForTypedArrayOutOfBounds should use asAnyInt since it uses isAnyInt
+    https://bugs.webkit.org/show_bug.cgi?id=233610
+    rdar://85820476
+    
+    Reviewed by Saam Barati.
+    
+    JSTests:
+    
+    * stress/anyint-index.js: Added.
+    (foo):
+    
+    Source/JavaScriptCore:
+    
+    Since we are using isAnyInt, then we should use asAnyInt. asUInt32 will crash
+    if the value is double AnyInt etc.
+    
+    * dfg/DFGSpeculativeJIT.cpp:
+    (JSC::DFG::SpeculativeJIT::jumpForTypedArrayOutOfBounds):
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@286283 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-11-29  Yusuke Suzuki  <ysuzuki@apple.com>
+
+            [JSC] jumpForTypedArrayOutOfBounds should use asAnyInt since it uses isAnyInt
+            https://bugs.webkit.org/show_bug.cgi?id=233610
+            rdar://85820476
+
+            Reviewed by Saam Barati.
+
+            Since we are using isAnyInt, then we should use asAnyInt. asUInt32 will crash
+            if the value is double AnyInt etc.
+
+            * dfg/DFGSpeculativeJIT.cpp:
+            (JSC::DFG::SpeculativeJIT::jumpForTypedArrayOutOfBounds):
+
+2022-01-05  Russell Epstein  <repstein@apple.com>
+
+        Cherry-pick r286275. rdar://problem/87125258
+
+    [JSC] slice should be aware of TerminationException
+    https://bugs.webkit.org/show_bug.cgi?id=233593
+    rdar://85823844
+    
+    Reviewed by Mark Lam.
+    
+    JSTests:
+    
+    * stress/slice-termination-exception.js: Added.
+    (async infiniteLoop):
+    
+    Source/JavaScriptCore:
+    
+    Since termination exception can happen at any time, assertNoException is wrong.
+    
+    * runtime/ArrayPrototype.cpp:
+    (JSC::JSC_DEFINE_HOST_FUNCTION):
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@286275 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-11-29  Yusuke Suzuki  <ysuzuki@apple.com>
+
+            [JSC] slice should be aware of TerminationException
+            https://bugs.webkit.org/show_bug.cgi?id=233593
+            rdar://85823844
+
+            Reviewed by Mark Lam.
+
+            Since termination exception can happen at any time, assertNoException is wrong.
+
+            * runtime/ArrayPrototype.cpp:
+            (JSC::JSC_DEFINE_HOST_FUNCTION):
+
+2022-01-05  Russell Epstein  <repstein@apple.com>
+
+        Cherry-pick r286249. rdar://problem/87124979
+
+    [JSC] private name operation should use RETURN_IF_EXCEPTION
+    https://bugs.webkit.org/show_bug.cgi?id=233577
+    rdar://85813869
+    
+    Reviewed by Mark Lam.
+    
+    JSTests:
+    
+    * stress/termination-error-in-private-name.js: Added.
+    (C):
+    
+    Source/JavaScriptCore:
+    
+    Because of TerminatedExecutionError, error can be thrown at any time.
+    
+    * jit/JITOperations.cpp:
+    (JSC::JSC_DEFINE_JIT_OPERATION):
+    (JSC::putPrivateNameOptimize):
+    (JSC::putPrivateName):
+    * llint/LLIntSlowPaths.cpp:
+    (JSC::LLInt::LLINT_SLOW_PATH_DECL):
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@286249 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-11-29  Yusuke Suzuki  <ysuzuki@apple.com>
+
+            [JSC] private name operation should use RETURN_IF_EXCEPTION
+            https://bugs.webkit.org/show_bug.cgi?id=233577
+            rdar://85813869
+
+            Reviewed by Mark Lam.
+
+            Because of TerminatedExecutionError, error can be thrown at any time.
+
+            * jit/JITOperations.cpp:
+            (JSC::JSC_DEFINE_JIT_OPERATION):
+            (JSC::putPrivateNameOptimize):
+            (JSC::putPrivateName):
+            * llint/LLIntSlowPaths.cpp:
+            (JSC::LLInt::LLINT_SLOW_PATH_DECL):
+
+2022-01-05  Russell Epstein  <repstein@apple.com>
+
+        Cherry-pick r286228. rdar://problem/87125189
+
+    [JSC] GetTypedArrayLengthAsInt52 can get Array::Generic ArrayMode
+    https://bugs.webkit.org/show_bug.cgi?id=233571
+    rdar://85812164
+    
+    Reviewed by Mark Lam.
+    
+    JSTests:
+    
+    * stress/get-typed-array-length-as-int52-generic.js: Added.
+    (foo.bar):
+    (foo):
+    
+    Source/JavaScriptCore:
+    
+    If speculation is not populated enough, then GetTypedArrayLengthAsInt52 can get Array::Generic.
+    In that case, we should convert it to Array::ForceExit as it is done in GetArrayLength.
+    And blessArrayOperation inserts ForceOSRExit. So GetTypedArrayLengthAsInt52 won't be compiled.
+    
+    * dfg/DFGClobberize.h:
+    (JSC::DFG::clobberize):
+    * dfg/DFGFixupPhase.cpp:
+    (JSC::DFG::FixupPhase::fixupNode):
+    * dfg/DFGSpeculativeJIT64.cpp:
+    (JSC::DFG::SpeculativeJIT::compileGetTypedArrayLengthAsInt52):
+    * ftl/FTLLowerDFGToB3.cpp:
+    (JSC::FTL::DFG::LowerDFGToB3::compileGetTypedArrayLengthAsInt52):
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@286228 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-11-29  Yusuke Suzuki  <ysuzuki@apple.com>
+
+            [JSC] GetTypedArrayLengthAsInt52 can get Array::Generic ArrayMode
+            https://bugs.webkit.org/show_bug.cgi?id=233571
+            rdar://85812164
+
+            Reviewed by Mark Lam.
+
+            If speculation is not populated enough, then GetTypedArrayLengthAsInt52 can get Array::Generic.
+            In that case, we should convert it to Array::ForceExit as it is done in GetArrayLength.
+            And blessArrayOperation inserts ForceOSRExit. So GetTypedArrayLengthAsInt52 won't be compiled.
+
+            * dfg/DFGClobberize.h:
+            (JSC::DFG::clobberize):
+            * dfg/DFGFixupPhase.cpp:
+            (JSC::DFG::FixupPhase::fixupNode):
+            * dfg/DFGSpeculativeJIT64.cpp:
+            (JSC::DFG::SpeculativeJIT::compileGetTypedArrayLengthAsInt52):
+            * ftl/FTLLowerDFGToB3.cpp:
+            (JSC::FTL::DFG::LowerDFGToB3::compileGetTypedArrayLengthAsInt52):
+
+2022-01-05  Russell Epstein  <repstein@apple.com>
+
+        Cherry-pick r285978. rdar://problem/87124911
+
+    [JSC] TypedArray GetArrayLength should not use Reuse
+    https://bugs.webkit.org/show_bug.cgi?id=233299
+    rdar://85502079
+    
+    Reviewed by Robin Morisset.
+    
+    JSTests:
+    
+    * stress/get-array-length-reuse.js: Added.
+    (foo):
+    
+    Source/JavaScriptCore:
+    
+    We should not perform OSR exit after assigning a value to a reused register, otherwise,
+    OSR exit cannot recover the proper value. Now TypedArray GetArrayLength can perform
+    OSR exit after loading a length, so we should not use reused register for length.
+    
+    * dfg/DFGSpeculativeJIT.cpp:
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@285978 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-11-17  Yusuke Suzuki  <ysuzuki@apple.com>
+
+            [JSC] TypedArray GetArrayLength should not use Reuse
+            https://bugs.webkit.org/show_bug.cgi?id=233299
+            rdar://85502079
+
+            Reviewed by Robin Morisset.
+
+            We should not perform OSR exit after assigning a value to a reused register, otherwise,
+            OSR exit cannot recover the proper value. Now TypedArray GetArrayLength can perform
+            OSR exit after loading a length, so we should not use reused register for length.
+
+            * dfg/DFGSpeculativeJIT.cpp:
+
 2021-11-11  Alan Coon  <alancoon@apple.com>
 
         Cherry-pick r283300. rdar://problem/85259264

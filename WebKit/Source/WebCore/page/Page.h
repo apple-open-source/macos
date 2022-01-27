@@ -584,6 +584,11 @@ public:
     WEBCORE_EXPORT void startTrackingRenderingUpdates();
     WEBCORE_EXPORT unsigned renderingUpdateCount() const;
 
+    // A "platform rendering update" here describes the work done by the system graphics framework before work is submitted to the system compositor.
+    // On macOS, this is a CoreAnimation commit.
+    WEBCORE_EXPORT void willStartPlatformRenderingUpdate();
+    WEBCORE_EXPORT void didCompletePlatformRenderingUpdate();
+
     WEBCORE_EXPORT void suspendScriptedAnimations();
     WEBCORE_EXPORT void resumeScriptedAnimations();
     bool scriptedAnimationsSuspended() const { return m_scriptedAnimationsSuspended; }
@@ -852,6 +857,8 @@ public:
 
     WEBCORE_EXPORT void forEachDocument(const WTF::Function<void(Document&)>&) const;
     void forEachMediaElement(const WTF::Function<void(HTMLMediaElement&)>&);
+    static void forEachDocumentFromMainFrame(const Frame&, const Function<void(Document&)>&);
+    void forEachFrameFromMainFrame(const Function<void(Frame&)>&);
 
     bool shouldDisableCorsForRequestTo(const URL&) const;
 

@@ -226,6 +226,8 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)rpcFetchTrustedSecureElementIdentities:(void (^)(OTCurrentSecureElementIdentities* _Nullable currentSet,
                                                          NSError* _Nullable replyError))reply;
 
+- (void)rpcTlkRecoverabilityForEscrowRecordData:(NSData*)recordData reply:(void (^)(NSArray<NSString*>* views, NSError* replyError))reply;
+
 
 - (void)rpcWaitForPriorityViewKeychainDataRecovery:(void (^)(NSError* _Nullable replyError))reply NS_SWIFT_NAME(rpcWaitForPriorityViewKeychainDataRecovery(reply:));;
 

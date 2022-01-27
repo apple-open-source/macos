@@ -1,3 +1,2667 @@
+2022-01-07  Russell Epstein  <repstein@apple.com>
+
+        Cherry-pick r286094. rdar://problem/87125111
+
+    Report the initiating url instead of the redirected one
+    https://bugs.webkit.org/show_bug.cgi?id=233037
+    
+    Patch by Carlos Garcia Campos <cgarcia@igalia.com> on 2021-11-20
+    Reviewed by Brent Fulgham.
+    
+    LayoutTests/imported/w3c:
+    
+    * web-platform-tests/content-security-policy/securitypolicyviolation/img-src-redirect.sub-expected.txt:
+    
+    Source/WebCore:
+    
+    As per the spec, blockedURI should use the requested URL of original request instead of redirected location.
+    
+    * loader/DocumentThreadableLoader.cpp:
+    (WebCore::DocumentThreadableLoader::isAllowedByContentSecurityPolicy):
+    * loader/SubresourceLoader.cpp:
+    (WebCore::SubresourceLoader::willSendRequestInternal):
+    * loader/cache/CachedResourceLoader.cpp:
+    (WebCore::CachedResourceLoader::allowedByContentSecurityPolicy const):
+    (WebCore::CachedResourceLoader::canRequestAfterRedirection const):
+    (WebCore::CachedResourceLoader::updateRequestAfterRedirection):
+    * loader/cache/CachedResourceLoader.h:
+    * page/csp/ContentSecurityPolicy.cpp:
+    (WebCore::ContentSecurityPolicy::allowChildContextFromSource const):
+    (WebCore::ContentSecurityPolicy::allowScriptFromSource const):
+    (WebCore::ContentSecurityPolicy::allowImageFromSource const):
+    (WebCore::ContentSecurityPolicy::allowStyleFromSource const):
+    (WebCore::ContentSecurityPolicy::allowFontFromSource const):
+    (WebCore::ContentSecurityPolicy::allowManifestFromSource const):
+    (WebCore::ContentSecurityPolicy::allowMediaFromSource const):
+    * page/csp/ContentSecurityPolicy.h:
+    
+    Source/WebKit:
+    
+    Pass pre-redirect URL to allowChildContextFromSource() and allowScriptFromSource().
+    
+    * NetworkProcess/NetworkLoadChecker.cpp:
+    (WebKit::NetworkLoadChecker::isAllowedByContentSecurityPolicy):
+    
+    LayoutTests:
+    
+    * TestExpectations: Unskip imported/w3c/web-platform-tests/content-security-policy/securitypolicyviolation/img-src-redirect.sub.html
+    * http/tests/security/contentSecurityPolicy/1.1/child-src/worker-redirect-blocked-expected.txt:
+    * http/tests/security/contentSecurityPolicy/audio-redirect-blocked-expected.txt:
+    * http/tests/security/contentSecurityPolicy/font-redirect-blocked-expected.txt:
+    * http/tests/security/contentSecurityPolicy/image-redirect-blocked-expected.txt:
+    * http/tests/security/contentSecurityPolicy/script-redirect-blocked-expected.txt:
+    * http/tests/security/contentSecurityPolicy/stylesheet-redirect-blocked-expected.txt:
+    * http/tests/security/contentSecurityPolicy/svg-font-redirect-blocked-expected.txt:
+    * http/tests/security/contentSecurityPolicy/svg-image-redirect-blocked-expected.txt:
+    * http/tests/security/contentSecurityPolicy/track-redirect-blocked-expected.txt:
+    * http/tests/security/contentSecurityPolicy/video-redirect-blocked-expected.txt:
+    * http/tests/security/contentSecurityPolicy/worker-blob-inherits-csp-importScripts-redirect-cross-origin-blocked-expected.txt:
+    * http/tests/security/contentSecurityPolicy/worker-csp-importScripts-redirect-cross-origin-blocked-expected.txt:
+    * http/tests/security/contentSecurityPolicy/xsl-redirect-blocked-expected.txt:
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@286094 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-11-20  Carlos Garcia Campos  <cgarcia@igalia.com>
+
+            Report the initiating url instead of the redirected one
+            https://bugs.webkit.org/show_bug.cgi?id=233037
+
+            Reviewed by Brent Fulgham.
+
+            Pass pre-redirect URL to allowChildContextFromSource() and allowScriptFromSource().
+
+            * NetworkProcess/NetworkLoadChecker.cpp:
+            (WebKit::NetworkLoadChecker::isAllowedByContentSecurityPolicy):
+
+2022-01-06  Russell Epstein  <repstein@apple.com>
+
+        Cherry-pick r287651. rdar://problem/86338105
+
+    Fix the build
+    
+    * Shared/ios/WebIOSEventFactory.mm:
+    (WebIOSEventFactory::createWebWheelEvent):
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@287651 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2022-01-05  Tim Horton  <timothy_horton@apple.com>
+
+            Fix the build
+
+            * Shared/ios/WebIOSEventFactory.mm:
+            (WebIOSEventFactory::createWebWheelEvent):
+
+2022-01-06  Russell Epstein  <repstein@apple.com>
+
+        Cherry-pick r287641. rdar://problem/86338105
+
+    Momentum Event Dispatcher: Momentum tails may get truncated if the duration runs longer than the system's
+    https://bugs.webkit.org/show_bug.cgi?id=234535
+    <rdar://problem/86338105>
+    
+    Reviewed by Simon Fraser.
+    
+    Source/WebKit:
+    
+    Currently, synthetic momentum dispatch is strictly tied to the duration
+    of the real platform momentum phase, which has two unfortunate implications:
+    
+    - if our phase runs shorter than the platform phase, we'll keep dispatching
+      zero-delta events until the platform momentum ends
+    
+    - more importantly, if our phase runs longer, it will be abruptly terminated
+      when the platform momentum ends
+    
+    In practice, our synthetic phase is very close in duration to the system one,
+    so the impact is minimal. But, to be safe, disentagle the two durations,
+    using a new bit from the platform to determine if the system momentum phase
+    was interrupted by the user (e.g. by tapping the trackpad) or naturally,
+    and ignoring the ended event in the natural case, allowing synthetic
+    events to continue being dispatched.
+    
+    * Shared/WebWheelEvent.cpp:
+    (WebKit::WebWheelEvent::WebWheelEvent):
+    (WebKit::WebWheelEvent::encode const):
+    (WebKit::WebWheelEvent::decode):
+    * Shared/WebWheelEvent.h:
+    (WebKit::WebWheelEvent::momentumEndType const):
+    * Shared/WebWheelEventCoalescer.cpp:
+    (WebKit::WebWheelEventCoalescer::coalesce):
+    Plumb momentumEndType along on WebWheelEvent. Platforms that don't
+    provide information about the interruption reason will always say Unknown.
+    
+    * Shared/mac/WebEventFactory.mm:
+    (WebKit::WebEventFactory::createWebWheelEvent):
+    Only bother looking up the CGEvent/IOHIDEvent once, and extract all
+    relevant details in one go.
+    
+    * WebProcess/WebPage/MomentumEventDispatcher.cpp:
+    (WebKit::MomentumEventDispatcher::handleWheelEvent):
+    Don't interrupt the synthetic momentum phase if the momentum-ended event
+    comes from the natural end of the deceleration instead of an interruption
+    (or an unknown reason).
+    
+    Keep track of whether we're in the middle of a platform momentum phase
+    that we chose (at momentum-begin time) to override. When deciding
+    whether to eat an incoming event, take *both* this new bit and whether
+    we are currently in the middle of a synthetic phase into account. It
+    is important to continue eating incoming events in the case where
+    the synthetic phase ended early (so `active` became false) but the
+    platform phase continues.
+    
+    (WebKit::MomentumEventDispatcher::dispatchSyntheticMomentumEvent):
+    (WebKit::MomentumEventDispatcher::didEndMomentumPhase):
+    Adjust some logging wording to be more precise.
+    
+    (WebKit::MomentumEventDispatcher::setScrollingAccelerationCurve):
+    Make this log public so that the curve value is visible in logs.
+    
+    (WebKit::MomentumEventDispatcher::consumeDeltaForCurrentTime):
+    Make consumeDeltaForCurrentTime inform the client via an optional when
+    we are at the end of the delta table.
+    
+    (WebKit::MomentumEventDispatcher::displayWasRefreshed):
+    Stop the synthetic momentum phase as soon as we run out of deltas.
+    
+    (WebKit::MomentumEventDispatcher::computeNextDelta):
+    * WebProcess/WebPage/MomentumEventDispatcher.h:
+    
+    Source/WTF:
+    
+    * wtf/PlatformHave.h:
+    Add a HAVE for kIOHIDEventScrollMomentumInterrupted.
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@287641 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2022-01-05  Tim Horton  <timothy_horton@apple.com>
+
+            Momentum Event Dispatcher: Momentum tails may get truncated if the duration runs longer than the system's
+            https://bugs.webkit.org/show_bug.cgi?id=234535
+            <rdar://problem/86338105>
+
+            Reviewed by Simon Fraser.
+
+            Currently, synthetic momentum dispatch is strictly tied to the duration
+            of the real platform momentum phase, which has two unfortunate implications:
+
+            - if our phase runs shorter than the platform phase, we'll keep dispatching
+              zero-delta events until the platform momentum ends
+
+            - more importantly, if our phase runs longer, it will be abruptly terminated
+              when the platform momentum ends
+
+            In practice, our synthetic phase is very close in duration to the system one,
+            so the impact is minimal. But, to be safe, disentagle the two durations,
+            using a new bit from the platform to determine if the system momentum phase
+            was interrupted by the user (e.g. by tapping the trackpad) or naturally,
+            and ignoring the ended event in the natural case, allowing synthetic
+            events to continue being dispatched.
+
+            * Shared/WebWheelEvent.cpp:
+            (WebKit::WebWheelEvent::WebWheelEvent):
+            (WebKit::WebWheelEvent::encode const):
+            (WebKit::WebWheelEvent::decode):
+            * Shared/WebWheelEvent.h:
+            (WebKit::WebWheelEvent::momentumEndType const):
+            * Shared/WebWheelEventCoalescer.cpp:
+            (WebKit::WebWheelEventCoalescer::coalesce):
+            Plumb momentumEndType along on WebWheelEvent. Platforms that don't
+            provide information about the interruption reason will always say Unknown.
+
+            * Shared/mac/WebEventFactory.mm:
+            (WebKit::WebEventFactory::createWebWheelEvent):
+            Only bother looking up the CGEvent/IOHIDEvent once, and extract all
+            relevant details in one go.
+
+            * WebProcess/WebPage/MomentumEventDispatcher.cpp:
+            (WebKit::MomentumEventDispatcher::handleWheelEvent):
+            Don't interrupt the synthetic momentum phase if the momentum-ended event
+            comes from the natural end of the deceleration instead of an interruption
+            (or an unknown reason).
+
+            Keep track of whether we're in the middle of a platform momentum phase
+            that we chose (at momentum-begin time) to override. When deciding
+            whether to eat an incoming event, take *both* this new bit and whether
+            we are currently in the middle of a synthetic phase into account. It
+            is important to continue eating incoming events in the case where
+            the synthetic phase ended early (so `active` became false) but the
+            platform phase continues.
+
+            (WebKit::MomentumEventDispatcher::dispatchSyntheticMomentumEvent):
+            (WebKit::MomentumEventDispatcher::didEndMomentumPhase):
+            Adjust some logging wording to be more precise.
+
+            (WebKit::MomentumEventDispatcher::setScrollingAccelerationCurve):
+            Make this log public so that the curve value is visible in logs.
+
+            (WebKit::MomentumEventDispatcher::consumeDeltaForCurrentTime):
+            Make consumeDeltaForCurrentTime inform the client via an optional when
+            we are at the end of the delta table.
+
+            (WebKit::MomentumEventDispatcher::displayWasRefreshed):
+            Stop the synthetic momentum phase as soon as we run out of deltas.
+
+            (WebKit::MomentumEventDispatcher::computeNextDelta):
+            * WebProcess/WebPage/MomentumEventDispatcher.h:
+
+2022-01-05  Russell Epstein  <repstein@apple.com>
+
+        Cherry-pick r287593. rdar://problem/86910670
+
+    "canceled" wheel events to non-zero deltas cause scrolling jumps in PDFs and CodeMirror
+    https://bugs.webkit.org/show_bug.cgi?id=234825
+    
+    Reviewed by Tim Horton.
+    
+    Source/WebKit:
+    
+    On some macOS versions, interrupting a momentum scroll via a two-finger tap on the trackpad can
+    result in the following sequence of wheel events: momentumPhase:end -> phase:mayBegin -> phase:cancelled,
+    and that last canceled event can have non-zero deltas (rdar://86653042).
+    
+    Protect against this by zeroing out the deltas for cancelled wheel events when constructing WebEvents
+    from NSEvents. Code in Element::dispatchWheelEvent() ensures that we don't dispatch wheel events with
+    zero deltas to script, fixing CodeMirror.
+    
+    Jumps only affected PDFs (and scrollable selects) because those are the code paths that don't go via
+    ScrollingEffectsController, which already ignores Cancelled events.
+    
+    Test: fast/scrolling/mac/canceled-event-with-non-zero-deltas.html
+    
+    * Shared/mac/WebEventFactory.mm:
+    (WebKit::WebEventFactory::createWebWheelEvent):
+    
+    LayoutTests:
+    
+    * fast/scrolling/mac/canceled-event-with-non-zero-deltas-expected.txt: Added.
+    * fast/scrolling/mac/canceled-event-with-non-zero-deltas.html: Added.
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@287593 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2022-01-04  Simon Fraser  <simon.fraser@apple.com>
+
+            "canceled" wheel events to non-zero deltas cause scrolling jumps in PDFs and CodeMirror
+            https://bugs.webkit.org/show_bug.cgi?id=234825
+
+            Reviewed by Tim Horton.
+
+            On some macOS versions, interrupting a momentum scroll via a two-finger tap on the trackpad can
+            result in the following sequence of wheel events: momentumPhase:end -> phase:mayBegin -> phase:cancelled,
+            and that last canceled event can have non-zero deltas (rdar://86653042).
+
+            Protect against this by zeroing out the deltas for cancelled wheel events when constructing WebEvents
+            from NSEvents. Code in Element::dispatchWheelEvent() ensures that we don't dispatch wheel events with
+            zero deltas to script, fixing CodeMirror.
+
+            Jumps only affected PDFs (and scrollable selects) because those are the code paths that don't go via
+            ScrollingEffectsController, which already ignores Cancelled events.
+
+            Test: fast/scrolling/mac/canceled-event-with-non-zero-deltas.html
+
+            * Shared/mac/WebEventFactory.mm:
+            (WebKit::WebEventFactory::createWebWheelEvent):
+
+2022-01-05  Russell Epstein  <repstein@apple.com>
+
+        Cherry-pick r287578. rdar://problem/86228553
+
+    Momentum Event Dispatcher: Disable noisy logging
+    https://bugs.webkit.org/show_bug.cgi?id=234178
+    <rdar://problem/86228553>
+    
+    Reviewed by Wenson Hsieh.
+    
+    * WebProcess/WebPage/MomentumEventDispatcher.h:
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@287578 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2022-01-04  Tim Horton  <timothy_horton@apple.com>
+
+            Momentum Event Dispatcher: Disable noisy logging
+            https://bugs.webkit.org/show_bug.cgi?id=234178
+            <rdar://problem/86228553>
+
+            Reviewed by Wenson Hsieh.
+
+            * WebProcess/WebPage/MomentumEventDispatcher.h:
+
+2022-01-05  Russell Epstein  <repstein@apple.com>
+
+        Cherry-pick r287313. rdar://problem/87124922
+
+    IPC streams should not accept 0-length stream buffers
+    https://bugs.webkit.org/show_bug.cgi?id=234552
+    <rdar://79725420>
+    
+    Patch by Kimmo Kinnunen <kkinnunen@apple.com> on 2021-12-21
+    Reviewed by Antti Koivisto.
+    
+    Make decoding 0-length stream buffers fail. These buffers are not useful.
+    
+    No new tests, tests need additional implementation, will be added
+    in subsequent commits.
+    
+    * Platform/IPC/StreamConnectionBuffer.cpp:
+    (IPC::StreamConnectionBuffer::StreamConnectionBuffer):
+    (IPC::StreamConnectionBuffer::decode):
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@287313 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-12-21  Kimmo Kinnunen  <kkinnunen@apple.com>
+
+            IPC streams should not accept 0-length stream buffers
+            https://bugs.webkit.org/show_bug.cgi?id=234552
+            <rdar://79725420>
+
+            Reviewed by Antti Koivisto.
+
+            Make decoding 0-length stream buffers fail. These buffers are not useful.
+
+            No new tests, tests need additional implementation, will be added
+            in subsequent commits.
+
+            * Platform/IPC/StreamConnectionBuffer.cpp:
+            (IPC::StreamConnectionBuffer::StreamConnectionBuffer):
+            (IPC::StreamConnectionBuffer::decode):
+
+2022-01-05  Russell Epstein  <repstein@apple.com>
+
+        Cherry-pick r287039. rdar://problem/85015428
+
+    Move FTP disabling from NetworkLoad::start to NetworkDataTask::NetworkDataTask
+    https://bugs.webkit.org/show_bug.cgi?id=234280
+    Source/WebKit:
+    
+    <rdar://85015428>
+    
+    Reviewed by Brady Eidson.
+    
+    A NetworkLoad synchronously failing has caused several issues.
+    This issue is when a WKDownload is prevented in this way, we don't have a WKDownload in the UI process yet,
+    and we haven't assigned it an identifier in the network process yet either, so we dereference null and send
+    unreceived messages in many places.  To fix this issue, I move the FTP check to the NetworkDataTask constructor
+    like we do with blocked port checks and invalid URL checks.  I also found that there is a race condition with
+    CFNetwork also failing to load an empty FTP URL, so we need to prevent us from asking CFNetwork to start a load
+    for which we have scheduled a failure.
+    
+    Covered by an API test which used to hit all the horrible failures and now passes reliably.
+    
+    * NetworkProcess/NetworkCORSPreflightChecker.cpp:
+    (WebKit::NetworkCORSPreflightChecker::wasBlockedByDisabledFTP):
+    * NetworkProcess/NetworkCORSPreflightChecker.h:
+    * NetworkProcess/NetworkDataTask.cpp:
+    (WebKit::NetworkDataTask::NetworkDataTask):
+    (WebKit::NetworkDataTask::scheduleFailure):
+    * NetworkProcess/NetworkDataTask.h:
+    * NetworkProcess/NetworkLoad.cpp:
+    (WebKit::NetworkLoad::start):
+    (WebKit::NetworkLoad::wasBlockedByDisabledFTP):
+    * NetworkProcess/NetworkLoad.h:
+    * NetworkProcess/PingLoad.cpp:
+    (WebKit::PingLoad::wasBlockedByDisabledFTP):
+    * NetworkProcess/PingLoad.h:
+    * NetworkProcess/cocoa/NetworkDataTaskCocoa.mm:
+    (WebKit::NetworkDataTaskCocoa::resume):
+    * Shared/WebErrors.cpp:
+    (WebKit::ftpDisabledError):
+    * Shared/WebErrors.h:
+    
+    Tools:
+    
+    Reviewed by Brady Eidson.
+    
+    * TestWebKitAPI/Tests/WebKitCocoa/Download.mm:
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@287039 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-12-14  Alex Christensen  <achristensen@webkit.org>
+
+            Move FTP disabling from NetworkLoad::start to NetworkDataTask::NetworkDataTask
+            https://bugs.webkit.org/show_bug.cgi?id=234280
+            <rdar://85015428>
+
+            Reviewed by Brady Eidson.
+
+            A NetworkLoad synchronously failing has caused several issues.
+            This issue is when a WKDownload is prevented in this way, we don't have a WKDownload in the UI process yet,
+            and we haven't assigned it an identifier in the network process yet either, so we dereference null and send
+            unreceived messages in many places.  To fix this issue, I move the FTP check to the NetworkDataTask constructor
+            like we do with blocked port checks and invalid URL checks.  I also found that there is a race condition with
+            CFNetwork also failing to load an empty FTP URL, so we need to prevent us from asking CFNetwork to start a load
+            for which we have scheduled a failure.
+
+            Covered by an API test which used to hit all the horrible failures and now passes reliably.
+
+            * NetworkProcess/NetworkCORSPreflightChecker.cpp:
+            (WebKit::NetworkCORSPreflightChecker::wasBlockedByDisabledFTP):
+            * NetworkProcess/NetworkCORSPreflightChecker.h:
+            * NetworkProcess/NetworkDataTask.cpp:
+            (WebKit::NetworkDataTask::NetworkDataTask):
+            (WebKit::NetworkDataTask::scheduleFailure):
+            * NetworkProcess/NetworkDataTask.h:
+            * NetworkProcess/NetworkLoad.cpp:
+            (WebKit::NetworkLoad::start):
+            (WebKit::NetworkLoad::wasBlockedByDisabledFTP):
+            * NetworkProcess/NetworkLoad.h:
+            * NetworkProcess/PingLoad.cpp:
+            (WebKit::PingLoad::wasBlockedByDisabledFTP):
+            * NetworkProcess/PingLoad.h:
+            * NetworkProcess/cocoa/NetworkDataTaskCocoa.mm:
+            (WebKit::NetworkDataTaskCocoa::resume):
+            * Shared/WebErrors.cpp:
+            (WebKit::ftpDisabledError):
+            * Shared/WebErrors.h:
+
+2022-01-05  Russell Epstein  <repstein@apple.com>
+
+        Cherry-pick r285431. rdar://problem/87124705
+
+    WKSyntheticTapGestureRecognizer's action targets should be weak pointers
+    https://bugs.webkit.org/show_bug.cgi?id=232812
+    
+    Reviewed by Tim Horton.
+    
+    Make WKSyntheticTapGestureRecognizer robust against the case where it outlives its WKContentView, by making its
+    "reset", "gesture identified", and "gesture failed" targets weak pointers instead of raw pointers.
+    
+    * UIProcess/ios/WKSyntheticTapGestureRecognizer.mm:
+    (-[WKSyntheticTapGestureRecognizer lastTouchedScrollView]):
+    
+    Drive-by fix: we can also make `_lastTouchedScrollView` use the __weak ivar attribute instead of WeakObjCPtr,
+    now that __weak is enabled in WebKit2.
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@285431 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-11-08  Wenson Hsieh  <wenson_hsieh@apple.com>
+
+            WKSyntheticTapGestureRecognizer's action targets should be weak pointers
+            https://bugs.webkit.org/show_bug.cgi?id=232812
+
+            Reviewed by Tim Horton.
+
+            Make WKSyntheticTapGestureRecognizer robust against the case where it outlives its WKContentView, by making its
+            "reset", "gesture identified", and "gesture failed" targets weak pointers instead of raw pointers.
+
+            * UIProcess/ios/WKSyntheticTapGestureRecognizer.mm:
+            (-[WKSyntheticTapGestureRecognizer lastTouchedScrollView]):
+
+            Drive-by fix: we can also make `_lastTouchedScrollView` use the __weak ivar attribute instead of WeakObjCPtr,
+            now that __weak is enabled in WebKit2.
+
+2021-12-22  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r287366. rdar://problem/84379650
+
+    [iOS] Scroll view pinch zoom gesture sometimes fails to recognize in WKWebView
+    https://bugs.webkit.org/show_bug.cgi?id=234584
+    rdar://84379650
+    
+    Reviewed by Simon Fraser.
+    
+    Source/WebKit:
+    
+    WKWebView may get into a state where the pinch zoom gesture recognizer on its scroll view sometimes fails to
+    transition to Changed state (and invoke its action, which sets the zoomScale of the scroll view); this happens
+    because the scroll view pinch gesture requires the touch start deferring gesture recognizer (TSDG) to fail, but
+    it's possible for TSDG to remain stuck in Possible state over the duration of a gesture after beginning a touch
+    over content with either passive touch event listeners, or no touch event listeners.
+    
+    In the case where the TSDG is stuck in Possible state, we observe the following sequence of events (let's
+    suppose the user is starting a touch over a passive touch event listener on a web page):
+    
+    1.      The UITouch is delivered to the web touch event gesture recognizer, which fires the action
+            (`-_webTouchEventsRecognized:`). We observe that we're over an async touch event handling region (i.e.
+            passive or no touch event listeners), so we immediately "lift the gesture gate" by transitioning all
+            deferring gesture recognizers to Failed state, (with the intent that they won't prevent native gestures
+            from recognizing).
+    
+    2.      A UITouch is then delivered to the TSDG in the same runloop as UIKit continues to deliver the touch
+            event to all gestures in the `NSSet` of gesture recognizers on the window. Receiving the UITouch causes
+            TSDG (which we already set to Failed state in step (1)) to internally reset and transition back to
+            Possible state, underneath WebKit.
+    
+    3.      TSDG is now in possible state after the gesture has begun, but we've already tried to unblock native
+            gestures. When performing the second touch of the pinch zoom gesture, the pinch zoom gesture fails to
+            commence because it's stuck waiting for TSDG to fail.
+    
+    In the normal (working) scenario, step (2) happens before step (1); this ensures that TSDG is set to Failed
+    state and remains in Failed state over the course of the gesture, thereby preventing the bug from happening. The
+    order in which (1) and (2) happen is dependent on the order in which the web touch event gesture and TSDG are
+    iterated in UIKit's `NSSet` of gestures, which explains why this bug only reproduces some of the time.
+    
+    This patch mitigates this by adding a mechanism to keep track of touch start deferrers that we've already
+    transitioned to Failed state during the course of a gesture, and uses this information to avoid adding failure
+    requirements to these deferring gestures that have already been "ungated". This ensures that even if the
+    deferring gesture resets to Possible state from underneath WebKit, we still avoid pushing out native gesture
+    recognition due to these deferring gestures.
+    
+    As an aside, I initially attempted to avoid having TSDG transition back to Possible state altogether in this
+    scenario, but this doesn't seem to be avoidable (short of overriding the SPI method `-_resetGestureRecognizer`
+    and not calling the superclass, which does not seem to be supported behavior).
+    
+    Test: fast/events/touch/ios/pinch-zoom-with-passive-touch-event-listeners.html
+    
+    * UIProcess/ios/WKContentViewInteraction.h:
+    * UIProcess/ios/WKContentViewInteraction.mm:
+    (-[WKContentView _webTouchEventsRecognized:]):
+    (-[WKContentView _doneDeferringTouchStart:]):
+    (-[WKContentView deferringGestureRecognizer:shouldDeferOtherGestureRecognizer:]):
+    
+    LayoutTests:
+    
+    Add a test to exercise the fix. Note that this test will only fail without the fix *some* of the time, since it
+    depends entirely on the order in which two gestures appear in an Objective-C hash datastructure (see WebKit
+    ChangeLog for more details).
+    
+    * fast/events/touch/ios/pinch-zoom-with-passive-touch-event-listeners-expected.txt: Added.
+    * fast/events/touch/ios/pinch-zoom-with-passive-touch-event-listeners.html: Added.
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@287366 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-12-22  Wenson Hsieh  <wenson_hsieh@apple.com>
+
+            [iOS] Scroll view pinch zoom gesture sometimes fails to recognize in WKWebView
+            https://bugs.webkit.org/show_bug.cgi?id=234584
+            rdar://84379650
+
+            Reviewed by Simon Fraser.
+
+            WKWebView may get into a state where the pinch zoom gesture recognizer on its scroll view sometimes fails to
+            transition to Changed state (and invoke its action, which sets the zoomScale of the scroll view); this happens
+            because the scroll view pinch gesture requires the touch start deferring gesture recognizer (TSDG) to fail, but
+            it's possible for TSDG to remain stuck in Possible state over the duration of a gesture after beginning a touch
+            over content with either passive touch event listeners, or no touch event listeners.
+
+            In the case where the TSDG is stuck in Possible state, we observe the following sequence of events (let's
+            suppose the user is starting a touch over a passive touch event listener on a web page):
+
+            1.      The UITouch is delivered to the web touch event gesture recognizer, which fires the action
+                    (`-_webTouchEventsRecognized:`). We observe that we're over an async touch event handling region (i.e.
+                    passive or no touch event listeners), so we immediately "lift the gesture gate" by transitioning all
+                    deferring gesture recognizers to Failed state, (with the intent that they won't prevent native gestures
+                    from recognizing).
+
+            2.      A UITouch is then delivered to the TSDG in the same runloop as UIKit continues to deliver the touch
+                    event to all gestures in the `NSSet` of gesture recognizers on the window. Receiving the UITouch causes
+                    TSDG (which we already set to Failed state in step (1)) to internally reset and transition back to
+                    Possible state, underneath WebKit.
+
+            3.      TSDG is now in possible state after the gesture has begun, but we've already tried to unblock native
+                    gestures. When performing the second touch of the pinch zoom gesture, the pinch zoom gesture fails to
+                    commence because it's stuck waiting for TSDG to fail.
+
+            In the normal (working) scenario, step (2) happens before step (1); this ensures that TSDG is set to Failed
+            state and remains in Failed state over the course of the gesture, thereby preventing the bug from happening. The
+            order in which (1) and (2) happen is dependent on the order in which the web touch event gesture and TSDG are
+            iterated in UIKit's `NSSet` of gestures, which explains why this bug only reproduces some of the time.
+
+            This patch mitigates this by adding a mechanism to keep track of touch start deferrers that we've already
+            transitioned to Failed state during the course of a gesture, and uses this information to avoid adding failure
+            requirements to these deferring gestures that have already been "ungated". This ensures that even if the
+            deferring gesture resets to Possible state from underneath WebKit, we still avoid pushing out native gesture
+            recognition due to these deferring gestures.
+
+            As an aside, I initially attempted to avoid having TSDG transition back to Possible state altogether in this
+            scenario, but this doesn't seem to be avoidable (short of overriding the SPI method `-_resetGestureRecognizer`
+            and not calling the superclass, which does not seem to be supported behavior).
+
+            Test: fast/events/touch/ios/pinch-zoom-with-passive-touch-event-listeners.html
+
+            * UIProcess/ios/WKContentViewInteraction.h:
+            * UIProcess/ios/WKContentViewInteraction.mm:
+            (-[WKContentView _webTouchEventsRecognized:]):
+            (-[WKContentView _doneDeferringTouchStart:]):
+            (-[WKContentView deferringGestureRecognizer:shouldDeferOtherGestureRecognizer:]):
+
+2021-12-17  Russell Epstein  <repstein@apple.com>
+
+        Apply patch. rdar://problem/86635432
+
+    2021-12-17  Simon Fraser  <simon.fraser@apple.com>
+
+            rdar://86635432 (CrashTracer: Safari at com.apple.WebKit: WebKit::DisplayLink::decrementFullSpeedRequestClientCount)
+
+            Reviewed by Chris Dumez.
+
+            We need to check m_process->hasConnection() rather than hasRunningProcess(), since there
+            is a window of time where hasRunningProcess() is true but we don't have a connection yet.
+
+            * UIProcess/WebPageProxy.cpp:
+            (WebKit::WebPageProxy::windowScreenDidChange):
+
+2021-12-14  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r286999. rdar://problem/86425321
+
+    Momentum Event Dispatcher: Excessive "kick" at the beginning of scrolling (especially on 60fps displays)
+    https://bugs.webkit.org/show_bug.cgi?id=234279
+    <rdar://problem/86425321>
+    
+    Reviewed by Simon Fraser.
+    
+    * WebProcess/WebPage/MomentumEventDispatcher.cpp:
+    (WebKit::MomentumEventDispatcher::handleWheelEvent):
+    (WebKit::MomentumEventDispatcher::didStartMomentumPhase):
+    Instead of back-dating the animation to try to acquire a momentum-start
+    delta, pass the one we got from the event through, and start the animation
+    curve at momentum-start time. Also, critically, inset ourselves along
+    the curve by the amount of that initial delta (since the time starts now).
+    
+    Tested at both 60fps and 120fps, this significantly smooths out the
+    transition from fingers-down phase to the generated momentum phase,
+    avoiding the overly large initial delta.
+    
+    * WebProcess/WebPage/MomentumEventDispatcher.h:
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@286999 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-12-13  Tim Horton  <timothy_horton@apple.com>
+
+            Momentum Event Dispatcher: Excessive "kick" at the beginning of scrolling (especially on 60fps displays)
+            https://bugs.webkit.org/show_bug.cgi?id=234279
+            <rdar://problem/86425321>
+
+            Reviewed by Simon Fraser.
+
+            * WebProcess/WebPage/MomentumEventDispatcher.cpp:
+            (WebKit::MomentumEventDispatcher::handleWheelEvent):
+            (WebKit::MomentumEventDispatcher::didStartMomentumPhase):
+            Instead of back-dating the animation to try to acquire a momentum-start
+            delta, pass the one we got from the event through, and start the animation
+            curve at momentum-start time. Also, critically, inset ourselves along
+            the curve by the amount of that initial delta (since the time starts now).
+
+            Tested at both 60fps and 120fps, this significantly smooths out the
+            transition from fingers-down phase to the generated momentum phase,
+            avoiding the overly large initial delta.
+
+            * WebProcess/WebPage/MomentumEventDispatcher.h:
+
+2021-12-13  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r286919. rdar://problem/86247557
+
+    Momentum Event Dispatcher: Tail frames are the wrong velocity if momentum event dispatch rate doesn't match screen refresh rate
+    https://bugs.webkit.org/show_bug.cgi?id=234168
+    <rdar://problem/86247557>
+    
+    Reviewed by Simon Fraser.
+    
+    In r286671, I scaled the tail frames into the momentum event disaptch
+    rate, but they are actually always dispatched at display refresh
+    frequency. In many cases these things are the same, but in some
+    cases can differ (most commonly a 120Hz display with 60Hz event dispatch),
+    so to always have the tail move at the right rate, scale into the display
+    refresh rate instead).
+    
+    * UIProcess/WebPageProxy.cpp:
+    (WebKit::WebPageProxy::windowScreenDidChange):
+    * WebProcess/WebPage/EventDispatcher.cpp:
+    (WebKit::EventDispatcher::pageScreenDidChange):
+    * WebProcess/WebPage/EventDispatcher.h:
+    * WebProcess/WebPage/EventDispatcher.messages.in:
+    * WebProcess/WebPage/MomentumEventDispatcher.cpp:
+    (WebKit::MomentumEventDispatcher::didStartMomentumPhase):
+    (WebKit::MomentumEventDispatcher::displayProperties const):
+    (WebKit::MomentumEventDispatcher::startDisplayLink):
+    (WebKit::MomentumEventDispatcher::stopDisplayLink):
+    (WebKit::MomentumEventDispatcher::pageScreenDidChange):
+    (WebKit::MomentumEventDispatcher::displayWasRefreshed):
+    (WebKit::MomentumEventDispatcher::displayID const): Deleted.
+    * WebProcess/WebPage/MomentumEventDispatcher.h:
+    Plumb and store the nominal display refresh rate.
+    
+    (WebKit::MomentumEventDispatcher::buildOffsetTableWithInitialDelta):
+    Scale the tail frames from the 60Hz ideal rate into the display refresh
+    rate, instead of the event dispatch rate.
+    
+    Incoming events still scale *in* from the event dispatch rate, since
+    that's... the rate they come at.
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@286919 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-12-11  Tim Horton  <timothy_horton@apple.com>
+
+            Momentum Event Dispatcher: Tail frames are the wrong velocity if momentum event dispatch rate doesn't match screen refresh rate
+            https://bugs.webkit.org/show_bug.cgi?id=234168
+            <rdar://problem/86247557>
+
+            Reviewed by Simon Fraser.
+
+            In r286671, I scaled the tail frames into the momentum event disaptch
+            rate, but they are actually always dispatched at display refresh
+            frequency. In many cases these things are the same, but in some
+            cases can differ (most commonly a 120Hz display with 60Hz event dispatch),
+            so to always have the tail move at the right rate, scale into the display
+            refresh rate instead).
+
+            * UIProcess/WebPageProxy.cpp:
+            (WebKit::WebPageProxy::windowScreenDidChange):
+            * WebProcess/WebPage/EventDispatcher.cpp:
+            (WebKit::EventDispatcher::pageScreenDidChange):
+            * WebProcess/WebPage/EventDispatcher.h:
+            * WebProcess/WebPage/EventDispatcher.messages.in:
+            * WebProcess/WebPage/MomentumEventDispatcher.cpp:
+            (WebKit::MomentumEventDispatcher::didStartMomentumPhase):
+            (WebKit::MomentumEventDispatcher::displayProperties const):
+            (WebKit::MomentumEventDispatcher::startDisplayLink):
+            (WebKit::MomentumEventDispatcher::stopDisplayLink):
+            (WebKit::MomentumEventDispatcher::pageScreenDidChange):
+            (WebKit::MomentumEventDispatcher::displayWasRefreshed):
+            (WebKit::MomentumEventDispatcher::displayID const): Deleted.
+            * WebProcess/WebPage/MomentumEventDispatcher.h:
+            Plumb and store the nominal display refresh rate.
+
+            (WebKit::MomentumEventDispatcher::buildOffsetTableWithInitialDelta):
+            Scale the tail frames from the 60Hz ideal rate into the display refresh
+            rate, instead of the event dispatch rate.
+
+            Incoming events still scale *in* from the event dispatch rate, since
+            that's... the rate they come at.
+
+2021-12-13  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r286905. rdar://problem/86235740
+
+    Scrolling can drop frames when CoreAnimation commits take a long time
+    https://bugs.webkit.org/show_bug.cgi?id=234160
+    <rdar://86235740>
+    
+    Reviewed by Tim Horton.
+    
+    In r261985 I added a mechanism that has the scrolling thread wait for the main thread to
+    finish a rendering update, and, if the main thread fails to complete in time, then the
+    scrolling thread commits. This allows for scrolling synchronization when the main thread is
+    responsive, but smooth scrolling when the main thread is busy.
+    
+    However, r261985 only waits for WebKit work to finish; what we really care about is whether
+    the main thread completes its CA commit in time (because that determines whether the scroll
+    shows on the screen).
+    
+    So plumb through pre-/post-commit hooks from TiledCoreAnimationDrawingArea, which already
+    had them for inspector instrumentation. Then have ThreadedScrollingTree notify
+    m_stateCondition in didCompletePlatformRenderingUpdate(), instead of
+    didCompleteRenderingUpdate().
+    Source/WebCore:
+    
+    Also, now we can call the inspector hooks from Page, rather than out in TiledCoreAnimationDrawingArea.
+    
+    * page/Page.cpp:
+    (WebCore::Page::willStartPlatformRenderingUpdate):
+    (WebCore::Page::didCompletePlatformRenderingUpdate):
+    * page/Page.h:
+    * page/scrolling/ScrollingCoordinator.h:
+    (WebCore::ScrollingCoordinator::willStartPlatformRenderingUpdate):
+    (WebCore::ScrollingCoordinator::didCompletePlatformRenderingUpdate):
+    * page/scrolling/ThreadedScrollingTree.cpp:
+    (WebCore::ThreadedScrollingTree::didCompletePlatformRenderingUpdate):
+    (WebCore::ThreadedScrollingTree::didCompleteRenderingUpdate): Deleted.
+    * page/scrolling/ThreadedScrollingTree.h:
+    * page/scrolling/mac/ScrollingCoordinatorMac.h:
+    * page/scrolling/mac/ScrollingCoordinatorMac.mm:
+    (WebCore::ScrollingCoordinatorMac::didCompletePlatformRenderingUpdate):
+    
+    Source/WebKit:
+    
+    Also, now we can call the inspector hooks from Page, rather than out in TiledCoreAnimationDrawingArea.
+    
+    * WebProcess/WebPage/WebPage.cpp:
+    (WebKit::WebPage::willStartPlatformRenderingUpdate):
+    (WebKit::WebPage::didCompletePlatformRenderingUpdate):
+    * WebProcess/WebPage/WebPage.h:
+    * WebProcess/WebPage/mac/TiledCoreAnimationDrawingArea.mm:
+    (WebKit::TiledCoreAnimationDrawingArea::addCommitHandlers):
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@286905 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-12-10  Simon Fraser  <simon.fraser@apple.com>
+
+            Scrolling can drop frames when CoreAnimation commits take a long time
+            https://bugs.webkit.org/show_bug.cgi?id=234160
+            <rdar://86235740>
+
+            Reviewed by Tim Horton.
+
+            In r261985 I added a mechanism that has the scrolling thread wait for the main thread to
+            finish a rendering update, and, if the main thread fails to complete in time, then the
+            scrolling thread commits. This allows for scrolling synchronization when the main thread is
+            responsive, but smooth scrolling when the main thread is busy.
+
+            However, r261985 only waits for WebKit work to finish; what we really care about is whether
+            the main thread completes its CA commit in time (because that determines whether the scroll
+            shows on the screen).
+
+            So plumb through pre-/post-commit hooks from TiledCoreAnimationDrawingArea, which already
+            had them for inspector instrumentation. Then have ThreadedScrollingTree notify
+            m_stateCondition in didCompletePlatformRenderingUpdate(), instead of
+            didCompleteRenderingUpdate().
+
+            Also, now we can call the inspector hooks from Page, rather than out in TiledCoreAnimationDrawingArea.
+
+            * WebProcess/WebPage/WebPage.cpp:
+            (WebKit::WebPage::willStartPlatformRenderingUpdate):
+            (WebKit::WebPage::didCompletePlatformRenderingUpdate):
+            * WebProcess/WebPage/WebPage.h:
+            * WebProcess/WebPage/mac/TiledCoreAnimationDrawingArea.mm:
+            (WebKit::TiledCoreAnimationDrawingArea::addCommitHandlers):
+
+2021-12-13  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r286834. rdar://problem/86235740
+
+    Inspector "composite" events are all very short
+    https://bugs.webkit.org/show_bug.cgi?id=234114
+    <rdar://86299391>
+    
+    Reviewed by Tim Horton.
+    
+    The kCATransactionPhasePreCommit callbacks fire after painting, but we want the composite
+    time to include painting so use kCATransactionPhasePreLayout.
+    
+    * WebProcess/WebPage/RemoteLayerTree/RemoteLayerTreeDrawingArea.mm:
+    (WebKit::RemoteLayerTreeDrawingArea::addCommitHandlers):
+    * WebProcess/WebPage/mac/TiledCoreAnimationDrawingArea.mm:
+    (WebKit::TiledCoreAnimationDrawingArea::addCommitHandlers):
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@286834 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-12-09  Simon Fraser  <simon.fraser@apple.com>
+
+            Inspector "composite" events are all very short
+            https://bugs.webkit.org/show_bug.cgi?id=234114
+            <rdar://86299391>
+
+            Reviewed by Tim Horton.
+
+            The kCATransactionPhasePreCommit callbacks fire after painting, but we want the composite
+            time to include painting so use kCATransactionPhasePreLayout.
+
+            * WebProcess/WebPage/RemoteLayerTree/RemoteLayerTreeDrawingArea.mm:
+            (WebKit::RemoteLayerTreeDrawingArea::addCommitHandlers):
+            * WebProcess/WebPage/mac/TiledCoreAnimationDrawingArea.mm:
+            (WebKit::TiledCoreAnimationDrawingArea::addCommitHandlers):
+
+2021-12-13  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r286858. rdar://problem/86423741
+
+    Use simpler idioms for std::less and std::greater possible in modern C++
+    https://bugs.webkit.org/show_bug.cgi?id=234117
+    
+    Reviewed by Anders Carlsson.
+    
+    Source/WebCore:
+    
+    * testing/InternalsMapLike.cpp:
+    (WebCore::InternalsMapLike::inspectValues const): Remove unneeded explicit
+    use of std:less, because this is what std::sort by default.
+    
+    Source/WebKit:
+    
+    * WebProcess/WebPage/MomentumEventDispatcher.cpp:
+    (WebKit::MomentumEventDispatcher::equalizeTailGaps): Removed unneeded
+    template arguments for std::greater, and removed explicit use of std::less,
+    since that's what std::sort does by default.
+    
+    Source/WTF:
+    
+    * wtf/ListDump.h:
+    (WTF::sortedListDump): Removed unnecessary template arguments to std::less.
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@286858 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-12-09  Darin Adler  <darin@apple.com>
+
+            Use simpler idioms for std::less and std::greater possible in modern C++
+            https://bugs.webkit.org/show_bug.cgi?id=234117
+
+            Reviewed by Anders Carlsson.
+
+            * WebProcess/WebPage/MomentumEventDispatcher.cpp:
+            (WebKit::MomentumEventDispatcher::equalizeTailGaps): Removed unneeded
+            template arguments for std::greater, and removed explicit use of std::less,
+            since that's what std::sort does by default.
+
+2021-12-13  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r286900. rdar://problem/86344954
+
+    Momentum Event Dispatcher: Magic Mouse doesn't use momentum event dispatcher
+    https://bugs.webkit.org/show_bug.cgi?id=234189
+    <rdar://problem/86344954>
+    
+    Reviewed by Simon Fraser.
+    
+    * Shared/mac/ScrollingAccelerationCurveMac.mm:
+    (WebKit::fromIOHIDDevice):
+    Fix the FIXME here about the additional fallback values; it turns out
+    Magic Mouse is one device that does not have a value for
+    kIOHIDScrollAccelerationTypeKey, so we need the full fallback chain to support it.
+    
+    * UIProcess/WebPageProxy.cpp:
+    (WebKit::WebPageProxy::sendWheelEvent):
+    Un-wrapping this optional results in losing the engaged state, and sending
+    a garbage ScrollingAccelerationCurve across the wire.
+    The message argument is also an optional, so just pass it along.
+    
+    The result of this bug was that if you had ever used a device with a curve
+    for a given page, and then used a device with no curve, MomentumEventDispatcher
+    would have a garbage curve (from this message trying to "unset" the optional),
+    and a garbage curve results in chaotic scrolling.
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@286900 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-12-10  Tim Horton  <timothy_horton@apple.com>
+
+            Momentum Event Dispatcher: Magic Mouse doesn't use momentum event dispatcher
+            https://bugs.webkit.org/show_bug.cgi?id=234189
+            <rdar://problem/86344954>
+
+            Reviewed by Simon Fraser.
+
+            * Shared/mac/ScrollingAccelerationCurveMac.mm:
+            (WebKit::fromIOHIDDevice):
+            Fix the FIXME here about the additional fallback values; it turns out
+            Magic Mouse is one device that does not have a value for
+            kIOHIDScrollAccelerationTypeKey, so we need the full fallback chain to support it.
+
+            * UIProcess/WebPageProxy.cpp:
+            (WebKit::WebPageProxy::sendWheelEvent):
+            Un-wrapping this optional results in losing the engaged state, and sending
+            a garbage ScrollingAccelerationCurve across the wire.
+            The message argument is also an optional, so just pass it along.
+
+            The result of this bug was that if you had ever used a device with a curve
+            for a given page, and then used a device with no curve, MomentumEventDispatcher
+            would have a garbage curve (from this message trying to "unset" the optional),
+            and a garbage curve results in chaotic scrolling.
+
+2021-12-09  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r286805. rdar://problem/86291413
+
+    Momentum Generator: Scroll tail hiccup only when scrolling up on 60Hz displays
+    https://bugs.webkit.org/show_bug.cgi?id=234104
+    <rdar://problem/86291413>
+    
+    Reviewed by Simon Fraser.
+    
+    * WebProcess/WebPage/MomentumEventDispatcher.cpp:
+    (WebKit::MomentumEventDispatcher::equalizeTailGaps):
+    Sort in the correct direction based on the sign of the first delta...
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@286805 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-12-09  Tim Horton  <timothy_horton@apple.com>
+
+            Momentum Generator: Scroll tail hiccup only when scrolling up on 60Hz displays
+            https://bugs.webkit.org/show_bug.cgi?id=234104
+            <rdar://problem/86291413>
+
+            Reviewed by Simon Fraser.
+
+            * WebProcess/WebPage/MomentumEventDispatcher.cpp:
+            (WebKit::MomentumEventDispatcher::equalizeTailGaps):
+            Sort in the correct direction based on the sign of the first delta...
+
+2021-12-08  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r286574. rdar://problem/86224832
+
+    Regression(r286505) imported/w3c/web-platform-tests/html/cross-origin-opener-policy/javascript-url.https.html is a flaky crash
+    https://bugs.webkit.org/show_bug.cgi?id=233874
+    
+    Reviewed by Darin Adler.
+    
+    r286505 fixed ProvisionalPageProxy so that ProvisionalPageProxy::m_provisionalLoadURL gets properly initialized when the
+    ProvisionalPageProxy gets constructed *after* the provisional load has already started (COOP proces-swap case). One side
+    effect of this though is that ProvisionalPageProxy::cancel() no longer returns early and will try to notify the client
+    that the provisional load failed, dereferencing m_mainFrame in doing so. In the event where the main frame has not yet
+    been created in the new provisional process, this would do a null-dereference of m_mainFrame.
+    
+    To address the issue, we now early return in ProvisionalPageProxy::cancel() if m_isProcessSwappingOnNavigationResponse
+    is true (i.e. The ProvisionalPageProxy was created after the provisional load had started). In such situations, we
+    don't want to ProvisionalPageProxy to be the one notifying the client of the provisional load failure anyway. The reason
+    is that there is still a provisional load going on in the committed process/page.
+    
+    No new tests, covered by existing test that is flakily crashing.
+    
+    * UIProcess/ProvisionalPageProxy.cpp:
+    (WebKit::ProvisionalPageProxy::cancel):
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@286574 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-12-06  Chris Dumez  <cdumez@apple.com>
+
+            Regression(r286505) imported/w3c/web-platform-tests/html/cross-origin-opener-policy/javascript-url.https.html is a flaky crash
+            https://bugs.webkit.org/show_bug.cgi?id=233874
+
+            Reviewed by Darin Adler.
+
+            r286505 fixed ProvisionalPageProxy so that ProvisionalPageProxy::m_provisionalLoadURL gets properly initialized when the
+            ProvisionalPageProxy gets constructed *after* the provisional load has already started (COOP proces-swap case). One side
+            effect of this though is that ProvisionalPageProxy::cancel() no longer returns early and will try to notify the client
+            that the provisional load failed, dereferencing m_mainFrame in doing so. In the event where the main frame has not yet
+            been created in the new provisional process, this would do a null-dereference of m_mainFrame.
+
+            To address the issue, we now early return in ProvisionalPageProxy::cancel() if m_isProcessSwappingOnNavigationResponse
+            is true (i.e. The ProvisionalPageProxy was created after the provisional load had started). In such situations, we
+            don't want to ProvisionalPageProxy to be the one notifying the client of the provisional load failure anyway. The reason
+            is that there is still a provisional load going on in the committed process/page.
+
+            No new tests, covered by existing test that is flakily crashing.
+
+            * UIProcess/ProvisionalPageProxy.cpp:
+            (WebKit::ProvisionalPageProxy::cancel):
+
+2021-12-08  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r286671. rdar://problem/85928816
+
+    Momentum Event Dispatcher: Momentum tail should have montonically decreasing deltas and tail gaps
+    https://bugs.webkit.org/show_bug.cgi?id=233993
+    <rdar://problem/86118367>
+    
+    Reviewed by Simon Fraser.
+    
+    * WebProcess/WebPage/MomentumEventDispatcher.cpp:
+    (WebKit::MomentumEventDispatcher::consumeDeltaForCurrentTime):
+    (WebKit::MomentumEventDispatcher::buildOffsetTableWithInitialDelta):
+    (WebKit::MomentumEventDispatcher::computeNextDelta):
+    In order to avoid visual stutter due to integral rounding of the
+    deltas we dispatch in the momentum phase, switch to a table of
+    deltas instead of interpolating along the offset curve during the
+    tail end of the animation (when the rounding makes up a large
+    proportion of each delta).
+    
+    (WebKit::MomentumEventDispatcher::equalizeTailGaps):
+    Sort the deltas up until the first zero to ensure a lack of unexpected
+    perceptual acceleration, and then inject skipped frames in order to
+    ensure that frames that have effective scroll movement (non-zero deltas)
+    are always spaced equally-or-further apart than earlier ones, but
+    never closer together (which, again, would be percieved as acceleration).
+    
+    (WebKit::MomentumEventDispatcher::handleWheelEvent):
+    (WebKit::MomentumEventDispatcher::pushLogEntry):
+    (WebKit::MomentumEventDispatcher::flushLog):
+    Lastly, adjust some logging to make it easier to tell which row in
+    the output corresponds to an event delta or generated delta, so it's
+    easier to find skipped frames.
+    * WebProcess/WebPage/MomentumEventDispatcher.h:
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@286671 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-12-08  Tim Horton  <timothy_horton@apple.com>
+
+            Momentum Event Dispatcher: Momentum tail should have montonically decreasing deltas and tail gaps
+            https://bugs.webkit.org/show_bug.cgi?id=233993
+            <rdar://problem/86118367>
+
+            Reviewed by Simon Fraser.
+
+            * WebProcess/WebPage/MomentumEventDispatcher.cpp:
+            (WebKit::MomentumEventDispatcher::consumeDeltaForCurrentTime):
+            (WebKit::MomentumEventDispatcher::buildOffsetTableWithInitialDelta):
+            (WebKit::MomentumEventDispatcher::computeNextDelta):
+            In order to avoid visual stutter due to integral rounding of the
+            deltas we dispatch in the momentum phase, switch to a table of
+            deltas instead of interpolating along the offset curve during the
+            tail end of the animation (when the rounding makes up a large
+            proportion of each delta).
+
+            (WebKit::MomentumEventDispatcher::equalizeTailGaps):
+            Sort the deltas up until the first zero to ensure a lack of unexpected
+            perceptual acceleration, and then inject skipped frames in order to
+            ensure that frames that have effective scroll movement (non-zero deltas)
+            are always spaced equally-or-further apart than earlier ones, but
+            never closer together (which, again, would be percieved as acceleration).
+
+            (WebKit::MomentumEventDispatcher::handleWheelEvent):
+            (WebKit::MomentumEventDispatcher::pushLogEntry):
+            (WebKit::MomentumEventDispatcher::flushLog):
+            Lastly, adjust some logging to make it easier to tell which row in
+            the output corresponds to an event delta or generated delta, so it's
+            easier to find skipped frames.
+            * WebProcess/WebPage/MomentumEventDispatcher.h:
+
+2021-12-08  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r286631. rdar://problem/85928816
+
+    [Scroll Momentum Generator] Pages lose ability to momentum scroll after dragging between displays
+    https://bugs.webkit.org/show_bug.cgi?id=233948
+    rdar://86110813
+    
+    Reviewed by Tim Horton.
+    
+    This is a conservative fix for the bug. When a view moves to a new screen, WebPageProxy
+    needs to unregister for full speed updates using the old displayID, and register
+    using the new one.
+    
+    Longer term, it would be better if "full speed updates" was a per-observer concept,
+    but that would mean registering an observer while wheel events are being received,
+    which needs a bit more thought.
+    
+    * UIProcess/WebPageProxy.cpp:
+    (WebKit::WebPageProxy::windowScreenDidChange):
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@286631 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-12-07  Simon Fraser  <simon.fraser@apple.com>
+
+            [Scroll Momentum Generator] Pages lose ability to momentum scroll after dragging between displays
+            https://bugs.webkit.org/show_bug.cgi?id=233948
+            rdar://86110813
+
+            Reviewed by Tim Horton.
+
+            This is a conservative fix for the bug. When a view moves to a new screen, WebPageProxy
+            needs to unregister for full speed updates using the old displayID, and register
+            using the new one.
+
+            Longer term, it would be better if "full speed updates" was a per-observer concept,
+            but that would mean registering an observer while wheel events are being received,
+            which needs a bit more thought.
+
+            * UIProcess/WebPageProxy.cpp:
+            (WebKit::WebPageProxy::windowScreenDidChange):
+
+2021-12-06  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r286566. rdar://problem/85928816
+
+    Momentum Event Dispatcher: Momentum phase runs backwards with natural scrolling disabled
+    https://bugs.webkit.org/show_bug.cgi?id=233894
+    <rdar://problem/86111948>
+    
+    Reviewed by Simon Fraser.
+    
+    * WebProcess/WebPage/MomentumEventDispatcher.cpp:
+    (WebKit::MomentumEventDispatcher::consumeDeltaForCurrentTime):
+    Only flip the deltas if the trackpad is configured to use "natural"
+    scrolling (in which "directionInvertedFromDevice" is true).
+    
+    (WebKit::MomentumEventDispatcher::computeNextDelta):
+    Fix initial queue state logging to log both axes before setting the "did log" bit.
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@286566 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-12-06  Tim Horton  <timothy_horton@apple.com>
+
+            Momentum Event Dispatcher: Momentum phase runs backwards with natural scrolling disabled
+            https://bugs.webkit.org/show_bug.cgi?id=233894
+            <rdar://problem/86111948>
+
+            Reviewed by Simon Fraser.
+
+            * WebProcess/WebPage/MomentumEventDispatcher.cpp:
+            (WebKit::MomentumEventDispatcher::consumeDeltaForCurrentTime):
+            Only flip the deltas if the trackpad is configured to use "natural"
+            scrolling (in which "directionInvertedFromDevice" is true).
+
+            (WebKit::MomentumEventDispatcher::computeNextDelta):
+            Fix initial queue state logging to log both axes before setting the "did log" bit.
+
+2021-12-06  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r286537. rdar://problem/85928816
+
+    Add trace points for generated momentum events
+    https://bugs.webkit.org/show_bug.cgi?id=233857
+    
+    Reviewed by Tim Horton.
+    
+    Source/WebKit:
+    
+    Add start/end points for synthetic momentum, and a trace point for each generated event.
+    
+    * WebProcess/WebPage/MomentumEventDispatcher.cpp:
+    (WebKit::MomentumEventDispatcher::dispatchSyntheticMomentumEvent):
+    (WebKit::MomentumEventDispatcher::didStartMomentumPhase):
+    (WebKit::MomentumEventDispatcher::didEndMomentumPhase):
+    
+    Source/WTF:
+    
+    * wtf/SystemTracing.h:
+    
+    Tools:
+    
+    Add start/end points for synthetic momentum, and a trace point for each generated event.
+    
+    * Tracing/SystemTracePoints.plist:
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@286537 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-12-05  Simon Fraser  <simon.fraser@apple.com>
+
+            Add trace points for generated momentum events
+            https://bugs.webkit.org/show_bug.cgi?id=233857
+
+            Reviewed by Tim Horton.
+
+            Add start/end points for synthetic momentum, and a trace point for each generated event.
+
+            * WebProcess/WebPage/MomentumEventDispatcher.cpp:
+            (WebKit::MomentumEventDispatcher::dispatchSyntheticMomentumEvent):
+            (WebKit::MomentumEventDispatcher::didStartMomentumPhase):
+            (WebKit::MomentumEventDispatcher::didEndMomentumPhase):
+
+2021-12-03  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r286512. rdar://problem/85928816
+
+    Add more logging for MomentumEventDispatcher
+    https://bugs.webkit.org/show_bug.cgi?id=233811
+    
+    Reviewed by Simon Fraser.
+    
+    Add a temporary event log to MomentumEventDispatcher, to debug delta/offset/curve issues.
+    
+    * WebProcess/WebPage/EventDispatcher.h:
+    (WebKit::EventDispatcher::queue):
+    * WebProcess/WebPage/MomentumEventDispatcher.cpp:
+    (WebKit::MomentumEventDispatcher::handleWheelEvent):
+    Accumulate event deltas. Also accumulate event deltas for the
+    fingers-down phase in the "generated" offset. Store the phase and
+    momentum phase smooshed into a single field.
+    
+    (WebKit::MomentumEventDispatcher::dispatchSyntheticMomentumEvent):
+    Accumulate generated deltas.
+    
+    (WebKit::MomentumEventDispatcher::didEndMomentumPhase):
+    Attempt to dump the log 1 second after each momentum phase. We'll skip
+    it if another scroll has started since.
+    
+    (WebKit::MomentumEventDispatcher::setScrollingAccelerationCurve):
+    (WebKit::MomentumEventDispatcher::startDisplayLink):
+    (WebKit::MomentumEventDispatcher::stopDisplayLink):
+    (WebKit::MomentumEventDispatcher::consumeDeltaForCurrentTime):
+    (WebKit::MomentumEventDispatcher::buildOffsetTableWithInitialDelta):
+    (WebKit::MomentumEventDispatcher::computeNextDelta):
+    Adopt more MOMENTUM_EVENT_DISPATCHER_TEMPORARY_LOGGING. Error logging
+    we leave outside of this, because that we'll keep around.
+    
+    (WebKit::MomentumEventDispatcher::pushLogEntry):
+    (WebKit::MomentumEventDispatcher::flushLog):
+    Dump the event log in an easy-to-copy-into-a-CSV format.
+    
+    * WebProcess/WebPage/MomentumEventDispatcher.h:
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@286512 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-12-03  Tim Horton  <timothy_horton@apple.com>
+
+            Add more logging for MomentumEventDispatcher
+            https://bugs.webkit.org/show_bug.cgi?id=233811
+
+            Reviewed by Simon Fraser.
+
+            Add a temporary event log to MomentumEventDispatcher, to debug delta/offset/curve issues.
+
+            * WebProcess/WebPage/EventDispatcher.h:
+            (WebKit::EventDispatcher::queue):
+            * WebProcess/WebPage/MomentumEventDispatcher.cpp:
+            (WebKit::MomentumEventDispatcher::handleWheelEvent):
+            Accumulate event deltas. Also accumulate event deltas for the
+            fingers-down phase in the "generated" offset. Store the phase and
+            momentum phase smooshed into a single field.
+
+            (WebKit::MomentumEventDispatcher::dispatchSyntheticMomentumEvent):
+            Accumulate generated deltas.
+
+            (WebKit::MomentumEventDispatcher::didEndMomentumPhase):
+            Attempt to dump the log 1 second after each momentum phase. We'll skip
+            it if another scroll has started since.
+
+            (WebKit::MomentumEventDispatcher::setScrollingAccelerationCurve):
+            (WebKit::MomentumEventDispatcher::startDisplayLink):
+            (WebKit::MomentumEventDispatcher::stopDisplayLink):
+            (WebKit::MomentumEventDispatcher::consumeDeltaForCurrentTime):
+            (WebKit::MomentumEventDispatcher::buildOffsetTableWithInitialDelta):
+            (WebKit::MomentumEventDispatcher::computeNextDelta):
+            Adopt more MOMENTUM_EVENT_DISPATCHER_TEMPORARY_LOGGING. Error logging
+            we leave outside of this, because that we'll keep around.
+
+            (WebKit::MomentumEventDispatcher::pushLogEntry):
+            (WebKit::MomentumEventDispatcher::flushLog):
+            Dump the event log in an easy-to-copy-into-a-CSV format.
+
+            * WebProcess/WebPage/MomentumEventDispatcher.h:
+
+2021-12-03  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r285526. rdar://problem/85928816
+
+    Add runtime flag for momentum scrolling
+    https://bugs.webkit.org/show_bug.cgi?id=232898
+    <rdar://problem/85211338>
+    
+    Reviewed by Simon Fraser.
+    
+    * Scripts/Preferences/WebPreferencesInternal.yaml:
+    Add the preference.
+    
+    * page/scrolling/AsyncScrollingCoordinator.cpp:
+    (WebCore::AsyncScrollingCoordinator::setFrameScrollingNodeState):
+    * page/scrolling/ScrollingStateFrameScrollingNode.cpp:
+    (WebCore::ScrollingStateFrameScrollingNode::ScrollingStateFrameScrollingNode):
+    (WebCore::ScrollingStateFrameScrollingNode::applicableProperties const):
+    (WebCore::ScrollingStateFrameScrollingNode::setMomentumScrollingAnimatorEnabled):
+    * page/scrolling/ScrollingStateFrameScrollingNode.h:
+    * page/scrolling/ScrollingStateNode.h:
+    * page/scrolling/ScrollingTree.cpp:
+    (WebCore::ScrollingTree::commitTreeState):
+    * page/scrolling/ScrollingTree.h:
+    (WebCore::ScrollingTree::momentumScrollingAnimatorEnabled const):
+    (WebCore::ScrollingTree::setMomentumScrollingAnimatorEnabled):
+    * page/scrolling/ScrollingTreeScrollingNode.cpp:
+    (WebCore::ScrollingTreeScrollingNode::momentumScrollingAnimatorEnabled const):
+    * page/scrolling/ScrollingTreeScrollingNode.h:
+    * page/scrolling/mac/ScrollingTreeScrollingNodeDelegateMac.h:
+    * page/scrolling/mac/ScrollingTreeScrollingNodeDelegateMac.mm:
+    (WebCore::ScrollingTreeScrollingNodeDelegateMac::momentumScrollingAnimatorEnabled const):
+    * platform/ScrollingEffectsController.h:
+    (WebCore::ScrollingEffectsControllerClient::momentumScrollingAnimatorEnabled const):
+    
+    * Shared/RemoteLayerTree/RemoteScrollingCoordinatorTransaction.cpp:
+    (ArgumentCoder<ScrollingStateFrameScrollingNode>::encode):
+    (ArgumentCoder<ScrollingStateFrameScrollingNode>::decode):
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@285526 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-11-09  Tim Horton  <timothy_horton@apple.com>
+
+            Add runtime flag for momentum scrolling
+            https://bugs.webkit.org/show_bug.cgi?id=232898
+            <rdar://problem/85211338>
+
+            Reviewed by Simon Fraser.
+
+            * Shared/RemoteLayerTree/RemoteScrollingCoordinatorTransaction.cpp:
+            (ArgumentCoder<ScrollingStateFrameScrollingNode>::encode):
+            (ArgumentCoder<ScrollingStateFrameScrollingNode>::decode):
+
+2021-12-03  Russell Epstein  <repstein@apple.com>
+
+        Cherry-pick r286483. rdar://problem/85928816
+
+    MomentumEventDispatcher curve sometimes doesn't match the system curve
+    https://bugs.webkit.org/show_bug.cgi?id=233801
+    <rdar://problem/85870287>
+    
+    Reviewed by Simon Fraser.
+    
+    Three small changes to get us closer to the system curve:
+    
+    1) Fetch the momentum event dispatch interval from the system, and use
+    it to scale the momentum start event's delta (which we use as our
+    initial velocity) into the "ideal" curve's frame rate (which is always
+    60fps regardless).
+    
+    2) Back-date the animation start time to the fingers-down phase end event,
+    so that the momentum start phase has a delta. This seems to match what
+    the system does.
+    
+    3) Switch to MonotonicTime for the animation time, since it doesn't need
+    to be in the same timebase as events (which are oddly in WallTime), and
+    certainly should be monotonic.
+    
+    * Shared/ScrollingAccelerationCurve.cpp:
+    (WebKit::ScrollingAccelerationCurve::ScrollingAccelerationCurve):
+    (WebKit::ScrollingAccelerationCurve::interpolate):
+    (WebKit::ScrollingAccelerationCurve::encode const):
+    (WebKit::ScrollingAccelerationCurve::decode):
+    (WebKit::operator<<):
+    * Shared/ScrollingAccelerationCurve.h:
+    (WebKit::ScrollingAccelerationCurve::frameRate):
+    (WebKit::ScrollingAccelerationCurve::operator== const):
+    * Shared/mac/ScrollingAccelerationCurveMac.mm:
+    (WebKit::fromIOHIDCurve):
+    (WebKit::fromIOHIDCurveArrayWithAcceleration):
+    (WebKit::fromIOHIDDevice):
+    Fetch and propagate the dispatch frame rate. This isn't *really* a
+    ScrollingAccelerationCurve property, but neither is `resolution`;
+    this is just currently the only place we look up HID properties
+    and push them to the Web Content process; some re-architecture is
+    warranted here in the future.
+    
+    * WebProcess/WebPage/MomentumEventDispatcher.cpp:
+    (WebKit::MomentumEventDispatcher::handleWheelEvent):
+    Keep track of the last fingers-down phase ended event timestamp.
+    
+    (WebKit::MomentumEventDispatcher::didStartMomentumPhase):
+    Backdate the start time so that the first event has the appropriate delta.
+    Divide out the dispatch frame rate so that the initial velocity is
+    as if the curve were running at 60fps (since we *will* run it at 60fps and interpolate).
+    
+    (WebKit::MomentumEventDispatcher::didEndMomentumPhase):
+    (WebKit::MomentumEventDispatcher::consumeDeltaForTime):
+    (WebKit::MomentumEventDispatcher::displayWasRefreshed):
+    Factor the consume-a-delta-from-the-ideal-curve code out from displayWasRefreshed
+    so we can use it in the start phase too.
+    
+    (WebKit::MomentumEventDispatcher::offsetAtTime):
+    (WebKit::MomentumEventDispatcher::computeNextDelta):
+    Rename idealCurveFrameRate->idealCurveFrameInterval for accuracy.
+    
+    * WebProcess/WebPage/MomentumEventDispatcher.h:
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@286483 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-12-02  Tim Horton  <timothy_horton@apple.com>
+
+            MomentumEventDispatcher curve sometimes doesn't match the system curve
+            https://bugs.webkit.org/show_bug.cgi?id=233801
+            <rdar://problem/85870287>
+
+            Reviewed by Simon Fraser.
+
+            Three small changes to get us closer to the system curve:
+
+            1) Fetch the momentum event dispatch interval from the system, and use
+            it to scale the momentum start event's delta (which we use as our
+            initial velocity) into the "ideal" curve's frame rate (which is always
+            60fps regardless).
+
+            2) Back-date the animation start time to the fingers-down phase end event,
+            so that the momentum start phase has a delta. This seems to match what
+            the system does.
+
+            3) Switch to MonotonicTime for the animation time, since it doesn't need
+            to be in the same timebase as events (which are oddly in WallTime), and
+            certainly should be monotonic.
+
+            * Shared/ScrollingAccelerationCurve.cpp:
+            (WebKit::ScrollingAccelerationCurve::ScrollingAccelerationCurve):
+            (WebKit::ScrollingAccelerationCurve::interpolate):
+            (WebKit::ScrollingAccelerationCurve::encode const):
+            (WebKit::ScrollingAccelerationCurve::decode):
+            (WebKit::operator<<):
+            * Shared/ScrollingAccelerationCurve.h:
+            (WebKit::ScrollingAccelerationCurve::frameRate):
+            (WebKit::ScrollingAccelerationCurve::operator== const):
+            * Shared/mac/ScrollingAccelerationCurveMac.mm:
+            (WebKit::fromIOHIDCurve):
+            (WebKit::fromIOHIDCurveArrayWithAcceleration):
+            (WebKit::fromIOHIDDevice):
+            Fetch and propagate the dispatch frame rate. This isn't *really* a
+            ScrollingAccelerationCurve property, but neither is `resolution`;
+            this is just currently the only place we look up HID properties
+            and push them to the Web Content process; some re-architecture is
+            warranted here in the future.
+
+            * WebProcess/WebPage/MomentumEventDispatcher.cpp:
+            (WebKit::MomentumEventDispatcher::handleWheelEvent):
+            Keep track of the last fingers-down phase ended event timestamp.
+
+            (WebKit::MomentumEventDispatcher::didStartMomentumPhase):
+            Backdate the start time so that the first event has the appropriate delta.
+            Divide out the dispatch frame rate so that the initial velocity is
+            as if the curve were running at 60fps (since we *will* run it at 60fps and interpolate).
+
+            (WebKit::MomentumEventDispatcher::didEndMomentumPhase):
+            (WebKit::MomentumEventDispatcher::consumeDeltaForTime):
+            (WebKit::MomentumEventDispatcher::displayWasRefreshed):
+            Factor the consume-a-delta-from-the-ideal-curve code out from displayWasRefreshed
+            so we can use it in the start phase too.
+
+            (WebKit::MomentumEventDispatcher::offsetAtTime):
+            (WebKit::MomentumEventDispatcher::computeNextDelta):
+            Rename idealCurveFrameRate->idealCurveFrameInterval for accuracy.
+
+            * WebProcess/WebPage/MomentumEventDispatcher.h:
+
+2021-12-03  Russell Epstein  <repstein@apple.com>
+
+        Cherry-pick r286481. rdar://problem/85928816
+
+    A Safari tab can rarely get stuck in a state where rendering updates stop happening
+    https://bugs.webkit.org/show_bug.cgi?id=233784
+    rdar://85445072
+    
+    Reviewed by Chris Dumez.
+    
+    Sometimes a Safari tab can get into a state where rendering updates cease to happen,
+    which manifests as partially broken scrolling, blank tiles revealed when scrolling,
+    and somewhat broken page updates. I was able to sometimes reproduce this by clicking
+    on links in eBay emails from Mail on a system with two displays.
+    
+    From the one time I reproduce with logging, the output indicated that DisplayRefreshMonitor::displayLinkFired()
+    would early return because isPreviousFrameDone() was false. The only way for that to occur,
+    barring memory corruption, is if DisplayRefreshMonitorMac::dispatchDisplayDidRefresh() returned early,
+    which it does if the callback comes twice in a single event loop; this may explain the rarity.
+    
+    So fix DisplayRefreshMonitorMac::dispatchDisplayDidRefresh() call setIsPreviousFrameDone(true)
+    so the next callback can make progress
+    
+    Also add some locking annotations and fix one missing lock, and some release logging.
+    
+    Source/WebCore:
+    
+    * platform/graphics/DisplayRefreshMonitor.cpp:
+    (WebCore::DisplayRefreshMonitor::stop):
+    (WebCore::DisplayRefreshMonitor::firedAndReachedMaxUnscheduledFireCount):
+    (WebCore::DisplayRefreshMonitor::displayLinkFired):
+    * platform/graphics/DisplayRefreshMonitor.h:
+    (WebCore::DisplayRefreshMonitor::WTF_REQUIRES_LOCK):
+    (WebCore::DisplayRefreshMonitor::WTF_GUARDED_BY_LOCK):
+    (WebCore::DisplayRefreshMonitor::setMaxUnscheduledFireCount): Deleted.
+    (WebCore::DisplayRefreshMonitor::isScheduled const): Deleted.
+    (WebCore::DisplayRefreshMonitor::setIsScheduled): Deleted.
+    (WebCore::DisplayRefreshMonitor::isPreviousFrameDone const): Deleted.
+    (WebCore::DisplayRefreshMonitor::setIsPreviousFrameDone): Deleted.
+    
+    Source/WebKit:
+    
+    * WebProcess/WebPage/mac/DisplayRefreshMonitorMac.cpp:
+    (WebKit::DisplayRefreshMonitorMac::dispatchDisplayDidRefresh):
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@286481 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-12-02  Simon Fraser  <simon.fraser@apple.com>
+
+            A Safari tab can rarely get stuck in a state where rendering updates stop happening
+            https://bugs.webkit.org/show_bug.cgi?id=233784
+            rdar://85445072
+
+            Reviewed by Chris Dumez.
+
+            Sometimes a Safari tab can get into a state where rendering updates cease to happen,
+            which manifests as partially broken scrolling, blank tiles revealed when scrolling,
+            and somewhat broken page updates. I was able to sometimes reproduce this by clicking
+            on links in eBay emails from Mail on a system with two displays.
+
+            From the one time I reproduce with logging, the output indicated that DisplayRefreshMonitor::displayLinkFired()
+            would early return because isPreviousFrameDone() was false. The only way for that to occur,
+            barring memory corruption, is if DisplayRefreshMonitorMac::dispatchDisplayDidRefresh() returned early,
+            which it does if the callback comes twice in a single event loop; this may explain the rarity.
+
+            So fix DisplayRefreshMonitorMac::dispatchDisplayDidRefresh() call setIsPreviousFrameDone(true)
+            so the next callback can make progress
+
+            Also add some locking annotations and fix one missing lock, and some release logging.
+
+            * WebProcess/WebPage/mac/DisplayRefreshMonitorMac.cpp:
+            (WebKit::DisplayRefreshMonitorMac::dispatchDisplayDidRefresh):
+
+2021-12-03  Russell Epstein  <repstein@apple.com>
+
+        Cherry-pick r286380. rdar://problem/85928816
+
+    Unreviewed build fixes after r286346.
+    
+    * WebProcess/WebPage/MomentumEventDispatcher.cpp:
+    (WebKit::MomentumEventDispatcher::startDisplayLink):
+    (WebKit::MomentumEventDispatcher::displayWasRefreshed):
+    (WebKit::MomentumEventDispatcher::didReceiveScrollEventWithInterval):
+    (WebKit::MomentumEventDispatcher::buildOffsetTableWithInitialDelta):
+    (WebKit::MomentumEventDispatcher::offsetAtTime):
+    (WebKit::momentumDecayRate):
+    (WebKit::MomentumEventDispatcher::computeNextDelta):
+    * WebProcess/WebPage/MomentumEventDispatcher.h:
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@286380 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-12-01  Chris Dumez  <cdumez@apple.com>
+
+            Unreviewed build fixes after r286346.
+
+            * WebProcess/WebPage/MomentumEventDispatcher.cpp:
+            (WebKit::MomentumEventDispatcher::startDisplayLink):
+            (WebKit::MomentumEventDispatcher::displayWasRefreshed):
+            (WebKit::MomentumEventDispatcher::didReceiveScrollEventWithInterval):
+            (WebKit::MomentumEventDispatcher::buildOffsetTableWithInitialDelta):
+            (WebKit::MomentumEventDispatcher::offsetAtTime):
+            (WebKit::momentumDecayRate):
+            (WebKit::MomentumEventDispatcher::computeNextDelta):
+            * WebProcess/WebPage/MomentumEventDispatcher.h:
+
+2021-12-01  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r286346. rdar://problem/85928816
+
+    Add a momentum event synthesizer
+    https://bugs.webkit.org/show_bug.cgi?id=233653
+    <rdar://problem/85571258>
+    
+    Reviewed by Simon Fraser.
+    
+    Source/WebCore/PAL:
+    
+    * pal/spi/mac/IOKitSPIMac.h:
+    Add some SPI.
+    
+    Source/WebKit:
+    
+    * Platform/Logging.h:
+    Add ScrollAnimations log channel to WebKit (it already exists in WebCore).
+    
+    * Shared/ScrollingAccelerationCurve.cpp: Added.
+    (WebKit::ScrollingAccelerationCurve::ScrollingAccelerationCurve):
+    (WebKit::ScrollingAccelerationCurve::interpolate):
+    (WebKit::ScrollingAccelerationCurve::computeIntermediateValuesIfNeeded):
+    (WebKit::ScrollingAccelerationCurve::evaluateQuartic):
+    (WebKit::ScrollingAccelerationCurve::accelerationFactor):
+    (WebKit::ScrollingAccelerationCurve::encode const):
+    (WebKit::ScrollingAccelerationCurve::decode):
+    (WebKit::operator<<):
+    (WebKit::ScrollingAccelerationCurve::fromNativeWheelEvent):
+    * Shared/ScrollingAccelerationCurve.h: Added.
+    (WebKit::ScrollingAccelerationCurve::operator== const):
+    (WebKit::ScrollingAccelerationCurve::operator!= const):
+    Add a class that represents a quartic scrolling acceleration curve with
+    a trailing linear tangent region, and allows interpolation between curves
+    and evaluation of the curve at a point.
+    
+    * Shared/mac/ScrollingAccelerationCurveMac.mm: Added.
+    (WebKit::fromFixedPoint):
+    (WebKit::readFixedPointParameter):
+    (WebKit::fromIOHIDCurve):
+    (WebKit::fromIOHIDCurveArrayWithAcceleration):
+    (WebKit::ScrollingAccelerationCurve::fromNativeWheelEvent):
+    Given a NativeWebWheelEvent, extract its underlying platform event
+    and fetch the ScrollingAccelerationCurve for the originating device.
+    
+    * Sources.txt:
+    * SourcesCocoa.txt:
+    * UIProcess/WebPageProxy.cpp:
+    (WebKit::WebPageProxy::handleWheelEvent):
+    Fetch the current ScrollingAccelerationCurve on each momentum begin event,
+    if the feature is enabled.
+    
+    (WebKit::WebPageProxy::sendWheelEvent):
+    Send the ScrollingAccelerationCurve to EventDispatcher just before
+    we send the momentum begin event along, if it has changed.
+    
+    (WebKit::WebPageProxy::windowScreenDidChange):
+    Keep EventDispatcher apprised of changes to the current screen of the page.
+    
+    (WebKit::WebPageProxy::resetState):
+    * UIProcess/WebPageProxy.h:
+    * WebKit.xcodeproj/project.pbxproj:
+    * WebProcess/WebPage/EventDispatcher.cpp:
+    (WebKit::EventDispatcher::EventDispatcher):
+    (WebKit::EventDispatcher::internalWheelEvent):
+    Factor most of wheelEvent out into internalWheelEvent, so that
+    MomentumEventDispatcher can call internalWheelEvent(), skipping the code
+    in wheelEvent() that forwards the event... to MomentumEventDispatcher.
+    
+    Also, keep track of where the event came from (UI process or MomentumEventDispatcher)
+    and avoid sending didReceiveEvent replies to the UI process for synthetic
+    events that it doesn't know about.
+    
+    (WebKit::EventDispatcher::wheelEvent):
+    Forward wheel events to MomentumEventDispatcher.
+    
+    (WebKit::EventDispatcher::setScrollingAccelerationCurve):
+    Forward scrolling curve changes to MomentumEventDispatcher.
+    
+    (WebKit::EventDispatcher::displayWasRefreshed):
+    Forward display refresh callbacks to MomentumEventDispatcher.
+    
+    (WebKit::EventDispatcher::windowScreenDidChange):
+    Forward page screen changes to MomentumEventDispatcher.
+    
+    * WebProcess/WebPage/EventDispatcher.h:
+    * WebProcess/WebPage/EventDispatcher.messages.in:
+    
+    * WebProcess/WebPage/WebPage.cpp:
+    (WebKit::WebPage::wheelEvent):
+    (WebKit::WebPage::dispatchWheelEventWithoutScrolling):
+    * WebProcess/WebPage/WebPage.h:
+    Don't send didReceiveEvent for synthetic events from the main thread either.
+    
+    * WebProcess/WebPage/MomentumEventDispatcher.cpp: Added.
+    (WebKit::MomentumEventDispatcher::MomentumEventDispatcher):
+    (WebKit::MomentumEventDispatcher::~MomentumEventDispatcher):
+    (WebKit::MomentumEventDispatcher::eventShouldStartSyntheticMomentumPhase const):
+    If we have everything we need (a scrolling curve - which also implies
+    that the setting is enabled - and raw platform deltas), and the event
+    is a momentum begin event, we can use it to start a synthetic momentum phase.
+    
+    (WebKit::MomentumEventDispatcher::handleWheelEvent):
+    Start or stop the momentum phase as appropriate.
+    Record any incoming fingers-down phase events in a rolling event history structure.
+    Block platform-event-driven events from being further handled by WebKit
+    if we are inside a synthetic momentum phase, since we'll be replacing them.
+    
+    (WebKit::appKitScrollMultiplierForEvent):
+    Determine the AppKit scroll muliplier ("accelerated" vs "unaccelerated"
+    deltas in NSEvent parlance) from the event via division.
+    
+    (WebKit::MomentumEventDispatcher::dispatchSyntheticMomentumEvent):
+    Dispatch a synthetic event with the given momentum phase and delta.
+    We borrow some properties from the event that initiated the momentum
+    phase (e.g. the position), and some from whatever event we've most
+    recently seen (even if we told the rest of WebKit to ignore it), so
+    that we get the most up-to-date state for e.g. the keyboard modifiers.
+    
+    (WebKit::MomentumEventDispatcher::didStartMomentumPhase):
+    Record relevant information about the start event, generate the
+    momentum curve, and start a full-rate display link. Also, send a momentum
+    begin event, since we blocked the real one.
+    
+    (WebKit::MomentumEventDispatcher::didEndMomentumPhase):
+    Send a momentum ended event, shut down the display link, and reset all
+    per-gesture state.
+    
+    (WebKit::MomentumEventDispatcher::setScrollingAccelerationCurve):
+    Store ScrollingAccelerationCurves on a per-page basis.
+    
+    (WebKit::MomentumEventDispatcher::displayID const):
+    Look up the displayID for the current gesture's page.
+    
+    (WebKit::MomentumEventDispatcher::startDisplayLink):
+    (WebKit::MomentumEventDispatcher::stopDisplayLink):
+    Start and stop a display link, which will - in a roundabout manner -
+    eventually call back into displayWasRefreshed.
+    
+    (WebKit::MomentumEventDispatcher::windowScreenDidChange):
+    Store DisplayIDs on a per-page basis.
+    
+    (WebKit::MomentumEventDispatcher::displayWasRefreshed):
+    When the display link calls us back, emit a single momentum changed
+    event of sufficient delta to move us to the desired offset along the curve.
+    
+    (WebKit::MomentumEventDispatcher::didScrollWithInterval):
+    (WebKit::MomentumEventDispatcher::didScroll):
+    Record incoming scrolling events into a rolling history deque.
+    
+    (WebKit::MomentumEventDispatcher::buildOffsetTableWithInitialDelta):
+    Compute the offsets for the entire "ideal curve" table (at 60Hz) by
+    running the animation and accumulating the deltas.
+    
+    (WebKit::interpolate):
+    (WebKit::MomentumEventDispatcher::offsetAtTime):
+    Interpolate along the "ideal curve" to determine the intended offset
+    at a given time.
+    
+    (WebKit::momentumDecayRate):
+    (WebKit::MomentumEventDispatcher::computeNextDelta):
+    Compute the next delta given a delta (and the event history) by applying
+    a bit of exponential decay and then passing it through the
+    ScrollingAccelerationCurve. We return both the unaccelerated
+    and accelerated deltas, because the input to the next iteration of
+    computeNextDelta is the unaccelerated delta, but the delta applied
+    to the actual scroll position is the accelerated delta.
+    
+    * WebProcess/WebPage/MomentumEventDispatcher.h: Added.
+    
+    Source/WTF:
+    
+    * wtf/PlatformEnable.h:
+    Add an ENABLE().
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@286346 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-11-30  Tim Horton  <timothy_horton@apple.com>
+
+            Add a momentum event synthesizer
+            https://bugs.webkit.org/show_bug.cgi?id=233653
+            <rdar://problem/85571258>
+
+            Reviewed by Simon Fraser.
+
+            * Platform/Logging.h:
+            Add ScrollAnimations log channel to WebKit (it already exists in WebCore).
+
+            * Shared/ScrollingAccelerationCurve.cpp: Added.
+            (WebKit::ScrollingAccelerationCurve::ScrollingAccelerationCurve):
+            (WebKit::ScrollingAccelerationCurve::interpolate):
+            (WebKit::ScrollingAccelerationCurve::computeIntermediateValuesIfNeeded):
+            (WebKit::ScrollingAccelerationCurve::evaluateQuartic):
+            (WebKit::ScrollingAccelerationCurve::accelerationFactor):
+            (WebKit::ScrollingAccelerationCurve::encode const):
+            (WebKit::ScrollingAccelerationCurve::decode):
+            (WebKit::operator<<):
+            (WebKit::ScrollingAccelerationCurve::fromNativeWheelEvent):
+            * Shared/ScrollingAccelerationCurve.h: Added.
+            (WebKit::ScrollingAccelerationCurve::operator== const):
+            (WebKit::ScrollingAccelerationCurve::operator!= const):
+            Add a class that represents a quartic scrolling acceleration curve with
+            a trailing linear tangent region, and allows interpolation between curves
+            and evaluation of the curve at a point.
+
+            * Shared/mac/ScrollingAccelerationCurveMac.mm: Added.
+            (WebKit::fromFixedPoint):
+            (WebKit::readFixedPointParameter):
+            (WebKit::fromIOHIDCurve):
+            (WebKit::fromIOHIDCurveArrayWithAcceleration):
+            (WebKit::ScrollingAccelerationCurve::fromNativeWheelEvent):
+            Given a NativeWebWheelEvent, extract its underlying platform event
+            and fetch the ScrollingAccelerationCurve for the originating device.
+
+            * Sources.txt:
+            * SourcesCocoa.txt:
+            * UIProcess/WebPageProxy.cpp:
+            (WebKit::WebPageProxy::handleWheelEvent):
+            Fetch the current ScrollingAccelerationCurve on each momentum begin event,
+            if the feature is enabled.
+
+            (WebKit::WebPageProxy::sendWheelEvent):
+            Send the ScrollingAccelerationCurve to EventDispatcher just before
+            we send the momentum begin event along, if it has changed.
+
+            (WebKit::WebPageProxy::windowScreenDidChange):
+            Keep EventDispatcher apprised of changes to the current screen of the page.
+
+            (WebKit::WebPageProxy::resetState):
+            * UIProcess/WebPageProxy.h:
+            * WebKit.xcodeproj/project.pbxproj:
+            * WebProcess/WebPage/EventDispatcher.cpp:
+            (WebKit::EventDispatcher::EventDispatcher):
+            (WebKit::EventDispatcher::internalWheelEvent):
+            Factor most of wheelEvent out into internalWheelEvent, so that
+            MomentumEventDispatcher can call internalWheelEvent(), skipping the code
+            in wheelEvent() that forwards the event... to MomentumEventDispatcher.
+
+            Also, keep track of where the event came from (UI process or MomentumEventDispatcher)
+            and avoid sending didReceiveEvent replies to the UI process for synthetic
+            events that it doesn't know about.
+
+            (WebKit::EventDispatcher::wheelEvent):
+            Forward wheel events to MomentumEventDispatcher.
+
+            (WebKit::EventDispatcher::setScrollingAccelerationCurve):
+            Forward scrolling curve changes to MomentumEventDispatcher.
+
+            (WebKit::EventDispatcher::displayWasRefreshed):
+            Forward display refresh callbacks to MomentumEventDispatcher.
+
+            (WebKit::EventDispatcher::windowScreenDidChange):
+            Forward page screen changes to MomentumEventDispatcher.
+
+            * WebProcess/WebPage/EventDispatcher.h:
+            * WebProcess/WebPage/EventDispatcher.messages.in:
+
+            * WebProcess/WebPage/WebPage.cpp:
+            (WebKit::WebPage::wheelEvent):
+            (WebKit::WebPage::dispatchWheelEventWithoutScrolling):
+            * WebProcess/WebPage/WebPage.h:
+            Don't send didReceiveEvent for synthetic events from the main thread either.
+
+            * WebProcess/WebPage/MomentumEventDispatcher.cpp: Added.
+            (WebKit::MomentumEventDispatcher::MomentumEventDispatcher):
+            (WebKit::MomentumEventDispatcher::~MomentumEventDispatcher):
+            (WebKit::MomentumEventDispatcher::eventShouldStartSyntheticMomentumPhase const):
+            If we have everything we need (a scrolling curve - which also implies
+            that the setting is enabled - and raw platform deltas), and the event
+            is a momentum begin event, we can use it to start a synthetic momentum phase.
+
+            (WebKit::MomentumEventDispatcher::handleWheelEvent):
+            Start or stop the momentum phase as appropriate.
+            Record any incoming fingers-down phase events in a rolling event history structure.
+            Block platform-event-driven events from being further handled by WebKit
+            if we are inside a synthetic momentum phase, since we'll be replacing them.
+
+            (WebKit::appKitScrollMultiplierForEvent):
+            Determine the AppKit scroll muliplier ("accelerated" vs "unaccelerated"
+            deltas in NSEvent parlance) from the event via division.
+
+            (WebKit::MomentumEventDispatcher::dispatchSyntheticMomentumEvent):
+            Dispatch a synthetic event with the given momentum phase and delta.
+            We borrow some properties from the event that initiated the momentum
+            phase (e.g. the position), and some from whatever event we've most
+            recently seen (even if we told the rest of WebKit to ignore it), so
+            that we get the most up-to-date state for e.g. the keyboard modifiers.
+
+            (WebKit::MomentumEventDispatcher::didStartMomentumPhase):
+            Record relevant information about the start event, generate the
+            momentum curve, and start a full-rate display link. Also, send a momentum
+            begin event, since we blocked the real one.
+
+            (WebKit::MomentumEventDispatcher::didEndMomentumPhase):
+            Send a momentum ended event, shut down the display link, and reset all
+            per-gesture state.
+
+            (WebKit::MomentumEventDispatcher::setScrollingAccelerationCurve):
+            Store ScrollingAccelerationCurves on a per-page basis.
+
+            (WebKit::MomentumEventDispatcher::displayID const):
+            Look up the displayID for the current gesture's page.
+
+            (WebKit::MomentumEventDispatcher::startDisplayLink):
+            (WebKit::MomentumEventDispatcher::stopDisplayLink):
+            Start and stop a display link, which will - in a roundabout manner -
+            eventually call back into displayWasRefreshed.
+
+            (WebKit::MomentumEventDispatcher::windowScreenDidChange):
+            Store DisplayIDs on a per-page basis.
+
+            (WebKit::MomentumEventDispatcher::displayWasRefreshed):
+            When the display link calls us back, emit a single momentum changed
+            event of sufficient delta to move us to the desired offset along the curve.
+
+            (WebKit::MomentumEventDispatcher::didScrollWithInterval):
+            (WebKit::MomentumEventDispatcher::didScroll):
+            Record incoming scrolling events into a rolling history deque.
+
+            (WebKit::MomentumEventDispatcher::buildOffsetTableWithInitialDelta):
+            Compute the offsets for the entire "ideal curve" table (at 60Hz) by
+            running the animation and accumulating the deltas.
+
+            (WebKit::interpolate):
+            (WebKit::MomentumEventDispatcher::offsetAtTime):
+            Interpolate along the "ideal curve" to determine the intended offset
+            at a given time.
+
+            (WebKit::momentumDecayRate):
+            (WebKit::MomentumEventDispatcher::computeNextDelta):
+            Compute the next delta given a delta (and the event history) by applying
+            a bit of exponential decay and then passing it through the
+            ScrollingAccelerationCurve. We return both the unaccelerated
+            and accelerated deltas, because the input to the next iteration of
+            computeNextDelta is the unaccelerated delta, but the delta applied
+            to the actual scroll position is the accelerated delta.
+
+            * WebProcess/WebPage/MomentumEventDispatcher.h: Added.
+
+2021-12-01  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r283353. rdar://problem/85928816
+
+    Simplify some scrolling-related code in WebKit with use of RectEdges<bool>
+    https://bugs.webkit.org/show_bug.cgi?id=231037
+    
+    Reviewed by Tim Horton.
+    
+    Source/WebCore:
+    
+    Export edgePinnedState().
+    
+    * platform/ScrollableArea.h:
+    
+    Source/WebKit:
+    
+    Use RectEdges<bool> in code that tracks rubber banding state, and edge pinned state.
+    
+    * Shared/WebCoreArgumentCoders.cpp:
+    (IPC::ArgumentCoder<RectEdges<bool>>::encode):
+    (IPC::ArgumentCoder<RectEdges<bool>>::decode):
+    * Shared/WebCoreArgumentCoders.h:
+    * UIProcess/API/C/WKPage.cpp:
+    (WKPageIsPinnedToLeftSide):
+    (WKPageIsPinnedToRightSide):
+    (WKPageIsPinnedToTopSide):
+    (WKPageIsPinnedToBottomSide):
+    (WKPageRubberBandsAtLeft):
+    (WKPageRubberBandsAtRight):
+    (WKPageRubberBandsAtTop):
+    (WKPageRubberBandsAtBottom):
+    * UIProcess/Cocoa/WebViewImpl.mm:
+    (WebKit::toWKRectEdge):
+    (WebKit::toRectEdges):
+    (WebKit::WebViewImpl::pinnedState):
+    (WebKit::WebViewImpl::rubberBandingEnabled):
+    (WebKit::WebViewImpl::setRubberBandingEnabled):
+    * UIProcess/ViewGestureController.cpp:
+    (WebKit::ViewGestureController::PendingSwipeTracker::scrollEventCanBecomeSwipe):
+    * UIProcess/WebPageProxy.cpp:
+    (WebKit::WebPageProxy::sendWheelEvent):
+    (WebKit::WebPageProxy::setRubberBandsAtLeft):
+    (WebKit::WebPageProxy::setRubberBandsAtRight):
+    (WebKit::WebPageProxy::setRubberBandsAtTop):
+    (WebKit::WebPageProxy::setRubberBandsAtBottom):
+    (WebKit::WebPageProxy::didCommitLoadForFrame):
+    (WebKit::WebPageProxy::resetState):
+    (WebKit::WebPageProxy::didChangeScrollOffsetPinningForMainFrame):
+    (WebKit::WebPageProxy::rubberBandsAtLeft const): Deleted.
+    (WebKit::WebPageProxy::rubberBandsAtRight const): Deleted.
+    (WebKit::WebPageProxy::rubberBandsAtTop const): Deleted.
+    (WebKit::WebPageProxy::rubberBandsAtBottom const): Deleted.
+    * UIProcess/WebPageProxy.h:
+    * UIProcess/WebPageProxy.messages.in:
+    * WebProcess/WebPage/EventDispatcher.cpp:
+    (WebKit::EventDispatcher::wheelEvent):
+    * WebProcess/WebPage/EventDispatcher.h:
+    * WebProcess/WebPage/EventDispatcher.messages.in:
+    * WebProcess/WebPage/WebPage.cpp:
+    (WebKit::WebPage::updateMainFrameScrollOffsetPinning):
+    * WebProcess/WebPage/WebPage.h:
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@283353 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-09-30  Simon Fraser  <simon.fraser@apple.com>
+
+            Simplify some scrolling-related code in WebKit with use of RectEdges<bool>
+            https://bugs.webkit.org/show_bug.cgi?id=231037
+
+            Reviewed by Tim Horton.
+
+            Use RectEdges<bool> in code that tracks rubber banding state, and edge pinned state.
+
+            * Shared/WebCoreArgumentCoders.cpp:
+            (IPC::ArgumentCoder<RectEdges<bool>>::encode):
+            (IPC::ArgumentCoder<RectEdges<bool>>::decode):
+            * Shared/WebCoreArgumentCoders.h:
+            * UIProcess/API/C/WKPage.cpp:
+            (WKPageIsPinnedToLeftSide):
+            (WKPageIsPinnedToRightSide):
+            (WKPageIsPinnedToTopSide):
+            (WKPageIsPinnedToBottomSide):
+            (WKPageRubberBandsAtLeft):
+            (WKPageRubberBandsAtRight):
+            (WKPageRubberBandsAtTop):
+            (WKPageRubberBandsAtBottom):
+            * UIProcess/Cocoa/WebViewImpl.mm:
+            (WebKit::toWKRectEdge):
+            (WebKit::toRectEdges):
+            (WebKit::WebViewImpl::pinnedState):
+            (WebKit::WebViewImpl::rubberBandingEnabled):
+            (WebKit::WebViewImpl::setRubberBandingEnabled):
+            * UIProcess/ViewGestureController.cpp:
+            (WebKit::ViewGestureController::PendingSwipeTracker::scrollEventCanBecomeSwipe):
+            * UIProcess/WebPageProxy.cpp:
+            (WebKit::WebPageProxy::sendWheelEvent):
+            (WebKit::WebPageProxy::setRubberBandsAtLeft):
+            (WebKit::WebPageProxy::setRubberBandsAtRight):
+            (WebKit::WebPageProxy::setRubberBandsAtTop):
+            (WebKit::WebPageProxy::setRubberBandsAtBottom):
+            (WebKit::WebPageProxy::didCommitLoadForFrame):
+            (WebKit::WebPageProxy::resetState):
+            (WebKit::WebPageProxy::didChangeScrollOffsetPinningForMainFrame):
+            (WebKit::WebPageProxy::rubberBandsAtLeft const): Deleted.
+            (WebKit::WebPageProxy::rubberBandsAtRight const): Deleted.
+            (WebKit::WebPageProxy::rubberBandsAtTop const): Deleted.
+            (WebKit::WebPageProxy::rubberBandsAtBottom const): Deleted.
+            * UIProcess/WebPageProxy.h:
+            * UIProcess/WebPageProxy.messages.in:
+            * WebProcess/WebPage/EventDispatcher.cpp:
+            (WebKit::EventDispatcher::wheelEvent):
+            * WebProcess/WebPage/EventDispatcher.h:
+            * WebProcess/WebPage/EventDispatcher.messages.in:
+            * WebProcess/WebPage/WebPage.cpp:
+            (WebKit::WebPage::updateMainFrameScrollOffsetPinning):
+            * WebProcess/WebPage/WebPage.h:
+
+2021-12-01  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r286277. rdar://problem/85928816
+
+    Fix the build
+    
+    * Shared/ios/WebIOSEventFactory.mm:
+    (WebIOSEventFactory::createWebWheelEvent):
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@286277 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-11-29  Tim Horton  <timothy_horton@apple.com>
+
+            Fix the build
+
+            * Shared/ios/WebIOSEventFactory.mm:
+            (WebIOSEventFactory::createWebWheelEvent):
+
+2021-12-01  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r286270. rdar://problem/85928816
+
+    Plumb raw platform scrolling deltas along in wheel events
+    https://bugs.webkit.org/show_bug.cgi?id=233583
+    
+    Reviewed by Simon Fraser.
+    
+    Source/WebCore:
+    
+    * platform/PlatformWheelEvent.cpp:
+    (WebCore::PlatformWheelEvent::createFromGesture):
+    * platform/PlatformWheelEvent.h:
+    (WebCore::PlatformWheelEvent::rawPlatformDelta const):
+    * PAL/pal/spi/mac/IOKitSPIMac.h:
+    
+    Source/WebKit:
+    
+    * Shared/WebEventConversion.cpp:
+    (WebKit::WebKit2PlatformWheelEvent::WebKit2PlatformWheelEvent):
+    * Shared/WebWheelEvent.cpp:
+    (WebKit::WebWheelEvent::WebWheelEvent):
+    (WebKit::WebWheelEvent::encode const):
+    (WebKit::WebWheelEvent::decode):
+    * Shared/WebWheelEvent.h:
+    (WebKit::WebWheelEvent::rawPlatformDelta const):
+    * Shared/WebWheelEventCoalescer.cpp:
+    (WebKit::WebWheelEventCoalescer::coalesce):
+    * Shared/mac/WebEventFactory.mm:
+    (WebKit::WebEventFactory::createWebWheelEvent):
+    Extract and plumb raw unaccelerated (in the HID sense) deltas in scroll
+    events for use in a future patch.
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@286270 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-11-29  Tim Horton  <timothy_horton@apple.com>
+
+            Plumb raw platform scrolling deltas along in wheel events
+            https://bugs.webkit.org/show_bug.cgi?id=233583
+
+            Reviewed by Simon Fraser.
+
+            * Shared/WebEventConversion.cpp:
+            (WebKit::WebKit2PlatformWheelEvent::WebKit2PlatformWheelEvent):
+            * Shared/WebWheelEvent.cpp:
+            (WebKit::WebWheelEvent::WebWheelEvent):
+            (WebKit::WebWheelEvent::encode const):
+            (WebKit::WebWheelEvent::decode):
+            * Shared/WebWheelEvent.h:
+            (WebKit::WebWheelEvent::rawPlatformDelta const):
+            * Shared/WebWheelEventCoalescer.cpp:
+            (WebKit::WebWheelEventCoalescer::coalesce):
+            * Shared/mac/WebEventFactory.mm:
+            (WebKit::WebEventFactory::createWebWheelEvent):
+            Extract and plumb raw unaccelerated (in the HID sense) deltas in scroll
+            events for use in a future patch.
+
+2021-12-01  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r285790. rdar://problem/85928816
+
+    Attach IOHIDEvent timestamps to wheel events
+    https://bugs.webkit.org/show_bug.cgi?id=233051
+    
+    Reviewed by Wenson Hsieh.
+    Source/WebCore:
+    
+    On some macOS devices, there can be significant deltas between NSEvent timestamps,
+    and the timestamps on underlying IOHIDEvents (rdar://85309639). This makes momentum
+    velocity computation unpredictable; we can get better results by using IOHIDEvent
+    timestamps.
+    
+    * platform/PlatformWheelEvent.cpp:
+    (WebCore::PlatformWheelEvent::createFromGesture):
+    * platform/PlatformWheelEvent.h:
+    (WebCore::PlatformWheelEvent::ioHIDEventTimestamp const):
+    * platform/mac/PlatformEventFactoryMac.h:
+    * platform/mac/PlatformEventFactoryMac.mm:
+    (WebCore::eventTimeStampSince1970):
+    (WebCore::PlatformMouseEventBuilder::PlatformMouseEventBuilder):
+    (WebCore::PlatformWheelEventBuilder::PlatformWheelEventBuilder):
+    (WebCore::PlatformKeyboardEventBuilder::PlatformKeyboardEventBuilder):
+    
+    Source/WebCore/PAL:
+    
+    Expose a few bits of SPI needed.
+    
+    * pal/spi/cg/CoreGraphicsSPI.h:
+    * pal/spi/cocoa/IOKitSPI.h:
+    
+    Source/WebKit:
+    
+    On some macOS devices, there can be significant deltas between NSEvent timestamps,
+    and the timestamps on underlying IOHIDEvents (rdar://85309639). This makes momentum
+    velocity computation unpredictable; we can get better results by using IOHIDEvent
+    timestamps.
+    
+    * Shared/WebEventConversion.cpp:
+    (WebKit::WebKit2PlatformWheelEvent::WebKit2PlatformWheelEvent):
+    * Shared/WebWheelEvent.cpp:
+    (WebKit::WebWheelEvent::WebWheelEvent):
+    (WebKit::WebWheelEvent::encode const):
+    (WebKit::WebWheelEvent::decode):
+    * Shared/WebWheelEvent.h:
+    (WebKit::WebWheelEvent::ioHIDEventTimestamp const):
+    * Shared/WebWheelEventCoalescer.cpp:
+    (WebKit::WebWheelEventCoalescer::coalesce):
+    * Shared/ios/WebIOSEventFactory.mm:
+    (WebIOSEventFactory::createWebWheelEvent):
+    * Shared/mac/NativeWebGestureEventMac.mm:
+    * Shared/mac/WebEventFactory.mm:
+    (WebKit::WebEventFactory::createWebMouseEvent):
+    (WebKit::WebEventFactory::createWebWheelEvent):
+    (WebKit::WebEventFactory::createWebKeyboardEvent):
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@285790 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-11-14  Simon Fraser  <simon.fraser@apple.com>
+
+            Attach IOHIDEvent timestamps to wheel events
+            https://bugs.webkit.org/show_bug.cgi?id=233051
+
+            Reviewed by Wenson Hsieh.
+
+            On some macOS devices, there can be significant deltas between NSEvent timestamps,
+            and the timestamps on underlying IOHIDEvents (rdar://85309639). This makes momentum
+            velocity computation unpredictable; we can get better results by using IOHIDEvent
+            timestamps.
+
+            * Shared/WebEventConversion.cpp:
+            (WebKit::WebKit2PlatformWheelEvent::WebKit2PlatformWheelEvent):
+            * Shared/WebWheelEvent.cpp:
+            (WebKit::WebWheelEvent::WebWheelEvent):
+            (WebKit::WebWheelEvent::encode const):
+            (WebKit::WebWheelEvent::decode):
+            * Shared/WebWheelEvent.h:
+            (WebKit::WebWheelEvent::ioHIDEventTimestamp const):
+            * Shared/WebWheelEventCoalescer.cpp:
+            (WebKit::WebWheelEventCoalescer::coalesce):
+            * Shared/ios/WebIOSEventFactory.mm:
+            (WebIOSEventFactory::createWebWheelEvent):
+            * Shared/mac/NativeWebGestureEventMac.mm:
+            * Shared/mac/WebEventFactory.mm:
+            (WebKit::WebEventFactory::createWebMouseEvent):
+            (WebKit::WebEventFactory::createWebWheelEvent):
+            (WebKit::WebEventFactory::createWebKeyboardEvent):
+
+2021-12-03  Russell Epstein  <repstein@apple.com>
+
+        Cherry-pick r286505. rdar://problem/85918531
+
+    Follow-up to r286479 to add API test and address issues found by the test
+    https://bugs.webkit.org/show_bug.cgi?id=233798
+    
+    Reviewed by Darin Adler.
+    
+    Source/WebKit:
+    
+    Add functionality needed for API testing and fix issues found by the API test.
+    
+    * UIProcess/API/Cocoa/WKWebViewPrivateForTesting.h:
+    * UIProcess/API/Cocoa/WKWebViewTesting.mm:
+    (-[WKWebView _isLayerTreeFrozenForTesting:]):
+    * UIProcess/WebPageProxy.cpp:
+    (WebKit::WebPageProxy::destroyProvisionalPage):
+    (WebKit::WebPageProxy::isLayerTreeFrozen):
+    * UIProcess/WebPageProxy.h:
+    * WebProcess/WebPage/WebPage.cpp:
+    (WebKit::WebPage::isLayerTreeFrozen):
+    * WebProcess/WebPage/WebPage.h:
+    * WebProcess/WebPage/WebPage.messages.in:
+    Add new SPI to check if the layer tree is frozen in the WebProcess so that I could
+    write an API test for this.
+    
+    * UIProcess/ProvisionalPageProxy.cpp:
+    (WebKit::ProvisionalPageProxy::ProvisionalPageProxy):
+    Make sure m_provisionalLoadURL gets initialized when the ProvisionalPageProxy gets
+    constructed *after* the provisional load has already started (which is the case
+    when the process swap is triggered by COOP).
+    
+    (WebKit::ProvisionalPageProxy::didFailProvisionalLoadForFrame):
+    If the provisional load load fails in the provisional process, and the ProvisionalPageProxy
+    was constructed on resource response (COOP case), then no longer forward the
+    didFailProvisionalLoadForFrame() to the WebPageProxy. Instead, we destroy the
+    ProvisionalPageProxy. This is to avoid duplicate calls to didFailProvisionalLoadForFrame().
+    In this case, there is still a provisional load ongoing in the committed process and the
+    ProvisionalPageProxy destructor will take care of stopping that provisional load (due to
+    r286479), which will cause the committed process to send its own
+    didFailProvisionalLoadForFrame IPC.
+    
+    Tools:
+    
+    Add API test coverage.
+    
+    * TestWebKitAPI/Tests/WebKitCocoa/ProcessSwapOnNavigation.mm:
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@286505 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-12-03  Chris Dumez  <cdumez@apple.com>
+
+            Follow-up to r286479 to add API test and address issues found by the test
+            https://bugs.webkit.org/show_bug.cgi?id=233798
+
+            Reviewed by Darin Adler.
+
+            Add functionality needed for API testing and fix issues found by the API test.
+
+            * UIProcess/API/Cocoa/WKWebViewPrivateForTesting.h:
+            * UIProcess/API/Cocoa/WKWebViewTesting.mm:
+            (-[WKWebView _isLayerTreeFrozenForTesting:]):
+            * UIProcess/WebPageProxy.cpp:
+            (WebKit::WebPageProxy::destroyProvisionalPage):
+            (WebKit::WebPageProxy::isLayerTreeFrozen):
+            * UIProcess/WebPageProxy.h:
+            * WebProcess/WebPage/WebPage.cpp:
+            (WebKit::WebPage::isLayerTreeFrozen):
+            * WebProcess/WebPage/WebPage.h:
+            * WebProcess/WebPage/WebPage.messages.in:
+            Add new SPI to check if the layer tree is frozen in the WebProcess so that I could
+            write an API test for this.
+
+            * UIProcess/ProvisionalPageProxy.cpp:
+            (WebKit::ProvisionalPageProxy::ProvisionalPageProxy):
+            Make sure m_provisionalLoadURL gets initialized when the ProvisionalPageProxy gets
+            constructed *after* the provisional load has already started (which is the case
+            when the process swap is triggered by COOP).
+
+            (WebKit::ProvisionalPageProxy::didFailProvisionalLoadForFrame):
+            If the provisional load load fails in the provisional process, and the ProvisionalPageProxy
+            was constructed on resource response (COOP case), then no longer forward the
+            didFailProvisionalLoadForFrame() to the WebPageProxy. Instead, we destroy the
+            ProvisionalPageProxy. This is to avoid duplicate calls to didFailProvisionalLoadForFrame().
+            In this case, there is still a provisional load ongoing in the committed process and the
+            ProvisionalPageProxy destructor will take care of stopping that provisional load (due to
+            r286479), which will cause the committed process to send its own
+            didFailProvisionalLoadForFrame IPC.
+
+2021-12-03  Russell Epstein  <repstein@apple.com>
+
+        Cherry-pick r286479. rdar://problem/85918531
+
+    Regression(r283179) Google Drive freezes after downloading a folder
+    https://bugs.webkit.org/show_bug.cgi?id=233783
+    <rdar://85918531>
+    
+    Reviewed by Darin Adler.
+    
+    When process-swapping on a navigation response due to COOP, we create a new ProvisionalPageProxy
+    to trigger a provisional load in a new WebProcess. In the common case, the ProvisionalPageProxy
+    gets committed, we process-swap and everything works fine. However, if the client decides to
+    convert the navigation into a download (like in the Google Drive case), then the
+    ProvisionalPageProxy gets destroyed without being committed. The issue is that the committed
+    process still thinks at this point that it is in the middle of a navigation and its layer
+    tree is thus frozen with reason=PageTransition. This is what makes Google Drive look frozen
+    after the download. This is not an issue with PSON because the process-swap happens in
+    decidePolicyForNavigationAction() and we tell the previous process to ignore the navigation
+    when we process-swap.
+    
+    To address the issue, we now tell the committed process to cancel its navigation if the
+    ProvisionalPageProxy ends up getting destroyed without being committed. This lets the
+    committed process know there is no point in waiting for this navigation to happen and allows
+    it to unfreeze its layer tree.
+    
+    * UIProcess/ProvisionalPageProxy.cpp:
+    (WebKit::ProvisionalPageProxy::ProvisionalPageProxy):
+    (WebKit::ProvisionalPageProxy::~ProvisionalPageProxy):
+    * UIProcess/ProvisionalPageProxy.h:
+    (WebKit::ProvisionalPageProxy::isProcessSwappingOnNavigationResponse const):
+    (WebKit::ProvisionalPageProxy::shouldClosePreviousPageAfterCommit const): Deleted.
+    * UIProcess/WebPageProxy.cpp:
+    (WebKit::WebPageProxy::commitProvisionalPage):
+    (WebKit::WebPageProxy::continueNavigationInNewProcess):
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@286479 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-12-02  Chris Dumez  <cdumez@apple.com>
+
+            Regression(r283179) Google Drive freezes after downloading a folder
+            https://bugs.webkit.org/show_bug.cgi?id=233783
+            <rdar://85918531>
+
+            Reviewed by Darin Adler.
+
+            When process-swapping on a navigation response due to COOP, we create a new ProvisionalPageProxy
+            to trigger a provisional load in a new WebProcess. In the common case, the ProvisionalPageProxy
+            gets committed, we process-swap and everything works fine. However, if the client decides to
+            convert the navigation into a download (like in the Google Drive case), then the
+            ProvisionalPageProxy gets destroyed without being committed. The issue is that the committed
+            process still thinks at this point that it is in the middle of a navigation and its layer
+            tree is thus frozen with reason=PageTransition. This is what makes Google Drive look frozen
+            after the download. This is not an issue with PSON because the process-swap happens in
+            decidePolicyForNavigationAction() and we tell the previous process to ignore the navigation
+            when we process-swap.
+
+            To address the issue, we now tell the committed process to cancel its navigation if the
+            ProvisionalPageProxy ends up getting destroyed without being committed. This lets the
+            committed process know there is no point in waiting for this navigation to happen and allows
+            it to unfreeze its layer tree.
+
+            * UIProcess/ProvisionalPageProxy.cpp:
+            (WebKit::ProvisionalPageProxy::ProvisionalPageProxy):
+            (WebKit::ProvisionalPageProxy::~ProvisionalPageProxy):
+            * UIProcess/ProvisionalPageProxy.h:
+            (WebKit::ProvisionalPageProxy::isProcessSwappingOnNavigationResponse const):
+            (WebKit::ProvisionalPageProxy::shouldClosePreviousPageAfterCommit const): Deleted.
+            * UIProcess/WebPageProxy.cpp:
+            (WebKit::WebPageProxy::commitProvisionalPage):
+            (WebKit::WebPageProxy::continueNavigationInNewProcess):
+
+2021-12-01  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r285865. rdar://problem/75139294
+
+    Do some hardening in IPC::createMessageDecoder()
+    https://bugs.webkit.org/show_bug.cgi?id=233148
+    <rdar://75139294>
+    
+    Reviewed by Darin Adler.
+    
+    Do more bound validation insde createMessageDecoder() to make sure we stay within
+    the bounds of our ReceiveBuffer.
+    
+    Also, when the body is out of line, set `out_of_line.deallocate` to false since
+    we are taking ownership of the memory and will vm_deallocate() it ourselves.
+    Normally the sender (Connection::sendOutgoingMessage) sets that flag to false but
+    it is better not to rely on the sender setting a particular flag.
+    
+    * Platform/IPC/cocoa/ConnectionCocoa.mm:
+    (IPC::createMessageDecoder):
+    (IPC::Connection::receiveSourceEventHandler):
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@285865 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-11-16  Chris Dumez  <cdumez@apple.com>
+
+            Do some hardening in IPC::createMessageDecoder()
+            https://bugs.webkit.org/show_bug.cgi?id=233148
+            <rdar://75139294>
+
+            Reviewed by Darin Adler.
+
+            Do more bound validation insde createMessageDecoder() to make sure we stay within
+            the bounds of our ReceiveBuffer.
+
+            Also, when the body is out of line, set `out_of_line.deallocate` to false since
+            we are taking ownership of the memory and will vm_deallocate() it ourselves.
+            Normally the sender (Connection::sendOutgoingMessage) sets that flag to false but
+            it is better not to rely on the sender setting a particular flag.
+
+            * Platform/IPC/cocoa/ConnectionCocoa.mm:
+            (IPC::createMessageDecoder):
+            (IPC::Connection::receiveSourceEventHandler):
+
+2021-12-01  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r285720. rdar://problem/83941760
+
+    WebKit is unable to recover if a WebProcess gets terminated while it is launching
+    https://bugs.webkit.org/show_bug.cgi?id=233001
+    <rdar://85302938>
+    
+    Reviewed by Brent Fulgham.
+    
+    Source/WebKit:
+    
+    While investigating <rdar://83941760>, I found that the WebAuthn Process would get
+    jetsammed, which would cause us to call WebProcessPool::terminateAllWebContentProcesses().
+    I also noticed that if one of these WebProcesses was still launching at the time
+    of the termination, then the WebProcessProxy / WebPageProxy would keep thinking the
+    WebProcess is still launching and would never attempt to relaunch it. This would result
+    in a blank and unresponsive WKWebView which wouldn't be able to do any loads.
+    
+    The issue was due to ProcessLauncher::terminateProcess() calling invalidate(), which
+    it would not only terminate the XPC connection, it would also null out m_client. As a
+    result, we wouldn't notify the client that the process failed to launch. To address
+    the issue, I move the XPC connection termination logic out of invalidate() and into
+    its own terminateXPCConnection() function. I then called terminateXPCConnection()
+    instead of invalidate() inside ProcessLauncher::terminateProcess().
+    
+    * UIProcess/API/Cocoa/WKProcessPool.mm:
+    (-[WKProcessPool _terminateAllWebContentProcesses]):
+    * UIProcess/API/Cocoa/WKProcessPoolPrivate.h:
+    * UIProcess/Launcher/ProcessLauncher.cpp:
+    (WebKit::ProcessLauncher::invalidate):
+    * UIProcess/Launcher/ProcessLauncher.h:
+    * UIProcess/Launcher/mac/ProcessLauncherMac.mm:
+    (WebKit::ProcessLauncher::terminateProcess):
+    (WebKit::ProcessLauncher::platformInvalidate):
+    (WebKit::ProcessLauncher::terminateXPCConnection):
+    
+    Tools:
+    
+    Add API test coverage, this test was timing out before the fix.
+    
+    * TestWebKitAPI/Tests/WebKitCocoa/WebProcessTerminate.mm:
+    (TEST):
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@285720 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-11-12  Chris Dumez  <cdumez@apple.com>
+
+            WebKit is unable to recover if a WebProcess gets terminated while it is launching
+            https://bugs.webkit.org/show_bug.cgi?id=233001
+            <rdar://85302938>
+
+            Reviewed by Brent Fulgham.
+
+            While investigating <rdar://83941760>, I found that the WebAuthn Process would get
+            jetsammed, which would cause us to call WebProcessPool::terminateAllWebContentProcesses().
+            I also noticed that if one of these WebProcesses was still launching at the time
+            of the termination, then the WebProcessProxy / WebPageProxy would keep thinking the
+            WebProcess is still launching and would never attempt to relaunch it. This would result
+            in a blank and unresponsive WKWebView which wouldn't be able to do any loads.
+
+            The issue was due to ProcessLauncher::terminateProcess() calling invalidate(), which
+            it would not only terminate the XPC connection, it would also null out m_client. As a
+            result, we wouldn't notify the client that the process failed to launch. To address
+            the issue, I move the XPC connection termination logic out of invalidate() and into
+            its own terminateXPCConnection() function. I then called terminateXPCConnection()
+            instead of invalidate() inside ProcessLauncher::terminateProcess().
+
+            * UIProcess/API/Cocoa/WKProcessPool.mm:
+            (-[WKProcessPool _terminateAllWebContentProcesses]):
+            * UIProcess/API/Cocoa/WKProcessPoolPrivate.h:
+            * UIProcess/Launcher/ProcessLauncher.cpp:
+            (WebKit::ProcessLauncher::invalidate):
+            * UIProcess/Launcher/ProcessLauncher.h:
+            * UIProcess/Launcher/mac/ProcessLauncherMac.mm:
+            (WebKit::ProcessLauncher::terminateProcess):
+            (WebKit::ProcessLauncher::platformInvalidate):
+            (WebKit::ProcessLauncher::terminateXPCConnection):
+
+2021-12-01  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r285619. rdar://problem/83941760
+
+    We should not kill all WebContent processes whenever the WebAuthn process crashes
+    https://bugs.webkit.org/show_bug.cgi?id=232970
+    <rdar://83941760>
+    
+    Reviewed by Geoff Garen.
+    
+    Source/WebKit:
+    
+    We should not kill all WebContent processes whenever the WebAuthn process crashes. This is overly aggressive. We should
+    instead do like for the network process and have the WebProcess re-initiate the connection to the WebAuthn process when
+    it's gone.
+    
+    No new tests, updated existing API test.
+    
+    * UIProcess/WebAuthentication/WebAuthnProcessProxy.cpp:
+    (WebKit::WebAuthnProcessProxy::webAuthnProcessCrashed):
+    Do not terminate all WebProcesses when the WebAuthn process crashes.
+    
+    * WebProcess/WebAuthentication/WebAuthnProcessConnection.cpp:
+    (WebKit::WebAuthnProcessConnection::didClose):
+    Make sure we call WebProcess::webAuthnProcessConnectionClosed() when the WebProcess
+    loses its connection to the WebAuthn process. This makes sure we clear m_webAuthnProcessConnection
+    and properly re-initiate a new WebAuthn process connection the next time WebProcess::ensureWebAuthnProcessConnection()
+    is called.
+    
+    Tools:
+    
+    Update API test coverage to reflect behavior change.
+    
+    * TestWebKitAPI/Tests/WebKitCocoa/_WKWebAuthenticationPanel.mm:
+    (TestWebKitAPI::TEST):
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@285619 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-11-10  Chris Dumez  <cdumez@apple.com>
+
+            We should not kill all WebContent processes whenever the WebAuthn process crashes
+            https://bugs.webkit.org/show_bug.cgi?id=232970
+            <rdar://83941760>
+
+            Reviewed by Geoff Garen.
+
+            We should not kill all WebContent processes whenever the WebAuthn process crashes. This is overly aggressive. We should
+            instead do like for the network process and have the WebProcess re-initiate the connection to the WebAuthn process when
+            it's gone.
+
+            No new tests, updated existing API test.
+
+            * UIProcess/WebAuthentication/WebAuthnProcessProxy.cpp:
+            (WebKit::WebAuthnProcessProxy::webAuthnProcessCrashed):
+            Do not terminate all WebProcesses when the WebAuthn process crashes.
+
+            * WebProcess/WebAuthentication/WebAuthnProcessConnection.cpp:
+            (WebKit::WebAuthnProcessConnection::didClose):
+            Make sure we call WebProcess::webAuthnProcessConnectionClosed() when the WebProcess
+            loses its connection to the WebAuthn process. This makes sure we clear m_webAuthnProcessConnection
+            and properly re-initiate a new WebAuthn process connection the next time WebProcess::ensureWebAuthnProcessConnection()
+            is called.
+
+2021-12-01  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r285138. rdar://problem/75139294
+
+    Avoid heap-allocating ImportanceAssertion
+    https://bugs.webkit.org/show_bug.cgi?id=232579
+    
+    Reviewed by Alex Christensen.
+    
+    Avoid heap-allocating ImportanceAssertion since this is just a wrapper around a
+    mach_port.
+    
+    Also update the ImportanceAssertion destructor to null out the mach port as
+    hardening given <rdar://75139294>.
+    
+    * Platform/IPC/Decoder.cpp:
+    (IPC::Decoder::setImportanceAssertion):
+    * Platform/IPC/Decoder.h:
+    * Platform/IPC/cocoa/ConnectionCocoa.mm:
+    (IPC::Connection::receiveSourceEventHandler):
+    * Platform/IPC/cocoa/ImportanceAssertion.h:
+    (IPC::ImportanceAssertion::ImportanceAssertion):
+    (IPC::ImportanceAssertion::operator=):
+    (IPC::ImportanceAssertion::~ImportanceAssertion):
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@285138 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2021-11-01  Chris Dumez  <cdumez@apple.com>
+
+            Avoid heap-allocating ImportanceAssertion
+            https://bugs.webkit.org/show_bug.cgi?id=232579
+
+            Reviewed by Alex Christensen.
+
+            Avoid heap-allocating ImportanceAssertion since this is just a wrapper around a
+            mach_port.
+
+            Also update the ImportanceAssertion destructor to null out the mach port as
+            hardening given <rdar://75139294>.
+
+            * Platform/IPC/Decoder.cpp:
+            (IPC::Decoder::setImportanceAssertion):
+            * Platform/IPC/Decoder.h:
+            * Platform/IPC/cocoa/ConnectionCocoa.mm:
+            (IPC::Connection::receiveSourceEventHandler):
+            * Platform/IPC/cocoa/ImportanceAssertion.h:
+            (IPC::ImportanceAssertion::ImportanceAssertion):
+            (IPC::ImportanceAssertion::operator=):
+            (IPC::ImportanceAssertion::~ImportanceAssertion):
+
 2021-11-18  Russell Epstein  <repstein@apple.com>
 
         Cherry-pick r285130. rdar://problem/85166839

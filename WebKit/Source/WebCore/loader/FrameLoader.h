@@ -241,7 +241,7 @@ public:
     void forceSandboxFlags(SandboxFlags flags) { m_forcedSandboxFlags |= flags; }
     WEBCORE_EXPORT SandboxFlags effectiveSandboxFlags() const;
 
-    bool checkIfFormActionAllowedByCSP(const URL&, bool didReceiveRedirectResponse) const;
+    bool checkIfFormActionAllowedByCSP(const URL&, bool didReceiveRedirectResponse, const URL& preRedirectURL) const;
 
     WEBCORE_EXPORT Frame* opener();
     WEBCORE_EXPORT const Frame* opener() const;
@@ -318,7 +318,7 @@ public:
     bool alwaysAllowLocalWebarchive() const { return m_alwaysAllowLocalWebarchive; }
 
     // For subresource requests the FrameLoadType parameter has no effect and can be skipped.
-    void updateRequestAndAddExtraFields(ResourceRequest&, IsMainResource, FrameLoadType = FrameLoadType::Standard, ShouldUpdateAppInitiatedValue = ShouldUpdateAppInitiatedValue::Yes);
+    void updateRequestAndAddExtraFields(ResourceRequest&, IsMainResource, FrameLoadType = FrameLoadType::Standard, ShouldUpdateAppInitiatedValue = ShouldUpdateAppInitiatedValue::Yes, Document* = nullptr);
 
     void scheduleRefreshIfNeeded(Document&, const String& content, IsMetaRefresh);
 

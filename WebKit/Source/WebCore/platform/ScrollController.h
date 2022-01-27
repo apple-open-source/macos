@@ -113,6 +113,8 @@ public:
     virtual float pageScaleFactor() const = 0;
     virtual LayoutSize scrollExtent() const = 0;
     virtual FloatSize viewportSize() const = 0;
+
+    virtual bool momentumScrollingAnimatorEnabled() const { return false; }
 };
 
 class ScrollController {
@@ -215,6 +217,7 @@ private:
     FloatSize m_overflowScrollDelta;
     FloatSize m_stretchScrollForce;
     FloatSize m_momentumVelocity;
+    FloatSize m_lastActivePhaseVelocity;
 
     bool m_inScrollGesture { false };
     bool m_momentumScrollInProgress { false };
